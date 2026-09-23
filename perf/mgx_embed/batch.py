@@ -10,6 +10,11 @@ second is the one reported as throughput.
 
 Each batched vector is compared with the same sequence embedded alone (batch_size 1), because
 the CLI documents that padding is masked but the bucketed length sets the bf16 reduction order.
+
+Across chips: start one process per chip with the same --barrier DIR and --parties K. Each runs an
+untimed compile pass, then waits until K processes have reached DIR before its timed passes, so the
+passes overlap and the per-chip seq/s is what a chip gives while K-1 others share the host. A party
+that is still missing after --barrier-timeout seconds is recorded in `parties_seen`, not waited on.
 """
 import argparse
 import json
@@ -43,6 +48,9 @@ def main():
     ap.add_argument("--batch_sizes", default="1,8,32")
     ap.add_argument("--fast", action="store_true")
     ap.add_argument("--out", required=True)
+    ap.add_argument("--barrier", default=None, help="directory shared by the processes of one run")
+    ap.add_argument("--parties", type=int, default=1)
+    ap.add_argument("--barrier-timeout", type=float, default=1800)
     a = ap.parse_args()
     import torch
     torch.set_grad_enabled(False)
@@ -58,6 +66,16 @@ def main():
         model = mod.load_esmc(a.model, fast=a.fast)
     load_s = time.time() - t
 
+    parties_seen = 1
+    if a.barrier:
+        bs0 = int(a.batch_sizes.split(",")[0])
+        mod.embed_sequences(model, seqs, batch_size=bs0)  # compile, untimed
+        b = Path(a.barrier); b.mkdir(parents=True, exist_ok=True)
+        (b / str(os.getpid())).touch()
+        deadline = time.time() + a.barrier_timeout
+        while (parties_seen := len(list(b.iterdir()))) < a.parties and time.time() < deadline:
+            time.sleep(0.2)
+
     alone = None
     with open(a.out, "a") as fh:
         for bs in [int(x) for x in a.batch_sizes.split(",")]:
@@ -66,6 +84,7 @@ def main():
                     t = time.time()
                     out = mod.embed_sequences(model, seqs, batch_size=bs)
                     wall = time.time() - t
+                t_end = time.time()
                 pooled = np.stack([e.pooled for e in out]).astype(np.float64)
                 if alone is None:
                     alone = pooled
@@ -74,6 +93,8 @@ def main():
                 row = {"model": a.model, "fast": a.fast, "n": a.n, "len_range": [a.min, a.max],
                        "residues": sum(map(len, seqs.values())), "batch_size": bs, "rep": rep,
                        "load_s": round(load_s, 1), "wall_s": round(wall, 2),
+                       "t_start": round(t_end - wall, 2), "t_end": round(t_end, 2),
+                       "parties": a.parties, "parties_seen": parties_seen,
                        "seq_per_s": round(a.n / wall, 2),
                        "pooled_cos_vs_alone_min": float(cos.min()),
                        "finite": bool(np.isfinite(pooled).all()), "aiclk": clk.summary(),
