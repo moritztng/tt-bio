@@ -88,6 +88,8 @@ def main() -> int:
     ap.add_argument("--sizes", required=True, help="ascending residue counts, csv")
     ap.add_argument("--rung-dir", default="/home/agent/scratch/mgxceil/rungs")
     ap.add_argument("--depth", type=int, default=8192)
+    ap.add_argument("--fixture", help="fold this yaml instead of the tiled rung; --sizes then "
+                    "names its token count")
     ap.add_argument("--out", required=True)
     ap.add_argument("--out-root", required=True)
     ap.add_argument("--timeout", type=int, default=7200)
@@ -117,7 +119,7 @@ def main() -> int:
     out.parent.mkdir(parents=True, exist_ok=True)
     try:
         for n in (int(s) for s in a.sizes.split(",")):
-            rung = Path(a.rung_dir) / f"cdk2x2_{n}_d{a.depth}.yaml"
+            rung = Path(a.fixture or Path(a.rung_dir) / f"cdk2x2_{n}_d{a.depth}.yaml")
             load0 = os.getloadavg()[0]
             with during(period=10.0) as clk:
                 row = run_rung(a.model, rung, int(a.card), Path(a.out_root), a.timeout, env,
