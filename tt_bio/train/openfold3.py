@@ -286,6 +286,14 @@ class OpenFold3Forward:
             dm = self._model.sampler.dm
             for at in (dm.enc_at, dm.dec.at):
                 at.materialize_device_weights()
+            # The encoder's RefAtomFeatureEmbedder runs on the host in inference, so its eight
+            # linears reach the module as a constant `cl0`/`plm0` and would never train (0.46 %
+            # of the float64 step's squared gradient). The denoise arm runs the shipped device
+            # module instead; the rollout keeps the host embedding.
+            from ..openfold3 import RefAtomFeatureEmbedder
+            from ..openfold3_weights import _sub
+            dm.ref_embed = RefAtomFeatureEmbedder(
+                _sub(sd, "diffusion_module.atom_attn_enc.ref_atom_feature_embedder"), ckc)
         return self._model
 
     def parameters(self) -> dict:
@@ -329,7 +337,8 @@ class OpenFold3Forward:
         from ..openfold3_fold import build_dm_device_aux, create_noise_schedule
         from ..openfold3_host_prep import (dedup_template_slots, derive_block_aux,
                                            derive_relpos, derive_template_feat,
-                                           ref_atom_embed, run_input_atom_encoder)
+                                           ref_atom_device_inputs, ref_atom_embed,
+                                           run_input_atom_encoder)
         from ..openfold3_data import make_openfold3_msa_features
         from ..openfold3_sample_diffusion import fourier_noise_emb
         from ..openfold3_weights import _sub
@@ -460,6 +469,7 @@ class OpenFold3Forward:
 
             one_hot = torch.zeros(n_token, n_atom)
             one_hot[real, rep] = 1.0
+            ref_in = ref_atom_device_inputs(dev, f, aux["atom_mask"], aux["NP"])
 
             with ag.tape():
                 # THE DTYPE BOUNDARY, crossed through the sampler's own helper rather than a
@@ -485,9 +495,9 @@ class OpenFold3Forward:
                 # denoise read 0.80-0.88 A RMS from the truth, varying run to run, against
                 # 0.18 A lifted and 0.52 A for the noisy input (PROBE_FWD_T64_*.json). The
                 # noisy coordinates are uploaded at that dtype too, as the rollout does.
+                cl0_t, plm0_t = s.dm.ref_embed(*ref_in)
                 xl_den = s.dm(
-                    c(s_trunk), c(si), c(zij),
-                    c(ag.Tensor(dm_aux["cl0_d"])), c(ag.Tensor(dm_aux["plm0_d"])),
+                    c(s_trunk), c(si), c(zij), c(cl0_t), c(plm0_t),
                     ag.Tensor(ft(s._pad_atoms_host(rl_noisy, n_atom, aux["NP"]), s._act_dtype)),
                     ag.Tensor(ft(xl_noisy.unsqueeze(0), s._act_dtype)),
                     c(dm_aux["amc_d"]), c(dm_aux["amc_na_d"]),

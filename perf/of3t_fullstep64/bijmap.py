@@ -15,7 +15,8 @@ AMBIGUITY. A device tensor that whole-matches more than one upstream tensor (ide
 e.g. two untouched LayerNorm gains) cannot say whose gradient it carries; its upstream tensors are
 dropped to `ambiguous` and counted as unread, never guessed.
 
-DERIVED. `qkv_weight`/`qkv_bias` (q, k, v fused, head dim padded, transposed) and `z_weight`
+DERIVED. `qkv_weight`/`qkv_bias` (q, k, v fused, head dim padded, transposed; the diffusion
+transformer's `qkv_w`/`qkv_b` are the same layout) and `z_weight`
 (linear_z transposed and scaled by the card) are placed by `dev_grad.apb_inverse` and by
 transpose-and-unscale, each ACCEPTED only if rebuilding the weight from the checkpoint through the
 same rule is bit-identical to what the card holds. n_heads, padded head dim and the applied scale
@@ -41,7 +42,8 @@ from bijection_device import device_bijection  # noqa: E402
 STACKS = [("trunk.pairformer.blocks.", "pairformer_stack.blocks."),
           ("trunk.msa_module.blocks.", "msa_module.blocks."),
           ("trunk.template.ps.blocks.", "template_embedder.template_pair_stack.blocks."),
-          ("confidence_head.pf.blocks.", "aux_heads.pairformer_embedding.pairformer_stack.blocks.")]
+          ("confidence_head.pf.blocks.", "aux_heads.pairformer_embedding.pairformer_stack.blocks."),
+          ("sampler.dm.dit.blocks.", "diffusion_module.diffusion_transformer.blocks.")]
 APB_DEV = "attention_pair_bias."
 APB_UP = "attn_pair_bias."
 
@@ -57,6 +59,11 @@ def apb_inverse(dev_t, leaf, H, d, D, c_s):
 
 def bf16(t):
     return t.to(torch.bfloat16).to(torch.float32)
+
+
+def same(dev_t, w):
+    """The card holds `w` as bf16 (trunk) or as fp32 (the fp32 diffusion module)."""
+    return torch.equal(dev_t, bf16(w)) or torch.equal(dev_t, w)
 
 
 def trunc_bf16_scalar(x: float) -> float:
@@ -120,14 +127,17 @@ def main() -> int:
     for k in ambiguous:
         placements.pop(k, None)
 
-    # Derived AttentionPairBias leaves, trunk Pairformer and the confidence Pairformer.
+    # Derived AttentionPairBias leaves: trunk and confidence Pairformers, diffusion transformer.
     derived, derived_fail = {}, []
     for dp, up in scopes:
-        if not dp or not (dp.startswith("trunk.pairformer") or dp.startswith("confidence_head.pf")):
+        if dp.startswith("trunk.pairformer") or dp.startswith("confidence_head.pf"):
+            qk, qb = dp + APB_DEV + "qkv_weight", dp + APB_DEV + "qkv_bias"
+            zk, upa = dp + APB_DEV + "z_weight", up + APB_UP
+        elif dp.startswith("sampler.dm.dit"):
+            qk, qb, zk, upa = dp + "qkv_w", dp + "qkv_b", None, up + APB_DEV
+        else:
             continue
-        qk, zk = dp + APB_DEV + "qkv_weight", dp + APB_DEV + "z_weight"
-        qb = dp + APB_DEV + "qkv_bias"
-        wq = atoms.get(up + APB_UP + "mha.linear_q.weight")
+        wq = atoms.get(upa + "mha.linear_q.weight")
         if qk in dev and wq is not None:
             c_s = int(wq.shape[1])
             found = None
@@ -137,9 +147,8 @@ def main() -> int:
                 d, D = wq.shape[0] // H, dev[qk].shape[1] // (3 * H)
                 if D < d:
                     continue
-                if all(torch.equal(apb_inverse(dev[qk], f"linear_{x}.weight", H, d, D, c_s),
-                                   bf16(atoms[up + APB_UP + f"mha.linear_{x}.weight"]))
-                       for x in "qkv"):
+                if all(same(apb_inverse(dev[qk], f"linear_{x}.weight", H, d, D, c_s),
+                            atoms[upa + f"mha.linear_{x}.weight"]) for x in "qkv"):
                     found = (H, d, D)
                     break
             if found is None:
@@ -147,25 +156,24 @@ def main() -> int:
             else:
                 H, d, D = found
                 for x in "qkv":
-                    key = up + APB_UP + f"mha.linear_{x}.weight"
+                    key = upa + f"mha.linear_{x}.weight"
                     if key not in placements:
                         derived[key] = {"device_path": qk, "rule": "apb_inverse",
                                         "leaf": f"linear_{x}.weight", "H": H, "d": d, "D": D,
                                         "c_s": c_s}
-                bkey = up + APB_UP + "mha.linear_q.bias"
+                bkey = upa + "mha.linear_q.bias"
                 if qb in dev and bkey in atoms and bkey not in placements:
-                    if torch.equal(apb_inverse(dev[qb], "linear_q.bias", H, d, D, c_s),
-                                   bf16(atoms[bkey])):
+                    if same(apb_inverse(dev[qb], "linear_q.bias", H, d, D, c_s), atoms[bkey]):
                         derived[bkey] = {"device_path": qb, "rule": "apb_inverse",
                                          "leaf": "linear_q.bias", "H": H, "d": d, "D": D,
                                          "c_s": c_s}
                     else:
                         derived_fail.append(qb)
-        zkey = up + APB_UP + "linear_z.weight"
+        zkey = upa + "linear_z.weight"
         if zk in dev and zkey in atoms and zkey not in placements:
             w = atoms[zkey]
             H = int(w.shape[0])
-            d = int(atoms[up + APB_UP + "mha.linear_q.weight"].shape[0]) // H
+            d = int(atoms[upa + "mha.linear_q.weight"].shape[0]) // H
             ok = None
             for s in (trunc_bf16_scalar(math.sqrt(d)), float(bf16(torch.tensor(math.sqrt(d)))),
                       math.sqrt(d), trunc_bf16_scalar(1 / math.sqrt(d)), 1 / math.sqrt(d), 1.0):
