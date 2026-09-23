@@ -654,7 +654,11 @@ CEILINGS: dict[str, dict[str, Ceiling]] = {
                      "found the same two sizes. Until this row it was unmeasured and never "
                      "refused, so 1792 and above was admitted and died on the chip. Re-folded on "
                      "52c621bc2 (narrow-q on by default, card 29): 1664 still folds, 612.3 s at "
-                     "1000 MHz; 1792 is a multiple of 256, where narrow-q changes nothing",
+                     "1000 MHz. Re-walked after pair-residency: on cec7979b1 1792 still fails "
+                     "(card 18, 741.3 s), now earlier, in the diffusion cache "
+                     "(tenstorrent.py _populate_diffusion_cache), 2466250752 B or 196.0 MiB per "
+                     "bank with 428.6 MiB free and a 178.0 MiB largest block; on 1b423e9e4, the "
+                     "same boltz2 code, 1664 folds in 701.8 s (card 16), both at 1000 MHz",
         ),
     },
     "esmfold2": {
