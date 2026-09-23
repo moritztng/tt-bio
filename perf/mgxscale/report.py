@@ -41,8 +41,15 @@ def load(paths) -> list[dict]:
     rows = []
     for p in paths:
         for line in pathlib.Path(p).read_text().splitlines():
-            if line.strip():
-                rows.append(json.loads(line))
+            if not line.strip():
+                continue
+            r = json.loads(line)
+            # `perf/mgxscale/batchqa.py` writes its own schema into the same results
+            # directory, so a `*.jsonl` glob -- which is the reproduce command this row
+            # documents -- hands this function rows with no model. Skip them rather than
+            # making the caller enumerate files.
+            if "model" in r:
+                rows.append(r)
     superseded = {key(r) for r in rows if r.get("rescored")}
     rows = [r for r in rows if r.get("rescored") or key(r) not in superseded]
     # Rows written before job.py learned to requeue a lost chip. The engine refused to open a
