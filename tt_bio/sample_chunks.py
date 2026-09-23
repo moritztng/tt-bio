@@ -49,7 +49,7 @@ def denoise_in_chunks(x, width, run, *, reset=None, narrowest=1, tag="diffusion"
     trajectory pays for one refused allocation and not one per step. Anything that is not an
     allocator refusal propagates untouched.
     """
-    from tt_bio.size_limits import is_alloc_refusal
+    from tt_bio.size_limits import describe_device_oom, is_alloc_refusal
 
     m = x.shape[0]
     out = None
@@ -62,9 +62,8 @@ def denoise_in_chunks(x, width, run, *, reset=None, narrowest=1, tag="diffusion"
             if width <= narrowest or not is_alloc_refusal(exc):
                 raise
             narrower = resolve_sample_chunk_width(m, max(narrowest, width // 2))
-            print(f"[{tag}] DRAM refused a {width}-sample chunk; denoising {narrower} at a "
-                  f"time from here on. The tt-metal 'Out of Memory' line above is expected "
-                  f"and handled.", flush=True)
+            print(f"[{tag}] {width}-sample chunk refused ({describe_device_oom(str(exc))}); "
+                  f"denoising {narrower} at a time from here on", flush=True)
             width = narrower
         else:
             if out is None:
