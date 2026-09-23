@@ -360,7 +360,7 @@ CEILINGS: dict[str, dict[str, Ceiling]] = {
     },
     "openfold3": {
         "wormhole_b0": Ceiling(
-            residues=1536, pass_at=1536, fail_at=None, binds=LADDER_TOP, mechanism=NO_FAILURE,
+            residues=1536, pass_at=1536, fail_at=1664, binds=MEMORY, mechanism=FRAGMENTATION,
             msa_rows=14190,
             evidence="1536 residues fold at 14190 alignment rows on the j10glx02 Galaxy, "
                      "2026-09-23 (ws:mgx-bigalloc, perf/whceil/ladder.py, chip 9, tt-bio 296f5fcea): "
@@ -378,8 +378,13 @@ CEILINGS: dict[str, dict[str, Ceiling]] = {
                      "seeds, whose own floor is 0.379 A, and its CIF is byte-identical across "
                      "296f5fcea. At 1024 on 7aqx every chain moves less than the reference "
                      "between its own seeds (OuterProductMean's chunked depth sum reassociates "
-                     "in bf16). 1536 is the MGX target and nothing above it was walked, hence "
-                     "LADDER_TOP. The previous row, 1024 on GWH02 at the same depth "
+                     "in bf16). Re-walked on origin/main cec7979b1 (ws:mgx-ceilings, perf/mgxceil, "
+                     "card 12, 2026-09-23, guard off, --host_threads 2): 1536 x 14190 PASS in "
+                     "2641.7 s, 1664 x 14190 fails after 2873.0 s in the diffusion transformer's "
+                     "scale_add (openfold3_diffusion_transformer.py -> eltwise_fusion.py), one "
+                     "177209344 B request, 14770176 B per bank, with 58276320 B free and a "
+                     "largest block 512 B too small: fragmentation. AICLK median 1000 MHz during "
+                     "both. The previous row, 1024 on GWH02 at the same depth "
                      "(ws:ceiling-openfold3-1024, ws:ceiling-1024-integration-and-gate), stays "
                      "valid below: every rung 640-1024 folded with an intact backbone",
         ),
