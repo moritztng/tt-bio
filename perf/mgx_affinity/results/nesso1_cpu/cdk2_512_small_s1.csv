@@ -1,0 +1,2 @@
+id,n_tokens,seconds,affinity_pred_value,affinity_pred_value1,affinity_pred_value2,affinity_logits_binary,affinity_probability_binary,entropy_pp,entropy_pl,entropy_ll,entropy_crop_pp,entropy_crop_pl,entropy_crop_ll,error
+cdk2_512_small,532,1441.1731835710816,1.2726898193359375,1.3136546611785889,1.2317249774932861,-2.7705183029174805,0.05893825739622116,0.14147336781024933,0.31010472774505615,0.2208477407693863,0.44619837403297424,0.8486077189445496,0.2208477407693863,

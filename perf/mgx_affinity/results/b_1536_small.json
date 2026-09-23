@@ -1,0 +1,102 @@
+{
+ "tag": "b_1536_small",
+ "surface": "boltz2",
+ "input": "perf/mgx_affinity/inputs/size/cdk2_1536_small.yaml",
+ "args": [],
+ "host": "j10glx02",
+ "cards": [
+  29
+ ],
+ "commit": "13dddf32c",
+ "rc": null,
+ "wall_s": 650.0,
+ "aiclk": {
+  "0": {
+   "min": 500,
+   "median": 1000,
+   "max": 1000,
+   "n": 3
+  }
+ },
+ "load": {
+  "min": 55.34,
+  "median": 61.89,
+  "max": 62.34,
+  "nproc": 64
+ },
+ "census": null,
+ "adopted": true,
+ "rows": [
+  {
+   "id": "cdk2_1536_small",
+   "status": "ok",
+   "confidence_score": 0.806938,
+   "ptm": 0.502102,
+   "iptm": 0.632422,
+   "ligand_iptm": 0.632422,
+   "protein_iptm": 0.0,
+   "complex_plddt": 0.850567,
+   "complex_iplddt": 0.783996,
+   "complex_pde": 1.097014,
+   "complex_ipde": 12.855877,
+   "plddt": 0.850567,
+   "pair_chains_iptm": {
+    "0": {
+     "0": 0.502591,
+     "1": 0.254211
+    },
+    "1": {
+     "0": 0.632422,
+     "1": 0.960546
+    }
+   },
+   "chains_ptm": {
+    "0": 0.502591,
+    "1": 0.960546
+   },
+   "affinity_pred_value": 1.493817,
+   "affinity_probability_binary": 0.334978,
+   "affinity_pred_value1": 1.712449,
+   "affinity_probability_binary1": 0.541406,
+   "affinity_pred_value2": 1.275185,
+   "affinity_probability_binary2": 0.128551,
+   "structure_runtime_s": 491.7,
+   "affinity_runtime_s": 111.9,
+   "runtime_s": 603.6
+  }
+ ],
+ "contention": false,
+ "errors": [
+  "Traceback (most recent call last):",
+  "BrokenPipeError: [Errno 32] Broken pipe",
+  "Traceback (most recent call last):",
+  "BrokenPipeError: [Errno 32] Broken pipe"
+ ],
+ "tail": [
+  "Traceback (most recent call last):",
+  "  File \"/usr/lib/python3.10/socketserver.py\", line 683, in process_request_thread",
+  "    self.finish_request(request, client_address)",
+  "  File \"/usr/lib/python3.10/socketserver.py\", line 360, in finish_request",
+  "    self.RequestHandlerClass(request, client_address, self)",
+  "  File \"/usr/lib/python3.10/socketserver.py\", line 747, in __init__",
+  "    self.handle()",
+  "  File \"/usr/lib/python3.10/http/server.py\", line 433, in handle",
+  "    self.handle_one_request()",
+  "  File \"/usr/lib/python3.10/http/server.py\", line 421, in handle_one_request",
+  "    method()",
+  "  File \"/home/agent/wt-mgx-affinity-scale/tt_bio/distributed.py\", line 503, in do_POST",
+  "    _json_response(self, 500, {\"error\": str(exc)})",
+  "  File \"/home/agent/wt-mgx-affinity-scale/tt_bio/distributed.py\", line 30, in _json_response",
+  "    handler.end_headers()",
+  "  File \"/usr/lib/python3.10/http/server.py\", line 535, in end_headers",
+  "    self.flush_headers()",
+  "  File \"/usr/lib/python3.10/http/server.py\", line 539, in flush_headers",
+  "    self.wfile.write(b\"\".join(self._headers_buffer))",
+  "  File \"/usr/lib/python3.10/socketserver.py\", line 826, in write",
+  "    self._sock.sendall(b)",
+  "BrokenPipeError: [Errno 32] Broken pipe",
+  "----------------------------------------",
+  "",
+  "Done: 1 ok, 0 failed \u2014 /home/agent/wt-mgx-affinity-scale/perf/mgx_affinity/out/b_1536_small/boltz2_results_cdk2_1536_small/results.json"
+ ]
+}
