@@ -40,8 +40,25 @@ def log(msg: str) -> None:
     print(f"{time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime())} {msg}", flush=True)
 
 
+def pinned() -> set[int]:
+    """Cards a live process has pinned. A lease file can read released while another row's fold
+    is still pinned there and has not yet taken it (card 31, 2026-09-23: a released mgx-combos
+    lease under a running mgx-diffusion fold)."""
+    out = set()
+    for env in Path("/proc").glob("[0-9]*/environ"):
+        try:
+            for kv in env.read_bytes().split(b"\0"):
+                k, _, v = kv.partition(b"=")
+                if k in (b"TT_VISIBLE_DEVICES", b"TT_BIO_LEASE_CARDS"):
+                    out.update(int(c) for c in v.split(b",") if c.strip().isdigit())
+        except OSError:
+            continue
+    return out
+
+
 def free_cards(busy: set[int]) -> list[int]:
     out = []
+    busy = busy | pinned()
     for c in range(32):
         if c in AVOID or c in busy:
             continue
