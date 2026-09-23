@@ -15,7 +15,7 @@ step above that envelope and fails. 256 is left out of the fit because its size-
 cost (prep, confidence, save) flattens the slope.
 
 Verdicts: PASS, FAIL, VOID (the comparison is not a measurement: rungs from different hosts,
-chips or commits, a DURING-sampled AICLK that moved more than 3%, or a host oversubscribed past
+chips, commits or host thread caps, a DURING-sampled AICLK that moved more than 3%, or a host oversubscribed past
 the release gate's own load ceiling while any rung folded), UNGATED (fewer than three
 fit rungs). A refused or crashed rung is a coverage result, not a speed result, and never reaches
 this function. Rationale and scope: docs/speed-bar.md.
@@ -50,7 +50,7 @@ def judge(runtimes: dict[int, float], n: int, t: float, *, order: int = 3, sigma
           load: dict[int, float] | None = None) -> dict:
     """Judge one measured rung ``n`` (seconds ``t``) against the model's fit rungs ``runtimes``.
 
-    ``aiclk``, ``identity`` (host, chip, commit) and ``load`` (1-min loadavg / nproc sampled
+    ``aiclk``, ``identity`` (host, chip, commit, host thread cap) and ``load`` (1-min loadavg / nproc sampled
     during the fold) are keyed by rung like ``runtimes`` and must include ``n``. They are optional
     only so the arithmetic can be unit-tested; a caller judging a real measurement passes all three.
     """
@@ -61,7 +61,7 @@ def judge(runtimes: dict[int, float], n: int, t: float, *, order: int = 3, sigma
             return {"verdict": "VOID", "why": f"host load reached {worst:.1f}x nproc during a rung "
                     f"(ceiling {DEFAULT_LOAD_CEILING}x): runtime_s is timing the scheduler"}
     if identity is not None and len({identity[r] for r in [*fr, n]}) != 1:
-        return {"verdict": "VOID", "why": "fit rungs and the new rung differ in host/chip/commit"}
+        return {"verdict": "VOID", "why": "fit rungs and the new rung differ in host/chip/commit/thread cap"}
     if aiclk is not None:
         clocks = sorted(aiclk[r] for r in fr)
         med = clocks[len(clocks) // 2]
