@@ -37,6 +37,7 @@ from tt_bio.tenstorrent import (
     _sdpa_program_config_for_lengths,
     accurate_softmax_site,
     attn_value_matmul,
+    fused_sdpa,
 )
 from tt_bio.eltwise_fusion import scale_add
 
@@ -92,13 +93,13 @@ def _attn_fp32(q, k, v, attn_mask, scale, ck, accurate_softmax: bool = False):
 def _sdpa_bf16(q, k, v, attn_mask, scale):
     """Scaled-dot-product attention; ttnn SDPA needs bf16, so cast i/o when _DTYPE is fp32."""
     if _DTYPE == ttnn.bfloat16:
-        return ttnn.transformer.scaled_dot_product_attention(
-            q, k, v, attn_mask=attn_mask, is_causal=False, scale=scale,
+        return fused_sdpa(
+            q, k, v, attn_mask=attn_mask, scale=scale,
             program_config=_sdpa_program_config_for_lengths(q.shape[2], k.shape[2], q.shape[0] * q.shape[1], site="esmfold2", d=q.shape[3]))
     qb, kb, vb = (ttnn.typecast(t, ttnn.bfloat16) for t in (q, k, v))
     mb = ttnn.typecast(attn_mask, ttnn.bfloat16) if attn_mask is not None else None
-    ctx = ttnn.transformer.scaled_dot_product_attention(
-        qb, kb, vb, attn_mask=mb, is_causal=False, scale=scale,
+    ctx = fused_sdpa(
+        qb, kb, vb, attn_mask=mb, scale=scale,
         program_config=_sdpa_program_config_for_lengths(q.shape[2], k.shape[2], q.shape[0] * q.shape[1], site="esmfold2", d=q.shape[3]))
     ctx = ttnn.typecast(ctx, _DTYPE)
     ttnn.deallocate(qb); ttnn.deallocate(kb); ttnn.deallocate(vb)
