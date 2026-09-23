@@ -688,8 +688,8 @@ templates:
 `template_id` the template's chains by mmCIF `label_asym_id` (default: the best
 match). Each chain is aligned to the template's sequence for you. This block
 works on `boltz2`, `protenix-v2`, `opendde`, `opendde-abag`, `openfold3`,
-`openbind` and `rf3`. `force`, `threshold` and pdb files are Boltz-2 only; the
-other models refuse them, and RF3 takes one template per chain.
+`openbind` and `rf3`. `force` (with its `threshold`) and pdb files are Boltz-2
+only; the other models refuse them, and RF3 takes one template per chain.
 
 The same models also take a precomputed alignment `.npz` per protein chain (the
 format the upstream benchmark cache ships). Its structures are fetched from
