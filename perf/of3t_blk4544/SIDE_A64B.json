@@ -1,0 +1,437 @@
+{
+ "pin": "all",
+ "blocks": "45,44",
+ "chunk": 16,
+ "rc": 0,
+ "seconds": 46.5,
+ "cast": {
+  "tensors": 98,
+  "float32_cast_lossy": 0
+ },
+ "env": {
+  "TT_BIO_SOFTMAX_BW_RENORM": "1",
+  "TT_VISIBLE_DEVICES": "3",
+  "TT_BIO_LEASE_CARDS": "2,3",
+  "BLK_PIN": "all",
+  "BLK_BLOCKS": "45,44"
+ },
+ "fp32_softmax_stats": {
+  "calls": 384,
+  "blocked": 0,
+  "blocks": 0,
+  "fused": 384,
+  "unfused": 0,
+  "l1": 384,
+  "l1_blocks": 0,
+  "l1_refused": 0,
+  "l1_cores": 110,
+  "l1_free_retired": 0,
+  "l1_free_walked": 0,
+  "l1_padded_diverged": 0,
+  "dram_narrowed": 0
+ },
+ "softmax_bw_renorm_stats": {
+  "applied": 240,
+  "declined": 0
+ },
+ "pin_blocks": [
+  44,
+  45
+ ],
+ "blocks_seen": 48,
+ "nodes_selected": 34,
+ "substitutions": {
+  "matmul block44": 12,
+  "matmul block45": 12,
+  "softmax block44": 5,
+  "softmax block45": 5
+ },
+ "substitutions_total": 34,
+ "float32_writeback_tensors": 58,
+ "float32_writeback_lossy": 58,
+ "errors": {},
+ "moved": [
+  {
+   "verb": "softmax",
+   "block": 45,
+   "rel_moved": [
+    0.009381501523392675
+   ]
+  },
+  {
+   "verb": "matmul",
+   "block": 45,
+   "rel_moved": [
+    0.0016264163706852124,
+    0.001715287512365228
+   ]
+  },
+  {
+   "verb": "softmax",
+   "block": 45,
+   "rel_moved": [
+    0.0005222503541325393
+   ]
+  },
+  {
+   "verb": "matmul",
+   "block": 45,
+   "rel_moved": [
+    0.0017596075020559958,
+    0.0016604718739602824
+   ]
+  },
+  {
+   "verb": "matmul",
+   "block": 45,
+   "rel_moved": [
+    0.0016879084815889633,
+    0.0017091864148919681
+   ]
+  },
+  {
+   "verb": "softmax",
+   "block": 45,
+   "rel_moved": [
+    0.0004711882214890859
+   ]
+  },
+  {
+   "verb": "matmul",
+   "block": 45,
+   "rel_moved": [
+    0.0017216681855211804,
+    0.0016334784297174648
+   ]
+  },
+  {
+   "verb": "matmul",
+   "block": 45,
+   "rel_moved": [
+    0.0017236389377154318,
+    0.0017364075698552974
+   ]
+  },
+  {
+   "verb": "matmul",
+   "block": 45,
+   "rel_moved": [
+    0.0016897063634476724,
+    0.001770473341574207
+   ]
+  },
+  {
+   "verb": "matmul",
+   "block": 45,
+   "rel_moved": [
+    0.0016630901581474627,
+    0.0016764567084035723
+   ]
+  },
+  {
+   "verb": "softmax",
+   "block": 45,
+   "rel_moved": [
+    0.0006324658316342323
+   ]
+  },
+  {
+   "verb": "matmul",
+   "block": 45,
+   "rel_moved": [
+    0.0016992651362295144,
+    0.0016557572063910652
+   ]
+  },
+  {
+   "verb": "matmul",
+   "block": 45,
+   "rel_moved": [
+    0.0016853494408451952,
+    0.001649261957658137
+   ]
+  },
+  {
+   "verb": "softmax",
+   "block": 45,
+   "rel_moved": [
+    0.0005826669215446
+   ]
+  },
+  {
+   "verb": "matmul",
+   "block": 45,
+   "rel_moved": [
+    0.0017046390022098005,
+    0.0016212679823405932
+   ]
+  },
+  {
+   "verb": "matmul",
+   "block": 45,
+   "rel_moved": [
+    0.0016650768664751147,
+    0.001715218212872429
+   ]
+  },
+  {
+   "verb": "matmul",
+   "block": 45,
+   "rel_moved": [
+    0.0017128721838524383,
+    0.001724130931359048
+   ]
+  },
+  {
+   "verb": "softmax",
+   "block": 44,
+   "rel_moved": [
+    0.060486586138371115
+   ]
+  },
+  {
+   "verb": "matmul",
+   "block": 44,
+   "rel_moved": [
+    0.001638657773524531,
+    0.0016976348219093216
+   ]
+  },
+  {
+   "verb": "softmax",
+   "block": 44,
+   "rel_moved": [
+    0.0009473975390941635
+   ]
+  },
+  {
+   "verb": "matmul",
+   "block": 44,
+   "rel_moved": [
+    0.0016879388034700697,
+    0.0016640814641407176
+   ]
+  },
+  {
+   "verb": "matmul",
+   "block": 44,
+   "rel_moved": [
+    0.0017027396785706337,
+    0.0016780788189587087
+   ]
+  },
+  {
+   "verb": "softmax",
+   "block": 44,
+   "rel_moved": [
+    0.0006348890685607829
+   ]
+  },
+  {
+   "verb": "matmul",
+   "block": 44,
+   "rel_moved": [
+    0.0016537360850570916,
+    0.0017549432259290163
+   ]
+  },
+  {
+   "verb": "matmul",
+   "block": 44,
+   "rel_moved": [
+    0.0017023016564035325,
+    0.001754256249019914
+   ]
+  },
+  {
+   "verb": "matmul",
+   "block": 44,
+   "rel_moved": [
+    0.0017454542404362469,
+    0.0017232983516387418
+   ]
+  },
+  {
+   "verb": "matmul",
+   "block": 44,
+   "rel_moved": [
+    0.0016679001591937694,
+    0.0016640081250031324
+   ]
+  },
+  {
+   "verb": "softmax",
+   "block": 44,
+   "rel_moved": [
+    0.0008381452211675996
+   ]
+  },
+  {
+   "verb": "matmul",
+   "block": 44,
+   "rel_moved": [
+    0.0017257591348477117,
+    0.0016981404551022457
+   ]
+  },
+  {
+   "verb": "matmul",
+   "block": 44,
+   "rel_moved": [
+    0.0016808412793696626,
+    0.0017004764250830196
+   ]
+  },
+  {
+   "verb": "softmax",
+   "block": 44,
+   "rel_moved": [
+    0.0006906881179006936
+   ]
+  },
+  {
+   "verb": "matmul",
+   "block": 44,
+   "rel_moved": [
+    0.0017170402193114947,
+    0.0016844454887517113
+   ]
+  },
+  {
+   "verb": "matmul",
+   "block": 44,
+   "rel_moved": [
+    0.0017511635411544735,
+    0.0017232195992768135
+   ]
+  },
+  {
+   "verb": "matmul",
+   "block": 44,
+   "rel_moved": [
+    0.0016849906896095478,
+    0.0017316674341325596
+   ]
+  }
+ ],
+ "forward": {
+  "_identity_grad [1, 4, 64, 64]": 288,
+  "_identity_grad [64, 4, 64, 64]": 576,
+  "_identity_grad [64, 64, 128]": 576,
+  "_sliced [1, 16, 64, 24]": 144,
+  "_sliced [1, 64, 64, 128]": 1296,
+  "_taped_layer_norm [1, 64, 384]": 288,
+  "_taped_layer_norm [1, 64, 64, 128]": 864,
+  "_taped_layer_norm [64, 64, 128]": 288,
+  "_taped_linear [1, 64, 1536]": 432,
+  "_taped_linear [1, 64, 384]": 432,
+  "_taped_linear [1, 64, 64, 128]": 720,
+  "_taped_linear [1, 64, 64, 16]": 144,
+  "_taped_linear [1, 64, 64, 512]": 288,
+  "_taped_linear [64, 64, 128]": 288,
+  "_taped_linear [64, 64, 384]": 288,
+  "_taped_linear [64, 64, 4]": 288,
+  "_v_concat [1, 64, 64, 128]": 144,
+  "_v_concat_heads [64, 1, 64, 128]": 288,
+  "_v_create_qkv_heads [1, 16, 64, 32]": 432,
+  "_v_create_qkv_heads [64, 4, 64, 32]": 864,
+  "_v_matmul [1, 128, 64, 64]": 288,
+  "_v_matmul [1, 16, 64, 32]": 144,
+  "_v_matmul [1, 16, 64, 64]": 144,
+  "_v_matmul [1, 64, 64, 512]": 288,
+  "_v_matmul [64, 4, 64, 32]": 288,
+  "_v_matmul [64, 4, 64, 64]": 288,
+  "_v_matmul [64, 64, 128]": 288,
+  "_v_permute [1, 128, 64, 64]": 576,
+  "_v_permute [1, 16, 24, 64]": 144,
+  "_v_permute [1, 16, 64, 64]": 144,
+  "_v_permute [1, 4, 64, 64]": 288,
+  "_v_permute [1, 64, 384]": 144,
+  "_v_permute [64, 4, 32, 64]": 288,
+  "_v_permute [64, 64, 128]": 288,
+  "_v_reshape [1, 1, 64, 1536]": 144,
+  "_v_reshape [1, 384, 64]": 144,
+  "_v_reshape [1, 64, 64, 128]": 288,
+  "_v_reshape [1, 64, 64, 4]": 288,
+  "_v_reshape [64, 1, 64, 384]": 288,
+  "_v_reshape [64, 64, 128]": 576,
+  "_v_softmax [1, 16, 64, 64]": 144,
+  "_v_softmax [64, 4, 64, 64]": 288,
+  "_v_transpose [1, 16, 32, 64]": 144,
+  "_v_transpose [1, 64, 128, 64]": 288,
+  "_v_transpose [1, 64, 64, 128]": 288,
+  "checkpoint [1, 64, 384]": 48,
+  "checkpoint [1, 64, 64, 128]": 48,
+  "impl [1, 128, 64, 64]": 288,
+  "impl [1, 16, 64, 64]": 432,
+  "impl [1, 4, 64, 64]": 864,
+  "impl [1, 64, 1536]": 144,
+  "impl [1, 64, 384]": 432,
+  "impl [1, 64, 64, 128]": 1584,
+  "impl [1, 64, 64, 512]": 144,
+  "impl [64, 4, 64, 64]": 288,
+  "impl [64, 64, 128]": 288,
+  "silu [1, 64, 1536]": 144,
+  "silu [1, 64, 64, 512]": 144
+ },
+ "backward": {
+  "_identity_grad [1, 4, 64, 64]": 192,
+  "_identity_grad [64, 4, 64, 64]": 384,
+  "_identity_grad [64, 64, 128]": 384,
+  "_sliced [1, 16, 64, 24]": 48,
+  "_sliced [1, 64, 64, 128]": 864,
+  "_taped_layer_norm [1, 64, 384]": 96,
+  "_taped_layer_norm [1, 64, 64, 128]": 528,
+  "_taped_layer_norm [64, 64, 128]": 192,
+  "_taped_linear [1, 64, 1536]": 144,
+  "_taped_linear [1, 64, 384]": 144,
+  "_taped_linear [1, 64, 64, 128]": 480,
+  "_taped_linear [1, 64, 64, 16]": 48,
+  "_taped_linear [1, 64, 64, 512]": 192,
+  "_taped_linear [64, 64, 128]": 192,
+  "_taped_linear [64, 64, 384]": 192,
+  "_taped_linear [64, 64, 4]": 192,
+  "_v_concat [1, 64, 64, 128]": 96,
+  "_v_concat_heads [64, 1, 64, 128]": 192,
+  "_v_create_qkv_heads [1, 16, 64, 32]": 144,
+  "_v_create_qkv_heads [64, 4, 64, 32]": 576,
+  "_v_matmul [1, 128, 64, 64]": 192,
+  "_v_matmul [1, 16, 64, 32]": 48,
+  "_v_matmul [1, 16, 64, 64]": 48,
+  "_v_matmul [1, 64, 64, 512]": 192,
+  "_v_matmul [64, 4, 64, 32]": 192,
+  "_v_matmul [64, 4, 64, 64]": 192,
+  "_v_matmul [64, 64, 128]": 192,
+  "_v_permute [1, 128, 64, 64]": 384,
+  "_v_permute [1, 16, 24, 64]": 48,
+  "_v_permute [1, 16, 64, 64]": 48,
+  "_v_permute [1, 4, 64, 64]": 192,
+  "_v_permute [1, 64, 384]": 48,
+  "_v_permute [64, 4, 32, 64]": 192,
+  "_v_permute [64, 64, 128]": 192,
+  "_v_reshape [1, 1, 64, 1536]": 48,
+  "_v_reshape [1, 384, 64]": 48,
+  "_v_reshape [1, 64, 64, 128]": 192,
+  "_v_reshape [1, 64, 64, 4]": 192,
+  "_v_reshape [64, 1, 64, 384]": 192,
+  "_v_reshape [64, 64, 128]": 384,
+  "_v_softmax [1, 16, 64, 64]": 48,
+  "_v_softmax [64, 4, 64, 64]": 192,
+  "_v_transpose [1, 16, 32, 64]": 48,
+  "_v_transpose [1, 64, 128, 64]": 192,
+  "_v_transpose [1, 64, 64, 128]": 192,
+  "checkpoint [1, 64, 384]": 48,
+  "checkpoint [1, 64, 64, 128]": 48,
+  "impl [1, 128, 64, 64]": 192,
+  "impl [1, 16, 64, 64]": 144,
+  "impl [1, 4, 64, 64]": 384,
+  "impl [1, 64, 1536]": 48,
+  "impl [1, 64, 384]": 144,
+  "impl [1, 64, 64, 128]": 1056,
+  "impl [1, 64, 64, 512]": 96,
+  "impl [64, 4, 64, 64]": 192,
+  "impl [64, 64, 128]": 192,
+  "silu [1, 64, 1536]": 48,
+  "silu [1, 64, 64, 512]": 96
+ }
+}

@@ -1,0 +1,42 @@
+{
+ "as_of": "2026-09-20, of3t-orchestrator pass 194. CPU only, no device. Closes the pass-190 FLAG.",
+ "headline": "The NaN lever is NOT reachable in any shipped configuration, and the reason is an invariant rather than an absence of field failures. `_accurate_softmax` can only divide 0/0 when the tensor handed to `ttnn.max` carries more mantissa than bf16 holds. All three sites that ship the chain ON feed it a bf16 tensor, where the truncation is the identity, the maximum is exact, and the sum cannot be zero.",
+
+ "the_mechanism_named_exactly": "`ttnn.max` truncates its result to bf16 by discarding mantissa bits -- round TOWARD ZERO, not round to nearest. On a negative row that puts the result ABOVE the true maximum, so `d = x - m` is negative at every element INCLUDING the one that is the maximum, and there is no exp(0) = 1 left to hold the sum off zero.",
+ "reproduced_from_first_principles": {
+  "artifact": "perf/of3t_orchestrator/nanlever/BF16_MAX_TRUNCATION.json",
+  "script": "perf/of3t_orchestrator/nanlever/bf16_max_truncation.py",
+  "-1e9_truncated_to_bf16": -998244352.0,
+  "overshoot": 1755648.0,
+  "of3t_softgrad_device_measurement": 1755648.0,
+  "agreement": "exact, to the integer",
+  "and_two_more_points": "the same CPU model reproduces the device's clamp60 (finite) and clamp88 (NOT finite) readings, the second only because it models fp32's subnormal flush. Three of three device readings, so the model is validated before its fourth output is relied on."
+ },
+
+ "the_invariant_a_call_site_must_fail_to_be_exposed": "truncating a value that is already a bf16 grid point returns that value. So the chain is safe on any input whose elements are all bf16 -- exactly, and whatever the mask magnitude is. Exposure needs BOTH: (1) an fp32 input off the bf16 grid, and (2) a row that is fully masked.",
+
+ "every_site_that_ships_the_chain_ON": [
+  {"site": "opendde.refiner", "file": "tt_bio/opendde.py:419",
+   "consumer": "AttentionPairBias, non-atom, tt_bio/tenstorrent.py:8398",
+   "input_dtype": "bfloat16",
+   "fully_masked_rows": "YES -- bucketed_pairformer pads extra_attn_bias with -1e9 on BOTH token axes (tt_bio/token_axis.py:462), and the refiner's Ns = 2*n_res - n_gly axis is essentially never bucket-aligned, so padded rows occur on effectively every fold",
+   "verdict": "IMMUNE by dtype, not by luck. The padded rows are fully masked and come out uniform."},
+  {"site": "protenix <scope>.trunk", "file": "tt_bio/protenix.py:2465",
+   "consumer": "AttentionPairBias, non-atom, tt_bio/tenstorrent.py:8398",
+   "input_dtype": "bfloat16", "verdict": "IMMUNE by dtype"},
+  {"site": "protenix <scope>.confidence", "file": "tt_bio/protenix.py:1460",
+   "consumer": "AttentionPairBias, non-atom, tt_bio/tenstorrent.py:8398",
+   "input_dtype": "bfloat16", "verdict": "IMMUNE by dtype"},
+  {"site": "rf3 pairformer AttentionPairBias", "file": "tt_bio/rf3/remap.py:263",
+   "consumer": "same, non-atom", "input_dtype": "bfloat16", "verdict": "IMMUNE by dtype",
+   "note": "not in the pass-190 site list; found on this read. RF3 also pins tri_att_accurate_softmax=False, so its triangle attention -- which IS on the fp32 route at the template and MSA sites -- never reaches the chain."}
+ ],
+ "why_the_dtype_is_bf16_there": "the non-atom branch of AttentionPairBias has no fp32-softmax route at all: `fp32_softmax` is only read by `_attention` (tenstorrent.py:8112), which serves atom_level=True. The non-atom path builds `logits` with `batched_matmul` on bf16 q/k and then does `add_` and `multiply_` in place, so every element reaching `_accurate_softmax` is a bf16 grid point. `self.dtype` is bf16 unless `_DTYPE_OVERRIDE` is set (tenstorrent.py:8021), which no shipped model sets.",
+
+ "where_the_chain_CAN_see_fp32_and_what_ships_there": "the fp32_softmax route -- `_fp32_softmax_tail` for triangle attention and `_attention` for atom-level AttentionPairBias. That is where of3t-softgrad hit it, on OpenFold3's atom-encoder block-sparse attention, shape [1,14,4,32,128]. Every site on that route ships accurate_softmax=False: openfold3.trunk/.confidence/.template/.msa, esmfold2.token_transformer, rf3.tri_att. So the lever cannot currently be turned ON anywhere it would fire -- which is also why turning it on for a measurement is what found it.",
+
+ "the_condition_under_which_this_returns": "flipping `TT_BIO_ACCURATE_SOFTMAX_AB` on at any fp32_softmax site, or setting `_DTYPE_OVERRIDE` to float32 under a Pairformer. Both are one environment variable away, which is why the repair lands rather than the argument.",
+
+ "what_is_NOT_claimed": "that the padded rows were harmless before this read -- they were, but only because of the dtype, and nothing in the code said so. The pass-190 flag rested on 'Protenix-v2 is served with this on and NaN would surface as failed folds', which is real evidence and is also the kind that stops being true the moment a site changes dtype. This replaces it with a property of the arithmetic.",
+ "provenance": "of3t-orchestrator pass 194 on pc, CPU only, no device opened. The 1755648.0, the 114688 and the clamp30/60/88 readings are of3t-softgrad's device measurements (origin/wk/of3t-softgrad). The truncation hypothesis, its first-principles reproduction, the bf16-grid invariant and the site verdicts are this pass's."
+}

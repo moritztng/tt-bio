@@ -1,0 +1,131 @@
+{
+  "instrument": "perf/of3t_orchestrator/charter/charter_evidence.py",
+  "spec_lifted_from": "/home/moritz/.coworker/workstreams/_of3t_donecheck.py",
+  "spec_sha256": "b30412ba5d48388d2ad6624fb51313cc5523e6e633e520746c438477e69c0ab8",
+  "tree": "/home/moritz/.coworker/wt/of3t-orchestrator",
+  "break_control": "every condition can report MET on a synthetic artifact, and every requirement reports NOT MET on one built to violate it",
+  "n_met": 0,
+  "n_conditions": 3,
+  "conditions": [
+    {
+      "field": "GRADIENTS",
+      "artifact": "perf/of3t_ditmodel/MODEL_d56_retake.json",
+      "why": "per-parameter gradient equivalence at MODEL scope, against a float64 reference rather than against another device arm.",
+      "artifact_exists": false,
+      "artifact_sha256": null,
+      "met": false,
+      "misses": [
+        "inputs.float64.sha256 present None -- artifact has artifact absent (scored against a float64 reference, pinned by digest)",
+        "stats.d56on_vs_UPSTREAM_BF16.mass_weighted_rel_l2 <=key 'bars.A26_reachable_bar_vs_their_bf16' -- artifact has artifact absent (our arm against upstream's OWN bf16 step, inside the A26 reachable bar the artifact computes from that reference -- both sides measured, neither chosen here)",
+        "stats.d56on_vs_FLOAT64.n_over_per_tensor_bar <=key 'stats.UPSTREAM_BF16_vs_FLOAT64.n_over_per_tensor_bar' -- artifact has artifact absent (and no WORSE per-tensor than upstream's own bf16 step on the same set -- this keeps the per-tensor guard that mass weighting would hide, against a floor that is measured rather than asserted)",
+        "coverage_total.pct_of_model_compared >= 99.2594 -- artifact has artifact absent (the bar COVERAGE_CEILING_IS_NOT_100.json set at pass 175, kept as the bar with its REASON withdrawn: `of3t-readable-mass` showed the excluded mass is BLOCKED rather than unreadable. The host-applied share is 1.52024 %, not 0.74055 %, and 0.74055 % is one tensor of the seventeen inside it -- quoting it as a ceiling called a wiring gap a limit. Five remedies, the three largest instrument or wiring work on code that already exists)"
+      ],
+      "checks": [
+        {
+          "key": "inputs.float64.sha256",
+          "op": "present",
+          "bar": null,
+          "actual": "artifact absent",
+          "passed": false,
+          "why": "scored against a float64 reference, pinned by digest"
+        },
+        {
+          "key": "stats.d56on_vs_UPSTREAM_BF16.mass_weighted_rel_l2",
+          "op": "<=key",
+          "bar": "bars.A26_reachable_bar_vs_their_bf16",
+          "actual": "artifact absent",
+          "passed": false,
+          "why": "our arm against upstream's OWN bf16 step, inside the A26 reachable bar the artifact computes from that reference -- both sides measured, neither chosen here"
+        },
+        {
+          "key": "stats.d56on_vs_FLOAT64.n_over_per_tensor_bar",
+          "op": "<=key",
+          "bar": "stats.UPSTREAM_BF16_vs_FLOAT64.n_over_per_tensor_bar",
+          "actual": "artifact absent",
+          "passed": false,
+          "why": "and no WORSE per-tensor than upstream's own bf16 step on the same set -- this keeps the per-tensor guard that mass weighting would hide, against a floor that is measured rather than asserted"
+        },
+        {
+          "key": "coverage_total.pct_of_model_compared",
+          "op": ">=",
+          "bar": 99.2594,
+          "actual": "artifact absent",
+          "passed": false,
+          "why": "the bar COVERAGE_CEILING_IS_NOT_100.json set at pass 175, kept as the bar with its REASON withdrawn: `of3t-readable-mass` showed the excluded mass is BLOCKED rather than unreadable. The host-applied share is 1.52024 %, not 0.74055 %, and 0.74055 % is one tensor of the seventeen inside it -- quoting it as a ceiling called a wiring gap a limit. Five remedies, the three largest instrument or wiring work on code that already exists"
+        }
+      ]
+    },
+    {
+      "field": "TRAJECTORY",
+      "artifact": "perf/of3t_modeltraj/traj_shipped.json",
+      "why": "an N-step weight trajectory at MODEL scope, with the two sides actually moving.",
+      "artifact_exists": false,
+      "artifact_sha256": null,
+      "met": false,
+      "misses": [
+        "steps >= 20 -- artifact has artifact absent (at least the 20 steps of3t-traj20 pre-registered)",
+        "scope.pct_of_model_sq_grad_norm >= 99.2594 -- artifact has artifact absent (on the model, not on one section. traj_shipped.json's scope today is diffusion_module.diffusion_conditioning at 36.9462 %)",
+        "per_step moves ['d_theirs_norm', 'd_ours_norm'] -- artifact has artifact absent (the campaign's own lesson, repaired at pass 319 (D169): an arm that never moves proves nothing about the update rule, so OUR side must move at every step where THEIRS does. This read `d1.zero_both_sides is False` until pass 319 and that clause was UNSATISFIABLE by any faithful reproduction -- upstream's AlphaFoldLRScheduler warms up linearly from base_lr=0.0, so lr(0) == 0.0 exactly and step 1 leaves the weights bit-identical on BOTH sides with a non-zero gradient (D169_FIRST_STEP_IS_A_NO_OP.json). The replacement is strictly stronger: it reads all 20 steps rather than the one that carries no information, and it is not satisfied by the live artifacts being any closer than they were)"
+      ],
+      "checks": [
+        {
+          "key": "steps",
+          "op": ">=",
+          "bar": 20,
+          "actual": "artifact absent",
+          "passed": false,
+          "why": "at least the 20 steps of3t-traj20 pre-registered"
+        },
+        {
+          "key": "scope.pct_of_model_sq_grad_norm",
+          "op": ">=",
+          "bar": 99.2594,
+          "actual": "artifact absent",
+          "passed": false,
+          "why": "on the model, not on one section. traj_shipped.json's scope today is diffusion_module.diffusion_conditioning at 36.9462 %"
+        },
+        {
+          "key": "per_step",
+          "op": "moves",
+          "bar": [
+            "d_theirs_norm",
+            "d_ours_norm"
+          ],
+          "actual": "artifact absent",
+          "passed": false,
+          "why": "the campaign's own lesson, repaired at pass 319 (D169): an arm that never moves proves nothing about the update rule, so OUR side must move at every step where THEIRS does. This read `d1.zero_both_sides is False` until pass 319 and that clause was UNSATISFIABLE by any faithful reproduction -- upstream's AlphaFoldLRScheduler warms up linearly from base_lr=0.0, so lr(0) == 0.0 exactly and step 1 leaves the weights bit-identical on BOTH sides with a non-zero gradient (D169_FIRST_STEP_IS_A_NO_OP.json). The replacement is strictly stronger: it reads all 20 steps rather than the one that carries no information, and it is not satisfied by the live artifacts being any closer than they were"
+        }
+      ]
+    },
+    {
+      "field": "COVERAGE",
+      "artifact": "perf/of3t_gradients/coverage_census.json",
+      "why": "every loss term and every conditional path demonstrated to FIRE, on the batch, at runtime -- not enumerated in prose.",
+      "artifact_exists": true,
+      "artifact_sha256": "d51094740d3cb9b6b6a35d42fcba94eb47d18cb11f2a9f197ebcb902dc9c500b",
+      "met": false,
+      "misses": [
+        "union.*.covered all True -- artifact has 7 of 8, missing: bond (all 8 of upstream's LossWeights terms fire. 7 do; `bond` has an empty mask on 5nw3)",
+        "conditional_paths.*.covered all True -- artifact has 4 of 11, missing: bond, diffusion_rollout, disabled_parameters, model_forward, multichain_permutation, nucleotide, templates (all 11 conditional paths fire. 4 do; templates, bond, nucleotide, the diffusion rollout, multichain permutation, the disabled-parameter path and the OF3 training forward itself do not)"
+      ],
+      "checks": [
+        {
+          "key": "union.*.covered",
+          "op": "all",
+          "bar": true,
+          "actual": "7 of 8, missing: bond",
+          "passed": false,
+          "why": "all 8 of upstream's LossWeights terms fire. 7 do; `bond` has an empty mask on 5nw3"
+        },
+        {
+          "key": "conditional_paths.*.covered",
+          "op": "all",
+          "bar": true,
+          "actual": "4 of 11, missing: bond, diffusion_rollout, disabled_parameters, model_forward, multichain_permutation, nucleotide, templates",
+          "passed": false,
+          "why": "all 11 conditional paths fire. 4 do; templates, bond, nucleotide, the diffusion rollout, multichain permutation, the disabled-parameter path and the OF3 training forward itself do not"
+        }
+      ]
+    }
+  ]
+}

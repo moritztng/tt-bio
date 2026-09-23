@@ -1,0 +1,164 @@
+# Workstream: of3t-trunkback
+#DISPATCH: host=qb2 card=any repo=tt-bio maxit=250 tier=opus5
+DONE_CHECK: python3 /home/moritz/.coworker/workstreams/_of3t_donecheck.py of3t-trunkback
+
+OF3T row `of3t-trunkback` — **the trunk's forward agrees and its gradient is worse than emitting
+nothing. The defect is in the BACKWARD.** 5.8282 % of the model's gradient mass turns on it.
+
+## Base your worktree on `wk/of3t-trunkgrad`
+
+    git fetch origin && git checkout -B wk/of3t-trunkback origin/wk/of3t-trunkgrad
+
+That branch has the 0.4.3 float64 reference, the taped arms and the controls this row builds on.
+
+## What is settled, precisely
+
+`of3t-trunkgrad` (NO-GO), mass-weighted against a 0.4.3 float64 reference over the shared
+2496-tensor set holding 99.2499 % of the trunk's own squared gradient norm:
+
+    DEV_SHIPPED  (scale_pair_bias=False, the default)   5.367727e+00   r 5.412308  cos 0.136779
+    DEV_SCALED   (bias pre-scaled by sqrt(24))          8.855764e+00   r 8.888671  cos 0.089097
+    REF043_BF16  (upstream's own float32+autocast)      3.686000e-01   r 1.028383  cos 0.934334
+    A16 zero model, measured                            1.000000e+00
+    instrument floor (reference scored on itself)       0.000000e+00
+    break control (cotangent permuted, 56 real slots)   4.872500e+01
+
+**We are further from the reference than a model emitting nothing**, and 14.6x upstream's own
+recipe. Meanwhile the same stack's FORWARD agrees: pair track **4.947045e-02**, under the
+5.0e-02 bar, against the same reference.
+
+**A forward that agrees beside a gradient 5.4x too large is a statement about the BACKWARD.**
+That is this row's whole premise and it is what makes the question tractable.
+
+Two further facts you do not need to re-derive:
+- the forward and the gradient order the two bias conventions **oppositely** — pre-scaling
+  improves the forward 6.30x and degrades the gradient 1.65x — so **do not flip D1** looking for
+  relief; it makes the gradient worse, and it is held for Angstrom reasons anyway.
+- the shipped convention's smaller gradient comes from delivering the bias at 0.204 of reference
+  size, i.e. **by doing less of the model's work**. Do not treat any arm that shrinks the
+  gradient by shrinking the computation as an improvement; the campaign's standing no-cheat rule
+  applies and `of3t-trunkgrad` already refused this once.
+
+## What to do
+
+1. **LOCUS** — which backward op creates it. Compare **medians per leaf op**, never the worst
+   tensor: the worst tensor names the tail, not the locus. `pair_transition` is known to move
+   3.756e-01 -> 5.317e-01 between the conventions, so it is a starting point, not an answer.
+2. **FORWARD_AGREES** — re-confirm the forward at that leaf **in the same process** that takes
+   the gradient. The contrast is the evidence; if the two come from different boundaries there
+   is no contrast.
+3. **NORM** — the error is 5.41x too LARGE in norm with cosine 0.137. Decompose the squared
+   error into magnitude and direction and say which dominates, the way `of3t-trunk043ref` did
+   for the forward (it found 74.88 % magnitude / 25.12 % direction there). A cosine of 0.137 is
+   nearly orthogonal and that is a strong clue: it is not a scale error.
+4. **CONTROL** — the four above are already measured; re-run them in your process rather than
+   carrying them in. `of3t-auxgrad` showed that an in-process reproduction of a predecessor's
+   arm is the strongest instrument evidence available, and it cost one extra run.
+5. **FIX_OR_NOT** — standing candidates from the campaign's own record, to be **tested not
+   assumed**: `tape-recomputes-what-a-fused-kernel-computed` (a chunked recompute in the backward
+   that the fused forward did differently), `hallgrad-tape-self-closure-leak`, and the
+   possibility that a backward is simply missing for one op and silently returning something
+   plausible. "There is no single locus, the error is diffuse" is a legitimate pre-registered
+   outcome — say it plainly if that is what the medians show.
+
+## Rules
+
+- **Pre-register before you run.** Three magnitude claims in this campaign were withdrawn for
+  lacking one.
+- Norm ratio and error cosine beside every relative L2; report by **MASS** not count (A23);
+  per **A27** name the dtype policy of any denominator arm; **A26's sqrt(2) does NOT apply**
+  against a float64 reference (A26-SCOPE).
+- Change no shipped default. `compose_verify.sh` asserts `scale_pair_bias=False` and the
+  release-gated confidence masks stay off.
+- Explicit `git add <paths>` only, never `git add -A`. Push `wk/of3t-trunkback`; do NOT merge to
+  main. Your push from qb2 may silently not reach origin — commit early in small self-contained
+  steps and check with `git ls-remote origin wk/of3t-trunkback`.
+
+## AMENDMENT 1 (of3t-orchestrator, pass 179) — append-only. CORRECTS THIS BRIEF'S PREMISE.
+
+**I overstated it.** This brief says "the trunk's forward agrees and its gradient is worse than
+emitting nothing, so the defect is in the BACKWARD", and calls that "this row's whole premise".
+The first half is not true as written. The trunk's A18 forward **does not fully pass**:
+
+    pair track    4.947045e-02   PASS  (0.9894x the 5.0e-02 bar)
+    single track  1.065338e-01   FAIL  (2.13x the bar)
+
+So A18's gate — *a disagreeing forward invalidates the gradient* — is **not satisfied** for this
+scope, and "the forward agrees" is exactly the kind of average-of-two-tracks claim I corrected in
+this campaign two passes ago and should not have repeated.
+
+**What survives, and it is still a good question.** A single-track forward error of
+**1.065338e-01** sitting beside a gradient error of **5.367727e+00** is a **~50x amplification**.
+Plain inheritance does not plausibly do that, and the cosine of **0.137** says the gradient error
+is nearly ORTHOGONAL to the reference while the forward error is not. So the backward remains the
+leading hypothesis — but it is a **hypothesis to test, not a premise to build on.**
+
+**Therefore your first arm changes.** Before hunting a backward locus, bound how much of the
+gradient error is simply INHERITED from the single-track forward disagreement:
+
+- take the gradient with the single-track forward **corrected** (the pre-scaled-bias arm already
+  does this — `of3t-trunkgrad` measured its forward at 1.691313e-02, inside the bar) and see what
+  the gradient does. It reads **8.855764e+00**, i.e. it gets WORSE, which already argues the
+  gradient error is not inherited from the single-track forward. **Say so explicitly if you agree**
+  — that one comparison may settle the inheritance question before you instrument anything;
+- and if you disagree with that reading, say why, because it is the pivot the rest of the row
+  rests on.
+
+Everything else in the brief stands: locate by median per leaf, re-confirm the forward in the
+same process, decompose magnitude versus direction, do not flip D1, and do not bank an arm that
+shrinks the gradient by shrinking the computation.
+
+## AMENDMENT 2 (of3t-orchestrator, pass 181) — append-only. An exclusion you can use, from your own numbers.
+
+Arithmetic over the figures **you** published, no new measurement, offered as a narrowing rather
+than a conclusion — check it against what you measure next rather than adopting it.
+
+**Your chain is worse than PERFECTLY COHERENT accumulation of your own per-block error.**
+
+    per-block backward alone                      4.125325e-02
+    48 INDEPENDENT errors of that size (sqrt N)   0.285811
+    48 PERFECTLY COHERENT ones (linear N)         1.980156
+    your MEASURED chain of 48                     5.351880   -> 18.73x sqrt(N), 2.70x linear
+
+Adding up 48 copies of the per-block error, all pointing the same way, still falls **2.70x
+short** of what you measured. That needs no conversion and no assumption about direction — it is
+a ratio of two numbers you already published.
+
+**So two mechanisms are now excluded, not one.** Your per-block test already ruled out *a leaf
+computes a wrong gradient from correct inputs*. This rules out *each block adds its own small
+error*. What survives is an operator that **multiplies the incoming cotangent** by something the
+reference's does not: a block handed a correct cotangent behaves (4.1e-02), handed a wrong one it
+makes it worse. **Look for a Jacobian applied to the ARRIVING gradient, not for a leaf's own
+output.**
+
+Weaker, and flagged as such because it assumes the error is roughly orthogonal to the signal:
+converting your cosines via `cos = 1/sqrt(1+r^2)` gives error/signal **0.0049 -> 7.2140 ->
+65.6135** at 1/24/48 blocks, i.e. multiplicative growth of **1.3732** per block early and
+**1.0964** late. That is **not** a clean exponential and no single growth constant should be
+quoted — what survives is only the sign, `g > 1` in both halves.
+
+Nothing else in the brief changes, including: do not flip D1, and do not bank an arm that shrinks
+the gradient by shrinking the computation.
+
+## AMENDMENT 3 (of3t-orchestrator, pass 181) — append-only. The arithmetic closes; you need no second mechanism.
+
+Following AMENDMENT 2, the quantitative version, still from your own numbers:
+
+    per-block backward error                    4.125325e-02   (4.13 %)
+    ADDITIVE       N x e                        1.9802         measured is 2.70x this -- refuted
+    MULTIPLICATIVE (1+e)^N - 1                  5.9615         measured is 0.90x this -- agrees
+    your MEASURED chain of 48                   5.3519
+    back-solved per-block factor                3.93 %         vs the measured 4.13 % -- within 5 %
+
+**Compounding your per-block error 48 times reproduces your chain.** So the account is closed
+arithmetically: there is no missing second mechanism between blocks, and you should not spend a
+pass looking for one. It also explains why the per-block test read *fine* — **4.13 % in isolation
+is unremarkable**, and only 48-fold compounding turns it into 5.35.
+
+What this does **not** give you is why a single block's backward is 4.13 % off. That is now the
+whole question, and it is a much smaller one than "where does 5.35 come from".
+
+**A hunt I ran and came up empty on, reported so you do not repeat it**: the implied per-block
+factor (1.0358 shipped, 1.0466 pre-scaled) matches nothing on the record — not `1/sqrt(24) =
+0.204124`, not `24^(1/48) = 1.068450`, not the forward's `0.907813`. No clean constant. I am not
+offering a candidate dressed as a lead.

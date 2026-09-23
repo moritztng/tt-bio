@@ -1,0 +1,887 @@
+{
+ "what": "What the affine reduction's accumulator actually is, on the shipped call and on torch's, read from inputs whose exact sums are known.",
+ "shipped_call": "ttnn.sum(flat2d, dim=0, keepdim=True, compute_kernel_config=precise_config()) -- tt_bio/autograd.py _sum_leading, reached by layer_norm's gamma and beta gradients",
+ "precise_config": {
+  "math_fidelity": "HiFi4",
+  "math_approx_mode": false,
+  "fp32_dest_acc_en": true,
+  "packer_l1_acc": true
+ },
+ "channel": 128,
+ "K_rungs": [
+  32,
+  256,
+  1024,
+  8192,
+  32768,
+  147456
+ ],
+ "host": "tt-quietbox",
+ "card": "0",
+ "git_commit": "0e88381554ee8cd4318e3f4f4acbeb0e146b2457",
+ "torch": "2.8.0+cpu",
+ "started_utc": "2026-09-22T15:34:55Z",
+ "probes": {
+  "ones": {
+   "why": "all 1.0: the dtype identifier. An fp32 accumulation returns K exactly; a bf16 sequential accumulator stalls near 256.",
+   "rungs": [
+    {
+     "K": 32,
+     "ref_l2": 362.03867196751236,
+     "cancellation": 1.0,
+     "shipped": {
+      "rel_l2": 0.0,
+      "first": 32.0,
+      "max_abs_err": 0.0
+     },
+     "fp32_out": {
+      "error": "TypeError: \nttnn.sum(): incompatible function arguments.\n\nCalled with:\n  sum(ttnn.Tensor, dim=0, keepdim=True, compute_kernel_config=<ttnn._ttnn.operations.core.WormholeComputeKernelConfig object at 0x782a2a3ad3"
+     },
+     "no_config": {
+      "rel_l2": 0.0,
+      "first": 32.0,
+      "max_abs_err": 0.0
+     },
+     "lofi": {
+      "rel_l2": 0.0,
+      "first": 32.0,
+      "max_abs_err": 0.0
+     },
+     "host_f64": {
+      "rel_l2": 0.0,
+      "note": "the reference IS this reduction, by construction"
+     },
+     "torch_bf16_sum": {
+      "rel_l2": 0.0,
+      "first": 32.0
+     },
+     "torch_fp32_sum": {
+      "rel_l2": 0.0,
+      "first": 32.0
+     }
+    },
+    {
+     "K": 256,
+     "ref_l2": 2896.309375740099,
+     "cancellation": 1.0,
+     "shipped": {
+      "rel_l2": 0.0,
+      "first": 256.0,
+      "max_abs_err": 0.0
+     },
+     "fp32_out": {
+      "error": "TypeError: \nttnn.sum(): incompatible function arguments.\n\nCalled with:\n  sum(ttnn.Tensor, dim=0, keepdim=True, compute_kernel_config=<ttnn._ttnn.operations.core.WormholeComputeKernelConfig object at 0x782a2a3acf"
+     },
+     "no_config": {
+      "rel_l2": 0.0,
+      "first": 256.0,
+      "max_abs_err": 0.0
+     },
+     "lofi": {
+      "rel_l2": 0.0,
+      "first": 256.0,
+      "max_abs_err": 0.0
+     },
+     "host_f64": {
+      "rel_l2": 0.0,
+      "note": "the reference IS this reduction, by construction"
+     },
+     "torch_bf16_sum": {
+      "rel_l2": 0.0,
+      "first": 256.0
+     },
+     "torch_fp32_sum": {
+      "rel_l2": 0.0,
+      "first": 256.0
+     }
+    },
+    {
+     "K": 1024,
+     "ref_l2": 11585.237502960395,
+     "cancellation": 1.0,
+     "shipped": {
+      "rel_l2": 0.0,
+      "first": 1024.0,
+      "max_abs_err": 0.0
+     },
+     "fp32_out": {
+      "error": "TypeError: \nttnn.sum(): incompatible function arguments.\n\nCalled with:\n  sum(ttnn.Tensor, dim=0, keepdim=True, compute_kernel_config=<ttnn._ttnn.operations.core.WormholeComputeKernelConfig object at 0x782a2a3acf"
+     },
+     "no_config": {
+      "rel_l2": 0.0,
+      "first": 1024.0,
+      "max_abs_err": 0.0
+     },
+     "lofi": {
+      "rel_l2": 0.0,
+      "first": 1024.0,
+      "max_abs_err": 0.0
+     },
+     "host_f64": {
+      "rel_l2": 0.0,
+      "note": "the reference IS this reduction, by construction"
+     },
+     "torch_bf16_sum": {
+      "rel_l2": 0.0,
+      "first": 1024.0
+     },
+     "torch_fp32_sum": {
+      "rel_l2": 0.0,
+      "first": 1024.0
+     }
+    },
+    {
+     "K": 8192,
+     "ref_l2": 92681.90002368316,
+     "cancellation": 1.0,
+     "shipped": {
+      "rel_l2": 0.0,
+      "first": 8192.0,
+      "max_abs_err": 0.0
+     },
+     "fp32_out": {
+      "error": "TypeError: \nttnn.sum(): incompatible function arguments.\n\nCalled with:\n  sum(ttnn.Tensor, dim=0, keepdim=True, compute_kernel_config=<ttnn._ttnn.operations.core.WormholeComputeKernelConfig object at 0x782a2a3aef"
+     },
+     "no_config": {
+      "rel_l2": 0.0,
+      "first": 8192.0,
+      "max_abs_err": 0.0
+     },
+     "lofi": {
+      "rel_l2": 0.0,
+      "first": 8192.0,
+      "max_abs_err": 0.0
+     },
+     "host_f64": {
+      "rel_l2": 0.0,
+      "note": "the reference IS this reduction, by construction"
+     },
+     "torch_bf16_sum": {
+      "rel_l2": 0.0,
+      "first": 8192.0
+     },
+     "torch_fp32_sum": {
+      "rel_l2": 0.0,
+      "first": 8192.0
+     }
+    },
+    {
+     "K": 32768,
+     "ref_l2": 370727.60009473265,
+     "cancellation": 1.0,
+     "shipped": {
+      "rel_l2": 0.0,
+      "first": 32768.0,
+      "max_abs_err": 0.0
+     },
+     "fp32_out": {
+      "error": "TypeError: \nttnn.sum(): incompatible function arguments.\n\nCalled with:\n  sum(ttnn.Tensor, dim=0, keepdim=True, compute_kernel_config=<ttnn._ttnn.operations.core.WormholeComputeKernelConfig object at 0x782a2a3ad3"
+     },
+     "no_config": {
+      "rel_l2": 0.0,
+      "first": 32768.0,
+      "max_abs_err": 0.0
+     },
+     "lofi": {
+      "rel_l2": 0.7499999999999999,
+      "first": 8192.0,
+      "max_abs_err": 24576.0
+     },
+     "host_f64": {
+      "rel_l2": 0.0,
+      "note": "the reference IS this reduction, by construction"
+     },
+     "torch_bf16_sum": {
+      "rel_l2": 0.0,
+      "first": 32768.0
+     },
+     "torch_fp32_sum": {
+      "rel_l2": 0.0,
+      "first": 32768.0
+     }
+    },
+    {
+     "K": 147456,
+     "ref_l2": 1668274.2004262968,
+     "cancellation": 1.0,
+     "shipped": {
+      "rel_l2": 0.0,
+      "first": 147456.0,
+      "max_abs_err": 0.0
+     },
+     "fp32_out": {
+      "error": "TypeError: \nttnn.sum(): incompatible function arguments.\n\nCalled with:\n  sum(ttnn.Tensor, dim=0, keepdim=True, compute_kernel_config=<ttnn._ttnn.operations.core.WormholeComputeKernelConfig object at 0x782a2a3acf"
+     },
+     "no_config": {
+      "rel_l2": 0.0,
+      "first": 147456.0,
+      "max_abs_err": 0.0
+     },
+     "lofi": {
+      "rel_l2": 0.9444444444444444,
+      "first": 8192.0,
+      "max_abs_err": 139264.0
+     },
+     "host_f64": {
+      "rel_l2": 0.0,
+      "note": "the reference IS this reduction, by construction"
+     },
+     "torch_bf16_sum": {
+      "rel_l2": 0.0,
+      "first": 147456.0
+     },
+     "torch_fp32_sum": {
+      "rel_l2": 0.0,
+      "first": 147456.0
+     }
+    }
+   ]
+  },
+  "third": {
+   "why": "all bf16(1/3): exact on integers is not exact.",
+   "rungs": [
+    {
+     "K": 32,
+     "ref_l2": 120.91525958289962,
+     "cancellation": 1.0,
+     "shipped": {
+      "rel_l2": 0.0,
+      "first": 10.6875,
+      "max_abs_err": 0.0
+     },
+     "fp32_out": {
+      "error": "TypeError: \nttnn.sum(): incompatible function arguments.\n\nCalled with:\n  sum(ttnn.Tensor, dim=0, keepdim=True, compute_kernel_config=<ttnn._ttnn.operations.core.WormholeComputeKernelConfig object at 0x782a2a3acf"
+     },
+     "no_config": {
+      "rel_l2": 0.0,
+      "first": 10.6875,
+      "max_abs_err": 0.0
+     },
+     "lofi": {
+      "rel_l2": 0.017543859649122806,
+      "first": 10.5,
+      "max_abs_err": 0.1875
+     },
+     "host_f64": {
+      "rel_l2": 0.0,
+      "note": "the reference IS this reduction, by construction"
+     },
+     "torch_bf16_sum": {
+      "rel_l2": 0.0,
+      "first": 10.6875
+     },
+     "torch_fp32_sum": {
+      "rel_l2": 0.0,
+      "first": 10.6875
+     }
+    },
+    {
+     "K": 256,
+     "ref_l2": 967.322076663197,
+     "cancellation": 1.0,
+     "shipped": {
+      "rel_l2": 0.0,
+      "first": 85.5,
+      "max_abs_err": 0.0
+     },
+     "fp32_out": {
+      "error": "TypeError: \nttnn.sum(): incompatible function arguments.\n\nCalled with:\n  sum(ttnn.Tensor, dim=0, keepdim=True, compute_kernel_config=<ttnn._ttnn.operations.core.WormholeComputeKernelConfig object at 0x782a2a3aef"
+     },
+     "no_config": {
+      "rel_l2": 0.0,
+      "first": 85.5,
+      "max_abs_err": 0.0
+     },
+     "lofi": {
+      "rel_l2": 0.0058479532163742695,
+      "first": 85.0,
+      "max_abs_err": 0.5
+     },
+     "host_f64": {
+      "rel_l2": 0.0,
+      "note": "the reference IS this reduction, by construction"
+     },
+     "torch_bf16_sum": {
+      "rel_l2": 0.0,
+      "first": 85.5
+     },
+     "torch_fp32_sum": {
+      "rel_l2": 0.0,
+      "first": 85.5
+     }
+    },
+    {
+     "K": 1024,
+     "ref_l2": 3869.288306652788,
+     "cancellation": 1.0,
+     "shipped": {
+      "rel_l2": 0.0,
+      "first": 342.0,
+      "max_abs_err": 0.0
+     },
+     "fp32_out": {
+      "error": "TypeError: \nttnn.sum(): incompatible function arguments.\n\nCalled with:\n  sum(ttnn.Tensor, dim=0, keepdim=True, compute_kernel_config=<ttnn._ttnn.operations.core.WormholeComputeKernelConfig object at 0x782a2a3ad3"
+     },
+     "no_config": {
+      "rel_l2": 0.0,
+      "first": 342.0,
+      "max_abs_err": 0.0
+     },
+     "lofi": {
+      "rel_l2": 0.0058479532163742695,
+      "first": 344.0,
+      "max_abs_err": 2.0
+     },
+     "host_f64": {
+      "rel_l2": 0.0,
+      "note": "the reference IS this reduction, by construction"
+     },
+     "torch_bf16_sum": {
+      "rel_l2": 0.0,
+      "first": 342.0
+     },
+     "torch_fp32_sum": {
+      "rel_l2": 0.0,
+      "first": 342.0
+     }
+    },
+    {
+     "K": 8192,
+     "ref_l2": 30954.306453222303,
+     "cancellation": 1.0,
+     "shipped": {
+      "rel_l2": 0.0,
+      "first": 2736.0,
+      "max_abs_err": 0.0
+     },
+     "fp32_out": {
+      "error": "TypeError: \nttnn.sum(): incompatible function arguments.\n\nCalled with:\n  sum(ttnn.Tensor, dim=0, keepdim=True, compute_kernel_config=<ttnn._ttnn.operations.core.WormholeComputeKernelConfig object at 0x782a2a3acf"
+     },
+     "no_config": {
+      "rel_l2": 0.0,
+      "first": 2736.0,
+      "max_abs_err": 0.0
+     },
+     "lofi": {
+      "rel_l2": 0.25146198830409355,
+      "first": 2048.0,
+      "max_abs_err": 688.0
+     },
+     "host_f64": {
+      "rel_l2": 0.0,
+      "note": "the reference IS this reduction, by construction"
+     },
+     "torch_bf16_sum": {
+      "rel_l2": 0.0,
+      "first": 2736.0
+     },
+     "torch_fp32_sum": {
+      "rel_l2": 0.0,
+      "first": 2736.0
+     }
+    },
+    {
+     "K": 32768,
+     "ref_l2": 123817.22581288921,
+     "cancellation": 1.0,
+     "shipped": {
+      "rel_l2": 0.0,
+      "first": 10944.0,
+      "max_abs_err": 0.0
+     },
+     "fp32_out": {
+      "error": "TypeError: \nttnn.sum(): incompatible function arguments.\n\nCalled with:\n  sum(ttnn.Tensor, dim=0, keepdim=True, compute_kernel_config=<ttnn._ttnn.operations.core.WormholeComputeKernelConfig object at 0x782a2a3acf"
+     },
+     "no_config": {
+      "rel_l2": 0.0,
+      "first": 10944.0,
+      "max_abs_err": 0.0
+     },
+     "lofi": {
+      "rel_l2": 0.8128654970760234,
+      "first": 2048.0,
+      "max_abs_err": 8896.0
+     },
+     "host_f64": {
+      "rel_l2": 0.0,
+      "note": "the reference IS this reduction, by construction"
+     },
+     "torch_bf16_sum": {
+      "rel_l2": 0.0,
+      "first": 10944.0
+     },
+     "torch_fp32_sum": {
+      "rel_l2": 0.0,
+      "first": 10944.0
+     }
+    },
+    {
+     "K": 147456,
+     "ref_l2": 557177.5161580015,
+     "cancellation": 1.0,
+     "shipped": {
+      "rel_l2": 0.0019493177387914227,
+      "first": 49152.0,
+      "max_abs_err": 96.0
+     },
+     "fp32_out": {
+      "error": "TypeError: \nttnn.sum(): incompatible function arguments.\n\nCalled with:\n  sum(ttnn.Tensor, dim=0, keepdim=True, compute_kernel_config=<ttnn._ttnn.operations.core.WormholeComputeKernelConfig object at 0x782a2a3aef"
+     },
+     "no_config": {
+      "rel_l2": 0.0019493177387914227,
+      "first": 49152.0,
+      "max_abs_err": 96.0
+     },
+     "lofi": {
+      "rel_l2": 0.9584145549057829,
+      "first": 2048.0,
+      "max_abs_err": 47200.0
+     },
+     "host_f64": {
+      "rel_l2": 0.0,
+      "note": "the reference IS this reduction, by construction"
+     },
+     "torch_bf16_sum": {
+      "rel_l2": 0.0019493177387914227,
+      "first": 49152.0
+     },
+     "torch_fp32_sum": {
+      "rel_l2": 0.0,
+      "first": 49248.0
+     }
+    }
+   ]
+  },
+  "gauss": {
+   "why": "iid N(0,1): the real regime, where the true sum cancels and any rounding in the accumulator is multiplied by that cancellation.",
+   "rungs": [
+    {
+     "K": 32,
+     "ref_l2": 66.28080783099271,
+     "cancellation": 4.434975978094244,
+     "shipped": {
+      "rel_l2": 0.0014676234242617639,
+      "first": 6.0,
+      "max_abs_err": 0.03021240234375
+     },
+     "fp32_out": {
+      "error": "TypeError: \nttnn.sum(): incompatible function arguments.\n\nCalled with:\n  sum(ttnn.Tensor, dim=0, keepdim=True, compute_kernel_config=<ttnn._ttnn.operations.core.WormholeComputeKernelConfig object at 0x782a2a3ad3"
+     },
+     "no_config": {
+      "rel_l2": 0.0014676234242617639,
+      "first": 6.0,
+      "max_abs_err": 0.03021240234375
+     },
+     "lofi": {
+      "rel_l2": 0.023522248974425876,
+      "first": 5.75,
+      "max_abs_err": 0.3828125
+     },
+     "host_f64": {
+      "rel_l2": 0.0,
+      "note": "the reference IS this reduction, by construction"
+     },
+     "torch_bf16_sum": {
+      "rel_l2": 0.0014670709531889835,
+      "first": 6.0
+     },
+     "torch_fp32_sum": {
+      "rel_l2": 0.0,
+      "first": 6.0126953125
+     }
+    },
+    {
+     "K": 256,
+     "ref_l2": 185.49675876862608,
+     "cancellation": 12.480645980572557,
+     "shipped": {
+      "rel_l2": 0.001668560533085815,
+      "first": -3.5625,
+      "max_abs_err": 0.0896453857421875
+     },
+     "fp32_out": {
+      "error": "TypeError: \nttnn.sum(): incompatible function arguments.\n\nCalled with:\n  sum(ttnn.Tensor, dim=0, keepdim=True, compute_kernel_config=<ttnn._ttnn.operations.core.WormholeComputeKernelConfig object at 0x782a2a3acf"
+     },
+     "no_config": {
+      "rel_l2": 0.001668560533085815,
+      "first": -3.5625,
+      "max_abs_err": 0.0896453857421875
+     },
+     "lofi": {
+      "rel_l2": 0.02303367136505013,
+      "first": -3.421875,
+      "max_abs_err": 1.024871826171875
+     },
+     "host_f64": {
+      "rel_l2": 0.0,
+      "note": "the reference IS this reduction, by construction"
+     },
+     "torch_bf16_sum": {
+      "rel_l2": 0.0016683129453183014,
+      "first": -3.5625
+     },
+     "torch_fp32_sum": {
+      "rel_l2": 3.3568891225586175e-09,
+      "first": -3.55712890625
+     }
+    },
+    {
+     "K": 1024,
+     "ref_l2": 348.03424310659597,
+     "cancellation": 26.486247601717423,
+     "shipped": {
+      "rel_l2": 0.0016857808005885323,
+      "first": -45.75,
+      "max_abs_err": 0.23186016082763672
+     },
+     "fp32_out": {
+      "error": "TypeError: \nttnn.sum(): incompatible function arguments.\n\nCalled with:\n  sum(ttnn.Tensor, dim=0, keepdim=True, compute_kernel_config=<ttnn._ttnn.operations.core.WormholeComputeKernelConfig object at 0x782a2a3acf"
+     },
+     "no_config": {
+      "rel_l2": 0.0016857808005885323,
+      "first": -45.75,
+      "max_abs_err": 0.23186016082763672
+     },
+     "lofi": {
+      "rel_l2": 0.020652293508639816,
+      "first": -45.25,
+      "max_abs_err": 1.9161090850830078
+     },
+     "host_f64": {
+      "rel_l2": 0.0,
+      "note": "the reference IS this reduction, by construction"
+     },
+     "torch_bf16_sum": {
+      "rel_l2": 0.0016851210307639003,
+      "first": -45.75
+     },
+     "torch_fp32_sum": {
+      "rel_l2": 2.379293582047718e-08,
+      "first": -45.86091613769531
+     }
+    },
+    {
+     "K": 8192,
+     "ref_l2": 1056.381458750291,
+     "cancellation": 70.00239493888323,
+     "shipped": {
+      "rel_l2": 0.001632832089731535,
+      "first": -15.0,
+      "max_abs_err": 0.4932742118835449
+     },
+     "fp32_out": {
+      "error": "TypeError: \nttnn.sum(): incompatible function arguments.\n\nCalled with:\n  sum(ttnn.Tensor, dim=0, keepdim=True, compute_kernel_config=<ttnn._ttnn.operations.core.WormholeComputeKernelConfig object at 0x782a2a3aef"
+     },
+     "no_config": {
+      "rel_l2": 0.001632832089731535,
+      "first": -15.0,
+      "max_abs_err": 0.4932742118835449
+     },
+     "lofi": {
+      "rel_l2": 0.09907736179759191,
+      "first": -22.125,
+      "max_abs_err": 25.67993140220642
+     },
+     "host_f64": {
+      "rel_l2": 0.0,
+      "note": "the reference IS this reduction, by construction"
+     },
+     "torch_bf16_sum": {
+      "rel_l2": 0.0016296893363012075,
+      "first": -15.0
+     },
+     "torch_fp32_sum": {
+      "rel_l2": 5.664704909311346e-08,
+      "first": -15.021110534667969
+     }
+    },
+    {
+     "K": 32768,
+     "ref_l2": 2063.11991721537,
+     "cancellation": 143.45288362341006,
+     "shipped": {
+      "rel_l2": 0.001553568190835115,
+      "first": 195.0,
+      "max_abs_err": 0.9473365917801857
+     },
+     "fp32_out": {
+      "error": "TypeError: \nttnn.sum(): incompatible function arguments.\n\nCalled with:\n  sum(ttnn.Tensor, dim=0, keepdim=True, compute_kernel_config=<ttnn._ttnn.operations.core.WormholeComputeKernelConfig object at 0x782a2a3ad3"
+     },
+     "no_config": {
+      "rel_l2": 0.001553568190835115,
+      "first": 195.0,
+      "max_abs_err": 0.9473365917801857
+     },
+     "lofi": {
+      "rel_l2": 0.5561121905861325,
+      "first": 268.0,
+      "max_abs_err": 306.9473365917802
+     },
+     "host_f64": {
+      "rel_l2": 0.0,
+      "note": "the reference IS this reduction, by construction"
+     },
+     "torch_bf16_sum": {
+      "rel_l2": 0.0015525911479381245,
+      "first": 195.0
+     },
+     "torch_fp32_sum": {
+      "rel_l2": 7.09718170099786e-08,
+      "first": 195.28201293945312
+     }
+    },
+    {
+     "K": 147456,
+     "ref_l2": 4440.943569341522,
+     "cancellation": 299.69273578409354,
+     "shipped": {
+      "rel_l2": 0.0015761727622020337,
+      "first": 390.0,
+      "max_abs_err": 3.138671398162842
+     },
+     "fp32_out": {
+      "error": "TypeError: \nttnn.sum(): incompatible function arguments.\n\nCalled with:\n  sum(ttnn.Tensor, dim=0, keepdim=True, compute_kernel_config=<ttnn._ttnn.operations.core.WormholeComputeKernelConfig object at 0x782a2a3acf"
+     },
+     "no_config": {
+      "rel_l2": 0.0015761727622020337,
+      "first": 390.0,
+      "max_abs_err": 3.138671398162842
+     },
+     "lofi": {
+      "rel_l2": 4.9053691175544145,
+      "first": 2976.0,
+      "max_abs_err": 3410.38005900383
+     },
+     "host_f64": {
+      "rel_l2": 0.0,
+      "note": "the reference IS this reduction, by construction"
+     },
+     "torch_bf16_sum": {
+      "rel_l2": 0.0015760764500439052,
+      "first": 390.0
+     },
+     "torch_fp32_sum": {
+      "rel_l2": 1.1265345341856297e-07,
+      "first": 390.5037536621094
+     }
+    }
+   ]
+  },
+  "spike": {
+   "why": "row 0 = 1.0, the rest 2^-10: the ORDER probe. A big-first sequential accumulator loses every small term once the running sum dominates it.",
+   "rungs": [
+    {
+     "K": 32,
+     "ref_l2": 11.656213346121994,
+     "cancellation": 1.0,
+     "shipped": {
+      "rel_l2": 0.0009478672985781991,
+      "first": 1.03125,
+      "max_abs_err": 0.0009765625
+     },
+     "fp32_out": {
+      "error": "TypeError: \nttnn.sum(): incompatible function arguments.\n\nCalled with:\n  sum(ttnn.Tensor, dim=0, keepdim=True, compute_kernel_config=<ttnn._ttnn.operations.core.WormholeComputeKernelConfig object at 0x782a2a3acf"
+     },
+     "no_config": {
+      "rel_l2": 0.0009478672985781991,
+      "first": 1.03125,
+      "max_abs_err": 0.0009765625
+     },
+     "lofi": {
+      "rel_l2": 0.0009478672985781991,
+      "first": 1.03125,
+      "max_abs_err": 0.0009765625
+     },
+     "host_f64": {
+      "rel_l2": 0.0,
+      "note": "the reference IS this reduction, by construction"
+     },
+     "torch_bf16_sum": {
+      "rel_l2": 0.0009478672985781991,
+      "first": 1.03125
+     },
+     "torch_fp32_sum": {
+      "rel_l2": 0.0,
+      "first": 1.0302734375
+     }
+    },
+    {
+     "K": 256,
+     "ref_l2": 14.131087080274911,
+     "cancellation": 1.0,
+     "shipped": {
+      "rel_l2": 0.0007818608287724785,
+      "first": 1.25,
+      "max_abs_err": 0.0009765625
+     },
+     "fp32_out": {
+      "error": "TypeError: \nttnn.sum(): incompatible function arguments.\n\nCalled with:\n  sum(ttnn.Tensor, dim=0, keepdim=True, compute_kernel_config=<ttnn._ttnn.operations.core.WormholeComputeKernelConfig object at 0x782a2a3aef"
+     },
+     "no_config": {
+      "rel_l2": 0.0007818608287724785,
+      "first": 1.25,
+      "max_abs_err": 0.0009765625
+     },
+     "lofi": {
+      "rel_l2": 0.0007818608287724785,
+      "first": 1.25,
+      "max_abs_err": 0.0009765625
+     },
+     "host_f64": {
+      "rel_l2": 0.0,
+      "note": "the reference IS this reduction, by construction"
+     },
+     "torch_bf16_sum": {
+      "rel_l2": 0.0007818608287724785,
+      "first": 1.25
+     },
+     "torch_fp32_sum": {
+      "rel_l2": 0.0,
+      "first": 1.2490234375
+     }
+    },
+    {
+     "K": 1024,
+     "ref_l2": 22.61636845451348,
+     "cancellation": 1.0,
+     "shipped": {
+      "rel_l2": 0.0004885197850512946,
+      "first": 2.0,
+      "max_abs_err": 0.0009765625
+     },
+     "fp32_out": {
+      "error": "TypeError: \nttnn.sum(): incompatible function arguments.\n\nCalled with:\n  sum(ttnn.Tensor, dim=0, keepdim=True, compute_kernel_config=<ttnn._ttnn.operations.core.WormholeComputeKernelConfig object at 0x782a2a3ad3"
+     },
+     "no_config": {
+      "rel_l2": 0.0004885197850512946,
+      "first": 2.0,
+      "max_abs_err": 0.0009765625
+     },
+     "lofi": {
+      "rel_l2": 0.0004885197850512946,
+      "first": 2.0,
+      "max_abs_err": 0.0009765625
+     },
+     "host_f64": {
+      "rel_l2": 0.0,
+      "note": "the reference IS this reduction, by construction"
+     },
+     "torch_bf16_sum": {
+      "rel_l2": 0.0004885197850512946,
+      "first": 2.0
+     },
+     "torch_fp32_sum": {
+      "rel_l2": 0.0,
+      "first": 1.9990234375
+     }
+    },
+    {
+     "K": 8192,
+     "ref_l2": 101.8123279474068,
+     "cancellation": 1.0,
+     "shipped": {
+      "rel_l2": 0.00010851871947911015,
+      "first": 9.0,
+      "max_abs_err": 0.0009765625
+     },
+     "fp32_out": {
+      "error": "TypeError: \nttnn.sum(): incompatible function arguments.\n\nCalled with:\n  sum(ttnn.Tensor, dim=0, keepdim=True, compute_kernel_config=<ttnn._ttnn.operations.core.WormholeComputeKernelConfig object at 0x782a2a3acf"
+     },
+     "no_config": {
+      "rel_l2": 0.00010851871947911015,
+      "first": 9.0,
+      "max_abs_err": 0.0009765625
+     },
+     "lofi": {
+      "rel_l2": 0.1110146500271297,
+      "first": 8.0,
+      "max_abs_err": 0.9990234375
+     },
+     "host_f64": {
+      "rel_l2": 0.0,
+      "note": "the reference IS this reduction, by construction"
+     },
+     "torch_bf16_sum": {
+      "rel_l2": 0.00010851871947911015,
+      "first": 9.0
+     },
+     "torch_fp32_sum": {
+      "rel_l2": 0.0,
+      "first": 8.9990234375
+     }
+    },
+    {
+     "K": 32768,
+     "ref_l2": 373.341331923041,
+     "cancellation": 1.0,
+     "shipped": {
+      "rel_l2": 2.9593678790210414e-05,
+      "first": 33.0,
+      "max_abs_err": 0.0009765625
+     },
+     "fp32_out": {
+      "error": "TypeError: \nttnn.sum(): incompatible function arguments.\n\nCalled with:\n  sum(ttnn.Tensor, dim=0, keepdim=True, compute_kernel_config=<ttnn._ttnn.operations.core.WormholeComputeKernelConfig object at 0x782a2a3acf"
+     },
+     "no_config": {
+      "rel_l2": 2.9593678790210414e-05,
+      "first": 33.0,
+      "max_abs_err": 0.0009765625
+     },
+     "lofi": {
+      "rel_l2": 0.7575685833505963,
+      "first": 8.0,
+      "max_abs_err": 24.9990234375
+     },
+     "host_f64": {
+      "rel_l2": 0.0,
+      "note": "the reference IS this reduction, by construction"
+     },
+     "torch_bf16_sum": {
+      "rel_l2": 2.9593678790210414e-05,
+      "first": 33.0
+     },
+     "torch_fp32_sum": {
+      "rel_l2": 0.0,
+      "first": 32.9990234375
+     }
+    },
+    {
+     "K": 147456,
+     "ref_l2": 1640.4766838093342,
+     "cancellation": 1.0,
+     "shipped": {
+      "rel_l2": 6.734959152472741e-06,
+      "first": 145.0,
+      "max_abs_err": 0.0009765625
+     },
+     "fp32_out": {
+      "error": "TypeError: \nttnn.sum(): incompatible function arguments.\n\nCalled with:\n  sum(ttnn.Tensor, dim=0, keepdim=True, compute_kernel_config=<ttnn._ttnn.operations.core.WormholeComputeKernelConfig object at 0x782a2a3aef"
+     },
+     "no_config": {
+      "rel_l2": 6.734959152472741e-06,
+      "first": 145.0,
+      "max_abs_err": 0.0009765625
+     },
+     "lofi": {
+      "rel_l2": 0.9448272146229433,
+      "first": 8.0,
+      "max_abs_err": 136.9990234375
+     },
+     "host_f64": {
+      "rel_l2": 0.0,
+      "note": "the reference IS this reduction, by construction"
+     },
+     "torch_bf16_sum": {
+      "rel_l2": 6.734959152472741e-06,
+      "first": 145.0
+     },
+     "torch_fp32_sum": {
+      "rel_l2": 0.0,
+      "first": 144.9990234375
+     }
+    }
+   ]
+  }
+ },
+ "finished_utc": "2026-09-22T15:35:04Z"
+}

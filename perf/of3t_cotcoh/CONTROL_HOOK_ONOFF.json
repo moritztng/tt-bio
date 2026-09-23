@@ -1,0 +1,15 @@
+{
+ "what": "reference hook control at full strength: the SAME producer on the SAME model-frame boundary, hooks on against hooks off, blocks 2, gradients compared tensor by tensor",
+ "host": "tt-quietbox",
+ "device_involved": false,
+ "blocks": 2,
+ "tensors": 114,
+ "moved": 0,
+ "worst_relative_move": 0.0,
+ "worst_at": null,
+ "loss_hooks_off": 0.1326711695098632,
+ "loss_hooks_on": 0.1326711695098632,
+ "loss_bit_identical": true,
+ "supersedes": "CONTROL_REFHOOK_n384.json, which compared a trunk-on-boundary run against the full-model bundle and therefore could not isolate the hook",
+ "verdict": "bit-identical, the hooks do not change the function they observe"
+}

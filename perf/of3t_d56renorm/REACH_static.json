@@ -1,0 +1,94 @@
+{
+ "call_count": 2,
+ "controls": {
+  "bare_alias_stays_quiet": true,
+  "extra_swap_caller_is_caught": true,
+  "flag_into_a_ttnn_call_is_caught": true,
+  "forward_branch_on_flag_is_caught": true,
+  "forward_caller_of_helper_is_caught": true,
+  "host_without_raise_is_caught": true,
+  "two_parses_is_caught": true
+ },
+ "failures": [],
+ "helper_call_sites": [
+  {
+   "file": "tt_bio/autograd.py",
+   "funcs": [
+    "bw",
+    "make",
+    "triangle_attention"
+   ],
+   "line": 1190
+  },
+  {
+   "file": "tt_bio/taped_ttnn.py",
+   "funcs": [
+    "bw",
+    "make",
+    "_v_softmax"
+   ],
+   "line": 226
+  }
+ ],
+ "read_count": 6,
+ "read_sites": [
+  {
+   "file": "tt_bio/autograd.py",
+   "funcs": [
+    "softmax_bw_inner"
+   ],
+   "gating": true,
+   "line": 126,
+   "touches_ttnn": false
+  },
+  {
+   "file": "tt_bio/autograd.py",
+   "funcs": [
+    "softmax_bw_inner"
+   ],
+   "gating": true,
+   "line": 125,
+   "touches_ttnn": false
+  },
+  {
+   "file": "tt_bio/autograd.py",
+   "funcs": [
+    "bw",
+    "make",
+    "host_f64_softmax"
+   ],
+   "gating": true,
+   "line": 942,
+   "touches_ttnn": false
+  },
+  {
+   "file": "tt_bio/autograd.py",
+   "funcs": [
+    "bw",
+    "make",
+    "host_f64_softmax"
+   ],
+   "gating": true,
+   "line": 941,
+   "touches_ttnn": false
+  },
+  {
+   "file": "tt_bio/autograd.py",
+   "funcs": [
+    "_dump_renorm_stats"
+   ],
+   "gating": false,
+   "line": 113,
+   "touches_ttnn": false
+  },
+  {
+   "file": "tt_bio/taped_ttnn.py",
+   "funcs": [],
+   "gating": false,
+   "line": 207,
+   "touches_ttnn": false
+  }
+ ],
+ "root": ".",
+ "verdict": "PASS"
+}

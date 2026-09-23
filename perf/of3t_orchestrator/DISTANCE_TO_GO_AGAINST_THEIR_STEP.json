@@ -1,0 +1,51 @@
+{
+  "as_of": "2026-09-22, orchestrator pass 333. Recomputed per-tensor from the wide model-scope sidecars; supersedes the pass-199 SHIPPED split this file carried, which predated D56's landing, of3t-modelboundary, of3t-hostleg and of3t-padshape.",
+  "definition": "each bucket is a share of the model's squared gradient norm (denominator 10.279642678524981). A tensor is counted PER TENSOR: ours is compared to upstream's OWN bf16 step on the same tensor, both scored against the same float64 reference. 'survives' means our relative L2 is AT OR BELOW upstream's own on that tensor -- we are no further from float64 than the thing we are reproducing.",
+  "survives": {
+    "total_pct": 48.1831,
+    "pct": 48.1831,
+    "scope": "per-tensor, across the whole compared union",
+    "reference": "upstream's own bf16 training step",
+    "note": "our relative L2 <= upstream's own on the same tensor"
+  },
+  "measured_and_PASSES": {
+    "total_pct": 0.0,
+    "pct": 0.0,
+    "note": "merged into `survives`. The old file split these because it scored two scopes against two different references (layer_norm_a against upstream's bf16, aux_heads against float64); this recompute uses ONE reference for every tensor, so a second bucket would be a distinction without a difference."
+  },
+  "measured_and_fails": {
+    "total_pct": 49.8019,
+    "pct": 49.8019,
+    "note": "our relative L2 exceeds upstream's own bf16 on that tensor"
+  },
+  "no_direct_reading": {
+    "total_pct": 2.015,
+    "pct": 2.015,
+    "items": [
+      {
+        "scope": "outside the compared union of 3,643 tensors",
+        "pct": 2.015,
+        "note": "1.52024 of this is of3t-hostleg's seventeen HOST_APPLIED tensors, which have a reading ONLY under TT_BIO_OF3_DEVICE_REFATOM. That flag is default-off, so on the shipped arm they read rel_l2 exactly 1.0 -- a zero gradient -- and the mass stays unread here. See D184."
+      }
+    ],
+    "the_0.74055_never_can_wording_is_WITHDRAWN": "of3t-readable-mass showed the excluded mass is BLOCKED, not unreadable"
+  },
+  "headline": "48.1831 %% of OpenFold3's gradient mass is AT OR BETTER than upstream's own bf16 training step, tensor by tensor; 49.8019 %% is worse; 2.015 %% has no direct reading at all on the shipped arm.",
+  "and_the_tension_that_matters": "This split and the mass-weighted aggregate point OPPOSITE ways and both are true. Per tensor we match or beat upstream on 48.1831 %% of the mass, while the mass-weighted relative L2 over the same union is 0.520124 against the A26 reachable bar of 0.147353 -- 3.53x, a FAIL. The failures concentrate in high-mass tensors and upstream's own errors are spread over many small ones, which is the same shape D176 found on the over-bar COUNT (ours 3,311 against upstream's 3,478). Neither number alone describes the campaign: quote both or quote the aggregate, never the per-tensor share on its own.",
+  "sources": [
+    {
+      "path": "perf/of3t_modelboundary/sidecar_modelboundary/renorm_vs_FLOAT64.json",
+      "n_rows": 3643,
+      "arm": "renorm (D56 on, the shipped backward)"
+    },
+    {
+      "path": "perf/of3t_modelboundary/sidecar_modelboundary/UPSTREAM_BF16_vs_FLOAT64.json",
+      "n_rows": 3643,
+      "arm": "upstream's own bf16 step"
+    }
+  ],
+  "denominator": {
+    "model_squared_gradient_norm": 10.279642678524981,
+    "compared_union_pct": 97.985
+  }
+}

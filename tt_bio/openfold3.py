@@ -85,6 +85,39 @@ class InputEmbedderGlue(Module):
         return s, z
 
 
+class AtomEncoderTokenHead(Module):
+    """OF3 atom-encoder aggregation head: masked per-atom ``ql`` -> per-token ``ai``.
+
+        ai = atom_to_token_mean @ relu(linear_q(ql * atom_mask))
+
+    The input embedder's atom encoder ends here, and on the shipped path it ended on the
+    host: ``openfold3_host_prep.run_input_atom_encoder`` brought ``ql`` back with a
+    ``ttnn.to_torch`` and applied ``linear_q.0.weight`` in host float32, which is why that
+    weight has no device gradient. ``OF3DiffusionModule._post_encoder`` performs the same
+    two ops on its own ``linear_q.0.weight`` and keeps them on the card; this is that leg
+    for the other encoder.
+
+    Inputs (device):
+        ql:                 [1, N_atom, c_atom=128]
+        atom_mask_col:      [1, N_atom, 1]
+        atom_to_token_mean: [1, N_token, N_atom]
+
+    Output (device):
+        ai: [1, N_token, c_s=384]
+    """
+
+    def __init__(self, state_dict, compute_kernel_config):
+        super().__init__(state_dict, compute_kernel_config)
+        self.w_q = self.torch_to_tt("0.weight")
+
+    def __call__(self, ql, atom_mask_col, atom_to_token_mean):
+        q = self._lin(ttnn.multiply(ql, atom_mask_col), self.w_q, activation="relu")
+        ai = ttnn.matmul(atom_to_token_mean, q,
+                         compute_kernel_config=self.compute_kernel_config)
+        ttnn.deallocate(q)
+        return ai
+
+
 class RefAtomFeatureEmbedder(Module):
     """OF3 ``RefAtomFeatureEmbedder``: reference-conformer atom featurization.
 

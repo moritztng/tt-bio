@@ -1,0 +1,33 @@
+{
+ "instrument": "one feature edit applied to a batch the path cannot act on, tensor by tensor",
+ "edit_applied": "templates",
+ "stage": "initial_training",
+ "dataset": "weighted-pdb",
+ "crop": 384,
+ "index": 33,
+ "seed": 20260921,
+ "target": {
+  "pdb_id": "5oid",
+  "datapoint": "1",
+  "n_tokens_real": 374,
+  "molecule_type_tokens": {
+   "is_protein": 374,
+   "is_dna": 0,
+   "is_rna": 0,
+   "is_ligand": 0
+  },
+  "template_pseudo_beta_mask_nnz": 0
+ },
+ "edit": {
+  "masks_zeroed": [
+   "template_pseudo_beta_mask",
+   "template_backbone_frame_mask"
+  ],
+  "entries_cleared": 0
+ },
+ "tensors_compared": 424,
+ "tensors_moved": [],
+ "n_tensors_moved": 0,
+ "verdict": "NO-OP",
+ "total_s": 6.106029510498047
+}
