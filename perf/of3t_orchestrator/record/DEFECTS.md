@@ -1120,3 +1120,42 @@ look ambiguous, they looked HEALTHY — 100 % CPU with CPU-time tracking elapsed
 AICLK pinned at 1350 MHz against 800 on the idle cards, and 9 W over idle. **A wedged chip was
 drawing power and clocked up while computing nothing.** That is a stronger statement of
 `chip-holder-at-100pct-cpu-can-be-a-corpse` than the entry it was filed under.
+
+**Addendum to D30, D58 and D129, pass 414 — the STATUS had propagated and the PROSE had not,
+and the prose is what I read.** `of3t-tapeamp` concluded **GO on 2026-09-22** with *"the
+question is answered and the answer is that there is no defect here to repair"*. I found it only
+by re-dispatching a row whose name was already taken — and then checked, rather than assuming:
+`statuses_by_defect` already returned **CLOSED** for D30 and D129 *before* this addendum
+existed. **The machine-readable half was correct all along.** What was stale is D30's own
+heading, which still opens *"UNFIXED, and it is the campaign's central number"* and still
+carries **19.6x**, and the USER-FACING closure plan, which still named `of3t-ditcot` as D58's
+owner — a row that did not answer it — while quoting the same stale pair of numbers. So a reader
+of this ledger got the wrong picture from an entry the gate scored correctly. That is R148's
+shape exactly: **published status right, prose beside it stale.** Recorded now from the row's
+own state doc:
+
+- **D30 — CLOSED as not a defect**, its filed number corrected twice over. The ~20x is two
+  revisions stale: **11.026x** on diffusion, **10.903x** on `msa_module`. **7.666x of our
+  11.026x is present in upstream 0.4.3's own bf16 recipe**, measured at the same boundary
+  against the same float64 reference on the same 547 tensors, out of one process on one host.
+  Upstream's own **fp32** recipe shows **9.326x** at four orders of magnitude lower absolute
+  error, so the factor survives a precision change no dtype boundary could explain, and the call
+  census finds **0 dtype reconciliations in 1,879 node firings**. **Our arm is more accurate
+  than upstream's on BOTH halves** — forward by 1.959x, gradient by 1.362x — and our factor is
+  the larger one only because the denominator is the half we beat it on hardest
+  (`a-share-moves-when-its-denominator-collapses`).
+- **D129 — DISSOLVED**, and not by that row: `of3t-ditref` had already done it. The leaf reads
+  **0.0854492105** against upstream 0.4.3's own bf16 floor of **1.5931532097e-01** for the same
+  leaf — **0.536x, below its own floor**.
+- **D58 — NARROWED, NOT CLOSED, and it stays UNFIXED.** Its claim is that the factor belongs to
+  the tape rather than to any module, resting on two sightings agreeing to two significant
+  figures. `of3t-tapeamp` **refutes the "belongs to the tape" half on the diffusion track** and
+  supplies a mechanism that explains the agreement without an amplifier — but it **did not
+  measure `msa_module`**, and no upstream bf16 arm exists for that boundary anywhere in the
+  campaign. **One leg re-explained, one leg unmeasured.**
+
+**I am recording that I checked myself here.** Closing defects shrinks the count and
+`reclassifying-out-of-user-facing-is-the-flattering-direction` is a standing trap. D30 and D129
+are campaign-internal, so closing them moves no user-facing number; **D58 is the user-facing one
+and it stays open**, because half its claim is genuinely unmeasured and the row that narrowed it
+said so itself rather than rounding to a close.

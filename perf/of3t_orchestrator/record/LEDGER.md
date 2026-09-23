@@ -1187,3 +1187,57 @@ closed there and 43.61 % needed here are two numbers about two frames; the tempt
 more tempting than usual because it points somewhere good. **Dispatched `of3t-modelever` to
 MEASURE it** rather than infer it: the package install on the model-frame trunk arm, re-scored
 against `CLAUSE.json`'s pre-registered levels, no bar moved.
+
+### R189. I dispatched a row whose name was already concluded; the fleet silently did not launch it, and the reason I dispatched was that the PROSE was stale while the STATUS was right (pass 414, zero card)
+
+I wrote a brief and a TASKS entry for `of3t-tapeamp` onto D30/D58/D129. **A row of that name
+had already run and concluded GO on 2026-09-22**, with *"the question is answered and the answer
+is that there is no defect here to repair."* Because a concluded marker exists, the fleet never
+relaunched it — **so no card was spent, and no warning was raised either.** A brief plus a
+`<!--ws:-->` tag for a concluded name is a **silent no-op**: it looks dispatched in every place a
+dispatch is recorded, and nothing ever runs. That is worse than a visible failure, and it is the
+mirror of `brief-with-no-tasks-ws-tag-never-queues-and-logs-nothing`.
+
+**Why I dispatched, and this is the part worth keeping.** I read D30's ledger entry, whose
+heading still opens *"UNFIXED, and it is the campaign's central number"* and still carries
+**19.6x**; and the USER-FACING closure plan, which named **`of3t-ditcot`** as D58's owner — a row
+that did not answer it — while quoting the same stale pair. Both told me the question was open
+and unowned. **Then I checked instead of assuming, and `statuses_by_defect` already returned
+CLOSED for D30 and D129 before I touched anything.** The machine-readable half had been right all
+along. **Published status right, prose beside it stale — R148's exact shape, and I read the
+prose**, because the prose is what a reader reads.
+
+**What the already-concluded row had found**, now finally recorded in the ledger it was about:
+the ~20x is two revisions stale at **11.026x**, of which **7.666x is present in upstream 0.4.3's
+own bf16 recipe** at the same boundary and reference; upstream's own fp32 recipe shows **9.326x**
+at four orders of magnitude lower absolute error, so the factor survives a precision change no
+dtype boundary could explain; **0 dtype reconciliations in 1,879 node firings**; and **our arm
+beats upstream on both halves** — forward 1.959x, gradient 1.362x — so our factor is the larger
+one only because the denominator is the half we beat hardest. D30 closed as not a defect, D129
+dissolved by `of3t-ditref`, **D58 narrowed and NOT closed**: the diffusion leg is re-explained,
+`msa_module`'s was never measured and no upstream bf16 arm for that boundary exists anywhere.
+
+**One repair, and one guard I built and then threw away.** `of3t-msaamp` is dispatched onto
+exactly the unmeasured leg, carrying the prior row's method instead of the stale framing.
+
+The guard did not survive contact. I wrote
+`assert_no_brief_for_concluded_row.py` to refuse the silent no-op and tried three signals for
+it. **"Brief + live ws-tag + concluded marker" fired on 34 rows** — leaving the TASKS tag in
+place after a row concludes is the fleet's normal residue, not an anomaly. **Brief mtime newer
+than the marker fired on 103** — git checkouts reset mtime, so it carries nothing. **Git
+CREATION date of the brief newer than the marker still fired on dozens**, because the concluded
+markers are themselves rewritten by sync and their mtimes are not when the row concluded. **The
+disk does not carry a trustworthy "when did this row conclude", so the check cannot be built
+from it**, and I deleted the script rather than ship one that fires forty times. A guard that
+must be suppressed everywhere teaches everyone to ignore it — this campaign already owns
+`a-gate-arm-can-be-permanently-red-on-main-and-then-gates-nothing`, and adding a second one to
+feel covered would be the flattering move.
+
+**So the repair is a habit with a cost of one command, not a ratchet**: before writing a brief,
+`ls /home/moritz/.coworker/state/concluded/ | grep <row-name>`. I am recording the failed
+designs because the next person to want this guard should not re-derive all three.
+
+**And I checked myself on the flattering direction.** Closing defects shrinks counts.
+D30 and D129 are campaign-internal so closing them moves no user-facing number, and **D58 — the
+user-facing one — stays open**, because the row that narrowed it said one leg was unmeasured
+rather than rounding to a close. `reclassifying-out-of-user-facing-is-the-flattering-direction`.

@@ -178,16 +178,31 @@ PLAN = {
         "asked": ("not yet asked, and not yet owned. It is the only USER-FACING item whose repair "
                   "has not been built"),
     },
+    # Pass 414: every field here was stale and one was wrong. `row` named `of3t-ditcot`, which
+    # did not answer this; the row that narrowed it is `of3t-tapeamp`, concluded 2026-09-22. The
+    # one_line and evidence quoted 19.6x/19.8x, two revisions out of date. I read this entry and
+    # dispatched against it, which is how the staleness surfaced.
     "D58": {
         "needs": CARD,
-        "one_line": "the ~20x amplification belongs to the tape, not to any module: 19.6x and 19.8x in two independent modules",
-        "closes_when": ("the same locating measurement as D30. Two independent sightings make it a "
-                        "property to explain rather than a coincidence to chase"),
-        "evidence_held": ("diffusion 0.85 % forward / 16.6 % gradient; msa_module 0.82 % / 16.2 % -- "
-                          "different ops, different track, same factor to two significant figures"),
+        "one_line": "HALF-ANSWERED: the diffusion leg is re-explained (11.026x, of which 7.666x is upstream 0.4.3's OWN bf16 factor); msa_module's leg is still unmeasured",
+        "closes_when": ("an upstream bf16 arm at the `msa_module` boundary, priced the way "
+                        "`of3t-tapeamp` priced diffusion: same boundary, same float64 reference, "
+                        "one process, one host. If msa_module's factor is also mostly upstream's "
+                        "own, D58 closes as not a defect; if it is not, there is a real "
+                        "module-specific amplifier and it is worth the capture. No such arm "
+                        "exists anywhere in the campaign -- it is a boundary capture plus a "
+                        "float64 reference, not an afternoon, which is why it is still open"),
+        "evidence_held": ("`of3t-tapeamp` (GO, 2026-09-22) refuted the 'belongs to the tape' half "
+                          "ON THE DIFFUSION TRACK: our 11.026x contains 7.666x of upstream's own, "
+                          "upstream's fp32 recipe shows 9.326x at four orders of magnitude lower "
+                          "absolute error so the factor survives a precision change no dtype "
+                          "boundary could explain, and the census finds 0 dtype reconciliations "
+                          "in 1,879 node firings. Our arm beats upstream on BOTH halves -- "
+                          "forward 1.959x, gradient 1.362x -- so our factor is larger only "
+                          "because the denominator is the half we beat hardest. That row did NOT "
+                          "measure msa_module and said so; D30 and D129 are closed"),
         "would_a_row_help": True,
-        "row": "of3t-ditcot",
-        "shares_object_with": ["D30", "D129"],
+        "row": "of3t-msaamp",   # dispatched pass 414, scoped to the one unmeasured leg
     },
     "D205": {
         "needs": CARD,
@@ -206,6 +221,7 @@ PLAN = {
                           "LOWER bound, so 768's 1.558x overshoot is a floor; and odd 32-tile "
                           "counts (480, 544) narrow the fp32-softmax L1 plan to 0 B where every "
                           "even count measured keeps it"),
+        "row": "of3t-cropwall",   # dispatched pass 414; it overturned the mechanism (D248)
         "owner": "of3t-crop768, CONCLUDED 2026-09-21 -- absorbed into the ledger at pass 349 "
                  "(D204: nothing checked that it ever was)",
     },

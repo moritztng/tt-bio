@@ -64,7 +64,7 @@ as such, because their runner genuinely produces absent gradients. **§7, the gr
 20-step trajectory's bar is not a magnitude but the shape of divergence in k — linear or
 sub-linear passes, super-linear fails at any magnitude, including inside the per-step bars.
 
-LEDGER: `~/.coworker/state/of3t/LEDGER.md`, **R1-R188 and K1-K19**. **This field is an INDEX, not
+LEDGER: `~/.coworker/state/of3t/LEDGER.md`, **R1-R189 and K1-K19**. **This field is an INDEX, not
 a copy** — it carried ~41 KB of transcribed entries until pass 399, re-read every pass beside the
 file that already holds them (`a-digest-with-one-carrier-is-a-transcription`). Every entry's full
 text, evidence and artifact path is in the LEDGER file while it is in the tail, and in
@@ -73,6 +73,12 @@ left the tail most recently**, and the rule rather than a filename is named here
 naming one archive was itself a thing that rots (the file is 150 KB and rotation is live). What each recent
 entry settles, one line, newest first:
 
+- **R189** I dispatched an already-CONCLUDED row name; the fleet silently no-ops it (brief +
+  ws-tag, no launch, no warning). I dispatched because D30's heading prose said UNFIXED/19.6x
+  while its STATUS already said CLOSED — R148's shape, and prose is what a reader reads.
+  D30 closed, D129 dissolved, D58 NARROWED not closed; `of3t-msaamp` takes the one open leg.
+  Built a guard against the no-op, tried three signals, **all fired on fleet-normal residue
+  (34/103/dozens) — deleted it** rather than ship a permanently-red arm
 - **R188** the exact softmax **CLOSES THE ANGLE** — 50.003 % of frame384's 71.6968°, with the
   counterfactual pricing direction at 67.7 % of the move vs magnitude's 36.3 %. A/A floor
   EXACTLY 0. Headline moves 1.0525x -> 1.2224x. Does NOT project onto the clause's frame;
@@ -1465,3 +1471,41 @@ named and nobody ran — the harness's `bisect` field is `{}` in every 0.4.3 run
 `of3t-cropwall` DEFERred itself to 03:25 with a stated reason and its detached ladder chain is
 healthy (`split_trace` at 96.5 % CPU); that is a clean defer, not a dropped row, and I checked
 the process rather than the marker. No MGX row contends for a qb card.
+
+### Pass 414, sixth part — I dispatched a row that had already answered the question
+
+`of3t-tapeamp` went out onto D30/D58/D129. **A row of that name had already concluded GO on
+2026-09-22**: *"the question is answered and the answer is that there is no defect here to
+repair."* The fleet will not relaunch a name with a concluded marker, so nothing ran and nothing
+warned — **a brief plus a `<!--ws:-->` tag for a concluded name is a silent no-op**, and every
+place a dispatch is recorded said dispatched. No card was spent, which is precisely why nothing
+caught it.
+
+**Why I dispatched is the part worth keeping.** D30's ledger heading still opens *"UNFIXED, and
+it is the campaign's central number"* carrying **19.6x**, and the closure plan named
+**`of3t-ditcot`** as D58's owner — a row that did not answer it — quoting the same stale pair.
+Then I checked instead of assuming, and `statuses_by_defect` **already returned CLOSED for D30
+and D129 before I touched anything**. The machine-readable half was right all along; the prose
+beside it was two revisions stale, and the prose is what a reader reads. R148's exact shape,
+which this campaign has now paid for at least three times.
+
+**What the earlier row had found, now in the ledger it was about**: the factor is **11.026x**,
+not ~20x, and **7.666x of it is upstream 0.4.3's own bf16 factor** at the same boundary and
+reference; upstream's own fp32 recipe shows **9.326x** at four orders of magnitude lower
+absolute error, so it survives a precision change no dtype boundary could explain; **0 dtype
+reconciliations in 1,879 node firings**; and **our arm beats upstream on both halves** — forward
+1.959x, gradient 1.362x — so our factor is larger only because the denominator is the half we
+beat hardest. D30 closed as not a defect, D129 dissolved by `of3t-ditref`, **D58 narrowed and
+explicitly NOT closed**: one leg re-explained, `msa_module`'s never measured.
+
+**`of3t-msaamp` is dispatched onto exactly that leg**, on the idle qb1, carrying the prior row's
+method and pre-registration discipline instead of the stale framing, and forbidden from
+preferring either outcome.
+
+**And I built a guard for the silent no-op, then deleted it.** Three signals, all noise:
+brief+tag+marker fired on **34** rows (leftover tags are the fleet's normal residue), brief
+mtime fired on **103** (git checkouts reset mtime), git creation date still fired on dozens
+(the concluded markers are rewritten by sync, so their mtimes are not when rows concluded).
+**The disk does not carry a trustworthy conclusion timestamp, so the check cannot be built from
+it.** Shipping it anyway would have bought a second permanently-red arm — the thing this
+campaign already knows gates nothing. The repair is a one-command habit before writing a brief.
