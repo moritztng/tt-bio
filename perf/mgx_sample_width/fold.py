@@ -32,7 +32,9 @@ NEVER = {"1", "4", "24", "25", "26", "27"}   # cardblocked, and chip 4's hung ho
 RUNS = HERE / "runs.jsonl"
 
 
-def _pinned_live(card):
+def _pinned():
+    """Every card some other live process has in its TT_VISIBLE_DEVICES."""
+    cards = set()
     for p in Path("/proc").iterdir():
         if not p.name.isdigit() or int(p.name) == os.getpid():
             continue
@@ -42,16 +44,15 @@ def _pinned_live(card):
             continue
         for kv in env:
             if kv.startswith(b"TT_VISIBLE_DEVICES="):
-                if card in kv.split(b"=", 1)[1].decode().split(","):
-                    return True
-    return False
+                cards.update(kv.split(b"=", 1)[1].decode().split(","))
+    return cards
 
 
 def _lease(card):
     return LEASES / f"j10glx02-card{card}.json"
 
 
-def _free(card):
+def _free(card, pinned):
     try:
         d = json.loads(_lease(card).read_text())
     except (OSError, ValueError):
@@ -59,7 +60,7 @@ def _free(card):
     mine = d.get("holder") == ME and d.get("pid") == os.getpid()
     if not (mine or d.get("released") or not Path(f"/proc/{d.get('pid')}").exists()):
         return False
-    return mine or not _pinned_live(card)
+    return mine or card not in pinned
 
 
 def _claim(card):
@@ -77,16 +78,19 @@ def _release(card):
 
 
 def take(pool, current=None):
+    """Poll every 3 s: released cards are re-taken within seconds by the other rows' chains."""
     while True:
-        for c in ([current] if current else []) + pool:
-            if c in NEVER:
-                continue
+        leased = [c for c in ([current] if current else []) + pool
+                  if c not in NEVER and _free(c, set())]
+        if leased:
+            pinned = _pinned()
             with open(LEASES / ".mgx-sample-width.lock", "a") as fh:
                 fcntl.flock(fh, fcntl.LOCK_EX)
-                if _free(c):
-                    _claim(c)
-                    return c
-        time.sleep(30)
+                for c in leased:
+                    if _free(c, pinned):
+                        _claim(c)
+                        return c
+        time.sleep(3)
 
 
 def done():
