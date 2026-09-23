@@ -146,7 +146,7 @@ from tt_bio import __version__, size_limits, weights
 from tt_bio.data import const
 from tt_bio.data.mol import load_molecules
 from tt_bio.data.msa import run_mmseqs2
-from tt_bio.cache import cached, paired_msa_dir, publish_file, publish_text, seq_hash
+from tt_bio.cache import EMPTY_MSA, cached, paired_msa_dir, publish_file, publish_text, seq_hash
 from tt_bio.data.parse import parse_a3m, parse_csv, parse_fasta, parse_yaml
 from tt_bio.data.pdb import write_atom_array
 from tt_bio.data.types import Coords, Input, Interface
@@ -2400,7 +2400,7 @@ def _read_bio_chains(path, what="input"):
                 if typ in ("", "protein"):
                     cid, buf, mt = parts[0].strip(), [], "protein"
                     m = parts[2].strip() if len(parts) > 2 else ""
-                    msa = m if m and m.lower() != "empty" else None
+                    msa = EMPTY_MSA if m.lower() == EMPTY_MSA else (m or None)
                 elif typ in _NA_HEADER_TYPES:
                     cid, buf, mt, msa = parts[0].strip(), [], _NA_HEADER_TYPES[typ], None
                 elif typ in ("ccd", "ion", "smiles", "ligand"):
@@ -2425,7 +2425,8 @@ def _read_bio_chains(path, what="input"):
                     # chain; skipping it here folded the rest of the complex without it
                     continue
                 m = sub.get("msa") if mt == "protein" else None
-                m = str(m) if m and str(m).lower() not in ("", "empty") else None
+                m = str(m).strip() if m else None
+                m = EMPTY_MSA if m and m.lower() == EMPTY_MSA else (m or None)
                 mods = _read_modifications(sub, key)
                 ids = sub.get("id", "A")
                 id_list = ([str(x) for x in ids] if isinstance(ids, (list, tuple))
@@ -2601,6 +2602,8 @@ def _resolve_a3m_path(msa_spec, sequence, msa_dir):
     explicit a3m path (``msa_spec``), then the shared ``{sha256(seq)[:16]}.a3m`` cache in
     ``msa_dir`` (written by the same MSA generation ESMFold2/Boltz-2 use). Mirrors
     resolve_msa's candidate order."""
+    if msa_spec == EMPTY_MSA:
+        return None
     candidates = []
     if msa_spec:
         candidates.append(Path(msa_spec).expanduser())
