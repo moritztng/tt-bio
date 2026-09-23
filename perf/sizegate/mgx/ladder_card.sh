@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # One model's Wormhole Galaxy size ladder on one pinned chip, run from a git checkout on whglx.
-#   ladder_card.sh <record|check> <card> <model> [rungs]
+#   ladder_card.sh <record|check|probe> <card> <model> [rungs]
 # record with no rungs walks the model's shared rungs first and 1280,1536 second, so a model that
 # dies at the top keeps the rungs below it (the recorder carries same-engine cells forward).
 set -u
@@ -25,6 +25,10 @@ run() {  # $1 = log tag, rest = extra args
 }
 if [ "$mode" = check ]; then
   run check
+elif [ "$mode" = probe ]; then
+  echo "[$(date -u +%FT%TZ)] START probe $model $rungs card $card" >> "$log/$model.probe.log"
+  "$py" perf/sizegate/mgx/probe.py "$model" "$rungs" >> "$log/$model.probe.log" 2>&1
+  echo "[$(date -u +%FT%TZ)] EXIT $? probe $model" >> "$log/$model.probe.log"
 elif [ -n "$rungs" ]; then
   run "rec-$rungs" --size-ladder-record --size-ladder-fragment --size-ladder-rungs "$rungs"
 else
