@@ -528,6 +528,8 @@ class Boltz(nn.Module):
                         s_inputs, s_init, z_init, feats, recycling_steps,
                         relative_position_encoding,
                     )
+                    # Its staged inputs are dead now; see the same call in boltz2.py.
+                    _trunk.reset_static_cache()
                     _emit_progress("trunk", recycling_steps + 1, recycling_steps + 1)
                 else:
                     for i in range(recycling_steps + 1):
@@ -637,6 +639,10 @@ class Boltz(nn.Module):
                         feats=feats,
                     )
                 dict_out.update(struct_out)
+            # The sampler's staged conditioning is dead too, and the confidence head is next.
+            for m in self.structure_module.modules():
+                if hasattr(m, "reset_static_cache"):
+                    m.reset_static_cache()
 
         if self.confidence_prediction:
             dict_out.update(
