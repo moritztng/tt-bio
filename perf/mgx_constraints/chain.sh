@@ -70,6 +70,10 @@ for M in "$@"; do
     fold "$M" bondctrl --diffusion_samples 5 -- $I/bond_ligand_ctrl.yaml \
         $I/bond_protein_cys_ctrl.yaml; continue
   fi
+  if [ -n "${SSPROBE:-}" ]; then     # the non-native disulfide and its unbonded control
+    fold "$M" ssprobe --diffusion_samples 5 -- $I/ss_probe.yaml $I/ss_probe_ctrl.yaml
+    continue
+  fi
   fold "$M" cons --diffusion_samples 5 -- $I/sfti_cyclic_ss.yaml $I/sfti_cyclic.yaml \
       $I/sfti_ss.yaml $I/sfti_linear.yaml $I/cyclic.yaml $I/bond_ligand.yaml \
       $I/bond_protein_cys.yaml $I/modification.yaml

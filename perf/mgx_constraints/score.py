@@ -8,6 +8,7 @@ sfti_*          N1-C14 (a closed amide is 1.33 A; 1SFI's is 1.33), SG3-SG11 (1SF
 cyclic          N1-C13 on the matrix's own cyclic peptide
 bond_ligand     the ligand atom nearest SG of A2 and its distance (a C-S bond is 1.82 A)
 bond_protein_cys  SG A2 - SG B4 (a disulfide is 2.05 A)
+ss_probe        SG A2 - SG A23 on a GS linker, a disulfide no sequence predicts
 modification    the residue name at position 7 and whether its phosphate P is present
 base            max |dxyz| against the same model's base fold in the mgx-matrix run
 
@@ -27,7 +28,7 @@ import numpy as np
 HERE = Path(__file__).resolve().parent
 STEMS = ("sfti_cyclic_ss", "sfti_cyclic", "sfti_ss", "sfti_linear", "cyclic", "linear13",
          "bond_ligand_ctrl", "bond_ligand", "bond_protein_cys_ctrl", "bond_protein_cys",
-         "modification", "base")
+         "ss_probe_ctrl", "ss_probe", "modification", "base")
 
 
 def crystal():
@@ -79,6 +80,10 @@ def score(stem, path, ref_ca):
         row["bonded"] = near[0] is not None and 1.0 < near[0] < 2.5
     if stem == "bond_protein_cys":
         row["sg_sg"] = dist(atom(chains[0][1], "SG"), atom(chains[1][3], "SG"))
+    if stem == "ss_probe":
+        ch = chains[0]
+        row["sg_sg"] = dist(atom(ch[1], "SG"), atom(ch[22], "SG"))
+        row["bonded"] = row["sg_sg"] is not None and row["sg_sg"] < 2.5
     if stem == "modification":
         r7 = chains[0][6]
         row["res7"], row["has_P"] = r7.name, atom(r7, "P") is not None
