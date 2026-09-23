@@ -529,48 +529,39 @@ card and same seed. A prediction never imports the module the branch lives in at
 costs 6.385e-05 s per softmax backward at 16 heads and 384 tokens, 1.0879x that op, measured
 interleaved on a p150a at 1350 MHz against an A/A floor of 1.163e-05 s (`perf/of3t_d56renorm/`).
 
-### The whole trunk, in one call, with no environment variable
+### Softmax and layer norm run in float64 during training, by default
 
-The flag above is per construction site, and for OpenFold3's trunk the site route is not the
-one that fires. The Pairformer ships `fp32_softmax=True`, so `site_softmax` sits in the other
-branch and the selector reaches the trunk only through the fp32-softmax attention tail. It does
-reach it: at crop 384 with `TT_BIO_HOST_F64_SOFTMAX_AB=pairformer`, 7,442 calls served. But
-1,685 of those arrive with no tape node, which buys an exact forward and leaves the Jacobian
-wherever the surrounding region already was, and that arm lands at 0.5605 against an upstream
-float64 reference where the install below lands at 0.4175. Turning more softmaxes exact moved
-the gradient farther from the true one.
+Every training tape computes softmax and layer norm on the host in float64: the forward, the
+backward, and every forward the backward recomputes. Nothing else changes, and inference never
+does this. On OpenFold3 this is what brings the gradient inside its accuracy bar: the
+model-frame gradient against upstream OpenFold3 0.4.3 reads 1.45x the bar with the device
+kernels, 1.30x with only the softmax exact, and 0.98x with both. The float64-reference error
+falls at the same time (0.167 to 0.112 whole-model), so this is fidelity, not a closer match to
+upstream's own rounding. The measurement is `perf/of3t_stackexact/LADDER.json`.
 
-For the trunk, ask `install` instead:
+It is not free. Each softmax and layer norm is a host round trip, and on the OpenFold3 trunk
+step at crop 384 that is COST_SENTENCE If you want speed over fidelity, turn it off:
 
-    with tt_bio.autograd.exact_softmax():
-        with tt_bio.autograd.tape():
-            out = model(x)
-        out.backward()
+```bash
+tt-bio finetune ... --device-ops
+```
 
-or `tt_bio.autograd.install(exact_softmax=True)` and `uninstall()` if you drive the install
-yourself. It replaces two things, and both are needed. The taped `softmax` verb, so every
-softmax under the tape is exact in the forward and in its Jacobian. And `ttnn.softmax` itself,
-which is the only way to reach the chunked triangle-attention backward: that backward recomputes
-its probabilities rather than saving them, so a lever that stopped at the verb would take the
-Jacobian at activations the forward never produced. What is left on the card is one reduction,
-computed on an exact input.
+    with tt_bio.autograd.exact_training(False):
+        ...                     # tapes and backwards opened here use the device kernels
 
-On the OpenFold3 trunk's backward at crop 384, against an upstream float64 reference, this takes
-the mass-weighted relative error from **0.7030** on the device softmax to **0.4175**. Against
-upstream's own bf16 step it reads 0.5545 where the reachable bar for that scope is 0.5269, so it
-is inside the bar at 1.05x. It serves 5,901 softmaxes through the verb and 1,742 through the raw
-op, and costs a host round trip on every one of them: 2,916 s where the device softmax takes
-959 s, on a p150a.
+What turns it on is the training stack itself, not a flag. `tt_bio.autograd.install()` opens the
+float64 ops until its `uninstall()`, and the recipe holds one install across the whole fit, so
+the discovery forward, every step and the structure rollout between OpenFold3's two tapes all
+run them. The discovery forward has to: the step's gradient depends on what ran before it,
+because the attention kernels size their blocks from what they learned on the first forward.
+`tape()` and `backward()` also open them for their own extent, for a caller that drives a tape
+without `install()`. Each takes out only what it put in. There is no environment variable. No inference module imports the module these live in, so a fold cannot
+reach them: an OpenFold3, Protenix-v2 and AF2-IG fold before and after this default write
+byte-identical structures with the training package never imported (`perf/of3t_stackship/`).
+A run records which ops ran exact in its provenance, under `exact_ops`.
 
-The block is wider than `tape()` on purpose, because the backward runs after the tape closes. It
-nests, and an inner block that finds the lever installed leaves it installed.
-
-**It has no environment variable, and that is the point.** The per-site flag above is read on
-call sites every model's inference executes, so it is one `export` away from a user's fold. This
-one is reachable only by calling a training entry point, and no inference module imports the
-module those live in. A fold cannot turn it on by accident because there is nothing to turn on:
-with `TT_BIO_HOST_F64_SOFTMAX_AB=all` set, Protenix-v2 and OpenFold3 each write a byte-identical
-structure and the training package is never imported into the folding process at all.
+`tt_bio.autograd.exact_softmax()` and `install(exact_softmax=True)` still exist for scripts that
+want every softmax exact outside a tape as well.
 
 ## Opt-in, and inert when off
 
