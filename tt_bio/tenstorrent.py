@@ -5336,6 +5336,30 @@ def host_unpark(t):
     return t if t.storage_type() == ttnn.StorageType.DEVICE else ttnn.to_device(t, get_device())
 
 
+def place_by_reserve(t, reserve):
+    """`t` on the device if DRAM can hold it and still keep `reserve` bytes free, else parked.
+
+    For a set of read-only tensors that cannot all stay resident: OpenDDE's 24 per-block DiT pair
+    biases are 13.9 GB at 2987 structural tokens in fp32, read once each per diffusion step.
+    Placing each in turn keeps what fits on the chip and parks the rest in device layout
+    (`host_park`); a parked tensor on the host comes back up by the same test once room frees, and
+    `host_unpark` uploads one for its read. The same bytes either way. Free is the largest
+    contiguous block per bank times the banks, the figure an interleaved allocation is refused on.
+    """
+    mv = ttnn.get_memory_view(get_device(), ttnn.BufferType.DRAM)
+    lcf = mv.largest_contiguous_bytes_free_per_bank
+    free = (min(lcf) if isinstance(lcf, (list, tuple)) else lcf) * mv.num_banks
+    on_device = t.storage_type() == ttnn.StorageType.DEVICE
+    own = 0 if on_device else _padded_bytes(tuple(t.shape), 4 if t.dtype == ttnn.float32 else 2)
+    if free >= reserve + own:
+        return host_unpark(t)
+    if not on_device:
+        return t
+    h = ttnn.from_device(t)
+    ttnn.deallocate(t)
+    return h
+
+
 def msa_embed(feat, project, rows=MSA_CHUNK_SIZE):
     """The trunk's pristine `m` = `project(feat)`, placed the way `msa_host_offload` places it.
 

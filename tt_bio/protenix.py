@@ -1174,6 +1174,12 @@ class DiffusionModule(_KeyedWeights):
         self._atom_cond(cond)
         if not (self.device_dit and cond.get("dit_z") is not None):
             return self.denoise(x_noisy, t_hat, cond)
+        if "dit_block_biases" not in cond:
+            cond["dit_block_biases"] = self._dit_block_biases(
+                cond["dit_z"], cond.get("structural_pair_attn_bias"))
+        if any(b.storage_type() != ttnn.StorageType.DEVICE for b in cond["dit_block_biases"]):
+            # A trace cannot hold the upload of a parked bias.
+            return self.denoise(x_noisy, t_hat, cond)
         sd = self.SIGMA_DATA; N = cond["c_l"].shape[0]
         wf = self._w["diffusion_conditioning.fourier_embedding.w"]; bf = self._w["diffusion_conditioning.fourier_embedding.b"]
         tp = torch.log(t_hat / sd) / 4
@@ -1258,8 +1264,27 @@ class DiffusionModule(_KeyedWeights):
             extra = self._up_dit(extra_attn_bias.float().reshape(
                 1, 1, extra_attn_bias.shape[-2], extra_attn_bias.shape[-1])
                 * self.DIT_HEAD_DIM ** 0.5)
-        return [ttnn.add(apb.compute_bias(z_dev), extra) if extra is not None
-                else apb.compute_bias(z_dev) for (_, apb, _, _, _) in self._dit]
+        # A step's attention holds about three tensors of a bias's shape (scores, the biased
+        # scores, the softmax) beside one bias uploaded for its read: keep that free, park the
+        # rest. At 2987 structural tokens the 24 biases are 13.9 GB of fp32 on a 12 GiB chip.
+        NT = int(z_dev.shape[-2])
+        reserve = 4 * _T._padded_bytes((1, self.DIT_N_HEADS, NT, NT),
+                                       4 if self._dit_dtype == ttnn.float32 else 2)
+        biases = []
+        for (_, apb, _, _, _) in self._dit:
+            b = apb.compute_bias(z_dev)
+            if extra is not None:
+                b = ttnn.add(b, extra)
+            biases.append(_T.place_by_reserve(b, reserve))
+        # z_dev's only reader was this loop, and the room it frees takes parked biases back.
+        ttnn.deallocate(z_dev)
+        biases = [_T.place_by_reserve(b, reserve) for b in biases]
+        parked = sum(b.storage_type() != ttnn.StorageType.DEVICE for b in biases)
+        if parked:
+            print(f"[dit] {parked} of {len(biases)} pair biases parked on the host at "
+                  f"{NT} tokens, uploaded for each read", flush=True)
+        dram_peak(f"dit pair biases placed ({parked} parked)")
+        return biases
 
     def _token_dit_device(self, a_t, s_t, biases, NT):
         """On-device 24-block token DiT (ttnn). a_t (1,NT,768), s_t (1,NT,384); biases = list
@@ -1278,7 +1303,10 @@ class DiffusionModule(_KeyedWeights):
                                compute_kernel_config=ckc, core_grid=CORE_GRID_MAIN)
         for _bi, ((adaln_a, apb, ctb_adaln, A, Cc), bias) in enumerate(zip(self._dit, biases)):
             b = adaln_a(a_t, s_t)
-            attn = apb(b, bias, bias_precomputed=True)
+            bias_dev = _T.host_unpark(bias)
+            attn = apb(b, bias_dev, bias_precomputed=True)
+            if bias_dev is not bias:
+                ttnn.deallocate(bias_dev)
             dram_peak(f"dit[M={a_t.shape[0]}] block {_bi}")
             sg = ttnn.sigmoid(linb(s_t, A + "linear_a_last.weight", A + "linear_a_last.bias"))
             ao = ttnn.add(ttnn.multiply(attn, sg), a_t)
@@ -1306,7 +1334,10 @@ class DiffusionModule(_KeyedWeights):
                                compute_kernel_config=ckc, core_grid=CORE_GRID_MAIN)
         for _bi, ((adaln_a, apb, ctb_adaln, A, Cc), bias) in enumerate(zip(self._dit, biases)):
             b = adaln_a(a_t, s_t)
-            attn = apb(b, bias, bias_precomputed=True)
+            bias_dev = _T.host_unpark(bias)
+            attn = apb(b, bias_dev, bias_precomputed=True)
+            if bias_dev is not bias:
+                ttnn.deallocate(bias_dev)
             dram_peak(f"dit[M={a_t.shape[0]}] block {_bi}")
             sg = ttnn.sigmoid(linb(s_t, A + "linear_a_last.weight", A + "linear_a_last.bias"))
             ao = ttnn.add(ttnn.multiply(attn, sg), a_t)
@@ -2950,7 +2981,7 @@ def merge_conds(diffusion_module, conds):
         m[key] = ([cat([z[b] for z in z_pre]) for b in range(len(z_pre[0]))],
                   cat([c[key][1] for c in conds]))
     if conds[0].get("dit_block_biases") is not None:
-        m["dit_block_biases"] = [cat([c["dit_block_biases"][b] for c in conds])
+        m["dit_block_biases"] = [cat([_T.host_unpark(c["dit_block_biases"][b]) for c in conds])
                                  for b in range(len(conds[0]["dit_block_biases"]))]
     m["_members"] = B
     return m
