@@ -1,0 +1,86 @@
+# examples/training_yamls/initial_training.yml from openfold3 0.4.3, with ONLY the changes a
+# single-box reference run forces. Everything that sets the UPDATE RULE (model preset `train`,
+# optimizer, LR schedule, per-sample clipping, EMA, token_budget 384, crop weights) is verbatim.
+#
+# Changes, each one recorded in state/of3t-reference.md under CONFIG:
+#   1. dataset_paths repointed at the local corpus built by their own preprocessing scripts.
+#   2. the four distillation datasets are dropped and weighted-pdb goes 0.5 -> 1.0. We hold no
+#      monomer/RNA distillation corpus; their weights are a sampling choice, not an update rule.
+#   3. templates disabled (no template cache), MSA falls back to single-sequence (no alignment
+#      arrays). Both are feature-content changes, not update-rule changes.
+#   4. devices 1, num_nodes 1, precision 32-true for the reference. The bf16-mixed arm is measured
+#      separately for the GPU baseline.
+experiment_settings:
+  mode: train
+  output_dir: ./of3t_ref_output
+  restart_checkpoint_path: null
+
+data_module_args:
+  batch_size: 1
+  num_workers: 0
+  epoch_len: 128000
+
+logging_config:
+  log_lr: true
+  wandb_config: null
+
+pl_trainer_args:
+  devices: 1
+  num_nodes: 1
+  precision: 32-true
+  max_epochs: -1
+  log_every_n_steps: 50
+  mpi_plugin: false
+  deepspeed_config_path: null
+
+checkpoint_config:
+  every_n_epochs: 1
+  auto_insert_metric_name: false
+  save_last: true
+  save_top_k: -1
+
+model_update:
+  presets:
+    - train
+  custom:
+    architecture:
+      shared:
+        use_confidence_emb_prob: 0.8
+        diffusion:
+          use_conditioning_prob: 0.8
+
+dataset_configs:
+  train:
+    weighted-pdb:
+      dataset_class: WeightedPDBDataset
+      weight: 1.0
+      config:
+        debug_mode: false
+        template:
+          n_templates: 4
+          take_top_k: false
+        crop:
+          token_crop:
+            enabled: true
+            token_budget: 384
+            crop_weights:
+              contiguous: 0.2
+              spatial: 0.4
+              spatial_interface: 0.4
+          chain_crop:
+            enabled: true
+
+dataset_paths:
+  weighted-pdb:
+    alignments_directory: CORPUS/alignments
+    alignment_db_directory: null
+    alignment_array_directory: null
+    dataset_cache_file: CORPUS/training_cache.json
+    target_structures_directory: CORPUS/structure_files
+    target_structure_file_format: npz
+    reference_molecule_directory: CORPUS/reference_mols
+    template_cache_directory: null
+    template_structure_array_directory: null
+    template_structures_directory: null
+    template_file_format: npz
+    ccd_file: null
