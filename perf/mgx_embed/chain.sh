@@ -7,7 +7,8 @@
 # A chip is taken only if its lease is ours, its holder pid is dead, or it was released at least
 # QUIET_S ago: rows on this box release between rungs and re-claim seconds later, so a fresh
 # `released` is someone else's chip mid-walk. A chip whose flock is held is never taken, whatever
-# its json says. Cards 1 and 24-27 are never candidates.
+# its json says. Cards 1 and 24-27 are never candidates. QUIET_S=0 POLL_S=5 takes the next chip a
+# row releases between rungs; use it only for work the orchestrator ranked above the re-walks.
 jobs=$1; card=${2:-}
 wt=$(cd "$(dirname "$0")/../.." && pwd)
 export TT_BIO_LEASE_DIR=/home/agent/leases TT_BIO_LEASE_HOLDER=worker:mgx-embed-scale \
@@ -64,7 +65,7 @@ EOF
 cd "$wt"
 while IFS= read -r cmd; do
   [[ -z "$cmd" || "$cmd" == \#* ]] && continue
-  until card=$(claim $$ "$card"); do sleep 60; done
+  until card=$(claim $$ "$card"); do sleep "${POLL_S:-60}"; done
   export TT_VISIBLE_DEVICES=$card TT_BIO_LEASE_CARDS=$card
   echo "=== $(date -u +%FT%TZ) card $card: $cmd"
   eval "$cmd" < /dev/null
