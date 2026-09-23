@@ -1,0 +1,146 @@
+{
+ "row": "of3t-fullstep64",
+ "mode": "f64",
+ "host": "pc",
+ "threads": 10,
+ "malloc_env": {
+  "MALLOC_ARENA_MAX": "2",
+  "MALLOC_TRIM_THRESHOLD_": "1048576",
+  "MALLOC_MMAP_THRESHOLD_": "1048576"
+ },
+ "openfold3": "/tmp/of3t/of3t-fullstep64/up/of3pkg043/openfold3/__init__.py",
+ "torch": "2.13.0+cpu",
+ "batch": {
+  "file": "batch_step003_t128.pt",
+  "sha256": "e7d9510bee8c742a06dc7f9d20dce13a550c1680d0c07623f9a3f5befe76600f"
+ },
+ "checkpoint": {
+  "file": "of3-p2-155k.pt",
+  "sha256": "af09eac4f29cef856633af07558cb143226fe95ebbef2c20921769d4a5f4bee4",
+  "n_loaded": 4935,
+  "n_missing": 1,
+  "n_unexpected": 0
+ },
+ "dropout": {
+  "disabled": true,
+  "n_of3_dropout_modules": 61,
+  "n_nn_dropout_modules": 61,
+  "rates_before": [
+   0.15,
+   0.25
+  ],
+  "why": "r = 0 reference: the mask is not reproducible across devices, so the published gradient would be one draw. See disable_dropout() in bundle_min.py."
+ },
+ "deterministic": {
+  "enabled": true,
+  "cublas_workspace_config": ":4096:8",
+  "warn_only": true,
+  "why": "two nondeterministic runs disagreed by 1.98 worst relative L2 on 55 of 4,147 tensors, all layer-norm biases whose gradient sum cancels"
+ },
+ "draw_seed": 20260922,
+ "chunk_size": null,
+ "disk_checkpoint": null,
+ "adapter_departures": [
+  "representative atom = start_atom_index (first atom); upstream: CB / CA(gly)",
+  "confidence Pairformer not detached from the trunk; upstream detaches its inputs",
+  "resolved_logits [N_token, 46] read as 46 classes; upstream [N_atom, 2] gathered"
+ ],
+ "forward_s": 52.099581718444824,
+ "cast_policy": {
+  "mode": "removed",
+  "device": "cpu",
+  "n_autocast_contexts_entered": 785,
+  "n_autocast_contexts_torch_actually_enabled": 0,
+  "n_tensor_float_calls": 63,
+  "n_tensor_float_calls_that_changed_dtype": 63,
+  "tensor_float_source_dtypes": {
+   "int64": 63
+  }
+ },
+ "draws": {
+  "n_calls": 61,
+  "replayed": true,
+  "mismatch_count": 0,
+  "mismatch": [],
+  "file": "t128/out/draws.pt",
+  "sha256": "ac1a6b5cc9c423afd3ab90251f5ce5c155fa28462e68206ef7ef74cb273190b3"
+ },
+ "loss": 0.13878901196144927,
+ "seeded_outputs": [
+  "distogram_logits",
+  "resolved_logits"
+ ],
+ "breakdown": {
+  "bond": {
+   "value": null,
+   "weight": 0.0,
+   "contribution": 0.0,
+   "skipped": "weight is zero in this stage"
+  },
+  "smooth_lddt": {
+   "value": null,
+   "weight": 4.0,
+   "contribution": 0.0,
+   "skipped": "missing ['pred_dist']"
+  },
+  "mse": {
+   "value": null,
+   "weight": 4.0,
+   "contribution": 0.0,
+   "skipped": "missing ['pred_xyz']"
+  },
+  "distogram": {
+   "value": 4.615093785694195,
+   "weight": 0.03,
+   "contribution": 0.13845281357082584
+  },
+  "resolved": {
+   "value": 3.3619839062342143,
+   "weight": 0.0001,
+   "contribution": 0.0003361983906234214
+  },
+  "plddt": {
+   "value": null,
+   "weight": 0.0001,
+   "contribution": 0.0,
+   "skipped": "missing ['plddt_logits', 'per_atom_lddt', 'per_atom_weight']"
+  },
+  "pae": {
+   "value": null,
+   "weight": 0.0001,
+   "contribution": 0.0,
+   "skipped": "missing ['pae_logits', 'pred_xyz']"
+  },
+  "pde": {
+   "value": null,
+   "weight": 0.0001,
+   "contribution": 0.0,
+   "skipped": "missing ['pde_logits', 'pred_xyz']"
+  }
+ },
+ "backward_s": 142.4853754043579,
+ "grads": {
+  "file": "t128/out/grads_f64.pt",
+  "sha256": "f4184a3cf1fb15d625db313924419e1983a48e4db2a5b62a6256e3c6250e57d4",
+  "n_params": 4170,
+  "n_with_grad": 3400,
+  "n_nonzero": 3391
+ },
+ "by_head": {
+  "trunk": {
+   "n": 3165,
+   "sq": 0.28598005746544247
+  },
+  "confidence": {
+   "n": 234,
+   "sq": 2.7160553920366427e-06
+  },
+  "distogram": {
+   "n": 1,
+   "sq": 1.7524822062947734
+  }
+ },
+ "squared_gradient_norm": 2.038464979815608,
+ "peak_rss_gb": 9.572822570800781,
+ "total_s": 240.5129156112671
+}

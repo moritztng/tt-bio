@@ -1,0 +1,48 @@
+{
+  "seed": 20260919,
+  "dataset_class": "WeightedPDBDataset",
+  "n_datapoints": 77,
+  "steps": [
+    {
+      "step": 1,
+      "datapoint_index": 0,
+      "pdb_id": [
+        "1ubq"
+      ],
+      "file": "batch_step001.pt",
+      "sha256": "dc7b86e56808924b49e5b47db4fd2642166190ca7ed0f29a1a3467002917315f",
+      "n_tokens": 76,
+      "seed": 20260919
+    },
+    {
+      "step": 2,
+      "datapoint_index": 1,
+      "pdb_id": [
+        "4hhb"
+      ],
+      "file": "batch_step002.pt",
+      "sha256": "667b7530e421eba525fbb630d925d182e4e5abd5c1d357cfaea058b9b03e54b3",
+      "n_tokens": 384,
+      "seed": 20260920
+    },
+    {
+      "step": 3,
+      "datapoint_index": 18,
+      "pdb_id": [
+        "5nw3"
+      ],
+      "file": "batch_step003.pt",
+      "sha256": "a91148df853c59a285a0ab391241aab2a8b0011f328541c16bcffb5dbe43ed02",
+      "n_tokens": 56,
+      "seed": 20260921
+    }
+  ],
+  "entries": {
+    "1ubq": 1,
+    "4hhb": 17,
+    "5nw3": 5,
+    "6lu7": 9,
+    "6qz8": 3,
+    "7sgb": 42
+  }
+}

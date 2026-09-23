@@ -33,7 +33,7 @@ import inspect
 from typing import Callable, Dict
 
 from . import launcher, objectives, provenance
-from ..autograd import backward, install, uninstall
+from ..autograd import backward, exact_training_ops, install, uninstall
 from .sharding import batches
 from .checkpoint import Checkpointer
 from .lora import LoraConfig, attach, trainable
@@ -150,7 +150,8 @@ def train_loop(forward, dataset, *, out_dir, global_batch, steps, objective="af3
                 "objective": objective, "global_batch": global_batch, "steps": steps,
                 "lr": lr, "train": train, "chips": dp.width,
                 "rank": cfg.rank if cfg else None, "alpha": cfg.alpha if cfg else None,
-                "dp_rank": dp_rank, "rollout": row.rollout, "sites": sorted(params)}) as prov:
+                "dp_rank": dp_rank, "rollout": row.rollout, "sites": sorted(params),
+                "exact_ops": list(exact_training_ops())}) as prov:
             with attach(installed, cfg):
                 for batch in [first, *plan_order]:
                     # ONE SAMPLE AT A TIME. Upstream clips each sample before accumulating it

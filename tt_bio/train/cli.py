@@ -156,6 +156,10 @@ def _echo_recipe(ctx, param, value):
 @click.option("--warmup-steps", default=1000, show_default=True, type=int)
 @click.option("--checkpoint-every", default=100, show_default=True, type=int)
 @click.option("--seed", default=0, show_default=True, type=int)
+@click.option("--device-ops", is_flag=True,
+              help="Run softmax and layer norm on the device kernels inference uses, instead "
+                   "of in float64 on the host. Faster per step; the gradient is measurably "
+                   "further from upstream's (docs/training.md).")
 @click.option("--dry-run", is_flag=True,
               help="Answer 'will this fit and how long' and exit, WITHOUT opening a device.")
 @click.option("--show-recipe", is_flag=False, flag_value="default", default=None,
@@ -166,7 +170,7 @@ def _echo_recipe(ctx, param, value):
               callback=_echo_objectives, help="Print the objective rows and exit.")
 def finetune(data, model, out_dir, global_batch, steps, objective, train_mode, recipe, tokens,
              chip_ids, rank, alpha, targets, lr, warmup_steps, checkpoint_every, seed,
-             dry_run):
+             device_ops, dry_run):
     """Fine-tune or pre-train a shipped model.
 
     \b
@@ -240,16 +244,18 @@ def finetune(data, model, out_dir, global_batch, steps, objective, train_mode, r
         raise click.ClickException(str(exc)) from exc
 
     # Only now does anything reach a device.
+    from ..autograd import exact_training
     from .lora import LoraConfig
     from .loop import finetune as run_finetune
 
-    run = run_finetune(
-        forward, dataset, out_dir=out_dir, global_batch=global_batch, steps=steps,
-        objective=objective, train=train_mode, recipe=recipe, seed=seed, lr=lr,
-        warmup_steps=warmup_steps,
-        checkpoint_every=checkpoint_every, tokens=tokens,
-        lora=LoraConfig(rank=rank, alpha=alpha, targets=tuple(targets)),
-        mesh=_mesh(chip_ids))
+    with exact_training(not device_ops):
+        run = run_finetune(
+            forward, dataset, out_dir=out_dir, global_batch=global_batch, steps=steps,
+            objective=objective, train=train_mode, recipe=recipe, seed=seed, lr=lr,
+            warmup_steps=warmup_steps,
+            checkpoint_every=checkpoint_every, tokens=tokens,
+            lora=LoraConfig(rank=rank, alpha=alpha, targets=tuple(targets)),
+            mesh=_mesh(chip_ids))
     click.echo(str(run))
     # Every rank of a data-parallel run reaches this line, so the path is per rank: rank 0
     # keeps out_dir and the others get a subdirectory. One path shared by N writers is a

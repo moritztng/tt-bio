@@ -34,7 +34,17 @@ from pathlib import Path
 
 SEC = "pairformer_stack"
 IN_FRAME_MULTIPLE = 2.2340903768268046   # FRAME_N384.json MATCHED.ratio_ours_over_floor
-LEVER_CEILING = 1.8563207917912123       # the pre-registered trunk lever ceiling divisor
+#: The pre-registered trunk lever ceiling divisor. **REFUTED at pass 414 and kept, not deleted.**
+#: `of3t-modelever` ran the lever on this frame, on an arm bit-identical to the clause's own
+#: banked artifact, and measured the divisor at 1.1516970980351204 -- **62.04 % of what was
+#: projected here**. The projection promised a clearing 0.9668x; the measurement reads
+#: 1.3037867474869442x and does not clear. It stays in the file because it is pre-registered
+#: history and a deletion reads as staleness rather than as a retraction, but nothing may quote
+#: `projected_trunk_reading_with_the_lever_ceiling` as a live expectation any more.
+LEVER_CEILING = 1.8563207917912123
+#: What the lever actually bought, same frame, measured not projected (of3t-modelever,
+#: trunk 0.7768254196709333 -> 0.6745049727018105).
+LEVER_DIVISOR_MEASURED = 1.1516970980351204
 
 
 def recompose(secs, override=None):
@@ -137,6 +147,20 @@ def main() -> int:
         "projected_trunk_reading": IN_FRAME_MULTIPLE * pt["section_A26_level"] / math.sqrt(2.0),
         "projected_trunk_reading_with_the_lever_ceiling":
             IN_FRAME_MULTIPLE * pt["section_A26_level"] / math.sqrt(2.0) / LEVER_CEILING,
+        "lever_ceiling_REFUTED": {
+            "by": "of3t-modelever, pass 414, measured on this frame on an arm bit-identical to "
+                  "the clause's own banked artifact",
+            "projected_divisor": LEVER_CEILING,
+            "measured_divisor": LEVER_DIVISOR_MEASURED,
+            "delivered_fraction_of_the_projection": LEVER_DIVISOR_MEASURED / LEVER_CEILING,
+            "projected_clause_x_bar": 0.9668,
+            "measured_clause_x_bar": 1.3037867474869442,
+            "so": "the projection promised a clearing arm and the measurement does not clear. "
+                  "The line above is kept as pre-registered history and must not be read as a "
+                  "live expectation.",
+        },
+        "projected_trunk_reading_with_the_MEASURED_divisor":
+            IN_FRAME_MULTIPLE * pt["section_A26_level"] / math.sqrt(2.0) / LEVER_DIVISOR_MEASURED,
         "in_frame_multiple_under_test": IN_FRAME_MULTIPLE,
     }
     for k, v in prereg["levels"].items():

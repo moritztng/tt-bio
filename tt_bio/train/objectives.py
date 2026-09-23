@@ -266,7 +266,11 @@ _TERMS = {
                                    b["coord_mask"]),
     "pae": lambda b, o: losses.pae(o["pae_logits"], o["pred_xyz"], b["true_xyz"],
                                    b["coord_mask"], b["frame_atom_index"]),
-    "resolved": lambda b, o: losses.resolved(o["resolved_logits"], b["coord_mask"]),
+    # Averaged over atoms that exist when the batch says which do, as OpenFold3's
+    # `all_atom_experimentally_resolved_loss` does (core/loss/confidence.py:454-466). A padded
+    # crop without it averages over the pads and moves with whatever the pad features hold.
+    "resolved": lambda b, o: losses.resolved(o["resolved_logits"], b["coord_mask"],
+                                             b.get("atom_mask")),
 }
 _NEEDS = {
     "mse": ("pred_xyz", "true_xyz", "coord_mask"),
@@ -290,6 +294,8 @@ _NEEDS = {
 # batch that a featuriser which simply never produced them does not get to make.
 _OPTIONAL = {
     "mse": ("is_dna", "is_rna", "is_ligand"),
+    # Protenix's ExperimentallyResolvedLoss takes no mask on an unpadded sample.
+    "resolved": ("atom_mask",),
 }
 # Which device output each term's gradient seeds. The four bin-label terms reach only their
 # logits, because upstream builds every true bin under no_grad -- including pLDDT's, whose

@@ -94,12 +94,6 @@ TABLE = {
     # D56 REMOVED at pass 393: no longer UNFIXED on its latest status-bearing heading, and
     # this script refuses to report a classification of a set that has moved -- the same rule
     # that removed D164 at pass 340.
-    "D58": (USER, "The forward-to-gradient factor is 11.026x (diffusion) and 10.903x (msa_module) at the "
-             "repaired denominator, not the ~20x first filed. of3t-tapeamp REFUTED the "
-             "'belongs to the tape' half on the diffusion leg: 69.53 %% of the factor is "
-             "upstream 0.4.3's own, and our arm beats upstream on BOTH halves. The "
-             "msa_module leg is priced but has no upstream comparison, so D58 stands on "
-             "one unmeasured leg. USER-FACING because the tape is shipped training code."),
 
     # --- this campaign's own measurement, instruments, references and bookkeeping -------------
     "D22": (CAMP, "Reference-bundle revision skew: our port is 0.4.3 and the bundle was built "
@@ -367,9 +361,30 @@ TABLE = {
              "trunk on its own captured boundary and cotangent reads 0.7945281613194305 "
              "against a 1e-12 bar. A defect in this campaign's instrument, localised at pass "
              "389 to the captured cot_z alone."),
+    "D249": (CAMP, "three concluded rows exempted from the D155 host guard for the SAME "
+              "cause -- their artifact writers emit no host field -- on a list documented "
+              "as shrink-only. The fix is always one line, always in a row namespace, and "
+              "always too late: by the time the guard fires the row has concluded and A33 "
+              "forbids editing its artifacts. The stamp belongs in the shared writer."),
     "D245": (CAMP, "the shippable host-float64-softmax install is 34.25 % worse against float64 "
              "than the harness verb install. Campaign-internal because the lever is off at "
              "every site and unmerged -- nothing a user runs today reaches it."),
+    "D250": (USER, "msa_module's forward is 3.54x less accurate than upstream 0.4.3 bf16 at the "
+             "same boundary (8.176e-03 against 2.311e-03), an inference forward quantity in "
+             "shipped OpenFold3."),
+    "D252": (CAMP, "the training default's exact LayerNorm was chosen on a pad-dominated "
+             "boundary; no inference path reads it."),
+    "D254": (CAMP, "set by hand at pass 421: training-path gradient defect (473 leaves "
+             "untrained); the training adapter is not on main and no inference fold executes "
+             "the tape, so no user reach today, but it blocks GO."),
+    "D255": (CAMP, "set by hand at pass 421: training objective only; inference never "
+             "evaluates the resolved loss."),
+    "D256": (CAMP, "set by hand at pass 422: training-path registration defect (84 diffusion "
+             "weights would train as constants); adapter not on main, inference uploads the "
+             "same weights and is unaffected. Blocks GO."),
+    "D257": (CAMP, "set by hand at pass 422: the training adapter (not on main) trains no "
+             "diffusion module on its default. Would be USER-FACING the day the adapter "
+             "ships; blocks GO now."),
 }
 
 # Close calls, recorded with the argument on both sides. A triage that hides these is worth less

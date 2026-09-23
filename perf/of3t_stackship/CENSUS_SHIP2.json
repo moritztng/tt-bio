@@ -1,0 +1,205 @@
+{
+ "what": "the runtime lever census for this arm: counts taken at the call, not at the construction. A lever with 0 in every field did not reach the trunk.",
+ "argv": [
+  "--lever",
+  "none",
+  "--",
+  "--boundary",
+  "/home/ttuser/of3t_modelframe/boundary_model_n384.pt",
+  "--cap-last",
+  "/home/ttuser/of3t_recut/cot_external.pt",
+  "--out",
+  "/home/ttuser/of3t_stackship/dev_SHIP2.pt",
+  "--report",
+  "/home/ttuser/.coworker/wt/of3t-stackship/perf/of3t_stackship/DEV_SHIP2.json",
+  "--arm",
+  "flipped",
+  "--crop",
+  "0"
+ ],
+ "env": {
+  "TT_BIO_LEASE_CARDS": "1",
+  "TT_BIO_LEASE_HOLDER": "worker:of3t-stackship"
+ },
+ "site_selectors": {
+  "TT_BIO_HOST_F64_SOFTMAX_AB:pairformer": {
+   "off_default": false,
+   "on_default": true,
+   "env": "<unset>"
+  },
+  "TT_BIO_HOST_F64_SOFTMAX_AB:openfold3.trunk": {
+   "off_default": false,
+   "on_default": true,
+   "env": "<unset>"
+  },
+  "TT_BIO_HOST_F64_SOFTMAX_AB:miniformer": {
+   "off_default": false,
+   "on_default": true,
+   "env": "<unset>"
+  },
+  "TT_BIO_ACCURATE_SOFTMAX_AB:openfold3.trunk": {
+   "off_default": false,
+   "on_default": true,
+   "env": "<unset>"
+  },
+  "TT_BIO_ACCURATE_SOFTMAX_AB:pairformer": {
+   "off_default": false,
+   "on_default": true,
+   "env": "<unset>"
+  },
+  "TT_BIO_SOFTMAX_PRECISE_AB:pairformer": {
+   "off_default": false,
+   "on_default": true,
+   "env": "<unset>"
+  },
+  "TT_BIO_SOFTMAX_PRECISE_AB:openfold3.trunk": {
+   "off_default": false,
+   "on_default": true,
+   "env": "<unset>"
+  },
+  "TT_BIO_TRIATT_SDPA_HIFI_AB:openfold3.trunk": {
+   "off_default": false,
+   "on_default": true,
+   "env": "<unset>"
+  },
+  "TT_BIO_SDPA_RAGGED_PAD_AB:openfold3.trunk": {
+   "off_default": false,
+   "on_default": true,
+   "env": "<unset>"
+  }
+ },
+ "wrapped_counters": {
+  "accurate_softmax_chain": 0,
+  "softmax_ckc_calls": 48,
+  "softmax_ckc_precise": 0
+ },
+ "package_stats": {
+  "FP32_SOFTMAX_STATS": {
+   "calls": 384,
+   "blocked": 384,
+   "blocks": 7442,
+   "fused": 7453,
+   "unfused": 0,
+   "l1": 384,
+   "l1_blocks": 7316,
+   "l1_refused": 11,
+   "l1_cores": 96,
+   "l1_free_retired": 0,
+   "l1_free_walked": 0,
+   "l1_padded_diverged": 0,
+   "dram_narrowed": 0
+  },
+  "HOST_F64_SOFTMAX_STATS": {
+   "served": 5901,
+   "declined": 7451,
+   "refused": 0,
+   "elements": 65569554432,
+   "selected": 3,
+   "tail": 7451,
+   "served_taped": 5901,
+   "served_raw": 0
+  },
+  "LATCH_STATS": {
+   "l1_out": {
+    "served": 0,
+    "refused": 0,
+    "blocked": 0,
+    "declined": 0,
+    "why": []
+   },
+   "narrow_l1_out": {
+    "served": 0,
+    "refused": 0,
+    "blocked": 0,
+    "declined": 0,
+    "why": []
+   },
+   "transpose_l1": {
+    "served": 0,
+    "refused": 0,
+    "blocked": 0,
+    "declined": 0,
+    "why": []
+   },
+   "transpose_stage": {
+    "served": 0,
+    "refused": 0,
+    "blocked": 0,
+    "declined": 0,
+    "why": []
+   },
+   "pair_bias_ln_l1": {
+    "served": 0,
+    "refused": 0,
+    "blocked": 0,
+    "declined": 0,
+    "why": []
+   },
+   "bmm_cfg": {
+    "served": 15268,
+    "refused": 0,
+    "blocked": 0,
+    "declined": 0,
+    "why": []
+   },
+   "sdpa_q_chunk": {
+    "served": 0,
+    "refused": 0,
+    "blocked": 0,
+    "declined": 0,
+    "why": []
+   }
+  },
+  "MASK_TRANS_STATS": {
+   "stacks": 0,
+   "blocks": 0,
+   "ones": 0,
+   "declined_rank": 0,
+   "declined_off": 2
+  },
+  "OPM_ROW_STATS": {
+   "whole": 0,
+   "blocked": 0,
+   "dram_narrowed": 0,
+   "join_split": 0
+  },
+  "PAIR_BIAS_STATS": {},
+  "PWA_DEPTH_STATS": {
+   "whole": 0,
+   "blocked": 0,
+   "dram_narrowed": 0
+  },
+  "TRIATT_FUSED_HIFI_STATS": {
+   "served": 0,
+   "declined": 384,
+   "too_short": 0
+  },
+  "TRIMUL_MM_TRANSPOSE_STATS": {
+   "('four-way-split', 'defer')": 384
+  },
+  "TRIMUL_TAIL_L1_STATS": {
+   "l1": 0,
+   "dram": 0
+  },
+  "SOFTMAX_BW_RENORM_STATS": {
+   "applied": 3888,
+   "declined": 0
+  }
+ },
+ "renorm_flag": true,
+ "trunk_math_fidelity": "hifi4",
+ "environment": {
+  "host": "tt-quietbox2",
+  "card": 1,
+  "board_class": "p300c",
+  "aiclk_mhz_sampled_DURING": {
+   "n": 356,
+   "min": 800,
+   "median": 1350,
+   "max": 1350
+  },
+  "host_quiet": "loadavg1 0.16 (ceiling 2.00)\nhost quiet -- timing read admissible",
+  "git_commit": "3c99675594ed8b60fd9719803f40043f6d473ec0",
+  "boundary_version": "upstream OpenFold3 0.4.3 (boundary captured from of3pkg043; graded reference 0.4.3 bf16 autocast, contrast reference 0.4.3 float64)"
+ }
+}

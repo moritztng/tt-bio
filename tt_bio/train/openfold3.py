@@ -26,6 +26,7 @@ So one forward is:
 
   trunk (taped)
     -> rollout (no_grad, the shipped sampler, unchanged)
+    -> one-step denoise of the noised ground truth (taped; what trains the diffusion module)
     -> confidence heads on the rolled-out structure (taped)
 
 and ``OF3ConfidenceHead.forward_device`` -- which its own docstring calls "the training entry
@@ -35,8 +36,8 @@ What a batch can actually score
 -------------------------------
 
 ``objectives.af3_loss`` keys eight terms off seven outputs and SKIPS a term whose inputs are
-absent, recording it as skipped. Two are skipped here and both are properties of the contract
-rather than of this model:
+absent or whose weight is zero, recording it as skipped. Two are skipped here and neither is a
+property of this model:
 
 ``plddt``   ``_TERMS["plddt"]`` reads ``per_atom_lddt`` and ``per_atom_weight`` from the BATCH,
             and both are functions of the PREDICTION -- upstream builds them inside the loss
@@ -44,10 +45,9 @@ rather than of this model:
             featuriser cannot emit them. The objective's contract assumes every label is
             batch-side and pLDDT's is not.
 
-``mse`` /   these read ``pred_xyz`` and ``pred_dist``, which come from the one-step denoise arm
-``bond`` /  (upstream's diffusion training objective) rather than from the rollout. That arm is
-``smooth_lddt``  not wired here yet; ``forward(..., denoise=True)`` is where it lands, and until
-            it does those three terms are reported skipped rather than silently zero.
+``bond``    reads ``pred_dist`` from the one-step denoise arm like ``mse`` and
+            ``smooth_lddt``, which fire, but its weight is 0 in upstream's
+            ``initial_training`` stage, so the objective skips it there by weight.
 
 Both are visible in the objective's own breakdown, which is the designed behaviour: a zero for
 a missing term moves the weighted sum and is how a run reports a healthy loss while training on
@@ -65,12 +65,13 @@ import torch
 
 from . import catalogue, losses
 
-__all__ = ["adapter", "OpenFold3Dataset", "OpenFold3Forward", "MODEL"]
+__all__ = ["adapter", "OpenFold3Dataset", "OpenFold3Forward", "MODEL", "denoise_draw"]
 
 MODEL = "openfold3"
 
 #: The objective's output names this forward produces today, in the order it produces them.
-OUTPUTS = ("distogram_logits", "plddt_logits", "pde_logits", "pae_logits", "resolved_logits")
+OUTPUTS = ("pred_xyz", "pred_dist", "distogram_logits", "plddt_logits", "pde_logits",
+           "pae_logits", "resolved_logits")
 
 #: Labels the af3 objective reads out of the batch, and what each one is for.
 LABELS = ("true_xyz", "coord_mask", "true_dist", "lddt_pair_mask", "bond_mask",
@@ -199,6 +200,9 @@ class OpenFold3Dataset:
             "features": f,
             "true_xyz": true_xyz,
             "coord_mask": coord_mask,
+            # Upstream's `batch["atom_mask"]` at token scope: the representative atom exists,
+            # which is every real token. The resolved term averages over it, not over the crop.
+            "atom_mask": tok.numpy().astype(np.float64),
             "true_dist": true_dist,
             "lddt_pair_mask": lddt_pair_mask,
             "bond_mask": bonds * pair,
@@ -237,24 +241,11 @@ class OpenFold3Forward:
         self.repr_coords_in = None
         self.rollout_ran = None
         #: Run upstream's one-step denoise arm -- what puts a gradient on the diffusion
-        #: module and what `mse`, `smooth_lddt` and `bond` are seeded off.
-        #:
-        #: **OFF by default, because its backward overflows.** It runs end to end and the
-        #: forward is sane (loss 9.310687, every term value in range), but three of the 3400
-        #: parameter gradients come back non-finite, and they are the same three every time:
-        #: `sampler.dc.w_lin_z`, `sampler.dc.w_lin_s`, `sampler.dc.w_lin_n` -- the diffusion
-        #: conditioning's input projections, whose dW reduces over the whole token-pair axis
-        #: (147,456 terms at padded width 384). The remaining 3,397 are finite but the trunk
-        #: reaches max|g| 1.7e+05 in the MSA module.
-        #:
-        #: The seeds are NOT the cause and that is measured, not assumed: the largest is
-        #: `pred_xyz` at |g| 11.5669, and `losses.mse` already applies upstream's own
-        #: stop-gradient Kabsch, so a misaligned prediction cannot inflate it (checked --
-        #: the seed norm is identical for a structure rotated 1.1 rad and translated 12 A).
-        #: The amplification is inside the diffusion backward. Turning this on trains a
-        #: gradient with infinities in it, which is wrong rather than imprecise, so it is a
-        #: flag rather than a default until that is root-caused.
-        self.denoise = False
+        #: module and what `mse`, `smooth_lddt` and `bond` are seeded off. On by default.
+        #: It was off while three `sampler.dc.w_lin_*` gradients came back non-finite; that
+        #: was `ttnn.matmul(transpose_a=True)` on an fp32 activation and a bf16 cotangent
+        #: (D257, `autograd._matmul`), not the diffusion backward.
+        self.denoise = True
         self.denoise_sigma = None
 
     @property
@@ -285,6 +276,24 @@ class OpenFold3Forward:
             self._model.confidence_head = OF3ConfidenceHead(
                 self._model._confidence_sd, dev, ckc)
             self._model.confidence_head.materialize_device_weights()
+            # Every TriangleMultiplication's in-projection as leaves the walk below finds.
+            # Without this they are cut from host torch inside the taped forward, after
+            # registration, and train as constants.
+            from ..tenstorrent import train_in_projections
+            train_in_projections(self._model)
+            # The diffusion atom transformers upload their weights lazily inside the forward
+            # too (D256); materialise them for the same reason.
+            dm = self._model.sampler.dm
+            for at in (dm.enc_at, dm.dec.at):
+                at.materialize_device_weights()
+            # The encoder's RefAtomFeatureEmbedder runs on the host in inference, so its eight
+            # linears reach the module as a constant `cl0`/`plm0` and would never train (0.46 %
+            # of the float64 step's squared gradient). The denoise arm runs the shipped device
+            # module instead; the rollout keeps the host embedding.
+            from ..openfold3 import RefAtomFeatureEmbedder
+            from ..openfold3_weights import _sub
+            dm.ref_embed = RefAtomFeatureEmbedder(
+                _sub(sd, "diffusion_module.atom_attn_enc.ref_atom_feature_embedder"), ckc)
         return self._model
 
     def parameters(self) -> dict:
@@ -305,12 +314,41 @@ class OpenFold3Forward:
             self._registered = True
         return walked
 
+    def check_registered(self) -> None:
+        """Raise if the model holds a device tensor that is not a registered leaf.
+
+        Run after every taped forward. A weight uploaded lazily inside a forward appears after
+        the registering walk and trains as a constant with nothing to say so: the trimul
+        in-projections (D254) and the diffusion atom transformers (D256) both did. This is the
+        catcher for the next one, whatever module it is in.
+
+        Also raises if the forward sliced a registered weight without reaching the tape (D262):
+        the leaf is registered but the slice is a constant, so the walk alone cannot see it.
+        """
+        from collections import Counter
+        from .. import autograd as ag
+        from ..taped_ttnn import take_raw_param_slices
+        from ..tenstorrent import walk_device_weights
+        late = [p for p, _o, _k, t in walk_device_weights(self.model)
+                if ag.parameter_for(t) is None]
+        if late:
+            raise RuntimeError(
+                f"{len(late)} device tensors appeared after parameter registration and would "
+                f"train as constants, e.g. {late[:4]}. Materialise them before the walk "
+                f"(OpenFold3Forward.model).")
+        raw = Counter(take_raw_param_slices())
+        if raw:
+            raise RuntimeError(
+                f"{sum(raw.values())} slices of registered weights did not reach the tape and "
+                f"train as constants, by site: {dict(raw)}")
+
     def __call__(self, batch) -> dict:
         from .. import autograd as ag
         from ..openfold3_fold import build_dm_device_aux, create_noise_schedule
         from ..openfold3_host_prep import (dedup_template_slots, derive_block_aux,
                                            derive_relpos, derive_template_feat,
-                                           ref_atom_embed, run_input_atom_encoder)
+                                           ref_atom_device_inputs, ref_atom_embed,
+                                           run_input_atom_encoder)
         from ..openfold3_data import make_openfold3_msa_features
         from ..openfold3_sample_diffusion import fourier_noise_emb
         from ..openfold3_weights import _sub
@@ -367,7 +405,7 @@ class OpenFold3Forward:
             s_trunk, z_trunk = m.trunk(
                 s_init, z_init, {k: ag.Tensor(ft(v)) for k, v in template_feat.items()},
                 ag.Tensor(ft(msa_feat.unsqueeze(0))), s_input_d,
-                template_slots=template_slots)
+                template_slots=template_slots, pair_mask=pair_mask_pf, attn_mask=attn_mask_d)
 
         # ---- the structure the confidence heads score. Raw, no tape open.
         #
@@ -430,19 +468,18 @@ class OpenFold3Forward:
         pred = {}
         if self.denoise:
             s = m.sampler
-            rng = np.random.default_rng(self.seed)
-            sigma = float(losses.sample_noise_level(rng))
+            sigma, eps = denoise_draw(self.seed, n_atom)
             amask = aux["atom_mask"].float()
             xl_true = (f["ground_truth"]["atom_positions"].float()
                        * amask[:, None])
-            xl_noisy = xl_true + sigma * torch.from_numpy(
-                rng.standard_normal((n_atom, 3))).float()
+            xl_noisy = xl_true + sigma * torch.from_numpy(eps).float()
             xl_noisy = xl_noisy * amask[:, None]
             rl_noisy = xl_noisy / math.sqrt(sigma * sigma + m.sigma_data ** 2)
             n_emb = fourier_noise_emb(sigma, m.sigma_data, s.fourier_w, s.fourier_b)
 
             one_hot = torch.zeros(n_token, n_atom)
             one_hot[real, rep] = 1.0
+            ref_in = ref_atom_device_inputs(dev, f, aux["atom_mask"], aux["NP"])
 
             with ag.tape():
                 # THE DTYPE BOUNDARY, crossed through the sampler's own helper rather than a
@@ -452,16 +489,27 @@ class OpenFold3Forward:
                 # the squared gradient norm read 4.87e+11 against upstream's model
                 # denominator of 10.279642678524981, with every loss VALUE sane -- a forward
                 # that looks healthy and a backward that is not.
+                #
+                # The two conditioning masks stay bf16, as the rollout leaves them: the
+                # conditioning's activations come out of `_lin` bf16, and ttnn.multiply of a
+                # bf16 tensor by an fp32 last-dim-1 mask returns garbage that changes run to
+                # run (PROBE_BCAST.json: up to 16061 wrong elements, every rank; exact when
+                # both are bf16 or x is fp32). Cast, they made the A/A disagree (probe_aa.py).
                 c = s.to_act_dtype
                 si = s.dc.single(c(s_trunk), c(s_input_d),
                                  c(ag.Tensor(ft(n_emb.reshape(1, 1, 256)))),
-                                 c(ft(tok.reshape(n_token, 1).unsqueeze(0))))
-                zij = s.dc.pair(c(z_trunk), c(relpos_d), c(pair_mask_dm))
+                                 ft(tok.reshape(n_token, 1).unsqueeze(0)))
+                zij = s.dc.pair(c(z_trunk), c(relpos_d), pair_mask_dm)
+                # The conditioning hands back bf16 si/zij; the rollout lifts them to the
+                # activation dtype inside `pad_dim`. Fed bf16, the fp32 module's one-step
+                # denoise read 0.80-0.88 A RMS from the truth, varying run to run, against
+                # 0.18 A lifted and 0.52 A for the noisy input (PROBE_FWD_T64_*.json). The
+                # noisy coordinates are uploaded at that dtype too, as the rollout does.
+                cl0_t, plm0_t = s.dm.ref_embed(*ref_in)
                 xl_den = s.dm(
-                    c(s_trunk), si, zij,
-                    c(ag.Tensor(dm_aux["cl0_d"])), c(ag.Tensor(dm_aux["plm0_d"])),
-                    c(ag.Tensor(ft(s._pad_atoms_host(rl_noisy, n_atom, aux["NP"])))),
-                    c(ag.Tensor(ft(xl_noisy.unsqueeze(0)))),
+                    c(s_trunk), c(si), c(zij), c(cl0_t), c(plm0_t),
+                    ag.Tensor(ft(s._pad_atoms_host(rl_noisy, n_atom, aux["NP"]), s._act_dtype)),
+                    ag.Tensor(ft(xl_noisy.unsqueeze(0), s._act_dtype)),
                     c(dm_aux["amc_d"]), c(dm_aux["amc_na_d"]),
                     dm_aux["idx_tt"], dm_aux["flat_tt"],
                     c(dm_aux["zij_mask_d"]), dm_aux["kidx_tt"], dm_aux["valid_d"],
@@ -492,13 +540,23 @@ class OpenFold3Forward:
                 use_zij_trunk_embedding=True,
                 pair_mask_d=pair_mask_pf, attn_mask_d=attn_mask_d)
 
-
+        self.check_registered()
         return {**pred,
                 "distogram_logits": out["distogram_logits"],
                 "plddt_logits": out["plddt_logits"],
                 "pde_logits": out["pde_logits"],
                 "pae_logits": out["pae_logits"],
                 "resolved_logits": out["experimentally_resolved_logits"]}
+
+
+def denoise_draw(seed: int, n_atom: int):
+    """The denoise arm's noise level and per-atom noise, a function of the seed alone.
+
+    One function so that a reference run can draw exactly what the forward drew.
+    """
+    rng = np.random.default_rng(seed)
+    sigma = float(losses.sample_noise_level(rng))
+    return sigma, rng.standard_normal((n_atom, 3))
 
 
 def _v(t):

@@ -62,6 +62,12 @@ def main() -> int:
                     help="negative control: seed the backward with the SAME cotangent numbers written into the wrong positions (the flattened cotangent reversed). Norm and shape are preserved exactly, and the forward, the weights and the arithmetic are untouched, so a comparison that cannot tell this apart from the real run is not reading their seed at all. A zero-model baseline cannot catch that: it breaks OUR side.")
     ap.add_argument("--dump-grads", default="", dest="dump_grads",
                     help="write the compared device gradient TENSORS to this .pt, keyed by full checkpoint name. Without it this arm publishes only rel_l2 against the one float64 reference it was run against, so its gradient can never be compared to upstream's own bf16 training gradient -- and two distances from a shared reference do not order each other (D72).")
+    ap.add_argument("--legacy-orientation", action="store_true", dest="legacy_orientation",
+                    help="orient each gradient by shape alone, as every artifact before "
+                         "of3t-msaamp did. Square weights are then compared un-transposed. "
+                         "Kept so the banked numbers reproduce exactly.")
+    ap.add_argument("--z-fp32-residual", action="store_true", dest="z_fp32_residual",
+                    help="of3t-msafwd: the tape-only fp32 pair residual (MSAModule z_fp32_residual)")
     ap.add_argument("--out", required=True, type=Path)
     a = ap.parse_args()
     t0 = time.perf_counter()
@@ -100,8 +106,29 @@ def main() -> int:
             fp_clash.add(f)
         fp_name[f] = k
 
-    reg = {}
+    # `keep` holds every registered upload alive. The registry is keyed by id(), and an upload
+    # freed during construction hands its id to a later tensor, which then inherits its name
+    # (of3t-msafwd: a 49152-row gradient scored against a 512-element reference).
+    reg, orient, keep = {}, {}, []
     orig_from_torch = ttnn.from_torch
+
+    def orientation(uploaded, ckpt):
+        """'T' if the device holds the checkpoint tensor transposed, from the VALUES.
+
+        The fingerprint is transpose-invariant by design, so it names a tensor without saying
+        which way round it went up. The shape fallback in the scorer recovers that for a
+        non-square weight and cannot for a square one: of3t-msaamp found all 32 square 128x128
+        triangle gate/output weights compared against their own transpose, rel_l2 ~1.40.
+        """
+        if ckpt.dim() != 2:
+            return None
+        u = uploaded.double().reshape(-1)
+        c = ckpt.double()
+        if u.numel() != c.numel():
+            return None
+        same = torch.allclose(u, c.reshape(-1), rtol=0, atol=1e-6)
+        tr = torch.allclose(u, c.t().reshape(-1), rtol=0, atol=1e-6)
+        return "T" if tr and not same else "N" if same else None
 
     def recording_from_torch(tensor, *args, **kwargs):
         out = orig_from_torch(tensor, *args, **kwargs)
@@ -110,6 +137,8 @@ def main() -> int:
                 f = fingerprint(tensor)
                 if f in fp_name and f not in fp_clash:
                     reg[id(out)] = (fp_name[f], None)
+                    keep.append(out)
+                    orient[id(out)] = orientation(tensor, msd[fp_name[f]])
                 elif tensor.dim() >= 1 and tensor.shape[0] % 2 == 0:
                     # SS3a: a TriangleMultiplication upload is a cat of the checkpoints
                     # a/b halves along dim 0. Fingerprint each half on its own.
@@ -118,6 +147,7 @@ def main() -> int:
                     if (fa in fp_name and fb in fp_name
                             and fa not in fp_clash and fb not in fp_clash):
                         reg[id(out)] = (fp_name[fa], fp_name[fb])
+                        keep.append(out)
         except Exception:
             pass
         return out
@@ -129,7 +159,7 @@ def main() -> int:
     tb = not is_openbind(sd)
     ttnn.from_torch = recording_from_torch
     try:
-        msa = MSAModule(sd, ckc, transpose_bias=tb)
+        msa = MSAModule(sd, ckc, transpose_bias=tb, z_fp32_residual=a.z_fp32_residual)
     finally:
         ttnn.from_torch = orig_from_torch
 
@@ -202,7 +232,10 @@ def main() -> int:
             if half is not None:
                 h = g.shape[0] // 2
                 g = g[:h] if half == 0 else g[h:]
-            if tuple(g.shape) != tuple(ref.shape):
+            if (half is None and not a.legacy_orientation and orient.get(_tid) == "T"
+                    and g.dim() == 2):
+                g = g.t()
+            elif tuple(g.shape) != tuple(ref.shape):
                 if tuple(g.t().shape) == tuple(ref.shape):
                     g = g.t()
                 else:
@@ -246,7 +279,10 @@ def main() -> int:
                      "transpose_bias": tb},
         "bars": {"per_tensor": PER_TENSOR_BAR, "median": MEDIAN_BAR},
         "bijection": {"n_device_weights": len(walked), "n_named": len(named),
-                      "n_unnamed": len(unnamed), "unnamed": unnamed[:40]},
+                      "n_unnamed": len(unnamed), "unnamed": unnamed[:40],
+                      "orientation": {k: sum(1 for t in named if orient.get(t) == k)
+                                      for k in ("T", "N", None)},
+                      "legacy_orientation": bool(a.legacy_orientation)},
         "forward": fwd,
         "gradient": {
             "n_scored": len(rows), "n_a14_excluded": len(a14), "n_skipped": len(skipped),

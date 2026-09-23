@@ -3,8 +3,8 @@
   "CARD": [
    "D32",
    "D55",
-   "D58",
-   "D205"
+   "D205",
+   "D250"
   ],
   "MERGE": [
    "D10",
@@ -37,7 +37,8 @@
    "evidence_held": "544/576/640/768 all measured to refuse, the 544 fixture built for the purpose; the 576 refusal reproduces byte for byte across card 0 and card 1 (29,970,916,352 B high-water, 5,622 allocations, identical per-bank largest-free-block); every refused rung's high-water is a LOWER bound, so 768's 1.558x overshoot is a floor; and odd 32-tile counts (480, 544) narrow the fp32-softmax L1 plan to 0 B where every even count measured keeps it",
    "needs": "CARD",
    "one_line": "512 is the largest crop that RUNS; 544, 576, 640 and 768 all refuse",
-   "owner": "of3t-crop768, CONCLUDED 2026-09-21 -- absorbed into the ledger at pass 349 (D204: nothing checked that it ever was)"
+   "owner": "of3t-crop768, CONCLUDED 2026-09-21 -- absorbed into the ledger at pass 349 (D204: nothing checked that it ever was)",
+   "row": "of3t-cropwall"
   },
   "D210": {
    "asked": "not yet asked, and not yet owned. It is the only USER-FACING item whose repair has not been built",
@@ -55,6 +56,14 @@
    "one_line": "on a single chain OpenFold3's ranking rule has two of its four terms identically zero, and it is the only model of five that leaves it unhandled",
    "would_a_row_help": true
   },
+  "D250": {
+   "closes_when": "the gap is located to an op and either repaired, default-off and tape-gated, or shown to be the reference's own at op level. An inference-side repair is Moritz's call under the 2026-09-21 no-inference-regression constraint",
+   "evidence_held": "`of3t-msaamp` (GO): device A/A bit-identical, qb1 p150a reproduces qb2 p300c bit for bit, and the backward propagates the gap rather than amplifying it (factor 2.38x against upstream's 5.29x). Gradient-side family excess: pair_transition 2.79x, tri_att_end 2.59x, tri_att_start 2.17x; the triangle multiplications beat upstream",
+   "needs": "CARD",
+   "one_line": "msa_module's forward is 3.54x less accurate than upstream 0.4.3 bf16 at the same boundary (8.176e-03 against 2.311e-03)",
+   "row": "of3t-msafwd",
+   "would_a_row_help": true
+  },
   "D32": {
    "closes_when": "a full training step is timed on the shipped default and published as s/step. This is a MEASUREMENT, not a repair: the routing is deliberate and the defect is that nobody can price training without it",
    "evidence_held": "the 21 sites enumerated by module and line; the trunk-only taped step measured at 230.11 s against 9.721 s for inference, 24x, at crop 384. D164 (pass 304): the OTHER trunk figure on the record, 870.75 s, is a memory-ladder run's wall clock at 3.53 ms per verb call and is not a timing at all -- the same backward clean reads 222.48 s, so this row must re-establish its own baseline before it extends one",
@@ -70,18 +79,6 @@
    "one_line": "the softmax FORWARD is missing one compute_kernel_config, worth 11.2-12.3x accuracy for 1.35-1.50x cost on fp32 and inverting to 1.96x for 2.32x on bf16. The BACKWARD half of this defect is CLOSED (pass 311, all four inert)",
    "row": "of3t-fwdkcfg",
    "would_a_row_help": true
-  },
-  "D58": {
-   "closes_when": "the same locating measurement as D30. Two independent sightings make it a property to explain rather than a coincidence to chase",
-   "evidence_held": "diffusion 0.85 % forward / 16.6 % gradient; msa_module 0.82 % / 16.2 % -- different ops, different track, same factor to two significant figures",
-   "needs": "CARD",
-   "one_line": "the ~20x amplification belongs to the tape, not to any module: 19.6x and 19.8x in two independent modules",
-   "row": "of3t-ditcot",
-   "shares_object_with": [
-    "D30",
-    "D129"
-   ],
-   "would_a_row_help": true
   }
  },
  "user_facing": [
@@ -89,10 +86,10 @@
   "D24",
   "D32",
   "D55",
-  "D58",
   "D184",
   "D205",
-  "D210"
+  "D210",
+  "D250"
  ],
  "what": "What it would take to clear GO condition 5, per USER-FACING defect. Asserted against state/of3t/UNFIXED_TRIAGE.json, which the gate reads."
 }

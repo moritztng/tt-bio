@@ -41,6 +41,32 @@
    "note": "these do not sum to 1 and are not meant to. Each is what the reading would be with the OTHER axis made perfect, divided by what it is; they add up to more or less than the whole exactly as the two errors reinforce or cancel."
   }
  },
+ "WHAT_THE_REPAIR_DID_TO_THE_SPLIT": {
+  "before_the_repair": {
+   "space": "vs-upstream-bf16 -- same space, so this comparison crosses nothing",
+   "what": "the SAME trunk arm on the double-counted functional, before D242 was repaired -- withdrawn as a reading, read here only for the split",
+   "measured_rel_l2": 0.9969599833682794,
+   "norm_ratio": 1.6232598065056374,
+   "cos": 0.8134998416132679,
+   "angle_degrees": 35.56070144378197,
+   "IDENTITY": {
+    "reconstructed_from_r_and_cos": 0.9969599833682793,
+    "rel_difference": 1.1136084127210526e-16,
+    "why": "rel^2 = 1 + r^2 - 2 r cos holds exactly for these three aggregates because they are three norms of one vector pair. A residual here would mean the split is modelled rather than exact, and nothing below could be read."
+   },
+   "magnitude_alone_cos_set_to_1": 0.6232598065056374,
+   "direction_alone_r_set_to_1": 0.6107375187209839,
+   "residual_after_the_best_possible_rescaling": 0.5815651362445895,
+   "shares_of_the_measured_error": {
+    "magnitude": 0.625160304227982,
+    "direction": 0.6125998324000694,
+    "note": "these do not sum to 1 and are not meant to. Each is what the reading would be with the OTHER axis made perfect, divided by what it is; they add up to more or less than the whole exactly as the two errors reinforce or cancel."
+   }
+  },
+  "reading": "the double count was a MAGNITUDE error and the repair removed it almost entirely: the norm ratio goes 1.623259806505637 -> 0.9978645292850583, so magnitude's share of the reading falls 62.52 % -> 0.2749 %. The ANGLE did not shrink with it -- it OPENED, 35.5607 -> 45.7630 degrees -- because the duplicate was a large nearly-parallel component that inflated the magnitude and flattered the cosine at once. What is left is the part the repair never addressed.",
+  "source": "perf/of3t_modelframe/MODEL_FRAMEMATCHED_composed3660_n384.json",
+  "why_this_is_in_space": "both rows are vs-upstream-bf16 on the same 2,736 tensors of the same frame; only the injected functional differs, which is the one thing the repair changed."
+ },
  "THE_ANSWER": {
   "allowance": 0.44608901561034203,
   "x_allowance_today": 1.7414134679108282,

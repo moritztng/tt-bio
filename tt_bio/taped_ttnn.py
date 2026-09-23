@@ -38,7 +38,7 @@ import ttnn
 
 from . import autograd as ag
 from .autograd import Tensor, precise_config
-from .autograd import (_axis, _differentiating, _flat2d, _on_tape, _raw,
+from .autograd import (_axis, _differentiating, _flat2d, _matmul, _on_tape, _raw,
                        _reduce_to, _sum_leading, _tape,
                        _taped_layer_norm, _taped_linear, _unwrap, _wrap)
 
@@ -161,8 +161,8 @@ def _v_matmul(shipped, args, kwargs):
             if a.requires_grad:
                 da = (ttnn.matmul(g, b.value, transpose_b=not tb,
                                   compute_kernel_config=cfg) if not ta else
-                      ttnn.matmul(b.value, g, transpose_a=tb, transpose_b=True,
-                                  compute_kernel_config=cfg))
+                      _matmul(b.value, g, transpose_a=tb, transpose_b=True,
+                              compute_kernel_config=cfg))
                 a.add_grad(_reduce_to(da, a.value.shape))
             if b.requires_grad:
                 # The weight reduces over every token, so it is `_flat2d`'s DRAM-normalised
@@ -174,13 +174,13 @@ def _v_matmul(shipped, args, kwargs):
                 # (1, 4, 64, 32) value in AttentionPairBias.
                 if (not ta and not tb and len(a.value.shape) > 2
                         and len(b.value.shape) == 2):
-                    db = ttnn.matmul(_flat2d(a.value), _flat2d(g), transpose_a=True,
-                                     compute_kernel_config=cfg, dtype=ttnn.float32)
+                    db = _matmul(_flat2d(a.value), _flat2d(g), transpose_a=True,
+                                 compute_kernel_config=cfg, dtype=ttnn.float32)
                 else:
-                    db = (ttnn.matmul(a.value, g, transpose_a=not ta,
-                                      compute_kernel_config=cfg) if not tb else
-                          ttnn.matmul(g, a.value, transpose_a=True, transpose_b=ta,
-                                      compute_kernel_config=cfg))
+                    db = (_matmul(a.value, g, transpose_a=not ta,
+                                  compute_kernel_config=cfg) if not tb else
+                          _matmul(g, a.value, transpose_a=True, transpose_b=ta,
+                                  compute_kernel_config=cfg))
                 b.add_grad(_reduce_to(db, b.value.shape))
             if bias is not None and bias.requires_grad:
                 bias.add_grad(_sum_leading(g, bias.value.shape))
@@ -775,6 +775,44 @@ def _getitem(x: Tensor, index):
     return _sliced(x, ttnn.slice(x.value, starts, ends), starts, ends)
 
 
+# `x[...]` on a RAW handle is a method of `ttnn.Tensor`, not a verb of the `ttnn` module, so
+# `_swap` never reaches it. When the receiver is a registered parameter the slice is a fresh
+# tensor with a new id, the parameter lookup misses, and the weight trains as a constant: the
+# MSA module's per-head `m`/`g`/`o` projections did (D262). While the tape is installed such a
+# slice goes through `_getitem`, like one on a taped tensor. One that still comes back raw (a
+# slice inside a verb's own shipped call, where the lookup is off) is recorded by its first
+# tt-bio frame, and `take_raw_param_slices` hands the list to the caller's guard.
+_RAW_PARAM_SLICES: list = []
+_SHIPPED_GETITEM = ttnn.Tensor.__getitem__
+
+
+def _tt_bio_site() -> str:
+    f = sys._getframe(2)
+    while f is not None:
+        path = f.f_code.co_filename
+        if "/tt_bio/" in path and not path.endswith(("/taped_ttnn.py", "/autograd.py")):
+            return f"tt_bio/{path.rsplit('/tt_bio/', 1)[1]}:{f.f_lineno}"
+        f = f.f_back
+    return "<outside tt_bio>"
+
+
+def _param_getitem(self, index):
+    p = ag._param_on_tape(self)
+    if p is not None:
+        return _getitem(p, index)
+    if ag.parameter_for(self) is not None:
+        _RAW_PARAM_SLICES.append(_tt_bio_site())
+    return _SHIPPED_GETITEM(self, index)
+
+
+def take_raw_param_slices() -> list:
+    """The sites that sliced a registered parameter without reaching the tape since the last
+    call, one entry per slice. Clears the record."""
+    out = list(_RAW_PARAM_SLICES)
+    _RAW_PARAM_SLICES.clear()
+    return out
+
+
 # --- attention ---------------------------------------------------------------------------
 
 # One score block, in bytes, that the backward is allowed to hold while it recomputes.
@@ -881,7 +919,13 @@ def _v_concat_heads(shipped, args, kwargs):
 
     def make():
         def bw(g):
-            x.add_grad(ttnn.permute(ttnn.reshape(g, [B, L, H, dh]), [0, 2, 1, 3]))
+            # Transpose first, so the head split lands on a dim whose extent is dh, not H.
+            # `reshape(g, [B, L, H, dh])` put H on the second-to-last dim, which TILE layout
+            # pads to 32: at H=4 that is an 8x buffer, [B, L, 32, dh] for [B, L, 4, dh] of
+            # gradient. Same data movement, bit-identical, and every intermediate is the
+            # gradient's own size when dh and L are whole tiles.
+            t = ttnn.reshape(ttnn.transpose(g, -2, -1), [B, H, dh, L])
+            x.add_grad(ttnn.transpose(t, -2, -1))
         return bw
 
     return _tape(out_v, [x], make)
@@ -909,17 +953,28 @@ def _v_create_qkv_heads(shipped, args, kwargs):
     def slot(s):
         def make():
             def bw(g):
-                # [B, H, L, dh] -> [B, L, 1, H*dh], then into slot s of the packed axis.
-                rows = ttnn.reshape(ttnn.permute(g, [0, 2, 1, 3]), [B, L, 1, H * dh])
+                # [B, H, L, dh] -> [B, 1, L, H*dh], then into slot s of the packed axis.
+                #
+                # The slot rides the LAST axis. It used to ride dim 2, as an extent of 3, and
+                # that is what refused the 576-token backward: TILE layout pads a
+                # second-to-last dim up to 32, so a [N, N, 3, H*dh] concat output is allocated
+                # as [N, N, 32, H*dh] and the allocator is asked for 2,717,908,992 B to carry
+                # 254,803,968 B of gradient, 10.667x the tensor, 90.6 % of it padding. On the
+                # last axis the extent is 3*H*dh, a whole number of tiles, and nothing pads.
+                # Same bytes in, same bytes out, bit-identical: the packed width decomposes as
+                # [3, H, dh], so slot s is the contiguous range [s*H*dh, (s+1)*H*dh) either
+                # way. `nlp_concat_heads` is the forward of `_v_concat_heads` above and lands
+                # the head axis in H*dh directly, which also drops the [B, L, H, dh]
+                # intermediate whose own dim 2 of 4 padded to 32.
+                rows = ttnn.experimental.nlp_concat_heads(g)
                 # One zero tensor for both empty slots, then one concat. `ttnn.pad` would be
                 # the single-allocation form and cannot be used: it refuses front padding
                 # (`pad.cpp:278 front_padding_is_zero`), so slots 1 and 2 have no pad
-                # expression. The packed width is 2,415,919,104 B at a 384-token pair track,
-                # which is why this op is where the backward runs out of card.
-                zero = ttnn.zeros([B, L, 1, H * dh], dtype=rows.dtype,
+                # expression.
+                zero = ttnn.zeros([B, 1, L, H * dh], dtype=rows.dtype,
                                   layout=ttnn.TILE_LAYOUT, device=rows.device())
                 parts = [rows if i == s else zero for i in range(3)]
-                x.add_grad(ttnn.reshape(ttnn.concat(parts, dim=2), [B, 1, L, 3 * H * dh]))
+                x.add_grad(ttnn.concat(parts, dim=3))
             return bw
         return make
 
@@ -1102,6 +1157,9 @@ def _swap(to_shim: bool) -> None:
     and a tenth added next week would otherwise be the one place the tape stops. Two are
     excluded: this one, and `tt_bio.autograd`, whose backward closures must call the real
     verbs or they would tape their own gradients.
+
+    `ttnn.Tensor.__getitem__` goes in and out with the modules, so an inference fold never
+    executes `_param_getitem`.
     """
     global _SHIMMED
     if to_shim:
@@ -1112,10 +1170,12 @@ def _swap(to_shim: bool) -> None:
             if getattr(mod, "ttnn", None) is ttnn:
                 mod.ttnn = _SHIM
                 _SHIMMED.append(mod)
+        ttnn.Tensor.__getitem__ = _param_getitem
     else:
         for mod in _SHIMMED:
             mod.ttnn = ttnn
         _SHIMMED = []
+        ttnn.Tensor.__getitem__ = _SHIPPED_GETITEM
 
 
 @contextlib.contextmanager
@@ -1172,10 +1232,13 @@ def tape():
     if _SHIMMED:
         yield                       # already open; the outermost block owns the swap
         return
-    prev = ag.install()
+    prev = ag._install_hooks()
     _swap(True)
     try:
-        yield
+        # Softmax and layer norm exact for the forward (`autograd.exact_training`). The
+        # backward opens the same scope for itself, since it runs after this block closes.
+        with ag._training_exact("tape"):
+            yield
     finally:
         _swap(False)
         ag.forget_wrappers()

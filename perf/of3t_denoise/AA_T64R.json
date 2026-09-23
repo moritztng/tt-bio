@@ -1,0 +1,11 @@
+{
+ "arms": [
+  "DN64R",
+  "DN64RB"
+ ],
+ "card": 1,
+ "n_named": 3365,
+ "keysets_equal": true,
+ "bit_identical": 3365,
+ "note": "id()-keyed _wc aliases excluded (names differ per process; score.py drops them as twins)"
+}

@@ -32,6 +32,7 @@ from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[2]
 RESCORED = REPO / "perf/of3t_recut/MODEL_RECUT_composed3660_n384.json"
+WITHDRAWN = REPO / "perf/of3t_modelframe/MODEL_FRAMEMATCHED_composed3660_n384.json"
 CLAUSE = REPO / "perf/of3t_modelframe/CLAUSE.json"
 SECTION = "pairformer_stack"
 
@@ -128,6 +129,15 @@ def main() -> int:
                    name="upstream's own bf16 step against the float64 reference",
                    space="vs-float64 -- the reference's own error, for scale")
 
+    wd = json.loads(WITHDRAWN.read_text())["per_section"]
+    def wsec(pair):
+        v = wd[pair][SECTION]
+        return v["mass_weighted_rel_l2"], v["mass_weighted_norm_ratio"], v["mass_weighted_cos"]
+    was = split(*wsec("renorm_vs_UPSTREAM_BF16"),
+                name="the SAME trunk arm on the double-counted functional, before D242 was "
+                     "repaired -- withdrawn as a reading, read here only for the split",
+                space="vs-upstream-bf16 -- same space, so this comparison crosses nothing")
+
     out = {
         "what": __doc__.strip().splitlines()[0],
         "host": socket.gethostname(), "row": "of3t-recutfin", "defect": "D242",
@@ -160,6 +170,14 @@ def main() -> int:
                                   "every number below inherits that.",
         },
         "THE_SPLIT_IN_THE_GRADED_SPACE": bf16,
+        "WHAT_THE_REPAIR_DID_TO_THE_SPLIT": {
+            "before_the_repair": was,
+            "reading": None,
+            "source": str(WITHDRAWN.relative_to(REPO)),
+            "why_this_is_in_space": "both rows are vs-upstream-bf16 on the same 2,736 tensors "
+                                    "of the same frame; only the injected functional differs, "
+                                    "which is the one thing the repair changed.",
+        },
         "THE_ANSWER": reach(bf16, allowance),
         "CONTRAST_IN_FLOAT64_SPACE_NOT_CARRIED": {
             "ours": f64, "upstreams_own": theirs,
@@ -182,6 +200,16 @@ def main() -> int:
         f"magnitude carries {m_bf16 * 100:.4g} % of the error in the graded space and "
         f"{m_f64 * 100:.4g} % in float64 space, a factor of {m_f64 / m_bf16:.4g}. Same arm, same "
         f"tensors, two references. That is why the float64 split could not be carried across.")
+
+    out["WHAT_THE_REPAIR_DID_TO_THE_SPLIT"]["reading"] = (
+        f"the double count was a MAGNITUDE error and the repair removed it almost entirely: the "
+        f"norm ratio goes {was['norm_ratio']:.16g} -> {bf16['norm_ratio']:.16g}, so magnitude's "
+        f"share of the reading falls "
+        f"{was['shares_of_the_measured_error']['magnitude'] * 100:.4g} % -> "
+        f"{m_bf16 * 100:.4g} %. The ANGLE did not shrink with it -- it OPENED, "
+        f"{was['angle_degrees']:.4f} -> {bf16['angle_degrees']:.4f} degrees -- because the "
+        f"duplicate was a large nearly-parallel component that inflated the magnitude and "
+        f"flattered the cosine at once. What is left is the part the repair never addressed.")
 
     a = out["THE_ANSWER"]
     by_mag = a["BY_MAGNITUDE_ALONE"]

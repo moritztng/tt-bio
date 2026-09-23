@@ -28,8 +28,17 @@ CARD = "CARD"              # a device row, already dispatched or dispatchable
 RELEASE = "RELEASE"        # a merge/ship decision on an existing, measured repair
 MERGE = "MERGE"            # DECIDED by Moritz and built; what is left is landing it on main,
                            # which is his gate and not a measurement this campaign can take
+SOURCE = "SOURCE"          # a source repair with NO measurement in it: no card, no decision,
+                           # no ship gate. Added pass 414 for D246 rather than filing it CARD,
+                           # because calling a zero-device fix "needs a card" is how a cheap item
+                           # inherits an expensive item's excuse for still being open.
 
 PLAN = {
+    # D246 and D247 were here for one pass and are gone because they CLOSED, not because the plan
+    # shrank to look better: `of3t-verbinstall` fixed both at `8ab8c791f` the same pass they were
+    # filed, and both repairs were verified in source rather than taken from the commit message.
+    # D246's fix is better than the one proposed to it -- the flag now sits on both halves, so the
+    # docstring's advertised equivalence is RESTORED rather than withdrawn. Release-gated, unmerged.
     # D155 was here for one pass and is gone because it was WITHDRAWN, not closed: the
     # non-determinism is pc card 0, a faulty card root-caused 2026-08-17, not a protenix
     # property. Filing it USER-FACING was my error -- a row reporting a digest instability
@@ -169,16 +178,22 @@ PLAN = {
         "asked": ("not yet asked, and not yet owned. It is the only USER-FACING item whose repair "
                   "has not been built"),
     },
-    "D58": {
+    # Pass 415: D58 closed on both legs (`of3t-msaamp`, GO) and the forward gap it found in its
+    # place is D250.
+    "D250": {
         "needs": CARD,
-        "one_line": "the ~20x amplification belongs to the tape, not to any module: 19.6x and 19.8x in two independent modules",
-        "closes_when": ("the same locating measurement as D30. Two independent sightings make it a "
-                        "property to explain rather than a coincidence to chase"),
-        "evidence_held": ("diffusion 0.85 % forward / 16.6 % gradient; msa_module 0.82 % / 16.2 % -- "
-                          "different ops, different track, same factor to two significant figures"),
+        "one_line": "msa_module's forward is 3.54x less accurate than upstream 0.4.3 bf16 at the same boundary (8.176e-03 against 2.311e-03)",
+        "closes_when": ("the gap is located to an op and either repaired, default-off and "
+                        "tape-gated, or shown to be the reference's own at op level. An "
+                        "inference-side repair is Moritz's call under the 2026-09-21 "
+                        "no-inference-regression constraint"),
+        "evidence_held": ("`of3t-msaamp` (GO): device A/A bit-identical, qb1 p150a reproduces "
+                          "qb2 p300c bit for bit, and the backward propagates the gap rather than "
+                          "amplifying it (factor 2.38x against upstream's 5.29x). Gradient-side "
+                          "family excess: pair_transition 2.79x, tri_att_end 2.59x, "
+                          "tri_att_start 2.17x; the triangle multiplications beat upstream"),
         "would_a_row_help": True,
-        "row": "of3t-ditcot",
-        "shares_object_with": ["D30", "D129"],
+        "row": "of3t-msafwd",   # dispatched pass 415
     },
     "D205": {
         "needs": CARD,
@@ -197,6 +212,7 @@ PLAN = {
                           "LOWER bound, so 768's 1.558x overshoot is a floor; and odd 32-tile "
                           "counts (480, 544) narrow the fp32-softmax L1 plan to 0 B where every "
                           "even count measured keeps it"),
+        "row": "of3t-cropwall",   # dispatched pass 414; it overturned the mechanism (D248)
         "owner": "of3t-crop768, CONCLUDED 2026-09-21 -- absorbed into the ledger at pass 349 "
                  "(D204: nothing checked that it ever was)",
     },
@@ -259,7 +275,7 @@ def main() -> int:
 
     print(f"GO condition 5: {len(order)} USER-FACING defects, and they are not "
           f"{len(order)} problems.\n")
-    for need in (MERGE, DECISION, RELEASE, CARD):
+    for need in (MERGE, DECISION, RELEASE, SOURCE, CARD):
         ns = by_need.get(need, [])
         if not ns:
             continue
@@ -282,6 +298,11 @@ def main() -> int:
     dec = by_need.get(DECISION, []) + by_need.get(RELEASE, [])
     mrg = by_need.get(MERGE, [])
     card = by_need.get(CARD, [])
+    # Pass 414. The owner checks below ran on the CARD bucket alone, so adding a need
+    # would have bought D246 an exemption from the one check this file exists to make.
+    # A defect that needs no card still needs an owner -- more so, since nothing else
+    # would ever notice it stalling. Same lesson as the D32 `row: None` miss, one need over.
+    owned_needs = card + by_need.get(SOURCE, [])
     shared = [n for n in card if PLAN[n].get("shares_object_with")]
     if dec:
         print(f"SUMMARY. {len(dec)} of {len(order)} need a DECISION or a RELEASE and no "
@@ -312,8 +333,8 @@ def main() -> int:
     # Same shape as the D32 `row: None` miss this block was written for, one step over.
     _CONC = Path("/home/moritz/.coworker/state/concluded")
     _done = lambda r: bool(r) and _CONC.is_dir() and (_CONC / r).exists()
-    _orphan = [n for n in card if not PLAN[n].get("row")]
-    _stale = [n for n in card if _done(PLAN[n].get("row"))]
+    _orphan = [n for n in owned_needs if not PLAN[n].get("row")]
+    _stale = [n for n in owned_needs if _done(PLAN[n].get("row"))]
     if _orphan:
         _verb = "needs a card and has" if len(_orphan) == 1 else "need a card and have"
         print(f"  UNOWNED, and this is the line that was missing: {', '.join(_orphan)} "
@@ -326,17 +347,26 @@ def main() -> int:
             print(f"  OWNER FINISHED: {', '.join(_ns)} name `{_r}`, which has CONCLUDED. "
                   f"A concluded row is not an owner -- dispatch a successor or say why not.")
     if not _orphan and not _stale:
-        _owned = ", ".join(f"{n} -> {PLAN[n]['row']}" for n in card)
-        print(f"  Every card-bound defect has a LIVE row: {_owned}.")
+        _owned = ", ".join(f"{n} -> {PLAN[n]['row']}" for n in owned_needs)
+        print(f"  Every defect that needs an owner has a LIVE row: {_owned}.")
     asked = [n for n in order if PLAN[n].get("asked")]
     print(f"All {len(asked)} of the decision/release items were asked as one bundle (pin 9629) and "
           f"MORITZ ANSWERED on 2026-09-21, by delegating: \"for all of those. think hard. use your "
           f"own judgement. and do the right thing.\" The calls are recorded with their reasoning in "
           f"state/ask-9629-decision.md. So these are no longer waiting on him -- they are waiting "
           f"on a MERGE, which is a different gate and still his.")
-    print("So condition 5 is now one merge, one card-bound measurement each for the rest, and no "
-          "open question. Stated as a plan, not a promise: naming a closure condition is not "
-          "meeting it, and a decided defect is not a merged one.")
+    # Pass 414: this sentence used to read "one merge, one card-bound measurement each for the
+    # rest, and no open question". It was true when typed and D246 falsified it the moment it was
+    # filed -- a SOURCE item is neither a merge nor a measurement. Derived now, for the same
+    # reason the scheduling claim above was: a hand-written census is wrong on its first new row.
+    _src = by_need.get(SOURCE, [])
+    _bits = [f"{len(by_need.get(MERGE, []))} merge(s)",
+             f"a card-bound measurement each for {len(card)}"]
+    if _src:
+        _bits.append(f"{len(_src)} source repair(s) needing no measurement at all ({', '.join(_src)})")
+    print(f"So condition 5 is now {', '.join(_bits)}, and no open question. Stated as a plan, not "
+          f"a promise: naming a closure condition is not meeting it, and a decided defect is not "
+          f"a merged one.")
 
     OUT.write_text(json.dumps({
         "what": ("What it would take to clear GO condition 5, per USER-FACING defect. Asserted "

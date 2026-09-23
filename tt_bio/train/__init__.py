@@ -52,7 +52,7 @@ TIER2 = (
     "select", "af3_lr", "to_host",
     "to_device", "objectives", "losses", "provenance", "save_adapter", "load_adapter",
     "install", "uninstall", "backward", "no_grad", "Tensor", "UnreducedGradients",
-    "UNMEASURED", "launcher",
+    "exact_training", "exact_training_ops", "UNMEASURED", "launcher",
 )
 
 # name -> the submodule it lives in. A module of its own is listed as itself.
@@ -83,7 +83,7 @@ _SUBMODULES = ("losses", "objectives", "provenance", "recipes", "mesh", "optim",
                "checkpoint", "tensors", "loop", "cli", "dryrun", "sharding", "checks",
                "catalogue", "launcher")
 _FROM_AUTOGRAD = ("install", "uninstall", "installed", "is_grad_enabled", "backward",
-                  "no_grad", "Tensor")
+                  "no_grad", "Tensor", "exact_training", "exact_training_ops")
 
 __all__ = sorted({*TIER2, *_WHERE, *_SUBMODULES, *_FROM_AUTOGRAD, "TIER2", "tier2"})
 

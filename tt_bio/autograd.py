@@ -40,7 +40,8 @@ __all__ = [
     "relu", "silu", "reshape", "pairwise_distance",
     "triangle_attention", "permute", "pair_contract", "checkpoint",
     "install", "uninstall", "installed", "is_grad_enabled", "backward", "tape",
-    "exact_softmax", "exact_softmax_installed", "EXACT_SOFTMAX_STATS",
+    "exact", "exact_training", "exact_training_ops", "EXACT_TRAINING_OPS", "exact_softmax", "exact_softmax_installed",
+    "exact_layer_norm_installed", "EXACT_SOFTMAX_STATS", "EXACT_LAYER_NORM_STATS",
 ]
 
 
@@ -387,6 +388,11 @@ def backward(roots, seeds=None) -> None:
     seeds = list(seeds)
     if len(seeds) != len(roots):
         raise ValueError(f"{len(roots)} roots but {len(seeds)} seeds")
+    with _training_exact("backward"):
+        _backward(roots, seeds)
+
+
+def _backward(roots, seeds) -> None:
     order = _reverse_topo(roots)
     keep = {id(r) for r in roots}
     for r, sd in zip(roots, seeds):
@@ -602,6 +608,41 @@ def _evict_read_parents(parents: Sequence[Tensor]) -> None:
         p.evict()
 
 
+MIXED_TRANSPOSE_A = {"promoted": 0}
+
+
+def _matmul(a, b, **kw):
+    """`ttnn.matmul`, with the operands brought to one dtype when `transpose_a` is set.
+
+    `ttnn.matmul(transpose_a=True)` is wrong when its two operands differ in dtype, and it is
+    the only form that is. Measured on a p300c against float64, every transpose form and both
+    dtype orders (`perf/of3t_denoise/PROBE_MM.json`): fp32 A with bf16 B leaves about half the
+    output as garbage, values up to 3.4e+38; bf16 A with fp32 B is finite and uncorrelated
+    with the answer (rel 1.41, the sqrt(2) of two unrelated vectors). Same-dtype operands,
+    `transpose_a=False` in either order, and `ttnn.linear` are all right to 2e-3.
+
+    A backward meets that case as a matter of course: dW = X^T G pairs a forward activation
+    with a cotangent that arrived in its consumer's dtype, and across the OpenFold3 diffusion
+    boundary those are fp32 and bf16. That was D257, the three non-finite
+    `sampler.dc.w_lin_*` gradients. The narrower operand is promoted to fp32, which is exact,
+    and nothing changes where the dtypes already agree.
+    """
+    if not kw.get("transpose_a") or a.dtype == b.dtype:
+        return ttnn.matmul(a, b, **kw)
+    MIXED_TRANSPOSE_A["promoted"] += 1
+    tmp = []
+    if a.dtype != ttnn.float32:
+        a = ttnn.typecast(a, ttnn.float32)
+        tmp.append(a)
+    if b.dtype != ttnn.float32:
+        b = ttnn.typecast(b, ttnn.float32)
+        tmp.append(b)
+    out = ttnn.matmul(a, b, **kw)
+    for t in tmp:
+        ttnn.deallocate(t)
+    return out
+
+
 def _flat2d(t):
     """Collapse every leading dim, leaving (prod(leading), last), DRAM-interleaved.
 
@@ -708,8 +749,8 @@ def matmul(a: Tensor, b: Tensor, *, transpose_a: bool = False, transpose_b: bool
     it when both dims are equal, which for a pair tensor they always are.
     """
     cfg = config or precise_config()
-    out_v = ttnn.matmul(a.value, b.value, transpose_a=transpose_a, transpose_b=transpose_b,
-                        compute_kernel_config=cfg)
+    out_v = _matmul(a.value, b.value, transpose_a=transpose_a, transpose_b=transpose_b,
+                    compute_kernel_config=cfg)
 
     def make():
         def bw(g):
@@ -720,17 +761,17 @@ def matmul(a: Tensor, b: Tensor, *, transpose_a: bool = False, transpose_b: bool
                                            compute_kernel_config=cfg))
                 else:
                     # A entered as A^T, so dA = (dA_eff)^T = op(b) @ g^T
-                    a.add_grad(ttnn.matmul(b.value, g, transpose_a=transpose_b,
-                                           transpose_b=True, compute_kernel_config=cfg))
+                    a.add_grad(_matmul(b.value, g, transpose_a=transpose_b,
+                                       transpose_b=True, compute_kernel_config=cfg))
             if b.requires_grad:
                 if not transpose_b:
                     # dB = op(a)^T @ g
-                    b.add_grad(ttnn.matmul(a.value, g, transpose_a=not transpose_a,
-                                           compute_kernel_config=cfg))
+                    b.add_grad(_matmul(a.value, g, transpose_a=not transpose_a,
+                                       compute_kernel_config=cfg))
                 else:
                     # B entered as B^T, so dB = (dB_eff)^T = g^T @ op(a)
-                    b.add_grad(ttnn.matmul(g, a.value, transpose_a=True,
-                                           transpose_b=transpose_a, compute_kernel_config=cfg))
+                    b.add_grad(_matmul(g, a.value, transpose_a=True,
+                                       transpose_b=transpose_a, compute_kernel_config=cfg))
         return bw
 
     return _tape(out_v, [a, b], make)
@@ -777,8 +818,8 @@ def linear(x: Tensor, w: Tensor, b: Optional[Tensor] = None, *, dtype=None, core
             if w.requires_grad:
                 # dW = X^T @ dY, summed over every leading dim, so flatten both first:
                 # a batched matmul would give one dW per batch instead of their sum.
-                w.add_grad(ttnn.matmul(_flat2d(x.value), _flat2d(g),
-                                       transpose_a=True, compute_kernel_config=bwcfg))
+                w.add_grad(_matmul(_flat2d(x.value), _flat2d(g),
+                                   transpose_a=True, compute_kernel_config=bwcfg))
             if b is not None and b.requires_grad:
                 b.add_grad(_sum_leading(g, b.value.shape))
         return bw
@@ -960,51 +1001,38 @@ def host_f64_softmax(x, dim: int = -1):
     return _tape(y, [xt], make)
 
 
-# --- the exact softmax, as a configuration of the package ---------------------------------
+# --- the exact training ops: softmax and layer norm in float64 on the host ----------------
 #
-# `perf/of3t_bwdaccum/dev_cot.py --lever ceiling_hf3` measured the trunk's backward with every
-# softmax exact: 0.4175214198121818 against the float64 reference at crop 384, where the device
-# softmax reads 0.702981502944001. It got there by rewriting `taped_ttnn._VERBS` and rebinding
-# `ttnn.softmax` from a perf script, which is an experiment and not a thing a caller can run.
-# This is the same arithmetic, installed and removed by the training entry points, with the
-# reach counted rather than printed.
+# ON for every training tape. of3t-stackexact measured the model-frame trunk gradient against
+# upstream OpenFold3 0.4.3: with the device ops it reads 1.4511706984958472x the
+# 0.15210099830945006 bar, with the exact softmax 1.3037867474869442x, with both exact
+# 0.9822570327981535x, and the float64 contrast space improves at the same time, so this is
+# fidelity rather than matching upstream's rounding.
 #
-# TWO reaches, because they are two claims and neither implies the other:
+# TWO reaches per op, because they are two claims and neither implies the other:
 #
-#   the VERB    `_VERBS["softmax"]`, so every softmax the shipped modules take under a tape is
-#               exact in the forward AND in its Jacobian. Tape-gated by construction: `_VERBS`
-#               is only ever consulted through `taped_ttnn`'s shim, and the shim is only bound
-#               into the shipped modules inside `tape()`.
-#   the RAW op  `ttnn.softmax` itself, so `triangle_attention._scores` is exact in the forward
-#               and in the chunked backward's recompute. The verb cannot reach it:
-#               `taped_ttnn.py:861` routes the verb to `triangle_attention`, and this module is
-#               in `taped_ttnn._NEVER_SHIM`, so `_scores` calls the real `ttnn.softmax`. With
-#               only the verb installed, 3,504 renorm firings survive in the trunk and they are
-#               all the pair track.
+#   the VERB    `_VERBS[...]` (and `_TAPED["layer_norm"]` for `ops.layer_norm`'s hook), so every
+#               op the shipped modules take under a tape is exact in the forward AND in its
+#               backward.
+#   the RAW op  `ttnn.softmax` / `ttnn.layer_norm` themselves, so `triangle_attention._scores`
+#               (which calls the real `ttnn.softmax` from this `_NEVER_SHIM` module), frozen and
+#               `no_grad` sites, and a checkpointed block's untaped first pass are exact too,
+#               and every recompute sees the activations the taped forward produced.
 #
 # What is left on the card is `softmax_bw_inner`'s reduction inside `triangle_attention`'s
-# backward, computed on an EXACT p. Making that exact too needs the chunked attention rewritten,
-# which this is not.
+# backward, computed on an EXACT p.
 #
-# Off unless asked for. While installed, the raw half is a process-wide rebinding of
-# `ttnn.softmax`, which is why it is installed and torn down explicitly rather than left on. No
-# inference fold has a route to it: these are the training entry points, and
-# `tests/test_training_opt_in.py::test_no_inference_module_imports_training` is what keeps the
-# inference modules from importing this one at all. That is the difference from a site selector
-# read off the environment, which every model's inference construction path executes.
+# The GATE is the tape being installed, not a flag. `install()` opens the scope until its
+# `uninstall()`, which is the whole fit in `train/recipes.py` and the discovery forward in
+# `walked_weights`; `tape()` and `backward()` open it for their own extent too, for a caller
+# that drives a tape without `install()`. Each takes out only what it put in. While open the
+# raw half is a process-wide rebinding, which is why it never outlives the block. No inference
+# fold enters any of them: `tests/test_training_opt_in.py::test_no_inference_module_imports_
+# training` keeps the inference modules from importing this one at all. There is no
+# environment variable; `exact_training(False)` is the off switch.
 
 EXACT_SOFTMAX_STATS = {"verb": 0, "raw": 0, "raw_elements": 0}
-
-_EXACT_SOFTMAX_VERBS = ("softmax", "softmax_in_place")
-_EXACT_SOFTMAX_SAVED: Optional[dict] = None
-# WHO turned it on, because `uninstall()` is not this lever's private teardown. Two callers
-# already use `install()`/`uninstall()` as a scoped pair around something much narrower than a
-# training step -- `train/lora.py:608-615` brackets the DISCOVERY forward, `train/recipes.py:211`
-# the fit -- and neither knows this lever exists. Tearing down on any `uninstall()` made the
-# lever collateral damage of the first such pair to close: measured, PKG_HF3 came back
-# 0.702981502944001, the device-softmax control to sixteen digits, with its 1,742 exact
-# softmaxes all spent inside that discovery forward and none in the step that was scored.
-_EXACT_SOFTMAX_OWNER: Optional[str] = None
+EXACT_LAYER_NORM_STATS = {"verb": 0, "raw": 0, "elements": 0, "bw": 0}
 
 
 def _exact_softmax_raw(v, dim: int = -1, **kwargs):
@@ -1035,75 +1063,207 @@ def _v_exact_softmax(shipped, args, kwargs):
     return host_f64_softmax(x, dim)
 
 
-def _install_exact_softmax(owner: Optional[str] = None) -> bool:
-    """Idempotent. Keeps the objects it replaced, so the teardown restores those and not a
-    guess at what they were. Returns whether THIS call is the one that installed it, and
-    records `owner` so only the matching teardown takes it back out."""
-    global _EXACT_SOFTMAX_SAVED, _EXACT_SOFTMAX_OWNER
-    if _EXACT_SOFTMAX_SAVED is not None:
-        return False
-    from . import taped_ttnn as tt
-    saved = {"verbs": {n: tt._VERBS[n] for n in _EXACT_SOFTMAX_VERBS if n in tt._VERBS},
-             "raw": {n: getattr(ttnn, n) for n in _EXACT_SOFTMAX_VERBS if hasattr(ttnn, n)}}
-    for n in saved["verbs"]:
-        tt._VERBS[n] = _v_exact_softmax
-    for n in saved["raw"]:
-        setattr(ttnn, n, _exact_softmax_raw)
-    # Both swaps are invisible to a shim that has already resolved these names once. See
-    # `taped_ttnn.forget_shim_bindings`: this is why a package install is not the same thing as
-    # the same patch applied at process start.
-    tt.forget_shim_bindings(*_EXACT_SOFTMAX_VERBS)
-    _EXACT_SOFTMAX_SAVED = saved
-    _EXACT_SOFTMAX_OWNER = owner
-    return True
+# The layer norm, built the same way: of3t-stackexact's `exactln.py`, moved here unchanged so
+# there is one definition. On bf16 inputs its dx, dgamma and dbeta sit at the bf16 storage
+# floor against torch float64 autograd (worst 1.74e-3) where `_taped_layer_norm` reads 3.5e-3
+# to 4.7e-3 (`perf/of3t_stackexact/LNCHECK.json`).
+_LN_KWARGS = {"weight", "bias", "epsilon", "compute_kernel_config", "memory_config",
+              "program_config", "l1_headroom"}
 
 
-def _uninstall_exact_softmax(owner: Optional[str] = None) -> None:
-    """Idempotent. With `owner`, takes it out only if that owner is the one that put it in."""
-    global _EXACT_SOFTMAX_SAVED, _EXACT_SOFTMAX_OWNER
-    if owner is not None and _EXACT_SOFTMAX_OWNER != owner:
-        return
-    saved, _EXACT_SOFTMAX_SAVED = _EXACT_SOFTMAX_SAVED, None
-    _EXACT_SOFTMAX_OWNER = None
-    if saved is None:
-        return
+def _ln_affine64(t, d):
+    v = ttnn.to_torch(t).double().reshape(-1)
+    assert v.numel() == d, f"layer_norm affine of {v.numel()} elements for a last dim of {d}"
+    return v
+
+
+def _ln_args(args, kwargs):
+    args = list(args) + [None] * (3 - len(args))
+    x, gamma, beta = args[0], args[1], args[2]
+    kw = dict(kwargs)
+    unknown = set(kw) - _LN_KWARGS
+    if unknown:
+        raise NotImplementedError(f"exact layer_norm does not know {sorted(unknown)}")
+    gamma = kw.pop("weight", None) if kw.get("weight") is not None else gamma
+    beta = kw.pop("bias", None) if kw.get("bias") is not None else beta
+    return x, gamma, beta, kw.get("epsilon", 1e-5), kw.get("memory_config")
+
+
+def _ln_forward64(v, gamma, beta, eps, memory_config=None):
+    """Raw ttnn in, the float64 result rounded back onto the card out, in the dtype, layout and
+    memory config the shipped op would have returned."""
+    import torch
+    x64 = ttnn.to_torch(v).double()
+    d = x64.shape[-1]
+    xc = x64 - x64.mean(-1, keepdim=True)
+    y64 = xc * torch.rsqrt((xc * xc).mean(-1, keepdim=True) + eps)
+    if gamma is not None:
+        y64 = y64 * _ln_affine64(gamma, d)
+    if beta is not None:
+        y64 = y64 + _ln_affine64(beta, d)
+    EXACT_LAYER_NORM_STATS["elements"] += int(x64.numel())
+    return ttnn.from_torch(y64.float(), layout=v.layout, device=v.device(), dtype=v.dtype,
+                           memory_config=memory_config or v.memory_config())
+
+
+def _exact_layer_norm_raw(*args, **kwargs):
+    """`ttnn.layer_norm` in float64 on the host, no tape node. Reaches a frozen or `no_grad`
+    site, and a checkpointed block's untaped first pass, so its recompute sees the activations
+    the taped forward produced."""
+    x, gamma, beta, eps, mc = _ln_args(args, kwargs)
+    EXACT_LAYER_NORM_STATS["raw"] += 1
+    return _ln_forward64(x, gamma, beta, eps, mc)
+
+
+def _v_exact_layer_norm(shipped, args, kwargs):
+    """The taped `layer_norm`: float64 forward, and dx, dgamma, dbeta in float64 from x re-read
+    off the card. mean and rstd are re-derived in the backward, not held on the host."""
+    x, gamma, beta, eps, mc = _ln_args(args, kwargs)
+    x, gamma, beta = _wrap(x), _wrap(gamma), _wrap(beta)
+    EXACT_LAYER_NORM_STATS["verb"] += 1
+    y = _ln_forward64(x.value, None if gamma is None else gamma.value,
+                      None if beta is None else beta.value, eps, mc)
+    parents = [t for t in (x, gamma, beta) if t is not None]
+
+    def make():
+        def bw(g):
+            import torch
+            EXACT_LAYER_NORM_STATS["bw"] += 1
+            g64 = ttnn.to_torch(g).double()
+            x64 = ttnn.to_torch(x.value).double()
+            d = x64.shape[-1]
+            xc = x64 - x64.mean(-1, keepdim=True)
+            rstd = torch.rsqrt((xc * xc).mean(-1, keepdim=True) + eps)
+            n = xc * rstd
+            lead = tuple(range(g64.dim() - 1))
+
+            def put(t64, like):
+                return ttnn.from_torch(t64.float(), layout=like.layout, device=g.device(),
+                                       dtype=like.dtype, memory_config=like.memory_config())
+
+            if gamma is not None and gamma.requires_grad:
+                gamma.add_grad(put((g64 * n).sum(lead).reshape(ttnn.to_torch(gamma.value).shape),
+                                   gamma.value))
+            if beta is not None and beta.requires_grad:
+                beta.add_grad(put(g64.sum(lead).reshape(ttnn.to_torch(beta.value).shape),
+                                  beta.value))
+            if x.requires_grad:
+                dn = g64 if gamma is None else g64 * _ln_affine64(gamma.value, d)
+                dx = rstd * (dn - dn.mean(-1, keepdim=True) - n * (dn * n).mean(-1, keepdim=True))
+                x.add_grad(put(dx, g))
+        return bw
+
+    return _tape(y, parents, make)
+
+
+# What each exact op replaces: the taped verbs in `taped_ttnn._VERBS`, the hook's entry in
+# `_TAPED`, and the raw `ttnn` callables, each with its exact stand-in.
+_EXACT_OPS = {
+    "softmax": {"verbs": {"softmax": _v_exact_softmax, "softmax_in_place": _v_exact_softmax},
+                "taped": {},
+                "raw": {"softmax": _exact_softmax_raw, "softmax_in_place": _exact_softmax_raw}},
+    "layer_norm": {"verbs": {"layer_norm": _v_exact_layer_norm},
+                   "taped": {"layer_norm": _v_exact_layer_norm},
+                   "raw": {"layer_norm": _exact_layer_norm_raw}},
+}
+# The set a training tape runs exact, of3t-stackexact's SL arm: 0.9822570327981535x the bar
+# where the device ops read 1.4511706984958472x.
+EXACT_TRAINING_OPS = ("softmax", "layer_norm")
+# op -> (owner, the objects it replaced). Each scope takes out only the ops it put in.
+_EXACT_SAVED: dict = {}
+_EXACT_TRAINING = [True]    # innermost `exact_training()` block wins
+
+
+def _install_exact(ops, owner: str) -> tuple:
+    """Install each op in `ops` not already installed. Keeps the objects it replaced, so the
+    teardown restores those and not a guess at what they were. Returns the ops THIS call
+    installed; only those are its to take back out."""
     from . import taped_ttnn as tt
-    tt._VERBS.update(saved["verbs"])
-    for n, fn in saved["raw"].items():
-        setattr(ttnn, n, fn)
-    tt.forget_shim_bindings(*_EXACT_SOFTMAX_VERBS)
+    mine = tuple(op for op in ops if op not in _EXACT_SAVED)
+    for op in mine:
+        spec = _EXACT_OPS[op]
+        saved = {"verbs": {n: tt._VERBS[n] for n in spec["verbs"] if n in tt._VERBS},
+                 "taped": {n: _TAPED[n] for n in spec["taped"]},
+                 "raw": {n: getattr(ttnn, n) for n in spec["raw"] if hasattr(ttnn, n)}}
+        for n in saved["verbs"]:
+            tt._VERBS[n] = spec["verbs"][n]
+        for n in saved["taped"]:
+            _TAPED[n] = spec["taped"][n]
+        for n in saved["raw"]:
+            setattr(ttnn, n, spec["raw"][n])
+        # Both swaps are invisible to a shim that has already resolved these names once. See
+        # `taped_ttnn.forget_shim_bindings`: this is why a package install is not the same
+        # thing as the same patch applied at process start.
+        tt.forget_shim_bindings(*spec["verbs"])
+        _EXACT_SAVED[op] = (owner, saved)
+    return mine
+
+
+def _uninstall_exact(ops, owner: Optional[str] = None) -> None:
+    """With `owner`, takes an op out only if that owner is the one that put it in."""
+    from . import taped_ttnn as tt
+    for op in ops:
+        if op not in _EXACT_SAVED or (owner is not None and _EXACT_SAVED[op][0] != owner):
+            continue
+        _, saved = _EXACT_SAVED.pop(op)
+        tt._VERBS.update(saved["verbs"])
+        _TAPED.update(saved["taped"])
+        for n, fn in saved["raw"].items():
+            setattr(ttnn, n, fn)
+        tt.forget_shim_bindings(*_EXACT_OPS[op]["verbs"])
 
 
 def exact_softmax_installed() -> bool:
-    return _EXACT_SOFTMAX_SAVED is not None
+    return "softmax" in _EXACT_SAVED
+
+
+def exact_layer_norm_installed() -> bool:
+    return "layer_norm" in _EXACT_SAVED
 
 
 @contextlib.contextmanager
-def exact_softmax():
-    """Every softmax in the trunk exact, for a whole training step.
-
-        with tt_bio.autograd.exact_softmax():
-            with tt_bio.autograd.tape():
-                out = model(x)
-            out.backward()
-
-    Wider than `tape()`, deliberately. The backward recomputes -- `triangle_attention` never
-    holds its scores and a checkpointed block reruns its forward -- so a lever that came out
-    with the tape would leave every recomputed softmax on the card and take the Jacobian at
-    activations the forward did not produce. `install(exact_softmax=True)` / `uninstall()` is
-    the same thing without the block.
-
-    Nests: an inner block that found the lever already installed leaves it installed, the way
-    `tape()` leaves the shim to the outermost block. Taking it out at the inner `finally` would
-    be a teardown in the middle of the step it is meant to cover, and the arm would read as
-    half-installed with nothing saying so.
-    """
-    mine = _install_exact_softmax("exact_softmax")
+def exact(ops=EXACT_TRAINING_OPS, owner: str = "exact"):
+    """The named ops exact for the block. Nests: an op an outer block already installed is
+    left to it, the way `tape()` leaves the shim to the outermost block."""
+    mine = _install_exact(ops, owner)
     try:
         yield
     finally:
-        if mine:
-            _uninstall_exact_softmax("exact_softmax")
+        _uninstall_exact(mine)
+
+
+def exact_softmax():
+    """Every softmax exact for the block, and nothing else. What of3t-modelever's arms used."""
+    return exact(("softmax",), owner="exact_softmax")
+
+
+@contextlib.contextmanager
+def exact_training(on: bool = True):
+    """The training off switch. Inside `exact_training(False)`, `install()`, `tape()` and
+    `backward()` leave softmax and layer norm on the device ops, as inference runs them.
+
+    ON is the default because it is what reproduces upstream's gradient (of3t-stackexact:
+    0.9822570327981535x the bar against 1.4511706984958472x without). The cost is a host round
+    trip per softmax and per layer norm, in the forward and in the backward's recompute.
+    """
+    _EXACT_TRAINING.append(bool(on))
+    try:
+        yield
+    finally:
+        _EXACT_TRAINING.pop()
+
+
+def exact_training_ops() -> tuple:
+    """The ops a tape opened now would run exact: `EXACT_TRAINING_OPS`, or none inside
+    `exact_training(False)`. What a run records in its provenance."""
+    return EXACT_TRAINING_OPS if _EXACT_TRAINING[-1] else ()
+
+
+def _training_exact(owner: str):
+    """The scope `tape()` and `backward()` open for their own extent, for a caller that never
+    called `install()`. Nothing outside the training entry points enters it."""
+    ops = exact_training_ops()
+    return exact(ops, owner) if ops else contextlib.nullcontext()
 
 
 def mul(a: Tensor, b: Tensor) -> Tensor:
@@ -1374,7 +1534,7 @@ def triangle_attention(q: Tensor, k: Tensor, v: Tensor, bias: Optional[Tensor] =
                     p = _scores(q.value[b0:b1, :, i0:i1, :], b0, b1, i0, i1)
                     go = g[b0:b1, :, i0:i1, :]
                     # dV = P^T @ dO, summed over the query chunks that share these keys.
-                    dv_part = ttnn.matmul(p, go, transpose_a=True, compute_kernel_config=cfg)
+                    dv_part = _matmul(p, go, transpose_a=True, compute_kernel_config=cfg)
                     dv_acc = dv_part if dv_acc is None else ttnn.add(dv_acc, dv_part)
                     # dS = P * (dP - rowsum(dP * P)), the softmax backward on the block.
                     dp = ttnn.matmul(go, v.value[b0:b1], transpose_b=True,
@@ -1393,8 +1553,8 @@ def triangle_attention(q: Tensor, k: Tensor, v: Tensor, bias: Optional[Tensor] =
                     dq_rows.append(ttnn.multiply(
                         ttnn.matmul(ds, k.value[b0:b1], compute_kernel_config=cfg), scale))
                     dk_part = ttnn.multiply(
-                        ttnn.matmul(ds, q.value[b0:b1, :, i0:i1, :], transpose_a=True,
-                                    compute_kernel_config=cfg), scale)
+                        _matmul(ds, q.value[b0:b1, :, i0:i1, :], transpose_a=True,
+                                compute_kernel_config=cfg), scale)
                     dk_acc = dk_part if dk_acc is None else ttnn.add(dk_acc, dk_part)
                     ttnn.deallocate(ds)
                 dq_blocks.append(dq_rows[0] if len(dq_rows) == 1
@@ -1990,8 +2150,8 @@ def _taped_linear(shipped, args, kwargs):
                 # matters -- a weight gradient is weight-shaped, and the optimiser wants
                 # it in fp32 anyway.
                 w.add_grad(_reduce_to(
-                    ttnn.matmul(_flat2d(x.value), _flat2d(g), transpose_a=True,
-                                compute_kernel_config=bwcfg, dtype=ttnn.float32),
+                    _matmul(_flat2d(x.value), _flat2d(g), transpose_a=True,
+                            compute_kernel_config=bwcfg, dtype=ttnn.float32),
                     w.value.shape))
             if bias is not None and bias.requires_grad:
                 bias.add_grad(_sum_leading(g, bias.value.shape))
@@ -2107,16 +2267,8 @@ def _checkpoint_segment(fn, *inputs):
     return checkpoint(fn, *inputs, params=_ALL_PARAMS)
 
 
-def install(*, exact_softmax: bool = False):
-    """Route `tt_bio.ops` through the tape. Idempotent; returns the hook it replaced.
-
-    This is the narrow seam -- two verbs. `tape()` is the whole shipped forward.
-
-    `exact_softmax` additionally computes every softmax in the taped forward, and every one the
-    backward recomputes, on the host in float64. Off by default: it costs a host round trip per
-    softmax and it is bought for gradient fidelity. `uninstall` takes it back out. When the
-    scope you want is one training step rather than one install, use `exact_softmax()`.
-    """
+def _install_hooks():
+    """The four hooks, and nothing else. What `tape()` re-arms on every entry."""
     from . import ops
     # A recycling model asks `ops.recycle_region` whether a non-final cycle is differentiated.
     # Installed together with the verb hook because the two are the same opt-in.
@@ -2125,20 +2277,48 @@ def install(*, exact_softmax: bool = False):
     # The host float64 softmax a construction site may select. Injected rather than imported,
     # so `tt_bio/tenstorrent.py` can offer the lever without reaching the tape to do it.
     ops.set_host_softmax_hook(host_f64_softmax)
-    if exact_softmax:
-        _install_exact_softmax("install")
     return ops.set_grad_hook(_hook)
 
 
-def uninstall() -> None:
-    """Put the inference path back. Idempotent."""
+# What each open `install()` armed, innermost last, so `uninstall()` takes out exactly what its
+# own `install()` put in. Pairing by nesting rather than by an owner name: an owner name is the
+# same literal for every caller, and an unrelated pair closing first then tore down a lever it
+# never armed (measured: PKG_HF3 came back the device-softmax control to sixteen digits).
+_INSTALL_EXACT: list = []
+
+
+def install(*, exact_softmax: bool = False):
+    """Route `tt_bio.ops` through the tape, and run softmax and layer norm exact until the
+    matching `uninstall()` (`exact_training`). Returns the hook it replaced.
+
+    This is the narrow seam -- two verbs. `tape()` is the whole shipped forward.
+
+    The exact ops are scoped to the install and not only to a tape because the training stack
+    runs forwards outside any tape that the step then depends on: `walked_weights`' discovery
+    forward is `install()` plus `no_grad`, and the fused-softmax tail learns its L1 row caps
+    from whatever it runs first. With discovery on the device ops the trunk step's gradient
+    came back 1958 of 2736 tensors off of3t-stackexact's arm (`perf/of3t_stackship/`).
+
+    `exact_softmax` also arms the exact softmax inside `exact_training(False)`.
+    """
+    ops_ = exact_training_ops()
+    if exact_softmax and "softmax" not in ops_:
+        ops_ = ops_ + ("softmax",)
+    _INSTALL_EXACT.append(_install_exact(ops_, "install"))
+    return _install_hooks()
+
+
+def uninstall(*, exact_softmax: bool = False) -> None:
+    """Put the inference path back. Idempotent: an `uninstall()` with no open `install()` only
+    clears the hooks. `exact_softmax` is accepted for symmetry with `install()`; the pairing is
+    by nesting, so an inner install/uninstall pair never disarms what an outer one armed.
+    """
     from . import ops
     ops.set_recycle_hook(None)
     ops.set_checkpoint_hook(None)
     ops.set_host_softmax_hook(None)
-    # Only what THIS pair turned on. An `uninstall()` from a caller that never asked for the
-    # exact softmax must leave it alone; see `_EXACT_SOFTMAX_OWNER`.
-    _uninstall_exact_softmax("install")
+    if _INSTALL_EXACT:
+        _uninstall_exact(_INSTALL_EXACT.pop())
     ops.set_grad_hook(None)
 
 

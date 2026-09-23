@@ -84,9 +84,9 @@ SURFACE = {
                              "unfused path WHILE A TAPE IS OPEN. An inference fold opens none."),
     "D55": ("TRAINING TAPE", "tt_bio's OWN TAPE gives precise_config() to some reductions and "
                              "withholds it from four. Reached only through the tape."),
-    "D58": ("TRAINING TAPE", "its own triage says USER-FACING 'because the tape is shipped "
-                             "training code'. The forward-to-gradient factor is a training "
-                             "quantity."),
+    "D250": ("INFERENCE", "msa_module's forward, which every OpenFold3 fold runs. Accuracy "
+                          "is 3.54x behind upstream bf16 at one boundary; whether any "
+                          "structure moves is unmeasured."),
     "D184": ("TRAINING", "seventeen parameters receive no gradient on the shipped default. A "
                          "gradient is not part of a fold."),
     "D205": ("INFERENCE, but a REFUSAL", "512 aa is the largest crop that runs; 544, 576, 640 "
