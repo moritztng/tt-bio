@@ -1,0 +1,3685 @@
+{
+ "boltz2": {
+  "affinity.yaml": {
+   "verdict": "accepted",
+   "found": {
+    "ligand": "chain(s) L",
+    "affinity": "binder L"
+   },
+   "notes": [],
+   "chains": [
+    [
+     "A",
+     "protein",
+     76
+    ],
+    [
+     "L",
+     "ligand",
+     27
+    ]
+   ]
+  },
+  "base.yaml": {
+   "verdict": "accepted",
+   "found": {},
+   "notes": [],
+   "chains": [
+    [
+     "A",
+     "protein",
+     76
+    ]
+   ]
+  },
+  "bond_ligand.yaml": {
+   "verdict": "accepted",
+   "found": {
+    "ligand": "chain(s) B",
+    "bond": "constraints"
+   },
+   "notes": [],
+   "chains": [
+    [
+     "A",
+     "protein",
+     11
+    ],
+    [
+     "B",
+     "ligand",
+     9
+    ]
+   ]
+  },
+  "bond_protein_cys.yaml": {
+   "verdict": "accepted",
+   "found": {
+    "bond": "constraints"
+   },
+   "notes": [],
+   "chains": [
+    [
+     "A",
+     "protein",
+     11
+    ],
+    [
+     "B",
+     "protein",
+     11
+    ]
+   ]
+  },
+  "bond_protein_shipped_example.yaml": {
+   "verdict": "accepted",
+   "found": {
+    "bond": "constraints"
+   },
+   "notes": [],
+   "chains": [
+    [
+     "A",
+     "protein",
+     11
+    ],
+    [
+     "B",
+     "protein",
+     11
+    ]
+   ]
+  },
+  "contact.yaml": {
+   "verdict": "accepted",
+   "found": {
+    "pocket": "constraints"
+   },
+   "notes": [],
+   "chains": [
+    [
+     "A",
+     "protein",
+     76
+    ],
+    [
+     "B",
+     "protein",
+     20
+    ]
+   ]
+  },
+  "cyclic.yaml": {
+   "verdict": "accepted",
+   "found": {
+    "cyclic": "chain(s) A"
+   },
+   "notes": [],
+   "chains": [
+    [
+     "A",
+     "protein",
+     13
+    ]
+   ]
+  },
+  "dna.yaml": {
+   "verdict": "accepted",
+   "found": {
+    "dna": "chain(s) D"
+   },
+   "notes": [],
+   "chains": [
+    [
+     "A",
+     "protein",
+     76
+    ],
+    [
+     "D",
+     "dna",
+     13
+    ]
+   ]
+  },
+  "fasta_ligand.fasta": {
+   "verdict": "accepted",
+   "found": {
+    "ligand": "chain(s) L"
+   },
+   "notes": [],
+   "chains": [
+    [
+     "A",
+     "protein",
+     76
+    ],
+    [
+     "L",
+     "ligand",
+     27
+    ]
+   ]
+  },
+  "heteromer3.yaml": {
+   "verdict": "accepted",
+   "found": {},
+   "notes": [],
+   "chains": [
+    [
+     "A",
+     "protein",
+     76
+    ],
+    [
+     "B",
+     "protein",
+     20
+    ],
+    [
+     "C",
+     "protein",
+     36
+    ]
+   ]
+  },
+  "homomer.yaml": {
+   "verdict": "accepted",
+   "found": {},
+   "notes": [],
+   "chains": [
+    [
+     "A",
+     "protein",
+     76
+    ],
+    [
+     "B",
+     "protein",
+     76
+    ]
+   ]
+  },
+  "ligand_ccd.yaml": {
+   "verdict": "accepted",
+   "found": {
+    "ligand": "chain(s) L"
+   },
+   "notes": [],
+   "chains": [
+    [
+     "A",
+     "protein",
+     76
+    ],
+    [
+     "L",
+     "ligand",
+     7
+    ]
+   ]
+  },
+  "ligand_smiles.yaml": {
+   "verdict": "accepted",
+   "found": {
+    "ligand": "chain(s) L"
+   },
+   "notes": [],
+   "chains": [
+    [
+     "A",
+     "protein",
+     76
+    ],
+    [
+     "L",
+     "ligand",
+     27
+    ]
+   ]
+  },
+  "lowercase.yaml": {
+   "verdict": "accepted",
+   "found": {},
+   "notes": [],
+   "chains": [
+    [
+     "A",
+     "protein",
+     76
+    ]
+   ]
+  },
+  "malformed_badchar.yaml": {
+   "verdict": "accepted",
+   "found": {},
+   "notes": [],
+   "chains": [
+    [
+     "A",
+     "protein",
+     19
+    ]
+   ]
+  },
+  "malformed_empty_seq.yaml": {
+   "verdict": "accepted",
+   "found": {},
+   "notes": [],
+   "chains": []
+  },
+  "malformed_typo.yaml": {
+   "verdict": "refused",
+   "error": "ClickException",
+   "message": "malformed_typo.yaml: unrecognized entity key(s) 'protien'. Accepted: dna, ligand, protein, rna."
+  },
+  "modification.yaml": {
+   "verdict": "accepted",
+   "found": {
+    "modifications": "chain(s) A"
+   },
+   "notes": [],
+   "chains": [
+    [
+     "A",
+     "protein",
+     76
+    ]
+   ]
+  },
+  "msa_a3m.yaml": {
+   "verdict": "accepted",
+   "found": {},
+   "notes": [],
+   "chains": [
+    [
+     "A",
+     "protein",
+     384
+    ]
+   ]
+  },
+  "msa_empty_ctrl.yaml": {
+   "verdict": "accepted",
+   "found": {},
+   "notes": [],
+   "chains": [
+    [
+     "A",
+     "protein",
+     384
+    ]
+   ]
+  },
+  "pocket.yaml": {
+   "verdict": "accepted",
+   "found": {
+    "ligand": "chain(s) L",
+    "pocket": "constraints"
+   },
+   "notes": [],
+   "chains": [
+    [
+     "A",
+     "protein",
+     76
+    ],
+    [
+     "L",
+     "ligand",
+     7
+    ]
+   ]
+  },
+  "rna.yaml": {
+   "verdict": "accepted",
+   "found": {
+    "rna": "chain(s) R"
+   },
+   "notes": [],
+   "chains": [
+    [
+     "A",
+     "protein",
+     76
+    ],
+    [
+     "R",
+     "rna",
+     20
+    ]
+   ]
+  },
+  "rna_only.yaml": {
+   "verdict": "accepted",
+   "found": {
+    "rna": "chain(s) R"
+   },
+   "notes": [],
+   "chains": [
+    [
+     "R",
+     "rna",
+     20
+    ]
+   ]
+  },
+  "template_cif.yaml": {
+   "verdict": "accepted",
+   "found": {},
+   "notes": [],
+   "chains": [
+    [
+     "A",
+     "protein",
+     274
+    ]
+   ]
+  },
+  "template_npz.yaml": {
+   "verdict": "accepted",
+   "found": {
+    "templates": "chain(s) A"
+   },
+   "notes": [],
+   "chains": [
+    [
+     "A",
+     "protein",
+     274
+    ]
+   ]
+  },
+  "template_off.yaml": {
+   "verdict": "accepted",
+   "found": {},
+   "notes": [],
+   "chains": [
+    [
+     "A",
+     "protein",
+     274
+    ]
+   ]
+  },
+  "tiny_peptide.yaml": {
+   "verdict": "accepted",
+   "found": {},
+   "notes": [],
+   "chains": [
+    [
+     "A",
+     "protein",
+     5
+    ]
+   ]
+  },
+  "unusual_U.yaml": {
+   "verdict": "accepted",
+   "found": {},
+   "notes": [],
+   "chains": [
+    [
+     "A",
+     "protein",
+     76
+    ]
+   ]
+  },
+  "unusual_X.yaml": {
+   "verdict": "accepted",
+   "found": {},
+   "notes": [],
+   "chains": [
+    [
+     "A",
+     "protein",
+     76
+    ]
+   ]
+  }
+ },
+ "esmfold2": {
+  "affinity.yaml": {
+   "verdict": "noted",
+   "found": {
+    "ligand": "chain(s) L",
+    "affinity": "binder L"
+   },
+   "notes": [
+    "Note: --model esmfold2 ignores `properties: affinity` (binder L in affinity.yaml): no affinity value is written. Use --model boltz2, tt-bio affinity --model nesso1 for it."
+   ],
+   "chains": [
+    [
+     "A",
+     "protein",
+     76
+    ],
+    [
+     "L",
+     "ligand",
+     27
+    ]
+   ]
+  },
+  "base.yaml": {
+   "verdict": "accepted",
+   "found": {},
+   "notes": [],
+   "chains": [
+    [
+     "A",
+     "protein",
+     76
+    ]
+   ]
+  },
+  "bond_ligand.yaml": {
+   "verdict": "refused",
+   "error": "RuntimeError",
+   "message": "--model esmfold2 cannot honour 1 part(s) of bond_ligand.yaml:\n  - a `bond` constraint (constraints): the fold would ignore the covalent bond. Honoured by: --model boltz2, --model opendde, --model opendde-abag, --model protenix-v1, --model protenix-v2."
+  },
+  "bond_protein_cys.yaml": {
+   "verdict": "refused",
+   "error": "RuntimeError",
+   "message": "--model esmfold2 cannot honour 1 part(s) of bond_protein_cys.yaml:\n  - a `bond` constraint (constraints): the fold would ignore the covalent bond. Honoured by: --model boltz2, --model opendde, --model opendde-abag, --model protenix-v1, --model protenix-v2."
+  },
+  "bond_protein_shipped_example.yaml": {
+   "verdict": "refused",
+   "error": "RuntimeError",
+   "message": "--model esmfold2 cannot honour 1 part(s) of bond_protein_shipped_example.yaml:\n  - a `bond` constraint (constraints): the fold would ignore the covalent bond. Honoured by: --model boltz2, --model opendde, --model opendde-abag, --model protenix-v1, --model protenix-v2."
+  },
+  "contact.yaml": {
+   "verdict": "refused",
+   "error": "RuntimeError",
+   "message": "--model esmfold2 cannot honour 1 part(s) of contact.yaml:\n  - a `pocket`/`contact` constraint (constraints): the fold would ignore the binding constraint. Honoured by: --model boltz2."
+  },
+  "cyclic.yaml": {
+   "verdict": "refused",
+   "error": "RuntimeError",
+   "message": "--model esmfold2 cannot honour 1 part(s) of cyclic.yaml:\n  - `cyclic: true` (chain(s) A): the fold would return a linear structure. Honoured by: --model boltz2."
+  },
+  "dna.yaml": {
+   "verdict": "accepted",
+   "found": {
+    "dna": "chain(s) D"
+   },
+   "notes": [],
+   "chains": [
+    [
+     "A",
+     "protein",
+     76
+    ],
+    [
+     "D",
+     "dna",
+     13
+    ]
+   ]
+  },
+  "fasta_ligand.fasta": {
+   "verdict": "accepted",
+   "found": {
+    "ligand": "chain(s) L"
+   },
+   "notes": [],
+   "chains": [
+    [
+     "A",
+     "protein",
+     76
+    ],
+    [
+     "L",
+     "ligand",
+     27
+    ]
+   ]
+  },
+  "heteromer3.yaml": {
+   "verdict": "accepted",
+   "found": {},
+   "notes": [],
+   "chains": [
+    [
+     "A",
+     "protein",
+     76
+    ],
+    [
+     "B",
+     "protein",
+     20
+    ],
+    [
+     "C",
+     "protein",
+     36
+    ]
+   ]
+  },
+  "homomer.yaml": {
+   "verdict": "accepted",
+   "found": {},
+   "notes": [],
+   "chains": [
+    [
+     "A",
+     "protein",
+     76
+    ],
+    [
+     "B",
+     "protein",
+     76
+    ]
+   ]
+  },
+  "ligand_ccd.yaml": {
+   "verdict": "accepted",
+   "found": {
+    "ligand": "chain(s) L"
+   },
+   "notes": [],
+   "chains": [
+    [
+     "A",
+     "protein",
+     76
+    ],
+    [
+     "L",
+     "ligand",
+     7
+    ]
+   ]
+  },
+  "ligand_smiles.yaml": {
+   "verdict": "accepted",
+   "found": {
+    "ligand": "chain(s) L"
+   },
+   "notes": [],
+   "chains": [
+    [
+     "A",
+     "protein",
+     76
+    ],
+    [
+     "L",
+     "ligand",
+     27
+    ]
+   ]
+  },
+  "lowercase.yaml": {
+   "verdict": "accepted",
+   "found": {},
+   "notes": [],
+   "chains": [
+    [
+     "A",
+     "protein",
+     76
+    ]
+   ]
+  },
+  "malformed_badchar.yaml": {
+   "verdict": "accepted",
+   "found": {},
+   "notes": [],
+   "chains": [
+    [
+     "A",
+     "protein",
+     19
+    ]
+   ]
+  },
+  "malformed_empty_seq.yaml": {
+   "verdict": "accepted",
+   "found": {},
+   "notes": [],
+   "chains": []
+  },
+  "malformed_typo.yaml": {
+   "verdict": "refused",
+   "error": "ClickException",
+   "message": "malformed_typo.yaml: unrecognized entity key(s) 'protien'. Accepted: dna, ligand, protein, rna."
+  },
+  "modification.yaml": {
+   "verdict": "accepted",
+   "found": {
+    "modifications": "chain(s) A"
+   },
+   "notes": [],
+   "chains": [
+    [
+     "A",
+     "protein",
+     76
+    ]
+   ]
+  },
+  "msa_a3m.yaml": {
+   "verdict": "accepted",
+   "found": {},
+   "notes": [],
+   "chains": [
+    [
+     "A",
+     "protein",
+     384
+    ]
+   ]
+  },
+  "msa_empty_ctrl.yaml": {
+   "verdict": "accepted",
+   "found": {},
+   "notes": [],
+   "chains": [
+    [
+     "A",
+     "protein",
+     384
+    ]
+   ]
+  },
+  "pocket.yaml": {
+   "verdict": "refused",
+   "error": "RuntimeError",
+   "message": "--model esmfold2 cannot honour 1 part(s) of pocket.yaml:\n  - a `pocket`/`contact` constraint (constraints): the fold would ignore the binding constraint. Honoured by: --model boltz2."
+  },
+  "rna.yaml": {
+   "verdict": "accepted",
+   "found": {
+    "rna": "chain(s) R"
+   },
+   "notes": [],
+   "chains": [
+    [
+     "A",
+     "protein",
+     76
+    ],
+    [
+     "R",
+     "rna",
+     20
+    ]
+   ]
+  },
+  "rna_only.yaml": {
+   "verdict": "accepted",
+   "found": {
+    "rna": "chain(s) R"
+   },
+   "notes": [],
+   "chains": [
+    [
+     "R",
+     "rna",
+     20
+    ]
+   ]
+  },
+  "template_cif.yaml": {
+   "verdict": "accepted",
+   "found": {},
+   "notes": [],
+   "chains": [
+    [
+     "A",
+     "protein",
+     274
+    ]
+   ]
+  },
+  "template_npz.yaml": {
+   "verdict": "refused",
+   "error": "RuntimeError",
+   "message": "--model esmfold2 cannot honour 1 part(s) of template_npz.yaml:\n  - `templates:` (chain(s) A): the fold would ignore the template you supplied. Honoured by: --model boltz2, --model openbind, --model opendde, --model opendde-abag, --model openfold3, --model protenix-v2."
+  },
+  "template_off.yaml": {
+   "verdict": "accepted",
+   "found": {},
+   "notes": [],
+   "chains": [
+    [
+     "A",
+     "protein",
+     274
+    ]
+   ]
+  },
+  "tiny_peptide.yaml": {
+   "verdict": "accepted",
+   "found": {},
+   "notes": [],
+   "chains": [
+    [
+     "A",
+     "protein",
+     5
+    ]
+   ]
+  },
+  "unusual_U.yaml": {
+   "verdict": "accepted",
+   "found": {},
+   "notes": [],
+   "chains": [
+    [
+     "A",
+     "protein",
+     76
+    ]
+   ]
+  },
+  "unusual_X.yaml": {
+   "verdict": "accepted",
+   "found": {},
+   "notes": [],
+   "chains": [
+    [
+     "A",
+     "protein",
+     76
+    ]
+   ]
+  }
+ },
+ "esmfold2-fast": {
+  "affinity.yaml": {
+   "verdict": "noted",
+   "found": {
+    "ligand": "chain(s) L",
+    "affinity": "binder L"
+   },
+   "notes": [
+    "Note: --model esmfold2-fast ignores `properties: affinity` (binder L in affinity.yaml): no affinity value is written. Use --model boltz2, tt-bio affinity --model nesso1 for it."
+   ],
+   "chains": [
+    [
+     "A",
+     "protein",
+     76
+    ],
+    [
+     "L",
+     "ligand",
+     27
+    ]
+   ]
+  },
+  "base.yaml": {
+   "verdict": "accepted",
+   "found": {},
+   "notes": [],
+   "chains": [
+    [
+     "A",
+     "protein",
+     76
+    ]
+   ]
+  },
+  "bond_ligand.yaml": {
+   "verdict": "refused",
+   "error": "RuntimeError",
+   "message": "--model esmfold2-fast cannot honour 1 part(s) of bond_ligand.yaml:\n  - a `bond` constraint (constraints): the fold would ignore the covalent bond. Honoured by: --model boltz2, --model opendde, --model opendde-abag, --model protenix-v1, --model protenix-v2."
+  },
+  "bond_protein_cys.yaml": {
+   "verdict": "refused",
+   "error": "RuntimeError",
+   "message": "--model esmfold2-fast cannot honour 1 part(s) of bond_protein_cys.yaml:\n  - a `bond` constraint (constraints): the fold would ignore the covalent bond. Honoured by: --model boltz2, --model opendde, --model opendde-abag, --model protenix-v1, --model protenix-v2."
+  },
+  "bond_protein_shipped_example.yaml": {
+   "verdict": "refused",
+   "error": "RuntimeError",
+   "message": "--model esmfold2-fast cannot honour 1 part(s) of bond_protein_shipped_example.yaml:\n  - a `bond` constraint (constraints): the fold would ignore the covalent bond. Honoured by: --model boltz2, --model opendde, --model opendde-abag, --model protenix-v1, --model protenix-v2."
+  },
+  "contact.yaml": {
+   "verdict": "refused",
+   "error": "RuntimeError",
+   "message": "--model esmfold2-fast cannot honour 1 part(s) of contact.yaml:\n  - a `pocket`/`contact` constraint (constraints): the fold would ignore the binding constraint. Honoured by: --model boltz2."
+  },
+  "cyclic.yaml": {
+   "verdict": "refused",
+   "error": "RuntimeError",
+   "message": "--model esmfold2-fast cannot honour 1 part(s) of cyclic.yaml:\n  - `cyclic: true` (chain(s) A): the fold would return a linear structure. Honoured by: --model boltz2."
+  },
+  "dna.yaml": {
+   "verdict": "accepted",
+   "found": {
+    "dna": "chain(s) D"
+   },
+   "notes": [],
+   "chains": [
+    [
+     "A",
+     "protein",
+     76
+    ],
+    [
+     "D",
+     "dna",
+     13
+    ]
+   ]
+  },
+  "fasta_ligand.fasta": {
+   "verdict": "accepted",
+   "found": {
+    "ligand": "chain(s) L"
+   },
+   "notes": [],
+   "chains": [
+    [
+     "A",
+     "protein",
+     76
+    ],
+    [
+     "L",
+     "ligand",
+     27
+    ]
+   ]
+  },
+  "heteromer3.yaml": {
+   "verdict": "accepted",
+   "found": {},
+   "notes": [],
+   "chains": [
+    [
+     "A",
+     "protein",
+     76
+    ],
+    [
+     "B",
+     "protein",
+     20
+    ],
+    [
+     "C",
+     "protein",
+     36
+    ]
+   ]
+  },
+  "homomer.yaml": {
+   "verdict": "accepted",
+   "found": {},
+   "notes": [],
+   "chains": [
+    [
+     "A",
+     "protein",
+     76
+    ],
+    [
+     "B",
+     "protein",
+     76
+    ]
+   ]
+  },
+  "ligand_ccd.yaml": {
+   "verdict": "accepted",
+   "found": {
+    "ligand": "chain(s) L"
+   },
+   "notes": [],
+   "chains": [
+    [
+     "A",
+     "protein",
+     76
+    ],
+    [
+     "L",
+     "ligand",
+     7
+    ]
+   ]
+  },
+  "ligand_smiles.yaml": {
+   "verdict": "accepted",
+   "found": {
+    "ligand": "chain(s) L"
+   },
+   "notes": [],
+   "chains": [
+    [
+     "A",
+     "protein",
+     76
+    ],
+    [
+     "L",
+     "ligand",
+     27
+    ]
+   ]
+  },
+  "lowercase.yaml": {
+   "verdict": "accepted",
+   "found": {},
+   "notes": [],
+   "chains": [
+    [
+     "A",
+     "protein",
+     76
+    ]
+   ]
+  },
+  "malformed_badchar.yaml": {
+   "verdict": "accepted",
+   "found": {},
+   "notes": [],
+   "chains": [
+    [
+     "A",
+     "protein",
+     19
+    ]
+   ]
+  },
+  "malformed_empty_seq.yaml": {
+   "verdict": "accepted",
+   "found": {},
+   "notes": [],
+   "chains": []
+  },
+  "malformed_typo.yaml": {
+   "verdict": "refused",
+   "error": "ClickException",
+   "message": "malformed_typo.yaml: unrecognized entity key(s) 'protien'. Accepted: dna, ligand, protein, rna."
+  },
+  "modification.yaml": {
+   "verdict": "accepted",
+   "found": {
+    "modifications": "chain(s) A"
+   },
+   "notes": [],
+   "chains": [
+    [
+     "A",
+     "protein",
+     76
+    ]
+   ]
+  },
+  "msa_a3m.yaml": {
+   "verdict": "accepted",
+   "found": {},
+   "notes": [],
+   "chains": [
+    [
+     "A",
+     "protein",
+     384
+    ]
+   ]
+  },
+  "msa_empty_ctrl.yaml": {
+   "verdict": "accepted",
+   "found": {},
+   "notes": [],
+   "chains": [
+    [
+     "A",
+     "protein",
+     384
+    ]
+   ]
+  },
+  "pocket.yaml": {
+   "verdict": "refused",
+   "error": "RuntimeError",
+   "message": "--model esmfold2-fast cannot honour 1 part(s) of pocket.yaml:\n  - a `pocket`/`contact` constraint (constraints): the fold would ignore the binding constraint. Honoured by: --model boltz2."
+  },
+  "rna.yaml": {
+   "verdict": "accepted",
+   "found": {
+    "rna": "chain(s) R"
+   },
+   "notes": [],
+   "chains": [
+    [
+     "A",
+     "protein",
+     76
+    ],
+    [
+     "R",
+     "rna",
+     20
+    ]
+   ]
+  },
+  "rna_only.yaml": {
+   "verdict": "accepted",
+   "found": {
+    "rna": "chain(s) R"
+   },
+   "notes": [],
+   "chains": [
+    [
+     "R",
+     "rna",
+     20
+    ]
+   ]
+  },
+  "template_cif.yaml": {
+   "verdict": "accepted",
+   "found": {},
+   "notes": [],
+   "chains": [
+    [
+     "A",
+     "protein",
+     274
+    ]
+   ]
+  },
+  "template_npz.yaml": {
+   "verdict": "refused",
+   "error": "RuntimeError",
+   "message": "--model esmfold2-fast cannot honour 1 part(s) of template_npz.yaml:\n  - `templates:` (chain(s) A): the fold would ignore the template you supplied. Honoured by: --model boltz2, --model openbind, --model opendde, --model opendde-abag, --model openfold3, --model protenix-v2."
+  },
+  "template_off.yaml": {
+   "verdict": "accepted",
+   "found": {},
+   "notes": [],
+   "chains": [
+    [
+     "A",
+     "protein",
+     274
+    ]
+   ]
+  },
+  "tiny_peptide.yaml": {
+   "verdict": "accepted",
+   "found": {},
+   "notes": [],
+   "chains": [
+    [
+     "A",
+     "protein",
+     5
+    ]
+   ]
+  },
+  "unusual_U.yaml": {
+   "verdict": "accepted",
+   "found": {},
+   "notes": [],
+   "chains": [
+    [
+     "A",
+     "protein",
+     76
+    ]
+   ]
+  },
+  "unusual_X.yaml": {
+   "verdict": "accepted",
+   "found": {},
+   "notes": [],
+   "chains": [
+    [
+     "A",
+     "protein",
+     76
+    ]
+   ]
+  }
+ },
+ "protenix-v1": {
+  "affinity.yaml": {
+   "verdict": "noted",
+   "found": {
+    "ligand": "chain(s) L",
+    "affinity": "binder L"
+   },
+   "notes": [
+    "Note: --model protenix-v1 ignores `properties: affinity` (binder L in affinity.yaml): no affinity value is written. Use --model boltz2, tt-bio affinity --model nesso1 for it."
+   ],
+   "chains": [
+    [
+     "A",
+     "protein",
+     76
+    ],
+    [
+     "L",
+     "ligand",
+     27
+    ]
+   ]
+  },
+  "base.yaml": {
+   "verdict": "accepted",
+   "found": {},
+   "notes": [],
+   "chains": [
+    [
+     "A",
+     "protein",
+     76
+    ]
+   ]
+  },
+  "bond_ligand.yaml": {
+   "verdict": "accepted",
+   "found": {
+    "ligand": "chain(s) B",
+    "bond": "constraints"
+   },
+   "notes": [],
+   "chains": [
+    [
+     "A",
+     "protein",
+     11
+    ],
+    [
+     "B",
+     "ligand",
+     9
+    ]
+   ]
+  },
+  "bond_protein_cys.yaml": {
+   "verdict": "accepted",
+   "found": {
+    "bond": "constraints"
+   },
+   "notes": [],
+   "chains": [
+    [
+     "A",
+     "protein",
+     11
+    ],
+    [
+     "B",
+     "protein",
+     11
+    ]
+   ]
+  },
+  "bond_protein_shipped_example.yaml": {
+   "verdict": "accepted",
+   "found": {
+    "bond": "constraints"
+   },
+   "notes": [],
+   "chains": [
+    [
+     "A",
+     "protein",
+     11
+    ],
+    [
+     "B",
+     "protein",
+     11
+    ]
+   ]
+  },
+  "contact.yaml": {
+   "verdict": "refused",
+   "error": "RuntimeError",
+   "message": "--model protenix-v1 cannot honour 1 part(s) of contact.yaml:\n  - a `pocket`/`contact` constraint (constraints): the fold would ignore the binding constraint. Honoured by: --model boltz2."
+  },
+  "cyclic.yaml": {
+   "verdict": "refused",
+   "error": "RuntimeError",
+   "message": "--model protenix-v1 cannot honour 1 part(s) of cyclic.yaml:\n  - `cyclic: true` (chain(s) A): the fold would return a linear structure. Honoured by: --model boltz2."
+  },
+  "dna.yaml": {
+   "verdict": "accepted",
+   "found": {
+    "dna": "chain(s) D"
+   },
+   "notes": [],
+   "chains": [
+    [
+     "A",
+     "protein",
+     76
+    ],
+    [
+     "D",
+     "dna",
+     13
+    ]
+   ]
+  },
+  "fasta_ligand.fasta": {
+   "verdict": "accepted",
+   "found": {
+    "ligand": "chain(s) L"
+   },
+   "notes": [],
+   "chains": [
+    [
+     "A",
+     "protein",
+     76
+    ],
+    [
+     "L",
+     "ligand",
+     27
+    ]
+   ]
+  },
+  "heteromer3.yaml": {
+   "verdict": "accepted",
+   "found": {},
+   "notes": [],
+   "chains": [
+    [
+     "A",
+     "protein",
+     76
+    ],
+    [
+     "B",
+     "protein",
+     20
+    ],
+    [
+     "C",
+     "protein",
+     36
+    ]
+   ]
+  },
+  "homomer.yaml": {
+   "verdict": "accepted",
+   "found": {},
+   "notes": [],
+   "chains": [
+    [
+     "A",
+     "protein",
+     76
+    ],
+    [
+     "B",
+     "protein",
+     76
+    ]
+   ]
+  },
+  "ligand_ccd.yaml": {
+   "verdict": "accepted",
+   "found": {
+    "ligand": "chain(s) L"
+   },
+   "notes": [],
+   "chains": [
+    [
+     "A",
+     "protein",
+     76
+    ],
+    [
+     "L",
+     "ligand",
+     7
+    ]
+   ]
+  },
+  "ligand_smiles.yaml": {
+   "verdict": "accepted",
+   "found": {
+    "ligand": "chain(s) L"
+   },
+   "notes": [],
+   "chains": [
+    [
+     "A",
+     "protein",
+     76
+    ],
+    [
+     "L",
+     "ligand",
+     27
+    ]
+   ]
+  },
+  "lowercase.yaml": {
+   "verdict": "accepted",
+   "found": {},
+   "notes": [],
+   "chains": [
+    [
+     "A",
+     "protein",
+     76
+    ]
+   ]
+  },
+  "malformed_badchar.yaml": {
+   "verdict": "accepted",
+   "found": {},
+   "notes": [],
+   "chains": [
+    [
+     "A",
+     "protein",
+     19
+    ]
+   ]
+  },
+  "malformed_empty_seq.yaml": {
+   "verdict": "accepted",
+   "found": {},
+   "notes": [],
+   "chains": []
+  },
+  "malformed_typo.yaml": {
+   "verdict": "refused",
+   "error": "ClickException",
+   "message": "malformed_typo.yaml: unrecognized entity key(s) 'protien'. Accepted: dna, ligand, protein, rna."
+  },
+  "modification.yaml": {
+   "verdict": "accepted",
+   "found": {
+    "modifications": "chain(s) A"
+   },
+   "notes": [],
+   "chains": [
+    [
+     "A",
+     "protein",
+     76
+    ]
+   ]
+  },
+  "msa_a3m.yaml": {
+   "verdict": "accepted",
+   "found": {},
+   "notes": [],
+   "chains": [
+    [
+     "A",
+     "protein",
+     384
+    ]
+   ]
+  },
+  "msa_empty_ctrl.yaml": {
+   "verdict": "accepted",
+   "found": {},
+   "notes": [],
+   "chains": [
+    [
+     "A",
+     "protein",
+     384
+    ]
+   ]
+  },
+  "pocket.yaml": {
+   "verdict": "refused",
+   "error": "RuntimeError",
+   "message": "--model protenix-v1 cannot honour 1 part(s) of pocket.yaml:\n  - a `pocket`/`contact` constraint (constraints): the fold would ignore the binding constraint. Honoured by: --model boltz2."
+  },
+  "rna.yaml": {
+   "verdict": "accepted",
+   "found": {
+    "rna": "chain(s) R"
+   },
+   "notes": [],
+   "chains": [
+    [
+     "A",
+     "protein",
+     76
+    ],
+    [
+     "R",
+     "rna",
+     20
+    ]
+   ]
+  },
+  "rna_only.yaml": {
+   "verdict": "accepted",
+   "found": {
+    "rna": "chain(s) R"
+   },
+   "notes": [],
+   "chains": [
+    [
+     "R",
+     "rna",
+     20
+    ]
+   ]
+  },
+  "template_cif.yaml": {
+   "verdict": "accepted",
+   "found": {},
+   "notes": [],
+   "chains": [
+    [
+     "A",
+     "protein",
+     274
+    ]
+   ]
+  },
+  "template_npz.yaml": {
+   "verdict": "refused",
+   "error": "RuntimeError",
+   "message": "--model protenix-v1 cannot honour 1 part(s) of template_npz.yaml:\n  - `templates:` (chain(s) A): the fold would ignore the template you supplied. Honoured by: --model boltz2, --model openbind, --model opendde, --model opendde-abag, --model openfold3, --model protenix-v2."
+  },
+  "template_off.yaml": {
+   "verdict": "accepted",
+   "found": {},
+   "notes": [],
+   "chains": [
+    [
+     "A",
+     "protein",
+     274
+    ]
+   ]
+  },
+  "tiny_peptide.yaml": {
+   "verdict": "accepted",
+   "found": {},
+   "notes": [],
+   "chains": [
+    [
+     "A",
+     "protein",
+     5
+    ]
+   ]
+  },
+  "unusual_U.yaml": {
+   "verdict": "accepted",
+   "found": {},
+   "notes": [],
+   "chains": [
+    [
+     "A",
+     "protein",
+     76
+    ]
+   ]
+  },
+  "unusual_X.yaml": {
+   "verdict": "accepted",
+   "found": {},
+   "notes": [],
+   "chains": [
+    [
+     "A",
+     "protein",
+     76
+    ]
+   ]
+  }
+ },
+ "protenix-v2": {
+  "affinity.yaml": {
+   "verdict": "noted",
+   "found": {
+    "ligand": "chain(s) L",
+    "affinity": "binder L"
+   },
+   "notes": [
+    "Note: --model protenix-v2 ignores `properties: affinity` (binder L in affinity.yaml): no affinity value is written. Use --model boltz2, tt-bio affinity --model nesso1 for it."
+   ],
+   "chains": [
+    [
+     "A",
+     "protein",
+     76
+    ],
+    [
+     "L",
+     "ligand",
+     27
+    ]
+   ]
+  },
+  "base.yaml": {
+   "verdict": "accepted",
+   "found": {},
+   "notes": [],
+   "chains": [
+    [
+     "A",
+     "protein",
+     76
+    ]
+   ]
+  },
+  "bond_ligand.yaml": {
+   "verdict": "accepted",
+   "found": {
+    "ligand": "chain(s) B",
+    "bond": "constraints"
+   },
+   "notes": [],
+   "chains": [
+    [
+     "A",
+     "protein",
+     11
+    ],
+    [
+     "B",
+     "ligand",
+     9
+    ]
+   ]
+  },
+  "bond_protein_cys.yaml": {
+   "verdict": "accepted",
+   "found": {
+    "bond": "constraints"
+   },
+   "notes": [],
+   "chains": [
+    [
+     "A",
+     "protein",
+     11
+    ],
+    [
+     "B",
+     "protein",
+     11
+    ]
+   ]
+  },
+  "bond_protein_shipped_example.yaml": {
+   "verdict": "accepted",
+   "found": {
+    "bond": "constraints"
+   },
+   "notes": [],
+   "chains": [
+    [
+     "A",
+     "protein",
+     11
+    ],
+    [
+     "B",
+     "protein",
+     11
+    ]
+   ]
+  },
+  "contact.yaml": {
+   "verdict": "refused",
+   "error": "RuntimeError",
+   "message": "--model protenix-v2 cannot honour 1 part(s) of contact.yaml:\n  - a `pocket`/`contact` constraint (constraints): the fold would ignore the binding constraint. Honoured by: --model boltz2."
+  },
+  "cyclic.yaml": {
+   "verdict": "refused",
+   "error": "RuntimeError",
+   "message": "--model protenix-v2 cannot honour 1 part(s) of cyclic.yaml:\n  - `cyclic: true` (chain(s) A): the fold would return a linear structure. Honoured by: --model boltz2."
+  },
+  "dna.yaml": {
+   "verdict": "accepted",
+   "found": {
+    "dna": "chain(s) D"
+   },
+   "notes": [],
+   "chains": [
+    [
+     "A",
+     "protein",
+     76
+    ],
+    [
+     "D",
+     "dna",
+     13
+    ]
+   ]
+  },
+  "fasta_ligand.fasta": {
+   "verdict": "accepted",
+   "found": {
+    "ligand": "chain(s) L"
+   },
+   "notes": [],
+   "chains": [
+    [
+     "A",
+     "protein",
+     76
+    ],
+    [
+     "L",
+     "ligand",
+     27
+    ]
+   ]
+  },
+  "heteromer3.yaml": {
+   "verdict": "accepted",
+   "found": {},
+   "notes": [],
+   "chains": [
+    [
+     "A",
+     "protein",
+     76
+    ],
+    [
+     "B",
+     "protein",
+     20
+    ],
+    [
+     "C",
+     "protein",
+     36
+    ]
+   ]
+  },
+  "homomer.yaml": {
+   "verdict": "accepted",
+   "found": {},
+   "notes": [],
+   "chains": [
+    [
+     "A",
+     "protein",
+     76
+    ],
+    [
+     "B",
+     "protein",
+     76
+    ]
+   ]
+  },
+  "ligand_ccd.yaml": {
+   "verdict": "accepted",
+   "found": {
+    "ligand": "chain(s) L"
+   },
+   "notes": [],
+   "chains": [
+    [
+     "A",
+     "protein",
+     76
+    ],
+    [
+     "L",
+     "ligand",
+     7
+    ]
+   ]
+  },
+  "ligand_smiles.yaml": {
+   "verdict": "accepted",
+   "found": {
+    "ligand": "chain(s) L"
+   },
+   "notes": [],
+   "chains": [
+    [
+     "A",
+     "protein",
+     76
+    ],
+    [
+     "L",
+     "ligand",
+     27
+    ]
+   ]
+  },
+  "lowercase.yaml": {
+   "verdict": "accepted",
+   "found": {},
+   "notes": [],
+   "chains": [
+    [
+     "A",
+     "protein",
+     76
+    ]
+   ]
+  },
+  "malformed_badchar.yaml": {
+   "verdict": "accepted",
+   "found": {},
+   "notes": [],
+   "chains": [
+    [
+     "A",
+     "protein",
+     19
+    ]
+   ]
+  },
+  "malformed_empty_seq.yaml": {
+   "verdict": "accepted",
+   "found": {},
+   "notes": [],
+   "chains": []
+  },
+  "malformed_typo.yaml": {
+   "verdict": "refused",
+   "error": "ClickException",
+   "message": "malformed_typo.yaml: unrecognized entity key(s) 'protien'. Accepted: dna, ligand, protein, rna."
+  },
+  "modification.yaml": {
+   "verdict": "accepted",
+   "found": {
+    "modifications": "chain(s) A"
+   },
+   "notes": [],
+   "chains": [
+    [
+     "A",
+     "protein",
+     76
+    ]
+   ]
+  },
+  "msa_a3m.yaml": {
+   "verdict": "accepted",
+   "found": {},
+   "notes": [],
+   "chains": [
+    [
+     "A",
+     "protein",
+     384
+    ]
+   ]
+  },
+  "msa_empty_ctrl.yaml": {
+   "verdict": "accepted",
+   "found": {},
+   "notes": [],
+   "chains": [
+    [
+     "A",
+     "protein",
+     384
+    ]
+   ]
+  },
+  "pocket.yaml": {
+   "verdict": "refused",
+   "error": "RuntimeError",
+   "message": "--model protenix-v2 cannot honour 1 part(s) of pocket.yaml:\n  - a `pocket`/`contact` constraint (constraints): the fold would ignore the binding constraint. Honoured by: --model boltz2."
+  },
+  "rna.yaml": {
+   "verdict": "accepted",
+   "found": {
+    "rna": "chain(s) R"
+   },
+   "notes": [],
+   "chains": [
+    [
+     "A",
+     "protein",
+     76
+    ],
+    [
+     "R",
+     "rna",
+     20
+    ]
+   ]
+  },
+  "rna_only.yaml": {
+   "verdict": "accepted",
+   "found": {
+    "rna": "chain(s) R"
+   },
+   "notes": [],
+   "chains": [
+    [
+     "R",
+     "rna",
+     20
+    ]
+   ]
+  },
+  "template_cif.yaml": {
+   "verdict": "accepted",
+   "found": {},
+   "notes": [],
+   "chains": [
+    [
+     "A",
+     "protein",
+     274
+    ]
+   ]
+  },
+  "template_npz.yaml": {
+   "verdict": "accepted",
+   "found": {
+    "templates": "chain(s) A"
+   },
+   "notes": [],
+   "chains": [
+    [
+     "A",
+     "protein",
+     274
+    ]
+   ]
+  },
+  "template_off.yaml": {
+   "verdict": "accepted",
+   "found": {},
+   "notes": [],
+   "chains": [
+    [
+     "A",
+     "protein",
+     274
+    ]
+   ]
+  },
+  "tiny_peptide.yaml": {
+   "verdict": "accepted",
+   "found": {},
+   "notes": [],
+   "chains": [
+    [
+     "A",
+     "protein",
+     5
+    ]
+   ]
+  },
+  "unusual_U.yaml": {
+   "verdict": "accepted",
+   "found": {},
+   "notes": [],
+   "chains": [
+    [
+     "A",
+     "protein",
+     76
+    ]
+   ]
+  },
+  "unusual_X.yaml": {
+   "verdict": "accepted",
+   "found": {},
+   "notes": [],
+   "chains": [
+    [
+     "A",
+     "protein",
+     76
+    ]
+   ]
+  }
+ },
+ "openfold3": {
+  "affinity.yaml": {
+   "verdict": "refused",
+   "error": "RuntimeError",
+   "message": "--model openfold3 cannot honour 1 part(s) of affinity.yaml:\n  - a ligand chain (chain(s) L): preview2 was released as a polymer model and was never trained to place a ligand, so it is polymer-only here; the featurizer would build one and the sampler would return a status=ok structure anyway. Honoured by: --model boltz2, --model esmfold2, --model esmfold2-fast, tt-bio affinity --model nesso1, --model openbind, --model opendde, --model opendde-abag, --model protenix-v1, --model protenix-v2, --model rf3."
+  },
+  "base.yaml": {
+   "verdict": "accepted",
+   "found": {},
+   "notes": [],
+   "chains": [
+    [
+     "A",
+     "protein",
+     76
+    ]
+   ]
+  },
+  "bond_ligand.yaml": {
+   "verdict": "refused",
+   "error": "RuntimeError",
+   "message": "--model openfold3 cannot honour 2 part(s) of bond_ligand.yaml:\n  - a ligand chain (chain(s) B): preview2 was released as a polymer model and was never trained to place a ligand, so it is polymer-only here; the featurizer would build one and the sampler would return a status=ok structure anyway. Honoured by: --model boltz2, --model esmfold2, --model esmfold2-fast, tt-bio affinity --model nesso1, --model openbind, --model opendde, --model opendde-abag, --model protenix-v1, --model protenix-v2, --model rf3.\n  - a `bond` constraint (constraints): the fold would ignore the covalent bond. Honoured by: --model boltz2, --model opendde, --model opendde-abag, --model protenix-v1, --model protenix-v2."
+  },
+  "bond_protein_cys.yaml": {
+   "verdict": "refused",
+   "error": "RuntimeError",
+   "message": "--model openfold3 cannot honour 1 part(s) of bond_protein_cys.yaml:\n  - a `bond` constraint (constraints): the fold would ignore the covalent bond. Honoured by: --model boltz2, --model opendde, --model opendde-abag, --model protenix-v1, --model protenix-v2."
+  },
+  "bond_protein_shipped_example.yaml": {
+   "verdict": "refused",
+   "error": "RuntimeError",
+   "message": "--model openfold3 cannot honour 1 part(s) of bond_protein_shipped_example.yaml:\n  - a `bond` constraint (constraints): the fold would ignore the covalent bond. Honoured by: --model boltz2, --model opendde, --model opendde-abag, --model protenix-v1, --model protenix-v2."
+  },
+  "contact.yaml": {
+   "verdict": "refused",
+   "error": "RuntimeError",
+   "message": "--model openfold3 cannot honour 1 part(s) of contact.yaml:\n  - a `pocket`/`contact` constraint (constraints): the fold would ignore the binding constraint. Honoured by: --model boltz2."
+  },
+  "cyclic.yaml": {
+   "verdict": "refused",
+   "error": "RuntimeError",
+   "message": "--model openfold3 cannot honour 1 part(s) of cyclic.yaml:\n  - `cyclic: true` (chain(s) A): the fold would return a linear structure. Honoured by: --model boltz2."
+  },
+  "dna.yaml": {
+   "verdict": "accepted",
+   "found": {
+    "dna": "chain(s) D"
+   },
+   "notes": [],
+   "chains": [
+    [
+     "A",
+     "protein",
+     76
+    ],
+    [
+     "D",
+     "dna",
+     13
+    ]
+   ]
+  },
+  "fasta_ligand.fasta": {
+   "verdict": "refused",
+   "error": "RuntimeError",
+   "message": "--model openfold3 cannot honour 1 part(s) of fasta_ligand.fasta:\n  - a ligand chain (chain(s) L): preview2 was released as a polymer model and was never trained to place a ligand, so it is polymer-only here; the featurizer would build one and the sampler would return a status=ok structure anyway. Honoured by: --model boltz2, --model esmfold2, --model esmfold2-fast, tt-bio affinity --model nesso1, --model openbind, --model opendde, --model opendde-abag, --model protenix-v1, --model protenix-v2, --model rf3."
+  },
+  "heteromer3.yaml": {
+   "verdict": "accepted",
+   "found": {},
+   "notes": [],
+   "chains": [
+    [
+     "A",
+     "protein",
+     76
+    ],
+    [
+     "B",
+     "protein",
+     20
+    ],
+    [
+     "C",
+     "protein",
+     36
+    ]
+   ]
+  },
+  "homomer.yaml": {
+   "verdict": "accepted",
+   "found": {},
+   "notes": [],
+   "chains": [
+    [
+     "A",
+     "protein",
+     76
+    ],
+    [
+     "B",
+     "protein",
+     76
+    ]
+   ]
+  },
+  "ligand_ccd.yaml": {
+   "verdict": "refused",
+   "error": "RuntimeError",
+   "message": "--model openfold3 cannot honour 1 part(s) of ligand_ccd.yaml:\n  - a ligand chain (chain(s) L): preview2 was released as a polymer model and was never trained to place a ligand, so it is polymer-only here; the featurizer would build one and the sampler would return a status=ok structure anyway. Honoured by: --model boltz2, --model esmfold2, --model esmfold2-fast, tt-bio affinity --model nesso1, --model openbind, --model opendde, --model opendde-abag, --model protenix-v1, --model protenix-v2, --model rf3."
+  },
+  "ligand_smiles.yaml": {
+   "verdict": "refused",
+   "error": "RuntimeError",
+   "message": "--model openfold3 cannot honour 1 part(s) of ligand_smiles.yaml:\n  - a ligand chain (chain(s) L): preview2 was released as a polymer model and was never trained to place a ligand, so it is polymer-only here; the featurizer would build one and the sampler would return a status=ok structure anyway. Honoured by: --model boltz2, --model esmfold2, --model esmfold2-fast, tt-bio affinity --model nesso1, --model openbind, --model opendde, --model opendde-abag, --model protenix-v1, --model protenix-v2, --model rf3."
+  },
+  "lowercase.yaml": {
+   "verdict": "accepted",
+   "found": {},
+   "notes": [],
+   "chains": [
+    [
+     "A",
+     "protein",
+     76
+    ]
+   ]
+  },
+  "malformed_badchar.yaml": {
+   "verdict": "accepted",
+   "found": {},
+   "notes": [],
+   "chains": [
+    [
+     "A",
+     "protein",
+     19
+    ]
+   ]
+  },
+  "malformed_empty_seq.yaml": {
+   "verdict": "accepted",
+   "found": {},
+   "notes": [],
+   "chains": []
+  },
+  "malformed_typo.yaml": {
+   "verdict": "refused",
+   "error": "ClickException",
+   "message": "malformed_typo.yaml: unrecognized entity key(s) 'protien'. Accepted: dna, ligand, protein, rna."
+  },
+  "modification.yaml": {
+   "verdict": "accepted",
+   "found": {
+    "modifications": "chain(s) A"
+   },
+   "notes": [],
+   "chains": [
+    [
+     "A",
+     "protein",
+     76
+    ]
+   ]
+  },
+  "msa_a3m.yaml": {
+   "verdict": "accepted",
+   "found": {},
+   "notes": [],
+   "chains": [
+    [
+     "A",
+     "protein",
+     384
+    ]
+   ]
+  },
+  "msa_empty_ctrl.yaml": {
+   "verdict": "accepted",
+   "found": {},
+   "notes": [],
+   "chains": [
+    [
+     "A",
+     "protein",
+     384
+    ]
+   ]
+  },
+  "pocket.yaml": {
+   "verdict": "refused",
+   "error": "RuntimeError",
+   "message": "--model openfold3 cannot honour 2 part(s) of pocket.yaml:\n  - a ligand chain (chain(s) L): preview2 was released as a polymer model and was never trained to place a ligand, so it is polymer-only here; the featurizer would build one and the sampler would return a status=ok structure anyway. Honoured by: --model boltz2, --model esmfold2, --model esmfold2-fast, tt-bio affinity --model nesso1, --model openbind, --model opendde, --model opendde-abag, --model protenix-v1, --model protenix-v2, --model rf3.\n  - a `pocket`/`contact` constraint (constraints): the fold would ignore the binding constraint. Honoured by: --model boltz2."
+  },
+  "rna.yaml": {
+   "verdict": "accepted",
+   "found": {
+    "rna": "chain(s) R"
+   },
+   "notes": [],
+   "chains": [
+    [
+     "A",
+     "protein",
+     76
+    ],
+    [
+     "R",
+     "rna",
+     20
+    ]
+   ]
+  },
+  "rna_only.yaml": {
+   "verdict": "accepted",
+   "found": {
+    "rna": "chain(s) R"
+   },
+   "notes": [],
+   "chains": [
+    [
+     "R",
+     "rna",
+     20
+    ]
+   ]
+  },
+  "template_cif.yaml": {
+   "verdict": "accepted",
+   "found": {},
+   "notes": [],
+   "chains": [
+    [
+     "A",
+     "protein",
+     274
+    ]
+   ]
+  },
+  "template_npz.yaml": {
+   "verdict": "accepted",
+   "found": {
+    "templates": "chain(s) A"
+   },
+   "notes": [],
+   "chains": [
+    [
+     "A",
+     "protein",
+     274
+    ]
+   ]
+  },
+  "template_off.yaml": {
+   "verdict": "accepted",
+   "found": {},
+   "notes": [],
+   "chains": [
+    [
+     "A",
+     "protein",
+     274
+    ]
+   ]
+  },
+  "tiny_peptide.yaml": {
+   "verdict": "accepted",
+   "found": {},
+   "notes": [],
+   "chains": [
+    [
+     "A",
+     "protein",
+     5
+    ]
+   ]
+  },
+  "unusual_U.yaml": {
+   "verdict": "accepted",
+   "found": {},
+   "notes": [],
+   "chains": [
+    [
+     "A",
+     "protein",
+     76
+    ]
+   ]
+  },
+  "unusual_X.yaml": {
+   "verdict": "accepted",
+   "found": {},
+   "notes": [],
+   "chains": [
+    [
+     "A",
+     "protein",
+     76
+    ]
+   ]
+  }
+ },
+ "openbind": {
+  "affinity.yaml": {
+   "verdict": "noted",
+   "found": {
+    "ligand": "chain(s) L",
+    "affinity": "binder L"
+   },
+   "notes": [
+    "Note: --model openbind ignores `properties: affinity` (binder L in affinity.yaml): no affinity value is written. Use --model boltz2, tt-bio affinity --model nesso1 for it."
+   ],
+   "chains": [
+    [
+     "A",
+     "protein",
+     76
+    ],
+    [
+     "L",
+     "ligand",
+     27
+    ]
+   ]
+  },
+  "base.yaml": {
+   "verdict": "accepted",
+   "found": {},
+   "notes": [],
+   "chains": [
+    [
+     "A",
+     "protein",
+     76
+    ]
+   ]
+  },
+  "bond_ligand.yaml": {
+   "verdict": "refused",
+   "error": "RuntimeError",
+   "message": "--model openbind cannot honour 1 part(s) of bond_ligand.yaml:\n  - a `bond` constraint (constraints): the fold would ignore the covalent bond. Honoured by: --model boltz2, --model opendde, --model opendde-abag, --model protenix-v1, --model protenix-v2."
+  },
+  "bond_protein_cys.yaml": {
+   "verdict": "refused",
+   "error": "RuntimeError",
+   "message": "--model openbind cannot honour 1 part(s) of bond_protein_cys.yaml:\n  - a `bond` constraint (constraints): the fold would ignore the covalent bond. Honoured by: --model boltz2, --model opendde, --model opendde-abag, --model protenix-v1, --model protenix-v2."
+  },
+  "bond_protein_shipped_example.yaml": {
+   "verdict": "refused",
+   "error": "RuntimeError",
+   "message": "--model openbind cannot honour 1 part(s) of bond_protein_shipped_example.yaml:\n  - a `bond` constraint (constraints): the fold would ignore the covalent bond. Honoured by: --model boltz2, --model opendde, --model opendde-abag, --model protenix-v1, --model protenix-v2."
+  },
+  "contact.yaml": {
+   "verdict": "refused",
+   "error": "RuntimeError",
+   "message": "--model openbind cannot honour 1 part(s) of contact.yaml:\n  - a `pocket`/`contact` constraint (constraints): the fold would ignore the binding constraint. Honoured by: --model boltz2."
+  },
+  "cyclic.yaml": {
+   "verdict": "refused",
+   "error": "RuntimeError",
+   "message": "--model openbind cannot honour 1 part(s) of cyclic.yaml:\n  - `cyclic: true` (chain(s) A): the fold would return a linear structure. Honoured by: --model boltz2."
+  },
+  "dna.yaml": {
+   "verdict": "accepted",
+   "found": {
+    "dna": "chain(s) D"
+   },
+   "notes": [],
+   "chains": [
+    [
+     "A",
+     "protein",
+     76
+    ],
+    [
+     "D",
+     "dna",
+     13
+    ]
+   ]
+  },
+  "fasta_ligand.fasta": {
+   "verdict": "accepted",
+   "found": {
+    "ligand": "chain(s) L"
+   },
+   "notes": [],
+   "chains": [
+    [
+     "A",
+     "protein",
+     76
+    ],
+    [
+     "L",
+     "ligand",
+     27
+    ]
+   ]
+  },
+  "heteromer3.yaml": {
+   "verdict": "accepted",
+   "found": {},
+   "notes": [],
+   "chains": [
+    [
+     "A",
+     "protein",
+     76
+    ],
+    [
+     "B",
+     "protein",
+     20
+    ],
+    [
+     "C",
+     "protein",
+     36
+    ]
+   ]
+  },
+  "homomer.yaml": {
+   "verdict": "accepted",
+   "found": {},
+   "notes": [],
+   "chains": [
+    [
+     "A",
+     "protein",
+     76
+    ],
+    [
+     "B",
+     "protein",
+     76
+    ]
+   ]
+  },
+  "ligand_ccd.yaml": {
+   "verdict": "accepted",
+   "found": {
+    "ligand": "chain(s) L"
+   },
+   "notes": [],
+   "chains": [
+    [
+     "A",
+     "protein",
+     76
+    ],
+    [
+     "L",
+     "ligand",
+     7
+    ]
+   ]
+  },
+  "ligand_smiles.yaml": {
+   "verdict": "accepted",
+   "found": {
+    "ligand": "chain(s) L"
+   },
+   "notes": [],
+   "chains": [
+    [
+     "A",
+     "protein",
+     76
+    ],
+    [
+     "L",
+     "ligand",
+     27
+    ]
+   ]
+  },
+  "lowercase.yaml": {
+   "verdict": "accepted",
+   "found": {},
+   "notes": [],
+   "chains": [
+    [
+     "A",
+     "protein",
+     76
+    ]
+   ]
+  },
+  "malformed_badchar.yaml": {
+   "verdict": "accepted",
+   "found": {},
+   "notes": [],
+   "chains": [
+    [
+     "A",
+     "protein",
+     19
+    ]
+   ]
+  },
+  "malformed_empty_seq.yaml": {
+   "verdict": "accepted",
+   "found": {},
+   "notes": [],
+   "chains": []
+  },
+  "malformed_typo.yaml": {
+   "verdict": "refused",
+   "error": "ClickException",
+   "message": "malformed_typo.yaml: unrecognized entity key(s) 'protien'. Accepted: dna, ligand, protein, rna."
+  },
+  "modification.yaml": {
+   "verdict": "accepted",
+   "found": {
+    "modifications": "chain(s) A"
+   },
+   "notes": [],
+   "chains": [
+    [
+     "A",
+     "protein",
+     76
+    ]
+   ]
+  },
+  "msa_a3m.yaml": {
+   "verdict": "accepted",
+   "found": {},
+   "notes": [],
+   "chains": [
+    [
+     "A",
+     "protein",
+     384
+    ]
+   ]
+  },
+  "msa_empty_ctrl.yaml": {
+   "verdict": "accepted",
+   "found": {},
+   "notes": [],
+   "chains": [
+    [
+     "A",
+     "protein",
+     384
+    ]
+   ]
+  },
+  "pocket.yaml": {
+   "verdict": "refused",
+   "error": "RuntimeError",
+   "message": "--model openbind cannot honour 1 part(s) of pocket.yaml:\n  - a `pocket`/`contact` constraint (constraints): the fold would ignore the binding constraint. Honoured by: --model boltz2."
+  },
+  "rna.yaml": {
+   "verdict": "accepted",
+   "found": {
+    "rna": "chain(s) R"
+   },
+   "notes": [],
+   "chains": [
+    [
+     "A",
+     "protein",
+     76
+    ],
+    [
+     "R",
+     "rna",
+     20
+    ]
+   ]
+  },
+  "rna_only.yaml": {
+   "verdict": "accepted",
+   "found": {
+    "rna": "chain(s) R"
+   },
+   "notes": [],
+   "chains": [
+    [
+     "R",
+     "rna",
+     20
+    ]
+   ]
+  },
+  "template_cif.yaml": {
+   "verdict": "accepted",
+   "found": {},
+   "notes": [],
+   "chains": [
+    [
+     "A",
+     "protein",
+     274
+    ]
+   ]
+  },
+  "template_npz.yaml": {
+   "verdict": "accepted",
+   "found": {
+    "templates": "chain(s) A"
+   },
+   "notes": [],
+   "chains": [
+    [
+     "A",
+     "protein",
+     274
+    ]
+   ]
+  },
+  "template_off.yaml": {
+   "verdict": "accepted",
+   "found": {},
+   "notes": [],
+   "chains": [
+    [
+     "A",
+     "protein",
+     274
+    ]
+   ]
+  },
+  "tiny_peptide.yaml": {
+   "verdict": "accepted",
+   "found": {},
+   "notes": [],
+   "chains": [
+    [
+     "A",
+     "protein",
+     5
+    ]
+   ]
+  },
+  "unusual_U.yaml": {
+   "verdict": "accepted",
+   "found": {},
+   "notes": [],
+   "chains": [
+    [
+     "A",
+     "protein",
+     76
+    ]
+   ]
+  },
+  "unusual_X.yaml": {
+   "verdict": "accepted",
+   "found": {},
+   "notes": [],
+   "chains": [
+    [
+     "A",
+     "protein",
+     76
+    ]
+   ]
+  }
+ },
+ "opendde": {
+  "affinity.yaml": {
+   "verdict": "noted",
+   "found": {
+    "ligand": "chain(s) L",
+    "affinity": "binder L"
+   },
+   "notes": [
+    "Note: --model opendde ignores `properties: affinity` (binder L in affinity.yaml): no affinity value is written. Use --model boltz2, tt-bio affinity --model nesso1 for it."
+   ],
+   "chains": [
+    [
+     "A",
+     "protein",
+     76
+    ],
+    [
+     "L",
+     "ligand",
+     27
+    ]
+   ]
+  },
+  "base.yaml": {
+   "verdict": "accepted",
+   "found": {},
+   "notes": [],
+   "chains": [
+    [
+     "A",
+     "protein",
+     76
+    ]
+   ]
+  },
+  "bond_ligand.yaml": {
+   "verdict": "accepted",
+   "found": {
+    "ligand": "chain(s) B",
+    "bond": "constraints"
+   },
+   "notes": [],
+   "chains": [
+    [
+     "A",
+     "protein",
+     11
+    ],
+    [
+     "B",
+     "ligand",
+     9
+    ]
+   ]
+  },
+  "bond_protein_cys.yaml": {
+   "verdict": "accepted",
+   "found": {
+    "bond": "constraints"
+   },
+   "notes": [],
+   "chains": [
+    [
+     "A",
+     "protein",
+     11
+    ],
+    [
+     "B",
+     "protein",
+     11
+    ]
+   ]
+  },
+  "bond_protein_shipped_example.yaml": {
+   "verdict": "accepted",
+   "found": {
+    "bond": "constraints"
+   },
+   "notes": [],
+   "chains": [
+    [
+     "A",
+     "protein",
+     11
+    ],
+    [
+     "B",
+     "protein",
+     11
+    ]
+   ]
+  },
+  "contact.yaml": {
+   "verdict": "refused",
+   "error": "RuntimeError",
+   "message": "--model opendde cannot honour 1 part(s) of contact.yaml:\n  - a `pocket`/`contact` constraint (constraints): the fold would ignore the binding constraint. Honoured by: --model boltz2."
+  },
+  "cyclic.yaml": {
+   "verdict": "refused",
+   "error": "RuntimeError",
+   "message": "--model opendde cannot honour 1 part(s) of cyclic.yaml:\n  - `cyclic: true` (chain(s) A): the fold would return a linear structure. Honoured by: --model boltz2."
+  },
+  "dna.yaml": {
+   "verdict": "refused",
+   "error": "RuntimeError",
+   "message": "--model opendde cannot honour 1 part(s) of dna.yaml:\n  - a DNA chain (chain(s) D): nucleic-acid structural tokens are not ported. Honoured by: --model boltz2, --model esmfold2, --model esmfold2-fast, --model openbind, --model openfold3, --model protenix-v1, --model protenix-v2, --model rf3."
+  },
+  "fasta_ligand.fasta": {
+   "verdict": "accepted",
+   "found": {
+    "ligand": "chain(s) L"
+   },
+   "notes": [],
+   "chains": [
+    [
+     "A",
+     "protein",
+     76
+    ],
+    [
+     "L",
+     "ligand",
+     27
+    ]
+   ]
+  },
+  "heteromer3.yaml": {
+   "verdict": "accepted",
+   "found": {},
+   "notes": [],
+   "chains": [
+    [
+     "A",
+     "protein",
+     76
+    ],
+    [
+     "B",
+     "protein",
+     20
+    ],
+    [
+     "C",
+     "protein",
+     36
+    ]
+   ]
+  },
+  "homomer.yaml": {
+   "verdict": "accepted",
+   "found": {},
+   "notes": [],
+   "chains": [
+    [
+     "A",
+     "protein",
+     76
+    ],
+    [
+     "B",
+     "protein",
+     76
+    ]
+   ]
+  },
+  "ligand_ccd.yaml": {
+   "verdict": "accepted",
+   "found": {
+    "ligand": "chain(s) L"
+   },
+   "notes": [],
+   "chains": [
+    [
+     "A",
+     "protein",
+     76
+    ],
+    [
+     "L",
+     "ligand",
+     7
+    ]
+   ]
+  },
+  "ligand_smiles.yaml": {
+   "verdict": "accepted",
+   "found": {
+    "ligand": "chain(s) L"
+   },
+   "notes": [],
+   "chains": [
+    [
+     "A",
+     "protein",
+     76
+    ],
+    [
+     "L",
+     "ligand",
+     27
+    ]
+   ]
+  },
+  "lowercase.yaml": {
+   "verdict": "accepted",
+   "found": {},
+   "notes": [],
+   "chains": [
+    [
+     "A",
+     "protein",
+     76
+    ]
+   ]
+  },
+  "malformed_badchar.yaml": {
+   "verdict": "accepted",
+   "found": {},
+   "notes": [],
+   "chains": [
+    [
+     "A",
+     "protein",
+     19
+    ]
+   ]
+  },
+  "malformed_empty_seq.yaml": {
+   "verdict": "accepted",
+   "found": {},
+   "notes": [],
+   "chains": []
+  },
+  "malformed_typo.yaml": {
+   "verdict": "refused",
+   "error": "ClickException",
+   "message": "malformed_typo.yaml: unrecognized entity key(s) 'protien'. Accepted: dna, ligand, protein, rna."
+  },
+  "modification.yaml": {
+   "verdict": "accepted",
+   "found": {
+    "modifications": "chain(s) A"
+   },
+   "notes": [],
+   "chains": [
+    [
+     "A",
+     "protein",
+     76
+    ]
+   ]
+  },
+  "msa_a3m.yaml": {
+   "verdict": "accepted",
+   "found": {},
+   "notes": [],
+   "chains": [
+    [
+     "A",
+     "protein",
+     384
+    ]
+   ]
+  },
+  "msa_empty_ctrl.yaml": {
+   "verdict": "accepted",
+   "found": {},
+   "notes": [],
+   "chains": [
+    [
+     "A",
+     "protein",
+     384
+    ]
+   ]
+  },
+  "pocket.yaml": {
+   "verdict": "refused",
+   "error": "RuntimeError",
+   "message": "--model opendde cannot honour 1 part(s) of pocket.yaml:\n  - a `pocket`/`contact` constraint (constraints): the fold would ignore the binding constraint. Honoured by: --model boltz2."
+  },
+  "rna.yaml": {
+   "verdict": "refused",
+   "error": "RuntimeError",
+   "message": "--model opendde cannot honour 1 part(s) of rna.yaml:\n  - an RNA chain (chain(s) R): nucleic-acid structural tokens are not ported. Honoured by: --model boltz2, --model esmfold2, --model esmfold2-fast, --model openbind, --model openfold3, --model protenix-v1, --model protenix-v2, --model rf3."
+  },
+  "rna_only.yaml": {
+   "verdict": "refused",
+   "error": "RuntimeError",
+   "message": "--model opendde cannot honour 1 part(s) of rna_only.yaml:\n  - an RNA chain (chain(s) R): nucleic-acid structural tokens are not ported. Honoured by: --model boltz2, --model esmfold2, --model esmfold2-fast, --model openbind, --model openfold3, --model protenix-v1, --model protenix-v2, --model rf3."
+  },
+  "template_cif.yaml": {
+   "verdict": "accepted",
+   "found": {},
+   "notes": [],
+   "chains": [
+    [
+     "A",
+     "protein",
+     274
+    ]
+   ]
+  },
+  "template_npz.yaml": {
+   "verdict": "accepted",
+   "found": {
+    "templates": "chain(s) A"
+   },
+   "notes": [],
+   "chains": [
+    [
+     "A",
+     "protein",
+     274
+    ]
+   ]
+  },
+  "template_off.yaml": {
+   "verdict": "accepted",
+   "found": {},
+   "notes": [],
+   "chains": [
+    [
+     "A",
+     "protein",
+     274
+    ]
+   ]
+  },
+  "tiny_peptide.yaml": {
+   "verdict": "accepted",
+   "found": {},
+   "notes": [],
+   "chains": [
+    [
+     "A",
+     "protein",
+     5
+    ]
+   ]
+  },
+  "unusual_U.yaml": {
+   "verdict": "accepted",
+   "found": {},
+   "notes": [],
+   "chains": [
+    [
+     "A",
+     "protein",
+     76
+    ]
+   ]
+  },
+  "unusual_X.yaml": {
+   "verdict": "accepted",
+   "found": {},
+   "notes": [],
+   "chains": [
+    [
+     "A",
+     "protein",
+     76
+    ]
+   ]
+  }
+ },
+ "opendde-abag": {
+  "affinity.yaml": {
+   "verdict": "noted",
+   "found": {
+    "ligand": "chain(s) L",
+    "affinity": "binder L"
+   },
+   "notes": [
+    "Note: --model opendde-abag ignores `properties: affinity` (binder L in affinity.yaml): no affinity value is written. Use --model boltz2, tt-bio affinity --model nesso1 for it."
+   ],
+   "chains": [
+    [
+     "A",
+     "protein",
+     76
+    ],
+    [
+     "L",
+     "ligand",
+     27
+    ]
+   ]
+  },
+  "base.yaml": {
+   "verdict": "accepted",
+   "found": {},
+   "notes": [],
+   "chains": [
+    [
+     "A",
+     "protein",
+     76
+    ]
+   ]
+  },
+  "bond_ligand.yaml": {
+   "verdict": "accepted",
+   "found": {
+    "ligand": "chain(s) B",
+    "bond": "constraints"
+   },
+   "notes": [],
+   "chains": [
+    [
+     "A",
+     "protein",
+     11
+    ],
+    [
+     "B",
+     "ligand",
+     9
+    ]
+   ]
+  },
+  "bond_protein_cys.yaml": {
+   "verdict": "accepted",
+   "found": {
+    "bond": "constraints"
+   },
+   "notes": [],
+   "chains": [
+    [
+     "A",
+     "protein",
+     11
+    ],
+    [
+     "B",
+     "protein",
+     11
+    ]
+   ]
+  },
+  "bond_protein_shipped_example.yaml": {
+   "verdict": "accepted",
+   "found": {
+    "bond": "constraints"
+   },
+   "notes": [],
+   "chains": [
+    [
+     "A",
+     "protein",
+     11
+    ],
+    [
+     "B",
+     "protein",
+     11
+    ]
+   ]
+  },
+  "contact.yaml": {
+   "verdict": "refused",
+   "error": "RuntimeError",
+   "message": "--model opendde-abag cannot honour 1 part(s) of contact.yaml:\n  - a `pocket`/`contact` constraint (constraints): the fold would ignore the binding constraint. Honoured by: --model boltz2."
+  },
+  "cyclic.yaml": {
+   "verdict": "refused",
+   "error": "RuntimeError",
+   "message": "--model opendde-abag cannot honour 1 part(s) of cyclic.yaml:\n  - `cyclic: true` (chain(s) A): the fold would return a linear structure. Honoured by: --model boltz2."
+  },
+  "dna.yaml": {
+   "verdict": "refused",
+   "error": "RuntimeError",
+   "message": "--model opendde-abag cannot honour 1 part(s) of dna.yaml:\n  - a DNA chain (chain(s) D): nucleic-acid structural tokens are not ported. Honoured by: --model boltz2, --model esmfold2, --model esmfold2-fast, --model openbind, --model openfold3, --model protenix-v1, --model protenix-v2, --model rf3."
+  },
+  "fasta_ligand.fasta": {
+   "verdict": "accepted",
+   "found": {
+    "ligand": "chain(s) L"
+   },
+   "notes": [],
+   "chains": [
+    [
+     "A",
+     "protein",
+     76
+    ],
+    [
+     "L",
+     "ligand",
+     27
+    ]
+   ]
+  },
+  "heteromer3.yaml": {
+   "verdict": "accepted",
+   "found": {},
+   "notes": [],
+   "chains": [
+    [
+     "A",
+     "protein",
+     76
+    ],
+    [
+     "B",
+     "protein",
+     20
+    ],
+    [
+     "C",
+     "protein",
+     36
+    ]
+   ]
+  },
+  "homomer.yaml": {
+   "verdict": "accepted",
+   "found": {},
+   "notes": [],
+   "chains": [
+    [
+     "A",
+     "protein",
+     76
+    ],
+    [
+     "B",
+     "protein",
+     76
+    ]
+   ]
+  },
+  "ligand_ccd.yaml": {
+   "verdict": "accepted",
+   "found": {
+    "ligand": "chain(s) L"
+   },
+   "notes": [],
+   "chains": [
+    [
+     "A",
+     "protein",
+     76
+    ],
+    [
+     "L",
+     "ligand",
+     7
+    ]
+   ]
+  },
+  "ligand_smiles.yaml": {
+   "verdict": "accepted",
+   "found": {
+    "ligand": "chain(s) L"
+   },
+   "notes": [],
+   "chains": [
+    [
+     "A",
+     "protein",
+     76
+    ],
+    [
+     "L",
+     "ligand",
+     27
+    ]
+   ]
+  },
+  "lowercase.yaml": {
+   "verdict": "accepted",
+   "found": {},
+   "notes": [],
+   "chains": [
+    [
+     "A",
+     "protein",
+     76
+    ]
+   ]
+  },
+  "malformed_badchar.yaml": {
+   "verdict": "accepted",
+   "found": {},
+   "notes": [],
+   "chains": [
+    [
+     "A",
+     "protein",
+     19
+    ]
+   ]
+  },
+  "malformed_empty_seq.yaml": {
+   "verdict": "accepted",
+   "found": {},
+   "notes": [],
+   "chains": []
+  },
+  "malformed_typo.yaml": {
+   "verdict": "refused",
+   "error": "ClickException",
+   "message": "malformed_typo.yaml: unrecognized entity key(s) 'protien'. Accepted: dna, ligand, protein, rna."
+  },
+  "modification.yaml": {
+   "verdict": "accepted",
+   "found": {
+    "modifications": "chain(s) A"
+   },
+   "notes": [],
+   "chains": [
+    [
+     "A",
+     "protein",
+     76
+    ]
+   ]
+  },
+  "msa_a3m.yaml": {
+   "verdict": "accepted",
+   "found": {},
+   "notes": [],
+   "chains": [
+    [
+     "A",
+     "protein",
+     384
+    ]
+   ]
+  },
+  "msa_empty_ctrl.yaml": {
+   "verdict": "accepted",
+   "found": {},
+   "notes": [],
+   "chains": [
+    [
+     "A",
+     "protein",
+     384
+    ]
+   ]
+  },
+  "pocket.yaml": {
+   "verdict": "refused",
+   "error": "RuntimeError",
+   "message": "--model opendde-abag cannot honour 1 part(s) of pocket.yaml:\n  - a `pocket`/`contact` constraint (constraints): the fold would ignore the binding constraint. Honoured by: --model boltz2."
+  },
+  "rna.yaml": {
+   "verdict": "refused",
+   "error": "RuntimeError",
+   "message": "--model opendde-abag cannot honour 1 part(s) of rna.yaml:\n  - an RNA chain (chain(s) R): nucleic-acid structural tokens are not ported. Honoured by: --model boltz2, --model esmfold2, --model esmfold2-fast, --model openbind, --model openfold3, --model protenix-v1, --model protenix-v2, --model rf3."
+  },
+  "rna_only.yaml": {
+   "verdict": "refused",
+   "error": "RuntimeError",
+   "message": "--model opendde-abag cannot honour 1 part(s) of rna_only.yaml:\n  - an RNA chain (chain(s) R): nucleic-acid structural tokens are not ported. Honoured by: --model boltz2, --model esmfold2, --model esmfold2-fast, --model openbind, --model openfold3, --model protenix-v1, --model protenix-v2, --model rf3."
+  },
+  "template_cif.yaml": {
+   "verdict": "accepted",
+   "found": {},
+   "notes": [],
+   "chains": [
+    [
+     "A",
+     "protein",
+     274
+    ]
+   ]
+  },
+  "template_npz.yaml": {
+   "verdict": "accepted",
+   "found": {
+    "templates": "chain(s) A"
+   },
+   "notes": [],
+   "chains": [
+    [
+     "A",
+     "protein",
+     274
+    ]
+   ]
+  },
+  "template_off.yaml": {
+   "verdict": "accepted",
+   "found": {},
+   "notes": [],
+   "chains": [
+    [
+     "A",
+     "protein",
+     274
+    ]
+   ]
+  },
+  "tiny_peptide.yaml": {
+   "verdict": "accepted",
+   "found": {},
+   "notes": [],
+   "chains": [
+    [
+     "A",
+     "protein",
+     5
+    ]
+   ]
+  },
+  "unusual_U.yaml": {
+   "verdict": "accepted",
+   "found": {},
+   "notes": [],
+   "chains": [
+    [
+     "A",
+     "protein",
+     76
+    ]
+   ]
+  },
+  "unusual_X.yaml": {
+   "verdict": "accepted",
+   "found": {},
+   "notes": [],
+   "chains": [
+    [
+     "A",
+     "protein",
+     76
+    ]
+   ]
+  }
+ },
+ "rf3": {
+  "affinity.yaml": {
+   "verdict": "noted",
+   "found": {
+    "ligand": "chain(s) L",
+    "affinity": "binder L"
+   },
+   "notes": [
+    "Note: --model rf3 ignores `properties: affinity` (binder L in affinity.yaml): no affinity value is written. Use --model boltz2, tt-bio affinity --model nesso1 for it."
+   ],
+   "chains": [
+    [
+     "A",
+     "protein",
+     76
+    ],
+    [
+     "L",
+     "ligand",
+     27
+    ]
+   ]
+  },
+  "base.yaml": {
+   "verdict": "accepted",
+   "found": {},
+   "notes": [],
+   "chains": [
+    [
+     "A",
+     "protein",
+     76
+    ]
+   ]
+  },
+  "bond_ligand.yaml": {
+   "verdict": "refused",
+   "error": "RuntimeError",
+   "message": "--model rf3 cannot honour 1 part(s) of bond_ligand.yaml:\n  - a `bond` constraint (constraints): the fold would ignore the covalent bond. Honoured by: --model boltz2, --model opendde, --model opendde-abag, --model protenix-v1, --model protenix-v2.\nRF3 also reads its own JSON/CIF spec, which does carry a bond graph, modified residues and cyclic chains."
+  },
+  "bond_protein_cys.yaml": {
+   "verdict": "refused",
+   "error": "RuntimeError",
+   "message": "--model rf3 cannot honour 1 part(s) of bond_protein_cys.yaml:\n  - a `bond` constraint (constraints): the fold would ignore the covalent bond. Honoured by: --model boltz2, --model opendde, --model opendde-abag, --model protenix-v1, --model protenix-v2.\nRF3 also reads its own JSON/CIF spec, which does carry a bond graph, modified residues and cyclic chains."
+  },
+  "bond_protein_shipped_example.yaml": {
+   "verdict": "refused",
+   "error": "RuntimeError",
+   "message": "--model rf3 cannot honour 1 part(s) of bond_protein_shipped_example.yaml:\n  - a `bond` constraint (constraints): the fold would ignore the covalent bond. Honoured by: --model boltz2, --model opendde, --model opendde-abag, --model protenix-v1, --model protenix-v2.\nRF3 also reads its own JSON/CIF spec, which does carry a bond graph, modified residues and cyclic chains."
+  },
+  "contact.yaml": {
+   "verdict": "refused",
+   "error": "RuntimeError",
+   "message": "--model rf3 cannot honour 1 part(s) of contact.yaml:\n  - a `pocket`/`contact` constraint (constraints): the fold would ignore the binding constraint. Honoured by: --model boltz2.\nRF3 also reads its own JSON/CIF spec, which does carry a bond graph, modified residues and cyclic chains."
+  },
+  "cyclic.yaml": {
+   "verdict": "refused",
+   "error": "RuntimeError",
+   "message": "--model rf3 cannot honour 1 part(s) of cyclic.yaml:\n  - `cyclic: true` (chain(s) A): the fold would return a linear structure. Honoured by: --model boltz2.\nRF3 also reads its own JSON/CIF spec, which does carry a bond graph, modified residues and cyclic chains."
+  },
+  "dna.yaml": {
+   "verdict": "accepted",
+   "found": {
+    "dna": "chain(s) D"
+   },
+   "notes": [],
+   "chains": [
+    [
+     "A",
+     "protein",
+     76
+    ],
+    [
+     "D",
+     "dna",
+     13
+    ]
+   ]
+  },
+  "fasta_ligand.fasta": {
+   "verdict": "accepted",
+   "found": {
+    "ligand": "chain(s) L"
+   },
+   "notes": [],
+   "chains": [
+    [
+     "A",
+     "protein",
+     76
+    ],
+    [
+     "L",
+     "ligand",
+     27
+    ]
+   ]
+  },
+  "heteromer3.yaml": {
+   "verdict": "accepted",
+   "found": {},
+   "notes": [],
+   "chains": [
+    [
+     "A",
+     "protein",
+     76
+    ],
+    [
+     "B",
+     "protein",
+     20
+    ],
+    [
+     "C",
+     "protein",
+     36
+    ]
+   ]
+  },
+  "homomer.yaml": {
+   "verdict": "accepted",
+   "found": {},
+   "notes": [],
+   "chains": [
+    [
+     "A",
+     "protein",
+     76
+    ],
+    [
+     "B",
+     "protein",
+     76
+    ]
+   ]
+  },
+  "ligand_ccd.yaml": {
+   "verdict": "accepted",
+   "found": {
+    "ligand": "chain(s) L"
+   },
+   "notes": [],
+   "chains": [
+    [
+     "A",
+     "protein",
+     76
+    ],
+    [
+     "L",
+     "ligand",
+     7
+    ]
+   ]
+  },
+  "ligand_smiles.yaml": {
+   "verdict": "accepted",
+   "found": {
+    "ligand": "chain(s) L"
+   },
+   "notes": [],
+   "chains": [
+    [
+     "A",
+     "protein",
+     76
+    ],
+    [
+     "L",
+     "ligand",
+     27
+    ]
+   ]
+  },
+  "lowercase.yaml": {
+   "verdict": "accepted",
+   "found": {},
+   "notes": [],
+   "chains": [
+    [
+     "A",
+     "protein",
+     76
+    ]
+   ]
+  },
+  "malformed_badchar.yaml": {
+   "verdict": "accepted",
+   "found": {},
+   "notes": [],
+   "chains": [
+    [
+     "A",
+     "protein",
+     19
+    ]
+   ]
+  },
+  "malformed_empty_seq.yaml": {
+   "verdict": "accepted",
+   "found": {},
+   "notes": [],
+   "chains": []
+  },
+  "malformed_typo.yaml": {
+   "verdict": "refused",
+   "error": "ClickException",
+   "message": "malformed_typo.yaml: unrecognized entity key(s) 'protien'. Accepted: dna, ligand, protein, rna."
+  },
+  "modification.yaml": {
+   "verdict": "refused",
+   "error": "RuntimeError",
+   "message": "--model rf3 cannot honour 1 part(s) of modification.yaml:\n  - `modifications:` (chain(s) A): the fold would return the unmodified residue. Honoured by: --model boltz2, --model esmfold2, --model esmfold2-fast, --model openbind, --model opendde, --model opendde-abag, --model openfold3, --model protenix-v1, --model protenix-v2.\nRF3 also reads its own JSON/CIF spec, which does carry a bond graph, modified residues and cyclic chains."
+  },
+  "msa_a3m.yaml": {
+   "verdict": "accepted",
+   "found": {},
+   "notes": [],
+   "chains": [
+    [
+     "A",
+     "protein",
+     384
+    ]
+   ]
+  },
+  "msa_empty_ctrl.yaml": {
+   "verdict": "accepted",
+   "found": {},
+   "notes": [],
+   "chains": [
+    [
+     "A",
+     "protein",
+     384
+    ]
+   ]
+  },
+  "pocket.yaml": {
+   "verdict": "refused",
+   "error": "RuntimeError",
+   "message": "--model rf3 cannot honour 1 part(s) of pocket.yaml:\n  - a `pocket`/`contact` constraint (constraints): the fold would ignore the binding constraint. Honoured by: --model boltz2.\nRF3 also reads its own JSON/CIF spec, which does carry a bond graph, modified residues and cyclic chains."
+  },
+  "rna.yaml": {
+   "verdict": "accepted",
+   "found": {
+    "rna": "chain(s) R"
+   },
+   "notes": [],
+   "chains": [
+    [
+     "A",
+     "protein",
+     76
+    ],
+    [
+     "R",
+     "rna",
+     20
+    ]
+   ]
+  },
+  "rna_only.yaml": {
+   "verdict": "accepted",
+   "found": {
+    "rna": "chain(s) R"
+   },
+   "notes": [],
+   "chains": [
+    [
+     "R",
+     "rna",
+     20
+    ]
+   ]
+  },
+  "template_cif.yaml": {
+   "verdict": "accepted",
+   "found": {},
+   "notes": [],
+   "chains": [
+    [
+     "A",
+     "protein",
+     274
+    ]
+   ]
+  },
+  "template_npz.yaml": {
+   "verdict": "refused",
+   "error": "RuntimeError",
+   "message": "--model rf3 cannot honour 1 part(s) of template_npz.yaml:\n  - `templates:` (chain(s) A): the fold would ignore the template you supplied. Honoured by: --model boltz2, --model openbind, --model opendde, --model opendde-abag, --model openfold3, --model protenix-v2.\nRF3 also reads its own JSON/CIF spec, which does carry a bond graph, modified residues and cyclic chains."
+  },
+  "template_off.yaml": {
+   "verdict": "accepted",
+   "found": {},
+   "notes": [],
+   "chains": [
+    [
+     "A",
+     "protein",
+     274
+    ]
+   ]
+  },
+  "tiny_peptide.yaml": {
+   "verdict": "accepted",
+   "found": {},
+   "notes": [],
+   "chains": [
+    [
+     "A",
+     "protein",
+     5
+    ]
+   ]
+  },
+  "unusual_U.yaml": {
+   "verdict": "accepted",
+   "found": {},
+   "notes": [],
+   "chains": [
+    [
+     "A",
+     "protein",
+     76
+    ]
+   ]
+  },
+  "unusual_X.yaml": {
+   "verdict": "accepted",
+   "found": {},
+   "notes": [],
+   "chains": [
+    [
+     "A",
+     "protein",
+     76
+    ]
+   ]
+  }
+ }
+}
