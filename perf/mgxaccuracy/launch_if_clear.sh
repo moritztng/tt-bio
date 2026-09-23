@@ -42,6 +42,23 @@ if [ -e "$GATE" ]; then
     echo "Re-run this script after it closes. Jobs already running are unaffected."
     exit 1
 fi
+# The brief's 2026-09-23 17:5x note: merge main before the next device run. The launcher is
+# where that has to be enforced, because the tree a job runs on is decided here and nowhere
+# else -- and this row's whglx checkout is deliberately held BEHIND main while two arms are
+# mid-run, so "the branch is merged on pc" says nothing about what whglx would execute.
+# Checked against the checkout that will actually run the job, not against this worktree.
+REMOTE_TREE=${MGX_REMOTE_TREE:-\$HOME/wt-mgx-design-accuracy}
+behind=$(ssh -o BatchMode=yes -o ConnectTimeout=30 whglx \
+    "cd $REMOTE_TREE && git fetch -q origin main 2>/dev/null; \
+     git merge-base --is-ancestor origin/main HEAD && echo ok || echo behind" 2>/dev/null)
+if [ "$behind" != "ok" ]; then
+    echo "REFUSED: the whglx checkout does not contain origin/main (got '${behind:-no answer}')."
+    echo "         A device run from it is attributable to a tree that is not main. Update the"
+    echo "         checkout first -- but NOT while a measurement is mid-run, since BoltzGen"
+    echo "         imports fresh code in every step subprocess."
+    exit 1
+fi
+
 echo "quiet window closed ($GATE absent) -- launching"
 
 ssh -o BatchMode=yes whglx "cd ~/wt-mgx-design-accuracy \
