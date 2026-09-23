@@ -29,7 +29,7 @@ for rung in rungs:
     cell = {"model": model, "rung": rung, "size_limit": "off", "card": os.environ.get("TT_VISIBLE_DEVICES"),
             "started_utc": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(t0)),
             "wall_s": round(time.time() - t0, 1)}
-    for k in ("error", "refused", "runtime_s", "aiclk", "grid", "structure"):
+    for k in ("error", "refused", "runtime_s", "aiclk", "load", "grid", "structure"):
         if r.get(k) is not None:
             cell[k] = r[k]
     (out / f"{model}_{rung}.json").write_text(json.dumps(cell, indent=2, default=str) + "\n")
