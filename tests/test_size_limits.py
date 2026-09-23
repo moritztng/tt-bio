@@ -644,8 +644,12 @@ def test_every_sizer_covers_the_suffixes_its_command_accepts(tmp_path):
         ("opendde", "big.fasta", ">t|protein\n" + "A" * _OVER_OPENDDE + "\n"),
         ("rfd3", "spec.json", '{"a": {"input": "t.pdb", "contig": "A1-2,4000"}}'),
         ("rfd3", "spec.yaml", 'a:\n  input: t.pdb\n  contig: A1-2,4000\n'),
+        # Derived from the row, not written down: a literal 1100 was over the cap when this was
+        # written and under it once ws:mgx-design-ceiling walked pxdesign to 1536, at which point
+        # the case stopped exercising the sizer and started asserting that a passing size raises.
         ("pxdesign", "t.yaml",
-         'target:\n  file: t.cif\n  chains:\n    A:\n      crop: ["1-1100"]\n'),
+         'target:\n  file: t.cif\n  chains:\n    A:\n      crop: '
+         f'["1-{_over_cap("pxdesign")}"]\n'),
         # BoltzGen is sized off the file its spec points at, so its oversized case needs one on
         # disk beside the spec -- written below, and named here as `big.cif`.
         ("boltzgen", "bg.yaml", 'entities:\n  - protein:\n      id: Z\n      sequence: 80\n'
