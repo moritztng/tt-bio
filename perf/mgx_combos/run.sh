@@ -9,7 +9,8 @@
 # take the chip mid-chain. A fold that loses the open anyway (DeviceInUseError, or another row's
 # lease) reruns elsewhere, and the chain re-takes its card after a fold only if it is still free.
 # A job whose results.json already says ok is skipped, so a restarted chain keeps finished logs.
-# The cardblocked chips (1, 24-27) are never candidates. Runs the tree this script lives in.
+# The cardblocked chips (1, 24-27) are never candidates. POLL (s, default 30) is how often a waiting
+# chain looks for a free card. Runs the tree this script lives in.
 set -u
 cd "$(dirname "$0")/../.."
 POOL=$1; shift
@@ -47,7 +48,7 @@ take() {
       [ "${AVOID[$c]:-0}" -gt "$(date +%s)" ] && continue
       if free "$c"; then C=$c; claim "$c"; return; fi
     done
-    sleep 30
+    sleep "${POLL:-30}"
   done
 }
 export PYTHONPATH=$PWD TT_BIO_LEASE_HOLDER=$ME TT_BIO_LEASE_DIR=$L
