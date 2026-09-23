@@ -1,0 +1,30 @@
+{
+ "what": "the reach of the package's exact softmax, counted at the call. `verb` is the taped verb (exact forward AND exact Jacobian); `raw` is the module-wide `ttnn.softmax`, which is the only thing that reaches `autograd.triangle_attention._scores` in the forward and in the chunked backward's recompute. A zero in `raw` means the pair track ran on the card.",
+ "installed_from": "tt_bio.autograd.exact_softmax() -> install(exact_softmax=True)",
+ "counters": {
+  "verb": 5901,
+  "raw": 1742,
+  "raw_elements": 21856518144
+ },
+ "argv": [
+  "--census-out",
+  "/home/ttuser/.coworker/wt/of3t-verbinstall/perf/of3t_verbinstall/CENSUS_PKG_HF3B.json",
+  "--lever",
+  "all",
+  "--",
+  "--boundary",
+  "/home/ttuser/of3t_frame384/boundary_n384.pt",
+  "--cap-last",
+  "/home/ttuser/of3t_frame384/block47_boundary.pt",
+  "--out",
+  "/tmp/of3t/of3t-verbinstall/dev_PKG_HF3B.pt",
+  "--report",
+  "/home/ttuser/.coworker/wt/of3t-verbinstall/perf/of3t_verbinstall/DEV_PKG_HF3B.json",
+  "--arm",
+  "flipped",
+  "--crop",
+  "0",
+  "--pf-set",
+  "s_fp32_residual=1"
+ ]
+}
