@@ -1498,14 +1498,24 @@ class StructureHead(TorchWrapper):
         self._fb = weights["diffusion_module.conditioning.fourier.b"]
         return DiffusionModuleModel(weights.child("diffusion_module"), self.compute_kernel_config)
 
-    def sample(self, z_trunk, s_inputs, relpos, ref_pos, ref_charge, ref_mask, ref_element,
-               ref_atom_name_chars, ref_space_uid, tok_idx, steps=14, seed=0, multiplicity=1):
+    def sample(self, *args, steps=14, seed=0, multiplicity=1):
+        self.prepare(*args)
+        try:
+            return self.draw(steps=steps, seed=seed, multiplicity=multiplicity)
+        finally:
+            self.release()
+
+    def prepare(self, z_trunk, s_inputs, relpos, ref_pos, ref_charge, ref_mask, ref_element,
+                ref_atom_name_chars, ref_space_uid, tok_idx):
         # Build the step-invariant tensors ONCE and keep them resident on the
-        # device for the whole trajectory: the pair conditioning, atom features,
+        # device until release(): the pair conditioning, atom features,
         # 3D-RoPE / band / scatter / gather tables. Only the (tiny) noisy coords
         # cross PCIe each step — z_trunk/relpos (~L²·256) and the pair
-        # conditioning are not re-transferred / re-computed per step.
-        dmm, sigma = self.module, self.sigma_data
+        # conditioning are not re-transferred / re-computed per step, nor per
+        # sample chunk: the fp32 z_trunk upload is one contiguous L²·256·4 B
+        # request, and re-making it per chunk is what failed 1152 tokens x 2
+        # samples on Wormhole once the first chunk had fragmented DRAM.
+        dmm = self.module
         B, N, L = ref_pos.shape[0], ref_pos.shape[1], s_inputs.shape[1]
         ft = self._from_torch
         atom_feats = torch.cat([
@@ -1521,21 +1531,25 @@ class StructureHead(TorchWrapper):
         dmm.prepare(ft(s_inputs), ft(z_trunk), ft(relpos), ft(atom_feats.float()),
                     ft(cos.float()), ft(sin.float()), ft(band.float()),
                     ft(scatter_m.float()), ft(gather_g.float()), ft(valid))
+        self._base, self._ref_mask, self._n_atoms = dmm._ctx, ref_mask, N
 
-        # Best-of-N batching: the conditioning above is molecule-only (identical
+    def draw(self, steps=14, seed=0, multiplicity=1):
+        """One trajectory of `multiplicity` samples on the tensors prepare() left resident."""
+        dmm, sigma, ref_mask, N = self.module, self.sigma_data, self._ref_mask, self._n_atoms
+
+        # Best-of-N batching: the conditioning is molecule-only (identical
         # across diffusion samples), so replicate the resident tensors to
-        # `multiplicity` once — then a SINGLE B=N trajectory draws N distinct
+        # `multiplicity` — then a SINGLE B=N trajectory draws N distinct
         # samples (different noise per batch row) for ~1x the device cost of one
         # (B=1 underutilizes the grid). B=1 is untouched (bit-identical). The
-        # only data crossing PCIe per step stays the tiny noisy coords.
+        # only data crossing PCIe per step stays the tiny noisy coords. The base
+        # stays resident beside the replicas for the next chunk; multiplicity > 1
+        # only happens where B·L² fits the budget, so that costs at most one
+        # L≈390 pair conditioning.
         if multiplicity > 1:
-            def _rep(v):
-                if not isinstance(v, ttnn.Tensor):
-                    return v
-                r = ttnn.repeat(v, [multiplicity] + [1] * (len(v.shape) - 1))
-                ttnn.deallocate(v)
-                return r
-            dmm._ctx = {k: _rep(v) for k, v in dmm._ctx.items()}
+            rep = lambda v: (ttnn.repeat(v, [multiplicity] + [1] * (len(v.shape) - 1))
+                             if isinstance(v, ttnn.Tensor) else v)
+            dmm._ctx = {k: rep(v) for k, v in self._base.items()}
             ref_mask = ref_mask.repeat(multiplicity, 1)
 
         def denoise(x_noisy, t_hat):
@@ -1556,7 +1570,14 @@ class StructureHead(TorchWrapper):
             return sample_structure(denoise, N, ref_mask, steps=steps,
                                     sigma_data=sigma, seed=seed)
         finally:
-            dmm.release_cache()
+            if dmm._ctx is not self._base:
+                dmm.release_cache()
+                dmm._ctx = self._base
+
+    def release(self):
+        self.module._ctx = getattr(self, "_base", {}) or {}
+        self.module.release_cache()
+        self._base = self._ref_mask = None
 
 
 # ===========================================================================
