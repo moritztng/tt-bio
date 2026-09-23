@@ -1,0 +1,1 @@
+{"model": "boltzgen", "target_res": 512, "asked": 8, "n_designs": 8, "steps": 400, "binder": 80, "wall_s": 922.4, "rescored": true, "verdict": "PASS", "mechanism": "none", "tag": "prod", "host": "j10glx02", "card": null, "ts": "2026-09-23T10:20:51Z", "s_per_design": 115.3, "designs_per_h": 31.22, "ranked": 0}
