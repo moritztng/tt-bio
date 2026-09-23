@@ -1,0 +1,7 @@
+version: 1
+# The same peptide with no closure, the control for cyclic_bond.yaml's N-C distance.
+sequences:
+  - protein:
+      id: A
+      sequence: QLEDSEVEAVAKG
+      msa: empty

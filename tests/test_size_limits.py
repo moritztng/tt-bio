@@ -321,11 +321,11 @@ def test_pxdesign_is_sized_from_the_crop_and_excludes_the_binder():
     y = ("target:\n  file: t.cif\n  chains:\n    A:\n      crop: [\"1-116\"]\n"
          "binder_length: 80\n")
     assert sl.scan_pxdesign_target(y) == 116        # 116, not 196
-    two = ("target:\n  file: t.cif\n  chains:\n    A:\n      crop: [\"1-600\"]\n"
-           "    B:\n      crop: [\"1-500\"]\nbinder_length: 80\n")
-    assert sl.scan_pxdesign_target(two) == 1100
+    two = ("target:\n  file: t.cif\n  chains:\n    A:\n      crop: [\"1-1000\"]\n"
+           "    B:\n      crop: [\"1-600\"]\nbinder_length: 80\n")
+    assert sl.scan_pxdesign_target(two) == 1600
     with pytest.raises(sl.SizeTooLargeError):
-        sl.check("pxdesign", 1100, arch="wormhole_b0")
+        sl.check("pxdesign", 1600, arch="wormhole_b0")
 
 
 def test_pxdesign_admits_the_target_the_platform_advertises():
@@ -334,10 +334,15 @@ def test_pxdesign_admits_the_target_the_platform_advertises():
     2026-09-08 to 2026-09-19 while the platform advertised and enforced 1024, so every job in
     between was accepted by the service and refused here -- the service shells out to
     `tt-bio design` and sets no TT_BIO_SIZE_LIMIT. Measured, twice, on the serving Galaxy.
+
+    The cap is 1536 now (ws:mgx-design-ceiling walked the ladder there on whglx), so the
+    platform's own number is no longer the boundary. It is still the number that has to be
+    admitted, which is what this asserts; the boundary is asserted beside it.
     """
     sl.check("pxdesign", 960, arch="wormhole_b0")
+    sl.check("pxdesign", 1536, arch="wormhole_b0")
     with pytest.raises(sl.SizeTooLargeError):
-        sl.check("pxdesign", 961, arch="wormhole_b0")
+        sl.check("pxdesign", 1537, arch="wormhole_b0")
 
 
 def test_an_unsizable_design_spec_refuses_nothing():
@@ -433,7 +438,7 @@ def test_a_residue_refusal_never_offers_the_atom_denominated_model():
     assert "boltzgen" not in sl.models_accepting(1200, "wormhole_b0")
     assert "boltzgen" in sl.models_accepting(1200, "wormhole_b0", counts=sl.TARGET_ATOMS)
     with pytest.raises(sl.SizeTooLargeError) as e:
-        sl.check("opendde", 1200, arch="wormhole_b0")
+        sl.check("opendde", _OVER_OPENDDE, arch="wormhole_b0")
     assert "boltzgen" not in str(e.value), str(e.value)
 
 
@@ -639,8 +644,12 @@ def test_every_sizer_covers_the_suffixes_its_command_accepts(tmp_path):
         ("opendde", "big.fasta", ">t|protein\n" + "A" * _OVER_OPENDDE + "\n"),
         ("rfd3", "spec.json", '{"a": {"input": "t.pdb", "contig": "A1-2,4000"}}'),
         ("rfd3", "spec.yaml", 'a:\n  input: t.pdb\n  contig: A1-2,4000\n'),
+        # Derived from the row, not written down: a literal 1100 was over the cap when this was
+        # written and under it once ws:mgx-design-ceiling walked pxdesign to 1536, at which point
+        # the case stopped exercising the sizer and started asserting that a passing size raises.
         ("pxdesign", "t.yaml",
-         'target:\n  file: t.cif\n  chains:\n    A:\n      crop: ["1-1100"]\n'),
+         'target:\n  file: t.cif\n  chains:\n    A:\n      crop: '
+         f'["1-{_over_cap("pxdesign")}"]\n'),
         # BoltzGen is sized off the file its spec points at, so its oversized case needs one on
         # disk beside the spec -- written below, and named here as `big.cif`.
         ("boltzgen", "bg.yaml", 'entities:\n  - protein:\n      id: Z\n      sequence: 80\n'
@@ -712,8 +721,8 @@ def test_a_refusal_on_a_mostly_unmeasured_arch_does_not_claim_nothing_fits():
     assert "no measured ceiling on blackhole" in msg_unmeasured, msg_unmeasured
     # and where every model IS measured the original sentence still has to be reachable
     with pytest.raises(sl.SizeTooLargeError) as e2:
-        sl.check("opendde", 1200, arch="wormhole_b0")
-    assert "Models with a measured ceiling above 1200" in str(e2.value)
+        sl.check("opendde", _OVER_OPENDDE, arch="wormhole_b0")
+    assert f"Models with a measured ceiling above {_OVER_OPENDDE}" in str(e2.value)
 
 
 # --- The ligand is tokens, and tokens are what the wall is made of ---------------------------
@@ -772,8 +781,7 @@ def test_a_ligand_at_the_residue_cap_is_refused_instead_of_reaching_the_chip():
     residue count cannot see one, and the fold then died on the chip instead of at submission.
 
     What a row has room for at its own cap is `wall - residues`, and that is not a free parameter:
-    it is 0 on the three ladders walked apo, and 64 on openbind, whose 960 was walked with 35
-    ligand atoms already on it -- the number that row's evidence states in words.
+    it is 0 on every ladder walked apo, which is every token row today.
     """
     for model, arch, c in _TOKEN_ROWS:
         wall = sl.padded_tokens(model, c.tokens)
@@ -784,26 +792,23 @@ def test_a_ligand_at_the_residue_cap_is_refused_instead_of_reaching_the_chip():
             sl.check(model, c.residues, ligand_atoms=room + 1, arch=arch)
         msg = str(e.value)
         assert "tokens" in msg and str(wall) in msg, msg
-    assert sl.padded_tokens("openbind", sl.ceiling("openbind", "wormhole_b0").tokens) - 960 == 64
 
 
 def test_the_cocrystals_measured_to_fold_are_still_admitted():
     """From the evidence, not invented: esmfold2 folded 991 aa + a 33-atom ligand in 278 s, and
-    openbind's row states 960 residues holds for a ligand of 64 atoms or fewer. A guard that
-    refuses either has over-corrected, which is the worse failure of the two."""
+    openbind folded 960 aa + CCD STU (35 atoms) on GWH02. A guard that refuses either has
+    over-corrected, which is the worse failure of the two."""
     sl.check("esmfold2", 991, ligand_atoms=33, arch="wormhole_b0")
-    sl.check("openbind", 960, ligand_atoms=64, arch="wormhole_b0")
-    with pytest.raises(sl.SizeTooLargeError):
-        sl.check("openbind", 960, ligand_atoms=65, arch="wormhole_b0")
+    sl.check("openbind", 960, ligand_atoms=35, arch="wormhole_b0")
 
 
 def test_a_ligand_free_input_is_checked_exactly_as_it_was():
     """No false-refusal regression: with no ligand the verdict is the residue comparison, on every
     row of the table, including the four that now carry a token wall.
 
-    openbind is why this is asserted and not assumed. Its 960 was walked WITH a 35-atom ligand, so
-    its token wall is 1024 -- and letting that wall speak for a ligand-free input would raise a
-    published cap by 64 residues on the strength of no ladder at all.
+    A row walked WITH a ligand has a token wall above its residue cap (openbind's old 960 with a
+    35-atom ligand had 1024), and letting that wall speak for a ligand-free input would raise a
+    published cap on the strength of no ladder at all.
     """
     for model, arch, fast, c in _rows():
         if not c.measured or c.residues is None:
@@ -860,12 +865,13 @@ def _yaml(tmp_path, name, body):
 
 @_needs_ccd
 def test_ligand_atoms_are_counted_from_the_ccd_component_the_model_tokenises(tmp_path):
-    """35 for STU is not a number this test chose -- it is the ligand openbind's ladder was walked
-    with, written into that row's evidence, so the counter and the row agree on the same molecule."""
+    """35 for STU is not a number this test chose -- it is the ligand openbind's GWH02 ladder was
+    walked with, written into that row's evidence, so the counter and the row agree on the same
+    molecule."""
     q = _yaml(tmp_path, "co.yaml",
               "sequences:\n  - protein: {id: A, sequence: MKTAYIAK}\n  - ligand: {id: L, ccd: STU}\n")
     assert sl.scan_ligand_atoms(q) == 35
-    assert sl.ceiling("openbind", "wormhole_b0").ladder_ligand_atoms == 35
+    assert "STU (35 atoms)" in sl.ceiling("openbind", "wormhole_b0").evidence
 
 
 @_needs_ccd

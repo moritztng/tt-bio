@@ -1,0 +1,10 @@
+version: 1
+sequences:
+  - protein:
+      id: A
+      sequence: GCGSQWDRSGR
+      msa: empty
+  - protein:
+      id: B
+      sequence: NKLCGHEITWD
+      msa: empty

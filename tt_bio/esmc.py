@@ -1509,7 +1509,7 @@ def read_yaml(path) -> dict[str, str]:
     doc = yaml.safe_load(Path(path).read_text()) or {}
     if not isinstance(doc, dict) or not doc or not all(isinstance(v, str) for v in doc.values()):
         raise ValueError(f"{path}: expected a YAML mapping of {{id: sequence}}, got {doc!r}")
-    return {str(k): v.upper() for k, v in doc.items()}
+    return {str(k): "".join(v.split()).upper() for k, v in doc.items()}
 
 
 def load_sequences(data) -> dict[str, str]:
@@ -1546,9 +1546,16 @@ def load_sequences(data) -> dict[str, str]:
         if not (seq and seq.replace(" ", "").isalpha()):
             raise ValueError(f"{data!r} is not an existing file/directory, and not a bare "
                              "protein sequence (letters only)")
-        seqs = {"seq0": seq.upper()}
+        seqs = {"seq0": "".join(seq.split()).upper()}
     if not seqs:
         raise ValueError(f"no sequences found in {data}")
+    # The tokenizer maps anything it does not know to <unk>, so a digit or a stray symbol in a
+    # file would embed as a residue that is not there. The bare-string path already refused it.
+    for sid, seq in seqs.items():
+        bad = [f"{i + 1}{c}" for i, c in enumerate(seq) if not c.isalpha()]
+        if bad:
+            raise ValueError(f"sequence {sid!r} has non-letter character(s) at "
+                             f"{', '.join(bad[:8])}: a protein sequence is letters only")
     return seqs
 
 

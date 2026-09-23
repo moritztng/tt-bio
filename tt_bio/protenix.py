@@ -37,7 +37,9 @@ from .token_axis import bucket_multiple as _bucket_multiple
 from .protenix_weights import remap_adaln  # single source of all v2->tt-bio weight remaps
 from . import ops
 from .tenstorrent import (Module, CORE_GRID_MAIN, get_device, dram_peak,
-                          MSA_CHUNK_SIZE, batched_matmul,
+                          MSA_CHUNK_SIZE, batched_matmul, msa_depth_chunks,
+                          host_park, host_unpark, msa_embed, msa_update_chunks, pair_row_blocks,
+                          row_block_after_refusal,
                           device_generation, accurate_softmax_site)
 from . import tenstorrent as _T   # for the module-level A/B toggles, which must be read live
 from .eltwise_fusion import scale_add, norm_residual
@@ -78,12 +80,6 @@ DEFAULT_MAX_PARALLEL_SAMPLES = 5
 # chunk too. That is numerically inert; it is NOT perf-measured on Blackhole yet.
 MSA_ROW_CHUNK_BUDGET_BYTES = 1 << 28      # 0.25 GiB
 
-# Above this size the pristine m_feat lives on the HOST between recycling cycles and is
-# streamed up one depth-chunk at a time (see Trunk.__call__). A 1 GiB pristine held for all
-# 10 cycles is affordable; the 2.5-3.2 GiB ones the WH-DRAM-blocked targets carry are not --
-# the per-cycle peak pays pristine + updated copy at once. 117/298-aa targets are far below
-# the gate, so their path (and perf) is untouched.
-MSA_HOST_OFFLOAD_MIN_BYTES = 1 << 30      # 1 GiB
 
 
 TOKEN_PAD_MULTIPLE = _bucket_multiple("protenix-v2")
@@ -176,14 +172,6 @@ def bucketed_pairformer(pf, s, z, dev, mult: int | None = None, extra_attn_bias=
     """
     from .token_axis import bucketed_pairformer as _bp
     return _bp(pf, s, z, dev, bucketed_width(int(z.shape[1]), mult), extra_attn_bias)
-
-
-def _msa_host_offload_min_bytes():
-    """Offload gate, with a test-only env override (same rationale as the chunk budget):
-    forcing it to 0 makes a SMALL target take the host-streamed path so its output can be
-    compared byte-for-byte against the same target folded device-resident."""
-    v = os.environ.get("TT_BIO_MSA_HOST_OFFLOAD_MIN_BYTES")
-    return int(v) if v else MSA_HOST_OFFLOAD_MIN_BYTES
 
 
 def _msa_take_whole_path(nbytes):
@@ -305,6 +293,8 @@ def _window_q(x, N, NP, nq=32):
 
 
 _UPLOAD_REFUSED_ROWS = {}  # host tensor shape -> depth-chunk rows, once DRAM refused its whole upload
+_TEMPLATE_ROWS_REFUSED = {}  # pair shape -> row block the template residual settled at
+
 _WIN_KV_IDX = {}  # (gen,NP,nq,nk) -> (1, nb*nk) uint32 gather index, device tensor on the
                   # CURRENT mesh. gen = tenstorrent.device_generation(): a model switch closes
                   # the mesh and this module-level dict survives, so entries from an older
@@ -2623,9 +2613,13 @@ class Trunk(_KeyedWeights):
         # and holding 48.82 MB of L1 across them makes their trimul throw.
         zn = self._ln(z3, "template_embedder.layernorm_z.weight",
                       "template_embedder.layernorm_z.bias", l1=True)
-        vs = [ttnn.add(tpl_a[t],
-                       self._lin(zn, "template_embedder.linear_no_bias_z.weight"),
-                       memory_config=ttnn.DRAM_MEMORY_CONFIG) for t in range(nt)]
+        vs = []
+        for t in range(nt):
+            a = host_unpark(tpl_a[t])
+            vs.append(ttnn.add(a, self._lin(zn, "template_embedder.linear_no_bias_z.weight"),
+                               memory_config=ttnn.DRAM_MEMORY_CONFIG))
+            if a is not tpl_a[t]:
+                ttnn.deallocate(a)
         ttnn.deallocate(zn)
         u = None
         for t in range(nt):
@@ -2635,7 +2629,15 @@ class Trunk(_KeyedWeights):
             v = self._ln(v, "template_embedder.layernorm_v.weight", "template_embedder.layernorm_v.bias")
             u = v if u is None else ttnn.add(u, v)
         u = ttnn.multiply(u, 1.0 / (1e-7 + nt))
-        return self._lin(ttnn.relu(u), "template_embedder.linear_no_bias_u.weight")
+        # z + linear_u(relu(u)), the embedder's residual. Per pair position, so after DRAM refuses
+        # the single pass it runs in row blocks and the old z is freed at the join: at 1536 tokens
+        # the c_z=384 projection alone is 1811939328 B, refused beside z with a 96 MiB/bank run.
+        res = lambda zr, ur: ttnn.add(
+            zr, self._lin(ttnn.relu(ur), "template_embedder.linear_no_bias_u.weight"))
+        return row_block_after_refusal(
+            _TEMPLATE_ROWS_REFUSED, tuple(z3.padded_shape), lambda: res(z3, u),
+            lambda rows: pair_row_blocks(res, (z3, u), rows, consume=z3),
+            rows=256, tag="protenix template")
 
     def _noisy_structure_dist(self, feat, N):
         """The cycle-invariant half of `NoisyStructureEmbedder`: the binned CB distogram.
@@ -2686,20 +2688,10 @@ class Trunk(_KeyedWeights):
             if pwa is None:
                 return m
             if isinstance(m, list):
-                # Already chunked: transform each chunk in place of the list, freeing the old
-                # chunk as soon as its replacement exists, so the peak stays ~2 chunks over the
-                # list rather than a second full copy.
-                zc = ttnn.clone(z)
-                out = []
-                for mc in m:
-                    t1 = ttnn.add(mc, ttnn.reshape(pwa(mc, zc, attn_tt), tuple(mc.shape)))
-                    ttnn.deallocate(mc)
-                    t2 = ttnn.add(t1, ttnn.reshape(transition(t1), tuple(t1.shape)))
-                    ttnn.deallocate(t1)
-                    out.append(t2)
-                    dram_peak("trunk msa block: after pwa add (list)")
-                ttnn.deallocate(zc)
-                return out
+                # Already chunked: transform each chunk in place of the list, parked chunks
+                # back to the host.
+                return msa_update_chunks(m, z, pwa, transition, attn_tt,
+                                         park=m[0].storage_type() != ttnn.StorageType.DEVICE)
             D = m.shape[1]                                  # MSA depth
             # Row-chunk the MSA depth axis when the representation is too big to hold several
             # copies of. Unchunked, PairWeightedAveraging's FIRST op is an out-of-place
@@ -2726,29 +2718,11 @@ class Trunk(_KeyedWeights):
                 if m_up is not m:
                     ttnn.deallocate(m_up)
                 return out
-            # One clone of z for the whole loop, not one per chunk: PWA only reads z (it
-            # rebinds its own local through reshape/layer_norm and never deallocates it), and
-            # at c_z=384 a per-chunk clone would cost ~0.9 GiB each for a 1120-token target.
-            zc = ttnn.clone(z)
-            parts = []
-            cw = _msa_row_chunk_size()
-            host_m = torch.is_tensor(m)     # host-resident pristine (deep-MSA offload)
-            for s in range(0, D, cw):
-                if host_m:
-                    mc = self._up(m[:, s:min(s + cw, D)])         # stream one chunk from host
-                else:
-                    mc = m[:, s:min(s + cw, D), :, :]             # slice => private copy
-                # Deliberately the SAME out-of-place ttnn.add as the unchunked branch above.
-                # An in-place add_ here would be safe for aliasing (mc is a private copy) and
-                # would save a chunk-sized buffer, but it is a second change riding along with
-                # the chunking, and the acceptance test cannot then attribute a difference to
-                # one or the other. Keep the arithmetic identical to the whole path; the memory
-                # win comes from the chunk being small, not from mutating it.
-                mc = ttnn.add(mc, ttnn.reshape(pwa(mc, zc, attn_tt), tuple(mc.shape)))
-                mc = ttnn.add(mc, ttnn.reshape(transition(mc), tuple(mc.shape)))
-                parts.append(mc)
-                dram_peak("trunk msa block: after pwa add")
-            ttnn.deallocate(zc)
+            # A host-resident pristine (deep-MSA offload) streams up one chunk at a time; a
+            # device one is sliced, and those slices are not ours to free.
+            parts = msa_update_chunks(msa_depth_chunks(m, _msa_row_chunk_size()), z, pwa,
+                                      transition, attn_tt, own=torch.is_tensor(m),
+                                      park=torch.is_tensor(m))
             # Return the CHUNKS, not a concatenation of them. The terminal concat used to need a
             # third full-size buffer (source + parts + destination) and that 3x peak is what made
             # 9d72 OOM at 1.78 GiB m_feat even with chunking on. Every downstream consumer is
@@ -2778,11 +2752,11 @@ class Trunk(_KeyedWeights):
                 # Protenix-order block 0 reads the pristine m with OPM. OPM chunk-gates itself,
                 # so a single transient upload is enough; update_msa below streams from host.
                 m_dev = self._up_or_host_chunks(m_feat)
-                z3 = ttnn.add(z3, opm(m_dev, None, None))
+                z3 = opm(m_dev, None, None, residual=z3)
                 if not isinstance(m_dev, list):
                     ttnn.deallocate(m_dev)
             else:
-                z3 = ttnn.add(z3, opm(m_feat, None, None))
+                z3 = opm(m_feat, None, None, residual=z3)
             dram_peak("trunk msa block: after opm")
             if not self._msa_update_first:
                 m_feat = update_msa(m_feat, z3, pwa, tm)
@@ -2883,23 +2857,18 @@ class Trunk(_KeyedWeights):
         # original expression frees it, and moved the OOM to a different allocation.
         dram_peak(f"trunk msa pre-upload [ms={tuple(ms.shape)} {ms.dtype}"
                   f" -> dtype={getattr(self, 'dtype', ttnn.bfloat16)}]")
-        m_feat = ttnn.add(self._lin(self._up(ms), "msa_module.linear_no_bias_m.weight"),
-                          self._lin(self._up(s_inputs), "msa_module.linear_no_bias_s.weight"))
-        dram_peak(f"trunk m_feat built [{tuple(m_feat.shape)} {m_feat.dtype}]")
         # Deep-MSA offload: every read of the pristine m_feat is row-local (PWA/Transition per
-        # row, OPM per chunk), so past 1 GiB it is kept on the host between recycling cycles and
-        # streamed up one depth-chunk at a time in update_msa. That removes a full-size device
-        # copy from the per-cycle peak (pristine + updated list used to coexist). Bit-exact:
-        # to_torch preserves the bf16 bytes and _up re-tilizes the same values, so each chunk
-        # holds exactly the bytes a device slice would have held. bf16 only: a bfloat8_b tensor
-        # is block-floating-point, so a host round-trip would re-quantise the tile scales.
-        if (m_feat.dtype == ttnn.bfloat16
-                and m_feat.shape[1] * m_feat.shape[2] * m_feat.shape[3] * 2 > _msa_host_offload_min_bytes()):
-            _m_host = ttnn.to_torch(m_feat)
-            ttnn.deallocate(m_feat)
-            m_feat = _m_host
-            dram_peak(f"trunk m_feat host-offloaded [{tuple(m_feat.shape)} torch]")
+        # row, OPM per chunk), so past 1 GiB `msa_embed` builds it one depth chunk at a time on
+        # the host and update_msa streams it back up a chunk at a time. Neither the whole `ms`
+        # upload nor a full-size device copy of m_feat enters the per-cycle peak.
+        s_m = self._lin(self._up(s_inputs), "msa_module.linear_no_bias_s.weight")
+        m_feat = msa_embed(ms, lambda x: ttnn.add(
+            self._lin(x, "msa_module.linear_no_bias_m.weight"), s_m))
+        ttnn.deallocate(s_m)
+        dram_peak(f"trunk m_feat built [{tuple(m_feat.shape)} {m_feat.dtype}]")
         z3 = ttnn.reshape(ttnn.mul(z_init, 0.0), (1, N, N, self.C_Z))
+        # Both are read once per cycle and never written, so past 1 GiB they wait on the host.
+        z_init, tpl_a = host_park(z_init), host_park(tpl_a)
         s = ttnn.mul(s_init, 0.0)
         n_cycles = self.N_CYCLES if n_cycles is None else n_cycles
         for cyc in range(n_cycles):
@@ -2912,7 +2881,10 @@ class Trunk(_KeyedWeights):
                 if progress_fn:
                     progress_fn("trunk", step=cyc, total=n_cycles)
                 zc = self._lin(self._ln(z3, "layernorm_z_cycle.weight", "layernorm_z_cycle.bias"), "linear_no_bias_z_cycle.weight")
-                z3 = ttnn.add(ttnn.reshape(z_init, (1, N, N, self.C_Z)), zc)
+                zi = host_unpark(z_init)
+                z3 = ttnn.add(ttnn.reshape(zi, (1, N, N, self.C_Z)), zc)
+                if zi is not z_init:
+                    ttnn.deallocate(zi)
                 if nse_d is not None:
                     z3 = ttnn.add(z3, self._noisy_structure(z3, nse_d))
                 # Gate on BOTH the feature's template slots and the checkpoint's own template
@@ -2925,7 +2897,7 @@ class Trunk(_KeyedWeights):
                 # where upstream adds nothing. Inert for protenix-v2 and opendde, which both ship
                 # a 2-block stack (pinned by tests/test_protenix_template_gate.py).
                 if nt > 0 and self.TPL:
-                    z3 = ttnn.add(z3, self._template(z3, tpl_a, N, nt, pmask_tt, attn_tt))
+                    z3 = self._template(z3, tpl_a, N, nt, pmask_tt, attn_tt)
                 z3 = self._msa(z3, m_feat, pmask_tt, attn_tt)
                 sc = self._lin(self._ln(s, "layernorm_s.weight", "layernorm_s.bias"), "linear_no_bias_s.weight")
                 s = ttnn.add(s_init, sc)
@@ -2936,8 +2908,9 @@ class Trunk(_KeyedWeights):
                 # so this both tests cycle 0 and, if cycle 0 matches, names the first cycle that does not.
                 trunk_tap(f"cyc{cyc}_after_PF:s", s, always=True)
                 trunk_tap(f"cyc{cyc}_after_PF:z3", z3, always=True)
-        for t in tpl_a:
-            ttnn.deallocate(t)
+        for t in [z_init, *tpl_a]:
+            if t.storage_type() == ttnn.StorageType.DEVICE:
+                ttnn.deallocate(t)
         if nse_d is not None:
             ttnn.deallocate(nse_d)
         # The trunk's final conditioning. If cycle 0's blocks matched but this differs, the

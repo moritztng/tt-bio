@@ -3,6 +3,7 @@ import re
 import sys
 import time
 import contextlib
+import gc
 import torch, ttnn, atexit
 from torch import nn
 from typing import Callable, Mapping
@@ -66,6 +67,9 @@ PWA_DEPTH_BUDGET_BYTES = 1 << 28     # 0.25 GiB, as OPM_Z_BUDGET_BYTES
 _PWA_DEPTH_ROW_CAP: dict[tuple[int, int], int] = {}
 #: Path census, read like OPM_ROW_STATS: whole-tensor calls, chunked calls, refusals absorbed.
 PWA_DEPTH_STATS = {"whole": 0, "blocked": 0, "dram_narrowed": 0}
+# Triangle-attention shapes whose whole-tensor path DRAM refused, and the row block they settled
+# at. See TriangleAttention.__call__.
+_TRIATT_WHOLE_REFUSED: dict = {}
 # Cap on OPM's per-I-block matmul result, which is (rows*c_a, c_b*tokens) in bf16 and therefore
 # grows with the SQUARE of the token count at fixed `rows`. At OPM_CHUNK_SIZE=256 and 992 padded
 # tokens that single tensor is 520093696 B -- which is exactly, to the byte, the allocation 9i3p
@@ -5239,6 +5243,169 @@ def row_block_after_refusal(memo, key, single, blocked, rows, tag, min_rows=32):
         return out
 
 
+def pair_row_blocks(fn, tensors, rows, consume=None):
+    """`fn` over `rows`-row slices (dim 1) of every tensor in `tensors`, joined along dim 1.
+
+    The `blocked` half of `row_block_after_refusal` for an op that is per pair position end to
+    end (layer norm, linear, gating): each block is exactly the rows of the single pass, so the
+    join is bit-exact. The join goes through `_acc_concat`, so a refused device concat falls
+    back to one host assemble and upload instead of ending the fold. `consume` is an input the
+    result replaces (a residual's `z`): freed at the join, and before that upload, so the upload
+    can land in the room it leaves.
+    """
+    n = int(tensors[0].shape[1])
+    parts = [fn(*[t[:, i:min(i + rows, n)] for t in tensors]) for i in range(0, n, rows)]
+    return _acc_concat(parts, dim=1, host=False, consume=consume)
+
+
+# Above this size a trunk keeps the pristine MSA representation `m` on the HOST between recycling
+# cycles and streams it up one depth chunk at a time (`msa_depth_chunks`). Held whole on device,
+# the per-cycle peak pays the pristine plus the updated copy at once: 2 x 1.98 GiB at 1088 tokens
+# against a 14191-row alignment, which is where openfold3 and openbind die on a 12 GiB Wormhole
+# part. Protenix, OpenDDE and OpenFold3 all read it; the env override is the acceptance test
+# (0 sends a small target down the streamed path to compare it with the same target held whole).
+MSA_HOST_OFFLOAD_MIN_BYTES = 1 << 30      # 1 GiB
+
+
+def msa_host_offload(m):
+    """`m` moved to the host when it is past `MSA_HOST_OFFLOAD_MIN_BYTES`, else `m` unchanged.
+
+    Bit-exact: to_torch keeps the bf16 bytes and the upload re-tilizes the same values. bf16
+    only, because a bfloat8_b tensor is block floating point and a host round trip would
+    re-quantise its tile scales."""
+    v = os.environ.get("TT_BIO_MSA_HOST_OFFLOAD_MIN_BYTES")
+    if m.dtype != ttnn.bfloat16 or m.logical_volume() * 2 <= (int(v) if v else MSA_HOST_OFFLOAD_MIN_BYTES):
+        return m
+    h = ttnn.to_torch(m)
+    ttnn.deallocate(m)
+    dram_peak(f"trunk m host-offloaded [{tuple(h.shape)} torch]")
+    return h
+
+
+def host_park(t):
+    """A cycle-invariant device tensor, or a list of them, moved to the host past
+    `MSA_HOST_OFFLOAD_MIN_BYTES` together; `host_unpark` brings one back for each read.
+
+    For the trunk inputs every recycling cycle reads once and nothing writes: OpenDDE's z_init and
+    its four template projections are 1.81 GB and 1.21 GB at 1536 tokens, resident for the whole
+    trunk beside the cycle's own working set. `from_device` keeps the device layout, so the host
+    copy is the same tile bytes (bfloat8_b scales included) and each read is one DMA, no tilize."""
+    ts = t if isinstance(t, list) else [t]
+    v = os.environ.get("TT_BIO_MSA_HOST_OFFLOAD_MIN_BYTES")
+    lim = int(v) if v else MSA_HOST_OFFLOAD_MIN_BYTES
+    nbytes = sum(_padded_bytes(tuple(x.shape), 4 if x.dtype == ttnn.float32 else 2) for x in ts)
+    if not ts or nbytes <= lim:
+        return t
+    hs = []
+    for x in ts:
+        hs.append(ttnn.from_device(x))
+        ttnn.deallocate(x)
+    dram_peak(f"trunk parked {len(hs)} cycle-invariant tensor(s) on the host [{nbytes} B]")
+    return hs if isinstance(t, list) else hs[0]
+
+
+def host_unpark(t):
+    """`t` on the device: a `host_park`ed tensor is uploaded, and that copy is the caller's to free
+    (`t` itself stays parked for the next read); a device tensor comes back as is."""
+    return t if t.storage_type() == ttnn.StorageType.DEVICE else ttnn.to_device(t, get_device())
+
+
+def msa_embed(feat, project, rows=MSA_CHUNK_SIZE):
+    """The trunk's pristine `m` = `project(feat)`, placed the way `msa_host_offload` places it.
+
+    `feat` is the MSA input feature [1, depth, tokens, c], on the device or on the host, and
+    `project` maps a device slice of it to `m` rows (the embedder's linear plus the broadcast
+    single-representation term). A device feature, or a host one whose bf16 upload fits under
+    the offload size, is uploaded and projected whole. Past it, the feature goes up one depth
+    chunk at a time and each projected chunk comes straight back to the host: at 1536 tokens
+    against 8192 alignment rows the whole upload is a 3221225472 B buffer a Wormhole chip
+    refused, and the whole `m` would only be offloaded to the host afterwards anyway. Every op
+    in the projection is per alignment row, so the chunks hold the rows the whole pass does."""
+    up = lambda t: ttnn.from_torch(t.float().contiguous(), layout=ttnn.TILE_LAYOUT,
+                                   device=get_device(), dtype=ttnn.bfloat16)
+    v = os.environ.get("TT_BIO_MSA_HOST_OFFLOAD_MIN_BYTES")
+    lim = int(v) if v else MSA_HOST_OFFLOAD_MIN_BYTES
+    host = torch.is_tensor(feat)
+    D, N, c = feat.shape[1:] if host else (0, 0, 0)
+    if D * N * (-(-c // 32) * 32) * 2 <= lim:
+        x = up(feat) if host else feat
+        m = project(x)
+        ttnn.deallocate(x)
+        return msa_host_offload(m)
+    m = None
+    for s in range(0, D, rows):
+        x = up(feat[:, s:s + rows])
+        mc = project(x)
+        ttnn.deallocate(x)
+        h = ttnn.to_torch(mc)
+        ttnn.deallocate(mc)
+        if m is None:
+            m = torch.empty((1, D, N, h.shape[-1]), dtype=h.dtype)
+        m[:, s:s + rows] = h
+    dram_peak(f"trunk m embedded to the host in depth chunks [{tuple(m.shape)} torch]")
+    return m
+
+
+def msa_depth_chunks(m, rows=MSA_CHUNK_SIZE, park=False):
+    """`m` [1, depth, tokens, c] cut along depth, lazily: one private device chunk per step.
+
+    A host tensor is uploaded a chunk at a time, a device tensor is sliced, and a list is
+    already chunks. A slice that spans the whole depth can come back as `m` itself, so chunks of a
+    device tensor are not the caller's to free (`msa_update_chunks(own=False)`).
+
+    With `park`, a host tensor's chunks are tilized on the host and stay there, in the form
+    `msa_update_chunks(park=True)` leaves them: each consumer uploads a chunk for its one read."""
+    if isinstance(m, list):
+        yield from m
+        return
+    D = m.shape[1]
+    for s in range(0, D, rows):
+        if torch.is_tensor(m):
+            yield ttnn.from_torch(m[:, s:s + rows].contiguous(), layout=ttnn.TILE_LAYOUT,
+                                  device=None if park else get_device(), dtype=ttnn.bfloat16)
+        else:
+            yield m[:, s:min(s + rows, D), :, :]
+
+
+def msa_update_chunks(chunks, z, pwa, transition, attn_mask=None, own=True, park=False):
+    """AF3's MSA update, `m += pwa(m, z)` then `m += transition(m)`, one depth chunk at a time.
+
+    Returns the updated chunks as a list and never joins them: every consumer is chunk-wise
+    (PairWeightedAveraging and Transition are per row, OuterProductMean takes the list), so the
+    contiguous tensor and the full-size buffer a join needs never exist. With `own`, each input
+    chunk is freed as soon as its replacement exists, so the peak is the list plus about two chunks.
+
+    A trunk whose pristine `m` is on the host passes `park`: each updated chunk follows it there
+    (`from_device`, the same tile bytes), and a parked input chunk is uploaded for its one read.
+    The list alone is the whole `m`, 4.8 GB for OpenDDE at 1280 tokens against a 14743-row
+    alignment with c_m=128, and on the device it left OuterProductMean's projections no room.
+
+    Bit-exact against the whole-depth update: nothing in it reduces along depth. PWA's weights
+    come from `z` alone and its matmul contracts the token axis; the norms and the transition are
+    per row over channels. The adds are the same out-of-place adds the whole path makes.
+
+    PWA's token weights are a function of `z` alone, so they are computed once for every chunk:
+    per chunk, the whole pair would be normed again into a buffer the size of `z`."""
+    ws = pwa.head_weights(z, attn_mask)
+    out = []
+    for mc in chunks:
+        md = host_unpark(mc)
+        t1 = ttnn.add(md, ttnn.reshape(pwa(md, None, weights=ws), tuple(md.shape)))
+        if own or md is not mc:
+            ttnn.deallocate(md)
+        t2 = ttnn.add(t1, ttnn.reshape(transition(t1), tuple(t1.shape)))
+        ttnn.deallocate(t1)
+        if park:
+            h = ttnn.from_device(t2)
+            ttnn.deallocate(t2)
+            t2 = h
+        out.append(t2)
+        dram_peak("trunk msa block: after pwa add")
+    for w in ws:
+        ttnn.deallocate(w)
+    return out
+
+
 _device = None
 _trace_region_size = 0
 _device_lease = None
@@ -5441,12 +5608,41 @@ def dram_peak(tag=None):
                     + (f" t=+{time.time() - _DRAM_PEAK_T0:.1f}s n={_DRAM_PEAK_N[tag]}"
                        if trace else "")
                     + "\n")
+            if env_flag("TT_BIO_DRAM_PEAK_TENSORS", False):
+                line += _live_device_tensors()
             try:
                 with open(path, "a") as fp:      # append: the worker is a separate process
                     fp.write(line)
             except OSError:
                 pass                            # a diagnostic must never break a fold
     return max(_DRAM_PEAK.values(), default=0)
+
+
+def _live_device_tensors(min_bytes=32 << 20) -> str:
+    """The Python-held device tensors of at least `min_bytes`, largest first, one per line.
+
+    The allocator reports totals only, so a peak that is gigabytes above the tensors a reader
+    can name is otherwise unattributable. Reached only through TT_BIO_DRAM_PEAK_TENSORS=1: the
+    gc walk costs a second or more per sample. Buffers held by C++ alone are not listed, so
+    the difference between the total and this list is itself the finding."""
+    import gc
+    seen, rows = set(), []
+    for o in gc.get_objects():
+        try:
+            if not isinstance(o, ttnn.Tensor) or o.storage_type() != ttnn.StorageType.DEVICE:
+                continue
+            if not o.is_allocated() or o.buffer_address() in seen:
+                continue
+            seen.add(o.buffer_address())
+            n = int(prod(o.padded_shape) * {"FLOAT32": 4, "UINT32": 4, "INT32": 4,
+                                            "BFLOAT8_B": 1.0625}.get(str(o.dtype).split(".")[-1], 2))
+        except Exception:
+            continue
+        if n >= min_bytes:
+            rows.append((n, tuple(o.shape), str(o.dtype).split(".")[-1]))
+    rows.sort(reverse=True)
+    return "".join(f"    {n / 2**20:9.1f} MiB {shp} {dt}\n" for n, shp, dt in rows) + \
+        f"    listed {sum(r[0] for r in rows) / 2**30:.3f} GiB in {len(rows)} tensors\n"
 
 
 def _dram_total_bytes(device=None) -> int:
@@ -5629,7 +5825,54 @@ def _host_concat(x: ttnn.Tensor) -> bool:
     round-trip through torch bf16 lossily, so those configs keep the device concat.
     """
     return (x.dtype == ttnn.bfloat16 and _dtype() == ttnn.bfloat16
-            and x.logical_volume() * 2 > concat_host_bytes())
+            and x.logical_volume() * 2 > concat_host_bytes() and not _DEVICE_ACC_TRIAL[0])
+
+
+# Chunked-op calls (op, shape) that DRAM refused with their blocks joined on device, so they
+# join on the host from then on. `host_acc_after_refusal` fills it; `_host_concat` stands down
+# while `_DEVICE_ACC_TRIAL` is set.
+_HOST_ACC_KEYS = set()
+_DEVICE_ACC_TRIAL = [False]
+
+
+def host_acc_after_refusal(key, x, run):
+    """`run()` with its blocks joined on device first; on the host only after DRAM refuses that.
+
+    Past `concat_host_bytes()` the chunked pair ops (trimul, triangle attention, the transition)
+    send every block to the host and upload the assembled result. That answer was measured on
+    OpenDDE's structural axis, a 2.61 GiB join refused at 7.2 GiB used, and a byte line cannot
+    tell that tensor from OpenDDE's residue trunk at 1536 tokens: 1.81 GB, with 4.9 GiB of the
+    chip in use. There the host round trips were 93 % of the fold's main-thread time and each
+    recycle took ~65 min. So the device gets the first try, as in `row_block_after_refusal`: a
+    refusal anywhere in the call, or `_acc_concat` falling back to the host at the join, sends
+    this key to the host path for the rest of the process, and a refused call is re-run there.
+    ttnn.concat and torch.cat move the same bytes, so both joins give the same output.
+
+    `run` must not have consumed `x` when it is refused; if it has, the refusal propagates.
+    """
+    if key in _HOST_ACC_KEYS or not _host_concat(x):
+        return run()
+    from tt_bio.size_limits import is_alloc_refusal
+
+    fallbacks = ACC_CONCAT_HOST_FALLBACKS[0]
+    _DEVICE_ACC_TRIAL[0] = True
+    try:
+        out = run()
+    except Exception as exc:
+        if not is_alloc_refusal(exc) or not x.is_allocated():
+            raise
+        _HOST_ACC_KEYS.add(key)
+        print(f"[tt-bio] DRAM refused {key[0]} with its blocks joined on device; re-running it "
+              f"with them joined on the host. The tt-metal 'Out of Memory' line above is expected "
+              f"and handled.", file=sys.stderr, flush=True)
+    else:
+        if ACC_CONCAT_HOST_FALLBACKS[0] != fallbacks:
+            _HOST_ACC_KEYS.add(key)
+        return out
+    finally:
+        _DEVICE_ACC_TRIAL[0] = False
+    gc.collect()        # the refused attempt's blocks, still referenced from its traceback
+    return run()
 
 
 def _concat_to(parts: list, dim: int, memory_config) -> ttnn.Tensor:
@@ -6666,6 +6909,10 @@ class TriangleMultiplication(Module):
         self._gp_in_biases(chunk_size, group)
 
     def __call__(self, x: ttnn.Tensor, mask: ttnn.Tensor | None = None) -> ttnn.Tensor:
+        return host_acc_after_refusal(("trimul", tuple(x.padded_shape), self.ending), x,
+                                      lambda: self._multiply(x, mask))
+
+    def _multiply(self, x: ttnn.Tensor, mask: ttnn.Tensor | None) -> ttnn.Tensor:
         x_in = x  # keep the pair tensor reachable for the row-blocked tail below
         shp = [int(d) for d in x.shape]
         H = shp[1]
@@ -6990,6 +7237,8 @@ class TriangleMultiplication(Module):
                 oom = large_seq and _dram_oom(e)
                 if not oom and (large_seq or "clash with L1 buffers" not in msg):
                     raise
+                if oom and _DEVICE_ACC_TRIAL[0]:
+                    raise       # the device-held chunks may be the cause: try the host join first
                 for _t in x_chunks:
                     # Host-assembled chunks are torch tensors (`_acc_append`), and the large
                     # path is where host assembly happens, so the accumulator cannot be
@@ -7664,9 +7913,32 @@ class TriangleAttention(Module):
         ) or (None, None, None)
 
     def __call__(self, x: ttnn.Tensor, attn_mask: ttnn.Tensor | None = None) -> ttnn.Tensor:
+        S = x.shape[1]
+
+        def blocked(rows):
+            return host_acc_after_refusal(
+                ("tri_att", tuple(x.padded_shape), self.ending), x,
+                lambda: self._attend_pair(x, attn_mask, rows))
+
+        if S > SEQ_LEN_MORE_CHUNKING and (self.affinity or not _FAST_MODE or _IS_SMALL_GRID):
+            return blocked(TRIANGLE_ATT_CHUNK_SIZE)
+        # SEQ_LEN_MORE_CHUNKING is a token count fitted on a 128-channel pair (see
+        # _apply_grid_thresholds), so at OpenDDE's c_z=384 the whole path at 1088 tokens asks for
+        # four 909115392 B projections at once and a 12 GiB Wormhole chip refuses them 403 s into
+        # the fold. The device gets the last word: a refusal re-runs the row-blocked path below,
+        # which never builds more than one block of them, and a size that fits keeps its single
+        # pass byte for byte.
+        return row_block_after_refusal(
+            _TRIATT_WHOLE_REFUSED, (tuple(x.padded_shape), self.ending),
+            lambda: self._attend_pair(x, attn_mask, None), blocked,
+            rows=TRIANGLE_ATT_CHUNK_SIZE, tag="tri_att")
+
+    def _attend_pair(self, x: ttnn.Tensor, attn_mask: ttnn.Tensor | None,
+                     rows: int | None) -> ttnn.Tensor:
+        """The whole-tensor path when `rows` is None, else the row-blocked one, blocks <= rows."""
         x = ttnn.reshape(x, tuple(x.shape)[1:])
         S = x.shape[0]
-        need_chunk = S > SEQ_LEN_MORE_CHUNKING and (self.affinity or not _FAST_MODE or _IS_SMALL_GRID)
+        need_chunk = rows is not None
         if need_chunk:
             # Large-sequence path: never materialise the full layer_norm output.
             # layer_norm is row-local, so norming a row block is bit-identical to
@@ -7677,7 +7949,7 @@ class TriangleAttention(Module):
             # it arrives identical to the full-tensor computation. This drops the
             # chunked path from 3 full pair tensors live (z + normed x + accumulated
             # parts) to 2, plus the n_heads-wide bias.
-            chunk = TRIANGLE_ATT_CHUNK_SIZE_FAST if _FAST_MODE else TRIANGLE_ATT_CHUNK_SIZE
+            chunk = min(rows, TRIANGLE_ATT_CHUNK_SIZE_FAST if _FAST_MODE else TRIANGLE_ATT_CHUNK_SIZE)
             # Byte-cap the row chunk so the fused qkv projection (rows x pad32(S) x 3c
             # bf16) stays a size a fragmented 12 GiB WH part can still supply. The
             # allocator needs size/12 contiguous in every bank, and after the trunk's
@@ -8022,7 +8294,19 @@ class TriangleAttention(Module):
                 x = ttnn.from_torch(h.contiguous(), layout=ttnn.TILE_LAYOUT,
                                     device=get_device(), dtype=ttnn.bfloat16)
                 return ttnn.reshape(x, (1, *x.shape))
-            x = ttnn.concat(parts, dim=0)
+            if self.ending:
+                # Row block s:e of the transposed pair is column strip s:e of the output, so each
+                # block is transposed back on its own and the strips joined along columns: the
+                # same bytes as joining then transposing, without a third full pair tensor beside
+                # the input and the join. At OpenDDE's c_z=384 that third copy is 909115392 B at
+                # 1088 tokens, and it is where the fold was refused.
+                strips = []
+                for p in parts:
+                    strips.append(_pair_transpose(p, ttnn.DRAM_MEMORY_CONFIG))
+                    ttnn.deallocate(p)
+                x = _acc_concat(strips, 1, False)
+                return ttnn.reshape(x, (1, *x.shape))
+            x = _acc_concat(parts, 0, False)
             del parts
         else:
             qkv_cfg = _qkv_l1_config(x, self.qkv_weight, _dtype())
@@ -8651,6 +8935,11 @@ class Transition(Module):
 
     def __call__(self, x: ttnn.Tensor, memory_config: ttnn.MemoryConfig | None = None,
                  add_to_input: bool = False) -> ttnn.Tensor:
+        return host_acc_after_refusal(("transition", tuple(x.padded_shape)), x,
+                                      lambda: self._transition(x, memory_config, add_to_input))
+
+    def _transition(self, x: ttnn.Tensor, memory_config: ttnn.MemoryConfig | None,
+                    add_to_input: bool) -> ttnn.Tensor:
         """`memory_config` names where the assembled result lands; None keeps it in DRAM.
 
         Only the pair-track (4-D) exits honour it. The row blocks themselves are unaffected, so
@@ -10095,14 +10384,16 @@ class DiffusionTransformerLayer(Module):
         # transition reads the block input rather than the post-attention residual.
         self.no_residual = no_residual
         self.s_o = None
-        # Keyed by the shape of the `s` it was built from. The atom-level output
-        # projection is reused across a fold because `s` is t-independent there, but the
-        # cache used to have no key at all, so a second fold at a different length in the
-        # same process multiplied a stale window count against the current bias -- loud if
-        # the window counts differ, silent and wrong if two lengths round to the same one.
-        # tt-bio's wrapper path clears this in `reset_static_cache`; RF3 uses the raw
-        # modules and never reaches it.
-        self._s_o_key = None
+        # Keyed by the identity of the `s` it was built from, and holding it so the id cannot
+        # be reused. The atom-level output projection is reused across a rollout because `s`
+        # is t-independent there, but `s` is the atom conditioning and carries the trunk
+        # output, so it changes with the input. Keyed by shape, a second fold of the same
+        # length in the same process reused the first fold's gate: RF3's no-template 1a8q
+        # fold moved 1.08-1.27 A depending on what the process had folded first. A shape key
+        # is also how a different length at the same window count went silently wrong
+        # before. tt-bio's wrapper path clears this in `reset_static_cache`; RF3 uses the
+        # raw modules and never reaches it.
+        self._s_o_src = None
         self.adaln = AdaLN(
             atom_level, self.scope("adaln"), compute_kernel_config
         )
@@ -10144,10 +10435,9 @@ class DiffusionTransformerLayer(Module):
             b = self.attn_pair_bias(b, z)
         else:
             b = self.attn_pair_bias(b, z, keys_indexing)
-        key = tuple(s.shape)
         if s_o_pre is not None:
             s_o = s_o_pre
-        elif self.s_o is None or self._s_o_key != key:
+        elif self.s_o is None or self._s_o_src is not s:
             s_o = ttnn.linear(
                 s,
                 self.output_projection_weight,
@@ -10157,7 +10447,7 @@ class DiffusionTransformerLayer(Module):
                 activation="sigmoid",
             )
             if self.atom_level:
-                self.s_o, self._s_o_key = s_o, key
+                self.s_o, self._s_o_src = s_o, s
         else:
             s_o = self.s_o
         b = ttnn.multiply(s_o, b)
@@ -10316,6 +10606,9 @@ class DiffusionTransformer(Module):
                     ttnn.deallocate(x)
 
 
+_PWA_WEIGHT_ROWS_REFUSED = {}  # pair shape -> row block PWA's token weights settled at
+
+
 class PairWeightedAveraging(Module):
     def __init__(
         self,
@@ -10336,21 +10629,10 @@ class PairWeightedAveraging(Module):
         self.z_weight = self.torch_to_tt("proj_z.weight")
         self.o_weight = self.torch_to_tt("proj_o.weight")
 
-    def __call__(self, m: ttnn.Tensor, z: ttnn.Tensor, attn_mask: ttnn.Tensor | None = None) -> ttnn.Tensor:
-        m = ttnn.reshape(m, tuple(m.shape)[1:])
+    def _z_heads(self, z, attn_mask):
+        """PWA's pair half: `(zn, token_weight, token_weights)`, the normed pair and the per-head
+        and all-head token softmaxes over it. Functions of `z` alone."""
         z = ttnn.reshape(z, tuple(z.shape)[1:])
-        # `norm_m` is per MSA row, so a depth block recomputes it from the (alive, unmutated)
-        # `m` rather than slicing a full-depth normed copy -- which is the copy that does not
-        # fit. Bit-identical either way: layer_norm reduces over channels only.
-        def m_norm(s0=None, s1=None):
-            return ttnn.layer_norm(
-                m if s0 is None else m[s0:s1],
-                weight=self.m_norm_weight,
-                bias=self.m_norm_bias,
-                epsilon=1e-5,
-                compute_kernel_config=self.compute_kernel_config,
-            )
-
         # One z layer_norm, `n_heads` projections of it: every head reads the whole normed pair
         # tensor to write one tile of width, so all eight are source-bound and one L1-resident
         # copy serves all of them. 3572.2 -> 991.0 us on the eight-head region, `torch.equal`.
@@ -10389,15 +10671,6 @@ class PairWeightedAveraging(Module):
             not depend on the MSA depth and a chunked path computes it once for every block."""
             return _softmax_over_tokens(_proj_z(self.z_weight[:, i : i + 1]))
 
-        def _batch_head_weights():
-            # A property of the shape, never a model name: the batching is correct at any head
-            # count, but it is only FREE while every head's column still lands in the one 32-wide
-            # tile the per-head call already paid for. Above that it would widen the output and
-            # the saving would have to be re-measured.
-            on = _PWA_BATCH_HEAD_WEIGHTS and self.n_heads <= 32
-            PWA_BATCH_HEAD_STATS[0 if on else 1] += 1
-            return on
-
         def token_weights():
             """Every head's token softmax, from ONE projection of the pair tensor.
 
@@ -10411,6 +10684,63 @@ class PairWeightedAveraging(Module):
             out = [b[i:i + 1] for i in range(self.n_heads)]
             ttnn.deallocate(b)
             return out
+
+        return z, token_weight, token_weights
+
+    def _batch_head_weights(self):
+        # A property of the shape, never a model name: the batching is correct at any head
+        # count, but it is only FREE while every head's column still lands in the one 32-wide
+        # tile the per-head call already paid for. Above that it would widen the output and
+        # the saving would have to be re-measured.
+        on = _PWA_BATCH_HEAD_WEIGHTS and self.n_heads <= 32
+        PWA_BATCH_HEAD_STATS[0 if on else 1] += 1
+        return on
+
+    def head_weights(self, z: ttnn.Tensor, attn_mask: ttnn.Tensor | None = None) -> list:
+        """Every head's softmax over the token axis, `n_heads` [1, tokens, tokens] tensors.
+
+        A function of `z` alone, so a caller running PWA over the depth chunks of one `m`
+        computes it once and passes it as `weights=` to every chunk, instead of each chunk
+        normalising and projecting the whole pair again: at 1536 tokens and c_z=384 that normed
+        pair is a 1811939328 B buffer. The same ops the call makes itself; the caller frees them.
+
+        When DRAM refuses even that one normed pair, the weights are built in blocks of pair rows:
+        the norm and projection are per position and the softmax runs along each row, so a block
+        holds exactly the rows of the single pass.
+        """
+        def weights(zr):
+            zn, token_weight, token_weights = self._z_heads(zr, attn_mask)
+            ws = (token_weights() if self._batch_head_weights()
+                  else [token_weight(i) for i in range(self.n_heads)])
+            ttnn.deallocate(zn)
+            return ws
+
+        n = int(z.shape[1])
+        blocked = lambda rows: [
+            _acc_concat(list(head), dim=1, host=False)
+            for head in zip(*[weights(z[:, i:min(i + rows, n)]) for i in range(0, n, rows)])]
+        return row_block_after_refusal(_PWA_WEIGHT_ROWS_REFUSED, tuple(z.padded_shape),
+                                       lambda: weights(z), blocked, rows=256, tag="pwa weights")
+
+    def __call__(self, m: ttnn.Tensor, z: ttnn.Tensor | None,
+                 attn_mask: ttnn.Tensor | None = None, weights: list | None = None) -> ttnn.Tensor:
+        """`weights` is `head_weights(z, attn_mask)` from the caller, who owns it; `z` and
+        `attn_mask` are then not read."""
+        m = ttnn.reshape(m, tuple(m.shape)[1:])
+        # `norm_m` is per MSA row, so a depth block recomputes it from the (alive, unmutated)
+        # `m` rather than slicing a full-depth normed copy -- which is the copy that does not
+        # fit. Bit-identical either way: layer_norm reduces over channels only.
+        def m_norm(s0=None, s1=None):
+            return ttnn.layer_norm(
+                m if s0 is None else m[s0:s1],
+                weight=self.m_norm_weight,
+                bias=self.m_norm_bias,
+                epsilon=1e-5,
+                compute_kernel_config=self.compute_kernel_config,
+            )
+
+        if weights is None:
+            _, token_weight, token_weights = self._z_heads(z, attn_mask)
 
         def head_out(mc, i, w):
             """Head ``i``'s contribution for the normed MSA rows ``mc``. Every op is per row."""
@@ -10462,7 +10792,7 @@ class PairWeightedAveraging(Module):
             written to the accumulator instead of to a new buffer.
             """
             acc = None
-            own = token_weights() if (not ws and _batch_head_weights()) else None
+            own = token_weights() if (not ws and self._batch_head_weights()) else None
             for i in range(self.n_heads):
                 w = ws[i] if ws else (own[i] if own else token_weight(i))
                 o = head_out(mc, i, w)
@@ -10486,7 +10816,7 @@ class PairWeightedAveraging(Module):
         if cap is not None:
             blk = min(blk, cap)
 
-        ws = []
+        ws = list(weights) if weights is not None else []
 
         def run(blk):
             if blk >= depth:
@@ -10496,7 +10826,7 @@ class PairWeightedAveraging(Module):
             if not ws:
                 # Depth-independent, so eight [1, tokens, tokens] weights (2.4 MB each at 1088
                 # tokens) are computed once and reused by every block, not once per block.
-                ws.extend(token_weights() if _batch_head_weights()
+                ws.extend(token_weights() if self._batch_head_weights()
                           else [token_weight(i) for i in range(self.n_heads)])
             host = _host_concat(m)
             parts = []
@@ -10524,8 +10854,9 @@ class PairWeightedAveraging(Module):
                 run, blk,
                 lambda b: _dram_narrow(_PWA_DEPTH_ROW_CAP, (depth, tokens), b, PWA_DEPTH_STATS))
         finally:
-            for w in ws:
-                ttnn.deallocate(w)
+            if weights is None:
+                for w in ws:
+                    ttnn.deallocate(w)
         o_out = ttnn.reshape(o_out, (1, *o_out.shape))
         return o_out
 
@@ -10623,7 +10954,13 @@ class OuterProductMean(Module):
         return ttnn.reshape(out, (1, *out.shape))
 
     def __call__(self, x: ttnn.Tensor, msa_mask: ttnn.Tensor | None = None,
-                 n_msa: float | None = None) -> ttnn.Tensor:
+                 n_msa: float | None = None, residual: ttnn.Tensor | None = None) -> ttnn.Tensor:
+        """The outer product mean of `x`, or `residual + it` when a residual [1, I, J, c_z] is given.
+
+        With a residual each output row block is added to its own rows and a blocked join frees
+        the old residual, so the pair update never holds the residual, a whole OPM output and the
+        sum at once: at 1536 tokens and c_z=384 each is 1811939328 B. Per position it is the same
+        add the caller made, so the sum is bit-exact."""
         # `x` may arrive as a LIST of depth chunks. The MSA trunk keeps its representation chunked
         # so it never has to exist contiguously: materialising it costs a full extra copy at the
         # join, which is what made a 1.78 GiB m_feat OOM on a 12 GiB part even WITH chunking. This
@@ -10781,8 +11118,15 @@ class OuterProductMean(Module):
                 raise NotImplementedError(
                     "OuterProductMean: chunk-list input with an msa_mask is not wired up; the "
                     "trunk that uses the list path passes mask=None.")
-            depth_parts, S, I, C, D, J = project_depth_parts(
-                (ttnn.reshape(c, tuple(c.shape)[1:]), None) for c in x_chunks)
+            def device_chunks():
+                # A chunk parked on the host (msa_update_chunks(park=True)) is uploaded for
+                # its projection and that copy freed once the projection has it.
+                for c in x_chunks:
+                    d = host_unpark(c)
+                    yield ttnn.reshape(d, tuple(d.shape)[1:]), None
+                    if d is not c:
+                        ttnn.deallocate(d)
+            depth_parts, S, I, C, D, J = project_depth_parts(device_chunks())
             a = b = None
         elif _OPM_JOIN_REFUSED.get(tuple(x.shape)):
             # This shape class already refused the contiguous form once in this process.
@@ -10808,7 +11152,8 @@ class OuterProductMean(Module):
                 a = b = None
         if depth_parts is None and dims is None:
             OPM_SMALL_DEPTH_STATS[0] += 1
-            return self._small_depth(a, b, n_msa)
+            z = self._small_depth(a, b, n_msa)
+            return z if residual is None else ttnn.add(residual, z)
         if depth_parts is None:
             OPM_SMALL_DEPTH_STATS[1] += 1
             S, I, C, D, J = dims
@@ -10907,6 +11252,11 @@ class OuterProductMean(Module):
             ttnn.deallocate(z)
             if not legacy:
                 out = ttnn.reshape(out, (rows, J, out.shape[-1]))
+            if residual is not None:
+                r = ttnn.reshape(residual, tuple(residual.shape)[1:])
+                out_r = ttnn.add(r if rows == I else r[i0:i1], out)
+                ttnn.deallocate(out)
+                out = out_r
             return out
 
         per_row = C * D * J * 2
@@ -10949,7 +11299,7 @@ class OuterProductMean(Module):
                 for p in parts:
                     ttnn.deallocate(p)
                 raise
-            return _acc_concat(parts, 0, host=False)
+            return _acc_concat(parts, 0, host=False, consume=residual)
 
         def compact():
             """Move the surviving operands down before the narrower retry.
@@ -12160,6 +12510,7 @@ class DiffusionModule(TorchWrapper):
             self._clear_cached_attrs(self.module, ("_s_conditioned", "_c_reshaped"))
             for layer in self.module.encoder.layers + self.module.decoder.layers:
                 self._clear_cached_attrs(layer, ("s_o",))
+                layer._s_o_src = None
                 for adaln in (layer.adaln, layer.transition.adaln):
                     # The pair is owned by the memo; `_s_memo_src` is the caller's `s`
                     # (`_c_reshaped`, freed just above) so it is dropped, never deallocated.

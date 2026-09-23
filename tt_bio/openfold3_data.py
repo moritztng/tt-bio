@@ -187,10 +187,37 @@ def make_openfold3_msa_features(
     return msa_feat.index_select(0, valid)
 
 
-def _get_structure_with_ref_mols(query: Query):
+def _atom_index(atom_array, cid, res, atom) -> int:
+    """The atom a `bond` endpoint (chain id, 1-indexed residue, atom name) names. A SMILES
+    ligand is one residue whose atoms upstream names element + 1-based count in SMILES order
+    (C1, O1, C2), the portable naming every model accepts."""
+    on = np.flatnonzero(atom_array.chain_id == cid)
+    if not len(on):
+        raise ValueError(f"bond constraint references chain '{cid}', which is not in the input.")
+    ids = list(dict.fromkeys(atom_array.res_id[on].tolist()))
+    if not 1 <= res <= len(ids):
+        raise ValueError(f"bond constraint references residue {res} on chain '{cid}', "
+                         f"which has {len(ids)}.")
+    r = on[atom_array.res_id[on] == ids[res - 1]]
+    hit = r[atom_array.atom_name[r] == atom]
+    if not len(hit):
+        raise ValueError(
+            f"bond constraint references atom '{atom}' on residue {res} "
+            f"({atom_array.res_name[r[0]]}) of chain '{cid}', which it does not have. "
+            f"Its atoms: {', '.join(atom_array.atom_name[r].tolist())}.")
+    return int(hit[0])
+
+
+def _get_structure_with_ref_mols(query: Query, bonds=None):
     atom_array, processed_reference_molecules = structure_with_ref_mols_from_query(
         query=query
     )
+    # A user `bond` joins the two atoms BEFORE tokenization, which is where upstream reads
+    # the bond graph: tokenize_atom_array atomizes a residue that makes a non-peptide bond
+    # to another residue, and token_bonds keeps the bonds between atomized atoms (AF3 SI
+    # Table 5). Query.covalent_bonds is declared upstream and read by nothing.
+    for a1, a2 in bonds or []:
+        atom_array.bonds.add_bond(_atom_index(atom_array, *a1), _atom_index(atom_array, *a2), 1)
     tokenize_atom_array(atom_array)
     add_token_positions(atom_array)
     return atom_array, processed_reference_molecules
@@ -288,6 +315,8 @@ def build_openfold3_features(
     ccd_file_path: str | None = None,
     template_structures_directory: str | Path | None = None,
     openbind: bool = False,
+    bonds: list | None = None,
+    cyclic: list[str] | None = None,
 ) -> dict[str, torch.Tensor]:
     """Featurizes a single OpenFold3 `Query` into a model-ready feature dict.
 
@@ -334,7 +363,7 @@ def build_openfold3_features(
         CIFFile.read(ccd_file_path) if ccd_file_path is not None else BiotiteCCDWrapper()
     )
 
-    atom_array, processed_reference_molecules = _get_structure_with_ref_mols(query)
+    atom_array, processed_reference_molecules = _get_structure_with_ref_mols(query, bonds)
     n_tokens = get_token_count(atom_array)
 
     features: dict = {"atom_array": atom_array}
@@ -350,6 +379,11 @@ def build_openfold3_features(
         add_ref_space_uid_to_perm=False,
     )
     features.update(structure_features | reference_conformer_features)
+    if cyclic:
+        # `cyclic: true` -> upstream's relpos wrap (relpos_complex reads cyclic_mask), the
+        # same cyclic offset RF3 applies. Absent, relpos is untouched.
+        tok_chain = atom_array.chain_id[features["start_atom_index"].long().numpy()]
+        features["cyclic_mask"] = torch.from_numpy(np.isin(tok_chain, list(cyclic)))
 
     msa_sample_processor = MsaSampleProcessorInference(config=msa_settings)
     msa_featurizer = MsaFeaturizerOF3(
