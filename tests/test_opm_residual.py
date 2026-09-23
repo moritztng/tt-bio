@@ -20,12 +20,6 @@ def dev():
     return T.get_device()
 
 
-@pytest.fixture(autouse=True)
-def _clean():
-    yield
-    T._OPM_DRAM_ROW_CAP.clear()
-
-
 def _opm(dev):
     torch.manual_seed(0)
     ckc = ttnn.init_device_compute_kernel_config(
@@ -47,9 +41,12 @@ def test_residual_is_the_callers_add(dev, rows, chunked):
     m = (lambda: [ft(mh[:, s:s + 32]) for s in range(0, S, 32)]) if chunked else (lambda: ft(mh))
     if rows:
         T._OPM_DRAM_ROW_CAP[(N, C, C, N)] = rows      # as a refusal leaves it: row-blocked
-    ref = ttnn.to_torch(ttnn.add(ft(zh), opm(m(), None, None)))
-    z = ft(zh)
-    out = opm(m(), None, None, residual=z)
+    try:
+        ref = ttnn.to_torch(ttnn.add(ft(zh), opm(m(), None, None)))
+        z = ft(zh)
+        out = opm(m(), None, None, residual=z)
+    finally:
+        T._OPM_DRAM_ROW_CAP.clear()
     assert tuple(out.shape) == (1, N, N, C_Z)
     assert torch.equal(ttnn.to_torch(out), ref)
     assert z.is_allocated() == (not rows)             # a blocked join consumes the residual
