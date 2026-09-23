@@ -93,3 +93,28 @@ autocast (upstream's `autocast("cuda", enabled=False)` islands do nothing on CPU
 
 The 1.25x margin is chosen now: about 4x the 6.7 % cross-host bf16 scatter
 `of3t-bwdaccum` control 7 measured, and it is not moved after the numbers exist.
+
+## Addendum 1: the carrier the disjunction left out (written after the 384 arms, before the crop)
+
+The 384 arms land in B3 on both statistics and survive exclusions (i) and (ii). The list above
+missed one carrier: **padding**. 56 of 384 tokens are real, the capture's cotangent is exactly 0
+outside the real 56x56 block, the reference's padded `z` has norm 1.6e7 against 6.4e4 real, and
+our arm's full-block forward is 0.971 off, so its padded activations are nothing like upstream's.
+Upstream masks padded tokens out of every gradient path. If ours leaks any gradient through a
+padded position, the weight gradient picks up products with those huge, differing activations,
+and that would look exactly like a module amplifier while being a masking defect.
+
+Discriminator: crop the boundary to the first 64 tokens (56 real + 8 padded; the bucket rule
+forbids 56). Scored post hoc and labelled as such.
+
+C0. Upstream f64 at 64 reproduces the 384 capture's real-block `z` and all 224 scored parameter
+    gradients to rel_l2 <= 1e-10. Otherwise the crop is another function and C1 is not read.
+C1. Ours at 64 against the in-frame f64 at 64, beside upstream bf16 at 64.
+    Our matched mass-weighted gradient <= 1.25x upstream's: the carrier is padding (the number of
+    padded tokens), not the module's backward at real tokens.
+    Our excess >= 5x (it is 7.29x at 384): padding is not the carrier and B3 stands as a
+    backward defect in the four triangle-op families.
+    Between the two: padding carries part of it, and the split is reported as a split.
+I expect the second outcome, central 6x, because the per-family excess is 16-21x on all four
+triangle families and 1.2-2.8x everywhere else, and a masking leak would not respect op family
+that neatly.
