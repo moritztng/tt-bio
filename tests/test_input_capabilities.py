@@ -87,8 +87,10 @@ def test_every_shipped_model_has_a_row():
 def test_boltz2_honours_the_whole_input_language():
     """The negative control for the table: if every row were REFUSED the cross product below
     would still pass. Boltz-2 has the upstream parser, the constraint embedder, the template
-    pipeline and the affinity head, so nothing in the reader is beyond it."""
-    assert set(CAPABILITY["boltz2"].values()) == {HONOURED}
+    pipeline and the affinity head. The one refusal is the per-chain template npz, which its
+    parser never reads; it takes the same template as a structure file."""
+    assert {f for f, v in CAPABILITY["boltz2"].items() if v != HONOURED} == {"templates"}
+    assert CAPABILITY["boltz2"]["template_structure"] == HONOURED
 
 
 @pytest.mark.parametrize("model", sorted(CAPABILITY))
