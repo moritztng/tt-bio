@@ -3886,6 +3886,8 @@ _PT_ROW_MAJOR = os.environ.get(
 # so the honest test is the allocation itself; remembering the refusal keeps it to one attempt
 # per class per process, the same pattern `_L1_OUT_REFUSED` uses for the projections.
 _TRANSPOSE_L1_REFUSED: set = set()
+# Shape classes whose DRAM row-major transpose route was refused; they permute tiled after.
+_PT_ROW_MAJOR_REFUSED: set = set()
 
 
 def _pair_transpose(t: ttnn.Tensor, memory_config: ttnn.MemoryConfig,
@@ -3947,12 +3949,31 @@ def _pair_transpose_impl(t: ttnn.Tensor, memory_config: ttnn.MemoryConfig) -> tt
         # 84934656 B L1 buffer across 110 banks` -- exactly this tensor -- while the same
         # fold passed with the route off. The round trip is a DRAM->DRAM move and every
         # tensor in it belongs in DRAM.
-        rm = ttnn.to_layout(t, ttnn.ROW_MAJOR_LAYOUT, memory_config=memory_config)
-        p = ttnn.permute(rm, (1, 0, 2), memory_config=memory_config)
-        ttnn.deallocate(rm)
-        o = ttnn.to_layout(p, ttnn.TILE_LAYOUT, memory_config=memory_config)
-        ttnn.deallocate(p)
-        return o
+        key = (tuple(t.padded_shape), str(t.dtype))
+        if key not in _PT_ROW_MAJOR_REFUSED:
+            rm = p = None
+            try:
+                rm = ttnn.to_layout(t, ttnn.ROW_MAJOR_LAYOUT, memory_config=memory_config)
+                p = ttnn.permute(rm, (1, 0, 2), memory_config=memory_config)
+                ttnn.deallocate(rm)
+                rm = None
+                o = ttnn.to_layout(p, ttnn.TILE_LAYOUT, memory_config=memory_config)
+                ttnn.deallocate(p)
+                return o
+            except RuntimeError as exc:
+                # The round trip holds three pair tensors at once (t, rm, p), the tiled permute
+                # two. RF3's confidence head died on this permute at 1600 tokens with 97 MiB per
+                # bank free and a 50 MiB largest block, so a refusal takes the tiled route: the
+                # same permutation, one pair tensor less.
+                for x in (rm, p):
+                    if x is not None:
+                        ttnn.deallocate(x)
+                if not _dram_oom(exc):
+                    raise
+                _PT_ROW_MAJOR_REFUSED.add(key)
+                print(f"[tt-bio] DRAM refused the row-major pair transpose at {key[0]}; "
+                      f"permuting tiled. The tt-metal 'Out of Memory' line above is expected "
+                      f"and handled.", file=sys.stderr, flush=True)
     return ttnn.permute(t, (1, 0, 2), memory_config=memory_config)
 
 
@@ -10879,24 +10900,21 @@ class OuterProductMean(Module):
                 OPM_ROW_STATS["whole"] += 1
                 return outer_product_mean(0, I)
             OPM_ROW_STATS["blocked"] += 1
-            z_acc = None
+            # One concat at the end, not a running one: growing the accumulator a block at a
+            # time re-allocates a nearly whole pair tensor per block, and boltz2 at 1792 tokens
+            # died on the sixth of those (704643072 B) with 227 MiB per bank free. _acc_concat
+            # also takes a refused final concat to the host rather than ending the fold.
+            parts = []
             try:
                 for i in range(0, I, rows_blk):
-                    part = outer_product_mean(i, min(i + rows_blk, I))
-                    if z_acc is None:
-                        z_acc = part
-                    else:
-                        z_old = z_acc
-                        z_acc = ttnn.concat([z_old, part], dim=0)
-                        ttnn.deallocate(z_old)
-                        ttnn.deallocate(part)
+                    parts.append(outer_product_mean(i, min(i + rows_blk, I)))
             except BaseException:
-                # Give the partial accumulator back first, or the retry runs against a device
+                # Give the partial blocks back first, or the retry runs against a device
                 # this attempt filled and is refused at every height down to the floor.
-                if z_acc is not None:
-                    ttnn.deallocate(z_acc)
+                for p in parts:
+                    ttnn.deallocate(p)
                 raise
-            return z_acc
+            return _acc_concat(parts, 0, host=False)
 
         def compact():
             """Move the surviving operands down before the narrower retry.
