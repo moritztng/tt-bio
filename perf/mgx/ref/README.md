@@ -20,8 +20,16 @@ fold prints its error instead.
 
 (That line scores the 3ABQ crystal, so it also says the reference itself is right.)
 
+On the three PDB fixtures a second line repeats the comparison on the residues the crystal
+resolves. Disordered termini and loops have no defined position, so they can dominate the first
+line: TT boltz2 on 3abq_1536 reads 2.05 A from reference s0 over all 1518 CA and 0.72 A (lDDT
+0.991) over the 1402 resolved ones.
+
+    boltz2 3abq_1536: vs ref s0 2.053 A / lDDT 0.948 / chain 2.86 A | floor: single reference seed | n_ca 1518
+      crystal-resolved residues only: vs ref s0 0.719 A / lDDT 0.9913 | floor: single reference seed | n_ca 1402
+
 Which number to read depends on the fixture. On 2AD6 and 3ABQ the seeds agree to about half an
-angstrom and the whole-complex RMSD is the bar. On 7AQX the seeds disagree on where the nanobodies
+angstrom and the whole-complex RMSD on resolved residues is the bar. On 7AQX the seeds disagree on where the nanobodies
 dock, so read lDDT and the per-chain RMSD. The tiled CDK2 is one chain of repeated copies with no
 defined arrangement between them, and some models fold it differently on every seed; read lDDT
 there, and expect the floor to be wide.
