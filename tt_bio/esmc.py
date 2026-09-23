@@ -1182,11 +1182,13 @@ _TE_KEY_REMAP = (
 )
 
 
-def load_esmc6b_state_dict(snapshot_dir: str) -> dict:
+def load_esmc6b_state_dict(snapshot_dir: str, dtype: torch.dtype | None = None) -> dict:
     """Read the sharded 6B safetensors and remap TE keys to esm-repo names.
 
     Keeps only weights the ttnn stack consumes (embed, transformer blocks,
     final norm); drops `_extra_state`, the LM head and any classifier heads.
+    ``dtype`` overrides the device-driven load dtype; the fp32 parity reference passes
+    ``torch.float32`` so it reads the same snapshot as the device, not a second copy.
     """
     import glob
     import json
@@ -1201,7 +1203,7 @@ def load_esmc6b_state_dict(snapshot_dir: str) -> dict:
     # happens once, here vs in from_torch). In fast mode the big matmul weights
     # become block-fp8, whose quantization is sensitive to the fp32 mantissa, so
     # keep fp32 there to preserve exact fast-mode numerics.
-    load_dtype = torch.float32 if _tt._FAST_MODE else torch.bfloat16
+    load_dtype = dtype or (torch.float32 if _tt._FAST_MODE else torch.bfloat16)
     idx_path = os.path.join(snapshot_dir, "model.safetensors.index.json")
     weight_map = json.load(open(idx_path))["weight_map"]
     by_shard: dict[str, list[str]] = {}
@@ -1366,27 +1368,27 @@ class ESMCLanguageModel(TorchWrapper):
         # Padded tokens are masked out of attention (additive -inf, seq_id-style
         # mask like the reference) and sliced off — the residual numerical effect
         # is within the diffusion's seed-to-seed noise floor.
+        # Always masked, even with no padding: see bucket_token_axis for the unmasked SDPA defect.
         Lb = ((Lm + BUCKET - 1) // BUCKET) * BUCKET
-        if Lb != Lm:
-            pad = Lb - Lm
+        pad = Lb - Lm
+        if attn_mask is None:
+            attn_mask = torch.zeros(B, Lb, Lb, dtype=torch.float32)
+        elif pad:
+            attn_mask = torch.nn.functional.pad(attn_mask, (0, pad, 0, pad), value=0.0)
+        if pad:
             input_ids = torch.nn.functional.pad(input_ids, (0, pad), value=PAD_TOKEN)
-            if attn_mask is None:
-                attn_mask = torch.zeros(B, Lb, Lb, dtype=torch.float32)
-            else:
-                attn_mask = torch.nn.functional.pad(attn_mask, (0, pad, 0, pad), value=0.0)
             attn_mask[:, :, Lm:] = float("-inf")  # no token attends to padded keys
         tokens_tt = ttnn.from_torch(
             input_ids.to(torch.int32), device=self.tt_device,
             layout=ttnn.ROW_MAJOR_LAYOUT, dtype=ttnn.uint32,
         )
-        mask_tt = key_valid_tt = None
-        if attn_mask is not None:
-            # [B,L,L] additive mask -> [B,1,L,L] bf16 for SDPA
-            mask_tt = ttnn.from_torch(
-                attn_mask.unsqueeze(1).to(torch.bfloat16), device=self.tt_device,
-                layout=ttnn.TILE_LAYOUT, dtype=ttnn.bfloat16,
-            )
-        if Lb != Lm:
+        key_valid_tt = None
+        # [B,L,L] additive mask -> [B,1,L,L] bf16 for SDPA
+        mask_tt = ttnn.from_torch(
+            attn_mask.unsqueeze(1).to(torch.bfloat16), device=self.tt_device,
+            layout=ttnn.TILE_LAYOUT, dtype=ttnn.bfloat16,
+        )
+        if pad:
             kv = torch.ones(1, 1, Lb, 1); kv[:, :, Lm:, :] = 0.0  # zero padded keys/values
             key_valid_tt = ttnn.from_torch(
                 kv.to(torch.bfloat16), device=self.tt_device,
@@ -1647,20 +1649,27 @@ def bucket_token_axis(tokens, attn_mask=None, key_valid=None, embed_mask=None,
                       bucket: int = BUCKET, pad_token: int = PAD_TOKEN):
     """Pad a forward's token axis to a multiple of *bucket* and extend the padding masks.
 
-    ``_batch_tokens`` already buckets, so on every shipped CLI path ``Lb == L`` and this returns
-    its arguments unchanged -- byte for byte the old call, which is what makes the change
-    bit-exact there. It exists for the direct API caller, who reaches ``Model.forward`` with
-    whatever length they have: the bucket used to live in the caller, so a ragged L went straight
-    into the SDPA and picked up its padded key columns at a bias of zero. See
-    ``tt_bio/token_axis.py`` and PLAYBOOKS.md §MODEL 2b.
+    ``_batch_tokens`` already buckets, so on every shipped CLI path ``Lb == L``. The bucket
+    exists for the direct API caller, who reaches ``Model.forward`` with whatever length they
+    have: a ragged L used to go straight into the SDPA and pick up its padded key columns at a
+    bias of zero. See ``tt_bio/token_axis.py`` and PLAYBOOKS.md §MODEL 2b.
+
+    The returned ``attn_mask`` is never None, even when nothing is padded. ttnn's unmasked SDPA
+    returns the wrong attention at some chunk configs on an 8x9 grid (q_chunk = k_chunk = 128 at
+    any head dim; also 128/256 and 256/256 at head dim 32), PCC 0.2-0.9 against fp32, while the
+    same call with an all-zero mask is right at every config. On Wormhole that put esmc-6b at
+    PCC 0.34 for every 126-residue sequence and saprot-35m at 0.78-0.93 for 254/510/1534
+    residues. See ``perf/mgx_embed/sdpa_sweep.py``.
 
     Returns ``(tokens, attn_mask, key_valid, embed_mask, L)``; slice the outputs back to ``L``.
     """
     L = int(tokens.shape[1])
     Lb = ((L + bucket - 1) // bucket) * bucket
-    if Lb == L:
-        return tokens, attn_mask, key_valid, embed_mask, L
     B, pad = int(tokens.shape[0]), Lb - L
+    if pad == 0:
+        if attn_mask is None:
+            attn_mask = torch.zeros(B, L, L, dtype=torch.float32)
+        return tokens, attn_mask, key_valid, embed_mask, L
     tokens = torch.nn.functional.pad(tokens, (0, pad), value=pad_token)
     # Same construction as _batch_tokens: additive -inf takes padded keys out of the softmax
     # denominator, key_valid zeroes their value contribution, embed_mask zeroes their embedding.

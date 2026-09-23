@@ -64,50 +64,11 @@ def pcc(a: np.ndarray, b: np.ndarray) -> float:
     return float(np.corrcoef(a, b)[0, 1])
 
 
-def _load_esmc6b_reference_sd() -> dict:
-    """Read the sharded 6B safetensors as fp32 and remap TE keys to esm-repo names.
-
-    Mirrors ``tt_bio.esmc.load_esmc6b_state_dict`` but forces fp32 (the golden
-    dtype) regardless of ``_FAST_MODE`` — the reference is the fp32 truth the
-    bf16 device path is held against. Drops ``_extra_state``, the LM head and
-    any classifier heads (the 6B port is embeddings-only).
-    """
-    from huggingface_hub import snapshot_download
-    from safetensors import safe_open
-
-    snap = snapshot_download("biohub/ESMC-6B")
-    idx_path = os.path.join(snap, "model.safetensors.index.json")
-    weight_map = json.load(open(idx_path))["weight_map"]
-    by_shard: dict[str, list[str]] = {}
-    for k, shard in weight_map.items():
-        by_shard.setdefault(shard, []).append(k)
-
-    sd: dict[str, torch.Tensor] = {}
-    for shard, keys in by_shard.items():
-        with safe_open(os.path.join(snap, shard), "pt") as f:
-            for k in keys:
-                if k.endswith("_extra_state") or k.startswith("lm_head"):
-                    continue
-                if not k.startswith("esmc."):
-                    continue
-                nk = k[len("esmc."):]
-                for src, dst in tt_esmc._TE_KEY_REMAP:
-                    nk = nk.replace(src, dst)
-                sd[nk] = f.get_tensor(k).to(torch.float32)
-    return sd
-
-
 def _build_reference() -> "ESMCReference":
-    """Build the esm-repo ESMC at the 6B config and load the real 6B weights."""
-    from esmc_reference import ESMCReference  # noqa: E402  (tests/ on path)
+    """The esm-repo ESMC at the 6B config on the fp32 weights of the artifact the device loads."""
+    from esmc_embed_parity import load_reference, reference_state_dict  # noqa: E402  (sibling)
 
-    cfg = dict(d_model=2560, n_heads=40, n_layers=80)
-    ref = ESMCReference(**cfg).eval()
-    sd = _load_esmc6b_reference_sd()
-    # strict=False: the 6B has no sequence head, so ESMCReference.sequence_head
-    # stays at its init (unused — we only read the post-norm trunk embeddings).
-    missing, unexpected = ref.load_state_dict(sd, strict=False)
-    return ref
+    return load_reference("esmc-6b", reference_state_dict("esmc-6b"))
 
 
 def run_esmc6b_parity(
