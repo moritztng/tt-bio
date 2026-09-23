@@ -60,3 +60,17 @@ def test_chunked_update_is_the_whole_update(dev, rows):
     assert len(parts) == -(-80 // rows)
     assert torch.equal(torch.cat([ttnn.to_torch(p) for p in parts], dim=1), whole)
     assert z.is_allocated() and torch.equal(ttnn.to_torch(z), ttnn.to_torch(ft(zh)))
+
+
+@pytest.mark.parametrize("rows", [32, 48])
+def test_head_weights_in_pair_row_blocks_are_the_single_pass(dev, rows):
+    """After DRAM refuses the one normed pair, the weights are built over blocks of pair rows."""
+    pwa, _, ft, mask = _setup(dev)
+    z = ft(torch.randn(1, N, N, C_Z))
+    single = [ttnn.to_torch(w) for w in pwa.head_weights(z, mask)]
+    T._PWA_WEIGHT_ROWS_REFUSED[tuple(z.padded_shape)] = rows     # as a refusal leaves it
+    try:
+        blocked = [ttnn.to_torch(w) for w in pwa.head_weights(z, mask)]
+    finally:
+        T._PWA_WEIGHT_ROWS_REFUSED.clear()
+    assert len(blocked) == NH and all(torch.equal(a, b) for a, b in zip(single, blocked))

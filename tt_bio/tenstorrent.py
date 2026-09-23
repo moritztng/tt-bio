@@ -10500,6 +10500,9 @@ class DiffusionTransformer(Module):
                     ttnn.deallocate(x)
 
 
+_PWA_WEIGHT_ROWS_REFUSED = {}  # pair shape -> row block PWA's token weights settled at
+
+
 class PairWeightedAveraging(Module):
     def __init__(
         self,
@@ -10594,12 +10597,24 @@ class PairWeightedAveraging(Module):
         computes it once and passes it as `weights=` to every chunk, instead of each chunk
         normalising and projecting the whole pair again: at 1536 tokens and c_z=384 that normed
         pair is a 1811939328 B buffer. The same ops the call makes itself; the caller frees them.
+
+        When DRAM refuses even that one normed pair, the weights are built in blocks of pair rows:
+        the norm and projection are per position and the softmax runs along each row, so a block
+        holds exactly the rows of the single pass.
         """
-        zn, token_weight, token_weights = self._z_heads(z, attn_mask)
-        ws = (token_weights() if self._batch_head_weights()
-              else [token_weight(i) for i in range(self.n_heads)])
-        ttnn.deallocate(zn)
-        return ws
+        def weights(zr):
+            zn, token_weight, token_weights = self._z_heads(zr, attn_mask)
+            ws = (token_weights() if self._batch_head_weights()
+                  else [token_weight(i) for i in range(self.n_heads)])
+            ttnn.deallocate(zn)
+            return ws
+
+        n = int(z.shape[1])
+        blocked = lambda rows: [
+            _acc_concat(list(head), dim=1, host=False)
+            for head in zip(*[weights(z[:, i:min(i + rows, n)]) for i in range(0, n, rows)])]
+        return row_block_after_refusal(_PWA_WEIGHT_ROWS_REFUSED, tuple(z.padded_shape),
+                                       lambda: weights(z), blocked, rows=256, tag="pwa weights")
 
     def __call__(self, m: ttnn.Tensor, z: ttnn.Tensor | None,
                  attn_mask: ttnn.Tensor | None = None, weights: list | None = None) -> ttnn.Tensor:
