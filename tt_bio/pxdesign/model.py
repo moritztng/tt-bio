@@ -83,6 +83,13 @@ class ProtenixDesign(Protenix):
                          if diffusion_fp32 is None else diffusion_fp32)
         self._fast = _TT._FAST_MODE
         _TT.set_fast_mode(False)     # --fast is a trunk lever, and there is no trunk here
+        # Skipping Protenix.__init__ means state added there has to be mirrored here, and this
+        # memo is read by an INHERITED method: _diffusion_pair_cond (protenix.py:2221) passes
+        # it to row_block_after_refusal. pxdesign's diffusion is fp32 by default, which is the
+        # branch that takes the refusal path, so without this every pxdesign run whose pair
+        # conditioning gets refused dies on AttributeError. Measured on whglx 2026-09-23: 1024
+        # and 1536 target residues, both 50-55 s in, both cards wasted.
+        self._paircond_rows_refused: dict = {}
 
         def under(pfx):
             return {k[len(pfx):]: v for k, v in self._w.items() if k.startswith(pfx)}
