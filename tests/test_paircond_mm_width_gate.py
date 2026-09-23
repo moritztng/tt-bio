@@ -68,6 +68,7 @@ def test_every_paircond_projection_goes_through_the_helper():
     assert "core_grid=CORE_GRID_MAIN" not in src, (
         "a pair-cond projection forces core_grid directly instead of going through "
         "paircond_mm_kw(); the width gate must be one mechanism in one place")
-    # and every projection in there really does route through the helper
-    assert src.count("paircond_mm_kw(") >= 5, (
-        f"expected >=5 paircond_mm_kw call sites, found {src.count('paircond_mm_kw(')}")
+    # and every projection in there really does route through the helper: relpe, the OpenDDE
+    # z_trunk compression and linear_z, each written once and shared by both paths
+    assert src.count("paircond_mm_kw(") == 3, (
+        f"expected 3 paircond_mm_kw call sites, found {src.count('paircond_mm_kw(')}")
