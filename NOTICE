@@ -47,8 +47,10 @@ MIT-licensed and credited in the top-level LICENSE.
                   (tt_bio/_vendor/openfold3/LICENSE)
    Modifications: only the query-to-features path is included; the Lightning
                   Dataset/DataModule framework, the LMDB training dataset caches,
-                  and the S3 template-cache build pipeline are dropped, and the
-                  memory_profiler import was made lazy.
+                  and the S3 template-cache build pipeline are dropped, the
+                  memory_profiler import was made lazy, and
+                  create_paired_from_precomputed is taken from 0.5.0 (upstream
+                  PR #373: 0.4.3 dropped precomputed paired MSA rows).
 
 6. tt_bio/openfold3*.py — OpenFold3 (AlphaFold3-family) on-device model. Like
    Protenix-v2 this is an INDEPENDENT ttnn reimplementation; no upstream compute
