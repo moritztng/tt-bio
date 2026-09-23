@@ -1,0 +1,16 @@
+{
+ "base": "/home/ttuser/of3t_denoise/grad_DN64R.pt",
+ "fix": "/home/ttuser/of3t_pwaslice/grad_PW64B.pt",
+ "n_named": 3365,
+ "others": 3365,
+ "others_bit_identical": 3365,
+ "others_differ": [],
+ "n_differ": 0,
+ "only_in_one": [],
+ "n_only_in_one": 0,
+ "d262": {},
+ "loss_base": 1.7933790552496434,
+ "loss_fix": 1.7933790552496434,
+ "loss_bit_identical": true,
+ "note": "id()-keyed ._wc. aliases excluded (names differ per process)"
+}

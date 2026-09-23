@@ -1,16 +1,18 @@
 #!/usr/bin/env bash
 # of3t-pwaslice: one 64-token denoise arm of the OF3 training step on qb2 card 2, from a given tree.
 #
-#   devarm.sh <TAG> <TREE>   -> perf/of3t_pwaslice/DEV_<TAG>.json, /home/ttuser/of3t_pwaslice/grad_<TAG>.pt
+#   devarm.sh <TAG> <TREE> [BATCH]   -> perf/of3t_pwaslice/DEV_<TAG>.json, /home/ttuser/of3t_pwaslice/grad_<TAG>.pt
 #
 # of3t-denoise's devarm.sh (DN64R's invocation: exact on, --denoise, fullstep64's draws and 64-token
 # batch) with the tree a parameter, so base and fix run the same script on the same card.
+# The batch is explicit because devstep.py's default is the 384-token one.
 set -uo pipefail
 W=/home/ttuser/.coworker/wt/of3t-pwaslice
 S=/home/ttuser/of3t_pwaslice
 CARD=${CARD:-2}
 SMI=/home/ttuser/.local/bin/tt-smi
 TAG=${1:?usage: devarm.sh TAG TREE}; TREE=${2:?usage: devarm.sh TAG TREE}
+BATCH=${3:-/home/ttuser/of3t_fullstep64/batch_step003_t64.pt}
 OUT=$W/perf/of3t_pwaslice/DEV_${TAG}.json
 unset TT_MESH_GRAPH_DESC_PATH TT_BIO_SOFTMAX_BW_RENORM
 BOARD=$("$SMI" -s 2>/dev/null | python3 -c "
@@ -21,7 +23,7 @@ cd "$TREE"
 ENV=(TT_VISIBLE_DEVICES=$CARD TT_BIO_LEASE_CARDS=$CARD
      TT_BIO_LEASE_HOLDER=worker:of3t-pwaslice OMP_NUM_THREADS=8 PYTHONPATH="$TREE")
 echo "=== $TAG start $(date -u +%FT%TZ) $(hostname) card $CARD $BOARD tree $TREE $(git rev-parse --short HEAD) ==="
-env "${ENV[@]}" timeout 3600 python3 perf/of3t_denoise/devstep.py --denoise --exact on \
+env "${ENV[@]}" timeout 3600 python3 perf/of3t_denoise/devstep.py --denoise --exact on --batch "$BATCH" \
   --draws /home/ttuser/of3t_fullstep64/draws.pt --grad-out "$S/grad_${TAG}.pt" --out "$OUT" 2>&1 \
   | grep --line-buffered -vE 'TT_FATAL|DEBUG|Config\{' | tail -25
 rc=${PIPESTATUS[0]}
