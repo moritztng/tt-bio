@@ -17,11 +17,13 @@ the already-gated MSA stack (``m, z -> z`` in tests/test_openfold3_msa.py).
 """
 from __future__ import annotations
 
+import torch
 import ttnn
 
 from .tenstorrent import (
     Module, OuterProductMean, PairWeightedAveraging, Transition, PairformerLayer,
-    accurate_softmax_site, pwa_single_shot_bytes, triatt_sdpa_hifi_site,
+    accurate_softmax_site, msa_depth_chunks, msa_update_chunks, pwa_single_shot_bytes,
+    triatt_sdpa_hifi_site,
 )
 from .openfold3_weights import remap_msa_module
 
@@ -105,9 +107,17 @@ class MSAModuleBlock:
         # which nothing else holds. bf16 addition is commutative, so this is the same number as
         # `add(m, upd)` bit for bit. The `z` residual needs no such care: it lands in the OPM
         # update's buffer and never writes `z` itself.
+        #
+        # A deep alignment arrives as a host tensor (the trunk's `msa_embed`) or as the
+        # previous block's depth chunks, and stays chunks: one upload serves both of this block's
+        # reads, and the whole [depth, tokens, c_m] tensor never exists on the device.
+        if torch.is_tensor(m):
+            m = list(msa_depth_chunks(m))
         upd = self.opm(m, None, None)
         z = ttnn.add_(upd, z)
-        if self.has_msa_update:
+        if self.has_msa_update and isinstance(m, list):
+            m = msa_update_chunks(m, z, self.pwa, self.msa_transition, attn_mask)
+        elif self.has_msa_update:
             upd = ttnn.reshape(self.pwa(m, ttnn.clone(z), attn_mask), tuple(m.shape))
             if own_m:
                 m = ttnn.add_(m, upd)

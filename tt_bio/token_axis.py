@@ -438,7 +438,7 @@ def token_pad_masks_tt(N: int, Np: int, dev):
     return m1, up(pair), up(additive)
 
 
-def bucketed_pairformer(pf, s, z, dev, Np: int, extra_attn_bias=None, own_z: bool = False):
+def bucketed_pairformer(pf, s, z, dev, Np: int, extra_attn_bias=None):
     """Run `pf` with its token axis padded out to `Np`, masked, and sliced back.
 
     `Np` is passed in rather than derived so the gate and the multiple stay the caller's business
@@ -449,10 +449,11 @@ def bucketed_pairformer(pf, s, z, dev, Np: int, extra_attn_bias=None, own_z: boo
     entirely. One helper covers all of them and any that get added -- fixing one caller is the
     recurring failure (`fused-sdpa-ragged-tile-tail-and-census-discipline`).
 
-    `own_z=True` says the caller owns `z` and will not read it again, so it is freed once the
-    padded copy exists. Otherwise both pair tensors sit on the chip through the whole stack:
-    rf3's confidence head on 3abq (1518 tokens) was refused its trimul in-projection at 1536
-    with 17 MiB/bank free.
+    The padded pair CONSUMES `z`: every caller hands over a pair it never reads again, and holding
+    it beside its padded copy through the whole stack is one extra pair tensor for nothing. That
+    is 3.2 GiB for OpenDDE's refiner at 1088 residues (2113 structural tokens x 384 channels), and
+    the refiner was refused on a 12 GiB Wormhole part with it live. `s` is left alone: the
+    confidence head passes a cached single representation it reuses per sample.
     """
     import ttnn
     N = int(z.shape[1])
@@ -462,10 +463,9 @@ def bucketed_pairformer(pf, s, z, dev, Np: int, extra_attn_bias=None, own_z: boo
         return pf(s, z, extra_attn_bias=extra_attn_bias)
     _, pmask, attn = token_pad_masks_tt(N, Np, dev)
     s = ttnn.pad(s, [(0, 0), (0, pad), (0, 0)], 0.0) if s is not None else None
-    z, z_in = ttnn.pad(z, [(0, 0), (0, pad), (0, pad), (0, 0)], 0.0), z
-    if own_z:
-        ttnn.deallocate(z_in)
-    del z_in
+    zp = ttnn.pad(z, [(0, 0), (0, pad), (0, pad), (0, 0)], 0.0)
+    ttnn.deallocate(z)
+    z = zp
     if extra_attn_bias is not None:
         extra_attn_bias = ttnn.pad(
             extra_attn_bias, [(0, 0), (0, 0), (0, pad), (0, pad)], -1e9)
