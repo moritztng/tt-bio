@@ -89,6 +89,19 @@ FROZEN = {
     # The general repair is to let the asserter recognise a host-independent claim; until then
     # this is frozen with its reason rather than the row being asked to name a host that does not
     # bear on the claim.
+    # `of3t-verbinstall`, concluded 2026-09-23 pass 414 on GO. Same class as the two above --
+    # good hardware, unrecorded -- and the host is established here from the FILESYSTEM rather
+    # than from prose, because this claim is load-bearing (R184, D245's package leg) and deserved
+    # better than an inference. `/tmp/of3t/of3t-verbinstall/` exists ONLY on qb1 and holds that
+    # arm's own `aiclk_PKG_HF3B.txt`; qb2 has neither the directory nor the row's worktree; and
+    # `dev_CEIL_HF3.pt`, the other side of the comparison, sits at `/home/ttuser/of3t_trunkceiling/`
+    # on qb1. The row's falsifier commit independently names "qb1 card 0, p150a Blackhole". So the
+    # comparison ran on qb1, not pc card 0, and D155's concern does not apply.
+    # The input `/tmp/of3t/of3t-verbinstall/dev_PKG_HF3B.pt` has since been cleared, so this one
+    # cannot be regenerated even in principle. Frozen rather than edited (A33), and the row was
+    # warned while live -- Amendment 4, pass 414 -- that this becomes a FAILURE the moment it
+    # concludes. It concluded without acting, which is now the THIRD row to do so; see D249.
+    "perf/of3t_verbinstall/ARMDIFF_PKG_HF3B_vs_CEIL_HF3.json": "of3t-verbinstall, concluded; qb1 p150a established from the filesystem, armdiff.py emits no host field",
     "perf/of3t_apbback/BLK47_VALIDATION.json": "of3t-apbback; bit_identical is float64-vs-float64, no device on either side",
 }
 

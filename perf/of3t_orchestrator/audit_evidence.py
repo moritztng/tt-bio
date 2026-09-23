@@ -1826,9 +1826,18 @@ if _dtg:
         bad.append("DISTANCE_TO_GO_BY_MASS.json's headline is live again -- it carries the "
                    "float64-scored split this campaign superseded at pass 175 (D82); null it")
     if ORCH.is_file():
-        _verd = _re.search(r"^VERDICT:(.*)", ORCH.read_text(), _re.M | _re.S)
+        # Pass 414: this used to capture `^VERDICT:(.*)` with DOTALL -- i.e. to END OF FILE --
+        # and then truncate to 2000 chars so it would not scan PASSLOG for percentages. The
+        # truncation was a proxy for "the VERDICT field" and it drifted into being a trap: any
+        # edit that grew VERDICT's first half pushed the later shares past 2000 and reported a
+        # drift that had not happened. It caught me at pass 411 and again at pass 414, and both
+        # times the tempting repair is to move the prose back inside the window, which fixes
+        # nothing and silently makes the field's layout load-bearing. Bound the FIELD instead and
+        # read all of it; the test below is a membership test, so a wider window cannot weaken it.
+        _verd = _re.search(r"^VERDICT:(.*?)(?=^\n[A-Z][A-Z_]*:|\Z)", ORCH.read_text(),
+                           _re.M | _re.S)
         _vt = _verd.group(1) if _verd else ""
-        _pcts = [float(m) for m in _re.findall(r"(\d+\.\d+)\s*%", _vt[:2000])]
+        _pcts = [float(m) for m in _re.findall(r"(\d+\.\d+)\s*%", _vt)]
         _checks = [(_p, "surviving"), (_fail, "failing"), (_u, "unread")]
         if _pass:
             _checks.append((_pass, "measured-and-passing"))
