@@ -37,6 +37,7 @@ INPUTS: dict[str, str] = {
     "cyclic": _HEAD + "      cyclic: true\n",
     "modifications": _HEAD + "      modifications:\n        - position: 5\n          ccd: TPO\n",
     "templates": _HEAD + "      templates: /nonexistent/tmpl.npz\n",
+    "template_structure": _HEAD + "templates:\n  - cif: /nonexistent/t.cif\n    chain_id: A\n",
     "bond": _HEAD + ("constraints:\n  - bond:\n      atom1: [A, 5, SG]\n"
                      "      atom2: [A, 9, SG]\n"),
     "pocket": _HEAD + ("constraints:\n  - pocket:\n      binder: A\n"
