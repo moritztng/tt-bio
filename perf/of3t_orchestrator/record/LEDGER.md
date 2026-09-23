@@ -1337,3 +1337,82 @@ any depth — **strictly stronger** than the top-level scan it replaces, since a
 way worth keeping: I regexed `json.dumps(d)` and **the break control caught it immediately** —
 JSON inserts `": ` between `card` and its value, which breaks the adjacency `BANNED` matches on.
 The probe that exists so a guard cannot quietly stop guarding is what said so.
+
+### R192. A pre-registered ceiling that promised a CLEARING arm is refuted by measurement, and it was still a live constant in the clause scorer (pass 414, zero card)
+
+`perf/of3t_modelframe/clause.py:37` carried `LEVER_CEILING = 1.8563207917912123`, *"the
+pre-registered trunk lever ceiling divisor"*, and `CLAUSE.json` published
+`projected_trunk_reading_with_the_lever_ceiling: 0.3584521380145671` from it. That projection
+implied the lever would bring the clause to a **clearing 0.9668x**.
+
+**Measured, on the same frame, on an arm bit-identical to the clause's own banked artifact: the
+lever divides the trunk by 1.1516970980351204** — trunk 0.7768254196709333 -> 0.6745049727018105
+— which is **62.04 %** of the projected divisor, and the clause reads **1.3037867474869442x** and
+does not clear. `of3t-modelever` said it plainly: *"that projection is refuted by a measured arm
+on the same frame, so the campaign should stop carrying it."*
+
+**Kept, not deleted.** The constant stays in the file with the refutation beside it, and
+`clause.py` now also emits a machine-readable `lever_ceiling_REFUTED` block carrying the
+projected divisor, the measured divisor, the delivered fraction and both clause values, plus a
+`projected_trunk_reading_with_the_MEASURED_divisor` (0.5777579519768513) next to the old line.
+Deleting it would have been the tidier move and the wrong one: a removed number reads as
+staleness rather than as a retraction (`a-deletion-reported-as-staleness`), and the
+pre-registration is the thing that made the refutation meaningful in the first place.
+
+**The pattern to notice is where it was hiding.** This was not prose in a state doc — it was a
+**live constant in the scorer that computes the charter's own levels**, feeding a published
+field. The five pre-registered levels were all correct and all held; the refuted thing sat
+beside them in the same artifact, carrying the same authority, and nothing distinguished them.
+**A pre-registered projection and a pre-registered bar look identical once published**; only one
+of them is supposed to survive contact with a measurement. Levels are commitments to be held;
+projections are predictions to be scored and then marked.
+
+### R193. I dispatched three rows against a DONE_CHECK that did not know they existed, and the critical path spent five iterations discovering it (pass 414, zero card)
+
+`of3t-modelever` finished the measurement the whole campaign was waiting on — the lever on the
+clause's own arm — and then could not conclude. Its log: *"the check on qb2 still fails for one
+reason: `_of3t_donecheck.py` has no entry for `of3t-modelever`"*, and it deferred itself to
+04:35 **waiting for me**. `of3t-msaamp` and `of3t-cropwall` were walking into the same wall.
+
+**The brief's `DONE_CHECK:` line names a script; nothing checks that the script knows the row.**
+So a dispatch can be complete in every visible respect — brief, `#DISPATCH`, TASKS tag, a row
+that launches and works — and still be unconcludable. The row discovers it only at the moment it
+tries to finish, which is the most expensive moment available, and the failure reads to the row
+as its own work being rejected. `of3t-modelever` spent five iterations on it and was right every
+time.
+
+**Fixed for all three**, with entries keyed to what each brief actually asked for rather than to
+generic fields — and their state docs added to `_STAGE_HINTS`, because the script warns that a
+path absent from that list *"is never copied and the ssh'd check fails with Errno 2 no matter
+how correct that row's work is"*. `of3t-modelever` passes immediately on the work it had already
+banked; the two live rows have been told their exact field names rather than left to guess at
+regexes.
+
+**The rule this yields, and it belongs beside the concluded-name check from R189.** Dispatching
+a row has two halves and only one of them is visible: writing the brief, and teaching the gate
+the row exists. **Before dispatch: `grep <row-name> workstreams/_of3t_donecheck.py` and
+`ls state/concluded/ | grep <row-name>`.** Two commands. This pass I skipped the first three
+times and the second once, and both cost a row's time rather than mine — which is exactly why
+they are easy to skip.
+
+**A guard here is worth more than the one I abandoned at R189.** That one failed because the
+disk carries no trustworthy conclusion timestamp; this one needs no timestamp at all — every
+`of3t-*.txt` brief carrying a `DONE_CHECK:` line that names `_of3t_donecheck.py` must have a
+matching key in that script's `EXTRA`. It is a set comparison on two files, and the script
+ALREADY asserts the mirror of it (`EXTRA` slugs must appear in `_STAGE_HINTS`). The missing
+direction is the one that bit.
+
+**Addendum to R193, same pass — the guard is built and it fires.** `_assert_every_dispatched_brief_is_gated()`
+lives beside `_assert_stage_hints()` in the check itself and asserts the mirror direction: every
+`of3t-*.txt` carrying a `#DISPATCH:` line and a `DONE_CHECK:` naming this script, and not yet
+concluded, must have a key in `EXTRA`. Break control run rather than asserted: **silent against
+the tree as it stands, and naming `of3t-msaamp` the moment that row's entry is removed.** It is
+a warning, not a failure, for the same reason the hint check is — one row's missing entry must
+not refuse a different row.
+
+**Two guards were proposed this pass and only one was built**, which is the useful comparison.
+R189's wanted to know *when a row concluded* and the disk has no trustworthy answer, so three
+designs each fired on dozens of healthy rows and it was deleted. This one asks *does the gate
+know this row exists*, which is a set comparison between two files with no time in it at all.
+**The buildable check was the one whose question had an exact answer on disk**; the abandoned
+one kept trying to infer a fact nothing records.

@@ -64,7 +64,7 @@ as such, because their runner genuinely produces absent gradients. **§7, the gr
 20-step trajectory's bar is not a magnitude but the shape of divergence in k — linear or
 sub-linear passes, super-linear fails at any magnitude, including inside the per-step bars.
 
-LEDGER: `~/.coworker/state/of3t/LEDGER.md`, **R1-R191 and K1-K19**. **This field is an INDEX, not
+LEDGER: `~/.coworker/state/of3t/LEDGER.md`, **R1-R193 and K1-K19**. **This field is an INDEX, not
 a copy** — it carried ~41 KB of transcribed entries until pass 399, re-read every pass beside the
 file that already holds them (`a-digest-with-one-carrier-is-a-transcription`). Every entry's full
 text, evidence and artifact path is in the LEDGER file while it is in the tail, and in
@@ -73,6 +73,13 @@ left the tail most recently**, and the rule rather than a filename is named here
 naming one archive was itself a thing that rots (the file is 150 KB and rotation is live). What each recent
 entry settles, one line, newest first:
 
+- **R193** I dispatched 3 rows against a DONE_CHECK with no entry for them; the CRITICAL PATH
+  finished its measurement and then deferred 5 iterations unable to conclude. A dispatch has
+  two halves and one is invisible: write the brief, and teach the gate the row exists
+- **R192** the pre-registered `LEVER_CEILING` 1.8563 promised a CLEARING 0.9668x; measured it
+  divides by **1.1517** (62.04 % of the projection) and the clause reads 1.3038x. Refuted in
+  place, not deleted — it was a LIVE CONSTANT in the clause scorer, indistinguishable from
+  the five bars beside it. Levels are commitments; projections are predictions to be scored
 - **R191** the lever works on the clause's own arm and is NOT enough: **1.45117 -> 1.30379x**,
   a third of the excess, 14.19 % of the angle against 43.61 % needed, and vs float64 it is
   WORSE. No bar moved. The barred in-frame projection proved accurate to **2.4 %** inside a
