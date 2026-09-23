@@ -3908,7 +3908,8 @@ def affinity_cmd(data, model, out_dir, accelerator, trunk, recycling_steps, toke
     from tt_bio.nesso1 import DEFAULT_SEED, REPORTED_SCALARS, screen
 
     out = Path(out_dir).expanduser()
-    click.echo(f"Loading {model} ({'tenstorrent' if use_tt else 'cpu'}, trunk {trunk}) …")
+    # --trunk picks the device pairformer; the torch path is fp32 whatever it says.
+    click.echo(f"Loading {model} ({f'tenstorrent, trunk {trunk}' if use_tt else 'cpu, fp32'}) …")
     try:
         rows = screen(
             data, out,
