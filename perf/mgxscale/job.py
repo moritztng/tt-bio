@@ -219,6 +219,26 @@ class loadwatch:
                 "max": round(s[-1], 1), "n": len(s), "nproc": os.cpu_count()}
 
 
+def preflight(py: str) -> None:
+    """Refuse before taking a chip if `py` cannot import the engine.
+
+    `PY` is whatever interpreter launched this harness, so a fan started with the system
+    python3 hands the engine a python3 with no numpy. Measured 2026-09-23: three jobs took
+    three chips, died 5 s in on `ModuleNotFoundError: No module named 'numpy'`, and were
+    written as FAIL with mechanism `unknown` -- a wasted chip AND a row that reads like a
+    model failure. Checked here rather than in the launcher, because every entry point into
+    this file goes through it."""
+    probe = subprocess.run([py, "-c", "import numpy, torch; import tt_bio.size_limits"],
+                           cwd=str(ROOT), capture_output=True, text=True)
+    if probe.returncode != 0:
+        tail = (probe.stderr or probe.stdout).strip().splitlines()
+        raise SystemExit(
+            f"PREFLIGHT: {py} cannot import the engine, so a job would take a chip and die "
+            f"seconds later as an unclassified FAIL. Set LADDER_PY to the engine's python "
+            f"(on whglx: $HOME/env/bin/python) or run this harness with it.\n  "
+            + ("\n  ".join(tail[-3:]) if tail else "no output"))
+
+
 def job_tag(args) -> str:
     """The identity of a job's fixture and output directory, in one place.
 
@@ -480,6 +500,7 @@ def main():
         print(json.dumps(rec, indent=2))
         return
 
+    preflight(PY)
     if args.card == "auto":
         free = free_cards()
         if not free:
