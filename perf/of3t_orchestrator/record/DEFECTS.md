@@ -1059,7 +1059,15 @@ residency on the training path only.
 
 **Pass 396, the break control.** `z_out` is an ancestor of `s_out` — the last block's `attn_pair_bias` reads the `z` its own `pair_stack` just produced — so a hook and `torch.autograd.grad(loss, z_out)` both correctly report a TOTAL derivative that already contains the route through `s_out`, and `(s_out*cot_s).sum() + (z_out*cot_z).sum()` adds it again. Subtracting `autograd.grad(outputs=s_out, grad_outputs=cot_s, inputs=z_out)` from `cot_z` takes block 47 from **0.7849281738435908** to **3.0392623414001263e-15** against `grads_f64_043.pt`, norm ratio 0.9999999999999992, cos 1.0000000000000002, residual after the best scalar exactly **0.0**, under the 1e-12 bar fixed in commit 2520681ed, for 16.65 s — and bit for bit what `--blockprobe`'s loss-driven `autograd.grad` reads at the same block. The duplicate was **99.6628 %** of the captured `cot_z` by norm; the true external cotangent is **11.7471x smaller**. `perf/of3t_frameself/BREAK_DOUBLECOUNT.json`.
 
-**Why it stays UNFIXED.** The mechanism is proven and the repair is demonstrated at one block, but the line is still live: `perf/of3t_trunkg043/ref_grad.py:201` has not been changed and no arm has been re-scored, so every `MATCHED/` reading remains on the old functional. It closes when the corrected injection is the default and the trunk's corrected reading has been read against `CLAUSE.json`'s pre-registered ladder. See LEDGER R160-R162 and PROTOCOL A41.
+**Passes 408-413: the repair is LANDED, the clause is REPOINTED onto it, and what remains is an ANGLE.** `of3t-recut` made the graph-cut-correct injection `ref_grad.py`'s DEFAULT with `--legacy-total-cotangent` reachable, added A41's `grad_fn` reachability assertion on every arm, and re-scored: the clause reads **0.22072451195864032** against its 0.15210099830945006 bar — **1.4511706984958472x**, down from the superseded 1.7814428090278143x, **still FAILING**. It withdrew its own linearity shortcut when that failed its control at **2.21 %** on device (the taped backward is bf16 and the subtraction cancels gradient norms 1.3279 and 0.5947 into 0.8149) and read the direct end-to-end arm instead. `of3t-recutfin` then emitted the per-scope `injection.convention` stamp the composed artifact lacked — correction digest computed rather than transcribed, `n_leaves_differing` **0** against the pre-stamp copy, mixed-pool refusal exercised on eight synthetic pools because no real invocation can fire it — which is what unblocked the repoint under the contract fixed at R164.
+
+**And the repair revealed that the remaining excess is an ANGLE.** `of3t-recutfin` re-took the magnitude/direction split in the space the clause is graded in, because the float64-space split says something **31.92x** different on the same arm and the same 2,736 tensors:
+
+    functional        rel         r           cos        angle     magnitude share
+    double-counted    0.9969600   1.6232598   0.8134998  35.561    62.52 %
+    repaired          0.7768254   0.9978645   0.6976277  45.763    0.2749 %
+
+**The double count was a MAGNITUDE error; the repair removed nearly all of it; the angle OPENED by ten degrees**, because a large nearly-parallel duplicate inflates the magnitude and flatters the cosine at once. The trunk must fall **1.7414134679108282x**, which is **unreachable by any rescaling** — `r = 1` is worse than today and the best possible scale still leaves 1.6060930x — and reachable by direction at cos **0.6976277 -> 0.9002917**, 43.61 % of the angle. `of3t-angle` is dispatched to ask whether the exact softmax closes that angle or only ever closed the magnitude it was measured against. See LEDGER R160-R162 and R174-R179, and PROTOCOL A41 and A42.
 
 **Campaign-internal, and it is the campaign's critical path.**
 
@@ -1269,3 +1277,70 @@ selector is an environment variable on call sites shared with every model's infe
 an inference fold by construction.
 
 Evidence `perf/of3t_orchestrator/softmaxarm/SOFTMAX_ARM_TABLE.json`. See LEDGER R149.
+
+### D246. A global `install()`/`uninstall()` pair whose owner is a constant STRING cannot distinguish two callers, so turning the exact softmax on via `install(exact_softmax=True)` is still torn down by an unrelated bracket — the cell the ownership fix did not cover and the two new tests do not reach. **UNFIXED** — found by `of3t-orchestrator` at pass 414 auditing `of3t-verbinstall`'s landed `27d24c6b3`, no card; filed to that row as an amendment. **SHIPPED-CODE defect, not campaign-internal** (`tt_bio/autograd.py`).
+
+`27d24c6b3` correctly fixed D245's sibling failure — R176's inert package install, where
+`train/lora.py:608-615`'s discovery bracket closed first and took the lever with it. The repair
+is `_EXACT_SOFTMAX_OWNER`: record who turned it on, and only that owner takes it out.
+
+**The owner is a constant string rather than a caller identity.** There are exactly two tokens:
+`exact_softmax()` records `"exact_softmax"` (`tt_bio/autograd.py:1101`) and
+`install(exact_softmax=True)` records `"install"` (`:2129`). `uninstall()` passes `"install"`
+(`:2141`). So the guard at `:1064` — `if owner is not None and _EXACT_SOFTMAX_OWNER != owner:
+return` — discriminates between the two *APIs*, not between two *callers of the same API*:
+
+    caller A: install(exact_softmax=True)   -> OWNER = "install"
+    caller B: install()                     -> (does not touch OWNER)
+    caller B: uninstall()                   -> _uninstall_exact_softmax("install")
+                                            -> "install" == "install" -> TEARS IT DOWN
+
+which is bit-for-bit the pre-fix failure, on the entry point `exact_softmax()`'s own docstring
+(`:1093`) advertises as "the same thing without the block". **The fix is what made that sentence
+false**, so the docstring now actively routes a reader onto the unprotected path.
+
+**Why it is not caught.** The 2x2 is {on via CM, on via install} x {foreign teardown, own
+teardown}. `test_an_unrelated_uninstall_does_not_remove_the_exact_softmax` pins CM + foreign;
+`test_install_exact_softmax_is_still_undone_by_its_own_uninstall` pins install + own. **Those are
+the two safe cells**, and together they read as "both directions" — the phrasing is what hides
+the gap. install + foreign is untested and broken; CM + own is tested implicitly.
+
+**Severity: latent, not live.** No production caller uses `install(exact_softmax=True)` — the arm
+at `perf/of3t_verbinstall/pkgarm.py:45` uses the context manager, owner `"exact_softmax"`, which
+is why R176's measured failure genuinely is repaired and the row's claim stands. This is filed
+because the unprotected path is *documented as equivalent* to the protected one, not because it
+currently fires.
+
+**The fix is not another token.** Any constant name has this defect; nesting two pairs is
+indistinguishable from one caller undoing itself. It needs a per-call identity — a handle
+returned by `install()` and required by `uninstall()`, or a depth count so nesting is *counted*
+rather than *named*. If the pair is judged not worth saving, the honest repair is to withdraw the
+docstring's equivalence claim instead. Either way the third test closes the 2x2 by test.
+
+### D247. `tenstorrent._assert_local_dispatch` is a fail-fast startup probe with NO timeout, so a chip that wedges instead of throwing hangs it forever while every liveness signal reads green. **UNFIXED** — cost `of3t-verbinstall` 230 minutes of card time (two arms, 115 min each, nothing computed); filed by `of3t-orchestrator` at pass 414, verified in the shipped file, no card. **SHIPPED-CODE, and it reaches every card user, not just this campaign.**
+
+`tt_bio/tenstorrent.py:5575`. Its own docstring states the purpose: *"Probe with one trivial op
+so a mis-initialized worker fails HERE, at startup, and gets respawned ... instead of silently
+accepting jobs it will fail."* It is called at `:6005` on every `get_device()` with the comment
+`# raises (and closes) on a remote-only bring-up`.
+
+**The body guards the wrong failure mode.** It wraps `from_torch` / `add` /
+`synchronize_device` in `try/except Exception`, so a chip that *throws* is handled exactly as
+designed. A chip that *wedges* never reaches the `except`: `ttnn.synchronize_device(dev)` blocks
+indefinitely and there is no timeout, no alarm and no watchdog anywhere in the function.
+
+**A fail-fast probe that can hang is worse than no probe**, because it converts a fast, loud,
+respawnable failure into the campaign's most expensive failure shape: a job that consumes a card
+while every cheap liveness signal says it is healthy. This is the
+`chip-holder-at-100pct-cpu-can-be-a-corpse` family, and the 230 minutes is a floor — it bills
+every card row that meets it, on any model, not only OF3T.
+
+**Not closed by the row that paid for it.** `of3t-verbinstall` added a bounded pre-flight for
+its own launches at `b77e89f27`, which is the right local move and does nothing for anyone else:
+**the probe itself still has no timeout**, so every other caller of `get_device()` is unchanged.
+A per-row workaround around a shipped defect leaves the defect shipped.
+
+**Closes when** the probe is bounded — a timeout around the dispatch, expiring into the same
+`RuntimeError` path the `except` already builds (which also closes the device), so a wedge and a
+throw produce the *same* fast, respawnable outcome the docstring promises. The bound must be on
+the probe, not on its callers. No measurement and no card: this is source.

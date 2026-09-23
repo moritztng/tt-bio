@@ -1,0 +1,1631 @@
+{
+ "doc": "Every device tensor the OF3 trunk's forward and backward produce, ranked by padding waste.",
+ "argv": [
+  "--tokens",
+  "256",
+  "--dead-values",
+  "on",
+  "--out",
+  "perf/of3t_cropwall/out/pad_256.json"
+ ],
+ "env": {
+  "host": "tt-quietbox2",
+  "tt_visible_devices": "3",
+  "tt_bio_lease_cards": "2,3",
+  "commit": "def12168e3ba13fe981d886b8ec1ed1ff667d5ae",
+  "branch": "wk/of3t-cropwall",
+  "started_utc": "2026-09-23T02:40:29Z",
+  "loadavg": [
+   11.77783203125,
+   10.40966796875,
+   7.8818359375
+  ],
+  "drop_dead_values": true,
+  "arch": "Arch.BLACKHOLE",
+  "aiclk_during": {
+   "0": {
+    "min": 800,
+    "max": 1350,
+    "median": 1350,
+    "n": 20
+   }
+  },
+  "aiclk_line": "CLOCK: dev0 min 800 / median 1350 / max 1350 MHz over 20 samples, polled DURING the work"
+ },
+ "census": {
+  "sites": 179,
+  "calls": 68593,
+  "allocated_b_x_calls": 1382991650816,
+  "logical_b_x_calls": 1348823214592,
+  "overall_ratio": 1.0253,
+  "sites_over_min_b": 148,
+  "min_b": 1048576,
+  "top_by_ratio": [
+   {
+    "phase": "backward",
+    "op": "sum",
+    "site": "autograd.py:120:softmax_bw_inner",
+    "calls": 543,
+    "logical_b_x_calls": 113258496,
+    "allocated_b_x_calls": 3624271872,
+    "largest_allocated_b": 7208960,
+    "worst_shape": [
+     55,
+     4,
+     256,
+     1
+    ],
+    "worst_padded": [
+     55,
+     4,
+     256,
+     32
+    ],
+    "worst_ratio": 32.0,
+    "dtype": "FLOAT32",
+    "ratio": 32.0,
+    "waste_b_x_calls": 3511013376
+   },
+   {
+    "phase": "backward",
+    "op": "sum",
+    "site": "autograd.py:124:softmax_bw_inner",
+    "calls": 543,
+    "logical_b_x_calls": 113258496,
+    "allocated_b_x_calls": 3624271872,
+    "largest_allocated_b": 7208960,
+    "worst_shape": [
+     55,
+     4,
+     256,
+     1
+    ],
+    "worst_padded": [
+     55,
+     4,
+     256,
+     32
+    ],
+    "worst_ratio": 32.0,
+    "dtype": "FLOAT32",
+    "ratio": 32.0,
+    "waste_b_x_calls": 3511013376
+   },
+   {
+    "phase": "backward",
+    "op": "divide",
+    "site": "autograd.py:124:softmax_bw_inner",
+    "calls": 543,
+    "logical_b_x_calls": 113258496,
+    "allocated_b_x_calls": 3624271872,
+    "largest_allocated_b": 7208960,
+    "worst_shape": [
+     55,
+     4,
+     256,
+     1
+    ],
+    "worst_padded": [
+     55,
+     4,
+     256,
+     32
+    ],
+    "worst_ratio": 32.0,
+    "dtype": "FLOAT32",
+    "ratio": 32.0,
+    "waste_b_x_calls": 3511013376
+   },
+   {
+    "phase": "backward",
+    "op": "mean",
+    "site": "autograd.py:2050:bw",
+    "calls": 503,
+    "logical_b_x_calls": 50571264,
+    "allocated_b_x_calls": 1618280448,
+    "largest_allocated_b": 4194304,
+    "worst_shape": [
+     1,
+     86,
+     256,
+     1
+    ],
+    "worst_padded": [
+     1,
+     86,
+     256,
+     32
+    ],
+    "worst_ratio": 32.0,
+    "dtype": "BFLOAT16",
+    "ratio": 32.0,
+    "waste_b_x_calls": 1567709184
+   },
+   {
+    "phase": "backward",
+    "op": "mean",
+    "site": "autograd.py:2052:bw",
+    "calls": 503,
+    "logical_b_x_calls": 50571264,
+    "allocated_b_x_calls": 1618280448,
+    "largest_allocated_b": 4194304,
+    "worst_shape": [
+     1,
+     86,
+     256,
+     1
+    ],
+    "worst_padded": [
+     1,
+     86,
+     256,
+     32
+    ],
+    "worst_ratio": 32.0,
+    "dtype": "BFLOAT16",
+    "ratio": 32.0,
+    "waste_b_x_calls": 1567709184
+   },
+   {
+    "phase": "backward",
+    "op": "add",
+    "site": "autograd.py:2054:bw",
+    "calls": 503,
+    "logical_b_x_calls": 50571264,
+    "allocated_b_x_calls": 1618280448,
+    "largest_allocated_b": 4194304,
+    "worst_shape": [
+     1,
+     86,
+     256,
+     1
+    ],
+    "worst_padded": [
+     1,
+     86,
+     256,
+     32
+    ],
+    "worst_ratio": 32.0,
+    "dtype": "BFLOAT16",
+    "ratio": 32.0,
+    "waste_b_x_calls": 1567709184
+   },
+   {
+    "phase": "backward",
+    "op": "rsqrt",
+    "site": "autograd.py:2054:bw",
+    "calls": 503,
+    "logical_b_x_calls": 50571264,
+    "allocated_b_x_calls": 1618280448,
+    "largest_allocated_b": 4194304,
+    "worst_shape": [
+     1,
+     86,
+     256,
+     1
+    ],
+    "worst_padded": [
+     1,
+     86,
+     256,
+     32
+    ],
+    "worst_ratio": 32.0,
+    "dtype": "BFLOAT16",
+    "ratio": 32.0,
+    "waste_b_x_calls": 1567709184
+   },
+   {
+    "phase": "backward",
+    "op": "mean",
+    "site": "autograd.py:2063:bw",
+    "calls": 502,
+    "logical_b_x_calls": 50440192,
+    "allocated_b_x_calls": 1614086144,
+    "largest_allocated_b": 4194304,
+    "worst_shape": [
+     1,
+     86,
+     256,
+     1
+    ],
+    "worst_padded": [
+     1,
+     86,
+     256,
+     32
+    ],
+    "worst_ratio": 32.0,
+    "dtype": "BFLOAT16",
+    "ratio": 32.0,
+    "waste_b_x_calls": 1563645952
+   },
+   {
+    "phase": "backward",
+    "op": "mean",
+    "site": "autograd.py:2064:bw",
+    "calls": 502,
+    "logical_b_x_calls": 50440192,
+    "allocated_b_x_calls": 1614086144,
+    "largest_allocated_b": 4194304,
+    "worst_shape": [
+     1,
+     86,
+     256,
+     1
+    ],
+    "worst_padded": [
+     1,
+     86,
+     256,
+     32
+    ],
+    "worst_ratio": 32.0,
+    "dtype": "BFLOAT16",
+    "ratio": 32.0,
+    "waste_b_x_calls": 1563645952
+   },
+   {
+    "phase": "backward",
+    "op": "reshape",
+    "site": "taped_ttnn.py:884:bw",
+    "calls": 104,
+    "logical_b_x_calls": 1744830464,
+    "allocated_b_x_calls": 13958643712,
+    "largest_allocated_b": 134217728,
+    "worst_shape": [
+     256,
+     256,
+     4,
+     32
+    ],
+    "worst_padded": [
+     256,
+     256,
+     32,
+     32
+    ],
+    "worst_ratio": 8.0,
+    "dtype": "BFLOAT16",
+    "ratio": 8.0,
+    "waste_b_x_calls": 12213813248
+   },
+   {
+    "phase": "forward",
+    "op": "permute",
+    "site": "tenstorrent.py:8158:_attend_heads",
+    "calls": 4,
+    "logical_b_x_calls": 33554432,
+    "allocated_b_x_calls": 67108864,
+    "largest_allocated_b": 16777216,
+    "worst_shape": [
+     256,
+     4,
+     16,
+     256
+    ],
+    "worst_padded": [
+     256,
+     4,
+     32,
+     256
+    ],
+    "worst_ratio": 2.0,
+    "dtype": "BFLOAT16",
+    "ratio": 2.0,
+    "waste_b_x_calls": 33554432
+   },
+   {
+    "phase": "backward",
+    "op": "permute",
+    "site": "tenstorrent.py:8158:_attend_heads",
+    "calls": 4,
+    "logical_b_x_calls": 33554432,
+    "allocated_b_x_calls": 67108864,
+    "largest_allocated_b": 16777216,
+    "worst_shape": [
+     256,
+     4,
+     16,
+     256
+    ],
+    "worst_padded": [
+     256,
+     4,
+     32,
+     256
+    ],
+    "worst_ratio": 2.0,
+    "dtype": "BFLOAT16",
+    "ratio": 2.0,
+    "waste_b_x_calls": 33554432
+   },
+   {
+    "phase": "backward",
+    "op": "permute",
+    "site": "tenstorrent.py:11199:contiguous_ab",
+    "calls": 7,
+    "logical_b_x_calls": 4128768,
+    "allocated_b_x_calls": 7340032,
+    "largest_allocated_b": 1048576,
+    "worst_shape": [
+     256,
+     32,
+     36
+    ],
+    "worst_padded": [
+     256,
+     32,
+     64
+    ],
+    "worst_ratio": 1.7778,
+    "dtype": "BFLOAT16",
+    "ratio": 1.7778,
+    "waste_b_x_calls": 3211264
+   },
+   {
+    "phase": "backward",
+    "op": "permute",
+    "site": "tenstorrent.py:11200:contiguous_ab",
+    "calls": 7,
+    "logical_b_x_calls": 4128768,
+    "allocated_b_x_calls": 7340032,
+    "largest_allocated_b": 1048576,
+    "worst_shape": [
+     32,
+     256,
+     36
+    ],
+    "worst_padded": [
+     32,
+     256,
+     64
+    ],
+    "worst_ratio": 1.7778,
+    "dtype": "BFLOAT16",
+    "ratio": 1.7778,
+    "waste_b_x_calls": 3211264
+   },
+   {
+    "phase": "forward",
+    "op": "permute",
+    "site": "tenstorrent.py:11199:contiguous_ab",
+    "calls": 4,
+    "logical_b_x_calls": 2359296,
+    "allocated_b_x_calls": 4194304,
+    "largest_allocated_b": 1048576,
+    "worst_shape": [
+     256,
+     32,
+     36
+    ],
+    "worst_padded": [
+     256,
+     32,
+     64
+    ],
+    "worst_ratio": 1.7778,
+    "dtype": "BFLOAT16",
+    "ratio": 1.7778,
+    "waste_b_x_calls": 1835008
+   },
+   {
+    "phase": "forward",
+    "op": "permute",
+    "site": "tenstorrent.py:11200:contiguous_ab",
+    "calls": 4,
+    "logical_b_x_calls": 2359296,
+    "allocated_b_x_calls": 4194304,
+    "largest_allocated_b": 1048576,
+    "worst_shape": [
+     32,
+     256,
+     36
+    ],
+    "worst_padded": [
+     32,
+     256,
+     64
+    ],
+    "worst_ratio": 1.7778,
+    "dtype": "BFLOAT16",
+    "ratio": 1.7778,
+    "waste_b_x_calls": 1835008
+   },
+   {
+    "phase": "pre",
+    "op": "from_torch",
+    "site": "?",
+    "calls": 12,
+    "logical_b_x_calls": 31986176,
+    "allocated_b_x_calls": 56147968,
+    "largest_allocated_b": 16777216,
+    "worst_shape": [
+     1,
+     256,
+     256,
+     1
+    ],
+    "worst_padded": [
+     1,
+     256,
+     256,
+     32
+    ],
+    "worst_ratio": 32.0,
+    "dtype": "BFLOAT16",
+    "ratio": 1.7554,
+    "waste_b_x_calls": 24161792
+   },
+   {
+    "phase": "backward",
+    "op": "permute",
+    "site": "taped_ttnn.py:640:bw",
+    "calls": 1052,
+    "logical_b_x_calls": 8228831232,
+    "allocated_b_x_calls": 8689418240,
+    "largest_allocated_b": 134217728,
+    "worst_shape": [
+     1,
+     256,
+     256,
+     4
+    ],
+    "worst_padded": [
+     1,
+     256,
+     256,
+     32
+    ],
+    "worst_ratio": 8.0,
+    "dtype": "BFLOAT16",
+    "ratio": 1.056,
+    "waste_b_x_calls": 460587008
+   },
+   {
+    "phase": "backward",
+    "op": "linear",
+    "site": "autograd.py:1965:_taped_linear",
+    "calls": 1488,
+    "logical_b_x_calls": 14594211840,
+    "allocated_b_x_calls": 15174598656,
+    "largest_allocated_b": 22544384,
+    "worst_shape": [
+     256,
+     256,
+     4
+    ],
+    "worst_padded": [
+     256,
+     256,
+     32
+    ],
+    "worst_ratio": 8.0,
+    "dtype": "BFLOAT16",
+    "ratio": 1.0398,
+    "waste_b_x_calls": 580386816
+   },
+   {
+    "phase": "forward",
+    "op": "linear",
+    "site": "autograd.py:1965:_taped_linear",
+    "calls": 1344,
+    "logical_b_x_calls": 13711835136,
+    "allocated_b_x_calls": 14239531008,
+    "largest_allocated_b": 22544384,
+    "worst_shape": [
+     256,
+     256,
+     4
+    ],
+    "worst_padded": [
+     256,
+     256,
+     32
+    ],
+    "worst_ratio": 8.0,
+    "dtype": "BFLOAT16",
+    "ratio": 1.0385,
+    "waste_b_x_calls": 527695872
+   },
+   {
+    "phase": "backward",
+    "op": "reshape",
+    "site": "taped_ttnn.py:622:bw",
+    "calls": 11,
+    "logical_b_x_calls": 973078528,
+    "allocated_b_x_calls": 1006632960,
+    "largest_allocated_b": 134217728,
+    "worst_shape": [
+     256,
+     4,
+     16,
+     256
+    ],
+    "worst_padded": [
+     256,
+     4,
+     32,
+     256
+    ],
+    "worst_ratio": 2.0,
+    "dtype": "BFLOAT16",
+    "ratio": 1.0345,
+    "waste_b_x_calls": 33554432
+   },
+   {
+    "phase": "backward",
+    "op": "multiply",
+    "site": "taped_ttnn.py:591:<lambda>",
+    "calls": 123,
+    "logical_b_x_calls": 125765376,
+    "allocated_b_x_calls": 129032192,
+    "largest_allocated_b": 8388608,
+    "worst_shape": [
+     256,
+     32,
+     36
+    ],
+    "worst_padded": [
+     256,
+     32,
+     64
+    ],
+    "worst_ratio": 1.7778,
+    "dtype": "FLOAT32",
+    "ratio": 1.026,
+    "waste_b_x_calls": 3266816
+   },
+   {
+    "phase": "forward",
+    "op": "slice",
+    "site": "taped_ttnn.py:775:_getitem",
+    "calls": 1675,
+    "logical_b_x_calls": 5481955328,
+    "allocated_b_x_calls": 5518655488,
+    "largest_allocated_b": 16777216,
+    "worst_shape": [
+     256,
+     4,
+     256,
+     16
+    ],
+    "worst_padded": [
+     256,
+     4,
+     256,
+     32
+    ],
+    "worst_ratio": 2.0,
+    "dtype": "BFLOAT16",
+    "ratio": 1.0067,
+    "waste_b_x_calls": 36700160
+   },
+   {
+    "phase": "backward",
+    "op": "slice",
+    "site": "taped_ttnn.py:775:_getitem",
+    "calls": 1810,
+    "logical_b_x_calls": 5787090944,
+    "allocated_b_x_calls": 5823791104,
+    "largest_allocated_b": 16777216,
+    "worst_shape": [
+     256,
+     4,
+     256,
+     16
+    ],
+    "worst_padded": [
+     256,
+     4,
+     256,
+     32
+    ],
+    "worst_ratio": 2.0,
+    "dtype": "BFLOAT16",
+    "ratio": 1.0063,
+    "waste_b_x_calls": 36700160
+   },
+   {
+    "phase": "backward",
+    "op": "matmul",
+    "site": "taped_ttnn.py:182:bw",
+    "calls": 85,
+    "logical_b_x_calls": 1006567424,
+    "allocated_b_x_calls": 1009778688,
+    "largest_allocated_b": 16777216,
+    "worst_shape": [
+     8192,
+     36
+    ],
+    "worst_padded": [
+     8192,
+     64
+    ],
+    "worst_ratio": 1.7778,
+    "dtype": "BFLOAT16",
+    "ratio": 1.0032,
+    "waste_b_x_calls": 3211264
+   },
+   {
+    "phase": "backward",
+    "op": "rsub",
+    "site": "taped_ttnn.py:350:<lambda>",
+    "calls": 456,
+    "logical_b_x_calls": 7117078528,
+    "allocated_b_x_calls": 7127695360,
+    "largest_allocated_b": 16777216,
+    "worst_shape": [
+     256,
+     256,
+     128
+    ],
+    "worst_padded": [
+     256,
+     256,
+     128
+    ],
+    "worst_ratio": 1.0,
+    "dtype": "BFLOAT16",
+    "ratio": 1.0015,
+    "waste_b_x_calls": 10616832
+   },
+   {
+    "phase": "backward",
+    "op": "multiply",
+    "site": "taped_ttnn.py:350:<lambda>",
+    "calls": 456,
+    "logical_b_x_calls": 7117078528,
+    "allocated_b_x_calls": 7127695360,
+    "largest_allocated_b": 16777216,
+    "worst_shape": [
+     256,
+     256,
+     128
+    ],
+    "worst_padded": [
+     256,
+     256,
+     128
+    ],
+    "worst_ratio": 1.0,
+    "dtype": "BFLOAT16",
+    "ratio": 1.0015,
+    "waste_b_x_calls": 10616832
+   },
+   {
+    "phase": "backward",
+    "op": "multiply",
+    "site": "taped_ttnn.py:551:bw",
+    "calls": 456,
+    "logical_b_x_calls": 7117078528,
+    "allocated_b_x_calls": 7127695360,
+    "largest_allocated_b": 16777216,
+    "worst_shape": [
+     256,
+     256,
+     128
+    ],
+    "worst_padded": [
+     256,
+     256,
+     128
+    ],
+    "worst_ratio": 1.0,
+    "dtype": "BFLOAT16",
+    "ratio": 1.0015,
+    "waste_b_x_calls": 10616832
+   },
+   {
+    "phase": "backward",
+    "op": "multiply",
+    "site": "taped_ttnn.py:590:<lambda>",
+    "calls": 1238,
+    "logical_b_x_calls": 21308899328,
+    "allocated_b_x_calls": 21330132992,
+    "largest_allocated_b": 22544384,
+    "worst_shape": [
+     1,
+     86,
+     256,
+     512
+    ],
+    "worst_padded": [
+     1,
+     86,
+     256,
+     512
+    ],
+    "worst_ratio": 1.0,
+    "dtype": "BFLOAT16",
+    "ratio": 1.001,
+    "waste_b_x_calls": 21233664
+   },
+   {
+    "phase": "backward",
+    "op": "matmul",
+    "site": "autograd.py:1979:bw",
+    "calls": 1020,
+    "logical_b_x_calls": 13544849408,
+    "allocated_b_x_calls": 13555466240,
+    "largest_allocated_b": 134217728,
+    "worst_shape": [
+     1,
+     86,
+     256,
+     512
+    ],
+    "worst_padded": [
+     1,
+     86,
+     256,
+     512
+    ],
+    "worst_ratio": 1.0,
+    "dtype": "BFLOAT16",
+    "ratio": 1.0008,
+    "waste_b_x_calls": 10616832
+   },
+   {
+    "phase": "backward",
+    "op": "zeros",
+    "site": "taped_ttnn.py:713:pad",
+    "calls": 3498,
+    "logical_b_x_calls": 44901072896,
+    "allocated_b_x_calls": 44934627328,
+    "largest_allocated_b": 50331648,
+    "worst_shape": [
+     256,
+     4,
+     256,
+     16
+    ],
+    "worst_padded": [
+     256,
+     4,
+     256,
+     32
+    ],
+    "worst_ratio": 2.0,
+    "dtype": "BFLOAT16",
+    "ratio": 1.0007,
+    "waste_b_x_calls": 33554432
+   },
+   {
+    "phase": "backward",
+    "op": "matmul",
+    "site": "taped_ttnn.py:162:bw",
+    "calls": 1489,
+    "logical_b_x_calls": 22539468800,
+    "allocated_b_x_calls": 22553296896,
+    "largest_allocated_b": 28835840,
+    "worst_shape": [
+     8192,
+     36
+    ],
+    "worst_padded": [
+     8192,
+     64
+    ],
+    "worst_ratio": 1.7778,
+    "dtype": "BFLOAT16",
+    "ratio": 1.0006,
+    "waste_b_x_calls": 13828096
+   },
+   {
+    "phase": "backward",
+    "op": "to_layout",
+    "site": "taped_ttnn.py:106:_identity_grad",
+    "calls": 256,
+    "logical_b_x_calls": 5645402112,
+    "allocated_b_x_calls": 5648613376,
+    "largest_allocated_b": 134217728,
+    "worst_shape": [
+     8192,
+     36
+    ],
+    "worst_padded": [
+     8192,
+     64
+    ],
+    "worst_ratio": 1.7778,
+    "dtype": "BFLOAT16",
+    "ratio": 1.0006,
+    "waste_b_x_calls": 3211264
+   },
+   {
+    "phase": "backward",
+    "op": "to_layout",
+    "site": "taped_ttnn.py:113:bw",
+    "calls": 244,
+    "logical_b_x_calls": 5444075520,
+    "allocated_b_x_calls": 5447286784,
+    "largest_allocated_b": 134217728,
+    "worst_shape": [
+     32,
+     256,
+     36
+    ],
+    "worst_padded": [
+     32,
+     256,
+     64
+    ],
+    "worst_ratio": 1.7778,
+    "dtype": "BFLOAT16",
+    "ratio": 1.0006,
+    "waste_b_x_calls": 3211264
+   },
+   {
+    "phase": "forward",
+    "op": "to_layout",
+    "site": "taped_ttnn.py:106:_identity_grad",
+    "calls": 232,
+    "logical_b_x_calls": 4635230208,
+    "allocated_b_x_calls": 4637065216,
+    "largest_allocated_b": 134217728,
+    "worst_shape": [
+     8192,
+     36
+    ],
+    "worst_padded": [
+     8192,
+     64
+    ],
+    "worst_ratio": 1.7778,
+    "dtype": "BFLOAT16",
+    "ratio": 1.0004,
+    "waste_b_x_calls": 1835008
+   },
+   {
+    "phase": "backward",
+    "op": "multiply",
+    "site": "taped_ttnn.py:512:impl",
+    "calls": 217,
+    "logical_b_x_calls": 169871104,
+    "allocated_b_x_calls": 169926656,
+    "largest_allocated_b": 1048576,
+    "worst_shape": [
+     1,
+     4,
+     256,
+     256
+    ],
+    "worst_padded": [
+     1,
+     4,
+     256,
+     256
+    ],
+    "worst_ratio": 1.0,
+    "dtype": "BFLOAT16",
+    "ratio": 1.0003,
+    "waste_b_x_calls": 55552
+   },
+   {
+    "phase": "forward",
+    "op": "multiply",
+    "site": "taped_ttnn.py:512:impl",
+    "calls": 209,
+    "logical_b_x_calls": 171967488,
+    "allocated_b_x_calls": 171999232,
+    "largest_allocated_b": 8388608,
+    "worst_shape": [
+     1,
+     4,
+     256,
+     256
+    ],
+    "worst_padded": [
+     1,
+     4,
+     256,
+     256
+    ],
+    "worst_ratio": 1.0,
+    "dtype": "FLOAT32",
+    "ratio": 1.0002,
+    "waste_b_x_calls": 31744
+   },
+   {
+    "phase": "backward",
+    "op": "typecast",
+    "site": "autograd.py:355:add_grad",
+    "calls": 3012,
+    "logical_b_x_calls": 133161660416,
+    "allocated_b_x_calls": 133165088768,
+    "largest_allocated_b": 134217728,
+    "worst_shape": [
+     1,
+     86,
+     256,
+     128
+    ],
+    "worst_padded": [
+     1,
+     86,
+     256,
+     128
+    ],
+    "worst_ratio": 1.0,
+    "dtype": "FLOAT32",
+    "ratio": 1.0,
+    "waste_b_x_calls": 3428352
+   },
+   {
+    "phase": "backward",
+    "op": "add",
+    "site": "autograd.py:354:add_grad",
+    "calls": 3771,
+    "logical_b_x_calls": 133698252800,
+    "allocated_b_x_calls": 133701681152,
+    "largest_allocated_b": 134217728,
+    "worst_shape": [
+     1,
+     86,
+     256,
+     128
+    ],
+    "worst_padded": [
+     1,
+     86,
+     256,
+     128
+    ],
+    "worst_ratio": 1.0,
+    "dtype": "FLOAT32",
+    "ratio": 1.0,
+    "waste_b_x_calls": 3428352
+   },
+   {
+    "phase": "backward",
+    "op": "typecast",
+    "site": "autograd.py:353:add_grad",
+    "calls": 1330,
+    "logical_b_x_calls": 53956370432,
+    "allocated_b_x_calls": 53958148096,
+    "largest_allocated_b": 134217728,
+    "worst_shape": [
+     1,
+     86,
+     256,
+     128
+    ],
+    "worst_padded": [
+     1,
+     86,
+     256,
+     128
+    ],
+    "worst_ratio": 1.0,
+    "dtype": "FLOAT32",
+    "ratio": 1.0,
+    "waste_b_x_calls": 1777664
+   }
+  ],
+  "top_by_waste": [
+   {
+    "phase": "backward",
+    "op": "reshape",
+    "site": "taped_ttnn.py:884:bw",
+    "calls": 104,
+    "logical_b_x_calls": 1744830464,
+    "allocated_b_x_calls": 13958643712,
+    "largest_allocated_b": 134217728,
+    "worst_shape": [
+     256,
+     256,
+     4,
+     32
+    ],
+    "worst_padded": [
+     256,
+     256,
+     32,
+     32
+    ],
+    "worst_ratio": 8.0,
+    "dtype": "BFLOAT16",
+    "ratio": 8.0,
+    "waste_b_x_calls": 12213813248
+   },
+   {
+    "phase": "backward",
+    "op": "sum",
+    "site": "autograd.py:120:softmax_bw_inner",
+    "calls": 543,
+    "logical_b_x_calls": 113258496,
+    "allocated_b_x_calls": 3624271872,
+    "largest_allocated_b": 7208960,
+    "worst_shape": [
+     55,
+     4,
+     256,
+     1
+    ],
+    "worst_padded": [
+     55,
+     4,
+     256,
+     32
+    ],
+    "worst_ratio": 32.0,
+    "dtype": "FLOAT32",
+    "ratio": 32.0,
+    "waste_b_x_calls": 3511013376
+   },
+   {
+    "phase": "backward",
+    "op": "sum",
+    "site": "autograd.py:124:softmax_bw_inner",
+    "calls": 543,
+    "logical_b_x_calls": 113258496,
+    "allocated_b_x_calls": 3624271872,
+    "largest_allocated_b": 7208960,
+    "worst_shape": [
+     55,
+     4,
+     256,
+     1
+    ],
+    "worst_padded": [
+     55,
+     4,
+     256,
+     32
+    ],
+    "worst_ratio": 32.0,
+    "dtype": "FLOAT32",
+    "ratio": 32.0,
+    "waste_b_x_calls": 3511013376
+   },
+   {
+    "phase": "backward",
+    "op": "divide",
+    "site": "autograd.py:124:softmax_bw_inner",
+    "calls": 543,
+    "logical_b_x_calls": 113258496,
+    "allocated_b_x_calls": 3624271872,
+    "largest_allocated_b": 7208960,
+    "worst_shape": [
+     55,
+     4,
+     256,
+     1
+    ],
+    "worst_padded": [
+     55,
+     4,
+     256,
+     32
+    ],
+    "worst_ratio": 32.0,
+    "dtype": "FLOAT32",
+    "ratio": 32.0,
+    "waste_b_x_calls": 3511013376
+   },
+   {
+    "phase": "backward",
+    "op": "mean",
+    "site": "autograd.py:2050:bw",
+    "calls": 503,
+    "logical_b_x_calls": 50571264,
+    "allocated_b_x_calls": 1618280448,
+    "largest_allocated_b": 4194304,
+    "worst_shape": [
+     1,
+     86,
+     256,
+     1
+    ],
+    "worst_padded": [
+     1,
+     86,
+     256,
+     32
+    ],
+    "worst_ratio": 32.0,
+    "dtype": "BFLOAT16",
+    "ratio": 32.0,
+    "waste_b_x_calls": 1567709184
+   },
+   {
+    "phase": "backward",
+    "op": "mean",
+    "site": "autograd.py:2052:bw",
+    "calls": 503,
+    "logical_b_x_calls": 50571264,
+    "allocated_b_x_calls": 1618280448,
+    "largest_allocated_b": 4194304,
+    "worst_shape": [
+     1,
+     86,
+     256,
+     1
+    ],
+    "worst_padded": [
+     1,
+     86,
+     256,
+     32
+    ],
+    "worst_ratio": 32.0,
+    "dtype": "BFLOAT16",
+    "ratio": 32.0,
+    "waste_b_x_calls": 1567709184
+   },
+   {
+    "phase": "backward",
+    "op": "add",
+    "site": "autograd.py:2054:bw",
+    "calls": 503,
+    "logical_b_x_calls": 50571264,
+    "allocated_b_x_calls": 1618280448,
+    "largest_allocated_b": 4194304,
+    "worst_shape": [
+     1,
+     86,
+     256,
+     1
+    ],
+    "worst_padded": [
+     1,
+     86,
+     256,
+     32
+    ],
+    "worst_ratio": 32.0,
+    "dtype": "BFLOAT16",
+    "ratio": 32.0,
+    "waste_b_x_calls": 1567709184
+   },
+   {
+    "phase": "backward",
+    "op": "rsqrt",
+    "site": "autograd.py:2054:bw",
+    "calls": 503,
+    "logical_b_x_calls": 50571264,
+    "allocated_b_x_calls": 1618280448,
+    "largest_allocated_b": 4194304,
+    "worst_shape": [
+     1,
+     86,
+     256,
+     1
+    ],
+    "worst_padded": [
+     1,
+     86,
+     256,
+     32
+    ],
+    "worst_ratio": 32.0,
+    "dtype": "BFLOAT16",
+    "ratio": 32.0,
+    "waste_b_x_calls": 1567709184
+   },
+   {
+    "phase": "backward",
+    "op": "mean",
+    "site": "autograd.py:2063:bw",
+    "calls": 502,
+    "logical_b_x_calls": 50440192,
+    "allocated_b_x_calls": 1614086144,
+    "largest_allocated_b": 4194304,
+    "worst_shape": [
+     1,
+     86,
+     256,
+     1
+    ],
+    "worst_padded": [
+     1,
+     86,
+     256,
+     32
+    ],
+    "worst_ratio": 32.0,
+    "dtype": "BFLOAT16",
+    "ratio": 32.0,
+    "waste_b_x_calls": 1563645952
+   },
+   {
+    "phase": "backward",
+    "op": "mean",
+    "site": "autograd.py:2064:bw",
+    "calls": 502,
+    "logical_b_x_calls": 50440192,
+    "allocated_b_x_calls": 1614086144,
+    "largest_allocated_b": 4194304,
+    "worst_shape": [
+     1,
+     86,
+     256,
+     1
+    ],
+    "worst_padded": [
+     1,
+     86,
+     256,
+     32
+    ],
+    "worst_ratio": 32.0,
+    "dtype": "BFLOAT16",
+    "ratio": 32.0,
+    "waste_b_x_calls": 1563645952
+   },
+   {
+    "phase": "backward",
+    "op": "linear",
+    "site": "autograd.py:1965:_taped_linear",
+    "calls": 1488,
+    "logical_b_x_calls": 14594211840,
+    "allocated_b_x_calls": 15174598656,
+    "largest_allocated_b": 22544384,
+    "worst_shape": [
+     256,
+     256,
+     4
+    ],
+    "worst_padded": [
+     256,
+     256,
+     32
+    ],
+    "worst_ratio": 8.0,
+    "dtype": "BFLOAT16",
+    "ratio": 1.0398,
+    "waste_b_x_calls": 580386816
+   },
+   {
+    "phase": "forward",
+    "op": "linear",
+    "site": "autograd.py:1965:_taped_linear",
+    "calls": 1344,
+    "logical_b_x_calls": 13711835136,
+    "allocated_b_x_calls": 14239531008,
+    "largest_allocated_b": 22544384,
+    "worst_shape": [
+     256,
+     256,
+     4
+    ],
+    "worst_padded": [
+     256,
+     256,
+     32
+    ],
+    "worst_ratio": 8.0,
+    "dtype": "BFLOAT16",
+    "ratio": 1.0385,
+    "waste_b_x_calls": 527695872
+   },
+   {
+    "phase": "backward",
+    "op": "permute",
+    "site": "taped_ttnn.py:640:bw",
+    "calls": 1052,
+    "logical_b_x_calls": 8228831232,
+    "allocated_b_x_calls": 8689418240,
+    "largest_allocated_b": 134217728,
+    "worst_shape": [
+     1,
+     256,
+     256,
+     4
+    ],
+    "worst_padded": [
+     1,
+     256,
+     256,
+     32
+    ],
+    "worst_ratio": 8.0,
+    "dtype": "BFLOAT16",
+    "ratio": 1.056,
+    "waste_b_x_calls": 460587008
+   },
+   {
+    "phase": "forward",
+    "op": "slice",
+    "site": "taped_ttnn.py:775:_getitem",
+    "calls": 1675,
+    "logical_b_x_calls": 5481955328,
+    "allocated_b_x_calls": 5518655488,
+    "largest_allocated_b": 16777216,
+    "worst_shape": [
+     256,
+     4,
+     256,
+     16
+    ],
+    "worst_padded": [
+     256,
+     4,
+     256,
+     32
+    ],
+    "worst_ratio": 2.0,
+    "dtype": "BFLOAT16",
+    "ratio": 1.0067,
+    "waste_b_x_calls": 36700160
+   },
+   {
+    "phase": "backward",
+    "op": "slice",
+    "site": "taped_ttnn.py:775:_getitem",
+    "calls": 1810,
+    "logical_b_x_calls": 5787090944,
+    "allocated_b_x_calls": 5823791104,
+    "largest_allocated_b": 16777216,
+    "worst_shape": [
+     256,
+     4,
+     256,
+     16
+    ],
+    "worst_padded": [
+     256,
+     4,
+     256,
+     32
+    ],
+    "worst_ratio": 2.0,
+    "dtype": "BFLOAT16",
+    "ratio": 1.0063,
+    "waste_b_x_calls": 36700160
+   },
+   {
+    "phase": "forward",
+    "op": "permute",
+    "site": "tenstorrent.py:8158:_attend_heads",
+    "calls": 4,
+    "logical_b_x_calls": 33554432,
+    "allocated_b_x_calls": 67108864,
+    "largest_allocated_b": 16777216,
+    "worst_shape": [
+     256,
+     4,
+     16,
+     256
+    ],
+    "worst_padded": [
+     256,
+     4,
+     32,
+     256
+    ],
+    "worst_ratio": 2.0,
+    "dtype": "BFLOAT16",
+    "ratio": 2.0,
+    "waste_b_x_calls": 33554432
+   },
+   {
+    "phase": "backward",
+    "op": "zeros",
+    "site": "taped_ttnn.py:713:pad",
+    "calls": 3498,
+    "logical_b_x_calls": 44901072896,
+    "allocated_b_x_calls": 44934627328,
+    "largest_allocated_b": 50331648,
+    "worst_shape": [
+     256,
+     4,
+     256,
+     16
+    ],
+    "worst_padded": [
+     256,
+     4,
+     256,
+     32
+    ],
+    "worst_ratio": 2.0,
+    "dtype": "BFLOAT16",
+    "ratio": 1.0007,
+    "waste_b_x_calls": 33554432
+   },
+   {
+    "phase": "backward",
+    "op": "reshape",
+    "site": "taped_ttnn.py:622:bw",
+    "calls": 11,
+    "logical_b_x_calls": 973078528,
+    "allocated_b_x_calls": 1006632960,
+    "largest_allocated_b": 134217728,
+    "worst_shape": [
+     256,
+     4,
+     16,
+     256
+    ],
+    "worst_padded": [
+     256,
+     4,
+     32,
+     256
+    ],
+    "worst_ratio": 2.0,
+    "dtype": "BFLOAT16",
+    "ratio": 1.0345,
+    "waste_b_x_calls": 33554432
+   },
+   {
+    "phase": "backward",
+    "op": "permute",
+    "site": "tenstorrent.py:8158:_attend_heads",
+    "calls": 4,
+    "logical_b_x_calls": 33554432,
+    "allocated_b_x_calls": 67108864,
+    "largest_allocated_b": 16777216,
+    "worst_shape": [
+     256,
+     4,
+     16,
+     256
+    ],
+    "worst_padded": [
+     256,
+     4,
+     32,
+     256
+    ],
+    "worst_ratio": 2.0,
+    "dtype": "BFLOAT16",
+    "ratio": 2.0,
+    "waste_b_x_calls": 33554432
+   },
+   {
+    "phase": "pre",
+    "op": "from_torch",
+    "site": "?",
+    "calls": 12,
+    "logical_b_x_calls": 31986176,
+    "allocated_b_x_calls": 56147968,
+    "largest_allocated_b": 16777216,
+    "worst_shape": [
+     1,
+     256,
+     256,
+     1
+    ],
+    "worst_padded": [
+     1,
+     256,
+     256,
+     32
+    ],
+    "worst_ratio": 32.0,
+    "dtype": "BFLOAT16",
+    "ratio": 1.7554,
+    "waste_b_x_calls": 24161792
+   },
+   {
+    "phase": "backward",
+    "op": "multiply",
+    "site": "taped_ttnn.py:590:<lambda>",
+    "calls": 1238,
+    "logical_b_x_calls": 21308899328,
+    "allocated_b_x_calls": 21330132992,
+    "largest_allocated_b": 22544384,
+    "worst_shape": [
+     1,
+     86,
+     256,
+     512
+    ],
+    "worst_padded": [
+     1,
+     86,
+     256,
+     512
+    ],
+    "worst_ratio": 1.0,
+    "dtype": "BFLOAT16",
+    "ratio": 1.001,
+    "waste_b_x_calls": 21233664
+   },
+   {
+    "phase": "backward",
+    "op": "permute",
+    "site": "tenstorrent.py:10867:head_out",
+    "calls": 48,
+    "logical_b_x_calls": 7077888,
+    "allocated_b_x_calls": 28311552,
+    "largest_allocated_b": 589824,
+    "worst_shape": null,
+    "worst_padded": null,
+    "worst_ratio": 0.0,
+    "dtype": "BFLOAT16",
+    "ratio": 4.0,
+    "waste_b_x_calls": 21233664
+   },
+   {
+    "phase": "backward",
+    "op": "matmul",
+    "site": "tenstorrent.py:10868:head_out",
+    "calls": 48,
+    "logical_b_x_calls": 7077888,
+    "allocated_b_x_calls": 28311552,
+    "largest_allocated_b": 589824,
+    "worst_shape": null,
+    "worst_padded": null,
+    "worst_ratio": 0.0,
+    "dtype": "BFLOAT16",
+    "ratio": 4.0,
+    "waste_b_x_calls": 21233664
+   },
+   {
+    "phase": "backward",
+    "op": "permute",
+    "site": "tenstorrent.py:10876:head_out",
+    "calls": 48,
+    "logical_b_x_calls": 7077888,
+    "allocated_b_x_calls": 28311552,
+    "largest_allocated_b": 589824,
+    "worst_shape": null,
+    "worst_padded": null,
+    "worst_ratio": 0.0,
+    "dtype": "BFLOAT16",
+    "ratio": 4.0,
+    "waste_b_x_calls": 21233664
+   },
+   {
+    "phase": "backward",
+    "op": "matmul",
+    "site": "taped_ttnn.py:162:bw",
+    "calls": 1489,
+    "logical_b_x_calls": 22539468800,
+    "allocated_b_x_calls": 22553296896,
+    "largest_allocated_b": 28835840,
+    "worst_shape": [
+     8192,
+     36
+    ],
+    "worst_padded": [
+     8192,
+     64
+    ],
+    "worst_ratio": 1.7778,
+    "dtype": "BFLOAT16",
+    "ratio": 1.0006,
+    "waste_b_x_calls": 13828096
+   }
+  ],
+  "bookkeeping_error": null
+ },
+ "build_fold_s": 4.67,
+ "prep_to_sampler_s": 6.07,
+ "capture": {
+  "trunk_inputs_snapshotted": true,
+  "trunk_inputs_dead_at_capture": 0,
+  "trunk_forward_s": 2.975,
+  "trunk_forward_note": "the shipped call, progress_fn INCLUDED and cold; the timed arms below drop it",
+  "trunk_cycles": 4,
+  "reached_sampler": true
+ },
+ "params": {
+  "declared": 2531,
+  "elements": 165180992,
+  "by_rank": {
+   "1": 1130,
+   "2": 1401
+  },
+  "walk_depth_reached": 9,
+  "walk_truncated_at_limit": 8,
+  "cache_attrs_skipped": 324,
+  "pairformer_weights": 2256,
+  "deepest_name": "trunk.msa_module.blocks.0.pair_stack.transition_z.fc1_weight"
+ },
+ "forward": {
+  "cycles": 1,
+  "ok": true,
+  "s": 3.65
+ },
+ "backward": {
+  "ok": true,
+  "s": 36.03,
+  "params_with_grad": 1639
+ }
+}
