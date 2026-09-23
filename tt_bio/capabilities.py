@@ -102,9 +102,10 @@ CAPABILITY: dict[str, dict[str, str]] = {
     # (cyclic_mask); a `bond` joins the atoms before tokenization, where upstream reads them.
     "openfold3": _row(ligand=REFUSED, polymer_bond=REFUSED, pocket=REFUSED, affinity=NOTED),
     "openbind": _row(polymer_bond=REFUSED, pocket=REFUSED, affinity=NOTED),
-    # RF3's YAML door writes upstream's own spec fields: `(CCD)` residues in the sequence,
-    # top-level `bonds`, and cyclic_chains.
-    "rf3": _row(templates=REFUSED, polymer_bond=REFUSED, pocket=REFUSED, affinity=NOTED),
+    # RF3's YAML door writes upstream's own spec fields: `(CCD)` residues in the sequence and
+    # top-level `bonds`. Upstream's cyclic_chains does not close the ring (WHY below).
+    "rf3": _row(cyclic=REFUSED, templates=REFUSED, polymer_bond=REFUSED, pocket=REFUSED,
+                affinity=NOTED),
     # `tt-bio affinity --model nesso1`, not predict. It returns a scalar and no coordinates,
     # so nothing it drops can come back as a wrong structure, and the docs tell users to
     # reuse their Boltz-2 affinity yaml, which carries msa:, constraints: and properties:
@@ -154,6 +155,12 @@ WHY: dict[tuple[str, str], str] = {
         f"{fam} was trained with bonds between two standard residues removed from its data, "
         "so it cannot read one; a bond to a ligand or a modified residue does reach it")
        for m, fam in (("openfold3", "OpenFold3"), ("openbind", "OpenFold3"), ("rf3", "RF3"))},
+    # perf/mgx_constraints: cyclic QLEDSEVEAVAKG, 5 samples each, N1-C13 on TT and in the
+    # upstream torch reference on CPU (rf3_upstream_ring.py).
+    ("rf3", "cyclic"): (
+        "RF3's cyclic offset brings the chain ends together but does not form the closing "
+        "peptide bond: on a cyclic 13-mer the N-C distance stays 2.4-2.9 A, in upstream RF3 "
+        "as here, where a closed amide is 1.33 A"),
     ("nesso1", "protein_free"): "it scores a protein-ligand pair",
     **{(m, "protein_free"): "its trunk is conditioned on the ESM protein language model, so a "
        "complex needs at least one protein chain" for m in ("esmfold2", "esmfold2-fast")},

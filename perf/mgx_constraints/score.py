@@ -77,6 +77,7 @@ def score(stem, path, ref_ca):
     if stem == "modification":
         r7 = chains[0][6]
         row["res7"], row["has_P"] = r7.name, atom(r7, "P") is not None
+        row["p_og1"] = dist(atom(r7, "P"), atom(r7, "OG1"))     # phosphoester, 1.6 A in TPO
     return row
 
 

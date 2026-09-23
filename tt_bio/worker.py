@@ -1254,8 +1254,8 @@ class _WorkerState:
 
         from tt_bio.esmfold2 import report_progress
         from tt_bio.main import (_generate_esmfold2_a3m, _read_bio_chains,
-                                 _read_bio_constraints, _read_cyclic,
-                                 _resolve_a3m_path, cap_a3m_file)
+                                 _read_bio_constraints, _resolve_a3m_path,
+                                 cap_a3m_file)
         from tt_bio.rf3 import confidence as rf3_confidence
         from tt_bio.rf3.featurize import featurize
 
@@ -1335,8 +1335,7 @@ class _WorkerState:
             # sequences has no coordinates to start the rollout from.
             src = Path(cfg["partial_structure"]) if partial_t else spec_path
             out = featurize(src, n_recycles=n_recycles,
-                            diffusion_batch_size=n_sample, seed=seed,
-                            cyclic_chains=_read_cyclic(path) or None)[0]
+                            diffusion_batch_size=n_sample, seed=seed)[0]
 
         f = out["feats"]
         atom_array = out["atom_array"]

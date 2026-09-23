@@ -75,21 +75,19 @@ def test_rf3_spec_carries_modifications_and_bonds():
         _rf3_bonds(comps, [(("A", 2, "SG"), ("L", 1, "C9"))])
 
 
-def test_rf3_features_see_the_ligand_bond_and_the_ring(tmp_path):
+def test_rf3_features_see_the_ligand_bond(tmp_path):
     from tt_bio.rf3.featurize import featurize
     from tt_bio.worker import _rf3_bonds
 
-    def feats(comps, bonds=None, cyclic=None):
+    def feats(comps, bonds=None):
         spec = tmp_path / "t.json"
         spec.write_text(json.dumps([{"name": "t", "components": comps,
                                      "bonds": _rf3_bonds(comps, bonds)}]))
-        return featurize(spec, n_recycles=1, diffusion_batch_size=1, seed=0,
-                         cyclic_chains=cyclic)[0]["feats"]
+        return featurize(spec, n_recycles=1, diffusion_batch_size=1, seed=0)[0]["feats"]
 
     lig = [{"seq": "GCGSQWDRSGR", "chain_id": "A"}, {"smiles": "C(=O)CCN", "chain_id": "L"}]
     assert feats(lig, [(("A", 2, "SG"), ("L", 1, "C1"))])["token_bonds"].sum() > \
         feats(lig)["token_bonds"].sum()
-    assert list(feats([{"seq": SFTI, "chain_id": "A"}], cyclic=["A"])["cyclic_asym_ids"]) == [0]
 
 
 def test_of3_features_see_the_bond_and_the_ring():

@@ -196,6 +196,10 @@ def test_the_committed_cyclic_example_is_accepted(model):
     p = Path(__file__).resolve().parent.parent / "examples" / "cyclic_prot.yaml"
     if not p.exists():
         pytest.skip("examples/cyclic_prot.yaml not in this checkout")
+    if CAPABILITY[model]["cyclic"] != HONOURED:
+        with pytest.raises(RuntimeError, match="cyclic"):
+            check_capabilities(p, _read_bio_chains(p), model, echo=None)
+        return
     assert "cyclic" in check_capabilities(p, _read_bio_chains(p), model, echo=None)
 
 
@@ -238,23 +242,21 @@ def test_cyclic_and_bond_reach_every_path_that_honours_them():
     """A row that says `yes` over a door that never reads the key is the silent drop this
     table exists to stop. Each predict path must read `cyclic` and `bond` itself:
     `_read_bio_bonds` for the token-bond models (Protenix, OpenDDE, ESMFold2, which get a
-    ring as its closing amide), `_read_cyclic` plus the constraints for RF3 and the OF3 family,
-    which have their own ring encoding."""
+    ring as its closing amide), the constraints for RF3, and `_read_cyclic` plus the
+    constraints for the OF3 family, which has its own ring encoding."""
     from tt_bio.worker import _WorkerState
 
     reads = {"_predict_esmfold2_one": ("_read_bio_bonds(path, chains)",),
              "_predict_opendde_one": ("_read_bio_bonds(path, chains)",),
              "_protenix_inputs": ("_read_bio_bonds(path, chains)",),
-             "_predict_rf3_one": ("cyclic_chains=_read_cyclic(path)",
-                                  "_rf3_bonds(components, _read_bio_constraints(path))"),
+             "_predict_rf3_one": ("_rf3_bonds(components, _read_bio_constraints(path))",),
              "_predict_openfold3_one": ("bonds=_read_bio_constraints(path), "
                                         "cyclic=_read_cyclic(path)",)}
     for method, needles in reads.items():
         src = inspect.getsource(getattr(_WorkerState, method))
         for needle in needles:
             assert needle in src, f"{method} no longer reads {needle}"
-    for model in PREDICT_MODELS:
-        assert CAPABILITY[model]["cyclic"] == HONOURED, model
+    assert [m for m in PREDICT_MODELS if CAPABILITY[m]["cyclic"] != HONOURED] == ["rf3"]
 
 
 def test_modifications_reach_every_featurizer_that_honours_them():
