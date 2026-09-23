@@ -49,12 +49,18 @@ def main():
     print(f"engine tree {ENGINE[:12]}, commits {sorted({r['commit'][:9] for r in rows})}")
     print("LADDER (samples x tokens; time = production steps, warm, probe off; memory = 6-step probe folds)")
     cell = defaultdict(dict)
+    n_timed = defaultdict(int)
     for r in base:
         k = (r["model"], r["tokens"], r["samples"])
         if r.get("probe") and r.get("steps") == 6:
             cell[k]["mem"] = r
-        elif not r.get("probe") and r.get("steps") is None and (not r.get("cold") or fail(r)):
-            cell[k]["time"] = r
+        elif not r.get("probe") and r.get("steps") is None:
+            # A cold fold is retaken at once, so a point's second fold ran on kernels its
+            # first one compiled; a cold flag on the retake means another lane compiled into
+            # the shared cache (runs before per-plan caches). A lone cold fold is no timing.
+            n_timed[k] += 1
+            if not r.get("cold") or fail(r) or n_timed[k] > 1:
+                cell[k]["time"] = r
     for (m, t, s) in sorted(cell, key=lambda k: (k[0], k[1], k[2])):
         c = cell[(m, t, s)]
         mem, tim = c.get("mem"), c.get("time")
