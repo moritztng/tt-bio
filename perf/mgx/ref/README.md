@@ -14,7 +14,8 @@ Fold the fixture yaml as it is, from the repo root, so the pinned alignments are
 It prints CA-RMSD, CA-lDDT and the worst single-chain CA-RMSD against each reference seed, and
 the floor beside them. Chains are matched by sequence, so chain letters do not have to agree.
 `--json` gives the full record, `--floors` the floor of every cell. A cell the upstream could not
-fold prints its error instead.
+fold prints its error instead. On a fixture with a crystal (7AQX, 2AD6, 3ABQ) a second line gives
+the same numbers over only the residues the crystal resolves, floor included.
 
     boltz2 3abq_1536: vs ref s0 0.565 A / lDDT 0.9874 / chain 0.562 A | floor: single reference seed | n_ca 1406
 
@@ -22,7 +23,9 @@ fold prints its error instead.
 
 Which number to read depends on the fixture. On 2AD6 and 3ABQ the seeds agree to about half an
 angstrom and the whole-complex RMSD is the bar. On 7AQX the seeds disagree on where the nanobodies
-dock, so read lDDT and the per-chain RMSD. The tiled CDK2 is one chain of repeated copies with no
+dock, so read lDDT and the per-chain RMSD. Its nanobodies also carry a 19-residue HA and His6 tag
+the crystal does not resolve, which folds sit anywhere up to 50 A apart; read the resolved line
+there. The tiled CDK2 is one chain of repeated copies with no
 defined arrangement between them, and some models fold it differently on every seed; read lDDT
 there, and expect the floor to be wide.
 

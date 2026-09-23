@@ -45,9 +45,20 @@ def lddt_ca(model: list, ref: list, cutoff: float = 15.0) -> float:
     return float(np.mean([(err < t).mean() for t in (0.5, 1.0, 2.0, 4.0)]))
 
 
-def compare(pred: str, ref: str) -> dict:
-    """CA-RMSD after superposition and CA-lDDT of `pred` against `ref`."""
+def resolved(ref: dict, gt: str) -> dict:
+    """`ref`'s chains cut to the residues the crystal `gt` resolves, chains matched by sequence."""
+    g = ca_chains(gt)
+    best = best_rmsd(g, ref)
+    keep = {nr: set(g[ng][1]) for ng, nr in best[2]} if best else {}
+    return {n: (seq, {k: v for k, v in ca.items() if k in keep.get(n, ())}) for n, (seq, ca) in ref.items()}
+
+
+def compare(pred: str, ref: str, gt: str | None = None) -> dict:
+    """CA-RMSD after superposition and CA-lDDT of `pred` against `ref`; with a crystal `gt`, only
+    over the residues it resolves (an unresolved tag or loop has no ground truth to be right about)."""
     a, b = ca_chains(ref), ca_chains(pred)
+    if gt:
+        a = resolved(a, gt)
     best = best_rmsd(a, b)
     if best is None:
         return {"error": "no chain of the prediction matches the reference by sequence"}
@@ -73,13 +84,29 @@ def ref_paths(c: dict) -> dict[int, Path]:
             if r.get("status") == "ok" and (ROOT / r["cif"]).is_file()}
 
 
-def floor(c: dict) -> dict | None:
+def floor(c: dict, gt: str | None = None) -> dict | None:
     """Seed 0 vs seed 1 of the reference, the number every deviation is quoted beside."""
     refs = ref_paths(c)
     if len(refs) < 2:
         return None
     s = sorted(refs)
-    return compare(str(refs[s[1]]), str(refs[s[0]]))
+    return compare(str(refs[s[1]]), str(refs[s[0]]), gt)
+
+
+def ground_truth(fixture: str) -> str | None:
+    gt = json.loads(FIXTURES.read_text())["fixtures"].get(fixture, {}).get("ground_truth")
+    return str(ROOT / gt) if gt and (ROOT / gt).is_file() else None
+
+
+def _vs(pred: str, refs: dict, c: dict, gt: str | None) -> dict:
+    out = {"vs_ref": {f"s{s}": compare(pred, str(p), gt) for s, p in sorted(refs.items())},
+           "floor": floor(c, gt)}
+    rm = [v["ca_rmsd_A"] for v in out["vs_ref"].values() if "ca_rmsd_A" in v]
+    if rm:
+        out["mean_ca_rmsd_A"] = round(sum(rm) / len(rm), 3)
+    if out["floor"] and rm and out["floor"].get("ca_rmsd_A"):
+        out["ratio_to_floor"] = round(out["mean_ca_rmsd_A"] / out["floor"]["ca_rmsd_A"], 2)
+    return out
 
 
 def score(model: str, fixture: str, pred: str) -> dict:
@@ -91,19 +118,24 @@ def score(model: str, fixture: str, pred: str) -> dict:
         out["error"] = ("no reference for this cell: " +
                         (c.get("missing_reason") or "cell not in manifest"))
         return out
-    out["vs_ref"] = {f"s{s}": compare(pred, str(p)) for s, p in sorted(refs.items())}
-    out["floor"] = floor(c)
-    rm = [v["ca_rmsd_A"] for v in out["vs_ref"].values() if "ca_rmsd_A" in v]
-    if rm:
-        out["mean_ca_rmsd_A"] = round(sum(rm) / len(rm), 3)
-    if out["floor"] and rm and out["floor"].get("ca_rmsd_A"):
-        out["ratio_to_floor"] = round(out["mean_ca_rmsd_A"] / out["floor"]["ca_rmsd_A"], 2)
+    out.update(_vs(pred, refs, c, None))
+    gt = ground_truth(fixture)
+    if gt:
+        out["resolved"] = _vs(pred, refs, c, gt)
     return out
 
 
 def line(r: dict) -> str:
     if "error" in r:
         return f"{r['model']} {r['fixture']}: {r['error']}"
+    head = f"{r['model']} {r['fixture']}: "
+    out = head + _line(r)
+    if "resolved" in r:
+        out += "\n" + " " * len(head) + "crystal-resolved residues only: " + _line(r["resolved"])
+    return out
+
+
+def _line(r: dict) -> str:
     vs = ", ".join(f"{k} {v.get('ca_rmsd_A')} A / lDDT {v.get('lddt_ca')} / chain {v.get('worst_chain_ca_rmsd_A')} A"
                    for k, v in r["vs_ref"].items())
     f = r["floor"]
@@ -111,7 +143,7 @@ def line(r: dict) -> str:
           if f else "floor: single reference seed")
     ratio = f", {r['ratio_to_floor']}x floor" if "ratio_to_floor" in r else ""
     n = next(iter(r["vs_ref"].values())).get("n_ca")
-    return f"{r['model']} {r['fixture']}: vs ref {vs} | {fl}{ratio} | n_ca {n}"
+    return f"vs ref {vs} | {fl}{ratio} | n_ca {n}"
 
 
 def floors() -> None:
