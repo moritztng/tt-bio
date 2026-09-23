@@ -27,6 +27,7 @@ import numpy as np
 HERE = Path(__file__).resolve().parent
 ROOT = HERE.parents[2]
 sys.path.insert(0, str(ROOT / "tests"))
+import gemmi  # noqa: E402
 from ca_rmsd import best_rmsd, ca_chains  # noqa: E402
 
 MANIFEST = HERE / "manifest.json"
@@ -46,11 +47,21 @@ def lddt_ca(model: list, ref: list, cutoff: float = 15.0) -> float:
 
 def compare(pred: str, ref: str) -> dict:
     """CA-RMSD after superposition and CA-lDDT of `pred` against `ref`."""
-    best = best_rmsd(ca_chains(ref), ca_chains(pred))
+    a, b = ca_chains(ref), ca_chains(pred)
+    best = best_rmsd(a, b)
     if best is None:
         return {"error": "no chain of the prediction matches the reference by sequence"}
     rmsd, n, mapping, pr, pp = best
-    return {"ca_rmsd_A": round(rmsd, 3), "lddt_ca": round(lddt_ca(pp, pr), 4), "n_ca": n}
+    # Each chain superposed on its own: the fold of every copy, independent of where it sits.
+    # On a tiled fixture the copies share no real interface, so only this number is meaningful.
+    per_chain = []
+    for na, nb in mapping:
+        ks = sorted(set(a[na][1]) & set(b[nb][1]))
+        if len(ks) >= 3:
+            per_chain.append(gemmi.superpose_positions([a[na][1][k] for k in ks],
+                                                       [b[nb][1][k] for k in ks]).rmsd)
+    return {"ca_rmsd_A": round(rmsd, 3), "lddt_ca": round(lddt_ca(pp, pr), 4), "n_ca": n,
+            "worst_chain_ca_rmsd_A": round(max(per_chain), 3) if per_chain else None}
 
 
 def cell(manifest: dict, model: str, fixture: str) -> dict:
@@ -93,9 +104,11 @@ def score(model: str, fixture: str, pred: str) -> dict:
 def line(r: dict) -> str:
     if "error" in r:
         return f"{r['model']} {r['fixture']}: {r['error']}"
-    vs = ", ".join(f"{k} {v.get('ca_rmsd_A')} A / lDDT {v.get('lddt_ca')}" for k, v in r["vs_ref"].items())
+    vs = ", ".join(f"{k} {v.get('ca_rmsd_A')} A / lDDT {v.get('lddt_ca')} / chain {v.get('worst_chain_ca_rmsd_A')} A"
+                   for k, v in r["vs_ref"].items())
     f = r["floor"]
-    fl = f"floor {f['ca_rmsd_A']} A / lDDT {f['lddt_ca']}" if f else "floor: single reference seed"
+    fl = (f"floor {f['ca_rmsd_A']} A / lDDT {f['lddt_ca']} / chain {f.get('worst_chain_ca_rmsd_A')} A"
+          if f else "floor: single reference seed")
     ratio = f", {r['ratio_to_floor']}x floor" if "ratio_to_floor" in r else ""
     n = next(iter(r["vs_ref"].values())).get("n_ca")
     return f"{r['model']} {r['fixture']}: vs ref {vs} | {fl}{ratio} | n_ca {n}"
@@ -113,7 +126,7 @@ def floors() -> None:
             c = cell(manifest, m, f)
             fl = floor(c)
             if fl and "ca_rmsd_A" in fl:
-                row.append(f"{fl['ca_rmsd_A']} A ({fl['lddt_ca']})")
+                row.append(f"{fl['ca_rmsd_A']} A ({fl['lddt_ca']}, chain {fl['worst_chain_ca_rmsd_A']} A)")
             else:
                 row.append(c.get("missing_reason", "no reference") if not ref_paths(c) else "1 seed")
         print(f"| {m} | " + " | ".join(row) + " |")

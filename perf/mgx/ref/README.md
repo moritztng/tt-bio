@@ -11,9 +11,20 @@ Fold the fixture yaml as it is, from the repo root, so the pinned alignments are
     tt-bio predict perf/mgx/ref/fixtures/3abq_1536.yaml --model boltz2 --out_dir /tmp/o
     python3 perf/mgx/ref/score.py --model boltz2 --fixture 3abq_1536 /tmp/o/.../3abq_1536_model_0.cif
 
-It prints CA-RMSD and CA-lDDT against each reference seed and the floor beside them. Chains are
-matched by sequence, so chain letters do not have to agree. `--json` gives the full record,
-`--floors` the floor of every cell. A cell the upstream could not fold prints its error instead.
+It prints CA-RMSD, CA-lDDT and the worst single-chain CA-RMSD against each reference seed, and
+the floor beside them. Chains are matched by sequence, so chain letters do not have to agree.
+`--json` gives the full record, `--floors` the floor of every cell. A cell the upstream could not
+fold prints its error instead.
+
+    boltz2 3abq_1536: vs ref s0 0.565 A / lDDT 0.9874 / chain 0.562 A | floor: single reference seed | n_ca 1406
+
+(That line scores the 3ABQ crystal, so it also says the reference itself is right.)
+
+Which number to read depends on the fixture. On 2AD6 and 3ABQ the seeds agree to about half an
+angstrom and the whole-complex RMSD is the bar. On 7AQX the seeds disagree on where the nanobodies
+dock, so read lDDT and the per-chain RMSD. The tiled CDK2 is one chain of repeated copies with no
+defined arrangement between them, and some models fold it differently on every seed; read lDDT
+there, and expect the floor to be wide.
 
 ## Fixtures
 
