@@ -14,6 +14,8 @@ One JSON line per point in perf/mgx-diffusion/runs.jsonl, carrying:
   progress    trunk cycles actually run (the progress stream's trunk total) and the seconds
               from the first trunk event to the first diffusion event, and from there to done
   n_struct    structures written, which must equal the samples asked for
+  cold        the kernel cache grew during the fold, so it compiled and its runtime is not a
+              timing; a cold timing point (probe off) is folded again at once and both kept
 
 Plan lines: `<model> <tokens> <samples> [steps=N] [recycles=N] [probe=1] [mps=N] [guard=0]`.
 steps defaults to the model's own default (production), `guard=0` turns the size guard off.
@@ -128,6 +130,11 @@ def progress_cell(path, t_start):
             "diffusion_total": tot(diff), "stages": sorted({stage(e) for e in evs})[:20]}
 
 
+def cache_files():
+    root = os.environ.get("TT_METAL_CACHE")
+    return sum(len(f) for _d, _s, f in os.walk(root)) if root else 0
+
+
 def fold(p, ident):
     label = "-".join(str(x) for x in point_id(p) if x is not None)
     out, log = WORK / f"out_{label}", WORK / f"{label}.log"
@@ -149,14 +156,14 @@ def fold(p, ident):
         env["TT_BIO_DRAM_PEAK"] = str(probe)
     if p.get("guard") == 0:
         env["TT_BIO_SIZE_LIMIT"] = "0"
-    t0 = time.time()
+    n_cache, t0 = cache_files(), time.time()
     with open(log, "w") as fp, rg._clock_during() as clk, Load() as load:
         rc, timed_out = rg._run_fold(cmd, TIMEOUT, cwd=ROOT, stdout=fp, stderr=subprocess.STDOUT,
                                      env=env)
     cell = {**ident, **p, "started_utc": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(t0)),
             "wall_s": round(time.time() - t0, 1), "aiclk": rg._aiclk_cell(clk),
             "load": load.cell(), "dram": dram_cell(probe), "progress": progress_cell(cap, t0),
-            "log": str(log)}
+            "cold": cache_files() > n_cache, "log": str(log)}
     text = rg._fold_log_text(log)
     if timed_out:
         cell["error"] = f"timed out after {TIMEOUT:.0f}s"
@@ -191,17 +198,22 @@ def main():
     seen = set()
     if RUNS.exists():
         for c in map(json.loads, RUNS.read_text().splitlines()):
-            if (c["engine"], c["host"], c["card"]) == (ident["engine"], ident["host"], ident["card"]):
+            same = (c["engine"], c["host"], c["card"]) == (ident["engine"], ident["host"], ident["card"])
+            warm_or_final = not c.get("cold") or c.get("probe") or c.get("error") or c.get("refused")
+            if same and warm_or_final:
                 seen.add(point_id(c))
     for p in plan:
         if point_id(p) in seen:
             continue
-        cell = fold(p, ident)
-        with open(RUNS, "a") as fp:
-            fp.write(json.dumps(cell, default=str) + "\n")
-        print(json.dumps({k: cell.get(k) for k in ("model", "tokens", "samples", "recycles",
-                                                    "steps", "probe", "runtime_s", "wall_s",
-                                                    "n_struct", "error", "refused")}), flush=True)
+        for _ in range(2):
+            cell = fold(p, ident)
+            with open(RUNS, "a") as fp:
+                fp.write(json.dumps(cell, default=str) + "\n")
+            print(json.dumps({k: cell.get(k) for k in (
+                "model", "tokens", "samples", "recycles", "steps", "probe", "runtime_s",
+                "wall_s", "n_struct", "cold", "error", "refused")}), flush=True)
+            if not cell["cold"] or p.get("probe") or cell.get("error") or cell.get("refused"):
+                break
         seen.add(point_id(p))
 
 
