@@ -2,6 +2,7 @@
 
     score.py [out_dir] [--matrix <mgx_matrix out dir>]  ->  one row per (model, input, sample)
 
+<stem>_ctrl     the same geometry as <stem>, folded without its `bond` constraint
 sfti_*          N1-C14 (a closed amide is 1.33 A; 1SFI's is 1.33), SG3-SG11 (1SFI: 2.05),
                 CA-RMSD over all 14 residues against 1SFI chain I after Kabsch superposition
 cyclic          N1-C13 on the matrix's own cyclic peptide
@@ -25,7 +26,8 @@ import numpy as np
 
 HERE = Path(__file__).resolve().parent
 STEMS = ("sfti_cyclic_ss", "sfti_cyclic", "sfti_ss", "sfti_linear", "cyclic", "linear13",
-         "bond_ligand", "bond_protein_cys", "modification", "base")
+         "bond_ligand_ctrl", "bond_ligand", "bond_protein_cys_ctrl", "bond_protein_cys",
+         "modification", "base")
 
 
 def crystal():
@@ -56,6 +58,9 @@ def dist(x, y):
 def score(stem, path, ref_ca):
     chains = list(gemmi.read_structure(str(path))[0])
     row = {}
+    # `<stem>_ctrl` is the same input with the `bond` constraint deleted: same atoms, same
+    # measurement, so the bonded distance has something to be a distance against.
+    stem = stem[:-5] if stem.endswith("_ctrl") else stem
     if stem.startswith("sfti") or stem in ("cyclic", "linear13"):
         ch = chains[0]
         row["n_c"] = dist(atom(ch[0], "N"), atom(ch[len(ch) - 1], "C"))

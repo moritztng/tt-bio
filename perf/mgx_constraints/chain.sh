@@ -66,6 +66,10 @@ for M in "$@"; do
   if [ -n "${CTRL:-}" ]; then        # the 13-mer's linear control only
     fold "$M" ctrl --diffusion_samples 5 -- $I/linear13.yaml; continue
   fi
+  if [ -n "${BONDCTRL:-}" ]; then    # the two bond inputs with their `bond` constraint deleted
+    fold "$M" bondctrl --diffusion_samples 5 -- $I/bond_ligand_ctrl.yaml \
+        $I/bond_protein_cys_ctrl.yaml; continue
+  fi
   fold "$M" cons --diffusion_samples 5 -- $I/sfti_cyclic_ss.yaml $I/sfti_cyclic.yaml \
       $I/sfti_ss.yaml $I/sfti_linear.yaml $I/cyclic.yaml $I/bond_ligand.yaml \
       $I/bond_protein_cys.yaml $I/modification.yaml
