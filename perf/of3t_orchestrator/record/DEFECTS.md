@@ -1344,3 +1344,84 @@ A per-row workaround around a shipped defect leaves the defect shipped.
 `RuntimeError` path the `except` already builds (which also closes the device), so a wedge and a
 throw produce the *same* fast, respawnable outcome the docstring promises. The bound must be on
 the probe, not on its callers. No measurement and no card: this is source.
+
+**Addendum to D245, pass 414 — the PACKAGE leg is closed and the headline clause is falsified.**
+D245 was filed as *"the campaign's best trunk number comes from a configuration nobody can
+ship."* **That consequence is now false.** `of3t-verbinstall`'s packaged install reproduces the
+harness arm `ceiling_hf3` **bit-exactly**: 2,736 of 2,736 gradient tensors bit-identical, 0
+differing, neither side holding a key the other lacks
+(`perf/of3t_verbinstall/ARMDIFF_PKG_HF3B_vs_CEIL_HF3.json`, `all_bit_identical: true`, read
+from the artifact at pass 414 rather than taken from the row's VERDICT). It scores
+**0.41752141981218177** against float64 — CEIL_HF3 to seventeen digits, 1.0524836626308578x
+in-frame — and it is qb1's p150a reproducing a qb2 p300c arm, so it is also a third cross-board
+A/A. Reach is banked: **verb 5901, raw 1742**, where the first inert arm read verb 0.
+
+**The defect stays UNFIXED, narrowed to what is still true.** The site-selector route remains
+34.25 % worse than the verb install, and the pre-registered two-sided FALSIFIER that decides
+whether the 1,685 raw serves carry that gap is still on the card. What is gone is the framing:
+there is now a shippable configuration that matches the harness exactly, so the campaign's best
+trunk lever is no longer an experiment nobody can ship.
+
+**And this does not by itself make the lever valuable.** Its 1.0525x was measured on the
+DOUBLE-COUNTED functional, where 62.52 % of the error was magnitude; on the repaired functional
+the error is 0.2749 % magnitude and 99.7 % angle. `of3t-angle` is measuring whether the lever
+closes the ANGLE. **A shippable path to a lever that turns out to be inert on the repaired
+functional is a shippable path to nothing**, and the two questions must not be conflated
+because they resolved in the same week.
+
+### D248. The qkv-heads vjp scatters into a rank-4 axis of extent 3, which TILE layout pads to 32 — a 10.667x DRAM waste on the largest buffer the taped backward allocates. **FIXED on `wk/of3t-cropwall`, RELEASE-GATED AND UNMERGED** — found and repaired by `of3t-cropwall` at pass 414; arithmetic re-derived independently by `of3t-orchestrator` before filing. **USER-FACING: every taped training step on every model that uses this vjp pays it, not only large crops.**
+
+`tt_bio/taped_ttnn.py:922` (pre-fix), the vjp of `experimental.nlp_create_qkv_heads`. It
+scattered one head-split cotangent into slot `s` of the packed axis by concatenating three
+`[B, L, 1, H*dh]` pieces on **dim 2**, giving a `[N, N, 3, H*dh]` output. **TILE layout pads the
+second-to-last dim up to 32**, so the allocator is asked for `[N, N, 32, H*dh]`.
+
+At 576 with H=4, dh=32, bf16 — every figure below re-computed from scratch at pass 414 and
+matching the row to the byte:
+
+    concat output [576,576,3,128]   logical   254,803,968 B
+                                    allocated 2,717,908,992 B     32/3 = 10.667x
+    pad share of the buffer                   90.625 %
+    and three such buffers are co-live (output + `rows` + `zero`, the latter two 32x)
+
+**2,717,908,992 B is the refusal `of3t-crop768` quoted to the byte** and attributed to
+contiguity inside `ttnn::concat`. It was not contiguity: the tensor never needed to be
+contiguous at that size **because it never needed to be that size**.
+
+**The repair is a pure re-indexing.** The packed width decomposes as `[3, H, dh]`, so slot `s`
+is equally the contiguous last-axis range `[s*H*dh, (s+1)*H*dh)`, and the last axis is a whole
+number of tiles. `nlp_concat_heads` lands the head axis in `H*dh` with no intermediate, and the
+scatter becomes a concat on dim 3.
+
+**Controlled against a float64 host scatter** — not a second device expression — with the
+cotangents rounded to bf16 once up front so the reference is exact. Pre and post arms produce
+**the same gradient digest `68b639dc693788dc`, max_abs difference 0.0: bit-identical**, which is
+what a pure re-indexing must be. Backward DRAM high-water **1,619,214,336 -> 536,969,216 B**
+(3.02x), largest buffer **536,870,912 -> 100,663,296 B** (5.33x). The 34.7x wall-clock figure
+was taken on a loaded box and is explicitly **not** a perf claim.
+
+**Why it is user-facing and not a crop curiosity.** The waste is a ratio, not a threshold: it
+fires at every crop and on every model whose taped backward reaches this vjp. Large crops are
+merely where it crosses the card's capacity and becomes visible as a refusal.
+
+**Not inference.** `taped_ttnn.py` is only live inside `tape()`, which inference never enters,
+so Moritz's standing "no regression in inference" is not engaged. **Unmerged and release-gated**
+regardless.
+
+**Addendum to D205, pass 414 — the two walls are separated, and "contiguity" was the wrong noun
+for both.** `of3t-crop768` read 544 and 576 as one failure, *"contiguity inside
+`ttnn::concat`"*. `of3t-cropwall` has separated them and **only 576 was a concat at all**:
+
+- **576** was **tile padding**, now D248 and fixed: a rank-4 scatter axis of extent 3 padded to
+  32 by TILE layout, so 90.625 % of the 2,717,908,992 B request was padding. Not a shortage of
+  contiguous memory — a buffer that should never have been that size.
+- **544** refuses in **`ttnn::multiply`**, and it is the odd-tile L1-plan story: crop768's own
+  `split_544_on.json` carries a `binary_ng` stack whose 2,575,826,944 B request is
+  `[544, 4, 544, 544]` fp32 **to the byte**. That is the whole unblocked fp32 score tensor,
+  which is what `tenstorrent.py:3962` predicts when the plan narrows to 0 B and the block cap
+  goes with it; the same formula gives 7,247,757,312 B at 768. 544 is 17 tiles of 32, the odd
+  count that narrows the plan. Both figures re-derived independently at pass 414.
+
+**D205 stays UNFIXED**: 576's cause is repaired but unmerged, 512 is not yet re-confirmed on
+the new card, and where the capacity wall truly sits above 576 is still open — 640 refused with
+23,710,208 B free, 0.069 % of the card, which is a genuine capacity refusal rather than waste.

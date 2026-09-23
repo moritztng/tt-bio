@@ -383,7 +383,7 @@ def test_install_and_uninstall_put_back_the_objects_they_replaced():
         assert tt._VERBS["softmax"] is ag._v_exact_softmax
         assert tt._VERBS["softmax_in_place"] is ag._v_exact_softmax
     finally:
-        ag.uninstall()
+        ag.uninstall(exact_softmax=True)
     assert not ag.exact_softmax_installed()
     assert ttnn.softmax is was["raw"] and ttnn.softmax_in_place is was["raw_ip"]
     assert tt._VERBS["softmax"] is was["verb"]
@@ -540,7 +540,55 @@ def test_install_exact_softmax_is_still_undone_by_its_own_uninstall():
     try:
         assert ttnn.softmax is ag._exact_softmax_raw
     finally:
-        ag.uninstall()
+        ag.uninstall(exact_softmax=True)
         ops.set_grad_hook(prev)
     assert ttnn.softmax is was
     assert not ag.exact_softmax_installed()
+
+
+def test_install_exact_softmax_survives_a_foreign_install_uninstall_pair():
+    """The fourth cell, and the one the first fix left open.
+
+    Naming the owner was not enough: `install(exact_softmax=True)` recorded the literal
+    `"install"`, which is exactly what an unrelated `uninstall()` passed, so the unrelated call
+    still matched and still disarmed the lever. Two tests that each covered a SAFE cell --
+    on-via-block + foreign pair, and on-via-install + own teardown -- read together as "both
+    directions" and kept this one invisible. The flag now sits on both halves, so a bare
+    `uninstall()` cannot disarm what it did not arm.
+    """
+    ag = pytest.importorskip("tt_bio.autograd")
+    import tt_bio.ops as ops
+    import ttnn
+
+    was = ttnn.softmax
+    prev = ag.install(exact_softmax=True)
+    try:
+        # Exactly `train/lora.py:608-615`: a foreign scoped pair that never asked for the lever.
+        inner = ag.install()
+        ag.uninstall()
+        assert ttnn.softmax is ag._exact_softmax_raw, (
+            "a foreign install/uninstall pair disarmed an exact softmax it never armed")
+        assert ag.exact_softmax_installed()
+        del inner
+    finally:
+        ag.uninstall(exact_softmax=True)
+        ops.set_grad_hook(prev)
+    assert ttnn.softmax is was
+    assert not ag.exact_softmax_installed()
+
+
+def test_a_bare_uninstall_still_puts_the_inference_hooks_back():
+    """The flag must not turn `uninstall()` into a no-op for everything else: the four hooks
+    are what an inference path must not be left holding."""
+    ag = pytest.importorskip("tt_bio.autograd")
+    import tt_bio.ops as ops
+
+    prev = ag.install()
+    try:
+        assert ops.grad_hook() is not None
+        assert ops.host_softmax_hook() is ag.host_f64_softmax
+    finally:
+        ag.uninstall()
+    assert ops.grad_hook() is None
+    assert ops.host_softmax_hook() is None
+    ops.set_grad_hook(prev)

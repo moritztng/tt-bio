@@ -1329,3 +1329,141 @@ reproduction. Bound the probe, not its callers, into the `RuntimeError` path the
 builds — so a wedge and a throw produce the same fast, respawnable outcome. Both D246 and D247
 are SOURCE items: no card, no decision, no measurement, and they do not compete with the row's
 two outstanding frame scores.
+
+### R182. I sequenced carefully by CARD and was blind to a row already at 991 % CPU on another host (pass 414, zero card)
+
+Dispatching `of3t-cropwall` this pass I reasoned properly about card allocation: qb2 card 2 and
+not card 0, because `tt-smi -r` resets the board **pair** and card 1 is `of3t-angle`'s. Then I
+checked qb1 for an unrelated reason and found **`of3t-angle`'s `ref_grad.py` at 991 % CPU and
+10.9 GB RSS**, building its corrected float64 reference on qb1 — a host its `#DISPATCH` line
+does not mention — beside `of3t-verbinstall`'s device arm, at load average **13.58**.
+
+**This is `dispatch-host-grant-does-not-sandbox-which-host-opens-the-device` on the HOST side.**
+The known form of that lesson is about which host a row opens a *card* on. The form that bit
+here is cheaper and less visible: a row whose card work is on qb2 can put its *host-side* work —
+float64 references, and float64 on host is the most core-hungry thing this campaign runs —
+anywhere it likes, and nothing in the dispatch record shows it.
+
+**The orchestrator-facing half is the part worth keeping.** My sequencing model is card-shaped:
+which row holds which chip, which reset takes which pair. It has no representation of host CPU
+at all, so a row can saturate ten cores on a box I believe is owned by someone else and my
+allocation reasoning stays confidently wrong. **I was one host away from a number I would have
+believed** — `of3t-verbinstall`'s remaining arms are on that box.
+
+**No science was lost and I want to be exact about why, not relieved about it.** Both rows'
+outstanding deliverables are accuracy readings — rel, r, cos, angle, and two frame scores —
+and an accuracy question is load-insensitive (`a-firing-question-is-load-insensitive-so-a-loud-
+box-does-not-block-it`, the same shape). Only durations are corrupted. `of3t-verbinstall`'s
+existing "30 minutes of arm time" was recorded at 01:13, **before** this began, so it stands.
+Both rows are now told to take no wall time on qb1 while they share it, and `of3t-angle` is told
+to stamp host, board and quiet-state **into the artifact** rather than its notes — a reading
+whose host is unrecorded cannot later be compared against one taken quiet.
+
+The standing correction to my own practice: **before dispatching, check host load on every box a
+live row touches, not just the card map.** A card is allocated; a core is merely taken.
+
+### R183. The campaign carries two definitions of one aggregate triple, and only one of them can carry an angle — A43 (pass 414, zero card)
+
+`of3t-angle` found it while re-reading the softmax ladder, and it is the sharpest instrument
+finding since D242. **`of3t-trunkg043/score.py`'s `mass_weighted_rel_l2` is a mass-weighted
+QUADRATIC mean of the per-tensor `rel`, while `mass_weighted_norm_ratio` and `mass_weighted_cos`
+are ARITHMETIC means of the per-tensor ratio and cosine.** `rel^2 = 1 + r^2 - 2 r cos` holds per
+tensor and **not** on those three. Measured on R149's own shipped arm: reported `rel`
+0.9153623104186986 against 0.6855 reconstructed from its own reported `r` and `cos` — **a 25 %
+residual**. An angle read off that `cos` is not an angle; it is the average of some cosines.
+
+**Why this matters more than it looks.** The whole of the campaign's current position is a
+DIRECTION claim — the clause is unreachable by magnitude and reachable only by closing 43.61 %
+of an angle. A direction claim resting on an aggregate that does not satisfy the identity would
+be a number about nothing, and it would have been very hard to catch later, because
+`mass_weighted_cos` is a real quantity that moves in plausible ways.
+
+**Audited, and the published record is clean.** Every direction figure this campaign has
+published is in the CONCATENATED definition (`perf/of3t_recut/n384_check.py:40-67`), where the
+three are norms of one vector pair: the trunk's **45.763°** (residual 7.1e-16), the pre-repair
+**35.561°** (1.1e-16), the float64-space **35.13°** (2.1e-15, and it is `arccos(0.8178953)` from
+that split, traced this pass). The `31.92x` contrast between the two spaces' magnitude shares is
+also sound — it is quoted by `BF16_SPLIT.json` under `and_they_disagree_sharply` as the evidence
+**for** A37's no-cross-space rule, not as a carry across it. **I checked my own VERDICT against
+this before writing the clause, rather than after.**
+
+**A43 is the rule**: a `cos`, an angle, a magnitude/direction share or a best-rescaling number
+may be read only from a triple whose identity residual is published beside it at float64 noise.
+An aggregate that fails the identity is a fine summary of error MAGNITUDE and carries no
+direction — quote its `rel`, never its `cos`. And the two definitions may not be mixed in one
+comparison: `of3t-angle`'s ladder rungs are mass-weighted because that is the definition R149
+published in, while its splits are concatenated, so it reports both per arm and divides neither
+by the other. **This is A37's disease on a new axis — not two frames, but two AGGREGATIONS of
+one frame.** A reference is part of a measurement's identity; so is the aggregation.
+
+### R184. The package leg of D245 is CLOSED bit-exactly, so the best lever has a shippable path — and my own VERDICT said the opposite for a pass (pass 414, zero card)
+
+`of3t-verbinstall` reports PACKAGE closed. **Verified against the artifact, not the prose**:
+`ARMDIFF_PKG_HF3B_vs_CEIL_HF3.json` reads `compared 2736`, `bit_identical 2736`, `differing 0`,
+`only_mine []`, `only_theirs []`, `all_bit_identical true`. The packaged install scores
+**0.41752141981218177** against float64 — `ceiling_hf3` to seventeen digits — and reach is
+banked at **verb 5901, raw 1742** where the first inert arm read verb 0. It is qb1's p150a
+reproducing a qb2 p300c arm, so it is a third cross-board A/A as well.
+
+**I verified this one specifically because it is flattering.** It moves the campaign's position
+in our favour, and `a-silent-failure-whose-direction-is-flattering` is the entry that says a
+result which helps deserves the check a result which hurts would get automatically. The
+aggregate alone would not have been enough either — the row is right that a mass-weighted score
+over 2,736 tensors can agree to seventeen digits while low-mass tensors differ, which is why
+`all_bit_identical` and not the score is the reproduction claim.
+
+**My VERDICT and GAP both asserted the opposite.** They said *"the best softmax arm still has no
+shippable path"* and *"BOTH shippable installs have now failed"* — true when written, falsified
+by the row within the pass. Corrected in the same pass this time. **This is R157's rot for the
+third time in my own fields**, and the pattern is now specific enough to name: the sentences
+that rot are the ones that summarise a LIVE ROW's position, because a live row's position is
+the only thing in the doc that changes without me. Fields that summarise artifacts do not rot;
+fields that summarise rows do.
+
+**Two things must not be conflated because they resolved in the same hour.** The lever now has a
+shippable path. Whether the lever is WORTH anything is `of3t-angle`'s open question: its 1.0525x
+was taken on the double-counted functional where 62.52 % of the error was magnitude, and the
+repaired functional is 0.2749 % magnitude and 99.7 % angle. **A shippable path to an inert lever
+is a shippable path to nothing.** D245 accordingly stays UNFIXED with its headline clause struck
+and its falsifier still on the card, rather than being closed on the good half.
+
+**And D246 did NOT escalate, which I checked rather than assumed.** The row's VERDICT prose says
+the arithmetic *"installs from `tt_bio.autograd.install(exact_softmax=True)` and comes out with
+`uninstall()`"* — the unprotected entry point. Grepping the branch, every non-test caller still
+uses `with ag.exact_softmax():` (`pkgarm.py:45`, `reachprobe.py:98`), so D246 remains latent.
+What that prose shows is finding (b) doing damage on schedule: `pkgarm.py:55`'s wrong
+`installed_from` stamp has propagated into the row's own VERDICT sentence. **A bad provenance
+string does not stay in the JSON — it becomes the sentence everybody repeats.**
+
+### R185. A refusal's byte count is not evidence of contiguity — 90.6 % of the 2.7 GB was padding, and I repeated the wrong noun in the brief that found it (pass 414, zero card)
+
+`of3t-cropwall`, dispatched this pass, has already overturned D205's mechanism. The
+2,717,908,992 B refusal that `of3t-crop768` banked as *"contiguity inside `ttnn::concat`"* was
+**tile padding**: `taped_ttnn.py:922`'s qkv-heads vjp scattered into a rank-4 axis of **extent
+3**, and TILE layout pads the second-to-last dim to **32**, so the allocator was asked for
+10.667x what the gradient needed. **90.625 % of that buffer was padding**, and three such
+buffers were co-live. Filed as **D248**; every byte re-derived independently before filing.
+
+**The lesson is about the noun.** A refusal reports *how many bytes were asked for* and *how
+many were free*. Neither says the request was **necessary**. `of3t-crop768` had the right
+number and the wrong question: it asked why the card could not supply 2.7 GB contiguously, and
+the answer was that nothing ever needed 2.7 GB. The diagnostic that separates those is one
+question — **what does this buffer LOGICALLY hold?** — and it costs no device time. Here the
+answer was 254,803,968 B.
+
+**The fix had to be free, and was shown to be.** The packed width decomposes as `[3, H, dh]`,
+so slot `s` is equally a contiguous **last**-axis range, and the last axis is a whole number of
+tiles. Same gradient digest `68b639dc693788dc`, max_abs 0.0 against a **float64 host** scatter
+rather than a second device expression — bit-identical, which is what a pure re-indexing must
+be — at 3.02x less DRAM and a 5.33x smaller largest allocation. The 34.7x wall clock was taken
+on a loaded box and the row correctly refuses to call it a perf number.
+
+**And the correction lands on me.** My dispatch brief's contribution was real and was the wedge
+the row used: *the odd-32-tile story cannot explain 576, which is EVEN at 18 tiles, so the two
+stories are separable and 576 is the arm that separates them.* That held exactly — 544 is the
+odd-tile L1-plan collapse into an unblocked `[544,4,544,544]` fp32 score tensor, 576 was
+padding. **But I carried crop768's noun across while doing it**, writing that "544 and 576 die
+on contiguity". I verified the SEPARATION and not the MECHANISM NAME, which is
+`verify-the-rows-noun-not-only-its-numbers` in the one form I had not met: I re-derived the
+split that made the finding possible and copied the word that made it wrong. A brief's framing
+is inherited by the row that reads it, and this one got the right answer despite mine.
