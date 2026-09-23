@@ -18,6 +18,7 @@ bundle comparison was taken at; if they do not, nothing below it is worth runnin
 """
 from __future__ import annotations
 
+import argparse
 import json
 import sys
 import time
@@ -36,10 +37,17 @@ REPORT = Path("perf/of3t_diffusion/sub_boundary.json")
 
 
 def main() -> int:
+    # D23/R126: a boundary is only as good as the bundle it was captured from, so which one
+    # is an argument. Defaults are the published 0.5.0 paths, so nothing already taken moves.
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--boundary", type=Path, default=BOUND)
+    ap.add_argument("--out", type=Path, default=OUT)
+    ap.add_argument("--report", type=Path, default=REPORT)
+    a = ap.parse_args()
     t0 = time.time()
     import bundle_min as BM
 
-    b = torch.load(BOUND, map_location="cpu", weights_only=False)
+    b = torch.load(a.boundary, map_location="cpu", weights_only=False)
     kwargs, cot, ref_grad = b["kwargs"], b["cot"], b["grad_f64"]
     print(f"[{time.time()-t0:.0f}s] boundary loaded, cot norm {float(cot.norm()):.6e}", flush=True)
 
@@ -136,11 +144,12 @@ def main() -> int:
             "xl_out": xl.detach(), "cot": cot,
             "grad_f64": {n_: (x.detach() if x is not None else None)
                          for n_, x in zip(names, gp)}}
-    torch.save(blob, OUT)
-    rep["saved"] = {"file": str(OUT), "bytes": OUT.stat().st_size}
-    REPORT.parent.mkdir(parents=True, exist_ok=True)
-    REPORT.write_text(json.dumps(rep, indent=1, sort_keys=True, default=str) + "\n")
-    print(f"[{time.time()-t0:.0f}s] wrote {REPORT} and {OUT}", flush=True)
+    a.out.parent.mkdir(parents=True, exist_ok=True)
+    torch.save(blob, a.out)
+    rep["saved"] = {"file": str(a.out), "bytes": a.out.stat().st_size}
+    a.report.parent.mkdir(parents=True, exist_ok=True)
+    a.report.write_text(json.dumps(rep, indent=1, sort_keys=True, default=str) + "\n")
+    print(f"[{time.time()-t0:.0f}s] wrote {a.report} and {a.out}", flush=True)
     return 0
 
 

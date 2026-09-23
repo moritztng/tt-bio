@@ -1,0 +1,24 @@
+{
+ "fix": {
+  "seeds": 9,
+  "picks_best": 3,
+  "mean_rank_of_best": 1.2222222222222223,
+  "mean_regret": 0.6162040710596128,
+  "mean_within_seed_spread": 0.9711855781875354,
+  "mean_best": 0.6292805023621575,
+  "mean_rank0": 1.2454845734217703,
+  "mean_plddt": 0.8013858888888888
+ },
+ "ship": {
+  "seeds": 9,
+  "picks_best": 1,
+  "mean_rank_of_best": 2.5555555555555554,
+  "mean_regret": 0.10235310728584082,
+  "mean_within_seed_spread": 0.2841738083429563,
+  "mean_best": 0.6793226052508506,
+  "mean_rank0": 0.7816757125366914,
+  "mean_plddt": 0.7161788888888889
+ },
+ "random_baseline_mean_rank_of_best": 2.0,
+ "note": "5 samples per seed, so a uniformly random selector picks the best 1 time in 5 and sits at mean rank 2.0."
+}
