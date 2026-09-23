@@ -8,6 +8,8 @@
   samples       --diffusion_samples_affinity 5/10/25 at 512 + small drug, timed at 200 steps,
                 then a DRAM census of each at 20 steps (the census drains the pipeline, so its
                 runs are memory-only).
+  fix_nesso1    the size_nesso1 grid again after 29b285fb7 (trunk off the cross-chain mask path),
+                the refused 1536 ligand rungs first; tags nf_*.
   screen_*      the 100-ligand screens. Nesso-1 YSK4 in two shards on two chips, Nesso-1 LCK on
                 one, Boltz-2 LCK as one `predict` over the directory on two chips, which is how
                 the shipped CLI spreads a screen across cards.
@@ -50,13 +52,17 @@ def main():
           + [{"tag": "m_1536_b12_a5", "surface": "boltz2", "input": size(1536, "b12"), "census": True,
               "args": ["--sampling_steps", "20", "--sampling_steps_affinity", "20"]},
              {"tag": "mn_1536_b12", "surface": "nesso1", "input": size(1536, "b12"), "census": True}])
+    fix = [(1536, "rap"), (1536, "b12"), (512, "small"), (1536, "small"), (1024, "small"),
+           (1664, "small"), (1792, "small"), (2048, "small"), (512, "rap"), (512, "b12")]
+    write("fix_nesso1", [{"tag": f"nf_{n}_{lig}", "surface": "nesso1", "input": size(n, lig)}
+                         for n, lig in fix])
     ysk4 = sorted((HERE / "inputs/screen/ysk4").glob("*.yaml"))
     for k in range(2):
         d = HERE / f"out/shards/ysk4_{k}"
-        shutil.rmtree(d, ignore_errors=True)
-        d.mkdir(parents=True)
-        for y in ysk4[k::2]:
-            shutil.copy(y, d / y.name)
+        if not d.exists():  # a running screen reads it, so never rewrite it
+            d.mkdir(parents=True)
+            for y in ysk4[k::2]:
+                shutil.copy(y, d / y.name)
         write(f"screen_nesso1_ysk4_{k}", [{"tag": f"n_screen_ysk4_{k}", "surface": "nesso1",
                                            "input": f"perf/mgx_affinity/out/shards/ysk4_{k}"}])
     write("screen_boltz2_lck", [{"tag": "b_screen_lck", "surface": "boltz2", "input": f"{IN}/screen/lck"}])
