@@ -8,6 +8,10 @@
 set -u
 card=$1 model=$2 rungs=$3 walk=$4 refit=${5:-}; shift 4; [ "$refit" = --refit ] && shift
 cd "$(dirname "$0")/../.."
+# The pid must be the walk itself. A pid read back with `pgrep -f` or `$!` from an ssh one-liner is
+# often that one-liner's own shell, which exits at once and starts this walk on a busy chip.
+{ tr '\0' ' ' < "/proc/$walk/cmdline"; } 2>/dev/null | grep -Eq '^bash perf/mgx-speed/(launch|rewalk|retime)\.sh ' ||
+    { echo "rewalk: pid $walk is not a mgx-speed walk" >&2; exit 2; }
 export TT_BIO_LEASE_DIR=$HOME/leases TT_BIO_LEASE_HOLDER=worker:mgx-speed
 "$HOME/env/bin/python" perf/sizegate/mgx/hold.py "$card" $$ >> "perf/mgx-speed/logs/hold-$card.log" 2>&1 &
 while kill -0 "$walk" 2>/dev/null; do sleep 20; done
