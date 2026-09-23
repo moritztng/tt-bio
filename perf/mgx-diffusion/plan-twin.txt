@@ -1,0 +1,26 @@
+# Family members that share their sampler with a lane-A/B/C model: one size, both ends of the axis.
+# A difference here is a fact about the checkpoint, not the shared path.
+protenix-v1 768 1 steps=6 probe=1
+protenix-v1 768 25 steps=6 probe=1
+openbind 768 1 steps=6 probe=1
+openbind 768 25 steps=6 probe=1
+esmfold2-fast 768 1 steps=6 probe=1
+esmfold2-fast 768 25 steps=6 probe=1
+opendde-abag 512 1 steps=6 probe=1
+opendde-abag 512 25 steps=6 probe=1
+protenix-v1 768 1
+protenix-v1 768 5
+openbind 768 1
+openbind 768 5
+esmfold2-fast 768 1
+esmfold2-fast 768 5
+opendde-abag 512 1
+opendde-abag 512 5
+protenix-v1 768 5 steps=6 probe=1
+openbind 768 5 steps=6 probe=1
+esmfold2-fast 768 5 steps=6 probe=1
+opendde-abag 512 5 steps=6 probe=1
+protenix-v1 768 25
+openbind 768 25
+esmfold2-fast 768 25
+opendde-abag 512 25

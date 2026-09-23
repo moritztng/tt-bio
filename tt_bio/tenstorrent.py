@@ -10537,6 +10537,11 @@ class DiffusionTransformer(Module):
         self._cond_w = (cat(ad_w, 1), cat(ad_b, 0), cat(op_w, 1), cat(op_b, 0))
         return self._cond_w
 
+    def _peak_tag(self, a):
+        # The DRAM census tag for one layer. The leading dim is the diffusion sample chunk,
+        # which is what makes the sample axis visible to TT_BIO_DRAM_PEAK at all.
+        return f"dit[{'atom' if self.atom_level else 'token'} B={a.shape[0]}] layer"
+
     def __call__(
         self,
         a: ttnn.Tensor,
@@ -10589,6 +10594,7 @@ class DiffusionTransformer(Module):
                               cond=cond)
                     for x in parts:
                         ttnn.deallocate(x)
+                    dram_peak(self._peak_tag(a))
                 return a
             dim = z.shape[1] // len(self.layers)
             for i, layer in enumerate(self.layers):
@@ -10603,6 +10609,7 @@ class DiffusionTransformer(Module):
                 )
                 for x in parts:
                     ttnn.deallocate(x)
+                dram_peak(self._peak_tag(a))
             return a
         finally:
             if cond_all is not None:
@@ -12323,6 +12330,12 @@ class DiffusionModule(TorchWrapper):
                 bias, (TOKEN_DIM / TOKEN_N_HEADS) ** 0.5
             )
             bias_token_tt = ttnn.permute(bias, (0, 3, 1, 2))
+            if isinstance(bias_token, ttnn.Tensor):
+                # The device conditioning hands its tensor over (the multiply_ above already
+                # scaled it in place) and nothing reads it after this permute. Kept, it was a
+                # second [n, n, heads * layers] copy through the whole sampler: 2.14 GiB at
+                # 1728 tokens.
+                ttnn.deallocate(bias)
             if token_pad:
                 # Fuse additive padding mask into token bias (bfloat16 for -1e9)
                 seq_mask = torch.zeros(1, 1, 1, padded_seq)
