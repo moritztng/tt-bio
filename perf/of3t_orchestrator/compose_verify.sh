@@ -929,6 +929,15 @@ if [ -n "$_f64_on_main" ]; then
 fi
 echo "  ok    no float64 softmax symbol on origin/main; the probe finds $(printf '%s\n' $_f64_on_compose | wc -l) file(s) on wk/of3t, so the grep reads something"
 
+echo "--- A43: an angle needs its identity"
+# of3t-angle, pass 414: the campaign carries TWO definitions of the same three aggregates, and
+# score.py's mass-weighted triple mixes a quadratic mean of rel with arithmetic means of r and
+# cos -- so rel^2 = 1 + r^2 - 2 r cos misses by 25 % on R149's own arm. An angle off that cos is
+# the average of some cosines. The whole current position is a DIRECTION claim, so this is load
+# bearing rather than tidy.
+"$PY" "$HERE/angleident/identity_required.py" "$CO" || \
+  { echo "COMPOSE: a direction claim is published by an artifact that never demonstrates the identity (A43)"; exit 1; }
+
 echo "--- user-facing closure plan"
 "$PY" "$HERE/userfacing/closure_plan.py" | tail -4 || \
   { echo "COMPOSE: the USER-FACING closure plan is stale against UNFIXED_TRIAGE.json"; exit 1; }
