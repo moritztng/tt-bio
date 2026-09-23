@@ -58,6 +58,18 @@ def sha256_file(p, chunk=1 << 24):
     return h.hexdigest()
 
 
+def loadavg_block(path):
+    """Amendment 1: the box this reading was taken on, recorded rather than assumed quiet."""
+    if not path or not os.path.exists(path):
+        return {"sampled_DURING": False,
+                "why": "no sampler ran; the co-tenant field is what is known"}
+    s = sorted(float(x) for x in open(path).read().split() if x.strip())
+    if not s:
+        return {"sampled_DURING": False, "why": "sampler file is empty"}
+    return {"sampled_DURING": True, "n": len(s), "min": s[0], "median": s[len(s) // 2],
+            "max": s[-1]}
+
+
 def load(p):
     d = torch.load(p, map_location="cpu", weights_only=False)
     g = d["grads"] if isinstance(d, dict) and "grads" in d else d
@@ -145,6 +157,8 @@ def main() -> int:
     ap.add_argument("--arm", action="append", default=[], metavar="TAG=PATH")
     ap.add_argument("--r149", required=True, help="SOFTMAX_ARM_TABLE.json, read not retyped")
     ap.add_argument("--correction-report", required=True)
+    ap.add_argument("--loadavg", default="", help="loadavg sampled DURING this scoring run")
+    ap.add_argument("--cotenant", default="", help="what else was on this host")
     ap.add_argument("--out", required=True)
     a = ap.parse_args()
 
@@ -162,10 +176,20 @@ def main() -> int:
 
     out = {
         "what": __doc__.strip().splitlines()[0],
-        "host": socket.gethostname(), "row": "of3t-angle", "defect": "D242",
-        "device_involved": False,
-        "why_no_aiclk": "CPU only; the device arms are read as banked tensors. Each arm own "
-                        "DEV_*.json carries the AICLK sampled DURING its run and its board.",
+        "environment": {
+            "host": socket.gethostname(), "board": None, "device_involved": False,
+            "QUIET": False,
+            "co_tenant": a.cotenant or "unknown",
+            "loadavg": loadavg_block(a.loadavg),
+            "why_no_board_and_no_aiclk":
+                "CPU only; the device arms are read as banked tensors. Each arm own DEV_*.json "
+                "carries the AICLK sampled DURING its run, its card and its board class.",
+            "NO_TIMING_CLAIM_FROM_THIS_HOST":
+                "Amendment 1: this row is a co-tenant on qb1 and takes no wall-clock or perf "
+                "claim there. rel, r, cos and the angle are load-insensitive, so the reading "
+                "stands and no duration is quoted.",
+        },
+        "row": "of3t-angle", "defect": "D242",
         "frame": "of3t-frame384: boundary_n384.pt (8cb3a586...) / block47_boundary.pt "
                  "(a55ef1c4...), padded 384, 56 real tokens",
         "n_tensors": len(keys),

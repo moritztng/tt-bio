@@ -66,5 +66,21 @@
   "path": "/home/ttuser/of3t_angle/cot_external_n384.pt",
   "sha256": "90ae5c4b55aef4849b7557231f6f66c1cc1b602a8a7d1a4a1edab623d1e1b162",
   "bytes": 303172027
+ },
+ "environment": {
+  "host": "tt-quietbox",
+  "row": "of3t-angle",
+  "defect": "D242",
+  "device_involved": false,
+  "board": null,
+  "why_no_board_and_no_aiclk": "CPU only. No Tenstorrent device is opened by this arm, so there is no board and no AICLK to sample. The device arms of this row carry both in their own DEV_*.json.",
+  "QUIET": false,
+  "co_tenant": "of3t-verbinstall device arms on qb1 for the whole window; load average 13.58 measured by the orchestrator at pass 414 and 16.11 at 2026-09-23T00:03:19Z",
+  "loadavg": {
+   "sampled_DURING": false,
+   "why": "no sampler ran during this arm; the co-tenancy below is what is known"
+  },
+  "NO_TIMING_CLAIM_FROM_THIS_HOST": "Amendment 1: this row is a co-tenant on qb1 and takes no wall-clock or perf claim there. The deliverable is an accuracy decomposition (rel, r, cos, angle), every part of which is load-insensitive, so the reading stands and the duration does not.",
+  "git_commit": null
  }
 }
