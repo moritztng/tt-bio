@@ -1,0 +1,19 @@
+# The 1536 rung has no across-target floor of its own, and this is what would build one.
+#
+# At 512 the floor is measured: two targets, medians 8.46 and 10.56, spread 2.10 A. At 1536
+# there is one valid target (gpb dimer A1-1536) and one disqualified fixture (big_1831), so a
+# 1536 median has nothing of its own size to be compared against and the 512 band has to stand
+# in for it. That is the weakest joint in this row's size claim.
+#
+# A second valid 1536 target costs one chip and about 5 h. The cheapest one that is genuinely
+# DIFFERENT rather than a re-crop of the same residues is the gpb dimer shifted along its own
+# sequence: 1646 residues total, so offset 100 gives residues 101-1636, a 1536-mer sharing
+# only its middle with the offset-0 crop and still spanning both chains (so still connected --
+# check with contact.py conditioning_graph before spending the chip).
+#
+# The matching 512 at the same offset is what makes it a floor rather than a second point:
+# without it the new target contributes to the 1536 spread but not to the 512 one, and the two
+# bands stop being comparable. So this plan is TWO jobs, and it is queued behind rfd3 rather
+# than ahead of it because the brief names rfd3 at both sizes and this is an addition.
+--model boltzgen --target perf/mgxaccuracy/targets/gpb_dimer_1646.cif --target-res 512  --crop-offset 100 --designs 8 --budget 8 --score-dsg --host-threads 2 --timeout 14400 --tag gpbo100
+--model boltzgen --target perf/mgxaccuracy/targets/gpb_dimer_1646.cif --target-res 1536 --crop-offset 100 --designs 8 --budget 8 --score-dsg --host-threads 2 --timeout 32400 --tag gpbo100
