@@ -1,0 +1,225 @@
+{
+ "label": "template cycles=1 blocks=48 survey",
+ "sites": {
+  "add_|taped": {
+   "tenstorrent.py:3758": 4,
+   "tenstorrent.py:8824": 2,
+   "tenstorrent.py:8828": 2,
+   "tenstorrent.py:8832": 2,
+   "tenstorrent.py:8836": 2,
+   "tenstorrent.py:8844": 2
+  },
+  "add|taped": {
+   "openfold3_template.py:171": 3,
+   "openfold3_template.py:77": 1,
+   "openfold3_template.py:78": 1,
+   "openfold3_template.py:79": 1,
+   "openfold3_template.py:80": 1,
+   "openfold3_template.py:81": 1,
+   "openfold3_template.py:82": 1,
+   "openfold3_template.py:83": 1,
+   "openfold3_template.py:95": 1
+  },
+  "chunk|taped": {
+   "tenstorrent.py:6757": 4,
+   "tenstorrent.py:8724": 2
+  },
+  "clone|taped": {
+   "tenstorrent.py:6835": 4
+  },
+  "concat|taped": {
+   "tenstorrent.py:5538": 2
+  },
+  "deallocate|taped": {
+   "openfold3_template.py:93": 1,
+   "tenstorrent.py:3697": 4,
+   "tenstorrent.py:3715": 4,
+   "tenstorrent.py:3717": 4,
+   "tenstorrent.py:3761": 4,
+   "tenstorrent.py:3783": 4,
+   "tenstorrent.py:3877": 4,
+   "tenstorrent.py:3879": 4,
+   "tenstorrent.py:6376": 8,
+   "tenstorrent.py:6760": 4,
+   "tenstorrent.py:6767": 4,
+   "tenstorrent.py:6768": 4,
+   "tenstorrent.py:6802": 4,
+   "tenstorrent.py:6803": 4,
+   "tenstorrent.py:6836": 4,
+   "tenstorrent.py:7016": 4,
+   "tenstorrent.py:7026": 4,
+   "tenstorrent.py:7539": 4,
+   "tenstorrent.py:7611": 4,
+   "tenstorrent.py:7612": 4,
+   "tenstorrent.py:7613": 4,
+   "tenstorrent.py:7638": 4,
+   "tenstorrent.py:7664": 4,
+   "tenstorrent.py:7856": 4,
+   "tenstorrent.py:7869": 4,
+   "tenstorrent.py:7870": 4,
+   "tenstorrent.py:8471": 2,
+   "tenstorrent.py:8473": 2,
+   "tenstorrent.py:8482": 2,
+   "tenstorrent.py:8825": 2,
+   "tenstorrent.py:8829": 2,
+   "tenstorrent.py:8833": 2,
+   "tenstorrent.py:8837": 2,
+   "tenstorrent.py:8845": 2
+  },
+  "experimental.minimal_matmul|taped": {
+   "tenstorrent.py:5890": 4,
+   "tenstorrent.py:7827": 4,
+   "tenstorrent.py:7843": 4
+  },
+  "experimental.nlp_create_qkv_heads|taped": {
+   "tenstorrent.py:7535": 4
+  },
+  "from_torch|none": {
+   "tenstorrent.py:6230": 4
+  },
+  "get_memory_view|none": {
+   "tenstorrent.py:4267": 1
+  },
+  "layer_norm|taped": {
+   "openfold3_template.py:130": 1,
+   "openfold3_template.py:87": 1,
+   "tenstorrent.py:6543": 4,
+   "tenstorrent.py:6986": 4,
+   "tenstorrent.py:7503": 4,
+   "tenstorrent.py:8444": 2
+  },
+  "linear|nested": {
+   "ops.py:148": 10
+  },
+  "linear|taped": {
+   "dispatch.py:67": 10,
+   "tenstorrent.py:4605": 12,
+   "tenstorrent.py:4626": 4,
+   "tenstorrent.py:8452": 2,
+   "tenstorrent.py:8463": 2,
+   "tenstorrent.py:8474": 2
+  },
+  "matmul|taped": {
+   "tenstorrent.py:2884": 8,
+   "tenstorrent.py:6792": 4
+  },
+  "multiply_|taped": {
+   "tenstorrent.py:6761": 4,
+   "tenstorrent.py:6764": 4,
+   "tenstorrent.py:7027": 4,
+   "tenstorrent.py:7636": 4,
+   "tenstorrent.py:8472": 2
+  },
+  "multiply|taped": {
+   "openfold3_template.py:172": 1,
+   "tenstorrent.py:3683": 4
+  },
+  "permute|taped": {
+   "tenstorrent.py:3694": 4,
+   "tenstorrent.py:3876": 4,
+   "tenstorrent.py:6162": 8,
+   "tenstorrent.py:6825": 4,
+   "tenstorrent.py:7517": 4,
+   "tenstorrent.py:7623": 4,
+   "tenstorrent.py:7625": 4
+  },
+  "relu|taped": {
+   "openfold3_template.py:173": 1
+  },
+  "reshape|taped": {
+   "tenstorrent.py:7436": 4,
+   "tenstorrent.py:7624": 4,
+   "tenstorrent.py:7875": 4
+  },
+  "softmax_in_place|taped": {
+   "tenstorrent.py:3768": 4
+  },
+  "to_layout|taped": {
+   "tenstorrent.py:3875": 4,
+   "tenstorrent.py:3878": 4
+  },
+  "typecast|taped": {
+   "tenstorrent.py:3682": 4,
+   "tenstorrent.py:3746": 4,
+   "tenstorrent.py:3782": 4
+  },
+  "unsqueeze|taped": {
+   "tenstorrent.py:7516": 4,
+   "tenstorrent.py:7531": 4
+  }
+ },
+ "totals": {
+  "nested": 10,
+  "none": 5,
+  "taped": 334
+ },
+ "verbs": {
+  "add": {
+   "taped": 11
+  },
+  "add_": {
+   "taped": 14
+  },
+  "chunk": {
+   "taped": 6
+  },
+  "clone": {
+   "taped": 4
+  },
+  "concat": {
+   "taped": 2
+  },
+  "deallocate": {
+   "taped": 121
+  },
+  "experimental.minimal_matmul": {
+   "taped": 12
+  },
+  "experimental.nlp_create_qkv_heads": {
+   "taped": 4
+  },
+  "from_torch": {
+   "none": 4
+  },
+  "get_memory_view": {
+   "none": 1
+  },
+  "layer_norm": {
+   "taped": 16
+  },
+  "linear": {
+   "nested": 10,
+   "taped": 32
+  },
+  "matmul": {
+   "taped": 12
+  },
+  "multiply": {
+   "taped": 5
+  },
+  "multiply_": {
+   "taped": 18
+  },
+  "permute": {
+   "taped": 32
+  },
+  "relu": {
+   "taped": 1
+  },
+  "reshape": {
+   "taped": 12
+  },
+  "softmax_in_place": {
+   "taped": 4
+  },
+  "to_layout": {
+   "taped": 8
+  },
+  "typecast": {
+   "taped": 12
+  },
+  "unsqueeze": {
+   "taped": 8
+  }
+ }
+}
