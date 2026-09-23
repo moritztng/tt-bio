@@ -1190,6 +1190,15 @@ def check(model: str, residues: int, *, ligand_atoms: int = 0, arch: str | None 
             f"{limit} on {arch}. TT_BIO_SIZE_LIMIT=0 is set, so this runs anyway and may "
             f"fail on the device.", stacklevel=2)
         return
+    # The same model in its other weight dtype is the first answer, ahead of any other model: on a
+    # weight-bound row (esmc-6b on Wormhole, 1968 in bf16 against 8192 in block-fp8) it is the
+    # only way to keep the model the user chose, and the TT_BIO_SIZE_LIMIT=0 escape below runs
+    # straight into the allocator.
+    sib = CEILINGS.get(model, {}).get(arch, _NO_ROW).fast
+    fast_hint = (f" {model} with --fast (block-fp8 weights) is measured to handle "
+                 f"{sib.residues} {_COUNT_NAMES[sib.counts]} on {arch}, so rerun with --fast."
+                 if not fast and sib is not None
+                 and not _verdict(model, sib, residues, ligand_atoms)[0] else "")
     alts = models_accepting(residues, arch, exclude=model, ligand_atoms=ligand_atoms,
                             counts=c.counts, fast=fast)
     # "no model accepts this size" is only true where every model HAS a row. On an arch that is
@@ -1212,7 +1221,7 @@ def check(model: str, residues: int, *, ligand_atoms: int = 0, arch: str | None 
            "the largest size below the first measured failure")
     raise SizeTooLargeError(
         f"{where} has {had}, and {model} is measured to handle at "
-        f"most {limit} on {arch}{depth} -- {top}.{ligand_note}{hint}"
+        f"most {limit} on {arch}{depth} -- {top}.{ligand_note}{fast_hint}{hint}"
         f" If you have reason to think this input is roomier than the ladder that set the limit "
         f"(a single-sequence run of an MSA-dependent model is), set TT_BIO_SIZE_LIMIT=0 to run it "
         f"anyway."

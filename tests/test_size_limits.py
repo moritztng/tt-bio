@@ -150,6 +150,34 @@ def test_the_fast_arm_is_only_reachable_by_asking_for_it():
                     f"{model}/{arch}: no fast sibling, so both arms must give the same row")
 
 
+def test_a_refusal_names_the_fast_arm_when_it_admits_the_input(monkeypatch):
+    """A refusal on the default arm says --fast when the model's own fp8 row takes the input.
+
+    esmc-6b on Wormhole is weight-bound: 1968 aa in bf16, 8192 with --fast. Without this the
+    refusal at 1984 named other models and TT_BIO_SIZE_LIMIT=0, which runs into the allocator
+    (1984 OOMs on a 30965760 B request, measured 2026-09-23 on j10glx02). The two negative controls
+    are a run that already asked for --fast and a size above the fast cap: neither may say it.
+    """
+    monkeypatch.delenv("TT_BIO_SIZE_LIMIT", raising=False)
+    rows = [(m, a, c) for m, per in sl.CEILINGS.items() for a, c in per.items()
+            if c.fast is not None]
+    assert rows
+    for model, arch, c in rows:
+        between = c.residues + 1
+        with pytest.raises(sl.SizeTooLargeError) as e:
+            sl.check(model, between, arch=arch)
+        assert "--fast" in str(e.value) and str(c.fast.residues) in str(e.value), str(e.value)
+        sl.check(model, between, arch=arch, fast=True)          # admitted: the hint was true
+        if c.fast.residues is not None:
+            above = c.fast.residues + 1
+            with pytest.raises(sl.SizeTooLargeError) as e:
+                sl.check(model, above, arch=arch)
+            assert "--fast" not in str(e.value), str(e.value)
+            with pytest.raises(sl.SizeTooLargeError) as e:
+                sl.check(model, above, arch=arch, fast=True)
+            assert "rerun with --fast" not in str(e.value), str(e.value)
+
+
 def test_ladder_top_publishes_the_size_it_proved():
     """A ladder-top cap must BE the top rung, not a rung below it held back for margin.
 
