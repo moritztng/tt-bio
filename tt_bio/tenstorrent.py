@@ -5572,7 +5572,45 @@ def _close_device_locked(dev):
         _release_ownership_fn()()
 
 
-def _assert_local_dispatch(dev):
+# How long the bring-up probe may take before it is called a wedge. A healthy open plus
+# dispatch on a qb1 p150a is 1.6 s, so this is a ~75x margin and needs no tuning.
+_DISPATCH_PROBE_TIMEOUT_S = 120.0
+
+
+class _DispatchProbeTimeout(Exception):
+    """The bring-up probe did not come back. Raised into the same path a throw takes."""
+
+
+@contextlib.contextmanager
+def _probe_deadline(seconds):
+    """Turn a hang in the probe into an exception, when this thread can carry a signal.
+
+    SIGALRM only fires on the main thread, and it can only be delivered between bytecodes or
+    when a blocking call returns EINTR -- so a C call that blocks with the GIL released and
+    retries internally is NOT interruptible this way. That case is the residual, and it is
+    named rather than papered over: what this closes is every wedge that surfaces to Python,
+    which is what the 2026-09-22 incident was.
+    """
+    import signal
+    import threading
+    if seconds is None or seconds <= 0 or threading.current_thread() is not threading.main_thread():
+        yield
+        return
+
+    def _fire(signum, frame):
+        raise _DispatchProbeTimeout(
+            f"no result from the bring-up dispatch within {seconds:.0f}s")
+
+    prev = signal.signal(signal.SIGALRM, _fire)
+    prev_timer = signal.setitimer(signal.ITIMER_REAL, seconds)
+    try:
+        yield
+    finally:
+        signal.setitimer(signal.ITIMER_REAL, *prev_timer)
+        signal.signal(signal.SIGALRM, prev)
+
+
+def _assert_local_dispatch(dev, timeout_s=None):
     """Verify a freshly-opened chip can actually dispatch a program.
 
     A chip that came up "remote-only" from a raced bring-up opens fine but throws on
@@ -5581,13 +5619,27 @@ def _assert_local_dispatch(dev):
     HERE, at startup, and gets respawned with a serialized clean reopen — instead of
     silently accepting jobs it will fail. Runs unlocked: it's an ordinary compute
     dispatch on an already-open chip, not the UMD init path, so it needn't serialize
-    (the tiny kernel is cached after the first compile)."""
+    (the tiny kernel is cached after the first compile).
+
+    BOUNDED, because for two years this guarded the chip that throws and not the chip that
+    wedges. `ttnn.synchronize_device` blocks with no timeout of its own, and on 2026-09-22 two
+    arms sat in this function for 115 minutes each holding a card, computing nothing, while
+    every cheap liveness signal read healthy: 100 % CPU with CPU-time tracking elapsed to the
+    second, AICLK pinned at 1350 MHz against 800 on the idle cards, and 9 W over idle power
+    draw. A fail-fast probe that can hang is worse than no probe -- it converts a loud,
+    respawnable failure into a card held by something nothing will call dead.
+
+    A timeout now expires into the SAME `RuntimeError` path a throw takes, closing the device
+    on the way, so a wedge and a throw are one outcome for every caller."""
     import torch
+    if timeout_s is None:
+        timeout_s = _DISPATCH_PROBE_TIMEOUT_S
     try:
-        t = ttnn.from_torch(torch.zeros((32, 32), dtype=torch.bfloat16),
-                            layout=ttnn.TILE_LAYOUT, device=dev)
-        ttnn.add(t, t)
-        ttnn.synchronize_device(dev)
+        with _probe_deadline(timeout_s):
+            t = ttnn.from_torch(torch.zeros((32, 32), dtype=torch.bfloat16),
+                                layout=ttnn.TILE_LAYOUT, device=dev)
+            ttnn.add(t, t)
+            ttnn.synchronize_device(dev)
     except Exception as e:
         try:
             _close_device_locked(dev)
