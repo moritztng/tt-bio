@@ -5,9 +5,10 @@
 # is recorded as refused_<stem>.log and left out of the batch, because a non-boltz2 predict
 # validates the whole directory and one refusal aborts it.
 set -u
-cd "$(dirname "$0")/../.."
 M=$1 C=$2 T=$3; shift 3
 args=(); while [ $# -gt 0 ] && [ "$1" != "--" ]; do args+=("$1"); shift; done; shift
+ins=(); for f in "$@"; do ins+=("$(realpath "$f")"); done; set -- "${ins[@]}"
+cd "$(dirname "$0")/../.."
 OUT=$PWD/perf/mgx_constraints/out/$M/$T
 rm -rf "$OUT"; mkdir -p "$OUT/in"
 export PYTHONPATH=$PWD TT_VISIBLE_DEVICES=$C TT_BIO_LEASE_CARDS=$C TT_BIO_LEASE_HOLDER=worker:mgx-constraints
@@ -24,7 +25,7 @@ p = Path(sys.argv[2])
 if sys.argv[1] != "boltz2":
     check_capabilities(p, _read_bio_chains(p), sys.argv[1], echo=print)
 P
-    ln -s "$(realpath "$f")" "$OUT/in/"
+    ln -s "$f" "$OUT/in/"
   else
     mv "$OUT/check_$(basename "${f%.*}").log" "$OUT/refused_$(basename "${f%.*}").log"
   fi
