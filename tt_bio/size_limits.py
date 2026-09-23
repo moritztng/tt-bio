@@ -565,9 +565,34 @@ CEILINGS: dict[str, dict[str, Ceiling]] = {
                 "Wormhole's 768 is a LADDER TOP from a different chip and does not bound this",
         ),
         "wormhole_b0": Ceiling(
-            residues=960, pass_at=960, fail_at=None, binds=LADDER_TOP, mechanism=NO_FAILURE,
+            residues=1536, pass_at=1536, fail_at=None, binds=LADDER_TOP, mechanism=NO_FAILURE,
             counts=DESIGN_TARGET,
-            evidence="perf/pxdesign/targets/laczc_960_b64.yaml -- 960 conditioned target residues "
+            evidence="walked past its old 960 top to 1536 on 2026-09-23 on the whglx Galaxy "
+                     "j10glx02 card 31 (ws:mgx-design-ceiling, perf/mgxdesign/walk.py over "
+                     "perf/bhdesign/ladder.py, one rung per subprocess through the shipped CLI at "
+                     "the platform's own --n_step 400, one design, an 80-residue binder at every "
+                     "rung, ONE target for all of them -- perf/bhdesign/targets/big_1831.cif, "
+                     "chain A 1008 + chain B 823 -- so a rung differs from its neighbour only in "
+                     "size). 1536 and 1280 conditioned target residues both design, 1187.3 s and "
+                     "580.7 s of fold time at an AICLK median of 1000 MHz sampled DURING the run, "
+                     "and 512 designs on card 4 in 638.9 s. Nothing above 1536 was tried, so this "
+                     "is the top of the ladder and not a wall. THE VERDICT IS THE ARTIFACT: each "
+                     "rung's CIF carries an 80-residue / 321-atom binder AND conditioned_tokens "
+                     "equal to the target asked for, which is what separates a real rung from a "
+                     "run that quietly conditioned on the 1008-residue chain-A crop. NO SPEED "
+                     "CLAIM comes from these rungs and none should be read into them: j10glx02 "
+                     "carried a load average of 563-743 on 64 cores while five MGX rows fanned "
+                     "out over 27 chips, and the 512 rung is 9.0x the 70.7 s the same size takes "
+                     "on a quiet GWH02 at the same n_step and the same 1000 MHz. Coverage is "
+                     "load-insensitive and stands; the timing is an artifact of the host. "
+                     "STILL NOTE THE DENOMINATOR: counts=DESIGN_TARGET ignores binder_length "
+                     "while the known wall above is on TOKENS -- 1664 (ws:ceiling-pxdesign, one "
+                     "1.42 GB pair-transition buffer). 1536 + 80 is 1616, just under it, so a "
+                     "1536-residue target with a 160-residue binder is NOT covered by this row. "
+                     "The platform caps the sum at 1024 either way, so nothing it dispatches "
+                     "today can reach any of this. What this replaced, and why that move was not "
+                     "new headroom either: "
+                     "perf/pxdesign/targets/laczc_960_b64.yaml -- 960 conditioned target residues "
                      "plus a 64-residue binder, 1024 tokens, the platform's shipped defaults "
                      "(4 designs, n_step 200, seed 42). Walked twice on the serving Galaxy "
                      "UF-EV-A13-GWH02, both times a clean pass with no device refusal: 2026-09-08 "
@@ -584,15 +609,9 @@ CEILINGS: dict[str, dict[str, Ceiling]] = {
                      "TARGET residues was accepted by the service and then refused here, measured "
                      "2026-09-19 through the serving engine's own CLI. 768 was a LADDER TOP from "
                      "a fixture that could not reach higher (1DP0 chain A is 1011 residues), not "
-                     "a wall. The 2026-08-29 ladder it came from still stands: 128 aa in 62.0 s, "
-                     "256 in 50.8 s, 512 in 70.7 s, 768 in 99.9 s at n_step 400, one design. "
-                     "Above this row there is still no measured failure until 1664 TOKENS "
-                     "(ws:ceiling-pxdesign, one 1.42 GB pair-transition buffer), with 1088 and "
-                     "1408 tokens both passing twice. NOTE THE DENOMINATOR: counts=DESIGN_TARGET, "
-                     "so this ignores binder_length while the wall above is on tokens. That gap "
-                     "predates this change and is unchanged by it -- 768+896 and 960+704 are both "
-                     "1664 and both slip past -- but the platform caps the sum at 1024, so "
-                     "nothing it dispatches can reach it",
+                     "a wall. The 2026-08-29 ladder it came from still stands and is the quiet-box "
+                     "reference the whglx rungs above are 9x off: 128 aa in 62.0 s, 256 in 50.8 s, "
+                     "512 in 70.7 s, 768 in 99.9 s at n_step 400, one design",
         ),
     },
     "esmc-6b": {
@@ -757,7 +776,15 @@ CEILINGS: dict[str, dict[str, Ceiling]] = {
                 "the 3158-4651 atom band wh-design-models-l1-budget-and-size-caps recorded: that "
                 "band was an L1 wall read at a chunk width this ladder does not use, and 14786 is "
                 "3.2x the top of it. The four smallest rungs are reproducible off the fixtures "
-                "without a device -- tests/test_size_limits.py holds the sizer to them"),
+                "without a device -- tests/test_size_limits.py holds the sizer to them. "
+                "THE ATOM AXIS COVERS A 1536-RESIDUE TARGET, measured rather than inferred from "
+                "the 8.08 atoms per residue this fixture carries: 2026-09-23 on j10glx02 card 17 "
+                "(ws:mgx-design-ceiling) a 1536-residue crop of big_1831.cif -- 12405 target "
+                "atoms, 84 % of this row's top -- designs an 80-residue binder in 2896.1 s at an "
+                "AICLK median of 1000 MHz sampled DURING the run, artifact chains A=80 binder + "
+                "B=1008 + C=528. That time is not comparable to the 2242.9 s above it: the box "
+                "carried a load average of 563-743 on 64 cores. It confirms a cell this row "
+                "already covers and does not move the cap"),
     },
     "esmc-300m": {
         "wormhole_b0": Ceiling(

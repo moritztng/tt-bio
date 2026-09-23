@@ -321,11 +321,11 @@ def test_pxdesign_is_sized_from_the_crop_and_excludes_the_binder():
     y = ("target:\n  file: t.cif\n  chains:\n    A:\n      crop: [\"1-116\"]\n"
          "binder_length: 80\n")
     assert sl.scan_pxdesign_target(y) == 116        # 116, not 196
-    two = ("target:\n  file: t.cif\n  chains:\n    A:\n      crop: [\"1-600\"]\n"
-           "    B:\n      crop: [\"1-500\"]\nbinder_length: 80\n")
-    assert sl.scan_pxdesign_target(two) == 1100
+    two = ("target:\n  file: t.cif\n  chains:\n    A:\n      crop: [\"1-1000\"]\n"
+           "    B:\n      crop: [\"1-600\"]\nbinder_length: 80\n")
+    assert sl.scan_pxdesign_target(two) == 1600
     with pytest.raises(sl.SizeTooLargeError):
-        sl.check("pxdesign", 1100, arch="wormhole_b0")
+        sl.check("pxdesign", 1600, arch="wormhole_b0")
 
 
 def test_pxdesign_admits_the_target_the_platform_advertises():
@@ -334,10 +334,15 @@ def test_pxdesign_admits_the_target_the_platform_advertises():
     2026-09-08 to 2026-09-19 while the platform advertised and enforced 1024, so every job in
     between was accepted by the service and refused here -- the service shells out to
     `tt-bio design` and sets no TT_BIO_SIZE_LIMIT. Measured, twice, on the serving Galaxy.
+
+    The cap is 1536 now (ws:mgx-design-ceiling walked the ladder there on whglx), so the
+    platform's own number is no longer the boundary. It is still the number that has to be
+    admitted, which is what this asserts; the boundary is asserted beside it.
     """
     sl.check("pxdesign", 960, arch="wormhole_b0")
+    sl.check("pxdesign", 1536, arch="wormhole_b0")
     with pytest.raises(sl.SizeTooLargeError):
-        sl.check("pxdesign", 961, arch="wormhole_b0")
+        sl.check("pxdesign", 1537, arch="wormhole_b0")
 
 
 def test_an_unsizable_design_spec_refuses_nothing():
