@@ -2684,6 +2684,29 @@ def parse_polymer(
     )
 
 
+def _resolve_bond_atom(portable, chain, name, key):
+    """The name this parser gave the SMILES-ligand atom a `bond` endpoint means.
+
+    Every tt-bio model reads a SMILES atom name the portable way: element plus its 1-based
+    count in SMILES order, heavy atoms only, so C1 is the first carbon written (Protenix's
+    and OpenFold3's naming, atomworks' documented one). Boltz-2 names the same atoms by
+    RDKit canonical rank over the molecule with hydrogens (C7, O6, N10 for ``C=CC(=O)N``),
+    which is what its structures carry, so that name keeps working when it cannot be read
+    the other way. A name that is valid in both schemes and means different atoms is refused
+    rather than guessed. ``portable`` is None for anything that is not a SMILES ligand.
+    """
+    if not portable:
+        return name
+    inverse = {v: k for k, v in portable.items()}
+    if name in portable and name in inverse and portable[name] != name:
+        raise ValueError(
+            f"Bond {key} [{chain}, 1, {name}] is ambiguous on this SMILES ligand: in SMILES "
+            f"order {name} is the atom Boltz-2 names {portable[name]}, and Boltz-2's own "
+            f"{name} is the atom SMILES order names {inverse[name]}. Write "
+            f"{portable[name]} for the first or {inverse[name]} for the second.")
+    return portable.get(name, name)
+
+
 def token_spec_to_ids(
     chain_name, residue_index_or_atom_name, chain_to_idx, atom_idx_map, chains
 ):
@@ -2863,9 +2886,13 @@ def parse_boltz_schema(  # noqa: C901, PLR0915, PLR0912
     is_msa_custom = False
     is_msa_auto = False
     ligand_id = 1
+    # chain -> {portable atom name: this parser's name} for each SMILES ligand; see
+    # _resolve_bond_atom.
+    smiles_names: dict[str, dict[str, str]] = {}
     for entity_id, items in enumerate(items_to_group.values()):
         # Get entity type and sequence
         entity_type = next(iter(items[0].keys())).lower()
+        portable = None
 
         # Get ids
         ids = []
@@ -3050,6 +3077,13 @@ def parse_boltz_schema(  # noqa: C901, PLR0915, PLR0912
                     )
                     raise ValueError(msg)
                 atom.SetProp("name", atom_name)
+            # AddHs appends the hydrogens, so the heavy atoms are still in SMILES order.
+            portable, seen = {}, {}
+            for atom in mol.GetAtoms():
+                if atom.GetAtomicNum() > 1:
+                    el = atom.GetSymbol().upper()
+                    seen[el] = seen.get(el, 0) + 1
+                    portable[f"{el}{seen[el]}"] = atom.GetProp("name")
 
             success = compute_3d_conformer(mol)
             if not success:
@@ -3102,6 +3136,8 @@ def parse_boltz_schema(  # noqa: C901, PLR0915, PLR0912
             for chain_name in ids:
                 chains[chain_name] = parsed_chain
                 chain_to_msa[chain_name] = msa
+                if portable:
+                    smiles_names[chain_name] = portable
 
     # Check if msa is custom or auto
     if is_msa_custom and is_msa_auto:
@@ -3318,6 +3354,7 @@ def parse_boltz_schema(  # noqa: C901, PLR0915, PLR0912
             ends = []
             for key in ("atom1", "atom2"):
                 c, r, a = tuple(constraint["bond"][key])
+                a = _resolve_bond_atom(smiles_names.get(c), c, a, key)
                 hit = atom_idx_map.get((c, r - 1, a))  # 1-indexed
                 if hit is None:
                     here = sorted(n for (cc, rr, n) in atom_idx_map if cc == c and rr == r - 1)
