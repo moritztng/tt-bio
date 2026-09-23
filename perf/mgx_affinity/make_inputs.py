@@ -18,6 +18,9 @@ Three sets:
            Two targets: YSK4 (1328 aa, the largest DAVIS kinase with 50 non-censored Kd) for
            Nesso-1, and LCK (509 aa, 47 non-censored Kd, the 512-class production size) for
            both surfaces, since a Boltz-2 affinity job refolds the target per ligand.
+  real/    3ABQ (ethanolamine ammonia-lyase a2b2, 1518 aa, mgx-reference's 1536 fixture) with
+           cobalamin, a B12-dependent enzyme with its own cofactor class. The tiled CDK2 rungs
+           have no real pocket once the target is three copies long; this one does.
   kd.json  measured Kd (nM) per screen record, 10000 = DAVIS's censoring value.
 
 The DAVIS table is TDC's (dataverse datafile 5219748). Only the rows used are kept in kd.json.
@@ -62,6 +65,11 @@ def main():
     for lig, ns in SIZES.items():
         for n in ns:
             (size / f"cdk2_{n}_{lig}.yaml").write_text(yaml(tiled(n), *LIGANDS[lig]))
+    real = HERE / "inputs/real"
+    real.mkdir(exist_ok=True)
+    (real / "3abq_1536_b12.yaml").write_text(
+        (ROOT / "perf/mgx/ref/fixtures/3abq_1536.yaml").read_text()
+        + "  - ligand:\n      id: E\n      ccd: B12\nproperties:\n  - affinity:\n      binder: E\n")
     if a.davis is None:
         return
 
