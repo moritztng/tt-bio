@@ -1361,3 +1361,37 @@ whose host is unrecorded cannot later be compared against one taken quiet.
 
 The standing correction to my own practice: **before dispatching, check host load on every box a
 live row touches, not just the card map.** A card is allocated; a core is merely taken.
+
+### R183. The campaign carries two definitions of one aggregate triple, and only one of them can carry an angle — A43 (pass 414, zero card)
+
+`of3t-angle` found it while re-reading the softmax ladder, and it is the sharpest instrument
+finding since D242. **`of3t-trunkg043/score.py`'s `mass_weighted_rel_l2` is a mass-weighted
+QUADRATIC mean of the per-tensor `rel`, while `mass_weighted_norm_ratio` and `mass_weighted_cos`
+are ARITHMETIC means of the per-tensor ratio and cosine.** `rel^2 = 1 + r^2 - 2 r cos` holds per
+tensor and **not** on those three. Measured on R149's own shipped arm: reported `rel`
+0.9153623104186986 against 0.6855 reconstructed from its own reported `r` and `cos` — **a 25 %
+residual**. An angle read off that `cos` is not an angle; it is the average of some cosines.
+
+**Why this matters more than it looks.** The whole of the campaign's current position is a
+DIRECTION claim — the clause is unreachable by magnitude and reachable only by closing 43.61 %
+of an angle. A direction claim resting on an aggregate that does not satisfy the identity would
+be a number about nothing, and it would have been very hard to catch later, because
+`mass_weighted_cos` is a real quantity that moves in plausible ways.
+
+**Audited, and the published record is clean.** Every direction figure this campaign has
+published is in the CONCATENATED definition (`perf/of3t_recut/n384_check.py:40-67`), where the
+three are norms of one vector pair: the trunk's **45.763°** (residual 7.1e-16), the pre-repair
+**35.561°** (1.1e-16), the float64-space **35.13°** (2.1e-15, and it is `arccos(0.8178953)` from
+that split, traced this pass). The `31.92x` contrast between the two spaces' magnitude shares is
+also sound — it is quoted by `BF16_SPLIT.json` under `and_they_disagree_sharply` as the evidence
+**for** A37's no-cross-space rule, not as a carry across it. **I checked my own VERDICT against
+this before writing the clause, rather than after.**
+
+**A43 is the rule**: a `cos`, an angle, a magnitude/direction share or a best-rescaling number
+may be read only from a triple whose identity residual is published beside it at float64 noise.
+An aggregate that fails the identity is a fine summary of error MAGNITUDE and carries no
+direction — quote its `rel`, never its `cos`. And the two definitions may not be mixed in one
+comparison: `of3t-angle`'s ladder rungs are mass-weighted because that is the definition R149
+published in, while its splits are concatenated, so it reports both per arm and divides neither
+by the other. **This is A37's disease on a new axis — not two frames, but two AGGREGATIONS of
+one frame.** A reference is part of a measurement's identity; so is the aggregation.
