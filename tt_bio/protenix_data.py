@@ -37,6 +37,16 @@ from pathlib import Path
 # standard AlphaFold restype order (index -> one-letter); index 7=G, 15=S (matches v2 golden)
 RESTYPE_ORDER = "ARNDCQEGHILKMFPSTWYV"
 RESTYPE_DIM = 32  # protenix restype width (20 aa + X/gap/other slots)
+
+
+def residue_atoms(res: str) -> list:
+    """Heavy-atom names of a protein residue, in CCD order: the atom list every Protenix-family
+    featurizer lays out. The 20 standard residues are Boltz's ``const.ref_atoms``. UNK, which
+    is what `X` in a sequence becomes, follows upstream Protenix (``constants.py``, "UNK": N CA
+    C O CB CG) and the CCD component rather than Boltz's table, which stops at CB. The bundled
+    conformers carry the CCD ideal coordinates for exactly these atoms."""
+    from .data import const
+    return ["N", "CA", "C", "O", "CB", "CG"] if res == "UNK" else list(const.ref_atoms[res])
 MOL_TYPE_IDS = {"protein": 0, "rna": 1, "dna": 2, "ligand": 3}  # per-token mol_type enum (build_complex_features -> feats["mol_type"])
 _AA1_TO_IDX = {c: i for i, c in enumerate(RESTYPE_ORDER)}
 
@@ -291,7 +301,7 @@ def _resolve_bond_token(placement: dict, cid, res, atom) -> int:
         return start + mod_atoms[atom]
     from .data import const
     name = p["res_names"][res - 1]
-    known = const.ref_atoms.get(name, [])
+    known = residue_atoms(name) if name in const.ref_atoms else []
     if atom not in known and atom not in ("OXT", "OP3"):
         raise ValueError(f"bond constraint references atom '{atom}' on residue {res} ({name}) "
                          f"of chain '{cid}', which has atoms {', '.join(known)}.")
@@ -566,13 +576,13 @@ def protein_atom_features(aatype: torch.Tensor, conformers: dict, oxt=None) -> d
     elem_idx, name_chars, tokatom, disto_rep = [], [], [], []
     for t, aa in enumerate(aatype.tolist()):
         res = letter_to_res[RESTYPE_ORDER[aa]] if aa < len(RESTYPE_ORDER) else "UNK"
-        atoms = list(const.ref_atoms[res])
+        atoms = residue_atoms(res)
         disto_atom = const.res_to_disto_atom.get(res, "CA")  # distogram rep atom (CB, or CA for GLY)
         conf = torch.as_tensor(conformers[res], dtype=torch.float32)
         if bool(oxt[t]) if oxt is not None else t == n_tok - 1:  # C-terminal carboxylate O
-            atoms = atoms + ["OXT"]
             # synthesize OXT as the carboxylate mirror of O through C (any valid ref conformer)
-            c_i, o_i = const.ref_atoms[res].index("C"), const.ref_atoms[res].index("O")
+            c_i, o_i = atoms.index("C"), atoms.index("O")
+            atoms = atoms + ["OXT"]
             conf = torch.cat([conf, (2 * conf[c_i] - conf[o_i])[None]], 0)
         for k, nm in enumerate(atoms):
             elem_idx.append(z_of[nm[0]] - 1)
@@ -727,19 +737,21 @@ def polymer_chain_features(seq: str, mt: str, mods: list | None, conformers: dic
     mod_ccd = {int(m["position"]): str(m["ccd"]).upper() for m in (mods or [])}
     codes = _na_res_codes(seq, mt) if mt in ("rna", "dna") else None
     if mt == "protein":
-        # Only the 20 standard residues have a bundled reference conformer. A
-        # non-standard one is representable, but only through `mod_ccd`, which splices
-        # the CCD component's atoms in. Undeclared, the conformer lookup below died on a
-        # bare KeyError("UNK") several frames deep, naming neither the residue nor the fix.
+        # The 20 standard residues and X have a bundled reference conformer; X is UNK, one
+        # residue token with the CCD component's atoms, which is what upstream Protenix
+        # builds for it. Any other letter (U, B, Z, O, J) names a residue this cannot guess:
+        # a real one goes in through `mod_ccd`, which splices the CCD component's atoms in.
+        # Undeclared, the conformer lookup below died on a bare KeyError("UNK") several
+        # frames deep, naming neither the residue nor the fix.
         bad = [f"{i + 1}{c}" for i, c in enumerate(seq)
-               if c.upper() not in _AA1_TO_IDX and i + 1 not in mod_ccd]
+               if c.upper() not in _AA1_TO_IDX and c.upper() != "X" and i + 1 not in mod_ccd]
         if bad:
             shown = ", ".join(bad[:8]) + (f" (+{len(bad) - 8} more)" if len(bad) > 8 else "")
             raise ValueError(
-                f"non-standard residue(s) at {shown}: only the 20 standard amino acids have "
-                "a reference conformer. Declare each one as a `modifications:` entry with "
-                "its CCD code (MSE for selenomethionine, SEP for phosphoserine), or "
-                "substitute a standard residue.")
+                f"non-standard residue(s) at {shown}: only the 20 standard amino acids and X "
+                "(unknown) have a reference conformer. Declare each one as a `modifications:` "
+                "entry with its CCD code (SEC for selenocysteine, MSE for selenomethionine, "
+                "SEP for phosphoserine), or substitute a standard residue.")
 
     def _standard(lo, hi):                       # residues [lo, hi) as one per-residue block
         if mt == "protein":
@@ -1083,10 +1095,13 @@ def structure_token_coords(path, chains=None, crop=None) -> dict:
 
 def res_names_to_sequence(res_names, mol_type: str = "protein") -> str:
     """Per-residue CCD names to the one-letter sequence `build_complex_features` eats.
-    Anything outside the modality's standard set becomes the unknown letter."""
+    A nucleotide outside the standard set becomes the unknown letter. A protein residue does
+    only when the file itself calls it UNK: a named non-standard one (MSE, SEP) becomes "?",
+    which the featurizer refuses by position, because folding it as UNK would drop the atoms
+    the file actually has."""
     from .data import const
     if mol_type == "protein":
-        return "".join(const.prot_token_to_letter.get(n, "X") for n in res_names)
+        return "".join(const.prot_token_to_letter.get(n, "?") for n in res_names)
     std = set("AGCU") if mol_type == "rna" else set("AGCT")
     letters = [n[1:] if mol_type == "dna" and n.startswith("D") else n for n in res_names]
     return "".join(c if c in std else "N" for c in letters)

@@ -1585,6 +1585,36 @@ def _dispatch_to_controller(controller_url: str, run_payload: dict, *, total: in
     return failed
 
 
+def _refuse_unfoldable_jobs(jobs, model: str, results_path: Path):
+    """Split ``jobs`` into the ones ``model`` can fold and the ones it refuses.
+
+    A refused input is reported and recorded as a failed row in results.json, and the rest of
+    the batch folds: one file with a key this model cannot honour used to abort a directory
+    of fifty before the first fold. Returns ``(foldable, {job id: refusal})``.
+    """
+    from tt_bio.capabilities import check_capabilities
+
+    keep, refused = [], {}
+    for job in jobs:
+        jp = Path(job.path)
+        try:
+            check_capabilities(jp, _read_bio_chains(jp, what=model), model)
+            keep.append(job)
+        except (RuntimeError, click.ClickException) as e:
+            refused[job.id] = e.message if isinstance(e, click.ClickException) else str(e)
+    if refused and keep:
+        click.secho(f"Skipping {len(refused)} of {len(jobs)} input(s) --model {model} "
+                    f"refuses; folding the other {len(keep)}:", fg="red", err=True)
+        for job_id, why in refused.items():
+            click.secho(f"  ✗ {job_id}: {why}", fg="red", err=True)
+        rows = {r["id"]: r for r in _load_results_resilient(results_path)
+                if isinstance(r, dict) and "id" in r}
+        rows.update({j: {"id": j, "status": "failed", "error": why}
+                     for j, why in refused.items()})
+        _save_results(list(rows.values()), results_path)
+    return keep, refused
+
+
 def _exit_for_failed_jobs(failed: int, total: int) -> None:
     """Exit the CLI nonzero when a run lost targets: 1 when every job failed,
     2 when some succeeded and some failed. Callers (release gate, CI, fleet
@@ -2518,7 +2548,7 @@ def _resolve_a3m_text(msa_spec, sequence, msa_dir, max_seqs=None):
 
 
 def _write_protenix_structure(coords, feats, aatype, outpath, output_format, b_factors=None,
-                              mod_names=None):
+                              mod_names=None, chain_ids=None):
     """Write a Protenix-v2 prediction (coords + atom metadata) as PDB/mmCIF via biotite.
 
     Reconstructed entirely from the feature dict so it is modality- and chain-agnostic
@@ -2531,9 +2561,14 @@ def _write_protenix_structure(coords, feats, aatype, outpath, output_format, b_f
     cannot name it: a `modifications:` residue or a CCD ligand chain. Both are tokenized
     per atom and carry restype UNK, so without it the writer names them "LIG" and a user
     who asked for SEP reads back a ligand, or who asked for ATP reads back an unnamed
-    one."""
+    one.
+
+    `chain_ids` is the reader's chain list, one id per asym_id in order. Without it the chains
+    are written A, B, C..., so a ligand submitted as L came back as B and any script selecting
+    a chain by the id it submitted read the wrong one."""
     import biotite.structure as struc
     import biotite.structure.io.pdbx as _pdbx
+    import numpy as np
 
     from tt_bio.data import const
     from tt_bio.protenix_data import restype_to_resname
@@ -2560,9 +2595,11 @@ def _write_protenix_structure(coords, feats, aatype, outpath, output_format, b_f
     arr.add_annotation("occupancy", float); arr.occupancy[:] = 1.0
     arr.add_annotation("b_factor", float)
     arr.b_factor[:] = b_factors.numpy().astype("float32") if b_factors is not None else 0.0
+    label = (lambda n: str(chain_ids[n])) if chain_ids else _chain_label
+    # set, not assigned per atom: the default chain_id dtype is <U4 and truncates a longer id
+    arr.set_annotation("chain_id", np.array([label(int(asym[t])) for t in a2t]))
     for i in range(coords.shape[0]):
         t = a2t[i]
-        arr.chain_id[i] = _chain_label(int(asym[t]))
         arr.res_id[i] = int(resid[t])
         mod = (mod_names or {}).get((int(asym[t]), int(resid[t])))
         arr.res_name[i] = mod or ("LIG" if is_lig_tok[t] else resname[t])
@@ -3080,7 +3117,7 @@ def predict(data, out_dir, cache, checkpoint, accelerator, recycling_steps, samp
         model, use_msa_server, msa_db_path, msa_endpoint, single_sequence, cache,
         controller, msa_server_url, msa_cache_only, msa_dir_opt)
 
-    from tt_bio.capabilities import check_capabilities, unread_flags
+    from tt_bio.capabilities import unread_flags
 
     if model in ("esmfold2", "esmfold2-fast", *PROTENIX_FAMILY, "openfold3", "openbind", "opendde",
                  "opendde-abag", "rf3"):
@@ -3159,12 +3196,11 @@ def predict(data, out_dir, cache, checkpoint, accelerator, recycling_steps, samp
         # authoritative point, because the platform submits jobs straight to the controller
         # and never comes through here -- but a user typing a command should not wait two
         # minutes for a model load to be told the yaml key is unsupported.
-        for job in jobs:
-            jp = Path(job.path)
-            try:
-                check_capabilities(jp, _read_bio_chains(jp, what=model), model)
-            except RuntimeError as e:
-                raise click.ClickException(str(e)) from e
+        results_path = out / "results.json"
+        total = len(jobs)
+        jobs, refused = _refuse_unfoldable_jobs(jobs, model, results_path)
+        if not jobs:
+            raise click.ClickException("\n".join(refused.values()))
 
         # MSA is resolved + searched worker-side, exactly like Boltz-2: the worker
         # renders the "MSA" stage, generates any missing {seq_hash}.a3m into the
@@ -3202,7 +3238,6 @@ def predict(data, out_dir, cache, checkpoint, accelerator, recycling_steps, samp
             "msa_cache_only": msa_cache_only,
             "write_pae": write_pae,
         }
-        results_path = out / "results.json"
         run_payload = {"data": str(data), "out_dir": str(out_dir_path), "result_dir": str(out),
                        "jobs": job_payloads(jobs), "config": worker_cfg, "owner": owner}
         # Fetch this model's weights ONCE here, before fanning out. Skipped in
@@ -3212,13 +3247,13 @@ def predict(data, out_dir, cache, checkpoint, accelerator, recycling_steps, samp
         if controller:
             failed = _dispatch_to_controller(controller, run_payload, total=len(jobs), results_path=results_path,
                                              struct_dir=struct_dir, model=model, debug=debug, log=log, run_id=run_id)
-            _exit_for_failed_jobs(failed, len(jobs))
+            _exit_for_failed_jobs(failed + len(refused), total)
             return
         workers = _local_workers("tenstorrent", num_devices, device_ids, max_workers=max(len(jobs), 1))
         _cap_worker_threads(len(workers), host_threads)
         failed = _dispatch_run(run_payload, workers, total=len(jobs), results_path=results_path,
                                struct_dir=struct_dir, model=model, listen=listen, debug=debug, log=log)
-        _exit_for_failed_jobs(failed, len(jobs))
+        _exit_for_failed_jobs(failed + len(refused), total)
         return
 
     os.environ.setdefault("CUEQ_DEFAULT_CONFIG", "1")

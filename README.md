@@ -234,6 +234,9 @@ OpenDDE-abag matches the upstream checkpoint on the standard 1AHW
 antibody-antigen target. Both implementations perform poorly on 9DSG.
 
 `predict` accepts either a single YAML/FASTA file or a directory containing many input files.
+An input the model refuses is reported, recorded as failed in `results.json` and skipped, and
+the rest of the directory folds; the exit status is 2 when some inputs failed and 1 when all did.
+Every chain comes back under the id you gave it.
 
 A live display shows the progress of each target. Prediction uses up to one card
 per pending target, labelled in the display (`quietbox:tt0`, `quietbox:tt1`, ...).

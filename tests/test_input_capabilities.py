@@ -47,6 +47,18 @@ INPUTS: dict[str, str] = {
 
 PLAIN = _HEAD
 
+#: A protein-free input has to carry some other molecule, so its fixture is the first kind the
+#: model folds; otherwise an OpenDDE RNA refusal would read as the protein-free verdict.
+_NO_PROTEIN = {"rna": "version: 1\nsequences:\n  - rna:\n      id: R\n      sequence: GAUC\n",
+               "ligand": "version: 1\nsequences:\n  - ligand:\n      id: L\n      ccd: ATP\n"}
+
+
+def _fixture(feature, model):
+    if feature != "protein_free":
+        return INPUTS[feature]
+    return next((t for kind, t in _NO_PROTEIN.items() if CAPABILITY[model][kind] != REFUSED),
+                _NO_PROTEIN["rna"])
+
 
 def _yaml(tmp_path, text, name="q.yaml"):
     p = tmp_path / name
@@ -80,7 +92,7 @@ def test_boltz2_honours_the_whole_input_language():
 
 
 @pytest.mark.parametrize("model", sorted(CAPABILITY))
-@pytest.mark.parametrize("feature", sorted(INPUTS))
+@pytest.mark.parametrize("feature", sorted(INPUTS) + ["protein_free"])
 def test_the_table_verdict_is_what_the_check_does(tmp_path, model, feature, capsys):
     if model in CHAINS_ELSEWHERE and feature in CHAIN_FEATURES:
         pytest.skip(f"{model} has its own reader; the chain columns record its verdict, they "
@@ -90,7 +102,7 @@ def test_the_table_verdict_is_what_the_check_does(tmp_path, model, feature, caps
     notes: list[str] = []
     if verdict == REFUSED:
         with pytest.raises(RuntimeError) as e:
-            _check(tmp_path, INPUTS[feature], model, notes)
+            _check(tmp_path, _fixture(feature, model), model, notes)
         msg = str(e.value)
         assert how(model) in msg and label in msg
         # A refusal that names nowhere else to go leaves the user stuck.
@@ -98,7 +110,7 @@ def test_the_table_verdict_is_what_the_check_does(tmp_path, model, feature, caps
         if others:
             assert any(how(m) in msg for m in others), msg
         return
-    assert _check(tmp_path, INPUTS[feature], model, notes), "the feature was not even detected"
+    assert _check(tmp_path, _fixture(feature, model), model, notes), "the feature was not even detected"
     if verdict == NOTED:
         assert any(label in n for n in notes), notes
     else:
@@ -127,6 +139,23 @@ def test_every_refused_feature_is_named_at_once(tmp_path):
         _check(tmp_path, text, "protenix-v2")
     msg = str(e.value)
     assert "cyclic" in msg and "pocket" in msg
+
+
+def test_an_rna_only_input_is_refused_by_esmfold2_before_any_model_load(tmp_path):
+    """ESMFold2 used to load its weights and then die with "needs at least one protein chain",
+    naming nowhere else to go. The refusal is a check-time one now, and it names the models
+    that fold RNA with no protein, read off the table."""
+    from tt_bio.worker import _WorkerState
+
+    state = object.__new__(_WorkerState)
+    with pytest.raises(RuntimeError) as e:
+        state.predict_one(_yaml(tmp_path, _NO_PROTEIN["rna"]), {"model": "esmfold2"})
+    msg = str(e.value)
+    assert "no protein chain" in msg
+    expected = [m for m in honoured_by("protein_free")
+                if CAPABILITY[m]["rna"] == HONOURED and not m.startswith("esmfold2")]
+    assert expected and all(how(m) in msg for m in expected), msg
+    assert "opendde" not in msg, "OpenDDE refuses RNA; it is no alternative for this input"
 
 
 def test_every_offending_chain_id_is_named_and_no_other(tmp_path):
