@@ -130,8 +130,8 @@ under 1024:
 | model | Wormhole limit | first measured failure |
 |---|---:|---:|
 | `opendde`, `opendde-abag` | 1024 | 1088 |
-| `openfold3` | 1024 | none found; top of the ladder |
-| `openbind` | 960 (residues; a ligand adds tokens) | 1024 |
+| `openfold3` | 1536 | none found; top of the ladder |
+| `openbind` | 1536 (residues; a ligand adds tokens) | none found; top of the ladder |
 | `pxdesign` | 1536 (target residues; the binder is on top) | none found; top of the ladder |
 | `protenix-v2` | 1024 (residues; a ligand adds tokens) | 1095 |
 | `esmfold2` | 1024 (residues; a ligand adds tokens) | 1056 |
@@ -196,8 +196,8 @@ A ligand counts against these limits. Its heavy atoms are tokens the model pays 
 residues, and on `esmfold2`, `esmfold2-fast`, `openbind` and `protenix-v2` the wall is on tokens,
 so a cocrystal is checked on residues plus ligand atoms rather than on the residue count alone.
 `esmfold2` folds 1024 residues, which leaves no room at all: 1024 residues plus any ligand is
-refused, and 991 residues with a 33-atom ligand folds. `openbind` was walked with a 35-atom
-ligand already bound, so its 960 has room for a ligand of 64 atoms and refuses 65. Either way the
+refused, and 991 residues with a 33-atom ligand folds. `openbind` is the same: its 1536 was
+walked apo, so a ligand counts against it atom for atom. Either way the
 refusal names the token count and the wall, and it arrives before a device is opened instead of
 as an out-of-memory error part way through the fold.
 
