@@ -466,6 +466,22 @@ def run_rung(model: str, size: int, args, work: pathlib.Path) -> dict:
            "aiclk": clk.summary().get(0),
            "ts": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()), **extra}
 
+    # The FOLD's own seconds, not the process's. docs/speed-bar.md judges `runtime_s` with "no
+    # model load or process start", and wall_s here carries import, a checkpoint load and, on a
+    # cold cache, a multi-GB download. Both design models already write it per design into
+    # designs.json (`tt_bio/pxdesign/design.py:_write_metrics`), so the number is read from the
+    # artifact rather than re-derived.
+    designs = out_dir / "designs.json"
+    if designs.is_file():
+        try:
+            rows_ = [r for r in json.loads(designs.read_text()) if isinstance(r, dict)]
+            rts = [r["runtime_s"] for r in rows_ if r.get("runtime_s") is not None]
+            if rts:
+                rec["runtime_s"] = max(rts)
+                rec["n_token"] = next((r.get("n_token") for r in rows_ if r.get("n_token")), None)
+        except Exception:
+            pass
+
     ok, detail = check_artifact(checker, out_dir, model)
     rec["artifact"] = detail
     if ok and rc == 0:
