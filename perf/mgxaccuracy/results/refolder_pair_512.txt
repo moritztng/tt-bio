@@ -1,0 +1,15 @@
+# The refolder that produces scRMSD, device against upstream fp32, on IDENTICAL designs.
+# perf/mgxaccuracy/ref/designfolding_only.sh --from <device out> --name devrefold, then scrmsd.py.
+# Same sequence, same designed backbone, same checkpoint; only the machine and dtype differ.
+#
+# design       device  upstream    diff   ratio
+# bg512         0.865     1.736   0.871    2.01
+# bg512_1      12.897    13.688   0.792    1.06
+#
+# The two designs are the extremes of the device's 512 distribution, a 15x range. The gap
+# is ADDITIVE at about +0.83 A, not multiplicative: the ratios are 2.01 and 1.06. Every
+# verdict survives -- 0.865/1.736 both clear the 2 A bar, 12.897/13.688 both miss 4 A.
+#
+# Consequence for the reference comparison: the device's 512 median of 10.56 A is 11.39 A
+# in upstream-refolder terms, against upstream's own end-to-end 11.04 A. Indistinguishable,
+# and far inside the device's own 3.30-13.78 A spread.
