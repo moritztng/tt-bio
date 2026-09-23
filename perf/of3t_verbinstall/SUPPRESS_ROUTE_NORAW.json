@@ -1,0 +1,38 @@
+{
+ "what": "ROUTE_HF with raw serves suppressed. `suppressed_raw` is the count that would have been an exact forward with no tape node; if it is 0 this arm is ROUTE_HF and proves nothing.",
+ "counters": {
+  "suppressed_raw": 1869,
+  "served_taped": 9184
+ },
+ "HOST_F64_SOFTMAX_STATS": {
+  "served": 9184,
+  "declined": 0,
+  "refused": 0,
+  "elements": 65229815808,
+  "selected": 148,
+  "tail": 11053,
+  "served_taped": 9184,
+  "served_raw": 0
+ },
+ "argv": [
+  "--census-out",
+  "/home/ttuser/.coworker/wt/of3t-verbinstall/perf/of3t_verbinstall/CENSUS_ROUTE_NORAW.json",
+  "--lever",
+  "all",
+  "--",
+  "--boundary",
+  "/home/ttuser/of3t_frame384/boundary_n384.pt",
+  "--cap-last",
+  "/home/ttuser/of3t_frame384/block47_boundary.pt",
+  "--out",
+  "/tmp/of3t/of3t-verbinstall/dev_ROUTE_NORAW.pt",
+  "--report",
+  "/home/ttuser/.coworker/wt/of3t-verbinstall/perf/of3t_verbinstall/DEV_ROUTE_NORAW.json",
+  "--arm",
+  "flipped",
+  "--crop",
+  "0",
+  "--pf-set",
+  "s_fp32_residual=1"
+ ]
+}
