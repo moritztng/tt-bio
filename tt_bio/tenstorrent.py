@@ -10384,14 +10384,16 @@ class DiffusionTransformerLayer(Module):
         # transition reads the block input rather than the post-attention residual.
         self.no_residual = no_residual
         self.s_o = None
-        # Keyed by the shape of the `s` it was built from. The atom-level output
-        # projection is reused across a fold because `s` is t-independent there, but the
-        # cache used to have no key at all, so a second fold at a different length in the
-        # same process multiplied a stale window count against the current bias -- loud if
-        # the window counts differ, silent and wrong if two lengths round to the same one.
-        # tt-bio's wrapper path clears this in `reset_static_cache`; RF3 uses the raw
-        # modules and never reaches it.
-        self._s_o_key = None
+        # Keyed by the identity of the `s` it was built from, and holding it so the id cannot
+        # be reused. The atom-level output projection is reused across a rollout because `s`
+        # is t-independent there, but `s` is the atom conditioning and carries the trunk
+        # output, so it changes with the input. Keyed by shape, a second fold of the same
+        # length in the same process reused the first fold's gate: RF3's no-template 1a8q
+        # fold moved 1.08-1.27 A depending on what the process had folded first. A shape key
+        # is also how a different length at the same window count went silently wrong
+        # before. tt-bio's wrapper path clears this in `reset_static_cache`; RF3 uses the
+        # raw modules and never reaches it.
+        self._s_o_src = None
         self.adaln = AdaLN(
             atom_level, self.scope("adaln"), compute_kernel_config
         )
@@ -10433,10 +10435,9 @@ class DiffusionTransformerLayer(Module):
             b = self.attn_pair_bias(b, z)
         else:
             b = self.attn_pair_bias(b, z, keys_indexing)
-        key = tuple(s.shape)
         if s_o_pre is not None:
             s_o = s_o_pre
-        elif self.s_o is None or self._s_o_key != key:
+        elif self.s_o is None or self._s_o_src is not s:
             s_o = ttnn.linear(
                 s,
                 self.output_projection_weight,
@@ -10446,7 +10447,7 @@ class DiffusionTransformerLayer(Module):
                 activation="sigmoid",
             )
             if self.atom_level:
-                self.s_o, self._s_o_key = s_o, key
+                self.s_o, self._s_o_src = s_o, s
         else:
             s_o = self.s_o
         b = ttnn.multiply(s_o, b)
@@ -12509,6 +12510,7 @@ class DiffusionModule(TorchWrapper):
             self._clear_cached_attrs(self.module, ("_s_conditioned", "_c_reshaped"))
             for layer in self.module.encoder.layers + self.module.decoder.layers:
                 self._clear_cached_attrs(layer, ("s_o",))
+                layer._s_o_src = None
                 for adaln in (layer.adaln, layer.transition.adaln):
                     # The pair is owned by the memo; `_s_memo_src` is the caller's `s`
                     # (`_c_reshaped`, freed just above) so it is dropped, never deallocated.

@@ -539,6 +539,13 @@ def _mm_random_like(t, seed):
                            layout=ttnn.TILE_LAYOUT, device=get_device())
 
 
+def _mm_drop(*ts):
+    """Deallocate the calibration tensors that got built, tolerating the ones that did not."""
+    for t in ts:
+        if t is not None:
+            ttnn.deallocate(t)
+
+
 def _calibrate_linear(x, w, kw, core_grid):
     """Pick the fastest program config whose output is BITWISE equal to ttnn's default.
 
@@ -550,39 +557,86 @@ def _calibrate_linear(x, w, kw, core_grid):
     calibrating weight and then diverging by up to 3e-2 on its siblings, which is what failed
     batch invariance at L=1959/D=8. Random operands exercise every grouping across the whole
     output, so surviving them makes exactness a property of the shape rather than of one tensor.
+
+    The two screens run as two PHASES, and calibration DECLINES rather than throws when its
+    scratch does not fit. Both of those are about DRAM. Everything this function allocates is
+    scratch -- one reference output per screen, plus a full random copy of each operand -- and it
+    is live alongside the model's own working set. Running the screens interleaved held both
+    references at once, i.e. 2|out| + |x| + |w| on top of the model, and that is what ended the
+    first 1536-residue rfd3 design: the throw was at `rref`, asking for a 2717908992 B DRAM
+    buffer against 2.45 GB free, 12405 target atoms, j10glx02 card 30, 2026-09-23
+    (mgx-design-ceiling). Phase-splitting them drops the peak to |out| + |x| + |w|, since `ref`
+    and `rref` never coexist, and a shape whose scratch still does not fit is simply not
+    calibratable on this card, so it takes the default call.
+
+    Declining is safe at any size and cannot change a result: the only configs this function ever
+    returns are bitwise equal to the default it falls back to. A fuller card therefore runs the
+    same arithmetic more slowly, never differently.
+
+    The timed default below is deliberately NOT guarded. It holds one output at a time, which is
+    exactly what the model's own call will hold, so an allocator refusal there is the model's
+    ceiling rather than calibration's and masking it would hide a real wall behind a silent skip.
     """
+    def skip(why):
+        if _TUNE_LOG:
+            print(f"[tune] x={tuple(x.padded_shape)} w={tuple(w.padded_shape)} {why}, SKIP",
+                  flush=True)
+        return None
+
     # Time the default BEFORE building anything else. Two reasons, both measured
     # (scripts/rfd3_port/p34_calib_cost.py, perf/p34/calib_cost.json): it is the size gate
     # `_tunable` no longer applies, and the setup below is 64.9% of calibration's whole cost,
     # because `_mm_random_like` draws and uploads a full-size operand -- 256 M elements for
-    # `[8,250,250,512]`, 1.69 s of the 2.01 s that shape spends. A shape under the floor now
-    # pays one timed default and nothing else.
-    ref = ttnn.linear(x, w, core_grid=core_grid, **kw)
+    # `[8,250,250,512]`, 1.69 s of the 2.01 s that shape spends. A shape under the floor pays
+    # one timed default and holds nothing.
     default_t = _mm_time(lambda: ttnn.linear(x, w, core_grid=core_grid, **kw))
     if default_t * 1e3 < _TUNE_MIN_MS:
-        ttnn.deallocate(ref)
-        if _TUNE_LOG:
-            print(f"[tune] x={tuple(x.padded_shape)} w={tuple(w.padded_shape)} "
-                  f"default={default_t * 1e3:8.3f} ms  under {_TUNE_MIN_MS} ms floor, SKIP",
-                  flush=True)
-        return None
-    rx, rw = _mm_random_like(x, 0), _mm_random_like(w, 1)
-    rref = ttnn.linear(rx, rw, core_grid=core_grid, **kw)
+        return skip(f"default={default_t * 1e3:8.3f} ms under {_TUNE_MIN_MS} ms floor")
+    grid = get_device().compute_with_storage_grid_size()
+
+    # Screen 1, random operands: every candidate that is bitwise equal on a full random draw.
+    rx = rw = rref = None
+    try:
+        rx, rw = _mm_random_like(x, 0), _mm_random_like(w, 1)
+        rref = ttnn.linear(rx, rw, core_grid=core_grid, **kw)
+    except Exception as e:
+        _mm_drop(rx, rw, rref)
+        return skip(f"random screen does not fit ({e})")
+    exact = []
+    for pc in _mm_candidates(x, w, grid):
+        try:
+            if _mm_maxabs(ttnn.linear(rx, rw, program_config=pc, **kw), rref) == 0.0:
+                exact.append(pc)
+        except Exception:
+            continue  # illegal L1 / subblock combinations are expected and simply skipped
+    _mm_drop(rx, rw, rref)
+    if not exact:
+        # Nothing survived screen 1, so screen 2 has nothing to confirm and the answer is already
+        # DEFAULT. Building `ref` anyway costs a full output for an empty loop, and this is not a
+        # corner case at the sizes that matter: at 1536 residues every candidate for
+        # `x=(1,1536,1536,128) w=(128,576)` refused, nine of them, because a second 2717908992 B
+        # buffer does not fit beside the first (j10glx02 card 15, 2026-09-23, mgx-design-ceiling).
+        # An empty survivor list is exactly the signal that DRAM is tight, which is the worst
+        # moment to allocate one more output.
+        return skip(f"default={default_t * 1e3:8.3f} ms, no candidate survived the random screen")
+
+    # Screen 2, the live operands, on the survivors only: confirm exactness, then time.
+    try:
+        ref = ttnn.linear(x, w, core_grid=core_grid, **kw)
+    except Exception as e:
+        return skip(f"live screen does not fit ({e})")
     budget = default_t / _TUNE_MIN_GAIN
     best = None
-    for pc in _mm_candidates(x, w, get_device().compute_with_storage_grid_size()):
+    for pc in exact:
         try:
-            if _mm_maxabs(ttnn.linear(rx, rw, program_config=pc, **kw), rref) != 0.0:
-                continue
             if _mm_maxabs(ttnn.linear(x, w, program_config=pc, **kw), ref) != 0.0:
                 continue
             t = _mm_time(lambda: ttnn.linear(x, w, program_config=pc, **kw))
         except Exception:
-            continue  # illegal L1 / subblock combinations are expected and simply skipped
+            continue
         if t < budget:
             best, budget = pc, t
-    for t in (rx, rw, rref, ref):
-        ttnn.deallocate(t)
+    _mm_drop(ref)
     if _TUNE_LOG:
         chosen = (f"bw={best.in0_block_w} obw={best.out_block_w} pcM={best.per_core_M}"
                   if best is not None else "DEFAULT")

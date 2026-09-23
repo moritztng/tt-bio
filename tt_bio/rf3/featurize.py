@@ -118,6 +118,32 @@ def read_inputs(
     return specs
 
 
+def apply_template_ca(atom_array, template_ca: dict) -> None:
+    """Template residues by coordinate, in place.
+
+    RF3's template is the input's own token-centre coordinates (CA for a protein residue) on
+    the tokens ``is_input_file_templated`` marks, turned into a distogram by
+    ``FeaturizeNoisedGroundTruthAsTemplateDistogram``. A spec built from sequences has no
+    coordinates, so a template from another file is written onto those CAs: ``template_ca``
+    maps a chain id to ``(ca (L, 3), mask (L,))`` over that chain's residues, from the
+    template alignment shared with every other template model (``tt_bio.template_cif``).
+    """
+    cats = atom_array.get_annotation_categories()
+    templated = (atom_array.get_annotation("is_input_file_templated").astype(bool)
+                 if "is_input_file_templated" in cats else np.zeros(len(atom_array), bool))
+    is_ca = atom_array.atom_name == "CA"
+    for cid, (ca, mask) in template_ca.items():
+        in_chain = np.flatnonzero(atom_array.chain_id == cid)
+        res = atom_array.res_id[in_chain] - 1
+        keep = (res >= 0) & (res < len(mask))
+        in_chain, res = in_chain[keep], res[keep]
+        hit = mask[res].astype(bool)
+        templated[in_chain[hit]] = True
+        ca_rows = hit & is_ca[in_chain]
+        atom_array.coord[in_chain[ca_rows]] = ca[res[ca_rows]]
+    atom_array.set_annotation("is_input_file_templated", templated)
+
+
 def featurize(
     path: str | os.PathLike,
     *,
@@ -127,6 +153,7 @@ def featurize(
     template_selection: list[str] | None = None,
     ground_truth_conformer_selection: list[str] | None = None,
     cyclic_chains: list[str] | None = None,
+    template_ca: dict | None = None,
     pipeline=None,
 ) -> list[dict]:
     """Featurize every example in ``path``.
@@ -136,6 +163,7 @@ def featurize(
     inputs ``t`` / ``noise`` / ``coord_atom_lvl_to_be_noised``.
 
     Pass ``pipeline`` to reuse one across calls; building it is not free.
+    ``template_ca`` templates residues by coordinate (:func:`apply_template_ca`).
     """
     if pipeline is None:
         pipeline = build_pipeline(n_recycles, diffusion_batch_size)
@@ -147,6 +175,8 @@ def featurize(
     )
     out = []
     for spec in specs:
+        if template_ca:
+            apply_template_ca(spec.atom_array, template_ca)
         seed_everything(seed)
         out.append(pipeline(spec.to_pipeline_input()))
     return out

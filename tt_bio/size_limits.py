@@ -480,9 +480,38 @@ CEILINGS: dict[str, dict[str, Ceiling]] = {
     },
     "rfd3": {
         "wormhole_b0": Ceiling(
-            residues=1024, pass_at=1024, fail_at=None, binds=LADDER_TOP,
+            residues=1536, pass_at=1536, fail_at=None, binds=LADDER_TOP,
             mechanism=NO_FAILURE, counts=DESIGN_TOTAL,
-            evidence="state/rfd3-swiglu-dram-resident-768-wh-verify.md, its own ladder measured 2026-09-08 on GWH02 "
+            evidence="1536 total residues design on whglx/j10glx02 card 15, 2026-09-23, "
+                     "ws:mgx-design-ceiling: 1536 residues / 12085 heavy atoms in 7470.0 s at AICLK median 1000 MHz "
+                     "sampled DURING the rung (n=1247), through the shipped `tt-bio design --model rfd3 --from_pdb` "
+                     "CLI at the platform's 100 diffusion steps, contig A1-1008,B1-172,100 over a two-chain crop of "
+                     "perf/bhdesign/targets/big_1831.cif. NO SPEED CLAIM: j10glx02 carried load 325-743 on 64 cores "
+                     "while every MGX row shared it, which makes pxdesign 512 read 9.0x its GWH02 time at the same "
+                     "clock, so these seconds are host contention and scripts/speed_bar.py cannot see it. "
+                     "THIS ROW DEPENDS ON the _calibrate_linear phase-split: before it, 1536 threw "
+                     "TT_FATAL Out of Memory on a 2717908992 B DRAM buffer at model.py:570, the RANDOM-operand "
+                     "screen's reference output, because calibration held 2|out| + |x| + |w| of scratch alongside "
+                     "the model (226 MB per bank against 204 MB free, so not fragmentation). With the screens split "
+                     "into two phases neither reference coexists with the other and the same shape calibrates to "
+                     "completion. The fix is inert where it is not needed: the 1024 design is BYTE-IDENTICAL "
+                     "(md5 443c5ada) across the pre-fix and post-fix code on two different cards, 9 and 11, which is "
+                     "the invariant calibration rests on -- it only ever returns a config it proved bitwise equal to "
+                     "the default. Structure was SCORED through perf/wh-correctness/check_structure.py, the same "
+                     "code release_gate.py's GEOMETRY leg imports: at 1536 the designed 100-residue binder is "
+                     "COMPACT, Rg 13.37 A against ~12.66 A expected (its 97-residue core 12.20 A against 12.51 A), "
+                     "3 clashes in 12085 atoms, clash_frac 0.00025, well inside the 0.016-0.051 band the rungs below "
+                     "carry. The checker's chain-B `fail` is its chain assignment, not the design: the contig writes "
+                     "the 428-residue target fragment AND the binder into chain B, so it scores two bodies 134.63 A "
+                     "apart as one chain, giving Rg 3.10x and a break at 427->428. Three further gaps (428->429, "
+                     "429->430, 430->431) are stray N-terminal binder residues, the same class this row already "
+                     "records at 768 and 832. 1024 re-measured on this box scores 0 breaks, step median 3.801 A, "
+                     "clash_frac 0.02267. LADDER_TOP because nothing above 1536 has been walked, and 1536 is the "
+                     "MGX charter's target, not a wall the model hit. The platform fence is separate and LOWER: "
+                     "LIMITS[\"max_residues\"] = 1024 in aiand-bio/japanfold/catalog.py is what a user meets, and no "
+                     "engine rung reaches a customer until that moves. The 2026-09-08 GWH02 ladder this row replaces "
+                     "is kept below because its bit-exactness and residency arithmetic still hold: "
+                     "state/rfd3-swiglu-dram-resident-768-wh-verify.md, its own ladder measured 2026-09-08 on GWH02 "
                      "cards UMD 3 and UMD 0, ws:rfd3-swiglu-dram-resident-768-wh-verify. 640/704/768/832/896/960/1024 "
                      "total residues (target + a 100-residue binder) all design, TWICE each, once per card, the two "
                      "walks run in opposite directions so no rung inherits the one before it. ONE target (laczc_1008, "
@@ -537,9 +566,34 @@ CEILINGS: dict[str, dict[str, Ceiling]] = {
                 "Wormhole's 768 is a LADDER TOP from a different chip and does not bound this",
         ),
         "wormhole_b0": Ceiling(
-            residues=960, pass_at=960, fail_at=None, binds=LADDER_TOP, mechanism=NO_FAILURE,
+            residues=1536, pass_at=1536, fail_at=None, binds=LADDER_TOP, mechanism=NO_FAILURE,
             counts=DESIGN_TARGET,
-            evidence="perf/pxdesign/targets/laczc_960_b64.yaml -- 960 conditioned target residues "
+            evidence="walked past its old 960 top to 1536 on 2026-09-23 on the whglx Galaxy "
+                     "j10glx02 card 31 (ws:mgx-design-ceiling, perf/mgxdesign/walk.py over "
+                     "perf/bhdesign/ladder.py, one rung per subprocess through the shipped CLI at "
+                     "the platform's own --n_step 400, one design, an 80-residue binder at every "
+                     "rung, ONE target for all of them -- perf/bhdesign/targets/big_1831.cif, "
+                     "chain A 1008 + chain B 823 -- so a rung differs from its neighbour only in "
+                     "size). 1536 and 1280 conditioned target residues both design, 1187.3 s and "
+                     "580.7 s of fold time at an AICLK median of 1000 MHz sampled DURING the run, "
+                     "and 512 designs on card 4 in 638.9 s. Nothing above 1536 was tried, so this "
+                     "is the top of the ladder and not a wall. THE VERDICT IS THE ARTIFACT: each "
+                     "rung's CIF carries an 80-residue / 321-atom binder AND conditioned_tokens "
+                     "equal to the target asked for, which is what separates a real rung from a "
+                     "run that quietly conditioned on the 1008-residue chain-A crop. NO SPEED "
+                     "CLAIM comes from these rungs and none should be read into them: j10glx02 "
+                     "carried a load average of 563-743 on 64 cores while five MGX rows fanned "
+                     "out over 27 chips, and the 512 rung is 9.0x the 70.7 s the same size takes "
+                     "on a quiet GWH02 at the same n_step and the same 1000 MHz. Coverage is "
+                     "load-insensitive and stands; the timing is an artifact of the host. "
+                     "STILL NOTE THE DENOMINATOR: counts=DESIGN_TARGET ignores binder_length "
+                     "while the known wall above is on TOKENS -- 1664 (ws:ceiling-pxdesign, one "
+                     "1.42 GB pair-transition buffer). 1536 + 80 is 1616, just under it, so a "
+                     "1536-residue target with a 160-residue binder is NOT covered by this row. "
+                     "The platform caps the sum at 1024 either way, so nothing it dispatches "
+                     "today can reach any of this. What this replaced, and why that move was not "
+                     "new headroom either: "
+                     "perf/pxdesign/targets/laczc_960_b64.yaml -- 960 conditioned target residues "
                      "plus a 64-residue binder, 1024 tokens, the platform's shipped defaults "
                      "(4 designs, n_step 200, seed 42). Walked twice on the serving Galaxy "
                      "UF-EV-A13-GWH02, both times a clean pass with no device refusal: 2026-09-08 "
@@ -556,15 +610,9 @@ CEILINGS: dict[str, dict[str, Ceiling]] = {
                      "TARGET residues was accepted by the service and then refused here, measured "
                      "2026-09-19 through the serving engine's own CLI. 768 was a LADDER TOP from "
                      "a fixture that could not reach higher (1DP0 chain A is 1011 residues), not "
-                     "a wall. The 2026-08-29 ladder it came from still stands: 128 aa in 62.0 s, "
-                     "256 in 50.8 s, 512 in 70.7 s, 768 in 99.9 s at n_step 400, one design. "
-                     "Above this row there is still no measured failure until 1664 TOKENS "
-                     "(ws:ceiling-pxdesign, one 1.42 GB pair-transition buffer), with 1088 and "
-                     "1408 tokens both passing twice. NOTE THE DENOMINATOR: counts=DESIGN_TARGET, "
-                     "so this ignores binder_length while the wall above is on tokens. That gap "
-                     "predates this change and is unchanged by it -- 768+896 and 960+704 are both "
-                     "1664 and both slip past -- but the platform caps the sum at 1024, so "
-                     "nothing it dispatches can reach it",
+                     "a wall. The 2026-08-29 ladder it came from still stands and is the quiet-box "
+                     "reference the whglx rungs above are 9x off: 128 aa in 62.0 s, 256 in 50.8 s, "
+                     "512 in 70.7 s, 768 in 99.9 s at n_step 400, one design",
         ),
     },
     "esmc-6b": {
@@ -729,7 +777,24 @@ CEILINGS: dict[str, dict[str, Ceiling]] = {
                 "the 3158-4651 atom band wh-design-models-l1-budget-and-size-caps recorded: that "
                 "band was an L1 wall read at a chunk width this ladder does not use, and 14786 is "
                 "3.2x the top of it. The four smallest rungs are reproducible off the fixtures "
-                "without a device -- tests/test_size_limits.py holds the sizer to them"),
+                "without a device -- tests/test_size_limits.py holds the sizer to them. "
+                "THE ATOM AXIS COVERS A 1536-RESIDUE TARGET, measured rather than inferred from "
+                "the 8.08 atoms per residue this fixture carries: 2026-09-23 on j10glx02 card 17 "
+                "(ws:mgx-design-ceiling) a 1536-residue crop of big_1831.cif -- 12405 target "
+                "atoms, 84 % of this row's top -- designs an 80-residue binder in 2896.1 s at an "
+                "AICLK median of 1000 MHz sampled DURING the run, artifact chains A=80 binder + "
+                "B=1008 + C=528. That time is not comparable to the 2242.9 s above it: the box "
+                "carried a load average of 563-743 on 64 cores. It confirms a cell this row "
+                "already covers and does not move the cap. FITTING IS NOT THE SAME AS DESIGNING "
+                "WELL, and this row is the atom axis only: the 1536 design's geometry is worse "
+                "than the same path's at 512. Both rungs ran `--steps design` off the same crop "
+                "with the same 80-residue binder, and the 512 control (card 9, 892.6 s, 1000 MHz "
+                "DURING) comes back with 1 marginal contact at 1.999 A, clash_frac 0.00021 and no "
+                "`fail`, against 20 heavy-atom clashes, clash_frac 0.0015 -- 7.1x per atom -- a "
+                "worst contact of 0.879 A and a `fail` at 1536. Mean confidence is low at BOTH "
+                "sizes (0.121 and 0.040), so that half is the partial pipeline rather than the "
+                "size. scRMSD through the full pipeline is what settles whether the clashes "
+                "matter; until it lands, read this row as a fit, not as a quality claim"),
     },
     "esmc-300m": {
         "wormhole_b0": Ceiling(

@@ -1,0 +1,10 @@
+# A disulfide no model predicts from the sequence: two cysteines 21 residues apart on a
+# glycine-serine linker, which has no native fold and no reason to pair them. The bonded
+# fold must bring SG2 and SG23 together; ss_probe_ctrl.yaml is the same chain without the
+# constraint, and its SG-SG distance is what "the bond did nothing" looks like.
+version: 1
+sequences:
+  - protein:
+      id: A
+      sequence: GCGSGSGSGSGSGSGSGSGSGSCG
+      msa: empty
