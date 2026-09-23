@@ -35,7 +35,12 @@ HOLDER = "worker:mgx-ceilings"
 
 
 def _hold(card: str, stop: threading.Event) -> None:
-    """Re-claim the lease file whenever nobody holds its flock and it reads released."""
+    """Re-claim OUR lease between rungs: only a file this walk's own fold released.
+
+    Never a file another holder wrote. The first draft re-claimed any file whose holder was not
+    this row, and on 2026-09-23 it took card 21 from mgx-speed in the gap between two of that
+    row's folds. The first fold of a walk takes the chip through tt_bio's own acquire.
+    """
     from tt_bio.device_lease import lease_dir, lease_host
     path = os.path.join(lease_dir(), f"{lease_host()}-card{card}.json")
     while not stop.is_set():
@@ -51,7 +56,7 @@ def _hold(card: str, stop: threading.Event) -> None:
                 meta = json.loads(os.pread(fd, 4096, 0) or b"{}")
             except ValueError:
                 meta = {}
-            if meta.get("released") or meta.get("holder") != HOLDER:
+            if meta.get("released") and meta.get("holder") == HOLDER:
                 new = {"host": lease_host(), "card": card, "holder": HOLDER, "pid": os.getpid(),
                        "acquired": time.time(), "released": None,
                        "note": "held between folds by a mgx-ceilings walk"}
@@ -99,6 +104,13 @@ def main() -> int:
                             text=True).stdout.strip()
     dirty = bool(subprocess.run(["git", "-C", str(ROOT), "status", "--porcelain", "--", "tt_bio"],
                                 capture_output=True, text=True).stdout.strip())
+    from tt_bio.device_lease import lease_dir, lease_host
+    try:
+        meta = json.loads(Path(lease_dir(), f"{lease_host()}-card{a.card}.json").read_text())
+    except (OSError, ValueError):
+        meta = {}
+    if meta and not meta.get("released") and meta.get("holder") != HOLDER:
+        sys.exit(f"card {a.card} is held by {meta.get('holder')}; not taking it")
     stop = threading.Event()
     threading.Thread(target=_hold, args=(a.card, stop), daemon=True).start()
     out = Path(a.out)
