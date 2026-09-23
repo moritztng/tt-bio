@@ -1,0 +1,19 @@
+# perf/mgxaccuracy/scrmsd.py --check, whglx, out_boltzgen_512_d8_s400_gpb (n=8, gpb dimer 512)
+# The run reached analysis, so the pipeline's own designfolding-bb_rmsd column exists and
+# the recomputation can be held against it. N,CA,C,O matches every design to 5 decimals;
+# dropping O or keeping CA alone does not (max gap 0.22 A), so the atom set is not a detail.
+# Consequence: scRMSD is readable at step 4 of 6, before analysis and filtering.
+
+id            designfold    N,CA,C,O      N,CA,C          CA
+bg512            0.86476     0.86476     0.84729     0.88471
+bg512_1         12.89683    12.89683    12.82579    12.96743
+bg512_2          8.54741     8.54741     8.37124     8.42230
+bg512_3          2.71185     2.71185     2.64124     2.66378
+bg512_4          1.97406     1.97406     1.92530     1.95333
+bg512_5          8.36314     8.36314     8.14954     8.22026
+bg512_6          9.84254     9.84254     9.76711     9.89919
+bg512_7         10.60405    10.60405    10.38423    10.40130
+
+               max |gap|     0.00000     0.21982     0.20275
+
+closest backbone definition: N,CA,C,O  max gap 0.00000 A  -> REPRODUCES the pipeline column
