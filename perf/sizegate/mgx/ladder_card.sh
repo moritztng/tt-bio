@@ -27,14 +27,16 @@ run() {  # $1 = log tag, rest = extra args
   echo "[$(date -u +%FT%TZ)] START $mode $model card $card $*" >> "$log/$model.$tag.log"
   "$py" scripts/release_gate.py --model size-ladder --size-ladder-models "$model" \
         --load-ceiling 0 "$@" >> "$log/$model.$tag.log" 2>&1
-  echo "[$(date -u +%FT%TZ)] EXIT $? $mode $model" >> "$log/$model.$tag.log"
+  local rc=$?   # before the echo: its $(date) would reset $? to 0
+  echo "[$(date -u +%FT%TZ)] EXIT $rc $mode $model" >> "$log/$model.$tag.log"
 }
 if [ "$mode" = check ]; then
   run check
 elif [ "$mode" = probe ]; then
   echo "[$(date -u +%FT%TZ)] START probe $model $rungs card $card" >> "$log/$model.probe.log"
   "$py" perf/sizegate/mgx/probe.py "$model" "$rungs" >> "$log/$model.probe.log" 2>&1
-  echo "[$(date -u +%FT%TZ)] EXIT $? probe $model" >> "$log/$model.probe.log"
+  rc=$?
+  echo "[$(date -u +%FT%TZ)] EXIT $rc probe $model" >> "$log/$model.probe.log"
 elif [ -n "$rungs" ]; then
   run "rec-$rungs" --size-ladder-record --size-ladder-fragment --size-ladder-rungs "$rungs"
 else
