@@ -17,8 +17,9 @@ One JSON line per point in perf/mgx-diffusion/runs.jsonl, carrying:
   cold        the kernel cache grew during the fold, so it compiled and its runtime is not a
               timing; a cold timing point (probe off) is folded again at once and both kept
 
-Plan lines: `<model> <tokens> <samples> [steps=N] [recycles=N] [probe=1] [mps=N] [guard=0]`.
-steps defaults to the model's own default (production), `guard=0` turns the size guard off.
+Plan lines: `<model> <tokens> <samples> [steps=N] [recycles=N] [probe=1] [mps=N] [guard=0] [keep=1]`.
+steps defaults to the model's own default (production), `guard=0` turns the size guard off,
+`keep=1` keeps the structures (a success's are deleted otherwise).
 A point already recorded on this engine tree, chip and host is skipped, so a chain resumes.
 
     TT_VISIBLE_DEVICES=<c> TT_BIO_LEASE_CARDS=<c> TT_BIO_LEASE_HOLDER=worker:mgx-diffusion \
@@ -43,7 +44,7 @@ RUNS = HERE / "runs.jsonl"
 WORK = Path(os.environ.get("MGX_DIFFUSION_WORK", HERE / "work"))
 TIMEOUT = float(os.environ.get("MGX_DIFFUSION_TIMEOUT", 7200))
 HOST_THREADS = int(os.environ.get("MGX_DIFFUSION_HOST_THREADS", 2))
-KEYS = ("steps", "recycles", "probe", "mps", "guard")
+KEYS = ("steps", "recycles", "probe", "mps", "guard", "keep")
 
 git = lambda *a: subprocess.run(["git", *a], cwd=ROOT, capture_output=True, text=True).stdout.strip()
 
@@ -195,7 +196,7 @@ def fold(p, ident):
     cell["n_struct"] = len(list(out.rglob("*.cif"))) if out.exists() else 0
     if cell.get("error") and "timed out" not in cell["error"]:
         cell["error_tail"] = "\n".join(text.strip().splitlines()[-6:])[-1200:]
-    if not cell.get("error") and not cell.get("refused"):
+    if not cell.get("error") and not cell.get("refused") and not p.get("keep"):
         subprocess.run(["rm", "-rf", str(out)])     # keep failures, drop 25-CIF successes
     return cell
 
