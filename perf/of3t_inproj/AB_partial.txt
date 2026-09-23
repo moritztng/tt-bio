@@ -1,0 +1,3 @@
+openfold3 base1 rc=0 wall=233.1s cif=8b9caa931d4ef2ee ncif=5 aiclk[min 800 median 1350 max 1350 n 136] pkg=/home/ttuser/of3t_inproj/ab_base/tt_bio/__init__.py tenstorrent.py=93d648c28fee
+openfold3 fix1 rc=0 wall=443.6s cif=8b9caa931d4ef2ee ncif=5 aiclk[min 800 median 1350 max 1350 n 203] pkg=/home/ttuser/.coworker/wt/of3t-inproj/tt_bio/__init__.py tenstorrent.py=96e3e241caa1
+openfold3 base2 rc=0 wall=443.3s cif=8b9caa931d4ef2ee ncif=5 aiclk[min 800 median 1350 max 1350 n 205] pkg=/home/ttuser/of3t_inproj/ab_base/tt_bio/__init__.py tenstorrent.py=93d648c28fee
