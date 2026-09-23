@@ -43,7 +43,7 @@ from __future__ import annotations
 
 import ttnn
 
-from .tenstorrent import (Module, Pairformer, accurate_softmax_site,
+from .tenstorrent import (Module, Pairformer, accurate_softmax_site, msa_host_offload,
                           triatt_sdpa_hifi_site)
 from .openfold3_weights import remap_pairformer_stack, is_openbind, _sub
 from .openfold3_template import TemplateEmbedder
@@ -197,6 +197,9 @@ class OF3Trunk(Module):
         # tile-padded to 64, so at 1024 tokens x 14191 alignment rows it is 1 860 042 752 B held
         # for the whole trunk for nothing. The trunk CONSUMES it; `fold` must not free it again.
         ttnn.deallocate(msa_feat)
+        # Past 1 GiB the pristine `m` waits on the host between cycles and each MSA block works
+        # on depth chunks (openfold3_msa_embedder.MSAModuleBlock), as in the protenix trunk.
+        m = msa_host_offload(m)
         # the template feature half is a function of template_feat alone, so it is the
         # same tensor in every cycle -- compute it once, exactly like m above.
         a_tmpl = self.template.features(template_feat)

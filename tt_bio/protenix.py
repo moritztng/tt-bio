@@ -37,7 +37,8 @@ from .token_axis import bucket_multiple as _bucket_multiple
 from .protenix_weights import remap_adaln  # single source of all v2->tt-bio weight remaps
 from . import ops
 from .tenstorrent import (Module, CORE_GRID_MAIN, get_device, dram_peak,
-                          MSA_CHUNK_SIZE, batched_matmul,
+                          MSA_CHUNK_SIZE, batched_matmul, msa_depth_chunks,
+                          msa_host_offload, msa_update_chunks,
                           device_generation, accurate_softmax_site)
 from . import tenstorrent as _T   # for the module-level A/B toggles, which must be read live
 from .eltwise_fusion import scale_add, norm_residual
@@ -78,12 +79,6 @@ DEFAULT_MAX_PARALLEL_SAMPLES = 5
 # chunk too. That is numerically inert; it is NOT perf-measured on Blackhole yet.
 MSA_ROW_CHUNK_BUDGET_BYTES = 1 << 28      # 0.25 GiB
 
-# Above this size the pristine m_feat lives on the HOST between recycling cycles and is
-# streamed up one depth-chunk at a time (see Trunk.__call__). A 1 GiB pristine held for all
-# 10 cycles is affordable; the 2.5-3.2 GiB ones the WH-DRAM-blocked targets carry are not --
-# the per-cycle peak pays pristine + updated copy at once. 117/298-aa targets are far below
-# the gate, so their path (and perf) is untouched.
-MSA_HOST_OFFLOAD_MIN_BYTES = 1 << 30      # 1 GiB
 
 
 TOKEN_PAD_MULTIPLE = _bucket_multiple("protenix-v2")
@@ -176,14 +171,6 @@ def bucketed_pairformer(pf, s, z, dev, mult: int | None = None, extra_attn_bias=
     """
     from .token_axis import bucketed_pairformer as _bp
     return _bp(pf, s, z, dev, bucketed_width(int(z.shape[1]), mult), extra_attn_bias)
-
-
-def _msa_host_offload_min_bytes():
-    """Offload gate, with a test-only env override (same rationale as the chunk budget):
-    forcing it to 0 makes a SMALL target take the host-streamed path so its output can be
-    compared byte-for-byte against the same target folded device-resident."""
-    v = os.environ.get("TT_BIO_MSA_HOST_OFFLOAD_MIN_BYTES")
-    return int(v) if v else MSA_HOST_OFFLOAD_MIN_BYTES
 
 
 def _msa_take_whole_path(nbytes):
@@ -2652,20 +2639,8 @@ class Trunk(_KeyedWeights):
             if pwa is None:
                 return m
             if isinstance(m, list):
-                # Already chunked: transform each chunk in place of the list, freeing the old
-                # chunk as soon as its replacement exists, so the peak stays ~2 chunks over the
-                # list rather than a second full copy.
-                zc = ttnn.clone(z)
-                out = []
-                for mc in m:
-                    t1 = ttnn.add(mc, ttnn.reshape(pwa(mc, zc, attn_tt), tuple(mc.shape)))
-                    ttnn.deallocate(mc)
-                    t2 = ttnn.add(t1, ttnn.reshape(transition(t1), tuple(t1.shape)))
-                    ttnn.deallocate(t1)
-                    out.append(t2)
-                    dram_peak("trunk msa block: after pwa add (list)")
-                ttnn.deallocate(zc)
-                return out
+                # Already chunked: transform each chunk in place of the list.
+                return msa_update_chunks(m, z, pwa, transition, attn_tt)
             D = m.shape[1]                                  # MSA depth
             # Row-chunk the MSA depth axis when the representation is too big to hold several
             # copies of. Unchunked, PairWeightedAveraging's FIRST op is an out-of-place
@@ -2692,29 +2667,10 @@ class Trunk(_KeyedWeights):
                 if m_up is not m:
                     ttnn.deallocate(m_up)
                 return out
-            # One clone of z for the whole loop, not one per chunk: PWA only reads z (it
-            # rebinds its own local through reshape/layer_norm and never deallocates it), and
-            # at c_z=384 a per-chunk clone would cost ~0.9 GiB each for a 1120-token target.
-            zc = ttnn.clone(z)
-            parts = []
-            cw = _msa_row_chunk_size()
-            host_m = torch.is_tensor(m)     # host-resident pristine (deep-MSA offload)
-            for s in range(0, D, cw):
-                if host_m:
-                    mc = self._up(m[:, s:min(s + cw, D)])         # stream one chunk from host
-                else:
-                    mc = m[:, s:min(s + cw, D), :, :]             # slice => private copy
-                # Deliberately the SAME out-of-place ttnn.add as the unchunked branch above.
-                # An in-place add_ here would be safe for aliasing (mc is a private copy) and
-                # would save a chunk-sized buffer, but it is a second change riding along with
-                # the chunking, and the acceptance test cannot then attribute a difference to
-                # one or the other. Keep the arithmetic identical to the whole path; the memory
-                # win comes from the chunk being small, not from mutating it.
-                mc = ttnn.add(mc, ttnn.reshape(pwa(mc, zc, attn_tt), tuple(mc.shape)))
-                mc = ttnn.add(mc, ttnn.reshape(transition(mc), tuple(mc.shape)))
-                parts.append(mc)
-                dram_peak("trunk msa block: after pwa add")
-            ttnn.deallocate(zc)
+            # A host-resident pristine (deep-MSA offload) streams up one chunk at a time; a
+            # device one is sliced, and those slices are not ours to free.
+            parts = msa_update_chunks(msa_depth_chunks(m, _msa_row_chunk_size()), z, pwa,
+                                      transition, attn_tt, own=torch.is_tensor(m))
             # Return the CHUNKS, not a concatenation of them. The terminal concat used to need a
             # third full-size buffer (source + parts + destination) and that 3x peak is what made
             # 9d72 OOM at 1.78 GiB m_feat even with chunking on. Every downstream consumer is
@@ -2858,12 +2814,7 @@ class Trunk(_KeyedWeights):
         # to_torch preserves the bf16 bytes and _up re-tilizes the same values, so each chunk
         # holds exactly the bytes a device slice would have held. bf16 only: a bfloat8_b tensor
         # is block-floating-point, so a host round-trip would re-quantise the tile scales.
-        if (m_feat.dtype == ttnn.bfloat16
-                and m_feat.shape[1] * m_feat.shape[2] * m_feat.shape[3] * 2 > _msa_host_offload_min_bytes()):
-            _m_host = ttnn.to_torch(m_feat)
-            ttnn.deallocate(m_feat)
-            m_feat = _m_host
-            dram_peak(f"trunk m_feat host-offloaded [{tuple(m_feat.shape)} torch]")
+        m_feat = msa_host_offload(m_feat)
         z3 = ttnn.reshape(ttnn.mul(z_init, 0.0), (1, N, N, self.C_Z))
         s = ttnn.mul(s_init, 0.0)
         n_cycles = self.N_CYCLES if n_cycles is None else n_cycles

@@ -5242,6 +5242,73 @@ def row_block_after_refusal(memo, key, single, blocked, rows, tag, min_rows=32):
         return out
 
 
+# Above this size a trunk keeps the pristine MSA representation `m` on the HOST between recycling
+# cycles and streams it up one depth chunk at a time (`msa_depth_chunks`). Held whole on device,
+# the per-cycle peak pays the pristine plus the updated copy at once: 2 x 1.98 GiB at 1088 tokens
+# against a 14191-row alignment, which is where openfold3 and openbind die on a 12 GiB Wormhole
+# part. Protenix, OpenDDE and OpenFold3 all read it; the env override is the acceptance test
+# (0 sends a small target down the streamed path to compare it with the same target held whole).
+MSA_HOST_OFFLOAD_MIN_BYTES = 1 << 30      # 1 GiB
+
+
+def msa_host_offload(m):
+    """`m` moved to the host when it is past `MSA_HOST_OFFLOAD_MIN_BYTES`, else `m` unchanged.
+
+    Bit-exact: to_torch keeps the bf16 bytes and the upload re-tilizes the same values. bf16
+    only, because a bfloat8_b tensor is block floating point and a host round trip would
+    re-quantise its tile scales."""
+    v = os.environ.get("TT_BIO_MSA_HOST_OFFLOAD_MIN_BYTES")
+    if m.dtype != ttnn.bfloat16 or m.logical_volume() * 2 <= (int(v) if v else MSA_HOST_OFFLOAD_MIN_BYTES):
+        return m
+    h = ttnn.to_torch(m)
+    ttnn.deallocate(m)
+    dram_peak(f"trunk m host-offloaded [{tuple(h.shape)} torch]")
+    return h
+
+
+def msa_depth_chunks(m, rows=MSA_CHUNK_SIZE):
+    """`m` [1, depth, tokens, c] cut along depth, lazily: one private device chunk per step.
+
+    A host tensor is uploaded a chunk at a time, a device tensor is sliced, and a list is
+    already chunks. A slice that spans the whole depth can come back as `m` itself, so chunks of a
+    device tensor are not the caller's to free (`msa_update_chunks(own=False)`)."""
+    if isinstance(m, list):
+        yield from m
+        return
+    D = m.shape[1]
+    for s in range(0, D, rows):
+        if torch.is_tensor(m):
+            yield ttnn.from_torch(m[:, s:s + rows].contiguous(), layout=ttnn.TILE_LAYOUT,
+                                  device=get_device(), dtype=ttnn.bfloat16)
+        else:
+            yield m[:, s:min(s + rows, D), :, :]
+
+
+def msa_update_chunks(chunks, z, pwa, transition, attn_mask=None, own=True):
+    """AF3's MSA update, `m += pwa(m, z)` then `m += transition(m)`, one depth chunk at a time.
+
+    Returns the updated chunks as a list and never joins them: every consumer is chunk-wise
+    (PairWeightedAveraging and Transition are per row, OuterProductMean takes the list), so the
+    contiguous tensor and the full-size buffer a join needs never exist. With `own`, each input
+    chunk is freed as soon as its replacement exists, so the peak is the list plus about two chunks.
+
+    Bit-exact against the whole-depth update: nothing in it reduces along depth. PWA's weights
+    come from `z` alone and its matmul contracts the token axis; the norms and the transition are
+    per row over channels. The adds are the same out-of-place adds the whole path makes."""
+    zc = ttnn.clone(z)    # one clone for the loop: PWA only reads z, and at c_z=384 it is ~0.9 GiB
+    out = []
+    for mc in chunks:
+        t1 = ttnn.add(mc, ttnn.reshape(pwa(mc, zc, attn_mask), tuple(mc.shape)))
+        if own:
+            ttnn.deallocate(mc)
+        t2 = ttnn.add(t1, ttnn.reshape(transition(t1), tuple(t1.shape)))
+        ttnn.deallocate(t1)
+        out.append(t2)
+        dram_peak("trunk msa block: after pwa add")
+    ttnn.deallocate(zc)
+    return out
+
+
 _device = None
 _trace_region_size = 0
 _device_lease = None
