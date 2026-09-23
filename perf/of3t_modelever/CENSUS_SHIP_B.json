@@ -188,5 +188,19 @@
   }
  },
  "renorm_flag": true,
- "trunk_math_fidelity": "hifi4"
+ "trunk_math_fidelity": "hifi4",
+ "environment": {
+  "host": "tt-quietbox2",
+  "card": 1,
+  "board_class": "p300c",
+  "aiclk_mhz_sampled_DURING": {
+   "n": 41,
+   "min": 800,
+   "median": 1350,
+   "max": 1350
+  },
+  "host_quiet": "device fd holder pid 262469 BUSY (200 ticks/2s, owner of3t-cropwall): /home/ttuser/tt-bio-dev/env/bin/python3 -u perf/of3t_crop640/split_trace.py --tokens 576 -\nloadavg1 5.82 over ceiling 2.00\nHOST NOT QUIET -- your timing read is contaminated even with an idle sibling and a forced clock. Wait it out or DEFER. Do not measure and explain it afterwards.",
+  "git_commit": "28ba681c41c46cf3f21af90b8675a195e724230f",
+  "stamped_after_the_run": "copied from DEV_SHIP_B.json provenance, written by the same runner"
+ }
 }

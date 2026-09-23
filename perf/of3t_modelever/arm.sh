@@ -101,5 +101,12 @@ d["provenance"] = {
 }
 json.dump(d, open(rep, "w"), indent=1)
 print("provenance written into " + rep)
+# The census and reach counters of this arm get the same origin (D155): they are device output.
+env = {k: d["provenance"][k] for k in ("host", "card", "board_class", "aiclk_mhz_sampled_DURING",
+                                       "host_quiet", "git_commit")}
+for side in (rep.replace("/DEV_", "/CENSUS_"), rep.replace("/DEV_", "/EXACT_SOFTMAX_")):
+    if os.path.exists(side):
+        x = json.load(open(side)); x["environment"] = env
+        json.dump(x, open(side, "w"), indent=1)
 PY
 exit "$rc"

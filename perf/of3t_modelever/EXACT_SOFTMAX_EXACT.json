@@ -26,5 +26,19 @@
   "flipped",
   "--crop",
   "0"
- ]
+ ],
+ "environment": {
+  "host": "tt-quietbox2",
+  "card": 1,
+  "board_class": "p300c",
+  "aiclk_mhz_sampled_DURING": {
+   "n": 276,
+   "min": 800,
+   "median": 1350,
+   "max": 1350
+  },
+  "host_quiet": "device fd holder pid 350039 BUSY (1954 ticks/2s, owner land-standing): /home/ttuser/tt-bio-dev/env/bin/python3 -c from multiprocessing.spawn import spawn_main; s\nloadavg1 9.66 over ceiling 2.00\nHOST NOT QUIET -- your timing read is contaminated even with an idle sibling and a forced clock. Wait it out or DEFER. Do not measure and explain it afterwards.",
+  "git_commit": "459efdf260806325a456391f464fe38c4a0f80e8",
+  "stamped_after_the_run": "copied from DEV_EXACT.json provenance, written by the same runner"
+ }
 }
