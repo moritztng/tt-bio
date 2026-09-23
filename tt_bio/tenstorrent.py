@@ -10287,43 +10287,29 @@ class PairformerLayer(Module):
                 z, memory_config=_residual_update_memory_config(z.shape, z.dtype)
                 if _RESIDUAL_L1 else None, add_to_input=True)
         else:
-            if not wide and trans_mask_z is None:
-                # Each op returns z + its update. Where its blocks join on the host they carry their own
-                # rows of z and z is freed before the upload, so a pair too big to sit beside its update
-                # still runs (`_add_input`); everywhere else it is the in-place add this layer always ran.
-                z = self.triangle_multiplication_start(z, mask, add_to_input=True)
-                z = self.triangle_multiplication_end(z, mask, add_to_input=True)
-                z = self.triangle_attention_start(z, attn_mask_start, add_to_input=True)
-                z = self.triangle_attention_end(z, attn_mask_end, add_to_input=True)
-                # Same lever as the starting triangle attention: the residual reads this update back
-                # immediately, so assembling the row blocks into L1 removes the write and the read.
-                z = self.transition_z(
-                    z, memory_config=_residual_update_memory_config(z.shape, z.dtype)
-                    if _RESIDUAL_L1 else None, add_to_input=True)
-            else:
-                zc = _z_compute(z, wide)
-                z_update = self.triangle_multiplication_start(zc, mask)
-                z = _z_residual(z, zc, z_update, wide)
+            zc = _z_compute(z, wide)
+            z_update = self.triangle_multiplication_start(zc, mask)
+            z = _z_residual(z, zc, z_update, wide)
 
-                zc = _z_compute(z, wide)
-                z_update = self.triangle_multiplication_end(zc, mask)
-                z = _z_residual(z, zc, z_update, wide)
+            zc = _z_compute(z, wide)
+            z_update = self.triangle_multiplication_end(zc, mask)
+            z = _z_residual(z, zc, z_update, wide)
 
-                zc = _z_compute(z, wide)
-                z_update = self.triangle_attention_start(zc, attn_mask_start)
-                z = _z_residual(z, zc, z_update, wide)
+            zc = _z_compute(z, wide)
+            z_update = self.triangle_attention_start(zc, attn_mask_start)
+            z = _z_residual(z, zc, z_update, wide)
 
-                zc = _z_compute(z, wide)
-                z_update = self.triangle_attention_end(zc, attn_mask_end)
-                z = _z_residual(z, zc, z_update, wide)
+            zc = _z_compute(z, wide)
+            z_update = self.triangle_attention_end(zc, attn_mask_end)
+            z = _z_residual(z, zc, z_update, wide)
 
-                # Same lever as the starting triangle attention: the residual reads this update back
-                # immediately, so assembling the row blocks into L1 removes the write and the read.
-                zc = _z_compute(z, wide)
-                z_update = self.transition_z(
-                    zc, memory_config=_residual_update_memory_config(zc.shape, zc.dtype)
-                    if _RESIDUAL_L1 else None, mask=trans_mask_z)
-                z = _z_residual(z, zc, z_update, wide)
+            # Same lever as the starting triangle attention: the residual reads this update back
+            # immediately, so assembling the row blocks into L1 removes the write and the read.
+            zc = _z_compute(z, wide)
+            z_update = self.transition_z(
+                zc, memory_config=_residual_update_memory_config(zc.shape, zc.dtype)
+                if _RESIDUAL_L1 else None, mask=trans_mask_z)
+            z = _z_residual(z, zc, z_update, wide)
         if self.transform_s:
             s_norm = ttnn.layer_norm(
                 self._s_compute(s),
