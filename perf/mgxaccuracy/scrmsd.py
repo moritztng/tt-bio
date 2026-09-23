@@ -153,6 +153,14 @@ def main() -> int:
     ap.add_argument("--metric", default="designfolding", choices=sorted(METRICS),
                     help="designfolding = the scRMSD bar; complex = the step-3 whole-complex fit")
     ap.add_argument("--json", action="store_true", help="emit one jsonl-ready record")
+    # The record has to land in report.py's cell key, which is (side, target, size, offset) --
+    # pooling two targets of one size was a real defect here, so these are not optional
+    # decoration. A row missing `target` is kept separate rather than merged into anything.
+    ap.add_argument("--model", default="boltzgen")
+    ap.add_argument("--target", default="", help="the target file this run designed against")
+    ap.add_argument("--target-res", type=int, default=None, help="residues of the target crop")
+    ap.add_argument("--side", default="device",
+                    help="which side of the comparison, e.g. device or upstream-cpu")
     args = ap.parse_args()
 
     out = args.out_dir.expanduser()
@@ -163,7 +171,9 @@ def main() -> int:
     if not vals:
         raise SystemExit("no design scored")
     import statistics as st
-    rec = {"source": f"{METRICS[args.metric][0]} on disk, not analysis",
+    rec = {"model": args.model, "target": args.target, "target_res": args.target_res,
+           "side": args.side, "out_dir": str(out),
+           "source": f"{METRICS[args.metric][0]} on disk, not analysis",
            "metric": METRICS[args.metric][1], "backbone": args.backbone,
            "n": len(vals), "scrmsd": vals, "median": st.median(vals),
            "min": min(vals), "max": max(vals),

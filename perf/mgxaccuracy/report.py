@@ -32,7 +32,10 @@ PERMISSIVE_A = 4.0
 # clash fraction has no published bar: `tt_bio/size_limits.py` records per-model BANDS, which
 # are model-specific, so this prints the distribution and leaves the judging to the reader.
 METRICS = {
-    "scrmsd": {"label": "scRMSD (A) — isolated refold, Kabsch CA-RMSD",
+    # "CA-RMSD" was wrong and the error was in the column header a reader trusts: BoltzGen's
+    # designfolding-bb_rmsd is over N, CA, C and O. Measured, not read off the name -- CA alone
+    # misses the pipeline's own column by up to 0.22 A (results/scrmsd_step4_check.txt).
+    "scrmsd": {"label": "scRMSD (A) — design refolded alone, Kabsch over N,CA,C,O",
                "fmt": "{:>9.2f}", "bars": (("<=2A", STRICT_A), ("<=4A", PERMISSIVE_A))},
     "clash_frac": {"label": "clash fraction — heavy-atom clashes < 2.0 A / atoms",
                    "fmt": "{:>9.5f}", "bars": ()},
@@ -185,14 +188,14 @@ def main() -> int:
     spec = METRICS[args.metric]
     fmt, bars = spec["fmt"], spec["bars"]
     print(f"\n{'='*100}\nby target — {args.model}   {spec['label']}\n{'='*100}")
-    head = (f"{'side':<10}{'size':>6}{'offset':>8}{'n':>4}"
+    head = (f"{'side':<8}{'target':<24}{'size':>6}{'offset':>7}{'n':>4}"
             + "".join(f"{h:>9}" for h in ("min", "median", "max"))
             + "".join(f"{name:>7}" for name, _ in bars))
     print(head + "   provenance")
     for k in sorted(cells, key=lambda k: (k[0], k[2], k[3], k[1])):
         side, target, size, off = k
         c = cell(cells[k], bars)
-        line = (f"{side:<8}{target[:23]:<24}{size:>6}{off:>7}{c['n']:>4}"
+        line = (f"{side[:7]:<8}{target[:23]:<24}{size:>6}{off:>7}{c['n']:>4}"
                 + fmt.format(c["min"]) + fmt.format(c["median"]) + fmt.format(c["max"])
                 + "".join(f"{v*100:>6.0f}%" for v in c["bars"]))
         print(f"{line}   {meta[k][0]}")
