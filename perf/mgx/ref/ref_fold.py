@@ -298,14 +298,16 @@ def run_rf3(chains, seed, cfg, work):
     js = work / "t.json"
     js.write_text(json.dumps({"name": "t", "components": comps}, indent=1))
     rf3 = Path(sys.executable).parent / "rf3"
+    ckpt = CKPT / "rf3_foundry_01_24_latest_remapped.ckpt"   # tt_bio/weights.py "rf3"
     argv = [str(rf3), "fold", f"inputs={js}", f"out_dir={work / 'out'}", f"seed={seed}",
             f"n_recycles={cfg['recycles']}", f"num_steps={cfg['steps']}",
-            "diffusion_batch_size=1", "skip_existing=False",
+            "diffusion_batch_size=1", "skip_existing=False", f"ckpt_path={ckpt}",
             # upstream ships 0.5, which abandons a target after one recycle when pLDDT is low;
             # tt-bio runs without it unless --early_stop_plddt is passed.
             "early_stopping_plddt_threshold=0"]
     subprocess.run(argv, check=True)
-    return newest(work / "out", "*.cif*"), dict(argv=argv, pkgs=pkg("rc-foundry", "atomworks", "torch"),
+    return newest(work / "out", "*.cif*"), dict(argv=argv, checkpoint=str(ckpt),
+                                               pkgs=pkg("rc-foundry", "atomworks", "torch"),
                                                dtype="upstream default")
 
 

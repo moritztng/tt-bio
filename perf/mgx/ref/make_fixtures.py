@@ -23,6 +23,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import re
 import sys
 import urllib.request
 from pathlib import Path
@@ -94,6 +95,15 @@ def yaml_text(title: str, chains: list[tuple[list[str], str, str]]) -> str:
     return "\n".join(out) + "\n"
 
 
+def match_rows(a3m: str, length: int) -> tuple[str, int]:
+    """Keep the a3m records whose aligned row has exactly `length` match columns (insertions are
+    lowercase or '.'), return the kept text and how many were dropped. Every upstream parser
+    rejects a ragged a3m outright, so a malformed row cannot silently reach one side only."""
+    recs = re.findall(r"(>[^\n]*\n)([^>]*)", a3m)
+    keep = [h + s for h, s in recs if len(re.sub(r"[a-z.\s]", "", s)) == length]
+    return "".join(keep), len(recs) - len(keep)
+
+
 def main() -> None:
     MSA.mkdir(parents=True, exist_ok=True)
     GT.mkdir(parents=True, exist_ok=True)
@@ -112,6 +122,7 @@ def main() -> None:
         chains = []
         for ids, s in ents:
             p = MSA / f"{pdb.lower()}_{ids[0]}.a3m"
+            assert match_rows(p.read_text(), len(s))[1] == 0, f"{p} has rows off the query length"
             chains.append((ids, s, str(p.relative_to(ROOT))))
         tokens = sum(len(s) * len(ids) for ids, s in ents)
         (FIX / f"{name}.yaml").write_text(yaml_text(f"PDB {pdb}: {title}. {tokens} tokens.", chains))
@@ -131,15 +142,22 @@ def main() -> None:
                    if l.strip().startswith("sequence:"))
         assert a3m.read_text().split("\n")[1] == seq, f"{a3m} query row does not match {src}"
         name = f"cdk2x2_{rung}"
+        # The ladder's 1280 a3m carries rows short of 1280 match columns; pin a copy without them.
+        kept, dropped = match_rows(a3m.read_text(), len(seq))
+        note = "with its a3m pinned"
+        if dropped:
+            a3m = MSA / f"{name}.a3m"
+            a3m.write_text(kept)
+            note = f"with its a3m pinned minus {dropped} rows whose match columns are not {len(seq)}"
         m = str(a3m.relative_to(ROOT))
         (FIX / f"{name}.yaml").write_text(yaml_text(
             f"CDK2 (1HCL) tiled to {len(seq)} aa, one chain: the size ladder's own fixture "
-            f"({src.relative_to(ROOT)}) with its a3m pinned.", [(["A"], seq, m)]))
+            f"({src.relative_to(ROOT)}) {note}.", [(["A"], seq, m)]))
         manifest["fixtures"][name] = dict(
             rung=rung, kind="tiled-cdk2x2", tokens=len(seq),
             yaml=str((FIX / f"{name}.yaml").relative_to(ROOT)), ground_truth=None,
             chains=[dict(ids=["A"], length=len(seq), msa=m, msa_rows=a3m.read_text().count(">"),
-                         msa_sha256_16=sha(a3m))])
+                         msa_rows_dropped=dropped, msa_sha256_16=sha(a3m))])
 
     (FIX / "fixtures.json").write_text(json.dumps(manifest, indent=1) + "\n")
     for n, f in manifest["fixtures"].items():
