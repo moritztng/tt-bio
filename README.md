@@ -132,7 +132,7 @@ under 1024:
 | `boltz2` | 1664 | 1792 |
 | `opendde`, `opendde-abag` | 1024 | 1088 |
 | `openfold3` | 1024 | 1088 |
-| `openbind` | 960 (residues; a ligand adds tokens) | 1024 |
+| `openbind` | 1088 (residues; a ligand adds tokens) | 1152 |
 | `pxdesign` | 1536 (target residues; the binder is on top) | none found; top of the ladder |
 | `protenix-v2` | 1024 (residues; a ligand adds tokens) | 1095 |
 | `esmfold2` | 1024 (residues; a ligand adds tokens) | 1056 |
