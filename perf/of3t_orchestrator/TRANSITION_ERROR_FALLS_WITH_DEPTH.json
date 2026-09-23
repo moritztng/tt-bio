@@ -1,0 +1,38 @@
+{
+ "what": "a depth profile of the two AdaLN gains across all 24 DiT blocks, from the per-tensor array already in hand. Tests whether the non-attention half's error is INHERITED through the backward from the attention softmaxes downstream of it, which is what of3t-adaln's finding implies but never checked. No new run.",
+
+ "the_prediction_being_tested": "of3t-adaln measured the conditioned transition ALONE against upstream's own module at 5.468736e-03 -- clean -- while the model shows its gain at mass-weighted 0.1828. So the error is not made inside the transition; it arrives in the cotangent. If it arrives from the attention softmaxes, then a block's transition gain should be WORSE the more blocks sit downstream of it in the backward: block 0 has 23, block 23 has none.",
+
+ "result": {
+  "conditioned_transition.layer_norm.layer_norm_s.weight": {
+   "n": 24, "median_rel_blocks_0_7": 0.1747, "median_rel_blocks_16_23": 0.0529, "ratio": 3.30,
+   "pearson_logrel_vs_block_index": -0.5789,
+   "pearson_logrel_vs_logmass": 0.4294,
+   "pearson_index_vs_logmass": -0.7557,
+   "partial_index_controlling_mass": -0.4301,
+   "partial_mass_controlling_index": -0.0150,
+   "t": "t(21) = -2.18 for the index partial",
+   "reading": "depth survives the mass control and mass explains essentially nothing once depth is held. SUGGESTIVE, not conclusive."},
+  "attention_pair_bias.layer_norm_a.layer_norm_s.weight": {
+   "n": 24, "median_rel_blocks_0_7": 2.0321, "median_rel_blocks_16_23": 0.3806, "ratio": 5.34,
+   "pearson_logrel_vs_block_index": -0.3444,
+   "partial_index_controlling_mass": -0.1803,
+   "t": "t(21) = -0.84 for the index partial",
+   "reading": "NOT established. The raw correlation does not survive the mass control."}
+ },
+
+ "the_confound_that_had_to_be_removed_first": "block index and log mass are 76 % collinear in this model (r = -0.7557) -- later DiT blocks carry far less gradient mass. The raw -0.5789 could have been a mass effect entirely, and reporting it without the partial would have been the same error as reading a worst-tensor list as a location. After controlling: depth -0.4301, mass -0.0150.",
+
+ "why_the_weaker_signal_is_on_the_leaf_with_its_own_softmax": "the transition gain has NO softmax inside its own block, so whatever it shows is inherited; the attention gain sits directly under its own block's softmax, which adds large block-specific variance (block 8 alone reads 18.504). Inheritance-plus-local-noise predicts exactly this ordering -- the cleaner depth signal on the leaf with no local source -- and that is a weak structural argument in favour, not evidence.",
+
+ "PRE_REGISTERED_TEST": {
+  "claim_under_test": "the transition gain's error is inherited through the backward from attention softmaxes downstream of it.",
+  "the_measurement": "re-run of3t-adaln's float64-softmax arm across ALL 24 blocks rather than the three it did (8, 0, 12), and recompute the depth profile of the transition gain.",
+  "CONFIRMS_if": "the depth gradient VANISHES -- partial(log rel, block index | log mass) consistent with zero, and the blocks 0-7 / 16-23 ratio collapsing toward 1.0 from 3.30.",
+  "REFUTES_if": "a depth gradient of similar size survives an exact softmax, which would mean something other than the softmax accumulates with depth.",
+  "written_before_the_measurement": true
+ },
+
+ "honest_limits": "n = 24, one partial correlation at t(21) = -2.18, and one outlier (block 7 at rel 0.7439, the only transition gain with cos below 0.95). Depth co-varies with more than the number of softmaxes below it -- activation magnitudes and cotangent norms both change through a residual stack. This is a consistency check that the inheritance reading survives, not a demonstration of it.",
+ "provenance": "computed 2026-09-20 pass 165 by of3t-orchestrator on pc, CPU only, no device opened, from perf/of3t_orchestrator/pt/device_gradient_043pt.json and the per-tensor reference mass."
+}
