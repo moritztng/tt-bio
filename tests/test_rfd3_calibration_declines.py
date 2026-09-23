@@ -1,0 +1,124 @@
+"""Matmul calibration must DECLINE when its scratch does not fit, and never hold both screens.
+
+Calibration is scratch: a reference output per screen plus a full random copy of each operand,
+all live alongside the model's own working set. Holding the random screen's reference and the
+live screen's reference at the same time is what ended the first 1536-residue rfd3 design -- the
+throw was at `rref`, asking for a 2717908992 B DRAM buffer with 2.45 GB free on the card
+(j10glx02 card 30, 2026-09-23, mgx-design-ceiling). A shape too big to calibrate is not a shape
+too big to RUN: the configs calibration returns are bitwise equal to the default it falls back
+to, so declining costs speed and can never change a result.
+
+Host-only. The device calls are faked, because what is under test is the control flow around
+them: which tensors are alive when, and what happens when one of them refuses to allocate.
+"""
+from __future__ import annotations
+
+import pytest
+import ttnn
+
+from tt_bio.rfd3 import model as M
+
+
+class FakeTensor:
+    def __init__(self, name, live):
+        self.name = name
+        self.alive = True
+        self.padded_shape = (1, 32, 32)
+        live.append(self)
+
+    def __repr__(self):
+        return f"<{self.name} {'alive' if self.alive else 'dead'}>"
+
+
+class Fixture:
+    """Enough of ttnn to run `_calibrate_linear`, with an allocation that can be made to refuse."""
+
+    def __init__(self, refuse=None, times=None):
+        self.refuse = refuse            # name of the reference output that raises, or None
+        self.times = list(times or [])  # `_mm_time` results, last one repeats
+        self.live = []
+        self.overlaps = []              # reference-output names alive together, per allocation
+
+    # -- the pieces model.py calls ------------------------------------------------------------
+    def linear(self, a, b, **kw):
+        ref = "program_config" not in kw
+        name = ({"rx": "rref", "x": "ref"}.get(a.name, "cand") if ref else "cand")
+        if ref:
+            if name == self.refuse:
+                raise RuntimeError(f"Out of Memory: Not enough space to allocate {name}")
+            self.overlaps.append(sorted(t.name for t in self.live
+                                        if t.alive and t.name in ("ref", "rref")) + [name])
+        return FakeTensor(name, self.live)
+
+    def deallocate(self, t):
+        t.alive = False
+
+    def random_like(self, t, seed):
+        return FakeTensor("rx" if seed == 0 else "rw", self.live)
+
+    def time(self, fn):
+        fn()
+        return self.times.pop(0) if len(self.times) > 1 else self.times[0]
+
+    def candidates(self, x, w, grid):
+        yield "pc-a"
+        yield "pc-b"
+
+    def install(self, mp):
+        mp.setattr(ttnn, "linear", self.linear)
+        mp.setattr(ttnn, "deallocate", self.deallocate)
+        mp.setattr(M, "_mm_random_like", self.random_like)
+        mp.setattr(M, "_mm_time", self.time)
+        mp.setattr(M, "_mm_candidates", self.candidates)
+        mp.setattr(M, "_mm_maxabs", lambda a, b: 0.0)
+        mp.setattr(M, "get_device", lambda: type("D", (), {
+            "compute_with_storage_grid_size": lambda self: None})())
+        return self
+
+    def leaked(self):
+        return [t for t in self.live if t.alive]
+
+
+def calibrate(fx, x_name="x"):
+    return M._calibrate_linear(FakeTensor(x_name, fx.live), FakeTensor("w", fx.live), {}, None)
+
+
+def test_the_two_screens_never_hold_both_reference_outputs(monkeypatch):
+    """`ref` and `rref` are each a full output. The peak is |out| + |x| + |w|, not 2|out| + ..."""
+    fx = Fixture(times=[0.010, 0.001]).install(monkeypatch)
+    calibrate(fx)
+    assert ["rref"] in fx.overlaps and ["ref"] in fx.overlaps
+    assert not any(len(o) > 1 for o in fx.overlaps), fx.overlaps
+
+
+def test_a_random_screen_that_does_not_fit_declines_and_frees_what_it_built(monkeypatch):
+    fx = Fixture(refuse="rref", times=[0.010]).install(monkeypatch)
+    assert calibrate(fx) is None
+    assert fx.leaked() == [] or all(t.name in ("x", "w") for t in fx.leaked())
+
+
+def test_a_live_screen_that_does_not_fit_declines(monkeypatch):
+    """The random screen can fit and the live one still not: the model grows between them."""
+    fx = Fixture(refuse="ref", times=[0.010]).install(monkeypatch)
+    assert calibrate(fx) is None
+    assert [t for t in fx.leaked() if t.name in ("rx", "rw", "rref")] == []
+
+
+def test_a_shape_under_the_time_floor_allocates_nothing(monkeypatch):
+    fx = Fixture(times=[M._TUNE_MIN_MS / 1e3 / 2]).install(monkeypatch)
+    assert calibrate(fx) is None
+    assert [t.name for t in fx.live if t.name not in ("x", "w", "cand")] == []
+
+
+def test_a_candidate_that_beats_the_budget_is_still_chosen(monkeypatch):
+    """The decline paths must not cost the win: a faster exact candidate still comes back."""
+    fx = Fixture(times=[0.010, 0.001]).install(monkeypatch)
+    assert calibrate(fx) == "pc-a"
+    assert fx.leaked() == [] or all(t.name in ("x", "w") for t in fx.leaked())
+
+
+@pytest.mark.parametrize("refuse", ["rref", "ref"])
+def test_declining_never_raises_at_the_call_site(monkeypatch, refuse):
+    """`_tuned_linear` treats None as "use the default", so a decline is invisible to the model."""
+    fx = Fixture(refuse=refuse, times=[0.010]).install(monkeypatch)
+    assert calibrate(fx) is None
