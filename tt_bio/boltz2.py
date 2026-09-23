@@ -46,6 +46,12 @@ class _LazyTenstorrent:
 
 tenstorrent = _LazyTenstorrent()
 
+
+def _dram_peak(tag):
+    """tenstorrent.dram_peak without importing ttnn when the census is off (CPU/GPU hosts)."""
+    if os.environ.get("TT_BIO_DRAM_PEAK"):
+        tenstorrent.dram_peak(tag)
+
 # Lazy imports for fallback modules to avoid circular imports
 # These are imported inside classes that use them
 def _get_pytorch_modules():
@@ -4494,6 +4500,7 @@ class AtomDiffusion(Module):
                     atom_coords_denoised[start : start + n_real] = (
                         atom_coords_denoised_chunk[:n_real]
                     )
+                    _dram_peak(f"diffusion chunk [W={chunk_width}]")
 
                 if steering_args["fk_steering"] and (
                     (
@@ -5845,6 +5852,10 @@ class Boltz2(nn.Module):
                 # Taken once and owned here, because two stages read it: the diffusion
                 # conditioning before the sampler and the confidence head after it.
                 device_z = _trunk.pop_device_z()
+            # The trunk's staged inputs (MSA features, z_init, template statics) are dead once
+            # it returns, but the next fold's reset is what used to free them, so they sat
+            # through diffusion and confidence: 2.6 GiB at 1728 tokens with a deep MSA.
+            _trunk.reset_static_cache()
         elif self.run_trunk_and_structure:
             for i in range(recycling_steps + 1):
                 if _pfn:
@@ -5956,6 +5967,11 @@ class Boltz2(nn.Module):
                     progress_fn=_pfn,
                 )
                 dict_out.update(struct_out)
+            # Same for the sampler's staged conditioning (the per-layer token bias alone is
+            # [n, n, heads * layers]): release it before the confidence head allocates.
+            for m in self.structure_module.modules():
+                if hasattr(m, "reset_static_cache"):
+                    m.reset_static_cache()
 
             if self.predict_bfactor:
                 pbfactor = self.bfactor_module(s)
@@ -5988,6 +6004,7 @@ class Boltz2(nn.Module):
                     z_device=device_z if device_confidence else None,
                 )
             )
+            _dram_peak(f"confidence done [samples={diffusion_samples}]")
         if device_z is not None:
             tenstorrent.free(device_z[0])
             device_z = None

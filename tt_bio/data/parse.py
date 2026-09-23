@@ -3162,7 +3162,10 @@ def parse_boltz_schema(  # noqa: C901, PLR0915, PLR0912
     bond_data = []
     res_data = []
     chain_data = []
-    protein_chains = set()
+    # Ordered, not a set: the template search below breaks score ties by position, and a set of
+    # names iterates in a per-process hash order, so a template with two copies of a chain gave a
+    # different copy (and a different fold) from run to run.
+    protein_chains = {}
     affinity_info = None
 
     rdkit_bounds_constraint_data = []
@@ -3189,7 +3192,7 @@ def parse_boltz_schema(  # noqa: C901, PLR0915, PLR0912
 
         # Save protein chains for later
         if chain.type == const.chain_type_ids["PROTEIN"]:
-            protein_chains.add(chain_name)
+            protein_chains[chain_name] = None
 
         # Add affinity info
         if chain.affinity and affinity_info is not None:
@@ -3526,11 +3529,11 @@ def parse_boltz_schema(  # noqa: C901, PLR0915, PLR0912
                 use_assembly=False,
                 compute_interfaces=False,
             )
-        template_proteins = {
+        template_proteins = [
             str(c["name"])
             for c in parsed_template.data.chains
             if c["mol_type"] == const.chain_type_ids["PROTEIN"]
-        }
+        ]
         if template_chain_ids is None:
             template_chain_ids = list(template_proteins)
 
