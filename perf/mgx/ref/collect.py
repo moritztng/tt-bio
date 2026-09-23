@@ -52,8 +52,9 @@ def main() -> int:
                 if r.get("status") == "ok":
                     dst = HERE / "refs" / m / f / f"s{s}.cif.gz"
                     dst.parent.mkdir(parents=True, exist_ok=True)
-                    with open(raw / m / f / f"s{s}.cif", "rb") as src, gzip.open(dst, "wb") as out:
-                        shutil.copyfileobj(src, out)
+                    with open(raw / m / f / f"s{s}.cif", "rb") as src, open(dst, "wb") as raw_out, \
+                            gzip.GzipFile(fileobj=raw_out, mode="wb", mtime=0) as out:
+                        shutil.copyfileobj(src, out)  # mtime=0: a re-collect leaves unchanged folds byte-identical
                     ent["cif"] = str(dst.relative_to(ROOT))
                 cell["seeds"][str(s)] = ent
             ok = {s: e for s, e in cell["seeds"].items() if e.get("status") == "ok"}
