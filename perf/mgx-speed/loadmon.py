@@ -4,9 +4,9 @@ The speed bar voids a rung whose host passed 1.5x nproc, and part of whglx's loa
 remove (the live app on cards 24-27, a co-tenant on card 1). This says how much each card's
 processes contribute, so that share can be subtracted and named instead of guessed.
 
-Every 5 s it counts threads in state R, keyed by TT_VISIBLE_DEVICES of the owning process
-(unreadable or unset -> "-"). Every 60 s it appends one JSON line: the 1-min loadavg, nproc and
-the mean runnable count per card over that minute.
+Every 5 s it counts threads in state R or D (the two states loadavg counts), keyed by
+TT_VISIBLE_DEVICES of the owning process (unreadable or unset -> "-"). Every 60 s it appends one
+JSON line: the 1-min loadavg, nproc and the mean R+D count per card over that minute.
 
     python perf/mgx-speed/loadmon.py <out.jsonl> [minutes]
 """
@@ -29,7 +29,7 @@ def card_of(pid, cache):
 
 
 def runnable():
-    """R-state threads per card right now."""
+    """R- and D-state threads per card right now."""
     out, cache = Counter(), {}
     for pid in os.listdir("/proc"):
         if not pid.isdigit():
@@ -43,7 +43,7 @@ def runnable():
                 stat = open(f"/proc/{pid}/task/{tid}/stat").read()
             except OSError:
                 continue
-            if stat[stat.rfind(")") + 2] == "R":
+            if stat[stat.rfind(")") + 2] in "RD":
                 out[card_of(pid, cache)] += 1
     return out
 
