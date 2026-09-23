@@ -113,6 +113,13 @@ def test_load_sequences_rejects_bad_input(tmp_path):
     with pytest.raises(ValueError, match="expected a YAML mapping"):
         load_sequences(str(bad_yaml))
 
+    # A digit in a file used to embed as <unk>; the bare-string path always refused it.
+    digit = tmp_path / "digit.fasta"
+    digit.write_text(">d\nMQIFVK1TLTG\n")
+    with pytest.raises(ValueError, match=r"sequence 'd' has non-letter character\(s\) at 71"):
+        load_sequences(str(digit))
+    assert load_sequences("MK TA") == {"seq0": "MKTA"}
+
     empty_dir = tmp_path / "empty"
     empty_dir.mkdir()
     with pytest.raises(ValueError, match="no FASTA files"):
