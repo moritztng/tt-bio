@@ -20,7 +20,7 @@ One JSON line per point in perf/mgx-diffusion/runs.jsonl, carrying:
 Plan lines: `<model> <tokens> <samples> [steps=N] [recycles=N] [probe=1] [mps=N] [guard=0] [keep=1]`.
 steps defaults to the model's own default (production), `guard=0` turns the size guard off,
 `keep=1` keeps the structures (a success's are deleted otherwise).
-A point already recorded on this engine tree, chip and host is skipped, so a chain resumes.
+A point already recorded on this engine tree and host is skipped, so a chain resumes.
 
     TT_VISIBLE_DEVICES=<c> TT_BIO_LEASE_CARDS=<c> TT_BIO_LEASE_HOLDER=worker:mgx-diffusion \
         python perf/mgx-diffusion/ladder.py perf/mgx-diffusion/plan.txt
@@ -212,7 +212,9 @@ def main():
     seen = set()
     if RUNS.exists():
         for c in map(json.loads, RUNS.read_text().splitlines()):
-            same = (c["engine"], c["host"], c["card"]) == (ident["engine"], ident["host"], ident["card"])
+            # Not keyed by chip: other rows take chips between our folds, a lane then resumes on
+            # another one, and each point still carries its own card and DURING-sampled AICLK.
+            same = (c["engine"], c["host"]) == (ident["engine"], ident["host"])
             warm_or_final = not c.get("cold") or c.get("probe") or c.get("error") or c.get("refused")
             if same and warm_or_final:
                 seen.add(point_id(c))
