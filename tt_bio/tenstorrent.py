@@ -12414,17 +12414,27 @@ class RelPosGather:
             for t in rel_pos.tables()
         ]
 
-    def __call__(self, feats, padded):
+    def __call__(self, feats, padded, into=None):
+        """The four gathers summed, or added one by one into ``into`` and ``into`` returned.
+
+        ``into`` saves the sum's own pair tensor, at the cost of a different add order (a
+        bf16 rounding difference), so it is only the route after a DRAM refusal.
+        """
         d_residue, d_token, d_chain, same_entity = self.rel_pos.index_features(feats)
-        out = None
-        for table, index in zip(self.tables,
-                                (d_residue, d_token, same_entity.long(), d_chain)):
-            rows = pair_gather(index, table, padded)
-            if out is None:
-                out = rows
-            else:
-                out = ttnn.add_(out, rows)
-                ttnn.deallocate(rows)
+        out = into
+        try:
+            for table, index in zip(self.tables,
+                                    (d_residue, d_token, same_entity.long(), d_chain)):
+                rows = pair_gather(index, table, padded)
+                if out is None:
+                    out = rows
+                else:
+                    out = ttnn.add_(out, rows)
+                    ttnn.deallocate(rows)
+        except BaseException:
+            if out is not None and into is None:
+                ttnn.deallocate(out)
+            raise
         return out
 
 
@@ -12804,8 +12814,18 @@ class PairAssemblyDevice:
                                 compute_kernel_config=self.compute_kernel_config)
         self.wall.mark("z_norm")
 
-        rel = self.rel_pos(feats, padded)
-        z = self._acc(z, rel)
+        try:
+            z = self._acc(z, self.rel_pos(feats, padded))
+        except RuntimeError as exc:
+            # Boltz-2 at 1792 tokens: the trunk z, its norm, the running sum and one gather are
+            # four pair tensors, and the fourth was refused with 60 MiB/bank in one piece against
+            # 65 MiB wanted. Adding each gather straight into the norm drops the sum.
+            if z is None or not _dram_oom(exc):
+                raise
+            print("[tt-bio] DRAM refused the relative-position sum; adding its gathers into the "
+                  "pair in place. The tt-metal 'Out of Memory' line above is expected and "
+                  "handled.", file=sys.stderr, flush=True)
+            z = self.rel_pos(feats, padded, into=z)
         self.wall.mark("rel_pos")
 
         packed = self._pack(feats, padded)
