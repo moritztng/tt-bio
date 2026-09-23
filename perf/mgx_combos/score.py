@@ -4,8 +4,9 @@
 score.py <crystal.cif[.gz]> <pred.cif> [...]  prints one line per prediction:
 polymer chains and ligand atoms returned, whole-complex CA-RMSD after superposition (chains of one
 sequence matched in whichever order fits best), each ligand's centroid distance to the nearest
-crystal copy of the same CCD code, and the closest ligand-protein heavy-atom contact (< 1 A is a
-clash). --json writes the records instead.
+crystal copy of the same CCD code, each chain's CA-RMSD in that same whole-complex frame (a
+peptide's number is its placement in the groove, not its own shape), and the closest
+ligand-protein heavy-atom contact (< 1 A is a clash). --json writes the records instead.
 """
 import itertools
 import json
@@ -94,25 +95,29 @@ def score(crystal, pred):
         used = [c for c in combo if c]
         if len(used) != len(set(used)):
             continue
-        P, Q = [], []
+        P, Q, owner = [], [], []
         for pn, cn in zip(names, combo):
             if cn:
                 for a, b in _pairs(pp[pn], cp[cn])[0]:
                     P.append([a.x, a.y, a.z])
                     Q.append([b.x, b.y, b.z])
+                    owner.append(pn)
         if len(P) < 3:
             continue
         P, Q = np.array(P), np.array(Q)
         R, pc, qc = _kabsch(P, Q)
         rmsd = float(np.sqrt((((P - pc) @ R.T + qc - Q) ** 2).sum(1).mean()))
         if best is None or rmsd < best[0]:
-            best = (rmsd, len(P), R, pc, qc)
+            d2 = (((P - pc) @ R.T + qc - Q) ** 2).sum(1)
+            own = np.array(owner)
+            per = {n: round(float(np.sqrt(d2[own == n].mean())), 2) for n in names if (own == n).any()}
+            best = (rmsd, len(P), R, pc, qc, per)
     rec = {"pred": pred, "chains": {n: len(s) for n, (s, _) in pp.items()}}
     pl, cl = _ligands(pst), _ligands(cst)
     rec["ligands"] = {f"{c}:{n}": len(x) for c, n, x in pl}
     if best:
-        rmsd, n, R, pc, qc = best
-        rec["ca_rmsd"], rec["n_ca"] = round(rmsd, 3), n
+        rmsd, n, R, pc, qc, per = best
+        rec["ca_rmsd"], rec["n_ca"], rec["chain_rmsd"] = round(rmsd, 3), n, per
         prot = np.array([[a.pos.x, a.pos.y, a.pos.z] for ch in pst[0] for r in ch.get_polymer()
                          for a in r if a.element.name != "H"])
         lig = {}
@@ -136,7 +141,7 @@ def main():
     for r in recs:
         lig = " ".join(f"{k}({r['ligands'][k]} at, {v['centroid_to_crystal']} A, contact {v['min_contact']})"
                        for k, v in r.get("ligand_fit", {}).items())
-        print(f"{r['pred']}: chains {r['chains']} CA-RMSD {r.get('ca_rmsd')} A over {r.get('n_ca')} | {lig}")
+        print(f"{r['pred']}: chains {r['chains']} CA-RMSD {r.get('ca_rmsd')} A over {r.get('n_ca')} per-chain {r.get('chain_rmsd')} | {lig}")
 
 
 if __name__ == "__main__":
