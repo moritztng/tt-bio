@@ -1,0 +1,308 @@
+{
+ "what": "of3t-frameself: inside ONE block, which sub-module's gradient diverges?",
+ "host": "tt-quietbox2",
+ "row": "of3t-frameself",
+ "defect": "D242",
+ "device_involved": false,
+ "why_no_aiclk": "CPU only, no Tenstorrent device is opened",
+ "reference": {
+  "path": "/home/ttuser/of3t-campaign-refs/bundle_min_043/grads_f64_043.pt",
+  "is": "the full-model float64 backward, batch_step003, num_recycles 0",
+  "injected": false
+ },
+ "arm": {
+  "path": "/home/ttuser/of3t_twoside/ctrl_f64.pt",
+  "is": "of3t-twoside's injected float64 replay",
+  "injected": true
+ },
+ "blocks": {
+  "47": {
+   "attn_pair_bias": {
+    "n_tensors": 11,
+    "n_bit_identical": 0,
+    "rel_l2_as_is": 3.2047947740746706e-15,
+    "norm_ratio_arm_over_ref": 1.000000000000001,
+    "cos": 0.9999999999999999,
+    "ref_squared_norm": 0.043212259298384126,
+    "worst_rel_l2": 0.48061390670371634,
+    "worst_tensor": "pairformer_stack.blocks.47.attn_pair_bias.layer_norm_z.bias"
+   },
+   "pair_stack.pair_transition": {
+    "n_tensors": 5,
+    "n_bit_identical": 0,
+    "rel_l2_as_is": 1.0146158646187697,
+    "norm_ratio_arm_over_ref": 2.0094770608920425,
+    "cos": 0.9974119096775754,
+    "ref_squared_norm": 0.058999826305642135,
+    "worst_rel_l2": 1.0294567945845776,
+    "worst_tensor": "pairformer_stack.blocks.47.pair_stack.pair_transition.layer_norm.weight"
+   },
+   "pair_stack.tri_att_end": {
+    "n_tensors": 8,
+    "n_bit_identical": 0,
+    "rel_l2_as_is": 1.0324120225533746,
+    "norm_ratio_arm_over_ref": 2.0166121236956047,
+    "cos": 0.9919730785391357,
+    "ref_squared_norm": 0.0008960532537206906,
+    "worst_rel_l2": 1.272982515280693,
+    "worst_tensor": "pairformer_stack.blocks.47.pair_stack.tri_att_end.layer_norm.weight"
+   },
+   "pair_stack.tri_att_start": {
+    "n_tensors": 8,
+    "n_bit_identical": 0,
+    "rel_l2_as_is": 1.0225016639316025,
+    "norm_ratio_arm_over_ref": 2.0113107904032566,
+    "cos": 0.9943419639407708,
+    "ref_squared_norm": 0.002244778933223394,
+    "worst_rel_l2": 1.1082205868181703,
+    "worst_tensor": "pairformer_stack.blocks.47.pair_stack.tri_att_start.layer_norm.weight"
+   },
+   "pair_stack.tri_mul_in": {
+    "n_tensors": 10,
+    "n_bit_identical": 0,
+    "rel_l2_as_is": 0.9172612924559247,
+    "norm_ratio_arm_over_ref": 1.881364625808926,
+    "cos": 0.9828409989948533,
+    "ref_squared_norm": 0.0007826247989420122,
+    "worst_rel_l2": 0.9945666266814868,
+    "worst_tensor": "pairformer_stack.blocks.47.pair_stack.tri_mul_in.layer_norm_in.weight"
+   },
+   "pair_stack.tri_mul_out": {
+    "n_tensors": 10,
+    "n_bit_identical": 0,
+    "rel_l2_as_is": 0.9380667585357938,
+    "norm_ratio_arm_over_ref": 1.9159791222661124,
+    "cos": 0.9893131687692869,
+    "ref_squared_norm": 0.0032179933602894915,
+    "worst_rel_l2": 0.9916381815353262,
+    "worst_tensor": "pairformer_stack.blocks.47.pair_stack.tri_mul_out.linear_g.weight"
+   },
+   "single_transition": {
+    "n_tensors": 5,
+    "n_bit_identical": 0,
+    "rel_l2_as_is": 2.218985232963879e-15,
+    "norm_ratio_arm_over_ref": 0.9999999999999992,
+    "cos": 1.0000000000000002,
+    "ref_squared_norm": 0.00025202310587363314,
+    "worst_rel_l2": 2.6401829460870642e-15,
+    "worst_tensor": "pairformer_stack.blocks.47.single_transition.layer_norm.bias"
+   }
+  },
+  "46": {
+   "attn_pair_bias": {
+    "n_tensors": 11,
+    "n_bit_identical": 0,
+    "rel_l2_as_is": 5.384252318622758e-15,
+    "norm_ratio_arm_over_ref": 1.0000000000000002,
+    "cos": 1.0000000000000002,
+    "ref_squared_norm": 0.0019839794045516516,
+    "worst_rel_l2": 0.9682923901168013,
+    "worst_tensor": "pairformer_stack.blocks.46.attn_pair_bias.layer_norm_z.bias"
+   },
+   "pair_stack.pair_transition": {
+    "n_tensors": 5,
+    "n_bit_identical": 0,
+    "rel_l2_as_is": 1.212060995938694,
+    "norm_ratio_arm_over_ref": 2.2028944324308575,
+    "cos": 0.9949755099525318,
+    "ref_squared_norm": 0.037433112663656246,
+    "worst_rel_l2": 1.2644667939948906,
+    "worst_tensor": "pairformer_stack.blocks.46.pair_stack.pair_transition.layer_norm.weight"
+   },
+   "pair_stack.tri_att_end": {
+    "n_tensors": 8,
+    "n_bit_identical": 0,
+    "rel_l2_as_is": 0.8865817936440028,
+    "norm_ratio_arm_over_ref": 1.86995130013307,
+    "cos": 0.9921890981289944,
+    "ref_squared_norm": 0.0005172053735620171,
+    "worst_rel_l2": 0.9766694123116205,
+    "worst_tensor": "pairformer_stack.blocks.46.pair_stack.tri_att_end.linear_z.weight"
+   },
+   "pair_stack.tri_att_start": {
+    "n_tensors": 8,
+    "n_bit_identical": 0,
+    "rel_l2_as_is": 0.9558345309148305,
+    "norm_ratio_arm_over_ref": 1.942829471887908,
+    "cos": 0.9936452895670898,
+    "ref_squared_norm": 0.0013154025638371395,
+    "worst_rel_l2": 1.078163714495842,
+    "worst_tensor": "pairformer_stack.blocks.46.pair_stack.tri_att_start.layer_norm.weight"
+   },
+   "pair_stack.tri_mul_in": {
+    "n_tensors": 10,
+    "n_bit_identical": 0,
+    "rel_l2_as_is": 0.8309443366779051,
+    "norm_ratio_arm_over_ref": 1.7837308886882308,
+    "cos": 0.9786306372624677,
+    "ref_squared_norm": 0.0004932465057216831,
+    "worst_rel_l2": 0.936890399474513,
+    "worst_tensor": "pairformer_stack.blocks.46.pair_stack.tri_mul_in.layer_norm_out.weight"
+   },
+   "pair_stack.tri_mul_out": {
+    "n_tensors": 10,
+    "n_bit_identical": 0,
+    "rel_l2_as_is": 0.6941086905047853,
+    "norm_ratio_arm_over_ref": 1.5669540410632639,
+    "cos": 0.9488338568476785,
+    "ref_squared_norm": 0.0013410981099360045,
+    "worst_rel_l2": 1.0337585208858684,
+    "worst_tensor": "pairformer_stack.blocks.46.pair_stack.tri_mul_out.layer_norm_in.weight"
+   },
+   "single_transition": {
+    "n_tensors": 5,
+    "n_bit_identical": 0,
+    "rel_l2_as_is": 3.4829889887408727e-15,
+    "norm_ratio_arm_over_ref": 0.9999999999999999,
+    "cos": 0.9999999999999999,
+    "ref_squared_norm": 0.0009312449416863558,
+    "worst_rel_l2": 5.589870697598988e-15,
+    "worst_tensor": "pairformer_stack.blocks.46.single_transition.linear_out.weight"
+   }
+  },
+  "24": {
+   "attn_pair_bias": {
+    "n_tensors": 11,
+    "n_bit_identical": 0,
+    "rel_l2_as_is": 1.39637919386286e-13,
+    "norm_ratio_arm_over_ref": 1.0000000000000417,
+    "cos": 1.0000000000000002,
+    "ref_squared_norm": 2.573981901828992e-06,
+    "worst_rel_l2": 0.22981913037040708,
+    "worst_tensor": "pairformer_stack.blocks.24.attn_pair_bias.layer_norm_z.bias"
+   },
+   "pair_stack.pair_transition": {
+    "n_tensors": 5,
+    "n_bit_identical": 0,
+    "rel_l2_as_is": 0.7380083880076048,
+    "norm_ratio_arm_over_ref": 1.7335299425230688,
+    "cos": 0.9980991951653008,
+    "ref_squared_norm": 0.005678144029555295,
+    "worst_rel_l2": 0.7530567734289287,
+    "worst_tensor": "pairformer_stack.blocks.24.pair_stack.pair_transition.swiglu.linear_b.weight"
+   },
+   "pair_stack.tri_att_end": {
+    "n_tensors": 8,
+    "n_bit_identical": 0,
+    "rel_l2_as_is": 0.7699042357393437,
+    "norm_ratio_arm_over_ref": 1.7569286747770214,
+    "cos": 0.9943618902138418,
+    "ref_squared_norm": 0.00030997143748298455,
+    "worst_rel_l2": 0.8106786493340736,
+    "worst_tensor": "pairformer_stack.blocks.24.pair_stack.tri_att_end.layer_norm.weight"
+   },
+   "pair_stack.tri_att_start": {
+    "n_tensors": 8,
+    "n_bit_identical": 0,
+    "rel_l2_as_is": 0.735241898896142,
+    "norm_ratio_arm_over_ref": 1.7282287218936179,
+    "cos": 0.9970306075892699,
+    "ref_squared_norm": 0.0014680366624909432,
+    "worst_rel_l2": 0.793274689498977,
+    "worst_tensor": "pairformer_stack.blocks.24.pair_stack.tri_att_start.layer_norm.weight"
+   },
+   "pair_stack.tri_mul_in": {
+    "n_tensors": 10,
+    "n_bit_identical": 0,
+    "rel_l2_as_is": 0.7405975440807276,
+    "norm_ratio_arm_over_ref": 1.7333709945655484,
+    "cos": 0.9969274590777915,
+    "ref_squared_norm": 0.00016198687204783613,
+    "worst_rel_l2": 0.8043939798692052,
+    "worst_tensor": "pairformer_stack.blocks.24.pair_stack.tri_mul_in.layer_norm_in.weight"
+   },
+   "pair_stack.tri_mul_out": {
+    "n_tensors": 10,
+    "n_bit_identical": 0,
+    "rel_l2_as_is": 0.7051022699329756,
+    "norm_ratio_arm_over_ref": 1.691225163298623,
+    "cos": 0.9942713172947258,
+    "ref_squared_norm": 6.687988170425149e-05,
+    "worst_rel_l2": 0.8856735935820499,
+    "worst_tensor": "pairformer_stack.blocks.24.pair_stack.tri_mul_out.layer_norm_out.weight"
+   },
+   "single_transition": {
+    "n_tensors": 5,
+    "n_bit_identical": 0,
+    "rel_l2_as_is": 3.979273685812576e-14,
+    "norm_ratio_arm_over_ref": 1.0000000000000162,
+    "cos": 1.0,
+    "ref_squared_norm": 6.326687130167685e-10,
+    "worst_rel_l2": 7.151575474551873e-14,
+    "worst_tensor": "pairformer_stack.blocks.24.single_transition.layer_norm.weight"
+   }
+  },
+  "0": {
+   "attn_pair_bias": {
+    "n_tensors": 11,
+    "n_bit_identical": 0,
+    "rel_l2_as_is": 3.816943147042334e-14,
+    "norm_ratio_arm_over_ref": 0.9999999999999982,
+    "cos": 1.0000000000000002,
+    "ref_squared_norm": 1.683313820160337e-06,
+    "worst_rel_l2": 0.9563994032113395,
+    "worst_tensor": "pairformer_stack.blocks.0.attn_pair_bias.layer_norm_z.bias"
+   },
+   "pair_stack.pair_transition": {
+    "n_tensors": 5,
+    "n_bit_identical": 0,
+    "rel_l2_as_is": 0.8386389312695811,
+    "norm_ratio_arm_over_ref": 1.834761478054252,
+    "cos": 0.9982317778427126,
+    "ref_squared_norm": 0.008431899803632896,
+    "worst_rel_l2": 0.8588546008253698,
+    "worst_tensor": "pairformer_stack.blocks.0.pair_stack.pair_transition.layer_norm.weight"
+   },
+   "pair_stack.tri_att_end": {
+    "n_tensors": 8,
+    "n_bit_identical": 0,
+    "rel_l2_as_is": 0.7934294168328258,
+    "norm_ratio_arm_over_ref": 1.7876733483201959,
+    "cos": 0.9974545305353798,
+    "ref_squared_norm": 0.0008022606101237594,
+    "worst_rel_l2": 0.811540005422664,
+    "worst_tensor": "pairformer_stack.blocks.0.pair_stack.tri_att_end.mha.linear_v.weight"
+   },
+   "pair_stack.tri_att_start": {
+    "n_tensors": 8,
+    "n_bit_identical": 0,
+    "rel_l2_as_is": 0.7943080686339411,
+    "norm_ratio_arm_over_ref": 1.7873897925624347,
+    "cos": 0.9969389378547974,
+    "ref_squared_norm": 0.0012954262253999517,
+    "worst_rel_l2": 0.8229751557902425,
+    "worst_tensor": "pairformer_stack.blocks.0.pair_stack.tri_att_start.layer_norm.bias"
+   },
+   "pair_stack.tri_mul_in": {
+    "n_tensors": 10,
+    "n_bit_identical": 0,
+    "rel_l2_as_is": 0.7922895459083966,
+    "norm_ratio_arm_over_ref": 1.7853762535133224,
+    "cos": 0.9969454995966123,
+    "ref_squared_norm": 0.0004405152765463703,
+    "worst_rel_l2": 0.8498391999310732,
+    "worst_tensor": "pairformer_stack.blocks.0.pair_stack.tri_mul_in.layer_norm_in.weight"
+   },
+   "pair_stack.tri_mul_out": {
+    "n_tensors": 10,
+    "n_bit_identical": 0,
+    "rel_l2_as_is": 0.7936860443385079,
+    "norm_ratio_arm_over_ref": 1.7810665617583237,
+    "cos": 0.9944211621543441,
+    "ref_squared_norm": 0.00020812636410897736,
+    "worst_rel_l2": 0.8537999456667121,
+    "worst_tensor": "pairformer_stack.blocks.0.pair_stack.tri_mul_out.layer_norm_out.weight"
+   },
+   "single_transition": {
+    "n_tensors": 5,
+    "n_bit_identical": 0,
+    "rel_l2_as_is": 8.835867684284959e-14,
+    "norm_ratio_arm_over_ref": 1.0000000000000264,
+    "cos": 0.9999999999999998,
+    "ref_squared_norm": 0.0018046161195883086,
+    "worst_rel_l2": 1.0366524835368712e-13,
+    "worst_tensor": "pairformer_stack.blocks.0.single_transition.layer_norm.bias"
+   }
+  }
+ }
+}

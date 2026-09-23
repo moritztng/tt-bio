@@ -1,0 +1,20 @@
+{
+ "128": {
+  "path": "/home/ttuser/of3t_widthattr/boundary_w128.pt",
+  "sha256": "57ef85b1fa067fa809dbb47b9174add01e9532ce7e5d3a128e69e9a0bd2d2286",
+  "real": 56,
+  "s_in_norm": 7417.923640697134,
+  "z_in_norm": 4897950.912663915,
+  "s_real_norm": 5623.548807821603,
+  "z_real_norm": 64263.67350116298
+ },
+ "256": {
+  "path": "/home/ttuser/of3t_widthattr/boundary_w256.pt",
+  "sha256": "c78545d69569903be9bc2e51903fc0ae108c4de3d151917df3d2c41cfd89c0ec",
+  "real": 56,
+  "s_in_norm": 9829.948340415247,
+  "z_in_norm": 10626153.035074033,
+  "s_real_norm": 5623.548807821603,
+  "z_real_norm": 64263.67350116298
+ }
+}

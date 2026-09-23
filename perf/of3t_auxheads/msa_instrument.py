@@ -58,6 +58,10 @@ def main() -> int:
     ap.add_argument("--reference-grads", type=Path)
     ap.add_argument("--zero-model", action="store_true")
     ap.add_argument("--perturb", default=None, help="NAME:FACTOR, the SS3e control")
+    ap.add_argument("--scramble-cot", action="store_true", dest="scramble_cot",
+                    help="negative control: seed the backward with the SAME cotangent numbers written into the wrong positions (the flattened cotangent reversed). Norm and shape are preserved exactly, and the forward, the weights and the arithmetic are untouched, so a comparison that cannot tell this apart from the real run is not reading their seed at all. A zero-model baseline cannot catch that: it breaks OUR side.")
+    ap.add_argument("--dump-grads", default="", dest="dump_grads",
+                    help="write the compared device gradient TENSORS to this .pt, keyed by full checkpoint name. Without it this arm publishes only rel_l2 against the one float64 reference it was run against, so its gradient can never be compared to upstream's own bf16 training gradient -- and two distances from a shared reference do not order each other (D72).")
     ap.add_argument("--out", required=True, type=Path)
     a = ap.parse_args()
     t0 = time.perf_counter()
@@ -168,12 +172,15 @@ def main() -> int:
           % (fwd["rel_l2"], fwd["rel_l2_real_block"], fwd["ref_norm"], fwd["our_norm"]),
           flush=True)
 
-    seed = up(cot.double().reshape(tuple(int(d) for d in z_out.shape)).float())
+    cot_seed = cot.double().reshape(tuple(int(d) for d in z_out.shape))
+    if a.scramble_cot:
+        cot_seed = cot_seed.reshape(-1).flip(0).reshape(cot_seed.shape).contiguous()
+    seed = up(cot_seed.float())
     ag.backward([z_out], [seed])
     print("[%.0fs] backward done" % (time.perf_counter() - t0), flush=True)
 
     pert_name, pert_factor = (a.perturb.rsplit(":", 1) if a.perturb else (None, None))
-    rows, skipped = [], []
+    rows, skipped, dumped = [], [], {}
     for _tid, (path, rec, t) in named.items():
         leaf = ag.parameter_for(t)
         if leaf is None or leaf.grad is None:
@@ -208,6 +215,7 @@ def main() -> int:
             rows.append({"name": name, "path": path, "rel_l2": rel_l2(g, ref),
                          "ref_norm": float(ref.norm()), "our_norm": float(g.norm()),
                          "ref_sq": float((ref ** 2).sum())})
+            dumped[name] = g
 
     norms = sorted(r["ref_norm"] for r in rows) or [1.0]
     floor = A14_FLOOR_RATIO * norms[len(norms) // 2]
@@ -251,6 +259,7 @@ def main() -> int:
             "a14_excluded": [{"name": r["name"], "ref_norm": r["ref_norm"]} for r in a14],
             "rows": rows, "skipped": skipped, "reach": reach,
             "zero_model_arm": bool(a.zero_model), "perturbation": a.perturb,
+            "cotangent_scrambled": bool(a.scramble_cot),
         },
     }
     if rows:
@@ -267,6 +276,12 @@ def main() -> int:
             print("  reach: %.4f %% of msa_module own squared norm = %.6f %% of the model"
                   % (reach["share_of_msa_module_own_norm"] * 100,
                      reach["share_of_model_squared_norm"] * 100))
+    if a.dump_grads:
+        Path(a.dump_grads).parent.mkdir(parents=True, exist_ok=True)
+        torch.save({k: v.cpu() for k, v in dumped.items()}, a.dump_grads)
+        report["grads_dumped_to"] = a.dump_grads
+        print("[%.0fs] wrote %d gradient tensors to %s"
+              % (time.perf_counter() - t0, len(dumped), a.dump_grads), flush=True)
     a.out.parent.mkdir(parents=True, exist_ok=True)
     a.out.write_text(json.dumps(report, indent=1, default=str) + "\n")
     print("[%.0fs] written %s" % (time.perf_counter() - t0, a.out), flush=True)

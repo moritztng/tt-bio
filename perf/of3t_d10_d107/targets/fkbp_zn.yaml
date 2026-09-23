@@ -1,0 +1,15 @@
+# The same FKBP12 chain plus a ZN ion, so the input carries a SINGLE-ATOM ligand chain.
+# Constructed to exercise a structural case, not a biological claim: `get_token_frame_atoms`
+# picks a token's other two frame atoms from the closest neighbours WITHIN ITS OWN CHAIN
+# (`atomize_utils.py:770-791`), and a one-atom chain has none, so the frame it builds
+# straddles a chain boundary and `valid_frame_mask_asym_id` has to reject it. Metal ions,
+# waters and monatomic cofactors are the common form of this and openbind honours them.
+version: 1
+sequences:
+  - protein:
+      id: A
+      sequence: GVQVETISPGDGRTFPKRGQTCVVHYTGMLEDGKKFDSSRDRNKPFKFMLGKQEVIRGWEEGVAQMSVGQRAKLTISPDYAYGATGHPGIIPPHATLVFDVELLKLE
+      msa: empty
+  - ligand:
+      id: B
+      ccd: ZN

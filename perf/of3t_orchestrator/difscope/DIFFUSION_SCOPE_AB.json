@@ -1,0 +1,38 @@
+{
+  "CTRL": {
+    "n": 523,
+    "error_mass": 881.1071632704758,
+    "reference_mass": 8.295115651063664,
+    "mass_weighted_rel": 10.306308623655045,
+    "median_rel": 0.7316371489734685,
+    "over_per_tensor_bar": 523,
+    "top_leaves_pct_of_error": {
+      "attention_pair_bias.layer_norm_a.layer_norm_s.weight": 99.74403939079467,
+      "conditioned_transition.layer_norm.layer_norm_s.weight": 0.15047745427687756,
+      "attention_pair_bias.layer_norm_a.linear_g.bias": 0.033031383569163866,
+      "atom_attn_enc.noisy_position_embedder.linear_s.weight": 0.020844515424577326,
+      "atom_attn_enc.linear_q.0.weight": 0.00807666383013343
+    }
+  },
+  "RENORM": {
+    "n": 523,
+    "error_mass": 4.428806354017049,
+    "reference_mass": 8.295115651063664,
+    "mass_weighted_rel": 0.7306882490745614,
+    "median_rel": 0.7055436041332523,
+    "over_per_tensor_bar": 523,
+    "top_leaves_pct_of_error": {
+      "attention_pair_bias.layer_norm_a.layer_norm_s.weight": 59.510307506083095,
+      "conditioned_transition.layer_norm.layer_norm_s.weight": 28.312525327210377,
+      "atom_attn_enc.noisy_position_embedder.linear_s.weight": 3.4261561792856936,
+      "attention_pair_bias.linear_z.weight": 1.5288616167307532,
+      "conditioned_transition.linear_g.weight": 1.2723629759656985
+    }
+  },
+  "comparison": {
+    "error_mass_ratio": 198.94912823887353,
+    "mass_weighted_rel_ratio": 14.104932762649863,
+    "reference_mass_relative_difference": 0.0,
+    "caveat": "the median barely moves and 523 of 523 tensors are over the 5.0e-02 per-tensor bar on BOTH arms: the repair fixes the concentration, not the broad floor"
+  }
+}

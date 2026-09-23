@@ -1,0 +1,111 @@
+{
+ "n_calls": 13,
+ "n_unconfigured": 9,
+ "sites": [
+  {
+   "configured": true,
+   "enclosing_def": "_reduce_to",
+   "expr": "ttnn.sum(out, dim=ax, keepdim=True, compute_kernel_config=precise_config())",
+   "kind": "other",
+   "line_now": 537,
+   "what": ""
+  },
+  {
+   "configured": true,
+   "enclosing_def": "_sum_leading",
+   "expr": "ttnn.sum(flat, dim=0, keepdim=True, compute_kernel_config=precise_config())",
+   "kind": "_sum_leading",
+   "line_now": 574,
+   "what": "fan-in sum feeding a WEIGHT gradient -- configured, and the measurement that motivated it is in D55: cosine 0.379 -> 0.999995"
+  },
+  {
+   "configured": false,
+   "enclosing_def": "bw",
+   "expr": "ttnn.mean(xv, dim=-1, keepdim=True)",
+   "kind": "layer_norm:mean",
+   "line_now": 714,
+   "what": "the backward's recomputed E[x], whose result is subtracted from x three lines later -- the near-cancellation this rule is built around"
+  },
+  {
+   "configured": true,
+   "enclosing_def": "bw",
+   "expr": "ttnn.mean(ttnn.multiply(centered, centered), dim=-1, keepdim=True, compute_kernel_config=bwcfg)",
+   "kind": "layer_norm:var",
+   "line_now": 716,
+   "what": "E[(x-mean)^2], the second pass -- configured"
+  },
+  {
+   "configured": false,
+   "enclosing_def": "bw",
+   "expr": "ttnn.mean(dnorm, dim=-1, keepdim=True)",
+   "kind": "layer_norm:dn_mean",
+   "line_now": 727,
+   "what": "dx = (dnorm - mean(dnorm) - norm*mean(dnorm*norm))*rstd -- measured INERT at pass 232, 2736/2736 bit-identical, LoFi break control moved 2733/2736"
+  },
+  {
+   "configured": false,
+   "enclosing_def": "bw",
+   "expr": "ttnn.mean(ttnn.multiply(dnorm, norm), dim=-1, keepdim=True)",
+   "kind": "layer_norm:dn_mean",
+   "line_now": 728,
+   "what": "dx = (dnorm - mean(dnorm) - norm*mean(dnorm*norm))*rstd -- measured INERT at pass 232, 2736/2736 bit-identical, LoFi break control moved 2733/2736"
+  },
+  {
+   "configured": false,
+   "enclosing_def": "bw",
+   "expr": "ttnn.sum(ttnn.multiply(g, y), dim=dim, keepdim=True)",
+   "kind": "softmax:inner",
+   "line_now": 746,
+   "what": "inner = sum(g*y) -> x.grad = y*(g - inner) -- measured INERT at pass 222"
+  },
+  {
+   "configured": false,
+   "enclosing_def": "bw",
+   "expr": "ttnn.sum(ttnn.multiply(dp, p), dim=-1, keepdim=True)",
+   "kind": "attention:inner",
+   "line_now": 987,
+   "what": "inner = rowsum(dP*P) -> ds = P*(dP - inner), inside the chunked recompute attention backward. UNMEASURED. The three matmuls around it all pass cfg"
+  },
+  {
+   "configured": false,
+   "enclosing_def": "bw",
+   "expr": "ttnn.sum(ds, dim=0, keepdim=True)",
+   "kind": "attention:dbias",
+   "line_now": 996,
+   "what": "bias-gradient accumulation over the query chunk. UNMEASURED"
+  },
+  {
+   "configured": false,
+   "enclosing_def": "bw",
+   "expr": "ttnn.mean(xv, dim=-1, keepdim=True)",
+   "kind": "layer_norm:mean",
+   "line_now": 1644,
+   "what": "the backward's recomputed E[x], whose result is subtracted from x three lines later -- the near-cancellation this rule is built around"
+  },
+  {
+   "configured": true,
+   "enclosing_def": "bw",
+   "expr": "ttnn.mean(ttnn.multiply(centered, centered), dim=-1, keepdim=True, compute_kernel_config=bwcfg)",
+   "kind": "layer_norm:var",
+   "line_now": 1646,
+   "what": "E[(x-mean)^2], the second pass -- configured"
+  },
+  {
+   "configured": false,
+   "enclosing_def": "bw",
+   "expr": "ttnn.mean(dnorm, dim=-1, keepdim=True)",
+   "kind": "layer_norm:dn_mean",
+   "line_now": 1657,
+   "what": "dx = (dnorm - mean(dnorm) - norm*mean(dnorm*norm))*rstd -- measured INERT at pass 232, 2736/2736 bit-identical, LoFi break control moved 2733/2736"
+  },
+  {
+   "configured": false,
+   "enclosing_def": "bw",
+   "expr": "ttnn.mean(ttnn.multiply(dnorm, norm), dim=-1, keepdim=True)",
+   "kind": "layer_norm:dn_mean",
+   "line_now": 1658,
+   "what": "dx = (dnorm - mean(dnorm) - norm*mean(dnorm*norm))*rstd -- measured INERT at pass 232, 2736/2736 bit-identical, LoFi break control moved 2733/2736"
+  }
+ ],
+ "source": "tt_bio/autograd.py"
+}

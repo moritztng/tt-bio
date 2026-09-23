@@ -1,0 +1,216 @@
+{
+ "worst_uncovered_section": "pairformer_stack",
+ "pct_of_model_sq_grad_norm": 5.828171499134285,
+ "n_reference_tensors": 2736,
+ "n_reached_by_an_executed_site": 0,
+ "arms_in_scope": [],
+ "coverage_now_pct": 92.15682131174339,
+ "code_path": {
+  "n_distinct_executed_sites": 67,
+  "by_arm": {
+   "CENSUS_diffusion.json.gz": {
+    "leaves_under_section": 0,
+    "executed_sites": 0
+   },
+   "CENSUS_cond.json.gz": {
+    "leaves_under_section": 0,
+    "executed_sites": 0
+   },
+   "CENSUS_msa.json.gz": {
+    "leaves_under_section": 0,
+    "executed_sites": 0
+   },
+   "CENSUS_aux.json.gz": {
+    "leaves_under_section": 156,
+    "executed_sites": 67,
+    "taped_calls": 5059,
+    "files": {
+     "tt_bio/tenstorrent.py": 67
+    }
+   }
+  },
+  "files": {
+   "tt_bio/tenstorrent.py": 67
+  },
+  "top_sites": [
+   [
+    "tt_bio/tenstorrent.py:2932 batched_matmul matmul",
+    860
+   ],
+   [
+    "tt_bio/tenstorrent.py:3971 _fp32_softmax_tail add_",
+    419
+   ],
+   [
+    "tt_bio/tenstorrent.py:3907 _fp32_softmax_attention_block permute",
+    418
+   ],
+   [
+    "tt_bio/tenstorrent.py:3995 _fp32_softmax_tail typecast",
+    418
+   ],
+   [
+    "tt_bio/tenstorrent.py:3981 _fp32_softmax_tail softmax_in_place",
+    418
+   ],
+   [
+    "tt_bio/tenstorrent.py:3955 _fp32_softmax_tail to_memory_config",
+    292
+   ],
+   [
+    "tt_bio/tenstorrent.py:3956 _fp32_softmax_tail typecast",
+    292
+   ],
+   [
+    "tt_bio/tenstorrent.py:3998 _fp32_softmax_tail to_memory_config",
+    281
+   ],
+   [
+    "tt_bio/tenstorrent.py:3959 _fp32_softmax_tail typecast",
+    137
+   ],
+   [
+    "tt_bio/tenstorrent.py:4843 _pair_proj_linear linear",
+    96
+   ],
+   [
+    "tt_bio/tenstorrent.py:8811 swiglu layer_norm",
+    84
+   ],
+   [
+    "tt_bio/tenstorrent.py:8819 swiglu linear",
+    84
+   ]
+  ]
+ },
+ "own_instance": {
+  "census": "perf/of3t_pathcov/CENSUS_trunk.json.gz",
+  "instrument": [
+   "perf/of3t_trunkg043/dev_grad.py",
+   "--boundary",
+   "/home/ttuser/of3t_trunk043ref/boundary_c64.pt",
+   "--cap-last",
+   "/home/ttuser/of3t_gradients/cap/block47_boundary.pt",
+   "--arm",
+   "flipped",
+   "--blocks",
+   "48",
+   "--out",
+   "/tmp/of3t/of3t-pathcov/dev_trunk_pathcov.pt",
+   "--report",
+   "/tmp/of3t/of3t-pathcov/DEV_trunk_pathcov.json"
+  ],
+  "n_tape_opens": 97,
+  "n_leaves": 2160,
+  "n_executed_sites": 140,
+  "n_executed_sites_reaching_a_parameter": 65,
+  "shared_with_the_proxy": 58,
+  "only_the_proxy_takes": [
+   {
+    "file": "tt_bio/tenstorrent.py",
+    "line": 3882,
+    "func": "run",
+    "verb": "concat"
+   },
+   {
+    "file": "tt_bio/tenstorrent.py",
+    "line": 3955,
+    "func": "_fp32_softmax_tail",
+    "verb": "to_memory_config"
+   },
+   {
+    "file": "tt_bio/tenstorrent.py",
+    "line": 3956,
+    "func": "_fp32_softmax_tail",
+    "verb": "typecast"
+   },
+   {
+    "file": "tt_bio/tenstorrent.py",
+    "line": 3998,
+    "func": "_fp32_softmax_tail",
+    "verb": "to_memory_config"
+   },
+   {
+    "file": "tt_bio/tenstorrent.py",
+    "line": 9309,
+    "func": "_s_compute",
+    "verb": "typecast"
+   },
+   {
+    "file": "tt_bio/tenstorrent.py",
+    "line": 9316,
+    "func": "_s_residual",
+    "verb": "add"
+   },
+   {
+    "file": "tt_bio/tenstorrent.py",
+    "line": 2932,
+    "func": "batched_matmul",
+    "verb": "matmul"
+   },
+   {
+    "file": "tt_bio/tenstorrent.py",
+    "line": 9317,
+    "func": "_s_residual",
+    "verb": "typecast"
+   },
+   {
+    "file": "tt_bio/tenstorrent.py",
+    "line": 8182,
+    "func": "__call__",
+    "verb": "experimental.minimal_matmul"
+   }
+  ],
+  "only_the_instance_takes": [
+   {
+    "file": "tt_bio/tenstorrent.py",
+    "line": 2947,
+    "func": "batched_matmul",
+    "verb": "matmul"
+   },
+   {
+    "file": "tt_bio/tenstorrent.py",
+    "line": 9313,
+    "func": "_s_residual",
+    "verb": "add_"
+   },
+   {
+    "file": "tt_bio/tenstorrent.py",
+    "line": 8158,
+    "func": "__call__",
+    "verb": "add"
+   },
+   {
+    "file": "tt_bio/tenstorrent.py",
+    "line": 8173,
+    "func": "__call__",
+    "verb": "linear"
+   },
+   {
+    "file": "tt_bio/tenstorrent.py",
+    "line": 7082,
+    "func": "__call__",
+    "verb": "multiply_"
+   },
+   {
+    "file": "tt_bio/tenstorrent.py",
+    "line": 7912,
+    "func": "_attend_heads",
+    "verb": "multiply"
+   },
+   {
+    "file": "tt_bio/tenstorrent.py",
+    "line": 8662,
+    "func": "__call__",
+    "verb": "add_"
+   }
+  ],
+  "reading": "these two sets are why the section's mass is NOT covered by proxy: the instance that owns the 2,736 parameters and the embedded copy that the census does reach take different branches of the same classes."
+ },
+ "verdict": "the branch RUNS -- its call sites executed inside a tape and produced gradients; what is uncovered is the parameters of a different INSTANCE of it",
+ "if_covered": {
+  "coverage_would_become_pct": 97.98499281087767,
+  "next_worst": "diffusion_module.atom_attn_enc",
+  "next_worst_pct": 0.8240719347340927
+ }
+}

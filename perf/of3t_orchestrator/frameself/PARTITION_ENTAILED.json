@@ -1,0 +1,122 @@
+{
+ "what": "of3t-orchestrator pass 389: the sub-module partition is ENTAILED, and one of my own hypotheses dies here.",
+ "defect": "D242",
+ "row_that_owns_it": "of3t-frameself",
+ "device_involved": false,
+ "why_no_aiclk": "CPU only, no Tenstorrent device is opened; nothing here is a timing",
+ "THE_PARTITION_IS_ENTAILED": {
+  "measured_premise": "TWOBASIS.json -- the z-only arm's ds_in is exactly 0.0, so the pair track does not read the single track",
+  "therefore": "s-branch parameters reach the loss ONLY through cot_s and pair-branch parameters reach it through both, so a defect in cot_z and nothing else produces exactly this partition at every depth with no mechanism at the pair branch",
+  "so_ps_dropout_row_layer_matching_it_is_worth_nothing": "every structure that distinguishes the two branches matches the partition. The row refuted dropout on its own merits, which was right; the point here is that the partition could not have nominated it in the first place.",
+  "what_the_split_IS_worth": "a consistency check that passes -- 11 attn_pair_bias + 5 single_transition = 16 exact tensors per block, times 48, is exactly TWOBASIS's 768 s-only class.",
+  "and_the_blockprobe_is_the_passs_real_result": "the reference gradient was the one quantity never read twice; a second instrument now puts it at 3.0392623414001263e-15 (block 47) and 4.1031090433915236e-15 (block 46), at the two blocks where the replay is worst."
+ },
+ "MY_OWN_HYPOTHESIS_REFUTED": {
+  "what_I_expected": "that the two-scalar fit is collinear (cos 0.9181952 between the regressors) and its b_z therefore meaningless, so that the '7x too large' headline was a fitting artifact",
+  "the_fit_IS_ill_conditioned": {
+   "gram_eigenvalues": [
+    1.9181951994170596,
+    0.08180480058294037
+   ],
+   "condition_number": 23.4484429489225
+  },
+  "but_the_valley_is_not_flat": [
+   {
+    "b_z": 0.038316,
+    "a_s_reoptimised": 0.9925147679493854,
+    "residual_frac_of_ref": 0.11673170429468592
+   },
+   {
+    "b_z": 0.1,
+    "a_s_reoptimised": 0.9444270178074963,
+    "residual_frac_of_ref": 0.11249809995764795
+   },
+   {
+    "b_z": 0.14292915919297092,
+    "a_s_reoptimised": 0.9109602082446767,
+    "residual_frac_of_ref": 0.11162126551703765
+   },
+   {
+    "b_z": 0.2,
+    "a_s_reoptimised": 0.8664687950238098,
+    "residual_frac_of_ref": 0.11316633639447511
+   },
+   {
+    "b_z": 0.3,
+    "a_s_reoptimised": 0.7885105722401234,
+    "residual_frac_of_ref": 0.12284168590277066
+   },
+   {
+    "b_z": 0.4,
+    "a_s_reoptimised": 0.710552349456437,
+    "residual_frac_of_ref": 0.1396646082640279
+   },
+   {
+    "b_z": 0.5,
+    "a_s_reoptimised": 0.6325941266727506,
+    "residual_frac_of_ref": 0.1614155776598873
+   },
+   {
+    "b_z": 0.55,
+    "a_s_reoptimised": 0.5936150152809073,
+    "residual_frac_of_ref": 0.17357744742621067
+   },
+   {
+    "b_z": 0.6,
+    "a_s_reoptimised": 0.5546359038890641,
+    "residual_frac_of_ref": 0.18637713788077112
+   },
+   {
+    "b_z": 0.7,
+    "a_s_reoptimised": 0.4766776811053777,
+    "residual_frac_of_ref": 0.21342574643562048
+   },
+   {
+    "b_z": 1.0,
+    "a_s_reoptimised": 0.24280301275431843,
+    "residual_frac_of_ref": 0.30131190121575735
+   }
+  ],
+  "verdict": "REFUTED. b_z = 0.55, which is what a 1.8x scale error would mean, costs residual 0.173577 against the minimum's 0.111621 -- 55 % worse. The published b_z stands.",
+  "reconstruction_check": {
+   "a_s_reconstructed": 0.9109602082446938,
+   "a_s_published": 0.9109602082446762,
+   "b_z_reconstructed": 0.14292915919294938,
+   "b_z_published": 0.14292915919297092,
+   "rel_agreement_a": 1.9377955185940092e-14,
+   "rel_agreement_b": 1.506923205827357e-13,
+   "why_it_matters": "solving the 2x2 normal equations from banked scalars alone reproduces the row's fit to 2e-14, so this file's arithmetic is checked and so is the row's."
+  }
+ },
+ "THE_1_8x_AND_THE_7x_ARE_THE_SAME_STATEMENT": {
+  "mixed_class_norms": {
+   "ref": 0.7381476010782049,
+   "s_arm": 0.7145095266592882,
+   "z_arm": 0.6380658264603968
+  },
+  "pooled_pair_branch_ratio": 1.8166852661741022,
+  "per_submodule_reading": "1.78 to 2.02 at block 47, 1.567 to 2.203 over all four probed blocks, tightening to 1.781-1.835 at block 0",
+  "b_that_matches_the_NORM_on_the_mixed_class": 0.03831598153440642,
+  "one_over_it": 26.098770276889155,
+  "read": "the correction applies only to the cot_z PART of a pair parameter's gradient, and that part is a large fraction of the total, so a ~7x overshoot on the part shows up as ~1.8x on the whole. Nothing is in conflict."
+ },
+ "WHAT_A_MECHANISM_NOW_HAS_TO_EXPLAIN": {
+  "magnitude": "cot_z's contribution wants scaling by about 0.14 (least squares) to 0.038 (norm match on the pair class), i.e. 7x to 26.1x too large",
+  "direction": "and about ten degrees, not more. The pair-branch cos is 0.948834 to 0.998232 and 0.995 at depth, which is a 0.0999 perpendicular component -- the same size as the 0.111621 residual floor after the best two scalars.",
+  "so_the_rows_phrase_pointing_elsewhere_overstates_it": "the irreducible residual is a ~10 % perpendicular component, not a different direction. A mechanism must produce a large magnitude error and a small angle on the z channel only, which is a much tighter target than the phrase suggests.",
+  "cos_readings": {
+   "block47_worst": 0.982841,
+   "block46_worst": 0.948834,
+   "block24_best": 0.998099,
+   "block0_best": 0.998232,
+   "typical_at_depth": 0.995
+  }
+ },
+ "AND_MY_PASS_387_DISCRIMINATOR_IS_STILL_UN_RUN_AND_IS_NOW_CHEAP": {
+  "what_blockprobe_did": "torch.autograd.grad(LOSS, params) on the original graph -- loss-driven. That confirms the reference and is not the discriminator.",
+  "what_is_still_owed": "torch.autograd.grad(outputs=(s_out, z_out), grad_outputs=(cot_s, cot_z), inputs=...) on the ORIGINAL graph -- cotangent-driven. Same graph, so the only remaining structural difference from the replay is which drive is used.",
+  "and_it_now_costs_about_135_s": "blockprobe already prunes the graph to one block (measured 135.2 s against a 340.6 s forward) and capture_model_frame.py:653-656 already holds s_out_t and z_out_t for exactly this. It is one extra grad_outputs= argument.",
+  "falsifier_unchanged": "dL/dz_in at 0.000848887340907281 means the replay's fresh forward is the defect; at 0.0014907294032500784 means the injection overcounts on the original graph too."
+ },
+ "DOESNOT": "this names no mechanism and moves no published number. It removes a class of dead ends, kills one hypothesis of my own, reconciles two readings that looked contradictory, and states the target a mechanism has to hit."
+}

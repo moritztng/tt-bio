@@ -1,0 +1,920 @@
+{
+ "denominator": {
+  "file": "perf/of3t_pathcov/REF_MASS.json",
+  "total_sq_norm": 10.279642678524986,
+  "n_reference_tensors": 4170
+ },
+ "arms": [
+  {
+   "census": "perf/of3t_pathcov/CENSUS_diffusion.json.gz",
+   "scope_prefix": "diffusion_module",
+   "card": "2",
+   "elapsed_s": 63.2,
+   "tape_opens": 48,
+   "n_sites_total": 3227,
+   "taped_verb_sites": {
+    "executed": 285,
+    "reachable_never_executed": 44,
+    "function_never_entered": 1265,
+    "module_not_on_arm": 937
+   },
+   "all_sites": {
+    "module_not_on_arm": 1273,
+    "executed": 304,
+    "reachable_never_executed": 55,
+    "function_never_entered": 1595
+   },
+   "n_shimmed_modules": 24,
+   "raw_ttnn_calls_in_tape": {
+    "tt_bio/autograd.py": 366893,
+    "tt_bio/taped_ttnn.py": 102192
+   },
+   "n_leaves": 595,
+   "n_leaves_named": 595,
+   "n_leaf_names_unmatched_in_reference": 0,
+   "leaf_names_unmatched": [],
+   "arm_mass_pct_of_model": 51.13576412567563,
+   "reached_mass_pct_of_model": 51.13576412567563,
+   "reached_pct_of_arm_mass": 100.0,
+   "n_params_reached_by_an_executed_site": 547,
+   "top_sites_by_reached_mass": [
+    {
+     "mass_pct_of_model": 51.13576412567563,
+     "file": "tt_bio/openfold3_diffusion_module.py",
+     "line": 416,
+     "verb": "multiply",
+     "taped_calls": 48,
+     "n_params": 595
+    },
+    {
+     "mass_pct_of_model": 51.13576412567563,
+     "file": "tt_bio/openfold3_diffusion_module.py",
+     "line": 414,
+     "verb": "multiply",
+     "taped_calls": 48,
+     "n_params": 595
+    },
+    {
+     "mass_pct_of_model": 51.13576412567563,
+     "file": "tt_bio/openfold3_diffusion_module.py",
+     "line": 413,
+     "verb": "add",
+     "taped_calls": 48,
+     "n_params": 595
+    },
+    {
+     "mass_pct_of_model": 51.13576412567563,
+     "file": "tt_bio/openfold3_diffusion_decoder.py",
+     "line": 108,
+     "verb": "to_layout",
+     "taped_calls": 48,
+     "n_params": 595
+    },
+    {
+     "mass_pct_of_model": 51.13576412567563,
+     "file": "tt_bio/openfold3_diffusion_decoder.py",
+     "line": 107,
+     "verb": "slice",
+     "taped_calls": 48,
+     "n_params": 595
+    },
+    {
+     "mass_pct_of_model": 51.13576412567563,
+     "file": "tt_bio/openfold3_diffusion_decoder.py",
+     "line": 106,
+     "verb": "to_layout",
+     "taped_calls": 48,
+     "n_params": 595
+    },
+    {
+     "mass_pct_of_model": 51.13576412567563,
+     "file": "tt_bio/openfold3_diffusion_decoder.py",
+     "line": 102,
+     "verb": "linear",
+     "taped_calls": 48,
+     "n_params": 595
+    },
+    {
+     "mass_pct_of_model": 50.34937504861,
+     "file": "tt_bio/openfold3_diffusion_decoder.py",
+     "line": 99,
+     "verb": "layer_norm",
+     "taped_calls": 48,
+     "n_params": 594
+    },
+    {
+     "mass_pct_of_model": 50.27161140868583,
+     "file": "tt_bio/tenstorrent.py",
+     "line": 10158,
+     "verb": "to_memory_config",
+     "taped_calls": 3168,
+     "n_params": 593
+    },
+    {
+     "mass_pct_of_model": 50.27161140868583,
+     "file": "tt_bio/tenstorrent.py",
+     "line": 10154,
+     "verb": "add_",
+     "taped_calls": 3168,
+     "n_params": 593
+    },
+    {
+     "mass_pct_of_model": 50.27161140868583,
+     "file": "tt_bio/tenstorrent.py",
+     "line": 1059,
+     "verb": "pad",
+     "taped_calls": 96,
+     "n_params": 593
+    },
+    {
+     "mass_pct_of_model": 50.27161140868583,
+     "file": "tt_bio/openfold3_atom_transformer.py",
+     "line": 232,
+     "verb": "to_layout",
+     "taped_calls": 96,
+     "n_params": 593
+    },
+    {
+     "mass_pct_of_model": 50.27161140868583,
+     "file": "tt_bio/openfold3_atom_transformer.py",
+     "line": 231,
+     "verb": "slice",
+     "taped_calls": 96,
+     "n_params": 593
+    },
+    {
+     "mass_pct_of_model": 50.27161140868583,
+     "file": "tt_bio/openfold3_atom_transformer.py",
+     "line": 230,
+     "verb": "to_layout",
+     "taped_calls": 96,
+     "n_params": 593
+    },
+    {
+     "mass_pct_of_model": 50.27161140868583,
+     "file": "tt_bio/openfold3_atom_transformer.py",
+     "line": 220,
+     "verb": "multiply",
+     "taped_calls": 288,
+     "n_params": 593
+    }
+   ]
+  },
+  {
+   "census": "perf/of3t_pathcov/CENSUS_cond.json.gz",
+   "scope_prefix": "diffusion_module.diffusion_conditioning",
+   "card": "2",
+   "elapsed_s": 2.5,
+   "tape_opens": 49,
+   "n_sites_total": 3227,
+   "taped_verb_sites": {
+    "executed": 53,
+    "reachable_never_executed": 9,
+    "function_never_entered": 857,
+    "module_not_on_arm": 1612
+   },
+   "all_sites": {
+    "module_not_on_arm": 2059,
+    "executed": 61,
+    "reachable_never_executed": 9,
+    "function_never_entered": 1098
+   },
+   "n_shimmed_modules": 11,
+   "raw_ttnn_calls_in_tape": {
+    "tt_bio/autograd.py": 7596,
+    "tt_bio/taped_ttnn.py": 294
+   },
+   "n_leaves": 26,
+   "n_leaves_named": 26,
+   "n_leaf_names_unmatched_in_reference": 0,
+   "leaf_names_unmatched": [],
+   "arm_mass_pct_of_model": 36.94617946669956,
+   "reached_mass_pct_of_model": 36.94617946669956,
+   "reached_pct_of_arm_mass": 100.0,
+   "n_params_reached_by_an_executed_site": 26,
+   "top_sites_by_reached_mass": [
+    {
+     "mass_pct_of_model": 36.94617946669956,
+     "file": "tt_bio/openfold3_diffusion.py",
+     "line": 60,
+     "verb": "multiply",
+     "taped_calls": 98,
+     "n_params": 26
+    },
+    {
+     "mass_pct_of_model": 36.88049275014499,
+     "file": "tt_bio/openfold3_diffusion.py",
+     "line": 126,
+     "verb": "add",
+     "taped_calls": 96,
+     "n_params": 14
+    },
+    {
+     "mass_pct_of_model": 36.841528211119766,
+     "file": "tt_bio/openfold3_diffusion.py",
+     "line": 56,
+     "verb": "multiply",
+     "taped_calls": 98,
+     "n_params": 24
+    },
+    {
+     "mass_pct_of_model": 36.67502145416443,
+     "file": "tt_bio/openfold3_diffusion.py",
+     "line": 51,
+     "verb": "layer_norm",
+     "taped_calls": 98,
+     "n_params": 20
+    },
+    {
+     "mass_pct_of_model": 7.020746871157733,
+     "file": "tt_bio/openfold3_diffusion.py",
+     "line": 123,
+     "verb": "add",
+     "taped_calls": 48,
+     "n_params": 4
+    },
+    {
+     "mass_pct_of_model": 5.459455383876688,
+     "file": "tt_bio/openfold3_diffusion.py",
+     "line": 114,
+     "verb": "layer_norm",
+     "taped_calls": 48,
+     "n_params": 1
+    },
+    {
+     "mass_pct_of_model": 0.8509452113645068,
+     "file": "tt_bio/openfold3_diffusion.py",
+     "line": 119,
+     "verb": "layer_norm",
+     "taped_calls": 48,
+     "n_params": 1
+    },
+    {
+     "mass_pct_of_model": 0.06568671655457997,
+     "file": "tt_bio/openfold3_diffusion.py",
+     "line": 106,
+     "verb": "add",
+     "taped_calls": 2,
+     "n_params": 12
+    },
+    {
+     "mass_pct_of_model": 0.0005427113334433064,
+     "file": "tt_bio/openfold3_diffusion.py",
+     "line": 101,
+     "verb": "layer_norm",
+     "taped_calls": 1,
+     "n_params": 1
+    }
+   ]
+  },
+  {
+   "census": "perf/of3t_pathcov/CENSUS_msa.json.gz",
+   "scope_prefix": "msa_module",
+   "card": "2",
+   "elapsed_s": 21.6,
+   "tape_opens": 8,
+   "n_sites_total": 3227,
+   "taped_verb_sites": {
+    "executed": 160,
+    "reachable_never_executed": 546,
+    "function_never_entered": 245,
+    "module_not_on_arm": 1580
+   },
+   "all_sites": {
+    "module_not_on_arm": 2015,
+    "executed": 174,
+    "function_never_entered": 446,
+    "reachable_never_executed": 592
+   },
+   "n_shimmed_modules": 13,
+   "raw_ttnn_calls_in_tape": {
+    "tt_bio/autograd.py": 5212,
+    "tt_bio/taped_ttnn.py": 1595
+   },
+   "n_leaves": 154,
+   "n_leaves_named": 154,
+   "n_leaf_names_unmatched_in_reference": 0,
+   "leaf_names_unmatched": [],
+   "arm_mass_pct_of_model": 1.2317423683293725,
+   "reached_mass_pct_of_model": 1.2317423683293725,
+   "reached_pct_of_arm_mass": 100.0,
+   "n_params_reached_by_an_executed_site": 154,
+   "top_sites_by_reached_mass": [
+    {
+     "mass_pct_of_model": 1.2317423683293725,
+     "file": "tt_bio/tenstorrent.py",
+     "line": 8841,
+     "verb": "linear",
+     "taped_calls": 75,
+     "n_params": 154
+    },
+    {
+     "mass_pct_of_model": 1.2317423683293725,
+     "file": "tt_bio/tenstorrent.py",
+     "line": 5755,
+     "verb": "concat",
+     "taped_calls": 20,
+     "n_params": 154
+    },
+    {
+     "mass_pct_of_model": 1.2180879343537447,
+     "file": "tt_bio/tenstorrent.py",
+     "line": 8839,
+     "verb": "multiply_",
+     "taped_calls": 75,
+     "n_params": 147
+    },
+    {
+     "mass_pct_of_model": 1.2155543145178362,
+     "file": "tt_bio/tenstorrent.py",
+     "line": 8819,
+     "verb": "linear",
+     "taped_calls": 75,
+     "n_params": 140
+    },
+    {
+     "mass_pct_of_model": 1.215429610010673,
+     "file": "tt_bio/tenstorrent.py",
+     "line": 8830,
+     "verb": "linear",
+     "taped_calls": 75,
+     "n_params": 140
+    },
+    {
+     "mass_pct_of_model": 1.2128959901747642,
+     "file": "tt_bio/tenstorrent.py",
+     "line": 8811,
+     "verb": "layer_norm",
+     "taped_calls": 75,
+     "n_params": 133
+    },
+    {
+     "mass_pct_of_model": 1.133324212858862,
+     "file": "tt_bio/tenstorrent.py",
+     "line": 9278,
+     "verb": "add_",
+     "taped_calls": 11,
+     "n_params": 124
+    },
+    {
+     "mass_pct_of_model": 0.4180146347091589,
+     "file": "tt_bio/tenstorrent.py",
+     "line": 9270,
+     "verb": "add_",
+     "taped_calls": 11,
+     "n_params": 104
+    },
+    {
+     "mass_pct_of_model": 0.4180146347091589,
+     "file": "tt_bio/tenstorrent.py",
+     "line": 8230,
+     "verb": "reshape",
+     "taped_calls": 22,
+     "n_params": 104
+    },
+    {
+     "mass_pct_of_model": 0.4180146347091589,
+     "file": "tt_bio/tenstorrent.py",
+     "line": 4843,
+     "verb": "linear",
+     "taped_calls": 88,
+     "n_params": 104
+    },
+    {
+     "mass_pct_of_model": 0.4180146347091589,
+     "file": "tt_bio/tenstorrent.py",
+     "line": 4091,
+     "verb": "to_layout",
+     "taped_calls": 22,
+     "n_params": 104
+    },
+    {
+     "mass_pct_of_model": 0.4180146347091589,
+     "file": "tt_bio/tenstorrent.py",
+     "line": 4089,
+     "verb": "permute",
+     "taped_calls": 22,
+     "n_params": 104
+    },
+    {
+     "mass_pct_of_model": 0.4180146347091589,
+     "file": "tt_bio/tenstorrent.py",
+     "line": 4088,
+     "verb": "to_layout",
+     "taped_calls": 22,
+     "n_params": 104
+    },
+    {
+     "mass_pct_of_model": 0.41768632967455516,
+     "file": "tt_bio/tenstorrent.py",
+     "line": 8198,
+     "verb": "experimental.minimal_matmul",
+     "taped_calls": 22,
+     "n_params": 100
+    },
+    {
+     "mass_pct_of_model": 0.41768632967455516,
+     "file": "tt_bio/tenstorrent.py",
+     "line": 7991,
+     "verb": "multiply_",
+     "taped_calls": 22,
+     "n_params": 100
+    }
+   ]
+  },
+  {
+   "census": "perf/of3t_pathcov/CENSUS_aux.json.gz",
+   "scope_prefix": "aux_heads",
+   "card": "2",
+   "elapsed_s": 37.4,
+   "tape_opens": 9,
+   "n_sites_total": 3227,
+   "taped_verb_sites": {
+    "executed": 145,
+    "reachable_never_executed": 495,
+    "function_never_entered": 300,
+    "module_not_on_arm": 1591
+   },
+   "all_sites": {
+    "module_not_on_arm": 2026,
+    "executed": 153,
+    "function_never_entered": 506,
+    "reachable_never_executed": 542
+   },
+   "n_shimmed_modules": 12,
+   "raw_ttnn_calls_in_tape": {
+    "tt_bio/autograd.py": 5635,
+    "tt_bio/taped_ttnn.py": 1698
+   },
+   "n_leaves": 172,
+   "n_leaves_named": 172,
+   "n_leaf_names_unmatched_in_reference": 68,
+   "leaf_names_unmatched": [
+    "pairformer_embedding.pairformer_stack.blocks.3.pair_stack.tri_mul_out.norm_in.weight",
+    "pairformer_embedding.pairformer_stack.blocks.3.pair_stack.tri_mul_out.norm_in.bias",
+    "pairformer_embedding.pairformer_stack.blocks.3.pair_stack.tri_mul_out.norm_out.weight",
+    "pairformer_embedding.pairformer_stack.blocks.3.pair_stack.tri_mul_out.norm_out.bias",
+    "pairformer_embedding.pairformer_stack.blocks.3.pair_stack.tri_mul_out.p_out.weight",
+    "pairformer_embedding.pairformer_stack.blocks.3.pair_stack.tri_mul_out.g_out.weight",
+    "pairformer_embedding.pairformer_stack.blocks.3.pair_stack.tri_mul_in.norm_in.weight",
+    "pairformer_embedding.pairformer_stack.blocks.3.pair_stack.tri_mul_in.norm_in.bias",
+    "pairformer_embedding.pairformer_stack.blocks.3.pair_stack.tri_mul_in.norm_out.weight",
+    "pairformer_embedding.pairformer_stack.blocks.3.pair_stack.tri_mul_in.norm_out.bias"
+   ],
+   "arm_mass_pct_of_model": 2.843135351038828,
+   "reached_mass_pct_of_model": 2.843135351038828,
+   "reached_pct_of_arm_mass": 100.0,
+   "n_params_reached_by_an_executed_site": 112,
+   "top_sites_by_reached_mass": [
+    {
+     "mass_pct_of_model": 2.8431352831997634,
+     "file": "tt_bio/openfold3_confidence.py",
+     "line": 256,
+     "verb": "linear",
+     "taped_calls": 8,
+     "n_params": 16
+    },
+    {
+     "mass_pct_of_model": 2.843135190137831,
+     "file": "tt_bio/openfold3_confidence.py",
+     "line": 337,
+     "verb": "permute",
+     "taped_calls": 1,
+     "n_params": 1
+    },
+    {
+     "mass_pct_of_model": 2.843135190137831,
+     "file": "tt_bio/openfold3_confidence.py",
+     "line": 337,
+     "verb": "add",
+     "taped_calls": 1,
+     "n_params": 1
+    },
+    {
+     "mass_pct_of_model": 8.12944841944376e-08,
+     "file": "tt_bio/openfold3_confidence.py",
+     "line": 274,
+     "verb": "layer_norm",
+     "taped_calls": 4,
+     "n_params": 11
+    },
+    {
+     "mass_pct_of_model": 6.783906529762995e-08,
+     "file": "tt_bio/tenstorrent.py",
+     "line": 9317,
+     "verb": "typecast",
+     "taped_calls": 24,
+     "n_params": 156
+    },
+    {
+     "mass_pct_of_model": 6.783906529762995e-08,
+     "file": "tt_bio/tenstorrent.py",
+     "line": 9316,
+     "verb": "add",
+     "taped_calls": 24,
+     "n_params": 156
+    },
+    {
+     "mass_pct_of_model": 6.783906529762995e-08,
+     "file": "tt_bio/tenstorrent.py",
+     "line": 8841,
+     "verb": "linear",
+     "taped_calls": 84,
+     "n_params": 156
+    },
+    {
+     "mass_pct_of_model": 6.75354885726321e-08,
+     "file": "tt_bio/tenstorrent.py",
+     "line": 8839,
+     "verb": "multiply_",
+     "taped_calls": 84,
+     "n_params": 152
+    },
+    {
+     "mass_pct_of_model": 6.730669832106613e-08,
+     "file": "tt_bio/tenstorrent.py",
+     "line": 8819,
+     "verb": "linear",
+     "taped_calls": 84,
+     "n_params": 148
+    },
+    {
+     "mass_pct_of_model": 6.697190783076406e-08,
+     "file": "tt_bio/tenstorrent.py",
+     "line": 8830,
+     "verb": "linear",
+     "taped_calls": 84,
+     "n_params": 148
+    },
+    {
+     "mass_pct_of_model": 6.67431175791981e-08,
+     "file": "tt_bio/tenstorrent.py",
+     "line": 8811,
+     "verb": "layer_norm",
+     "taped_calls": 84,
+     "n_params": 144
+    },
+    {
+     "mass_pct_of_model": 6.588581474907193e-08,
+     "file": "tt_bio/tenstorrent.py",
+     "line": 9309,
+     "verb": "typecast",
+     "taped_calls": 24,
+     "n_params": 136
+    },
+    {
+     "mass_pct_of_model": 6.588581474907193e-08,
+     "file": "tt_bio/tenstorrent.py",
+     "line": 8764,
+     "verb": "linear",
+     "taped_calls": 12,
+     "n_params": 136
+    },
+    {
+     "mass_pct_of_model": 6.58321434799951e-08,
+     "file": "tt_bio/tenstorrent.py",
+     "line": 8762,
+     "verb": "multiply",
+     "taped_calls": 12,
+     "n_params": 132
+    },
+    {
+     "mass_pct_of_model": 6.58189019201469e-08,
+     "file": "tt_bio/tenstorrent.py",
+     "line": 8695,
+     "verb": "permute",
+     "taped_calls": 12,
+     "n_params": 128
+    }
+   ]
+  }
+ ],
+ "sites_union": {
+  "n_sites": 3227,
+  "inventory_sha256": "d3067c19512e2812d0eed70695b653046390ddebff52b3c6634037c566084ae5",
+  "taped_verb": {
+   "executed": 502,
+   "reachable_never_executed": 512,
+   "function_never_entered": 586,
+   "module_not_on_arm": 931
+  },
+  "all_verbs": {
+   "executed": 532,
+   "reachable_never_executed": 561,
+   "function_never_entered": 873,
+   "module_not_on_arm": 1261
+  },
+  "n_taped_verb_sites": 2531,
+  "mass": {
+   "note": "a site that never executed produces no tape node and therefore no gradient, so its share of the squared gradient norm is identically zero by arithmetic and says nothing (PREDICTION.md's A31 check). The measurable form is the complement, below: the mass held by parameters NO executed site reaches.",
+   "pct_reached_by_an_executed_site": 92.15682131174339,
+   "pct_no_executed_site_reaches": 7.843178688256609
+  }
+ },
+ "uncovered": {
+  "arm_scope_prefixes": [
+   "diffusion_module",
+   "diffusion_module.diffusion_conditioning",
+   "msa_module",
+   "aux_heads"
+  ],
+  "total_pct_uncovered": 7.843178688256609,
+  "worst": {
+   "section": "pairformer_stack",
+   "n_tensors": 2736,
+   "n_reached": 0,
+   "pct_of_model": 5.828171499134285,
+   "pct_of_model_reached": 0.0,
+   "pct_of_model_uncovered": 5.828171499134285,
+   "arms_in_scope": [],
+   "why": "no arm supplied to this census is scoped here"
+  },
+  "by_section": [
+   {
+    "section": "pairformer_stack",
+    "n_tensors": 2736,
+    "n_reached": 0,
+    "pct_of_model": 5.828171499134285,
+    "pct_of_model_reached": 0.0,
+    "pct_of_model_uncovered": 5.828171499134285,
+    "arms_in_scope": [],
+    "why": "no arm supplied to this census is scoped here"
+   },
+   {
+    "section": "diffusion_module.atom_attn_enc",
+    "n_tensors": 98,
+    "n_reached": 48,
+    "pct_of_model": 5.558917321843155,
+    "pct_of_model_reached": 4.734845387109062,
+    "pct_of_model_uncovered": 0.8240719347340927,
+    "arms_in_scope": [
+     "diffusion_module"
+    ],
+    "why": "an arm covered this section and still did not reach these tensors"
+   },
+   {
+    "section": "input_embedder",
+    "n_tensors": 98,
+    "n_reached": 0,
+    "pct_of_model": 0.800650919458856,
+    "pct_of_model_reached": 0.0,
+    "pct_of_model_uncovered": 0.800650919458856,
+    "arms_in_scope": [],
+    "why": "no arm supplied to this census is scoped here"
+   },
+   {
+    "section": "diffusion_module.diffusion_transformer",
+    "n_tensors": 552,
+    "n_reached": 456,
+    "pct_of_model": 43.89363795019962,
+    "pct_of_model_reached": 43.62211148132602,
+    "pct_of_model_uncovered": 0.27152646887359827,
+    "arms_in_scope": [
+     "diffusion_module"
+    ],
+    "why": "an arm covered this section and still did not reach these tensors"
+   },
+   {
+    "section": "msa_module_embedder",
+    "n_tensors": 2,
+    "n_reached": 0,
+    "pct_of_model": 0.06124397616155424,
+    "pct_of_model_reached": 0.0,
+    "pct_of_model_uncovered": 0.06124397616155424,
+    "arms_in_scope": [],
+    "why": "no arm supplied to this census is scoped here"
+   },
+   {
+    "section": "diffusion_module.atom_attn_dec",
+    "n_tensors": 82,
+    "n_reached": 40,
+    "pct_of_model": 1.3172974623688836,
+    "pct_of_model_reached": 1.2842592499508614,
+    "pct_of_model_uncovered": 0.03303821241802227,
+    "arms_in_scope": [
+     "diffusion_module"
+    ],
+    "why": "an arm covered this section and still did not reach these tensors"
+   },
+   {
+    "section": "template_embedder",
+    "n_tensors": 96,
+    "n_reached": 0,
+    "pct_of_model": 0.01030204591844798,
+    "pct_of_model_reached": 0.0,
+    "pct_of_model_uncovered": 0.01030204591844798,
+    "arms_in_scope": [],
+    "why": "no arm supplied to this census is scoped here"
+   },
+   {
+    "section": "msa_module",
+    "n_tensors": 227,
+    "n_reached": 154,
+    "pct_of_model": 1.2399655269679897,
+    "pct_of_model_reached": 1.2317423683293727,
+    "pct_of_model_uncovered": 0.008223158638617042,
+    "arms_in_scope": [
+     "msa_module"
+    ],
+    "why": "an arm covered this section and still did not reach these tensors"
+   },
+   {
+    "section": "layer_norm_z",
+    "n_tensors": 2,
+    "n_reached": 0,
+    "pct_of_model": 0.0039017007269752614,
+    "pct_of_model_reached": 0.0,
+    "pct_of_model_uncovered": 0.0039017007269752614,
+    "arms_in_scope": [],
+    "why": "no arm supplied to this census is scoped here"
+   },
+   {
+    "section": "layer_norm_s",
+    "n_tensors": 2,
+    "n_reached": 0,
+    "pct_of_model": 0.0014750161756627938,
+    "pct_of_model_reached": 0.0,
+    "pct_of_model_uncovered": 0.0014750161756627938,
+    "arms_in_scope": [],
+    "why": "no arm supplied to this census is scoped here"
+   },
+   {
+    "section": "linear_z",
+    "n_tensors": 1,
+    "n_reached": 0,
+    "pct_of_model": 0.0004458818108784271,
+    "pct_of_model_reached": 0.0,
+    "pct_of_model_uncovered": 0.0004458818108784271,
+    "arms_in_scope": [],
+    "why": "no arm supplied to this census is scoped here"
+   },
+   {
+    "section": "linear_s",
+    "n_tensors": 1,
+    "n_reached": 0,
+    "pct_of_model": 0.00012752567082591814,
+    "pct_of_model_reached": 0.0,
+    "pct_of_model_uncovered": 0.00012752567082591814,
+    "arms_in_scope": [],
+    "why": "no arm supplied to this census is scoped here"
+   },
+   {
+    "section": "aux_heads",
+    "n_tensors": 244,
+    "n_reached": 112,
+    "pct_of_model": 2.8431356995735935,
+    "pct_of_model_reached": 2.843135351038829,
+    "pct_of_model_uncovered": 3.48534765112805e-07,
+    "arms_in_scope": [
+     "aux_heads"
+    ],
+    "why": "an arm covered this section and still did not reach these tensors"
+   }
+  ]
+ },
+ "model": {
+  "n_reference_tensors": 4170,
+  "n_reached_by_an_executed_site": 839,
+  "pct_of_model_sq_grad_norm_reached": 92.15682131174339,
+  "pct_of_model_sq_grad_norm_not_reached": 7.843178688256609,
+  "by_section": [
+   {
+    "section": "pairformer_stack",
+    "n_tensors": 2736,
+    "n_reached": 0,
+    "pct_of_model": 5.828171499134285,
+    "pct_of_model_reached": 0.0,
+    "pct_of_model_uncovered": 5.828171499134285
+   },
+   {
+    "section": "diffusion_module.atom_attn_enc",
+    "n_tensors": 98,
+    "n_reached": 48,
+    "pct_of_model": 5.558917321843155,
+    "pct_of_model_reached": 4.734845387109062,
+    "pct_of_model_uncovered": 0.8240719347340927
+   },
+   {
+    "section": "input_embedder",
+    "n_tensors": 98,
+    "n_reached": 0,
+    "pct_of_model": 0.800650919458856,
+    "pct_of_model_reached": 0.0,
+    "pct_of_model_uncovered": 0.800650919458856
+   },
+   {
+    "section": "diffusion_module.diffusion_transformer",
+    "n_tensors": 552,
+    "n_reached": 456,
+    "pct_of_model": 43.89363795019962,
+    "pct_of_model_reached": 43.62211148132602,
+    "pct_of_model_uncovered": 0.27152646887359827
+   },
+   {
+    "section": "msa_module_embedder",
+    "n_tensors": 2,
+    "n_reached": 0,
+    "pct_of_model": 0.06124397616155424,
+    "pct_of_model_reached": 0.0,
+    "pct_of_model_uncovered": 0.06124397616155424
+   },
+   {
+    "section": "diffusion_module.atom_attn_dec",
+    "n_tensors": 82,
+    "n_reached": 40,
+    "pct_of_model": 1.3172974623688836,
+    "pct_of_model_reached": 1.2842592499508614,
+    "pct_of_model_uncovered": 0.03303821241802227
+   },
+   {
+    "section": "template_embedder",
+    "n_tensors": 96,
+    "n_reached": 0,
+    "pct_of_model": 0.01030204591844798,
+    "pct_of_model_reached": 0.0,
+    "pct_of_model_uncovered": 0.01030204591844798
+   },
+   {
+    "section": "msa_module",
+    "n_tensors": 227,
+    "n_reached": 154,
+    "pct_of_model": 1.2399655269679897,
+    "pct_of_model_reached": 1.2317423683293727,
+    "pct_of_model_uncovered": 0.008223158638617042
+   },
+   {
+    "section": "layer_norm_z",
+    "n_tensors": 2,
+    "n_reached": 0,
+    "pct_of_model": 0.0039017007269752614,
+    "pct_of_model_reached": 0.0,
+    "pct_of_model_uncovered": 0.0039017007269752614
+   },
+   {
+    "section": "layer_norm_s",
+    "n_tensors": 2,
+    "n_reached": 0,
+    "pct_of_model": 0.0014750161756627938,
+    "pct_of_model_reached": 0.0,
+    "pct_of_model_uncovered": 0.0014750161756627938
+   },
+   {
+    "section": "linear_z",
+    "n_tensors": 1,
+    "n_reached": 0,
+    "pct_of_model": 0.0004458818108784271,
+    "pct_of_model_reached": 0.0,
+    "pct_of_model_uncovered": 0.0004458818108784271
+   },
+   {
+    "section": "linear_s",
+    "n_tensors": 1,
+    "n_reached": 0,
+    "pct_of_model": 0.00012752567082591814,
+    "pct_of_model_reached": 0.0,
+    "pct_of_model_uncovered": 0.00012752567082591814
+   },
+   {
+    "section": "aux_heads",
+    "n_tensors": 244,
+    "n_reached": 112,
+    "pct_of_model": 2.8431356995735935,
+    "pct_of_model_reached": 2.843135351038829,
+    "pct_of_model_uncovered": 3.48534765112805e-07
+   },
+   {
+    "section": "diffusion_module.diffusion_conditioning",
+    "n_tensors": 26,
+    "n_reached": 26,
+    "pct_of_model": 36.94617946669957,
+    "pct_of_model_reached": 36.94617946669957,
+    "pct_of_model_uncovered": 0.0
+   },
+   {
+    "section": "diffusion_module.layer_norm_s",
+    "n_tensors": 1,
+    "n_reached": 1,
+    "pct_of_model": 0.9834601790165405,
+    "pct_of_model_reached": 0.9834601790165405,
+    "pct_of_model_uncovered": 0.0
+   },
+   {
+    "section": "diffusion_module.linear_s",
+    "n_tensors": 1,
+    "n_reached": 1,
+    "pct_of_model": 0.24445767651580153,
+    "pct_of_model_reached": 0.24445767651580153,
+    "pct_of_model_uncovered": 0.0
+   },
+   {
+    "section": "diffusion_module.layer_norm_a",
+    "n_tensors": 1,
+    "n_reached": 1,
+    "pct_of_model": 0.2666301517573279,
+    "pct_of_model_reached": 0.2666301517573279,
+    "pct_of_model_uncovered": 0.0
+   }
+  ],
+  "worst_uncovered_section": "pairformer_stack"
+ }
+}

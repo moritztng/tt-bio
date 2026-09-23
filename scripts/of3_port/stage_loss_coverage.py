@@ -10,15 +10,26 @@ Their loss weights are per-dataset overrides layered on the `LossWeights` defaul
 per example as `batch["loss_weights"]` (`runner.py:448`). The defaults are read from the
 vendored model rather than retyped, so this cannot drift from the tree it documents.
 
-A term is COVERED when at least one (stage, dataset) pair gives it a non-zero weight.
+A term is WEIGHTED when at least one (stage, dataset) pair gives it a non-zero weight.
 That is a necessary condition and not a sufficient one: PROTOCOL §6 also requires a
-non-zero gradient contribution, which needs a card and belongs to `of3t-equivalence`.
-This script establishes which pair to point that instrument at.
+non-zero gradient contribution, and a term that is weighted but contributes nothing has
+been "skipped with extra steps". `bond` is exactly that shape -- weighted 4.0 on ten of
+the sixteen pairs and contributing zero on every corpus target -- so the two numbers are
+reported separately and the second is the one a coverage claim may quote.
+
+The second number is read off measurement records, never asserted here. Each record is a
+json with `term`, `stage`, `dataset`, `target`, the `quantity` that was measured and its
+`value`, written by the instrument that measured it; `--demonstrated` takes the files or
+a directory of them. A term with no record, or a record whose value is zero, stays NOT
+DEMONSTRATED. `quantity` is printed rather than interpreted, because the rows measure the
+contribution at different scopes -- a seed norm into the model outputs and a share of the
+squared parameter-gradient norm are both evidence and are not the same number.
 
 Usage:
     python scripts/of3_port/stage_loss_coverage.py --yamls <dir-of-training_yamls>
     python scripts/of3_port/stage_loss_coverage.py --yamls <a> --compare-yamls <b>
     python scripts/of3_port/stage_loss_coverage.py --yamls <a> --json out.json
+    python scripts/of3_port/stage_loss_coverage.py --yamls <a> --demonstrated <dir>
 """
 from __future__ import annotations
 
@@ -91,12 +102,47 @@ def coverage(table: dict) -> dict[str, list[str]]:
     return carriers
 
 
+REQUIRED_EVIDENCE_FIELDS = ("term", "stage", "dataset", "target",
+                            "quantity", "value", "source")
+
+
+def read_evidence(paths: list[Path]) -> dict[str, dict]:
+    """term -> the record demonstrating a non-zero gradient contribution.
+
+    A record is refused rather than ignored when it is malformed, because the failure
+    this guards against is a coverage table that counts a term nobody measured.
+    """
+    found: dict[str, dict] = {}
+    files: list[Path] = []
+    for p in paths:
+        files.extend(sorted(p.glob("*.json")) if p.is_dir() else [p])
+    for f in files:
+        rec = json.loads(f.read_text())
+        for r in rec if isinstance(rec, list) else [rec]:
+            missing = [k for k in REQUIRED_EVIDENCE_FIELDS if k not in r]
+            if missing:
+                raise SystemExit(f"{f}: evidence record is missing {missing}")
+            value = float(r["value"])
+            if value <= 0.0:
+                print(f"  note: {f.name} records {r['term']} at {r['quantity']} {value:g} -- "
+                      f"a term that fires with a zero gradient contribution is NOT covered")
+                continue
+            prev = found.get(r["term"])
+            if prev is None or value > float(prev["value"]):
+                found[r["term"]] = {**r, "record": str(f)}
+    return found
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--yamls", type=Path, required=True)
     ap.add_argument("--compare-yamls", type=Path, default=None,
                     help="Second training_yamls dir; reports stage configs that differ.")
     ap.add_argument("--json", type=Path, default=None)
+    ap.add_argument("--demonstrated", type=Path, nargs="*", default=(),
+                    help="measurement records, or directories of them, each naming a term "
+                         "and the (stage, dataset, target) at which its gradient "
+                         "contribution was measured non-zero")
     args = ap.parse_args()
 
     table = stage_table(args.yamls)
@@ -129,8 +175,27 @@ def main() -> int:
         else:
             print(f"  {t:26s} {len(hits):2d} pair(s), e.g. {hits[0]}")
     print()
-    print(f"{len(terms) - len(uncovered)}/{len(terms)} terms covered by the union"
-          + (f"; NOT COVERED: {', '.join(uncovered)}" if uncovered else ""))
+    print(f"{len(terms) - len(uncovered)}/{len(terms)} terms WEIGHTED by the union"
+          + (f"; NOT WEIGHTED: {', '.join(uncovered)}" if uncovered else ""))
+
+    evidence = read_evidence(list(args.demonstrated)) if args.demonstrated else {}
+    if args.demonstrated:
+        print()
+        print("DEMONSTRATED -- the (stage, dataset, target) at which the term was measured "
+              "to move the gradient")
+        undemonstrated = []
+        for t in terms:
+            e = evidence.get(t)
+            if e is None:
+                undemonstrated.append(t)
+                print(f"  {t:26s} NOT DEMONSTRATED")
+            else:
+                print(f"  {t:26s} {e['stage']}/{e['dataset']}/{e['target']}  "
+                      f"{e['quantity']} {float(e['value']):.6e}  ({e['source']})")
+        print()
+        print(f"{len(terms) - len(undemonstrated)}/{len(terms)} terms DEMONSTRATED"
+              + (f"; NOT DEMONSTRATED: {', '.join(undemonstrated)}"
+                 if undemonstrated else ""))
 
     # The minimal set: greedily pick pairs until every coverable term is carried. This
     # is what a reproduction actually has to run, and it is smaller than four stages.
@@ -168,7 +233,8 @@ def main() -> int:
     if args.json:
         args.json.write_text(json.dumps(
             {"base": base, "stages": table, "carriers": carriers,
-             "uncovered": uncovered, "minimal_set": chosen}, indent=2))
+             "uncovered": uncovered, "minimal_set": chosen,
+             "demonstrated": evidence}, indent=2))
         print(f"\nwrote {args.json}")
     return 0
 

@@ -1,0 +1,520 @@
+{
+  "what": "of3t-apbleaf: block 0's error mass is NOT in layer_norm_a, so where is it.",
+  "block": 0,
+  "total_error_mass_sq": 2.1035218708025702,
+  "rows": [
+    {
+      "param": "pairformer_stack.blocks.0.single_transition.layer_norm.bias",
+      "leaf": "single_transition.layer_norm.bias",
+      "err_sq": 0.1699438470509954,
+      "abs_err": 0.41224246148473764,
+      "ref_norm": 0.14264958464731942,
+      "share_of_trunk_error": 0.08079014980060827,
+      "rel": 2.8898959818491434
+    },
+    {
+      "param": "pairformer_stack.blocks.0.single_transition.layer_norm.weight",
+      "leaf": "single_transition.layer_norm.weight",
+      "err_sq": 0.1427959634466382,
+      "abs_err": 0.3778835315896132,
+      "ref_norm": 0.13943026419723847,
+      "share_of_trunk_error": 0.06788423045592407,
+      "rel": 2.710197343204184
+    },
+    {
+      "param": "pairformer_stack.blocks.0.single_transition.linear_out.weight",
+      "leaf": "single_transition.linear_out.weight",
+      "err_sq": 0.0180425914550586,
+      "abs_err": 0.13432271384638786,
+      "ref_norm": 0.056846497147463475,
+      "share_of_trunk_error": 0.008577325344458953,
+      "rel": 2.3629022118626954
+    },
+    {
+      "param": "pairformer_stack.blocks.0.pair_stack.pair_transition.layer_norm.weight",
+      "leaf": "pair_stack.pair_transition.layer_norm.weight",
+      "err_sq": 0.005366346867111014,
+      "abs_err": 0.07325535384605697,
+      "ref_norm": 0.04849698092152032,
+      "share_of_trunk_error": 0.002551124826224677,
+      "rel": 1.5105136949576634
+    },
+    {
+      "param": "pairformer_stack.blocks.0.pair_stack.pair_transition.layer_norm.bias",
+      "leaf": "pair_stack.pair_transition.layer_norm.bias",
+      "err_sq": 0.0042850225427369815,
+      "abs_err": 0.0654600835833333,
+      "ref_norm": 0.07038119415772842,
+      "share_of_trunk_error": 0.002037070592045753,
+      "rel": 0.9300791833203821
+    },
+    {
+      "param": "pairformer_stack.blocks.0.single_transition.swiglu.linear_a.weight",
+      "leaf": "single_transition.swiglu.linear_a.weight",
+      "err_sq": 0.0019418291186459693,
+      "abs_err": 0.04406619019890384,
+      "ref_norm": 0.026667745435260702,
+      "share_of_trunk_error": 0.0009231323646305093,
+      "rel": 1.6524152859445898
+    },
+    {
+      "param": "pairformer_stack.blocks.0.pair_stack.tri_att_end.layer_norm.bias",
+      "leaf": "pair_stack.tri_att_end.layer_norm.bias",
+      "err_sq": 0.001695679398255966,
+      "abs_err": 0.04117862793071141,
+      "ref_norm": 0.04268469483366845,
+      "share_of_trunk_error": 0.0008061144606064887,
+      "rel": 0.9647164654959863
+    },
+    {
+      "param": "pairformer_stack.blocks.0.single_transition.swiglu.linear_b.weight",
+      "leaf": "single_transition.swiglu.linear_b.weight",
+      "err_sq": 0.00161071282327397,
+      "abs_err": 0.040133686888622254,
+      "ref_norm": 0.024320976839276722,
+      "share_of_trunk_error": 0.0007657219283674119,
+      "rel": 1.6501675551044923
+    },
+    {
+      "param": "pairformer_stack.blocks.0.pair_stack.tri_att_start.layer_norm.bias",
+      "leaf": "pair_stack.tri_att_start.layer_norm.bias",
+      "err_sq": 0.0013421337682818482,
+      "abs_err": 0.03663514389601668,
+      "ref_norm": 0.039115637899412824,
+      "share_of_trunk_error": 0.000638041271122974,
+      "rel": 0.9365856180135725
+    },
+    {
+      "param": "pairformer_stack.blocks.0.pair_stack.tri_mul_in.layer_norm_in.bias",
+      "leaf": "pair_stack.tri_mul_in.layer_norm_in.bias",
+      "err_sq": 0.0010940360066248771,
+      "abs_err": 0.03307621511940079,
+      "ref_norm": 0.02244715135322327,
+      "share_of_trunk_error": 0.000520097281521234,
+      "rel": 1.4735150397892804
+    },
+    {
+      "param": "pairformer_stack.blocks.0.pair_stack.tri_att_end.layer_norm.weight",
+      "leaf": "pair_stack.tri_att_end.layer_norm.weight",
+      "err_sq": 0.00045689140169338766,
+      "abs_err": 0.021375018168258656,
+      "ref_norm": 0.03795112933323619,
+      "share_of_trunk_error": 0.00021720306693035092,
+      "rel": 0.5632248247627036
+    },
+    {
+      "param": "pairformer_stack.blocks.0.pair_stack.tri_att_start.layer_norm.weight",
+      "leaf": "pair_stack.tri_att_start.layer_norm.weight",
+      "err_sq": 0.00030064754901552344,
+      "abs_err": 0.017339191129217172,
+      "ref_norm": 0.03174251024769999,
+      "share_of_trunk_error": 0.00014292580133755178,
+      "rel": 0.546245114009959
+    },
+    {
+      "param": "pairformer_stack.blocks.0.pair_stack.tri_mul_out.layer_norm_in.weight",
+      "leaf": "pair_stack.tri_mul_out.layer_norm_in.weight",
+      "err_sq": 0.00026182400125866626,
+      "abs_err": 0.016180976523642393,
+      "ref_norm": 0.0056493626928548705,
+      "share_of_trunk_error": 0.0001244693506128229,
+      "rel": 2.8642127268811337
+    },
+    {
+      "param": "pairformer_stack.blocks.0.pair_stack.tri_mul_out.layer_norm_in.bias",
+      "leaf": "pair_stack.tri_mul_out.layer_norm_in.bias",
+      "err_sq": 0.0002004081876579314,
+      "abs_err": 0.014156559880773698,
+      "ref_norm": 0.01565970600276676,
+      "share_of_trunk_error": 9.527269026276793e-05,
+      "rel": 0.9040118555401048
+    },
+    {
+      "param": "pairformer_stack.blocks.0.pair_stack.tri_mul_in.layer_norm_in.weight",
+      "leaf": "pair_stack.tri_mul_in.layer_norm_in.weight",
+      "err_sq": 0.00018027453204960597,
+      "abs_err": 0.013426635172283709,
+      "ref_norm": 0.016136433649505958,
+      "share_of_trunk_error": 8.570128723255188e-05,
+      "rel": 0.8320695553874624
+    },
+    {
+      "param": "pairformer_stack.blocks.0.pair_stack.tri_att_start.mha.linear_v.weight",
+      "leaf": "pair_stack.tri_att_start.mha.linear_v.weight",
+      "err_sq": 0.00010769858617107793,
+      "abs_err": 0.010377792933522905,
+      "ref_norm": 0.011510278570924744,
+      "share_of_trunk_error": 5.1199175851681065e-05,
+      "rel": 0.9016109271010585
+    },
+    {
+      "param": "pairformer_stack.blocks.0.pair_stack.tri_mul_in.linear_z.weight",
+      "leaf": "pair_stack.tri_mul_in.linear_z.weight",
+      "err_sq": 8.020528436652612e-05,
+      "abs_err": 0.008955740302539266,
+      "ref_norm": 0.007566999102371109,
+      "share_of_trunk_error": 3.812904704238938e-05,
+      "rel": 1.1835260162424226
+    },
+    {
+      "param": "pairformer_stack.blocks.0.pair_stack.pair_transition.linear_out.weight",
+      "leaf": "pair_stack.pair_transition.linear_out.weight",
+      "err_sq": 7.068377512284464e-05,
+      "abs_err": 0.008407364338652431,
+      "ref_norm": 0.009182538022741256,
+      "share_of_trunk_error": 3.360258626447093e-05,
+      "rel": 0.9155817615817057
+    },
+    {
+      "param": "pairformer_stack.blocks.0.attn_pair_bias.mha.linear_v.weight",
+      "leaf": "attn_pair_bias.mha.linear_v.weight",
+      "err_sq": 7.018371022401022e-05,
+      "abs_err": 0.008377571857287183,
+      "ref_norm": 0.0005232325368368215,
+      "share_of_trunk_error": 3.336485881044468e-05,
+      "rel": 16.011182920567997
+    },
+    {
+      "param": "pairformer_stack.blocks.0.pair_stack.tri_mul_in.layer_norm_out.bias",
+      "leaf": "pair_stack.tri_mul_in.layer_norm_out.bias",
+      "err_sq": 6.996245155035586e-05,
+      "abs_err": 0.008364356015280306,
+      "ref_norm": 0.0060495889872586505,
+      "share_of_trunk_error": 3.32596739408574e-05,
+      "rel": 1.3826321148258014
+    },
+    {
+      "param": "pairformer_stack.blocks.0.pair_stack.pair_transition.swiglu.linear_b.weight",
+      "leaf": "pair_stack.pair_transition.swiglu.linear_b.weight",
+      "err_sq": 6.077659810823412e-05,
+      "abs_err": 0.0077959347167760535,
+      "ref_norm": 0.008381724568803716,
+      "share_of_trunk_error": 2.8892781649589235e-05,
+      "rel": 0.9301110592194907
+    },
+    {
+      "param": "pairformer_stack.blocks.0.pair_stack.tri_att_start.mha.linear_o.weight",
+      "leaf": "pair_stack.tri_att_start.mha.linear_o.weight",
+      "err_sq": 6.0584539355550634e-05,
+      "abs_err": 0.0077836070915450655,
+      "ref_norm": 0.0063045245946270305,
+      "share_of_trunk_error": 2.8801478223963235e-05,
+      "rel": 1.234606507551508
+    },
+    {
+      "param": "pairformer_stack.blocks.0.pair_stack.pair_transition.swiglu.linear_a.weight",
+      "leaf": "pair_stack.pair_transition.swiglu.linear_a.weight",
+      "err_sq": 5.8569424873767504e-05,
+      "abs_err": 0.007653066370662645,
+      "ref_norm": 0.008307483924502772,
+      "share_of_trunk_error": 2.7843506495808925e-05,
+      "rel": 0.9212255407548927
+    },
+    {
+      "param": "pairformer_stack.blocks.0.pair_stack.tri_mul_in.linear_b_p.weight",
+      "leaf": "pair_stack.tri_mul_in.linear_b_p.weight",
+      "err_sq": 5.674072141592914e-05,
+      "abs_err": 0.007532643720230577,
+      "ref_norm": 0.004910175890648503,
+      "share_of_trunk_error": 2.6974153301425143e-05,
+      "rel": 1.5340883683162145
+    },
+    {
+      "param": "pairformer_stack.blocks.0.pair_stack.tri_mul_in.linear_a_p.weight",
+      "leaf": "pair_stack.tri_mul_in.linear_a_p.weight",
+      "err_sq": 4.712139358647814e-05,
+      "abs_err": 0.0068645024281792,
+      "ref_norm": 0.005123772554486133,
+      "share_of_trunk_error": 2.240119023269276e-05,
+      "rel": 1.3397359767987684
+    },
+    {
+      "param": "pairformer_stack.blocks.0.pair_stack.tri_mul_in.layer_norm_out.weight",
+      "leaf": "pair_stack.tri_mul_in.layer_norm_out.weight",
+      "err_sq": 4.701455972470363e-05,
+      "abs_err": 0.006856716395236399,
+      "ref_norm": 0.006860203952314402,
+      "share_of_trunk_error": 2.2350402140941784e-05,
+      "rel": 0.9994916248697202
+    },
+    {
+      "param": "pairformer_stack.blocks.0.pair_stack.tri_mul_in.linear_g.weight",
+      "leaf": "pair_stack.tri_mul_in.linear_g.weight",
+      "err_sq": 4.167936696875542e-05,
+      "abs_err": 0.006455955929895697,
+      "ref_norm": 0.006647073138511802,
+      "share_of_trunk_error": 1.9814087767413238e-05,
+      "rel": 0.9712479154909835
+    },
+    {
+      "param": "pairformer_stack.blocks.0.pair_stack.tri_mul_out.layer_norm_out.weight",
+      "leaf": "pair_stack.tri_mul_out.layer_norm_out.weight",
+      "err_sq": 3.797084252513266e-05,
+      "abs_err": 0.0061620485656259365,
+      "ref_norm": 0.004968317597893921,
+      "share_of_trunk_error": 1.8051080453299683e-05,
+      "rel": 1.2402686511502485
+    },
+    {
+      "param": "pairformer_stack.blocks.0.pair_stack.tri_mul_out.linear_z.weight",
+      "leaf": "pair_stack.tri_mul_out.linear_z.weight",
+      "err_sq": 3.7503943443523984e-05,
+      "abs_err": 0.006124046329309078,
+      "ref_norm": 0.005991500524476847,
+      "share_of_trunk_error": 1.7829119803358577e-05,
+      "rel": 1.0221223054710162
+    },
+    {
+      "param": "pairformer_stack.blocks.0.attn_pair_bias.layer_norm_a.weight",
+      "leaf": "attn_pair_bias.layer_norm_a.weight",
+      "err_sq": 3.698720134852924e-05,
+      "abs_err": 0.00608171039663426,
+      "ref_norm": 0.0006452262720936914,
+      "share_of_trunk_error": 1.7583464123630564e-05,
+      "rel": 9.425701741653745
+    },
+    {
+      "param": "pairformer_stack.blocks.0.pair_stack.tri_att_end.mha.linear_v.weight",
+      "leaf": "pair_stack.tri_att_end.mha.linear_v.weight",
+      "err_sq": 3.312944352525389e-05,
+      "abs_err": 0.005755818232471722,
+      "ref_norm": 0.005763836331288175,
+      "share_of_trunk_error": 1.5749512275151103e-05,
+      "rel": 0.9986088954724601
+    },
+    {
+      "param": "pairformer_stack.blocks.0.attn_pair_bias.mha.linear_o.weight",
+      "leaf": "attn_pair_bias.mha.linear_o.weight",
+      "err_sq": 2.9324468856330102e-05,
+      "abs_err": 0.005415207184986563,
+      "ref_norm": 0.0017599002800290989,
+      "share_of_trunk_error": 1.3940653179489761e-05,
+      "rel": 3.076996603976349
+    },
+    {
+      "param": "pairformer_stack.blocks.0.pair_stack.tri_mul_out.layer_norm_out.bias",
+      "leaf": "pair_stack.tri_mul_out.layer_norm_out.bias",
+      "err_sq": 2.5721429006436678e-05,
+      "abs_err": 0.0050716298175671965,
+      "ref_norm": 0.006022966241333883,
+      "share_of_trunk_error": 1.2227792524269318e-05,
+      "rel": 0.8420485213352288
+    },
+    {
+      "param": "pairformer_stack.blocks.0.attn_pair_bias.layer_norm_a.bias",
+      "leaf": "attn_pair_bias.layer_norm_a.bias",
+      "err_sq": 2.5068660166233946e-05,
+      "abs_err": 0.005006861308867457,
+      "ref_norm": 0.0008379547096210424,
+      "share_of_trunk_error": 1.1917470654426492e-05,
+      "rel": 5.975097760512338
+    },
+    {
+      "param": "pairformer_stack.blocks.0.pair_stack.tri_mul_out.linear_g.weight",
+      "leaf": "pair_stack.tri_mul_out.linear_g.weight",
+      "err_sq": 2.4795190309074173e-05,
+      "abs_err": 0.004979476911189987,
+      "ref_norm": 0.005158003196639603,
+      "share_of_trunk_error": 1.1787464943073734e-05,
+      "rel": 0.9653884887923443
+    },
+    {
+      "param": "pairformer_stack.blocks.0.pair_stack.tri_att_end.mha.linear_o.weight",
+      "leaf": "pair_stack.tri_att_end.mha.linear_o.weight",
+      "err_sq": 1.9586253300109815e-05,
+      "abs_err": 0.0044256359204197775,
+      "ref_norm": 0.004400517202860151,
+      "share_of_trunk_error": 9.311171693516524e-06,
+      "rel": 1.0057081284771028
+    },
+    {
+      "param": "pairformer_stack.blocks.0.pair_stack.tri_att_start.mha.linear_g.weight",
+      "leaf": "pair_stack.tri_att_start.mha.linear_g.weight",
+      "err_sq": 1.8366363471869068e-05,
+      "abs_err": 0.004285599546372604,
+      "ref_norm": 0.003889271293787545,
+      "share_of_trunk_error": 8.731244360612059e-06,
+      "rel": 1.1019029588442766
+    },
+    {
+      "param": "pairformer_stack.blocks.0.pair_stack.tri_mul_out.linear_b_p.weight",
+      "leaf": "pair_stack.tri_mul_out.linear_b_p.weight",
+      "err_sq": 1.8329374781000535e-05,
+      "abs_err": 0.00428128190861108,
+      "ref_norm": 0.0040369981714783645,
+      "share_of_trunk_error": 8.713660188380742e-06,
+      "rel": 1.060511233039092
+    },
+    {
+      "param": "pairformer_stack.blocks.0.pair_stack.tri_mul_out.linear_a_p.weight",
+      "leaf": "pair_stack.tri_mul_out.linear_a_p.weight",
+      "err_sq": 1.826299081725411e-05,
+      "abs_err": 0.004273522062333844,
+      "ref_norm": 0.003800896396393111,
+      "share_of_trunk_error": 8.682101703219332e-06,
+      "rel": 1.124345842835715
+    },
+    {
+      "param": "pairformer_stack.blocks.0.pair_stack.tri_mul_in.linear_a_g.weight",
+      "leaf": "pair_stack.tri_mul_in.linear_a_g.weight",
+      "err_sq": 1.3380729545209492e-05,
+      "abs_err": 0.003657967953004713,
+      "ref_norm": 0.002795094235894446,
+      "share_of_trunk_error": 6.361107878618945e-06,
+      "rel": 1.3087100628055006
+    },
+    {
+      "param": "pairformer_stack.blocks.0.pair_stack.tri_att_end.mha.linear_k.weight",
+      "leaf": "pair_stack.tri_att_end.mha.linear_k.weight",
+      "err_sq": 1.1134339188252376e-05,
+      "abs_err": 0.003336815725845881,
+      "ref_norm": 0.0033645483222008036,
+      "share_of_trunk_error": 5.293189171360609e-06,
+      "rel": 0.9917574088111827
+    },
+    {
+      "param": "pairformer_stack.blocks.0.pair_stack.tri_mul_out.linear_b_g.weight",
+      "leaf": "pair_stack.tri_mul_out.linear_b_g.weight",
+      "err_sq": 9.278040284359817e-06,
+      "abs_err": 0.003045987571274679,
+      "ref_norm": 0.0018139456519700812,
+      "share_of_trunk_error": 4.410717289485517e-06,
+      "rel": 1.6792055307536407
+    },
+    {
+      "param": "pairformer_stack.blocks.0.pair_stack.tri_mul_in.linear_b_g.weight",
+      "leaf": "pair_stack.tri_mul_in.linear_b_g.weight",
+      "err_sq": 9.090247140596287e-06,
+      "abs_err": 0.003015003671738442,
+      "ref_norm": 0.002202588210473035,
+      "share_of_trunk_error": 4.321441705347245e-06,
+      "rel": 1.3688458230196965
+    },
+    {
+      "param": "pairformer_stack.blocks.0.pair_stack.tri_att_end.mha.linear_q.weight",
+      "leaf": "pair_stack.tri_att_end.mha.linear_q.weight",
+      "err_sq": 8.523652704663517e-06,
+      "abs_err": 0.002919529534816101,
+      "ref_norm": 0.0036129450208371573,
+      "share_of_trunk_error": 4.052086561577529e-06,
+      "rel": 0.8080747196478554
+    },
+    {
+      "param": "pairformer_stack.blocks.0.pair_stack.tri_att_end.linear_z.weight",
+      "leaf": "pair_stack.tri_att_end.linear_z.weight",
+      "err_sq": 6.448167458754654e-06,
+      "abs_err": 0.0025393242130052345,
+      "ref_norm": 0.003055284804822749,
+      "share_of_trunk_error": 3.0654149824905043e-06,
+      "rel": 0.831125206068163
+    },
+    {
+      "param": "pairformer_stack.blocks.0.pair_stack.tri_att_end.mha.linear_g.weight",
+      "leaf": "pair_stack.tri_att_end.mha.linear_g.weight",
+      "err_sq": 6.198018273934481e-06,
+      "abs_err": 0.002489581947623834,
+      "ref_norm": 0.0026759250190271327,
+      "share_of_trunk_error": 2.946495760260249e-06,
+      "rel": 0.9303631192659328
+    },
+    {
+      "param": "pairformer_stack.blocks.0.pair_stack.tri_att_start.mha.linear_k.weight",
+      "leaf": "pair_stack.tri_att_start.mha.linear_k.weight",
+      "err_sq": 5.891801647597964e-06,
+      "abs_err": 0.0024273033695024534,
+      "ref_norm": 0.002362533577776397,
+      "share_of_trunk_error": 2.800922457416631e-06,
+      "rel": 1.0274153952076386
+    },
+    {
+      "param": "pairformer_stack.blocks.0.attn_pair_bias.mha.linear_g.weight",
+      "leaf": "attn_pair_bias.mha.linear_g.weight",
+      "err_sq": 5.210439747835796e-06,
+      "abs_err": 0.002282638768582492,
+      "ref_norm": 0.0011304955368448195,
+      "share_of_trunk_error": 2.47700764140276e-06,
+      "rel": 2.019148854805098
+    },
+    {
+      "param": "pairformer_stack.blocks.0.pair_stack.tri_att_start.mha.linear_q.weight",
+      "leaf": "pair_stack.tri_att_start.mha.linear_q.weight",
+      "err_sq": 4.272476008193266e-06,
+      "abs_err": 0.002066996857325445,
+      "ref_norm": 0.0021133875728682793,
+      "share_of_trunk_error": 2.0311060548009235e-06,
+      "rel": 0.9780491206921063
+    },
+    {
+      "param": "pairformer_stack.blocks.0.pair_stack.tri_mul_out.linear_a_g.weight",
+      "leaf": "pair_stack.tri_mul_out.linear_a_g.weight",
+      "err_sq": 3.8598257653371395e-06,
+      "abs_err": 0.0019646439283842604,
+      "ref_norm": 0.001615632024938217,
+      "share_of_trunk_error": 1.834934934080089e-06,
+      "rel": 1.2160219023012928
+    },
+    {
+      "param": "pairformer_stack.blocks.0.pair_stack.tri_att_start.linear_z.weight",
+      "leaf": "pair_stack.tri_att_start.linear_z.weight",
+      "err_sq": 1.9635282953567505e-06,
+      "abs_err": 0.0014012595388994682,
+      "ref_norm": 0.0015385266805853458,
+      "share_of_trunk_error": 9.334480057521784e-07,
+      "rel": 0.9107801356856202
+    },
+    {
+      "param": "pairformer_stack.blocks.0.attn_pair_bias.linear_z.weight",
+      "leaf": "attn_pair_bias.linear_z.weight",
+      "err_sq": 4.6251239434202716e-08,
+      "abs_err": 0.00021506101328274893,
+      "ref_norm": 0.00012366705614944007,
+      "share_of_trunk_error": 2.1987524863031817e-08,
+      "rel": 1.739032366250134
+    },
+    {
+      "param": "pairformer_stack.blocks.0.attn_pair_bias.mha.linear_k.weight",
+      "leaf": "attn_pair_bias.mha.linear_k.weight",
+      "err_sq": 1.0251756361499912e-08,
+      "abs_err": 0.00010125095733621442,
+      "ref_norm": 3.514297226269726e-05,
+      "share_of_trunk_error": 4.873615294329454e-09,
+      "rel": 2.881115364385041
+    },
+    {
+      "param": "pairformer_stack.blocks.0.attn_pair_bias.mha.linear_q.weight",
+      "leaf": "attn_pair_bias.mha.linear_q.weight",
+      "err_sq": 3.940890897810267e-09,
+      "abs_err": 6.277651549592624e-05,
+      "ref_norm": 2.6741051102737527e-05,
+      "share_of_trunk_error": 1.8734727470680746e-09,
+      "rel": 2.3475709782215595
+    },
+    {
+      "param": "pairformer_stack.blocks.0.attn_pair_bias.layer_norm_z.weight",
+      "leaf": "attn_pair_bias.layer_norm_z.weight",
+      "err_sq": 2.1649929593460392e-09,
+      "abs_err": 4.652948483860571e-05,
+      "ref_norm": 3.0989225627742954e-05,
+      "share_of_trunk_error": 1.0292229376821338e-09,
+      "rel": 1.5014729763673222
+    },
+    {
+      "param": "pairformer_stack.blocks.0.attn_pair_bias.mha.linear_q.bias",
+      "leaf": "attn_pair_bias.mha.linear_q.bias",
+      "err_sq": 1.565125183422944e-10,
+      "abs_err": 1.2510496326776743e-05,
+      "ref_norm": 4.827347217305329e-06,
+      "share_of_trunk_error": 7.440498742358176e-11,
+      "rel": 2.591588249945737
+    },
+    {
+      "param": "pairformer_stack.blocks.0.attn_pair_bias.layer_norm_z.bias",
+      "leaf": "attn_pair_bias.layer_norm_z.bias",
+      "err_sq": 5.258715991883643e-11,
+      "abs_err": 7.251700484633686e-06,
+      "ref_norm": 1.6784770387095466e-06,
+      "share_of_trunk_error": 2.499957839695411e-11,
+      "rel": 4.320404936971296
+    }
+  ]
+}

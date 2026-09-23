@@ -1,0 +1,146 @@
+{
+ "what": "The charter's one failing clause, evaluated on the frame-matched artifact, against the",
+ "host": "tt-quietbox2",
+ "control": {
+  "what": "the scorer's composition identity reproduced against the published headline, before any rescored number is read",
+  "published_headline": 0.5171166332757559,
+  "recomposed": 0.5171166332757559,
+  "rel_difference": 0.0
+ },
+ "published": {
+  "artifact": "perf/of3t_modelboundary/MODEL_withtrunk_composed3660_n384.json",
+  "headline": 0.5171166332757559,
+  "x_bar": 3.399824057851876,
+  "bar": 0.15210099830945006,
+  "arms": {
+   "renorm": {
+    "scopes": [
+     "diffusion=/tmp/of3t/of3t-covadopt/device_grads_rc_refatom_on.pt",
+     "input_embedder=/tmp/of3t/of3t-covadopt/ie_grads_f64_renorm_on.pt",
+     "cond=/home/ttuser/of3t_wholemodel/cond_grads_renorm.pt",
+     "aux=/home/ttuser/of3t_wholemodel/aux_grads_renorm.pt",
+     "msa=/home/ttuser/of3t_wholemodel/msa_grads_renorm.pt",
+     "pairformer_stack=/home/ttuser/of3t_trunkceiling/dev_RENORM_n384_nocaptures.pt"
+    ],
+    "n_tensors": 3660
+   }
+  },
+  "trunk": {
+   "reading_vs_their_bf16": 2.0151163033431088,
+   "reading_vs_float64": 2.159527121735274,
+   "cos_vs_float64": 0.17960882530163172,
+   "norm_ratio_vs_float64": 2.102059531987362,
+   "upstreams_own_floor_here_vs_float64": 0.3147698293887927,
+   "upstreams_own_norm_ratio_here": 1.0568409490651478,
+   "section_A26_level": 0.4212097971234601,
+   "multiple_of_upstreams_own_bf16": 6.8606547391424275,
+   "pct_of_model_mass": 5.8281714991342914,
+   "share_of_the_models_error_mass": 0.9605582781117755,
+   "worst_tensor": "pairformer_stack.blocks.15.attn_pair_bias.layer_norm_a.weight",
+   "worst_rel_l2": 349.21903945963203,
+   "n_over_per_tensor_bar": 2688,
+   "n": 2736,
+   "_den": 10.578622173854377,
+   "_rest": 0.11157373899178259
+  }
+ },
+ "preregistered": {
+  "trunk_allowance_for_the_clause_to_clear": 0.44608901561034203,
+  "bar": 0.15210099830945006,
+  "levels": {
+   "bit_exact_float64_trunk": {
+    "clause_value": 0.1026990533692057,
+    "x_bar": 0.6752030197741641,
+    "clears": true
+   },
+   "upstreams_own_floor_here": {
+    "clause_value": 0.12967067993359122,
+    "x_bar": 0.8525301041731214,
+    "clears": true
+   },
+   "section_A26_level": {
+    "clause_value": 0.1475459165605533,
+    "x_bar": 0.9700522560698159,
+    "clears": true
+   },
+   "projection_from_the_in_frame_multiple": {
+    "clause_value": 0.19635234908555793,
+    "x_bar": 1.290933992991146,
+    "clears": false
+   },
+   "the_frame_mismatch_alone": {
+    "clause_value": 0.47443757904241024,
+    "x_bar": 3.1192272523890026,
+    "clears": false
+   }
+  },
+  "projected_trunk_reading": 0.6654021566584541,
+  "projected_trunk_reading_with_the_lever_ceiling": 0.3584521380145671,
+  "in_frame_multiple_under_test": 2.2340903768268046
+ },
+ "frame_matched": {
+  "artifact": "perf/of3t_recut/MODEL_RECUT_composed3660_n384.json",
+  "arms": {
+   "renorm": {
+    "scopes": [
+     "diffusion=/home/ttuser/of3t_covadopt/device_grads_rc_refatom_on.pt",
+     "input_embedder=/home/ttuser/of3t_covadopt/ie_grads_f64_renorm_on.pt",
+     "cond=/home/ttuser/of3t_wholemodel/cond_grads_renorm.pt",
+     "aux=/home/ttuser/of3t_wholemodel/aux_grads_renorm.pt",
+     "msa=/home/ttuser/of3t_wholemodel/msa_grads_renorm.pt",
+     "pairformer_stack=/home/ttuser/of3t_recut/dev_RENORM_model_n384_external.pt"
+    ],
+    "n_tensors": 3660
+   }
+  },
+  "recomposition_check": {
+   "headline": 0.22072451195864032,
+   "recomposed": 0.22072451195864032,
+   "rel_difference": 0.0
+  },
+  "CLAUSE": {
+   "value": 0.22072451195864032,
+   "bar": 0.15210099830945006,
+   "x_bar": 1.4511706984958472,
+   "clears": false
+  },
+  "trunk": {
+   "reading_vs_their_bf16": 0.7768254196709333,
+   "reading_vs_float64": 0.6221485227575493,
+   "cos_vs_float64": 0.8178953379770566,
+   "norm_ratio_vs_float64": 1.054584096168068,
+   "upstreams_own_floor_here_vs_float64": 0.3147698293887927,
+   "upstreams_own_norm_ratio_here": 1.0568409490651478,
+   "section_A26_level": 0.4212097971234601,
+   "multiple_of_upstreams_own_bf16": 1.976518918492322,
+   "pct_of_model_mass": 5.8281714991342914,
+   "share_of_the_models_error_mass": 0.7835130357121737,
+   "worst_tensor": "pairformer_stack.blocks.15.attn_pair_bias.layer_norm_a.weight",
+   "worst_rel_l2": 41.941477304953885,
+   "n_over_per_tensor_bar": 2688,
+   "n": 2736,
+   "_den": 10.578622173854377,
+   "_rest": 0.11157373899178259
+  },
+  "MULTIPLE": {
+   "measured_on_this_boundary": 1.976518918492322,
+   "in_frame_projection_was": 2.2340903768268046,
+   "ratio_measured_over_projected": 0.8847085771434525,
+   "projection_alive": true,
+   "what_near_means": "within 15 % of 2.2340903768268046. Outside that the projection is dead and the campaign must stop carrying it."
+  },
+  "against_the_preregistration": {
+   "trunk_read": 0.7768254196709333,
+   "trunk_allowance": 0.44608901561034203,
+   "x_allowance": 1.7414134679108282,
+   "projected_trunk_reading": 0.6654021566584541,
+   "measured_over_projected_trunk": 1.1674525125858164
+  },
+  "MOVED": {
+   "pairformer_stack": {
+    "published": 2.0151163033431088,
+    "frame_matched": 0.7768254196709333
+   }
+  }
+ }
+}
