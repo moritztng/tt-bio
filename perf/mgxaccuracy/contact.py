@@ -81,6 +81,52 @@ def crop_mask(meta, spec: str):
     return keep
 
 
+# pxdesign sees the target only as a 64-bin distogram over 2-22 A
+# (`tt_bio/pxdesign/featurize.py:40`), so 22 A is the distance beyond which two conditioned
+# tokens are indistinguishable to it.
+TEMPL_TOP_A = 22.0
+
+
+def conditioning_graph(meta, xyz, top_a: float = TEMPL_TOP_A) -> dict:
+    """Components of the graph on conditioned tokens whose pair distance the model can resolve.
+
+    The saturated FRACTION does not predict a conditioning failure -- the 512 crops that give
+    fit_rmsd 0.0755 A are already 73-76 % saturated. What predicts it is CONNECTIVITY: a target
+    whose sub-`top_a` graph has two components carries no information at all about where one
+    component sits relative to the other, so the rigid fit that recovers the output frame has no
+    determined answer and lands at the scale of the separation.
+
+    One CA per residue stands in for the distogram representative atom; the two differ by a
+    couple of angstrom and the components do not.
+    """
+    import numpy as np
+    ca = [(c, q) for (c, _s, a), q in zip(meta, xyz) if a == "CA"]
+    if not ca:
+        raise SystemExit("conditioning_graph: no CA atoms")
+    ch = np.array([c for c, _ in ca])
+    P = np.array([q for _, q in ca])
+    d = np.linalg.norm(P[:, None, :] - P[None, :, :], axis=-1)
+    adj = (d <= top_a) & ~np.eye(len(P), dtype=bool)
+    seen = np.zeros(len(P), bool)
+    sizes = []
+    for start in range(len(P)):
+        if seen[start]:
+            continue
+        stack, cnt, seen[start] = [start], 0, True
+        while stack:
+            u = stack.pop()
+            cnt += 1
+            for v in np.flatnonzero(adj[u] & ~seen):
+                seen[v] = True
+                stack.append(v)
+        sizes.append(cnt)
+    inter = ch[:, None] != ch[None, :]
+    return {"n_token": len(P), "components": sorted(sizes, reverse=True),
+            "inter_chain_edges": int((adj & inter).sum() // 2),
+            "saturated_frac": float(((d > top_a) & ~np.eye(len(P), dtype=bool)).sum()
+                                    / max(1, (~np.eye(len(P), dtype=bool)).sum()))}
+
+
 def main() -> int:
     import numpy as np
     ap = argparse.ArgumentParser(description=__doc__,

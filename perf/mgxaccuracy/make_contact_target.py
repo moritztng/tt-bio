@@ -12,12 +12,21 @@ a matter of taste:
     1GPB biological assembly             chain A-A_2 centroid  52.9 A, min atom distance 1.88 A
                                          1646 residues:      Rg  38.4 A, max radius  64.6 A
 
-A real complex has an INTERFACE. Two chains a quarter of a micron apart do not, and a designer
-conditioned on a 64-bin distogram clamped at 22 A (`tt_bio/pxdesign/featurize.py:40`) receives
-no information at all about their relative placement -- every inter-chain pair sits in the
-saturated top bin. Measured consequence: pxdesign's own `fit_rmsd` reads 95.18 A on the
-1536-residue crop of `big_1831.cif` against 0.0765 A at 512, and the binder it delivers is
-14-41 A off the target with zero atom pairs within 5 A.
+A real complex has an INTERFACE, and the test is not how much of the distogram saturates. The
+512 crops that give `fit_rmsd` 0.0755 A are ALREADY 73-76 % saturated, and the valid 1536 crop
+is 90.0 % saturated against the invalid one's 90.9 % -- so the saturated fraction separates
+nothing. What separates them is whether the sub-22 A pair graph is CONNECTED
+(`tt_bio/pxdesign/featurize.py:40` sets the 2-22 A range):
+
+    big_1831.cif 1536 crop     2 components, 1008 + 528, ZERO inter-chain edges under 22 A
+    gpb dimer    1536 crop     1 component,  1536,        8316 inter-chain edges
+    gpb dimer    1024 crop     1 component,  1024,        4715 inter-chain edges
+
+A disconnected conditioning graph says nothing about where one component sits relative to
+another, so the fit that recovers the output frame has no determined answer and lands at the
+scale of the separation. Measured consequence on the invalid target: `fit_rmsd` 95.18 A against
+0.0765 A at 512, and the delivered binder 14-41 A off the target with zero atom pairs within
+5 A.
 
 So this script builds the other kind of target and will not write one that is not in contact.
 
@@ -34,6 +43,10 @@ import argparse
 import collections
 import pathlib
 import sys
+
+ROOT = pathlib.Path(__file__).resolve().parents[2]
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
 
 # The column order `perf/bhdesign/make_big_target.py` writes, so the two targets are the same
 # shape of file and `perf/bhdesign/ladder.py:crop_cif` treats them identically.
@@ -102,12 +115,31 @@ def main() -> int:
             if m <= a.contact_a:
                 touched[want[i]] = touched[want[j]] = True
     stranded = [c for c, t in touched.items() if not t] if len(want) > 1 else []
+
+    # The principled test, on the model's OWN threshold rather than a contact radius chosen
+    # here. The saturated fraction does not predict failure -- targets at 73-76 % saturation
+    # give fit_rmsd 0.0755 A -- so the test is whether the sub-22 A graph is CONNECTED.
+    from perf.mgxaccuracy.contact import conditioning_graph
+    meta_all = [(r[ch], r[sq], r[ix["label_atom_id"]]) for c in want for r in src[c]]
+    xyz_all = np.vstack([xyz[c] for c in want])
+    g = conditioning_graph(meta_all, xyz_all)
+    print(f"sub-22 A conditioning graph: {len(g['components'])} component(s) "
+          f"sizes {g['components'][:4]}, inter-chain edges {g['inter_chain_edges']}, "
+          f"saturated {g['saturated_frac'] * 100:.1f}%")
+    if len(g["components"]) > 1:
+        raise SystemExit(
+            f"REFUSED: the sub-22 A conditioning graph has {len(g['components'])} components "
+            f"{g['components'][:4]}. pxdesign sees the target only as a 64-bin distogram over "
+            f"2-22 A, so nothing in the input says where one component sits relative to "
+            f"another: the frame-recovering fit has no determined answer and lands at the "
+            f"scale of the separation (measured 95.183 A on big_1831.cif's 1536 crop, whose "
+            f"graph is 2 components of 1008 and 528 with ZERO inter-chain edges). A target "
+            f"like that is not a design problem, it is several targets in one file.")
     if stranded:
         raise SystemExit(
             f"REFUSED: chain(s) {stranded} have no atom within {a.contact_a} A of another "
-            f"chain. A target whose chains do not touch is not a design problem -- it is two "
-            f"targets in one file, and a distogram-conditioned designer cannot place them "
-            f"relative to each other. See this script's docstring for the measurement.")
+            f"chain, so this file carries no interface even though its conditioning graph "
+            f"happens to connect.")
 
     out_rows, ids, total = [], "ABCDEFGH", 0
     for i, c in enumerate(want):
