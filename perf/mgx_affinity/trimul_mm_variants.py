@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """Which knob of the triangle-product matmul produces the -2^k wrong elements.
 
-Same scoring as trimul_mm_probe.py, at one Kt, over: in-kernel transpose vs a pre-transposed
+Same scoring as trimul_mm_probe.py (plus "gross": a miss of 5 % of max |ref|), per Kt and operand
+scale, over: in-kernel transpose vs a pre-transposed
 operand, fp32_dest_acc_en, packer_l1_acc, math fidelity, and bf16 vs fp32 output.
 """
 import argparse
@@ -18,6 +19,8 @@ import tt_bio.tenstorrent as T  # noqa: E402
 ap = argparse.ArgumentParser()
 ap.add_argument("--kt", type=int, nargs="+", default=[48, 64])
 ap.add_argument("--channels", type=int, default=8)
+ap.add_argument("--scale", type=float, nargs="+", default=[1.0])
+ap.add_argument("--arms", default="all", choices=["all", "base"])
 ap.add_argument("--out", default=None)
 a = ap.parse_args()
 dev = T.get_device()
@@ -25,13 +28,13 @@ gx, gy = T.COMPUTE_GRID_MAIN
 kcls = (ttnn.types.WormholeComputeKernelConfig if dev.arch() == ttnn.Arch.WORMHOLE_B0
         else ttnn.types.BlackholeComputeKernelConfig)
 rows = []
-for kt in a.kt:
+for kt, scale in [(k, x) for k in a.kt for x in a.scale]:
     s = kt * 32
     g = torch.Generator().manual_seed(2000 + kt)
-    A = torch.randn(1, a.channels, s, s, generator=g).bfloat16()
+    A = (scale * torch.randn(1, a.channels, s, s, generator=g)).bfloat16()
     B = torch.randn(1, a.channels, s, s, generator=g).bfloat16()
     ref = torch.matmul(A.double(), B.double().transpose(-1, -2))
-    tol = 16 * (ref.bfloat16().double() - ref).abs().clamp(min=2.0 ** -8) + 0.5
+    tol = 16 * (ref.bfloat16().double() - ref).abs().clamp(min=2.0 ** -8) + 0.5 * scale
     ta = ttnn.from_torch(A, layout=ttnn.TILE_LAYOUT, device=dev)
     tb = ttnn.from_torch(B, layout=ttnn.TILE_LAYOUT, device=dev)
     tbt = ttnn.from_torch(B.transpose(-1, -2).contiguous(), layout=ttnn.TILE_LAYOUT, device=dev)
@@ -39,7 +42,10 @@ for kt in a.kt:
     w = T._trimul_in0_block_w(kt)
     base = dict(transpose=1, dest=1, l1acc=1, fid="HiFi4", out="fp32", w=w)
     arms = [base, {**base, "w": 1}, {**base, "transpose": 0}, {**base, "dest": 0}, {**base, "l1acc": 0},
-            {**base, "fid": "HiFi2"}, {**base, "out": "bf16"}, {**base, "dest": 0, "l1acc": 0}]
+            {**base, "fid": "HiFi2"}, {**base, "out": "bf16"}, {**base, "dest": 0, "l1acc": 0},
+            {**base, "fid": "HiFi3"}]
+    if a.arms == "base":
+        arms = [base, {**base, "w": 1}]
     for arm in arms:
         ckc = kcls(math_fidelity=getattr(ttnn.MathFidelity, arm["fid"]), math_approx_mode=False,
                    fp32_dest_acc_en=bool(arm["dest"]), packer_l1_acc=bool(arm["l1acc"]))
@@ -53,8 +59,9 @@ for kt in a.kt:
         o = ttnn.to_torch(out).double()
         ttnn.deallocate(out)
         e = o - ref
-        big = torch.nonzero(e.abs() > 16)
-        r = {"kt": kt, **arm, "wrong": int((e.abs() > tol).sum()), "gross": int(big.shape[0]),
+        # gross: a miss of at least 5 % of the largest |ref|, which no rounding produces
+        big = torch.nonzero(e.abs() > 0.05 * ref.abs().max())
+        r = {"kt": kt, "scale": scale, "ref_absmax": round(float(ref.abs().max()), 1), **arm, "wrong": int((e.abs() > tol).sum()), "gross": int(big.shape[0]),
              "rel_l2": float(e.norm() / ref.norm()),
              "gross_at": [[int(c), int(i), int(j), round(float(ref[0, c, i, j]), 2), round(float(e[0, c, i, j]), 2)]
                           for _, c, i, j in big[:6].tolist()]}
