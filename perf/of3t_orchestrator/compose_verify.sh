@@ -512,7 +512,10 @@ done
 #   `ranking as rank` import and a blank line) are already on `wk/of3t` and are inherited from
 #   their common base rather than authored by either row, which is why a same-file check reads a
 #   collision where there is no contested region. Asserted below, both sides, not assumed.
-ALLOWED_COEDIT="tt_bio/tenstorrent.py tt_bio/train/optim.py tt_bio/openfold3_trunk.py perf/of3t_condtrans/floor_bf16.py tt_bio/autograd.py perf/of3t_trajwide/trajwide.py perf/of3t_trajwide/price_ref.py perf/of3t_trajwide/ceiling.py perf/of3t_trajwide/ceiling_closures.py tt_bio/openfold3_fold.py"
+#   tt_bio/taped_ttnn.py: of3t-cropwall and of3t-stackship, arbitrated pass 418. Disjoint:
+#   cropwall rewrites the qkv-heads and concat-heads gradient closures (D248), stackship adds the
+#   `_training_exact("tape")` scope inside `tape()`. Both sides asserted below.
+ALLOWED_COEDIT="tt_bio/taped_ttnn.py tt_bio/tenstorrent.py tt_bio/train/optim.py tt_bio/openfold3_trunk.py perf/of3t_condtrans/floor_bf16.py tt_bio/autograd.py perf/of3t_trajwide/trajwide.py perf/of3t_trajwide/price_ref.py perf/of3t_trajwide/ceiling.py perf/of3t_trajwide/ceiling_closures.py tt_bio/openfold3_fold.py"
 _coedit_floor=0
 
 dup=$(awk '{print $2}' "$SLUG_TMP/own.txt" | sort | uniq -d)
@@ -562,6 +565,18 @@ if [ -z "$dup" ]; then
       echo "CO-EDIT LOST A SIDE in perf/of3t_trajwide/trajwide.py --$_twmiss"; exit 1
     fi
     echo "co-edit: trajwide.py keeps its align_layer_norm_z and its D149 resolved-tree assertion after refsweep's path move"
+  fi
+  # The sixth, arbitrated pass 418: of3t-cropwall and of3t-stackship on taped_ttnn.py.
+  if printf '%s ' $PRESENT | grep -q "cropwall " && printf '%s ' $PRESENT | grep -q "stackship "; then
+    _tf="$CO/tt_bio/taped_ttnn.py"
+    _tmiss=""
+    grep -q 'x.add_grad(ttnn.concat(parts, dim=3))' "$_tf" || _tmiss="$_tmiss of3t-cropwall's qkv-heads last-axis scatter"
+    grep -q 'ttnn.reshape(ttnn.transpose(g, -2, -1), \[B, H, dh, L\])' "$_tf" || _tmiss="$_tmiss of3t-cropwall's concat-heads dh split"
+    grep -q '_training_exact("tape")' "$_tf" || _tmiss="$_tmiss of3t-stackship's exact training scope"
+    if [ -n "$_tmiss" ]; then
+      echo "CO-EDIT LOST A SIDE in tt_bio/taped_ttnn.py --$_tmiss"; exit 1
+    fi
+    echo "co-edit: taped_ttnn.py carries BOTH cropwall's D248 gradient closures and stackship's exact training scope"
   fi
   # The fifth, arbitrated pass 324: of3t-hostleg and of3t-pathcov on openfold3_fold.py. Regions
   # are disjoint, so what has to be proved is only that the merge kept both, which a same-file

@@ -166,9 +166,9 @@ the frame), A37 (a projection is a PREDICTION, never a TARGET, and no bar may be
 one), A34 (both sides of a per-parameter comparison on the SAME boundary). PROTOCOL carries all
 forty-one.
 
-ROWS: **one hundred thirty-one dispatched, one hundred twenty-eight concluded** (counts restamped from disk by `perf/of3t_orchestrator/stamp_row_counts.py` at the next compose, which is the only thing that may edit them). **Live at pass 417: `of3t-stackship` (qb2 card 1, makes the clearing arm the training default), `of3t-stackbound` (qb1 card 1, the same arm on a second, real-token boundary) and `of3t-cropwall` (qb2 cards 2+3, fix-2 rungs still running). Concluded since pass 415: `of3t-stackexact` GO (clause 0.9822570327981535x with exact softmax + exact LN) and `of3t-msafwd` GO (D250 located: bf16 pair residual `z`).** History: `state/of3t/PASSLOG.md`.
+ROWS: **one hundred thirty-two dispatched, one hundred thirty concluded** (counts restamped from disk by `perf/of3t_orchestrator/stamp_row_counts.py` at the next compose, which is the only thing that may edit them). **Live at pass 418: `of3t-fullstep64` (qb2 card 1: is the exact default nearer float64 than OFF on the FULL step) and `of3t-stackbound` (relocated qb1 card 1 -> qb2 card 3, qb1 dark since 05:43Z). Concluded since pass 417: `of3t-stackship` GO (exact softmax + exact LN are the training default, clause arm reproduced 2736/2736 bit-identical, 8.4x step cost as debt, inference digests unchanged on OF3/Protenix-v2/AF2-IG) and `of3t-cropwall` GO (576 wall was tile padding in two taped gradient ops, D248, fixed on branch; 640 refuses on single-card capacity).** History: `state/of3t/PASSLOG.md`.
 
-SEQUENCE: **pass 417 — the clause clears on a lever, so the two things between it and GO run in parallel.** `of3t-stackship` puts exact softmax + exact LN on the training tape by default and must reproduce the SL arm 2736/2736 bit-identically, which is what turns a perf-script reading into a property of the shipped training step. `of3t-stackbound` retakes SL on a second 0.4.3 boundary with real tokens filling the crop, because the clearing boundary is 56 real tokens in 384 and the margin is 1.77 %; it also carries `of3t-msafwd`'s fp32 `z` residual as rung 4 for margin. Neither depends on the other: stackbound uses stackexact's levers, which stackship must reproduce by digest. D32 and D55 stay held for the reasons at pass 415. History: `state/of3t/PASSLOG.md`.
+SEQUENCE: **pass 418 — two independent checks stand between the clause and GO, run in parallel on qb2.** `of3t-fullstep64` answers stackship's open question: on the full step, ON vs OFF moves |g|^2 9.786 -> 15.317 and the confidence head (outside the clause) 2.95 -> 4.22; a float64 upstream reference of that step decides which is right, and OFF-nearer would contradict the clause and STOP the GO argument. `of3t-stackbound` retakes the clause on a 384-real-token boundary (the clearing one is 56 in 384, margin 1.77 %). Float64 references for both on pc CPU so no qb2 card opens under CPU load. D32 and D55 stay held. History: `state/of3t/PASSLOG.md`.
 
 BRANCH: **`wk/of3t`, one reviewable branch — and at pass 379 the D149 block is CLEARED.** `of3t-cotterm` fixed `armapb.py` and `refapb.py`, the ratchet reports empty with its probe firing, and `compose_verify.sh` now runs to its scoreboard gate. What had been holding the composition since 15:22 was then four drift items, all mine and all bookkeeping: a D18 entry whose body three consecutive rotations had cut mid-sentence leaving a dangling hypothesis, two stale row counts, and a VERDICT field 5,436 chars against its 4,000 cap. All four fixed this pass — the narrative moved to PASSLOG, which is what it is for. **The cap is not bureaucracy: this doc is re-read every pass and its size is a recurring cost.** History: `state/of3t/PASSLOG.md`.
 
@@ -340,7 +340,7 @@ applied (`perf/of3t_orchestrator/a16/instrument_a_bundle_A16_block0_tbshipped.js
 of unit norm ratio at cos > 0.99). Restored here for the same reason as the three above: the
 rotation took it and a number a reader treats as the claim must sit in the fields they read.
 
-GAP: **Pass 417: the clause CLEARS on the exact-softmax + exact-LN arm, 0.9822570327981535x (orchestrator-recomputed with `clause.py` from `MODEL_SL_composed3660_n384.json`, same digits), and three things stand between that and GO.** (1) It is a perf-script lever, not the shipped training step (`of3t-stackship`). (2) One boundary, 56 real tokens in 384, one seed, 1.77 % margin (`of3t-stackbound`). (3) The 2.0150 % unread mass. D250 is LOCATED by `of3t-msafwd`: `msa_module`'s 3.54x forward gap is the pair residual `z` stored in bf16 between ops (fp32 `z` takes it to 1.55x, 0.88 of the excess); the fix is tape-only and default off, and changing INFERENCE storage is Moritz's call under the inference hard constraint, owed a structure-level Angstrom reading before it is put to him. Earlier: GAP: **New at pass 386, and it is a gap between a measurement and a shippable thing rather than
+GAP: **Pass 418: the clearing arm is now the shipped training default (`of3t-stackship`, 2736/2736 bit-identical), so gap (1) of pass 417 is closed. Two remain before GO.** (a) Full-step scope: ON vs OFF moves |g|^2 56 % and the confidence head sits outside the clause; nothing yet says ON is nearer float64 there (`of3t-fullstep64`). (b) One boundary, 56 real tokens, 1.77 % margin (`of3t-stackbound`). Standing: the 2.0150 % unread mass; D250 (bf16 pair residual `z`, inference-side, Moritz's call, owed an Angstrom reading); crop 640 is a single-card capacity wall after D248, not a defect. Earlier: GAP: **New at pass 386, and it is a gap between a measurement and a shippable thing rather than
 an unknown: D245.** The host float64 softmax reaches 1.0525x only through `perf/of3t_bwdaccum/
 dev_cot.py` rewriting `tt._VERBS` from a perf script; the site-selector install that could ship
 reads 0.5605347900452246 against float64 where the harness arm reads 0.41752141981218177. Until
@@ -402,37 +402,39 @@ can grade it.**
 
 UNFIXED, by ID, besides those named above (each entry in `state/of3t/DEFECTS.md`): D2, D3, D10, D18, D22, D23, D24, D26, D27, D28, D32, D35, D37, D42, D46, D48, D49, D51, D53, D55, D59, D62, D63, D64, D69, D71, D73, D78, D82, D86, D89, D91, D92, D93, D94, D110, D112, D118, D119, D120, D121, D122, D123, D124, D125, D136, D140, D141, D148, D152, D158, D163, D180, D183, D184, D186, D187, D189, D190, D191, D192, D193, D194, D195, D196, D197, D198, D200, D202, D204, D205, D207, D208, D209, D210, D211, D213, D214, D217, D219, D222, D223, D224, D225, D227, D231, D232, D233, D235, D237, D240, D241, D249.
 
-VERDICT: PARTIAL, stamped pass 417, 2026-09-23 — **still working, which is what PARTIAL means.**
-**THE CLAUSE CLEARS ON A LEVER ARM.** `of3t-stackexact` stacked exact LayerNorm on the exact
-softmax on the clause's own arm: **0.9822570327981535x** the 0.15210099830945006 bar (value
-0.14940227528507738), recomputed by me with `clause.py` from the composed artifact. The ladder
-is 1.4511706984958472x (shipped) -> 1.3037867474869442x (softmax) / 1.2838647207334815x (LN)
--> 0.9822570327981535x (both): exactness COMPOSES super-additively, interaction +0.3418, and
-the float64 contrast space improves with it (trunk rel 0.622 -> 0.348, angle 35.1 -> 20.4 deg),
-so it is not a gain bought by matching upstream's rounding. Rung 1 is 2736/2736 bit-identical
-to the banked clause arm, rung 2 reproduces modelever to every digit, A/A floor 0. Boundary
-upstream 0.4.3, A42 on `1d15a8dc...`, no bar moved, qb2 p300c card 1 at 1350 MHz median.
+VERDICT: PARTIAL, stamped pass 418, 2026-09-23 — **still working, which is what PARTIAL means.**
+**The clause-clearing arm is the shipped training default.** `of3t-stackship` put exact softmax +
+exact LayerNorm on the training tape, gated on the stack's `install()` (training-only, no env var,
+off switch `exact_training(False)` / `--device-ops`), and the shipped path reproduces the SL arm
+2736/2736 bit-identically: clause **0.9822570327981535x** the 0.15210099830945006 bar. Inference
+is unchanged by digest and exact-op counters on OpenFold3, Protenix-v2 and AF2-IG. Cost 8.4x per
+training step (179.6 s off, 1504.9 s on, AICLK median 1350, box not quiet), recorded as debt per
+Moritz's fidelity-first direction.
 
-**Why this is not yet GO.** The clearing arm is `stackarm.py` opening the levers from a perf
-script, not the training step a user runs; it is one boundary with 56 real tokens padded to
-384 and one seed; and the margin is 1.77 %. `of3t-stackship` makes it the training-tape default
-and must reproduce it by digest; `of3t-stackbound` retakes it on a real-token boundary with a
-fourth exactness scope (`of3t-msafwd`'s fp32 `z` residual) for margin. If both land, exit
-criterion 3 (GRADIENTS) is met on the shipped training path and the campaign can argue GO.
+**Why this is not yet GO.** (a) On the full step ON vs OFF moves the loss 0.13428 -> 0.13734 and
+|g|^2 9.786 -> 15.317, confidence head 2.95 -> 4.22, and the clause covers the trunk only; a
+float64 reference of that step decides it (`of3t-fullstep64`, qb2 card 1). (b) The clearing
+boundary is 56 real tokens in 384 with a 1.77 % margin (`of3t-stackbound`, relocated to qb2
+card 3 after qb1 lost power at 05:43Z). If both land in the clause's direction, the gradient
+claim rests on per-parameter float64 agreement at trunk AND full-step scope on two boundaries.
+
+`of3t-cropwall` GO: the 576 wall was D248 (tiled padding in the `nlp_create_qkv_heads` and
+`concat_heads` gradients, 90.6 % padding), fixed on its branch with bit-identical gradients at
+256; 640 asks for 26 MB with 7 MB free, a single-card capacity wall.
 
 **Distance to go, per tensor** (denominator 10.279642678524981): **48.1831 %** of the mass at
-or better than upstream's own bf16 step, **49.8019 %** worse, **2.0150 %** unread, all still on
-the pre-D242 functional and not adjusted from a re-scored part.
+or better than upstream's own bf16 step, **49.8019 %** worse, **2.0150 %** unread, still on
+the pre-D242 functional, not yet re-scored on the default arm.
 
-Exit criterion **2 of 3** in `CHARTER_EVIDENCE.json` (COVERAGE and TRAJECTORY MET), unchanged
-until stackship's digest makes the clearing arm the graded one.
+Exit criterion **2 of 3** in `CHARTER_EVIDENCE.json` (COVERAGE and TRAJECTORY MET); GRADIENTS
+flips only on fullstep64 + stackbound.
 
-**Counts** (`stamp_row_counts.py`): 131 dispatched; `state/concluded` holds
-**one hundred thirty** of3t files, two this row's own markers, so **128 concluded**.
-**Two hundred fifty defects filed**, **96 UNFIXED** (5 scope-excluded, 8 USER-FACING,
-83 campaign-internal).
+**Counts** (`stamp_row_counts.py`): 132 dispatched; `state/concluded` holds
+**one hundred thirty-two** of3t files, two this row's own markers, so **130 concluded**.
+**Two hundred fifty-one defects filed**, **96 UNFIXED** (5 scope-excluded, 8 USER-FACING,
+83 campaign-internal). D251 (stackship's tape-vs-install gate) is filed fixed on its branch.
 
-**Nothing quoted here is the shipped default, and no inference path has moved.** Per-pass
+**Nothing merged; the exact default lives on `wk/of3t-stackship`, release-gated.** Per-pass
 narrative in PASSLOG.
 
 PASSLOG: the per-pass narrative now lives in `state/of3t/PASSLOG.md` (appended, never re-read by default). This doc carries current state only.
