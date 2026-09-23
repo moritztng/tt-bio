@@ -1,12 +1,29 @@
 #!/bin/bash
-# One predict model over the whole input set on one pinned chip: run_model.sh <model> <card> [extra predict args]
+# One predict model on one pinned chip: run_model.sh <model> <card> [extra predict args]
+# Inputs the static pass accepts fold as one batch (one model load). Inputs it refuses run one
+# file at a time, because a non-boltz2 predict validates the whole directory first and one refusal
+# aborts the batch.
 set -u
 cd "$(dirname "$0")/../.."
 M=$1 C=$2; shift 2
 OUT=perf/mgx_matrix/out/$M
-mkdir -p "$OUT"
+rm -rf "$OUT"; mkdir -p "$OUT/batch_in"
 export PYTHONPATH=$PWD TT_VISIBLE_DEVICES=$C TT_BIO_LEASE_CARDS=$C TT_BIO_LEASE_HOLDER=worker:mgx-matrix
 PY=/home/mthuening/work/tt-bio/env/bin/python3
+refused=$($PY - "$M" <<'P'
+import json, sys
+d = json.load(open("perf/mgx_matrix/static_pass.json"))[sys.argv[1]]
+print(" ".join(k for k, v in sorted(d.items()) if v["verdict"] == "refused"))
+P
+)
+for f in perf/mgx_matrix/inputs/*; do
+  case " $refused " in *" $(basename $f) "*) ;; *) ln -s "$PWD/$f" "$OUT/batch_in/";; esac
+done
+for f in $refused; do
+  $PY -m tt_bio.main predict perf/mgx_matrix/inputs/$f --model "$M" --out_dir "$OUT/single" \
+      --accelerator tenstorrent "$@" > "$OUT/refused_$f.log" 2>&1
+  echo "EXIT=$?" >> "$OUT/refused_$f.log"
+done
 start=$(date +%s)
-$PY -m tt_bio.main predict perf/mgx_matrix/inputs --model "$M" --out_dir "$OUT" --accelerator tenstorrent "$@" > "$OUT/run.log" 2>&1
+$PY -m tt_bio.main predict "$OUT/batch_in" --model "$M" --out_dir "$OUT" --accelerator tenstorrent "$@" > "$OUT/run.log" 2>&1
 echo "EXIT=$? WALL=$(( $(date +%s) - start ))s" >> "$OUT/run.log"
