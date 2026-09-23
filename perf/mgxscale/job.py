@@ -83,6 +83,51 @@ def pinned_cards() -> set[int]:
     return busy
 
 
+def node_of(logical: int) -> int:
+    """j10glx02's logical->device-node map, which is NOT the identity.
+
+    From `state/mgx/CHARTER.md`: logical 0..15 -> nodes 16..31, logical 16..23 -> nodes 8..15,
+    logical 24..31 -> nodes 0..7. Verified on the live box 2026-09-23: the process holding
+    /dev/tenstorrent/7 carries TT_VISIBLE_DEVICES=31."""
+    if logical < 16:
+        return logical + 16
+    if logical < 24:
+        return logical - 8
+    return logical - 24
+
+
+_NODE_TO_LOGICAL = {node_of(c): c for c in range(32)}
+
+
+def open_cards() -> set[int]:
+    """Cards some process holds a device fd on. The only ground truth for "busy right now".
+
+    The lease file is unreliable in BOTH directions and in its holder identity. Measured on
+    j10glx02 2026-09-23: card 31's lease read `"released"` and named `worker:mgx-msa-depth`
+    while `worker:mgx-bigalloc` pid 999269 held /dev/tenstorrent/7 (= logical 31) open; cards
+    14 and 18 read stale while two fds were open on each. Anything deciding occupancy from the
+    lease alone lands on top of whoever is actually computing."""
+    busy: set[int] = set()
+    for pid in os.listdir("/proc"):
+        if not pid.isdigit():
+            continue
+        fdd = f"/proc/{pid}/fd"
+        try:
+            names = os.listdir(fdd)
+        except OSError:
+            continue
+        for f in names:
+            try:
+                tgt = os.readlink(os.path.join(fdd, f))
+            except OSError:
+                continue
+            if tgt.startswith("/dev/tenstorrent/"):
+                n = tgt.rsplit("/", 1)[1]
+                if n.isdigit() and int(n) in _NODE_TO_LOGICAL:
+                    busy.add(_NODE_TO_LOGICAL[int(n)])
+    return busy
+
+
 def _live(pid) -> bool:
     try:
         return pathlib.Path(f"/proc/{int(pid)}").is_dir()
@@ -107,10 +152,19 @@ def held_cards() -> set[int]:
 
 
 def free_cards() -> list[int]:
-    """Chips no other row is on: the lease flock is takeable, no live holder names them, and
-    no live process has them pinned. Each of the three signals is wrong on its own."""
+    """Chips no other row is on. Four signals, every one of which is wrong on its own:
+
+      * an open device fd (`open_cards`) -- ground truth for "busy right now", and the only
+        one that catches a chip whose lease was released by one row and taken by another;
+      * a lease naming a live holder (`held_cards`) -- catches a chip legitimately reserved
+        BETWEEN folds, which has no fd open at the moment you look;
+      * a live process with the card pinned (`pinned_cards`) -- catches a holder whose device
+        is closed and whose lease never got written;
+      * the lease flock -- catches a holder that has taken the lock and not yet opened.
+
+    Busy is their union, so the free set is narrowed by each and widened by none."""
     import fcntl
-    busy = pinned_cards() | held_cards()
+    busy = open_cards() | pinned_cards() | held_cards()
     out = []
     for c in range(32):
         if c in BLOCKED or c in busy:
