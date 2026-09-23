@@ -10,7 +10,7 @@
 # lease) reruns elsewhere, and the chain re-takes its card after a fold only if it is still free.
 # A job whose results.json already says ok is skipped, so a restarted chain keeps finished logs.
 # The cardblocked chips (1, 24-27) are never candidates. POLL (s, default 30) is how often a waiting
-# chain looks for a free card. Runs the tree this script lives in.
+# chain looks for a free card; EXTRA is appended to every predict command (e.g. --debug). Runs the tree this script lives in.
 set -u
 cd "$(dirname "$0")/../.."
 POOL=$1; shift
@@ -59,10 +59,10 @@ for job in "$@"; do
   grep -qs '"status": "ok"' "$out/$s"/*_results_*/results.json && continue
   while :; do
     take; start=$(date +%s)
-    echo "START $(date -u +%FT%TZ) card=$C commit=$(git rev-parse --short HEAD) size_limit=${TT_BIO_SIZE_LIMIT:-on} job=$job" > "$out/$s.log"
+    echo "START $(date -u +%FT%TZ) card=$C commit=$(git rev-parse --short HEAD) size_limit=${TT_BIO_SIZE_LIMIT:-on} extra=${EXTRA:-} job=$job" > "$out/$s.log"
     TT_VISIBLE_DEVICES=$C TT_BIO_LEASE_CARDS=$C $HOME/env/bin/python -m tt_bio.main predict "$f" \
         --model "$m" --out_dir "$out/$s" --diffusion_samples "$n" --host_threads 2 \
-        --accelerator tenstorrent >> "$out/$s.log" 2>&1
+        --accelerator tenstorrent ${EXTRA:-} >> "$out/$s.log" 2>&1
     rc=$?
     echo "EXIT=$rc WALL=$(( $(date +%s) - start ))s" >> "$out/$s.log"
     if free "$C"; then claim "$C"; else C=; fi
