@@ -15,7 +15,8 @@ step above that envelope and fails. 256 is left out of the fit because its size-
 cost (prep, confidence, save) flattens the slope.
 
 Verdicts: PASS, FAIL, VOID (the comparison is not a measurement: rungs from different hosts,
-chips or commits, or a DURING-sampled AICLK that moved more than 3%), UNGATED (fewer than three
+chips or commits, a DURING-sampled AICLK that moved more than 3%, or a host oversubscribed past
+the release gate's own load ceiling while any rung folded), UNGATED (fewer than three
 fit rungs). A refused or crashed rung is a coverage result, not a speed result, and never reaches
 this function. Rationale and scope: docs/speed-bar.md.
 """
@@ -24,6 +25,8 @@ from __future__ import annotations
 import json
 import math
 import sys
+
+from gate_guard import DEFAULT_LOAD_CEILING
 
 FIT_LO, FIT_HI = 512, 1024
 MIN_FIT_RUNGS = 3
@@ -43,14 +46,20 @@ def fit(runtimes: dict[int, float]) -> tuple[float, float] | None:
 
 
 def judge(runtimes: dict[int, float], n: int, t: float, *, order: int = 3, sigma: float = 0.0,
-          aiclk: dict[int, float] | None = None, identity: dict[int, tuple] | None = None) -> dict:
+          aiclk: dict[int, float] | None = None, identity: dict[int, tuple] | None = None,
+          load: dict[int, float] | None = None) -> dict:
     """Judge one measured rung ``n`` (seconds ``t``) against the model's fit rungs ``runtimes``.
 
-    ``aiclk`` and ``identity`` (host, chip, commit) are keyed by rung like ``runtimes`` and must
-    include ``n``. They are optional only so the arithmetic can be unit-tested; a caller judging a
-    real measurement passes both.
+    ``aiclk``, ``identity`` (host, chip, commit) and ``load`` (1-min loadavg / nproc sampled
+    during the fold) are keyed by rung like ``runtimes`` and must include ``n``. They are optional
+    only so the arithmetic can be unit-tested; a caller judging a real measurement passes all three.
     """
     fr = {r: v for r, v in runtimes.items() if FIT_LO <= r <= FIT_HI}
+    if load is not None:
+        worst = max(load[r] for r in [*fr, n])
+        if worst > DEFAULT_LOAD_CEILING:
+            return {"verdict": "VOID", "why": f"host load reached {worst:.1f}x nproc during a rung "
+                    f"(ceiling {DEFAULT_LOAD_CEILING}x): runtime_s is timing the scheduler"}
     if identity is not None and len({identity[r] for r in [*fr, n]}) != 1:
         return {"verdict": "VOID", "why": "fit rungs and the new rung differ in host/chip/commit"}
     if aiclk is not None:
