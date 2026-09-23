@@ -9,7 +9,7 @@
 # row to OUT/results.jsonl (ladder.py's row plus tree commit and the DURING-sampled AICLK).
 # Cards 1 and 24-27 carry the live app and a co-tenant and are never taken.
 set -u
-JOBS=$1; OUT=$2
+JOBS=$(realpath "$1"); OUT=$(realpath -m "$2")
 LEASES=/home/agent/leases; HOST=j10glx02; HOLDER=worker:mgx-accuracy
 PY=/home/agent/env/bin/python
 mkdir -p "$OUT"
