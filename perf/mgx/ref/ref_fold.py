@@ -164,7 +164,7 @@ def run_protenix(chains, seed, cfg, work, *, model_name: str, ckpt: str, module:
     js = work / "t.json"
     js.write_text(json.dumps(protenix_json(chains, "t"), indent=1))
     argv = ["pred", "-i", str(js), "-o", str(work / "out"), "-s", str(seed),
-            "-c", str(cfg["recycles"]), "-p", str(cfg["steps"]), "-e", "1", "-d", "fp32",
+            "-c", str(cfg["recycles"]), "-p", str(cfg["steps"]), "-e", "1", "-d", cfg["dtype"],
             "-n", model_name, "--use_msa", "true"]
     if module == "runner.cli":
         argv += ["--load_checkpoint_path", ckpt]
@@ -176,7 +176,7 @@ def run_protenix(chains, seed, cfg, work, *, model_name: str, ckpt: str, module:
             link.symlink_to(ckpt)
     run_click(module, argv)
     return newest(work / "out", "*.cif"), dict(argv=argv, checkpoint=ckpt,
-                                               dtype="fp32 (upstream --dtype fp32, TF32 at its default)",
+                                               dtype=f"{cfg['dtype']} (upstream --dtype, TF32 at its default)",
                                                pkgs=pkg("protenix", "opendde", "torch"))
 
 
@@ -231,7 +231,10 @@ def run_of3(chains, seed, cfg, work, *, ckpt: str):
     m = re.search(r"seed_(\d+)", str(cif))
     assert m and int(m.group(1)) == seed, f"openfold3 folded at {cif}, not seed {seed}"
     return cif, dict(argv=argv, device_s=timer.times, pkgs=pkg("openfold3", "torch"),
-                     dtype="upstream predict preset", recycles_note="OF3 runs its own preset")
+                     dtype="upstream predict preset",
+                     settings_note="recycles and steps not passed: OF3's CLI has no switch for them, "
+                                   "and tt-bio's 3 / 200 are documented as OF3's own defaults "
+                                   "(tt_bio/main.py RECYCLING_STEPS)")
 
 
 def run_openfold3(chains, seed, cfg, work):
@@ -319,11 +322,14 @@ def main() -> int:
     ap.add_argument("--seed", type=int, required=True)
     ap.add_argument("--out", type=Path, default=Path("/root/refs"))
     ap.add_argument("--plan", type=Path, default=HERE / "plan.json")
+    ap.add_argument("--dtype", default="fp32", choices=("fp32", "bf16"),
+                    help="protenix family only: bf16 is the fallback for a cell whose fp32 fold "
+                         "does not fit the card, and the record says which one ran")
     args = ap.parse_args()
     plan = json.loads(args.plan.read_text())
     assert set(RUNNERS) == set(plan["models"]), (
         f"runner table {sorted(RUNNERS)} is not PREDICT_MODELS {sorted(plan['models'])}")
-    cfg = plan["models"][args.model]
+    cfg = dict(plan["models"][args.model], dtype=args.dtype)
     chains = load_fixture(args.fixture)
     dest = args.out / args.model / args.fixture
     dest.mkdir(parents=True, exist_ok=True)

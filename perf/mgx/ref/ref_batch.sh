@@ -6,6 +6,8 @@
 #   bash perf/mgx/ref/ref_batch.sh all all "0 1"
 #
 # Run from the repo root. Records land in ${MGX_OUT:-/root/refs}/<model>/<fixture>/s<seed>.json.
+# MGX_ONLY=oom re-folds only cells whose record says oom (with MGX_DTYPE=bf16 for the protenix
+# family's fallback); by default every cell that is not ok is (re)folded.
 set -u
 cd "$(dirname "$0")/../../.."
 OUT=${MGX_OUT:-/root/refs}
@@ -31,6 +33,7 @@ for f in $fixtures; do
     for s in $seeds; do
       rec="$OUT/$m/$f/s$s.json"
       if [ -s "$rec" ] && grep -q '"status": "ok"' "$rec"; then continue; fi
+      if [ -n "${MGX_ONLY:-}" ] && ! grep -q "\"status\": \"$MGX_ONLY\"" "$rec" 2>/dev/null; then continue; fi
       v=$(venv "$m") || continue
       sp=$("$v/bin/python" -c "import site;print(site.getsitepackages()[0])")
       # torch cu13 wheels JIT-compile a few kernels through nvrtc and need its builtins on the
@@ -39,7 +42,7 @@ for f in $fixtures; do
       mkdir -p "$OUT/$m/$f"
       echo "== $m $f s$s $(date -u +%FT%TZ)"
       "$v/bin/python" perf/mgx/ref/ref_fold.py --model "$m" --fixture "$f" --seed "$s" \
-        --out "$OUT" > "$OUT/$m/$f/s$s.log" 2>&1
+        --out "$OUT" --dtype "${MGX_DTYPE:-fp32}" > "$OUT/$m/$f/s$s.log" 2>&1
       tail -1 "$OUT/$m/$f/s$s.log"
     done
   done
