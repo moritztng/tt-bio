@@ -5279,6 +5279,42 @@ def msa_host_offload(m):
     return h
 
 
+def msa_embed(feat, project, rows=MSA_CHUNK_SIZE):
+    """The trunk's pristine `m` = `project(feat)`, placed the way `msa_host_offload` places it.
+
+    `feat` is the MSA input feature [1, depth, tokens, c], on the device or on the host, and
+    `project` maps a device slice of it to `m` rows (the embedder's linear plus the broadcast
+    single-representation term). A device feature, or a host one whose bf16 upload fits under
+    the offload size, is uploaded and projected whole. Past it, the feature goes up one depth
+    chunk at a time and each projected chunk comes straight back to the host: at 1536 tokens
+    against 8192 alignment rows the whole upload is a 3221225472 B buffer a Wormhole chip
+    refused, and the whole `m` would only be offloaded to the host afterwards anyway. Every op
+    in the projection is per alignment row, so the chunks hold the rows the whole pass does."""
+    up = lambda t: ttnn.from_torch(t.float().contiguous(), layout=ttnn.TILE_LAYOUT,
+                                   device=get_device(), dtype=ttnn.bfloat16)
+    v = os.environ.get("TT_BIO_MSA_HOST_OFFLOAD_MIN_BYTES")
+    lim = int(v) if v else MSA_HOST_OFFLOAD_MIN_BYTES
+    host = torch.is_tensor(feat)
+    D, N, c = (int(d) for d in feat.shape[1:])
+    if not host or D * N * (-(-c // 32) * 32) * 2 <= lim:
+        x = up(feat) if host else feat
+        m = project(x)
+        ttnn.deallocate(x)
+        return msa_host_offload(m)
+    m = None
+    for s in range(0, D, rows):
+        x = up(feat[:, s:s + rows])
+        mc = project(x)
+        ttnn.deallocate(x)
+        h = ttnn.to_torch(mc)
+        ttnn.deallocate(mc)
+        if m is None:
+            m = torch.empty((1, D, N, h.shape[-1]), dtype=h.dtype)
+        m[:, s:s + rows] = h
+    dram_peak(f"trunk m embedded to the host in depth chunks [{tuple(m.shape)} torch]")
+    return m
+
+
 def msa_depth_chunks(m, rows=MSA_CHUNK_SIZE):
     """`m` [1, depth, tokens, c] cut along depth, lazily: one private device chunk per step.
 

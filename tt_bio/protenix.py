@@ -38,7 +38,7 @@ from .protenix_weights import remap_adaln  # single source of all v2->tt-bio wei
 from . import ops
 from .tenstorrent import (Module, CORE_GRID_MAIN, get_device, dram_peak,
                           MSA_CHUNK_SIZE, batched_matmul, msa_depth_chunks,
-                          msa_host_offload, msa_update_chunks,
+                          msa_embed, msa_update_chunks,
                           device_generation, accurate_softmax_site)
 from . import tenstorrent as _T   # for the module-level A/B toggles, which must be read live
 from .eltwise_fusion import scale_add, norm_residual
@@ -2804,17 +2804,15 @@ class Trunk(_KeyedWeights):
         # original expression frees it, and moved the OOM to a different allocation.
         dram_peak(f"trunk msa pre-upload [ms={tuple(ms.shape)} {ms.dtype}"
                   f" -> dtype={getattr(self, 'dtype', ttnn.bfloat16)}]")
-        m_feat = ttnn.add(self._lin(self._up(ms), "msa_module.linear_no_bias_m.weight"),
-                          self._lin(self._up(s_inputs), "msa_module.linear_no_bias_s.weight"))
-        dram_peak(f"trunk m_feat built [{tuple(m_feat.shape)} {m_feat.dtype}]")
         # Deep-MSA offload: every read of the pristine m_feat is row-local (PWA/Transition per
-        # row, OPM per chunk), so past 1 GiB it is kept on the host between recycling cycles and
-        # streamed up one depth-chunk at a time in update_msa. That removes a full-size device
-        # copy from the per-cycle peak (pristine + updated list used to coexist). Bit-exact:
-        # to_torch preserves the bf16 bytes and _up re-tilizes the same values, so each chunk
-        # holds exactly the bytes a device slice would have held. bf16 only: a bfloat8_b tensor
-        # is block-floating-point, so a host round-trip would re-quantise the tile scales.
-        m_feat = msa_host_offload(m_feat)
+        # row, OPM per chunk), so past 1 GiB `msa_embed` builds it one depth chunk at a time on
+        # the host and update_msa streams it back up a chunk at a time. Neither the whole `ms`
+        # upload nor a full-size device copy of m_feat enters the per-cycle peak.
+        s_m = self._lin(self._up(s_inputs), "msa_module.linear_no_bias_s.weight")
+        m_feat = msa_embed(ms, lambda x: ttnn.add(
+            self._lin(x, "msa_module.linear_no_bias_m.weight"), s_m))
+        ttnn.deallocate(s_m)
+        dram_peak(f"trunk m_feat built [{tuple(m_feat.shape)} {m_feat.dtype}]")
         z3 = ttnn.reshape(ttnn.mul(z_init, 0.0), (1, N, N, self.C_Z))
         s = ttnn.mul(s_init, 0.0)
         n_cycles = self.N_CYCLES if n_cycles is None else n_cycles

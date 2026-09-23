@@ -43,7 +43,7 @@ from __future__ import annotations
 
 import ttnn
 
-from .tenstorrent import (Module, Pairformer, accurate_softmax_site, msa_host_offload,
+from .tenstorrent import (Module, Pairformer, accurate_softmax_site, msa_embed,
                           triatt_sdpa_hifi_site)
 from .openfold3_weights import remap_pairformer_stack, is_openbind, _sub
 from .openfold3_template import TemplateEmbedder
@@ -179,8 +179,8 @@ class OF3Trunk(Module):
         template_feat: dict of device bf16 per-template feature tensors [N_templ,N,N,c]
             (host-precomputed mask products, constant across cycles -- see
             TemplatePairFeatureEmbedder).
-        msa_feat: device bf16 [1,N_seq,N,34] (host post-subsample, constant across
-            cycles -- ``m`` is identical every cycle in the reference).
+        msa_feat: [1,N_seq,N,34], host float or device bf16 (post-subsample, constant
+            across cycles -- ``m`` is identical every cycle in the reference).
         s_input: device bf16 [1,N,449] (InputEmbedder single input, constant).
         pair_mask: device bf16 [1,N,N] or None -- the token bucket's outer-product pad mask,
             multiplied into every TriangleMultiplication contraction.
@@ -192,14 +192,12 @@ class OF3Trunk(Module):
         s = self._zeros_like(s_init)
         z = self._zeros_like(z_init)
         # m is identical across cycles (verified in the reference golden); compute once.
-        m = self.msa_embedder(msa_feat, s_input)
-        # ...and `msa_feat` is dead the moment it has been. It is [1, N_seq, N, 34] with the 34
-        # tile-padded to 64, so at 1024 tokens x 14191 alignment rows it is 1 860 042 752 B held
-        # for the whole trunk for nothing. The trunk CONSUMES it; `fold` must not free it again.
-        ttnn.deallocate(msa_feat)
-        # Past 1 GiB the pristine `m` waits on the host between cycles and each MSA block works
-        # on depth chunks (openfold3_msa_embedder.MSAModuleBlock), as in the protenix trunk.
-        m = msa_host_offload(m)
+        # A host `msa_feat` past 1 GiB is uploaded and embedded one depth chunk at a time and
+        # `m` lands on the host; past 1 GiB the pristine `m` waits there between cycles and each
+        # MSA block works on depth chunks (openfold3_msa_embedder.MSAModuleBlock), as in the
+        # protenix trunk. A device `msa_feat` is embedded whole and consumed: at 1024 tokens x
+        # 14191 alignment rows it is 1 860 042 752 B that must not be held across the trunk.
+        m = msa_embed(msa_feat, lambda x: self.msa_embedder(x, s_input))
         # the template feature half is a function of template_feat alone, so it is the
         # same tensor in every cycle -- compute it once, exactly like m above.
         a_tmpl = self.template.features(template_feat)

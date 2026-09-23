@@ -108,7 +108,7 @@ class MSAModuleBlock:
         # `add(m, upd)` bit for bit. The `z` residual needs no such care: it lands in the OPM
         # update's buffer and never writes `z` itself.
         #
-        # A deep alignment arrives as a host tensor (the trunk's `msa_host_offload`) or as the
+        # A deep alignment arrives as a host tensor (the trunk's `msa_embed`) or as the
         # previous block's depth chunks, and stays chunks: one upload serves both of this block's
         # reads, and the whole [depth, tokens, c_m] tensor never exists on the device.
         if torch.is_tensor(m):
