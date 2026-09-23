@@ -122,6 +122,17 @@ def _handoff(lease, stop: threading.Event, abandoned: threading.Event, back: lis
         back.append(lease)
 
 
+# whglx cannot read pc's state/mgx/quiet-window, so the orchestrator mirrors it to either path.
+QUIET = (Path.home() / "mgx-quiet-window", Path.home() / "leases" / ".mgx-quiet-window")
+
+
+def _wait_out_quiet_window(n: int) -> None:
+    """Start no rung while the quiet window is open; the fold already running finishes."""
+    while any(q.exists() for q in QUIET):
+        print(f"quiet window open; holding rung {n}", flush=True)
+        time.sleep(120)
+
+
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--model", required=True)
@@ -158,6 +169,10 @@ def main() -> int:
     out.parent.mkdir(parents=True, exist_ok=True)
     lease, wait = None, 0.0   # the first claim must find the chip free
     for n in (int(s) for s in a.sizes.split(",")):
+        if Path(f"{out}.stop").exists():
+            print(f"{out}.stop exists; not starting {n}", flush=True)
+            break
+        _wait_out_quiet_window(n)
         if lease is None:   # first rung, or a fold that never took the lease
             try:
                 lease = DeviceLease(card=a.card, timeout=wait).acquire()

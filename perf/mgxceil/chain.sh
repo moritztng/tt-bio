@@ -15,6 +15,7 @@ export PYTHONPATH=$wt TT_BIO_LEASE_DIR=$HOME/leases TT_BIO_LEASE_CARDS=$card \
 grep -v '^\s*\(#\|$\)' "$jobs" | while read -r model sizes rest; do
   depth=8192
   case $sizes in *@*) depth=${sizes#*@}; sizes=${sizes%@*} ;; esac
+  while [ -e $HOME/mgx-quiet-window ] || [ -e $HOME/leases/.mgx-quiet-window ]; do sleep 120; done
   echo "$(date -u +%FT%TZ) card $card $model $sizes depth $depth $rest"
   $HOME/env/bin/python "$wt/perf/mgxceil/walk.py" --model "$model" --card "$card" \
       --sizes "$sizes" --depth "$depth" --out "$S/$tag.jsonl" --out-root "$S/runs/$tag" \
