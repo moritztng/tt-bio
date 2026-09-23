@@ -1,0 +1,45 @@
+{
+ "what": "A/A floor for one model: two folds, byte-compared, census taken in the folding process. `autograd_imported` False in every arm is the inference hard stop for a lever that has no environment variable to set.",
+ "model": "openfold3",
+ "fixture": "perf/size512/fixtures/cdk2x2_128.yaml",
+ "card": "3",
+ "selector_TT_BIO_HOST_F64_SOFTMAX_AB": "all",
+ "all_folds_succeeded": true,
+ "AA_byte_identical": false,
+ "cif_digests": [
+  {
+   "cdk2x2_128.cif": "b2f94fa1b430518c6431fd749605bb1a75043219c93955ca1a528430915665b8"
+  }
+ ],
+ "census_processes_per_fold": [
+  1
+ ],
+ "autograd_imported_per_process": [
+  false
+ ],
+ "training_lever_absent_in_every_fold": true,
+ "seconds_per_fold": [
+  39.6
+ ],
+ "census_per_fold": [
+  [
+   {
+    "pid": 3290066,
+    "HOST_F64_SOFTMAX_STATS": {
+     "served": 0,
+     "declined": 0,
+     "refused": 0,
+     "elements": 0,
+     "selected": 0,
+     "tail": 0,
+     "served_taped": 0,
+     "served_raw": 0
+    },
+    "autograd_imported": false,
+    "EXACT_SOFTMAX_STATS": null,
+    "exact_softmax_installed": false
+   }
+  ]
+ ],
+ "tails": []
+}

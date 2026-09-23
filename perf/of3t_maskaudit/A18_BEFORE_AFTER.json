@@ -1,0 +1,108 @@
+{
+ "aux_heads_per_head": {
+  "after_real": {
+   "distogram_logits": 0.003479065043983219,
+   "experimentally_resolved_logits": 0.33314948329023314,
+   "pae_logits": 0.5177081904801654,
+   "pde_logits": 0.30008547453153417,
+   "plddt_logits": 0.36515146695185124
+  },
+  "before_padded": {
+   "distogram_logits": 0.0028277270060162256,
+   "experimentally_resolved_logits": 0.33314948329023314,
+   "pae_logits": 0.18199134342683382,
+   "pde_logits": 0.08789744912491466,
+   "plddt_logits": 0.36515146695185124
+  }
+ },
+ "bar": 0.05,
+ "headline": "no A18 verdict changes. Three of the five scopes were never exposed (one has no padding at all, two quoted masked figures), one is exposed but bounded an order of magnitude inside the bar, and the one that was scored padded already FAILED -- on the real block it fails harder and on a different head.",
+ "n_scopes": 5,
+ "n_verdicts_changed": 0,
+ "scopes": [
+  {
+   "after": {
+    "value": 0.008474800850934073,
+    "verdict": "PASS",
+    "why": "the compared tensor is xl_out on the atom axis, 422 of 422 atoms real. No padded position exists in it, so there is nothing to exclude."
+   },
+   "before": {
+    "value": 0.008474800850934073,
+    "verdict": "PASS"
+   },
+   "changed": false,
+   "mass_pct": 51.1358,
+   "scope": "diffusion device arm",
+   "source": "D30, of3t-diffusion"
+  },
+  {
+   "after": {
+    "value": 0.013546145838797949,
+    "verdict": "PASS",
+    "why": "PADDED and exposed -- the reference carries 78.0 % of its si mass and 85.6 % of its zij mass outside the real block. Neither forward tensor was kept, so the exact real-token value cannot be recomputed; the bound rel/sqrt(q) is exact and every reading stays at least 3.7x inside the bar."
+   },
+   "before": {
+    "note": "worst of the six padded readings",
+    "value": 0.0055957714419001894,
+    "verdict": "PASS"
+   },
+   "changed": false,
+   "mass_pct": 36.9462,
+   "scope": "diffusion_module.diffusion_conditioning",
+   "source": "of3t-conditioning"
+  },
+  {
+   "after": {
+    "value": 0.008176476213472778,
+    "verdict": "PASS",
+    "why": "the quoted figure was already the real-block one; the padded figure for the same tensor is 9.709360e-01 and was not used."
+   },
+   "before": {
+    "value": 0.008176476213472778,
+    "verdict": "PASS"
+   },
+   "changed": false,
+   "mass_pct": 1.24,
+   "scope": "msa_module",
+   "source": "of3t-auxheads"
+  },
+  {
+   "after": {
+    "n_heads": 5,
+    "n_over_bar": 4,
+    "value": 0.5177081904801654,
+    "verdict": "FAIL",
+    "why": "two heads were already masked by the atom gather; the three pair heads were scored over the whole 384x384 tensor. On the real block the failure is worse and it moves head: the worst reading is pae_logits at 5.177082e-01, not plddt_logits at 3.651515e-01.",
+    "worst_head": "pae_logits"
+   },
+   "before": {
+    "n_heads": 5,
+    "n_over_bar": 4,
+    "value": 0.36515146695185124,
+    "verdict": "FAIL",
+    "worst_head": "plddt_logits"
+   },
+   "changed": false,
+   "changed_within_scope": true,
+   "mass_pct": 2.8431,
+   "scope": "aux_heads",
+   "source": "of3t-direct"
+  },
+  {
+   "after": {
+    "value": 0.2796859780956208,
+    "verdict": "FAIL",
+    "why": "every arm is named `*_masked` and the unmasked figure (3.934466e-01) is published beside it."
+   },
+   "before": {
+    "value": 0.2796859780956208,
+    "verdict": "FAIL"
+   },
+   "changed": false,
+   "mass_pct": 5.8282,
+   "scope": "pairformer_stack",
+   "source": "of3t-pairformer"
+  }
+ ],
+ "what": "A18 pass/fail, before and after restricting to real tokens"
+}

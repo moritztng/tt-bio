@@ -35,10 +35,12 @@ __all__ = [
     "Tensor", "precise_config", "softmax_bw_inner", "no_grad", "parameter",
     "forget_parameters", "parameter_for", "untaped",
     "release_pins",
-    "linear", "matmul", "layer_norm", "softmax", "mul", "add", "scale", "sigmoid",
-    "relu", "silu", "reshape",
+    "linear", "matmul", "layer_norm", "softmax", "host_f64_softmax",
+    "host_f64_softmax_values", "mul", "add", "scale", "sigmoid",
+    "relu", "silu", "reshape", "pairwise_distance",
     "triangle_attention", "permute", "pair_contract", "checkpoint",
     "install", "uninstall", "installed", "is_grad_enabled", "backward", "tape",
+    "exact_softmax", "exact_softmax_installed", "EXACT_SOFTMAX_STATS",
 ]
 
 
@@ -155,6 +157,15 @@ class _Node:
         self.parents = parents
 
 
+# Whether `_tape` may pin only the parents a closure actually READS. Off restores the
+# behaviour every verb had before there was a way to say otherwise -- pin everything -- and
+# is the control arm for the measurement, not a fallback: with it on, no gradient changes,
+# no op changes and no accumulation order changes, because the only difference is which dead
+# buffers the card gets back. Release-gated all the same: it moves memory, and memory is what
+# this campaign is measuring.
+DROP_DEAD_VALUES = True
+
+
 class Tensor:
     """A ttnn tensor plus its place on the tape. The value stays on device throughout.
 
@@ -266,28 +277,48 @@ class Tensor:
         later, and the crash that follows a premature free surfaces in an unrelated op
         several layers away. A leaf parameter is never freed either -- it is not an
         intermediate, and its gradient lands on it.
+
+        PINNED and REQUIRES_GRAD are two different questions, and the release turns on the
+        first. Every intermediate in the middle of the graph requires a gradient -- that is
+        what makes the chain continue -- while its VALUE may be read by no backward at all:
+        `typecast`'s closure keeps the source dtype rather than the source, and `softmax`'s
+        reads y. Those bytes go back to the card here and the `Tensor` stays exactly where
+        it is, so the gradient still lands on it.
         """
         if not self.evictable:
             return
-        if not self.pinned and not self.requires_grad:
+        if not self.pinned and (self.node is not None or not self.requires_grad):
             ttnn.deallocate(self.value)
-        elif self.value.memory_config().buffer_type == ttnn.BufferType.L1:
-            # EVICT rather than refuse. The tuned forward puts an activation in L1 and then
-            # frees it the moment its consumer has read it, and the next kernel's circular
-            # buffers are sized against the room that leaves. A tape that simply declines
-            # the free keeps the room occupied and the next kernel cannot lay out: measured
-            # on the shipped Transition at a [1,256,256,128] pair track, "Statically
-            # allocated circular buffers in program 11 clash with L1 buffers ... L1 buffer
-            # allocated at 692224 and static circular buffer region ends at 893440".
-            #
-            # The backward needs the VALUE; the forward's tuning needs the PLACE. Moving to
-            # DRAM gives both, and it is the honest price of a gradient: one DRAM write per
-            # L1-resident activation that inference does not pay.
-            old = self.value
-            self.value = ttnn.to_memory_config(old, ttnn.DRAM_MEMORY_CONFIG)
-            ttnn.deallocate(old)
-            if self.box is not None:
-                self.box[0] = self.value
+        else:
+            self.evict()
+
+    def evict(self) -> None:
+        """Give an L1-resident value its PLACE back without giving up its bytes.
+
+        EVICT rather than refuse. The tuned forward puts an activation in L1 and then
+        frees it the moment its consumer has read it, and the next kernel's circular
+        buffers are sized against the room that leaves. A tape that simply declines
+        the free keeps the room occupied and the next kernel cannot lay out: measured
+        on the shipped Transition at a [1,256,256,128] pair track, "Statically
+        allocated circular buffers in program 11 clash with L1 buffers ... L1 buffer
+        allocated at 692224 and static circular buffer region ends at 893440".
+
+        The backward needs the VALUE; the forward's tuning needs the PLACE. Moving to
+        DRAM gives both, and it is the honest price of a gradient: one DRAM write per
+        L1-resident activation that inference does not pay.
+        """
+        if not self.evictable:
+            return
+        try:
+            if self.value.memory_config().buffer_type != ttnn.BufferType.L1:
+                return
+        except Exception:                                        # noqa: BLE001
+            return                                               # host tensor, or no buffer
+        old = self.value
+        self.value = ttnn.to_memory_config(old, ttnn.DRAM_MEMORY_CONFIG)
+        ttnn.deallocate(old)
+        if self.box is not None:
+            self.box[0] = self.value
 
     def add_grad(self, grad) -> None:
         """Accumulate one contribution. A tensor read by k consumers gets k calls.
@@ -457,7 +488,7 @@ def _reverse_topo(roots) -> list:
     return order
 
 
-def _tape(out_value, parents: Sequence[Tensor], make_fn) -> Tensor:
+def _tape(out_value, parents: Sequence[Tensor], make_fn, reads=None) -> Tensor:
     """Wrap ``out_value`` and tape ``make_fn(out)`` if any parent wants a gradient.
 
     Skipping the node when no parent requires one is tt-train's branch pruning
@@ -497,12 +528,27 @@ def _tape(out_value, parents: Sequence[Tensor], make_fn) -> Tensor:
         # loop died of OOM at step 2 at 256 aa and inside 410 steps at 128 aa, on a 34.23 GB
         # card, with a per-step tape that fits several times over.
         out.node = _Node(make_fn(), list(parents))
-        # A closure is now live over these values, so nothing may free them. Pinning the
-        # output too costs nothing -- an intermediate is some later node's parent anyway --
-        # and covers the backwards that read their own output (softmax, sigmoid, relu).
-        out.pinned = True
-        for p in parents:
-            p.pinned = True
+        # A closure is now live over the values it READS, and those are the ones nothing may
+        # free. `reads` names them -- parent indices, plus "out" for the backwards that read
+        # their own output (softmax, sigmoid, relu, max). `reads=None` pins everything, which
+        # is what every verb did before there was a way to say otherwise, and it stays the
+        # default so a verb that has not thought about it cannot get this wrong.
+        #
+        # The saving is not a corner case. OpenFold3's fp32-softmax tail is
+        # `typecast -> add_ -> softmax_in_place -> typecast`, and of the five tensors a row
+        # block leaves behind only two are ever read again; the other three -- two fp32 score
+        # copies and the bf16 scores under them -- were held purely because `_tape` pinned
+        # every parent it was handed.
+        if reads is None or not DROP_DEAD_VALUES:
+            out.pinned = True
+            for p in parents:
+                p.pinned = True
+        else:
+            sel = set(reads)
+            out.pinned = "out" in sel
+            for i, p in enumerate(parents):
+                if i in sel:
+                    p.pinned = True
         _evict_read_parents(parents)
     return out
 
@@ -531,6 +577,11 @@ def _evict_read_parents(parents: Sequence[Tensor]) -> None:
     tensor sharing storage with another taped one, or one whose backward closure holds the raw
     handle, is marked non-evictable and is left alone.
 
+    It calls `evict` and never `free`, and that is load-bearing rather than tidy. `free` now
+    RELEASES an unpinned intermediate, and "this op has read it" is not "the forward is done
+    with it" -- a tensor two ops consume would lose its buffer to the first one. Only the
+    shipped `ttnn.deallocate` says the forward is finished, and only that path releases.
+
     LEAVES ARE NOT TOUCHED. A parameter or a model input has no node, and its placement is the
     shipped module's tuning rather than an intermediate's lifetime; evicting one would move a
     weight to DRAM permanently on the first step of training.
@@ -548,7 +599,7 @@ def _evict_read_parents(parents: Sequence[Tensor]) -> None:
                 continue
         except Exception:                                        # noqa: BLE001
             continue                                             # host tensor, or no buffer
-        p.free()
+        p.evict()
 
 
 def _flat2d(t):
@@ -822,6 +873,239 @@ def softmax(x: Tensor, dim: int = -1, *, config=None) -> Tensor:
     return out
 
 
+def host_f64_softmax_values(v, dim: int = -1):
+    """``softmax(v, dim)`` on the host in float64: the float64 result, and it back on the card.
+
+    Both, because the two are not interchangeable. The card holds the rounded copy; the
+    backward must read the float64 one, or the Jacobian goes back through a device-precision
+    softmax and undoes what the round trip bought.
+
+    Raw ttnn in, raw ttnn out, no tape node. This is the entry point the cost and row-sum
+    harnesses use (`perf/of3t_softmax/softmax_cost.py`, `perf/of3t_f64softmax/rowsum_probe.py`),
+    which measure the arithmetic and want nothing to do with a tape. A model never arrives here
+    directly: it goes through `tenstorrent.site_softmax`, which will not reach this module at
+    all without a tape open.
+    """
+    import torch
+
+    y64 = torch.softmax(ttnn.to_torch(v).double(), dim=dim)
+    y = ttnn.from_torch(y64.float(), layout=v.layout, device=v.device(), dtype=v.dtype,
+                        memory_config=v.memory_config())
+    return y64, y
+
+
+def host_f64_softmax(x, dim: int = -1):
+    """``softmax(x, dim)`` computed on the host in float64, differentiable under the tape.
+
+    The backward is the softmax Jacobian in float64 as well, ``dx = y * (g - (g * y).sum(dim))``,
+    applied to the float64 forward output rather than to the rounded copy that went back to the
+    card.
+
+    Training only, and it lives here rather than beside the call sites it serves for that
+    reason. `tt_bio/tenstorrent.py` is on every model's inference path and must not import the
+    tape (`tests/test_training_opt_in.py::test_no_inference_module_imports_training`); the call
+    site reaches this function through the hook `install` fills, so an inference fold has no
+    route to it. The check below is the same rule stated once more at the entry point itself,
+    for a caller that found the function some other way: it costs a host round trip per softmax
+    and returns different numbers, so reaching it without a tape is a mistake in either
+    direction and says so instead of quietly folding slower.
+
+    `x` may be a raw ttnn tensor or a taped `Tensor`; the only difference is whether a tape node
+    is created. A tape is open either way, so a frozen block and a `no_grad` recycle inside a
+    training forward still take the same softmax the differentiated cycles take.
+    """
+    if not installed():
+        raise RuntimeError(
+            "tt_bio.autograd.host_f64_softmax needs an open tape. It is a training-path lever: "
+            "a host round trip per softmax, 166.8x the op, bought for gradient fidelity that "
+            "inference has no use for. Open one with `with tt_bio.autograd.tape():`, or call "
+            "`ttnn.softmax` / `tt_bio.autograd.host_f64_softmax_values` for the raw arithmetic.")
+
+    from .tenstorrent import HOST_F64_SOFTMAX_STATS as stats
+
+    xt = x if isinstance(x, Tensor) else None
+    v = xt.value if xt is not None else x
+    y64, y = host_f64_softmax_values(v, dim)
+    stats["served"] += 1
+    stats["elements"] += int(y64.numel())
+    # An exact FORWARD and an exact JACOBIAN are two claims, and `served` is only the first.
+    # A raw ttnn tensor gets the float64 softmax and no tape node, so the gradient path through
+    # that softmax is whatever the surrounding region already was; a taped one gets the float64
+    # Jacobian as well. An arm that serves more calls than another and moves the gradient less
+    # is telling you the split moved, and no other counter here can see it.
+    stats["served_raw" if xt is None else "served_taped"] += 1
+    if xt is None:
+        return y
+
+    def make():
+        def bw(g):
+            g64 = ttnn.to_torch(g).double()
+            inner = (g64 * y64).sum(dim=dim, keepdim=True)
+            SOFTMAX_BW_RENORM_STATS[
+                "applied" if SOFTMAX_BW_RENORM else "declined"] += 1
+            if SOFTMAX_BW_RENORM:
+                # of3t-apbgrad's repair, honoured here so ONE flag covers both softmax
+                # backends. `d_logits = y (g - sum g y)` has vanishing row sums only when the
+                # row sums to one, and `ttnn.softmax` returns 0.9769; dividing by the row sum
+                # restores the identity. On THIS path the row already sums to one to float64
+                # round-off, so the division is arithmetically a no-op -- which is the point.
+                # It is the consistency check between two independently derived repairs, and
+                # it is why the flag reaches here instead of stopping at the tape verb.
+                inner = inner / y64.sum(dim=dim, keepdim=True)
+            d = y64 * (g64 - inner)
+            xt.add_grad(ttnn.from_torch(d.float(), layout=g.layout, device=g.device(),
+                                        dtype=g.dtype, memory_config=g.memory_config()))
+        return bw
+
+    return _tape(y, [xt], make)
+
+
+# --- the exact softmax, as a configuration of the package ---------------------------------
+#
+# `perf/of3t_bwdaccum/dev_cot.py --lever ceiling_hf3` measured the trunk's backward with every
+# softmax exact: 0.4175214198121818 against the float64 reference at crop 384, where the device
+# softmax reads 0.702981502944001. It got there by rewriting `taped_ttnn._VERBS` and rebinding
+# `ttnn.softmax` from a perf script, which is an experiment and not a thing a caller can run.
+# This is the same arithmetic, installed and removed by the training entry points, with the
+# reach counted rather than printed.
+#
+# TWO reaches, because they are two claims and neither implies the other:
+#
+#   the VERB    `_VERBS["softmax"]`, so every softmax the shipped modules take under a tape is
+#               exact in the forward AND in its Jacobian. Tape-gated by construction: `_VERBS`
+#               is only ever consulted through `taped_ttnn`'s shim, and the shim is only bound
+#               into the shipped modules inside `tape()`.
+#   the RAW op  `ttnn.softmax` itself, so `triangle_attention._scores` is exact in the forward
+#               and in the chunked backward's recompute. The verb cannot reach it:
+#               `taped_ttnn.py:861` routes the verb to `triangle_attention`, and this module is
+#               in `taped_ttnn._NEVER_SHIM`, so `_scores` calls the real `ttnn.softmax`. With
+#               only the verb installed, 3,504 renorm firings survive in the trunk and they are
+#               all the pair track.
+#
+# What is left on the card is `softmax_bw_inner`'s reduction inside `triangle_attention`'s
+# backward, computed on an EXACT p. Making that exact too needs the chunked attention rewritten,
+# which this is not.
+#
+# Off unless asked for. While installed, the raw half is a process-wide rebinding of
+# `ttnn.softmax`, which is why it is installed and torn down explicitly rather than left on. No
+# inference fold has a route to it: these are the training entry points, and
+# `tests/test_training_opt_in.py::test_no_inference_module_imports_training` is what keeps the
+# inference modules from importing this one at all. That is the difference from a site selector
+# read off the environment, which every model's inference construction path executes.
+
+EXACT_SOFTMAX_STATS = {"verb": 0, "raw": 0, "raw_elements": 0}
+
+_EXACT_SOFTMAX_VERBS = ("softmax", "softmax_in_place")
+_EXACT_SOFTMAX_SAVED: Optional[dict] = None
+# WHO turned it on, because `uninstall()` is not this lever's private teardown. Two callers
+# already use `install()`/`uninstall()` as a scoped pair around something much narrower than a
+# training step -- `train/lora.py:608-615` brackets the DISCOVERY forward, `train/recipes.py:211`
+# the fit -- and neither knows this lever exists. Tearing down on any `uninstall()` made the
+# lever collateral damage of the first such pair to close: measured, PKG_HF3 came back
+# 0.702981502944001, the device-softmax control to sixteen digits, with its 1,742 exact
+# softmaxes all spent inside that discovery forward and none in the step that was scored.
+_EXACT_SOFTMAX_OWNER: Optional[str] = None
+
+
+def _exact_softmax_raw(v, dim: int = -1, **kwargs):
+    """`ttnn.softmax`'s signature, computed on the host in float64. No tape node.
+
+    `compute_kernel_config` and the rest are accepted and dropped: they configure a device
+    kernel that no longer runs. `ttnn.softmax`'s contract is a ttnn tensor, so the rounded copy
+    is what comes back and the exactness this buys is in the FORWARD. That is enough for
+    `triangle_attention`, which recomputes its probabilities rather than saving them, so its
+    Jacobian is taken at this p rather than at a device-precision one.
+    """
+    EXACT_SOFTMAX_STATS["raw"] += 1
+    y64, y = host_f64_softmax_values(v, dim)
+    EXACT_SOFTMAX_STATS["raw_elements"] += int(y64.numel())
+    return y
+
+
+def _v_exact_softmax(shipped, args, kwargs):
+    """The taped `softmax` verb, served by `host_f64_softmax`: exact forward, exact Jacobian.
+
+    `softmax_in_place` lands here as well and is taped out of place, as the shipped verb is.
+    The host path never writes the caller's buffer, so the in-place kernel's one advantage is
+    gone and its one hazard with it.
+    """
+    x = _wrap(args[0])
+    dim = kwargs.get("dim", args[1] if len(args) > 1 else -1)
+    EXACT_SOFTMAX_STATS["verb"] += 1
+    return host_f64_softmax(x, dim)
+
+
+def _install_exact_softmax(owner: Optional[str] = None) -> bool:
+    """Idempotent. Keeps the objects it replaced, so the teardown restores those and not a
+    guess at what they were. Returns whether THIS call is the one that installed it, and
+    records `owner` so only the matching teardown takes it back out."""
+    global _EXACT_SOFTMAX_SAVED, _EXACT_SOFTMAX_OWNER
+    if _EXACT_SOFTMAX_SAVED is not None:
+        return False
+    from . import taped_ttnn as tt
+    saved = {"verbs": {n: tt._VERBS[n] for n in _EXACT_SOFTMAX_VERBS if n in tt._VERBS},
+             "raw": {n: getattr(ttnn, n) for n in _EXACT_SOFTMAX_VERBS if hasattr(ttnn, n)}}
+    for n in saved["verbs"]:
+        tt._VERBS[n] = _v_exact_softmax
+    for n in saved["raw"]:
+        setattr(ttnn, n, _exact_softmax_raw)
+    # Both swaps are invisible to a shim that has already resolved these names once. See
+    # `taped_ttnn.forget_shim_bindings`: this is why a package install is not the same thing as
+    # the same patch applied at process start.
+    tt.forget_shim_bindings(*_EXACT_SOFTMAX_VERBS)
+    _EXACT_SOFTMAX_SAVED = saved
+    _EXACT_SOFTMAX_OWNER = owner
+    return True
+
+
+def _uninstall_exact_softmax(owner: Optional[str] = None) -> None:
+    """Idempotent. With `owner`, takes it out only if that owner is the one that put it in."""
+    global _EXACT_SOFTMAX_SAVED, _EXACT_SOFTMAX_OWNER
+    if owner is not None and _EXACT_SOFTMAX_OWNER != owner:
+        return
+    saved, _EXACT_SOFTMAX_SAVED = _EXACT_SOFTMAX_SAVED, None
+    _EXACT_SOFTMAX_OWNER = None
+    if saved is None:
+        return
+    from . import taped_ttnn as tt
+    tt._VERBS.update(saved["verbs"])
+    for n, fn in saved["raw"].items():
+        setattr(ttnn, n, fn)
+    tt.forget_shim_bindings(*_EXACT_SOFTMAX_VERBS)
+
+
+def exact_softmax_installed() -> bool:
+    return _EXACT_SOFTMAX_SAVED is not None
+
+
+@contextlib.contextmanager
+def exact_softmax():
+    """Every softmax in the trunk exact, for a whole training step.
+
+        with tt_bio.autograd.exact_softmax():
+            with tt_bio.autograd.tape():
+                out = model(x)
+            out.backward()
+
+    Wider than `tape()`, deliberately. The backward recomputes -- `triangle_attention` never
+    holds its scores and a checkpointed block reruns its forward -- so a lever that came out
+    with the tape would leave every recomputed softmax on the card and take the Jacobian at
+    activations the forward did not produce. `install(exact_softmax=True)` / `uninstall()` is
+    the same thing without the block.
+
+    Nests: an inner block that found the lever already installed leaves it installed, the way
+    `tape()` leaves the shim to the outermost block. Taking it out at the inner `finally` would
+    be a teardown in the middle of the step it is meant to cover, and the arm would read as
+    half-installed with nothing saying so.
+    """
+    mine = _install_exact_softmax("exact_softmax")
+    try:
+        yield
+    finally:
+        if mine:
+            _uninstall_exact_softmax("exact_softmax")
+
+
 def mul(a: Tensor, b: Tensor) -> Tensor:
     """Elementwise product. Same shapes only; broadcasting would need a reducing backward."""
     out_v = ttnn.multiply(a.value, b.value)
@@ -953,6 +1237,48 @@ def reshape(x: Tensor, shape: Sequence[int]) -> Tensor:
         return bw
 
     return _tape(out_v, [x], make)
+
+
+def pairwise_distance(x: Tensor) -> Tensor:
+    """Euclidean distance between every pair of rows of ``x`` ``[..., N, 3]``. Taped.
+
+    Every AF3-family objective seeds two terms off a distance rather than off a
+    coordinate -- ``smooth_lddt`` and ``bond`` both name ``pred_dist`` in
+    ``tt_bio.train.objectives._SEED`` -- so the distance is a node on the tape and not a
+    statistic the loss recomputes. One implementation here rather than one per adapter.
+
+    The value is computed on the host, which is a decision rather than a gap. The reduction
+    runs over a THREE-element axis, so a tiled device form pays a 32x32 tile to carry 3
+    floats and moves 10x the bytes it multiplies; at OpenFold3's 384 tokens the whole
+    round trip is 4.6 KB out and 590 KB back. The BACKWARD is where the arithmetic is, and
+    it is `tt_bio.train.losses.dist_grad_to_coords` -- imported lazily inside the closure
+    because that module is pure numpy and the engine must not depend on the training
+    package at import time. Sharing it is the point: the factor-of-two that the transpose
+    term carries is exactly the silent defect its docstring warns about, and a second copy
+    here would be a second place to get it wrong.
+    """
+    import torch
+
+    xv = ttnn.to_torch(x.value).to(torch.float32)
+    lead, n = tuple(xv.shape[:-2]), int(xv.shape[-2])
+    pts = xv.reshape(-1, n, 3)
+    d = torch.cdist(pts, pts).reshape(*lead, n, n)
+    out_v = ttnn.from_torch(d, dtype=ttnn.float32, layout=ttnn.TILE_LAYOUT,
+                            device=x.value.device())
+
+    def make():
+        def bw(g):
+            from .train.losses import dist_grad_to_coords
+            gh = ttnn.to_torch(g).to(torch.float64).reshape(*lead, n, n).numpy()
+            coords = ttnn.to_torch(x.value).to(torch.float64).reshape(*lead, n, 3).numpy()
+            dx = dist_grad_to_coords(gh, coords)
+            x.add_grad(ttnn.from_torch(torch.from_numpy(dx).to(torch.float32),
+                                       dtype=x.value.dtype, layout=x.value.layout,
+                                       device=x.value.device()))
+        return bw
+
+    # `reads=(0,)`: the backward reads the COORDINATES, never its own output.
+    return _tape(out_v, [x], make, reads=(0,))
 
 
 def triangle_attention(q: Tensor, k: Tensor, v: Tensor, bias: Optional[Tensor] = None,
@@ -1781,16 +2107,26 @@ def _checkpoint_segment(fn, *inputs):
     return checkpoint(fn, *inputs, params=_ALL_PARAMS)
 
 
-def install():
+def install(*, exact_softmax: bool = False):
     """Route `tt_bio.ops` through the tape. Idempotent; returns the hook it replaced.
 
     This is the narrow seam -- two verbs. `tape()` is the whole shipped forward.
+
+    `exact_softmax` additionally computes every softmax in the taped forward, and every one the
+    backward recomputes, on the host in float64. Off by default: it costs a host round trip per
+    softmax and it is bought for gradient fidelity. `uninstall` takes it back out. When the
+    scope you want is one training step rather than one install, use `exact_softmax()`.
     """
     from . import ops
     # A recycling model asks `ops.recycle_region` whether a non-final cycle is differentiated.
     # Installed together with the verb hook because the two are the same opt-in.
     ops.set_recycle_hook(no_grad)
     ops.set_checkpoint_hook(_checkpoint_segment)
+    # The host float64 softmax a construction site may select. Injected rather than imported,
+    # so `tt_bio/tenstorrent.py` can offer the lever without reaching the tape to do it.
+    ops.set_host_softmax_hook(host_f64_softmax)
+    if exact_softmax:
+        _install_exact_softmax("install")
     return ops.set_grad_hook(_hook)
 
 
@@ -1799,6 +2135,10 @@ def uninstall() -> None:
     from . import ops
     ops.set_recycle_hook(None)
     ops.set_checkpoint_hook(None)
+    ops.set_host_softmax_hook(None)
+    # Only what THIS pair turned on. An `uninstall()` from a caller that never asked for the
+    # exact softmax must leave it alone; see `_EXACT_SOFTMAX_OWNER`.
+    _uninstall_exact_softmax("install")
     ops.set_grad_hook(None)
 
 

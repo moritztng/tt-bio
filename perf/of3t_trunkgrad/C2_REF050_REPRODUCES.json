@@ -1,0 +1,15 @@
+{
+ "C2_reference_side_instrument_control": {
+  "ours": "/home/ttuser/of3t_trunkgrad/REF050_F64.pt",
+  "published": "/home/ttuser/of3t_pairformer/upstream_f64_crop64.pt",
+  "keys_ours": 2736,
+  "keys_published": 2736,
+  "keys_shared": 2736,
+  "only_ours": [],
+  "only_published": [],
+  "n_not_bit_identical": 0,
+  "worst_rel_l2": 0.0,
+  "worst_tensor": null,
+  "verdict": "PASS -- bit identical across processes"
+ }
+}

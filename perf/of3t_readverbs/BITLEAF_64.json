@@ -1,0 +1,20 @@
+{
+ "what": "leaf gradients in THEIR parameter space, base vs nocast, padded 64",
+ "host": "qb1",
+ "hostname": "tt-quietbox",
+ "board": "p150a Blackhole",
+ "card": "qb1 (tt-quietbox) card 0, p150a Blackhole, both sides, after tt-smi -r 0",
+ "a": "grads_B64K.pt (base, 0 substitutions)",
+ "b": "grads_N64K.pt (nocast, 960 firings, the narrowing cast removed at all 48 blocks)",
+ "compared": 2736,
+ "missing": 0,
+ "extra": 0,
+ "bit_identical": 2736,
+ "differing": 0,
+ "detail": [],
+ "also_s_z_bit_identical": {
+  "s": true,
+  "z": true
+ },
+ "verdict": "BIT-IDENTICAL"
+}

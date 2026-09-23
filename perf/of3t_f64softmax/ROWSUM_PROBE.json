@@ -1,0 +1,39 @@
+{
+ "d_logits": {
+  "host float64": {
+   "d_logits_row_sum_max_abs_plain": 2.8103011589933682e-15,
+   "d_logits_row_sum_max_abs_renormalised": 1.9221218922602958e-15
+  },
+  "ttnn.softmax": {
+   "d_logits_row_sum_max_abs_plain": 0.10573184490880529,
+   "d_logits_row_sum_max_abs_renormalised": 1.3348553152040497e-15
+  }
+ },
+ "row_sums": {
+  "host_f64_softmax, as returned to the card (fp32)": {
+   "max": 1.0000000415683794,
+   "max_abs_dev_from_one": 4.5819362970433986e-08,
+   "mean": 0.9999999998849631,
+   "min": 0.999999954180637
+  },
+  "host_f64_softmax, the float64 value the backward reads": {
+   "max": 1.0000000000000016,
+   "max_abs_dev_from_one": 1.5543122344752192e-15,
+   "mean": 1.0,
+   "min": 0.9999999999999984
+  },
+  "ttnn.softmax": {
+   "max": 1.000142339190397,
+   "max_abs_dev_from_one": 0.03876862586320973,
+   "mean": 0.9913164495882144,
+   "min": 0.9612313741367903
+  }
+ },
+ "shape": [
+  1,
+  16,
+  384,
+  384
+ ],
+ "spread": 8.0
+}

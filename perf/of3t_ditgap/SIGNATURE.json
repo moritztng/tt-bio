@@ -1,0 +1,280 @@
+{
+ "what": "D187's signature, its A26-form reading, and the denominator the section table used",
+ "padded_width": 384,
+ "real_tokens": 56,
+ "scoring_host": "tt-quietbox2 (qb2), CPU only, no card",
+ "A26_shape_floor_to_bar": 1.391162410582931,
+ "a26": {
+  "section (456 tensors)": {
+   "n": 456,
+   "ours_vs_float64": 0.11670185505910508,
+   "upstream_bf16_vs_float64_FLOOR": 0.057809234623039614,
+   "ours_over_floor": 2.018740705011757,
+   "ours_vs_upstream_bf16_A26_FORM": 0.1085812825721296,
+   "A26_bar_local": 0.08042203419214203,
+   "A26_multiple": 1.3501434484075632
+  },
+  "LayerNorm affine (72)": {
+   "n": 72,
+   "ours_vs_float64": 0.1179480295810668,
+   "upstream_bf16_vs_float64_FLOOR": 0.05702342547726988,
+   "ours_over_floor": 2.068413614122184,
+   "ours_vs_upstream_bf16_A26_FORM": 0.10862147359310911,
+   "A26_bar_local": 0.07932884604665488,
+   "A26_multiple": 1.3692556870073045
+  },
+  "the two carrying leaves (48)": {
+   "n": 48,
+   "ours_vs_float64": 0.11797151254122018,
+   "upstream_bf16_vs_float64_FLOOR": 0.057001065443563245,
+   "ours_over_floor": 2.0696369729794575,
+   "ours_vs_upstream_bf16_A26_FORM": 0.10862035780021045,
+   "A26_bar_local": 0.07929773960826285,
+   "A26_multiple": 1.3697787394294425
+  }
+ },
+ "floor_evidence": {
+  "all 456": {
+   "n": 456,
+   "ours_over_0p05": 354,
+   "upstream_own_bf16_over_0p05": 369,
+   "ours_worst_cos": 0.959708082383616,
+   "upstream_worst_cos": 0.9773737062573963,
+   "ours_norm_ratio_range": [
+    0.8008752160375502,
+    1.1998225120638177
+   ],
+   "upstream_norm_ratio_range": [
+    0.9025743241219745,
+    1.1412083826757318
+   ]
+  },
+  "LayerNorm affine 72": {
+   "n": 72,
+   "ours_over_0p05": 53,
+   "upstream_own_bf16_over_0p05": 53,
+   "ours_worst_cos": 0.959708082383616,
+   "upstream_worst_cos": 0.9815357604173199,
+   "ours_norm_ratio_range": [
+    0.8008752160375502,
+    1.1998225120638177
+   ],
+   "upstream_norm_ratio_range": [
+    0.9025743241219745,
+    1.1412083826757318
+   ]
+  },
+  "two carrying leaves 48": {
+   "n": 48,
+   "ours_over_0p05": 38,
+   "upstream_own_bf16_over_0p05": 33,
+   "ours_worst_cos": 0.959708082383616,
+   "upstream_worst_cos": 0.9892112144374291,
+   "ours_norm_ratio_range": [
+    0.8008752160375502,
+    1.1998225120638177
+   ],
+   "upstream_norm_ratio_range": [
+    0.9025743241219745,
+    1.1226878008526315
+   ]
+  }
+ },
+ "carriers_by_block": {
+  "0": {
+   "pct_of_carrier_reference_mass": 1.5887160221851007,
+   "ours_rel_l2": 0.04412636316639044,
+   "upstream_rel_l2": 0.08963991064278329,
+   "ours_over_upstream": 0.4922624626683846
+  },
+  "1": {
+   "pct_of_carrier_reference_mass": 2.00050702901683,
+   "ours_rel_l2": 0.1942735948910936,
+   "upstream_rel_l2": 0.06260963873062732,
+   "ours_over_upstream": 3.102934289829388
+  },
+  "2": {
+   "pct_of_carrier_reference_mass": 6.903463826278864,
+   "ours_rel_l2": 0.07339969456489638,
+   "upstream_rel_l2": 0.03301329675560281,
+   "ours_over_upstream": 2.223337314909013
+  },
+  "3": {
+   "pct_of_carrier_reference_mass": 3.7321598553282547,
+   "ours_rel_l2": 0.04432082511369333,
+   "upstream_rel_l2": 0.053561576432077415,
+   "ours_over_upstream": 0.8274742467652632
+  },
+  "4": {
+   "pct_of_carrier_reference_mass": 6.572574330579302,
+   "ours_rel_l2": 0.057988791845953055,
+   "upstream_rel_l2": 0.04456247644992183,
+   "ours_over_upstream": 1.3012919493179282
+  },
+  "5": {
+   "pct_of_carrier_reference_mass": 7.35746101626962,
+   "ours_rel_l2": 0.18786295906030798,
+   "upstream_rel_l2": 0.09346864003038886,
+   "ours_over_upstream": 2.0099036318408965
+  },
+  "6": {
+   "pct_of_carrier_reference_mass": 7.545680541672079,
+   "ours_rel_l2": 0.17173986072457723,
+   "upstream_rel_l2": 0.055087894576753615,
+   "ours_over_upstream": 3.1175608006817757
+  },
+  "7": {
+   "pct_of_carrier_reference_mass": 7.609822149815964,
+   "ours_rel_l2": 0.09139924817787744,
+   "upstream_rel_l2": 0.040755606246372006,
+   "ours_over_upstream": 2.242617803925163
+  },
+  "8": {
+   "pct_of_carrier_reference_mass": 23.13237757345867,
+   "ours_rel_l2": 0.06683316062361976,
+   "upstream_rel_l2": 0.036217003727158435,
+   "ours_over_upstream": 1.8453531144406312
+  },
+  "9": {
+   "pct_of_carrier_reference_mass": 9.96800299378213,
+   "ours_rel_l2": 0.08640068882293654,
+   "upstream_rel_l2": 0.054374329508704605,
+   "ours_over_upstream": 1.5889977789814391
+  },
+  "10": {
+   "pct_of_carrier_reference_mass": 3.189113618371662,
+   "ours_rel_l2": 0.22640983748886132,
+   "upstream_rel_l2": 0.09746197171544232,
+   "ours_over_upstream": 2.3230582503492276
+  },
+  "11": {
+   "pct_of_carrier_reference_mass": 6.955100359332222,
+   "ours_rel_l2": 0.16461586620952232,
+   "upstream_rel_l2": 0.08742282087743011,
+   "ours_over_upstream": 1.8829850667975996
+  },
+  "12": {
+   "pct_of_carrier_reference_mass": 7.337112149258409,
+   "ours_rel_l2": 0.1141440493768676,
+   "upstream_rel_l2": 0.041540492382643686,
+   "ours_over_upstream": 2.7477779590440985
+  },
+  "13": {
+   "pct_of_carrier_reference_mass": 1.6522975923377738,
+   "ours_rel_l2": 0.10097277260271559,
+   "upstream_rel_l2": 0.06801935075095453,
+   "ours_over_upstream": 1.4844712789514332
+  },
+  "14": {
+   "pct_of_carrier_reference_mass": 1.6118042068086615,
+   "ours_rel_l2": 0.13806805048627754,
+   "upstream_rel_l2": 0.043565521423908286,
+   "ours_over_upstream": 3.169204590548233
+  },
+  "15": {
+   "pct_of_carrier_reference_mass": 2.0138548160848746,
+   "ours_rel_l2": 0.08766727333574796,
+   "upstream_rel_l2": 0.031274964149106466,
+   "ours_over_upstream": 2.803113471778436
+  },
+  "16": {
+   "pct_of_carrier_reference_mass": 0.1369134847239758,
+   "ours_rel_l2": 0.21218593915330086,
+   "upstream_rel_l2": 0.11374426569833607,
+   "ours_over_upstream": 1.865464934434975
+  },
+  "17": {
+   "pct_of_carrier_reference_mass": 0.0985938569981213,
+   "ours_rel_l2": 0.23291827830132858,
+   "upstream_rel_l2": 0.12020269955960206,
+   "ours_over_upstream": 1.9377125401899724
+  },
+  "18": {
+   "pct_of_carrier_reference_mass": 0.08614164557502964,
+   "ours_rel_l2": 0.050336484312222984,
+   "upstream_rel_l2": 0.06665790339657927,
+   "ours_over_upstream": 0.7551465279780483
+  },
+  "19": {
+   "pct_of_carrier_reference_mass": 0.40033957053554636,
+   "ours_rel_l2": 0.034412558990831184,
+   "upstream_rel_l2": 0.036212255054973615,
+   "ours_over_upstream": 0.9503014639267751
+  },
+  "20": {
+   "pct_of_carrier_reference_mass": 0.047767646637615506,
+   "ours_rel_l2": 0.0315393235310975,
+   "upstream_rel_l2": 0.06446675228605427,
+   "ours_over_upstream": 0.48923394482709553
+  },
+  "21": {
+   "pct_of_carrier_reference_mass": 0.012323591591481099,
+   "ours_rel_l2": 0.049965896746359054,
+   "upstream_rel_l2": 0.09742103232769901,
+   "ours_over_upstream": 0.5128861350830977
+  },
+  "22": {
+   "pct_of_carrier_reference_mass": 0.03949674618881927,
+   "ours_rel_l2": 0.03208654305746916,
+   "upstream_rel_l2": 0.05391611587238613,
+   "ours_over_upstream": 0.5951197065718661
+  },
+  "23": {
+   "pct_of_carrier_reference_mass": 0.008375377168995996,
+   "ours_rel_l2": 0.08445709621840748,
+   "upstream_rel_l2": 0.09439734798894366,
+   "ours_over_upstream": 0.894697764478506
+  }
+ },
+ "coverage": {
+  "bundle_dit_tensors": 552,
+  "scored_by_sidecar": 456,
+  "absent": 96,
+  "absent_leaf_families": [
+   "attention_pair_bias.mha.linear_k.weight",
+   "attention_pair_bias.mha.linear_q.bias",
+   "attention_pair_bias.mha.linear_q.weight",
+   "attention_pair_bias.mha.linear_v.weight"
+  ],
+  "absent_pct_of_model_squared_norm": 0.27152646887360943,
+  "scored_pct_of_model_squared_norm": 43.622111481326044,
+  "dit_true_pct_of_model_squared_norm": 43.89363795019965,
+  "published_pct_of_model_mass": 43.622,
+  "why": "our AttentionPairBias fuses Q, K and V into one projection, so the four unfused leaves carry no separately-named device gradient and the sidecar has nothing to pair them with"
+ },
+ "signature": {
+  "trunk": {
+   "source": "D191 UPDATE pass 342, perf/of3t_widthattr/GROWTH.json, qb1",
+   "quantity": "excess of our width-384 arm over width-64, mw^2 units",
+   "layer_norm_affine_share_pct": 93.8,
+   "n_families": 24,
+   "top_families": {
+    "attn_pair_bias.layer_norm_a.weight": 34.89,
+    "attn_pair_bias.layer_norm_a.bias": 27.43,
+    "single_transition.layer_norm.bias": 10.22,
+    "single_transition.layer_norm.weight": 7.39
+   },
+   "concentration": "83.85 % in 20 of 2,736 tensors; 3 of 48 blocks carry 74.58 %",
+   "worst_tensor": "blocks.4.attn_pair_bias.layer_norm_a.weight",
+   "worst_norm_ratio": 7.3729,
+   "worst_cos": -0.0057,
+   "shape": "norm_ratio 7.37 at cos -0.0057 -- ORTHOGONAL to the reference, a wrong computation, reported at a leaf of3t-lnaffine found innocent"
+  },
+  "diffusion_transformer": {
+   "source": "this row, perf/of3t_ditgap/WHERE.json, qb2",
+   "quantity": "difference of absolute errors ours minus upstream bf16, both against float64, at padded width 384",
+   "layer_norm_affine_share_pct": 97.7612,
+   "n_families": 3,
+   "top_families": {
+    "attention_pair_bias.layer_norm_a.layer_norm_s.weight": 61.2093,
+    "conditioned_transition.layer_norm.layer_norm_s.weight": 36.5721
+   },
+   "concentration": "60 % in 6 of 456 tensors; 4 of 24 blocks carry 61.65 %",
+   "worst_tensor": "blocks.17.attention_pair_bias.layer_norm_a.layer_norm_s.weight",
+   "worst_rel_l2": 0.3227821,
+   "worst_norm_ratio": 0.800875,
+   "worst_cos": 0.959708,
+   "shape": "norm_ratio 0.80 to 1.20 at cos 0.96 to 0.999 -- ALIGNED with the reference, a magnitude error in a cancellation-limited reduction, not a wrong computation"
+  }
+ }
+}

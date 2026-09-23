@@ -1,0 +1,66 @@
+[
+ {
+  "site": "layer_norm, single track s",
+  "shape": [
+   1,
+   384,
+   384
+  ],
+  "mb_bf16": 0.29,
+  "ms_median": 0.772,
+  "calls_per_step": 192,
+  "s_per_step": 0.148
+ },
+ {
+  "site": "layer_norm, pair track z",
+  "shape": [
+   1,
+   384,
+   384,
+   128
+  ],
+  "mb_bf16": 37.75,
+  "ms_median": 121.225,
+  "calls_per_step": 192,
+  "s_per_step": 23.275
+ },
+ {
+  "site": "softmax, trunk APB scores",
+  "shape": [
+   1,
+   16,
+   384,
+   384
+  ],
+  "mb_bf16": 4.72,
+  "ms_median": 5.895,
+  "calls_per_step": 48,
+  "s_per_step": 0.283
+ },
+ {
+  "site": "softmax, triangle attention scores (one i-slice batch)",
+  "shape": [
+   16,
+   4,
+   384,
+   384
+  ],
+  "mb_bf16": 18.87,
+  "ms_median": 22.896,
+  "calls_per_step": 96,
+  "s_per_step": 2.198
+ },
+ {
+  "site": "distogram logits (loss, once per step)",
+  "shape": [
+   1,
+   384,
+   384,
+   64
+  ],
+  "mb_bf16": 18.87,
+  "ms_median": 22.788,
+  "calls_per_step": 1,
+  "s_per_step": 0.023
+ }
+]

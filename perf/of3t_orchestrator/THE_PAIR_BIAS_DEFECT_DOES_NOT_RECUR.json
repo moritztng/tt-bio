@@ -1,0 +1,30 @@
+{
+ "as_of": "2026-09-20, orchestrator pass 178",
+ "headline": "The pair-bias scale convention that of3t-trunkcliff found wrong in the trunk is CORRECT at every other site in the port. Five construction sites swept: the trunk is the only one with the wrong flag, and it is wrong DELIBERATELY (D1, held because the fix costs 0.463 A on a served structure). The codebase demonstrably knows the right convention -- the confidence head already carries it, with a comment stating the same reasoning trunkcliff rediscovered independently.",
+
+ "why_this_sweep": "of3t-trunkcliff showed the trunk's apparent bf16 problem was a WRONG FUNCTION: AttentionPairBias folds the bias inside its own score scale, so a reference that adds it unscaled needs it pre-baked by sqrt(head_dim), and passing one `scale_pair_bias=False` to both kernels under one layer left the token bias at 1/sqrt(24) = 0.204 of reference. That is a defect CLASS, not a one-off, and the campaign's rule is to check whether a class recurs before congratulating itself on finding one instance. It bears directly on the 51.1358 % the campaign attributes to the softmax: if the diffusion arm had the same folded-scale error, that attribution would be measuring the wrong thing.",
+
+ "the_five_sites": [
+  {"site": "tt_bio/openfold3_trunk.py:139", "flags": "scale_pair_bias=False (no split applied)",
+   "verdict": "WRONG for the folding AttentionPairBias -- and wrong on purpose. This is D1, HELD.",
+   "evidence": "measured: block-45 update 78.0 % wrong in float64; pre-scaled it matches upstream 0.4.3 to 4.2e-16"},
+  {"site": "tt_bio/openfold3_confidence.py:98", "flags": "scale_pair_bias=True, tri_att_scale_pair_bias=False",
+   "verdict": "CORRECT -- the split is already applied here",
+   "evidence": "its own source comment states the identical reasoning; and measured, aux_heads' pae/pde now read 3.87e-03 once the masks are passed"},
+  {"site": "tt_bio/openfold3_template.py:115", "flags": "scale_pair_bias=False",
+   "verdict": "CORRECT -- this PairformerLayer is built with att_head_dim=None, att_n_heads=None, transform_s=False, so there is NO AttentionPairBias for the flag to reach; it governs TriangleAttention only, which adds the bias outside its scale"},
+  {"site": "tt_bio/openfold3_msa_embedder.py:87", "flags": "scale_pair_bias=False",
+   "verdict": "CORRECT -- tri_att only, as its own comment says; and measured, msa_module passes at 0.9474x"},
+  {"site": "tt_bio/openfold3_diffusion_transformer.py:200-203", "flags": "no flag -- the DiT does not use the folding wrapper at all",
+   "verdict": "CORRECT -- `scale = HEAD_DIM ** -0.5; sc = scale_add(sc, scale, zb)` scales QK^T by 1/sqrt(d) and adds the pair bias UNSCALED, which is upstream's convention directly. Its own docstring notes linear_z is a plain linear with no head_dim scaling.",
+   "evidence": "measured, the diffusion arm reads 0.9563x the reachable bar with an accurate softmax"}
+ ],
+
+ "what_this_means_for_the_51_percent": "the diffusion arm's attribution to the softmax is NOT undermined by this defect class. The DiT never routes through the folding path, so there is no hidden convention error inflating what has been called a precision problem. That attribution stands on its own evidence.",
+
+ "and_it_sharpens_the_D1_framing": "this is no longer 'we have a bug in the trunk'. Four other sites apply the correct convention, one of them with a comment explaining exactly why. The trunk differs because `of3t-confhead` measured that correcting it BUYS 0.050 A of best-of-5 and COSTS 0.463 A on the structure a user receives, and the campaign chose the user. That is a decision with a measurement behind it, made knowingly, in a codebase that knows better elsewhere.",
+
+ "limitation_stated_plainly": "four of the five verdicts are from READING the construction site and its arithmetic, not from measuring those sites against a reference. Reading establishes which convention is INTENDED, which is the question here, and D90 is the standing reminder that reading the call site rather than the default is what makes that reliable. Each site I call correct also has an independent passing measurement, listed above -- but those measurements were not taken to test this hypothesis and do not, on their own, exclude a compensating error.",
+
+ "provenance": "of3t-orchestrator pass 178 on pc, CPU only, no device, reading the composed tree. Sources: tt_bio/openfold3_{trunk,confidence,template,msa_embedder,diffusion_transformer}.py and tenstorrent.py's PairformerLayer signature. The trunk row of the table is of3t-trunkcliff's measurement, not mine."
+}

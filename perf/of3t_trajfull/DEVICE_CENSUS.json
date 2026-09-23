@@ -1,0 +1,3261 @@
+{
+ "walked": 988,
+ "slots": 988,
+ "named_by_fingerprint": 856,
+ "unnamed_by_fingerprint": [
+  "dm.dec.at._wc.('blocks.0.attention_pair_bias.linear_ada_out.bias', False)",
+  "dm.dec.at._wc.('blocks.0.attention_pair_bias.linear_ada_out.weight', True)",
+  "dm.dec.at._wc.('blocks.0.attention_pair_bias.linear_z.weight', True)",
+  "dm.dec.at._wc.('blocks.0.attention_pair_bias.mha.linear_g.weight', True)",
+  "dm.dec.at._wc.('blocks.0.attention_pair_bias.mha.linear_k.weight', True)",
+  "dm.dec.at._wc.('blocks.0.attention_pair_bias.mha.linear_o.weight', True)",
+  "dm.dec.at._wc.('blocks.0.attention_pair_bias.mha.linear_q.bias', False)",
+  "dm.dec.at._wc.('blocks.0.attention_pair_bias.mha.linear_q.weight', True)",
+  "dm.dec.at._wc.('blocks.0.attention_pair_bias.mha.linear_v.weight', True)",
+  "dm.dec.at._wc.('blocks.0.conditioned_transition.linear_g.bias', False)",
+  "dm.dec.at._wc.('blocks.0.conditioned_transition.linear_g.weight', True)",
+  "dm.dec.at._wc.('blocks.0.conditioned_transition.linear_out.weight', True)",
+  "dm.dec.at._wc.('blocks.0.conditioned_transition.swiglu.linear_a.weight', True)",
+  "dm.dec.at._wc.('blocks.0.conditioned_transition.swiglu.linear_b.weight', True)",
+  "dm.dec.at._wc.('blocks.1.attention_pair_bias.linear_ada_out.bias', False)",
+  "dm.dec.at._wc.('blocks.1.attention_pair_bias.linear_ada_out.weight', True)",
+  "dm.dec.at._wc.('blocks.1.attention_pair_bias.linear_z.weight', True)",
+  "dm.dec.at._wc.('blocks.1.attention_pair_bias.mha.linear_g.weight', True)",
+  "dm.dec.at._wc.('blocks.1.attention_pair_bias.mha.linear_k.weight', True)",
+  "dm.dec.at._wc.('blocks.1.attention_pair_bias.mha.linear_o.weight', True)",
+  "dm.dec.at._wc.('blocks.1.attention_pair_bias.mha.linear_q.bias', False)",
+  "dm.dec.at._wc.('blocks.1.attention_pair_bias.mha.linear_q.weight', True)",
+  "dm.dec.at._wc.('blocks.1.attention_pair_bias.mha.linear_v.weight', True)",
+  "dm.dec.at._wc.('blocks.1.conditioned_transition.linear_g.bias', False)",
+  "dm.dec.at._wc.('blocks.1.conditioned_transition.linear_g.weight', True)",
+  "dm.dec.at._wc.('blocks.1.conditioned_transition.linear_out.weight', True)",
+  "dm.dec.at._wc.('blocks.1.conditioned_transition.swiglu.linear_a.weight', True)",
+  "dm.dec.at._wc.('blocks.1.conditioned_transition.swiglu.linear_b.weight', True)",
+  "dm.dec.at._wc.('blocks.2.attention_pair_bias.linear_ada_out.bias', False)",
+  "dm.dec.at._wc.('blocks.2.attention_pair_bias.linear_ada_out.weight', True)",
+  "dm.dec.at._wc.('blocks.2.attention_pair_bias.linear_z.weight', True)",
+  "dm.dec.at._wc.('blocks.2.attention_pair_bias.mha.linear_g.weight', True)",
+  "dm.dec.at._wc.('blocks.2.attention_pair_bias.mha.linear_k.weight', True)",
+  "dm.dec.at._wc.('blocks.2.attention_pair_bias.mha.linear_o.weight', True)",
+  "dm.dec.at._wc.('blocks.2.attention_pair_bias.mha.linear_q.bias', False)",
+  "dm.dec.at._wc.('blocks.2.attention_pair_bias.mha.linear_q.weight', True)",
+  "dm.dec.at._wc.('blocks.2.attention_pair_bias.mha.linear_v.weight', True)",
+  "dm.dec.at._wc.('blocks.2.conditioned_transition.linear_g.bias', False)",
+  "dm.dec.at._wc.('blocks.2.conditioned_transition.linear_g.weight', True)",
+  "dm.dec.at._wc.('blocks.2.conditioned_transition.linear_out.weight', True)",
+  "dm.dec.at._wc.('blocks.2.conditioned_transition.swiglu.linear_a.weight', True)",
+  "dm.dec.at._wc.('blocks.2.conditioned_transition.swiglu.linear_b.weight', True)",
+  "dm.dit.blocks.0.qkv_b",
+  "dm.dit.blocks.0.qkv_w",
+  "dm.dit.blocks.1.qkv_b",
+  "dm.dit.blocks.1.qkv_w",
+  "dm.dit.blocks.10.qkv_b",
+  "dm.dit.blocks.10.qkv_w",
+  "dm.dit.blocks.11.qkv_b",
+  "dm.dit.blocks.11.qkv_w",
+  "dm.dit.blocks.12.qkv_b",
+  "dm.dit.blocks.12.qkv_w",
+  "dm.dit.blocks.13.qkv_b",
+  "dm.dit.blocks.13.qkv_w",
+  "dm.dit.blocks.14.qkv_b",
+  "dm.dit.blocks.14.qkv_w",
+  "dm.dit.blocks.15.qkv_b",
+  "dm.dit.blocks.15.qkv_w",
+  "dm.dit.blocks.16.qkv_b",
+  "dm.dit.blocks.16.qkv_w",
+  "dm.dit.blocks.17.qkv_b",
+  "dm.dit.blocks.17.qkv_w",
+  "dm.dit.blocks.18.qkv_b",
+  "dm.dit.blocks.18.qkv_w",
+  "dm.dit.blocks.19.qkv_b",
+  "dm.dit.blocks.19.qkv_w",
+  "dm.dit.blocks.2.qkv_b",
+  "dm.dit.blocks.2.qkv_w",
+  "dm.dit.blocks.20.qkv_b",
+  "dm.dit.blocks.20.qkv_w",
+  "dm.dit.blocks.21.qkv_b",
+  "dm.dit.blocks.21.qkv_w",
+  "dm.dit.blocks.22.qkv_b",
+  "dm.dit.blocks.22.qkv_w",
+  "dm.dit.blocks.23.qkv_b",
+  "dm.dit.blocks.23.qkv_w",
+  "dm.dit.blocks.3.qkv_b",
+  "dm.dit.blocks.3.qkv_w",
+  "dm.dit.blocks.4.qkv_b",
+  "dm.dit.blocks.4.qkv_w",
+  "dm.dit.blocks.5.qkv_b",
+  "dm.dit.blocks.5.qkv_w",
+  "dm.dit.blocks.6.qkv_b",
+  "dm.dit.blocks.6.qkv_w",
+  "dm.dit.blocks.7.qkv_b",
+  "dm.dit.blocks.7.qkv_w",
+  "dm.dit.blocks.8.qkv_b",
+  "dm.dit.blocks.8.qkv_w",
+  "dm.dit.blocks.9.qkv_b",
+  "dm.dit.blocks.9.qkv_w",
+  "dm.enc_at._wc.('blocks.0.attention_pair_bias.linear_ada_out.bias', False)",
+  "dm.enc_at._wc.('blocks.0.attention_pair_bias.linear_ada_out.weight', True)",
+  "dm.enc_at._wc.('blocks.0.attention_pair_bias.linear_z.weight', True)",
+  "dm.enc_at._wc.('blocks.0.attention_pair_bias.mha.linear_g.weight', True)",
+  "dm.enc_at._wc.('blocks.0.attention_pair_bias.mha.linear_k.weight', True)",
+  "dm.enc_at._wc.('blocks.0.attention_pair_bias.mha.linear_o.weight', True)",
+  "dm.enc_at._wc.('blocks.0.attention_pair_bias.mha.linear_q.bias', False)",
+  "dm.enc_at._wc.('blocks.0.attention_pair_bias.mha.linear_q.weight', True)",
+  "dm.enc_at._wc.('blocks.0.attention_pair_bias.mha.linear_v.weight', True)",
+  "dm.enc_at._wc.('blocks.0.conditioned_transition.linear_g.bias', False)",
+  "dm.enc_at._wc.('blocks.0.conditioned_transition.linear_g.weight', True)",
+  "dm.enc_at._wc.('blocks.0.conditioned_transition.linear_out.weight', True)",
+  "dm.enc_at._wc.('blocks.0.conditioned_transition.swiglu.linear_a.weight', True)",
+  "dm.enc_at._wc.('blocks.0.conditioned_transition.swiglu.linear_b.weight', True)",
+  "dm.enc_at._wc.('blocks.1.attention_pair_bias.linear_ada_out.bias', False)",
+  "dm.enc_at._wc.('blocks.1.attention_pair_bias.linear_ada_out.weight', True)",
+  "dm.enc_at._wc.('blocks.1.attention_pair_bias.linear_z.weight', True)",
+  "dm.enc_at._wc.('blocks.1.attention_pair_bias.mha.linear_g.weight', True)",
+  "dm.enc_at._wc.('blocks.1.attention_pair_bias.mha.linear_k.weight', True)",
+  "dm.enc_at._wc.('blocks.1.attention_pair_bias.mha.linear_o.weight', True)",
+  "dm.enc_at._wc.('blocks.1.attention_pair_bias.mha.linear_q.bias', False)",
+  "dm.enc_at._wc.('blocks.1.attention_pair_bias.mha.linear_q.weight', True)",
+  "dm.enc_at._wc.('blocks.1.attention_pair_bias.mha.linear_v.weight', True)",
+  "dm.enc_at._wc.('blocks.1.conditioned_transition.linear_g.bias', False)",
+  "dm.enc_at._wc.('blocks.1.conditioned_transition.linear_g.weight', True)",
+  "dm.enc_at._wc.('blocks.1.conditioned_transition.linear_out.weight', True)",
+  "dm.enc_at._wc.('blocks.1.conditioned_transition.swiglu.linear_a.weight', True)",
+  "dm.enc_at._wc.('blocks.1.conditioned_transition.swiglu.linear_b.weight', True)",
+  "dm.enc_at._wc.('blocks.2.attention_pair_bias.linear_ada_out.bias', False)",
+  "dm.enc_at._wc.('blocks.2.attention_pair_bias.linear_ada_out.weight', True)",
+  "dm.enc_at._wc.('blocks.2.attention_pair_bias.linear_z.weight', True)",
+  "dm.enc_at._wc.('blocks.2.attention_pair_bias.mha.linear_g.weight', True)",
+  "dm.enc_at._wc.('blocks.2.attention_pair_bias.mha.linear_k.weight', True)",
+  "dm.enc_at._wc.('blocks.2.attention_pair_bias.mha.linear_o.weight', True)",
+  "dm.enc_at._wc.('blocks.2.attention_pair_bias.mha.linear_q.bias', False)",
+  "dm.enc_at._wc.('blocks.2.attention_pair_bias.mha.linear_q.weight', True)",
+  "dm.enc_at._wc.('blocks.2.attention_pair_bias.mha.linear_v.weight', True)",
+  "dm.enc_at._wc.('blocks.2.conditioned_transition.linear_g.bias', False)",
+  "dm.enc_at._wc.('blocks.2.conditioned_transition.linear_g.weight', True)",
+  "dm.enc_at._wc.('blocks.2.conditioned_transition.linear_out.weight', True)",
+  "dm.enc_at._wc.('blocks.2.conditioned_transition.swiglu.linear_a.weight', True)",
+  "dm.enc_at._wc.('blocks.2.conditioned_transition.swiglu.linear_b.weight', True)"
+ ],
+ "namemap": {
+  "slots_unnamed": 132,
+  "slots_resolved": 132,
+  "reference_names_added": 180,
+  "unresolved": [],
+  "rows": [
+   {
+    "path": "dm.dec.at._wc.('blocks.0.attention_pair_bias.linear_ada_out.bias', False)",
+    "key": "('blocks.0.attention_pair_bias.linear_ada_out.bias', False)",
+    "master_shape": [
+     128
+    ],
+    "resolved": true,
+    "names": [
+     "atom_attn_dec.atom_transformer.blocks.0.attention_pair_bias.linear_ada_out.bias"
+    ],
+    "transpose": false,
+    "dtype_match": [
+     "N"
+    ],
+    "orientation_ambiguous": false
+   },
+   {
+    "path": "dm.dec.at._wc.('blocks.0.attention_pair_bias.linear_ada_out.weight', True)",
+    "key": "('blocks.0.attention_pair_bias.linear_ada_out.weight', True)",
+    "master_shape": [
+     128,
+     128
+    ],
+    "resolved": true,
+    "names": [
+     "atom_attn_dec.atom_transformer.blocks.0.attention_pair_bias.linear_ada_out.weight"
+    ],
+    "transpose": true,
+    "dtype_match": [
+     "N"
+    ],
+    "orientation_ambiguous": false
+   },
+   {
+    "path": "dm.dec.at._wc.('blocks.0.attention_pair_bias.linear_z.weight', True)",
+    "key": "('blocks.0.attention_pair_bias.linear_z.weight', True)",
+    "master_shape": [
+     16,
+     4
+    ],
+    "resolved": true,
+    "names": [
+     "atom_attn_dec.atom_transformer.blocks.0.attention_pair_bias.linear_z.weight"
+    ],
+    "transpose": true,
+    "dtype_match": [
+     "N"
+    ],
+    "orientation_ambiguous": false
+   },
+   {
+    "path": "dm.dec.at._wc.('blocks.0.attention_pair_bias.mha.linear_g.weight', True)",
+    "key": "('blocks.0.attention_pair_bias.mha.linear_g.weight', True)",
+    "master_shape": [
+     128,
+     128
+    ],
+    "resolved": true,
+    "names": [
+     "atom_attn_dec.atom_transformer.blocks.0.attention_pair_bias.mha.linear_g.weight"
+    ],
+    "transpose": true,
+    "dtype_match": [
+     "N"
+    ],
+    "orientation_ambiguous": false
+   },
+   {
+    "path": "dm.dec.at._wc.('blocks.0.attention_pair_bias.mha.linear_k.weight', True)",
+    "key": "('blocks.0.attention_pair_bias.mha.linear_k.weight', True)",
+    "master_shape": [
+     128,
+     128
+    ],
+    "resolved": true,
+    "names": [
+     "atom_attn_dec.atom_transformer.blocks.0.attention_pair_bias.mha.linear_k.weight"
+    ],
+    "transpose": true,
+    "dtype_match": [
+     "N"
+    ],
+    "orientation_ambiguous": false
+   },
+   {
+    "path": "dm.dec.at._wc.('blocks.0.attention_pair_bias.mha.linear_o.weight', True)",
+    "key": "('blocks.0.attention_pair_bias.mha.linear_o.weight', True)",
+    "master_shape": [
+     128,
+     128
+    ],
+    "resolved": true,
+    "names": [
+     "atom_attn_dec.atom_transformer.blocks.0.attention_pair_bias.mha.linear_o.weight"
+    ],
+    "transpose": true,
+    "dtype_match": [
+     "N"
+    ],
+    "orientation_ambiguous": false
+   },
+   {
+    "path": "dm.dec.at._wc.('blocks.0.attention_pair_bias.mha.linear_q.bias', False)",
+    "key": "('blocks.0.attention_pair_bias.mha.linear_q.bias', False)",
+    "master_shape": [
+     128
+    ],
+    "resolved": true,
+    "names": [
+     "atom_attn_dec.atom_transformer.blocks.0.attention_pair_bias.mha.linear_q.bias"
+    ],
+    "transpose": false,
+    "dtype_match": [
+     "N"
+    ],
+    "orientation_ambiguous": false
+   },
+   {
+    "path": "dm.dec.at._wc.('blocks.0.attention_pair_bias.mha.linear_q.weight', True)",
+    "key": "('blocks.0.attention_pair_bias.mha.linear_q.weight', True)",
+    "master_shape": [
+     128,
+     128
+    ],
+    "resolved": true,
+    "names": [
+     "atom_attn_dec.atom_transformer.blocks.0.attention_pair_bias.mha.linear_q.weight"
+    ],
+    "transpose": true,
+    "dtype_match": [
+     "N"
+    ],
+    "orientation_ambiguous": false
+   },
+   {
+    "path": "dm.dec.at._wc.('blocks.0.attention_pair_bias.mha.linear_v.weight', True)",
+    "key": "('blocks.0.attention_pair_bias.mha.linear_v.weight', True)",
+    "master_shape": [
+     128,
+     128
+    ],
+    "resolved": true,
+    "names": [
+     "atom_attn_dec.atom_transformer.blocks.0.attention_pair_bias.mha.linear_v.weight"
+    ],
+    "transpose": true,
+    "dtype_match": [
+     "N"
+    ],
+    "orientation_ambiguous": false
+   },
+   {
+    "path": "dm.dec.at._wc.('blocks.0.conditioned_transition.linear_g.bias', False)",
+    "key": "('blocks.0.conditioned_transition.linear_g.bias', False)",
+    "master_shape": [
+     128
+    ],
+    "resolved": true,
+    "names": [
+     "atom_attn_dec.atom_transformer.blocks.0.conditioned_transition.linear_g.bias"
+    ],
+    "transpose": false,
+    "dtype_match": [
+     "N"
+    ],
+    "orientation_ambiguous": false
+   },
+   {
+    "path": "dm.dec.at._wc.('blocks.0.conditioned_transition.linear_g.weight', True)",
+    "key": "('blocks.0.conditioned_transition.linear_g.weight', True)",
+    "master_shape": [
+     128,
+     128
+    ],
+    "resolved": true,
+    "names": [
+     "atom_attn_dec.atom_transformer.blocks.0.conditioned_transition.linear_g.weight"
+    ],
+    "transpose": true,
+    "dtype_match": [
+     "N"
+    ],
+    "orientation_ambiguous": false
+   },
+   {
+    "path": "dm.dec.at._wc.('blocks.0.conditioned_transition.linear_out.weight', True)",
+    "key": "('blocks.0.conditioned_transition.linear_out.weight', True)",
+    "master_shape": [
+     256,
+     128
+    ],
+    "resolved": true,
+    "names": [
+     "atom_attn_dec.atom_transformer.blocks.0.conditioned_transition.linear_out.weight"
+    ],
+    "transpose": true,
+    "dtype_match": [
+     "N"
+    ],
+    "orientation_ambiguous": false
+   },
+   {
+    "path": "dm.dec.at._wc.('blocks.0.conditioned_transition.swiglu.linear_a.weight', True)",
+    "key": "('blocks.0.conditioned_transition.swiglu.linear_a.weight', True)",
+    "master_shape": [
+     128,
+     256
+    ],
+    "resolved": true,
+    "names": [
+     "atom_attn_dec.atom_transformer.blocks.0.conditioned_transition.swiglu.linear_a.weight"
+    ],
+    "transpose": true,
+    "dtype_match": [
+     "N"
+    ],
+    "orientation_ambiguous": false
+   },
+   {
+    "path": "dm.dec.at._wc.('blocks.0.conditioned_transition.swiglu.linear_b.weight', True)",
+    "key": "('blocks.0.conditioned_transition.swiglu.linear_b.weight', True)",
+    "master_shape": [
+     128,
+     256
+    ],
+    "resolved": true,
+    "names": [
+     "atom_attn_dec.atom_transformer.blocks.0.conditioned_transition.swiglu.linear_b.weight"
+    ],
+    "transpose": true,
+    "dtype_match": [
+     "N"
+    ],
+    "orientation_ambiguous": false
+   },
+   {
+    "path": "dm.dec.at._wc.('blocks.1.attention_pair_bias.linear_ada_out.bias', False)",
+    "key": "('blocks.1.attention_pair_bias.linear_ada_out.bias', False)",
+    "master_shape": [
+     128
+    ],
+    "resolved": true,
+    "names": [
+     "atom_attn_dec.atom_transformer.blocks.1.attention_pair_bias.linear_ada_out.bias"
+    ],
+    "transpose": false,
+    "dtype_match": [
+     "N"
+    ],
+    "orientation_ambiguous": false
+   },
+   {
+    "path": "dm.dec.at._wc.('blocks.1.attention_pair_bias.linear_ada_out.weight', True)",
+    "key": "('blocks.1.attention_pair_bias.linear_ada_out.weight', True)",
+    "master_shape": [
+     128,
+     128
+    ],
+    "resolved": true,
+    "names": [
+     "atom_attn_dec.atom_transformer.blocks.1.attention_pair_bias.linear_ada_out.weight"
+    ],
+    "transpose": true,
+    "dtype_match": [
+     "N"
+    ],
+    "orientation_ambiguous": false
+   },
+   {
+    "path": "dm.dec.at._wc.('blocks.1.attention_pair_bias.linear_z.weight', True)",
+    "key": "('blocks.1.attention_pair_bias.linear_z.weight', True)",
+    "master_shape": [
+     16,
+     4
+    ],
+    "resolved": true,
+    "names": [
+     "atom_attn_dec.atom_transformer.blocks.1.attention_pair_bias.linear_z.weight"
+    ],
+    "transpose": true,
+    "dtype_match": [
+     "N"
+    ],
+    "orientation_ambiguous": false
+   },
+   {
+    "path": "dm.dec.at._wc.('blocks.1.attention_pair_bias.mha.linear_g.weight', True)",
+    "key": "('blocks.1.attention_pair_bias.mha.linear_g.weight', True)",
+    "master_shape": [
+     128,
+     128
+    ],
+    "resolved": true,
+    "names": [
+     "atom_attn_dec.atom_transformer.blocks.1.attention_pair_bias.mha.linear_g.weight"
+    ],
+    "transpose": true,
+    "dtype_match": [
+     "N"
+    ],
+    "orientation_ambiguous": false
+   },
+   {
+    "path": "dm.dec.at._wc.('blocks.1.attention_pair_bias.mha.linear_k.weight', True)",
+    "key": "('blocks.1.attention_pair_bias.mha.linear_k.weight', True)",
+    "master_shape": [
+     128,
+     128
+    ],
+    "resolved": true,
+    "names": [
+     "atom_attn_dec.atom_transformer.blocks.1.attention_pair_bias.mha.linear_k.weight"
+    ],
+    "transpose": true,
+    "dtype_match": [
+     "N"
+    ],
+    "orientation_ambiguous": false
+   },
+   {
+    "path": "dm.dec.at._wc.('blocks.1.attention_pair_bias.mha.linear_o.weight', True)",
+    "key": "('blocks.1.attention_pair_bias.mha.linear_o.weight', True)",
+    "master_shape": [
+     128,
+     128
+    ],
+    "resolved": true,
+    "names": [
+     "atom_attn_dec.atom_transformer.blocks.1.attention_pair_bias.mha.linear_o.weight"
+    ],
+    "transpose": true,
+    "dtype_match": [
+     "N"
+    ],
+    "orientation_ambiguous": false
+   },
+   {
+    "path": "dm.dec.at._wc.('blocks.1.attention_pair_bias.mha.linear_q.bias', False)",
+    "key": "('blocks.1.attention_pair_bias.mha.linear_q.bias', False)",
+    "master_shape": [
+     128
+    ],
+    "resolved": true,
+    "names": [
+     "atom_attn_dec.atom_transformer.blocks.1.attention_pair_bias.mha.linear_q.bias"
+    ],
+    "transpose": false,
+    "dtype_match": [
+     "N"
+    ],
+    "orientation_ambiguous": false
+   },
+   {
+    "path": "dm.dec.at._wc.('blocks.1.attention_pair_bias.mha.linear_q.weight', True)",
+    "key": "('blocks.1.attention_pair_bias.mha.linear_q.weight', True)",
+    "master_shape": [
+     128,
+     128
+    ],
+    "resolved": true,
+    "names": [
+     "atom_attn_dec.atom_transformer.blocks.1.attention_pair_bias.mha.linear_q.weight"
+    ],
+    "transpose": true,
+    "dtype_match": [
+     "N"
+    ],
+    "orientation_ambiguous": false
+   },
+   {
+    "path": "dm.dec.at._wc.('blocks.1.attention_pair_bias.mha.linear_v.weight', True)",
+    "key": "('blocks.1.attention_pair_bias.mha.linear_v.weight', True)",
+    "master_shape": [
+     128,
+     128
+    ],
+    "resolved": true,
+    "names": [
+     "atom_attn_dec.atom_transformer.blocks.1.attention_pair_bias.mha.linear_v.weight"
+    ],
+    "transpose": true,
+    "dtype_match": [
+     "N"
+    ],
+    "orientation_ambiguous": false
+   },
+   {
+    "path": "dm.dec.at._wc.('blocks.1.conditioned_transition.linear_g.bias', False)",
+    "key": "('blocks.1.conditioned_transition.linear_g.bias', False)",
+    "master_shape": [
+     128
+    ],
+    "resolved": true,
+    "names": [
+     "atom_attn_dec.atom_transformer.blocks.1.conditioned_transition.linear_g.bias"
+    ],
+    "transpose": false,
+    "dtype_match": [
+     "N"
+    ],
+    "orientation_ambiguous": false
+   },
+   {
+    "path": "dm.dec.at._wc.('blocks.1.conditioned_transition.linear_g.weight', True)",
+    "key": "('blocks.1.conditioned_transition.linear_g.weight', True)",
+    "master_shape": [
+     128,
+     128
+    ],
+    "resolved": true,
+    "names": [
+     "atom_attn_dec.atom_transformer.blocks.1.conditioned_transition.linear_g.weight"
+    ],
+    "transpose": true,
+    "dtype_match": [
+     "N"
+    ],
+    "orientation_ambiguous": false
+   },
+   {
+    "path": "dm.dec.at._wc.('blocks.1.conditioned_transition.linear_out.weight', True)",
+    "key": "('blocks.1.conditioned_transition.linear_out.weight', True)",
+    "master_shape": [
+     256,
+     128
+    ],
+    "resolved": true,
+    "names": [
+     "atom_attn_dec.atom_transformer.blocks.1.conditioned_transition.linear_out.weight"
+    ],
+    "transpose": true,
+    "dtype_match": [
+     "N"
+    ],
+    "orientation_ambiguous": false
+   },
+   {
+    "path": "dm.dec.at._wc.('blocks.1.conditioned_transition.swiglu.linear_a.weight', True)",
+    "key": "('blocks.1.conditioned_transition.swiglu.linear_a.weight', True)",
+    "master_shape": [
+     128,
+     256
+    ],
+    "resolved": true,
+    "names": [
+     "atom_attn_dec.atom_transformer.blocks.1.conditioned_transition.swiglu.linear_a.weight"
+    ],
+    "transpose": true,
+    "dtype_match": [
+     "N"
+    ],
+    "orientation_ambiguous": false
+   },
+   {
+    "path": "dm.dec.at._wc.('blocks.1.conditioned_transition.swiglu.linear_b.weight', True)",
+    "key": "('blocks.1.conditioned_transition.swiglu.linear_b.weight', True)",
+    "master_shape": [
+     128,
+     256
+    ],
+    "resolved": true,
+    "names": [
+     "atom_attn_dec.atom_transformer.blocks.1.conditioned_transition.swiglu.linear_b.weight"
+    ],
+    "transpose": true,
+    "dtype_match": [
+     "N"
+    ],
+    "orientation_ambiguous": false
+   },
+   {
+    "path": "dm.dec.at._wc.('blocks.2.attention_pair_bias.linear_ada_out.bias', False)",
+    "key": "('blocks.2.attention_pair_bias.linear_ada_out.bias', False)",
+    "master_shape": [
+     128
+    ],
+    "resolved": true,
+    "names": [
+     "atom_attn_dec.atom_transformer.blocks.2.attention_pair_bias.linear_ada_out.bias"
+    ],
+    "transpose": false,
+    "dtype_match": [
+     "N"
+    ],
+    "orientation_ambiguous": false
+   },
+   {
+    "path": "dm.dec.at._wc.('blocks.2.attention_pair_bias.linear_ada_out.weight', True)",
+    "key": "('blocks.2.attention_pair_bias.linear_ada_out.weight', True)",
+    "master_shape": [
+     128,
+     128
+    ],
+    "resolved": true,
+    "names": [
+     "atom_attn_dec.atom_transformer.blocks.2.attention_pair_bias.linear_ada_out.weight"
+    ],
+    "transpose": true,
+    "dtype_match": [
+     "N"
+    ],
+    "orientation_ambiguous": false
+   },
+   {
+    "path": "dm.dec.at._wc.('blocks.2.attention_pair_bias.linear_z.weight', True)",
+    "key": "('blocks.2.attention_pair_bias.linear_z.weight', True)",
+    "master_shape": [
+     16,
+     4
+    ],
+    "resolved": true,
+    "names": [
+     "atom_attn_dec.atom_transformer.blocks.2.attention_pair_bias.linear_z.weight"
+    ],
+    "transpose": true,
+    "dtype_match": [
+     "N"
+    ],
+    "orientation_ambiguous": false
+   },
+   {
+    "path": "dm.dec.at._wc.('blocks.2.attention_pair_bias.mha.linear_g.weight', True)",
+    "key": "('blocks.2.attention_pair_bias.mha.linear_g.weight', True)",
+    "master_shape": [
+     128,
+     128
+    ],
+    "resolved": true,
+    "names": [
+     "atom_attn_dec.atom_transformer.blocks.2.attention_pair_bias.mha.linear_g.weight"
+    ],
+    "transpose": true,
+    "dtype_match": [
+     "N"
+    ],
+    "orientation_ambiguous": false
+   },
+   {
+    "path": "dm.dec.at._wc.('blocks.2.attention_pair_bias.mha.linear_k.weight', True)",
+    "key": "('blocks.2.attention_pair_bias.mha.linear_k.weight', True)",
+    "master_shape": [
+     128,
+     128
+    ],
+    "resolved": true,
+    "names": [
+     "atom_attn_dec.atom_transformer.blocks.2.attention_pair_bias.mha.linear_k.weight"
+    ],
+    "transpose": true,
+    "dtype_match": [
+     "N"
+    ],
+    "orientation_ambiguous": false
+   },
+   {
+    "path": "dm.dec.at._wc.('blocks.2.attention_pair_bias.mha.linear_o.weight', True)",
+    "key": "('blocks.2.attention_pair_bias.mha.linear_o.weight', True)",
+    "master_shape": [
+     128,
+     128
+    ],
+    "resolved": true,
+    "names": [
+     "atom_attn_dec.atom_transformer.blocks.2.attention_pair_bias.mha.linear_o.weight"
+    ],
+    "transpose": true,
+    "dtype_match": [
+     "N"
+    ],
+    "orientation_ambiguous": false
+   },
+   {
+    "path": "dm.dec.at._wc.('blocks.2.attention_pair_bias.mha.linear_q.bias', False)",
+    "key": "('blocks.2.attention_pair_bias.mha.linear_q.bias', False)",
+    "master_shape": [
+     128
+    ],
+    "resolved": true,
+    "names": [
+     "atom_attn_dec.atom_transformer.blocks.2.attention_pair_bias.mha.linear_q.bias"
+    ],
+    "transpose": false,
+    "dtype_match": [
+     "N"
+    ],
+    "orientation_ambiguous": false
+   },
+   {
+    "path": "dm.dec.at._wc.('blocks.2.attention_pair_bias.mha.linear_q.weight', True)",
+    "key": "('blocks.2.attention_pair_bias.mha.linear_q.weight', True)",
+    "master_shape": [
+     128,
+     128
+    ],
+    "resolved": true,
+    "names": [
+     "atom_attn_dec.atom_transformer.blocks.2.attention_pair_bias.mha.linear_q.weight"
+    ],
+    "transpose": true,
+    "dtype_match": [
+     "N"
+    ],
+    "orientation_ambiguous": false
+   },
+   {
+    "path": "dm.dec.at._wc.('blocks.2.attention_pair_bias.mha.linear_v.weight', True)",
+    "key": "('blocks.2.attention_pair_bias.mha.linear_v.weight', True)",
+    "master_shape": [
+     128,
+     128
+    ],
+    "resolved": true,
+    "names": [
+     "atom_attn_dec.atom_transformer.blocks.2.attention_pair_bias.mha.linear_v.weight"
+    ],
+    "transpose": true,
+    "dtype_match": [
+     "N"
+    ],
+    "orientation_ambiguous": false
+   },
+   {
+    "path": "dm.dec.at._wc.('blocks.2.conditioned_transition.linear_g.bias', False)",
+    "key": "('blocks.2.conditioned_transition.linear_g.bias', False)",
+    "master_shape": [
+     128
+    ],
+    "resolved": true,
+    "names": [
+     "atom_attn_dec.atom_transformer.blocks.2.conditioned_transition.linear_g.bias"
+    ],
+    "transpose": false,
+    "dtype_match": [
+     "N"
+    ],
+    "orientation_ambiguous": false
+   },
+   {
+    "path": "dm.dec.at._wc.('blocks.2.conditioned_transition.linear_g.weight', True)",
+    "key": "('blocks.2.conditioned_transition.linear_g.weight', True)",
+    "master_shape": [
+     128,
+     128
+    ],
+    "resolved": true,
+    "names": [
+     "atom_attn_dec.atom_transformer.blocks.2.conditioned_transition.linear_g.weight"
+    ],
+    "transpose": true,
+    "dtype_match": [
+     "N"
+    ],
+    "orientation_ambiguous": false
+   },
+   {
+    "path": "dm.dec.at._wc.('blocks.2.conditioned_transition.linear_out.weight', True)",
+    "key": "('blocks.2.conditioned_transition.linear_out.weight', True)",
+    "master_shape": [
+     256,
+     128
+    ],
+    "resolved": true,
+    "names": [
+     "atom_attn_dec.atom_transformer.blocks.2.conditioned_transition.linear_out.weight"
+    ],
+    "transpose": true,
+    "dtype_match": [
+     "N"
+    ],
+    "orientation_ambiguous": false
+   },
+   {
+    "path": "dm.dec.at._wc.('blocks.2.conditioned_transition.swiglu.linear_a.weight', True)",
+    "key": "('blocks.2.conditioned_transition.swiglu.linear_a.weight', True)",
+    "master_shape": [
+     128,
+     256
+    ],
+    "resolved": true,
+    "names": [
+     "atom_attn_dec.atom_transformer.blocks.2.conditioned_transition.swiglu.linear_a.weight"
+    ],
+    "transpose": true,
+    "dtype_match": [
+     "N"
+    ],
+    "orientation_ambiguous": false
+   },
+   {
+    "path": "dm.dec.at._wc.('blocks.2.conditioned_transition.swiglu.linear_b.weight', True)",
+    "key": "('blocks.2.conditioned_transition.swiglu.linear_b.weight', True)",
+    "master_shape": [
+     128,
+     256
+    ],
+    "resolved": true,
+    "names": [
+     "atom_attn_dec.atom_transformer.blocks.2.conditioned_transition.swiglu.linear_b.weight"
+    ],
+    "transpose": true,
+    "dtype_match": [
+     "N"
+    ],
+    "orientation_ambiguous": false
+   },
+   {
+    "path": "dm.dit.blocks.0.qkv_b",
+    "key": "'qkv_b'",
+    "master_shape": [
+     3072
+    ],
+    "kind": "qkv_b",
+    "roundtrip_bit_exact": true,
+    "pad_max_abs": 0.0,
+    "resolved": true,
+    "names": [
+     "diffusion_transformer.blocks.0.attention_pair_bias.mha.linear_q.bias"
+    ],
+    "dtype_match": [
+     "N"
+    ]
+   },
+   {
+    "path": "dm.dit.blocks.0.qkv_w",
+    "key": "'qkv_w'",
+    "master_shape": [
+     768,
+     3072
+    ],
+    "kind": "qkv_w",
+    "roundtrip_bit_exact": true,
+    "pad_max_abs": 0.0,
+    "resolved": true,
+    "names": [
+     "diffusion_transformer.blocks.0.attention_pair_bias.mha.linear_q.weight",
+     "diffusion_transformer.blocks.0.attention_pair_bias.mha.linear_k.weight",
+     "diffusion_transformer.blocks.0.attention_pair_bias.mha.linear_v.weight"
+    ],
+    "dtype_match": [
+     "N",
+     "N",
+     "N"
+    ]
+   },
+   {
+    "path": "dm.dit.blocks.1.qkv_b",
+    "key": "'qkv_b'",
+    "master_shape": [
+     3072
+    ],
+    "kind": "qkv_b",
+    "roundtrip_bit_exact": true,
+    "pad_max_abs": 0.0,
+    "resolved": true,
+    "names": [
+     "diffusion_transformer.blocks.1.attention_pair_bias.mha.linear_q.bias"
+    ],
+    "dtype_match": [
+     "N"
+    ]
+   },
+   {
+    "path": "dm.dit.blocks.1.qkv_w",
+    "key": "'qkv_w'",
+    "master_shape": [
+     768,
+     3072
+    ],
+    "kind": "qkv_w",
+    "roundtrip_bit_exact": true,
+    "pad_max_abs": 0.0,
+    "resolved": true,
+    "names": [
+     "diffusion_transformer.blocks.1.attention_pair_bias.mha.linear_q.weight",
+     "diffusion_transformer.blocks.1.attention_pair_bias.mha.linear_k.weight",
+     "diffusion_transformer.blocks.1.attention_pair_bias.mha.linear_v.weight"
+    ],
+    "dtype_match": [
+     "N",
+     "N",
+     "N"
+    ]
+   },
+   {
+    "path": "dm.dit.blocks.10.qkv_b",
+    "key": "'qkv_b'",
+    "master_shape": [
+     3072
+    ],
+    "kind": "qkv_b",
+    "roundtrip_bit_exact": true,
+    "pad_max_abs": 0.0,
+    "resolved": true,
+    "names": [
+     "diffusion_transformer.blocks.10.attention_pair_bias.mha.linear_q.bias"
+    ],
+    "dtype_match": [
+     "N"
+    ]
+   },
+   {
+    "path": "dm.dit.blocks.10.qkv_w",
+    "key": "'qkv_w'",
+    "master_shape": [
+     768,
+     3072
+    ],
+    "kind": "qkv_w",
+    "roundtrip_bit_exact": true,
+    "pad_max_abs": 0.0,
+    "resolved": true,
+    "names": [
+     "diffusion_transformer.blocks.10.attention_pair_bias.mha.linear_q.weight",
+     "diffusion_transformer.blocks.10.attention_pair_bias.mha.linear_k.weight",
+     "diffusion_transformer.blocks.10.attention_pair_bias.mha.linear_v.weight"
+    ],
+    "dtype_match": [
+     "N",
+     "N",
+     "N"
+    ]
+   },
+   {
+    "path": "dm.dit.blocks.11.qkv_b",
+    "key": "'qkv_b'",
+    "master_shape": [
+     3072
+    ],
+    "kind": "qkv_b",
+    "roundtrip_bit_exact": true,
+    "pad_max_abs": 0.0,
+    "resolved": true,
+    "names": [
+     "diffusion_transformer.blocks.11.attention_pair_bias.mha.linear_q.bias"
+    ],
+    "dtype_match": [
+     "N"
+    ]
+   },
+   {
+    "path": "dm.dit.blocks.11.qkv_w",
+    "key": "'qkv_w'",
+    "master_shape": [
+     768,
+     3072
+    ],
+    "kind": "qkv_w",
+    "roundtrip_bit_exact": true,
+    "pad_max_abs": 0.0,
+    "resolved": true,
+    "names": [
+     "diffusion_transformer.blocks.11.attention_pair_bias.mha.linear_q.weight",
+     "diffusion_transformer.blocks.11.attention_pair_bias.mha.linear_k.weight",
+     "diffusion_transformer.blocks.11.attention_pair_bias.mha.linear_v.weight"
+    ],
+    "dtype_match": [
+     "N",
+     "N",
+     "N"
+    ]
+   },
+   {
+    "path": "dm.dit.blocks.12.qkv_b",
+    "key": "'qkv_b'",
+    "master_shape": [
+     3072
+    ],
+    "kind": "qkv_b",
+    "roundtrip_bit_exact": true,
+    "pad_max_abs": 0.0,
+    "resolved": true,
+    "names": [
+     "diffusion_transformer.blocks.12.attention_pair_bias.mha.linear_q.bias"
+    ],
+    "dtype_match": [
+     "N"
+    ]
+   },
+   {
+    "path": "dm.dit.blocks.12.qkv_w",
+    "key": "'qkv_w'",
+    "master_shape": [
+     768,
+     3072
+    ],
+    "kind": "qkv_w",
+    "roundtrip_bit_exact": true,
+    "pad_max_abs": 0.0,
+    "resolved": true,
+    "names": [
+     "diffusion_transformer.blocks.12.attention_pair_bias.mha.linear_q.weight",
+     "diffusion_transformer.blocks.12.attention_pair_bias.mha.linear_k.weight",
+     "diffusion_transformer.blocks.12.attention_pair_bias.mha.linear_v.weight"
+    ],
+    "dtype_match": [
+     "N",
+     "N",
+     "N"
+    ]
+   },
+   {
+    "path": "dm.dit.blocks.13.qkv_b",
+    "key": "'qkv_b'",
+    "master_shape": [
+     3072
+    ],
+    "kind": "qkv_b",
+    "roundtrip_bit_exact": true,
+    "pad_max_abs": 0.0,
+    "resolved": true,
+    "names": [
+     "diffusion_transformer.blocks.13.attention_pair_bias.mha.linear_q.bias"
+    ],
+    "dtype_match": [
+     "N"
+    ]
+   },
+   {
+    "path": "dm.dit.blocks.13.qkv_w",
+    "key": "'qkv_w'",
+    "master_shape": [
+     768,
+     3072
+    ],
+    "kind": "qkv_w",
+    "roundtrip_bit_exact": true,
+    "pad_max_abs": 0.0,
+    "resolved": true,
+    "names": [
+     "diffusion_transformer.blocks.13.attention_pair_bias.mha.linear_q.weight",
+     "diffusion_transformer.blocks.13.attention_pair_bias.mha.linear_k.weight",
+     "diffusion_transformer.blocks.13.attention_pair_bias.mha.linear_v.weight"
+    ],
+    "dtype_match": [
+     "N",
+     "N",
+     "N"
+    ]
+   },
+   {
+    "path": "dm.dit.blocks.14.qkv_b",
+    "key": "'qkv_b'",
+    "master_shape": [
+     3072
+    ],
+    "kind": "qkv_b",
+    "roundtrip_bit_exact": true,
+    "pad_max_abs": 0.0,
+    "resolved": true,
+    "names": [
+     "diffusion_transformer.blocks.14.attention_pair_bias.mha.linear_q.bias"
+    ],
+    "dtype_match": [
+     "N"
+    ]
+   },
+   {
+    "path": "dm.dit.blocks.14.qkv_w",
+    "key": "'qkv_w'",
+    "master_shape": [
+     768,
+     3072
+    ],
+    "kind": "qkv_w",
+    "roundtrip_bit_exact": true,
+    "pad_max_abs": 0.0,
+    "resolved": true,
+    "names": [
+     "diffusion_transformer.blocks.14.attention_pair_bias.mha.linear_q.weight",
+     "diffusion_transformer.blocks.14.attention_pair_bias.mha.linear_k.weight",
+     "diffusion_transformer.blocks.14.attention_pair_bias.mha.linear_v.weight"
+    ],
+    "dtype_match": [
+     "N",
+     "N",
+     "N"
+    ]
+   },
+   {
+    "path": "dm.dit.blocks.15.qkv_b",
+    "key": "'qkv_b'",
+    "master_shape": [
+     3072
+    ],
+    "kind": "qkv_b",
+    "roundtrip_bit_exact": true,
+    "pad_max_abs": 0.0,
+    "resolved": true,
+    "names": [
+     "diffusion_transformer.blocks.15.attention_pair_bias.mha.linear_q.bias"
+    ],
+    "dtype_match": [
+     "N"
+    ]
+   },
+   {
+    "path": "dm.dit.blocks.15.qkv_w",
+    "key": "'qkv_w'",
+    "master_shape": [
+     768,
+     3072
+    ],
+    "kind": "qkv_w",
+    "roundtrip_bit_exact": true,
+    "pad_max_abs": 0.0,
+    "resolved": true,
+    "names": [
+     "diffusion_transformer.blocks.15.attention_pair_bias.mha.linear_q.weight",
+     "diffusion_transformer.blocks.15.attention_pair_bias.mha.linear_k.weight",
+     "diffusion_transformer.blocks.15.attention_pair_bias.mha.linear_v.weight"
+    ],
+    "dtype_match": [
+     "N",
+     "N",
+     "N"
+    ]
+   },
+   {
+    "path": "dm.dit.blocks.16.qkv_b",
+    "key": "'qkv_b'",
+    "master_shape": [
+     3072
+    ],
+    "kind": "qkv_b",
+    "roundtrip_bit_exact": true,
+    "pad_max_abs": 0.0,
+    "resolved": true,
+    "names": [
+     "diffusion_transformer.blocks.16.attention_pair_bias.mha.linear_q.bias"
+    ],
+    "dtype_match": [
+     "N"
+    ]
+   },
+   {
+    "path": "dm.dit.blocks.16.qkv_w",
+    "key": "'qkv_w'",
+    "master_shape": [
+     768,
+     3072
+    ],
+    "kind": "qkv_w",
+    "roundtrip_bit_exact": true,
+    "pad_max_abs": 0.0,
+    "resolved": true,
+    "names": [
+     "diffusion_transformer.blocks.16.attention_pair_bias.mha.linear_q.weight",
+     "diffusion_transformer.blocks.16.attention_pair_bias.mha.linear_k.weight",
+     "diffusion_transformer.blocks.16.attention_pair_bias.mha.linear_v.weight"
+    ],
+    "dtype_match": [
+     "N",
+     "N",
+     "N"
+    ]
+   },
+   {
+    "path": "dm.dit.blocks.17.qkv_b",
+    "key": "'qkv_b'",
+    "master_shape": [
+     3072
+    ],
+    "kind": "qkv_b",
+    "roundtrip_bit_exact": true,
+    "pad_max_abs": 0.0,
+    "resolved": true,
+    "names": [
+     "diffusion_transformer.blocks.17.attention_pair_bias.mha.linear_q.bias"
+    ],
+    "dtype_match": [
+     "N"
+    ]
+   },
+   {
+    "path": "dm.dit.blocks.17.qkv_w",
+    "key": "'qkv_w'",
+    "master_shape": [
+     768,
+     3072
+    ],
+    "kind": "qkv_w",
+    "roundtrip_bit_exact": true,
+    "pad_max_abs": 0.0,
+    "resolved": true,
+    "names": [
+     "diffusion_transformer.blocks.17.attention_pair_bias.mha.linear_q.weight",
+     "diffusion_transformer.blocks.17.attention_pair_bias.mha.linear_k.weight",
+     "diffusion_transformer.blocks.17.attention_pair_bias.mha.linear_v.weight"
+    ],
+    "dtype_match": [
+     "N",
+     "N",
+     "N"
+    ]
+   },
+   {
+    "path": "dm.dit.blocks.18.qkv_b",
+    "key": "'qkv_b'",
+    "master_shape": [
+     3072
+    ],
+    "kind": "qkv_b",
+    "roundtrip_bit_exact": true,
+    "pad_max_abs": 0.0,
+    "resolved": true,
+    "names": [
+     "diffusion_transformer.blocks.18.attention_pair_bias.mha.linear_q.bias"
+    ],
+    "dtype_match": [
+     "N"
+    ]
+   },
+   {
+    "path": "dm.dit.blocks.18.qkv_w",
+    "key": "'qkv_w'",
+    "master_shape": [
+     768,
+     3072
+    ],
+    "kind": "qkv_w",
+    "roundtrip_bit_exact": true,
+    "pad_max_abs": 0.0,
+    "resolved": true,
+    "names": [
+     "diffusion_transformer.blocks.18.attention_pair_bias.mha.linear_q.weight",
+     "diffusion_transformer.blocks.18.attention_pair_bias.mha.linear_k.weight",
+     "diffusion_transformer.blocks.18.attention_pair_bias.mha.linear_v.weight"
+    ],
+    "dtype_match": [
+     "N",
+     "N",
+     "N"
+    ]
+   },
+   {
+    "path": "dm.dit.blocks.19.qkv_b",
+    "key": "'qkv_b'",
+    "master_shape": [
+     3072
+    ],
+    "kind": "qkv_b",
+    "roundtrip_bit_exact": true,
+    "pad_max_abs": 0.0,
+    "resolved": true,
+    "names": [
+     "diffusion_transformer.blocks.19.attention_pair_bias.mha.linear_q.bias"
+    ],
+    "dtype_match": [
+     "N"
+    ]
+   },
+   {
+    "path": "dm.dit.blocks.19.qkv_w",
+    "key": "'qkv_w'",
+    "master_shape": [
+     768,
+     3072
+    ],
+    "kind": "qkv_w",
+    "roundtrip_bit_exact": true,
+    "pad_max_abs": 0.0,
+    "resolved": true,
+    "names": [
+     "diffusion_transformer.blocks.19.attention_pair_bias.mha.linear_q.weight",
+     "diffusion_transformer.blocks.19.attention_pair_bias.mha.linear_k.weight",
+     "diffusion_transformer.blocks.19.attention_pair_bias.mha.linear_v.weight"
+    ],
+    "dtype_match": [
+     "N",
+     "N",
+     "N"
+    ]
+   },
+   {
+    "path": "dm.dit.blocks.2.qkv_b",
+    "key": "'qkv_b'",
+    "master_shape": [
+     3072
+    ],
+    "kind": "qkv_b",
+    "roundtrip_bit_exact": true,
+    "pad_max_abs": 0.0,
+    "resolved": true,
+    "names": [
+     "diffusion_transformer.blocks.2.attention_pair_bias.mha.linear_q.bias"
+    ],
+    "dtype_match": [
+     "N"
+    ]
+   },
+   {
+    "path": "dm.dit.blocks.2.qkv_w",
+    "key": "'qkv_w'",
+    "master_shape": [
+     768,
+     3072
+    ],
+    "kind": "qkv_w",
+    "roundtrip_bit_exact": true,
+    "pad_max_abs": 0.0,
+    "resolved": true,
+    "names": [
+     "diffusion_transformer.blocks.2.attention_pair_bias.mha.linear_q.weight",
+     "diffusion_transformer.blocks.2.attention_pair_bias.mha.linear_k.weight",
+     "diffusion_transformer.blocks.2.attention_pair_bias.mha.linear_v.weight"
+    ],
+    "dtype_match": [
+     "N",
+     "N",
+     "N"
+    ]
+   },
+   {
+    "path": "dm.dit.blocks.20.qkv_b",
+    "key": "'qkv_b'",
+    "master_shape": [
+     3072
+    ],
+    "kind": "qkv_b",
+    "roundtrip_bit_exact": true,
+    "pad_max_abs": 0.0,
+    "resolved": true,
+    "names": [
+     "diffusion_transformer.blocks.20.attention_pair_bias.mha.linear_q.bias"
+    ],
+    "dtype_match": [
+     "N"
+    ]
+   },
+   {
+    "path": "dm.dit.blocks.20.qkv_w",
+    "key": "'qkv_w'",
+    "master_shape": [
+     768,
+     3072
+    ],
+    "kind": "qkv_w",
+    "roundtrip_bit_exact": true,
+    "pad_max_abs": 0.0,
+    "resolved": true,
+    "names": [
+     "diffusion_transformer.blocks.20.attention_pair_bias.mha.linear_q.weight",
+     "diffusion_transformer.blocks.20.attention_pair_bias.mha.linear_k.weight",
+     "diffusion_transformer.blocks.20.attention_pair_bias.mha.linear_v.weight"
+    ],
+    "dtype_match": [
+     "N",
+     "N",
+     "N"
+    ]
+   },
+   {
+    "path": "dm.dit.blocks.21.qkv_b",
+    "key": "'qkv_b'",
+    "master_shape": [
+     3072
+    ],
+    "kind": "qkv_b",
+    "roundtrip_bit_exact": true,
+    "pad_max_abs": 0.0,
+    "resolved": true,
+    "names": [
+     "diffusion_transformer.blocks.21.attention_pair_bias.mha.linear_q.bias"
+    ],
+    "dtype_match": [
+     "N"
+    ]
+   },
+   {
+    "path": "dm.dit.blocks.21.qkv_w",
+    "key": "'qkv_w'",
+    "master_shape": [
+     768,
+     3072
+    ],
+    "kind": "qkv_w",
+    "roundtrip_bit_exact": true,
+    "pad_max_abs": 0.0,
+    "resolved": true,
+    "names": [
+     "diffusion_transformer.blocks.21.attention_pair_bias.mha.linear_q.weight",
+     "diffusion_transformer.blocks.21.attention_pair_bias.mha.linear_k.weight",
+     "diffusion_transformer.blocks.21.attention_pair_bias.mha.linear_v.weight"
+    ],
+    "dtype_match": [
+     "N",
+     "N",
+     "N"
+    ]
+   },
+   {
+    "path": "dm.dit.blocks.22.qkv_b",
+    "key": "'qkv_b'",
+    "master_shape": [
+     3072
+    ],
+    "kind": "qkv_b",
+    "roundtrip_bit_exact": true,
+    "pad_max_abs": 0.0,
+    "resolved": true,
+    "names": [
+     "diffusion_transformer.blocks.22.attention_pair_bias.mha.linear_q.bias"
+    ],
+    "dtype_match": [
+     "N"
+    ]
+   },
+   {
+    "path": "dm.dit.blocks.22.qkv_w",
+    "key": "'qkv_w'",
+    "master_shape": [
+     768,
+     3072
+    ],
+    "kind": "qkv_w",
+    "roundtrip_bit_exact": true,
+    "pad_max_abs": 0.0,
+    "resolved": true,
+    "names": [
+     "diffusion_transformer.blocks.22.attention_pair_bias.mha.linear_q.weight",
+     "diffusion_transformer.blocks.22.attention_pair_bias.mha.linear_k.weight",
+     "diffusion_transformer.blocks.22.attention_pair_bias.mha.linear_v.weight"
+    ],
+    "dtype_match": [
+     "N",
+     "N",
+     "N"
+    ]
+   },
+   {
+    "path": "dm.dit.blocks.23.qkv_b",
+    "key": "'qkv_b'",
+    "master_shape": [
+     3072
+    ],
+    "kind": "qkv_b",
+    "roundtrip_bit_exact": true,
+    "pad_max_abs": 0.0,
+    "resolved": true,
+    "names": [
+     "diffusion_transformer.blocks.23.attention_pair_bias.mha.linear_q.bias"
+    ],
+    "dtype_match": [
+     "N"
+    ]
+   },
+   {
+    "path": "dm.dit.blocks.23.qkv_w",
+    "key": "'qkv_w'",
+    "master_shape": [
+     768,
+     3072
+    ],
+    "kind": "qkv_w",
+    "roundtrip_bit_exact": true,
+    "pad_max_abs": 0.0,
+    "resolved": true,
+    "names": [
+     "diffusion_transformer.blocks.23.attention_pair_bias.mha.linear_q.weight",
+     "diffusion_transformer.blocks.23.attention_pair_bias.mha.linear_k.weight",
+     "diffusion_transformer.blocks.23.attention_pair_bias.mha.linear_v.weight"
+    ],
+    "dtype_match": [
+     "N",
+     "N",
+     "N"
+    ]
+   },
+   {
+    "path": "dm.dit.blocks.3.qkv_b",
+    "key": "'qkv_b'",
+    "master_shape": [
+     3072
+    ],
+    "kind": "qkv_b",
+    "roundtrip_bit_exact": true,
+    "pad_max_abs": 0.0,
+    "resolved": true,
+    "names": [
+     "diffusion_transformer.blocks.3.attention_pair_bias.mha.linear_q.bias"
+    ],
+    "dtype_match": [
+     "N"
+    ]
+   },
+   {
+    "path": "dm.dit.blocks.3.qkv_w",
+    "key": "'qkv_w'",
+    "master_shape": [
+     768,
+     3072
+    ],
+    "kind": "qkv_w",
+    "roundtrip_bit_exact": true,
+    "pad_max_abs": 0.0,
+    "resolved": true,
+    "names": [
+     "diffusion_transformer.blocks.3.attention_pair_bias.mha.linear_q.weight",
+     "diffusion_transformer.blocks.3.attention_pair_bias.mha.linear_k.weight",
+     "diffusion_transformer.blocks.3.attention_pair_bias.mha.linear_v.weight"
+    ],
+    "dtype_match": [
+     "N",
+     "N",
+     "N"
+    ]
+   },
+   {
+    "path": "dm.dit.blocks.4.qkv_b",
+    "key": "'qkv_b'",
+    "master_shape": [
+     3072
+    ],
+    "kind": "qkv_b",
+    "roundtrip_bit_exact": true,
+    "pad_max_abs": 0.0,
+    "resolved": true,
+    "names": [
+     "diffusion_transformer.blocks.4.attention_pair_bias.mha.linear_q.bias"
+    ],
+    "dtype_match": [
+     "N"
+    ]
+   },
+   {
+    "path": "dm.dit.blocks.4.qkv_w",
+    "key": "'qkv_w'",
+    "master_shape": [
+     768,
+     3072
+    ],
+    "kind": "qkv_w",
+    "roundtrip_bit_exact": true,
+    "pad_max_abs": 0.0,
+    "resolved": true,
+    "names": [
+     "diffusion_transformer.blocks.4.attention_pair_bias.mha.linear_q.weight",
+     "diffusion_transformer.blocks.4.attention_pair_bias.mha.linear_k.weight",
+     "diffusion_transformer.blocks.4.attention_pair_bias.mha.linear_v.weight"
+    ],
+    "dtype_match": [
+     "N",
+     "N",
+     "N"
+    ]
+   },
+   {
+    "path": "dm.dit.blocks.5.qkv_b",
+    "key": "'qkv_b'",
+    "master_shape": [
+     3072
+    ],
+    "kind": "qkv_b",
+    "roundtrip_bit_exact": true,
+    "pad_max_abs": 0.0,
+    "resolved": true,
+    "names": [
+     "diffusion_transformer.blocks.5.attention_pair_bias.mha.linear_q.bias"
+    ],
+    "dtype_match": [
+     "N"
+    ]
+   },
+   {
+    "path": "dm.dit.blocks.5.qkv_w",
+    "key": "'qkv_w'",
+    "master_shape": [
+     768,
+     3072
+    ],
+    "kind": "qkv_w",
+    "roundtrip_bit_exact": true,
+    "pad_max_abs": 0.0,
+    "resolved": true,
+    "names": [
+     "diffusion_transformer.blocks.5.attention_pair_bias.mha.linear_q.weight",
+     "diffusion_transformer.blocks.5.attention_pair_bias.mha.linear_k.weight",
+     "diffusion_transformer.blocks.5.attention_pair_bias.mha.linear_v.weight"
+    ],
+    "dtype_match": [
+     "N",
+     "N",
+     "N"
+    ]
+   },
+   {
+    "path": "dm.dit.blocks.6.qkv_b",
+    "key": "'qkv_b'",
+    "master_shape": [
+     3072
+    ],
+    "kind": "qkv_b",
+    "roundtrip_bit_exact": true,
+    "pad_max_abs": 0.0,
+    "resolved": true,
+    "names": [
+     "diffusion_transformer.blocks.6.attention_pair_bias.mha.linear_q.bias"
+    ],
+    "dtype_match": [
+     "N"
+    ]
+   },
+   {
+    "path": "dm.dit.blocks.6.qkv_w",
+    "key": "'qkv_w'",
+    "master_shape": [
+     768,
+     3072
+    ],
+    "kind": "qkv_w",
+    "roundtrip_bit_exact": true,
+    "pad_max_abs": 0.0,
+    "resolved": true,
+    "names": [
+     "diffusion_transformer.blocks.6.attention_pair_bias.mha.linear_q.weight",
+     "diffusion_transformer.blocks.6.attention_pair_bias.mha.linear_k.weight",
+     "diffusion_transformer.blocks.6.attention_pair_bias.mha.linear_v.weight"
+    ],
+    "dtype_match": [
+     "N",
+     "N",
+     "N"
+    ]
+   },
+   {
+    "path": "dm.dit.blocks.7.qkv_b",
+    "key": "'qkv_b'",
+    "master_shape": [
+     3072
+    ],
+    "kind": "qkv_b",
+    "roundtrip_bit_exact": true,
+    "pad_max_abs": 0.0,
+    "resolved": true,
+    "names": [
+     "diffusion_transformer.blocks.7.attention_pair_bias.mha.linear_q.bias"
+    ],
+    "dtype_match": [
+     "N"
+    ]
+   },
+   {
+    "path": "dm.dit.blocks.7.qkv_w",
+    "key": "'qkv_w'",
+    "master_shape": [
+     768,
+     3072
+    ],
+    "kind": "qkv_w",
+    "roundtrip_bit_exact": true,
+    "pad_max_abs": 0.0,
+    "resolved": true,
+    "names": [
+     "diffusion_transformer.blocks.7.attention_pair_bias.mha.linear_q.weight",
+     "diffusion_transformer.blocks.7.attention_pair_bias.mha.linear_k.weight",
+     "diffusion_transformer.blocks.7.attention_pair_bias.mha.linear_v.weight"
+    ],
+    "dtype_match": [
+     "N",
+     "N",
+     "N"
+    ]
+   },
+   {
+    "path": "dm.dit.blocks.8.qkv_b",
+    "key": "'qkv_b'",
+    "master_shape": [
+     3072
+    ],
+    "kind": "qkv_b",
+    "roundtrip_bit_exact": true,
+    "pad_max_abs": 0.0,
+    "resolved": true,
+    "names": [
+     "diffusion_transformer.blocks.8.attention_pair_bias.mha.linear_q.bias"
+    ],
+    "dtype_match": [
+     "N"
+    ]
+   },
+   {
+    "path": "dm.dit.blocks.8.qkv_w",
+    "key": "'qkv_w'",
+    "master_shape": [
+     768,
+     3072
+    ],
+    "kind": "qkv_w",
+    "roundtrip_bit_exact": true,
+    "pad_max_abs": 0.0,
+    "resolved": true,
+    "names": [
+     "diffusion_transformer.blocks.8.attention_pair_bias.mha.linear_q.weight",
+     "diffusion_transformer.blocks.8.attention_pair_bias.mha.linear_k.weight",
+     "diffusion_transformer.blocks.8.attention_pair_bias.mha.linear_v.weight"
+    ],
+    "dtype_match": [
+     "N",
+     "N",
+     "N"
+    ]
+   },
+   {
+    "path": "dm.dit.blocks.9.qkv_b",
+    "key": "'qkv_b'",
+    "master_shape": [
+     3072
+    ],
+    "kind": "qkv_b",
+    "roundtrip_bit_exact": true,
+    "pad_max_abs": 0.0,
+    "resolved": true,
+    "names": [
+     "diffusion_transformer.blocks.9.attention_pair_bias.mha.linear_q.bias"
+    ],
+    "dtype_match": [
+     "N"
+    ]
+   },
+   {
+    "path": "dm.dit.blocks.9.qkv_w",
+    "key": "'qkv_w'",
+    "master_shape": [
+     768,
+     3072
+    ],
+    "kind": "qkv_w",
+    "roundtrip_bit_exact": true,
+    "pad_max_abs": 0.0,
+    "resolved": true,
+    "names": [
+     "diffusion_transformer.blocks.9.attention_pair_bias.mha.linear_q.weight",
+     "diffusion_transformer.blocks.9.attention_pair_bias.mha.linear_k.weight",
+     "diffusion_transformer.blocks.9.attention_pair_bias.mha.linear_v.weight"
+    ],
+    "dtype_match": [
+     "N",
+     "N",
+     "N"
+    ]
+   },
+   {
+    "path": "dm.enc_at._wc.('blocks.0.attention_pair_bias.linear_ada_out.bias', False)",
+    "key": "('blocks.0.attention_pair_bias.linear_ada_out.bias', False)",
+    "master_shape": [
+     128
+    ],
+    "resolved": true,
+    "names": [
+     "atom_attn_enc.atom_transformer.blocks.0.attention_pair_bias.linear_ada_out.bias"
+    ],
+    "transpose": false,
+    "dtype_match": [
+     "N"
+    ],
+    "orientation_ambiguous": false
+   },
+   {
+    "path": "dm.enc_at._wc.('blocks.0.attention_pair_bias.linear_ada_out.weight', True)",
+    "key": "('blocks.0.attention_pair_bias.linear_ada_out.weight', True)",
+    "master_shape": [
+     128,
+     128
+    ],
+    "resolved": true,
+    "names": [
+     "atom_attn_enc.atom_transformer.blocks.0.attention_pair_bias.linear_ada_out.weight"
+    ],
+    "transpose": true,
+    "dtype_match": [
+     "N"
+    ],
+    "orientation_ambiguous": false
+   },
+   {
+    "path": "dm.enc_at._wc.('blocks.0.attention_pair_bias.linear_z.weight', True)",
+    "key": "('blocks.0.attention_pair_bias.linear_z.weight', True)",
+    "master_shape": [
+     16,
+     4
+    ],
+    "resolved": true,
+    "names": [
+     "atom_attn_enc.atom_transformer.blocks.0.attention_pair_bias.linear_z.weight"
+    ],
+    "transpose": true,
+    "dtype_match": [
+     "N"
+    ],
+    "orientation_ambiguous": false
+   },
+   {
+    "path": "dm.enc_at._wc.('blocks.0.attention_pair_bias.mha.linear_g.weight', True)",
+    "key": "('blocks.0.attention_pair_bias.mha.linear_g.weight', True)",
+    "master_shape": [
+     128,
+     128
+    ],
+    "resolved": true,
+    "names": [
+     "atom_attn_enc.atom_transformer.blocks.0.attention_pair_bias.mha.linear_g.weight"
+    ],
+    "transpose": true,
+    "dtype_match": [
+     "N"
+    ],
+    "orientation_ambiguous": false
+   },
+   {
+    "path": "dm.enc_at._wc.('blocks.0.attention_pair_bias.mha.linear_k.weight', True)",
+    "key": "('blocks.0.attention_pair_bias.mha.linear_k.weight', True)",
+    "master_shape": [
+     128,
+     128
+    ],
+    "resolved": true,
+    "names": [
+     "atom_attn_enc.atom_transformer.blocks.0.attention_pair_bias.mha.linear_k.weight"
+    ],
+    "transpose": true,
+    "dtype_match": [
+     "N"
+    ],
+    "orientation_ambiguous": false
+   },
+   {
+    "path": "dm.enc_at._wc.('blocks.0.attention_pair_bias.mha.linear_o.weight', True)",
+    "key": "('blocks.0.attention_pair_bias.mha.linear_o.weight', True)",
+    "master_shape": [
+     128,
+     128
+    ],
+    "resolved": true,
+    "names": [
+     "atom_attn_enc.atom_transformer.blocks.0.attention_pair_bias.mha.linear_o.weight"
+    ],
+    "transpose": true,
+    "dtype_match": [
+     "N"
+    ],
+    "orientation_ambiguous": false
+   },
+   {
+    "path": "dm.enc_at._wc.('blocks.0.attention_pair_bias.mha.linear_q.bias', False)",
+    "key": "('blocks.0.attention_pair_bias.mha.linear_q.bias', False)",
+    "master_shape": [
+     128
+    ],
+    "resolved": true,
+    "names": [
+     "atom_attn_enc.atom_transformer.blocks.0.attention_pair_bias.mha.linear_q.bias"
+    ],
+    "transpose": false,
+    "dtype_match": [
+     "N"
+    ],
+    "orientation_ambiguous": false
+   },
+   {
+    "path": "dm.enc_at._wc.('blocks.0.attention_pair_bias.mha.linear_q.weight', True)",
+    "key": "('blocks.0.attention_pair_bias.mha.linear_q.weight', True)",
+    "master_shape": [
+     128,
+     128
+    ],
+    "resolved": true,
+    "names": [
+     "atom_attn_enc.atom_transformer.blocks.0.attention_pair_bias.mha.linear_q.weight"
+    ],
+    "transpose": true,
+    "dtype_match": [
+     "N"
+    ],
+    "orientation_ambiguous": false
+   },
+   {
+    "path": "dm.enc_at._wc.('blocks.0.attention_pair_bias.mha.linear_v.weight', True)",
+    "key": "('blocks.0.attention_pair_bias.mha.linear_v.weight', True)",
+    "master_shape": [
+     128,
+     128
+    ],
+    "resolved": true,
+    "names": [
+     "atom_attn_enc.atom_transformer.blocks.0.attention_pair_bias.mha.linear_v.weight"
+    ],
+    "transpose": true,
+    "dtype_match": [
+     "N"
+    ],
+    "orientation_ambiguous": false
+   },
+   {
+    "path": "dm.enc_at._wc.('blocks.0.conditioned_transition.linear_g.bias', False)",
+    "key": "('blocks.0.conditioned_transition.linear_g.bias', False)",
+    "master_shape": [
+     128
+    ],
+    "resolved": true,
+    "names": [
+     "atom_attn_enc.atom_transformer.blocks.0.conditioned_transition.linear_g.bias"
+    ],
+    "transpose": false,
+    "dtype_match": [
+     "N"
+    ],
+    "orientation_ambiguous": false
+   },
+   {
+    "path": "dm.enc_at._wc.('blocks.0.conditioned_transition.linear_g.weight', True)",
+    "key": "('blocks.0.conditioned_transition.linear_g.weight', True)",
+    "master_shape": [
+     128,
+     128
+    ],
+    "resolved": true,
+    "names": [
+     "atom_attn_enc.atom_transformer.blocks.0.conditioned_transition.linear_g.weight"
+    ],
+    "transpose": true,
+    "dtype_match": [
+     "N"
+    ],
+    "orientation_ambiguous": false
+   },
+   {
+    "path": "dm.enc_at._wc.('blocks.0.conditioned_transition.linear_out.weight', True)",
+    "key": "('blocks.0.conditioned_transition.linear_out.weight', True)",
+    "master_shape": [
+     256,
+     128
+    ],
+    "resolved": true,
+    "names": [
+     "atom_attn_enc.atom_transformer.blocks.0.conditioned_transition.linear_out.weight"
+    ],
+    "transpose": true,
+    "dtype_match": [
+     "N"
+    ],
+    "orientation_ambiguous": false
+   },
+   {
+    "path": "dm.enc_at._wc.('blocks.0.conditioned_transition.swiglu.linear_a.weight', True)",
+    "key": "('blocks.0.conditioned_transition.swiglu.linear_a.weight', True)",
+    "master_shape": [
+     128,
+     256
+    ],
+    "resolved": true,
+    "names": [
+     "atom_attn_enc.atom_transformer.blocks.0.conditioned_transition.swiglu.linear_a.weight"
+    ],
+    "transpose": true,
+    "dtype_match": [
+     "N"
+    ],
+    "orientation_ambiguous": false
+   },
+   {
+    "path": "dm.enc_at._wc.('blocks.0.conditioned_transition.swiglu.linear_b.weight', True)",
+    "key": "('blocks.0.conditioned_transition.swiglu.linear_b.weight', True)",
+    "master_shape": [
+     128,
+     256
+    ],
+    "resolved": true,
+    "names": [
+     "atom_attn_enc.atom_transformer.blocks.0.conditioned_transition.swiglu.linear_b.weight"
+    ],
+    "transpose": true,
+    "dtype_match": [
+     "N"
+    ],
+    "orientation_ambiguous": false
+   },
+   {
+    "path": "dm.enc_at._wc.('blocks.1.attention_pair_bias.linear_ada_out.bias', False)",
+    "key": "('blocks.1.attention_pair_bias.linear_ada_out.bias', False)",
+    "master_shape": [
+     128
+    ],
+    "resolved": true,
+    "names": [
+     "atom_attn_enc.atom_transformer.blocks.1.attention_pair_bias.linear_ada_out.bias"
+    ],
+    "transpose": false,
+    "dtype_match": [
+     "N"
+    ],
+    "orientation_ambiguous": false
+   },
+   {
+    "path": "dm.enc_at._wc.('blocks.1.attention_pair_bias.linear_ada_out.weight', True)",
+    "key": "('blocks.1.attention_pair_bias.linear_ada_out.weight', True)",
+    "master_shape": [
+     128,
+     128
+    ],
+    "resolved": true,
+    "names": [
+     "atom_attn_enc.atom_transformer.blocks.1.attention_pair_bias.linear_ada_out.weight"
+    ],
+    "transpose": true,
+    "dtype_match": [
+     "N"
+    ],
+    "orientation_ambiguous": false
+   },
+   {
+    "path": "dm.enc_at._wc.('blocks.1.attention_pair_bias.linear_z.weight', True)",
+    "key": "('blocks.1.attention_pair_bias.linear_z.weight', True)",
+    "master_shape": [
+     16,
+     4
+    ],
+    "resolved": true,
+    "names": [
+     "atom_attn_enc.atom_transformer.blocks.1.attention_pair_bias.linear_z.weight"
+    ],
+    "transpose": true,
+    "dtype_match": [
+     "N"
+    ],
+    "orientation_ambiguous": false
+   },
+   {
+    "path": "dm.enc_at._wc.('blocks.1.attention_pair_bias.mha.linear_g.weight', True)",
+    "key": "('blocks.1.attention_pair_bias.mha.linear_g.weight', True)",
+    "master_shape": [
+     128,
+     128
+    ],
+    "resolved": true,
+    "names": [
+     "atom_attn_enc.atom_transformer.blocks.1.attention_pair_bias.mha.linear_g.weight"
+    ],
+    "transpose": true,
+    "dtype_match": [
+     "N"
+    ],
+    "orientation_ambiguous": false
+   },
+   {
+    "path": "dm.enc_at._wc.('blocks.1.attention_pair_bias.mha.linear_k.weight', True)",
+    "key": "('blocks.1.attention_pair_bias.mha.linear_k.weight', True)",
+    "master_shape": [
+     128,
+     128
+    ],
+    "resolved": true,
+    "names": [
+     "atom_attn_enc.atom_transformer.blocks.1.attention_pair_bias.mha.linear_k.weight"
+    ],
+    "transpose": true,
+    "dtype_match": [
+     "N"
+    ],
+    "orientation_ambiguous": false
+   },
+   {
+    "path": "dm.enc_at._wc.('blocks.1.attention_pair_bias.mha.linear_o.weight', True)",
+    "key": "('blocks.1.attention_pair_bias.mha.linear_o.weight', True)",
+    "master_shape": [
+     128,
+     128
+    ],
+    "resolved": true,
+    "names": [
+     "atom_attn_enc.atom_transformer.blocks.1.attention_pair_bias.mha.linear_o.weight"
+    ],
+    "transpose": true,
+    "dtype_match": [
+     "N"
+    ],
+    "orientation_ambiguous": false
+   },
+   {
+    "path": "dm.enc_at._wc.('blocks.1.attention_pair_bias.mha.linear_q.bias', False)",
+    "key": "('blocks.1.attention_pair_bias.mha.linear_q.bias', False)",
+    "master_shape": [
+     128
+    ],
+    "resolved": true,
+    "names": [
+     "atom_attn_enc.atom_transformer.blocks.1.attention_pair_bias.mha.linear_q.bias"
+    ],
+    "transpose": false,
+    "dtype_match": [
+     "N"
+    ],
+    "orientation_ambiguous": false
+   },
+   {
+    "path": "dm.enc_at._wc.('blocks.1.attention_pair_bias.mha.linear_q.weight', True)",
+    "key": "('blocks.1.attention_pair_bias.mha.linear_q.weight', True)",
+    "master_shape": [
+     128,
+     128
+    ],
+    "resolved": true,
+    "names": [
+     "atom_attn_enc.atom_transformer.blocks.1.attention_pair_bias.mha.linear_q.weight"
+    ],
+    "transpose": true,
+    "dtype_match": [
+     "N"
+    ],
+    "orientation_ambiguous": false
+   },
+   {
+    "path": "dm.enc_at._wc.('blocks.1.attention_pair_bias.mha.linear_v.weight', True)",
+    "key": "('blocks.1.attention_pair_bias.mha.linear_v.weight', True)",
+    "master_shape": [
+     128,
+     128
+    ],
+    "resolved": true,
+    "names": [
+     "atom_attn_enc.atom_transformer.blocks.1.attention_pair_bias.mha.linear_v.weight"
+    ],
+    "transpose": true,
+    "dtype_match": [
+     "N"
+    ],
+    "orientation_ambiguous": false
+   },
+   {
+    "path": "dm.enc_at._wc.('blocks.1.conditioned_transition.linear_g.bias', False)",
+    "key": "('blocks.1.conditioned_transition.linear_g.bias', False)",
+    "master_shape": [
+     128
+    ],
+    "resolved": true,
+    "names": [
+     "atom_attn_enc.atom_transformer.blocks.1.conditioned_transition.linear_g.bias"
+    ],
+    "transpose": false,
+    "dtype_match": [
+     "N"
+    ],
+    "orientation_ambiguous": false
+   },
+   {
+    "path": "dm.enc_at._wc.('blocks.1.conditioned_transition.linear_g.weight', True)",
+    "key": "('blocks.1.conditioned_transition.linear_g.weight', True)",
+    "master_shape": [
+     128,
+     128
+    ],
+    "resolved": true,
+    "names": [
+     "atom_attn_enc.atom_transformer.blocks.1.conditioned_transition.linear_g.weight"
+    ],
+    "transpose": true,
+    "dtype_match": [
+     "N"
+    ],
+    "orientation_ambiguous": false
+   },
+   {
+    "path": "dm.enc_at._wc.('blocks.1.conditioned_transition.linear_out.weight', True)",
+    "key": "('blocks.1.conditioned_transition.linear_out.weight', True)",
+    "master_shape": [
+     256,
+     128
+    ],
+    "resolved": true,
+    "names": [
+     "atom_attn_enc.atom_transformer.blocks.1.conditioned_transition.linear_out.weight"
+    ],
+    "transpose": true,
+    "dtype_match": [
+     "N"
+    ],
+    "orientation_ambiguous": false
+   },
+   {
+    "path": "dm.enc_at._wc.('blocks.1.conditioned_transition.swiglu.linear_a.weight', True)",
+    "key": "('blocks.1.conditioned_transition.swiglu.linear_a.weight', True)",
+    "master_shape": [
+     128,
+     256
+    ],
+    "resolved": true,
+    "names": [
+     "atom_attn_enc.atom_transformer.blocks.1.conditioned_transition.swiglu.linear_a.weight"
+    ],
+    "transpose": true,
+    "dtype_match": [
+     "N"
+    ],
+    "orientation_ambiguous": false
+   },
+   {
+    "path": "dm.enc_at._wc.('blocks.1.conditioned_transition.swiglu.linear_b.weight', True)",
+    "key": "('blocks.1.conditioned_transition.swiglu.linear_b.weight', True)",
+    "master_shape": [
+     128,
+     256
+    ],
+    "resolved": true,
+    "names": [
+     "atom_attn_enc.atom_transformer.blocks.1.conditioned_transition.swiglu.linear_b.weight"
+    ],
+    "transpose": true,
+    "dtype_match": [
+     "N"
+    ],
+    "orientation_ambiguous": false
+   },
+   {
+    "path": "dm.enc_at._wc.('blocks.2.attention_pair_bias.linear_ada_out.bias', False)",
+    "key": "('blocks.2.attention_pair_bias.linear_ada_out.bias', False)",
+    "master_shape": [
+     128
+    ],
+    "resolved": true,
+    "names": [
+     "atom_attn_enc.atom_transformer.blocks.2.attention_pair_bias.linear_ada_out.bias"
+    ],
+    "transpose": false,
+    "dtype_match": [
+     "N"
+    ],
+    "orientation_ambiguous": false
+   },
+   {
+    "path": "dm.enc_at._wc.('blocks.2.attention_pair_bias.linear_ada_out.weight', True)",
+    "key": "('blocks.2.attention_pair_bias.linear_ada_out.weight', True)",
+    "master_shape": [
+     128,
+     128
+    ],
+    "resolved": true,
+    "names": [
+     "atom_attn_enc.atom_transformer.blocks.2.attention_pair_bias.linear_ada_out.weight"
+    ],
+    "transpose": true,
+    "dtype_match": [
+     "N"
+    ],
+    "orientation_ambiguous": false
+   },
+   {
+    "path": "dm.enc_at._wc.('blocks.2.attention_pair_bias.linear_z.weight', True)",
+    "key": "('blocks.2.attention_pair_bias.linear_z.weight', True)",
+    "master_shape": [
+     16,
+     4
+    ],
+    "resolved": true,
+    "names": [
+     "atom_attn_enc.atom_transformer.blocks.2.attention_pair_bias.linear_z.weight"
+    ],
+    "transpose": true,
+    "dtype_match": [
+     "N"
+    ],
+    "orientation_ambiguous": false
+   },
+   {
+    "path": "dm.enc_at._wc.('blocks.2.attention_pair_bias.mha.linear_g.weight', True)",
+    "key": "('blocks.2.attention_pair_bias.mha.linear_g.weight', True)",
+    "master_shape": [
+     128,
+     128
+    ],
+    "resolved": true,
+    "names": [
+     "atom_attn_enc.atom_transformer.blocks.2.attention_pair_bias.mha.linear_g.weight"
+    ],
+    "transpose": true,
+    "dtype_match": [
+     "N"
+    ],
+    "orientation_ambiguous": false
+   },
+   {
+    "path": "dm.enc_at._wc.('blocks.2.attention_pair_bias.mha.linear_k.weight', True)",
+    "key": "('blocks.2.attention_pair_bias.mha.linear_k.weight', True)",
+    "master_shape": [
+     128,
+     128
+    ],
+    "resolved": true,
+    "names": [
+     "atom_attn_enc.atom_transformer.blocks.2.attention_pair_bias.mha.linear_k.weight"
+    ],
+    "transpose": true,
+    "dtype_match": [
+     "N"
+    ],
+    "orientation_ambiguous": false
+   },
+   {
+    "path": "dm.enc_at._wc.('blocks.2.attention_pair_bias.mha.linear_o.weight', True)",
+    "key": "('blocks.2.attention_pair_bias.mha.linear_o.weight', True)",
+    "master_shape": [
+     128,
+     128
+    ],
+    "resolved": true,
+    "names": [
+     "atom_attn_enc.atom_transformer.blocks.2.attention_pair_bias.mha.linear_o.weight"
+    ],
+    "transpose": true,
+    "dtype_match": [
+     "N"
+    ],
+    "orientation_ambiguous": false
+   },
+   {
+    "path": "dm.enc_at._wc.('blocks.2.attention_pair_bias.mha.linear_q.bias', False)",
+    "key": "('blocks.2.attention_pair_bias.mha.linear_q.bias', False)",
+    "master_shape": [
+     128
+    ],
+    "resolved": true,
+    "names": [
+     "atom_attn_enc.atom_transformer.blocks.2.attention_pair_bias.mha.linear_q.bias"
+    ],
+    "transpose": false,
+    "dtype_match": [
+     "N"
+    ],
+    "orientation_ambiguous": false
+   },
+   {
+    "path": "dm.enc_at._wc.('blocks.2.attention_pair_bias.mha.linear_q.weight', True)",
+    "key": "('blocks.2.attention_pair_bias.mha.linear_q.weight', True)",
+    "master_shape": [
+     128,
+     128
+    ],
+    "resolved": true,
+    "names": [
+     "atom_attn_enc.atom_transformer.blocks.2.attention_pair_bias.mha.linear_q.weight"
+    ],
+    "transpose": true,
+    "dtype_match": [
+     "N"
+    ],
+    "orientation_ambiguous": false
+   },
+   {
+    "path": "dm.enc_at._wc.('blocks.2.attention_pair_bias.mha.linear_v.weight', True)",
+    "key": "('blocks.2.attention_pair_bias.mha.linear_v.weight', True)",
+    "master_shape": [
+     128,
+     128
+    ],
+    "resolved": true,
+    "names": [
+     "atom_attn_enc.atom_transformer.blocks.2.attention_pair_bias.mha.linear_v.weight"
+    ],
+    "transpose": true,
+    "dtype_match": [
+     "N"
+    ],
+    "orientation_ambiguous": false
+   },
+   {
+    "path": "dm.enc_at._wc.('blocks.2.conditioned_transition.linear_g.bias', False)",
+    "key": "('blocks.2.conditioned_transition.linear_g.bias', False)",
+    "master_shape": [
+     128
+    ],
+    "resolved": true,
+    "names": [
+     "atom_attn_enc.atom_transformer.blocks.2.conditioned_transition.linear_g.bias"
+    ],
+    "transpose": false,
+    "dtype_match": [
+     "N"
+    ],
+    "orientation_ambiguous": false
+   },
+   {
+    "path": "dm.enc_at._wc.('blocks.2.conditioned_transition.linear_g.weight', True)",
+    "key": "('blocks.2.conditioned_transition.linear_g.weight', True)",
+    "master_shape": [
+     128,
+     128
+    ],
+    "resolved": true,
+    "names": [
+     "atom_attn_enc.atom_transformer.blocks.2.conditioned_transition.linear_g.weight"
+    ],
+    "transpose": true,
+    "dtype_match": [
+     "N"
+    ],
+    "orientation_ambiguous": false
+   },
+   {
+    "path": "dm.enc_at._wc.('blocks.2.conditioned_transition.linear_out.weight', True)",
+    "key": "('blocks.2.conditioned_transition.linear_out.weight', True)",
+    "master_shape": [
+     256,
+     128
+    ],
+    "resolved": true,
+    "names": [
+     "atom_attn_enc.atom_transformer.blocks.2.conditioned_transition.linear_out.weight"
+    ],
+    "transpose": true,
+    "dtype_match": [
+     "N"
+    ],
+    "orientation_ambiguous": false
+   },
+   {
+    "path": "dm.enc_at._wc.('blocks.2.conditioned_transition.swiglu.linear_a.weight', True)",
+    "key": "('blocks.2.conditioned_transition.swiglu.linear_a.weight', True)",
+    "master_shape": [
+     128,
+     256
+    ],
+    "resolved": true,
+    "names": [
+     "atom_attn_enc.atom_transformer.blocks.2.conditioned_transition.swiglu.linear_a.weight"
+    ],
+    "transpose": true,
+    "dtype_match": [
+     "N"
+    ],
+    "orientation_ambiguous": false
+   },
+   {
+    "path": "dm.enc_at._wc.('blocks.2.conditioned_transition.swiglu.linear_b.weight', True)",
+    "key": "('blocks.2.conditioned_transition.swiglu.linear_b.weight', True)",
+    "master_shape": [
+     128,
+     256
+    ],
+    "resolved": true,
+    "names": [
+     "atom_attn_enc.atom_transformer.blocks.2.conditioned_transition.swiglu.linear_b.weight"
+    ],
+    "transpose": true,
+    "dtype_match": [
+     "N"
+    ],
+    "orientation_ambiguous": false
+   }
+  ]
+ },
+ "w0_dump_keys": [
+  "atom_attn_dec.atom_transformer.blocks.0.attention_pair_bias.layer_norm_a_k.layer_norm_s.weight",
+  "atom_attn_dec.atom_transformer.blocks.0.attention_pair_bias.layer_norm_a_k.linear_g.bias",
+  "atom_attn_dec.atom_transformer.blocks.0.attention_pair_bias.layer_norm_a_k.linear_g.weight",
+  "atom_attn_dec.atom_transformer.blocks.0.attention_pair_bias.layer_norm_a_k.linear_s.weight",
+  "atom_attn_dec.atom_transformer.blocks.0.attention_pair_bias.layer_norm_a_q.layer_norm_s.weight",
+  "atom_attn_dec.atom_transformer.blocks.0.attention_pair_bias.layer_norm_a_q.linear_g.bias",
+  "atom_attn_dec.atom_transformer.blocks.0.attention_pair_bias.layer_norm_a_q.linear_g.weight",
+  "atom_attn_dec.atom_transformer.blocks.0.attention_pair_bias.layer_norm_a_q.linear_s.weight",
+  "atom_attn_dec.atom_transformer.blocks.0.attention_pair_bias.linear_ada_out.bias",
+  "atom_attn_dec.atom_transformer.blocks.0.attention_pair_bias.linear_ada_out.weight",
+  "atom_attn_dec.atom_transformer.blocks.0.attention_pair_bias.linear_z.weight",
+  "atom_attn_dec.atom_transformer.blocks.0.attention_pair_bias.mha.linear_g.weight",
+  "atom_attn_dec.atom_transformer.blocks.0.attention_pair_bias.mha.linear_k.weight",
+  "atom_attn_dec.atom_transformer.blocks.0.attention_pair_bias.mha.linear_o.weight",
+  "atom_attn_dec.atom_transformer.blocks.0.attention_pair_bias.mha.linear_q.bias",
+  "atom_attn_dec.atom_transformer.blocks.0.attention_pair_bias.mha.linear_q.weight",
+  "atom_attn_dec.atom_transformer.blocks.0.attention_pair_bias.mha.linear_v.weight",
+  "atom_attn_dec.atom_transformer.blocks.0.conditioned_transition.layer_norm.layer_norm_s.weight",
+  "atom_attn_dec.atom_transformer.blocks.0.conditioned_transition.layer_norm.linear_g.bias",
+  "atom_attn_dec.atom_transformer.blocks.0.conditioned_transition.layer_norm.linear_g.weight",
+  "atom_attn_dec.atom_transformer.blocks.0.conditioned_transition.layer_norm.linear_s.weight",
+  "atom_attn_dec.atom_transformer.blocks.0.conditioned_transition.linear_g.bias",
+  "atom_attn_dec.atom_transformer.blocks.0.conditioned_transition.linear_g.weight",
+  "atom_attn_dec.atom_transformer.blocks.0.conditioned_transition.linear_out.weight",
+  "atom_attn_dec.atom_transformer.blocks.0.conditioned_transition.swiglu.linear_a.weight",
+  "atom_attn_dec.atom_transformer.blocks.0.conditioned_transition.swiglu.linear_b.weight",
+  "atom_attn_dec.atom_transformer.blocks.1.attention_pair_bias.layer_norm_a_k.layer_norm_s.weight",
+  "atom_attn_dec.atom_transformer.blocks.1.attention_pair_bias.layer_norm_a_k.linear_g.bias",
+  "atom_attn_dec.atom_transformer.blocks.1.attention_pair_bias.layer_norm_a_k.linear_g.weight",
+  "atom_attn_dec.atom_transformer.blocks.1.attention_pair_bias.layer_norm_a_k.linear_s.weight",
+  "atom_attn_dec.atom_transformer.blocks.1.attention_pair_bias.layer_norm_a_q.layer_norm_s.weight",
+  "atom_attn_dec.atom_transformer.blocks.1.attention_pair_bias.layer_norm_a_q.linear_g.bias",
+  "atom_attn_dec.atom_transformer.blocks.1.attention_pair_bias.layer_norm_a_q.linear_g.weight",
+  "atom_attn_dec.atom_transformer.blocks.1.attention_pair_bias.layer_norm_a_q.linear_s.weight",
+  "atom_attn_dec.atom_transformer.blocks.1.attention_pair_bias.linear_ada_out.bias",
+  "atom_attn_dec.atom_transformer.blocks.1.attention_pair_bias.linear_ada_out.weight",
+  "atom_attn_dec.atom_transformer.blocks.1.attention_pair_bias.linear_z.weight",
+  "atom_attn_dec.atom_transformer.blocks.1.attention_pair_bias.mha.linear_g.weight",
+  "atom_attn_dec.atom_transformer.blocks.1.attention_pair_bias.mha.linear_k.weight",
+  "atom_attn_dec.atom_transformer.blocks.1.attention_pair_bias.mha.linear_o.weight",
+  "atom_attn_dec.atom_transformer.blocks.1.attention_pair_bias.mha.linear_q.bias",
+  "atom_attn_dec.atom_transformer.blocks.1.attention_pair_bias.mha.linear_q.weight",
+  "atom_attn_dec.atom_transformer.blocks.1.attention_pair_bias.mha.linear_v.weight",
+  "atom_attn_dec.atom_transformer.blocks.1.conditioned_transition.layer_norm.layer_norm_s.weight",
+  "atom_attn_dec.atom_transformer.blocks.1.conditioned_transition.layer_norm.linear_g.bias",
+  "atom_attn_dec.atom_transformer.blocks.1.conditioned_transition.layer_norm.linear_g.weight",
+  "atom_attn_dec.atom_transformer.blocks.1.conditioned_transition.layer_norm.linear_s.weight",
+  "atom_attn_dec.atom_transformer.blocks.1.conditioned_transition.linear_g.bias",
+  "atom_attn_dec.atom_transformer.blocks.1.conditioned_transition.linear_g.weight",
+  "atom_attn_dec.atom_transformer.blocks.1.conditioned_transition.linear_out.weight",
+  "atom_attn_dec.atom_transformer.blocks.1.conditioned_transition.swiglu.linear_a.weight",
+  "atom_attn_dec.atom_transformer.blocks.1.conditioned_transition.swiglu.linear_b.weight",
+  "atom_attn_dec.atom_transformer.blocks.2.attention_pair_bias.layer_norm_a_k.layer_norm_s.weight",
+  "atom_attn_dec.atom_transformer.blocks.2.attention_pair_bias.layer_norm_a_k.linear_g.bias",
+  "atom_attn_dec.atom_transformer.blocks.2.attention_pair_bias.layer_norm_a_k.linear_g.weight",
+  "atom_attn_dec.atom_transformer.blocks.2.attention_pair_bias.layer_norm_a_k.linear_s.weight",
+  "atom_attn_dec.atom_transformer.blocks.2.attention_pair_bias.layer_norm_a_q.layer_norm_s.weight",
+  "atom_attn_dec.atom_transformer.blocks.2.attention_pair_bias.layer_norm_a_q.linear_g.bias",
+  "atom_attn_dec.atom_transformer.blocks.2.attention_pair_bias.layer_norm_a_q.linear_g.weight",
+  "atom_attn_dec.atom_transformer.blocks.2.attention_pair_bias.layer_norm_a_q.linear_s.weight",
+  "atom_attn_dec.atom_transformer.blocks.2.attention_pair_bias.linear_ada_out.bias",
+  "atom_attn_dec.atom_transformer.blocks.2.attention_pair_bias.linear_ada_out.weight",
+  "atom_attn_dec.atom_transformer.blocks.2.attention_pair_bias.linear_z.weight",
+  "atom_attn_dec.atom_transformer.blocks.2.attention_pair_bias.mha.linear_g.weight",
+  "atom_attn_dec.atom_transformer.blocks.2.attention_pair_bias.mha.linear_k.weight",
+  "atom_attn_dec.atom_transformer.blocks.2.attention_pair_bias.mha.linear_o.weight",
+  "atom_attn_dec.atom_transformer.blocks.2.attention_pair_bias.mha.linear_q.bias",
+  "atom_attn_dec.atom_transformer.blocks.2.attention_pair_bias.mha.linear_q.weight",
+  "atom_attn_dec.atom_transformer.blocks.2.attention_pair_bias.mha.linear_v.weight",
+  "atom_attn_dec.atom_transformer.blocks.2.conditioned_transition.layer_norm.layer_norm_s.weight",
+  "atom_attn_dec.atom_transformer.blocks.2.conditioned_transition.layer_norm.linear_g.bias",
+  "atom_attn_dec.atom_transformer.blocks.2.conditioned_transition.layer_norm.linear_g.weight",
+  "atom_attn_dec.atom_transformer.blocks.2.conditioned_transition.layer_norm.linear_s.weight",
+  "atom_attn_dec.atom_transformer.blocks.2.conditioned_transition.linear_g.bias",
+  "atom_attn_dec.atom_transformer.blocks.2.conditioned_transition.linear_g.weight",
+  "atom_attn_dec.atom_transformer.blocks.2.conditioned_transition.linear_out.weight",
+  "atom_attn_dec.atom_transformer.blocks.2.conditioned_transition.swiglu.linear_a.weight",
+  "atom_attn_dec.atom_transformer.blocks.2.conditioned_transition.swiglu.linear_b.weight",
+  "atom_attn_dec.atom_transformer.layer_norm_z.weight",
+  "atom_attn_dec.layer_norm.weight",
+  "atom_attn_dec.linear_q_in.weight",
+  "atom_attn_dec.linear_q_out.weight",
+  "atom_attn_enc.atom_transformer.blocks.0.attention_pair_bias.layer_norm_a_k.layer_norm_s.weight",
+  "atom_attn_enc.atom_transformer.blocks.0.attention_pair_bias.layer_norm_a_k.linear_g.bias",
+  "atom_attn_enc.atom_transformer.blocks.0.attention_pair_bias.layer_norm_a_k.linear_g.weight",
+  "atom_attn_enc.atom_transformer.blocks.0.attention_pair_bias.layer_norm_a_k.linear_s.weight",
+  "atom_attn_enc.atom_transformer.blocks.0.attention_pair_bias.layer_norm_a_q.layer_norm_s.weight",
+  "atom_attn_enc.atom_transformer.blocks.0.attention_pair_bias.layer_norm_a_q.linear_g.bias",
+  "atom_attn_enc.atom_transformer.blocks.0.attention_pair_bias.layer_norm_a_q.linear_g.weight",
+  "atom_attn_enc.atom_transformer.blocks.0.attention_pair_bias.layer_norm_a_q.linear_s.weight",
+  "atom_attn_enc.atom_transformer.blocks.0.attention_pair_bias.linear_ada_out.bias",
+  "atom_attn_enc.atom_transformer.blocks.0.attention_pair_bias.linear_ada_out.weight",
+  "atom_attn_enc.atom_transformer.blocks.0.attention_pair_bias.linear_z.weight",
+  "atom_attn_enc.atom_transformer.blocks.0.attention_pair_bias.mha.linear_g.weight",
+  "atom_attn_enc.atom_transformer.blocks.0.attention_pair_bias.mha.linear_k.weight",
+  "atom_attn_enc.atom_transformer.blocks.0.attention_pair_bias.mha.linear_o.weight",
+  "atom_attn_enc.atom_transformer.blocks.0.attention_pair_bias.mha.linear_q.bias",
+  "atom_attn_enc.atom_transformer.blocks.0.attention_pair_bias.mha.linear_q.weight",
+  "atom_attn_enc.atom_transformer.blocks.0.attention_pair_bias.mha.linear_v.weight",
+  "atom_attn_enc.atom_transformer.blocks.0.conditioned_transition.layer_norm.layer_norm_s.weight",
+  "atom_attn_enc.atom_transformer.blocks.0.conditioned_transition.layer_norm.linear_g.bias",
+  "atom_attn_enc.atom_transformer.blocks.0.conditioned_transition.layer_norm.linear_g.weight",
+  "atom_attn_enc.atom_transformer.blocks.0.conditioned_transition.layer_norm.linear_s.weight",
+  "atom_attn_enc.atom_transformer.blocks.0.conditioned_transition.linear_g.bias",
+  "atom_attn_enc.atom_transformer.blocks.0.conditioned_transition.linear_g.weight",
+  "atom_attn_enc.atom_transformer.blocks.0.conditioned_transition.linear_out.weight",
+  "atom_attn_enc.atom_transformer.blocks.0.conditioned_transition.swiglu.linear_a.weight",
+  "atom_attn_enc.atom_transformer.blocks.0.conditioned_transition.swiglu.linear_b.weight",
+  "atom_attn_enc.atom_transformer.blocks.1.attention_pair_bias.layer_norm_a_k.layer_norm_s.weight",
+  "atom_attn_enc.atom_transformer.blocks.1.attention_pair_bias.layer_norm_a_k.linear_g.bias",
+  "atom_attn_enc.atom_transformer.blocks.1.attention_pair_bias.layer_norm_a_k.linear_g.weight",
+  "atom_attn_enc.atom_transformer.blocks.1.attention_pair_bias.layer_norm_a_k.linear_s.weight",
+  "atom_attn_enc.atom_transformer.blocks.1.attention_pair_bias.layer_norm_a_q.layer_norm_s.weight",
+  "atom_attn_enc.atom_transformer.blocks.1.attention_pair_bias.layer_norm_a_q.linear_g.bias",
+  "atom_attn_enc.atom_transformer.blocks.1.attention_pair_bias.layer_norm_a_q.linear_g.weight",
+  "atom_attn_enc.atom_transformer.blocks.1.attention_pair_bias.layer_norm_a_q.linear_s.weight",
+  "atom_attn_enc.atom_transformer.blocks.1.attention_pair_bias.linear_ada_out.bias",
+  "atom_attn_enc.atom_transformer.blocks.1.attention_pair_bias.linear_ada_out.weight",
+  "atom_attn_enc.atom_transformer.blocks.1.attention_pair_bias.linear_z.weight",
+  "atom_attn_enc.atom_transformer.blocks.1.attention_pair_bias.mha.linear_g.weight",
+  "atom_attn_enc.atom_transformer.blocks.1.attention_pair_bias.mha.linear_k.weight",
+  "atom_attn_enc.atom_transformer.blocks.1.attention_pair_bias.mha.linear_o.weight",
+  "atom_attn_enc.atom_transformer.blocks.1.attention_pair_bias.mha.linear_q.bias",
+  "atom_attn_enc.atom_transformer.blocks.1.attention_pair_bias.mha.linear_q.weight",
+  "atom_attn_enc.atom_transformer.blocks.1.attention_pair_bias.mha.linear_v.weight",
+  "atom_attn_enc.atom_transformer.blocks.1.conditioned_transition.layer_norm.layer_norm_s.weight",
+  "atom_attn_enc.atom_transformer.blocks.1.conditioned_transition.layer_norm.linear_g.bias",
+  "atom_attn_enc.atom_transformer.blocks.1.conditioned_transition.layer_norm.linear_g.weight",
+  "atom_attn_enc.atom_transformer.blocks.1.conditioned_transition.layer_norm.linear_s.weight",
+  "atom_attn_enc.atom_transformer.blocks.1.conditioned_transition.linear_g.bias",
+  "atom_attn_enc.atom_transformer.blocks.1.conditioned_transition.linear_g.weight",
+  "atom_attn_enc.atom_transformer.blocks.1.conditioned_transition.linear_out.weight",
+  "atom_attn_enc.atom_transformer.blocks.1.conditioned_transition.swiglu.linear_a.weight",
+  "atom_attn_enc.atom_transformer.blocks.1.conditioned_transition.swiglu.linear_b.weight",
+  "atom_attn_enc.atom_transformer.blocks.2.attention_pair_bias.layer_norm_a_k.layer_norm_s.weight",
+  "atom_attn_enc.atom_transformer.blocks.2.attention_pair_bias.layer_norm_a_k.linear_g.bias",
+  "atom_attn_enc.atom_transformer.blocks.2.attention_pair_bias.layer_norm_a_k.linear_g.weight",
+  "atom_attn_enc.atom_transformer.blocks.2.attention_pair_bias.layer_norm_a_k.linear_s.weight",
+  "atom_attn_enc.atom_transformer.blocks.2.attention_pair_bias.layer_norm_a_q.layer_norm_s.weight",
+  "atom_attn_enc.atom_transformer.blocks.2.attention_pair_bias.layer_norm_a_q.linear_g.bias",
+  "atom_attn_enc.atom_transformer.blocks.2.attention_pair_bias.layer_norm_a_q.linear_g.weight",
+  "atom_attn_enc.atom_transformer.blocks.2.attention_pair_bias.layer_norm_a_q.linear_s.weight",
+  "atom_attn_enc.atom_transformer.blocks.2.attention_pair_bias.linear_ada_out.bias",
+  "atom_attn_enc.atom_transformer.blocks.2.attention_pair_bias.linear_ada_out.weight",
+  "atom_attn_enc.atom_transformer.blocks.2.attention_pair_bias.linear_z.weight",
+  "atom_attn_enc.atom_transformer.blocks.2.attention_pair_bias.mha.linear_g.weight",
+  "atom_attn_enc.atom_transformer.blocks.2.attention_pair_bias.mha.linear_k.weight",
+  "atom_attn_enc.atom_transformer.blocks.2.attention_pair_bias.mha.linear_o.weight",
+  "atom_attn_enc.atom_transformer.blocks.2.attention_pair_bias.mha.linear_q.bias",
+  "atom_attn_enc.atom_transformer.blocks.2.attention_pair_bias.mha.linear_q.weight",
+  "atom_attn_enc.atom_transformer.blocks.2.attention_pair_bias.mha.linear_v.weight",
+  "atom_attn_enc.atom_transformer.blocks.2.conditioned_transition.layer_norm.layer_norm_s.weight",
+  "atom_attn_enc.atom_transformer.blocks.2.conditioned_transition.layer_norm.linear_g.bias",
+  "atom_attn_enc.atom_transformer.blocks.2.conditioned_transition.layer_norm.linear_g.weight",
+  "atom_attn_enc.atom_transformer.blocks.2.conditioned_transition.layer_norm.linear_s.weight",
+  "atom_attn_enc.atom_transformer.blocks.2.conditioned_transition.linear_g.bias",
+  "atom_attn_enc.atom_transformer.blocks.2.conditioned_transition.linear_g.weight",
+  "atom_attn_enc.atom_transformer.blocks.2.conditioned_transition.linear_out.weight",
+  "atom_attn_enc.atom_transformer.blocks.2.conditioned_transition.swiglu.linear_a.weight",
+  "atom_attn_enc.atom_transformer.blocks.2.conditioned_transition.swiglu.linear_b.weight",
+  "atom_attn_enc.atom_transformer.layer_norm_z.weight",
+  "atom_attn_enc.linear_l.weight",
+  "atom_attn_enc.linear_m.weight",
+  "atom_attn_enc.linear_q.0.weight",
+  "atom_attn_enc.noisy_position_embedder.layer_norm_s.weight",
+  "atom_attn_enc.noisy_position_embedder.layer_norm_z.weight",
+  "atom_attn_enc.noisy_position_embedder.linear_r.weight",
+  "atom_attn_enc.noisy_position_embedder.linear_s.weight",
+  "atom_attn_enc.noisy_position_embedder.linear_z.weight",
+  "atom_attn_enc.pair_mlp.1.weight",
+  "atom_attn_enc.pair_mlp.3.weight",
+  "atom_attn_enc.pair_mlp.5.weight",
+  "atom_attn_enc.ref_atom_feature_embedder.linear_inv_sq_dists.weight",
+  "atom_attn_enc.ref_atom_feature_embedder.linear_ref_atom_chars.weight",
+  "atom_attn_enc.ref_atom_feature_embedder.linear_ref_charge.weight",
+  "atom_attn_enc.ref_atom_feature_embedder.linear_ref_element.weight",
+  "atom_attn_enc.ref_atom_feature_embedder.linear_ref_mask.weight",
+  "atom_attn_enc.ref_atom_feature_embedder.linear_ref_offset.weight",
+  "atom_attn_enc.ref_atom_feature_embedder.linear_ref_pos.weight",
+  "atom_attn_enc.ref_atom_feature_embedder.linear_valid_mask.weight",
+  "diffusion_conditioning.layer_norm_n.weight",
+  "diffusion_conditioning.layer_norm_s.weight",
+  "diffusion_conditioning.layer_norm_z.weight",
+  "diffusion_conditioning.linear_n.weight",
+  "diffusion_conditioning.linear_s.weight",
+  "diffusion_conditioning.linear_z.weight",
+  "diffusion_conditioning.transition_s.0.layer_norm.bias",
+  "diffusion_conditioning.transition_s.0.layer_norm.weight",
+  "diffusion_conditioning.transition_s.0.linear_out.weight",
+  "diffusion_conditioning.transition_s.0.swiglu.linear_a.weight",
+  "diffusion_conditioning.transition_s.0.swiglu.linear_b.weight",
+  "diffusion_conditioning.transition_s.1.layer_norm.bias",
+  "diffusion_conditioning.transition_s.1.layer_norm.weight",
+  "diffusion_conditioning.transition_s.1.linear_out.weight",
+  "diffusion_conditioning.transition_s.1.swiglu.linear_a.weight",
+  "diffusion_conditioning.transition_s.1.swiglu.linear_b.weight",
+  "diffusion_conditioning.transition_z.0.layer_norm.bias",
+  "diffusion_conditioning.transition_z.0.layer_norm.weight",
+  "diffusion_conditioning.transition_z.0.linear_out.weight",
+  "diffusion_conditioning.transition_z.0.swiglu.linear_a.weight",
+  "diffusion_conditioning.transition_z.0.swiglu.linear_b.weight",
+  "diffusion_conditioning.transition_z.1.layer_norm.bias",
+  "diffusion_conditioning.transition_z.1.layer_norm.weight",
+  "diffusion_conditioning.transition_z.1.linear_out.weight",
+  "diffusion_conditioning.transition_z.1.swiglu.linear_a.weight",
+  "diffusion_conditioning.transition_z.1.swiglu.linear_b.weight",
+  "diffusion_transformer.blocks.0.attention_pair_bias.layer_norm_a.layer_norm_s.weight",
+  "diffusion_transformer.blocks.0.attention_pair_bias.layer_norm_a.linear_g.bias",
+  "diffusion_transformer.blocks.0.attention_pair_bias.layer_norm_a.linear_g.weight",
+  "diffusion_transformer.blocks.0.attention_pair_bias.layer_norm_a.linear_s.weight",
+  "diffusion_transformer.blocks.0.attention_pair_bias.layer_norm_z.weight",
+  "diffusion_transformer.blocks.0.attention_pair_bias.linear_ada_out.bias",
+  "diffusion_transformer.blocks.0.attention_pair_bias.linear_ada_out.weight",
+  "diffusion_transformer.blocks.0.attention_pair_bias.linear_z.weight",
+  "diffusion_transformer.blocks.0.attention_pair_bias.mha.linear_g.weight",
+  "diffusion_transformer.blocks.0.attention_pair_bias.mha.linear_k.weight",
+  "diffusion_transformer.blocks.0.attention_pair_bias.mha.linear_o.weight",
+  "diffusion_transformer.blocks.0.attention_pair_bias.mha.linear_q.bias",
+  "diffusion_transformer.blocks.0.attention_pair_bias.mha.linear_q.weight",
+  "diffusion_transformer.blocks.0.attention_pair_bias.mha.linear_v.weight",
+  "diffusion_transformer.blocks.0.conditioned_transition.layer_norm.layer_norm_s.weight",
+  "diffusion_transformer.blocks.0.conditioned_transition.layer_norm.linear_g.bias",
+  "diffusion_transformer.blocks.0.conditioned_transition.layer_norm.linear_g.weight",
+  "diffusion_transformer.blocks.0.conditioned_transition.layer_norm.linear_s.weight",
+  "diffusion_transformer.blocks.0.conditioned_transition.linear_g.bias",
+  "diffusion_transformer.blocks.0.conditioned_transition.linear_g.weight",
+  "diffusion_transformer.blocks.0.conditioned_transition.linear_out.weight",
+  "diffusion_transformer.blocks.0.conditioned_transition.swiglu.linear_a.weight",
+  "diffusion_transformer.blocks.0.conditioned_transition.swiglu.linear_b.weight",
+  "diffusion_transformer.blocks.1.attention_pair_bias.layer_norm_a.layer_norm_s.weight",
+  "diffusion_transformer.blocks.1.attention_pair_bias.layer_norm_a.linear_g.bias",
+  "diffusion_transformer.blocks.1.attention_pair_bias.layer_norm_a.linear_g.weight",
+  "diffusion_transformer.blocks.1.attention_pair_bias.layer_norm_a.linear_s.weight",
+  "diffusion_transformer.blocks.1.attention_pair_bias.layer_norm_z.weight",
+  "diffusion_transformer.blocks.1.attention_pair_bias.linear_ada_out.bias",
+  "diffusion_transformer.blocks.1.attention_pair_bias.linear_ada_out.weight",
+  "diffusion_transformer.blocks.1.attention_pair_bias.linear_z.weight",
+  "diffusion_transformer.blocks.1.attention_pair_bias.mha.linear_g.weight",
+  "diffusion_transformer.blocks.1.attention_pair_bias.mha.linear_k.weight",
+  "diffusion_transformer.blocks.1.attention_pair_bias.mha.linear_o.weight",
+  "diffusion_transformer.blocks.1.attention_pair_bias.mha.linear_q.bias",
+  "diffusion_transformer.blocks.1.attention_pair_bias.mha.linear_q.weight",
+  "diffusion_transformer.blocks.1.attention_pair_bias.mha.linear_v.weight",
+  "diffusion_transformer.blocks.1.conditioned_transition.layer_norm.layer_norm_s.weight",
+  "diffusion_transformer.blocks.1.conditioned_transition.layer_norm.linear_g.bias",
+  "diffusion_transformer.blocks.1.conditioned_transition.layer_norm.linear_g.weight",
+  "diffusion_transformer.blocks.1.conditioned_transition.layer_norm.linear_s.weight",
+  "diffusion_transformer.blocks.1.conditioned_transition.linear_g.bias",
+  "diffusion_transformer.blocks.1.conditioned_transition.linear_g.weight",
+  "diffusion_transformer.blocks.1.conditioned_transition.linear_out.weight",
+  "diffusion_transformer.blocks.1.conditioned_transition.swiglu.linear_a.weight",
+  "diffusion_transformer.blocks.1.conditioned_transition.swiglu.linear_b.weight",
+  "diffusion_transformer.blocks.10.attention_pair_bias.layer_norm_a.layer_norm_s.weight",
+  "diffusion_transformer.blocks.10.attention_pair_bias.layer_norm_a.linear_g.bias",
+  "diffusion_transformer.blocks.10.attention_pair_bias.layer_norm_a.linear_g.weight",
+  "diffusion_transformer.blocks.10.attention_pair_bias.layer_norm_a.linear_s.weight",
+  "diffusion_transformer.blocks.10.attention_pair_bias.layer_norm_z.weight",
+  "diffusion_transformer.blocks.10.attention_pair_bias.linear_ada_out.bias",
+  "diffusion_transformer.blocks.10.attention_pair_bias.linear_ada_out.weight",
+  "diffusion_transformer.blocks.10.attention_pair_bias.linear_z.weight",
+  "diffusion_transformer.blocks.10.attention_pair_bias.mha.linear_g.weight",
+  "diffusion_transformer.blocks.10.attention_pair_bias.mha.linear_k.weight",
+  "diffusion_transformer.blocks.10.attention_pair_bias.mha.linear_o.weight",
+  "diffusion_transformer.blocks.10.attention_pair_bias.mha.linear_q.bias",
+  "diffusion_transformer.blocks.10.attention_pair_bias.mha.linear_q.weight",
+  "diffusion_transformer.blocks.10.attention_pair_bias.mha.linear_v.weight",
+  "diffusion_transformer.blocks.10.conditioned_transition.layer_norm.layer_norm_s.weight",
+  "diffusion_transformer.blocks.10.conditioned_transition.layer_norm.linear_g.bias",
+  "diffusion_transformer.blocks.10.conditioned_transition.layer_norm.linear_g.weight",
+  "diffusion_transformer.blocks.10.conditioned_transition.layer_norm.linear_s.weight",
+  "diffusion_transformer.blocks.10.conditioned_transition.linear_g.bias",
+  "diffusion_transformer.blocks.10.conditioned_transition.linear_g.weight",
+  "diffusion_transformer.blocks.10.conditioned_transition.linear_out.weight",
+  "diffusion_transformer.blocks.10.conditioned_transition.swiglu.linear_a.weight",
+  "diffusion_transformer.blocks.10.conditioned_transition.swiglu.linear_b.weight",
+  "diffusion_transformer.blocks.11.attention_pair_bias.layer_norm_a.layer_norm_s.weight",
+  "diffusion_transformer.blocks.11.attention_pair_bias.layer_norm_a.linear_g.bias",
+  "diffusion_transformer.blocks.11.attention_pair_bias.layer_norm_a.linear_g.weight",
+  "diffusion_transformer.blocks.11.attention_pair_bias.layer_norm_a.linear_s.weight",
+  "diffusion_transformer.blocks.11.attention_pair_bias.layer_norm_z.weight",
+  "diffusion_transformer.blocks.11.attention_pair_bias.linear_ada_out.bias",
+  "diffusion_transformer.blocks.11.attention_pair_bias.linear_ada_out.weight",
+  "diffusion_transformer.blocks.11.attention_pair_bias.linear_z.weight",
+  "diffusion_transformer.blocks.11.attention_pair_bias.mha.linear_g.weight",
+  "diffusion_transformer.blocks.11.attention_pair_bias.mha.linear_k.weight",
+  "diffusion_transformer.blocks.11.attention_pair_bias.mha.linear_o.weight",
+  "diffusion_transformer.blocks.11.attention_pair_bias.mha.linear_q.bias",
+  "diffusion_transformer.blocks.11.attention_pair_bias.mha.linear_q.weight",
+  "diffusion_transformer.blocks.11.attention_pair_bias.mha.linear_v.weight",
+  "diffusion_transformer.blocks.11.conditioned_transition.layer_norm.layer_norm_s.weight",
+  "diffusion_transformer.blocks.11.conditioned_transition.layer_norm.linear_g.bias",
+  "diffusion_transformer.blocks.11.conditioned_transition.layer_norm.linear_g.weight",
+  "diffusion_transformer.blocks.11.conditioned_transition.layer_norm.linear_s.weight",
+  "diffusion_transformer.blocks.11.conditioned_transition.linear_g.bias",
+  "diffusion_transformer.blocks.11.conditioned_transition.linear_g.weight",
+  "diffusion_transformer.blocks.11.conditioned_transition.linear_out.weight",
+  "diffusion_transformer.blocks.11.conditioned_transition.swiglu.linear_a.weight",
+  "diffusion_transformer.blocks.11.conditioned_transition.swiglu.linear_b.weight",
+  "diffusion_transformer.blocks.12.attention_pair_bias.layer_norm_a.layer_norm_s.weight",
+  "diffusion_transformer.blocks.12.attention_pair_bias.layer_norm_a.linear_g.bias",
+  "diffusion_transformer.blocks.12.attention_pair_bias.layer_norm_a.linear_g.weight",
+  "diffusion_transformer.blocks.12.attention_pair_bias.layer_norm_a.linear_s.weight",
+  "diffusion_transformer.blocks.12.attention_pair_bias.layer_norm_z.weight",
+  "diffusion_transformer.blocks.12.attention_pair_bias.linear_ada_out.bias",
+  "diffusion_transformer.blocks.12.attention_pair_bias.linear_ada_out.weight",
+  "diffusion_transformer.blocks.12.attention_pair_bias.linear_z.weight",
+  "diffusion_transformer.blocks.12.attention_pair_bias.mha.linear_g.weight",
+  "diffusion_transformer.blocks.12.attention_pair_bias.mha.linear_k.weight",
+  "diffusion_transformer.blocks.12.attention_pair_bias.mha.linear_o.weight",
+  "diffusion_transformer.blocks.12.attention_pair_bias.mha.linear_q.bias",
+  "diffusion_transformer.blocks.12.attention_pair_bias.mha.linear_q.weight",
+  "diffusion_transformer.blocks.12.attention_pair_bias.mha.linear_v.weight",
+  "diffusion_transformer.blocks.12.conditioned_transition.layer_norm.layer_norm_s.weight",
+  "diffusion_transformer.blocks.12.conditioned_transition.layer_norm.linear_g.bias",
+  "diffusion_transformer.blocks.12.conditioned_transition.layer_norm.linear_g.weight",
+  "diffusion_transformer.blocks.12.conditioned_transition.layer_norm.linear_s.weight",
+  "diffusion_transformer.blocks.12.conditioned_transition.linear_g.bias",
+  "diffusion_transformer.blocks.12.conditioned_transition.linear_g.weight",
+  "diffusion_transformer.blocks.12.conditioned_transition.linear_out.weight",
+  "diffusion_transformer.blocks.12.conditioned_transition.swiglu.linear_a.weight",
+  "diffusion_transformer.blocks.12.conditioned_transition.swiglu.linear_b.weight",
+  "diffusion_transformer.blocks.13.attention_pair_bias.layer_norm_a.layer_norm_s.weight",
+  "diffusion_transformer.blocks.13.attention_pair_bias.layer_norm_a.linear_g.bias",
+  "diffusion_transformer.blocks.13.attention_pair_bias.layer_norm_a.linear_g.weight",
+  "diffusion_transformer.blocks.13.attention_pair_bias.layer_norm_a.linear_s.weight",
+  "diffusion_transformer.blocks.13.attention_pair_bias.layer_norm_z.weight",
+  "diffusion_transformer.blocks.13.attention_pair_bias.linear_ada_out.bias",
+  "diffusion_transformer.blocks.13.attention_pair_bias.linear_ada_out.weight",
+  "diffusion_transformer.blocks.13.attention_pair_bias.linear_z.weight",
+  "diffusion_transformer.blocks.13.attention_pair_bias.mha.linear_g.weight",
+  "diffusion_transformer.blocks.13.attention_pair_bias.mha.linear_k.weight",
+  "diffusion_transformer.blocks.13.attention_pair_bias.mha.linear_o.weight",
+  "diffusion_transformer.blocks.13.attention_pair_bias.mha.linear_q.bias",
+  "diffusion_transformer.blocks.13.attention_pair_bias.mha.linear_q.weight",
+  "diffusion_transformer.blocks.13.attention_pair_bias.mha.linear_v.weight",
+  "diffusion_transformer.blocks.13.conditioned_transition.layer_norm.layer_norm_s.weight",
+  "diffusion_transformer.blocks.13.conditioned_transition.layer_norm.linear_g.bias",
+  "diffusion_transformer.blocks.13.conditioned_transition.layer_norm.linear_g.weight",
+  "diffusion_transformer.blocks.13.conditioned_transition.layer_norm.linear_s.weight",
+  "diffusion_transformer.blocks.13.conditioned_transition.linear_g.bias",
+  "diffusion_transformer.blocks.13.conditioned_transition.linear_g.weight",
+  "diffusion_transformer.blocks.13.conditioned_transition.linear_out.weight",
+  "diffusion_transformer.blocks.13.conditioned_transition.swiglu.linear_a.weight",
+  "diffusion_transformer.blocks.13.conditioned_transition.swiglu.linear_b.weight",
+  "diffusion_transformer.blocks.14.attention_pair_bias.layer_norm_a.layer_norm_s.weight",
+  "diffusion_transformer.blocks.14.attention_pair_bias.layer_norm_a.linear_g.bias",
+  "diffusion_transformer.blocks.14.attention_pair_bias.layer_norm_a.linear_g.weight",
+  "diffusion_transformer.blocks.14.attention_pair_bias.layer_norm_a.linear_s.weight",
+  "diffusion_transformer.blocks.14.attention_pair_bias.layer_norm_z.weight",
+  "diffusion_transformer.blocks.14.attention_pair_bias.linear_ada_out.bias",
+  "diffusion_transformer.blocks.14.attention_pair_bias.linear_ada_out.weight",
+  "diffusion_transformer.blocks.14.attention_pair_bias.linear_z.weight",
+  "diffusion_transformer.blocks.14.attention_pair_bias.mha.linear_g.weight",
+  "diffusion_transformer.blocks.14.attention_pair_bias.mha.linear_k.weight",
+  "diffusion_transformer.blocks.14.attention_pair_bias.mha.linear_o.weight",
+  "diffusion_transformer.blocks.14.attention_pair_bias.mha.linear_q.bias",
+  "diffusion_transformer.blocks.14.attention_pair_bias.mha.linear_q.weight",
+  "diffusion_transformer.blocks.14.attention_pair_bias.mha.linear_v.weight",
+  "diffusion_transformer.blocks.14.conditioned_transition.layer_norm.layer_norm_s.weight",
+  "diffusion_transformer.blocks.14.conditioned_transition.layer_norm.linear_g.bias",
+  "diffusion_transformer.blocks.14.conditioned_transition.layer_norm.linear_g.weight",
+  "diffusion_transformer.blocks.14.conditioned_transition.layer_norm.linear_s.weight",
+  "diffusion_transformer.blocks.14.conditioned_transition.linear_g.bias",
+  "diffusion_transformer.blocks.14.conditioned_transition.linear_g.weight",
+  "diffusion_transformer.blocks.14.conditioned_transition.linear_out.weight",
+  "diffusion_transformer.blocks.14.conditioned_transition.swiglu.linear_a.weight",
+  "diffusion_transformer.blocks.14.conditioned_transition.swiglu.linear_b.weight",
+  "diffusion_transformer.blocks.15.attention_pair_bias.layer_norm_a.layer_norm_s.weight",
+  "diffusion_transformer.blocks.15.attention_pair_bias.layer_norm_a.linear_g.bias",
+  "diffusion_transformer.blocks.15.attention_pair_bias.layer_norm_a.linear_g.weight",
+  "diffusion_transformer.blocks.15.attention_pair_bias.layer_norm_a.linear_s.weight",
+  "diffusion_transformer.blocks.15.attention_pair_bias.layer_norm_z.weight",
+  "diffusion_transformer.blocks.15.attention_pair_bias.linear_ada_out.bias",
+  "diffusion_transformer.blocks.15.attention_pair_bias.linear_ada_out.weight",
+  "diffusion_transformer.blocks.15.attention_pair_bias.linear_z.weight",
+  "diffusion_transformer.blocks.15.attention_pair_bias.mha.linear_g.weight",
+  "diffusion_transformer.blocks.15.attention_pair_bias.mha.linear_k.weight",
+  "diffusion_transformer.blocks.15.attention_pair_bias.mha.linear_o.weight",
+  "diffusion_transformer.blocks.15.attention_pair_bias.mha.linear_q.bias",
+  "diffusion_transformer.blocks.15.attention_pair_bias.mha.linear_q.weight",
+  "diffusion_transformer.blocks.15.attention_pair_bias.mha.linear_v.weight",
+  "diffusion_transformer.blocks.15.conditioned_transition.layer_norm.layer_norm_s.weight",
+  "diffusion_transformer.blocks.15.conditioned_transition.layer_norm.linear_g.bias",
+  "diffusion_transformer.blocks.15.conditioned_transition.layer_norm.linear_g.weight",
+  "diffusion_transformer.blocks.15.conditioned_transition.layer_norm.linear_s.weight",
+  "diffusion_transformer.blocks.15.conditioned_transition.linear_g.bias",
+  "diffusion_transformer.blocks.15.conditioned_transition.linear_g.weight",
+  "diffusion_transformer.blocks.15.conditioned_transition.linear_out.weight",
+  "diffusion_transformer.blocks.15.conditioned_transition.swiglu.linear_a.weight",
+  "diffusion_transformer.blocks.15.conditioned_transition.swiglu.linear_b.weight",
+  "diffusion_transformer.blocks.16.attention_pair_bias.layer_norm_a.layer_norm_s.weight",
+  "diffusion_transformer.blocks.16.attention_pair_bias.layer_norm_a.linear_g.bias",
+  "diffusion_transformer.blocks.16.attention_pair_bias.layer_norm_a.linear_g.weight",
+  "diffusion_transformer.blocks.16.attention_pair_bias.layer_norm_a.linear_s.weight",
+  "diffusion_transformer.blocks.16.attention_pair_bias.layer_norm_z.weight",
+  "diffusion_transformer.blocks.16.attention_pair_bias.linear_ada_out.bias",
+  "diffusion_transformer.blocks.16.attention_pair_bias.linear_ada_out.weight",
+  "diffusion_transformer.blocks.16.attention_pair_bias.linear_z.weight",
+  "diffusion_transformer.blocks.16.attention_pair_bias.mha.linear_g.weight",
+  "diffusion_transformer.blocks.16.attention_pair_bias.mha.linear_k.weight",
+  "diffusion_transformer.blocks.16.attention_pair_bias.mha.linear_o.weight",
+  "diffusion_transformer.blocks.16.attention_pair_bias.mha.linear_q.bias",
+  "diffusion_transformer.blocks.16.attention_pair_bias.mha.linear_q.weight",
+  "diffusion_transformer.blocks.16.attention_pair_bias.mha.linear_v.weight",
+  "diffusion_transformer.blocks.16.conditioned_transition.layer_norm.layer_norm_s.weight",
+  "diffusion_transformer.blocks.16.conditioned_transition.layer_norm.linear_g.bias",
+  "diffusion_transformer.blocks.16.conditioned_transition.layer_norm.linear_g.weight",
+  "diffusion_transformer.blocks.16.conditioned_transition.layer_norm.linear_s.weight",
+  "diffusion_transformer.blocks.16.conditioned_transition.linear_g.bias",
+  "diffusion_transformer.blocks.16.conditioned_transition.linear_g.weight",
+  "diffusion_transformer.blocks.16.conditioned_transition.linear_out.weight",
+  "diffusion_transformer.blocks.16.conditioned_transition.swiglu.linear_a.weight",
+  "diffusion_transformer.blocks.16.conditioned_transition.swiglu.linear_b.weight",
+  "diffusion_transformer.blocks.17.attention_pair_bias.layer_norm_a.layer_norm_s.weight",
+  "diffusion_transformer.blocks.17.attention_pair_bias.layer_norm_a.linear_g.bias",
+  "diffusion_transformer.blocks.17.attention_pair_bias.layer_norm_a.linear_g.weight",
+  "diffusion_transformer.blocks.17.attention_pair_bias.layer_norm_a.linear_s.weight",
+  "diffusion_transformer.blocks.17.attention_pair_bias.layer_norm_z.weight",
+  "diffusion_transformer.blocks.17.attention_pair_bias.linear_ada_out.bias",
+  "diffusion_transformer.blocks.17.attention_pair_bias.linear_ada_out.weight",
+  "diffusion_transformer.blocks.17.attention_pair_bias.linear_z.weight",
+  "diffusion_transformer.blocks.17.attention_pair_bias.mha.linear_g.weight",
+  "diffusion_transformer.blocks.17.attention_pair_bias.mha.linear_k.weight",
+  "diffusion_transformer.blocks.17.attention_pair_bias.mha.linear_o.weight",
+  "diffusion_transformer.blocks.17.attention_pair_bias.mha.linear_q.bias",
+  "diffusion_transformer.blocks.17.attention_pair_bias.mha.linear_q.weight",
+  "diffusion_transformer.blocks.17.attention_pair_bias.mha.linear_v.weight",
+  "diffusion_transformer.blocks.17.conditioned_transition.layer_norm.layer_norm_s.weight",
+  "diffusion_transformer.blocks.17.conditioned_transition.layer_norm.linear_g.bias",
+  "diffusion_transformer.blocks.17.conditioned_transition.layer_norm.linear_g.weight",
+  "diffusion_transformer.blocks.17.conditioned_transition.layer_norm.linear_s.weight",
+  "diffusion_transformer.blocks.17.conditioned_transition.linear_g.bias",
+  "diffusion_transformer.blocks.17.conditioned_transition.linear_g.weight",
+  "diffusion_transformer.blocks.17.conditioned_transition.linear_out.weight",
+  "diffusion_transformer.blocks.17.conditioned_transition.swiglu.linear_a.weight",
+  "diffusion_transformer.blocks.17.conditioned_transition.swiglu.linear_b.weight",
+  "diffusion_transformer.blocks.18.attention_pair_bias.layer_norm_a.layer_norm_s.weight",
+  "diffusion_transformer.blocks.18.attention_pair_bias.layer_norm_a.linear_g.bias",
+  "diffusion_transformer.blocks.18.attention_pair_bias.layer_norm_a.linear_g.weight",
+  "diffusion_transformer.blocks.18.attention_pair_bias.layer_norm_a.linear_s.weight",
+  "diffusion_transformer.blocks.18.attention_pair_bias.layer_norm_z.weight",
+  "diffusion_transformer.blocks.18.attention_pair_bias.linear_ada_out.bias",
+  "diffusion_transformer.blocks.18.attention_pair_bias.linear_ada_out.weight",
+  "diffusion_transformer.blocks.18.attention_pair_bias.linear_z.weight",
+  "diffusion_transformer.blocks.18.attention_pair_bias.mha.linear_g.weight",
+  "diffusion_transformer.blocks.18.attention_pair_bias.mha.linear_k.weight",
+  "diffusion_transformer.blocks.18.attention_pair_bias.mha.linear_o.weight",
+  "diffusion_transformer.blocks.18.attention_pair_bias.mha.linear_q.bias",
+  "diffusion_transformer.blocks.18.attention_pair_bias.mha.linear_q.weight",
+  "diffusion_transformer.blocks.18.attention_pair_bias.mha.linear_v.weight",
+  "diffusion_transformer.blocks.18.conditioned_transition.layer_norm.layer_norm_s.weight",
+  "diffusion_transformer.blocks.18.conditioned_transition.layer_norm.linear_g.bias",
+  "diffusion_transformer.blocks.18.conditioned_transition.layer_norm.linear_g.weight",
+  "diffusion_transformer.blocks.18.conditioned_transition.layer_norm.linear_s.weight",
+  "diffusion_transformer.blocks.18.conditioned_transition.linear_g.bias",
+  "diffusion_transformer.blocks.18.conditioned_transition.linear_g.weight",
+  "diffusion_transformer.blocks.18.conditioned_transition.linear_out.weight",
+  "diffusion_transformer.blocks.18.conditioned_transition.swiglu.linear_a.weight",
+  "diffusion_transformer.blocks.18.conditioned_transition.swiglu.linear_b.weight",
+  "diffusion_transformer.blocks.19.attention_pair_bias.layer_norm_a.layer_norm_s.weight",
+  "diffusion_transformer.blocks.19.attention_pair_bias.layer_norm_a.linear_g.bias",
+  "diffusion_transformer.blocks.19.attention_pair_bias.layer_norm_a.linear_g.weight",
+  "diffusion_transformer.blocks.19.attention_pair_bias.layer_norm_a.linear_s.weight",
+  "diffusion_transformer.blocks.19.attention_pair_bias.layer_norm_z.weight",
+  "diffusion_transformer.blocks.19.attention_pair_bias.linear_ada_out.bias",
+  "diffusion_transformer.blocks.19.attention_pair_bias.linear_ada_out.weight",
+  "diffusion_transformer.blocks.19.attention_pair_bias.linear_z.weight",
+  "diffusion_transformer.blocks.19.attention_pair_bias.mha.linear_g.weight",
+  "diffusion_transformer.blocks.19.attention_pair_bias.mha.linear_k.weight",
+  "diffusion_transformer.blocks.19.attention_pair_bias.mha.linear_o.weight",
+  "diffusion_transformer.blocks.19.attention_pair_bias.mha.linear_q.bias",
+  "diffusion_transformer.blocks.19.attention_pair_bias.mha.linear_q.weight",
+  "diffusion_transformer.blocks.19.attention_pair_bias.mha.linear_v.weight",
+  "diffusion_transformer.blocks.19.conditioned_transition.layer_norm.layer_norm_s.weight",
+  "diffusion_transformer.blocks.19.conditioned_transition.layer_norm.linear_g.bias",
+  "diffusion_transformer.blocks.19.conditioned_transition.layer_norm.linear_g.weight",
+  "diffusion_transformer.blocks.19.conditioned_transition.layer_norm.linear_s.weight",
+  "diffusion_transformer.blocks.19.conditioned_transition.linear_g.bias",
+  "diffusion_transformer.blocks.19.conditioned_transition.linear_g.weight",
+  "diffusion_transformer.blocks.19.conditioned_transition.linear_out.weight",
+  "diffusion_transformer.blocks.19.conditioned_transition.swiglu.linear_a.weight",
+  "diffusion_transformer.blocks.19.conditioned_transition.swiglu.linear_b.weight",
+  "diffusion_transformer.blocks.2.attention_pair_bias.layer_norm_a.layer_norm_s.weight",
+  "diffusion_transformer.blocks.2.attention_pair_bias.layer_norm_a.linear_g.bias",
+  "diffusion_transformer.blocks.2.attention_pair_bias.layer_norm_a.linear_g.weight",
+  "diffusion_transformer.blocks.2.attention_pair_bias.layer_norm_a.linear_s.weight",
+  "diffusion_transformer.blocks.2.attention_pair_bias.layer_norm_z.weight",
+  "diffusion_transformer.blocks.2.attention_pair_bias.linear_ada_out.bias",
+  "diffusion_transformer.blocks.2.attention_pair_bias.linear_ada_out.weight",
+  "diffusion_transformer.blocks.2.attention_pair_bias.linear_z.weight",
+  "diffusion_transformer.blocks.2.attention_pair_bias.mha.linear_g.weight",
+  "diffusion_transformer.blocks.2.attention_pair_bias.mha.linear_k.weight",
+  "diffusion_transformer.blocks.2.attention_pair_bias.mha.linear_o.weight",
+  "diffusion_transformer.blocks.2.attention_pair_bias.mha.linear_q.bias",
+  "diffusion_transformer.blocks.2.attention_pair_bias.mha.linear_q.weight",
+  "diffusion_transformer.blocks.2.attention_pair_bias.mha.linear_v.weight",
+  "diffusion_transformer.blocks.2.conditioned_transition.layer_norm.layer_norm_s.weight",
+  "diffusion_transformer.blocks.2.conditioned_transition.layer_norm.linear_g.bias",
+  "diffusion_transformer.blocks.2.conditioned_transition.layer_norm.linear_g.weight",
+  "diffusion_transformer.blocks.2.conditioned_transition.layer_norm.linear_s.weight",
+  "diffusion_transformer.blocks.2.conditioned_transition.linear_g.bias",
+  "diffusion_transformer.blocks.2.conditioned_transition.linear_g.weight",
+  "diffusion_transformer.blocks.2.conditioned_transition.linear_out.weight",
+  "diffusion_transformer.blocks.2.conditioned_transition.swiglu.linear_a.weight",
+  "diffusion_transformer.blocks.2.conditioned_transition.swiglu.linear_b.weight",
+  "diffusion_transformer.blocks.20.attention_pair_bias.layer_norm_a.layer_norm_s.weight",
+  "diffusion_transformer.blocks.20.attention_pair_bias.layer_norm_a.linear_g.bias",
+  "diffusion_transformer.blocks.20.attention_pair_bias.layer_norm_a.linear_g.weight",
+  "diffusion_transformer.blocks.20.attention_pair_bias.layer_norm_a.linear_s.weight",
+  "diffusion_transformer.blocks.20.attention_pair_bias.layer_norm_z.weight",
+  "diffusion_transformer.blocks.20.attention_pair_bias.linear_ada_out.bias",
+  "diffusion_transformer.blocks.20.attention_pair_bias.linear_ada_out.weight",
+  "diffusion_transformer.blocks.20.attention_pair_bias.linear_z.weight",
+  "diffusion_transformer.blocks.20.attention_pair_bias.mha.linear_g.weight",
+  "diffusion_transformer.blocks.20.attention_pair_bias.mha.linear_k.weight",
+  "diffusion_transformer.blocks.20.attention_pair_bias.mha.linear_o.weight",
+  "diffusion_transformer.blocks.20.attention_pair_bias.mha.linear_q.bias",
+  "diffusion_transformer.blocks.20.attention_pair_bias.mha.linear_q.weight",
+  "diffusion_transformer.blocks.20.attention_pair_bias.mha.linear_v.weight",
+  "diffusion_transformer.blocks.20.conditioned_transition.layer_norm.layer_norm_s.weight",
+  "diffusion_transformer.blocks.20.conditioned_transition.layer_norm.linear_g.bias",
+  "diffusion_transformer.blocks.20.conditioned_transition.layer_norm.linear_g.weight",
+  "diffusion_transformer.blocks.20.conditioned_transition.layer_norm.linear_s.weight",
+  "diffusion_transformer.blocks.20.conditioned_transition.linear_g.bias",
+  "diffusion_transformer.blocks.20.conditioned_transition.linear_g.weight",
+  "diffusion_transformer.blocks.20.conditioned_transition.linear_out.weight",
+  "diffusion_transformer.blocks.20.conditioned_transition.swiglu.linear_a.weight",
+  "diffusion_transformer.blocks.20.conditioned_transition.swiglu.linear_b.weight",
+  "diffusion_transformer.blocks.21.attention_pair_bias.layer_norm_a.layer_norm_s.weight",
+  "diffusion_transformer.blocks.21.attention_pair_bias.layer_norm_a.linear_g.bias",
+  "diffusion_transformer.blocks.21.attention_pair_bias.layer_norm_a.linear_g.weight",
+  "diffusion_transformer.blocks.21.attention_pair_bias.layer_norm_a.linear_s.weight",
+  "diffusion_transformer.blocks.21.attention_pair_bias.layer_norm_z.weight",
+  "diffusion_transformer.blocks.21.attention_pair_bias.linear_ada_out.bias",
+  "diffusion_transformer.blocks.21.attention_pair_bias.linear_ada_out.weight",
+  "diffusion_transformer.blocks.21.attention_pair_bias.linear_z.weight",
+  "diffusion_transformer.blocks.21.attention_pair_bias.mha.linear_g.weight",
+  "diffusion_transformer.blocks.21.attention_pair_bias.mha.linear_k.weight",
+  "diffusion_transformer.blocks.21.attention_pair_bias.mha.linear_o.weight",
+  "diffusion_transformer.blocks.21.attention_pair_bias.mha.linear_q.bias",
+  "diffusion_transformer.blocks.21.attention_pair_bias.mha.linear_q.weight",
+  "diffusion_transformer.blocks.21.attention_pair_bias.mha.linear_v.weight",
+  "diffusion_transformer.blocks.21.conditioned_transition.layer_norm.layer_norm_s.weight",
+  "diffusion_transformer.blocks.21.conditioned_transition.layer_norm.linear_g.bias",
+  "diffusion_transformer.blocks.21.conditioned_transition.layer_norm.linear_g.weight",
+  "diffusion_transformer.blocks.21.conditioned_transition.layer_norm.linear_s.weight",
+  "diffusion_transformer.blocks.21.conditioned_transition.linear_g.bias",
+  "diffusion_transformer.blocks.21.conditioned_transition.linear_g.weight",
+  "diffusion_transformer.blocks.21.conditioned_transition.linear_out.weight",
+  "diffusion_transformer.blocks.21.conditioned_transition.swiglu.linear_a.weight",
+  "diffusion_transformer.blocks.21.conditioned_transition.swiglu.linear_b.weight",
+  "diffusion_transformer.blocks.22.attention_pair_bias.layer_norm_a.layer_norm_s.weight",
+  "diffusion_transformer.blocks.22.attention_pair_bias.layer_norm_a.linear_g.bias",
+  "diffusion_transformer.blocks.22.attention_pair_bias.layer_norm_a.linear_g.weight",
+  "diffusion_transformer.blocks.22.attention_pair_bias.layer_norm_a.linear_s.weight",
+  "diffusion_transformer.blocks.22.attention_pair_bias.layer_norm_z.weight",
+  "diffusion_transformer.blocks.22.attention_pair_bias.linear_ada_out.bias",
+  "diffusion_transformer.blocks.22.attention_pair_bias.linear_ada_out.weight",
+  "diffusion_transformer.blocks.22.attention_pair_bias.linear_z.weight",
+  "diffusion_transformer.blocks.22.attention_pair_bias.mha.linear_g.weight",
+  "diffusion_transformer.blocks.22.attention_pair_bias.mha.linear_k.weight",
+  "diffusion_transformer.blocks.22.attention_pair_bias.mha.linear_o.weight",
+  "diffusion_transformer.blocks.22.attention_pair_bias.mha.linear_q.bias",
+  "diffusion_transformer.blocks.22.attention_pair_bias.mha.linear_q.weight",
+  "diffusion_transformer.blocks.22.attention_pair_bias.mha.linear_v.weight",
+  "diffusion_transformer.blocks.22.conditioned_transition.layer_norm.layer_norm_s.weight",
+  "diffusion_transformer.blocks.22.conditioned_transition.layer_norm.linear_g.bias",
+  "diffusion_transformer.blocks.22.conditioned_transition.layer_norm.linear_g.weight",
+  "diffusion_transformer.blocks.22.conditioned_transition.layer_norm.linear_s.weight",
+  "diffusion_transformer.blocks.22.conditioned_transition.linear_g.bias",
+  "diffusion_transformer.blocks.22.conditioned_transition.linear_g.weight",
+  "diffusion_transformer.blocks.22.conditioned_transition.linear_out.weight",
+  "diffusion_transformer.blocks.22.conditioned_transition.swiglu.linear_a.weight",
+  "diffusion_transformer.blocks.22.conditioned_transition.swiglu.linear_b.weight",
+  "diffusion_transformer.blocks.23.attention_pair_bias.layer_norm_a.layer_norm_s.weight",
+  "diffusion_transformer.blocks.23.attention_pair_bias.layer_norm_a.linear_g.bias",
+  "diffusion_transformer.blocks.23.attention_pair_bias.layer_norm_a.linear_g.weight",
+  "diffusion_transformer.blocks.23.attention_pair_bias.layer_norm_a.linear_s.weight",
+  "diffusion_transformer.blocks.23.attention_pair_bias.layer_norm_z.weight",
+  "diffusion_transformer.blocks.23.attention_pair_bias.linear_ada_out.bias",
+  "diffusion_transformer.blocks.23.attention_pair_bias.linear_ada_out.weight",
+  "diffusion_transformer.blocks.23.attention_pair_bias.linear_z.weight",
+  "diffusion_transformer.blocks.23.attention_pair_bias.mha.linear_g.weight",
+  "diffusion_transformer.blocks.23.attention_pair_bias.mha.linear_k.weight",
+  "diffusion_transformer.blocks.23.attention_pair_bias.mha.linear_o.weight",
+  "diffusion_transformer.blocks.23.attention_pair_bias.mha.linear_q.bias",
+  "diffusion_transformer.blocks.23.attention_pair_bias.mha.linear_q.weight",
+  "diffusion_transformer.blocks.23.attention_pair_bias.mha.linear_v.weight",
+  "diffusion_transformer.blocks.23.conditioned_transition.layer_norm.layer_norm_s.weight",
+  "diffusion_transformer.blocks.23.conditioned_transition.layer_norm.linear_g.bias",
+  "diffusion_transformer.blocks.23.conditioned_transition.layer_norm.linear_g.weight",
+  "diffusion_transformer.blocks.23.conditioned_transition.layer_norm.linear_s.weight",
+  "diffusion_transformer.blocks.23.conditioned_transition.linear_g.bias",
+  "diffusion_transformer.blocks.23.conditioned_transition.linear_g.weight",
+  "diffusion_transformer.blocks.23.conditioned_transition.linear_out.weight",
+  "diffusion_transformer.blocks.23.conditioned_transition.swiglu.linear_a.weight",
+  "diffusion_transformer.blocks.23.conditioned_transition.swiglu.linear_b.weight",
+  "diffusion_transformer.blocks.3.attention_pair_bias.layer_norm_a.layer_norm_s.weight",
+  "diffusion_transformer.blocks.3.attention_pair_bias.layer_norm_a.linear_g.bias",
+  "diffusion_transformer.blocks.3.attention_pair_bias.layer_norm_a.linear_g.weight",
+  "diffusion_transformer.blocks.3.attention_pair_bias.layer_norm_a.linear_s.weight",
+  "diffusion_transformer.blocks.3.attention_pair_bias.layer_norm_z.weight",
+  "diffusion_transformer.blocks.3.attention_pair_bias.linear_ada_out.bias",
+  "diffusion_transformer.blocks.3.attention_pair_bias.linear_ada_out.weight",
+  "diffusion_transformer.blocks.3.attention_pair_bias.linear_z.weight",
+  "diffusion_transformer.blocks.3.attention_pair_bias.mha.linear_g.weight",
+  "diffusion_transformer.blocks.3.attention_pair_bias.mha.linear_k.weight",
+  "diffusion_transformer.blocks.3.attention_pair_bias.mha.linear_o.weight",
+  "diffusion_transformer.blocks.3.attention_pair_bias.mha.linear_q.bias",
+  "diffusion_transformer.blocks.3.attention_pair_bias.mha.linear_q.weight",
+  "diffusion_transformer.blocks.3.attention_pair_bias.mha.linear_v.weight",
+  "diffusion_transformer.blocks.3.conditioned_transition.layer_norm.layer_norm_s.weight",
+  "diffusion_transformer.blocks.3.conditioned_transition.layer_norm.linear_g.bias",
+  "diffusion_transformer.blocks.3.conditioned_transition.layer_norm.linear_g.weight",
+  "diffusion_transformer.blocks.3.conditioned_transition.layer_norm.linear_s.weight",
+  "diffusion_transformer.blocks.3.conditioned_transition.linear_g.bias",
+  "diffusion_transformer.blocks.3.conditioned_transition.linear_g.weight",
+  "diffusion_transformer.blocks.3.conditioned_transition.linear_out.weight",
+  "diffusion_transformer.blocks.3.conditioned_transition.swiglu.linear_a.weight",
+  "diffusion_transformer.blocks.3.conditioned_transition.swiglu.linear_b.weight",
+  "diffusion_transformer.blocks.4.attention_pair_bias.layer_norm_a.layer_norm_s.weight",
+  "diffusion_transformer.blocks.4.attention_pair_bias.layer_norm_a.linear_g.bias",
+  "diffusion_transformer.blocks.4.attention_pair_bias.layer_norm_a.linear_g.weight",
+  "diffusion_transformer.blocks.4.attention_pair_bias.layer_norm_a.linear_s.weight",
+  "diffusion_transformer.blocks.4.attention_pair_bias.layer_norm_z.weight",
+  "diffusion_transformer.blocks.4.attention_pair_bias.linear_ada_out.bias",
+  "diffusion_transformer.blocks.4.attention_pair_bias.linear_ada_out.weight",
+  "diffusion_transformer.blocks.4.attention_pair_bias.linear_z.weight",
+  "diffusion_transformer.blocks.4.attention_pair_bias.mha.linear_g.weight",
+  "diffusion_transformer.blocks.4.attention_pair_bias.mha.linear_k.weight",
+  "diffusion_transformer.blocks.4.attention_pair_bias.mha.linear_o.weight",
+  "diffusion_transformer.blocks.4.attention_pair_bias.mha.linear_q.bias",
+  "diffusion_transformer.blocks.4.attention_pair_bias.mha.linear_q.weight",
+  "diffusion_transformer.blocks.4.attention_pair_bias.mha.linear_v.weight",
+  "diffusion_transformer.blocks.4.conditioned_transition.layer_norm.layer_norm_s.weight",
+  "diffusion_transformer.blocks.4.conditioned_transition.layer_norm.linear_g.bias",
+  "diffusion_transformer.blocks.4.conditioned_transition.layer_norm.linear_g.weight",
+  "diffusion_transformer.blocks.4.conditioned_transition.layer_norm.linear_s.weight",
+  "diffusion_transformer.blocks.4.conditioned_transition.linear_g.bias",
+  "diffusion_transformer.blocks.4.conditioned_transition.linear_g.weight",
+  "diffusion_transformer.blocks.4.conditioned_transition.linear_out.weight",
+  "diffusion_transformer.blocks.4.conditioned_transition.swiglu.linear_a.weight",
+  "diffusion_transformer.blocks.4.conditioned_transition.swiglu.linear_b.weight",
+  "diffusion_transformer.blocks.5.attention_pair_bias.layer_norm_a.layer_norm_s.weight",
+  "diffusion_transformer.blocks.5.attention_pair_bias.layer_norm_a.linear_g.bias",
+  "diffusion_transformer.blocks.5.attention_pair_bias.layer_norm_a.linear_g.weight",
+  "diffusion_transformer.blocks.5.attention_pair_bias.layer_norm_a.linear_s.weight",
+  "diffusion_transformer.blocks.5.attention_pair_bias.layer_norm_z.weight",
+  "diffusion_transformer.blocks.5.attention_pair_bias.linear_ada_out.bias",
+  "diffusion_transformer.blocks.5.attention_pair_bias.linear_ada_out.weight",
+  "diffusion_transformer.blocks.5.attention_pair_bias.linear_z.weight",
+  "diffusion_transformer.blocks.5.attention_pair_bias.mha.linear_g.weight",
+  "diffusion_transformer.blocks.5.attention_pair_bias.mha.linear_k.weight",
+  "diffusion_transformer.blocks.5.attention_pair_bias.mha.linear_o.weight",
+  "diffusion_transformer.blocks.5.attention_pair_bias.mha.linear_q.bias",
+  "diffusion_transformer.blocks.5.attention_pair_bias.mha.linear_q.weight",
+  "diffusion_transformer.blocks.5.attention_pair_bias.mha.linear_v.weight",
+  "diffusion_transformer.blocks.5.conditioned_transition.layer_norm.layer_norm_s.weight",
+  "diffusion_transformer.blocks.5.conditioned_transition.layer_norm.linear_g.bias",
+  "diffusion_transformer.blocks.5.conditioned_transition.layer_norm.linear_g.weight",
+  "diffusion_transformer.blocks.5.conditioned_transition.layer_norm.linear_s.weight",
+  "diffusion_transformer.blocks.5.conditioned_transition.linear_g.bias",
+  "diffusion_transformer.blocks.5.conditioned_transition.linear_g.weight",
+  "diffusion_transformer.blocks.5.conditioned_transition.linear_out.weight",
+  "diffusion_transformer.blocks.5.conditioned_transition.swiglu.linear_a.weight",
+  "diffusion_transformer.blocks.5.conditioned_transition.swiglu.linear_b.weight",
+  "diffusion_transformer.blocks.6.attention_pair_bias.layer_norm_a.layer_norm_s.weight",
+  "diffusion_transformer.blocks.6.attention_pair_bias.layer_norm_a.linear_g.bias",
+  "diffusion_transformer.blocks.6.attention_pair_bias.layer_norm_a.linear_g.weight",
+  "diffusion_transformer.blocks.6.attention_pair_bias.layer_norm_a.linear_s.weight",
+  "diffusion_transformer.blocks.6.attention_pair_bias.layer_norm_z.weight",
+  "diffusion_transformer.blocks.6.attention_pair_bias.linear_ada_out.bias",
+  "diffusion_transformer.blocks.6.attention_pair_bias.linear_ada_out.weight",
+  "diffusion_transformer.blocks.6.attention_pair_bias.linear_z.weight",
+  "diffusion_transformer.blocks.6.attention_pair_bias.mha.linear_g.weight",
+  "diffusion_transformer.blocks.6.attention_pair_bias.mha.linear_k.weight",
+  "diffusion_transformer.blocks.6.attention_pair_bias.mha.linear_o.weight",
+  "diffusion_transformer.blocks.6.attention_pair_bias.mha.linear_q.bias",
+  "diffusion_transformer.blocks.6.attention_pair_bias.mha.linear_q.weight",
+  "diffusion_transformer.blocks.6.attention_pair_bias.mha.linear_v.weight",
+  "diffusion_transformer.blocks.6.conditioned_transition.layer_norm.layer_norm_s.weight",
+  "diffusion_transformer.blocks.6.conditioned_transition.layer_norm.linear_g.bias",
+  "diffusion_transformer.blocks.6.conditioned_transition.layer_norm.linear_g.weight",
+  "diffusion_transformer.blocks.6.conditioned_transition.layer_norm.linear_s.weight",
+  "diffusion_transformer.blocks.6.conditioned_transition.linear_g.bias",
+  "diffusion_transformer.blocks.6.conditioned_transition.linear_g.weight",
+  "diffusion_transformer.blocks.6.conditioned_transition.linear_out.weight",
+  "diffusion_transformer.blocks.6.conditioned_transition.swiglu.linear_a.weight",
+  "diffusion_transformer.blocks.6.conditioned_transition.swiglu.linear_b.weight",
+  "diffusion_transformer.blocks.7.attention_pair_bias.layer_norm_a.layer_norm_s.weight",
+  "diffusion_transformer.blocks.7.attention_pair_bias.layer_norm_a.linear_g.bias",
+  "diffusion_transformer.blocks.7.attention_pair_bias.layer_norm_a.linear_g.weight",
+  "diffusion_transformer.blocks.7.attention_pair_bias.layer_norm_a.linear_s.weight",
+  "diffusion_transformer.blocks.7.attention_pair_bias.layer_norm_z.weight",
+  "diffusion_transformer.blocks.7.attention_pair_bias.linear_ada_out.bias",
+  "diffusion_transformer.blocks.7.attention_pair_bias.linear_ada_out.weight",
+  "diffusion_transformer.blocks.7.attention_pair_bias.linear_z.weight",
+  "diffusion_transformer.blocks.7.attention_pair_bias.mha.linear_g.weight",
+  "diffusion_transformer.blocks.7.attention_pair_bias.mha.linear_k.weight",
+  "diffusion_transformer.blocks.7.attention_pair_bias.mha.linear_o.weight",
+  "diffusion_transformer.blocks.7.attention_pair_bias.mha.linear_q.bias",
+  "diffusion_transformer.blocks.7.attention_pair_bias.mha.linear_q.weight",
+  "diffusion_transformer.blocks.7.attention_pair_bias.mha.linear_v.weight",
+  "diffusion_transformer.blocks.7.conditioned_transition.layer_norm.layer_norm_s.weight",
+  "diffusion_transformer.blocks.7.conditioned_transition.layer_norm.linear_g.bias",
+  "diffusion_transformer.blocks.7.conditioned_transition.layer_norm.linear_g.weight",
+  "diffusion_transformer.blocks.7.conditioned_transition.layer_norm.linear_s.weight",
+  "diffusion_transformer.blocks.7.conditioned_transition.linear_g.bias",
+  "diffusion_transformer.blocks.7.conditioned_transition.linear_g.weight",
+  "diffusion_transformer.blocks.7.conditioned_transition.linear_out.weight",
+  "diffusion_transformer.blocks.7.conditioned_transition.swiglu.linear_a.weight",
+  "diffusion_transformer.blocks.7.conditioned_transition.swiglu.linear_b.weight",
+  "diffusion_transformer.blocks.8.attention_pair_bias.layer_norm_a.layer_norm_s.weight",
+  "diffusion_transformer.blocks.8.attention_pair_bias.layer_norm_a.linear_g.bias",
+  "diffusion_transformer.blocks.8.attention_pair_bias.layer_norm_a.linear_g.weight",
+  "diffusion_transformer.blocks.8.attention_pair_bias.layer_norm_a.linear_s.weight",
+  "diffusion_transformer.blocks.8.attention_pair_bias.layer_norm_z.weight",
+  "diffusion_transformer.blocks.8.attention_pair_bias.linear_ada_out.bias",
+  "diffusion_transformer.blocks.8.attention_pair_bias.linear_ada_out.weight",
+  "diffusion_transformer.blocks.8.attention_pair_bias.linear_z.weight",
+  "diffusion_transformer.blocks.8.attention_pair_bias.mha.linear_g.weight",
+  "diffusion_transformer.blocks.8.attention_pair_bias.mha.linear_k.weight",
+  "diffusion_transformer.blocks.8.attention_pair_bias.mha.linear_o.weight",
+  "diffusion_transformer.blocks.8.attention_pair_bias.mha.linear_q.bias",
+  "diffusion_transformer.blocks.8.attention_pair_bias.mha.linear_q.weight",
+  "diffusion_transformer.blocks.8.attention_pair_bias.mha.linear_v.weight",
+  "diffusion_transformer.blocks.8.conditioned_transition.layer_norm.layer_norm_s.weight",
+  "diffusion_transformer.blocks.8.conditioned_transition.layer_norm.linear_g.bias",
+  "diffusion_transformer.blocks.8.conditioned_transition.layer_norm.linear_g.weight",
+  "diffusion_transformer.blocks.8.conditioned_transition.layer_norm.linear_s.weight",
+  "diffusion_transformer.blocks.8.conditioned_transition.linear_g.bias",
+  "diffusion_transformer.blocks.8.conditioned_transition.linear_g.weight",
+  "diffusion_transformer.blocks.8.conditioned_transition.linear_out.weight",
+  "diffusion_transformer.blocks.8.conditioned_transition.swiglu.linear_a.weight",
+  "diffusion_transformer.blocks.8.conditioned_transition.swiglu.linear_b.weight",
+  "diffusion_transformer.blocks.9.attention_pair_bias.layer_norm_a.layer_norm_s.weight",
+  "diffusion_transformer.blocks.9.attention_pair_bias.layer_norm_a.linear_g.bias",
+  "diffusion_transformer.blocks.9.attention_pair_bias.layer_norm_a.linear_g.weight",
+  "diffusion_transformer.blocks.9.attention_pair_bias.layer_norm_a.linear_s.weight",
+  "diffusion_transformer.blocks.9.attention_pair_bias.layer_norm_z.weight",
+  "diffusion_transformer.blocks.9.attention_pair_bias.linear_ada_out.bias",
+  "diffusion_transformer.blocks.9.attention_pair_bias.linear_ada_out.weight",
+  "diffusion_transformer.blocks.9.attention_pair_bias.linear_z.weight",
+  "diffusion_transformer.blocks.9.attention_pair_bias.mha.linear_g.weight",
+  "diffusion_transformer.blocks.9.attention_pair_bias.mha.linear_k.weight",
+  "diffusion_transformer.blocks.9.attention_pair_bias.mha.linear_o.weight",
+  "diffusion_transformer.blocks.9.attention_pair_bias.mha.linear_q.bias",
+  "diffusion_transformer.blocks.9.attention_pair_bias.mha.linear_q.weight",
+  "diffusion_transformer.blocks.9.attention_pair_bias.mha.linear_v.weight",
+  "diffusion_transformer.blocks.9.conditioned_transition.layer_norm.layer_norm_s.weight",
+  "diffusion_transformer.blocks.9.conditioned_transition.layer_norm.linear_g.bias",
+  "diffusion_transformer.blocks.9.conditioned_transition.layer_norm.linear_g.weight",
+  "diffusion_transformer.blocks.9.conditioned_transition.layer_norm.linear_s.weight",
+  "diffusion_transformer.blocks.9.conditioned_transition.linear_g.bias",
+  "diffusion_transformer.blocks.9.conditioned_transition.linear_g.weight",
+  "diffusion_transformer.blocks.9.conditioned_transition.linear_out.weight",
+  "diffusion_transformer.blocks.9.conditioned_transition.swiglu.linear_a.weight",
+  "diffusion_transformer.blocks.9.conditioned_transition.swiglu.linear_b.weight",
+  "layer_norm_a.weight",
+  "layer_norm_s.weight",
+  "linear_s.weight"
+ ],
+ "n_w0_dump_keys": 761,
+ "emit_evidence": {
+  "fused_pad_max_abs": 0.0,
+  "fused_slots_roundtripped": 48
+ }
+}

@@ -1,0 +1,77 @@
+{
+ "what": "the campaign's 99.2594 % coverage ceiling is wrong on its own logic, and the same default-off flag explains both directions of the error.",
+ "the_claim_being_corrected": {
+  "artifact": "perf/of3t_orchestrator/COVERAGE_CEILING_IS_NOT_100.json",
+  "as_of": "2026-09-20, orchestrator pass 175",
+  "says": "the ceiling on device-measured coverage is 99.2594 %, because 0.74055 % of the model's gradient mass is on a weight applied on the host after a ttnn.to_torch, so no device gradient for it exists",
+  "and_says": "why_this_is_not_a_defect: 'Closing it would require porting the op, not fixing a number.'",
+  "also_says": "the diffusion arm's unreached 1.1286 % is RECOVERABLE by measurement"
+ },
+ "error_one_the_class_is_bigger_than_the_ceiling_counts": {
+  "carrier": "perf/of3t_readable_mass/READABLE_MASS.json, of3t-readable-mass, a namespace outside this row's and outside the orchestrator's",
+  "HOST_APPLIED": {
+   "n_tensors": 17,
+   "pct_of_model_mass": 1.5202384841128946,
+   "by_section": {
+    "input_embedder": {
+     "n_tensors": 9,
+     "pct_of_model_mass": 0.7671990550038752
+    },
+    "diffusion_module.atom_attn_enc": {
+     "n_tensors": 8,
+     "pct_of_model_mass": 0.7530394291090198
+    }
+   }
+  },
+  "what_the_ceiling_counted": 0.74055,
+  "what_the_class_holds": 1.5202384841128946,
+  "undercount_points": 0.7796884841128946,
+  "why": "the ceiling counted the input_embedder side only. READABLE_MASS resolves the same class over BOTH prefixes it is defined by -- diffusion_module.atom_attn_enc.ref_atom_feature_embedder. and input_embedder.atom_attn_enc.ref_atom_feature_embedder. -- plus input_embedder.atom_attn_enc.linear_q.0.weight, 17 tensors. The diffusion side's 0.75304 % is the same host-applied class and the ceiling does not count it, while COVERAGE_CEILING separately lists the diffusion arm's unreached 1.1286 % as RECOVERABLE. 0.75304 of that 1.1286 is host-applied, so it is not recoverable by measurement on the ceiling's own reasoning.",
+  "ceiling_if_the_logic_were_applied_consistently": 98.4797615158871,
+  "so": "on its own premise the ceiling is 98.47976 %, not 99.2594 %, a 0.77964-point overstatement."
+ },
+ "error_two_the_class_is_not_structural_at_all": {
+  "the_flag": "TT_BIO_OF3_DEVICE_REFATOM, tt_bio/openfold3_host_prep.py:187, env_flag(..., False) -- DEFAULT OFF",
+  "what_the_source_says": "the comment at that definition: 'On, the eight ref_atom_feature_embedder linears and the input embedder's linear_q.0.weight run WHERE A COTANGENT CAN REACH THEM -- which is what HOST_APPLIED names in perf/of3t_readable_mass/READABLE_MASS.json.' The flag names the very class by name.",
+  "both_sides_are_wired": {
+   "diffusion_side": "tt_bio/worker.py:1559-1565 -- rafe_sd = _sub(model.sd, 'diffusion_module.atom_attn_enc.ref_atom_feature_embedder'); if env_flag(DEVICE_REF_ATOM, False): cl0_d, plm0_d = ref_atom_embed_device(...) else: cl0, plm0 = ref_atom_embed(...). The device replica is openfold3_host_prep.ref_atom_embed_device at line 262.",
+   "input_embedder_side": "tt_bio/openfold3_host_prep.py:322 -- the same flag swaps the linear_q aggregation head onto the card via openfold3.AtomEncoderTokenHead, and the comment there names linear_q.0.weight as 0.74055 % of the model's squared gradient norm, the ceiling's exact number."
+  },
+  "so": "the op is PORTED and closing the class is a FLAG, not porting work. COVERAGE_CEILING's 'Closing it would require porting the op, not fixing a number' is incorrect as of the live tree.",
+  "what_remains_if_the_flag_is_on": {
+   "FUSED_NOT_SPLIT": 0.2715264688736101,
+   "NO_ARM": 0.1105148517671164,
+   "NOT_A_LEAF_LAZY": 0.10450387719530572,
+   "ARM_RAN_DID_NOT_CARRY": 0.008223249389590901
+  },
+  "sum_of_what_remains": 0.49476844722562313,
+  "note": "READ_ON_ANOTHER_BOUNDARY (5.82817 %, the pairformer stack) is not a blocker of the same kind: a device gradient for it exists, on the trunk boundary."
+ },
+ "the_caveat_that_keeps_the_flag_off": {
+  "why_default_off": "the source states it: 'a device linear in bf16 or fp32 is not bit-identical to the host float32 one it replaces, and the OF3T charter's hard constraint is that nothing may change inference's output or slow it down.'",
+  "so": "the flag must stay default-off for INFERENCE, and this row does not propose moving it. It costs nothing in production to turn it on inside a MEASUREMENT instrument, which is the only thing recommended here. Release-gated, not shipped."
+ },
+ "what_it_is_worth_to_THIS_row": {
+  "coupled_scope_today": 88.08194359237523,
+  "diffusion_boundary_span": 89.2106,
+  "coupled_headroom_points": 1.1286,
+  "headroom_that_is_host_applied": 0.75304,
+  "headroom_share_that_is_one_flag": 66.72337409179514,
+  "single_heaviest_unreached_tensor": {
+   "name": "diffusion_module.atom_attn_enc.ref_atom_feature_embedder.linear_ref_pos",
+   "pct_of_model_mass": 0.6734034330383528,
+   "share_of_the_coupled_headroom": 59.66714806294106,
+   "source": "perf/of3t_trajwiden/traj_widen_shipped.json scope.not_covered_families"
+  },
+  "coupled_scope_if_the_diffusion_side_is_routed_on_device": 88.83498359237522,
+  "what_that_needs": "NOT just the env var. The flag is wired on the shipped fold path (worker.py, openfold3_fold.py); the trajectory harness builds OF3DiffusionModule directly and feeds its own inputs, so it would have to call ref_atom_embed_device itself and register those 8 weights in the walked parameter set. That is wiring in the harness, not a port, and the eligibility check matters: the flag existing is not the flag firing on this path.",
+  "cost": "one re-run of the diffusion trajectory's two sides, priced in FLOOR.json at 3.44 h as paid on qb2 at OMP 3, or about 1.9 h at 16 threads."
+ },
+ "recommendation": [
+  "restate the coverage ceiling. On its own logic it is 98.47976 %, not 99.2594 %. With TT_BIO_OF3_DEVICE_REFATOM on inside the instruments it is 100 % minus the 0.49476 % that FUSED_NOT_SPLIT, NO_ARM, NOT_A_LEAF_LAZY and ARM_RAN_DID_NOT_CARRY hold.",
+  "drop the sentence 'Closing it would require porting the op, not fixing a number' -- the op is ported and the number is a flag.",
+  "reclassify the 0.75304 % of the diffusion arm's 1.1286 % unreached mass from RECOVERABLE BY MEASUREMENT to HOST_APPLIED, which is the class READABLE_MASS already puts it in.",
+  "run the gradient and trajectory instruments with the flag ON, and keep it default-off for inference where the bit-identity constraint applies."
+ ],
+ "the_lesson": "a ceiling stated as structural stopped anyone re-testing it for at least 175 passes of orchestration, and the thing that closes it is an env var named in a source comment that cites the very artifact the ceiling was computed from. The ceiling and its remedy were in the same repository the whole time."
+}

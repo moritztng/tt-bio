@@ -1,0 +1,26 @@
+{
+ "as_of": "2026-09-20, orchestrator pass 176 -- of3t-auxfind still running; this is its committed interim finding, not its verdict",
+ "headline": "aux_heads' A18 failure is a MISSING MASK, not imprecision. Upstream 0.4.3's own heads, one process, float64 throughout, no device: forcing single_mask and pair_mask to all ones -- which is the function our port computes -- reproduces the port's device figures on all four failing heads to within 0.7 %. 2.8431 % of the model's gradient mass is void behind a wrong transform, and it is now located.",
+
+ "the_contrast": {
+  "method": "upstream 0.4.3 aux_heads, one process, one module, two mask settings. Arm R passes what upstream passes; arm U forces both masks to all ones. float64 throughout, so PRECISION IS OUT OF THE COMPARISON entirely.",
+  "table": [
+   {"head": "plddt_logits",            "port_device_real_tokens": 3.651515e-01, "U_vs_R_float64_mask_only": 3.656345e-01},
+   {"head": "experimentally_resolved", "port_device_real_tokens": 3.331495e-01, "U_vs_R_float64_mask_only": 3.314998e-01},
+   {"head": "pae_logits",              "port_device_real_tokens": 5.177082e-01, "U_vs_R_float64_mask_only": 5.201185e-01},
+   {"head": "pde_logits",              "port_device_real_tokens": 3.000855e-01, "U_vs_R_float64_mask_only": 3.022294e-01},
+   {"head": "distogram_logits",        "port_device_real_tokens": 3.479065e-03, "U_vs_R_float64_mask_only": 0.0}
+  ],
+  "agreement": "the four failing heads agree between a device measurement and a float64 mask-only contrast to 0.13 %, 0.50 %, 0.47 % and 0.71 %. A mask difference computed with no hardware and no low precision accounts for essentially all of what the port shows on real hardware."
+ },
+
+ "the_control_is_the_head_that_PASSES": "distogram_logits reads EXACTLY 0.000000e+00 under the contrast, because it reads the trunk pair and never enters the masked path. So the one head that passes A18 is also the one head the hypothesised cause cannot reach -- the contrast separates the four that take the masked path from the one that does not, and it separates them to zero. That is a control the data supplied rather than one I had to construct, and it is why the brief said to start from the passing case instead of instrumenting all five.",
+
+ "instrument_floor": "arm R reproduces the captured reference at exactly 0.0 on all five heads.",
+
+ "what_this_settles": "aux_heads is a WRONG TRANSFORM, not an imprecise one. A18 -- the rule that a disagreeing forward invalidates the gradient -- was doing exactly the job it exists for, and the three excuses raised against it are all now refuted by measurement: not the reference revision (of3t-auxheads043, NO-GO -- the reference was already 0.4.3), not padding (of3t-maskaudit, GO -- the two worst heads sit on an unpadded atom axis), and not precision (this, float64).",
+
+ "what_is_NOT_yet_established": "of3t-auxfind is still running. It has committed a candidate fix -- passing the reference masks into the confidence Pairformer, OPT-IN and release-gated -- but whether that clears A18 end to end on device, and whether the gradient for this 2.8431 % then agrees within the bars, is unmeasured. Do not quote this as 'aux_heads is fixed'.",
+
+ "provenance": "of3t-auxfind on qb2, commits ff237bb31 (pre-registration, before any number existed), e4df1d949 (this contrast), 0d81d4e75 (the opt-in fix). Artifacts perf/of3t_auxfind/{mask_contrast,port_vs_arms}.{py,json} and PREREGISTERED.md on wk/of3t-auxfind. Read by of3t-orchestrator at pass 176; no number here is mine."
+}

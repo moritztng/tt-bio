@@ -1,0 +1,43 @@
+{
+ "as_of": "2026-09-20, of3t-orchestrator pass 198. CPU only. An ARBITRATION of of3t-nanfloor's device results; no measurement here is mine.",
+ "headline": "The repair I landed blind works and is 17.8x better than the form that was measured, but the DEFECT I filed alongside it explains nothing: the softmax_accurate arm never went through the code path whose dropped config I blamed, and with the config installed and absent it reads 1.076374e-01 both ways with 547 tensors bit-identical. The four-arm argument stands and the 51.1358 % scope is settled.",
+
+ "my_inference_that_was_refuted": {
+  "what_I_claimed": "D113 -- both `_fp32_softmax_tail` call sites drop the compute kernel config, so the chain's fp32 reduction ran at the op default, and `softmax_accurate`'s published 1.323x was measured that way",
+  "what_is_true": "the dropped config is real and is fixed. The ARM does not go through those call sites -- it installs its own rule on the tape verb and has passed `_SOFTMAX_PRECISE_CKC` since it was written (8f413dae4 through _accurate_softmax, 8b6963af8 inlined).",
+  "the_error_named": "I read the shipped path's source and asserted it was the path the measurement took. `the source says it is passed` and `it reached the op` are different claims and I checked only the first.",
+  "measured_refutation": {
+   "accurate_ckc": 1.076374e-01, "accurate_nockc": 1.076374e-01,
+   "tensors_bit_identical": "547 of 547, worst_abs_diff exactly 0.0",
+   "census_proving_the_arms_differed": "fwd_precise 1440 / fwd_none 0 against fwd_precise 0 / fwd_none 1440, over 1,440 intercepted softmax calls each",
+   "shipped_control": "7.426217e+00, and its 547 tensors bit-identical to of3t-softgrad's shipped dump -- a stronger control than the headline agreeing",
+   "clocks": "shipped 63 s at mean 1316 MHz, both accurate arms 104 s at 1329 MHz, AICLK sampled DURING, host_quiet green at loadavg 0.27 against a 2.00 ceiling"
+  },
+  "consequence": "the pre-registered third band fires. No on-device configuration reaches the bar; the 51.1358 % scope is settled as the pass-193 NO-GO had it, and PARTIAL now rests on the trunk gradient alone."
+ },
+
+ "the_repair_itself_came_out_better_than_registered": {
+  "pre_registered": "0 non-finite and rel_l2 within 1 % of of3t-softgrad's 0.011574924",
+  "measured": {"non_finite": 0, "rel_l2": 6.493967e-04, "ratio_to_registration": "17.8x SMALLER"},
+  "why": "of3t-softgrad's accurate_clamp60 arm also clamps the TOP at 0 (ttnn.minimum(d, 0.0)), which pulls the largest exponent from exp(+0.0625) to exp(0) on every row where ttnn.max reads short. The row reproduced that both-sided form and it reads 0.01157492424155284, the published digits exactly.",
+  "why_that_is_not_luck": "the commit that landed the one-sided clamp rejected the top clamp explicitly, on the argument that clamping d at 0 flattens every entry above the truncated maximum and destroys their ordering. The measurement is 17.8x in favour of the argued choice.",
+  "also": "the shipped one-sided floor is 2.15x better than the FUSED kernel (1.3958e-03) on the same input",
+  "blast_radius_at_op_level": "every row with a live maximum is bit-identical to the unfloored chain; the 114,688 non-finite entries on the masked rows go to 0",
+  "immunity_invariant_confirmed_on_hardware": "on an input exactly on the bf16 grid, ttnn.max overshoots by exactly 0.0 and falls short by exactly 0.0 -- the pass-194 argument, measured"
+ },
+
+ "the_backward_hazard_was_real_and_order_dependent": {
+  "flagged_in_the_brief": "1/s**2 on a ~1.1e-24 sum is past fp32's 3.4e38",
+  "measured": "1/s = 8.925e+23 squares to 7.96e+47 and overflows, 114,688 non-finite; dividing by s TWICE is finite",
+  "what_the_arm_actually_uses": "an analytic rule, y*(g - sum(g*y)), which never divides by the row sum: finite, rel_l2 7.352071e-04 against the float64 analytic backward"
+ },
+
+ "and_my_proposed_alternative_is_measured_and_worse": {
+  "what_I_suggested": "floor the SUM instead -- bit-identical on any row with a live maximum, and a [.., 1] op rather than a full-size one",
+  "measured": "finite, bit-identical on live rows, needs its floor at 1e-18 or above to keep 1/s**2 in range -- but masked rows come back as ZEROS rather than the uniform distribution the softmax of a constant row actually is. rel_l2 0.167 overall against 6.494e-04 for the exponent floor.",
+  "verdict": "257x worse. Keep the exponent floor. The suggestion was mine and offering it as the cheaper option was right to do and wrong on the numbers."
+ },
+
+ "what_is_still_owed_on_this_row": "Deliverable 3 -- one OpenDDE fold at a non-bucket-aligned token count, finite and bit-identical to the unfloored tree BY DIGEST. The blast radius above is measured at the op. Generalising it to a shipped model without the fold is the step D63 exists to stop.",
+ "provenance": "of3t-orchestrator pass 198 on pc, CPU only, no device opened. Every measurement is of3t-nanfloor's, read from origin/wk/of3t-nanfloor at 28854d22b. The arbitration and the retraction are this pass's."
+}

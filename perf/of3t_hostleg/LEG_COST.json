@@ -1,0 +1,107 @@
+{
+ "instrument": "of3t-hostleg leg_cost.py -- the two legs' device-vs-host parity and cost on real ubq features",
+ "host": "qb1 (tt-quietbox) card 1, Blackhole p150a",
+ "cell": {
+  "yaml": "examples/ubq.yaml",
+  "n_atom": 601,
+  "NP": 608,
+  "nb": 19,
+  "n_token": 76
+ },
+ "checkpoint": "/home/ttuser/of3-weights/of3-p2-155k.pt",
+ "repeats": 20,
+ "legs": {
+  "diffusion_module.atom_attn_enc.ref_atom_feature_embedder": {
+   "n_weights": 8,
+   "cl": {
+    "rel_l2": 0.003130030229542957,
+    "pcc": 0.9999957631708902,
+    "max_abs": 0.05711174011230469,
+    "host_norm": 362.6047796467387,
+    "n": 76928
+   },
+   "plm": {
+    "rel_l2": 0.0033741418159754523,
+    "pcc": 0.999994877894597,
+    "max_abs": 0.21727943420410156,
+    "host_norm": 1182.5464920207633,
+    "n": 1245184
+   },
+   "pad_rows_zero_on_device": true,
+   "pad_rows_max_abs": 0.0,
+   "host_s": {
+    "median": 0.011151868966408074,
+    "min": 0.009309205983299762,
+    "max": 0.01811766199534759
+   },
+   "device_s": {
+    "median": 0.0010359715088270605,
+    "min": 0.0009343340061604977,
+    "max": 0.0013843459892086685
+   },
+   "aiclk_before": 1350,
+   "aiclk_after": 1350,
+   "speedup_host_over_device": 10.764648324194123
+  },
+  "input_embedder.atom_attn_enc.ref_atom_feature_embedder": {
+   "n_weights": 8,
+   "cl": {
+    "rel_l2": 0.003187537886496799,
+    "pcc": 0.9999961247611182,
+    "max_abs": 0.11887741088867188,
+    "host_norm": 611.2530920644225,
+    "n": 76928
+   },
+   "plm": {
+    "rel_l2": 0.003622656822669527,
+    "pcc": 0.9999937880227112,
+    "max_abs": 0.12121200561523438,
+    "host_norm": 801.2913576498298,
+    "n": 1245184
+   },
+   "pad_rows_zero_on_device": true,
+   "pad_rows_max_abs": 0.0,
+   "host_s": {
+    "median": 0.011364366015186533,
+    "min": 0.009881365986075252,
+    "max": 0.013435514003504068
+   },
+   "device_s": {
+    "median": 0.0009849875350482762,
+    "min": 0.0009203439694829285,
+    "max": 0.0010622019763104618
+   },
+   "aiclk_before": 1350,
+   "aiclk_after": 1350,
+   "speedup_host_over_device": 11.5375734319618
+  },
+  "input_embedder.atom_attn_enc.linear_q.0.weight": {
+   "n_weights": 1,
+   "note": "ql is a seeded stand-in for the atom transformer's output; the weight, the mask and the aggregation matrix are real",
+   "ai": {
+    "rel_l2": 0.002761825278815176,
+    "pcc": 0.9999890974595382,
+    "max_abs": 0.014963626861572266,
+    "host_norm": 96.36093331963181,
+    "n": 29184
+   },
+   "weight_shape": [
+    384,
+    128
+   ],
+   "host_s": {
+    "median": 0.0014039605157449841,
+    "min": 0.0009653529850766063,
+    "max": 0.0029445080435834825
+   },
+   "device_s": {
+    "median": 0.00012287299614399672,
+    "min": 9.712798055261374e-05,
+    "max": 0.00304636696819216
+   },
+   "aiclk_before": 1350,
+   "aiclk_after": 1350,
+   "speedup_host_over_device": 11.426111186380298
+  }
+ }
+}

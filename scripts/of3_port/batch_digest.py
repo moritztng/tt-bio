@@ -105,7 +105,7 @@ STAGE_CROP = {"initial_training": 384, "finetune_1": 640, "finetune_2": 768, "fi
 
 def build_dataset(pkg: str, data_dir: Path, n_templates: int,
                   token_budget: int | None = None, split: str = "val",
-                  stage: str | None = None):
+                  stage: str | None = None, cache_file: Path | None = None):
     """Instantiate their dataset over the corpus `build_of3_subset.py` fetched.
 
     `val` gives ValidationPDBDataset over the 4 pinned path-diverse structures;
@@ -125,6 +125,10 @@ def build_dataset(pkg: str, data_dir: Path, n_templates: int,
     else:
         cache = data_dir / "validation_cache_with_templates_subset_4.json"
         tmpl_sub, cls_name, ds_name = "val_template_cache", "ValidationPDBDataset", "val-weighted-pdb"
+    if cache_file is not None:
+        # A corpus built with `build_of3_subset.py --ids` is not the seeded 8-structure
+        # sample and must not be named as if it were.
+        cache = Path(cache_file)
     if not cache.is_file():
         raise SystemExit(f"missing {cache} -- run build_of3_subset.py --split {split} first")
 

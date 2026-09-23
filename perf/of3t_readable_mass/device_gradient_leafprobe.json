@@ -1,0 +1,174 @@
+{
+ "NP": 448,
+ "accumulation_probe": [
+  0.00011862706392317388
+ ],
+ "atoms": 422,
+ "best10": [
+  [
+   "atom_attn_dec.atom_transformer.blocks.2.conditioned_transition.layer_norm.layer_norm_s.weight",
+   0.887787464819325
+  ],
+  [
+   "diffusion_transformer.blocks.16.conditioned_transition.layer_norm.layer_norm_s.weight",
+   0.9071461818839683
+  ],
+  [
+   "atom_attn_enc.atom_transformer.blocks.2.attention_pair_bias.layer_norm_a_q.linear_g.bias",
+   0.9180035691838254
+  ],
+  [
+   "diffusion_transformer.blocks.5.attention_pair_bias.layer_norm_a.layer_norm_s.weight",
+   0.9310237406486249
+  ],
+  [
+   "diffusion_transformer.blocks.21.conditioned_transition.layer_norm.layer_norm_s.weight",
+   0.9325426144383788
+  ],
+  [
+   "diffusion_transformer.blocks.22.conditioned_transition.layer_norm.layer_norm_s.weight",
+   0.9339999997012393
+  ],
+  [
+   "diffusion_transformer.blocks.10.conditioned_transition.layer_norm.linear_g.bias",
+   0.9374924594622436
+  ],
+  [
+   "diffusion_transformer.blocks.10.conditioned_transition.layer_norm.linear_g.weight",
+   0.9423643668566257
+  ],
+  [
+   "diffusion_transformer.blocks.4.attention_pair_bias.layer_norm_a.layer_norm_s.weight",
+   0.9456770155303634
+  ],
+  [
+   "atom_attn_enc.atom_transformer.blocks.2.conditioned_transition.layer_norm.layer_norm_s.weight",
+   0.9458014003865302
+  ]
+ ],
+ "bisect": {},
+ "chain_sum_ckc": null,
+ "chain_sum_ckc_census": null,
+ "ckc_census": null,
+ "compared": 547,
+ "cotangent_permuted": false,
+ "device_weights_named": 547,
+ "device_weights_reachable": 870,
+ "error": null,
+ "forward_rel": [
+  0.011041354303912976
+ ],
+ "forward_rel_median": 0.011041354303912976,
+ "fp32_softmax_stats": null,
+ "grads_dumped_to": null,
+ "host_f64_calls_intercepted": null,
+ "host_f64_softmax_ab": null,
+ "host_f64_softmax_stats": {
+  "declined": 30,
+  "elements": 0,
+  "refused": 0,
+  "served": 0
+ },
+ "host_f64_verbs": null,
+ "median_rel": 0.9762260645131293,
+ "n_struct_total": 48,
+ "nb": 14,
+ "nonfinite_probe": null,
+ "nonfinite_probe_count": null,
+ "orientation_recorded_at_load": {
+  "?": 0,
+  "N": 211,
+  "T": 336
+ },
+ "over_5e-2": 547,
+ "per_tensor": null,
+ "per_tensor_dumped": false,
+ "probe2_first_bad": null,
+ "probe2_len": null,
+ "probe3_first_bad": null,
+ "probe3_len": null,
+ "provenance": {
+  "argv": [
+   "perf/of3t_diffusion/device_gradient.py",
+   "--structs",
+   "0",
+   "--tag",
+   "_leafprobe",
+   "--cap",
+   "/home/ttuser/of3t_softgrad/diffcap043",
+   "--out-dir",
+   "perf/of3t_readable_mass"
+  ],
+  "cap": "/home/ttuser/of3t_softgrad/diffcap043",
+  "ckpt": "/home/ttuser/of3-weights/of3-p2-155k.pt",
+  "mask_ones": false,
+  "out_dir": "perf/of3t_readable_mass",
+  "structs": "0",
+  "tag": "_leafprobe"
+ },
+ "reference_tensors": 761,
+ "share_of_diffusion_sq_norm": 0.5732029094107396,
+ "softmax_bw_renorm_asked": false,
+ "softmax_bw_renorm_live": true,
+ "softmax_calls_intercepted": 0,
+ "softmax_f64_bound": false,
+ "softmax_lever": null,
+ "softmax_site_f64": false,
+ "square_2d_compared": 87,
+ "structures_asked": [
+  0
+ ],
+ "structures_done": [
+  0
+ ],
+ "tokens": 384,
+ "tt_bio_softmax_ckc_flag": null,
+ "verb_census": null,
+ "weights_with_grad": 547,
+ "weights_without_grad": 0,
+ "worst10": [
+  [
+   "diffusion_transformer.blocks.18.attention_pair_bias.layer_norm_a.linear_g.weight",
+   1.0164092018932835
+  ],
+  [
+   "diffusion_transformer.blocks.1.conditioned_transition.layer_norm.layer_norm_s.weight",
+   1.0176550300276643
+  ],
+  [
+   "atom_attn_enc.atom_transformer.layer_norm_z.weight",
+   1.0220987653289157
+  ],
+  [
+   "atom_attn_enc.atom_transformer.blocks.0.conditioned_transition.layer_norm.linear_g.bias",
+   1.0229263633067378
+  ],
+  [
+   "atom_attn_enc.atom_transformer.blocks.0.attention_pair_bias.layer_norm_a_q.linear_g.weight",
+   1.0262832926790708
+  ],
+  [
+   "atom_attn_enc.atom_transformer.blocks.0.attention_pair_bias.layer_norm_a_q.linear_g.bias",
+   1.0297877012212258
+  ],
+  [
+   "diffusion_transformer.blocks.18.attention_pair_bias.layer_norm_a.linear_g.bias",
+   1.0335441421169083
+  ],
+  [
+   "diffusion_transformer.blocks.3.attention_pair_bias.layer_norm_a.layer_norm_s.weight",
+   1.0524719719294484
+  ],
+  [
+   "atom_attn_dec.atom_transformer.blocks.2.attention_pair_bias.layer_norm_a_q.layer_norm_s.weight",
+   1.0623353524637535
+  ],
+  [
+   "diffusion_transformer.blocks.18.attention_pair_bias.layer_norm_a.layer_norm_s.weight",
+   1.1045482169760303
+  ]
+ ],
+ "worst_rel": 1.1045482169760303,
+ "worst_tensor": "diffusion_transformer.blocks.18.attention_pair_bias.layer_norm_a.layer_norm_s.weight",
+ "zero_model_median": 1.0
+}

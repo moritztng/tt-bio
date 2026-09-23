@@ -97,6 +97,10 @@ def main() -> int:
                          "is measured rather than assumed")
     ap.add_argument("--reference-grads", type=Path,
                     help="grads_f64_043.pt, for the aux_heads norm-share denominator")
+    ap.add_argument("--scramble-cot", action="store_true", dest="scramble_cot",
+                    help="negative control: seed the backward with the SAME cotangent numbers written into the wrong positions (the flattened cotangent reversed). Norm and shape are preserved exactly, and the forward, the weights and the arithmetic are untouched, so a comparison that cannot tell this apart from the real run is not reading their seed at all. A zero-model baseline cannot catch that: it breaks OUR side.")
+    ap.add_argument("--dump-grads", default="", dest="dump_grads",
+                    help="write the compared device gradient TENSORS to this .pt, keyed by full checkpoint name. Without it this arm publishes only rel_l2 against the one float64 reference it was run against, so its gradient can never be compared to upstream's own bf16 training gradient -- and two distances from a shared reference do not order each other (D72).")
     ap.add_argument("--out", required=True, type=Path)
     a = ap.parse_args()
     t0 = time.perf_counter()
@@ -250,6 +254,8 @@ def main() -> int:
             sv = full.reshape(1, n_tok, 23 * c)
         else:
             sv = squeeze_leading(g, 3).reshape(tuple(int(d) for d in o.shape))
+        if a.scramble_cot:
+            sv = sv.reshape(-1).flip(0).reshape(sv.shape).contiguous()
         roots.append(o)
         seeds.append(ttnn.from_torch(sv.float(), layout=ttnn.TILE_LAYOUT, device=dev,
                                      dtype=ttnn.bfloat16))
@@ -259,6 +265,7 @@ def main() -> int:
     # ---- per-parameter against the float64 reference ---------------------------------------
     pert_name, pert_factor = (a.perturb.rsplit(":", 1) if a.perturb else (None, None))
     rows = []
+    dumped = {}
     for their, (leaf, inv, _where, _bi, _lookup) in sorted(params.items()):
         # The dict KEY is their full name; the trailing element of the value is a
         # scope-local lookup that only means anything against grad_device.mains
@@ -280,6 +287,9 @@ def main() -> int:
         if tuple(gd.shape) != tuple(ref.shape):
             rows.append({"name": full,
                          "skip": f"shape {tuple(gd.shape)} vs ref {tuple(ref.shape)}"}); continue
+        # The p_in/g_in halves below are two ROWS against one reference tensor, so the
+        # tensor dumped under `full` is the whole thing, which is what the bundle keys.
+        dumped[full] = gd
         # SS3a: the checkpoint fuses TriangleMultiplications a/b halves into p_in/g_in, so
         # each half is scored on its own -- a fused number lets one halfs agreement mask
         # the others error.
@@ -336,6 +346,7 @@ def main() -> int:
         "reach": reach,
         "zero_model_arm": bool(a.zero_model),
         "perturbation": a.perturb,
+        "cotangent_scrambled": bool(a.scramble_cot),
     }
     if scored:
         n_over = report["gradient"]["n_over_bar"]
@@ -347,6 +358,12 @@ def main() -> int:
         if reach:
             print(f"  reach: {reach['share_of_aux_heads_own_norm']*100:.3f} %% of aux_heads own "
                   f"squared norm = {reach['share_of_model_squared_norm']*100:.4f} %% of the model")
+    if a.dump_grads:
+        Path(a.dump_grads).parent.mkdir(parents=True, exist_ok=True)
+        torch.save({k: v.cpu() for k, v in dumped.items()}, a.dump_grads)
+        report["grads_dumped_to"] = a.dump_grads
+        print(f"[{time.perf_counter()-t0:.0f}s] wrote {len(dumped)} gradient tensors to "
+              f"{a.dump_grads}", flush=True)
     a.out.parent.mkdir(parents=True, exist_ok=True)
     a.out.write_text(json.dumps(report, indent=1, default=str) + "\n")
     print(f"[{time.perf_counter()-t0:.0f}s] written {a.out}", flush=True)
