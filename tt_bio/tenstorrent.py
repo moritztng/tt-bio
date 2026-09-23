@@ -474,6 +474,13 @@ _TRIMUL_MASK_L1 = env_flag("TT_BIO_TRIMUL_MASK_L1", True)
 # fall back to DRAM when the pair tensor does not fit, which is what happens above 512 aa.
 _RESIDUAL_L1 = env_flag("TT_BIO_RESIDUAL_L1", True)
 TRIMUL_MASK_L1_STATS = [0, 0]           # [mask read from L1, mask read from DRAM]
+# Trimul shapes whose L1 mask clashed with the channel matmul's static circular buffers. The L1
+# test above reserves a fixed 640 KiB per core, but the matmul plan's buffers grow with the axis:
+# OpenDDE's refiner at 1280 residues (a 78-tile structural axis, 8x9 Wormhole grid) put the mask's
+# 174080 B per core at the top of L1 and the circular-buffer region ended 19744 B inside it. A
+# shape in here keeps its mask in DRAM. Recorded on the throw, which lands at program validation
+# before any kernel runs, so the retry is safe, and a placement is bit-exact.
+_TRIMUL_MASK_DRAM_SHAPES: set = set()
 RESIDUAL_L1_STATS = [0, 0]              # [update produced into L1, into DRAM]
 # in0_block_w cap for the L1-output members. It must track _PAIR_PROJ_BW: at the same cap the L1
 # output is `torch.equal` against the DRAM output of the identical config (max abs 0.0, and a live
@@ -2115,6 +2122,34 @@ _SDPA_QK_OVER_L1: set = set()
 _SDPA_FUSED_LARGE_S = env_flag("TT_BIO_SDPA_FUSED_LARGE_S", True)
 
 
+def _tri_att_fused_large_s(q, k, v, bias, scale: float, ckc=None, gate=None):
+    """Above `triatt_sdpa._Q_SPLIT_MAX_S`, the fused kernel in its own (q_chunk, k_chunk) order:
+    `(o, q_chunk, k_chunk)`, or None when the call is not eligible or no pair ran.
+
+    One route for both triangle-attention entry points. The stock ladder takes it at the op's
+    default fidelity; `_tri_att_sdpa_hifi_inner` takes it at `_TRIATT_FUSED_HIFI_CKC`. Without the
+    second caller the HiFi route offered only the stock ladder's q_chunks above the cap, every one
+    of which `fill_preconditions` declines, so OpenFold3 and OpenBind at 1280 tokens served 0 of
+    1728 calls fused and fell to the materialised fp32 softmax (~205 s per trunk recycle).
+    """
+    q_len = int(q.shape[2])
+    if not (_SDPA_FUSED_LARGE_S and q_len == int(k.shape[2]) and q_len % SDPA_CHUNK_TILE == 0
+            and q_len > _triatt_sdpa._Q_SPLIT_MAX_S):
+        return None
+    cores = COMPUTE_GRID_MAIN[0] * COMPUTE_GRID_MAIN[1]
+    for q_chunk, k_chunk in _triatt_sdpa.fused_pairs(
+            q_len, int(q.shape[1]), int(q.shape[3]), cores, bias.dtype):
+        o = _triatt_sdpa.sdpa(q, k, v, bias, scale, q_chunk, k_chunk, ckc_default=ckc,
+                              q_split_cap=0, gate=gate)
+        if o is not None:
+            SDPA_FUSED_LARGE_S_STATS[0] += 1
+            return o, q_chunk, k_chunk
+    # Above the cap and eligible, and no pair ran: an L1 refusal, or a token count with no
+    # 32-aligned divisor. Counted so the census reads a reach, not just a default.
+    SDPA_FUSED_LARGE_S_STATS[1] += 1
+    return None
+
+
 def _tri_att_sdpa_at(q, k, v, bias, scale: float, ckc=None, gate=None):
     """The q_chunk / k_chunk ladder. With `gate` set, only the FUSED rungs are offered.
 
@@ -2124,21 +2159,12 @@ def _tri_att_sdpa_at(q, k, v, bias, scale: float, ckc=None, gate=None):
     still owes `o * sigmoid(gate)`.
     """
     q_len, k_len = q.shape[2], k.shape[2]
-    if (_SDPA_FUSED_LARGE_S and q_len == k_len and q_len % SDPA_CHUNK_TILE == 0
-            and q_len > _triatt_sdpa._Q_SPLIT_MAX_S):
-        cores = COMPUTE_GRID_MAIN[0] * COMPUTE_GRID_MAIN[1]
-        for q_chunk, k_chunk in _triatt_sdpa.fused_pairs(
-                int(q_len), int(q.shape[1]), int(q.shape[3]), cores, bias.dtype):
-            o = _triatt_sdpa.sdpa(q, k, v, bias, scale, q_chunk, k_chunk, ckc_default=ckc,
-                                  q_split_cap=0, gate=gate)
-            if o is not None:
-                SDPA_K_CHUNK_STATS[0] += 1
-                SDPA_FUSED_LARGE_S_STATS[0] += 1
-                _sdpa_pick(q_len, k_len, q_chunk, k_chunk, "fused")
-                return o
-        # Above the cap and eligible, and no pair ran: an L1 refusal, or a token count with no
-        # 32-aligned divisor. Counted so the census reads a reach, not just a default.
-        SDPA_FUSED_LARGE_S_STATS[1] += 1
+    served = _tri_att_fused_large_s(q, k, v, bias, scale, ckc, gate)
+    if served is not None:
+        o, q_chunk, k_chunk = served
+        SDPA_K_CHUNK_STATS[0] += 1
+        _sdpa_pick(q_len, k_len, q_chunk, k_chunk, "fused")
+        return o
     k_chunks = _tri_att_k_chunks(q_len, k_len, int(q.shape[1]), int(q.shape[3]),
                                  q.dtype)
     if len(k_chunks) > 1:
@@ -2488,6 +2514,12 @@ def _tri_att_sdpa_hifi_inner(q, k, v, bias, scale: float, one_k_chunk: bool = Fa
     if min(q_len, k_len) < _TRIATT_FUSED_HIFI_MIN_S:
         TRIATT_FUSED_HIFI_STATS["too_short"] += 1
         return None
+    served = _tri_att_fused_large_s(q, k, v, bias, scale, _TRIATT_FUSED_HIFI_CKC)
+    if served is not None:
+        o, q_chunk, k_chunk = served
+        TRIATT_FUSED_HIFI_STATS["served"] += 1
+        TRIATT_FUSED_HIFI_PICKS[(q_len, k_len)] = [q_chunk, k_chunk, 2]
+        return o
     shipped_k = _sdpa_chunks_shipped(q_len, k_len)[1]
     padded_k = _padded_sdpa_len(k_len)
     k_chunks = (padded_k, shipped_k) if one_k_chunk and padded_k != shipped_k else (shipped_k,)
@@ -5155,31 +5187,6 @@ def msa_row_tile(L: int, M: int) -> int:
     return rows if rows < L else 0
 
 
-# The largest [B,L,M,c] MSA-encoder buffer a 12 GB Wormhole chip is MEASURED to
-# allocate. At L=640 with the default depth 8192 the fold succeeds (230.4 s); at L=788,
-# same depth, it fails on a 1,652,555,776 B request -- which is exactly 788*8192*128*2 --
-# against a 135.9 MiB largest free block (state/japanfold-esmfold2-wh-unusable.md, S15).
-# Both numbers are the same tensor, so the thing to bound is the product L*M, not a
-# residue count: 640*8192 caps that buffer at the 1.25 GiB that demonstrably fits.
-WORMHOLE_MSA_AREA = 640 * 8192
-
-
-def msa_depth_cap(num_residues: int, max_sequences: int) -> int:
-    """MSA depth to actually use for an ESMFold2 fold of this many residues.
-
-    Returns ``max_sequences`` unchanged everywhere except a Wormhole chip asked for an
-    L*M above the measured-good product, where it returns the depth that fits. A 1024 aa
-    fold gets a 5120-deep MSA instead of an allocation failure; anything at or below the
-    proven point, and every Blackhole fold, is untouched.
-
-    A shallower MSA costs accuracy, so this only ever fires where the alternative is no
-    structure at all. Depth is bounded, never raised.
-    """
-    if num_residues <= 0 or max_sequences <= 0 or not is_wormhole():
-        return max_sequences
-    return max(1, min(max_sequences, WORMHOLE_MSA_AREA // num_residues))
-
-
 # Blackhole's own pair-row budget. Two numbers, because they answer two different questions.
 #
 # BH_PAIR_SINGLE_PASS_MAX is the top of the ladder that has actually been walked on this silicon.
@@ -7089,6 +7096,7 @@ class TriangleMultiplication(Module):
         # and the one nothing asks for is never built.
         mask_moved_ok = (mask is not None and _TRIMUL_MASK_AFTER_MOVE and len(mask.shape) == 3)
         _mask_moved_memo: dict = {}
+        mask_key = _trimul_chunk_key(H, self._hidden, batch)
 
         def mask_moved(transposed: bool):
             if transposed not in _mask_moved_memo:
@@ -7105,9 +7113,9 @@ class TriangleMultiplication(Module):
                 # the caller's buffer, so it needs a copy of its own. Both are this call's to
                 # free and go when the memo does. `_PAIR_L1_CONSUMER_RESERVE` keeps the matmul's
                 # per-core circular buffers clear underneath it.
-                l1 = _TRIMUL_MASK_L1 and _l1_fits(
-                    _padded_bytes(m.shape, 4 if m.dtype == ttnn.float32 else 2), 1.0,
-                    _PAIR_L1_CONSUMER_RESERVE)
+                l1 = (_TRIMUL_MASK_L1 and mask_key not in _TRIMUL_MASK_DRAM_SHAPES
+                      and _l1_fits(_padded_bytes(m.shape, 4 if m.dtype == ttnn.float32 else 2),
+                                   1.0, _PAIR_L1_CONSUMER_RESERVE))
                 if transposed:
                     m = (ttnn.transpose(m, -2, -1, memory_config=ttnn.L1_MEMORY_CONFIG)
                          if l1 else ttnn.transpose(m, -2, -1))
@@ -7333,8 +7341,24 @@ class TriangleMultiplication(Module):
                 # its launch count, and only a size that produces no structure at all sees a
                 # different partition.
                 oom = large_seq and _dram_oom(e)
-                if not oom and (large_seq or "clash with L1 buffers" not in msg):
+                # On the DRAM path the only L1 tensor this call holds is the moved mask, so a
+                # clash there is the mask against the matmul's buffers: move it and retry.
+                mask_clash = (large_seq and "clash with L1 buffers" in msg
+                              and any(_m.memory_config().buffer_type == ttnn.BufferType.L1
+                                      for _m in _mask_moved_memo.values()))
+                if not oom and not mask_clash and (large_seq or "clash with L1 buffers" not in msg):
                     raise
+                if mask_clash:
+                    _TRIMUL_MASK_DRAM_SHAPES.add(mask_key)
+                    for _transposed, _m in list(_mask_moved_memo.items()):
+                        # Everything but the untransposed DRAM view is this call's own copy.
+                        if _transposed or _m.memory_config().buffer_type == ttnn.BufferType.L1:
+                            ttnn.deallocate(_m)
+                    _mask_moved_memo.clear()
+                    print(f"[tt-bio] trimul mask in L1 clashed with the channel matmul's circular "
+                          f"buffers (seq {H}): moving the mask to DRAM and retrying. The tt-metal "
+                          f"'critical' line above is expected and handled; the result is unchanged.",
+                          file=sys.stderr, flush=True)
                 if oom and _DEVICE_ACC_TRIAL[0]:
                     raise       # the device-held chunks may be the cause: try the host join first
                 for _t in x_chunks:
@@ -7375,6 +7399,8 @@ class TriangleMultiplication(Module):
                           f"{chunk_size} x group {group}. The tt-metal 'Out of Memory' line "
                           f"above is expected and handled; the result is unchanged.",
                           file=sys.stderr, flush=True)
+                    continue
+                if mask_clash:
                     continue
                 _record_trimul_clash(H, self._hidden, batch, chunk_size)
                 # tt-metal logs the clash at `critical` before raising, which reads like a
