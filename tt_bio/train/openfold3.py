@@ -199,6 +199,9 @@ class OpenFold3Dataset:
             "features": f,
             "true_xyz": true_xyz,
             "coord_mask": coord_mask,
+            # Upstream's `batch["atom_mask"]` at token scope: the representative atom exists,
+            # which is every real token. The resolved term averages over it, not over the crop.
+            "atom_mask": tok.numpy().astype(np.float64),
             "true_dist": true_dist,
             "lddt_pair_mask": lddt_pair_mask,
             "bond_mask": bonds * pair,
@@ -285,6 +288,11 @@ class OpenFold3Forward:
             self._model.confidence_head = OF3ConfidenceHead(
                 self._model._confidence_sd, dev, ckc)
             self._model.confidence_head.materialize_device_weights()
+            # Every TriangleMultiplication's in-projection as leaves the walk below finds.
+            # Without this they are cut from host torch inside the taped forward, after
+            # registration, and train as constants.
+            from ..tenstorrent import train_in_projections
+            train_in_projections(self._model)
         return self._model
 
     def parameters(self) -> dict:

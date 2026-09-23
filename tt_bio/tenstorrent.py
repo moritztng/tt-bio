@@ -6344,6 +6344,30 @@ _WALK_OPAQUE = (type, ModuleType, FunctionType, MethodType, BuiltinFunctionType,
                 str, bytes, torch.Tensor)
 
 
+def train_in_projections(obj) -> int:
+    """`TriangleMultiplication.train_in_proj` on every trimul reachable from `obj`; the count.
+
+    Run it on a built model before the walk that registers its parameters. The walk then finds
+    each in-projection as two leaves, and no forward has to run first.
+    """
+    seen, n, stack = set(), 0, [obj]
+    while stack:
+        o = stack.pop()
+        if id(o) in seen or isinstance(o, _WALK_OPAQUE + (ttnn.Tensor,)):
+            continue
+        seen.add(id(o))
+        if isinstance(o, TriangleMultiplication):
+            o.train_in_proj()
+            n += 1
+        elif isinstance(o, dict):
+            stack += o.values()
+        elif isinstance(o, (list, tuple)):
+            stack += o
+        elif hasattr(o, "__dict__"):
+            stack += vars(o).values()
+    return n
+
+
 def walk_device_weights(obj, prefix: str = "", _seen=None, _depth: int = 0):
     """`(path, owner, key, tensor)` for every device tensor reachable from `obj`.
 
@@ -6725,12 +6749,35 @@ class TriangleMultiplication(Module):
         # Same four weights again with `g_out`'s columns on the end, built only if the fused-gate
         # lever ever takes a call at this width.
         self._gp_gout_cache: dict[tuple[int, int], ttnn.Tensor] = {}
+        # The in-projection as device leaves, set only by `train_in_proj`. Inference never
+        # sets them and reads the caches above.
+        self.g_in_weight = self.p_in_weight = None
         self.g_out_weight = self.torch_to_tt("g_out.weight")
         self.out_p_weight = self.torch_to_tt("p_out.weight")
         self.p_out_bias = (self.torch_to_tt("p_out.bias")
                            if "p_out.bias" in scope else None)
         self.g_out_bias = (self.torch_to_tt("g_out.bias")
                            if "g_out.bias" in scope else None)
+
+    def train_in_proj(self) -> None:
+        """Hold the fused in-projection's two sources as device tensors a training walk can register.
+
+        The caches are filled from host torch on first use, so the walk that registers a model's
+        parameters before its forward never sees them, and the taped forward then multiplies an
+        untracked constant: every OpenFold3 in-projection came back from backward with no
+        gradient. Once this has run, every fused chunk is cut from these two tensors per call
+        through `ttnn`, so the tape sums each chunk's gradient into the leaf it came from, and an
+        optimizer write-back to these attributes leaves no stale copy behind. Nothing is cached.
+        """
+        if self._g_in_b is not None:
+            raise NotImplementedError(
+                "train_in_proj covers the in-projection weights only; this checkpoint's "
+                "g_in/p_in biases would still be cached constants")
+        up = lambda t: ttnn.from_torch(  # noqa: E731
+            t, layout=ttnn.TILE_LAYOUT, device=self.device, dtype=ttnn.bfloat16)
+        self.g_in_weight, self.p_in_weight = up(self._g_in_t), up(self._p_in_t)
+        self._gp_cache.clear()
+        self._gp_gout_cache.clear()
 
     def _gp_in_chunks(self, C: int, group: int = 1) -> list[ttnn.Tensor]:
         """Fused [g_a | g_b | p_a | p_b] input weights, `group` consecutive chunks per weight.
@@ -6741,6 +6788,8 @@ class TriangleMultiplication(Module):
         an index move, or a per-channel matmul, so a wider group is a different partition of the
         same sum and stays bit-exact. At group = 1 the order is the narrow path's.
         """
+        if self.g_in_weight is not None:
+            return self._gp_fused_order((self.g_in_weight, self.p_in_weight), C, group)
         key = (C, group, gp_roles())
         cached = self._gp_cache.get(key)
         if cached is not None:
@@ -6761,6 +6810,10 @@ class TriangleMultiplication(Module):
         exactly the projection the channel loop already consumes and the rest is the tail's gate.
         Only ever asked for when the channel loop is a single iteration.
         """
+        if self.g_in_weight is not None:
+            parts = self._gp_in_chunks(C, group)
+            assert len(parts) == 1, ("the fused gate needs a one-iteration channel loop", len(parts))
+            return ttnn.concat([parts[0], self.g_out_weight], dim=-1)
         key = (C, group, gp_roles())
         cached = self._gp_gout_cache.get(key)
         if cached is None:
@@ -6779,6 +6832,10 @@ class TriangleMultiplication(Module):
             TRIMUL_GOUT_REJECTS[reason] = TRIMUL_GOUT_REJECTS.get(reason, 0) + 1
             TRIMUL_GOUT_STATS[1] += 1
             return False
+        if ops.taping():
+            # `_in_proj_matmul` cannot split under the tape, so the fused call would decline
+            # after its weight had been built for nothing.
+            return no("taped")
         if row_norm or x_norm_in is None:
             return no("row_blocked_input_norm")
         if H > SEQ_LEN_MORE_CHUNKING:
@@ -6804,21 +6861,25 @@ class TriangleMultiplication(Module):
 
         The weights and the biases share this so their column orders cannot drift apart: a bias
         laid out against a different order is a silent per-channel permutation, which nothing
-        downstream can see.
+        downstream can see. Device tensors (`train_in_proj`'s leaves) are cut with `ttnn`, which
+        is what puts the cut on a tape.
         """
         g, p = tensors
-        n_pairs = g.shape[-1] // C // 2
+        n_pairs = int(g.shape[-1]) // C // 2
         assert n_pairs % group == 0, f"group {group} does not divide {n_pairs} pairs"
         src = {"g_a": (g, 0), "g_b": (g, n_pairs), "p_a": (p, 0), "p_b": (p, n_pairs)}
+        if isinstance(g, torch.Tensor):
+            cut, cat = (lambda t, a, b: t[..., a:b]), (lambda xs: torch.cat(xs, dim=-1))
+        else:
+            lead = [int(d) for d in g.shape[:-1]]
+            cut = lambda t, a, b: ttnn.slice(t, [0] * len(lead) + [a], lead + [b])  # noqa: E731
+            cat = lambda xs: ttnn.concat(xs, dim=-1)  # noqa: E731
         return [
-            torch.cat(
-                [
-                    t[..., (j + off) * C : (j + off + 1) * C]
-                    for t, off in (src[r] for r in gp_roles())
-                    for j in range(i * group, (i + 1) * group)
-                ],
-                dim=-1,
-            )
+            cat([
+                cut(t, (j + off) * C, (j + off + 1) * C)
+                for t, off in (src[r] for r in gp_roles())
+                for j in range(i * group, (i + 1) * group)
+            ])
             for i in range(n_pairs // group)
         ]
 

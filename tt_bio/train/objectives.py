@@ -266,7 +266,11 @@ _TERMS = {
                                    b["coord_mask"]),
     "pae": lambda b, o: losses.pae(o["pae_logits"], o["pred_xyz"], b["true_xyz"],
                                    b["coord_mask"], b["frame_atom_index"]),
-    "resolved": lambda b, o: losses.resolved(o["resolved_logits"], b["coord_mask"]),
+    # Averaged over atoms that exist, as upstream's `all_atom_experimentally_resolved_loss`
+    # does (core/loss/confidence.py:454-466). Unmasked it averaged over the whole crop, pads
+    # included, and moved with whatever the pad features held.
+    "resolved": lambda b, o: losses.resolved(o["resolved_logits"], b["coord_mask"],
+                                             b["atom_mask"]),
 }
 _NEEDS = {
     "mse": ("pred_xyz", "true_xyz", "coord_mask"),
@@ -276,7 +280,7 @@ _NEEDS = {
     "plddt": ("plddt_logits", "per_atom_lddt", "per_atom_weight"),
     "pde": ("pde_logits", "pred_xyz", "true_xyz", "coord_mask"),
     "pae": ("pae_logits", "pred_xyz", "true_xyz", "coord_mask", "frame_atom_index"),
-    "resolved": ("resolved_logits", "coord_mask"),
+    "resolved": ("resolved_logits", "coord_mask", "atom_mask"),
 }
 # Labels a term uses when the batch carries them and computes a DIFFERENT loss without. An
 # absent entry here is not a missing input -- the term still fires, at a weight nobody asked
