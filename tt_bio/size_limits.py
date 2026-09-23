@@ -635,9 +635,18 @@ CEILINGS: dict[str, dict[str, Ceiling]] = {
     # --- No measured ceiling. Never refused. ---------------------------------------------------
     "boltz2": {
         "wormhole_b0": Ceiling(
-            residues=1664, pass_at=1664, fail_at=1792, binds=MEMORY, mechanism=FRAGMENTATION,
+            residues=1920, pass_at=1920, fail_at=2048, binds=MEMORY, mechanism=FRAGMENTATION,
             msa_rows=8192,
-            evidence="walked 2026-09-23 on origin/main 8906d35a0, j10glx02 card 31, guard off, "
+            evidence="re-walked 2026-09-23 after the combos merge freed the trunk's staged inputs "
+                     "before diffusion (ws:mgx-ceilings, perf/mgxceil, j10glx02 card 16, guard off, "
+                     "--host_threads 2, apo CDK2 tiled with 8192 alignment rows). On a2a70b160 1792 "
+                     "folds in 813.6 s (pLDDT 0.77, no CA-CA gap over 4.2 A), 1920 in 880.7 s, and "
+                     "2048 fails after 1172.9 s in the diffusion cache's token-bias permute "
+                     "(tenstorrent.py _populate_diffusion_cache): one 3221225472 B tensor, 256.0 MiB "
+                     "per bank against a 246.8 MiB largest block with 562.7 MiB free, so "
+                     "fragmentation. On a102dfb5c (bigalloc merged) 1920 folds again in 914.0 s, "
+                     "pLDDT 0.77. AICLK median 1000 MHz sampled during every fold. "
+                     "Earlier: walked 2026-09-23 on origin/main 8906d35a0, j10glx02 card 31, guard off, "
                      "--host_threads 2, apo CDK2 tiled with 8192 alignment rows "
                      "(ws:mgx-ceilings, perf/mgxceil). 1024 folds in 380.5 s, 1152 in 428.4 s, "
                      "1280 in 456.9 s, 1408 in 556.5 s, 1536 in 595.4 s and 1664 in 678.1 s, "

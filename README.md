@@ -126,7 +126,7 @@ walked with the settings the platform sends:
 
 | model | Wormhole limit | first measured failure |
 |---|---:|---:|
-| `boltz2` | 1664 | 1792 |
+| `boltz2` | 1920 | 2048 |
 | `opendde`, `opendde-abag` | 1536 | none found; top of the ladder |
 | `openfold3` | 1664 | 1792 |
 | `openbind` | 1536 (residues; a ligand adds tokens) | 1664 |
