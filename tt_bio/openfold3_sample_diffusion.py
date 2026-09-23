@@ -39,7 +39,7 @@ import math
 import torch
 import ttnn
 
-from .tenstorrent import _dtype, pad_dim
+from .tenstorrent import _dtype, dram_peak, pad_dim
 from .openfold3_diffusion import OF3DiffusionConditioning
 from .openfold3_diffusion_module import OF3DiffusionModule
 from .openfold3_weights import _sub
@@ -105,6 +105,7 @@ class OF3SampleDiffusion:
                  step_scale, progress_fn=None):
         """Run the rollout. Per-step host artefacts (rots/trans/noise/t/c_tau) are
         python lists of host tensors/floats from the golden. Returns final xl [1, n_atom, 3] device."""
+        pair_inputs = (zij_trunk_dev, relpos_dev)
         if self._act_dtype != ttnn.bfloat16:
             # fp32-diffusion boundary (OF3_DIFFUSION_FP32_DEVICE): the trunk-side
             # tensors arrive bf16; upcast once here so every DM op sees one dtype.
@@ -130,10 +131,17 @@ class OF3SampleDiffusion:
         # inv_cache holds the deep ones (the DiT per-block pair bias); it owns them, so no
         # consumer deallocates a cached tensor. Freed together after the loop.
         zij_dev = self.dc.pair(zij_trunk_dev, relpos_dev, pair_mask_dev)
+        # The pair branch is their only reader, so its fp32 casts go now rather than riding the
+        # whole rollout beside the conditioned pair: 2.7 GB at 1536 tokens, where this chip
+        # refused the next pair op. The caller's bf16 originals are the caller's.
+        for t, orig in zip((zij_trunk_dev, relpos_dev), pair_inputs):
+            if t is not orig:
+                ttnn.deallocate(t)
         zij_pad = pad_dim(zij_dev, self._act_dtype, n_token, n_tok_pad, dims=2)
         if zij_pad is not zij_dev:
             ttnn.deallocate(zij_dev)
         inv_cache: dict = {}
+        dram_peak("of3 sampler: conditioning pair built")
 
         for tau in range(len(t_list)):
             if progress_fn:

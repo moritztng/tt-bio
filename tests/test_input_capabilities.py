@@ -406,8 +406,8 @@ def test_the_cap_reaches_every_msa_path():
     for name in ("_predict_rf3_one", "_predict_openfold3_one"):
         assert 'cfg.get("msa_cap")' in inspect.getsource(getattr(_WorkerState, name)), \
             f"{name} no longer applies the cap"
-    src = inspect.getsource(_WorkerState._predict_opendde_one)
-    assert "cap_a3m_text(paired.get(" in src, "the opendde paired MSA is no longer capped"
+    assert 'cfg.get("msa_cap")' in inspect.getsource(worker._paired_a3ms), \
+        "the protenix/opendde paired MSA is no longer capped"
 
 
 def test_the_default_does_not_travel():
