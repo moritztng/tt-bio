@@ -100,11 +100,22 @@ def main() -> int:
     ap.add_argument("--work", required=True)
     ap.add_argument("--timeout", type=int, default=2400)
     ap.add_argument("--tries", type=int, default=30, help="contention retries per rung")
+    ap.add_argument("--stick-s", type=int, default=900,
+                    help="seconds to wait for the chip this walk already used before moving to "
+                         "another one. Keeps a comparison on one chip, which the speed bar "
+                         "requires; past it, measuring on a second chip beats measuring nothing")
     ap.add_argument("--stop-on-fail", action="store_true")
     a = ap.parse_args()
     logdir = pathlib.Path(a.work)
     logdir.mkdir(parents=True, exist_ok=True)
 
+    # The chip the walk has been using. docs/speed-bar.md judges a rung against fit rungs from
+    # ONE chip -- `identity` differing across rungs returns VOID, not a pass or a fail -- so a
+    # driver that takes whatever is free would produce a ladder no bar can read. It therefore
+    # WAITS for the chip it already used, up to `--stick-s`, and only then moves. Moving is still
+    # allowed: a walk that stalls forever measures nothing at all, and a rung that had to move
+    # says so in its own row, which is what lets the bar void just that comparison.
+    stick: int | None = None
     for item in a.plan:
         size, _, contig = item.partition(":")
         size = int(size)
@@ -123,7 +134,13 @@ def main() -> int:
             # lease dir, and taking cards[0] made all three pick the same chip every minute:
             # two lose the race, retry, and pick the same one again. Spreading the choice is
             # what turns a retry into progress.
-            card = random.choice(cards)
+            if stick is not None and stick not in cards:
+                waited_stick = 0
+                while waited_stick < a.stick_s and stick not in free_cards():
+                    time.sleep(20)
+                    waited_stick += 20
+                cards = free_cards() or cards
+            card = stick if (stick is not None and stick in cards) else random.choice(cards)
             print(f"[{time.strftime('%FT%TZ', time.gmtime())}] {a.model} {size} "
                   f"attempt {attempt} on card {card}", flush=True)
             p = run_rung(a, size, contig, card)
@@ -132,6 +149,7 @@ def main() -> int:
             log = logdir / f"log_{a.model}_{size}.txt"
             ran = CONTENTION not in (log.read_text(errors="replace") if log.is_file() else "")
             if ran:
+                stick = card
                 break
             # The rung never reached the model. Drop the row the ladder just appended, or the
             # jsonl carries a FAIL at a size that was never tried.
