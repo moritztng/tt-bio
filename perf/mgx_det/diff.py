@@ -60,12 +60,13 @@ if len(reps) > 1:
 
 first = None
 for k in order:
-    vals = {f.get(k) for f in folds.values()}
+    vals = {f[k] for f in folds.values() if k in f}     # a fold still running lacks later keys
     if len(vals) > 1:
         first = k
         split = defaultdict(list)
         for fid, f in folds.items():
-            split[f.get(k)].append(fid)
+            if k in f:
+                split[f[k]].append(fid)
         print(f"FIRST DIFFERENCE: {k}")
         for v, ids in split.items():
             print(f"  {v}: {len(ids)} folds  {' '.join(ids[:6])}")
