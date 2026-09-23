@@ -1,0 +1,30 @@
+{
+ "exact_softmax": true,
+ "installed_inside_the_scope": true,
+ "installed_from": "tt_bio.autograd.exact_softmax()",
+ "counters": {
+  "verb": 5901,
+  "raw": 1742,
+  "raw_elements": 21856518144
+ },
+ "why_counters": "`verb` is the taped verb (exact forward and Jacobian); `raw` is the module-wide ttnn.softmax, the only reach into triangle_attention._scores. Both 0 on the control arm is the check that the control ran without the lever.",
+ "argv": [
+  "--census-out",
+  "/home/ttuser/.coworker/wt/of3t-modelever/perf/of3t_modelever/CENSUS_EXACT.json",
+  "--lever",
+  "none",
+  "--",
+  "--boundary",
+  "/home/ttuser/of3t_modelframe/boundary_model_n384.pt",
+  "--cap-last",
+  "/home/ttuser/of3t_recut/cot_external.pt",
+  "--out",
+  "/home/ttuser/of3t_modelever/dev_EXACT.pt",
+  "--report",
+  "/home/ttuser/.coworker/wt/of3t-modelever/perf/of3t_modelever/DEV_EXACT.json",
+  "--arm",
+  "flipped",
+  "--crop",
+  "0"
+ ]
+}

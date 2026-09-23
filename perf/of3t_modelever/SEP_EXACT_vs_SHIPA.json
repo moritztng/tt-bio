@@ -1,0 +1,16 @@
+{
+ "label": "SEPARATION: EXACT vs SHIP_A, same config but for exact_softmax()",
+ "a": "/home/ttuser/of3t_modelever/dev_EXACT.pt",
+ "b": "/home/ttuser/of3t_modelever/dev_SHIP_A.pt",
+ "compared": 2736,
+ "only_a": 0,
+ "only_b": 0,
+ "bit_identical": 0,
+ "differing": 2736,
+ "all_bit_identical": false,
+ "concatenated_rel_a_vs_b": 0.9130489914741462,
+ "norm_ratio_a_over_b": 1.009379851872514,
+ "cos": 0.5870878155213608,
+ "device_involved": false,
+ "why_no_aiclk": "CPU only, compares two banked artifacts"
+}

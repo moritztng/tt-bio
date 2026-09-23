@@ -1,0 +1,300 @@
+{
+ "what": "of3t-modelever: the clause and the magnitude/direction split for the exact-softmax trunk arm.",
+ "row": "of3t-modelever",
+ "host": "tt-quietbox2",
+ "device_involved": false,
+ "why_no_aiclk": "CPU only; reads banked arms. Each device arm's AICLK is in its own DEV_*.json",
+ "A42": {
+  "model_frame_cot_external_sha256": "1d15a8dc6db2a14b678e5ed5d92558af99d369599226391fa59f36ed84192ef4",
+  "cited_by_each_device_arm": {
+   "SHIP_A": "1d15a8dc6db2a14b678e5ed5d92558af99d369599226391fa59f36ed84192ef4",
+   "SHIP_B": "1d15a8dc6db2a14b678e5ed5d92558af99d369599226391fa59f36ed84192ef4",
+   "EXACT": "1d15a8dc6db2a14b678e5ed5d92558af99d369599226391fa59f36ed84192ef4",
+   "banked_recut_external": "1d15a8dc6db2a14b678e5ed5d92558af99d369599226391fa59f36ed84192ef4"
+  },
+  "carried_by_each_composed_artifact": {
+   "SHIP(banked)": "1d15a8dc6db2a14b678e5ed5d92558af99d369599226391fa59f36ed84192ef4",
+   "EXACT": "1d15a8dc6db2a14b678e5ed5d92558af99d369599226391fa59f36ed84192ef4"
+  },
+  "all_equal": true
+ },
+ "AA_FLOOR_AND_SEPARATION": {
+  "AA_SHIPA_vs_BANKED": {
+   "compared": 2736,
+   "bit_identical": 2736,
+   "differing": 0,
+   "all_bit_identical": true,
+   "concatenated_rel_a_vs_b": 0.0,
+   "cos": 1.0
+  },
+  "AA_SHIPA_vs_SHIPB": {
+   "compared": 2736,
+   "bit_identical": 2736,
+   "differing": 0,
+   "all_bit_identical": true,
+   "concatenated_rel_a_vs_b": 0.0,
+   "cos": 1.0
+  },
+  "SEP_EXACT_vs_SHIPA": {
+   "compared": 2736,
+   "bit_identical": 0,
+   "differing": 2736,
+   "all_bit_identical": false,
+   "concatenated_rel_a_vs_b": 0.9130489914741462,
+   "cos": 0.5870878155213608
+  },
+  "floor": 0.0,
+  "separation": 0.9130489914741462,
+  "separation_over_floor": "floor is exactly 0: any nonzero separation is the lever"
+ },
+ "CLAUSE": {
+  "bar": 0.15210099830945006,
+  "trunk_allowance": 0.44608901561034203,
+  "source": "perf/of3t_modelframe/CLAUSE.json, read not re-derived",
+  "clause": {
+   "SHIP": 0.22072451195864032,
+   "EXACT": 0.1983072658753951
+  },
+  "x_bar": {
+   "SHIP": 1.4511706984958472,
+   "EXACT": 1.3037867474869442
+  },
+  "clears": false,
+  "trunk_vs_their_bf16": {
+   "SHIP": 0.7768254196709333,
+   "EXACT": 0.6745049727018105
+  },
+  "trunk_x_allowance": {
+   "SHIP": 1.7414134679108282,
+   "EXACT": 1.5120412050024326
+  },
+  "excess_over_bar_removed_fraction": 0.32667004196031485,
+  "levels_below_the_exact_arm": [
+   "bit_exact_float64_trunk",
+   "upstreams_own_floor_here",
+   "section_A26_level",
+   "projection_from_the_in_frame_multiple"
+  ],
+  "levels_at_or_above_it": [
+   "the_frame_mismatch_alone"
+  ],
+  "levels": {
+   "bit_exact_float64_trunk": {
+    "clause_value": 0.1026990533692057,
+    "x_bar": 0.6752030197741641,
+    "clears": true
+   },
+   "upstreams_own_floor_here": {
+    "clause_value": 0.12967067993359122,
+    "x_bar": 0.8525301041731214,
+    "clears": true
+   },
+   "section_A26_level": {
+    "clause_value": 0.1475459165605533,
+    "x_bar": 0.9700522560698159,
+    "clears": true
+   },
+   "projection_from_the_in_frame_multiple": {
+    "clause_value": 0.19635234908555793,
+    "x_bar": 1.290933992991146,
+    "clears": false
+   },
+   "the_frame_mismatch_alone": {
+    "clause_value": 0.47443757904241024,
+    "x_bar": 3.1192272523890026,
+    "clears": false
+   }
+  }
+ },
+ "SPLIT": {
+  "SHIP": {
+   "vs_upstream_bf16_GRADED": {
+    "space": "vs-upstream-bf16",
+    "what": "model-frame trunk, shipped device softmax",
+    "measured_rel_l2": 0.7768254196709333,
+    "norm_ratio": 0.9978645292850583,
+    "cos": 0.6976277066165968,
+    "angle_degrees": 45.763016914559415,
+    "IDENTITY": {
+     "reconstructed_from_r_and_cos": 0.7768254196709328,
+     "rel_difference": 7.145897884594533e-16,
+     "why": "rel^2 = 1 + r^2 - 2 r cos holds exactly for these three aggregates because they are three norms of one vector pair. A residual here would mean the split is modelled rather than exact, and nothing below could be read."
+    },
+    "magnitude_alone_cos_set_to_1": 0.0021354707149416896,
+    "direction_alone_r_set_to_1": 0.7776532561282093,
+    "residual_after_the_best_possible_rescaling": 0.7164604545687554,
+    "shares_of_the_measured_error": {
+     "magnitude": 0.0027489712113775632,
+     "direction": 1.001065666025227,
+     "note": "these do not sum to 1 and are not meant to. Each is what the reading would be with the OTHER axis made perfect, divided by what it is; they add up to more or less than the whole exactly as the two errors reinforce or cancel."
+    }
+   },
+   "vs_float64_CONTRAST": {
+    "space": "vs-float64, contrast only",
+    "what": "model-frame trunk, shipped device softmax",
+    "measured_rel_l2": 0.6221485227575493,
+    "norm_ratio": 1.054584096168068,
+    "cos": 0.8178953379770566,
+    "angle_degrees": 35.125339394537576,
+    "IDENTITY": {
+     "reconstructed_from_r_and_cos": 0.622148522757548,
+     "rel_difference": 2.141398043742316e-15,
+     "why": "rel^2 = 1 + r^2 - 2 r cos holds exactly for these three aggregates because they are three norms of one vector pair. A residual here would mean the split is modelled rather than exact, and nothing below could be read."
+    },
+    "magnitude_alone_cos_set_to_1": 0.05458409616806792,
+    "direction_alone_r_set_to_1": 0.6034975758409364,
+    "residual_after_the_best_possible_rescaling": 0.5753670273098697,
+    "shares_of_the_measured_error": {
+     "magnitude": 0.08773483207214701,
+     "direction": 0.9700217130887875,
+     "note": "these do not sum to 1 and are not meant to. Each is what the reading would be with the OTHER axis made perfect, divided by what it is; they add up to more or less than the whole exactly as the two errors reinforce or cancel."
+    }
+   }
+  },
+  "EXACT": {
+   "vs_upstream_bf16_GRADED": {
+    "space": "vs-upstream-bf16",
+    "what": "model-frame trunk, tt_bio.autograd.exact_softmax()",
+    "measured_rel_l2": 0.6745049727018105,
+    "norm_ratio": 1.0072243507585883,
+    "cos": 0.7741790264438227,
+    "angle_degrees": 39.269340538115216,
+    "IDENTITY": {
+     "reconstructed_from_r_and_cos": 0.6745049727018096,
+     "rel_difference": 1.3167855770468527e-15,
+     "why": "rel^2 = 1 + r^2 - 2 r cos holds exactly for these three aggregates because they are three norms of one vector pair. A residual here would mean the split is modelled rather than exact, and nothing below could be read."
+    },
+    "magnitude_alone_cos_set_to_1": 0.007224350758588294,
+    "direction_alone_r_set_to_1": 0.6720431140279279,
+    "residual_after_the_best_possible_rescaling": 0.6329666934480004,
+    "shares_of_the_measured_error": {
+     "magnitude": 0.010710596735336569,
+     "direction": 0.9963501252421886,
+     "note": "these do not sum to 1 and are not meant to. Each is what the reading would be with the OTHER axis made perfect, divided by what it is; they add up to more or less than the whole exactly as the two errors reinforce or cancel."
+    }
+   },
+   "vs_float64_CONTRAST": {
+    "space": "vs-float64, contrast only",
+    "what": "model-frame trunk, tt_bio.autograd.exact_softmax()",
+    "measured_rel_l2": 0.6864250186555731,
+    "norm_ratio": 1.0644759387772336,
+    "cos": 0.7806328247815697,
+    "angle_degrees": 38.68144718771643,
+    "IDENTITY": {
+     "reconstructed_from_r_and_cos": 0.6864250186555722,
+     "rel_difference": 1.455658950368196e-15,
+     "why": "rel^2 = 1 + r^2 - 2 r cos holds exactly for these three aggregates because they are three norms of one vector pair. A residual here would mean the split is modelled rather than exact, and nothing below could be read."
+    },
+    "magnitude_alone_cos_set_to_1": 0.06447593877723357,
+    "direction_alone_r_set_to_1": 0.6623702517752896,
+    "residual_after_the_best_possible_rescaling": 0.6249899142174593,
+    "shares_of_the_measured_error": {
+     "magnitude": 0.09393005357455597,
+     "direction": 0.9649564537618442,
+     "note": "these do not sum to 1 and are not meant to. Each is what the reading would be with the OTHER axis made perfect, divided by what it is; they add up to more or less than the whole exactly as the two errors reinforce or cancel."
+    }
+   }
+  }
+ },
+ "MOVE": {
+  "vs_upstream_bf16_GRADED": {
+   "cos": [
+    0.6976277066165968,
+    0.7741790264438227
+   ],
+   "norm_ratio": [
+    0.9978645292850583,
+    1.0072243507585883
+   ],
+   "angle_degrees": [
+    45.763016914559415,
+    39.269340538115216
+   ],
+   "angle_closed_degrees": 6.493676376444199,
+   "fraction_of_the_angle_closed": 0.14189790827313764,
+   "identity_residual": [
+    7.145897884594533e-16,
+    1.3167855770468527e-15
+   ],
+   "counterfactual": {
+    "lever_norm_ratio_at_shipped_cos": {
+     "rel": 0.7804906565903595,
+     "share_of_the_move": -0.03582115821417664
+    },
+    "lever_cos_at_shipped_norm_ratio": {
+     "rel": 0.6713285627737221,
+     "share_of_the_move": 1.0310437456263943
+    }
+   },
+   "against_the_requirement": {
+    "cos_required_at_shipped_norm_ratio": 0.9002916509340195,
+    "angle_required_degrees": 25.80357003034174,
+    "fraction_of_the_angle_that_had_to_close": 0.43614796903539843,
+    "fraction_closed": 0.14189790827313764,
+    "share_of_the_required_closure_delivered": 0.3253435034604529,
+    "source": "perf/of3t_recutfin/bf16_split.py reach(), on the SHIP arm of this same frame"
+   }
+  },
+  "vs_float64_CONTRAST": {
+   "cos": [
+    0.8178953379770566,
+    0.7806328247815697
+   ],
+   "norm_ratio": [
+    1.054584096168068,
+    1.0644759387772336
+   ],
+   "angle_degrees": [
+    35.125339394537576,
+    38.68144718771643
+   ],
+   "angle_closed_degrees": -3.556107793178853,
+   "fraction_of_the_angle_closed": -0.10124052477431356,
+   "identity_residual": [
+    2.141398043742316e-15,
+    1.455658950368196e-15
+   ],
+   "counterfactual": {
+    "lever_norm_ratio_at_shipped_cos": {
+     "rel": 0.6259786009172937,
+     "share_of_the_move": 0.059587538278703944
+    },
+    "lever_cos_at_shipped_norm_ratio": {
+     "rel": 0.6823940884619573,
+     "share_of_the_move": 0.9372876486607009
+    }
+   }
+  }
+ },
+ "A43": {
+  "definition": "concatenated: the three aggregates are norms of one vector pair per section (model_scope.py), so rel^2 = 1 + r^2 - 2 r cos is exact",
+  "worst_identity_residual": 2.141398043742316e-15,
+  "bar": 1e-12,
+  "holds": true
+ },
+ "clocks": {
+  "SHIP_A": {
+   "n": 40,
+   "min": 800,
+   "median": 1350,
+   "max": 1350
+  },
+  "SHIP_B": {
+   "n": 41,
+   "min": 800,
+   "median": 1350,
+   "max": 1350
+  },
+  "EXACT": {
+   "n": 276,
+   "min": 800,
+   "median": 1350,
+   "max": 1350
+  }
+ },
+ "host_quiet": {
+  "SHIP_A": "HOST NOT QUIET -- your timing read is contaminated even with an idle sibling and a forced clock. Wait it out or DEFER. Do not measure and explain it afterwards.",
+  "SHIP_B": "HOST NOT QUIET -- your timing read is contaminated even with an idle sibling and a forced clock. Wait it out or DEFER. Do not measure and explain it afterwards.",
+  "EXACT": "HOST NOT QUIET -- your timing read is contaminated even with an idle sibling and a forced clock. Wait it out or DEFER. Do not measure and explain it afterwards."
+ }
+}
