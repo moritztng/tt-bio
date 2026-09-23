@@ -4,7 +4,7 @@
     "-m",
     "tt_bio.main",
     "predict",
-    "/home/agent/wt-mgx-instrument/perf/size512/fixtures/cdk2x2_1024.yaml",
+    "/home/agent/wt-mgxi-rec/perf/size512/fixtures/cdk2x2_1024.yaml",
     "--model",
     "opendde",
     "--single_sequence",
@@ -15,7 +15,7 @@
     "--seed",
     "0",
     "--out_dir",
-    "/home/agent/wt-mgx-instrument/perf/sizegate/work-record-opendde/out_opendde-1024-rep0"
+    "/home/agent/wt-mgxi-rec/perf/sizegate/work-record-opendde/out_opendde-1024-rep0"
   ],
   "rc": 0,
   "processes": 2,

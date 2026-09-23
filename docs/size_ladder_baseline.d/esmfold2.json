@@ -2,359 +2,49 @@
   "assembled_by": "scripts/release_gate.py --model size-ladder",
   "cards": {
     "tt-galaxy-wh-l": {
-      "commit": "54eb5ca7",
+      "commit": "26615433",
       "host": "j10glx02",
       "models": {
         "esmfold2": {
           "grid": "8x9",
           "recorded": "2026-09-23",
           "host": "j10glx02",
-          "commit": "54eb5ca7",
-          "host_threads": null,
+          "commit": "26615433",
+          "host_threads": 2,
           "runtime_s": {
-            "256": 126.0,
-            "768": 323.9,
-            "1024": 467.3,
-            "896": 414.4,
-            "512": 188.1,
-            "640": 259.8
+            "896": 265.6,
+            "1024": 381.6,
+            "640": 138.9,
+            "512": 92.1,
+            "768": 203.5,
+            "256": 39.2
           },
           "levers": {
-            "256": {
+            "896": {
               "SPLIT_SWIGLU": {
                 "resolved": "True",
                 "served": 538,
-                "declined": 90,
-                "frac": 0.856687898089172,
+                "declined": 126,
+                "frac": 0.8102409638554217,
                 "how": "stats"
               },
               "SPLIT_SWIGLU_SMALL_GRID": {
                 "resolved": "True",
                 "served": 538,
-                "declined": 90,
-                "frac": 0.856687898089172,
+                "declined": 126,
+                "frac": 0.8102409638554217,
                 "how": "stats-shared"
               },
               "PAIR_FFN_L1_FC1": {
                 "resolved": "True",
-                "served": 0,
-                "declined": 0,
-                "frac": 0.0,
-                "how": "stats",
-                "reason": "below the row-blocked pair-FFN window: that path is entered only for 320 <= L <= 1024 (`PAIR_FFN_ROW_BLOCK_SEQ`, tt_bio/esmc.py:320, read in `_split_plan` at esmc.py:653-655), and 256 aa is under it. From 512 aa up this lever serves every call. Inside `_row_blocked`, unreachable below 320 aa."
-              },
-              "PAIR_FFN_L1_LN": {
-                "resolved": "True",
-                "served": 0,
-                "declined": 0,
-                "frac": 0.0,
-                "how": "stats",
-                "reason": "below the row-blocked pair-FFN window: that path is entered only for 320 <= L <= 1024 (`PAIR_FFN_ROW_BLOCK_SEQ`, tt_bio/esmc.py:320, read in `_split_plan` at esmc.py:653-655), and 256 aa is under it. From 512 aa up this lever serves every call. Inside `_row_blocked`, unreachable below 320 aa."
-              },
-              "PAIR_FFN_L1_SLICE": {
-                "resolved": "True",
-                "served": 0,
-                "declined": 0,
-                "frac": 0.0,
-                "how": "stats",
-                "reason": "below the row-blocked pair-FFN window: that path is entered only for 320 <= L <= 1024 (`PAIR_FFN_ROW_BLOCK_SEQ`, tt_bio/esmc.py:320, read in `_split_plan` at esmc.py:653-655), and 256 aa is under it. From 512 aa up this lever serves every call. It lives inside `_row_blocked` (esmc.py:678), so at 256 aa it is never asked rather than refusing."
-              },
-              "PAIR_FFN_FUSED_RESIDUAL": {
-                "resolved": "True",
-                "served": 0,
-                "declined": 538,
-                "frac": 0.0,
-                "how": "stats",
-                "reason": "below the row-blocked pair-FFN window: that path is entered only for 320 <= L <= 1024 (`PAIR_FFN_ROW_BLOCK_SEQ`, tt_bio/esmc.py:320, read in `_split_plan` at esmc.py:653-655), and 256 aa is under it. From 512 aa up this lever serves every call. Here `residual()` falls to `ttnn.add(x, self(x))` and counts declined (tt_bio/esmc.py:750-755)."
-              },
-              "PAIR_FFN_FILL_ASSEMBLY": {
-                "resolved": "True",
-                "served": 0,
-                "declined": 0,
-                "frac": 0.0,
-                "how": "stats",
-                "reason": "below the row-blocked pair-FFN window: that path is entered only for 320 <= L <= 1024 (`PAIR_FFN_ROW_BLOCK_SEQ`, tt_bio/esmc.py:320, read in `_split_plan` at esmc.py:653-655), and 256 aa is under it. From 512 aa up this lever serves every call. It additionally rides on the fused residual (`filled = fused and ...`, esmc.py:680), so below 320 aa it cannot be reached."
-              },
-              "TRIMUL_IN_PROJ_DUAL_NOC": {
-                "resolved": "True",
-                "served": 0,
-                "declined": 8672,
-                "frac": 0.0,
-                "how": "stats",
-                "rejects": {
-                  "memory": 8672
-                },
-                "reason": "dtype, not size, and it cannot fire on this card type at ANY rung. `mm_dualnoc.in_proj` rejects unless output, activation and weight dtypes are all bfloat16 (tt_bio/mm_dualnoc.py:81); `_dtype()` returns bfloat8_b whenever `_FAST_MODE` (tt_bio/tenstorrent.py:579); and tt_bio/main.py:2733 forces --fast for esmfold2 on Wormhole, because ESMC-6B in normal precision needs ~12.8 GB against a ~12 GB chip. So the clause is `dtype` at 100 % of calls at every rung, and the production drop-in 60-p2-levers-off.conf that sets TT_BIO_TRIMUL_DUAL_NOC=0 cannot change a single call on this model."
-              },
-              "ADALN_S_HOIST": {
-                "resolved": "True",
-                "served": 0,
-                "declined": 0,
-                "frac": 0.0,
-                "how": "wrap",
-                "reason": "the equivalent optimisation is already done one level up, so this lever has nothing left to hoist. The counter wraps `tenstorrent.AdaLN.s_terms`; ESMFold2 uses `esmfold2.AdaLN`, whose conditioning `s` is genuinely per-step (`DiffusionModuleModel.step` recomputes `cond_single(s_inputs, n_raw)`, esmfold2.py:843) and so is not hoistable, while the step-INVARIANT half is already cached once per rollout by `prepare()` (esmfold2.py:834)."
-              },
-              "FP32_SOFTMAX_BIAS_HOIST": {
-                "resolved": "True",
-                "served": 0,
-                "declined": 0,
-                "frac": 0.0,
-                "how": "stats-dict",
-                "reason": "no call site on this path: 0 served AND 0 declined at every rung. The hoist fires only when an SDPA bias is fp32; ESMFold2's attention bias is bf16 at every size, so the fp32 branch is never reached."
-              },
-              "FP32_SOFTMAX_L1_GRID": {
-                "resolved": "(9, 8)",
-                "served": 0,
-                "declined": 0,
-                "frac": 0.0,
-                "how": "stats-dict",
-                "reason": "declines all 0 calls: the counter is the L1-resident fp32 score block and ESMFold2 plans none at any size: the fp32 raw-matmul attention path is its only producer and this model folds in bf16. The resolved (8, 8) is the rectangle the constant holds, left pinned on Blackhole by _apply_grid_thresholds, not a block that ran. The row is new because 92d5a9030 gave the rectangle its own l1_blocks/l1_refused counters instead of scoring it off the bias hoist's [carried from p300c] [carried from p150a]"
-              },
-              "PAIR_TRANSPOSE_VIA_ROW_MAJOR": {
-                "resolved": "True",
-                "served": 0,
-                "declined": 0,
-                "frac": 0.0,
-                "how": "wrap",
-                "reason": "no call site on this path: 0 served AND 0 declined at every rung. The helper guards a 3-D pair transpose (tt_bio/tenstorrent.py:2683) that ESMFold2's trunk does not perform; its PairUpdateBlock transposes inside the trimul kernel instead."
-              },
-              "PAIR_PROJ_MINIMAL_MATMUL": {
-                "resolved": "True",
-                "served": 0,
-                "declined": 0,
-                "frac": 0.0,
-                "how": "wrap",
-                "reason": "not reached at all at this rung: 0 served AND 0 declined, unlike every rung above, where it is called and refuses on `dtype:(8,32)`. At 256 aa the pair FFN does not take the row-blocked path (see PAIR_FFN_FUSED_RESIDUAL) and this projection is never entered."
-              },
-              "TRIMUL_TAIL_F1": {
-                "resolved": "True",
-                "served": 1084,
-                "declined": 0,
-                "frac": 1.0,
-                "how": "stats"
-              },
-              "QKV_MM_CONFIG": {
-                "resolved": "True",
-                "served": 0,
-                "declined": 0,
-                "frac": 0.0,
-                "how": "wrap",
-                "reason": "no call site on this path: 0 served AND 0 declined at every rung \u2014 `_qkv_mm_config` is not reached by ESMFold2's attention, which builds its own padded q/kv projections (tt_bio/esmfold2.py:254-280)."
-              },
-              "DEVICE_LM_HANDOFF": {
-                "resolved": "True",
-                "served": 1,
-                "declined": 0,
-                "frac": 1.0,
-                "how": "stats"
-              },
-              "REBLOCK_PERMUTE": {
-                "resolved": "True",
-                "served": 0,
-                "declined": 17344,
-                "frac": 0.0,
-                "how": "stats",
-                "rejects": {
-                  "window_BufferType.L1": 8672,
-                  "back_l1_src_narrow": 8672
-                },
-                "reason": "dark at this rung only, and screened rather than assumed. ESMFold2's call sites here ask for an L1 output, because at 256 aa the trimul is below its own L1 threshold of 288, and the L1 clause of the gate admits only 288 <= N <= 352 (tt_bio/reblock_permute.py:259,306) \u2014 hence `window_BufferType.L1`. At 512 aa and above the caller asks for a DRAM output and the DRAM clause (N >= 256) admits it, so the lever serves every call at every other rung. Lowering L1_N_MIN to 256 was A/B screened on this card (three alternating pairs at 256 aa, TT_BIO_REBLOCK_L1_N_MIN): it does admit all calls and is bit-exact (identical CIF sha256), and it buys nothing \u2014 median 38.5 s against 38.1 s shipped. Evidenced NO-GO, left as shipped."
-              },
-              "REBLOCK_PERMUTE_BACK": {
-                "resolved": "True",
-                "served": 0,
-                "declined": 0,
-                "frac": 0.0,
-                "how": "stats",
-                "reason": "no call site at this rung: 0 served AND 0 declined. The back-permute serves the return leg of a channel move ESMFold2's trimul does not make at 256 aa; it serves every call from 512 up."
-              },
-              "REBLOCK_PERMUTE_GATED": {
-                "resolved": "True",
-                "served": 0,
-                "declined": 0,
-                "frac": 0.0,
-                "how": "stats",
-                "reason": "no call site at any rung: 0 served and 0 declined at all six. The gated variant is not on ESMFold2's path (the same reading boltz-2's baseline records for this lever)."
-              },
-              "TRIMUL_MASK_AFTER_MOVE": {
-                "resolved": "True",
-                "served": 0,
-                "declined": 0,
-                "frac": 0.0,
-                "how": "stats-shared",
-                "reason": "declines all 0 calls: it unlocks the gated channel move, which is only offered once the trimul's pair tensors are in DRAM. At 256 aa they are L1-resident -- REBLOCK_PERMUTE refuses every call here on window_BufferType.L1 -- so nothing is offered at this rung; it serves every call from 512 up. Default on since 7bfa4ad19 [carried from p300c] [carried from p150a]"
-              },
-              "TRIATT_PERSISTENT_MASK": {
-                "resolved": "True",
-                "served": 0,
-                "declined": 0,
-                "frac": 0.0,
-                "how": "stats",
-                "reason": "no call site on this path at any size: the persistent mask belongs to TriangleAttention's SDPA bias, and ESMFold2 constructs no TriangleAttention."
-              },
-              "SDPA_WIDE_K": {
-                "resolved": "True",
-                "served": 0,
-                "declined": 0,
-                "frac": 0.0,
-                "how": "stats",
-                "reason": "structural, not size-specific: both SDPA_K_CHUNK_STATS sites are inside `_tri_att_sdpa_at`'s `len(k_chunks) > 1` block, and served 0 declined 0 means no call entered it: the shipped k_chunk divides the padded length at this rung, so there is no wider dividing pick to offer"
-              },
-              "SDPA_FUSED_LARGE_S": {
-                "resolved": "True",
-                "served": 0,
-                "declined": 0,
-                "frac": 0.0,
-                "how": "stats",
-                "reason": "below the cap, by construction: 0 served AND 0 declined at this rung. The route is offered only for q_len > `_Q_SPLIT_MAX_S` = 1024 padded tokens (tt_bio/triatt_sdpa.py:88, gate at tt_bio/tenstorrent.py:1843), and at or below the cap the stock ladder already lands on a fused pair -- the shipped bit-exact path this flag was written not to disturb. [carried from p300c] [carried from p150a]"
-              },
-              "RFD3_SPARSE_BIAS": {
-                "resolved": "not-imported",
-                "served": null,
-                "declined": null,
-                "frac": null,
-                "how": "stats"
-              },
-              "RFD3_FUSED_SCORES": {
-                "resolved": "not-imported",
-                "served": null,
-                "declined": null,
-                "frac": null,
-                "how": "stats"
-              },
-              "TRIATT_HEAD_MAJOR_QKV": {
-                "resolved": "True",
-                "served": 0,
-                "declined": 0,
-                "frac": 0.0,
-                "how": "stats",
-                "reason": "no call site on this path at any size: ESMFold2's trunk has no triangle attention. `PairUpdateBlock` (tt_bio/esmfold2.py:143) is tri_mul_out + tri_mul_in + pair transition and `tenstorrent.TriangleAttention` is never constructed, so the whole TRIATT_* family reads 0 served AND 0 declined at every rung. Independently established in wh-perf-esmfold2.md 0.1."
-              },
-              "TRIATT_HEAD_MAJOR_TAIL": {
-                "resolved": "True",
-                "served": 0,
-                "declined": 0,
-                "frac": 0.0,
-                "how": "stats",
-                "reason": "no call site on this path at any size: no triangle attention in ESMFold2's trunk (see TRIATT_HEAD_MAJOR_QKV), so this lever's op never runs."
-              },
-              "TRIATT_TAIL_OVER_L1": {
-                "resolved": "True",
-                "served": 0,
-                "declined": 0,
-                "frac": 0.0,
-                "how": "stats-shared",
-                "reason": "no call site on this path at any size: no triangle attention in ESMFold2's trunk, so the tail this lever moves does not exist here."
-              },
-              "B2_BIAS_SLICE_HOIST": {
-                "resolved": "True",
-                "served": 0,
-                "declined": 0,
-                "frac": 0.0,
-                "how": "wrap",
-                "reason": "structurally Boltz-2 only: the hoist returns early unless a `transformer` is passed (tt_bio/tenstorrent.py:8894), which is Boltz-2's token DiT. ESMFold2 has no such call site."
-              },
-              "B2_ADALN_S_MEMO": {
-                "resolved": "True",
-                "served": 0,
-                "declined": 0,
-                "frac": 0.0,
-                "how": "wrap",
-                "reason": "structurally Boltz-2 only: the memo is consulted under `self.atom_level` (tt_bio/tenstorrent.py:7046) on `tenstorrent.AdaLN`, and ESMFold2's diffusion head uses its own `esmfold2.AdaLN` (tt_bio/esmfold2.py:226), a different class with no atom level."
-              },
-              "B2_TOKEN_DIT_SDPA": {
-                "resolved": "True",
-                "served": 0,
-                "declined": 0,
-                "frac": 0.0,
-                "how": "stats",
-                "reason": "declines all 0 calls: the counter sits on boltz-2's token-DiT attention site (AttentionPairBias.token_dit, set only by the boltz-2 diffusion transformer at tenstorrent.py:9445) and ESMFold2 runs its own TokenDiT, so the branch is never reached at any rung. The resolved state moved False -> True because fc7fed56f flipped the default, not because anything on this model changed [carried from p300c] [carried from p150a]"
-              },
-              "APB_CONCAT_HEADS": {
-                "resolved": "False",
-                "served": 0,
-                "declined": 0,
-                "frac": 0.0,
-                "how": "stats"
-              },
-              "ATOM_AXIS_BUCKET": {
-                "resolved": "True",
-                "served": 0,
-                "declined": 0,
-                "frac": 0.0,
-                "how": "stats",
-                "reason": "declines all 0 calls: the bucket is applied on the atom-window axis inside boltz-2's DiffusionModule. ESMFold2 has no atom-level encoder and reaches no call site at any rung. The row is new because c0a876e1a added the lever and fc7fed56f made it default [carried from p300c] [carried from p150a]"
-              },
-              "TRANSPOSE_L1_RESIDENT": {
-                "resolved": "1.25",
-                "served": 0,
-                "declined": 0,
-                "frac": 0.0,
-                "how": "wrap",
-                "reason": "no call site on this path: 0 served AND 0 declined at every rung. The lever routes a Pairformer output transpose to L1 (`_transpose_memory_config`, tt_bio/tenstorrent.py:2740); ESMFold2's trunk has no Pairformer and never calls it."
-              },
-              "SDPA_Q_CHUNK_FITS": {
-                "resolved": "True",
-                "served": 0,
-                "declined": 0,
-                "frac": 0.0,
-                "how": "setlen"
-              },
-              "RFD3_SOFTMAX_PV_FUSED": {
-                "resolved": "not-imported",
-                "served": null,
-                "declined": null,
-                "frac": null,
-                "how": "stats"
-              },
-              "RFD3_FC1_SPLIT_SILU": {
-                "resolved": "not-imported",
-                "served": null,
-                "declined": null,
-                "frac": null,
-                "how": "stats"
-              },
-              "TRANSITION_H_CHUNK": {
-                "resolved": "16",
-                "served": 0,
-                "declined": 0,
-                "frac": 0.0,
-                "how": "stats",
-                "reason": "declines all 0 calls: the counter is the row-block height chosen in Transition.__call__, and ESMFold2's pair transition is an ESMC SwiGLUFFN (esmfold2.py:161), not that Transition, so the lever has no call site on this model at any rung. The row is new because 7fb08268f gave the lever its first counter [carried from p300c] [carried from p150a]"
-              },
-              "TRIATT_SDPA_HIFI": {
-                "resolved": "none",
-                "served": 0,
-                "declined": 0,
-                "frac": 0.0,
-                "how": "stats-dict"
-              }
-            },
-            "768": {
-              "SPLIT_SWIGLU": {
-                "resolved": "True",
-                "served": 538,
-                "declined": 120,
-                "frac": 0.817629179331307,
-                "how": "stats"
-              },
-              "SPLIT_SWIGLU_SMALL_GRID": {
-                "resolved": "True",
-                "served": 538,
-                "declined": 120,
-                "frac": 0.817629179331307,
-                "how": "stats-shared"
-              },
-              "PAIR_FFN_L1_FC1": {
-                "resolved": "True",
-                "served": 25824,
+                "served": 60258,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
               },
               "PAIR_FFN_L1_LN": {
                 "resolved": "True",
-                "served": 12912,
+                "served": 30129,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
@@ -422,11 +112,11 @@
               "PAIR_PROJ_MINIMAL_MATMUL": {
                 "resolved": "True",
                 "served": 0,
-                "declined": 25824,
+                "declined": 60258,
                 "frac": 0.0,
                 "how": "wrap",
                 "rejects": {
-                  "dtype:(8,32)": 25824
+                  "dtype:(8,32)": 60258
                 },
                 "reason": "right shape, wrong dtype \u2014 the same forced --fast as TRIMUL_IN_PROJ_DUAL_NOC. The clause is `dtype:(8,32)`, and that 8 is `k_tiles`, which is exactly what this lever requires (it is scoped to a single K block; boltz-2 is permanently excluded because c_z=128 gives 4). So ESMFold2 is the one model whose pair projection fits this lever and it is refused only because Wormhole forces bf8 weights. Widening the guard is a PARITY decision, not an engineering one \u2014 the tuned config and the fallback accumulate K in different block orders, so it will not be torch.equal. Predicted from the code in wh-perf-esmfold2.md 4.2 on 2026-08-16 and left unmeasured; this clause count is the measurement it was missing."
               },
@@ -926,31 +616,31 @@
                 "how": "stats-dict"
               }
             },
-            "896": {
+            "640": {
               "SPLIT_SWIGLU": {
                 "resolved": "True",
                 "served": 538,
-                "declined": 126,
-                "frac": 0.8102409638554217,
+                "declined": 105,
+                "frac": 0.8367029548989113,
                 "how": "stats"
               },
               "SPLIT_SWIGLU_SMALL_GRID": {
                 "resolved": "True",
                 "served": 538,
-                "declined": 126,
-                "frac": 0.8102409638554217,
+                "declined": 105,
+                "frac": 0.8367029548989113,
                 "how": "stats-shared"
               },
               "PAIR_FFN_L1_FC1": {
                 "resolved": "True",
-                "served": 60258,
+                "served": 21520,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
               },
               "PAIR_FFN_L1_LN": {
                 "resolved": "True",
-                "served": 30129,
+                "served": 10760,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
@@ -978,7 +668,7 @@
               },
               "TRIMUL_IN_PROJ_DUAL_NOC": {
                 "resolved": "True",
-                "served": 2168,
+                "served": 1084,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
@@ -1018,11 +708,11 @@
               "PAIR_PROJ_MINIMAL_MATMUL": {
                 "resolved": "True",
                 "served": 0,
-                "declined": 60258,
+                "declined": 21520,
                 "frac": 0.0,
                 "how": "wrap",
                 "rejects": {
-                  "dtype:(8,32)": 60258
+                  "dtype:(8,32)": 21520
                 },
                 "reason": "right shape, wrong dtype \u2014 the same forced --fast as TRIMUL_IN_PROJ_DUAL_NOC. The clause is `dtype:(8,32)`, and that 8 is `k_tiles`, which is exactly what this lever requires (it is scoped to a single K block; boltz-2 is permanently excluded because c_z=128 gives 4). So ESMFold2 is the one model whose pair projection fits this lever and it is refused only because Wormhole forces bf8 weights. Widening the guard is a PARITY decision, not an engineering one \u2014 the tuned config and the fallback accumulate K in different block orders, so it will not be torch.equal. Predicted from the code in wh-perf-esmfold2.md 4.2 on 2026-08-16 and left unmeasured; this clause count is the measurement it was missing."
               },
@@ -1050,14 +740,14 @@
               },
               "REBLOCK_PERMUTE": {
                 "resolved": "True",
-                "served": 4336,
+                "served": 2168,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
               },
               "REBLOCK_PERMUTE_BACK": {
                 "resolved": "True",
-                "served": 2168,
+                "served": 1084,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
@@ -1522,31 +1212,31 @@
                 "how": "stats-dict"
               }
             },
-            "640": {
+            "768": {
               "SPLIT_SWIGLU": {
                 "resolved": "True",
                 "served": 538,
-                "declined": 105,
-                "frac": 0.8367029548989113,
+                "declined": 120,
+                "frac": 0.817629179331307,
                 "how": "stats"
               },
               "SPLIT_SWIGLU_SMALL_GRID": {
                 "resolved": "True",
                 "served": 538,
-                "declined": 105,
-                "frac": 0.8367029548989113,
+                "declined": 120,
+                "frac": 0.817629179331307,
                 "how": "stats-shared"
               },
               "PAIR_FFN_L1_FC1": {
                 "resolved": "True",
-                "served": 21520,
+                "served": 25824,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
               },
               "PAIR_FFN_L1_LN": {
                 "resolved": "True",
-                "served": 10760,
+                "served": 12912,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
@@ -1574,7 +1264,7 @@
               },
               "TRIMUL_IN_PROJ_DUAL_NOC": {
                 "resolved": "True",
-                "served": 1084,
+                "served": 2168,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
@@ -1614,11 +1304,11 @@
               "PAIR_PROJ_MINIMAL_MATMUL": {
                 "resolved": "True",
                 "served": 0,
-                "declined": 21520,
+                "declined": 25824,
                 "frac": 0.0,
                 "how": "wrap",
                 "rejects": {
-                  "dtype:(8,32)": 21520
+                  "dtype:(8,32)": 25824
                 },
                 "reason": "right shape, wrong dtype \u2014 the same forced --fast as TRIMUL_IN_PROJ_DUAL_NOC. The clause is `dtype:(8,32)`, and that 8 is `k_tiles`, which is exactly what this lever requires (it is scoped to a single K block; boltz-2 is permanently excluded because c_z=128 gives 4). So ESMFold2 is the one model whose pair projection fits this lever and it is refused only because Wormhole forces bf8 weights. Widening the guard is a PARITY decision, not an engineering one \u2014 the tuned config and the fallback accumulate K in different block orders, so it will not be torch.equal. Predicted from the code in wh-perf-esmfold2.md 4.2 on 2026-08-16 and left unmeasured; this clause count is the measurement it was missing."
               },
@@ -1646,14 +1336,14 @@
               },
               "REBLOCK_PERMUTE": {
                 "resolved": "True",
-                "served": 2168,
+                "served": 4336,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
               },
               "REBLOCK_PERMUTE_BACK": {
                 "resolved": "True",
-                "served": 1084,
+                "served": 2168,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
@@ -1819,68 +1509,472 @@
                 "frac": 0.0,
                 "how": "stats-dict"
               }
+            },
+            "256": {
+              "SPLIT_SWIGLU": {
+                "resolved": "True",
+                "served": 538,
+                "declined": 90,
+                "frac": 0.856687898089172,
+                "how": "stats"
+              },
+              "SPLIT_SWIGLU_SMALL_GRID": {
+                "resolved": "True",
+                "served": 538,
+                "declined": 90,
+                "frac": 0.856687898089172,
+                "how": "stats-shared"
+              },
+              "PAIR_FFN_L1_FC1": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "below the row-blocked pair-FFN window: that path is entered only for 320 <= L <= 1024 (`PAIR_FFN_ROW_BLOCK_SEQ`, tt_bio/esmc.py:320, read in `_split_plan` at esmc.py:653-655), and 256 aa is under it. From 512 aa up this lever serves every call. Inside `_row_blocked`, unreachable below 320 aa."
+              },
+              "PAIR_FFN_L1_LN": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "below the row-blocked pair-FFN window: that path is entered only for 320 <= L <= 1024 (`PAIR_FFN_ROW_BLOCK_SEQ`, tt_bio/esmc.py:320, read in `_split_plan` at esmc.py:653-655), and 256 aa is under it. From 512 aa up this lever serves every call. Inside `_row_blocked`, unreachable below 320 aa."
+              },
+              "PAIR_FFN_L1_SLICE": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "below the row-blocked pair-FFN window: that path is entered only for 320 <= L <= 1024 (`PAIR_FFN_ROW_BLOCK_SEQ`, tt_bio/esmc.py:320, read in `_split_plan` at esmc.py:653-655), and 256 aa is under it. From 512 aa up this lever serves every call. It lives inside `_row_blocked` (esmc.py:678), so at 256 aa it is never asked rather than refusing."
+              },
+              "PAIR_FFN_FUSED_RESIDUAL": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 538,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "below the row-blocked pair-FFN window: that path is entered only for 320 <= L <= 1024 (`PAIR_FFN_ROW_BLOCK_SEQ`, tt_bio/esmc.py:320, read in `_split_plan` at esmc.py:653-655), and 256 aa is under it. From 512 aa up this lever serves every call. Here `residual()` falls to `ttnn.add(x, self(x))` and counts declined (tt_bio/esmc.py:750-755)."
+              },
+              "PAIR_FFN_FILL_ASSEMBLY": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "below the row-blocked pair-FFN window: that path is entered only for 320 <= L <= 1024 (`PAIR_FFN_ROW_BLOCK_SEQ`, tt_bio/esmc.py:320, read in `_split_plan` at esmc.py:653-655), and 256 aa is under it. From 512 aa up this lever serves every call. It additionally rides on the fused residual (`filled = fused and ...`, esmc.py:680), so below 320 aa it cannot be reached."
+              },
+              "TRIMUL_IN_PROJ_DUAL_NOC": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 8672,
+                "frac": 0.0,
+                "how": "stats",
+                "rejects": {
+                  "memory": 8672
+                },
+                "reason": "dtype, not size, and it cannot fire on this card type at ANY rung. `mm_dualnoc.in_proj` rejects unless output, activation and weight dtypes are all bfloat16 (tt_bio/mm_dualnoc.py:81); `_dtype()` returns bfloat8_b whenever `_FAST_MODE` (tt_bio/tenstorrent.py:579); and tt_bio/main.py:2733 forces --fast for esmfold2 on Wormhole, because ESMC-6B in normal precision needs ~12.8 GB against a ~12 GB chip. So the clause is `dtype` at 100 % of calls at every rung, and the production drop-in 60-p2-levers-off.conf that sets TT_BIO_TRIMUL_DUAL_NOC=0 cannot change a single call on this model."
+              },
+              "ADALN_S_HOIST": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "wrap",
+                "reason": "the equivalent optimisation is already done one level up, so this lever has nothing left to hoist. The counter wraps `tenstorrent.AdaLN.s_terms`; ESMFold2 uses `esmfold2.AdaLN`, whose conditioning `s` is genuinely per-step (`DiffusionModuleModel.step` recomputes `cond_single(s_inputs, n_raw)`, esmfold2.py:843) and so is not hoistable, while the step-INVARIANT half is already cached once per rollout by `prepare()` (esmfold2.py:834)."
+              },
+              "FP32_SOFTMAX_BIAS_HOIST": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats-dict",
+                "reason": "no call site on this path: 0 served AND 0 declined at every rung. The hoist fires only when an SDPA bias is fp32; ESMFold2's attention bias is bf16 at every size, so the fp32 branch is never reached."
+              },
+              "FP32_SOFTMAX_L1_GRID": {
+                "resolved": "(9, 8)",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats-dict",
+                "reason": "declines all 0 calls: the counter is the L1-resident fp32 score block and ESMFold2 plans none at any size: the fp32 raw-matmul attention path is its only producer and this model folds in bf16. The resolved (8, 8) is the rectangle the constant holds, left pinned on Blackhole by _apply_grid_thresholds, not a block that ran. The row is new because 92d5a9030 gave the rectangle its own l1_blocks/l1_refused counters instead of scoring it off the bias hoist's [carried from p300c] [carried from p150a]"
+              },
+              "PAIR_TRANSPOSE_VIA_ROW_MAJOR": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "wrap",
+                "reason": "no call site on this path: 0 served AND 0 declined at every rung. The helper guards a 3-D pair transpose (tt_bio/tenstorrent.py:2683) that ESMFold2's trunk does not perform; its PairUpdateBlock transposes inside the trimul kernel instead."
+              },
+              "PAIR_PROJ_MINIMAL_MATMUL": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "wrap",
+                "reason": "not reached at all at this rung: 0 served AND 0 declined, unlike every rung above, where it is called and refuses on `dtype:(8,32)`. At 256 aa the pair FFN does not take the row-blocked path (see PAIR_FFN_FUSED_RESIDUAL) and this projection is never entered."
+              },
+              "TRIMUL_TAIL_F1": {
+                "resolved": "True",
+                "served": 1084,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats"
+              },
+              "QKV_MM_CONFIG": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "wrap",
+                "reason": "no call site on this path: 0 served AND 0 declined at every rung \u2014 `_qkv_mm_config` is not reached by ESMFold2's attention, which builds its own padded q/kv projections (tt_bio/esmfold2.py:254-280)."
+              },
+              "DEVICE_LM_HANDOFF": {
+                "resolved": "True",
+                "served": 1,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats"
+              },
+              "REBLOCK_PERMUTE": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 17344,
+                "frac": 0.0,
+                "how": "stats",
+                "rejects": {
+                  "window_BufferType.L1": 8672,
+                  "back_l1_src_narrow": 8672
+                },
+                "reason": "dark at this rung only, and screened rather than assumed. ESMFold2's call sites here ask for an L1 output, because at 256 aa the trimul is below its own L1 threshold of 288, and the L1 clause of the gate admits only 288 <= N <= 352 (tt_bio/reblock_permute.py:259,306) \u2014 hence `window_BufferType.L1`. At 512 aa and above the caller asks for a DRAM output and the DRAM clause (N >= 256) admits it, so the lever serves every call at every other rung. Lowering L1_N_MIN to 256 was A/B screened on this card (three alternating pairs at 256 aa, TT_BIO_REBLOCK_L1_N_MIN): it does admit all calls and is bit-exact (identical CIF sha256), and it buys nothing \u2014 median 38.5 s against 38.1 s shipped. Evidenced NO-GO, left as shipped."
+              },
+              "REBLOCK_PERMUTE_BACK": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "no call site at this rung: 0 served AND 0 declined. The back-permute serves the return leg of a channel move ESMFold2's trimul does not make at 256 aa; it serves every call from 512 up."
+              },
+              "REBLOCK_PERMUTE_GATED": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "no call site at any rung: 0 served and 0 declined at all six. The gated variant is not on ESMFold2's path (the same reading boltz-2's baseline records for this lever)."
+              },
+              "TRIMUL_MASK_AFTER_MOVE": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats-shared",
+                "reason": "declines all 0 calls: it unlocks the gated channel move, which is only offered once the trimul's pair tensors are in DRAM. At 256 aa they are L1-resident -- REBLOCK_PERMUTE refuses every call here on window_BufferType.L1 -- so nothing is offered at this rung; it serves every call from 512 up. Default on since 7bfa4ad19 [carried from p300c] [carried from p150a]"
+              },
+              "TRIATT_PERSISTENT_MASK": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "no call site on this path at any size: the persistent mask belongs to TriangleAttention's SDPA bias, and ESMFold2 constructs no TriangleAttention."
+              },
+              "SDPA_WIDE_K": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "structural, not size-specific: both SDPA_K_CHUNK_STATS sites are inside `_tri_att_sdpa_at`'s `len(k_chunks) > 1` block, and served 0 declined 0 means no call entered it: the shipped k_chunk divides the padded length at this rung, so there is no wider dividing pick to offer"
+              },
+              "SDPA_FUSED_LARGE_S": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "below the cap, by construction: 0 served AND 0 declined at this rung. The route is offered only for q_len > `_Q_SPLIT_MAX_S` = 1024 padded tokens (tt_bio/triatt_sdpa.py:88, gate at tt_bio/tenstorrent.py:1843), and at or below the cap the stock ladder already lands on a fused pair -- the shipped bit-exact path this flag was written not to disturb. [carried from p300c] [carried from p150a]"
+              },
+              "RFD3_SPARSE_BIAS": {
+                "resolved": "not-imported",
+                "served": null,
+                "declined": null,
+                "frac": null,
+                "how": "stats"
+              },
+              "RFD3_FUSED_SCORES": {
+                "resolved": "not-imported",
+                "served": null,
+                "declined": null,
+                "frac": null,
+                "how": "stats"
+              },
+              "TRIATT_HEAD_MAJOR_QKV": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "no call site on this path at any size: ESMFold2's trunk has no triangle attention. `PairUpdateBlock` (tt_bio/esmfold2.py:143) is tri_mul_out + tri_mul_in + pair transition and `tenstorrent.TriangleAttention` is never constructed, so the whole TRIATT_* family reads 0 served AND 0 declined at every rung. Independently established in wh-perf-esmfold2.md 0.1."
+              },
+              "TRIATT_HEAD_MAJOR_TAIL": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "no call site on this path at any size: no triangle attention in ESMFold2's trunk (see TRIATT_HEAD_MAJOR_QKV), so this lever's op never runs."
+              },
+              "TRIATT_TAIL_OVER_L1": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats-shared",
+                "reason": "no call site on this path at any size: no triangle attention in ESMFold2's trunk, so the tail this lever moves does not exist here."
+              },
+              "B2_BIAS_SLICE_HOIST": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "wrap",
+                "reason": "structurally Boltz-2 only: the hoist returns early unless a `transformer` is passed (tt_bio/tenstorrent.py:8894), which is Boltz-2's token DiT. ESMFold2 has no such call site."
+              },
+              "B2_ADALN_S_MEMO": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "wrap",
+                "reason": "structurally Boltz-2 only: the memo is consulted under `self.atom_level` (tt_bio/tenstorrent.py:7046) on `tenstorrent.AdaLN`, and ESMFold2's diffusion head uses its own `esmfold2.AdaLN` (tt_bio/esmfold2.py:226), a different class with no atom level."
+              },
+              "B2_TOKEN_DIT_SDPA": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "declines all 0 calls: the counter sits on boltz-2's token-DiT attention site (AttentionPairBias.token_dit, set only by the boltz-2 diffusion transformer at tenstorrent.py:9445) and ESMFold2 runs its own TokenDiT, so the branch is never reached at any rung. The resolved state moved False -> True because fc7fed56f flipped the default, not because anything on this model changed [carried from p300c] [carried from p150a]"
+              },
+              "APB_CONCAT_HEADS": {
+                "resolved": "False",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats"
+              },
+              "ATOM_AXIS_BUCKET": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "declines all 0 calls: the bucket is applied on the atom-window axis inside boltz-2's DiffusionModule. ESMFold2 has no atom-level encoder and reaches no call site at any rung. The row is new because c0a876e1a added the lever and fc7fed56f made it default [carried from p300c] [carried from p150a]"
+              },
+              "TRANSPOSE_L1_RESIDENT": {
+                "resolved": "1.25",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "wrap",
+                "reason": "no call site on this path: 0 served AND 0 declined at every rung. The lever routes a Pairformer output transpose to L1 (`_transpose_memory_config`, tt_bio/tenstorrent.py:2740); ESMFold2's trunk has no Pairformer and never calls it."
+              },
+              "SDPA_Q_CHUNK_FITS": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "setlen"
+              },
+              "RFD3_SOFTMAX_PV_FUSED": {
+                "resolved": "not-imported",
+                "served": null,
+                "declined": null,
+                "frac": null,
+                "how": "stats"
+              },
+              "RFD3_FC1_SPLIT_SILU": {
+                "resolved": "not-imported",
+                "served": null,
+                "declined": null,
+                "frac": null,
+                "how": "stats"
+              },
+              "TRANSITION_H_CHUNK": {
+                "resolved": "16",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "declines all 0 calls: the counter is the row-block height chosen in Transition.__call__, and ESMFold2's pair transition is an ESMC SwiGLUFFN (esmfold2.py:161), not that Transition, so the lever has no call site on this model at any rung. The row is new because 7fb08268f gave the lever its first counter [carried from p300c] [carried from p150a]"
+              },
+              "TRIATT_SDPA_HIFI": {
+                "resolved": "none",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats-dict"
+              }
             }
           },
           "runtime_reps_s": {
-            "256": [
-              133.4,
-              129.5,
-              126.0,
-              114.3,
-              118.8
-            ],
-            "768": [
-              323.9
+            "896": [
+              265.6
             ],
             "1024": [
-              467.3
-            ],
-            "896": [
-              414.4
-            ],
-            "512": [
-              196.7,
-              177.7,
-              188.1,
-              190.8,
-              186.8
+              381.6
             ],
             "640": [
-              259.8
+              138.9
+            ],
+            "512": [
+              93.1,
+              92.1,
+              93.1,
+              92.0,
+              91.0
+            ],
+            "768": [
+              203.5
+            ],
+            "256": [
+              38.6,
+              39.2,
+              43.8,
+              40.1,
+              37.6
             ]
           },
-          "structure": {
+          "aiclk": {
+            "896": {
+              "card": "22",
+              "min": 500,
+              "max": 1000,
+              "rep_median": [
+                1000
+              ],
+              "n": 71
+            },
+            "1024": {
+              "card": "22",
+              "min": 500,
+              "max": 1000,
+              "rep_median": [
+                1000
+              ],
+              "n": 93
+            },
+            "640": {
+              "card": "22",
+              "min": 500,
+              "max": 1000,
+              "rep_median": [
+                1000
+              ],
+              "n": 48
+            },
+            "512": {
+              "card": "22",
+              "min": 500,
+              "max": 1000,
+              "rep_median": [
+                1000,
+                1000,
+                1000,
+                1000,
+                1000
+              ],
+              "n": 202
+            },
+            "768": {
+              "card": "22",
+              "min": 500,
+              "max": 1000,
+              "rep_median": [
+                1000
+              ],
+              "n": 60
+            },
             "256": {
-              "file": "cdk2x2_256.cif",
-              "steps": 6,
-              "n_ca": 256,
-              "clash_frac": 0.0078,
-              "chain_break_frac": 1.0,
-              "ca_ca_median_A": 81.2679,
-              "radius_of_gyration_A": 68.091,
-              "plddt_mean": 0.275759,
-              "geometry_ok": false,
-              "geometry_fail": [
-                "median CA-CA 81.268 A outside [3.6, 4.0]",
-                "100.0% of consecutive CA pairs exceed 5.0 A",
-                "radius of gyration 68.1 A outside [9.0, 45.2]"
+              "card": "22",
+              "min": 500,
+              "max": 1000,
+              "rep_median": [
+                1000,
+                1000,
+                1000,
+                1000,
+                1000
+              ],
+              "n": 171
+            }
+          },
+          "load": {
+            "896": {
+              "max": 0.57,
+              "rep_median": [
+                0.5
+              ]
+            },
+            "1024": {
+              "max": 1.75,
+              "rep_median": [
+                0.47
+              ]
+            },
+            "640": {
+              "max": 0.6,
+              "rep_median": [
+                0.54
+              ]
+            },
+            "512": {
+              "max": 1.26,
+              "rep_median": [
+                1.03,
+                0.55,
+                0.53,
+                0.53,
+                0.53
               ]
             },
             "768": {
-              "file": "cdk2x2_768.cif",
+              "max": 0.64,
+              "rep_median": [
+                0.53
+              ]
+            },
+            "256": {
+              "max": 1.64,
+              "rep_median": [
+                1.15,
+                1.11,
+                1.38,
+                1.24,
+                1.37
+              ]
+            }
+          },
+          "structure": {
+            "896": {
+              "file": "cdk2x2_896.cif",
               "steps": 6,
-              "n_ca": 768,
-              "clash_frac": 0.0443,
+              "n_ca": 896,
+              "clash_frac": 0.0357,
               "chain_break_frac": 1.0,
-              "ca_ca_median_A": 80.8932,
-              "radius_of_gyration_A": 73.84,
-              "plddt_mean": 0.255414,
+              "ca_ca_median_A": 79.5551,
+              "radius_of_gyration_A": 80.092,
+              "plddt_mean": 0.262371,
               "geometry_ok": false,
               "geometry_fail": [
-                "median CA-CA 80.893 A outside [3.6, 4.0]",
+                "median CA-CA 79.555 A outside [3.6, 4.0]",
                 "100.0% of consecutive CA pairs exceed 5.0 A",
-                "4.4% of CA atoms sit under 3.5 A from a non-bonded CA",
-                "radius of gyration 73.8 A outside [13.7, 68.7]"
+                "3.6% of CA atoms sit under 3.5 A from a non-bonded CA",
+                "radius of gyration 80.1 A outside [14.6, 72.8]"
               ]
             },
             "1024": {
@@ -1900,21 +1994,21 @@
                 "radius of gyration 77.2 A outside [15.3, 76.6]"
               ]
             },
-            "896": {
-              "file": "cdk2x2_896.cif",
+            "640": {
+              "file": "cdk2x2_640.cif",
               "steps": 6,
-              "n_ca": 896,
-              "clash_frac": 0.0357,
+              "n_ca": 640,
+              "clash_frac": 0.0422,
               "chain_break_frac": 1.0,
-              "ca_ca_median_A": 79.5551,
-              "radius_of_gyration_A": 80.092,
-              "plddt_mean": 0.262371,
+              "ca_ca_median_A": 79.1364,
+              "radius_of_gyration_A": 78.317,
+              "plddt_mean": 0.273173,
               "geometry_ok": false,
               "geometry_fail": [
-                "median CA-CA 79.555 A outside [3.6, 4.0]",
+                "median CA-CA 79.136 A outside [3.6, 4.0]",
                 "100.0% of consecutive CA pairs exceed 5.0 A",
-                "3.6% of CA atoms sit under 3.5 A from a non-bonded CA",
-                "radius of gyration 80.1 A outside [14.6, 72.8]"
+                "4.2% of CA atoms sit under 3.5 A from a non-bonded CA",
+                "radius of gyration 78.3 A outside [12.8, 64.1]"
               ]
             },
             "512": {
@@ -1933,27 +2027,43 @@
                 "radius of gyration 75.6 A outside [11.8, 58.9]"
               ]
             },
-            "640": {
-              "file": "cdk2x2_640.cif",
+            "768": {
+              "file": "cdk2x2_768.cif",
               "steps": 6,
-              "n_ca": 640,
-              "clash_frac": 0.0422,
+              "n_ca": 768,
+              "clash_frac": 0.0443,
               "chain_break_frac": 1.0,
-              "ca_ca_median_A": 79.1364,
-              "radius_of_gyration_A": 78.317,
-              "plddt_mean": 0.273173,
+              "ca_ca_median_A": 80.8932,
+              "radius_of_gyration_A": 73.84,
+              "plddt_mean": 0.255414,
               "geometry_ok": false,
               "geometry_fail": [
-                "median CA-CA 79.136 A outside [3.6, 4.0]",
+                "median CA-CA 80.893 A outside [3.6, 4.0]",
                 "100.0% of consecutive CA pairs exceed 5.0 A",
-                "4.2% of CA atoms sit under 3.5 A from a non-bonded CA",
-                "radius of gyration 78.3 A outside [12.8, 64.1]"
+                "4.4% of CA atoms sit under 3.5 A from a non-bonded CA",
+                "radius of gyration 73.8 A outside [13.7, 68.7]"
+              ]
+            },
+            "256": {
+              "file": "cdk2x2_256.cif",
+              "steps": 6,
+              "n_ca": 256,
+              "clash_frac": 0.0078,
+              "chain_break_frac": 1.0,
+              "ca_ca_median_A": 81.2679,
+              "radius_of_gyration_A": 68.091,
+              "plddt_mean": 0.275759,
+              "geometry_ok": false,
+              "geometry_fail": [
+                "median CA-CA 81.268 A outside [3.6, 4.0]",
+                "100.0% of consecutive CA pairs exceed 5.0 A",
+                "radius of gyration 68.1 A outside [9.0, 45.2]"
               ]
             }
           },
           "refused": {
-            "1280": "'cdk2x2_1280.yaml' has 1280 residues, and esmfold2 is measured to handle at most 1024 residues on wormhole_b0 -- the largest size below the first measured failure. Models with a measured ceiling above 1280 on this hardware: esmc-300m, esmc-600m, esmc-6b, saprot-1.3b, saprot-35m, saprot-650m. If you have reason to think this input is roomier than the ladder that set the limit (a single-sequence run",
-            "1536": "'cdk2x2_1536.yaml' has 1536 residues, and esmfold2 is measured to handle at most 1024 residues on wormhole_b0 -- the largest size below the first measured failure. Models with a measured ceiling above 1536 on this hardware: esmc-300m, esmc-600m, esmc-6b, saprot-1.3b, saprot-35m, saprot-650m. If you have reason to think this input is roomier than the ladder that set the limit (a single-sequence run"
+            "1280": "'cdk2x2_1280.yaml' has 1280 residues, and esmfold2 is measured to handle at most 1024 residues on wormhole_b0 -- the largest size below the first measured failure. Models with a measured ceiling above 1280 on this hardware: esmc-300m, esmc-600m, esmc-6b, pxdesign, rfd3, saprot-1.3b, saprot-35m, saprot-650m. If you have reason to think this input is roomier than the ladder that set the limit (a sin",
+            "1536": "'cdk2x2_1536.yaml' has 1536 residues, and esmfold2 is measured to handle at most 1024 residues on wormhole_b0 -- the largest size below the first measured failure. Models with a measured ceiling above 1536 on this hardware: esmc-300m, esmc-600m, esmc-6b, pxdesign, rfd3, saprot-1.3b, saprot-35m, saprot-650m. If you have reason to think this input is roomier than the ladder that set the limit (a sin"
           },
           "rungs_carried": [
             "256",
@@ -1963,18 +2073,18 @@
             "896",
             "1024"
           ],
+          "exponents_skipped": "256 aa was timed at 1.6x nproc, above the 1.5x load ceiling: the runtimes are the host's, re-time on a quiet box",
           "exponents_measured": {
-            "256->512": 0.578,
-            "512->640": 1.447,
-            "640->768": 1.21,
-            "768->896": 1.598,
-            "896->1024": 0.9
-          },
-          "exponents_skipped": "recorded on whglx between 00:45Z and 04:30Z on 2026-09-23, before cells carried a load stamp, while the host sat at 8.5-11.8x nproc (1-min loadavg 547 at 01:31Z, 754 at 02:51Z, 713 at 03:47Z on 64 cores): the runtimes are the host's, re-time on a quiet box"
+            "256->512": 1.232,
+            "512->640": 1.841,
+            "640->768": 2.095,
+            "768->896": 1.728,
+            "896->1024": 2.714
+          }
         }
       },
       "recorded": "2026-09-23",
-      "host_threads": null
+      "host_threads": 2
     },
     "p150a": {
       "recorded": "2026-09-20",
