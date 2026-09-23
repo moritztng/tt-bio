@@ -63,11 +63,22 @@ from typing import Optional
 import numpy as np
 import torch
 
-from . import catalogue, losses
+from . import catalogue, lineage, losses
 
 __all__ = ["adapter", "OpenFold3Dataset", "OpenFold3Forward", "MODEL", "denoise_draw"]
 
 MODEL = "openfold3"
+
+#: Upstream stores the diffusion module twice (`sample_diffusion.diffusion_module.*` holds the
+#: values of `diffusion_module.*`) and keeps the Fourier noise embedding as a fixed buffer. The
+#: remaining 4170 of the checkpoint's 4935 keys are the parameters the step trains, which is the
+#: float64 reference's gradient count.
+_ALIAS = "sample_diffusion."
+_FROZEN = ("diffusion_module.diffusion_conditioning.fourier_emb.",)
+
+
+def _canonical_key(k: str) -> str:
+    return k[len(_ALIAS):] if k.startswith(_ALIAS) else k
 
 #: The objective's output names this forward produces today, in the order it produces them.
 OUTPUTS = ("pred_xyz", "pred_dist", "distogram_logits", "plddt_logits", "pde_logits",
@@ -260,7 +271,7 @@ class OpenFold3Forward:
         """The shipped ``OpenFold3`` module, built once on first use."""
         if self._model is None:
             import ttnn
-            from ..openfold3_fold import OpenFold3
+            from ..tenstorrent import walk_device_weights
             dev = self.device
             sd = torch.load(self.checkpoint, map_location="cpu", weights_only=False)
             sd = sd.get("state_dict", sd) if isinstance(sd, dict) else sd
@@ -268,33 +279,42 @@ class OpenFold3Forward:
             ckc = ttnn.init_device_compute_kernel_config(
                 dev.arch(), math_fidelity=ttnn.MathFidelity.HiFi4,
                 fp32_dest_acc_en=True, packer_l1_acc=True)
-            self._model = OpenFold3(sd, ckc, num_cycles=self.num_cycles)
-            # The confidence heads upload their device weights lazily inside
-            # `forward_device`, so a walk run before the first forward would not find them
-            # and the optimizer's parameter set would be short by the whole confidence head.
-            from ..openfold3_confidence import OF3ConfidenceHead
-            self._model.confidence_head = OF3ConfidenceHead(
-                self._model._confidence_sd, dev, ckc)
-            self._model.confidence_head.materialize_device_weights()
-            # Every TriangleMultiplication's in-projection as leaves the walk below finds.
-            # Without this they are cut from host torch inside the taped forward, after
-            # registration, and train as constants.
-            from ..tenstorrent import train_in_projections
-            train_in_projections(self._model)
-            # The diffusion atom transformers upload their weights lazily inside the forward
-            # too (D256); materialise them for the same reason.
-            dm = self._model.sampler.dm
-            for at in (dm.enc_at, dm.dec.at):
-                at.materialize_device_weights()
-            # The encoder's RefAtomFeatureEmbedder runs on the host in inference, so its eight
-            # linears reach the module as a constant `cl0`/`plm0` and would never train (0.46 %
-            # of the float64 step's squared gradient). The denoise arm runs the shipped device
-            # module instead; the rollout keeps the host embedding.
-            from ..openfold3 import RefAtomFeatureEmbedder
-            from ..openfold3_weights import _sub
-            dm.ref_embed = RefAtomFeatureEmbedder(
-                _sub(sd, "diffusion_module.atom_attn_enc.ref_atom_feature_embedder"), ckc)
+            with lineage.recording(sd, _canonical_key) as (sd, lin):
+                self._build(sd, ckc)
+            self._lineage = lin.by_path(walk_device_weights(self._model))
+            self._claimed = {k for k in map(_canonical_key, sd) if not k.startswith(_FROZEN)}
         return self._model
+
+    def _build(self, sd, ckc):
+        """The shipped module plus everything the training step adds to it."""
+        from ..openfold3_fold import OpenFold3
+        dev = self.device
+        self._model = OpenFold3(sd, ckc, num_cycles=self.num_cycles)
+        # The confidence heads upload their device weights lazily inside
+        # `forward_device`, so a walk run before the first forward would not find them
+        # and the optimizer's parameter set would be short by the whole confidence head.
+        from ..openfold3_confidence import OF3ConfidenceHead
+        self._model.confidence_head = OF3ConfidenceHead(
+            self._model._confidence_sd, dev, ckc)
+        self._model.confidence_head.materialize_device_weights()
+        # Every TriangleMultiplication's in-projection as leaves the walk below finds.
+        # Without this they are cut from host torch inside the taped forward, after
+        # registration, and train as constants.
+        from ..tenstorrent import train_in_projections
+        train_in_projections(self._model)
+        # The diffusion atom transformers upload their weights lazily inside the forward
+        # too (D256); materialise them for the same reason.
+        dm = self._model.sampler.dm
+        for at in (dm.enc_at, dm.dec.at):
+            at.materialize_device_weights()
+        # The encoder's RefAtomFeatureEmbedder runs on the host in inference, so its eight
+        # linears reach the module as a constant `cl0`/`plm0` and would never train (0.46 %
+        # of the float64 step's squared gradient). The denoise arm runs the shipped device
+        # module instead; the rollout keeps the host embedding.
+        from ..openfold3 import RefAtomFeatureEmbedder
+        from ..openfold3_weights import _sub
+        dm.ref_embed = RefAtomFeatureEmbedder(
+            _sub(sd, "diffusion_module.atom_attn_enc.ref_atom_feature_embedder"), ckc)
 
     def parameters(self) -> dict:
         """Every device weight the built model reaches, registered as a taped leaf.
@@ -324,13 +344,17 @@ class OpenFold3Forward:
 
         Also raises if the forward sliced a registered weight without reaching the tape (D262):
         the leaf is registered but the slice is a constant, so the walk alone cannot see it.
+
+        And from the checkpoint's side: raises if a key the step trains was never uploaded into
+        a registered leaf (``lineage``). A module the forward applies on the host has no device
+        tensor for the walk to find, which is how D261 and D263 trained nothing unseen.
         """
         from collections import Counter
         from .. import autograd as ag
         from ..taped_ttnn import take_raw_param_slices
         from ..tenstorrent import walk_device_weights
-        late = [p for p, _o, _k, t in walk_device_weights(self.model)
-                if ag.parameter_for(t) is None]
+        walked = [(p, t) for p, _o, _k, t in walk_device_weights(self.model)]
+        late = [p for p, t in walked if ag.parameter_for(t) is None]
         if late:
             raise RuntimeError(
                 f"{len(late)} device tensors appeared after parameter registration and would "
@@ -341,6 +365,14 @@ class OpenFold3Forward:
             raise RuntimeError(
                 f"{sum(raw.values())} slices of registered weights did not reach the tape and "
                 f"train as constants, by site: {dict(raw)}")
+        trained = {k for p, t in walked if ag.parameter_for(t) is not None
+                   for k in self._lineage.get(p, ())}
+        untrained = sorted(self._claimed - trained)
+        if untrained:
+            raise RuntimeError(
+                f"{len(untrained)} of {len(self._claimed)} checkpoint tensors this step trains "
+                f"were never uploaded into a registered leaf, so they train as constants: "
+                f"{untrained}")
 
     def __call__(self, batch) -> dict:
         from .. import autograd as ag
