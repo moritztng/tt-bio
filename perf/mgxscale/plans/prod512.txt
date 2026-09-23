@@ -1,0 +1,8 @@
+# Production point: 512-residue target (competition scale: GPCR ~350-480 aa, pMHC ~383),
+# 80-residue binder, upstream step counts. --host-threads 2 on every job: 64 cores / 27 chips
+# is 2.4 cores a chip, so this is the rate a SATURATED Galaxy delivers, not a solo-run rate.
+--model pxdesign --target-res 512 --designs 1 --steps 400 --host-threads 2 --timeout 14400 --tag prod
+--model pxdesign --target-res 512 --designs 8 --steps 400 --host-threads 2 --timeout 25200 --tag prod
+--model boltzgen --target-res 512 --designs 8 --bg-steps design --host-threads 2 --timeout 25200 --tag prod
+--model rfd3 --target-res 512 --designs 1 --steps 100 --host-threads 2 --timeout 18000 --tag prod
+--model rfd3 --target-res 512 --designs 4 --steps 100 --batch_size 4 --host-threads 2 --timeout 25200 --tag prod

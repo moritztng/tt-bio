@@ -1,0 +1,9 @@
+# Second production wave at the 512-residue competition point.
+# rfd3 d4 is the rerun of the job a fleet collision ate; the rest move the two axes this row
+# owns -- the batch axis, and the full boltzgen funnel that turns generated designs into the
+# ~18 an entrant submits.
+--model rfd3 --target-res 512 --designs 4 --steps 100 --batch_size 4 --host-threads 2 --timeout 25200 --tag prod
+--model pxdesign --target-res 512 --designs 4 --steps 400 --host-threads 2 --timeout 14400 --tag batch
+--model pxdesign --target-res 512 --designs 16 --steps 400 --host-threads 2 --timeout 21600 --tag batch
+--model pxdesign --target-res 512 --designs 32 --steps 400 --host-threads 2 --timeout 25200 --tag batch
+--model boltzgen --target-res 512 --designs 8 --budget 4 --host-threads 2 --timeout 28800 --tag funnel
