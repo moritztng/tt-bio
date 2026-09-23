@@ -189,10 +189,13 @@ def designability(out_dir: pathlib.Path) -> dict | None:
         return {"error": str(e)}
     except Exception as e:
         return {"error": f"{type(e).__name__}: {e}"}
-    return {k: res[k] for k in ("column", "n", "min", "median", "max",
-                                "pass_strict", "pass_permissive")} | {
-        "scrmsd": [round(r["scrmsd"], 3) for r in res["rows"]],
-        "len": [r["len"] for r in res["rows"]]}
+    # pandas hands back numpy scalars, and json.dumps refuses an int64. A row that cannot be
+    # serialised takes the whole job's result with it, hours after the device work finished.
+    return {k: float(res[k]) if isinstance(res[k], float) else int(res[k])
+            for k in ("n", "min", "median", "max", "pass_strict", "pass_permissive")
+            } | {"column": res["column"],
+                 "scrmsd": [round(float(r["scrmsd"]), 3) for r in res["rows"]],
+                 "len": [int(r["len"]) if r["len"] is not None else None for r in res["rows"]]}
 
 
 def count_designs(model: str, out_dir: pathlib.Path) -> tuple[int, list[dict]]:
