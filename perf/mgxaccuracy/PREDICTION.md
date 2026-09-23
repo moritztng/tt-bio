@@ -129,3 +129,36 @@ a genuine open question rather than a prediction with a favourite.
 **What no outcome here can establish.** With one target per size in each arm, a size effect and
 a target effect are the same number. Separating them needs three targets per size, each
 measured at both — stated in the QUALITY section as the ceiling this row hits, not buried.
+
+## P5 — does the refolder that scores the designs agree between device and upstream?
+
+Written at 17:30Z, while the two refolds were running and neither number existed.
+
+The scRMSD this row reports is produced by a fold the DEVICE ran: BoltzGen's `design_folding`
+step refolds the designed sequence with the Boltz-2 confidence checkpoint, on the card. So
+"the device's designs are worse at 1536" and "the device's refolder scores them worse at 1536"
+have the same symptom, and nothing measured so far separates them.
+
+Step 4's cost is set by the binder — 80 residues, 16 min 47 s per design on qb2's CPU,
+measured, and unchanged by target size. So upstream fp32 can refold the device's OWN designs
+at any target size, which makes this a **paired** comparison: same design, same sequence, same
+backbone, two refolders.
+
+**The two designs chosen are the extremes of the device's 512 distribution**, 0.865 A and
+12.897 A, a 15x range. A paired agreement over that range is worth more than n=2 usually is,
+because the failure modes it tests are opposite: a refolder that is too permissive collapses
+the 12.897, and one that is too strict inflates the 0.865.
+
+**P5.** Upstream fp32 returns values that keep every verdict the device's numbers imply: the
+0.865 A design still designable at the 2 A bar, the 12.897 A design still far outside the 4 A
+bar, and the ordering preserved. Concretely, **under 2 A and over 8 A**.
+
+**REFUTED IF** either crosses its bar — most interestingly if 12.897 comes back near 2 A,
+which would mean the device's refold is what fails at scale and the designs are fine. That is
+a different defect from the one this row has been chasing, it lives in the fold path rather
+than the design path, and it would be the ATTRIBUTION answer.
+
+**What it cannot show.** Agreement at 512 does not prove agreement at 1536; the same pair has
+to be run on the 1536 designs, which is queued and costs the same. Two designs also cannot
+measure a small systematic offset — they can only catch one big enough to move a verdict,
+which is the thing that would matter.
