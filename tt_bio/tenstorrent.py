@@ -66,6 +66,9 @@ PWA_DEPTH_BUDGET_BYTES = 1 << 28     # 0.25 GiB, as OPM_Z_BUDGET_BYTES
 _PWA_DEPTH_ROW_CAP: dict[tuple[int, int], int] = {}
 #: Path census, read like OPM_ROW_STATS: whole-tensor calls, chunked calls, refusals absorbed.
 PWA_DEPTH_STATS = {"whole": 0, "blocked": 0, "dram_narrowed": 0}
+# Triangle-attention shapes whose whole-tensor path DRAM refused, and the row block they settled
+# at. See TriangleAttention.__call__.
+_TRIATT_WHOLE_REFUSED: dict = {}
 # Cap on OPM's per-I-block matmul result, which is (rows*c_a, c_b*tokens) in bf16 and therefore
 # grows with the SQUARE of the token count at fixed `rows`. At OPM_CHUNK_SIZE=256 and 992 padded
 # tokens that single tensor is 520093696 B -- which is exactly, to the byte, the allocation 9i3p
@@ -7664,9 +7667,27 @@ class TriangleAttention(Module):
         ) or (None, None, None)
 
     def __call__(self, x: ttnn.Tensor, attn_mask: ttnn.Tensor | None = None) -> ttnn.Tensor:
+        S = x.shape[1]
+        if S > SEQ_LEN_MORE_CHUNKING and (self.affinity or not _FAST_MODE or _IS_SMALL_GRID):
+            return self._attend_pair(x, attn_mask, TRIANGLE_ATT_CHUNK_SIZE)
+        # SEQ_LEN_MORE_CHUNKING is a token count fitted on a 128-channel pair (see
+        # _apply_grid_thresholds), so at OpenDDE's c_z=384 the whole path at 1088 tokens asks for
+        # four 909115392 B projections at once and a 12 GiB Wormhole chip refuses them 403 s into
+        # the fold. The device gets the last word: a refusal re-runs the row-blocked path below,
+        # which never builds more than one block of them, and a size that fits keeps its single
+        # pass byte for byte.
+        return row_block_after_refusal(
+            _TRIATT_WHOLE_REFUSED, (tuple(x.padded_shape), self.ending),
+            lambda: self._attend_pair(x, attn_mask, None),
+            lambda rows: self._attend_pair(x, attn_mask, rows),
+            rows=TRIANGLE_ATT_CHUNK_SIZE, tag="tri_att")
+
+    def _attend_pair(self, x: ttnn.Tensor, attn_mask: ttnn.Tensor | None,
+                     rows: int | None) -> ttnn.Tensor:
+        """The whole-tensor path when `rows` is None, else the row-blocked one, blocks <= rows."""
         x = ttnn.reshape(x, tuple(x.shape)[1:])
         S = x.shape[0]
-        need_chunk = S > SEQ_LEN_MORE_CHUNKING and (self.affinity or not _FAST_MODE or _IS_SMALL_GRID)
+        need_chunk = rows is not None
         if need_chunk:
             # Large-sequence path: never materialise the full layer_norm output.
             # layer_norm is row-local, so norming a row block is bit-identical to
@@ -7677,7 +7698,7 @@ class TriangleAttention(Module):
             # it arrives identical to the full-tensor computation. This drops the
             # chunked path from 3 full pair tensors live (z + normed x + accumulated
             # parts) to 2, plus the n_heads-wide bias.
-            chunk = TRIANGLE_ATT_CHUNK_SIZE_FAST if _FAST_MODE else TRIANGLE_ATT_CHUNK_SIZE
+            chunk = min(rows, TRIANGLE_ATT_CHUNK_SIZE_FAST if _FAST_MODE else TRIANGLE_ATT_CHUNK_SIZE)
             # Byte-cap the row chunk so the fused qkv projection (rows x pad32(S) x 3c
             # bf16) stays a size a fragmented 12 GiB WH part can still supply. The
             # allocator needs size/12 contiguous in every bank, and after the trunk's
