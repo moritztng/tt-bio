@@ -246,7 +246,17 @@ def job_tag(args) -> str:
     structure are different targets, and sharing an out_dir would make the second read the
     first's designs."""
     off = f"_o{args.crop_offset}" if getattr(args, "crop_offset", 0) else ""
-    return f"{args.model}_{args.target_res}{off}_d{args.designs}_s{args.steps}{args.tag}"
+    # `--steps` reaches rfd3 (--num_timesteps) and pxdesign (--n_step) and NOT boltzgen, whose
+    # sampling count is the checkpoint's own 500. Stamping s400 on a boltzgen directory named
+    # a setting that run never had, and the whole point of these numbers is that the device
+    # does the same work as upstream -- `out_boltzgen_512_d8_s400_gpb` reads like 400 sampling
+    # steps against the reference's 500. It was not: both configs say sampling_steps 500,
+    # checked on disk. Boltzgen is labelled by the pipeline steps it was actually given.
+    if args.model == "boltzgen":
+        step = f"_bg{getattr(args, 'bg_steps', '') or 'all'}"
+    else:
+        step = f"_s{args.steps}"
+    return f"{args.model}_{args.target_res}{off}_d{args.designs}{step}{args.tag}"
 
 
 def designability(out_dir: pathlib.Path) -> dict | None:

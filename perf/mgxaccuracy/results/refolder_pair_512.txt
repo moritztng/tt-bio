@@ -1,17 +1,21 @@
-# The refolder that produces scRMSD, device against upstream fp32, on IDENTICAL designs --
-# and upstream against ITSELF, which is the control that decides what the first table means.
-# perf/mgxaccuracy/ref/designfolding_only.sh --from <out> --name <n>, then scrmsd.py.
+# The refolder that produces scRMSD: device against upstream fp32 on IDENTICAL designs, and
+# upstream against ITSELF, which is the control that decides what the comparison means.
+# ref/designfolding_only.sh --from <out> --name <n>, then scrmsd.py. Same sequence, same
+# design      device  upstr r1  upstr r2 upstr mean  dev-mean
 #
-# design       device upstream r1 upstream r2
-# bg512         0.865       1.736       0.874
-# bg512_1      12.897      13.688   (running)
+# design      device  upstr r1  upstr r2 upstr mean  dev-mean
+# bg512        0.865     1.736     0.874      1.305    -0.440
+# bg512_1     12.897    13.688    11.756     12.722     0.175
 #
-# READ THE THIRD COLUMN FIRST. Two upstream runs with the same input, same config, same
-# thread count and the same checkpoint give 1.736 and 0.874 A on one 80-residue refold.
-# The refolder's own run-to-run spread is 0.86 A, so the 0.87 A device-to-upstream gap in
-# the first table is NOT an offset -- the device's 0.865 sits at the bottom of upstream's
-# own two-draw range. Nothing about the two refolders is resolvable at this n.
+# READ THE REPEAT COLUMN FIRST. Two upstream runs of the SAME design differ by 0.86 A on
+# one and 1.93 A on the other. An fp32 CPU diffusion refold is not reproducible run to run;
+# thread scheduling changes the reduction order and the sampler amplifies it.
+#
+# Against that spread the device is indistinguishable from upstream. Its two values sit in
+# or on the edge of upstream's own two-draw range, and the residuals against the upstream
+# means have OPPOSITE signs (-0.44 and +0.18), so there is no direction to the difference.
+# An earlier reading of the r1 column alone called it a +0.83 A additive offset; withdrawn.
 #
 # Consequence: the 11.04-against-10.56 reference comparison needs no refolder correction,
-# and a single upstream draw carries at least this much noise, which is one more reason an
-# n=1 reference is a sanity check on the level rather than a test.
+# and one upstream draw carries 0.9-1.9 A of noise -- an n=1 reference bounds the LEVEL,
+# not a difference. Every design keeps its side of both bars under either refolder.
