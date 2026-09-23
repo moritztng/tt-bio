@@ -1182,11 +1182,13 @@ _TE_KEY_REMAP = (
 )
 
 
-def load_esmc6b_state_dict(snapshot_dir: str) -> dict:
+def load_esmc6b_state_dict(snapshot_dir: str, dtype: torch.dtype | None = None) -> dict:
     """Read the sharded 6B safetensors and remap TE keys to esm-repo names.
 
     Keeps only weights the ttnn stack consumes (embed, transformer blocks,
     final norm); drops `_extra_state`, the LM head and any classifier heads.
+    ``dtype`` overrides the device-driven load dtype; the fp32 parity reference passes
+    ``torch.float32`` so it reads the same snapshot as the device, not a second copy.
     """
     import glob
     import json
@@ -1201,7 +1203,7 @@ def load_esmc6b_state_dict(snapshot_dir: str) -> dict:
     # happens once, here vs in from_torch). In fast mode the big matmul weights
     # become block-fp8, whose quantization is sensitive to the fp32 mantissa, so
     # keep fp32 there to preserve exact fast-mode numerics.
-    load_dtype = torch.float32 if _tt._FAST_MODE else torch.bfloat16
+    load_dtype = dtype or (torch.float32 if _tt._FAST_MODE else torch.bfloat16)
     idx_path = os.path.join(snapshot_dir, "model.safetensors.index.json")
     weight_map = json.load(open(idx_path))["weight_map"]
     by_shard: dict[str, list[str]] = {}

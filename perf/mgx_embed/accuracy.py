@@ -69,15 +69,8 @@ def metrics(dev, ref):
 
 def esmc_reference(model):
     from tt_bio import esmc
-    if model == "esmc-6b":
-        from esmc6b_embed_parity import _build_reference
-        ref = _build_reference()
-    else:
-        from huggingface_hub import hf_hub_download
-        from esmc_embed_parity import load_reference
-        _cfg, repo, wpath = esmc.CONFIGS[model]
-        sd = torch.load(hf_hub_download(repo, wpath), map_location="cpu", weights_only=False)
-        ref = load_reference(model, sd.get("state_dict", sd))
+    from esmc_embed_parity import load_reference, reference_state_dict
+    ref = load_reference(model, reference_state_dict(model))
     return lambda aa, _s: ref(esmc.tokenize(aa))[1][0][1:-1].float().numpy()
 
 
