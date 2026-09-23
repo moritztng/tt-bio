@@ -131,6 +131,10 @@ can hold:
 - `rf3` folds 1600 and fails at 1664 in the diffusion atom encoder's pair permute, with enough
   memory free but no block large enough.
 
+`esmfold2-fast` folds 1664 and fails at 1792 in the pair feed-forward, whose 1.5 GiB output does
+not fit on a chip that is by then 99 % full, so for it the wall is total residency rather than one
+oversized block.
+
 `openfold3` and `openbind` fold 1536 residues at 14190 alignment rows now that the MSA
 representation streams through the chip a depth chunk at a time. Both fail at 1664 in the
 diffusion transformer, with 58 MB free but no block large enough for one 177 MB tensor. The measured rows, with commits, wall times and allocation sizes, are in

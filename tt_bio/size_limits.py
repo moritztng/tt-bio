@@ -698,33 +698,24 @@ CEILINGS: dict[str, dict[str, Ceiling]] = {
     },
     "esmfold2-fast": {
         "wormhole_b0": Ceiling(
-            residues=1152, pass_at=1152, fail_at=1248, binds=MEMORY, mechanism=DRAM,
+            residues=1664, pass_at=1664, fail_at=1792, binds=MEMORY, mechanism=DRAM,
             msa_rows=0, ladder_ligand_atoms=0,
-            evidence="its OWN ladder, walked 2026-09-09 on GWH02 card 1 by "
-                     "ws:esmfold2-cocrystal-everywhere, not inherited from esmfold2 by "
-                     "architecture argument -- and it had to be walked separately, because the "
-                     "two checkpoints do NOT share a ceiling. 960 folds in 202 s, 1024 in 214 s, "
-                     "1057 in 261 s, 1152 in 278 s; 1280 does not fold (838860800 B DRAM buffer "
-                     "across 12 banks, 69906432 B wanted per bank). 1057 is the rung that stops "
-                     "the full trunk and this checkpoint clears it, which is the expected "
-                     "direction: same architecture at half the trunk depth (24 blocks against "
-                     "48), so a smaller DRAM peak. Same settings as the esmfold2 row -- "
-                     "single-sequence (this checkpoint has no MSA encoder at all) and --fast, "
-                     "forced on Wormhole. The wall is on TOKENS for the same reason esmfold2's "
-                     "is -- same trunk, same allocation, same per-atom ligand tokenisation -- and "
-                     "it is closed the same way rather than left as a caveat: "
-                     "ladder_ligand_atoms=0 records apo rungs, so the cap is 1152 tokens and a "
-                     "ligand is counted against it. The NUMBERS are still this checkpoint's own; "
-                     "only the denominator is shared. "
-                     "TIGHTENED 2026-09-11 on the j10glx02 Galaxy (ws:wh-seqlen-structure, "
-                     "perf/whceil), in the SAME single-sequence configuration this row was "
-                     "walked in: 1216 aa folds in 488 s and the first failure is 1248, not "
-                     "1280 -- 1594884096 B, 126.8 MiB per bank against a 1024.0 MiB bank, "
-                     "127.5 MiB per bank free and a largest free block of 104.7 MiB. It is "
-                     "refused while holding 0.7 MiB MORE free memory per bank than it asked "
-                     "for, which is fragmentation in its purest form. So the cap could be 1216 "
-                     "rather than 1152; it is not raised here, because raising a cap accepts "
-                     "more work and restamps every capacity cell",
+            evidence="walked 2026-09-23 on origin/main 1b423e9e4 (esmfold2 MSA and LM-dropout "
+                     "merge), j10glx02 card 15, guard off, --host_threads 2, --fast as Wormhole "
+                     "forces, apo CDK2 tiled (ws:mgx-ceilings, perf/mgxceil). This checkpoint has "
+                     "no MSA encoder, so the rungs are single-sequence whatever the input carries. "
+                     "1536 folds in 1149.8 s and 1664 in 1281.0 s, AICLK median 1000 MHz sampled "
+                     "during every fold. 1792 fails after 264.6 s in the pair FFN "
+                     "(esmc.py _row_blocked): the 1 x 1792 x 1792 x 256 bf16 output is "
+                     "1644167168 B, 130.7 MiB per bank, and after the row-blocked retry the chip "
+                     "is 99.0 percent full with 10.5 MiB free, so it is residency and not one "
+                     "oversized block. The same code before that merge (cec7979b1, card 0) "
+                     "folded 1024 through 1792 (1792 in 1105.2 s) and failed 1920 on "
+                     "fragmentation, so the merge costs this model the 1792 rung. The rungs "
+                     "were apo and the wall is on TOKENS (same trunk and tokenisation as "
+                     "esmfold2), so ladder_ligand_atoms=0 counts a ligand against the 1664. "
+                     "Was 1152/1248 from the 2026-09-09 and 09-11 ladders, walked before "
+                     "pair-residency and bigalloc reached this trunk",
         ),
     },
     "protenix-v1": {
