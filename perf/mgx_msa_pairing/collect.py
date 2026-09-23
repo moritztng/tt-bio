@@ -2,9 +2,9 @@
 
   python collect.py [out_dir]
 
-Per model x target x arm: DockQ, fnat, iRMS, LRMS for seeds 0 and 1, the seed floor (CA-RMSD
-between the two seeds of the same arm), and whether the two arms' structures are bit-identical
-(ATOM record md5). The monomer control (im9) reports CA-RMSD and the md5 check only.
+Per model x target x arm: DockQ, fnat, iRMS, LRMS for every seed found, the seed floor (CA-RMSD
+between the first two seeds of the same arm; mean DockQ too when there are more), and whether
+the two arms' structures are bit-identical (ATOM record md5). The monomer control (im9) reports CA-RMSD and the md5 check only.
 """
 import hashlib
 import sys
@@ -31,11 +31,12 @@ def _atoms_md5(path):
 def main():
     out = Path(sys.argv[1]) if len(sys.argv) > 1 else HERE / "out"
     models = sorted({d.name.split("-before-")[0] for d in out.glob("*-before-s*")})
+    seeds = sorted({int(d.name.rsplit("-s", 1)[1]) for d in out.glob("*-s*") if d.is_dir()})
     for m in models:
         for t, (pdb, chains) in CRYSTAL.items():
             cells = {}
             for arm in ("before", "after"):
-                for s in (0, 1):
+                for s in seeds:
                     p = _pred(out, f"{m}-{arm}-s{s}", t)
                     if p is not None:
                         cells[arm, s] = (p, score(str(HERE / "crystal" / f"{pdb}.cif.gz"), str(p),
@@ -53,11 +54,13 @@ def main():
                 else:
                     vals = "  ".join(f"CA-RMSD {r['rmsd']:.2f}" for _p, r in row)
                 floor = (f" | seed floor {_fit(row[0][1]['ca'], row[1][1]['ca'])[0]:.2f} A"
-                         if len(row) == 2 else "")
+                         if len(row) >= 2 else "")
+                if len(row) > 2 and "dockq" in row[0][1]:
+                    floor += f" | mean DockQ {sum(r['dockq'] for _p, r in row) / len(row):.3f} over {len(row)}"
                 print(f"{m:12s} {t:5s} {arm:6s} {vals}{floor}")
-            same = [s for s in (0, 1) if ("before", s) in cells and ("after", s) in cells
+            same = [s for s in seeds if ("before", s) in cells and ("after", s) in cells
                     and _atoms_md5(cells["before", s][0]) == _atoms_md5(cells["after", s][0])]
-            both = [s for s in (0, 1) if ("before", s) in cells and ("after", s) in cells]
+            both = [s for s in seeds if ("before", s) in cells and ("after", s) in cells]
             print(f"{m:12s} {t:5s} bit-identical before/after on seeds {same} of {both}")
 
 
