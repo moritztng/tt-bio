@@ -37,12 +37,25 @@ BAR_COMMIT = "97809f872"
 # which is the check that cannot be bypassed by running report.py on an older file.
 NOT_A_MEASUREMENT = "device contention, nothing ran"
 
+# A rung killed at its own budget did not measure a ceiling either -- ladder.py says so itself:
+# "a rung budget does not measure the ceiling, it measures how long the operator was willing to
+# watch". That is mild on a quiet box, where a budget overrun is a real runtime result, and
+# decisive on a loud one: whglx ran at load 743 on 64 cores while these walks went, which
+# inflated a measured pxdesign rung 9.0x against its own recorded number. A TIMEOUT taken under
+# that load says nothing about capacity, so it is reported as INCONCLUSIVE and never as the
+# first failure.
+TIMED_OUT = "TIMEOUT"
+
 
 def ran(r: dict) -> bool:
     if r.get("rc") in (-15, -9):
         return False
     blob = " ".join(r.get("diag") or []) + (r.get("tail") or "")
     return NOT_A_MEASUREMENT not in blob
+
+
+def timed_out(r: dict) -> bool:
+    return TIMED_OUT in (r.get("tail") or "")
 
 
 def load(path: pathlib.Path) -> tuple[list[dict], int]:
@@ -99,9 +112,13 @@ def main() -> int:
                                       if v.get("ratio") else f" — {v.get('why','')}")
             else:
                 bar = f"UNGATED ({len(fit)} fit rungs with a clock)"
+        elif timed_out(r):
+            bar = "INCONCLUSIVE: killed at the rung budget, not refused by the chip"
         elif r.get("verdict") != "PASS":
             bar = "coverage result, not a speed result"
-        print(f"| {n} | {r.get('verdict')} | {r.get('mechanism')} | "
+        verdict = "INCONCLUSIVE" if (timed_out(r) and r.get("verdict") != "PASS") \
+            else r.get("verdict")
+        print(f"| {n} | {verdict} | {r.get('mechanism')} | "
               f"{r.get('runtime_s', '-')} | {r.get('wall_s', '-')} | "
               f"{clock(r) or '-'} | {r.get('card')} | {bar} |")
     cards = {r.get("card") for r in rows if r.get("verdict") == "PASS"}
