@@ -784,7 +784,16 @@ CEILINGS: dict[str, dict[str, Ceiling]] = {
                 "AICLK median of 1000 MHz sampled DURING the run, artifact chains A=80 binder + "
                 "B=1008 + C=528. That time is not comparable to the 2242.9 s above it: the box "
                 "carried a load average of 563-743 on 64 cores. It confirms a cell this row "
-                "already covers and does not move the cap"),
+                "already covers and does not move the cap. FITTING IS NOT THE SAME AS DESIGNING "
+                "WELL, and this row is the atom axis only: the 1536 design's geometry is worse "
+                "than the same path's at 512. Both rungs ran `--steps design` off the same crop "
+                "with the same 80-residue binder, and the 512 control (card 9, 892.6 s, 1000 MHz "
+                "DURING) comes back with 1 marginal contact at 1.999 A, clash_frac 0.00021 and no "
+                "`fail`, against 20 heavy-atom clashes, clash_frac 0.0015 -- 7.1x per atom -- a "
+                "worst contact of 0.879 A and a `fail` at 1536. Mean confidence is low at BOTH "
+                "sizes (0.121 and 0.040), so that half is the partial pipeline rather than the "
+                "size. scRMSD through the full pipeline is what settles whether the clashes "
+                "matter; until it lands, read this row as a fit, not as a quality claim"),
     },
     "esmc-300m": {
         "wormhole_b0": Ceiling(
