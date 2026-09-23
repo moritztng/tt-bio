@@ -17,7 +17,9 @@ A fold the lease refused (another row opened the chip between folds) ran nothing
 count against that budget.
 
     TT_VISIBLE_DEVICES=<c> TT_BIO_LEASE_CARDS=<c> ... python perf/mgx-speed/time_rungs.py \
-        <model> <rung>[,<rung>...] [threads] [sigma_reps]
+        <model> <rung>[,<rung>...] [threads] [sigma_reps] [sigma_rung]
+
+sigma_rung defaults to the ladder's; nesso1 takes it inside its clock-matched fit (verdicts.py).
 """
 import json
 import os
@@ -39,6 +41,7 @@ CONTENDED = 6                       # lease refusals per rung and pass before th
 model, rungs = sys.argv[1], [int(x) for x in sys.argv[2].split(",")]
 rg.HOST_THREADS = int(sys.argv[3]) if len(sys.argv) > 3 else 2
 sigma_reps = int(sys.argv[4]) if len(sys.argv) > 4 else 3
+sigma_rung = int(sys.argv[5]) if len(sys.argv) > 5 else rg._size_ladder_sigma_rung(model)
 git = lambda *a: subprocess.run(["git", *a], cwd=ROOT, capture_output=True, text=True).stdout.strip()
 commit = git("rev-parse", "HEAD")
 engine = lambda c: git("rev-parse", f"{c}:tt_bio", f"{c}:scripts").replace("\n", " ")
@@ -77,7 +80,7 @@ failed = lambda c: bool(c.get("error") or c.get("refused")) and not contended(c)
 quiet = lambda c: (c.get("load") or {}).get("max", LOAD_CEILING + 1) <= LOAD_CEILING
 for rung in rungs:
     mine = [c for c in done if c["rung"] == rung and not contended(c)]
-    reps = sigma_reps if rung == rg._size_ladder_sigma_rung(model) else 1
+    reps = sigma_reps if rung == sigma_rung else 1
     for _ in range(1 + EXTRA):
         if any(c["tag"] == "warmup" for c in mine) or any(map(failed, mine)):
             break
