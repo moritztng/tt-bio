@@ -738,7 +738,7 @@ def test_a_resumed_pass_carries_the_rungs_it_did_not_measure(rg_fresh):
     assert meas["sigma"] == 0.05
 
 
-@pytest.mark.parametrize("differs", ["commit", "host", "grid"])
+@pytest.mark.parametrize("differs", ["commit", "host", "grid", "host_threads"])
 def test_a_resumed_pass_refuses_to_mix_two_engines(rg_fresh, differs):
     """The arm's own rule is "re-record after any size-affecting change". A ladder whose
     256 came from one commit and whose 1024 came from another measures neither, and its
@@ -1171,6 +1171,33 @@ def test_a_fold_whose_log_vanished_reports_the_fold_not_the_error_path(rg_fresh,
     out = rg_fresh._run_census_fold("protenix-v2", 256, workdir, "rep0")
     assert "error" in out, f"the fold failed, so the leg owes an error: {out}"
     assert "removed under the run" in out["error"], out["error"]
+
+
+def test_the_thread_cap_reaches_every_fold_and_uncapped_leaves_the_env_alone(rg_fresh, monkeypatch,
+                                                                         tmp_path):
+    """whglx ran one fold per chip at 11x nproc because each fold sized its pools to all 64
+    cores. The cap goes through the environment so nesso1's `affinity`, which has no
+    --host_threads, is capped the same way predict is."""
+    fixture = tmp_path / "cdk2x2_256.yaml"
+    fixture.write_text("sequences: []\n")
+    monkeypatch.setattr(rg_fresh, "_size_ladder_fixture", lambda m, r: fixture)
+    seen = []
+
+    def fold(cmd, timeout, **kw):
+        seen.append(kw.get("env"))
+        return 1, False
+    monkeypatch.setattr(rg_fresh, "_run_fold", fold)
+
+    for model in ("protenix-v2", "nesso1"):
+        rg_fresh._run_census_fold(model, 256, tmp_path / "w", "rep0")
+    monkeypatch.setattr(rg_fresh, "HOST_THREADS", 2)
+    for model in ("protenix-v2", "nesso1"):
+        rg_fresh._run_census_fold(model, 256, tmp_path / "w", "rep0")
+
+    assert seen[:2] == [None, None]
+    for env in seen[2:]:
+        assert env["OMP_NUM_THREADS"] == env["MKL_NUM_THREADS"] == "2"
+        assert env["OMP_WAIT_POLICY"] == "PASSIVE"
 
 
 def test_a_lost_log_says_the_tree_went_away_and_names_it(rg_fresh, tmp_path):

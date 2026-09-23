@@ -20,6 +20,10 @@ export TT_BIO_OPENBIND=$HOME/mgxi-weights/of3-ob-2025-06-30-174k.pt
 # record pass's dir would lose its fold to the other process's cleanup.
 export RELEASE_GATE_SIZE_WORKDIR=$root/perf/sizegate/work-$mode-$model
 export RELEASE_GATE_FOLD_TIMEOUT=${RELEASE_GATE_FOLD_TIMEOUT:-5400}
+# The host thread share `serve` gives a worker on this box (64 cores, 32 chips). Uncapped, every
+# fold took all 64 and the box sat at 11x nproc. Recorded in each entry; the speed bar voids a
+# ladder that mixes caps, so change it only for a whole model.
+threads=${HOST_THREADS:-2}
 log=$root/perf/sizegate/mgx/logs; mkdir -p "$log"
 py=$HOME/env/bin/python
 "$py" perf/sizegate/mgx/hold.py "$card" $$ >> "$log/hold-$card.log" 2>&1 &
@@ -27,7 +31,7 @@ run() {  # $1 = log tag, rest = extra args
   local tag=$1; shift
   echo "[$(date -u +%FT%TZ)] START $mode $model card $card $*" >> "$log/$model.$tag.log"
   "$py" scripts/release_gate.py --model size-ladder --size-ladder-models "$model" \
-        --load-ceiling 0 "$@" >> "$log/$model.$tag.log" 2>&1
+        --load-ceiling 0 --host-threads "$threads" "$@" >> "$log/$model.$tag.log" 2>&1
   local rc=$?   # before the echo: its $(date) would reset $? to 0
   echo "[$(date -u +%FT%TZ)] EXIT $rc $mode $model" >> "$log/$model.$tag.log"
 }
@@ -35,7 +39,7 @@ if [ "$mode" = check ]; then
   run check
 elif [ "$mode" = probe ]; then
   echo "[$(date -u +%FT%TZ)] START probe $model $rungs card $card" >> "$log/$model.probe.log"
-  "$py" perf/sizegate/mgx/probe.py "$model" "$rungs" >> "$log/$model.probe.log" 2>&1
+  "$py" perf/sizegate/mgx/probe.py "$model" "$rungs" "$threads" >> "$log/$model.probe.log" 2>&1
   rc=$?
   echo "[$(date -u +%FT%TZ)] EXIT $rc probe $model" >> "$log/$model.probe.log"
 elif [ -n "$rungs" ]; then

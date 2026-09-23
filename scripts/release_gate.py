@@ -231,6 +231,12 @@ SAMPLING_STEPS_BY_MODEL = {"rf3": 50}
 # block-fp8 trunk path (bf8 weights + bf8 matmul output) that ships under --fast.
 # Defaults off: the standing floors below were calibrated for full precision.
 FAST = False
+# When set (via --host-threads), every fold's host thread pools are capped to this many threads
+# (tt_bio.runtime.host_thread_cap_env, the share `serve` hands each worker). None leaves each
+# fold its default of every core, which is right for one fold on an idle box and wrong on a
+# Galaxy running one fold per chip: whglx sat at 11x nproc with 200-320 threads per fold. A
+# fold's host-side work scales with the cap, so it is part of a timing's identity.
+HOST_THREADS = None
 # When set (via --diffusion_trace), fold boltz2 with the per-step DiT trace
 # replay on (lossless; reserves a 1 GiB trace region). boltz2 only — other fold
 # models do not wire diffusion_trace through. Defaults off.
@@ -1550,7 +1556,7 @@ def _repo_dirty() -> bool:
         return True   # cannot prove it is clean, so it is not resumable
 
 
-def _run_key(fast: bool, diffusion_trace: bool) -> dict:
+def _run_key(fast: bool, diffusion_trace: bool, host_threads: int | None = None) -> dict:
     """Everything that changes what an arm would score. See gate_journal.KEY_FIELDS."""
     try:
         card_type = _size_ladder_card_type()
@@ -1563,7 +1569,8 @@ def _run_key(fast: bool, diffusion_trace: bool) -> dict:
         package = "unknown"
     return {"commit": _repo_commit(), "dirty": _repo_dirty(), "host": socket.gethostname(),
             "card_type": card_type, "fast": bool(fast),
-            "diffusion_trace": bool(diffusion_trace), "package": package}
+            "diffusion_trace": bool(diffusion_trace), "host_threads": host_threads,
+            "package": package}
 
 
 def _resume_plan(journal: Path, key: dict, models: list):
@@ -2943,9 +2950,15 @@ def _run_census_fold(model: str, rung: int, workdir: Path, tag: str,
             "--seed", str(SEED),
             "--out_dir", str(out_dir),
         ]
+    env = None
+    if HOST_THREADS:
+        # Through the environment, not --host_threads: `affinity` and most `design` models have
+        # no such option, and every CLI's own cap fills in only what the environment left unset.
+        from tt_bio import runtime
+        env = {**os.environ, **runtime.host_thread_cap_env(1, HOST_THREADS)}
     t0 = time.monotonic()
     with open(log, "w") as fp, _clock_during() as clk:
-        rc, timed_out = _run_fold(cmd, FOLD_TIMEOUT_S, cwd=REPO_ROOT,
+        rc, timed_out = _run_fold(cmd, FOLD_TIMEOUT_S, cwd=REPO_ROOT, env=env,
                                   stdout=fp, stderr=subprocess.STDOUT)
     wall = time.monotonic() - t0
     aiclk, load = _aiclk_cell(clk), _load_cell(clk)
@@ -3635,13 +3648,14 @@ def _size_ladder_carry_rungs(meas: dict, prev: dict | None, stamp: dict) -> list
     recorder's stated policy one level up ("a 6-model record is ~2 h of device time, so
     it has to be resumable a model at a time"); this is the same policy one level down.
 
-    A cell is only carried when the previous entry was recorded on the same ENGINE, host
-    and core grid. Engine, because the arm's whole rule is "re-record after any
+    A cell is only carried when the previous entry was recorded on the same ENGINE, host,
+    host thread cap and core grid. Engine, because the arm's whole rule is "re-record after any
     size-affecting change" and a ladder mixing two engines measures neither. Host,
     because absolute runtime does not transfer between machines even of one board type
     (qb1's p150a reads ~30 % slower than pc's). Grid, because a guard sized against the
     core grid flips with it, which is why the check already refuses a cross-grid
-    comparison outright.
+    comparison outright. Thread cap, because a fold's host-side work scales with it, so the
+    speed bar voids a ladder that mixes caps.
 
     "Same engine" is `git diff` over SIZE_LADDER_ENGINE_PATHS and not sha equality, which
     is what it used to be. Sha equality made the recorder's own stated policy impossible to
@@ -3661,6 +3675,7 @@ def _size_ladder_carry_rungs(meas: dict, prev: dict | None, stamp: dict) -> list
     # ladder it had just measured.
     refusal_only = not meas.get("runtime_s")
     same = prev.get("host") == stamp["host"] \
+        and prev.get("host_threads") == stamp.get("host_threads") \
         and (prev.get("grid") == meas.get("grid") or refusal_only) \
         and _size_ladder_same_engine(prev.get("commit"), stamp["commit"])
     old_rt, old_ref_all = prev.get("runtime_s") or {}, prev.get("refused") or {}
@@ -3674,10 +3689,11 @@ def _size_ladder_carry_rungs(meas: dict, prev: dict | None, stamp: dict) -> list
     if not same:
         print(f"  [size-ladder] not carrying rungs {','.join(sorted(spare, key=int))}: "
               f"recorded on {prev.get('host')}@{prev.get('commit')} grid "
-              f"{prev.get('grid')}, this pass is {stamp['host']}@{stamp['commit']} grid "
-              f"{meas.get('grid')}, and {'/'.join(SIZE_LADDER_ENGINE_PATHS)} "
+              f"{prev.get('grid')} threads {prev.get('host_threads') or 'all'}, this pass is "
+              f"{stamp['host']}@{stamp['commit']} grid {meas.get('grid')} threads "
+              f"{stamp.get('host_threads') or 'all'}, and {'/'.join(SIZE_LADDER_ENGINE_PATHS)} "
               f"{'match' if _size_ladder_same_engine(prev.get('commit'), stamp['commit']) else 'differ'} "
-              f"between them — a ladder mixing two engines measures neither",
+              f"between them — a ladder mixing two engines or two thread caps measures neither",
               flush=True)
         return []
     old_lv = prev.get("levers") or {}
@@ -4463,7 +4479,7 @@ def run_size_ladder(keep: bool, record: bool, baseline_path: Path,
         mono = json.loads(baseline_path.read_text()) if baseline_path.exists() else {}
         mono_models = mono.get("cards", {}).get(card, {}).get("models", {})
         stamp = {"recorded": time.strftime("%Y-%m-%d"), "host": socket.gethostname(),
-                 "commit": _repo_commit()}
+                 "commit": _repo_commit(), "host_threads": HOST_THREADS}
         # The card-level stamp describes the LAST record pass, so on a subset record
         # (--size-ladder-models) it stops describing the models that pass did not touch.
         # rf3 was recorded on qb1 while the other five were recorded on pc; without a
@@ -5113,6 +5129,11 @@ def main() -> int:
     ap.add_argument("--diffusion_trace", action="store_true",
                     help="Fold boltz2 with per-step DiT ttnn trace replay on (lossless). "
                          "boltz2 only; other fold models ignore it. Defaults off.")
+    ap.add_argument("--host-threads", type=int, default=None, metavar="N",
+                    help="Cap each size-ladder fold's host thread pools to N threads, the way "
+                         "`serve` shares a box between workers. Default: every core. Recorded "
+                         "beside every entry, and a record pass will not carry rungs timed at "
+                         "another cap.")
     ap.add_argument("--load-ceiling", type=float, default=gate_guard.DEFAULT_LOAD_CEILING,
                     help="Refuse to start when the 1-min loadavg is above this multiple of "
                          f"nproc (default {gate_guard.DEFAULT_LOAD_CEILING}; 0 disables). Every "
@@ -5143,8 +5164,9 @@ def main() -> int:
         print("\n".join(default_arms()))
         return 0
 
-    global FAST, DIFFUSION_TRACE
+    global FAST, DIFFUSION_TRACE, HOST_THREADS
     FAST = args.fast
+    HOST_THREADS = args.host_threads
     DIFFUSION_TRACE = args.diffusion_trace
 
     # This gate is single-card by construction: every leg folds one yaml, which selects one
@@ -5179,7 +5201,7 @@ def main() -> int:
 
     global _JOURNAL_PATH, _JOURNAL_KEY, _ARM_MEMBERS
     _JOURNAL_PATH = Path(args.journal) if args.journal else None
-    _JOURNAL_KEY = _run_key(FAST, DIFFUSION_TRACE) if _JOURNAL_PATH else {}
+    _JOURNAL_KEY = _run_key(FAST, DIFFUSION_TRACE, HOST_THREADS) if _JOURNAL_PATH else {}
     resumed = {}
     if args.resume:
         if args.size_ladder_record:

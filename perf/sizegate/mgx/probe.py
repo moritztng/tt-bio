@@ -6,7 +6,7 @@ nothing about whether the cap is still true. This asks the second question with 
 fixture, fold config, census and clock sampling the arm uses (release_gate._run_census_fold),
 so a probe cell and a ladder cell differ only in TT_BIO_SIZE_LIMIT.
 
-    TT_VISIBLE_DEVICES=<c> ... python perf/sizegate/mgx/probe.py <model> <rung>[,<rung>...]
+    TT_VISIBLE_DEVICES=<c> ... python perf/sizegate/mgx/probe.py <model> <rung>[,<rung>...] [threads]
 """
 import json
 import os
@@ -20,6 +20,7 @@ os.environ["TT_BIO_SIZE_LIMIT"] = "0"
 import release_gate as rg  # noqa: E402
 
 model, rungs = sys.argv[1], [int(x) for x in sys.argv[2].split(",")]
+rg.HOST_THREADS = int(sys.argv[3]) if len(sys.argv) > 3 else None
 out = ROOT / "perf" / "sizegate" / "mgx" / "probe"
 out.mkdir(parents=True, exist_ok=True)
 work = Path(os.environ.get("RELEASE_GATE_SIZE_WORKDIR", ROOT / "perf" / "sizegate" / f"probe-{model}"))
@@ -28,7 +29,7 @@ for rung in rungs:
     r = rg._run_census_fold(model, rung, work, "probe")
     cell = {"model": model, "rung": rung, "size_limit": "off", "card": os.environ.get("TT_VISIBLE_DEVICES"),
             "started_utc": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(t0)),
-            "wall_s": round(time.time() - t0, 1)}
+            "wall_s": round(time.time() - t0, 1), "host_threads": rg.HOST_THREADS}
     for k in ("error", "refused", "runtime_s", "aiclk", "load", "grid", "structure"):
         if r.get(k) is not None:
             cell[k] = r[k]
