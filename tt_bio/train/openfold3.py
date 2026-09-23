@@ -315,6 +315,12 @@ class OpenFold3Forward:
         from ..openfold3_weights import _sub
         dm.ref_embed = RefAtomFeatureEmbedder(
             _sub(sd, "diffusion_module.atom_attn_enc.ref_atom_feature_embedder"), ckc)
+        # The input embedder's atom encoder runs on the host in inference too
+        # (`run_input_atom_encoder`), so s_input reached the trunk as a constant and its 93
+        # tensors never trained (D263). The taped step runs this device copy instead.
+        from ..openfold3 import InputAtomEncoder
+        self._model.input_atom_enc = InputAtomEncoder(
+            _sub(sd, "input_embedder.atom_attn_enc"), ckc)
 
     def parameters(self) -> dict:
         """Every device weight the built model reaches, registered as a taped leaf.
@@ -379,8 +385,7 @@ class OpenFold3Forward:
         from ..openfold3_fold import build_dm_device_aux, create_noise_schedule
         from ..openfold3_host_prep import (dedup_template_slots, derive_block_aux,
                                            derive_relpos, derive_template_feat,
-                                           ref_atom_device_inputs, ref_atom_embed,
-                                           run_input_atom_encoder)
+                                           ref_atom_device_inputs, ref_atom_embed)
         from ..openfold3_data import make_openfold3_msa_features
         from ..openfold3_sample_diffusion import fourier_noise_emb
         from ..openfold3_weights import _sub
@@ -396,9 +401,8 @@ class OpenFold3Forward:
         template_feat, template_slots = dedup_template_slots(derive_template_feat(f))
         relpos = derive_relpos(f)
         msa_feat = make_openfold3_msa_features(f)
-        ai = run_input_atom_encoder(dev, ckc, m.sd, f, aux)
-        s_input = torch.cat([ai, f["restype"], f["profile"],
-                             f["deletion_mean"].unsqueeze(-1)], dim=-1)
+        token_feats = torch.cat([f["restype"], f["profile"],
+                                 f["deletion_mean"].unsqueeze(-1)], dim=-1)
         cl0, plm0 = ref_atom_embed(
             _sub(m.sd, "diffusion_module.atom_attn_enc.ref_atom_feature_embedder"), f)
         n_atom, n_token = aux["n_atom"], aux["n_token"]
@@ -415,6 +419,17 @@ class OpenFold3Forward:
         pair_mask_pf = ft(pm.unsqueeze(0))
         pair_mask_dm = ft(pm.reshape(n_token, n_token, 1).unsqueeze(0))
         attn_mask_d = ft(((1.0 - tok) * -1e9).reshape(1, 1, 1, n_token))
+        dm_aux = build_dm_device_aux(
+            dev, ft, cl0=cl0, plm0=plm0, atom_mask=aux["atom_mask"],
+            atom_to_token_index=aux["atom_to_token_index"],
+            npe_q_indices=aux["npe_q_indices"], npe_k_indices=aux["npe_k_indices"],
+            zij_mask=aux["zij_mask"], key_block_idxs=aux["key_block_idxs"],
+            invalid_mask=aux["invalid_mask"], mask_trunked=aux["mask_trunked"],
+            atom_to_token_mean=aux["atom_to_token_mean"],
+            token_mask=tok, n_atom=n_atom, n_token=n_token,
+            nb=aux["nb"], NP=aux["NP"], n_tok_pad=n_token)
+        # The ref-atom features, once, for both atom encoders' embedders.
+        ref_in = ref_atom_device_inputs(dev, f, aux["atom_mask"], aux["NP"])
 
         # ---- the taped forward, in two blocks with the rollout raw between them.
         #
@@ -430,7 +445,10 @@ class OpenFold3Forward:
         # module-level `ttnn` name and drops the raw-handle map, and neither touches the node
         # graph or the registered leaves.
         with ag.tape():
-            s_input_d = ag.Tensor(ft(s_input.unsqueeze(0)))
+            s_input_d = m.input_atom_enc(
+                ref_in, dm_aux["amc_d"], dm_aux["kidx_tt"], dm_aux["valid_d"], dm_aux["mb_d"],
+                dm_aux["pm_d"], dm_aux["amc_na_d"], dm_aux["mean_d"],
+                ft(token_feats.unsqueeze(0)), n_atom, aux["NP"], aux["nb"])
             relpos_d = ag.Tensor(ft(relpos.unsqueeze(0)))
             bonds_d = ag.Tensor(ft(f["token_bonds"].unsqueeze(0).unsqueeze(-1)))
             s_init, z_init = m.input_glue(s_input_d, relpos_d, bonds_d)
@@ -449,15 +467,6 @@ class OpenFold3Forward:
         rep = (f["ground_truth"]["start_atom_index"] if "ground_truth" in f
                else f["start_atom_index"]).long()
         real = torch.nonzero(tok > 0, as_tuple=True)[0]
-        dm_aux = build_dm_device_aux(
-            dev, ft, cl0=cl0, plm0=plm0, atom_mask=aux["atom_mask"],
-            atom_to_token_index=aux["atom_to_token_index"],
-            npe_q_indices=aux["npe_q_indices"], npe_k_indices=aux["npe_k_indices"],
-            zij_mask=aux["zij_mask"], key_block_idxs=aux["key_block_idxs"],
-            invalid_mask=aux["invalid_mask"], mask_trunked=aux["mask_trunked"],
-            atom_to_token_mean=aux["atom_to_token_mean"],
-            token_mask=tok, n_atom=n_atom, n_token=n_token,
-            nb=aux["nb"], NP=aux["NP"], n_tok_pad=n_token)
         if self.repr_coords_in is not None:
             repr_x = torch.as_tensor(np.asarray(self.repr_coords_in, np.float32)).reshape(-1, 3)
             self.rollout_ran = False
@@ -511,7 +520,6 @@ class OpenFold3Forward:
 
             one_hot = torch.zeros(n_token, n_atom)
             one_hot[real, rep] = 1.0
-            ref_in = ref_atom_device_inputs(dev, f, aux["atom_mask"], aux["NP"])
 
             with ag.tape():
                 # THE DTYPE BOUNDARY, crossed through the sampler's own helper rather than a

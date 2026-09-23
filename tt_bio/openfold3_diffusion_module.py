@@ -180,6 +180,79 @@ class OF3NoisyPositionEmbedder(Module):
         return cl, plm, ql
 
 
+class AtomPairUpdate(Module):
+    """AF3 Algorithm 5 lines 13-14: the atom encoder's pair update, ``(cl, plm) -> plm``.
+
+        plm += (linear_l(relu(cl_l)) + linear_m(relu(cl_m))) * pair_mask
+        plm  = (plm + pair_mlp(plm)) * pair_mask
+
+    Both OF3 atom encoders run it with their own weights: the diffusion module's, and the input
+    embedder's (``openfold3.InputAtomEncoder``). ``state_dict`` is the encoder's sub-dict.
+    Weights are uploaded at the dtype in force at construction, as ``OF3DiffusionModule``'s are.
+    """
+
+    def __init__(self, state_dict, compute_kernel_config):
+        super().__init__({}, compute_kernel_config)
+        self._act_dtype = _dtype(ttnn.bfloat16)
+        up = lambda k: ttnn.from_torch(  # noqa: E731
+            state_dict[k].t().contiguous(), layout=ttnn.TILE_LAYOUT, device=self.device,
+            dtype=self._act_dtype)
+        self.w_ll = up("linear_l.weight")           # (16, 128) tiled
+        self.w_lm = up("linear_m.weight")           # (16, 128) tiled
+        self.w_pm1 = up("pair_mlp.1.weight")        # (16, 16) tiled
+        self.w_pm3 = up("pair_mlp.3.weight")
+        self.w_pm5 = up("pair_mlp.5.weight")
+
+    def _lin(self, x, w, activation=None):
+        return ops.linear(x, w, activation=activation,
+                          compute_kernel_config=self.compute_kernel_config,
+                          core_grid=CORE_GRID_MAIN)
+
+    def __call__(self, cl_pad, plm, key_block_idxs_tt, valid_mask, pair_mask, NP, nb):
+        """cl_pad [1, NP, 128], plm [1, nb, 32, 128, 16] -> updated plm, same shape."""
+        lin = self._lin
+        N_QUERY, N_KEY = OF3DiffusionModule.N_QUERY, OF3DiffusionModule.N_KEY
+        # cl_l = reshape to query blocks [1, nb, NQ, 128].
+        cl_l = ttnn.to_layout(cl_pad, ttnn.ROW_MAJOR_LAYOUT)
+        cl_l = ttnn.reshape(cl_l, (1, nb, N_QUERY, 128))
+        cl_l = ttnn.to_layout(cl_l, ttnn.TILE_LAYOUT)
+        # cl_m = gather cl by key_block_idxs -> [1, nb, NK, 128], invalid -> 0.
+        _cl_src = cl_pad
+        if self._act_dtype != ttnn.bfloat16:
+            _cl_src = ttnn.typecast(cl_pad, ttnn.bfloat16)
+        cl2d = ttnn.reshape(ttnn.to_layout(_cl_src, ttnn.ROW_MAJOR_LAYOUT), (NP, 128))
+        if _cl_src is not cl_pad:
+            ttnn.deallocate(_cl_src)
+        cl_m = ttnn.embedding(key_block_idxs_tt, cl2d, layout=ttnn.ROW_MAJOR_LAYOUT,
+                              memory_config=ttnn.DRAM_MEMORY_CONFIG)
+        cl_m = ttnn.reshape(cl_m, (1, nb, N_KEY, 128))
+        cl_m = ttnn.to_layout(cl_m, ttnn.TILE_LAYOUT)
+        if self._act_dtype != ttnn.bfloat16:
+            cl_m = ttnn.typecast(cl_m, self._act_dtype)
+        cl_m = ttnn.multiply(cl_m, valid_mask)                  # [1, nb, NK, 128]
+        # relu -> linear_l/m outer sum -> [1, nb, NQ, NK, 16], * pair_mask.
+        # (reference: linear_l(relu(cl_l)) + linear_m(relu(cl_m)) -- relu is applied to
+        #  the INPUT, before the linear, NOT as a post-activation.)
+        ll = lin(ttnn.relu(cl_l), self.w_ll)                  # [1, nb, NQ, 16]
+        ll = ttnn.unsqueeze(ll, -2)                            # [1, nb, NQ, 1, 16]
+        lm = lin(ttnn.relu(cl_m), self.w_lm)                  # [1, nb, NK, 16]
+        lm = ttnn.unsqueeze(lm, -3)                            # [1, nb, 1, NK, 16]
+        ttnn.deallocate(cl_l); ttnn.deallocate(cl_m)
+        cl_lm = ttnn.add(ll, lm)                               # [1, nb, NQ, NK, 16]
+        ttnn.deallocate(ll); ttnn.deallocate(lm)
+        plm = mask_add(plm, cl_lm, pair_mask)                  # + cl_lm * mask_trunked
+        ttnn.deallocate(cl_lm)
+        # pair_mlp = Sequential(ReLU, Linear, ReLU, Linear, ReLU, Linear): relu BEFORE
+        # each linear (no trailing relu). out = L5(relu(L3(relu(L1(relu(plm)))))).
+        pm = lin(ttnn.relu(plm), self.w_pm1)
+        pm = lin(ttnn.relu(pm), self.w_pm3)
+        pm = lin(ttnn.relu(pm), self.w_pm5)
+        plm = ttnn.add(plm, pm)
+        ttnn.deallocate(pm)
+        plm = ttnn.multiply(plm, pair_mask)
+        return plm
+
+
 class OF3DiffusionModule(Module):
     """Full OF3 ``DiffusionModule`` (AF3 Algorithm 20) device assembly -- the post-
     conditioning forward that turns the conditioned ``(si, zij)`` plus the
@@ -236,11 +309,7 @@ class OF3DiffusionModule(Module):
                                            compute_kernel_config)
 
         # Fresh: encoder pair update (linear_l/linear_m + pair_mlp).
-        self.w_ll = self._w_tt(enc["linear_l.weight"])           # (16, 128) tiled
-        self.w_lm = self._w_tt(enc["linear_m.weight"])           # (16, 128) tiled
-        self.w_pm1 = self._w_tt(enc["pair_mlp.1.weight"])        # (16, 16) tiled
-        self.w_pm3 = self._w_tt(enc["pair_mlp.3.weight"])
-        self.w_pm5 = self._w_tt(enc["pair_mlp.5.weight"])
+        self.pair_update = AtomPairUpdate(enc, compute_kernel_config)
         # Fresh: linear_q (128 -> 768) aggregation head.
         self.w_lq = self._w_tt(enc["linear_q.0.weight"])         # (768, 128) tiled
         # Fresh: top-level glue linear_s (384 -> 768) + weight-only layer_norm_s/a.
@@ -323,48 +392,11 @@ class OF3DiffusionModule(Module):
                     atom_to_token_idx_tt, npe_flat_idx_tt, npe_zij_mask,
                     enc_key_block_idxs_tt, enc_valid_mask, enc_pair_mask, NP, nb):
         """cl [1, NP, 128] and the post-pair-update plm -- the rollout invariants."""
-        lin = self._lin
         cl_pad, plm = self.npe.invariants(cl0, plm0, si_trunk, zij, atom_mask_col,
                                           atom_to_token_idx_tt, npe_flat_idx_tt,
                                           npe_zij_mask, NP)
-        # cl_l = reshape to query blocks [1, nb, NQ, 128].
-        cl_l = ttnn.to_layout(cl_pad, ttnn.ROW_MAJOR_LAYOUT)
-        cl_l = ttnn.reshape(cl_l, (1, nb, self.N_QUERY, 128))
-        cl_l = ttnn.to_layout(cl_l, ttnn.TILE_LAYOUT)
-        # cl_m = gather cl by key_block_idxs -> [1, nb, NK, 128], invalid -> 0.
-        _cl_src = cl_pad
-        if self._act_dtype != ttnn.bfloat16:
-            _cl_src = ttnn.typecast(cl_pad, ttnn.bfloat16)
-        cl2d = ttnn.reshape(ttnn.to_layout(_cl_src, ttnn.ROW_MAJOR_LAYOUT), (NP, 128))
-        if _cl_src is not cl_pad:
-            ttnn.deallocate(_cl_src)
-        cl_m = ttnn.embedding(enc_key_block_idxs_tt, cl2d, layout=ttnn.ROW_MAJOR_LAYOUT,
-                              memory_config=ttnn.DRAM_MEMORY_CONFIG)
-        cl_m = ttnn.reshape(cl_m, (1, nb, self.N_KEY, 128))
-        cl_m = ttnn.to_layout(cl_m, ttnn.TILE_LAYOUT)
-        if self._act_dtype != ttnn.bfloat16:
-            cl_m = ttnn.typecast(cl_m, self._act_dtype)
-        cl_m = ttnn.multiply(cl_m, enc_valid_mask)              # [1, nb, NK, 128]
-        # relu -> linear_l/m outer sum -> [1, nb, NQ, NK, 16], * pair_mask.
-        # (reference: linear_l(relu(cl_l)) + linear_m(relu(cl_m)) -- relu is applied to
-        #  the INPUT, before the linear, NOT as a post-activation.)
-        ll = lin(ttnn.relu(cl_l), self.w_ll)                  # [1, nb, NQ, 16]
-        ll = ttnn.unsqueeze(ll, -2)                            # [1, nb, NQ, 1, 16]
-        lm = lin(ttnn.relu(cl_m), self.w_lm)                  # [1, nb, NK, 16]
-        lm = ttnn.unsqueeze(lm, -3)                            # [1, nb, 1, NK, 16]
-        ttnn.deallocate(cl_l); ttnn.deallocate(cl_m)
-        cl_lm = ttnn.add(ll, lm)                               # [1, nb, NQ, NK, 16]
-        ttnn.deallocate(ll); ttnn.deallocate(lm)
-        plm = mask_add(plm, cl_lm, enc_pair_mask)              # + cl_lm * mask_trunked
-        ttnn.deallocate(cl_lm)
-        # pair_mlp = Sequential(ReLU, Linear, ReLU, Linear, ReLU, Linear): relu BEFORE
-        # each linear (no trailing relu). out = L5(relu(L3(relu(L1(relu(plm)))))).
-        pm = lin(ttnn.relu(plm), self.w_pm1)
-        pm = lin(ttnn.relu(pm), self.w_pm3)
-        pm = lin(ttnn.relu(pm), self.w_pm5)
-        plm = ttnn.add(plm, pm)
-        ttnn.deallocate(pm)
-        plm = ttnn.multiply(plm, enc_pair_mask)
+        plm = self.pair_update(cl_pad, plm, enc_key_block_idxs_tt, enc_valid_mask,
+                               enc_pair_mask, NP, nb)
         return cl_pad, plm
 
     def _post_encoder(self, ql_enc, ql_enc_cp, plm_postpu, cl_pad, plm, si, zij, xl_noisy,

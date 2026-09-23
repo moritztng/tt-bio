@@ -186,3 +186,46 @@ class RefAtomFeatureEmbedder(Module):
         ttnn.deallocate(acc)
         ttnn.deallocate(vm)
         return cl, plm
+
+
+class InputAtomEncoder(Module):
+    """OF3 input embedder's ``AtomAttentionEncoder`` on the card: ref-atom features -> ``s_input``.
+
+        cl, plm = RefAtomFeatureEmbedder(ref features)
+        plm     = AtomPairUpdate(cl, plm)
+        ql      = OF3AtomTransformer(cl, cl, plm)
+        ai      = AtomEncoderTokenHead(ql)
+        s_input = concat(ai, restype, profile, deletion_mean)
+
+    ``openfold3_host_prep.run_input_atom_encoder`` is the same leg with the embedding, the pair
+    update and the head on the host, which is what inference runs. This one keeps every weight
+    on the card so a taped forward can differentiate them; the training step builds it.
+    ``state_dict`` is the ``input_embedder.atom_attn_enc`` sub-dict.
+
+    Inputs (device, bf16): the eight tensors of ``ref_atom_device_inputs`` padded to NP; the
+    diffusion module's own blocking tensors from ``build_dm_device_aux`` (``amc_d``,
+    ``kidx_tt``, ``valid_d``, ``mb_d``, ``pm_d``, ``amc_na_d``, ``mean_d``), which describe the
+    same atom windows; ``token_feats`` [1, N_token, 65].
+    """
+
+    def __init__(self, state_dict, compute_kernel_config):
+        super().__init__({}, compute_kernel_config)
+        from .openfold3_atom_transformer import OF3AtomTransformer
+        from .openfold3_diffusion_module import AtomPairUpdate
+        from .openfold3_weights import _sub
+
+        self.ref_embed = RefAtomFeatureEmbedder(
+            _sub(state_dict, "ref_atom_feature_embedder"), compute_kernel_config)
+        self.pair_update = AtomPairUpdate(state_dict, compute_kernel_config)
+        self.at = OF3AtomTransformer(_sub(state_dict, "atom_transformer"), compute_kernel_config)
+        self.at.materialize_device_weights()
+        self.head = AtomEncoderTokenHead(_sub(state_dict, "linear_q"), compute_kernel_config)
+
+    def __call__(self, ref_in, atom_mask_col, key_block_idxs_tt, valid_mask, mask_bias,
+                 pair_mask, atom_mask_col_na, atom_to_token_mean, token_feats, n_atom, NP, nb):
+        cl, plm = self.ref_embed(*ref_in)
+        plm = self.pair_update(cl, plm, key_block_idxs_tt, valid_mask, pair_mask, NP, nb)
+        ql = self.at(cl, cl, plm, atom_mask_col, key_block_idxs_tt, valid_mask, mask_bias,
+                     n_atom, NP, nb)
+        ai = self.head(ql, atom_mask_col_na, atom_to_token_mean)
+        return ttnn.concat([ai, token_feats], dim=-1)
