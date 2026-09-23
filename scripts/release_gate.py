@@ -689,13 +689,8 @@ CAPACITY_LEGS = [
 # pin the grid either, because harvesting means one board type presents several.
 # So each model's block records the grid its census ran on and the check REFUSES
 # a cross-grid comparison outright instead of reporting levers as newly dark.
-SIZE_LADDER_MODELS = ("boltz2", "esmfold2", "protenix-v1", "protenix-v2", "openfold3",
-                      "opendde", "rf3", "nesso1", "openbind")
-# Every foldable model is either on the ladder above or carries a written reason here.
-# The tuple used to be hand-typed with nothing checking it, so a newly registered model
-# was silently absent from the arm that exists to catch size-specific tuning -- the same
-# defect shape as perf_regression.py's SPECS coverage assert, which is why this mirrors it.
-# A reason is not a pass: it records what the arm does NOT cover, so the gap is readable.
+# Every foldable model is on the ladder unless it carries a written reason here. A reason is
+# not a pass: it records what the arm does NOT cover, so the gap is readable.
 SIZE_LADDER_EXEMPT = {
     "esmfold2-fast": "The lighter ESMFold2 checkpoint. esmfold2 is on the ladder and the "
                      "two share every size-dependent path; adding a second rung set costs "
@@ -733,6 +728,12 @@ SIZE_LADDER_EXEMPT.update({
         ("saprot-1.3b", "structure-aware embeddings, no fold path"),
     )
 })
+# The ladder is every predict and affinity model not exempted above, read off tt_bio.main's own
+# tuples. It used to be a hand-typed tuple checked after the fact by _size_ladder_coverage_gap,
+# so a model registered later reached the arm only once somebody retyped it; derived, it is on
+# the ladder the moment it is on the CLI.
+from tt_bio.main import AFFINITY_MODELS as _AFFINITY, PREDICT_MODELS as _PREDICT  # noqa: E402
+SIZE_LADDER_MODELS = tuple(m for m in _PREDICT + _AFFINITY if m not in SIZE_LADDER_EXEMPT)
 SIZE_LADDER_RUNGS = tuple(int(x) for x in
                           os.environ.get("RELEASE_GATE_SIZE_RUNGS",
                                          "256,512,640,768,896,1024").split(",")
@@ -769,10 +770,17 @@ SIZE_LADDER_EXTRA_RUNGS = {"rf3": (1088,)}
 #
 # Per CARD rather than raised for everyone, for the same reason SIZE_LADDER_EXTRA_RUNGS is
 # per model: a rung in the shared list makes the check demand a baseline cell on every board,
-# and nobody has recorded 1152-1536 on Wormhole or on p300c. The key is the board type
+# and nobody has recorded above 1024 on p300c. The key is the board type
 # _size_ladder_card_type() returns, so a check and a record pass on one board always agree on
 # which ladder they are talking about.
-SIZE_LADDER_CARD_RUNGS = {"p150a": (1152, 1280, 1408, 1536)}
+#
+# The Wormhole Galaxy is held to the same 1536 bar (Moritz, 2026-09-23: structure prediction
+# "definetly up to 1536") on 12 GiB chips, where the naive pair path runs out between roughly
+# 850 and 1100 residues (docs/large-targets.md). Two rungs rather than four: 1536 is the bar,
+# and 1280 is what says where a model that folds 1024 but not 1536 stops. Every other board
+# pays for them only if it adds them here.
+SIZE_LADDER_CARD_RUNGS = {"p150a": (1152, 1280, 1408, 1536),
+                          "tt-galaxy-wh-l": (1280, 1536)}
 # Every rung any board's ladder walks. This is the `rungs` key in the shared json, which
 # ~/.coworker/coverage_sweep.py reads as "the top of the ladder". The union and not this
 # board's own set: a p300c record pass writing 1024 over a p150a pass's 1536 would flip the
