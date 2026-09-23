@@ -141,25 +141,31 @@ def test_template_map_takes_the_top_level_block(tmp_path):
         _template_map(both, "protenix-v2", _read_bio_chains(both), tmp_path)
 
 
-def test_top_level_block_is_the_templates_feature(tmp_path):
-    """One feature, two spellings: a model that takes the npz takes the cif, and a model
-    that refuses templates refuses both."""
-    from tt_bio.capabilities import CAPABILITY, HONOURED, check_capabilities, detect
+def test_the_two_template_forms_differ_only_on_boltz2():
+    """A model that takes the npz takes the cif and a model that refuses one refuses both,
+    except Boltz-2, whose parser reads the structure file and never the per-chain npz."""
+    from tt_bio.capabilities import CAPABILITY
+
+    for model, caps in CAPABILITY.items():
+        if model != "boltz2":
+            assert caps["templates"] == caps["template_structure"], model
+    assert CAPABILITY["boltz2"]["templates"] != CAPABILITY["boltz2"]["template_structure"]
+
+
+def test_a_top_level_block_is_detected_as_a_structure_template(tmp_path):
+    from tt_bio.capabilities import check_capabilities, detect
     from tt_bio.main import _read_bio_chains
 
     p = tmp_path / "in.yaml"
     p.write_text("version: 1\nsequences:\n  - protein:\n      id: A\n      sequence: MKVL\n"
                  "templates:\n  - cif: t.cif\n    chain_id: A\n")
-    assert detect(p)["templates"] == "chain(s) A"
-    chains = _read_bio_chains(p)
-    for model, caps in CAPABILITY.items():
-        if model == "nesso1":
-            continue
-        if caps["templates"] == HONOURED:
-            check_capabilities(p, chains, model, echo=lambda m: None)
-        else:
-            with pytest.raises(RuntimeError, match="templates"):
-                check_capabilities(p, chains, model, echo=lambda m: None)
+    assert detect(p) == {"template_structure": "chain(s) A"}
+    check_capabilities(p, _read_bio_chains(p), "boltz2", echo=lambda m: None)
+    npz = tmp_path / "npz.yaml"
+    npz.write_text("version: 1\nsequences:\n  - protein:\n      id: A\n      sequence: MKVL\n"
+                   "      templates: t.npz\n")
+    with pytest.raises(RuntimeError, match="structure file"):
+        check_capabilities(npz, _read_bio_chains(npz), "boltz2", echo=lambda m: None)
 
 
 def test_rf3_cif_route_is_upstreams_template_selection(tmp_path):

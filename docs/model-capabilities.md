@@ -9,21 +9,22 @@ The one exception is `properties: affinity`, which only omits an extra output ra
 changing the structure. That prints a warning and the fold runs.
 
 <!-- BEGIN CAPABILITY TABLE (generated: python3 -m tt_bio.capabilities) -->
-| model | ligand | RNA | DNA | no protein chain | cyclic | modifications | templates | bond constraint | pocket/contact | affinity |
-|---|---|---|---|---|---|---|---|---|---|---|
-| `boltz2` | yes | yes | yes | yes | yes | yes | yes | yes | yes | yes |
-| `esmfold2` | yes | yes | yes | refused | refused | yes | refused | refused | refused | ignored, warns |
-| `esmfold2-fast` | yes | yes | yes | refused | refused | yes | refused | refused | refused | ignored, warns |
-| `protenix-v1` | yes | yes | yes | yes | refused | yes | refused | yes | refused | ignored, warns |
-| `protenix-v2` | yes | yes | yes | yes | refused | yes | yes | yes | refused | ignored, warns |
-| `openfold3` | refused | yes | yes | yes | refused | yes | yes | refused | refused | ignored, warns |
-| `openbind` | yes | yes | yes | yes | refused | yes | yes | refused | refused | ignored, warns |
-| `opendde` | yes | refused | refused | yes | refused | yes | yes | yes | refused | ignored, warns |
-| `opendde-abag` | yes | refused | refused | yes | refused | yes | yes | yes | refused | ignored, warns |
-| `rf3` | yes | yes | yes | yes | refused | refused | yes | refused | refused | ignored, warns |
+| model | ligand | RNA | DNA | no protein chain | cyclic | modifications | template npz | template cif | bond constraint | pocket/contact | affinity |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| `boltz2` | yes | yes | yes | yes | yes | yes | refused | yes | yes | yes | yes |
+| `esmfold2` | yes | yes | yes | refused | refused | yes | refused | refused | refused | refused | ignored, warns |
+| `esmfold2-fast` | yes | yes | yes | refused | refused | yes | refused | refused | refused | refused | ignored, warns |
+| `protenix-v1` | yes | yes | yes | yes | refused | yes | refused | refused | yes | refused | ignored, warns |
+| `protenix-v2` | yes | yes | yes | yes | refused | yes | yes | yes | yes | refused | ignored, warns |
+| `openfold3` | refused | yes | yes | yes | refused | yes | yes | yes | refused | refused | ignored, warns |
+| `openbind` | yes | yes | yes | yes | refused | yes | yes | yes | refused | refused | ignored, warns |
+| `opendde` | yes | refused | refused | yes | refused | yes | yes | yes | yes | refused | ignored, warns |
+| `opendde-abag` | yes | refused | refused | yes | refused | yes | yes | yes | yes | refused | ignored, warns |
+| `rf3` | yes | yes | yes | yes | refused | refused | yes | yes | refused | refused | ignored, warns |
 <!-- END CAPABILITY TABLE -->
 
-`boltz2` is the fallback for anything the others refuse: it takes the whole input language.
+`boltz2` is the fallback for anything the others refuse: it takes the whole input language,
+with a template given as a structure file rather than an alignment npz.
 
 `tt-bio affinity --model nesso1` reads the same file through its own parser and is not in the
 matrix, because it returns a scalar and no coordinates. It answers `properties: affinity`,
@@ -85,11 +86,13 @@ refused with the accepted set, because a dropped key used to cost a whole chain
 - **modifications** -- a non-canonical residue substituted at a position, by CCD code. Every
   model folds the modified chemistry except RF3, which carries modified residues through its
   own JSON/CIF spec rather than through this YAML.
-- **templates** -- a template structure you supply, in either of two forms: a top-level
-  `templates:` block naming an mmCIF and the chains it templates (the Boltz-2 form; each chain
-  is aligned to the template's sequence for you), or a precomputed alignment `.npz` per protein
-  chain. There is no template *search*. Boltz-2 also reads a pdb file and `force:`; the other
-  models take mmCIF and refuse `force:`, which is a Boltz-2 sampling potential.
+- **template npz / template cif** -- a template structure you supply, in either of two forms:
+  a top-level `templates:` block naming an mmCIF and the chains it templates (the Boltz-2 form;
+  each chain is aligned to the template's sequence for you), or a precomputed alignment `.npz`
+  per protein chain. Every model that takes one takes both, except Boltz-2, which reads only
+  the structure file. There is no template *search*. Boltz-2 also reads a pdb file and
+  `force:`; the other models take mmCIF and refuse `force:`, which is a Boltz-2 sampling
+  potential.
 - **bond constraint** -- a covalent bond between two named atoms (a covalent inhibitor, a
   glycan, a crosslink). RF3 carries bonds through its own JSON/CIF spec, not through YAML.
 - **pocket/contact** -- a binding constraint. It needs a constraint embedder in the
