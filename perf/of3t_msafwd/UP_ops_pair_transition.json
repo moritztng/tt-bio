@@ -1,0 +1,190 @@
+{
+ "host": "tt-quietbox",
+ "torch": "2.8.0+cpu",
+ "blocks": {
+  "0": {
+   "f64_decomposition_vs_trace_update": 0.0,
+   "ops": {
+    "layer_norm": {
+     "up_bf16": 1.3516821099666225e-07,
+     "bf16_floor": 0.0016607115251593117,
+     "dtype": "torch.float32"
+    },
+    "linear_a": {
+     "up_bf16": 0.0023357105705070144,
+     "bf16_floor": 0.0016682677756266993,
+     "dtype": "torch.bfloat16"
+    },
+    "silu": {
+     "up_bf16": 0.0025950460379852262,
+     "bf16_floor": 0.0017000894640397768,
+     "dtype": "torch.bfloat16"
+    },
+    "linear_a+silu": {
+     "up_bf16": 0.0033174279236262896,
+     "bf16_floor": 0.0017000894640397768,
+     "dtype": "torch.bfloat16"
+    },
+    "linear_b": {
+     "up_bf16": 0.002552551089694542,
+     "bf16_floor": 0.001661858277988382,
+     "dtype": "torch.bfloat16"
+    },
+    "gate_mul": {
+     "up_bf16": 0.002878965096497,
+     "bf16_floor": 0.001657107964110011,
+     "dtype": "torch.bfloat16"
+    },
+    "linear_out": {
+     "up_bf16": 0.0018930362518086586,
+     "bf16_floor": 0.0017127005313727366,
+     "dtype": "torch.bfloat16"
+    },
+    "residual_add": {
+     "up_bf16": 0.0006911000164099244,
+     "bf16_floor": 0.0017971849752338347,
+     "dtype": "torch.float32",
+     "note": "vs float64 state + float64 update; includes the update's own error, which linear_out already reports"
+    }
+   }
+  },
+  "1": {
+   "f64_decomposition_vs_trace_update": 0.0,
+   "ops": {
+    "layer_norm": {
+     "up_bf16": 1.1596781107203948e-07,
+     "bf16_floor": 0.001652880091388834,
+     "dtype": "torch.float32"
+    },
+    "linear_a": {
+     "up_bf16": 0.002187428954206987,
+     "bf16_floor": 0.0016528291454658876,
+     "dtype": "torch.bfloat16"
+    },
+    "silu": {
+     "up_bf16": 0.00249074492064163,
+     "bf16_floor": 0.0017571978541623403,
+     "dtype": "torch.bfloat16"
+    },
+    "linear_a+silu": {
+     "up_bf16": 0.0033001803521372844,
+     "bf16_floor": 0.0017571978541623403,
+     "dtype": "torch.bfloat16"
+    },
+    "linear_b": {
+     "up_bf16": 0.0027006140652483714,
+     "bf16_floor": 0.0016554555766055922,
+     "dtype": "torch.bfloat16"
+    },
+    "gate_mul": {
+     "up_bf16": 0.002913441844606139,
+     "bf16_floor": 0.0016866887245923212,
+     "dtype": "torch.bfloat16"
+    },
+    "linear_out": {
+     "up_bf16": 0.0019299977269262175,
+     "bf16_floor": 0.0016478925271173458,
+     "dtype": "torch.bfloat16"
+    },
+    "residual_add": {
+     "up_bf16": 0.00018396210689969713,
+     "bf16_floor": 0.0015881540801619025,
+     "dtype": "torch.float32",
+     "note": "vs float64 state + float64 update; includes the update's own error, which linear_out already reports"
+    }
+   }
+  },
+  "2": {
+   "f64_decomposition_vs_trace_update": 0.0,
+   "ops": {
+    "layer_norm": {
+     "up_bf16": 1.1570344802900986e-07,
+     "bf16_floor": 0.0016586134859790747,
+     "dtype": "torch.float32"
+    },
+    "linear_a": {
+     "up_bf16": 0.0022383936864275996,
+     "bf16_floor": 0.0016552840594831104,
+     "dtype": "torch.bfloat16"
+    },
+    "silu": {
+     "up_bf16": 0.0024831967899957147,
+     "bf16_floor": 0.0017615970710777612,
+     "dtype": "torch.bfloat16"
+    },
+    "linear_a+silu": {
+     "up_bf16": 0.003384396119769078,
+     "bf16_floor": 0.0017615970710777612,
+     "dtype": "torch.bfloat16"
+    },
+    "linear_b": {
+     "up_bf16": 0.0026515675957279996,
+     "bf16_floor": 0.0016610727612900514,
+     "dtype": "torch.bfloat16"
+    },
+    "gate_mul": {
+     "up_bf16": 0.0029015468460103677,
+     "bf16_floor": 0.0016285511600386486,
+     "dtype": "torch.bfloat16"
+    },
+    "linear_out": {
+     "up_bf16": 0.00196695043497191,
+     "bf16_floor": 0.0017484902917573643,
+     "dtype": "torch.bfloat16"
+    },
+    "residual_add": {
+     "up_bf16": 0.0001877755177998702,
+     "bf16_floor": 0.0014684188437021311,
+     "dtype": "torch.float32",
+     "note": "vs float64 state + float64 update; includes the update's own error, which linear_out already reports"
+    }
+   }
+  },
+  "3": {
+   "f64_decomposition_vs_trace_update": 0.0,
+   "ops": {
+    "layer_norm": {
+     "up_bf16": 1.6171176256665755e-07,
+     "bf16_floor": 0.0016492618136208174,
+     "dtype": "torch.float32"
+    },
+    "linear_a": {
+     "up_bf16": 0.0023440698525679688,
+     "bf16_floor": 0.001644331163971135,
+     "dtype": "torch.bfloat16"
+    },
+    "silu": {
+     "up_bf16": 0.0024865759055640872,
+     "bf16_floor": 0.0017532802970681117,
+     "dtype": "torch.bfloat16"
+    },
+    "linear_a+silu": {
+     "up_bf16": 0.0034245308028551026,
+     "bf16_floor": 0.0017532802970681117,
+     "dtype": "torch.bfloat16"
+    },
+    "linear_b": {
+     "up_bf16": 0.002731447747300956,
+     "bf16_floor": 0.0016526760674975085,
+     "dtype": "torch.bfloat16"
+    },
+    "gate_mul": {
+     "up_bf16": 0.002918065630453593,
+     "bf16_floor": 0.0016731729860037532,
+     "dtype": "torch.bfloat16"
+    },
+    "linear_out": {
+     "up_bf16": 0.002140177846942048,
+     "bf16_floor": 0.0016667784441082968,
+     "dtype": "torch.bfloat16"
+    },
+    "residual_add": {
+     "up_bf16": 0.00011576269438201416,
+     "bf16_floor": 0.0014155566028727854,
+     "dtype": "torch.float32",
+     "note": "vs float64 state + float64 update; includes the update's own error, which linear_out already reports"
+    }
+   }
+  }
+ }
+}
