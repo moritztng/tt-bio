@@ -23,7 +23,7 @@ venv() {
     openfold3) echo /root/venv-of3 ;;
     openbind) echo /root/venv-ob ;;
     esmfold2|esmfold2-fast) echo /root/venv-esm312 ;;
-    rf3) echo /work/v_rf3 ;;
+    rf3) echo /root/venv-rf3 ;;
     *) echo "no venv for $1" >&2; return 1 ;;
   esac
 }
