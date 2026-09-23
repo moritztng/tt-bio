@@ -251,8 +251,8 @@ def _write_atom_array_structure(atom_array, coords, outpath, output_format,
         cf.write(str(outpath))
 
 
-def _template_map(path: Path, model: str, chains) -> dict[str, str]:
-    """Per-chain template alignment (npz) paths from a YAML input's `templates:` key.
+def _template_map(path: Path, model: str, chains, struct_dir) -> dict[str, str]:
+    """Per-chain template alignment (npz) paths from a YAML input's `templates:` keys.
 
     The shared chain reader has no template field, so the models that take one re-read the
     YAML for `{protein: {id: X, sequence: ..., templates: <npz>}}`. One reader and one file
@@ -264,6 +264,10 @@ def _template_map(path: Path, model: str, chains) -> dict[str, str]:
     The unknown-id check lives HERE and not at the three call sites, which each carried their
     own copy of it. It needs the parsed chain list, which is the only thing the caller has and
     this function did not, so passing it in is what collapses the copies.
+
+    A top-level `templates:` block (Boltz-2's form: a cif and the chains it templates) is
+    aligned into the same npz by `template_cif`, so it reaches every one of those models
+    through the per-chain path. One chain may carry one form or the other, not both.
     """
     if path.suffix.lower() not in (".yml", ".yaml"):
         return {}
@@ -297,6 +301,15 @@ def _template_map(path: Path, model: str, chains) -> dict[str, str]:
     if unknown:
         raise RuntimeError(
             f"--model {model}: `templates:` given for unknown chain id(s) {unknown}.")
+    if doc.get("templates"):
+        from tt_bio.template_cif import structure_template_npz
+        built = structure_template_npz(doc["templates"], chains, struct_dir, model)
+        both = sorted(set(out) & set(built))
+        if both:
+            raise RuntimeError(
+                f"--model {model}: chain(s) {both} carry both a per-chain `templates:` npz "
+                f"and a top-level template structure; give one.")
+        out.update(built)
     return out
 
 
@@ -975,7 +988,7 @@ class _WorkerState:
         # protenix-v2 and opendde (a 2-block pairformer stack), and until now it only ever
         # saw dummy_template_features, so a template in the input reached the validator and
         # then nothing.
-        tmpl_map = _template_map(path, model, chains)
+        tmpl_map = _template_map(path, model, chains, cfg["template_structures"])
         tmpl_dir = cfg.get("template_structures")
         if tmpl_map:
             _prefetch_template_structures(tmpl_map, Path(tmpl_dir))
@@ -1045,7 +1058,7 @@ class _WorkerState:
         # protenix-v2 and opendde (a 2-block pairformer stack), and until now it only ever
         # saw dummy_template_features, so a template in the input reached the validator and
         # then nothing.
-        tmpl_map = _template_map(path, model, chains)
+        tmpl_map = _template_map(path, model, chains, cfg["template_structures"])
         tmpl_dir = cfg.get("template_structures")
         if tmpl_map:
             _prefetch_template_structures(tmpl_map, Path(tmpl_dir))
@@ -1210,6 +1223,17 @@ class _WorkerState:
             raise RuntimeError("no sequences")
         check_capabilities(path, chains, "rf3")
         msa_dir = Path(cfg["msa_dir"])
+        # `templates:` (either form) -> the template's CA coordinates on the aligned residues,
+        # which is how RF3 templates (featurize.apply_template_ca).
+        tmpl_dir = cfg["template_structures"]
+        tmpl_map = _template_map(path, "rf3", chains, tmpl_dir)
+        template_ca = None
+        if tmpl_map:
+            from tt_bio.template_cif import chain_ca
+            _prefetch_template_structures(tmpl_map, Path(tmpl_dir))
+            template_ca = {cid: chain_ca(len("".join(cseq.split())), tmpl_map[cid], tmpl_dir,
+                                         "rf3")
+                           for cid, cseq, *_r in chains if cid in tmpl_map}
 
         want_msa = (cfg.get("use_msa_server") or cfg.get("msa_db_path")
                     or cfg.get("msa_endpoint")) and not cfg.get("single_sequence")
@@ -1280,7 +1304,8 @@ class _WorkerState:
             # sequences has no coordinates to start the rollout from.
             src = Path(cfg["partial_structure"]) if partial_t else spec_path
             out = featurize(src, n_recycles=n_recycles,
-                            diffusion_batch_size=n_sample, seed=seed)[0]
+                            diffusion_batch_size=n_sample, seed=seed,
+                            template_ca=template_ca)[0]
 
         f = out["feats"]
         atom_array = out["atom_array"]
@@ -1405,7 +1430,7 @@ class _WorkerState:
         if not chains:
             raise RuntimeError("no protein/nucleic-acid sequences")
         check_capabilities(path, chains, model)
-        tmpl_map = _template_map(path, model, chains)
+        tmpl_map = _template_map(path, model, chains, cfg["template_structures"])
         msa_dir = Path(cfg["msa_dir"])
 
         _MT = {"protein": "PROTEIN", "rna": "RNA", "dna": "DNA", "ligand": "LIGAND"}

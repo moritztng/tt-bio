@@ -90,7 +90,6 @@ def test_boltz2_honours_the_whole_input_language():
     pipeline and the affinity head. The one refusal is the per-chain template npz, which its
     parser never reads; it takes the same template as a structure file."""
     assert {f for f, v in CAPABILITY["boltz2"].items() if v != HONOURED} == {"templates"}
-    assert CAPABILITY["boltz2"]["template_structure"] == HONOURED
 
 
 @pytest.mark.parametrize("model", sorted(CAPABILITY))

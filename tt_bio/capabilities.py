@@ -38,7 +38,8 @@ FEATURES: dict[str, tuple[str, str]] = {
                      "there is no protein for the model to fold it with"),
     "cyclic": ("`cyclic: true`", "the fold would return a linear structure"),
     "modifications": ("`modifications:`", "the fold would return the unmodified residue"),
-    "templates": ("`templates:`", "the fold would ignore the template you supplied"),
+    "templates": ("a per-chain `templates:` alignment npz",
+                  "the fold would ignore the template you supplied"),
     "template_structure": ("a top-level `templates:` structure file",
                            "the fold would ignore the template you supplied"),
     "bond": ("a `bond` constraint", "the fold would ignore the covalent bond"),
@@ -51,20 +52,14 @@ _ALL_HONOURED = dict.fromkeys(FEATURES, HONOURED)
 
 
 def _row(**overrides) -> dict[str, str]:
-    # A top-level `templates:` block (a cif/pdb per chain) is Boltz-2's own schema and only
-    # its parser reads it. The shared reader accepts the key for Boltz-2's sake, so every
-    # other model folded straight past it; refused unless a row says otherwise.
-    return {**_ALL_HONOURED, "template_structure": REFUSED, **overrides}
+    return {**_ALL_HONOURED, **overrides}
 
 
 #: --model -> feature -> verdict. Every id in ``main.PREDICT_MODELS`` needs a row; the
 #: completeness test refuses a new port that does not declare one.
 #:
 #: Boltz-2 honours the rest of the reader: its own upstream parser (tt_bio/data/parse.py), a
-#: constraint embedder for pocket/contact, a template pipeline and an affinity head. That
-#: parser reads a template only from the top-level `templates:` block, so a per-chain npz
-#: folded bit-identically to no template at all (measured on 1a8q, CA-RMSD 9.19 A either way,
-#: 0.29 A with the same template as a cif).
+#: constraint embedder for pocket/contact, a template pipeline and an affinity head.
 #:
 #: ``modifications`` reaches the featurizer on every model except RF3, which reads its own
 #: JSON/CIF spec here. Protenix and OpenDDE tokenize a modified residue per atom from its CCD
@@ -73,22 +68,29 @@ def _row(**overrides) -> dict[str, str]:
 #:
 #: ``templates`` takes the same alignment npz on the OF3 family and on protenix-v2 / OpenDDE,
 #: whose template embedder used to run on ``dummy_template_features`` whatever the input said.
-#: It stays REFUSED on protenix-v1, whose v0.5.0 checkpoint ships an EMPTY template pairformer
+#: ``template_structure`` is Boltz-2's top-level structure-file form, and it reaches all of
+#: them too: ``template_cif`` aligns it into that npz. Boltz-2 is the other way round: its
+#: parser reads only the structure file, so a per-chain npz folded bit-identically to no
+#: template (1a8q, CA-RMSD 9.19 A either way, 0.29 A with the same template as a cif).
+#: Both stay REFUSED on protenix-v1, whose v0.5.0 checkpoint ships an EMPTY template pairformer
 #: stack, so upstream returns literal 0 from the template embedder and a template could only
-#: be dropped (pinned by tests/test_protenix_template_gate.py); on ESMFold2, which has no
-#: template stack at all; and on RF3, which takes templates through its own JSON/CIF spec.
+#: be dropped (pinned by tests/test_protenix_template_gate.py), and on ESMFold2, which has no
+#: template stack at all. RF3 templates by coordinate: the same alignment puts the template's
+#: CA positions on the aligned residues (``rf3.featurize.apply_template_ca``).
 CAPABILITY: dict[str, dict[str, str]] = {
-    "boltz2": _row(templates=REFUSED, template_structure=HONOURED),
+    "boltz2": _row(templates=REFUSED),
     # ESMFold2 folds ligands, RNA and DNA and applies `modifications:` (one reader, one
     # fold_complex call). It has no constraint, template or affinity path, and its trunk is
     # conditioned on the protein language model, so a complex needs at least one protein.
-    "esmfold2": _row(protein_free=REFUSED, cyclic=REFUSED, templates=REFUSED, bond=REFUSED,
+    "esmfold2": _row(protein_free=REFUSED, cyclic=REFUSED, templates=REFUSED,
+                     template_structure=REFUSED, bond=REFUSED,
                      pocket=REFUSED, affinity=NOTED),
     "esmfold2-fast": _row(protein_free=REFUSED, cyclic=REFUSED, templates=REFUSED,
-                          bond=REFUSED, pocket=REFUSED, affinity=NOTED),
+                          template_structure=REFUSED, bond=REFUSED, pocket=REFUSED, affinity=NOTED),
     # Protenix honours covalent bonds (token_bonds is the only constraint signal its trunk
     # reads); pocket/contact need a constraint embedder no Protenix checkpoint ships.
-    "protenix-v1": _row(cyclic=REFUSED, templates=REFUSED, pocket=REFUSED, affinity=NOTED),
+    "protenix-v1": _row(cyclic=REFUSED, templates=REFUSED, template_structure=REFUSED,
+                        pocket=REFUSED, affinity=NOTED),
     "protenix-v2": _row(cyclic=REFUSED, pocket=REFUSED, affinity=NOTED),
     "opendde": _row(cyclic=REFUSED, pocket=REFUSED, affinity=NOTED),
     "opendde-abag": _row(cyclic=REFUSED, pocket=REFUSED, affinity=NOTED),
@@ -101,7 +103,7 @@ CAPABILITY: dict[str, dict[str, str]] = {
                      affinity=NOTED),
     # RF3 the model carries bonds, modified residues and cyclic chains, but only through its
     # own JSON/CIF spec; the YAML door here builds a spec from the chain reader alone.
-    "rf3": _row(cyclic=REFUSED, modifications=REFUSED, templates=REFUSED, bond=REFUSED,
+    "rf3": _row(cyclic=REFUSED, modifications=REFUSED, bond=REFUSED,
                 pocket=REFUSED, affinity=NOTED),
     # `tt-bio affinity --model nesso1`, not predict. It returns a scalar and no coordinates,
     # so nothing it drops can come back as a wrong structure, and the docs tell users to
@@ -139,16 +141,17 @@ WHY: dict[tuple[str, str], str] = {
         "preview2 was released as a polymer model and was never trained to place a ligand, "
         "so it is polymer-only here; the featurizer would build one and the sampler would "
         "return a status=ok structure anyway"),
-    ("nesso1", "protein_free"): "it scores a protein-ligand pair",
     ("boltz2", "templates"): "Boltz-2 reads a template as a structure file, a top-level "
         "`templates:` entry with `cif:` and `chain_id:`, not as a per-chain alignment npz",
+    ("nesso1", "protein_free"): "it scores a protein-ligand pair",
+    **{(m, f): "its v0.5.0 checkpoint ships an empty template stack, so upstream Protenix-v1 "
+       "ignores a template too; protenix-v2 is the same model with one"
+       for m in ("protenix-v1",) for f in ("templates", "template_structure")},
+    **{(m, f): "ESMFold2 has no template input"
+       for m in ("esmfold2", "esmfold2-fast") for f in ("templates", "template_structure")},
     **{(m, "protein_free"): "its trunk is conditioned on the ESM protein language model, so a "
        "complex needs at least one protein chain" for m in ("esmfold2", "esmfold2-fast")},
 }
-
-WHY.update({(m, "template_structure"): "this model takes a template as a per-chain "
-            "`templates:` alignment npz, not as a structure file"
-            for m, caps in CAPABILITY.items() if caps["templates"] == HONOURED and m != "boltz2"})
 
 WHY.update({(m, "cyclic"): "the fold would return a linear structure. This model takes the "
             "closure as a head-to-tail `bond` constraint instead, atom1 [<chain>, <last "
@@ -272,6 +275,15 @@ def detect(path, chains=None) -> dict[str, str]:
             for feature in per_chain:
                 if sub.get(feature):
                     per_chain[feature] += _ids(sub)
+    # A top-level `templates:` block is the same template given as a structure file
+    # (tt_bio/template_cif.py turns it into the per-chain alignment).
+    tops = []
+    for t in doc.get("templates") or []:
+        if isinstance(t, dict):
+            ids = t.get("chain_id")
+            tops += ([str(x) for x in ids] if isinstance(ids, list)
+                     else [str(ids) if ids is not None else "all"])
+    per_chain["template_structure"] = tops
     for feature, hits in per_chain.items():
         if hits:
             found[feature] = "chain(s) " + ", ".join(hits)
@@ -282,10 +294,6 @@ def detect(path, chains=None) -> dict[str, str]:
             found.setdefault("bond", "constraints")
         elif "pocket" in c or "contact" in c:
             found.setdefault("pocket", "constraints")
-    tops = [str(t.get("chain_id", "?")) for t in (doc.get("templates") or [])
-            if isinstance(t, dict)]
-    if tops:
-        found["template_structure"] = "chain(s) " + ", ".join(tops)
     binders = [str(pr["affinity"].get("binder")) for pr in (doc.get("properties") or [])
                if isinstance(pr, dict) and isinstance(pr.get("affinity"), dict)]
     if binders:
@@ -341,8 +349,8 @@ DOC_COLUMNS: tuple[tuple[str, str], ...] = (
     ("protein_free", "no protein chain"),
     ("cyclic", "cyclic"),
     ("modifications", "modifications"),
-    ("templates", "templates"),
-    ("template_structure", "structure template"),
+    ("templates", "template npz"),
+    ("template_structure", "template cif"),
     ("bond", "bond constraint"),
     ("pocket", "pocket/contact"),
     ("affinity", "affinity"),

@@ -42,8 +42,9 @@ It shares Protenix-v2's scheduler, worker, multi-card fan-out and MSA cache, so
 
 MSAs and templates attach per chain in the YAML. An MSA path is a ColabFold `.a3m` or
 a benchmark MSA directory; a template is a precomputed alignment `.npz` (the format the
-upstream benchmark cache ships). There is no template search — you supply the
-alignment, and the structures it names are fetched from RCSB.
+upstream benchmark cache ships), whose structures are fetched from RCSB, or a
+top-level `templates:` block naming an mmCIF, which is aligned to the chain for you
+(see the README's Templates section). There is no template search.
 
 ```yaml
 version: 1
@@ -77,7 +78,7 @@ defect it found, which is fixed.
 | protein chains | ported, parity-gated |
 | multi-chain complexes | ported, parity-gated (9BK6 heterodimer) |
 | RNA, DNA | ported, folds end to end |
-| templates | ported, per-chain alignment npz; no template search |
+| templates | ported: per-chain alignment npz, or an mmCIF aligned to the chain; no template search |
 | MSA | ported: per-chain file or directory, shared hash-cache search, `--single_sequence`. An MSA that was requested but cannot be resolved raises rather than folding single-sequence |
 | `--single_sequence` | upstream's no-MSA mode: nothing is searched, and every MSA-less protein/RNA chain folds on a one-row alignment of its own sequence with the MSA stack on (upstream's `augment_main_msa_with_query_sequence`). On ubiquitin this folds at 0.84 Å CA-RMSD against the crystal structure, inside upstream's 1.8 Å single-sequence ceiling |
 | recycling | ported; `--recycling_steps` default 3, i.e. 4 trunk cycles (the upstream default) |
