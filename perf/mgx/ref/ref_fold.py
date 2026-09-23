@@ -75,7 +75,7 @@ def load_fixture(name: str) -> list[dict]:
 # instruments
 # --------------------------------------------------------------------------------------
 class StepTimer:
-    """Wall time of the model's own predict call, cuda-synchronised both sides."""
+    """Wall time of the model's own predict call, cuda-synchronised both sides when on a GPU."""
 
     def __init__(self):
         self.times: list[float] = []
@@ -85,11 +85,13 @@ class StepTimer:
         orig = getattr(obj, attr)
         times = self.times
 
+        sync = torch.cuda.synchronize if torch.cuda.is_available() else (lambda: None)
+
         def wrapper(*a, **kw):
-            torch.cuda.synchronize()
+            sync()
             t0 = time.perf_counter()
             r = orig(*a, **kw)
-            torch.cuda.synchronize()
+            sync()
             times.append(time.perf_counter() - t0)
             return r
         setattr(obj, attr, wrapper)
@@ -270,7 +272,8 @@ def run_esmfold2(chains, seed, cfg, work, *, model="esmfold2"):
     torch.backends.cuda.enable_cudnn_sdp(False)
     repo, rev = ESM_REPOS[model]
     m = EsmFold2Model.from_pretrained(repo, revision=rev, esmc_precision="fp32",
-                                      device="cuda", dtype=torch.float32).eval()
+                                      device=cfg.get("device", "cuda"),
+                                      dtype=torch.float32).eval()
     spi = StructurePredictionInput(sequences=[
         ProteinInput(id=cid, sequence=c["sequence"],
                      msa=MSA.from_a3m(c["msa"], max_sequences=16384))
