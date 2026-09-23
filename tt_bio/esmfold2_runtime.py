@@ -555,6 +555,27 @@ def _msa_from_csv(path, max_sequences):
     return MSA.from_sequences(seqs, remove_insertions=True) if seqs else None
 
 
+def pair_keyed_msa(msa, paired_a3m, max_sequences=16384):
+    """Put a chain's species-paired rows in front of its MSA, headed ``key=j``.
+
+    That header is how upstream ESMFold2 pairs across chains
+    (``esm/models/esmfold2/paired_msa.py``: rows sharing a ``key=N`` are paired, anything
+    else goes to the chain's block-diagonal section). Row j of every chain's paired a3m is
+    one genome, so its key is j. An all-gap row is a genome this chain has no homolog in:
+    it is dropped and the partners keep their row j. The unpaired rows follow unkeyed.
+    """
+    import io
+
+    from tt_bio._vendor.esm.utils.msa.msa import MSA
+    from tt_bio._vendor.esm.utils.parsing import FastaEntry
+
+    rows = MSA.from_a3m(io.StringIO(paired_a3m), remove_insertions=True).entries
+    keyed = [FastaEntry(f"key={j}", seq) for j, (_h, seq) in enumerate(rows)
+             if j and seq.strip("-")]
+    query, unpaired = (msa.entries[0], msa.entries[1:]) if msa is not None else (rows[0], [])
+    return MSA(([query] + keyed + unpaired)[:max_sequences])
+
+
 def resolve_msa(msa_spec, sequence, msa_dir=None, max_sequences=16384):
     """Resolve a chain's MSA to an esm ``MSA`` object (or None).
 

@@ -1168,7 +1168,10 @@ def _msa_transition_residual(m, ffn):
         upd = ffn(part)
         out.append(ttnn.add(part, upd))
         ttnn.deallocate(upd)
-    return ttnn.concat(out, dim=1)
+    # The concat needs the whole result while `m` and every block are live. With a real MSA
+    # (2ad6, 1280 tokens x 8192 rows) DRAM refused it: 106.7 MiB/bank against a 74.7 MiB
+    # largest block. `m` is the MPWA output and nothing else holds it, so it is consumed.
+    return tenstorrent._acc_concat(out, 1, False, consume=m)
 
 
 #: L -> outer-product row block, once DRAM has refused the single pass at that L. Keyed on L
@@ -1300,7 +1303,8 @@ class MSAPairWeightedAveraging(Module):
         for s, e in blocks:
             out_tt = ttnn.from_torch(rows(out, s, e), layout=ttnn.TILE_LAYOUT, device=self.device, dtype=_DTYPE)
             upd.append(ttnn.add(rows(m, s, e), lin(out_tt, self.Wout)))
-        return upd[0] if len(upd) == 1 else ttnn.concat(upd, dim=1)
+        from tt_bio import tenstorrent
+        return tenstorrent._acc_concat(upd, 1, False)
 
 
 class MSAEncoderBlock(Module):
@@ -1316,13 +1320,20 @@ class MSAEncoderBlock(Module):
         self.pair_transition = SwiGLUFFN(_remap_transition_named(self.weights.as_dict(), "pair_transition"), compute_kernel_config)
 
     def __call__(self, m, pair, recip_nvalid):
-        pair = ttnn.add(pair, self.opm(m, recip_nvalid))
+        # `pair` is the encoder's own tensor (block 0 gets MSAEncoder.forward's upload), so every
+        # residual adds in place. A fresh sum is a third pair tensor beside the MSA: 3abq at 1536
+        # with its MSA was refused the pair-transition sum, 1193803776 B against a 64.7 MiB/bank
+        # largest block.
+        u = self.opm(m, recip_nvalid)
+        ttnn.add_(pair, u)
+        ttnn.deallocate(u)
         if not self.is_final:
             m = self.mpwa(m, pair)  # residual included
             m = _msa_transition_residual(m, self.msa_transition)
-        pair = ttnn.add(pair, self.tri_out(pair, None))
-        pair = ttnn.add(pair, self.tri_in(pair, None))
-        pair = ttnn.add(pair, self.pair_transition(pair))
+        for f in (lambda z: self.tri_out(z, None), lambda z: self.tri_in(z, None), self.pair_transition):
+            u = f(pair)
+            ttnn.add_(pair, u)
+            ttnn.deallocate(u)
         return m, pair
 
 
@@ -1347,6 +1358,8 @@ class MSAEncoderModel(Module):
         ck = self.compute_kernel_config
         lin = self._lin
         m = ttnn.add(lin(m_feat, self.embed_w), ttnn.unsqueeze(lin(x_inputs, self.project_w), 2))
+        # The features are an MSA-sized upload used only here; the blocks hold `m` beside it.
+        ttnn.deallocate(m_feat)
         pair = x_pair
         for block in self.blocks:
             m, pair = block(m, pair, recip_nvalid)

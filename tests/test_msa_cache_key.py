@@ -1,4 +1,4 @@
-"""Regression: compute_msa must key its ColabFold working/cache dir by the
+"""Regression: every ColabFold search must key its working/cache dir by the
 sequence set, not by target_id.
 
 target_id is the input filename stem (e.g. "target_1") and repeats across
@@ -23,12 +23,14 @@ def _fake_a3m(seqs):
 
 
 def _capture_prefixes(monkeypatch):
-    """Patch run_mmseqs2 to record the cache-dir prefix of every call."""
+    """Patch run_mmseqs2 to record the cache-dir prefix of every call. Like the real one, a
+    prefix it has already answered returns that answer again (its cached out.tar.gz)."""
     seen: list[Path] = []
+    done: dict[Path, list[str]] = {}
 
     def fake(x, prefix, *args, **kwargs):
         seen.append(Path(prefix))
-        return _fake_a3m(x)
+        return done.setdefault(Path(prefix), _fake_a3m(x))
 
     monkeypatch.setattr(tt_main, "run_mmseqs2", fake)
     return seen
@@ -67,3 +69,16 @@ def test_same_sequences_reuse_prefix(monkeypatch, tmp_path):
     unpaired = [p.name for p in seen if "unpaired" in p.name]
     assert len(unpaired) == 2
     assert unpaired[0] == unpaired[1], "identical sequence sets should reuse one cache dir"
+
+
+def test_unpaired_a3m_same_stem_new_sequences(monkeypatch, tmp_path):
+    """The silent case, on the unpaired search esmfold2/protenix/opendde/openfold3 share: two
+    runs under one stem with the same NUMBER of different sequences. Keyed by stem, the second
+    reused the first's out.tar.gz and cached each new sequence with the old protein's MSA."""
+    seen = _capture_prefixes(monkeypatch)
+    tt_main._generate_esmfold2_a3m({"a": A}, "target_1", tmp_path, None, False,
+                                   "http://x", "greedy", None, None, None)
+    tt_main._generate_esmfold2_a3m({"b": B}, "target_1", tmp_path, None, False,
+                                   "http://x", "greedy", None, None, None)
+    assert seen[0] != seen[1] and all("target_1" not in p.name for p in seen)
+    assert (tmp_path / "b.a3m").read_text().splitlines()[1] == B
