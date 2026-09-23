@@ -909,6 +909,8 @@ tt-bio design specs.json --model rfd3 --from_pdb --out_dir designs/
 
 Each model downloads its weights automatically on first use. BoltzGen and RFdiffusion3 fan out across every available card (`--devices 0,2` restricts); PXDesign runs on one card locally, or one design per card across a fleet with `--controller http://host:8765`. `tt-bio gen` still works as a deprecated alias for `tt-bio design --model boltzgen`.
 
+How many designs a card returns per hour, how `--num_designs` and `--devices` move it, and how to size a campaign: [`docs/design-throughput.md`](docs/design-throughput.md).
+
 ## Training
 
 Fine-tune or pre-train a model you can already run, with the same forward the inference path

@@ -97,6 +97,8 @@ residues keep their input identities. The built-in sequence is a starting point,
 not a finished design sequence: upstream recommends redesigning it with a
 sequence-design tool such as ProteinMPNN before ordering.
 
+Throughput, batching and scaling across cards: [design-throughput.md](design-throughput.md).
+
 ### Generating multiple designs per spec
 
 `--num_designs N` produces N independent designs per spec (each with a different
