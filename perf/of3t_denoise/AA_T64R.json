@@ -7,5 +7,26 @@
  "n_named": 3365,
  "keysets_equal": true,
  "bit_identical": 3365,
- "note": "id()-keyed _wc aliases excluded (names differ per process; score.py drops them as twins)"
+ "note": "id()-keyed _wc aliases excluded (names differ per process; score.py drops them as twins)",
+ "provenance": {
+  "DN64R": {
+   "host": "tt-quietbox2",
+   "card": 1,
+   "board_class": "p300c",
+   "commit": "fe5b69d86c941a2322c6d9f7f687540b1c9f2198",
+   "aiclk_during": "CLOCK: dev0 min 800 / median 1350 / max 1350 MHz over 131 samples, polled DURING the work"
+  },
+  "DN64RB": {
+   "host": "tt-quietbox2",
+   "card": 1,
+   "board_class": "p300c",
+   "commit": "fe5b69d86c941a2322c6d9f7f687540b1c9f2198",
+   "aiclk_during": "CLOCK: dev0 min 800 / median 1350 / max 1350 MHz over 143 samples, polled DURING the work"
+  }
+ },
+ "host": "tt-quietbox2",
+ "cards": [
+  1,
+  1
+ ]
 }
