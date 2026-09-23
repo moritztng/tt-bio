@@ -2,34 +2,34 @@
 # Per model: memory points first (6 steps, DRAM probe on), which also compile every
 # kernel shape the timing points use; then timing (production steps, probe off).
 openfold3 256 1 steps=6 probe=1
-openfold3 256 5 steps=6 probe=1
-openfold3 256 10 steps=6 probe=1
 openfold3 256 25 steps=6 probe=1
 openfold3 768 1 steps=6 probe=1
-openfold3 768 5 steps=6 probe=1
-openfold3 768 10 steps=6 probe=1
 openfold3 768 25 steps=6 probe=1
-openfold3 256 1
-openfold3 256 5
-openfold3 256 10
-openfold3 256 25
-openfold3 768 1
-openfold3 768 5
-openfold3 768 10
-openfold3 768 25
 rf3 256 1 steps=6 probe=1
-rf3 256 5 steps=6 probe=1
-rf3 256 10 steps=6 probe=1
 rf3 256 25 steps=6 probe=1
 rf3 768 1 steps=6 probe=1
-rf3 768 5 steps=6 probe=1
-rf3 768 10 steps=6 probe=1
 rf3 768 25 steps=6 probe=1
+openfold3 256 1
+openfold3 256 5
+openfold3 768 1
+openfold3 768 5
 rf3 256 1
 rf3 256 5
-rf3 256 10
-rf3 256 25
 rf3 768 1
 rf3 768 5
-rf3 768 10
+openfold3 256 5 steps=6 probe=1
+openfold3 768 5 steps=6 probe=1
+rf3 256 5 steps=6 probe=1
+rf3 768 5 steps=6 probe=1
+openfold3 256 25
+openfold3 768 25
+rf3 256 25
 rf3 768 25
+openfold3 256 10 steps=6 probe=1
+openfold3 768 10 steps=6 probe=1
+openfold3 256 10
+openfold3 768 10
+rf3 256 10 steps=6 probe=1
+rf3 768 10 steps=6 probe=1
+rf3 256 10
+rf3 768 10
