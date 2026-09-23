@@ -1,0 +1,44 @@
+# Lane A. Timing points first (production steps, probe off), then memory (6 steps, DRAM probe on).
+# Memory does not depend on the step count; the time law needs production steps.
+boltz2 256 1
+boltz2 256 5
+boltz2 256 10
+boltz2 256 25
+boltz2 768 1
+boltz2 768 5
+boltz2 768 10
+boltz2 768 25
+boltz2 256 1 steps=6 probe=1
+boltz2 256 5 steps=6 probe=1
+boltz2 256 25 steps=6 probe=1
+boltz2 768 1 steps=6 probe=1
+boltz2 768 5 steps=6 probe=1
+boltz2 768 25 steps=6 probe=1
+protenix-v2 256 1
+protenix-v2 256 5
+protenix-v2 256 10
+protenix-v2 256 25
+protenix-v2 768 1
+protenix-v2 768 5
+protenix-v2 768 10
+protenix-v2 768 25
+protenix-v2 256 1 steps=6 probe=1
+protenix-v2 256 5 steps=6 probe=1
+protenix-v2 256 25 steps=6 probe=1
+protenix-v2 768 1 steps=6 probe=1
+protenix-v2 768 5 steps=6 probe=1
+protenix-v2 768 25 steps=6 probe=1
+esmfold2 256 1
+esmfold2 256 5
+esmfold2 256 10
+esmfold2 256 25
+esmfold2 768 1
+esmfold2 768 5
+esmfold2 768 10
+esmfold2 768 25
+esmfold2 256 1 steps=6 probe=1
+esmfold2 256 5 steps=6 probe=1
+esmfold2 256 25 steps=6 probe=1
+esmfold2 768 1 steps=6 probe=1
+esmfold2 768 5 steps=6 probe=1
+esmfold2 768 25 steps=6 probe=1
