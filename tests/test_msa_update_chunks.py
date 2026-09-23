@@ -16,8 +16,9 @@ pytestmark = pytest.mark.device
 N, C_M, C_Z, HD, NH = 64, 64, 128, 8, 8
 
 
-@pytest.fixture(scope="module")
+@pytest.fixture
 def dev():
+    # Per test: conftest closes the chip after every test, so a module-scoped handle goes stale.
     return T.get_device()
 
 
