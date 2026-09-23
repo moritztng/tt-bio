@@ -13473,10 +13473,11 @@ class TemplateRecycle:
         mask_tt, attn_tt = tmpl["mask_tt"], tmpl["attn_tt"]
         u_acc = None
         for a_tij_tt in tmpl["a_tij_tt"]:
+            # The pairformer adds its residuals into `v` (or frees it after a host join), so the
+            # reference's `v + pairformer(v)` rebuilds `v` from its two resident parts.
             v = ttnn.add(z_p, a_tij_tt)
             _, z_out = self.pairformer(None, v, mask_tt, attn_tt, attn_tt)
-            v2 = ttnn.add(v, z_out)
-            ttnn.deallocate(v)
+            v2 = ttnn.add_(ttnn.add(z_p, a_tij_tt), z_out)
             ttnn.deallocate(z_out)
             v2 = ttnn.layer_norm(v2, weight=self.v_norm_w, bias=self.v_norm_b,
                                  epsilon=1e-5, compute_kernel_config=ckc)
@@ -13566,8 +13567,13 @@ class TokenDistanceRecycle:
         v = ttnn.add(z_p, td["a_ij_tt"])
         ttnn.deallocate(z_p)
         _, v_pf = self.pairformer(None, v, td["mask_tt"], td["attn_tt"], td["attn_tt"])
-        v2 = ttnn.add(v, v_pf)
-        ttnn.deallocate(v)
+        # The pairformer adds its residuals into `v` (or frees it after a host join), so the
+        # reference's `v + pairformer(v)` recomputes `v` rather than hold a second pair tensor.
+        z_n = ttnn.layer_norm(z, weight=self.z_norm_w, bias=self.z_norm_b,
+                              epsilon=1e-5, compute_kernel_config=ckc)
+        z_p = ttnn.linear(z_n, self.z_proj_w, compute_kernel_config=ckc, core_grid=CORE_GRID_MAIN)
+        ttnn.deallocate(z_n)
+        v2 = ttnn.add_(ttnn.add_(z_p, td["a_ij_tt"]), v_pf)
         ttnn.deallocate(v_pf)
         v2 = ttnn.layer_norm(v2, weight=self.v_norm_w, bias=self.v_norm_b,
                              epsilon=1e-5, compute_kernel_config=ckc)
