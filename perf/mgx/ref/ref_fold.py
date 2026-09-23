@@ -75,7 +75,7 @@ def load_fixture(name: str) -> list[dict]:
 # instruments
 # --------------------------------------------------------------------------------------
 class StepTimer:
-    """Wall time of the model's own predict call, cuda-synchronised both sides."""
+    """Wall time of the model's own predict call, cuda-synchronised both sides when on a GPU."""
 
     def __init__(self):
         self.times: list[float] = []
@@ -85,11 +85,13 @@ class StepTimer:
         orig = getattr(obj, attr)
         times = self.times
 
+        sync = torch.cuda.synchronize if torch.cuda.is_available() else (lambda: None)
+
         def wrapper(*a, **kw):
-            torch.cuda.synchronize()
+            sync()
             t0 = time.perf_counter()
             r = orig(*a, **kw)
-            torch.cuda.synchronize()
+            sync()
             times.append(time.perf_counter() - t0)
             return r
         setattr(obj, attr, wrapper)
@@ -254,10 +256,12 @@ def run_esmfold2(chains, seed, cfg, work, *, model="esmfold2"):
     ESMFold2InputBuilder().fold() call tt-bio makes (tt_bio/esmfold2_runtime.py::fold_complex):
     one ProteinInput per chain copy, MSA.from_a3m(max_sequences=16384) per chain.
 
-    tt-bio vendors an older esm whose fold() had no stochastic knobs. The current esm adds
-    lm_dropout (default 0.3) and msa_max_depth / msa_column_mask_rate (1024 / 0.1). Those are
-    passed as None here, which disables the dropout and hands depth and column masking back to
-    the checkpoint config, the behaviour of the version the TT port was built against."""
+    fold()'s lm_dropout (default 0.3) and msa_max_depth / msa_column_mask_rate (1024 / 0.1) are
+    passed as None, which hands all three back to the checkpoint config. None does not turn the
+    dropout off: `processor.py::_lm_dropout_context` is a no-op for it, and the model still
+    applies the config's `lm_encoder.lm_dropout` (0.25, per loop, in eval too). So these folds
+    ran with 0.25 per-loop LM dropout, 10% column masking and a 1024-row subsample per loop,
+    which tt-bio's esmfold2 path reproduces (`tt_bio/esmfold2_runtime.py`)."""
     import torch
     from esm.models.esmfold2 import MSA, EsmFold2Model, ESMFold2InputBuilder, ProteinInput
     from esm.models.esmfold2.types import StructurePredictionInput
@@ -268,7 +272,8 @@ def run_esmfold2(chains, seed, cfg, work, *, model="esmfold2"):
     torch.backends.cuda.enable_cudnn_sdp(False)
     repo, rev = ESM_REPOS[model]
     m = EsmFold2Model.from_pretrained(repo, revision=rev, esmc_precision="fp32",
-                                      device="cuda", dtype=torch.float32).eval()
+                                      device=cfg.get("device", "cuda"),
+                                      dtype=torch.float32).eval()
     spi = StructurePredictionInput(sequences=[
         ProteinInput(id=cid, sequence=c["sequence"],
                      msa=MSA.from_a3m(c["msa"], max_sequences=16384))

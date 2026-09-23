@@ -251,8 +251,8 @@ def _write_atom_array_structure(atom_array, coords, outpath, output_format,
         cf.write(str(outpath))
 
 
-def _template_map(path: Path, model: str, chains) -> dict[str, str]:
-    """Per-chain template alignment (npz) paths from a YAML input's `templates:` key.
+def _template_map(path: Path, model: str, chains, struct_dir) -> dict[str, str]:
+    """Per-chain template alignment (npz) paths from a YAML input's `templates:` keys.
 
     The shared chain reader has no template field, so the models that take one re-read the
     YAML for `{protein: {id: X, sequence: ..., templates: <npz>}}`. One reader and one file
@@ -264,6 +264,10 @@ def _template_map(path: Path, model: str, chains) -> dict[str, str]:
     The unknown-id check lives HERE and not at the three call sites, which each carried their
     own copy of it. It needs the parsed chain list, which is the only thing the caller has and
     this function did not, so passing it in is what collapses the copies.
+
+    A top-level `templates:` block (Boltz-2's form: a cif and the chains it templates) is
+    aligned into the same npz by `template_cif`, so it reaches every one of those models
+    through the per-chain path. One chain may carry one form or the other, not both.
     """
     if path.suffix.lower() not in (".yml", ".yaml"):
         return {}
@@ -297,6 +301,15 @@ def _template_map(path: Path, model: str, chains) -> dict[str, str]:
     if unknown:
         raise RuntimeError(
             f"--model {model}: `templates:` given for unknown chain id(s) {unknown}.")
+    if doc.get("templates"):
+        from tt_bio.template_cif import structure_template_npz
+        built = structure_template_npz(doc["templates"], chains, struct_dir, model)
+        both = sorted(set(out) & set(built))
+        if both:
+            raise RuntimeError(
+                f"--model {model}: chain(s) {both} carry both a per-chain `templates:` npz "
+                f"and a top-level template structure; give one.")
+        out.update(built)
     return out
 
 
@@ -429,6 +442,56 @@ def _build_chain_specs(chains, msa_dir, cfg, protein_only: bool):
             for _cid, cseq, spec, mt, _mods in chains]
 
 
+def _paired_msa(path, chains, msa_dir, cfg):
+    """The complex's species-paired MSA, ``{seq_hash: a3m_text}``, or None when it does not
+    pair. The one pairing rule every model whose upstream pairs goes through.
+
+    A complex pairs when it has more than one unique protein sequence: Protenix
+    (``msa_featurizer.py``: ``need_pairing = len(unique_prot_seqs) > 1``), OpenDDE (same
+    file, lines 64-66), OpenBind (OpenFold3 0.5.0 ``colabfold_msa_server.py``: "Only do
+    pairing if number of unique protein sequences is > 1"; preview2 on 0.4.x drops the
+    rows, so ``openfold3`` does not pair) and Boltz-2 (``compute_msa`` pairs when
+    ``len(seqs) > 1``, seqs keyed by sequence). A homomer's copies are one sequence and do
+    not pair. The search runs against the ColabFold server or a local DB; a
+    ``--msa_endpoint`` run is not sent to the public server behind the user's back, and a
+    cache-only run reads the complex's paired MSA if it is there. Best-effort: a failed
+    search folds unpaired rather than failing the job.
+    """
+    from tt_bio.main import _generate_paired_a3m
+
+    if cfg.get("single_sequence"):
+        return None
+    seqs = {seq_hash(s): s for _c, s, _sp, mt, _m in chains if mt == "protein"}
+    if len(seqs) < 2:
+        return None
+    try:
+        paired = _generate_paired_a3m(
+            seqs, path.stem, msa_dir, cfg.get("msa_server_url"),
+            cfg.get("msa_pairing_strategy"), cfg.get("msa_server_username"),
+            cfg.get("msa_server_password"), cfg.get("api_key_value"),
+            msa_db_path=cfg.get("msa_db_path"), use_envdb=cfg.get("use_envdb", False),
+            search=bool(cfg.get("use_msa_server") or cfg.get("msa_db_path")))
+    except Exception as e:  # noqa: BLE001 -- best-effort, fall back to unpaired
+        print(f"paired MSA search failed ({e!r}); folding unpaired-only", file=sys.stderr)
+        return None
+    if paired is None:
+        print("no paired MSA cached for this complex and no search source; folding "
+              "unpaired-only", file=sys.stderr)
+    return paired
+
+
+def _paired_a3ms(path, chains, msa_dir, cfg):
+    """:func:`_paired_msa` as the per-chain list ``build_complex_features`` walks in step
+    with ``chains`` (None off protein), capped by ``--max_msa_seqs`` like the unpaired MSA."""
+    from tt_bio.main import cap_a3m_text
+
+    paired = _paired_msa(path, chains, msa_dir, cfg)
+    if paired is None:
+        return None
+    return [cap_a3m_text(paired[seq_hash(s)], cfg.get("msa_cap")) if mt == "protein" else None
+            for _c, s, _sp, mt, _m in chains]
+
+
 def _artifact_residue_names(chains) -> dict:
     """(asym_id, residue_index) -> the CCD code for every token `restype` cannot name.
 
@@ -447,6 +510,60 @@ def _artifact_residue_names(chains) -> dict:
         for m in mods or ():
             names[(ci, int(m["position"]))] = str(m["ccd"]).upper()
     return names
+
+
+def _rf3_sequence(seq: str, mods) -> str:
+    """A polymer sequence in RF3's spec form, where a modified residue is its CCD code in
+    parentheses (``AC(SEP)GH``, atomworks' generalized FASTA)."""
+    if not mods:
+        return seq
+    at = {m["position"]: str(m["ccd"]).upper() for m in mods}
+    return "".join(f"({at[i]})" if i in at else c for i, c in enumerate(seq, 1))
+
+
+def _rf3_bonds(components: list[dict], bonds) -> list[list[str]] | None:
+    """`bond` constraints as the top-level ``bonds`` of RF3's JSON spec, whose atoms are
+    ``CHAIN/RES_NAME/RES_ID/ATOM`` strings (atomworks ``spoof_struct_conn_dict_from_string``).
+
+    The residue name and id are read off the atom array upstream builds from the same
+    components, so a modified residue, a CCD ligand and a SMILES ligand (residue ``L:0``,
+    id 0) resolve the way upstream will. A SMILES atom is named the portable way, element
+    plus its 1-based count in SMILES order (C1 is the first carbon), which is Protenix's
+    naming; atomworks counts from 0, so C1 becomes its C0.
+    """
+    if not bonds:
+        return None
+    from tt_bio._vendor.atomworks.io.tools.inference import components_to_atom_array
+
+    aa = components_to_atom_array([{k: v for k, v in c.items() if k != "msa_path"}
+                                   for c in components])
+    smiles = {c["chain_id"] for c in components if "smiles" in c}
+
+    def endpoint(cid, res, name):
+        atom, on = name, aa[aa.chain_id == cid]
+        if not len(on):
+            raise ValueError(f"bond constraint references chain '{cid}', which is not in "
+                             "the input.")
+        ids = list(dict.fromkeys(on.res_id.tolist()))
+        if cid in smiles:
+            el, n = atom.rstrip("0123456789"), atom[len(atom.rstrip("0123456789")):]
+            atom = f"{el}{int(n) - 1}" if n else atom
+            res = 1
+        if not 1 <= res <= len(ids):
+            raise ValueError(f"bond constraint references residue {res} on chain '{cid}', "
+                             f"which has {len(ids)}.")
+        r = on[on.res_id == ids[res - 1]]
+        if atom not in r.atom_name:
+            names = r.atom_name.tolist()
+            if cid in smiles:
+                names = [f"{x.rstrip('0123456789')}{int(x[len(x.rstrip('0123456789')):]) + 1}"
+                         for x in names]
+            raise ValueError(f"bond constraint references atom '{name}' on residue {res} "
+                             f"({r.res_name[0]}) of chain '{cid}', which it does not have. "
+                             f"Its atoms: {', '.join(names)}.")
+        return f"{cid}/{r.res_name[0]}/{ids[res - 1]}/{atom}"
+
+    return [[endpoint(*a1), endpoint(*a2)] for a1, a2 in bonds]
 
 
 def _protenix_family() -> tuple[str, ...]:
@@ -784,15 +901,16 @@ class _WorkerState:
         import types
 
         from tt_bio.esmfold2 import report_progress
-        from tt_bio.esmfold2_runtime import fold_complex, resolve_msa
-        from tt_bio.main import _generate_esmfold2_a3m, _read_bio_chains, _write_structure
+        from tt_bio.esmfold2_runtime import fold_complex, pair_keyed_msa, resolve_msa
+        from tt_bio.main import (_generate_esmfold2_a3m, _read_bio_bonds, _read_bio_chains,
+                                 _write_structure)
 
         chains = _read_bio_chains(path, what=cfg.get("model", "esmfold2"))
         if not chains:
             raise RuntimeError("no sequences")
-        if not any(mt == "protein" for _c, _s, _sp, mt, _mo in chains):
-            raise RuntimeError("esmfold2 needs at least one protein chain")
         check_capabilities(path, chains, cfg.get("model", "esmfold2"))
+        # covalent bonds + ring closures, upstream's covalent_bonds -> token_bonds
+        bonds = _read_bio_bonds(path, chains)
         msa_dir = Path(cfg["msa_dir"])
         max_msa = cfg.get("max_msa_seqs") or 16384
         # Only the checkpoints that ship an MSA encoder can use an MSA. ESMFold2
@@ -831,26 +949,22 @@ class _WorkerState:
                     cfg.get("api_key_value"), msa_endpoint=cfg.get("msa_endpoint"))
 
         report_progress("prep")
-        # A deep MSA is what makes an ESMFold2 fold OOM a 12 GB Wormhole chip: every
-        # tensor in the MSA encoder scales with residues*depth, and 788 aa at the default
-        # depth 8192 asks for 1.54 GiB in a single block. Bound that product by the one
-        # measured to fit rather than let the allocation fail. No-op on Blackhole.
-        if self.accelerator == "tenstorrent":
-            from tt_bio.tenstorrent import msa_depth_cap
-            max_msa = msa_depth_cap(
-                sum(len(seq) for _c, seq, _s, mt, _mo in chains if mt != "ligand"), max_msa)
         # Only protein chains carry an MSA; a nucleic or ligand chain keeps msa=None, and a
         # ligand's `seq` is its CCD/SMILES spec, so hashing it for an alignment is meaningless.
-        chains = [(cid, seq,
-                   resolve_msa(spec, seq, msa_dir, max_sequences=max_msa)
-                   if (uses_msa and mt == "protein") else None,
+        paired = _paired_msa(path, chains, msa_dir, cfg) if uses_msa else None
+
+        def _msa(spec, seq):
+            msa = resolve_msa(spec, seq, msa_dir, max_sequences=max_msa)
+            return (pair_keyed_msa(msa, paired[seq_hash(seq)], max_msa) if paired else msa)
+
+        chains = [(cid, seq, _msa(spec, seq) if (uses_msa and mt == "protein") else None,
                    mt, mods)
                   for cid, seq, spec, mt, mods in chains]
         ranked = fold_complex(
             self.model, chains,
             num_loops=cfg["recycling_steps"], num_sampling_steps=cfg["sampling_steps"],
             num_diffusion_samples=cfg["diffusion_samples"], seed=cfg.get("seed") or 0,
-            return_all=True,
+            return_all=True, bonds=bonds,
         )
         res = ranked[0]
         # Write every sample, not just the winner: best as "{stem}.{fmt}" and the rest as
@@ -891,17 +1005,15 @@ class _WorkerState:
         structural-token fold -> structure. Rides the SAME MSA stage as Protenix-v2 /
         ESMFold2 / Boltz-2: each protein chain whose {seq_hash}.a3m is not cached is
         searched into the shared msa_dir, resolved, and featurized via
-        build_complex_features' block-diagonal MSA. Protein + ligand co-folds (nucleic-acid
-        structural tokens not ported yet). Ligand atoms are tokenized per-atom by
+        build_complex_features' block-diagonal MSA. Protein, RNA, DNA and ligand chains all
+        fold; nucleotides split into backbone/base structural tokens. Ligand atoms are tokenized per-atom by
         build_complex_features and expand to one "atom"-role structural token each
         (opendde_data.build_structural_token_features), so a covalent inhibitor bonded
         to a protein Cys is honored end-to-end. Confidence-based best-of-N ranking and
         CIF writing reuse Protenix-v2's machinery verbatim (OpenDDE.fold rides the same
         ConfidenceHead / build_complex_features / _write_protenix_structure)."""
         from tt_bio.esmfold2 import report_progress
-        from tt_bio.main import (_generate_esmfold2_a3m,
-                                 _generate_opendde_paired_a3m, _read_bio_chains,
-                                 _read_bio_constraints, cap_a3m_text)
+        from tt_bio.main import _generate_esmfold2_a3m, _read_bio_bonds, _read_bio_chains
         from tt_bio.protenix_data import build_complex_features
 
         model = cfg.get("model", "opendde")
@@ -909,13 +1021,12 @@ class _WorkerState:
         if not chains:
             raise RuntimeError("no protein sequences")
         check_capabilities(path, chains, model)
-        bonds = _read_bio_constraints(path)   # covalent bonds, resolved into token_bonds
+        bonds = _read_bio_bonds(path, chains)   # covalent bonds + ring closures -> token_bonds
         msa_dir = Path(cfg["msa_dir"])
 
         # search any uncached protein chain (batched into one MSA call), reusing the
-        # Protenix-v2 / ESMFold2 stage verbatim -- no separate OpenDDE MSA path.
-        # A second, paired (species-pairing) search is run below for multi-chain
-        # complexes to inject the cross-chain co-evolution signal.
+        # Protenix-v2 / ESMFold2 stage verbatim -- no separate OpenDDE MSA path. A
+        # heteromer's paired MSA comes from the shared rule in _paired_msa.
         want_msa = cfg.get("use_msa_server") or cfg.get("msa_db_path") or cfg.get("msa_endpoint")
         need = {}
         for _cid, cseq, spec, mt, _mods in chains:
@@ -946,34 +1057,14 @@ class _WorkerState:
                     f"{uncached}. Folding them single-sequence would silently change MSA "
                     "depth; search them first, or drop --msa_cache_only.")
 
-        # Paired (species-pairing) MSA for multi-chain complexes -- the cross-chain
-        # co-evolution signal the reference OpenDDE pipeline injects via
-        # MSAPairingEngine.pair_chains_by_species and this port otherwise lacks
-        # (unpaired block-diagonal MSA carries no cross-chain signal). Best-effort:
-        # a failed paired search falls back to unpaired-only so the fold still runs.
-        paired_a3ms = None
-        n_prot = sum(1 for _c, _s, _sp, mt, _mods in chains if mt == "protein")
-        if n_prot > 1 and want_msa:
-            paired_seqs = {seq_hash(cseq): cseq
-                           for _cid, cseq, _spec, mt, _mods in chains if mt == "protein"}
-            try:
-                paired = _generate_opendde_paired_a3m(
-                    paired_seqs, path.stem, msa_dir, cfg.get("msa_server_url"),
-                    cfg.get("msa_pairing_strategy"), cfg.get("msa_server_username"),
-                    cfg.get("msa_server_password"), cfg.get("api_key_value"),
-                    msa_db_path=cfg.get("msa_db_path"), use_envdb=cfg.get("use_envdb", False))
-                paired_a3ms = [cap_a3m_text(paired.get(seq_hash(cseq)), cfg.get("msa_cap"))
-                               for _cid, cseq, _spec, mt, _mods in chains if mt == "protein"]
-            except Exception as e:  # noqa: BLE001 -- best-effort, fall back to unpaired
-                print(f"paired MSA search failed ({e!r}); folding unpaired-only", file=sys.stderr)
-                paired_a3ms = None
+        paired_a3ms = _paired_a3ms(path, chains, msa_dir, cfg)
 
         report_progress("prep")
         # `templates:` -> real template features. The template embedder is always on for
         # protenix-v2 and opendde (a 2-block pairformer stack), and until now it only ever
         # saw dummy_template_features, so a template in the input reached the validator and
         # then nothing.
-        tmpl_map = _template_map(path, model, chains)
+        tmpl_map = _template_map(path, model, chains, cfg["template_structures"])
         tmpl_dir = cfg.get("template_structures")
         if tmpl_map:
             _prefetch_template_structures(tmpl_map, Path(tmpl_dir))
@@ -1007,8 +1098,8 @@ class _WorkerState:
         """Sequences -> (optional per-chain MSA) -> model-ready features for one target.
         Shared by the single and batched protenix entry points."""
         from tt_bio.esmfold2 import report_progress
-        from tt_bio.main import (_generate_esmfold2_a3m, _read_bio_chains,
-                                 _read_bio_constraints)
+        from tt_bio.main import (_generate_esmfold2_a3m, _read_bio_bonds,
+                                 _read_bio_chains)
         from tt_bio.protenix_data import build_complex_features
 
         model = cfg.get("model", "protenix-v2")
@@ -1016,7 +1107,7 @@ class _WorkerState:
         if not chains:
             raise RuntimeError("no protein/nucleic-acid sequences")
         check_capabilities(path, chains, model)
-        bonds = _read_bio_constraints(path)   # covalent bonds, resolved into token_bonds
+        bonds = _read_bio_bonds(path, chains)   # covalent bonds + ring closures -> token_bonds
         msa_dir = Path(cfg["msa_dir"])
 
         # search any uncached protein chain (batched into one MSA call); NA chains are single-seq
@@ -1037,18 +1128,20 @@ class _WorkerState:
                 cfg.get("msa_server_password"), cfg.get("api_key_value"),
                 msa_endpoint=cfg.get("msa_endpoint"))
         chain_specs = _build_chain_specs(chains, msa_dir, cfg, protein_only=True)
+        paired_a3ms = _paired_a3ms(path, chains, msa_dir, cfg)
 
         report_progress("prep")
         # `templates:` -> real template features. The template embedder is always on for
         # protenix-v2 and opendde (a 2-block pairformer stack), and until now it only ever
         # saw dummy_template_features, so a template in the input reached the validator and
         # then nothing.
-        tmpl_map = _template_map(path, model, chains)
+        tmpl_map = _template_map(path, model, chains, cfg["template_structures"])
         tmpl_dir = cfg.get("template_structures")
         if tmpl_map:
             _prefetch_template_structures(tmpl_map, Path(tmpl_dir))
         feats = build_complex_features(chain_specs, mol_dir=cfg.get("mol_dir"),
                                        chain_ids=[cid for cid, _s, _sp, _mt, _mods in chains], bonds=bonds,
+                                       paired_a3ms=paired_a3ms,
                                        modifications=[mods for *_x, mods in chains],
                                        templates=[tmpl_map.get(cid) for cid, *_r in chains],
                                        template_dir=tmpl_dir)
@@ -1082,7 +1175,8 @@ class _WorkerState:
             # per-atom pLDDT (0-1) -> B-factors (0-100), the AF/Boltz convention
             _write_protenix_structure(coords[k], feats, None, struct_dir / name, fmt,
                                       b_factors=confs[k]["plddt_atom"] * 100.0,
-                                      mod_names=_artifact_residue_names(chains))
+                                      mod_names=_artifact_residue_names(chains),
+                                      chain_ids=[cid for cid, *_r in chains])
 
         def _row(c):
             row = {"complex_plddt": round(c["plddt"], 6), "plddt": round(c["plddt"], 6),
@@ -1198,7 +1292,8 @@ class _WorkerState:
 
         from tt_bio.esmfold2 import report_progress
         from tt_bio.main import (_generate_esmfold2_a3m, _read_bio_chains,
-                                 _resolve_a3m_path, cap_a3m_file)
+                                 _read_bio_constraints, _resolve_a3m_path,
+                                 cap_a3m_file)
         from tt_bio.rf3 import confidence as rf3_confidence
         from tt_bio.rf3.featurize import featurize
 
@@ -1207,6 +1302,17 @@ class _WorkerState:
             raise RuntimeError("no sequences")
         check_capabilities(path, chains, "rf3")
         msa_dir = Path(cfg["msa_dir"])
+        # `templates:` (either form) -> the template's CA coordinates on the aligned residues,
+        # which is how RF3 templates (featurize.apply_template_ca).
+        tmpl_dir = cfg["template_structures"]
+        tmpl_map = _template_map(path, "rf3", chains, tmpl_dir)
+        template_ca = None
+        if tmpl_map:
+            from tt_bio.template_cif import chain_ca
+            _prefetch_template_structures(tmpl_map, Path(tmpl_dir))
+            template_ca = {cid: chain_ca(len("".join(cseq.split())), tmpl_map[cid], tmpl_dir,
+                                         "rf3")
+                           for cid, cseq, *_r in chains if cid in tmpl_map}
 
         want_msa = (cfg.get("use_msa_server") or cfg.get("msa_db_path")
                     or cfg.get("msa_endpoint")) and not cfg.get("single_sequence")
@@ -1231,13 +1337,16 @@ class _WorkerState:
         report_progress("prep")
         _CHAIN_TYPE = {"rna": "POLYRIBONUCLEOTIDE", "dna": "POLYDEOXYRIBONUCLEOTIDE"}
         components, msa_used = [], False
-        for cid, cseq, spec, mt, _mods in chains:
+        for cid, cseq, spec, mt, mods in chains:
             if mt == "ligand":
-                # _read_bio_chains carries a CCD code as "CCD_<code>" and a SMILES raw.
+                # _read_bio_chains carries a CCD code as "CCD_<code>" and a SMILES raw. The
+                # chain_id is the user's: without it atomworks hands out the next free letter
+                # and a ligand submitted as L comes back as B.
                 components.append({"ccd_code": cseq[4:]} if cseq.startswith("CCD_")
                                   else {"smiles": cseq})
+                components[-1]["chain_id"] = cid
                 continue
-            comp = {"seq": cseq, "chain_id": cid}
+            comp = {"seq": _rf3_sequence(cseq, mods), "chain_id": cid}
             if mt in _CHAIN_TYPE:
                 comp["chain_type"] = _CHAIN_TYPE[mt]
             elif not cfg.get("single_sequence"):
@@ -1268,13 +1377,15 @@ class _WorkerState:
                         comp["msa_path"], cfg.get("msa_cap"), td))
             spec_path = Path(td) / f"{path.stem}.json"
             spec_path.write_text(_json.dumps(
-                [{"name": path.stem, "components": components}]))
+                [{"name": path.stem, "components": components,
+                  "bonds": _rf3_bonds(components, _read_bio_constraints(path))}]))
             # Partial diffusion noises a structure, so it featurizes the structure
             # directly: RF3's own reader takes .cif/.pdb/.json, and a spec built from
             # sequences has no coordinates to start the rollout from.
             src = Path(cfg["partial_structure"]) if partial_t else spec_path
             out = featurize(src, n_recycles=n_recycles,
-                            diffusion_batch_size=n_sample, seed=seed)[0]
+                            diffusion_batch_size=n_sample, seed=seed,
+                            template_ca=template_ca)[0]
 
         f = out["feats"]
         atom_array = out["atom_array"]
@@ -1392,14 +1503,14 @@ class _WorkerState:
         import types
 
         from tt_bio.esmfold2 import report_progress
-        from tt_bio.main import _read_bio_chains
+        from tt_bio.main import _read_bio_chains, _read_bio_constraints, _read_cyclic
 
         model = cfg.get("model", "openfold3")
         chains = _read_bio_chains(path)
         if not chains:
             raise RuntimeError("no protein/nucleic-acid sequences")
         check_capabilities(path, chains, model)
-        tmpl_map = _template_map(path, model, chains)
+        tmpl_map = _template_map(path, model, chains, cfg["template_structures"])
         msa_dir = Path(cfg["msa_dir"])
 
         _MT = {"protein": "PROTEIN", "rna": "RNA", "dna": "DNA", "ligand": "LIGAND"}
@@ -1484,7 +1595,8 @@ class _WorkerState:
         # per-chain MSA paths.
         want_msa = cfg.get("use_msa_server") or cfg.get("msa_db_path") or cfg.get("msa_endpoint")
         from tt_bio.openfold3_data import (
-            normalize_openfold3_msa_paths, resolve_openfold3_msas)
+            attach_openfold3_paired_msas, normalize_openfold3_msa_paths,
+            resolve_openfold3_msas)
         # A YAML `msa:` path is used verbatim by the vendored parser, which filters by
         # file STEM and drops anything non-canonical -- so `msa: ./my.a3m` died on an
         # IndexError. Relink it under the canonical name first; bytes unchanged.
@@ -1510,6 +1622,13 @@ class _WorkerState:
                 raise RuntimeError(
                     f"MSA was requested but none resolved for protein chain(s) {missing} "
                     "-- refusing to silently fold single-sequence.")
+        # OpenBind only. preview2 runs upstream on 0.4.x, whose create_paired_from_precomputed
+        # never sets n_rows_paired_subsampled, so the featurizer drops the paired block
+        # (primitives/featurization/msa.py:112) and upstream folds a heteromer unpaired;
+        # 0.5.0 (PR #373) keeps it. Keyed on the checkpoint like the other 0.5.0 MSA fixes.
+        # Feeding preview2 the rows anyway cost 0.06 DockQ on 8WT4, worse on 6 of 6 seeds.
+        if model == "openbind" and _paired_msa(path, chains, msa_dir, cfg) is not None:
+            of3_query = attach_openfold3_paired_msas(of3_query, msa_dir)
         if cfg.get("single_sequence"):
             # --single_sequence is upstream's no-MSA mode, not an MSA-stack
             # disable: upstream substitutes a one-row alignment holding the
@@ -1531,7 +1650,8 @@ class _WorkerState:
         features = build_openfold3_features(
             of3_query,
             template_structures_directory=cfg["template_structures"],
-            openbind=(model == "openbind"))
+            openbind=(model == "openbind"),
+            bonds=_read_bio_constraints(path), cyclic=_read_cyclic(path))
         # Default = the featurizer max_rows (16384), i.e. NO extra subsampling: the
         # CPU reference folds the full featurized MSA, so any lower cap is an input
         # divergence (measured on 9BK6: the 1024-row subsample cost chain A

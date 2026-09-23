@@ -1,0 +1,9 @@
+version: 1
+# SFTI-1 (PDB 1SFI chain I): a head-to-tail cyclic 14-mer with a Cys3-Cys11 disulfide.
+# Ring only.
+sequences:
+  - protein:
+      id: A
+      sequence: GRCTKSIPPICFPD
+      msa: empty
+      cyclic: true

@@ -37,14 +37,31 @@ INPUTS: dict[str, str] = {
     "cyclic": _HEAD + "      cyclic: true\n",
     "modifications": _HEAD + "      modifications:\n        - position: 5\n          ccd: TPO\n",
     "templates": _HEAD + "      templates: /nonexistent/tmpl.npz\n",
-    "bond": _HEAD + ("constraints:\n  - bond:\n      atom1: [A, 5, SG]\n"
-                     "      atom2: [A, 9, SG]\n"),
+    "template_structure": _HEAD + "templates:\n  - cif: /nonexistent/t.cif\n    chain_id: A\n",
+    # A bond to a modified residue, the case every AF3-family upstream atomizes and reads.
+    "bond": _HEAD + ("      modifications:\n        - position: 5\n          ccd: TPO\n"
+                     "constraints:\n  - bond:\n      atom1: [A, 5, OG1]\n"
+                     "      atom2: [A, 8, NZ]\n"),
+    "polymer_bond": _HEAD + ("constraints:\n  - bond:\n      atom1: [A, 5, SG]\n"
+                             "      atom2: [A, 9, SG]\n"),
     "pocket": _HEAD + ("constraints:\n  - pocket:\n      binder: A\n"
                        "      contacts: [[A, 5]]\n"),
     "affinity": _HEAD + "properties:\n  - affinity:\n      binder: A\n",
 }
 
 PLAIN = _HEAD
+
+#: A protein-free input has to carry some other molecule, so its fixture is the first kind the
+#: model folds; otherwise an OpenDDE RNA refusal would read as the protein-free verdict.
+_NO_PROTEIN = {"rna": "version: 1\nsequences:\n  - rna:\n      id: R\n      sequence: GAUC\n",
+               "ligand": "version: 1\nsequences:\n  - ligand:\n      id: L\n      ccd: ATP\n"}
+
+
+def _fixture(feature, model):
+    if feature != "protein_free":
+        return INPUTS[feature]
+    return next((t for kind, t in _NO_PROTEIN.items() if CAPABILITY[model][kind] != REFUSED),
+                _NO_PROTEIN["rna"])
 
 
 def _yaml(tmp_path, text, name="q.yaml"):
@@ -74,12 +91,13 @@ def test_every_shipped_model_has_a_row():
 def test_boltz2_honours_the_whole_input_language():
     """The negative control for the table: if every row were REFUSED the cross product below
     would still pass. Boltz-2 has the upstream parser, the constraint embedder, the template
-    pipeline and the affinity head, so nothing in the reader is beyond it."""
-    assert set(CAPABILITY["boltz2"].values()) == {HONOURED}
+    pipeline and the affinity head. The one refusal is the per-chain template npz, which its
+    parser never reads; it takes the same template as a structure file."""
+    assert {f for f, v in CAPABILITY["boltz2"].items() if v != HONOURED} == {"templates"}
 
 
 @pytest.mark.parametrize("model", sorted(CAPABILITY))
-@pytest.mark.parametrize("feature", sorted(INPUTS))
+@pytest.mark.parametrize("feature", sorted(INPUTS) + ["protein_free"])
 def test_the_table_verdict_is_what_the_check_does(tmp_path, model, feature, capsys):
     if model in CHAINS_ELSEWHERE and feature in CHAIN_FEATURES:
         pytest.skip(f"{model} has its own reader; the chain columns record its verdict, they "
@@ -89,7 +107,7 @@ def test_the_table_verdict_is_what_the_check_does(tmp_path, model, feature, caps
     notes: list[str] = []
     if verdict == REFUSED:
         with pytest.raises(RuntimeError) as e:
-            _check(tmp_path, INPUTS[feature], model, notes)
+            _check(tmp_path, _fixture(feature, model), model, notes)
         msg = str(e.value)
         assert how(model) in msg and label in msg
         # A refusal that names nowhere else to go leaves the user stuck.
@@ -97,7 +115,7 @@ def test_the_table_verdict_is_what_the_check_does(tmp_path, model, feature, caps
         if others:
             assert any(how(m) in msg for m in others), msg
         return
-    assert _check(tmp_path, INPUTS[feature], model, notes), "the feature was not even detected"
+    assert _check(tmp_path, _fixture(feature, model), model, notes), "the feature was not even detected"
     if verdict == NOTED:
         assert any(label in n for n in notes), notes
     else:
@@ -120,19 +138,36 @@ def test_cyclic_false_is_not_a_refusal(tmp_path, model):
 
 def test_every_refused_feature_is_named_at_once(tmp_path):
     """A user fixing one key should not have to run again to find the next."""
-    text = (_HEAD + "      cyclic: true\n"
+    text = (_HEAD + "      templates: /nonexistent/tmpl.npz\n"
             + "constraints:\n  - pocket:\n      binder: A\n      contacts: [[A, 5]]\n")
     with pytest.raises(RuntimeError) as e:
-        _check(tmp_path, text, "protenix-v2")
+        _check(tmp_path, text, "esmfold2")
     msg = str(e.value)
-    assert "cyclic" in msg and "pocket" in msg
+    assert "templates" in msg and "pocket" in msg
+
+
+def test_an_rna_only_input_is_refused_by_esmfold2_before_any_model_load(tmp_path):
+    """ESMFold2 used to load its weights and then die with "needs at least one protein chain",
+    naming nowhere else to go. The refusal is a check-time one now, and it names the models
+    that fold RNA with no protein, read off the table."""
+    from tt_bio.worker import _WorkerState
+
+    state = object.__new__(_WorkerState)
+    with pytest.raises(RuntimeError) as e:
+        state.predict_one(_yaml(tmp_path, _NO_PROTEIN["rna"]), {"model": "esmfold2"})
+    msg = str(e.value)
+    assert "no protein chain" in msg
+    expected = [m for m in honoured_by("protein_free")
+                if CAPABILITY[m]["rna"] == HONOURED and not m.startswith("esmfold2")]
+    assert expected and all(how(m) in msg for m in expected), msg
 
 
 def test_every_offending_chain_id_is_named_and_no_other(tmp_path):
     text = (f"version: 1\nsequences:\n  - protein:\n      id: [A, B]\n      sequence: {SEQ}\n"
-            f"      cyclic: true\n  - protein:\n      id: C\n      sequence: {SEQ}\n")
+            f"      templates: /nonexistent/tmpl.npz\n  - protein:\n      id: C\n"
+            f"      sequence: {SEQ}\n")
     with pytest.raises(RuntimeError) as e:
-        _check(tmp_path, text, "openbind")
+        _check(tmp_path, text, "esmfold2")
     msg = str(e.value)
     assert "A" in msg and "B" in msg
     assert "C" not in msg.split("Honoured by")[0]
@@ -156,12 +191,26 @@ def test_an_empty_or_odd_yaml_does_not_raise_by_accident(tmp_path):
         assert detect(p, []) == {}
 
 
-def test_the_committed_cyclic_example_is_refused():
+@pytest.mark.parametrize("model", sorted(PREDICT_MODELS))
+def test_the_committed_cyclic_example_is_accepted(model):
     p = Path(__file__).resolve().parent.parent / "examples" / "cyclic_prot.yaml"
     if not p.exists():
         pytest.skip("examples/cyclic_prot.yaml not in this checkout")
-    with pytest.raises(RuntimeError, match="cyclic"):
-        check_capabilities(p, _read_bio_chains(p), "openbind", echo=None)
+    if CAPABILITY[model]["cyclic"] != HONOURED:
+        with pytest.raises(RuntimeError, match="cyclic"):
+            check_capabilities(p, _read_bio_chains(p), model, echo=None)
+        return
+    assert "cyclic" in check_capabilities(p, _read_bio_chains(p), model, echo=None)
+
+
+def test_a_cyclic_refusal_says_what_was_measured():
+    """Each model that refuses `cyclic: true` reached the closing bond and did not form it
+    (perf/mgx_constraints), so the refusal carries that reason rather than a workaround: the
+    head-to-tail `bond` is the very route that failed on protenix-v1."""
+    from tt_bio.capabilities import WHY
+    for m in CAPABILITY:
+        if CAPABILITY[m]["cyclic"] == REFUSED:
+            assert "1.33 A" in WHY.get((m, "cyclic"), ""), m
 
 
 def test_every_predict_path_calls_check_capabilities():
@@ -185,8 +234,8 @@ def test_the_dispatch_path_refuses_before_any_device_work(tmp_path, model):
 
     state = object.__new__(_WorkerState)
     with pytest.raises(RuntimeError) as e:
-        state.predict_one(_yaml(tmp_path, INPUTS["cyclic"]), {"model": model})
-    assert model in str(e.value) and "cyclic" in str(e.value)
+        state.predict_one(_yaml(tmp_path, INPUTS["pocket"]), {"model": model})
+    assert model in str(e.value) and "pocket" in str(e.value)
 
 
 def test_a_plain_job_still_gets_past_the_dispatch_guard(tmp_path):
@@ -199,21 +248,26 @@ def test_a_plain_job_still_gets_past_the_dispatch_guard(tmp_path):
         state.predict_one(_yaml(tmp_path, PLAIN), {"model": "esmfold2"})
 
 
-def test_the_vendored_of3_tree_still_has_no_cyclic_field():
-    """Why the OF3/OpenBind cyclic rows are REFUSED. If a vendor bump restores Chain.cyclic
-    and the cyclic_mask feature, this fails and the row should be revisited rather than left
-    refusing something the tree now supports."""
-    from tt_bio._vendor.openfold3.projects.of3_all_atom.config.inference_query_format import (
-        Chain,
-    )
-    assert "cyclic" not in Chain.model_fields
+def test_cyclic_and_bond_reach_every_path_that_honours_them():
+    """A row that says `yes` over a door that never reads the key is the silent drop this
+    table exists to stop. Each predict path must read `cyclic` and `bond` itself:
+    `_read_bio_bonds` for the token-bond models (Protenix, OpenDDE, ESMFold2, which get a
+    ring as its closing amide), the constraints for RF3, and `_read_cyclic` plus the
+    constraints for the OF3 family, which has its own ring encoding."""
+    from tt_bio.worker import _WorkerState
 
-
-def test_the_reader_still_drops_what_the_table_refuses():
-    """Why the cyclic rows are REFUSED rather than honoured: there is no path from the key to
-    the featurizer. This failing means a port gained the feature and its row is now wrong."""
-    assert "cyclic" not in inspect.getsource(_read_bio_chains), \
-        "the reader now carries `cyclic` -- revisit the cyclic rows"
+    reads = {"_predict_esmfold2_one": ("_read_bio_bonds(path, chains)",),
+             "_predict_opendde_one": ("_read_bio_bonds(path, chains)",),
+             "_protenix_inputs": ("_read_bio_bonds(path, chains)",),
+             "_predict_rf3_one": ("_rf3_bonds(components, _read_bio_constraints(path))",),
+             "_predict_openfold3_one": ("bonds=_read_bio_constraints(path), "
+                                        "cyclic=_read_cyclic(path)",)}
+    for method, needles in reads.items():
+        src = inspect.getsource(getattr(_WorkerState, method))
+        for needle in needles:
+            assert needle in src, f"{method} no longer reads {needle}"
+    assert [m for m in PREDICT_MODELS if CAPABILITY[m]["cyclic"] != HONOURED] == [
+        "protenix-v1", "rf3"]
 
 
 def test_modifications_reach_every_featurizer_that_honours_them():
@@ -229,11 +283,11 @@ def test_modifications_reach_every_featurizer_that_honours_them():
     of3 = inspect.getsource(_WorkerState._predict_openfold3_one)
     assert '"non_canonical_residues": ({m["position"]' in of3, \
         "the OF3 query stopped carrying non_canonical_residues"
+    assert '"seq": _rf3_sequence(cseq, mods)' in inspect.getsource(
+        _WorkerState._predict_rf3_one), "the RF3 spec stopped carrying (CCD) residues"
     for model in ("protenix-v1", "protenix-v2", "opendde", "opendde-abag", "openfold3",
-                  "openbind", "esmfold2"):
+                  "openbind", "esmfold2", "rf3"):
         assert CAPABILITY[model]["modifications"] == HONOURED
-    assert CAPABILITY["rf3"]["modifications"] == REFUSED, \
-        "rf3 reads modified residues from its own JSON/CIF spec, not from this YAML"
 
 
 def test_the_nesso1_row_covers_the_command_that_is_not_predict():
@@ -352,8 +406,8 @@ def test_the_cap_reaches_every_msa_path():
     for name in ("_predict_rf3_one", "_predict_openfold3_one"):
         assert 'cfg.get("msa_cap")' in inspect.getsource(getattr(_WorkerState, name)), \
             f"{name} no longer applies the cap"
-    src = inspect.getsource(_WorkerState._predict_opendde_one)
-    assert "cap_a3m_text(paired.get(" in src, "the opendde paired MSA is no longer capped"
+    assert 'cfg.get("msa_cap")' in inspect.getsource(worker._paired_a3ms), \
+        "the protenix/opendde paired MSA is no longer capped"
 
 
 def test_the_default_does_not_travel():
@@ -373,7 +427,7 @@ def test_every_folding_model_reports_the_depth_it_used(model):
     from tt_bio.worker import _WorkerState
 
     paths = {"protenix-v1": "_protenix_emit", "protenix-v2": "_protenix_emit",
-             "opendde": "_predict_opendde_one", "opendde-abag": "_predict_opendde_one",
+             "opendde": "_protenix_emit", "opendde-abag": "_protenix_emit",
              "openfold3": "_predict_openfold3_one", "openbind": "_predict_openfold3_one",
              "rf3": "_predict_rf3_one"}
     if model not in paths:

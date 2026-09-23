@@ -341,13 +341,70 @@ def _components(sd, config):
     return built
 
 
+def _msa_per_loop(kw, total_steps, max_depth, col_rate):
+    """The MSA encoder's inputs for each trunk loop, the way esm 3.4.1 draws them
+    (`model.py` forward + `_run_one_loop`, `layers.py::maybe_apply_msa_column_masking` /
+    `maybe_subsample_msa`): `col_rate` of the columns masked once in every row but the query,
+    then, when the MSA is deeper than `max_depth`, a fresh `max_depth`-row subsample per loop
+    that always keeps the query. Draws come from the global torch RNG, which `fold()` seeds.
+
+    `kw` holds the vendored forward's tensors, rows on axis 2: `msa_oh` [B,L,M,C] and
+    `has_deletion` / `deletion_value` / `msa_attention_mask` [B,L,M]. Returns one kwargs dict
+    per loop, or a single one when every loop would see the same MSA.
+    """
+    mask, oh = kw["msa_attention_mask"], kw["msa_oh"]
+    B, L, M = mask.shape
+    if col_rate > 0 and M > 1:
+        keep = (torch.rand(B, L) >= col_rate)[:, :, None].expand(B, L, M).clone()
+        keep[:, :, 0] = True
+        mask = (mask.bool() & keep.to(mask.device)).to(mask.dtype)
+        # the bias-free embed needs masked entries zeroed, as upstream does before the encoder
+        oh = oh * mask.unsqueeze(-1).to(oh.dtype)
+    kw = dict(kw, msa_attention_mask=mask, msa_oh=oh)
+    if not max_depth or M <= max_depth:
+        return [kw]
+    loops = []
+    for _ in range(total_steps):
+        idx = torch.zeros(max_depth, dtype=torch.long)
+        idx[1:] = torch.randperm(M - 1)[: max_depth - 1] + 1
+        idx = idx.sort().values
+        loops.append(dict(kw, **{k: kw[k].index_select(2, idx.to(kw[k].device))
+                                 for k in ("msa_oh", "has_deletion", "deletion_value",
+                                           "msa_attention_mask")}))
+    return loops
+
+
+def _lm_dropout(lm_z, p):
+    """esm 3.4.1's per-loop `F.dropout(lm_z, p, training=True)` (`model.py::_run_one_loop`).
+
+    The keep mask comes from the global torch RNG, which `fold()` seeds, so the draw follows the
+    seed and not the card. A device-resident pair is masked on the device: the 0/1 mask is exact
+    in bf16, the 1/(1-p) scale is applied after it rather than baked into the mask.
+    """
+    if not isinstance(lm_z, _DevPair):
+        return lm_z * torch.empty(lm_z.shape).bernoulli_(1.0 - p).to(lm_z.dtype) / (1.0 - p)
+    import ttnn
+
+    t = lm_z.t
+    keep = torch.empty(tuple(t.shape)).bernoulli_(1.0 - p)
+    m = ttnn.from_torch(keep.to(torch.bfloat16), device=t.device(), layout=ttnn.TILE_LAYOUT,
+                        dtype=ttnn.bfloat16)
+    kept = ttnn.multiply(t, m)
+    ttnn.deallocate(m)
+    out = ttnn.multiply(kept, 1.0 / (1.0 - p))
+    ttnn.deallocate(kept)
+    return _DevPair(out, lm_z.seq_len)
+
+
 def _install_resident_trunk_loop(model):
     """Replace the reference `_run_one_loop` with an on-device, resident-z version.
 
     Two wins over the per-module reference loop:
-      * Deterministic inference (the per-loop lm_dropout's expectation is the
-        identity) makes the LM-encoder, MSA-encoder and injection projection
-        LOOP-INVARIANT — they are computed once instead of every iteration.
+      * Each loop draws what esm 3.4.1 draws: the LM pair input gets a fresh
+        `lm_encoder.lm_dropout` mask (upstream keeps it on in eval, as in training;
+        `_lm_dropout`) and the MSA encoder a fresh row subsample when the MSA is
+        deeper than `msa_encoder.max_depth` (`_msa_per_loop`). Only what no loop
+        redraws is computed once.
       * The pair state z stays resident on the TT device across all trunk
         iterations: the parcae recurrence (a*z + inject) and the folding trunk
         both run on-device, so the ~L²·256 pair tensor is never round-tripped
@@ -362,22 +419,42 @@ def _install_resident_trunk_loop(model):
     ftw = model.folding_trunk.m  # _Adapter.m -> E.FoldingTrunk TorchWrapper
     overwrite = bool(getattr(model.config, "msa_encoder_overwrite", True))
 
+    msa_cfg = getattr(model.config, "msa_encoder", None)
+    max_depth = getattr(msa_cfg, "max_depth", None)
+    col_rate = float(getattr(msa_cfg, "column_mask_rate", 0.0) or 0.0)
+    lm_cfg = getattr(model.config, "lm_encoder", None)
+    lm_p = float(getattr(lm_cfg, "lm_dropout", 0.0) or 0.0) \
+        if getattr(lm_cfg, "per_loop_lm_dropout", False) else 0.0
+
     def _run_one_loop(self, z, z_init, lm_z, _msa_kwargs, pair_mask, a, b_mat, total_steps):
-        # --- loop-invariant injection, computed ONCE ---
-        z_inject = z_init
-        if self.msa_encoder is not None and _msa_kwargs is not None:
-            # reference passes x_pair (the current pair state) separately from _msa_kwargs
-            msa_pair = self.msa_encoder(x_pair=z_inject, **_msa_kwargs).to(z_init.dtype)
-            z_inject = msa_pair if overwrite else (z_inject + msa_pair)
-            dram_peak("esmfold2/msa-encoder")
-        if lm_z is not None and self.lm_encoder is not None:
-            if isinstance(lm_z, _DevPair):
-                refined = _trunk_on_device(self.lm_encoder.m, lm_z)
+        use_lm = lm_z is not None and self.lm_encoder is not None
+
+        def lm_refined():
+            x = _lm_dropout(lm_z, lm_p) if lm_p else lm_z
+            if isinstance(x, _DevPair):
+                out = _trunk_on_device(self.lm_encoder.m, x)
+                if x is not lm_z:
+                    ttnn.deallocate(x.t)
             else:
-                refined = self.lm_encoder(lm_z.to(z_init.dtype), pair_attention_mask=pair_mask)
-            z_inject = z_inject + refined.to(z_init.dtype)
-        injected = self.parcae_input_norm(z_inject)
-        inject_proj = F.linear(injected.to(z.dtype), b_mat)  # [1,L,L,256] (host)
+                out = self.lm_encoder(x.to(z_init.dtype), pair_attention_mask=pair_mask)
+            return out.to(z_init.dtype)
+
+        msa_loops = None
+        if self.msa_encoder is not None and _msa_kwargs is not None:
+            msa_loops = _msa_per_loop(_msa_kwargs, total_steps, max_depth, col_rate)
+
+        def inject_proj(msa_kw):
+            refined = lm_refined() if use_lm else None
+            z_inject = z_init
+            if msa_kw is not None:
+                # reference passes x_pair (the current pair state) separately from _msa_kwargs
+                msa_pair = self.msa_encoder(x_pair=z_inject, **msa_kw).to(z_init.dtype)
+                z_inject = msa_pair if overwrite else (z_inject + msa_pair)
+                dram_peak("esmfold2/msa-encoder")
+            if refined is not None:
+                z_inject = z_inject + refined
+            injected = self.parcae_input_norm(z_inject)
+            return F.linear(injected.to(z.dtype), b_mat)  # [1,L,L,256] (host)
 
         # --- resident-z recurrence on device ---
         Lp = z.shape[1]
@@ -389,14 +466,23 @@ def _install_resident_trunk_loop(model):
             real[:, :Lp, :Lp] = 1.0
             mask = ftw._from_torch(real)
         zt = ftw._from_torch(padz(z).float())
-        ipt = ftw._from_torch(padz(inject_proj).float())
+        # The injection is loop-invariant only when no loop redraws its LM dropout or MSA rows.
+        per_loop = (use_lm and bool(lm_p)) or (msa_loops is not None and len(msa_loops) > 1)
+        ipt = None if per_loop else ftw._from_torch(
+            padz(inject_proj(msa_loops[0] if msa_loops else None)).float())
         at = ftw._from_torch(a.reshape(1, 1, 1, -1).float())  # parcae a, broadcasts over L,L
         for _step in range(total_steps):
             E.report_progress("trunk", _step, total_steps)
+            if per_loop:
+                ipt = ftw._from_torch(padz(inject_proj(
+                    msa_loops[min(_step, len(msa_loops) - 1)] if msa_loops else None)).float())
             az = ttnn.multiply(zt, at)
             ttnn.deallocate(zt)
             znew = ttnn.add(az, ipt)
             ttnn.deallocate(az)
+            if per_loop:
+                ttnn.deallocate(ipt)
+                ipt = None
             zt = ftw.module(znew, mask)  # folding trunk consumes znew, returns new z
         dram_peak("esmfold2/trunk-done")
         z_out = ftw._to_torch(zt)[:, :Lp, :Lp, :].to(z.dtype)
@@ -555,6 +641,27 @@ def _msa_from_csv(path, max_sequences):
     return MSA.from_sequences(seqs, remove_insertions=True) if seqs else None
 
 
+def pair_keyed_msa(msa, paired_a3m, max_sequences=16384):
+    """Put a chain's species-paired rows in front of its MSA, headed ``key=j``.
+
+    That header is how upstream ESMFold2 pairs across chains
+    (``esm/models/esmfold2/paired_msa.py``: rows sharing a ``key=N`` are paired, anything
+    else goes to the chain's block-diagonal section). Row j of every chain's paired a3m is
+    one genome, so its key is j. An all-gap row is a genome this chain has no homolog in:
+    it is dropped and the partners keep their row j. The unpaired rows follow unkeyed.
+    """
+    import io
+
+    from tt_bio._vendor.esm.utils.msa.msa import MSA
+    from tt_bio._vendor.esm.utils.parsing import FastaEntry
+
+    rows = MSA.from_a3m(io.StringIO(paired_a3m), remove_insertions=True).entries
+    keyed = [FastaEntry(f"key={j}", seq) for j, (_h, seq) in enumerate(rows)
+             if j and seq.strip("-")]
+    query, unpaired = (msa.entries[0], msa.entries[1:]) if msa is not None else (rows[0], [])
+    return MSA(([query] + keyed + unpaired)[:max_sequences])
+
+
 def resolve_msa(msa_spec, sequence, msa_dir=None, max_sequences=16384):
     """Resolve a chain's MSA to an esm ``MSA`` object (or None).
 
@@ -587,7 +694,7 @@ def resolve_msa(msa_spec, sequence, msa_dir=None, max_sequences=16384):
 MOL_TYPES = ("protein", "dna", "rna", "ligand")
 
 
-def build_spi(chains):
+def build_spi(chains, bonds=None):
     """Canonical ``chains`` -> the vendored ``StructurePredictionInput``.
 
     One entry per chain: ``(chain_id, sequence, msa, mol_type, modifications)``, the
@@ -652,11 +759,71 @@ def build_spi(chains):
             kwargs["msa"] = msa
         return _POLYMER[mol_type](**kwargs)
 
-    return StructurePredictionInput(sequences=[_entry(c) for c in chains])
+    spi = StructurePredictionInput(sequences=[_entry(c) for c in chains])
+    if bonds:
+        spi.covalent_bonds = _covalent_bonds(spi, bonds)
+    return spi
+
+
+def _covalent_bonds(spi, bonds):
+    """`bond` endpoints ``(chain, 1-indexed residue, atom name)`` as upstream's
+    ``CovalentBond``, which names an atom by its index in that residue's atom list.
+
+    The list is read off the featurizer's own tokenization of this input, with the bonded
+    chains already marked covalent: a covalently bound CCD ligand drops its leaving atoms,
+    so the indices depend on it. A SMILES atom takes the portable name (C1 = first carbon in
+    the SMILES), resolved against the heavy atoms in SMILES order the tokenizer emits.
+    """
+    from collections import defaultdict
+
+    from tt_bio._vendor.esm.models.esmfold2 import CovalentBond, LigandInput
+    from tt_bio._vendor.esm.models.esmfold2.prepare_input import build_chains_from_input
+    from tt_bio.data.parse import _resolve_bond_atom, portable_atom_names
+
+    spi.covalent_bonds = [CovalentBond(a[0], 0, 0, b[0], 0, 0) for a, b in bonds]
+    infos, tokens, atoms = build_chains_from_input(spi, seed=0)
+    asym = {c.chain_id: c.asym_id for c in infos}
+    smiles = {i for e in spi.sequences if isinstance(e, LigandInput) and e.smiles
+              for i in ([e.id] if isinstance(e.id, str) else e.id)}
+    residue = defaultdict(list)
+    for a in atoms:
+        if a.is_valid and a.token_index < len(tokens):
+            t = tokens[a.token_index]
+            residue[(t.asym_id, t.residue_index)].append(a)
+
+    def end(cid, res, name, key):
+        if cid not in asym:
+            raise ValueError(f"bond constraint references chain '{cid}', which is not in the "
+                             "input.")
+        here = residue.get((asym[cid], res - 1))
+        if not here:
+            raise ValueError(f"bond constraint references residue {res} on chain '{cid}', "
+                             "which it does not have.")
+        names, shown, asked = [a.name for a in here], None, name
+        if cid in smiles:
+            portable = portable_atom_names((a.name, a.element) for a in here)
+            name, shown = _resolve_bond_atom(portable, cid, name, key), list(portable)
+        if name not in names:
+            raise ValueError(f"bond constraint references atom '{asked}' on residue {res} of "
+                             f"chain '{cid}', which it does not have. Its atoms: "
+                             f"{', '.join(shown or names)}.")
+        return res - 1, names.index(name)
+
+    out = []
+    for a1, a2 in bonds:
+        r1, i1 = end(*a1, "atom1")
+        r2, i2 = end(*a2, "atom2")
+        out.append(CovalentBond(a1[0], r1, i1, a2[0], r2, i2))
+    return out
+
+
+# Largest token count measured to fold on a 12 GiB Wormhole chip with the ESMC-6B resident
+# (single sequence, whglx 2026-09-23). Above it the LM is released after its forward.
+WH_LM_RESIDENT_MAX_TOKENS = 1088
 
 
 def fold_complex(model, chains, *, num_loops=3, num_sampling_steps=20,
-                 num_diffusion_samples=1, seed=0, return_all=False):
+                 num_diffusion_samples=1, seed=0, return_all=False, bonds=None):
     """Fold one (possibly multi-chain) complex on an already-patched model.
 
     `chains` is the canonical chain list :func:`build_spi` documents: protein, DNA, RNA
@@ -681,18 +848,24 @@ def fold_complex(model, chains, *, num_loops=3, num_sampling_steps=20,
     """
     from tt_bio._vendor.esm.models.esmfold2 import ESMFold2InputBuilder
 
-    spi = build_spi(chains)
+    spi = build_spi(chains, bonds)
     # A 12 GiB Wormhole chip cannot hold the resident block-fp8 ESMC-6B (6.29 GiB)
     # plus the MSA encoder's [1, L, M, d] activation, which is 1.0 GiB at 128 aa for
     # the default M=8192 and grows with L: every MSA fold died in the encoder with
     # ~70 MiB of contiguous DRAM left. Release the language model after its single
     # forward (it runs once per fold, outside the recycling loop) and pay one reload.
     # Bit-exact: same weights, same dtype, same order, only the device buffers move.
-    # Blackhole (32 GB), the single-sequence path and ESMFold2-Fast (no MSA encoder)
-    # all keep the LM resident and run byte-identically to before.
+    # Blackhole (32 GB) always keeps the LM resident, and so does a Wormhole fold without an
+    # MSA up to WH_LM_RESIDENT_MAX_TOKENS.
+    #
+    # The same holds without an MSA once the pair track is large: single-sequence esmfold2 folded
+    # 1088 tokens on the Galaxy with the LM resident and died at 1152 in the MSA encoder's pair FFN
+    # with 10.6 MiB per bank free, the LM holding ~537 of each bank's 1024 MiB. One fold per process
+    # pays nothing for the release; a server folding many large targets pays one reload each.
     esmc = getattr(model, "_esmc", None)
     release_lm = (esmc is not None and getattr(esmc, "_persistent", False)
-                  and any(len(c) > 2 and c[2] is not None for c in chains)
+                  and (any(len(c) > 2 and c[2] is not None for c in chains)
+                       or sum(len(c[1]) for c in chains) > WH_LM_RESIDENT_MAX_TOKENS)
                   and is_wormhole())
     if release_lm:
         esmc._persistent = False

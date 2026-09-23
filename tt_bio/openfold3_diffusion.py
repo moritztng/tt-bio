@@ -32,7 +32,10 @@ from __future__ import annotations
 
 import ttnn
 
-from .tenstorrent import Module
+from .tenstorrent import Module, pair_row_blocks, row_block_after_refusal
+
+# Pair shapes whose single-pass conditioning DRAM refused, and the row block they settled at.
+_PAIR_ROWS_REFUSED: dict = {}
 
 
 class _SwiGLUTransition(Module):
@@ -95,7 +98,18 @@ class OF3DiffusionConditioning(Module):
         """Pair branch: cat([zij_trunk, relpos]) -> LN_z -> linear_z -> 2x SwiGLU.
 
         Nothing here depends on the noise level, so a diffusion rollout computes it once
-        rather than once per step."""
+        rather than once per step.
+
+        Every op is per pair position, so row blocks are bit-exact. They are only taken after
+        DRAM refuses the single pass: at 1216 tokens the 267-channel concat alone is
+        1703411712 B and a Wormhole chip holding the trunk's outputs has no run that long."""
+        return row_block_after_refusal(
+            _PAIR_ROWS_REFUSED, tuple(zij_trunk.padded_shape),
+            lambda: self._pair(zij_trunk, relpos, pair_mask),
+            lambda rows: pair_row_blocks(self._pair, (zij_trunk, relpos, pair_mask), rows),
+            rows=256, tag="of3 diffusion pair")
+
+    def _pair(self, zij_trunk, relpos, pair_mask):
         lin = self._lin
         zc = ttnn.concat([zij_trunk, relpos], dim=-1)        # [1, N, N, 267]
         z = ttnn.layer_norm(zc, weight=self.ln_z, epsilon=1e-5,

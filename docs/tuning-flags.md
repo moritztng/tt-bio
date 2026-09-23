@@ -1045,6 +1045,44 @@ Every model's token bucket answers to this, and the legacy per-model flags are A
 
 Off-lattice counts are slower. They are also what `docs/size-generality.md` asks for when checking that a size claim is a property of the model and not an artifact of the bucket lattice: a ceiling measured only at multiples of 32 cannot tell the two apart.
 
+## `TT_BIO_TRIATT_NARROW_Q_FALLBACK` — on
+
+Triangle attention's fused kernel hoists its mask fill, and one precondition is that the q_chunk
+divides the padded length. When it does not, the call does not merely pay for the padding: it
+declines the fused path and drops to the stock op. The production pick is a fixed 256, so any
+padded length that is not a multiple of 256 is exposed. This flag offers the dividing chunks below
+256 before falling back to the one that pads.
+
+It is bounded to chunks of 128 and up, and that bound is the reason it ships on. The kernel
+re-reads all of K and V once per q chunk, so a narrow chunk trades re-reads for keeping the fused
+path. Every narrower candidate fits L1, so the widest offered one always wins, and how wide that
+is comes down to the arithmetic of the padded length. Across the 37 tile-aligned lengths from 256
+to 1536, twenty of them have no divisor near 256 and would fall to a chunk re-reading K and V
+2.7x to 8x more. A padded 1184 is 32x37, whose only narrower divisor is 32. The bound declines all
+of those, so they behave exactly as they did before, and it admits the lengths whose fallback sits
+close to the shipped pick.
+
+**Speed: 1.1005x on RoseTTAFold3 at 896 residues**, 104.00 s to 94.50 s, +9.5000 s. Two
+interleaved pairs on a p300c, both arm orders, board-pair sibling card verified idle, AICLK
+sampled during every leg at 1200 MHz or above, against an A/A floor of 0.635 %. The effect is
+15.83x that floor and the arms do not overlap.
+
+**Accuracy.** On RoseTTAFold3 it is bit for bit: one mmCIF digest across 12 legs at 896 residues
+and 6 at 1088, both arms. The chunk width splits output rows and the online softmax reduces over
+the key axis, so the attention itself rounds the same. On OpenBind it is not, because the
+narrower chunk leaves enough L1 for one more call to take the persistent-mask kernel, which rounds
+differently. On aminopeptidase N (PDB 3B34, 891 residues, padded to 896) at default settings over
+three seeds, the flag moves the structure 0.061 to 0.081 A, under the 0.60 A bar and 11x under
+the smallest seed-to-seed distance (0.82 A). Distance to the deposited structure changes by
+-0.0001 A on average (0.60 to 0.79 A either way). `perf/land_standing/narrowq_openbind_pepn.md`
+has the table.
+
+Two models change output at 896 residues: RoseTTAFold3, which gets the speedup, and OpenBind,
+which gets the precision change above. A size-ladder census with only this flag flipped leaves
+Protenix-v2 at 896 and OpenBind at 640 identical. At 1088 the bound makes the flag a no-op.
+
+`TT_BIO_TRIATT_NARROW_Q_FALLBACK=0` is the way back.
+
 ## `TT_BIO_TRIATT_SDPA_HIFI_AB` — on for `openfold3.trunk`, off at every other site
 
 Triangle attention has two routes on Blackhole: a materialised chain that takes its softmax in

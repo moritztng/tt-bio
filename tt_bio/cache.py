@@ -33,6 +33,22 @@ def seq_hash(seq: str) -> str:
     return hashlib.sha256(seq.encode()).hexdigest()[:16]
 
 
+def paired_msa_dir(msa_dir, seqs) -> Path | None:
+    """Where the paired MSA of a complex with these protein sequences lives, or None when
+    the complex does not pair.
+
+    A paired alignment belongs to the complex, not to one chain: row j of chain A lines up
+    with row j of its partner, so the same chain paired against a different partner has
+    different rows. It is keyed by the set of unique sequences. One sequence (a monomer, or
+    a homomer's identical copies) has nothing to pair against, which is the rule Protenix,
+    OpenDDE, OpenFold3 and Boltz-2 all apply upstream.
+    """
+    uniq = sorted(set(seqs))
+    if len(uniq) < 2:
+        return None
+    return Path(msa_dir) / "paired" / hashlib.sha256("\n".join(uniq).encode()).hexdigest()[:16]
+
+
 def cached(path) -> bool:
     """True when a cache entry is present and non-empty.
 

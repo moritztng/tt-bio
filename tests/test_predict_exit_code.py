@@ -125,6 +125,53 @@ def test_ttnn_model_branch_controller_all_failed_exits_1(host_predict, tmp_path)
     assert result.exit_code == 1
 
 
+def _refused(path):
+    """A target protenix-v2 refuses at check time: it has no pocket constraint embedder."""
+    path.write_text(_target(path).read_text() + "constraints:\n  - pocket:\n      binder: A\n"
+                    "      contacts: [[A, 1]]\n")
+    return path
+
+
+def test_one_refused_file_does_not_abort_the_batch(host_predict, monkeypatch, tmp_path):
+    """A directory of inputs aborted on its first refused file, before any fold. The refused
+    one is now reported and recorded, the rest fold, and the exit status says partial."""
+    import json
+
+    import tt_bio.main as m
+
+    data = tmp_path / "data"
+    data.mkdir()
+    _target(data / "a.yaml")
+    _refused(data / "b.yaml")
+    _target(data / "c.yaml")
+    sent = []
+    real = m._dispatch_run
+    monkeypatch.setattr(m, "_dispatch_run", lambda payload, *a, **k: (
+        sent.extend(j["id"] for j in payload["jobs"]), real(payload, *a, **k))[1])
+    result = CliRunner().invoke(
+        cli, ["predict", str(data), "--model", "protenix-v2", "--single_sequence",
+              "--out_dir", str(tmp_path / "out")])
+    assert sorted(sent) == ["a", "c"] and host_predict["total"] == 2
+    assert result.exit_code == 2, result.output
+    assert "b" in result.output and "pocket" in result.output
+    rows = json.loads(next((tmp_path / "out").glob("*/results.json")).read_text())
+    assert [(r["id"], r["status"]) for r in rows] == [("b", "failed")]
+    assert "pocket" in rows[0]["error"]
+
+
+def test_a_batch_that_is_all_refused_still_stops_before_dispatch(host_predict, tmp_path):
+    data = tmp_path / "data"
+    data.mkdir()
+    _refused(data / "a.yaml")
+    _refused(data / "b.yaml")
+    result = CliRunner().invoke(
+        cli, ["predict", str(data), "--model", "protenix-v2", "--single_sequence",
+              "--out_dir", str(tmp_path / "out")])
+    assert result.exit_code == 1
+    assert host_predict["total"] is None
+    assert "a.yaml" in result.output and "b.yaml" in result.output
+
+
 def test_exit_code_mapping():
     from tt_bio.main import _exit_for_failed_jobs
 

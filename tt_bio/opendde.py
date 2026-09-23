@@ -19,13 +19,9 @@ import ttnn
 
 from .protenix import _KeyedWeights
 from .envflags import env_flag
+from .opendde_data import STRUCTURAL_TOKEN_ROLES
 from .tenstorrent import _acc_concat, concat_host_bytes, get_device
 
-# opendde/data/tokenizer.py
-STRUCTURAL_TOKEN_ROLES = {
-    "atom": 0, "protein_bb": 1, "protein_sc": 2,
-    "dna_bb": 3, "dna_base": 4, "rna_bb": 5, "rna_base": 6,
-}
 _BACKBONE = (STRUCTURAL_TOKEN_ROLES["protein_bb"],
              STRUCTURAL_TOKEN_ROLES["dna_bb"],
              STRUCTURAL_TOKEN_ROLES["rna_bb"])
@@ -598,11 +594,11 @@ class OpenDDE:
                 coords.append(edm_sample(P.diffusion, cond, N, n_step=n_step, seed=sd_seed,
                                          trace=trace, progress_fn=progress_fn, dump_fn=_df)[0])
             coords = torch.stack(coords, 0)
-        # dit_z (LN(pair_z) uploaded for the on-device DiT) is sampler-only state; the
-        # residue-axis confidence head never reads it. At Ns=2113 it is another ~1.1 GiB
-        # the confidence pairformer needs back.
-        if "dit_z" in cond:
-            ttnn.deallocate(cond["dit_z"])
+        # The conditioning is sampler-only state (dit_z alone is ~1.1 GiB at Ns=2113, and the
+        # per-block DiT biases and the atom-pair track sit beside it); the residue-axis
+        # confidence head never reads it, and its pairformer needs the room back.
+        from .esmc import _free_ttnn_tensors
+        _free_ttnn_tensors(cond)
         if return_confidence:
             if progress_fn:
                 progress_fn("confidence")

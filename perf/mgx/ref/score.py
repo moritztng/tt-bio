@@ -45,26 +45,20 @@ def lddt_ca(model: list, ref: list, cutoff: float = 15.0) -> float:
     return float(np.mean([(err < t).mean() for t in (0.5, 1.0, 2.0, 4.0)]))
 
 
-def resolved_only(chains: dict, crystal: dict) -> dict:
-    """`chains` cut to the residues every same-sequence crystal chain resolves."""
-    out = {}
-    for name, (seq, pos) in chains.items():
-        keep = [set(p) for s, p in crystal.values() if s == seq]
-        keys = set.intersection(*keep) if keep else set(pos)
-        out[name] = (seq, {k: v for k, v in pos.items() if k in keys})
-    return out
+def resolved(ref: dict, gt: str) -> dict:
+    """`ref`'s chains cut to the residues the crystal `gt` resolves, chains matched by sequence."""
+    g = ca_chains(gt)
+    best = best_rmsd(g, ref)
+    keep = {nr: set(g[ng][1]) for ng, nr in best[2]} if best else {}
+    return {n: (seq, {k: v for k, v in ca.items() if k in keep.get(n, ())}) for n, (seq, ca) in ref.items()}
 
 
-def compare(pred: str, ref: str, crystal: str | None = None) -> dict:
-    """CA-RMSD after superposition and CA-lDDT of `pred` against `ref`.
-
-    With `crystal`, both sides are cut to the residues the crystal resolves first. Disordered
-    termini and loops have no defined position, so upstream seeds scatter there and dominate a
-    whole-chain number on a real complex."""
+def compare(pred: str, ref: str, gt: str | None = None) -> dict:
+    """CA-RMSD after superposition and CA-lDDT of `pred` against `ref`; with a crystal `gt`, only
+    over the residues it resolves (an unresolved tag or loop has no ground truth to be right about)."""
     a, b = ca_chains(ref), ca_chains(pred)
-    if crystal:
-        gt = ca_chains(crystal)
-        a, b = resolved_only(a, gt), resolved_only(b, gt)
+    if gt:
+        a = resolved(a, gt)
     best = best_rmsd(a, b)
     if best is None:
         return {"error": "no chain of the prediction matches the reference by sequence"}
@@ -90,35 +84,23 @@ def ref_paths(c: dict) -> dict[int, Path]:
             if r.get("status") == "ok" and (ROOT / r["cif"]).is_file()}
 
 
-def floor(c: dict, crystal: str | None = None) -> dict | None:
+def floor(c: dict, gt: str | None = None) -> dict | None:
     """Seed 0 vs seed 1 of the reference, the number every deviation is quoted beside."""
     refs = ref_paths(c)
     if len(refs) < 2:
         return None
     s = sorted(refs)
-    return compare(str(refs[s[1]]), str(refs[s[0]]), crystal)
+    return compare(str(refs[s[1]]), str(refs[s[0]]), gt)
 
 
-def crystal_of(fixture: str) -> str | None:
+def ground_truth(fixture: str) -> str | None:
     gt = json.loads(FIXTURES.read_text())["fixtures"].get(fixture, {}).get("ground_truth")
-    return str(ROOT / gt) if gt else None
+    return str(ROOT / gt) if gt and (ROOT / gt).is_file() else None
 
 
-def score(model: str, fixture: str, pred: str) -> dict:
-    manifest = json.loads(MANIFEST.read_text())
-    c = cell(manifest, model, fixture)
-    out = {"model": model, "fixture": fixture, "pred": pred}
-    refs = ref_paths(c)
-    if not refs:
-        out["error"] = ("no reference for this cell: " +
-                        (c.get("missing_reason") or "cell not in manifest"))
-        return out
-    out["vs_ref"] = {f"s{s}": compare(pred, str(p)) for s, p in sorted(refs.items())}
-    out["floor"] = floor(c)
-    gt = crystal_of(fixture)
-    if gt:
-        out["resolved"] = {"vs_ref": {f"s{s}": compare(pred, str(p), gt) for s, p in sorted(refs.items())},
-                           "floor": floor(c, gt)}
+def _vs(pred: str, refs: dict, c: dict, gt: str | None) -> dict:
+    out = {"vs_ref": {f"s{s}": compare(pred, str(p), gt) for s, p in sorted(refs.items())},
+           "floor": floor(c, gt)}
     rm = [v["ca_rmsd_A"] for v in out["vs_ref"].values() if "ca_rmsd_A" in v]
     if rm:
         out["mean_ca_rmsd_A"] = round(sum(rm) / len(rm), 3)
@@ -127,9 +109,52 @@ def score(model: str, fixture: str, pred: str) -> dict:
     return out
 
 
+def score(model: str, fixture: str, pred: str) -> dict:
+    manifest = json.loads(MANIFEST.read_text())
+    c = cell(manifest, model, fixture)
+    out = {"model": model, "fixture": fixture, "pred": pred}
+    gt = ground_truth(fixture)
+    if gt:
+        # Against the crystal itself, every chain superposed on its own: the check that does not
+        # depend on the reference, and the only one at a fixture the upstream never folded.
+        out["crystal"] = compare(pred, gt)
+    refs = ref_paths(c)
+    if gt and refs:
+        out["crystal_ref"] = {f"s{s}": compare(str(p), gt) for s, p in sorted(refs.items())}
+    if not refs:
+        out["no_reference"] = c.get("missing_reason") or "cell not in manifest"
+        if not gt:
+            out["error"] = "no reference for this cell: " + out["no_reference"]
+        return out
+    out.update(_vs(pred, refs, c, None))
+    if gt:
+        out["resolved"] = _vs(pred, refs, c, gt)
+    return out
+
+
 def line(r: dict) -> str:
     if "error" in r:
         return f"{r['model']} {r['fixture']}: {r['error']}"
+    head = f"{r['model']} {r['fixture']}: "
+    pad = "\n" + " " * len(head)
+    rows = []
+    if "vs_ref" in r:
+        rows.append(_line(r))
+    else:
+        rows.append("no reference for this cell: " + r["no_reference"])
+    if "resolved" in r:
+        rows.append("crystal-resolved residues only: " + _line(r["resolved"]))
+    if "crystal" in r:
+        x = r["crystal"]
+        rows.append(f"vs crystal {x.get('ca_rmsd_A')} A / lDDT {x.get('lddt_ca')} / chain "
+                    f"{x.get('worst_chain_ca_rmsd_A')} A"
+                    + "".join(f", ref {k} {v.get('ca_rmsd_A')} A / lDDT {v.get('lddt_ca')} / chain "
+                              f"{v.get('worst_chain_ca_rmsd_A')} A" for k, v in r.get("crystal_ref", {}).items())
+                    + f" | n_ca {x.get('n_ca')}")
+    return head + pad.join(rows)
+
+
+def _line(r: dict) -> str:
     vs = ", ".join(f"{k} {v.get('ca_rmsd_A')} A / lDDT {v.get('lddt_ca')} / chain {v.get('worst_chain_ca_rmsd_A')} A"
                    for k, v in r["vs_ref"].items())
     f = r["floor"]
@@ -137,15 +162,7 @@ def line(r: dict) -> str:
           if f else "floor: single reference seed")
     ratio = f", {r['ratio_to_floor']}x floor" if "ratio_to_floor" in r else ""
     n = next(iter(r["vs_ref"].values())).get("n_ca")
-    out = f"{r['model']} {r['fixture']}: vs ref {vs} | {fl}{ratio} | n_ca {n}"
-    if "resolved" in r:
-        rv = r["resolved"]
-        vs = ", ".join(f"{k} {v.get('ca_rmsd_A')} A / lDDT {v.get('lddt_ca')}" for k, v in rv["vs_ref"].items())
-        f = rv["floor"]
-        fl = f"floor {f['ca_rmsd_A']} A / lDDT {f['lddt_ca']}" if f else "floor: single reference seed"
-        n = next(iter(rv["vs_ref"].values())).get("n_ca")
-        out += f"\n  crystal-resolved residues only: vs ref {vs} | {fl} | n_ca {n}"
-    return out
+    return f"vs ref {vs} | {fl}{ratio} | n_ca {n}"
 
 
 def floors() -> None:

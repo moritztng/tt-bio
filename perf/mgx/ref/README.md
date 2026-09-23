@@ -14,23 +14,22 @@ Fold the fixture yaml as it is, from the repo root, so the pinned alignments are
 It prints CA-RMSD, CA-lDDT and the worst single-chain CA-RMSD against each reference seed, and
 the floor beside them. Chains are matched by sequence, so chain letters do not have to agree.
 `--json` gives the full record, `--floors` the floor of every cell. A cell the upstream could not
-fold prints its error instead.
+fold prints its error instead. On a fixture with a crystal (7AQX, 2AD6, 3ABQ) a second line gives
+the same numbers over only the residues the crystal resolves, floor included.
+A third line scores the fold against the crystal itself, each reference seed beside it; at a
+cell the upstream never folded (every 3abq_1536 cell but boltz2) it is the only line. On 7AQX
+read its per-chain number: the crystal packs the four chains differently from every fold,
+reference included (about 15 A whole-complex).
 
     boltz2 3abq_1536: vs ref s0 0.565 A / lDDT 0.9874 / chain 0.562 A | floor: single reference seed | n_ca 1406
 
 (That line scores the 3ABQ crystal, so it also says the reference itself is right.)
 
-On the three PDB fixtures a second line repeats the comparison on the residues the crystal
-resolves. Disordered termini and loops have no defined position, so they can dominate the first
-line: TT boltz2 on 3abq_1536 reads 2.05 A from reference s0 over all 1518 CA and 0.72 A (lDDT
-0.991) over the 1402 resolved ones.
-
-    boltz2 3abq_1536: vs ref s0 2.053 A / lDDT 0.948 / chain 2.86 A | floor: single reference seed | n_ca 1518
-      crystal-resolved residues only: vs ref s0 0.719 A / lDDT 0.9913 | floor: single reference seed | n_ca 1402
-
 Which number to read depends on the fixture. On 2AD6 and 3ABQ the seeds agree to about half an
-angstrom and the whole-complex RMSD on resolved residues is the bar. On 7AQX the seeds disagree on where the nanobodies
-dock, so read lDDT and the per-chain RMSD. The tiled CDK2 is one chain of repeated copies with no
+angstrom and the whole-complex RMSD is the bar. On 7AQX the seeds disagree on where the nanobodies
+dock, so read lDDT and the per-chain RMSD. Its nanobodies also carry a 19-residue HA and His6 tag
+the crystal does not resolve, which folds sit anywhere up to 50 A apart; read the resolved line
+there. The tiled CDK2 is one chain of repeated copies with no
 defined arrangement between them, and some models fold it differently on every seed; read lDDT
 there, and expect the floor to be wide.
 
