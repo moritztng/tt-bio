@@ -304,6 +304,7 @@ def _window_q(x, N, NP, nq=32):
     return ttnn.to_layout(ttnn.reshape(x, (NP // nq, nq, x.shape[-1])), ttnn.TILE_LAYOUT)
 
 
+_UPLOAD_REFUSED_ROWS = {}  # host tensor shape -> depth-chunk rows, once DRAM refused its whole upload
 _WIN_KV_IDX = {}  # (gen,NP,nq,nk) -> (1, nb*nk) uint32 gather index, device tensor on the
                   # CURRENT mesh. gen = tenstorrent.device_generation(): a model switch closes
                   # the mesh and this module-level dict survives, so entries from an older
@@ -416,6 +417,22 @@ class _KeyedWeights:
         """Upload an activation/host tensor (per call, not cached)."""
         return ttnn.from_torch(t, layout=ttnn.TILE_LAYOUT, device=get_device(),
                                dtype=getattr(self, "dtype", ttnn.bfloat16))
+
+    def _up_or_host_chunks(self, t):
+        """`t` [1, depth, tokens, c] uploaded whole, or, if DRAM refuses that, as host-tiled
+        depth chunks that OuterProductMean uploads one at a time (its chunk-list input).
+
+        The refusal is fragmentation, not a full chip: protenix-v2 at 1408 tokens against 8192
+        alignment rows was refused 2952790016 B with 596 MiB per bank free and a 202 MiB largest
+        block. The chunk list is the form every later MSA block already hands OPM, and it is not
+        bit-exact against the whole-depth product (it reassociates the depth sum), so it runs only
+        after a refusal. The memo skips the refused upload on later recycling cycles."""
+        return _T.row_block_after_refusal(
+            _UPLOAD_REFUSED_ROWS, tuple(t.shape), lambda: self._up(t),
+            lambda r: [ttnn.from_torch(t[:, s:s + r].contiguous(), layout=ttnn.TILE_LAYOUT,
+                                       dtype=getattr(self, "dtype", ttnn.bfloat16))
+                       for s in range(0, t.shape[1], r)],
+            MSA_CHUNK_SIZE, "protenix msa upload")
 
     def _lin(self, x, wkey, bkey=None, activation=None):
         # `narrow_proj` is where the template z projection lands, at [1,298,320,256] @ [256,64].
@@ -2760,9 +2777,10 @@ class Trunk(_KeyedWeights):
             if torch.is_tensor(m_feat):
                 # Protenix-order block 0 reads the pristine m with OPM. OPM chunk-gates itself,
                 # so a single transient upload is enough; update_msa below streams from host.
-                m_dev = self._up(m_feat)
+                m_dev = self._up_or_host_chunks(m_feat)
                 z3 = ttnn.add(z3, opm(m_dev, None, None))
-                ttnn.deallocate(m_dev)
+                if not isinstance(m_dev, list):
+                    ttnn.deallocate(m_dev)
             else:
                 z3 = ttnn.add(z3, opm(m_feat, None, None))
             dram_peak("trunk msa block: after opm")
