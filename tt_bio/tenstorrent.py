@@ -5242,6 +5242,19 @@ def row_block_after_refusal(memo, key, single, blocked, rows, tag, min_rows=32):
         return out
 
 
+def pair_row_blocks(fn, tensors, rows):
+    """`fn` over `rows`-row slices (dim 1) of every tensor in `tensors`, joined along dim 1.
+
+    The `blocked` half of `row_block_after_refusal` for an op that is per pair position end to
+    end (layer norm, linear, gating): each block is exactly the rows of the single pass, so the
+    join is bit-exact. The join goes through `_acc_concat`, so a refused device concat falls
+    back to one host assemble and upload instead of ending the fold.
+    """
+    n = int(tensors[0].shape[1])
+    parts = [fn(*[t[:, i:min(i + rows, n)] for t in tensors]) for i in range(0, n, rows)]
+    return _acc_concat(parts, dim=1, host=False)
+
+
 # Above this size a trunk keeps the pristine MSA representation `m` on the HOST between recycling
 # cycles and streams it up one depth chunk at a time (`msa_depth_chunks`). Held whole on device,
 # the per-cycle peak pays the pristine plus the updated copy at once: 2 x 1.98 GiB at 1088 tokens

@@ -32,7 +32,7 @@ from __future__ import annotations
 
 import ttnn
 
-from .tenstorrent import Module, row_block_after_refusal
+from .tenstorrent import Module, pair_row_blocks, row_block_after_refusal
 
 # Pair shapes whose single-pass conditioning DRAM refused, and the row block they settled at.
 _PAIR_ROWS_REFUSED: dict = {}
@@ -106,19 +106,8 @@ class OF3DiffusionConditioning(Module):
         return row_block_after_refusal(
             _PAIR_ROWS_REFUSED, tuple(zij_trunk.padded_shape),
             lambda: self._pair(zij_trunk, relpos, pair_mask),
-            lambda rows: self._pair_rows(zij_trunk, relpos, pair_mask, rows),
+            lambda rows: pair_row_blocks(self._pair, (zij_trunk, relpos, pair_mask), rows),
             rows=256, tag="of3 diffusion pair")
-
-    def _pair_rows(self, zij_trunk, relpos, pair_mask, rows):
-        N = zij_trunk.shape[1]
-        parts = []
-        for i in range(0, N, rows):
-            e = min(i + rows, N)
-            parts.append(self._pair(zij_trunk[:, i:e], relpos[:, i:e], pair_mask[:, i:e]))
-        out = ttnn.concat(parts, dim=1)
-        for p in parts:
-            ttnn.deallocate(p)
-        return out
 
     def _pair(self, zij_trunk, relpos, pair_mask):
         lin = self._lin
