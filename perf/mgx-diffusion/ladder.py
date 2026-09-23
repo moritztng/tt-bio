@@ -220,6 +220,10 @@ def main():
             continue
         for _ in range(2):
             cell = fold(p, ident)
+            if "is in use by" in (cell.get("error") or ""):
+                # another row opened the chip between two of our folds: nothing ran, so it is
+                # not a result, and the rest of the plan would meet the same holder
+                sys.exit(f"card lost: {cell['error'][:200]}")
             with open(RUNS, "a") as fp:
                 fp.write(json.dumps(cell, default=str) + "\n")
             print(json.dumps({k: cell.get(k) for k in (
