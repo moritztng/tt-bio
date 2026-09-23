@@ -1,0 +1,60 @@
+{
+ "label": "AA_SHIP",
+ "a": "/home/ttuser/of3t_stackbound/dev_SHIP_A.pt",
+ "b": "/home/ttuser/of3t_stackbound/dev_SHIP_B.pt",
+ "compared": 2736,
+ "only_a": 0,
+ "only_b": 0,
+ "bit_identical": 2736,
+ "differing": 0,
+ "all_bit_identical": true,
+ "concatenated_rel_a_vs_b": 0.0,
+ "norm_ratio_a_over_b": 1.0,
+ "cos": 1.0,
+ "arms": {
+  "a": {
+   "pt": "/home/ttuser/of3t_stackbound/dev_SHIP_A.pt",
+   "sha256": "5094604e693054a32c1a606c090d0cf40bfc680329fa7e8d794a29d9f0aee19a",
+   "report": "perf/of3t_stackbound/DEV_SHIP_A.json",
+   "sha256_matches_report": true,
+   "host": "tt-quietbox2",
+   "board": "p300c",
+   "card": 3,
+   "aiclk_mhz_sampled_DURING": {
+    "n": 39,
+    "min": 800,
+    "median": 1350,
+    "max": 1350
+   },
+   "host_quiet": [
+    "HOST NOT QUIET -- your timing read is contaminated even with an idle sibling and a forced clock. Wait it out or DEFER. Do not measure and explain it afterwards."
+   ]
+  },
+  "b": {
+   "pt": "/home/ttuser/of3t_stackbound/dev_SHIP_B.pt",
+   "sha256": "fc82693bd1629ac3516936f79bee5b82b43743b6068154fe35c3b739515b4fea",
+   "report": "perf/of3t_stackbound/DEV_SHIP_B.json",
+   "sha256_matches_report": true,
+   "host": "tt-quietbox2",
+   "board": "p300c",
+   "card": 3,
+   "aiclk_mhz_sampled_DURING": {
+    "n": 38,
+    "min": 800,
+    "median": 1350,
+    "max": 1350
+   },
+   "host_quiet": [
+    "HOST NOT QUIET -- your timing read is contaminated even with an idle sibling and a forced clock. Wait it out or DEFER. Do not measure and explain it afterwards."
+   ]
+  }
+ },
+ "device_involved": false,
+ "why_no_aiclk": "the COMPARISON is CPU only. The arms it compares ran on a card, and their host, board, card and DURING-sampled AICLK are under `arms`",
+ "comparison_environment": {
+  "host": "tt-quietbox2",
+  "board": null,
+  "card": null,
+  "git_commit": "0718331295801e994f804cbd6779a4125aeb3178"
+ }
+}
