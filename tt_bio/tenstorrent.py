@@ -5363,13 +5363,18 @@ def msa_depth_chunks(m, rows=MSA_CHUNK_SIZE):
             yield m[:, s:min(s + rows, D), :, :]
 
 
-def msa_update_chunks(chunks, z, pwa, transition, attn_mask=None, own=True):
+def msa_update_chunks(chunks, z, pwa, transition, attn_mask=None, own=True, park=False):
     """AF3's MSA update, `m += pwa(m, z)` then `m += transition(m)`, one depth chunk at a time.
 
     Returns the updated chunks as a list and never joins them: every consumer is chunk-wise
     (PairWeightedAveraging and Transition are per row, OuterProductMean takes the list), so the
     contiguous tensor and the full-size buffer a join needs never exist. With `own`, each input
     chunk is freed as soon as its replacement exists, so the peak is the list plus about two chunks.
+
+    A trunk whose pristine `m` is on the host passes `park`: each updated chunk follows it there
+    (`from_device`, the same tile bytes), and a parked input chunk is uploaded for its one read.
+    The list alone is the whole `m`, 4.8 GB for OpenDDE at 1280 tokens against a 14743-row
+    alignment with c_m=128, and on the device it left OuterProductMean's projections no room.
 
     Bit-exact against the whole-depth update: nothing in it reduces along depth. PWA's weights
     come from `z` alone and its matmul contracts the token axis; the norms and the transition are
@@ -5380,11 +5385,16 @@ def msa_update_chunks(chunks, z, pwa, transition, attn_mask=None, own=True):
     ws = pwa.head_weights(z, attn_mask)
     out = []
     for mc in chunks:
-        t1 = ttnn.add(mc, ttnn.reshape(pwa(mc, None, weights=ws), tuple(mc.shape)))
-        if own:
-            ttnn.deallocate(mc)
+        md = host_unpark(mc)
+        t1 = ttnn.add(md, ttnn.reshape(pwa(md, None, weights=ws), tuple(md.shape)))
+        if own or md is not mc:
+            ttnn.deallocate(md)
         t2 = ttnn.add(t1, ttnn.reshape(transition(t1), tuple(t1.shape)))
         ttnn.deallocate(t1)
+        if park:
+            h = ttnn.from_device(t2)
+            ttnn.deallocate(t2)
+            t2 = h
         out.append(t2)
         dram_peak("trunk msa block: after pwa add")
     for w in ws:
@@ -11040,8 +11050,15 @@ class OuterProductMean(Module):
                 raise NotImplementedError(
                     "OuterProductMean: chunk-list input with an msa_mask is not wired up; the "
                     "trunk that uses the list path passes mask=None.")
-            depth_parts, S, I, C, D, J = project_depth_parts(
-                (ttnn.reshape(c, tuple(c.shape)[1:]), None) for c in x_chunks)
+            def device_chunks():
+                # A chunk parked on the host (msa_update_chunks(park=True)) is uploaded for
+                # its projection and that copy freed once the projection has it.
+                for c in x_chunks:
+                    d = host_unpark(c)
+                    yield ttnn.reshape(d, tuple(d.shape)[1:]), None
+                    if d is not c:
+                        ttnn.deallocate(d)
+            depth_parts, S, I, C, D, J = project_depth_parts(device_chunks())
             a = b = None
         elif _OPM_JOIN_REFUSED.get(tuple(x.shape)):
             # This shape class already refused the contiguous form once in this process.

@@ -74,3 +74,17 @@ def test_head_weights_in_pair_row_blocks_are_the_single_pass(dev, rows):
     finally:
         T._PWA_WEIGHT_ROWS_REFUSED.clear()
     assert len(blocked) == NH and all(torch.equal(a, b) for a, b in zip(single, blocked))
+
+
+def test_parked_update_is_the_device_update(dev):
+    """With `park`, the updated chunks wait on the host and a parked chunk is read back for the
+    next update: the same bytes as the device list, two updates deep."""
+    pwa, transition, ft, mask = _setup(dev)
+    mh, z = torch.randn(1, 80, N, C_M), ft(torch.randn(1, N, N, C_Z))
+    on_dev = T.msa_update_chunks(T.msa_depth_chunks(mh, 32), z, pwa, transition, mask)
+    on_dev = T.msa_update_chunks(on_dev, z, pwa, transition, mask)
+    parked = T.msa_update_chunks(T.msa_depth_chunks(mh, 32), z, pwa, transition, mask, park=True)
+    assert all(p.storage_type() != ttnn.StorageType.DEVICE for p in parked)
+    parked = T.msa_update_chunks(parked, z, pwa, transition, mask, park=True)
+    assert all(p.storage_type() != ttnn.StorageType.DEVICE for p in parked)
+    assert all(torch.equal(ttnn.to_torch(a), ttnn.to_torch(b)) for a, b in zip(on_dev, parked))

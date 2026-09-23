@@ -50,3 +50,16 @@ def test_residual_is_the_callers_add(dev, rows, chunked):
     assert tuple(out.shape) == (1, N, N, C_Z)
     assert torch.equal(ttnn.to_torch(out), ref)
     assert z.is_allocated() == (not rows)             # a blocked join consumes the residual
+
+
+def test_parked_chunks_are_the_device_chunks(dev):
+    """A chunk list parked on the host is uploaded a chunk at a time, same bytes as on device."""
+    opm = _opm(dev)
+    ft = lambda x: ttnn.from_torch(x, layout=ttnn.TILE_LAYOUT, device=dev, dtype=ttnn.bfloat16)
+    mh, zh = torch.randn(1, S, N, C_M), torch.randn(1, N, N, C_Z)
+    ref = ttnn.to_torch(opm([ft(mh[:, s:s + 32]) for s in range(0, S, 32)], None, None,
+                            residual=ft(zh)))
+    parked = [ttnn.from_device(ft(mh[:, s:s + 32])) for s in range(0, S, 32)]
+    out = opm(parked, None, None, residual=ft(zh))
+    assert torch.equal(ttnn.to_torch(out), ref)
+    assert all(p.storage_type() != ttnn.StorageType.DEVICE for p in parked)   # still parked

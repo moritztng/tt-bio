@@ -2654,8 +2654,10 @@ class Trunk(_KeyedWeights):
             if pwa is None:
                 return m
             if isinstance(m, list):
-                # Already chunked: transform each chunk in place of the list.
-                return msa_update_chunks(m, z, pwa, transition, attn_tt)
+                # Already chunked: transform each chunk in place of the list, parked chunks
+                # back to the host.
+                return msa_update_chunks(m, z, pwa, transition, attn_tt,
+                                         park=m[0].storage_type() != ttnn.StorageType.DEVICE)
             D = m.shape[1]                                  # MSA depth
             # Row-chunk the MSA depth axis when the representation is too big to hold several
             # copies of. Unchunked, PairWeightedAveraging's FIRST op is an out-of-place
@@ -2685,7 +2687,8 @@ class Trunk(_KeyedWeights):
             # A host-resident pristine (deep-MSA offload) streams up one chunk at a time; a
             # device one is sliced, and those slices are not ours to free.
             parts = msa_update_chunks(msa_depth_chunks(m, _msa_row_chunk_size()), z, pwa,
-                                      transition, attn_tt, own=torch.is_tensor(m))
+                                      transition, attn_tt, own=torch.is_tensor(m),
+                                      park=torch.is_tensor(m))
             # Return the CHUNKS, not a concatenation of them. The terminal concat used to need a
             # third full-size buffer (source + parts + destination) and that 3x peak is what made
             # 9d72 OOM at 1.78 GiB m_feat even with chunking on. Every downstream consumer is
