@@ -74,7 +74,8 @@ def fold(py, tree: Path, spec, out: Path, card: str):
                "--diffusion_samples", "1", "--seed", "0", "--out_dir", str(out)]
     else:
         cmd = [py, str(tree / "scripts/af2_port/fold_timing.py"), "--pdb",
-               str(tree / spec["fixture"]), "--reps", "2", "--out", str(out / "af2.json")]
+               str(tree / spec["fixture"]), "--reps", "2", "--params", spec["params"],
+               "--out", str(out / "af2.json")]
     samples, stop = [], threading.Event()
     th = threading.Thread(target=clock, args=(int(card), stop, samples), daemon=True)
     th.start()
@@ -103,7 +104,8 @@ MODELS = {
     "protenix-v2": {"kind": "predict", "model": "protenix-v2",
                     "fixture": "perf/size512/fixtures/cdk2x2_128.yaml"},
     "af2-ig": {"kind": "af2",
-               "fixture": "scripts/af2_port/parity_artifacts/designpop_bg119/binder_complex.pdb"},
+               "fixture": "scripts/af2_port/parity_artifacts/designpop_bg119/binder_complex.pdb",
+               "params": "/home/ttuser/.boltz/af2/params/params_model_1_ptm.npz"},
 }
 
 

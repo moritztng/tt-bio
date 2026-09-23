@@ -1,0 +1,62 @@
+{
+ "arm": "device_ops",
+ "exact_training_ops": [],
+ "installed_outside_the_tape": {
+  "before": {
+   "softmax": false,
+   "layer_norm": false
+  },
+  "after": {
+   "softmax": false,
+   "layer_norm": false
+  }
+ },
+ "counters": {
+  "softmax": {
+   "verb": 0,
+   "raw": 0,
+   "raw_elements": 0
+  },
+  "layer_norm": {
+   "verb": 0,
+   "raw": 0,
+   "elements": 0,
+   "bw": 0
+  }
+ },
+ "why_counters": "counted at the call inside tt_bio.autograd. softmax: `verb` taped exact forward+Jacobian, `raw` ttnn.softmax. layer_norm: `verb` taped exact forward, `bw` exact backwards, `raw` untaped forwards. All zero on the device-ops arm is the off switch working.",
+ "tt_bio_file": "/home/ttuser/.coworker/wt/of3t-stackship/tt_bio/autograd.py",
+ "argv": [
+  "--census-out",
+  "/home/ttuser/.coworker/wt/of3t-stackship/perf/of3t_stackship/CENSUS_OFF_B.json",
+  "--lever",
+  "none",
+  "--",
+  "--boundary",
+  "/home/ttuser/of3t_modelframe/boundary_model_n384.pt",
+  "--cap-last",
+  "/home/ttuser/of3t_recut/cot_external.pt",
+  "--out",
+  "/home/ttuser/of3t_stackship/dev_OFF_B.pt",
+  "--report",
+  "/home/ttuser/.coworker/wt/of3t-stackship/perf/of3t_stackship/DEV_OFF_B.json",
+  "--arm",
+  "flipped",
+  "--crop",
+  "0"
+ ],
+ "environment": {
+  "host": "tt-quietbox2",
+  "card": 1,
+  "board_class": "p300c",
+  "aiclk_mhz_sampled_DURING": {
+   "n": 39,
+   "min": 800,
+   "median": 1350,
+   "max": 1350
+  },
+  "host_quiet": "device fd holder pid 780906 BUSY (592 ticks/2s, owner land-standing): /home/ttuser/tt-bio-dev/env/bin/python3 -c from multiprocessing.spawn import spawn_main; s\nloadavg1 7.31 over ceiling 2.00\nHOST NOT QUIET -- your timing read is contaminated even with an idle sibling and a forced clock. Wait it out or DEFER. Do not measure and explain it afterwards.",
+  "git_commit": "7a325213c16844f45e63a65be03585a50bb0b0d4",
+  "boundary_version": "upstream OpenFold3 0.4.3 (boundary captured from of3pkg043; graded reference 0.4.3 bf16 autocast, contrast reference 0.4.3 float64)"
+ }
+}
