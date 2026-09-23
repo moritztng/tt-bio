@@ -1585,6 +1585,36 @@ def _dispatch_to_controller(controller_url: str, run_payload: dict, *, total: in
     return failed
 
 
+def _refuse_unfoldable_jobs(jobs, model: str, results_path: Path):
+    """Split ``jobs`` into the ones ``model`` can fold and the ones it refuses.
+
+    A refused input is reported and recorded as a failed row in results.json, and the rest of
+    the batch folds: one file with a key this model cannot honour used to abort a directory
+    of fifty before the first fold. Returns ``(foldable, {job id: refusal})``.
+    """
+    from tt_bio.capabilities import check_capabilities
+
+    keep, refused = [], {}
+    for job in jobs:
+        jp = Path(job.path)
+        try:
+            check_capabilities(jp, _read_bio_chains(jp, what=model), model)
+            keep.append(job)
+        except (RuntimeError, click.ClickException) as e:
+            refused[job.id] = e.message if isinstance(e, click.ClickException) else str(e)
+    if refused and keep:
+        click.secho(f"Skipping {len(refused)} of {len(jobs)} input(s) --model {model} "
+                    f"refuses; folding the other {len(keep)}:", fg="red", err=True)
+        for job_id, why in refused.items():
+            click.secho(f"  ✗ {job_id}: {why}", fg="red", err=True)
+        rows = {r["id"]: r for r in _load_results_resilient(results_path)
+                if isinstance(r, dict) and "id" in r}
+        rows.update({j: {"id": j, "status": "failed", "error": why}
+                     for j, why in refused.items()})
+        _save_results(list(rows.values()), results_path)
+    return keep, refused
+
+
 def _exit_for_failed_jobs(failed: int, total: int) -> None:
     """Exit the CLI nonzero when a run lost targets: 1 when every job failed,
     2 when some succeeded and some failed. Callers (release gate, CI, fleet
@@ -3084,7 +3114,7 @@ def predict(data, out_dir, cache, checkpoint, accelerator, recycling_steps, samp
         model, use_msa_server, msa_db_path, msa_endpoint, single_sequence, cache,
         controller, msa_server_url, msa_cache_only, msa_dir_opt)
 
-    from tt_bio.capabilities import check_capabilities, unread_flags
+    from tt_bio.capabilities import unread_flags
 
     if model in ("esmfold2", "esmfold2-fast", *PROTENIX_FAMILY, "openfold3", "openbind", "opendde",
                  "opendde-abag", "rf3"):
@@ -3163,12 +3193,11 @@ def predict(data, out_dir, cache, checkpoint, accelerator, recycling_steps, samp
         # authoritative point, because the platform submits jobs straight to the controller
         # and never comes through here -- but a user typing a command should not wait two
         # minutes for a model load to be told the yaml key is unsupported.
-        for job in jobs:
-            jp = Path(job.path)
-            try:
-                check_capabilities(jp, _read_bio_chains(jp, what=model), model)
-            except RuntimeError as e:
-                raise click.ClickException(str(e)) from e
+        results_path = out / "results.json"
+        total = len(jobs)
+        jobs, refused = _refuse_unfoldable_jobs(jobs, model, results_path)
+        if not jobs:
+            raise click.ClickException("\n".join(refused.values()))
 
         # MSA is resolved + searched worker-side, exactly like Boltz-2: the worker
         # renders the "MSA" stage, generates any missing {seq_hash}.a3m into the
@@ -3206,7 +3235,6 @@ def predict(data, out_dir, cache, checkpoint, accelerator, recycling_steps, samp
             "msa_cache_only": msa_cache_only,
             "write_pae": write_pae,
         }
-        results_path = out / "results.json"
         run_payload = {"data": str(data), "out_dir": str(out_dir_path), "result_dir": str(out),
                        "jobs": job_payloads(jobs), "config": worker_cfg, "owner": owner}
         # Fetch this model's weights ONCE here, before fanning out. Skipped in
@@ -3216,13 +3244,13 @@ def predict(data, out_dir, cache, checkpoint, accelerator, recycling_steps, samp
         if controller:
             failed = _dispatch_to_controller(controller, run_payload, total=len(jobs), results_path=results_path,
                                              struct_dir=struct_dir, model=model, debug=debug, log=log, run_id=run_id)
-            _exit_for_failed_jobs(failed, len(jobs))
+            _exit_for_failed_jobs(failed + len(refused), total)
             return
         workers = _local_workers("tenstorrent", num_devices, device_ids, max_workers=max(len(jobs), 1))
         _cap_worker_threads(len(workers), host_threads)
         failed = _dispatch_run(run_payload, workers, total=len(jobs), results_path=results_path,
                                struct_dir=struct_dir, model=model, listen=listen, debug=debug, log=log)
-        _exit_for_failed_jobs(failed, len(jobs))
+        _exit_for_failed_jobs(failed + len(refused), total)
         return
 
     os.environ.setdefault("CUEQ_DEFAULT_CONFIG", "1")
