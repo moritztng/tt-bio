@@ -32,7 +32,11 @@ ROOT = INPUTS.parents[2]
 # by the id the INPUT gave them and map to the output by order, because protenix and opendde
 # write chains as A, B, C... whatever the input called them (recorded separately as
 # "chain_ids_kept").
-STATIC = json.loads((INPUTS.parent / "static_pass.json").read_text())["boltz2"]
+STATIC_ALL = json.loads((INPUTS.parent / "static_pass.json").read_text())
+STATIC = STATIC_ALL["boltz2"]
+# Heavy-atom distances. Below CLASH two atoms overlap; a bonded pair must also sit above it, so a
+# bond constraint that pulls SG onto C1 at 0.9 A is reported as an overlap, not as honoured.
+CLASH, BOND_MAX = 1.0, 2.5
 
 
 def last_error(log: Path) -> str:
@@ -119,13 +123,17 @@ def feature_check(name, stem, st, res):
         lig = heavy(by_chain("L"))
         c["ligand_atoms"] = len(lig)
         c["ligand_protein_min_dist"] = min_dist(lig, heavy(by_chain("A")))
-        c["ok"] = bool(lig) and (c["ligand_protein_min_dist"] or 0) > 1.0
+        c["present"] = bool(lig)
+        c["clash"] = (c["ligand_protein_min_dist"] or 0) <= CLASH
+        c["ok"] = c["present"] and not c["clash"]
     if stem in ("rna", "dna", "rna_only"):
         cid = "D" if stem == "dna" else "R"
         na = heavy(by_chain(cid))
-        c["na_residues"] = chains.get(cid, {}).get("residues", 0)
+        c["na_residues"] = chains.get(alias.get(cid, cid), {}).get("residues", 0)
         c["na_protein_min_dist"] = min_dist(na, heavy(by_chain("A"))) if stem != "rna_only" else None
-        c["ok"] = c["na_residues"] > 0 and (stem == "rna_only" or (c["na_protein_min_dist"] or 0) > 1.0)
+        c["present"] = c["na_residues"] > 0
+        c["clash"] = stem != "rna_only" and (c["na_protein_min_dist"] or 0) <= CLASH
+        c["ok"] = c["present"] and not c["clash"]
     if stem == "cyclic":
         A = by_chain("A")
         n = [x for x in A if x[1] == 1 and x[3] == "N"]
@@ -147,7 +155,9 @@ def feature_check(name, stem, st, res):
         a1, a2 = pick(*spec[0]), pick(*spec[1])
         c["atom1_found"], c["atom2_found"] = bool(a1), bool(a2)
         c["bond_dist"] = min_dist(a1, a2)
-        c["ok"] = c["bond_dist"] is not None and c["bond_dist"] < 2.5
+        c["present"] = c["bond_dist"] is not None and c["bond_dist"] < BOND_MAX
+        c["clash"] = c["bond_dist"] is not None and c["bond_dist"] <= CLASH
+        c["ok"] = c["present"] and not c["clash"]
     if stem == "pocket":
         lig = heavy(by_chain("L"))
         pk = heavy([x for x in by_chain("A") if x[1] in (44, 70)])
@@ -177,7 +187,10 @@ table = {}
 for model_dir in sorted(p for p in OUT.iterdir() if p.is_dir()):
     model = model_dir.name
     run_log = model_dir / "run.log"
-    run_tail = run_log.read_text(errors="replace")[-4000:] if run_log.is_file() else ""
+    run_txt = run_log.read_text(errors="replace") if run_log.is_file() else ""
+    run_tail = run_txt[-4000:]
+    finished = "EXIT=" in run_txt
+    static = STATIC_ALL.get(model, {})
     row = {}
     for inp in sorted(INPUTS.iterdir()):
         stem = inp.stem
@@ -192,7 +205,13 @@ for model_dir in sorted(p for p in OUT.iterdir() if p.is_dir()):
         if cif is None:
             m = re.search(rf"{re.escape(stem)}[^\n]*\n(?:[^\n]*\n){{0,6}}?[^\n]*(Error|error|Exception|failed)[^\n]*",
                           run_tail)
-            row[inp.name] = {"outcome": "failed" if run_log.is_file() else "not_run",
+            if res and res.get("status") == "failed":
+                outcome = "failed"
+            elif not run_log.is_file():
+                outcome = "not_run"
+            else:
+                outcome = "failed" if finished else "in_flight"
+            row[inp.name] = {"outcome": outcome,
                              "detail": (m.group(0)[-400:] if m else last_error(run_log)
                                         if run_log.is_file() else None),
                              "results": res}
@@ -201,6 +220,11 @@ for model_dir in sorted(p for p in OUT.iterdir() if p.is_dir()):
         st.setup_entities()
         chk = feature_check(inp.name, stem, st, res)
         row[inp.name] = {"outcome": "folded", "structure": str(cif.relative_to(OUT)), "check": chk}
+        notes = static.get(inp.name, {}).get("notes")
+        if notes:
+            # The static pass printed a "Note: ... ignores" line: a dropped feature that was
+            # announced. Record it, so a noted drop is scored as warned and not as broken.
+            row[inp.name]["warned"] = notes
     for stem in ("template_npz", "template_cif"):
         on, off = row.get(f"{stem}.yaml", {}), row.get("template_off.yaml", {})
         r_on = on.get("check", {}).get("ca_rmsd_to_1a8q")
