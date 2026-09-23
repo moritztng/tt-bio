@@ -508,6 +508,35 @@ class DiffusionConditioningModel(Module):
         self.noise_n_b = self.torch_to_tt("noise_norm.bias")
         self.noise_proj_w = self.torch_to_tt("noise_proj.weight")
         self.s_trans = [TransitionLayer(self.scope(f"s_transitions.{i}"), compute_kernel_config) for i in range(2)]
+        self._rows_refused: dict = {}
+
+    def _pair_in(self, z_trunk, relpos):
+        """`z_proj(LN(concat(z_trunk, relpos)))` over the whole pair tensor."""
+        # Freed in `finally`, so a refused norm or projection leaves nothing behind for the
+        # row-blocked retry to allocate around.
+        zc = ttnn.concat([z_trunk, relpos], dim=-1)
+        try:
+            zn = ttnn.layer_norm(zc, weight=self.z_in_w, bias=self.z_in_b, epsilon=1e-5,
+                                 compute_kernel_config=self.compute_kernel_config)
+        finally:
+            ttnn.deallocate(zc)
+        try:
+            return self._lin(zn, self.z_proj_w)
+        finally:
+            ttnn.deallocate(zn)
+
+    def _pair_in_rows(self, z_trunk, relpos, rows):
+        """`_pair_in` in row blocks. The concat, the norm and the projection are all row-local,
+        so no [B,L,L,c_z+c_rel] tensor ever exists whole and the blocks reassemble exactly."""
+        from tt_bio import tenstorrent
+        L = int(z_trunk.shape[1])
+        host = tenstorrent._host_concat(z_trunk)
+        blocks = []
+        for s in range(0, L, rows):
+            e = min(s + rows, L)
+            tenstorrent._acc_append(
+                blocks, self._pair_in(z_trunk[:, s:e], relpos[:, s:e]), host)
+        return tenstorrent._acc_concat(blocks, 1, host)
 
     def cond_pair(self, z_trunk, relpos):
         """Pair conditioning z = f(z_trunk, relpos). Step-INVARIANT (no t / no
@@ -523,13 +552,17 @@ class DiffusionConditioningModel(Module):
         # them there costs nothing and changes no arithmetic. The concat alone is wider
         # than the refused buffer, so releasing it before the matmul is what makes 9j4c
         # fit; releasing the norm after it keeps the transitions off the same ceiling.
-        ck = self.compute_kernel_config
-        lin = self._lin
-        zc = ttnn.concat([z_trunk, relpos], dim=-1)
-        zn = ttnn.layer_norm(zc, weight=self.z_in_w, bias=self.z_in_b, epsilon=1e-5, compute_kernel_config=ck)
-        ttnn.deallocate(zc)
-        z = lin(zn, self.z_proj_w)
-        ttnn.deallocate(zn)
+        #
+        # Even freed promptly the concat and its norm are two [B,L,L,512] tensors live at once, and
+        # at 1248 tokens on the Galaxy that second 1.49 GiB was refused with 127.5 MiB free per bank
+        # against 126.8 wanted, in pieces (esmfold2-fast). After a refusal the same three ops run in
+        # row blocks, so the widest thing alive is one [B,L,L,256] output.
+        from tt_bio import tenstorrent
+        z = tenstorrent.row_block_after_refusal(
+            self._rows_refused, tuple(z_trunk.padded_shape),
+            lambda: self._pair_in(z_trunk, relpos),
+            lambda rows: self._pair_in_rows(z_trunk, relpos, rows),
+            rows=_TRANSITION_FALLBACK_ROWS, tag="cond_pair")
         for t in self.z_trans:
             z = ttnn.add(z, t(z))
         return z

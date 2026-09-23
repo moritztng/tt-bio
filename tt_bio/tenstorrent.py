@@ -702,6 +702,14 @@ _TRIMUL_CHUNK_CAP = int(os.environ.get("TT_BIO_TRIMUL_CHUNK_CAP", "") or 0)
 # path instead: same ops, same arithmetic, the residency threshold's other side.
 _TRIMUL_DRAM_SHAPES: set = set()
 
+# Trimul shapes whose whole-tensor output tail DRAM refused. The row-blocked tail normally starts
+# above SEQ_LEN_MORE_CHUNKING, a token count fitted on a 128-channel pair; a 256-channel pair is
+# twice the bytes at the same count, so ESMFold2's trunk died at 1056 tokens on the Galaxy, below
+# the 1088 gate, on the tail's full-size layer_norm. A shape in here takes the blocked tail
+# directly and frees its input norm first. [refused whole tail, blocked by memo].
+_TRIMUL_TAIL_ROWS_SHAPES: set = set()
+TRIMUL_TAIL_ROWS_STATS = [0, 0]
+
 
 def _trimul_chunk_key(seq_len: int, hidden: int, batch: int) -> tuple:
     return (int(seq_len), int(hidden), int(batch), bool(_FAST_MODE),
@@ -6987,80 +6995,55 @@ class TriangleMultiplication(Module):
             # over the caller's pair mask.
             if _transposed:
                 ttnn.deallocate(_m)
-        if x_norm_in is not None and H > SEQ_LEN_MORE_CHUNKING:
-            # x_norm_in is dead on the row-blocked tail path (both norms are
-            # recomputed per row block from x_in). Freeing it before the concat
-            # drops that peak from 4 pair-tensor multiples to 3 -- the difference
-            # between fitting and the 9i3p/9j4c refusal.
-            ttnn.deallocate(x_norm_in)
-        x = _acc_concat(x_chunks, -1, host_acc)
-        dram_peak(f"trimul({'end' if self.ending else 'start'}) channel loop done [z={'x'.join(str(d) for d in x_in.shape)}]")
         # x_norm_in is None only when the byte gate row-blocked the input norm; that can
         # happen below SEQ_LEN_MORE_CHUNKING in a batched confidence head (the byte gate
         # sees the batch, this constant does not), and the full-size tail needs x_norm_in.
         # Take the row-blocked tail then too: it recomputes both norms from x_in and is
         # bit-identical, so the guard only ever fires where the else path would crash.
-        if H > SEQ_LEN_MORE_CHUNKING or x_norm_in is None:
-            # Row-block the output projections instead of computing them full-size.
-            # Both layer_norms are row-local, so recomputing them per row block from the
-            # (alive, unmutated) inputs is bit-identical to slicing the full-size results,
-            # and the full-size norm_out output never exists: at these shapes it is one
-            # pair-tensor-sized allocation attempted while z and the hidden are live, which
-            # is exactly the refusal the large targets die on. Peak here is z + accumulated
-            # blocks + concat destination, with the hidden freed before the concat. The
-            # input norm above the gate is row-blocked the same way (_in_proj_rows), so no
-            # full-size LN'd pair tensor exists anywhere on this path.
-            blocks = []
-            for s in range(0, H, PAIR_ROW_BLOCK):
-                e = min(s + PAIR_ROW_BLOCK, H)
-                z_rows = ttnn.layer_norm(
-                    x_in[:, s:e],
-                    weight=self.in_norm_weight,
-                    bias=self.in_norm_bias,
-                    epsilon=1e-5,
-                    compute_kernel_config=self.compute_kernel_config,
-                )
-                g_block = ttnn.linear(
-                    z_rows,
-                    self.g_out_weight,
-                    bias=self.g_out_bias,
-                    memory_config=ttnn.DRAM_MEMORY_CONFIG,
-                    dtype=_dtype(),
-                    compute_kernel_config=self.compute_kernel_config,
-                    core_grid=CORE_GRID_MAIN,
-                )
-                ttnn.deallocate(z_rows)
-                x_rows = ttnn.layer_norm(
-                    x[:, s:e],
-                    weight=self.out_norm_weight,
-                    bias=self.out_norm_bias,
-                    epsilon=1e-5,
-                    compute_kernel_config=self.compute_kernel_config,
-                )
-                p_block = ttnn.linear(
-                    x_rows,
-                    self.out_p_weight,
-                    bias=self.p_out_bias,
-                    memory_config=ttnn.DRAM_MEMORY_CONFIG,
-                    dtype=_dtype(),
-                    compute_kernel_config=self.compute_kernel_config,
-                    core_grid=CORE_GRID_MAIN,
-                )
-                ttnn.deallocate(x_rows)
-                _acc_append(blocks, ttnn.multiply_(
-                    p_block, g_block, input_tensor_b_activations=[ttnn.UnaryOpType.SIGMOID]
-                ), host_acc)
-                ttnn.deallocate(g_block)
-            ttnn.deallocate(x)
-            dram_peak(f"trimul({'end' if self.ending else 'start'}) tail blocks done [z={'x'.join(str(d) for d in x_in.shape)}]")
-            return _acc_concat(blocks, 1, host_acc)
-        x = ttnn.layer_norm(
-            x,
-            weight=self.out_norm_weight,
-            bias=self.out_norm_bias,
-            epsilon=1e-5,
-            compute_kernel_config=self.compute_kernel_config,
-        )
+        tail_key = (tuple(shp), x.dtype)
+        rows_tail = (H > SEQ_LEN_MORE_CHUNKING or x_norm_in is None
+                     or tail_key in _TRIMUL_TAIL_ROWS_SHAPES)
+        if rows_tail and x_norm_in is not None:
+            # x_norm_in is dead on the row-blocked tail path (both norms are
+            # recomputed per row block from x_in). Freeing it before the concat
+            # drops that peak from 4 pair-tensor multiples to 3 -- the difference
+            # between fitting and the 9i3p/9j4c refusal.
+            ttnn.deallocate(x_norm_in)
+            if g_out_fused is not None:
+                ttnn.deallocate(g_out_fused)
+            if H <= SEQ_LEN_MORE_CHUNKING:
+                TRIMUL_TAIL_ROWS_STATS[1] += 1
+        x = _acc_concat(x_chunks, -1, host_acc)
+        dram_peak(f"trimul({'end' if self.ending else 'start'}) channel loop done [z={'x'.join(str(d) for d in x_in.shape)}]")
+        if rows_tail:
+            return self._tail_rows(x_in, x, H, host_acc)
+        # The output norm is the one full-size allocation this tail makes while the channel-loop
+        # result is still alive, so a refusal there can still take the row-blocked tail from the
+        # same two inputs. Once it succeeds the result is freed, exactly where rebinding `x` used
+        # to free it, so every size that fits keeps its peak and its ops.
+        try:
+            xn = ttnn.layer_norm(
+                x,
+                weight=self.out_norm_weight,
+                bias=self.out_norm_bias,
+                epsilon=1e-5,
+                compute_kernel_config=self.compute_kernel_config,
+            )
+        except RuntimeError as exc:
+            if not _dram_oom(exc):
+                raise
+            ttnn.deallocate(x_norm_in)
+            if g_out_fused is not None:
+                ttnn.deallocate(g_out_fused)
+            _TRIMUL_TAIL_ROWS_SHAPES.add(tail_key)
+            TRIMUL_TAIL_ROWS_STATS[0] += 1
+            print(f"[tt-bio] trimul DRAM refused the whole-tensor output norm at "
+                  f"{'x'.join(map(str, shp))}: re-running the tail in {PAIR_ROW_BLOCK}-row "
+                  f"blocks. The tt-metal 'Out of Memory' line above is expected and handled; "
+                  f"the blocks compute the same row-local math.", file=sys.stderr, flush=True)
+            return self._tail_rows(x_in, x, H, host_acc)
+        ttnn.deallocate(x)
+        x = xn
         if (g_out_fused is None and _TRIMUL_TAIL_F1 and self.p_out_bias is None
                 and self.g_out_bias is None):
             # `fused_tail` returns None for any call its descriptor does not cover (at 512 aa that
@@ -7099,6 +7082,62 @@ class TriangleMultiplication(Module):
             p_out, g_out, input_tensor_b_activations=[ttnn.UnaryOpType.SIGMOID]
         )
         return x
+
+    def _tail_rows(self, x_in, x, H, host_acc):
+        """The output projections in row blocks, from the pair input and the channel-loop result.
+
+        Both layer_norms are row-local, so recomputing them per row block from the (alive,
+        unmutated) inputs is bit-identical to slicing the full-size results, and the full-size
+        norm_out output never exists: at these shapes it is one pair-tensor-sized allocation
+        attempted while z and the hidden are live, which is exactly the refusal the large targets
+        die on. Peak here is z + accumulated blocks + concat destination, with the hidden freed
+        before the concat. The input norm is row-blocked the same way (_in_proj_rows), so no
+        full-size LN'd pair tensor exists anywhere on this path. Frees `x`.
+        """
+        blocks = []
+        for s in range(0, H, PAIR_ROW_BLOCK):
+            e = min(s + PAIR_ROW_BLOCK, H)
+            z_rows = ttnn.layer_norm(
+                x_in[:, s:e],
+                weight=self.in_norm_weight,
+                bias=self.in_norm_bias,
+                epsilon=1e-5,
+                compute_kernel_config=self.compute_kernel_config,
+            )
+            g_block = ttnn.linear(
+                z_rows,
+                self.g_out_weight,
+                bias=self.g_out_bias,
+                memory_config=ttnn.DRAM_MEMORY_CONFIG,
+                dtype=_dtype(),
+                compute_kernel_config=self.compute_kernel_config,
+                core_grid=CORE_GRID_MAIN,
+            )
+            ttnn.deallocate(z_rows)
+            x_rows = ttnn.layer_norm(
+                x[:, s:e],
+                weight=self.out_norm_weight,
+                bias=self.out_norm_bias,
+                epsilon=1e-5,
+                compute_kernel_config=self.compute_kernel_config,
+            )
+            p_block = ttnn.linear(
+                x_rows,
+                self.out_p_weight,
+                bias=self.p_out_bias,
+                memory_config=ttnn.DRAM_MEMORY_CONFIG,
+                dtype=_dtype(),
+                compute_kernel_config=self.compute_kernel_config,
+                core_grid=CORE_GRID_MAIN,
+            )
+            ttnn.deallocate(x_rows)
+            _acc_append(blocks, ttnn.multiply_(
+                p_block, g_block, input_tensor_b_activations=[ttnn.UnaryOpType.SIGMOID]
+            ), host_acc)
+            ttnn.deallocate(g_block)
+        ttnn.deallocate(x)
+        dram_peak(f"trimul({'end' if self.ending else 'start'}) tail blocks done [z={'x'.join(str(d) for d in x_in.shape)}]")
+        return _acc_concat(blocks, 1, host_acc)
 
 
 # The qkv and g projections are the fold's two biggest `minimal_matmul` sites after the trimul
