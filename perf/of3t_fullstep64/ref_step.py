@@ -36,6 +36,8 @@ the function the check differentiates.
 from __future__ import annotations
 
 import argparse
+import ctypes
+import gc
 import hashlib
 import json
 import os
@@ -93,10 +95,143 @@ class RssGuard(threading.Thread):
             if r > self.cap:
                 print(f"RSS {r:.1f} GB over the {self.cap} GB cap -- exiting", flush=True)
                 os._exit(99)
-            time.sleep(1.0)
+            time.sleep(0.2)
 
 
-def load(dtype, checkpoint: Path, seed: int):
+class _Null:
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *a):
+        return False
+
+
+class _DiskChain(torch.autograd.Function):
+    """Reentrant checkpointing with the block inputs on disk instead of in RAM.
+
+    The float64 step at width 384 peaks past pc's 30 GB with upstream's own per-block
+    checkpointing, because the 48 Pairformer block inputs (151 MB of pair each) stay resident
+    while one block is recomputed. This is the same recompute-in-backward, same order, same
+    arithmetic; only where the 48 inputs wait differs. Parameter gradients accumulate inside
+    backward exactly as in torch's reentrant checkpoint.
+    """
+
+    @staticmethod
+    def forward(ctx, blocks, tmpdir, s, z):
+        ctx.blocks, ctx.files = blocks, []
+        for i, b in enumerate(blocks):
+            f = Path(tmpdir) / f"pf_in_{i:02d}.pt"
+            torch.save((s, z), f)
+            ctx.files.append(f)
+            s, z = b(s, z)
+        return s, z
+
+    @staticmethod
+    def backward(ctx, gs, gz):
+        for b, f in zip(reversed(ctx.blocks), reversed(ctx.files)):
+            gc.collect()
+            s, z = torch.load(f, weights_only=False)
+            f.unlink()
+            s, z = s.detach().requires_grad_(), z.detach().requires_grad_()
+            with torch.enable_grad():
+                so, zo = b(s, z)
+            torch.autograd.backward([so, zo], [gs if gs is not None else torch.zeros_like(so),
+                                               gz if gz is not None else torch.zeros_like(zo)])
+            gs, gz = s.grad, z.grad
+        return None, None, gs, gz
+
+
+class DiskSaved:
+    """Saved-for-backward tensors of the forward parked on disk.
+
+    Where the tensors of the graph wait, nothing else: the backward reads back the bytes it
+    would have read from RAM. The test is the size of the STORAGE, not of the saved tensor: a
+    small view kept in RAM pins its whole base (a 1 MB slice of a 151 MB pair tensor keeps
+    151 MB alive), so a view of a large storage is parked as a compact copy of its own bytes.
+    Tensors saved during the backward itself (recomputes) stay in RAM.
+    """
+
+    def __init__(self, tmpdir, min_bytes=8 << 20):
+        self.dir, self.min, self.n, self.bytes = Path(tmpdir), min_bytes, 0, 0
+        self.ram = {}
+
+    def pack(self, t):
+        st = t.untyped_storage()
+        if isinstance(t, torch.nn.Parameter):   # alive anyway
+            return t
+        if st.nbytes() < self.min or torch._C._current_graph_task_id() != -1:
+            self.ram[st.data_ptr()] = st.nbytes()
+            return t
+        own = t.numel() * t.element_size()
+        f = self.dir / f"sv_{self.n:05d}.pt"
+        self.n += 1
+        self.bytes += own
+        torch.save(t.detach().clone() if own < st.nbytes() else t.detach(), f)
+        return (f, t.requires_grad)
+
+    @staticmethod
+    def unpack(x):
+        if isinstance(x, tuple):
+            return torch.load(x[0], weights_only=False)
+        return x
+
+    def hooks(self):
+        return torch.autograd.graph.saved_tensors_hooks(self.pack, self.unpack)
+
+
+LEAVES = ("tri_mul_out", "tri_mul_in", "tri_att_start", "tri_att_end", "pair_transition",
+          "attn_pair_bias", "single_transition")
+
+
+def checkpoint_leaves(stack):
+    """Recompute each Pairformer sub-layer in its own backward (non-reentrant checkpoint).
+
+    Nested inside the block recompute: one sub-layer's float64 graph is alive at a time instead of
+    a whole block's (two triangle attentions' softmax at 384^2 x 4 heads is 3.6 GB alone). Same
+    arithmetic, recomputed; only the peak changes.
+    """
+    for m in stack.modules():
+        for name in LEAVES:
+            leaf = getattr(m, name, None)
+            if isinstance(leaf, torch.nn.Module) and not getattr(leaf, "_ckpt_leaf", False):
+                fwd = leaf.forward
+
+                def wrapped(*args, _fwd=fwd, **kw):
+                    if not torch.is_grad_enabled():
+                        return _fwd(*args, **kw)
+                    return torch.utils.checkpoint.checkpoint(_fwd, *args, use_reentrant=False,
+                                                             **kw)
+                leaf.forward, leaf._ckpt_leaf = wrapped, True
+
+
+def disk_checkpoint(stack, tmpdir):
+    Path(tmpdir).mkdir(parents=True, exist_ok=True)
+    checkpoint_leaves(stack)
+
+    def forward(s, z, single_mask, pair_mask, chunk_size=None, use_deepspeed_evo_attention=False,
+                use_cueq_triangle_kernels=False, use_triton_triangle_kernels=False, use_lma=False,
+                inplace_safe=False, _mask_trans=True):
+        blocks = stack._prep_blocks(s, z, single_mask, pair_mask, chunk_size,
+                                    use_deepspeed_evo_attention, use_cueq_triangle_kernels,
+                                    use_triton_triangle_kernels, use_lma, inplace_safe,
+                                    _mask_trans)
+        if not torch.is_grad_enabled():
+            for b in blocks:
+                s, z = b(s, z)
+            return s, z
+        return _DiskChain.apply(blocks, tmpdir, s, z)
+    stack.forward = forward
+
+
+def _trim():
+    """Hand freed heap back to the OS so the RSS guard reads live memory, not glibc's high-water."""
+    try:
+        ctypes.CDLL("libc.so.6").malloc_trim(0)
+    except OSError:
+        pass
+
+
+def load(dtype, checkpoint: Path, seed: int, chunk_size=None):
     cfg, model, _loss, dropout = bm.build(dtype, seed, "cpu", num_recycles=0)
     ck = torch.load(checkpoint, map_location="cpu", weights_only=False)
     sd = ck.get("state_dict", ck) if isinstance(ck, dict) else ck
@@ -104,12 +239,25 @@ def load(dtype, checkpoint: Path, seed: int):
     sd = {k: v.to(dtype) if torch.is_tensor(v) and v.is_floating_point() else v
           for k, v in sd.items()}
     inc = model.load_state_dict(sd, strict=False)
+    n_sd = len(sd)
+    del ck, sd
+    gc.collect()
+    _trim()
     if inc.unexpected_keys:   # bundle_min's key gate (D23/R126)
         raise SystemExit(f"KEY GATE FAILED: {len(inc.unexpected_keys)} unexpected tensors")
     emb = model.msa_module_embedder
     emb.subsample_main_msa = emb.subsample_all_msa = False
+    if chunk_size:
+        # Chunked attention and transitions: an exact decomposition over a batch-like axis, so
+        # the function is unchanged; it bounds the per-block transient in the float64 backward.
+        # The tuner asserts eval mode, so it is removed rather than consulted.
+        with model.settings.unlocked() if hasattr(model.settings, "unlocked") else _Null():
+            model.settings.memory.train.chunk_size = chunk_size
+        for m in model.modules():
+            if getattr(m, "chunk_size_tuner", None) is not None:
+                m.chunk_size_tuner = None
     return cfg, model, dropout, {"file": checkpoint.name, "sha256": sha256_file(checkpoint),
-                                 "n_loaded": len(sd), "n_missing": len(inc.missing_keys),
+                                 "n_loaded": n_sd, "n_missing": len(inc.missing_keys),
                                  "n_unexpected": 0}
 
 
@@ -124,6 +272,7 @@ def trunk_and_heads(model, batch, repr_x=None, cfg=None, seed=None, replay=None)
 
     `repr_x` given: the rollout is skipped and that token-scope structure is scored (FD).
     """
+    chunk = model.settings.memory.train.chunk_size
     from openfold3.core.model.structure.diffusion_module import create_noise_schedule
     from openfold3.core.utils.tensor_utils import tensor_tree_map
 
@@ -155,7 +304,7 @@ def trunk_and_heads(model, batch, repr_x=None, cfg=None, seed=None, replay=None)
     pair = tok[..., None] * tok[..., None, :]
     si_c, zij_c = pe.pairformer_emb(si_input=s_input, si=s, zij=z,
                                     x_pred=repr_x.to(z.dtype)[None], single_mask=tok,
-                                    pair_mask=pair, _mask_trans=True)
+                                    pair_mask=pair, chunk_size=chunk, _mask_trans=True)
     er = model.aux_heads.experimentally_resolved
     out["resolved_logits"] = er.linear(er.layer_norm(si_c))  # [1, N, 23 * 2], our layout
     return out, xl, repr_x, rec
@@ -183,6 +332,9 @@ def main() -> int:
     ap.add_argument("--fd-h", default="1e-3,1e-4,1e-5")
     ap.add_argument("--threads", type=int, default=10)
     ap.add_argument("--rss-cap-gb", type=float, default=22.0)
+    ap.add_argument("--chunk-size", type=int, default=None)
+    ap.add_argument("--disk-checkpoint", type=Path,
+                    help="park the trunk Pairformer's 48 block inputs here during the step")
     ap.add_argument("--out-dir", type=Path, required=True)
     a = ap.parse_args()
     a.out_dir.mkdir(parents=True, exist_ok=True)
@@ -196,8 +348,13 @@ def main() -> int:
         raise SystemExit(f"batch sha256 {got} != {a.batch_sha256}")
     det = bm.pin_deterministic_kernels(True)
     dtype = torch.float64 if a.mode == "f64" else torch.float32
-    cfg, model, dropout, ck = load(dtype, a.checkpoint, a.build_seed)
+    cfg, model, dropout, ck = load(dtype, a.checkpoint, a.build_seed, a.chunk_size)
     lab = labels(a.batch)
+    if a.disk_checkpoint:
+        a.disk_checkpoint.mkdir(parents=True, exist_ok=True)
+        disk_checkpoint(model.pairformer_stack, a.disk_checkpoint / "trunk")
+        disk_checkpoint(model.aux_heads.pairformer_embedding.pairformer_stack,
+                        a.disk_checkpoint / "confidence")
     batch = bm.move(torch.load(a.batch, weights_only=False), "cpu", dtype)
     replay = None
     if a.replay_draws:
@@ -207,9 +364,11 @@ def main() -> int:
 
     import openfold3
     rec = {"row": "of3t-fullstep64", "mode": a.mode, "host": socket.gethostname(),
-           "threads": a.threads, "openfold3": openfold3.__file__, "torch": torch.__version__,
+           "threads": a.threads,
+           "malloc_env": {k: v for k, v in os.environ.items() if k.startswith("MALLOC_")}, "openfold3": openfold3.__file__, "torch": torch.__version__,
            "batch": {"file": a.batch.name, "sha256": got}, "checkpoint": ck,
-           "dropout": dropout, "deterministic": det, "draw_seed": a.seed,
+           "dropout": dropout, "deterministic": det, "draw_seed": a.seed, "chunk_size": a.chunk_size,
+           "disk_checkpoint": str(a.disk_checkpoint) if a.disk_checkpoint else None,
            "adapter_departures": [
                "representative atom = start_atom_index (first atom); upstream: CB / CA(gly)",
                "confidence Pairformer not detached from the trunk; upstream detaches its inputs",
@@ -217,8 +376,13 @@ def main() -> int:
 
     policy = bm.cast_policy("removed" if a.mode == "f64" else "bf16", "cpu")
     t_f = time.time()
-    with policy:
+    saved = DiskSaved(a.disk_checkpoint) if a.disk_checkpoint else None
+    with policy, (saved.hooks() if saved else _Null()):
         out, xl, repr_x, drec = trunk_and_heads(model, batch, cfg=cfg, seed=a.seed, replay=replay)
+    if saved:
+        rec["disk_saved"] = {"n": saved.n, "gb": saved.bytes / 2 ** 30,
+                             "ram_storage_gb": sum(saved.ram.values()) / 2 ** 30}
+        print(f"saved: {rec['disk_saved']}, rss {guard.rss_gb():.1f} GB", flush=True)
     rec["forward_s"] = time.time() - t_f
     rec["cast_policy"] = policy.report()
     rec["draws"] = {"n_calls": len(drec.recorded), "replayed": replay is not None,
@@ -244,8 +408,13 @@ def main() -> int:
         torch.autograd.backward([out[k].to(rdt) for k in seeds],
                                 [torch.from_numpy(np.asarray(seeds[k])).to(rdt) for k in seeds])
     rec["backward_s"] = time.time() - t_b
-    grads = {n: (p.grad.detach().to(torch.float64).clone() if p.grad is not None else None)
-             for n, p in model.named_parameters()}
+    del out
+    grads = {}
+    for n, p in model.named_parameters():
+        grads[n] = p.grad.detach().to(torch.float64) if p.grad is not None else None
+        p.grad = None
+    gc.collect()
+    _trim()
     gp = a.out_dir / f"grads_{a.mode}.pt"
     torch.save(grads, gp)
     rec["grads"] = {"file": str(gp), "sha256": sha256_file(gp),
@@ -263,7 +432,7 @@ def main() -> int:
 
     if a.fd:
         assert a.mode == "f64"
-        params = [(n, p) for n, p in model.named_parameters() if p.grad is not None]
+        params = [(n, p) for n, p in model.named_parameters() if grads[n] is not None]
         gnorm = rec["squared_gradient_norm"] ** 0.5
         base = {n: p.detach().clone() for n, p in params}
 
