@@ -1,0 +1,585 @@
+{
+ "arm_a_closed_form": {
+  "domain": [
+   0,
+   100002
+  ],
+  "exact_matches": 1007,
+  "first_mismatch": null,
+  "knees": [
+   1000,
+   50000,
+   50000
+  ],
+  "mismatches": 0,
+  "pass": true,
+  "points": 1007,
+  "samples": {
+   "0": {
+    "ours": 0.0,
+    "theirs": 0.0
+   },
+   "1": {
+    "ours": 1.8e-06,
+    "theirs": 1.8e-06
+   },
+   "1000": {
+    "ours": 0.0018,
+    "theirs": 0.0018
+   },
+   "1001": {
+    "ours": 0.0018,
+    "theirs": 0.0018
+   },
+   "2": {
+    "ours": 3.6e-06,
+    "theirs": 3.6e-06
+   },
+   "50000": {
+    "ours": 0.0018,
+    "theirs": 0.0018
+   },
+   "50001": {
+    "ours": 0.00171,
+    "theirs": 0.00171
+   }
+  },
+  "worst": 0.0
+ },
+ "arm_b_wiring": {
+  "at_warmup_knee": [
+   {
+    "k": 1000,
+    "ours": 0.0017982,
+    "theirs": 0.0017982
+   },
+   {
+    "k": 1001,
+    "ours": 0.0018,
+    "theirs": 0.0018
+   }
+  ],
+  "exact_matches": 2005,
+  "first_five": [
+   {
+    "k": 1,
+    "ours": 0.0,
+    "theirs": 0.0
+   },
+   {
+    "k": 2,
+    "ours": 1.8e-06,
+    "theirs": 1.8e-06
+   },
+   {
+    "k": 3,
+    "ours": 3.6e-06,
+    "theirs": 3.6e-06
+   },
+   {
+    "k": 4,
+    "ours": 5.4e-06,
+    "theirs": 5.4e-06
+   },
+   {
+    "k": 5,
+    "ours": 7.2e-06,
+    "theirs": 7.2e-06
+   }
+  ],
+  "first_mismatch": null,
+  "mismatches": 0,
+  "pass": true,
+  "steps": 2005,
+  "worst_abs": 0.0
+ },
+ "arm_c_trajectory": {
+  "scaled_warmup_20": {
+   "all_rungs_inside_fp32_floor": true,
+   "d1_ours": 0.0,
+   "d1_theirs": 0.0,
+   "d1_zero_both_sides": true,
+   "growth_exponent_k2_20": 0.4372999691941019,
+   "growth_fitted_over_k": [
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9,
+    10,
+    11,
+    12,
+    13,
+    14,
+    15,
+    16,
+    17,
+    18,
+    19,
+    20
+   ],
+   "growth_gated": true,
+   "growth_note": "SS7a runs the trajectory twice and says why: at the shipped warmup the 20 updates are ~1e-4 relative, so the divergence series sits entirely under the fp32 differencing floor and a power-law fit over it describes rounding staircases rather than a divergence. The growth law is therefore read off the SCALED-warmup run, which is the run SS7a added for exactly that reason; the shipped run is gated on d_1 and the floor and its exponent is reported, not used.",
+   "pass": true,
+   "per_step": [
+    {
+     "d_ours_norm": 0.0,
+     "d_theirs_norm": 0.0,
+     "fp32_differencing_floor": 0.0,
+     "k": 1,
+     "rel_d": 0.0,
+     "rel_over_floor": 0.0,
+     "rel_w": 0.0
+    },
+    {
+     "d_ours_norm": 0.000530053038030511,
+     "d_theirs_norm": 0.0005300530392391841,
+     "fp32_differencing_floor": 2.64344686354139e-05,
+     "k": 2,
+     "rel_d": 1.3726848212448758e-08,
+     "rel_over_floor": 0.0005192783861771704,
+     "rel_w": 4.3771894954381464e-11
+    },
+    {
+     "d_ours_norm": 0.0012476527897483714,
+     "d_theirs_norm": 0.0012476528238149248,
+     "fp32_differencing_floor": 1.122984959770241e-05,
+     "k": 3,
+     "rel_d": 2.093740554906197e-07,
+     "rel_over_floor": 0.018644422052941558,
+     "rel_w": 1.5716072636769995e-09
+    },
+    {
+     "d_ours_norm": 0.0021315466851441213,
+     "d_theirs_norm": 0.002131546958496134,
+     "fp32_differencing_floor": 6.5713272032447576e-06,
+     "k": 4,
+     "rel_d": 9.846880647747973e-07,
+     "rel_over_floor": 0.14984614740970179,
+     "rel_w": 1.2631085749635596e-08
+    },
+    {
+     "d_ours_norm": 0.0032144098925370184,
+     "d_theirs_norm": 0.0032144100629774145,
+     "fp32_differencing_floor": 4.355011350544483e-06,
+     "k": 5,
+     "rel_d": 7.180251727225457e-07,
+     "rel_over_floor": 0.16487331832849872,
+     "rel_w": 1.389778154215929e-08
+    },
+    {
+     "d_ours_norm": 0.00446163661401666,
+     "d_theirs_norm": 0.004461637066700874,
+     "fp32_differencing_floor": 3.136786003104131e-06,
+     "k": 6,
+     "rel_d": 5.741835131799541e-07,
+     "rel_over_floor": 0.1830483535095311,
+     "rel_w": 1.542982245106957e-08
+    },
+    {
+     "d_ours_norm": 0.005732700092691399,
+     "d_theirs_norm": 0.005732700685450037,
+     "fp32_differencing_floor": 2.439589997242164e-06,
+     "k": 7,
+     "rel_d": 4.5237764552632463e-07,
+     "rel_over_floor": 0.18543183323333642,
+     "rel_w": 1.563073476876559e-08
+    },
+    {
+     "d_ours_norm": 0.007208333558890048,
+     "d_theirs_norm": 0.007208334269247607,
+     "fp32_differencing_floor": 1.939127102080335e-06,
+     "k": 8,
+     "rel_d": 3.632875240850644e-07,
+     "rel_over_floor": 0.18734590615299127,
+     "rel_w": 1.5792079051532587e-08
+    },
+    {
+     "d_ours_norm": 0.00886694961650743,
+     "d_theirs_norm": 0.008866950384999626,
+     "fp32_differencing_floor": 1.5745777127155626e-06,
+     "k": 9,
+     "rel_d": 3.0225521274296294e-07,
+     "rel_over_floor": 0.19195953956549072,
+     "rel_w": 1.6180979268575418e-08
+    },
+    {
+     "d_ours_norm": 0.01077669350122179,
+     "d_theirs_norm": 0.010776694676292418,
+     "fp32_differencing_floor": 1.2953669801605102e-06,
+     "k": 10,
+     "rel_d": 4.3546298684912606e-07,
+     "rel_over_floor": 0.3361695901768064,
+     "rel_w": 2.8336977582302385e-08
+    },
+    {
+     "d_ours_norm": 0.01263139023500472,
+     "d_theirs_norm": 0.012631391505246873,
+     "fp32_differencing_floor": 1.105297079032971e-06,
+     "k": 11,
+     "rel_d": 4.7631679049061993e-07,
+     "rel_over_floor": 0.43094006084531716,
+     "rel_w": 3.6325530923446085e-08
+    },
+    {
+     "d_ours_norm": 0.01468366108330083,
+     "d_theirs_norm": 0.014683662905884652,
+     "fp32_differencing_floor": 9.518773364193146e-07,
+     "k": 12,
+     "rel_d": 4.415314362727925e-07,
+     "rel_over_floor": 0.4638532922043351,
+     "rel_w": 3.909990887563115e-08
+    },
+    {
+     "d_ours_norm": 0.01669534780301811,
+     "d_theirs_norm": 0.01669534991857363,
+     "fp32_differencing_floor": 8.380142471433703e-07,
+     "k": 13,
+     "rel_d": 4.0083671595386485e-07,
+     "rel_over_floor": 0.47831730465232575,
+     "rel_w": 4.0319133958641454e-08
+    },
+    {
+     "d_ours_norm": 0.01854056880706004,
+     "d_theirs_norm": 0.018540571100003008,
+     "fp32_differencing_floor": 7.55766812411292e-07,
+     "k": 14,
+     "rel_d": 3.6991557051906543e-07,
+     "rel_over_floor": 0.48945728291354973,
+     "rel_w": 4.125816391102236e-08
+    },
+    {
+     "d_ours_norm": 0.020568013926063416,
+     "d_theirs_norm": 0.020568016649973177,
+     "fp32_differencing_floor": 6.835778726802379e-07,
+     "k": 15,
+     "rel_d": 3.513893128497616e-07,
+     "rel_over_floor": 0.5140443055478091,
+     "rel_w": 4.333069494762247e-08
+    },
+    {
+     "d_ours_norm": 0.022695883042226434,
+     "d_theirs_norm": 0.02269588614846368,
+     "fp32_differencing_floor": 6.217428671814997e-07,
+     "k": 16,
+     "rel_d": 3.13987305094565e-07,
+     "rel_over_floor": 0.505011511459617,
+     "rel_w": 4.2569287339492206e-08
+    },
+    {
+     "d_ours_norm": 0.024886409204020746,
+     "d_theirs_norm": 0.024886412361824584,
+     "fp32_differencing_floor": 5.690855936609091e-07,
+     "k": 17,
+     "rel_d": 2.909129211702415e-07,
+     "rel_over_floor": 0.5111936137739986,
+     "rel_w": 4.309039959893839e-08
+    },
+    {
+     "d_ours_norm": 0.02731538402530633,
+     "d_theirs_norm": 0.027315387299999563,
+     "fp32_differencing_floor": 5.198648554502793e-07,
+     "k": 18,
+     "rel_d": 2.7289445344917496e-07,
+     "rel_over_floor": 0.5249334525851114,
+     "rel_w": 4.4248581408810536e-08
+    },
+    {
+     "d_ours_norm": 0.029846744091511498,
+     "d_theirs_norm": 0.029846748170264684,
+     "fp32_differencing_floor": 4.765861622483331e-07,
+     "k": 19,
+     "rel_d": 2.7831460413104635e-07,
+     "rel_over_floor": 0.5839754197185985,
+     "rel_w": 4.922544709793106e-08
+    },
+    {
+     "d_ours_norm": 0.0326563367213389,
+     "d_theirs_norm": 0.03265634110631553,
+     "fp32_differencing_floor": 4.368622104736288e-07,
+     "k": 20,
+     "rel_d": 2.627619473867626e-07,
+     "rel_over_floor": 0.601475570756936,
+     "rel_w": 5.070059952739222e-08
+    }
+   ],
+   "rungs_bit_identical": 0,
+   "rungs_k2_20": 19,
+   "steps": 20,
+   "warmup_no_steps": 20,
+   "worst_floor": 6.5713272032447576e-06,
+   "worst_k": 4,
+   "worst_rel_d_k2_20": 9.846880647747973e-07,
+   "worst_rel_over_floor": 0.14984614740970179,
+   "worst_rel_w": 5.070059952739222e-08
+  },
+  "shipped_warmup_1000": {
+   "all_rungs_inside_fp32_floor": true,
+   "d1_ours": 0.0,
+   "d1_theirs": 0.0,
+   "d1_zero_both_sides": true,
+   "growth_exponent_k2_20": 5.238134722171114,
+   "growth_fitted_over_k": [
+    9,
+    10,
+    11,
+    12,
+    13,
+    14,
+    15,
+    16,
+    17,
+    18,
+    19,
+    20
+   ],
+   "growth_gated": false,
+   "growth_note": "SS7a runs the trajectory twice and says why: at the shipped warmup the 20 updates are ~1e-4 relative, so the divergence series sits entirely under the fp32 differencing floor and a power-law fit over it describes rounding staircases rather than a divergence. The growth law is therefore read off the SCALED-warmup run, which is the run SS7a added for exactly that reason; the shipped run is gated on d_1 and the floor and its exponent is reported, not used.",
+   "pass": true,
+   "per_step": [
+    {
+     "d_ours_norm": 0.0,
+     "d_theirs_norm": 0.0,
+     "fp32_differencing_floor": 0.0,
+     "k": 1,
+     "rel_d": 0.0,
+     "rel_over_floor": 0.0,
+     "rel_w": 0.0
+    },
+    {
+     "d_ours_norm": 1.0600335314441429e-05,
+     "d_theirs_norm": 1.0600335314441429e-05,
+     "fp32_differencing_floor": 0.0013219891117635613,
+     "k": 2,
+     "rel_d": 0.0,
+     "rel_over_floor": 0.0,
+     "rel_w": 0.0
+    },
+    {
+     "d_ours_norm": 2.4952493621024312e-05,
+     "d_theirs_norm": 2.4952493621024312e-05,
+     "fp32_differencing_floor": 0.0005616074791463997,
+     "k": 3,
+     "rel_d": 0.0,
+     "rel_over_floor": 0.0,
+     "rel_w": 0.0
+    },
+    {
+     "d_ours_norm": 4.263073227103824e-05,
+     "d_theirs_norm": 4.263073227103824e-05,
+     "fp32_differencing_floor": 0.00032871626025852627,
+     "k": 4,
+     "rel_d": 0.0,
+     "rel_over_floor": 0.0,
+     "rel_w": 0.0
+    },
+    {
+     "d_ours_norm": 6.428820642193394e-05,
+     "d_theirs_norm": 6.428820642193394e-05,
+     "fp32_differencing_floor": 0.00021797497392206643,
+     "k": 5,
+     "rel_d": 0.0,
+     "rel_over_floor": 0.0,
+     "rel_w": 0.0
+    },
+    {
+     "d_ours_norm": 8.923215316914359e-05,
+     "d_theirs_norm": 8.923215316914359e-05,
+     "fp32_differencing_floor": 0.0001570409350696306,
+     "k": 6,
+     "rel_d": 0.0,
+     "rel_over_floor": 0.0,
+     "rel_w": 0.0
+    },
+    {
+     "d_ours_norm": 0.00011465349066370974,
+     "d_theirs_norm": 0.00011465349066370974,
+     "fp32_differencing_floor": 0.00012221905712161212,
+     "k": 7,
+     "rel_d": 0.0,
+     "rel_over_floor": 0.0,
+     "rel_w": 0.0
+    },
+    {
+     "d_ours_norm": 0.00014416669686080969,
+     "d_theirs_norm": 0.00014416669686080969,
+     "fp32_differencing_floor": 9.719717416159239e-05,
+     "k": 8,
+     "rel_d": 0.0,
+     "rel_over_floor": 0.0,
+     "rel_w": 0.0
+    },
+    {
+     "d_ours_norm": 0.00017733920912027632,
+     "d_theirs_norm": 0.00017733921154172534,
+     "fp32_differencing_floor": 7.901321155258517e-05,
+     "k": 9,
+     "rel_d": 8.205695233365238e-08,
+     "rel_over_floor": 0.0010385219221097162,
+     "rel_w": 8.754085225280139e-11
+    },
+    {
+     "d_ours_norm": 0.0002155338793339174,
+     "d_theirs_norm": 0.00021553388156034673,
+     "fp32_differencing_floor": 6.501027008496412e-05,
+     "k": 10,
+     "rel_d": 6.751567374474486e-08,
+     "rel_over_floor": 0.0010385385825425174,
+     "rel_w": 8.754225662227621e-11
+    },
+    {
+     "d_ours_norm": 0.0002526265170098285,
+     "d_theirs_norm": 0.000252626519096981,
+     "fp32_differencing_floor": 5.5464222050837105e-05,
+     "k": 11,
+     "rel_d": 5.760248480794095e-08,
+     "rel_over_floor": 0.0010385521094146775,
+     "rel_w": 8.754339685233972e-11
+    },
+    {
+     "d_ours_norm": 0.0002936717718802819,
+     "d_theirs_norm": 0.00029367177393380047,
+     "fp32_differencing_floor": 4.771233480258841e-05,
+     "k": 12,
+     "rel_d": 4.955163049359707e-08,
+     "rel_over_floor": 0.0010385496894800646,
+     "rel_w": 8.754319286710464e-11
+    },
+    {
+     "d_ours_norm": 0.0003339059038929676,
+     "d_theirs_norm": 0.0003339059057748825,
+     "fp32_differencing_floor": 4.196310819549604e-05,
+     "k": 13,
+     "rel_d": 4.3580886042122513e-08,
+     "rel_over_floor": 0.0010385523836577986,
+     "rel_w": 8.754341996930627e-11
+    },
+    {
+     "d_ours_norm": 0.000370810285960344,
+     "d_theirs_norm": 0.00037081028777031984,
+     "fp32_differencing_floor": 3.77870703481627e-05,
+     "k": 14,
+     "rel_d": 3.924355852117112e-08,
+     "rel_over_floor": 0.001038544617499812,
+     "rel_w": 8.754276533113793e-11
+    },
+    {
+     "d_ours_norm": 0.00041135930766909596,
+     "d_theirs_norm": 0.000411359309271954,
+     "fp32_differencing_floor": 3.406363190647879e-05,
+     "k": 15,
+     "rel_d": 3.537519365763624e-08,
+     "rel_over_floor": 0.0010385032856965553,
+     "rel_w": 8.753928132063685e-11
+    },
+    {
+     "d_ours_norm": 0.0004539171993824132,
+     "d_theirs_norm": 0.00045391748484296804,
+     "fp32_differencing_floor": 3.087116861455579e-05,
+     "k": 16,
+     "rel_d": 2.0523076682188713e-06,
+     "rel_over_floor": 0.0664797531263914,
+     "rel_w": 5.603824168119305e-09
+    },
+    {
+     "d_ours_norm": 0.0004977276408793499,
+     "d_theirs_norm": 0.0004977279052058096,
+     "fp32_differencing_floor": 2.8154909645979708e-05,
+     "k": 17,
+     "rel_d": 1.8716618560830754e-06,
+     "rel_over_floor": 0.06647728156891221,
+     "rel_w": 5.603615831401983e-09
+    },
+    {
+     "d_ours_norm": 0.000546307821662609,
+     "d_theirs_norm": 0.0005463080708379225,
+     "fp32_differencing_floor": 2.565149623941212e-05,
+     "k": 18,
+     "rel_d": 1.7052252833332667e-06,
+     "rel_over_floor": 0.06647664009217838,
+     "rel_w": 5.603561758956534e-09
+    },
+    {
+     "d_ours_norm": 0.0005969339013435671,
+     "d_theirs_norm": 0.0005969341387100194,
+     "fp32_differencing_floor": 2.347560808924117e-05,
+     "k": 19,
+     "rel_d": 1.560938050907625e-06,
+     "rel_over_floor": 0.06649191130529224,
+     "rel_w": 5.6048490259679095e-09
+    },
+    {
+     "d_ours_norm": 0.0006531251315173049,
+     "d_theirs_norm": 0.0006531253598527449,
+     "fp32_differencing_floor": 2.1455863507579365e-05,
+     "k": 20,
+     "rel_d": 1.426643747546903e-06,
+     "rel_over_floor": 0.06649202196140629,
+     "rel_w": 5.604858353580861e-09
+    }
+   ],
+   "rungs_bit_identical": 7,
+   "rungs_k2_20": 19,
+   "steps": 20,
+   "warmup_no_steps": 1000,
+   "worst_floor": 3.087116861455579e-05,
+   "worst_k": 16,
+   "worst_rel_d_k2_20": 2.0523076682188713e-06,
+   "worst_rel_over_floor": 0.0664797531263914,
+   "worst_rel_w": 5.604858353580861e-09
+  }
+ },
+ "defect": "D11 -- AdamW read its schedule after incrementing its step counter",
+ "fix": "tt_bio/train/optim.py: read the schedule BEFORE the increment",
+ "negative_control": {
+  "answers": "which check fails if the wiring is wrong? the applied rate at every k and d_1, which reads 0 only when the first step runs at lr(0). The closed form is untouched, which is why it is a separate arm.",
+  "b_first_mismatch": [
+   1,
+   1.8e-06,
+   0.0
+  ],
+  "broke": [
+   "arm_b_wiring",
+   "arm_c_trajectory"
+  ],
+  "c_d1_ours": 1.439879889013689e-05,
+  "c_d1_theirs": 0.0,
+  "c_worst_rel_d_k2_20": 2.170127574298317,
+  "expected_broken": [
+   "arm_b_wiring",
+   "arm_c_trajectory"
+  ],
+  "expected_survived": [
+   "arm_a_closed_form"
+  ],
+  "pass": true,
+  "perturbation": "the shipped order restored: schedule read at `steps` AFTER the increment, so step k applies lr(k)",
+  "survived": [
+   "arm_a_closed_form"
+  ]
+ },
+ "pass": true,
+ "their_call_order": "opt.step(); self.lr_schedulers().step() (projects/of3_all_atom/runner.py:460-461)",
+ "their_optimizer_config": {
+  "beta1": 0.9,
+  "beta2": 0.95,
+  "eps": 1e-08,
+  "learning_rate": 0.0018
+ },
+ "their_schedule_config": {
+  "base_lr": 0.0,
+  "decay_every_n_steps": 50000,
+  "decay_factor": 0.95,
+  "start_decay_after_n_steps": 50000,
+  "warmup_no_steps": 1000
+ },
+ "their_scheduler": {
+  "file": "/home/moritz/.coworker/scratch/of3t-reference/upstream050/openfold3/core/utils/lr_schedulers.py",
+  "identical_in_0.4.3_and_0.5.0": true,
+  "sha256": "2ddcefaa8abf3ca185cccd52924e53f817e8e0f30c816aea2765661fe57f9bf1"
+ },
+ "torch": "2.13.0+cpu"
+}

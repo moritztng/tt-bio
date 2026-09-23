@@ -1,0 +1,48 @@
+{
+ "instrument": "the dropout floor of BUNDLE-MIN's per-parameter gradient",
+ "block": 0,
+ "tokens": 384,
+ "dropout_modules_in_block": 1,
+ "dropout_rates": [
+  0.25
+ ],
+ "bar": 0.05,
+ "probe": "the captured block boundary of the bundle's own step; every input but the dropout mask is fixed exactly",
+ "dropout_on_pairs": {
+  "1_vs_2": {
+   "worst": 1.166879500823583,
+   "worst_tensor": "pairformer_stack.blocks.0.attn_pair_bias.layer_norm_z.bias",
+   "median": 0.5499371745996952,
+   "n": 57,
+   "over_bar": 47
+  },
+  "2_vs_3": {
+   "worst": 2.419338955876534,
+   "worst_tensor": "pairformer_stack.blocks.0.attn_pair_bias.layer_norm_z.bias",
+   "median": 0.4811456107455928,
+   "n": 57,
+   "over_bar": 47
+  }
+ },
+ "dropout_off_control": {
+  "worst": 0.0,
+  "worst_tensor": "pairformer_stack.blocks.0.single_transition.swiglu.linear_b.weight",
+  "median": 0.0,
+  "n": 57,
+  "over_bar": 0
+ },
+ "vs_bundle_train_seed1": {
+  "worst": 1.9585962051263863,
+  "worst_tensor": "pairformer_stack.blocks.0.pair_stack.tri_mul_out.layer_norm_in.weight",
+  "median": 1.0964712487898045,
+  "n": 57,
+  "over_bar": 57
+ },
+ "vs_bundle_eval_seed1": {
+  "worst": 1.5154392142486537,
+  "worst_tensor": "pairformer_stack.blocks.0.pair_stack.tri_mul_out.layer_norm_in.weight",
+  "median": 1.0647701080403353,
+  "n": 57,
+  "over_bar": 57
+ }
+}
