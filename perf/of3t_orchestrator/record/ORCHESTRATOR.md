@@ -64,7 +64,7 @@ as such, because their runner genuinely produces absent gradients. **§7, the gr
 20-step trajectory's bar is not a magnitude but the shape of divergence in k — linear or
 sub-linear passes, super-linear fails at any magnitude, including inside the per-step bars.
 
-LEDGER: `~/.coworker/state/of3t/LEDGER.md`, **R1-R181 and K1-K19**. **This field is an INDEX, not
+LEDGER: `~/.coworker/state/of3t/LEDGER.md`, **R1-R182 and K1-K19**. **This field is an INDEX, not
 a copy** — it carried ~41 KB of transcribed entries until pass 399, re-read every pass beside the
 file that already holds them (`a-digest-with-one-carrier-is-a-transcription`). Every entry's full
 text, evidence and artifact path is in the LEDGER file while it is in the tail, and in
@@ -73,6 +73,9 @@ left the tail most recently**, and the rule rather than a filename is named here
 naming one archive was itself a thing that rots (the file is 150 KB and rotation is live). What each recent
 entry settles, one line, newest first:
 
+- **R182** I sequenced by CARD and was blind to `of3t-angle` at 991 % CPU on qb1 — a dispatch
+  grant does not sandbox HOST work, and my allocation model has no representation of cores;
+  accuracy readings survive it, durations do not
 - **R181** a per-row workaround around a SHIPPED defect leaves the defect shipped — D247,
   `_assert_local_dispatch` is a fail-fast probe with no timeout that guards the chip which
   THROWS and not the one that WEDGES; cost 230 min, and that is a floor not a total
@@ -672,92 +675,16 @@ cannot know which lines are load-bearing headings. The fields below are re-autho
 
 ---
 
-## ROTATED 2026-09-22T23:30:02Z
+## ROTATED 2026-09-23T00:00:02Z
 
-This doc reached 149571 bytes over its campaign and was costing
+This doc reached 120535 bytes over its campaign and was costing
 more to re-read each pass than the passes were worth. The middle is archived verbatim at
-`state/archive/of3t-orchestrator.20260923-013002.md` -- nothing was deleted, and a human can still read it. What follows is the most recent
+`state/archive/of3t-orchestrator.20260923-020002.md` -- nothing was deleted, and a human can still read it. What follows is the most recent
 work, which is what the next pass needs.
 
 ---
 
- disabled and deterministic kernels on. A
-fresh forward that reproduces 768 parameter gradients bit for bit through 48 checkpointed blocks
-is not a structurally different graph — which rules out the reconstruction, the weights, the host
-and `grads_f64_043.pt`'s provenance together. The z route alone is the object.
-
-The arm costs one backward on a graph already built, and its falsifier is one scalar whose two
-possible values are both already banked, so neither can be fitted afterwards. Delivered to the
-row's **brief**, not to this document (R150, `ORIGINAL_GRAPH_ARM.json`).
-
-**And a caveat the campaign owed itself (R151).** D242's defect is in the pair channel, which is
-the channel R143 redirected the campaign toward. The 4.9964x pair-track excess is a within-frame
-quotient and survives — but it was read at an operating point where `cot_z` drives the pair
-channel about **seven times too hard** and in a substantially wrong direction, and D233 already
-measured this quantity to be cancellation-limited and direction-sensitive. The redirect stands as
-a lead; it may not be quoted as a measured excess at the training point until the frame is
-repaired and R143 re-read on it.
-
-## Pass 388 — D210's pad lanes have a route into every parameter's step, and it is shut by 12.57x rather than by construction
-
-Both rows were mid-pass with nothing new on their branches, so I took the charter's standing
-priority instead: the user-facing defects come ahead of finishing the proof, and D210 is the only
-one whose repair has not been built and which has no owner.
-
-Its triage said the 14.2M fused-QKV pad lanes move nothing because they are sliced off before
-`v` is used. **That is true and it is not the only route out of a parameter.**
-`tt_bio/train/optim.py:218` computes one global gradient norm over `self.params` — our fused
-tensors, pad lanes included — and `clip_coef` turns it into a single scalar multiplying every
-parameter's update. Upstream's norm is taken over a parameter set 14.2M smaller. A binding clip
-would therefore scale our every step differently from theirs, which is a divergence in the update
-rule and not a cosmetic one.
-
-**Measured, it does not fire.** The batch clip coefficient is exactly 1.0 at all 20 steps, all 80
-per-sample coefficients are exactly 1.0, and the gradient norm's closest approach to the
-threshold is 0.7955289728502993 against 10.0 — **12.5703x of headroom**. D210's claim survives.
-What changes is its statement: confined by this batch's gradient norm, not by the parameter set.
-The cheap thing it now owes is one line in the existing steplog, `||pad grads||^2 / gnorm^2` per
-step, which costs no backward and no device time.
-
-**A third row was deliberately not dispatched.** Both card-capable rows are live on D242 and
-D245; a third contending for the same two hosts would cost more than it returns, and this is not
-on the critical path.
-
-**And the pass produced an argument the campaign had only ever asserted.** The trajectory
-exercises the clipping factor at coefficient 1.0 and nowhere else, so a trajectory-only proof
-would have zero coverage of clipping while looking fully covered. PROTOCOL's factorisation — the
-decision to drive the four state-free factors with an injected input rather than trust a
-trajectory — has been a design preference since pass 1. This is the measurement that makes it a
-fact.
-
-## Pass 389 — the partition that looked like a lead is entailed, and a hypothesis of mine died on its own test
-
-`of3t-frameself`'s blockprobe closed the last thing pass 387's falsifier could still have been
-about: the reference gradient, never read twice before, is confirmed by a second instrument at
-3.0392623414001263e-15 and 4.1031090433915236e-15 at the two blocks where the replay is worst.
-
-**Its sub-module split, though, is entailed rather than informative.** The row's own TWOBASIS
-measured the z-only arm's `ds_in` at exactly 0.0 — the pair track does not read the single track
-— so s-branch parameters reach the loss only through `cot_s` and a defect in `cot_z` alone
-produces the exact partition observed, at every depth, with no mechanism at the pair branch.
-`ps_dropout_row_layer` "matches the partition exactly" for the same reason the words "pair
-branch" do. Closing that reasoning closes a class of dead ends, not one candidate.
-
-**I brought a hypothesis to this pass and it died on the test I wrote for it.** I expected the
-row's two-scalar fit to be collinear and its `b_z = 0.1429` to be a fitting artifact. The fit is
-ill-conditioned — Gram condition number 23.4484 — but the valley is not flat, and `b_z = 0.55`
-costs 0.173577 against the minimum's 0.111621. The row's number stands. Reconstructing the fit
-from its banked scalars reproduces it to 1.94e-14, which is the check on both sides.
-
-**What the arithmetic did buy is the target.** "The pair branch is 1.8167x too large" and
-"`cot_z` wants scaling by 0.1429" are the same statement seen twice, because the correction
-applies only to the `cot_z` part of a pair parameter's gradient. And "pointing elsewhere"
-overstates the direction: cos 0.995 at depth is a 0.0999 perpendicular component, the same size
-as the residual floor. **A mechanism has to produce a 7x to 26x magnitude error and about ten
-degrees of angle, on the z channel only.**
-
-Pass 387's cotangent-driven original-graph discriminator is still owed, and blockprobe has made
-it nearly free — one extra `grad_outputs=` argument on a call the row has already written,
+has already written,
 costing about 135 s. Delivered as Amendment 5 to its brief.
 
 ## Pass 390 — the trajectory clause certifies one operating point, and five factors are inert in it

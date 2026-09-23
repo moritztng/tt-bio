@@ -1329,3 +1329,35 @@ reproduction. Bound the probe, not its callers, into the `RuntimeError` path the
 builds — so a wedge and a throw produce the same fast, respawnable outcome. Both D246 and D247
 are SOURCE items: no card, no decision, no measurement, and they do not compete with the row's
 two outstanding frame scores.
+
+### R182. I sequenced carefully by CARD and was blind to a row already at 991 % CPU on another host (pass 414, zero card)
+
+Dispatching `of3t-cropwall` this pass I reasoned properly about card allocation: qb2 card 2 and
+not card 0, because `tt-smi -r` resets the board **pair** and card 1 is `of3t-angle`'s. Then I
+checked qb1 for an unrelated reason and found **`of3t-angle`'s `ref_grad.py` at 991 % CPU and
+10.9 GB RSS**, building its corrected float64 reference on qb1 — a host its `#DISPATCH` line
+does not mention — beside `of3t-verbinstall`'s device arm, at load average **13.58**.
+
+**This is `dispatch-host-grant-does-not-sandbox-which-host-opens-the-device` on the HOST side.**
+The known form of that lesson is about which host a row opens a *card* on. The form that bit
+here is cheaper and less visible: a row whose card work is on qb2 can put its *host-side* work —
+float64 references, and float64 on host is the most core-hungry thing this campaign runs —
+anywhere it likes, and nothing in the dispatch record shows it.
+
+**The orchestrator-facing half is the part worth keeping.** My sequencing model is card-shaped:
+which row holds which chip, which reset takes which pair. It has no representation of host CPU
+at all, so a row can saturate ten cores on a box I believe is owned by someone else and my
+allocation reasoning stays confidently wrong. **I was one host away from a number I would have
+believed** — `of3t-verbinstall`'s remaining arms are on that box.
+
+**No science was lost and I want to be exact about why, not relieved about it.** Both rows'
+outstanding deliverables are accuracy readings — rel, r, cos, angle, and two frame scores —
+and an accuracy question is load-insensitive (`a-firing-question-is-load-insensitive-so-a-loud-
+box-does-not-block-it`, the same shape). Only durations are corrupted. `of3t-verbinstall`'s
+existing "30 minutes of arm time" was recorded at 01:13, **before** this began, so it stands.
+Both rows are now told to take no wall time on qb1 while they share it, and `of3t-angle` is told
+to stamp host, board and quiet-state **into the artifact** rather than its notes — a reading
+whose host is unrecorded cannot later be compared against one taken quiet.
+
+The standing correction to my own practice: **before dispatching, check host load on every box a
+live row touches, not just the card map.** A card is allocated; a core is merely taken.
