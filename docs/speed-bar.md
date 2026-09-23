@@ -1,8 +1,10 @@
 # Speed bar above 1024 tokens
 
 A structure model that folds 1536 tokens but takes an hour to do it has not gained a capability.
-This is the bar a rung above 1024 must clear, written down before any such rung was measured on
-the Wormhole Galaxy, so the result cannot choose it. `scripts/speed_bar.py` implements it and
+This is the bar a rung above 1024 must clear, written down before the size ladder measured any
+such rung on the Wormhole Galaxy, so the result cannot choose it. An earlier capacity ladder on
+the same Galaxy (2026-09-11, deep alignments, wall-clock including model load) did reach 1536 for
+some models; it is a different configuration and was not read when the bar was set. `scripts/speed_bar.py` implements it and
 `tests/test_speed_bar.py` checks that it fails what it says it fails.
 
 ## The rule
