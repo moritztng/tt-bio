@@ -15,10 +15,16 @@ ROOT = Path(__file__).resolve().parents[2]
 CDK2 = re.search(r"sequence:\s*(\S+)",
                  (ROOT / "perf/size512/fixtures/cdk2x2_298.yaml").read_text()).group(1)
 
-out = Path(sys.argv[1])
-out.mkdir(parents=True, exist_ok=True)
-for n in map(int, sys.argv[2:]):
-    seq = (CDK2 * (n // len(CDK2) + 1))[:n]
-    (out / f"prot_{n}.yaml").write_text(
-        f"version: 1\nsequences:\n  - protein:\n      id: A\n      sequence: {seq}\n")
-    (out / f"seq_{n}.fasta").write_text(f">cdk2_{n}\n{seq}\n")
+
+def main():
+    out = Path(sys.argv[1])
+    out.mkdir(parents=True, exist_ok=True)
+    for n in map(int, sys.argv[2:]):
+        seq = (CDK2 * (n // len(CDK2) + 1))[:n]
+        (out / f"prot_{n}.yaml").write_text(
+            f"version: 1\nsequences:\n  - protein:\n      id: A\n      sequence: {seq}\n")
+        (out / f"seq_{n}.fasta").write_text(f">cdk2_{n}\n{seq}\n")
+
+
+if __name__ == "__main__":  # trace_probe imports CDK2
+    main()
