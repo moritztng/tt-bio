@@ -16,7 +16,7 @@ export MGX_DIFFUSION_WORK=$root/perf/mgx-diffusion/work-$card
 log=$root/perf/mgx-diffusion/logs; mkdir -p "$log"
 py=$HOME/env/bin/python
 name=$(basename "$plan" .txt)-$card
-"$py" perf/sizegate/mgx/hold.py "$card" $$ >> "$log/hold-$card.log" 2>&1 &
+"$py" perf/mgx-diffusion/hold.py "$card" $$ >> "$log/hold-$card.log" 2>&1 &
 echo "[$(date -u +%FT%TZ)] START $plan card $card $(git rev-parse --short HEAD)" >> "$log/$name.log"
 "$py" perf/mgx-diffusion/ladder.py "$plan" >> "$log/$name.log" 2>&1
 rc=$?
