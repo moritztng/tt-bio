@@ -5295,8 +5295,8 @@ def msa_embed(feat, project, rows=MSA_CHUNK_SIZE):
     v = os.environ.get("TT_BIO_MSA_HOST_OFFLOAD_MIN_BYTES")
     lim = int(v) if v else MSA_HOST_OFFLOAD_MIN_BYTES
     host = torch.is_tensor(feat)
-    D, N, c = (int(d) for d in feat.shape[1:])
-    if not host or D * N * (-(-c // 32) * 32) * 2 <= lim:
+    D, N, c = feat.shape[1:] if host else (0, 0, 0)
+    if D * N * (-(-c // 32) * 32) * 2 <= lim:
         x = up(feat) if host else feat
         m = project(x)
         ttnn.deallocate(x)
