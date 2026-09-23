@@ -17,6 +17,7 @@ the fallback and keeps its exact numbers.
 from __future__ import annotations
 
 import gc
+import sys
 
 
 def resolve_sample_chunk_width(multiplicity, max_parallel_samples):
@@ -63,7 +64,7 @@ def denoise_in_chunks(x, width, run, *, reset=None, narrowest=1, tag="diffusion"
                 raise
             narrower = resolve_sample_chunk_width(m, max(narrowest, width // 2))
             print(f"[{tag}] {width}-sample chunk refused ({describe_device_oom(str(exc))}); "
-                  f"denoising {narrower} at a time from here on", flush=True)
+                  f"denoising {narrower} at a time from here on", file=sys.stderr, flush=True)
             width = narrower
         else:
             if out is None:

@@ -12518,10 +12518,12 @@ class DiffusionModule(TorchWrapper):
                     bias_token = torch.nn.functional.pad(
                         bias_token, (0, 0, 0, token_pad, 0, token_pad))
                 bias = self._from_torch(bias_token)
-            bias = ttnn.multiply_(
-                bias, (TOKEN_DIM / TOKEN_N_HEADS) ** 0.5
+            # Scale the permuted copy, not `bias`: the device-built bias belongs to the caller, and
+            # a narrower sample chunk re-stages from it (sample_chunks.denoise_in_chunks), which
+            # would otherwise scale it twice. Same multiply on the same elements either way.
+            bias_token_tt = ttnn.multiply_(
+                ttnn.permute(bias, (0, 3, 1, 2)), (TOKEN_DIM / TOKEN_N_HEADS) ** 0.5
             )
-            bias_token_tt = ttnn.permute(bias, (0, 3, 1, 2))
             if token_pad:
                 # Fuse additive padding mask into token bias (bfloat16 for -1e9)
                 seq_mask = torch.zeros(1, 1, 1, padded_seq)

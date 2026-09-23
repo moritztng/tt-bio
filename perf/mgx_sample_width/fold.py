@@ -155,7 +155,11 @@ def fold(card, tag, model, inp, samples, opts):
     rec = {"tag": tag, "model": model, "input": inp, "samples": samples, **opts,
            "card": card, "commit": commit, "rc": rc, "ok": ok, "wall_s": round(wall, 1),
            "aiclk": clock, "dram_peak_gib": peak,
+           # The worker keeps its stderr only on a fatal, so a narrowing that recovered shows as the
+           # width boltz2's digests were written at, below the width the plan asked for.
            "narrowed": re.findall(r"\d+-sample chunk refused \(.*?\); denoising \d+", text),
+           "settled_width": sorted({int(w) for w in re.findall(r"width=(\d+)", digest.read_text())})
+           if digest.exists() else None,
            "digest": digest.read_text().split("\n") if digest.exists() else None,
            "error": None if ok else next((s.get("error", "")[:600] for s in status
                                           if s.get("status") != "ok"), text[-600:])}
@@ -164,13 +168,13 @@ def fold(card, tag, model, inp, samples, opts):
         return False
     with open(RUNS, "a") as fh:
         fh.write(json.dumps(rec) + "\n")
-    print(json.dumps({k: rec[k] for k in ("tag", "ok", "wall_s", "dram_peak_gib", "narrowed")}),
+    print(json.dumps({k: rec[k] for k in ("tag", "ok", "wall_s", "dram_peak_gib", "narrowed", "settled_width")}),
           flush=True)
     return True
 
 
 def main():
-    pool = [c for c in sys.argv[1].split(",") if c]
+    pool = [c for c in re.split(r"[,\s]+", sys.argv[1]) if c]
     plan = [l.split("#")[0].split() for l in Path(sys.argv[2]).read_text().splitlines()]
     card = None
     for job in [j for j in plan if j]:
