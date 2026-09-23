@@ -2715,10 +2715,10 @@ class Trunk(_KeyedWeights):
                 # Protenix-order block 0 reads the pristine m with OPM. OPM chunk-gates itself,
                 # so a single transient upload is enough; update_msa below streams from host.
                 m_dev = self._up(m_feat)
-                z3 = ttnn.add(z3, opm(m_dev, None, None))
+                z3 = opm(m_dev, None, None, residual=z3)
                 ttnn.deallocate(m_dev)
             else:
-                z3 = ttnn.add(z3, opm(m_feat, None, None))
+                z3 = opm(m_feat, None, None, residual=z3)
             dram_peak("trunk msa block: after opm")
             if not self._msa_update_first:
                 m_feat = update_msa(m_feat, z3, pwa, tm)

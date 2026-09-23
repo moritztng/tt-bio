@@ -10876,7 +10876,13 @@ class OuterProductMean(Module):
         return ttnn.reshape(out, (1, *out.shape))
 
     def __call__(self, x: ttnn.Tensor, msa_mask: ttnn.Tensor | None = None,
-                 n_msa: float | None = None) -> ttnn.Tensor:
+                 n_msa: float | None = None, residual: ttnn.Tensor | None = None) -> ttnn.Tensor:
+        """The outer product mean of `x`, or `residual + it` when a residual [1, I, J, c_z] is given.
+
+        With a residual each output row block is added to its own rows and a blocked join frees
+        the old residual, so the pair update never holds the residual, a whole OPM output and the
+        sum at once: at 1536 tokens and c_z=384 each is 1811939328 B. Per position it is the same
+        add the caller made, so the sum is bit-exact."""
         # `x` may arrive as a LIST of depth chunks. The MSA trunk keeps its representation chunked
         # so it never has to exist contiguously: materialising it costs a full extra copy at the
         # join, which is what made a 1.78 GiB m_feat OOM on a 12 GiB part even WITH chunking. This
@@ -11061,7 +11067,8 @@ class OuterProductMean(Module):
                 a = b = None
         if depth_parts is None and dims is None:
             OPM_SMALL_DEPTH_STATS[0] += 1
-            return self._small_depth(a, b, n_msa)
+            z = self._small_depth(a, b, n_msa)
+            return z if residual is None else ttnn.add(residual, z)
         if depth_parts is None:
             OPM_SMALL_DEPTH_STATS[1] += 1
             S, I, C, D, J = dims
@@ -11160,6 +11167,11 @@ class OuterProductMean(Module):
             ttnn.deallocate(z)
             if not legacy:
                 out = ttnn.reshape(out, (rows, J, out.shape[-1]))
+            if residual is not None:
+                r = ttnn.reshape(residual, tuple(residual.shape)[1:])
+                out_r = ttnn.add(r if rows == I else r[i0:i1], out)
+                ttnn.deallocate(out)
+                out = out_r
             return out
 
         per_row = C * D * J * 2
@@ -11202,7 +11214,7 @@ class OuterProductMean(Module):
                 for p in parts:
                     ttnn.deallocate(p)
                 raise
-            return _acc_concat(parts, 0, host=False)
+            return _acc_concat(parts, 0, host=False, consume=residual)
 
         def compact():
             """Move the surviving operands down before the narrower retry.
