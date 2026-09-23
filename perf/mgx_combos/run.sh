@@ -6,7 +6,9 @@
 #
 # A card is taken only when its lease is released or its holder is dead, and the chain writes its
 # own lease between folds (tt-bio releases the card when each fold exits), so a sibling row cannot
-# take the chip mid-chain. A fold that loses the open anyway (DeviceInUseError) reruns elsewhere.
+# take the chip mid-chain. A fold that loses the open anyway (DeviceInUseError, or another row's
+# lease) reruns elsewhere, and the chain re-takes its card after a fold only if it is still free.
+# A job whose results.json already says ok is skipped, so a restarted chain keeps finished logs.
 # The cardblocked chips (1, 24-27) are never candidates. Runs the tree this script lives in.
 set -u
 cd "$(dirname "$0")/../.."
@@ -53,7 +55,7 @@ export TT_METAL_CACHE=$HOME/.cache/tt-metal-cache-mgxc TT_METAL_LOGGER_LEVEL=FAT
 for job in "$@"; do
   IFS=: read -r m f n <<< "$job"; n=${n:-5}
   s=$(basename "${f%.*}")_s$n; out=perf/mgx_combos/out/$m; mkdir -p "$out"
-  [ -f "$out/$s.log" ] && grep -qE '^EXIT=0|^Done: [1-9][0-9]* ok, 0 failed' "$out/$s.log" && continue
+  grep -qs '"status": "ok"' "$out/$s"/*_results_*/results.json && continue
   while :; do
     take; start=$(date +%s)
     echo "START $(date -u +%FT%TZ) card=$C commit=$(git rev-parse --short HEAD) size_limit=${TT_BIO_SIZE_LIMIT:-on} job=$job" > "$out/$s.log"
@@ -62,9 +64,9 @@ for job in "$@"; do
         --accelerator tenstorrent >> "$out/$s.log" 2>&1
     rc=$?
     echo "EXIT=$rc WALL=$(( $(date +%s) - start ))s" >> "$out/$s.log"
-    claim "$C"
-    grep -q DeviceInUseError "$out/$s.log" || break
-    AVOID[$C]=$(( $(date +%s) + 600 )); C=
+    if free "$C"; then claim "$C"; else C=; fi
+    grep -qE 'DeviceInUseError|is in use by worker:' "$out/$s.log" || break
+    [ -n "$C" ] && AVOID[$C]=$(( $(date +%s) + 600 )); C=
   done
 done
 [ -n "$C" ] && release "$C"
