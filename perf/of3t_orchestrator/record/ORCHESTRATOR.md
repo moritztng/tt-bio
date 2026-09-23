@@ -64,7 +64,7 @@ as such, because their runner genuinely produces absent gradients. **§7, the gr
 20-step trajectory's bar is not a magnitude but the shape of divergence in k — linear or
 sub-linear passes, super-linear fails at any magnitude, including inside the per-step bars.
 
-LEDGER: `~/.coworker/state/of3t/LEDGER.md`, **R1-R184 and K1-K19**. **This field is an INDEX, not
+LEDGER: `~/.coworker/state/of3t/LEDGER.md`, **R1-R185 and K1-K19**. **This field is an INDEX, not
 a copy** — it carried ~41 KB of transcribed entries until pass 399, re-read every pass beside the
 file that already holds them (`a-digest-with-one-carrier-is-a-transcription`). Every entry's full
 text, evidence and artifact path is in the LEDGER file while it is in the tail, and in
@@ -73,6 +73,10 @@ left the tail most recently**, and the rule rather than a filename is named here
 naming one archive was itself a thing that rots (the file is 150 KB and rotation is live). What each recent
 entry settles, one line, newest first:
 
+- **R185** a refusal's BYTE COUNT is not evidence of contiguity — 90.625 % of D205's 2.7 GB
+  was TILE padding on a rank-4 axis of extent 3 (D248, fixed bit-identically, 3.02x DRAM);
+  544 is a different wall entirely; and my brief repeated crop768's wrong noun while
+  supplying the inference that separated them
 - **R184** D245's PACKAGE leg is CLOSED **bit-exactly** (2,736/2,736 tensors, 0 differing) so
   the best lever HAS a shippable path — verified from the artifact because it is flattering;
   my VERDICT/GAP asserted the opposite and are corrected in the same pass (R157 rot, 3rd time:
@@ -551,7 +555,7 @@ adjusting a pooled figure from a re-scored part is the defect again with a newer
 
 **Counts** (`stamp_row_counts.py`): 126 dispatched; `state/concluded` holds
 **one hundred twenty-four** of3t files, two this row's own markers, so **122 concluded**.
-**Two hundred forty-seven defects filed**, **97 UNFIXED** (5 scope-excluded, 10 USER-FACING,
+**Two hundred forty-eight defects filed**, **97 UNFIXED** (5 scope-excluded, 10 USER-FACING,
 82 campaign-internal).
 
 **What the remaining gap IS, taken in the space the clause is GRADED in (pass 412).** cos
@@ -1443,3 +1447,39 @@ every non-test caller on the branch still uses `with ag.exact_softmax():` (`pkga
 `pkgarm.py:55`'s wrong `installed_from` stamp has become the row's own sentence. **A bad
 provenance string does not stay in the JSON.** Also flagged to the row: the ARMDIFF artifact
 records no host, a D155 warning today and a gate FAILURE the moment that row concludes.
+
+### Pass 414, fourth part — `of3t-cropwall` overturns D205's mechanism within an hour of dispatch
+
+The row I dispatched this pass has already corrected the defect it was sent at, and the
+correction reaches my own brief. **The 2,717,908,992 B refusal that `of3t-crop768` banked as
+"contiguity inside `ttnn::concat`" was TILE PADDING.** `taped_ttnn.py:922`'s qkv-heads vjp
+scattered into a rank-4 axis of **extent 3**, TILE pads the second-to-last dim to **32**, and
+the allocator was therefore asked for 10.667x what the gradient held — **90.625 % of that
+buffer was padding**, with three such buffers co-live. Filed as **D248**, user-facing, fixed on
+the row's branch and release-gated. **I re-derived every byte before recording any of it**: the
+32/3 factor, the pad share, `536,870,912 = 2,717,908,992 x (256/576)^2` exactly, the
+`[544,4,544,544]` fp32 at 2,575,826,944 B and 7,247,757,312 B at 768. All exact.
+
+**The lesson is the noun, not the number.** A refusal reports how many bytes were asked for and
+how many were free; neither says the request was NECESSARY. crop768 had the right number and
+the wrong question — why the card could not supply 2.7 GB contiguously, when nothing ever
+needed 2.7 GB. The question that separates them costs no device time: *what does this buffer
+logically hold?* Here, 254,803,968 B. And the repair is a pure re-indexing onto the last axis,
+controlled against a **float64 host** scatter rather than a second device expression, same
+digest `68b639dc693788dc`, max_abs 0.0 — bit-identical, at 3.02x less DRAM.
+
+**My brief supplied the wedge and the wrong word.** Its contribution held exactly — *the
+odd-32-tile story cannot explain 576, which is EVEN at 18 tiles, so the two stories are
+separable* — and 544 duly turned out to be the odd-tile L1 plan collapsing into an unblocked
+fp32 score tensor while 576 was padding. **But I carried crop768's noun across while doing it**,
+writing that "544 and 576 die on contiguity". I verified the separation and not the mechanism
+name. A brief's framing is inherited by the row that reads it, and this row got the right
+answer despite mine.
+
+**Amended the row on the one gap that is in the instrument rather than the finding**:
+`concat_census.py` ranks by absolute bytes, but the defect is a RATIO, and now that the largest
+offender is fixed every remaining site's share of the peak has grown. Re-rank by
+`allocated / logical` across all 43 sites. Also told it to report the **512 A/A before 640** —
+the fix fires at every crop, so 512's banked 23,299,281,920 B must come down, and 512 is the
+rung that ships today — and to put the training-only reachability argument for `taped_ttnn.py`
+in its state doc explicitly, since that is the sentence a reviewer will ask for.

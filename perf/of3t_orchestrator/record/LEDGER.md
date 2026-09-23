@@ -1434,3 +1434,36 @@ uses `with ag.exact_softmax():` (`pkgarm.py:45`, `reachprobe.py:98`), so D246 re
 What that prose shows is finding (b) doing damage on schedule: `pkgarm.py:55`'s wrong
 `installed_from` stamp has propagated into the row's own VERDICT sentence. **A bad provenance
 string does not stay in the JSON — it becomes the sentence everybody repeats.**
+
+### R185. A refusal's byte count is not evidence of contiguity — 90.6 % of the 2.7 GB was padding, and I repeated the wrong noun in the brief that found it (pass 414, zero card)
+
+`of3t-cropwall`, dispatched this pass, has already overturned D205's mechanism. The
+2,717,908,992 B refusal that `of3t-crop768` banked as *"contiguity inside `ttnn::concat`"* was
+**tile padding**: `taped_ttnn.py:922`'s qkv-heads vjp scattered into a rank-4 axis of **extent
+3**, and TILE layout pads the second-to-last dim to **32**, so the allocator was asked for
+10.667x what the gradient needed. **90.625 % of that buffer was padding**, and three such
+buffers were co-live. Filed as **D248**; every byte re-derived independently before filing.
+
+**The lesson is about the noun.** A refusal reports *how many bytes were asked for* and *how
+many were free*. Neither says the request was **necessary**. `of3t-crop768` had the right
+number and the wrong question: it asked why the card could not supply 2.7 GB contiguously, and
+the answer was that nothing ever needed 2.7 GB. The diagnostic that separates those is one
+question — **what does this buffer LOGICALLY hold?** — and it costs no device time. Here the
+answer was 254,803,968 B.
+
+**The fix had to be free, and was shown to be.** The packed width decomposes as `[3, H, dh]`,
+so slot `s` is equally a contiguous **last**-axis range, and the last axis is a whole number of
+tiles. Same gradient digest `68b639dc693788dc`, max_abs 0.0 against a **float64 host** scatter
+rather than a second device expression — bit-identical, which is what a pure re-indexing must
+be — at 3.02x less DRAM and a 5.33x smaller largest allocation. The 34.7x wall clock was taken
+on a loaded box and the row correctly refuses to call it a perf number.
+
+**And the correction lands on me.** My dispatch brief's contribution was real and was the wedge
+the row used: *the odd-32-tile story cannot explain 576, which is EVEN at 18 tiles, so the two
+stories are separable and 576 is the arm that separates them.* That held exactly — 544 is the
+odd-tile L1-plan collapse into an unblocked `[544,4,544,544]` fp32 score tensor, 576 was
+padding. **But I carried crop768's noun across while doing it**, writing that "544 and 576 die
+on contiguity". I verified the SEPARATION and not the MECHANISM NAME, which is
+`verify-the-rows-noun-not-only-its-numbers` in the one form I had not met: I re-derived the
+split that made the finding possible and copied the word that made it wrong. A brief's framing
+is inherited by the row that reads it, and this one got the right answer despite mine.
