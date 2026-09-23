@@ -199,6 +199,7 @@ class _StructureHeadAdapter(_Adapter):
             try:
                 out.append(self.m.sample(*args, steps=steps, seed=seed + done, multiplicity=k))
                 done += k
+                dram_peak(f"esmfold2/diffusion chunk [k={k}]")
             except RuntimeError as exc:
                 if k == 1 or not _is_oom(exc):
                     raise
@@ -480,6 +481,7 @@ def patch_esmfold2(model, esmc_repo: str = "biohub/ESMC-6B", persistent_lm: bool
             try:
                 outs.append(_orig_conf(*args, **kw2))
                 done += k
+                dram_peak(f"esmfold2/confidence chunk [k={k}]")
             except RuntimeError as exc:
                 if k == 1 or not _is_oom(exc):
                     raise

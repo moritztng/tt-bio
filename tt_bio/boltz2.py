@@ -46,6 +46,12 @@ class _LazyTenstorrent:
 
 tenstorrent = _LazyTenstorrent()
 
+
+def _dram_peak(tag):
+    """tenstorrent.dram_peak without importing ttnn when the census is off (CPU/GPU hosts)."""
+    if os.environ.get("TT_BIO_DRAM_PEAK"):
+        tenstorrent.dram_peak(tag)
+
 # Lazy imports for fallback modules to avoid circular imports
 # These are imported inside classes that use them
 def _get_pytorch_modules():
@@ -4494,6 +4500,7 @@ class AtomDiffusion(Module):
                     atom_coords_denoised[start : start + n_real] = (
                         atom_coords_denoised_chunk[:n_real]
                     )
+                    _dram_peak(f"diffusion chunk [W={chunk_width}]")
 
                 if steering_args["fk_steering"] and (
                     (
@@ -5988,6 +5995,7 @@ class Boltz2(nn.Module):
                     z_device=device_z if device_confidence else None,
                 )
             )
+            _dram_peak(f"confidence done [samples={diffusion_samples}]")
         if device_z is not None:
             tenstorrent.free(device_z[0])
             device_z = None

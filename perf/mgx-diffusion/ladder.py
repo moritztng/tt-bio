@@ -90,7 +90,7 @@ class Load:
 
 
 DRAM = re.compile(r"\[DRAM\] (.+?): ([\d.]+) GiB used \(of ([\d.]+) GiB\) maxfree=(\d+)MiB")
-SAMPLE_TAGS = re.compile(r"(?i)diffus|edm|sampl|denois|rollout|confid|dit\b|atom")
+SAMPLE_TAGS = re.compile(r"(?i)diffus|edm step|confidence|dit\[")
 
 
 def dram_cell(path):
