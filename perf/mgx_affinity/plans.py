@@ -11,6 +11,7 @@
   fix_nesso1    the size_nesso1 grid again after 29b285fb7 (trunk off the cross-chain mask path),
                 the refused 1536 ligand rungs first, then 2048 with each ligand and
                 2560/3072 to find the new wall; tags nf_*.
+  floor_boltz2  Boltz-2 seeds 1 and 2 at 1536 + small drug, the seed floor beside b_1536_small.
   screen_*      the 100-ligand screens. Nesso-1 YSK4 in two shards on two chips, Nesso-1 LCK on
                 one, Boltz-2 LCK as one `predict` over the directory on two chips, which is how
                 the shipped CLI spreads a screen across cards.
@@ -68,6 +69,9 @@ def main():
         write(f"screen_nesso1_ysk4_{k}", [{"tag": f"n_screen_ysk4_{k}", "surface": "nesso1",
                                            "input": f"perf/mgx_affinity/out/shards/ysk4_{k}"}])
     write("screen_boltz2_lck", [{"tag": "b_screen_lck", "surface": "boltz2", "input": f"{IN}/screen/lck"}])
+    # Boltz-2's own seed floor at 1536, beside b_1536_small (seed 0).
+    write("floor_boltz2", [{"tag": f"b_1536_small_s{k}", "surface": "boltz2", "input": size(1536, "small"),
+                            "args": ["--seed", str(k)]} for k in (1, 2)])
     # The four DAVIS salts the first LCK screen lost to standardize(), re-run after the fix.
     salts = HERE / "out/shards/lck_salts"
     if not salts.exists():

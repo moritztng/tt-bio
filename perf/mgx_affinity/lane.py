@@ -245,13 +245,14 @@ def lane(plan, pool, n, adopt):
                 with LOCK:
                     HELD.update({c: plan.stem for c in held})
                 row = run(job, held, adopt=ADOPT[job["tag"]][1:])
-                break
-            while len(held) < n:
-                with LOCK:
-                    held = take(pool, n, held, avoid, plan.stem)
-                if len(held) < n:
-                    time.sleep(30)
-            row = run(job, held)
+            else:
+                while len(held) < n:
+                    with LOCK:
+                        held = take(pool, n, held, avoid, plan.stem)
+                    if len(held) < n:
+                        time.sleep(30)
+                row = run(job, held)
+            # An adopted job can have been refused too; it re-runs like any other.
             if not row["contention"]:
                 break
             # Refused: some other holder owns at least one of these now. Never write a lease we
