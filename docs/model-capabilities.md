@@ -11,19 +11,20 @@ changing the structure. That prints a warning and the fold runs.
 <!-- BEGIN CAPABILITY TABLE (generated: python3 -m tt_bio.capabilities) -->
 | model | ligand | RNA | DNA | no protein chain | cyclic | modifications | templates | structure template | bond constraint | residue-residue bond | pocket/contact | affinity |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|
-| `boltz2` | yes | yes | yes | yes | yes | yes | yes | yes | yes | yes | yes | yes |
+| `boltz2` | yes | yes | yes | yes | yes | yes | refused | yes | yes | yes | yes | yes |
 | `esmfold2` | yes | yes | yes | refused | yes | yes | refused | refused | yes | yes | refused | ignored, warns |
 | `esmfold2-fast` | yes | yes | yes | refused | yes | yes | refused | refused | yes | yes | refused | ignored, warns |
 | `protenix-v1` | yes | yes | yes | yes | refused | yes | refused | refused | yes | yes | refused | ignored, warns |
 | `protenix-v2` | yes | yes | yes | yes | yes | yes | yes | refused | yes | yes | refused | ignored, warns |
 | `openfold3` | refused | yes | yes | yes | yes | yes | yes | refused | yes | refused | refused | ignored, warns |
 | `openbind` | yes | yes | yes | yes | yes | yes | yes | refused | yes | refused | refused | ignored, warns |
-| `opendde` | yes | refused | refused | yes | yes | yes | yes | refused | yes | yes | refused | ignored, warns |
-| `opendde-abag` | yes | refused | refused | yes | yes | yes | yes | refused | yes | yes | refused | ignored, warns |
+| `opendde` | yes | yes | yes | yes | yes | yes | yes | refused | yes | yes | refused | ignored, warns |
+| `opendde-abag` | yes | yes | yes | yes | yes | yes | yes | refused | yes | yes | refused | ignored, warns |
 | `rf3` | yes | yes | yes | yes | refused | yes | refused | refused | yes | refused | refused | ignored, warns |
 <!-- END CAPABILITY TABLE -->
 
-`boltz2` is the fallback for anything the others refuse: it takes the whole input language.
+`boltz2` is the fallback for anything the others refuse. It takes the whole input language, with a
+template given as a structure file rather than an alignment npz.
 
 `tt-bio affinity --model nesso1` reads the same file through its own parser and is not in the
 matrix, because it returns a scalar and no coordinates. It answers `properties: affinity`,
@@ -73,7 +74,7 @@ refused with the accepted set, because a dropped key used to cost a whole chain
   preview2 was released as a polymer model and was never trained to place a ligand, so it
   would return a confident structure for one anyway. `openbind` is the checkpoint upstream
   trained for co-folding, and it is the same implementation.
-- **RNA / DNA** -- a nucleic-acid chain. `opendde` is protein and ligand only.
+- **RNA / DNA** -- a nucleic-acid chain. Every `predict` model folds one.
 - **no protein chain** -- an input made only of RNA, DNA or ligands. ESMFold2 conditions its
   trunk on a protein language model, so it needs at least one protein chain.
 - **cyclic** -- `cyclic: true` on a protein chain closes the backbone head to tail. Each model
@@ -84,8 +85,9 @@ refused with the accepted set, because a dropped key used to cost a whole chain
   within 2.1-2.9 A but never form the bond, upstream as here, so neither returns a closed ring.
 - **modifications** -- a non-canonical residue substituted at a position, by CCD code. Every
   model folds the modified chemistry.
-- **templates** -- a precomputed template alignment per protein chain. There is no template
-  *search*: you supply the file.
+- **templates** -- a precomputed template alignment npz per protein chain. There is no template
+  *search*: you supply the file. Boltz-2 takes a template as a structure file instead (next
+  column) and refuses the npz, which its parser does not read.
 - **structure template** -- a top-level `templates:` block naming a cif/pdb file per chain, the
   Boltz-2 form. Only Boltz-2 reads it; the other template models take the alignment npz above.
 - **bond constraint** -- a covalent bond between two named atoms where at least one end is on a

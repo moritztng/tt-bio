@@ -499,8 +499,11 @@ def build_complex_features(chains: list, mol_dir: str | None = None,
     # the min-truncate is a robustness guard in case a chain's paired a3m is shorter. Dropping
     # the query avoids double-counting it (it is already row 0 of the unpaired block); the
     # reference does the equivalent via cleanup_unpaired_features.
-    if paired_chain_msa and all(pm.shape[0] > 0 for pm, _ in paired_chain_msa):
-        min_pd = min(pm.shape[0] for pm, _ in paired_chain_msa)
+    # Only protein chains pair (the reference's msa_featurizer pairs PROTEIN_CHAIN only); a
+    # nucleic-acid or ligand chain keeps an empty block and reads as gaps in the paired rows.
+    prot_pd = [pm.shape[0] for (pm, _), (_s, _a, mt) in zip(paired_chain_msa, norm) if mt == "protein"]
+    if prot_pd and all(prot_pd):
+        min_pd = min(prot_pd)
         paired_chain_msa = [(pm[1:min_pd], pdm[1:min_pd]) for pm, pdm in paired_chain_msa]
         max_pd = min_pd - 1
     else:

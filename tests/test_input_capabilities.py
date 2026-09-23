@@ -91,8 +91,10 @@ def test_every_shipped_model_has_a_row():
 def test_boltz2_honours_the_whole_input_language():
     """The negative control for the table: if every row were REFUSED the cross product below
     would still pass. Boltz-2 has the upstream parser, the constraint embedder, the template
-    pipeline and the affinity head, so nothing in the reader is beyond it."""
-    assert set(CAPABILITY["boltz2"].values()) == {HONOURED}
+    pipeline and the affinity head. The one refusal is the per-chain template npz, which its
+    parser never reads; it takes the same template as a structure file."""
+    assert {f for f, v in CAPABILITY["boltz2"].items() if v != HONOURED} == {"templates"}
+    assert CAPABILITY["boltz2"]["template_structure"] == HONOURED
 
 
 @pytest.mark.parametrize("model", sorted(CAPABILITY))
@@ -159,7 +161,6 @@ def test_an_rna_only_input_is_refused_by_esmfold2_before_any_model_load(tmp_path
     expected = [m for m in honoured_by("protein_free")
                 if CAPABILITY[m]["rna"] == HONOURED and not m.startswith("esmfold2")]
     assert expected and all(how(m) in msg for m in expected), msg
-    assert "opendde" not in msg, "OpenDDE refuses RNA; it is no alternative for this input"
 
 
 def test_every_offending_chain_id_is_named_and_no_other(tmp_path):
@@ -201,6 +202,16 @@ def test_the_committed_cyclic_example_is_accepted(model):
             check_capabilities(p, _read_bio_chains(p), model, echo=None)
         return
     assert "cyclic" in check_capabilities(p, _read_bio_chains(p), model, echo=None)
+
+
+def test_a_cyclic_refusal_says_what_was_measured():
+    """Each model that refuses `cyclic: true` reached the closing bond and did not form it
+    (perf/mgx_constraints), so the refusal carries that reason rather than a workaround: the
+    head-to-tail `bond` is the very route that failed on protenix-v1."""
+    from tt_bio.capabilities import WHY
+    for m in CAPABILITY:
+        if CAPABILITY[m]["cyclic"] == REFUSED:
+            assert "1.33 A" in WHY.get((m, "cyclic"), ""), m
 
 
 def test_every_predict_path_calls_check_capabilities():
@@ -417,7 +428,7 @@ def test_every_folding_model_reports_the_depth_it_used(model):
     from tt_bio.worker import _WorkerState
 
     paths = {"protenix-v1": "_protenix_emit", "protenix-v2": "_protenix_emit",
-             "opendde": "_predict_opendde_one", "opendde-abag": "_predict_opendde_one",
+             "opendde": "_protenix_emit", "opendde-abag": "_protenix_emit",
              "openfold3": "_predict_openfold3_one", "openbind": "_predict_openfold3_one",
              "rf3": "_predict_rf3_one"}
     if model not in paths:

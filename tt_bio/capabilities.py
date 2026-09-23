@@ -62,9 +62,11 @@ def _row(**overrides) -> dict[str, str]:
 #: --model -> feature -> verdict. Every id in ``main.PREDICT_MODELS`` needs a row; the
 #: completeness test refuses a new port that does not declare one.
 #:
-#: Boltz-2 is the only model that honours the whole reader: its own upstream parser
-#: (tt_bio/data/parse.py), a constraint embedder for pocket/contact, a template pipeline and
-#: an affinity head.
+#: Boltz-2 honours the rest of the reader: its own upstream parser (tt_bio/data/parse.py), a
+#: constraint embedder for pocket/contact, a template pipeline and an affinity head. That
+#: parser reads a template only from the top-level `templates:` block, so a per-chain npz
+#: folded bit-identically to no template at all (measured on 1a8q, CA-RMSD 9.19 A either way,
+#: 0.29 A with the same template as a cif).
 #:
 #: ``modifications`` reaches the featurizer on every model. Protenix and OpenDDE tokenize a
 #: modified residue per atom from its CCD component (``protenix_data.polymer_chain_features``);
@@ -78,7 +80,7 @@ def _row(**overrides) -> dict[str, str]:
 #: be dropped (pinned by tests/test_protenix_template_gate.py); on ESMFold2, which has no
 #: template stack at all; and on RF3, which takes templates through its own JSON/CIF spec.
 CAPABILITY: dict[str, dict[str, str]] = {
-    "boltz2": _row(template_structure=HONOURED),
+    "boltz2": _row(templates=REFUSED, template_structure=HONOURED),
     # ESMFold2 folds ligands, RNA and DNA and applies `modifications:` (one reader, one
     # fold_complex call). A `bond` is upstream's covalent_bonds, which its pair init reads
     # through token_bonds; `cyclic: true` is the head-to-tail amide on the same route, as on
@@ -93,9 +95,8 @@ CAPABILITY: dict[str, dict[str, str]] = {
     # route upstream documents; it has no relpos wrap. v1's checkpoint does not close it (WHY).
     "protenix-v1": _row(cyclic=REFUSED, templates=REFUSED, pocket=REFUSED, affinity=NOTED),
     "protenix-v2": _row(pocket=REFUSED, affinity=NOTED),
-    # OpenDDE is protein/ligand: nucleic-acid structural tokens are not ported.
-    "opendde": _row(rna=REFUSED, dna=REFUSED, pocket=REFUSED, affinity=NOTED),
-    "opendde-abag": _row(rna=REFUSED, dna=REFUSED, pocket=REFUSED, affinity=NOTED),
+    "opendde": _row(pocket=REFUSED, affinity=NOTED),
+    "opendde-abag": _row(pocket=REFUSED, affinity=NOTED),
     # Ligands stay refused for OF3-preview2 and honoured for OpenBind, the checkpoint
     # upstream trained for co-folding. Templates are opt-in per protein chain (a precomputed
     # alignment npz); there is no template search. `cyclic: true` is upstream's relpos wrap
@@ -143,10 +144,6 @@ WHY: dict[tuple[str, str], str] = {
         "preview2 was released as a polymer model and was never trained to place a ligand, "
         "so it is polymer-only here; the featurizer would build one and the sampler would "
         "return a status=ok structure anyway"),
-    ("opendde", "rna"): "nucleic-acid structural tokens are not ported",
-    ("opendde", "dna"): "nucleic-acid structural tokens are not ported",
-    ("opendde-abag", "rna"): "nucleic-acid structural tokens are not ported",
-    ("opendde-abag", "dna"): "nucleic-acid structural tokens are not ported",
     # Both upstream data pipelines drop these bonds before training: OF3's
     # cleanup.remove_intra/inter_chain_poly_links, and atomworks, which adds struct_conn
     # `covale` bonds only ("except for disulfides"). Measured: on RF3 a Cys-Cys bond leaves
@@ -167,6 +164,8 @@ WHY: dict[tuple[str, str], str] = {
         "13-mer the N-C distance stays 2.1-2.2 A, in upstream Protenix as here, where a "
         "closed amide is 1.33 A; protenix-v2 closes it"),
     ("nesso1", "protein_free"): "it scores a protein-ligand pair",
+    ("boltz2", "templates"): "Boltz-2 reads a template as a structure file, a top-level "
+        "`templates:` entry with `cif:` and `chain_id:`, not as a per-chain alignment npz",
     **{(m, "protein_free"): "its trunk is conditioned on the ESM protein language model, so a "
        "complex needs at least one protein chain" for m in ("esmfold2", "esmfold2-fast")},
 }

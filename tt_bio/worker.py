@@ -946,8 +946,8 @@ class _WorkerState:
         structural-token fold -> structure. Rides the SAME MSA stage as Protenix-v2 /
         ESMFold2 / Boltz-2: each protein chain whose {seq_hash}.a3m is not cached is
         searched into the shared msa_dir, resolved, and featurized via
-        build_complex_features' block-diagonal MSA. Protein + ligand co-folds (nucleic-acid
-        structural tokens not ported yet). Ligand atoms are tokenized per-atom by
+        build_complex_features' block-diagonal MSA. Protein, RNA, DNA and ligand chains all
+        fold; nucleotides split into backbone/base structural tokens. Ligand atoms are tokenized per-atom by
         build_complex_features and expand to one "atom"-role structural token each
         (opendde_data.build_structural_token_features), so a covalent inhibitor bonded
         to a protein Cys is honored end-to-end. Confidence-based best-of-N ranking and
@@ -1017,8 +1017,12 @@ class _WorkerState:
                     cfg.get("msa_pairing_strategy"), cfg.get("msa_server_username"),
                     cfg.get("msa_server_password"), cfg.get("api_key_value"),
                     msa_db_path=cfg.get("msa_db_path"), use_envdb=cfg.get("use_envdb", False))
+                # One entry per chain, None off protein: build_complex_features walks this
+                # list in step with `chains`, so a protein-only list ran out on the first
+                # complex that also carried a nucleic-acid or ligand chain.
                 paired_a3ms = [cap_a3m_text(paired.get(seq_hash(cseq)), cfg.get("msa_cap"))
-                               for _cid, cseq, _spec, mt, _mods in chains if mt == "protein"]
+                               if mt == "protein" else None
+                               for _cid, cseq, _spec, mt, _mods in chains]
             except Exception as e:  # noqa: BLE001 -- best-effort, fall back to unpaired
                 print(f"paired MSA search failed ({e!r}); folding unpaired-only", file=sys.stderr)
                 paired_a3ms = None
