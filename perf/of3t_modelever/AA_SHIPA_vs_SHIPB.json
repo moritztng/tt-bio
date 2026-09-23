@@ -1,0 +1,16 @@
+{
+ "label": "A/A in-session: SHIP_A vs SHIP_B, both this row, card 1",
+ "a": "/home/ttuser/of3t_modelever/dev_SHIP_A.pt",
+ "b": "/home/ttuser/of3t_modelever/dev_SHIP_B.pt",
+ "compared": 2736,
+ "only_a": 0,
+ "only_b": 0,
+ "bit_identical": 2736,
+ "differing": 0,
+ "all_bit_identical": true,
+ "concatenated_rel_a_vs_b": 0.0,
+ "norm_ratio_a_over_b": 1.0,
+ "cos": 1.0,
+ "device_involved": false,
+ "why_no_aiclk": "CPU only, compares two banked artifacts"
+}
