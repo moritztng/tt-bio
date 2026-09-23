@@ -22,6 +22,7 @@ from __future__ import annotations
 import json
 import math
 import time
+import traceback
 from pathlib import Path
 from typing import Any, Optional
 
@@ -854,6 +855,9 @@ def screen(
                 pred = model.predict(feats)
         except Exception as e:
             from tt_bio.size_limits import describe_device_oom
+
+            # The row keeps one line; the log keeps where it came from.
+            traceback.print_exc()
 
             head = describe_device_oom(str(e)) or (str(e).splitlines() or [""])[0][:300]
             rows.append({"id": record.id, "error": f"{type(e).__name__}: {head}"})
