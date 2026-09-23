@@ -331,7 +331,7 @@ CEILINGS: dict[str, dict[str, Ceiling]] = {
         ),
         "wormhole_b0": Ceiling(
             residues=1024, pass_at=1024, fail_at=1088, binds=MEMORY, mechanism=FRAGMENTATION,
-            msa_rows=8192,
+            msa_rows=16384,
             evidence="its OWN rungs at 8192 alignment rows, 2026-09-08, not inherited from "
                      "opendde by architecture argument: 1024 folds 3/3 in separate processes, "
                      "byte-identical (CIF md5 a27f0d67, 1545-1549 s, clash_frac 0.00971, plDDT "
@@ -357,7 +357,11 @@ CEILINGS: dict[str, dict[str, Ceiling]] = {
                      "way, which is the reactive narrowing doing its job. So the largest size "
                      "below the first failure is 1056, not 1024, and this cap is 32 residues "
                      "conservative. It is NOT raised here, for the same reason as the others: "
-                     "raising a cap accepts more work and restamps every capacity cell.",
+                     "raising a cap accepts more work and restamps every capacity cell. "
+                     "AT 16384 ROWS, the most the featurizer keeps, 2026-09-23 on the j10glx02 "
+                     "Galaxy (ws:mgx-msa-depth, perf/mgx_msa_depth, chip 23, tt-bio b08951fd6): "
+                     "cdk2_1024_d16384 PASS in 1779 s at AICLK 1000 MHz sampled DURING the fold, "
+                     "three DRAM refusals absorbed, so this row holds at every depth a user reaches",
         ),
     },
     "openfold3": {
@@ -712,9 +716,10 @@ CEILINGS: dict[str, dict[str, Ceiling]] = {
                      "WITH AN ALIGNMENT, 2026-09-23 on the j10glx02 Galaxy (ws:mgx-msa-depth, "
                      "perf/mgx_msa_depth, tt-bio 5d1f961c0): 1024 x 8192 rows PASS in 904 s (chip "
                      "20) and 1024 x 16384 rows, upstream's own depth, PASS in 1120 s (chip 14), "
-                     "both at AICLK 1000 MHz sampled DURING the fold. At 16384 the whole-depth MSA "
-                     "pass is refused (the 4 GiB [1, 1024, 16384, 128] m) and the encoder streams "
-                     "the alignment through the chip in depth chunks instead",
+                     "both at AICLK 1000 MHz sampled DURING the fold. Re-measured after the MSA "
+                     "encoder took upstream's fresh 1024-row subsample per trunk loop (tt-bio "
+                     "2f7e0606c, chip 16): 1024 x 16384 PASS in 1426 s at AICLK 1000 MHz DURING, "
+                     "one L1 refusal absorbed; the encoder never holds more than 1024 rows",
         ),
     },
     "esmfold2-fast": {
