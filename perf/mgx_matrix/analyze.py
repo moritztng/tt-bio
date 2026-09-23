@@ -28,6 +28,11 @@ import numpy as np
 
 OUT, INPUTS = Path(sys.argv[1]), Path(sys.argv[2])
 ROOT = INPUTS.parents[2]
+# Input chain ids in reader order, per input file, from the static pass. The checks name chains
+# by the id the INPUT gave them and map to the output by order, because protenix and opendde
+# write chains as A, B, C... whatever the input called them (recorded separately as
+# "chain_ids_kept").
+STATIC = json.loads((INPUTS.parent / "static_pass.json").read_text())["boltz2"]
 
 
 def last_error(log: Path) -> str:
@@ -46,20 +51,20 @@ def refusal_text(log: Path) -> str:
 
 
 def structure_for(model_dir: Path, stem: str):
-    hits = [d for d in model_dir.glob(f"*_results_{stem}") if d.is_dir()]
-    if not hits:
-        return None, None
-    d = hits[0]
-    res = None
-    rj = d / "results.json"
-    if rj.is_file():
-        try:
-            res = json.loads(rj.read_text())
-        except json.JSONDecodeError:
-            res = None
-    cifs = sorted(p for p in d.rglob("*") if p.suffix in (".cif", ".pdb")
-                  and "_model_" not in p.name)
-    return (cifs[0] if cifs else None), res
+    """The best-ranked structure and the results.json row for one input of a batch run."""
+    for d in model_dir.glob("*_results_*"):
+        rows = []
+        rj = d / "results.json"
+        if rj.is_file():
+            try:
+                rows = json.loads(rj.read_text())
+            except json.JSONDecodeError:
+                rows = []
+        row = next((r for r in rows if isinstance(r, dict) and r.get("id") == stem), None)
+        cifs = sorted(p for p in (d / "structures").glob(f"{stem}.*") if p.suffix in (".cif", ".pdb"))
+        if cifs or row:
+            return (cifs[0] if cifs else None), row
+    return None, None
 
 
 def atoms(st):
@@ -101,12 +106,15 @@ def ca_rmsd_to(st, ref_path):
     return float(np.sqrt(((P @ R - Q) ** 2).sum(1).mean()))
 
 
-def feature_check(stem, st, res):
+def feature_check(name, stem, st, res):
     at = atoms(st)
-    by_chain = lambda c: [x for x in at if x[0] == c]
+    want = [cid for cid, _mt, _n in STATIC.get(name, {}).get("chains", [])]
+    have = [ch.name for ch in st[0]]
+    alias = dict(zip(want, have)) if len(want) == len(have) else {}
+    by_chain = lambda c: [x for x in at if x[0] == alias.get(c, c)]
     heavy = lambda xs: [x for x in xs if x[4] != "H"]
     chains = chain_summary(st)
-    c = {"chains": chains}
+    c = {"chains": chains, "chain_ids_kept": want == have if want else None}
     if stem in ("ligand_ccd", "ligand_smiles", "affinity", "fasta_ligand", "pocket"):
         lig = heavy(by_chain("L"))
         c["ligand_atoms"] = len(lig)
@@ -134,7 +142,8 @@ def feature_check(stem, st, res):
         spec = {"bond_protein_cys": (("A", 2, "SG"), ("B", 4, "SG")),
                 "bond_protein_shipped_example": (("A", 7, "SG"), ("B", 5, "SG")),
                 "bond_ligand": (("A", 2, "SG"), ("B", 1, "C1"))}[stem]
-        pick = lambda ch, ri, an: [x for x in at if x[0] == ch and x[1] == ri and x[3] == an]
+        pick = lambda ch, ri, an: [x for x in at if x[0] == alias.get(ch, ch) and x[1] == ri
+                                   and x[3] == an]
         a1, a2 = pick(*spec[0]), pick(*spec[1])
         c["atom1_found"], c["atom2_found"] = bool(a1), bool(a2)
         c["bond_dist"] = min_dist(a1, a2)
@@ -150,8 +159,8 @@ def feature_check(stem, st, res):
         c["contact_min_dist"] = min_dist(a, b)
         c["ok"] = c["contact_min_dist"] is not None and c["contact_min_dist"] <= 8.0
     if stem == "affinity":
-        blob = json.dumps(res) if res is not None else ""
-        c["affinity_in_results"] = "affinity" in blob
+        c["affinity_keys"] = sorted(k for k in (res or {}) if k.startswith("affinity_"))
+        c["affinity_in_results"] = bool(c["affinity_keys"])
         c["ok"] = c.get("ok", True) and c["affinity_in_results"]
     if stem.startswith("template_"):
         c["ca_rmsd_to_1a8q"] = ca_rmsd_to(st, ROOT / "examples/of3_upstream/template_structures/1a8q.cif")
@@ -190,7 +199,7 @@ for model_dir in sorted(p for p in OUT.iterdir() if p.is_dir()):
             continue
         st = gemmi.read_structure(str(cif))
         st.setup_entities()
-        chk = feature_check(stem, st, res)
+        chk = feature_check(inp.name, stem, st, res)
         row[inp.name] = {"outcome": "folded", "structure": str(cif.relative_to(OUT)), "check": chk}
     for stem in ("template_npz", "template_cif"):
         on, off = row.get(f"{stem}.yaml", {}), row.get("template_off.yaml", {})
