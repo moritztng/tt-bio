@@ -112,6 +112,36 @@ class loadwatch:
                 "max": round(s[-1], 1), "n": len(s), "nproc": os.cpu_count()}
 
 
+def job_tag(args) -> str:
+    """The identity of a job's fixture and output directory, in one place.
+
+    The crop offset belongs in it: two 512-residue jobs cut from different places in the same
+    structure are different targets, and sharing an out_dir would make the second read the
+    first's designs."""
+    off = f"_o{args.crop_offset}" if getattr(args, "crop_offset", 0) else ""
+    return f"{args.model}_{args.target_res}{off}_d{args.designs}_s{args.steps}{args.tag}"
+
+
+def designability(out_dir: pathlib.Path) -> dict | None:
+    """scRMSD for every design in a finished boltzgen run, from the pipeline's own analysis
+    table. `scripts/boltzgen_designability.py` owns the harvest and the bars; this calls it."""
+    sys.path.insert(0, str(ROOT / "scripts"))
+    try:
+        from boltzgen_designability import score  # noqa: E402
+    except Exception as e:
+        return {"error": f"import: {e}"}
+    try:
+        res = score(out_dir, 2.0)
+    except SystemExit as e:
+        return {"error": str(e)}
+    except Exception as e:
+        return {"error": f"{type(e).__name__}: {e}"}
+    return {k: res[k] for k in ("column", "n", "min", "median", "max",
+                                "pass_strict", "pass_permissive")} | {
+        "scrmsd": [round(r["scrmsd"], 3) for r in res["rows"]],
+        "len": [r["len"] for r in res["rows"]]}
+
+
 def count_designs(model: str, out_dir: pathlib.Path) -> tuple[int, list[dict]]:
     """Designs actually on disk, and their per-design metrics. Counted, never assumed."""
     if not out_dir.is_dir():
@@ -145,7 +175,7 @@ def count_designs(model: str, out_dir: pathlib.Path) -> tuple[int, list[dict]]:
 def run_job(args) -> dict:
     work = pathlib.Path(args.work).expanduser()
     work.mkdir(parents=True, exist_ok=True)
-    tag = f"{args.model}_{args.target_res}_d{args.designs}_s{args.steps}{args.tag}"
+    tag = job_tag(args)
     out_dir = work / f"out_{tag}"
     subprocess.run(["rm", "-rf", str(out_dir)], check=False)
     # Fixtures go in a per-job directory, not the shared work root. Four identical jobs
@@ -175,11 +205,12 @@ def run_job(args) -> dict:
                       "--out_dir", str(out_dir), "--num_timesteps", str(args.steps),
                       "--num_designs", str(args.designs), "--batch_size", str(args.batch_size)]
     elif args.model == "pxdesign":
-        fx = pxdesign_fixture(fxdir, args.target_res, target, args.binder)
+        fx = pxdesign_fixture(fxdir, args.target_res, target, args.binder, args.crop_offset)
         cmd = base + ["design", str(fx), "--model", "pxdesign", "--out_dir", str(out_dir),
                       "--n_step", str(args.steps), "--num_designs", str(args.designs)]
     elif args.model == "boltzgen":
-        fx, atoms, tres = boltzgen_fixture(fxdir, args.target_res, target, args.binder)
+        fx, atoms, tres = boltzgen_fixture(fxdir, args.target_res, target, args.binder,
+                                           args.crop_offset)
         cmd = base + ["design", str(fx), "--model", "boltzgen", "--out_dir", str(out_dir),
                       "--num_designs", str(args.designs), "--debug"]
         if args.bg_steps:
@@ -232,6 +263,7 @@ def run_job(args) -> dict:
            "aiclk": clk.summary().get(0), "load": ld.summary(),
            "host_threads": args.host_threads, "batch_size": args.batch_size,
            "cmd": " ".join(cmd[3:]), "tag": args.tag.lstrip("_") or None,
+           "crop_offset": args.crop_offset,
            "ts": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()), **extra}
 
     rts = [r["runtime_s"] for r in rows if isinstance(r.get("runtime_s"), (int, float))]
@@ -252,6 +284,8 @@ def run_job(args) -> dict:
         rec["verdict"] = "FAIL"
         rec["mechanism"] = "timeout" if ended == "TIMEOUT" else classify(blob)
         rec.update(dram_numbers(blob))
+    if args.score_dsg:
+        rec["dsg"] = designability(out_dir)
     if rec["verdict"] != "PASS":
         rec["diag"] = diagnosis(blob)
     if n_written:
@@ -284,6 +318,12 @@ def main():
     ap.add_argument("--timeout", type=int, default=10800)
     ap.add_argument("--host-threads", type=int, default=0)
     ap.add_argument("--tag", default="")
+    ap.add_argument("--crop-offset", type=int, default=0,
+                    help="residues to skip before the crop starts, so two jobs at one "
+                         "size run against two different targets")
+    ap.add_argument("--score-dsg", action="store_true",
+                    help="boltzgen: harvest per-design scRMSD from the run's own "
+                         "analysis table into the row")
     ap.add_argument("--rescore", action="store_true",
                     help="re-derive the row from artifacts on disk; no device")
     ap.add_argument("--rescore-wall", type=float, default=0.0,
@@ -299,7 +339,7 @@ def main():
         # denominator was not. A row whose count changes has to be re-emitted from the
         # artifacts rather than edited in place.
         work = pathlib.Path(args.work).expanduser()
-        tag = f"{args.model}_{args.target_res}_d{args.designs}_s{args.steps}{args.tag}"
+        tag = job_tag(args)
         out_dir = work / f"out_{tag}"
         n, rows = count_designs(args.model, out_dir)
         rec = {"model": args.model, "target_res": args.target_res, "asked": args.designs,
