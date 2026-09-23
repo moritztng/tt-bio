@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """of3t-fullstep64: our full training step, exact on or off, replaying the float64 run's draws.
 
-    devstep.py --exact on|off --draws draws.pt --grad-out G.pt [--weights-out W.pt] --out F.json
+    devstep.py --exact on|off --draws draws.pt --grad-out G.pt [--weights-out W.pt] [--batch B.pt] --out F.json
 
 `perf/of3t_stackship/stepcost.py` with three additions and nothing else changed: the rollout's
 draws come from the float64 reference's `draws.pt` (via `draws.Draws`, the same recorder the
@@ -23,6 +23,7 @@ def main() -> int:
     get = lambda k, d=None: argv[argv.index(k) + 1] if k in argv else d  # noqa: E731
     exact, out = get("--exact"), Path(get("--out"))
     draws_path, grad_out, weights_out = get("--draws"), get("--grad-out"), get("--weights-out")
+    batch = get("--batch")
     assert exact in ("on", "off"), exact
     here = os.path.dirname(os.path.abspath(__file__))
     sys.path[0:0] = [here, os.path.join(os.getcwd(), "perf/of3t_trainfwd")]
@@ -57,6 +58,8 @@ def main() -> int:
     OpenFold3Forward.parameters = parameters
 
     sys.argv = ["trainfwd_run.py", "--arm", "full", "--out", str(out), "--grad-out", grad_out]
+    if batch:
+        sys.argv += ["--batch", batch]
     with (ag.exact_training(False) if exact == "off" else contextlib.nullcontext()):
         ops = list(ag.exact_training_ops())
         rc = trainfwd_run.main()

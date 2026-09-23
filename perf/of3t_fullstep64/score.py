@@ -12,6 +12,7 @@ PREREGISTERED.md fixes:
               r, cos and the A43 identity residual |rel^2 - (1 + r^2 - 2 r cos)|;
   per head    trunk / distogram / confidence / diffusion (upstream prefix);
   bf16 mass   F64 squared mass in tensors where the arm's per-tensor rel <= bf16's;
+  per section top-level module (aux_heads split by head), to localise a defect common to arms;
   unread      F64 squared mass the bijection does not score, beside every figure.
 
 Device dumps are flat (`trainfwd_run.grad_snapshot` saves `.reshape(-1)`), so each one is put back
@@ -41,6 +42,12 @@ PREFIX = (("aux_heads.distogram.", "distogram"), ("aux_heads.", "confidence"),
 
 def head_of(n):
     return next(h for p, h in PREFIX if n.startswith(p))
+
+
+def section_of(n):
+    """Top-level module; aux_heads split by head."""
+    parts = n.split(".")
+    return ".".join(parts[:2]) if parts[0] == "aux_heads" else parts[0]
 
 
 def load_device(path, shapes):
@@ -165,6 +172,8 @@ def main() -> int:
         e = {"global": block(arm, sorted(scored)),
              "by_head": {h: block(arm, sorted(k for k in scored if head_of(k) == h))
                          for h in heads},
+             "by_section": {sec: block(arm, sorted(k for k in scored if section_of(k) == sec))
+                            for sec in sorted({section_of(k) for k in scored})},
              "mass_at_or_better_than_bf16": (sum(mass[k] for k in scored if per[k] <= bf_rel[k])
                                              / sum(mass[k] for k in scored)),
              "worst": [{"tensor": k, "rel": per[k], "mass_fraction": mass[k] / total}
