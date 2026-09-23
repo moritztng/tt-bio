@@ -130,6 +130,7 @@ of every model that clears 1536 is a single pair-sized allocation on a chip that
 - `rf3` folds 1536 and fails at 1600 in the ending-node triangle attention's pair transpose, with
   enough memory free but no block large enough.
 
-`openbind` folds 1088 tokens and `openfold3` stops at 1088 (openbind at 1152), both in the MSA
-track's transition, where a pair-sized buffer finds no free block large enough. The measured rows, with commits, wall
-times and allocation sizes, are in `tt_bio/size_limits.py`.
+`openfold3` and `openbind` fold 1536 residues at 14190 alignment rows now that the MSA
+representation streams through the chip a depth chunk at a time; nothing above 1536 has been
+walked for them yet. The measured rows, with commits, wall times and allocation sizes, are in
+`tt_bio/size_limits.py`.
