@@ -238,3 +238,15 @@ def test_reader_uppercases_polymers_not_smiles(tmp_path):
     assert [c[1] for c in _read_bio_chains(y)] == ["MQIFVK", "GCAU", "c1ccccc1O"]
     f = _fasta(tmp_path, ">A|protein|empty\nmqifvk\n>L|smiles\nc1ccccc1O\n")
     assert [c[1] for c in _read_bio_chains(f)] == ["MQIFVK", "c1ccccc1O"]
+
+
+def test_reader_refuses_an_empty_chain_beside_a_real_one(tmp_path):
+    # An entry with `sequence: ""` was skipped, so a two-chain file folded as a monomer.
+    import click
+    from tt_bio.main import _read_bio_chains
+    y = tmp_path / "in.yaml"
+    y.write_text("version: 1\nsequences:\n"
+                 "  - protein: {id: A, sequence: MQIFVKTLTGK}\n"
+                 "  - protein: {id: B, sequence: ''}\n")
+    with pytest.raises(click.ClickException, match=r"chain\(s\) B have empty"):
+        _read_bio_chains(y)

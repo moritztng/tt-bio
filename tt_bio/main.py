@@ -2352,7 +2352,9 @@ def _read_bio_chains(path, what="input"):
                 continue
             for key, mt in (("protein", "protein"), ("rna", "rna"), ("dna", "dna")):
                 sub = entry.get(key)
-                if not (sub and sub.get("sequence")):
+                if not isinstance(sub, dict):
+                    # an empty `sequence:` still reaches the blank check below, which names the
+                    # chain; skipping it here folded the rest of the complex without it
                     continue
                 m = sub.get("msa") if mt == "protein" else None
                 m = str(m).strip() if m else None
@@ -2362,7 +2364,7 @@ def _read_bio_chains(path, what="input"):
                 id_list = ([str(x) for x in ids] if isinstance(ids, (list, tuple))
                            else str(ids).split(","))
                 for c in id_list:
-                    chains.append((c.strip(), str(sub["sequence"]).upper(), m, mt, mods))
+                    chains.append((c.strip(), str(sub.get("sequence") or "").upper(), m, mt, mods))
             lig = entry.get("ligand")                       # {ccd: CODE|[CODE, ...]} or {smiles: STR}
             if isinstance(lig, dict) and (lig.get("ccd") or lig.get("smiles")):
                 if lig.get("ccd"):
@@ -2395,7 +2397,7 @@ def _read_modifications(sub: dict, key: str):
     mods = sub.get("modifications")
     if not mods:
         return None
-    seq_len = len("".join(str(sub["sequence"]).split()))
+    seq_len = len("".join(str(sub.get("sequence") or "").split()))
     for mod in mods:
         pos = mod.get("position") if isinstance(mod, dict) else None
         if not isinstance(pos, int) or not (1 <= pos <= seq_len) or not mod.get("ccd"):
