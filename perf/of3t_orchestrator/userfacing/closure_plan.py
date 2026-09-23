@@ -178,31 +178,22 @@ PLAN = {
         "asked": ("not yet asked, and not yet owned. It is the only USER-FACING item whose repair "
                   "has not been built"),
     },
-    # Pass 414: every field here was stale and one was wrong. `row` named `of3t-ditcot`, which
-    # did not answer this; the row that narrowed it is `of3t-tapeamp`, concluded 2026-09-22. The
-    # one_line and evidence quoted 19.6x/19.8x, two revisions out of date. I read this entry and
-    # dispatched against it, which is how the staleness surfaced.
-    "D58": {
+    # Pass 415: D58 closed on both legs (`of3t-msaamp`, GO) and the forward gap it found in its
+    # place is D250.
+    "D250": {
         "needs": CARD,
-        "one_line": "HALF-ANSWERED: the diffusion leg is re-explained (11.026x, of which 7.666x is upstream 0.4.3's OWN bf16 factor); msa_module's leg is still unmeasured",
-        "closes_when": ("an upstream bf16 arm at the `msa_module` boundary, priced the way "
-                        "`of3t-tapeamp` priced diffusion: same boundary, same float64 reference, "
-                        "one process, one host. If msa_module's factor is also mostly upstream's "
-                        "own, D58 closes as not a defect; if it is not, there is a real "
-                        "module-specific amplifier and it is worth the capture. No such arm "
-                        "exists anywhere in the campaign -- it is a boundary capture plus a "
-                        "float64 reference, not an afternoon, which is why it is still open"),
-        "evidence_held": ("`of3t-tapeamp` (GO, 2026-09-22) refuted the 'belongs to the tape' half "
-                          "ON THE DIFFUSION TRACK: our 11.026x contains 7.666x of upstream's own, "
-                          "upstream's fp32 recipe shows 9.326x at four orders of magnitude lower "
-                          "absolute error so the factor survives a precision change no dtype "
-                          "boundary could explain, and the census finds 0 dtype reconciliations "
-                          "in 1,879 node firings. Our arm beats upstream on BOTH halves -- "
-                          "forward 1.959x, gradient 1.362x -- so our factor is larger only "
-                          "because the denominator is the half we beat hardest. That row did NOT "
-                          "measure msa_module and said so; D30 and D129 are closed"),
+        "one_line": "msa_module's forward is 3.54x less accurate than upstream 0.4.3 bf16 at the same boundary (8.176e-03 against 2.311e-03)",
+        "closes_when": ("the gap is located to an op and either repaired, default-off and "
+                        "tape-gated, or shown to be the reference's own at op level. An "
+                        "inference-side repair is Moritz's call under the 2026-09-21 "
+                        "no-inference-regression constraint"),
+        "evidence_held": ("`of3t-msaamp` (GO): device A/A bit-identical, qb1 p150a reproduces "
+                          "qb2 p300c bit for bit, and the backward propagates the gap rather than "
+                          "amplifying it (factor 2.38x against upstream's 5.29x). Gradient-side "
+                          "family excess: pair_transition 2.79x, tri_att_end 2.59x, "
+                          "tri_att_start 2.17x; the triangle multiplications beat upstream"),
         "would_a_row_help": True,
-        "row": "of3t-msaamp",   # dispatched pass 414, scoped to the one unmeasured leg
+        "row": "of3t-msafwd",   # dispatched pass 415
     },
     "D205": {
         "needs": CARD,
