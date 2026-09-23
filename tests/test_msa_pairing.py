@@ -205,3 +205,6 @@ def test_protenix_and_opendde_share_the_rule():
     for name in ("_predict_openfold3_one", "_predict_esmfold2_one"):
         assert "_paired_msa(path, chains, msa_dir, cfg)" in inspect.getsource(
             getattr(_WorkerState, name)), name
+    # preview2 does not pair (upstream 0.4.x drops the rows); OpenBind does.
+    assert 'model == "openbind" and _paired_msa(' in inspect.getsource(
+        _WorkerState._predict_openfold3_one)

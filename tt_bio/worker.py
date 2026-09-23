@@ -448,8 +448,9 @@ def _paired_msa(path, chains, msa_dir, cfg):
 
     A complex pairs when it has more than one unique protein sequence: Protenix
     (``msa_featurizer.py``: ``need_pairing = len(unique_prot_seqs) > 1``), OpenDDE (same
-    file, lines 64-66), OpenFold3 (``colabfold_msa_server.py``: "Only do pairing if number
-    of unique protein sequences is > 1") and Boltz-2 (``compute_msa`` pairs when
+    file, lines 64-66), OpenBind (OpenFold3 0.5.0 ``colabfold_msa_server.py``: "Only do
+    pairing if number of unique protein sequences is > 1"; preview2 on 0.4.x drops the
+    rows, so ``openfold3`` does not pair) and Boltz-2 (``compute_msa`` pairs when
     ``len(seqs) > 1``, seqs keyed by sequence). A homomer's copies are one sequence and do
     not pair. The search runs against the ColabFold server or a local DB; a
     ``--msa_endpoint`` run is not sent to the public server behind the user's back, and a
@@ -1629,7 +1630,12 @@ class _WorkerState:
                 raise RuntimeError(
                     f"MSA was requested but none resolved for protein chain(s) {missing} "
                     "-- refusing to silently fold single-sequence.")
-        if _paired_msa(path, chains, msa_dir, cfg) is not None:
+        # OpenBind only. preview2 runs upstream on 0.4.x, whose create_paired_from_precomputed
+        # never sets n_rows_paired_subsampled, so the featurizer drops the paired block
+        # (primitives/featurization/msa.py:112) and upstream folds a heteromer unpaired;
+        # 0.5.0 (PR #373) keeps it. Keyed on the checkpoint like the other 0.5.0 MSA fixes.
+        # Feeding preview2 the rows anyway cost 0.06 DockQ on 8WT4, worse on 6 of 6 seeds.
+        if model == "openbind" and _paired_msa(path, chains, msa_dir, cfg) is not None:
             of3_query = attach_openfold3_paired_msas(of3_query, msa_dir)
         if cfg.get("single_sequence"):
             # --single_sequence is upstream's no-MSA mode, not an MSA-stack

@@ -226,8 +226,10 @@ leaves your machine; a one-line notice is printed when that fallback is used. Pa
 `--msa_db_path` for a private offline database, or `--single_sequence` to deliberately fold
 without an MSA (lower accuracy; for batch-screening orphan sequences). A complex with two or
 more different protein sequences also gets a species-paired MSA, searched once per complex, the
-way each model's upstream pairs; a homodimer is not paired. RF3 is the exception: its upstream
-pairs by taxonomy IDs that ColabFold alignments do not carry, so it folds unpaired there too.
+way each model's upstream pairs; a homodimer is not paired. Two models fold unpaired because
+their upstream does: RF3 pairs by taxonomy IDs that ColabFold alignments do not carry, and
+OpenFold3's preview2 checkpoint runs on an upstream release that drops the paired rows
+(OpenBind pairs).
 ESMFold2 needs no MSA and uses one when a source is given.
 
 `--fast` makes some operations use a lower-precision numeric format that runs faster. Accuracy is typically very close.
