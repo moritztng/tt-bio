@@ -126,6 +126,20 @@ def test_a_candidate_that_beats_the_budget_is_still_chosen(monkeypatch):
     assert fx.leaked() == []
 
 
+def test_no_survivor_from_the_random_screen_means_the_live_screen_allocates_nothing(monkeypatch):
+    """An empty survivor list is the signal that DRAM is tight, so do not allocate one more output.
+
+    Screen 2 only ever iterates the survivors, so with none the answer is already DEFAULT and
+    `ref` would be a full output built for an empty loop. That is not hypothetical at the sizes
+    this file is about: at 1536 residues every candidate for the 2717908992 B shape refused.
+    """
+    fx = Fixture(times=[0.010]).install(monkeypatch)
+    monkeypatch.setattr(M, "_mm_maxabs", lambda a, b: 1.0)   # nothing is bitwise equal
+    assert calibrate(fx) is None
+    assert [t.name for t in fx.live if t.name == "ref"] == []
+    assert fx.leaked() == []
+
+
 def test_a_timed_default_that_does_not_fit_PROPAGATES(monkeypatch):
     """The one allocation left unguarded, and it has to stay that way.
 

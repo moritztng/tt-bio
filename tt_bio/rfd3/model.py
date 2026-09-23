@@ -610,6 +610,15 @@ def _calibrate_linear(x, w, kw, core_grid):
         except Exception:
             continue  # illegal L1 / subblock combinations are expected and simply skipped
     _mm_drop(rx, rw, rref)
+    if not exact:
+        # Nothing survived screen 1, so screen 2 has nothing to confirm and the answer is already
+        # DEFAULT. Building `ref` anyway costs a full output for an empty loop, and this is not a
+        # corner case at the sizes that matter: at 1536 residues every candidate for
+        # `x=(1,1536,1536,128) w=(128,576)` refused, nine of them, because a second 2717908992 B
+        # buffer does not fit beside the first (j10glx02 card 15, 2026-09-23, mgx-design-ceiling).
+        # An empty survivor list is exactly the signal that DRAM is tight, which is the worst
+        # moment to allocate one more output.
+        return skip(f"default={default_t * 1e3:8.3f} ms, no candidate survived the random screen")
 
     # Screen 2, the live operands, on the survivors only: confirm exactness, then time.
     try:
