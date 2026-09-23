@@ -4104,8 +4104,9 @@ def _run_pxdesign_cli(inputs: Path, out_dir, cache, num_designs, n_step, seed) -
                    "(rfd3; each design gets noise seed --seed + design_idx, written as "
                    "<spec_id>.cif when 1 else <spec_id>_<i>.cif), or 1 (pxdesign, where it is "
                    "also the batch axis: every requested design comes from one batched "
-                   "diffusion trajectory, and 8 at a time runs about 1.25x faster per design "
-                   "than 1; past 8 it gets slower again).")
+                   "diffusion trajectory, and the gain per design grows with the batch and "
+                   "shrinks with the target -- 2.7x at 8 against a 256-residue target, 1.5x "
+                   "at a 512-residue one, flat from 16 up rather than turning back).")
 @click.option("--devices", "--device_ids", "devices", default=None,
               help="Comma-separated physical TT card ids to fan the designs across, e.g. "
                    "'0,1,2,3' (data-parallel, the same pattern `tt-bio predict` uses). "
