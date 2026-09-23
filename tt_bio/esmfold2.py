@@ -1535,7 +1535,8 @@ class StructureHead(TorchWrapper):
 
     def draw(self, steps=14, seed=0, multiplicity=1):
         """One trajectory of `multiplicity` samples on the tensors prepare() left resident."""
-        dmm, sigma, ref_mask, N = self.module, self.sigma_data, self._ref_mask, self._n_atoms
+        dmm, sigma, ft = self.module, self.sigma_data, self._from_torch
+        ref_mask, N = self._ref_mask, self._n_atoms
 
         # Best-of-N batching: the conditioning is molecule-only (identical
         # across diffusion samples), so replicate the resident tensors to
