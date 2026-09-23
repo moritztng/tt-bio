@@ -881,7 +881,13 @@ def _v_concat_heads(shipped, args, kwargs):
 
     def make():
         def bw(g):
-            x.add_grad(ttnn.permute(ttnn.reshape(g, [B, L, H, dh]), [0, 2, 1, 3]))
+            # Transpose first, so the head split lands on a dim whose extent is dh, not H.
+            # `reshape(g, [B, L, H, dh])` put H on the second-to-last dim, which TILE layout
+            # pads to 32: at H=4 that is an 8x buffer, [B, L, 32, dh] for [B, L, 4, dh] of
+            # gradient. Same data movement, bit-identical, and every intermediate is the
+            # gradient's own size when dh and L are whole tiles.
+            t = ttnn.reshape(ttnn.transpose(g, -2, -1), [B, H, dh, L])
+            x.add_grad(ttnn.transpose(t, -2, -1))
         return bw
 
     return _tape(out_v, [x], make)

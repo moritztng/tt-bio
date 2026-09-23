@@ -17,7 +17,11 @@ The reference is float64 on the host and is not another device expression: the s
 built with numpy from the same cotangents, so an agreement is against the definition of the
 op rather than against a second implementation of it.
 
+`--verb concat_heads` runs the same control on the sibling, the vjp of
+`experimental.nlp_concat_heads`, whose inverse reshape put H=4 on dim 2 and padded it 8x.
+
     qkv_heads_ab.py --tokens 256 --out perf/of3t_cropwall/out/qkv_ab_pre.json
+    qkv_heads_ab.py --verb concat_heads --out perf/of3t_cropwall/out/heads_ab_pre.json
 """
 from __future__ import annotations
 
@@ -34,7 +38,7 @@ from pathlib import Path
 REPO = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO))
 
-from perf.of3t_memory.alloc_profile import Peak, _swap_watch            # noqa: E402
+from perf.of3t_memory.alloc_profile import Peak, _Watch, _swap_watch    # noqa: E402
 
 
 def _digest(a):
@@ -46,6 +50,8 @@ def main() -> int:
     ap.add_argument("--tokens", type=int, default=256, help="the pair track's B and L")
     ap.add_argument("--heads", type=int, default=4)
     ap.add_argument("--head-dim", type=int, default=32)
+    ap.add_argument("--verb", choices=("create_qkv_heads", "concat_heads"),
+                    default="create_qkv_heads")
     ap.add_argument("--out", type=Path, required=True)
     a = ap.parse_args()
 
@@ -76,15 +82,20 @@ def main() -> int:
 
         B = L = a.tokens
         H, dh = a.heads, a.head_dim
-        wide = 3 * H * dh
+        n_slot = 3 if a.verb == "create_qkv_heads" else 1
+        wide = n_slot * H * dh
         dev = get_device()
         out["env"]["arch"] = str(dev.arch())
         out["shape"] = {"B": B, "L": L, "H": H, "dh": dh, "wide": wide}
 
         g = torch.Generator().manual_seed(7)
         xt = (torch.rand((B, 1, L, wide), generator=g, dtype=torch.float32) * 2 - 1)
-        cot = [(torch.rand((B, H, L, dh), generator=g, dtype=torch.float32) * 2 - 1)
-               for _ in range(3)]
+        if a.verb == "create_qkv_heads":
+            cot = [(torch.rand((B, H, L, dh), generator=g, dtype=torch.float32) * 2 - 1)
+                   for _ in range(3)]
+        else:
+            xt = (torch.rand((B, H, L, dh), generator=g, dtype=torch.float32) * 2 - 1)
+            cot = [(torch.rand((B, 1, L, wide), generator=g, dtype=torch.float32) * 2 - 1)]
         # bf16 on both sides of the comparison: the reference is the SCATTER in float64, and a
         # scatter cannot invent precision, so rounding the cotangents once up front makes the
         # host answer exact rather than nearly right.
@@ -109,18 +120,32 @@ def main() -> int:
 
         with ag.tape():
             x = ag.Tensor(xd, requires_grad=True)
-            q, k, v = TTS.experimental.nlp_create_qkv_heads(
-                x, num_heads=H, num_kv_heads=H, transpose_k_heads=False,
-                memory_config=ttnn.DRAM_MEMORY_CONFIG)
+            if a.verb == "create_qkv_heads":
+                outs = TTS.experimental.nlp_create_qkv_heads(
+                    x, num_heads=H, num_kv_heads=H, transpose_k_heads=False,
+                    memory_config=ttnn.DRAM_MEMORY_CONFIG)
+            else:
+                outs = [TTS.experimental.nlp_concat_heads(
+                    x, memory_config=ttnn.DRAM_MEMORY_CONFIG)]
             seeds = [ttnn.from_torch(c, layout=ttnn.TILE_LAYOUT, device=dev,
                                      dtype=ttnn.bfloat16) for c in cot]
             t0 = time.perf_counter()
             pk.reset()
             _swap_watch(pk, True, saved)
+            # `_swap_watch` leaves `tt_bio.taped_ttnn` alone, so its vjps are probed only where
+            # they reach `autograd`. The qkv scatter reaches it through the `add` of its three
+            # slots; a single-output verb never adds, and its whole backward would go unseen.
+            # So watch the vjp's own `ttnn` here too -- for the new verb only, which keeps the
+            # banked qkv arms on the instrument that measured them.
+            TTm = sys.modules["tt_bio.taped_ttnn"]
+            vjp_ttnn = TTm.ttnn
+            if a.verb == "concat_heads":
+                TTm.ttnn = _Watch(vjp_ttnn, pk.probe)
             try:
-                ag.backward([q, k, v], seeds)
+                ag.backward(list(outs), seeds)
                 ttnn.synchronize_device(dev)
             finally:
+                TTm.ttnn = vjp_ttnn
                 _swap_watch(pk, False, saved)
             out["backward_s"] = round(time.perf_counter() - t0, 3)
             out["backward_dram_peak_b"] = pk.dram_hw
@@ -135,12 +160,19 @@ def main() -> int:
         # float64 reference: the scatter, by definition. Slot s of the packed axis holds the
         # s-th cotangent laid out head-major, and the three slots do not overlap, so the sum
         # `add_grad` performs is a concatenation and nothing rounds.
-        ref = np.zeros((B, 1, L, wide), dtype=np.float64)
-        for s, c in enumerate(cot):
-            cn = c.to(torch.float64).numpy()                       # [B, H, L, dh]
+        if a.verb == "create_qkv_heads":
+            ref = np.zeros((B, 1, L, wide), dtype=np.float64)
+            for s, c in enumerate(cot):
+                cn = c.to(torch.float64).numpy()                   # [B, H, L, dh]
+                for h in range(H):
+                    w0 = s * H * dh + h * dh
+                    ref[:, 0, :, w0:w0 + dh] = cn[:, h, :, :]
+        else:
+            # The inverse of the head-major packing: head h is the lane range [h*dh, (h+1)*dh).
+            cn = cot[0].to(torch.float64).numpy()                  # [B, 1, L, H*dh]
+            ref = np.zeros((B, H, L, dh), dtype=np.float64)
             for h in range(H):
-                w0 = s * H * dh + h * dh
-                ref[:, 0, :, w0:w0 + dh] = cn[:, h, :, :]
+                ref[:, h] = cn[:, 0, :, h * dh:(h + 1) * dh]
         err = np.abs(got.astype(np.float64) - ref)
         den = max(float(np.abs(ref).max()), 1e-30)
         out["vs_float64"] = {
@@ -160,7 +192,7 @@ def main() -> int:
         out["ok"] = False
     dump()
     v = out.get("vs_float64") or {}
-    print("qkv vjp  B=L=%s  bit_exact_vs_f64 %s  max_abs %s  digest %s"
+    print(a.verb + " vjp  B=L=%s  bit_exact_vs_f64 %s  max_abs %s  digest %s"
           % (a.tokens, v.get("bit_exact"), v.get("max_abs"), out.get("grad_digest")),
           flush=True)
     print("  backward DRAM high-water %s B at %s, largest live buffer %s B, %.3f s"
