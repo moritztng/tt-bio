@@ -469,11 +469,17 @@ class OpenFold3Forward:
                 # the squared gradient norm read 4.87e+11 against upstream's model
                 # denominator of 10.279642678524981, with every loss VALUE sane -- a forward
                 # that looks healthy and a backward that is not.
+                #
+                # The two conditioning masks stay bf16, as the rollout leaves them: the
+                # conditioning's activations come out of `_lin` bf16, and ttnn.multiply of a
+                # bf16 tensor by an fp32 last-dim-1 mask returns garbage that changes run to
+                # run (PROBE_BCAST.json: up to 16061 wrong elements, every rank; exact when
+                # both are bf16 or x is fp32). Cast, they made the A/A disagree (probe_aa.py).
                 c = s.to_act_dtype
                 si = s.dc.single(c(s_trunk), c(s_input_d),
                                  c(ag.Tensor(ft(n_emb.reshape(1, 1, 256)))),
-                                 c(ft(tok.reshape(n_token, 1).unsqueeze(0))))
-                zij = s.dc.pair(c(z_trunk), c(relpos_d), c(pair_mask_dm))
+                                 ft(tok.reshape(n_token, 1).unsqueeze(0)))
+                zij = s.dc.pair(c(z_trunk), c(relpos_d), pair_mask_dm)
                 # The conditioning hands back bf16 si/zij; the rollout lifts them to the
                 # activation dtype inside `pad_dim`. Fed bf16, the fp32 module's one-step
                 # denoise read 0.80-0.88 A RMS from the truth, varying run to run, against
