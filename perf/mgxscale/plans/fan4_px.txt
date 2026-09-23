@@ -1,0 +1,7 @@
+# Data parallelism, measured rather than multiplied: four IDENTICAL pxdesign jobs, one per
+# chip, launched together. The per-chip rate here against the same job run alone is the
+# host-contention factor a 27-chip throughput claim has to carry.
+--model pxdesign --target-res 512 --designs 8 --steps 400 --host-threads 2 --timeout 21600 --tag fan4a
+--model pxdesign --target-res 512 --designs 8 --steps 400 --host-threads 2 --timeout 21600 --tag fan4b
+--model pxdesign --target-res 512 --designs 8 --steps 400 --host-threads 2 --timeout 21600 --tag fan4c
+--model pxdesign --target-res 512 --designs 8 --steps 400 --host-threads 2 --timeout 21600 --tag fan4d

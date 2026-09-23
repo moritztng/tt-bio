@@ -130,8 +130,8 @@ under 1024:
 | model | Wormhole limit | first measured failure |
 |---|---:|---:|
 | `opendde`, `opendde-abag` | 1024 | 1088 |
-| `openfold3` | 1024 | none found; top of the ladder |
-| `openbind` | 960 (residues; a ligand adds tokens) | 1024 |
+| `openfold3` | 1536 | none found; top of the ladder |
+| `openbind` | 1536 (residues; a ligand adds tokens) | none found; top of the ladder |
 | `pxdesign` | 1536 (target residues; the binder is on top) | none found; top of the ladder |
 | `protenix-v2` | 1024 (residues; a ligand adds tokens) | 1095 |
 | `esmfold2` | 1024 (residues; a ligand adds tokens) | 1056 |
@@ -196,8 +196,8 @@ A ligand counts against these limits. Its heavy atoms are tokens the model pays 
 residues, and on `esmfold2`, `esmfold2-fast`, `openbind` and `protenix-v2` the wall is on tokens,
 so a cocrystal is checked on residues plus ligand atoms rather than on the residue count alone.
 `esmfold2` folds 1024 residues, which leaves no room at all: 1024 residues plus any ligand is
-refused, and 991 residues with a 33-atom ligand folds. `openbind` was walked with a 35-atom
-ligand already bound, so its 960 has room for a ligand of 64 atoms and refuses 65. Either way the
+refused, and 991 residues with a 33-atom ligand folds. `openbind` is the same: its 1536 was
+walked apo, so a ligand counts against it atom for atom. Either way the
 refusal names the token count and the wall, and it arrives before a device is opened instead of
 as an out-of-memory error part way through the fold.
 
@@ -905,9 +905,11 @@ tt-bio design specs.json --model rfd3 --from_pdb --out_dir designs/
 
 **[RFdiffusion3](https://www.biorxiv.org/content/10.1101/2025.09.18.676967)** (RFD3) is an all-atom generative model that designs new protein structures and sequences from a specification, rather than folding an existing one. Design modes, the contig-string input grammar, and which conditioning fields a spec can and cannot ask for: [`docs/rfd3-design.md`](docs/rfd3-design.md).
 
-**[PXDesign](https://github.com/bytedance/PXDesign)** generates binder backbones against a target structure, conditioned on a distogram of the target rather than its coordinates. Input is a target YAML naming a structure file, the chains to condition on (with optional per-chain crop and hotspots) and a `binder_length`; each design is written as a CIF in the target structure's own frame, so it opens alongside your input file. A `designs.json` lands beside them with each design's numbers: fit RMSD against the target, binder residue and atom counts, and how many target tokens it was conditioned on. The binder is written as GLY because PXDesign generates a backbone with no sequence. Hotspot residues are `label_seq` numbers, not the author numbering a viewer shows, and a number that names no residue is refused rather than dropped. `--num_designs` is also the batch axis for this model: every requested design comes from one batched diffusion trajectory, and 8 at a time runs about 1.25x faster per design than one at a time. A given `--seed` and `--num_designs` always reproduce the same designs, but `--num_designs 1` and `--num_designs 2` do not share their design 0: asking for more designs currently changes which ones you get, so pin both values when you want a run back. Selecting designs, which upstream does with a Protenix and an AF2-IG filter, is not on the CLI yet.
+**[PXDesign](https://github.com/bytedance/PXDesign)** generates binder backbones against a target structure, conditioned on a distogram of the target rather than its coordinates. Input is a target YAML naming a structure file, the chains to condition on (with optional per-chain crop and hotspots) and a `binder_length`; each design is written as a CIF in the target structure's own frame, so it opens alongside your input file. A `designs.json` lands beside them with each design's numbers: fit RMSD against the target, binder residue and atom counts, and how many target tokens it was conditioned on. The binder is written as GLY because PXDesign generates a backbone with no sequence. Hotspot residues are `label_seq` numbers, not the author numbering a viewer shows, and a number that names no residue is refused rather than dropped. `--num_designs` is also the batch axis for this model: every requested design comes from one batched diffusion trajectory, and the gain per design grows with the batch and shrinks with the target: 2.7x at 8 designs against a 256-residue target, 1.5x against a 512-residue one, and flat from 16 up rather than turning back. A given `--seed` and `--num_designs` always reproduce the same designs, but `--num_designs 1` and `--num_designs 2` do not share their design 0: asking for more designs currently changes which ones you get, so pin both values when you want a run back. Selecting designs, which upstream does with a Protenix and an AF2-IG filter, is not on the CLI yet.
 
 Each model downloads its weights automatically on first use. BoltzGen and RFdiffusion3 fan out across every available card (`--devices 0,2` restricts); PXDesign runs on one card locally, or one design per card across a fleet with `--controller http://host:8765`. `tt-bio gen` still works as a deprecated alias for `tt-bio design --model boltzgen`.
+
+How many designs a card returns per hour, how `--num_designs` and `--devices` move it, and how to size a campaign: [`docs/design-throughput.md`](docs/design-throughput.md).
 
 ## Training
 
