@@ -489,8 +489,15 @@ def run_rung(model: str, size: int, args, work: pathlib.Path) -> dict:
         rec["mechanism"] = "none"
     else:
         rec["verdict"] = "FAIL"
-        rec["mechanism"] = classify(blob)
-        rec.update(dram_numbers(blob))
+        # A budget kill has no failing allocation. Classifying its log anyway reads the refusals
+        # the model caught and carried on from (rfd3's calibration absorbs candidate OOMs by
+        # design) as the reason it stopped: rfd3 1280 was recorded as a 41943040 B `dram`
+        # failure after running its full 5400 s budget.
+        if ended == "TIMEOUT":
+            rec["mechanism"] = "timeout"
+        else:
+            rec["mechanism"] = classify(blob)
+            rec.update(dram_numbers(blob))
         rec["diag"] = diagnosis(blob)
         rec["tail"] = blob[-2500:]
     return rec

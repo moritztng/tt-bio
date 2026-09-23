@@ -47,11 +47,20 @@ NOT_A_MEASUREMENT = "device contention, nothing ran"
 TIMED_OUT = "TIMEOUT"
 
 
+# ladder.py SIGKILLs every rung it ends itself, at a device throw and at the budget alike, and
+# writes one of these lines to the log as it does. So rc -9 alone does not mean the rung never
+# ran: the first version of ran() treated it that way and dropped rfd3's 1536 BEFORE failure, the
+# one row this walk exists to produce. A kill is refused only when the ladder did not sign it.
+LADDER_ENDED = (TIMED_OUT, "FATAL: ended at the throw")
+
+
 def ran(r: dict) -> bool:
-    if r.get("rc") in (-15, -9):
-        return False
     blob = " ".join(r.get("diag") or []) + (r.get("tail") or "")
-    return NOT_A_MEASUREMENT not in blob
+    if NOT_A_MEASUREMENT in blob:
+        return False
+    if r.get("rc") in (-15, -9):
+        return any(m in (r.get("tail") or "") for m in LADDER_ENDED)
+    return True
 
 
 def timed_out(r: dict) -> bool:
