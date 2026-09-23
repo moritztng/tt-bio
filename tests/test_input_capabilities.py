@@ -38,8 +38,12 @@ INPUTS: dict[str, str] = {
     "modifications": _HEAD + "      modifications:\n        - position: 5\n          ccd: TPO\n",
     "templates": _HEAD + "      templates: /nonexistent/tmpl.npz\n",
     "template_structure": _HEAD + "templates:\n  - cif: /nonexistent/t.cif\n    chain_id: A\n",
-    "bond": _HEAD + ("constraints:\n  - bond:\n      atom1: [A, 5, SG]\n"
-                     "      atom2: [A, 9, SG]\n"),
+    # A bond to a modified residue, the case every AF3-family upstream atomizes and reads.
+    "bond": _HEAD + ("      modifications:\n        - position: 5\n          ccd: TPO\n"
+                     "constraints:\n  - bond:\n      atom1: [A, 5, OG1]\n"
+                     "      atom2: [A, 8, NZ]\n"),
+    "polymer_bond": _HEAD + ("constraints:\n  - bond:\n      atom1: [A, 5, SG]\n"
+                             "      atom2: [A, 9, SG]\n"),
     "pocket": _HEAD + ("constraints:\n  - pocket:\n      binder: A\n"
                        "      contacts: [[A, 5]]\n"),
     "affinity": _HEAD + "properties:\n  - affinity:\n      binder: A\n",
@@ -124,7 +128,7 @@ def test_every_refused_feature_is_named_at_once(tmp_path):
     text = (_HEAD + "      cyclic: true\n"
             + "constraints:\n  - pocket:\n      binder: A\n      contacts: [[A, 5]]\n")
     with pytest.raises(RuntimeError) as e:
-        _check(tmp_path, text, "protenix-v2")
+        _check(tmp_path, text, "esmfold2")
     msg = str(e.value)
     assert "cyclic" in msg and "pocket" in msg
 
@@ -133,7 +137,7 @@ def test_every_offending_chain_id_is_named_and_no_other(tmp_path):
     text = (f"version: 1\nsequences:\n  - protein:\n      id: [A, B]\n      sequence: {SEQ}\n"
             f"      cyclic: true\n  - protein:\n      id: C\n      sequence: {SEQ}\n")
     with pytest.raises(RuntimeError) as e:
-        _check(tmp_path, text, "openbind")
+        _check(tmp_path, text, "esmfold2")
     msg = str(e.value)
     assert "A" in msg and "B" in msg
     assert "C" not in msg.split("Honoured by")[0]
@@ -162,7 +166,7 @@ def test_the_committed_cyclic_example_is_refused():
     if not p.exists():
         pytest.skip("examples/cyclic_prot.yaml not in this checkout")
     with pytest.raises(RuntimeError, match="cyclic"):
-        check_capabilities(p, _read_bio_chains(p), "openbind", echo=None)
+        check_capabilities(p, _read_bio_chains(p), "esmfold2", echo=None)
 
 
 def test_every_predict_path_calls_check_capabilities():
@@ -230,11 +234,11 @@ def test_modifications_reach_every_featurizer_that_honours_them():
     of3 = inspect.getsource(_WorkerState._predict_openfold3_one)
     assert '"non_canonical_residues": ({m["position"]' in of3, \
         "the OF3 query stopped carrying non_canonical_residues"
+    assert '"seq": _rf3_sequence(cseq, mods)' in inspect.getsource(
+        _WorkerState._predict_rf3_one), "the RF3 spec stopped carrying (CCD) residues"
     for model in ("protenix-v1", "protenix-v2", "opendde", "opendde-abag", "openfold3",
-                  "openbind", "esmfold2"):
+                  "openbind", "esmfold2", "rf3"):
         assert CAPABILITY[model]["modifications"] == HONOURED
-    assert CAPABILITY["rf3"]["modifications"] == REFUSED, \
-        "rf3 reads modified residues from its own JSON/CIF spec, not from this YAML"
 
 
 def test_the_nesso1_row_covers_the_command_that_is_not_predict():
