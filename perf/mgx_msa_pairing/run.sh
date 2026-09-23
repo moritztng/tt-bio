@@ -7,7 +7,12 @@ set -u
 C=$1 TREE=$2 TAG=$3 M=$4 SEED=$5 FLAGS=$6; shift 6
 HERE=$(cd "$(dirname "$0")" && pwd)
 OUT=$HERE/out/$TAG
-rm -rf "$OUT"; mkdir -p "$OUT/in"
+# A second chain on another chip can share a batch: whoever creates the run dir first owns it.
+# RERUN=1 overwrites instead.
+mkdir -p "$(dirname "$OUT")"
+if [ -n "${RERUN:-}" ]; then rm -rf "$OUT"
+elif ! mkdir "$OUT" 2>/dev/null; then echo "skip $TAG (claimed)"; exit 0; fi
+mkdir -p "$OUT/in"
 for f in "$@"; do cp "$f" "$OUT/in/"; done
 cd "$TREE"
 export PYTHONPATH=$PWD TT_VISIBLE_DEVICES=$C TT_BIO_LEASE_CARDS=$C
