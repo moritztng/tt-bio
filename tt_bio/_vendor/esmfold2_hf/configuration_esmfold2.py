@@ -40,6 +40,11 @@ class MSAEncoderConfig:
     n_layers: int = 4
     n_heads_msa: int = 8
     msa_head_width: int = 32
+    # Inference-time MSA diversity, from esm 3.4.1 (config.py): the MSA is subsampled to
+    # max_depth rows, fresh each loop, after column_mask_rate of its columns are masked once.
+    # The released checkpoints do not set them, so these defaults are what upstream folds with.
+    max_depth: int | None = 1024
+    column_mask_rate: float = 0.1
 
 
 @dataclass
