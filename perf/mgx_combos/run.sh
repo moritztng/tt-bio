@@ -10,7 +10,9 @@
 # lease) reruns elsewhere, and the chain re-takes its card after a fold only if it is still free.
 # A job whose results.json already says ok is skipped, so a restarted chain keeps finished logs.
 # The cardblocked chips (1, 24-27) are never candidates. POLL (s, default 30) is how often a waiting
-# chain looks for a free card; EXTRA is appended to every predict command (e.g. --debug). Runs the tree this script lives in.
+# chain looks for a free card; EXTRA is appended to every predict command (e.g. --debug).
+# PROBE=<file> loads probe/sitecustomize.py, which logs live DRAM buffers at stage boundaries.
+# Runs the tree this script lives in.
 set -u
 cd "$(dirname "$0")/../.."
 POOL=$1; shift
@@ -51,11 +53,11 @@ take() {
     sleep "${POLL:-30}"
   done
 }
-export PYTHONPATH=$PWD TT_BIO_LEASE_HOLDER=$ME TT_BIO_LEASE_DIR=$L
+export PYTHONPATH=$PWD${PROBE:+:$PWD/perf/mgx_combos/probe} TT_BIO_LEASE_HOLDER=$ME TT_BIO_LEASE_DIR=$L
 export TT_METAL_CACHE=$HOME/.cache/tt-metal-cache-mgxc TT_METAL_LOGGER_LEVEL=FATAL TT_BIO_LEASE_TIMEOUT=60
 for job in "$@"; do
   IFS=: read -r m f n <<< "$job"; n=${n:-5}
-  s=$(basename "${f%.*}")_s$n; out=perf/mgx_combos/out/$m; mkdir -p "$out"
+  s=$(basename "${f%.*}")_s$n${PROBE:+_probe}; out=perf/mgx_combos/out/$m; mkdir -p "$out"
   grep -qs '"status": "ok"' "$out/$s"/*_results_*/results.json && continue
   while :; do
     take; start=$(date +%s)
