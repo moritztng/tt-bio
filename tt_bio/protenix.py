@@ -2162,7 +2162,10 @@ class Protenix:
                 sub = {k[len(C + nm + "."):]: v for k, v in self._w.items() if k.startswith(C + nm + ".")}
                 t = Transition(PW.remap_transition(sub), self.compute_kernel_config,
                                dtype=self.diffusion.dtype)
-                pz = ttnn.add(pz, t(pz))
+                # In place, as in ESMFold2's cond_pair: a fresh sum is a third pair tensor.
+                u = t(pz)
+                ttnn.add_(pz, u)
+                ttnn.deallocate(u)
             return _pz_cond_probe(pz, _z_sha)
         if C + "linear_no_bias_z_trunk.weight" in self._w:
             zt = ttnn.layer_norm(z_trunk_tt, weight=T(self._w[C + "layernorm_z_trunk.weight"]),
@@ -2195,7 +2198,9 @@ class Protenix:
             sub = {k[len(C + nm + "."):]: v for k, v in self._w.items() if k.startswith(C + nm + ".")}
             t = Transition(PW.remap_transition(sub), self.compute_kernel_config,
                            dtype=self.diffusion.dtype)
-            pz = ttnn.add(pz, t(pz))
+            u = t(pz)
+            ttnn.add_(pz, u)
+            ttnn.deallocate(u)
             _sync(nm)
         return _pz_cond_probe(pz, _z_sha)
 

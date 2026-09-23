@@ -576,8 +576,13 @@ class DiffusionConditioningModel(Module):
             lambda: self._pair_in(z_trunk, relpos),
             lambda rows: self._pair_in_rows(z_trunk, relpos, rows),
             rows=_TRANSITION_FALLBACK_ROWS, tag="cond_pair")
+        # In place: `z` is this function's own tensor, and a fresh sum would be a third
+        # [B,L,L,256] beside `z` and the update -- esmfold2-fast's next refusal at 1248, once the
+        # two lines above fitted (797442048 B against a 62.1 MiB/bank largest block).
         for t in self.z_trans:
-            z = ttnn.add(z, t(z))
+            u = t(z)
+            ttnn.add_(z, u)
+            ttnn.deallocate(u)
         return z
 
     def cond_single(self, s_inputs, n_raw):
