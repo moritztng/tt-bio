@@ -14,6 +14,10 @@ PREREGISTERED.md fixes:
   bf16 mass   F64 squared mass in tensors where the arm's per-tensor rel <= bf16's;
   unread      F64 squared mass the bijection does not score, beside every figure.
 
+Device dumps are flat (`trainfwd_run.grad_snapshot` saves `.reshape(-1)`), so each one is put back
+into its walked parameter's shape from DEVICE_SHAPES.json before any band is sliced; a flat vector
+narrowed on axis 0 or transposed with `.t()` gives a wrong tensor without raising.
+
 A tensor is in the reference set when its float64 gradient exists and is non-zero. An upstream
 tensor reached by more than one device tensor gets the SUM of their gradients (the same weight
 uploaded twice is one parameter used twice); the count is reported.
@@ -37,6 +41,19 @@ PREFIX = (("aux_heads.distogram.", "distogram"), ("aux_heads.", "confidence"),
 
 def head_of(n):
     return next(h for p, h in PREFIX if n.startswith(p))
+
+
+def load_device(path, shapes):
+    """A flat device dump, each tensor restored to its parameter's shape (row-major)."""
+    out = {}
+    for k, v in torch.load(path, weights_only=False).items():
+        if v is None:
+            continue
+        shape = shapes[k]
+        if v.numel() != torch.Size(shape).numel():
+            raise SystemExit(f"{path}: {k} has {v.numel()} elements, parameter shape {shape}")
+        out[k] = v.reshape(shape)
+    return out
 
 
 def to_upstream(dev_grads, bij):
@@ -87,6 +104,7 @@ def main() -> int:
     ap.add_argument("--f64", required=True)
     ap.add_argument("--bf16", required=True)
     ap.add_argument("--bijection", required=True)
+    ap.add_argument("--shapes", default=str(HERE / "DEVICE_SHAPES.json"))
     ap.add_argument("--arm", action="append", default=[], metavar="NAME=PATH")
     ap.add_argument("--out", required=True)
     a = ap.parse_args()
@@ -96,6 +114,11 @@ def main() -> int:
     bf = {k: v.to(torch.float64) for k, v in torch.load(a.bf16, weights_only=False).items()
           if v is not None}
     bij = json.loads(Path(a.bijection).read_text())
+    shapes = json.loads(Path(a.shapes).read_text())["shapes"]
+    bad = [(pl["device_path"], pl["device_shape"]) for pls in bij["placements"].values()
+           for pl in pls if list(pl["device_shape"]) != shapes[pl["device_path"]]]
+    if bad:
+        raise SystemExit(f"bijection device_shape disagrees with {a.shapes}: {bad[:5]}")
     mass = {k: float((v * v).sum()) for k, v in ref.items()}
     total = sum(mass.values())
     heads = sorted({head_of(k) for k in ref} | {"diffusion"})
@@ -105,7 +128,7 @@ def main() -> int:
     dev_raw = {}
     for spec in a.arm:
         name, path = spec.split("=", 1)
-        dev_raw[name] = torch.load(path, weights_only=False)
+        dev_raw[name] = load_device(path, shapes)
         arms[name], multi = to_upstream(dev_raw[name], bij)
         arms[name + "__multi"] = multi
     names = [s.split("=", 1)[0] for s in a.arm]

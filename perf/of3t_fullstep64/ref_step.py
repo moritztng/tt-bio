@@ -336,6 +336,10 @@ def main() -> int:
     ap.add_argument("--replay-draws", type=Path)
     ap.add_argument("--fd", action="store_true")
     ap.add_argument("--fd-h", default="1e-3,1e-4,1e-5")
+    ap.add_argument("--fd-from", type=Path,
+                    help="run --fd against a banked grads_f64.pt instead of a fresh backward")
+    ap.add_argument("--expect-loss", type=float,
+                    help="with --fd-from: the loss the banked gradient's run logged, matched exactly")
     ap.add_argument("--threads", type=int, default=10)
     ap.add_argument("--rss-cap-gb", type=float, default=22.0)
     ap.add_argument("--chunk-size", type=int, default=None)
@@ -412,21 +416,32 @@ def main() -> int:
                         for k, v in breakdown.items()}
     print(f"[{time.time()-t0:.0f}s] loss {loss!r} seeds {sorted(seeds)}", flush=True)
 
-    t_b = time.time()
-    with policy:
-        rdt = torch.float64 if a.mode == "f64" else torch.float32
-        torch.autograd.backward([out[k].to(rdt) for k in seeds],
-                                [torch.from_numpy(np.asarray(seeds[k])).to(rdt) for k in seeds])
-    rec["backward_s"] = time.time() - t_b
-    del out
-    grads = {}
-    for n, p in model.named_parameters():
-        grads[n] = p.grad.detach().to(torch.float64) if p.grad is not None else None
-        p.grad = None
-    gc.collect()
-    _trim()
-    gp = a.out_dir / f"grads_{a.mode}.pt"
-    torch.save(grads, gp)
+    if a.fd_from:
+        # The banked gradient is only this forward's if the forward is bitwise the one it came
+        # from: same draws (sha256 above) and the same loss to the last bit.
+        assert a.mode == "f64" and a.fd and a.expect_loss is not None
+        if loss != a.expect_loss:
+            raise SystemExit(f"loss {loss!r} != the banked run's {a.expect_loss!r}")
+        del out
+        gp = a.fd_from
+        grads = torch.load(gp, weights_only=False)
+        rec["fd_from"] = {"expect_loss": a.expect_loss, "loss_equal": True}
+    else:
+        t_b = time.time()
+        with policy:
+            rdt = torch.float64 if a.mode == "f64" else torch.float32
+            torch.autograd.backward([out[k].to(rdt) for k in seeds],
+                                    [torch.from_numpy(np.asarray(seeds[k])).to(rdt) for k in seeds])
+        rec["backward_s"] = time.time() - t_b
+        del out
+        grads = {}
+        for n, p in model.named_parameters():
+            grads[n] = p.grad.detach().to(torch.float64) if p.grad is not None else None
+            p.grad = None
+        gc.collect()
+        _trim()
+        gp = a.out_dir / f"grads_{a.mode}.pt"
+        torch.save(grads, gp)
     rec["grads"] = {"file": str(gp), "sha256": sha256_file(gp),
                     "n_params": len(grads), "n_with_grad": sum(g is not None for g in grads.values()),
                     "n_nonzero": sum(g is not None and bool(g.any()) for g in grads.values())}
@@ -478,7 +493,8 @@ def main() -> int:
 
     rec["peak_rss_gb"] = guard.peak
     rec["total_s"] = time.time() - t0
-    (a.out_dir / f"REF_{a.mode.upper()}.json").write_text(json.dumps(rec, indent=1, default=str) + "\n")
+    tag = a.mode.upper() + ("_FD" if a.fd_from else "")
+    (a.out_dir / f"REF_{tag}.json").write_text(json.dumps(rec, indent=1, default=str) + "\n")
     print(f"done {a.mode} in {rec['total_s']:.0f}s, peak RSS {guard.peak:.1f} GB", flush=True)
     return 0
 
