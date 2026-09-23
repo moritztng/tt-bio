@@ -11,6 +11,9 @@ between two folds. The claim writes this process's pid into the metadata before 
 starts, and the chain's own hold.py keeps it between folds. A job whose log shows it lost the
 chip to another opener is put back in the queue and that chip is skipped for the rest of the run.
 Never touches chip 1 or 24-27 (the live app and a co-tenant) or a chip with a cardblock marker.
+Starts nothing while an MGX quiet window is open: whglx cannot read pc's state/mgx/quiet-window,
+so the window is mirrored to whglx as either path in QUIET_WINDOW (other rows use both). Jobs
+already running finish.
 """
 import fcntl
 import json
@@ -28,6 +31,7 @@ BLOCK = os.path.expanduser("~/.coworker/state/cardblock-whglx-{}")
 HOLDER = "worker:mgx-instrument"
 POLL_S = 0.5
 QUIET_S = 60
+QUIET_WINDOW = [os.path.expanduser(p) for p in ("~/mgx-quiet-window", "~/leases/.mgx-quiet-window")]
 CONTENDED = b"is in use by"         # tt_bio.device_lease.DeviceInUseError's text
 
 
@@ -105,7 +109,7 @@ def main():
             if lost:
                 skip.add(card)
                 jobs.append(job)
-        if jobs and len(running) < cap:
+        if jobs and len(running) < cap and not any(map(os.path.exists, QUIET_WINDOW)):
             busy = watched()
             for card in CARDS:
                 if card in running or card in skip or card in busy \

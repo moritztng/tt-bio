@@ -4325,6 +4325,48 @@ def _size_ladder_read_baseline(baseline_path: Path) -> dict:
     return data
 
 
+def _size_ladder_committed_levers(baseline_path: Path, card: str, model: str) -> dict:
+    """``model``'s levers on ``card`` as committed at HEAD, or {} when git cannot say.
+
+    The working file is not enough to carry this card's judgements forward. A record that
+    cannot carry its lower rungs across an engine change writes the entry back WITHOUT
+    them, so a split re-record (top rungs, then the rest) reaches its second pass with this
+    card's reasons for those rungs gone, and the cross-card carry then fills them from
+    another board: boltz2's Galaxy 768/896/1024 TRANSPOSE_L1_RESIDENT came back citing
+    p300c's 11x10 grid on 2026-09-23. The committed file still holds them.
+    """
+    try:
+        rel_base = baseline_path.resolve().relative_to(REPO_ROOT)
+    except ValueError:
+        return {}
+    rel_frag = _size_ladder_fragment_dir(rel_base) / f"{model}.json"
+    data = {}
+    for rel in (rel_base, rel_frag):
+        try:
+            txt = subprocess.run(["git", "show", f"HEAD:{rel.as_posix()}"], cwd=REPO_ROOT,
+                                 capture_output=True, text=True, timeout=30,
+                                 check=True).stdout
+            _size_ladder_merge_models(data, json.loads(txt))
+        except Exception:                                                    # noqa: BLE001
+            continue
+    return ((data.get("cards") or {}).get(card, {}).get("models") or {}) \
+        .get(model, {}).get("levers") or {}
+
+
+def _size_ladder_with_committed_reasons(old_levers: dict | None, committed: dict) -> dict:
+    """``old_levers`` with every reason it lacks filled from ``committed`` (same card)."""
+    out = {r: {f: dict(e) for f, e in (t or {}).items()} for r, t in (old_levers or {}).items()}
+    for rung, table in (committed or {}).items():
+        for flag, e in (table or {}).items():
+            why = str(e.get("reason") or "").strip()
+            if not why or why.startswith("TODO"):
+                continue
+            have = str(out.get(rung, {}).get(flag, {}).get("reason") or "").strip()
+            if not have or have.startswith("TODO"):
+                out.setdefault(rung, {}).setdefault(flag, {})["reason"] = why
+    return out
+
+
 def _size_ladder_write_fragment(baseline_path: Path, card: str, stamp: dict,
                                 model: str, entry: dict) -> Path:
     """Write one model's entry for one card to its own fragment file."""
@@ -4635,7 +4677,10 @@ def run_size_ladder(keep: bool, record: bool, baseline_path: Path,
                                                           meas.get("sigmas"),
                                                           meas.get("load"))
             todos += _size_ladder_fill_reasons(
-                meas["levers"], old_models.get(m, {}).get("levers"),
+                meas["levers"],
+                _size_ladder_with_committed_reasons(
+                    old_models.get(m, {}).get("levers"),
+                    _size_ladder_committed_levers(baseline_path, card, m)),
                 _size_ladder_other_card_levers(reasons_from, card, m))
             entry = {"grid": meas.get("grid"), **stamp,
                      "runtime_s": meas["runtime_s"], "levers": meas["levers"]}
