@@ -175,7 +175,7 @@ def test_check_refuses_above_and_admits_at_the_cap():
 
 def test_unmeasured_and_unknown_arch_never_refuse(monkeypatch):
     """Absence of a limit is not a limit -- the rule that keeps this guard from inventing ceilings."""
-    sl.check("boltz2", 100_000, arch="wormhole_b0")     # measured-nothing model
+    sl.check("nesso1", 100_000, arch="wormhole_b0")     # measured-nothing model
     sl.check("boltz2", 100_000, arch="blackhole")       # no row on this arch
     sl.check("opendde", 100_000, arch="grayskull")      # nor on an arch nobody measured
     # The no-card case has to be FORCED. Passing arch=None only reaches it on a host that has no
@@ -551,7 +551,7 @@ def test_check_input_refuses_a_real_file_before_any_device(tmp_path):
         sl.check_input(big, "opendde", arch="wormhole_b0")
     assert "big.yaml" in str(e.value)
     sl.check_input(big, "opendde", arch="grayskull")   # unmeasured arch: silent
-    sl.check_input(big, "boltz2", arch="wormhole_b0")  # unmeasured model: silent
+    sl.check_input(big, "nesso1", arch="wormhole_b0")  # unmeasured model: silent
 
 
 def test_check_input_scans_every_file_in_a_directory(tmp_path):
