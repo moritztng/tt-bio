@@ -572,6 +572,10 @@ def _calibrate_linear(x, w, kw, core_grid):
     Declining is safe at any size and cannot change a result: the only configs this function ever
     returns are bitwise equal to the default it falls back to. A fuller card therefore runs the
     same arithmetic more slowly, never differently.
+
+    The timed default below is deliberately NOT guarded. It holds one output at a time, which is
+    exactly what the model's own call will hold, so an allocator refusal there is the model's
+    ceiling rather than calibration's and masking it would hide a real wall behind a silent skip.
     """
     def skip(why):
         if _TUNE_LOG:
