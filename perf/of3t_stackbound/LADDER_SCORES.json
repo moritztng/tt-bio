@@ -1,0 +1,322 @@
+{
+ "what": "of3t-stackbound: every trunk arm on the 4hhb frame, scored on THIS boundary's bar.",
+ "host": "tt-quietbox2",
+ "row": "of3t-stackbound",
+ "device_involved": false,
+ "why_no_aiclk": "CPU only; each arm's device host, board, card and DURING AICLK are in its DEV_<tag>.json, stamped by arm.sh",
+ "boundary_version": "upstream OpenFold3 0.4.3, 4hhb boundary, 384 real tokens of 384",
+ "CONTROL": {
+  "SHIP_A": {
+   "published": 0.22072451195864032,
+   "recomposed": 0.22072451195864032,
+   "rel_difference": 0.0
+  },
+  "S": {
+   "published": 0.1983072658753951,
+   "recomposed": 0.1983072658753951,
+   "rel_difference": 0.0
+  },
+  "L": {
+   "published": 0.19527710571784584,
+   "recomposed": 0.19527710571784584,
+   "rel_difference": 0.0
+  },
+  "SL": {
+   "published": 0.14940227528507738,
+   "recomposed": 0.14940227528507738,
+   "rel_difference": 0.0
+  }
+ },
+ "inputs": {
+  "float64": {
+   "path": "/home/ttuser/of3t_stackbound/ref_f64/grads_f64.pt",
+   "sha256": "3a930a4f4003abb0ad2080dab8d470a5fe4ddcb25e7c922d2c3a9536c5d4c550"
+  },
+  "upstream_bf16": {
+   "path": "/home/ttuser/of3t_stackbound/ref_bf16/grads_f64.pt",
+   "sha256": "f9ff93b8f14d4b7ed474aa11d805a5c1f78b1997003f862d04f8993abec8f243"
+  },
+  "upstream_f32": {
+   "path": "/home/ttuser/of3t_stackbound/ref_f32/grads_f64.pt",
+   "sha256": "ccc24b1b5c68afa56c54311f0c2aa18cdc415a39352ba10b6fe14a3bad58537c"
+  }
+ },
+ "union": {
+  "n": 3660,
+  "n_absent_from_float64": 0
+ },
+ "model_squared_gradient_norm": 2.4051223276150235,
+ "bar": {
+  "rule": "A26: sqrt(2) * floor / r over the union, this boundary only",
+  "upstream_own_bf16_floor_vs_float64": 0.152695338350356,
+  "norm_ratio_bf16_over_float64": 0.9710172543783504,
+  "A26_reachable_bar_vs_their_bf16": 0.22238927004903766,
+  "instrument_floor_upstream_f32_vs_float64": 0.033867053026654895
+ },
+ "sections": {
+  "aux_heads": {
+   "ref_sq_bf16": 0.2678245315700782,
+   "pct_of_model_mass_float64": 13.66064976447922,
+   "upstream_bf16_floor_vs_float64": 0.131261878772522,
+   "rest_R1_transported_from_5nw3": 0.2360142678177248
+  },
+  "diffusion_module.atom_attn_dec": {
+   "ref_sq_bf16": 0.008496596823361704,
+   "pct_of_model_mass_float64": 0.3694491136932387,
+   "upstream_bf16_floor_vs_float64": 0.10108067221996689,
+   "rest_R1_transported_from_5nw3": 0.046940794046223915
+  },
+  "diffusion_module.atom_attn_enc": {
+   "ref_sq_bf16": 0.09317861463040329,
+   "pct_of_model_mass_float64": 4.014986368260462,
+   "upstream_bf16_floor_vs_float64": 0.08169553521182693,
+   "rest_R1_transported_from_5nw3": 0.10184738676304964
+  },
+  "diffusion_module.diffusion_conditioning": {
+   "ref_sq_bf16": 0.26894333867756626,
+   "pct_of_model_mass_float64": 11.11191094317553,
+   "upstream_bf16_floor_vs_float64": 0.09706505654713639,
+   "rest_R1_transported_from_5nw3": 0.0646383941962739
+  },
+  "diffusion_module.diffusion_transformer": {
+   "ref_sq_bf16": 0.8472479492770268,
+   "pct_of_model_mass_float64": 34.949362672004646,
+   "upstream_bf16_floor_vs_float64": 0.10061095993236996,
+   "rest_R1_transported_from_5nw3": 0.11230240756383222
+  },
+  "diffusion_module.layer_norm_a": {
+   "ref_sq_bf16": 0.0006906161821540332,
+   "pct_of_model_mass_float64": 0.02947956049621557,
+   "upstream_bf16_floor_vs_float64": 0.11544367837353818,
+   "rest_R1_transported_from_5nw3": 0.03502208607264824
+  },
+  "diffusion_module.layer_norm_s": {
+   "ref_sq_bf16": 0.0023722887896511654,
+   "pct_of_model_mass_float64": 0.09892427191568998,
+   "upstream_bf16_floor_vs_float64": 0.008083030996818855,
+   "rest_R1_transported_from_5nw3": 0.06274246235868614
+  },
+  "diffusion_module.linear_s": {
+   "ref_sq_bf16": 0.004380557579495219,
+   "pct_of_model_mass_float64": 0.18262442856214697,
+   "upstream_bf16_floor_vs_float64": 0.09555502368971633,
+   "rest_R1_transported_from_5nw3": 0.10979080742659582
+  },
+  "input_embedder": {
+   "ref_sq_bf16": 0.055981551756671015,
+   "pct_of_model_mass_float64": 2.4675228931141486,
+   "upstream_bf16_floor_vs_float64": 0.08214241676640993,
+   "rest_R1_transported_from_5nw3": 0.2969187113267756
+  },
+  "msa_module": {
+   "ref_sq_bf16": 0.2667236480446967,
+   "pct_of_model_mass_float64": 12.555353306745936,
+   "upstream_bf16_floor_vs_float64": 0.1762594742009616,
+   "rest_R1_transported_from_5nw3": 0.18867775522294758
+  },
+  "pairformer_stack": {
+   "ref_sq_bf16": 0.4088827894509822,
+   "pct_of_model_mass_float64": 18.663299398462478,
+   "upstream_bf16_floor_vs_float64": 0.24868115320113204,
+   "rest_R1_transported_from_5nw3": null
+  }
+ },
+ "rest_declaration": "R1: the ten non-trunk sections at of3t-stackexact's banked graded readings on the 5nw3 boundary (MODEL_SHIP_A per_section), weighted by this boundary's reference mass. R0: non-trunk exact.",
+ "allowance": {
+  "R1": 0.4072723349024574,
+  "R0": 0.5187431033528785
+ },
+ "levels": {
+  "bit_exact_float64_trunk_R1": 0.6193516162539997,
+  "upstreams_own_floor_trunk_R1": 0.7832067762406895
+ },
+ "arms": {
+  "SHIP_A": {
+   "pt": {
+    "path": "/home/ttuser/of3t_stackbound/dev_SHIP_A.pt",
+    "sha256": "5094604e693054a32c1a606c090d0cf40bfc680329fa7e8d794a29d9f0aee19a"
+   },
+   "trunk_vs_upstream_bf16": {
+    "rel": 0.340810498801252,
+    "r": 0.9167607502235257,
+    "cos": 0.9404299194947114,
+    "angle_deg": 19.87611845067717,
+    "A43_residual": 4.163336342344337e-16,
+    "worst_tensor": "pairformer_stack.blocks.15.attn_pair_bias.layer_norm_a.weight",
+    "worst_rel_l2": 20.278465080402693,
+    "n": 2736
+   },
+   "trunk_vs_float64": {
+    "rel": 0.2633551454149128,
+    "r": 0.8749689271163592,
+    "cos": 0.9692999592527635,
+    "angle_deg": 14.233918821979165,
+    "A43_residual": 4.440892098500626e-16,
+    "worst_tensor": "pairformer_stack.blocks.4.attn_pair_bias.mha.linear_q.weight",
+    "worst_rel_l2": 1085.6800573422192,
+    "n": 2736
+   },
+   "trunk_over_allowance_R1": 0.836812298784981,
+   "clause_R1": 0.20079620682954732,
+   "x_bar_R1": 0.9029042039000849,
+   "clause_R0": 0.14610815558525206,
+   "x_bar_R0": 0.6569928286244865
+  },
+  "SHIP_B": {
+   "pt": {
+    "path": "/home/ttuser/of3t_stackbound/dev_SHIP_B.pt",
+    "sha256": "fc82693bd1629ac3516936f79bee5b82b43743b6068154fe35c3b739515b4fea"
+   },
+   "trunk_vs_upstream_bf16": {
+    "rel": 0.340810498801252,
+    "r": 0.9167607502235257,
+    "cos": 0.9404299194947114,
+    "angle_deg": 19.87611845067717,
+    "A43_residual": 4.163336342344337e-16,
+    "worst_tensor": "pairformer_stack.blocks.15.attn_pair_bias.layer_norm_a.weight",
+    "worst_rel_l2": 20.278465080402693,
+    "n": 2736
+   },
+   "trunk_vs_float64": {
+    "rel": 0.2633551454149128,
+    "r": 0.8749689271163592,
+    "cos": 0.9692999592527635,
+    "angle_deg": 14.233918821979165,
+    "A43_residual": 4.440892098500626e-16,
+    "worst_tensor": "pairformer_stack.blocks.4.attn_pair_bias.mha.linear_q.weight",
+    "worst_rel_l2": 1085.6800573422192,
+    "n": 2736
+   },
+   "trunk_over_allowance_R1": 0.836812298784981,
+   "clause_R1": 0.20079620682954732,
+   "x_bar_R1": 0.9029042039000849,
+   "clause_R0": 0.14610815558525206,
+   "x_bar_R0": 0.6569928286244865
+  },
+  "SL": {
+   "pt": {
+    "path": "/home/ttuser/of3t_stackbound/dev_SL.pt",
+    "sha256": "bd8b25a3e9725107623672ad82fb838edbeeea590c314decab029c3ffcdda8cd"
+   },
+   "trunk_vs_upstream_bf16": {
+    "rel": 0.32999041556656716,
+    "r": 0.905289232306936,
+    "cos": 0.9448112596047604,
+    "angle_deg": 19.124088308494123,
+    "A43_residual": 3.0531133177191805e-16,
+    "worst_tensor": "pairformer_stack.blocks.24.single_transition.layer_norm.weight",
+    "worst_rel_l2": 26.290208809731663,
+    "n": 2736
+   },
+   "trunk_vs_float64": {
+    "rel": 0.24575501139942124,
+    "r": 0.8640203544146732,
+    "cos": 0.9757499569308137,
+    "angle_deg": 12.643737007058608,
+    "A43_residual": 3.8163916471489756e-16,
+    "worst_tensor": "pairformer_stack.blocks.4.attn_pair_bias.mha.linear_k.weight",
+    "worst_rel_l2": 13.648072322576825,
+    "n": 2736
+   },
+   "trunk_over_allowance_R1": 0.8102451045333108,
+   "clause_R1": 0.19744655752308832,
+   "x_bar_R1": 0.8878421044304459,
+   "clause_R0": 0.14146950034939726,
+   "x_bar_R0": 0.6361345595414865
+  },
+  "SLZ": {
+   "pt": {
+    "path": "/home/ttuser/of3t_stackbound/dev_SLZ.pt",
+    "sha256": "c33404d6c76e9dbfaf8b1ad15c3926309a7a6f8e4944de6d4b4e2b0f0d410ab3"
+   },
+   "trunk_vs_upstream_bf16": {
+    "rel": 0.2770759125355212,
+    "r": 1.0689134700776117,
+    "cos": 0.9663106523748713,
+    "angle_deg": 14.914571837359306,
+    "A43_residual": 6.106226635438361e-16,
+    "worst_tensor": "pairformer_stack.blocks.24.single_transition.layer_norm.weight",
+    "worst_rel_l2": 16.237592673113294,
+    "n": 2736
+   },
+   "trunk_vs_float64": {
+    "rel": 0.06792853403427904,
+    "r": 1.0201855520821488,
+    "cos": 0.9979382038813431,
+    "angle_deg": 3.679892536600849,
+    "A43_residual": 2.914335439641036e-16,
+    "worst_tensor": "pairformer_stack.blocks.13.attn_pair_bias.mha.linear_k.weight",
+    "worst_rel_l2": 8.539594602381692,
+    "n": 2736
+   },
+   "trunk_over_allowance_R1": 0.6803209763852031,
+   "clause_R1": 0.18188269006300445,
+   "x_bar_R1": 0.8178573094956364,
+   "clause_R0": 0.1187846345111388,
+   "x_bar_R0": 0.5341293421438289
+  },
+  "S": {
+   "pt": {
+    "path": "/home/ttuser/of3t_stackbound/dev_S.pt",
+    "sha256": "6d442a8f4987efec14aa4261e26eac27ff35493b04d05c4cc075dd8d6c677db5"
+   },
+   "trunk_vs_upstream_bf16": {
+    "rel": 0.3145184428778717,
+    "r": 0.908291019614301,
+    "cos": 0.950174937397613,
+    "angle_deg": 18.16274508420325,
+    "A43_residual": 3.191891195797325e-16,
+    "worst_tensor": "pairformer_stack.blocks.24.single_transition.layer_norm.weight",
+    "worst_rel_l2": 19.603823643395604,
+    "n": 2736
+   },
+   "trunk_vs_float64": {
+    "rel": 0.22433461480270334,
+    "r": 0.8668853010423688,
+    "cos": 0.9811933041886338,
+    "angle_deg": 11.129531328938882,
+    "A43_residual": 3.608224830031759e-16,
+    "worst_tensor": "pairformer_stack.blocks.4.attn_pair_bias.mha.linear_k.weight",
+    "worst_rel_l2": 8.23491434837105,
+    "n": 2736
+   },
+   "trunk_over_allowance_R1": 0.7722558492788358,
+   "clause_R1": 0.1927496224738529,
+   "x_bar_R1": 0.8667217731833505,
+   "clause_R0": 0.1348365433226568,
+   "x_bar_R0": 0.6063086734936665
+  },
+  "L": {
+   "pt": {
+    "path": "/home/ttuser/of3t_stackbound/dev_L.pt",
+    "sha256": "ef6df4650fa283313c744ae779bd70dfcbe05436c7d302878c1deefecc20a4d3"
+   },
+   "trunk_vs_upstream_bf16": {
+    "rel": 0.3370582480090712,
+    "r": 0.9186381117168679,
+    "cos": 0.9417678711990326,
+    "angle_deg": 19.649401294032455,
+    "A43_residual": 5.967448757360216e-16,
+    "worst_tensor": "pairformer_stack.blocks.15.attn_pair_bias.layer_norm_a.weight",
+    "worst_rel_l2": 18.40502924300675,
+    "n": 2736
+   },
+   "trunk_vs_float64": {
+    "rel": 0.26522767286853854,
+    "r": 0.8767607064559948,
+    "cos": 0.9685445557859271,
+    "angle_deg": 14.408891615889022,
+    "A43_residual": 4.440892098500626e-16,
+    "worst_tensor": "pairformer_stack.blocks.4.attn_pair_bias.mha.linear_q.bias",
+    "worst_rel_l2": 3054.4504432808126,
+    "n": 2736
+   },
+   "trunk_over_allowance_R1": 0.8275991741245998,
+   "clause_R1": 0.19962875407468866,
+   "x_bar_R1": 0.8976546127008276,
+   "clause_R0": 0.14449953600203158,
+   "x_bar_R0": 0.6497594779198156
+  }
+ },
+ "git_commit": "0718331295801e994f804cbd6779a4125aeb3178"
+}

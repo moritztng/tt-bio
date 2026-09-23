@@ -1,0 +1,91 @@
+{
+ "what": "of3t-stackbound: COTANGENT_COMPLETE on the 4hhb frame, then the one correction (A42).",
+ "host": "tt-quietbox2",
+ "row": "of3t-stackbound",
+ "device_involved": false,
+ "why_no_aiclk": "CPU only, no Tenstorrent device is opened",
+ "boundary_version": "upstream OpenFold3 0.4.3 (of3pkg043), 4hhb, 384 real tokens",
+ "bar": 1e-12,
+ "bar_fixed_in": "perf/of3t_stackbound/PREREGISTERED.md",
+ "inputs": {
+  "float64_reference": {
+   "path": "/home/ttuser/of3t_stackbound/ref_f64/grads_f64.pt",
+   "sha256": "3a930a4f4003abb0ad2080dab8d470a5fe4ddcb25e7c922d2c3a9536c5d4c550"
+  },
+  "replay": {
+   "path": "/home/ttuser/of3t_stackbound/ref_f64_trunk_sb_corrected.pt",
+   "sha256": "29e934f9591888c4d4084e3afb4b1cbbd1f7ffa92243fd3bd4e66201fda54e29"
+  },
+  "capture_cotangent": {
+   "path": "/home/ttuser/of3t_stackbound/cot_model_sb.pt",
+   "sha256": "97e1b1af7562a7d3ade5d24290f0ce4c0ff24f32418f622dbce3d909983a7498"
+  },
+  "boundary": {
+   "path": "/home/ttuser/of3t_stackbound/boundary_model_sb.pt",
+   "sha256": "b8ded4c13bc97fd04237a82eb260654eb4a682bf13a7ef9e2728e3bf2dbaad2b"
+  }
+ },
+ "injection": {
+  "convention": "graph-cut-external",
+  "what": "<cot_s, s_out> + <cot_z - d<cot_s,s_out>/dz_out, z_out>, the graph-cut external cotangent (D242 repaired)",
+  "graph_cut": {
+   "is_cut": false,
+   "ancestor_descendant_pairs": [
+    [
+     "z_out",
+     "s_out"
+    ]
+   ],
+   "checked_by": "walk of the grad_fn DAG over the injected outputs"
+  },
+  "correction_source": "this arm's own graph",
+  "cot_z_norm_hooked": 0.0001820208330743864,
+  "cot_z_norm_injected": 0.00017911301430933825,
+  "correction_norm": 3.033953266811235e-05,
+  "duplicate_share_of_the_hooked_cot_z": 0.16668164932369856
+ },
+ "block47": {
+  "n_tensors": 57,
+  "n_absent_from_arm": 0,
+  "n_bit_identical": 0,
+  "rel_l2_as_is": 3.339782121751904e-14,
+  "norm_ratio_arm_over_ref": 0.999999999999994,
+  "cos": 1.0,
+  "best_scalar_a_star": 1.000000000000006,
+  "residual_after_best_scalar_frac_of_ref": 0.0,
+  "ref_squared_norm": 0.006288806158028055,
+  "arm_squared_norm": 0.0062888061580279805,
+  "worst_rel_l2": 2.3692720986793914,
+  "worst_tensor": "pairformer_stack.blocks.47.attn_pair_bias.layer_norm_z.bias"
+ },
+ "all_trunk_tensors": {
+  "n_tensors": 2736,
+  "n_absent_from_arm": 0,
+  "n_bit_identical": 0,
+  "rel_l2_as_is": 2.4385238943765712e-14,
+  "norm_ratio_arm_over_ref": 1.0,
+  "cos": 0.9999999999999999,
+  "best_scalar_a_star": 0.9999999999999999,
+  "residual_after_best_scalar_frac_of_ref": 1.1120576973025197e-08,
+  "ref_squared_norm": 0.4488751809020612,
+  "arm_squared_norm": 0.44887518090206124,
+  "worst_rel_l2": 6.509234089959476,
+  "worst_tensor": "pairformer_stack.blocks.5.attn_pair_bias.layer_norm_z.bias"
+ },
+ "block47_clears": true,
+ "all_trunk_clears": true,
+ "COTANGENT_COMPLETE": true,
+ "cot_external": {
+  "path": "/home/ttuser/of3t_stackbound/cot_external_sb.pt",
+  "sha256": "43a0300da950f298a04ac9950123b59df51e76e87ad02f8e1843f464690e50b8",
+  "bytes": 152176741,
+  "norms": {
+   "cot_s": 4.9371244649951624e-06,
+   "cot_z_hooked": 0.0001820208330743864,
+   "delta": 3.033953266811235e-05,
+   "cot_z_external": 0.00017911301430933825,
+   "duplicate_share_of_the_hooked_cot_z": 0.16668164932369856
+  }
+ },
+ "git_commit": "0718331295801e994f804cbd6779a4125aeb3178"
+}
