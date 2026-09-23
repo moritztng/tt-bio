@@ -1,0 +1,33 @@
+# Everything this row owes on the current tree, in the order it has to run.
+#
+# One plan rather than three so every entry is attributable to the SAME commit. The whglx
+# checkout was reset to e4a2f9ae2 (this branch, containing origin/main 720b43a5d) once both
+# 1536 arms reached 8 of 8, which is the point the state doc named as safe to update it.
+#
+# 1. The pxdesign catcher owed to the orchestrator merge rule (note 19:20Z). a102dfb5c
+#    touches tenstorrent.py and protenix.py and pxdesign rides both. Two designs at the
+#    1224-token production case (1024-residue target + 200-residue binder), which is the
+#    size a live user reaches and the one this row's earlier crash fix was confirmed on.
+#    It reports ok/fail, wall and DURING AICLK; n=2 is a merge catcher, not a distribution.
+#
+# 2+3. The AFTER arm of the named suspect, both rungs. cc908c377 corrects
+#    TokenDistanceRecycle, which injects the target's token distances into the pair
+#    representation -- the conditioning a binder design is built on -- and before it the
+#    module returned twice the pairformer's output instead of its input plus the update.
+#    Both shipped checkpoints have the module on (results/token_distance_fires.txt), so
+#    every boltzgen number this row has measured is pre-fix.
+#
+#    The BEFORE is banked on exactly this fixture: gpb dimer, offset 0, 8 designs, budget 8.
+#    512 median 8.46 A (range 0.86-12.90), 1536 median 21.52 A (range 19.31-22.48), and
+#    upstream fp32 refolding those same 1536 designs agrees at 19.35 A, so the loss is in
+#    the designs and not in the fold that scores them. That is what makes this testable by
+#    effect: if the fix is the mechanism, the 1536 median falls and the 512 one does not.
+#
+#    The 512 rung runs even though its BEFORE is the better of the two, because without it
+#    a lower 1536 number after the fix cannot be told from a lower number everywhere. It
+#    also discharges the boltzgen half of the owed catcher at eight designs instead of two.
+#
+# Ordered cheapest-first so the two short jobs are not stuck behind a five-hour one.
+--model pxdesign --target perf/mgxaccuracy/targets/gpb_dimer_1646.cif --target-res 1024 --binder 200 --designs 2 --steps 400 --host-threads 2 --timeout 10800 --tag pxcatcher
+--model boltzgen --target perf/mgxaccuracy/targets/gpb_dimer_1646.cif --target-res 512  --designs 8 --budget 8 --score-dsg --host-threads 2 --timeout 14400 --tag fixed
+--model boltzgen --target perf/mgxaccuracy/targets/gpb_dimer_1646.cif --target-res 1536 --designs 8 --budget 8 --score-dsg --host-threads 2 --timeout 32400 --tag fixed
