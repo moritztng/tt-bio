@@ -20,7 +20,7 @@ import ttnn
 from .protenix import _KeyedWeights
 from .envflags import env_flag
 from .opendde_data import STRUCTURAL_TOKEN_ROLES
-from .tenstorrent import _acc_concat, concat_host_bytes, get_device
+from .tenstorrent import _acc_concat, concat_host_bytes, dram_peak, get_device
 
 _BACKBONE = (STRUCTURAL_TOKEN_ROLES["protein_bb"],
              STRUCTURAL_TOKEN_ROLES["dna_bb"],
@@ -266,7 +266,8 @@ class StructuralTokenExpander(_KeyedWeights):
         # reason _host_concat gives: a bf8 or fp32 round trip through torch bf16 would not be.
         host_z = (z_flat.dtype == ttnn.bfloat16
                   and Ns * Ns * self.c_z * 2 > concat_host_bytes())
-        z_chunks, ab_chunks, live = [], [], []
+        dram_peak("expander enter")
+        z_chunks, ab_chunks = [], []
         for start in range(0, Ns, chunk):
             end = min(start + chunk, Ns)
             row_index = torch.arange(start, end)
@@ -283,21 +284,20 @@ class StructuralTokenExpander(_KeyedWeights):
             z_tile = ttnn.add(z_tile, self._pair_project_full(z_dev, role, row_index))
             z_tile = ttnn.add(z_tile, self._pair_init_bias(pf))
             if host_z:
+                # Freed as soon as its bytes are on the host. Holding every chunk to the end of
+                # the loop kept the whole z_struct on device beside its host copy, 7.1 GB at
+                # Ns=3008 (1536 residues), and refused the last chunks' pair-init bias. The
+                # freeing order inside this loop was measured value-neutral
+                # (state/ttnn-retilize-zstruct-anomaly.md); what moves the fold is the tilize.
                 z_chunks.append(ttnn.to_torch(z_tile))
-                live.append(z_tile)      # freed together below, NOT one per iteration
+                ttnn.deallocate(z_tile)
             else:
                 z_chunks.append(z_tile)
             ab_chunks.append(self._attn_bias(pf))
-        # Free the row loop's residents before the upload, in one go at the end. Deallocating
-        # each chunk inside the loop instead lets the next iteration's tensors reuse its memory,
-        # and that -- not the host assembly, which is bit-identical (verified in a real fold,
-        # scripts/probe_zstruct_assembly.py: 8 blocks, (977,977,384), equal=True) -- is what moved
-        # 9i3p's structure. Freeing here keeps the loop's allocation pattern as it was and still
-        # leaves the heap empty for the upload, which is the whole point of the change.
-        for t in live:
-            ttnn.deallocate(t)
+        dram_peak("expander row loop done")
         ttnn.deallocate(z_flat)
         z_struct = _acc_concat(z_chunks, -3, host_z)
+        dram_peak("expander z_struct assembled")
         attn_bias = ab_chunks[0] if len(ab_chunks) == 1 else ttnn.concat(ab_chunks, dim=0)
         return s_inputs_struct, s_struct, z_struct, attn_bias
 
@@ -549,6 +549,7 @@ class OpenDDE:
         # 2) the novel seam: residue -> structural-token axis
         s_inputs_st, s_st, z_st, structural_attn_bias = self.expand_and_refine(
             ifd, s_inputs, s_trunk, z_trunk, return_attn_bias=True)
+        dram_peak(f"refiner done [Ns={Ns}]")
         s_inputs_struct = P._to_host(s_inputs_st, (Ns, self.expander.c_s_inputs))
         s_struct = P._to_host(s_st, (Ns, self.expander.c_s))
         structural_attn_bias = P._to_host(structural_attn_bias, (Ns, Ns))
@@ -567,6 +568,7 @@ class OpenDDE:
         # (confidence runs on the residue axis). Free it before the sampler stage: at
         # Ns=2113 it is 3.2 GiB the confidence pairformer will need back.
         ttnn.deallocate(z_st)
+        dram_peak("structural pair conditioned")
         a2s = ifd["atom_to_structural_token_idx"]
         S_struct = torch.zeros(N, Ns); S_struct[torch.arange(N), a2s] = 1.0
         p_lm = p_lm + P._plm_z_term(pair_z, a2s, nb, nq, nk)
