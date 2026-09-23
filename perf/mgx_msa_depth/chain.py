@@ -68,7 +68,7 @@ def take(prefer):
             if free(c, os.getpid()):
                 claim(c)
                 return c
-        time.sleep(60)
+        time.sleep(5)
 
 
 def ending(log):
