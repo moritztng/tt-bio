@@ -27,13 +27,15 @@ matched by sequence, so chain letters do not have to agree. `--json` gives the f
 Every chain carries one unpaired a3m, committed under `fixtures/msa/` and named in the yaml, so
 the TT fold and the GPU fold read the same rows. Nothing is paired on either side: each upstream
 pairs differently, and pairing on one side only would measure the pairing. Crystal structures for
-the three PDB entries are in `fixtures/gt/`.
+the three PDB entries are in `fixtures/gt/`. The ladder's own 1280 a3m has 8 rows whose match
+columns are not 1280; the esmfold2 and rf3 upstreams reject the file and tt-bio's protenix path
+skips those rows, so `cdk2x2_1280` pins a copy without them.
 
 ## How the references were made
 
 `make_plan.py` reads the model list and each model's recycles and sampling steps from
-`tt_bio.main`, so the GPU folds at the settings tt-bio ships. `ref_campaign.sh` runs
-`ref_fold.py` for every cell on one rented GPU, in each upstream's own environment, fp32 where the
-upstream has a switch for it. `collect.py` turns the box's output into `refs/` and
+`tt_bio.main`, so the GPU folds at the settings tt-bio ships. `ref_setup.sh` builds each
+upstream's own environment on a rented box and `ref_campaign.sh` runs `ref_fold.py` for every
+cell, fp32 where the upstream has a switch for it. `collect.py` turns the box's output into `refs/` and
 `manifest.json`, which records per seed the upstream package versions, checkpoint, GPU, dtype,
 time and peak memory, and for a cell that could not be folded, the error.
