@@ -1927,6 +1927,8 @@ class Protenix:
         self.compute_kernel_config = compute_kernel_config
         self.dev = device or get_device()
         self._c_z = c_z
+        # Pair-conditioning shapes DRAM refused whole -> the rows they settled at.
+        self._paircond_rows_refused: dict = {}
         def under(pfx):
             return {k[len(pfx):]: v for k, v in self._w.items() if k.startswith(pfx)}
         resolved_diffusion_fp32 = (env_flag("PROTENIX_DIFFUSION_FP32_DEVICE", True)
@@ -2127,72 +2129,76 @@ class Protenix:
         z_trunk_tt = ttnn.reshape(z_trunk_tt, (relpe.shape[0], relpe.shape[1], -1))
         _sync("reshape-3d")
         N, W, cz = (int(d) for d in z_trunk_tt.shape)
-        if N * W * cz * 2 > PAIRCOND_BLOCK_BYTES and self.diffusion.dtype == ttnn.bfloat16:
+        compress = C + "linear_no_bias_z_trunk.weight" in self._w
+
+        def _z_proj(zt):
+            # OpenDDE's compression of z_trunk to c_z_pair_diffusion (see the docstring).
+            zn = ttnn.layer_norm(zt, weight=T(self._w[C + "layernorm_z_trunk.weight"]),
+                                 epsilon=1e-5, compute_kernel_config=self.compute_kernel_config)
+            _w_zt = self._w[C + "linear_no_bias_z_trunk.weight"]
+            out = ttnn.linear(zn, T(_w_zt.t().contiguous()),
+                              **paircond_mm_kw(self.compute_kernel_config,
+                                               self.diffusion.dtype, _w_zt.shape[0]))
+            ttnn.deallocate(zn)
+            return out
+
+        def _cond(zt, rp):
+            zc = ttnn.concat([zt, rp], dim=-1)
+            _sync("concat")
+            zc = ttnn.layer_norm(zc, weight=T(self._w[C + "layernorm_z.weight"]), epsilon=1e-5,
+                                 compute_kernel_config=self.compute_kernel_config)
+            _sync("layernorm_z")
+            # Force the core grid only when the output is wide enough for ttnn's multicast
+            # matmul to be safe -- see PAIRCOND_MM_NARROW_MAX_TILES for the deadlock this avoids
+            # and the A/B behind it. PROTENIX_PAIRCOND_MM_FORCE_GRID=1 restores the old
+            # unconditional behaviour, which is how the A/B arms were taken and how a regression
+            # would be bisected.
+            _w_z = self._w[C + "linear_no_bias_z.weight"]
+            pb = ttnn.linear(zc, T(_w_z.t().contiguous()),
+                             **paircond_mm_kw(self.compute_kernel_config,
+                                              self.diffusion.dtype, _w_z.shape[0]))
+            ttnn.deallocate(zc)
+            _sync("linear_z")
+            return pb
+
+        def _whole():
+            zt = _z_proj(z_trunk_tt) if compress else z_trunk_tt
+            _sync("z_trunk LN+proj")
+            pz = _cond(zt, relpe)
+            if compress:
+                ttnn.deallocate(zt)
+            # keep the pair tensor 4D (1,N,N,c) so Transition uses its chunked H/W path
+            # (the 3D path doesn't chunk pair tensors -> OOM at large N).
+            return ttnn.reshape(pz, (1, N, N, pz.shape[-1]))
+
+        def _rows(rb):
             # Row-blocked chain (see PAIRCOND_BLOCK_BYTES): no full-size LN'd z or channel
-            # concat ever materializes; pz assembles on the host (bf16 round trip is
-            # bit-preserving) and uploads once at [Ns,Ns,128].
-            rb = max(32, (256 * 2 ** 20) // (W * cz * 2) // 32 * 32)
+            # concat ever materializes; pz assembles on the host (an exact round trip in the
+            # blocks' own dtype) and uploads once.
             blocks = []
             for s in range(0, N, rb):
                 e = min(s + rb, N)
                 zt = z_trunk_tt[s:e]
-                if C + "linear_no_bias_z_trunk.weight" in self._w:
-                    zn = ttnn.layer_norm(zt, weight=T(self._w[C + "layernorm_z_trunk.weight"]),
-                                         epsilon=1e-5, compute_kernel_config=self.compute_kernel_config)
-                    _w_zt = self._w[C + "linear_no_bias_z_trunk.weight"]
-                    zt = ttnn.linear(zn, T(_w_zt.t().contiguous()),
-                                     **paircond_mm_kw(self.compute_kernel_config,
-                                                      self.diffusion.dtype, _w_zt.shape[0]))
-                    ttnn.deallocate(zn)
-                zc = ttnn.concat([zt, relpe[s:e]], dim=-1)
+                if compress:
+                    zt = _z_proj(zt)
+                pb = _cond(zt, relpe[s:e])
                 ttnn.deallocate(zt)
-                zc = ttnn.layer_norm(zc, weight=T(self._w[C + "layernorm_z.weight"]), epsilon=1e-5,
-                                     compute_kernel_config=self.compute_kernel_config)
-                _w_zb = self._w[C + "linear_no_bias_z.weight"]
-                pb = ttnn.linear(zc, T(_w_zb.t().contiguous()),
-                                 **paircond_mm_kw(self.compute_kernel_config,
-                                                  self.diffusion.dtype, _w_zb.shape[0]))
-                ttnn.deallocate(zc)
                 blocks.append(torch.Tensor(ttnn.to_torch(pb)))
                 ttnn.deallocate(pb)
             pz = ttnn.from_torch(torch.cat(blocks, dim=0), layout=ttnn.TILE_LAYOUT,
                                  device=get_device(), dtype=self.diffusion.dtype)
-            pz = ttnn.reshape(pz, (1, N, N, pz.shape[-1]))
-            for nm in ("transition_z1", "transition_z2"):
-                sub = {k[len(C + nm + "."):]: v for k, v in self._w.items() if k.startswith(C + nm + ".")}
-                t = Transition(PW.remap_transition(sub), self.compute_kernel_config,
-                               dtype=self.diffusion.dtype)
-                # The residual inside the transition: a fresh sum is a third pair tensor, and
-                # past the row-blocking threshold the input is freed before the assembly.
-                pz = t(pz, add_to_input=True)
-            return _pz_cond_probe(pz, _z_sha)
-        if C + "linear_no_bias_z_trunk.weight" in self._w:
-            zt = ttnn.layer_norm(z_trunk_tt, weight=T(self._w[C + "layernorm_z_trunk.weight"]),
-                                 epsilon=1e-5, compute_kernel_config=self.compute_kernel_config)
-            _w_zt2 = self._w[C + "linear_no_bias_z_trunk.weight"]
-            z_trunk_tt = ttnn.linear(zt, T(_w_zt2.t().contiguous()),
-                                     **paircond_mm_kw(self.compute_kernel_config,
-                                                      self.diffusion.dtype, _w_zt2.shape[0]))
-            _sync("z_trunk LN+proj")
-        zc = ttnn.concat([z_trunk_tt, relpe], dim=-1)
-        _sync("concat")
-        zc = ttnn.layer_norm(zc, weight=T(self._w[C + "layernorm_z.weight"]), epsilon=1e-5,
-                             compute_kernel_config=self.compute_kernel_config)
-        _sync("layernorm_z")
-        # Force the core grid only when the output is wide enough for ttnn's multicast matmul
-        # to be safe -- see PAIRCOND_MM_NARROW_MAX_TILES for the deadlock this avoids and the
-        # A/B behind it. PROTENIX_PAIRCOND_MM_FORCE_GRID=1 restores the old unconditional
-        # behaviour, which is how the A/B arms were taken and how a regression would be bisected.
-        _w_z = self._w[C + "linear_no_bias_z.weight"]
-        pz = ttnn.linear(zc, T(_w_z.t().contiguous()),
-                         **paircond_mm_kw(self.compute_kernel_config,
-                                          self.diffusion.dtype, _w_z.shape[0]))
-        _sync("linear_z")
-        # keep the pair tensor 4D (1,N,N,c) so Transition uses its chunked H/W path
-        # (the 3D path doesn't chunk pair tensors -> OOM at large N).
-        N = relpe.shape[0]
-        pz = ttnn.reshape(pz, (1, N, N, pz.shape[-1]))
-        _sync("reshape")
+            return ttnn.reshape(pz, (1, N, N, pz.shape[-1]))
+
+        rb = max(32, (256 * 2 ** 20) // (W * cz * 2) // 32 * 32)
+        if N * W * cz * 2 > PAIRCOND_BLOCK_BYTES and self.diffusion.dtype == ttnn.bfloat16:
+            pz = _rows(rb)
+        else:
+            # The fp32 diffusion (Protenix's default) never takes the byte gate above, so the
+            # whole chain runs until DRAM refuses it: protenix-v2 at 1300 tokens on a Wormhole
+            # chip was refused the 3.25 GiB fp32 layernorm_z of the [N,N,512] concat.
+            pz = _T.row_block_after_refusal(
+                self._paircond_rows_refused, (N, W, cz, str(self.diffusion.dtype)),
+                _whole, _rows, rows=rb, tag="protenix pair conditioning")
         for nm in ("transition_z1", "transition_z2"):
             sub = {k[len(C + nm + "."):]: v for k, v in self._w.items() if k.startswith(C + nm + ".")}
             t = Transition(PW.remap_transition(sub), self.compute_kernel_config,
