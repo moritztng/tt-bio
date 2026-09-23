@@ -232,5 +232,9 @@ for model_dir in sorted(p for p in OUT.iterdir() if p.is_dir()):
         if r_on is not None and r_off is not None:
             on["check"]["rmsd_delta_vs_off"] = r_on - r_off
             on["check"]["ok"] = abs(r_on - r_off) > 0.05
+        elif r_on is not None:
+            # A template is only scored against the same model without it; until that control
+            # has folded, the cell is open, not ok.
+            on["outcome"] = "awaiting_control"
     table[model] = row
 json.dump(table, sys.stdout, indent=1, default=str)
