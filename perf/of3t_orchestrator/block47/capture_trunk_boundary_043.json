@@ -1,0 +1,278 @@
+{
+ "backward_seconds": 3360.9729466438293,
+ "blocks": [
+  0,
+  23,
+  47
+ ],
+ "breakdown": {
+  "confidence_loss": 0.000525253790923465,
+  "diffusion_loss": 1.2041810159615485,
+  "distogram_loss": 2.0960384073976974,
+  "experimentally_resolved_loss": 0.014976679185629985,
+  "loss": 1.2675874205688995,
+  "mse_loss": 1.1081120421076485,
+  "pae_loss": 1.9513598881711818,
+  "pde_loss": 1.165739684682953,
+  "plddt_loss": 2.1204617898851574,
+  "scaled_distogram_loss": 0.06288115081642764,
+  "smooth_lddt_loss": 0.2616004896848077
+ },
+ "bundle_dir": "/home/ttuser/of3t_rebase/bundle_min_043",
+ "capture_vs_bundle": {
+  "0": {
+   "absent_either_side": 0,
+   "compared": 57,
+   "worst_rel": 0.0,
+   "worst_tensor": "pairformer_stack.blocks.0.pair_stack.tri_mul_out.linear_g.weight"
+  },
+  "23": {
+   "absent_either_side": 0,
+   "compared": 57,
+   "worst_rel": 0.0,
+   "worst_tensor": "pairformer_stack.blocks.23.pair_stack.tri_mul_out.linear_g.weight"
+  },
+  "47": {
+   "absent_either_side": 0,
+   "compared": 57,
+   "worst_rel": 0.0,
+   "worst_tensor": "pairformer_stack.blocks.47.pair_stack.tri_mul_out.linear_g.weight"
+  }
+ },
+ "checkpoint": {
+  "file": "of3-p2-155k.pt",
+  "missing": [
+   "version_tensor"
+  ],
+  "n_loaded": 4935,
+  "n_missing": 1,
+  "n_unexpected": 0,
+  "sha256": "af09eac4f29cef856633af07558cb143226fe95ebbef2c20921769d4a5f4bee4"
+ },
+ "draws": {
+  "n_python_random": 2,
+  "n_torch_randn": 45,
+  "num_recycles": 0
+ },
+ "dropout": {
+  "disabled": true,
+  "modules": 61,
+  "why": "the bundle's masks were drawn from the CUDA stream and are not in draws_recycles0.pt; at r = 0 the capture is reproducible and matches the function our tape computes"
+ },
+ "forward": {
+  "drawn_recycles": 0,
+  "loss": 1.2675874205688995,
+  "rel": 2.9147831723739198e-05,
+  "seconds": 1534.2154850959778,
+  "their_loss": 1.267624369070698
+ },
+ "global_norm_bundle": 3.206188185139011,
+ "global_norm_here": 3.2061881779864247,
+ "global_norm_rel": 2.2308690775314815e-09,
+ "hashes": {
+  "batch_step003.pt": {
+   "bytes": 100822382,
+   "declared": "3c32597a20f09bf50769defa561f7df86da4de721da325eb76431a9d80b6285f",
+   "match": true,
+   "sha256": "3c32597a20f09bf50769defa561f7df86da4de721da325eb76431a9d80b6285f"
+  },
+  "draws_recycles0.pt": {
+   "bytes": 525598,
+   "declared": "36c8136c7c52cd55e7b15a2d1d627666094c64095e85ff7c9d38e05b66beacc5",
+   "match": true,
+   "sha256": "36c8136c7c52cd55e7b15a2d1d627666094c64095e85ff7c9d38e05b66beacc5"
+  },
+  "grad_presence_043.json": {
+   "bytes": 344595,
+   "declared": "f862a0a4666e080e6767af0898d825f4ff31fc8fd85f81fa14c76a3a99ab039a",
+   "match": true,
+   "sha256": "f862a0a4666e080e6767af0898d825f4ff31fc8fd85f81fa14c76a3a99ab039a"
+  },
+  "grads_f64_043.pt": {
+   "bytes": 2947844653,
+   "declared": "1d4ea9225f854afe06a8adedcb5f8aa1c53656fbf8cefdaa3a451d0327895cc4",
+   "match": true,
+   "sha256": "1d4ea9225f854afe06a8adedcb5f8aa1c53656fbf8cefdaa3a451d0327895cc4"
+  }
+ },
+ "instrument": "capture of the pairformer block boundary of BUNDLE-MIN's own step",
+ "manifest": "/home/ttuser/of3t_rebase/bundle_min_043/MANIFEST.json",
+ "manifest_commit": "89a24748420b98e51df44cd2a89667370e8b6487",
+ "n_blocks": 48,
+ "n_nonzero_here": 4161,
+ "n_parameters_here": 4170,
+ "reference": {
+  "fd_max_rel": null,
+  "file": "grads_f64_043.pt",
+  "global_norm": 3.206188185139011,
+  "loss": 1.267624369070698,
+  "n_nonzero": 4161,
+  "n_parameters": 4170,
+  "num_recycles": 0
+ },
+ "replay": {
+  "mismatches": [],
+  "n_mismatch": 0,
+  "randn_consumed": 45,
+  "random_consumed": 2
+ },
+ "saved": {
+  "0": {
+   "arg_shapes": [
+    [
+     1,
+     384,
+     384
+    ],
+    [
+     1,
+     384,
+     384,
+     128
+    ]
+   ],
+   "bytes": 482294872,
+   "cot_norms": [
+    3.534929780069599e-05,
+    0.000783014240630463
+   ],
+   "cot_present": [
+    true,
+    true
+   ],
+   "file": "/home/ttuser/of3t_rebase/cap043/block0_boundary.pt",
+   "kwarg_shapes": {
+    "pair_mask": [
+     1,
+     384,
+     384
+    ],
+    "single_mask": [
+     1,
+     384
+    ]
+   },
+   "out_shapes": [
+    [
+     1,
+     384,
+     384
+    ],
+    [
+     1,
+     384,
+     384,
+     128
+    ]
+   ]
+  },
+  "23": {
+   "arg_shapes": [
+    [
+     1,
+     384,
+     384
+    ],
+    [
+     1,
+     384,
+     384,
+     128
+    ]
+   ],
+   "bytes": 482294943,
+   "cot_norms": [
+    2.141670516458086e-05,
+    0.0004856499179133589
+   ],
+   "cot_present": [
+    true,
+    true
+   ],
+   "file": "/home/ttuser/of3t_rebase/cap043/block23_boundary.pt",
+   "kwarg_shapes": {
+    "pair_mask": [
+     1,
+     384,
+     384
+    ],
+    "single_mask": [
+     1,
+     384
+    ]
+   },
+   "out_shapes": [
+    [
+     1,
+     384,
+     384
+    ],
+    [
+     1,
+     384,
+     384,
+     128
+    ]
+   ]
+  },
+  "47": {
+   "arg_shapes": [
+    [
+     1,
+     384,
+     384
+    ],
+    [
+     1,
+     384,
+     384,
+     128
+    ]
+   ],
+   "bytes": 482294943,
+   "cot_norms": [
+    5.599999708545345e-05,
+    0.0007601379094210728
+   ],
+   "cot_present": [
+    true,
+    true
+   ],
+   "file": "/home/ttuser/of3t_rebase/cap043/block47_boundary.pt",
+   "kwarg_shapes": {
+    "pair_mask": [
+     1,
+     384,
+     384
+    ],
+    "single_mask": [
+     1,
+     384
+    ]
+   },
+   "out_shapes": [
+    [
+     1,
+     384,
+     384
+    ],
+    [
+     1,
+     384,
+     384,
+     128
+    ]
+   ]
+  }
+ },
+ "their_build_disabled": {
+  "disabled": true,
+  "n_nn_dropout_modules": 61,
+  "n_of3_dropout_modules": 61,
+  "rates_before": [
+   0.15,
+   0.25
+  ],
+  "why": "r = 0 reference: the mask is not reproducible across devices, so the published gradient would be one draw. See disable_dropout() in bundle_min.py."
+ }
+}

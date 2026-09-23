@@ -1,0 +1,34 @@
+{
+ "question": "D37 candidate B -- does the harness inject a per-track-scaled cotangent at block 47?",
+ "answer": "NO. REFUTED.",
+ "measured": {
+  "block70": {
+   "ratio_s": 1.0001165861579184,
+   "ratio_z": 0.9999807521768759,
+   "reference_cot_s_norm": 3.534929780069599e-05,
+   "device_cot_s_norm": 3.5353419039511686e-05,
+   "reference_cot_z_norm": 0.000783014240630463,
+   "device_cot_z_norm": 0.0007829991693108556
+  },
+  "block23": {
+   "ratio_s": 0.9999982455279229,
+   "ratio_z": 0.9999961294505718,
+   "reference_cot_s_norm": 2.141670516458086e-05,
+   "device_cot_s_norm": 2.1416667589569667e-05,
+   "reference_cot_z_norm": 0.0004856499179133589,
+   "device_cot_z_norm": 0.00048564803818134685
+  },
+  "block47": {
+   "ratio_s": 1.000059651645119,
+   "ratio_z": 1.0000029059434248,
+   "reference_cot_s_norm": 5.599999708545345e-05,
+   "device_cot_s_norm": 5.600333757740626e-05,
+   "reference_cot_z_norm": 0.0007601379094210728,
+   "device_cot_z_norm": 0.0007601401183388326
+  }
+ },
+ "reading": "the injected cotangent matches the reference to 6e-05 on the single track and 3e-06 on the pair track at block 47, and to within 1.2e-04 at blocks 0 and 23. Nowhere near the 1.18 and 0.89 the per-track factors would require. The harness does not rescale either track.",
+ "consequence": "candidate A by elimination: the per-track factors are generated INSIDE our block-47 backward, given a correct cotangent AND correct inputs (the forward at that boundary agrees to under 1 % masked on both tracks). So the campaign's worst trunk result is a REAL PORT DEFECT, not an instrument artefact, and D27/D34/D35/D36/D37 all survive. The 1.18 hunt goes back to the top of the queue.",
+ "and_it_reverses_my_own_pass-128_call": "I dropped the s_fp32_residual arm at pass 128 because I had registered it predicting a SHRUNK gradient and the measured factor was 1.18, inflated. That was the BLOCK-POOLED median, which is dominated by the 41 pair-track tensors. s_fp32_residual touches the SINGLE track only -- and on the single track the measurement is 0.887 (single_transition, n=5) and 0.796 (attn_pair_bias, which also writes s), i.e. DEFLATED by 11-20 %, which is exactly what \"per-block updates quantised away by a bf16 residual far larger than them\" predicts. I refuted the hypothesis on a number that does not apply to it. The arm is REINSTATED, scoped to the single track.",
+ "what_is_now_boxed": "block 47 receives a correct cotangent and correct inputs and produces gradients scaled by a constant PER TRACK: pair x1.183 over 41 tensors, single x0.887 over 5. Blocks 0 and 23, same code and config, produce 1.00 on both. The only things that differ are the weights and the activation magnitudes -- s_norm is 367x block 0's at block 47 while z_norm is flat (0.98x). A per-track constant from correct inputs points at whatever is PER-TRACK in the backward: the two residual streams and their dtypes."
+}

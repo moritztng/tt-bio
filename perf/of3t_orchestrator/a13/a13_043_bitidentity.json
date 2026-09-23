@@ -1,0 +1,25 @@
+{
+ "instrument": "PROTOCOL A13 -- is the rebuilt 0.4.3 reference REPRODUCED, not merely measured?",
+ "why_this_file_exists": "rebuild_043.sh invoked compare_grads.py at /home/ttuser/of3t-reopen-wt/..., a path inside the CONCLUDED of3t-reopen row's worktree, which fleet hygiene had torn down. The step failed with 'No such file or directory' and exited 2, the script has no failure stop, and run C started anyway. No reproduction_A13_043.json was ever written. A13 had silently not run.",
+ "method": "sha256 of both runs' full float64 gradient tensors. Stronger than the per-tensor comparison compare_grads.py would have made: byte equality needs no tolerance at all.",
+ "runs": {
+  "A": {"started": "2026-09-19T23:09:28Z", "exit": 0, "finished": "2026-09-19T23:38:52Z"},
+  "B": {"started": "2026-09-19T23:38:52Z", "exit": 0, "finished": "2026-09-20T01:13:34Z"}
+ },
+ "note_on_conditions": "Two fresh processes of the identical command, 95 minutes apart, on a box whose load went from ~19 to ~44 and back between them, with run B sharing cores three ways. Bit-identity under that is a stronger statement than bit-identity on a quiet box.",
+ "grads_f64.pt": {
+  "bytes": 2947844653,
+  "A": "1d4ea9225f854afe06a8adedcb5f8aa1c53656fbf8cefdaa3a451d0327895cc4",
+  "B": "1d4ea9225f854afe06a8adedcb5f8aa1c53656fbf8cefdaa3a451d0327895cc4",
+  "identical": true
+ },
+ "grad_presence.json": {
+  "bytes": 344595,
+  "A": "f862a0a4666e080e6767af0898d825f4ff31fc8fd85f81fa14c76a3a99ab039a",
+  "B": "f862a0a4666e080e6767af0898d825f4ff31fc8fd85f81fa14c76a3a99ab039a",
+  "identical": true
+ },
+ "verdict": "A13 PASSES. The 0.4.3 reference is reproduced bit-identically across two independent processes, so every one of the reference's parameters agrees to the last bit and the downstream trunk arms and run C are built on a verified reference.",
+ "owner": "of3t-rebase -- this is its deliverable; recorded here because the gate had silently not run and the trunk arms were already consuming the bundle.",
+ "measured_by": "of3t-orchestrator pass 107, read-only sha256 at nice 19 on qb2."
+}
