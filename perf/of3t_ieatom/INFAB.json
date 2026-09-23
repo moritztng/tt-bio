@@ -1,0 +1,448 @@
+{
+ "what": "of3t-ieatom: inference before/after D263 + D264, from firing and digest (of3t-stackship infab.py).",
+ "host": "tt-quietbox2",
+ "card": 3,
+ "commits": {
+  "before": "59646c2bbdb9c4627f6a74fd777d0570181a7cdc",
+  "after": "06b91c5ce3a280d4cb6874976747730cc101eb10"
+ },
+ "host_quiet": "",
+ "models": {
+  "openfold3": {
+   "fixture": "perf/size512/fixtures/cdk2x2_128.yaml",
+   "all_folds_succeeded": true,
+   "AA_before_identical": true,
+   "AA_after_identical": true,
+   "AB_identical": true,
+   "digests": {
+    "cdk2x2_128.cif": "b70e195d9b41a2008ea5ea5870435a7110859d99327b9c7d886e6a034b560727"
+   },
+   "autograd_imported_any": false,
+   "watched_imports_seen": [
+    "tt_bio.openfold3",
+    "tt_bio.openfold3_atom_transformer",
+    "tt_bio.openfold3_confidence",
+    "tt_bio.openfold3_data",
+    "tt_bio.openfold3_diffusion",
+    "tt_bio.openfold3_diffusion_decoder",
+    "tt_bio.openfold3_diffusion_module",
+    "tt_bio.openfold3_diffusion_transformer",
+    "tt_bio.openfold3_fold",
+    "tt_bio.openfold3_host_prep",
+    "tt_bio.openfold3_msa_embedder",
+    "tt_bio.openfold3_sample_diffusion",
+    "tt_bio.openfold3_template",
+    "tt_bio.openfold3_trunk",
+    "tt_bio.openfold3_weights"
+   ],
+   "train_modules_imported_any": [],
+   "input_atom_encoder_built_total": 0,
+   "census_folding_processes": 4,
+   "census_saw_every_fold": true,
+   "exact_counters_all_zero": true,
+   "raw_ops_at_exit": [
+    "null",
+    "{\"softmax\": \"FastOperation(python_fully_qualified_name='ttnn.softmax', function=<ttnn._ttnn.operations.normalization.softmax_t object at 0x777a303e4430>, preprocess_golden_function_inputs=<function default_preprocess_golden_function_inputs at 0x777a2f932ca0>, golden_function=<function _golden_function at 0x777a2f9dd580>, postprocess_golden_function_outputs=<function default_postprocess_golden_function_outputs at 0x777a2f932d40>, is_cpp_operation=True, is_experimental=False)\", \"layer_norm\": \"FastOperation(python_fully_qualified_name='ttnn.layer_norm', function=<ttnn._ttnn.operations.normalization.layer_norm_t object at 0x777a303e46d0>, preprocess_golden_function_inputs=<function default_preprocess_golden_function_inputs at 0x777a2f932ca0>, golden_function=<function _golden_function at 0x777a2f9905e0>, postprocess_golden_function_outputs=<function default_postprocess_golden_function_outputs at 0x777a2f932d40>, is_cpp_operation=True, is_experimental=False)\"}",
+    "{\"softmax\": \"FastOperation(python_fully_qualified_name='ttnn.softmax', function=<ttnn._ttnn.operations.normalization.softmax_t object at 0x78d3147c4430>, preprocess_golden_function_inputs=<function default_preprocess_golden_function_inputs at 0x78d313412ca0>, golden_function=<function _golden_function at 0x78d3134bd580>, postprocess_golden_function_outputs=<function default_postprocess_golden_function_outputs at 0x78d313412d40>, is_cpp_operation=True, is_experimental=False)\", \"layer_norm\": \"FastOperation(python_fully_qualified_name='ttnn.layer_norm', function=<ttnn._ttnn.operations.normalization.layer_norm_t object at 0x78d3147c46d0>, preprocess_golden_function_inputs=<function default_preprocess_golden_function_inputs at 0x78d313412ca0>, golden_function=<function _golden_function at 0x78d3134705e0>, postprocess_golden_function_outputs=<function default_postprocess_golden_function_outputs at 0x78d313412d40>, is_cpp_operation=True, is_experimental=False)\"}",
+    "{\"softmax\": \"FastOperation(python_fully_qualified_name='ttnn.softmax', function=<ttnn._ttnn.operations.normalization.softmax_t object at 0x79f7117dc490>, preprocess_golden_function_inputs=<function default_preprocess_golden_function_inputs at 0x79f710432ca0>, golden_function=<function _golden_function at 0x79f7104dd580>, postprocess_golden_function_outputs=<function default_postprocess_golden_function_outputs at 0x79f710432d40>, is_cpp_operation=True, is_experimental=False)\", \"layer_norm\": \"FastOperation(python_fully_qualified_name='ttnn.layer_norm', function=<ttnn._ttnn.operations.normalization.layer_norm_t object at 0x79f7117dc730>, preprocess_golden_function_inputs=<function default_preprocess_golden_function_inputs at 0x79f710432ca0>, golden_function=<function _golden_function at 0x79f7104905e0>, postprocess_golden_function_outputs=<function default_postprocess_golden_function_outputs at 0x79f710432d40>, is_cpp_operation=True, is_experimental=False)\"}",
+    "{\"softmax\": \"FastOperation(python_fully_qualified_name='ttnn.softmax', function=<ttnn._ttnn.operations.normalization.softmax_t object at 0x7c1b791c4430>, preprocess_golden_function_inputs=<function default_preprocess_golden_function_inputs at 0x7c1b78712ca0>, golden_function=<function _golden_function at 0x7c1b787bd580>, postprocess_golden_function_outputs=<function default_postprocess_golden_function_outputs at 0x7c1b78712d40>, is_cpp_operation=True, is_experimental=False)\", \"layer_norm\": \"FastOperation(python_fully_qualified_name='ttnn.layer_norm', function=<ttnn._ttnn.operations.normalization.layer_norm_t object at 0x7c1b791c46d0>, preprocess_golden_function_inputs=<function default_preprocess_golden_function_inputs at 0x7c1b78712ca0>, golden_function=<function _golden_function at 0x7c1b787705e0>, postprocess_golden_function_outputs=<function default_postprocess_golden_function_outputs at 0x7c1b78712d40>, is_cpp_operation=True, is_experimental=False)\"}",
+    "{\"softmax\": \"FastOperation(python_fully_qualified_name='ttnn.softmax', function=<ttnn._ttnn.operations.normalization.softmax_t object at 0x7d806b7d0430>, preprocess_golden_function_inputs=<function default_preprocess_golden_function_inputs at 0x7d806ad1ec00>, golden_function=<function _golden_function at 0x7d806adc94e0>, postprocess_golden_function_outputs=<function default_postprocess_golden_function_outputs at 0x7d806ad1eca0>, is_cpp_operation=True, is_experimental=False)\", \"layer_norm\": \"FastOperation(python_fully_qualified_name='ttnn.layer_norm', function=<ttnn._ttnn.operations.normalization.layer_norm_t object at 0x7d806b7d06d0>, preprocess_golden_function_inputs=<function default_preprocess_golden_function_inputs at 0x7d806ad1ec00>, golden_function=<function _golden_function at 0x7d806ad7c540>, postprocess_golden_function_outputs=<function default_postprocess_golden_function_outputs at 0x7d806ad1eca0>, is_cpp_operation=True, is_experimental=False)\"}"
+   ],
+   "taped_ttnn_imported_any": false,
+   "tensor_getitem_at_exit": [
+    "<lambda>",
+    "None"
+   ],
+   "census_processes": 12,
+   "seconds": {
+    "before0": 33.17,
+    "after1": 30.96,
+    "before2": 32.47,
+    "after3": 31.58
+   },
+   "aiclk": {
+    "before0": {
+     "n": 9,
+     "min": 800,
+     "median": 1350,
+     "max": 1350
+    },
+    "after1": {
+     "n": 9,
+     "min": 800,
+     "median": 1350,
+     "max": 1350
+    },
+    "before2": {
+     "n": 9,
+     "min": 800,
+     "median": 1350,
+     "max": 1350
+    },
+    "after3": {
+     "n": 9,
+     "min": 800,
+     "median": 1350,
+     "max": 1350
+    }
+   },
+   "runs": [
+    {
+     "rc": 0,
+     "seconds": 33.17,
+     "digests": {
+      "cdk2x2_128.cif": "b70e195d9b41a2008ea5ea5870435a7110859d99327b9c7d886e6a034b560727"
+     },
+     "census": [
+      {
+       "pid": 1812742,
+       "autograd_imported": false,
+       "EXACT_SOFTMAX_STATS": null,
+       "EXACT_LAYER_NORM_STATS": null,
+       "raw_ops": null,
+       "taped_ttnn_imported": false,
+       "train_modules": [],
+       "input_atom_encoder_built": 0,
+       "openfold3_imported": false,
+       "tensor_getitem": null,
+       "argv": [
+        "/home/ttuser/of3t_ieatom/base/tt_bio/main.py",
+        "predict",
+        "/home/ttuser/of3t_ieatom/base/perf/size512/fixtures/cdk2x2_128.yaml"
+       ],
+       "imports_seen": []
+      },
+      {
+       "pid": 1812762,
+       "autograd_imported": false,
+       "EXACT_SOFTMAX_STATS": null,
+       "EXACT_LAYER_NORM_STATS": null,
+       "raw_ops": null,
+       "taped_ttnn_imported": false,
+       "train_modules": [],
+       "input_atom_encoder_built": 0,
+       "openfold3_imported": false,
+       "tensor_getitem": null,
+       "argv": [
+        "-c"
+       ],
+       "imports_seen": []
+      },
+      {
+       "pid": 1812763,
+       "autograd_imported": false,
+       "EXACT_SOFTMAX_STATS": null,
+       "EXACT_LAYER_NORM_STATS": null,
+       "raw_ops": {
+        "softmax": "FastOperation(python_fully_qualified_name='ttnn.softmax', function=<ttnn._ttnn.operations.normalization.softmax_t object at 0x78d3147c4430>, preprocess_golden_function_inputs=<function default_preprocess_golden_function_inputs at 0x78d313412ca0>, golden_function=<function _golden_function at 0x78d3134bd580>, postprocess_golden_function_outputs=<function default_postprocess_golden_function_outputs at 0x78d313412d40>, is_cpp_operation=True, is_experimental=False)",
+        "layer_norm": "FastOperation(python_fully_qualified_name='ttnn.layer_norm', function=<ttnn._ttnn.operations.normalization.layer_norm_t object at 0x78d3147c46d0>, preprocess_golden_function_inputs=<function default_preprocess_golden_function_inputs at 0x78d313412ca0>, golden_function=<function _golden_function at 0x78d3134705e0>, postprocess_golden_function_outputs=<function default_postprocess_golden_function_outputs at 0x78d313412d40>, is_cpp_operation=True, is_experimental=False)"
+       },
+       "taped_ttnn_imported": false,
+       "train_modules": [],
+       "input_atom_encoder_built": 0,
+       "openfold3_imported": true,
+       "tensor_getitem": "<lambda>",
+       "argv": [
+        "/home/ttuser/of3t_ieatom/base/tt_bio/main.py",
+        "predict",
+        "/home/ttuser/of3t_ieatom/base/perf/size512/fixtures/cdk2x2_128.yaml"
+       ],
+       "imports_seen": [
+        "tt_bio.openfold3",
+        "tt_bio.openfold3_atom_transformer",
+        "tt_bio.openfold3_confidence",
+        "tt_bio.openfold3_data",
+        "tt_bio.openfold3_diffusion",
+        "tt_bio.openfold3_diffusion_decoder",
+        "tt_bio.openfold3_diffusion_module",
+        "tt_bio.openfold3_diffusion_transformer",
+        "tt_bio.openfold3_fold",
+        "tt_bio.openfold3_host_prep",
+        "tt_bio.openfold3_msa_embedder",
+        "tt_bio.openfold3_sample_diffusion",
+        "tt_bio.openfold3_template",
+        "tt_bio.openfold3_trunk",
+        "tt_bio.openfold3_weights"
+       ]
+      }
+     ],
+     "aiclk_mhz_sampled_DURING": {
+      "n": 9,
+      "min": 800,
+      "median": 1350,
+      "max": 1350
+     },
+     "tail": "",
+     "side": "before"
+    },
+    {
+     "rc": 0,
+     "seconds": 30.96,
+     "digests": {
+      "cdk2x2_128.cif": "b70e195d9b41a2008ea5ea5870435a7110859d99327b9c7d886e6a034b560727"
+     },
+     "census": [
+      {
+       "pid": 1813147,
+       "autograd_imported": false,
+       "EXACT_SOFTMAX_STATS": null,
+       "EXACT_LAYER_NORM_STATS": null,
+       "raw_ops": {
+        "softmax": "FastOperation(python_fully_qualified_name='ttnn.softmax', function=<ttnn._ttnn.operations.normalization.softmax_t object at 0x79f7117dc490>, preprocess_golden_function_inputs=<function default_preprocess_golden_function_inputs at 0x79f710432ca0>, golden_function=<function _golden_function at 0x79f7104dd580>, postprocess_golden_function_outputs=<function default_postprocess_golden_function_outputs at 0x79f710432d40>, is_cpp_operation=True, is_experimental=False)",
+        "layer_norm": "FastOperation(python_fully_qualified_name='ttnn.layer_norm', function=<ttnn._ttnn.operations.normalization.layer_norm_t object at 0x79f7117dc730>, preprocess_golden_function_inputs=<function default_preprocess_golden_function_inputs at 0x79f710432ca0>, golden_function=<function _golden_function at 0x79f7104905e0>, postprocess_golden_function_outputs=<function default_postprocess_golden_function_outputs at 0x79f710432d40>, is_cpp_operation=True, is_experimental=False)"
+       },
+       "taped_ttnn_imported": false,
+       "train_modules": [],
+       "input_atom_encoder_built": 0,
+       "openfold3_imported": false,
+       "tensor_getitem": "<lambda>",
+       "argv": [
+        "/home/ttuser/of3t_ieatom/pftree/tt_bio/main.py",
+        "predict",
+        "/home/ttuser/of3t_ieatom/pftree/perf/size512/fixtures/cdk2x2_128.yaml"
+       ],
+       "imports_seen": []
+      },
+      {
+       "pid": 1813168,
+       "autograd_imported": false,
+       "EXACT_SOFTMAX_STATS": null,
+       "EXACT_LAYER_NORM_STATS": null,
+       "raw_ops": null,
+       "taped_ttnn_imported": false,
+       "train_modules": [],
+       "input_atom_encoder_built": 0,
+       "openfold3_imported": false,
+       "tensor_getitem": null,
+       "argv": [
+        "-c"
+       ],
+       "imports_seen": []
+      },
+      {
+       "pid": 1813169,
+       "autograd_imported": false,
+       "EXACT_SOFTMAX_STATS": null,
+       "EXACT_LAYER_NORM_STATS": null,
+       "raw_ops": {
+        "softmax": "FastOperation(python_fully_qualified_name='ttnn.softmax', function=<ttnn._ttnn.operations.normalization.softmax_t object at 0x7c1b791c4430>, preprocess_golden_function_inputs=<function default_preprocess_golden_function_inputs at 0x7c1b78712ca0>, golden_function=<function _golden_function at 0x7c1b787bd580>, postprocess_golden_function_outputs=<function default_postprocess_golden_function_outputs at 0x7c1b78712d40>, is_cpp_operation=True, is_experimental=False)",
+        "layer_norm": "FastOperation(python_fully_qualified_name='ttnn.layer_norm', function=<ttnn._ttnn.operations.normalization.layer_norm_t object at 0x7c1b791c46d0>, preprocess_golden_function_inputs=<function default_preprocess_golden_function_inputs at 0x7c1b78712ca0>, golden_function=<function _golden_function at 0x7c1b787705e0>, postprocess_golden_function_outputs=<function default_postprocess_golden_function_outputs at 0x7c1b78712d40>, is_cpp_operation=True, is_experimental=False)"
+       },
+       "taped_ttnn_imported": false,
+       "train_modules": [],
+       "input_atom_encoder_built": 0,
+       "openfold3_imported": true,
+       "tensor_getitem": "<lambda>",
+       "argv": [
+        "/home/ttuser/of3t_ieatom/pftree/tt_bio/main.py",
+        "predict",
+        "/home/ttuser/of3t_ieatom/pftree/perf/size512/fixtures/cdk2x2_128.yaml"
+       ],
+       "imports_seen": [
+        "tt_bio.openfold3",
+        "tt_bio.openfold3_atom_transformer",
+        "tt_bio.openfold3_confidence",
+        "tt_bio.openfold3_data",
+        "tt_bio.openfold3_diffusion",
+        "tt_bio.openfold3_diffusion_decoder",
+        "tt_bio.openfold3_diffusion_module",
+        "tt_bio.openfold3_diffusion_transformer",
+        "tt_bio.openfold3_fold",
+        "tt_bio.openfold3_host_prep",
+        "tt_bio.openfold3_msa_embedder",
+        "tt_bio.openfold3_sample_diffusion",
+        "tt_bio.openfold3_template",
+        "tt_bio.openfold3_trunk",
+        "tt_bio.openfold3_weights"
+       ]
+      }
+     ],
+     "aiclk_mhz_sampled_DURING": {
+      "n": 9,
+      "min": 800,
+      "median": 1350,
+      "max": 1350
+     },
+     "tail": "",
+     "side": "after"
+    },
+    {
+     "rc": 0,
+     "seconds": 32.47,
+     "digests": {
+      "cdk2x2_128.cif": "b70e195d9b41a2008ea5ea5870435a7110859d99327b9c7d886e6a034b560727"
+     },
+     "census": [
+      {
+       "pid": 1813605,
+       "autograd_imported": false,
+       "EXACT_SOFTMAX_STATS": null,
+       "EXACT_LAYER_NORM_STATS": null,
+       "raw_ops": null,
+       "taped_ttnn_imported": false,
+       "train_modules": [],
+       "input_atom_encoder_built": 0,
+       "openfold3_imported": false,
+       "tensor_getitem": null,
+       "argv": [
+        "/home/ttuser/of3t_ieatom/base/tt_bio/main.py",
+        "predict",
+        "/home/ttuser/of3t_ieatom/base/perf/size512/fixtures/cdk2x2_128.yaml"
+       ],
+       "imports_seen": []
+      },
+      {
+       "pid": 1813625,
+       "autograd_imported": false,
+       "EXACT_SOFTMAX_STATS": null,
+       "EXACT_LAYER_NORM_STATS": null,
+       "raw_ops": null,
+       "taped_ttnn_imported": false,
+       "train_modules": [],
+       "input_atom_encoder_built": 0,
+       "openfold3_imported": false,
+       "tensor_getitem": null,
+       "argv": [
+        "-c"
+       ],
+       "imports_seen": []
+      },
+      {
+       "pid": 1813626,
+       "autograd_imported": false,
+       "EXACT_SOFTMAX_STATS": null,
+       "EXACT_LAYER_NORM_STATS": null,
+       "raw_ops": {
+        "softmax": "FastOperation(python_fully_qualified_name='ttnn.softmax', function=<ttnn._ttnn.operations.normalization.softmax_t object at 0x7d806b7d0430>, preprocess_golden_function_inputs=<function default_preprocess_golden_function_inputs at 0x7d806ad1ec00>, golden_function=<function _golden_function at 0x7d806adc94e0>, postprocess_golden_function_outputs=<function default_postprocess_golden_function_outputs at 0x7d806ad1eca0>, is_cpp_operation=True, is_experimental=False)",
+        "layer_norm": "FastOperation(python_fully_qualified_name='ttnn.layer_norm', function=<ttnn._ttnn.operations.normalization.layer_norm_t object at 0x7d806b7d06d0>, preprocess_golden_function_inputs=<function default_preprocess_golden_function_inputs at 0x7d806ad1ec00>, golden_function=<function _golden_function at 0x7d806ad7c540>, postprocess_golden_function_outputs=<function default_postprocess_golden_function_outputs at 0x7d806ad1eca0>, is_cpp_operation=True, is_experimental=False)"
+       },
+       "taped_ttnn_imported": false,
+       "train_modules": [],
+       "input_atom_encoder_built": 0,
+       "openfold3_imported": true,
+       "tensor_getitem": "<lambda>",
+       "argv": [
+        "/home/ttuser/of3t_ieatom/base/tt_bio/main.py",
+        "predict",
+        "/home/ttuser/of3t_ieatom/base/perf/size512/fixtures/cdk2x2_128.yaml"
+       ],
+       "imports_seen": [
+        "tt_bio.openfold3",
+        "tt_bio.openfold3_atom_transformer",
+        "tt_bio.openfold3_confidence",
+        "tt_bio.openfold3_data",
+        "tt_bio.openfold3_diffusion",
+        "tt_bio.openfold3_diffusion_decoder",
+        "tt_bio.openfold3_diffusion_module",
+        "tt_bio.openfold3_diffusion_transformer",
+        "tt_bio.openfold3_fold",
+        "tt_bio.openfold3_host_prep",
+        "tt_bio.openfold3_msa_embedder",
+        "tt_bio.openfold3_sample_diffusion",
+        "tt_bio.openfold3_template",
+        "tt_bio.openfold3_trunk",
+        "tt_bio.openfold3_weights"
+       ]
+      }
+     ],
+     "aiclk_mhz_sampled_DURING": {
+      "n": 9,
+      "min": 800,
+      "median": 1350,
+      "max": 1350
+     },
+     "tail": "",
+     "side": "before"
+    },
+    {
+     "rc": 0,
+     "seconds": 31.58,
+     "digests": {
+      "cdk2x2_128.cif": "b70e195d9b41a2008ea5ea5870435a7110859d99327b9c7d886e6a034b560727"
+     },
+     "census": [
+      {
+       "pid": 1814098,
+       "autograd_imported": false,
+       "EXACT_SOFTMAX_STATS": null,
+       "EXACT_LAYER_NORM_STATS": null,
+       "raw_ops": null,
+       "taped_ttnn_imported": false,
+       "train_modules": [],
+       "input_atom_encoder_built": 0,
+       "openfold3_imported": false,
+       "tensor_getitem": null,
+       "argv": [
+        "/home/ttuser/of3t_ieatom/pftree/tt_bio/main.py",
+        "predict",
+        "/home/ttuser/of3t_ieatom/pftree/perf/size512/fixtures/cdk2x2_128.yaml"
+       ],
+       "imports_seen": []
+      },
+      {
+       "pid": 1814120,
+       "autograd_imported": false,
+       "EXACT_SOFTMAX_STATS": null,
+       "EXACT_LAYER_NORM_STATS": null,
+       "raw_ops": null,
+       "taped_ttnn_imported": false,
+       "train_modules": [],
+       "input_atom_encoder_built": 0,
+       "openfold3_imported": false,
+       "tensor_getitem": null,
+       "argv": [
+        "-c"
+       ],
+       "imports_seen": []
+      },
+      {
+       "pid": 1814121,
+       "autograd_imported": false,
+       "EXACT_SOFTMAX_STATS": null,
+       "EXACT_LAYER_NORM_STATS": null,
+       "raw_ops": {
+        "softmax": "FastOperation(python_fully_qualified_name='ttnn.softmax', function=<ttnn._ttnn.operations.normalization.softmax_t object at 0x777a303e4430>, preprocess_golden_function_inputs=<function default_preprocess_golden_function_inputs at 0x777a2f932ca0>, golden_function=<function _golden_function at 0x777a2f9dd580>, postprocess_golden_function_outputs=<function default_postprocess_golden_function_outputs at 0x777a2f932d40>, is_cpp_operation=True, is_experimental=False)",
+        "layer_norm": "FastOperation(python_fully_qualified_name='ttnn.layer_norm', function=<ttnn._ttnn.operations.normalization.layer_norm_t object at 0x777a303e46d0>, preprocess_golden_function_inputs=<function default_preprocess_golden_function_inputs at 0x777a2f932ca0>, golden_function=<function _golden_function at 0x777a2f9905e0>, postprocess_golden_function_outputs=<function default_postprocess_golden_function_outputs at 0x777a2f932d40>, is_cpp_operation=True, is_experimental=False)"
+       },
+       "taped_ttnn_imported": false,
+       "train_modules": [],
+       "input_atom_encoder_built": 0,
+       "openfold3_imported": true,
+       "tensor_getitem": "<lambda>",
+       "argv": [
+        "/home/ttuser/of3t_ieatom/pftree/tt_bio/main.py",
+        "predict",
+        "/home/ttuser/of3t_ieatom/pftree/perf/size512/fixtures/cdk2x2_128.yaml"
+       ],
+       "imports_seen": [
+        "tt_bio.openfold3",
+        "tt_bio.openfold3_atom_transformer",
+        "tt_bio.openfold3_confidence",
+        "tt_bio.openfold3_data",
+        "tt_bio.openfold3_diffusion",
+        "tt_bio.openfold3_diffusion_decoder",
+        "tt_bio.openfold3_diffusion_module",
+        "tt_bio.openfold3_diffusion_transformer",
+        "tt_bio.openfold3_fold",
+        "tt_bio.openfold3_host_prep",
+        "tt_bio.openfold3_msa_embedder",
+        "tt_bio.openfold3_sample_diffusion",
+        "tt_bio.openfold3_template",
+        "tt_bio.openfold3_trunk",
+        "tt_bio.openfold3_weights"
+       ]
+      }
+     ],
+     "aiclk_mhz_sampled_DURING": {
+      "n": 9,
+      "min": 800,
+      "median": 1350,
+      "max": 1350
+     },
+     "tail": "",
+     "side": "after"
+    }
+   ]
+  }
+ }
+}

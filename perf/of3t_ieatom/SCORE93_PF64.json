@@ -1,0 +1,489 @@
+{
+ "f64": "/home/ttuser/of3t_denoise/ref384/grads_f64.pt",
+ "bf16": "/home/ttuser/of3t_denoise/ref384/grads_bf16.pt",
+ "bijection": "perf/of3t_ieatom/BIJECTION_PF.json",
+ "n": 93,
+ "f64_mass": 0.0020826669967675773,
+ "arms": {
+  "bf16": {
+   "placed": 93,
+   "nonzero": 93,
+   "rel_concat": 1.432304579381137,
+   "rel_median": 1.7518999104875672
+  },
+  "PF64": {
+   "placed": 93,
+   "nonzero": 93,
+   "rel_concat": 1.971658435526181,
+   "rel_median": 2.1579786409717077,
+   "at_or_better_than_bf16": 32
+  }
+ },
+ "tensors": {
+  "input_embedder.atom_attn_enc.atom_transformer.blocks.0.attention_pair_bias.layer_norm_a_k.layer_norm_s.weight": {
+   "f64_mass_fraction": 4.4033676990839015e-05,
+   "bf16": 1.2648083437820554,
+   "PF64": 25.427866089779457
+  },
+  "input_embedder.atom_attn_enc.atom_transformer.blocks.0.attention_pair_bias.layer_norm_a_k.linear_g.bias": {
+   "f64_mass_fraction": 1.1311806094694738e-08,
+   "bf16": 1.1697217565426394,
+   "PF64": 12.977756259989505
+  },
+  "input_embedder.atom_attn_enc.atom_transformer.blocks.0.attention_pair_bias.layer_norm_a_k.linear_g.weight": {
+   "f64_mass_fraction": 6.849503522483146e-08,
+   "bf16": 1.1993195366397025,
+   "PF64": 14.875865844411015
+  },
+  "input_embedder.atom_attn_enc.atom_transformer.blocks.0.attention_pair_bias.layer_norm_a_k.linear_s.weight": {
+   "f64_mass_fraction": 2.588849889050404e-06,
+   "bf16": 1.7518999104875672,
+   "PF64": 14.038454966082167
+  },
+  "input_embedder.atom_attn_enc.atom_transformer.blocks.0.attention_pair_bias.layer_norm_a_q.layer_norm_s.weight": {
+   "f64_mass_fraction": 4.0246392366202e-25,
+   "bf16": 1.6842455278482096,
+   "PF64": 1533770968.8505447
+  },
+  "input_embedder.atom_attn_enc.atom_transformer.blocks.0.attention_pair_bias.layer_norm_a_q.linear_g.bias": {
+   "f64_mass_fraction": 4.948358275417837e-30,
+   "bf16": 1.4778900162402395,
+   "PF64": 848386225.8305672
+  },
+  "input_embedder.atom_attn_enc.atom_transformer.blocks.0.attention_pair_bias.layer_norm_a_q.linear_g.weight": {
+   "f64_mass_fraction": 5.814631568710865e-28,
+   "bf16": 1.5983470021723731,
+   "PF64": 905958015.6286784
+  },
+  "input_embedder.atom_attn_enc.atom_transformer.blocks.0.attention_pair_bias.layer_norm_a_q.linear_s.weight": {
+   "f64_mass_fraction": 3.2303899000500978e-25,
+   "bf16": 1.9425777966603932,
+   "PF64": 721719083.23313
+  },
+  "input_embedder.atom_attn_enc.atom_transformer.blocks.0.attention_pair_bias.linear_ada_out.bias": {
+   "f64_mass_fraction": 6.925350292981275e-10,
+   "bf16": 0.4081018949505523,
+   "PF64": 0.1166906817807192
+  },
+  "input_embedder.atom_attn_enc.atom_transformer.blocks.0.attention_pair_bias.linear_ada_out.weight": {
+   "f64_mass_fraction": 3.6426987525997335e-07,
+   "bf16": 0.4502500044846485,
+   "PF64": 0.17307596919051296
+  },
+  "input_embedder.atom_attn_enc.atom_transformer.blocks.0.attention_pair_bias.linear_z.weight": {
+   "f64_mass_fraction": 1.0587376747020702e-50,
+   "bf16": 714.0759555456865,
+   "PF64": 4.84561785466532e+18
+  },
+  "input_embedder.atom_attn_enc.atom_transformer.blocks.0.attention_pair_bias.mha.linear_g.weight": {
+   "f64_mass_fraction": 9.694686470060011e-24,
+   "bf16": 2.143062333551849,
+   "PF64": 1.133796130395259
+  },
+  "input_embedder.atom_attn_enc.atom_transformer.blocks.0.attention_pair_bias.mha.linear_k.weight": {
+   "f64_mass_fraction": 3.543302978248591e-43,
+   "bf16": 10.45855931904936,
+   "PF64": 8.056498892149866e+18
+  },
+  "input_embedder.atom_attn_enc.atom_transformer.blocks.0.attention_pair_bias.mha.linear_o.weight": {
+   "f64_mass_fraction": 0.0016008777491263136,
+   "bf16": 0.5659139978693665,
+   "PF64": 0.9560946543700588
+  },
+  "input_embedder.atom_attn_enc.atom_transformer.blocks.0.attention_pair_bias.mha.linear_q.bias": {
+   "f64_mass_fraction": 2.413942204918903e-48,
+   "bf16": 58.36059046391166,
+   "PF64": 3.048889449392346e+18
+  },
+  "input_embedder.atom_attn_enc.atom_transformer.blocks.0.attention_pair_bias.mha.linear_q.weight": {
+   "f64_mass_fraction": 2.247744543259446e-44,
+   "bf16": 57.73093437415237,
+   "PF64": 3.871161135304175e+18
+  },
+  "input_embedder.atom_attn_enc.atom_transformer.blocks.0.attention_pair_bias.mha.linear_v.weight": {
+   "f64_mass_fraction": 9.829218723524407e-05,
+   "bf16": 1.8783969174385968,
+   "PF64": 1.9002531020840283
+  },
+  "input_embedder.atom_attn_enc.atom_transformer.blocks.0.conditioned_transition.layer_norm.layer_norm_s.weight": {
+   "f64_mass_fraction": 6.934240763199361e-25,
+   "bf16": 1.3821716700405948,
+   "PF64": 0.8340336715583416
+  },
+  "input_embedder.atom_attn_enc.atom_transformer.blocks.0.conditioned_transition.layer_norm.linear_g.bias": {
+   "f64_mass_fraction": 1.3091277947306916e-28,
+   "bf16": 0.3446450035505559,
+   "PF64": 1.0995045241825347
+  },
+  "input_embedder.atom_attn_enc.atom_transformer.blocks.0.conditioned_transition.layer_norm.linear_g.weight": {
+   "f64_mass_fraction": 7.493823876307037e-27,
+   "bf16": 0.3591448699787687,
+   "PF64": 1.231494616610279
+  },
+  "input_embedder.atom_attn_enc.atom_transformer.blocks.0.conditioned_transition.layer_norm.linear_s.weight": {
+   "f64_mass_fraction": 1.6001551031062905e-24,
+   "bf16": 0.4274996987704957,
+   "PF64": 1.3523980808776428
+  },
+  "input_embedder.atom_attn_enc.atom_transformer.blocks.0.conditioned_transition.linear_g.bias": {
+   "f64_mass_fraction": 5.092674541868448e-28,
+   "bf16": 0.7417613131287367,
+   "PF64": 0.6654214438966981
+  },
+  "input_embedder.atom_attn_enc.atom_transformer.blocks.0.conditioned_transition.linear_g.weight": {
+   "f64_mass_fraction": 3.122030980076692e-25,
+   "bf16": 0.816195929587415,
+   "PF64": 0.7047695782423085
+  },
+  "input_embedder.atom_attn_enc.atom_transformer.blocks.0.conditioned_transition.linear_out.weight": {
+   "f64_mass_fraction": 9.449049501996096e-25,
+   "bf16": 0.9021596519824596,
+   "PF64": 1.2907148374922548
+  },
+  "input_embedder.atom_attn_enc.atom_transformer.blocks.0.conditioned_transition.swiglu.linear_a.weight": {
+   "f64_mass_fraction": 2.414542632561843e-23,
+   "bf16": 0.3987159404741042,
+   "PF64": 1.2272262061508417
+  },
+  "input_embedder.atom_attn_enc.atom_transformer.blocks.0.conditioned_transition.swiglu.linear_b.weight": {
+   "f64_mass_fraction": 4.163837728182856e-25,
+   "bf16": 0.35290021474519767,
+   "PF64": 1.3384176451645222
+  },
+  "input_embedder.atom_attn_enc.atom_transformer.blocks.1.attention_pair_bias.layer_norm_a_k.layer_norm_s.weight": {
+   "f64_mass_fraction": 7.5787675522719435e-06,
+   "bf16": 4.383428088917019,
+   "PF64": 10.178218573768605
+  },
+  "input_embedder.atom_attn_enc.atom_transformer.blocks.1.attention_pair_bias.layer_norm_a_k.linear_g.bias": {
+   "f64_mass_fraction": 7.875939428064255e-10,
+   "bf16": 4.313171683005733,
+   "PF64": 11.079431495772056
+  },
+  "input_embedder.atom_attn_enc.atom_transformer.blocks.1.attention_pair_bias.layer_norm_a_k.linear_g.weight": {
+   "f64_mass_fraction": 9.306844522297312e-09,
+   "bf16": 4.743834724343389,
+   "PF64": 11.39133697739333
+  },
+  "input_embedder.atom_attn_enc.atom_transformer.blocks.1.attention_pair_bias.layer_norm_a_k.linear_s.weight": {
+   "f64_mass_fraction": 3.106763629180209e-07,
+   "bf16": 4.363509520497375,
+   "PF64": 10.35554203364142
+  },
+  "input_embedder.atom_attn_enc.atom_transformer.blocks.1.attention_pair_bias.layer_norm_a_q.layer_norm_s.weight": {
+   "f64_mass_fraction": 1.550486895236353e-08,
+   "bf16": 6.056289497172933,
+   "PF64": 21.182307141739695
+  },
+  "input_embedder.atom_attn_enc.atom_transformer.blocks.1.attention_pair_bias.layer_norm_a_q.linear_g.bias": {
+   "f64_mass_fraction": 2.9383921201163763e-13,
+   "bf16": 6.0424115704726935,
+   "PF64": 21.568693054563667
+  },
+  "input_embedder.atom_attn_enc.atom_transformer.blocks.1.attention_pair_bias.layer_norm_a_q.linear_g.weight": {
+   "f64_mass_fraction": 7.172796487196351e-11,
+   "bf16": 6.0438792349179415,
+   "PF64": 21.99452886023515
+  },
+  "input_embedder.atom_attn_enc.atom_transformer.blocks.1.attention_pair_bias.layer_norm_a_q.linear_s.weight": {
+   "f64_mass_fraction": 6.098340981750822e-08,
+   "bf16": 6.049471314995492,
+   "PF64": 12.087171964236834
+  },
+  "input_embedder.atom_attn_enc.atom_transformer.blocks.1.attention_pair_bias.linear_ada_out.bias": {
+   "f64_mass_fraction": 4.268417514927579e-10,
+   "bf16": 43.31050162519822,
+   "PF64": 32.37884252990273
+  },
+  "input_embedder.atom_attn_enc.atom_transformer.blocks.1.attention_pair_bias.linear_ada_out.weight": {
+   "f64_mass_fraction": 2.016833333067223e-07,
+   "bf16": 43.218204468206345,
+   "PF64": 32.49046725186448
+  },
+  "input_embedder.atom_attn_enc.atom_transformer.blocks.1.attention_pair_bias.linear_z.weight": {
+   "f64_mass_fraction": 2.190557393791146e-16,
+   "bf16": 6.135812863434083,
+   "PF64": 35.65491086806414
+  },
+  "input_embedder.atom_attn_enc.atom_transformer.blocks.1.attention_pair_bias.mha.linear_g.weight": {
+   "f64_mass_fraction": 1.1014692809613825e-26,
+   "bf16": 1.4019927889764603,
+   "PF64": 0.7363038767446894
+  },
+  "input_embedder.atom_attn_enc.atom_transformer.blocks.1.attention_pair_bias.mha.linear_k.weight": {
+   "f64_mass_fraction": 1.990939022000467e-07,
+   "bf16": 6.03842087897513,
+   "PF64": 14.197272300616632
+  },
+  "input_embedder.atom_attn_enc.atom_transformer.blocks.1.attention_pair_bias.mha.linear_o.weight": {
+   "f64_mass_fraction": 0.000888855570598525,
+   "bf16": 0.48091124231431404,
+   "PF64": 1.3138879864138244
+  },
+  "input_embedder.atom_attn_enc.atom_transformer.blocks.1.attention_pair_bias.mha.linear_q.bias": {
+   "f64_mass_fraction": 5.3002599201283976e-12,
+   "bf16": 6.052471522977611,
+   "PF64": 10.071257429472029
+  },
+  "input_embedder.atom_attn_enc.atom_transformer.blocks.1.attention_pair_bias.mha.linear_q.weight": {
+   "f64_mass_fraction": 2.8986591707392353e-07,
+   "bf16": 6.054516984619039,
+   "PF64": 9.307386477332074
+  },
+  "input_embedder.atom_attn_enc.atom_transformer.blocks.1.attention_pair_bias.mha.linear_v.weight": {
+   "f64_mass_fraction": 7.632801974209217e-06,
+   "bf16": 0.8457125080201567,
+   "PF64": 1.8045928719256357
+  },
+  "input_embedder.atom_attn_enc.atom_transformer.blocks.1.conditioned_transition.layer_norm.layer_norm_s.weight": {
+   "f64_mass_fraction": 2.067566111210592e-13,
+   "bf16": 1.2693277550353441,
+   "PF64": 1.0893808407155914
+  },
+  "input_embedder.atom_attn_enc.atom_transformer.blocks.1.conditioned_transition.layer_norm.linear_g.bias": {
+   "f64_mass_fraction": 9.529125554280678e-17,
+   "bf16": 2.1219881409778587,
+   "PF64": 1.0236155413043178
+  },
+  "input_embedder.atom_attn_enc.atom_transformer.blocks.1.conditioned_transition.layer_norm.linear_g.weight": {
+   "f64_mass_fraction": 7.026966745540497e-17,
+   "bf16": 1.6740147186557377,
+   "PF64": 0.9334313083148869
+  },
+  "input_embedder.atom_attn_enc.atom_transformer.blocks.1.conditioned_transition.layer_norm.linear_s.weight": {
+   "f64_mass_fraction": 1.80836660459049e-15,
+   "bf16": 1.8705674196236246,
+   "PF64": 1.0549127752986436
+  },
+  "input_embedder.atom_attn_enc.atom_transformer.blocks.1.conditioned_transition.linear_g.bias": {
+   "f64_mass_fraction": 4.0738502013399144e-16,
+   "bf16": 1.0690975500454245,
+   "PF64": 1.4371552131396832
+  },
+  "input_embedder.atom_attn_enc.atom_transformer.blocks.1.conditioned_transition.linear_g.weight": {
+   "f64_mass_fraction": 2.4164150411143946e-13,
+   "bf16": 1.0990985532934174,
+   "PF64": 1.3614399294770636
+  },
+  "input_embedder.atom_attn_enc.atom_transformer.blocks.1.conditioned_transition.linear_out.weight": {
+   "f64_mass_fraction": 4.021741146000393e-14,
+   "bf16": 1.7555087237821203,
+   "PF64": 1.8809208153437025
+  },
+  "input_embedder.atom_attn_enc.atom_transformer.blocks.1.conditioned_transition.swiglu.linear_a.weight": {
+   "f64_mass_fraction": 4.137628407954598e-15,
+   "bf16": 2.4698278015154127,
+   "PF64": 1.0399001390861666
+  },
+  "input_embedder.atom_attn_enc.atom_transformer.blocks.1.conditioned_transition.swiglu.linear_b.weight": {
+   "f64_mass_fraction": 2.377584861665367e-15,
+   "bf16": 2.645774990996489,
+   "PF64": 1.7030013335238414
+  },
+  "input_embedder.atom_attn_enc.atom_transformer.blocks.2.attention_pair_bias.layer_norm_a_k.layer_norm_s.weight": {
+   "f64_mass_fraction": 4.0068481361986254e-06,
+   "bf16": 1.152617080783063,
+   "PF64": 3.041754815754403
+  },
+  "input_embedder.atom_attn_enc.atom_transformer.blocks.2.attention_pair_bias.layer_norm_a_k.linear_g.bias": {
+   "f64_mass_fraction": 1.2294406482884296e-09,
+   "bf16": 1.046184110981444,
+   "PF64": 2.1579786409717077
+  },
+  "input_embedder.atom_attn_enc.atom_transformer.blocks.2.attention_pair_bias.layer_norm_a_k.linear_g.weight": {
+   "f64_mass_fraction": 7.805042725731372e-09,
+   "bf16": 1.0671608958585628,
+   "PF64": 2.149759083699325
+  },
+  "input_embedder.atom_attn_enc.atom_transformer.blocks.2.attention_pair_bias.layer_norm_a_k.linear_s.weight": {
+   "f64_mass_fraction": 2.472494985741377e-07,
+   "bf16": 1.1061189371118274,
+   "PF64": 2.7707692716264334
+  },
+  "input_embedder.atom_attn_enc.atom_transformer.blocks.2.attention_pair_bias.layer_norm_a_q.layer_norm_s.weight": {
+   "f64_mass_fraction": 9.601156439368676e-07,
+   "bf16": 7.659897246015671,
+   "PF64": 4.349685791008219
+  },
+  "input_embedder.atom_attn_enc.atom_transformer.blocks.2.attention_pair_bias.layer_norm_a_q.linear_g.bias": {
+   "f64_mass_fraction": 4.729057027605299e-12,
+   "bf16": 6.49725981471753,
+   "PF64": 3.598194956561424
+  },
+  "input_embedder.atom_attn_enc.atom_transformer.blocks.2.attention_pair_bias.layer_norm_a_q.linear_g.weight": {
+   "f64_mass_fraction": 4.3296359710416634e-10,
+   "bf16": 7.213559333735939,
+   "PF64": 4.406048141879634
+  },
+  "input_embedder.atom_attn_enc.atom_transformer.blocks.2.attention_pair_bias.layer_norm_a_q.linear_s.weight": {
+   "f64_mass_fraction": 2.937583326687551e-07,
+   "bf16": 8.900476618989684,
+   "PF64": 4.711880864879463
+  },
+  "input_embedder.atom_attn_enc.atom_transformer.blocks.2.attention_pair_bias.linear_ada_out.bias": {
+   "f64_mass_fraction": 1.0141249430177729e-08,
+   "bf16": 9.15220416710862,
+   "PF64": 11.970110723761797
+  },
+  "input_embedder.atom_attn_enc.atom_transformer.blocks.2.attention_pair_bias.linear_ada_out.weight": {
+   "f64_mass_fraction": 3.5726906714317245e-05,
+   "bf16": 3.425192866415561,
+   "PF64": 5.510646845026226
+  },
+  "input_embedder.atom_attn_enc.atom_transformer.blocks.2.attention_pair_bias.linear_z.weight": {
+   "f64_mass_fraction": 2.849814898356217e-61,
+   "bf16": 22.31844374109107,
+   "PF64": 1.0000697940195975
+  },
+  "input_embedder.atom_attn_enc.atom_transformer.blocks.2.attention_pair_bias.mha.linear_g.weight": {
+   "f64_mass_fraction": 9.26829812459583e-06,
+   "bf16": 8.017096818427248,
+   "PF64": 3.8605119242795873
+  },
+  "input_embedder.atom_attn_enc.atom_transformer.blocks.2.attention_pair_bias.mha.linear_k.weight": {
+   "f64_mass_fraction": 1.565016820167221e-53,
+   "bf16": 52.17522992849367,
+   "PF64": 1.0006018350674115
+  },
+  "input_embedder.atom_attn_enc.atom_transformer.blocks.2.attention_pair_bias.mha.linear_o.weight": {
+   "f64_mass_fraction": 0.00040348352342382723,
+   "bf16": 1.3300784250527296,
+   "PF64": 3.0408883156629676
+  },
+  "input_embedder.atom_attn_enc.atom_transformer.blocks.2.attention_pair_bias.mha.linear_q.bias": {
+   "f64_mass_fraction": 1.46755996552511e-57,
+   "bf16": 43.34357286482328,
+   "PF64": 1.0005466042286986
+  },
+  "input_embedder.atom_attn_enc.atom_transformer.blocks.2.attention_pair_bias.mha.linear_q.weight": {
+   "f64_mass_fraction": 1.6057978169897675e-53,
+   "bf16": 48.08678734178949,
+   "PF64": 1.0005771751714048
+  },
+  "input_embedder.atom_attn_enc.atom_transformer.blocks.2.attention_pair_bias.mha.linear_v.weight": {
+   "f64_mass_fraction": 1.6842228157757294e-05,
+   "bf16": 0.8929584967803832,
+   "PF64": 1.0754318772281224
+  },
+  "input_embedder.atom_attn_enc.atom_transformer.blocks.2.conditioned_transition.layer_norm.layer_norm_s.weight": {
+   "f64_mass_fraction": 1.2611275359837848e-15,
+   "bf16": 0.42460806822513997,
+   "PF64": 0.1560588361167983
+  },
+  "input_embedder.atom_attn_enc.atom_transformer.blocks.2.conditioned_transition.layer_norm.linear_g.bias": {
+   "f64_mass_fraction": 1.808475474197186e-19,
+   "bf16": 0.31966504513849625,
+   "PF64": 0.39793198875828995
+  },
+  "input_embedder.atom_attn_enc.atom_transformer.blocks.2.conditioned_transition.layer_norm.linear_g.weight": {
+   "f64_mass_fraction": 2.2867367418006935e-18,
+   "bf16": 0.39607908461726915,
+   "PF64": 0.4595775637016923
+  },
+  "input_embedder.atom_attn_enc.atom_transformer.blocks.2.conditioned_transition.layer_norm.linear_s.weight": {
+   "f64_mass_fraction": 6.929570457830663e-17,
+   "bf16": 0.47550451466480465,
+   "PF64": 0.3487549422250902
+  },
+  "input_embedder.atom_attn_enc.atom_transformer.blocks.2.conditioned_transition.linear_g.bias": {
+   "f64_mass_fraction": 2.7076144977390007e-21,
+   "bf16": 0.5815131227805207,
+   "PF64": 0.535634014105065
+  },
+  "input_embedder.atom_attn_enc.atom_transformer.blocks.2.conditioned_transition.linear_g.weight": {
+   "f64_mass_fraction": 1.5320029027872845e-18,
+   "bf16": 0.5941536115121211,
+   "PF64": 0.5622701730039478
+  },
+  "input_embedder.atom_attn_enc.atom_transformer.blocks.2.conditioned_transition.linear_out.weight": {
+   "f64_mass_fraction": 1.027889416454963e-16,
+   "bf16": 0.275847476848673,
+   "PF64": 0.5605859109963484
+  },
+  "input_embedder.atom_attn_enc.atom_transformer.blocks.2.conditioned_transition.swiglu.linear_a.weight": {
+   "f64_mass_fraction": 4.2334888581854315e-16,
+   "bf16": 0.4819942174048925,
+   "PF64": 0.49669832260170826
+  },
+  "input_embedder.atom_attn_enc.atom_transformer.blocks.2.conditioned_transition.swiglu.linear_b.weight": {
+   "f64_mass_fraction": 3.50750116259447e-18,
+   "bf16": 0.4002079347659794,
+   "PF64": 0.6518407889702581
+  },
+  "input_embedder.atom_attn_enc.atom_transformer.layer_norm_z.weight": {
+   "f64_mass_fraction": 2.5945811257385307e-17,
+   "bf16": 6.037121316719292,
+   "PF64": 48.54884831480962
+  },
+  "input_embedder.atom_attn_enc.linear_l.weight": {
+   "f64_mass_fraction": 1.311649654979196e-17,
+   "bf16": 5.218625267573417,
+   "PF64": 29.9720463500485
+  },
+  "input_embedder.atom_attn_enc.linear_m.weight": {
+   "f64_mass_fraction": 8.545118142125422e-17,
+   "bf16": 5.850474908511063,
+   "PF64": 45.762302090905564
+  },
+  "input_embedder.atom_attn_enc.linear_q.0.weight": {
+   "f64_mass_fraction": 0.7628644300082397,
+   "bf16": 1.503943539444117,
+   "PF64": 1.460241399878163
+  },
+  "input_embedder.atom_attn_enc.pair_mlp.1.weight": {
+   "f64_mass_fraction": 8.335274826075061e-17,
+   "bf16": 5.954992711445434,
+   "PF64": 31.099651515619286
+  },
+  "input_embedder.atom_attn_enc.pair_mlp.3.weight": {
+   "f64_mass_fraction": 2.9481463990824864e-17,
+   "bf16": 5.80600765311008,
+   "PF64": 33.90633558430365
+  },
+  "input_embedder.atom_attn_enc.pair_mlp.5.weight": {
+   "f64_mass_fraction": 1.0615781327772937e-16,
+   "bf16": 6.340645612006987,
+   "PF64": 36.84046997623467
+  },
+  "input_embedder.atom_attn_enc.ref_atom_feature_embedder.linear_inv_sq_dists.weight": {
+   "f64_mass_fraction": 4.492562565871572e-20,
+   "bf16": 6.04053471289388,
+   "PF64": 54.876302317453714
+  },
+  "input_embedder.atom_attn_enc.ref_atom_feature_embedder.linear_ref_atom_chars.weight": {
+   "f64_mass_fraction": 0.05648514820502606,
+   "bf16": 1.1461246191036485,
+   "PF64": 1.141188304526045
+  },
+  "input_embedder.atom_attn_enc.ref_atom_feature_embedder.linear_ref_charge.weight": {
+   "f64_mass_fraction": 0.03474067317042559,
+   "bf16": 0.5346377898448611,
+   "PF64": 0.42074176879614195
+  },
+  "input_embedder.atom_attn_enc.ref_atom_feature_embedder.linear_ref_element.weight": {
+   "f64_mass_fraction": 0.016986705691541253,
+   "bf16": 1.0789506726907048,
+   "PF64": 1.2691419376552038
+  },
+  "input_embedder.atom_attn_enc.ref_atom_feature_embedder.linear_ref_mask.weight": {
+   "f64_mass_fraction": 0.012275741651908575,
+   "bf16": 1.0274020837263764,
+   "PF64": 0.8152369047888036
+  },
+  "input_embedder.atom_attn_enc.ref_atom_feature_embedder.linear_ref_offset.weight": {
+   "f64_mass_fraction": 1.124944556920385e-16,
+   "bf16": 6.058710320165533,
+   "PF64": 28.159568136057604
+  },
+  "input_embedder.atom_attn_enc.ref_atom_feature_embedder.linear_ref_pos.weight": {
+   "f64_mass_fraction": 0.1135250599518868,
+   "bf16": 1.3458372754928254,
+   "PF64": 4.308099405744614
+  },
+  "input_embedder.atom_attn_enc.ref_atom_feature_embedder.linear_valid_mask.weight": {
+   "f64_mass_fraction": 8.705669570642983e-18,
+   "bf16": 6.040321762118911,
+   "PF64": 33.34881369370196
+  }
+ }
+}

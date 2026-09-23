@@ -63,11 +63,22 @@ from typing import Optional
 import numpy as np
 import torch
 
-from . import catalogue, losses
+from . import catalogue, lineage, losses
 
 __all__ = ["adapter", "OpenFold3Dataset", "OpenFold3Forward", "MODEL", "denoise_draw"]
 
 MODEL = "openfold3"
+
+#: Upstream stores the diffusion module twice (`sample_diffusion.diffusion_module.*` holds the
+#: values of `diffusion_module.*`) and keeps the Fourier noise embedding as a fixed buffer. The
+#: remaining 4170 of the checkpoint's 4935 keys are the parameters the step trains, which is the
+#: float64 reference's gradient count.
+_ALIAS = "sample_diffusion."
+_FROZEN = ("diffusion_module.diffusion_conditioning.fourier_emb.",)
+
+
+def _canonical_key(k: str) -> str:
+    return k[len(_ALIAS):] if k.startswith(_ALIAS) else k
 
 #: The objective's output names this forward produces today, in the order it produces them.
 OUTPUTS = ("pred_xyz", "pred_dist", "distogram_logits", "plddt_logits", "pde_logits",
@@ -260,7 +271,7 @@ class OpenFold3Forward:
         """The shipped ``OpenFold3`` module, built once on first use."""
         if self._model is None:
             import ttnn
-            from ..openfold3_fold import OpenFold3
+            from ..tenstorrent import walk_device_weights
             dev = self.device
             sd = torch.load(self.checkpoint, map_location="cpu", weights_only=False)
             sd = sd.get("state_dict", sd) if isinstance(sd, dict) else sd
@@ -268,33 +279,52 @@ class OpenFold3Forward:
             ckc = ttnn.init_device_compute_kernel_config(
                 dev.arch(), math_fidelity=ttnn.MathFidelity.HiFi4,
                 fp32_dest_acc_en=True, packer_l1_acc=True)
-            self._model = OpenFold3(sd, ckc, num_cycles=self.num_cycles)
-            # The confidence heads upload their device weights lazily inside
-            # `forward_device`, so a walk run before the first forward would not find them
-            # and the optimizer's parameter set would be short by the whole confidence head.
-            from ..openfold3_confidence import OF3ConfidenceHead
-            self._model.confidence_head = OF3ConfidenceHead(
-                self._model._confidence_sd, dev, ckc)
-            self._model.confidence_head.materialize_device_weights()
-            # Every TriangleMultiplication's in-projection as leaves the walk below finds.
-            # Without this they are cut from host torch inside the taped forward, after
-            # registration, and train as constants.
-            from ..tenstorrent import train_in_projections
-            train_in_projections(self._model)
-            # The diffusion atom transformers upload their weights lazily inside the forward
-            # too (D256); materialise them for the same reason.
-            dm = self._model.sampler.dm
-            for at in (dm.enc_at, dm.dec.at):
-                at.materialize_device_weights()
-            # The encoder's RefAtomFeatureEmbedder runs on the host in inference, so its eight
-            # linears reach the module as a constant `cl0`/`plm0` and would never train (0.46 %
-            # of the float64 step's squared gradient). The denoise arm runs the shipped device
-            # module instead; the rollout keeps the host embedding.
-            from ..openfold3 import RefAtomFeatureEmbedder
-            from ..openfold3_weights import _sub
-            dm.ref_embed = RefAtomFeatureEmbedder(
-                _sub(sd, "diffusion_module.atom_attn_enc.ref_atom_feature_embedder"), ckc)
+            with lineage.recording(sd, _canonical_key) as (sd, lin):
+                self._build(sd, ckc)
+            self._lineage = lin.by_path(walk_device_weights(self._model))
+            self._claimed = {k for k in map(_canonical_key, sd) if not k.startswith(_FROZEN)}
         return self._model
+
+    def _build(self, sd, ckc):
+        """The shipped module plus everything the training step adds to it."""
+        from ..openfold3_fold import OpenFold3
+        dev = self.device
+        self._model = OpenFold3(sd, ckc, num_cycles=self.num_cycles)
+        # The confidence heads upload their device weights lazily inside
+        # `forward_device`, so a walk run before the first forward would not find them
+        # and the optimizer's parameter set would be short by the whole confidence head.
+        from ..openfold3_confidence import OF3ConfidenceHead
+        self._model.confidence_head = OF3ConfidenceHead(
+            self._model._confidence_sd, dev, ckc)
+        self._model.confidence_head.materialize_device_weights()
+        # Every TriangleMultiplication's in-projection as leaves the walk below finds.
+        # Without this they are cut from host torch inside the taped forward, after
+        # registration, and train as constants.
+        from ..tenstorrent import train_in_projections
+        train_in_projections(self._model)
+        # The diffusion atom transformers upload their weights lazily inside the forward
+        # too (D256); materialise them for the same reason.
+        dm = self._model.sampler.dm
+        for at in (dm.enc_at, dm.dec.at):
+            at.materialize_device_weights()
+        # The encoder's RefAtomFeatureEmbedder runs on the host in inference, so its eight
+        # linears reach the module as a constant `cl0`/`plm0` and would never train (0.46 %
+        # of the float64 step's squared gradient). The denoise arm runs the shipped device
+        # module instead; the rollout keeps the host embedding.
+        from ..openfold3 import RefAtomFeatureEmbedder
+        from ..openfold3_weights import _sub
+        dm.ref_embed = RefAtomFeatureEmbedder(
+            _sub(sd, "diffusion_module.atom_attn_enc.ref_atom_feature_embedder"), ckc)
+        # The input embedder's atom encoder runs on the host in inference too
+        # (`run_input_atom_encoder`), so s_input reached the trunk as a constant and its 93
+        # tensors never trained (D263). The taped step differentiates this device copy, built
+        # at fp32 as the host leg computes all but its atom transformer.
+        import ttnn
+        from ..openfold3 import InputAtomEncoder
+        from ..tenstorrent import device_dtype_override
+        with device_dtype_override(ttnn.float32):
+            self._model.input_atom_enc = InputAtomEncoder(
+                _sub(sd, "input_embedder.atom_attn_enc"), ckc)
 
     def parameters(self) -> dict:
         """Every device weight the built model reaches, registered as a taped leaf.
@@ -324,13 +354,17 @@ class OpenFold3Forward:
 
         Also raises if the forward sliced a registered weight without reaching the tape (D262):
         the leaf is registered but the slice is a constant, so the walk alone cannot see it.
+
+        And from the checkpoint's side: raises if a key the step trains was never uploaded into
+        a registered leaf (``lineage``). A module the forward applies on the host has no device
+        tensor for the walk to find, which is how D261 and D263 trained nothing unseen.
         """
         from collections import Counter
         from .. import autograd as ag
         from ..taped_ttnn import take_raw_param_slices
         from ..tenstorrent import walk_device_weights
-        late = [p for p, _o, _k, t in walk_device_weights(self.model)
-                if ag.parameter_for(t) is None]
+        walked = [(p, t) for p, _o, _k, t in walk_device_weights(self.model)]
+        late = [p for p, t in walked if ag.parameter_for(t) is None]
         if late:
             raise RuntimeError(
                 f"{len(late)} device tensors appeared after parameter registration and would "
@@ -341,6 +375,14 @@ class OpenFold3Forward:
             raise RuntimeError(
                 f"{sum(raw.values())} slices of registered weights did not reach the tape and "
                 f"train as constants, by site: {dict(raw)}")
+        trained = {k for p, t in walked if ag.parameter_for(t) is not None
+                   for k in self._lineage.get(p, ())}
+        untrained = sorted(self._claimed - trained)
+        if untrained:
+            raise RuntimeError(
+                f"{len(untrained)} of {len(self._claimed)} checkpoint tensors this step trains "
+                f"were never uploaded into a registered leaf, so they train as constants: "
+                f"{untrained}")
 
     def __call__(self, batch) -> dict:
         from .. import autograd as ag
@@ -364,9 +406,9 @@ class OpenFold3Forward:
         template_feat, template_slots = dedup_template_slots(derive_template_feat(f))
         relpos = derive_relpos(f)
         msa_feat = make_openfold3_msa_features(f)
-        ai = run_input_atom_encoder(dev, ckc, m.sd, f, aux)
-        s_input = torch.cat([ai, f["restype"], f["profile"],
-                             f["deletion_mean"].unsqueeze(-1)], dim=-1)
+        token_feats = torch.cat([f["restype"], f["profile"],
+                                 f["deletion_mean"].unsqueeze(-1)], dim=-1)
+        s_input = torch.cat([run_input_atom_encoder(dev, ckc, m.sd, f, aux), token_feats], dim=-1)
         cl0, plm0 = ref_atom_embed(
             _sub(m.sd, "diffusion_module.atom_attn_enc.ref_atom_feature_embedder"), f)
         n_atom, n_token = aux["n_atom"], aux["n_token"]
@@ -383,6 +425,22 @@ class OpenFold3Forward:
         pair_mask_pf = ft(pm.unsqueeze(0))
         pair_mask_dm = ft(pm.reshape(n_token, n_token, 1).unsqueeze(0))
         attn_mask_d = ft(((1.0 - tok) * -1e9).reshape(1, 1, 1, n_token))
+        dm_aux = build_dm_device_aux(
+            dev, ft, cl0=cl0, plm0=plm0, atom_mask=aux["atom_mask"],
+            atom_to_token_index=aux["atom_to_token_index"],
+            npe_q_indices=aux["npe_q_indices"], npe_k_indices=aux["npe_k_indices"],
+            zij_mask=aux["zij_mask"], key_block_idxs=aux["key_block_idxs"],
+            invalid_mask=aux["invalid_mask"], mask_trunked=aux["mask_trunked"],
+            atom_to_token_mean=aux["atom_to_token_mean"],
+            token_mask=tok, n_atom=n_atom, n_token=n_token,
+            nb=aux["nb"], NP=aux["NP"], n_tok_pad=n_token)
+        # The ref-atom features, for each atom encoder's embedder at its own dtype.
+        ref_in = ref_atom_device_inputs(dev, f, aux["atom_mask"], aux["NP"])
+        ie_dt = m.input_atom_enc._act_dtype
+        ie_in = ref_atom_device_inputs(dev, f, aux["atom_mask"], aux["NP"], dtype=ie_dt)
+        # Its own aggregation matrix: dm_aux's is bf16, where 1/7 rounds by 0.2 % and biases
+        # every token's mean the same way instead of averaging out.
+        ie_mean = ft(aux["atom_to_token_mean"].unsqueeze(0), ie_dt)
 
         # ---- the taped forward, in two blocks with the rollout raw between them.
         #
@@ -398,7 +456,16 @@ class OpenFold3Forward:
         # module-level `ttnn` name and drops the raw-handle map, and neither touches the node
         # graph or the registered leaves.
         with ag.tape():
-            s_input_d = ag.Tensor(ft(s_input.unsqueeze(0)))
+            # s_input is computed twice. Its VALUE is the host leg's, the one inference computes:
+            # 5.0e-4 from upstream float64 on the 64-token batch, where no device copy gets
+            # under 3.3e-3 (on-device fp32 matmuls cost ~1e-3 each; ref_sinput.py,
+            # bisect_fp32.py), and a bf16 copy's forward took the step's global rel from 0.135
+            # to 0.186. Its GRADIENT goes through InputAtomEncoder, whose 93 weights are
+            # registered leaves (D263). Every consumer of s_input sees the forward it saw before.
+            s_input_d = ag.straight_through(ft(s_input.unsqueeze(0)), m.input_atom_enc(
+                ie_in, dm_aux["amc_d"], dm_aux["kidx_tt"], dm_aux["valid_d"], dm_aux["mb_d"],
+                dm_aux["pm_d"], dm_aux["amc_na_d"], ie_mean,
+                ft(token_feats.unsqueeze(0)), n_atom, aux["NP"], aux["nb"]))
             relpos_d = ag.Tensor(ft(relpos.unsqueeze(0)))
             bonds_d = ag.Tensor(ft(f["token_bonds"].unsqueeze(0).unsqueeze(-1)))
             s_init, z_init = m.input_glue(s_input_d, relpos_d, bonds_d)
@@ -417,15 +484,6 @@ class OpenFold3Forward:
         rep = (f["ground_truth"]["start_atom_index"] if "ground_truth" in f
                else f["start_atom_index"]).long()
         real = torch.nonzero(tok > 0, as_tuple=True)[0]
-        dm_aux = build_dm_device_aux(
-            dev, ft, cl0=cl0, plm0=plm0, atom_mask=aux["atom_mask"],
-            atom_to_token_index=aux["atom_to_token_index"],
-            npe_q_indices=aux["npe_q_indices"], npe_k_indices=aux["npe_k_indices"],
-            zij_mask=aux["zij_mask"], key_block_idxs=aux["key_block_idxs"],
-            invalid_mask=aux["invalid_mask"], mask_trunked=aux["mask_trunked"],
-            atom_to_token_mean=aux["atom_to_token_mean"],
-            token_mask=tok, n_atom=n_atom, n_token=n_token,
-            nb=aux["nb"], NP=aux["NP"], n_tok_pad=n_token)
         if self.repr_coords_in is not None:
             repr_x = torch.as_tensor(np.asarray(self.repr_coords_in, np.float32)).reshape(-1, 3)
             self.rollout_ran = False
@@ -479,7 +537,6 @@ class OpenFold3Forward:
 
             one_hot = torch.zeros(n_token, n_atom)
             one_hot[real, rep] = 1.0
-            ref_in = ref_atom_device_inputs(dev, f, aux["atom_mask"], aux["NP"])
 
             with ag.tape():
                 # THE DTYPE BOUNDARY, crossed through the sampler's own helper rather than a
