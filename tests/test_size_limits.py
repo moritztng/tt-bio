@@ -433,7 +433,7 @@ def test_a_residue_refusal_never_offers_the_atom_denominated_model():
     assert "boltzgen" not in sl.models_accepting(1200, "wormhole_b0")
     assert "boltzgen" in sl.models_accepting(1200, "wormhole_b0", counts=sl.TARGET_ATOMS)
     with pytest.raises(sl.SizeTooLargeError) as e:
-        sl.check("opendde", 1200, arch="wormhole_b0")
+        sl.check("opendde", _OVER_OPENDDE, arch="wormhole_b0")
     assert "boltzgen" not in str(e.value), str(e.value)
 
 
@@ -712,8 +712,8 @@ def test_a_refusal_on_a_mostly_unmeasured_arch_does_not_claim_nothing_fits():
     assert "no measured ceiling on blackhole" in msg_unmeasured, msg_unmeasured
     # and where every model IS measured the original sentence still has to be reachable
     with pytest.raises(sl.SizeTooLargeError) as e2:
-        sl.check("opendde", 1200, arch="wormhole_b0")
-    assert "Models with a measured ceiling above 1200" in str(e2.value)
+        sl.check("opendde", _OVER_OPENDDE, arch="wormhole_b0")
+    assert f"Models with a measured ceiling above {_OVER_OPENDDE}" in str(e2.value)
 
 
 # --- The ligand is tokens, and tokens are what the wall is made of ---------------------------
