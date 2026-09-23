@@ -5345,18 +5345,22 @@ def msa_update_chunks(chunks, z, pwa, transition, attn_mask=None, own=True):
 
     Bit-exact against the whole-depth update: nothing in it reduces along depth. PWA's weights
     come from `z` alone and its matmul contracts the token axis; the norms and the transition are
-    per row over channels. The adds are the same out-of-place adds the whole path makes."""
-    zc = ttnn.clone(z)    # one clone for the loop: PWA only reads z, and at c_z=384 it is ~0.9 GiB
+    per row over channels. The adds are the same out-of-place adds the whole path makes.
+
+    PWA's token weights are a function of `z` alone, so they are computed once for every chunk:
+    per chunk, the whole pair would be normed again into a buffer the size of `z`."""
+    ws = pwa.head_weights(z, attn_mask)
     out = []
     for mc in chunks:
-        t1 = ttnn.add(mc, ttnn.reshape(pwa(mc, zc, attn_mask), tuple(mc.shape)))
+        t1 = ttnn.add(mc, ttnn.reshape(pwa(mc, None, weights=ws), tuple(mc.shape)))
         if own:
             ttnn.deallocate(mc)
         t2 = ttnn.add(t1, ttnn.reshape(transition(t1), tuple(t1.shape)))
         ttnn.deallocate(t1)
         out.append(t2)
         dram_peak("trunk msa block: after pwa add")
-    ttnn.deallocate(zc)
+    for w in ws:
+        ttnn.deallocate(w)
     return out
 
 
@@ -10516,21 +10520,10 @@ class PairWeightedAveraging(Module):
         self.z_weight = self.torch_to_tt("proj_z.weight")
         self.o_weight = self.torch_to_tt("proj_o.weight")
 
-    def __call__(self, m: ttnn.Tensor, z: ttnn.Tensor, attn_mask: ttnn.Tensor | None = None) -> ttnn.Tensor:
-        m = ttnn.reshape(m, tuple(m.shape)[1:])
+    def _z_heads(self, z, attn_mask):
+        """PWA's pair half: `(zn, token_weight, token_weights)`, the normed pair and the per-head
+        and all-head token softmaxes over it. Functions of `z` alone."""
         z = ttnn.reshape(z, tuple(z.shape)[1:])
-        # `norm_m` is per MSA row, so a depth block recomputes it from the (alive, unmutated)
-        # `m` rather than slicing a full-depth normed copy -- which is the copy that does not
-        # fit. Bit-identical either way: layer_norm reduces over channels only.
-        def m_norm(s0=None, s1=None):
-            return ttnn.layer_norm(
-                m if s0 is None else m[s0:s1],
-                weight=self.m_norm_weight,
-                bias=self.m_norm_bias,
-                epsilon=1e-5,
-                compute_kernel_config=self.compute_kernel_config,
-            )
-
         # One z layer_norm, `n_heads` projections of it: every head reads the whole normed pair
         # tensor to write one tile of width, so all eight are source-bound and one L1-resident
         # copy serves all of them. 3572.2 -> 991.0 us on the eight-head region, `torch.equal`.
@@ -10569,15 +10562,6 @@ class PairWeightedAveraging(Module):
             not depend on the MSA depth and a chunked path computes it once for every block."""
             return _softmax_over_tokens(_proj_z(self.z_weight[:, i : i + 1]))
 
-        def _batch_head_weights():
-            # A property of the shape, never a model name: the batching is correct at any head
-            # count, but it is only FREE while every head's column still lands in the one 32-wide
-            # tile the per-head call already paid for. Above that it would widen the output and
-            # the saving would have to be re-measured.
-            on = _PWA_BATCH_HEAD_WEIGHTS and self.n_heads <= 32
-            PWA_BATCH_HEAD_STATS[0 if on else 1] += 1
-            return on
-
         def token_weights():
             """Every head's token softmax, from ONE projection of the pair tensor.
 
@@ -10591,6 +10575,51 @@ class PairWeightedAveraging(Module):
             out = [b[i:i + 1] for i in range(self.n_heads)]
             ttnn.deallocate(b)
             return out
+
+        return z, token_weight, token_weights
+
+    def _batch_head_weights(self):
+        # A property of the shape, never a model name: the batching is correct at any head
+        # count, but it is only FREE while every head's column still lands in the one 32-wide
+        # tile the per-head call already paid for. Above that it would widen the output and
+        # the saving would have to be re-measured.
+        on = _PWA_BATCH_HEAD_WEIGHTS and self.n_heads <= 32
+        PWA_BATCH_HEAD_STATS[0 if on else 1] += 1
+        return on
+
+    def head_weights(self, z: ttnn.Tensor, attn_mask: ttnn.Tensor | None = None) -> list:
+        """Every head's softmax over the token axis, `n_heads` [1, tokens, tokens] tensors.
+
+        A function of `z` alone, so a caller running PWA over the depth chunks of one `m`
+        computes it once and passes it as `weights=` to every chunk, instead of each chunk
+        normalising and projecting the whole pair again: at 1536 tokens and c_z=384 that normed
+        pair is a 1811939328 B buffer. The same ops the call makes itself; the caller frees them.
+        """
+        zn, token_weight, token_weights = self._z_heads(z, attn_mask)
+        ws = (token_weights() if self._batch_head_weights()
+              else [token_weight(i) for i in range(self.n_heads)])
+        ttnn.deallocate(zn)
+        return ws
+
+    def __call__(self, m: ttnn.Tensor, z: ttnn.Tensor | None,
+                 attn_mask: ttnn.Tensor | None = None, weights: list | None = None) -> ttnn.Tensor:
+        """`weights` is `head_weights(z, attn_mask)` from the caller, who owns it; `z` and
+        `attn_mask` are then not read."""
+        m = ttnn.reshape(m, tuple(m.shape)[1:])
+        # `norm_m` is per MSA row, so a depth block recomputes it from the (alive, unmutated)
+        # `m` rather than slicing a full-depth normed copy -- which is the copy that does not
+        # fit. Bit-identical either way: layer_norm reduces over channels only.
+        def m_norm(s0=None, s1=None):
+            return ttnn.layer_norm(
+                m if s0 is None else m[s0:s1],
+                weight=self.m_norm_weight,
+                bias=self.m_norm_bias,
+                epsilon=1e-5,
+                compute_kernel_config=self.compute_kernel_config,
+            )
+
+        if weights is None:
+            _, token_weight, token_weights = self._z_heads(z, attn_mask)
 
         def head_out(mc, i, w):
             """Head ``i``'s contribution for the normed MSA rows ``mc``. Every op is per row."""
@@ -10642,7 +10671,7 @@ class PairWeightedAveraging(Module):
             written to the accumulator instead of to a new buffer.
             """
             acc = None
-            own = token_weights() if (not ws and _batch_head_weights()) else None
+            own = token_weights() if (not ws and self._batch_head_weights()) else None
             for i in range(self.n_heads):
                 w = ws[i] if ws else (own[i] if own else token_weight(i))
                 o = head_out(mc, i, w)
@@ -10666,7 +10695,7 @@ class PairWeightedAveraging(Module):
         if cap is not None:
             blk = min(blk, cap)
 
-        ws = []
+        ws = list(weights) if weights is not None else []
 
         def run(blk):
             if blk >= depth:
@@ -10676,7 +10705,7 @@ class PairWeightedAveraging(Module):
             if not ws:
                 # Depth-independent, so eight [1, tokens, tokens] weights (2.4 MB each at 1088
                 # tokens) are computed once and reused by every block, not once per block.
-                ws.extend(token_weights() if _batch_head_weights()
+                ws.extend(token_weights() if self._batch_head_weights()
                           else [token_weight(i) for i in range(self.n_heads)])
             host = _host_concat(m)
             parts = []
@@ -10704,8 +10733,9 @@ class PairWeightedAveraging(Module):
                 run, blk,
                 lambda b: _dram_narrow(_PWA_DEPTH_ROW_CAP, (depth, tokens), b, PWA_DEPTH_STATS))
         finally:
-            for w in ws:
-                ttnn.deallocate(w)
+            if weights is None:
+                for w in ws:
+                    ttnn.deallocate(w)
         o_out = ttnn.reshape(o_out, (1, *o_out.shape))
         return o_out
 
