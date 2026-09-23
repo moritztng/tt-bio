@@ -5845,6 +5845,10 @@ class Boltz2(nn.Module):
                 # Taken once and owned here, because two stages read it: the diffusion
                 # conditioning before the sampler and the confidence head after it.
                 device_z = _trunk.pop_device_z()
+            # The trunk's staged inputs (MSA features, z_init, template statics) are dead once
+            # it returns, but the next fold's reset is what used to free them, so they sat
+            # through diffusion and confidence: 2.6 GiB at 1728 tokens with a deep MSA.
+            _trunk.reset_static_cache()
         elif self.run_trunk_and_structure:
             for i in range(recycling_steps + 1):
                 if _pfn:
@@ -5956,6 +5960,11 @@ class Boltz2(nn.Module):
                     progress_fn=_pfn,
                 )
                 dict_out.update(struct_out)
+            # Same for the sampler's staged conditioning (the per-layer token bias alone is
+            # [n, n, heads * layers]): release it before the confidence head allocates.
+            for m in self.structure_module.modules():
+                if hasattr(m, "reset_static_cache"):
+                    m.reset_static_cache()
 
             if self.predict_bfactor:
                 pbfactor = self.bfactor_module(s)
