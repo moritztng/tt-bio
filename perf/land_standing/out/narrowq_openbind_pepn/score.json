@@ -1,0 +1,36 @@
+{
+ "gt_ca_rmsd_A": {
+  "s0_off": 0.713806,
+  "s0_on": 0.709204,
+  "s1_off": 0.601173,
+  "s1_on": 0.600358,
+  "s2_off": 0.78247,
+  "s2_on": 0.788276
+ },
+ "n_matched": 866,
+ "plddt": {
+  "s0_off": null,
+  "s0_on": null,
+  "s1_off": null,
+  "s1_on": null,
+  "s2_off": null,
+  "s2_on": null
+ },
+ "pairwise_ca_rmsd_A": {
+  "s0_off|s0_on": 0.060841,
+  "s0_off|s1_off": 0.819207,
+  "s0_off|s1_on": 0.773818,
+  "s0_off|s2_off": 3.2878,
+  "s0_off|s2_on": 3.240571,
+  "s0_on|s1_off": 0.777127,
+  "s0_on|s1_on": 0.73375,
+  "s0_on|s2_off": 3.334483,
+  "s0_on|s2_on": 3.287249,
+  "s1_off|s1_on": 0.070799,
+  "s1_off|s2_off": 3.960836,
+  "s1_off|s2_on": 3.914306,
+  "s1_on|s2_off": 3.905561,
+  "s1_on|s2_on": 3.859043,
+  "s2_off|s2_on": 0.081084
+ }
+}

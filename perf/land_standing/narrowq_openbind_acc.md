@@ -19,5 +19,4 @@ re-seeding, and the distance to 1HCL goes worse at seed 0 and better at seed 1. 
 failure mode (an unconfident fixture makes any effect/floor ratio meaningless), so it is recorded
 as uninformative, not as a pass.
 
-Owed before the default can ship: an openbind target that is confident, at a padded length where
-the lever fires and moves TRIATT_PERSISTENT_MASK, with a three-seed floor.
+Resolved on a confident target, PepN (3B34): 0.071 A move against the 0.60 A bar, `narrowq_openbind_pepn.md`.
