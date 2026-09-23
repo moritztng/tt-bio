@@ -1,0 +1,253 @@
+{
+ "headline": "block 47 does NOT carry one whole-block factor. It carries TWO, one per track: every pair_stack sub-module reads 1.17-1.20 and the single-track sub-modules read 0.80-0.89. Blocks 0 and 23 read ~1.00 on both tracks.",
+ "table": {
+  "block0": {
+   "sub_modules": {
+    "attn_pair_bias": {
+     "track": "mixed (reads z, writes s)",
+     "n": 6,
+     "r_median": 0.9629134273339348,
+     "r_median_excl_gt2": 0.9629134273339348,
+     "r_min": 0.37996693004971355,
+     "r_max": 0.9918582597632574,
+     "cos_median": 0.9920569605837585
+    },
+    "pair_stack.pair_transition": {
+     "track": "pair",
+     "n": 5,
+     "r_median": 0.9987342628967699,
+     "r_median_excl_gt2": 0.9987342628967699,
+     "r_min": 0.9982138324359728,
+     "r_max": 1.00007860888811,
+     "cos_median": 0.9999693613432313
+    },
+    "pair_stack.tri_att_end": {
+     "track": "pair",
+     "n": 8,
+     "r_median": 0.9941884571471591,
+     "r_median_excl_gt2": 0.9941884571471591,
+     "r_min": 0.9676613973296581,
+     "r_max": 0.9982082992079707,
+     "cos_median": 0.9998639116356223
+    },
+    "pair_stack.tri_att_start": {
+     "track": "pair",
+     "n": 8,
+     "r_median": 1.0013233218145192,
+     "r_median_excl_gt2": 1.0013233218145192,
+     "r_min": 0.9920568183336846,
+     "r_max": 1.0050656678103203,
+     "cos_median": 0.9996844552782358
+    },
+    "pair_stack.tri_mul_in": {
+     "track": "pair",
+     "n": 10,
+     "r_median": 1.0004616906751411,
+     "r_median_excl_gt2": 1.0004616906751411,
+     "r_min": 0.9965836203184661,
+     "r_max": 1.003088964993203,
+     "cos_median": 0.9999581751715312
+    },
+    "pair_stack.tri_mul_out": {
+     "track": "pair",
+     "n": 10,
+     "r_median": 1.0013107479485024,
+     "r_median_excl_gt2": 1.0013107479485024,
+     "r_min": 0.9979238146660845,
+     "r_max": 1.0038246500782406,
+     "cos_median": 0.9999603237129397
+    },
+    "single_transition": {
+     "track": "single",
+     "n": 5,
+     "r_median": 0.993238166022876,
+     "r_median_excl_gt2": 0.993238166022876,
+     "r_min": 0.9736599303866865,
+     "r_max": 0.9988386270746047,
+     "cos_median": 0.999794298646297
+    }
+   },
+   "pair_track_r_median": 0.9997184631036075,
+   "pair_track_n": 41,
+   "single_track_r_median": 0.993238166022876,
+   "single_track_n": 5,
+   "probe": {
+    "s_norm": 5850.166196032644,
+    "z_norm": 1320392.0939926212,
+    "cot_s_norm": 3.534929780069599e-05,
+    "cot_z_norm": 0.000783014240630463
+   }
+  },
+  "block23": {
+   "sub_modules": {
+    "attn_pair_bias": {
+     "track": "mixed (reads z, writes s)",
+     "n": 6,
+     "r_median": 0.9796669379963698,
+     "r_median_excl_gt2": 0.9576310202554184,
+     "r_min": 0.5353134704266239,
+     "r_max": 6.082835450521939,
+     "cos_median": 0.44820813781212737
+    },
+    "pair_stack.pair_transition": {
+     "track": "pair",
+     "n": 5,
+     "r_median": 1.0005580071988678,
+     "r_median_excl_gt2": 1.0005580071988678,
+     "r_min": 0.9996139538641191,
+     "r_max": 1.0035957490093375,
+     "cos_median": 0.9999452002771781
+    },
+    "pair_stack.tri_att_end": {
+     "track": "pair",
+     "n": 8,
+     "r_median": 0.9904869754811689,
+     "r_median_excl_gt2": 0.9904869754811689,
+     "r_min": 0.9687452605704567,
+     "r_max": 1.0136914463425801,
+     "cos_median": 0.998758803723846
+    },
+    "pair_stack.tri_att_start": {
+     "track": "pair",
+     "n": 8,
+     "r_median": 1.003980377991362,
+     "r_median_excl_gt2": 1.003980377991362,
+     "r_min": 0.9888566259450999,
+     "r_max": 1.0498802961298983,
+     "cos_median": 0.9987682906339341
+    },
+    "pair_stack.tri_mul_in": {
+     "track": "pair",
+     "n": 10,
+     "r_median": 0.9985828812903006,
+     "r_median_excl_gt2": 0.9985828812903006,
+     "r_min": 0.9883855183659895,
+     "r_max": 1.000269821778632,
+     "cos_median": 0.9999167435275284
+    },
+    "pair_stack.tri_mul_out": {
+     "track": "pair",
+     "n": 10,
+     "r_median": 0.9992299487319392,
+     "r_median_excl_gt2": 0.9992299487319392,
+     "r_min": 0.9968843354544789,
+     "r_max": 1.000882205449459,
+     "cos_median": 0.9999089816649909
+    },
+    "single_transition": {
+     "track": "single",
+     "n": 5,
+     "r_median": 0.9947826362762975,
+     "r_median_excl_gt2": 0.9947826362762975,
+     "r_min": 0.9754425616390919,
+     "r_max": 1.0005041878970395,
+     "cos_median": 0.9996139857087396
+    }
+   },
+   "pair_track_r_median": 0.9991072146730107,
+   "pair_track_n": 41,
+   "single_track_r_median": 0.9947826362762975,
+   "single_track_n": 5,
+   "probe": {
+    "s_norm": 1519031.2155757754,
+    "z_norm": 1319093.1772752262,
+    "cot_s_norm": 2.141670516458086e-05,
+    "cot_z_norm": 0.0004856499179133589
+   }
+  },
+  "block47": {
+   "sub_modules": {
+    "attn_pair_bias": {
+     "track": "mixed (reads z, writes s)",
+     "n": 6,
+     "r_median": 0.8704928474661565,
+     "r_median_excl_gt2": 0.796481223923627,
+     "r_min": 0.20173347363337377,
+     "r_max": 32.55604595709427,
+     "cos_median": 0.7073917615235574
+    },
+    "pair_stack.pair_transition": {
+     "track": "pair",
+     "n": 5,
+     "r_median": 1.1914506655791297,
+     "r_median_excl_gt2": 1.1914506655791297,
+     "r_min": 1.1831743502903287,
+     "r_max": 1.2696387153846056,
+     "cos_median": 0.9981840862533902
+    },
+    "pair_stack.tri_att_end": {
+     "track": "pair",
+     "n": 8,
+     "r_median": 1.180547424721866,
+     "r_median_excl_gt2": 1.180547424721866,
+     "r_min": 1.1647067441103058,
+     "r_max": 1.2928585835162083,
+     "cos_median": 0.9980302110680934
+    },
+    "pair_stack.tri_att_start": {
+     "track": "pair",
+     "n": 8,
+     "r_median": 1.1959426729728917,
+     "r_median_excl_gt2": 1.1959426729728917,
+     "r_min": 1.156197368850978,
+     "r_max": 1.2586886088057951,
+     "cos_median": 0.9976132792672319
+    },
+    "pair_stack.tri_mul_in": {
+     "track": "pair",
+     "n": 10,
+     "r_median": 1.188337437816695,
+     "r_median_excl_gt2": 1.188337437816695,
+     "r_min": 1.0928722122819667,
+     "r_max": 1.2015965484831268,
+     "cos_median": 0.997855264495666
+    },
+    "pair_stack.tri_mul_out": {
+     "track": "pair",
+     "n": 10,
+     "r_median": 1.1707479688041291,
+     "r_median_excl_gt2": 1.1707479688041291,
+     "r_min": 1.1186198338907727,
+     "r_max": 1.1942751028426344,
+     "cos_median": 0.9977466466786604
+    },
+    "single_transition": {
+     "track": "single",
+     "n": 5,
+     "r_median": 0.8867066855032778,
+     "r_median_excl_gt2": 0.8867066855032778,
+     "r_min": 0.8402030703357672,
+     "r_max": 0.9150088119268085,
+     "cos_median": 0.9247253331144828
+    }
+   },
+   "pair_track_r_median": 1.1831743502903287,
+   "pair_track_n": 41,
+   "single_track_r_median": 0.8867066855032778,
+   "single_track_n": 5,
+   "probe": {
+    "s_norm": 2149284.3524716836,
+    "z_norm": 1293667.24897778,
+    "cot_s_norm": 5.599999708545345e-05,
+    "cot_z_norm": 0.0007601379094210728
+   }
+  }
+ },
+ "why_this_is_sharper": "a factor that is constant WITHIN a track and different BETWEEN tracks is what you get when the COTANGENT handed to that track is scaled: every weight gradient downstream of it inherits the same constant, and the forward is untouched. That matches what is measured -- the forward at block 47 agrees to under 1 % masked on both tracks (s 3.66e-03, z 8.82e-03) while the pair gradients are uniformly 18 % high and the single gradients uniformly ~11 % low.",
+ "two_candidates_and_the_discriminator": [
+  {
+   "candidate": "A. our block-47 backward scales each track",
+   "against_it": "blocks 0 and 23 run the SAME code on the same config and read 1.00 on both tracks; only the weights and the activation magnitudes differ."
+  },
+  {
+   "candidate": "B. the harness injects a per-track-scaled cotangent at block 47 only",
+   "for_it": "these arms are isolated -- each block is driven by the bundle's own boundary, so block 47's cotangent comes from a different place in the capture than block 0's and 23's do. A constant per track is exactly the signature.",
+   "against_it": "tt_bio/openfold3_trunk.py returns s, z straight out of the Pairformer, so there is nothing in OUR trunk after block 47 that could rescale either track."
+  },
+  {
+   "discriminator": "record the injected cotangent norm alongside the reference's own cotangent norm at each block boundary, per track. If the ratio reads 1.18 on z and 0.89 on s at block 47 and 1.00 at blocks 0 and 23, it is B -- an INSTRUMENT defect at the campaign's worst trunk result, not a port defect. If both read 1.00, it is A. The bundles already carry probe.cot_s_norm and probe.cot_z_norm; what is missing is OUR side of the same two numbers."
+  }
+ ],
+ "correction_to_pass_128": "I wrote that block 47 carries a block-wide 1.18x inflation across \"essentially the whole block\". That is wrong on the single track, which is DEFLATED to about 0.89, and on attn_pair_bias, which reads 0.80 excluding its 32x outlier. The correct statement is two factors, one per track, in opposite directions.",
+ "unchanged": "the 32x anti-correlated tensor 47.attn_pair_bias.layer_norm_a.weight is still its own defect, and blocks 0 and 23 are still right to within 5 % on 92-94 % of their tensors."
+}

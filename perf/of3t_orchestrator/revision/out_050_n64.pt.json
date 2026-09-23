@@ -1,0 +1,11 @@
+{
+ "tag": "0.5.0",
+ "ctor": "DiffusionAttentionPairBias",
+ "N": 64,
+ "missing_keys": [],
+ "unexpected_keys": [
+  "layer_norm_z.weight"
+ ],
+ "out_absmax": 444.4208360520958,
+ "out_l2": 4109.799964117541
+}

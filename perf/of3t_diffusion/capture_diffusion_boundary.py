@@ -55,21 +55,34 @@ def main() -> int:
     ap.add_argument("--report", type=Path,
                     default=Path("perf/of3t_diffusion/capture_diffusion_boundary.json"))
     ap.add_argument("--seed", type=int, default=20260919)
+    # D23/R126: the published bundle runs a checkpoint upstream declares incompatible with it,
+    # so which bundle a boundary was captured from is part of the boundary. Defaults unchanged.
+    ap.add_argument("--bundle", type=Path, default=BUNDLE)
+    ap.add_argument("--manifest-json", type=Path, default=None)
+    ap.add_argument("--grads", default="grads_f64_r0.pt")
+    ap.add_argument("--reference-key", default="r0_replay_gradient",
+                    help="which manifest block describes --grads")
     a = ap.parse_args()
     a.out.mkdir(parents=True, exist_ok=True)
     t0 = time.time()
 
     import bundle_min as BM
 
-    man = CTB.manifest_from_git()
-    files = ["batch_step003.pt", "draws_recycles0.pt", "grads_f64_r0.pt", "grad_presence_r0.json"]
+    if a.manifest_json is not None:
+        man = json.loads(a.manifest_json.read_text())
+        man_src = str(a.manifest_json)
+    else:
+        man = CTB.manifest_from_git()
+        man_src = f"{CTB.REF_BRANCH}:{CTB.MANIFEST_GIT}"
+    pres = ("grad_presence" + a.grads[len("grads_f64"):]).replace(".pt", ".json")
+    files = ["batch_step003.pt", "draws_recycles0.pt", a.grads, pres]
     rep = {"instrument": "capture of the diffusion-module boundary of BUNDLE-MIN's r = 0 step",
-           "manifest": f"{CTB.REF_BRANCH}:{CTB.MANIFEST_GIT}",
+           "manifest": man_src,
            "manifest_commit": subprocess.run(["git", "rev-parse", CTB.REF_BRANCH],
                                              capture_output=True, text=True).stdout.strip(),
-           "bundle_dir": str(BUNDLE)}
-    rep["hashes"] = CTB.verify(man, files)
-    vg = man["r0_replay_gradient"]
+           "bundle_dir": str(a.bundle)}
+    rep["hashes"] = CTB.verify(man, files, a.bundle, man_src)
+    vg = man.get(a.reference_key) or man["validated_gradient"]
     rep["reference"] = {"file": vg["file"], "num_recycles": vg["num_recycles"],
                         "loss": vg["loss"], "global_norm": vg["gradient_global_norm"],
                         "n_parameters": vg["n_parameters"],
@@ -77,8 +90,8 @@ def main() -> int:
     print(f"[{time.time()-t0:.0f}s] bundle verified, {len(files)} files", flush=True)
 
     dtype = torch.float64
-    raw = torch.load(BUNDLE / "batch_step003.pt", weights_only=False)
-    draws = torch.load(BUNDLE / "draws_recycles0.pt", map_location="cpu", weights_only=False)
+    raw = torch.load(a.bundle / "batch_step003.pt", weights_only=False)
+    draws = torch.load(a.bundle / "draws_recycles0.pt", map_location="cpu", weights_only=False)
     rep["draws"] = {"num_recycles": int(draws["num_recycles"]),
                     "n_torch_randn": len(draws["torch_randn"]),
                     "n_python_random": len(draws["python_random"])}
@@ -155,7 +168,7 @@ def main() -> int:
           f"cotangent norm {float(cot.norm()):.6e}", flush=True)
 
     # ---- the capture is CHECKED against the bundle, not asserted -----------------------------
-    ref = torch.load(BUNDLE / "grads_f64_r0.pt", map_location="cpu", weights_only=False)
+    ref = torch.load(a.bundle / a.grads, map_location="cpu", weights_only=False)
 
     def rel(x, y):
         return float(torch.linalg.vector_norm(x - y) / (torch.linalg.vector_norm(y) + 1e-300))
