@@ -80,11 +80,15 @@ def ref_csv(stem, seed):
     return {r["id"]: r for r in csv.DictReader(open(f))} if f.exists() else {}
 
 
+# A screen whose failed ligands were re-run after a fix, and the tag of the re-run.
+RERUN = {"b_screen_lck": "b_lck_salts"}
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.parse_args()
     tags = sorted(p.stem for p in (HERE / "results").glob("*.json"))
-    size_table("nesso1", [t for t in tags if t.startswith("n_") and "screen" not in t])
+    size_table("nesso1", [t for t in tags if t.startswith(("n_", "nf_", "mn_")) and "screen" not in t])
     size_table("boltz2", [t for t in tags if t.startswith(("b_", "s_", "m_")) and "screen" not in t])
     for t in tags:
         r = load(t)
@@ -96,6 +100,9 @@ def main():
             continue
         r = load(t)
         rows = r["rows"]
+        if t in RERUN and load(RERUN[t]):  # re-run ids replace the screen's own rows
+            again = {x["id"]: x for x in load(RERUN[t])["rows"]}
+            rows = [again.get(x.get("id"), x) for x in rows]
         ok = [x for x in rows if x.get("affinity_pred_value") not in (None, "")]
         target = "YSK4" if "ysk4" in t else "LCK"
         k = kd[target]["records"]
@@ -109,17 +116,21 @@ def main():
               f"{rho:.3f} over {len(pairs)} (sign: lower pred = tighter); failed {errs}")
     print("\naccuracy nesso1 (device vs CPU fp32 reference, same seed; floor = reference seed 0 vs 1)")
     for t in tags:
-        if not t.startswith("n_") or "screen" in t:
+        if not t.startswith(("n_", "nf_")) or "screen" in t:
             continue
         stem = load(t)["input"].split("/")[-1].removesuffix(".yaml")
+        args = load(t)["args"]
+        seed = args[args.index("--seed") + 1] if "--seed" in args else "default"
         a, b = ref_csv(stem, "default"), ref_csv(stem, "1")
+        same = a if seed == "default" else ref_csv(stem, seed)
         dev = {x["id"]: x for x in load(t)["rows"]}
-        for rid, ref in a.items():
-            if rid not in dev or rid not in b or dev[rid].get(SCALARS[0]) in (None, ""):
+        for rid, ref in same.items():
+            if rid not in dev or dev[rid].get(SCALARS[0]) in (None, ""):
                 continue
             d = {s: abs(float(dev[rid][s]) - float(ref[s])) for s in SCALARS}
-            f = {s: abs(float(b[rid][s]) - float(ref[s])) for s in SCALARS}
-            print(f"  {stem}: " + ", ".join(f"{s} |dev-ref| {d[s]:.4f} floor {f[s]:.4f}" for s in SCALARS))
+            f = ({s: abs(float(b[rid][s]) - float(a[rid][s])) for s in SCALARS}
+                 if rid in a and rid in b else dict.fromkeys(SCALARS, float("nan")))
+            print(f"  {t} ({stem}, seed {seed}): " + ", ".join(f"{s} |dev-ref| {d[s]:.4f} floor {f[s]:.4f}" for s in SCALARS))
 
 
 if __name__ == "__main__":
