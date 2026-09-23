@@ -668,7 +668,9 @@ CEILINGS: dict[str, dict[str, Ceiling]] = {
                      "822083584 B or 65.3 MiB per bank, on a chip 91.9 percent full with 83.0 MiB "
                      "free and a 60.1 MiB largest block. The 2026-09-11 ladder on the same box "
                      "found the same two sizes. Until this row it was unmeasured and never "
-                     "refused, so 1792 and above was admitted and died on the chip",
+                     "refused, so 1792 and above was admitted and died on the chip. Re-folded on "
+                     "52c621bc2 (narrow-q on by default, card 29): 1664 still folds, 612.3 s at "
+                     "1000 MHz; 1792 is a multiple of 256, where narrow-q changes nothing",
         ),
     },
     "esmfold2": {
