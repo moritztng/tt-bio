@@ -225,6 +225,19 @@ def test_the_freeze_rows_refuse_1536_and_admit_the_size_that_folds():
         sl.check(m, 1024, arch="blackhole")     # the size that folds is admitted, silently
 
 
+@pytest.mark.parametrize("model", ["boltz2"])
+def test_a_wormhole_row_walked_past_1536_admits_1536_and_refuses_its_first_failure(model):
+    """These rows were walked on one Galaxy chip past the 1536 the campaign targets. Before they
+    existed boltz2 was never refused, so 1792 was admitted and died on the chip; the row has to
+    turn that into a refusal without losing the 1536 that folds."""
+    c = sl.ceiling(model, "wormhole_b0")
+    assert c.binds == sl.MEMORY and c.fail_at > c.residues >= 1536
+    sl.check(model, 1536, arch="wormhole_b0")
+    sl.check(model, c.residues, arch="wormhole_b0")
+    with pytest.raises(sl.SizeTooLargeError):
+        sl.check(model, c.fail_at, arch="wormhole_b0")
+
+
 def test_each_arch_refuses_on_its_own_number():
     """A row that is present but never consulted refuses nothing, and a row consulted on the wrong
     arch refuses everything. Both are silent, and saprot-35m now has a row on BOTH parts, which

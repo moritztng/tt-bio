@@ -684,17 +684,23 @@ CEILINGS: dict[str, dict[str, Ceiling]] = {
         ),
     },
     # --- No measured ceiling. Never refused. ---------------------------------------------------
-    "boltz2": {"wormhole_b0": _unmeasured(
-        _INHERITS_DEMO_FENCE + " "
-        "THE LADDER HAS NOW BEEN WALKED and this row still does not refuse on it: "
-        "2026-09-11 on the j10glx02 Galaxy (ws:wh-seqlen-structure, perf/whceil) "
-        "at 8192 alignment rows, 1024/1088/1152/1300/1408/1536/1664 all fold (586 "
-        "s to 1169 s, on a box at load 379) and 1792 FAILS -- 704643072 B across "
-        "12 banks, 56.0 MiB per bank against a 1024.0 MiB bank, 226.8 MiB per "
-        "bank free, largest free block 51.3 MiB: fragmentation, not one oversized "
-        "tensor. Giving this row residues=1664 would START refusing work that is "
-        "accepted today and would restamp every capacity cell, so that is a "
-        "release decision. The measurement is here; the decision is not taken")},
+    "boltz2": {
+        "wormhole_b0": Ceiling(
+            residues=1664, pass_at=1664, fail_at=1792, binds=MEMORY, mechanism=FRAGMENTATION,
+            msa_rows=8192,
+            evidence="walked 2026-09-23 on origin/main 8906d35a0, j10glx02 card 31, guard off, "
+                     "--host_threads 2, apo CDK2 tiled with 8192 alignment rows "
+                     "(ws:mgx-ceilings, perf/mgxceil). 1024 folds in 380.5 s, 1152 in 428.4 s, "
+                     "1280 in 456.9 s, 1408 in 556.5 s, 1536 in 595.4 s and 1664 in 678.1 s, "
+                     "AICLK median 1000 MHz sampled during every fold. 1792 fails in the "
+                     "confidence module's relative-position gather (tenstorrent.py pair_gather "
+                     "via RelPosGather), which asks for one 1792 x 1792 x 128 bf16 pair tensor, "
+                     "822083584 B or 65.3 MiB per bank, on a chip 91.9 percent full with 83.0 MiB "
+                     "free and a 60.1 MiB largest block. The 2026-09-11 ladder on the same box "
+                     "found the same two sizes. Until this row it was unmeasured and never "
+                     "refused, so 1792 and above was admitted and died on the chip",
+        ),
+    },
     "esmfold2": {
         "wormhole_b0": Ceiling(
             residues=1024, pass_at=1024, fail_at=1056, binds=MEMORY, mechanism=DRAM,

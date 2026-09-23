@@ -9,7 +9,7 @@ moved, which would have re-published 627 for rf3 after it went to 1095.
 The invariant is one-directional on purpose. Every row in the table must match the guard.
 The reverse is NOT required: rf3 has a measured ceiling and is deliberately absent from the
 table, because the prose under it says it folds every rung to the top of its ladder, and
-`boltz2` and `nesso1` are absent because they have no measured limit at all. Requiring a row
+`nesso1` is absent because it has no measured limit at all. Requiring a row
 for every ceiling would force those editorial calls into the table.
 
 The published number carries its own UNIT, read off the row rather than assumed: boltzgen's

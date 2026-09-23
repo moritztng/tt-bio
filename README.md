@@ -129,6 +129,7 @@ under 1024:
 
 | model | Wormhole limit | first measured failure |
 |---|---:|---:|
+| `boltz2` | 1664 | 1792 |
 | `opendde`, `opendde-abag` | 1024 | 1088 |
 | `openfold3` | 1024 | none found; top of the ladder |
 | `openbind` | 960 (residues; a ligand adds tokens) | 1024 |
@@ -142,8 +143,8 @@ under 1024:
 
 Ask for more than a model's limit and tt-bio refuses before it opens a device, naming the
 model, the limit and any model that does take the input. `rf3` is not in the table because
-it folds every rung to 1095 residues, the top of its ladder. `boltz2` and `nesso1` have no
-measured limit and are never refused.
+it folds every rung to 1095 residues, the top of its ladder. `nesso1` has no measured limit and
+is never refused.
 
 `boltzgen` is the one model sized on atoms rather than residues, because its wall follows the
 target's atom count and atoms per residue vary with what the target is made of: the 14786-atom
