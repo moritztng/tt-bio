@@ -663,37 +663,27 @@ CEILINGS: dict[str, dict[str, Ceiling]] = {
     },
     "esmfold2": {
         "wormhole_b0": Ceiling(
-            residues=1024, pass_at=1024, fail_at=1056, binds=MEMORY, mechanism=DRAM,
-            msa_rows=0, ladder_ligand_atoms=0,
-            evidence="its own ladder, walked 2026-09-09 on GWH02 card 1 by "
-                     "ws:esmfold2-cocrystal-everywhere at the settings a user gets: "
-                     "single-sequence, which is this model's default, and --fast, which "
-                     "tt_bio/main.py forces on Wormhole because ESMC-6B needs ~12.8 GB against "
-                     "a ~12 GB chip. 895 folds in 213 s, 960 in 273 s, 1024 in 287 s; 1057 does "
-                     "not fold. The failure is one DRAM allocation the chip cannot serve, and it "
-                     "is refused on BANK size rather than total memory: 588808192 B across 12 "
-                     "banks wants 49068032 B per bank against a 43118592 B largest free block. "
-                     "It is a TOKEN wall, not a polymer one -- a cocrystal at 1024 tokens (991 "
-                     "residues plus a 33-atom ligand) folds in 278 s and one at 1057 tokens is "
-                     "refused with the identical message, so a ligand costs nothing beyond the "
-                     "tokens it adds. This model read UNMEASURED until now because its published "
-                     "ladder (docs/size-generality.md, 2026-09-08) stopped at 1024, the "
-                     "platform's demo fence, and so never recorded a failing size above the cap: "
-                     "the ceiling was there, the negative control was not. The wall is recorded "
-                     "in TOKENS on the strength of that cocrystal pair, and ladder_ligand_atoms=0 "
-                     "says the rungs above were walked apo, so the cap is 1024 tokens: 991 "
-                     "residues + 33 atoms is admitted because it is the 1024 that folded, and "
-                     "1024 residues plus any ligand at all is refused. It used to be admitted "
-                     "here and fail on the chip. "
-                     "TIGHTENED 2026-09-11 on the j10glx02 Galaxy (ws:wh-seqlen-structure, "
-                     "perf/whceil): the first failure is 1056, not 1057 -- 1024 folds "
-                     "single-sequence in 470 s and 1056 is refused on 570949632 B, 45.4 MiB "
-                     "per bank against a 1024.0 MiB bank, with 122.5 MiB per bank free and a "
-                     "largest free block of 38.5 MiB. Fragmentation, not one oversized tensor, "
-                     "and the cap of 1024 is unchanged because it was already the largest size "
-                     "below the first failure. An independent ladder landing one residue from "
-                     "the recorded number is the closest thing this table has to a "
-                     "reproduction",
+            residues=1664, pass_at=1664, fail_at=1792, binds=MEMORY, mechanism=DRAM,
+            msa_rows=8192, ladder_ligand_atoms=0,
+            evidence="walked 2026-09-23 on origin/main 1b423e9e4 (esmfold2 folds its MSA, a "
+                     "fresh <=1024-row subsample per trunk loop), j10glx02, guard off, "
+                     "--host_threads 2, --fast as Wormhole forces, apo CDK2 tiled "
+                     "(ws:mgx-ceilings, perf/mgxceil), AICLK median 1000 MHz sampled during "
+                     "every fold. Two arms, and the row is the tighter of them, which here is "
+                     "the same number. With the 8192-row alignment (the default): 1024 1343.9 s, "
+                     "1152 1538.5 s, 1280 1606.2 s, 1408 2163.8 s (card 14), 1664 3100.5 s "
+                     "(card 16, mean CA pLDDT 87.2). Single-sequence: 1408 1559.1 s, 1536 "
+                     "1842.3 s, 1664 2196.0 s (card 0, pLDDT 88.3). 1792 fails in both, three "
+                     "times (MSA card 19 after 817.3 s, single-sequence card 0 after 364.9 s) "
+                     "on the same request: the pair FFN output (esmc.py _row_blocked), "
+                     "1644167168 B or 130.7 MiB per bank with the chip 99.4 percent full and "
+                     "6.4 MiB free, residency rather than one oversized block. The encoder "
+                     "sees at most 1024 rows per loop, so the row speaks for any alignment "
+                     "depth. The wall is on TOKENS (the 09-09 cocrystal pair showed a ligand "
+                     "costs exactly the tokens it adds), so ladder_ligand_atoms=0 counts a "
+                     "ligand against the 1664. Was 1024/1056 from the 2026-09-09 GWH02 and "
+                     "09-11 j10glx02 single-sequence ladders, walked before pair-residency and "
+                     "bigalloc reached this trunk",
         ),
     },
     "esmfold2-fast": {

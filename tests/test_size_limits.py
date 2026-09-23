@@ -914,17 +914,19 @@ def test_an_input_with_no_ligand_scores_zero_and_junk_never_raises(tmp_path):
 
 @_needs_ccd
 def test_check_input_refuses_a_cocrystal_before_any_device(tmp_path):
-    """End to end on the CLI's own entry point: 1000 residues is under esmfold2's 1024 cap and was
-    admitted, STU takes it to 1035 tokens, and 1035 pads to 1056 against a 1024 wall."""
+    """End to end on the CLI's own entry point: cap - 24 residues is under esmfold2's cap and is
+    admitted, STU's 35 atoms take it 11 tokens over, and that pads past the wall."""
     cap = sl.ceiling("esmfold2", "wormhole_b0").residues
     body = ("sequences:\n  - protein: {id: A, sequence: " + "A" * (cap - 24) + "}\n"
             "  - ligand: {id: L, ccd: STU}\n")
     q = _yaml(tmp_path, "cocrystal.yaml", body)
-    sl.check_input(str(q), "rf3", arch="wormhole_b0")            # no token wall: still admitted
+    sl.check_input(str(q), "protenix-v1", arch="wormhole_b0")    # no token wall: still admitted
     with pytest.raises(sl.SizeTooLargeError) as e:
         sl.check_input(str(q), "esmfold2", arch="wormhole_b0")
     msg = str(e.value)
-    assert "35-atom ligand" in msg and "1035 tokens" in msg and "1056" in msg, msg
+    padded = sl.padded_tokens("esmfold2", cap + 11)
+    assert padded > cap, padded
+    assert "35-atom ligand" in msg and f"{cap + 11} tokens" in msg and str(padded) in msg, msg
     # and the same file without its ligand is admitted, so the ligand is what refused it
     apo = _yaml(tmp_path, "apo.yaml", body.split("  - ligand")[0])
     sl.check_input(str(apo), "esmfold2", arch="wormhole_b0")

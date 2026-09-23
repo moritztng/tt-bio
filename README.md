@@ -132,7 +132,7 @@ walked with the settings the platform sends:
 | `openbind` | 1536 (residues; a ligand adds tokens) | 1664 |
 | `pxdesign` | 1536 (target residues; the binder is on top) | none found; top of the ladder |
 | `protenix-v2` | 1664 (residues; a ligand adds tokens) | 1792 |
-| `esmfold2` | 1024 (residues; a ligand adds tokens) | 1056 |
+| `esmfold2` | 1664 (residues; a ligand adds tokens) | 1792 |
 | `esmfold2-fast` | 1664 (residues; a ligand adds tokens) | 1792 |
 | `rf3` | 1600 | 1664 |
 | `protenix-v1` | 1920 | 2048 |
@@ -195,14 +195,14 @@ into a warning and runs it anyway.
 A ligand counts against these limits. Its heavy atoms are tokens the model pays for exactly like
 residues, and on `esmfold2`, `esmfold2-fast`, `openbind` and `protenix-v2` the wall is on tokens,
 so a cocrystal is checked on residues plus ligand atoms rather than on the residue count alone.
-`esmfold2` folds 1024 residues, which leaves no room at all: 1024 residues plus any ligand is
-refused, and 991 residues with a 33-atom ligand folds. `openbind` is the same: its 1536 was
+`esmfold2` folds 1664 residues, which leaves no room at all: 1664 residues plus any ligand is
+refused, and 1640 residues with a 24-atom ligand is admitted. `openbind` is the same: its 1536 was
 walked apo, so a ligand counts against it atom for atom. Either way the
 refusal names the token count and the wall, and it arrives before a device is opened instead of
 as an out-of-memory error part way through the fold.
 
-`esmfold2-fast` is the same architecture at half the trunk depth and is roomier, which is why it
-has its own row rather than sharing one: it folds 1664 residues and fails at 1792.
+`esmfold2-fast` is the same architecture at half the trunk depth. It has its own row because it
+was walked on its own; today both fold 1664 residues and fail at 1792.
 
 The pair track switches to row-blocked execution at a size threshold smaller targets never reach,
 so their speed and numerics are untouched. See [docs/large-targets.md](docs/large-targets.md).
