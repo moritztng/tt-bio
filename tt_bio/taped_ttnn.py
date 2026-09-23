@@ -1186,7 +1186,10 @@ def tape():
     prev = ag.install()
     _swap(True)
     try:
-        yield
+        # Softmax and layer norm exact for the forward (`autograd.exact_training`). The
+        # backward opens the same scope for itself, since it runs after this block closes.
+        with ag._training_exact("tape"):
+            yield
     finally:
         _swap(False)
         ag.forget_wrappers()
