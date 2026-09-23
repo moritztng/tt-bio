@@ -36,7 +36,7 @@ __all__ = [
     "forget_parameters", "parameter_for", "untaped",
     "release_pins",
     "linear", "matmul", "layer_norm", "softmax", "host_f64_softmax",
-    "host_f64_softmax_values", "mul", "add", "scale", "sigmoid",
+    "host_f64_softmax_values", "mul", "add", "straight_through", "scale", "sigmoid",
     "relu", "silu", "reshape", "pairwise_distance",
     "triangle_attention", "permute", "pair_contract", "checkpoint",
     "install", "uninstall", "installed", "is_grad_enabled", "backward", "tape",
@@ -1312,6 +1312,22 @@ def add(a: Tensor, b: Tensor) -> Tensor:
         return bw
 
     return _tape(out_v, [a, b], make)
+
+
+def straight_through(value, x: Tensor) -> Tensor:
+    """``value`` forward, ``x``'s derivative backward: the incoming gradient goes to ``x`` as is.
+
+    For a quantity computed twice, once as precisely as it can be and once through registered
+    weights on the card. Consumers read the precise value; the weights get the gradient of the
+    device computation, evaluated where that computation landed. ``value`` is a raw ttnn tensor
+    of ``x``'s shape and dtype.
+    """
+    def make():
+        def bw(g):
+            x.add_grad(g)
+        return bw
+
+    return _tape(value, [x], make, reads=())
 
 
 def relu(x: Tensor) -> Tensor:

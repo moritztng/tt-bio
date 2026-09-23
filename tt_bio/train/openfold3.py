@@ -317,10 +317,8 @@ class OpenFold3Forward:
             _sub(sd, "diffusion_module.atom_attn_enc.ref_atom_feature_embedder"), ckc)
         # The input embedder's atom encoder runs on the host in inference too
         # (`run_input_atom_encoder`), so s_input reached the trunk as a constant and its 93
-        # tensors never trained (D263). The taped step runs this device copy instead, at fp32:
-        # the host leg computes all but the atom transformer in fp32, and a bf16 copy put
-        # s_input 7x further from float64 (3.7e-3 against 5.0e-4), which every gradient
-        # downstream inherited (global rel 0.135 -> 0.186).
+        # tensors never trained (D263). The taped step differentiates this device copy, built
+        # at fp32 as the host leg computes all but its atom transformer.
         import ttnn
         from ..openfold3 import InputAtomEncoder
         from ..tenstorrent import device_dtype_override
@@ -391,7 +389,8 @@ class OpenFold3Forward:
         from ..openfold3_fold import build_dm_device_aux, create_noise_schedule
         from ..openfold3_host_prep import (dedup_template_slots, derive_block_aux,
                                            derive_relpos, derive_template_feat,
-                                           ref_atom_device_inputs, ref_atom_embed)
+                                           ref_atom_device_inputs, ref_atom_embed,
+                                           run_input_atom_encoder)
         from ..openfold3_data import make_openfold3_msa_features
         from ..openfold3_sample_diffusion import fourier_noise_emb
         from ..openfold3_weights import _sub
@@ -409,6 +408,7 @@ class OpenFold3Forward:
         msa_feat = make_openfold3_msa_features(f)
         token_feats = torch.cat([f["restype"], f["profile"],
                                  f["deletion_mean"].unsqueeze(-1)], dim=-1)
+        s_input = torch.cat([run_input_atom_encoder(dev, ckc, m.sd, f, aux), token_feats], dim=-1)
         cl0, plm0 = ref_atom_embed(
             _sub(m.sd, "diffusion_module.atom_attn_enc.ref_atom_feature_embedder"), f)
         n_atom, n_token = aux["n_atom"], aux["n_token"]
@@ -436,8 +436,11 @@ class OpenFold3Forward:
             nb=aux["nb"], NP=aux["NP"], n_tok_pad=n_token)
         # The ref-atom features, for each atom encoder's embedder at its own dtype.
         ref_in = ref_atom_device_inputs(dev, f, aux["atom_mask"], aux["NP"])
-        ie_in = ref_atom_device_inputs(dev, f, aux["atom_mask"], aux["NP"],
-                                       dtype=m.input_atom_enc._act_dtype)
+        ie_dt = m.input_atom_enc._act_dtype
+        ie_in = ref_atom_device_inputs(dev, f, aux["atom_mask"], aux["NP"], dtype=ie_dt)
+        # Its own aggregation matrix: dm_aux's is bf16, where 1/7 rounds by 0.2 % and biases
+        # every token's mean the same way instead of averaging out.
+        ie_mean = ft(aux["atom_to_token_mean"].unsqueeze(0), ie_dt)
 
         # ---- the taped forward, in two blocks with the rollout raw between them.
         #
@@ -453,10 +456,16 @@ class OpenFold3Forward:
         # module-level `ttnn` name and drops the raw-handle map, and neither touches the node
         # graph or the registered leaves.
         with ag.tape():
-            s_input_d = m.input_atom_enc(
+            # s_input is computed twice. Its VALUE is the host leg's, the one inference computes:
+            # 5.0e-4 from upstream float64 on the 64-token batch, where no device copy gets
+            # under 3.3e-3 (on-device fp32 matmuls cost ~1e-3 each; ref_sinput.py,
+            # bisect_fp32.py), and a bf16 copy's forward took the step's global rel from 0.135
+            # to 0.186. Its GRADIENT goes through InputAtomEncoder, whose 93 weights are
+            # registered leaves (D263). Every consumer of s_input sees the forward it saw before.
+            s_input_d = ag.straight_through(ft(s_input.unsqueeze(0)), m.input_atom_enc(
                 ie_in, dm_aux["amc_d"], dm_aux["kidx_tt"], dm_aux["valid_d"], dm_aux["mb_d"],
-                dm_aux["pm_d"], dm_aux["amc_na_d"], dm_aux["mean_d"],
-                ft(token_feats.unsqueeze(0)), n_atom, aux["NP"], aux["nb"])
+                dm_aux["pm_d"], dm_aux["amc_na_d"], ie_mean,
+                ft(token_feats.unsqueeze(0)), n_atom, aux["NP"], aux["nb"]))
             relpos_d = ag.Tensor(ft(relpos.unsqueeze(0)))
             bonds_d = ag.Tensor(ft(f["token_bonds"].unsqueeze(0).unsqueeze(-1)))
             s_init, z_init = m.input_glue(s_input_d, relpos_d, bonds_d)

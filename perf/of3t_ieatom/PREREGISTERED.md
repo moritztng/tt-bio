@@ -51,3 +51,23 @@ against the host leg's 5.04e-4. The encoder is redone at fp32 (0c2320397).
    3x bf16 with probability 0.97. `linear_q.0.weight` 0.7.
 4. Loss |Δ|/loss < 2e-3 against PW64F.
 5. Unread 0, placed-but-empty 0, no section worse than PW64F by more than 3x its bf16 rel.
+
+## Arm 2 did not score: the fp32 build was wrong, not imprecise
+
+Before PF64B was scored, probe_sinput.py read device vs host s_input at rel 2.1e4.
+`Module._lin` picks its output dtype at call time, so the fp32-built module emitted bf16 outside
+the override and met fp32 [.., 1] masks (D259). Fixed by running the module under its own dtype.
+It then reads 3.49e-3 against the host leg, and bisect_fp32.py puts the residual in the device
+head (1.8e-3 on exact input, fp32) and the pair update's bf16 gather (3.8e-3): the on-device fp32
+ceiling, not a configuration. PF64B's dump is discarded.
+
+## Arm 3 (PF64C, value from the host leg, gradient through the fp32 device encoder)
+
+`ag.straight_through(host s_input, device s_input)`. Committed before it runs:
+
+1. Loss bit-identical to PW64F (1.7933790552496434), and every gradient PW64F carries
+   bit-identical (the forward every consumer reads is PW64F's, byte for byte).
+2. The 93: all placed and non-zero. Concatenated rel vs float64 0.7 (interval 0.3 to 1.5),
+   better than bf16 (1.43) with probability 0.75, within 3x bf16 with probability 0.98.
+3. Unread 0, placed-but-empty 0; the global rel moves only by the 93's own term (8.2e-6 of the
+   mass), so it reads 0.1348 to four figures.
