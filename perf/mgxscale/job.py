@@ -54,13 +54,66 @@ BLOCKED = {1, 24, 25, 26, 27}
 CONTENTION = re.compile(r"device contention, nothing ran|is in use by worker:")
 
 
+def pinned_cards() -> set[int]:
+    """Cards a LIVE process on this host has in its TT_VISIBLE_DEVICES.
+
+    The flock is not sufficient on its own. A job whose driver takes the lock and then hands
+    the chip to a `multiprocessing` spawn child leaves the lock free while the child computes:
+    measured 2026-09-23, card 0 read takeable while `worker:mgx-combos` pid 43821 was Running
+    on it with two `tt_bio.main predict` processes pinned to it. Handing that chip out is how
+    two rows land on one chip.
+
+    Reads only what it can; another user's /proc entry is not readable and is not counted, so
+    this narrows the free set and never widens it."""
+    busy: set[int] = set()
+    for pid in os.listdir("/proc"):
+        if not pid.isdigit():
+            continue
+        try:
+            env = pathlib.Path(f"/proc/{pid}/environ").read_bytes()
+        except OSError:
+            continue
+        for kv in env.split(b"\0"):
+            if kv.startswith(b"TT_VISIBLE_DEVICES="):
+                for part in kv.split(b"=", 1)[1].decode(errors="replace").split(","):
+                    part = part.strip()
+                    if part.isdigit():
+                        busy.add(int(part))
+                break
+    return busy
+
+
+def _live(pid) -> bool:
+    try:
+        return pathlib.Path(f"/proc/{int(pid)}").is_dir()
+    except (TypeError, ValueError):
+        return False
+
+
+def held_cards() -> set[int]:
+    """Cards whose lease names a holder whose pid is still alive.
+
+    The JSON alone over-reports -- a SIGKILLed holder leaves `"released": null` forever
+    (`perf/mgxdesign/walk.py`) -- so the pid is checked, not just the field."""
+    busy: set[int] = set()
+    for c in range(32):
+        try:
+            rec = json.loads((LEASES / f"{HOST}-card{c}.json").read_text())
+        except Exception:
+            continue
+        if rec.get("released") is None and _live(rec.get("pid")):
+            busy.add(c)
+    return busy
+
+
 def free_cards() -> list[int]:
-    """Chips whose lease flock can be taken right now. The flock IS the lease; the JSON beside
-    it says `"released": null` forever for a holder that took a SIGKILL."""
+    """Chips no other row is on: the lease flock is takeable, no live holder names them, and
+    no live process has them pinned. Each of the three signals is wrong on its own."""
     import fcntl
+    busy = pinned_cards() | held_cards()
     out = []
     for c in range(32):
-        if c in BLOCKED:
+        if c in BLOCKED or c in busy:
             continue
         try:
             fd = os.open(str(LEASES / f"{HOST}-card{c}.json"), os.O_RDWR | os.O_CREAT, 0o664)
