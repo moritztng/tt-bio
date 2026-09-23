@@ -12,6 +12,8 @@ export TT_BIO_LEASE_DIR=$HOME/leases TT_METAL_LOGGER_LEVEL=FATAL
 # One kernel cache per plan: ladder.py calls a fold cold when the cache grows during it, and a
 # cache shared with another lane grows whenever that lane compiles.
 export TT_METAL_CACHE=$HOME/.cache/tt-metal-cache-mgxd-$(basename "$plan" .txt)
+# Seeded from the shared one the first lanes compiled into, so a new lane does not recompile.
+[ -d "$TT_METAL_CACHE" ] || cp -a "$HOME/.cache/tt-metal-cache-mgxd" "$TT_METAL_CACHE" 2>/dev/null || true
 export TT_BIO_OPENFOLD3=$HOME/mgxi-weights/of3-p2-155k.pt
 export TT_BIO_OPENBIND=$HOME/mgxi-weights/of3-ob-2025-06-30-174k.pt
 export MGX_DIFFUSION_WORK=$root/perf/mgx-diffusion/work-$card
