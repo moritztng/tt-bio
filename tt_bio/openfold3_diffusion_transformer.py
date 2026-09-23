@@ -63,7 +63,7 @@ import torch
 import ttnn
 
 from . import ops
-from .tenstorrent import Module, AdaLN, CORE_GRID_MAIN, _dtype, _cached, batched_matmul
+from .tenstorrent import Module, AdaLN, CORE_GRID_MAIN, _dtype, _cached, batched_matmul, softmax_ckc
 from .openfold3_atom_transformer import remap_of3_adaln
 from .token_axis import TILE, bucketed_width
 from .eltwise_fusion import scale_add, mask_add
@@ -110,6 +110,7 @@ class _DiTBlock(Module):
         self._act_dtype = _dtype(ttnn.bfloat16)
         self._w = sd_block
         self._wc: dict = {}
+        self._softmax_ckc = softmax_ckc("openfold3.diffusion_transformer")
 
         apb = "attention_pair_bias."
         self.adaln_a = AdaLN(False, remap_of3_adaln(_sub(self._w, apb + "layer_norm_a")),
@@ -205,7 +206,8 @@ class _DiTBlock(Module):
         if cache is None:
             ttnn.deallocate(zb)
         sc = ttnn.typecast(sc, ttnn.float32)
-        attn = ttnn.softmax(sc, dim=-1, numeric_stable=True)
+        attn = ttnn.softmax(sc, dim=-1, numeric_stable=True,
+                            compute_kernel_config=self._softmax_ckc)
         ttnn.deallocate(sc)
         attn = ttnn.typecast(attn, self._act_dtype)
         o = batched_matmul(attn, v, compute_kernel_config=self.compute_kernel_config)
