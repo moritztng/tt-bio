@@ -56,12 +56,36 @@ def section_of(n):
     return ".".join(parts[:2]) if parts[0] in ("aux_heads", "diffusion_module") else parts[0]
 
 
+ALIASES = {}
+
+
 def load_device(path, shapes):
-    """A flat device dump, each tensor restored to its parameter's shape (row-major)."""
+    """A flat device dump, each tensor restored to its parameter's shape (row-major).
+
+    The diffusion module holds 275 weights twice, as an attribute and as an entry of its
+    `_wc` upload cache: ONE device tensor under two walk paths, so the dump carries its
+    gradient twice and the bijection places both. A `._wc.` entry bit-identical to a named
+    entry of the same dump is that alias; it is dropped and listed in `ALIASES`. The cache is
+    keyed by `id()` at module level, so an alias can also carry a name the walk never saw.
+    """
+    dump = {k: v for k, v in torch.load(path, weights_only=False).items() if v is not None}
+    index = {}
+    for k, v in dump.items():
+        if "._wc." not in k:
+            index.setdefault(v.numel(), []).append(k)
+    twin = {}
+    for k, v in dump.items():
+        if "._wc." in k:
+            t = next((o for o in index.get(v.numel(), []) if torch.equal(dump[o], v)), None)
+            if t is not None:
+                twin[k] = t
+    ALIASES[path] = twin
+    dump = {k: v for k, v in dump.items() if k not in twin}
+    alien = [k for k in dump if k not in shapes]
+    if alien:
+        raise SystemExit(f"{path}: {len(alien)} names outside the walk: {alien[:5]}")
     out = {}
-    for k, v in torch.load(path, weights_only=False).items():
-        if v is None:
-            continue
+    for k, v in dump.items():
         shape = shapes[k]
         if v.numel() != torch.Size(shape).numel():
             raise SystemExit(f"{path}: {k} has {v.numel()} elements, parameter shape {shape}")
@@ -168,6 +192,7 @@ def main() -> int:
                           h: (sum(mass[k] for k in unread if head_of(k) == h) / head_total[h]
                               if head_total[h] else None) for h in heads},
                       "unread_worst": sorted(unread, key=lambda k: -mass[k])[:25]},
+           "aliases_dropped": {p: len(v) for p, v in ALIASES.items()},
            "arms": {}}
     for k in set(ref) - set(bf):
         bf[k] = torch.zeros_like(ref[k])

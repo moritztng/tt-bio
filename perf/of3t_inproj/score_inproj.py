@@ -37,8 +37,9 @@ def stack_of(k):
 
 def main() -> int:
     ap = argparse.ArgumentParser()
-    for k in ("--f64", "--bf16", "--bijection", "--shapes", "--on", "--aa", "--pad", "--out"):
+    for k in ("--f64", "--bf16", "--bijection", "--shapes", "--on", "--aa", "--out"):
         ap.add_argument(k, required=True)
+    ap.add_argument("--pad", help="pad-perturbed arm; the pad control is skipped without it")
     a = ap.parse_args()
     ref = {k: v.to(torch.float64) for k, v in torch.load(a.f64, weights_only=False).items()
            if v is not None and bool(v.any())}
@@ -50,11 +51,12 @@ def main() -> int:
     total = sum(float((v * v).sum()) for v in ref.values())
 
     raw, up = {}, {}
-    for spec in (a.on, a.aa, a.pad):
+    for spec in (a.on, a.aa) + ((a.pad,) if a.pad else ()):
         name, path = spec.split("=", 1)
         raw[name] = load_device(path, shapes)
         up[name] = to_upstream(raw[name], bij)[0]
-    on, aa, pad = (s.split("=", 1)[0] for s in (a.on, a.aa, a.pad))
+    on, aa = (s.split("=", 1)[0] for s in (a.on, a.aa))
+    pad = a.pad.split("=", 1)[0] if a.pad else None
 
     def rel(arm, keys):
         keys = [k for k in keys if k in ref]
@@ -89,7 +91,7 @@ def main() -> int:
                  "keysets_equal": set(raw[on]) == set(raw[aa])}
     conf = [k for k in ref if head_of(k) == "confidence" and k in placed]
     glob = [k for k in ref if k in placed]
-    rep["pad_control"] = {
+    rep["pad_control"] = None if pad is None else {
         "pair": [on, pad], "n": len(raw[on]), "bit_identical": same(on, pad),
         "moved": sorted(k for k in raw[on] if k in raw[pad] and not torch.equal(raw[on][k], raw[pad][k]))[:20],
         "confidence_rel": {on: rel(up[on], conf)["rel"], pad: rel(up[pad], conf)["rel"]},
@@ -97,7 +99,8 @@ def main() -> int:
     Path(a.out).write_text(json.dumps(rep, indent=1) + "\n")
     print(json.dumps({"in_projection": rep["in_projection"]["all"],
                       "layer_norm_in": rep["layer_norm_in"], "empty": len(rep["placed_but_empty_ON"]),
-                      "aa": rep["aa"], "pad": {k: v for k, v in rep["pad_control"].items() if k != "moved"}},
+                      "aa": rep["aa"], "pad": rep["pad_control"] and {
+                          k: v for k, v in rep["pad_control"].items() if k != "moved"}},
                      indent=1))
     return 0
 
