@@ -34,6 +34,11 @@ SOURCE = "SOURCE"          # a source repair with NO measurement in it: no card,
                            # inherits an expensive item's excuse for still being open.
 
 PLAN = {
+    # D246 and D247 were here for one pass and are gone because they CLOSED, not because the plan
+    # shrank to look better: `of3t-verbinstall` fixed both at `8ab8c791f` the same pass they were
+    # filed, and both repairs were verified in source rather than taken from the commit message.
+    # D246's fix is better than the one proposed to it -- the flag now sits on both halves, so the
+    # docstring's advertised equivalence is RESTORED rather than withdrawn. Release-gated, unmerged.
     # D155 was here for one pass and is gone because it was WITHDRAWN, not closed: the
     # non-determinism is pc card 0, a faulty card root-caused 2026-08-17, not a protenix
     # property. Filing it USER-FACING was my error -- a row reporting a digest instability
@@ -152,56 +157,6 @@ PLAN = {
                           "unmeasured"),
         "would_a_row_help": True,
         "asked": ("not yet asked. The complex-side measurement has no owner"),
-    },
-    "D247": {
-        "needs": SOURCE,
-        "one_line": "a fail-fast startup probe with NO timeout: it guards the chip that THROWS, not the chip that WEDGES",
-        "closes_when": ("`_assert_local_dispatch` bounds its own dispatch -- a timeout expiring "
-                        "into the RuntimeError path its `except` already builds, which also "
-                        "closes the device -- so a wedge and a throw produce the SAME fast "
-                        "respawnable outcome its docstring promises. The bound must be on the "
-                        "probe, not on its callers: a per-row pre-flight leaves the defect "
-                        "shipped for everyone else. No card and no decision: this is source"),
-        "evidence_held": ("`tt_bio/tenstorrent.py:5575`, called at `:6005` from every "
-                          "`get_device()`. The body wraps from_torch/add/synchronize_device in "
-                          "`try/except Exception`, so a chip that THROWS is handled as designed; "
-                          "a chip that WEDGES never reaches the except, because "
-                          "`ttnn.synchronize_device(dev)` blocks indefinitely and there is no "
-                          "timeout, alarm or watchdog in the function. Verified in the shipped "
-                          "file at pass 414, not taken from the row's report. It cost "
-                          "`of3t-verbinstall` 230 minutes -- two arms, 115 min each, nothing "
-                          "computed, every liveness signal green -- and that is a FLOOR, since "
-                          "it bills every card row on any model. The row bounded its own launches "
-                          "at `b77e89f27`; the probe is unchanged"),
-        "would_a_row_help": False,
-        "row": "of3t-verbinstall",
-    },
-    "D246": {
-        "needs": SOURCE,
-        "one_line": "a constant owner TOKEN tells two APIs apart, not two callers -- so install(exact_softmax=True) is still torn down by an unrelated bracket",
-        "closes_when": ("the install()/uninstall() pair carries a per-call identity -- a handle "
-                        "returned by install() and required by uninstall(), or a depth count so "
-                        "nesting is COUNTED rather than NAMED -- and the 2x2's fourth cell "
-                        "(on via install, foreign teardown) is pinned by a test. If the pair is "
-                        "judged not worth saving, the honest close is to withdraw the docstring's "
-                        "equivalence claim instead. No card and no decision: this is source"),
-        "evidence_held": ("`27d24c6b3` correctly root-caused R176 -- `train/lora.py:608-615` "
-                          "brackets the DISCOVERY forward in a conditional install/uninstall pair, "
-                          "that pair closes first, and all 1,742 exact softmaxes were spent in a "
-                          "discarded forward while the scored step ran on the device softmax "
-                          "(0.702981502944001, CTRL_B to sixteen digits). The repair's OWNER is a "
-                          "constant string: `exact_softmax()` records \"exact_softmax\" "
-                          "(autograd.py:1101), `install(exact_softmax=True)` records \"install\" "
-                          "(:2129), and `uninstall()` passes \"install\" (:2141) -- so the guard at "
-                          ":1064 discriminates between the two APIs and not between two callers of "
-                          "the same one. The two new tests pin CM+foreign and install+own, the two "
-                          "SAFE cells, and together read as 'both directions'. Latent in-repo "
-                          "(pkgarm.py:45 uses the CM, which is why R176's failure IS repaired), "
-                          "user-facing out of it: `exact_softmax()`'s docstring at :1093 still "
-                          "calls the unprotected path 'the same thing without the block', and the "
-                          "fix is what made that false"),
-        "would_a_row_help": False,
-        "row": "of3t-verbinstall",
     },
     "D210": {
         "needs": RELEASE,
