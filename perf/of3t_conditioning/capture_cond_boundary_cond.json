@@ -1,0 +1,142 @@
+{
+ "arm": "use_conditioning=True, SYNTHETIC BRANCH (the reference drew False at this step; the cotangent is theirs, the branch is not the one it was taken at)",
+ "backward_seconds": 3.2908036708831787,
+ "cotangent_complete": {
+  "absent": [],
+  "compared": 26,
+  "per_tensor": {
+   "layer_norm_n.weight": 0.676961979332664,
+   "layer_norm_s.weight": 1.0203914254693665,
+   "layer_norm_z.weight": 2.1919509266570785,
+   "linear_n.weight": 0.8039072822260435,
+   "linear_s.weight": 1.0830341155041217,
+   "linear_z.weight": 2.1651673065611647,
+   "transition_s.0.layer_norm.bias": 0.9618019103959675,
+   "transition_s.0.layer_norm.weight": 1.0480089425080095,
+   "transition_s.0.linear_out.weight": 1.002002808627974,
+   "transition_s.0.swiglu.linear_a.weight": 1.0061771104750994,
+   "transition_s.0.swiglu.linear_b.weight": 1.015573159079734,
+   "transition_s.1.layer_norm.bias": 0.7623250748858621,
+   "transition_s.1.layer_norm.weight": 0.47001664589055764,
+   "transition_s.1.linear_out.weight": 0.9423888802787274,
+   "transition_s.1.swiglu.linear_a.weight": 0.8576818352503109,
+   "transition_s.1.swiglu.linear_b.weight": 0.8014356884477658,
+   "transition_z.0.layer_norm.bias": 2.9692474878682087,
+   "transition_z.0.layer_norm.weight": 2.6507825068370026,
+   "transition_z.0.linear_out.weight": 1.2556570731540972,
+   "transition_z.0.swiglu.linear_a.weight": 2.605946754488714,
+   "transition_z.0.swiglu.linear_b.weight": 1.8841387332251516,
+   "transition_z.1.layer_norm.bias": 1.1878446725708265,
+   "transition_z.1.layer_norm.weight": 1.7176241579732054,
+   "transition_z.1.linear_out.weight": 0.6366261203039472,
+   "transition_z.1.swiglu.linear_a.weight": 1.2185733762829285,
+   "transition_z.1.swiglu.linear_b.weight": 1.070582458668373
+  },
+  "reference_tensors": 26,
+  "worst_rel": 2.9692474878682087,
+  "worst_tensor": "transition_z.0.layer_norm.bias"
+ },
+ "cotangent_complete_what": "A20: the 26 parameter gradients obtained by seeding cond_out with cond_out_cot, against the reference's own float64 gradients for the same parameters taken through the whole diffusion module. Agreement means the conditioning's parameters reach the loss through this boundary alone",
+ "cotangent_complete_what_note": "on the forced arm neither check can be zero and neither is claimed as one: the module is the same object validated on the drawn branch, and these two numbers say how far the two branches are apart",
+ "dc_config": {
+  "c_fourier_emb": 256,
+  "c_s": 384,
+  "c_s_input": 449,
+  "c_z": 128,
+  "linear_init_params": "linear_n:\n  bias: false\n  init: default\nlinear_s:\n  bias: false\n  init: default\nlinear_z:\n  bias: false\n  init: default\ntransition_s: &id001\n  linear_out:\n    bias: false\n    init: final\n  swiglu:\n    linear_a:\n      bias: false\n      init: relu\n    linear_b:\n      bias: false\n      init: relu\ntransition_z: *id001\n",
+  "max_relative_chain": 2,
+  "max_relative_idx": 32,
+  "seed_fourier_emb": 42,
+  "sigma_data": 16,
+  "tune_chunk_size": true
+ },
+ "drawn_use_conditioning": false,
+ "forced": true,
+ "forward_seconds": 1.7126193046569824,
+ "grad_f64_source": "float64 recomputed on the forced arm",
+ "n_sample": 48,
+ "n_token": 384,
+ "reproduces_cond_out": {
+  "si": 0.18605917984212178,
+  "zij": 1.041665350274958
+ },
+ "reproduces_cond_out_what": "the standalone float64 conditioning against sub_boundary's captured cond_out; this is the same function the cotangent was taken at, or nothing below it holds",
+ "saved": {
+  "bytes": 752249933,
+  "file": "/home/ttuser/of3t_cond_cap/cond_boundary_cond.pt"
+ },
+ "shapes": {
+  "forced": true,
+  "n_emb": [
+   1,
+   48,
+   256
+  ],
+  "relpos": [
+   1,
+   1,
+   384,
+   384,
+   139
+  ],
+  "si_cot": [
+   1,
+   48,
+   384,
+   384
+  ],
+  "si_input": [
+   1,
+   1,
+   384,
+   449
+  ],
+  "si_ref": [
+   1,
+   48,
+   384,
+   384
+  ],
+  "si_trunk": [
+   1,
+   1,
+   384,
+   384
+  ],
+  "sigma_data": 16.0,
+  "t": [
+   1,
+   48
+  ],
+  "token_mask": [
+   1,
+   1,
+   384
+  ],
+  "use_conditioning": true,
+  "zij_cot": [
+   1,
+   1,
+   384,
+   384,
+   128
+  ],
+  "zij_ref": [
+   1,
+   1,
+   384,
+   384,
+   128
+  ],
+  "zij_trunk": [
+   1,
+   1,
+   384,
+   384,
+   128
+  ]
+ },
+ "sigma_data": 16.0,
+ "token_mask_real": 56,
+ "use_conditioning": true
+}
