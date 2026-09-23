@@ -145,7 +145,8 @@ under 1024:
 
 Ask for more than a model's limit and tt-bio refuses before it opens a device, naming the
 model, the limit and any model that does take the input. `nesso1` has no measured
-limit and is never refused.
+limit and is never refused. What sets each wall is in
+[docs/large-targets.md](docs/large-targets.md#what-stops-each-model-above-1024-on-a-galaxy-chip).
 
 `boltzgen` is the one model sized on atoms rather than residues, because its wall follows the
 target's atom count and atoms per residue vary with what the target is made of: the 14786-atom

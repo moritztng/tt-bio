@@ -90,3 +90,19 @@ half of DRAM free because no single hole is big enough — 992 residues on OpenD
 one, and that band takes row blocks whatever the token threshold says. Anything below it keeps
 the byte-identical unblocked path, and on a 32 GiB Blackhole part the bound is above every size
 the models reach, so Blackhole never changes path.
+
+## What stops each model above 1024 on a Galaxy chip
+
+Walked on one j10glx02 chip with an 8192-row alignment (OpenFold3 at 14190), the first failure
+of every model that clears 1536 is a single pair-sized allocation on a chip that is already about
+90 % full:
+
+- `boltz2` folds 1664 and fails at 1792 in the confidence module's relative-position gather, one
+  1792×1792×128 pair tensor that no free block can hold.
+- `protenix-v1` folds 1536 and fails at 1664 in the diffusion conditioner's pair transition, which
+  asks for more than the chip has free.
+- `rf3` folds 1536 and fails at 1600 in the ending-node triangle attention's pair transpose, with
+  enough memory free but no block large enough.
+
+`openfold3` stops at 1088, in the MSA track's transition. The measured rows, with commits, wall
+times and allocation sizes, are in `tt_bio/size_limits.py`.
