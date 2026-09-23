@@ -166,9 +166,9 @@ the frame), A37 (a projection is a PREDICTION, never a TARGET, and no bar may be
 one), A34 (both sides of a per-parameter comparison on the SAME boundary). PROTOCOL carries all
 forty-one.
 
-ROWS: **one hundred thirty-two dispatched, one hundred thirty-one concluded** (counts restamped from disk by `perf/of3t_orchestrator/stamp_row_counts.py` at the next compose, which is the only thing that may edit them). **Live at pass 420: `of3t-fullstep64` only (qb2 card 1; A40 control passed, scoring + padding discriminator). Concluded since 418: `of3t-stackbound` GO (4hhb 384/384 real: SHIP 0.9029x, SL 0.8878x, S 0.8667x, SLZ 0.8179x the 0.2224 bar; S/L sub-additive, I = -0.0264; branch `wk/of3t-stackbound` 62c30c27a), plus stackship and cropwall GO.** History: `state/of3t/PASSLOG.md`.
+ROWS: **one hundred thirty-three dispatched, one hundred thirty-two concluded** (counts restamped from disk by `perf/of3t_orchestrator/stamp_row_counts.py` at the next compose, which is the only thing that may edit them). **Live at pass 421: `of3t-inproj` (qb2 card 1; D254 + D255). Concluded since 420: `of3t-fullstep64` GO (D253 fixed at `77d0ec8aa`; global rel ON 0.1455 / OFF 0.1495 / bf16 0.1000; found D254, D255).** History: `state/of3t/PASSLOG.md`.
 
-SEQUENCE: **pass 420.** `of3t-fullstep64` (live, qb2 card 1) is the critical path and now owns the fix. Its A40 control passed (FD rel 3.38e-8 at h 1e-5), and it named the full-step defect: D253, the training forward calls the trunk without the pair and attention masks inference passes; the `--trunk-masks` diagnostic takes 128-wide global rel 27.3 -> 0.150. Brief amended (both hosts): land the two-kwarg fix in `tt_bio/train/openfold3.py`, regenerate the 384 float64 reference (pc `/tmp/of3t` was deleted by disk_guard at 10:40Z, 20.8 GB, an infrastructure loss rather than a defect), score fixed ON/OFF with A/A and a pad-invariance control. Held behind it: an SLZ arm on both boundaries (D252). This step has no diffusion loss terms (mse and smooth_lddt skipped on both sides), so its verdict covers trunk, distogram and confidence. History: `state/of3t/PASSLOG.md`.
+SEQUENCE: **pass 421.** `of3t-inproj` (qb2 card 1) is the critical path: D254 (473 trimul in-projection leaves get no gradient, so they would never train) outranks everything, then D255 (resolved objective averages over pads), float64 reference regenerated after D255 because it runs through our objective, full step re-scored. Held behind it: the SLZ arm on both boundaries (D252). D253's fix (`77d0ec8aa`) is composed into `wk/of3t`. History: `state/of3t/PASSLOG.md`.
 
 BRANCH: **`wk/of3t`, one reviewable branch — and at pass 379 the D149 block is CLEARED.** `of3t-cotterm` fixed `armapb.py` and `refapb.py`, the ratchet reports empty with its probe firing, and `compose_verify.sh` now runs to its scoreboard gate. What had been holding the composition since 15:22 was then four drift items, all mine and all bookkeeping: a D18 entry whose body three consecutive rotations had cut mid-sentence leaving a dangling hypothesis, two stale row counts, and a VERDICT field 5,436 chars against its 4,000 cap. All four fixed this pass — the narrative moved to PASSLOG, which is what it is for. **The cap is not bureaucracy: this doc is re-read every pass and its size is a recurring cost.** History: `state/of3t/PASSLOG.md`.
 
@@ -340,7 +340,7 @@ applied (`perf/of3t_orchestrator/a16/instrument_a_bundle_A16_block0_tbshipped.js
 of unit norm ratio at cos > 0.99). Restored here for the same reason as the three above: the
 rotation took it and a number a reader treats as the claim must sit in the fields they read.
 
-GAP: **Pass 420.** (1) D253, the full-step defect common to ON and OFF, is named (unmasked training trunk; `msa_module` 9.13 / 5.92 vs float64 0.0091) and assigned to `of3t-fullstep64`; GO waits on the fixed arm's full-step score. (2) Diffusion loss terms are outside every full-step reading so far; the diffusion module's per-parameter reading stands from earlier rows (1.95x residual). Closed this pass: the second-boundary question (`of3t-stackbound` GO, 4hhb 384/384 real: SHIP 0.9029x, SL 0.8878x the 0.2224 bar, so the clause clears on both boundaries; the 5nw3 S/L interaction was a pad-population property, I = -0.0264 here). D252: the default's exact LayerNorm is inert on a full boundary; SL stays until an SLZ arm reads both boundaries after D253. Standing: 2.0150 % unread mass; D250 (bf16 pair residual `z`, inference-side, Moritz's call, owed an Angstrom reading; SLZ closes 74 % of the trunk's float64 error on 4hhb); crop 640 is a single-card capacity wall. Earlier GAP text: PASSLOG.
+GAP: **Pass 421.** (1) D254: every TriangleMultiplication in-projection is a leaf with `.grad` None (473 tensors, 9.70e-4 of float64 mass), a gradient-correctness defect; `of3t-inproj` owns it. (2) D255: the resolved objective reads pads, the confidence head's gap to bf16; same row. (3) Both arms sit above upstream bf16 on the full step (global 0.146 vs 0.100; MSA-side sections 2-3x bf16), which is D250's known bf16 pair residual, Moritz's call, owed an Angstrom reading. (4) D252: the default's exact LayerNorm was chosen on a pad-dominated boundary and is inert on a full one; the SLZ arm on both boundaries waits behind `of3t-inproj`. (5) Diffusion loss terms are outside every full-step reading; the diffusion module's per-parameter reading stands from earlier rows (1.95x residual). Closed at 420-421: D253 (trunk masks; global rel 2.612 -> 0.1455, ON no farther from float64 than OFF) and the second-boundary question (`of3t-stackbound` GO). Standing: 2.0150 % unread mass; crop 640 is a single-card capacity wall. Earlier GAP text: PASSLOG.
 an unknown: D245.** The host float64 softmax reaches 1.0525x only through `perf/of3t_bwdaccum/
 dev_cot.py` rewriting `tt._VERBS` from a perf script; the site-selector install that could ship
 reads 0.5605347900452246 against float64 where the harness arm reads 0.41752141981218177. Until
@@ -402,7 +402,7 @@ can grade it.**
 
 UNFIXED, by ID, besides those named above (each entry in `state/of3t/DEFECTS.md`): D2, D3, D10, D18, D22, D23, D24, D26, D27, D28, D32, D35, D37, D42, D46, D48, D49, D51, D53, D55, D59, D62, D63, D64, D69, D71, D73, D78, D82, D86, D89, D91, D92, D93, D94, D110, D112, D118, D119, D120, D121, D122, D123, D124, D125, D136, D140, D141, D148, D152, D158, D163, D180, D183, D184, D186, D187, D189, D190, D191, D192, D193, D194, D195, D196, D197, D198, D200, D202, D204, D205, D207, D208, D209, D210, D211, D213, D214, D217, D219, D222, D223, D224, D225, D227, D231, D232, D233, D235, D237, D240, D241, D249.
 
-VERDICT: PARTIAL, stamped pass 420, 2026-09-23 — **still working, which is what PARTIAL means.** Since 419: fullstep64's float64 reference passed its FD control, and stackbound closed the second-boundary gap in the clause's favour. GO is blocked by one thing, the full-step MSA-module gradient defect common to ON and OFF, now being localised on a validated reference.
+VERDICT: PARTIAL, stamped pass 421, 2026-09-23 — **still working, which is what PARTIAL means.** `of3t-fullstep64` fixed D253 (unmasked training trunk) and ON is now no farther from float64 than OFF on the full step. GO is blocked by D254: 473 triangle-multiplication in-projection weights receive no gradient, so the gradients are not yet all correct. `of3t-inproj` is dispatched on it and on D255.
 **The clause-clearing arm is the shipped training default.** `of3t-stackship` put exact softmax +
 exact LayerNorm on the training tape, gated on the stack's `install()` (training-only, no env var,
 off switch `exact_training(False)` / `--device-ops`), and the shipped path reproduces the SL arm
@@ -411,7 +411,7 @@ is unchanged by digest and exact-op counters on OpenFold3, Protenix-v2 and AF2-I
 training step (179.6 s off, 1504.9 s on, AICLK median 1350, box not quiet), recorded as debt per
 Moritz's fidelity-first direction.
 
-**Why this is not yet GO.** The clause clears on two boundaries (5nw3 56/384 real at 0.9823x, 4hhb 384/384 real at 0.8878x, SHIP alone 0.9029x there). The full step does not: both device arms carry the MSA-module excess above, so GRADIENTS flips only after that defect is named, fixed and re-scored.
+**Why this is not yet GO.** The clause clears on two boundaries (5nw3 56/384 real at 0.9823x, 4hhb 384/384 real at 0.8878x). On the full step, D253's fix brought both arms to global rel 0.1455 (ON) / 0.1495 (OFF) against float64, bf16 0.1000, so the exact default is no farther from float64 than the switch it replaced. What blocks GO is D254: 473 triangle-multiplication in-projection leaves carry no gradient, so not every gradient is correct yet. D255 (resolved objective over pads) rides with it on `of3t-inproj`.
 
 `of3t-cropwall` GO: the 576 wall was D248 (tiled padding in the `nlp_create_qkv_heads` and
 `concat_heads` gradients, 90.6 % padding), fixed on its branch with bit-identical gradients at
@@ -422,11 +422,11 @@ or better than upstream's own bf16 step, **49.8019 %** worse, **2.0150 %** unrea
 the pre-D242 functional, not yet re-scored on the default arm.
 
 Exit criterion **2 of 3** in `CHARTER_EVIDENCE.json` (COVERAGE and TRAJECTORY MET); GRADIENTS
-flips only on fullstep64 + stackbound.
+flips on `of3t-inproj` (D254, D255) with fullstep64 and stackbound already GO.
 
-**Counts** (`stamp_row_counts.py`): 132 dispatched; `state/concluded` holds **one hundred thirty-three** of3t files, two this row's own markers, so **131 rows have concluded**.
-**Two hundred fifty-three defects filed**, **98 UNFIXED** (5
-scope-excluded, 8 USER-FACING, 85 campaign-internal). D251 (stackship's tape-vs-install gate) is filed fixed on its branch.
+**Counts** (`stamp_row_counts.py`): `state/concluded` holds **one hundred thirty-four** of3t files, so **one hundred thirty-two rows have concluded**.
+**Two hundred fifty-five defects filed**, **99 UNFIXED** (5
+scope-excluded, 8 USER-FACING, 86 campaign-internal). D251 (stackship's tape-vs-install gate) is filed fixed on its branch.
 
 **Nothing merged; the exact default lives on `wk/of3t-stackship`, release-gated.** Per-pass
 narrative in PASSLOG.
