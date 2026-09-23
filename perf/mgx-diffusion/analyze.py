@@ -45,7 +45,8 @@ def fit(pts):
 
 
 def main():
-    base = [r for r in rows if r.get("recycles") is None]
+    # --max_parallel_samples points are chunk.py's; the ladder is the shipped default width
+    base = [r for r in rows if r.get("recycles") is None and r.get("mps") is None]
     print(f"engine tree {ENGINE[:12]}, commits {sorted({r['commit'][:9] for r in rows})}")
     print("LADDER (samples x tokens; time = production steps, warm, probe off; memory = 6-step probe folds)")
     cell = defaultdict(dict)
@@ -107,6 +108,14 @@ def main():
         pts.sort()
         print(f"  mem {m:14s} {t:5d}: " + ", ".join(
             f"S={s}: {p:.2f}" + (f" ({sp:.2f})" if sp else "") for s, p, sp in pts))
+
+    print("\nCEILING (largest tokens x samples that folded, and every failure, per model)")
+    for m in sorted({r["model"] for r in base}):
+        ok = [r for r in base if r["model"] == m and not fail(r) and r.get("n_struct") == r["samples"]]
+        bad = [r for r in base if r["model"] == m and fail(r)]
+        top = max(ok, key=lambda r: (r["tokens"], r["samples"]), default=None)
+        print(f"  {m:14s} top " + (f"{top['tokens']} x {top['samples']}" if top else "none")
+              + "".join(f"\n      FAIL {r['tokens']} x {r['samples']}: {fail(r)[:140]}" for r in bad))
 
     print("\nRECYCLES (cycles run per request, progress stream)")
     for r in sorted((r for r in rows if r.get("recycles") is not None),
