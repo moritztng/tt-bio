@@ -43,6 +43,11 @@ for f in $fixtures; do
       echo "== $m $f s$s $(date -u +%FT%TZ)"
       "$v/bin/python" perf/mgx/ref/ref_fold.py --model "$m" --fixture "$f" --seed "$s" \
         --out "$OUT" --dtype "${MGX_DTYPE:-fp32}" > "$OUT/$m/$f/s$s.log" 2>&1
+      # The protenix family catches an OOM, logs it and exits 0, so ref_fold.py only sees a
+      # missing structure. The log is the evidence; relabel so the bf16 fallback can find it.
+      if grep -q '"status": "error"' "$rec" && grep -qi "out of memory" "$OUT/$m/$f/s$s.log"; then
+        sed -i 's/"status": "error"/"status": "oom"/' "$rec"
+      fi
       tail -1 "$OUT/$m/$f/s$s.log"
     done
   done
