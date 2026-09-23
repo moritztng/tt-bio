@@ -8644,15 +8644,34 @@ class AttentionPairBias(Module):
         for a fixed z (e.g. the diffusion trunk pair_z, constant across all sampling
         steps) it can be computed ONCE and replayed via __call__(bias_precomputed=True),
         instead of recomputing this NxNxc_z layer_norm+linear every call. Uses the same
-        (head_dim**0.5-scaled) z_weight as the inline path, so the result is identical."""
-        z = ttnn.layer_norm(
-            z, weight=self.z_norm_weight, bias=self.z_norm_bias, epsilon=1e-5,
-            compute_kernel_config=self.compute_kernel_config,
-        )
-        z = ttnn.linear(
-            z, self.z_weight, compute_kernel_config=self.compute_kernel_config, core_grid=CORE_GRID_MAIN,
-        )
-        return ttnn.permute(z, (0, 3, 1, 2))
+        (head_dim**0.5-scaled) z_weight as the inline path, so the result is identical.
+
+        After DRAM refuses the whole-tensor norm (the DiT's fp32 pair is 4.6 GB at 2987 tokens,
+        normed once per block beside every bias already built) the same three ops run on row
+        blocks and the per-head strips join on the row axis, in z's own dtype."""
+        def bias(x):
+            x = ttnn.layer_norm(
+                x, weight=self.z_norm_weight, bias=self.z_norm_bias, epsilon=1e-5,
+                compute_kernel_config=self.compute_kernel_config,
+            )
+            x = ttnn.linear(
+                x, self.z_weight, compute_kernel_config=self.compute_kernel_config, core_grid=CORE_GRID_MAIN,
+            )
+            return ttnn.permute(x, (0, 3, 1, 2))
+
+        def rows(n):
+            S = int(z.shape[1])
+            parts = [bias(z[:, s:min(s + n, S)]) for s in range(0, S, n)]
+            if len(parts) == 1:
+                return parts[0]
+            out = ttnn.concat(parts, dim=2)
+            for p in parts:
+                ttnn.deallocate(p)
+            return out
+
+        return row_block_after_refusal(
+            _APB_BIAS_REFUSED, ("compute_bias", tuple(z.padded_shape), str(z.dtype)),
+            lambda: bias(z), rows, rows=PAIR_ROW_BLOCK, tag="pair bias")
 
     def _attention(
         self,

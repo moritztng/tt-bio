@@ -60,3 +60,42 @@ def test_token_dit_is_the_same_with_parked_biases(monkeypatch, fp32):
     biases, parked = dit()
     assert all(b.storage_type() != ttnn.StorageType.DEVICE for b in biases)
     assert torch.equal(parked, resident), (parked - resident).abs().max()
+
+
+@pytest.mark.parametrize("fp32", [True, False])
+def test_row_blocked_compute_bias_is_the_whole_one(monkeypatch, fp32):
+    """Each of the 24 precomputes norms the whole DiT pair beside the biases already built; after
+    a refusal it runs on row blocks, in the pair's own dtype. 96 tokens = a 64-row block and a
+    32-row tail."""
+    from tt_bio import weights
+    from tt_bio.protenix import DiffusionModule
+
+    ckpt = weights.resolve("protenix-v2")
+    if ckpt is None:
+        pytest.skip("protenix-v2 checkpoint not present")
+    sd = torch.load(ckpt, map_location="cpu", weights_only=True, mmap=True)
+    sd = sd.get("model", sd)
+    pfx = "module.diffusion_module."
+    sd = {k[len(pfx):]: v for k, v in sd.items() if k.startswith(pfx)}
+    dev = T.get_device()
+    ck = ttnn.init_device_compute_kernel_config(
+        dev.arch(), math_fidelity=ttnn.MathFidelity.HiFi4, fp32_dest_acc_en=True)
+    dm = DiffusionModule(sd, dev, ck, diffusion_fp32=fp32)
+    torch.manual_seed(5)
+    NT = 96
+    z = dm._dit_z_device(torch.randn(NT, NT, sd["diffusion_conditioning.layernorm_z.weight"].shape[0] // 2))
+    apb = dm._dit[0][1]
+    whole = apb.compute_bias(z)
+    assert T._APB_BIAS_REFUSED == {}, "the whole norm was refused at 96 tokens"
+
+    class _Refused(dict):
+        def __contains__(self, key):
+            return True
+
+        def get(self, key, default=None):
+            return 64
+
+    monkeypatch.setattr(T, "_APB_BIAS_REFUSED", _Refused())
+    blocked = apb.compute_bias(z)
+    assert blocked.dtype == whole.dtype and tuple(blocked.shape) == tuple(whole.shape)
+    assert torch.equal(ttnn.to_torch(blocked), ttnn.to_torch(whole))
