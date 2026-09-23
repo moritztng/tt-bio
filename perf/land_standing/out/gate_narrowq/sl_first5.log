@@ -1,0 +1,101 @@
+[release-gate] granted card(s) [2]
+[release-gate] scoring tt_bio from /home/ttuser/.coworker/wt/land-standing/tt_bio (commit 243f30bb2)
+
+======================================================================
+[size-ladder] checking for card p300c: boltz2, esmfold2, protenix-v1, protenix-v2, openfold3 at rungs 256,512,640,768,896,1024
+[size-ladder] predict folds: 6 steps, 1 sample, seed 0, single-sequence
+======================================================================
+[card-recovery] resetting card 2 (board pair 2/3) after a wedge-kill
+[card-recovery] card 2 reset, no fd holders
+
+##############################################################################
+RELEASE GATE — size-ladder (rungs 256,512,640,768,896,1024, 6 steps / 1 sample, seed 0, single-sequence, card p300c)
+##############################################################################
+model              256aa    512aa    640aa    768aa    896aa   1024aa  k256->512  k512->768     wall  result
+boltz2              4.4s    11.0s    17.4s    25.8s    38.1s    49.0s       1.32       2.10    7063s  FAIL (boltz2/256 REBLOCK_PERMUTE: decline clause ['window_BufferType.L1'] -> ['back_l1_src_narrow', 'gated_window_BufferType.L1', 'window_BufferType.L1']; boltz2/256 SDPA_WIDE_K: resolved 'False' -> 'True' (default or threshold constant changed); boltz2/256 TRIATT_SDPA_HIFI: new lever not in the baseline (re-record with --size-ladder-record); boltz2/512 SDPA_WIDE_K: resolved 'False' -> 'True' (default or threshold constant changed); boltz2/512 TRIATT_SDPA_HIFI: new lever not in the baseline (re-record with --size-ladder-record); boltz2/640 SDPA_WIDE_K: resolved 'False' -> 'True' (default or threshold constant changed); boltz2/640 TRIATT_SDPA_HIFI: new lever not in the baseline (re-record with --size-ladder-record); boltz2/768 SDPA_WIDE_K: resolved 'False' -> 'True' (default or threshold constant changed); boltz2/768 TRIATT_SDPA_HIFI: new lever not in the baseline (re-record with --size-ladder-record); boltz2/896 SDPA_WIDE_K: resolved 'False' -> 'True' (default or threshold constant changed); boltz2/896 TRIATT_SDPA_HIFI: new lever not in the baseline (re-record with --size-ladder-record); boltz2/1024 SDPA_WIDE_K: resolved 'False' -> 'True' (default or threshold constant changed); boltz2/1024 TRIATT_SDPA_HIFI: new lever not in the baseline (re-record with --size-ladder-record))
+    FAIL boltz2/256 REBLOCK_PERMUTE: decline clause ['window_BufferType.L1'] -> ['back_l1_src_narrow', 'gated_window_BufferType.L1', 'window_BufferType.L1']
+    FAIL boltz2/256 SDPA_WIDE_K: resolved 'False' -> 'True' (default or threshold constant changed)
+    FAIL boltz2/256 TRIATT_SDPA_HIFI: new lever not in the baseline (re-record with --size-ladder-record)
+    FAIL boltz2/512 SDPA_WIDE_K: resolved 'False' -> 'True' (default or threshold constant changed)
+    FAIL boltz2/512 TRIATT_SDPA_HIFI: new lever not in the baseline (re-record with --size-ladder-record)
+    FAIL boltz2/640 SDPA_WIDE_K: resolved 'False' -> 'True' (default or threshold constant changed)
+    FAIL boltz2/640 TRIATT_SDPA_HIFI: new lever not in the baseline (re-record with --size-ladder-record)
+    FAIL boltz2/768 SDPA_WIDE_K: resolved 'False' -> 'True' (default or threshold constant changed)
+    FAIL boltz2/768 TRIATT_SDPA_HIFI: new lever not in the baseline (re-record with --size-ladder-record)
+    FAIL boltz2/896 SDPA_WIDE_K: resolved 'False' -> 'True' (default or threshold constant changed)
+    FAIL boltz2/896 TRIATT_SDPA_HIFI: new lever not in the baseline (re-record with --size-ladder-record)
+    FAIL boltz2/1024 SDPA_WIDE_K: resolved 'False' -> 'True' (default or threshold constant changed)
+    FAIL boltz2/1024 TRIATT_SDPA_HIFI: new lever not in the baseline (re-record with --size-ladder-record)
+esmfold2           16.2s    48.6s    71.3s   105.9s   156.1s   189.8s       1.58       1.92    7063s  FAIL (esmfold2/256 REBLOCK_PERMUTE: decline clause ['window_BufferType.L1'] -> ['back_l1_src_narrow', 'gated_window_BufferType.L1', 'window_BufferType.L1']; esmfold2/256 SDPA_WIDE_K: resolved 'False' -> 'True' (default or threshold constant changed); esmfold2/256 TRIATT_SDPA_HIFI: new lever not in the baseline (re-record with --size-ladder-record); esmfold2/512 SDPA_WIDE_K: resolved 'False' -> 'True' (default or threshold constant changed); esmfold2/512 TRIATT_SDPA_HIFI: new lever not in the baseline (re-record with --size-ladder-record); esmfold2/640 PAIR_PROJ_MINIMAL_MATMUL: frac 0.000 -> 1.000 (started firing); esmfold2/640 QKV_MM_CONFIG: frac 0.000 -> 1.000 (started firing); esmfold2/640 SDPA_WIDE_K: resolved 'False' -> 'True' (default or threshold constant changed); esmfold2/640 TRIATT_SDPA_HIFI: new lever not in the baseline (re-record with --size-ladder-record); esmfold2/768 PAIR_PROJ_MINIMAL_MATMUL: frac 0.000 -> 1.000 (started firing); esmfold2/768 QKV_MM_CONFIG: frac 0.000 -> 1.000 (started firing); esmfold2/768 SDPA_WIDE_K: resolved 'False' -> 'True' (default or threshold constant changed); esmfold2/768 TRIATT_SDPA_HIFI: new lever not in the baseline (re-record with --size-ladder-record); esmfold2/896 PAIR_PROJ_MINIMAL_MATMUL: frac 0.000 -> 0.500 (started firing); esmfold2/896 QKV_MM_CONFIG: frac 0.000 -> 1.000 (started firing); esmfold2/896 SDPA_WIDE_K: resolved 'False' -> 'True' (default or threshold constant changed); esmfold2/896 TRIATT_SDPA_HIFI: new lever not in the baseline (re-record with --size-ladder-record); esmfold2/1024 PAIR_PROJ_MINIMAL_MATMUL: frac 0.000 -> 0.500 (started firing); esmfold2/1024 QKV_MM_CONFIG: frac 0.000 -> 1.000 (started firing); esmfold2/1024 SDPA_WIDE_K: resolved 'False' -> 'True' (default or threshold constant changed); esmfold2/1024 TRIATT_SDPA_HIFI: new lever not in the baseline (re-record with --size-ladder-record))
+    FAIL esmfold2/256 REBLOCK_PERMUTE: decline clause ['window_BufferType.L1'] -> ['back_l1_src_narrow', 'gated_window_BufferType.L1', 'window_BufferType.L1']
+    FAIL esmfold2/256 SDPA_WIDE_K: resolved 'False' -> 'True' (default or threshold constant changed)
+    FAIL esmfold2/256 TRIATT_SDPA_HIFI: new lever not in the baseline (re-record with --size-ladder-record)
+    FAIL esmfold2/512 SDPA_WIDE_K: resolved 'False' -> 'True' (default or threshold constant changed)
+    FAIL esmfold2/512 TRIATT_SDPA_HIFI: new lever not in the baseline (re-record with --size-ladder-record)
+    FAIL esmfold2/640 PAIR_PROJ_MINIMAL_MATMUL: frac 0.000 -> 1.000 (started firing)
+    FAIL esmfold2/640 QKV_MM_CONFIG: frac 0.000 -> 1.000 (started firing)
+    FAIL esmfold2/640 SDPA_WIDE_K: resolved 'False' -> 'True' (default or threshold constant changed)
+    FAIL esmfold2/640 TRIATT_SDPA_HIFI: new lever not in the baseline (re-record with --size-ladder-record)
+    FAIL esmfold2/768 PAIR_PROJ_MINIMAL_MATMUL: frac 0.000 -> 1.000 (started firing)
+    FAIL esmfold2/768 QKV_MM_CONFIG: frac 0.000 -> 1.000 (started firing)
+    FAIL esmfold2/768 SDPA_WIDE_K: resolved 'False' -> 'True' (default or threshold constant changed)
+    FAIL esmfold2/768 TRIATT_SDPA_HIFI: new lever not in the baseline (re-record with --size-ladder-record)
+    FAIL esmfold2/896 PAIR_PROJ_MINIMAL_MATMUL: frac 0.000 -> 0.500 (started firing)
+    FAIL esmfold2/896 QKV_MM_CONFIG: frac 0.000 -> 1.000 (started firing)
+    FAIL esmfold2/896 SDPA_WIDE_K: resolved 'False' -> 'True' (default or threshold constant changed)
+    FAIL esmfold2/896 TRIATT_SDPA_HIFI: new lever not in the baseline (re-record with --size-ladder-record)
+    FAIL esmfold2/1024 PAIR_PROJ_MINIMAL_MATMUL: frac 0.000 -> 0.500 (started firing)
+    FAIL esmfold2/1024 QKV_MM_CONFIG: frac 0.000 -> 1.000 (started firing)
+    FAIL esmfold2/1024 SDPA_WIDE_K: resolved 'False' -> 'True' (default or threshold constant changed)
+    FAIL esmfold2/1024 TRIATT_SDPA_HIFI: new lever not in the baseline (re-record with --size-ladder-record)
+protenix-v1        12.2s    22.4s    28.7s    38.4s    50.9s    64.1s       0.88       1.33    7063s  FAIL (protenix-v1/256 REBLOCK_PERMUTE: decline clause ['window_BufferType.L1'] -> ['back_l1_src_narrow', 'gated_window_BufferType.L1', 'window_BufferType.L1']; protenix-v1/256 SDPA_WIDE_K: resolved 'False' -> 'True' (default or threshold constant changed); protenix-v1/256 TRIATT_SDPA_HIFI: new lever not in the baseline (re-record with --size-ladder-record); protenix-v1/512 SDPA_WIDE_K: resolved 'False' -> 'True' (default or threshold constant changed); protenix-v1/512 TRIATT_SDPA_HIFI: new lever not in the baseline (re-record with --size-ladder-record); protenix-v1/640 SDPA_WIDE_K: resolved 'False' -> 'True' (default or threshold constant changed); protenix-v1/640 TRIATT_SDPA_HIFI: new lever not in the baseline (re-record with --size-ladder-record); protenix-v1/768 SDPA_WIDE_K: resolved 'False' -> 'True' (default or threshold constant changed); protenix-v1/768 TRIATT_SDPA_HIFI: new lever not in the baseline (re-record with --size-ladder-record); protenix-v1/896 SDPA_WIDE_K: resolved 'False' -> 'True' (default or threshold constant changed); protenix-v1/896 TRIATT_SDPA_HIFI: new lever not in the baseline (re-record with --size-ladder-record); protenix-v1/1024 SDPA_WIDE_K: resolved 'False' -> 'True' (default or threshold constant changed); protenix-v1/1024 TRIATT_SDPA_HIFI: new lever not in the baseline (re-record with --size-ladder-record))
+    FAIL protenix-v1/256 REBLOCK_PERMUTE: decline clause ['window_BufferType.L1'] -> ['back_l1_src_narrow', 'gated_window_BufferType.L1', 'window_BufferType.L1']
+    FAIL protenix-v1/256 SDPA_WIDE_K: resolved 'False' -> 'True' (default or threshold constant changed)
+    FAIL protenix-v1/256 TRIATT_SDPA_HIFI: new lever not in the baseline (re-record with --size-ladder-record)
+    FAIL protenix-v1/512 SDPA_WIDE_K: resolved 'False' -> 'True' (default or threshold constant changed)
+    FAIL protenix-v1/512 TRIATT_SDPA_HIFI: new lever not in the baseline (re-record with --size-ladder-record)
+    FAIL protenix-v1/640 SDPA_WIDE_K: resolved 'False' -> 'True' (default or threshold constant changed)
+    FAIL protenix-v1/640 TRIATT_SDPA_HIFI: new lever not in the baseline (re-record with --size-ladder-record)
+    FAIL protenix-v1/768 SDPA_WIDE_K: resolved 'False' -> 'True' (default or threshold constant changed)
+    FAIL protenix-v1/768 TRIATT_SDPA_HIFI: new lever not in the baseline (re-record with --size-ladder-record)
+    FAIL protenix-v1/896 SDPA_WIDE_K: resolved 'False' -> 'True' (default or threshold constant changed)
+    FAIL protenix-v1/896 TRIATT_SDPA_HIFI: new lever not in the baseline (re-record with --size-ladder-record)
+    FAIL protenix-v1/1024 SDPA_WIDE_K: resolved 'False' -> 'True' (default or threshold constant changed)
+    FAIL protenix-v1/1024 TRIATT_SDPA_HIFI: new lever not in the baseline (re-record with --size-ladder-record)
+protenix-v2        18.5s    55.8s    85.7s   121.8s   159.2s   201.4s       1.59       1.93    7063s  FAIL (protenix-v2/256 PAIR_PROJ_MINIMAL_MATMUL: decline clause ['k_tiles=2:(2,1)', 'no_mm_block:(8,1)'] -> []; protenix-v2/256 QKV_MM_CONFIG: decline clause ['no_mm_block:(2,6)', 'no_mm_block:(2,8)', 'no_mm_block:(2,9)', 'no_mm_block:(8,1)', 'no_mm_block:(8,32)', 'no_mm_block:(8,33)'] -> []; protenix-v2/256 REBLOCK_PERMUTE: decline clause ['window_BufferType.L1'] -> ['back_l1_src_narrow', 'gated_window_BufferType.L1', 'window_BufferType.L1']; protenix-v2/256 SDPA_WIDE_K: resolved 'False' -> 'True' (default or threshold constant changed); protenix-v2/256 TRIATT_HEAD_MAJOR_QKV: decline clause ['no_mm_config'] -> []; protenix-v2/256 TRIATT_SDPA_HIFI: new lever not in the baseline (re-record with --size-ladder-record); protenix-v2/512 PAIR_PROJ_MINIMAL_MATMUL: decline clause ['k_tiles=2:(2,1)', 'no_mm_block:(8,1)'] -> []; protenix-v2/512 QKV_MM_CONFIG: decline clause ['no_mm_block:(2,6)', 'no_mm_block:(2,8)', 'no_mm_block:(2,9)', 'no_mm_block:(8,1)', 'no_mm_block:(8,32)', 'no_mm_block:(8,33)'] -> []; protenix-v2/512 SDPA_WIDE_K: resolved 'False' -> 'True' (default or threshold constant changed); protenix-v2/512 TRIATT_HEAD_MAJOR_QKV: decline clause ['no_mm_config'] -> []; protenix-v2/512 TRIATT_SDPA_HIFI: new lever not in the baseline (re-record with --size-ladder-record); protenix-v2/640 PAIR_PROJ_MINIMAL_MATMUL: decline clause ['k_tiles=2:(2,1)', 'no_mm_block:(8,1)'] -> []; protenix-v2/640 QKV_MM_CONFIG: decline clause ['no_mm_block:(2,6)', 'no_mm_block:(2,8)', 'no_mm_block:(2,9)', 'no_mm_block:(8,1)', 'no_mm_block:(8,32)', 'no_mm_block:(8,33)'] -> []; protenix-v2/640 SDPA_WIDE_K: resolved 'False' -> 'True' (default or threshold constant changed); protenix-v2/640 TRIATT_HEAD_MAJOR_QKV: decline clause ['no_mm_config'] -> []; protenix-v2/640 TRIATT_SDPA_HIFI: new lever not in the baseline (re-record with --size-ladder-record); protenix-v2/768 PAIR_PROJ_MINIMAL_MATMUL: decline clause ['k_tiles=2:(2,1)', 'no_mm_block:(8,1)'] -> []; protenix-v2/768 QKV_MM_CONFIG: decline clause ['no_mm_block:(2,6)', 'no_mm_block:(2,8)', 'no_mm_block:(2,9)', 'no_mm_block:(8,1)', 'no_mm_block:(8,32)', 'no_mm_block:(8,33)'] -> []; protenix-v2/768 SDPA_WIDE_K: resolved 'False' -> 'True' (default or threshold constant changed); protenix-v2/768 TRIATT_HEAD_MAJOR_QKV: decline clause ['no_mm_config'] -> []; protenix-v2/768 TRIATT_SDPA_HIFI: new lever not in the baseline (re-record with --size-ladder-record); protenix-v2/896 PAIR_TRANSPOSE_VIA_ROW_MAJOR: frac 0.998 -> 0.868 exceeds the 0.05 band (partial darkness); protenix-v2/896 PAIR_PROJ_MINIMAL_MATMUL: decline clause ['k_tiles=2:(2,1)', 'no_mm_block:(8,1)'] -> []; protenix-v2/896 QKV_MM_CONFIG: decline clause ['no_mm_block:(2,6)', 'no_mm_block:(2,8)', 'no_mm_block:(2,9)', 'no_mm_block:(8,1)', 'no_mm_block:(8,32)', 'no_mm_block:(8,33)'] -> []; protenix-v2/896 SDPA_WIDE_K: resolved 'False' -> 'True' (default or threshold constant changed); protenix-v2/896 TRIATT_HEAD_MAJOR_QKV: decline clause ['no_mm_config'] -> []; protenix-v2/896 TRIATT_SDPA_HIFI: new lever not in the baseline (re-record with --size-ladder-record); protenix-v2/1024 PAIR_PROJ_MINIMAL_MATMUL: decline clause ['k_tiles=2:(2,1)', 'k_tiles=2:(2,2)', 'no_mm_block:(8,1)'] -> ['k_tiles=2:(2,2)']; protenix-v2/1024 QKV_MM_CONFIG: decline clause ['no_mm_block:(2,6)', 'no_mm_block:(2,8)', 'no_mm_block:(2,9)', 'no_mm_block:(8,1)', 'no_mm_block:(8,32)', 'no_mm_block:(8,33)'] -> []; protenix-v2/1024 SDPA_WIDE_K: resolved 'False' -> 'True' (default or threshold constant changed); protenix-v2/1024 TRIATT_HEAD_MAJOR_QKV: decline clause ['no_mm_config'] -> []; protenix-v2/1024 TRIATT_SDPA_HIFI: new lever not in the baseline (re-record with --size-ladder-record))
+    FAIL protenix-v2/256 PAIR_PROJ_MINIMAL_MATMUL: decline clause ['k_tiles=2:(2,1)', 'no_mm_block:(8,1)'] -> []
+    FAIL protenix-v2/256 QKV_MM_CONFIG: decline clause ['no_mm_block:(2,6)', 'no_mm_block:(2,8)', 'no_mm_block:(2,9)', 'no_mm_block:(8,1)', 'no_mm_block:(8,32)', 'no_mm_block:(8,33)'] -> []
+    FAIL protenix-v2/256 REBLOCK_PERMUTE: decline clause ['window_BufferType.L1'] -> ['back_l1_src_narrow', 'gated_window_BufferType.L1', 'window_BufferType.L1']
+    FAIL protenix-v2/256 SDPA_WIDE_K: resolved 'False' -> 'True' (default or threshold constant changed)
+    FAIL protenix-v2/256 TRIATT_HEAD_MAJOR_QKV: decline clause ['no_mm_config'] -> []
+    FAIL protenix-v2/256 TRIATT_SDPA_HIFI: new lever not in the baseline (re-record with --size-ladder-record)
+    FAIL protenix-v2/512 PAIR_PROJ_MINIMAL_MATMUL: decline clause ['k_tiles=2:(2,1)', 'no_mm_block:(8,1)'] -> []
+    FAIL protenix-v2/512 QKV_MM_CONFIG: decline clause ['no_mm_block:(2,6)', 'no_mm_block:(2,8)', 'no_mm_block:(2,9)', 'no_mm_block:(8,1)', 'no_mm_block:(8,32)', 'no_mm_block:(8,33)'] -> []
+    FAIL protenix-v2/512 SDPA_WIDE_K: resolved 'False' -> 'True' (default or threshold constant changed)
+    FAIL protenix-v2/512 TRIATT_HEAD_MAJOR_QKV: decline clause ['no_mm_config'] -> []
+    FAIL protenix-v2/512 TRIATT_SDPA_HIFI: new lever not in the baseline (re-record with --size-ladder-record)
+    FAIL protenix-v2/640 PAIR_PROJ_MINIMAL_MATMUL: decline clause ['k_tiles=2:(2,1)', 'no_mm_block:(8,1)'] -> []
+    FAIL protenix-v2/640 QKV_MM_CONFIG: decline clause ['no_mm_block:(2,6)', 'no_mm_block:(2,8)', 'no_mm_block:(2,9)', 'no_mm_block:(8,1)', 'no_mm_block:(8,32)', 'no_mm_block:(8,33)'] -> []
+    FAIL protenix-v2/640 SDPA_WIDE_K: resolved 'False' -> 'True' (default or threshold constant changed)
+    FAIL protenix-v2/640 TRIATT_HEAD_MAJOR_QKV: decline clause ['no_mm_config'] -> []
+    FAIL protenix-v2/640 TRIATT_SDPA_HIFI: new lever not in the baseline (re-record with --size-ladder-record)
+    FAIL protenix-v2/768 PAIR_PROJ_MINIMAL_MATMUL: decline clause ['k_tiles=2:(2,1)', 'no_mm_block:(8,1)'] -> []
+    FAIL protenix-v2/768 QKV_MM_CONFIG: decline clause ['no_mm_block:(2,6)', 'no_mm_block:(2,8)', 'no_mm_block:(2,9)', 'no_mm_block:(8,1)', 'no_mm_block:(8,32)', 'no_mm_block:(8,33)'] -> []
+    FAIL protenix-v2/768 SDPA_WIDE_K: resolved 'False' -> 'True' (default or threshold constant changed)
+    FAIL protenix-v2/768 TRIATT_HEAD_MAJOR_QKV: decline clause ['no_mm_config'] -> []
+    FAIL protenix-v2/768 TRIATT_SDPA_HIFI: new lever not in the baseline (re-record with --size-ladder-record)
+    FAIL protenix-v2/896 PAIR_TRANSPOSE_VIA_ROW_MAJOR: frac 0.998 -> 0.868 exceeds the 0.05 band (partial darkness)
+    FAIL protenix-v2/896 PAIR_PROJ_MINIMAL_MATMUL: decline clause ['k_tiles=2:(2,1)', 'no_mm_block:(8,1)'] -> []
+    FAIL protenix-v2/896 QKV_MM_CONFIG: decline clause ['no_mm_block:(2,6)', 'no_mm_block:(2,8)', 'no_mm_block:(2,9)', 'no_mm_block:(8,1)', 'no_mm_block:(8,32)', 'no_mm_block:(8,33)'] -> []
+    FAIL protenix-v2/896 SDPA_WIDE_K: resolved 'False' -> 'True' (default or threshold constant changed)
+    FAIL protenix-v2/896 TRIATT_HEAD_MAJOR_QKV: decline clause ['no_mm_config'] -> []
+    FAIL protenix-v2/896 TRIATT_SDPA_HIFI: new lever not in the baseline (re-record with --size-ladder-record)
+    FAIL protenix-v2/1024 PAIR_PROJ_MINIMAL_MATMUL: decline clause ['k_tiles=2:(2,1)', 'k_tiles=2:(2,2)', 'no_mm_block:(8,1)'] -> ['k_tiles=2:(2,2)']
+    FAIL protenix-v2/1024 QKV_MM_CONFIG: decline clause ['no_mm_block:(2,6)', 'no_mm_block:(2,8)', 'no_mm_block:(2,9)', 'no_mm_block:(8,1)', 'no_mm_block:(8,32)', 'no_mm_block:(8,33)'] -> []
+    FAIL protenix-v2/1024 SDPA_WIDE_K: resolved 'False' -> 'True' (default or threshold constant changed)
+    FAIL protenix-v2/1024 TRIATT_HEAD_MAJOR_QKV: decline clause ['no_mm_config'] -> []
+    FAIL protenix-v2/1024 TRIATT_SDPA_HIFI: new lever not in the baseline (re-record with --size-ladder-record)
+openfold3          16.8s    28.9s    36.2s        -        -        -          -          -    7063s  FAIL (rung 768 warm-up: census fold timed out after 1800s (full log kept at perf/sizegate/failures/openfold3-768-warmup-20260923T080924Z.log))
+    FAIL rung 768 warm-up: census fold timed out after 1800s (full log kept at perf/sizegate/failures/openfold3-768-warmup-20260923T080924Z.log)
+##############################################################################
+GATE FAIL — size-ladder drift vs the recorded baseline (see above); if this change is intentional, re-record with --size-ladder-record
