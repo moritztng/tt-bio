@@ -4347,6 +4347,38 @@ def _triangle_mul_program_config(seq_len_tiles: int) -> ttnn.MatmulMultiCoreReus
     )
 
 
+def _triangle_mul_compute_config(base):
+    """The triangle product's compute config: `base`, at HiFi3 instead of HiFi4 on Wormhole.
+
+    On Wormhole a HiFi4 matmul with fp32 dest accumulation returns a few elements off by about
+    -2^k once K is large: ref 38.21 read back as -89.78, 17.15 as -46.82. The miss scales with
+    the operands, sits at the same elements across transpose_b, packer_l1_acc and the output
+    dtype, and reproduces on cards 12, 16 and 22. Against a float64 product of the same bf16
+    operands (perf/mgx_affinity/trimul_mm_variants.py, wh_fid_probe.py), this program config
+    at in0_block_w = 8 gives 1 such element in 2.1M at Kt = 16, 6 in 18.9M at Kt = 48 and 17 in
+    33.6M at Kt = 64, and a plain [16384, K] x [K, 512] gives 1 at K = 1024 and 4 at K = 2048.
+    HiFi3 gives none at any of those shapes, and Blackhole gives none at either fidelity on the
+    same inputs (pc card 0). The triangle product is the matmul whose K is the sequence, so it
+    is where the fault grows with the target.
+
+    HiFi3 drops only the A_lo*B_lo term (see _TRUNK_MATH_FIDELITY). On a correct chip that costs
+    rel L2 4.65e-4 -> 5.04e-4 at Kt = 48, against 1.7e-3 for rounding the product to bf16, and
+    Wormhole's HiFi3 product has the same rel L2 as Blackhole's, 5.039007e-4. A config that is
+    already below HiFi4 comes back unchanged.
+    """
+    if not is_wormhole() or base.math_fidelity != ttnn.MathFidelity.HiFi4:
+        return base
+    cfg = type(base)(
+        math_fidelity=ttnn.MathFidelity.HiFi3,
+        math_approx_mode=base.math_approx_mode,
+        fp32_dest_acc_en=base.fp32_dest_acc_en,
+        packer_l1_acc=base.packer_l1_acc,
+    )
+    cfg.dst_full_sync_en = base.dst_full_sync_en
+    cfg.throttle_level = base.throttle_level
+    return cfg
+
+
 # The trimul's channel move produces permute (0, 3, 1, 2) and exactly one of the matmul's two
 # operands wants (0, 3, 2, 1), which cost a separate `ttnn.transpose` of a whole moved chunk --
 # 67.1 MB DRAM -> DRAM at 512 aa, once per trimul call, twice per pairformer block. `ttnn.matmul`
@@ -6978,6 +7010,7 @@ class TriangleMultiplication(Module):
         g_out_fused = None
         seq_len_tiles = (H + 31) // 32
         program_config = _triangle_mul_program_config(seq_len_tiles)
+        product_ckc = _triangle_mul_compute_config(self.compute_kernel_config)
         if not row_norm and H > SEQ_LEN_MORE_CHUNKING:
             # Compact large input activation for better large-sequence placement.
             x_norm_in = ttnn.reallocate(x_norm_in)
@@ -7194,7 +7227,7 @@ class TriangleMultiplication(Module):
                     x_chunk = ttnn.matmul(
                         a_chunk,
                         b_chunk,
-                        compute_kernel_config=self.compute_kernel_config,
+                        compute_kernel_config=product_ckc,
                         memory_config=out_mc,
                         program_config=program_config,
                         dtype=ttnn.bfloat16,
