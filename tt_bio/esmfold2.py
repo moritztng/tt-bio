@@ -1467,6 +1467,8 @@ class MSAEncoderModel(Module):
         sum), scored against the upstream reference in perf/mgx_msa_depth."""
         import gc
         gc.collect()        # the refused attempt's tensors, still referenced from its traceback
+        print(f"[esmfold2 msa depth] streaming the {m_feat.shape[2]}-row alignment in {rows}-row "
+              f"depth chunks", flush=True)
         m = []
         for s in range(0, m_feat.shape[2], rows):
             f = ttnn.from_torch(m_feat[:, :, s:s + rows].contiguous(), device=self.device,
