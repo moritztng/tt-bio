@@ -3581,12 +3581,15 @@ def _size_ladder_exponent_block(model: str, runtimes: dict, sigma, sigmas: dict 
     rungs = sorted(int(r) for r in runtimes if int(r) in gated)
     if len(rungs) < 2:
         return None, "single rung — no interval to exponent over"
-    if sigma is None:
-        return None, (f"no noise measurement (rung {_size_ladder_sigma_rung(model)} absent "
-                      f"from the ladder)")
+    # Load before sigma: a pass skipped for load stores no sigma, so the resume pass that
+    # carries its rungs has none either, and checking sigma first recorded "rung 512 absent
+    # from the ladder" over a 512 aa rung with five reps (whglx openfold3/openbind/nesso1).
     busy = _size_ladder_overloaded(load, rungs)
     if busy:
         return None, f"{busy}: the runtimes are the host's, re-time on a quiet box"
+    if sigma is None:
+        return None, (f"no noise measurement (rung {_size_ladder_sigma_rung(model)} absent "
+                      f"from the ladder)")
     reps_sigma = max([sigma] + list((sigmas or {}).values()))
     reps, sigma_eff = 1, sigma
     if reps_sigma > 0.12:

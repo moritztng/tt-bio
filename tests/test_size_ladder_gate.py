@@ -130,6 +130,16 @@ def test_a_baseline_timed_on_an_overloaded_host_records_no_exponent(rg):
     assert skip is None and set(block["exponents"]) == {"256->512", "512->768"}
 
 
+def test_a_resume_over_an_overloaded_pass_keeps_the_load_reason(rg):
+    """A pass skipped for load writes no sigma, so the pass that carries its rungs has none.
+    The skip must still name the load: whglx's openfold3 record read "rung 512 absent from the
+    ladder" over a 512 aa rung with five reps timed at 1.63x nproc."""
+    rt = {"256": 15.4, "512": 36.5, "768": 85.2}
+    _, skip = rg._size_ladder_exponent_block(
+        "boltz2", rt, None, load={"256": {"max": 1.57}, "512": {"max": 1.63}, "768": {"max": 1.3}})
+    assert "256 aa was timed at 1.6x nproc" in skip and "absent" not in skip
+
+
 def test_uniform_slowdown_does_not_fail_the_exponent_leg(rg):
     """A flat factor cancels in a ratio, on purpose: it keeps the baseline portable across
     same-type machines and across thermal state. A uniform regression is perf_regression.py's

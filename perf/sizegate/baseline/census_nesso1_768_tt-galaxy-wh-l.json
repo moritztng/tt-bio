@@ -4,7 +4,7 @@
     "-m",
     "tt_bio.main",
     "affinity",
-    "/home/agent/wt-mgx-instrument/perf/nesso1/inputs/ladder/aa768/cdk2_768.yaml",
+    "/home/agent/wt-mgxi-rec/perf/nesso1/inputs/ladder/aa768/cdk2_768.yaml",
     "--model",
     "nesso1",
     "--trunk",
@@ -14,7 +14,7 @@
     "--tokens_budget",
     "256",
     "--out_dir",
-    "/home/agent/wt-mgx-instrument/perf/sizegate/work-nesso1/out_nesso1-768-rep0"
+    "/home/agent/wt-mgxi-rec/perf/sizegate/work-record-nesso1/out_nesso1-768-rep0"
   ],
   "rc": 0,
   "processes": 1,
