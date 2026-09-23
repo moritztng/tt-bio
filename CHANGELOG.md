@@ -50,6 +50,18 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
 
 ### Fixed
 
+- **Nesso-1 scores large targets with large ligands on Wormhole.** The trunk built a cross-chain
+  attention bias it had no use for (its pair mask is separable), 10.9 GB at 1632 tokens, so a
+  1536-residue target with sirolimus or cobalamin and any target from 1664 residues up ran out of
+  DRAM. The trunk now takes the plain masked path; a 2048-residue target with sirolimus (2113
+  tokens) scores on one chip. Predictions are byte-identical to before at every size that fitted,
+  and the 1536-residue forward is 40% faster.
+
+- **Salt-form SMILES work again in Boltz-2 affinity.** Under RDKit 2026.03 every multi-fragment
+  affinity ligand failed at parse time (`getNumImplicitHs() called without preceding call to
+  calcImplicitValence()`), so a screen lost its salts; 4 of 68 DAVIS LCK compounds are salts. They
+  now reduce to the parent compound, and the other fixture SMILES standardize exactly as before.
+
 - **An RF3 fold no longer depends on what the same process folded before it.** The atom
   transformer cached its output gate keyed by the length of the input, so a second input of the
   same length in one `predict` batch, or in a server that keeps the model loaded, reused the gate
