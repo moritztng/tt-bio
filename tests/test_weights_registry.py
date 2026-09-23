@@ -624,3 +624,19 @@ def test_no_hub_download_outside_the_registry_forgets_the_revision():
                     k.arg == "revision" for k in node.keywords):
                 bare.append(f"{path.relative_to(root.parent)}:{node.lineno}")
     assert not bare, f"hub download with no revision, so it reads the default branch: {bare}"
+
+
+def test_embedding_references_read_the_device_artifact():
+    """A parity reference reads the weights through `weights.fetch`, as the device does.
+
+    `scripts/esmc6b_embed_parity.py` called `snapshot_download("biohub/ESMC-6B")` itself,
+    which resolves the hub's live `main`. After the 2026-09-14 re-publish that snapshot
+    shared no key with the reference module, `load_state_dict(strict=False)` loaded
+    nothing, and every 6B parity number scored the device against a random init
+    (PCC ~0.00) while the device read the pinned revision."""
+    root = Path(__file__).resolve().parents[1]
+    files = ["scripts/esmc_embed_parity.py", "scripts/esmc6b_embed_parity.py",
+             "scripts/pharma_parity.py", "perf/mgx_embed/accuracy.py"]
+    direct = [(f, call) for f in files for call in ("snapshot_download(", "hf_hub_download(")
+              if call in (root / f).read_text()]
+    assert not direct, f"reference weights fetched around the revision pin: {direct}"

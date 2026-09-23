@@ -502,21 +502,16 @@ def _pcc(a: np.ndarray, b: np.ndarray) -> float:
 def embeddings(args) -> int:
     import torch
     sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "tests"))
-    from huggingface_hub import hf_hub_download
     from tt_bio import esmc as tt_esmc
-    from esmc_reference import ESMCReference
 
     torch.set_grad_enabled(False)
     seqs = {k: ESMC_SEQS[k] for k in (args.seqs.split(",") if args.seqs else ESMC_SEQS)}
 
     # reference (CPU torch, deterministic)
-    cfg, repo_id, wpath = tt_esmc.CONFIGS[args.model]
-    print(f"Fetching {args.model} weights from {repo_id} …", flush=True)
-    sd = torch.load(hf_hub_download(repo_id, wpath), map_location="cpu", weights_only=False)
-    sd = sd.get("state_dict", sd) if isinstance(sd, dict) else sd
+    from esmc_embed_parity import load_reference, reference_state_dict
+    print(f"Fetching {args.model} weights …", flush=True)
     print("Building reference esm ESMC …", flush=True)
-    ref = ESMCReference(**cfg).eval()
-    ref.load_state_dict(sd, strict=False)
+    ref = load_reference(args.model, reference_state_dict(args.model))
 
     ref_emb = {}
     for name, seq in seqs.items():
@@ -574,7 +569,7 @@ def _saprot_pair_ids():
 def saprot(args) -> int:
     import torch
     from transformers import EsmForMaskedLM
-    from tt_bio import saprot as tt_saprot, esmc
+    from tt_bio import saprot as tt_saprot, esmc, weights
 
     torch.set_grad_enabled(False)
     repo = {"saprot-35m": "westlake-repl/SaProt_35M_AF2",
@@ -585,7 +580,7 @@ def saprot(args) -> int:
 
     # reference: HF EsmForMaskedLM, run twice (R floor -- deterministic by construction)
     print(f"Building HF reference EsmForMaskedLM ({repo}) ...", flush=True)
-    ref = EsmForMaskedLM.from_pretrained(repo).eval()
+    ref = EsmForMaskedLM.from_pretrained(weights.fetch(args.model)).eval()
     attn = torch.ones(1, L, dtype=torch.long)
     ref_runs = []
     with torch.no_grad():
