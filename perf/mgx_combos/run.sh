@@ -1,5 +1,6 @@
 #!/bin/bash
 # Combination folds on whglx: run.sh "<candidate cards>" <model>:<input>[:<samples>] ...
+# For boltzgen the third field is the number of designs (design --num_designs n --budget n).
 # Each job folds in its own process into out/<model>/<stem>_s<samples>/, log alongside, ending
 # EXIT=<rc> WALL=<s>. Samples default to 5. Every fold runs at --host_threads 2 (the campaign's
 # whglx load policy), so wall times here are outcomes, not speed measurements.
@@ -63,9 +64,10 @@ for job in "$@"; do
   while :; do
     take; start=$(date +%s)
     echo "START $(date -u +%FT%TZ) card=$C commit=$(git rev-parse --short HEAD) size_limit=${TT_BIO_SIZE_LIMIT:-on} extra=${EXTRA:-} job=$job" > "$out/$s.log"
-    TT_VISIBLE_DEVICES=$C TT_BIO_LEASE_CARDS=$C $HOME/env/bin/python -m tt_bio.main predict "$f" \
-        --model "$m" --out_dir "$out/$s" --diffusion_samples "$n" --host_threads 2 \
-        --accelerator tenstorrent ${EXTRA:-} >> "$out/$s.log" 2>&1
+    if [ "$m" = boltzgen ]; then args=(design "$f" --num_designs "$n" --budget "$n")
+    else args=(predict "$f" --diffusion_samples "$n" --host_threads 2 --accelerator tenstorrent); fi
+    TT_VISIBLE_DEVICES=$C TT_BIO_LEASE_CARDS=$C $HOME/env/bin/python -m tt_bio.main "${args[@]}" \
+        --model "$m" --out_dir "$out/$s" ${EXTRA:-} >> "$out/$s.log" 2>&1
     rc=$?
     echo "EXIT=$rc WALL=$(( $(date +%s) - start ))s" >> "$out/$s.log"
     if free "$C"; then claim "$C"; else C=; fi
