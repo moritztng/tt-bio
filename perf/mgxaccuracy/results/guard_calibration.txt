@@ -1,0 +1,47 @@
+structure                                   tokens  comps  interchain verdict
+1962.cif                                      1774      1           0 ok 
+1ahw.cif                                       628      1       10832 ok 
+21tw.cif                                       638      1       19532 ok 
+22ps.cif                                       393      1        4991 ok 
+9ck4.cif                                       306      1        4774 ok 
+9d3j.cif                                       397      1        6167 ok 
+9dsg.cif                                       656      1        9109 ok 
+9fte.cif                                       362      1        1163 ok 
+9gei.cif                                       800      1        9775 ok 
+9gfr.cif                                       521      1        8422 ok 
+9i5n.cif                                       368      1        5572 ok 
+9j4c.cif                                      1095      1       14607 ok 
+9jkr.cif                                       331      1        5608 ok 
+9jno.cif                                       666      1       10259 ok 
+9k6j.cif                                       605      1       10471 ok 
+9kwy.cif                                       982      1        9633 ok 
+9ldx.cif                                      1163      1       13336 ok 
+9loe.cif                                       764      1        9644 ok 
+9lof.cif                                       754      1       10339 ok 
+9log.cif                                       758      1       10738 ok 
+9loz.cif                                       411      1        6158 ok 
+9lp1.cif                                       412      1        6102 ok 
+9m72.cif                                       376      1        5774 ok 
+9ma0.cif                                       650      1        6582 ok 
+9ncy.cif                                       515      1        9389 ok 
+9obn.cif                                       269      1        3028 ok 
+9q6y.cif                                       967      1        9716 ok 
+9q6z.cif                                      1093      1       12842 ok 
+9qrv.cif                                       528      1        9409 ok 
+9tmp.cif                                       544      1       10675 ok 
+9udq.cif                                       518      1       10930 ok 
+9uoi.cif                                       438      1        5214 ok 
+9w14.cif                                       412      1        5336 ok 
+9wpm.cif                                      1236      1       20283 ok 
+9yio.cif                                       515      1        9882 ok 
+9yxd.cif                                       743      1       15567 ok 
+hemoglobin.cif                                 574      1       12667 ok 
+prot.cif                                       118      1           0 ok 
+big_1831.cif                                  1831      2           0 DISCONNECTED [1008, 823]
+big_3662.cif                                  3662      4           0 DISCONNECTED [1008, 1008, 823]
+big_7324.cif                                  7324      8           0 DISCONNECTED [1008, 1008, 1008]
+gpb_823.cif                                    823      1           0 ok 
+laczc_1008.cif                                1008      1           0 ok 
+gpb_dimer_1646.cif                            1646      1        8534 ok 
+
+disconnected: 3 of 44  -> ['big_1831.cif', 'big_3662.cif', 'big_7324.cif']
