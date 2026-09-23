@@ -6871,7 +6871,7 @@ class TriangleMultiplication(Module):
         if isinstance(g, torch.Tensor):
             cut, cat = (lambda t, a, b: t[..., a:b]), (lambda xs: torch.cat(xs, dim=-1))
         else:
-            lead = [int(d) for d in g.shape[:-1]]
+            lead = [int(d) for d in g.shape][:-1]
             cut = lambda t, a, b: ttnn.slice(t, [0] * len(lead) + [a], lead + [b])  # noqa: E731
             cat = lambda xs: ttnn.concat(xs, dim=-1)  # noqa: E731
         return [

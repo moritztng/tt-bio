@@ -87,7 +87,9 @@ def main() -> int:
             ent = {"gp_cache": {str(k): [leaf(t) for t in v] for k, v in tm._gp_cache.items()},
                    "gp_gout_cache": {str(k): leaf(v) for k, v in tm._gp_gout_cache.items()},
                    "in_norm_weight": leaf(tm.in_norm_weight),
-                   "g_out_weight": leaf(tm.g_out_weight)}
+                   "g_out_weight": leaf(tm.g_out_weight),
+                   **{k: leaf(getattr(tm, k)) for k in ("g_in_weight", "p_in_weight")
+                      if getattr(tm, k, None) is not None}}
             rows.append({"trimul": path, **ent})
         report["trimuls"] = rows
         report["first_walk_n"] = first["n"]
@@ -114,7 +116,12 @@ def main() -> int:
                                    for v in r["gp_cache"].values() for e in v)
             + sum(e["grad"] is not None for r in rows for e in r["gp_gout_cache"].values()),
             "norm_in_with_grad": sum(r["in_norm_weight"]["grad"] is not None for r in rows),
-            "g_out_with_grad": sum(r["g_out_weight"]["grad"] is not None for r in rows)}
+            "g_out_with_grad": sum(r["g_out_weight"]["grad"] is not None for r in rows),
+            "in_leaves": sum(k in r for r in rows for k in ("g_in_weight", "p_in_weight")),
+            "in_leaves_first_walk": sum(r[k]["in_first_walk"] for r in rows
+                                        for k in ("g_in_weight", "p_in_weight") if k in r),
+            "in_leaves_with_grad": sum(r[k]["grad"] is not None for r in rows
+                                       for k in ("g_in_weight", "p_in_weight") if k in r)}
     late = report.get("late", [])
     summ["late_n"] = len(late)
     summ["late_leaf"] = sum(e["leaf"] for e in late)
