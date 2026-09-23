@@ -63,12 +63,24 @@ def global_layer_norm(x: ttnn.Tensor, compute_kernel_config) -> ttnn.Tensor:
     for d in shape:
         n *= d
     if _GLN_ROW_FOLD:
+        # Only the statistics need the row fold; the normalisation is elementwise, so it runs on
+        # `x` in its own shape and needs no reshape back. At a token count that is not a multiple
+        # of 32 each reshape is a copy, and 3abq (1518 tokens) was refused the copy back after
+        # x, flat, xc and out were all live on the chip.
         flat = ttnn.reshape(x, (1, 1, n // shape[-1], shape[-1]))
         m = ttnn.mean(ttnn.mean(flat, dim=-1, keepdim=True), dim=-2, keepdim=True)
-        xc = ttnn.subtract(flat, m)
-        sq = ttnn.multiply(xc, xc)
+        sq = ttnn.subtract(flat, m)
+        if flat.buffer_address() != x.buffer_address():
+            ttnn.deallocate(flat)
+        ttnn.multiply_(sq, sq)
         v = ttnn.mean(ttnn.mean(sq, dim=-1, keepdim=True), dim=-2, keepdim=True)
         ttnn.deallocate(sq)
+        one = (1,) * len(shape)
+        out = ttnn.subtract(x, ttnn.reshape(m, one))
+        r = ttnn.reshape(ttnn.rsqrt(ttnn.add(v, EPS)), one)
+        ttnn.multiply_(out, r)
+        ttnn.deallocate(r)
+        return out
     else:
         flat = ttnn.reshape(x, (1, 1, 1, n))
         m = ttnn.mean(flat, dim=-1, keepdim=True)
@@ -141,11 +153,15 @@ class ConfidenceHead(Module):
                         compute_kernel_config=self.compute_kernel_config)
         l = ttnn.linear(s_inputs, self.left,
                         compute_kernel_config=self.compute_kernel_config)
-        z = ttnn.add(z, ttnn.add(ttnn.unsqueeze(r, -2), ttnn.unsqueeze(l, -3)))
+        # `z` is the norm's own output here, so the additions go into it in place.
+        u = ttnn.add(ttnn.unsqueeze(r, -2), ttnn.unsqueeze(l, -3))
+        ttnn.add_(z, u)
+        ttnn.deallocate(u)
         if dist_onehot is not None:
-            z = ttnn.add(z, ttnn.linear(
-                dist_onehot, self.dist,
-                compute_kernel_config=self.compute_kernel_config))
+            u = ttnn.linear(dist_onehot, self.dist,
+                            compute_kernel_config=self.compute_kernel_config)
+            ttnn.add_(z, u)
+            ttnn.deallocate(u)
         return s_trunk, z
 
     def __call__(self, s_inputs, s_trunk, z_trunk, dist_onehot=None):
@@ -158,7 +174,7 @@ class ConfidenceHead(Module):
                                        bucketed_width)
         s, z = bucketed_pairformer(
             self.pairformer, s, z, self.device,
-            bucketed_width(int(z.shape[1]), TOKEN_BUCKET))
+            bucketed_width(int(z.shape[1]), TOKEN_BUCKET), own_z=True)
         return self.heads(s, z)
 
     def heads(self, s, z):
