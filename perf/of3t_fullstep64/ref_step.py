@@ -302,10 +302,16 @@ def denoise_arm(model, batch, s_input, s, z, draw, chunk):
     amask = batch["atom_mask"]                                           # [1, n_atom]
     xl_true = batch["ground_truth"]["atom_positions"][0] * amask[0, :, None]
     xl_noisy = (xl_true + sigma * torch.as_tensor(eps, dtype=dt)) * amask[0, :, None]
+    # Upstream's forward gives every batch feature and representation a sample axis before
+    # `_train_diffusion` sees them (model.py, "Expand sampling dimension"); so does this.
+    from openfold3.core.utils.tensor_utils import tensor_tree_map
+    b1 = tensor_tree_map(lambda t: t.unsqueeze(1),
+                         {k: v for k, v in batch.items() if k != "ref_space_uid_to_perm"})
     xl = model.diffusion_module(
-        batch=batch, xl_noisy=xl_noisy[None, None], token_mask=batch["token_mask"],
-        atom_mask=amask, t=torch.full((1, 1), sigma, dtype=dt), si_input=s_input, si_trunk=s,
-        zij_trunk=z, use_conditioning=True, chunk_size=chunk,
+        batch=b1, xl_noisy=xl_noisy[None, None], token_mask=b1["token_mask"],
+        atom_mask=b1["atom_mask"], t=torch.full((1, 1), sigma, dtype=dt),
+        si_input=s_input.unsqueeze(1), si_trunk=s.unsqueeze(1), zij_trunk=z.unsqueeze(1),
+        use_conditioning=True, chunk_size=chunk,
         use_high_precision_attention=True, _mask_trans=True)[0, 0]          # [n_atom, 3]
     tok = batch["token_mask"][0]
     real = torch.nonzero(tok > 0, as_tuple=True)[0]

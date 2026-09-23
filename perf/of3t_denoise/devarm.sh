@@ -11,7 +11,7 @@ W=/home/ttuser/.coworker/wt/of3t-denoise
 S=/home/ttuser/of3t_denoise
 mkdir -p "$S"
 cd "$W"
-CARD=2
+CARD=${CARD:-2}
 SMI=/home/ttuser/.local/bin/tt-smi
 TAG=${1:?usage: devarm.sh TAG on|off [batch]}; EXACT=${2:?usage: devarm.sh TAG on|off}
 OUT=$W/perf/of3t_denoise/DEV_${TAG}.json
