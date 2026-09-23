@@ -129,7 +129,7 @@ under 1024:
 
 | model | Wormhole limit | first measured failure |
 |---|---:|---:|
-| `opendde`, `opendde-abag` | 1024 | 1088 |
+| `opendde`, `opendde-abag` | 1536 | none found; top of the ladder |
 | `openfold3` | 1536 | none found; top of the ladder |
 | `openbind` | 1536 (residues; a ligand adds tokens) | none found; top of the ladder |
 | `pxdesign` | 1536 (target residues; the binder is on top) | none found; top of the ladder |
@@ -138,7 +138,7 @@ under 1024:
 | `esmfold2-fast` | 1152 (residues; a ligand adds tokens) | 1248 |
 | `rfd3` | 1536 (motif + designed) | none found; top of the ladder |
 | `boltzgen` | 14786 (atoms in the target) | none found; top of the ladder |
-| `esmc-6b` (embed) | 1968 | 1984 |
+| `esmc-6b` (embed) | 1968; 8192 with `--fast` | 1984 |
 
 Ask for more than a model's limit and tt-bio refuses before it opens a device, naming the
 model, the limit and any model that does take the input. `rf3` is not in the table because

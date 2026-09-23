@@ -120,3 +120,34 @@ def test_a_refusal_from_the_blocked_path_that_is_not_an_allocator_refusal_propag
     with pytest.raises(RuntimeError) as info:
         _run(op, memo)
     assert info.value is boom
+
+
+def test_a_refused_triangle_attention_block_is_halved(monkeypatch):
+    """Above SEQ_LEN_MORE_CHUNKING the affinity pairformer always runs row-blocked, and its first
+    block can be refused too: nesso1 at 1568 tokens builds a [512, 4, 1568, 1568] bias, 10070523904
+    B, which a Wormhole chip served or refused by 16 MB of fragmentation. The block halves; a shape
+    that settled skips the refused size next time."""
+    monkeypatch.setattr(T, "SEQ_LEN_MORE_CHUNKING", 1088)
+    monkeypatch.setattr(T, "_host_concat", lambda x: False)
+    monkeypatch.setattr(T, "_TRIATT_BLOCK_REFUSED", {})
+    rows_run = []
+
+    class _X:
+        shape = (1, 1568, 1568, 128)
+        padded_shape = (1, 1568, 1568, 128)
+
+    class _Att:
+        affinity, ending = True, False
+
+        def _attend_pair(self, x, attn_mask, rows, add_to_input=False):
+            rows_run.append(rows)
+            if rows > 256:
+                raise RuntimeError(REFUSAL)
+            return f"blocked:{rows}"
+
+    att = _Att()
+    assert T.TriangleAttention._update(att, _X(), None, False) == "blocked:256"
+    assert rows_run == [T.TRIANGLE_ATT_CHUNK_SIZE, 256], rows_run
+    rows_run.clear()
+    assert T.TriangleAttention._update(att, _X(), None, False) == "blocked:256"
+    assert rows_run == [256], "a settled shape paid the refused block again"
