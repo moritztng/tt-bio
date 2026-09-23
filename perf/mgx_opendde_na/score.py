@@ -3,8 +3,10 @@
   python score.py <crystal.cif[.gz]> <pred.cif> [<pred.cif> ...]
 
 Chains pair up in input order: the prediction's k-th chain is the crystal's k-th polymer chain
-of the modelled entities (the input YAMLs list them in crystal order). Residues pair by position
-in the entity sequence (label_seq_id), so unresolved crystal residues drop out.
+of the modelled entities (the input YAMLs list them in crystal order). Copies of one entity are
+interchangeable, so every permutation among identical chains is tried and the lowest RMSD kept
+(1LMB's repressor dimer can bind the operator with its two copies swapped). Residues pair by
+position in the entity sequence (label_seq_id), so unresolved crystal residues drop out.
 
 Reports, per prediction: whole-complex RMSD over CA (protein) and C1' (nucleotides) after one
 optimal superposition, the RMSD of each molecule type under that same superposition, and the
@@ -86,8 +88,29 @@ def _contacts(res_list, coords_of):
     return out
 
 
+def _seq(chain):
+    return tuple(chain.res_name[chain.res_id == r][0] for r in np.unique(chain.res_id))
+
+
 def score(crystal_path, pred_path, crystal_chains):
-    matched = pair(_load(crystal_path), _load(pred_path), crystal_chains)
+    """The best score over permutations of identical prediction chains."""
+    crystal, pred = _load(crystal_path), _load(pred_path)
+    seqs = [_seq(c) for c in _chains(pred)]
+    groups = [[k for k, s in enumerate(seqs) if s == u] for u in dict.fromkeys(seqs)]
+    best = None
+    for perm in itertools.product(*(itertools.permutations(g) for g in groups)):
+        order = list(range(len(seqs)))
+        for g, pg in zip(groups, perm):
+            for k, kk in zip(g, pg):
+                order[k] = kk
+        r = _score(crystal, pred, [crystal_chains[order[k]] for k in range(len(seqs))])
+        if best is None or r["rmsd"] < best["rmsd"]:
+            best = r
+    return best
+
+
+def _score(crystal, pred, crystal_chains):
+    matched = pair(crystal, pred, crystal_chains)
     keep = [(x, p, isp, k) for x, p, isp, k in matched
             if _rep(x) is not None and _rep(p) is not None]
     X = np.array([_rep(x) for x, *_ in keep])
