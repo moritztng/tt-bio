@@ -24,8 +24,8 @@ import gemmi
 import numpy as np
 
 HERE = Path(__file__).resolve().parent
-STEMS = ("sfti_cyclic_ss", "sfti_cyclic", "sfti_ss", "sfti_linear", "cyclic", "bond_ligand",
-         "bond_protein_cys", "modification", "base")
+STEMS = ("sfti_cyclic_ss", "sfti_cyclic", "sfti_ss", "sfti_linear", "cyclic", "linear13",
+         "bond_ligand", "bond_protein_cys", "modification", "base")
 
 
 def crystal():
@@ -56,7 +56,7 @@ def dist(x, y):
 def score(stem, path, ref_ca):
     chains = list(gemmi.read_structure(str(path))[0])
     row = {}
-    if stem.startswith("sfti") or stem == "cyclic":
+    if stem.startswith("sfti") or stem in ("cyclic", "linear13"):
         ch = chains[0]
         row["n_c"] = dist(atom(ch[0], "N"), atom(ch[len(ch) - 1], "C"))
         row["ring_closed"] = row["n_c"] is not None and row["n_c"] < 2.0
