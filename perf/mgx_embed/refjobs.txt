@@ -1,0 +1,9 @@
+$HOME/env/bin/python perf/mgx_embed/accuracy.py --model esmc-300m --pdb $S/mtor.pdb --lengths 76,1536,2000,2549 --ref-cache $S/ref --ref-only --out /dev/null
+$HOME/env/bin/python perf/mgx_embed/accuracy.py --model esmc-600m --pdb $S/mtor.pdb --lengths 76,1536,2000,2549 --ref-cache $S/ref --ref-only --out /dev/null
+$HOME/env/bin/python perf/mgx_embed/accuracy.py --model saprot-650m --pdb $S/mtor.pdb --foldseek $S/foldseek/bin/foldseek --lengths 76,1536,2000,2549 --ref-cache $S/ref --ref-only --out /dev/null
+$HOME/env/bin/python perf/mgx_embed/accuracy.py --model saprot-1.3b --pdb $S/mtor.pdb --foldseek $S/foldseek/bin/foldseek --lengths 76,1536,2000,2549 --ref-cache $S/ref --ref-only --out /dev/null
+$HOME/env/bin/python perf/mgx_embed/accuracy.py --model saprot-1.3b --pdb $S/mtor.pdb --lengths 1536,2549 --ref-cache $S/ref --ref-only --out /dev/null
+$HOME/env/bin/python perf/mgx_embed/accuracy.py --model esmc-6b --pdb $S/mtor.pdb --lengths 76,1536,1968 --ref-cache $S/ref --ref-only --out /dev/null
+$HOME/env/bin/python perf/mgx_embed/accuracy.py --model esmc-6b --fast --pdb $S/mtor.pdb --lengths 76,1536,2000,2549 --ref-cache $S/ref --ref-only --out /dev/null
+$HOME/env/bin/python perf/mgx_embed/accuracy.py --model esmc-600m --fast --pdb $S/mtor.pdb --lengths 1536,2549 --ref-cache $S/ref --ref-only --out /dev/null
+$HOME/env/bin/python perf/mgx_embed/accuracy.py --model saprot-650m --fast --pdb $S/mtor.pdb --foldseek $S/foldseek/bin/foldseek --lengths 1536,2549 --ref-cache $S/ref --ref-only --out /dev/null
