@@ -1210,23 +1210,25 @@ class OuterProductMean(Module):
         out = self._lin(outer, self.Wout, self.Wout_b)  # [B,Bl,L,256]
         return ttnn.multiply(out, recip_blk)
 
-    def _project(self, mm):  # [B,rows,M,128] -> a, b each [B,rows,M,32]
+    def _project(self, mm, mf=None):  # [B,rows,M,128] -> a, b each [B,rows,M,32]
         ck = self.compute_kernel_config
         x = self._lin(ttnn.layer_norm(mm, weight=self.norm_w, bias=self.norm_b, epsilon=1e-5, compute_kernel_config=ck), self.W)
+        if mf is not None:  # masked MSA entries contribute nothing to the outer product
+            x = ttnn.multiply(x, mf)
         return ttnn.chunk(x, 2, dim=-1)
 
-    def __call__(self, m, recip_nvalid):  # m [B,L,M,128]; recip_nvalid [B,L,L,1]
+    def __call__(self, m, recip_nvalid, mf=None):  # m [B,L,M,128]; recip_nvalid [B,L,L,1]; mf [B,L,M,1] or None
         ck = self.compute_kernel_config
         B, L, M = m.shape[0], m.shape[1], m.shape[2]
         # The LayerNorm transient is a full [B,L,M,128] (2 GiB at L=1024, M=8192);
         # rows are independent, so build a/b in row blocks.
         blocks = _msa_row_blocks(L, M)
         if blocks:
-            parts = [self._project(m[:, s:e]) for s, e in blocks]
+            parts = [self._project(m[:, s:e], None if mf is None else mf[:, s:e]) for s, e in blocks]
             a = ttnn.concat([p[0] for p in parts], dim=1)
             b = ttnn.concat([p[1] for p in parts], dim=1)
         else:
-            a, b = self._project(m)  # [B,L,M,32]
+            a, b = self._project(m, mf)  # [B,L,M,32]
         b2 = ttnn.reshape(ttnn.permute(b, (0, 2, 1, 3)), (B, M, L * 32))   # [B,M,L*32]
         # The a2@b2 product is [B,L*32,L*32] (~2 GiB at L=1024), which OOMs the
         # 12 GB/chip Wormhole DRAM. Output row i depends only on a[i] and b, so
@@ -1319,12 +1321,12 @@ class MSAEncoderBlock(Module):
         self.tri_in = TriangleMultiplication(True, _remap_trimul(self.weights.as_dict(), "tri_mul_in._engine"), compute_kernel_config)
         self.pair_transition = SwiGLUFFN(_remap_transition_named(self.weights.as_dict(), "pair_transition"), compute_kernel_config)
 
-    def __call__(self, m, pair, recip_nvalid):
+    def __call__(self, m, pair, recip_nvalid, mf=None):
         # `pair` is the encoder's own tensor (block 0 gets MSAEncoder.forward's upload), so every
         # residual adds in place. A fresh sum is a third pair tensor beside the MSA: 3abq at 1536
         # with its MSA was refused the pair-transition sum, 1193803776 B against a 64.7 MiB/bank
         # largest block.
-        u = self.opm(m, recip_nvalid)
+        u = self.opm(m, recip_nvalid, mf)
         ttnn.add_(pair, u)
         ttnn.deallocate(u)
         if not self.is_final:
@@ -1354,7 +1356,7 @@ class MSAEncoderModel(Module):
             for i in range(n_layers)
         ]
 
-    def __call__(self, x_pair, x_inputs, m_feat, recip_nvalid):
+    def __call__(self, x_pair, x_inputs, m_feat, recip_nvalid, mf=None):
         ck = self.compute_kernel_config
         lin = self._lin
         m = ttnn.add(lin(m_feat, self.embed_w), ttnn.unsqueeze(lin(x_inputs, self.project_w), 2))
@@ -1362,7 +1364,7 @@ class MSAEncoderModel(Module):
         ttnn.deallocate(m_feat)
         pair = x_pair
         for block in self.blocks:
-            m, pair = block(m, pair, recip_nvalid)
+            m, pair = block(m, pair, recip_nvalid, mf)
         return pair
 
 
@@ -1381,7 +1383,9 @@ class MSAEncoder(TorchWrapper):
         mask_f = msa_mask.float()
         n_valid = (mask_f @ mask_f.transpose(-1, -2)).clamp(min=1.0).unsqueeze(-1)  # [B,L,L,1]
         ft = self._from_torch
-        out = self.module(ft(x_pair), ft(x_inputs), ft(m_feat.float()), ft((1.0 / n_valid).float()))
+        # An all-ones mask (no column masking) multiplies by one: skip it.
+        mf = None if bool(mask_f.all()) else ft(mask_f.unsqueeze(-1))
+        out = self.module(ft(x_pair), ft(x_inputs), ft(m_feat.float()), ft((1.0 / n_valid).float()), mf)
         return self._to_torch(out)
 
 
