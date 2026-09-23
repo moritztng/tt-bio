@@ -5643,14 +5643,20 @@ def _concat_to(parts: list, dim: int, memory_config) -> ttnn.Tensor:
 ACC_CONCAT_HOST_FALLBACKS = [0]
 
 
-def _acc_concat(acc: list, dim: int, host: bool, memory_config=None) -> ttnn.Tensor:
+def _acc_concat(acc: list, dim: int, host: bool, memory_config=None, consume=None) -> ttnn.Tensor:
     """Assemble accumulated row/channel blocks, on the host when they were offloaded.
 
     Host branch: the blocks are torch tensors (bit-identical bytes); the upload is one
     full-size allocation made when the accumulator holds nothing on device. Device
     branch: ttnn.concat, then free the blocks (same as the call sites always did).
+
+    `consume` is a device tensor the caller is finished with (a residual's input). It is freed
+    before any host upload, so the upload can land in the room it leaves, and after a device
+    concat otherwise.
     """
     if host:
+        if consume is not None:
+            ttnn.deallocate(consume)
         return ttnn.from_torch(
             torch.cat(acc, dim=dim), layout=ttnn.TILE_LAYOUT,
             device=get_device(), dtype=ttnn.bfloat16)
@@ -5659,6 +5665,8 @@ def _acc_concat(acc: list, dim: int, host: bool, memory_config=None) -> ttnn.Ten
         # free the very buffer being returned. One block is the real case for any trimul
         # whose hidden width equals its chunk width (n_pairs == 1, e.g. the protenix
         # template pair stack) and for a row-blocked tail shorter than one row block.
+        if consume is not None:
+            ttnn.deallocate(consume)
         return acc[0]
     try:
         out = _concat_to(acc, dim, memory_config)
@@ -5675,6 +5683,11 @@ def _acc_concat(acc: list, dim: int, host: bool, memory_config=None) -> ttnn.Ten
         host = [ttnn.to_torch(t) for t in acc]
         for t in acc:
             ttnn.deallocate(t)
+        if consume is not None:
+            # Protenix-v2 at 1184: with only the blocks freed, 300 MiB per bank was free and the
+            # largest run was 4096 B short of the upload. The residual input is one whole pair
+            # tensor in one piece, so freeing it is what makes the room contiguous.
+            ttnn.deallocate(consume)
         print(f"[tt-bio] DRAM refused a {len(host)}-block device concat; assembling it on the "
               f"host. The tt-metal 'Out of Memory' line above is expected and handled.",
               file=sys.stderr, flush=True)
@@ -5683,6 +5696,8 @@ def _acc_concat(acc: list, dim: int, host: bool, memory_config=None) -> ttnn.Ten
                                device=get_device(), dtype=dtype, **kw)
     for t in acc:
         ttnn.deallocate(t)
+    if consume is not None:
+        ttnn.deallocate(consume)
     return out
 
 
@@ -8634,14 +8649,23 @@ class Transition(Module):
         self.fc2_weight = self.torch_to_tt("fc2.weight", dtype=weight_dtype)
         self.fc3_weight = self.torch_to_tt("fc3.weight", dtype=weight_dtype)
 
-    def __call__(self, x: ttnn.Tensor, memory_config: ttnn.MemoryConfig | None = None
-                 ) -> ttnn.Tensor:
+    def __call__(self, x: ttnn.Tensor, memory_config: ttnn.MemoryConfig | None = None,
+                 add_to_input: bool = False) -> ttnn.Tensor:
         """`memory_config` names where the assembled result lands; None keeps it in DRAM.
 
         Only the pair-track (4-D) exits honour it. The row blocks themselves are unaffected, so
         the assembly reads the same bytes from the same places and writes the same bytes to
         different banks.
+
+        `add_to_input` returns `x + transition(x)` and consumes `x`. On the lazy row-blocked
+        path each block adds its own rows, so the assembly can free `x` before it needs room
+        for the result; elsewhere it is the caller's `ttnn.add_` done here.
         """
+        if add_to_input and not (len(x.shape) == 4 and x.shape[1] > SEQ_LEN_MORE_CHUNKING):
+            u = self(x, memory_config)
+            ttnn.add_(x, u)
+            ttnn.deallocate(u)
+            return x
         # The transition's intermediates are L1-resident, which is the tuning this module
         # IS: the row and width chunking exists so `x_norm` and `x_1` fit in L1 and fc1/fc3
         # read them there. A tape cannot have that. It keeps what the forward frees, so the
@@ -8923,7 +8947,12 @@ class Transition(Module):
             for s in range(0, H, transition_h_chunk_size):
                 c = x[:, s:min(s + transition_h_chunk_size, H)]
                 if not w_chunked:
-                    _acc_append(parts, swiglu(c), host_acc)
+                    y = swiglu(c)
+                    if add_to_input:
+                        y_add = ttnn.add(c, y)
+                        ttnn.deallocate(y)
+                        y = y_add
+                    _acc_append(parts, y, host_acc)
                     ttnn.deallocate(c)
                 else:
                     w_parts = []
@@ -8931,12 +8960,18 @@ class Transition(Module):
                         cw = c[:, :, w:min(w + w_chunk, W), :]
                         w_parts.append(swiglu(cw))
                         ttnn.deallocate(cw)
-                    ttnn.deallocate(c)
-                    _acc_append(parts, ttnn.concat(w_parts, dim=2), host_acc)
+                    y = ttnn.concat(w_parts, dim=2)
                     for wp in w_parts:
                         ttnn.deallocate(wp)
+                    if add_to_input:
+                        y_add = ttnn.add(c, y)
+                        ttnn.deallocate(y)
+                        y = y_add
+                    ttnn.deallocate(c)
+                    _acc_append(parts, y, host_acc)
             dram_peak(f"transition4d loop done (lazy, h={transition_h_chunk_size}) [z={'x'.join(str(d) for d in x.shape)}]")
-            return _acc_concat(parts, 1, host_acc, memory_config)
+            return _acc_concat(parts, 1, host_acc, memory_config,
+                               consume=x if add_to_input else None)
         chunks = ttnn.chunk(x, -(-H // transition_h_chunk_size), dim=1)
         dram_peak(f"transition4d chunked (eager, h={transition_h_chunk_size}) [z={'x'.join(str(d) for d in x.shape)}]")
         if not w_chunked:
