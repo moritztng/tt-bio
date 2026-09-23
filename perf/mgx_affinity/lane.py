@@ -6,7 +6,8 @@
 One process, one lane (thread) per plan, `:N` for N chips per job. Claims go through one lock, so
 two lanes never take the same chip.
 
-A plan line is {"tag", "surface": "nesso1"|"boltz2", "input", "args": [...]}. A job whose
+A plan line is {"tag", "surface": "nesso1"|"boltz2"|"script", "input", "args": [...]}; a script
+job runs `input` with `args` under the same pin. A job whose
 results/<tag>.json exists is skipped, so a relaunch continues. Per job it records the exit code,
 wall, the scalars the CLI wrote, host load and AICLK sampled DURING, and the DRAM census when the
 plan sets "census": true (the census drains the pipeline at every tag, so a census job is never a
@@ -163,6 +164,8 @@ def scalars(surface, out):
 
 
 def command(job, out):
+    if job["surface"] == "script":
+        return [PY, job["input"], *job.get("args", [])]
     if job["surface"] == "nesso1":
         return [PY, "-m", "tt_bio.main", "affinity", job["input"], "--out_dir", str(out),
                 "--host_threads", "2", *job.get("args", [])]
