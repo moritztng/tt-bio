@@ -140,6 +140,12 @@ def run_job(args) -> dict:
     tag = f"{args.model}_{args.target_res}_d{args.designs}_s{args.steps}{args.tag}"
     out_dir = work / f"out_{tag}"
     subprocess.run(["rm", "-rf", str(out_dir)], check=False)
+    # Fixtures go in a per-job directory, not the shared work root. Four identical jobs
+    # fanned across four chips otherwise write the same target YAML at the same moment and
+    # one of them reads it half-written -- a data-parallelism harness that cannot run the
+    # same job twice at once is not measuring data parallelism.
+    fxdir = work / f"fx_{tag}"
+    fxdir.mkdir(parents=True, exist_ok=True)
 
     env = dict(os.environ)
     env["PYTHONPATH"] = str(ROOT)
@@ -156,16 +162,16 @@ def run_job(args) -> dict:
     target = pathlib.Path(args.target)
     extra: dict = {}
     if args.model == "rfd3":
-        fx = rfd3_fixture(work, args.target_res, args.binder, target, contig=args.contig or "")
+        fx = rfd3_fixture(fxdir, args.target_res, args.binder, target, contig=args.contig or "")
         cmd = base + ["design", str(fx), "--model", "rfd3", "--from_pdb",
                       "--out_dir", str(out_dir), "--num_timesteps", str(args.steps),
                       "--num_designs", str(args.designs), "--batch_size", str(args.batch_size)]
     elif args.model == "pxdesign":
-        fx = pxdesign_fixture(work, args.target_res, target, args.binder)
+        fx = pxdesign_fixture(fxdir, args.target_res, target, args.binder)
         cmd = base + ["design", str(fx), "--model", "pxdesign", "--out_dir", str(out_dir),
                       "--n_step", str(args.steps), "--num_designs", str(args.designs)]
     elif args.model == "boltzgen":
-        fx, atoms, tres = boltzgen_fixture(work, args.target_res, target, args.binder)
+        fx, atoms, tres = boltzgen_fixture(fxdir, args.target_res, target, args.binder)
         cmd = base + ["design", str(fx), "--model", "boltzgen", "--out_dir", str(out_dir),
                       "--num_designs", str(args.designs), "--debug"]
         if args.bg_steps:
