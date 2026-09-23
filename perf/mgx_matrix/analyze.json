@@ -1,0 +1,3461 @@
+{
+ "boltz2": {
+  "affinity.yaml": {
+   "outcome": "folded",
+   "structure": "boltz2/boltz2_results_batch_in/structures/affinity.cif",
+   "check": {
+    "chains": {
+     "A": {
+      "residues": 76,
+      "atoms": 601,
+      "first": "MET"
+     },
+     "L": {
+      "residues": 1,
+      "atoms": 13,
+      "first": "LIG1"
+     }
+    },
+    "chain_ids_kept": true,
+    "ligand_atoms": 13,
+    "ligand_protein_min_dist": 2.5663428478284036,
+    "present": true,
+    "clash": false,
+    "ok": true,
+    "affinity_keys": [
+     "affinity_pred_value",
+     "affinity_pred_value1",
+     "affinity_pred_value2",
+     "affinity_probability_binary",
+     "affinity_probability_binary1",
+     "affinity_probability_binary2",
+     "affinity_runtime_s"
+    ],
+    "affinity_in_results": true,
+    "mean_bfactor": 91.55308922882577
+   }
+  },
+  "base.yaml": {
+   "outcome": "folded",
+   "structure": "boltz2/boltz2_results_batch_in/structures/base.cif",
+   "check": {
+    "chains": {
+     "A": {
+      "residues": 76,
+      "atoms": 601,
+      "first": "MET"
+     }
+    },
+    "chain_ids_kept": true,
+    "mean_bfactor": 93.63506833804824
+   }
+  },
+  "bond_ligand.yaml": {
+   "outcome": "failed",
+   "detail": "02:41:57  [j10glx02:tt19]   diffusion 70/200",
+   "results": {
+    "id": "bond_ligand",
+    "status": "failed",
+    "error": "('B', 0, 'C1')\n[tt_bio origin: parse.py:3321 in parse_boltz_schema]"
+   }
+  },
+  "bond_protein_cys.yaml": {
+   "outcome": "folded",
+   "structure": "boltz2/boltz2_results_batch_in/structures/bond_protein_cys.cif",
+   "check": {
+    "chains": {
+     "A": {
+      "residues": 11,
+      "atoms": 83,
+      "first": "GLY"
+     },
+     "B": {
+      "residues": 11,
+      "atoms": 91,
+      "first": "ASN"
+     }
+    },
+    "chain_ids_kept": true,
+    "atom1_found": true,
+    "atom2_found": true,
+    "bond_dist": 1.0908832147393226,
+    "present": true,
+    "clash": false,
+    "ok": true,
+    "mean_bfactor": 57.34754610609734
+   }
+  },
+  "bond_protein_shipped_example.yaml": {
+   "outcome": "failed",
+   "detail": "02:41:57  [j10glx02:tt19]   diffusion 70/200",
+   "results": {
+    "id": "bond_protein_shipped_example",
+    "status": "failed",
+    "error": "('A', 6, 'SG')\n[tt_bio origin: parse.py:3320 in parse_boltz_schema]"
+   }
+  },
+  "contact.yaml": {
+   "outcome": "folded",
+   "structure": "boltz2/boltz2_results_batch_in/structures/contact.cif",
+   "check": {
+    "chains": {
+     "A": {
+      "residues": 76,
+      "atoms": 601,
+      "first": "MET"
+     },
+     "B": {
+      "residues": 20,
+      "atoms": 153,
+      "first": "ASN"
+     }
+    },
+    "chain_ids_kept": true,
+    "contact_min_dist": 7.80390231787277,
+    "ok": true,
+    "mean_bfactor": 90.78182076269499
+   }
+  },
+  "cyclic.yaml": {
+   "outcome": "folded",
+   "structure": "boltz2/boltz2_results_batch_in/structures/cyclic.cif",
+   "check": {
+    "chains": {
+     "A": {
+      "residues": 13,
+      "atoms": 95,
+      "first": "GLN"
+     }
+    },
+    "chain_ids_kept": true,
+    "n_c_dist": 1.3246757538733773,
+    "ok": true,
+    "mean_bfactor": 80.79037845009252
+   }
+  },
+  "dna.yaml": {
+   "outcome": "folded",
+   "structure": "boltz2/boltz2_results_batch_in/structures/dna.cif",
+   "check": {
+    "chains": {
+     "A": {
+      "residues": 76,
+      "atoms": 601,
+      "first": "MET"
+     },
+     "D": {
+      "residues": 13,
+      "atoms": 267,
+      "first": "DG"
+     }
+    },
+    "chain_ids_kept": true,
+    "na_residues": 13,
+    "na_protein_min_dist": 1.463779592834932,
+    "present": true,
+    "clash": false,
+    "ok": true,
+    "mean_bfactor": 82.60570733997679
+   }
+  },
+  "fasta_ligand.fasta": {
+   "outcome": "folded",
+   "structure": "boltz2/boltz2_results_batch_in/structures/fasta_ligand.cif",
+   "check": {
+    "chains": {
+     "A": {
+      "residues": 76,
+      "atoms": 601,
+      "first": "MET"
+     },
+     "L": {
+      "residues": 1,
+      "atoms": 13,
+      "first": "LIG1"
+     }
+    },
+    "chain_ids_kept": true,
+    "ligand_atoms": 13,
+    "ligand_protein_min_dist": 2.5663428478284036,
+    "present": true,
+    "clash": false,
+    "ok": true,
+    "mean_bfactor": 91.55308922882577
+   }
+  },
+  "heteromer3.yaml": {
+   "outcome": "folded",
+   "structure": "boltz2/boltz2_results_batch_in/structures/heteromer3.cif",
+   "check": {
+    "chains": {
+     "A": {
+      "residues": 76,
+      "atoms": 601,
+      "first": "MET"
+     },
+     "B": {
+      "residues": 20,
+      "atoms": 153,
+      "first": "ASN"
+     },
+     "C": {
+      "residues": 36,
+      "atoms": 261,
+      "first": "GLY"
+     }
+    },
+    "chain_ids_kept": true,
+    "ok": true,
+    "mean_bfactor": 72.3559024904749
+   }
+  },
+  "homomer.yaml": {
+   "outcome": "folded",
+   "structure": "boltz2/boltz2_results_batch_in/structures/homomer.cif",
+   "check": {
+    "chains": {
+     "A": {
+      "residues": 76,
+      "atoms": 601,
+      "first": "MET"
+     },
+     "B": {
+      "residues": 76,
+      "atoms": 601,
+      "first": "MET"
+     }
+    },
+    "chain_ids_kept": true,
+    "ok": true,
+    "mean_bfactor": 88.57278478244775
+   }
+  },
+  "ligand_ccd.yaml": {
+   "outcome": "folded",
+   "structure": "boltz2/boltz2_results_batch_in/structures/ligand_ccd.cif",
+   "check": {
+    "chains": {
+     "A": {
+      "residues": 76,
+      "atoms": 601,
+      "first": "MET"
+     },
+     "L": {
+      "residues": 1,
+      "atoms": 31,
+      "first": "ATP"
+     }
+    },
+    "chain_ids_kept": true,
+    "ligand_atoms": 31,
+    "ligand_protein_min_dist": 2.24044355530328,
+    "present": true,
+    "clash": false,
+    "ok": true,
+    "mean_bfactor": 91.10588277744341
+   }
+  },
+  "ligand_smiles.yaml": {
+   "outcome": "folded",
+   "structure": "boltz2/boltz2_results_batch_in/structures/ligand_smiles.cif",
+   "check": {
+    "chains": {
+     "A": {
+      "residues": 76,
+      "atoms": 601,
+      "first": "MET"
+     },
+     "L": {
+      "residues": 1,
+      "atoms": 13,
+      "first": "LIG1"
+     }
+    },
+    "chain_ids_kept": true,
+    "ligand_atoms": 13,
+    "ligand_protein_min_dist": 2.5663428478284036,
+    "present": true,
+    "clash": false,
+    "ok": true,
+    "mean_bfactor": 91.55308922882577
+   }
+  },
+  "lowercase.yaml": {
+   "outcome": "in_flight",
+   "detail": "02:41:57  [j10glx02:tt19]   diffusion 70/200",
+   "results": null
+  },
+  "malformed_badchar.yaml": {
+   "outcome": "in_flight",
+   "detail": "02:41:57  [j10glx02:tt19]   diffusion 70/200",
+   "results": null
+  },
+  "malformed_empty_seq.yaml": {
+   "outcome": "in_flight",
+   "detail": "02:41:57  [j10glx02:tt19]   diffusion 70/200",
+   "results": null
+  },
+  "malformed_typo.yaml": {
+   "outcome": "refused",
+   "exit": 1,
+   "message": "Done: 0 ok, 1 failed \u2014 perf/mgx_matrix/out/boltz2/single/boltz2_results_malformed_typo/results.json"
+  },
+  "modification.yaml": {
+   "outcome": "in_flight",
+   "detail": "02:41:57  [j10glx02:tt19]   diffusion 70/200",
+   "results": null
+  },
+  "msa_a3m.yaml": {
+   "outcome": "in_flight",
+   "detail": "02:41:57  [j10glx02:tt19]   diffusion 70/200",
+   "results": null
+  },
+  "msa_empty_ctrl.yaml": {
+   "outcome": "in_flight",
+   "detail": "02:41:57  [j10glx02:tt19]   diffusion 70/200",
+   "results": null
+  },
+  "pocket.yaml": {
+   "outcome": "in_flight",
+   "detail": "02:41:57  [j10glx02:tt19]   diffusion 70/200",
+   "results": null
+  },
+  "rna.yaml": {
+   "outcome": "in_flight",
+   "detail": "02:41:57  [j10glx02:tt19]   diffusion 70/200",
+   "results": null
+  },
+  "rna_only.yaml": {
+   "outcome": "in_flight",
+   "detail": "02:41:57  [j10glx02:tt19]   diffusion 70/200",
+   "results": null
+  },
+  "template_cif.yaml": {
+   "outcome": "in_flight",
+   "detail": "02:41:57  [j10glx02:tt19]   diffusion 70/200",
+   "results": null
+  },
+  "template_npz.yaml": {
+   "outcome": "in_flight",
+   "detail": "02:41:57  [j10glx02:tt19]   diffusion 70/200",
+   "results": null
+  },
+  "template_off.yaml": {
+   "outcome": "in_flight",
+   "detail": "02:41:57  [j10glx02:tt19]   diffusion 70/200",
+   "results": null
+  },
+  "tiny_peptide.yaml": {
+   "outcome": "in_flight",
+   "detail": "02:41:57  [j10glx02:tt19]   diffusion 70/200",
+   "results": null
+  },
+  "unusual_U.yaml": {
+   "outcome": "in_flight",
+   "detail": "02:41:57  [j10glx02:tt19]   diffusion 70/200",
+   "results": null
+  },
+  "unusual_X.yaml": {
+   "outcome": "in_flight",
+   "detail": "02:41:57  [j10glx02:tt19]   diffusion 70/200",
+   "results": null
+  }
+ },
+ "esmfold2": {
+  "affinity.yaml": {
+   "outcome": "folded",
+   "structure": "esmfold2/esmfold2_results_batch_in/structures/affinity.cif",
+   "check": {
+    "chains": {
+     "A": {
+      "residues": 76,
+      "atoms": 601,
+      "first": "MET"
+     },
+     "L": {
+      "residues": 1,
+      "atoms": 13,
+      "first": "LIG"
+     }
+    },
+    "chain_ids_kept": true,
+    "ligand_atoms": 13,
+    "ligand_protein_min_dist": 2.3163086775362642,
+    "present": true,
+    "clash": false,
+    "ok": false,
+    "affinity_keys": [],
+    "affinity_in_results": false,
+    "mean_bfactor": 89.72242779063868
+   },
+   "warned": [
+    "Note: --model esmfold2 ignores `properties: affinity` (binder L in affinity.yaml): no affinity value is written. Use --model boltz2, tt-bio affinity --model nesso1 for it."
+   ]
+  },
+  "base.yaml": {
+   "outcome": "folded",
+   "structure": "esmfold2/esmfold2_results_batch_in/structures/base.cif",
+   "check": {
+    "chains": {
+     "A": {
+      "residues": 76,
+      "atoms": 601,
+      "first": "MET"
+     }
+    },
+    "chain_ids_kept": true,
+    "mean_bfactor": 80.84112349524474
+   }
+  },
+  "bond_ligand.yaml": {
+   "outcome": "refused",
+   "exit": 1,
+   "message": "--model esmfold2 cannot honour 1 part(s) of bond_ligand.yaml:\n  - a `bond` constraint (constraints): the fold would ignore the covalent bond. Honoured by: --model boltz2, --model opendde, --model opendde-abag, --model protenix-v1, --model protenix-v2."
+  },
+  "bond_protein_cys.yaml": {
+   "outcome": "refused",
+   "exit": 1,
+   "message": "--model esmfold2 cannot honour 1 part(s) of bond_protein_cys.yaml:\n  - a `bond` constraint (constraints): the fold would ignore the covalent bond. Honoured by: --model boltz2, --model opendde, --model opendde-abag, --model protenix-v1, --model protenix-v2."
+  },
+  "bond_protein_shipped_example.yaml": {
+   "outcome": "refused",
+   "exit": 1,
+   "message": "--model esmfold2 cannot honour 1 part(s) of bond_protein_shipped_example.yaml:\n  - a `bond` constraint (constraints): the fold would ignore the covalent bond. Honoured by: --model boltz2, --model opendde, --model opendde-abag, --model protenix-v1, --model protenix-v2."
+  },
+  "contact.yaml": {
+   "outcome": "refused",
+   "exit": 1,
+   "message": "--model esmfold2 cannot honour 1 part(s) of contact.yaml:\n  - a `pocket`/`contact` constraint (constraints): the fold would ignore the binding constraint. Honoured by: --model boltz2."
+  },
+  "cyclic.yaml": {
+   "outcome": "refused",
+   "exit": 1,
+   "message": "--model esmfold2 cannot honour 1 part(s) of cyclic.yaml:\n  - `cyclic: true` (chain(s) A): the fold would return a linear structure. Honoured by: --model boltz2."
+  },
+  "dna.yaml": {
+   "outcome": "folded",
+   "structure": "esmfold2/esmfold2_results_batch_in/structures/dna.cif",
+   "check": {
+    "chains": {
+     "A": {
+      "residues": 76,
+      "atoms": 601,
+      "first": "MET"
+     },
+     "D": {
+      "residues": 13,
+      "atoms": 267,
+      "first": "DG"
+     }
+    },
+    "chain_ids_kept": true,
+    "na_residues": 13,
+    "na_protein_min_dist": 1.4895098382494576,
+    "present": true,
+    "clash": false,
+    "ok": true,
+    "mean_bfactor": 67.14130508844754
+   }
+  },
+  "fasta_ligand.fasta": {
+   "outcome": "folded",
+   "structure": "esmfold2/esmfold2_results_batch_in/structures/fasta_ligand.cif",
+   "check": {
+    "chains": {
+     "A": {
+      "residues": 76,
+      "atoms": 601,
+      "first": "MET"
+     },
+     "L": {
+      "residues": 1,
+      "atoms": 13,
+      "first": "LIG"
+     }
+    },
+    "chain_ids_kept": true,
+    "ligand_atoms": 13,
+    "ligand_protein_min_dist": 2.3163086775362642,
+    "present": true,
+    "clash": false,
+    "ok": true,
+    "mean_bfactor": 89.72242779063868
+   }
+  },
+  "heteromer3.yaml": {
+   "outcome": "folded",
+   "structure": "esmfold2/esmfold2_results_batch_in/structures/heteromer3.cif",
+   "check": {
+    "chains": {
+     "A": {
+      "residues": 76,
+      "atoms": 601,
+      "first": "MET"
+     },
+     "B": {
+      "residues": 20,
+      "atoms": 153,
+      "first": "ASN"
+     },
+     "C": {
+      "residues": 36,
+      "atoms": 261,
+      "first": "GLY"
+     }
+    },
+    "chain_ids_kept": true,
+    "ok": true,
+    "mean_bfactor": 60.14368025868984
+   }
+  },
+  "homomer.yaml": {
+   "outcome": "folded",
+   "structure": "esmfold2/esmfold2_results_batch_in/structures/homomer.cif",
+   "check": {
+    "chains": {
+     "A": {
+      "residues": 76,
+      "atoms": 601,
+      "first": "MET"
+     },
+     "B": {
+      "residues": 76,
+      "atoms": 601,
+      "first": "MET"
+     }
+    },
+    "chain_ids_kept": true,
+    "ok": true,
+    "mean_bfactor": 83.87422923121397
+   }
+  },
+  "ligand_ccd.yaml": {
+   "outcome": "folded",
+   "structure": "esmfold2/esmfold2_results_batch_in/structures/ligand_ccd.cif",
+   "check": {
+    "chains": {
+     "A": {
+      "residues": 76,
+      "atoms": 601,
+      "first": "MET"
+     },
+     "L": {
+      "residues": 1,
+      "atoms": 31,
+      "first": "ATP"
+     }
+    },
+    "chain_ids_kept": true,
+    "ligand_atoms": 31,
+    "ligand_protein_min_dist": 1.736241178739236,
+    "present": true,
+    "clash": false,
+    "ok": true,
+    "mean_bfactor": 81.64817881885963
+   }
+  },
+  "ligand_smiles.yaml": {
+   "outcome": "folded",
+   "structure": "esmfold2/esmfold2_results_batch_in/structures/ligand_smiles.cif",
+   "check": {
+    "chains": {
+     "A": {
+      "residues": 76,
+      "atoms": 601,
+      "first": "MET"
+     },
+     "L": {
+      "residues": 1,
+      "atoms": 13,
+      "first": "LIG"
+     }
+    },
+    "chain_ids_kept": true,
+    "ligand_atoms": 13,
+    "ligand_protein_min_dist": 2.3163086775362642,
+    "present": true,
+    "clash": false,
+    "ok": true,
+    "mean_bfactor": 89.72242779063868
+   }
+  },
+  "lowercase.yaml": {
+   "outcome": "folded",
+   "structure": "esmfold2/esmfold2_results_batch_in/structures/lowercase.cif",
+   "check": {
+    "chains": {
+     "A": {
+      "residues": 76,
+      "atoms": 601,
+      "first": "MET"
+     }
+    },
+    "chain_ids_kept": true,
+    "mean_bfactor": 80.84112349524474
+   }
+  },
+  "malformed_badchar.yaml": {
+   "outcome": "folded",
+   "structure": "esmfold2/esmfold2_results_batch_in/structures/malformed_badchar.cif",
+   "check": {
+    "chains": {
+     "A": {
+      "residues": 19,
+      "atoms": 146,
+      "first": "MET"
+     }
+    },
+    "chain_ids_kept": true,
+    "mean_bfactor": 76.03695224082634
+   }
+  },
+  "malformed_empty_seq.yaml": {
+   "outcome": "failed",
+   "detail": "malformed_empty_seq: no sequences\n      [tt_bio origin: worker.py:792 in _predict_esmfold2_one]\n  \u2717 rna_only: esmfold2 needs at least one protein chain\n      [tt_bio origin: worker.py:794 in _predict_esmfold2_one]\n\nDone: 19 ok, 2 failed \u2014 perf/mgx_matrix/out/esmfold2/esmfold2_results_batch_in/results.json",
+   "results": {
+    "id": "malformed_empty_seq",
+    "status": "failed",
+    "error": "no sequences\n[tt_bio origin: worker.py:792 in _predict_esmfold2_one]"
+   }
+  },
+  "malformed_typo.yaml": {
+   "outcome": "refused",
+   "exit": 1,
+   "message": "malformed_typo.yaml: unrecognized entity key(s) 'protien'. Accepted: dna, ligand, protein, rna."
+  },
+  "modification.yaml": {
+   "outcome": "folded",
+   "structure": "esmfold2/esmfold2_results_batch_in/structures/modification.cif",
+   "check": {
+    "chains": {
+     "A": {
+      "residues": 76,
+      "atoms": 605,
+      "first": "MET"
+     }
+    },
+    "chain_ids_kept": true,
+    "res7_name": "TPO",
+    "res7_has_P": true,
+    "ok": true,
+    "mean_bfactor": 82.83819803915733
+   }
+  },
+  "msa_a3m.yaml": {
+   "outcome": "folded",
+   "structure": "esmfold2/esmfold2_results_batch_in/structures/msa_a3m.cif",
+   "check": {
+    "chains": {
+     "A": {
+      "residues": 384,
+      "atoms": 2961,
+      "first": "MET"
+     }
+    },
+    "chain_ids_kept": true,
+    "mean_bfactor": 92.71501767107942
+   }
+  },
+  "msa_empty_ctrl.yaml": {
+   "outcome": "folded",
+   "structure": "esmfold2/esmfold2_results_batch_in/structures/msa_empty_ctrl.cif",
+   "check": {
+    "chains": {
+     "A": {
+      "residues": 384,
+      "atoms": 2961,
+      "first": "MET"
+     }
+    },
+    "chain_ids_kept": true,
+    "mean_bfactor": 91.5009797472118
+   }
+  },
+  "pocket.yaml": {
+   "outcome": "refused",
+   "exit": 1,
+   "message": "--model esmfold2 cannot honour 1 part(s) of pocket.yaml:\n  - a `pocket`/`contact` constraint (constraints): the fold would ignore the binding constraint. Honoured by: --model boltz2."
+  },
+  "rna.yaml": {
+   "outcome": "folded",
+   "structure": "esmfold2/esmfold2_results_batch_in/structures/rna.cif",
+   "check": {
+    "chains": {
+     "A": {
+      "residues": 76,
+      "atoms": 601,
+      "first": "MET"
+     },
+     "R": {
+      "residues": 20,
+      "atoms": 432,
+      "first": "G"
+     }
+    },
+    "chain_ids_kept": true,
+    "na_residues": 20,
+    "na_protein_min_dist": 1.5132358371381573,
+    "present": true,
+    "clash": false,
+    "ok": true,
+    "mean_bfactor": 69.12271331979137
+   }
+  },
+  "rna_only.yaml": {
+   "outcome": "failed",
+   "detail": "rna_only: esmfold2 needs at least one protein chain\n      [tt_bio origin: worker.py:794 in _predict_esmfold2_one]\n\nDone: 19 ok, 2 failed \u2014 perf/mgx_matrix/out/esmfold2/esmfold2_results_batch_in/results.json",
+   "results": {
+    "id": "rna_only",
+    "status": "failed",
+    "error": "esmfold2 needs at least one protein chain\n[tt_bio origin: worker.py:794 in _predict_esmfold2_one]"
+   }
+  },
+  "template_cif.yaml": {
+   "outcome": "folded",
+   "structure": "esmfold2/esmfold2_results_batch_in/structures/template_cif.cif",
+   "check": {
+    "chains": {
+     "A": {
+      "residues": 274,
+      "atoms": 2142,
+      "first": "PRO"
+     }
+    },
+    "chain_ids_kept": true,
+    "ca_rmsd_to_1a8q": 0.4635001441509374,
+    "mean_bfactor": 97.78498322088845,
+    "rmsd_delta_vs_off": 0.0,
+    "ok": false
+   }
+  },
+  "template_npz.yaml": {
+   "outcome": "refused",
+   "exit": 1,
+   "message": "--model esmfold2 cannot honour 1 part(s) of template_npz.yaml:\n  - `templates:` (chain(s) A): the fold would ignore the template you supplied. Honoured by: --model boltz2, --model openbind, --model opendde, --model opendde-abag, --model openfold3, --model protenix-v2."
+  },
+  "template_off.yaml": {
+   "outcome": "folded",
+   "structure": "esmfold2/esmfold2_results_batch_in/structures/template_off.cif",
+   "check": {
+    "chains": {
+     "A": {
+      "residues": 274,
+      "atoms": 2142,
+      "first": "PRO"
+     }
+    },
+    "chain_ids_kept": true,
+    "ca_rmsd_to_1a8q": 0.4635001441509374,
+    "mean_bfactor": 97.78498322088845
+   }
+  },
+  "tiny_peptide.yaml": {
+   "outcome": "folded",
+   "structure": "esmfold2/esmfold2_results_batch_in/structures/tiny_peptide.cif",
+   "check": {
+    "chains": {
+     "A": {
+      "residues": 5,
+      "atoms": 35,
+      "first": "GLY"
+     }
+    },
+    "chain_ids_kept": true,
+    "mean_bfactor": 69.47559225899833
+   }
+  },
+  "unusual_U.yaml": {
+   "outcome": "folded",
+   "structure": "esmfold2/esmfold2_results_batch_in/structures/unusual_U.cif",
+   "check": {
+    "chains": {
+     "A": {
+      "residues": 76,
+      "atoms": 598,
+      "first": "MET"
+     }
+    },
+    "chain_ids_kept": true,
+    "mean_bfactor": 80.53365211104071
+   }
+  },
+  "unusual_X.yaml": {
+   "outcome": "folded",
+   "structure": "esmfold2/esmfold2_results_batch_in/structures/unusual_X.cif",
+   "check": {
+    "chains": {
+     "A": {
+      "residues": 76,
+      "atoms": 598,
+      "first": "MET"
+     }
+    },
+    "chain_ids_kept": true,
+    "mean_bfactor": 80.53365211104071
+   }
+  }
+ },
+ "esmfold2-fast": {
+  "affinity.yaml": {
+   "outcome": "folded",
+   "structure": "esmfold2-fast/esmfold2_results_batch_in/structures/affinity.cif",
+   "check": {
+    "chains": {
+     "A": {
+      "residues": 76,
+      "atoms": 601,
+      "first": "MET"
+     },
+     "L": {
+      "residues": 1,
+      "atoms": 13,
+      "first": "LIG"
+     }
+    },
+    "chain_ids_kept": true,
+    "ligand_atoms": 13,
+    "ligand_protein_min_dist": 2.1890907169201377,
+    "present": true,
+    "clash": false,
+    "ok": false,
+    "affinity_keys": [],
+    "affinity_in_results": false,
+    "mean_bfactor": 90.57242802921257
+   },
+   "warned": [
+    "Note: --model esmfold2-fast ignores `properties: affinity` (binder L in affinity.yaml): no affinity value is written. Use --model boltz2, tt-bio affinity --model nesso1 for it."
+   ]
+  },
+  "base.yaml": {
+   "outcome": "in_flight",
+   "detail": "02:42:20  [j10glx02:tt7]   diffusion 16/68",
+   "results": null
+  },
+  "bond_ligand.yaml": {
+   "outcome": "refused",
+   "exit": 1,
+   "message": "--model esmfold2-fast cannot honour 1 part(s) of bond_ligand.yaml:\n  - a `bond` constraint (constraints): the fold would ignore the covalent bond. Honoured by: --model boltz2, --model opendde, --model opendde-abag, --model protenix-v1, --model protenix-v2."
+  },
+  "bond_protein_cys.yaml": {
+   "outcome": "refused",
+   "exit": 1,
+   "message": "--model esmfold2-fast cannot honour 1 part(s) of bond_protein_cys.yaml:\n  - a `bond` constraint (constraints): the fold would ignore the covalent bond. Honoured by: --model boltz2, --model opendde, --model opendde-abag, --model protenix-v1, --model protenix-v2."
+  },
+  "bond_protein_shipped_example.yaml": {
+   "outcome": "refused",
+   "exit": 1,
+   "message": "--model esmfold2-fast cannot honour 1 part(s) of bond_protein_shipped_example.yaml:\n  - a `bond` constraint (constraints): the fold would ignore the covalent bond. Honoured by: --model boltz2, --model opendde, --model opendde-abag, --model protenix-v1, --model protenix-v2."
+  },
+  "contact.yaml": {
+   "outcome": "refused",
+   "exit": 1,
+   "message": "--model esmfold2-fast cannot honour 1 part(s) of contact.yaml:\n  - a `pocket`/`contact` constraint (constraints): the fold would ignore the binding constraint. Honoured by: --model boltz2."
+  },
+  "cyclic.yaml": {
+   "outcome": "refused",
+   "exit": 1,
+   "message": "--model esmfold2-fast cannot honour 1 part(s) of cyclic.yaml:\n  - `cyclic: true` (chain(s) A): the fold would return a linear structure. Honoured by: --model boltz2."
+  },
+  "dna.yaml": {
+   "outcome": "in_flight",
+   "detail": "02:42:20  [j10glx02:tt7]   diffusion 16/68",
+   "results": null
+  },
+  "fasta_ligand.fasta": {
+   "outcome": "in_flight",
+   "detail": "02:42:20  [j10glx02:tt7]   diffusion 16/68",
+   "results": null
+  },
+  "heteromer3.yaml": {
+   "outcome": "in_flight",
+   "detail": "02:42:20  [j10glx02:tt7]   diffusion 16/68",
+   "results": null
+  },
+  "homomer.yaml": {
+   "outcome": "in_flight",
+   "detail": "02:42:20  [j10glx02:tt7]   diffusion 16/68",
+   "results": null
+  },
+  "ligand_ccd.yaml": {
+   "outcome": "in_flight",
+   "detail": "02:42:20  [j10glx02:tt7]   diffusion 16/68",
+   "results": null
+  },
+  "ligand_smiles.yaml": {
+   "outcome": "in_flight",
+   "detail": "02:42:20  [j10glx02:tt7]   diffusion 16/68",
+   "results": null
+  },
+  "lowercase.yaml": {
+   "outcome": "in_flight",
+   "detail": "02:42:20  [j10glx02:tt7]   diffusion 16/68",
+   "results": null
+  },
+  "malformed_badchar.yaml": {
+   "outcome": "in_flight",
+   "detail": "02:42:20  [j10glx02:tt7]   diffusion 16/68",
+   "results": null
+  },
+  "malformed_empty_seq.yaml": {
+   "outcome": "in_flight",
+   "detail": "02:42:20  [j10glx02:tt7]   diffusion 16/68",
+   "results": null
+  },
+  "malformed_typo.yaml": {
+   "outcome": "refused",
+   "exit": 1,
+   "message": "malformed_typo.yaml: unrecognized entity key(s) 'protien'. Accepted: dna, ligand, protein, rna."
+  },
+  "modification.yaml": {
+   "outcome": "in_flight",
+   "detail": "02:42:20  [j10glx02:tt7]   diffusion 16/68",
+   "results": null
+  },
+  "msa_a3m.yaml": {
+   "outcome": "in_flight",
+   "detail": "02:42:20  [j10glx02:tt7]   diffusion 16/68",
+   "results": null
+  },
+  "msa_empty_ctrl.yaml": {
+   "outcome": "in_flight",
+   "detail": "02:42:20  [j10glx02:tt7]   diffusion 16/68",
+   "results": null
+  },
+  "pocket.yaml": {
+   "outcome": "refused",
+   "exit": 1,
+   "message": "--model esmfold2-fast cannot honour 1 part(s) of pocket.yaml:\n  - a `pocket`/`contact` constraint (constraints): the fold would ignore the binding constraint. Honoured by: --model boltz2."
+  },
+  "rna.yaml": {
+   "outcome": "in_flight",
+   "detail": "02:42:20  [j10glx02:tt7]   diffusion 16/68",
+   "results": null
+  },
+  "rna_only.yaml": {
+   "outcome": "in_flight",
+   "detail": "02:42:20  [j10glx02:tt7]   diffusion 16/68",
+   "results": null
+  },
+  "template_cif.yaml": {
+   "outcome": "in_flight",
+   "detail": "02:42:20  [j10glx02:tt7]   diffusion 16/68",
+   "results": null
+  },
+  "template_npz.yaml": {
+   "outcome": "refused",
+   "exit": 1,
+   "message": "--model esmfold2-fast cannot honour 1 part(s) of template_npz.yaml:\n  - `templates:` (chain(s) A): the fold would ignore the template you supplied. Honoured by: --model boltz2, --model openbind, --model opendde, --model opendde-abag, --model openfold3, --model protenix-v2."
+  },
+  "template_off.yaml": {
+   "outcome": "in_flight",
+   "detail": "02:42:20  [j10glx02:tt7]   diffusion 16/68",
+   "results": null
+  },
+  "tiny_peptide.yaml": {
+   "outcome": "in_flight",
+   "detail": "02:42:20  [j10glx02:tt7]   diffusion 16/68",
+   "results": null
+  },
+  "unusual_U.yaml": {
+   "outcome": "in_flight",
+   "detail": "02:42:20  [j10glx02:tt7]   diffusion 16/68",
+   "results": null
+  },
+  "unusual_X.yaml": {
+   "outcome": "in_flight",
+   "detail": "02:42:20  [j10glx02:tt7]   diffusion 16/68",
+   "results": null
+  }
+ },
+ "openbind": {
+  "affinity.yaml": {
+   "outcome": "folded",
+   "structure": "openbind/openbind_results_batch_in/structures/affinity.cif",
+   "check": {
+    "chains": {
+     "A": {
+      "residues": 76,
+      "atoms": 601,
+      "first": "MET"
+     },
+     "L": {
+      "residues": 1,
+      "atoms": 13,
+      "first": "LIG0"
+     }
+    },
+    "chain_ids_kept": true,
+    "ligand_atoms": 13,
+    "ligand_protein_min_dist": 2.0707188691346246,
+    "present": true,
+    "clash": false,
+    "ok": false,
+    "affinity_keys": [],
+    "affinity_in_results": false,
+    "mean_bfactor": 78.99760810404725
+   },
+   "warned": [
+    "Note: --model openbind ignores `properties: affinity` (binder L in affinity.yaml): no affinity value is written. Use --model boltz2, tt-bio affinity --model nesso1 for it."
+   ]
+  },
+  "base.yaml": {
+   "outcome": "folded",
+   "structure": "openbind/openbind_results_batch_in/structures/base.cif",
+   "check": {
+    "chains": {
+     "A": {
+      "residues": 76,
+      "atoms": 601,
+      "first": "MET"
+     }
+    },
+    "chain_ids_kept": true,
+    "mean_bfactor": 79.40859843807887
+   }
+  },
+  "bond_ligand.yaml": {
+   "outcome": "refused",
+   "exit": 1,
+   "message": "--model openbind cannot honour 1 part(s) of bond_ligand.yaml:\n  - a `bond` constraint (constraints): the fold would ignore the covalent bond. Honoured by: --model boltz2, --model opendde, --model opendde-abag, --model protenix-v1, --model protenix-v2."
+  },
+  "bond_protein_cys.yaml": {
+   "outcome": "refused",
+   "exit": 1,
+   "message": "--model openbind cannot honour 1 part(s) of bond_protein_cys.yaml:\n  - a `bond` constraint (constraints): the fold would ignore the covalent bond. Honoured by: --model boltz2, --model opendde, --model opendde-abag, --model protenix-v1, --model protenix-v2."
+  },
+  "bond_protein_shipped_example.yaml": {
+   "outcome": "refused",
+   "exit": 1,
+   "message": "--model openbind cannot honour 1 part(s) of bond_protein_shipped_example.yaml:\n  - a `bond` constraint (constraints): the fold would ignore the covalent bond. Honoured by: --model boltz2, --model opendde, --model opendde-abag, --model protenix-v1, --model protenix-v2."
+  },
+  "contact.yaml": {
+   "outcome": "refused",
+   "exit": 1,
+   "message": "--model openbind cannot honour 1 part(s) of contact.yaml:\n  - a `pocket`/`contact` constraint (constraints): the fold would ignore the binding constraint. Honoured by: --model boltz2."
+  },
+  "cyclic.yaml": {
+   "outcome": "refused",
+   "exit": 1,
+   "message": "--model openbind cannot honour 1 part(s) of cyclic.yaml:\n  - `cyclic: true` (chain(s) A): the fold would return a linear structure. Honoured by: --model boltz2."
+  },
+  "dna.yaml": {
+   "outcome": "folded",
+   "structure": "openbind/openbind_results_batch_in/structures/dna.cif",
+   "check": {
+    "chains": {
+     "A": {
+      "residues": 76,
+      "atoms": 601,
+      "first": "MET"
+     },
+     "D": {
+      "residues": 13,
+      "atoms": 267,
+      "first": "DG"
+     }
+    },
+    "chain_ids_kept": true,
+    "na_residues": 13,
+    "na_protein_min_dist": 1.731161895282067,
+    "present": true,
+    "clash": false,
+    "ok": true,
+    "mean_bfactor": 89.11695365202591
+   }
+  },
+  "fasta_ligand.fasta": {
+   "outcome": "folded",
+   "structure": "openbind/openbind_results_batch_in/structures/fasta_ligand.cif",
+   "check": {
+    "chains": {
+     "A": {
+      "residues": 76,
+      "atoms": 601,
+      "first": "MET"
+     },
+     "L": {
+      "residues": 1,
+      "atoms": 13,
+      "first": "LIG0"
+     }
+    },
+    "chain_ids_kept": true,
+    "ligand_atoms": 13,
+    "ligand_protein_min_dist": 2.0707188691346246,
+    "present": true,
+    "clash": false,
+    "ok": true,
+    "mean_bfactor": 78.99760810404725
+   }
+  },
+  "heteromer3.yaml": {
+   "outcome": "folded",
+   "structure": "openbind/openbind_results_batch_in/structures/heteromer3.cif",
+   "check": {
+    "chains": {
+     "A": {
+      "residues": 76,
+      "atoms": 601,
+      "first": "MET"
+     },
+     "B": {
+      "residues": 20,
+      "atoms": 153,
+      "first": "ASN"
+     },
+     "C": {
+      "residues": 36,
+      "atoms": 261,
+      "first": "GLY"
+     }
+    },
+    "chain_ids_kept": true,
+    "ok": true,
+    "mean_bfactor": 67.04164221063623
+   }
+  },
+  "homomer.yaml": {
+   "outcome": "folded",
+   "structure": "openbind/openbind_results_batch_in/structures/homomer.cif",
+   "check": {
+    "chains": {
+     "A": {
+      "residues": 76,
+      "atoms": 601,
+      "first": "MET"
+     },
+     "B": {
+      "residues": 76,
+      "atoms": 601,
+      "first": "MET"
+     }
+    },
+    "chain_ids_kept": true,
+    "ok": true,
+    "mean_bfactor": 77.85257350902589
+   }
+  },
+  "ligand_ccd.yaml": {
+   "outcome": "folded",
+   "structure": "openbind/openbind_results_batch_in/structures/ligand_ccd.cif",
+   "check": {
+    "chains": {
+     "A": {
+      "residues": 76,
+      "atoms": 601,
+      "first": "MET"
+     },
+     "L": {
+      "residues": 1,
+      "atoms": 31,
+      "first": "ATP"
+     }
+    },
+    "chain_ids_kept": true,
+    "ligand_atoms": 31,
+    "ligand_protein_min_dist": 2.462287343839641,
+    "present": true,
+    "clash": false,
+    "ok": true,
+    "mean_bfactor": 78.35367901113969
+   }
+  },
+  "ligand_smiles.yaml": {
+   "outcome": "folded",
+   "structure": "openbind/openbind_results_batch_in/structures/ligand_smiles.cif",
+   "check": {
+    "chains": {
+     "A": {
+      "residues": 76,
+      "atoms": 601,
+      "first": "MET"
+     },
+     "L": {
+      "residues": 1,
+      "atoms": 13,
+      "first": "LIG0"
+     }
+    },
+    "chain_ids_kept": true,
+    "ligand_atoms": 13,
+    "ligand_protein_min_dist": 2.0707188691346246,
+    "present": true,
+    "clash": false,
+    "ok": true,
+    "mean_bfactor": 78.99760810404725
+   }
+  },
+  "lowercase.yaml": {
+   "outcome": "failed",
+   "detail": "02:42:20  [j10glx02:tt16]   diffusion 79/200",
+   "results": {
+    "id": "lowercase",
+    "status": "failed",
+    "error": "index 0 is out of bounds for axis 1 with size 0\n[tt_bio origin: msa.py:197 in map_msas_to_tokens]"
+   }
+  },
+  "malformed_badchar.yaml": {
+   "outcome": "folded",
+   "structure": "openbind/openbind_results_batch_in/structures/malformed_badchar.cif",
+   "check": {
+    "chains": {
+     "A": {
+      "residues": 19,
+      "atoms": 148,
+      "first": "MET"
+     }
+    },
+    "chain_ids_kept": true,
+    "mean_bfactor": 86.79409150819521
+   }
+  },
+  "malformed_empty_seq.yaml": {
+   "outcome": "failed",
+   "detail": "02:42:20  [j10glx02:tt16]   diffusion 79/200",
+   "results": {
+    "id": "malformed_empty_seq",
+    "status": "failed",
+    "error": "no protein/nucleic-acid sequences\n[tt_bio origin: worker.py:1401 in _predict_openfold3_one]"
+   }
+  },
+  "malformed_typo.yaml": {
+   "outcome": "refused",
+   "exit": 1,
+   "message": "malformed_typo.yaml: unrecognized entity key(s) 'protien'. Accepted: dna, ligand, protein, rna."
+  },
+  "modification.yaml": {
+   "outcome": "folded",
+   "structure": "openbind/openbind_results_batch_in/structures/modification.cif",
+   "check": {
+    "chains": {
+     "A": {
+      "residues": 76,
+      "atoms": 605,
+      "first": "MET"
+     }
+    },
+    "chain_ids_kept": true,
+    "res7_name": "TPO",
+    "res7_has_P": true,
+    "ok": true,
+    "mean_bfactor": 82.66202019935797
+   }
+  },
+  "msa_a3m.yaml": {
+   "outcome": "folded",
+   "structure": "openbind/openbind_results_batch_in/structures/msa_a3m.cif",
+   "check": {
+    "chains": {
+     "A": {
+      "residues": 384,
+      "atoms": 2961,
+      "first": "MET"
+     }
+    },
+    "chain_ids_kept": true,
+    "mean_bfactor": 77.82219752795146
+   }
+  },
+  "msa_empty_ctrl.yaml": {
+   "outcome": "folded",
+   "structure": "openbind/openbind_results_batch_in/structures/msa_empty_ctrl.cif",
+   "check": {
+    "chains": {
+     "A": {
+      "residues": 384,
+      "atoms": 2961,
+      "first": "MET"
+     }
+    },
+    "chain_ids_kept": true,
+    "mean_bfactor": 44.13357725984057
+   }
+  },
+  "pocket.yaml": {
+   "outcome": "refused",
+   "exit": 1,
+   "message": "--model openbind cannot honour 1 part(s) of pocket.yaml:\n  - a `pocket`/`contact` constraint (constraints): the fold would ignore the binding constraint. Honoured by: --model boltz2."
+  },
+  "rna.yaml": {
+   "outcome": "in_flight",
+   "detail": "02:42:20  [j10glx02:tt16]   diffusion 79/200",
+   "results": null
+  },
+  "rna_only.yaml": {
+   "outcome": "in_flight",
+   "detail": "02:42:20  [j10glx02:tt16]   diffusion 79/200",
+   "results": null
+  },
+  "template_cif.yaml": {
+   "outcome": "in_flight",
+   "detail": "02:42:20  [j10glx02:tt16]   diffusion 79/200",
+   "results": null
+  },
+  "template_npz.yaml": {
+   "outcome": "in_flight",
+   "detail": "02:42:20  [j10glx02:tt16]   diffusion 79/200",
+   "results": null
+  },
+  "template_off.yaml": {
+   "outcome": "in_flight",
+   "detail": "02:42:20  [j10glx02:tt16]   diffusion 79/200",
+   "results": null
+  },
+  "tiny_peptide.yaml": {
+   "outcome": "in_flight",
+   "detail": "02:42:20  [j10glx02:tt16]   diffusion 79/200",
+   "results": null
+  },
+  "unusual_U.yaml": {
+   "outcome": "in_flight",
+   "detail": "02:42:20  [j10glx02:tt16]   diffusion 79/200",
+   "results": null
+  },
+  "unusual_X.yaml": {
+   "outcome": "in_flight",
+   "detail": "02:42:20  [j10glx02:tt16]   diffusion 79/200",
+   "results": null
+  }
+ },
+ "opendde": {
+  "affinity.yaml": {
+   "outcome": "folded",
+   "structure": "opendde/opendde_results_batch_in/structures/affinity.cif",
+   "check": {
+    "chains": {
+     "A": {
+      "residues": 76,
+      "atoms": 602,
+      "first": "MET"
+     },
+     "B": {
+      "residues": 1,
+      "atoms": 13,
+      "first": "LIG"
+     }
+    },
+    "chain_ids_kept": false,
+    "ligand_atoms": 13,
+    "ligand_protein_min_dist": 2.9763704740872106,
+    "present": true,
+    "clash": false,
+    "ok": false,
+    "affinity_keys": [],
+    "affinity_in_results": false,
+    "mean_bfactor": 94.93386509282803
+   },
+   "warned": [
+    "Note: --model opendde ignores `properties: affinity` (binder L in affinity.yaml): no affinity value is written. Use --model boltz2, tt-bio affinity --model nesso1 for it."
+   ]
+  },
+  "base.yaml": {
+   "outcome": "folded",
+   "structure": "opendde/opendde_results_batch_in/structures/base.cif",
+   "check": {
+    "chains": {
+     "A": {
+      "residues": 76,
+      "atoms": 602,
+      "first": "MET"
+     }
+    },
+    "chain_ids_kept": true,
+    "mean_bfactor": 95.99554121454689
+   }
+  },
+  "bond_ligand.yaml": {
+   "outcome": "folded",
+   "structure": "opendde/opendde_results_batch_in/structures/bond_ligand.cif",
+   "check": {
+    "chains": {
+     "A": {
+      "residues": 11,
+      "atoms": 84,
+      "first": "GLY"
+     },
+     "B": {
+      "residues": 1,
+      "atoms": 5,
+      "first": "LIG"
+     }
+    },
+    "chain_ids_kept": true,
+    "atom1_found": true,
+    "atom2_found": true,
+    "bond_dist": 0.9327588067311399,
+    "present": true,
+    "clash": true,
+    "ok": false,
+    "mean_bfactor": 87.23779091138518
+   }
+  },
+  "bond_protein_cys.yaml": {
+   "outcome": "folded",
+   "structure": "opendde/opendde_results_batch_in/structures/bond_protein_cys.cif",
+   "check": {
+    "chains": {
+     "A": {
+      "residues": 11,
+      "atoms": 84,
+      "first": "GLY"
+     },
+     "B": {
+      "residues": 11,
+      "atoms": 92,
+      "first": "ASN"
+     }
+    },
+    "chain_ids_kept": true,
+    "atom1_found": true,
+    "atom2_found": true,
+    "bond_dist": 1.4503030192076998,
+    "present": true,
+    "clash": false,
+    "ok": true,
+    "mean_bfactor": 81.12217677723278
+   }
+  },
+  "bond_protein_shipped_example.yaml": {
+   "outcome": "folded",
+   "structure": "opendde/opendde_results_batch_in/structures/bond_protein_shipped_example.cif",
+   "check": {
+    "chains": {
+     "A": {
+      "residues": 11,
+      "atoms": 84,
+      "first": "GLY"
+     },
+     "B": {
+      "residues": 11,
+      "atoms": 92,
+      "first": "ASN"
+     }
+    },
+    "chain_ids_kept": true,
+    "atom1_found": false,
+    "atom2_found": false,
+    "bond_dist": null,
+    "present": false,
+    "clash": false,
+    "ok": false,
+    "mean_bfactor": 80.49993853135543
+   }
+  },
+  "contact.yaml": {
+   "outcome": "refused",
+   "exit": 1,
+   "message": "--model opendde cannot honour 1 part(s) of contact.yaml:\n  - a `pocket`/`contact` constraint (constraints): the fold would ignore the binding constraint. Honoured by: --model boltz2."
+  },
+  "cyclic.yaml": {
+   "outcome": "refused",
+   "exit": 1,
+   "message": "--model opendde cannot honour 1 part(s) of cyclic.yaml:\n  - `cyclic: true` (chain(s) A): the fold would return a linear structure. Honoured by: --model boltz2."
+  },
+  "dna.yaml": {
+   "outcome": "refused",
+   "exit": 1,
+   "message": "--model opendde cannot honour 1 part(s) of dna.yaml:\n  - a DNA chain (chain(s) D): nucleic-acid structural tokens are not ported. Honoured by: --model boltz2, --model esmfold2, --model esmfold2-fast, --model openbind, --model openfold3, --model protenix-v1, --model protenix-v2, --model rf3."
+  },
+  "fasta_ligand.fasta": {
+   "outcome": "folded",
+   "structure": "opendde/opendde_results_batch_in/structures/fasta_ligand.cif",
+   "check": {
+    "chains": {
+     "A": {
+      "residues": 76,
+      "atoms": 602,
+      "first": "MET"
+     },
+     "B": {
+      "residues": 1,
+      "atoms": 13,
+      "first": "LIG"
+     }
+    },
+    "chain_ids_kept": false,
+    "ligand_atoms": 13,
+    "ligand_protein_min_dist": 2.9763704740872106,
+    "present": true,
+    "clash": false,
+    "ok": true,
+    "mean_bfactor": 94.93386509282803
+   }
+  },
+  "heteromer3.yaml": {
+   "outcome": "folded",
+   "structure": "opendde/opendde_results_batch_in/structures/heteromer3.cif",
+   "check": {
+    "chains": {
+     "A": {
+      "residues": 76,
+      "atoms": 602,
+      "first": "MET"
+     },
+     "B": {
+      "residues": 20,
+      "atoms": 154,
+      "first": "ASN"
+     },
+     "C": {
+      "residues": 36,
+      "atoms": 262,
+      "first": "GLY"
+     }
+    },
+    "chain_ids_kept": true,
+    "ok": true,
+    "mean_bfactor": 83.27555951341431
+   }
+  },
+  "homomer.yaml": {
+   "outcome": "folded",
+   "structure": "opendde/opendde_results_batch_in/structures/homomer.cif",
+   "check": {
+    "chains": {
+     "A": {
+      "residues": 76,
+      "atoms": 602,
+      "first": "MET"
+     },
+     "B": {
+      "residues": 76,
+      "atoms": 602,
+      "first": "MET"
+     }
+    },
+    "chain_ids_kept": true,
+    "ok": true,
+    "mean_bfactor": 90.39882079786636
+   }
+  },
+  "ligand_ccd.yaml": {
+   "outcome": "folded",
+   "structure": "opendde/opendde_results_batch_in/structures/ligand_ccd.cif",
+   "check": {
+    "chains": {
+     "A": {
+      "residues": 76,
+      "atoms": 602,
+      "first": "MET"
+     },
+     "B": {
+      "residues": 1,
+      "atoms": 31,
+      "first": "ATP"
+     }
+    },
+    "chain_ids_kept": false,
+    "ligand_atoms": 31,
+    "ligand_protein_min_dist": 1.9492614802880683,
+    "present": true,
+    "clash": false,
+    "ok": true,
+    "mean_bfactor": 92.09040522462384
+   }
+  },
+  "ligand_smiles.yaml": {
+   "outcome": "folded",
+   "structure": "opendde/opendde_results_batch_in/structures/ligand_smiles.cif",
+   "check": {
+    "chains": {
+     "A": {
+      "residues": 76,
+      "atoms": 602,
+      "first": "MET"
+     },
+     "B": {
+      "residues": 1,
+      "atoms": 13,
+      "first": "LIG"
+     }
+    },
+    "chain_ids_kept": false,
+    "ligand_atoms": 13,
+    "ligand_protein_min_dist": 2.9763704740872106,
+    "present": true,
+    "clash": false,
+    "ok": true,
+    "mean_bfactor": 94.93386509282803
+   }
+  },
+  "lowercase.yaml": {
+   "outcome": "folded",
+   "structure": "opendde/opendde_results_batch_in/structures/lowercase.cif",
+   "check": {
+    "chains": {
+     "A": {
+      "residues": 76,
+      "atoms": 602,
+      "first": "MET"
+     }
+    },
+    "chain_ids_kept": true,
+    "mean_bfactor": 95.99554121454689
+   }
+  },
+  "malformed_badchar.yaml": {
+   "outcome": "failed",
+   "detail": "02:42:18  [j10glx02:tt14]   diffusion 199/200",
+   "results": {
+    "id": "malformed_badchar",
+    "status": "failed",
+    "error": "non-standard residue(s) at 121: only the 20 standard amino acids have a reference conformer. Declare each one as a `modifications:` entry with its CCD code (MSE for selenomethionine, SEP for phosphoserine), or substitute a standard residue.\n[tt_bio origin: protenix_data.py:718 in polymer_chain_features]"
+   }
+  },
+  "malformed_empty_seq.yaml": {
+   "outcome": "failed",
+   "detail": "02:42:18  [j10glx02:tt14]   diffusion 199/200",
+   "results": {
+    "id": "malformed_empty_seq",
+    "status": "failed",
+    "error": "no protein sequences\n[tt_bio origin: worker.py:910 in _predict_opendde_one]"
+   }
+  },
+  "malformed_typo.yaml": {
+   "outcome": "refused",
+   "exit": 1,
+   "message": "malformed_typo.yaml: unrecognized entity key(s) 'protien'. Accepted: dna, ligand, protein, rna."
+  },
+  "modification.yaml": {
+   "outcome": "folded",
+   "structure": "opendde/opendde_results_batch_in/structures/modification.cif",
+   "check": {
+    "chains": {
+     "A": {
+      "residues": 76,
+      "atoms": 606,
+      "first": "MET"
+     }
+    },
+    "chain_ids_kept": true,
+    "res7_name": "TPO",
+    "res7_has_P": true,
+    "ok": true,
+    "mean_bfactor": 93.54437993619308
+   }
+  },
+  "msa_a3m.yaml": {
+   "outcome": "folded",
+   "structure": "opendde/opendde_results_batch_in/structures/msa_a3m.cif",
+   "check": {
+    "chains": {
+     "A": {
+      "residues": 384,
+      "atoms": 2962,
+      "first": "MET"
+     }
+    },
+    "chain_ids_kept": true,
+    "mean_bfactor": 89.34456236566908
+   }
+  },
+  "msa_empty_ctrl.yaml": {
+   "outcome": "folded",
+   "structure": "opendde/opendde_results_batch_in/structures/msa_empty_ctrl.cif",
+   "check": {
+    "chains": {
+     "A": {
+      "residues": 384,
+      "atoms": 2962,
+      "first": "MET"
+     }
+    },
+    "chain_ids_kept": true,
+    "mean_bfactor": 89.24869137080758
+   }
+  },
+  "pocket.yaml": {
+   "outcome": "refused",
+   "exit": 1,
+   "message": "--model opendde cannot honour 1 part(s) of pocket.yaml:\n  - a `pocket`/`contact` constraint (constraints): the fold would ignore the binding constraint. Honoured by: --model boltz2."
+  },
+  "rna.yaml": {
+   "outcome": "refused",
+   "exit": 1,
+   "message": "--model opendde cannot honour 1 part(s) of rna.yaml:\n  - an RNA chain (chain(s) R): nucleic-acid structural tokens are not ported. Honoured by: --model boltz2, --model esmfold2, --model esmfold2-fast, --model openbind, --model openfold3, --model protenix-v1, --model protenix-v2, --model rf3."
+  },
+  "rna_only.yaml": {
+   "outcome": "refused",
+   "exit": 1,
+   "message": "--model opendde cannot honour 1 part(s) of rna_only.yaml:\n  - an RNA chain (chain(s) R): nucleic-acid structural tokens are not ported. Honoured by: --model boltz2, --model esmfold2, --model esmfold2-fast, --model openbind, --model openfold3, --model protenix-v1, --model protenix-v2, --model rf3."
+  },
+  "template_cif.yaml": {
+   "outcome": "folded",
+   "structure": "opendde/opendde_results_batch_in/structures/template_cif.cif",
+   "check": {
+    "chains": {
+     "A": {
+      "residues": 274,
+      "atoms": 2143,
+      "first": "PRO"
+     }
+    },
+    "chain_ids_kept": true,
+    "ca_rmsd_to_1a8q": 18.431141880379084,
+    "mean_bfactor": 39.8124446735391
+   }
+  },
+  "template_npz.yaml": {
+   "outcome": "folded",
+   "structure": "opendde/opendde_results_batch_in/structures/template_npz.cif",
+   "check": {
+    "chains": {
+     "A": {
+      "residues": 274,
+      "atoms": 2143,
+      "first": "PRO"
+     }
+    },
+    "chain_ids_kept": true,
+    "ca_rmsd_to_1a8q": 0.19720520026206959,
+    "mean_bfactor": 97.34440238621544
+   }
+  },
+  "template_off.yaml": {
+   "outcome": "in_flight",
+   "detail": "02:42:18  [j10glx02:tt14]   diffusion 199/200",
+   "results": null
+  },
+  "tiny_peptide.yaml": {
+   "outcome": "in_flight",
+   "detail": "02:42:18  [j10glx02:tt14]   diffusion 199/200",
+   "results": null
+  },
+  "unusual_U.yaml": {
+   "outcome": "in_flight",
+   "detail": "02:42:18  [j10glx02:tt14]   diffusion 199/200",
+   "results": null
+  },
+  "unusual_X.yaml": {
+   "outcome": "in_flight",
+   "detail": "02:42:18  [j10glx02:tt14]   diffusion 199/200",
+   "results": null
+  }
+ },
+ "openfold3": {
+  "affinity.yaml": {
+   "outcome": "refused",
+   "exit": 1,
+   "message": "--model openfold3 cannot honour 1 part(s) of affinity.yaml:\n  - a ligand chain (chain(s) L): preview2 was released as a polymer model and was never trained to place a ligand, so it is polymer-only here; the featurizer would build one and the sampler would return a status=ok structure anyway. Honoured by: --model boltz2, --model esmfold2, --model esmfold2-fast, tt-bio affinity --model nesso1, --model openbind, --model opendde, --model opendde-abag, --model protenix-v1, --model protenix-v2, --model rf3."
+  },
+  "base.yaml": {
+   "outcome": "folded",
+   "structure": "openfold3/openfold3_results_batch_in/structures/base.cif",
+   "check": {
+    "chains": {
+     "A": {
+      "residues": 76,
+      "atoms": 601,
+      "first": "MET"
+     }
+    },
+    "chain_ids_kept": true,
+    "mean_bfactor": 71.83915728856243
+   }
+  },
+  "bond_ligand.yaml": {
+   "outcome": "refused",
+   "exit": 1,
+   "message": "--model openfold3 cannot honour 2 part(s) of bond_ligand.yaml:\n  - a ligand chain (chain(s) B): preview2 was released as a polymer model and was never trained to place a ligand, so it is polymer-only here; the featurizer would build one and the sampler would return a status=ok structure anyway. Honoured by: --model boltz2, --model esmfold2, --model esmfold2-fast, tt-bio affinity --model nesso1, --model openbind, --model opendde, --model opendde-abag, --model protenix-v1, --model protenix-v2, --model rf3.\n  - a `bond` constraint (constraints): the fold would ignore the covalent bond. Honoured by: --model boltz2, --model opendde, --model opendde-abag, --model protenix-v1, --model protenix-v2."
+  },
+  "bond_protein_cys.yaml": {
+   "outcome": "refused",
+   "exit": 1,
+   "message": "--model openfold3 cannot honour 1 part(s) of bond_protein_cys.yaml:\n  - a `bond` constraint (constraints): the fold would ignore the covalent bond. Honoured by: --model boltz2, --model opendde, --model opendde-abag, --model protenix-v1, --model protenix-v2."
+  },
+  "bond_protein_shipped_example.yaml": {
+   "outcome": "refused",
+   "exit": 1,
+   "message": "--model openfold3 cannot honour 1 part(s) of bond_protein_shipped_example.yaml:\n  - a `bond` constraint (constraints): the fold would ignore the covalent bond. Honoured by: --model boltz2, --model opendde, --model opendde-abag, --model protenix-v1, --model protenix-v2."
+  },
+  "contact.yaml": {
+   "outcome": "refused",
+   "exit": 1,
+   "message": "--model openfold3 cannot honour 1 part(s) of contact.yaml:\n  - a `pocket`/`contact` constraint (constraints): the fold would ignore the binding constraint. Honoured by: --model boltz2."
+  },
+  "cyclic.yaml": {
+   "outcome": "refused",
+   "exit": 1,
+   "message": "--model openfold3 cannot honour 1 part(s) of cyclic.yaml:\n  - `cyclic: true` (chain(s) A): the fold would return a linear structure. Honoured by: --model boltz2."
+  },
+  "dna.yaml": {
+   "outcome": "folded",
+   "structure": "openfold3/openfold3_results_batch_in/structures/dna.cif",
+   "check": {
+    "chains": {
+     "A": {
+      "residues": 76,
+      "atoms": 601,
+      "first": "MET"
+     },
+     "D": {
+      "residues": 13,
+      "atoms": 267,
+      "first": "DG"
+     }
+    },
+    "chain_ids_kept": true,
+    "na_residues": 13,
+    "na_protein_min_dist": 1.9281217591260864,
+    "present": true,
+    "clash": false,
+    "ok": true,
+    "mean_bfactor": 75.6016400157032
+   }
+  },
+  "fasta_ligand.fasta": {
+   "outcome": "refused",
+   "exit": 1,
+   "message": "--model openfold3 cannot honour 1 part(s) of fasta_ligand.fasta:\n  - a ligand chain (chain(s) L): preview2 was released as a polymer model and was never trained to place a ligand, so it is polymer-only here; the featurizer would build one and the sampler would return a status=ok structure anyway. Honoured by: --model boltz2, --model esmfold2, --model esmfold2-fast, tt-bio affinity --model nesso1, --model openbind, --model opendde, --model opendde-abag, --model protenix-v1, --model protenix-v2, --model rf3."
+  },
+  "heteromer3.yaml": {
+   "outcome": "folded",
+   "structure": "openfold3/openfold3_results_batch_in/structures/heteromer3.cif",
+   "check": {
+    "chains": {
+     "A": {
+      "residues": 76,
+      "atoms": 601,
+      "first": "MET"
+     },
+     "B": {
+      "residues": 20,
+      "atoms": 153,
+      "first": "ASN"
+     },
+     "C": {
+      "residues": 36,
+      "atoms": 261,
+      "first": "GLY"
+     }
+    },
+    "chain_ids_kept": true,
+    "ok": true,
+    "mean_bfactor": 68.50717834322323
+   }
+  },
+  "homomer.yaml": {
+   "outcome": "folded",
+   "structure": "openfold3/openfold3_results_batch_in/structures/homomer.cif",
+   "check": {
+    "chains": {
+     "A": {
+      "residues": 76,
+      "atoms": 601,
+      "first": "MET"
+     },
+     "B": {
+      "residues": 76,
+      "atoms": 601,
+      "first": "MET"
+     }
+    },
+    "chain_ids_kept": true,
+    "ok": true,
+    "mean_bfactor": 75.95355935501378
+   }
+  },
+  "ligand_ccd.yaml": {
+   "outcome": "refused",
+   "exit": 1,
+   "message": "--model openfold3 cannot honour 1 part(s) of ligand_ccd.yaml:\n  - a ligand chain (chain(s) L): preview2 was released as a polymer model and was never trained to place a ligand, so it is polymer-only here; the featurizer would build one and the sampler would return a status=ok structure anyway. Honoured by: --model boltz2, --model esmfold2, --model esmfold2-fast, tt-bio affinity --model nesso1, --model openbind, --model opendde, --model opendde-abag, --model protenix-v1, --model protenix-v2, --model rf3."
+  },
+  "ligand_smiles.yaml": {
+   "outcome": "refused",
+   "exit": 1,
+   "message": "--model openfold3 cannot honour 1 part(s) of ligand_smiles.yaml:\n  - a ligand chain (chain(s) L): preview2 was released as a polymer model and was never trained to place a ligand, so it is polymer-only here; the featurizer would build one and the sampler would return a status=ok structure anyway. Honoured by: --model boltz2, --model esmfold2, --model esmfold2-fast, tt-bio affinity --model nesso1, --model openbind, --model opendde, --model opendde-abag, --model protenix-v1, --model protenix-v2, --model rf3."
+  },
+  "lowercase.yaml": {
+   "outcome": "folded",
+   "structure": "openfold3/openfold3_results_batch_in/structures/lowercase.cif",
+   "check": {
+    "chains": {
+     "A": {
+      "residues": 76,
+      "atoms": 456,
+      "first": "UNK"
+     }
+    },
+    "chain_ids_kept": true,
+    "mean_bfactor": 53.19288476308187
+   }
+  },
+  "malformed_badchar.yaml": {
+   "outcome": "folded",
+   "structure": "openfold3/openfold3_results_batch_in/structures/malformed_badchar.cif",
+   "check": {
+    "chains": {
+     "A": {
+      "residues": 19,
+      "atoms": 148,
+      "first": "MET"
+     }
+    },
+    "chain_ids_kept": true,
+    "mean_bfactor": 82.81659729416306
+   }
+  },
+  "malformed_empty_seq.yaml": {
+   "outcome": "failed",
+   "detail": "02:42:19  [j10glx02:tt13]   diffusion 126/200",
+   "results": {
+    "id": "malformed_empty_seq",
+    "status": "failed",
+    "error": "no protein/nucleic-acid sequences\n[tt_bio origin: worker.py:1400 in _predict_openfold3_one]"
+   }
+  },
+  "malformed_typo.yaml": {
+   "outcome": "refused",
+   "exit": 1,
+   "message": "malformed_typo.yaml: unrecognized entity key(s) 'protien'. Accepted: dna, ligand, protein, rna."
+  },
+  "modification.yaml": {
+   "outcome": "folded",
+   "structure": "openfold3/openfold3_results_batch_in/structures/modification.cif",
+   "check": {
+    "chains": {
+     "A": {
+      "residues": 76,
+      "atoms": 605,
+      "first": "MET"
+     }
+    },
+    "chain_ids_kept": true,
+    "res7_name": "TPO",
+    "res7_has_P": true,
+    "ok": true,
+    "mean_bfactor": 73.24360999115243
+   }
+  },
+  "msa_a3m.yaml": {
+   "outcome": "folded",
+   "structure": "openfold3/openfold3_results_batch_in/structures/msa_a3m.cif",
+   "check": {
+    "chains": {
+     "A": {
+      "residues": 384,
+      "atoms": 2961,
+      "first": "MET"
+     }
+    },
+    "chain_ids_kept": true,
+    "mean_bfactor": 78.48803391306838
+   }
+  },
+  "msa_empty_ctrl.yaml": {
+   "outcome": "folded",
+   "structure": "openfold3/openfold3_results_batch_in/structures/msa_empty_ctrl.cif",
+   "check": {
+    "chains": {
+     "A": {
+      "residues": 384,
+      "atoms": 2961,
+      "first": "MET"
+     }
+    },
+    "chain_ids_kept": true,
+    "mean_bfactor": 78.71333585853152
+   }
+  },
+  "pocket.yaml": {
+   "outcome": "refused",
+   "exit": 1,
+   "message": "--model openfold3 cannot honour 2 part(s) of pocket.yaml:\n  - a ligand chain (chain(s) L): preview2 was released as a polymer model and was never trained to place a ligand, so it is polymer-only here; the featurizer would build one and the sampler would return a status=ok structure anyway. Honoured by: --model boltz2, --model esmfold2, --model esmfold2-fast, tt-bio affinity --model nesso1, --model openbind, --model opendde, --model opendde-abag, --model protenix-v1, --model protenix-v2, --model rf3.\n  - a `pocket`/`contact` constraint (constraints): the fold would ignore the binding constraint. Honoured by: --model boltz2."
+  },
+  "rna.yaml": {
+   "outcome": "folded",
+   "structure": "openfold3/openfold3_results_batch_in/structures/rna.cif",
+   "check": {
+    "chains": {
+     "A": {
+      "residues": 76,
+      "atoms": 601,
+      "first": "MET"
+     },
+     "R": {
+      "residues": 20,
+      "atoms": 432,
+      "first": "G"
+     }
+    },
+    "chain_ids_kept": true,
+    "na_residues": 20,
+    "na_protein_min_dist": 1.3282988307020047,
+    "present": true,
+    "clash": false,
+    "ok": true,
+    "mean_bfactor": 79.07382514931456
+   }
+  },
+  "rna_only.yaml": {
+   "outcome": "folded",
+   "structure": "openfold3/openfold3_results_batch_in/structures/rna_only.cif",
+   "check": {
+    "chains": {
+     "R": {
+      "residues": 20,
+      "atoms": 432,
+      "first": "G"
+     }
+    },
+    "chain_ids_kept": true,
+    "na_residues": 20,
+    "na_protein_min_dist": null,
+    "present": true,
+    "clash": false,
+    "ok": true,
+    "mean_bfactor": 75.49096918106079
+   }
+  },
+  "template_cif.yaml": {
+   "outcome": "folded",
+   "structure": "openfold3/openfold3_results_batch_in/structures/template_cif.cif",
+   "check": {
+    "chains": {
+     "A": {
+      "residues": 274,
+      "atoms": 2142,
+      "first": "PRO"
+     }
+    },
+    "chain_ids_kept": true,
+    "ca_rmsd_to_1a8q": 17.586827935295663,
+    "mean_bfactor": 38.13477452685074
+   }
+  },
+  "template_npz.yaml": {
+   "outcome": "in_flight",
+   "detail": "02:42:19  [j10glx02:tt13]   diffusion 126/200",
+   "results": null
+  },
+  "template_off.yaml": {
+   "outcome": "in_flight",
+   "detail": "02:42:19  [j10glx02:tt13]   diffusion 126/200",
+   "results": null
+  },
+  "tiny_peptide.yaml": {
+   "outcome": "in_flight",
+   "detail": "02:42:19  [j10glx02:tt13]   diffusion 126/200",
+   "results": null
+  },
+  "unusual_U.yaml": {
+   "outcome": "in_flight",
+   "detail": "02:42:19  [j10glx02:tt13]   diffusion 126/200",
+   "results": null
+  },
+  "unusual_X.yaml": {
+   "outcome": "in_flight",
+   "detail": "02:42:19  [j10glx02:tt13]   diffusion 126/200",
+   "results": null
+  }
+ },
+ "protenix-v1": {
+  "affinity.yaml": {
+   "outcome": "folded",
+   "structure": "protenix-v1/protenix_results_batch_in/structures/affinity.cif",
+   "check": {
+    "chains": {
+     "A": {
+      "residues": 76,
+      "atoms": 602,
+      "first": "MET"
+     },
+     "B": {
+      "residues": 1,
+      "atoms": 13,
+      "first": "LIG"
+     }
+    },
+    "chain_ids_kept": false,
+    "ligand_atoms": 13,
+    "ligand_protein_min_dist": 2.8528801572327325,
+    "present": true,
+    "clash": false,
+    "ok": false,
+    "affinity_keys": [],
+    "affinity_in_results": false,
+    "mean_bfactor": 93.94930862798924
+   },
+   "warned": [
+    "Note: --model protenix-v1 ignores `properties: affinity` (binder L in affinity.yaml): no affinity value is written. Use --model boltz2, tt-bio affinity --model nesso1 for it."
+   ]
+  },
+  "base.yaml": {
+   "outcome": "folded",
+   "structure": "protenix-v1/protenix_results_batch_in/structures/base.cif",
+   "check": {
+    "chains": {
+     "A": {
+      "residues": 76,
+      "atoms": 602,
+      "first": "MET"
+     }
+    },
+    "chain_ids_kept": true,
+    "mean_bfactor": 92.50078936985561
+   }
+  },
+  "bond_ligand.yaml": {
+   "outcome": "folded",
+   "structure": "protenix-v1/protenix_results_batch_in/structures/bond_ligand.cif",
+   "check": {
+    "chains": {
+     "A": {
+      "residues": 11,
+      "atoms": 84,
+      "first": "GLY"
+     },
+     "B": {
+      "residues": 1,
+      "atoms": 5,
+      "first": "LIG"
+     }
+    },
+    "chain_ids_kept": true,
+    "atom1_found": true,
+    "atom2_found": true,
+    "bond_dist": 0.8567687917038124,
+    "present": true,
+    "clash": true,
+    "ok": false,
+    "mean_bfactor": 63.32468890072255
+   }
+  },
+  "bond_protein_cys.yaml": {
+   "outcome": "folded",
+   "structure": "protenix-v1/protenix_results_batch_in/structures/bond_protein_cys.cif",
+   "check": {
+    "chains": {
+     "A": {
+      "residues": 11,
+      "atoms": 84,
+      "first": "GLY"
+     },
+     "B": {
+      "residues": 11,
+      "atoms": 92,
+      "first": "ASN"
+     }
+    },
+    "chain_ids_kept": true,
+    "atom1_found": true,
+    "atom2_found": true,
+    "bond_dist": 1.2262833872106722,
+    "present": true,
+    "clash": false,
+    "ok": true,
+    "mean_bfactor": 60.3022526177493
+   }
+  },
+  "bond_protein_shipped_example.yaml": {
+   "outcome": "folded",
+   "structure": "protenix-v1/protenix_results_batch_in/structures/bond_protein_shipped_example.cif",
+   "check": {
+    "chains": {
+     "A": {
+      "residues": 11,
+      "atoms": 84,
+      "first": "GLY"
+     },
+     "B": {
+      "residues": 11,
+      "atoms": 92,
+      "first": "ASN"
+     }
+    },
+    "chain_ids_kept": true,
+    "atom1_found": false,
+    "atom2_found": false,
+    "bond_dist": null,
+    "present": false,
+    "clash": false,
+    "ok": false,
+    "mean_bfactor": 66.58078529618003
+   }
+  },
+  "contact.yaml": {
+   "outcome": "refused",
+   "exit": 1,
+   "message": "--model protenix-v1 cannot honour 1 part(s) of contact.yaml:\n  - a `pocket`/`contact` constraint (constraints): the fold would ignore the binding constraint. Honoured by: --model boltz2."
+  },
+  "cyclic.yaml": {
+   "outcome": "refused",
+   "exit": 1,
+   "message": "--model protenix-v1 cannot honour 1 part(s) of cyclic.yaml:\n  - `cyclic: true` (chain(s) A): the fold would return a linear structure. Honoured by: --model boltz2."
+  },
+  "dna.yaml": {
+   "outcome": "folded",
+   "structure": "protenix-v1/protenix_results_batch_in/structures/dna.cif",
+   "check": {
+    "chains": {
+     "A": {
+      "residues": 76,
+      "atoms": 602,
+      "first": "MET"
+     },
+     "B": {
+      "residues": 13,
+      "atoms": 268,
+      "first": "DG"
+     }
+    },
+    "chain_ids_kept": false,
+    "na_residues": 13,
+    "na_protein_min_dist": 1.1707909282435913,
+    "present": true,
+    "clash": false,
+    "ok": true,
+    "mean_bfactor": 77.6003501979784
+   }
+  },
+  "fasta_ligand.fasta": {
+   "outcome": "folded",
+   "structure": "protenix-v1/protenix_results_batch_in/structures/fasta_ligand.cif",
+   "check": {
+    "chains": {
+     "A": {
+      "residues": 76,
+      "atoms": 602,
+      "first": "MET"
+     },
+     "B": {
+      "residues": 1,
+      "atoms": 13,
+      "first": "LIG"
+     }
+    },
+    "chain_ids_kept": false,
+    "ligand_atoms": 13,
+    "ligand_protein_min_dist": 2.8528801572327325,
+    "present": true,
+    "clash": false,
+    "ok": true,
+    "mean_bfactor": 93.94930862798924
+   }
+  },
+  "heteromer3.yaml": {
+   "outcome": "folded",
+   "structure": "protenix-v1/protenix_results_batch_in/structures/heteromer3.cif",
+   "check": {
+    "chains": {
+     "A": {
+      "residues": 76,
+      "atoms": 602,
+      "first": "MET"
+     },
+     "B": {
+      "residues": 20,
+      "atoms": 154,
+      "first": "ASN"
+     },
+     "C": {
+      "residues": 36,
+      "atoms": 262,
+      "first": "GLY"
+     }
+    },
+    "chain_ids_kept": true,
+    "ok": true,
+    "mean_bfactor": 72.68889317390726
+   }
+  },
+  "homomer.yaml": {
+   "outcome": "folded",
+   "structure": "protenix-v1/protenix_results_batch_in/structures/homomer.cif",
+   "check": {
+    "chains": {
+     "A": {
+      "residues": 76,
+      "atoms": 602,
+      "first": "MET"
+     },
+     "B": {
+      "residues": 76,
+      "atoms": 602,
+      "first": "MET"
+     }
+    },
+    "chain_ids_kept": true,
+    "ok": true,
+    "mean_bfactor": 83.08321324852218
+   }
+  },
+  "ligand_ccd.yaml": {
+   "outcome": "folded",
+   "structure": "protenix-v1/protenix_results_batch_in/structures/ligand_ccd.cif",
+   "check": {
+    "chains": {
+     "A": {
+      "residues": 76,
+      "atoms": 602,
+      "first": "MET"
+     },
+     "B": {
+      "residues": 1,
+      "atoms": 31,
+      "first": "ATP"
+     }
+    },
+    "chain_ids_kept": false,
+    "ligand_atoms": 31,
+    "ligand_protein_min_dist": 2.3861346082147215,
+    "present": true,
+    "clash": false,
+    "ok": true,
+    "mean_bfactor": 92.96384808388179
+   }
+  },
+  "ligand_smiles.yaml": {
+   "outcome": "folded",
+   "structure": "protenix-v1/protenix_results_batch_in/structures/ligand_smiles.cif",
+   "check": {
+    "chains": {
+     "A": {
+      "residues": 76,
+      "atoms": 602,
+      "first": "MET"
+     },
+     "B": {
+      "residues": 1,
+      "atoms": 13,
+      "first": "LIG"
+     }
+    },
+    "chain_ids_kept": false,
+    "ligand_atoms": 13,
+    "ligand_protein_min_dist": 2.8528801572327325,
+    "present": true,
+    "clash": false,
+    "ok": true,
+    "mean_bfactor": 93.94930862798924
+   }
+  },
+  "lowercase.yaml": {
+   "outcome": "folded",
+   "structure": "protenix-v1/protenix_results_batch_in/structures/lowercase.cif",
+   "check": {
+    "chains": {
+     "A": {
+      "residues": 76,
+      "atoms": 602,
+      "first": "MET"
+     }
+    },
+    "chain_ids_kept": true,
+    "mean_bfactor": 92.50078936985561
+   }
+  },
+  "malformed_badchar.yaml": {
+   "outcome": "failed",
+   "detail": "Done: 20 ok, 4 failed \u2014 perf/mgx_matrix/out/protenix-v1/protenix_results_batch_in/results.json",
+   "results": {
+    "id": "malformed_badchar",
+    "status": "failed",
+    "error": "non-standard residue(s) at 121: only the 20 standard amino acids have a reference conformer. Declare each one as a `modifications:` entry with its CCD code (MSE for selenomethionine, SEP for phosphoserine), or substitute a standard residue.\n[tt_bio origin: protenix_data.py:718 in polymer_chain_features]"
+   }
+  },
+  "malformed_empty_seq.yaml": {
+   "outcome": "failed",
+   "detail": "andard residue(s) at 12X: only the 20 standard amino acids have a reference conformer. Declare each one as a `modifications:` entry with its CCD code (MSE for selenomethionine, SEP for phosphoserine), or substitute a standard residue.\n      [tt_bio origin: protenix_data.py:718 in polymer_chain_features]\n\nDone: 20 ok, 4 failed \u2014 perf/mgx_matrix/out/protenix-v1/protenix_results_batch_in/results.json",
+   "results": {
+    "id": "malformed_empty_seq",
+    "status": "failed",
+    "error": "no protein/nucleic-acid sequences\n[tt_bio origin: worker.py:1017 in _protenix_inputs]"
+   }
+  },
+  "malformed_typo.yaml": {
+   "outcome": "refused",
+   "exit": 1,
+   "message": "malformed_typo.yaml: unrecognized entity key(s) 'protien'. Accepted: dna, ligand, protein, rna."
+  },
+  "modification.yaml": {
+   "outcome": "folded",
+   "structure": "protenix-v1/protenix_results_batch_in/structures/modification.cif",
+   "check": {
+    "chains": {
+     "A": {
+      "residues": 76,
+      "atoms": 606,
+      "first": "MET"
+     }
+    },
+    "chain_ids_kept": true,
+    "res7_name": "TPO",
+    "res7_has_P": true,
+    "ok": true,
+    "mean_bfactor": 92.78694491496574
+   }
+  },
+  "msa_a3m.yaml": {
+   "outcome": "folded",
+   "structure": "protenix-v1/protenix_results_batch_in/structures/msa_a3m.cif",
+   "check": {
+    "chains": {
+     "A": {
+      "residues": 384,
+      "atoms": 2962,
+      "first": "MET"
+     }
+    },
+    "chain_ids_kept": true,
+    "mean_bfactor": 86.03620015182341
+   }
+  },
+  "msa_empty_ctrl.yaml": {
+   "outcome": "folded",
+   "structure": "protenix-v1/protenix_results_batch_in/structures/msa_empty_ctrl.cif",
+   "check": {
+    "chains": {
+     "A": {
+      "residues": 384,
+      "atoms": 2962,
+      "first": "MET"
+     }
+    },
+    "chain_ids_kept": true,
+    "mean_bfactor": 86.06458009054015
+   }
+  },
+  "pocket.yaml": {
+   "outcome": "refused",
+   "exit": 1,
+   "message": "--model protenix-v1 cannot honour 1 part(s) of pocket.yaml:\n  - a `pocket`/`contact` constraint (constraints): the fold would ignore the binding constraint. Honoured by: --model boltz2."
+  },
+  "rna.yaml": {
+   "outcome": "folded",
+   "structure": "protenix-v1/protenix_results_batch_in/structures/rna.cif",
+   "check": {
+    "chains": {
+     "A": {
+      "residues": 76,
+      "atoms": 602,
+      "first": "MET"
+     },
+     "B": {
+      "residues": 20,
+      "atoms": 433,
+      "first": "G"
+     }
+    },
+    "chain_ids_kept": false,
+    "na_residues": 20,
+    "na_protein_min_dist": 0.8747250717264141,
+    "present": true,
+    "clash": true,
+    "ok": false,
+    "mean_bfactor": 81.98307800661539
+   }
+  },
+  "rna_only.yaml": {
+   "outcome": "folded",
+   "structure": "protenix-v1/protenix_results_batch_in/structures/rna_only.cif",
+   "check": {
+    "chains": {
+     "A": {
+      "residues": 20,
+      "atoms": 433,
+      "first": "G"
+     }
+    },
+    "chain_ids_kept": false,
+    "na_residues": 20,
+    "na_protein_min_dist": null,
+    "present": true,
+    "clash": false,
+    "ok": true,
+    "mean_bfactor": 93.13545119569703
+   }
+  },
+  "template_cif.yaml": {
+   "outcome": "folded",
+   "structure": "protenix-v1/protenix_results_batch_in/structures/template_cif.cif",
+   "check": {
+    "chains": {
+     "A": {
+      "residues": 274,
+      "atoms": 2143,
+      "first": "PRO"
+     }
+    },
+    "chain_ids_kept": true,
+    "ca_rmsd_to_1a8q": 17.092007913866635,
+    "mean_bfactor": 36.25985998402007,
+    "rmsd_delta_vs_off": 0.0,
+    "ok": false
+   }
+  },
+  "template_npz.yaml": {
+   "outcome": "refused",
+   "exit": 1,
+   "message": "--model protenix-v1 cannot honour 1 part(s) of template_npz.yaml:\n  - `templates:` (chain(s) A): the fold would ignore the template you supplied. Honoured by: --model boltz2, --model openbind, --model opendde, --model opendde-abag, --model openfold3, --model protenix-v2."
+  },
+  "template_off.yaml": {
+   "outcome": "folded",
+   "structure": "protenix-v1/protenix_results_batch_in/structures/template_off.cif",
+   "check": {
+    "chains": {
+     "A": {
+      "residues": 274,
+      "atoms": 2143,
+      "first": "PRO"
+     }
+    },
+    "chain_ids_kept": true,
+    "ca_rmsd_to_1a8q": 17.092007913866635,
+    "mean_bfactor": 36.25985998402007
+   }
+  },
+  "tiny_peptide.yaml": {
+   "outcome": "folded",
+   "structure": "protenix-v1/protenix_results_batch_in/structures/tiny_peptide.cif",
+   "check": {
+    "chains": {
+     "A": {
+      "residues": 5,
+      "atoms": 36,
+      "first": "GLY"
+     }
+    },
+    "chain_ids_kept": true,
+    "mean_bfactor": 71.15970049964056
+   }
+  },
+  "unusual_U.yaml": {
+   "outcome": "failed",
+   "detail": "unusual_U \u2014 18.1s\n02:35:00  [j10glx02:tt9] unusual_X\n02:35:00  [j10glx02:tt9]   msa\n02:35:17  [j10glx02:tt9]   prep\n02:35:17  [j10glx02:tt9] \u2717 unusual_X \u2014 17.1s\n\n4 failed:",
+   "results": {
+    "id": "unusual_U",
+    "status": "failed",
+    "error": "non-standard residue(s) at 12U: only the 20 standard amino acids have a reference conformer. Declare each one as a `modifications:` entry with its CCD code (MSE for selenomethionine, SEP for phosphoserine), or substitute a standard residue.\n[tt_bio origin: protenix_data.py:718 in polymer_chain_features]"
+   }
+  },
+  "unusual_X.yaml": {
+   "outcome": "failed",
+   "detail": "unusual_X\n02:35:00  [j10glx02:tt9]   msa\n02:35:17  [j10glx02:tt9]   prep\n02:35:17  [j10glx02:tt9] \u2717 unusual_X \u2014 17.1s\n\n4 failed:",
+   "results": {
+    "id": "unusual_X",
+    "status": "failed",
+    "error": "non-standard residue(s) at 12X: only the 20 standard amino acids have a reference conformer. Declare each one as a `modifications:` entry with its CCD code (MSE for selenomethionine, SEP for phosphoserine), or substitute a standard residue.\n[tt_bio origin: protenix_data.py:718 in polymer_chain_features]"
+   }
+  }
+ },
+ "protenix-v2": {
+  "affinity.yaml": {
+   "outcome": "folded",
+   "structure": "protenix-v2/protenix_results_batch_in/structures/affinity.cif",
+   "check": {
+    "chains": {
+     "A": {
+      "residues": 76,
+      "atoms": 602,
+      "first": "MET"
+     },
+     "B": {
+      "residues": 1,
+      "atoms": 13,
+      "first": "LIG"
+     }
+    },
+    "chain_ids_kept": false,
+    "ligand_atoms": 13,
+    "ligand_protein_min_dist": 3.046738439490318,
+    "present": true,
+    "clash": false,
+    "ok": false,
+    "affinity_keys": [],
+    "affinity_in_results": false,
+    "mean_bfactor": 94.56097961673892
+   },
+   "warned": [
+    "Note: --model protenix-v2 ignores `properties: affinity` (binder L in affinity.yaml): no affinity value is written. Use --model boltz2, tt-bio affinity --model nesso1 for it."
+   ]
+  },
+  "base.yaml": {
+   "outcome": "folded",
+   "structure": "protenix-v2/protenix_results_batch_in/structures/base.cif",
+   "check": {
+    "chains": {
+     "A": {
+      "residues": 76,
+      "atoms": 602,
+      "first": "MET"
+     }
+    },
+    "chain_ids_kept": true,
+    "mean_bfactor": 93.283044156046
+   }
+  },
+  "bond_ligand.yaml": {
+   "outcome": "folded",
+   "structure": "protenix-v2/protenix_results_batch_in/structures/bond_ligand.cif",
+   "check": {
+    "chains": {
+     "A": {
+      "residues": 11,
+      "atoms": 84,
+      "first": "GLY"
+     },
+     "B": {
+      "residues": 1,
+      "atoms": 5,
+      "first": "LIG"
+     }
+    },
+    "chain_ids_kept": true,
+    "atom1_found": true,
+    "atom2_found": true,
+    "bond_dist": 1.5431268738368995,
+    "present": true,
+    "clash": false,
+    "ok": true,
+    "mean_bfactor": 90.70368580335982
+   }
+  },
+  "bond_protein_cys.yaml": {
+   "outcome": "folded",
+   "structure": "protenix-v2/protenix_results_batch_in/structures/bond_protein_cys.cif",
+   "check": {
+    "chains": {
+     "A": {
+      "residues": 11,
+      "atoms": 84,
+      "first": "GLY"
+     },
+     "B": {
+      "residues": 11,
+      "atoms": 92,
+      "first": "ASN"
+     }
+    },
+    "chain_ids_kept": true,
+    "atom1_found": true,
+    "atom2_found": true,
+    "bond_dist": 1.7244555278094194,
+    "present": true,
+    "clash": false,
+    "ok": true,
+    "mean_bfactor": 85.99493564258923
+   }
+  },
+  "bond_protein_shipped_example.yaml": {
+   "outcome": "folded",
+   "structure": "protenix-v2/protenix_results_batch_in/structures/bond_protein_shipped_example.cif",
+   "check": {
+    "chains": {
+     "A": {
+      "residues": 11,
+      "atoms": 84,
+      "first": "GLY"
+     },
+     "B": {
+      "residues": 11,
+      "atoms": 92,
+      "first": "ASN"
+     }
+    },
+    "chain_ids_kept": true,
+    "atom1_found": false,
+    "atom2_found": false,
+    "bond_dist": null,
+    "present": false,
+    "clash": false,
+    "ok": false,
+    "mean_bfactor": 87.09722141786055
+   }
+  },
+  "contact.yaml": {
+   "outcome": "refused",
+   "exit": 1,
+   "message": "--model protenix-v2 cannot honour 1 part(s) of contact.yaml:\n  - a `pocket`/`contact` constraint (constraints): the fold would ignore the binding constraint. Honoured by: --model boltz2."
+  },
+  "cyclic.yaml": {
+   "outcome": "refused",
+   "exit": 1,
+   "message": "--model protenix-v2 cannot honour 1 part(s) of cyclic.yaml:\n  - `cyclic: true` (chain(s) A): the fold would return a linear structure. Honoured by: --model boltz2."
+  },
+  "dna.yaml": {
+   "outcome": "folded",
+   "structure": "protenix-v2/protenix_results_batch_in/structures/dna.cif",
+   "check": {
+    "chains": {
+     "A": {
+      "residues": 76,
+      "atoms": 602,
+      "first": "MET"
+     },
+     "B": {
+      "residues": 13,
+      "atoms": 268,
+      "first": "DG"
+     }
+    },
+    "chain_ids_kept": false,
+    "na_residues": 13,
+    "na_protein_min_dist": 1.0909960693602885,
+    "present": true,
+    "clash": false,
+    "ok": true,
+    "mean_bfactor": 83.03721357323657
+   }
+  },
+  "fasta_ligand.fasta": {
+   "outcome": "folded",
+   "structure": "protenix-v2/protenix_results_batch_in/structures/fasta_ligand.cif",
+   "check": {
+    "chains": {
+     "A": {
+      "residues": 76,
+      "atoms": 602,
+      "first": "MET"
+     },
+     "B": {
+      "residues": 1,
+      "atoms": 13,
+      "first": "LIG"
+     }
+    },
+    "chain_ids_kept": false,
+    "ligand_atoms": 13,
+    "ligand_protein_min_dist": 3.046738439490318,
+    "present": true,
+    "clash": false,
+    "ok": true,
+    "mean_bfactor": 94.56097961673892
+   }
+  },
+  "heteromer3.yaml": {
+   "outcome": "folded",
+   "structure": "protenix-v2/protenix_results_batch_in/structures/heteromer3.cif",
+   "check": {
+    "chains": {
+     "A": {
+      "residues": 76,
+      "atoms": 602,
+      "first": "MET"
+     },
+     "B": {
+      "residues": 20,
+      "atoms": 154,
+      "first": "ASN"
+     },
+     "C": {
+      "residues": 36,
+      "atoms": 262,
+      "first": "GLY"
+     }
+    },
+    "chain_ids_kept": true,
+    "ok": true,
+    "mean_bfactor": 85.50393786177419
+   }
+  },
+  "homomer.yaml": {
+   "outcome": "folded",
+   "structure": "protenix-v2/protenix_results_batch_in/structures/homomer.cif",
+   "check": {
+    "chains": {
+     "A": {
+      "residues": 76,
+      "atoms": 602,
+      "first": "MET"
+     },
+     "B": {
+      "residues": 76,
+      "atoms": 602,
+      "first": "MET"
+     }
+    },
+    "chain_ids_kept": true,
+    "ok": true,
+    "mean_bfactor": 86.58713107251646
+   }
+  },
+  "ligand_ccd.yaml": {
+   "outcome": "folded",
+   "structure": "protenix-v2/protenix_results_batch_in/structures/ligand_ccd.cif",
+   "check": {
+    "chains": {
+     "A": {
+      "residues": 76,
+      "atoms": 602,
+      "first": "MET"
+     },
+     "B": {
+      "residues": 1,
+      "atoms": 31,
+      "first": "ATP"
+     }
+    },
+    "chain_ids_kept": false,
+    "ligand_atoms": 31,
+    "ligand_protein_min_dist": 2.661662837862047,
+    "present": true,
+    "clash": false,
+    "ok": true,
+    "mean_bfactor": 93.60912953658503
+   }
+  },
+  "ligand_smiles.yaml": {
+   "outcome": "folded",
+   "structure": "protenix-v2/protenix_results_batch_in/structures/ligand_smiles.cif",
+   "check": {
+    "chains": {
+     "A": {
+      "residues": 76,
+      "atoms": 602,
+      "first": "MET"
+     },
+     "B": {
+      "residues": 1,
+      "atoms": 13,
+      "first": "LIG"
+     }
+    },
+    "chain_ids_kept": false,
+    "ligand_atoms": 13,
+    "ligand_protein_min_dist": 3.046738439490318,
+    "present": true,
+    "clash": false,
+    "ok": true,
+    "mean_bfactor": 94.56097961673892
+   }
+  },
+  "lowercase.yaml": {
+   "outcome": "folded",
+   "structure": "protenix-v2/protenix_results_batch_in/structures/lowercase.cif",
+   "check": {
+    "chains": {
+     "A": {
+      "residues": 76,
+      "atoms": 602,
+      "first": "MET"
+     }
+    },
+    "chain_ids_kept": true,
+    "mean_bfactor": 93.283044156046
+   }
+  },
+  "malformed_badchar.yaml": {
+   "outcome": "failed",
+   "detail": "Done: 21 ok, 4 failed \u2014 perf/mgx_matrix/out/protenix-v2/protenix_results_batch_in/results.json",
+   "results": {
+    "id": "malformed_badchar",
+    "status": "failed",
+    "error": "non-standard residue(s) at 121: only the 20 standard amino acids have a reference conformer. Declare each one as a `modifications:` entry with its CCD code (MSE for selenomethionine, SEP for phosphoserine), or substitute a standard residue.\n[tt_bio origin: protenix_data.py:718 in polymer_chain_features]"
+   }
+  },
+  "malformed_empty_seq.yaml": {
+   "outcome": "failed",
+   "detail": "andard residue(s) at 12X: only the 20 standard amino acids have a reference conformer. Declare each one as a `modifications:` entry with its CCD code (MSE for selenomethionine, SEP for phosphoserine), or substitute a standard residue.\n      [tt_bio origin: protenix_data.py:718 in polymer_chain_features]\n\nDone: 21 ok, 4 failed \u2014 perf/mgx_matrix/out/protenix-v2/protenix_results_batch_in/results.json",
+   "results": {
+    "id": "malformed_empty_seq",
+    "status": "failed",
+    "error": "no protein/nucleic-acid sequences\n[tt_bio origin: worker.py:1017 in _protenix_inputs]"
+   }
+  },
+  "malformed_typo.yaml": {
+   "outcome": "refused",
+   "exit": 1,
+   "message": "malformed_typo.yaml: unrecognized entity key(s) 'protien'. Accepted: dna, ligand, protein, rna."
+  },
+  "modification.yaml": {
+   "outcome": "folded",
+   "structure": "protenix-v2/protenix_results_batch_in/structures/modification.cif",
+   "check": {
+    "chains": {
+     "A": {
+      "residues": 76,
+      "atoms": 606,
+      "first": "MET"
+     }
+    },
+    "chain_ids_kept": true,
+    "res7_name": "TPO",
+    "res7_has_P": true,
+    "ok": true,
+    "mean_bfactor": 93.5693490812094
+   }
+  },
+  "msa_a3m.yaml": {
+   "outcome": "folded",
+   "structure": "protenix-v2/protenix_results_batch_in/structures/msa_a3m.cif",
+   "check": {
+    "chains": {
+     "A": {
+      "residues": 384,
+      "atoms": 2962,
+      "first": "MET"
+     }
+    },
+    "chain_ids_kept": true,
+    "mean_bfactor": 87.59372253211909
+   }
+  },
+  "msa_empty_ctrl.yaml": {
+   "outcome": "folded",
+   "structure": "protenix-v2/protenix_results_batch_in/structures/msa_empty_ctrl.cif",
+   "check": {
+    "chains": {
+     "A": {
+      "residues": 384,
+      "atoms": 2962,
+      "first": "MET"
+     }
+    },
+    "chain_ids_kept": true,
+    "mean_bfactor": 87.64411160110382
+   }
+  },
+  "pocket.yaml": {
+   "outcome": "refused",
+   "exit": 1,
+   "message": "--model protenix-v2 cannot honour 1 part(s) of pocket.yaml:\n  - a `pocket`/`contact` constraint (constraints): the fold would ignore the binding constraint. Honoured by: --model boltz2."
+  },
+  "rna.yaml": {
+   "outcome": "folded",
+   "structure": "protenix-v2/protenix_results_batch_in/structures/rna.cif",
+   "check": {
+    "chains": {
+     "A": {
+      "residues": 76,
+      "atoms": 602,
+      "first": "MET"
+     },
+     "B": {
+      "residues": 20,
+      "atoms": 433,
+      "first": "G"
+     }
+    },
+    "chain_ids_kept": false,
+    "na_residues": 20,
+    "na_protein_min_dist": 2.5192126608292287,
+    "present": true,
+    "clash": false,
+    "ok": true,
+    "mean_bfactor": 71.39655620556523
+   }
+  },
+  "rna_only.yaml": {
+   "outcome": "folded",
+   "structure": "protenix-v2/protenix_results_batch_in/structures/rna_only.cif",
+   "check": {
+    "chains": {
+     "A": {
+      "residues": 20,
+      "atoms": 433,
+      "first": "G"
+     }
+    },
+    "chain_ids_kept": false,
+    "na_residues": 20,
+    "na_protein_min_dist": null,
+    "present": true,
+    "clash": false,
+    "ok": true,
+    "mean_bfactor": 78.44987471935104
+   }
+  },
+  "template_cif.yaml": {
+   "outcome": "folded",
+   "structure": "protenix-v2/protenix_results_batch_in/structures/template_cif.cif",
+   "check": {
+    "chains": {
+     "A": {
+      "residues": 274,
+      "atoms": 2143,
+      "first": "PRO"
+     }
+    },
+    "chain_ids_kept": true,
+    "ca_rmsd_to_1a8q": 16.553818871605813,
+    "mean_bfactor": 48.41184943800378,
+    "rmsd_delta_vs_off": 0.0,
+    "ok": false
+   }
+  },
+  "template_npz.yaml": {
+   "outcome": "folded",
+   "structure": "protenix-v2/protenix_results_batch_in/structures/template_npz.cif",
+   "check": {
+    "chains": {
+     "A": {
+      "residues": 274,
+      "atoms": 2143,
+      "first": "PRO"
+     }
+    },
+    "chain_ids_kept": true,
+    "ca_rmsd_to_1a8q": 0.13395876296492099,
+    "mean_bfactor": 95.69459466938655,
+    "rmsd_delta_vs_off": -16.419860108640894,
+    "ok": true
+   }
+  },
+  "template_off.yaml": {
+   "outcome": "folded",
+   "structure": "protenix-v2/protenix_results_batch_in/structures/template_off.cif",
+   "check": {
+    "chains": {
+     "A": {
+      "residues": 274,
+      "atoms": 2143,
+      "first": "PRO"
+     }
+    },
+    "chain_ids_kept": true,
+    "ca_rmsd_to_1a8q": 16.553818871605813,
+    "mean_bfactor": 48.41184943800378
+   }
+  },
+  "tiny_peptide.yaml": {
+   "outcome": "folded",
+   "structure": "protenix-v2/protenix_results_batch_in/structures/tiny_peptide.cif",
+   "check": {
+    "chains": {
+     "A": {
+      "residues": 5,
+      "atoms": 36,
+      "first": "GLY"
+     }
+    },
+    "chain_ids_kept": true,
+    "mean_bfactor": 86.83237181769476
+   }
+  },
+  "unusual_U.yaml": {
+   "outcome": "failed",
+   "detail": "unusual_U \u2014 1.1s\n02:37:03  [j10glx02:tt11] unusual_X\n02:37:03  [j10glx02:tt11]   msa\n02:37:04  [j10glx02:tt11]   prep\n02:37:04  [j10glx02:tt11] \u2717 unusual_X \u2014 1.4s\n\n4 failed:",
+   "results": {
+    "id": "unusual_U",
+    "status": "failed",
+    "error": "non-standard residue(s) at 12U: only the 20 standard amino acids have a reference conformer. Declare each one as a `modifications:` entry with its CCD code (MSE for selenomethionine, SEP for phosphoserine), or substitute a standard residue.\n[tt_bio origin: protenix_data.py:718 in polymer_chain_features]"
+   }
+  },
+  "unusual_X.yaml": {
+   "outcome": "failed",
+   "detail": "unusual_X\n02:37:03  [j10glx02:tt11]   msa\n02:37:04  [j10glx02:tt11]   prep\n02:37:04  [j10glx02:tt11] \u2717 unusual_X \u2014 1.4s\n\n4 failed:",
+   "results": {
+    "id": "unusual_X",
+    "status": "failed",
+    "error": "non-standard residue(s) at 12X: only the 20 standard amino acids have a reference conformer. Declare each one as a `modifications:` entry with its CCD code (MSE for selenomethionine, SEP for phosphoserine), or substitute a standard residue.\n[tt_bio origin: protenix_data.py:718 in polymer_chain_features]"
+   }
+  }
+ },
+ "rf3": {
+  "affinity.yaml": {
+   "outcome": "folded",
+   "structure": "rf3/rf3_results_batch_in/structures/affinity.cif",
+   "check": {
+    "chains": {
+     "A": {
+      "residues": 76,
+      "atoms": 601,
+      "first": "MET"
+     },
+     "B": {
+      "residues": 1,
+      "atoms": 13,
+      "first": "L:0"
+     }
+    },
+    "chain_ids_kept": false,
+    "ligand_atoms": 13,
+    "ligand_protein_min_dist": 2.473565441612412,
+    "present": true,
+    "clash": false,
+    "ok": false,
+    "affinity_keys": [],
+    "affinity_in_results": false,
+    "mean_bfactor": 87.6715578644594
+   },
+   "warned": [
+    "Note: --model rf3 ignores `properties: affinity` (binder L in affinity.yaml): no affinity value is written. Use --model boltz2, tt-bio affinity --model nesso1 for it."
+   ]
+  },
+  "base.yaml": {
+   "outcome": "folded",
+   "structure": "rf3/rf3_results_batch_in/structures/base.cif",
+   "check": {
+    "chains": {
+     "A": {
+      "residues": 76,
+      "atoms": 601,
+      "first": "MET"
+     }
+    },
+    "chain_ids_kept": true,
+    "mean_bfactor": 91.73667677944393
+   }
+  },
+  "bond_ligand.yaml": {
+   "outcome": "refused",
+   "exit": 1,
+   "message": "--model rf3 cannot honour 1 part(s) of bond_ligand.yaml:\n  - a `bond` constraint (constraints): the fold would ignore the covalent bond. Honoured by: --model boltz2, --model opendde, --model opendde-abag, --model protenix-v1, --model protenix-v2.\nRF3 also reads its own JSON/CIF spec, which does carry a bond graph, modified residues and cyclic chains."
+  },
+  "bond_protein_cys.yaml": {
+   "outcome": "refused",
+   "exit": 1,
+   "message": "--model rf3 cannot honour 1 part(s) of bond_protein_cys.yaml:\n  - a `bond` constraint (constraints): the fold would ignore the covalent bond. Honoured by: --model boltz2, --model opendde, --model opendde-abag, --model protenix-v1, --model protenix-v2.\nRF3 also reads its own JSON/CIF spec, which does carry a bond graph, modified residues and cyclic chains."
+  },
+  "bond_protein_shipped_example.yaml": {
+   "outcome": "refused",
+   "exit": 1,
+   "message": "--model rf3 cannot honour 1 part(s) of bond_protein_shipped_example.yaml:\n  - a `bond` constraint (constraints): the fold would ignore the covalent bond. Honoured by: --model boltz2, --model opendde, --model opendde-abag, --model protenix-v1, --model protenix-v2.\nRF3 also reads its own JSON/CIF spec, which does carry a bond graph, modified residues and cyclic chains."
+  },
+  "contact.yaml": {
+   "outcome": "refused",
+   "exit": 1,
+   "message": "--model rf3 cannot honour 1 part(s) of contact.yaml:\n  - a `pocket`/`contact` constraint (constraints): the fold would ignore the binding constraint. Honoured by: --model boltz2.\nRF3 also reads its own JSON/CIF spec, which does carry a bond graph, modified residues and cyclic chains."
+  },
+  "cyclic.yaml": {
+   "outcome": "refused",
+   "exit": 1,
+   "message": "--model rf3 cannot honour 1 part(s) of cyclic.yaml:\n  - `cyclic: true` (chain(s) A): the fold would return a linear structure. Honoured by: --model boltz2.\nRF3 also reads its own JSON/CIF spec, which does carry a bond graph, modified residues and cyclic chains."
+  },
+  "dna.yaml": {
+   "outcome": "folded",
+   "structure": "rf3/rf3_results_batch_in/structures/dna.cif",
+   "check": {
+    "chains": {
+     "A": {
+      "residues": 76,
+      "atoms": 601,
+      "first": "MET"
+     },
+     "D": {
+      "residues": 13,
+      "atoms": 267,
+      "first": "DG"
+     }
+    },
+    "chain_ids_kept": true,
+    "na_residues": 13,
+    "na_protein_min_dist": 0.8655517493194718,
+    "present": true,
+    "clash": true,
+    "ok": false,
+    "mean_bfactor": 80.94135245749477
+   }
+  },
+  "fasta_ligand.fasta": {
+   "outcome": "folded",
+   "structure": "rf3/rf3_results_batch_in/structures/fasta_ligand.cif",
+   "check": {
+    "chains": {
+     "A": {
+      "residues": 76,
+      "atoms": 601,
+      "first": "MET"
+     },
+     "B": {
+      "residues": 1,
+      "atoms": 13,
+      "first": "L:0"
+     }
+    },
+    "chain_ids_kept": false,
+    "ligand_atoms": 13,
+    "ligand_protein_min_dist": 2.473565441612412,
+    "present": true,
+    "clash": false,
+    "ok": true,
+    "mean_bfactor": 87.6715578644594
+   }
+  },
+  "heteromer3.yaml": {
+   "outcome": "folded",
+   "structure": "rf3/rf3_results_batch_in/structures/heteromer3.cif",
+   "check": {
+    "chains": {
+     "A": {
+      "residues": 76,
+      "atoms": 601,
+      "first": "MET"
+     },
+     "B": {
+      "residues": 20,
+      "atoms": 153,
+      "first": "ASN"
+     },
+     "C": {
+      "residues": 36,
+      "atoms": 261,
+      "first": "GLY"
+     }
+    },
+    "chain_ids_kept": true,
+    "ok": true,
+    "mean_bfactor": 75.31936724808416
+   }
+  },
+  "homomer.yaml": {
+   "outcome": "folded",
+   "structure": "rf3/rf3_results_batch_in/structures/homomer.cif",
+   "check": {
+    "chains": {
+     "A": {
+      "residues": 76,
+      "atoms": 601,
+      "first": "MET"
+     },
+     "B": {
+      "residues": 76,
+      "atoms": 601,
+      "first": "MET"
+     }
+    },
+    "chain_ids_kept": true,
+    "ok": true,
+    "mean_bfactor": 78.24031740655121
+   }
+  },
+  "ligand_ccd.yaml": {
+   "outcome": "folded",
+   "structure": "rf3/rf3_results_batch_in/structures/ligand_ccd.cif",
+   "check": {
+    "chains": {
+     "A": {
+      "residues": 76,
+      "atoms": 601,
+      "first": "MET"
+     },
+     "B": {
+      "residues": 1,
+      "atoms": 31,
+      "first": "ATP"
+     }
+    },
+    "chain_ids_kept": false,
+    "ligand_atoms": 31,
+    "ligand_protein_min_dist": 3.0841172339893554,
+    "present": true,
+    "clash": false,
+    "ok": true,
+    "mean_bfactor": 84.90072663222688
+   }
+  },
+  "ligand_smiles.yaml": {
+   "outcome": "folded",
+   "structure": "rf3/rf3_results_batch_in/structures/ligand_smiles.cif",
+   "check": {
+    "chains": {
+     "A": {
+      "residues": 76,
+      "atoms": 601,
+      "first": "MET"
+     },
+     "B": {
+      "residues": 1,
+      "atoms": 13,
+      "first": "L:0"
+     }
+    },
+    "chain_ids_kept": false,
+    "ligand_atoms": 13,
+    "ligand_protein_min_dist": 2.5384666768503337,
+    "present": true,
+    "clash": false,
+    "ok": true,
+    "mean_bfactor": 87.84661409831591
+   }
+  },
+  "lowercase.yaml": {
+   "outcome": "failed",
+   "detail": "02:40:52  [j10glx02:tt12]   msa",
+   "results": {
+    "id": "lowercase",
+    "status": "failed",
+    "error": "Could not infer chain type from sequence: seq=['m', 'q', 'i', 'f', 'v', 'k', 't', 'l', 't', 'g', 'k', 't', 'i', 't', 'l', 'e', 'v', 'e', 'p', 's', 'd', 't', 'i', 'e', 'n', 'v', 'k', 'a', 'k', 'i', 'q', 'd', 'k', 'e', 'g', 'i', 'p', 'p', 'd', 'q', 'q', 'r', 'l', 'i', 'f', 'a', 'g', 'k', 'q', 'l', 'e', 'd', 'g', 'r', 't', 'l', 's', 'd', 'y', 'n', 'i', 'q', 'k', 'e', 's', 't', 'l', 'h', 'l', 'v', 'l', 'r', 'l', 'r', 'g', 'g']\n[tt_bio origin: inference.py:444 in prepare_inference_inputs_from_paths]"
+   }
+  },
+  "malformed_badchar.yaml": {
+   "outcome": "folded",
+   "structure": "rf3/rf3_results_batch_in/structures/malformed_badchar.cif",
+   "check": {
+    "chains": {
+     "A": {
+      "residues": 19,
+      "atoms": 148,
+      "first": "MET"
+     }
+    },
+    "chain_ids_kept": true,
+    "mean_bfactor": 84.07806839814057
+   }
+  },
+  "malformed_empty_seq.yaml": {
+   "outcome": "failed",
+   "detail": "02:40:52  [j10glx02:tt12]   msa",
+   "results": {
+    "id": "malformed_empty_seq",
+    "status": "failed",
+    "error": "no sequences\n[tt_bio origin: worker.py:1207 in _predict_rf3_one]"
+   }
+  },
+  "malformed_typo.yaml": {
+   "outcome": "refused",
+   "exit": 1,
+   "message": "malformed_typo.yaml: unrecognized entity key(s) 'protien'. Accepted: dna, ligand, protein, rna."
+  },
+  "modification.yaml": {
+   "outcome": "refused",
+   "exit": 1,
+   "message": "--model rf3 cannot honour 1 part(s) of modification.yaml:\n  - `modifications:` (chain(s) A): the fold would return the unmodified residue. Honoured by: --model boltz2, --model esmfold2, --model esmfold2-fast, --model openbind, --model opendde, --model opendde-abag, --model openfold3, --model protenix-v1, --model protenix-v2.\nRF3 also reads its own JSON/CIF spec, which does carry a bond graph, modified residues and cyclic chains."
+  },
+  "msa_a3m.yaml": {
+   "outcome": "folded",
+   "structure": "rf3/rf3_results_batch_in/structures/msa_a3m.cif",
+   "check": {
+    "chains": {
+     "A": {
+      "residues": 384,
+      "atoms": 2961,
+      "first": "MET"
+     }
+    },
+    "chain_ids_kept": true,
+    "mean_bfactor": 90.58154841058764
+   }
+  },
+  "msa_empty_ctrl.yaml": {
+   "outcome": "folded",
+   "structure": "rf3/rf3_results_batch_in/structures/msa_empty_ctrl.cif",
+   "check": {
+    "chains": {
+     "A": {
+      "residues": 384,
+      "atoms": 2961,
+      "first": "MET"
+     }
+    },
+    "chain_ids_kept": true,
+    "mean_bfactor": 90.51050825805045
+   }
+  },
+  "pocket.yaml": {
+   "outcome": "refused",
+   "exit": 1,
+   "message": "--model rf3 cannot honour 1 part(s) of pocket.yaml:\n  - a `pocket`/`contact` constraint (constraints): the fold would ignore the binding constraint. Honoured by: --model boltz2.\nRF3 also reads its own JSON/CIF spec, which does carry a bond graph, modified residues and cyclic chains."
+  },
+  "rna.yaml": {
+   "outcome": "folded",
+   "structure": "rf3/rf3_results_batch_in/structures/rna.cif",
+   "check": {
+    "chains": {
+     "A": {
+      "residues": 76,
+      "atoms": 601,
+      "first": "MET"
+     },
+     "R": {
+      "residues": 20,
+      "atoms": 432,
+      "first": "G"
+     }
+    },
+    "chain_ids_kept": true,
+    "na_residues": 20,
+    "na_protein_min_dist": 1.5123635255119292,
+    "present": true,
+    "clash": false,
+    "ok": true,
+    "mean_bfactor": 78.5811182116262
+   }
+  },
+  "rna_only.yaml": {
+   "outcome": "folded",
+   "structure": "rf3/rf3_results_batch_in/structures/rna_only.cif",
+   "check": {
+    "chains": {
+     "R": {
+      "residues": 20,
+      "atoms": 432,
+      "first": "G"
+     }
+    },
+    "chain_ids_kept": true,
+    "na_residues": 20,
+    "na_protein_min_dist": null,
+    "present": true,
+    "clash": false,
+    "ok": true,
+    "mean_bfactor": 83.04068401124742
+   }
+  },
+  "template_cif.yaml": {
+   "outcome": "folded",
+   "structure": "rf3/rf3_results_batch_in/structures/template_cif.cif",
+   "check": {
+    "chains": {
+     "A": {
+      "residues": 274,
+      "atoms": 2142,
+      "first": "PRO"
+     }
+    },
+    "chain_ids_kept": true,
+    "ca_rmsd_to_1a8q": 15.815926850684729,
+    "mean_bfactor": 70.70965355339727,
+    "rmsd_delta_vs_off": 0.0,
+    "ok": false
+   }
+  },
+  "template_npz.yaml": {
+   "outcome": "refused",
+   "exit": 1,
+   "message": "--model rf3 cannot honour 1 part(s) of template_npz.yaml:\n  - `templates:` (chain(s) A): the fold would ignore the template you supplied. Honoured by: --model boltz2, --model openbind, --model opendde, --model opendde-abag, --model openfold3, --model protenix-v2.\nRF3 also reads its own JSON/CIF spec, which does carry a bond graph, modified residues and cyclic chains."
+  },
+  "template_off.yaml": {
+   "outcome": "folded",
+   "structure": "rf3/rf3_results_batch_in/structures/template_off.cif",
+   "check": {
+    "chains": {
+     "A": {
+      "residues": 274,
+      "atoms": 2142,
+      "first": "PRO"
+     }
+    },
+    "chain_ids_kept": true,
+    "ca_rmsd_to_1a8q": 15.815926850684729,
+    "mean_bfactor": 70.70965355339727
+   }
+  },
+  "tiny_peptide.yaml": {
+   "outcome": "folded",
+   "structure": "rf3/rf3_results_batch_in/structures/tiny_peptide.cif",
+   "check": {
+    "chains": {
+     "A": {
+      "residues": 5,
+      "atoms": 35,
+      "first": "GLY"
+     }
+    },
+    "chain_ids_kept": true,
+    "mean_bfactor": 71.02554157802037
+   }
+  },
+  "unusual_U.yaml": {
+   "outcome": "folded",
+   "structure": "rf3/rf3_results_batch_in/structures/unusual_U.cif",
+   "check": {
+    "chains": {
+     "A": {
+      "residues": 76,
+      "atoms": 600,
+      "first": "MET"
+     }
+    },
+    "chain_ids_kept": true,
+    "mean_bfactor": 90.51655284245808
+   }
+  },
+  "unusual_X.yaml": {
+   "outcome": "in_flight",
+   "detail": "02:40:52  [j10glx02:tt12]   msa",
+   "results": null
+  }
+ }
+}
