@@ -330,34 +330,25 @@ CEILINGS: dict[str, dict[str, Ceiling]] = {
                      "failure rather than at the largest passing size",
         ),
         "wormhole_b0": Ceiling(
-            residues=1024, pass_at=1024, fail_at=1088, binds=MEMORY, mechanism=FRAGMENTATION,
+            residues=1536, pass_at=1536, fail_at=None, binds=LADDER_TOP, mechanism=NO_FAILURE,
             msa_rows=8192,
-            evidence="its OWN rungs at 8192 alignment rows, 2026-09-08, not inherited from "
-                     "opendde by architecture argument: 1024 folds 3/3 in separate processes, "
-                     "byte-identical (CIF md5 a27f0d67, 1545-1549 s, clash_frac 0.00971, plDDT "
-                     "0.717) and 512 folds (md5 7cc87160, 296 s, clash_frac 0.00534). The two "
-                     "checkpoints share the trunk, the refiner and every tensor shape and differ "
-                     "only in weight values, which is why the same fix serves both -- but these "
-                     "numbers are measured on this checkpoint. Same history as the opendde row: "
-                     "the old 544 cap was the re-probed in-projection width, not a capacity wall. "
-                     "NEGATIVE CONTROL, added 2026-09-11 on the j10glx02 Galaxy "
-                     "(ws:wh-seqlen-structure, perf/whceil): 1088 aa at the same 8192 rows "
-                     "FAILS, so this row is no longer the top of a ladder nobody walked past. "
-                     "The refusal is FRAGMENTATION and not one oversized tensor -- 2424307712 "
-                     "B wanted across 12 banks, 192.7 MiB per bank against a 1024.0 MiB bank, "
-                     "with 207.4 MiB per bank FREE and a largest free block of 170.5 MiB. More "
-                     "free memory than the request needs, in pieces. The engine narrows twice "
-                     "and the second attempt misses by 768 bytes (101014272 B wanted against a "
-                     "101013504 B largest block). What ends the fold is not OuterProductMean "
-                     "but the fused triangle-attention gate output, [tt_bio origin: "
-                     "triatt_qkv.py:210 in gate_proj], one tensor of tokens^2 x 384 x 2 B. "
-                     "1024 itself re-folded here in 2104 s. "
-                     "1056 aa FOLDS, added the same day: 1648.8 s, and it survives two DRAM "
-                     "refusals (largest 2.13 GiB) and three L1 circular-buffer clashes on the "
-                     "way, which is the reactive narrowing doing its job. So the largest size "
-                     "below the first failure is 1056, not 1024, and this cap is 32 residues "
-                     "conservative. It is NOT raised here, for the same reason as the others: "
-                     "raising a cap accepts more work and restamps every capacity cell.",
+            evidence="its OWN 1536 rung at 8192 alignment rows on the j10glx02 Galaxy, 2026-09-23, "
+                     "not inherited from opendde by architecture argument (ws:mgx-bigalloc, "
+                     "perf/whceil/ladder.py, chip 18, tt-bio c8f75a9f0): cdk2x2_1536_d8192 with all "
+                     "10 trunk recycles, PASS in 5366.1 s at AICLK 1000 MHz on 497 of 501 samples "
+                     "taken DURING the fold, under a host load that voids the time for speed. Nine "
+                     "DRAM refusals absorbed, the largest 6948913152 B (the refiner's 3008-token "
+                     "structural pair); the diffusion held 8.45 GiB of 12. The backbone has no "
+                     "break (CA-CA median 3.84 A, 97.9 % in band). The two checkpoints share every "
+                     "tensor shape, so the walls this replaces are opendde's: the 1088 failure "
+                     "recorded here on 2026-09-11 (the triangle-attention gate output, "
+                     "tokens^2 x 384 x 2 B, after a 2424307712 B OuterProductMean refusal was "
+                     "survived) and the whole tensors after it, now streamed or row-blocked in "
+                     "shared code. 1536 has no upstream reference yet; 7aqx_1024 has one for this "
+                     "checkpoint. The size ladder's own cdk2x2_1280 rung (single sequence, 6 steps), which "
+                     "crashed after the trunk on an L1 clash before 72ea47311, folds on 598f158a8 "
+                     "(chip 30, 2005.9 s, AICLK median 1000 MHz). The previous row was 1024 (3/3 byte-identical folds, 2026-09-08) "
+                     "with 1088 failing",
         ),
     },
     "openfold3": {
