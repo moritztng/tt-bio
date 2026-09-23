@@ -75,7 +75,9 @@ effect:
 | the same 512 residues, **upstream BoltzGen, torch fp32 on a CPU** | 1 | **11.04 A** | 0 % |
 
 **The last row is the one to read.** The stock package, on a CPU, in fp32, returns the same
-quality on the same target. So the number to act on is the target, not the card: crop to the
+quality on the same target. It is one design, and that refold is not reproducible to better
+than about 0.9 A run to run — the same upstream refold of one design, repeated with the same
+config, gave 1.74 A and 0.87 A — so read it as "the same level", not as an ordering. So the number to act on is the target, not the card: crop to the
 surface you actually want bound. A 120-residue target is a different problem from a
 512-residue one, and every hundred residues you hand the model that are not part of the
 interface costs you designs.
