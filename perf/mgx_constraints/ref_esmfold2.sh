@@ -1,9 +1,12 @@
 #!/bin/bash
-# ref_esmfold2.sh <esmfold2|esmfold2-fast> "<candidate cards>": esmfold2_upstream.py on one
-# free whglx chip (the ttnn ESMC-6B needs it), holding a mgx-constraints lease for the run.
+# ref_esmfold2.sh <esmfold2|esmfold2-fast> "<candidate cards>" [input.yaml ...]:
+# esmfold2_upstream.py on one free whglx chip (the ttnn ESMC-6B needs it), holding a
+# mgx-constraints lease for the run. With no inputs it runs the six the row scores.
+# The thread count stays at 8 so a later input is comparable to the ones already in ref/.
 set -u
 cd "$(dirname "$0")"
 M=$1 POOL=$2 L=$HOME/leases ME=worker:mgx-constraints
+shift 2
 while [ -e "$L/.mgx-quiet-window" ]; do sleep 60; done
 C=
 while [ -z "$C" ]; do
@@ -30,15 +33,16 @@ done
 printf '{"host": "j10glx02", "card": "%s", "holder": "%s", "pid": %s, "acquired": %s, "released": null}' \
     "$C" "$ME" "$$" "$(date +%s)" > "$L/j10glx02-card$C.json"
 echo "$(date -u +%FT%TZ) $M ref card $C"
-I=inputs
+I=perf/mgx_constraints/inputs
 cd ../..
+INS=("$@")
+[ ${#INS[@]} -eq 0 ] && INS=($I/cyclic.yaml $I/linear13.yaml $I/bond_ligand.yaml
+                              $I/bond_protein_cys.yaml $I/sfti_cyclic.yaml $I/sfti_linear.yaml)
 TT_VISIBLE_DEVICES=$C TT_BIO_LEASE_CARDS=$C TT_BIO_LEASE_DIR=$L TT_BIO_LEASE_HOLDER=$ME \
 TT_METAL_CACHE=$HOME/.cache/tt-metal-cache-mgxm TT_METAL_LOGGER_LEVEL=FATAL PYTHONPATH=$PWD \
 OMP_NUM_THREADS=8 MKL_NUM_THREADS=8 \
   $HOME/env/bin/python perf/mgx_constraints/esmfold2_upstream.py "$M" perf/mgx_constraints/ref \
-    perf/mgx_constraints/$I/cyclic.yaml perf/mgx_constraints/$I/linear13.yaml \
-    perf/mgx_constraints/$I/bond_ligand.yaml perf/mgx_constraints/$I/bond_protein_cys.yaml \
-    perf/mgx_constraints/$I/sfti_cyclic.yaml perf/mgx_constraints/$I/sfti_linear.yaml
+    "${INS[@]}"
 echo "EXIT=$?"
 $HOME/env/bin/python - "$L/j10glx02-card$C.json" <<'Q'
 import json, sys, time
