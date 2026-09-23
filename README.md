@@ -129,9 +129,9 @@ walked with the settings the platform sends:
 | `boltz2` | 1920 | 2048 |
 | `opendde`, `opendde-abag` | 1536 | none found; top of the ladder |
 | `openfold3` | 1664 | 1792 |
-| `openbind` | 1536 (residues; a ligand adds tokens) | 1664 |
+| `openbind` | 1664 (residues; a ligand adds tokens) | none found; top of the ladder |
 | `pxdesign` | 1536 (target residues; the binder is on top) | none found; top of the ladder |
-| `protenix-v2` | 1664 (residues; a ligand adds tokens) | 1792 |
+| `protenix-v2` | 1792 (residues; a ligand adds tokens) | none found; top of the ladder |
 | `esmfold2` | 1664 (residues; a ligand adds tokens) | 1792 |
 | `esmfold2-fast` | 1664 (residues; a ligand adds tokens) | 1792 |
 | `rf3` | 1600 | 1664 |
@@ -196,7 +196,7 @@ A ligand counts against these limits. Its heavy atoms are tokens the model pays 
 residues, and on `esmfold2`, `esmfold2-fast`, `openbind` and `protenix-v2` the wall is on tokens,
 so a cocrystal is checked on residues plus ligand atoms rather than on the residue count alone.
 `esmfold2` folds 1664 residues, which leaves no room at all: 1664 residues plus any ligand is
-refused, and 1640 residues with a 24-atom ligand is admitted. `openbind` is the same: its 1536 was
+refused, and 1640 residues with a 24-atom ligand is admitted. `openbind` is the same: its 1664 was
 walked apo, so a ligand counts against it atom for atom. Either way the
 refusal names the token count and the wall, and it arrives before a device is opened instead of
 as an out-of-memory error part way through the fold.

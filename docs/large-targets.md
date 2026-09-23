@@ -126,8 +126,9 @@ can hold:
   the chip free but no block large enough.
 - `protenix-v1` folds 1920 and fails at 2048 in the diffusion transformer's attention bias, with
   enough memory free but no block large enough.
-- `protenix-v2` folds 1664 and fails at 1792 in the diffusion pair conditioning, one 3.1 GiB
-  tensor with half the chip free but no block large enough.
+- `protenix-v2` folds 1792 since the pair path row-blocks an allocation the chip refuses. Before
+  that it failed at 1792 in the diffusion pair conditioning, one 3.1 GiB tensor with half the chip
+  free but no block large enough. 1920 has not been walked yet.
 - `rf3` folds 1600 and fails at 1664 in the diffusion atom encoder's pair permute, with enough
   memory free but no block large enough.
 
@@ -139,6 +140,7 @@ and single-sequence, because its MSA encoder sees at most 1024 rows per trunk lo
 `openfold3` and `openbind` fold 1536 residues at 14190 alignment rows now that the MSA
 representation streams through the chip a depth chunk at a time. `openfold3` also folds 1664
 and fails at 1792 in the MSA stack's triangle attention, one 822 MB tensor with 203 MB per bank
-free but no block large enough. `openbind` fails at 1664 in the diffusion transformer, with 58 MB
-free but no block large enough for one 177 MB tensor. The measured rows, with commits, wall times and allocation sizes, are in
+free but no block large enough. `openbind` folds 1664; it used to fail there in the diffusion
+transformer, with 58 MB free but no block large enough for one 177 MB tensor, and 1792 has not
+been walked yet. The measured rows, with commits, wall times and allocation sizes, are in
 `tt_bio/size_limits.py`.

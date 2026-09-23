@@ -386,9 +386,17 @@ CEILINGS: dict[str, dict[str, Ceiling]] = {
     },
     "openbind": {
         "wormhole_b0": Ceiling(
-            residues=1536, pass_at=1536, fail_at=1664, binds=MEMORY, mechanism=FRAGMENTATION,
+            residues=1664, pass_at=1664, fail_at=None, binds=LADDER_TOP, mechanism=NO_FAILURE,
             msa_rows=14190, ladder_ligand_atoms=0,
-            evidence="1536 residues fold apo at 14190 alignment rows on the j10glx02 Galaxy, "
+            evidence="1664 residues fold apo at 14190 alignment rows on origin/main a2a70b160 "
+                     "(ws:mgx-ceilings, perf/mgxceil, j10glx02 card 19, 2026-09-23, guard off, "
+                     "--host_threads 2): PASS in 2909.6 s, AICLK median 1000 MHz over 278 samples "
+                     "during the fold, pLDDT 0.442 (0.451 at 1536), no CA-CA break, no non-adjacent "
+                     "CA pair under 3 A, 4 refused allocations recovered. The a2a70b160 tree keeps "
+                     "OF3/openbind template features on the host; the bigalloc merge after it only "
+                     "adds refusal recovery on this path. LADDER_TOP because 1792 has not been "
+                     "walked on current main yet. "
+                     "1536 residues fold apo at 14190 alignment rows on the j10glx02 Galaxy, "
                      "2026-09-23 (ws:mgx-bigalloc, perf/whceil/ladder.py, chip 17, tt-bio 296f5fcea): "
                      "cdk2x2_1536_d14190, PASS in 1914.2 s at AICLK 1000 MHz sampled DURING the fold, "
                      "under a host load that voids the time for speed. 1536 x 8192 rows folds too "
@@ -437,9 +445,15 @@ CEILINGS: dict[str, dict[str, Ceiling]] = {
     },
     "protenix-v2": {
         "wormhole_b0": Ceiling(
-            residues=1664, pass_at=1664, fail_at=1792, binds=MEMORY,
-            mechanism=FRAGMENTATION, msa_rows=8192, ladder_ligand_atoms=0,
-            evidence="walked 2026-09-23 on origin/main cec7979b1 (pair-residency merged), "
+            residues=1792, pass_at=1792, fail_at=None, binds=LADDER_TOP,
+            mechanism=NO_FAILURE, msa_rows=8192, ladder_ligand_atoms=0,
+            evidence="1792 folds on origin/main a102dfb5c (mgx-bigalloc merged; the later "
+                     "c5b346679 adds only ESMC/SaProt masks and perf/, neither reaches protenix-v2), "
+                     "j10glx02 card 29, 2026-09-23, guard off, --host_threads 2, 8192 rows: PASS "
+                     "in 2623.4 s, AICLK median 1000 MHz over 251 samples during the fold, pLDDT "
+                     "0.714, no CA-CA break, 21 refused allocations recovered by the row-blocked "
+                     "pair path. LADDER_TOP because 1920 has not been walked on this tree yet. "
+                     "Before bigalloc the row was 1664/1792: walked 2026-09-23 on origin/main cec7979b1 (pair-residency merged), "
                      "j10glx02, guard off, --host_threads 2, apo CDK2 tiled with 8192 "
                      "alignment rows, the --max_msa_seqs default (ws:mgx-ceilings, "
                      "perf/mgxceil). 1024 folds in 913.5 s, 1152 in 1292.5 s, 1280 in 1486.7 s, "
