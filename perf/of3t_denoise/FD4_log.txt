@@ -1,0 +1,8 @@
+DRAWS /tmp/of3t/of3t-orchestrator/fd4/draws.pt ac1a6b5cc9c423afd3ab90251f5ce5c155fa28462e68206ef7ef74cb273190b3 n=61
+[465s] loss 1.7823731913651786 seeds ['distogram_logits', 'pred_dist', 'pred_xyz', 'resolved_logits']
+[471s] |g|^2 252.7770397582465 {'trunk': {'n': 3165, 'sq': 1.852839282582056}, 'diffusion': {'n': 761, 'sq': 249.17171816602433}, 'confidence': {'n': 234, 'sq': 1.03345317039143e-07}, 'distogram': {'n': 1, 'sq': 1.7524822062947756}}
+FD loss refresh 1.7823731913651786 vs 1.7823731913651786: 0.000e+00
+FD h=1e-06: 15.898963469540561 vs 15.898963480624971, rel 6.972e-10
+FD h=1e-07: 15.89896354903253 vs 15.898963480624971, rel 4.303e-09
+done f64 in 2296s, peak RSS 10.8 GB
+exit 0
