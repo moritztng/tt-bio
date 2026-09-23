@@ -142,12 +142,14 @@ WHY: dict[tuple[str, str], str] = {
     ("opendde", "dna"): "nucleic-acid structural tokens are not ported",
     ("opendde-abag", "rna"): "nucleic-acid structural tokens are not ported",
     ("opendde-abag", "dna"): "nucleic-acid structural tokens are not ported",
+    # Both upstream data pipelines drop these bonds before training: OF3's
+    # cleanup.remove_intra/inter_chain_poly_links, and atomworks, which adds struct_conn
+    # `covale` bonds only ("except for disulfides"). Measured: on RF3 a Cys-Cys bond leaves
+    # every feature bit-identical; on OF3 it atomizes both residues into tokens it never saw.
     **{(m, "polymer_bond"): (
-        "upstream removes bonds between two standard polymer residues from its training "
-        "structures (OF3 cleanup.py remove_intra/inter_chain_poly_links; atomworks adds "
-        "struct_conn `covale` bonds only, 'except for disulfides'), so the model never saw one. "
-        "A bond to a ligand or a modified residue does reach it")
-       for m in ("openfold3", "openbind", "rf3")},
+        f"{fam} was trained with bonds between two standard residues removed from its data, "
+        "so it cannot read one; a bond to a ligand or a modified residue does reach it")
+       for m, fam in (("openfold3", "OpenFold3"), ("openbind", "OpenFold3"), ("rf3", "RF3"))},
 }
 
 WHY.update({(m, "template_structure"): "this model takes a template as a per-chain "
