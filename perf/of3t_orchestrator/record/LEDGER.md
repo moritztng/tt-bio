@@ -1395,3 +1395,42 @@ comparison: `of3t-angle`'s ladder rungs are mass-weighted because that is the de
 published in, while its splits are concatenated, so it reports both per arm and divides neither
 by the other. **This is A37's disease on a new axis — not two frames, but two AGGREGATIONS of
 one frame.** A reference is part of a measurement's identity; so is the aggregation.
+
+### R184. The package leg of D245 is CLOSED bit-exactly, so the best lever has a shippable path — and my own VERDICT said the opposite for a pass (pass 414, zero card)
+
+`of3t-verbinstall` reports PACKAGE closed. **Verified against the artifact, not the prose**:
+`ARMDIFF_PKG_HF3B_vs_CEIL_HF3.json` reads `compared 2736`, `bit_identical 2736`, `differing 0`,
+`only_mine []`, `only_theirs []`, `all_bit_identical true`. The packaged install scores
+**0.41752141981218177** against float64 — `ceiling_hf3` to seventeen digits — and reach is
+banked at **verb 5901, raw 1742** where the first inert arm read verb 0. It is qb1's p150a
+reproducing a qb2 p300c arm, so it is a third cross-board A/A as well.
+
+**I verified this one specifically because it is flattering.** It moves the campaign's position
+in our favour, and `a-silent-failure-whose-direction-is-flattering` is the entry that says a
+result which helps deserves the check a result which hurts would get automatically. The
+aggregate alone would not have been enough either — the row is right that a mass-weighted score
+over 2,736 tensors can agree to seventeen digits while low-mass tensors differ, which is why
+`all_bit_identical` and not the score is the reproduction claim.
+
+**My VERDICT and GAP both asserted the opposite.** They said *"the best softmax arm still has no
+shippable path"* and *"BOTH shippable installs have now failed"* — true when written, falsified
+by the row within the pass. Corrected in the same pass this time. **This is R157's rot for the
+third time in my own fields**, and the pattern is now specific enough to name: the sentences
+that rot are the ones that summarise a LIVE ROW's position, because a live row's position is
+the only thing in the doc that changes without me. Fields that summarise artifacts do not rot;
+fields that summarise rows do.
+
+**Two things must not be conflated because they resolved in the same hour.** The lever now has a
+shippable path. Whether the lever is WORTH anything is `of3t-angle`'s open question: its 1.0525x
+was taken on the double-counted functional where 62.52 % of the error was magnitude, and the
+repaired functional is 0.2749 % magnitude and 99.7 % angle. **A shippable path to an inert lever
+is a shippable path to nothing.** D245 accordingly stays UNFIXED with its headline clause struck
+and its falsifier still on the card, rather than being closed on the good half.
+
+**And D246 did NOT escalate, which I checked rather than assumed.** The row's VERDICT prose says
+the arithmetic *"installs from `tt_bio.autograd.install(exact_softmax=True)` and comes out with
+`uninstall()`"* — the unprotected entry point. Grepping the branch, every non-test caller still
+uses `with ag.exact_softmax():` (`pkgarm.py:45`, `reachprobe.py:98`), so D246 remains latent.
+What that prose shows is finding (b) doing damage on schedule: `pkgarm.py:55`'s wrong
+`installed_from` stamp has propagated into the row's own VERDICT sentence. **A bad provenance
+string does not stay in the JSON — it becomes the sentence everybody repeats.**

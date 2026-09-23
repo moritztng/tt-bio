@@ -1344,3 +1344,27 @@ A per-row workaround around a shipped defect leaves the defect shipped.
 `RuntimeError` path the `except` already builds (which also closes the device), so a wedge and a
 throw produce the *same* fast, respawnable outcome the docstring promises. The bound must be on
 the probe, not on its callers. No measurement and no card: this is source.
+
+**Addendum to D245, pass 414 — the PACKAGE leg is closed and the headline clause is falsified.**
+D245 was filed as *"the campaign's best trunk number comes from a configuration nobody can
+ship."* **That consequence is now false.** `of3t-verbinstall`'s packaged install reproduces the
+harness arm `ceiling_hf3` **bit-exactly**: 2,736 of 2,736 gradient tensors bit-identical, 0
+differing, neither side holding a key the other lacks
+(`perf/of3t_verbinstall/ARMDIFF_PKG_HF3B_vs_CEIL_HF3.json`, `all_bit_identical: true`, read
+from the artifact at pass 414 rather than taken from the row's VERDICT). It scores
+**0.41752141981218177** against float64 — CEIL_HF3 to seventeen digits, 1.0524836626308578x
+in-frame — and it is qb1's p150a reproducing a qb2 p300c arm, so it is also a third cross-board
+A/A. Reach is banked: **verb 5901, raw 1742**, where the first inert arm read verb 0.
+
+**The defect stays UNFIXED, narrowed to what is still true.** The site-selector route remains
+34.25 % worse than the verb install, and the pre-registered two-sided FALSIFIER that decides
+whether the 1,685 raw serves carry that gap is still on the card. What is gone is the framing:
+there is now a shippable configuration that matches the harness exactly, so the campaign's best
+trunk lever is no longer an experiment nobody can ship.
+
+**And this does not by itself make the lever valuable.** Its 1.0525x was measured on the
+DOUBLE-COUNTED functional, where 62.52 % of the error was magnitude; on the repaired functional
+the error is 0.2749 % magnitude and 99.7 % angle. `of3t-angle` is measuring whether the lever
+closes the ANGLE. **A shippable path to a lever that turns out to be inert on the repaired
+functional is a shippable path to nothing**, and the two questions must not be conflated
+because they resolved in the same week.

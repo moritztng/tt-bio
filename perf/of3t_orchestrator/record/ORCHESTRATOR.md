@@ -64,7 +64,7 @@ as such, because their runner genuinely produces absent gradients. **§7, the gr
 20-step trajectory's bar is not a magnitude but the shape of divergence in k — linear or
 sub-linear passes, super-linear fails at any magnitude, including inside the per-step bars.
 
-LEDGER: `~/.coworker/state/of3t/LEDGER.md`, **R1-R183 and K1-K19**. **This field is an INDEX, not
+LEDGER: `~/.coworker/state/of3t/LEDGER.md`, **R1-R184 and K1-K19**. **This field is an INDEX, not
 a copy** — it carried ~41 KB of transcribed entries until pass 399, re-read every pass beside the
 file that already holds them (`a-digest-with-one-carrier-is-a-transcription`). Every entry's full
 text, evidence and artifact path is in the LEDGER file while it is in the tail, and in
@@ -73,6 +73,10 @@ left the tail most recently**, and the rule rather than a filename is named here
 naming one archive was itself a thing that rots (the file is 150 KB and rotation is live). What each recent
 entry settles, one line, newest first:
 
+- **R184** D245's PACKAGE leg is CLOSED **bit-exactly** (2,736/2,736 tensors, 0 differing) so
+  the best lever HAS a shippable path — verified from the artifact because it is flattering;
+  my VERDICT/GAP asserted the opposite and are corrected in the same pass (R157 rot, 3rd time:
+  the fields that rot are the ones summarising a LIVE ROW). D246 checked, still latent
 - **R183** the campaign has TWO definitions of one aggregate triple and only the concatenated
   one satisfies `rel^2 = 1 + r^2 - 2 r cos` (the mass-weighted one misses by **25 %**), so an
   angle off `score.py`'s `cos` is not an angle — A43; my four published angles audited clean
@@ -482,9 +486,14 @@ can grade it.**
               (qb2, CPU) is emitting it per scope and banking `cos`/`norm_ratio` against
               upstream's own bf16, so the 97 %-direction split can be computed in the space the
               clause is graded in rather than carried across from float64.
-              `of3t-verbinstall` holds qb1 on D245, where BOTH shippable installs have now
-              failed — the site selector 34.25 % worse, the package install inert on the half
-              that matters (`verb` 0, `raw` 1742). That inertness is ROOT-CAUSED and repaired at
+              `of3t-verbinstall` holds qb1 on D245, and **the package leg is now CLOSED**: the
+              packaged install reproduces the harness arm `ceiling_hf3` BIT-EXACTLY — 2,736 of
+              2,736 gradient tensors, 0 differing, neither side holding a key the other lacks
+              (`ARMDIFF_PKG_HF3B_vs_CEIL_HF3.json`, read at pass 414 rather than taken from the
+              row's prose), and it is qb1's p150a reproducing a qb2 p300c arm. **So the
+              campaign's best trunk lever DOES have a shippable path**; the site selector stays
+              34.25 % worse and the FALSIFIER arm that settles the mechanism is on the card.
+              The earlier inertness was ROOT-CAUSED and repaired at
               pass 414 (R180): `uninstall()` was never the lever's private teardown, an unrelated
               `install()`/`uninstall()` bracket around the DISCOVERY forward closed first, and
               all 1,742 exact softmaxes were spent in a forward whose output is discarded. The
@@ -516,34 +525,34 @@ can grade it.**
               Triage and reasons in `state/of3t/UNFIXED_TRIAGE.json`; the list is stamped from
               the DEFECTS union, not retyped, so a rotation cannot close one by moving it.
 
-VERDICT: PARTIAL, stamped pass 411, 2026-09-23 — **still working, which is what PARTIAL means.**
+VERDICT: PARTIAL, stamped pass 414, 2026-09-23 — **still working, which is what PARTIAL means.**
 **D242 IS CLOSED, THE CLAUSE IS REPOINTED ONTO THE REPAIRED FRAME, AND IT STILL FAILS.**
-The frame's defect was a DOUBLE COUNT in the injection — `z_out` is an ancestor of `s_out`, so
-`(s_out, z_out)` was never a graph cut and the hooked `cot_z` replayed the `s_out <- z_out`
-route twice; the duplicate was **99.6628 %** of it by norm. Repaired, the injection reproduces
-the reference's whole trunk at **1.6952505222168708e-14** against a 1e-12 bar — the capture's
-own witness value — and `dL/dz_in` lands bit-exact on the EXACT branch of a two-sided falsifier
-banked before the mechanism was known. **Re-scored, GRADIENTS reads 0.22072451195864032 against
+The defect was a DOUBLE COUNT: `z_out` is an ancestor of `s_out`, so `(s_out, z_out)` was never
+a graph cut and the hooked `cot_z` replayed the `s_out <- z_out` route twice — **99.6628 %** of
+it by norm. Repaired, it reproduces the reference's whole trunk at **1.6952505222168708e-14**
+against a 1e-12 bar, the capture's own witness, and `dL/dz_in` lands bit-exact on the EXACT
+branch of a falsifier banked before the mechanism was known. **Re-scored, GRADIENTS reads 0.22072451195864032 against
 its 0.15210099830945006 bar: 1.4511706984958472x, down from the withdrawn 1.7814428090278143x,
 an 18.54 % improvement, still FAILING.** The trunk must fall **1.7414134679108282x**. No bar
 moved: all five of `CLAUSE.json`'s pre-registered levels re-derive on the rescored artifact at
-rel_difference 0.0. **And the best softmax arm still has no shippable path** — the site-selector
-install is 34.25 % worse and the tape-gated package install is INERT on the half that matters
-(`verb` 0, `raw` 1742), so D245 has two failed attempts at one (R176).
-The machine-readable exit criterion reads **2 of 3** (`state/of3t/CHARTER_EVIDENCE.json`,
-regenerated every compose, break control passing): COVERAGE and TRAJECTORY MET, GRADIENTS not.
+rel_difference 0.0. **And the best softmax arm NOW HAS a shippable path** (pass 414, verified
+against the artifact): the package install reproduces `ceiling_hf3` BIT-EXACTLY — 2,736 of
+2,736 tensors, 0 differing — qb1's p150a reproducing a qb2 p300c arm. R176's inertness was an unrelated caller's
+teardown (R180), not arithmetic. The site selector stays 34.25 % worse; D245's falsifier is
+on the card. **Whether the lever is worth anything on the REPAIRED
+functional is `of3t-angle`'s question**: its 1.0525x was measured on the double-counted one.
+The machine-readable exit criterion reads **2 of 3** (`CHARTER_EVIDENCE.json`, regenerated every
+compose, break control passing): COVERAGE and TRAJECTORY MET, GRADIENTS not.
 
-**Distance to go, per tensor** (`DISTANCE_TO_GO_AGAINST_THEIR_STEP.json`, denominator
-10.279642678524981): **48.1831 %** of the mass is at or better than upstream's own bf16 step
-tensor by tensor, **49.8019 %** worse, **2.0150 %** unread. **All three are still on the DOUBLE-COUNTED functional**
-and are restated unchanged rather than adjusted; only the trunk section has been re-scored so
-far, and adjusting a pooled figure from a re-scored part is the defect again with a newer number.
+**Distance to go, per tensor** (`DISTANCE_TO_GO...json`, denominator 10.279642678524981): **48.1831 %** of the mass is at or better than upstream's own bf16 step
+tensor by tensor, **49.8019 %** worse, **2.0150 %** unread. **All three are still on the
+DOUBLE-COUNTED functional** and are restated unchanged: only the trunk has been re-scored, and
+adjusting a pooled figure from a re-scored part is the defect again with a newer number.
 
-**Counts, stamped from disk by `perf/of3t_orchestrator/stamp_row_counts.py`.** One hundred
-twenty-one rows dispatched; `state/concluded` holds **one hundred twenty-four** of3t files, two of them
-this row's own historical markers, so **one hundred twenty-two rows have concluded**.
-**Two hundred forty-seven defects filed**, **97 UNFIXED** (5
-scope-excluded, 10 USER-FACING, 82 campaign-internal).
+**Counts** (`stamp_row_counts.py`): 126 dispatched; `state/concluded` holds
+**one hundred twenty-four** of3t files, two this row's own markers, so **122 concluded**.
+**Two hundred forty-seven defects filed**, **97 UNFIXED** (5 scope-excluded, 10 USER-FACING,
+82 campaign-internal).
 
 **What the remaining gap IS, taken in the space the clause is GRADED in (pass 412).** cos
 **0.6976277**, norm ratio **0.9978645**, angle **45.763 degrees**, magnitude share **0.2749 %**
@@ -556,16 +565,14 @@ scalar exists that reaches it.** By direction it is reachable and need not be pe
 like a SCALE of 1.7460 at cos 0.9841: **everything chased from D227 to D233 as a magnitude
 deficit was reading the duplicate.**
 
-**D244, fixed at pass 385**: the charter's COVERAGE evidence published MET beside prose naming
-three items that do not fire, stale by fifty passes and understating us. No verdict moved. R148.
+**D244** (fixed p385, R148): COVERAGE published MET beside prose naming three items that do not
+fire, stale by fifty passes and understating us; no verdict moved. **D243** (fixed p382, no
+card): `tt-bio finetune`'s fit planner gated every model on Protenix-v2's table — now
+model-keyed, 11-case test, break control fires, **release-gated and unmerged**.
 
-**D243, fixed at pass 382 with no card**: `tt-bio finetune`'s fit planner gated every model on
-Protenix-v2's table. Fixed model-keyed, 11-case test, break control fires. **Release-gated and
-unmerged.**
-
-**The charter.** Satisfiable and unchanged: a perfect trunk reads **0.6752x** the bar, our trunk
-at upstream's own bf16 floor clears at **0.8525x**, both now on the REPAIRED frame. A
-terminal NO-GO needs unreachability and nothing shows it.
+**The charter** is satisfiable and unchanged: a perfect trunk reads **0.6752x** the bar and our
+trunk at upstream's own bf16 floor clears at **0.8525x**, both on the REPAIRED frame. A terminal
+NO-GO needs unreachability; nothing shows it.
 
 **Nothing quoted here is the shipped default, and no inference path has moved.** Per-pass narrative
 in PASSLOG.
@@ -1402,3 +1409,37 @@ the single measurement class co-tenancy corrupts. qb1 is the quiet box and `of3t
 holds it with live perf claims. **Holding a row for the host its measurement needs is
 sequencing; giving it any free card is utilisation theatre**, and a number taken to satisfy a
 utilisation alarm is arguable forever after.
+
+### Pass 414, third part — the package leg closes bit-exactly, and my own VERDICT had it backwards
+
+`of3t-verbinstall` reported PACKAGE closed, and I read
+`ARMDIFF_PKG_HF3B_vs_CEIL_HF3.json` rather than its VERDICT: `compared 2736`,
+`bit_identical 2736`, `differing 0`, `only_mine []`, `only_theirs []`, `all_bit_identical true`.
+The packaged install scores **0.41752141981218177** against float64 — `ceiling_hf3` to seventeen
+digits — with reach banked at **verb 5901, raw 1742** where the first inert arm read verb 0, and
+it is qb1's p150a reproducing a qb2 p300c arm, so it is a third cross-board A/A besides.
+**I checked this one because it is flattering**: it moves the campaign our way, and a result
+that helps deserves the scrutiny a result that hurts gets for free.
+
+**So the campaign's best trunk lever now has a shippable path, and my VERDICT and GAP said the
+opposite.** They read *"the best softmax arm still has no shippable path"* and *"BOTH shippable
+installs have now failed"* — true when written, falsified by the row inside the pass, corrected
+in the same pass this time. That is R157's rot for the third time in my own fields, and it is
+now specific enough to name: **the sentences that rot are the ones summarising a LIVE ROW's
+position**, because that is the only thing in the doc that changes without me touching it.
+Fields that summarise artifacts hold; fields that summarise rows do not.
+
+**What must not be conflated.** The lever is shippable. Whether it is WORTH anything is still
+`of3t-angle`'s question — its 1.0525x was taken on the double-counted functional where 62.52 %
+of the error was magnitude, and the repaired functional is 0.2749 % magnitude and 99.7 % angle.
+**A shippable path to an inert lever is a shippable path to nothing.** D245 therefore stays
+UNFIXED with its headline clause struck and its falsifier still on the card, rather than being
+closed on the half that went well.
+
+**D246 did not escalate, and I checked instead of assuming.** The row's prose says the
+arithmetic installs via `install(exact_softmax=True)`/`uninstall()` — the unprotected path — but
+every non-test caller on the branch still uses `with ag.exact_softmax():` (`pkgarm.py:45`,
+`reachprobe.py:98`). What the prose shows is finding (b) doing its damage on schedule:
+`pkgarm.py:55`'s wrong `installed_from` stamp has become the row's own sentence. **A bad
+provenance string does not stay in the JSON.** Also flagged to the row: the ARMDIFF artifact
+records no host, a D155 warning today and a gate FAILURE the moment that row concludes.
