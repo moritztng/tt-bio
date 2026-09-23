@@ -13,6 +13,8 @@ A rung above 1024 that fails ends the walk: the rungs above it would allocate mo
 The walk resumes: a rung that already has its warm-up and enough timed folds under the load
 ceiling on this chip and engine tree is skipped, and a timed fold whose 1-min load passed the
 ceiling (VOID under the bar) is re-run: one pass spends at most reps + EXTRA timed folds on a rung.
+A fold the lease refused (another row opened the chip between folds) ran nothing and does not
+count against that budget.
 
     TT_VISIBLE_DEVICES=<c> TT_BIO_LEASE_CARDS=<c> ... python perf/mgx-speed/time_rungs.py \
         <model> <rung>[,<rung>...] [threads] [sigma_reps]
@@ -32,6 +34,7 @@ import release_gate as rg  # noqa: E402
 from gate_guard import DEFAULT_LOAD_CEILING as LOAD_CEILING  # noqa: E402
 
 EXTRA = 2                           # folds per pass a rung may spend past its reps
+CONTENDED = 6                       # lease refusals per rung and pass before the walk moves on
 
 model, rungs = sys.argv[1], [int(x) for x in sys.argv[2].split(",")]
 rg.HOST_THREADS = int(sys.argv[3]) if len(sys.argv) > 3 else 2
@@ -81,9 +84,13 @@ for rung in rungs:
         if not contended(w := fold(rung, "warmup")):
             mine.append(w)
     timed = [c for c in mine if c["tag"] != "warmup"]
-    budget = len(timed) + reps + EXTRA
-    while not any(map(failed, mine)) and sum(map(quiet, timed)) < reps and len(timed) < budget:
-        timed.append(fold(rung, f"rep{len(timed)}"))
-        mine.append(timed[-1])
+    budget, refused = len(timed) + reps + EXTRA, 0
+    while (not any(map(failed, mine)) and sum(map(quiet, timed)) < reps and len(timed) < budget
+           and refused < CONTENDED):
+        if contended(c := fold(rung, f"rep{len(timed)}")):
+            refused += 1
+            continue
+        timed.append(c)
+        mine.append(c)
     if any(map(failed, mine)) and rung > 1024:
         break
