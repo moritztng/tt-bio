@@ -1,0 +1,364 @@
+{
+ "what": "of3t-ieatom: inference before/after D263 + D264, from firing and digest (of3t-stackship infab.py).",
+ "host": "tt-quietbox2",
+ "card": 0,
+ "commits": {
+  "before": "c5b346679df0cda6b0aa511a41526b481e8da541",
+  "after": "b5e2ad28eec743571e0c97e2bb64021074704375"
+ },
+ "host_quiet": "",
+ "models": {
+  "boltz2": {
+   "fixture": "perf/size512/fixtures/cdk2x2_128.yaml",
+   "all_folds_succeeded": true,
+   "AA_before_identical": true,
+   "AA_after_identical": true,
+   "AB_identical": true,
+   "digests": {
+    "cdk2x2_128.cif": "e54f29d8008ad06a9f8ea4cb1375bd23870b537dbd24830317529784546fde84"
+   },
+   "autograd_imported_any": false,
+   "watched_imports_seen": [],
+   "train_modules_imported_any": [],
+   "input_atom_encoder_built_total": 0,
+   "census_folding_processes": 0,
+   "census_saw_every_fold": false,
+   "exact_counters_all_zero": true,
+   "raw_ops_at_exit": [
+    "null",
+    "{\"softmax\": \"FastOperation(python_fully_qualified_name='ttnn.softmax', function=<ttnn._ttnn.operations.normalization.softmax_t object at 0x727b3f3b03f0>, preprocess_golden_function_inputs=<function default_preprocess_golden_function_inputs at 0x727b3e903740>, golden_function=<function _golden_function at 0x727b3e9aa020>, postprocess_golden_function_outputs=<function default_postprocess_golden_function_outputs at 0x727b3e9037e0>, is_cpp_operation=True, is_experimental=False)\", \"layer_norm\": \"FastOperation(python_fully_qualified_name='ttnn.layer_norm', function=<ttnn._ttnn.operations.normalization.layer_norm_t object at 0x727b3f3b0690>, preprocess_golden_function_inputs=<function default_preprocess_golden_function_inputs at 0x727b3e903740>, golden_function=<function _golden_function at 0x727b3e961080>, postprocess_golden_function_outputs=<function default_postprocess_golden_function_outputs at 0x727b3e9037e0>, is_cpp_operation=True, is_experimental=False)\"}",
+    "{\"softmax\": \"FastOperation(python_fully_qualified_name='ttnn.softmax', function=<ttnn._ttnn.operations.normalization.softmax_t object at 0x72e2fc7d03f0>, preprocess_golden_function_inputs=<function default_preprocess_golden_function_inputs at 0x72e2fb41f4c0>, golden_function=<function _golden_function at 0x72e2fb4c9da0>, postprocess_golden_function_outputs=<function default_postprocess_golden_function_outputs at 0x72e2fb41f560>, is_cpp_operation=True, is_experimental=False)\", \"layer_norm\": \"FastOperation(python_fully_qualified_name='ttnn.layer_norm', function=<ttnn._ttnn.operations.normalization.layer_norm_t object at 0x72e2fc7d0690>, preprocess_golden_function_inputs=<function default_preprocess_golden_function_inputs at 0x72e2fb41f4c0>, golden_function=<function _golden_function at 0x72e2fb480e00>, postprocess_golden_function_outputs=<function default_postprocess_golden_function_outputs at 0x72e2fb41f560>, is_cpp_operation=True, is_experimental=False)\"}",
+    "{\"softmax\": \"FastOperation(python_fully_qualified_name='ttnn.softmax', function=<ttnn._ttnn.operations.normalization.softmax_t object at 0x7903da7c4450>, preprocess_golden_function_inputs=<function default_preprocess_golden_function_inputs at 0x7903d94134c0>, golden_function=<function _golden_function at 0x7903d94c5da0>, postprocess_golden_function_outputs=<function default_postprocess_golden_function_outputs at 0x7903d9413560>, is_cpp_operation=True, is_experimental=False)\", \"layer_norm\": \"FastOperation(python_fully_qualified_name='ttnn.layer_norm', function=<ttnn._ttnn.operations.normalization.layer_norm_t object at 0x7903da7c46f0>, preprocess_golden_function_inputs=<function default_preprocess_golden_function_inputs at 0x7903d94134c0>, golden_function=<function _golden_function at 0x7903d947ce00>, postprocess_golden_function_outputs=<function default_postprocess_golden_function_outputs at 0x7903d9413560>, is_cpp_operation=True, is_experimental=False)\"}",
+    "{\"softmax\": \"FastOperation(python_fully_qualified_name='ttnn.softmax', function=<ttnn._ttnn.operations.normalization.softmax_t object at 0x7d5bf5dc03f0>, preprocess_golden_function_inputs=<function default_preprocess_golden_function_inputs at 0x7d5bf5313740>, golden_function=<function _golden_function at 0x7d5bf53be020>, postprocess_golden_function_outputs=<function default_postprocess_golden_function_outputs at 0x7d5bf53137e0>, is_cpp_operation=True, is_experimental=False)\", \"layer_norm\": \"FastOperation(python_fully_qualified_name='ttnn.layer_norm', function=<ttnn._ttnn.operations.normalization.layer_norm_t object at 0x7d5bf5dc0690>, preprocess_golden_function_inputs=<function default_preprocess_golden_function_inputs at 0x7d5bf5313740>, golden_function=<function _golden_function at 0x7d5bf5375080>, postprocess_golden_function_outputs=<function default_postprocess_golden_function_outputs at 0x7d5bf53137e0>, is_cpp_operation=True, is_experimental=False)\"}"
+   ],
+   "taped_ttnn_imported_any": false,
+   "tensor_getitem_at_exit": [
+    "<lambda>",
+    "None"
+   ],
+   "census_processes": 12,
+   "seconds": {
+    "before0": 30.41,
+    "after1": 29.62,
+    "before2": 28.07,
+    "after3": 29.02
+   },
+   "aiclk": {
+    "before0": {
+     "n": 9,
+     "min": 800,
+     "median": 800,
+     "max": 1350
+    },
+    "after1": {
+     "n": 8,
+     "min": 800,
+     "median": 1350,
+     "max": 1350
+    },
+    "before2": {
+     "n": 8,
+     "min": 800,
+     "median": 800,
+     "max": 1350
+    },
+    "after3": {
+     "n": 8,
+     "min": 800,
+     "median": 1350,
+     "max": 1350
+    }
+   },
+   "runs": [
+    {
+     "rc": 0,
+     "seconds": 30.41,
+     "digests": {
+      "cdk2x2_128.cif": "e54f29d8008ad06a9f8ea4cb1375bd23870b537dbd24830317529784546fde84"
+     },
+     "census": [
+      {
+       "pid": 1867440,
+       "autograd_imported": false,
+       "EXACT_SOFTMAX_STATS": null,
+       "EXACT_LAYER_NORM_STATS": null,
+       "raw_ops": null,
+       "taped_ttnn_imported": false,
+       "train_modules": [],
+       "input_atom_encoder_built": 0,
+       "openfold3_imported": false,
+       "tensor_getitem": null,
+       "argv": [
+        "/home/ttuser/.coworker/wt/land-standing/perf/land_standing/out/d264/before/tt_bio/main.py",
+        "predict",
+        "/home/ttuser/.coworker/wt/land-standing/perf/land_standing/out/d264/before/perf/size512/fixtures/cdk2x2_128.yaml"
+       ],
+       "imports_seen": []
+      },
+      {
+       "pid": 1867470,
+       "autograd_imported": false,
+       "EXACT_SOFTMAX_STATS": null,
+       "EXACT_LAYER_NORM_STATS": null,
+       "raw_ops": null,
+       "taped_ttnn_imported": false,
+       "train_modules": [],
+       "input_atom_encoder_built": 0,
+       "openfold3_imported": false,
+       "tensor_getitem": null,
+       "argv": [
+        "-c"
+       ],
+       "imports_seen": []
+      },
+      {
+       "pid": 1867471,
+       "autograd_imported": false,
+       "EXACT_SOFTMAX_STATS": null,
+       "EXACT_LAYER_NORM_STATS": null,
+       "raw_ops": null,
+       "taped_ttnn_imported": false,
+       "train_modules": [],
+       "input_atom_encoder_built": 0,
+       "openfold3_imported": false,
+       "tensor_getitem": null,
+       "argv": [
+        "/home/ttuser/.coworker/wt/land-standing/perf/land_standing/out/d264/before/tt_bio/main.py",
+        "predict",
+        "/home/ttuser/.coworker/wt/land-standing/perf/land_standing/out/d264/before/perf/size512/fixtures/cdk2x2_128.yaml"
+       ],
+       "imports_seen": []
+      }
+     ],
+     "aiclk_mhz_sampled_DURING": {
+      "n": 9,
+      "min": 800,
+      "median": 800,
+      "max": 1350
+     },
+     "tail": "",
+     "side": "before"
+    },
+    {
+     "rc": 0,
+     "seconds": 29.62,
+     "digests": {
+      "cdk2x2_128.cif": "e54f29d8008ad06a9f8ea4cb1375bd23870b537dbd24830317529784546fde84"
+     },
+     "census": [
+      {
+       "pid": 1867751,
+       "autograd_imported": false,
+       "EXACT_SOFTMAX_STATS": null,
+       "EXACT_LAYER_NORM_STATS": null,
+       "raw_ops": null,
+       "taped_ttnn_imported": false,
+       "train_modules": [],
+       "input_atom_encoder_built": 0,
+       "openfold3_imported": false,
+       "tensor_getitem": null,
+       "argv": [
+        "/home/ttuser/.coworker/wt/land-standing/perf/land_standing/out/d264/after/tt_bio/main.py",
+        "predict",
+        "/home/ttuser/.coworker/wt/land-standing/perf/land_standing/out/d264/after/perf/size512/fixtures/cdk2x2_128.yaml"
+       ],
+       "imports_seen": []
+      },
+      {
+       "pid": 1867783,
+       "autograd_imported": false,
+       "EXACT_SOFTMAX_STATS": null,
+       "EXACT_LAYER_NORM_STATS": null,
+       "raw_ops": null,
+       "taped_ttnn_imported": false,
+       "train_modules": [],
+       "input_atom_encoder_built": 0,
+       "openfold3_imported": false,
+       "tensor_getitem": null,
+       "argv": [
+        "-c"
+       ],
+       "imports_seen": []
+      },
+      {
+       "pid": 1867784,
+       "autograd_imported": false,
+       "EXACT_SOFTMAX_STATS": null,
+       "EXACT_LAYER_NORM_STATS": null,
+       "raw_ops": {
+        "softmax": "FastOperation(python_fully_qualified_name='ttnn.softmax', function=<ttnn._ttnn.operations.normalization.softmax_t object at 0x7d5bf5dc03f0>, preprocess_golden_function_inputs=<function default_preprocess_golden_function_inputs at 0x7d5bf5313740>, golden_function=<function _golden_function at 0x7d5bf53be020>, postprocess_golden_function_outputs=<function default_postprocess_golden_function_outputs at 0x7d5bf53137e0>, is_cpp_operation=True, is_experimental=False)",
+        "layer_norm": "FastOperation(python_fully_qualified_name='ttnn.layer_norm', function=<ttnn._ttnn.operations.normalization.layer_norm_t object at 0x7d5bf5dc0690>, preprocess_golden_function_inputs=<function default_preprocess_golden_function_inputs at 0x7d5bf5313740>, golden_function=<function _golden_function at 0x7d5bf5375080>, postprocess_golden_function_outputs=<function default_postprocess_golden_function_outputs at 0x7d5bf53137e0>, is_cpp_operation=True, is_experimental=False)"
+       },
+       "taped_ttnn_imported": false,
+       "train_modules": [],
+       "input_atom_encoder_built": 0,
+       "openfold3_imported": false,
+       "tensor_getitem": "<lambda>",
+       "argv": [
+        "/home/ttuser/.coworker/wt/land-standing/perf/land_standing/out/d264/after/tt_bio/main.py",
+        "predict",
+        "/home/ttuser/.coworker/wt/land-standing/perf/land_standing/out/d264/after/perf/size512/fixtures/cdk2x2_128.yaml"
+       ],
+       "imports_seen": []
+      }
+     ],
+     "aiclk_mhz_sampled_DURING": {
+      "n": 8,
+      "min": 800,
+      "median": 1350,
+      "max": 1350
+     },
+     "tail": "",
+     "side": "after"
+    },
+    {
+     "rc": 0,
+     "seconds": 28.07,
+     "digests": {
+      "cdk2x2_128.cif": "e54f29d8008ad06a9f8ea4cb1375bd23870b537dbd24830317529784546fde84"
+     },
+     "census": [
+      {
+       "pid": 1868069,
+       "autograd_imported": false,
+       "EXACT_SOFTMAX_STATS": null,
+       "EXACT_LAYER_NORM_STATS": null,
+       "raw_ops": {
+        "softmax": "FastOperation(python_fully_qualified_name='ttnn.softmax', function=<ttnn._ttnn.operations.normalization.softmax_t object at 0x7903da7c4450>, preprocess_golden_function_inputs=<function default_preprocess_golden_function_inputs at 0x7903d94134c0>, golden_function=<function _golden_function at 0x7903d94c5da0>, postprocess_golden_function_outputs=<function default_postprocess_golden_function_outputs at 0x7903d9413560>, is_cpp_operation=True, is_experimental=False)",
+        "layer_norm": "FastOperation(python_fully_qualified_name='ttnn.layer_norm', function=<ttnn._ttnn.operations.normalization.layer_norm_t object at 0x7903da7c46f0>, preprocess_golden_function_inputs=<function default_preprocess_golden_function_inputs at 0x7903d94134c0>, golden_function=<function _golden_function at 0x7903d947ce00>, postprocess_golden_function_outputs=<function default_postprocess_golden_function_outputs at 0x7903d9413560>, is_cpp_operation=True, is_experimental=False)"
+       },
+       "taped_ttnn_imported": false,
+       "train_modules": [],
+       "input_atom_encoder_built": 0,
+       "openfold3_imported": false,
+       "tensor_getitem": "<lambda>",
+       "argv": [
+        "/home/ttuser/.coworker/wt/land-standing/perf/land_standing/out/d264/before/tt_bio/main.py",
+        "predict",
+        "/home/ttuser/.coworker/wt/land-standing/perf/land_standing/out/d264/before/perf/size512/fixtures/cdk2x2_128.yaml"
+       ],
+       "imports_seen": []
+      },
+      {
+       "pid": 1868247,
+       "autograd_imported": false,
+       "EXACT_SOFTMAX_STATS": null,
+       "EXACT_LAYER_NORM_STATS": null,
+       "raw_ops": null,
+       "taped_ttnn_imported": false,
+       "train_modules": [],
+       "input_atom_encoder_built": 0,
+       "openfold3_imported": false,
+       "tensor_getitem": null,
+       "argv": [
+        "-c"
+       ],
+       "imports_seen": []
+      },
+      {
+       "pid": 1868248,
+       "autograd_imported": false,
+       "EXACT_SOFTMAX_STATS": null,
+       "EXACT_LAYER_NORM_STATS": null,
+       "raw_ops": {
+        "softmax": "FastOperation(python_fully_qualified_name='ttnn.softmax', function=<ttnn._ttnn.operations.normalization.softmax_t object at 0x72e2fc7d03f0>, preprocess_golden_function_inputs=<function default_preprocess_golden_function_inputs at 0x72e2fb41f4c0>, golden_function=<function _golden_function at 0x72e2fb4c9da0>, postprocess_golden_function_outputs=<function default_postprocess_golden_function_outputs at 0x72e2fb41f560>, is_cpp_operation=True, is_experimental=False)",
+        "layer_norm": "FastOperation(python_fully_qualified_name='ttnn.layer_norm', function=<ttnn._ttnn.operations.normalization.layer_norm_t object at 0x72e2fc7d0690>, preprocess_golden_function_inputs=<function default_preprocess_golden_function_inputs at 0x72e2fb41f4c0>, golden_function=<function _golden_function at 0x72e2fb480e00>, postprocess_golden_function_outputs=<function default_postprocess_golden_function_outputs at 0x72e2fb41f560>, is_cpp_operation=True, is_experimental=False)"
+       },
+       "taped_ttnn_imported": false,
+       "train_modules": [],
+       "input_atom_encoder_built": 0,
+       "openfold3_imported": false,
+       "tensor_getitem": "<lambda>",
+       "argv": [
+        "/home/ttuser/.coworker/wt/land-standing/perf/land_standing/out/d264/before/tt_bio/main.py",
+        "predict",
+        "/home/ttuser/.coworker/wt/land-standing/perf/land_standing/out/d264/before/perf/size512/fixtures/cdk2x2_128.yaml"
+       ],
+       "imports_seen": []
+      }
+     ],
+     "aiclk_mhz_sampled_DURING": {
+      "n": 8,
+      "min": 800,
+      "median": 800,
+      "max": 1350
+     },
+     "tail": "",
+     "side": "before"
+    },
+    {
+     "rc": 0,
+     "seconds": 29.02,
+     "digests": {
+      "cdk2x2_128.cif": "e54f29d8008ad06a9f8ea4cb1375bd23870b537dbd24830317529784546fde84"
+     },
+     "census": [
+      {
+       "pid": 1868514,
+       "autograd_imported": false,
+       "EXACT_SOFTMAX_STATS": null,
+       "EXACT_LAYER_NORM_STATS": null,
+       "raw_ops": null,
+       "taped_ttnn_imported": false,
+       "train_modules": [],
+       "input_atom_encoder_built": 0,
+       "openfold3_imported": false,
+       "tensor_getitem": null,
+       "argv": [
+        "/home/ttuser/.coworker/wt/land-standing/perf/land_standing/out/d264/after/tt_bio/main.py",
+        "predict",
+        "/home/ttuser/.coworker/wt/land-standing/perf/land_standing/out/d264/after/perf/size512/fixtures/cdk2x2_128.yaml"
+       ],
+       "imports_seen": []
+      },
+      {
+       "pid": 1868545,
+       "autograd_imported": false,
+       "EXACT_SOFTMAX_STATS": null,
+       "EXACT_LAYER_NORM_STATS": null,
+       "raw_ops": null,
+       "taped_ttnn_imported": false,
+       "train_modules": [],
+       "input_atom_encoder_built": 0,
+       "openfold3_imported": false,
+       "tensor_getitem": null,
+       "argv": [
+        "-c"
+       ],
+       "imports_seen": []
+      },
+      {
+       "pid": 1868546,
+       "autograd_imported": false,
+       "EXACT_SOFTMAX_STATS": null,
+       "EXACT_LAYER_NORM_STATS": null,
+       "raw_ops": {
+        "softmax": "FastOperation(python_fully_qualified_name='ttnn.softmax', function=<ttnn._ttnn.operations.normalization.softmax_t object at 0x727b3f3b03f0>, preprocess_golden_function_inputs=<function default_preprocess_golden_function_inputs at 0x727b3e903740>, golden_function=<function _golden_function at 0x727b3e9aa020>, postprocess_golden_function_outputs=<function default_postprocess_golden_function_outputs at 0x727b3e9037e0>, is_cpp_operation=True, is_experimental=False)",
+        "layer_norm": "FastOperation(python_fully_qualified_name='ttnn.layer_norm', function=<ttnn._ttnn.operations.normalization.layer_norm_t object at 0x727b3f3b0690>, preprocess_golden_function_inputs=<function default_preprocess_golden_function_inputs at 0x727b3e903740>, golden_function=<function _golden_function at 0x727b3e961080>, postprocess_golden_function_outputs=<function default_postprocess_golden_function_outputs at 0x727b3e9037e0>, is_cpp_operation=True, is_experimental=False)"
+       },
+       "taped_ttnn_imported": false,
+       "train_modules": [],
+       "input_atom_encoder_built": 0,
+       "openfold3_imported": false,
+       "tensor_getitem": "<lambda>",
+       "argv": [
+        "/home/ttuser/.coworker/wt/land-standing/perf/land_standing/out/d264/after/tt_bio/main.py",
+        "predict",
+        "/home/ttuser/.coworker/wt/land-standing/perf/land_standing/out/d264/after/perf/size512/fixtures/cdk2x2_128.yaml"
+       ],
+       "imports_seen": []
+      }
+     ],
+     "aiclk_mhz_sampled_DURING": {
+      "n": 8,
+      "min": 800,
+      "median": 1350,
+      "max": 1350
+     },
+     "tail": "",
+     "side": "after"
+    }
+   ]
+  }
+ }
+}
