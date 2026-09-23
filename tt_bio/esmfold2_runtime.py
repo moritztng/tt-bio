@@ -555,7 +555,12 @@ def _msa_from_csv(path, max_sequences):
     return MSA.from_sequences(seqs, remove_insertions=True) if seqs else None
 
 
-def pair_keyed_msa(msa, paired_a3m, max_sequences=16384):
+# The most alignment rows upstream ESMFold2 reads: `compute_msa_features(max_seqs=16384)`
+# (_vendor/esm/models/esmfold2/prepare_input.py).
+ESMFOLD2_MSA_ROWS = 16384
+
+
+def pair_keyed_msa(msa, paired_a3m, max_sequences=ESMFOLD2_MSA_ROWS):
     """Put a chain's species-paired rows in front of its MSA, headed ``key=j``.
 
     That header is how upstream ESMFold2 pairs across chains
@@ -576,7 +581,7 @@ def pair_keyed_msa(msa, paired_a3m, max_sequences=16384):
     return MSA(([query] + keyed + unpaired)[:max_sequences])
 
 
-def resolve_msa(msa_spec, sequence, msa_dir=None, max_sequences=16384):
+def resolve_msa(msa_spec, sequence, msa_dir=None, max_sequences=ESMFOLD2_MSA_ROWS):
     """Resolve a chain's MSA to an esm ``MSA`` object (or None).
 
     Tries, in order: an explicit a3m path (``msa_spec``); a cached

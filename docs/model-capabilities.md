@@ -148,7 +148,7 @@ never silently accepted: `--write_pde` on Protenix (`--write_pae` already writes
 `--write_embeddings` outside Boltz-2.
 
 `--max_msa_seqs` caps alignment depth on every model that folds from an MSA. Left alone, each
-model reads what its upstream reads: Boltz-2 and ESMFold-2 keep their shipped 8192 default;
+model reads what its upstream reads: Boltz-2 keeps its shipped 8192 default; `esmfold2`,
 `protenix-v1`, `protenix-v2`, `opendde`, `opendde-abag`, `openfold3` and `openbind` read up to
 16384 rows, paired rows first, as their upstream featurizers do; `rf3` loads up to 10000 and
 draws 1024 per recycle. Set it and all of them cap. Every fold writes the depth it actually
