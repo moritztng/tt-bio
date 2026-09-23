@@ -12,7 +12,11 @@
 # launcher may sit on whglx across a window it cannot see. This row's fan was stopped for that
 # reason; its running jobs were left alone.
 #
-#   bash perf/mgxaccuracy/launch_if_clear.sh PLAN_PATH OUT_JSONL [MAX_CONCURRENT]
+#   bash perf/mgxaccuracy/launch_if_clear.sh PLAN_PATH OUT_JSONL [MAX_CONCURRENT] [LINES]
+#
+# LINES picks plan entries by 1-based index. Use it when the window could open while the fan
+# is mid-job: the fan exits after the entries it was given instead of sitting on whglx queued
+# for the rest, which is the one case where the per-launch gate above is not enough.
 set -u
 # Overridable ONLY so the refusal path can be tested without creating the real file, which
 # would stop every other MGX row.
@@ -20,6 +24,7 @@ GATE=${MGX_QUIET_WINDOW:-/home/moritz/.coworker/state/mgx/quiet-window}
 PLAN=${1:?plan path relative to the repo root}
 OUT=${2:?out jsonl path on whglx}
 CAP=${3:-3}
+LINES=${4:-}
 
 if [ -e "$GATE" ]; then
     echo "REFUSED: the MGX quiet window is OPEN, so nothing new starts. Contents:"
@@ -35,5 +40,6 @@ ssh -o BatchMode=yes whglx "cd ~/wt-mgx-design-accuracy \
   && setsid nohup \$HOME/env/bin/python -u perf/mgxscale/fan.py \
        --plan '$PLAN' --out '$OUT' --holder worker:mgx-design-accuracy \
        --max-concurrent $CAP --work \$HOME/mgxacc-work --wait-s 10 --retries 3000 \
+       ${LINES:+--lines $LINES} \
        > \$HOME/mgxacc-work/fan_\$(date +%H%M%S).log 2>&1 < /dev/null &
      sleep 8; echo launched" 2>&1 | tail -3
