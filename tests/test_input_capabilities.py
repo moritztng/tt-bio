@@ -416,7 +416,7 @@ def test_every_folding_model_reports_the_depth_it_used(model):
     from tt_bio.worker import _WorkerState
 
     paths = {"protenix-v1": "_protenix_emit", "protenix-v2": "_protenix_emit",
-             "opendde": "_predict_opendde_one", "opendde-abag": "_predict_opendde_one",
+             "opendde": "_protenix_emit", "opendde-abag": "_protenix_emit",
              "openfold3": "_predict_openfold3_one", "openbind": "_predict_openfold3_one",
              "rf3": "_predict_rf3_one"}
     if model not in paths:
