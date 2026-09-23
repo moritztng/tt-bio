@@ -3,6 +3,7 @@ import re
 import sys
 import time
 import contextlib
+import gc
 import torch, ttnn, atexit
 from torch import nn
 from typing import Callable, Mapping
@@ -5824,7 +5825,54 @@ def _host_concat(x: ttnn.Tensor) -> bool:
     round-trip through torch bf16 lossily, so those configs keep the device concat.
     """
     return (x.dtype == ttnn.bfloat16 and _dtype() == ttnn.bfloat16
-            and x.logical_volume() * 2 > concat_host_bytes())
+            and x.logical_volume() * 2 > concat_host_bytes() and not _DEVICE_ACC_TRIAL[0])
+
+
+# Chunked-op calls (op, shape) that DRAM refused with their blocks joined on device, so they
+# join on the host from then on. `host_acc_after_refusal` fills it; `_host_concat` stands down
+# while `_DEVICE_ACC_TRIAL` is set.
+_HOST_ACC_KEYS = set()
+_DEVICE_ACC_TRIAL = [False]
+
+
+def host_acc_after_refusal(key, x, run):
+    """`run()` with its blocks joined on device first; on the host only after DRAM refuses that.
+
+    Past `concat_host_bytes()` the chunked pair ops (trimul, triangle attention, the transition)
+    send every block to the host and upload the assembled result. That answer was measured on
+    OpenDDE's structural axis, a 2.61 GiB join refused at 7.2 GiB used, and a byte line cannot
+    tell that tensor from OpenDDE's residue trunk at 1536 tokens: 1.81 GB, with 4.9 GiB of the
+    chip in use. There the host round trips were 93 % of the fold's main-thread time and each
+    recycle took ~65 min. So the device gets the first try, as in `row_block_after_refusal`: a
+    refusal anywhere in the call, or `_acc_concat` falling back to the host at the join, sends
+    this key to the host path for the rest of the process, and a refused call is re-run there.
+    ttnn.concat and torch.cat move the same bytes, so both joins give the same output.
+
+    `run` must not have consumed `x` when it is refused; if it has, the refusal propagates.
+    """
+    if key in _HOST_ACC_KEYS or not _host_concat(x):
+        return run()
+    from tt_bio.size_limits import is_alloc_refusal
+
+    fallbacks = ACC_CONCAT_HOST_FALLBACKS[0]
+    _DEVICE_ACC_TRIAL[0] = True
+    try:
+        out = run()
+    except Exception as exc:
+        if not is_alloc_refusal(exc) or not x.is_allocated():
+            raise
+        _HOST_ACC_KEYS.add(key)
+        print(f"[tt-bio] DRAM refused {key[0]} with its blocks joined on device; re-running it "
+              f"with them joined on the host. The tt-metal 'Out of Memory' line above is expected "
+              f"and handled.", file=sys.stderr, flush=True)
+    else:
+        if ACC_CONCAT_HOST_FALLBACKS[0] != fallbacks:
+            _HOST_ACC_KEYS.add(key)
+        return out
+    finally:
+        _DEVICE_ACC_TRIAL[0] = False
+    gc.collect()        # the refused attempt's blocks, still referenced from its traceback
+    return run()
 
 
 def _concat_to(parts: list, dim: int, memory_config) -> ttnn.Tensor:
@@ -6861,6 +6909,10 @@ class TriangleMultiplication(Module):
         self._gp_in_biases(chunk_size, group)
 
     def __call__(self, x: ttnn.Tensor, mask: ttnn.Tensor | None = None) -> ttnn.Tensor:
+        return host_acc_after_refusal(("trimul", tuple(x.padded_shape), self.ending), x,
+                                      lambda: self._multiply(x, mask))
+
+    def _multiply(self, x: ttnn.Tensor, mask: ttnn.Tensor | None) -> ttnn.Tensor:
         x_in = x  # keep the pair tensor reachable for the row-blocked tail below
         shp = [int(d) for d in x.shape]
         H = shp[1]
@@ -7185,6 +7237,8 @@ class TriangleMultiplication(Module):
                 oom = large_seq and _dram_oom(e)
                 if not oom and (large_seq or "clash with L1 buffers" not in msg):
                     raise
+                if oom and _DEVICE_ACC_TRIAL[0]:
+                    raise       # the device-held chunks may be the cause: try the host join first
                 for _t in x_chunks:
                     # Host-assembled chunks are torch tensors (`_acc_append`), and the large
                     # path is where host assembly happens, so the accumulator cannot be
@@ -7860,8 +7914,14 @@ class TriangleAttention(Module):
 
     def __call__(self, x: ttnn.Tensor, attn_mask: ttnn.Tensor | None = None) -> ttnn.Tensor:
         S = x.shape[1]
+
+        def blocked(rows):
+            return host_acc_after_refusal(
+                ("tri_att", tuple(x.padded_shape), self.ending), x,
+                lambda: self._attend_pair(x, attn_mask, rows))
+
         if S > SEQ_LEN_MORE_CHUNKING and (self.affinity or not _FAST_MODE or _IS_SMALL_GRID):
-            return self._attend_pair(x, attn_mask, TRIANGLE_ATT_CHUNK_SIZE)
+            return blocked(TRIANGLE_ATT_CHUNK_SIZE)
         # SEQ_LEN_MORE_CHUNKING is a token count fitted on a 128-channel pair (see
         # _apply_grid_thresholds), so at OpenDDE's c_z=384 the whole path at 1088 tokens asks for
         # four 909115392 B projections at once and a 12 GiB Wormhole chip refuses them 403 s into
@@ -7870,8 +7930,7 @@ class TriangleAttention(Module):
         # pass byte for byte.
         return row_block_after_refusal(
             _TRIATT_WHOLE_REFUSED, (tuple(x.padded_shape), self.ending),
-            lambda: self._attend_pair(x, attn_mask, None),
-            lambda rows: self._attend_pair(x, attn_mask, rows),
+            lambda: self._attend_pair(x, attn_mask, None), blocked,
             rows=TRIANGLE_ATT_CHUNK_SIZE, tag="tri_att")
 
     def _attend_pair(self, x: ttnn.Tensor, attn_mask: ttnn.Tensor | None,
@@ -8876,6 +8935,11 @@ class Transition(Module):
 
     def __call__(self, x: ttnn.Tensor, memory_config: ttnn.MemoryConfig | None = None,
                  add_to_input: bool = False) -> ttnn.Tensor:
+        return host_acc_after_refusal(("transition", tuple(x.padded_shape)), x,
+                                      lambda: self._transition(x, memory_config, add_to_input))
+
+    def _transition(self, x: ttnn.Tensor, memory_config: ttnn.MemoryConfig | None,
+                    add_to_input: bool) -> ttnn.Tensor:
         """`memory_config` names where the assembled result lands; None keeps it in DRAM.
 
         Only the pair-track (4-D) exits honour it. The row blocks themselves are unaffected, so
