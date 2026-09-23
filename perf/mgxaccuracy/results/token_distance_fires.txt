@@ -1,0 +1,18 @@
+# Does boltzgen's token-distance conditioning actually fire in this row's runs?
+#
+# cc908c377 changes TokenDistanceRecycle numerically: the pairformer adds its residuals
+# into v in place, so the old code's v + pairformer(v) was 2x the pairformer's OUTPUT
+# where the reference takes v + update. The orchestrator note says every boltzgen design
+# WITH token-distance conditioning changes. Whether this row's designs have it on is a
+# property of the checkpoint, not of the step yaml -- grepping the run's design.yaml for
+# token_distance returns nothing, which reads like 'off' and is not.
+#
+# Read straight out of the checkpoints the runs load (qb2, torch mmap, no device):
+#
+#   boltzgen1_adherence  use_token_distances=True  use_templates=True
+#   boltzgen1_diverse    use_token_distances=True  use_templates=True
+#   token_distance_args: dim 64, blocks 2, use_token_distance_feats True, gaussian_dim 32
+#
+# So it fires on every boltzgen design in this row, and every boltzgen number measured
+# here before cc908c377 is on the pre-fix engine. The upstream CPU reference is torch and
+# is unaffected; pxdesign is not reached by this merge.
