@@ -279,9 +279,41 @@ def main():
     ap.add_argument("--timeout", type=int, default=10800)
     ap.add_argument("--host-threads", type=int, default=0)
     ap.add_argument("--tag", default="")
+    ap.add_argument("--rescore", action="store_true",
+                    help="re-derive the row from artifacts on disk; no device")
+    ap.add_argument("--rescore-wall", type=float, default=0.0,
+                    help="the original run's wall_s, so a corrected count gives a corrected rate")
     args = ap.parse_args()
     if args.tag and not args.tag.startswith("_"):
         args.tag = "_" + args.tag
+
+    if args.rescore:
+        # Re-derive a row from the artifacts on disk, no device. The wave-1 boltzgen row was
+        # written by a harness that counted *.cif under the whole out_dir and so read the
+        # run's own copy of the target as a ninth design; the seconds were right and the
+        # denominator was not. A row whose count changes has to be re-emitted from the
+        # artifacts rather than edited in place.
+        work = pathlib.Path(args.work).expanduser()
+        tag = f"{args.model}_{args.target_res}_d{args.designs}_s{args.steps}{args.tag}"
+        out_dir = work / f"out_{tag}"
+        n, rows = count_designs(args.model, out_dir)
+        rec = {"model": args.model, "target_res": args.target_res, "asked": args.designs,
+               "n_designs": n, "steps": args.steps, "binder": args.binder,
+               "wall_s": args.rescore_wall, "rescored": True,
+               "verdict": "PASS" if n >= args.designs else "PARTIAL", "mechanism": "none",
+               "tag": args.tag.lstrip("_") or None, "host": HOST, "card": None,
+               "ts": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())}
+        if n and args.rescore_wall:
+            rec["s_per_design"] = round(args.rescore_wall / n, 1)
+            rec["designs_per_h"] = round(3600.0 * n / args.rescore_wall, 2)
+        if rows and "ranked" in rows[0]:
+            rec["ranked"] = rows[0]["ranked"]
+        out = pathlib.Path(args.out)
+        out.parent.mkdir(parents=True, exist_ok=True)
+        with out.open("a") as fh:
+            fh.write(json.dumps(rec) + "\n")
+        print(json.dumps(rec, indent=2))
+        return
 
     if args.card == "auto":
         free = free_cards()
