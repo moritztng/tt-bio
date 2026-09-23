@@ -59,6 +59,38 @@ It reports whether the parts of your target constrain each other at all. Zero re
 inter-chain pairs means they do not, and no amount of sampling will fix that. The measurements
 behind this are in `perf/mgxaccuracy/`.
 
+## How good the designs are, and why to crop the target
+
+Throughput is half the question. The other half is BoltzGen's own designability filter: the
+designed binder's sequence refolded **alone**, aligned back to the backbone it was designed
+for, reported as `designfolding-bb_rmsd`. BoltzGen's paper calls a design good at 2 A and
+acceptable at 4 A. It falls off sharply as the target grows, and that is not a Tenstorrent
+effect:
+
+| target | designs | scRMSD median | designable at 2 A |
+|---|---|---|---|
+| 7ROA chain A, ~120 residues | 16 | **0.78 A** | 94 % |
+| 1GPB biological dimer, first 512 residues | 8 | **8.46 A** | 25 % |
+| first 512 residues of a 1008-residue chain | 9 | **10.56 A** | 0 % |
+| the same 512 residues, **upstream BoltzGen, torch fp32 on a CPU** | 1 | **11.04 A** | 0 % |
+
+**The last row is the one to read.** The stock package, on a CPU, in fp32, returns the same
+quality on the same target. So the number to act on is the target, not the card: crop to the
+surface you actually want bound. A 120-residue target is a different problem from a
+512-residue one, and every hundred residues you hand the model that are not part of the
+interface costs you designs.
+
+What does *not* degrade is docking. All eight designs against the 512-residue dimer sit on the
+target — closest heavy atom 1.29 to 2.41 A, 478 to 1199 contacts under 5 A. The failure mode
+at a large target is "this sequence may not fold into the shape it was drawn as", not "the
+model ignored your target", so the response is to generate more and filter harder rather than
+to trust any single design. At the rates above, 8 more designs is minutes.
+
+```bash
+# the designability column, from a finished run, no card needed
+python scripts/boltzgen_designability.py --from-output ./binder
+```
+
 ## Generating more than one design at a time
 
 **PXDesign: raise `--num_designs`.** It is the batch axis, so all the designs come from one
