@@ -40,6 +40,10 @@ def main():
     ap.add_argument("--work", default=str(pathlib.Path.home() / "mgxscale-work"))
     ap.add_argument("--wait-s", type=int, default=120, help="poll period when no chip is free")
     ap.add_argument("--retries", type=int, default=6, help="requeues allowed per job on contention")
+    ap.add_argument("--barrier", type=int, default=0, metavar="N",
+                    help="wait until N chips are free, then launch N jobs together. A "
+                         "data-parallelism arm measured by starting four jobs as chips "
+                         "happen to free is four staggered solo runs, not a fan.")
     args = ap.parse_args()
 
     jobs = [l.strip() for l in pathlib.Path(args.plan).read_text().splitlines()
@@ -53,6 +57,18 @@ def main():
     queue = list(enumerate(jobs))
     mine: set[int] = set()
     retries: dict[str, int] = {}
+    if args.barrier:
+        # Hold until the whole fan can start at once. Without this the first job runs alone
+        # for most of its life and the per-chip rate it reports is a solo rate wearing a
+        # fan's label.
+        waited = 0
+        while len(free_cards()) < args.barrier:
+            print(f"[fan] barrier: {len(free_cards())}/{args.barrier} chips free, waited "
+                  f"{waited}s", flush=True)
+            time.sleep(args.wait_s)
+            waited += args.wait_s
+        print(f"[fan] barrier met after {waited}s", flush=True)
+
     while queue or live:
         while queue and len(live) < args.max_concurrent:
             free = [c for c in free_cards() if c not in mine]
