@@ -3006,7 +3006,10 @@ def _resolve_msa_default(model, use_msa_server, msa_db_path, msa_endpoint,
                    + ". A request of 100 executes 68 (the sigma_max=256 schedule clip) and 50 "
                      "executes 49 (the rollout consumes consecutive schedule pairs). Explicit "
                      "values are honored verbatim.")
-@click.option("--diffusion_samples", default=1, type=int)
+@click.option("--diffusion_samples", default=1, type=int,
+              help="Structures to generate. Samples are denoised in chunks, so device memory stops "
+                   "growing once the count passes the chunk width and time grows linearly. See "
+                   "docs/sample-scaling.md.")
 @click.option("--partial_t", default=0, type=int,
               help="RF3 only. Start the diffusion rollout at schedule index N instead of "
                    "from pure noise, so the rollout refines --partial_structure rather than "
@@ -3022,8 +3025,9 @@ def _resolve_msa_default(model, use_msa_server, msa_db_path, msa_endpoint,
                    "confidence head and abandon the target if it is below this. Writes no "
                    "structure and reports early_stopped in the metrics.")
 @click.option("--max_parallel_samples", default=5, type=int,   # protenix.DEFAULT_MAX_PARALLEL_SAMPLES
-              help="Diffusion samples denoised in one batched forward. Higher is faster but "
-                   "costs device memory linearly; lower it if a large target runs out.")
+              help="Diffusion samples denoised in one batched forward by boltz2, protenix-v1/v2, "
+                   "opendde and opendde-abag; the other models pick their own width. Device memory "
+                   "grows linearly in it; lower it if a large target runs out.")
 @click.option("--step_scale", default=None, type=float)
 @click.option("--output_format", type=click.Choice(["pdb", "cif"]), default="cif")
 @click.option("--override", is_flag=True)
