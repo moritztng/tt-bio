@@ -6,8 +6,11 @@ Runs after resolve_pairformer_add_to_input.py has composed main with the transit
 fp32; untaped, `wide` is False and `_z_residual` is the same in-place bf16 add. Its block cannot
 use `add_to_input`: the op would add into the bf16 compute copy, not the fp32 residual.
 
-So the layer takes main's block when it is plain (not `wide`, no transition mask), which is every
-inference call since `TT_BIO_MASK_TRANS` defaults off and `wide` needs a tape; otherwise msafwd's.
+So the layer takes main's block only when no tape is installed and there is no transition mask,
+which is every inference call since `TT_BIO_MASK_TRANS` defaults off; a taped step always takes
+msafwd's block, the form the training arms verified. Routing on `wide` was D264: `z_fp32_residual`
+defaults off, so every default taped step took main's block, whose `Transition` discarded
+`ttnn.add_`'s return and dropped the pair transition from the graph.
 
 Usage: resolve_pairformer_z_residual.py <file>  ->  0 resolved, 2 not this shape.
 """
@@ -37,7 +40,7 @@ plain = head.split("        rmc = (")[0] + (
     "                if _RESIDUAL_L1 else None, add_to_input=True)\n")
 wide_line, rest = row.lstrip().split("\n", 1)
 new = ("        " + wide_line + "\n"
-       "        if not wide and trans_mask_z is None:\n"
+       "        if not ops.taping() and trans_mask_z is None:\n"
        + textwrap.indent(textwrap.dedent(plain.split("            z = self.transition_z(")[0]), " " * 12)
        + plain[plain.index("            z = self.transition_z("):]
        + "        else:\n"
