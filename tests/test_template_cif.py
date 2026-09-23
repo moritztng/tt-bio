@@ -188,3 +188,45 @@ def test_rf3_cif_route_is_upstreams_template_selection(tmp_path):
             == up["distogram_condition"][:n, :n].argmax(-1)).all()
     assert (ours["distogram_condition_noise_scale"][:n]
             == up["distogram_condition_noise_scale"][:n]).all()
+
+
+@pytest.mark.parametrize("openbind", [False, True], ids=["openfold3", "openbind"])
+def test_of3_family_featurizes_the_cif_route_like_the_npz_route(tmp_path, openbind):
+    """The OF3 loader reads the hash-named cif from the structure cache and builds the same
+    template features, bit for bit, as upstream's npz with its RCSB structure."""
+    import json
+    import random
+
+    import torch
+
+    from tt_bio._vendor.openfold3.projects.of3_all_atom.config.inference_query_format import (
+        InferenceQuerySet)
+    from tt_bio.openfold3_data import build_openfold3_features
+
+    q = _query("1a8q")
+
+    def feats(npz, struct_dir):
+        chain = {"molecule_type": "PROTEIN", "chain_ids": ["A"], "sequence": q,
+                 "non_canonical_residues": None, "paired_msa_file_paths": None,
+                 "main_msa_file_paths": None, "smiles": None, "ccd_codes": None,
+                 "template_alignment_file_path": str(npz), "template_entry_chain_ids": None,
+                 "sdf_file_path": None}
+        qj = tmp_path / "q.json"
+        qj.write_text(json.dumps({"queries": {"t": {
+            "query_name": "t", "use_msas": False, "use_paired_msas": False,
+            "use_main_msas": False, "covalent_bonds": None, "chains": [chain]}}}))
+        query = next(iter(InferenceQuerySet.from_json(str(qj)).queries.values()))
+        random.seed(0)
+        np.random.seed(0)
+        torch.manual_seed(0)
+        return build_openfold3_features(query, template_structures_directory=struct_dir,
+                                        openbind=openbind)
+
+    cache = tmp_path / "cache"
+    (npz,) = structure_template_npz([{"cif": str(STRUCT / "1a8q.cif")}], _chains(q), cache,
+                                    "openfold3").values()
+    ours, up = feats(npz, cache), feats(EX / "template_alignments" / "1a8q.npz", STRUCT)
+    keys = [k for k in up if k.startswith("template")]
+    assert keys and int(up["template_distogram"].sum()) > 0
+    for k in keys:
+        assert torch.equal(ours[k], up[k]), k
