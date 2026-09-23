@@ -9,7 +9,7 @@ residue count, and its pair tensor is 3.7x the residue-scale one.
 The pair-track ops (triangle multiplication, triangle attention, the pair transition) are all
 row-local along the token axis, so past a size threshold they run in row blocks and free every
 intermediate that is not the input or the output. The peak then scales as three live pair
-tensors instead of four. A deep alignment's MSA representation lives on the host and passes
+tensors instead of four. The blocks are joined on the chip, and on the host only when the chip refuses the join. A deep alignment's MSA representation lives on the host and passes
 through the chip one depth chunk at a time instead of being held whole beside the pair
 tensors. ESMFold2's pair initialisation is row-tiled the same way.
 

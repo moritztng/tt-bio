@@ -125,17 +125,30 @@ def test_a_pairformer_block_is_the_same_with_either_join(monkeypatch):
     """Every chunked op of one block, the budget at 0 so all of them are past it: the device
     joins (the new default) against the host joins (what a refused key takes), bit for bit."""
     import torch
-    from protenix_reference import make_pairformer_block, remap_pairformer_block
+    from tt_bio import weights
+    from tt_bio.protenix_weights import remap_pairformer_block
+
+    ckpt = weights.resolve("protenix-v2")
+    if ckpt is None:
+        pytest.skip("protenix-v2 checkpoint not present")
+    sd = torch.load(ckpt, map_location="cpu", weights_only=True, mmap=True)
+    sd = sd.get("model", sd)
+    pfx = "module.pairformer_stack.blocks.0."
+    sd = {k[len(pfx):]: v for k, v in sd.items() if k.startswith(pfx)}
+    c_z = sd["tri_mul_in.layer_norm_in.weight"].shape[0]
+    c_s = sd["single_transition.layernorm1.weight"].shape[0]
+    heads = sd["tri_att_start.linear.weight"].shape[0]
+    apb_heads = sd["attention_pair_bias.linear_nobias_z.weight"].shape[0]
 
     dev = T.get_device()
+    L = 160
     monkeypatch.setattr(T, "SEQ_LEN_MORE_CHUNKING", 64)
     monkeypatch.setattr(T, "_CONCAT_HOST_BYTES", 0)
-    c_z, c_s, L = 128, 384, 160
     monkeypatch.setattr(T, "_TRIMUL_DRAM_SHAPES", {L})      # trimul's large (chunk-joined) path
-    _, sd = make_pairformer_block(c_z=c_z, c_s=c_s, seed=0)
     ck = ttnn.init_device_compute_kernel_config(
         dev.arch(), math_fidelity=ttnn.MathFidelity.HiFi4, fp32_dest_acc_en=True)
-    layer = T.PairformerLayer(32, 4, 24, 16, True, remap_pairformer_block(sd), ck)
+    layer = T.PairformerLayer(sd["tri_att_start.mha.linear_q.weight"].shape[0] // heads, heads,
+                              c_s // apb_heads, apb_heads, True, remap_pairformer_block(sd), ck)
     torch.manual_seed(0)
     s, z = torch.randn(1, L, c_s), torch.randn(1, L, L, c_z)
     ft = lambda t: ttnn.from_torch(t, layout=ttnn.TILE_LAYOUT, device=dev, dtype=ttnn.bfloat16)
