@@ -155,7 +155,6 @@ def test_an_rna_only_input_is_refused_by_esmfold2_before_any_model_load(tmp_path
     expected = [m for m in honoured_by("protein_free")
                 if CAPABILITY[m]["rna"] == HONOURED and not m.startswith("esmfold2")]
     assert expected and all(how(m) in msg for m in expected), msg
-    assert "opendde" not in msg, "OpenDDE refuses RNA; it is no alternative for this input"
 
 
 def test_every_offending_chain_id_is_named_and_no_other(tmp_path):

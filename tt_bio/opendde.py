@@ -19,13 +19,9 @@ import ttnn
 
 from .protenix import _KeyedWeights
 from .envflags import env_flag
+from .opendde_data import STRUCTURAL_TOKEN_ROLES
 from .tenstorrent import _acc_concat, concat_host_bytes, get_device
 
-# opendde/data/tokenizer.py
-STRUCTURAL_TOKEN_ROLES = {
-    "atom": 0, "protein_bb": 1, "protein_sc": 2,
-    "dna_bb": 3, "dna_base": 4, "rna_bb": 5, "rna_base": 6,
-}
 _BACKBONE = (STRUCTURAL_TOKEN_ROLES["protein_bb"],
              STRUCTURAL_TOKEN_ROLES["dna_bb"],
              STRUCTURAL_TOKEN_ROLES["rna_bb"])

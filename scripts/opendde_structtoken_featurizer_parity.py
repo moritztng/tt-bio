@@ -1,12 +1,14 @@
-"""Bit-exact check: tt_bio.opendde_data.build_structural_token_features vs the real upstream
-opendde.data.tokenizer.AtomArrayTokenizer, on a synthetic single-chain protein built from
-tt-bio's OWN atom-name table (tt_bio.data.const.ref_atoms) -- so both sides tokenize the
-identical atom layout. No PDB/mmCIF, no checkpoints; CPU-only.
+"""Structural-token featurization parity: tt_bio.opendde_data vs upstream OpenDDE's own featurizer.
 
-Set OPENDDE_SRC to a checkout pinned at a0d5134 (the reference-build precedent used by
-scripts/opendde_structtoken_ref.py). Run:
-  OPENDDE_SRC=/tmp/opendde-src PYTHONPATH=<worktree> \
-    /home/ttuser/tt-bio-dev/env/bin/python3 scripts/opendde_structtoken_featurizer_parity.py
+Upstream builds its features from a JSON job (opendde.data.inference.json_to_feature ->
+Featurizer.get_all_input_features, which includes get_structural_token_features). tt-bio builds
+them from protenix_data.build_complex_features. Both run here on the same sequences, and every
+structural-token index feature must be equal. Reference coordinates are compared through each
+residue's intra-residue distance matrix, since upstream randomly rotates ref_pos.
+
+Needs a venv with `pip install opendde==1.0.3` (torch CPU is enough) and its CCD assets under
+$OPENDDE_ROOT_DIR/common (components.cif + components.cif.rdkit_mol.pkl). Run from the repo root:
+  PYTHONPATH=. <venv>/bin/python scripts/opendde_structtoken_featurizer_parity.py
 """
 import os
 import sys
@@ -14,91 +16,86 @@ import sys
 import numpy as np
 import torch
 
-sys.path.insert(0, os.environ.get("OPENDDE_SRC", "/tmp/opendde-src"))
+from opendde.data.inference.json_to_feature import SampleDictToFeatures
 
-import biotite.structure as struc
-from opendde.data.tokenizer import AtomArrayTokenizer
+from tt_bio.opendde_data import build_structural_token_features
+from tt_bio.protenix_data import build_complex_features
 
-from tt_bio.data import const
-from tt_bio.opendde_data import build_structural_token_features, _residue_atom_names, _LETTER_TO_RES
-from tt_bio.protenix_data import RESTYPE_ORDER
+_JSON_TYPE = {"protein": "proteinChain", "rna": "rnaSequence", "dna": "dnaSequence"}
 
-# A short sequence exercising: a residue with a sidechain (A, W, K, S), glycine (G, the
-# single-token-fallback branch), and both again to check adjacency/twin indices repeat cleanly.
-SEQ = "AGWKSG"
+# Protein with every residue class (glycine, X, all 20), RNA and DNA with every base and the
+# unknown nucleotide, a double-stranded DNA, and a two-copy entity.
+CASES = {
+    "protein+rna": [("protein", "MKTAYIAKQRQISFVKSHFSRQGX"), ("rna", "GGACUAGCNAUCC")],
+    "protein+dna": [("protein", "ACDEFGHIKLMNPQRSTVWY"), ("dna", "ATGCNGCAT")],
+    "protein+dsDNA": [("protein", "GSHMLEDPKRVG"), ("dna", "CGCGAATTCGCG"), ("dna", "CGCGAATTCGCG")],
+    "rna only": [("rna", "AGCUAGCU")],
+    "dna only": [("dna", "GATTACA")],
+    "protein only": [("protein", "MKTAYIAKQRGWG"), ("protein", "MKTAYIAKQRGWG")],
+}
+
+INDEX_KEYS = ["structural_token_index", "parent_residue_idx", "subtoken_role_id",
+              "twin_token_idx", "prev_parent_residue_idx", "next_parent_residue_idx",
+              "atom_to_structural_token_idx", "atom_to_structural_tokatom_idx"]
 
 
-def build_atom_array(seq):
-    names_all, res_ids, res_names = [], [], []
-    for i, letter in enumerate(seq):
-        aa = RESTYPE_ORDER.index(letter)
-        res = _LETTER_TO_RES[RESTYPE_ORDER[aa]]
-        names = _residue_atom_names(res, is_c_terminal=(i == len(seq) - 1))
-        names_all += names
-        res_ids += [i + 1] * len(names)
-        res_names += [res] * len(names)
+def _names(chars):
+    codes = chars.reshape(-1, 4, 64).argmax(-1) + 32
+    return ["".join(map(chr, r)).rstrip() for r in codes.tolist()]
 
-    n = len(names_all)
-    arr = struc.AtomArray(n)
-    arr.coord = np.zeros((n, 3), dtype=np.float32)
-    arr.chain_id = np.array(["A"] * n)
-    arr.res_id = np.array(res_ids, dtype=np.int32)
-    arr.res_name = np.array(res_names)
-    arr.atom_name = np.array(names_all)
-    arr.element = np.array([nm[0] for nm in names_all])
-    arr.hetero = np.zeros(n, dtype=bool)
-    arr.set_annotation("mol_type", np.array(["protein"] * n))
-    centre_mask = np.array([1 if nm == "CA" else 0 for nm in names_all], dtype=np.int64)
-    arr.set_annotation("centre_atom_mask", centre_mask)
-    return arr
+
+def upstream(chains):
+    job = {"name": "parity", "sequences": [{_JSON_TYPE[mt]: {"sequence": s, "count": 1}}
+                                           for mt, s in chains]}
+    feats, _atoms, _tokens = SampleDictToFeatures(job).get_feature_dict()
+    return feats
+
+
+def ours(chains):
+    return build_complex_features([(s, None, mt) for mt, s in chains],
+                                  mol_dir=os.path.expanduser("~/.boltz/mols"))
+
+
+def _geometry_delta(a, b):
+    """Largest change in any intra-residue atom-atom distance between two ref_pos sets."""
+    worst = 0.0
+    for r in torch.unique(b["ref_space_uid"]).tolist():
+        m = b["ref_space_uid"] == r
+        if int(m.sum()) < 2 or not torch.equal(m, a["ref_space_uid"] == r):
+            continue
+        d = lambda x: torch.cdist(x.double(), x.double())
+        worst = max(worst, float((d(a["ref_pos"][m]) - d(b["ref_pos"][m])).abs().max()))
+    return worst
+
+
+def compare(name, chains):
+    up, f = upstream(chains), ours(chains)
+    mine = build_structural_token_features(f)
+    fails = []
+    names_up, names_me = _names(up["ref_atom_name_chars"]), _names(f["ref_atom_name_chars"])
+    if names_up != names_me:
+        fails.append(f"atom names differ ({len(names_up)} upstream vs {len(names_me)} ours)")
+    for k in INDEX_KEYS:
+        a, b = up[k].long(), mine[k].long()
+        if a.shape != b.shape or not torch.equal(a, b):
+            fails.append(f"{k}: upstream {a.tolist()[:24]} ours {b.tolist()[:24]}")
+    # Reference conformer geometry, per residue, rotation-invariant. Upstream draws a fresh
+    # RDKit conformer per call, so its own second draw is the noise floor.
+    worst, floor = _geometry_delta(up, f), _geometry_delta(up, upstream(chains))
+    a2t = f["atom_to_token_idx"]
+    roles = mine["subtoken_role_id"].bincount(minlength=7).tolist()
+    status = "PASS" if not fails else "FAIL"
+    print(f"{status} {name:14s} residue tokens {a2t.max().item() + 1:3d}  structural tokens "
+          f"{len(mine['parent_residue_idx']):3d}  atoms {len(names_me):4d}  roles "
+          f"atom/p_bb/p_sc/d_bb/d_base/r_bb/r_base={roles}  max intra-residue "
+          f"ref_pos distance delta {worst:.2f} A (upstream vs itself {floor:.2f} A)")
+    for x in fails:
+        print("    ", x)
+    return not fails
 
 
 def main():
-    atom_array = build_atom_array(SEQ)
-    tok = AtomArrayTokenizer(atom_array)
-    residue_tokens = tok.get_token_array()
-    ref_structural = tok.get_structural_token_array(residue_tokens)
-
-    ref_role = np.array(ref_structural.get_annotation("subtoken_role_id"))
-    ref_parent = np.array(ref_structural.get_annotation("parent_residue_idx"))
-    ref_twin = np.array(ref_structural.get_annotation("twin_token_idx"))
-    print(f"upstream: {len(ref_structural)} structural tokens for {len(SEQ)}-residue seq {SEQ}")
-
-    from tt_bio.protenix_data import RESTYPE_DIM
-    aatype = torch.tensor([RESTYPE_ORDER.index(c) for c in SEQ], dtype=torch.long)
-    feats = {
-        "restype": torch.nn.functional.one_hot(aatype, RESTYPE_DIM).float(),
-        "asym_id": torch.zeros(len(SEQ), dtype=torch.long),
-        "residue_index": torch.arange(1, len(SEQ) + 1, dtype=torch.long),
-    }
-    mine = build_structural_token_features(feats)
-
-    ok = True
-    for name, ref, got in [
-        ("subtoken_role_id", ref_role, mine["subtoken_role_id"].numpy()),
-        ("parent_residue_idx", ref_parent, mine["parent_residue_idx"].numpy()),
-        ("twin_token_idx", ref_twin, mine["twin_token_idx"].numpy()),
-    ]:
-        match = np.array_equal(ref, got)
-        ok &= match
-        print(f"  {name}: {'MATCH' if match else 'MISMATCH'}  ref={ref.tolist()}  mine={got.tolist()}")
-
-    # atom<->structural-token maps: check every atom's assigned structural token has the
-    # atom's name in the right role-group (backbone name -> a protein_bb-role token, else sc).
-    names_all = list(atom_array.atom_name)
-    a2s = mine["atom_to_structural_token_idx"].numpy()
-    role_of_struct_tok = mine["subtoken_role_id"].numpy()
-    from tt_bio.opendde_data import PROTEIN_BACKBONE_ATOMS
-    bad = 0
-    for atom_idx, nm in enumerate(names_all):
-        want_bb = nm in PROTEIN_BACKBONE_ATOMS
-        got_role = role_of_struct_tok[a2s[atom_idx]]
-        got_bb = got_role == 1  # protein_bb
-        if want_bb != got_bb:
-            bad += 1
-    print(f"  atom_to_structural_token_idx role consistency: {'MATCH' if bad == 0 else f'{bad} MISMATCHES'}")
-    ok &= (bad == 0)
-
+    ok = all([compare(n, c) for n, c in CASES.items()])
     print("RESULT:", "PASS" if ok else "FAIL")
     sys.exit(0 if ok else 1)
 
