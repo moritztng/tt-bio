@@ -1,15 +1,17 @@
-# The refolder that produces scRMSD, device against upstream fp32, on IDENTICAL designs.
-# perf/mgxaccuracy/ref/designfolding_only.sh --from <device out> --name devrefold, then scrmsd.py.
-# Same sequence, same designed backbone, same checkpoint; only the machine and dtype differ.
+# The refolder that produces scRMSD, device against upstream fp32, on IDENTICAL designs --
+# and upstream against ITSELF, which is the control that decides what the first table means.
+# perf/mgxaccuracy/ref/designfolding_only.sh --from <out> --name <n>, then scrmsd.py.
 #
-# design       device  upstream    diff   ratio
-# bg512         0.865     1.736   0.871    2.01
-# bg512_1      12.897    13.688   0.792    1.06
+# design       device upstream r1 upstream r2
+# bg512         0.865       1.736       0.874
+# bg512_1      12.897      13.688   (running)
 #
-# The two designs are the extremes of the device's 512 distribution, a 15x range. The gap
-# is ADDITIVE at about +0.83 A, not multiplicative: the ratios are 2.01 and 1.06. Every
-# verdict survives -- 0.865/1.736 both clear the 2 A bar, 12.897/13.688 both miss 4 A.
+# READ THE THIRD COLUMN FIRST. Two upstream runs with the same input, same config, same
+# thread count and the same checkpoint give 1.736 and 0.874 A on one 80-residue refold.
+# The refolder's own run-to-run spread is 0.86 A, so the 0.87 A device-to-upstream gap in
+# the first table is NOT an offset -- the device's 0.865 sits at the bottom of upstream's
+# own two-draw range. Nothing about the two refolders is resolvable at this n.
 #
-# Consequence for the reference comparison: the device's 512 median of 10.56 A is 11.39 A
-# in upstream-refolder terms, against upstream's own end-to-end 11.04 A. Indistinguishable,
-# and far inside the device's own 3.30-13.78 A spread.
+# Consequence: the 11.04-against-10.56 reference comparison needs no refolder correction,
+# and a single upstream draw carries at least this much noise, which is one more reason an
+# n=1 reference is a sanity check on the level rather than a test.
