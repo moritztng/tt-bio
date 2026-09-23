@@ -1,0 +1,263 @@
+{
+ "doc": "What OF3's training-size forward costs in BYTES and in ALLOCATION COUNT, on the card.\n\n`of3-1024aa-oom-allocation-count-not-size` is this campaign's standing warning: an OOM names\nthe allocation that failed to place, and that allocation is usually the last straw of several\nco-live tensors, not a single tensor that is too big. `ptx-crop` solved Protenix's 384-token\ncrop as a SIZE problem. Whether OF3's wall is the same problem is a measurement, so this\nscript measures both numbers at once and reports them side by side.\n\nThe instrument is `ttnn._ttnn.reports.get_buffers(device)`, which is the allocator's own live\nlist. It is read at the byte high-water mark rather than at the end, because the end of a\nforward is the one moment the answer is smallest.\n\nHow the peak is found. The proxy below rebinds the name `ttnn` inside every tt-bio module,\nexactly the mechanism `tt_bio.taped_ttnn` already uses, and reads DRAM and L1 allocated bytes\nafter every verb the shipped modules call. Bytes are one allocator field and cost nothing;\nthe full buffer census walks the live list, so it is taken only when bytes set a new high.\nThe peak census is therefore the census AT the byte peak, not near it.\n\nThe watcher composes with the tape: enter `tape()` first and the module's `ttnn` is already\nthe tape's proxy, so the watcher wraps that and sees the taped verbs. `tt_bio.autograd` is\nwatched too -- the tape excludes it so its backward closures reach the real verbs, but an\nobserver has no such reason to look away, and the backward is where a reverse-mode peak lives.\n\n    alloc_profile.py --sizes 256,384 --blocks 4 --arms off,tape --out out/x.json\n",
+ "env": {
+  "host": "tt-quietbox2",
+  "arch": "Arch.BLACKHOLE",
+  "grid": [
+   11,
+   10
+  ],
+  "tt_visible_devices": "3",
+  "commit": "5a7702e09743cb3d2e20fafe7f35f6ce2eb8f9fd",
+  "tt_bio_file": "/home/ttuser/.coworker/wt/of3t-memory/tt_bio/__init__.py",
+  "ttnn_file": "/home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/ttnn/__init__.py",
+  "started_utc": "2026-09-19T13:23:19Z",
+  "loadavg": [
+   1.796875,
+   1.91162109375,
+   2.1318359375
+  ],
+  "dram_total_b": 34225520128,
+  "dram_banks": 8,
+  "l1_total_b": 160793600,
+  "l1_banks": 110,
+  "probe_every": 1,
+  "ckpt": "/home/ttuser/.boltz/of3-p2-155k.pt",
+  "ckpt_pairformer_blocks": 48,
+  "blocks_built": 1,
+  "c_z": 128,
+  "c_s": 384,
+  "ckpt_load_s": 0.6,
+  "weights_dram_b": 7274496,
+  "weights_census": {
+   "DRAM": {
+    "count": 49,
+    "sum_b": 7290880,
+    "largest_b": 1179648,
+    "median_b": 32768,
+    "p90_b": 294912,
+    "smallest_b": 16384,
+    "top10_b": [
+     1179648,
+     1179648,
+     1179648,
+     1179648,
+     294912,
+     294912,
+     147456,
+     147456,
+     131072,
+     131072
+    ],
+    "by_size": {
+     "distinct_sizes": 7,
+     "top_by_bytes": [
+      {
+       "each_b": 1179648,
+       "n": 4,
+       "total_b": 4718592
+      },
+      {
+       "each_b": 131072,
+       "n": 5,
+       "total_b": 655360
+      },
+      {
+       "each_b": 294912,
+       "n": 2,
+       "total_b": 589824
+      },
+      {
+       "each_b": 32768,
+       "n": 12,
+       "total_b": 393216
+      },
+      {
+       "each_b": 16384,
+       "n": 21,
+       "total_b": 344064
+      },
+      {
+       "each_b": 98304,
+       "n": 3,
+       "total_b": 294912
+      },
+      {
+       "each_b": 147456,
+       "n": 2,
+       "total_b": 294912
+      }
+     ],
+     "top_by_count": [
+      {
+       "each_b": 16384,
+       "n": 21,
+       "total_b": 344064
+      },
+      {
+       "each_b": 32768,
+       "n": 12,
+       "total_b": 393216
+      },
+      {
+       "each_b": 131072,
+       "n": 5,
+       "total_b": 655360
+      },
+      {
+       "each_b": 1179648,
+       "n": 4,
+       "total_b": 4718592
+      },
+      {
+       "each_b": 98304,
+       "n": 3,
+       "total_b": 294912
+      },
+      {
+       "each_b": 147456,
+       "n": 2,
+       "total_b": 294912
+      },
+      {
+       "each_b": 294912,
+       "n": 2,
+       "total_b": 589824
+      }
+     ]
+    }
+   },
+   "L1": {
+    "count": 0,
+    "sum_b": 0,
+    "largest_b": 0,
+    "median_b": 0,
+    "p90_b": 0,
+    "smallest_b": 0,
+    "top10_b": [],
+    "by_size": {
+     "distinct_sizes": 0,
+     "top_by_bytes": [],
+     "top_by_count": []
+    }
+   },
+   "total_buffers": 49
+  }
+ },
+ "runs": [],
+ "ckpt_ab": [
+  {
+   "tokens": 384,
+   "blocks": 1,
+   "reps": 4,
+   "rows": [
+    {
+     "rep": 0,
+     "checkpointing": true,
+     "dram_before_b": 7290880,
+     "dram_after_teardown_b": 262955008,
+     "retained_b": 255664128,
+     "verdict": "PASS",
+     "fwd_s": 0.285,
+     "total_s": 9.345,
+     "bwd_s": 9.06,
+     "error": null
+    },
+    {
+     "rep": 0,
+     "checkpointing": false,
+     "dram_before_b": 262955008,
+     "dram_after_teardown_b": 23956578304,
+     "retained_b": 23693623296,
+     "verdict": "PASS",
+     "fwd_s": 0.159,
+     "total_s": 3.888,
+     "bwd_s": 3.729,
+     "error": null
+    },
+    {
+     "rep": 1,
+     "checkpointing": true,
+     "dram_before_b": 23956578304,
+     "dram_after_teardown_b": 190980096,
+     "retained_b": -23765598208,
+     "verdict": "FAIL",
+     "fwd_s": 0.224,
+     "total_s": 0.225,
+     "bwd_s": 0.001,
+     "error": "TT_FATAL @ /project/tt_metal/impl/allocator/bank_manager.cpp:439: false\ninfo:\nOut of Memory: Not enough space to allocate 37748736 B DRAM buffer across 8 banks, where each bank needs to store 4718592 "
+    },
+    {
+     "rep": 1,
+     "checkpointing": false,
+     "dram_before_b": 190980096,
+     "dram_after_teardown_b": 23128383488,
+     "retained_b": 22937403392,
+     "verdict": "PASS",
+     "fwd_s": 0.153,
+     "total_s": 3.053,
+     "bwd_s": 2.901,
+     "error": null
+    },
+    {
+     "rep": 2,
+     "checkpointing": true,
+     "dram_before_b": 23128383488,
+     "dram_after_teardown_b": 191307776,
+     "retained_b": -22937075712,
+     "verdict": "FAIL",
+     "fwd_s": 0.155,
+     "total_s": 0.156,
+     "bwd_s": 0.0,
+     "error": "TT_FATAL @ /project/tt_metal/impl/allocator/bank_manager.cpp:439: false\ninfo:\nOut of Memory: Not enough space to allocate 37748736 B DRAM buffer across 8 banks, where each bank needs to store 4718592 "
+    },
+    {
+     "rep": 2,
+     "checkpointing": false,
+     "dram_before_b": 191307776,
+     "dram_after_teardown_b": 23128383488,
+     "retained_b": 22937075712,
+     "verdict": "PASS",
+     "fwd_s": 0.151,
+     "total_s": 3.081,
+     "bwd_s": 2.93,
+     "error": null
+    },
+    {
+     "rep": 3,
+     "checkpointing": true,
+     "dram_before_b": 23128383488,
+     "dram_after_teardown_b": 191307776,
+     "retained_b": -22937075712,
+     "verdict": "FAIL",
+     "fwd_s": 0.155,
+     "total_s": 0.156,
+     "bwd_s": 0.0,
+     "error": "TT_FATAL @ /project/tt_metal/impl/allocator/bank_manager.cpp:439: false\ninfo:\nOut of Memory: Not enough space to allocate 37748736 B DRAM buffer across 8 banks, where each bank needs to store 4718592 "
+    },
+    {
+     "rep": 3,
+     "checkpointing": false,
+     "dram_before_b": 191307776,
+     "dram_after_teardown_b": 23128383488,
+     "retained_b": 22937075712,
+     "verdict": "PASS",
+     "fwd_s": 0.151,
+     "total_s": 3.0,
+     "bwd_s": 2.849,
+     "error": null
+    }
+   ],
+   "aiclk_during": {
+    "0": {
+     "min": 1343,
+     "max": 1350,
+     "median": 1350,
+     "n": 7
+    }
+   },
+   "scored": "reps 1.. ; rep 0 is warmup and absorbs the JIT compile for both arms",
+   "aiclk_note": "index 0 is the GRANTED card: tt-smi honours TT_VISIBLE_DEVICES (perf/clocksample.py sample_aiclk)"
+  }
+ ]
+}

@@ -1,0 +1,245 @@
+{
+ "doc": "What OF3's training-size forward costs in BYTES and in ALLOCATION COUNT, on the card.\n\n`of3-1024aa-oom-allocation-count-not-size` is this campaign's standing warning: an OOM names\nthe allocation that failed to place, and that allocation is usually the last straw of several\nco-live tensors, not a single tensor that is too big. `ptx-crop` solved Protenix's 384-token\ncrop as a SIZE problem. Whether OF3's wall is the same problem is a measurement, so this\nscript measures both numbers at once and reports them side by side.\n\nThe instrument is `ttnn._ttnn.reports.get_buffers(device)`, which is the allocator's own live\nlist. It is read at the byte high-water mark rather than at the end, because the end of a\nforward is the one moment the answer is smallest.\n\nHow the peak is found. The proxy below rebinds the name `ttnn` inside every tt-bio module,\nexactly the mechanism `tt_bio.taped_ttnn` already uses, and reads DRAM and L1 allocated bytes\nafter every verb the shipped modules call. Bytes are one allocator field and cost nothing;\nthe full buffer census walks the live list, so it is taken only when bytes set a new high.\nThe peak census is therefore the census AT the byte peak, not near it.\n\nThe watcher composes with the tape: enter `tape()` first and the module's `ttnn` is already\nthe tape's proxy, so the watcher wraps that and sees the taped verbs. `tt_bio.autograd` is\nwatched too -- the tape excludes it so its backward closures reach the real verbs, but an\nobserver has no such reason to look away, and the backward is where a reverse-mode peak lives.\n\n    alloc_profile.py --sizes 256,384 --blocks 4 --arms off,tape --out out/x.json\n",
+ "env": {
+  "host": "tt-quietbox2",
+  "arch": "Arch.BLACKHOLE",
+  "grid": [
+   11,
+   10
+  ],
+  "tt_visible_devices": "3",
+  "commit": "12892b5bd7c632d0c4c95deede1e6db7a2555f68",
+  "tt_bio_file": "/home/ttuser/.coworker/wt/of3t-memory/tt_bio/__init__.py",
+  "ttnn_file": "/home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/ttnn/__init__.py",
+  "started_utc": "2026-09-19T13:02:03Z",
+  "loadavg": [
+   1.64697265625,
+   2.3193359375,
+   2.609375
+  ],
+  "dram_total_b": 34225520128,
+  "dram_banks": 8,
+  "l1_total_b": 160793600,
+  "l1_banks": 110,
+  "probe_every": 1,
+  "ckpt": "/home/ttuser/.boltz/of3-p2-155k.pt",
+  "ckpt_pairformer_blocks": 48,
+  "blocks_built": 48,
+  "c_z": 128,
+  "c_s": 384,
+  "ckpt_load_s": 0.6,
+  "weights_dram_b": 348405760,
+  "weights_census": {
+   "DRAM": {
+    "count": 2258,
+    "sum_b": 348422144,
+    "largest_b": 1179648,
+    "median_b": 32768,
+    "p90_b": 294912,
+    "smallest_b": 16384,
+    "top10_b": [
+     1179648,
+     1179648,
+     1179648,
+     1179648,
+     1179648,
+     1179648,
+     1179648,
+     1179648,
+     1179648,
+     1179648
+    ]
+   },
+   "L1": {
+    "count": 0,
+    "sum_b": 0,
+    "largest_b": 0,
+    "median_b": 0,
+    "p90_b": 0,
+    "smallest_b": 0,
+    "top10_b": []
+   },
+   "total_buffers": 2258
+  }
+ },
+ "runs": [
+  {
+   "tokens": 384,
+   "arm": "tape",
+   "blocks": 48,
+   "resting_dram_b": 348422144,
+   "z_bytes": 37748736,
+   "s_bytes": 294912,
+   "checkpointing": true,
+   "inputs_dram_b": 386465792,
+   "fwd_dram_b": 2247647232,
+   "fwd_peak_dram_b": 2641354752,
+   "fwd_peak_census": {
+    "DRAM": {
+     "count": 2937,
+     "sum_b": 2641354752,
+     "largest_b": 113246208,
+     "median_b": 32768,
+     "p90_b": 294912,
+     "smallest_b": 16384,
+     "top10_b": [
+      113246208,
+      37748736,
+      37748736,
+      37748736,
+      37748736,
+      37748736,
+      37748736,
+      37748736,
+      37748736,
+      37748736
+     ]
+    },
+    "L1": {
+     "count": 2,
+     "sum_b": 81100800,
+     "largest_b": 54067200,
+     "median_b": 40550400,
+     "p90_b": 27033600,
+     "smallest_b": 27033600,
+     "top10_b": [
+      54067200,
+      27033600
+     ]
+    },
+    "total_buffers": 2939
+   },
+   "fwd_peak_at_verb": "to_memory_config",
+   "fwd_verb_calls": 71218,
+   "verdict": "FAIL",
+   "refused_b": null,
+   "oom_kind": null,
+   "error": "TT_THROW @ /project/tt_metal/impl/program/program.cpp:1052: tt::exception\ninfo:\nStatically allocated circular buffers in program 183 clash with L1 buffers on core range [(x=0,y=0) - (x=10,y=0)]. L1 buffer allocated at 344064 and static circular buffer region ends at 389632\nbacktrace:\n --- /home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/ttnn/build/lib/libtt_metal.so(+0x6d3f55) [0x7f72a16d3f55]\n --- tt::tt_metal::detail::ProgramImpl::validate_circular_buffer_region(tt::tt_metal::IDevice const*)\n --- tt::tt_metal::distributed::MeshWorkloadImpl::compile(tt::tt_metal::distributed::MeshDevi",
+   "traceback": "/python3.12/site-packages/ttnn/build/lib/_ttnncpp.so(_ZN4ttnn16device_operation6detail21enqueue_mesh_workloadITkNS0_36DeviceOperationWithMeshDeviceAdapterENS0_26MeshDeviceOperationAdapterINS_4prim24LayerNormDeviceOperationEEEEEvRKNT_22operation_attributes_tERKNS7_13tensor_args_tERNS7_21tensor_return_value_tEPN2tt8tt_metal11distributed10MeshDeviceERNSI_12MeshWorkloadEb+0x2d2) [0x7f72a34fb722]\n --- /home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/ttnn/build/lib/_ttnncpp.so(_ZN4ttnn16device_operation6detail29launch_operation_with_adapterITkNS0_36DeviceOperationWithMeshDeviceAdapterENS0_26MeshDeviceOperationAdapterINS_4prim24LayerNormDeviceOperationEEEEEvRKNT_22operation_attributes_tERKNS7_13tensor_args_tERNS7_21tensor_return_value_tEPN2tt8tt_metal11distributed10MeshDeviceE+0x186) [0x7f72a34f8496]\n --- /home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/ttnn/build/lib/_ttnncpp.so(_ZN4ttnn16device_operation6detail6launchITkNS0_22DeviceOperationConceptENS_4prim24LayerNormDeviceOperationEEENT_21tensor_return_value_tERKNS5_22operation_attributes_tERKNS5_13tensor_args_tE+0x346) [0x7f72a34f27c6]\n --- /home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/ttnn/build/lib/_ttnncpp.so(_ZN4ttnn4prim10layer_normERKN2tt8tt_metal6TensorEfRKSt8optionalIS4_ES9_S9_RKNS2_12MemoryConfigERKSt7variantIJNS0_29LayerNormDefaultProgramConfigENS0_38LayerNormShardedMultiCoreProgramConfigEEERKNS_19ComputeKernelConfigERKS6_INS2_8DataTypeEENS0_13LayerNormTypeENS0_25DistributedLayerNormStageES9_S9_RKS6_INS_10operations5unary19BasicUnaryWithParamIJfEEEE+0x2e6) [0x7f72a34f1da6]\n --- ttnn::layer_norm(tt::tt_metal::Tensor const&, float, std::optional<tt::tt_metal::Tensor const> const&, std::optional<tt::tt_metal::Tensor const> const&, std::optional<tt::tt_metal::Tensor const> const&, std::optional<tt::tt_metal::MemoryConfig> const&, std::optional<std::variant<ttnn::prim::LayerNormDefaultProgramConfig, ttnn::prim::LayerNormShardedMultiCoreProgramConfig> const> const&, std::optional<ttnn::ComputeKernelConfig const>, std::optional<tt::tt_metal::Tensor const> const&)\n --- /home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/ttnn/_ttnn.cpython-312-x86_64-linux-gnu.so(+0x3a51f1) [0x7f72a3da51f1]\n --- /home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/ttnn/_ttnn.cpython-312-x86_64-linux-gnu.so(+0x26daa5) [0x7f72a3c6daa5]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(_PyObject_Call_Prepend+0x3ab) [0x54aaeb]\n --- /home/ttuser/tt-bio-dev/env/bin/python3() [0x5a3778]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(PyObject_Call+0x6c) [0x54b12c]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(_PyEval_EvalFrameDefault+0x4cbe) [0x5db2ee]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(_PyObject_Call_Prepend+0x18a) [0x54a8ca]\n --- /home/ttuser/tt-bio-dev/env/bin/python3() [0x5a3778]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(PyObject_Call+0x6c) [0x54b12c]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(_PyEval_EvalFrameDefault+0x4cbe) [0x5db2ee]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(_PyObject_Call_Prepend+0xc2) [0x54a802]\n --- /home/ttuser/tt-bio-dev/env/bin/python3() [0x5a3778]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(_PyObject_MakeTpCall+0x75) [0x548fb5]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(_PyEval_EvalFrameDefault+0xadf) [0x5d710f]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(PyEval_EvalCode+0x15b) [0x5d55eb]\n --- /home/ttuser/tt-bio-dev/env/bin/python3() [0x608852]\n --- /home/ttuser/tt-bio-dev/env/bin/python3() [0x6b50d3]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(_PyRun_SimpleFileObject+0x1aa) [0x6b4e3a]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(_PyRun_AnyFileObject+0x4f) [0x6b4c6f]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(Py_RunMain+0x3b5) [0x6bccd5]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(Py_BytesMain+0x2d) [0x6bc7bd]\n --- /lib/x86_64-linux-gnu/libc.so.6(+0x2a1ca) [0x7f72e7e2a1ca]\n --- /lib/x86_64-linux-gnu/libc.so.6(__libc_start_main+0x8b) [0x7f72e7e2a28b]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(_start+0x25) [0x657a05]\n\n",
+   "at_failure": {
+    "free_b": 20754095616,
+    "largest_contiguous_free_per_bank_b": 2594215872,
+    "largest_contiguous_free_across_banks_b": 20753726976
+   },
+   "at_failure_census": {
+    "DRAM": {
+     "count": 3439,
+     "sum_b": 13471424512,
+     "largest_b": 150994944,
+     "median_b": 32768,
+     "p90_b": 6291456,
+     "smallest_b": 16384,
+     "top10_b": [
+      150994944,
+      150994944,
+      113246208,
+      113246208,
+      47185920,
+      47185920,
+      47185920,
+      47185920,
+      47185920,
+      47185920
+     ]
+    },
+    "L1": {
+     "count": 4,
+     "sum_b": 129761280,
+     "largest_b": 54067200,
+     "median_b": 32440320,
+     "p90_b": 54067200,
+     "smallest_b": 10813440,
+     "top10_b": [
+      54067200,
+      54067200,
+      10813440,
+      10813440
+     ]
+    },
+    "total_buffers": 3443
+   },
+   "wall_s": 85.7,
+   "peak_dram_b": 13471424512,
+   "peak_l1_b": 137871360,
+   "peak_census": {
+    "DRAM": {
+     "count": 3439,
+     "sum_b": 13471424512,
+     "largest_b": 150994944,
+     "median_b": 32768,
+     "p90_b": 6291456,
+     "smallest_b": 16384,
+     "top10_b": [
+      150994944,
+      150994944,
+      113246208,
+      113246208,
+      47185920,
+      47185920,
+      47185920,
+      47185920,
+      47185920,
+      47185920
+     ]
+    },
+    "L1": {
+     "count": 4,
+     "sum_b": 129761280,
+     "largest_b": 54067200,
+     "median_b": 32440320,
+     "p90_b": 54067200,
+     "smallest_b": 10813440,
+     "top10_b": [
+      54067200,
+      54067200,
+      10813440,
+      10813440
+     ]
+    },
+    "total_buffers": 3443
+   },
+   "peak_at_verb": "add_",
+   "verb_calls": 72041,
+   "dealloc_calls": 0,
+   "path_stats": {
+    "FP32_SOFTMAX_STATS": {
+     "calls": 98,
+     "blocked": 98,
+     "blocks": 1898,
+     "fused": 1909,
+     "unfused": 0,
+     "l1": 98,
+     "l1_blocks": 1737,
+     "l1_refused": 14,
+     "l1_cores": 64,
+     "l1_free_retired": 0,
+     "l1_free_walked": 1,
+     "l1_padded_diverged": 0,
+     "dram_narrowed": 0
+    },
+    "OPM_ROW_STATS": {
+     "whole": 0,
+     "blocked": 0,
+     "dram_narrowed": 0,
+     "join_split": 0
+    },
+    "PWA_DEPTH_STATS": {
+     "whole": 0,
+     "blocked": 0,
+     "dram_narrowed": 0
+    }
+   },
+   "free_at_peak": {
+    "free_b": 20754095616,
+    "largest_contiguous_free_per_bank_b": 2594215872,
+    "largest_contiguous_free_across_banks_b": 20753726976
+   },
+   "free_at_end": {
+    "free_b": 31939517952,
+    "largest_contiguous_free_per_bank_b": 3992393664,
+    "largest_contiguous_free_across_banks_b": 31939149312
+   },
+   "dram_after_free_b": 2209914880
+  }
+ ]
+}
