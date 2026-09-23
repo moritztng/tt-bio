@@ -1579,3 +1579,35 @@ def test_a_resume_pass_above_the_guard_with_nothing_beneath_it_records_nothing(
     assert out["gate"] is False
     assert "is above this model's size guard" in out["error"]
     assert entry is None
+
+
+def test_a_split_record_keeps_this_cards_reasons_over_another_cards(rg):
+    """A record that cannot carry its lower rungs across an engine change writes the entry
+    back without them. The second half of that split re-record then found no reason for
+    this card and took p300c's, which describes an 11x10 grid, onto the 8x9 Galaxy. The
+    committed file still holds the Galaxy's own judgement, and it must win."""
+    committed = {"768": {"K2": {**DARK, "reason": "declines all 8 calls: the 8x9 grid's L1 "
+                                                  "cannot hold the pair tensor"}}}
+    old = rg._size_ladder_with_committed_reasons({"1280": {"K2": dict(DARK)}}, committed)
+    inherited = [("p300c", {"768": {"K2": {**DARK, "reason": "declines all 8 calls: the "
+                                                            "11x10 grid"}}})]
+    levers = {"768": {"K2": dict(DARK)}}
+    assert rg._size_ladder_fill_reasons(levers, old, inherited) == 0
+    reason = levers["768"]["K2"]["reason"]
+    assert "8x9 grid" in reason and "11x10" not in reason and "carried" not in reason
+
+
+def test_a_working_file_reason_is_not_overwritten_by_the_committed_one(rg):
+    old = {"256": {"K2": {**DARK, "reason": "newer judgement"}}}
+    committed = {"256": {"K2": {**DARK, "reason": "older judgement"}},
+                 "512": {"K2": {**DARK, "reason": "TODO: say why"}}}
+    out = rg._size_ladder_with_committed_reasons(old, committed)
+    assert out["256"]["K2"]["reason"] == "newer judgement"
+    assert "512" not in out                     # a committed TODO is not a reason
+
+
+def test_the_committed_levers_are_read_from_git_head(rg):
+    lv = rg._size_ladder_committed_levers(rg.SIZE_LADDER_BASELINE, "tt-galaxy-wh-l", "boltz2")
+    assert "1536" in lv
+    assert rg._size_ladder_committed_levers(rg.SIZE_LADDER_BASELINE, "no-such-card",
+                                            "boltz2") == {}
