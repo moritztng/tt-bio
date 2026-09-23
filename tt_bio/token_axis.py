@@ -448,6 +448,12 @@ def bucketed_pairformer(pf, s, z, dev, Np: int, extra_attn_bias=None):
     head, and OpenDDE keeps 8 more in a structural-token refiner on a different token axis
     entirely. One helper covers all of them and any that get added -- fixing one caller is the
     recurring failure (`fused-sdpa-ragged-tile-tail-and-census-discipline`).
+
+    The padded pair CONSUMES `z`: every caller hands over a pair it never reads again, and holding
+    it beside its padded copy through the whole stack is one extra pair tensor for nothing. That
+    is 3.2 GiB for OpenDDE's refiner at 1088 residues (2113 structural tokens x 384 channels), and
+    the refiner was refused on a 12 GiB Wormhole part with it live. `s` is left alone: the
+    confidence head passes a cached single representation it reuses per sample.
     """
     import ttnn
     N = int(z.shape[1])
@@ -457,7 +463,9 @@ def bucketed_pairformer(pf, s, z, dev, Np: int, extra_attn_bias=None):
         return pf(s, z, extra_attn_bias=extra_attn_bias)
     _, pmask, attn = token_pad_masks_tt(N, Np, dev)
     s = ttnn.pad(s, [(0, 0), (0, pad), (0, 0)], 0.0) if s is not None else None
-    z = ttnn.pad(z, [(0, 0), (0, pad), (0, pad), (0, 0)], 0.0)
+    zp = ttnn.pad(z, [(0, 0), (0, pad), (0, pad), (0, 0)], 0.0)
+    ttnn.deallocate(z)
+    z = zp
     if extra_attn_bias is not None:
         extra_attn_bias = ttnn.pad(
             extra_attn_bias, [(0, 0), (0, 0), (0, pad), (0, pad)], -1e9)
