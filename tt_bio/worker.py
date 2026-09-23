@@ -429,6 +429,55 @@ def _build_chain_specs(chains, msa_dir, cfg, protein_only: bool):
             for _cid, cseq, spec, mt, _mods in chains]
 
 
+def _paired_msa(path, chains, msa_dir, cfg):
+    """The complex's species-paired MSA, ``{seq_hash: a3m_text}``, or None when it does not
+    pair. The one pairing rule every model whose upstream pairs goes through.
+
+    A complex pairs when it has more than one unique protein sequence: Protenix
+    (``msa_featurizer.py``: ``need_pairing = len(unique_prot_seqs) > 1``), OpenDDE (same
+    file, lines 64-66), OpenFold3 (``colabfold_msa_server.py``: "Only do pairing if number
+    of unique protein sequences is > 1") and Boltz-2 (``compute_msa`` pairs when
+    ``len(seqs) > 1``, seqs keyed by sequence). A homomer's copies are one sequence and do
+    not pair. The search runs against the ColabFold server or a local DB; a
+    ``--msa_endpoint`` run is not sent to the public server behind the user's back, and a
+    cache-only run reads the complex's paired MSA if it is there. Best-effort: a failed
+    search folds unpaired rather than failing the job.
+    """
+    from tt_bio.main import _generate_paired_a3m
+
+    if cfg.get("single_sequence"):
+        return None
+    seqs = {seq_hash(s): s for _c, s, _sp, mt, _m in chains if mt == "protein"}
+    if len(seqs) < 2:
+        return None
+    try:
+        paired = _generate_paired_a3m(
+            seqs, path.stem, msa_dir, cfg.get("msa_server_url"),
+            cfg.get("msa_pairing_strategy"), cfg.get("msa_server_username"),
+            cfg.get("msa_server_password"), cfg.get("api_key_value"),
+            msa_db_path=cfg.get("msa_db_path"), use_envdb=cfg.get("use_envdb", False),
+            search=bool(cfg.get("use_msa_server") or cfg.get("msa_db_path")))
+    except Exception as e:  # noqa: BLE001 -- best-effort, fall back to unpaired
+        print(f"paired MSA search failed ({e!r}); folding unpaired-only", file=sys.stderr)
+        return None
+    if paired is None:
+        print("no paired MSA cached for this complex and no search source; folding "
+              "unpaired-only", file=sys.stderr)
+    return paired
+
+
+def _paired_a3ms(path, chains, msa_dir, cfg):
+    """:func:`_paired_msa` as the per-chain list ``build_complex_features`` walks in step
+    with ``chains`` (None off protein), capped by ``--max_msa_seqs`` like the unpaired MSA."""
+    from tt_bio.main import cap_a3m_text
+
+    paired = _paired_msa(path, chains, msa_dir, cfg)
+    if paired is None:
+        return None
+    return [cap_a3m_text(paired[seq_hash(s)], cfg.get("msa_cap")) if mt == "protein" else None
+            for _c, s, _sp, mt, _m in chains]
+
+
 def _artifact_residue_names(chains) -> dict:
     """(asym_id, residue_index) -> the CCD code for every token `restype` cannot name.
 
@@ -784,7 +833,7 @@ class _WorkerState:
         import types
 
         from tt_bio.esmfold2 import report_progress
-        from tt_bio.esmfold2_runtime import fold_complex, resolve_msa
+        from tt_bio.esmfold2_runtime import fold_complex, pair_keyed_msa, resolve_msa
         from tt_bio.main import _generate_esmfold2_a3m, _read_bio_chains, _write_structure
 
         chains = _read_bio_chains(path, what=cfg.get("model", "esmfold2"))
@@ -839,9 +888,13 @@ class _WorkerState:
                 sum(len(seq) for _c, seq, _s, mt, _mo in chains if mt != "ligand"), max_msa)
         # Only protein chains carry an MSA; a nucleic or ligand chain keeps msa=None, and a
         # ligand's `seq` is its CCD/SMILES spec, so hashing it for an alignment is meaningless.
-        chains = [(cid, seq,
-                   resolve_msa(spec, seq, msa_dir, max_sequences=max_msa)
-                   if (uses_msa and mt == "protein") else None,
+        paired = _paired_msa(path, chains, msa_dir, cfg) if uses_msa else None
+
+        def _msa(spec, seq):
+            msa = resolve_msa(spec, seq, msa_dir, max_sequences=max_msa)
+            return (pair_keyed_msa(msa, paired[seq_hash(seq)], max_msa) if paired else msa)
+
+        chains = [(cid, seq, _msa(spec, seq) if (uses_msa and mt == "protein") else None,
                    mt, mods)
                   for cid, seq, spec, mt, mods in chains]
         ranked = fold_complex(
@@ -897,9 +950,8 @@ class _WorkerState:
         CIF writing reuse Protenix-v2's machinery verbatim (OpenDDE.fold rides the same
         ConfidenceHead / build_complex_features / _write_protenix_structure)."""
         from tt_bio.esmfold2 import report_progress
-        from tt_bio.main import (_generate_esmfold2_a3m,
-                                 _generate_opendde_paired_a3m, _read_bio_chains,
-                                 _read_bio_constraints, cap_a3m_text)
+        from tt_bio.main import (_generate_esmfold2_a3m, _read_bio_chains,
+                                 _read_bio_constraints)
         from tt_bio.protenix_data import build_complex_features
 
         model = cfg.get("model", "opendde")
@@ -911,9 +963,8 @@ class _WorkerState:
         msa_dir = Path(cfg["msa_dir"])
 
         # search any uncached protein chain (batched into one MSA call), reusing the
-        # Protenix-v2 / ESMFold2 stage verbatim -- no separate OpenDDE MSA path.
-        # A second, paired (species-pairing) search is run below for multi-chain
-        # complexes to inject the cross-chain co-evolution signal.
+        # Protenix-v2 / ESMFold2 stage verbatim -- no separate OpenDDE MSA path. A
+        # heteromer's paired MSA comes from the shared rule in _paired_msa.
         want_msa = cfg.get("use_msa_server") or cfg.get("msa_db_path") or cfg.get("msa_endpoint")
         need = {}
         for _cid, cseq, spec, mt, _mods in chains:
@@ -944,31 +995,7 @@ class _WorkerState:
                     f"{uncached}. Folding them single-sequence would silently change MSA "
                     "depth; search them first, or drop --msa_cache_only.")
 
-        # Paired (species-pairing) MSA for multi-chain complexes -- the cross-chain
-        # co-evolution signal the reference OpenDDE pipeline injects via
-        # MSAPairingEngine.pair_chains_by_species and this port otherwise lacks
-        # (unpaired block-diagonal MSA carries no cross-chain signal). Best-effort:
-        # a failed paired search falls back to unpaired-only so the fold still runs.
-        paired_a3ms = None
-        n_prot = sum(1 for _c, _s, _sp, mt, _mods in chains if mt == "protein")
-        if n_prot > 1 and want_msa:
-            paired_seqs = {seq_hash(cseq): cseq
-                           for _cid, cseq, _spec, mt, _mods in chains if mt == "protein"}
-            try:
-                paired = _generate_opendde_paired_a3m(
-                    paired_seqs, path.stem, msa_dir, cfg.get("msa_server_url"),
-                    cfg.get("msa_pairing_strategy"), cfg.get("msa_server_username"),
-                    cfg.get("msa_server_password"), cfg.get("api_key_value"),
-                    msa_db_path=cfg.get("msa_db_path"), use_envdb=cfg.get("use_envdb", False))
-                # One entry per chain, None off protein: build_complex_features walks this
-                # list in step with `chains`, so a protein-only list ran out on the first
-                # complex that also carried a nucleic-acid or ligand chain.
-                paired_a3ms = [cap_a3m_text(paired.get(seq_hash(cseq)), cfg.get("msa_cap"))
-                               if mt == "protein" else None
-                               for _cid, cseq, _spec, mt, _mods in chains]
-            except Exception as e:  # noqa: BLE001 -- best-effort, fall back to unpaired
-                print(f"paired MSA search failed ({e!r}); folding unpaired-only", file=sys.stderr)
-                paired_a3ms = None
+        paired_a3ms = _paired_a3ms(path, chains, msa_dir, cfg)
 
         report_progress("prep")
         # `templates:` -> real template features. The template embedder is always on for
@@ -1039,6 +1066,7 @@ class _WorkerState:
                 cfg.get("msa_server_password"), cfg.get("api_key_value"),
                 msa_endpoint=cfg.get("msa_endpoint"))
         chain_specs = _build_chain_specs(chains, msa_dir, cfg, protein_only=True)
+        paired_a3ms = _paired_a3ms(path, chains, msa_dir, cfg)
 
         report_progress("prep")
         # `templates:` -> real template features. The template embedder is always on for
@@ -1051,6 +1079,7 @@ class _WorkerState:
             _prefetch_template_structures(tmpl_map, Path(tmpl_dir))
         feats = build_complex_features(chain_specs, mol_dir=cfg.get("mol_dir"),
                                        chain_ids=[cid for cid, _s, _sp, _mt, _mods in chains], bonds=bonds,
+                                       paired_a3ms=paired_a3ms,
                                        modifications=[mods for *_x, mods in chains],
                                        templates=[tmpl_map.get(cid) for cid, *_r in chains],
                                        template_dir=tmpl_dir)
@@ -1490,7 +1519,8 @@ class _WorkerState:
         # per-chain MSA paths.
         want_msa = cfg.get("use_msa_server") or cfg.get("msa_db_path") or cfg.get("msa_endpoint")
         from tt_bio.openfold3_data import (
-            normalize_openfold3_msa_paths, resolve_openfold3_msas)
+            attach_openfold3_paired_msas, normalize_openfold3_msa_paths,
+            resolve_openfold3_msas)
         # A YAML `msa:` path is used verbatim by the vendored parser, which filters by
         # file STEM and drops anything non-canonical -- so `msa: ./my.a3m` died on an
         # IndexError. Relink it under the canonical name first; bytes unchanged.
@@ -1516,6 +1546,8 @@ class _WorkerState:
                 raise RuntimeError(
                     f"MSA was requested but none resolved for protein chain(s) {missing} "
                     "-- refusing to silently fold single-sequence.")
+        if _paired_msa(path, chains, msa_dir, cfg) is not None:
+            of3_query = attach_openfold3_paired_msas(of3_query, msa_dir)
         if cfg.get("single_sequence"):
             # --single_sequence is upstream's no-MSA mode, not an MSA-stack
             # disable: upstream substitutes a one-row alignment holding the
