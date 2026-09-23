@@ -40,18 +40,20 @@ ME = "worker:mgx-affinity-scale"
 BLOCKED = {1, 24, 25, 26, 27}
 PY = os.environ.get("LANE_PY") or sys.executable
 RES, OUT = HERE / "results", HERE / "out"
+STOP = OUT / "STOP"  # touch to stop every lane after its current job
 
 
 def lease(c):
     return LEASES / f"{HOST}-card{c}.json"
 
 
-def free(c):
+def free(c, name):
     try:
         d = json.loads(lease(c).read_text())
     except (OSError, ValueError):
         d = {"released": 1}
-    mine = d.get("holder") == ME and d.get("pid") == os.getpid()
+    # Lanes are threads of one process, so pid alone would call a sibling lane's chip ours.
+    mine = d.get("holder") == ME and d.get("pid") == os.getpid() and d.get("lane") == name
     # A sibling chain releases between its folds and re-claims within seconds; a release is
     # only an idle chip once it is two minutes old.
     idle = d.get("released") and time.time() - float(d["released"]) > 120
@@ -65,8 +67,9 @@ def free(c):
     return True
 
 
-def claim(c):
+def claim(c, name):
     lease(c).write_text(json.dumps({"host": HOST, "card": str(c), "holder": ME, "pid": os.getpid(),
+                                    "lane": name,
                                     "acquired": time.time(), "released": None,
                                     "note": "held between jobs by a mgx-affinity-scale lane"}) + "\n")
 
@@ -78,15 +81,15 @@ def release(c):
         lease(c).write_text(json.dumps(d) + "\n")
 
 
-def take(pool, n, held, avoid):
+def take(pool, n, held, avoid, name):
     """One pass over the pool; the caller sleeps outside the lock and comes back."""
     for c in pool:
         if len(held) == n:
             break
         if c in BLOCKED or c in held or avoid.get(c, 0) > time.time():
             continue
-        if free(c):
-            claim(c)
+        if free(c, name):
+            claim(c, name)
             held.append(c)
             print(f"{time.strftime('%H:%M:%S')} took card {c}", flush=True)
     return held
@@ -216,6 +219,8 @@ def lane(plan, pool, n, adopt=None):
         job = json.loads(line)
         if (RES / f"{job['tag']}.json").exists():
             continue
+        if STOP.exists():
+            break
         while True:
             if adopt and adopt[0] == job["tag"]:
                 held = adopt[1]
@@ -224,7 +229,7 @@ def lane(plan, pool, n, adopt=None):
                 break
             while len(held) < n:
                 with LOCK:
-                    held = take(pool, n, held, avoid)
+                    held = take(pool, n, held, avoid, plan.stem)
                 if len(held) < n:
                     time.sleep(30)
             row = run(job, held)
@@ -236,7 +241,7 @@ def lane(plan, pool, n, adopt=None):
                 avoid[c] = time.time() + 600
             held = []
         for c in held:
-            claim(c)
+            claim(c, plan.stem)
         (RES / f"{job['tag']}.json").write_text(json.dumps(row, indent=1) + "\n")
         print(f"{time.strftime('%H:%M:%S')} {plan.stem} {job['tag']} rc={row['rc']} "
               f"wall={row['wall_s']}s aiclk={row['aiclk']} rows={len(row['rows'])}", flush=True)
