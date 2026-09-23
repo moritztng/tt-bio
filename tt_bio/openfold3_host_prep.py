@@ -253,17 +253,19 @@ def ref_atom_embed(w: dict, features: dict) -> tuple[torch.Tensor, torch.Tensor]
 
 
 def ref_atom_device_inputs(dev, features: dict, atom_mask: torch.Tensor,
-                           n_pad: int | None = None) -> list:
+                           n_pad: int | None = None, dtype=None) -> list:
     """The eight device tensors ``RefAtomFeatureEmbedder`` consumes, built once.
 
     Kept separate from the call so a taped instrument can hoist the transfers out of the loop
     and re-run only the module inside each tape, which is what makes the 48 structures
-    accumulate into one weight gradient instead of 48 copies of the transfer.
+    accumulate into one weight gradient instead of 48 copies of the transfer. ``dtype`` is the
+    consuming module's; the default is the one a bf16 module is built at.
     """
     from .tenstorrent import _dtype
 
+    dtype = dtype or _dtype(ttnn.bfloat16)
     ft = lambda t: ttnn.from_torch(t.float().unsqueeze(0), layout=ttnn.TILE_LAYOUT,
-                                   device=dev, dtype=_dtype(ttnn.bfloat16))
+                                   device=dev, dtype=dtype)
     return [ft(t) for t in ref_atom_single_inputs(features, n_pad)] + \
            [ft(t) for t in ref_atom_block_inputs(features, atom_mask)]
 

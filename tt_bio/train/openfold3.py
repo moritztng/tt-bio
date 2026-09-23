@@ -317,10 +317,16 @@ class OpenFold3Forward:
             _sub(sd, "diffusion_module.atom_attn_enc.ref_atom_feature_embedder"), ckc)
         # The input embedder's atom encoder runs on the host in inference too
         # (`run_input_atom_encoder`), so s_input reached the trunk as a constant and its 93
-        # tensors never trained (D263). The taped step runs this device copy instead.
+        # tensors never trained (D263). The taped step runs this device copy instead, at fp32:
+        # the host leg computes all but the atom transformer in fp32, and a bf16 copy put
+        # s_input 7x further from float64 (3.7e-3 against 5.0e-4), which every gradient
+        # downstream inherited (global rel 0.135 -> 0.186).
+        import ttnn
         from ..openfold3 import InputAtomEncoder
-        self._model.input_atom_enc = InputAtomEncoder(
-            _sub(sd, "input_embedder.atom_attn_enc"), ckc)
+        from ..tenstorrent import device_dtype_override
+        with device_dtype_override(ttnn.float32):
+            self._model.input_atom_enc = InputAtomEncoder(
+                _sub(sd, "input_embedder.atom_attn_enc"), ckc)
 
     def parameters(self) -> dict:
         """Every device weight the built model reaches, registered as a taped leaf.
@@ -428,8 +434,10 @@ class OpenFold3Forward:
             atom_to_token_mean=aux["atom_to_token_mean"],
             token_mask=tok, n_atom=n_atom, n_token=n_token,
             nb=aux["nb"], NP=aux["NP"], n_tok_pad=n_token)
-        # The ref-atom features, once, for both atom encoders' embedders.
+        # The ref-atom features, for each atom encoder's embedder at its own dtype.
         ref_in = ref_atom_device_inputs(dev, f, aux["atom_mask"], aux["NP"])
+        ie_in = ref_atom_device_inputs(dev, f, aux["atom_mask"], aux["NP"],
+                                       dtype=m.input_atom_enc._act_dtype)
 
         # ---- the taped forward, in two blocks with the rollout raw between them.
         #
@@ -446,7 +454,7 @@ class OpenFold3Forward:
         # graph or the registered leaves.
         with ag.tape():
             s_input_d = m.input_atom_enc(
-                ref_in, dm_aux["amc_d"], dm_aux["kidx_tt"], dm_aux["valid_d"], dm_aux["mb_d"],
+                ie_in, dm_aux["amc_d"], dm_aux["kidx_tt"], dm_aux["valid_d"], dm_aux["mb_d"],
                 dm_aux["pm_d"], dm_aux["amc_na_d"], dm_aux["mean_d"],
                 ft(token_feats.unsqueeze(0)), n_atom, aux["NP"], aux["nb"])
             relpos_d = ag.Tensor(ft(relpos.unsqueeze(0)))
