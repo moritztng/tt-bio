@@ -139,6 +139,11 @@ WHY: dict[tuple[str, str], str] = {
         "so it is polymer-only here; the featurizer would build one and the sampler would "
         "return a status=ok structure anyway"),
     ("opendde", "rna"): "nucleic-acid structural tokens are not ported",
+    ("protenix-v1", "templates"): (
+        "its v0.5.0 checkpoint ships an empty template stack, so upstream Protenix-v1 ignores "
+        "a template too; protenix-v2 is the same model with one"),
+    ("esmfold2", "templates"): "ESMFold2 has no template input",
+    ("esmfold2-fast", "templates"): "ESMFold2 has no template input",
     ("opendde", "dna"): "nucleic-acid structural tokens are not ported",
     ("opendde-abag", "rna"): "nucleic-acid structural tokens are not ported",
     ("opendde-abag", "dna"): "nucleic-acid structural tokens are not ported",
