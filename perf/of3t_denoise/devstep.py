@@ -84,6 +84,7 @@ def main() -> int:
             e["max_abs"] = max(e["max_abs"], float(vf.abs().max()))
             e["sq"] += float((vf ** 2).sum())
     extra["by_module"] = mods
+    extra["mixed_transpose_a_promoted"] = getattr(ag, "MIXED_TRANSPOSE_A", {}).get("promoted")
     extra["nonfinite_total"] = sum(e["nonfinite_tensors"] for e in mods.values())
     rec["of3t_denoise"] = extra
     out.write_text(json.dumps(rec, indent=1, default=str) + "\n")

@@ -608,6 +608,41 @@ def _evict_read_parents(parents: Sequence[Tensor]) -> None:
         p.evict()
 
 
+MIXED_TRANSPOSE_A = {"promoted": 0}
+
+
+def _matmul(a, b, **kw):
+    """`ttnn.matmul`, with the operands brought to one dtype when `transpose_a` is set.
+
+    `ttnn.matmul(transpose_a=True)` is wrong when its two operands differ in dtype, and it is
+    the only form that is. Measured on a p300c against float64, every transpose form and both
+    dtype orders (`perf/of3t_denoise/PROBE_MM.json`): fp32 A with bf16 B leaves about half the
+    output as garbage, values up to 3.4e+38; bf16 A with fp32 B is finite and uncorrelated
+    with the answer (rel 1.41, the sqrt(2) of two unrelated vectors). Same-dtype operands,
+    `transpose_a=False` in either order, and `ttnn.linear` are all right to 2e-3.
+
+    A backward meets that case as a matter of course: dW = X^T G pairs a forward activation
+    with a cotangent that arrived in its consumer's dtype, and across the OpenFold3 diffusion
+    boundary those are fp32 and bf16. That was D257, the three non-finite
+    `sampler.dc.w_lin_*` gradients. The narrower operand is promoted to fp32, which is exact,
+    and nothing changes where the dtypes already agree.
+    """
+    if not kw.get("transpose_a") or a.dtype == b.dtype:
+        return ttnn.matmul(a, b, **kw)
+    MIXED_TRANSPOSE_A["promoted"] += 1
+    tmp = []
+    if a.dtype != ttnn.float32:
+        a = ttnn.typecast(a, ttnn.float32)
+        tmp.append(a)
+    if b.dtype != ttnn.float32:
+        b = ttnn.typecast(b, ttnn.float32)
+        tmp.append(b)
+    out = ttnn.matmul(a, b, **kw)
+    for t in tmp:
+        ttnn.deallocate(t)
+    return out
+
+
 def _flat2d(t):
     """Collapse every leading dim, leaving (prod(leading), last), DRAM-interleaved.
 
@@ -714,8 +749,8 @@ def matmul(a: Tensor, b: Tensor, *, transpose_a: bool = False, transpose_b: bool
     it when both dims are equal, which for a pair tensor they always are.
     """
     cfg = config or precise_config()
-    out_v = ttnn.matmul(a.value, b.value, transpose_a=transpose_a, transpose_b=transpose_b,
-                        compute_kernel_config=cfg)
+    out_v = _matmul(a.value, b.value, transpose_a=transpose_a, transpose_b=transpose_b,
+                    compute_kernel_config=cfg)
 
     def make():
         def bw(g):
@@ -726,17 +761,17 @@ def matmul(a: Tensor, b: Tensor, *, transpose_a: bool = False, transpose_b: bool
                                            compute_kernel_config=cfg))
                 else:
                     # A entered as A^T, so dA = (dA_eff)^T = op(b) @ g^T
-                    a.add_grad(ttnn.matmul(b.value, g, transpose_a=transpose_b,
-                                           transpose_b=True, compute_kernel_config=cfg))
+                    a.add_grad(_matmul(b.value, g, transpose_a=transpose_b,
+                                       transpose_b=True, compute_kernel_config=cfg))
             if b.requires_grad:
                 if not transpose_b:
                     # dB = op(a)^T @ g
-                    b.add_grad(ttnn.matmul(a.value, g, transpose_a=not transpose_a,
-                                           compute_kernel_config=cfg))
+                    b.add_grad(_matmul(a.value, g, transpose_a=not transpose_a,
+                                       compute_kernel_config=cfg))
                 else:
                     # B entered as B^T, so dB = (dB_eff)^T = g^T @ op(a)
-                    b.add_grad(ttnn.matmul(g, a.value, transpose_a=True,
-                                           transpose_b=transpose_a, compute_kernel_config=cfg))
+                    b.add_grad(_matmul(g, a.value, transpose_a=True,
+                                       transpose_b=transpose_a, compute_kernel_config=cfg))
         return bw
 
     return _tape(out_v, [a, b], make)
@@ -783,8 +818,8 @@ def linear(x: Tensor, w: Tensor, b: Optional[Tensor] = None, *, dtype=None, core
             if w.requires_grad:
                 # dW = X^T @ dY, summed over every leading dim, so flatten both first:
                 # a batched matmul would give one dW per batch instead of their sum.
-                w.add_grad(ttnn.matmul(_flat2d(x.value), _flat2d(g),
-                                       transpose_a=True, compute_kernel_config=bwcfg))
+                w.add_grad(_matmul(_flat2d(x.value), _flat2d(g),
+                                   transpose_a=True, compute_kernel_config=bwcfg))
             if b is not None and b.requires_grad:
                 b.add_grad(_sum_leading(g, b.value.shape))
         return bw
@@ -1499,7 +1534,7 @@ def triangle_attention(q: Tensor, k: Tensor, v: Tensor, bias: Optional[Tensor] =
                     p = _scores(q.value[b0:b1, :, i0:i1, :], b0, b1, i0, i1)
                     go = g[b0:b1, :, i0:i1, :]
                     # dV = P^T @ dO, summed over the query chunks that share these keys.
-                    dv_part = ttnn.matmul(p, go, transpose_a=True, compute_kernel_config=cfg)
+                    dv_part = _matmul(p, go, transpose_a=True, compute_kernel_config=cfg)
                     dv_acc = dv_part if dv_acc is None else ttnn.add(dv_acc, dv_part)
                     # dS = P * (dP - rowsum(dP * P)), the softmax backward on the block.
                     dp = ttnn.matmul(go, v.value[b0:b1], transpose_b=True,
@@ -1518,8 +1553,8 @@ def triangle_attention(q: Tensor, k: Tensor, v: Tensor, bias: Optional[Tensor] =
                     dq_rows.append(ttnn.multiply(
                         ttnn.matmul(ds, k.value[b0:b1], compute_kernel_config=cfg), scale))
                     dk_part = ttnn.multiply(
-                        ttnn.matmul(ds, q.value[b0:b1, :, i0:i1, :], transpose_a=True,
-                                    compute_kernel_config=cfg), scale)
+                        _matmul(ds, q.value[b0:b1, :, i0:i1, :], transpose_a=True,
+                                compute_kernel_config=cfg), scale)
                     dk_acc = dk_part if dk_acc is None else ttnn.add(dk_acc, dk_part)
                     ttnn.deallocate(ds)
                 dq_blocks.append(dq_rows[0] if len(dq_rows) == 1
@@ -2115,8 +2150,8 @@ def _taped_linear(shipped, args, kwargs):
                 # matters -- a weight gradient is weight-shaped, and the optimiser wants
                 # it in fp32 anyway.
                 w.add_grad(_reduce_to(
-                    ttnn.matmul(_flat2d(x.value), _flat2d(g), transpose_a=True,
-                                compute_kernel_config=bwcfg, dtype=ttnn.float32),
+                    _matmul(_flat2d(x.value), _flat2d(g), transpose_a=True,
+                            compute_kernel_config=bwcfg, dtype=ttnn.float32),
                     w.value.shape))
             if bias is not None and bias.requires_grad:
                 bias.add_grad(_sum_leading(g, bias.value.shape))
