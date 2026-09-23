@@ -8,8 +8,11 @@
 # A second valid 1536 target costs one chip and about 5 h. The cheapest one that is genuinely
 # DIFFERENT rather than a re-crop of the same residues is the gpb dimer shifted along its own
 # sequence: 1646 residues total, so offset 100 gives residues 101-1636, a 1536-mer sharing
-# only its middle with the offset-0 crop and still spanning both chains (so still connected --
-# check with contact.py conditioning_graph before spending the chip).
+# only its middle with the offset-0 crop and still spanning both chains. CHECKED before
+# queueing, not after: conditioning_graph reads 1 component and 5951 inter-chain edges at
+# offset 100, against 1 component and 8316 at offset 0 -- fewer edges because the crop drops
+# 100 residues of chain A's interface, still three orders more than the 6 degrees of freedom
+# they pin. The same run reproduces the offset-0 row in PREDICTION.md exactly.
 #
 # The matching 512 at the same offset is what makes it a floor rather than a second point:
 # without it the new target contributes to the 1536 spread but not to the 512 one, and the two
