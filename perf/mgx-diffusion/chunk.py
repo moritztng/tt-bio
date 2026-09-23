@@ -3,10 +3,11 @@
 
     python perf/mgx-diffusion/chunk.py <model> <tokens> <samples>
 
-For every kept width, each sample's CA coordinates against the default width's (mps unset):
-the RMSD in the shared frame with no superposition (0.000 when the sample is the same sample),
-and after Kabsch (how far apart the structures are when the frame is taken out). Files are
-matched by name; the ranked copy without a _model_ suffix is skipped.
+Structures are written best-first by confidence, so a file's index is a rank, not a sample id,
+and a width that changes any confidence reorders them. Each sample is therefore matched to its
+nearest sample at the default width (mps unset) by CA RMSD in the shared frame, no superposition:
+0.000 means that sample was reproduced exactly. The worst such match over all samples is the
+answer; the Kabsch RMSD of the same pair is printed beside it. The unsuffixed copy is rank 0.
 """
 import re
 import sys
@@ -32,8 +33,12 @@ def kabsch_rmsd(p, q):
 
 
 def samples(out):
-    return {int(re.search(r"_model_(\d+)\.", f.name).group(1)): ca(f)
-            for f in out.rglob("*_model_*.cif")}
+    """Rank -> CA coordinates; the file without a _model_ suffix is rank 0."""
+    got = {}
+    for f in out.rglob("*.cif"):
+        m = re.search(r"_model_(\d+)\.cif$", f.name)
+        got[int(m.group(1)) if m else 0] = ca(f)
+    return got
 
 
 def main():
@@ -51,11 +56,13 @@ def main():
     ref = runs.pop("default")
     print(f"{model} {tokens} tokens x {s} samples, against the default width "
           f"({len(ref)} samples)")
+    frame = lambda a, b: float(np.sqrt(((a - b) ** 2).sum(1).mean()))
     for mps, got in sorted(runs.items(), key=lambda kv: int(kv[0])):
-        raw = [float(np.sqrt(((got[i] - ref[i]) ** 2).sum(1).mean())) for i in sorted(ref) if i in got]
-        fit = [kabsch_rmsd(got[i], ref[i]) for i in sorted(ref) if i in got]
-        print(f"  mps={mps:>3}: {len(raw)} samples  frame RMSD max {max(raw):.3f} A "
-              f"mean {np.mean(raw):.3f} A | Kabsch max {max(fit):.3f} A mean {np.mean(fit):.3f} A")
+        best = [min(((frame(x, y), kabsch_rmsd(x, y), j) for j, y in ref.items()))
+                for _i, x in sorted(got.items())]
+        moved = [i for (i, _x), b in zip(sorted(got.items()), best) if b[2] != i]
+        print(f"  mps={mps:>3}: {len(best)} samples, worst nearest match {max(b[0] for b in best):.3f} A "
+              f"in frame ({max(b[1] for b in best):.3f} A Kabsch); {len(moved)} changed rank")
 
 
 if __name__ == "__main__":
