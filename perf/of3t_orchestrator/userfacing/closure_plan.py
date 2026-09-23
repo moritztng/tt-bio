@@ -28,6 +28,10 @@ CARD = "CARD"              # a device row, already dispatched or dispatchable
 RELEASE = "RELEASE"        # a merge/ship decision on an existing, measured repair
 MERGE = "MERGE"            # DECIDED by Moritz and built; what is left is landing it on main,
                            # which is his gate and not a measurement this campaign can take
+SOURCE = "SOURCE"          # a source repair with NO measurement in it: no card, no decision,
+                           # no ship gate. Added pass 414 for D246 rather than filing it CARD,
+                           # because calling a zero-device fix "needs a card" is how a cheap item
+                           # inherits an expensive item's excuse for still being open.
 
 PLAN = {
     # D155 was here for one pass and is gone because it was WITHDRAWN, not closed: the
@@ -149,6 +153,56 @@ PLAN = {
         "would_a_row_help": True,
         "asked": ("not yet asked. The complex-side measurement has no owner"),
     },
+    "D247": {
+        "needs": SOURCE,
+        "one_line": "a fail-fast startup probe with NO timeout: it guards the chip that THROWS, not the chip that WEDGES",
+        "closes_when": ("`_assert_local_dispatch` bounds its own dispatch -- a timeout expiring "
+                        "into the RuntimeError path its `except` already builds, which also "
+                        "closes the device -- so a wedge and a throw produce the SAME fast "
+                        "respawnable outcome its docstring promises. The bound must be on the "
+                        "probe, not on its callers: a per-row pre-flight leaves the defect "
+                        "shipped for everyone else. No card and no decision: this is source"),
+        "evidence_held": ("`tt_bio/tenstorrent.py:5575`, called at `:6005` from every "
+                          "`get_device()`. The body wraps from_torch/add/synchronize_device in "
+                          "`try/except Exception`, so a chip that THROWS is handled as designed; "
+                          "a chip that WEDGES never reaches the except, because "
+                          "`ttnn.synchronize_device(dev)` blocks indefinitely and there is no "
+                          "timeout, alarm or watchdog in the function. Verified in the shipped "
+                          "file at pass 414, not taken from the row's report. It cost "
+                          "`of3t-verbinstall` 230 minutes -- two arms, 115 min each, nothing "
+                          "computed, every liveness signal green -- and that is a FLOOR, since "
+                          "it bills every card row on any model. The row bounded its own launches "
+                          "at `b77e89f27`; the probe is unchanged"),
+        "would_a_row_help": False,
+        "row": "of3t-verbinstall",
+    },
+    "D246": {
+        "needs": SOURCE,
+        "one_line": "a constant owner TOKEN tells two APIs apart, not two callers -- so install(exact_softmax=True) is still torn down by an unrelated bracket",
+        "closes_when": ("the install()/uninstall() pair carries a per-call identity -- a handle "
+                        "returned by install() and required by uninstall(), or a depth count so "
+                        "nesting is COUNTED rather than NAMED -- and the 2x2's fourth cell "
+                        "(on via install, foreign teardown) is pinned by a test. If the pair is "
+                        "judged not worth saving, the honest close is to withdraw the docstring's "
+                        "equivalence claim instead. No card and no decision: this is source"),
+        "evidence_held": ("`27d24c6b3` correctly root-caused R176 -- `train/lora.py:608-615` "
+                          "brackets the DISCOVERY forward in a conditional install/uninstall pair, "
+                          "that pair closes first, and all 1,742 exact softmaxes were spent in a "
+                          "discarded forward while the scored step ran on the device softmax "
+                          "(0.702981502944001, CTRL_B to sixteen digits). The repair's OWNER is a "
+                          "constant string: `exact_softmax()` records \"exact_softmax\" "
+                          "(autograd.py:1101), `install(exact_softmax=True)` records \"install\" "
+                          "(:2129), and `uninstall()` passes \"install\" (:2141) -- so the guard at "
+                          ":1064 discriminates between the two APIs and not between two callers of "
+                          "the same one. The two new tests pin CM+foreign and install+own, the two "
+                          "SAFE cells, and together read as 'both directions'. Latent in-repo "
+                          "(pkgarm.py:45 uses the CM, which is why R176's failure IS repaired), "
+                          "user-facing out of it: `exact_softmax()`'s docstring at :1093 still "
+                          "calls the unprotected path 'the same thing without the block', and the "
+                          "fix is what made that false"),
+        "would_a_row_help": False,
+        "row": "of3t-verbinstall",
+    },
     "D210": {
         "needs": RELEASE,
         "one_line": "the diffusion transformer trains 14.2M parameters upstream does not have -- fused-QKV pad lanes that Adam steps anyway",
@@ -259,7 +313,7 @@ def main() -> int:
 
     print(f"GO condition 5: {len(order)} USER-FACING defects, and they are not "
           f"{len(order)} problems.\n")
-    for need in (MERGE, DECISION, RELEASE, CARD):
+    for need in (MERGE, DECISION, RELEASE, SOURCE, CARD):
         ns = by_need.get(need, [])
         if not ns:
             continue
@@ -282,6 +336,11 @@ def main() -> int:
     dec = by_need.get(DECISION, []) + by_need.get(RELEASE, [])
     mrg = by_need.get(MERGE, [])
     card = by_need.get(CARD, [])
+    # Pass 414. The owner checks below ran on the CARD bucket alone, so adding a need
+    # would have bought D246 an exemption from the one check this file exists to make.
+    # A defect that needs no card still needs an owner -- more so, since nothing else
+    # would ever notice it stalling. Same lesson as the D32 `row: None` miss, one need over.
+    owned_needs = card + by_need.get(SOURCE, [])
     shared = [n for n in card if PLAN[n].get("shares_object_with")]
     if dec:
         print(f"SUMMARY. {len(dec)} of {len(order)} need a DECISION or a RELEASE and no "
@@ -312,8 +371,8 @@ def main() -> int:
     # Same shape as the D32 `row: None` miss this block was written for, one step over.
     _CONC = Path("/home/moritz/.coworker/state/concluded")
     _done = lambda r: bool(r) and _CONC.is_dir() and (_CONC / r).exists()
-    _orphan = [n for n in card if not PLAN[n].get("row")]
-    _stale = [n for n in card if _done(PLAN[n].get("row"))]
+    _orphan = [n for n in owned_needs if not PLAN[n].get("row")]
+    _stale = [n for n in owned_needs if _done(PLAN[n].get("row"))]
     if _orphan:
         _verb = "needs a card and has" if len(_orphan) == 1 else "need a card and have"
         print(f"  UNOWNED, and this is the line that was missing: {', '.join(_orphan)} "
@@ -326,17 +385,26 @@ def main() -> int:
             print(f"  OWNER FINISHED: {', '.join(_ns)} name `{_r}`, which has CONCLUDED. "
                   f"A concluded row is not an owner -- dispatch a successor or say why not.")
     if not _orphan and not _stale:
-        _owned = ", ".join(f"{n} -> {PLAN[n]['row']}" for n in card)
-        print(f"  Every card-bound defect has a LIVE row: {_owned}.")
+        _owned = ", ".join(f"{n} -> {PLAN[n]['row']}" for n in owned_needs)
+        print(f"  Every defect that needs an owner has a LIVE row: {_owned}.")
     asked = [n for n in order if PLAN[n].get("asked")]
     print(f"All {len(asked)} of the decision/release items were asked as one bundle (pin 9629) and "
           f"MORITZ ANSWERED on 2026-09-21, by delegating: \"for all of those. think hard. use your "
           f"own judgement. and do the right thing.\" The calls are recorded with their reasoning in "
           f"state/ask-9629-decision.md. So these are no longer waiting on him -- they are waiting "
           f"on a MERGE, which is a different gate and still his.")
-    print("So condition 5 is now one merge, one card-bound measurement each for the rest, and no "
-          "open question. Stated as a plan, not a promise: naming a closure condition is not "
-          "meeting it, and a decided defect is not a merged one.")
+    # Pass 414: this sentence used to read "one merge, one card-bound measurement each for the
+    # rest, and no open question". It was true when typed and D246 falsified it the moment it was
+    # filed -- a SOURCE item is neither a merge nor a measurement. Derived now, for the same
+    # reason the scheduling claim above was: a hand-written census is wrong on its first new row.
+    _src = by_need.get(SOURCE, [])
+    _bits = [f"{len(by_need.get(MERGE, []))} merge(s)",
+             f"a card-bound measurement each for {len(card)}"]
+    if _src:
+        _bits.append(f"{len(_src)} source repair(s) needing no measurement at all ({', '.join(_src)})")
+    print(f"So condition 5 is now {', '.join(_bits)}, and no open question. Stated as a plan, not "
+          f"a promise: naming a closure condition is not meeting it, and a decided defect is not "
+          f"a merged one.")
 
     OUT.write_text(json.dumps({
         "what": ("What it would take to clear GO condition 5, per USER-FACING defect. Asserted "
