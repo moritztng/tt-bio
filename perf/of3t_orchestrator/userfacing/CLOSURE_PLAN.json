@@ -4,8 +4,7 @@
    "D32",
    "D55",
    "D205",
-   "D250",
-   "D259"
+   "D250"
   ],
   "MERGE": [
    "D10",
@@ -65,14 +64,6 @@
    "row": "of3t-msafwd",
    "would_a_row_help": true
   },
-  "D259": {
-   "closes_when": "`of3t-bcastaudit` counts every bad-form call in one real fold per model on main. Zero sites moves it to campaign-internal; any hit is fixed at the shared site with a 3-process digest, Angstrom and a timing A/B",
-   "evidence_held": "`PROBE_BCAST.json` on `wk/of3t-denoise`: bf16 x bf16 and fp32 x anything are exact; the mixed broadcast form broke the cross-card A/A until b22e9a6bf kept the masks bf16 on the training path",
-   "needs": "CARD",
-   "one_line": "ttnn.multiply(bf16 x, fp32 mask[..., 1]) is intermittently wrong and differs run to run (up to 16,061 elements)",
-   "row": "of3t-bcastaudit",
-   "would_a_row_help": true
-  },
   "D32": {
    "closes_when": "a full training step is timed on the shipped default and published as s/step. This is a MEASUREMENT, not a repair: the routing is deliberate and the defect is that nobody can price training without it",
    "evidence_held": "the 21 sites enumerated by module and line; the trunk-only taped step measured at 230.11 s against 9.721 s for inference, 24x, at crop 384. D164 (pass 304): the OTHER trunk figure on the record, 870.75 s, is a memory-ladder run's wall clock at 3.53 ms per verb call and is not a timing at all -- the same backward clean reads 222.48 s, so this row must re-establish its own baseline before it extends one",
@@ -98,8 +89,7 @@
   "D184",
   "D205",
   "D210",
-  "D250",
-  "D259"
+  "D250"
  ],
  "what": "What it would take to clear GO condition 5, per USER-FACING defect. Asserted against state/of3t/UNFIXED_TRIAGE.json, which the gate reads."
 }

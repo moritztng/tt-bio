@@ -195,19 +195,6 @@ PLAN = {
         "would_a_row_help": True,
         "row": "of3t-msafwd",   # dispatched pass 415
     },
-    # Pass 423: filed by `of3t-denoise`, classed USER-FACING until the audit counts the sites.
-    "D259": {
-        "needs": CARD,
-        "one_line": "ttnn.multiply(bf16 x, fp32 mask[..., 1]) is intermittently wrong and differs run to run (up to 16,061 elements)",
-        "closes_when": ("`of3t-bcastaudit` counts every bad-form call in one real fold per model on "
-                        "main. Zero sites moves it to campaign-internal; any hit is fixed at the "
-                        "shared site with a 3-process digest, Angstrom and a timing A/B"),
-        "evidence_held": ("`PROBE_BCAST.json` on `wk/of3t-denoise`: bf16 x bf16 and fp32 x anything "
-                          "are exact; the mixed broadcast form broke the cross-card A/A until "
-                          "b22e9a6bf kept the masks bf16 on the training path"),
-        "would_a_row_help": True,
-        "row": "of3t-bcastaudit",   # dispatched pass 423
-    },
     "D205": {
         "needs": CARD,
         "one_line": "512 is the largest crop that RUNS; 544, 576, 640 and 768 all refuse",
