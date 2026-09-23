@@ -10745,6 +10745,11 @@ class DiffusionTransformer(Module):
         self._cond_w = (cat(ad_w, 1), cat(ad_b, 0), cat(op_w, 1), cat(op_b, 0))
         return self._cond_w
 
+    def _peak_tag(self, a):
+        # The DRAM census tag for one layer. The leading dim is the diffusion sample chunk,
+        # which is what makes the sample axis visible to TT_BIO_DRAM_PEAK at all.
+        return f"dit[{'atom' if self.atom_level else 'token'} B={a.shape[0]}] layer"
+
     def __call__(
         self,
         a: ttnn.Tensor,
@@ -10797,6 +10802,7 @@ class DiffusionTransformer(Module):
                               cond=cond)
                     for x in parts:
                         ttnn.deallocate(x)
+                    dram_peak(self._peak_tag(a))
                 return a
             dim = z.shape[1] // len(self.layers)
             for i, layer in enumerate(self.layers):
@@ -10811,6 +10817,7 @@ class DiffusionTransformer(Module):
                 )
                 for x in parts:
                     ttnn.deallocate(x)
+                dram_peak(self._peak_tag(a))
             return a
         finally:
             if cond_all is not None:
@@ -13674,10 +13681,11 @@ class TemplateRecycle:
         mask_tt, attn_tt = tmpl["mask_tt"], tmpl["attn_tt"]
         u_acc = None
         for a_tij_tt in tmpl["a_tij_tt"]:
+            # The pairformer adds its residuals into `v` (or frees it after a host join), so the
+            # reference's `v + pairformer(v)` rebuilds `v` from its two resident parts.
             v = ttnn.add(z_p, a_tij_tt)
             _, z_out = self.pairformer(None, v, mask_tt, attn_tt, attn_tt)
-            v2 = ttnn.add(v, z_out)
-            ttnn.deallocate(v)
+            v2 = ttnn.add_(ttnn.add(z_p, a_tij_tt), z_out)
             ttnn.deallocate(z_out)
             v2 = ttnn.layer_norm(v2, weight=self.v_norm_w, bias=self.v_norm_b,
                                  epsilon=1e-5, compute_kernel_config=ckc)
@@ -13767,8 +13775,13 @@ class TokenDistanceRecycle:
         v = ttnn.add(z_p, td["a_ij_tt"])
         ttnn.deallocate(z_p)
         _, v_pf = self.pairformer(None, v, td["mask_tt"], td["attn_tt"], td["attn_tt"])
-        v2 = ttnn.add(v, v_pf)
-        ttnn.deallocate(v)
+        # The pairformer adds its residuals into `v` (or frees it after a host join), so the
+        # reference's `v + pairformer(v)` recomputes `v` rather than hold a second pair tensor.
+        z_n = ttnn.layer_norm(z, weight=self.z_norm_w, bias=self.z_norm_b,
+                              epsilon=1e-5, compute_kernel_config=ckc)
+        z_p = ttnn.linear(z_n, self.z_proj_w, compute_kernel_config=ckc, core_grid=CORE_GRID_MAIN)
+        ttnn.deallocate(z_n)
+        v2 = ttnn.add_(ttnn.add_(z_p, td["a_ij_tt"]), v_pf)
         ttnn.deallocate(v_pf)
         v2 = ttnn.layer_norm(v2, weight=self.v_norm_w, bias=self.v_norm_b,
                              epsilon=1e-5, compute_kernel_config=ckc)
