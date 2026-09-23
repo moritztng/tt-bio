@@ -138,7 +138,7 @@ class _Net(torch.nn.Module):
 
 def _boltz2_sampler(monkeypatch, fits=None):
     monkeypatch.setattr(boltz2, "_get_pytorch_modules", lambda: (_Net, None, None, None))
-    ad = boltz2.AtomDiffusion(score_model_args={})
+    ad = boltz2.AtomDiffusion(score_model_args={"token_s": 384})
     widths = []
 
     def net(r, sigma, network_condition_kwargs):
