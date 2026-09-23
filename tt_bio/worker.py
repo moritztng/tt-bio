@@ -1418,6 +1418,28 @@ class _WorkerState:
                     "featurized to all-zero coordinates, so there is nothing to noise. "
                     "Give a .cif/.pdb that carries them.")
 
+        # The trunk runs once and the diffusion batch is D independent rollouts off it,
+        # each with its own confidence. Rank them by upstream's ranking score
+        # (0.8*ipTM + 0.2*pTM - 100*clash) and write the winner as {stem}.{fmt} with the
+        # rest as {stem}_model_{rank}.{fmt} -- the convention Protenix-v2, OpenDDE and
+        # ESMFold2 already use, so one dataset harness reads every model's output.
+        # predict() hands each sample's heads here as they come off the device, so only
+        # one sample's [I, I, 64] logits are ever alive on the host.
+        def one(d, per, x):
+            per = {k: v[0] for k, v in per.items()}
+            coord = x.detach().cpu().numpy().astype("float32")
+            plddt = rf3_confidence.atomwise_plddt(per["plddt_logits"], is_real_atom)
+            summary = rf3_confidence.summary(per, f, is_real_atom, chain_iid,
+                                             atom_array, coord)
+            # Order on the full-precision score, not on summary["ranking_score"], which is
+            # rounded to 4 decimals for the published summary_confidences.json. Two samples
+            # whose scores differ below 1e-4 round to the same value and were then ordered by
+            # sample index; rf3/multimer seed 1 did exactly that at ranks 3 and 4, pTM 0.7647
+            # against 0.7630, and it is the only site in the family that sorted on a rounded
+            # number.
+            return {"d": d, "coord": x, "plddt": plddt, "summary": summary,
+                    "score": summary["ranking_score"]}
+
         # One shared progress path, same as protenix-v2/openfold3/opendde:
         # report_progress already has the progress_fn signature, so it goes straight
         # into predict() and the trunk recycles / diffusion steps tick per iteration.
@@ -1429,7 +1451,7 @@ class _WorkerState:
             rep_atom_idxs=out.get("ground_truth", {}).get("rep_atom_idxs"),
             coord_to_be_noised=coord_to_be_noised, partial_t=partial_t,
             early_stop_plddt=early_stop_plddt, is_real_atom=is_real_atom,
-            progress_fn=report_progress)
+            progress_fn=report_progress, per_sample=one)
         if got.get("early_stopped"):
             # Abandoned, not failed: the caller has to be able to tell those apart, so this
             # returns metrics rather than raising, and writes no structure.
@@ -1441,30 +1463,7 @@ class _WorkerState:
                      "recycling_steps": n_recycles},
                     None, {"record": types.SimpleNamespace(affinity=False)})
 
-        # The trunk runs once and the diffusion batch is D independent rollouts off it,
-        # each with its own confidence. Rank them by upstream's ranking score
-        # (0.8*ipTM + 0.2*pTM - 100*clash) and write the winner as {stem}.{fmt} with the
-        # rest as {stem}_model_{rank}.{fmt} -- the convention Protenix-v2, OpenDDE and
-        # ESMFold2 already use, so one dataset harness reads every model's output.
-        def one(d):
-            # predict() stacks the logits on a leading sample axis, one entry per
-            # diffusion sample, so a single-sample fold takes the same path as a batch.
-            per = {k: v[d] for k, v in got.items() if k.endswith("_logits")}
-            coord = got["X_L"][d].detach().cpu().numpy().astype("float32")
-            plddt = rf3_confidence.atomwise_plddt(per["plddt_logits"], is_real_atom)
-            summary = rf3_confidence.summary(per, f, is_real_atom, chain_iid,
-                                             atom_array, coord)
-            # Order on the full-precision score, not on summary["ranking_score"], which is
-            # rounded to 4 decimals for the published summary_confidences.json. Two samples
-            # whose scores differ below 1e-4 round to the same value and were then ordered by
-            # sample index; rf3/multimer seed 1 did exactly that at ranks 3 and 4, pTM 0.7647
-            # against 0.7630, and it is the only site in the family that sorted on a rounded
-            # number.
-            return {"d": d, "coord": got["X_L"][d], "plddt": plddt, "summary": summary,
-                    "score": summary["ranking_score"]}
-
-        samples = sorted((one(d) for d in range(n_sample)),
-                         key=lambda r: -r["score"])
+        samples = sorted(got["per_sample"], key=lambda r: -r["score"])
         fmt = cfg["output_format"]
         struct_dir = Path(cfg["struct_dir"])
         for rank, r in enumerate(samples):

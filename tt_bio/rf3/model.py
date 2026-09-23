@@ -296,7 +296,7 @@ class RF3(Module):
                 coord_to_be_noised: torch.Tensor | None = None,
                 partial_t: int = 0, early_stop_plddt: float | None = None,
                 is_real_atom: torch.Tensor | None = None,
-                draws: Draws | None = None, progress_fn=None) -> dict:
+                draws: Draws | None = None, progress_fn=None, per_sample=None) -> dict:
         """One full inference: trunk recycling, diffusion rollout, then the heads.
 
         `draws` replays a recorded RNG stream, which is how this is scored against the
@@ -308,7 +308,7 @@ class RF3(Module):
         `coord_to_be_noised` instead of from pure noise. `early_stop_plddt` abandons the
         target before the rollout when the confidence head, run on the trunk output with
         no structure, reports a mean pLDDT below the threshold; the return then carries
-        `early_stopped` and no `X_L`.
+        `early_stopped` and no `X_L`. `per_sample` is passed to `confidence`.
         """
         host = HostInputs.build(f, self.device)
         if n_recycles is None:
@@ -361,7 +361,7 @@ class RF3(Module):
         if self.confidence_head is not None and rep_atom_idxs is not None:
             if progress_fn:
                 progress_fn("confidence")
-            out.update(self.confidence(s_inputs, s, z, x_pred, rep_atom_idxs))
+            out.update(self.confidence(s_inputs, s, z, x_pred, rep_atom_idxs, per_sample))
             dram_peak(f"confidence done [D={diffusion_batch_size}]")
         return out
 
@@ -380,7 +380,7 @@ class RF3(Module):
         return float(rf3_confidence.atomwise_plddt(logits, is_real_atom).mean())
 
     def confidence(self, s_inputs, s, z, x_pred: torch.Tensor,
-                   rep_atom_idxs: torch.Tensor) -> dict:
+                   rep_atom_idxs: torch.Tensor, per_sample=None) -> dict:
         """The four confidence heads over the diffusion batch, stacked on dim 0.
 
         One structure per batch member and one head pass per member: the binned distances
@@ -388,14 +388,21 @@ class RF3(Module):
         construction -- its Pairformer's triangle attention drops a leading singleton
         axis -- so a D-wide `x_pred` used to reach it as a D-wide `z` and fail a reshape
         volume check instead of quietly folding D into the token axis.
+
+        `per_sample(d, heads, x)` reduces one member's host logits as soon as they land and
+        the result is returned as `{"per_sample": [...]}`. Stacking instead keeps the
+        [I, I, 64] PAE and PDE logits of every member in fp32, 0.6 GB a sample at 1088
+        tokens, which is what killed 100 samples there on the host OOM killer.
         """
         outs = []
         for d in range(x_pred.shape[0]):
             got = self.confidence_head(
                 s_inputs, s, z,
                 distance_onehot(x_pred[d:d + 1], rep_atom_idxs, self.device))
-            outs.append({k: torch.Tensor(ttnn.to_torch(v)).float()
-                         for k, v in got.items()})
+            heads = {k: torch.Tensor(ttnn.to_torch(v)).float() for k, v in got.items()}
+            outs.append(heads if per_sample is None else per_sample(d, heads, x_pred[d]))
+        if per_sample is not None:
+            return {"per_sample": outs}
         return {k: torch.cat([o[k] for o in outs], dim=0) for k in outs[0]}
 
 
