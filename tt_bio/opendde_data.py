@@ -19,7 +19,7 @@ target is on the critical path.
 import torch
 
 from .data import const
-from .protenix_data import RESTYPE_ORDER
+from .protenix_data import RESTYPE_ORDER, residue_atoms
 
 # opendde/data/tokenizer.py STRUCTURAL_TOKEN_ROLES + PROTEIN_BACKBONE_ATOMS (verified
 # 2026-07-12 against /tmp/opendde-src a0d5134, both dicts copied verbatim).
@@ -36,7 +36,7 @@ _LETTER_TO_RES = {v: k for k, v in const.prot_token_to_letter.items()}
 def _residue_atom_names(res, is_c_terminal):
     """Same atom list + OXT-append rule as protenix_data.protein_atom_features, so the
     resulting atom_to_structural_token(atom)_idx lines up 1:1 with ref_pos's atom order."""
-    atoms = list(const.ref_atoms[res])
+    atoms = residue_atoms(res)
     if is_c_terminal:
         atoms = atoms + ["OXT"]
     return atoms
@@ -57,7 +57,7 @@ def _has_oxt(aatype, per_token, n_res):
             continue
         aa = int(aatype[r])
         res = _LETTER_TO_RES[RESTYPE_ORDER[aa]] if aa < len(RESTYPE_ORDER) else "UNK"
-        out.append(int(per_token[r]) == len(const.ref_atoms[res]) + 1)
+        out.append(int(per_token[r]) == len(residue_atoms(res)) + 1)
     return out
 
 
