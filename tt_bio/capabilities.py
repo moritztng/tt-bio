@@ -146,6 +146,12 @@ WHY.update({(m, "template_structure"): "this model takes a template as a per-cha
             "`templates:` alignment npz, not as a structure file"
             for m, caps in CAPABILITY.items() if caps["templates"] == HONOURED and m != "boltz2"})
 
+WHY.update({(m, "cyclic"): "the fold would return a linear structure. This model takes the "
+            "closure as a head-to-tail `bond` constraint instead, atom1 [<chain>, <last "
+            "residue>, C] and atom2 [<chain>, 1, N]"
+            for m, caps in CAPABILITY.items()
+            if caps["cyclic"] == REFUSED and caps["bond"] == HONOURED})
+
 #: A route the model offers outside the YAML front door, appended to its refusals.
 ELSEWHERE: dict[str, str] = {
     "rf3": "RF3 also reads its own JSON/CIF spec, which does carry a bond graph, modified "

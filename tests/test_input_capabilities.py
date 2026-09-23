@@ -193,6 +193,18 @@ def test_the_committed_cyclic_example_is_refused():
         check_capabilities(p, _read_bio_chains(p), "openbind", echo=None)
 
 
+@pytest.mark.parametrize("model", sorted(CAPABILITY))
+def test_a_cyclic_refusal_gives_the_bond_route_where_there_is_one(tmp_path, model):
+    """Measured on whglx: the head-to-tail bond closes a 13-mer to N1-C13 2.17 A (protenix-v1)
+    and 1.49 A (protenix-v2) against ~20 A linear, so a model that honours `bond` says so."""
+    caps = CAPABILITY[model]
+    if caps["cyclic"] != REFUSED:
+        pytest.skip("cyclic is not refused")
+    with pytest.raises(RuntimeError) as e:
+        _check(tmp_path, INPUTS["cyclic"], model)
+    assert ("head-to-tail `bond`" in str(e.value)) == (caps["bond"] == HONOURED)
+
+
 def test_every_predict_path_calls_check_capabilities():
     """A check a path does not call is not a guard, and a missing call is exactly how the
     ESMFold2 cyclic hole sat unnoticed."""
