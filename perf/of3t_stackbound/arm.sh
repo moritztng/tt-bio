@@ -17,14 +17,24 @@ CARD=1
 SMI=/home/ttuser/.local/bin/tt-smi
 B=$O/boundary_model_sb.pt
 C=$O/cot_external_sb.pt
-# Both digests come from the gate that licensed them, not from a transcription (A40/A42).
-B_SHA=$(python3 -c "import json;print(json.load(open('$H/COTANGENT_COMPLETE.json'))['inputs']['boundary']['sha256'])")
-C_SHA=$(python3 -c "import json;d=json.load(open('$H/COTANGENT_COMPLETE.json'));assert d['COTANGENT_COMPLETE'];print(d['cot_external']['sha256'])") \
-  || { echo "COTANGENT_COMPLETE has not passed -- no arm may run on this frame (A40)"; exit 2; }
-
-TAG=${1:?usage: arm.sh TAG scopes [pf-set]}; SCOPES=${2:?usage: arm.sh TAG scopes [pf-set]}
+TAG=${1:?usage: arm.sh TAG scopes [pf-set] [frame]}; SCOPES=${2:?usage: arm.sh TAG scopes [pf-set] [frame]}
 PF=${3:-}
+FRAME=${4:-4hhb}
 [ -n "$PF" ] && P=(--pf-set "$PF") || P=()
+if [ "$FRAME" = 5nw3 ]; then
+  # CROSS-BOARD CONTROL, not a graded arm of this row: stackexact's own 5nw3 frame on this
+  # p150a, to be compared tensor by tensor with its banked p300c arms. Digests are the banked ones.
+  B=/home/ttuser/of3t_modelframe/boundary_model_n384.pt
+  C=$O/x5/cot_external.pt
+  B_SHA=583bcd7c91ce6ed46aea59844954fb2bf7ddc3d553d7f9d4f238998183db99e2
+  C_SHA=1d15a8dc6db2a14b678e5ed5d92558af99d369599226391fa59f36ed84192ef4
+  O=$O/x5; H=$H/x5; TAG=X5_$TAG; mkdir -p "$O" "$H"
+else
+  # Both digests come from the gate that licensed them, not from a transcription (A40/A42).
+  B_SHA=$(python3 -c "import json;print(json.load(open('$H/COTANGENT_COMPLETE.json'))['inputs']['boundary']['sha256'])")
+  C_SHA=$(python3 -c "import json;d=json.load(open('$H/COTANGENT_COMPLETE.json'));assert d['COTANGENT_COMPLETE'];print(d['cot_external']['sha256'])") \
+    || { echo "COTANGENT_COMPLETE has not passed -- no arm may run on this frame (A40)"; exit 2; }
+fi
 [ "$SCOPES" = none ] && X=() || X=(--exact "$SCOPES")
 [ "$(sha256sum < "$B" | cut -d' ' -f1)" = "$B_SHA" ] || { echo "boundary digest mismatch"; exit 2; }
 [ "$(sha256sum < "$C" | cut -d' ' -f1)" = "$C_SHA" ] || { echo "cotangent digest mismatch (A42)"; exit 2; }
