@@ -1090,8 +1090,9 @@ def exact_softmax():
     Wider than `tape()`, deliberately. The backward recomputes -- `triangle_attention` never
     holds its scores and a checkpointed block reruns its forward -- so a lever that came out
     with the tape would leave every recomputed softmax on the card and take the Jacobian at
-    activations the forward did not produce. `install(exact_softmax=True)` / `uninstall()` is
-    the same thing without the block.
+    activations the forward did not produce. `install(exact_softmax=True)` /
+    `uninstall(exact_softmax=True)` is the same thing without the block -- the flag is on both
+    halves, so a bare `uninstall()` from anywhere else cannot disarm what it did not arm.
 
     Nests: an inner block that found the lever already installed leaves it installed, the way
     `tape()` leaves the shim to the outermost block. Taking it out at the inner `finally` would
@@ -2114,8 +2115,10 @@ def install(*, exact_softmax: bool = False):
 
     `exact_softmax` additionally computes every softmax in the taped forward, and every one the
     backward recomputes, on the host in float64. Off by default: it costs a host round trip per
-    softmax and it is bought for gradient fidelity. `uninstall` takes it back out. When the
-    scope you want is one training step rather than one install, use `exact_softmax()`.
+    softmax and it is bought for gradient fidelity. Its counterpart is `uninstall(
+    exact_softmax=True)` -- the flag is on BOTH halves on purpose, because a bare `uninstall()`
+    must be able to mean "put the hooks back" without also disarming a lever it never armed.
+    When the scope you want is one training step rather than one install, use `exact_softmax()`.
     """
     from . import ops
     # A recycling model asks `ops.recycle_region` whether a non-final cycle is differentiated.
@@ -2130,15 +2133,27 @@ def install(*, exact_softmax: bool = False):
     return ops.set_grad_hook(_hook)
 
 
-def uninstall() -> None:
-    """Put the inference path back. Idempotent."""
+def uninstall(*, exact_softmax: bool = False) -> None:
+    """Put the inference path back. Idempotent.
+
+    The four hooks are re-armed by `tape()` on every entry, so they self-heal and a bare
+    `uninstall()` costs a caller nothing. The exact softmax does not self-heal -- `tape()` never
+    asks for it -- so it is disarmed only when this call ASKS to disarm it. Pass
+    `exact_softmax=True` exactly when the matching `install(exact_softmax=True)` armed it.
+
+    Naming the owner is not enough on its own, and the fix that only named it was incomplete:
+    `install(exact_softmax=True)` recorded the same literal owner that an unrelated
+    `uninstall()` passed, so the unrelated call still matched and still tore the lever down.
+    Two callers in this package use `install()`/`uninstall()` as a scoped pair around something
+    much narrower than a step -- `train/lora.py:608-615` around the DISCOVERY forward,
+    `train/recipes.py:211` around the fit -- and neither of them knows this lever exists.
+    """
     from . import ops
     ops.set_recycle_hook(None)
     ops.set_checkpoint_hook(None)
     ops.set_host_softmax_hook(None)
-    # Only what THIS pair turned on. An `uninstall()` from a caller that never asked for the
-    # exact softmax must leave it alone; see `_EXACT_SOFTMAX_OWNER`.
-    _uninstall_exact_softmax("install")
+    if exact_softmax:
+        _uninstall_exact_softmax("install")
     ops.set_grad_hook(None)
 
 

@@ -15,7 +15,8 @@
    "D210"
   ],
   "SOURCE": [
-   "D246"
+   "D246",
+   "D247"
   ]
  },
  "plan": {
@@ -66,6 +67,14 @@
    "row": "of3t-verbinstall",
    "would_a_row_help": false
   },
+  "D247": {
+   "closes_when": "`_assert_local_dispatch` bounds its own dispatch -- a timeout expiring into the RuntimeError path its `except` already builds, which also closes the device -- so a wedge and a throw produce the SAME fast respawnable outcome its docstring promises. The bound must be on the probe, not on its callers: a per-row pre-flight leaves the defect shipped for everyone else. No card and no decision: this is source",
+   "evidence_held": "`tt_bio/tenstorrent.py:5575`, called at `:6005` from every `get_device()`. The body wraps from_torch/add/synchronize_device in `try/except Exception`, so a chip that THROWS is handled as designed; a chip that WEDGES never reaches the except, because `ttnn.synchronize_device(dev)` blocks indefinitely and there is no timeout, alarm or watchdog in the function. Verified in the shipped file at pass 414, not taken from the row's report. It cost `of3t-verbinstall` 230 minutes -- two arms, 115 min each, nothing computed, every liveness signal green -- and that is a FLOOR, since it bills every card row on any model. The row bounded its own launches at `b77e89f27`; the probe is unchanged",
+   "needs": "SOURCE",
+   "one_line": "a fail-fast startup probe with NO timeout: it guards the chip that THROWS, not the chip that WEDGES",
+   "row": "of3t-verbinstall",
+   "would_a_row_help": false
+  },
   "D32": {
    "closes_when": "a full training step is timed on the shipped default and published as s/step. This is a MEASUREMENT, not a repair: the routing is deliberate and the defect is that nobody can price training without it",
    "evidence_held": "the 21 sites enumerated by module and line; the trunk-only taped step measured at 230.11 s against 9.721 s for inference, 24x, at crop 384. D164 (pass 304): the OTHER trunk figure on the record, 870.75 s, is a memory-ladder run's wall clock at 3.53 ms per verb call and is not a timing at all -- the same backward clean reads 222.48 s, so this row must re-establish its own baseline before it extends one",
@@ -104,7 +113,8 @@
   "D184",
   "D205",
   "D210",
-  "D246"
+  "D246",
+  "D247"
  ],
  "what": "What it would take to clear GO condition 5, per USER-FACING defect. Asserted against state/of3t/UNFIXED_TRIAGE.json, which the gate reads."
 }
