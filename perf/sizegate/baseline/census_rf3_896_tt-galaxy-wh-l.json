@@ -4,7 +4,7 @@
     "-m",
     "tt_bio.main",
     "predict",
-    "/home/agent/wt-mgxi-rec/perf/size512/fixtures/cdk2x2_896.yaml",
+    "/home/agent/wt-mgxi-gate/perf/size512/fixtures/cdk2x2_896.yaml",
     "--model",
     "rf3",
     "--single_sequence",
@@ -15,7 +15,7 @@
     "--seed",
     "0",
     "--out_dir",
-    "/home/agent/wt-mgxi-rec/perf/sizegate/work-record-rf3/out_rf3-896-rep0"
+    "/home/agent/wt-mgxi-gate/perf/sizegate/work-record-rf3/out_rf3-896-rep0"
   ],
   "rc": 0,
   "processes": 2,
@@ -234,12 +234,11 @@
       "how": "stats",
       "counter": "tt_bio.triatt_sdpa.STATS",
       "resolved": "True",
-      "served": 0,
-      "declined": 2177,
+      "served": 1088,
+      "declined": 2176,
       "rejects": {
         "l1_budget": 2,
-        "fill_preconditions": 1088,
-        "pm_over_l1": 1087
+        "pm_over_l1": 2174
       },
       "gauges": null
     },
@@ -381,7 +380,7 @@
       "counter": "tt_bio.tenstorrent._SDPA_Q_CHUNK_OVER_L1",
       "resolved": "True",
       "served": 0,
-      "declined": 1,
+      "declined": 0,
       "rejects": null,
       "gauges": null
     },
