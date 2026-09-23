@@ -1,0 +1,70 @@
+{
+ "what": "of3t-angle job 1: the D242 cot_z correction ON THE frame384 FRAME, and nothing else.",
+ "host": "tt-quietbox",
+ "row": "of3t-angle",
+ "defect": "D242",
+ "device_involved": false,
+ "why_no_aiclk": "CPU only, no Tenstorrent device is opened",
+ "frame": "of3t-frame384: boundary_n384.pt / block47_boundary.pt, padded 384",
+ "NOT_THE_MODEL_FRAME": {
+  "model_frame_cot_external_sha256": "1d15a8dc6db2a14b678e5ed5d92558af99d369599226391fa59f36ed84192ef4",
+  "why_it_cannot_be_used_here": "it is d<cot_s,s_out>/dz_out on boundary_model_n384.pt with cot_model_n384.pt. This row scores the softmax ladder on the frame384 frame, a different boundary and a different capture, so the correction has to be recomputed here. A correction is a property of its frame."
+ },
+ "tree": "/home/ttuser/of3t_frame384/of3pkg043",
+ "openfold3_file": "/home/ttuser/of3t_frame384/of3pkg043/openfold3/__init__.py",
+ "producer": {
+  "path": "/home/ttuser/of3t_angle/ref_grad.py",
+  "sha256": "d3f467d9345594c83cd61c480489f341f5e2cb923a2ec8098f8c8ab7c463c7ef"
+ },
+ "boundary": "/home/ttuser/of3t_frame384/boundary_n384.pt",
+ "boundary_sha256": "8cb3a58669eaadc9a6782d927ff4dd4dc7b706f244e5575709b738c5ccb59aa3",
+ "cotangent_from": "/home/ttuser/of3t_frame384/block47_boundary.pt",
+ "cotangent_sha256": "a55ef1c4e6c90c87984242f9d1cc8523fbd9470a5f592eac0d0aff7000d29cf5",
+ "graph_cut": {
+  "is_cut": false,
+  "ancestor_descendant_pairs": [
+   [
+    "z_out",
+    "s_out"
+   ]
+  ]
+ },
+ "dims": {
+  "c_s": 384,
+  "c_z": 128,
+  "c_hidden_pair_bias": 24,
+  "no_heads_pair_bias": 16,
+  "c_hidden_mul": 128,
+  "c_hidden_pair_att": 32,
+  "no_heads_pair": 4,
+  "transition_type": "swiglu",
+  "transition_n": 4,
+  "pair_dropout": 0.25,
+  "fuse_projection_weights": false,
+  "inf": 1000000000.0
+ },
+ "blocks": 48,
+ "crop": 384,
+ "threads": 8,
+ "norms": {
+  "cot_s": 3.378536937441942e-05,
+  "cot_z_hooked": 0.0005430220033757261,
+  "correction": 0.0005355497738277162,
+  "cot_z_external": 0.0004525357226265418,
+  "duplicate_share_of_the_hooked_cot_z": 0.9862395455404046,
+  "hooked_over_external": 1.1999538958471545,
+  "s_out": 2547074.6682744888,
+  "z_out": 15590710.480237303
+ },
+ "seconds": {
+  "total": 346.1858954530326,
+  "last_block_and_grad": 9.038762519950978
+ },
+ "peak_rss_gb": 15.778701782226562,
+ "git_commit": "",
+ "out": {
+  "path": "/home/ttuser/of3t_angle/cot_external_n384.pt",
+  "sha256": "90ae5c4b55aef4849b7557231f6f66c1cc1b602a8a7d1a4a1edab623d1e1b162",
+  "bytes": 303172027
+ }
+}
