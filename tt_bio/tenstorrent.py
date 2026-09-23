@@ -9388,6 +9388,27 @@ class Transition(Module):
         ], 1, memory_config)
 
 
+def _z_compute(z: ttnn.Tensor, wide: bool) -> ttnn.Tensor:
+    """The pair track as its consumers want it: `z` itself, or a bf16 copy of an fp32 residual."""
+    if not wide or z.dtype == ttnn.bfloat16:
+        return z
+    return ttnn.typecast(z, ttnn.bfloat16)
+
+
+def _z_residual(z: ttnn.Tensor, zc: ttnn.Tensor, update: ttnn.Tensor, wide: bool) -> ttnn.Tensor:
+    """`z + update`: the shipped in-place bf16 add, or an fp32 sum when `wide`."""
+    if not wide:
+        z = ttnn.add_(z, update)
+        ttnn.deallocate(update)
+        return z
+    f32 = lambda t: t if t.dtype == ttnn.float32 else ttnn.typecast(t, ttnn.float32)
+    out = ttnn.add(f32(z), f32(update))
+    ttnn.deallocate(update)
+    if zc is not z:
+        ttnn.deallocate(zc)
+    return out
+
+
 class PairformerLayer(Module):
     def __init__(
         self,
@@ -9410,6 +9431,7 @@ class PairformerLayer(Module):
         tri_att_sdpa_hifi: bool = False,
         tri_att_sdpa_ragged_pad: bool = False,
         s_fp32_residual: bool = False,
+        z_fp32_residual: bool = False,
     ):
         super().__init__(state_dict, compute_kernel_config)
         self.transform_s = transform_s
@@ -9425,6 +9447,12 @@ class PairformerLayer(Module):
         # small channels of LN(s), comes out 2.42e-01 off. Off by default: a track whose
         # residual and update are the same order of magnitude gains nothing.
         self.s_fp32_residual = s_fp32_residual
+        # The same trade for the pair track, and TRAINING ONLY: it fires only while a tape is
+        # open, so inference runs the bf16 `add_` below whatever a caller passes. Upstream keeps
+        # z in fp32 between ops; holding it in bf16 is what carries our msa_module forward gap
+        # (8.38e-03 against upstream bf16's 2.31e-03 at the 64-token crop, 3.26e-03 with the
+        # residual in fp32; perf/of3t_msafwd). Every op still receives a bf16 copy.
+        self.z_fp32_residual = z_fp32_residual
         # Triangle attention is the biggest softmax site in the stack, and the accurate-softmax
         # chain only reaches it on the fp32_softmax route. `None` keeps whatever the layer's
         # `accurate_softmax` says, so no existing caller changes; a caller that measured the
@@ -9555,29 +9583,30 @@ class PairformerLayer(Module):
         """`trans_mask_z` / `trans_mask_s` are upstream's `pair_trans_mask` / `single_trans_mask`
         (D174), already shaped to broadcast. `Pairformer` builds them once per stack call rather
         than once per block; a caller that passes neither computes exactly what it does today."""
-        z_update = self.triangle_multiplication_start(z, mask)
-        z = ttnn.add_(z, z_update)
-        ttnn.deallocate(z_update)
+        wide = self.z_fp32_residual and ops.taping()
+        zc = _z_compute(z, wide)
+        z_update = self.triangle_multiplication_start(zc, mask)
+        z = _z_residual(z, zc, z_update, wide)
 
-        z_update = self.triangle_multiplication_end(z, mask)
-        z = ttnn.add_(z, z_update)
-        ttnn.deallocate(z_update)
+        zc = _z_compute(z, wide)
+        z_update = self.triangle_multiplication_end(zc, mask)
+        z = _z_residual(z, zc, z_update, wide)
 
-        z_update = self.triangle_attention_start(z, attn_mask_start)
-        z = ttnn.add_(z, z_update)
-        ttnn.deallocate(z_update)
+        zc = _z_compute(z, wide)
+        z_update = self.triangle_attention_start(zc, attn_mask_start)
+        z = _z_residual(z, zc, z_update, wide)
 
-        z_update = self.triangle_attention_end(z, attn_mask_end)
-        z = ttnn.add_(z, z_update)
-        ttnn.deallocate(z_update)
+        zc = _z_compute(z, wide)
+        z_update = self.triangle_attention_end(zc, attn_mask_end)
+        z = _z_residual(z, zc, z_update, wide)
 
         # Same lever as the starting triangle attention: the residual reads this update back
         # immediately, so assembling the row blocks into L1 removes the write and the read.
+        zc = _z_compute(z, wide)
         z_update = self.transition_z(
-            z, memory_config=_residual_update_memory_config(z.shape, z.dtype)
+            zc, memory_config=_residual_update_memory_config(zc.shape, zc.dtype)
             if _RESIDUAL_L1 else None, mask=trans_mask_z)
-        z = ttnn.add_(z, z_update)
-        ttnn.deallocate(z_update)
+        z = _z_residual(z, zc, z_update, wide)
         if self.transform_s:
             s_norm = ttnn.layer_norm(
                 self._s_compute(s),
@@ -9588,7 +9617,7 @@ class PairformerLayer(Module):
             )
             s_update = self.attention_pair_bias(
                 s_norm,
-                z,
+                _z_compute(z, wide),
                 seq_mask=extra_attn_bias if extra_attn_bias is not None else attn_mask_start,
             )
             ttnn.deallocate(s_norm)
@@ -9643,6 +9672,7 @@ class Pairformer(Module):
         tri_att_sdpa_hifi: bool = False,
         tri_att_sdpa_ragged_pad: bool = False,
         s_fp32_residual: bool = False,
+        z_fp32_residual: bool = False,
     ):
         super().__init__(state_dict, compute_kernel_config)
         self.blocks = [
@@ -9666,6 +9696,7 @@ class Pairformer(Module):
                 tri_att_sdpa_hifi=tri_att_sdpa_hifi,
                 tri_att_sdpa_ragged_pad=tri_att_sdpa_ragged_pad,
                 s_fp32_residual=s_fp32_residual,
+                z_fp32_residual=z_fp32_residual,
             )
             for i in range(n_blocks)
         ]

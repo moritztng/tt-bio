@@ -25,3 +25,16 @@ host_quiet GREEN before ours_dev_lnhost load[1.26 1.20 1.07] host=tt-quietbox bo
 host_quiet GREEN before ours_dev32_lnhost load[1.24 1.20 1.07] host=tt-quietbox board=p150a card=1 2026-09-23T02:47:51Z
 host_quiet GREEN before ours_host16_lnhost load[1.77 1.31 1.11] host=tt-quietbox board=p150a card=1 2026-09-23T02:47:59Z
 host_quiet GREEN before ours_tf_lnhost load[1.57 1.28 1.10] host=tt-quietbox board=p150a card=1 2026-09-23T02:48:08Z
+host_quiet GREEN before ours_aa384 load[0.26 0.67 0.87] host=tt-quietbox board=p150a card=1 2026-09-23T02:53:30Z
+host_quiet GREEN before ours_aa64 load[0.58 0.71 0.88] host=tt-quietbox board=p150a card=1 2026-09-23T02:53:54Z
+host_quiet GREEN before ours_trunk_fire load[0.14 0.53 0.80] host=tt-quietbox board=p150a card=1 2026-09-23T02:55:37Z
+host_quiet GREEN before ours_zf64 load[0.14 0.49 0.75] host=tt-quietbox board=p150a card=1 2026-09-23T02:58:01Z
+host_quiet GREEN before ours_aa64b load[0.77 0.61 0.79] host=tt-quietbox board=p150a card=1 2026-09-23T02:58:15Z
+host_quiet GREEN before ours_infer_id load[1.34 0.75 0.83] host=tt-quietbox board=p150a card=1 2026-09-23T02:58:28Z
+host_quiet GREEN before ours_dev_post load[1.31 0.75 0.83] host=tt-quietbox board=p150a card=1 2026-09-23T02:58:36Z
+host_quiet GREEN before ours_zf384 load[1.26 0.76 0.83] host=tt-quietbox board=p150a card=1 2026-09-23T02:58:44Z
+host_quiet GREEN before ours_aa384b load[1.43 0.84 0.86] host=tt-quietbox board=p150a card=1 2026-09-23T02:59:08Z
+host_quiet GREEN before ours_aa384c load[1.44 0.91 0.88] host=tt-quietbox board=p150a card=1 2026-09-23T02:59:40Z
+host_quiet GREEN before ours_aa384d load[0.85 0.84 0.86] host=tt-quietbox board=p150a card=1 2026-09-23T03:00:30Z
+host_quiet GREEN before ours_zf384b load[1.04 0.89 0.88] host=tt-quietbox board=p150a card=1 2026-09-23T03:00:54Z
+host_quiet GREEN before ours_trunk_fire_post load[0.23 0.66 0.80] host=tt-quietbox board=p150a card=1 2026-09-23T03:02:45Z

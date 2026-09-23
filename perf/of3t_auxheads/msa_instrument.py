@@ -66,6 +66,8 @@ def main() -> int:
                     help="orient each gradient by shape alone, as every artifact before "
                          "of3t-msaamp did. Square weights are then compared un-transposed. "
                          "Kept so the banked numbers reproduce exactly.")
+    ap.add_argument("--z-fp32-residual", action="store_true", dest="z_fp32_residual",
+                    help="of3t-msafwd: the tape-only fp32 pair residual (MSAModule z_fp32_residual)")
     ap.add_argument("--out", required=True, type=Path)
     a = ap.parse_args()
     t0 = time.perf_counter()
@@ -104,7 +106,10 @@ def main() -> int:
             fp_clash.add(f)
         fp_name[f] = k
 
-    reg, orient = {}, {}
+    # `keep` holds every registered upload alive. The registry is keyed by id(), and an upload
+    # freed during construction hands its id to a later tensor, which then inherits its name
+    # (of3t-msafwd: a 49152-row gradient scored against a 512-element reference).
+    reg, orient, keep = {}, {}, []
     orig_from_torch = ttnn.from_torch
 
     def orientation(uploaded, ckpt):
@@ -132,6 +137,7 @@ def main() -> int:
                 f = fingerprint(tensor)
                 if f in fp_name and f not in fp_clash:
                     reg[id(out)] = (fp_name[f], None)
+                    keep.append(out)
                     orient[id(out)] = orientation(tensor, msd[fp_name[f]])
                 elif tensor.dim() >= 1 and tensor.shape[0] % 2 == 0:
                     # SS3a: a TriangleMultiplication upload is a cat of the checkpoints
@@ -141,6 +147,7 @@ def main() -> int:
                     if (fa in fp_name and fb in fp_name
                             and fa not in fp_clash and fb not in fp_clash):
                         reg[id(out)] = (fp_name[fa], fp_name[fb])
+                        keep.append(out)
         except Exception:
             pass
         return out
@@ -152,7 +159,7 @@ def main() -> int:
     tb = not is_openbind(sd)
     ttnn.from_torch = recording_from_torch
     try:
-        msa = MSAModule(sd, ckc, transpose_bias=tb)
+        msa = MSAModule(sd, ckc, transpose_bias=tb, z_fp32_residual=a.z_fp32_residual)
     finally:
         ttnn.from_torch = orig_from_torch
 

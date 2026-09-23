@@ -1,0 +1,23 @@
+{
+ "host": "tt-quietbox",
+ "card": "1",
+ "board": "p150a",
+ "boundary": "/home/ttuser/of3t_msaamp/crop64.pt",
+ "n_tokens": 64,
+ "layers": {
+  "msa_module.pair_stack": 4,
+  "trunk.pairformer": 48
+ },
+ "census": {
+  "msa_module.pair_stack | add_(DataType.BFLOAT16, DataType.BFLOAT16) line 9589 -> DataType.BFLOAT16": 4,
+  "msa_module.pair_stack | add_(DataType.BFLOAT16, DataType.BFLOAT16) line 9593 -> DataType.BFLOAT16": 4,
+  "msa_module.pair_stack | add_(DataType.BFLOAT16, DataType.BFLOAT16) line 9597 -> DataType.BFLOAT16": 4,
+  "msa_module.pair_stack | add_(DataType.BFLOAT16, DataType.BFLOAT16) line 9601 -> DataType.BFLOAT16": 4,
+  "msa_module.pair_stack | add_(DataType.BFLOAT16, DataType.BFLOAT16) line 9609 -> DataType.BFLOAT16": 4,
+  "trunk.pairformer | add_(DataType.BFLOAT16, DataType.BFLOAT16) line 9589 -> DataType.BFLOAT16": 48,
+  "trunk.pairformer | add_(DataType.BFLOAT16, DataType.BFLOAT16) line 9593 -> DataType.BFLOAT16": 48,
+  "trunk.pairformer | add_(DataType.BFLOAT16, DataType.BFLOAT16) line 9597 -> DataType.BFLOAT16": 48,
+  "trunk.pairformer | add_(DataType.BFLOAT16, DataType.BFLOAT16) line 9601 -> DataType.BFLOAT16": 48,
+  "trunk.pairformer | add_(DataType.BFLOAT16, DataType.BFLOAT16) line 9609 -> DataType.BFLOAT16": 48
+ }
+}
