@@ -41,12 +41,16 @@ if os.environ.get("SDPA_CENSUS_DIR"):
     _rows = {}
     _max = int(os.environ.get("SDPA_CENSUS_SCORE_MAX", str(1 << 27)))
     _cap = [0]  # open trace captures in this process
+    _captures = []  # caller site of every begin_trace_capture, so "0 calls in a capture" can be
+                    # told apart from "no capture ran"
 
     _begin, _end = ttnn.begin_trace_capture, ttnn.end_trace_capture
 
     def _begin_capture(*a, **kw):
         tid = _begin(*a, **kw)
         _cap[0] += 1
+        _captures.append(_site())
+        _dump()  # a spawned worker can be terminated before atexit runs
         return tid
 
     def _end_capture(*a, **kw):
@@ -134,10 +138,10 @@ if os.environ.get("SDPA_CENSUS_DIR"):
         return o
 
     def _dump():
-        if _rows:
+        if _rows or _captures:
             p = os.path.join(os.environ["SDPA_CENSUS_DIR"], f"{os.getpid()}.json")
             with open(p + ".tmp", "w") as f:
-                json.dump(_rows, f)
+                json.dump(dict(_rows, **{"__captures__": _captures}), f)
             os.replace(p + ".tmp", p)
 
     ttnn.transformer.scaled_dot_product_attention = _wrap
@@ -210,9 +214,12 @@ def main():
                    PYTHONPATH=os.pathsep.join([hook, str(REPO)] + [p for p in os.environ.get(
                        "PYTHONPATH", "").split(os.pathsep) if p]))
         rc = subprocess.call([sys.executable, "-m", "tt_bio.main"] + cli, cwd=REPO, env=env)
-        merged = {}
+        merged, captures = {}, {}
         for p in glob.glob(os.path.join(dump, "*.json")):
-            for key, r in json.load(open(p)).items():
+            d = json.load(open(p))
+            for site in d.pop("__captures__", []):
+                captures[site] = captures.get(site, 0) + 1
+            for key, r in d.items():
                 m = merged.setdefault(key, dict(r, calls=0))
                 m["calls"] += r["calls"]
     rows = []
@@ -225,6 +232,7 @@ def main():
                             "unmasked": sum(r["calls"] for r in rows if r["mask"] is None),
                             "zero_cache": sum(r["calls"] for r in rows if r["mask"] == "zero_cache"),
                             "in_capture": sum(r["calls"] for r in rows if r["capture"]),
+                            "captures": captures,
                             "rows": rows}) + "\n")
     print(f"{a.label}: rc={rc} calls={sum(r['calls'] for r in rows)} "
           f"unmasked={sum(r['calls'] for r in rows if r['mask'] is None)} keys={len(rows)}")
