@@ -86,7 +86,8 @@ sequences:
       id: C
       sequence: ACGT
 """)
-    assert _template_map(p, "openfold3", _read_bio_chains(p)) == {"A": str(npz), "B": str(npz)}
+    assert (_template_map(p, "openfold3", _read_bio_chains(p), tmp_path)
+            == {"A": str(npz), "B": str(npz)})
 
 
 def test_template_map_rejects_missing_file(tmp_path):
@@ -101,7 +102,7 @@ sequences:
       templates: /nonexistent/tmpl.npz
 """)
     with pytest.raises(RuntimeError, match="does not exist"):
-        _template_map(p, "openfold3", _read_bio_chains(p))
+        _template_map(p, "openfold3", _read_bio_chains(p), tmp_path)
 
 
 def test_template_map_rejects_non_protein_chain(tmp_path):
@@ -118,7 +119,7 @@ sequences:
       templates: {npz}
 """)
     with pytest.raises(RuntimeError, match="only valid on protein chains"):
-        _template_map(p, "openfold3", _read_bio_chains(p))
+        _template_map(p, "openfold3", _read_bio_chains(p), tmp_path)
 
 
 def test_template_map_refuses_a_template_for_a_chain_that_is_not_there(tmp_path):
@@ -141,10 +142,10 @@ sequences:
       sequence: MKVL
       templates: {npz}
 """)
-    assert _template_map(p, "openfold3", _read_bio_chains(p)) == {"A": str(npz)}
+    assert _template_map(p, "openfold3", _read_bio_chains(p), tmp_path) == {"A": str(npz)}
     # Same file, and the chain the caller actually parsed is called something else.
     with pytest.raises(RuntimeError, match=r"unknown chain id\(s\) \['A'\]"):
-        _template_map(p, "openfold3", [("B", "MKVL", None, "protein", None)])
+        _template_map(p, "openfold3", [("B", "MKVL", None, "protein", None)], tmp_path)
 
 
 def test_template_map_ignores_fasta_and_template_free_yaml(tmp_path):
@@ -153,9 +154,9 @@ def test_template_map_ignores_fasta_and_template_free_yaml(tmp_path):
 
     fa = tmp_path / "in.fasta"
     fa.write_text(">A|protein\nMKVL\n")
-    assert _template_map(fa, "openfold3", _read_bio_chains(fa)) == {}
+    assert _template_map(fa, "openfold3", _read_bio_chains(fa), tmp_path) == {}
     p = _yaml(tmp_path, "version: 1\nsequences:\n  - protein:\n      id: A\n      sequence: MKVL\n")
-    assert _template_map(p, "openfold3", _read_bio_chains(p)) == {}
+    assert _template_map(p, "openfold3", _read_bio_chains(p), tmp_path) == {}
 
 
 def test_of3_refuses_covalent_bonds_and_ligands_through_the_capability_table(tmp_path):

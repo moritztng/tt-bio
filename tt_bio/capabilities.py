@@ -39,8 +39,6 @@ FEATURES: dict[str, tuple[str, str]] = {
     "cyclic": ("`cyclic: true`", "the fold would return a linear structure"),
     "modifications": ("`modifications:`", "the fold would return the unmodified residue"),
     "templates": ("`templates:`", "the fold would ignore the template you supplied"),
-    "template_structure": ("a top-level `templates:` structure file",
-                           "the fold would ignore the template you supplied"),
     "bond": ("a `bond` constraint", "the fold would ignore the covalent bond"),
     "pocket": ("a `pocket`/`contact` constraint",
                "the fold would ignore the binding constraint"),
@@ -51,10 +49,7 @@ _ALL_HONOURED = dict.fromkeys(FEATURES, HONOURED)
 
 
 def _row(**overrides) -> dict[str, str]:
-    # A top-level `templates:` block (a cif/pdb per chain) is Boltz-2's own schema and only
-    # its parser reads it. The shared reader accepts the key for Boltz-2's sake, so every
-    # other model folded straight past it; refused unless a row says otherwise.
-    return {**_ALL_HONOURED, "template_structure": REFUSED, **overrides}
+    return {**_ALL_HONOURED, **overrides}
 
 
 #: --model -> feature -> verdict. Every id in ``main.PREDICT_MODELS`` needs a row; the
@@ -70,13 +65,15 @@ def _row(**overrides) -> dict[str, str]:
 #: ``non_canonical_residues``, upstream's own field.
 #:
 #: ``templates`` takes the same alignment npz on the OF3 family and on protenix-v2 / OpenDDE,
-#: whose template embedder used to run on ``dummy_template_features`` whatever the input said.
+#: whose template embedder used to run on ``dummy_template_features`` whatever the input said,
+#: and Boltz-2's top-level structure-file form on all of them (``template_cif`` aligns it into
+#: that npz).
 #: It stays REFUSED on protenix-v1, whose v0.5.0 checkpoint ships an EMPTY template pairformer
 #: stack, so upstream returns literal 0 from the template embedder and a template could only
 #: be dropped (pinned by tests/test_protenix_template_gate.py); on ESMFold2, which has no
 #: template stack at all; and on RF3, which takes templates through its own JSON/CIF spec.
 CAPABILITY: dict[str, dict[str, str]] = {
-    "boltz2": _row(template_structure=HONOURED),
+    "boltz2": _row(),
     # ESMFold2 folds ligands, RNA and DNA and applies `modifications:` (one reader, one
     # fold_complex call). It has no constraint, template or affinity path, and its trunk is
     # conditioned on the protein language model, so a complex needs at least one protein.
@@ -113,7 +110,7 @@ CAPABILITY: dict[str, dict[str, str]] = {
     # 'rna' (only protein, ligand)"), which is why the chain columns here record a verdict
     # this module does not apply itself.
     "nesso1": _row(rna=REFUSED, dna=REFUSED, protein_free=REFUSED, cyclic=NOTED, modifications=NOTED,
-                   templates=NOTED, template_structure=NOTED, bond=NOTED, pocket=NOTED),
+                   templates=NOTED, bond=NOTED, pocket=NOTED),
 }
 
 #: Molecule-type features: they come from the parsed chain list, not from a yaml key.
@@ -148,10 +145,6 @@ WHY: dict[tuple[str, str], str] = {
     **{(m, "protein_free"): "its trunk is conditioned on the ESM protein language model, so a "
        "complex needs at least one protein chain" for m in ("esmfold2", "esmfold2-fast")},
 }
-
-WHY.update({(m, "template_structure"): "this model takes a template as a per-chain "
-            "`templates:` alignment npz, not as a structure file"
-            for m, caps in CAPABILITY.items() if caps["templates"] == HONOURED and m != "boltz2"})
 
 #: A route the model offers outside the YAML front door, appended to its refusals.
 ELSEWHERE: dict[str, str] = {
@@ -269,6 +262,13 @@ def detect(path, chains=None) -> dict[str, str]:
             for feature in per_chain:
                 if sub.get(feature):
                     per_chain[feature] += _ids(sub)
+    # A top-level `templates:` block is the same feature given as a structure file
+    # (tt_bio/template_cif.py turns it into the per-chain alignment).
+    for t in doc.get("templates") or []:
+        if isinstance(t, dict):
+            ids = t.get("chain_id")
+            per_chain["templates"] += ([str(x) for x in ids] if isinstance(ids, list)
+                                       else [str(ids) if ids is not None else "all"])
     for feature, hits in per_chain.items():
         if hits:
             found[feature] = "chain(s) " + ", ".join(hits)
@@ -279,10 +279,6 @@ def detect(path, chains=None) -> dict[str, str]:
             found.setdefault("bond", "constraints")
         elif "pocket" in c or "contact" in c:
             found.setdefault("pocket", "constraints")
-    tops = [str(t.get("chain_id", "?")) for t in (doc.get("templates") or [])
-            if isinstance(t, dict)]
-    if tops:
-        found["template_structure"] = "chain(s) " + ", ".join(tops)
     binders = [str(pr["affinity"].get("binder")) for pr in (doc.get("properties") or [])
                if isinstance(pr, dict) and isinstance(pr.get("affinity"), dict)]
     if binders:
@@ -339,7 +335,6 @@ DOC_COLUMNS: tuple[tuple[str, str], ...] = (
     ("cyclic", "cyclic"),
     ("modifications", "modifications"),
     ("templates", "templates"),
-    ("template_structure", "structure template"),
     ("bond", "bond constraint"),
     ("pocket", "pocket/contact"),
     ("affinity", "affinity"),
