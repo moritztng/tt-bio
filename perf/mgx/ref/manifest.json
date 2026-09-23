@@ -1,0 +1,466 @@
+{
+ "about": "Upstream reference structures for the MGX 1024/1280/1536 rungs. Score a TT fold with perf/mgx/ref/score.py; the floor is reference seed 0 vs seed 1.",
+ "models": [
+  "boltz2",
+  "esmfold2",
+  "esmfold2-fast",
+  "protenix-v1",
+  "protenix-v2",
+  "openfold3",
+  "openbind",
+  "opendde",
+  "opendde-abag",
+  "rf3"
+ ],
+ "fixtures": [
+  "7aqx_1024",
+  "2ad6_1280",
+  "3abq_1536",
+  "cdk2x2_1024",
+  "cdk2x2_1280",
+  "cdk2x2_1536"
+ ],
+ "seeds": [
+  0,
+  1
+ ],
+ "settings_source": "tt_bio.main PREDICT_MODELS, _resolve_recycling_steps, _resolve_sampling_steps",
+ "cells": {
+  "boltz2/7aqx_1024": {
+   "seeds": {},
+   "missing_reason": "not run"
+  },
+  "boltz2/2ad6_1280": {
+   "seeds": {},
+   "missing_reason": "not run"
+  },
+  "boltz2/3abq_1536": {
+   "seeds": {},
+   "missing_reason": "not run"
+  },
+  "boltz2/cdk2x2_1024": {
+   "seeds": {},
+   "missing_reason": "not run"
+  },
+  "boltz2/cdk2x2_1280": {
+   "seeds": {},
+   "missing_reason": "not run"
+  },
+  "boltz2/cdk2x2_1536": {
+   "seeds": {},
+   "missing_reason": "not run"
+  },
+  "esmfold2/7aqx_1024": {
+   "seeds": {
+    "0": {
+     "status": "ok",
+     "gpu": "NVIDIA H200",
+     "pkgs": {
+      "esm": "3.4.1.post1",
+      "transformers": "4.57.6",
+      "torch": "2.11.0"
+     },
+     "dtype": "fp32 trunk, fp32 ESMC",
+     "repo": "biohub/ESMFold2",
+     "revision": "8fc3ff471022fdce52c77030685eb775de0c00a3",
+     "fold_kwargs": {
+      "num_loops": 10,
+      "num_sampling_steps": 100,
+      "num_diffusion_samples": 1,
+      "seed": 0,
+      "lm_dropout": null,
+      "msa_max_depth": null,
+      "msa_column_mask_rate": null
+     },
+     "recycles": 10,
+     "sampling_steps": 100,
+     "samples": 1,
+     "tokens": 1012,
+     "device_s": [
+      366.2142685074359
+     ],
+     "wall_s": 462.8,
+     "peak_mem_GiB_torch": 42.85,
+     "started": "2026-09-23T02:07:47Z",
+     "cif": "perf/mgx/ref/refs/esmfold2/7aqx_1024/s0.cif.gz"
+    }
+   },
+   "vs_crystal": {
+    "s0": {
+     "ca_rmsd_A": 15.677,
+     "lddt_ca": 0.8969,
+     "n_ca": 939
+    }
+   }
+  },
+  "esmfold2/2ad6_1280": {
+   "seeds": {},
+   "missing_reason": "not run"
+  },
+  "esmfold2/3abq_1536": {
+   "seeds": {},
+   "missing_reason": "not run"
+  },
+  "esmfold2/cdk2x2_1024": {
+   "seeds": {
+    "0": {
+     "status": "ok",
+     "gpu": "NVIDIA H200",
+     "pkgs": {
+      "esm": "3.4.1.post1",
+      "transformers": "4.57.6",
+      "torch": "2.11.0"
+     },
+     "dtype": "fp32 trunk, fp32 ESMC",
+     "repo": "biohub/ESMFold2",
+     "revision": "8fc3ff471022fdce52c77030685eb775de0c00a3",
+     "fold_kwargs": {
+      "num_loops": 10,
+      "num_sampling_steps": 100,
+      "num_diffusion_samples": 1,
+      "seed": 0,
+      "lm_dropout": null,
+      "msa_max_depth": null,
+      "msa_column_mask_rate": null
+     },
+     "recycles": 10,
+     "sampling_steps": 100,
+     "samples": 1,
+     "tokens": 1024,
+     "device_s": [
+      340.51873471960425
+     ],
+     "wall_s": 407.7,
+     "peak_mem_GiB_torch": 40.9,
+     "started": "2026-09-23T02:00:02Z",
+     "cif": "perf/mgx/ref/refs/esmfold2/cdk2x2_1024/s0.cif.gz"
+    }
+   }
+  },
+  "esmfold2/cdk2x2_1280": {
+   "seeds": {},
+   "missing_reason": "not run"
+  },
+  "esmfold2/cdk2x2_1536": {
+   "seeds": {},
+   "missing_reason": "not run"
+  },
+  "esmfold2-fast/7aqx_1024": {
+   "seeds": {},
+   "missing_reason": "not run"
+  },
+  "esmfold2-fast/2ad6_1280": {
+   "seeds": {},
+   "missing_reason": "not run"
+  },
+  "esmfold2-fast/3abq_1536": {
+   "seeds": {},
+   "missing_reason": "not run"
+  },
+  "esmfold2-fast/cdk2x2_1024": {
+   "seeds": {},
+   "missing_reason": "not run"
+  },
+  "esmfold2-fast/cdk2x2_1280": {
+   "seeds": {},
+   "missing_reason": "not run"
+  },
+  "esmfold2-fast/cdk2x2_1536": {
+   "seeds": {},
+   "missing_reason": "not run"
+  },
+  "protenix-v1/7aqx_1024": {
+   "seeds": {},
+   "missing_reason": "not run"
+  },
+  "protenix-v1/2ad6_1280": {
+   "seeds": {},
+   "missing_reason": "not run"
+  },
+  "protenix-v1/3abq_1536": {
+   "seeds": {},
+   "missing_reason": "not run"
+  },
+  "protenix-v1/cdk2x2_1024": {
+   "seeds": {},
+   "missing_reason": "not run"
+  },
+  "protenix-v1/cdk2x2_1280": {
+   "seeds": {},
+   "missing_reason": "not run"
+  },
+  "protenix-v1/cdk2x2_1536": {
+   "seeds": {},
+   "missing_reason": "not run"
+  },
+  "protenix-v2/7aqx_1024": {
+   "seeds": {
+    "0": {
+     "status": "ok",
+     "gpu": "NVIDIA H200",
+     "pkgs": {
+      "protenix": "2.0.0",
+      "torch": "2.7.1+cu128"
+     },
+     "dtype": "fp32 (upstream --dtype, TF32 at its default)",
+     "checkpoint": "/root/ckpt/protenix-v2.pt",
+     "argv": [
+      "pred",
+      "-i",
+      "/root/work/protenix-v2/7aqx_1024/s0/t.json",
+      "-o",
+      "/root/work/protenix-v2/7aqx_1024/s0/out",
+      "-s",
+      "0",
+      "-c",
+      "10",
+      "-p",
+      "200",
+      "-e",
+      "1",
+      "-d",
+      "fp32",
+      "-n",
+      "protenix-v2",
+      "--use_msa",
+      "true"
+     ],
+     "recycles": 10,
+     "sampling_steps": 200,
+     "samples": 1,
+     "tokens": 1012,
+     "wall_s": 431.4,
+     "peak_mem_GiB_torch": 23.46,
+     "started": "2026-09-23T02:07:47Z",
+     "cif": "perf/mgx/ref/refs/protenix-v2/7aqx_1024/s0.cif.gz"
+    }
+   },
+   "vs_crystal": {
+    "s0": {
+     "ca_rmsd_A": 13.821,
+     "lddt_ca": 0.9221,
+     "n_ca": 939
+    }
+   }
+  },
+  "protenix-v2/2ad6_1280": {
+   "seeds": {},
+   "missing_reason": "not run"
+  },
+  "protenix-v2/3abq_1536": {
+   "seeds": {},
+   "missing_reason": "not run"
+  },
+  "protenix-v2/cdk2x2_1024": {
+   "seeds": {},
+   "missing_reason": "not run"
+  },
+  "protenix-v2/cdk2x2_1280": {
+   "seeds": {},
+   "missing_reason": "not run"
+  },
+  "protenix-v2/cdk2x2_1536": {
+   "seeds": {},
+   "missing_reason": "not run"
+  },
+  "openfold3/7aqx_1024": {
+   "seeds": {},
+   "missing_reason": "not run"
+  },
+  "openfold3/2ad6_1280": {
+   "seeds": {},
+   "missing_reason": "not run"
+  },
+  "openfold3/3abq_1536": {
+   "seeds": {},
+   "missing_reason": "not run"
+  },
+  "openfold3/cdk2x2_1024": {
+   "seeds": {},
+   "missing_reason": "not run"
+  },
+  "openfold3/cdk2x2_1280": {
+   "seeds": {},
+   "missing_reason": "not run"
+  },
+  "openfold3/cdk2x2_1536": {
+   "seeds": {},
+   "missing_reason": "not run"
+  },
+  "openbind/7aqx_1024": {
+   "seeds": {},
+   "missing_reason": "not run"
+  },
+  "openbind/2ad6_1280": {
+   "seeds": {},
+   "missing_reason": "not run"
+  },
+  "openbind/3abq_1536": {
+   "seeds": {},
+   "missing_reason": "not run"
+  },
+  "openbind/cdk2x2_1024": {
+   "seeds": {},
+   "missing_reason": "not run"
+  },
+  "openbind/cdk2x2_1280": {
+   "seeds": {},
+   "missing_reason": "not run"
+  },
+  "openbind/cdk2x2_1536": {
+   "seeds": {},
+   "missing_reason": "not run"
+  },
+  "opendde/7aqx_1024": {
+   "seeds": {
+    "0": {
+     "status": "error",
+     "error": "RuntimeError: upstream wrote no *.cif under /root/work/opendde/7aqx_1024/s0/out: read the log above, an exit code of 0 is not evidence of a fold",
+     "gpu": "NVIDIA H200",
+     "recycles": 10,
+     "sampling_steps": 200,
+     "samples": 1,
+     "tokens": 1012,
+     "wall_s": 392.9,
+     "peak_mem_GiB_torch": 39.89,
+     "started": "2026-09-23T02:07:47Z"
+    },
+    "1": {
+     "status": "error",
+     "error": "RuntimeError: upstream wrote no *.cif under /root/work/opendde/7aqx_1024/s1/out: read the log above, an exit code of 0 is not evidence of a fold",
+     "gpu": "NVIDIA H200",
+     "recycles": 10,
+     "sampling_steps": 200,
+     "samples": 1,
+     "tokens": 1012,
+     "wall_s": 259.0,
+     "peak_mem_GiB_torch": 55.94,
+     "started": "2026-09-23T02:14:24Z"
+    }
+   },
+   "missing_reason": "s0 error: RuntimeError: upstream wrote no *.cif under /root/work/opendde/7aqx_1024/s0/out: read the log above, an exit code of 0 is not evidence of a fold; s1 error: RuntimeError: upstream wrote no *.cif under /root/work/opendde/7aqx_1024/s1/out: read the log above, an exit code of 0 is not evidence of a fold"
+  },
+  "opendde/2ad6_1280": {
+   "seeds": {
+    "0": {
+     "status": "error",
+     "error": "RuntimeError: upstream wrote no *.cif under /root/work/opendde/2ad6_1280/s0/out: read the log above, an exit code of 0 is not evidence of a fold",
+     "gpu": "NVIDIA H200",
+     "recycles": 10,
+     "sampling_steps": 200,
+     "samples": 1,
+     "tokens": 1280,
+     "wall_s": 607.0,
+     "peak_mem_GiB_torch": 36.84,
+     "started": "2026-09-23T02:07:47Z"
+    }
+   },
+   "missing_reason": "s0 error: RuntimeError: upstream wrote no *.cif under /root/work/opendde/2ad6_1280/s0/out: read the log above, an exit code of 0 is not evidence of a fold"
+  },
+  "opendde/3abq_1536": {
+   "seeds": {},
+   "missing_reason": "not run"
+  },
+  "opendde/cdk2x2_1024": {
+   "seeds": {
+    "0": {
+     "status": "ok",
+     "gpu": "NVIDIA H200",
+     "pkgs": {
+      "opendde": "1.0.3",
+      "torch": "2.7.1+cu128"
+     },
+     "dtype": "fp32 (upstream --dtype, TF32 at its default)",
+     "checkpoint": "/root/ckpt/opendde.pt",
+     "argv": [
+      "pred",
+      "-i",
+      "/root/work/opendde/cdk2x2_1024/s0/t.json",
+      "-o",
+      "/root/work/opendde/cdk2x2_1024/s0/out",
+      "-s",
+      "0",
+      "-c",
+      "10",
+      "-p",
+      "200",
+      "-e",
+      "1",
+      "-d",
+      "fp32",
+      "-n",
+      "opendde_v1",
+      "--use_msa",
+      "true",
+      "--load_checkpoint_path",
+      "/root/ckpt/opendde.pt"
+     ],
+     "recycles": 10,
+     "sampling_steps": 200,
+     "samples": 1,
+     "tokens": 1024,
+     "wall_s": 379.7,
+     "peak_mem_GiB_torch": 64.75,
+     "started": "2026-09-23T02:00:02Z",
+     "cif": "perf/mgx/ref/refs/opendde/cdk2x2_1024/s0.cif.gz"
+    }
+   }
+  },
+  "opendde/cdk2x2_1280": {
+   "seeds": {},
+   "missing_reason": "not run"
+  },
+  "opendde/cdk2x2_1536": {
+   "seeds": {},
+   "missing_reason": "not run"
+  },
+  "opendde-abag/7aqx_1024": {
+   "seeds": {},
+   "missing_reason": "not run"
+  },
+  "opendde-abag/2ad6_1280": {
+   "seeds": {},
+   "missing_reason": "not run"
+  },
+  "opendde-abag/3abq_1536": {
+   "seeds": {},
+   "missing_reason": "not run"
+  },
+  "opendde-abag/cdk2x2_1024": {
+   "seeds": {},
+   "missing_reason": "not run"
+  },
+  "opendde-abag/cdk2x2_1280": {
+   "seeds": {},
+   "missing_reason": "not run"
+  },
+  "opendde-abag/cdk2x2_1536": {
+   "seeds": {},
+   "missing_reason": "not run"
+  },
+  "rf3/7aqx_1024": {
+   "seeds": {},
+   "missing_reason": "not run"
+  },
+  "rf3/2ad6_1280": {
+   "seeds": {},
+   "missing_reason": "not run"
+  },
+  "rf3/3abq_1536": {
+   "seeds": {},
+   "missing_reason": "not run"
+  },
+  "rf3/cdk2x2_1024": {
+   "seeds": {},
+   "missing_reason": "not run"
+  },
+  "rf3/cdk2x2_1280": {
+   "seeds": {},
+   "missing_reason": "not run"
+  },
+  "rf3/cdk2x2_1536": {
+   "seeds": {},
+   "missing_reason": "not run"
+  }
+ }
+}

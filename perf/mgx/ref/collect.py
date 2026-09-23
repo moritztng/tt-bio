@@ -40,6 +40,9 @@ def main() -> int:
         for f, meta in fx.items():
             key = f"{m}/{f}"
             cell = cells.get(key, {"seeds": {}})
+            # an earlier collect's structure that is no longer on disk is not a reference
+            cell["seeds"] = {s: e for s, e in cell["seeds"].items()
+                             if "cif" not in e or (ROOT / e["cif"]).is_file()}
             for s in plan["seeds"]:
                 rp = raw / m / f / f"s{s}.json"
                 if not rp.is_file():
