@@ -1,0 +1,6 @@
+# rf3 denoises every sample in one batch (no --max_parallel_samples), so it is the model the
+# sample axis should break first. At its guarded ceiling, past the plan-ceil points, to find where.
+rf3 1088 25 steps=6 probe=1
+rf3 1088 50 steps=6 probe=1
+rf3 1088 100 steps=6 probe=1
+rf3 768 100 steps=6 probe=1

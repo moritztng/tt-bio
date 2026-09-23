@@ -1,0 +1,1 @@
+openbind 960 25 steps=6 probe=1
