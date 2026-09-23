@@ -21,6 +21,17 @@ complex, and a rung cut ABOVE the first chain's length stops being a design prob
     512-residue crop   one chain, Rg  23.4 A     a target
     1536-residue crop  two bodies, Rg 123.3 A    two targets in one file
 
+All three fixtures this script has produced are disconnected, so this is not specific to one of
+them -- sub-22 A conditioning graph components, with ZERO inter-chain edges in every case:
+
+    big_1831.cif   2 components   [1008, 823]
+    big_3662.cif   4 components   [1008, 1008, 823]
+    big_7324.cif   8 components   [1008, 1008, 1008]
+
+For contrast, 41 of the 41 REAL structure CIFs in this repo are a single component
+(`perf/mgxaccuracy/calibrate_guard.py`), so the property belongs to the construction here and
+not to multi-chain targets in general.
+
 PXDesign conditions on a distogram that resolves only 2-22 A, so on the 1536 crop chain B can be
 translated 10 A or rotated 30 degrees WITHOUT CHANGING ONE BIT of the input: its placement is not
 a function of the input and no model can recover it. Measured consequence -- pxdesign `fit_rmsd`
