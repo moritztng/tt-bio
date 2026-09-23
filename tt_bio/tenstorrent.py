@@ -1869,6 +1869,9 @@ def fused_sdpa(q, k, v, attn_mask=None, *, scale: float, **kw):
     output from one call to the next. The same call with an all-zero additive mask is right at
     every config swept, to 2048 tokens (`perf/mgx_sdpa/`). So a missing mask becomes a zero
     [1, 1, Lq, Lk] one, which the op broadcasts over batch and heads.
+
+    That zero mask is a host write, which a trace capture refuses. A caller that captures a
+    trace allocates its own mask before `begin_trace_capture` (`esmc._capture_esmc_trace`).
     """
     zero = None
     if attn_mask is None:

@@ -1045,20 +1045,32 @@ class ESMC(TorchWrapper):
                 self._deallocate_tensor_like(old.get(k))
         tok_d = ttnn.from_torch(tokens.to(torch.int32), device=dev,
                                 layout=ttnn.ROW_MAJOR_LAYOUT, dtype=ttnn.uint32)
-        mask_d = None if attn_mask is None else ttnn.from_torch(
-            attn_mask.unsqueeze(1).to(torch.bfloat16), device=dev,
-            layout=ttnn.TILE_LAYOUT, dtype=ttnn.bfloat16)
+        # An unpadded forward has no mask, and fused_sdpa would allocate its zero one inside the
+        # capture, a host write the trace refuses. So the trace gets a zero mask of its own, made
+        # here; a replay with attn_mask=None never copies over it.
+        L = int(tokens.shape[-1])
+        mask_d = ttnn.zeros([int(tokens.shape[0]), 1, L, L], dtype=ttnn.bfloat16,
+                            layout=ttnn.TILE_LAYOUT, device=dev) if attn_mask is None \
+            else ttnn.from_torch(attn_mask.unsqueeze(1).to(torch.bfloat16), device=dev,
+                                 layout=ttnn.TILE_LAYOUT, dtype=ttnn.bfloat16)
         kv_d = None if key_valid is None else ttnn.from_torch(
             key_valid.to(torch.bfloat16), device=dev,
             layout=ttnn.TILE_LAYOUT, dtype=ttnn.bfloat16)
-        rope = rope_tables(tokens.shape[-1], self.d_model // self.n_heads, device=dev)
+        rope = rope_tables(L, self.d_model // self.n_heads, device=dev)
         for _ in range(2):  # warm compile + program cache outside the capture
             wl, we = self.module(tok_d, mask_d, kv_d, _rope=rope)
             ttnn.deallocate(wl)
             ttnn.deallocate(we)
         ttnn.synchronize_device(dev)
         tid = ttnn.begin_trace_capture(dev, cq_id=0)
-        lg, em = self.module(tok_d, mask_d, kv_d, _rope=rope)
+        try:
+            lg, em = self.module(tok_d, mask_d, kv_d, _rope=rope)
+        except BaseException:
+            # Close the capture, or the device stays in it and the eager fallback's first
+            # upload throws too.
+            ttnn.end_trace_capture(dev, tid, cq_id=0)
+            ttnn.release_trace(dev, tid)
+            raise
         ttnn.end_trace_capture(dev, tid, cq_id=0)
         tr = {"tid": tid, "tokens": tok_d, "mask": mask_d, "kv": kv_d,
               "cos": rope[0], "sin": rope[1], "logits": lg, "emb": em}
