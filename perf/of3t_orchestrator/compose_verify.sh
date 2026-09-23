@@ -103,7 +103,7 @@ for _r in $ROWS; do
                           " line -- retired or renamed. Still composed; the floor is a ratchet."
 done
 unset _r _inf _ins _b _n
-SLUG_TMP="${SLUG_TMP:-/tmp/of3t/of3t-orchestrator}"   # slug-scoped, never a shared /tmp name
+SLUG_TMP="${SLUG_TMP:-/tmp/of3t-orchestrator}"   # slug in the top-level name: disk_guard matches basenames (pass 420)
 PY="${PY:-/home/moritz/of3-upstream-venv/bin/python3}"
 REPO="${REPO:-$(git rev-parse --show-toplevel)}"
 CO="$SLUG_TMP/compose"; BASE="$SLUG_TMP/basemain"
@@ -317,6 +317,21 @@ _ASSERT
             # and is based on a main from before `_v_softmax` moved to the box pattern. Keep
             # HEAD's box read and `__all__`, take d116's helper call and its new name. The
             # resolver refuses the moment the hunk stops having that exact shape.
+            :
+          elif [ "$r" = "data" ] && [ "$_f" = "NOTICE" ] && "$PY" "$HERE/resolve_notice_of3_vendor.py" "$_f"; then
+            # main added the 0.5.0 paired-MSA fact to the paragraph of3t-data rewrote; keep the
+            # row's paragraph and add main's fact (pass 420). Refuses on any other shape.
+            git add NOTICE
+          elif [ "$_f" = "tt_bio/tenstorrent.py" ] && "$PY" "$HERE/resolve_transition_mask.py" "$_f"; then
+            # main's Transition add_to_input + host-refusal wrapper against the of3t line's
+            # output mask: keep both, refuse the combination (pass 420).
+            :
+          elif [ "$_f" = "tt_bio/openfold3_msa_embedder.py" ] && "$PY" "$HERE/resolve_msa_block_residual.py" "$_f"; then
+            # main's host-parked MSA chunks against of3t-msafwd's fp32 pair residual (pass 420).
+            :
+          elif "$PY" "$HERE/resolve_import_list_union.py" "$_f"; then
+            # One hunk inside a parenthesised import list, names only on both sides: union,
+            # HEAD's order first, and the file must parse (pass 420, main's MGX merges).
             :
           elif "$PY" "$HERE/resolve_prose_only_conflict.py" "$_f" "origin/wk/of3t-$r"; then
             # Both sides differ only in comments and docstrings -- a row based on an older
