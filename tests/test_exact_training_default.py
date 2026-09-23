@@ -2,7 +2,8 @@
 
 of3t-stackexact measured the model-frame trunk gradient at 0.9822570327981535x the bar with
 both exact against 1.4511706984958472x on the device ops, and of3t-stackship made that the
-default. These pin the gate: `tape()` and `backward()` open the scope for their own extent,
+default. These pin the gate: `install()` opens it until its `uninstall()`, `tape()` and `backward()`
+open it for their own extent,
 put back exactly what they replaced, leave an outer owner's install alone, and
 `exact_training(False)` turns it off. No environment variable, and no route from inference.
 """
@@ -91,17 +92,39 @@ def test_an_outer_install_is_left_to_its_owner():
         tt._VERBS["layer_norm"], ag._TAPED["layer_norm"] = saved
 
 
-def test_install_alone_arms_nothing():
-    """`install()` routes `tt_bio.ops` through the hook; it is what `walked_weights` and the
-    recipe bracket discovery and the fit with. Only a tape or a backward runs exact."""
+def test_install_is_the_gate_and_pairs_by_nesting():
+    """`install()` is what `walked_weights` brackets the discovery forward with and the recipe
+    brackets the fit with, and the step depends on what discovery ran: with discovery on the
+    device ops the trunk gradient came back 1958 of 2736 tensors off the clearing arm. An inner
+    install/uninstall pair must not disarm what the outer one armed."""
     ag, tt, ttnn = _mods()
     import tt_bio.ops as ops
     prev = ag.install()
     try:
-        assert _state(ag, tt, ttnn) == _all(False)
+        assert _state(ag, tt, ttnn) == _all(True)
+        ag.install()
+        ag.uninstall()
+        assert _state(ag, tt, ttnn) == _all(True), "an inner pair disarmed the outer install"
+        with ag.tape():
+            pass
+        assert _state(ag, tt, ttnn) == _all(True), "a tape closing disarmed the install"
     finally:
         ag.uninstall()
         ops.set_grad_hook(prev)
+    assert _state(ag, tt, ttnn) == _all(False)
+    ag.uninstall()                            # a bare uninstall is still harmless
+    assert _state(ag, tt, ttnn) == _all(False)
+
+
+def test_tape_does_not_leave_an_install_behind():
+    """`tape()` re-arms the hooks on entry. If it went through `install()` it would push an
+    exact scope nobody pops, and every later fold in the process would run exact."""
+    ag, tt, ttnn = _mods()
+    depth = len(ag._INSTALL_EXACT)
+    with ag.tape():
+        pass
+    assert len(ag._INSTALL_EXACT) == depth
+    assert _state(ag, tt, ttnn) == _all(False)
 
 
 def test_no_environment_variable_and_no_inference_route():
@@ -112,7 +135,7 @@ def test_no_environment_variable_and_no_inference_route():
     body = src[src.index("EXACT_SOFTMAX_STATS ="):src.index("def mul(")]
     assert "environ" not in body and "env_flag" not in body
     names = ("_exact_layer_norm_raw", "_v_exact_layer_norm", "_training_exact",
-             "EXACT_LAYER_NORM_STATS", "_install_exact")
+             "EXACT_LAYER_NORM_STATS", "_install_exact", "_INSTALL_EXACT", "_install_hooks")
     callers = {}
     for path in sorted(SRC.rglob("*.py")):
         if "_vendor" in path.parts or path.name in ("autograd.py", "taped_ttnn.py"):

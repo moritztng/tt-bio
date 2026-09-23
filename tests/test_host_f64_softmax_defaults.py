@@ -349,14 +349,15 @@ def _shim():
     return tt, tt.taped_ttnn()
 
 
-def test_the_exact_softmax_ships_off(monkeypatch):
-    """`install()` on its own must not touch a softmax. The lever costs a host round trip per
-    call and returns different numbers; it is asked for or it is not there."""
+def test_the_exact_softmax_is_off_inside_exact_training_false(monkeypatch):
+    """`install()` runs softmax exact by default (of3t-stackship); the off switch must reach
+    it. The lever costs a host round trip per call and returns different numbers."""
     ag = pytest.importorskip("tt_bio.autograd")
     import ttnn
 
     before = ttnn.softmax
-    prev = ag.install()
+    with ag.exact_training(False):
+        prev = ag.install()
     try:
         assert not ag.exact_softmax_installed()
         assert ttnn.softmax is before

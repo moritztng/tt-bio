@@ -987,13 +987,14 @@ def host_f64_softmax(x, dim: int = -1):
 # What is left on the card is `softmax_bw_inner`'s reduction inside `triangle_attention`'s
 # backward, computed on an EXACT p.
 #
-# The GATE is the tape, not a flag. `tape()` opens the scope for the forward and `backward()`
-# for the backward and its recomputes, and each takes out only what it put in. While open the
+# The GATE is the tape being installed, not a flag. `install()` opens the scope until its
+# `uninstall()`, which is the whole fit in `train/recipes.py` and the discovery forward in
+# `walked_weights`; `tape()` and `backward()` open it for their own extent too, for a caller
+# that drives a tape without `install()`. Each takes out only what it put in. While open the
 # raw half is a process-wide rebinding, which is why it never outlives the block. No inference
-# fold enters either: `tests/test_training_opt_in.py::test_no_inference_module_imports_training`
-# keeps the inference modules from importing this one at all, and the rollout between two
-# tapes in `train/openfold3.py` runs on the device ops. There is no environment variable;
-# `exact_training(False)` is the off switch.
+# fold enters any of them: `tests/test_training_opt_in.py::test_no_inference_module_imports_
+# training` keeps the inference modules from importing this one at all. There is no
+# environment variable; `exact_training(False)` is the off switch.
 
 EXACT_SOFTMAX_STATS = {"verb": 0, "raw": 0, "raw_elements": 0}
 EXACT_LAYER_NORM_STATS = {"verb": 0, "raw": 0, "elements": 0, "bw": 0}
@@ -1133,12 +1134,7 @@ _EXACT_OPS = {
 # The set a training tape runs exact, of3t-stackexact's SL arm: 0.9822570327981535x the bar
 # where the device ops read 1.4511706984958472x.
 EXACT_TRAINING_OPS = ("softmax", "layer_norm")
-# op -> (owner, the objects it replaced). WHO turned it on, because `uninstall()` is not this
-# lever's private teardown: `train/lora.py` brackets the DISCOVERY forward with
-# `install()`/`uninstall()` and `train/recipes.py` the fit, and neither knows this lever
-# exists. Measured when teardown was unconditional: PKG_HF3 came back 0.702981502944001, the
-# device-softmax control to sixteen digits, with its 1,742 exact softmaxes all spent inside the
-# discovery forward and none in the step that was scored.
+# op -> (owner, the objects it replaced). Each scope takes out only the ops it put in.
 _EXACT_SAVED: dict = {}
 _EXACT_TRAINING = [True]    # innermost `exact_training()` block wins
 
@@ -1208,8 +1204,8 @@ def exact_softmax():
 
 @contextlib.contextmanager
 def exact_training(on: bool = True):
-    """The training off switch. Inside `exact_training(False)`, `tape()` and `backward()`
-    leave softmax and layer norm on the device ops, as inference runs them.
+    """The training off switch. Inside `exact_training(False)`, `install()`, `tape()` and
+    `backward()` leave softmax and layer norm on the device ops, as inference runs them.
 
     ON is the default because it is what reproduces upstream's gradient (of3t-stackexact:
     0.9822570327981535x the bar against 1.4511706984958472x without). The cost is a host round
@@ -1229,9 +1225,8 @@ def exact_training_ops() -> tuple:
 
 
 def _training_exact(owner: str):
-    """The scope `tape()` and `backward()` open for their own extent. The tape is the gate:
-    nothing outside a tape or a backward ever enters it, which is what keeps an inference fold,
-    or an untaped rollout between two tapes, on the device ops."""
+    """The scope `tape()` and `backward()` open for their own extent, for a caller that never
+    called `install()`. Nothing outside the training entry points enters it."""
     ops = exact_training_ops()
     return exact(ops, owner) if ops else contextlib.nullcontext()
 
@@ -2237,17 +2232,8 @@ def _checkpoint_segment(fn, *inputs):
     return checkpoint(fn, *inputs, params=_ALL_PARAMS)
 
 
-def install(*, exact_softmax: bool = False):
-    """Route `tt_bio.ops` through the tape. Idempotent; returns the hook it replaced.
-
-    This is the narrow seam -- two verbs. `tape()` is the whole shipped forward.
-
-    `exact_softmax` keeps every softmax exact for the life of the install, outside any tape as
-    well. A tape does not need it: `tape()` and `backward()` already run softmax and layer norm
-    exact for their own extent (`exact_training`). Its counterpart is `uninstall(
-    exact_softmax=True)` -- the flag is on BOTH halves on purpose, because a bare `uninstall()`
-    must be able to mean "put the hooks back" without also disarming a lever it never armed.
-    """
+def _install_hooks():
+    """The four hooks, and nothing else. What `tape()` re-arms on every entry."""
     from . import ops
     # A recycling model asks `ops.recycle_region` whether a non-final cycle is differentiated.
     # Installed together with the verb hook because the two are the same opt-in.
@@ -2256,32 +2242,48 @@ def install(*, exact_softmax: bool = False):
     # The host float64 softmax a construction site may select. Injected rather than imported,
     # so `tt_bio/tenstorrent.py` can offer the lever without reaching the tape to do it.
     ops.set_host_softmax_hook(host_f64_softmax)
-    if exact_softmax:
-        _install_exact(("softmax",), "install")
     return ops.set_grad_hook(_hook)
 
 
+# What each open `install()` armed, innermost last, so `uninstall()` takes out exactly what its
+# own `install()` put in. Pairing by nesting rather than by an owner name: an owner name is the
+# same literal for every caller, and an unrelated pair closing first then tore down a lever it
+# never armed (measured: PKG_HF3 came back the device-softmax control to sixteen digits).
+_INSTALL_EXACT: list = []
+
+
+def install(*, exact_softmax: bool = False):
+    """Route `tt_bio.ops` through the tape, and run softmax and layer norm exact until the
+    matching `uninstall()` (`exact_training`). Returns the hook it replaced.
+
+    This is the narrow seam -- two verbs. `tape()` is the whole shipped forward.
+
+    The exact ops are scoped to the install and not only to a tape because the training stack
+    runs forwards outside any tape that the step then depends on: `walked_weights`' discovery
+    forward is `install()` plus `no_grad`, and the fused-softmax tail learns its L1 row caps
+    from whatever it runs first. With discovery on the device ops the trunk step's gradient
+    came back 1958 of 2736 tensors off of3t-stackexact's arm (`perf/of3t_stackship/`).
+
+    `exact_softmax` also arms the exact softmax inside `exact_training(False)`.
+    """
+    ops_ = exact_training_ops()
+    if exact_softmax and "softmax" not in ops_:
+        ops_ = ops_ + ("softmax",)
+    _INSTALL_EXACT.append(_install_exact(ops_, "install"))
+    return _install_hooks()
+
+
 def uninstall(*, exact_softmax: bool = False) -> None:
-    """Put the inference path back. Idempotent.
-
-    The four hooks are re-armed by `tape()` on every entry, so they self-heal and a bare
-    `uninstall()` costs a caller nothing. The exact softmax does not self-heal -- `tape()` never
-    asks for it -- so it is disarmed only when this call ASKS to disarm it. Pass
-    `exact_softmax=True` exactly when the matching `install(exact_softmax=True)` armed it.
-
-    Naming the owner is not enough on its own, and the fix that only named it was incomplete:
-    `install(exact_softmax=True)` recorded the same literal owner that an unrelated
-    `uninstall()` passed, so the unrelated call still matched and still tore the lever down.
-    Two callers in this package use `install()`/`uninstall()` as a scoped pair around something
-    much narrower than a step -- `train/lora.py:608-615` around the DISCOVERY forward,
-    `train/recipes.py:211` around the fit -- and neither of them knows this lever exists.
+    """Put the inference path back. Idempotent: an `uninstall()` with no open `install()` only
+    clears the hooks. `exact_softmax` is accepted for symmetry with `install()`; the pairing is
+    by nesting, so an inner install/uninstall pair never disarms what an outer one armed.
     """
     from . import ops
     ops.set_recycle_hook(None)
     ops.set_checkpoint_hook(None)
     ops.set_host_softmax_hook(None)
-    if exact_softmax:
-        _uninstall_exact(("softmax",), "install")
+    if _INSTALL_EXACT:
+        _uninstall_exact(_INSTALL_EXACT.pop())
     ops.set_grad_hook(None)
 
 

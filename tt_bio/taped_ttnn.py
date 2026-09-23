@@ -1183,7 +1183,7 @@ def tape():
     if _SHIMMED:
         yield                       # already open; the outermost block owns the swap
         return
-    prev = ag.install()
+    prev = ag._install_hooks()
     _swap(True)
     try:
         # Softmax and layer norm exact for the forward (`autograd.exact_training`). The
