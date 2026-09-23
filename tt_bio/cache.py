@@ -33,6 +33,19 @@ def seq_hash(seq: str) -> str:
     return hashlib.sha256(seq.encode()).hexdigest()[:16]
 
 
+#: A chain's ``msa: empty`` (YAML) or ``>A|protein|empty`` (FASTA): fold it single-sequence. The
+#: reader keeps it as its own value rather than None, because None means "no MSA given" and
+#: every MSA-folding model searches for one of those -- which is how ``msa: empty`` came to send
+#: the chain to the online server and fold it at full alignment depth.
+EMPTY_MSA = "empty"
+
+
+def msa_pinned(spec) -> bool:
+    """True when the input already settled a chain's MSA: ``empty``, or an a3m path that
+    exists. A pinned chain is never searched and never picks up the hash cache."""
+    return spec == EMPTY_MSA or bool(spec and Path(spec).expanduser().exists())
+
+
 def cached(path) -> bool:
     """True when a cache entry is present and non-empty.
 

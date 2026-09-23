@@ -153,18 +153,24 @@ def augment_openfold3_msas_with_query_sequence(
     the write is tmp-file + rename so concurrent workers never expose a
     partial file.
     """
-    msa_dir = Path(msa_dir).expanduser()
     for chain in query.chains:
         if chain.molecule_type.name not in ("PROTEIN", "RNA"):
             continue
         if chain.main_msa_file_paths:
             continue
-        a3m = (msa_dir / "of3" / "dummy" / seq_hash(chain.sequence)
-               / "colabfold_main.a3m")
-        if not cached(a3m):
-            publish_text(a3m, ">query\n" + chain.sequence)
-        chain.main_msa_file_paths = [a3m]
+        chain.main_msa_file_paths = [query_only_msa(msa_dir, chain.sequence)]
     return query
+
+
+def query_only_msa(msa_dir, sequence: str) -> Path:
+    """The one-row alignment upstream folds a chain with when it has no MSA, published once
+    per sequence. A chain whose input says ``msa: empty`` gets this too: it is what upstream
+    means by single-sequence, and what ``--single_sequence`` already gives every chain."""
+    a3m = (Path(msa_dir).expanduser() / "of3" / "dummy" / seq_hash(sequence)
+           / "colabfold_main.a3m")
+    if not cached(a3m):
+        publish_text(a3m, ">query\n" + sequence)
+    return a3m
 
 
 def make_openfold3_msa_features(
