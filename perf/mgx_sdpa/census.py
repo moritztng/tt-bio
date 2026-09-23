@@ -174,9 +174,24 @@ if os.environ.get("SDPA_CENSUS_DIR"):
             return o
         return call
 
+    # SDPA_CENSUS_TRACE_REGION caps the trace region a caller asks for (measurement only): boltz2
+    # and boltzgen hardcode 1 GiB, and a Wormhole chip opened with that sat in bring-up on whglx.
+    _region = int(os.environ.get("SDPA_CENSUS_TRACE_REGION", "0"))
+
+    def _patch_tenstorrent(m):
+        if _region:
+            op = m._open_and_init_device
+            m._open_and_init_device = lambda size: op(min(size, _region) if size else size)
+
+    def _patch_triatt(m):
+        m.sdpa = _served(m.sdpa, "triatt_sdpa", _shape_sdpa)
+        m.sdpa_fused_qkv = _served(m.sdpa_fused_qkv, "triatt_sdpa_fused_qkv", _shape_fused_qkv)
+
+    _PATCH = {"tt_bio.triatt_sdpa": _patch_triatt, "tt_bio.tenstorrent": _patch_tenstorrent}
+
     class _Finder:
         def find_spec(self, name, path=None, target=None):
-            if name != "tt_bio.triatt_sdpa":
+            if name not in _PATCH:
                 return None
             sys.meta_path.remove(self)
             try:
@@ -187,9 +202,7 @@ if os.environ.get("SDPA_CENSUS_DIR"):
 
             def exec_module(m):
                 run(m)
-                m.sdpa = _served(m.sdpa, "triatt_sdpa", _shape_sdpa)
-                m.sdpa_fused_qkv = _served(m.sdpa_fused_qkv, "triatt_sdpa_fused_qkv",
-                                           _shape_fused_qkv)
+                _PATCH[name](m)
             spec.loader.exec_module = exec_module
             return spec
 
