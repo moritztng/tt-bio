@@ -201,7 +201,13 @@ def run(job, cards, adopt=None):
             fh.write(f"START {time.strftime('%FT%TZ', time.gmtime())} cards={grant} commit={commit}\n"
                      f"CMD {' '.join(cmd)}\n")
             fh.flush()
-            rc = subprocess.run(cmd, cwd=ROOT, env=env, stdout=fh, stderr=subprocess.STDOUT).returncode
+            proc = subprocess.Popen(cmd, cwd=ROOT, env=env, stdout=fh, stderr=subprocess.STDOUT,
+                                    start_new_session=True)
+            # A relaunched lane adopts this job from here instead of starting it a second time.
+            running = OUT / f"{tag}.running"
+            running.write_text(json.dumps({"cards": cards, "pid": proc.pid, "t0": t0}) + "\n")
+            rc = proc.wait()
+            running.unlink(missing_ok=True)
     wall = time.time() - t0
     w.stop.set()
     aiclk, load = w.summary()
@@ -271,7 +277,8 @@ def main():
     ap.add_argument("--pool", required=True, help="candidate cards, space separated")
     ap.add_argument("--adopt", action="append", default=[],
                     help="TAG:CARDS:PID:EPOCH -- watch an already running job instead of starting "
-                         "it (CARDS comma separated); repeatable")
+                         "it (CARDS comma separated); repeatable. Jobs a lane started are adopted "
+                         "from out/<tag>.running without this")
     a = ap.parse_args()
     pool = [int(x) for x in a.pool.split()]
     RES.mkdir(parents=True, exist_ok=True)
@@ -279,6 +286,11 @@ def main():
         tag, cards, pid, t0 = spec.split(":")
         ADOPT[tag] = ([int(c) for c in cards.split(",")], int(pid), float(t0))
         HELD.update({int(c): f"adopt:{tag}" for c in cards.split(",")})  # until its lane gets there
+    for f in OUT.glob("*.running"):
+        d = json.loads(f.read_text())
+        if f.stem not in ADOPT and os.path.exists(f"/proc/{d['pid']}"):
+            ADOPT[f.stem] = (d["cards"], d["pid"], d["t0"])
+            HELD.update({c: f"adopt:{f.stem}" for c in d["cards"]})
     adopt = dict(ADOPT)  # shared: a lane pops the tag it adopts
     threads = []
     for k, spec in enumerate(a.plans):
