@@ -1,11 +1,12 @@
 #!/usr/bin/env python3
 """CA-RMSD and CA-lDDT of two single-chain structures, window by window.
 
-    python3 perf/mgx/acc/segments.py a.cif b.cif.gz [--window 298]
+    python3 perf/mgx/acc/segments.py a.cif b.cif.gz [--window 298] [--trim 8]
 
 cdk2x2_* tiles one 298-residue CDK2 chain, so a 298 window scores each copy on its own
 superposition. It separates "each copy folds the same" from "the copies are packed differently",
-which the whole-chain RMSD mixes.
+which the whole-chain RMSD mixes. --trim drops the last residues of every window: the CDK2
+C-terminus sits at the junction between copies, where upstream opendde's own seeds are 23 A apart.
 """
 import argparse
 import gzip
@@ -49,11 +50,12 @@ def main() -> None:
     ap.add_argument("a")
     ap.add_argument("b")
     ap.add_argument("--window", type=int, default=298)
+    ap.add_argument("--trim", type=int, default=0, help="residues dropped from each window's end")
     args = ap.parse_args()
     a, b = ca(args.a), ca(args.b)
     n, w = min(len(a), len(b)), args.window
     for i in range(0, n, w):
-        j = min(i + w, n)
+        j = min(i + w, n) - (args.trim if i + w <= n else 0)
         print(f"[{i}:{j}] {kabsch(a[i:j], b[i:j]):.2f} A  lDDT {lddt(a[i:j], b[i:j]):.3f}")
 
 
