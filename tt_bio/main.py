@@ -2384,6 +2384,14 @@ def _read_bio_chains(path, what="input"):
         raise click.ClickException(
             f"{path.name}: chain(s) {', '.join(blank)} have empty/whitespace-only "
             f"sequences (a ligand carries its CCD/SMILES spec in the same slot).")
+    # A digit or symbol in a polymer folded as an extra residue on the models that map an
+    # unknown letter to UNK. Whitespace is layout, not a residue.
+    for cid, cseq, _sp, mt, _mods in chains:
+        bad = [f"{i + 1}{c}" for i, c in enumerate("".join(cseq.split())) if not c.isalpha()]
+        if mt != "ligand" and bad:
+            raise click.ClickException(
+                f"{path.name}: chain {cid} has non-letter character(s) at "
+                f"{', '.join(bad[:8])}; a {mt} sequence is one letter per residue.")
     return chains
 
 

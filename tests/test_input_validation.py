@@ -250,3 +250,13 @@ def test_reader_refuses_an_empty_chain_beside_a_real_one(tmp_path):
                  "  - protein: {id: B, sequence: ''}\n")
     with pytest.raises(click.ClickException, match=r"chain\(s\) B have empty"):
         _read_bio_chains(y)
+
+
+def test_reader_refuses_a_digit_in_a_polymer(tmp_path):
+    # MQIFVKTLTGK1ITLEVEP folded as 19 residues on ESMFold2, OpenFold3, OpenBind and RF3.
+    import click
+    from tt_bio.main import _read_bio_chains
+    y = tmp_path / "in.yaml"
+    y.write_text("version: 1\nsequences:\n  - protein: {id: A, sequence: MQIFVKTLTGK1ITLEVEP}\n")
+    with pytest.raises(click.ClickException, match="chain A has non-letter character"):
+        _read_bio_chains(y)
