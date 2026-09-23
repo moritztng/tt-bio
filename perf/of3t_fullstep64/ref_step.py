@@ -295,7 +295,7 @@ def safe_pdist(p):
                        torch.zeros_like(sq))
 
 
-def denoise_arm(model, batch, s_input, s, z, draw, chunk):
+def denoise_arm(model, batch, s_input, s, z, draw):
     """The adapter's one-step denoise, in upstream's modules. `draw` is `denoise_draw`'s."""
     sigma, eps = draw
     dt = s.dtype
@@ -303,7 +303,8 @@ def denoise_arm(model, batch, s_input, s, z, draw, chunk):
     xl_true = batch["ground_truth"]["atom_positions"][0] * amask[0, :, None]
     xl_noisy = (xl_true + sigma * torch.as_tensor(eps, dtype=dt)) * amask[0, :, None]
     # Upstream's forward gives every batch feature and representation a sample axis before
-    # `_train_diffusion` sees them (model.py, "Expand sampling dimension"); so does this.
+    # `_train_diffusion` sees them (model.py, "Expand sampling dimension"); so does this. No
+    # chunk_size: `_train_diffusion` passes none, and the chunked conditioning asserts eval mode.
     from openfold3.core.utils.tensor_utils import tensor_tree_map
     b1 = tensor_tree_map(lambda t: t.unsqueeze(1),
                          {k: v for k, v in batch.items() if k != "ref_space_uid_to_perm"})
@@ -311,8 +312,8 @@ def denoise_arm(model, batch, s_input, s, z, draw, chunk):
         batch=b1, xl_noisy=xl_noisy[None, None], token_mask=b1["token_mask"],
         atom_mask=b1["atom_mask"], t=torch.full((1, 1), sigma, dtype=dt),
         si_input=s_input.unsqueeze(1), si_trunk=s.unsqueeze(1), zij_trunk=z.unsqueeze(1),
-        use_conditioning=True, chunk_size=chunk,
-        use_high_precision_attention=True, _mask_trans=True)[0, 0]          # [n_atom, 3]
+        use_conditioning=True, use_high_precision_attention=True,
+        _mask_trans=True)[0, 0]                                             # [n_atom, 3]
     tok = batch["token_mask"][0]
     real = torch.nonzero(tok > 0, as_tuple=True)[0]
     rep = batch["start_atom_index"][0].long()[real]
@@ -333,7 +334,7 @@ def trunk_and_heads(model, batch, repr_x=None, cfg=None, seed=None, replay=None,
     s_input, s, z = model.run_trunk(batch=batch, num_cycles=1, inplace_safe=False)
     out = {"distogram_logits": model.aux_heads.distogram(z=z)}
     if draw is not None:
-        out.update(denoise_arm(model, batch, s_input, s, z, draw, chunk))
+        out.update(denoise_arm(model, batch, s_input, s, z, draw))
 
     tok = batch["token_mask"]                                  # [1, N]
     xl, rec = None, None

@@ -4,7 +4,7 @@
 # draws, replayed; the denoise draw is tt_bio.train.openfold3.denoise_draw(20260922, 422).
 # Waits for of3t-inproj's pc chain (pc memory). Scratch /tmp/of3t-denoise; copied to the worktree.
 cd /tmp/of3t-denoise
-until grep -q "FD exit" /tmp/of3t-inproj/out/chain.log; do sleep 60; done
+# of3t-inproj pc chain finished 14:23Z
 export MALLOC_MMAP_THRESHOLD_=1048576 MALLOC_TRIM_THRESHOLD_=1048576 MALLOC_ARENA_MAX=2 PYTHONPATH=$PWD:$PWD/up/of3pkg043:$PWD/up/deps OMP_NUM_THREADS=10
 PY=~/of3-upstream-venv/bin/python
 ARGS=(--denoise --batch batch_step003.pt --batch-sha256 3c32597a20f09bf50769defa561f7df86da4de721da325eb76431a9d80b6285f
