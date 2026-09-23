@@ -68,3 +68,37 @@ def test_multiple_cards_are_refused(tmp_path, monkeypatch):
     out = CliRunner().invoke(affinity_cmd, [str(yaml_path), "--devices", "0,1"])
     assert out.exit_code != 0
     assert "batch-1" in out.output
+
+
+def test_one_record_that_raises_does_not_end_the_screen(tmp_path, monkeypatch):
+    """A device failure on one ligand is that ligand's error row; the rest still score."""
+    import types
+
+    import torch
+
+    import tt_bio.nesso1 as n1
+    import tt_bio.nesso1_input as inp
+
+    ids = ["a", "big", "c"]
+    manifest = types.SimpleNamespace(records=[types.SimpleNamespace(id=i) for i in ids])
+    dataset = [{"id": i} for i in ids]
+    monkeypatch.setattr(inp, "prepare", lambda *a, **k: (dataset, manifest, ["x_bad"]))
+    monkeypatch.setattr(inp, "collate", lambda item: {"id": item["id"], "token_pad_mask": torch.ones(1, 8)})
+
+    class Model:
+        predict_args: dict = {}
+
+        def predict(self, feats):
+            if feats["id"] == "big":
+                raise RuntimeError("TT_FATAL @ bank_manager.cpp:439: false\nOut of Memory")
+            return {"affinity_pred_value": torch.tensor([0.5]),
+                    "affinity_probability_binary": torch.tensor([0.25])}
+
+    monkeypatch.setattr(n1.Nesso1, "from_pretrained", classmethod(lambda cls, *a, **k: Model()))
+    seen = []
+    rows = n1.screen(tmp_path, tmp_path / "out", use_tenstorrent=False, progress=seen.append)
+    by_id = {r["id"]: r for r in rows}
+    assert by_id["a"]["affinity_pred_value"] == 0.5 and by_id["c"]["affinity_pred_value"] == 0.5
+    assert by_id["big"]["error"].startswith("RuntimeError: ")
+    assert by_id["x_bad"]["error"] == "could not be parsed"
+    assert [r["id"] for r in seen] == ["a", "big", "c"]

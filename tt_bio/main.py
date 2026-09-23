@@ -1405,6 +1405,7 @@ def _stream_run(client: ControllerClient, run_id: str, total: int, n_workers: in
     failed = 0
     all_dead_seen = False
     failures: dict[str, str] = {}  # this run's failures: job id -> error message
+    aff_failures: dict[str, str] = {}  # structure ok, affinity leg raised
     rows_by_id: dict[str, dict] = {}
     if results_path is not None:
         rows_by_id = {r["id"]: r for r in _load_results_resilient(results_path)
@@ -1426,6 +1427,8 @@ def _stream_run(client: ControllerClient, run_id: str, total: int, n_workers: in
                     if isinstance(row, dict) and "id" in row:
                         if row.get("status") == "failed":
                             failures[row["id"]] = row.get("error") or "failed"
+                        elif row.get("affinity_error"):
+                            aff_failures[row["id"]] = row["affinity_error"]
                         if results_path is not None:
                             rows_by_id[row["id"]] = row
                             try:
@@ -1513,6 +1516,11 @@ def _stream_run(client: ControllerClient, run_id: str, total: int, n_workers: in
             click.echo(f"  ✗ {job_id}: {summary or lines[0]}")
             for extra in (lines if summary else lines[1:]):
                 click.echo(f"      {extra}")
+    if aff_failures:
+        click.echo(f"\n{len(aff_failures)} structure(s) folded but their affinity failed "
+                   f"(no affinity keys in results.json, reason under affinity_error):")
+        for job_id, error in aff_failures.items():
+            click.echo(f"  ✗ {job_id}: {(str(error).splitlines() or [''])[0]}")
     return failed
 
 
@@ -3932,10 +3940,14 @@ def affinity_cmd(data, model, out_dir, accelerator, trunk, recycling_steps, toke
 
     csv_path = out / "affinity.csv"
     cols = ["id", "n_tokens", "seconds", *REPORTED_SCALARS]
-    with csv_path.open("w") as fh:
-        fh.write(",".join([*cols, "error"]) + "\n")
+    import csv
+
+    with csv_path.open("w", newline="") as fh:
+        # csv quotes an error message's commas; a plain join split them into extra columns.
+        w = csv.writer(fh)
+        w.writerow([*cols, "error"])
         for r in rows:
-            fh.write(",".join([str(r.get(c, "")) for c in cols] + [r.get("error", "")]) + "\n")
+            w.writerow([r.get(c, "") for c in cols] + [r.get("error", "")])
     ok = [r for r in rows if "error" not in r]
     click.echo(f"Done — {len(ok)}/{len(rows)} scored → {csv_path}")
     if len(ok) != len(rows):

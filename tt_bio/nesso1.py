@@ -842,8 +842,19 @@ def screen(
             continue
         feats = collate(item)
         t0 = time.perf_counter()
-        with torch.no_grad():
-            pred = model.predict(feats)
+        # One record that fails on the device (an allocation it cannot fit, say) must not
+        # end a screen of hundreds: the rows after it, and affinity.csv, depend on carrying on.
+        try:
+            with torch.no_grad():
+                pred = model.predict(feats)
+        except Exception as e:
+            from tt_bio.size_limits import describe_device_oom
+
+            head = describe_device_oom(str(e)) or (str(e).splitlines() or [""])[0][:300]
+            rows.append({"id": record.id, "error": f"{type(e).__name__}: {head}"})
+            if progress is not None:
+                progress(rows[-1])
+            continue
         row = {
             "id": record.id,
             "n_tokens": int(feats["token_pad_mask"].shape[-1]),
