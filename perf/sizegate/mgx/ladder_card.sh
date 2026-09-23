@@ -22,6 +22,7 @@ export RELEASE_GATE_SIZE_WORKDIR=$root/perf/sizegate/work-$mode-$model
 export RELEASE_GATE_FOLD_TIMEOUT=${RELEASE_GATE_FOLD_TIMEOUT:-5400}
 log=$root/perf/sizegate/mgx/logs; mkdir -p "$log"
 py=$HOME/env/bin/python
+"$py" perf/sizegate/mgx/hold.py "$card" $$ >> "$log/hold-$card.log" 2>&1 &
 run() {  # $1 = log tag, rest = extra args
   local tag=$1; shift
   echo "[$(date -u +%FT%TZ)] START $mode $model card $card $*" >> "$log/$model.$tag.log"
