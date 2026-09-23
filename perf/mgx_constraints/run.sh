@@ -30,7 +30,9 @@ P
     mv "$OUT/check_$(basename "${f%.*}").log" "$OUT/refused_$(basename "${f%.*}").log"
   fi
 done
+# the orchestrator's quiet window (mirrored here from pc) holds a new fold until it closes
+while [ -e "$HOME/leases/.mgx-quiet-window" ]; do sleep 60; done
 start=$(date +%s)
 $PY -m tt_bio.main predict "$OUT/in" --model "$M" --out_dir "$OUT" --accelerator tenstorrent \
-    "${args[@]}" > "$OUT/run.log" 2>&1
+    --host_threads 2 "${args[@]}" > "$OUT/run.log" 2>&1
 echo "EXIT=$? WALL=$(( $(date +%s) - start ))s" >> "$OUT/run.log"
