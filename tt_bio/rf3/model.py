@@ -351,6 +351,14 @@ class RF3(Module):
         x_pred, draws = self.sampler.sample(
             denoise, coord_to_be_noised, diffusion_batch_size, draws=draws,
             partial_t=partial_t, progress_fn=progress_fn)
+        # The hoisted state is dead once the rollout is. Held into the confidence head it is
+        # z_cond, every windowed atom bias and n_block x n_heads x I^2 x 2 B of DiT biases, and
+        # 3abq at 1536 was refused the head's pair transpose by 5 MiB/bank.
+        del denoise
+        if prepared is not None:
+            from tt_bio.esmc import _free_ttnn_tensors
+            _free_ttnn_tensors(prepared)
+            prepared = None
 
         out = {"X_L": x_pred, "distogram": distogram, "draws": draws,
                "early_stopped": False}

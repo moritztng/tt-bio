@@ -146,7 +146,7 @@ from tt_bio import __version__, size_limits, weights
 from tt_bio.data import const
 from tt_bio.data.mol import load_molecules
 from tt_bio.data.msa import run_mmseqs2
-from tt_bio.cache import cached, publish_file, publish_text, seq_hash
+from tt_bio.cache import cached, paired_msa_dir, publish_file, publish_text, seq_hash
 from tt_bio.data.parse import parse_a3m, parse_csv, parse_fasta, parse_yaml
 from tt_bio.data.pdb import write_atom_array
 from tt_bio.data.types import Coords, Input, Interface
@@ -288,37 +288,54 @@ def ensure_pxdesign_weights(cache: Path) -> Path:
 
 def compute_msa(seqs: dict[str, str], target_id: str, msa_dir: Path, url: str, strategy: str,
                 username: str = None, password: str = None, api_key: str = None) -> None:
-    """Generate MSAs for protein sequences via ColabFold server."""
+    """Generate Boltz-2 ``{seq_hash}.csv`` MSAs via the ColabFold server.
+
+    ``seqs`` maps seq_hash -> sequence. Two or more sequences are one complex: their paired
+    rows come from the shared paired search (:func:`_generate_paired_a3m`) and the CSVs are
+    written to that complex's :func:`paired_msa_dir`, because the ``key`` column only means
+    something against the partners it was searched with. One sequence writes
+    ``msa_dir/{seq_hash}.csv`` with no paired rows, as before.
+    """
     click.echo(f"MSA for {target_id} ({len(seqs)} sequences)")
     headers = {"Content-Type": "application/json", "X-API-Key": api_key} if api_key else None
     seqs_list = list(seqs.values())
-    # Key run_mmseqs2's working/cache dir by the exact sequence set, NOT by
-    # target_id. target_id is the input filename stem (e.g. "target_1") and
-    # repeats across inputs, so a target-keyed prefix makes one run's cached a3m
-    # get reused by another: a single-chain run caches one query, then a later
-    # multi-chain run with the same target_id reuses it while expecting N queries
-    # and dies with KeyError on the missing query index. A content hash keys the
-    # cache by what was actually searched — collision-free, still reused when the
-    # same sequence set recurs.
-    tag = hashlib.sha256("\n".join(seqs_list).encode()).hexdigest()[:16]
 
-    paired = (run_mmseqs2(seqs_list, msa_dir / f"{tag}_paired_tmp", use_env=True,
-                         use_pairing=True, host_url=url, pairing_strategy=strategy,
-                         msa_server_username=username, msa_server_password=password, auth_headers=headers)
-             if len(seqs) > 1 else [""] * len(seqs))
+    paired = _generate_paired_a3m(seqs, target_id, msa_dir, url, strategy,
+                                  username, password, api_key) or {}
+    out_dir = paired_msa_dir(msa_dir, seqs_list) or msa_dir
 
-    unpaired = run_mmseqs2(seqs_list, msa_dir / f"{tag}_unpaired_tmp", use_env=True,
+    unpaired = run_mmseqs2(seqs_list, _mmseqs_prefix(msa_dir, seqs_list, "unpaired"), use_env=True,
                           use_pairing=False, host_url=url, pairing_strategy=strategy,
                           msa_server_username=username, msa_server_password=password, auth_headers=headers)
 
-    for i, name in enumerate(seqs):
-        paired_seqs = [s for s in paired[i].strip().splitlines()[1::2][:const.max_paired_seqs] if s != "-" * len(s)]
-        unpaired_seqs = unpaired[i].strip().splitlines()[1::2][:const.max_msa_seqs - len(paired_seqs)]
+    write_boltz_csvs(out_dir, paired, dict(zip(seqs, unpaired)))
+
+
+def _mmseqs_prefix(msa_dir: Path, seqs, kind: str) -> Path:
+    """``run_mmseqs2``'s working dir, keyed by the exact sequences searched.
+
+    ``run_mmseqs2`` reuses an ``out.tar.gz`` it finds there, so a prefix keyed by the input
+    file stem (which repeats: "target_1", "complex") hands one run's alignments to the next
+    run under the same name. With the same number of queries nothing fails: each new sequence
+    is cached with another protein's MSA. A content hash is still reused when the same
+    sequences recur.
+    """
+    tag = hashlib.sha256("\n".join(seqs).encode()).hexdigest()[:16]
+    return msa_dir / f"{tag}_{kind}_tmp"
+
+
+def write_boltz_csvs(out_dir: Path, paired: dict[str, str], unpaired: dict[str, str]) -> None:
+    """Write one Boltz-2 ``{seq_hash}.csv`` per sequence: its paired a3m rows keyed 0..n on top
+    (row j of every chain is one genome), then its unpaired rows keyed -1. ``paired`` and
+    ``unpaired`` map seq_hash -> a3m text; a sequence with no paired a3m gets unpaired rows only."""
+    for name, text in unpaired.items():
+        paired_seqs = [s for s in paired.get(name, "").strip().splitlines()[1::2][:const.max_paired_seqs] if s != "-" * len(s)]
+        unpaired_seqs = text.strip().splitlines()[1::2][:const.max_msa_seqs - len(paired_seqs)]
         if paired_seqs:
             unpaired_seqs = unpaired_seqs[1:]
         keys = list(range(len(paired_seqs))) + [-1] * len(unpaired_seqs)
         lines = ["key,sequence"] + [f"{k},{s}" for k, s in zip(keys, paired_seqs + unpaired_seqs)]
-        publish_text(msa_dir / f"{name}.csv", "\n".join(lines))
+        publish_text(out_dir / f"{name}.csv", "\n".join(lines))
 
 
 _COLABFOLD_SEARCH_PATHS = [
@@ -620,6 +637,7 @@ def prepare_features(path, ccd, mol_dir, msa_dir, tokenizer, featurizer,
 
     # Identify protein chains needing MSA, keyed by sequence hash for global caching
     to_gen = {}
+    searched = []
     for chain in record.chains:
         # --single_sequence: fold every protein chain without an MSA (self-only),
         # skipping both cached alignments and any online/offline search.
@@ -627,14 +645,31 @@ def prepare_features(path, ccd, mol_dir, msa_dir, tokenizer, featurizer,
             chain.msa_id = -1
             continue
         if chain.mol_type == const.chain_type_ids["PROTEIN"] and chain.msa_id == 0:
-            seq = target.sequences[chain.entity_id]
-            h = seq_hash(seq)
-            a3m = msa_dir / f"{h}.a3m"
-            chain.msa_id = str(a3m) if cached(a3m) else str(msa_dir / f"{h}.csv")
-            if not cached(chain.msa_id):
-                to_gen[h] = seq
+            searched.append(chain)
         elif chain.msa_id == 0:
             chain.msa_id = -1
+    # A heteromer's CSVs carry pairing keys, which mean something only against the partners
+    # they were searched with, so the complex gets its own directory and is searched whole.
+    # Keyed per chain, a partner already cached from an earlier fold left the new chain to be
+    # searched alone, and nothing paired. A cache-only run reads the complex's CSVs when they
+    # are there; an offline run keeps the per-chain cache.
+    prot = {seq_hash(target.sequences[c.entity_id]): target.sequences[c.entity_id]
+            for c in searched}
+    pdir = None if msa_db_path else paired_msa_dir(msa_dir, prot.values())
+    if pdir is not None and not use_msa and not all(cached(pdir / f"{h}.csv") for h in prot):
+        pdir = None
+    for chain in searched:
+        seq = target.sequences[chain.entity_id]
+        h = seq_hash(seq)
+        a3m = msa_dir / f"{h}.a3m"
+        if pdir is not None:
+            chain.msa_id = str(pdir / f"{h}.csv")
+        else:
+            chain.msa_id = str(a3m) if cached(a3m) else str(msa_dir / f"{h}.csv")
+        if not cached(chain.msa_id):
+            to_gen[h] = seq
+    if pdir is not None and to_gen:
+        to_gen = prot
 
     if to_gen:
         # Serialize MSA generation per sequence across all workers sharing this
@@ -650,9 +685,12 @@ def prepare_features(path, ccd, mol_dir, msa_dir, tokenizer, featurizer,
                 locks.append(lf)
             # Re-check under the locks: another worker may have produced some of
             # these while we waited, so only generate what is still missing.
-            to_gen = {h: s for h, s in to_gen.items()
-                      if not cached(msa_dir / f"{h}.a3m")
-                      and not cached(msa_dir / f"{h}.csv")}
+            if pdir is not None:
+                to_gen = prot if not all(cached(pdir / f"{h}.csv") for h in prot) else {}
+            else:
+                to_gen = {h: s for h, s in to_gen.items()
+                          if not cached(msa_dir / f"{h}.a3m")
+                          and not cached(msa_dir / f"{h}.csv")}
             if to_gen and msa_db_path:
                 compute_msa_offline(to_gen, record.id, msa_dir, msa_db_path,
                                     use_env=use_envdb, pairing_strategy=msa_strategy)
@@ -2700,61 +2738,54 @@ def _generate_esmfold2_a3m(seqs, target_id, msa_dir, msa_db_path, use_envdb,
                             use_env=use_envdb, pairing_strategy=msa_strategy, pair=False)
         return
     headers = {"Content-Type": "application/json", "X-API-Key": api_key} if api_key else None
-    res = run_mmseqs2(list(seqs.values()), msa_dir / f"{target_id}_esm_tmp", use_env=use_envdb,
+    res = run_mmseqs2(list(seqs.values()), _mmseqs_prefix(msa_dir, seqs.values(), "esm"), use_env=use_envdb,
                       use_pairing=False, host_url=msa_url, pairing_strategy=msa_strategy,
                       msa_server_username=msa_user, msa_server_password=msa_pass, auth_headers=headers)
     for i, h in enumerate(seqs):
         publish_text(msa_dir / f"{h}.a3m", res[i])
 
 
-def _generate_opendde_paired_a3m(seqs, target_id, msa_dir, msa_server_url,
-                                 msa_pairing_strategy, msa_server_username,
-                                 msa_server_password, api_key_value,
-                                 msa_db_path=None, use_envdb=False):
-    """Run a species-pairing MSA search for a multi-chain protein complex and return
-    per-seq-hash paired a3m text (one per chain, rows species-aligned across chains).
+def _generate_paired_a3m(seqs, target_id, msa_dir, msa_server_url,
+                         msa_pairing_strategy, msa_server_username,
+                         msa_server_password, api_key_value,
+                         msa_db_path=None, use_envdb=False, search=True):
+    """The species-paired MSA of one complex: ``{seq_hash: a3m_text}`` for ``seqs``
+    (``seq_hash -> sequence``, the complex's unique protein sequences), or None when the
+    complex does not pair or nothing is cached and ``search`` is False.
 
-    With ``msa_db_path`` set, searches a local ColabFold DB via ``compute_msa_offline``
-    (``pair=True``, the same offline pairing path boltz2/protenix-v2 already use in
-    ``prepare_features``) instead of ever touching the network. Otherwise uses the
-    ColabFold pair endpoint (``ticket/pair``) -- the same paired-MSA utility Boltz-2
-    uses and the standard AF3/Protenix docking input -- so the species pairing is done
-    server-side, matching what the reference ``MSAPairingEngine.pair_chains_by_species``
-    produces from per-chain MSAs carrying UniProt/UniRef species IDs. Each returned a3m
-    has the chain's own query as row 0 followed by the paired homologs; row j across
-    chains corresponds to the same genome. Best-effort: callers should catch exceptions
-    and fall back to unpaired-only (no cross-chain signal) rather than failing the
-    whole fold.
+    Each a3m has the chain's own query as row 0 and row j of every chain comes from the
+    same genome. The ColabFold pair endpoint (``ticket/pair``) does the species pairing
+    server-side; it is the source OpenFold3's upstream MSA client writes
+    ``colabfold_paired.a3m`` from, and the one Boltz-2's ``compute_msa`` reads its paired
+    keys from. With ``msa_db_path`` a local ColabFold DB is searched instead.
 
-    Returns ``{seq_hash: a3m_text}`` parallel to the input ``seqs`` dict.
+    Cached under :func:`tt_bio.cache.paired_msa_dir`, one directory per set of sequences.
+    It used to be ``paired/{seq_hash}.a3m``, which handed chain A the rows it had been
+    paired with against its FIRST partner in every later complex, out of step with the new
+    partner's rows.
     """
-    if msa_db_path:
-        # Cache into a DEDICATED subdir, and only search what is missing. Two bugs this fixes,
-        # both found auditing the AbAg-XM campaign (2026-07-27):
-        #  (1) PERF: this helper had no cache check at all (unlike prepare_features above, which
-        #      filters to_gen to the missing hashes), so EVERY multi-chain OpenDDE fold re-ran a
-        #      full offline ColabFold search against the ~279 GB uniref30 index -- pure waste on a
-        #      campaign that pre-warms one MSA per target and folds it many times.
-        #  (2) CORRECTNESS: it wrote `{seq_hash}.a3m` into the SHARED msa_dir, silently
-        #      overwriting the very files boltz2/protenix-v2 read for the same chains. Keeping
-        #      paired results in their own namespace means the "identical MSA input across
-        #      generators" fairness contract can no longer be clobbered by an OpenDDE run, and a
-        #      cached unpaired a3m can never be served as if it were paired.
-        paired_dir = msa_dir / "paired"
-        paired_dir.mkdir(parents=True, exist_ok=True)
-        to_gen = {k: s for k, s in seqs.items() if not cached(paired_dir / f"{k}.a3m")}
-        if to_gen:
-            compute_msa_offline(to_gen, target_id, paired_dir, msa_db_path, use_env=use_envdb,
+    pdir = paired_msa_dir(msa_dir, seqs.values())
+    if pdir is None:
+        return None
+    if not all(cached(pdir / f"{k}.a3m") for k in seqs):
+        if not search:
+            return None
+        pdir.mkdir(parents=True, exist_ok=True)
+        if msa_db_path:
+            compute_msa_offline(seqs, target_id, pdir, msa_db_path, use_env=use_envdb,
                                 pairing_strategy=msa_pairing_strategy, pair=True)
-        return {k: (paired_dir / f"{k}.a3m").read_text() for k in seqs}
-    headers = {"Content-Type": "application/json", "X-API-Key": api_key_value} if api_key_value else None
-    keys = list(seqs)
-    res = run_mmseqs2([seqs[k] for k in keys], msa_dir / f"{target_id}_paired_tmp",
-                      use_env=True, use_pairing=True, host_url=msa_server_url,
-                      pairing_strategy=msa_pairing_strategy,
-                      msa_server_username=msa_server_username,
-                      msa_server_password=msa_server_password, auth_headers=headers)
-    return {k: res[i] for i, k in enumerate(keys)}
+        else:
+            headers = ({"Content-Type": "application/json", "X-API-Key": api_key_value}
+                       if api_key_value else None)
+            keys = sorted(seqs, key=seqs.get)   # one order per complex, whatever the chain order
+            res = run_mmseqs2([seqs[k] for k in keys], _mmseqs_prefix(msa_dir, [seqs[k] for k in keys], "paired"),
+                              use_env=True, use_pairing=True, host_url=msa_server_url,
+                              pairing_strategy=msa_pairing_strategy,
+                              msa_server_username=msa_server_username,
+                              msa_server_password=msa_server_password, auth_headers=headers)
+            for i, k in enumerate(keys):
+                publish_text(pdir / f"{k}.a3m", res[i])
+    return {k: (pdir / f"{k}.a3m").read_text() for k in seqs}
 
 
 #: Per-model default trunk-recycling count. A TABLE, not a set literal: the count is a

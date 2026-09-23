@@ -39,11 +39,15 @@ import math
 import ttnn
 
 from . import ops
-from .tenstorrent import Module, CORE_GRID_MAIN, _dtype, _cached, pad_dim
+from .tenstorrent import (Module, CORE_GRID_MAIN, _dtype, _cached, pad_dim, pair_row_blocks,
+                          row_block_after_refusal)
 from .openfold3_atom_transformer import OF3AtomTransformer
 from .openfold3_diffusion_transformer import OF3DiffusionTransformer
 from .openfold3_diffusion_decoder import OF3AtomAttentionDecoder
 from .eltwise_fusion import mask_add
+
+# Pair shapes whose single-pass NPE pair projection DRAM refused, and the block they settled at.
+_NPE_PAIR_ROWS_REFUSED: dict = {}
 
 
 def _sub(sd, prefix):
@@ -80,6 +84,16 @@ class OF3NoisyPositionEmbedder(Module):
         self.ln_s_w = self.torch_to_tt("layer_norm_s.weight", transform=lambda x: x)
         self.ln_z_w = self.torch_to_tt("layer_norm_z.weight", transform=lambda x: x)
 
+    def _z_tok(self, zij):
+        """linear_z(LN_z(zij)), per pair position. At 1536 tokens the fp32 norm alone is
+        1207959552 B, refused on a Wormhole chip holding the trunk's outputs, so a refusal
+        re-runs it in row blocks and only the 16-channel result is ever whole."""
+        ckc = self.compute_kernel_config
+        zn = ttnn.layer_norm(zij, weight=self.ln_z_w, epsilon=1e-5, compute_kernel_config=ckc)
+        out = ttnn.linear(zn, self.w_lz, compute_kernel_config=ckc, core_grid=CORE_GRID_MAIN)
+        ttnn.deallocate(zn)
+        return out
+
     def invariants(self, cl0, plm0, si_trunk, zij, atom_mask_col,
                    atom_to_token_idx_tt, zij_flat_idx_tt, zij_mask, NP):
         """The two broadcasts, at the padded atom length: ``cl`` [1, NP, 128] and ``plm``.
@@ -114,10 +128,10 @@ class OF3NoisyPositionEmbedder(Module):
         ttnn.deallocate(si_atoms)
 
         # --- pair broadcast: plm = plm0 + to_blocks(linear_z(LN_z(zij))) ---
-        zij_ln = ttnn.layer_norm(zij, weight=self.ln_z_w, epsilon=1e-5,
-                                 compute_kernel_config=ckc)                     # [1, Ntk, Ntk, 128]
-        zij_tok = ttnn.linear(zij_ln, self.w_lz, compute_kernel_config=ckc,
-                              core_grid=CORE_GRID_MAIN)                         # [1, Ntk, Ntk, 16]
+        zij_tok = row_block_after_refusal(
+            _NPE_PAIR_ROWS_REFUSED, tuple(zij.padded_shape), lambda: self._z_tok(zij),
+            lambda rows: pair_row_blocks(self._z_tok, (zij,), rows),
+            rows=256, tag="of3 npe pair")                                       # [1, Ntk, Ntk, 16]
         ntk = zij_tok.shape[1]
         if self._act_dtype != ttnn.bfloat16:
             _bf = ttnn.typecast(zij_tok, ttnn.bfloat16)

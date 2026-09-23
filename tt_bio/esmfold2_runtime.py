@@ -555,6 +555,27 @@ def _msa_from_csv(path, max_sequences):
     return MSA.from_sequences(seqs, remove_insertions=True) if seqs else None
 
 
+def pair_keyed_msa(msa, paired_a3m, max_sequences=16384):
+    """Put a chain's species-paired rows in front of its MSA, headed ``key=j``.
+
+    That header is how upstream ESMFold2 pairs across chains
+    (``esm/models/esmfold2/paired_msa.py``: rows sharing a ``key=N`` are paired, anything
+    else goes to the chain's block-diagonal section). Row j of every chain's paired a3m is
+    one genome, so its key is j. An all-gap row is a genome this chain has no homolog in:
+    it is dropped and the partners keep their row j. The unpaired rows follow unkeyed.
+    """
+    import io
+
+    from tt_bio._vendor.esm.utils.msa.msa import MSA
+    from tt_bio._vendor.esm.utils.parsing import FastaEntry
+
+    rows = MSA.from_a3m(io.StringIO(paired_a3m), remove_insertions=True).entries
+    keyed = [FastaEntry(f"key={j}", seq) for j, (_h, seq) in enumerate(rows)
+             if j and seq.strip("-")]
+    query, unpaired = (msa.entries[0], msa.entries[1:]) if msa is not None else (rows[0], [])
+    return MSA(([query] + keyed + unpaired)[:max_sequences])
+
+
 def resolve_msa(msa_spec, sequence, msa_dir=None, max_sequences=16384):
     """Resolve a chain's MSA to an esm ``MSA`` object (or None).
 
@@ -710,6 +731,11 @@ def _covalent_bonds(spi, bonds):
     return out
 
 
+# Largest token count measured to fold on a 12 GiB Wormhole chip with the ESMC-6B resident
+# (single sequence, whglx 2026-09-23). Above it the LM is released after its forward.
+WH_LM_RESIDENT_MAX_TOKENS = 1088
+
+
 def fold_complex(model, chains, *, num_loops=3, num_sampling_steps=20,
                  num_diffusion_samples=1, seed=0, return_all=False, bonds=None):
     """Fold one (possibly multi-chain) complex on an already-patched model.
@@ -743,11 +769,17 @@ def fold_complex(model, chains, *, num_loops=3, num_sampling_steps=20,
     # ~70 MiB of contiguous DRAM left. Release the language model after its single
     # forward (it runs once per fold, outside the recycling loop) and pay one reload.
     # Bit-exact: same weights, same dtype, same order, only the device buffers move.
-    # Blackhole (32 GB), the single-sequence path and ESMFold2-Fast (no MSA encoder)
-    # all keep the LM resident and run byte-identically to before.
+    # Blackhole (32 GB) always keeps the LM resident, and so does a Wormhole fold without an
+    # MSA up to WH_LM_RESIDENT_MAX_TOKENS.
+    #
+    # The same holds without an MSA once the pair track is large: single-sequence esmfold2 folded
+    # 1088 tokens on the Galaxy with the LM resident and died at 1152 in the MSA encoder's pair FFN
+    # with 10.6 MiB per bank free, the LM holding ~537 of each bank's 1024 MiB. One fold per process
+    # pays nothing for the release; a server folding many large targets pays one reload each.
     esmc = getattr(model, "_esmc", None)
     release_lm = (esmc is not None and getattr(esmc, "_persistent", False)
-                  and any(len(c) > 2 and c[2] is not None for c in chains)
+                  and (any(len(c) > 2 and c[2] is not None for c in chains)
+                       or sum(len(c[1]) for c in chains) > WH_LM_RESIDENT_MAX_TOKENS)
                   and is_wormhole())
     if release_lm:
         esmc._persistent = False

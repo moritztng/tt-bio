@@ -452,7 +452,7 @@ def test_a_residue_refusal_never_offers_the_atom_denominated_model():
     assert "boltzgen" not in sl.models_accepting(1200, "wormhole_b0")
     assert "boltzgen" in sl.models_accepting(1200, "wormhole_b0", counts=sl.TARGET_ATOMS)
     with pytest.raises(sl.SizeTooLargeError) as e:
-        sl.check("opendde", 1200, arch="wormhole_b0")
+        sl.check("opendde", _OVER_OPENDDE, arch="wormhole_b0")
     assert "boltzgen" not in str(e.value), str(e.value)
 
 
@@ -735,8 +735,8 @@ def test_a_refusal_on_a_mostly_unmeasured_arch_does_not_claim_nothing_fits():
     assert "no measured ceiling on blackhole" in msg_unmeasured, msg_unmeasured
     # and where every model IS measured the original sentence still has to be reachable
     with pytest.raises(sl.SizeTooLargeError) as e2:
-        sl.check("opendde", 1200, arch="wormhole_b0")
-    assert "Models with a measured ceiling above 1200" in str(e2.value)
+        sl.check("opendde", _OVER_OPENDDE, arch="wormhole_b0")
+    assert f"Models with a measured ceiling above {_OVER_OPENDDE}" in str(e2.value)
 
 
 # --- The ligand is tokens, and tokens are what the wall is made of ---------------------------
@@ -795,8 +795,7 @@ def test_a_ligand_at_the_residue_cap_is_refused_instead_of_reaching_the_chip():
     residue count cannot see one, and the fold then died on the chip instead of at submission.
 
     What a row has room for at its own cap is `wall - residues`, and that is not a free parameter:
-    it is 0 on a ladder walked apo, and a ladder walked with a ligand on it has that ligand's
-    room left over.
+    it is 0 on every ladder walked apo, which is every token row today.
     """
     for model, arch, c in _TOKEN_ROWS:
         wall = sl.padded_tokens(model, c.tokens)
@@ -811,21 +810,19 @@ def test_a_ligand_at_the_residue_cap_is_refused_instead_of_reaching_the_chip():
 
 def test_the_cocrystals_measured_to_fold_are_still_admitted():
     """From the evidence, not invented: esmfold2 folded 991 aa + a 33-atom ligand in 278 s, and
-    openbind folded 1053 aa + STU (35 atoms), 1088 tokens, in 973 s. A guard that refuses either
-    has over-corrected, which is the worse failure of the two. One more residue pads to 1120."""
+    openbind folded 960 aa + CCD STU (35 atoms) on GWH02. A guard that refuses either has
+    over-corrected, which is the worse failure of the two."""
     sl.check("esmfold2", 991, ligand_atoms=33, arch="wormhole_b0")
-    sl.check("openbind", 1053, ligand_atoms=35, arch="wormhole_b0")
-    with pytest.raises(sl.SizeTooLargeError):
-        sl.check("openbind", 1054, ligand_atoms=35, arch="wormhole_b0")
+    sl.check("openbind", 960, ligand_atoms=35, arch="wormhole_b0")
 
 
 def test_a_ligand_free_input_is_checked_exactly_as_it_was():
     """No false-refusal regression: with no ligand the verdict is the residue comparison, on every
     row of the table, including the four that now carry a token wall.
 
-    This is asserted and not assumed because a row walked WITH a ligand has a token wall above its
-    residue cap, and letting that wall speak for a ligand-free input would raise a published cap
-    on the strength of no ladder at all (openbind's 960, walked with 35 atoms, was such a row).
+    A row walked WITH a ligand has a token wall above its residue cap (openbind's old 960 with a
+    35-atom ligand had 1024), and letting that wall speak for a ligand-free input would raise a
+    published cap on the strength of no ladder at all.
     """
     for model, arch, fast, c in _rows():
         if not c.measured or c.residues is None:
@@ -882,13 +879,13 @@ def _yaml(tmp_path, name, body):
 
 @_needs_ccd
 def test_ligand_atoms_are_counted_from_the_ccd_component_the_model_tokenises(tmp_path):
-    """35 for STU is not a number this test chose -- it is the ligand openbind's token check was
-    folded with, written into that row's evidence, so the counter and the row agree on the same
-    molecule: 1053 residues plus what this counts is the 1088-token wall the row publishes."""
+    """35 for STU is not a number this test chose -- it is the ligand openbind's GWH02 ladder was
+    walked with, written into that row's evidence, so the counter and the row agree on the same
+    molecule."""
     q = _yaml(tmp_path, "co.yaml",
               "sequences:\n  - protein: {id: A, sequence: MKTAYIAK}\n  - ligand: {id: L, ccd: STU}\n")
     assert sl.scan_ligand_atoms(q) == 35
-    assert sl.padded_tokens("openbind", 1053 + 35) == sl.ceiling("openbind", "wormhole_b0").tokens
+    assert "STU (35 atoms)" in sl.ceiling("openbind", "wormhole_b0").evidence
 
 
 @_needs_ccd

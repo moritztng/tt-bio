@@ -8,7 +8,7 @@ import ttnn
 
 from . import align
 from . import ranking as rank
-from .tenstorrent import Module, device_dtype_override
+from .tenstorrent import Module, device_dtype_override, dram_peak
 from .openfold3 import InputEmbedderGlue
 from .openfold3_confidence import OF3ConfidenceHead
 from .openfold3_trunk import OF3Trunk
@@ -347,13 +347,13 @@ class OpenFold3(Module):
             token_bonds_t = ft(F.pad(token_bonds, (0, tok_pad, 0, tok_pad), value=q)
                                .unsqueeze(0).unsqueeze(-1))
             tmpl_d = {k: ft(_pad2(v)) for k, v in template_feat.items()}
-            msa_d = ft(F.pad(msa_feat, (0, 0, 0, tok_pad), value=q).unsqueeze(0))
+            msa_d = F.pad(msa_feat, (0, 0, 0, tok_pad), value=q).unsqueeze(0)
             _, pair_mask_pad, attn_mask_pad = token_pad_masks_tt(
                 n_token, n_tok_trunk, self.device)
         else:
             s_input_t, relpos_t, token_bonds_t = s_input_d, relpos_dev, token_bonds_dev
             tmpl_d = {k: ft(v) for k, v in template_feat.items()}
-            msa_d = ft(msa_feat.unsqueeze(0))
+            msa_d = msa_feat.unsqueeze(0)
         s_init_d, z_init_d = self.input_glue(s_input_t, relpos_t, token_bonds_t)
         s_trunk_d, z_trunk_d = self.trunk(s_init_d, z_init_d, tmpl_d, msa_d, s_input_t,
                                           progress_fn=progress_fn,
@@ -364,8 +364,8 @@ class OpenFold3(Module):
             s_trunk_d = ttnn.slice(s_trunk_d, (0, 0, 0), (1, n_token, s_trunk_d.shape[2]))
             z_trunk_d = ttnn.slice(z_trunk_d, (0, 0, 0, 0),
                                    (1, n_token, n_token, z_trunk_d.shape[3]))
-            # msa_d is NOT here: the trunk consumes it the moment the MSA embedder has read
-            # it, so that 1.86 GB (at 1024 tokens x 14191 rows) is not held across the trunk.
+            # msa_d is NOT here: it stays on the host and the trunk's `msa_embed` uploads it,
+            # whole or a depth chunk at a time, so it is never held across the trunk.
             for t in (s_input_t, relpos_t, token_bonds_t, pair_mask_pad, attn_mask_pad):
                 ttnn.deallocate(t)
             for t in tmpl_d.values():
@@ -395,6 +395,7 @@ class OpenFold3(Module):
             token_mask=token_mask, n_atom=n_atom, n_token=n_token, nb=nb, NP=NP,
             n_tok_pad=n_tok_pad)
 
+        dram_peak("of3 diffusion entry")
         noise_schedule = create_noise_schedule(no_rollout_steps, **self.ns_cfg)
         n_steps = len(noise_schedule) - 1
         samples = []
