@@ -321,8 +321,13 @@ class OpenFold3Forward:
         the registering walk and trains as a constant with nothing to say so: the trimul
         in-projections (D254) and the diffusion atom transformers (D256) both did. This is the
         catcher for the next one, whatever module it is in.
+
+        Also raises if the forward sliced a registered weight without reaching the tape (D262):
+        the leaf is registered but the slice is a constant, so the walk alone cannot see it.
         """
+        from collections import Counter
         from .. import autograd as ag
+        from ..taped_ttnn import take_raw_param_slices
         from ..tenstorrent import walk_device_weights
         late = [p for p, _o, _k, t in walk_device_weights(self.model)
                 if ag.parameter_for(t) is None]
@@ -331,6 +336,11 @@ class OpenFold3Forward:
                 f"{len(late)} device tensors appeared after parameter registration and would "
                 f"train as constants, e.g. {late[:4]}. Materialise them before the walk "
                 f"(OpenFold3Forward.model).")
+        raw = Counter(take_raw_param_slices())
+        if raw:
+            raise RuntimeError(
+                f"{sum(raw.values())} slices of registered weights did not reach the tape and "
+                f"train as constants, by site: {dict(raw)}")
 
     def __call__(self, batch) -> dict:
         from .. import autograd as ag
