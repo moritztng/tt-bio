@@ -29,13 +29,31 @@ from speed_bar import judge  # noqa: E402
 BAR_COMMIT = "97809f872"
 
 
-def load(path: pathlib.Path) -> list[dict]:
+# A rung that never reached the model is not a measurement of anything, and the two ways that
+# happens both leave a row that LOOKS like a ceiling: a contention refusal (the engine declined
+# to open a chip someone else holds) and a kill (SIGTERM/SIGKILL while the walk was restarted).
+# The walk driver drops the row it just wrote for a contention refusal, but it can only see its
+# own last row -- a row left by an earlier driver survives. So the CONSUMER refuses them too,
+# which is the check that cannot be bypassed by running report.py on an older file.
+NOT_A_MEASUREMENT = "device contention, nothing ran"
+
+
+def ran(r: dict) -> bool:
+    if r.get("rc") in (-15, -9):
+        return False
+    blob = " ".join(r.get("diag") or []) + (r.get("tail") or "")
+    return NOT_A_MEASUREMENT not in blob
+
+
+def load(path: pathlib.Path) -> tuple[list[dict], int]:
     rows = [json.loads(l) for l in path.read_text().splitlines() if l.strip()]
+    kept = [r for r in rows if ran(r)]
+    dropped = len(rows) - len(kept)
     # One row per rung: a re-run supersedes an earlier attempt at the same size.
     by_size: dict[int, dict] = {}
-    for r in rows:
+    for r in kept:
         by_size[r["size"]] = r
-    return [by_size[k] for k in sorted(by_size)]
+    return [by_size[k] for k in sorted(by_size)], dropped
 
 
 def clock(r: dict):
@@ -50,9 +68,12 @@ def main() -> int:
                     help="highest-order op the model runs; 3 for a pair track")
     ap.add_argument("--commit", default=None, help="the tree the walk ran on")
     a = ap.parse_args()
-    rows = load(a.jsonl)
+    rows, dropped = load(a.jsonl)
+    if dropped:
+        print(f"_{dropped} row(s) dropped: the rung never reached the model (contention refusal "
+              f"or a kill), so it bounds nothing._\n")
     if not rows:
-        print(f"{a.jsonl}: no rungs recorded")
+        print(f"{a.jsonl}: no rungs actually ran")
         return 1
     commit = a.commit or subprocess.run(
         ["git", "rev-parse", "--short", "HEAD"], cwd=str(ROOT),
