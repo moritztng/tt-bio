@@ -1,0 +1,97 @@
+{
+ "tag": "b_1536_rap",
+ "surface": "boltz2",
+ "input": "perf/mgx_affinity/inputs/size/cdk2_1536_rap.yaml",
+ "args": [],
+ "host": "j10glx02",
+ "cards": [
+  11
+ ],
+ "commit": "9b35f5d2b",
+ "rc": null,
+ "wall_s": 731.2,
+ "aiclk": {
+  "0": {
+   "min": 500,
+   "median": 1000,
+   "max": 1000,
+   "n": 11
+  }
+ },
+ "load": {
+  "min": 77.96,
+  "median": 83.86,
+  "max": 96.81,
+  "nproc": 64
+ },
+ "census": null,
+ "adopted": true,
+ "rows": [
+  {
+   "id": "cdk2_1536_rap",
+   "status": "ok",
+   "confidence_score": 0.73078,
+   "ptm": 0.428805,
+   "iptm": 0.441797,
+   "ligand_iptm": 0.441797,
+   "protein_iptm": 0.0,
+   "complex_plddt": 0.803026,
+   "complex_iplddt": 0.58789,
+   "complex_pde": 1.470688,
+   "complex_ipde": 16.52107,
+   "plddt": 0.803026,
+   "pair_chains_iptm": {
+    "0": {
+     "0": 0.434777,
+     "1": 0.20772
+    },
+    "1": {
+     "0": 0.441797,
+     "1": 0.869711
+    }
+   },
+   "chains_ptm": {
+    "0": 0.434777,
+    "1": 0.869711
+   },
+   "affinity_pred_value": -1.711565,
+   "affinity_probability_binary": 0.189854,
+   "affinity_pred_value1": -1.749563,
+   "affinity_probability_binary1": 0.205189,
+   "affinity_pred_value2": -1.673567,
+   "affinity_probability_binary2": 0.174518,
+   "structure_runtime_s": 498.9,
+   "affinity_runtime_s": 193.7,
+   "runtime_s": 692.6
+  }
+ ],
+ "contention": false,
+ "errors": [],
+ "tail": [
+  "14:13:14  [j10glx02:tt11]   diffusion 0/200",
+  "14:13:44  [j10glx02:tt11]   diffusion 10/200",
+  "14:13:45  [j10glx02:tt11]   diffusion 20/200",
+  "14:13:47  [j10glx02:tt11]   diffusion 30/200",
+  "14:13:48  [j10glx02:tt11]   diffusion 40/200",
+  "14:13:50  [j10glx02:tt11]   diffusion 50/200",
+  "14:13:52  [j10glx02:tt11]   diffusion 60/200",
+  "14:13:53  [j10glx02:tt11]   diffusion 70/200",
+  "14:13:55  [j10glx02:tt11]   diffusion 80/200",
+  "14:13:56  [j10glx02:tt11]   diffusion 90/200",
+  "14:13:58  [j10glx02:tt11]   diffusion 100/200",
+  "14:14:00  [j10glx02:tt11]   diffusion 110/200",
+  "14:14:01  [j10glx02:tt11]   diffusion 120/200",
+  "14:14:03  [j10glx02:tt11]   diffusion 130/200",
+  "14:14:05  [j10glx02:tt11]   diffusion 140/200",
+  "14:14:06  [j10glx02:tt11]   diffusion 150/200",
+  "14:14:08  [j10glx02:tt11]   diffusion 160/200",
+  "14:14:10  [j10glx02:tt11]   diffusion 170/200",
+  "14:14:11  [j10glx02:tt11]   diffusion 180/200",
+  "14:14:13  [j10glx02:tt11]   diffusion 190/200",
+  "14:14:15  [j10glx02:tt11]   confidence",
+  "14:14:33  [j10glx02:tt11]   saving",
+  "14:17:47  [j10glx02:tt11] \u2713 cdk2_1536_rap \u2014 692.6s",
+  "",
+  "Done: 1 ok, 0 failed \u2014 /home/agent/wt-mgx-affinity-scale/perf/mgx_affinity/out/b_1536_rap/boltz2_results_cdk2_1536_rap/results.json"
+ ]
+}
