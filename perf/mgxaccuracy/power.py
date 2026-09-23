@@ -69,7 +69,12 @@ def power(sample, shift, n, trials=TRIALS, rng=None) -> float:
 
 
 def load_512(paths) -> dict:
-    """Every n>=2 boltzgen scRMSD sample at 512, keyed by target."""
+    """Every boltzgen scRMSD draw at 512, keyed by target.
+
+    Every draw, including the single published one: dropping n=1 rows made this script read
+    big_1831's median as 10.59 while report.py, which keeps them, read 10.56 on the same
+    target. Two numbers for one cell, from an inclusion rule that differed and was not
+    written down anywhere."""
     out = {}
     for p in paths:
         p = pathlib.Path(p).expanduser()
@@ -81,9 +86,9 @@ def load_512(paths) -> dict:
             r = json.loads(line)
             d = r.get("dsg") or r
             sc = d.get("scrmsd")
-            if not sc or len(sc) < 2 or r.get("model") != "boltzgen":
+            if not sc or r.get("model") != "boltzgen":
                 continue
-            if r.get("target_res") != 512:
+            if r.get("target_res") != 512 or r.get("side", "device") != "device":
                 continue
             key = (r.get("target") or f"?{p.name}").rsplit("/", 1)[-1]
             out.setdefault(key, []).extend(float(v) for v in sc)

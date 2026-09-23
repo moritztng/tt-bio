@@ -127,18 +127,64 @@ def conditioning_graph(meta, xyz, top_a: float = TEMPL_TOP_A) -> dict:
                                     / max(1, (~np.eye(len(P), dtype=bool)).sum()))}
 
 
+def split_complex(path: pathlib.Path):
+    """(binder xyz, target xyz, binder chain) for a design written as one complex.
+
+    BoltzGen writes the design and the target it was designed against into a single file, so
+    the docking question cannot be asked with a separate --binder. The binder is the chain
+    with the FEWEST residues, which is unambiguous here -- an 80-residue binder against a
+    512- or 1536-residue target -- and a tie is refused rather than guessed, because picking
+    the wrong chain silently measures the target against itself and reports 0.00 A."""
+    import numpy as np
+    meta, xyz = atoms(path)
+    per: dict = {}
+    for c, s_, a in meta:
+        if a == "CA":
+            per[c] = per.get(c, 0) + 1
+    if len(per) < 2:
+        raise SystemExit(f"{path.name}: one chain — nothing to measure a contact against")
+    lo = min(per.values())
+    small = [c for c, n in per.items() if n == lo]
+    if len(small) != 1:
+        raise SystemExit(f"{path.name}: {len(small)} chains tie at {lo} residues {per} — "
+                         "cannot identify the binder")
+    b = small[0]
+    m = np.array([c == b for c, _, _ in meta])
+    return np.asarray(xyz)[m], np.asarray(xyz)[~m], b, per
+
+
 def main() -> int:
     import numpy as np
     ap = argparse.ArgumentParser(description=__doc__,
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("--target", required=True)
+    ap.add_argument("--complex", nargs="+", default=None, metavar="CIF",
+                    help="design files that already contain the target; the binder is the "
+                         "chain with the fewest residues")
+    ap.add_argument("--target", required=False)
     ap.add_argument("--crop", default=None,
                     help="residue ranges of the target that were conditioned on; default all")
-    ap.add_argument("--binder", nargs="+", required=True)
+    ap.add_argument("--binder", nargs="+", default=None)
     ap.add_argument("--contact-a", type=float, default=5.0,
                     help="an atom pair this close or closer is a contact")
     args = ap.parse_args()
 
+    if args.complex:
+        print(f"\n{'design':<18}{'binder':>7}{'chain':>7}{'min d':>9}{'median d':>10}"
+              f"{'contacts':>10}   verdict")
+        for f in args.complex:
+            f = pathlib.Path(f)
+            bxyz, txyz, ch, per = split_complex(f)
+            d = np.linalg.norm(bxyz[:, None, :] - txyz[None, :, :], axis=-1)
+            dmin = d.min(1)
+            verdict = ("IN CONTACT" if dmin.min() <= args.contact_a else
+                       "NOT DOCKED" if dmin.min() > 10 else "marginal")
+            print(f"{f.name:<18}{len(bxyz):>7}{ch:>7}{dmin.min():>9.2f}"
+                  f"{float(np.median(dmin)):>10.2f}{int((d <= args.contact_a).sum()):>10}"
+                  f"   {verdict}")
+        return 0
+
+    if not args.target or not args.binder:
+        raise SystemExit("need --complex, or both --target and --binder")
     tmeta, txyz = atoms(pathlib.Path(args.target))
     if args.crop:
         m = np.array(crop_mask(tmeta, args.crop))

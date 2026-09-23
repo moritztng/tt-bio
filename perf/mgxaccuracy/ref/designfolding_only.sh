@@ -32,8 +32,12 @@ inv=intermediate_designs_inverse_folded
 ls "$src/$inv"/*.cif >/dev/null 2>&1 || { echo "REFUSED: no inverse-folded design in $src/$inv"; exit 1; }
 
 rm -rf "$dst"
-mkdir -p "$dst/config" "$dst/$inv"
+mkdir -p "$dst/config" "$dst/$inv" "$dst/intermediate_designs"
 cp "$src/$inv"/*.cif "$src/$inv"/*.npz "$dst/$inv/" 2>/dev/null
+# scrmsd.py aligns the refold to the DESIGNED backbone, which lives in intermediate_designs/.
+# Staging only the inverse-folded inputs runs the fold fine and then cannot score it.
+cp "$src/intermediate_designs"/*.cif "$src/intermediate_designs"/*.npz \
+   "$dst/intermediate_designs/" 2>/dev/null
 sed "s#${src}#${dst}#g" "$src/config/design_folding.yaml" > "$dst/config/design_folding.yaml"
 
 export OMP_NUM_THREADS=$thr MKL_NUM_THREADS=$thr OPENBLAS_NUM_THREADS=$thr NUMEXPR_NUM_THREADS=$thr

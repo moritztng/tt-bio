@@ -75,7 +75,7 @@ def _from_out_dir(name: str) -> tuple[str, int | None, int]:
     return model, size, off or 0
 
 
-def load(paths) -> list[dict]:
+def load(paths, metric: str = "scrmsd") -> list[dict]:
     """One record per (model, size, crop offset) cell, from either shape of row.
 
     `job.py` writes a run row with the scRMSD under `dsg`; `prior_runs.jsonl` records
@@ -94,10 +94,25 @@ def load(paths) -> list[dict]:
             r = json.loads(line)
             geom = _geom_rows(r)
             if geom is not None:
+                # A clash fraction is not an scRMSD and pooling them is not a rounding error:
+                # mixed in, nine zero-valued geometry designs dragged a 512 scRMSD cell to a
+                # pooled median of 3.68 A and printed it under the scRMSD label with the <=2 A
+                # bar beside it. Each row carries ONE metric and only that metric's request
+                # loads it.
+                if metric != "clash_frac":
+                    continue
                 model, size, off = _from_out_dir(r.get("out_dir", ""))
+                # A geometry row names only its out_dir, so its target is the tag in that
+                # directory name. Left out entirely, the cell key raised at the first mixed
+                # run -- and a KeyError is the good outcome; the bad one is a default that
+                # merges two targets.
                 out.append({"model": model, "size": size, "offset": off, "scrmsd": geom,
+                            "target": (r.get("target") or "").rsplit("/", 1)[-1]
+                                      or f"?dir={r.get('out_dir', '?')}",
                             "side": "device", "card": None, "aiclk": None, "load": None,
                             "src": p.name})
+                continue
+            if metric != "scrmsd":
                 continue
             d = r.get("dsg") or r
             sc = d.get("scrmsd")
@@ -169,7 +184,7 @@ def main() -> int:
                     help="which metric the input files carry; sets the bars and the format")
     args = ap.parse_args()
 
-    rows = [r for r in load(args.jsonl) if r["model"] == args.model]
+    rows = [r for r in load(args.jsonl, args.metric) if r["model"] == args.model]
     if not rows:
         print("no scored rows")
         return 1
