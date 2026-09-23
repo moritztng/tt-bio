@@ -12,7 +12,8 @@
 # A job whose results.json already says ok is skipped, so a restarted chain keeps finished logs.
 # The cardblocked chips (1, 24-27) are never candidates. POLL (s, default 30) is how often a waiting
 # chain looks for a free card; EXTRA is appended to every predict command (e.g. --debug).
-# PROBE=<file> loads probe/sitecustomize.py, which logs live DRAM buffers at stage boundaries.
+# PROBE=<file> loads probe/sitecustomize.py, which logs live DRAM buffers at stage boundaries;
+# HASH=<file> loads it to log a sha1 of each boltz2 stage's tensors instead (a determinism diff).
 # TAG=<t> suffixes the output name, for a replicate or a probed rerun beside the plain fold.
 # Runs the tree this script lives in.
 set -u
@@ -55,7 +56,8 @@ take() {
     sleep "${POLL:-30}"
   done
 }
-export PYTHONPATH=$PWD${PROBE:+:$PWD/perf/mgx_combos/probe} TT_BIO_LEASE_HOLDER=$ME TT_BIO_LEASE_DIR=$L
+hook=${PROBE:-${HASH:-}}
+export PYTHONPATH=$PWD${hook:+:$PWD/perf/mgx_combos/probe} TT_BIO_LEASE_HOLDER=$ME TT_BIO_LEASE_DIR=$L
 export TT_METAL_CACHE=$HOME/.cache/tt-metal-cache-mgxc TT_METAL_LOGGER_LEVEL=FATAL TT_BIO_LEASE_TIMEOUT=60
 for job in "$@"; do
   IFS=: read -r m f n <<< "$job"; n=${n:-5}
