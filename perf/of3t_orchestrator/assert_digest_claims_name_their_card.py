@@ -107,6 +107,20 @@ FROZEN = {
 
 
 def host_of(d):
+    """The host this artifact records, from anywhere in it.
+
+    Pass 414: this read the TOP LEVEL only, and `of3t-modelever` -- the first row to act on the
+    D155 warning while still live, after being handed the writer-level fix -- stamped host, board
+    and card into a per-compared-artifact provenance block, which is the RIGHT place for them
+    when one file compares two arms that could come from different boxes. The guard could not see
+    it and would have failed a row that had complied, and forced a freeze that would then have
+    been cited as a fourth instance of D249. A guard that punishes the one row that listened is
+    worse than no guard.
+
+    So: recursive for PRESENCE. The exclusion is separately widened to the whole document in
+    `main`, which is strictly stronger than the top-level scan it replaces -- a nested `pc card 0`
+    could previously have hidden from it.
+    """
     for k in HOST_FIELDS:
         v = d.get(k)
         if isinstance(v, str) and v.strip():
@@ -116,7 +130,44 @@ def host_of(d):
         for h in KNOWN_HOSTS:
             if re.search(r"\b%s\b" % re.escape(h), card, re.I):
                 return card
+    for v in d.values():
+        if isinstance(v, dict):
+            h = host_of(v)
+            if h:
+                return h
+        elif isinstance(v, list):
+            for e in v:
+                if isinstance(e, dict):
+                    h = host_of(e)
+                    if h:
+                        return h
     return None
+
+
+def host_card_pairs(d, _out=None):
+    """Every (host, card) pair in the artifact, at any depth.
+
+    One file can compare two arms from two boxes, so there is not necessarily one host; the
+    exclusion has to see all of them. Pairs are kept per-dict so a nested block's card is
+    matched against its OWN host rather than against a sibling's.
+    """
+    out = [] if _out is None else _out
+    if isinstance(d, dict):
+        h = None
+        for k in HOST_FIELDS:
+            v = d.get(k)
+            if isinstance(v, str) and v.strip():
+                h = v
+                break
+        c = d.get("card", d.get("cards"))
+        if h is not None or c is not None:
+            out.append((h, c))
+        for v in d.values():
+            host_card_pairs(v, out)
+    elif isinstance(d, list):
+        for v in d:
+            host_card_pairs(v, out)
+    return out
 
 
 def is_pc_card0(host, card):
@@ -150,7 +201,12 @@ def offenders(root: pathlib.Path):
             out.append((rel, fields[0], "claims %s and does not say which HOST it ran on; card %r "
                                         "is a different card on pc, qb1 and qb2"
                         % (fields[0], d.get("card", d.get("cards")))))
-        elif is_pc_card0(h, d.get("card", d.get("cards"))):
+        # Exclusion scans every host/card pair in the document, not just the top-level one:
+        # a nested provenance block can carry the banned card as easily as a top-level field,
+        # and before pass 414 that would have passed unseen. Serialising the whole dict and
+        # regexing it does NOT work and the break control says so -- JSON puts `": ` between
+        # `card` and its value, which breaks the adjacency BANNED relies on.
+        elif any(is_pc_card0(_h, _c) for _h, _c in host_card_pairs(d)):
             out.append((rel, fields[0], "was taken on pc card 0, which must not host "
                                         "hash-equality gating at any size for any model"))
     return out
