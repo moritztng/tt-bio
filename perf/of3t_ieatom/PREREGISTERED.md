@@ -71,3 +71,15 @@ ceiling, not a configuration. PF64B's dump is discarded.
    better than bf16 (1.43) with probability 0.75, within 3x bf16 with probability 0.98.
 3. Unread 0, placed-but-empty 0; the global rel moves only by the 93's own term (8.2e-6 of the
    mass), so it reads 0.1348 to four figures.
+
+## After the D264 direction change (pass 426): CM64F and PF64F
+
+No new prediction was written for these two, and none is claimed. CM64F's bar was set by the
+brief (bit-identical to PW64F, tensors and loss). PF64F re-runs arm 3's rule on the fixed base
+(59646c2bb + the two D264 commits + this row) and is held to arm 3's predictions above, unchanged.
+
+Measured: CM64F 3374 of 3374 gradients and the loss bit-identical to PW64F (card 3 against
+card 2). PF64F 3369 of 3369 shared gradients and the loss bit-identical to PW64F, the 5 renamed
+pair-update weights identical, 51 new device leaves all non-zero; unread 0 of 4152,
+placed-but-empty 0; the 93 concatenated 0.798 against bf16 1.432 (arm 3 predicted 0.7, interval
+0.3 to 1.5), 73 of 93 at or better than bf16; global 0.13484 against PW64F's 0.13482.
