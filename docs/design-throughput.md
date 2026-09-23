@@ -37,8 +37,10 @@ size.
 
 **RFdiffusion3: `--batch_size` stops helping at this size, and the runtime knows.** Batching
 pays below about 3000 atoms and is pinned to 1 above it. A 512-residue target with an
-80-residue binder is 4609 atoms, so `--num_designs 4 --batch_size 4` runs four designs one at a
-time and takes four times as long. Use `--devices` instead.
+80-residue binder is 4609 atoms, so `--num_designs 4 --batch_size 4` runs the four designs one
+at a time. Asking for several in one invocation still pays, just for a different reason: the
+checkpoint load is amortised, and per-design cost falls from 172.3 s to 120.5 s. Past that,
+`--devices` is the lever.
 
 **BoltzGen: `--num_designs` is a pipeline-level count**, defaulting to 10000, with `--budget`
 setting how many survive filtering (default 30).
