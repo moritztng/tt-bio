@@ -720,7 +720,7 @@ Model-specific options are labelled below.
 | `--out_dir` | `./` | Output directory |
 | `--cache` | `~/.boltz` | Weight cache directory. Whole-repo models (ESMFold2, ESMC, SaProt, OpenDDE) use the Hugging Face cache; `TT_BIO_CACHE` moves both, see [docs/weights.md](docs/weights.md) |
 | `--accelerator` | `tenstorrent` | **(Boltz-2)** `tenstorrent`, `cpu`, or `gpu`; other models run on Tenstorrent |
-| `--recycling_steps` | model-specific | 3 for Boltz-2 and OpenFold3 (OpenFold3 runs recycles+1 = 4 trunk cycles, its upstream default); 4 for Protenix-v1 (its checkpoint's own `N_cycle`); 10 for Protenix-v2/OpenDDE/ESMFold2/RF3 (the ESMFold2 paper's benchmark setting) |
+| `--recycling_steps` | model-specific | 3 for Boltz-2 and OpenFold3; 4 for Protenix-v1 (its checkpoint's own `N_cycle`); 10 for Protenix-v2/OpenDDE/ESMFold2/RF3 (the ESMFold2 paper's benchmark setting). Boltz-2, ESMFold2 and the OpenFold3 family run one more trunk cycle than asked and accept 0; Protenix, OpenDDE and RF3 count cycles, so their smallest value is 1 |
 | `--sampling_steps` | model-specific | Requested diffusion sampling steps: 200 for Boltz-2/Protenix-v1/Protenix-v2/OpenFold3/OpenDDE; 100 for ESMFold2 (executes 68 after the sigma-schedule clip, the paper's protocol) |
 | `--diffusion_samples` | `1` | Number of structure samples |
 | `--partial_t` | `0` | rf3 only. Schedule index the diffusion rollout starts at, so it refines `--partial_structure` instead of folding from scratch. Higher stays closer to that structure |
