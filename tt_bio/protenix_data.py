@@ -367,6 +367,7 @@ def build_complex_features(chains: list, mol_dir: str | None = None,
     per_chain_msa = []                               # (start_col, n_tok, raw_msa|None, restype_idx, seq, msa_col)
     placement = {}                                    # chain_id -> how a bond endpoint resolves
     tpl_blocks = []                                   # (tok_off, msa_col, aatype, pos, mask)
+    c_bonded = {(str(c), int(r)) for pair in (bonds or []) for c, r, a in pair if a == "C"}
     for ci, (seq, a3m, mt) in enumerate(norm):
         lig_names, res_tok, res_atoms = None, None, {}
         msa_col = None
@@ -378,9 +379,19 @@ def build_complex_features(chains: list, mol_dir: str | None = None,
             block_bonds.append((tok_off, lbonds))
         else:
             mods_ci = modifications[ci] if modifications else None
+            oxt_ci = None if oxt is None else oxt[ci]
+            if mt == "protein" and c_bonded and chain_ids is not None:
+                # A bond on a residue's backbone C consumes its OXT, the CCD leaving group
+                # upstream's remove_leaving_atoms drops. A cyclic peptide's closing amide
+                # left it on, so the ring's carbon carried four heavy neighbours and the
+                # N-C distance could not come below ~2.2 A.
+                taken = {r for c, r in c_bonded if c == str(chain_ids[ci])}
+                if taken:
+                    n_seq = len("".join(str(seq).split()))
+                    oxt_ci = [(bool(oxt_ci[k]) if oxt_ci is not None else k == n_seq - 1)
+                              and k + 1 not in taken for k in range(n_seq)]
             af, rt_idx, res_index, mbonds, res_tok, res_atoms, msa_col = polymer_chain_features(
-                seq, mt, mods_ci, conformers, mols,
-                oxt=None if oxt is None else oxt[ci])
+                seq, mt, mods_ci, conformers, mols, oxt=oxt_ci)
             n = rt_idx.shape[0]
             n_res = len(res_tok)
             if mbonds is not None:                            # modified residues: CCD bonds

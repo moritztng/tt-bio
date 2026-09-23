@@ -51,6 +51,18 @@ def test_the_ring_closure_reaches_protenix_token_bonds(tmp_path):
     assert tb[0, 13] == tb[13, 0] == 1 and tb.sum() == 2
 
 
+def test_the_ring_closure_consumes_the_oxt():
+    from tt_bio.protenix_data import build_complex_features
+
+    def n_atoms(bonds):
+        return build_complex_features([(SFTI, None, "protein")], chain_ids=["A"],
+                                      bonds=bonds)["ref_pos"].shape[0]
+
+    linear = n_atoms(None)
+    assert n_atoms([(("A", 14, "C"), ("A", 1, "N"))]) == linear - 1
+    assert n_atoms([(("A", 3, "SG"), ("A", 11, "SG"))]) == linear
+
+
 def test_rf3_spec_carries_modifications_and_bonds():
     from tt_bio.worker import _rf3_bonds, _rf3_sequence
 
