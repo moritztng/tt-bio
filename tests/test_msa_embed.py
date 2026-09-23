@@ -14,8 +14,9 @@ from tt_bio import tenstorrent as T
 pytestmark = pytest.mark.device
 
 
-@pytest.fixture(scope="module")
+@pytest.fixture
 def dev():
+    # Per test: conftest closes the chip after every test, so a module-scoped handle goes stale.
     return T.get_device()
 
 
