@@ -1,0 +1,17 @@
+# After the 19:17-22:17Z quiet window. Real-bias arm at the long single-batch shapes (the 19:19Z run was scored against the unscaled reference and is dropped), and the pair shape at 2048.
+$HOME/env/bin/python perf/mgx_embed/sdpa_sweep.py --out $S/sweep.jsonl --arms bias --batch 1 --heads 16,40 --dims 32,64,128 --lengths 640,1024,1536,2048 --chunks 64,128,256
+$HOME/env/bin/python perf/mgx_embed/sdpa_sweep.py --out $S/sweep.jsonl --arms none,zero,bias --configs "2048,4,2048,32,256,256;2048,4,2048,32,512,256;2048,4,2048,32,128,128"
+# The trace path the ESMC fix changed, on the fixed tree: capture at an aligned length, replays bit-equal to eager.
+cd ~/wt-mgx-sdpa-mask && $HOME/env/bin/python perf/mgx_sdpa/trace_probe.py --model esmc-300m --lengths 126,510,1534 --out $S/trace.jsonl
+cd ~/wt-mgx-sdpa-mask && $HOME/env/bin/python perf/mgx_sdpa/trace_probe.py --model esmc-6b --lengths 126,1534 --out $S/trace.jsonl
+cd ~/wt-mgx-sdpa-main && $HOME/env/bin/python perf/mgx_sdpa/trace_probe.py --model esmc-300m --lengths 126,510,1534 --out $S/trace.jsonl
+# Mask cost: before-fix main (unmasked), embed-scale's host mask, this branch's device zero mask. Aligned lengths 126/510/1534 are the ones the wrapper masks.
+cd ~/wt-mgx-sdpa-main && $HOME/env/bin/python perf/mgx_embed/timing.py --pdb $HOME/scratch/mgxembed/mtor.pdb --lengths 125,126,510,1534 --calls 20 --out $S/timing2.jsonl --model esmc-300m
+cd ~/wt-mgx-embed-fix && $HOME/env/bin/python perf/mgx_embed/timing.py --pdb $HOME/scratch/mgxembed/mtor.pdb --lengths 125,126,510,1534 --calls 20 --out $S/timing2.jsonl --model esmc-300m
+cd ~/wt-mgx-sdpa-mask && $HOME/env/bin/python perf/mgx_embed/timing.py --pdb $HOME/scratch/mgxembed/mtor.pdb --lengths 125,126,510,1534 --calls 20 --out $S/timing2.jsonl --model esmc-300m
+cd ~/wt-mgx-sdpa-main && $HOME/env/bin/python perf/mgx_embed/timing.py --pdb $HOME/scratch/mgxembed/mtor.pdb --lengths 125,126,510,1534 --calls 20 --out $S/timing2.jsonl --model saprot-35m
+cd ~/wt-mgx-embed-fix && $HOME/env/bin/python perf/mgx_embed/timing.py --pdb $HOME/scratch/mgxembed/mtor.pdb --lengths 125,126,510,1534 --calls 20 --out $S/timing2.jsonl --model saprot-35m
+cd ~/wt-mgx-sdpa-mask && $HOME/env/bin/python perf/mgx_embed/timing.py --pdb $HOME/scratch/mgxembed/mtor.pdb --lengths 125,126,510,1534 --calls 20 --out $S/timing2.jsonl --model saprot-35m
+cd ~/wt-mgx-sdpa-main && $HOME/env/bin/python perf/mgx_embed/timing.py --pdb $HOME/scratch/mgxembed/mtor.pdb --lengths 126,510,1534 --calls 20 --out $S/timing2.jsonl --model esmc-6b
+cd ~/wt-mgx-embed-fix && $HOME/env/bin/python perf/mgx_embed/timing.py --pdb $HOME/scratch/mgxembed/mtor.pdb --lengths 126,510,1534 --calls 20 --out $S/timing2.jsonl --model esmc-6b
+cd ~/wt-mgx-sdpa-mask && $HOME/env/bin/python perf/mgx_embed/timing.py --pdb $HOME/scratch/mgxembed/mtor.pdb --lengths 126,510,1534 --calls 20 --out $S/timing2.jsonl --model esmc-6b
