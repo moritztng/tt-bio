@@ -256,7 +256,8 @@ def test_cyclic_and_bond_reach_every_path_that_honours_them():
         src = inspect.getsource(getattr(_WorkerState, method))
         for needle in needles:
             assert needle in src, f"{method} no longer reads {needle}"
-    assert [m for m in PREDICT_MODELS if CAPABILITY[m]["cyclic"] != HONOURED] == ["rf3"]
+    assert [m for m in PREDICT_MODELS if CAPABILITY[m]["cyclic"] != HONOURED] == [
+        "protenix-v1", "rf3"]
 
 
 def test_modifications_reach_every_featurizer_that_honours_them():

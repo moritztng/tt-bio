@@ -13,7 +13,7 @@ PROTENIX_DATA_ROOT_DIR must point at, and the count is asserted, not eyeballed.
 
     PROTENIX_DATA_ROOT_DIR=/home/moritz/.coworker/protenix-ref-data \\
       ~/protenix05_ref_venv/bin/python scripts/protenix_v1_port/feat_parity.py \\
-        --feats /tmp/pv1/feats_multimer.pt --seqs <A> <B>
+        --feats /tmp/pv1/feats_multimer.pt --seqs <A> <B> [--bonds '<covalent_bonds json>']
 """
 from __future__ import annotations
 
@@ -30,7 +30,7 @@ SRC = os.environ.get("PROTENIX_V050_SRC",
                      "/home/moritz/.coworker/protenix-ref-data/src/protenix-0.5.0")
 
 
-def upstream_features(seqs, name="parity"):
+def upstream_features(seqs, name="parity", bonds=None):
     import torch
     sys.path.insert(0, SRC)
     os.chdir(SRC)
@@ -44,7 +44,7 @@ def upstream_features(seqs, name="parity"):
         + CCD_COMPONENTS_FILE_PATH)
 
     spec = [{"sequences": [{"proteinChain": {"sequence": s, "count": 1}} for s in seqs],
-             "name": name}]
+             "name": name, **({"covalent_bonds": bonds} if bonds else {})}]
     d = tempfile.mkdtemp(prefix="ptxfeat-")
     jp = os.path.join(d, "in.json")
     with open(jp, "w") as f:
@@ -69,6 +69,8 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--feats", required=True)
     ap.add_argument("--seqs", nargs="+", required=True)
+    ap.add_argument("--bonds", type=json.loads, default=None,
+                    help="upstream covalent_bonds as JSON, e.g. a cyclic peptide's closing amide")
     args = ap.parse_args()
 
     import torch
@@ -79,8 +81,8 @@ def main():
     # so a single draw is not a reference for those. Scoring against upstream's own run-to-run
     # spread separates "the port disagrees" from "upstream does not agree with itself", and it
     # does so for whatever feature happens to be stochastic rather than for a hardcoded name.
-    theirs, meta = upstream_features(args.seqs, name="ref0")
-    theirs2, _ = upstream_features(args.seqs, name="ref1")
+    theirs, meta = upstream_features(args.seqs, name="ref0", bonds=args.bonds)
+    theirs2, _ = upstream_features(args.seqs, name="ref1", bonds=args.bonds)
 
     n_ours = int(ours["residue_index"].shape[-1])
     n_theirs = int(theirs["residue_index"].shape[-1])

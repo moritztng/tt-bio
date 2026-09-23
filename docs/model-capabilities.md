@@ -14,7 +14,7 @@ changing the structure. That prints a warning and the fold runs.
 | `boltz2` | yes | yes | yes | yes | yes | yes | yes | yes | yes | yes | yes | yes |
 | `esmfold2` | yes | yes | yes | refused | yes | yes | refused | refused | yes | yes | refused | ignored, warns |
 | `esmfold2-fast` | yes | yes | yes | refused | yes | yes | refused | refused | yes | yes | refused | ignored, warns |
-| `protenix-v1` | yes | yes | yes | yes | yes | yes | refused | refused | yes | yes | refused | ignored, warns |
+| `protenix-v1` | yes | yes | yes | yes | refused | yes | refused | refused | yes | yes | refused | ignored, warns |
 | `protenix-v2` | yes | yes | yes | yes | yes | yes | yes | refused | yes | yes | refused | ignored, warns |
 | `openfold3` | refused | yes | yes | yes | yes | yes | yes | refused | yes | refused | refused | ignored, warns |
 | `openbind` | yes | yes | yes | yes | yes | yes | yes | refused | yes | refused | refused | ignored, warns |
@@ -80,8 +80,8 @@ refused with the accepted set, because a dropped key used to cost a whole chain
   gets it the way its upstream expresses a ring: Boltz-2 and the OpenFold3 family wrap the
   relative position encoding, and Protenix, OpenDDE and ESMFold2, which have no such encoding,
   receive the closing amide bond (C of the last residue to N of the first). On those three, only a
-  protein chain can be cyclic. RF3 refuses it: its cyclic offset brings the ends within 2.4-2.9 A
-  but never forms the bond, in upstream RF3 as here.
+  protein chain can be cyclic. RF3 and `protenix-v1` refuse it: both bring the chain ends
+  within 2.1-2.9 A but never form the bond, upstream as here, so neither returns a closed ring.
 - **modifications** -- a non-canonical residue substituted at a position, by CCD code. Every
   model folds the modified chemistry.
 - **templates** -- a precomputed template alignment per protein chain. There is no template

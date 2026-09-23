@@ -90,8 +90,8 @@ CAPABILITY: dict[str, dict[str, str]] = {
     # Protenix honours covalent bonds (token_bonds is the only constraint signal its trunk
     # reads); pocket/contact need a constraint embedder no Protenix checkpoint ships.
     # `cyclic: true` reaches it as the head-to-tail amide bond (main._read_bio_bonds), the
-    # route upstream documents; it has no relpos wrap.
-    "protenix-v1": _row(templates=REFUSED, pocket=REFUSED, affinity=NOTED),
+    # route upstream documents; it has no relpos wrap. v1's checkpoint does not close it (WHY).
+    "protenix-v1": _row(cyclic=REFUSED, templates=REFUSED, pocket=REFUSED, affinity=NOTED),
     "protenix-v2": _row(pocket=REFUSED, affinity=NOTED),
     # OpenDDE is protein/ligand: nucleic-acid structural tokens are not ported.
     "opendde": _row(rna=REFUSED, dna=REFUSED, pocket=REFUSED, affinity=NOTED),
@@ -156,11 +156,16 @@ WHY: dict[tuple[str, str], str] = {
         "so it cannot read one; a bond to a ligand or a modified residue does reach it")
        for m, fam in (("openfold3", "OpenFold3"), ("openbind", "OpenFold3"), ("rf3", "RF3"))},
     # perf/mgx_constraints: cyclic QLEDSEVEAVAKG, 5 samples each, N1-C13 on TT and in the
-    # upstream torch reference on CPU (rf3_upstream_ring.py).
+    # upstream torch reference on CPU (rf3_upstream_ring.py; Protenix v0.5.0 folding the
+    # same token_bonds its current inference builds, include_discont_poly_poly_bonds).
     ("rf3", "cyclic"): (
         "RF3's cyclic offset brings the chain ends together but does not form the closing "
         "peptide bond: on a cyclic 13-mer the N-C distance stays 2.4-2.9 A, in upstream RF3 "
         "as here, where a closed amide is 1.33 A"),
+    ("protenix-v1", "cyclic"): (
+        "the v0.5.0 checkpoint reads the closing bond but does not form it: on a cyclic "
+        "13-mer the N-C distance stays 2.1-2.2 A, in upstream Protenix as here, where a "
+        "closed amide is 1.33 A; protenix-v2 closes it"),
     ("nesso1", "protein_free"): "it scores a protein-ligand pair",
     **{(m, "protein_free"): "its trunk is conditioned on the ESM protein language model, so a "
        "complex needs at least one protein chain" for m in ("esmfold2", "esmfold2-fast")},
