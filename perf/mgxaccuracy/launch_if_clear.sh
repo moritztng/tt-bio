@@ -59,9 +59,25 @@ if [ "$behind" != "ok" ]; then
     exit 1
 fi
 
+# The plan is read on WHGLX, from a tree the launcher does not update -- it fetches and
+# never checks out, so a plan committed after that tree was created is simply absent there.
+# Caught by launching one: the launcher printed "launched" and the fan died one second later
+# on FileNotFoundError, which looks from here exactly like a successful start.
+if ! ssh -o BatchMode=yes -o ConnectTimeout=30 whglx "test -f $REMOTE_TREE/$PLAN" 2>/dev/null
+then
+    echo "REFUSED: $PLAN does not exist in $REMOTE_TREE on whglx."
+    echo "         The launcher fetches but does not check out, so a plan committed after that"
+    echo "         tree was last updated is missing there. Check the tree out, then re-run."
+    exit 1
+fi
+
 echo "quiet window closed ($GATE absent) -- launching"
 
-ssh -o BatchMode=yes whglx "cd ~/wt-mgx-design-accuracy \
+# The launch must use the SAME tree the guard above checked, or the guard checks one
+# checkout and the job runs from another. MGX_REMOTE_TREE selects it; the default is this
+# row's main checkout, and the catcher passes ~/wt-mgx-catcher, which is a second worktree at
+# the merged head so the two 1536 arms keep the 7cf87b844 tree they started on.
+ssh -o BatchMode=yes whglx "cd $REMOTE_TREE \
   && git fetch -q origin wk/mgx-design-accuracy \
   && export TT_BIO_LEASE_DIR=\$HOME/leases PYTHONPATH=\$PWD LADDER_PY=\$HOME/env/bin/python \
   && setsid nohup \$HOME/env/bin/python -u perf/mgxscale/fan.py \
