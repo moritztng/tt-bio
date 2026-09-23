@@ -16,6 +16,8 @@ specific cards only. Weights download automatically on first use.
 `tt-bio gen run ...` spelling still works as a deprecated alias and forwards every
 flag unchanged.
 
+Throughput, batching and scaling across cards: [design-throughput.md](design-throughput.md).
+
 ## Input format
 
 ```yaml
