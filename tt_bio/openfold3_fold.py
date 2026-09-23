@@ -8,7 +8,7 @@ import ttnn
 
 from . import align
 from . import ranking as rank
-from .tenstorrent import Module, device_dtype_override
+from .tenstorrent import Module, device_dtype_override, dram_peak
 from .openfold3 import InputEmbedderGlue
 from .openfold3_confidence import OF3ConfidenceHead
 from .openfold3_trunk import OF3Trunk
@@ -395,6 +395,7 @@ class OpenFold3(Module):
             token_mask=token_mask, n_atom=n_atom, n_token=n_token, nb=nb, NP=NP,
             n_tok_pad=n_tok_pad)
 
+        dram_peak("of3 diffusion entry")
         noise_schedule = create_noise_schedule(no_rollout_steps, **self.ns_cfg)
         n_steps = len(noise_schedule) - 1
         samples = []

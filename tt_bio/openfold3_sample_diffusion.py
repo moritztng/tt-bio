@@ -39,7 +39,7 @@ import math
 import torch
 import ttnn
 
-from .tenstorrent import _dtype, pad_dim
+from .tenstorrent import _dtype, dram_peak, pad_dim
 from .openfold3_diffusion import OF3DiffusionConditioning
 from .openfold3_diffusion_module import OF3DiffusionModule
 from .openfold3_weights import _sub
@@ -134,6 +134,7 @@ class OF3SampleDiffusion:
         if zij_pad is not zij_dev:
             ttnn.deallocate(zij_dev)
         inv_cache: dict = {}
+        dram_peak("of3 sampler: conditioning pair built")
 
         for tau in range(len(t_list)):
             if progress_fn:

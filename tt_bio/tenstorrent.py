@@ -5511,12 +5511,41 @@ def dram_peak(tag=None):
                     + (f" t=+{time.time() - _DRAM_PEAK_T0:.1f}s n={_DRAM_PEAK_N[tag]}"
                        if trace else "")
                     + "\n")
+            if env_flag("TT_BIO_DRAM_PEAK_TENSORS", False):
+                line += _live_device_tensors()
             try:
                 with open(path, "a") as fp:      # append: the worker is a separate process
                     fp.write(line)
             except OSError:
                 pass                            # a diagnostic must never break a fold
     return max(_DRAM_PEAK.values(), default=0)
+
+
+def _live_device_tensors(min_bytes=32 << 20) -> str:
+    """The Python-held device tensors of at least `min_bytes`, largest first, one per line.
+
+    The allocator reports totals only, so a peak that is gigabytes above the tensors a reader
+    can name is otherwise unattributable. Reached only through TT_BIO_DRAM_PEAK_TENSORS=1: the
+    gc walk costs a second or more per sample. Buffers held by C++ alone are not listed, so
+    the difference between the total and this list is itself the finding."""
+    import gc
+    seen, rows = set(), []
+    for o in gc.get_objects():
+        try:
+            if not isinstance(o, ttnn.Tensor) or o.storage_type() != ttnn.StorageType.DEVICE:
+                continue
+            if not o.is_allocated() or o.buffer_address() in seen:
+                continue
+            seen.add(o.buffer_address())
+            n = int(prod(o.padded_shape) * {"FLOAT32": 4, "UINT32": 4, "INT32": 4,
+                                            "BFLOAT8_B": 1.0625}.get(str(o.dtype).split(".")[-1], 2))
+        except Exception:
+            continue
+        if n >= min_bytes:
+            rows.append((n, tuple(o.shape), str(o.dtype).split(".")[-1]))
+    rows.sort(reverse=True)
+    return "".join(f"    {n / 2**20:9.1f} MiB {shp} {dt}\n" for n, shp, dt in rows) + \
+        f"    listed {sum(r[0] for r in rows) / 2**30:.3f} GiB in {len(rows)} tensors\n"
 
 
 def _dram_total_bytes(device=None) -> int:
