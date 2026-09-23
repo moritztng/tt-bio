@@ -95,10 +95,21 @@ refused with the accepted set, because a dropped key used to cost a whole chain
 - **residue-residue bond** -- a `bond` between two standard polymer residues, such as a
   disulfide. RF3 and the OpenFold3 family refuse it: both were trained with those bonds removed
   from their data, so neither can read one. Boltz-2, Protenix, OpenDDE and ESMFold2 take it.
+  Asking for a disulfide between two free cysteines usually changes nothing, because every
+  model already pairs them: on a 24-residue linker with cysteines 21 apart, all of Boltz-2,
+  Protenix, OpenDDE and ESMFold2 put the two SG atoms within 2 A with the constraint and
+  without it. The constraint earns its keep where the model would not have made the bond
+  itself, which is also the case a wrong guess costs you.
 - **pocket/contact** -- a binding constraint. It needs a constraint embedder in the
   checkpoint, which only Boltz-2 has.
 - **affinity** -- a predicted binding affinity for a named binder chain. Boltz-2 has the
   affinity head; `tt-bio affinity --model nesso1` predicts affinity without folding.
+
+A bond constraint makes the link; it does not give you a bond length to read off. Across the
+models that take one, a covalent C-S bond to a SMILES ligand comes out between 0.8 and 1.9 A
+against an ideal 1.82, and a disulfide between 1.5 and 2.3 A against 2.05. Running the same
+inputs through the upstream models on CPU gives the same spread, so this is the checkpoints'
+geometry rather than anything TT-Bio does to them.
 
 A ligand atom in a `bond` is named the same way on every model: its element and its 1-based
 count among that element's atoms in the SMILES string, hydrogens not counted. In
