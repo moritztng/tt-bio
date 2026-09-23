@@ -176,9 +176,10 @@ class OF3Trunk(Module):
         """Fully-device assembled trunk forward.
 
         s_init, z_init: device bf16 [1,N,384] / [1,N,N,128] (InputEmbedder constants).
-        template_feat: dict of device bf16 per-template feature tensors [N_templ,N,N,c]
-            (host-precomputed mask products, constant across cycles -- see
-            TemplatePairFeatureEmbedder).
+        template_feat: dict of per-template feature tensors [N_templ,N,N,c], host or device
+            bf16 (host-precomputed mask products, constant across cycles -- see
+            TemplatePairFeatureEmbedder). Host features go up one at a time and are freed
+            once projected, so only their 64-channel projection stays on the device.
         msa_feat: [1,N_seq,N,34], host float or device bf16 (post-subsample, constant
             across cycles -- ``m`` is identical every cycle in the reference).
         s_input: device bf16 [1,N,449] (InputEmbedder single input, constant).
