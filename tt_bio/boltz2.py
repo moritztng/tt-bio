@@ -27,6 +27,7 @@ from torch.nn.functional import one_hot, pad
 from tt_bio.data import const
 from pathlib import Path
 from tt_bio.envflags import env_flag, env_int
+from tt_bio.sample_chunks import denoise_in_chunks, resolve_sample_chunk_width
 
 
 class _LazyTenstorrent:
@@ -4141,32 +4142,6 @@ class TemplateV2Module(nn.Module):
         return u
 
 
-def resolve_sample_chunk_width(multiplicity, max_parallel_samples):
-    """The single sample-chunk width the whole trajectory is denoised at.
-
-    Every chunk runs at exactly this width -- a short tail is padded up to it and the
-    padding discarded -- because the device conditioning is cached per sample batch, and
-    not only in the runtime cache: the DiT also keeps the reshaped atom conditioning and
-    the atom layers' output gate as module state. A second width meets those stale caches
-    and dies with a broadcasting TT_FATAL mid-trajectory (measured 2026-07-29 at
-    multiplicity=5, mps=3). One width makes that unreachable, and costs at most
-    ``n_chunks - 1`` extra sample-steps out of ``multiplicity`` -- zero whenever the
-    width divides it.
-
-    ``max_parallel_samples`` is a cap: omit it (None) and the whole multiplicity runs as
-    one chunk. Where the previous ragged split already produced equal widths this returns
-    the same width, so working configurations are bit-identical; only splits that used to
-    crash change shape.
-    """
-    m = max(1, int(multiplicity))
-    width = m if max_parallel_samples is None else min(m, max(1, int(max_parallel_samples)))
-    # Rebalance: given the number of chunks the cap forces, the widest chunk only needs
-    # to be ceil(m / n_chunks). Narrower chunks mean less padding and less peak memory at
-    # identical chunk count, so this is free.
-    n_chunks = -(-m // width)
-    return -(-m // n_chunks)
-
-
 def _write_sample_digest(atom_coords, chunk_width):
     """Append a per-sample SHA of the final diffusion coordinates, one line per sample.
 
@@ -4470,30 +4445,33 @@ class AtomDiffusion(Module):
             atom_coords_noisy = atom_coords + eps
 
             with torch.no_grad():
-                atom_coords_denoised = torch.zeros_like(atom_coords_noisy)
-                # One width for every chunk (resolve_sample_chunk_width): a ragged split
-                # presents a second width to the per-width device caches and dies with a
-                # broadcasting TT_FATAL mid-trajectory.
-                for start in range(0, multiplicity, chunk_width):
-                    r_chunk = atom_coords_noisy[start : start + chunk_width]
+                # One width for every chunk, a short tail padded up to it: the device caches
+                # the conditioning per sample batch, and not only in the runtime cache -- the
+                # DiT keeps the reshaped atom conditioning and the atom layers' output gate as
+                # module state. A second width meets those stale caches and dies with a
+                # broadcasting TT_FATAL mid-trajectory (measured 2026-07-29, multiplicity=5,
+                # mps=3), so a narrower retry drops them first (reset_static_cache).
+                def _denoise_chunk(r_chunk, width):
                     n_real = r_chunk.shape[0]
-                    if n_real < chunk_width:
-                        # Pad the short tail up to the one width. Repeating a real sample
-                        # keeps the padded rows in distribution; they are sliced off below.
+                    if n_real < width:
+                        # Repeating a real sample keeps the padded rows in distribution;
+                        # they are sliced off below.
                         r_chunk = torch.cat(
-                            [r_chunk, r_chunk[-1:].expand(chunk_width - n_real, -1, -1)]
+                            [r_chunk, r_chunk[-1:].expand(width - n_real, -1, -1)]
                         )
-                    atom_coords_denoised_chunk = self.preconditioned_network_forward(
+                    return self.preconditioned_network_forward(
                         r_chunk,
                         t_hat,
                         network_condition_kwargs=dict(
-                            multiplicity=chunk_width,
+                            multiplicity=width,
                             **network_condition_kwargs,
                         ),
-                    )
-                    atom_coords_denoised[start : start + n_real] = (
-                        atom_coords_denoised_chunk[:n_real]
-                    )
+                    )[:n_real]
+
+                atom_coords_denoised, chunk_width = denoise_in_chunks(
+                    atom_coords_noisy, chunk_width, _denoise_chunk,
+                    reset=self.score_model.reset_static_cache if self.use_tenstorrent else None,
+                    tag="boltz2 diffusion")
 
                 if steering_args["fk_steering"] and (
                     (
@@ -4630,6 +4608,12 @@ class AtomDiffusion(Module):
             atom_coords = atom_coords_next
 
         _write_sample_digest(atom_coords, chunk_width)
+        if self.use_tenstorrent:
+            # Nothing reads the staged denoiser conditioning after the last step, and at 1728
+            # tokens its token-transformer bias alone is 2.3 GB that the confidence module
+            # would otherwise have to allocate around. Protenix frees its sampler state the
+            # same way before confidence; the next fold restages it either way.
+            self.score_model.reset_static_cache()
         return dict(sample_atom_coords=atom_coords, diff_token_repr=token_repr)
 
     def loss_weight(self, sigma):
