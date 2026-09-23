@@ -26,6 +26,7 @@ So one forward is:
 
   trunk (taped)
     -> rollout (no_grad, the shipped sampler, unchanged)
+    -> one-step denoise of the noised ground truth (taped; what trains the diffusion module)
     -> confidence heads on the rolled-out structure (taped)
 
 and ``OF3ConfidenceHead.forward_device`` -- which its own docstring calls "the training entry
@@ -35,8 +36,8 @@ What a batch can actually score
 -------------------------------
 
 ``objectives.af3_loss`` keys eight terms off seven outputs and SKIPS a term whose inputs are
-absent, recording it as skipped. Two are skipped here and both are properties of the contract
-rather than of this model:
+absent or whose weight is zero, recording it as skipped. Two are skipped here and neither is a
+property of this model:
 
 ``plddt``   ``_TERMS["plddt"]`` reads ``per_atom_lddt`` and ``per_atom_weight`` from the BATCH,
             and both are functions of the PREDICTION -- upstream builds them inside the loss
@@ -44,10 +45,9 @@ rather than of this model:
             featuriser cannot emit them. The objective's contract assumes every label is
             batch-side and pLDDT's is not.
 
-``mse`` /   these read ``pred_xyz`` and ``pred_dist``, which come from the one-step denoise arm
-``bond`` /  (upstream's diffusion training objective) rather than from the rollout. That arm is
-``smooth_lddt``  not wired here yet; ``forward(..., denoise=True)`` is where it lands, and until
-            it does those three terms are reported skipped rather than silently zero.
+``bond``    reads ``pred_dist`` from the one-step denoise arm like ``mse`` and
+            ``smooth_lddt``, which fire, but its weight is 0 in upstream's
+            ``initial_training`` stage, so the objective skips it there by weight.
 
 Both are visible in the objective's own breakdown, which is the designed behaviour: a zero for
 a missing term moves the weighted sum and is how a run reports a healthy loss while training on
@@ -65,12 +65,13 @@ import torch
 
 from . import catalogue, losses
 
-__all__ = ["adapter", "OpenFold3Dataset", "OpenFold3Forward", "MODEL"]
+__all__ = ["adapter", "OpenFold3Dataset", "OpenFold3Forward", "MODEL", "denoise_draw"]
 
 MODEL = "openfold3"
 
 #: The objective's output names this forward produces today, in the order it produces them.
-OUTPUTS = ("distogram_logits", "plddt_logits", "pde_logits", "pae_logits", "resolved_logits")
+OUTPUTS = ("pred_xyz", "pred_dist", "distogram_logits", "plddt_logits", "pde_logits",
+           "pae_logits", "resolved_logits")
 
 #: Labels the af3 objective reads out of the batch, and what each one is for.
 LABELS = ("true_xyz", "coord_mask", "true_dist", "lddt_pair_mask", "bond_mask",
@@ -240,24 +241,11 @@ class OpenFold3Forward:
         self.repr_coords_in = None
         self.rollout_ran = None
         #: Run upstream's one-step denoise arm -- what puts a gradient on the diffusion
-        #: module and what `mse`, `smooth_lddt` and `bond` are seeded off.
-        #:
-        #: **OFF by default, because its backward overflows.** It runs end to end and the
-        #: forward is sane (loss 9.310687, every term value in range), but three of the 3400
-        #: parameter gradients come back non-finite, and they are the same three every time:
-        #: `sampler.dc.w_lin_z`, `sampler.dc.w_lin_s`, `sampler.dc.w_lin_n` -- the diffusion
-        #: conditioning's input projections, whose dW reduces over the whole token-pair axis
-        #: (147,456 terms at padded width 384). The remaining 3,397 are finite but the trunk
-        #: reaches max|g| 1.7e+05 in the MSA module.
-        #:
-        #: The seeds are NOT the cause and that is measured, not assumed: the largest is
-        #: `pred_xyz` at |g| 11.5669, and `losses.mse` already applies upstream's own
-        #: stop-gradient Kabsch, so a misaligned prediction cannot inflate it (checked --
-        #: the seed norm is identical for a structure rotated 1.1 rad and translated 12 A).
-        #: The amplification is inside the diffusion backward. Turning this on trains a
-        #: gradient with infinities in it, which is wrong rather than imprecise, so it is a
-        #: flag rather than a default until that is root-caused.
-        self.denoise = False
+        #: module and what `mse`, `smooth_lddt` and `bond` are seeded off. On by default.
+        #: It was off while three `sampler.dc.w_lin_*` gradients came back non-finite; that
+        #: was `ttnn.matmul(transpose_a=True)` on an fp32 activation and a bf16 cotangent
+        #: (D257, `autograd._matmul`), not the diffusion backward.
+        self.denoise = True
         self.denoise_sigma = None
 
     @property
@@ -293,6 +281,11 @@ class OpenFold3Forward:
             # registration, and train as constants.
             from ..tenstorrent import train_in_projections
             train_in_projections(self._model)
+            # The diffusion atom transformers upload their weights lazily inside the forward
+            # too (D256); materialise them for the same reason.
+            dm = self._model.sampler.dm
+            for at in (dm.enc_at, dm.dec.at):
+                at.materialize_device_weights()
         return self._model
 
     def parameters(self) -> dict:
@@ -312,6 +305,24 @@ class OpenFold3Forward:
                 ag.parameter(t)
             self._registered = True
         return walked
+
+    def check_registered(self) -> None:
+        """Raise if the model holds a device tensor that is not a registered leaf.
+
+        Run after every taped forward. A weight uploaded lazily inside a forward appears after
+        the registering walk and trains as a constant with nothing to say so: the trimul
+        in-projections (D254) and the diffusion atom transformers (D256) both did. This is the
+        catcher for the next one, whatever module it is in.
+        """
+        from .. import autograd as ag
+        from ..tenstorrent import walk_device_weights
+        late = [p for p, _o, _k, t in walk_device_weights(self.model)
+                if ag.parameter_for(t) is None]
+        if late:
+            raise RuntimeError(
+                f"{len(late)} device tensors appeared after parameter registration and would "
+                f"train as constants, e.g. {late[:4]}. Materialise them before the walk "
+                f"(OpenFold3Forward.model).")
 
     def __call__(self, batch) -> dict:
         from .. import autograd as ag
@@ -438,13 +449,11 @@ class OpenFold3Forward:
         pred = {}
         if self.denoise:
             s = m.sampler
-            rng = np.random.default_rng(self.seed)
-            sigma = float(losses.sample_noise_level(rng))
+            sigma, eps = denoise_draw(self.seed, n_atom)
             amask = aux["atom_mask"].float()
             xl_true = (f["ground_truth"]["atom_positions"].float()
                        * amask[:, None])
-            xl_noisy = xl_true + sigma * torch.from_numpy(
-                rng.standard_normal((n_atom, 3))).float()
+            xl_noisy = xl_true + sigma * torch.from_numpy(eps).float()
             xl_noisy = xl_noisy * amask[:, None]
             rl_noisy = xl_noisy / math.sqrt(sigma * sigma + m.sigma_data ** 2)
             n_emb = fourier_noise_emb(sigma, m.sigma_data, s.fourier_w, s.fourier_b)
@@ -500,13 +509,23 @@ class OpenFold3Forward:
                 use_zij_trunk_embedding=True,
                 pair_mask_d=pair_mask_pf, attn_mask_d=attn_mask_d)
 
-
+        self.check_registered()
         return {**pred,
                 "distogram_logits": out["distogram_logits"],
                 "plddt_logits": out["plddt_logits"],
                 "pde_logits": out["pde_logits"],
                 "pae_logits": out["pae_logits"],
                 "resolved_logits": out["experimentally_resolved_logits"]}
+
+
+def denoise_draw(seed: int, n_atom: int):
+    """The denoise arm's noise level and per-atom noise, a function of the seed alone.
+
+    One function so that a reference run can draw exactly what the forward drew.
+    """
+    rng = np.random.default_rng(seed)
+    sigma = float(losses.sample_noise_level(rng))
+    return sigma, rng.standard_normal((n_atom, 3))
 
 
 def _v(t):

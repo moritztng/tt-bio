@@ -81,6 +81,23 @@ class OF3AtomTransformer(Module):
             AdaLN(False, remap_of3_adaln(_sub(self._w, f"blocks.{b}.conditioned_transition.layer_norm.")),
                   compute_kernel_config) for b in range(3)]
 
+    #: Key fragments of the three AdaLNs per block, which upload their own weights.
+    _ADALN = (".layer_norm_a_q.", ".layer_norm_a_k.", ".conditioned_transition.layer_norm.")
+
+    def materialize_device_weights(self) -> int:
+        """Upload now every weight `__call__` uploads lazily through `_w_tt`; the count.
+
+        For training only. A weight minted inside the first forward comes after the walk
+        that registers parameters, so it trains as a constant (D256). Inference keeps the
+        lazy upload. Everything in a block that the AdaLNs do not own is a `_lin` operand,
+        matrices transposed and biases not: 14 tensors per block.
+        """
+        n = len(self._wc)
+        for key, w in self._w.items():
+            if key.startswith("blocks.") and not any(a in key for a in self._ADALN):
+                self._w_tt(key, w.dim() == 2)
+        return len(self._wc) - n
+
     def _w_tt(self, key, transpose=True):
         v = self._wc.get((key, transpose))
         if v is None:
