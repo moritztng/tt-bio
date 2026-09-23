@@ -488,8 +488,21 @@ class TransitionLayer(Module):
             rows=_TRANSITION_FALLBACK_ROWS, tag="transition")
 
     def _tiled(self, x: ttnn.Tensor, chunk: int) -> ttnn.Tensor:
-        parts = ttnn.chunk(x, -(-x.shape[1] // chunk), dim=1)
-        return ttnn.concat([self._body(p) for p in parts], dim=1)
+        # Sliced one block at a time and assembled by `_acc_concat`, as the shared Transition
+        # does: `ttnn.chunk` copied every block up front, a whole second x, and the device concat
+        # then wanted the whole output beside every part. That concat was esmfold2-fast's next
+        # refusal at 1248 once the pair conditioning fitted. Same blocks, same order.
+        from tt_bio import tenstorrent
+        L = int(x.shape[1])
+        host = tenstorrent._host_concat(x)
+        parts = []
+        for s in range(0, L, chunk):
+            e = min(s + chunk, L)
+            p = x[:, s:e]
+            tenstorrent._acc_append(parts, self._body(p), host)
+            if (s, e) != (0, L):          # a whole-range slice may alias x itself
+                ttnn.deallocate(p)
+        return tenstorrent._acc_concat(parts, 1, host)
 
 
 class DiffusionConditioningModel(Module):
