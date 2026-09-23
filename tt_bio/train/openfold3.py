@@ -367,7 +367,7 @@ class OpenFold3Forward:
             s_trunk, z_trunk = m.trunk(
                 s_init, z_init, {k: ag.Tensor(ft(v)) for k, v in template_feat.items()},
                 ag.Tensor(ft(msa_feat.unsqueeze(0))), s_input_d,
-                template_slots=template_slots)
+                template_slots=template_slots, pair_mask=pair_mask_pf, attn_mask=attn_mask_d)
 
         # ---- the structure the confidence heads score. Raw, no tape open.
         #
