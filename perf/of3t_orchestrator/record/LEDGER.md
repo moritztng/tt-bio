@@ -1241,3 +1241,32 @@ designs because the next person to want this guard should not re-derive all thre
 D30 and D129 are campaign-internal so closing them moves no user-facing number, and **D58 — the
 user-facing one — stays open**, because the row that narrowed it said one leg was unmeasured
 rather than rounding to a close. `reclassifying-out-of-user-facing-is-the-flattering-direction`.
+
+### R190. `of3t-modelever`'s baseline is BIT-IDENTICAL to the clause's own artifact, so its reading will be carryable where `of3t-angle`'s was not (pass 414, zero card)
+
+Two controls landed before the lever arm, and together they remove the ambiguity that has cost
+this campaign more than any arithmetic error.
+
+    AA_SHIPA_vs_SHIPB    2736/2736 bit-identical, rel 0.0, cos 1.0   -- the in-session floor
+    AA_SHIPA_vs_BANKED   2736/2736 bit-identical, rel 0.0, cos 1.0   -- vs of3t-recut's
+                                                                        dev_RENORM_model_n384_external.pt
+
+**The model-frame A/A floor is exactly 0**, the second frame in two days to achieve that, so any
+separation the lever produces is real rather than noise. **And the row's shipped arm is the
+clause's arm, bit for bit** — `dev_RENORM_model_n384_external.pt` is the artifact the repointed
+GRADIENTS clause was scored on at 1.4511706984958472x.
+
+**Why that matters more than it looks.** `of3t-angle` measured a genuine 50.003 % angle closure
+and could not carry it onto the clause, correctly, because its baseline was a different arm on a
+different boundary and A37/D218 bar the quotient. **`of3t-modelever` will not have that problem**,
+and not by argument — by a bit-exactness check against the reference's own artifact. A reading
+against a baseline that is bit-identical to the clause's baseline is a reading about the clause.
+
+**The generalisable instruction this yields for any row meant to move a published number**:
+bank an A/A against the published artifact ITSELF before taking the arm, and publish the digest
+comparison. It converts "is this comparable?" from an argument at the end into a fact at the
+start, and it is CPU-only. `a-go-clause-must-be-tested-against-the-references-own-artifact` is
+the entry; this is what satisfying it looks like in practice, and it cost the row one
+compare-two-banked-artifacts run with no device involved.
+
+Not yet a result: the lever arm is still running and nothing about the clause has moved.
