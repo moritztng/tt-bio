@@ -391,7 +391,7 @@ CEILINGS: dict[str, dict[str, Ceiling]] = {
     },
     "openbind": {
         "wormhole_b0": Ceiling(
-            residues=1536, pass_at=1536, fail_at=None, binds=LADDER_TOP, mechanism=NO_FAILURE,
+            residues=1536, pass_at=1536, fail_at=1664, binds=MEMORY, mechanism=FRAGMENTATION,
             msa_rows=14190, ladder_ligand_atoms=0,
             evidence="1536 residues fold apo at 14190 alignment rows on the j10glx02 Galaxy, "
                      "2026-09-23 (ws:mgx-bigalloc, perf/whceil/ladder.py, chip 17, tt-bio 296f5fcea): "
@@ -408,7 +408,12 @@ CEILINGS: dict[str, dict[str, Ceiling]] = {
                      "refused at submission. The previous cap, 960 residues walked with CCD STU "
                      "(35 atoms) on GWH02 at e9cb5b70 (ws:ceiling-1024-integration-and-gate), "
                      "folded 768/896/960 with intact backbones and stays valid below. "
-                     "Nothing above 1536 was walked, hence LADDER_TOP",
+                     "Re-walked on origin/main cec7979b1 (ws:mgx-ceilings, perf/mgxceil, card 20, "
+                     "2026-09-23, guard off, --host_threads 2): 1536 x 14190 PASS in 2250.8 s, "
+                     "1664 x 14190 fails after 2561.9 s on the same diffusion-transformer "
+                     "request as openfold3, 177209344 B, 14770176 B per bank, with 58366432 B "
+                     "free on a 94.6 percent full chip and a largest block 512 B too small: "
+                     "fragmentation. AICLK median 1000 MHz during both",
         ),
     },
     "rf3": {

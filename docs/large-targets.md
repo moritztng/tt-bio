@@ -130,6 +130,6 @@ of every model that clears 1536 is a single pair-sized allocation on a chip that
   memory free but no block large enough.
 
 `openfold3` and `openbind` fold 1536 residues at 14190 alignment rows now that the MSA
-representation streams through the chip a depth chunk at a time. `openfold3` fails at 1664 in the
+representation streams through the chip a depth chunk at a time. Both fail at 1664 in the
 diffusion transformer, with 58 MB free but no block large enough for one 177 MB tensor. The measured rows, with commits, wall times and allocation sizes, are in
 `tt_bio/size_limits.py`.
