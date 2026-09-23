@@ -1168,7 +1168,10 @@ def _msa_transition_residual(m, ffn):
         upd = ffn(part)
         out.append(ttnn.add(part, upd))
         ttnn.deallocate(upd)
-    return ttnn.concat(out, dim=1)
+    # The concat needs the whole result while `m` and every block are live. With a real MSA
+    # (2ad6, 1280 tokens x 8192 rows) DRAM refused it: 106.7 MiB/bank against a 74.7 MiB
+    # largest block. `m` is the MPWA output and nothing else holds it, so it is consumed.
+    return tenstorrent._acc_concat(out, 1, False, consume=m)
 
 
 #: L -> outer-product row block, once DRAM has refused the single pass at that L. Keyed on L
@@ -1300,7 +1303,8 @@ class MSAPairWeightedAveraging(Module):
         for s, e in blocks:
             out_tt = ttnn.from_torch(rows(out, s, e), layout=ttnn.TILE_LAYOUT, device=self.device, dtype=_DTYPE)
             upd.append(ttnn.add(rows(m, s, e), lin(out_tt, self.Wout)))
-        return upd[0] if len(upd) == 1 else ttnn.concat(upd, dim=1)
+        from tt_bio import tenstorrent
+        return tenstorrent._acc_concat(upd, 1, False)
 
 
 class MSAEncoderBlock(Module):
