@@ -38,7 +38,7 @@ BASE = re.search(r"sequence: (\S+)", (ROOT / "perf/nesso1/inputs/ladder/aa1536/c
 SMALL = re.search(r"smiles: '([^']+)'", (ROOT / "perf/nesso1/inputs/ladder/aa1536/cdk2_1536.yaml")
                   .read_text()).group(1)
 LIGANDS = {"small": ("smiles", SMALL), "rap": ("ccd", "RAP"), "b12": ("ccd", "B12")}
-SIZES = {"small": (512, 1024, 1536, 1664, 1792, 2048, 2560, 3072), "rap": (512, 1536, 2048, 2560, 3072),
+SIZES = {"small": (512, 1024, 1536, 1664, 1792, 2048, 2560, 3072, 3584, 4096), "rap": (512, 1536, 2048, 2560, 3072),
          "b12": (512, 1536, 2048, 2560, 3072)}
 BAD_SMILES = "C1CC(N"  # unclosed ring and branch: RDKit returns None
 TARGETS = ("YSK4", "LCK")
