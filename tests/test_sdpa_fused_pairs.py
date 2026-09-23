@@ -38,8 +38,11 @@ def test_the_above_cap_route_is_strictly_above_the_cap():
     import inspect
 
     from tt_bio import tenstorrent as T
-    src = inspect.getsource(T._tri_att_sdpa_at)
+    src = inspect.getsource(T._tri_att_fused_large_s)
     assert "q_len > _triatt_sdpa._Q_SPLIT_MAX_S" in src
+    # Both entry points take the one route: the stock ladder and the HiFi one OpenFold3 ships.
+    assert "_tri_att_fused_large_s(" in inspect.getsource(T._tri_att_sdpa_at)
+    assert "_tri_att_fused_large_s(" in inspect.getsource(T._tri_att_sdpa_hifi_inner)
     # On since the shipped-config fold A/B priced it: 1.1856x on a 200-step 1536 aa fold, 15.3x
     # its own A/A floor. What keeps the flip safe is the line above, not this one -- at and below
     # the cap the route is unreachable, so every length that folds today is byte-identical.
