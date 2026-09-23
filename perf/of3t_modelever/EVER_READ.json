@@ -3,7 +3,14 @@
  "row": "of3t-modelever",
  "host": "tt-quietbox2",
  "device_involved": false,
- "why_no_aiclk": "CPU only; reads banked arms. Each device arm's AICLK is in its own DEV_*.json",
+ "why_no_aiclk": "the READ is CPU only. Every number in it is about device arms, whose host, board, card and DURING AICLK are under AA_FLOOR_AND_SEPARATION.arms_origin_D155 and `clocks`",
+ "arms_host": [
+  [
+   "tt-quietbox2",
+   "p300c",
+   1
+  ]
+ ],
  "A42": {
   "model_frame_cot_external_sha256": "1d15a8dc6db2a14b678e5ed5d92558af99d369599226391fa59f36ed84192ef4",
   "cited_by_each_device_arm": {
@@ -42,6 +49,129 @@
    "all_bit_identical": false,
    "concatenated_rel_a_vs_b": 0.9130489914741462,
    "cos": 0.5870878155213608
+  },
+  "arms_origin_D155": {
+   "AA_SHIPA_vs_BANKED": {
+    "a": {
+     "pt": "/home/ttuser/of3t_modelever/dev_SHIP_A.pt",
+     "sha256": "e5394282b235dff894c4833e8b980f12caf775e9c9566300db1252e67f25e2db",
+     "report": "perf/of3t_modelever/DEV_SHIP_A.json",
+     "sha256_matches_report": true,
+     "host": "tt-quietbox2",
+     "board": "p300c",
+     "card": 1,
+     "aiclk_mhz_sampled_DURING": {
+      "n": 40,
+      "min": 800,
+      "median": 1350,
+      "max": 1350
+     },
+     "host_quiet": [
+      "HOST NOT QUIET -- your timing read is contaminated even with an idle sibling and a forced clock. Wait it out or DEFER. Do not measure and explain it afterwards."
+     ]
+    },
+    "b": {
+     "pt": "/home/ttuser/of3t_recut/dev_RENORM_model_n384_external.pt",
+     "sha256": "c0a1b121cf32beae6d9ef285522eb4e245d2fa429a5eafb01573d5af9a4e0461",
+     "report": "perf/of3t_recut/DEV_RENORM_MODEL_N384_EXTERNAL.json",
+     "sha256_matches_report": true,
+     "host": "tt-quietbox2",
+     "board": "p300c",
+     "card": 1,
+     "aiclk_mhz_sampled_DURING": {
+      "n": 93,
+      "min": 800,
+      "median": 1350,
+      "max": 1350
+     },
+     "host_quiet": [
+      "host quiet -- timing read admissible"
+     ]
+    }
+   },
+   "AA_SHIPA_vs_SHIPB": {
+    "a": {
+     "pt": "/home/ttuser/of3t_modelever/dev_SHIP_A.pt",
+     "sha256": "e5394282b235dff894c4833e8b980f12caf775e9c9566300db1252e67f25e2db",
+     "report": "perf/of3t_modelever/DEV_SHIP_A.json",
+     "sha256_matches_report": true,
+     "host": "tt-quietbox2",
+     "board": "p300c",
+     "card": 1,
+     "aiclk_mhz_sampled_DURING": {
+      "n": 40,
+      "min": 800,
+      "median": 1350,
+      "max": 1350
+     },
+     "host_quiet": [
+      "HOST NOT QUIET -- your timing read is contaminated even with an idle sibling and a forced clock. Wait it out or DEFER. Do not measure and explain it afterwards."
+     ]
+    },
+    "b": {
+     "pt": "/home/ttuser/of3t_modelever/dev_SHIP_B.pt",
+     "sha256": "aaaf5648076487bf530e9b9ddf012400fb4d1068542e348bca43755d25f7c0c3",
+     "report": "perf/of3t_modelever/DEV_SHIP_B.json",
+     "sha256_matches_report": true,
+     "host": "tt-quietbox2",
+     "board": "p300c",
+     "card": 1,
+     "aiclk_mhz_sampled_DURING": {
+      "n": 41,
+      "min": 800,
+      "median": 1350,
+      "max": 1350
+     },
+     "host_quiet": [
+      "HOST NOT QUIET -- your timing read is contaminated even with an idle sibling and a forced clock. Wait it out or DEFER. Do not measure and explain it afterwards."
+     ]
+    }
+   },
+   "SEP_EXACT_vs_SHIPA": {
+    "a": {
+     "pt": "/home/ttuser/of3t_modelever/dev_EXACT.pt",
+     "sha256": "14020557c546e0d949bd573ce74169f379ac643cf8cfdeb5e2e50985536fcd29",
+     "report": "perf/of3t_modelever/DEV_EXACT.json",
+     "sha256_matches_report": true,
+     "host": "tt-quietbox2",
+     "board": "p300c",
+     "card": 1,
+     "aiclk_mhz_sampled_DURING": {
+      "n": 276,
+      "min": 800,
+      "median": 1350,
+      "max": 1350
+     },
+     "host_quiet": [
+      "HOST NOT QUIET -- your timing read is contaminated even with an idle sibling and a forced clock. Wait it out or DEFER. Do not measure and explain it afterwards."
+     ]
+    },
+    "b": {
+     "pt": "/home/ttuser/of3t_modelever/dev_SHIP_A.pt",
+     "sha256": "e5394282b235dff894c4833e8b980f12caf775e9c9566300db1252e67f25e2db",
+     "report": "perf/of3t_modelever/DEV_SHIP_A.json",
+     "sha256_matches_report": true,
+     "host": "tt-quietbox2",
+     "board": "p300c",
+     "card": 1,
+     "aiclk_mhz_sampled_DURING": {
+      "n": 40,
+      "min": 800,
+      "median": 1350,
+      "max": 1350
+     },
+     "host_quiet": [
+      "HOST NOT QUIET -- your timing read is contaminated even with an idle sibling and a forced clock. Wait it out or DEFER. Do not measure and explain it afterwards."
+     ]
+    }
+   }
+  },
+  "CARRYABLE_ONTO_THE_CLAUSE": {
+   "holds": true,
+   "ship_a_sha256": "e5394282b235dff894c4833e8b980f12caf775e9c9566300db1252e67f25e2db",
+   "clause_arm_sha256": "c0a1b121cf32beae6d9ef285522eb4e245d2fa429a5eafb01573d5af9a4e0461",
+   "clause_arm": "/home/ttuser/of3t_recut/dev_RENORM_model_n384_external.pt",
+   "why": "SHIP_A is bit-identical, 2736/2736, to of3t-recut's external arm, the artifact the repointed clause was scored on. So the SHIP side of this lever pair IS the clause's arm by digest, and the EXACT reading is a lever on the clause's own arm, not on a comparable frame."
   },
   "floor": 0.0,
   "separation": 0.9130489914741462,

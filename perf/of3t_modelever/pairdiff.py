@@ -10,8 +10,13 @@ the same statistic over the same tensor set. Says nothing about accuracy. CPU on
 """
 from __future__ import annotations
 
+import glob
+import hashlib
 import json
 import math
+import os
+import socket
+import subprocess
 import sys
 
 import torch
@@ -22,6 +27,36 @@ def _grads(d):
         if isinstance(d, dict) and k in d and isinstance(d[k], dict):
             return d[k]
     return d if isinstance(d, dict) else {}
+
+
+# Every device arm this can be asked about, with the provenance its runner wrote.
+ARM_REPORTS = ("perf/of3t_modelever/DEV_*.json", "perf/of3t_recut/DEV_RENORM_MODEL_N384_*.json")
+
+
+def sha(path):
+    h = hashlib.sha256()
+    with open(path, "rb") as f:
+        for x in iter(lambda: f.read(1 << 22), b""):
+            h.update(x)
+    return h.hexdigest()
+
+
+def arm_origin(pt):
+    """Host, board and card of the arm that PRODUCED `pt` (D155), read from its runner's
+    provenance and tied to it by the digest, not the path. A bit-identity claim is a claim about
+    device output, so the host of the comparison is not the host of the claim."""
+    digest = sha(pt)
+    for rep in sorted(f for g in ARM_REPORTS for f in glob.glob(g)):
+        pv = json.load(open(rep)).get("provenance", {})
+        if (pv.get("out") or {}).get("path") == os.path.abspath(pt):
+            return {"pt": pt, "sha256": digest, "report": rep,
+                    "sha256_matches_report": pv["out"]["sha256"] == digest,
+                    "host": pv.get("host"), "board": pv.get("board_class"), "card": pv.get("card"),
+                    "aiclk_mhz_sampled_DURING": pv.get("aiclk_mhz_sampled_DURING")
+                                                or pv.get("aiclk_mhz_during_the_run"),
+                    "host_quiet": (pv.get("host_quiet") or "").splitlines()[-1:] or None}
+    raise SystemExit(f"STOP: no arm report records producing {pt}; an unstamped bit-identity "
+                     f"claim is what D155/D249 refuse")
 
 
 def main() -> int:
@@ -45,7 +80,15 @@ def main() -> int:
            "bit_identical": bit, "differing": len(common) - bit,
            "all_bit_identical": bit == len(common) and set(a) == set(b),
            "concatenated_rel_a_vs_b": rel, "norm_ratio_a_over_b": r, "cos": cos,
-           "device_involved": False, "why_no_aiclk": "CPU only, compares two banked artifacts"}
+           "arms": {"a": arm_origin(pa), "b": arm_origin(pb)},
+           "device_involved": False,
+           "why_no_aiclk": "the COMPARISON is CPU only. The arms it compares ran on a card, and "
+                           "their host, board, card and DURING-sampled AICLK are under `arms`",
+           "comparison_environment": {
+               "host": socket.gethostname(), "board": None, "card": None,
+               "git_commit": subprocess.run(["git", "rev-parse", "HEAD"], capture_output=True,
+                                            text=True).stdout.strip() or None}}
+    assert all(v["sha256_matches_report"] for v in rep["arms"].values()), rep["arms"]
     print("PAIRDIFF " + json.dumps(rep))
     if out:
         json.dump(rep, open(out, "w"), indent=1)

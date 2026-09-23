@@ -68,6 +68,18 @@ def main() -> int:
     sep = pd["SEP_EXACT_vs_SHIPA"]["concatenated_rel_a_vs_b"]
     aa = {k: {f: v[f] for f in ("compared", "bit_identical", "differing", "all_bit_identical",
                                 "concatenated_rel_a_vs_b", "cos")} for k, v in pd.items()}
+    aa["arms_origin_D155"] = {k: v["arms"] for k, v in pd.items()}
+    b = pd["AA_SHIPA_vs_BANKED"]
+    aa["CARRYABLE_ONTO_THE_CLAUSE"] = {
+        "holds": b["all_bit_identical"],
+        "ship_a_sha256": b["arms"]["a"]["sha256"],
+        "clause_arm_sha256": b["arms"]["b"]["sha256"],
+        "clause_arm": b["arms"]["b"]["pt"],
+        "why": "SHIP_A is bit-identical, 2736/2736, to of3t-recut's external arm, the artifact "
+               "the repointed clause was scored on. So the SHIP side of this lever pair IS the "
+               "clause's arm by digest, and the EXACT reading is a lever on the clause's own "
+               "arm, not on a comparable frame.",
+    }
     aa["floor"] = floor
     aa["separation"] = sep
     aa["separation_over_floor"] = (sep / floor) if floor else "floor is exactly 0: any nonzero separation is the lever"
@@ -130,8 +142,11 @@ def main() -> int:
 
     out = {
         "what": __doc__.strip().splitlines()[0], "row": "of3t-modelever", "host": socket.gethostname(),
-        "device_involved": False, "why_no_aiclk": "CPU only; reads banked arms. Each device arm's "
-                                                   "AICLK is in its own DEV_*.json",
+        "device_involved": False, "why_no_aiclk": "the READ is CPU only. Every number in it is "
+            "about device arms, whose host, board, card and DURING AICLK are under "
+            "AA_FLOOR_AND_SEPARATION.arms_origin_D155 and `clocks`",
+        "arms_host": sorted({(v["host"], v["board"], v["card"]) for x in pd.values()
+                             for v in x["arms"].values()}),
         "A42": a42, "AA_FLOOR_AND_SEPARATION": aa, "CLAUSE": clause,
         "SPLIT": sp, "MOVE": move,
         "A43": {"definition": "concatenated: the three aggregates are norms of one vector pair "
