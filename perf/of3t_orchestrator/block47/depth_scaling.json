@@ -1,0 +1,31 @@
+{
+ "WITHDRAWN": "Pass 120: these arrays are indexed by DIFFUSION STRUCTURE, not by pairformer block, and accumulation_probe is the norm of an accumulating gradient, not an error. Kept only as the record of a withdrawn fit. Do not cite. See ../diffusion/dit_depth_and_amplification.json.",
+ "source": "device_gradient_043all.json (48 pairformer blocks, NP=448, atoms=422)",
+ "note": "orchestrator, pass 118: does the trunk AMPLIFY error with depth, or accumulate it?",
+ "accumulation_probe": {
+  "first": 0.00012509712481726117,
+  "last": 0.003337803190317644,
+  "ratio": 26.68169388539845,
+  "loglog_exponent": 0.7648957445377285,
+  "loglog_r2": 0.9742646521921006,
+  "spearman_vs_depth": 0.9983716891011724,
+  "inversions": 7
+ },
+ "forward_rel": {
+  "min": 0.002049308809439459,
+  "median": 0.008342159502253272,
+  "max": 0.015670259561894134,
+  "loglog_exponent": -0.07074830093802742,
+  "loglog_r2": 0.019496186239700508,
+  "spearman_vs_depth": -0.16554494138080764,
+  "block0": 0.011041354303912976,
+  "block23": 0.0036906517680513552,
+  "block47": 0.013162014324829992
+ },
+ "reference_growth_over_48_blocks": {
+  "incoherent_k^0.5": 6.928203230275509,
+  "coherent_k^1.0": 48.0,
+  "observed": 26.68169388539845
+ },
+ "verdict": "WITHDRAWN -- wrong axis and wrong quantity. See the WITHDRAWN field."
+}
