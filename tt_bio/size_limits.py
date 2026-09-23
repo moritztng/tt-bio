@@ -91,9 +91,9 @@ carried, which is what turns its residue numbers into token numbers without inve
 by ``token_axis``'s own bucket so the guard and the model cannot drift apart.
 
 It is an EXTRA refusal and never a relaxation. An input with no ligand is compared on residues
-exactly as it always was, which matters more than it looks: openbind's 960 was walked WITH a
-35-atom ligand, so its token wall is the 1024 that 995 pads to, and letting that wall speak for a
-ligand-free input would quietly raise a published ceiling nobody re-walked.
+exactly as it always was, which matters more than it looks: a ladder walked WITH a ligand
+(openbind's old 960 carried a 35-atom one) has a token wall above its residue cap, and letting that
+wall speak for a ligand-free input would quietly raise a published ceiling nobody re-walked.
 
 A row without ``ladder_ligand_atoms`` keeps the residue check alone. Asserting a token wall from a
 residue ladder that never saw a ligand would be a units substitution, not a measurement.
@@ -368,78 +368,50 @@ CEILINGS: dict[str, dict[str, Ceiling]] = {
     },
     "openfold3": {
         "wormhole_b0": Ceiling(
-            residues=1024, pass_at=1024, fail_at=None, binds=LADDER_TOP, mechanism=NO_FAILURE,
+            residues=1536, pass_at=1536, fail_at=None, binds=LADDER_TOP, mechanism=NO_FAILURE,
             msa_rows=14190,
-            evidence="its own ladder, measured 2026-09-07 on GWH02 at 14190 alignment rows on "
-                     "every rung -- the deepest real ColabFold alignment this pipeline has "
-                     "produced. Monotone with NO failure found: 640/672/704/736/768/800/832/896/"
-                     "960/1024 all fold, in 219/229/287/319/324/384/435/666/453/642 s. 1024 is "
-                     "the platform's own max_residues fence, so there is nothing above it to walk "
-                     "to. Every rung was scored for structure and not just for returning: 0 "
-                     "backbone breaks everywhere, Ca-Ca median 3.849-3.863 A at 99.48-100 % in "
-                     "band, Rg ratio 1.155-1.213, pLDDT 0.733-0.773 declining smoothly with size, "
-                     "and clashes 0 except 2/6171 at 768, 2/7711 at 960 and 8/8231 at 1024 -- all "
-                     "marginal contacts inside the budget real crystal structures show. The 576 "
-                     "this replaces was measured 2026-08-17 against an engine whose "
-                     "OuterProductMean materialised its whole z matmul and whose MSA track held "
-                     "four redundant full-width copies of the representation; 614 dying at 2.01 GB "
-                     "was that engine, and 614 buckets to 640, which folds. The wall clocks above "
-                     "are the ws:ceiling-openfold3-1024 arm. The shipped engine takes the "
-                     "refusal-narrowed route instead, and the top two rungs were re-walked on it "
-                     "(ws:ceiling-1024-integration-and-gate): 960 folds in 768 s and 1024 in "
-                     "963 s, each absorbing OuterProductMean's single-shot z refusal (1887436800 "
-                     "and 2147483648 B) through the row block. Slower than the arm above and "
-                     "structurally at least as good: 1024 scores PASS with ZERO clashes and 960 "
-                     "WARNs at 2/7711 marginal contacts, both with the backbone intact (Ca-Ca "
-                     "median 3.842/3.863 A, 99.61/99.48 % in band). Every size that folds on the "
-                     "previous engine is bit-exact against it. A refusal narrows the row block, "
-                     "which partitions independent rows and is bit-exact too; only "
-                     "OuterProductMean's un-joined form reassociates a bf16 depth sum, and it ran "
-                     "on NEITHER rung (join_split=0 at 960 and 1024), so nothing on this ladder "
-                     "moved a bit. Single-sequence is roomier still and is not the default",
+            evidence="1536 residues fold at 14190 alignment rows on the j10glx02 Galaxy, "
+                     "2026-09-23 (ws:mgx-bigalloc, perf/whceil/ladder.py, chip 9, tt-bio 296f5fcea): "
+                     "cdk2x2_1536_d14190, PASS in 1917.9 s at AICLK 1000 MHz sampled DURING the fold, "
+                     "under a host load that voids the time for speed. 1536 x 8192 rows folds too "
+                     "(chip 4, 7bdc54533). The walls this replaces were four whole tensors, each "
+                     "now streamed or row-blocked in shared code: the MSA transition's joined "
+                     "result uploaded whole at 1088 x 14191 (1976295424 B), the diffusion "
+                     "conditioning pair at 1216 (1703411712 B), the noisy-position layer norm "
+                     "at 1536 (1207959552 B), and at 1536 x 14190 the deep MSA chunk list "
+                     "resident through the pair stack (2.79 GB). The MSA representation now "
+                     "waits on the host and passes through the chip a depth chunk at a time. "
+                     "Accuracy above the old wall: 2ad6_1280 (a real 1280-token complex, 14743 "
+                     "rows) scores 0.509 / 0.431 A CA-RMSD against the upstream reference's two "
+                     "seeds, whose own floor is 0.379 A, and its CIF is byte-identical across "
+                     "296f5fcea. At 1024 on 7aqx every chain moves less than the reference "
+                     "between its own seeds (OuterProductMean's chunked depth sum reassociates "
+                     "in bf16). 1536 is the MGX target and nothing above it was walked, hence "
+                     "LADDER_TOP. The previous row, 1024 on GWH02 at the same depth "
+                     "(ws:ceiling-openfold3-1024, ws:ceiling-1024-integration-and-gate), stays "
+                     "valid below: every rung 640-1024 folded with an intact backbone",
         ),
     },
     "openbind": {
         "wormhole_b0": Ceiling(
-            residues=960, pass_at=960, fail_at=1024, binds=MEMORY, mechanism=DRAM_MSA,
-            msa_rows=14190, ladder_ligand_atoms=35,
-            evidence="its own ladder, and walked WITH A LIGAND BOUND rather than inherited from "
-                     "openfold3 -- measured 2026-09-07 on GWH02 at 14190 alignment rows, "
-                     "ws:ceiling-1024-integration-and-gate on tt-bio e9cb5b70. Every rung carries "
-                     "CCD STU, 35 heavy atoms: 768 folds in 525 s, 896 in 747 s, 960 in 1080 s, "
-                     "and 1024 FAILS. Scored for structure and not just for returning: 768 and "
-                     "896 PASS with zero clashes, 960 WARNs at 3/7746 marginal contacts inside "
-                     "the 0.1 % budget, and no rung breaks a backbone (Ca-Ca median 3.854-3.861 "
-                     "A, 99.66-99.74 % in band). The wall is the TOKEN count, not the residue "
-                     "count, and the same input apo proves it: 1024 residues with no ligand fold "
-                     "in 863 s. 1024 residues plus 35 ligand atoms is 1059 tokens, which buckets "
-                     "to 1088, and 1088 is refused twice over -- OuterProductMean's z at "
-                     "2424307712 = 1088 x 1088 x 1024 x 2, and the MSA Transition's "
-                     "host-assembled result uploaded whole at 1976016896 = 14189 x 1088 x 64 x 2. "
-                     "So the wall this row records is on TOKENS, and ladder_ligand_atoms=35 says "
-                     "which ligand every rung carried: the 960 cap is 995 tokens, which pad to "
-                     "the 1024 measured to fold. At 960 residues it therefore holds for a ligand "
-                     "of 64 atoms or fewer and refuses 65. A larger ligand at a residue count "
-                     "this row admits used to cross the wall unseen and die on the chip; it is "
-                     "refused at submission now. The 576/614 this replaces was "
-                     "measured 2026-08-17 against an engine whose OuterProductMean materialised "
-                     "its whole z matmul; openbind dedups its main MSA "
-                     "(af3_spec_main_msa_dedup is keyed on the checkpoint), so the depth reaching "
-                     "its model at a given alignment is not openfold3's and this ladder is its "
-                     "own. Single-sequence is roomier still and is not the default. "
-                     "STALE AS OF 2026-09-11 AND CONSERVATIVE: re-walked on the j10glx02 "
-                     "Galaxy (ws:wh-seqlen-structure, perf/whceil) at the SAME 14190 rows, "
-                     "apo, this checkpoint folds 1024 aa in 935 s and 1088 aa in 1104 s, and "
-                     "first fails at 1152 -- 1016856576 B, 80.8 MiB per bank against a 1024.0 "
-                     "MiB bank, 237.5 MiB free, largest block 62.1 MiB, fragmentation. 1088 "
-                     "apo is 1088 TOKENS, which is more than the 1088 tokens this row records "
-                     "as FAILING with a ligand, so the engine has moved since e9cb5b70, most "
-                     "likely the reactive DRAM narrowing. The 960 here is therefore refusing "
-                     "work the engine can do, which this module calls the worst thing a guard "
-                     "can do. It is NOT raised here: raising a cap accepts more work and "
-                     "restamps every capacity cell, so it is a release decision and not a "
-                     "measurement one. At 8192 rows the same ladder reaches 1152 and first "
-                     "fails at 1300",
+            residues=1536, pass_at=1536, fail_at=None, binds=LADDER_TOP, mechanism=NO_FAILURE,
+            msa_rows=14190, ladder_ligand_atoms=0,
+            evidence="1536 residues fold apo at 14190 alignment rows on the j10glx02 Galaxy, "
+                     "2026-09-23 (ws:mgx-bigalloc, perf/whceil/ladder.py, chip 17, tt-bio 296f5fcea): "
+                     "cdk2x2_1536_d14190, PASS in 1914.2 s at AICLK 1000 MHz sampled DURING the fold, "
+                     "under a host load that voids the time for speed. 1536 x 8192 rows folds too "
+                     "(chip 19, 7bdc54533). It shares openfold3's stack and the same four fixes "
+                     "moved it: before them it failed at 1152 x 14190 on the MSA transition's "
+                     "joined upload (2031058944 B) and at 1216 x 8192 on the diffusion "
+                     "conditioning pair (1703411712 B). Accuracy above the old wall: 2ad6_1280 "
+                     "scores 0.414 A / lDDT 0.9924 against the nearer upstream reference seed and "
+                     "1.564 A against the other; the reference's own seed floor is 1.509 A. "
+                     "The rungs were apo, so the wall is on TOKENS and ladder_ligand_atoms=0 "
+                     "says so: a ligand's heavy atoms count against 1536 and an input past it is "
+                     "refused at submission. The previous cap, 960 residues walked with CCD STU "
+                     "(35 atoms) on GWH02 at e9cb5b70 (ws:ceiling-1024-integration-and-gate), "
+                     "folded 768/896/960 with intact backbones and stays valid below. "
+                     "Nothing above 1536 was walked, hence LADDER_TOP",
         ),
     },
     "rf3": {

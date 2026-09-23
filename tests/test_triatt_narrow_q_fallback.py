@@ -19,10 +19,19 @@ MEASURED, rf3 on a Galaxy Wormhole (8x9 grid), size-ladder censuses:
 configs (`pm_over_l1` 2174) and serves anyway, because its fallback divides. The controlling
 quantity is divisibility, not magnitude -- which is why this is a test and not a size threshold.
 
-The fix offers the dividing chunks BELOW the production pick before falling back to it. It is off
-by default (`TT_BIO_TRIATT_NARROW_Q_FALLBACK`): it changes which config a path shared by rf3,
-boltz-2, protenix-v2, openfold3 and opendde picks at 13 of the 15 tile-aligned lengths from 640 to
-1088, and one sequence length is not evidence for a default.
+The fix offers the dividing chunks BELOW the production pick before falling back to it, BOUNDED to
+those that at most double the K/V re-reads (`TT_BIO_TRIATT_NARROW_Q_FALLBACK`, on by default).
+
+The bound is the safety argument, so it is what most of this file tests. Every narrower candidate
+uses less L1 than the production pick, which already fits, so the caller always takes the widest
+one offered: the largest divisor of the padded length below `prod`. How far below `prod` that
+divisor sits is arithmetic, and at most lengths it is brutal -- 20 of the 37 tile-aligned lengths
+from 256 to 1536 would pick a chunk re-reading K and V 2.7x to 8x more, because a padded length
+of the form 32*p for a prime p has no divisor between 32 and itself. 896, where the +9.50 s was
+measured, is the MILDEST length in the range at 1.14x. Generalising a win taken at the best case
+to the 8x cases is `one-size-tuning-is-a-standing-defect-class`, so the rule is derived once in
+the source rather than pinned per shape, and the lever is a provable no-op wherever the only
+narrower divisor is pathological.
 
 Device-free on purpose. It reads the function out of the source and runs its arithmetic against a
 stub, so it cannot open a card and can run in any CPU job.
@@ -75,20 +84,58 @@ def test_a_length_whose_fallback_divides_is_unchanged_with_the_flag_on(padded):
 
 @pytest.mark.parametrize("padded", [n for n in ALIGNED if n % PROD])
 def test_a_length_whose_fallback_pads_gains_a_dividing_option_first(padded):
-    """The point of the lever: reach a dividing chunk before the one that kills the fused path."""
+    """The point of the lever: reach a dividing chunk before the one that kills the fused path.
+
+    Bounded, so a length gains an option only when it HAS a divisor at or above prod/2. Where it
+    does not, the ladder must be byte-for-byte the flag-off one -- that is the no-op guarantee.
+    """
     on = _ladder(padded, narrow_fallback=True)
+    off = _ladder(padded, narrow_fallback=False)
     assert on[-1] == PROD, "the shipped fallback must stay last, not be removed"
     assert on[:-1] == tuple(sorted(on[:-1], reverse=True)), "widest-first: K and V are re-read per q chunk"
     assert all(padded % q == 0 for q in on[:-1]), "every offered chunk must divide the padded length"
-    off = _ladder(padded, narrow_fallback=False)
     assert on[:len(off) - 1] == off[:-1], "the wide entries keep their order and priority"
-    assert len(on) > len(off), f"{padded} gained no dividing option below {PROD}"
+
+    eligible = [q for q in _divisors(padded) if PROD > q >= PROD / 2]
+    if eligible:
+        assert len(on) > len(off), f"{padded} has {eligible} but gained nothing"
+    else:
+        assert on == off, f"{padded} has no divisor at or above {PROD // 2} and must be a no-op"
+
+
+def _divisors(padded):
+    return [padded // n for n in range(1, padded // TILE + 1)
+            if padded % n == 0 and (padded // n) % TILE == 0]
+
+
+@pytest.mark.parametrize("padded", ALIGNED)
+def test_the_bound_never_offers_a_chunk_that_more_than_doubles_the_rereads(padded):
+    """The safety property, stated directly: no offered chunk below prod may sit under prod/2.
+
+    The kernel re-reads all of K and V once per q chunk, so an offered chunk of prod/2 doubles
+    that traffic and anything narrower more than doubles it. 1184 = 32*37 is the case this
+    exists for: its only narrower divisor is 32, which would re-read K and V 37 times, and the
+    bound must decline it rather than offer it.
+    """
+    on = _ladder(padded, narrow_fallback=True)
+    below = [q for q in on[:-1] if q < PROD]
+    assert all(q >= PROD / 2 for q in below), f"{padded} offers {below}, under the prod/2 bound"
+
+
+def test_the_pathological_lengths_are_declined_outright():
+    """32*p for a prime p has no divisor between 32 and itself, so the lever must do nothing."""
+    for padded in (352, 416, 544, 608, 736, 928, 992, 1184, 1312, 1376, 1504):
+        assert _ladder(padded, narrow_fallback=True) == _ladder(padded, narrow_fallback=False), (
+            f"{padded} would fall to a 32-wide q_chunk; the bound must decline it")
 
 
 def test_the_896_case_this_was_root_caused_on():
     """The measured failure, pinned so a future ladder change cannot silently reintroduce it."""
     assert _ladder(896, narrow_fallback=False) == (896, 448, 256)
-    assert _ladder(896, narrow_fallback=True) == (896, 448, 224, 128, 64, 32, 256)
+    # 224 and 128 survive the prod/2 bound; 64 and 32 are dropped by it. The PICK is unchanged,
+    # because every narrower candidate fits L1 and the caller takes the widest offered, so the
+    # measured +9.50 s and the bit-exact digest carry over without a re-take.
+    assert _ladder(896, narrow_fallback=True) == (896, 448, 224, 128, 256)
 
 
 def test_the_env_var_is_named_to_the_TT_BIO_convention():
@@ -110,12 +157,20 @@ def test_the_env_var_is_named_to_the_TT_BIO_convention():
     pytest.fail("_SDPA_NARROW_Q_FALLBACK is not assigned at module level in tenstorrent.py")
 
 
-def test_the_lever_is_off_by_default_in_the_source():
-    """A shared-path lever does not land on by default off one sequence length's evidence."""
+def test_the_lever_is_on_by_default_in_the_source():
+    """On by default, and it is the BOUND that earned that, not a second measurement.
+
+    The unbounded lever was refused precisely because one sequence length is not evidence for a
+    default: 896 is the mildest of the 37 tile-aligned lengths at 1.14x the re-reads, and 20 of
+    them sit at 2.7x to 8x. Bounding the offer at prod/2 collapses the ladder to the flag-off one
+    at every length that has no near divisor, so what ships is the measured case and nothing
+    else. rf3 at 896 aa: 94.50 -> 104.00 s, +9.5000 s, 1.1005x, A/A floor 0.635 %, effect 15.83x
+    its floor, both arm orders, bit-exact over 12 legs.
+    """
     tree = ast.parse(SRC.read_text())
     for node in tree.body:
         if (isinstance(node, ast.Assign)
                 and getattr(node.targets[0], "id", None) == "_SDPA_NARROW_Q_FALLBACK"):
-            assert node.value.args[1].value is False
+            assert node.value.args[1].value is True
             return
     pytest.fail("_SDPA_NARROW_Q_FALLBACK is not assigned at module level in tenstorrent.py")
