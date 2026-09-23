@@ -1,0 +1,547 @@
+{
+ "what": "of3t-stackexact: the monotonicity ladder, read against the pre-registration.",
+ "row": "of3t-stackexact",
+ "host": "tt-quietbox2",
+ "device_involved": false,
+ "why_no_aiclk": "the READ is CPU only; each rung's device host, board, card and DURING AICLK are under rungs.<n>.device, stamped by arm.sh",
+ "boundary_version": "upstream OpenFold3 0.4.3",
+ "bar": 0.15210099830945006,
+ "trunk_allowance": 0.44608901561034203,
+ "levels_source": "perf/of3t_modelframe/CLAUSE.json, read not re-derived",
+ "A42": {
+  "model_frame_cot_external_sha256": "1d15a8dc6db2a14b678e5ed5d92558af99d369599226391fa59f36ed84192ef4",
+  "cited_by_each_device_arm": {
+   "SHIP_A": "1d15a8dc6db2a14b678e5ed5d92558af99d369599226391fa59f36ed84192ef4",
+   "SHIP_B": "1d15a8dc6db2a14b678e5ed5d92558af99d369599226391fa59f36ed84192ef4",
+   "S": "1d15a8dc6db2a14b678e5ed5d92558af99d369599226391fa59f36ed84192ef4",
+   "L": "1d15a8dc6db2a14b678e5ed5d92558af99d369599226391fa59f36ed84192ef4",
+   "SL": "1d15a8dc6db2a14b678e5ed5d92558af99d369599226391fa59f36ed84192ef4"
+  },
+  "carried_by_each_composed_artifact": {
+   "SHIP": "1d15a8dc6db2a14b678e5ed5d92558af99d369599226391fa59f36ed84192ef4",
+   "S": "1d15a8dc6db2a14b678e5ed5d92558af99d369599226391fa59f36ed84192ef4",
+   "L": "1d15a8dc6db2a14b678e5ed5d92558af99d369599226391fa59f36ed84192ef4",
+   "SL": "1d15a8dc6db2a14b678e5ed5d92558af99d369599226391fa59f36ed84192ef4"
+  },
+  "all_equal": true
+ },
+ "AA_AND_REPRODUCTION": {
+  "gate": {
+   "SHIP_A_is_the_clause_arm": true,
+   "SHIP_A_vs_SHIP_B": true,
+   "S_is_modelever_EXACT": true,
+   "S_clause_x_bar": 1.3037867474869442,
+   "S_reproduces_1.3037867474869442x": true,
+   "ladder_licensed": true
+  },
+  "pairs": {
+   "PD_AA_SHIPA_vs_BANKED": {
+    "compared": 2736,
+    "bit_identical": 2736,
+    "differing": 0,
+    "all_bit_identical": true,
+    "concatenated_rel_a_vs_b": 0.0,
+    "cos": 1.0,
+    "a_sha256": "e5394282b235dff894c4833e8b980f12caf775e9c9566300db1252e67f25e2db",
+    "b_sha256": "c0a1b121cf32beae6d9ef285522eb4e245d2fa429a5eafb01573d5af9a4e0461",
+    "arms_origin_D155": {
+     "a": {
+      "pt": "/home/ttuser/of3t_stackexact/dev_SHIP_A.pt",
+      "sha256": "e5394282b235dff894c4833e8b980f12caf775e9c9566300db1252e67f25e2db",
+      "report": "perf/of3t_stackexact/DEV_SHIP_A.json",
+      "sha256_matches_report": true,
+      "host": "tt-quietbox2",
+      "board": "p300c",
+      "card": 1,
+      "aiclk_mhz_sampled_DURING": {
+       "n": 40,
+       "min": 800,
+       "median": 1350,
+       "max": 1350
+      },
+      "host_quiet": [
+       "HOST NOT QUIET -- your timing read is contaminated even with an idle sibling and a forced clock. Wait it out or DEFER. Do not measure and explain it afterwards."
+      ]
+     },
+     "b": {
+      "pt": "/home/ttuser/of3t_recut/dev_RENORM_model_n384_external.pt",
+      "sha256": "c0a1b121cf32beae6d9ef285522eb4e245d2fa429a5eafb01573d5af9a4e0461",
+      "report": "perf/of3t_recut/DEV_RENORM_MODEL_N384_EXTERNAL.json",
+      "sha256_matches_report": true,
+      "host": "tt-quietbox2",
+      "board": "p300c",
+      "card": 1,
+      "aiclk_mhz_sampled_DURING": {
+       "n": 93,
+       "min": 800,
+       "median": 1350,
+       "max": 1350
+      },
+      "host_quiet": [
+       "host quiet -- timing read admissible"
+      ]
+     }
+    }
+   },
+   "PD_AA_SHIPA_vs_MODELEVER_SHIPA": {
+    "compared": 2736,
+    "bit_identical": 2736,
+    "differing": 0,
+    "all_bit_identical": true,
+    "concatenated_rel_a_vs_b": 0.0,
+    "cos": 1.0,
+    "a_sha256": "e5394282b235dff894c4833e8b980f12caf775e9c9566300db1252e67f25e2db",
+    "b_sha256": "e5394282b235dff894c4833e8b980f12caf775e9c9566300db1252e67f25e2db",
+    "arms_origin_D155": {
+     "a": {
+      "pt": "/home/ttuser/of3t_stackexact/dev_SHIP_A.pt",
+      "sha256": "e5394282b235dff894c4833e8b980f12caf775e9c9566300db1252e67f25e2db",
+      "report": "perf/of3t_stackexact/DEV_SHIP_A.json",
+      "sha256_matches_report": true,
+      "host": "tt-quietbox2",
+      "board": "p300c",
+      "card": 1,
+      "aiclk_mhz_sampled_DURING": {
+       "n": 40,
+       "min": 800,
+       "median": 1350,
+       "max": 1350
+      },
+      "host_quiet": [
+       "HOST NOT QUIET -- your timing read is contaminated even with an idle sibling and a forced clock. Wait it out or DEFER. Do not measure and explain it afterwards."
+      ]
+     },
+     "b": {
+      "pt": "/home/ttuser/of3t_modelever/dev_SHIP_A.pt",
+      "sha256": "e5394282b235dff894c4833e8b980f12caf775e9c9566300db1252e67f25e2db",
+      "report": "perf/of3t_modelever/DEV_SHIP_A.json",
+      "sha256_matches_report": true,
+      "host": "tt-quietbox2",
+      "board": "p300c",
+      "card": 1,
+      "aiclk_mhz_sampled_DURING": {
+       "n": 40,
+       "min": 800,
+       "median": 1350,
+       "max": 1350
+      },
+      "host_quiet": [
+       "HOST NOT QUIET -- your timing read is contaminated even with an idle sibling and a forced clock. Wait it out or DEFER. Do not measure and explain it afterwards."
+      ]
+     }
+    }
+   },
+   "PD_AA_SHIPA_vs_SHIPB": {
+    "compared": 2736,
+    "bit_identical": 2736,
+    "differing": 0,
+    "all_bit_identical": true,
+    "concatenated_rel_a_vs_b": 0.0,
+    "cos": 1.0,
+    "a_sha256": "e5394282b235dff894c4833e8b980f12caf775e9c9566300db1252e67f25e2db",
+    "b_sha256": "aaaf5648076487bf530e9b9ddf012400fb4d1068542e348bca43755d25f7c0c3",
+    "arms_origin_D155": {
+     "a": {
+      "pt": "/home/ttuser/of3t_stackexact/dev_SHIP_A.pt",
+      "sha256": "e5394282b235dff894c4833e8b980f12caf775e9c9566300db1252e67f25e2db",
+      "report": "perf/of3t_stackexact/DEV_SHIP_A.json",
+      "sha256_matches_report": true,
+      "host": "tt-quietbox2",
+      "board": "p300c",
+      "card": 1,
+      "aiclk_mhz_sampled_DURING": {
+       "n": 40,
+       "min": 800,
+       "median": 1350,
+       "max": 1350
+      },
+      "host_quiet": [
+       "HOST NOT QUIET -- your timing read is contaminated even with an idle sibling and a forced clock. Wait it out or DEFER. Do not measure and explain it afterwards."
+      ]
+     },
+     "b": {
+      "pt": "/home/ttuser/of3t_stackexact/dev_SHIP_B.pt",
+      "sha256": "aaaf5648076487bf530e9b9ddf012400fb4d1068542e348bca43755d25f7c0c3",
+      "report": "perf/of3t_stackexact/DEV_SHIP_B.json",
+      "sha256_matches_report": true,
+      "host": "tt-quietbox2",
+      "board": "p300c",
+      "card": 1,
+      "aiclk_mhz_sampled_DURING": {
+       "n": 42,
+       "min": 800,
+       "median": 1350,
+       "max": 1350
+      },
+      "host_quiet": [
+       "HOST NOT QUIET -- your timing read is contaminated even with an idle sibling and a forced clock. Wait it out or DEFER. Do not measure and explain it afterwards."
+      ]
+     }
+    }
+   },
+   "PD_REPRO_S_vs_MODELEVER_EXACT": {
+    "compared": 2736,
+    "bit_identical": 2736,
+    "differing": 0,
+    "all_bit_identical": true,
+    "concatenated_rel_a_vs_b": 0.0,
+    "cos": 1.0,
+    "a_sha256": "5e28f3f0312db36f45dd2475563b638cac3d9223283ac980027492c8a5a23330",
+    "b_sha256": "14020557c546e0d949bd573ce74169f379ac643cf8cfdeb5e2e50985536fcd29",
+    "arms_origin_D155": {
+     "a": {
+      "pt": "/home/ttuser/of3t_stackexact/dev_S.pt",
+      "sha256": "5e28f3f0312db36f45dd2475563b638cac3d9223283ac980027492c8a5a23330",
+      "report": "perf/of3t_stackexact/DEV_S.json",
+      "sha256_matches_report": true,
+      "host": "tt-quietbox2",
+      "board": "p300c",
+      "card": 1,
+      "aiclk_mhz_sampled_DURING": {
+       "n": 294,
+       "min": 800,
+       "median": 1350,
+       "max": 1350
+      },
+      "host_quiet": [
+       "HOST NOT QUIET -- your timing read is contaminated even with an idle sibling and a forced clock. Wait it out or DEFER. Do not measure and explain it afterwards."
+      ]
+     },
+     "b": {
+      "pt": "/home/ttuser/of3t_modelever/dev_EXACT.pt",
+      "sha256": "14020557c546e0d949bd573ce74169f379ac643cf8cfdeb5e2e50985536fcd29",
+      "report": "perf/of3t_modelever/DEV_EXACT.json",
+      "sha256_matches_report": true,
+      "host": "tt-quietbox2",
+      "board": "p300c",
+      "card": 1,
+      "aiclk_mhz_sampled_DURING": {
+       "n": 276,
+       "min": 800,
+       "median": 1350,
+       "max": 1350
+      },
+      "host_quiet": [
+       "HOST NOT QUIET -- your timing read is contaminated even with an idle sibling and a forced clock. Wait it out or DEFER. Do not measure and explain it afterwards."
+      ]
+     }
+    }
+   }
+  }
+ },
+ "RUNGS": {
+  "SHIP": {
+   "tag": "SHIP_A",
+   "exact_scopes": "none",
+   "boundary_version": "upstream OpenFold3 0.4.3",
+   "clause": 0.22072451195864032,
+   "x_bar": 1.4511706984958472,
+   "excess": 0.45117069849584723,
+   "closure_f": -2.220446049250313e-16,
+   "clears": false,
+   "trunk_vs_their_bf16_GRADED": {
+    "measured_rel_l2": 0.7768254196709333,
+    "norm_ratio": 0.9978645292850583,
+    "cos": 0.6976277066165968,
+    "angle_degrees": 45.763016914559415,
+    "identity_residual": 7.145897884594533e-16
+   },
+   "trunk_vs_float64_CONTRAST": {
+    "measured_rel_l2": 0.6221485227575493,
+    "norm_ratio": 1.054584096168068,
+    "cos": 0.8178953379770566,
+    "angle_degrees": 35.125339394537576,
+    "identity_residual": 2.141398043742316e-15
+   },
+   "model_vs_float64": 0.16728815595276803,
+   "trunk_x_allowance": 1.7414134679108282,
+   "reach": {
+    "softmax": {
+     "verb": 0,
+     "raw": 0,
+     "raw_elements": 0
+    },
+    "layer_norm": {
+     "verb": 0,
+     "raw": 0,
+     "elements": 0,
+     "bw": 0
+    }
+   },
+   "installed": {
+    "softmax_installed_inside_the_scope": false
+   },
+   "dev_cot_layer_norm_backward_reach": {
+    "bw": 1296,
+    "dw": 1296,
+    "dx": 1296,
+    "dxcfg_applied": 0,
+    "dx_fp32_applied": 0
+   },
+   "device": {
+    "host": "tt-quietbox2",
+    "board_class": "p300c",
+    "card": 1,
+    "aiclk_mhz_sampled_DURING": {
+     "n": 40,
+     "min": 800,
+     "median": 1350,
+     "max": 1350
+    },
+    "host_quiet": "HOST NOT QUIET -- your timing read is contaminated even with an idle sibling and a forced clock. Wait it out or DEFER. Do not measure and explain it afterwards."
+   }
+  },
+  "S": {
+   "tag": "S",
+   "exact_scopes": "softmax",
+   "boundary_version": "upstream OpenFold3 0.4.3",
+   "clause": 0.1983072658753951,
+   "x_bar": 1.3037867474869442,
+   "excess": 0.30378674748694423,
+   "closure_f": 0.3266700419603148,
+   "clears": false,
+   "trunk_vs_their_bf16_GRADED": {
+    "measured_rel_l2": 0.6745049727018105,
+    "norm_ratio": 1.0072243507585883,
+    "cos": 0.7741790264438227,
+    "angle_degrees": 39.269340538115216,
+    "identity_residual": 1.3167855770468527e-15
+   },
+   "trunk_vs_float64_CONTRAST": {
+    "measured_rel_l2": 0.6864250186555731,
+    "norm_ratio": 1.0644759387772336,
+    "cos": 0.7806328247815697,
+    "angle_degrees": 38.68144718771643,
+    "identity_residual": 1.455658950368196e-15
+   },
+   "model_vs_float64": 0.18141611630324336,
+   "trunk_x_allowance": 1.5120412050024326,
+   "reach": {
+    "softmax": {
+     "verb": 5901,
+     "raw": 1742,
+     "raw_elements": 21856518144
+    },
+    "layer_norm": {
+     "verb": 0,
+     "raw": 0,
+     "elements": 0,
+     "bw": 0
+    }
+   },
+   "installed": {
+    "softmax_installed_inside_the_scope": true
+   },
+   "dev_cot_layer_norm_backward_reach": {
+    "bw": 1296,
+    "dw": 1296,
+    "dx": 1296,
+    "dxcfg_applied": 0,
+    "dx_fp32_applied": 0
+   },
+   "device": {
+    "host": "tt-quietbox2",
+    "board_class": "p300c",
+    "card": 1,
+    "aiclk_mhz_sampled_DURING": {
+     "n": 294,
+     "min": 800,
+     "median": 1350,
+     "max": 1350
+    },
+    "host_quiet": "HOST NOT QUIET -- your timing read is contaminated even with an idle sibling and a forced clock. Wait it out or DEFER. Do not measure and explain it afterwards."
+   }
+  },
+  "L": {
+   "tag": "L",
+   "exact_scopes": "layer_norm",
+   "boundary_version": "upstream OpenFold3 0.4.3",
+   "clause": 0.19527710571784584,
+   "x_bar": 1.2838647207334815,
+   "excess": 0.28386472073348146,
+   "closure_f": 0.3708263376148877,
+   "clears": false,
+   "trunk_vs_their_bf16_GRADED": {
+    "measured_rel_l2": 0.6603809378916431,
+    "norm_ratio": 0.944757228214978,
+    "cos": 0.7708134924173274,
+    "angle_degrees": 39.573003936880475,
+    "identity_residual": 6.724743013750191e-16
+   },
+   "trunk_vs_float64_CONTRAST": {
+    "measured_rel_l2": 0.5819050909882538,
+    "norm_ratio": 0.9984581257028757,
+    "cos": 0.8304329701842379,
+    "angle_degrees": 33.856759772919986,
+    "identity_residual": 1.1447464974808758e-15
+   },
+   "model_vs_float64": 0.15857878191936345,
+   "trunk_x_allowance": 1.4803792848118114,
+   "reach": {
+    "softmax": {
+     "verb": 0,
+     "raw": 0,
+     "raw_elements": 0
+    },
+    "layer_norm": {
+     "verb": 2160,
+     "raw": 720,
+     "elements": 29047652352,
+     "bw": 1296
+    }
+   },
+   "installed": {
+    "softmax_installed_inside_the_scope": false,
+    "layer_norm_verb_is_ours": true
+   },
+   "dev_cot_layer_norm_backward_reach": {
+    "bw": 0,
+    "dw": 0,
+    "dx": 0,
+    "dxcfg_applied": 0,
+    "dx_fp32_applied": 0
+   },
+   "device": {
+    "host": "tt-quietbox2",
+    "board_class": "p300c",
+    "card": 1,
+    "aiclk_mhz_sampled_DURING": {
+     "n": 164,
+     "min": 800,
+     "median": 1350,
+     "max": 1350
+    },
+    "host_quiet": "HOST NOT QUIET -- your timing read is contaminated even with an idle sibling and a forced clock. Wait it out or DEFER. Do not measure and explain it afterwards."
+   }
+  },
+  "SL": {
+   "tag": "SL",
+   "exact_scopes": "softmax,layer_norm",
+   "boundary_version": "upstream OpenFold3 0.4.3",
+   "clause": 0.14940227528507738,
+   "x_bar": 0.9822570327981535,
+   "excess": -0.017742967201846538,
+   "closure_f": 1.039326506045272,
+   "clears": true,
+   "trunk_vs_their_bf16_GRADED": {
+    "measured_rel_l2": 0.43143039467598115,
+    "norm_ratio": 0.8745219360036652,
+    "cos": 0.9025825231528046,
+    "angle_degrees": 25.50036747920142,
+    "identity_residual": 3.60269525201756e-15
+   },
+   "trunk_vs_float64_CONTRAST": {
+    "measured_rel_l2": 0.34843379793030094,
+    "norm_ratio": 0.9242305928244039,
+    "cos": 0.9374262714443783,
+    "angle_degrees": 20.376270751395655,
+    "identity_residual": 5.894699675395424e-15
+   },
+   "model_vs_float64": 0.11146776963104914,
+   "trunk_x_allowance": 0.9671396953939678,
+   "reach": {
+    "softmax": {
+     "verb": 5901,
+     "raw": 1742,
+     "raw_elements": 21856518144
+    },
+    "layer_norm": {
+     "verb": 2160,
+     "raw": 720,
+     "elements": 29047652352,
+     "bw": 1296
+    }
+   },
+   "installed": {
+    "softmax_installed_inside_the_scope": true,
+    "layer_norm_verb_is_ours": true
+   },
+   "dev_cot_layer_norm_backward_reach": {
+    "bw": 0,
+    "dw": 0,
+    "dx": 0,
+    "dxcfg_applied": 0,
+    "dx_fp32_applied": 0
+   },
+   "device": {
+    "host": "tt-quietbox2",
+    "board_class": "p300c",
+    "card": 1,
+    "aiclk_mhz_sampled_DURING": {
+     "n": 402,
+     "min": 800,
+     "median": 1350,
+     "max": 1350
+    },
+    "host_quiet": "HOST NOT QUIET -- your timing read is contaminated even with an idle sibling and a forced clock. Wait it out or DEFER. Do not measure and explain it afterwards."
+   }
+  }
+ },
+ "LEVEL_PLACEMENT": {
+  "SHIP": {
+   "below": [
+    "bit_exact_float64_trunk",
+    "projection_from_the_in_frame_multiple",
+    "section_A26_level",
+    "upstreams_own_floor_here"
+   ],
+   "at_or_above": [
+    "the_frame_mismatch_alone"
+   ]
+  },
+  "S": {
+   "below": [
+    "bit_exact_float64_trunk",
+    "projection_from_the_in_frame_multiple",
+    "section_A26_level",
+    "upstreams_own_floor_here"
+   ],
+   "at_or_above": [
+    "the_frame_mismatch_alone"
+   ]
+  },
+  "L": {
+   "below": [
+    "bit_exact_float64_trunk",
+    "section_A26_level",
+    "upstreams_own_floor_here"
+   ],
+   "at_or_above": [
+    "projection_from_the_in_frame_multiple",
+    "the_frame_mismatch_alone"
+   ]
+  },
+  "SL": {
+   "below": [
+    "bit_exact_float64_trunk",
+    "section_A26_level",
+    "upstreams_own_floor_here"
+   ],
+   "at_or_above": [
+    "projection_from_the_in_frame_multiple",
+    "the_frame_mismatch_alone"
+   ]
+  }
+ },
+ "SHAPE": {
+  "T": 0.02,
+  "rules": "perf/of3t_stackexact/PREREGISTERED.md, as committed at 0425448d4",
+  "f_S": 0.3266700419603148,
+  "f_L": 0.3708263376148877,
+  "f_SL": 1.039326506045272,
+  "dL": 0.7126564640849573,
+  "I": 0.3418301264700696,
+  "dL_over_fL": 1.9218064948371294,
+  "theta_f_SL_minus_S_degrees": -18.305176436320775,
+  "theta_g_SL_minus_S_degrees": -13.768973058913797,
+  "axis_A": "A-COMPOSES",
+  "axis_B": "B-TOWARD",
+  "verdict": "COMPOSES"
+ },
+ "A43": {
+  "definition": "concatenated",
+  "worst_identity_residual": 5.894699675395424e-15,
+  "bar": 1e-12,
+  "holds": true
+ }
+}
