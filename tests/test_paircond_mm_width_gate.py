@@ -68,6 +68,8 @@ def test_every_paircond_projection_goes_through_the_helper():
     assert "core_grid=CORE_GRID_MAIN" not in src, (
         "a pair-cond projection forces core_grid directly instead of going through "
         "paircond_mm_kw(); the width gate must be one mechanism in one place")
-    # and every projection in there really does route through the helper
-    assert src.count("paircond_mm_kw(") >= 5, (
-        f"expected >=5 paircond_mm_kw call sites, found {src.count('paircond_mm_kw(')}")
+    # and every projection in there really does route through the helper. The blocked and
+    # whole routes share their projection closures, so this counts linears, not a fixed number.
+    n_linear, n_kw = src.count("ttnn.linear("), src.count("paircond_mm_kw(")
+    assert n_linear >= 3 and n_kw == n_linear, (
+        f"{n_linear} ttnn.linear calls but {n_kw} paircond_mm_kw call sites")
