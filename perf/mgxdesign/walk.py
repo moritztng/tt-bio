@@ -22,6 +22,7 @@ import argparse
 import json
 import os
 import pathlib
+import random
 import subprocess
 import sys
 import time
@@ -96,7 +97,11 @@ def main() -> int:
                       f"no free chip, waiting", flush=True)
                 time.sleep(60)
                 continue
-            card = cards[0]
+            # RANDOM, not the first free chip. Three of these drivers run at once against one
+            # lease dir, and taking cards[0] made all three pick the same chip every minute:
+            # two lose the race, retry, and pick the same one again. Spreading the choice is
+            # what turns a retry into progress.
+            card = random.choice(cards)
             print(f"[{time.strftime('%FT%TZ', time.gmtime())}] {a.model} {size} "
                   f"attempt {attempt} on card {card}", flush=True)
             p = run_rung(a, size, contig, card)
