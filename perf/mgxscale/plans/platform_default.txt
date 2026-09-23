@@ -1,0 +1,5 @@
+# What a JapanFold user actually gets today: the platform's own shipped design defaults
+# (japanfold/catalog.py). A credit sponsorship is priced on THIS, not on the engine's
+# upstream-default arm, so the rate has to be measured at both.
+--model pxdesign --target-res 960 --designs 4 --steps 200 --binder 64 --host-threads 2 --timeout 14400 --tag platform
+--model rfd3 --target-res 512 --designs 4 --steps 100 --batch_size 4 --host-threads 2 --timeout 25200 --tag platform
