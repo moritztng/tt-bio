@@ -1187,3 +1187,273 @@ closed there and 43.61 % needed here are two numbers about two frames; the tempt
 more tempting than usual because it points somewhere good. **Dispatched `of3t-modelever` to
 MEASURE it** rather than infer it: the package install on the model-frame trunk arm, re-scored
 against `CLAUSE.json`'s pre-registered levels, no bar moved.
+
+### R189. I dispatched a row whose name was already concluded; the fleet silently did not launch it, and the reason I dispatched was that the PROSE was stale while the STATUS was right (pass 414, zero card)
+
+I wrote a brief and a TASKS entry for `of3t-tapeamp` onto D30/D58/D129. **A row of that name
+had already run and concluded GO on 2026-09-22**, with *"the question is answered and the answer
+is that there is no defect here to repair."* Because a concluded marker exists, the fleet never
+relaunched it — **so no card was spent, and no warning was raised either.** A brief plus a
+`<!--ws:-->` tag for a concluded name is a **silent no-op**: it looks dispatched in every place a
+dispatch is recorded, and nothing ever runs. That is worse than a visible failure, and it is the
+mirror of `brief-with-no-tasks-ws-tag-never-queues-and-logs-nothing`.
+
+**Why I dispatched, and this is the part worth keeping.** I read D30's ledger entry, whose
+heading still opens *"UNFIXED, and it is the campaign's central number"* and still carries
+**19.6x**; and the USER-FACING closure plan, which named **`of3t-ditcot`** as D58's owner — a row
+that did not answer it — while quoting the same stale pair. Both told me the question was open
+and unowned. **Then I checked instead of assuming, and `statuses_by_defect` already returned
+CLOSED for D30 and D129 before I touched anything.** The machine-readable half had been right all
+along. **Published status right, prose beside it stale — R148's exact shape, and I read the
+prose**, because the prose is what a reader reads.
+
+**What the already-concluded row had found**, now finally recorded in the ledger it was about:
+the ~20x is two revisions stale at **11.026x**, of which **7.666x is present in upstream 0.4.3's
+own bf16 recipe** at the same boundary and reference; upstream's own fp32 recipe shows **9.326x**
+at four orders of magnitude lower absolute error, so the factor survives a precision change no
+dtype boundary could explain; **0 dtype reconciliations in 1,879 node firings**; and **our arm
+beats upstream on both halves** — forward 1.959x, gradient 1.362x — so our factor is the larger
+one only because the denominator is the half we beat hardest. D30 closed as not a defect, D129
+dissolved by `of3t-ditref`, **D58 narrowed and NOT closed**: the diffusion leg is re-explained,
+`msa_module`'s was never measured and no upstream bf16 arm for that boundary exists anywhere.
+
+**One repair, and one guard I built and then threw away.** `of3t-msaamp` is dispatched onto
+exactly the unmeasured leg, carrying the prior row's method instead of the stale framing.
+
+The guard did not survive contact. I wrote
+`assert_no_brief_for_concluded_row.py` to refuse the silent no-op and tried three signals for
+it. **"Brief + live ws-tag + concluded marker" fired on 34 rows** — leaving the TASKS tag in
+place after a row concludes is the fleet's normal residue, not an anomaly. **Brief mtime newer
+than the marker fired on 103** — git checkouts reset mtime, so it carries nothing. **Git
+CREATION date of the brief newer than the marker still fired on dozens**, because the concluded
+markers are themselves rewritten by sync and their mtimes are not when the row concluded. **The
+disk does not carry a trustworthy "when did this row conclude", so the check cannot be built
+from it**, and I deleted the script rather than ship one that fires forty times. A guard that
+must be suppressed everywhere teaches everyone to ignore it — this campaign already owns
+`a-gate-arm-can-be-permanently-red-on-main-and-then-gates-nothing`, and adding a second one to
+feel covered would be the flattering move.
+
+**So the repair is a habit with a cost of one command, not a ratchet**: before writing a brief,
+`ls /home/moritz/.coworker/state/concluded/ | grep <row-name>`. I am recording the failed
+designs because the next person to want this guard should not re-derive all three.
+
+**And I checked myself on the flattering direction.** Closing defects shrinks counts.
+D30 and D129 are campaign-internal so closing them moves no user-facing number, and **D58 — the
+user-facing one — stays open**, because the row that narrowed it said one leg was unmeasured
+rather than rounding to a close. `reclassifying-out-of-user-facing-is-the-flattering-direction`.
+
+### R190. `of3t-modelever`'s baseline is BIT-IDENTICAL to the clause's own artifact, so its reading will be carryable where `of3t-angle`'s was not (pass 414, zero card)
+
+Two controls landed before the lever arm, and together they remove the ambiguity that has cost
+this campaign more than any arithmetic error.
+
+    AA_SHIPA_vs_SHIPB    2736/2736 bit-identical, rel 0.0, cos 1.0   -- the in-session floor
+    AA_SHIPA_vs_BANKED   2736/2736 bit-identical, rel 0.0, cos 1.0   -- vs of3t-recut's
+                                                                        dev_RENORM_model_n384_external.pt
+
+**The model-frame A/A floor is exactly 0**, the second frame in two days to achieve that, so any
+separation the lever produces is real rather than noise. **And the row's shipped arm is the
+clause's arm, bit for bit** — `dev_RENORM_model_n384_external.pt` is the artifact the repointed
+GRADIENTS clause was scored on at 1.4511706984958472x.
+
+**Why that matters more than it looks.** `of3t-angle` measured a genuine 50.003 % angle closure
+and could not carry it onto the clause, correctly, because its baseline was a different arm on a
+different boundary and A37/D218 bar the quotient. **`of3t-modelever` will not have that problem**,
+and not by argument — by a bit-exactness check against the reference's own artifact. A reading
+against a baseline that is bit-identical to the clause's baseline is a reading about the clause.
+
+**The generalisable instruction this yields for any row meant to move a published number**:
+bank an A/A against the published artifact ITSELF before taking the arm, and publish the digest
+comparison. It converts "is this comparable?" from an argument at the end into a fact at the
+start, and it is CPU-only. `a-go-clause-must-be-tested-against-the-references-own-artifact` is
+the entry; this is what satisfying it looks like in practice, and it cost the row one
+compare-two-banked-artifacts run with no device involved.
+
+Not yet a result: the lever arm is still running and nothing about the clause has moved.
+
+### R191. The lever works on the clause's own arm and is NOT enough: 1.4511706984958472x -> 1.3037867474869442x, a third of the excess (pass 414, zero card)
+
+`of3t-modelever` put the exact softmax on the model-frame trunk arm and re-scored. **The clause
+still FAILS.**
+
+    clause        1.4511706984958472x  ->  1.3037867474869442x     bar 0.15210099830945006
+    excess        0.451171             ->  0.303787                32.67 % of it closed
+    angle closed  14.19 % in the graded space, against the 43.61 % the clause needs
+    and against float64 the trunk gets WORSE
+
+**A third.** The campaign's best lever, applied exactly where the clause lives, buys about a
+third of what the clause needs, and the clause must still fall a further **23.30 %**.
+
+**The provenance is the strongest this campaign has produced and it is why the number is
+believable.** The A/A floor is **exactly 0** — SHIP_A and SHIP_B bit-identical on 2,736/2,736 —
+and SHIP_A is bit-identical **to `of3t-recut`'s banked `dev_RENORM_model_n384_external.pt`**,
+the artifact the repointed clause was scored on, digests cited both ways. The banked arm
+composed through this row's own scorer reproduces the clause at **0.22072451195864032 exactly**,
+and the recomposition identity has `rel_difference 0.0`. **The EXACT arm differs from SHIP_A by
+the `exact_softmax()` scope alone**, so this is a lever on the clause's arm rather than a
+projection onto it — which is what `of3t-angle`'s reading could never be. **No bar moved**: all
+five pre-registered levels are unchanged, including `upstreams_own_floor_here` at 0.8525301041731214
+and `section_A26_level` at 0.9700522560698159, both of which would PASS.
+
+**And the barred shortcut turns out to have been accurate, which is worth knowing precisely
+because we did not use it.** The row pre-registered the in-frame projection as a LEVEL with an
+aliveness band — *"within 15 % ... outside that the projection is dead and the campaign must
+stop carrying it"* — and measured the multiple at **2.180720496587762** against a projection of
+**2.2340903768268046**: **2.4 % off, alive.** A37 still bars a cross-frame quotient as
+*evidence*; what this licenses is the cheaper thing — **an in-frame multiple on this frame
+family is a sound SCREEN**, good to a few percent, so a future lever can be triaged in-frame
+before anyone spends a model-frame arm on it. The discipline was to measure rather than project,
+and the measurement is what turned a barred number into a calibrated tool.
+
+**Where this leaves the charter.** Not unreachable: `upstreams_own_floor_here` passes at 0.8525x
+and the trunk's norm ratio vs float64 is now **1.0644759387772336** against upstream's own
+**1.0568409490651478** on the same scope — we are close to upstream on magnitude and the residue
+is still direction. But the best lever the campaign has is now spent on this arm, it delivered a
+third, and **nothing else of comparable size is currently identified.** That is the honest state.
+
+**One process note: the D155 warning worked, once, when it came with the fix.** D249 records
+three rows warned while live that concluded without acting. `of3t-modelever` was warned at pass
+414 **and given the writer-level repair and a row to copy**, and it stamped host, board and card
+from the provenance in `pairdiff.py` rather than joining the freeze list. The difference was not
+the warning.
+
+**Addendum to R191, same pass — the guard would have failed the one row that complied.**
+`of3t-modelever` did stamp its artifacts (verified: `host tt-quietbox2`, `board p300c`,
+`card 1`, plus `host_quiet` state), and the D155 guard went on warning about all three. The
+guard's `host_of()` read the **top level only**, and the row had put host/board/card in a
+**per-compared-artifact provenance block** — which is the *right* place for them, because one
+file compares two arms that could come from different boxes.
+
+So the row that finally acted on a warning three rows had ignored was the row the guard was
+about to fail, and the freeze it would have forced would then have been cited as **a fourth
+instance of D249** — a defect record manufactured out of a checker's blind spot. **A guard that
+punishes the one row that listened is worse than no guard**, and the failure mode is specific:
+the guard tested *where the field is* when the property it cares about is *whether the host is
+recoverable*.
+
+Presence is recursive now, and the exclusion is separately widened to every host/card pair at
+any depth — **strictly stronger** than the top-level scan it replaces, since a nested `pc card
+0` could previously have hidden from it. And the first attempt at that widening was wrong in a
+way worth keeping: I regexed `json.dumps(d)` and **the break control caught it immediately** —
+JSON inserts `": ` between `card` and its value, which breaks the adjacency `BANNED` matches on.
+The probe that exists so a guard cannot quietly stop guarding is what said so.
+
+### R192. A pre-registered ceiling that promised a CLEARING arm is refuted by measurement, and it was still a live constant in the clause scorer (pass 414, zero card)
+
+`perf/of3t_modelframe/clause.py:37` carried `LEVER_CEILING = 1.8563207917912123`, *"the
+pre-registered trunk lever ceiling divisor"*, and `CLAUSE.json` published
+`projected_trunk_reading_with_the_lever_ceiling: 0.3584521380145671` from it. That projection
+implied the lever would bring the clause to a **clearing 0.9668x**.
+
+**Measured, on the same frame, on an arm bit-identical to the clause's own banked artifact: the
+lever divides the trunk by 1.1516970980351204** — trunk 0.7768254196709333 -> 0.6745049727018105
+— which is **62.04 %** of the projected divisor, and the clause reads **1.3037867474869442x** and
+does not clear. `of3t-modelever` said it plainly: *"that projection is refuted by a measured arm
+on the same frame, so the campaign should stop carrying it."*
+
+**Kept, not deleted.** The constant stays in the file with the refutation beside it, and
+`clause.py` now also emits a machine-readable `lever_ceiling_REFUTED` block carrying the
+projected divisor, the measured divisor, the delivered fraction and both clause values, plus a
+`projected_trunk_reading_with_the_MEASURED_divisor` (0.5777579519768513) next to the old line.
+Deleting it would have been the tidier move and the wrong one: a removed number reads as
+staleness rather than as a retraction (`a-deletion-reported-as-staleness`), and the
+pre-registration is the thing that made the refutation meaningful in the first place.
+
+**The pattern to notice is where it was hiding.** This was not prose in a state doc — it was a
+**live constant in the scorer that computes the charter's own levels**, feeding a published
+field. The five pre-registered levels were all correct and all held; the refuted thing sat
+beside them in the same artifact, carrying the same authority, and nothing distinguished them.
+**A pre-registered projection and a pre-registered bar look identical once published**; only one
+of them is supposed to survive contact with a measurement. Levels are commitments to be held;
+projections are predictions to be scored and then marked.
+
+### R193. I dispatched three rows against a DONE_CHECK that did not know they existed, and the critical path spent five iterations discovering it (pass 414, zero card)
+
+`of3t-modelever` finished the measurement the whole campaign was waiting on — the lever on the
+clause's own arm — and then could not conclude. Its log: *"the check on qb2 still fails for one
+reason: `_of3t_donecheck.py` has no entry for `of3t-modelever`"*, and it deferred itself to
+04:35 **waiting for me**. `of3t-msaamp` and `of3t-cropwall` were walking into the same wall.
+
+**The brief's `DONE_CHECK:` line names a script; nothing checks that the script knows the row.**
+So a dispatch can be complete in every visible respect — brief, `#DISPATCH`, TASKS tag, a row
+that launches and works — and still be unconcludable. The row discovers it only at the moment it
+tries to finish, which is the most expensive moment available, and the failure reads to the row
+as its own work being rejected. `of3t-modelever` spent five iterations on it and was right every
+time.
+
+**Fixed for all three**, with entries keyed to what each brief actually asked for rather than to
+generic fields — and their state docs added to `_STAGE_HINTS`, because the script warns that a
+path absent from that list *"is never copied and the ssh'd check fails with Errno 2 no matter
+how correct that row's work is"*. `of3t-modelever` passes immediately on the work it had already
+banked; the two live rows have been told their exact field names rather than left to guess at
+regexes.
+
+**The rule this yields, and it belongs beside the concluded-name check from R189.** Dispatching
+a row has two halves and only one of them is visible: writing the brief, and teaching the gate
+the row exists. **Before dispatch: `grep <row-name> workstreams/_of3t_donecheck.py` and
+`ls state/concluded/ | grep <row-name>`.** Two commands. This pass I skipped the first three
+times and the second once, and both cost a row's time rather than mine — which is exactly why
+they are easy to skip.
+
+**A guard here is worth more than the one I abandoned at R189.** That one failed because the
+disk carries no trustworthy conclusion timestamp; this one needs no timestamp at all — every
+`of3t-*.txt` brief carrying a `DONE_CHECK:` line that names `_of3t_donecheck.py` must have a
+matching key in that script's `EXTRA`. It is a set comparison on two files, and the script
+ALREADY asserts the mirror of it (`EXTRA` slugs must appear in `_STAGE_HINTS`). The missing
+direction is the one that bit.
+
+**Addendum to R193, same pass — the guard is built and it fires.** `_assert_every_dispatched_brief_is_gated()`
+lives beside `_assert_stage_hints()` in the check itself and asserts the mirror direction: every
+`of3t-*.txt` carrying a `#DISPATCH:` line and a `DONE_CHECK:` naming this script, and not yet
+concluded, must have a key in `EXTRA`. Break control run rather than asserted: **silent against
+the tree as it stands, and naming `of3t-msaamp` the moment that row's entry is removed.** It is
+a warning, not a failure, for the same reason the hint check is — one row's missing entry must
+not refuse a different row.
+
+**Two guards were proposed this pass and only one was built**, which is the useful comparison.
+R189's wanted to know *when a row concluded* and the disk has no trustworthy answer, so three
+designs each fired on dozens of healthy rows and it was deleted. This one asks *does the gate
+know this row exists*, which is a set comparison between two files with no time in it at all.
+**The buildable check was the one whose question had an exact answer on disk**; the abandoned
+one kept trying to infer a fact nothing records.
+
+### R194. The lever's stated mechanism is refuted by the campaign's own measurement: upstream 0.4.3 computes its softmax in bf16, so "we move toward upstream's recipe" cannot be why it helps (pass 414, zero card)
+
+`of3t-modelever` explained its float64-space result this way: *"The lever moves our trunk toward
+upstream's bf16 step, which computes its softmax in fp32 under autocast, and away from the
+float64 truth."* It labelled that sentence honestly — *"That is inference; this row measured the
+direction, not the mechanism"* — and the inference is **wrong on a fact this campaign already
+measured**.
+
+`of3t-fp32islands` enumerated the precision islands against both upstream trees and the autocast
+policy header, and its durable finding is explicit: **"OpenFold3 0.4.3 runs LayerNorm and
+attention softmax in bf16 by explicitly disabling autocast; 0.5.0 restores both to fp32."** And
+the graded reference is 0.4.3: `of3t-refprec` built all four arms, `arm4_bf16_autocast` among
+them, *"all upstream OpenFold3 0.4.3"*, against the `grads_f64_043.pt` float64 reference.
+
+**So on the very op the lever changes, upstream's graded step is bf16 and our lever is float64 —
+maximally far from upstream — and it moves us CLOSER to upstream in the graded space anyway.**
+Recipe-matching cannot be the mechanism. Whatever the lever is doing, it is not converging on
+upstream's arithmetic on that op.
+
+**This mattered before it was interesting.** I was about to dispatch a row on exactly that
+premise — enumerate where our trunk's dtype recipe differs from upstream's bf16 recipe and match
+the next one — which would have spent a card chasing a mechanism the campaign had already
+refuted, and the enumeration itself is *also* already done and concluded (`of3t-fp32islands`,
+PARTIAL: every single-op forward island is rounded back to bf16 by upstream at both versions and
+we are already at the floor there with `precise_config()`). Two R189s in one pass, avoided by
+the two commands R189 says to run.
+
+**What is actually open.** The lever closes 14.19 % of the graded angle and opens the float64
+angle by 10.12 %, and no explanation the campaign currently holds accounts for both signs.
+`of3t-modelever`'s alternative — that making one component exact while the rest of the trunk
+stays bf16 loses an error cancellation the shipped trunk had — survives this refutation and is
+untested. **It is also the more consequential hypothesis**, because if the gain is cancellation
+rather than accuracy then it is fragile: it would not compose with a second lever, and stacking
+levers is precisely the campaign's remaining plan for the other two thirds.
+
+**And it puts a boundary-version stamp back on the critical path.** `of3t-fp32islands` handed
+the orchestrator a standing instruction I had not enforced: *"every of3t gradient figure needs
+its boundary version stated beside it"*, because a port compared against the wrong version's
+boundary *"shows a 30,000x gradient gap with no defect present"*. Neither `of3t-modelever`'s
+state doc nor its `CLAUSE_EXACT.json` names the version anywhere.
