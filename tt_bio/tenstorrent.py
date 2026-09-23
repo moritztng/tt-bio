@@ -7510,7 +7510,8 @@ class TriangleMultiplication(Module):
                 r = x_in[:, s:e]
                 y_add = ttnn.add(r, y)
                 ttnn.deallocate(y)
-                ttnn.deallocate(r)
+                if e - s < H:               # a whole-axis slice is x_in itself
+                    ttnn.deallocate(r)
                 y = y_add
             _acc_append(blocks, y, host_acc)
         if not on_host:
@@ -9341,8 +9342,10 @@ class Transition(Module):
             # (concat_host_bytes()). Guarded on the swiglu output dtype being bf16.
             host_acc = _host_concat(x) and (self.dtype or _dtype()) == ttnn.bfloat16
             parts = []
+            # A ttnn slice over a whole axis is its input, buffer and all, so freeing it would
+            # free x (or c); only a real sub-range is ours to free.
             for s in range(0, H, transition_h_chunk_size):
-                c = x[:, s:min(s + transition_h_chunk_size, H)]
+                c = x if transition_h_chunk_size >= H else x[:, s:min(s + transition_h_chunk_size, H)]
                 if not w_chunked:
                     y = swiglu(c)
                     if add_to_input:
@@ -9350,21 +9353,26 @@ class Transition(Module):
                         ttnn.deallocate(y)
                         y = y_add
                     _acc_append(parts, y, host_acc)
-                    ttnn.deallocate(c)
+                    if c is not x:
+                        ttnn.deallocate(c)
                 else:
                     w_parts = []
                     for w in range(0, W, w_chunk):
-                        cw = c[:, :, w:min(w + w_chunk, W), :]
+                        cw = c if w_chunk >= W else c[:, :, w:min(w + w_chunk, W), :]
                         w_parts.append(swiglu(cw))
-                        ttnn.deallocate(cw)
-                    y = ttnn.concat(w_parts, dim=2)
-                    for wp in w_parts:
-                        ttnn.deallocate(wp)
+                        if cw is not c:
+                            ttnn.deallocate(cw)
+                    # concat of one part is that part, so it is only freed after a real join.
+                    y = w_parts[0] if len(w_parts) == 1 else ttnn.concat(w_parts, dim=2)
+                    if y is not w_parts[0]:
+                        for wp in w_parts:
+                            ttnn.deallocate(wp)
                     if add_to_input:
                         y_add = ttnn.add(c, y)
                         ttnn.deallocate(y)
                         y = y_add
-                    ttnn.deallocate(c)
+                    if c is not x:
+                        ttnn.deallocate(c)
                     _acc_append(parts, y, host_acc)
             dram_peak(f"transition4d loop done (lazy, h={transition_h_chunk_size}) [z={'x'.join(str(d) for d in x.shape)}]")
             return _acc_concat(parts, 1, host_acc, memory_config,
