@@ -336,7 +336,7 @@ CEILINGS: dict[str, dict[str, Ceiling]] = {
         ),
         "wormhole_b0": Ceiling(
             residues=1536, pass_at=1536, fail_at=None, binds=LADDER_TOP, mechanism=NO_FAILURE,
-            msa_rows=8192,
+            msa_rows=16384,
             evidence="its OWN 1536 rung at 8192 alignment rows on the j10glx02 Galaxy, 2026-09-23, "
                      "not inherited from opendde by architecture argument (ws:mgx-bigalloc, "
                      "perf/whceil/ladder.py, chip 18, tt-bio c8f75a9f0): cdk2x2_1536_d8192 with all "
@@ -355,7 +355,10 @@ CEILINGS: dict[str, dict[str, Ceiling]] = {
                      "(chip 30, 2005.9 s, AICLK median 1000 MHz). The previous row was 1024 (3/3 byte-identical folds, 2026-09-08) "
                      "with 1088 failing. AT 16384 ROWS, the most the featurizer keeps (ws:mgx-msa-depth, "
                      "perf/mgx_msa_depth, chip 23, tt-bio b08951fd6): cdk2_1024_d16384 PASS in 1779 s "
-                     "at AICLK 1000 MHz sampled DURING the fold, three DRAM refusals absorbed",
+                     "at AICLK 1000 MHz sampled DURING the fold, three DRAM refusals absorbed; "
+                     "cdk2_1536_d16384 PASS in 5891 s at AICLK 1000 MHz on 556 samples taken DURING "
+                     "the fold (chip 12, tt-bio b9cdecce1), ten refusals absorbed, msa_depth 16384 "
+                     "in results.json, CA-CA median 3.85 A with 98.0 % in band",
         ),
     },
     "openfold3": {

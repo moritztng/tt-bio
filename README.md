@@ -140,6 +140,9 @@ under 1024:
 | `boltzgen` | 14786 (atoms in the target) | none found; top of the ladder |
 | `esmc-6b` (embed) | 1968; 8192 with `--fast` | 1984 |
 
+For every model here that reads an alignment, the limit was measured with 16384 alignment rows,
+the most any of them reads, so a deeper a3m does not lower it.
+
 Ask for more than a model's limit and tt-bio refuses before it opens a device, naming the
 model, the limit and any model that does take the input. `rf3` is not in the table because
 it folds every rung to 1095 residues, the top of its ladder. `boltz2` and `nesso1` have no
