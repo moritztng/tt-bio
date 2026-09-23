@@ -95,6 +95,40 @@ def test_the_wrapper_never_forwards_none(monkeypatch):
     assert seen[-1]["attn_mask"] is own and len(freed) == 1
 
 
+def _generic_sdpa_runners():
+    """Files that RUN sdpa_generic's program (its `sdpa` or `build`), not just price its CBs."""
+    out = []
+    for path in sorted(PKG.rglob("*.py")):
+        if "_vendor" in path.parts or path.name == "sdpa_generic.py":
+            continue
+        tree = ast.parse(path.read_text())
+        aliases = {a.asname or a.name for n in ast.walk(tree) if isinstance(n, ast.ImportFrom)
+                   for a in n.names if a.name == "sdpa_generic"}
+        if any(isinstance(n, ast.Attribute) and n.attr in ("sdpa", "build")
+               and isinstance(n.value, ast.Name) and n.value.id in aliases
+               for n in ast.walk(tree)):
+            out.append(path.relative_to(PKG.parent).as_posix())
+    return out
+
+
+def test_the_generic_op_route_is_only_reached_masked(monkeypatch):
+    # sdpa_generic runs the same wheel kernels through ttnn.generic_op, a second way to the op.
+    # tenstorrent.py imports it only to price L1; triatt_sdpa is the one runner, and both of its
+    # entries decline a None bias.
+    assert _generic_sdpa_runners() == ["tt_bio/triatt_sdpa.py"]
+    pytest.importorskip("ttnn")
+    tri = pytest.importorskip("tt_bio.triatt_sdpa")
+    monkeypatch.setattr(tri, "_ENABLED", True)  # else both entries decline everything
+
+    class T:
+        shape = (4, 4, 256, 32)
+        dtype = None
+
+    t = T()
+    assert tri.sdpa(t, t, t, None, 0.125, 256, 256) is None
+    assert tri.sdpa_fused_qkv(t, t, None, 0.125, 4, 32, 256, 256, force=True) is None
+
+
 def test_a_ragged_length_masks_only_the_padded_keys():
     torch = pytest.importorskip("torch")
     esmc = pytest.importorskip("tt_bio.esmc")
