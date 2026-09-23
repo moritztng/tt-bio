@@ -345,9 +345,19 @@ CEILINGS: dict[str, dict[str, Ceiling]] = {
     },
     "openfold3": {
         "wormhole_b0": Ceiling(
-            residues=1536, pass_at=1536, fail_at=1664, binds=MEMORY, mechanism=FRAGMENTATION,
+            residues=1664, pass_at=1664, fail_at=1792, binds=MEMORY, mechanism=FRAGMENTATION,
             msa_rows=14190,
-            evidence="1536 residues fold at 14190 alignment rows on the j10glx02 Galaxy, "
+            evidence="walked 2026-09-23 on origin/main a2a70b160 (combos merge: template features "
+                     "stay on the host), j10glx02 card 19, guard off, --host_threads 2, apo CDK2 "
+                     "tiled at 14190 alignment rows (ws:mgx-ceilings, perf/mgxceil). 1664 x 14190 "
+                     "PASS in 3625.5 s, complex pLDDT 0.49. 1792 x 14190 fails after 1372.1 s in the "
+                     "MSA stack's triangle attention (openfold3_msa_embedder.py:141 -> "
+                     "TriangleAttention, the fp32 softmax tail after host_acc_after_refusal had "
+                     "already absorbed an 8220835840 B refusal): one 822083584 B request, 65.3 MiB "
+                     "per bank against a 63.0 MiB largest block with 202.8 MiB free, so "
+                     "fragmentation. AICLK median 1000 MHz sampled during both. The 1664 wall "
+                     "below, 512 B short in the diffusion transformer, is what the combos merge "
+                     "removed. Earlier: 1536 residues fold at 14190 alignment rows on the j10glx02 Galaxy, "
                      "2026-09-23 (ws:mgx-bigalloc, perf/whceil/ladder.py, chip 9, tt-bio 296f5fcea): "
                      "cdk2x2_1536_d14190, PASS in 1917.9 s at AICLK 1000 MHz sampled DURING the fold, "
                      "under a host load that voids the time for speed. 1536 x 8192 rows folds too "

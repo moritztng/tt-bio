@@ -137,6 +137,8 @@ with 86 % of the chip in use. `esmfold2` lands in the same place with its alignm
 and single-sequence, because its MSA encoder sees at most 1024 rows per trunk loop.
 
 `openfold3` and `openbind` fold 1536 residues at 14190 alignment rows now that the MSA
-representation streams through the chip a depth chunk at a time. Both fail at 1664 in the
-diffusion transformer, with 58 MB free but no block large enough for one 177 MB tensor. The measured rows, with commits, wall times and allocation sizes, are in
+representation streams through the chip a depth chunk at a time. `openfold3` also folds 1664
+and fails at 1792 in the MSA stack's triangle attention, one 822 MB tensor with 203 MB per bank
+free but no block large enough. `openbind` fails at 1664 in the diffusion transformer, with 58 MB
+free but no block large enough for one 177 MB tensor. The measured rows, with commits, wall times and allocation sizes, are in
 `tt_bio/size_limits.py`.
