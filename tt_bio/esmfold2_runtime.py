@@ -194,15 +194,20 @@ class _StructureHeadAdapter(_Adapter):
         budget = _diffusion_budget()
         chunk = max(1, min(n, budget // (L * L)))
         out, done = [], 0
-        while done < n:
-            k = min(chunk, n - done)
-            try:
-                out.append(self.m.sample(*args, steps=steps, seed=seed + done, multiplicity=k))
-                done += k
-            except RuntimeError as exc:
-                if k == 1 or not _is_oom(exc):
-                    raise
-                chunk = max(1, k // 2)  # too big for this length/card — halve and retry
+        self.m.prepare(*args)  # the conditioning is the molecule's, shared by every chunk
+        try:
+            while done < n:
+                k = min(chunk, n - done)
+                try:
+                    out.append(self.m.draw(steps=steps, seed=seed + done, multiplicity=k))
+                    done += k
+                    dram_peak(f"esmfold2/diffusion chunk [k={k}]")
+                except RuntimeError as exc:
+                    if k == 1 or not _is_oom(exc):
+                        raise
+                    chunk = max(1, k // 2)  # too big for this length/card — halve and retry
+        finally:
+            self.m.release()
         dram_peak("esmfold2/diffusion-done")
         return {"sample_atom_coords": torch.cat(out, dim=0)}  # [N, n_atoms, 3]
 
@@ -566,6 +571,7 @@ def patch_esmfold2(model, esmc_repo: str = "biohub/ESMC-6B", persistent_lm: bool
             try:
                 outs.append(_orig_conf(*args, **kw2))
                 done += k
+                dram_peak(f"esmfold2/confidence chunk [k={k}]")
             except RuntimeError as exc:
                 if k == 1 or not _is_oom(exc):
                     raise
