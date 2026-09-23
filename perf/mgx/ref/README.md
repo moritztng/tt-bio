@@ -16,6 +16,10 @@ the floor beside them. Chains are matched by sequence, so chain letters do not h
 `--json` gives the full record, `--floors` the floor of every cell. A cell the upstream could not
 fold prints its error instead. On a fixture with a crystal (7AQX, 2AD6, 3ABQ) a second line gives
 the same numbers over only the residues the crystal resolves, floor included.
+A third line scores the fold against the crystal itself, each reference seed beside it; at a
+cell the upstream never folded (every 3abq_1536 cell but boltz2) it is the only line. On 7AQX
+read its per-chain number: the crystal packs the four chains differently from every fold,
+reference included (about 15 A whole-complex).
 
     boltz2 3abq_1536: vs ref s0 0.565 A / lDDT 0.9874 / chain 0.562 A | floor: single reference seed | n_ca 1406
 

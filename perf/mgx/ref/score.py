@@ -113,13 +113,20 @@ def score(model: str, fixture: str, pred: str) -> dict:
     manifest = json.loads(MANIFEST.read_text())
     c = cell(manifest, model, fixture)
     out = {"model": model, "fixture": fixture, "pred": pred}
+    gt = ground_truth(fixture)
+    if gt:
+        # Against the crystal itself, every chain superposed on its own: the check that does not
+        # depend on the reference, and the only one at a fixture the upstream never folded.
+        out["crystal"] = compare(pred, gt)
     refs = ref_paths(c)
+    if gt and refs:
+        out["crystal_ref"] = {f"s{s}": compare(str(p), gt) for s, p in sorted(refs.items())}
     if not refs:
-        out["error"] = ("no reference for this cell: " +
-                        (c.get("missing_reason") or "cell not in manifest"))
+        out["no_reference"] = c.get("missing_reason") or "cell not in manifest"
+        if not gt:
+            out["error"] = "no reference for this cell: " + out["no_reference"]
         return out
     out.update(_vs(pred, refs, c, None))
-    gt = ground_truth(fixture)
     if gt:
         out["resolved"] = _vs(pred, refs, c, gt)
     return out
@@ -129,10 +136,22 @@ def line(r: dict) -> str:
     if "error" in r:
         return f"{r['model']} {r['fixture']}: {r['error']}"
     head = f"{r['model']} {r['fixture']}: "
-    out = head + _line(r)
+    pad = "\n" + " " * len(head)
+    rows = []
+    if "vs_ref" in r:
+        rows.append(_line(r))
+    else:
+        rows.append("no reference for this cell: " + r["no_reference"])
     if "resolved" in r:
-        out += "\n" + " " * len(head) + "crystal-resolved residues only: " + _line(r["resolved"])
-    return out
+        rows.append("crystal-resolved residues only: " + _line(r["resolved"]))
+    if "crystal" in r:
+        x = r["crystal"]
+        rows.append(f"vs crystal {x.get('ca_rmsd_A')} A / lDDT {x.get('lddt_ca')} / chain "
+                    f"{x.get('worst_chain_ca_rmsd_A')} A"
+                    + "".join(f", ref {k} {v.get('ca_rmsd_A')} A / lDDT {v.get('lddt_ca')} / chain "
+                              f"{v.get('worst_chain_ca_rmsd_A')} A" for k, v in r.get("crystal_ref", {}).items())
+                    + f" | n_ca {x.get('n_ca')}")
+    return head + pad.join(rows)
 
 
 def _line(r: dict) -> str:
