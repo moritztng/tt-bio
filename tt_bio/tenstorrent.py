@@ -12323,6 +12323,12 @@ class DiffusionModule(TorchWrapper):
                 bias, (TOKEN_DIM / TOKEN_N_HEADS) ** 0.5
             )
             bias_token_tt = ttnn.permute(bias, (0, 3, 1, 2))
+            if isinstance(bias_token, ttnn.Tensor):
+                # The device conditioning hands its tensor over (the multiply_ above already
+                # scaled it in place) and nothing reads it after this permute. Kept, it was a
+                # second [n, n, heads * layers] copy through the whole sampler: 2.14 GiB at
+                # 1728 tokens.
+                ttnn.deallocate(bias)
             if token_pad:
                 # Fuse additive padding mask into token bias (bfloat16 for -1e9)
                 seq_mask = torch.zeros(1, 1, 1, padded_seq)
