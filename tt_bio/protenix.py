@@ -38,7 +38,7 @@ from .protenix_weights import remap_adaln  # single source of all v2->tt-bio wei
 from . import ops
 from .tenstorrent import (Module, CORE_GRID_MAIN, get_device, dram_peak,
                           MSA_CHUNK_SIZE, batched_matmul, msa_depth_chunks,
-                          msa_embed, msa_update_chunks, pair_row_blocks,
+                          host_park, host_unpark, msa_embed, msa_update_chunks, pair_row_blocks,
                           row_block_after_refusal,
                           device_generation, accurate_softmax_site)
 from . import tenstorrent as _T   # for the module-level A/B toggles, which must be read live
@@ -2579,9 +2579,13 @@ class Trunk(_KeyedWeights):
         # and holding 48.82 MB of L1 across them makes their trimul throw.
         zn = self._ln(z3, "template_embedder.layernorm_z.weight",
                       "template_embedder.layernorm_z.bias", l1=True)
-        vs = [ttnn.add(tpl_a[t],
-                       self._lin(zn, "template_embedder.linear_no_bias_z.weight"),
-                       memory_config=ttnn.DRAM_MEMORY_CONFIG) for t in range(nt)]
+        vs = []
+        for t in range(nt):
+            a = host_unpark(tpl_a[t])
+            vs.append(ttnn.add(a, self._lin(zn, "template_embedder.linear_no_bias_z.weight"),
+                               memory_config=ttnn.DRAM_MEMORY_CONFIG))
+            if a is not tpl_a[t]:
+                ttnn.deallocate(a)
         ttnn.deallocate(zn)
         u = None
         for t in range(nt):
@@ -2825,6 +2829,8 @@ class Trunk(_KeyedWeights):
         ttnn.deallocate(s_m)
         dram_peak(f"trunk m_feat built [{tuple(m_feat.shape)} {m_feat.dtype}]")
         z3 = ttnn.reshape(ttnn.mul(z_init, 0.0), (1, N, N, self.C_Z))
+        # Both are read once per cycle and never written, so past 1 GiB they wait on the host.
+        z_init, tpl_a = host_park(z_init), host_park(tpl_a)
         s = ttnn.mul(s_init, 0.0)
         n_cycles = self.N_CYCLES if n_cycles is None else n_cycles
         for cyc in range(n_cycles):
@@ -2837,7 +2843,10 @@ class Trunk(_KeyedWeights):
                 if progress_fn:
                     progress_fn("trunk", step=cyc, total=n_cycles)
                 zc = self._lin(self._ln(z3, "layernorm_z_cycle.weight", "layernorm_z_cycle.bias"), "linear_no_bias_z_cycle.weight")
-                z3 = ttnn.add(ttnn.reshape(z_init, (1, N, N, self.C_Z)), zc)
+                zi = host_unpark(z_init)
+                z3 = ttnn.add(ttnn.reshape(zi, (1, N, N, self.C_Z)), zc)
+                if zi is not z_init:
+                    ttnn.deallocate(zi)
                 if nse_d is not None:
                     z3 = ttnn.add(z3, self._noisy_structure(z3, nse_d))
                 # Gate on BOTH the feature's template slots and the checkpoint's own template
@@ -2861,8 +2870,9 @@ class Trunk(_KeyedWeights):
                 # so this both tests cycle 0 and, if cycle 0 matches, names the first cycle that does not.
                 trunk_tap(f"cyc{cyc}_after_PF:s", s, always=True)
                 trunk_tap(f"cyc{cyc}_after_PF:z3", z3, always=True)
-        for t in tpl_a:
-            ttnn.deallocate(t)
+        for t in [z_init, *tpl_a]:
+            if t.storage_type() == ttnn.StorageType.DEVICE:
+                ttnn.deallocate(t)
         if nse_d is not None:
             ttnn.deallocate(nse_d)
         # The trunk's final conditioning. If cycle 0's blocks matched but this differs, the

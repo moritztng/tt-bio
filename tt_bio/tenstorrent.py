@@ -5281,6 +5281,34 @@ def msa_host_offload(m):
     return h
 
 
+def host_park(t):
+    """A cycle-invariant device tensor, or a list of them, moved to the host past
+    `MSA_HOST_OFFLOAD_MIN_BYTES` together; `host_unpark` brings one back for each read.
+
+    For the trunk inputs every recycling cycle reads once and nothing writes: OpenDDE's z_init and
+    its four template projections are 1.81 GB and 1.21 GB at 1536 tokens, resident for the whole
+    trunk beside the cycle's own working set. `from_device` keeps the device layout, so the host
+    copy is the same tile bytes (bfloat8_b scales included) and each read is one DMA, no tilize."""
+    ts = t if isinstance(t, list) else [t]
+    v = os.environ.get("TT_BIO_MSA_HOST_OFFLOAD_MIN_BYTES")
+    lim = int(v) if v else MSA_HOST_OFFLOAD_MIN_BYTES
+    nbytes = sum(_padded_bytes(tuple(x.shape), 4 if x.dtype == ttnn.float32 else 2) for x in ts)
+    if not ts or nbytes <= lim:
+        return t
+    hs = []
+    for x in ts:
+        hs.append(ttnn.from_device(x))
+        ttnn.deallocate(x)
+    dram_peak(f"trunk parked {len(hs)} cycle-invariant tensor(s) on the host [{nbytes} B]")
+    return hs if isinstance(t, list) else hs[0]
+
+
+def host_unpark(t):
+    """`t` on the device: a `host_park`ed tensor is uploaded, and that copy is the caller's to free
+    (`t` itself stays parked for the next read); a device tensor comes back as is."""
+    return t if t.storage_type() == ttnn.StorageType.DEVICE else ttnn.to_device(t, get_device())
+
+
 def msa_embed(feat, project, rows=MSA_CHUNK_SIZE):
     """The trunk's pristine `m` = `project(feat)`, placed the way `msa_host_offload` places it.
 
