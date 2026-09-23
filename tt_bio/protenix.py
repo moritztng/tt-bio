@@ -38,7 +38,8 @@ from .protenix_weights import remap_adaln  # single source of all v2->tt-bio wei
 from . import ops
 from .tenstorrent import (Module, CORE_GRID_MAIN, get_device, dram_peak,
                           MSA_CHUNK_SIZE, batched_matmul, msa_depth_chunks,
-                          msa_embed, msa_update_chunks,
+                          msa_embed, msa_update_chunks, pair_row_blocks,
+                          row_block_after_refusal,
                           device_generation, accurate_softmax_site)
 from . import tenstorrent as _T   # for the module-level A/B toggles, which must be read live
 from .eltwise_fusion import scale_add, norm_residual
@@ -290,6 +291,8 @@ def _window_q(x, N, NP, nq=32):
     x = ttnn.pad(x, [[0, 0], [0, NP - N], [0, 0]], 0.0)
     return ttnn.to_layout(ttnn.reshape(x, (NP // nq, nq, x.shape[-1])), ttnn.TILE_LAYOUT)
 
+
+_TEMPLATE_ROWS_REFUSED = {}  # pair shape -> row block the template residual settled at
 
 _WIN_KV_IDX = {}  # (gen,NP,nq,nk) -> (1, nb*nk) uint32 gather index, device tensor on the
                   # CURRENT mesh. gen = tenstorrent.device_generation(): a model switch closes
@@ -2588,7 +2591,15 @@ class Trunk(_KeyedWeights):
             v = self._ln(v, "template_embedder.layernorm_v.weight", "template_embedder.layernorm_v.bias")
             u = v if u is None else ttnn.add(u, v)
         u = ttnn.multiply(u, 1.0 / (1e-7 + nt))
-        return self._lin(ttnn.relu(u), "template_embedder.linear_no_bias_u.weight")
+        # z + linear_u(relu(u)), the embedder's residual. Per pair position, so after DRAM refuses
+        # the single pass it runs in row blocks and the old z is freed at the join: at 1536 tokens
+        # the c_z=384 projection alone is 1811939328 B, refused beside z with a 96 MiB/bank run.
+        res = lambda zr, ur: ttnn.add(
+            zr, self._lin(ttnn.relu(ur), "template_embedder.linear_no_bias_u.weight"))
+        return row_block_after_refusal(
+            _TEMPLATE_ROWS_REFUSED, tuple(z3.padded_shape), lambda: res(z3, u),
+            lambda rows: pair_row_blocks(res, (z3, u), rows, consume=z3),
+            rows=256, tag="protenix template")
 
     def _noisy_structure_dist(self, feat, N):
         """The cycle-invariant half of `NoisyStructureEmbedder`: the binned CB distogram.
@@ -2839,7 +2850,7 @@ class Trunk(_KeyedWeights):
                 # where upstream adds nothing. Inert for protenix-v2 and opendde, which both ship
                 # a 2-block stack (pinned by tests/test_protenix_template_gate.py).
                 if nt > 0 and self.TPL:
-                    z3 = ttnn.add(z3, self._template(z3, tpl_a, N, nt, pmask_tt, attn_tt))
+                    z3 = self._template(z3, tpl_a, N, nt, pmask_tt, attn_tt)
                 z3 = self._msa(z3, m_feat, pmask_tt, attn_tt)
                 sc = self._lin(self._ln(s, "layernorm_s.weight", "layernorm_s.bias"), "linear_no_bias_s.weight")
                 s = ttnn.add(s_init, sc)

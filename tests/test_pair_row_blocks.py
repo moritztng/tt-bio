@@ -53,3 +53,20 @@ def test_every_tensor_is_sliced_on_the_same_rows(dev):
     ta, tb = ft(a), ft(b)
     out = T.pair_row_blocks(lambda x, y: ttnn.add(x, y), (ta, tb), 32)
     assert torch.equal(ttnn.to_torch(out), ttnn.to_torch(ttnn.add(ta, tb)))
+
+
+@pytest.mark.parametrize("rows", [32, 64])
+def test_a_residual_in_row_blocks_is_the_single_pass_and_frees_its_input(dev, rows):
+    """The protenix template embedder's `z + linear_u(relu(u))`: after a refusal the old `z` is
+    consumed at the join, so the joined result can take the room it leaves."""
+    torch.manual_seed(1)
+    n, c_t, c_z = 96, 64, 128
+    ft = lambda x: ttnn.from_torch(x, layout=ttnn.TILE_LAYOUT, device=dev, dtype=ttnn.bfloat16)
+    zh, uh = torch.randn(1, n, n, c_z), torch.randn(1, n, n, c_t)
+    w = ft(torch.randn(c_t, c_z) / c_t ** 0.5)
+    res = lambda zr, ur: ttnn.add(zr, ttnn.linear(ttnn.relu(ur), w))
+    single = ttnn.to_torch(res(ft(zh), ft(uh)))
+    z = ft(zh)
+    out = T.pair_row_blocks(res, (z, ft(uh)), rows, consume=z)
+    assert not z.is_allocated()
+    assert torch.equal(ttnn.to_torch(out), single)
