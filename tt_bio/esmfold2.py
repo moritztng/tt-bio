@@ -1312,7 +1312,7 @@ class MSAPairWeightedAveraging(Module):
         self.Wv = self.torch_to_tt("Wv.weight"); self.Wgate = self.torch_to_tt("Wgate.weight")
         self.Wout = self.torch_to_tt("Wout.weight")
 
-    def weights(self, pair):
+    def token_weights(self, pair):
         """The token weights [B,L,L,8] on the host, softmax over j. A function of `pair` alone,
         so a depth-chunked MSA computes them once for every chunk."""
         ck = self.compute_kernel_config
@@ -1333,7 +1333,7 @@ class MSAPairWeightedAveraging(Module):
         B, L, M = m.shape[0], m.shape[1], m.shape[2]
         h, dh = self.n_heads, self.head_width
         if attn is None:
-            attn = self.weights(pair)
+            attn = self.token_weights(pair)
         blocks = _msa_row_blocks(L, M) or [(0, L)]
         rows = (lambda t, s, e: t) if len(blocks) == 1 else (lambda t, s, e: t[:, s:e])
         v_t, gate_t = [], []
@@ -1393,7 +1393,7 @@ class MSAEncoderBlock(Module):
             # Depth chunks parked on the host (`MSAEncoderModel._streamed`): each comes up, is
             # updated by the same per-row ops and goes back. Nothing here reduces along depth.
             from tt_bio import tenstorrent
-            attn = self.mpwa.weights(pair)
+            attn = self.mpwa.token_weights(pair)
             out = []
             for c in m:
                 d = tenstorrent.host_unpark(c)
