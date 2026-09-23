@@ -136,13 +136,18 @@ def compute_distogram_entropy(
 # ---------------------------------------------------------------------------
 
 
-def _pairformer(use_tenstorrent: bool, fp32: bool, token_z: int, args: dict):
+def _pairformer(
+    use_tenstorrent: bool, fp32: bool, token_z: int, args: dict, cross_chain: bool
+):
     """The pair-only pairformer, on host or on device.
 
-    ``transform_s=False`` with ``affinity=True`` IS the no-seq pairformer: the affinity
-    flag selects the cross-chain ``pair_mask`` path over a 1D token mask, which is what
-    both of Nesso-1's stacks want. ``Fp32PairformerModule`` takes ``pair_mask`` directly
-    and needs no such flag.
+    ``transform_s=False`` IS the no-seq pairformer. ``cross_chain`` selects the device
+    path that takes a general 2D ``pair_mask`` (the affinity stack's protein-ligand mask)
+    over the 1D token mask. The trunk's mask is the outer product of the token mask, which
+    the 1D path reproduces exactly, and it must take that path: the 2D one adds the mask
+    per row block into a [512, heads, N, N] bias, 10.16 GiB at 1632 tokens, more than a
+    Wormhole chip has free. ``Fp32PairformerModule`` takes ``pair_mask`` directly and
+    needs no such flag.
     """
     if not use_tenstorrent:
         return PairformerNoSeqModule(token_z, **args)
@@ -151,7 +156,7 @@ def _pairformer(use_tenstorrent: bool, fp32: bool, token_z: int, args: dict):
             args["num_blocks"], 32, 4, None, None, False
         )
     return tenstorrent.PairformerModule(
-        args["num_blocks"], 32, 4, None, None, False, affinity=True
+        args["num_blocks"], 32, 4, None, None, False, affinity=cross_chain
     )
 
 
@@ -257,7 +262,7 @@ class AffinityModule(nn.Module):
         )
 
         self.pairformer_stack = _pairformer(
-            use_tenstorrent, fp32, token_z, pairformer_args
+            use_tenstorrent, fp32, token_z, pairformer_args, cross_chain=True
         )
         self.use_tenstorrent = use_tenstorrent
 
@@ -388,7 +393,7 @@ class Nesso1(nn.Module):
             token_s=token_s, token_z=token_z, **dict(esm_module_args or {})
         )
         self.pairformer_module = _pairformer(
-            use_tenstorrent, trunk_fp32, token_z, pairformer_model_args
+            use_tenstorrent, trunk_fp32, token_z, pairformer_model_args, cross_chain=False
         )
         self.distogram_head = Linear(token_z, num_dist_bins)
 
