@@ -655,6 +655,11 @@ def build_spi(chains):
     return StructurePredictionInput(sequences=[_entry(c) for c in chains])
 
 
+# Largest token count measured to fold on a 12 GiB Wormhole chip with the ESMC-6B resident
+# (single sequence, whglx 2026-09-23). Above it the LM is released after its forward.
+WH_LM_RESIDENT_MAX_TOKENS = 1088
+
+
 def fold_complex(model, chains, *, num_loops=3, num_sampling_steps=20,
                  num_diffusion_samples=1, seed=0, return_all=False):
     """Fold one (possibly multi-chain) complex on an already-patched model.
@@ -688,11 +693,17 @@ def fold_complex(model, chains, *, num_loops=3, num_sampling_steps=20,
     # ~70 MiB of contiguous DRAM left. Release the language model after its single
     # forward (it runs once per fold, outside the recycling loop) and pay one reload.
     # Bit-exact: same weights, same dtype, same order, only the device buffers move.
-    # Blackhole (32 GB), the single-sequence path and ESMFold2-Fast (no MSA encoder)
-    # all keep the LM resident and run byte-identically to before.
+    # Blackhole (32 GB) always keeps the LM resident, and so does a Wormhole fold without an
+    # MSA up to WH_LM_RESIDENT_MAX_TOKENS.
+    #
+    # The same holds without an MSA once the pair track is large: single-sequence esmfold2 folded
+    # 1088 tokens on the Galaxy with the LM resident and died at 1152 in the MSA encoder's pair FFN
+    # with 10.6 MiB per bank free, the LM holding ~537 of each bank's 1024 MiB. One fold per process
+    # pays nothing for the release; a server folding many large targets pays one reload each.
     esmc = getattr(model, "_esmc", None)
     release_lm = (esmc is not None and getattr(esmc, "_persistent", False)
-                  and any(len(c) > 2 and c[2] is not None for c in chains)
+                  and (any(len(c) > 2 and c[2] is not None for c in chains)
+                       or sum(len(c[1]) for c in chains) > WH_LM_RESIDENT_MAX_TOKENS)
                   and is_wormhole())
     if release_lm:
         esmc._persistent = False
