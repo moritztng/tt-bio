@@ -11,7 +11,7 @@ args=(); while [ $# -gt 0 ] && [ "$1" != "--" ]; do args+=("$1"); shift; done; s
 OUT=$PWD/perf/mgx_constraints/out/$M/$T
 rm -rf "$OUT"; mkdir -p "$OUT/in"
 export PYTHONPATH=$PWD TT_VISIBLE_DEVICES=$C TT_BIO_LEASE_CARDS=$C TT_BIO_LEASE_HOLDER=worker:mgx-constraints
-export TT_BIO_LEASE_DIR=$HOME/leases TT_METAL_CACHE=$HOME/.cache/tt-metal-cache-mgxc
+export TT_BIO_LEASE_DIR=$HOME/leases TT_METAL_CACHE=$HOME/.cache/tt-metal-cache-mgxm
 export TT_METAL_LOGGER_LEVEL=FATAL
 PY=$HOME/env/bin/python
 for f in "$@"; do
