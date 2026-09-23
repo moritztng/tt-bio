@@ -3,10 +3,10 @@
 # chip only when its lease file is absent or released and its flock is free. A model whose
 # batch lost the chip to a co-tenant at open (DeviceInUseError) goes back on the queue.
 #   sched.sh <model> ...   (logs to perf/mgx_template_cif/sched.log)
-set -u
+
 cd "$(dirname "$0")/../.."
 L=$HOME/leases; LOG=perf/mgx_template_cif/sched.log
-Q=("$@"); declare -A RUN   # card -> "pid model"
+Q=("$@"); declare -A RUN=()   # card -> "pid model"
 log() { echo "$(date -u +%FT%TZ) $*" >> "$LOG"; }
 free_card() {
   for c in $(seq 0 31); do
