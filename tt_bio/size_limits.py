@@ -393,7 +393,7 @@ CEILINGS: dict[str, dict[str, Ceiling]] = {
     "openbind": {
         "wormhole_b0": Ceiling(
             residues=1536, pass_at=1536, fail_at=None, binds=LADDER_TOP, mechanism=NO_FAILURE,
-            msa_rows=14190, ladder_ligand_atoms=0,
+            msa_rows=16384, ladder_ligand_atoms=0,
             evidence="1536 residues fold apo at 14190 alignment rows on the j10glx02 Galaxy, "
                      "2026-09-23 (ws:mgx-bigalloc, perf/whceil/ladder.py, chip 17, tt-bio 296f5fcea): "
                      "cdk2x2_1536_d14190, PASS in 1914.2 s at AICLK 1000 MHz sampled DURING the fold, "
@@ -409,7 +409,11 @@ CEILINGS: dict[str, dict[str, Ceiling]] = {
                      "refused at submission. The previous cap, 960 residues walked with CCD STU "
                      "(35 atoms) on GWH02 at e9cb5b70 (ws:ceiling-1024-integration-and-gate), "
                      "folded 768/896/960 with intact backbones and stays valid below. "
-                     "Nothing above 1536 was walked, hence LADDER_TOP",
+                     "Nothing above 1536 was walked, hence LADDER_TOP. "
+                     "AT 16384 ROWS, the most the vendored featurizer keeps, 2026-09-23 "
+                     "(ws:mgx-msa-depth, perf/mgx_msa_depth, chip 29, tt-bio 3f10800fd): "
+                     "cdk2_1536_d16384 PASS in 2383 s at AICLK 1000 MHz sampled DURING the fold, "
+                     "four DRAM refusals absorbed, so this row holds at every depth a user reaches",
         ),
     },
     "rf3": {
@@ -448,7 +452,7 @@ CEILINGS: dict[str, dict[str, Ceiling]] = {
     "protenix-v2": {
         "wormhole_b0": Ceiling(
             residues=1024, pass_at=1024, fail_at=1095, binds=MEMORY, mechanism=DRAM,
-            msa_rows=8832, ladder_ligand_atoms=0,
+            msa_rows=16384, ladder_ligand_atoms=0,
             evidence="1024 measured 2026-09-08 on GWH02 (8x9, 12 GiB/card), "
                      "ws:wh-transition-wchunk-hang-fix-p2, AT PRODUCTION MSA DEPTH: "
                      "capacity_gate.py --tokens 1024 folds screen and full residency at 8832 "
@@ -473,7 +477,14 @@ CEILINGS: dict[str, dict[str, Ceiling]] = {
                      "free, largest block 197.6 MiB, fragmentation. That ladder is apo at 8192 "
                      "rows and this row was walked deeper, so the two are not the same "
                      "configuration and the cap stays where it is; what no longer holds at "
-                     "this depth is the number above it",
+                     "this depth is the number above it. "
+                     "AT 16384 ROWS, the pool cap tt_bio/protenix_data.py now applies as upstream "
+                     "does, 2026-09-23 on the j10glx02 Galaxy (ws:mgx-msa-depth, perf/mgx_msa_depth, "
+                     "chip 0, tt-bio b08951fd6): cdk2_1024_d16384 PASS in 1277 s at AICLK 1000 MHz "
+                     "sampled DURING the fold, two DRAM refusals absorbed; 1280 and 1536 fold at "
+                     "16384 too (1803 s, 2574 s, chip 2, 3f10800fd). Before the block-0 OPM "
+                     "fallback the 1280-token 2ad6 fold at 14743 rows died on a 160 MiB OPM depth "
+                     "slice with a 10.0 MiB largest free block",
         ),
     },
     "rfd3": {
@@ -668,7 +679,7 @@ CEILINGS: dict[str, dict[str, Ceiling]] = {
     "esmfold2": {
         "wormhole_b0": Ceiling(
             residues=1024, pass_at=1024, fail_at=1056, binds=MEMORY, mechanism=DRAM,
-            msa_rows=0, ladder_ligand_atoms=0,
+            msa_rows=16384, ladder_ligand_atoms=0,
             evidence="its own ladder, walked 2026-09-09 on GWH02 card 1 by "
                      "ws:esmfold2-cocrystal-everywhere at the settings a user gets: "
                      "single-sequence, which is this model's default, and --fast, which "
@@ -697,7 +708,13 @@ CEILINGS: dict[str, dict[str, Ceiling]] = {
                      "and the cap of 1024 is unchanged because it was already the largest size "
                      "below the first failure. An independent ladder landing one residue from "
                      "the recorded number is the closest thing this table has to a "
-                     "reproduction",
+                     "reproduction. "
+                     "WITH AN ALIGNMENT, 2026-09-23 on the j10glx02 Galaxy (ws:mgx-msa-depth, "
+                     "perf/mgx_msa_depth, tt-bio 5d1f961c0): 1024 x 8192 rows PASS in 904 s (chip "
+                     "20) and 1024 x 16384 rows, upstream's own depth, PASS in 1120 s (chip 14), "
+                     "both at AICLK 1000 MHz sampled DURING the fold. At 16384 the whole-depth MSA "
+                     "pass is refused (the 4 GiB [1, 1024, 16384, 128] m) and the encoder streams "
+                     "the alignment through the chip in depth chunks instead",
         ),
     },
     "esmfold2-fast": {
