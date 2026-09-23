@@ -52,6 +52,7 @@ take() {
 # opens the chip regardless wins it; that is a scheduling miss, not a result.
 fold() {
   local M=$1 T=$2; shift 2
+  grep -q "^EXIT=0 " "out/$M/$T/run.log" 2>/dev/null && return   # already folded
   while :; do
     take; echo "$(date -u +%FT%TZ) $M $T card $C"
     ./run.sh "$M" "$C" "$T" "$@"
