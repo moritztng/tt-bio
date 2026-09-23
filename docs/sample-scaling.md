@@ -45,8 +45,8 @@ OpenFold3 and OpenBind are the expensive ones because they denoise one sample at
 outputs come back to the host. RF3 at 1088 tokens and 100 samples peaks at 12.4 GiB of host RSS.
 
 **Largest measured points that fold**, at 25 samples unless noted: Boltz-2 1536, Protenix-v1
-1536, Protenix-v2 1024, ESMFold2 1024, ESMFold2-fast 1152, OpenFold3 768, OpenBind 768, OpenDDE
-512, OpenDDE-abag 512, RF3 1088 at 100 samples. Each of these is the model's token ceiling or
+1536, Protenix-v2 1024, ESMFold2 1024, ESMFold2-fast 1152, OpenFold3 1024, OpenBind 960, OpenDDE
+512, OpenDDE-abag 1024, RF3 1088 at 100 samples. Each of these is the model's token ceiling or
 the largest rung walked; none of them is limited by the sample count.
 
 ## Recycles
