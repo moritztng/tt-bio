@@ -1,0 +1,33 @@
+# python3 perf/mgxaccuracy/power.py perf/mgxaccuracy/results/*.jsonl
+# Resampled from the designs this campaign actually measured at 512, not from an assumed shape.
+
+the 512 distribution these numbers come from (16 designs, 2 target(s))
+  big_1831 crop, offset 0                    n=8   median  10.59  range  3.30-13.78
+  gpb_dimer_1646.cif                         n=8   median   8.46  range  0.86-12.90
+  POOLED                                     n=16  median   9.20  range  0.86-13.78
+
+power to reject at 0.05 two-sided, 4000 resamples, per size
+(columns: the 1536 arm is the 512 distribution times this factor)
+
+ n per size     1.15x     1.25x     1.50x     2.00x     2.80x
+          4        7%       11%       19%       27%       35%
+          8       10%       17%       34%       49%       64%
+         12       13%       24%       51%       69%       82%
+         16       15%       30%       60%       79%       92%
+         24       19%       42%       79%       92%       99%
+         32       25%       55%       88%       98%      100%
+         48       36%       72%       98%      100%      100%
+         64       46%       84%       99%      100%      100%
+
+read it as: the smallest n whose row clears 80 %
+  1.15x median shift -> more than 64 designs per size
+  1.25x median shift -> n = 64 designs per size
+  1.50x median shift -> n = 32 designs per size
+  2.00x median shift -> n = 24 designs per size
+  2.80x median shift -> n = 12 designs per size
+
+and the floor that more designs does not move
+  2 targets at 512, medians 8.46 / 10.59 -> spread 2.13 A
+  A 1536 median inside 8.46-10.59 A is not evidence of a size effect at ANY n,
+  because two targets of the SAME size already differ by that much. Clearing it needs
+  targets, not designs: at least three per size, paired so each target is measured at both.
