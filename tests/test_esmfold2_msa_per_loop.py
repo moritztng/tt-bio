@@ -56,3 +56,16 @@ def test_no_masking_and_no_subsample_is_the_input_unchanged():
     kw = _kw(M=5)
     (only,) = _msa_per_loop(kw, 3, 1024, 0.0)
     assert all(torch.equal(only[k], kw[k]) for k in kw)
+
+
+def test_lm_dropout_is_upstreams_training_mode_dropout_and_follows_the_seed():
+    from tt_bio.esmfold2_runtime import _lm_dropout
+
+    x = torch.ones(1, 64, 64, 8)
+    a = (torch.manual_seed(5), _lm_dropout(x, 0.25))[1]
+    b = (torch.manual_seed(5), _lm_dropout(x, 0.25))[1]
+    ref = (torch.manual_seed(5), torch.nn.functional.dropout(x, p=0.25, training=True))[1]
+    assert torch.equal(a, b)
+    assert torch.allclose(a, ref)  # same draw, same 1/(1-p) scale as torch's own dropout
+    assert torch.allclose(a.unique(), torch.tensor([0.0, 4.0 / 3.0]))
+    assert abs(float((a == 0).float().mean()) - 0.25) < 0.02

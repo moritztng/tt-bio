@@ -374,15 +374,37 @@ def _msa_per_loop(kw, total_steps, max_depth, col_rate):
     return loops
 
 
+def _lm_dropout(lm_z, p):
+    """esm 3.4.1's per-loop `F.dropout(lm_z, p, training=True)` (`model.py::_run_one_loop`).
+
+    The keep mask comes from the global torch RNG, which `fold()` seeds, so the draw follows the
+    seed and not the card. A device-resident pair is masked on the device: the 0/1 mask is exact
+    in bf16, the 1/(1-p) scale is applied after it rather than baked into the mask.
+    """
+    if not isinstance(lm_z, _DevPair):
+        return lm_z * torch.empty(lm_z.shape).bernoulli_(1.0 - p).to(lm_z.dtype) / (1.0 - p)
+    import ttnn
+
+    t = lm_z.t
+    keep = torch.empty(tuple(t.shape)).bernoulli_(1.0 - p)
+    m = ttnn.from_torch(keep.to(torch.bfloat16), device=t.device(), layout=ttnn.TILE_LAYOUT,
+                        dtype=ttnn.bfloat16)
+    kept = ttnn.multiply(t, m)
+    ttnn.deallocate(m)
+    out = ttnn.multiply(kept, 1.0 / (1.0 - p))
+    ttnn.deallocate(kept)
+    return _DevPair(out, lm_z.seq_len)
+
+
 def _install_resident_trunk_loop(model):
     """Replace the reference `_run_one_loop` with an on-device, resident-z version.
 
     Two wins over the per-module reference loop:
-      * Deterministic inference (the per-loop lm_dropout's expectation is the
-        identity) makes the LM-encoder LOOP-INVARIANT, computed once. The MSA encoder
-        and injection projection are too, unless the MSA is deeper than
-        `msa_encoder.max_depth`: then each loop encodes its own row subsample, as
-        upstream does (`_msa_per_loop`).
+      * Each loop draws what esm 3.4.1 draws: the LM pair input gets a fresh
+        `lm_encoder.lm_dropout` mask (upstream keeps it on in eval, as in training;
+        `_lm_dropout`) and the MSA encoder a fresh row subsample when the MSA is
+        deeper than `msa_encoder.max_depth` (`_msa_per_loop`). Only what no loop
+        redraws is computed once.
       * The pair state z stays resident on the TT device across all trunk
         iterations: the parcae recurrence (a*z + inject) and the folding trunk
         both run on-device, so the ~L²·256 pair tensor is never round-tripped
@@ -400,20 +422,29 @@ def _install_resident_trunk_loop(model):
     msa_cfg = getattr(model.config, "msa_encoder", None)
     max_depth = getattr(msa_cfg, "max_depth", None)
     col_rate = float(getattr(msa_cfg, "column_mask_rate", 0.0) or 0.0)
+    lm_cfg = getattr(model.config, "lm_encoder", None)
+    lm_p = float(getattr(lm_cfg, "lm_dropout", 0.0) or 0.0) \
+        if getattr(lm_cfg, "per_loop_lm_dropout", False) else 0.0
 
     def _run_one_loop(self, z, z_init, lm_z, _msa_kwargs, pair_mask, a, b_mat, total_steps):
-        refined = None  # LM encoder: loop-invariant, computed once
-        if lm_z is not None and self.lm_encoder is not None:
-            if isinstance(lm_z, _DevPair):
-                refined = _trunk_on_device(self.lm_encoder.m, lm_z)
+        use_lm = lm_z is not None and self.lm_encoder is not None
+
+        def lm_refined():
+            x = _lm_dropout(lm_z, lm_p) if lm_p else lm_z
+            if isinstance(x, _DevPair):
+                out = _trunk_on_device(self.lm_encoder.m, x)
+                if x is not lm_z:
+                    ttnn.deallocate(x.t)
             else:
-                refined = self.lm_encoder(lm_z.to(z_init.dtype), pair_attention_mask=pair_mask)
-            refined = refined.to(z_init.dtype)
+                out = self.lm_encoder(x.to(z_init.dtype), pair_attention_mask=pair_mask)
+            return out.to(z_init.dtype)
+
         msa_loops = None
         if self.msa_encoder is not None and _msa_kwargs is not None:
             msa_loops = _msa_per_loop(_msa_kwargs, total_steps, max_depth, col_rate)
 
         def inject_proj(msa_kw):
+            refined = lm_refined() if use_lm else None
             z_inject = z_init
             if msa_kw is not None:
                 # reference passes x_pair (the current pair state) separately from _msa_kwargs
@@ -435,16 +466,16 @@ def _install_resident_trunk_loop(model):
             real[:, :Lp, :Lp] = 1.0
             mask = ftw._from_torch(real)
         zt = ftw._from_torch(padz(z).float())
-        # The injection is loop-invariant unless the MSA is subsampled per loop; then each
-        # loop encodes its own draw, as upstream does.
-        per_loop = msa_loops is not None and len(msa_loops) > 1
+        # The injection is loop-invariant only when no loop redraws its LM dropout or MSA rows.
+        per_loop = (use_lm and bool(lm_p)) or (msa_loops is not None and len(msa_loops) > 1)
         ipt = None if per_loop else ftw._from_torch(
             padz(inject_proj(msa_loops[0] if msa_loops else None)).float())
         at = ftw._from_torch(a.reshape(1, 1, 1, -1).float())  # parcae a, broadcasts over L,L
         for _step in range(total_steps):
             E.report_progress("trunk", _step, total_steps)
             if per_loop:
-                ipt = ftw._from_torch(padz(inject_proj(msa_loops[_step])).float())
+                ipt = ftw._from_torch(padz(inject_proj(
+                    msa_loops[min(_step, len(msa_loops) - 1)] if msa_loops else None)).float())
             az = ttnn.multiply(zt, at)
             ttnn.deallocate(zt)
             znew = ttnn.add(az, ipt)
