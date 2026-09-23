@@ -3,7 +3,8 @@
 # released with no hold note (never a cardblocked one), then fold MODEL once on it at cap 2.
 # A number is a size-ladder rung, folded through release_gate's census fold (the fold mgx-speed's
 # time_rungs.py times), JSON on stdout. A yaml goes through perf/whceil/ladder.py into OUT.jsonl
-# (default perf/bigalloc/ref.jsonl). Coverage and accuracy folds, not timings.
+# (default perf/bigalloc/ref.jsonl). Coverage and accuracy folds, not timings. FOLD_TIMEOUT_S
+# overrides the census fold's 1800 s, which a loaded box can outrun.
 model=$1; rung=$2; out=${3:-perf/bigalloc/ref.jsonl}; tree=$(cd "$(dirname "$0")/../.." && pwd)
 pick() {
   cd /home/agent/leases || return 1
@@ -41,6 +42,7 @@ os.environ["TT_BIO_SIZE_LIMIT"] = "0"
 import release_gate as rg
 run_fold = rg._run_fold  # this tree's census fold passes no cap: add it to predict
 rg._run_fold = lambda cmd, *a, **k: run_fold(cmd + ["--host_threads", "2"] * ("predict" in cmd), *a, **k)
+rg.FOLD_TIMEOUT_S = int(os.environ.get("FOLD_TIMEOUT_S", rg.FOLD_TIMEOUT_S))
 model, rung = sys.argv[1], int(sys.argv[2])
 r = rg._run_census_fold(model, rung, Path("perf/bigalloc/rung") / model, "cover")
 print(json.dumps({"model": model, "rung": rung, "card": os.environ["TT_VISIBLE_DEVICES"],
