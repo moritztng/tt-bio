@@ -66,6 +66,32 @@ Both ceilings hold at the 100 diffusion steps a real run uses, not at a short on
 never passes `D_II_self`, so it never enters self-conditioning, and the same SwiGLU then asks for
 half the bytes. A ladder walked at 2 steps reported 992 and that number is withdrawn.
 
+## 1536 tokens on one Wormhole chip
+
+ESMFold2 (both checkpoints), Protenix-v1, Protenix-v2, Boltz-2 and RoseTTAFold3 fold 1536-token
+targets on a 12 GiB Wormhole chip. On 3ABQ (1518 residues, real MSA) every one of them lands
+0.6 to 1.6 Å CA-RMSD from the crystal, with CA lDDT at or above 0.95.
+
+Before this, the first failures were between 1056 (ESMFold2) and 1184 (Protenix-v2) tokens, and
+none of them was one tensor too big for the chip. Each was an allocation that DRAM refused
+because too many pair-sized buffers were live at once or the free space was fragmented. Three
+changes fix that class in the shared pair-track code:
+
+- When DRAM refuses a whole-tensor pair op, the op re-runs in row blocks instead of failing, and
+  the shape is remembered so later calls go straight to the blocked path.
+- When the row blocks fit but their device concatenation does not, the blocks are assembled on
+  the host and uploaded once.
+- Tensors that a later stage never reads are freed when the stage ends. ESMFold2 releases its
+  ESMC-6B language model after its single forward on Wormhole targets above 1088 tokens, which
+  frees about half of the chip; a server folding many such targets reloads it once per fold.
+  Protenix and RoseTTAFold3 free the diffusion conditioning before the confidence head.
+
+The fallbacks only fire on a refusal, so a target that fits keeps its single pass. At 1024
+tokens the output matches the previous code to within 0.41 Å CA-RMSD, and bit for bit on most
+models, against a seed-to-seed spread of 1.7 to 3.3 Å on the same targets. The remaining walls
+above 1536 (Boltz-2 at 1792, RoseTTAFold3 at 1600) are a single pair tensor that no free block
+can hold.
+
 **A cell that folds does not license the sizes below it.** These four targets fold, and OpenDDE
 still throws at 576 residues on the same pool. The throw is an L1 static circular-buffer clash:
 the layout follows the padded tile shape and the core-grid split, neither of which is monotonic
