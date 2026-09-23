@@ -2259,6 +2259,8 @@ class Protenix:
                             max_parallel_samples=B, member_seeds=[seed] * B,
                             progress_fn=progress_fn)
         out = [coords[b:b + 1] for b in range(B)]
+        from .esmc import _free_ttnn_tensors
+        _free_ttnn_tensors((merged, conds))     # sampler state, as in fold()
         if not return_confidence:
             return out
         if progress_fn:
@@ -2417,6 +2419,13 @@ class Protenix:
                 if _prof:
                     import ttnn as _tn; _tn.synchronize_device(self.diffusion.dev); print(f"[PROF] edm_sample[{k}] {_time.time()-_ts:.3f}s", flush=True)
             coords = torch.stack(coords, 0)
+        # The conditioning is sampler state: the confidence head reads the trunk's host s and z
+        # and the coordinates, never `cond`. Held through it, the DiT pair, its per-block biases
+        # and the atom-pair track left protenix-v2 on 3abq at 1536 with 8.77 of 12 GiB in use
+        # before the confidence pairformer, and its trimul was refused at every chunk width.
+        if not _os.environ.get("TT_PROTENIX_DBG_COND"):
+            from .esmc import _free_ttnn_tensors
+            _free_ttnn_tensors(cond)
         if return_confidence:
             if progress_fn:
                 progress_fn("confidence")
