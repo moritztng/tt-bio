@@ -127,63 +127,70 @@ def main() -> int:
     for k in ambiguous:
         placements.pop(k, None)
 
-    # Derived AttentionPairBias leaves: trunk and confidence Pairformers, diffusion transformer.
+    # Derived fused-qkv leaves: the trunk and confidence Pairformers' AttentionPairBias, the
+    # diffusion transformer, and the template stack's triangle attention (head dim 16 padded to
+    # 32, which is why it is not a by-value band as the Pairformer's triangle attention is).
+    def fused_sites(dp, up):
+        if dp.startswith("trunk.pairformer") or dp.startswith("confidence_head.pf"):
+            return [(dp + APB_DEV + "qkv_weight", dp + APB_DEV + "qkv_bias",
+                     dp + APB_DEV + "z_weight", up + APB_UP)]
+        if dp.startswith("sampler.dm.dit"):
+            return [(dp + "qkv_w", dp + "qkv_b", None, up + APB_DEV)]
+        if dp.startswith("trunk.template.ps"):
+            return [(dp + f"triangle_attention_{e}.qkv_weight", None, None, up + f"tri_att_{e}.")
+                    for e in ("start", "end")]
+        return []
+
     derived, derived_fail = {}, []
     for dp, up in scopes:
-        if dp.startswith("trunk.pairformer") or dp.startswith("confidence_head.pf"):
-            qk, qb = dp + APB_DEV + "qkv_weight", dp + APB_DEV + "qkv_bias"
-            zk, upa = dp + APB_DEV + "z_weight", up + APB_UP
-        elif dp.startswith("sampler.dm.dit"):
-            qk, qb, zk, upa = dp + "qkv_w", dp + "qkv_b", None, up + APB_DEV
-        else:
-            continue
-        wq = atoms.get(upa + "mha.linear_q.weight")
-        if qk in dev and wq is not None:
-            c_s = int(wq.shape[1])
-            found = None
-            for H in (16, 8, 4, 12, 24, 32):
-                if wq.shape[0] % H or dev[qk].shape[1] % (3 * H):
-                    continue
-                d, D = wq.shape[0] // H, dev[qk].shape[1] // (3 * H)
-                if D < d:
-                    continue
-                if all(same(apb_inverse(dev[qk], f"linear_{x}.weight", H, d, D, c_s),
-                            atoms[upa + f"mha.linear_{x}.weight"]) for x in "qkv"):
-                    found = (H, d, D)
-                    break
-            if found is None:
-                derived_fail.append(qk)
-            else:
-                H, d, D = found
-                for x in "qkv":
-                    key = upa + f"mha.linear_{x}.weight"
-                    if key not in placements:
-                        derived[key] = {"device_path": qk, "rule": "apb_inverse",
-                                        "leaf": f"linear_{x}.weight", "H": H, "d": d, "D": D,
-                                        "c_s": c_s}
-                bkey = upa + "mha.linear_q.bias"
-                if qb in dev and bkey in atoms and bkey not in placements:
-                    if same(apb_inverse(dev[qb], "linear_q.bias", H, d, D, c_s), atoms[bkey]):
-                        derived[bkey] = {"device_path": qb, "rule": "apb_inverse",
-                                         "leaf": "linear_q.bias", "H": H, "d": d, "D": D,
-                                         "c_s": c_s}
-                    else:
-                        derived_fail.append(qb)
-        zkey = upa + "linear_z.weight"
-        if zk in dev and zkey in atoms and zkey not in placements:
-            w = atoms[zkey]
-            H = int(w.shape[0])
-            d = int(atoms[upa + "mha.linear_q.weight"].shape[0]) // H
-            ok = None
-            for s in (trunc_bf16_scalar(math.sqrt(d)), float(bf16(torch.tensor(math.sqrt(d)))),
-                      math.sqrt(d), trunc_bf16_scalar(1 / math.sqrt(d)), 1 / math.sqrt(d), 1.0):
-                if torch.equal(dev[zk], bf16(bf16(w).t().contiguous() * s)):
-                    ok = s
-                    break
-            if ok is None:
-                derived_fail.append(zk)
-            else:
-                derived[zkey] = {"device_path": zk, "rule": "transpose_and_unscale", "scale": ok}
+        for qk, qb, zk, upa in fused_sites(dp, up):
+            wq = atoms.get(upa + "mha.linear_q.weight")
+            if qk in dev and wq is not None:
+                c_s = int(wq.shape[1])
+                found = None
+                for H in (16, 8, 4, 12, 24, 32):
+                    if wq.shape[0] % H or dev[qk].shape[1] % (3 * H):
+                        continue
+                    d, D = wq.shape[0] // H, dev[qk].shape[1] // (3 * H)
+                    if D < d:
+                        continue
+                    if all(same(apb_inverse(dev[qk], f"linear_{x}.weight", H, d, D, c_s),
+                                atoms[upa + f"mha.linear_{x}.weight"]) for x in "qkv"):
+                        found = (H, d, D)
+                        break
+                if found is None:
+                    derived_fail.append(qk)
+                else:
+                    H, d, D = found
+                    for x in "qkv":
+                        key = upa + f"mha.linear_{x}.weight"
+                        if key not in placements:
+                            derived[key] = {"device_path": qk, "rule": "apb_inverse",
+                                            "leaf": f"linear_{x}.weight", "H": H, "d": d, "D": D,
+                                            "c_s": c_s}
+                    bkey = upa + "mha.linear_q.bias"
+                    if qb in dev and bkey in atoms and bkey not in placements:
+                        if same(apb_inverse(dev[qb], "linear_q.bias", H, d, D, c_s), atoms[bkey]):
+                            derived[bkey] = {"device_path": qb, "rule": "apb_inverse",
+                                             "leaf": "linear_q.bias", "H": H, "d": d, "D": D,
+                                             "c_s": c_s}
+                        else:
+                            derived_fail.append(qb)
+            zkey = upa + "linear_z.weight"
+            if zk in dev and zkey in atoms and zkey not in placements:
+                w = atoms[zkey]
+                H = int(w.shape[0])
+                d = int(atoms[upa + "mha.linear_q.weight"].shape[0]) // H
+                ok = None
+                for s in (trunc_bf16_scalar(math.sqrt(d)), float(bf16(torch.tensor(math.sqrt(d)))),
+                          math.sqrt(d), trunc_bf16_scalar(1 / math.sqrt(d)), 1 / math.sqrt(d), 1.0):
+                    if torch.equal(dev[zk], bf16(bf16(w).t().contiguous() * s)):
+                        ok = s
+                        break
+                if ok is None:
+                    derived_fail.append(zk)
+                else:
+                    derived[zkey] = {"device_path": zk, "rule": "transpose_and_unscale", "scale": ok}
 
     placed = set(placements) | set(derived)
     rep = {"weights": {"file": a.weights, "sha256": sha256_file(a.weights), "n": len(dev)},
