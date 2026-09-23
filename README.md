@@ -134,7 +134,7 @@ walked with the settings the platform sends:
 | `protenix-v2` | 1408 (residues; a ligand adds tokens) | none found yet; 1536 not yet walked |
 | `esmfold2` | 1024 (residues; a ligand adds tokens) | 1056 |
 | `esmfold2-fast` | 1152 (residues; a ligand adds tokens) | 1248 |
-| `rf3` | 1536 | 1600 |
+| `rf3` | 1600 | 1664 |
 | `protenix-v1` | 1920 | 2048 |
 | `rfd3` | 1536 (motif + designed) | none found; top of the ladder |
 | `boltzgen` | 14786 (atoms in the target) | none found; top of the ladder |

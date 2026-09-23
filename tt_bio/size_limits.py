@@ -413,25 +413,26 @@ CEILINGS: dict[str, dict[str, Ceiling]] = {
     },
     "rf3": {
         "wormhole_b0": Ceiling(
-            residues=1536, pass_at=1536, fail_at=1600, binds=MEMORY, mechanism=FRAGMENTATION,
+            residues=1600, pass_at=1600, fail_at=1664, binds=MEMORY, mechanism=FRAGMENTATION,
             msa_rows=8192,
-            evidence="walked 2026-09-23 on origin/main 8906d35a0, j10glx02 card 29, guard off, "
-                     "--host_threads 2, apo CDK2 tiled with 8192 alignment rows "
-                     "(ws:mgx-ceilings, perf/mgxceil). rf3 subsamples the alignment to 1024 rows "
-                     "(rf3/featurize.py), so this row speaks for any depth of 1024 or more. 1024 "
-                     "folds in 554.0 s, 1152 in 627.7 s, 1280 in 752.2 s, 1408 in 950.0 s and 1536 "
-                     "in 952.3 s, pLDDT 0.77-0.78 and no clash on every rung, AICLK median 1000 "
-                     "MHz sampled during every fold. 1600 fails in the trunk's ending-node "
-                     "triangle attention, whose DRAM round-trip transpose of the pair "
-                     "(tenstorrent.py _pair_transpose_impl) asks for 1600 x 1600 x 128 bf16, "
-                     "655360000 B or 52.1 MiB per bank, on a chip 86.4 percent full with 139.0 MiB "
-                     "free and a 46.9 MiB largest block. The 2026-09-11 ladder on the same box "
-                     "failed at the same size on the same request. The row was 1095 LADDER_TOP "
-                     "before, from a 2026-09-07 GWH02 ladder at 27317 rows that stopped there; "
-                     "that ladder's 627 wall was the materialised fp32-softmax triangle "
-                     "attention and the confidence head's one-row layer norm, and "
-                     "TT_BIO_RF3_TEMPLATE_FUSED_SDPA=0, TT_BIO_RF3_MSA_FUSED_SDPA=0 or "
-                     "TT_BIO_RF3_GLN_ROW_FOLD=0 still restore that route and that wall",
+            evidence="walked 2026-09-23 on origin/main cec7979b1 (pair-residency merged), "
+                     "j10glx02 card 29, guard off, --host_threads 2, apo CDK2 tiled with 8192 "
+                     "alignment rows (ws:mgx-ceilings, perf/mgxceil). rf3 subsamples the "
+                     "alignment to 1024 rows (rf3/featurize.py), so this row speaks for any depth "
+                     "of 1024 or more. 1600 folds in 1159.6 s and 1664 fails after 1256.3 s in the "
+                     "diffusion atom encoder's trunk-pair permute (rf3/diffusion_atom_encoder.py "
+                     "_trunk_pair), one 1427898368 B request, 118992896 B per bank, on a chip 85.5 "
+                     "percent full with 155415968 B free and a 59496448 B largest block: "
+                     "fragmentation. AICLK median 1000 MHz sampled during both folds, host load "
+                     "56-67 on 64 cores. The rungs below were walked on 8906d35a0 (1024 554.0 s to "
+                     "1536 952.3 s, pLDDT 0.77-0.78, no clash), where 1600 still failed in the "
+                     "ending-node triangle attention's pair transpose (655360000 B, 139.0 MiB free, "
+                     "46.9 MiB largest block); pair-residency removed that wall. The row was 1095 "
+                     "LADDER_TOP before that, from a 2026-09-07 GWH02 ladder that stopped there; "
+                     "its 627 wall was the materialised fp32-softmax triangle attention and the "
+                     "confidence head's one-row layer norm, and TT_BIO_RF3_TEMPLATE_FUSED_SDPA=0, "
+                     "TT_BIO_RF3_MSA_FUSED_SDPA=0 or TT_BIO_RF3_GLN_ROW_FOLD=0 still restore that "
+                     "route and that wall",
         ),
     },
     "protenix-v2": {

@@ -88,9 +88,8 @@ changes fix that class in the shared pair-track code:
 
 The fallbacks only fire on a refusal, so a target that fits keeps its single pass. At 1024
 tokens the output matches the previous code to within 0.41 Å CA-RMSD, and bit for bit on most
-models, against a seed-to-seed spread of 1.7 to 3.3 Å on the same targets. The remaining walls
-above 1536 (Boltz-2 at 1792, RoseTTAFold3 at 1600) are a single pair tensor that no free block
-can hold.
+models, against a seed-to-seed spread of 1.7 to 3.3 Å on the same targets. The walls that remain
+above 1536 are listed [below](#what-stops-each-model-above-1024-on-a-galaxy-chip).
 
 **A cell that folds does not license the sizes below it.** These four targets fold, and OpenDDE
 still throws at 576 residues on the same pool. The throw is an L1 static circular-buffer clash:
@@ -127,8 +126,8 @@ of every model that clears 1536 is a single pair-sized allocation on a chip that
   1792×1792×128 pair tensor that no free block can hold.
 - `protenix-v1` folds 1920 and fails at 2048 in the diffusion transformer's attention bias, with
   enough memory free but no block large enough.
-- `rf3` folds 1536 and fails at 1600 in the ending-node triangle attention's pair transpose, with
-  enough memory free but no block large enough.
+- `rf3` folds 1600 and fails at 1664 in the diffusion atom encoder's pair permute, with enough
+  memory free but no block large enough.
 
 `openfold3` and `openbind` fold 1536 residues at 14190 alignment rows now that the MSA
 representation streams through the chip a depth chunk at a time. `openfold3` fails at 1664 in the
