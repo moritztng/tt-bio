@@ -124,9 +124,12 @@ def count_designs(model: str, out_dir: pathlib.Path) -> tuple[int, list[dict]]:
         except Exception:
             rows = []
     if model == "boltzgen":
-        # The pipeline writes per-step directories; the generated backbones are what
-        # --num_designs asks for, the final_ranked_designs/ set is what --budget keeps.
-        gen = sorted(out_dir.rglob("*.cif"))
+        # `intermediate_designs/` is what --num_designs asks for; `final_ranked_designs/` is
+        # what --budget keeps after filtering. Counting *.cif under out_dir instead picks up
+        # the run's own copy of the target structure at the top level and reports 8 designs
+        # for 7.
+        gen = sorted((out_dir / "intermediate_designs").glob("*.cif")) \
+            if (out_dir / "intermediate_designs").is_dir() else []
         ranked = sorted((out_dir / "final_ranked_designs").rglob("*.cif")) \
             if (out_dir / "final_ranked_designs").is_dir() else []
         return len(gen), [{"ranked": len(ranked)}]
