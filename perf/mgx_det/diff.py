@@ -26,6 +26,13 @@ def ca(cif):
     return np.asarray(xyz)
 
 
+def rmsd(a, b):  # after Kabsch superposition: two runs need not place the complex in one frame
+    a, b = a - a.mean(0), b - b.mean(0)
+    u, _, vt = np.linalg.svd(a.T @ b)
+    u[:, -1] *= np.sign(np.linalg.det(u @ vt))
+    return float(np.sqrt(((a @ (u @ vt) - b) ** 2).sum(1).mean()))
+
+
 folds, order = OrderedDict(), []
 cifs = []
 for d in map(Path, sys.argv[1:]):
@@ -55,8 +62,9 @@ print(f"distinct CA digests: {len(groups)}  " +
       " ".join(f"{h}x{len(v)}" for h, v in sorted(groups.items(), key=lambda t: -len(t[1]))))
 reps = [digs[v[0]][1] for v in groups.values()]
 if len(reps) > 1:
-    r = [float(np.sqrt(((a - b) ** 2).sum(1).mean())) for a, b in itertools.combinations(reps, 2)]
-    print(f"pairwise CA-RMSD between distinct structures: {min(r):.3f}-{max(r):.3f} A over {len(reps[0])} CA")
+    r = [rmsd(a, b) for a, b in itertools.combinations(reps, 2)]
+    print(f"pairwise CA-RMSD between distinct structures, superposed: {min(r):.3f}-{max(r):.3f} A "
+          f"over {len(reps[0])} CA (chains matched by label, so a swap of identical copies reads large)")
 
 first = None
 for k in order:
