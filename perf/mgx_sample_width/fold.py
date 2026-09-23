@@ -5,7 +5,8 @@
 A plan line is `<tag> <model> <input> <samples> [mps=N] [steps=N]`; `#` starts a comment.
 The chain takes one card from the pool (lease released or its holder dead, and no live process
 pinned to it), holds the lease between folds and folds the plan in order at --host_threads 2.
-A tag already recorded as ok is skipped, so a restarted chain resumes.
+A tag already recorded as ok is skipped, so a restarted chain resumes. A fold that loses its card
+to another row at the device open is retried on another card, not recorded.
 
 Each record carries the card, the commit, wall seconds, AICLK sampled during the fold, the DRAM
 census peak (TT_BIO_DRAM_PEAK; it drains the pipeline at every tag, so these walls are capacity
@@ -52,6 +53,17 @@ def _lease(card):
     return LEASES / f"j10glx02-card{card}.json"
 
 
+def _unlocked(card):
+    """The flock tt_bio's DeviceLease takes is the real lease; the JSON beside it is advisory."""
+    with open(_lease(card), "a") as fh:
+        try:
+            fcntl.flock(fh, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except OSError:
+            return False
+        fcntl.flock(fh, fcntl.LOCK_UN)
+        return True
+
+
 def _free(card, pinned):
     try:
         d = json.loads(_lease(card).read_text())
@@ -87,7 +99,7 @@ def take(pool, current=None):
             with open(LEASES / ".mgx-sample-width.lock", "a") as fh:
                 fcntl.flock(fh, fcntl.LOCK_EX)
                 for c in leased:
-                    if _free(c, pinned):
+                    if _free(c, pinned) and _unlocked(c):
                         _claim(c)
                         return c
         time.sleep(3)
@@ -147,10 +159,14 @@ def fold(card, tag, model, inp, samples, opts):
            "digest": digest.read_text().split("\n") if digest.exists() else None,
            "error": None if ok else next((s.get("error", "")[:600] for s in status
                                           if s.get("status") != "ok"), text[-600:])}
+    if not ok and "Refusing to open it concurrently" in (rec["error"] or ""):
+        print(f"lost card {card} to another row at open; retrying elsewhere", flush=True)
+        return False
     with open(RUNS, "a") as fh:
         fh.write(json.dumps(rec) + "\n")
     print(json.dumps({k: rec[k] for k in ("tag", "ok", "wall_s", "dram_peak_gib", "narrowed")}),
           flush=True)
+    return True
 
 
 def main():
@@ -162,7 +178,8 @@ def main():
         if tag in done():
             continue
         card = take(pool, card)
-        fold(card, tag, model, inp, samples, dict(x.split("=", 1) for x in kv))
+        while not fold(card, tag, model, inp, samples, dict(x.split("=", 1) for x in kv)):
+            card = take([c for c in pool if c != card])
     if card:
         _release(card)
     print("CHAIN_DONE", flush=True)
