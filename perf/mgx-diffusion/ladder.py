@@ -8,6 +8,7 @@ One JSON line per point in perf/mgx-diffusion/runs.jsonl, carrying:
   runtime_s   the fold's own results.json time (model load and startup excluded)
   aiclk       sampled DURING the fold on the pinned chip (release_gate._clock_during)
   load        1-min host load sampled during the fold, min/max
+  host_rss_gib  peak resident host memory of the fold's process tree, sampled every 2 s
   dram        with probe=1 only: the peak DRAM used and the tag it was reached at, plus the
               peak inside the diffusion + confidence phase and inside the trunk. The probe
               drains the pipeline at every tag, so a probe=1 runtime is NOT a timing
@@ -88,6 +89,43 @@ class Load:
     def cell(self):
         return {"min": round(min(self.xs), 1), "max": round(max(self.xs), 1),
                 "nproc": os.cpu_count()} if self.xs else None
+
+
+class HostRss(Load):
+    """Peak resident host memory of this ladder's descendants, i.e. the one fold it runs.
+
+    Summed over the process tree (predict's host process and its spawned workers), every
+    2 s. A sample-axis tensor kept on the host shows up here and nowhere in the DRAM census.
+    """
+
+    PAGE = os.sysconf("SC_PAGE_SIZE")
+
+    def tree_bytes(self):
+        kids = {}
+        for d in os.listdir("/proc"):
+            if d.isdigit():
+                try:
+                    ppid = int(Path(f"/proc/{d}/stat").read_text().rsplit(")", 1)[1].split()[1])
+                except (OSError, IndexError, ValueError):
+                    continue
+                kids.setdefault(ppid, []).append(int(d))
+        todo, total = list(kids.get(os.getpid(), [])), 0
+        while todo:
+            pid = todo.pop()
+            todo += kids.get(pid, [])
+            try:
+                total += int(Path(f"/proc/{pid}/statm").read_text().split()[1]) * self.PAGE
+            except (OSError, IndexError, ValueError):
+                pass
+        return total
+
+    def run(self):
+        while not self.stop.is_set():
+            self.xs.append(self.tree_bytes())
+            self.stop.wait(2)
+
+    def cell(self):
+        return round(max(self.xs) / 2**30, 2) if self.xs else None
 
 
 DRAM = re.compile(r"\[DRAM\] (.+?): ([\d.]+) GiB used \(of ([\d.]+) GiB\) maxfree=(\d+)MiB")
@@ -171,12 +209,12 @@ def fold(p, ident):
     if p.get("guard") == 0:
         env["TT_BIO_SIZE_LIMIT"] = "0"
     n_cache, t0 = cache_files(), time.time()
-    with open(log, "w") as fp, rg._clock_during() as clk, Load() as load:
+    with open(log, "w") as fp, rg._clock_during() as clk, Load() as load, HostRss() as rss:
         rc, timed_out = rg._run_fold(cmd, TIMEOUT, cwd=ROOT, stdout=fp, stderr=subprocess.STDOUT,
                                      env=env)
     cell = {**ident, **p, "started_utc": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(t0)),
             "wall_s": round(time.time() - t0, 1), "aiclk": rg._aiclk_cell(clk),
-            "load": load.cell(), "dram": dram_cell(probe), "cold": cache_files() > n_cache, "log": str(log)}
+            "load": load.cell(), "host_rss_gib": rss.cell(), "dram": dram_cell(probe), "cold": cache_files() > n_cache, "log": str(log)}
     text = rg._fold_log_text(log)
     cell["progress"] = progress_cell(cap, text)
     if timed_out:
