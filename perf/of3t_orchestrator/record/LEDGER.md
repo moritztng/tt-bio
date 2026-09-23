@@ -1416,3 +1416,44 @@ designs each fired on dozens of healthy rows and it was deleted. This one asks *
 know this row exists*, which is a set comparison between two files with no time in it at all.
 **The buildable check was the one whose question had an exact answer on disk**; the abandoned
 one kept trying to infer a fact nothing records.
+
+### R194. The lever's stated mechanism is refuted by the campaign's own measurement: upstream 0.4.3 computes its softmax in bf16, so "we move toward upstream's recipe" cannot be why it helps (pass 414, zero card)
+
+`of3t-modelever` explained its float64-space result this way: *"The lever moves our trunk toward
+upstream's bf16 step, which computes its softmax in fp32 under autocast, and away from the
+float64 truth."* It labelled that sentence honestly — *"That is inference; this row measured the
+direction, not the mechanism"* — and the inference is **wrong on a fact this campaign already
+measured**.
+
+`of3t-fp32islands` enumerated the precision islands against both upstream trees and the autocast
+policy header, and its durable finding is explicit: **"OpenFold3 0.4.3 runs LayerNorm and
+attention softmax in bf16 by explicitly disabling autocast; 0.5.0 restores both to fp32."** And
+the graded reference is 0.4.3: `of3t-refprec` built all four arms, `arm4_bf16_autocast` among
+them, *"all upstream OpenFold3 0.4.3"*, against the `grads_f64_043.pt` float64 reference.
+
+**So on the very op the lever changes, upstream's graded step is bf16 and our lever is float64 —
+maximally far from upstream — and it moves us CLOSER to upstream in the graded space anyway.**
+Recipe-matching cannot be the mechanism. Whatever the lever is doing, it is not converging on
+upstream's arithmetic on that op.
+
+**This mattered before it was interesting.** I was about to dispatch a row on exactly that
+premise — enumerate where our trunk's dtype recipe differs from upstream's bf16 recipe and match
+the next one — which would have spent a card chasing a mechanism the campaign had already
+refuted, and the enumeration itself is *also* already done and concluded (`of3t-fp32islands`,
+PARTIAL: every single-op forward island is rounded back to bf16 by upstream at both versions and
+we are already at the floor there with `precise_config()`). Two R189s in one pass, avoided by
+the two commands R189 says to run.
+
+**What is actually open.** The lever closes 14.19 % of the graded angle and opens the float64
+angle by 10.12 %, and no explanation the campaign currently holds accounts for both signs.
+`of3t-modelever`'s alternative — that making one component exact while the rest of the trunk
+stays bf16 loses an error cancellation the shipped trunk had — survives this refutation and is
+untested. **It is also the more consequential hypothesis**, because if the gain is cancellation
+rather than accuracy then it is fragile: it would not compose with a second lever, and stacking
+levers is precisely the campaign's remaining plan for the other two thirds.
+
+**And it puts a boundary-version stamp back on the critical path.** `of3t-fp32islands` handed
+the orchestrator a standing instruction I had not enforced: *"every of3t gradient figure needs
+its boundary version stated beside it"*, because a port compared against the wrong version's
+boundary *"shows a 30,000x gradient gap with no defect present"*. Neither `of3t-modelever`'s
+state doc nor its `CLAUSE_EXACT.json` names the version anywhere.
