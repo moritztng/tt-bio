@@ -88,7 +88,20 @@ def _load(self, cfg):
     self.model_id = mid
 
 
+def _of3_capture(*a, **kw):
+    """OpenFold3/OpenBind read weights before the model is called, so capture at their first
+    device leg instead, with the fold's host inputs taken from the caller's frame."""
+    f = sys._getframe(1).f_locals
+    out = []
+    for k in ("features", "aux", "msa_feat", "template_feat", "template_slots", "relpos"):
+        _digests(f.get(k), k, out)
+    with open(OUT, "a") as fh:
+        fh.write("run_input_atom_encoder " + " ".join(out) + "\n")
+    raise _Captured("featurization captured at run_input_atom_encoder")
+
+
 PATCH = {
+    "tt_bio.openfold3_host_prep": lambda m: setattr(m, "run_input_atom_encoder", _of3_capture),
     "ttnn": lambda m: [setattr(m, f, _no_device) for f in
                        ("open_device", "CreateDevice", "open_mesh_device", "CreateDevices")
                        if hasattr(m, f)],
