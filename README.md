@@ -138,7 +138,7 @@ under 1024:
 | `esmfold2` | 1024 (residues; a ligand adds tokens) | 1056 |
 | `esmfold2-fast` | 1152 (residues; a ligand adds tokens) | 1248 |
 | `rf3` | 1536 | 1600 |
-| `protenix-v1` | 1536 | 1664 |
+| `protenix-v1` | 1920 | 2048 |
 | `rfd3` | 1536 (motif + designed) | none found; top of the ladder |
 | `boltzgen` | 14786 (atoms in the target) | none found; top of the ladder |
 | `esmc-6b` (embed) | 1968 | 1984 |

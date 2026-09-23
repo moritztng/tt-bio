@@ -125,8 +125,8 @@ of every model that clears 1536 is a single pair-sized allocation on a chip that
 
 - `boltz2` folds 1664 and fails at 1792 in the confidence module's relative-position gather, one
   1792×1792×128 pair tensor that no free block can hold.
-- `protenix-v1` folds 1536 and fails at 1664 in the diffusion conditioner's pair transition, which
-  asks for more than the chip has free.
+- `protenix-v1` folds 1920 and fails at 2048 in the diffusion transformer's attention bias, with
+  enough memory free but no block large enough.
 - `rf3` folds 1536 and fails at 1600 in the ending-node triangle attention's pair transpose, with
   enough memory free but no block large enough.
 

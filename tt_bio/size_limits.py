@@ -730,19 +730,20 @@ CEILINGS: dict[str, dict[str, Ceiling]] = {
     },
     "protenix-v1": {
         "wormhole_b0": Ceiling(
-            residues=1536, pass_at=1536, fail_at=1664, binds=MEMORY, mechanism=DRAM,
+            residues=1920, pass_at=1920, fail_at=2048, binds=MEMORY, mechanism=FRAGMENTATION,
             msa_rows=8192,
-            evidence="walked 2026-09-23 on origin/main 8906d35a0, j10glx02 card 29, guard off, "
-                     "--host_threads 2, apo CDK2 tiled with 8192 alignment rows "
-                     "(ws:mgx-ceilings, perf/mgxceil). 1024 folds in 281.8 s, 1152 in 362.9 s, "
-                     "1280 in 407.2 s, 1408 in 484.3 s and 1536 in 554.0 s, AICLK median 1000 MHz "
-                     "sampled during every fold. 1664 fails in the diffusion conditioner's pair "
-                     "transition (protenix.py _diffusion_pair_cond, tenstorrent.py Transition "
-                     "reassembling its chunks in _acc_concat), one 1417674752 B request, 112.7 MiB "
-                     "per bank, on a chip 91.6 percent full with 86.5 MiB free and a 75.0 MiB "
-                     "largest block: less free memory than the request, so residency and not "
-                     "layout. Until this row it was unmeasured and never refused, so 1664 and "
-                     "above was admitted and died on the chip",
+            evidence="walked 2026-09-23 on origin/main cec7979b1 (pair-residency merged), "
+                     "j10glx02 card 31, guard off, --host_threads 2, apo CDK2 tiled with 8192 "
+                     "alignment rows (ws:mgx-ceilings, perf/mgxceil). 1664 folds in 738.6 s, "
+                     "1792 in 960.3 s and 1920 in 999.0 s, AICLK median 1000 MHz sampled during "
+                     "every fold, at host load 54-86 on 64 cores. 2048 fails after 958.8 s in the "
+                     "diffusion DiT block biases (protenix.py _dit_block_biases, tenstorrent.py "
+                     "compute_bias), one 536870912 B request, 44740608 B per bank, with 54913440 B "
+                     "free and a 23117344 B largest block: fragmentation. The rungs below 1664 "
+                     "were walked on 8906d35a0 (1024 281.8 s to 1536 554.0 s, card 29), where "
+                     "1664 still failed in the diffusion conditioner's pair transition (1417674752 "
+                     "B, more than the chip had free); pair-residency removed that wall. Until "
+                     "these rows it was unmeasured and never refused",
         ),
     },
     "nesso1": {
