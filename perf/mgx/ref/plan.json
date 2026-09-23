@@ -1,0 +1,49 @@
+{
+ "source": "tt_bio.main PREDICT_MODELS, _resolve_recycling_steps, _resolve_sampling_steps",
+ "seeds": [
+  0,
+  1
+ ],
+ "models": {
+  "boltz2": {
+   "recycles": 3,
+   "steps": 200
+  },
+  "esmfold2": {
+   "recycles": 10,
+   "steps": 100
+  },
+  "esmfold2-fast": {
+   "recycles": 10,
+   "steps": 100
+  },
+  "protenix-v1": {
+   "recycles": 4,
+   "steps": 200
+  },
+  "protenix-v2": {
+   "recycles": 10,
+   "steps": 200
+  },
+  "openfold3": {
+   "recycles": 3,
+   "steps": 200
+  },
+  "openbind": {
+   "recycles": 3,
+   "steps": 200
+  },
+  "opendde": {
+   "recycles": 10,
+   "steps": 200
+  },
+  "opendde-abag": {
+   "recycles": 10,
+   "steps": 200
+  },
+  "rf3": {
+   "recycles": 10,
+   "steps": 50
+  }
+ }
+}
