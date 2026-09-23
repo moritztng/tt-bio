@@ -40,6 +40,9 @@ ME = "worker:mgx-affinity-scale"
 BLOCKED = {1, 24, 25, 26, 27}
 PY = os.environ.get("LANE_PY") or sys.executable
 RES, OUT = HERE / "results", HERE / "out"
+# card -> lane, for every chip a lane of this process holds. The lease JSON is shared with every
+# engine child and sibling row, so it cannot tell two lanes of one process apart; this can.
+HELD = {}
 STOP = OUT / "STOP"  # touch to stop every lane after its current job
 
 
@@ -48,10 +51,14 @@ def lease(c):
 
 
 def free(c, name):
+    if HELD.get(c, name) != name:
+        return False
     try:
         d = json.loads(lease(c).read_text())
-    except (OSError, ValueError):
+    except OSError:
         d = {"released": 1}
+    except ValueError:
+        return False  # caught mid-rewrite by its holder
     # Lanes are threads of one process, so pid alone would call a sibling lane's chip ours.
     mine = d.get("holder") == ME and d.get("pid") == os.getpid() and d.get("lane") == name
     # A sibling chain releases between its folds and re-claims within seconds; a release is
@@ -68,6 +75,7 @@ def free(c, name):
 
 
 def claim(c, name):
+    HELD[c] = name
     lease(c).write_text(json.dumps({"host": HOST, "card": str(c), "holder": ME, "pid": os.getpid(),
                                     "lane": name,
                                     "acquired": time.time(), "released": None,
@@ -75,6 +83,7 @@ def claim(c, name):
 
 
 def release(c):
+    HELD.pop(c, None)
     d = json.loads(lease(c).read_text())
     if d.get("holder") == ME:
         d["released"] = time.time()
@@ -211,7 +220,10 @@ def run(job, cards, adopt=None):
 LOCK = threading.Lock()
 
 
-def lane(plan, pool, n, adopt=None):
+ADOPT = {}
+
+
+def lane(plan, pool, n, adopt):
     held, avoid = [], {}
     for line in plan.read_text().splitlines():
         if not line.strip() or line.startswith("#"):
@@ -222,10 +234,11 @@ def lane(plan, pool, n, adopt=None):
         if STOP.exists():
             break
         while True:
-            if adopt and adopt[0] == job["tag"]:
-                held = adopt[1]
-                row = run(job, held, adopt=adopt[2:])
-                adopt = None
+            if job["tag"] in adopt:
+                held = adopt.pop(job["tag"])[0]
+                with LOCK:
+                    HELD.update({c: plan.stem for c in held})
+                row = run(job, held, adopt=ADOPT[job["tag"]][1:])
                 break
             while len(held) < n:
                 with LOCK:
@@ -237,8 +250,10 @@ def lane(plan, pool, n, adopt=None):
                 break
             # Refused: some other holder owns at least one of these now. Never write a lease we
             # may not own; drop them all and come back to them later.
-            for c in held:
-                avoid[c] = time.time() + 600
+            with LOCK:
+                for c in held:
+                    avoid[c] = time.time() + 600
+                    HELD.pop(c, None)
             held = []
         for c in held:
             claim(c, plan.stem)
@@ -254,21 +269,21 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("plans", nargs="+", help="plan.jsonl, or plan.jsonl:N for N chips per job")
     ap.add_argument("--pool", required=True, help="candidate cards, space separated")
-    ap.add_argument("--adopt", default=None,
-                    help="TAG:CARDS:PID:EPOCH -- watch an already running job of the first plan "
-                         "instead of starting it (CARDS comma separated)")
+    ap.add_argument("--adopt", action="append", default=[],
+                    help="TAG:CARDS:PID:EPOCH -- watch an already running job instead of starting "
+                         "it (CARDS comma separated); repeatable")
     a = ap.parse_args()
     pool = [int(x) for x in a.pool.split()]
     RES.mkdir(parents=True, exist_ok=True)
-    adopt = None
-    if a.adopt:
-        tag, cards, pid, t0 = a.adopt.split(":")
-        adopt = (tag, [int(c) for c in cards.split(",")], int(pid), float(t0))
+    for spec in a.adopt:
+        tag, cards, pid, t0 = spec.split(":")
+        ADOPT[tag] = ([int(c) for c in cards.split(",")], int(pid), float(t0))
+        HELD.update({int(c): f"adopt:{tag}" for c in cards.split(",")})  # until its lane gets there
+    adopt = dict(ADOPT)  # shared: a lane pops the tag it adopts
     threads = []
     for k, spec in enumerate(a.plans):
         path, _, n = spec.partition(":")
-        th = threading.Thread(target=lane, args=(pathlib.Path(path), pool, int(n or 1),
-                                                  adopt if k == 0 else None))
+        th = threading.Thread(target=lane, args=(pathlib.Path(path), pool, int(n or 1), adopt))
         th.start()
         threads.append(th)
         time.sleep(1)
