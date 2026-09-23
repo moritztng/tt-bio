@@ -73,7 +73,7 @@ def test_the_scan_sees_a_bypass(tmp_path, monkeypatch):
 def test_the_wrapper_never_forwards_none(monkeypatch):
     ttnn = pytest.importorskip("ttnn")
     ten = pytest.importorskip("tt_bio.tenstorrent")
-    seen, freed = [], []
+    seen, uploads = [], []
 
     class T:
         def __init__(self, shape):
@@ -84,15 +84,36 @@ def test_the_wrapper_never_forwards_none(monkeypatch):
 
     monkeypatch.setattr(ttnn.transformer, OP,
                         lambda q, k, v, **kw: seen.append(kw) or "o", raising=False)
-    monkeypatch.setattr(ttnn, "zeros", lambda shape, **kw: ("zeros", tuple(shape), kw["device"]))
-    monkeypatch.setattr(ttnn, "deallocate", freed.append)
+    monkeypatch.setattr(ttnn, "zeros",
+                        lambda shape, **kw: uploads.append(("zeros", tuple(shape), kw["device"]))
+                        or uploads[-1])
+    monkeypatch.setattr(ten, "_ZERO_MASKS", {})
     q, k = T((2, 16, 128, 64)), T((2, 16, 96, 64))
     assert ten.fused_sdpa(q, k, k, None, scale=0.125) == "o"
     assert seen[-1]["attn_mask"] == ("zeros", (1, 1, 128, 96), "dev")
-    assert seen[-1]["is_causal"] is False and freed == [seen[-1]["attn_mask"]]
+    assert seen[-1]["is_causal"] is False
+    # The repeat uploads nothing: a trace capture refuses host writes, and every capture in
+    # tt_bio runs its forward eagerly first, so the capture must find this same buffer.
+    ten.fused_sdpa(q, k, k, None, scale=0.125)
+    assert len(uploads) == 1 and seen[-1]["attn_mask"] is uploads[0]
+    ten.fused_sdpa(q, q, q, None, scale=0.125)
+    assert len(uploads) == 2 and uploads[1][1] == (1, 1, 128, 128)
     own = object()
     ten.fused_sdpa(q, k, k, own, scale=0.125)
-    assert seen[-1]["attn_mask"] is own and len(freed) == 1
+    assert seen[-1]["attn_mask"] is own and len(uploads) == 2
+
+
+def test_cleanup_empties_the_zero_mask_cache(monkeypatch):
+    ten = pytest.importorskip("tt_bio.tenstorrent")
+    cache = {("dev", 128, 128): ("dev", "zeros")}
+    monkeypatch.setattr(ten, "_ZERO_MASKS", cache)
+    monkeypatch.setattr(ten, "_device", object())
+    monkeypatch.setattr(ten, "_device_lease", None)
+    monkeypatch.setattr(ten.ttnn, "synchronize_device", lambda d: None)
+    closed = []
+    monkeypatch.setattr(ten, "_close_device_locked", lambda d: closed.append(dict(cache)))
+    ten.cleanup()
+    assert closed == [{}] and cache == {}  # freed before the device closes, not after
 
 
 def _generic_sdpa_runners():

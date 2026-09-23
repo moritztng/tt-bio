@@ -1859,6 +1859,9 @@ def _sdpa_pad_ragged(q, k, v, bias):
     return qp, kp, vp, bp, q_pad
 
 
+_ZERO_MASKS = {}  # (id(device), Lq, Lk) -> (device, zero [1, 1, Lq, Lk]); cleanup() empties it
+
+
 def fused_sdpa(q, k, v, attn_mask=None, *, scale: float, **kw):
     """`ttnn.transformer.scaled_dot_product_attention`, never unmasked. Every tt_bio call of the
     fused op goes through here; `tests/test_fused_sdpa_single_site.py` fails on one that does not.
@@ -1870,20 +1873,22 @@ def fused_sdpa(q, k, v, attn_mask=None, *, scale: float, **kw):
     every config swept, to 2048 tokens (`perf/mgx_sdpa/`). So a missing mask becomes a zero
     [1, 1, Lq, Lk] one, which the op broadcasts over batch and heads.
 
-    That zero mask is a host write, which a trace capture refuses. A caller that captures a
-    trace allocates its own mask before `begin_trace_capture` (`esmc._capture_esmc_trace`).
+    The zero mask is uploaded once per (device, Lq, Lk) and kept, because an upload is a host
+    write and a trace capture refuses those. A caller that captures a trace runs the same forward
+    eagerly first (every capture in tt_bio warms up outside it), so the capture finds the mask
+    already on the device and the replay reads a buffer that stays alive. Only lengths that reach
+    here unmasked are cached, one [Lq, Lk] bf16 tile grid each.
     """
-    zero = None
     if attn_mask is None:
-        zero = attn_mask = ttnn.zeros([1, 1, int(q.shape[2]), int(k.shape[2])],
-                                      dtype=ttnn.bfloat16, layout=ttnn.TILE_LAYOUT,
-                                      device=q.device())
-    try:
-        return ttnn.transformer.scaled_dot_product_attention(
-            q, k, v, attn_mask=attn_mask, is_causal=False, scale=scale, **kw)
-    finally:
-        if zero is not None:
-            ttnn.deallocate(zero)
+        dev = q.device()
+        key = (id(dev), int(q.shape[2]), int(k.shape[2]))
+        hit = _ZERO_MASKS.get(key)
+        if hit is None:  # the device is kept in the entry so its id cannot be reused
+            hit = _ZERO_MASKS[key] = (dev, ttnn.zeros([1, 1, key[1], key[2]], dtype=ttnn.bfloat16,
+                                                      layout=ttnn.TILE_LAYOUT, device=dev))
+        attn_mask = hit[1]
+    return ttnn.transformer.scaled_dot_product_attention(
+        q, k, v, attn_mask=attn_mask, is_causal=False, scale=scale, **kw)
 
 
 def _sdpa_masked(fn, q, k, v, bias, *args, site: str, pad: bool = False, **kw):
@@ -6178,6 +6183,7 @@ def cleanup():
             ttnn.synchronize_device(_device)
         except Exception:
             pass
+        _ZERO_MASKS.clear()  # device tensors, freed while the device is still open
         _close_device_locked(_device)
         _device = None
         _trace_region_size = 0

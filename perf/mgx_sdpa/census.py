@@ -11,7 +11,9 @@ worker processes, so a counter read in the launcher is always zero; this writes 
 `tt_bio.triatt_sdpa` runs the same wheel kernels through `ttnn.generic_op` and is counted too
 (site suffixed `[triatt_sdpa]`); it declines a None bias, so those rows are counts only.
 
-One key per (caller file:line, B, H, Lq, Lk, d, mask shape or None, q_chunk, k_chunk, grid).
+One key per (caller file:line, B, H, Lq, Lk, d, mask, q_chunk, k_chunk, grid, inside a trace
+capture). `mask` is None, a shape, or "zero_cache" when the caller passed None and
+`tenstorrent.fused_sdpa` substituted its cached zero mask.
 The first call of each key is also scored by effect, off the returned tensor:
   * `pcc_fp32`: the op's output against torch fp32 SDPA on the same q, k, v and mask;
   * `pcc_zero_mask` (unmasked calls only): the op's output against the same call with an
@@ -38,6 +40,28 @@ if os.environ.get("SDPA_CENSUS_DIR"):
     _orig = ttnn.transformer.scaled_dot_product_attention
     _rows = {}
     _max = int(os.environ.get("SDPA_CENSUS_SCORE_MAX", str(1 << 27)))
+    _cap = [0]  # open trace captures in this process
+
+    _begin, _end = ttnn.begin_trace_capture, ttnn.end_trace_capture
+
+    def _begin_capture(*a, **kw):
+        tid = _begin(*a, **kw)
+        _cap[0] += 1
+        return tid
+
+    def _end_capture(*a, **kw):
+        _cap[0] -= 1
+        return _end(*a, **kw)
+    ttnn.begin_trace_capture, ttnn.end_trace_capture = _begin_capture, _end_capture
+
+    def _mask_kind(mask):
+        """None, "zero_cache" (fused_sdpa's own zero for a caller that passed None), or a shape."""
+        if mask is None:
+            return None
+        t = sys.modules.get("tt_bio.tenstorrent")
+        if t is not None and any(mask is z for _, z in getattr(t, "_ZERO_MASKS", {}).values()):
+            return "zero_cache"
+        return [int(s) for s in mask.shape]
 
     def _site():
         for fr in reversed(traceback.extract_stack()[:-2]):
@@ -59,10 +83,9 @@ if os.environ.get("SDPA_CENSUS_DIR"):
         qc = getattr(pc, "q_chunk_size", None) if pc is not None else None
         kc = getattr(pc, "k_chunk_size", None) if pc is not None else None
         g = getattr(pc, "compute_with_storage_grid_size", None) if pc is not None else None
-        key = json.dumps([_site(), B, H, Lq, Lk, d,
-                          None if mask is None else [int(s) for s in mask.shape],
+        key = json.dumps([_site(), B, H, Lq, Lk, d, _mask_kind(mask),
                           qc, kc, None if g is None else [g.x, g.y],
-                          str(q.dtype), bool(kw.get("is_causal", False))])
+                          str(q.dtype), bool(kw.get("is_causal", False)), _cap[0] > 0])
         o = _orig(q, k, v, *a, **kw)
         r = _rows.get(key)
         if r is not None:
@@ -77,6 +100,9 @@ if os.environ.get("SDPA_CENSUS_DIR"):
             _dump()  # a spawned worker can be terminated before atexit runs
 
     def _score(r, o, q, k, v, mask, B, H, Lq, Lk, d, kw):
+        if _cap[0]:
+            r["scored"] = "skipped: inside a trace capture"  # a host read would break it
+            return o
         if B * H * Lq * Lk > _max:
             r["scored"] = "skipped: over score-max"
             return o
@@ -136,7 +162,7 @@ if os.environ.get("SDPA_CENSUS_DIR"):
                 B, H, L, d, bias, qc, kc, dt = shape(*a, **kw)
                 key = json.dumps([f"{_site()} [{op}]", B, H, L, L, d,
                                   None if bias is None else [int(x) for x in bias.shape],
-                                  qc, kc, None, str(dt), False])
+                                  qc, kc, None, str(dt), False, _cap[0] > 0])
                 r = _rows.setdefault(key, {"calls": 0})
                 r["calls"] += 1
                 if r["calls"] == 1 or r["calls"] % 256 == 0:
@@ -167,7 +193,7 @@ if os.environ.get("SDPA_CENSUS_DIR"):
 '''
 
 FIELDS = ("site", "B", "H", "Lq", "Lk", "d", "mask", "q_chunk", "k_chunk", "grid", "dtype",
-          "causal")
+          "causal", "capture")
 
 
 def main():
@@ -197,6 +223,8 @@ def main():
         f.write(json.dumps({"label": a.label, "cli": cli, "rc": rc,
                             "calls": sum(r["calls"] for r in rows),
                             "unmasked": sum(r["calls"] for r in rows if r["mask"] is None),
+                            "zero_cache": sum(r["calls"] for r in rows if r["mask"] == "zero_cache"),
+                            "in_capture": sum(r["calls"] for r in rows if r["capture"]),
                             "rows": rows}) + "\n")
     print(f"{a.label}: rc={rc} calls={sum(r['calls'] for r in rows)} "
           f"unmasked={sum(r['calls'] for r in rows if r['mask'] is None)} keys={len(rows)}")
