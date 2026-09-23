@@ -51,5 +51,13 @@ def test_mixed_hosts_void_the_comparison():
     assert sb.judge(rt, 1536, rt[1024] * 3, identity=ids)["verdict"] == "VOID"
 
 
+def test_an_oversubscribed_host_voids_the_comparison():
+    rt = _curve(2.0)
+    quiet = {n: 0.6 for n in FIT} | {1536: 0.6}
+    assert sb.judge(rt, 1536, rt[1024] * 1.5 ** 3, load=quiet)["verdict"] == "PASS"
+    loud = quiet | {768: 8.5}
+    assert sb.judge(rt, 1536, rt[1024] * 1.5 ** 3, load=loud)["verdict"] == "VOID"
+
+
 def test_too_few_fit_rungs_is_ungated_not_a_pass():
     assert sb.judge({768: 1.0, 1024: 2.0}, 1536, 1e9)["verdict"] == "UNGATED"

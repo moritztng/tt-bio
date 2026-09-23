@@ -23,8 +23,10 @@ new rung N may sit above the fitted line by at most
 
 Runtime is the fold's own `runtime_s` (no model load or process start), at the size ladder's fold
 settings, all rungs of one comparison on one chip, one host and one commit. If the AICLK sampled
-during the folds moves more than 3% across the rungs, the comparison is void and is reported as
-void, never as a pass or a fail.
+during the folds moves more than 3% across the rungs, or the host's 1-min load average passes
+1.5x its core count during any rung (the release gate's own start ceiling), the comparison is
+void and is reported as void, never as a pass or a fail. A capacity walk on a busy Galaxy still
+says whether a size folds; it does not say how fast.
 
 What it catches is the real hazard of chunking: a row-blocked path that swaps a memory wall for a
 time wall by round-tripping to the host, recompiling per chunk, or spilling to host memory. Those
