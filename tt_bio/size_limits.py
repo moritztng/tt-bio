@@ -442,15 +442,18 @@ CEILINGS: dict[str, dict[str, Ceiling]] = {
     },
     "protenix-v2": {
         "wormhole_b0": Ceiling(
-            residues=1664, pass_at=1664, fail_at=None, binds=LADDER_TOP,
-            mechanism=NO_FAILURE, msa_rows=8192, ladder_ligand_atoms=0,
+            residues=1664, pass_at=1664, fail_at=1792, binds=MEMORY,
+            mechanism=FRAGMENTATION, msa_rows=8192, ladder_ligand_atoms=0,
             evidence="walked 2026-09-23 on origin/main cec7979b1 (pair-residency merged), "
                      "j10glx02, guard off, --host_threads 2, apo CDK2 tiled with 8192 "
                      "alignment rows, the --max_msa_seqs default (ws:mgx-ceilings, "
                      "perf/mgxceil). 1024 folds in 913.5 s, 1152 in 1292.5 s, 1280 in 1486.7 s, "
                      "1408 in 1881.7 s (card 3), 1536 in 2046.8 s and 1664 in 2609.9 s (card 9), "
                      "AICLK median 1000 MHz sampled during every fold, at host load 52-214 on 64 "
-                     "cores. Nothing above 1664 has run to an outcome yet. The earlier row "
+                     "cores. 1792 fails after 2692.9 s (card 17, same tree, 1000 MHz) in the diffusion "
+                     "pair conditioning (protenix.py _diffusion_pair_cond), which asks for "
+                     "3288334336 B, 261.3 MiB per bank, with 514.5 MiB free and a 219.3 MiB "
+                     "largest block: fragmentation, not a full chip. The earlier row "
                      "(1024, fail 1095) was walked at 8832 rows, deeper than the default allows; "
                      "the 2026-09-11 whglx ladder at 8192 rows already folded 1152 on the tree "
                      "before pair-residency. The wall is on TOKENS (the failing tensor scales "

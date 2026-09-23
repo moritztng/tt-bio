@@ -119,13 +119,15 @@ the models reach, so Blackhole never changes path.
 ## What stops each model above 1024 on a Galaxy chip
 
 Walked on one j10glx02 chip with an 8192-row alignment (OpenFold3 at 14190), the first failure
-of every model that clears 1536 is a single pair-sized allocation on a chip that is already about
-90 % full:
+of every model that clears 1536 is a single pair-sized allocation that no free block on the chip
+can hold:
 
 - `boltz2` folds 1664 and fails at 1792 in the confidence module's relative-position gather, one
   1792×1792×128 pair tensor that no free block can hold.
 - `protenix-v1` folds 1920 and fails at 2048 in the diffusion transformer's attention bias, with
   enough memory free but no block large enough.
+- `protenix-v2` folds 1664 and fails at 1792 in the diffusion pair conditioning, one 3.1 GiB
+  tensor with half the chip free but no block large enough.
 - `rf3` folds 1600 and fails at 1664 in the diffusion atom encoder's pair permute, with enough
   memory free but no block large enough.
 

@@ -225,10 +225,10 @@ def test_the_freeze_rows_refuse_1536_and_admit_the_size_that_folds():
         sl.check(m, 1024, arch="blackhole")     # the size that folds is admitted, silently
 
 
-@pytest.mark.parametrize("model", ["boltz2", "rf3", "protenix-v1", "openfold3"])
+@pytest.mark.parametrize("model", ["boltz2", "rf3", "protenix-v1", "protenix-v2", "openfold3"])
 def test_a_wormhole_row_walked_past_1536_admits_1536_and_refuses_its_first_failure(model):
     """These rows were walked on one Galaxy chip past the 1536 the campaign targets. Before they
-    existed boltz2 and protenix-v1 were never refused and rf3 and openfold3 stopped at the top of a
+    existed boltz2 and protenix-v1 were never refused and rf3, openfold3 and protenix-v2 stopped at the top of a
     ladder, so each first failure was admitted and died on the chip; each row has to turn that into
     a refusal without losing the 1536 that folds."""
     c = sl.ceiling(model, "wormhole_b0")
