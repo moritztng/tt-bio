@@ -18,8 +18,8 @@ changing the structure. That prints a warning and the fold runs.
 | `protenix-v2` | yes | yes | yes | yes | refused | yes | yes | refused | yes | refused | ignored, warns |
 | `openfold3` | refused | yes | yes | yes | refused | yes | yes | refused | refused | refused | ignored, warns |
 | `openbind` | yes | yes | yes | yes | refused | yes | yes | refused | refused | refused | ignored, warns |
-| `opendde` | yes | refused | refused | yes | refused | yes | yes | refused | yes | refused | ignored, warns |
-| `opendde-abag` | yes | refused | refused | yes | refused | yes | yes | refused | yes | refused | ignored, warns |
+| `opendde` | yes | yes | yes | yes | refused | yes | yes | refused | yes | refused | ignored, warns |
+| `opendde-abag` | yes | yes | yes | yes | refused | yes | yes | refused | yes | refused | ignored, warns |
 | `rf3` | yes | yes | yes | yes | refused | refused | refused | refused | refused | refused | ignored, warns |
 <!-- END CAPABILITY TABLE -->
 
@@ -73,7 +73,7 @@ refused with the accepted set, because a dropped key used to cost a whole chain
   preview2 was released as a polymer model and was never trained to place a ligand, so it
   would return a confident structure for one anyway. `openbind` is the checkpoint upstream
   trained for co-folding, and it is the same implementation.
-- **RNA / DNA** -- a nucleic-acid chain. `opendde` is protein and ligand only.
+- **RNA / DNA** -- a nucleic-acid chain. Every `predict` model folds one.
 - **no protein chain** -- an input made only of RNA, DNA or ligands. ESMFold2 conditions its
   trunk on a protein language model, so it needs at least one protein chain.
 - **cyclic** -- `cyclic: true` on a polymer chain. Only Boltz-2 closes the backbone. Express

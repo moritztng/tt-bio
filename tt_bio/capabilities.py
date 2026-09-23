@@ -88,11 +88,8 @@ CAPABILITY: dict[str, dict[str, str]] = {
     # reads); pocket/contact need a constraint embedder no Protenix checkpoint ships.
     "protenix-v1": _row(cyclic=REFUSED, templates=REFUSED, pocket=REFUSED, affinity=NOTED),
     "protenix-v2": _row(cyclic=REFUSED, pocket=REFUSED, affinity=NOTED),
-    # OpenDDE is protein/ligand: nucleic-acid structural tokens are not ported.
-    "opendde": _row(rna=REFUSED, dna=REFUSED, cyclic=REFUSED,
-                    pocket=REFUSED, affinity=NOTED),
-    "opendde-abag": _row(rna=REFUSED, dna=REFUSED, cyclic=REFUSED,
-                         pocket=REFUSED, affinity=NOTED),
+    "opendde": _row(cyclic=REFUSED, pocket=REFUSED, affinity=NOTED),
+    "opendde-abag": _row(cyclic=REFUSED, pocket=REFUSED, affinity=NOTED),
     # Ligands stay refused for OF3-preview2 and honoured for OpenBind, the checkpoint
     # upstream trained for co-folding. Templates are opt-in per protein chain (a precomputed
     # alignment npz); there is no template search.
@@ -140,10 +137,6 @@ WHY: dict[tuple[str, str], str] = {
         "preview2 was released as a polymer model and was never trained to place a ligand, "
         "so it is polymer-only here; the featurizer would build one and the sampler would "
         "return a status=ok structure anyway"),
-    ("opendde", "rna"): "nucleic-acid structural tokens are not ported",
-    ("opendde", "dna"): "nucleic-acid structural tokens are not ported",
-    ("opendde-abag", "rna"): "nucleic-acid structural tokens are not ported",
-    ("opendde-abag", "dna"): "nucleic-acid structural tokens are not ported",
     ("nesso1", "protein_free"): "it scores a protein-ligand pair",
     **{(m, "protein_free"): "its trunk is conditioned on the ESM protein language model, so a "
        "complex needs at least one protein chain" for m in ("esmfold2", "esmfold2-fast")},

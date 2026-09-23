@@ -889,8 +889,8 @@ class _WorkerState:
         structural-token fold -> structure. Rides the SAME MSA stage as Protenix-v2 /
         ESMFold2 / Boltz-2: each protein chain whose {seq_hash}.a3m is not cached is
         searched into the shared msa_dir, resolved, and featurized via
-        build_complex_features' block-diagonal MSA. Protein + ligand co-folds (nucleic-acid
-        structural tokens not ported yet). Ligand atoms are tokenized per-atom by
+        build_complex_features' block-diagonal MSA. Protein, RNA, DNA and ligand chains all
+        fold; nucleotides split into backbone/base structural tokens. Ligand atoms are tokenized per-atom by
         build_complex_features and expand to one "atom"-role structural token each
         (opendde_data.build_structural_token_features), so a covalent inhibitor bonded
         to a protein Cys is honored end-to-end. Confidence-based best-of-N ranking and
