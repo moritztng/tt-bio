@@ -130,8 +130,8 @@ under 1024:
 | model | Wormhole limit | first measured failure |
 |---|---:|---:|
 | `opendde`, `opendde-abag` | 1024 | 1088 |
-| `openfold3` | 1024 | none found; top of the ladder |
-| `openbind` | 960 (residues; a ligand adds tokens) | 1024 |
+| `openfold3` | 1536 | none found; top of the ladder |
+| `openbind` | 1536 (residues; a ligand adds tokens) | none found; top of the ladder |
 | `pxdesign` | 1536 (target residues; the binder is on top) | none found; top of the ladder |
 | `protenix-v2` | 1024 (residues; a ligand adds tokens) | 1095 |
 | `esmfold2` | 1024 (residues; a ligand adds tokens) | 1056 |
@@ -196,8 +196,8 @@ A ligand counts against these limits. Its heavy atoms are tokens the model pays 
 residues, and on `esmfold2`, `esmfold2-fast`, `openbind` and `protenix-v2` the wall is on tokens,
 so a cocrystal is checked on residues plus ligand atoms rather than on the residue count alone.
 `esmfold2` folds 1024 residues, which leaves no room at all: 1024 residues plus any ligand is
-refused, and 991 residues with a 33-atom ligand folds. `openbind` was walked with a 35-atom
-ligand already bound, so its 960 has room for a ligand of 64 atoms and refuses 65. Either way the
+refused, and 991 residues with a 33-atom ligand folds. `openbind` is the same: its 1536 was
+walked apo, so a ligand counts against it atom for atom. Either way the
 refusal names the token count and the wall, and it arrives before a device is opened instead of
 as an out-of-memory error part way through the fold.
 
@@ -224,9 +224,13 @@ ColabFold DB (`~/.boltz/msa_db`) if one is set up (see [Offline MSA](#offline-ms
 otherwise the online ColabFold server. Sending sequences to the online server (`api.colabfold.com`)
 leaves your machine; a one-line notice is printed when that fallback is used. Pass
 `--msa_db_path` for a private offline database, or `--single_sequence` to deliberately fold
-without an MSA (lower accuracy; for batch-screening orphan sequences). OpenDDE multi-chain
-predictions still request paired MSAs from `--msa_server_url`; use `--single_sequence` to
-prevent all network MSA requests. ESMFold2 is single-sequence.
+without an MSA (lower accuracy; for batch-screening orphan sequences). A complex with two or
+more different protein sequences also gets a species-paired MSA, searched once per complex, the
+way each model's upstream pairs; a homodimer is not paired. Two models fold unpaired because
+their upstream does: RF3 pairs by taxonomy IDs that ColabFold alignments do not carry, and
+OpenFold3's preview2 checkpoint runs on an upstream release that drops the paired rows
+(OpenBind pairs).
+ESMFold2 needs no MSA and uses one when a source is given.
 
 `--fast` makes some operations use a lower-precision numeric format that runs faster. Accuracy is typically very close.
 
@@ -732,7 +736,7 @@ Model-specific options are labelled below.
 | `--override` | `False` | Re-run from scratch |
 | `--use_msa_server` | auto | Use the online ColabFold API; auto-enabled for Boltz-2/Protenix-v1/Protenix-v2/OpenFold3/OpenBind-0/OpenDDE/RF3 when no local DB is found |
 | `--single_sequence` | `False` | **(Boltz-2/Protenix-v1/Protenix-v2/OpenFold3/OpenDDE)** Skip all MSA requests; lower accuracy |
-| `--msa_endpoint` | — | Fetch unpaired MSAs from a `tt-bio msa-server`; OpenDDE pairing still uses `--msa_server_url` |
+| `--msa_endpoint` | — | Fetch unpaired MSAs from a `tt-bio msa-server`. A complex is not paired through it unless its paired MSA is already in `--msa_dir` |
 | `--write_pae` | `False` | **(Protenix-v1/Protenix-v2/OpenDDE)** Write the token-token PAE/PDE matrices to `<name>_pae.npz` |
 | `--use_potentials` | `False` | **(Boltz-2)** Apply physical constraints |
 | `--affinity_mw_correction` | `False` | **(Boltz-2)** Apply MW correction to affinity |

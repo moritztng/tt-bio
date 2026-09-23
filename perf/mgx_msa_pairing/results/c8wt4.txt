@@ -1,0 +1,6 @@
+openbind     8wt4  before DockQ 0.716 fnat 0.79 iRMS 1.29 LRMS 4.52  DockQ 0.452 fnat 0.65 iRMS 2.32 LRMS 10.06  DockQ 0.652 fnat 0.71 iRMS 1.41 LRMS 5.31  DockQ 0.521 fnat 0.65 iRMS 1.89 LRMS 8.00 | seed floor 1.84 A | mean DockQ 0.585 over 4
+openbind     8wt4  after  DockQ 0.797 fnat 0.84 iRMS 1.00 LRMS 3.48  DockQ 0.486 fnat 0.68 iRMS 2.16 LRMS 9.42  DockQ 0.747 fnat 0.78 iRMS 1.11 LRMS 4.08  DockQ 0.536 fnat 0.70 iRMS 1.87 LRMS 8.15 | seed floor 1.96 A | mean DockQ 0.641 over 4
+openbind     8wt4  bit-identical before/after on seeds [] of [2, 3, 4, 5]
+openfold3    8wt4  before DockQ 0.909 fnat 0.88 iRMS 0.61 LRMS 0.76  DockQ 0.911 fnat 0.90 iRMS 0.63 LRMS 1.18  DockQ 0.887 fnat 0.82 iRMS 0.61 LRMS 1.06  DockQ 0.916 fnat 0.90 iRMS 0.62 LRMS 0.70 | seed floor 0.40 A | mean DockQ 0.906 over 4
+openfold3    8wt4  after  DockQ 0.886 fnat 0.88 iRMS 0.73 LRMS 1.41  DockQ 0.841 fnat 0.87 iRMS 0.88 LRMS 2.61  DockQ 0.863 fnat 0.82 iRMS 0.74 LRMS 1.60  DockQ 0.866 fnat 0.87 iRMS 0.82 LRMS 1.74 | seed floor 0.53 A | mean DockQ 0.864 over 4
+openfold3    8wt4  bit-identical before/after on seeds [] of [2, 3, 4, 5]

@@ -3,6 +3,7 @@ import re
 import sys
 import time
 import contextlib
+import gc
 import torch, ttnn, atexit
 from torch import nn
 from typing import Callable, Mapping
@@ -66,6 +67,9 @@ PWA_DEPTH_BUDGET_BYTES = 1 << 28     # 0.25 GiB, as OPM_Z_BUDGET_BYTES
 _PWA_DEPTH_ROW_CAP: dict[tuple[int, int], int] = {}
 #: Path census, read like OPM_ROW_STATS: whole-tensor calls, chunked calls, refusals absorbed.
 PWA_DEPTH_STATS = {"whole": 0, "blocked": 0, "dram_narrowed": 0}
+# Triangle-attention shapes whose whole-tensor path DRAM refused, and the row block they settled
+# at. See TriangleAttention.__call__.
+_TRIATT_WHOLE_REFUSED: dict = {}
 # Cap on OPM's per-I-block matmul result, which is (rows*c_a, c_b*tokens) in bf16 and therefore
 # grows with the SQUARE of the token count at fixed `rows`. At OPM_CHUNK_SIZE=256 and 992 padded
 # tokens that single tensor is 520093696 B -- which is exactly, to the byte, the allocation 9i3p
@@ -701,6 +705,14 @@ _TRIMUL_CHUNK_CAP = int(os.environ.get("TT_BIO_TRIMUL_CHUNK_CAP", "") or 0)
 # Seq lengths whose trimul does not fit in L1 even at the minimum width take the DRAM
 # path instead: same ops, same arithmetic, the residency threshold's other side.
 _TRIMUL_DRAM_SHAPES: set = set()
+
+# Trimul shapes whose whole-tensor output tail DRAM refused. The row-blocked tail normally starts
+# above SEQ_LEN_MORE_CHUNKING, a token count fitted on a 128-channel pair; a 256-channel pair is
+# twice the bytes at the same count, so ESMFold2's trunk died at 1056 tokens on the Galaxy, below
+# the 1088 gate, on the tail's full-size layer_norm. A shape in here takes the blocked tail
+# directly and frees its input norm first. [refused whole tail, blocked by memo].
+_TRIMUL_TAIL_ROWS_SHAPES: set = set()
+TRIMUL_TAIL_ROWS_STATS = [0, 0]
 
 
 def _trimul_chunk_key(seq_len: int, hidden: int, batch: int) -> tuple:
@@ -1648,10 +1660,22 @@ def _triatt_dtype():
 
 
 # When the production q_chunk does not divide the padded length, offer the dividing chunks below
-# it before falling back to one that pads. See the block in `_tri_att_q_chunks` for the 896 aa
-# measurement that motivates it. Off until a fold A/B says otherwise; release-gated because the
-# path is shared across five models.
-_SDPA_NARROW_Q_FALLBACK = env_flag("TT_BIO_TRIATT_NARROW_Q_FALLBACK", False)
+# it -- bounded to those that at most double the K/V re-reads -- before falling back to one that
+# pads. See the block in `_tri_att_q_chunks` for the 896 aa measurement and for why the bound is
+# what makes this safe to default on.
+#
+# Fold A/B on rf3, qb2 card 0 (p300c), board-pair sibling verified idle, AICLK sampled DURING
+# every leg at or above 1200 MHz, both arm orders, contention scored on foreign cpu:
+#
+#     896 aa   94.50 -> 104.00 s   +9.5000 s   1.1005x   A/A floor 0.635 %   effect 15.83x floor
+#    1088 aa  160.90 -> 161.15 s   +0.2500 s   1.0016x   A/A floor 0.124 %   inert, and the bound
+#                                                        now makes it a no-op by construction
+#
+# Bit-exact on rf3: one CIF sha256 across 12 legs at 896 and 6 at 1088, both arms, since q_chunk
+# splits output rows and the online softmax reduces over k. NOT bit-exact on openbind at 896: the
+# narrower chunk frees L1 for one more persistent-mask call, a different kernel. Scored on PepN
+# (3B34, 891 aa), 3 seeds: 0.071 A move vs the 0.60 A bar, -0.0001 A vs the deposited structure.
+_SDPA_NARROW_Q_FALLBACK = env_flag("TT_BIO_TRIATT_NARROW_Q_FALLBACK", True)
 
 
 @lru_cache(maxsize=None)
@@ -1709,12 +1733,29 @@ def _tri_att_q_chunks(q_len: int, k_len: int) -> tuple:
     # 128 and 64, every one of which divides and fits the grid. Ordered widest-first for the same
     # reason the wide list is: the kernel re-reads K and V once per q chunk.
     #
-    # Off by default. This changes which kernel config a path shared by rf3, boltz-2,
-    # protenix-v2, openfold3 and opendde picks at ~13 sizes, and one sequence length is not
-    # evidence for a default (`one-size-tuning-is-a-standing-defect-class`). A length whose
-    # fallback already divides -- 768, 1024, every multiple of 256 -- returns the identical tuple
-    # with the flag either way, so the arm is a no-op there by construction and not by measurement.
-    narrower = sorted((q for q in dividing if q < prod), reverse=True)
+    # BOUNDED, and the bound is the whole reason this is on by default. Every narrower candidate
+    # uses LESS L1 than `prod`, which already fits, so the caller always takes the widest one
+    # offered -- the largest divisor of the padded length below `prod`. How far below `prod` that
+    # divisor sits is pure arithmetic of the padded length, and it is brutal at most lengths:
+    # enumerated over the 37 tile-aligned lengths from 256 to 1536, 20 of them would pick a chunk
+    # re-reading K and V 2.7x to 8x more than the shipped pick, because a padded length of the
+    # form 32*p for a prime p has no divisor between 32 and itself. 1184 = 32*37 would fall to
+    # q_chunk 32 and re-read K and V 37 times.
+    #
+    # 896 is the MILDEST length in the whole range: it picks 224 against a prod of 256, 1.14x the
+    # re-reads, and that is where the +9.50 s was measured. Generalising a win taken at the best
+    # case to the 8x cases is exactly `one-size-tuning-is-a-standing-defect-class`, so the rule
+    # is derived once, here, instead of being pinned per shape: offer a narrower chunk only when
+    # it at most DOUBLES the re-reads, i.e. q >= prod/2.
+    #
+    # What that buys. At 896 the offered list is unchanged, so the measured +9.50 s and the
+    # bit-exact digest carry over untouched rather than needing a re-take. At every length whose
+    # only narrower divisor is pathological -- including 1088, whose 64 is 4x and which measured
+    # inert anyway -- the list collapses to the flag-off list and the lever is a provable no-op.
+    # So the shipped behaviour changes at exactly the lengths where it was measured to help.
+    #
+    # perf/land_standing/narrowq_fallback_width.py enumerates the picks and the risky lengths.
+    narrower = sorted((q for q in dividing if prod > q >= prod / 2), reverse=True)
     return tuple(wider) + tuple(narrower) + (prod,)
 
 
@@ -3878,6 +3919,8 @@ _PT_ROW_MAJOR = os.environ.get(
 # so the honest test is the allocation itself; remembering the refusal keeps it to one attempt
 # per class per process, the same pattern `_L1_OUT_REFUSED` uses for the projections.
 _TRANSPOSE_L1_REFUSED: set = set()
+# Shape classes whose DRAM row-major transpose route was refused; they permute tiled after.
+_PT_ROW_MAJOR_REFUSED: set = set()
 
 
 def _pair_transpose(t: ttnn.Tensor, memory_config: ttnn.MemoryConfig,
@@ -3939,12 +3982,31 @@ def _pair_transpose_impl(t: ttnn.Tensor, memory_config: ttnn.MemoryConfig) -> tt
         # 84934656 B L1 buffer across 110 banks` -- exactly this tensor -- while the same
         # fold passed with the route off. The round trip is a DRAM->DRAM move and every
         # tensor in it belongs in DRAM.
-        rm = ttnn.to_layout(t, ttnn.ROW_MAJOR_LAYOUT, memory_config=memory_config)
-        p = ttnn.permute(rm, (1, 0, 2), memory_config=memory_config)
-        ttnn.deallocate(rm)
-        o = ttnn.to_layout(p, ttnn.TILE_LAYOUT, memory_config=memory_config)
-        ttnn.deallocate(p)
-        return o
+        key = (tuple(t.padded_shape), str(t.dtype))
+        if key not in _PT_ROW_MAJOR_REFUSED:
+            rm = p = None
+            try:
+                rm = ttnn.to_layout(t, ttnn.ROW_MAJOR_LAYOUT, memory_config=memory_config)
+                p = ttnn.permute(rm, (1, 0, 2), memory_config=memory_config)
+                ttnn.deallocate(rm)
+                rm = None
+                o = ttnn.to_layout(p, ttnn.TILE_LAYOUT, memory_config=memory_config)
+                ttnn.deallocate(p)
+                return o
+            except RuntimeError as exc:
+                # The round trip holds three pair tensors at once (t, rm, p), the tiled permute
+                # two. RF3's confidence head died on this permute at 1600 tokens with 97 MiB per
+                # bank free and a 50 MiB largest block, so a refusal takes the tiled route: the
+                # same permutation, one pair tensor less.
+                for x in (rm, p):
+                    if x is not None:
+                        ttnn.deallocate(x)
+                if not _dram_oom(exc):
+                    raise
+                _PT_ROW_MAJOR_REFUSED.add(key)
+                print(f"[tt-bio] DRAM refused the row-major pair transpose at {key[0]}; "
+                      f"permuting tiled. The tt-metal 'Out of Memory' line above is expected "
+                      f"and handled.", file=sys.stderr, flush=True)
     return ttnn.permute(t, (1, 0, 2), memory_config=memory_config)
 
 
@@ -5185,6 +5247,169 @@ def row_block_after_refusal(memo, key, single, blocked, rows, tag, min_rows=32):
         return out
 
 
+def pair_row_blocks(fn, tensors, rows, consume=None):
+    """`fn` over `rows`-row slices (dim 1) of every tensor in `tensors`, joined along dim 1.
+
+    The `blocked` half of `row_block_after_refusal` for an op that is per pair position end to
+    end (layer norm, linear, gating): each block is exactly the rows of the single pass, so the
+    join is bit-exact. The join goes through `_acc_concat`, so a refused device concat falls
+    back to one host assemble and upload instead of ending the fold. `consume` is an input the
+    result replaces (a residual's `z`): freed at the join, and before that upload, so the upload
+    can land in the room it leaves.
+    """
+    n = int(tensors[0].shape[1])
+    parts = [fn(*[t[:, i:min(i + rows, n)] for t in tensors]) for i in range(0, n, rows)]
+    return _acc_concat(parts, dim=1, host=False, consume=consume)
+
+
+# Above this size a trunk keeps the pristine MSA representation `m` on the HOST between recycling
+# cycles and streams it up one depth chunk at a time (`msa_depth_chunks`). Held whole on device,
+# the per-cycle peak pays the pristine plus the updated copy at once: 2 x 1.98 GiB at 1088 tokens
+# against a 14191-row alignment, which is where openfold3 and openbind die on a 12 GiB Wormhole
+# part. Protenix, OpenDDE and OpenFold3 all read it; the env override is the acceptance test
+# (0 sends a small target down the streamed path to compare it with the same target held whole).
+MSA_HOST_OFFLOAD_MIN_BYTES = 1 << 30      # 1 GiB
+
+
+def msa_host_offload(m):
+    """`m` moved to the host when it is past `MSA_HOST_OFFLOAD_MIN_BYTES`, else `m` unchanged.
+
+    Bit-exact: to_torch keeps the bf16 bytes and the upload re-tilizes the same values. bf16
+    only, because a bfloat8_b tensor is block floating point and a host round trip would
+    re-quantise its tile scales."""
+    v = os.environ.get("TT_BIO_MSA_HOST_OFFLOAD_MIN_BYTES")
+    if m.dtype != ttnn.bfloat16 or m.logical_volume() * 2 <= (int(v) if v else MSA_HOST_OFFLOAD_MIN_BYTES):
+        return m
+    h = ttnn.to_torch(m)
+    ttnn.deallocate(m)
+    dram_peak(f"trunk m host-offloaded [{tuple(h.shape)} torch]")
+    return h
+
+
+def host_park(t):
+    """A cycle-invariant device tensor, or a list of them, moved to the host past
+    `MSA_HOST_OFFLOAD_MIN_BYTES` together; `host_unpark` brings one back for each read.
+
+    For the trunk inputs every recycling cycle reads once and nothing writes: OpenDDE's z_init and
+    its four template projections are 1.81 GB and 1.21 GB at 1536 tokens, resident for the whole
+    trunk beside the cycle's own working set. `from_device` keeps the device layout, so the host
+    copy is the same tile bytes (bfloat8_b scales included) and each read is one DMA, no tilize."""
+    ts = t if isinstance(t, list) else [t]
+    v = os.environ.get("TT_BIO_MSA_HOST_OFFLOAD_MIN_BYTES")
+    lim = int(v) if v else MSA_HOST_OFFLOAD_MIN_BYTES
+    nbytes = sum(_padded_bytes(tuple(x.shape), 4 if x.dtype == ttnn.float32 else 2) for x in ts)
+    if not ts or nbytes <= lim:
+        return t
+    hs = []
+    for x in ts:
+        hs.append(ttnn.from_device(x))
+        ttnn.deallocate(x)
+    dram_peak(f"trunk parked {len(hs)} cycle-invariant tensor(s) on the host [{nbytes} B]")
+    return hs if isinstance(t, list) else hs[0]
+
+
+def host_unpark(t):
+    """`t` on the device: a `host_park`ed tensor is uploaded, and that copy is the caller's to free
+    (`t` itself stays parked for the next read); a device tensor comes back as is."""
+    return t if t.storage_type() == ttnn.StorageType.DEVICE else ttnn.to_device(t, get_device())
+
+
+def msa_embed(feat, project, rows=MSA_CHUNK_SIZE):
+    """The trunk's pristine `m` = `project(feat)`, placed the way `msa_host_offload` places it.
+
+    `feat` is the MSA input feature [1, depth, tokens, c], on the device or on the host, and
+    `project` maps a device slice of it to `m` rows (the embedder's linear plus the broadcast
+    single-representation term). A device feature, or a host one whose bf16 upload fits under
+    the offload size, is uploaded and projected whole. Past it, the feature goes up one depth
+    chunk at a time and each projected chunk comes straight back to the host: at 1536 tokens
+    against 8192 alignment rows the whole upload is a 3221225472 B buffer a Wormhole chip
+    refused, and the whole `m` would only be offloaded to the host afterwards anyway. Every op
+    in the projection is per alignment row, so the chunks hold the rows the whole pass does."""
+    up = lambda t: ttnn.from_torch(t.float().contiguous(), layout=ttnn.TILE_LAYOUT,
+                                   device=get_device(), dtype=ttnn.bfloat16)
+    v = os.environ.get("TT_BIO_MSA_HOST_OFFLOAD_MIN_BYTES")
+    lim = int(v) if v else MSA_HOST_OFFLOAD_MIN_BYTES
+    host = torch.is_tensor(feat)
+    D, N, c = feat.shape[1:] if host else (0, 0, 0)
+    if D * N * (-(-c // 32) * 32) * 2 <= lim:
+        x = up(feat) if host else feat
+        m = project(x)
+        ttnn.deallocate(x)
+        return msa_host_offload(m)
+    m = None
+    for s in range(0, D, rows):
+        x = up(feat[:, s:s + rows])
+        mc = project(x)
+        ttnn.deallocate(x)
+        h = ttnn.to_torch(mc)
+        ttnn.deallocate(mc)
+        if m is None:
+            m = torch.empty((1, D, N, h.shape[-1]), dtype=h.dtype)
+        m[:, s:s + rows] = h
+    dram_peak(f"trunk m embedded to the host in depth chunks [{tuple(m.shape)} torch]")
+    return m
+
+
+def msa_depth_chunks(m, rows=MSA_CHUNK_SIZE, park=False):
+    """`m` [1, depth, tokens, c] cut along depth, lazily: one private device chunk per step.
+
+    A host tensor is uploaded a chunk at a time, a device tensor is sliced, and a list is
+    already chunks. A slice that spans the whole depth can come back as `m` itself, so chunks of a
+    device tensor are not the caller's to free (`msa_update_chunks(own=False)`).
+
+    With `park`, a host tensor's chunks are tilized on the host and stay there, in the form
+    `msa_update_chunks(park=True)` leaves them: each consumer uploads a chunk for its one read."""
+    if isinstance(m, list):
+        yield from m
+        return
+    D = m.shape[1]
+    for s in range(0, D, rows):
+        if torch.is_tensor(m):
+            yield ttnn.from_torch(m[:, s:s + rows].contiguous(), layout=ttnn.TILE_LAYOUT,
+                                  device=None if park else get_device(), dtype=ttnn.bfloat16)
+        else:
+            yield m[:, s:min(s + rows, D), :, :]
+
+
+def msa_update_chunks(chunks, z, pwa, transition, attn_mask=None, own=True, park=False):
+    """AF3's MSA update, `m += pwa(m, z)` then `m += transition(m)`, one depth chunk at a time.
+
+    Returns the updated chunks as a list and never joins them: every consumer is chunk-wise
+    (PairWeightedAveraging and Transition are per row, OuterProductMean takes the list), so the
+    contiguous tensor and the full-size buffer a join needs never exist. With `own`, each input
+    chunk is freed as soon as its replacement exists, so the peak is the list plus about two chunks.
+
+    A trunk whose pristine `m` is on the host passes `park`: each updated chunk follows it there
+    (`from_device`, the same tile bytes), and a parked input chunk is uploaded for its one read.
+    The list alone is the whole `m`, 4.8 GB for OpenDDE at 1280 tokens against a 14743-row
+    alignment with c_m=128, and on the device it left OuterProductMean's projections no room.
+
+    Bit-exact against the whole-depth update: nothing in it reduces along depth. PWA's weights
+    come from `z` alone and its matmul contracts the token axis; the norms and the transition are
+    per row over channels. The adds are the same out-of-place adds the whole path makes.
+
+    PWA's token weights are a function of `z` alone, so they are computed once for every chunk:
+    per chunk, the whole pair would be normed again into a buffer the size of `z`."""
+    ws = pwa.head_weights(z, attn_mask)
+    out = []
+    for mc in chunks:
+        md = host_unpark(mc)
+        t1 = ttnn.add(md, ttnn.reshape(pwa(md, None, weights=ws), tuple(md.shape)))
+        if own or md is not mc:
+            ttnn.deallocate(md)
+        t2 = ttnn.add(t1, ttnn.reshape(transition(t1), tuple(t1.shape)))
+        ttnn.deallocate(t1)
+        if park:
+            h = ttnn.from_device(t2)
+            ttnn.deallocate(t2)
+            t2 = h
+        out.append(t2)
+        dram_peak("trunk msa block: after pwa add")
+    for w in ws:
+        ttnn.deallocate(w)
+    return out
+
+
 _device = None
 _trace_region_size = 0
 _device_lease = None
@@ -5387,12 +5612,41 @@ def dram_peak(tag=None):
                     + (f" t=+{time.time() - _DRAM_PEAK_T0:.1f}s n={_DRAM_PEAK_N[tag]}"
                        if trace else "")
                     + "\n")
+            if env_flag("TT_BIO_DRAM_PEAK_TENSORS", False):
+                line += _live_device_tensors()
             try:
                 with open(path, "a") as fp:      # append: the worker is a separate process
                     fp.write(line)
             except OSError:
                 pass                            # a diagnostic must never break a fold
     return max(_DRAM_PEAK.values(), default=0)
+
+
+def _live_device_tensors(min_bytes=32 << 20) -> str:
+    """The Python-held device tensors of at least `min_bytes`, largest first, one per line.
+
+    The allocator reports totals only, so a peak that is gigabytes above the tensors a reader
+    can name is otherwise unattributable. Reached only through TT_BIO_DRAM_PEAK_TENSORS=1: the
+    gc walk costs a second or more per sample. Buffers held by C++ alone are not listed, so
+    the difference between the total and this list is itself the finding."""
+    import gc
+    seen, rows = set(), []
+    for o in gc.get_objects():
+        try:
+            if not isinstance(o, ttnn.Tensor) or o.storage_type() != ttnn.StorageType.DEVICE:
+                continue
+            if not o.is_allocated() or o.buffer_address() in seen:
+                continue
+            seen.add(o.buffer_address())
+            n = int(prod(o.padded_shape) * {"FLOAT32": 4, "UINT32": 4, "INT32": 4,
+                                            "BFLOAT8_B": 1.0625}.get(str(o.dtype).split(".")[-1], 2))
+        except Exception:
+            continue
+        if n >= min_bytes:
+            rows.append((n, tuple(o.shape), str(o.dtype).split(".")[-1]))
+    rows.sort(reverse=True)
+    return "".join(f"    {n / 2**20:9.1f} MiB {shp} {dt}\n" for n, shp, dt in rows) + \
+        f"    listed {sum(r[0] for r in rows) / 2**30:.3f} GiB in {len(rows)} tensors\n"
 
 
 def _dram_total_bytes(device=None) -> int:
@@ -5575,7 +5829,54 @@ def _host_concat(x: ttnn.Tensor) -> bool:
     round-trip through torch bf16 lossily, so those configs keep the device concat.
     """
     return (x.dtype == ttnn.bfloat16 and _dtype() == ttnn.bfloat16
-            and x.logical_volume() * 2 > concat_host_bytes())
+            and x.logical_volume() * 2 > concat_host_bytes() and not _DEVICE_ACC_TRIAL[0])
+
+
+# Chunked-op calls (op, shape) that DRAM refused with their blocks joined on device, so they
+# join on the host from then on. `host_acc_after_refusal` fills it; `_host_concat` stands down
+# while `_DEVICE_ACC_TRIAL` is set.
+_HOST_ACC_KEYS = set()
+_DEVICE_ACC_TRIAL = [False]
+
+
+def host_acc_after_refusal(key, x, run):
+    """`run()` with its blocks joined on device first; on the host only after DRAM refuses that.
+
+    Past `concat_host_bytes()` the chunked pair ops (trimul, triangle attention, the transition)
+    send every block to the host and upload the assembled result. That answer was measured on
+    OpenDDE's structural axis, a 2.61 GiB join refused at 7.2 GiB used, and a byte line cannot
+    tell that tensor from OpenDDE's residue trunk at 1536 tokens: 1.81 GB, with 4.9 GiB of the
+    chip in use. There the host round trips were 93 % of the fold's main-thread time and each
+    recycle took ~65 min. So the device gets the first try, as in `row_block_after_refusal`: a
+    refusal anywhere in the call, or `_acc_concat` falling back to the host at the join, sends
+    this key to the host path for the rest of the process, and a refused call is re-run there.
+    ttnn.concat and torch.cat move the same bytes, so both joins give the same output.
+
+    `run` must not have consumed `x` when it is refused; if it has, the refusal propagates.
+    """
+    if key in _HOST_ACC_KEYS or not _host_concat(x):
+        return run()
+    from tt_bio.size_limits import is_alloc_refusal
+
+    fallbacks = ACC_CONCAT_HOST_FALLBACKS[0]
+    _DEVICE_ACC_TRIAL[0] = True
+    try:
+        out = run()
+    except Exception as exc:
+        if not is_alloc_refusal(exc) or not x.is_allocated():
+            raise
+        _HOST_ACC_KEYS.add(key)
+        print(f"[tt-bio] DRAM refused {key[0]} with its blocks joined on device; re-running it "
+              f"with them joined on the host. The tt-metal 'Out of Memory' line above is expected "
+              f"and handled.", file=sys.stderr, flush=True)
+    else:
+        if ACC_CONCAT_HOST_FALLBACKS[0] != fallbacks:
+            _HOST_ACC_KEYS.add(key)
+        return out
+    finally:
+        _DEVICE_ACC_TRIAL[0] = False
+    gc.collect()        # the refused attempt's blocks, still referenced from its traceback
+    return run()
 
 
 def _concat_to(parts: list, dim: int, memory_config) -> ttnn.Tensor:
@@ -5585,14 +5886,24 @@ def _concat_to(parts: list, dim: int, memory_config) -> ttnn.Tensor:
     return ttnn.concat(parts, dim=dim, memory_config=memory_config)
 
 
-def _acc_concat(acc: list, dim: int, host: bool, memory_config=None) -> ttnn.Tensor:
+# Device concats that DRAM refused and that were assembled on the host instead.
+ACC_CONCAT_HOST_FALLBACKS = [0]
+
+
+def _acc_concat(acc: list, dim: int, host: bool, memory_config=None, consume=None) -> ttnn.Tensor:
     """Assemble accumulated row/channel blocks, on the host when they were offloaded.
 
     Host branch: the blocks are torch tensors (bit-identical bytes); the upload is one
     full-size allocation made when the accumulator holds nothing on device. Device
     branch: ttnn.concat, then free the blocks (same as the call sites always did).
+
+    `consume` is a device tensor the caller is finished with (a residual's input). It is freed
+    before any host upload, so the upload can land in the room it leaves, and after a device
+    concat otherwise.
     """
     if host:
+        if consume is not None:
+            ttnn.deallocate(consume)
         return ttnn.from_torch(
             torch.cat(acc, dim=dim), layout=ttnn.TILE_LAYOUT,
             device=get_device(), dtype=ttnn.bfloat16)
@@ -5601,10 +5912,39 @@ def _acc_concat(acc: list, dim: int, host: bool, memory_config=None) -> ttnn.Ten
         # free the very buffer being returned. One block is the real case for any trimul
         # whose hidden width equals its chunk width (n_pairs == 1, e.g. the protenix
         # template pair stack) and for a row-blocked tail shorter than one row block.
+        if consume is not None:
+            ttnn.deallocate(consume)
         return acc[0]
-    out = _concat_to(acc, dim, memory_config)
+    try:
+        out = _concat_to(acc, dim, memory_config)
+    except RuntimeError as exc:
+        # The device concat needs the whole result while every block is still live, so it is
+        # the second copy of a pair tensor on a chip that just fitted the first. Protenix's
+        # diffusion pair transition died here at 1184 tokens with the chip 93 % full. Take the
+        # blocks to the host, free them, and upload once into the room they leave: the same
+        # bytes in the same order, in the blocks' own dtype.
+        if not _dram_oom(exc):
+            raise
+        ACC_CONCAT_HOST_FALLBACKS[0] += 1
+        dtype = acc[0].dtype
+        host = [ttnn.to_torch(t) for t in acc]
+        for t in acc:
+            ttnn.deallocate(t)
+        if consume is not None:
+            # Protenix-v2 at 1184: with only the blocks freed, 300 MiB per bank was free and the
+            # largest run was 4096 B short of the upload. The residual input is one whole pair
+            # tensor in one piece, so freeing it is what makes the room contiguous.
+            ttnn.deallocate(consume)
+        print(f"[tt-bio] DRAM refused a {len(host)}-block device concat; assembling it on the "
+              f"host. The tt-metal 'Out of Memory' line above is expected and handled.",
+              file=sys.stderr, flush=True)
+        kw = {} if memory_config is None else {"memory_config": memory_config}
+        return ttnn.from_torch(torch.cat(host, dim=dim), layout=ttnn.TILE_LAYOUT,
+                               device=get_device(), dtype=dtype, **kw)
     for t in acc:
         ttnn.deallocate(t)
+    if consume is not None:
+        ttnn.deallocate(consume)
     return out
 
 
@@ -6573,6 +6913,10 @@ class TriangleMultiplication(Module):
         self._gp_in_biases(chunk_size, group)
 
     def __call__(self, x: ttnn.Tensor, mask: ttnn.Tensor | None = None) -> ttnn.Tensor:
+        return host_acc_after_refusal(("trimul", tuple(x.padded_shape), self.ending), x,
+                                      lambda: self._multiply(x, mask))
+
+    def _multiply(self, x: ttnn.Tensor, mask: ttnn.Tensor | None) -> ttnn.Tensor:
         x_in = x  # keep the pair tensor reachable for the row-blocked tail below
         shp = [int(d) for d in x.shape]
         H = shp[1]
@@ -6897,6 +7241,8 @@ class TriangleMultiplication(Module):
                 oom = large_seq and _dram_oom(e)
                 if not oom and (large_seq or "clash with L1 buffers" not in msg):
                     raise
+                if oom and _DEVICE_ACC_TRIAL[0]:
+                    raise       # the device-held chunks may be the cause: try the host join first
                 for _t in x_chunks:
                     # Host-assembled chunks are torch tensors (`_acc_append`), and the large
                     # path is where host assembly happens, so the accumulator cannot be
@@ -6962,80 +7308,55 @@ class TriangleMultiplication(Module):
             # over the caller's pair mask.
             if _transposed:
                 ttnn.deallocate(_m)
-        if x_norm_in is not None and H > SEQ_LEN_MORE_CHUNKING:
-            # x_norm_in is dead on the row-blocked tail path (both norms are
-            # recomputed per row block from x_in). Freeing it before the concat
-            # drops that peak from 4 pair-tensor multiples to 3 -- the difference
-            # between fitting and the 9i3p/9j4c refusal.
-            ttnn.deallocate(x_norm_in)
-        x = _acc_concat(x_chunks, -1, host_acc)
-        dram_peak(f"trimul({'end' if self.ending else 'start'}) channel loop done [z={'x'.join(str(d) for d in x_in.shape)}]")
         # x_norm_in is None only when the byte gate row-blocked the input norm; that can
         # happen below SEQ_LEN_MORE_CHUNKING in a batched confidence head (the byte gate
         # sees the batch, this constant does not), and the full-size tail needs x_norm_in.
         # Take the row-blocked tail then too: it recomputes both norms from x_in and is
         # bit-identical, so the guard only ever fires where the else path would crash.
-        if H > SEQ_LEN_MORE_CHUNKING or x_norm_in is None:
-            # Row-block the output projections instead of computing them full-size.
-            # Both layer_norms are row-local, so recomputing them per row block from the
-            # (alive, unmutated) inputs is bit-identical to slicing the full-size results,
-            # and the full-size norm_out output never exists: at these shapes it is one
-            # pair-tensor-sized allocation attempted while z and the hidden are live, which
-            # is exactly the refusal the large targets die on. Peak here is z + accumulated
-            # blocks + concat destination, with the hidden freed before the concat. The
-            # input norm above the gate is row-blocked the same way (_in_proj_rows), so no
-            # full-size LN'd pair tensor exists anywhere on this path.
-            blocks = []
-            for s in range(0, H, PAIR_ROW_BLOCK):
-                e = min(s + PAIR_ROW_BLOCK, H)
-                z_rows = ttnn.layer_norm(
-                    x_in[:, s:e],
-                    weight=self.in_norm_weight,
-                    bias=self.in_norm_bias,
-                    epsilon=1e-5,
-                    compute_kernel_config=self.compute_kernel_config,
-                )
-                g_block = ttnn.linear(
-                    z_rows,
-                    self.g_out_weight,
-                    bias=self.g_out_bias,
-                    memory_config=ttnn.DRAM_MEMORY_CONFIG,
-                    dtype=_dtype(),
-                    compute_kernel_config=self.compute_kernel_config,
-                    core_grid=CORE_GRID_MAIN,
-                )
-                ttnn.deallocate(z_rows)
-                x_rows = ttnn.layer_norm(
-                    x[:, s:e],
-                    weight=self.out_norm_weight,
-                    bias=self.out_norm_bias,
-                    epsilon=1e-5,
-                    compute_kernel_config=self.compute_kernel_config,
-                )
-                p_block = ttnn.linear(
-                    x_rows,
-                    self.out_p_weight,
-                    bias=self.p_out_bias,
-                    memory_config=ttnn.DRAM_MEMORY_CONFIG,
-                    dtype=_dtype(),
-                    compute_kernel_config=self.compute_kernel_config,
-                    core_grid=CORE_GRID_MAIN,
-                )
-                ttnn.deallocate(x_rows)
-                _acc_append(blocks, ttnn.multiply_(
-                    p_block, g_block, input_tensor_b_activations=[ttnn.UnaryOpType.SIGMOID]
-                ), host_acc)
-                ttnn.deallocate(g_block)
-            ttnn.deallocate(x)
-            dram_peak(f"trimul({'end' if self.ending else 'start'}) tail blocks done [z={'x'.join(str(d) for d in x_in.shape)}]")
-            return _acc_concat(blocks, 1, host_acc)
-        x = ttnn.layer_norm(
-            x,
-            weight=self.out_norm_weight,
-            bias=self.out_norm_bias,
-            epsilon=1e-5,
-            compute_kernel_config=self.compute_kernel_config,
-        )
+        tail_key = (tuple(shp), x.dtype)
+        rows_tail = (H > SEQ_LEN_MORE_CHUNKING or x_norm_in is None
+                     or tail_key in _TRIMUL_TAIL_ROWS_SHAPES)
+        if rows_tail and x_norm_in is not None:
+            # x_norm_in is dead on the row-blocked tail path (both norms are
+            # recomputed per row block from x_in). Freeing it before the concat
+            # drops that peak from 4 pair-tensor multiples to 3 -- the difference
+            # between fitting and the 9i3p/9j4c refusal.
+            ttnn.deallocate(x_norm_in)
+            if g_out_fused is not None:
+                ttnn.deallocate(g_out_fused)
+            if H <= SEQ_LEN_MORE_CHUNKING:
+                TRIMUL_TAIL_ROWS_STATS[1] += 1
+        x = _acc_concat(x_chunks, -1, host_acc)
+        dram_peak(f"trimul({'end' if self.ending else 'start'}) channel loop done [z={'x'.join(str(d) for d in x_in.shape)}]")
+        if rows_tail:
+            return self._tail_rows(x_in, x, H, host_acc)
+        # The output norm is the one full-size allocation this tail makes while the channel-loop
+        # result is still alive, so a refusal there can still take the row-blocked tail from the
+        # same two inputs. Once it succeeds the result is freed, exactly where rebinding `x` used
+        # to free it, so every size that fits keeps its peak and its ops.
+        try:
+            xn = ttnn.layer_norm(
+                x,
+                weight=self.out_norm_weight,
+                bias=self.out_norm_bias,
+                epsilon=1e-5,
+                compute_kernel_config=self.compute_kernel_config,
+            )
+        except RuntimeError as exc:
+            if not _dram_oom(exc):
+                raise
+            ttnn.deallocate(x_norm_in)
+            if g_out_fused is not None:
+                ttnn.deallocate(g_out_fused)
+            _TRIMUL_TAIL_ROWS_SHAPES.add(tail_key)
+            TRIMUL_TAIL_ROWS_STATS[0] += 1
+            print(f"[tt-bio] trimul DRAM refused the whole-tensor output norm at "
+                  f"{'x'.join(map(str, shp))}: re-running the tail in {PAIR_ROW_BLOCK}-row "
+                  f"blocks. The tt-metal 'Out of Memory' line above is expected and handled; "
+                  f"the blocks compute the same row-local math.", file=sys.stderr, flush=True)
+            return self._tail_rows(x_in, x, H, host_acc)
+        ttnn.deallocate(x)
+        x = xn
         if (g_out_fused is None and _TRIMUL_TAIL_F1 and self.p_out_bias is None
                 and self.g_out_bias is None):
             # `fused_tail` returns None for any call its descriptor does not cover (at 512 aa that
@@ -7074,6 +7395,62 @@ class TriangleMultiplication(Module):
             p_out, g_out, input_tensor_b_activations=[ttnn.UnaryOpType.SIGMOID]
         )
         return x
+
+    def _tail_rows(self, x_in, x, H, host_acc):
+        """The output projections in row blocks, from the pair input and the channel-loop result.
+
+        Both layer_norms are row-local, so recomputing them per row block from the (alive,
+        unmutated) inputs is bit-identical to slicing the full-size results, and the full-size
+        norm_out output never exists: at these shapes it is one pair-tensor-sized allocation
+        attempted while z and the hidden are live, which is exactly the refusal the large targets
+        die on. Peak here is z + accumulated blocks + concat destination, with the hidden freed
+        before the concat. The input norm is row-blocked the same way (_in_proj_rows), so no
+        full-size LN'd pair tensor exists anywhere on this path. Frees `x`.
+        """
+        blocks = []
+        for s in range(0, H, PAIR_ROW_BLOCK):
+            e = min(s + PAIR_ROW_BLOCK, H)
+            z_rows = ttnn.layer_norm(
+                x_in[:, s:e],
+                weight=self.in_norm_weight,
+                bias=self.in_norm_bias,
+                epsilon=1e-5,
+                compute_kernel_config=self.compute_kernel_config,
+            )
+            g_block = ttnn.linear(
+                z_rows,
+                self.g_out_weight,
+                bias=self.g_out_bias,
+                memory_config=ttnn.DRAM_MEMORY_CONFIG,
+                dtype=_dtype(),
+                compute_kernel_config=self.compute_kernel_config,
+                core_grid=CORE_GRID_MAIN,
+            )
+            ttnn.deallocate(z_rows)
+            x_rows = ttnn.layer_norm(
+                x[:, s:e],
+                weight=self.out_norm_weight,
+                bias=self.out_norm_bias,
+                epsilon=1e-5,
+                compute_kernel_config=self.compute_kernel_config,
+            )
+            p_block = ttnn.linear(
+                x_rows,
+                self.out_p_weight,
+                bias=self.p_out_bias,
+                memory_config=ttnn.DRAM_MEMORY_CONFIG,
+                dtype=_dtype(),
+                compute_kernel_config=self.compute_kernel_config,
+                core_grid=CORE_GRID_MAIN,
+            )
+            ttnn.deallocate(x_rows)
+            _acc_append(blocks, ttnn.multiply_(
+                p_block, g_block, input_tensor_b_activations=[ttnn.UnaryOpType.SIGMOID]
+            ), host_acc)
+            ttnn.deallocate(g_block)
+        ttnn.deallocate(x)
+        dram_peak(f"trimul({'end' if self.ending else 'start'}) tail blocks done [z={'x'.join(str(d) for d in x_in.shape)}]")
+        return _acc_concat(blocks, 1, host_acc)
 
 
 # The qkv and g projections are the fold's two biggest `minimal_matmul` sites after the trimul
@@ -7540,9 +7917,32 @@ class TriangleAttention(Module):
         ) or (None, None, None)
 
     def __call__(self, x: ttnn.Tensor, attn_mask: ttnn.Tensor | None = None) -> ttnn.Tensor:
+        S = x.shape[1]
+
+        def blocked(rows):
+            return host_acc_after_refusal(
+                ("tri_att", tuple(x.padded_shape), self.ending), x,
+                lambda: self._attend_pair(x, attn_mask, rows))
+
+        if S > SEQ_LEN_MORE_CHUNKING and (self.affinity or not _FAST_MODE or _IS_SMALL_GRID):
+            return blocked(TRIANGLE_ATT_CHUNK_SIZE)
+        # SEQ_LEN_MORE_CHUNKING is a token count fitted on a 128-channel pair (see
+        # _apply_grid_thresholds), so at OpenDDE's c_z=384 the whole path at 1088 tokens asks for
+        # four 909115392 B projections at once and a 12 GiB Wormhole chip refuses them 403 s into
+        # the fold. The device gets the last word: a refusal re-runs the row-blocked path below,
+        # which never builds more than one block of them, and a size that fits keeps its single
+        # pass byte for byte.
+        return row_block_after_refusal(
+            _TRIATT_WHOLE_REFUSED, (tuple(x.padded_shape), self.ending),
+            lambda: self._attend_pair(x, attn_mask, None), blocked,
+            rows=TRIANGLE_ATT_CHUNK_SIZE, tag="tri_att")
+
+    def _attend_pair(self, x: ttnn.Tensor, attn_mask: ttnn.Tensor | None,
+                     rows: int | None) -> ttnn.Tensor:
+        """The whole-tensor path when `rows` is None, else the row-blocked one, blocks <= rows."""
         x = ttnn.reshape(x, tuple(x.shape)[1:])
         S = x.shape[0]
-        need_chunk = S > SEQ_LEN_MORE_CHUNKING and (self.affinity or not _FAST_MODE or _IS_SMALL_GRID)
+        need_chunk = rows is not None
         if need_chunk:
             # Large-sequence path: never materialise the full layer_norm output.
             # layer_norm is row-local, so norming a row block is bit-identical to
@@ -7553,7 +7953,7 @@ class TriangleAttention(Module):
             # it arrives identical to the full-tensor computation. This drops the
             # chunked path from 3 full pair tensors live (z + normed x + accumulated
             # parts) to 2, plus the n_heads-wide bias.
-            chunk = TRIANGLE_ATT_CHUNK_SIZE_FAST if _FAST_MODE else TRIANGLE_ATT_CHUNK_SIZE
+            chunk = min(rows, TRIANGLE_ATT_CHUNK_SIZE_FAST if _FAST_MODE else TRIANGLE_ATT_CHUNK_SIZE)
             # Byte-cap the row chunk so the fused qkv projection (rows x pad32(S) x 3c
             # bf16) stays a size a fragmented 12 GiB WH part can still supply. The
             # allocator needs size/12 contiguous in every bank, and after the trunk's
@@ -7898,7 +8298,19 @@ class TriangleAttention(Module):
                 x = ttnn.from_torch(h.contiguous(), layout=ttnn.TILE_LAYOUT,
                                     device=get_device(), dtype=ttnn.bfloat16)
                 return ttnn.reshape(x, (1, *x.shape))
-            x = ttnn.concat(parts, dim=0)
+            if self.ending:
+                # Row block s:e of the transposed pair is column strip s:e of the output, so each
+                # block is transposed back on its own and the strips joined along columns: the
+                # same bytes as joining then transposing, without a third full pair tensor beside
+                # the input and the join. At OpenDDE's c_z=384 that third copy is 909115392 B at
+                # 1088 tokens, and it is where the fold was refused.
+                strips = []
+                for p in parts:
+                    strips.append(_pair_transpose(p, ttnn.DRAM_MEMORY_CONFIG))
+                    ttnn.deallocate(p)
+                x = _acc_concat(strips, 1, False)
+                return ttnn.reshape(x, (1, *x.shape))
+            x = _acc_concat(parts, 0, False)
             del parts
         else:
             qkv_cfg = _qkv_l1_config(x, self.qkv_weight, _dtype())
@@ -8525,14 +8937,28 @@ class Transition(Module):
         self.fc2_weight = self.torch_to_tt("fc2.weight", dtype=weight_dtype)
         self.fc3_weight = self.torch_to_tt("fc3.weight", dtype=weight_dtype)
 
-    def __call__(self, x: ttnn.Tensor, memory_config: ttnn.MemoryConfig | None = None
-                 ) -> ttnn.Tensor:
+    def __call__(self, x: ttnn.Tensor, memory_config: ttnn.MemoryConfig | None = None,
+                 add_to_input: bool = False) -> ttnn.Tensor:
+        return host_acc_after_refusal(("transition", tuple(x.padded_shape)), x,
+                                      lambda: self._transition(x, memory_config, add_to_input))
+
+    def _transition(self, x: ttnn.Tensor, memory_config: ttnn.MemoryConfig | None,
+                    add_to_input: bool) -> ttnn.Tensor:
         """`memory_config` names where the assembled result lands; None keeps it in DRAM.
 
         Only the pair-track (4-D) exits honour it. The row blocks themselves are unaffected, so
         the assembly reads the same bytes from the same places and writes the same bytes to
         different banks.
+
+        `add_to_input` returns `x + transition(x)` and consumes `x`. On the lazy row-blocked
+        path each block adds its own rows, so the assembly can free `x` before it needs room
+        for the result; elsewhere it is the caller's `ttnn.add_` done here.
         """
+        if add_to_input and not (len(x.shape) == 4 and x.shape[1] > SEQ_LEN_MORE_CHUNKING):
+            u = self(x, memory_config)
+            ttnn.add_(x, u)
+            ttnn.deallocate(u)
+            return x
         # The transition's intermediates are L1-resident, which is the tuning this module
         # IS: the row and width chunking exists so `x_norm` and `x_1` fit in L1 and fc1/fc3
         # read them there. A tape cannot have that. It keeps what the forward frees, so the
@@ -8814,7 +9240,12 @@ class Transition(Module):
             for s in range(0, H, transition_h_chunk_size):
                 c = x[:, s:min(s + transition_h_chunk_size, H)]
                 if not w_chunked:
-                    _acc_append(parts, swiglu(c), host_acc)
+                    y = swiglu(c)
+                    if add_to_input:
+                        y_add = ttnn.add(c, y)
+                        ttnn.deallocate(y)
+                        y = y_add
+                    _acc_append(parts, y, host_acc)
                     ttnn.deallocate(c)
                 else:
                     w_parts = []
@@ -8822,12 +9253,18 @@ class Transition(Module):
                         cw = c[:, :, w:min(w + w_chunk, W), :]
                         w_parts.append(swiglu(cw))
                         ttnn.deallocate(cw)
-                    ttnn.deallocate(c)
-                    _acc_append(parts, ttnn.concat(w_parts, dim=2), host_acc)
+                    y = ttnn.concat(w_parts, dim=2)
                     for wp in w_parts:
                         ttnn.deallocate(wp)
+                    if add_to_input:
+                        y_add = ttnn.add(c, y)
+                        ttnn.deallocate(y)
+                        y = y_add
+                    ttnn.deallocate(c)
+                    _acc_append(parts, y, host_acc)
             dram_peak(f"transition4d loop done (lazy, h={transition_h_chunk_size}) [z={'x'.join(str(d) for d in x.shape)}]")
-            return _acc_concat(parts, 1, host_acc, memory_config)
+            return _acc_concat(parts, 1, host_acc, memory_config,
+                               consume=x if add_to_input else None)
         chunks = ttnn.chunk(x, -(-H // transition_h_chunk_size), dim=1)
         dram_peak(f"transition4d chunked (eager, h={transition_h_chunk_size}) [z={'x'.join(str(d) for d in x.shape)}]")
         if not w_chunked:
@@ -10173,6 +10610,9 @@ class DiffusionTransformer(Module):
                     ttnn.deallocate(x)
 
 
+_PWA_WEIGHT_ROWS_REFUSED = {}  # pair shape -> row block PWA's token weights settled at
+
+
 class PairWeightedAveraging(Module):
     def __init__(
         self,
@@ -10193,21 +10633,10 @@ class PairWeightedAveraging(Module):
         self.z_weight = self.torch_to_tt("proj_z.weight")
         self.o_weight = self.torch_to_tt("proj_o.weight")
 
-    def __call__(self, m: ttnn.Tensor, z: ttnn.Tensor, attn_mask: ttnn.Tensor | None = None) -> ttnn.Tensor:
-        m = ttnn.reshape(m, tuple(m.shape)[1:])
+    def _z_heads(self, z, attn_mask):
+        """PWA's pair half: `(zn, token_weight, token_weights)`, the normed pair and the per-head
+        and all-head token softmaxes over it. Functions of `z` alone."""
         z = ttnn.reshape(z, tuple(z.shape)[1:])
-        # `norm_m` is per MSA row, so a depth block recomputes it from the (alive, unmutated)
-        # `m` rather than slicing a full-depth normed copy -- which is the copy that does not
-        # fit. Bit-identical either way: layer_norm reduces over channels only.
-        def m_norm(s0=None, s1=None):
-            return ttnn.layer_norm(
-                m if s0 is None else m[s0:s1],
-                weight=self.m_norm_weight,
-                bias=self.m_norm_bias,
-                epsilon=1e-5,
-                compute_kernel_config=self.compute_kernel_config,
-            )
-
         # One z layer_norm, `n_heads` projections of it: every head reads the whole normed pair
         # tensor to write one tile of width, so all eight are source-bound and one L1-resident
         # copy serves all of them. 3572.2 -> 991.0 us on the eight-head region, `torch.equal`.
@@ -10246,15 +10675,6 @@ class PairWeightedAveraging(Module):
             not depend on the MSA depth and a chunked path computes it once for every block."""
             return _softmax_over_tokens(_proj_z(self.z_weight[:, i : i + 1]))
 
-        def _batch_head_weights():
-            # A property of the shape, never a model name: the batching is correct at any head
-            # count, but it is only FREE while every head's column still lands in the one 32-wide
-            # tile the per-head call already paid for. Above that it would widen the output and
-            # the saving would have to be re-measured.
-            on = _PWA_BATCH_HEAD_WEIGHTS and self.n_heads <= 32
-            PWA_BATCH_HEAD_STATS[0 if on else 1] += 1
-            return on
-
         def token_weights():
             """Every head's token softmax, from ONE projection of the pair tensor.
 
@@ -10268,6 +10688,63 @@ class PairWeightedAveraging(Module):
             out = [b[i:i + 1] for i in range(self.n_heads)]
             ttnn.deallocate(b)
             return out
+
+        return z, token_weight, token_weights
+
+    def _batch_head_weights(self):
+        # A property of the shape, never a model name: the batching is correct at any head
+        # count, but it is only FREE while every head's column still lands in the one 32-wide
+        # tile the per-head call already paid for. Above that it would widen the output and
+        # the saving would have to be re-measured.
+        on = _PWA_BATCH_HEAD_WEIGHTS and self.n_heads <= 32
+        PWA_BATCH_HEAD_STATS[0 if on else 1] += 1
+        return on
+
+    def head_weights(self, z: ttnn.Tensor, attn_mask: ttnn.Tensor | None = None) -> list:
+        """Every head's softmax over the token axis, `n_heads` [1, tokens, tokens] tensors.
+
+        A function of `z` alone, so a caller running PWA over the depth chunks of one `m`
+        computes it once and passes it as `weights=` to every chunk, instead of each chunk
+        normalising and projecting the whole pair again: at 1536 tokens and c_z=384 that normed
+        pair is a 1811939328 B buffer. The same ops the call makes itself; the caller frees them.
+
+        When DRAM refuses even that one normed pair, the weights are built in blocks of pair rows:
+        the norm and projection are per position and the softmax runs along each row, so a block
+        holds exactly the rows of the single pass.
+        """
+        def weights(zr):
+            zn, token_weight, token_weights = self._z_heads(zr, attn_mask)
+            ws = (token_weights() if self._batch_head_weights()
+                  else [token_weight(i) for i in range(self.n_heads)])
+            ttnn.deallocate(zn)
+            return ws
+
+        n = int(z.shape[1])
+        blocked = lambda rows: [
+            _acc_concat(list(head), dim=1, host=False)
+            for head in zip(*[weights(z[:, i:min(i + rows, n)]) for i in range(0, n, rows)])]
+        return row_block_after_refusal(_PWA_WEIGHT_ROWS_REFUSED, tuple(z.padded_shape),
+                                       lambda: weights(z), blocked, rows=256, tag="pwa weights")
+
+    def __call__(self, m: ttnn.Tensor, z: ttnn.Tensor | None,
+                 attn_mask: ttnn.Tensor | None = None, weights: list | None = None) -> ttnn.Tensor:
+        """`weights` is `head_weights(z, attn_mask)` from the caller, who owns it; `z` and
+        `attn_mask` are then not read."""
+        m = ttnn.reshape(m, tuple(m.shape)[1:])
+        # `norm_m` is per MSA row, so a depth block recomputes it from the (alive, unmutated)
+        # `m` rather than slicing a full-depth normed copy -- which is the copy that does not
+        # fit. Bit-identical either way: layer_norm reduces over channels only.
+        def m_norm(s0=None, s1=None):
+            return ttnn.layer_norm(
+                m if s0 is None else m[s0:s1],
+                weight=self.m_norm_weight,
+                bias=self.m_norm_bias,
+                epsilon=1e-5,
+                compute_kernel_config=self.compute_kernel_config,
+            )
+
+        if weights is None:
+            _, token_weight, token_weights = self._z_heads(z, attn_mask)
 
         def head_out(mc, i, w):
             """Head ``i``'s contribution for the normed MSA rows ``mc``. Every op is per row."""
@@ -10319,7 +10796,7 @@ class PairWeightedAveraging(Module):
             written to the accumulator instead of to a new buffer.
             """
             acc = None
-            own = token_weights() if (not ws and _batch_head_weights()) else None
+            own = token_weights() if (not ws and self._batch_head_weights()) else None
             for i in range(self.n_heads):
                 w = ws[i] if ws else (own[i] if own else token_weight(i))
                 o = head_out(mc, i, w)
@@ -10343,7 +10820,7 @@ class PairWeightedAveraging(Module):
         if cap is not None:
             blk = min(blk, cap)
 
-        ws = []
+        ws = list(weights) if weights is not None else []
 
         def run(blk):
             if blk >= depth:
@@ -10353,7 +10830,7 @@ class PairWeightedAveraging(Module):
             if not ws:
                 # Depth-independent, so eight [1, tokens, tokens] weights (2.4 MB each at 1088
                 # tokens) are computed once and reused by every block, not once per block.
-                ws.extend(token_weights() if _batch_head_weights()
+                ws.extend(token_weights() if self._batch_head_weights()
                           else [token_weight(i) for i in range(self.n_heads)])
             host = _host_concat(m)
             parts = []
@@ -10381,8 +10858,9 @@ class PairWeightedAveraging(Module):
                 run, blk,
                 lambda b: _dram_narrow(_PWA_DEPTH_ROW_CAP, (depth, tokens), b, PWA_DEPTH_STATS))
         finally:
-            for w in ws:
-                ttnn.deallocate(w)
+            if weights is None:
+                for w in ws:
+                    ttnn.deallocate(w)
         o_out = ttnn.reshape(o_out, (1, *o_out.shape))
         return o_out
 
@@ -10480,7 +10958,13 @@ class OuterProductMean(Module):
         return ttnn.reshape(out, (1, *out.shape))
 
     def __call__(self, x: ttnn.Tensor, msa_mask: ttnn.Tensor | None = None,
-                 n_msa: float | None = None) -> ttnn.Tensor:
+                 n_msa: float | None = None, residual: ttnn.Tensor | None = None) -> ttnn.Tensor:
+        """The outer product mean of `x`, or `residual + it` when a residual [1, I, J, c_z] is given.
+
+        With a residual each output row block is added to its own rows and a blocked join frees
+        the old residual, so the pair update never holds the residual, a whole OPM output and the
+        sum at once: at 1536 tokens and c_z=384 each is 1811939328 B. Per position it is the same
+        add the caller made, so the sum is bit-exact."""
         # `x` may arrive as a LIST of depth chunks. The MSA trunk keeps its representation chunked
         # so it never has to exist contiguously: materialising it costs a full extra copy at the
         # join, which is what made a 1.78 GiB m_feat OOM on a 12 GiB part even WITH chunking. This
@@ -10638,8 +11122,15 @@ class OuterProductMean(Module):
                 raise NotImplementedError(
                     "OuterProductMean: chunk-list input with an msa_mask is not wired up; the "
                     "trunk that uses the list path passes mask=None.")
-            depth_parts, S, I, C, D, J = project_depth_parts(
-                (ttnn.reshape(c, tuple(c.shape)[1:]), None) for c in x_chunks)
+            def device_chunks():
+                # A chunk parked on the host (msa_update_chunks(park=True)) is uploaded for
+                # its projection and that copy freed once the projection has it.
+                for c in x_chunks:
+                    d = host_unpark(c)
+                    yield ttnn.reshape(d, tuple(d.shape)[1:]), None
+                    if d is not c:
+                        ttnn.deallocate(d)
+            depth_parts, S, I, C, D, J = project_depth_parts(device_chunks())
             a = b = None
         elif _OPM_JOIN_REFUSED.get(tuple(x.shape)):
             # This shape class already refused the contiguous form once in this process.
@@ -10665,7 +11156,8 @@ class OuterProductMean(Module):
                 a = b = None
         if depth_parts is None and dims is None:
             OPM_SMALL_DEPTH_STATS[0] += 1
-            return self._small_depth(a, b, n_msa)
+            z = self._small_depth(a, b, n_msa)
+            return z if residual is None else ttnn.add(residual, z)
         if depth_parts is None:
             OPM_SMALL_DEPTH_STATS[1] += 1
             S, I, C, D, J = dims
@@ -10764,6 +11256,11 @@ class OuterProductMean(Module):
             ttnn.deallocate(z)
             if not legacy:
                 out = ttnn.reshape(out, (rows, J, out.shape[-1]))
+            if residual is not None:
+                r = ttnn.reshape(residual, tuple(residual.shape)[1:])
+                out_r = ttnn.add(r if rows == I else r[i0:i1], out)
+                ttnn.deallocate(out)
+                out = out_r
             return out
 
         per_row = C * D * J * 2
@@ -10792,24 +11289,21 @@ class OuterProductMean(Module):
                 OPM_ROW_STATS["whole"] += 1
                 return outer_product_mean(0, I)
             OPM_ROW_STATS["blocked"] += 1
-            z_acc = None
+            # One concat at the end, not a running one: growing the accumulator a block at a
+            # time re-allocates a nearly whole pair tensor per block, and boltz2 at 1792 tokens
+            # died on the sixth of those (704643072 B) with 227 MiB per bank free. _acc_concat
+            # also takes a refused final concat to the host rather than ending the fold.
+            parts = []
             try:
                 for i in range(0, I, rows_blk):
-                    part = outer_product_mean(i, min(i + rows_blk, I))
-                    if z_acc is None:
-                        z_acc = part
-                    else:
-                        z_old = z_acc
-                        z_acc = ttnn.concat([z_old, part], dim=0)
-                        ttnn.deallocate(z_old)
-                        ttnn.deallocate(part)
+                    parts.append(outer_product_mean(i, min(i + rows_blk, I)))
             except BaseException:
-                # Give the partial accumulator back first, or the retry runs against a device
+                # Give the partial blocks back first, or the retry runs against a device
                 # this attempt filled and is refused at every height down to the floor.
-                if z_acc is not None:
-                    ttnn.deallocate(z_acc)
+                for p in parts:
+                    ttnn.deallocate(p)
                 raise
-            return z_acc
+            return _acc_concat(parts, 0, host=False, consume=residual)
 
         def compact():
             """Move the surviving operands down before the narrower retry.
@@ -12275,17 +12769,27 @@ class RelPosGather:
             for t in rel_pos.tables()
         ]
 
-    def __call__(self, feats, padded):
+    def __call__(self, feats, padded, into=None):
+        """The four gathers summed, or added one by one into ``into`` and ``into`` returned.
+
+        ``into`` saves the sum's own pair tensor, at the cost of a different add order (a
+        bf16 rounding difference), so it is only the route after a DRAM refusal.
+        """
         d_residue, d_token, d_chain, same_entity = self.rel_pos.index_features(feats)
-        out = None
-        for table, index in zip(self.tables,
-                                (d_residue, d_token, same_entity.long(), d_chain)):
-            rows = pair_gather(index, table, padded)
-            if out is None:
-                out = rows
-            else:
-                out = ttnn.add_(out, rows)
-                ttnn.deallocate(rows)
+        out = into
+        try:
+            for table, index in zip(self.tables,
+                                    (d_residue, d_token, same_entity.long(), d_chain)):
+                rows = pair_gather(index, table, padded)
+                if out is None:
+                    out = rows
+                else:
+                    out = ttnn.add_(out, rows)
+                    ttnn.deallocate(rows)
+        except BaseException:
+            if out is not None and into is None:
+                ttnn.deallocate(out)
+            raise
         return out
 
 
@@ -12665,8 +13169,18 @@ class PairAssemblyDevice:
                                 compute_kernel_config=self.compute_kernel_config)
         self.wall.mark("z_norm")
 
-        rel = self.rel_pos(feats, padded)
-        z = self._acc(z, rel)
+        try:
+            z = self._acc(z, self.rel_pos(feats, padded))
+        except RuntimeError as exc:
+            # Boltz-2 at 1792 tokens: the trunk z, its norm, the running sum and one gather are
+            # four pair tensors, and the fourth was refused with 60 MiB/bank in one piece against
+            # 65 MiB wanted. Adding each gather straight into the norm drops the sum.
+            if z is None or not _dram_oom(exc):
+                raise
+            print("[tt-bio] DRAM refused the relative-position sum; adding its gathers into the "
+                  "pair in place. The tt-metal 'Out of Memory' line above is expected and "
+                  "handled.", file=sys.stderr, flush=True)
+            z = self.rel_pos(feats, padded, into=z)
         self.wall.mark("rel_pos")
 
         packed = self._pack(feats, padded)
