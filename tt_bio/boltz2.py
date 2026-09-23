@@ -4608,12 +4608,6 @@ class AtomDiffusion(Module):
             atom_coords = atom_coords_next
 
         _write_sample_digest(atom_coords, chunk_width)
-        if self.use_tenstorrent:
-            # Nothing reads the staged denoiser conditioning after the last step, and at 1728
-            # tokens its token-transformer bias alone is 2.3 GB that the confidence module
-            # would otherwise have to allocate around. Protenix frees its sampler state the
-            # same way before confidence; the next fold restages it either way.
-            self.score_model.reset_static_cache()
         return dict(sample_atom_coords=atom_coords, diff_token_repr=token_repr)
 
     def loss_weight(self, sigma):
