@@ -28,6 +28,34 @@ to the other, so the rigid fit that recovers the output frame
 (`tt_bio/pxdesign/write.py:47`) has no determined answer and lands at the scale of the
 separation. 95.183 A against a 246.9 A chain separation is that scale.
 
+## One half of it is a proof, not a prediction
+
+`perf/mgxaccuracy/rigidity.py` moves chain B rigidly and counts how many inter-chain pairs
+leave the bin they were in. Bins are (22-2)/63 = **0.317 A** wide, so a resolvable pair
+constrains its distance to about +/-0.16 A.
+
+| motion of chain B | gpb dimer 1536 crop | big_1831 1536 crop |
+|---|---|---|
+| resolvable inter-chain pairs | **8316** (1.42 %) | **0** (0.00 %) |
+| translate 0.1 A | 1111 change bin (13.4 %) | **0** |
+| translate 0.5 A | 5124 (61.6 %) | **0** |
+| translate 2.0 A | 7487 (90.0 %) | **0** |
+| translate 10 A | 8144 (97.9 %) | **0** |
+| rotate 1 deg | 3462 (41.6 %) | **0** |
+| rotate 30 deg | 8083 (97.2 %) | **0** |
+
+**On `big_1831.cif`'s 1536 crop the conditioning is invariant under every one of those
+motions.** Chain B can be moved 10 A or turned 30 degrees and not one bit of the input
+changes. The relative placement is therefore not a function of the input, so no model and no
+algorithm recovers it, and a fit that tries lands at the scale of the separation. 95.183 A
+against a 246.9 A separation is that. **This needs no device run and is not falsifiable by
+one** — it is a property of the fixture.
+
+What is still a prediction is SUFFICIENCY on the valid target: 8316 pairs at +/-0.16 A
+overdetermine 6 degrees of freedom by three orders of magnitude, and a 0.1 A translation
+already moves 13.4 % of them, so the placement is pinned at about the 0.1 A scale. Whether the
+model exploits that is what P1 tests.
+
 ## The predictions
 
 **P1 — the mechanism.** `pxdesign` on `gpb_dimer_1646.cif` at a 1536-residue crop (1616 tokens,
