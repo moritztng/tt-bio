@@ -63,45 +63,60 @@ def _flock_holders(path: str) -> set[int]:
     return out
 
 
-def _handoff(lease, stop: threading.Event, back: list) -> None:
-    """Hand the chip to this walk's own fold, then queue to take it back when the fold exits.
+def _opened_by(path: str, pids: list[int]) -> bool:
+    for pid in pids:
+        try:
+            fds = os.listdir(f"/proc/{pid}/fd")
+        except OSError:
+            continue
+        for fd in fds:
+            try:
+                if os.readlink(f"/proc/{pid}/fd/{fd}") == path:
+                    return True
+            except OSError:
+                continue
+    return False
+
+
+def _handoff(lease, stop: threading.Event, abandoned: threading.Event, back: list) -> None:
+    """Keep the chip between this walk and its own fold, and away from everyone else.
 
     tt_bio's lease is the flock, held only while a fold runs, so a walk that let go between
     rungs lost its chip twice on 2026-09-23 (card 9 to mgx-msa-depth, card 3 to mgx-accuracy):
     another row's open took the flock while the next rung was still importing. The walk holds
-    the flock itself and drops it only once a process under it has the lease file open, which
+    the flock and drops it only once a process under it has the lease file open, which
     DeviceLease.acquire does for its whole wait. The gap is one of its 0.25 s polls.
 
-    Dropping it is half the job. Rows waiting on the chip poll every 0.25 s while the fold runs,
-    and one of them won the fold's exit twice more the same afternoon (card 5 to mgx-bigalloc,
-    card 29 to mgx-diffusion). So once the fold holds the flock, this thread blocks on it: the
-    kernel wakes a blocked waiter at unlock, ahead of anyone polling, and the chip comes straight
-    back to the walk. The regained lease lands in ``back``.
+    Rows waiting on the chip poll every 0.25 s while the fold runs, and one of them won the
+    fold's exit twice more the same afternoon (card 5 to mgx-bigalloc, card 29 to
+    mgx-diffusion). So whenever a process under the walk holds the flock, this thread blocks on
+    it: the kernel wakes a blocked waiter at unlock, ahead of anyone polling. A predict takes the
+    lease twice, once in the parent and again in its spawned worker, so winning an unlock does
+    not mean the fold is over; the walk hands the chip on again whenever a process under it has
+    the file open, and keeps it only once the fold has exited. The lease it holds then lands in
+    ``back``.
     """
     path = os.path.realpath(lease.path)
-    handed = False
-    while not stop.is_set() and not handed:
-        for pid in _descendants(os.getpid()):
-            try:
-                handed = any(os.readlink(f"/proc/{pid}/fd/{fd}") == path
-                             for fd in os.listdir(f"/proc/{pid}/fd"))
-            except OSError:
-                continue
-            if handed:
-                lease.release()
-                break
-        else:
-            stop.wait(0.05)
+    held = True
     while not stop.is_set():
-        if _flock_holders(path) & set(_descendants(os.getpid())):
+        kids = _descendants(os.getpid())
+        if held and _opened_by(path, kids):
+            lease.release()
+            held = False
+        elif not held and _flock_holders(path) & set(kids):
             fd = os.open(path, os.O_RDWR)
-            fcntl.flock(fd, fcntl.LOCK_EX)   # returns the moment the fold exits
-            again = DeviceLease(card=lease.card, timeout=0)
-            again._fd = fd
-            again._write_metadata()
-            back.append(again)
-            return
+            fcntl.flock(fd, fcntl.LOCK_EX)   # woken first when the holder lets go
+            lease = DeviceLease(card=lease.card, timeout=0)
+            lease._fd = fd
+            if abandoned.is_set():
+                lease.release()
+                return
+            lease._write_metadata()
+            held = True
+            continue
         stop.wait(0.05)
+    if held:
+        back.append(lease)
 
 
 def main() -> int:
@@ -146,8 +161,9 @@ def main() -> int:
             except DeviceInUseError as e:
                 sys.exit(f"lost card {a.card} before {n}: {e}")
         wait = 5.0
-        stop, back = threading.Event(), []
-        handoff = threading.Thread(target=_handoff, args=(lease, stop, back), daemon=True)
+        stop, abandoned, back = threading.Event(), threading.Event(), []
+        handoff = threading.Thread(target=_handoff, args=(lease, stop, abandoned, back),
+                                   daemon=True)
         handoff.start()
         rung = Path(a.fixture or Path(a.rung_dir) / f"cdk2x2_{n}_d{a.depth}.yaml")
         load0 = os.getloadavg()[0]
@@ -157,7 +173,9 @@ def main() -> int:
                                list(a.extra))
         finally:
             stop.set()
-            handoff.join(timeout=30)
+            handoff.join(timeout=60)
+            if handoff.is_alive():   # still queued behind a holder that outlived the fold
+                abandoned.set()
             lease.release()   # no-op once handed over
             lease = back[0] if back else None
         s = clk.summary().get(0, {})
