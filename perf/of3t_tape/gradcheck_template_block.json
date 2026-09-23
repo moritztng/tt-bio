@@ -1,0 +1,20 @@
+{
+ "module": "template_block",
+ "shape": [
+  1,
+  76,
+  76,
+  64
+ ],
+ "bar": 0.2,
+ "grad_norm": 1439.1193928512398,
+ "best_rel": 0.010123023803633493,
+ "best_eps": 0.05,
+ "control_rel": 0.32658465079757765,
+ "aiclk": [
+  1350,
+  1350,
+  2
+ ],
+ "verdict": "PASS"
+}
