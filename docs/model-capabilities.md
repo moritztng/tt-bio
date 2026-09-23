@@ -20,7 +20,7 @@ changing the structure. That prints a warning and the fold runs.
 | `openbind` | yes | yes | yes | yes | refused | yes | yes | refused | refused | ignored, warns |
 | `opendde` | yes | refused | refused | yes | refused | yes | yes | yes | refused | ignored, warns |
 | `opendde-abag` | yes | refused | refused | yes | refused | yes | yes | yes | refused | ignored, warns |
-| `rf3` | yes | yes | yes | yes | refused | refused | refused | refused | refused | ignored, warns |
+| `rf3` | yes | yes | yes | yes | refused | refused | yes | refused | refused | ignored, warns |
 <!-- END CAPABILITY TABLE -->
 
 `boltz2` is the fallback for anything the others refuse: it takes the whole input language.

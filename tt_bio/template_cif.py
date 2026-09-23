@@ -177,3 +177,21 @@ def structure_template_npz(blocks, chains, struct_dir, model: str) -> dict[str, 
                 np.savez(tmp, **{k: np.array(v, dtype=object) for k, v in entries.items()})
         out[qc] = str(npz)
     return out
+
+
+def chain_ca(query_len: int, npz, struct_dir, model: str):
+    """``(ca (L, 3), mask (L,))`` for one query chain from its alignment npz.
+
+    For a model that templates by coordinate with one template per chain (RF3), where the
+    embedders above take up to four. Read through the same alignment and structure reader
+    the Protenix featurizer uses, so a residue counts only when that one would use it.
+    """
+    from tt_bio.protenix_template import chain_template_arrays, read_alignment_entries
+
+    entries = read_alignment_entries(npz, max_templates=1 << 30)
+    if len(entries) > 1:
+        raise RuntimeError(
+            f"--model {model} takes one template per chain; {Path(npz).name} gives "
+            f"{len(entries)}. Keep the one you want, or use a model that takes up to four.")
+    _aatype, pos, mask = chain_template_arrays(query_len, entries, struct_dir)
+    return pos[0, :, 1], mask[0, :, 1]

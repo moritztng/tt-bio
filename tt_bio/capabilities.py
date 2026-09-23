@@ -70,8 +70,9 @@ def _row(**overrides) -> dict[str, str]:
 #: that npz).
 #: It stays REFUSED on protenix-v1, whose v0.5.0 checkpoint ships an EMPTY template pairformer
 #: stack, so upstream returns literal 0 from the template embedder and a template could only
-#: be dropped (pinned by tests/test_protenix_template_gate.py); on ESMFold2, which has no
-#: template stack at all; and on RF3, which takes templates through its own JSON/CIF spec.
+#: be dropped (pinned by tests/test_protenix_template_gate.py), and on ESMFold2, which has no
+#: template stack at all. RF3 templates by coordinate: the same alignment puts the template's
+#: CA positions on the aligned residues (``rf3.featurize.apply_template_ca``).
 CAPABILITY: dict[str, dict[str, str]] = {
     "boltz2": _row(),
     # ESMFold2 folds ligands, RNA and DNA and applies `modifications:` (one reader, one
@@ -99,7 +100,7 @@ CAPABILITY: dict[str, dict[str, str]] = {
                      affinity=NOTED),
     # RF3 the model carries bonds, modified residues and cyclic chains, but only through its
     # own JSON/CIF spec; the YAML door here builds a spec from the chain reader alone.
-    "rf3": _row(cyclic=REFUSED, modifications=REFUSED, templates=REFUSED, bond=REFUSED,
+    "rf3": _row(cyclic=REFUSED, modifications=REFUSED, bond=REFUSED,
                 pocket=REFUSED, affinity=NOTED),
     # `tt-bio affinity --model nesso1`, not predict. It returns a scalar and no coordinates,
     # so nothing it drops can come back as a wrong structure, and the docs tell users to

@@ -160,3 +160,31 @@ def test_top_level_block_is_the_templates_feature(tmp_path):
         else:
             with pytest.raises(RuntimeError, match="templates"):
                 check_capabilities(p, chains, model, echo=lambda m: None)
+
+
+def test_rf3_cif_route_is_upstreams_template_selection(tmp_path):
+    """RF3 templates by coordinate. Upstream's own route folds the template file itself with
+    `template_selection`; the route here folds the sequence and writes the template's CAs
+    onto it through the shared alignment. On 1a8q the three template features must agree."""
+    import json
+
+    from tt_bio.rf3.featurize import featurize
+    from tt_bio.template_cif import chain_ca
+
+    q = _query("1a8q")
+    cif = STRUCT / "1a8q.cif"
+    (npz,) = structure_template_npz([{"cif": str(cif)}], _chains(q), tmp_path, "rf3").values()
+    spec = tmp_path / "q.json"
+    spec.write_text(json.dumps([{"name": "q", "components": [{"seq": q, "chain_id": "A"}]}]))
+    kw = dict(n_recycles=1, diffusion_batch_size=1, seed=0)
+    ours = featurize(spec, template_ca={"A": chain_ca(len(q), npz, tmp_path, "rf3")}, **kw)
+    up = featurize(cif, template_selection=["A"], **kw)
+    ours, up = ours[0]["feats"], up[0]["feats"]
+    n = len(q)
+    has = ours["has_distogram_condition"][:n, :n]
+    assert has.all()
+    assert (has == up["has_distogram_condition"][:n, :n]).all()
+    assert (ours["distogram_condition"][:n, :n].argmax(-1)
+            == up["distogram_condition"][:n, :n].argmax(-1)).all()
+    assert (ours["distogram_condition_noise_scale"][:n]
+            == up["distogram_condition_noise_scale"][:n]).all()
