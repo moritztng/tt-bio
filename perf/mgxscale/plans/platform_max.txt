@@ -1,0 +1,6 @@
+# The largest design job the PLATFORM will accept: japanfold/catalog.py caps pxdesign at 8
+# designs, 400 steps and a 200-residue binder, against max_residues 1024 total tokens, and it
+# kills a design job at max_runtime_design_s = 2700. Whether its own maximum job fits its own
+# timeout is a user-facing question nobody has measured: a user who sets every slider to the
+# top either gets designs or gets a killed job.
+--model pxdesign --target-res 824 --designs 8 --steps 400 --binder 200 --host-threads 2 --timeout 10800 --tag platformmax
