@@ -8515,6 +8515,10 @@ def _tri_att_fused_qkv_sdpa(att, x, bias):
     return o
 
 
+# Pair shapes whose whole-tensor attention bias DRAM refused -> the row block they settled at.
+_APB_BIAS_REFUSED = {}
+
+
 class AttentionPairBias(Module):
     def __init__(
         self,
@@ -8821,37 +8825,50 @@ class AttentionPairBias(Module):
             ttnn.deallocate(qkv)
             # bias_precomputed: z is ALREADY the (1,n_heads,S,S) bias from compute_bias() -> skip recompute
             if self.compute_pair_bias and not bias_precomputed:
-                # The z->bias projection below reads this whole tensor (48.82 MB at 298 aa) to
-                # write one tile of width, so it is bound by its SOURCE, not by its own write.
-                # Handing it an L1-resident normed z removes the norm's DRAM write and the
-                # projection's DRAM read at once: 450.3 -> 137.0 us on the projection.
-                z, in_l1 = (_l1_layer_norm(z, 1.0, _PAIR_L1_CONSUMER_RESERVE,
-                                           weight=self.z_norm_weight,
-                                           bias=self.z_norm_bias, epsilon=1e-5,
-                                           compute_kernel_config=self.compute_kernel_config)
-                            if _PAIR_BIAS_L1_NORM else
-                            (ttnn.layer_norm(z, weight=self.z_norm_weight, bias=self.z_norm_bias,
-                                             epsilon=1e-5,
-                                             compute_kernel_config=self.compute_kernel_config),
-                             False))
-                zb = _narrow_proj_linear(z, self.z_weight, self.compute_kernel_config, z.dtype,
-                                         l1_out=in_l1)
-                if zb is None:
-                    zb = ttnn.linear(
-                        z,
-                        self.z_weight,
-                        compute_kernel_config=self.compute_kernel_config,
-                        core_grid=CORE_GRID_MAIN,
-                    )
-                # The normed pair tensor is dead as soon as the projection has read it, and at
-                # 1.5x headroom it holds most of every L1 bank. Freeing it HERE rather than at the
-                # rebind below is what matters: the bias permute then allocates in the space it
-                # vacates instead of underneath it, so the q@k^T matmul four lines down can still
-                # place its circular buffers. Without this the whole [385, 506] token band throws
-                # `Statically allocated circular buffers ... clash with L1 buffers`.
-                ttnn.deallocate(z)
-                z = ttnn.permute(zb, (0, 3, 1, 2))
-                ttnn.deallocate(zb)
+                def whole(z=z):
+                    # The z->bias projection below reads this whole tensor (48.82 MB at 298 aa) to
+                    # write one tile of width, so it is bound by its SOURCE, not by its own write.
+                    # Handing it an L1-resident normed z removes the norm's DRAM write and the
+                    # projection's DRAM read at once: 450.3 -> 137.0 us on the projection.
+                    z, in_l1 = (_l1_layer_norm(z, 1.0, _PAIR_L1_CONSUMER_RESERVE,
+                                               weight=self.z_norm_weight,
+                                               bias=self.z_norm_bias, epsilon=1e-5,
+                                               compute_kernel_config=self.compute_kernel_config)
+                                if _PAIR_BIAS_L1_NORM else
+                                (ttnn.layer_norm(z, weight=self.z_norm_weight, bias=self.z_norm_bias,
+                                                 epsilon=1e-5,
+                                                 compute_kernel_config=self.compute_kernel_config),
+                                 False))
+                    zb = _narrow_proj_linear(z, self.z_weight, self.compute_kernel_config, z.dtype,
+                                             l1_out=in_l1)
+                    if zb is None:
+                        zb = ttnn.linear(
+                            z,
+                            self.z_weight,
+                            compute_kernel_config=self.compute_kernel_config,
+                            core_grid=CORE_GRID_MAIN,
+                        )
+                    # The normed pair tensor is dead as soon as the projection has read it, and at
+                    # 1.5x headroom it holds most of every L1 bank. Freeing it HERE rather than at the
+                    # rebind below is what matters: the bias permute then allocates in the space it
+                    # vacates instead of underneath it, so the q@k^T matmul four lines down can still
+                    # place its circular buffers. Without this the whole [385, 506] token band throws
+                    # `Statically allocated circular buffers ... clash with L1 buffers`.
+                    ttnn.deallocate(z)
+                    z = ttnn.permute(zb, (0, 3, 1, 2))
+                    ttnn.deallocate(zb)
+                    return z
+
+                def rows(n, z=z):
+                    # layer_norm is row-local and the projection per row: the same bias with
+                    # LN(z) never whole. OpenDDE's refiner pair is 6.95 GB at 1536 residues.
+                    return _pair_bias_from_z(ttnn.reshape(z, tuple(z.shape)[1:]),
+                                             self.z_norm_weight, self.z_norm_bias,
+                                             self.z_weight, self.compute_kernel_config, n)
+
+                z = (whole() if z.shape[0] != 1 else row_block_after_refusal(
+                    _APB_BIAS_REFUSED, (tuple(z.padded_shape), str(z.dtype)), whole, rows,
+                    rows=PAIR_ROW_BLOCK, tag="pair bias"))
             # Named once so the census counter below cannot drift from the branch it counts.
             token_dit_sdpa = (self.token_dit and _B2_TOKEN_DIT_SDPA and z is not None
                               and seq_mask is None
