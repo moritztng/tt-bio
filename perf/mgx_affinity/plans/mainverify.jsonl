@@ -1,0 +1,6 @@
+# Branch head with main c5b346679 (bigalloc) merged: shared rungs must reproduce, and the 3072 L1 clash is re-tried.
+{"tag": "v_n_512_small", "surface": "nesso1", "input": "perf/mgx_affinity/inputs/size/cdk2_512_small.yaml"}
+{"tag": "v_n_1536_small", "surface": "nesso1", "input": "perf/mgx_affinity/inputs/size/cdk2_1536_small.yaml"}
+{"tag": "v_b_512_small", "surface": "boltz2", "input": "perf/mgx_affinity/inputs/size/cdk2_512_small.yaml"}
+{"tag": "v_n_3072_rap", "surface": "nesso1", "input": "perf/mgx_affinity/inputs/size/cdk2_3072_rap.yaml"}
+{"tag": "v_n_3072_b12", "surface": "nesso1", "input": "perf/mgx_affinity/inputs/size/cdk2_3072_b12.yaml"}

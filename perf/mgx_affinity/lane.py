@@ -45,6 +45,9 @@ RES, OUT = HERE / "results", HERE / "out"
 # engine child and sibling row, so it cannot tell two lanes of one process apart; this can.
 HELD = {}
 STOP = OUT / "STOP"  # touch to stop every lane after its current job
+# While the campaign's quiet window is open no new job starts; running ones finish.
+QUIET = [pathlib.Path.home() / "mgx-quiet-window", LEASES / ".mgx-quiet-window",
+         pathlib.Path("/home/moritz/.coworker/state/mgx/quiet-window")]
 
 
 def lease(c):
@@ -242,6 +245,8 @@ def lane(plan, pool, n, adopt):
             continue
         if STOP.exists():
             break
+        while any(q.exists() for q in QUIET):
+            time.sleep(60)
         while True:
             if job["tag"] in adopt:
                 held = adopt.pop(job["tag"])[0]
