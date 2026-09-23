@@ -37,6 +37,16 @@ _REAL_STDERR_FD: int | None = None
 _CAPTURE_PATH: Path | None = None
 
 
+def _recycles(cfg: dict, default: int) -> int:
+    """--recycling_steps from a worker config; None is the model default, 0 is a real 0.
+
+    `cfg.get(...) or default` read an explicit 0 as unset, so rf3 ran 10 cycles and
+    openfold3 4 when a user asked for 0.
+    """
+    r = cfg.get("recycling_steps")
+    return default if r is None else int(r)
+
+
 def worker_capture_path(pid: int) -> Path:
     """Path a silenced worker's native stderr (fd 2) is captured to.
 
@@ -725,7 +735,7 @@ class _WorkerState:
                 fp32_dest_acc_en=True, packer_l1_acc=True)
             sd = torch.load(cfg["of3_ckpt"], map_location="cpu", weights_only=False)
             # CLI --recycling_steps counts recycles; the trunk runs recycles+1 cycles.
-            self.model = OpenFold3(sd, ckc, num_cycles=int(cfg.get("recycling_steps") or 3) + 1)
+            self.model = OpenFold3(sd, ckc, num_cycles=_recycles(cfg, 3) + 1)
         elif model_id == "rf3":
             import ttnn
 
@@ -1370,7 +1380,7 @@ class _WorkerState:
                 "--msa_cache_only: no cached a3m for any protein chain of "
                 f"{path.name} -- refusing to silently fold single-sequence.")
 
-        n_recycles = int(cfg.get("recycling_steps") or 10)
+        n_recycles = _recycles(cfg, 10)
         n_sample = max(1, int(cfg.get("diffusion_samples") or 1))
         seed = int(cfg.get("seed") or 0)
         partial_t = int(cfg.get("partial_t") or 0)
