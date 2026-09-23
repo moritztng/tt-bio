@@ -60,7 +60,12 @@ in one invocation saves only the checkpoint load: 121.8 s per design at 1 agains
 
 Every designer fans data-parallel across cards with `--devices 0,1,2,3`, one pinned process per
 card. There is no tensor parallelism and none is needed: designs are independent, so a card
-added is throughput added, up to what the host can feed.
+added is throughput added.
+
+That is measured, not assumed. Four identical PXDesign jobs started together on four cards of
+one Galaxy returned 43.9, 43.9, 44.0 and 44.0 s per design against 45.2 s for the same job
+alone — 4.12x aggregate, 0.4 % spread across the cards, on a host that was already busy with
+other work.
 
 ```bash
 # 32 designs across four cards
