@@ -51,6 +51,7 @@ LEASES = pathlib.Path(os.environ.get("TT_BIO_LEASE_DIR", "/tmp/tt-bio-device-lea
 HOST = os.uname().nodename
 # app.japanfold.com (24-27) and the tri_mech co-tenant (1), as in perf/mgxdesign/walk.py.
 BLOCKED = {1, 24, 25, 26, 27}
+CONTENTION = re.compile(r"device contention, nothing ran|is in use by worker:")
 
 
 def free_cards() -> list[int]:
@@ -200,6 +201,15 @@ def run_job(args) -> dict:
         rc = proc.wait()
     wall = round(time.time() - t0, 1)
     blob = log.read_text(errors="replace")
+
+    # A chip lost to another row between the flock probe and the engine's own open. The
+    # engine refuses rather than colliding at the fd level and exits 75. That measured the
+    # fleet, not the model, so it is NOT a row: `perf/mgxdesign/walk.py` learned the same
+    # thing the hard way, where three such refusals were written as rfd3 failing at half its
+    # recorded top. Both tests, because an exit code alone is a thin thing to key on.
+    if CONTENTION.search(blob) or rc == 75:
+        print(f"CONTENTION card {args.card}: retry elsewhere, nothing recorded", flush=True)
+        sys.exit(75)
 
     n_written, rows = count_designs(args.model, out_dir)
     rec = {"model": args.model, "target_res": args.target_res, "asked": args.designs,

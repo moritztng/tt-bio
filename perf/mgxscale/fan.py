@@ -39,6 +39,7 @@ def main():
     ap.add_argument("--max-concurrent", type=int, default=8)
     ap.add_argument("--work", default=str(pathlib.Path.home() / "mgxscale-work"))
     ap.add_argument("--wait-s", type=int, default=120, help="poll period when no chip is free")
+    ap.add_argument("--retries", type=int, default=6, help="requeues allowed per job on contention")
     args = ap.parse_args()
 
     jobs = [l.strip() for l in pathlib.Path(args.plan).read_text().splitlines()
@@ -51,6 +52,7 @@ def main():
     live: list[tuple[subprocess.Popen, int, str]] = []
     queue = list(enumerate(jobs))
     mine: set[int] = set()
+    retries: dict[str, int] = {}
     while queue or live:
         while queue and len(live) < args.max_concurrent:
             free = [c for c in free_cards() if c not in mine]
@@ -78,6 +80,15 @@ def main():
             if p.poll() is not None:
                 live.remove(ent)
                 mine.discard(card)
+                # 75 is the engine's own refusal to open a chip another row took between the
+                # flock probe and the open. Nothing ran, so nothing was recorded and the job
+                # goes back in the queue -- counting it would put a fleet collision in a rate.
+                if p.returncode == 75 and retries.get(spec, 0) < args.retries:
+                    retries[spec] = retries.get(spec, 0) + 1
+                    queue.append((-1, spec))
+                    print(f"[fan] -card{card} CONTENTION, requeued "
+                          f"({retries[spec]}/{args.retries}): {spec}", flush=True)
+                    continue
                 print(f"[fan] -card{card} rc={p.returncode}: {spec}", flush=True)
 
     rows = [json.loads(l) for l in out.read_text().splitlines() if l.strip()]
