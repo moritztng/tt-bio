@@ -1457,3 +1457,7 @@ the orchestrator a standing instruction I had not enforced: *"every of3t gradien
 its boundary version stated beside it"*, because a port compared against the wrong version's
 boundary *"shows a 30,000x gradient gap with no defect present"*. Neither `of3t-modelever`'s
 state doc nor its `CLAUSE_EXACT.json` names the version anywhere.
+
+### R195. A new defect's default triage class is CAMPAIGN-INTERNAL, which is the flattering direction (pass 415, zero card)
+
+`stamp_row_counts.py` reconciles `UNFIXED_TRIAGE.json` from the defect union and gives any defect it has not seen the class CAMPAIGN-INTERNAL with the reason "no user-facing claim made". D250 is an inference forward gap in shipped OpenFold3 and went in as internal until I read the reason. The default is defensible (the stamper cannot read prose) but it errs toward the smaller user-facing count, so every new defect's class is set by hand in the pass that files it, not left to the stamper. Corrected: USER-FACING 7 -> 8.
