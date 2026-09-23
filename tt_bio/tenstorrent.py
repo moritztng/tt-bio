@@ -5618,6 +5618,10 @@ def _concat_to(parts: list, dim: int, memory_config) -> ttnn.Tensor:
     return ttnn.concat(parts, dim=dim, memory_config=memory_config)
 
 
+# Device concats that DRAM refused and that were assembled on the host instead.
+ACC_CONCAT_HOST_FALLBACKS = [0]
+
+
 def _acc_concat(acc: list, dim: int, host: bool, memory_config=None) -> ttnn.Tensor:
     """Assemble accumulated row/channel blocks, on the host when they were offloaded.
 
@@ -5635,7 +5639,27 @@ def _acc_concat(acc: list, dim: int, host: bool, memory_config=None) -> ttnn.Ten
         # whose hidden width equals its chunk width (n_pairs == 1, e.g. the protenix
         # template pair stack) and for a row-blocked tail shorter than one row block.
         return acc[0]
-    out = _concat_to(acc, dim, memory_config)
+    try:
+        out = _concat_to(acc, dim, memory_config)
+    except RuntimeError as exc:
+        # The device concat needs the whole result while every block is still live, so it is
+        # the second copy of a pair tensor on a chip that just fitted the first. Protenix's
+        # diffusion pair transition died here at 1184 tokens with the chip 93 % full. Take the
+        # blocks to the host, free them, and upload once into the room they leave: the same
+        # bytes in the same order, in the blocks' own dtype.
+        if not _dram_oom(exc):
+            raise
+        ACC_CONCAT_HOST_FALLBACKS[0] += 1
+        dtype = acc[0].dtype
+        host = [ttnn.to_torch(t) for t in acc]
+        for t in acc:
+            ttnn.deallocate(t)
+        print(f"[tt-bio] DRAM refused a {len(host)}-block device concat; assembling it on the "
+              f"host. The tt-metal 'Out of Memory' line above is expected and handled.",
+              file=sys.stderr, flush=True)
+        kw = {} if memory_config is None else {"memory_config": memory_config}
+        return ttnn.from_torch(torch.cat(host, dim=dim), layout=ttnn.TILE_LAYOUT,
+                               device=get_device(), dtype=dtype, **kw)
     for t in acc:
         ttnn.deallocate(t)
     return out
