@@ -1,0 +1,13 @@
+version: 1
+# cyclic.yaml's peptide closed the way docs/model-capabilities.md tells a user to on a model
+# that refuses `cyclic: true`: a head-to-tail amide as a covalent bond, C of the last residue
+# to N of the first.
+sequences:
+  - protein:
+      id: A
+      sequence: QLEDSEVEAVAKG
+      msa: empty
+constraints:
+  - bond:
+      atom1: [A, 13, C]
+      atom2: [A, 1, N]

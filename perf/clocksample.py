@@ -18,11 +18,11 @@ import time
 
 
 def _tt_smi():
-    """The first tt-smi that exists. It lives in ~/.local/bin on the Blackhole boxes and in
-    /usr/local/bin on whglx, where a path hardcoded to the first silently sampled nothing and
-    every Galaxy size-ladder cell was recorded with no clock."""
-    for c in (shutil.which("tt-smi"), os.path.expanduser("~/.local/bin/tt-smi"),
-              "/home/ttuser/.local/bin/tt-smi"):
+    """The first tt-smi that exists. `TT_SMI` overrides; then PATH, ~/.local/bin (the Blackhole
+    boxes) and qb1's old absolute path. On whglx it is /usr/local/bin, where a path hardcoded to
+    the last one silently sampled nothing and every Galaxy size-ladder cell had no clock."""
+    for c in (os.environ.get("TT_SMI"), shutil.which("tt-smi"),
+              os.path.expanduser("~/.local/bin/tt-smi"), "/home/ttuser/.local/bin/tt-smi"):
         if c and os.path.exists(c):
             return c
     return "tt-smi"

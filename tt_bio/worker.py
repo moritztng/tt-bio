@@ -790,8 +790,6 @@ class _WorkerState:
         chains = _read_bio_chains(path, what=cfg.get("model", "esmfold2"))
         if not chains:
             raise RuntimeError("no sequences")
-        if not any(mt == "protein" for _c, _s, _sp, mt, _mo in chains):
-            raise RuntimeError("esmfold2 needs at least one protein chain")
         check_capabilities(path, chains, cfg.get("model", "esmfold2"))
         msa_dir = Path(cfg["msa_dir"])
         max_msa = cfg.get("max_msa_seqs") or 16384
@@ -891,8 +889,8 @@ class _WorkerState:
         structural-token fold -> structure. Rides the SAME MSA stage as Protenix-v2 /
         ESMFold2 / Boltz-2: each protein chain whose {seq_hash}.a3m is not cached is
         searched into the shared msa_dir, resolved, and featurized via
-        build_complex_features' block-diagonal MSA. Protein + ligand co-folds (nucleic-acid
-        structural tokens not ported yet). Ligand atoms are tokenized per-atom by
+        build_complex_features' block-diagonal MSA. Protein, RNA, DNA and ligand chains all
+        fold; nucleotides split into backbone/base structural tokens. Ligand atoms are tokenized per-atom by
         build_complex_features and expand to one "atom"-role structural token each
         (opendde_data.build_structural_token_features), so a covalent inhibitor bonded
         to a protein Cys is honored end-to-end. Confidence-based best-of-N ranking and
@@ -962,8 +960,12 @@ class _WorkerState:
                     cfg.get("msa_pairing_strategy"), cfg.get("msa_server_username"),
                     cfg.get("msa_server_password"), cfg.get("api_key_value"),
                     msa_db_path=cfg.get("msa_db_path"), use_envdb=cfg.get("use_envdb", False))
+                # One entry per chain, None off protein: build_complex_features walks this
+                # list in step with `chains`, so a protein-only list ran out on the first
+                # complex that also carried a nucleic-acid or ligand chain.
                 paired_a3ms = [cap_a3m_text(paired.get(seq_hash(cseq)), cfg.get("msa_cap"))
-                               for _cid, cseq, _spec, mt, _mods in chains if mt == "protein"]
+                               if mt == "protein" else None
+                               for _cid, cseq, _spec, mt, _mods in chains]
             except Exception as e:  # noqa: BLE001 -- best-effort, fall back to unpaired
                 print(f"paired MSA search failed ({e!r}); folding unpaired-only", file=sys.stderr)
                 paired_a3ms = None
@@ -1082,7 +1084,8 @@ class _WorkerState:
             # per-atom pLDDT (0-1) -> B-factors (0-100), the AF/Boltz convention
             _write_protenix_structure(coords[k], feats, None, struct_dir / name, fmt,
                                       b_factors=confs[k]["plddt_atom"] * 100.0,
-                                      mod_names=_artifact_residue_names(chains))
+                                      mod_names=_artifact_residue_names(chains),
+                                      chain_ids=[cid for cid, *_r in chains])
 
         def _row(c):
             row = {"complex_plddt": round(c["plddt"], 6), "plddt": round(c["plddt"], 6),
@@ -1233,9 +1236,12 @@ class _WorkerState:
         components, msa_used = [], False
         for cid, cseq, spec, mt, _mods in chains:
             if mt == "ligand":
-                # _read_bio_chains carries a CCD code as "CCD_<code>" and a SMILES raw.
+                # _read_bio_chains carries a CCD code as "CCD_<code>" and a SMILES raw. The
+                # chain_id is the user's: without it atomworks hands out the next free letter
+                # and a ligand submitted as L comes back as B.
                 components.append({"ccd_code": cseq[4:]} if cseq.startswith("CCD_")
                                   else {"smiles": cseq})
+                components[-1]["chain_id"] = cid
                 continue
             comp = {"seq": cseq, "chain_id": cid}
             if mt in _CHAIN_TYPE:

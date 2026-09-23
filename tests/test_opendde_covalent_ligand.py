@@ -119,3 +119,26 @@ def test_modified_residue_structural_tokens():
     plain = build_structural_token_features(
         build_complex_features(chains, mol_dir=_MOL_DIR, chain_ids=["A"]))
     assert STRUCTURAL_TOKEN_ROLES["atom"] not in plain["subtoken_role_id"].tolist()
+
+
+def test_bond_on_missing_standard_atom_refused():
+    # The shipped example once named SG on residue 7 of GCGSQWDRSGR, an Asp. A standard
+    # residue is one token, so the bond used to land on it silently.
+    chains = [(PROT, None, "protein"), ("NKLCGHEITWD", None, "protein")]
+    with pytest.raises(ValueError, match=r"atom 'SG' on residue 7 \(ASP\) of chain 'A'"):
+        build_complex_features(chains, mol_dir=_MOL_DIR, chain_ids=["A", "B"],
+                               bonds=[(("A", 7, "SG"), ("B", 4, "SG"))])
+    feats = build_complex_features(chains, mol_dir=_MOL_DIR, chain_ids=["A", "B"],
+                                   bonds=[(("A", 2, "SG"), ("B", 4, "SG"))])
+    assert feats["token_bonds"][1, len(PROT) + 3].item() == 1.0
+
+
+def test_boltz_bond_on_missing_atom_names_the_atoms():
+    from tt_bio.data.parse import parse_boltz_schema
+    schema = {"version": 1, "sequences": [
+        {"protein": {"id": "A", "sequence": PROT, "msa": "empty"}},
+        {"ligand": {"id": "B", "smiles": LIG}}],
+        "constraints": [{"bond": {"atom1": ["A", 2, "SG"], "atom2": ["B", 1, "Q9"]}}]}
+    with pytest.raises(ValueError, match=r"\[B, 1, Q9\] names an atom that is not in the input: "
+                                         r"residue 1 of chain 'B' has atoms "):
+        parse_boltz_schema("t", schema, ccd={}, mol_dir=_MOL_DIR, boltz_2=True)

@@ -37,6 +37,7 @@ INPUTS: dict[str, str] = {
     "cyclic": _HEAD + "      cyclic: true\n",
     "modifications": _HEAD + "      modifications:\n        - position: 5\n          ccd: TPO\n",
     "templates": _HEAD + "      templates: /nonexistent/tmpl.npz\n",
+    "template_structure": _HEAD + "templates:\n  - cif: /nonexistent/t.cif\n    chain_id: A\n",
     "bond": _HEAD + ("constraints:\n  - bond:\n      atom1: [A, 5, SG]\n"
                      "      atom2: [A, 9, SG]\n"),
     "pocket": _HEAD + ("constraints:\n  - pocket:\n      binder: A\n"
@@ -45,6 +46,18 @@ INPUTS: dict[str, str] = {
 }
 
 PLAIN = _HEAD
+
+#: A protein-free input has to carry some other molecule, so its fixture is the first kind the
+#: model folds; otherwise an OpenDDE RNA refusal would read as the protein-free verdict.
+_NO_PROTEIN = {"rna": "version: 1\nsequences:\n  - rna:\n      id: R\n      sequence: GAUC\n",
+               "ligand": "version: 1\nsequences:\n  - ligand:\n      id: L\n      ccd: ATP\n"}
+
+
+def _fixture(feature, model):
+    if feature != "protein_free":
+        return INPUTS[feature]
+    return next((t for kind, t in _NO_PROTEIN.items() if CAPABILITY[model][kind] != REFUSED),
+                _NO_PROTEIN["rna"])
 
 
 def _yaml(tmp_path, text, name="q.yaml"):
@@ -74,12 +87,14 @@ def test_every_shipped_model_has_a_row():
 def test_boltz2_honours_the_whole_input_language():
     """The negative control for the table: if every row were REFUSED the cross product below
     would still pass. Boltz-2 has the upstream parser, the constraint embedder, the template
-    pipeline and the affinity head, so nothing in the reader is beyond it."""
-    assert set(CAPABILITY["boltz2"].values()) == {HONOURED}
+    pipeline and the affinity head. The one refusal is the per-chain template npz, which its
+    parser never reads; it takes the same template as a structure file."""
+    assert {f for f, v in CAPABILITY["boltz2"].items() if v != HONOURED} == {"templates"}
+    assert CAPABILITY["boltz2"]["template_structure"] == HONOURED
 
 
 @pytest.mark.parametrize("model", sorted(CAPABILITY))
-@pytest.mark.parametrize("feature", sorted(INPUTS))
+@pytest.mark.parametrize("feature", sorted(INPUTS) + ["protein_free"])
 def test_the_table_verdict_is_what_the_check_does(tmp_path, model, feature, capsys):
     if model in CHAINS_ELSEWHERE and feature in CHAIN_FEATURES:
         pytest.skip(f"{model} has its own reader; the chain columns record its verdict, they "
@@ -89,7 +104,7 @@ def test_the_table_verdict_is_what_the_check_does(tmp_path, model, feature, caps
     notes: list[str] = []
     if verdict == REFUSED:
         with pytest.raises(RuntimeError) as e:
-            _check(tmp_path, INPUTS[feature], model, notes)
+            _check(tmp_path, _fixture(feature, model), model, notes)
         msg = str(e.value)
         assert how(model) in msg and label in msg
         # A refusal that names nowhere else to go leaves the user stuck.
@@ -97,7 +112,7 @@ def test_the_table_verdict_is_what_the_check_does(tmp_path, model, feature, caps
         if others:
             assert any(how(m) in msg for m in others), msg
         return
-    assert _check(tmp_path, INPUTS[feature], model, notes), "the feature was not even detected"
+    assert _check(tmp_path, _fixture(feature, model), model, notes), "the feature was not even detected"
     if verdict == NOTED:
         assert any(label in n for n in notes), notes
     else:
@@ -126,6 +141,22 @@ def test_every_refused_feature_is_named_at_once(tmp_path):
         _check(tmp_path, text, "protenix-v2")
     msg = str(e.value)
     assert "cyclic" in msg and "pocket" in msg
+
+
+def test_an_rna_only_input_is_refused_by_esmfold2_before_any_model_load(tmp_path):
+    """ESMFold2 used to load its weights and then die with "needs at least one protein chain",
+    naming nowhere else to go. The refusal is a check-time one now, and it names the models
+    that fold RNA with no protein, read off the table."""
+    from tt_bio.worker import _WorkerState
+
+    state = object.__new__(_WorkerState)
+    with pytest.raises(RuntimeError) as e:
+        state.predict_one(_yaml(tmp_path, _NO_PROTEIN["rna"]), {"model": "esmfold2"})
+    msg = str(e.value)
+    assert "no protein chain" in msg
+    expected = [m for m in honoured_by("protein_free")
+                if CAPABILITY[m]["rna"] == HONOURED and not m.startswith("esmfold2")]
+    assert expected and all(how(m) in msg for m in expected), msg
 
 
 def test_every_offending_chain_id_is_named_and_no_other(tmp_path):
@@ -162,6 +193,18 @@ def test_the_committed_cyclic_example_is_refused():
         pytest.skip("examples/cyclic_prot.yaml not in this checkout")
     with pytest.raises(RuntimeError, match="cyclic"):
         check_capabilities(p, _read_bio_chains(p), "openbind", echo=None)
+
+
+@pytest.mark.parametrize("model", sorted(CAPABILITY))
+def test_a_cyclic_refusal_gives_the_bond_route_where_there_is_one(tmp_path, model):
+    """Measured on whglx: the head-to-tail bond closes a 13-mer to N1-C13 2.17 A (protenix-v1)
+    and 1.49 A (protenix-v2) against ~20 A linear, so a model that honours `bond` says so."""
+    caps = CAPABILITY[model]
+    if caps["cyclic"] != REFUSED:
+        pytest.skip("cyclic is not refused")
+    with pytest.raises(RuntimeError) as e:
+        _check(tmp_path, INPUTS["cyclic"], model)
+    assert ("head-to-tail `bond`" in str(e.value)) == (caps["bond"] == HONOURED)
 
 
 def test_every_predict_path_calls_check_capabilities():
@@ -373,7 +416,7 @@ def test_every_folding_model_reports_the_depth_it_used(model):
     from tt_bio.worker import _WorkerState
 
     paths = {"protenix-v1": "_protenix_emit", "protenix-v2": "_protenix_emit",
-             "opendde": "_predict_opendde_one", "opendde-abag": "_predict_opendde_one",
+             "opendde": "_protenix_emit", "opendde-abag": "_protenix_emit",
              "openfold3": "_predict_openfold3_one", "openbind": "_predict_openfold3_one",
              "rf3": "_predict_rf3_one"}
     if model not in paths:

@@ -1422,8 +1422,14 @@ def test_the_sampler_finds_tt_smi_off_the_path(monkeypatch, tmp_path):
     smi = tmp_path / "tt-smi"
     smi.write_text("#!/bin/sh\n")
     smi.chmod(0o755)
+    monkeypatch.delenv("TT_SMI", raising=False)
     monkeypatch.setenv("PATH", str(tmp_path))
     assert clocksample._tt_smi() == str(smi)
+    # an explicit TT_SMI wins over PATH
+    other = tmp_path / "other-tt-smi"
+    other.write_text("#!/bin/sh\n")
+    monkeypatch.setenv("TT_SMI", str(other))
+    assert clocksample._tt_smi() == str(other)
 
 
 def test_the_clock_is_not_attributed_to_a_card_that_was_not_pinned(rg_fresh, monkeypatch):
