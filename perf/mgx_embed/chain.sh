@@ -6,7 +6,8 @@
 #
 # A chip is taken only if its lease is ours, its holder pid is dead, or it was released at least
 # QUIET_S ago: rows on this box release between rungs and re-claim seconds later, so a fresh
-# `released` is someone else's chip mid-walk. Cards 1 and 24-27 are never candidates.
+# `released` is someone else's chip mid-walk. A chip whose flock is held is never taken, whatever
+# its json says. Cards 1 and 24-27 are never candidates.
 jobs=$1; card=${2:-}
 wt=$(cd "$(dirname "$0")/../.." && pwd)
 export TT_BIO_LEASE_DIR=/home/agent/leases TT_BIO_LEASE_HOLDER=worker:mgx-embed-scale \
@@ -15,7 +16,7 @@ export TT_BIO_LEASE_DIR=/home/agent/leases TT_BIO_LEASE_HOLDER=worker:mgx-embed-
 S=$HOME/scratch/mgxembed; export S
 claim() {  # prints the claimed card, exit 1 if none is free
   python3 - "$1" "$2" "${QUIET_S:-120}" <<'EOF'
-import glob, json, os, sys, time
+import fcntl, glob, json, os, sys, time
 pid, pref, quiet = int(sys.argv[1]), sys.argv[2], float(sys.argv[3])
 ME, BLOCKED = "worker:mgx-embed-scale", {"1", "24", "25", "26", "27"}
 def alive(p):
@@ -23,9 +24,20 @@ def alive(p):
         os.kill(int(p), 0); return True
     except (OSError, TypeError, ValueError):
         return False
+def locked(p):  # the flock is the lease; the json beside it can name a pid that is not the holder
+    try:
+        fd = os.open(p, os.O_RDONLY)
+    except OSError:
+        return False
+    try:
+        fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB); return False
+    except OSError:
+        return True
+    finally:
+        os.close(fd)
 cards = [f.split("card")[1][:-5] for f in sorted(glob.glob("/home/agent/leases/j10glx02-card*.json"))]
 for c in ([pref] if pref else []) + cards:
-    if c in BLOCKED:
+    if c in BLOCKED or locked(f"/home/agent/leases/j10glx02-card{c}.json"):
         continue
     p = f"/home/agent/leases/j10glx02-card{c}.json"
     m = json.load(open(p)) if os.path.exists(p) else {}
