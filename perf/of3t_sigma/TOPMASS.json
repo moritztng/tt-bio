@@ -1,0 +1,322 @@
+{
+ "s1": {
+  "field": 0.9960766171557919,
+  "n_eff": 7.926319458549142,
+  "trunk_share": 0.009207967642567354,
+  "field_if_trunk_all_won": 0.9963340974475413,
+  "top": {
+   "diffusion_module.diffusion_transformer.blocks.5.attention_pair_bias.layer_norm_a.layer_norm_s.weight": {
+    "share": 0.29586354663911346,
+    "ours": 0.017677172878339968,
+    "bf16": 0.2364325901491168,
+    "norm_ratio": 1.0068961010025634,
+    "cos": 0.9998684441067606
+   },
+   "diffusion_module.diffusion_transformer.blocks.8.attention_pair_bias.layer_norm_a.layer_norm_s.weight": {
+    "share": 0.15555892042456407,
+    "ours": 0.09669530136829568,
+    "bf16": 0.44342432481179256,
+    "norm_ratio": 1.0398142864270823,
+    "cos": 0.9962662544627616
+   },
+   "diffusion_module.diffusion_conditioning.transition_s.1.layer_norm.bias": {
+    "share": 0.08018196659735476,
+    "ours": 0.0840401974806626,
+    "bf16": 0.3255914457765092,
+    "norm_ratio": 1.0253342352228998,
+    "cos": 0.9968688593935108
+   },
+   "diffusion_module.diffusion_transformer.blocks.9.attention_pair_bias.layer_norm_a.layer_norm_s.weight": {
+    "share": 0.04253998752497765,
+    "ours": 0.046114796718144814,
+    "bf16": 0.12809925761729535,
+    "norm_ratio": 0.9686383365873422,
+    "cos": 0.9994099859043502
+   },
+   "diffusion_module.diffusion_conditioning.transition_s.0.layer_norm.bias": {
+    "share": 0.03376184031155223,
+    "ours": 0.09976672304667121,
+    "bf16": 0.3487261962112407,
+    "norm_ratio": 1.0249881378920949,
+    "cos": 0.9954492195337296
+   },
+   "diffusion_module.diffusion_transformer.blocks.17.attention_pair_bias.layer_norm_a.layer_norm_s.weight": {
+    "share": 0.031063852416380728,
+    "ours": 0.0366365197262884,
+    "bf16": 0.17239799032586375,
+    "norm_ratio": 1.0330770564949707,
+    "cos": 0.9998799010636608
+   },
+   "diffusion_module.diffusion_transformer.blocks.8.conditioned_transition.layer_norm.layer_norm_s.weight": {
+    "share": 0.02886487894051699,
+    "ours": 0.029330203861871598,
+    "bf16": 0.10593372088273956,
+    "norm_ratio": 0.9901364470760031,
+    "cos": 0.9996147141211963
+   },
+   "diffusion_module.diffusion_transformer.blocks.14.conditioned_transition.layer_norm.layer_norm_s.weight": {
+    "share": 0.021153371458269232,
+    "ours": 0.04944465256642896,
+    "bf16": 0.1675256223817848,
+    "norm_ratio": 1.0481740320127042,
+    "cos": 0.9999408321980578
+   }
+  },
+  "watch": {
+   "diffusion_module.diffusion_transformer.blocks.10.attention_pair_bias.layer_norm_a.layer_norm_s.weight": {
+    "share": 0.019916387600176423,
+    "ours": 0.0819431883961323,
+    "bf16": 1.3620315678263932,
+    "norm_ratio": 1.059594430824093,
+    "cos": 0.9985073581706086
+   },
+   "aux_heads.distogram.linear.weight": {
+    "share": 0.0035442939113696998,
+    "ours": 0.14783598064257356,
+    "bf16": 0.10249423033594313,
+    "norm_ratio": 1.067246426611567,
+    "cos": 0.9918793847192543
+   }
+  }
+ },
+ "s2": {
+  "field": 0.972878365076521,
+  "n_eff": 10.231670915535576,
+  "trunk_share": 0.009825112449451313,
+  "field_if_trunk_all_won": 0.9744557841486257,
+  "top": {
+   "diffusion_module.diffusion_transformer.blocks.5.attention_pair_bias.layer_norm_a.layer_norm_s.weight": {
+    "share": 0.20454591495291316,
+    "ours": 0.05775693965589686,
+    "bf16": 0.19676959869812813,
+    "norm_ratio": 1.0557598616442598,
+    "cos": 0.999892635666469
+   },
+   "diffusion_module.diffusion_transformer.blocks.8.attention_pair_bias.layer_norm_a.layer_norm_s.weight": {
+    "share": 0.19851259573479518,
+    "ours": 0.05487922871575309,
+    "bf16": 0.27980235946011917,
+    "norm_ratio": 1.0493408480520472,
+    "cos": 0.9997249652203037
+   },
+   "diffusion_module.diffusion_conditioning.transition_s.1.layer_norm.bias": {
+    "share": 0.07446364711385278,
+    "ours": 0.09114398035526218,
+    "bf16": 0.23411293478083034,
+    "norm_ratio": 1.028223496668941,
+    "cos": 0.9963477495821141
+   },
+   "diffusion_module.diffusion_transformer.blocks.5.conditioned_transition.layer_norm.layer_norm_s.weight": {
+    "share": 0.05264384291706841,
+    "ours": 0.027222190189663726,
+    "bf16": 0.06996195713594404,
+    "norm_ratio": 1.0199641482400523,
+    "cos": 0.9998321115382522
+   },
+   "diffusion_module.diffusion_transformer.blocks.4.conditioned_transition.layer_norm.layer_norm_s.weight": {
+    "share": 0.04821442965508341,
+    "ours": 0.024507432205427986,
+    "bf16": 0.12308986440021451,
+    "norm_ratio": 0.9893360362146921,
+    "cos": 0.9997539288513376
+   },
+   "diffusion_module.diffusion_conditioning.transition_s.0.layer_norm.bias": {
+    "share": 0.030052104730184517,
+    "ours": 0.09499859154215645,
+    "bf16": 0.23115869713392306,
+    "norm_ratio": 1.026867127381926,
+    "cos": 0.9959571741855222
+   },
+   "diffusion_module.diffusion_transformer.blocks.8.conditioned_transition.layer_norm.layer_norm_s.weight": {
+    "share": 0.02856699747428091,
+    "ours": 0.052252612157796245,
+    "bf16": 0.1317310590530546,
+    "norm_ratio": 1.0399972136470852,
+    "cos": 0.9994564608621317
+   },
+   "diffusion_module.diffusion_transformer.blocks.9.attention_pair_bias.layer_norm_a.layer_norm_s.weight": {
+    "share": 0.025683894071684307,
+    "ours": 0.11024191060966389,
+    "bf16": 0.11974048875058557,
+    "norm_ratio": 0.913535580700039,
+    "cos": 0.9974400651989904
+   }
+  },
+  "watch": {
+   "diffusion_module.diffusion_transformer.blocks.10.attention_pair_bias.layer_norm_a.layer_norm_s.weight": {
+    "share": 0.008355900133591427,
+    "ours": 0.2920700034400866,
+    "bf16": 0.6922818553038763,
+    "norm_ratio": 1.2519024263939098,
+    "cos": 0.9912732597901853
+   },
+   "aux_heads.distogram.linear.weight": {
+    "share": 0.0007865536306265514,
+    "ours": 0.14783598064257356,
+    "bf16": 0.10249423033594313,
+    "norm_ratio": 1.067246426611567,
+    "cos": 0.9918793847192543
+   }
+  }
+ },
+ "s3": {
+  "field": 0.8364480455445844,
+  "n_eff": 18.21046083501184,
+  "trunk_share": 0.035410629291493315,
+  "field_if_trunk_all_won": 0.8610031887239169,
+  "top": {
+   "diffusion_module.diffusion_transformer.blocks.9.conditioned_transition.layer_norm.layer_norm_s.weight": {
+    "share": 0.13815125341033999,
+    "ours": 0.027062565788806163,
+    "bf16": 0.1363854197201266,
+    "norm_ratio": 0.9970896965944214,
+    "cos": 0.9996369872220959
+   },
+   "diffusion_module.diffusion_conditioning.transition_s.1.layer_norm.bias": {
+    "share": 0.11353147936506693,
+    "ours": 0.12354155206094636,
+    "bf16": 0.249614973276316,
+    "norm_ratio": 0.9804539945051606,
+    "cos": 0.9924114395788997
+   },
+   "diffusion_module.diffusion_transformer.blocks.10.attention_pair_bias.layer_norm_a.layer_norm_s.weight": {
+    "share": 0.09640798764760423,
+    "ours": 0.1876862108044921,
+    "bf16": 0.1744868800557025,
+    "norm_ratio": 0.8211448050111986,
+    "cos": 0.9980290120987724
+   },
+   "diffusion_module.diffusion_transformer.blocks.5.conditioned_transition.layer_norm.layer_norm_s.weight": {
+    "share": 0.057038959225270615,
+    "ours": 0.07412651471995314,
+    "bf16": 0.12773364063588133,
+    "norm_ratio": 0.9385404956295179,
+    "cos": 0.999085031751395
+   },
+   "diffusion_module.diffusion_conditioning.transition_s.0.layer_norm.bias": {
+    "share": 0.056687251439314294,
+    "ours": 0.12030722116279219,
+    "bf16": 0.26615734553676684,
+    "norm_ratio": 0.9770039908486094,
+    "cos": 0.9928633807243152
+   },
+   "diffusion_module.diffusion_transformer.blocks.2.conditioned_transition.layer_norm.layer_norm_s.weight": {
+    "share": 0.03423982243257439,
+    "ours": 0.03346070789548494,
+    "bf16": 0.30883142666722263,
+    "norm_ratio": 0.9804224915368316,
+    "cos": 0.9996244781501864
+   },
+   "diffusion_module.atom_attn_dec.linear_q_out.weight": {
+    "share": 0.02949820301671132,
+    "ours": 0.18990906427292759,
+    "bf16": 0.4838054976102708,
+    "norm_ratio": 1.0193499621060362,
+    "cos": 0.9824932393258867
+   },
+   "diffusion_module.diffusion_transformer.blocks.3.conditioned_transition.layer_norm.layer_norm_s.weight": {
+    "share": 0.026578193311602154,
+    "ours": 0.09596028202801457,
+    "bf16": 0.42407055632274465,
+    "norm_ratio": 0.9168893377993693,
+    "cos": 0.9987452174103194
+   }
+  },
+  "watch": {
+   "diffusion_module.diffusion_transformer.blocks.10.attention_pair_bias.layer_norm_a.layer_norm_s.weight": {
+    "share": 0.09640798764760423,
+    "ours": 0.1876862108044921,
+    "bf16": 0.1744868800557025,
+    "norm_ratio": 0.8211448050111986,
+    "cos": 0.9980290120987724
+   },
+   "aux_heads.distogram.linear.weight": {
+    "share": 0.02166181488988325,
+    "ours": 0.14783598064257356,
+    "bf16": 0.10249423033594313,
+    "norm_ratio": 1.067246426611567,
+    "cos": 0.9918793847192543
+   }
+  }
+ },
+ "s4": {
+  "field": 0.9761987554429439,
+  "n_eff": 15.572929171950147,
+  "trunk_share": 0.007634686900924597,
+  "field_if_trunk_all_won": 0.9770099991611405,
+  "top": {
+   "diffusion_module.diffusion_transformer.blocks.5.attention_pair_bias.layer_norm_a.layer_norm_s.weight": {
+    "share": 0.1344879140064789,
+    "ours": 0.25195959989243094,
+    "bf16": 0.7522188854199917,
+    "norm_ratio": 0.7488522422664294,
+    "cos": 0.9997272868128713
+   },
+   "diffusion_module.diffusion_conditioning.transition_s.1.layer_norm.bias": {
+    "share": 0.13025442538503276,
+    "ours": 0.13866380937577807,
+    "bf16": 0.32297005938004936,
+    "norm_ratio": 0.915343003901988,
+    "cos": 0.9934118439804261
+   },
+   "diffusion_module.diffusion_transformer.blocks.10.attention_pair_bias.layer_norm_a.layer_norm_s.weight": {
+    "share": 0.120236894122737,
+    "ours": 0.04219629226576913,
+    "bf16": 0.9255480914508575,
+    "norm_ratio": 1.036539431353515,
+    "cos": 0.9997851519084233
+   },
+   "diffusion_module.diffusion_conditioning.transition_s.0.layer_norm.bias": {
+    "share": 0.06000776966352541,
+    "ours": 0.13567721152456103,
+    "bf16": 0.32545172647631226,
+    "norm_ratio": 0.9107914404741064,
+    "cos": 0.9942631550045332
+   },
+   "diffusion_module.diffusion_transformer.blocks.6.conditioned_transition.layer_norm.layer_norm_s.weight": {
+    "share": 0.04991290925466305,
+    "ours": 0.0904346057902014,
+    "bf16": 0.3363100194695619,
+    "norm_ratio": 0.91716598900473,
+    "cos": 0.9992820576849488
+   },
+   "diffusion_module.diffusion_transformer.blocks.11.attention_pair_bias.layer_norm_a.layer_norm_s.weight": {
+    "share": 0.043108861088444195,
+    "ours": 0.049758109637792466,
+    "bf16": 0.5447686223044602,
+    "norm_ratio": 0.9765038844201104,
+    "cos": 0.9990149542372145
+   },
+   "diffusion_module.diffusion_transformer.blocks.9.attention_pair_bias.layer_norm_a.layer_norm_s.weight": {
+    "share": 0.04299698559286755,
+    "ours": 0.06561894532752438,
+    "bf16": 0.16726961878986335,
+    "norm_ratio": 0.9513478971797149,
+    "cos": 0.9989810147881713
+   },
+   "diffusion_module.diffusion_transformer.blocks.12.attention_pair_bias.layer_norm_a.layer_norm_s.weight": {
+    "share": 0.028220041095457307,
+    "ours": 0.09223643214441499,
+    "bf16": 0.3703846652155657,
+    "norm_ratio": 0.9417509006017584,
+    "cos": 0.9972845251165902
+   }
+  },
+  "watch": {
+   "diffusion_module.diffusion_transformer.blocks.10.attention_pair_bias.layer_norm_a.layer_norm_s.weight": {
+    "share": 0.120236894122737,
+    "ours": 0.04219629226576913,
+    "bf16": 0.9255480914508575,
+    "norm_ratio": 1.036539431353515,
+    "cos": 0.9997851519084233
+   },
+   "aux_heads.distogram.linear.weight": {
+    "share": 0.006187609312012977,
+    "ours": 0.14783598064257356,
+    "bf16": 0.10249423033594313,
+    "norm_ratio": 1.067246426611567,
+    "cos": 0.9918793847192543
+   }
+  }
+ }
+}
