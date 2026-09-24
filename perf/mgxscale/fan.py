@@ -118,7 +118,12 @@ def main():
                     continue
                 print(f"[fan] -card{card} rc={p.returncode}: {spec}", flush=True)
 
-    rows = [json.loads(l) for l in out.read_text().splitlines() if l.strip()]
+    # A job can exit non-zero before writing its first row -- a fixture that cannot be built,
+    # say -- and then the out file does not exist at all. Reading it unconditionally turned
+    # that into a FileNotFoundError traceback that buried the job's own error message
+    # (measured 2026-09-24: a 1536 crop requested at offset 200 on a 1646-residue target).
+    rows = ([json.loads(l) for l in out.read_text().splitlines() if l.strip()]
+            if out.exists() else [])
     n = sum(r.get("n_designs", 0) for r in rows)
     span = time.time() - t0
     print(f"[fan] done: {n} design(s) from {len(rows)} job(s) in {span / 3600:.2f} h "
