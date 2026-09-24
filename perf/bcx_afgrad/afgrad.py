@@ -510,9 +510,19 @@ def cmd_stack(args):
     L = loss64(lg64)
     L.backward()
     g64 = lg64.grad.detach().clone()
-    blob["f64"] = {"loss": float(L), "grad_norm": float(g64.norm()), "seconds": time.time() - t0}
+    blob["f64"] = {"loss": float(L.detach()), "grad_norm": float(g64.norm()),
+                   "seconds": time.time() - t0}
     blob["device_vs_f64"] = cmp(g_dev, g64)
     print("device vs f64", blob["device_vs_f64"], flush=True)
+    # The envelope: torch's own autograd through the same stack in bf16 and fp32, same logits.
+    for arm in ("bf16", "f32"):
+        lg = logits.clone().float().requires_grad_(True)
+        m, z = embed(ref[arm], lg, ridx)
+        m, z = ref_stack(ref[arm], m, z, ke, kv)
+        ((wm * m.double()).sum() + (wz * z.double()).sum()).backward()
+        blob[f"torch_{arm}_vs_f64"] = cmp(lg.grad.double(), g64)
+        blob[f"device_vs_torch_{arm}"] = cmp(g_dev, lg.grad.double())
+        print(arm, blob[f"torch_{arm}_vs_f64"], flush=True)
     # directional finite difference in float64 along the DEVICE gradient
     d = g_dev / g_dev.norm()
     fd = []
@@ -522,11 +532,11 @@ def cmd_stack(args):
             slope = (lp - lm) / (2 * eps)
             fd.append({"eps": eps, "L+": lp, "L-": lm, "fd_slope": slope,
                        "device_predicted": float(g_dev.norm()),
-                       "f64_predicted": float(g64 @ d),
+                       "f64_predicted": float((g64 * d).sum()),
                        "ratio_fd_over_device": slope / float(g_dev.norm())})
             print(json.dumps(fd[-1]), flush=True)
     blob["fd_along_device"] = fd
-    best = min(fd, key=lambda r: abs(r["fd_slope"] - r["f64_predicted"]))
+    best = min(fd, key=lambda r: abs(r["fd_slope"] / r["f64_predicted"] - 1.0))
     blob["fd_best"] = best
     # controls
     gz_, _, cz, _, _ = device_grad(logits, zero=True)
