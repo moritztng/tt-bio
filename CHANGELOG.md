@@ -55,7 +55,8 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
   1536-residue target with sirolimus or cobalamin and any target from 1664 residues up ran out of
   DRAM. The trunk now takes the plain masked path, and with the triangle product's K block sized
   to fit L1, a 3072-residue target scores on one chip with a small drug, sirolimus or cobalamin
-  (up to 3163 tokens); 4096 residues still runs out of L1. Predictions are byte-identical to before at every size that fitted,
+  (up to 3163 tokens). 3584 residues completes in about two hours with part of the work
+  assembled on the host; 4096 residues still runs out of L1. Predictions are byte-identical to before at every size that fitted,
   and the 1536-residue forward is 40% faster.
 
 - **Salt-form SMILES work again in Boltz-2 affinity.** Under RDKit 2026.03 every multi-fragment
