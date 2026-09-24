@@ -1,0 +1,63 @@
+{
+ "n": 224,
+ "real": 211,
+ "reps": 6,
+ "host": "tt-quietbox2",
+ "card": "3",
+ "pci": "0000:04:00.0",
+ "loadavg_start": [
+  62.36669921875,
+  59.28564453125,
+  53.28857421875
+ ],
+ "timings": {
+  "extra_msa_primal_4blk": {
+   "med": 0.0962,
+   "min": 0.0821,
+   "max": 0.1456,
+   "n": 2,
+   "aiclk_min": 1350,
+   "aiclk_med": 1350,
+   "aiclk_max": 1350,
+   "load1": 61.3
+  },
+  "extra_msa_taped_fwd_4blk": {
+   "med": 0.0989,
+   "min": 0.0887,
+   "max": 0.1307,
+   "n": 2,
+   "aiclk_min": 1350,
+   "aiclk_med": 1350,
+   "aiclk_max": 1350,
+   "load1": 59.6
+  },
+  "extra_msa_taped_fwd_plus_bwd_4blk": {
+   "med": 0.5165,
+   "min": 0.497,
+   "max": 0.5843,
+   "n": 12,
+   "aiclk_min": 1312,
+   "aiclk_med": 1350,
+   "aiclk_max": 1350,
+   "load1": 59.4
+  },
+  "template_pair_stack_fwd_2blk": {
+   "med": 0.0913,
+   "min": 0.0585,
+   "max": 0.1487,
+   "n": 2,
+   "aiclk_min": 1350,
+   "aiclk_med": 1350,
+   "aiclk_max": 1350,
+   "load1": 54.8
+  },
+  "extra_msa_bwd_4blk_derived": {
+   "med": 0.4176
+  }
+ },
+ "loadavg_end": [
+  54.8203125,
+  57.765625,
+  52.94482421875
+ ]
+}

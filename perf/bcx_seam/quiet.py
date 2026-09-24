@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""The QUIET leg: boosted and default rounds of one run, side by side.
+"""The QUIET leg: CPU-capped and uncapped rounds of one run, side by side.
 
 Rounds are cut and attributed by `perf/bcx_round/analyze.py`, unchanged. This joins each
 round to the priority it ran at and to the CPU seconds and run-queue wait its threads
@@ -27,7 +27,8 @@ def main(run_dir):
         analyze.main(ev_path, out)
     rows = json.load(open(out))["rounds"]
     ev = json.load(open(ev_path))["events"]
-    nice = {e["round"]: e["nice"] for e in ev if e["kind"] == "nice"}
+    cpus = {e["round"]: e["cpus"] for e in ev if e["kind"] == "cpus"}
+    full = max(cpus.values()) if cpus else None
     sch = {e["round"]: e for e in ev if e["kind"] == "sched"}
     lc = {}
     for e in ev:
@@ -36,7 +37,7 @@ def main(run_dir):
     for r in rows:
         k = r["round"]
         a, b = sch.get(k), sch.get(k + 1)
-        r["nice"] = nice.get(k)
+        r["cpus"] = cpus.get(k)
         if a and b:
             r["cpu_s"] = round(b["cpu_s"] - a["cpu_s"], 2)
             r["wait_s"] = round(b["wait_s"] - a["wait_s"], 2)
@@ -47,12 +48,12 @@ def main(run_dir):
     # the jit compile. Both are named in bcx-round and neither is a gradient round.
     body = [r for r in rows if r["wall"] > 1.0 and r["lower_compile_s"] < 1.0]
     arms = {}
-    for label, sel in (("default", lambda r: r["nice"] in (0, 100)), ("boosted", lambda r: r["nice"] not in (0, 100))):
+    for label, sel in (("all_cpus", lambda r: r["cpus"] == full), ("capped", lambda r: r["cpus"] != full)):
         rs = [r for r in body if sel(r)]
         if not rs:
             continue
         arms[label] = {
-            "n": len(rs), "nice": rs[0]["nice"],
+            "n": len(rs), "cpus": rs[0]["cpus"],
             "wall_med": med([r["wall"] for r in rs]),
             "wall_min": min(r["wall"] for r in rs), "wall_max": max(r["wall"] for r in rs),
             "host_med": med([r["host_s"] for r in rs]),
@@ -73,7 +74,7 @@ def main(run_dir):
     print(json.dumps(arms, indent=1))
     for r in rows:
         print(" ".join(f"{k}={r.get(k)}" for k in (
-            "round", "nice", "wall", "host_s", "host_share", "taped_s", "bwd_s", "cpu_s",
+            "round", "cpus", "wall", "host_s", "host_share", "taped_s", "bwd_s", "cpu_s",
             "wait_s", "lower_compile_s", "aiclk_med", "aiclk_min", "load1")))
 
 

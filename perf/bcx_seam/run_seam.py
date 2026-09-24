@@ -5,13 +5,12 @@ The arm is `perf/bcx_round/run_round.py` unchanged: BindCraft 2's `campaign.py` 
 Evoformer runs on the card for every call, `perf/bcx_round/meter.py` timestamps the seams.
 This adds three things, none of which changes what the campaign computes:
 
-* `--boost W` alternates rounds between the default cpu.weight (100) of this process's
-  cgroup and W, set at the round boundary. That is a quiet host as seen from this process,
-  interleaved with the loaded one in the same process, on the same card and the same
-  compiled program, so the two readings differ in one thing.
+* `--cap N` confines this process to N logical CPUs on even rounds and releases it on odd
+  ones, in the same process, on the same card and the same compiled program, so the two
+  readings differ in one thing: how much CPU the host side is allowed.
 * per round: the process's CPU seconds and the run-queue wait summed over its threads
-  (`/proc/self/task/*/schedstat`), which is what says whether a boosted round really stopped
-  waiting for a CPU.
+  (`/proc/self/task/*/schedstat`), which is what says how much of a round
+  was spent waiting for a CPU rather than on one.
 * `--profile A,B` wraps rounds A..B in `jax.profiler` and dumps the optimised HLO, which is
   what `hostmap.py` attributes per module. XLA CPU records one event per thunk, named by
   its HLO instruction; the dump maps each instruction to its haiku name scope.
@@ -22,7 +21,6 @@ import glob
 import json
 import os
 import pathlib
-import subprocess
 import sys
 import time
 
@@ -61,29 +59,32 @@ def sched():
     return run / 1e9, wait / 1e9
 
 
-def cgroup_weight_path():
-    rel = open("/proc/self/cgroup").read().strip().split("::", 1)[1]
-    return f"/sys/fs/cgroup{rel}/cpu.weight"
+ALL_CPUS = sorted(os.sched_getaffinity(0))
 
 
-def set_weight(weight):
-    """cpu.weight of this process's own cgroup (its ssh session scope).
+def set_cpus(n):
+    """Confine every thread of THIS process to its first n logical CPUs (0 = all of them).
 
-    Per-thread nice does NOTHING here, measured: qb2 runs the cgroup-v2 cpu controller under
-    user-1000.slice, so CPU is shared between session scopes by weight and a thread's nice
-    only orders it against threads of its own scope. The first A/B run reniced every thread to
-    -15 and read the same run-queue wait (157.8 against 157.1 thread-seconds a round). The
-    scope's weight is the lever that reaches the other workers. init.scope and system.slice
-    sit beside user.slice at the root, so no weight here can starve PID 1 or the watchdog.
+    This only ever narrows what this process may use; it takes nothing from any other
+    process on the box. qb2 is shared with other rows, so the row does not raise its own
+    CPU share to imitate a quiet host: an earlier arm that did (cgroup cpu.weight) was
+    stopped and its rounds are not used. Returns how many threads were moved.
     """
-    return subprocess.run(["sudo", "-n", "tee", cgroup_weight_path()], input=f"{weight}\n",
-                          text=True, capture_output=True).returncode
+    cpus = set(ALL_CPUS[:n] if n else ALL_CPUS)
+    moved = 0
+    for t in tids():
+        try:
+            os.sched_setaffinity(t, cpus)
+            moved += 1
+        except OSError:
+            pass
+    return moved
 
 
 class SeamMeter(M.Meter):
-    def __init__(self, rounds, boost, profile, trace_dir):
+    def __init__(self, rounds, cap, profile, trace_dir):
         super().__init__(rounds)
-        self.boost, self.profile, self.trace_dir = boost, profile, trace_dir
+        self.cap, self.profile, self.trace_dir = cap, profile, trace_dir
         self.tracing = False
 
     def on_sequence_gradients_enter(self):
@@ -98,12 +99,11 @@ class SeamMeter(M.Meter):
             M.EVENTS.append({"kind": "trace_stop", "phase": "round", "t0": time.time(),
                              "round": r})
         super().on_sequence_gradients_enter()
-        # Round 1 carries the compile and is never a measurement, so boosting starts on an
-        # even round: 2, 4, 6 ... boosted, 3, 5, 7 ... at the default.
-        weight = self.boost if (self.boost and r % 2 == 0) else 100
-        rc = set_weight(weight) if self.boost else None
-        M.EVENTS.append({"kind": "nice", "phase": "round", "t0": time.time(), "round": r,
-                         "nice": weight, "weight": weight, "rc": rc})
+        # Even rounds capped, odd rounds on every CPU; the compile round is dropped anyway.
+        cap = self.cap if (self.cap and r % 2 == 0) else 0
+        moved = set_cpus(cap) if self.cap else None
+        M.EVENTS.append({"kind": "cpus", "phase": "round", "t0": time.time(), "round": r,
+                         "cpus": cap or len(ALL_CPUS), "threads_moved": moved})
         if self.profile and r == self.profile[0]:
             jax.profiler.start_trace(self.trace_dir)
             self.tracing = True
@@ -115,9 +115,8 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--rounds", type=int, default=21)
     ap.add_argument("--seed", type=int, default=100)
-    ap.add_argument("--boost", type=int, default=0,
-                    help="cgroup cpu.weight for even rounds (default scope weight is 100); "
-                         "0 leaves every round at the default")
+    ap.add_argument("--cap", type=int, default=0,
+                    help="logical CPUs this process may use on even rounds; 0 = no cap")
     ap.add_argument("--profile", default="", help="A,B: jax.profiler over rounds A..B")
     ap.add_argument("--params", default="/home/ttuser/bcx_e2e/af2_params")
     ap.add_argument("--out", required=True)
@@ -142,7 +141,7 @@ def main():
     profile = tuple(int(x) for x in args.profile.split(",")) if args.profile else ()
     stamp = {"host": os.uname().nodename, "card": os.environ.get("TT_VISIBLE_DEVICES"),
              "pci": M.CLOCK.pci, "sysfs": M.CLOCK.path, "commit": git_head(),
-             "seed": args.seed, "rounds_requested": args.rounds, "boost": args.boost,
+             "seed": args.seed, "rounds_requested": args.rounds, "cap": args.cap,
              "profile": profile, "xla_flags": os.environ.get("XLA_FLAGS"),
              "omp": os.environ.get("OMP_NUM_THREADS"),
              "length_bucket_size": campaign_length_bucket(settings),
@@ -152,7 +151,7 @@ def main():
 
     import afgrad as _A
     from splice import EvoformerOnDevice, evoformer_on_device
-    mt = SeamMeter(args.rounds, args.boost, profile, os.path.join(project, "trace"))
+    mt = SeamMeter(args.rounds, args.cap, profile, os.path.join(project, "trace"))
     M.install(mt, sys.modules["splice"], T.TTBioAlphaFoldDesignModel, trajectory, seqopt)
 
     # BindCraft 2 lowers and compiles its gradient program on EVERY call
@@ -191,8 +190,8 @@ def main():
         if mt.tracing:
             import jax
             jax.profiler.stop_trace()
-        if args.boost:
-            set_weight(100)
+        if args.cap:
+            set_cpus(0)
         stamp.update({"wall_seconds": round(time.time() - t0, 2), "stopped": stopped,
                       "device_calls": dict(evo.calls), "loadavg_end": os.getloadavg(),
                       "finished_utc": time.strftime("%FT%TZ", time.gmtime()),
