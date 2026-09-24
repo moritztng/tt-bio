@@ -1,0 +1,69 @@
+{
+ "stamp": {
+  "host": "tt-quietbox2",
+  "card": 3,
+  "subsystem_device": "0x0046",
+  "commit": "a2b1ad54a820a658c0d419b30ed627950dd8a571",
+  "tt_bio_dirty": false,
+  "torch_threads": 8,
+  "loadavg": [
+   31.8203125,
+   31.01416015625,
+   30.8173828125
+  ],
+  "utc": "2026-09-24T02:27:03Z"
+ },
+ "n": 128,
+ "k_extra": 4,
+ "k_evo": 48,
+ "seed": 0,
+ "loss": "fixed random linear readout of (msa_out, pair_out), logits over all n",
+ "device": {
+  "loss": 0.29431811307461864,
+  "grad_norm": 21.903301700195215,
+  "timing": {
+   "fwd_s": 1.6754796504974365,
+   "bwd_s": 105.34738373756409
+  },
+  "census": {
+   "reach": 102,
+   "nodes": 100,
+   "kinds": {
+    "checkpoint": 100
+   },
+   "identity_plus_sliced": 0,
+   "identity_plus_sliced_share": 0.0,
+   "all_shape_ops": 0,
+   "all_shape_ops_share": 0.0
+  },
+  "taping_sites": {
+   "reblock_permute.py:877": 104,
+   "reblock_permute.py:373": 208,
+   "reblock_permute.py:597": 104,
+   "tenstorrent.py:3777": 152,
+   "tenstorrent.py:4288": 104
+  }
+ },
+ "f64": {
+  "loss": 0.9943437102904387,
+  "grad_norm": 25.917257466841882,
+  "seconds": 813.4504861831665
+ },
+ "device_vs_f64": {
+  "rel_l2": 0.22695316296487825,
+  "cos": 0.9837176434667533
+ },
+ "fd_along_device": [],
+ "device_repeat_max_abs_diff": 0.0,
+ "zero_seed_max_abs": 0.0,
+ "reach_across_steps": [
+  102,
+  102,
+  102,
+  102
+ ],
+ "permuted_device_grad_vs_f64": {
+  "rel_l2": 1.2998801887060967,
+  "cos": 0.014522375744022894
+ }
+}

@@ -1,0 +1,93 @@
+{
+ "stamp": {
+  "host": "tt-quietbox",
+  "card": 1,
+  "subsystem_device": "0x0040",
+  "commit": "8ae35c46b295dd08e9324486ce1e5d29edadab88",
+  "tt_bio_dirty": true,
+  "torch_threads": 8,
+  "loadavg": [
+   3.314453125,
+   3.6806640625,
+   3.4775390625
+  ],
+  "utc": "2026-09-24T04:25:10Z",
+  "pci": "0000:41:00.0",
+  "aiclk_node": null
+ },
+ "arm": "stack@old",
+ "points": [
+  {
+   "n": 128,
+   "stack": "evo",
+   "collects": [
+    {
+     "seconds": 0.15800212400063174,
+     "unreachable": 1683,
+     "tracked": 544936,
+     "cycles": {
+      "{\"types\": {\"list\": 2, \"Tensor\": 2, \"cell\": 1, \"tuple\": 1, \"function\": 1, \"_Node\": 1}, \"via\": [\"Tensor.node\", \"Tensor.shares\", \"_Node.fn\", \"_Node.parents\", \"fn:_v_reshape.<locals>.make.<locals>.bw\"]}": 13,
+      "{\"types\": {\"list\": 2, \"cell\": 1, \"tuple\": 1, \"function\": 1, \"_Node\": 1, \"Tensor\": 2}, \"via\": [\"Tensor.node\", \"Tensor.shares\", \"_Node.fn\", \"_Node.parents\", \"fn:_v_reshape.<locals>.make.<locals>.bw\"]}": 5,
+      "{\"types\": {\"list\": 3, \"Tensor\": 3, \"cell\": 2, \"tuple\": 2, \"function\": 2, \"_Node\": 2}, \"via\": [\"Tensor.node\", \"Tensor.shares\", \"_Node.fn\", \"_Node.parents\", \"fn:_v_reshape.<locals>.make.<locals>.bw\"]}": 1
+     },
+     "types": {
+      "cell": 640,
+      "list": 275,
+      "tuple": 197,
+      "function": 194,
+      "Tensor": 189,
+      "_Node": 188
+     },
+     "tensors": 189,
+     "tensors_with_node": 188,
+     "tensors_with_shares": 39
+    },
+    {
+     "seconds": 0.16022256599535467,
+     "unreachable": 3376,
+     "tracked": 548344,
+     "cycles": {
+      "{\"types\": {\"list\": 2, \"Tensor\": 2, \"cell\": 1, \"tuple\": 1, \"function\": 1, \"_Node\": 1}, \"via\": [\"Tensor.node\", \"Tensor.shares\", \"_Node.fn\", \"_Node.parents\", \"fn:_v_reshape.<locals>.make.<locals>.bw\"]}": 31,
+      "{\"types\": {\"list\": 2, \"cell\": 1, \"tuple\": 1, \"function\": 1, \"_Node\": 1, \"Tensor\": 2}, \"via\": [\"Tensor.node\", \"Tensor.shares\", \"_Node.fn\", \"_Node.parents\", \"fn:_v_reshape.<locals>.make.<locals>.bw\"]}": 6,
+      "{\"types\": {\"list\": 3, \"Tensor\": 3, \"cell\": 2, \"tuple\": 2, \"function\": 2, \"_Node\": 2}, \"via\": [\"Tensor.node\", \"Tensor.shares\", \"_Node.fn\", \"_Node.parents\", \"fn:_v_reshape.<locals>.make.<locals>.bw\"]}": 2
+     },
+     "types": {
+      "cell": 1282,
+      "list": 553,
+      "tuple": 395,
+      "function": 389,
+      "Tensor": 380,
+      "_Node": 377
+     },
+     "tensors": 380,
+     "tensors_with_node": 377,
+     "tensors_with_shares": 80
+    }
+   ],
+   "after_step": [
+    {
+     "seconds": 0.15955285800009733,
+     "unreachable": 3392,
+     "tracked": 548337,
+     "cycles": {
+      "{\"types\": {\"list\": 2, \"Tensor\": 2, \"cell\": 1, \"tuple\": 1, \"function\": 1, \"_Node\": 1}, \"via\": [\"Tensor.node\", \"Tensor.shares\", \"_Node.fn\", \"_Node.parents\", \"fn:_v_reshape.<locals>.make.<locals>.bw\"]}": 31,
+      "{\"types\": {\"list\": 2, \"cell\": 1, \"tuple\": 1, \"function\": 1, \"_Node\": 1, \"Tensor\": 2}, \"via\": [\"Tensor.node\", \"Tensor.shares\", \"_Node.fn\", \"_Node.parents\", \"fn:_v_reshape.<locals>.make.<locals>.bw\"]}": 7,
+      "{\"types\": {\"Tensor\": 2, \"list\": 1}, \"via\": [\"Tensor.shares\"]}": 2,
+      "{\"types\": {\"list\": 3, \"Tensor\": 3, \"cell\": 2, \"tuple\": 2, \"function\": 2, \"_Node\": 2}, \"via\": [\"Tensor.node\", \"Tensor.shares\", \"_Node.fn\", \"_Node.parents\", \"fn:_v_reshape.<locals>.make.<locals>.bw\"]}": 2
+     },
+     "types": {
+      "cell": 1284,
+      "list": 558,
+      "tuple": 396,
+      "function": 390,
+      "Tensor": 386,
+      "_Node": 378
+     },
+     "tensors": 386,
+     "tensors_with_node": 378,
+     "tensors_with_shares": 86
+    }
+   ]
+  }
+ ]
+}
