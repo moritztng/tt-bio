@@ -42,14 +42,14 @@ class Census:
 
         def counted(x, fn, kw=None):
             s = tuple(int(d) for d in x.shape)
-            mc = (kw or {}).get("memory_config")
+            kw_ = kw or {}
             why = ("rank<=2" if len(s) <= 2 else
                    "batch of one" if math.prod(s[:-2]) <= 1 else
                    "rows%32" if s[-2] % ttnn.TILE_SIZE else
                    "not TILE" if x.layout != ttnn.TILE_LAYOUT else
                    "sharded x" if x.is_sharded() else
-                   "program_config" if (kw or {}).get("program_config") is not None else
-                   "sharded out" if (mc is not None and mc.is_sharded()) else "collapsed")
+                   "program_config" if kw_.get("program_config") is not None else
+                   "memory_config" if kw_.get("memory_config") is not None else "collapsed")
             k = (s, why)
             self.rows[k] = self.rows.get(k, 0) + 1
             return inner(x, fn, kw)

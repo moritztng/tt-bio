@@ -1,0 +1,266 @@
+{
+ "model": "boltz2",
+ "target": "examples/prot300.yaml",
+ "n_ca": 298,
+ "recycling_steps": 3,
+ "sampling_steps": 200,
+ "seeds": [
+  0,
+  1,
+  2
+ ],
+ "deviation_A": {
+  "0": 0.1257,
+  "1": 0.1616,
+  "2": 0.1087
+ },
+ "seed_floor_off_A": {
+  "1": 0.4566,
+  "2": 0.8482
+ },
+ "seed_floor_on_A": {
+  "1": 0.3899,
+  "2": 0.8536
+ },
+ "truth": {
+  "file": "perf/bcx_oplin/1hcl.cif",
+  "off": [
+   0.7634,
+   0.8058,
+   0.8356
+  ],
+  "on": [
+   0.7661,
+   0.7718,
+   0.8326
+  ],
+  "off_mean": 0.8016,
+  "on_mean": 0.7902
+ },
+ "same_seed_repeat_identical": true,
+ "bit_identical_arms": false,
+ "warm_off_s": [
+  14.057,
+  12.105,
+  11.945,
+  12.032
+ ],
+ "warm_on_s": [
+  12.598,
+  12.195,
+  12.012,
+  12.468
+ ],
+ "speedup": 0.9787,
+ "census": {
+  "collapsed": [
+   {
+    "shape": [
+     1,
+     320,
+     320,
+     128
+    ],
+    "calls": 13
+   },
+   {
+    "shape": [
+     1,
+     320,
+     320,
+     8
+    ],
+    "calls": 10
+   },
+   {
+    "shape": [
+     1,
+     320,
+     320,
+     64
+    ],
+    "calls": 4
+   },
+   {
+    "shape": [
+     1,
+     320,
+     320,
+     256
+    ],
+    "calls": 3
+   }
+  ],
+  "batch of one": [
+   {
+    "shape": [
+     1,
+     320,
+     384
+    ],
+    "calls": 6
+   }
+  ]
+ },
+ "folds": [
+  {
+   "tag": "cold_on",
+   "on": true,
+   "seed": 0,
+   "wall_s": 53.051,
+   "plddt": 0.912611,
+   "aiclk": {
+    "n": 66,
+    "median": 1350.0,
+    "min": 1343,
+    "max": 1350,
+    "pci": "0000:01:00.0"
+   },
+   "sha16": "d57797df50ecfee1",
+   "ca_rmsd_vs_truth": 0.7661
+  },
+  {
+   "tag": "s0_off",
+   "on": false,
+   "seed": 0,
+   "wall_s": 14.057,
+   "plddt": 0.911447,
+   "aiclk": {
+    "n": 47,
+    "median": 1350,
+    "min": 1343,
+    "max": 1350,
+    "pci": "0000:01:00.0"
+   },
+   "sha16": "4ba126e6f600dd3c",
+   "ca_rmsd_vs_truth": 0.7634
+  },
+  {
+   "tag": "s0_on",
+   "on": true,
+   "seed": 0,
+   "wall_s": 12.598,
+   "plddt": 0.912611,
+   "aiclk": {
+    "n": 46,
+    "median": 1350.0,
+    "min": 1350,
+    "max": 1350,
+    "pci": "0000:01:00.0"
+   },
+   "sha16": "d57797df50ecfee1",
+   "ca_rmsd_vs_truth": 0.7661
+  },
+  {
+   "tag": "s1_on",
+   "on": true,
+   "seed": 1,
+   "wall_s": 12.195,
+   "plddt": 0.914464,
+   "aiclk": {
+    "n": 45,
+    "median": 1350,
+    "min": 1350,
+    "max": 1350,
+    "pci": "0000:01:00.0"
+   },
+   "sha16": "5c349e0b64d96a8b",
+   "ca_rmsd_vs_truth": 0.7718
+  },
+  {
+   "tag": "s1_off",
+   "on": false,
+   "seed": 1,
+   "wall_s": 12.105,
+   "plddt": 0.911509,
+   "aiclk": {
+    "n": 44,
+    "median": 1350.0,
+    "min": 1343,
+    "max": 1350,
+    "pci": "0000:01:00.0"
+   },
+   "sha16": "b01d75239e9211a2",
+   "ca_rmsd_vs_truth": 0.8058
+  },
+  {
+   "tag": "s2_off",
+   "on": false,
+   "seed": 2,
+   "wall_s": 11.945,
+   "plddt": 0.905986,
+   "aiclk": {
+    "n": 44,
+    "median": 1350.0,
+    "min": 1343,
+    "max": 1350,
+    "pci": "0000:01:00.0"
+   },
+   "sha16": "304b8336df6d7655",
+   "ca_rmsd_vs_truth": 0.8356
+  },
+  {
+   "tag": "s2_on",
+   "on": true,
+   "seed": 2,
+   "wall_s": 12.012,
+   "plddt": 0.904764,
+   "aiclk": {
+    "n": 45,
+    "median": 1350,
+    "min": 1343,
+    "max": 1350,
+    "pci": "0000:01:00.0"
+   },
+   "sha16": "088e0912940db257",
+   "ca_rmsd_vs_truth": 0.8326
+  },
+  {
+   "tag": "s0_on_t1",
+   "on": true,
+   "seed": 0,
+   "wall_s": 12.468,
+   "plddt": 0.912611,
+   "aiclk": {
+    "n": 46,
+    "median": 1350.0,
+    "min": 1350,
+    "max": 1350,
+    "pci": "0000:01:00.0"
+   },
+   "sha16": "d57797df50ecfee1",
+   "ca_rmsd_vs_truth": 0.7661
+  },
+  {
+   "tag": "s0_off_t1",
+   "on": false,
+   "seed": 0,
+   "wall_s": 12.032,
+   "plddt": 0.911447,
+   "aiclk": {
+    "n": 44,
+    "median": 1350.0,
+    "min": 1343,
+    "max": 1350,
+    "pci": "0000:01:00.0"
+   },
+   "sha16": "4ba126e6f600dd3c",
+   "ca_rmsd_vs_truth": 0.7634
+  }
+ ],
+ "card": {
+  "hardware": "blackhole",
+  "card_type": "p150a",
+  "sysfs_subsystem": "0x0040",
+  "grid": [
+   11,
+   10
+  ]
+ },
+ "host": "tt-quietbox",
+ "loadavg": [
+  6.53662109375,
+  4.0654296875,
+  3.42041015625
+ ]
+}

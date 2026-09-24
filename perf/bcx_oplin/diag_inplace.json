@@ -1,0 +1,45 @@
+{
+ "x": {
+  "shape": [
+   1,
+   32,
+   512,
+   1024
+  ],
+  "padded": [
+   1,
+   32,
+   512,
+   1024
+  ],
+  "dtype": "DataType.BFLOAT16",
+  "layout": "Layout.TILE",
+  "buffer": "BufferType.L1",
+  "mem": "TensorMemoryLayout.INTERLEAVED"
+ },
+ "w": {
+  "shape": [
+   1024,
+   256
+  ],
+  "padded": [
+   1024,
+   256
+  ],
+  "dtype": "DataType.BFLOAT16",
+  "layout": "Layout.TILE",
+  "buffer": "BufferType.DRAM",
+  "mem": "TensorMemoryLayout.INTERLEAVED"
+ },
+ "bias": null,
+ "kw": {
+  "compute_kernel_config": "<ttnn._ttnn.operations.core.WormholeComputeKernelConfig object at 0x731e7da50e40>",
+  "dtype": "DataType.BFLOAT16",
+  "core_grid": "ttnn.CoreGrid(x=11, y=10)",
+  "memory_config": "MemoryConfig(memory_layout=TensorMemoryLayout::INTERLEAVED,buffer_type=BufferType::L1,shard_spec=std::nullopt,nd_shard_spec=std::nullopt,created_with_nd_shard_spec=0)"
+ },
+ "off_us": 93.3,
+ "on_us": 1010.9,
+ "off2_us": 91.8,
+ "on2_us": 1011.0
+}

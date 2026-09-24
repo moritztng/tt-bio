@@ -1,0 +1,385 @@
+{
+ "model": "protenix-v2",
+ "target": "examples/prot300.yaml",
+ "n_ca": 298,
+ "recycling_steps": 10,
+ "sampling_steps": 200,
+ "seeds": [
+  0,
+  1,
+  2
+ ],
+ "deviation_A": {
+  "0": 0.1053,
+  "1": 0.1665,
+  "2": 0.1535
+ },
+ "seed_floor_off_A": {
+  "1": 0.6872,
+  "2": 0.4103
+ },
+ "seed_floor_on_A": {
+  "1": 0.7465,
+  "2": 0.4404
+ },
+ "truth": {
+  "file": "perf/bcx_oplin/1hcl.cif",
+  "off": [
+   2.0608,
+   1.961,
+   2.1244
+  ],
+  "on": [
+   2.0231,
+   1.9576,
+   2.0845
+  ],
+  "off_mean": 2.0487,
+  "on_mean": 2.0217
+ },
+ "same_seed_repeat_identical": true,
+ "bit_identical_arms": false,
+ "warm_off_s": [
+  32.4,
+  28.475,
+  28.353,
+  28.375
+ ],
+ "warm_on_s": [
+  28.076,
+  28.112,
+  28.206,
+  28.536
+ ],
+ "speedup": 1.0094,
+ "census": {
+  "rank<=2": [
+   {
+    "shape": [
+     2398,
+     3
+    ],
+    "calls": 202
+   },
+   {
+    "shape": [
+     298,
+     384
+    ],
+    "calls": 201
+   },
+   {
+    "shape": [
+     1,
+     256
+    ],
+    "calls": 200
+   },
+   {
+    "shape": [
+     298,
+     768
+    ],
+    "calls": 200
+   },
+   {
+    "shape": [
+     320,
+     384
+    ],
+    "calls": 12
+   },
+   {
+    "shape": [
+     307200,
+     1
+    ],
+    "calls": 4
+   },
+   {
+    "shape": [
+     2398,
+     1
+    ],
+    "calls": 2
+   },
+   {
+    "shape": [
+     2398,
+     385
+    ],
+    "calls": 2
+   },
+   {
+    "shape": [
+     307200,
+     3
+    ],
+    "calls": 2
+   },
+   {
+    "shape": [
+     320,
+     449
+    ],
+    "calls": 2
+   },
+   {
+    "shape": [
+     298,
+     833
+    ],
+    "calls": 1
+   }
+  ],
+  "collapsed": [
+   {
+    "shape": [
+     1,
+     320,
+     320,
+     256
+    ],
+    "calls": 10
+   },
+   {
+    "shape": [
+     1,
+     320,
+     320,
+     64
+    ],
+    "calls": 10
+   },
+   {
+    "shape": [
+     75,
+     32,
+     128,
+     16
+    ],
+    "calls": 9
+   },
+   {
+    "shape": [
+     75,
+     32,
+     128
+    ],
+    "calls": 2
+   },
+   {
+    "shape": [
+     320,
+     320,
+     139
+    ],
+    "calls": 1
+   },
+   {
+    "shape": [
+     320,
+     320,
+     1
+    ],
+    "calls": 1
+   },
+   {
+    "shape": [
+     1,
+     35,
+     320,
+     34
+    ],
+    "calls": 1
+   },
+   {
+    "shape": [
+     75,
+     128,
+     128
+    ],
+    "calls": 1
+   }
+  ],
+  "batch of one": [
+   {
+    "shape": [
+     1,
+     2398,
+     128
+    ],
+    "calls": 10025
+   },
+   {
+    "shape": [
+     1,
+     2398,
+     256
+    ],
+    "calls": 1203
+   }
+  ]
+ },
+ "folds": [
+  {
+   "tag": "cold_on",
+   "on": true,
+   "seed": 0,
+   "wall_s": 134.102,
+   "plddt": 0.869919,
+   "aiclk": {
+    "n": 173,
+    "median": 1350,
+    "min": 1343,
+    "max": 1350,
+    "pci": "0000:01:00.0"
+   },
+   "sha16": "e35ec54b984b67a6",
+   "ca_rmsd_vs_truth": 2.0231
+  },
+  {
+   "tag": "s0_off",
+   "on": false,
+   "seed": 0,
+   "wall_s": 32.4,
+   "plddt": 0.863671,
+   "aiclk": {
+    "n": 104,
+    "median": 1350.0,
+    "min": 1343,
+    "max": 1350,
+    "pci": "0000:01:00.0"
+   },
+   "sha16": "75cd11045995c642",
+   "ca_rmsd_vs_truth": 2.0608
+  },
+  {
+   "tag": "s0_on",
+   "on": true,
+   "seed": 0,
+   "wall_s": 28.076,
+   "plddt": 0.869919,
+   "aiclk": {
+    "n": 100,
+    "median": 1350.0,
+    "min": 1343,
+    "max": 1350,
+    "pci": "0000:01:00.0"
+   },
+   "sha16": "e35ec54b984b67a6",
+   "ca_rmsd_vs_truth": 2.0231
+  },
+  {
+   "tag": "s1_on",
+   "on": true,
+   "seed": 1,
+   "wall_s": 28.112,
+   "plddt": 0.86973,
+   "aiclk": {
+    "n": 99,
+    "median": 1350,
+    "min": 1343,
+    "max": 1350,
+    "pci": "0000:01:00.0"
+   },
+   "sha16": "17a7571e25d172a2",
+   "ca_rmsd_vs_truth": 1.9576
+  },
+  {
+   "tag": "s1_off",
+   "on": false,
+   "seed": 1,
+   "wall_s": 28.475,
+   "plddt": 0.863441,
+   "aiclk": {
+    "n": 102,
+    "median": 1350.0,
+    "min": 1343,
+    "max": 1350,
+    "pci": "0000:01:00.0"
+   },
+   "sha16": "177585a02312187d",
+   "ca_rmsd_vs_truth": 1.961
+  },
+  {
+   "tag": "s2_off",
+   "on": false,
+   "seed": 2,
+   "wall_s": 28.353,
+   "plddt": 0.863593,
+   "aiclk": {
+    "n": 102,
+    "median": 1350.0,
+    "min": 1343,
+    "max": 1350,
+    "pci": "0000:01:00.0"
+   },
+   "sha16": "f28bf7653dd2ee65",
+   "ca_rmsd_vs_truth": 2.1244
+  },
+  {
+   "tag": "s2_on",
+   "on": true,
+   "seed": 2,
+   "wall_s": 28.206,
+   "plddt": 0.869757,
+   "aiclk": {
+    "n": 100,
+    "median": 1350.0,
+    "min": 1343,
+    "max": 1350,
+    "pci": "0000:01:00.0"
+   },
+   "sha16": "1d0e6fa79053e993",
+   "ca_rmsd_vs_truth": 2.0845
+  },
+  {
+   "tag": "s0_on_t1",
+   "on": true,
+   "seed": 0,
+   "wall_s": 28.536,
+   "plddt": 0.869919,
+   "aiclk": {
+    "n": 103,
+    "median": 1350,
+    "min": 1343,
+    "max": 1350,
+    "pci": "0000:01:00.0"
+   },
+   "sha16": "e35ec54b984b67a6",
+   "ca_rmsd_vs_truth": 2.0231
+  },
+  {
+   "tag": "s0_off_t1",
+   "on": false,
+   "seed": 0,
+   "wall_s": 28.375,
+   "plddt": 0.863671,
+   "aiclk": {
+    "n": 101,
+    "median": 1350,
+    "min": 1343,
+    "max": 1350,
+    "pci": "0000:01:00.0"
+   },
+   "sha16": "75cd11045995c642",
+   "ca_rmsd_vs_truth": 2.0608
+  }
+ ],
+ "card": {
+  "hardware": "blackhole",
+  "card_type": "p150a",
+  "sysfs_subsystem": "0x0040",
+  "grid": [
+   11,
+   10
+  ]
+ },
+ "host": "tt-quietbox",
+ "loadavg": [
+  8.18798828125,
+  5.97900390625,
+  4.3828125
+ ]
+}

@@ -131,17 +131,20 @@ def _via2d(x, fn, kw=None):
     reshape here is a relayout (the heads split [N,N,128] -> [N,N,4,32] costs 2 ms), so such
     a shape, a sharded operand, or a caller-chosen program config is left as it came.
 
-    A batch of one is already that product, and reshaping it only adds two dispatches
-    (+20 us on a [1,512,384] projection), so it is left alone too.
+    So is a call that chose where its result lives. ttnn's own program on the view is the
+    fast one for a DRAM result and 11x the slow one for an L1 result: esmfold2's
+    [1,32,512,1024] @ [1024,256] into L1 runs 92 us with its grid and 1011 us without
+    (``perf/bcx_oplin/diag_inplace.json``). A batch of one is already the 2-D product, and
+    reshaping it only adds two dispatches (+20 us on a [1,512,384] projection).
 
     Same operands, same reduction, not always the same bits: where they differ, the 2-D
     result is the one closer to float64. ``linear`` below and the tape's matmuls share it.
     """
     s = [int(d) for d in x.shape]
-    mc = (kw or {}).get("memory_config")
+    kw = kw or {}
     if (math.prod(s[:-2]) <= 1 or s[-2] % ttnn.TILE_SIZE or x.layout != ttnn.TILE_LAYOUT
-            or x.is_sharded() or (kw or {}).get("program_config") is not None
-            or (mc is not None and mc.is_sharded())):
+            or x.is_sharded() or kw.get("program_config") is not None
+            or kw.get("memory_config") is not None):
         return fn(x)
     y = fn(ttnn.reshape(x, [int(math.prod(s[:-1])), s[-1]]))
     return ttnn.reshape(y, s[:-1] + [int(y.shape[-1])])

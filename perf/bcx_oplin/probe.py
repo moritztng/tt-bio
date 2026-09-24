@@ -38,6 +38,10 @@ SHAPES = [  # (x shape, K, N, bias)
     ((512, 512, 128), 128, 16, False),
     ((1, 512, 384), 384, 1536, True),
     ((1, 512, 1536), 1536, 384, True),
+    # esmfold2's outer-product-mean projection (esmfold2.py:1211), 9248 calls per 512 aa fold
+    ((1, 32, 512, 1024), 1024, 256, True),
+    ((1, 512, 512, 1024), 1024, 128, False),
+    ((1, 512, 512, 256), 256, 128, False),
 ]
 
 
