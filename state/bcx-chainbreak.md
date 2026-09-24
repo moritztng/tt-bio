@@ -1,118 +1,170 @@
-# bcx-chainbreak — BindCraft 2 grades four of its six stages on an instrument that is missing a call the other one makes
+# bcx-chainbreak — BindCraft 2's optimiser and its filters read two different molecules, and the difference is bit-exactly one missing call
 
-PREREGISTERED. This file's PREDICTION section was committed before any model ran. Its commit is
-the evidence; `git log --follow state/bcx-chainbreak.md` shows the prediction commit preceding
-every artifact commit.
+PREREGISTERED. The PREDICTION section below was committed at `8e75129ff` before any model ran.
+`git log --follow state/bcx-chainbreak.md` shows that commit preceding every artifact commit.
 
-## The asymmetry, re-read at the pinned commit
+## The asymmetry, at a pinned commit
 
-Upstream `PacesaLab/BindCraft2` at `7a2dfdb`, clean checkout at `~/bcx_e2e/bc2` on qb1.
+Upstream `PacesaLab/BindCraft2`, clean checkout at `~/bcx_e2e/bc2` on qb1, `7a2dfdb`. Re-read at
+today's HEAD `301efdd` through the GitHub API: both findings below are unchanged there.
 
-`bindcraft/af2.py:185-193` defines `monomer_chain_break_indices`: it rewrites `residue_index` so
-that the step across a chain junction is `MONOMER_CHAIN_GAP + 1` = 50, instead of whatever step
-the concatenated per-chain numbering happens to produce. Its docstring says why, and the reason is
-correct: a monomer AlphaFold2 reads `residue_index` alone and would otherwise be handed a peptide
-bond that is not there.
-
-`grep -rn monomer_chain_break_indices bindcraft/` finds one definition and one call:
-
-    af2.py:305-306   (inside _predict_complex)
-        if self.model_families[model][0] == 'monomer' and len(chain_names) > 1:
-            residue_index = monomer_chain_break_indices(chain_lengths, residue_index)
+`bindcraft/af2.py:185-193` defines `monomer_chain_break_indices`. It rewrites `residue_index` so
+the step across a chain junction is `MONOMER_CHAIN_GAP + 1` = 50. Its docstring is right about why:
+a monomer AlphaFold2 reads `residue_index` alone, and numbering straight through hands it a peptide
+bond that is not there. `grep -rn monomer_chain_break_indices bindcraft/` finds one definition and
+one call, at `af2.py:305-306` (`:308` at HEAD), inside `_predict_complex`.
 
 The gradient path is `predict_complex_arrays` inside `_compiled_sequence_gradients`,
 `af2.py:337-345`. It builds `asym_id` (`:338`), `entity_id` (`:339`) and `seq_mask` (`:340`) with
-the same three helpers `_predict_complex` uses at `:302-304`, and then passes `residue_index`
-straight into `alphafold_input_features` at `:342`. There is no chain break on that path, and no
-branch that could add one.
+the same three helpers `_predict_complex` uses at `:302-304`, then passes `residue_index` straight
+into `alphafold_input_features` at `:342`. No chain break, and no branch that could add one.
 
-Both paths reach the same `alphafold_input_features` (`af2.py:128`) and the same metric function
-`alphafold_prediction_metrics` (`af2.py:145`), so `residue_index` is the only feature that differs
-between them for a monomer model on a multi-chain complex. `model_1_ptm` is monomer-family
-(`af2.py:195-198`, no 'multimer' in the name) and a binder design complex has two chains, so the
-branch at `:305` is live on every step of this campaign.
+For a monomer model this is the whole of chain identity: monomer relpos reads `offset` clipped to
++-32 (`bindcraft/af/alphafold/model/modules.py:1469-1484`, `max_relative_feature` 32 in
+`config.py:226`), and `asym_id` is a multimer feature that never reaches it. `model_1_ptm` is
+monomer-family (`af2.py:195-198`) and a binder complex has two chains, so `:305` is live on every
+step of this campaign.
 
-Why `residue_index` matters to a monomer model: monomer relpos builds its pair feature from
-`offset = residue_index[:, None] - residue_index[None, :]` clipped to +-32
-(`bindcraft/af/alphafold/model/modules.py:1469-1484`, `max_relative_feature` 32 in
-`config.py:226`). `asym_id` is a multimer feature and never reaches it. So for a monomer model,
-chain identity is carried by the residue numbering and by nothing else.
+## Which path grades which stage — the part that makes it cost something
 
-## Which path grades which stage
+Read off `bindcraft/trajectory.py`, line numbers at HEAD `301efdd`:
 
-This is the part that turns a feature difference into a lab-facing cost, and it is read off
-`bindcraft/trajectory.py` at the same commit:
+- `screen`, `refine`, `anneal`, `harden` are optimised through `run_gradient_design_stage`, whose
+  predictions come from `design_model.sequence_gradients` (`:131`) — no chain break.
+- `judge_stage` grades those same prediction objects (`:310` calling `:252-256`). For a
+  single-target campaign nothing replaces them: the pooling operation that would call `predict` is
+  gated on `len(design_settings.prepared_states) > 1` (`:178-183`).
+- `mutate` optimises through `run_sequence_mutation_stage`, which scores every candidate with
+  `design_model.predict` (`:162`) — chain break on — and is then graded on
+  `design_model.predict` again (`:272-275`).
+- The `final` filter (`:321-323`) inherits the mutate predictions, so it is also on the predict path.
 
-- `run_trajectory:303` runs each of `screen`, `refine`, `anneal`, `harden` through
-  `run_gradient_design_stage`, whose predictions come from `design_model.sequence_gradients`
-  (`trajectory.py:131`) -- the path with no chain break.
-- `run_trajectory:310` then calls `judge_stage` on exactly those predictions
-  (`trajectory.py:252-256`). For a single-target campaign nothing replaces them: the pooling
-  operation that would call `predict` is gated on `len(design_settings.prepared_states) > 1`
-  (`trajectory.py:178-183`, `multitarget_filter_models`).
-- `run_mutation_polish:271` then does `predictions = design_model.predict(protein_states)` -- the
-  path WITH the chain break -- and grades the `mutate` filters on that (`:273-275`).
-- The `final` filter at `:321-323` inherits the mutate predictions, so it is also on the predict
-  path.
+So a single-target trajectory runs two optimisers against two different objectives and grades four
+of its six gates on one instrument and two on the other. The instrument changes at the
+harden/mutate boundary.
 
-So four of the six filter gates in a single-target trajectory read a metric computed without the
-chain break, and the last two read a metric computed with it. The instrument changes at the
-harden/mutate boundary. A design that is optimised and accepted against the first instrument is
-then judged by the second.
+MEASURED: all on qb1 (`tt-quietbox`), CPU only, no Tenstorrent device opened and none held.
+`JAX_PLATFORMS=cpu`, jax 0.11.2, `~/bcx_e2e_venv/bin/python`, `PYTHONPATH=/home/ttuser/bcx_e2e/bc2`
+at `7a2dfdb`, params `/home/ttuser/bcx_e2e/af2_params/params_model_1_ptm.npz`, `model_1_ptm`,
+`num_recycle` 1, `dropout` False, sequence parameters 1.0 / 1.0 / 0.01 / 2.0 held identical on
+every leg. loadavg 50.6 to 60.6 across the runs; no perf claim is made here, so the load costs
+wall-clock and nothing else. One leg per process, because both entry points memoise their traced
+function and neither cache key mentions the numbering. Raw JSON in `perf/bcx_chainbreak/out/`.
 
-PREDICTION: written before any model ran, with its refutation stated beside it.
+**The two entry points, same complex, binder 32 + target 96:**
 
-The mechanism, stated so it can fail: the entire difference between the two paths' metrics on a
-monomer model is the `residue_index` feature, and its effect is carried by how many cross-chain
-residue pairs the +-32 relpos window admits. Nothing else about the two paths differs in a way
-that reaches the model.
+| leg | pTM | i_pTM | pLDDT | binder pLDDT |
+|---|---|---|---|---|
+| `predict` (mutate/final grade) | 0.294875 | 0.141805 | 0.363348 | 0.337788 |
+| `sequence_gradients` (screen..harden grade) | 0.352421 | **0.522476** | 0.408438 | 0.445945 |
+| `predict` with `monomer_chain_break_indices` made the identity | 0.352421 | **0.522476** | 0.408438 | 0.445945 |
 
-- H1 (single chain). With one chain the branch at `af2.py:305` cannot fire, so the two paths
-  receive an identical `residue_index`. Predicted: the metric gap between them is zero to the
-  precision of the arithmetic, not merely small. REFUTED IF a single-chain design shows a gap of
-  the same order as the two-chain gap; that would mean something other than the chain break
-  separates the paths, and the campaign's reading of the 0.1999 i_pTM gap would have to be
-  reopened.
+The third row equals the second **bit for bit** on all four metrics
+(`0.35242122411727905`, `0.5224756002426147`, `0.4084381478605792`, `0.44594516418874264`), in two
+separate processes. Not to six decimals: every bit. So 100.0% of an i_pTM gap of **0.380671** is
+that one call, with nothing left over. `bcx-unbound` measured the same thing to within i_pTM
+0.001214 and attributed the residual to the gradient path's binder padding; choosing every chain
+length a multiple of 32 removes that padding and the residual with it.
 
-- H2 (dose-response on the window, not on the length). The corruption is the count of cross-chain
-  pairs with `|residue_index_t - residue_index_b| <= 32`. That count is a property of the two
-  chains' NUMBERING, computable from the inputs with no model. Predicted: the metric gap tracks
-  that count's share of all cross-chain pairs, and in particular a complex engineered to have
-  ZERO in-window cross-chain pairs (by shifting the target's own residue numbering far away, which
-  a real PDB can do for free) shows NO gap, while a complex with a large in-window share shows the
-  full gap. REFUTED IF a zero-in-window complex still shows a gap, or a 45%-in-window complex does
-  not.
+**Dose-response across target length, binder held at 32, one binder sequence per cell:**
 
-- H3 (the brief's suggested prediction, which I expect to FAIL as stated). The brief proposes the
-  gap should grow with the target chain's length. I predict it does not, and I am writing the
-  arithmetic down before the run so this is not a retrofit. With binder 1..Lb and target numbered
-  from 1, the in-window cross-chain pair count is about 65*Lb - 32*33 once Lt > Lb: it saturates
-  at the SHORTER chain and does not grow. The denominator Lb*Lt keeps growing. So the in-window
-  SHARE falls roughly as 1/Lt. i_pTM is a normalised mean over interface pairs, so predicted: at
-  fixed binder length the i_pTM gap SHRINKS as the target gets longer. REFUTED IF the gap grows
-  with target length, which would mean the metric responds to the absolute count of corrupted
-  pairs rather than their share, and H2's normalisation is wrong.
+| target | in-window cross pairs | in-window share | i_pTM predict | i_pTM gradient-numbering | i_pTM gap | pTM gap | pLDDT gap |
+|---|---|---|---|---|---|---|---|
+| 96 | 1552 | 50.5% | 0.141805 | 0.522476 | **+0.380671** | +0.057547 | +0.045090 |
+| 160 | 1552 | 30.3% | 0.133754 | 0.542787 | **+0.409032** | −0.001248 | −0.005858 |
+| 288 | 1552 | 16.8% | 0.138566 | 0.562280 | **+0.423715** | +0.036184 | +0.007557 |
 
-H1 and H3 are the two that can embarrass this row, which is why they are here. A confirmation of
-H2 alone, with H3 unstated, would have been a retrodiction: the finding was discovered after the
-rejections it is being asked to explain, and this fleet has filed a mechanism as a cause on that
-footing before.
+**The zero-window control**, binder 32 + target 96 with the target's own numbering shifted to start
+at 4000 so that no cross-chain pair is inside the +-32 window: `predict` and identity-patched
+`predict` return `ptm 0.2948746085166931, iptm 0.14180460572242737, plddt 0.36334849160630256,
+binder_plddt 0.33778767427429557` — identical to each other bit for bit, and identical to the
+unshifted `predict` row. Two residue numberings 3918 apart, same answer to the last bit.
 
-CONFOUNDS, listed before the arms are named, because `bcx-mono` named a variable that turned out
-to be padding. Every property that differs between my single-chain and two-chain arms: chain
-count; total residue count; whether the bucket-32 padding in `_predict_complex:298` pads anything;
-whether `interface_asym_id` has two values or one, which decides whether i_pTM is even defined;
-the binder-chain padding the gradient path inherits from its template shapes. The arms are built
-so that only chain count and residue numbering move, and each of the others is either held or
-reported.
+PREDICTION: written before any model ran, with its refutation beside it, and reported either way.
 
-MEASURED: pending this pass's runs; the census and the model arms are recorded here as they land.
+- **H1 (single chain).** With one chain the branch at `af2.py:305` cannot fire, so both paths get
+  the same `residue_index` and the gap should be zero rather than merely small. REFUTED IF a
+  single-chain design shows a gap of the same order as the two-chain gap.
+  **Status: `predict` on one chain of 128 residues reads pTM 0.2111928015947342, pLDDT
+  0.2989578079432249, i_pTM 0.0 (undefined with one assembly, as expected). Its `sequence_gradients`
+  partner is the leg `runner.sh` is executing now; `out/gradient_64_64_1_c1_s0.json` is where it
+  lands.**
 
-ASYMMETRY: `af2.py:305-306` against `af2.py:337-345` at `7a2dfdb`, quoted above with both sides,
-plus the stage/filter split at `trajectory.py:303`/`:310` against `:271`/`:273-275`.
+- **H2 (the carrier is the window, not the numbering).** The corruption is the count of cross-chain
+  pairs with `|residue_index_t − residue_index_b| <= 32`, computable from the inputs with no model.
+  A complex engineered to have zero in-window cross-chain pairs should show no gap. REFUTED IF a
+  zero-in-window complex still shows a gap, or a 45%-in-window complex does not.
+  **CONFIRMED, and in its sharpest form: the zero-window control is bit-identical between the two
+  numberings, and the 50.5%-in-window complex differs by i_pTM 0.380671.** The carrier is the
+  relpos window. "The numbering changed" is not sufficient: a numbering shifted by 3918 changes
+  nothing at all.
 
-REPRO: `perf/bcx_chainbreak/` -- pure upstream BindCraft 2 on CPU, described below once it runs.
+- **H3 (my own prediction about length, which I expected to beat the brief's).** The brief proposed
+  the gap grows with target length. I predicted the opposite and wrote the arithmetic down first:
+  the in-window count is about `65*Lb − 32*33` once `Lt > Lb`, so it saturates at the SHORTER chain
+  while the denominator `Lb*Lt` keeps growing, and since i_pTM is a normalised mean over interface
+  pairs I predicted the gap would SHRINK as the target got longer.
+  **REFUTED. Mine is wrong and the brief's is closer.** The census confirms the count saturates
+  exactly as predicted — 1552 in-window pairs at every one of the three target lengths, share
+  falling 50.5% → 30.3% → 16.8% — but the i_pTM gap did not follow the share down. It rose:
+  +0.380671 → +0.409032 → +0.423715. The gap tracks the absolute count of corrupted pairs, which is
+  flat, and not their share, which falls threefold. The residual +0.043 of drift over a 3x target
+  length is small next to the gap itself, so the honest statement is that the effect is **saturated,
+  not dose-dependent in length**: it is set by the shorter chain, and the binder is always the
+  shorter chain. Neither "grows with the target's length" nor "shrinks with it" survives as a
+  mechanism claim; what survives is that a binder of any usual length pulls its full 65*Lb band of
+  target residues inside the window no matter how large the target is.
 
-UPSTREAM: an issue on `PacesaLab/BindCraft2` under `moritztng`, or a reasoned decision not to file.
+The damage is concentrated in i_pTM. Across the three lengths the pTM gap is +0.058 / −0.001 /
++0.036 and the pLDDT gap is +0.045 / −0.006 / +0.008, both non-monotonic and an order of magnitude
+smaller. i_pTM is the metric BindCraft 2's stage filters reject on.
 
-VERDICT: PARTIAL -- prediction registered, arms building.
+CONFOUNDS, listed before the arms were named because `bcx-mono` named a variable that turned out to
+be padding. Chain lengths are multiples of 32, so `_predict_complex:298`'s bucket padding and
+`pad_design_chains`'s binder padding both pad zero residues and the two paths see identical shapes.
+Both chains are built from sequence with no template, so `target_template_features` contributes
+nothing that varies. Dropout off and `self.key` fixed on both paths. Same sequence parameters. The
+only input that differs between the legs is `residue_index`, which is what the bit-identity of the
+gradient leg against the identity-patched predict leg demonstrates rather than asserts.
+
+ASYMMETRY: `af2.py:305-306` (`:308` at HEAD `301efdd`) against `af2.py:337-345`, both quoted above;
+and the stage/filter split at `trajectory.py:131` and `:310` against `:162` and `:272-275`. Sized
+on the lab's own gate metrics at three target lengths in the table above; per-length distributions
+over further binder draws are accumulating in `out/` under `runner.sh`.
+
+REPRO: `perf/bcx_chainbreak/chainbreak.py` with `perf/bcx_chainbreak/README.md`. Pure upstream
+BindCraft 2 on CPU: no tt-bio import, no ttnn, no Tenstorrent anything, no structure file, both
+chains built from sequence. From a clean checkout it needs `PYTHONPATH` pointed at the checkout and
+one parameter file, `params_model_1_ptm.npz`, the monomer set `bindcraft fetch-weights` downloads.
+`python chainbreak.py census` needs neither the model nor the parameters and finishes in under a
+second. On 32 loaded CPU cores a `predict` leg at 128 residues takes 62 s including compile, 108 s
+at 192 and 233 s at 320; the `sequence_gradients` leg at 128 takes 205 s. The whole three-length
+table is about 15 minutes of one CPU box.
+
+UPSTREAM: not filed this pass, and filing it is the next action. Groundwork done: upstream issue
+**#13** ("Pdl1-VHH exemplar campaign does not deliver accepted designs", opened by `batch2k`) is the
+live report of the symptom — users seeing trajectories pass screen and refine and then be rejected
+`due to [i_pTM]`, and `ErikMaeots` confirming on 2026-09-23 "I reproduced this bug in the release
+version... this has regressed in the current version. We are investigating." It was closed
+2026-09-24T17:16:09Z by PR #17 (`301efdd`), an amino-acid-bias fix that touches shipped settings and
+nothing in the residue numbering. So the mechanism here is untouched at HEAD and is a separate
+candidate for the same symptom, which is worth saying plainly and without claiming it is the cause
+of #13. Our PR #19 is open on the same repo under `moritztng`, so the account is already engaged
+there.
+
+Whether this changes the reading of our own matched-seed results: **it does not bias the
+comparison, because both arms inherit it identically.** Our device arm and the reference arm run the
+same BC2 harness through the same two entry points, so both optimise the un-chain-broken molecule
+and both are judged at mutate on the chain-broken one. The asymmetry is common-mode and cancels in
+any device-against-reference comparison. What it does change is the reading of any ABSOLUTE
+designs-per-accepted number from either arm: a campaign on this harness is graded at screen,
+refine, anneal and harden on an i_pTM that reads roughly 0.4 high at the sizes measured here, so
+acceptance rates from either arm describe the harness as much as the silicon. The campaign's
+chip-seconds-per-accepted-design axis inherits that, and `bcx-gpuref`'s denominator work should
+know it.
+
+VERDICT: PARTIAL — the asymmetry is established as a bit-exact causal fact rather than an argument,
+H2 is confirmed and H3 (mine) is refuted with the census that explains why, and the reproducer is
+pure upstream CPU and runs in minutes. Outstanding for the next pass: H1's gradient leg and the
+per-length distributions, both executing under `runner.sh` into `out/`, and the upstream issue,
+which is written from this file once those land.
