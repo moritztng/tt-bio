@@ -1,0 +1,4 @@
+# Nesso-1 + B12 on the head with crops recorded: the 512 cell read 0.030 on dc34becb8 against the CPU reference -0.497 and was never compared.
+{"tag": "crops_512_b12_dev", "surface": "script", "input": "perf/mgx_affinity/crop_probe.py", "args": ["perf/mgx_affinity/inputs/size/cdk2_512_b12.yaml", "perf/mgx_affinity/results/crop/cdk2_512_b12_dev_s20260820.json", "--score"]}
+{"tag": "crops_512_b12_dev_s1", "surface": "script", "input": "perf/mgx_affinity/crop_probe.py", "args": ["perf/mgx_affinity/inputs/size/cdk2_512_b12.yaml", "perf/mgx_affinity/results/crop/cdk2_512_b12_dev_s1.json", "--seed", "1", "--score"]}
+{"tag": "crops_1536_b12_dev", "surface": "script", "input": "perf/mgx_affinity/crop_probe.py", "args": ["perf/mgx_affinity/inputs/size/cdk2_1536_b12.yaml", "perf/mgx_affinity/results/crop/cdk2_1536_b12_dev_s20260820.json", "--score"]}
