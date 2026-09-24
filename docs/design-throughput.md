@@ -64,8 +64,8 @@ behind this are in `perf/mgxaccuracy/`.
 Throughput is half the question. The other half is BoltzGen's own designability filter: the
 designed binder's sequence refolded **alone**, aligned back to the backbone it was designed
 for, reported as `designfolding-bb_rmsd`. BoltzGen's paper calls a design good at 2 A and
-acceptable at 4 A. It falls off sharply on a bigger, harder target, and that is not a
-Tenstorrent effect:
+acceptable at 4 A. It varies enormously from target to target, and that is not a Tenstorrent
+effect:
 
 | target | designs | scRMSD median | designable at 2 A |
 |---|---|---|---|
@@ -92,15 +92,24 @@ Three 512-residue windows of the same chain, 100 residues apart, eight designs e
 | residues 101-612 | **16.0 A** | 0 % |
 | residues 201-712 | **17.3 A** | 0 % |
 
-Two of the three sit at 16-17 A and returned nothing usable; the good one is the outlier. So
-moving the window along one protein at a fixed size is worth up to 12.7 A, the same order as
-the roughly 15 A we measure going from 512 to 1536 residues on one crop. Neither is a
-second-order effect.
+Two of the three sit at 16-17 A and returned nothing usable; the good one is the outlier.
 
-The practical consequence is to search the target, not just generate more designs against one
-crop: eight designs against a bad window returned zero binders under 4 A, twice over, and
+**And a bigger target is not reliably worse.** Taking those same two windows out to 1536
+residues moves them in opposite directions:
+
+| | 512 residues | 1536 residues |
+|---|---|---|
+| window starting at residue 1 | **4.7 A** | **19.4 A** |
+| window starting at residue 101 | **17.8 A** | **13.3 A** |
+
+Eight designs per cell. Growing the target makes the first window much worse and the second
+one better, so there is no size rule to apply: what decides whether a design refolds is the
+particular surface at the particular extent, not either on its own.
+
+The practical consequence is to search the target rather than generate more designs against
+one crop. Eight designs against a bad window returned zero binders under 4 A, twice over, and
 eight against a good one returned four. If your target designs badly, try a different window
-before concluding it is too big.
+and a different extent before concluding it is too big.
 
 What does *not* degrade is docking. All eight designs against the 512-residue dimer sit on the
 target — closest heavy atom 1.29 to 2.41 A, 478 to 1199 contacts under 5 A. The failure mode
