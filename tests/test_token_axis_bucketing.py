@@ -184,12 +184,19 @@ def check_one_multiple_for_the_whole_fleet():
                         + ("" if not bad else "; " + "; ".join(bad)))
 
 
-# The one permitted unresolved row, and the task that owes it. Keyed to the owner string so the
+# The permitted unresolved rows, and the task that owes each. Keyed to the owner string so the
 # entry dies with the task rather than outliving it: `rf3-4x-with-accuracy-land` is measuring the
 # bucket against its own per-call TT_BIO_SDPA_RAGGED_PAD and picks on the numbers. Delete this
-# entry the moment it lands. Nothing else may be added -- an allow-list that grows is the
-# convention this file exists to replace.
-ALLOWED_UNBUCKETED = {"rf3": "rf3-4x-with-accuracy-land"}
+# entry the moment it lands.
+#
+# af2ig is the second, added when the model got a --model id (cmp-af2ig). It is here for a
+# different reason than rf3: the bucket is not written yet AND cannot be written without first
+# wiring AF2's MSA mask, which `af2.AF2Attention.__call__` asserts is absent. tt_bio/token_axis.py
+# carries the full argument and the route that makes it safe today (every ragged reduce lands on a
+# primitive that masks its own tail; the fused SDPA is off by default and nothing turns it on).
+# `cmp-af2ig-bucket` owes the mask, the pad and the A/A control on a card. Nothing else may be
+# added -- an allow-list that grows is the convention this file exists to replace.
+ALLOWED_UNBUCKETED = {"rf3": "rf3-4x-with-accuracy-land", "af2ig": "cmp-af2ig-bucket"}
 
 
 def _unbucketed():

@@ -10,7 +10,7 @@
 > [!IMPORTANT]
 > **TT-Boltz is now TT-Bio**
 
-TT-Bio runs [Boltz-2](https://github.com/jwohlwend/boltz), [ESMFold2](https://github.com/Biohub/esm), [Protenix-v1 and Protenix-v2](https://github.com/bytedance/Protenix), [OpenFold3](https://github.com/aqlaboratory/openfold-3), [OpenBind-0](#structure-prediction), [OpenDDE](#structure-prediction), and [RoseTTAFold3](#structure-prediction) structure prediction, [BoltzGen](#design), [RFdiffusion3](#design) and [PXDesign](#design) binder/protein design, and [ESMC protein embeddings](#protein-embeddings-esmc), [SaProt structure-aware protein embeddings](#structure-aware-protein-embeddings-saprot), and [Nesso-1 structure-free binding affinity](#binding-affinity-without-a-structure-nesso-1) on Tenstorrent Blackhole and Wormhole, supporting single-card and multi-card configurations (e.g. QuietBox with 4 cards or Galaxy server with 32 cards). Multiple machines can also be combined into a single prediction run.
+TT-Bio runs [Boltz-2](https://github.com/jwohlwend/boltz), [ESMFold2](https://github.com/Biohub/esm), [Protenix-v1 and Protenix-v2](https://github.com/bytedance/Protenix), [OpenFold3](https://github.com/aqlaboratory/openfold-3), [OpenBind-0](#structure-prediction), [OpenDDE](#structure-prediction), and [RoseTTAFold3](#structure-prediction) structure prediction, [BoltzGen](#design), [RFdiffusion3](#design) and [PXDesign](#design) binder/protein design, and [ESMC protein embeddings](#protein-embeddings-esmc), [SaProt structure-aware protein embeddings](#structure-aware-protein-embeddings-saprot), and [Nesso-1 structure-free binding affinity](#binding-affinity-without-a-structure-nesso-1) on Tenstorrent Blackhole and Wormhole, supporting single-card and multi-card configurations (e.g. QuietBox with 4 cards or Galaxy server with 32 cards). Across several machines, each runs its own controller and a scheduler of your choice spreads the work; see [Running tt-bio on many machines](#running-tt-bio-on-many-machines).
 
 **Benchmarks: [tt-bio.com](https://tt-bio.com)** has throughput and cost for every model against
 NVIDIA DGX H200, B200 and A100. The [full benchmark page](https://tt-bio.com/benchmarks/) has the
@@ -93,6 +93,7 @@ Every command names its model with `--model`:
 - **`saprot`**: structure-aware protein embeddings, an ESM-2 encoder over a fused amino-acid + Foldseek-3Di vocabulary (446 tokens). Needs a structure for the 3Di structural tokens (`--structure`); runs sequence-only without it. Use for variant-effect / mutation-fitness scoring and function prediction.
 - **`nesso1`** (`tt-bio affinity`): protein-ligand binding affinity without a structure. Predicts a soft distogram and reads the affinity off that, so it is much cheaper than folding and it returns no coordinates. Proteins and ligands only.
 - **`opendde`** / **`opendde-abag`**: antibody-antigen co-folding built on the Protenix-v2 stack plus a structural-token expander; `opendde-abag` selects the antibody-antigen checkpoint. Protein, RNA, DNA and ligand chains, with covalent `bond` constraints, cyclic peptides, modified residues and templates in either form (see [Templates](#templates)). Proteins are MSA-dependent (uses an MSA by default, like Protenix-v2).
+- **`af2ig`**: AlphaFold2 initial-guess, the filter binder-design pipelines use to tell a real design from a plausible one. It takes a design you already have -- a structure carrying the target chain and the binder backbone, plus the binder's sequence -- re-predicts the complex starting from those coordinates, and reports pLDDT, pTM, ipTM, pAE and interface pAE. Single-sequence, no diffusion, no seed: the same input gives the same answer. Input format and an example are in [`examples/af2_designed_complex.yaml`](examples/af2_designed_complex.yaml); the file takes `target:` and `binder:` and nothing else, and any other key is refused rather than ignored. Weights are DeepMind's AlphaFold2 monomer pTM parameters; `tt-bio weights --download af2ig` fetches them (4 GB, one file kept).
 - **`rf3`**: folds complexes of proteins, RNA, DNA, and ligands (an AlphaFold3-family model, [RoseTTAFold3](https://github.com/RosettaCommons/foundry) from the Institute for Protein Design); MSA-dependent for proteins (uses an MSA by default). Writes AlphaFold3-style `<name>_summary_confidences.json` (pTM, ipTM, chain-pair PAE/PDE, ranking score) next to each structure. Modified residues and covalent bonds to a ligand or modified residue are supported; cyclic chains, a bond between two standard residues (a disulfide) and pocket constraints are refused. Templates work in either form (see [Templates](#templates)). Weights download from the IPD on first use.
 
 ```bash
@@ -107,6 +108,7 @@ tt-bio predict examples/prot.yaml --model rf3            # MSA on by default; we
 tt-bio predict examples/prot.yaml --model rf3 \
     --partial_t 150 --partial_structure start.cif       # refine start.cif instead of folding from scratch
 tt-bio predict targets.yaml --model rf3 --early_stop_plddt 0.5   # skip the rollout on hopeless targets
+tt-bio predict examples/af2_designed_complex.yaml --model af2ig  # score a designed complex: ipTM + interface pAE
 ```
 
 | Feature | Boltz-2 | ESMFold2 | Protenix-v1 | Protenix-v2 | OpenFold3 | OpenBind-0 | OpenDDE | RF3 |
@@ -120,7 +122,7 @@ templates and affinity are one generated matrix:
 [`docs/model-capabilities.md`](docs/model-capabilities.md). Anything a model cannot honour is
 refused by name before the fold starts, never accepted and dropped.
 
-Every structure model folds at least 1024 residues on a single 12 GiB Wormhole chip. The limit
+Every structure model folds at least 1536 residues on a single 12 GiB Wormhole chip. The limit
 below is the largest size that folded, under the first measured failure where one was found,
 walked with the settings the platform sends:
 
@@ -131,7 +133,7 @@ walked with the settings the platform sends:
 | `openfold3` | 1664 | 1792 |
 | `openbind` | 1664 (residues; a ligand adds tokens) | 1792 |
 | `pxdesign` | 1536 (target residues; the binder is on top) | none found; top of the ladder |
-| `protenix-v2` | 1792 (residues; a ligand adds tokens) | 1920 |
+| `protenix-v2` | 2048 (residues; a ligand adds tokens) | none found; top of the ladder |
 | `esmfold2` | 1664 (residues; a ligand adds tokens) | 1792 |
 | `esmfold2-fast` | 1664 (residues; a ligand adds tokens) | 1792 |
 | `rf3` | 1600 | 1664 |
@@ -262,8 +264,7 @@ spinning on them. The output is identical either way, and a single fold is
 unaffected. See [Tuning flags](docs/tuning-flags.md) for the measurement, or set
 `OMP_WAIT_POLICY` yourself to take the decision back.
 
-If you have additional machines with Tenstorrent cards, you can add them to a
-single run; see [Optional: Multi-Machine Prediction](#optional-multi-machine-prediction).
+To spread work across several machines, see [Running tt-bio on many machines](#running-tt-bio-on-many-machines).
 
 ### Protein Embeddings (ESMC)
 
@@ -312,8 +313,8 @@ loads its model once and keeps it resident across every call, so the reload cost
 above is paid once per worker, not once per invocation:
 
 ```bash
-tt-bio controller --listen 8765          # starts + keeps a worker per local card
-tt-bio embed proteins.fasta --model esmc-6b --controller http://localhost:8765
+tt-bio controller --port 8765            # starts + keeps a worker per local card
+tt-bio embed proteins.fasta --model esmc-6b --controller http://127.0.0.1:8765
 ```
 
 The same capability is available from Python:
@@ -748,7 +749,6 @@ Model-specific options are labelled below.
 | `--device_ids`, `--devices` | — | Comma-separated TT device IDs (e.g. `0,2`); `--devices` is the shorter alias (matches `tt-bio embed`) |
 | `--host_threads` | all cores | Total CPU threads this process may use, split across its cards. Set it when you run several single-card predicts side by side on one host: each one otherwise sizes its thread pools to every core and they fight for the CPU. Use cores ÷ concurrent predicts. At two threads per card or fewer the pools also stop spinning through device syncs ([Tuning flags](docs/tuning-flags.md)) |
 | `--fast` | `False` | Makes some operations use a lower-precision numeric format that runs faster; accuracy is typically very close |
-| `--listen` | — | Accept worker connections from other machines; see [Multi-Machine Prediction](#optional-multi-machine-prediction) |
 | `--report-energy` | `False` | **(Boltz-2)** Enables optional energy profiling for one TT device (requires `tt-mgmt` add-on); writes `power_profile.csv` and `power_profile.png` |
 | `--energy-metric` | `both` | **(Boltz-2)** Choose power channel(s): `tdp`, `input`, or `both` |
 | `--energy-sample-hz` | `20.0` | **(Boltz-2)** Sampling rate in Hz for both `power_w` and `input_power_w` channels |
@@ -808,6 +808,7 @@ The engine ships its device optimizations on. Each one is an environment variabl
 | `TT_BIO_MSA_LADDER` | on | Boltz-2 and BoltzGen: pads the MSA depth axis to the smallest of 64, 128, 256, 512, 1024 that holds the alignment instead of always to 1024, so a shallow search stops carrying rows that are not there. **Not bit-exact** — a shorter rung reassociates the same terms. Scored against 1HCL it is as accurate or closer. |
 | `TT_BIO_OPM_LEGACY_LAYOUT` | off | Restores `OuterProductMean`'s old output stage. By default the MSA mean's `1/depth` scalar is applied to the per-row MSA tensor (2,097,152 B at 512 residues) instead of to the assembled pair rows it used to multiply (536,870,912 B), and the output projection runs as one matmul over the flattened token rows instead of once per row against a pinned core grid. Reaches every model that builds the shared `OuterProductMean`: the Boltz-2 and BoltzGen trunk, Protenix, OpenFold3's MSA embedder, RF3 and AF2. **Not bit-exact** — unpinned, the projection sums in a different order, one bf16 step. On the hinged 512-residue fixture the two arms differ by 0.29 to 1.59 A worst pseudo-domain across four seeds, against 1.09 to 1.42 A for the old path against its own seeds, and neither arm separates from the other against the crystal. Worth **0.1577 s** of a 512-residue fold (14.3923 s to 14.2346 s at 1350 MHz, six interleaved reps against a 0.0339 s A/A floor). |
 | `TT_BIO_PAIR_FFN_L1_FC1` | on | ESMFold2 only: keeps both halves of the pair transition's first matmul in L1, so the SiLU multiply that consumes them reads on chip instead of out of DRAM. Folds 512 residues **1.0879x faster on Blackhole**. Same structure, bit for bit; it pays up to 512 residues and is inert above, where the block leaves it no room. |
+| `TT_BIO_PAIR_INPLACE` | on | Where a pair tensor is too big to have a second copy beside it on the card (over 1.5 GiB on a 12 GiB Wormhole chip, one eighth of DRAM elsewhere), writes each block of a triangle attention, transition or triangle multiplication result back into the pair tensor on the card instead of assembling the result on the host. Same structure, bit for bit. Only OpenDDE's structural-token refiner reaches that size at 1536 residues or below; with `TT_BIO_TRIMUL_INPROJ_ROWBLOCK_NORM` it folds 1536 residues on one Wormhole chip in 2826 s instead of 4221 s. See [Tuning flags](docs/tuning-flags.md). |
 | `TT_BIO_PWA_BATCH_HEAD_WEIGHTS` | on | Computes every attention head's MSA row weights from one projection of the pair tensor instead of one projection per head. Same structure, bit for bit. |
 | `TT_BIO_REBLOCK_PERMUTE_GATED` | on | Folds a triangle multiplication's chunk and its two sigmoid gates into the channel move that feeds them. Same structure, bit for bit. |
 | `TT_BIO_RESIDUAL_L1` | on | Has the two Pairformer sub-layers whose residual update used to go to DRAM and come straight back write it to L1 instead. Same structure, bit for bit; the update stays in DRAM above 512 residues, where it no longer fits. |
@@ -822,6 +823,7 @@ The engine ships its device optimizations on. Each one is an environment variabl
 | `TT_BIO_TRIATT_SDPA_HIFI_AB` | on for the OpenFold3 trunk, off elsewhere | Runs a triangle attention through the fused SDPA at HiFi4 with the reference reduction order, instead of the materialised fp32-softmax chain. OpenFold3 folds 512 residues **1.5123x faster** with it (34.138 s to 22.574 s on Blackhole, 1.7297x at 640 residues), and it declines every call at 1088 residues, where the fold stays byte-identical to the old route. **Not bit-exact** below that: at 298 residues it moves a structure 2.58-8.01 A CA where a different seed moves it 5.23-9.78 A, and it lands 0.396 A closer to the deposited structure than the route it replaces. Per construction site, so a bare `openfold3.trunk` forces it on, `-openfold3.trunk` forces it off, and `all` / `-all` do the same to every site with no token of its own. Boltz-2 and RF3 build the same block and ship off. |
 | `TT_BIO_TRIMUL_FUSED_GOUT` | on | Computes a triangle multiplication's output gate as a second output of its input projection. Same structure, bit for bit. |
 | `TT_BIO_TRIMUL_GP_BANK_SPLIT` | on | Interleaves the gate and value columns of a triangle multiplication's fused input projection so the channel move reads each pair from two DRAM banks instead of one. Same structure, bit for bit; the gain is Blackhole's, free elsewhere. |
+| `TT_BIO_TRIMUL_INPROJ_ROWBLOCK_NORM` | on | For a pair tensor over 3 GiB, computes a triangle multiplication's input projection in row blocks that each normalise their own rows, instead of joining each channel group's projection on the host. Same structure, bit for bit. Only OpenDDE's structural-token refiner reaches that size at 1536 residues or below. See [Tuning flags](docs/tuning-flags.md). |
 | `TT_BIO_TRIMUL_MASK_AFTER_MOVE` | on | Applies a triangle multiplication's pair mask after the channel move rather than before it. Same structure, bit for bit. |
 | `TT_BIO_TRIMUL_MASK_L1` | on | Keeps a triangle multiplication's pair mask in L1, where the channel-blocked multiply re-reads it without touching DRAM. Same structure, bit for bit. |
 | `TT_BIO_TRIMUL_MM_TRANSPOSE` | on | Lets the matmul take a triangle multiplication's operand transpose instead of running a separate transpose first. Same structure, bit for bit; `--fast` keeps the separate op, because transposing inside the matmul re-quantises a block-float tile. |
@@ -849,23 +851,15 @@ export MSA_API_KEY_VALUE=your-api-key
 tt-bio predict ... --model boltz2 --use_msa_server
 ```
 
-## Optional: Multi-Machine Prediction
+## Running tt-bio on many machines
 
-Combine the cards across any mix of Tenstorrent machines (a workstation, one
-or more QuietBoxes, one or more Galaxy servers) into a single run.
-
-On the machine driving the run:
-
-```bash
-tt-bio predict ./proteins --model boltz2 --listen 8765 --use_msa_server --fast
-```
-
-On every additional machine, replace `HOST` with the driving machine's
-hostname or IP:
-
-```bash
-tt-bio worker --connect http://HOST:8765
-```
+Each machine runs its own `tt-bio controller`, which listens on 127.0.0.1 and keeps a
+worker on every chip. Work reaches it through `--controller`, and whatever spreads jobs
+across machines sits on top: a platform, a cluster scheduler, or the fifty-line
+[`examples/many_hosts.py`](examples/many_hosts.py), which folds a directory across
+several hosts over ssh. [docs/multi-host.md](docs/multi-host.md) is the contract a
+scheduler builds against: the endpoints, what a host advertises, the lease and how a
+result settles once.
 
 ## Optional: Energy Measurement (Boltz-2)
 
@@ -911,7 +905,7 @@ tt-bio design specs.json --model rfd3 --from_pdb --out_dir designs/
 
 **[PXDesign](https://github.com/bytedance/PXDesign)** generates binder backbones against a target structure, conditioned on a distogram of the target rather than its coordinates. Input is a target YAML naming a structure file, the chains to condition on (with optional per-chain crop and hotspots) and a `binder_length`; each design is written as a CIF in the target structure's own frame, so it opens alongside your input file. A `designs.json` lands beside them with each design's numbers: fit RMSD against the target, binder residue and atom counts, and how many target tokens it was conditioned on. The binder is written as GLY because PXDesign generates a backbone with no sequence. Hotspot residues are `label_seq` numbers, not the author numbering a viewer shows, and a number that names no residue is refused rather than dropped. `--num_designs` is also the batch axis for this model: every requested design comes from one batched diffusion trajectory, and the gain per design grows with the batch and shrinks with the target: 2.7x at 8 designs against a 256-residue target, 1.5x against a 512-residue one, and flat from 16 up rather than turning back. A given `--seed` and `--num_designs` always reproduce the same designs, but `--num_designs 1` and `--num_designs 2` do not share their design 0: asking for more designs currently changes which ones you get, so pin both values when you want a run back. Selecting designs, which upstream does with a Protenix and an AF2-IG filter, is not on the CLI yet.
 
-Each model downloads its weights automatically on first use. BoltzGen and RFdiffusion3 fan out across every available card (`--devices 0,2` restricts); PXDesign runs on one card locally, or one design per card across a fleet with `--controller http://host:8765`. `tt-bio gen` still works as a deprecated alias for `tt-bio design --model boltzgen`.
+Each model downloads its weights automatically on first use. BoltzGen and RFdiffusion3 fan out across every available card (`--devices 0,2` restricts); PXDesign runs on one card locally, or one design per card across a host's controller with `--controller http://127.0.0.1:8765`. `tt-bio gen` still works as a deprecated alias for `tt-bio design --model boltzgen`.
 
 How many designs a card returns per hour, how `--num_designs` and `--devices` move it, and how to size a campaign: [`docs/design-throughput.md`](docs/design-throughput.md).
 

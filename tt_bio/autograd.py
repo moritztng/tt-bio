@@ -406,13 +406,15 @@ def _tape(out_value, parents: Sequence[Tensor], make_fn) -> Tensor:
     # nobody wants still shares storage with one that somebody does, and it is the view
     # that the shipped code deallocates.
     try:
-        addr = out_value.buffer_address()
+        addr = out_value.buffer_address() if out_value.is_allocated() else None
     except Exception:                                       # host tensor, or no buffer yet
         addr = None
+    # A parent the tape already freed shares nothing; asking `is_allocated()` first spares
+    # a TT_FATAL that ttnn logs before the except below can swallow it.
     if addr is not None:
         for p in parents:
             try:
-                shared = p.value.buffer_address() == addr
+                shared = p.value.is_allocated() and p.value.buffer_address() == addr
             except Exception:
                 shared = False
             if shared:

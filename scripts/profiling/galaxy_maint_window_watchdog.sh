@@ -52,7 +52,7 @@ mine=$(grep -E "^Opened:" "$HOLD" 2>/dev/null)
   for p in $(ps -eo pid,args | grep "[t]t_bio.main worker --connect http://127.0.0.1:8899" | awk '{print $1}'); do
     kill -TERM "$p" 2>/dev/null
   done
-  for p in $(ps -eo pid,args | grep "[t]t_bio.main controller --listen 127.0.0.1:8899" | awk '{print $1}'); do
+  for p in $(ps -eo pid,args | grep "[t]t_bio.main controller --port 8899" | awk '{print $1}'); do
     kill -TERM "$p" 2>/dev/null
   done
   sleep 40
