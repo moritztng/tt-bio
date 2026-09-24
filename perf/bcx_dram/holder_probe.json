@@ -1,0 +1,104 @@
+{
+ "seed": 200,
+ "binder": 176,
+ "n_complex": 291,
+ "n_padded": 307,
+ "bucket": 32,
+ "steps_requested": 2,
+ "base_dram_bytes": 235208704,
+ "gc_probe": false,
+ "stage": "screen",
+ "stage_iterations": 50,
+ "stopped": "step budget reached",
+ "rows": [
+  {
+   "step": 1,
+   "seconds": 189.422,
+   "span": [
+    1790278992.621175,
+    1790279182.0433562
+   ],
+   "design_loss": 10.529776573181152,
+   "dram_before_gb": 0.2191,
+   "dram_peak_fwd_gb": 2.6561,
+   "dram_peak_bwd_gb": 5.3578,
+   "dram_after_gb": 5.3578,
+   "live_tapes": 0,
+   "ckpt_pins": 0,
+   "calls": {
+    "primal": 0,
+    "taped": 2,
+    "backward": 1
+   },
+   "rss_gb": 10.103,
+   "ag_tensor": 4767,
+   "ag_node": 0,
+   "ttnn_tensor": 0
+  },
+  {
+   "step": 2,
+   "seconds": 125.396,
+   "span": [
+    1790279184.6172822,
+    1790279310.0128264
+   ],
+   "design_loss": 9.190805435180664,
+   "dram_before_gb": 5.3578,
+   "dram_peak_fwd_gb": 7.4057,
+   "dram_peak_bwd_gb": 10.1039,
+   "dram_after_gb": 10.1039,
+   "live_tapes": 0,
+   "ckpt_pins": 0,
+   "calls": {
+    "primal": 0,
+    "taped": 4,
+    "backward": 2
+   },
+   "rss_gb": 10.177,
+   "ag_tensor": 5161,
+   "ag_node": 0,
+   "ttnn_tensor": 0,
+   "holder": {
+    "survivors_from_step1": 4582,
+    "wrapped": 4369,
+    "params": 0,
+    "survivors_with_node": 274,
+    "survivors_leaf_requires_grad": 4,
+    "paths": {
+     "Tensor <- list <- builtins.list_iterator <- list <- list <- list <- list <- list <- list <- list <- list <- list <- list <- list <- list": 12
+    },
+    "gc_unreachable": 5352,
+    "gc_released_gb": 9.4922
+   }
+  }
+ ],
+ "device_calls": {
+  "primal": 0,
+  "taped": 4,
+  "backward": 2
+ },
+ "aiclk": {
+  "n": 1207,
+  "min": 1312,
+  "median": 1350,
+  "max": 1350
+ },
+ "stamp": {
+  "host": "tt-quietbox2",
+  "card": 2,
+  "subsystem_device": "0x0046",
+  "commit": "fdcc9655c72c4169f773d0fd53653749b572596f",
+  "tt_bio_dirty": false,
+  "torch_threads": 8,
+  "loadavg": [
+   56.44140625,
+   59.10107421875,
+   58.75439453125
+  ],
+  "utc": "2026-09-24T19:49:08Z"
+ },
+ "resident_first_gb": 5.3578,
+ "resident_last_gb": 10.1039,
+ "resident_rise_gb": 4.7461,
+ "peak_max_gb": 10.1039
+}
