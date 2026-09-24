@@ -91,7 +91,7 @@ def main():
            "atoms": a.atoms, "windows": K, "dim": a.dim, "reps": a.reps,
            "inner": a.inner, "t0": time.time()}
 
-    T.get_device(trace_region_size=1 << 29)
+    T.get_device(trace="diffusion")
     dev = T.get_device()
     grid = T.CORE_GRID_MAIN
     ckc = ttnn.WormholeComputeKernelConfig(

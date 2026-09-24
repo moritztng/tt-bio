@@ -33,6 +33,7 @@ import ttnn
 
 from . import protenix_weights as PW
 from .envflags import env_flag
+from .sample_chunks import denoise_in_chunks, resolve_sample_chunk_width
 from .token_axis import bucket_multiple as _bucket_multiple
 from .protenix_weights import remap_adaln  # single source of all v2->tt-bio weight remaps
 from . import ops
@@ -292,7 +293,7 @@ def _window_q(x, N, NP, nq=32):
     return ttnn.to_layout(ttnn.reshape(x, (NP // nq, nq, x.shape[-1])), ttnn.TILE_LAYOUT)
 
 
-_UPLOAD_REFUSED_ROWS = {}  # host tensor shape -> depth-chunk rows, once DRAM refused its whole upload
+_UPLOAD_REFUSED_ROWS = {}  # host m shape -> depth-chunk rows, once DRAM refused its whole upload or the OPM over it
 _TEMPLATE_ROWS_REFUSED = {}  # pair shape -> row block the template residual settled at
 
 _WIN_KV_IDX = {}  # (gen,NP,nq,nk) -> (1, nb*nk) uint32 gather index, device tensor on the
@@ -408,21 +409,40 @@ class _KeyedWeights:
         return ttnn.from_torch(t, layout=ttnn.TILE_LAYOUT, device=get_device(),
                                dtype=getattr(self, "dtype", ttnn.bfloat16))
 
-    def _up_or_host_chunks(self, t):
-        """`t` [1, depth, tokens, c] uploaded whole, or, if DRAM refuses that, as host-tiled
-        depth chunks that OuterProductMean uploads one at a time (its chunk-list input).
+    def _opm_from_host(self, opm, t, z):
+        """`z + opm(t)` for a host-resident `t` [1, depth, tokens, c]: `t` uploaded whole, or, if
+        DRAM refuses that upload or the OPM that reads it, as host-tiled depth chunks that
+        OuterProductMean uploads one at a time (its chunk-list input).
 
-        The refusal is fragmentation, not a full chip: protenix-v2 at 1408 tokens against 8192
-        alignment rows was refused 2952790016 B with 596 MiB per bank free and a 202 MiB largest
-        block. The chunk list is the form every later MSA block already hands OPM, and it is not
-        bit-exact against the whole-depth product (it reassociates the depth sum), so it runs only
-        after a refusal. The memo skips the refused upload on later recycling cycles."""
-        return _T.row_block_after_refusal(
-            _UPLOAD_REFUSED_ROWS, tuple(t.shape), lambda: self._up(t),
-            lambda r: [ttnn.from_torch(t[:, s:s + r].contiguous(), layout=ttnn.TILE_LAYOUT,
-                                       dtype=getattr(self, "dtype", ttnn.bfloat16))
-                       for s in range(0, t.shape[1], r)],
-            MSA_CHUNK_SIZE, "protenix msa upload")
+        Both refusals are fragmentation, not a full chip. protenix-v2 at 1408 tokens against 8192
+        alignment rows was refused the upload itself (2952790016 B, 596 MiB per bank free, 202 MiB
+        largest block). At 1280 tokens against 14743 rows the 2.4 GB upload lands and OPM's own
+        160 MiB depth slice of it is then refused with 10 MiB largest free block per bank: the
+        whole `m` is still on the chip beside OPM's full-depth projections. The chunk list is the
+        form every later MSA block already hands OPM, and it is not bit-exact against the
+        whole-depth product (it reassociates the depth sum), so it runs only after a refusal. The
+        memo skips the refused attempt on later recycling cycles.
+
+        OPM gives back its own partial buffers before a refusal leaves it, and adds its residual
+        out of place until a successful join, so the chunked retry reads the same `z`. A refusal
+        that did consume `z` is raised as it is rather than retried on a freed buffer."""
+        def whole():
+            d = self._up(t)
+            try:
+                return opm(d, None, None, residual=z)
+            finally:
+                ttnn.deallocate(d)
+
+        def chunked(r):
+            if not z.is_allocated():
+                raise RuntimeError("protenix msa: OPM was refused after it consumed its residual; "
+                                   "the depth-chunked retry has no pair to add to")
+            return opm([ttnn.from_torch(t[:, s:s + r].contiguous(), layout=ttnn.TILE_LAYOUT,
+                                        dtype=getattr(self, "dtype", ttnn.bfloat16))
+                        for s in range(0, t.shape[1], r)], None, None, residual=z)
+
+        return _T.row_block_after_refusal(_UPLOAD_REFUSED_ROWS, tuple(t.shape), whole, chunked,
+                                          MSA_CHUNK_SIZE, "protenix msa upload")
 
     def _lin(self, x, wkey, bkey=None, activation=None):
         # `narrow_proj` is where the template z projection lands, at [1,298,320,256] @ [256,64].
@@ -2408,7 +2428,7 @@ class Protenix:
         ptm, iptm} for n_sample==1, or a list of such dicts (one per sample) for n_sample>1.
         trace=True replays a captured ttnn trace of the denoise stream (lossless; faster on
         dispatch-bound diffusion, e.g. -22% warm at L256). Requires the device to have been
-        opened with a trace region: get_device(trace_region_size=1 << 30).
+        opened with get_device(trace="protenix").
 
         gamma0 / step_scale are the sampler's churn and step-size knobs. None keeps
         `edm_sample`'s protenix-v2 defaults (0.8 and 1.5). They are arguments because they are
@@ -2418,10 +2438,7 @@ class Protenix:
         import torch
         if trace:
             import tt_bio.tenstorrent as _TTd
-            if _TTd.trace_region_size() <= 0:
-                raise ValueError(
-                    "fold(trace=True) needs a device opened with a trace region; "
-                    "call get_device(trace_region_size=1 << 30) before folding.")
+            _TTd.require_trace_region("fold(trace=True)")
         cond, _aux = self._trunk_cond(feats, progress_fn=progress_fn, n_cycles=n_cycles)
         N, NT = _aux["N"], _aux["NT"]
         s_inputs, s_trunk, z_trunk = _aux["s_inputs"], _aux["s_trunk"], _aux["z_trunk"]
@@ -2795,12 +2812,9 @@ class Trunk(_KeyedWeights):
             if self._msa_update_first:
                 m_feat = update_msa(m_feat, z3, pwa, tm)
             if torch.is_tensor(m_feat):
-                # Protenix-order block 0 reads the pristine m with OPM. OPM chunk-gates itself,
-                # so a single transient upload is enough; update_msa below streams from host.
-                m_dev = self._up_or_host_chunks(m_feat)
-                z3 = opm(m_dev, None, None, residual=z3)
-                if not isinstance(m_dev, list):
-                    ttnn.deallocate(m_dev)
+                # Protenix-order block 0 reads the pristine m with OPM, from one transient upload
+                # or its depth chunks; update_msa below streams from host.
+                z3 = self._opm_from_host(opm, m_feat, z3)
             else:
                 z3 = opm(m_feat, None, None, residual=z3)
             dram_peak("trunk msa block: after opm")
@@ -3084,13 +3098,10 @@ def edm_sample(diffusion_module, cond, n_atoms, *, multiplicity=1, max_parallel_
     collapses per-step dispatch on dispatch-bound diffusion). The captured trace is fixed
     at (1,N,3), so trace=True with multiplicity>1 falls back to the untraced denoise
     (correctness first; a batched trace would need re-capture per (N,M)). Requires the
-    device to have been opened with a trace region (get_device(trace_region_size=...))."""
+    device to have been opened with get_device(trace="protenix")."""
     import torch
     from .boltz2 import compute_random_augmentation
     M = max(1, int(multiplicity))
-    if max_parallel_samples is None or max_parallel_samples > M:
-        max_parallel_samples = M
-    max_parallel_samples = max(1, int(max_parallel_samples))
     # trace is captured at (1,N,3): keep it only for the unbatched path; fall back to
     # the untraced (but batch-aware) denoise for M>1 so the device forward is correct.
     _denoise = (diffusion_module.denoise_traced if trace and M == 1 else diffusion_module.denoise)
@@ -3150,9 +3161,10 @@ def edm_sample(diffusion_module, cond, n_atoms, *, multiplicity=1, max_parallel_
     # NOT replicated; the device denoise is responsible for carrying the chunk's leading
     # dim through the atom encoder / DiT / decoder (see DiffusionModule.denoise).
     etas = step_scale_schedule(step_scale, n_step)
-    sample_ids = torch.arange(M)
-    n_chunks = max(1, (M + max_parallel_samples - 1) // max_parallel_samples)
-    chunks = [c for c in sample_ids.chunk(n_chunks) if c.numel() > 0]
+    width = resolve_sample_chunk_width(M, max_parallel_samples)
+    # A multi-target batch concatenates its conditioning per member, so a chunk would slice
+    # the coordinate stream but not the conditioning: it runs whole or not at all.
+    narrowest = M if "_members" in cond else 1
     for k in range(n_step):
         if progress_fn:
             progress_fn("diffusion", step=k, total=n_step)
@@ -3175,9 +3187,10 @@ def edm_sample(diffusion_module, cond, n_atoms, *, multiplicity=1, max_parallel_
         else:
             eps = (noise_var ** 0.5) * torch.randn(shape)
         x_noisy = x + eps
-        denoised = torch.zeros_like(x_noisy)
-        for _chunk in chunks:
-            denoised[_chunk] = _denoise(x_noisy[_chunk], torch.tensor([t_hat], dtype=torch.float32), cond)
+        t_dev = torch.tensor([t_hat], dtype=torch.float32)
+        denoised, width = denoise_in_chunks(
+            x_noisy, width, lambda chunk, _w: _denoise(chunk, t_dev, cond),
+            narrowest=narrowest, tag="protenix diffusion")
         dram_peak(f"edm step {k}")
         trunk_tap_host(f"edm_denoised[step{k}]", denoised)
         d = (x_noisy - denoised) / t_hat

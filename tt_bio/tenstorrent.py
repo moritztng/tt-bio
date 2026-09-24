@@ -1859,6 +1859,38 @@ def _sdpa_pad_ragged(q, k, v, bias):
     return qp, kp, vp, bp, q_pad
 
 
+_ZERO_MASKS = {}  # (id(device), Lq, Lk) -> (device, zero [1, 1, Lq, Lk]); cleanup() empties it
+
+
+def fused_sdpa(q, k, v, attn_mask=None, *, scale: float, **kw):
+    """`ttnn.transformer.scaled_dot_product_attention`, never unmasked. Every tt_bio call of the
+    fused op goes through here; `tests/test_fused_sdpa_single_site.py` fails on one that does not.
+
+    With `attn_mask=None` the op returns the wrong attention at some program configs on both
+    Wormhole's 8x9 and Blackhole's 13x10 grid: q_chunk = k_chunk = 128 at any head dim, and
+    128/256 and 256/256 at head dim 32, PCC 0.2-0.9 against torch fp32 and a different wrong
+    output from one call to the next. The same call with an all-zero additive mask is right at
+    every config swept, to 2048 tokens (`perf/mgx_sdpa/`). So a missing mask becomes a zero
+    [1, 1, Lq, Lk] one, which the op broadcasts over batch and heads.
+
+    The zero mask is uploaded once per (device, Lq, Lk) and kept, because an upload is a host
+    write and a trace capture refuses those. A caller that captures a trace runs the same forward
+    eagerly first (every capture in tt_bio warms up outside it), so the capture finds the mask
+    already on the device and the replay reads a buffer that stays alive. Only lengths that reach
+    here unmasked are cached, one [Lq, Lk] bf16 tile grid each.
+    """
+    if attn_mask is None:
+        dev = q.device()
+        key = (id(dev), int(q.shape[2]), int(k.shape[2]))
+        hit = _ZERO_MASKS.get(key)
+        if hit is None:  # the device is kept in the entry so its id cannot be reused
+            hit = _ZERO_MASKS[key] = (dev, ttnn.zeros([1, 1, key[1], key[2]], dtype=ttnn.bfloat16,
+                                                      layout=ttnn.TILE_LAYOUT, device=dev))
+        attn_mask = hit[1]
+    return ttnn.transformer.scaled_dot_product_attention(
+        q, k, v, attn_mask=attn_mask, is_causal=False, scale=scale, **kw)
+
+
 def _sdpa_masked(fn, q, k, v, bias, *args, site: str, pad: bool = False, **kw):
     """Run a fused SDPA through `fn` with the ragged tile tail masked out.
 
@@ -2196,8 +2228,8 @@ def _tri_att_sdpa_at(q, k, v, bias, scale: float, ckc=None, gate=None):
                 if gate is not None:
                     continue
                 try:
-                    o = ttnn.transformer.scaled_dot_product_attention(
-                        q, k, v, attn_mask=bias, is_causal=False, scale=scale,
+                    o = fused_sdpa(
+                        q, k, v, attn_mask=bias, scale=scale,
                         program_config=_sdpa_program_config(q_chunk, k_chunk),
                     )
                     SDPA_K_CHUNK_STATS[0] += 1
@@ -2225,8 +2257,8 @@ def _tri_att_sdpa_at(q, k, v, bias, scale: float, ckc=None, gate=None):
         return None
     for q_chunk in fits[:-1]:
         try:
-            o = ttnn.transformer.scaled_dot_product_attention(
-                q, k, v, attn_mask=bias, is_causal=False, scale=scale,
+            o = fused_sdpa(
+                q, k, v, attn_mask=bias, scale=scale,
                 program_config=_sdpa_program_config(q_chunk, k_chunk),
             )
             _sdpa_pick(q_len, k_len, q_chunk, k_chunk, "stock")
@@ -2248,8 +2280,8 @@ def _tri_att_sdpa_at(q, k, v, bias, scale: float, ckc=None, gate=None):
     # which is why it is reached ONLY after the device has refused: a length that folds today
     # never enters this branch and keeps its exact numbers.
     try:
-        o = ttnn.transformer.scaled_dot_product_attention(
-            q, k, v, attn_mask=bias, is_causal=False, scale=scale,
+        o = fused_sdpa(
+            q, k, v, attn_mask=bias, scale=scale,
             program_config=_sdpa_program_config(fits[-1], k_chunk),
         )
         _sdpa_pick(q_len, k_len, fits[-1], k_chunk, "stock")
@@ -2258,8 +2290,8 @@ def _tri_att_sdpa_at(q, k, v, bias, scale: float, ckc=None, gate=None):
         absorb_l1_refusal("tri_att_sdpa/last_q_chunk", exc)
         _SDPA_Q_CHUNK_OVER_L1.add((q_len, k_len, fits[-1], q.dtype))
         _latch("sdpa_q_chunk", "refused", exc)
-    o = ttnn.transformer.scaled_dot_product_attention(
-        q, k, v, attn_mask=bias, is_causal=False, scale=scale)
+    o = fused_sdpa(
+        q, k, v, attn_mask=bias, scale=scale)
     _sdpa_pick(q_len, k_len, 0, k_chunk, "stock")
     return o
 
@@ -4354,7 +4386,19 @@ def _triangle_mul_program_config(seq_len_tiles: int) -> ttnn.MatmulMultiCoreReus
     gx, gy = COMPUTE_GRID_MAIN
     per_core_M = -(-seq_len_tiles // gy)
     per_core_N = -(-seq_len_tiles // gx)
+    # The band's block is priced like every other matmul plan and narrowed only when its
+    # circular buffers overflow the bank. On a Wormhole 8x9 grid that starts at Kt = 80
+    # (2560 padded tokens): at Kt = 81 the band's 9 prices at 1476608 B against a 1395424 B
+    # bank, and the device refused it beside live L1 ("static circular buffer region ends at
+    # 1449248", Nesso-1 at 2560 aa + a 20-token ligand). On Blackhole's 11x10 it starts at
+    # Kt = 100. Below that every shape keeps its block and its output; a narrowed block
+    # reorders the fp32 K accumulation of a shape that threw or sat within a live
+    # activation of throwing. Past Kt = 113 on Wormhole even a block of 1 is over the bank:
+    # the output block itself is the next wall.
+    budget = _matmul_cb_budget()
     in0_block_w = _trimul_in0_block_w(seq_len_tiles)
+    while in0_block_w > 1 and _matmul_cb_bytes(in0_block_w, per_core_M, per_core_N, 2) > budget:
+        in0_block_w = max(d for d in range(in0_block_w - 1, 0, -1) if seq_len_tiles % d == 0)
     return ttnn.MatmulMultiCoreReuseMultiCastProgramConfig(
         compute_with_storage_grid_size=(gx, gy),
         in0_block_w=in0_block_w,
@@ -5592,19 +5636,49 @@ def _assert_local_dispatch(dev):
                            f"(likely a remote-only init): {e}") from e
 
 
-def get_device(trace_region_size=0):
+#: Trace region per capture, per arch. ttnn takes this many bytes off EVERY DRAM bank, yet
+#: end_trace_capture checks the device's live trace buffers, summed over all banks, against it:
+#: "Creating trace buffers of size 7929856B ..., but only 2097152B is allocated" is boltz2's
+#: 663552 B/bank DiT step on 12 Wormhole banks. So each entry is the largest measured total
+#: (bytes per bank x banks), doubled and rounded up to a MiB (perf/mgx_trace_region/CENSUS.md).
+#: A capture is its command stream, not its tensors, and barely moves with size: 671744 B/bank
+#: for the same step at 1536 tokens. A capture that outgrows its region raises (TT_FATAL, the
+#: chip stays usable). A region at or past a bank does not raise: 1 GiB is larger than a whole
+#: Wormhole bank (1073741792 B), the allocator's bank size underflows to 2**64 - 32 and the
+#: chip's first dispatch never completes. So a caller names its capture and never passes bytes.
+TRACE_REGIONS = {
+    "diffusion": {"wormhole_b0": 16 << 20, "blackhole": 27 << 20},    # boltz2 / boltzgen DiT step
+    "protenix": {"wormhole_b0": 20 << 20, "blackhole": 36 << 20},     # protenix-v1/v2, opendde step
+    "esmc": {"wormhole_b0": 221 << 20, "blackhole": 126 << 20},       # ESMC._TRACE_CACHE_MAX live traces
+}
+
+
+def trace_region_bytes(capture):
+    """Bytes per DRAM bank to reserve at open for ``capture`` (a TRACE_REGIONS key) on this arch."""
+    try:
+        return TRACE_REGIONS[capture][arch_name()]
+    except KeyError:
+        raise ValueError(f"no trace region for capture {capture!r} on {arch_name()}; "
+                         f"known captures: {sorted(TRACE_REGIONS)}") from None
+
+
+def require_trace_region(what):
+    """Raise, naming ``what``, unless the open device reserved a trace region."""
+    if _trace_region_size <= 0:
+        raise ValueError(f"{what} needs a device opened with a trace region: call "
+                         f"get_device(trace=<capture>) before anything else opens it.")
+
+
+def get_device(trace=None):
     """Open (or return cached) TT device 0.
 
     Worker processes set TT_VISIBLE_DEVICES before importing ttnn, so the
     assigned physical chip appears as logical device 0.
 
-    trace_region_size: bytes to reserve for ttnn trace capture. Pass a nonzero
-    size (e.g. 1 << 30) to enable the Protenix denoise trace via fold(trace=True)
-    or BoltzGen's diffusion trace (Boltz.__init__(diffusion_trace=True)); the
-    default 0 leaves the device layout unchanged. If the arg is 0,
-    ``TT_BIO_TRACE_REGION_SIZE`` is consulted as a dev-only escape hatch so a
-    single-BH open can reserve a trace region without the caller threading the
-    kwarg.
+    trace: the capture this process will replay (a TRACE_REGIONS key, e.g. "diffusion"),
+    which reserves that capture's trace region at open. None leaves the device layout
+    unchanged. Only the first call opens, so the capture must be named before anything
+    else asks for the device.
     """
     global _device, _trace_region_size, _device_lease
     if _device is None:
@@ -5626,7 +5700,7 @@ def get_device(trace_region_size=0):
         if _device_lease is None:
             _device_lease = CardSetLease().acquire()
         try:
-            _device = _open_and_init_device(trace_region_size)
+            _device = _open_and_init_device(trace_region_bytes(trace) if trace else 0)
         except Exception:
             _device_lease.release()
             _device_lease = None
@@ -6081,21 +6155,6 @@ def _acc_append(acc: list, t: ttnn.Tensor, host: bool) -> None:
 def _open_and_init_device(trace_region_size):
     """Open + configure TT device 0 (the physical card is already leased by the caller)."""
     global _trace_region_size
-    if trace_region_size == 0:
-        env_sz = os.environ.get("TT_BIO_TRACE_REGION_SIZE")
-        if env_sz:
-            trace_region_size = int(env_sz)
-    if trace_region_size >= 2 ** 32:
-        # A trace region of exactly 4 GiB or more wedges tt-metal instead of erroring: the
-        # capture records fine, then end_trace_capture blocks forever inside
-        # MeshTrace::populate_mesh_buffer -> enqueue_write_shard_to_sub_grid -> finish(), and
-        # the completion-queue reader thread spins at 100 % CPU on a completion that never
-        # arrives. Measured on qb2 / ttnn 0.68.0 / P300: 3.9 GiB closes a capture in 2.6 ms,
-        # 4.0 GiB never closes, for a bare ttnn.add with no model. Refuse it here rather than
-        # let a caller hang, and keep the byte count so the message is unambiguous.
-        raise ValueError(
-            f"trace_region_size={trace_region_size} is >= 2**32; tt-metal truncates it and "
-            "end_trace_capture never returns. Use 1 GiB (what the denoiser trace asks for).")
     device_id = int(os.environ.get("TT_BIO_LOGICAL_DEVICE_ID", "0"))
     # A lone P300 chip is a custom topology and open_device() is a TT_FATAL without a mesh
     # graph descriptor ("Custom fabric mesh graph descriptor path must be specified for CUSTOM
@@ -6122,8 +6181,6 @@ def _open_and_init_device(trace_region_size):
         {"dispatch_core_config": ttnn.DispatchCoreConfig(ttnn.DispatchCoreType.ETH)}
         if eth_dispatch else {}
     )
-    # Opt-in ttnn trace region for the Protenix denoise trace (dispatch-bound
-    # diffusion). Default 0 -> device layout unchanged when tracing is off.
     if trace_region_size > 0:
         kwargs["trace_region_size"] = trace_region_size
     dev = _open_device_locked(device_id, kwargs)
@@ -6151,6 +6208,7 @@ def cleanup():
             ttnn.synchronize_device(_device)
         except Exception:
             pass
+        _ZERO_MASKS.clear()  # device tensors, freed while the device is still open
         _close_device_locked(_device)
         _device = None
         _trace_region_size = 0
@@ -8764,12 +8822,11 @@ class AttentionPairBias(Module):
             )
         if self.dtype != ttnn.float32:
             return _sdpa_masked(
-                lambda q_, k_, v_, b_: ttnn.transformer.scaled_dot_product_attention(
+                lambda q_, k_, v_, b_: fused_sdpa(
                     q_,
                     k_,
                     v_,
                     attn_mask=b_,
-                    is_causal=False,
                     scale=self.head_dim**-0.5,
                     program_config=_sdpa_program_config_for_lengths(
                         q_.shape[2], k_.shape[2], q_.shape[0] * q_.shape[1],
@@ -8792,12 +8849,11 @@ class AttentionPairBias(Module):
             bias, ttnn.bfloat16, memory_config=bias.memory_config()
         )
         out_bf16 = _sdpa_masked(
-            lambda q_, k_, v_, b_: ttnn.transformer.scaled_dot_product_attention(
+            lambda q_, k_, v_, b_: fused_sdpa(
                 q_,
                 k_,
                 v_,
                 attn_mask=b_,
-                is_causal=False,
                 scale=self.head_dim**-0.5,
                 program_config=_sdpa_program_config_for_lengths(
                     q_.shape[2], k_.shape[2], q_.shape[0] * q_.shape[1],
@@ -9010,10 +9066,9 @@ class AttentionPairBias(Module):
                 # chain's (q@k^T + z) * head_dim**-0.5 exactly in exact arithmetic; what differs
                 # is the bf16 exponentiated-score buffer, hence the accuracy gate on this arm.
                 o = _sdpa_masked(
-                    lambda q_, k_, v_, b_: ttnn.transformer.scaled_dot_product_attention(
+                    lambda q_, k_, v_, b_: fused_sdpa(
                         q_, k_, v_,
                         attn_mask=b_,
-                        is_causal=False,
                         scale=self.head_dim**-0.5,
                         program_config=_sdpa_program_config_for_lengths(
                             q_.shape[2], k_.shape[2], q_.shape[0] * q_.shape[1],
@@ -12525,33 +12580,8 @@ class DiffusionModule(TorchWrapper):
             self._cache_set("bias_decoder", self._hoist_layer_bias(
                 prepare_atom_bias(bias_decoder), self.module.decoder))
 
-            if isinstance(bias_token, ttnn.Tensor):
-                # PairConditioningDevice produced it on the device, already padded. Both the
-                # 201 MB download the host path did to build it and this upload disappear.
-                bias = bias_token
-            else:
-                if token_pad:
-                    bias_token = torch.nn.functional.pad(
-                        bias_token, (0, 0, 0, token_pad, 0, token_pad))
-                bias = self._from_torch(bias_token)
-            bias = ttnn.multiply_(
-                bias, (TOKEN_DIM / TOKEN_N_HEADS) ** 0.5
-            )
-            bias_token_tt = ttnn.permute(bias, (0, 3, 1, 2))
-            if isinstance(bias_token, ttnn.Tensor):
-                # The device conditioning hands its tensor over (the multiply_ above already
-                # scaled it in place) and nothing reads it after this permute. Kept, it was a
-                # second [n, n, heads * layers] copy through the whole sampler: 2.14 GiB at
-                # 1728 tokens.
-                ttnn.deallocate(bias)
-            if token_pad:
-                # Fuse additive padding mask into token bias (bfloat16 for -1e9)
-                seq_mask = torch.zeros(1, 1, 1, padded_seq)
-                seq_mask[..., seq_len:] = -1e9
-                bias_token_tt = ttnn.add_(bias_token_tt, self._from_torch(seq_mask))
-            self._cache_set("bias_token", self._hoist_layer_bias(
-                bias_token_tt,
-                None if self.module.token_transformer_fp32 else self.module.token_transformer))
+            if self._cache_get("bias_token") is None:
+                self._cache_set("bias_token", self._stage_token_bias(bias_token, token_pad, seq_len))
 
             if atom_pad or token_pad:
                 atom_to_token = torch.nn.functional.pad(atom_to_token, (0, token_pad, 0, atom_pad))
@@ -12569,6 +12599,38 @@ class DiffusionModule(TorchWrapper):
             self._cache_set("cond_ref", cond_key)
             self._first_forward_pass = False
         return seq_len, N, N_padded
+
+    def _stage_token_bias(self, bias_token, token_pad: int, seq_len: int):
+        """Scale, permute and pad-mask the token DiT's attention bias. It does not depend on the
+        sample width, so a narrower chunk keeps it (``reset_sample_width``)."""
+        padded_seq = seq_len + token_pad
+        if isinstance(bias_token, ttnn.Tensor):
+            # PairConditioningDevice produced it on the device, already padded. Both the
+            # 201 MB download the host path did to build it and this upload disappear.
+            bias = bias_token
+        else:
+            if token_pad:
+                bias_token = torch.nn.functional.pad(
+                    bias_token, (0, 0, 0, token_pad, 0, token_pad))
+            bias = self._from_torch(bias_token)
+        bias = ttnn.multiply_(
+            bias, (TOKEN_DIM / TOKEN_N_HEADS) ** 0.5
+        )
+        bias_token_tt = ttnn.permute(bias, (0, 3, 1, 2))
+        if isinstance(bias_token, ttnn.Tensor):
+            # The device conditioning hands its tensor over (the multiply_ above already
+            # scaled it in place) and nothing reads it after this permute. Kept, it was a
+            # second [n, n, heads * layers] copy through the whole sampler: 2.14 GiB at
+            # 1728 tokens. Nothing may re-stage from it, hence reset_sample_width.
+            ttnn.deallocate(bias)
+        if token_pad:
+            # Fuse additive padding mask into token bias (bfloat16 for -1e9)
+            seq_mask = torch.zeros(1, 1, 1, padded_seq)
+            seq_mask[..., seq_len:] = -1e9
+            bias_token_tt = ttnn.add_(bias_token_tt, self._from_torch(seq_mask))
+        return self._hoist_layer_bias(
+            bias_token_tt,
+            None if self.module.token_transformer_fp32 else self.module.token_transformer)
 
     def _hoist_layer_bias(self, bias: ttnn.Tensor, transformer):
         """L7: cut the per-layer head-ranges once, here, instead of once per denoise step.
@@ -12700,14 +12762,8 @@ class DiffusionModule(TorchWrapper):
         """Traced equivalent of ``forward``. Captures the per-step DiT device
         graph once per (B, N_padded) and replays it each step with the new
         ``r`` / ``times`` staged into the captured input buffers. Requires a
-        device opened with a trace region (get_device(trace_region_size=1<<30)
-        or TT_BIO_TRACE_REGION_SIZE)."""
-        import tt_bio.tenstorrent as _TTd
-        if _TTd.trace_region_size() <= 0:
-            raise ValueError(
-                "forward_traced needs a device opened with a trace region; "
-                "call get_device(trace_region_size=1 << 30) (or set "
-                "TT_BIO_TRACE_REGION_SIZE) before tracing.")
+        device opened with get_device(trace="diffusion")."""
+        require_trace_region("the diffusion trace")
         seq_len, N, N_padded = self._populate_diffusion_cache(
             r.shape[0], s_inputs, s_trunk, q, c,
             bias_encoder, bias_token, bias_decoder,
@@ -12727,6 +12783,15 @@ class DiffusionModule(TorchWrapper):
         ttnn.execute_trace(self.tt_device, tr["tid"], cq_id=0, blocking=False)
         result = torch.Tensor(ttnn.to_torch(tr["out"])).to(torch.float32)
         return result[:, :N, :]
+
+    def reset_sample_width(self):
+        """Drop what is staged per sample batch so a narrower chunk re-stages it, but keep the
+        token bias: it does not depend on the width, and its device source was freed when it
+        was staged. ``cond_ref`` stays so a new fold still resets everything."""
+        kept = {k: self._runtime_cache.pop(k) for k in ("bias_token", "cond_ref")
+                if k in self._runtime_cache}
+        self.reset_static_cache()
+        self._runtime_cache.update(kept)
 
     def reset_static_cache(self):
         super().reset_static_cache()

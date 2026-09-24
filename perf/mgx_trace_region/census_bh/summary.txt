@@ -1,0 +1,7 @@
+b2_512 rc=0 1 captures
+px2_512 rc=0 1 captures
+esmc_fill8 rc=0 8 captures
+b2_1536 rc=0 1 captures
+px2_1536 rc=1 1 captures
+rfd3_dec rc=0 2 captures
+BH_DONE

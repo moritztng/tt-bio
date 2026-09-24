@@ -86,3 +86,29 @@ def test_the_loose_budget_admitted_a_plan_the_allocator_refuses():
     assert need > BANK, "the shared budget refuses it"
     assert UNRESERVED + T._MATMUL_CB_SLACK - BANK == 201760, (
         "the two budgets differed by this much per core, and that is the whole regression")
+
+
+WH_BANK = 1395424       # Wormhole, what the L1 allocator reports per bank (j10glx02)
+
+
+@pytest.mark.parametrize("grid, bank, first", [((8, 9), WH_BANK, 80), ((11, 10), BANK, 100)])
+def test_trimul_block_narrows_only_where_the_band_overflows(monkeypatch, grid, bank, first):
+    """The triangle product's K block is the band's until the shared pricer refuses it.
+
+    Nesso-1 at 2560 aa + a 20-token ligand (Kt = 81 on Wormhole) threw a static CB clash at
+    the band's in0_block_w = 9. Below the first overflowing Kt the config must be the band's,
+    byte for byte, because a different block is a different accumulation order.
+    """
+    monkeypatch.setattr(T, "COMPUTE_GRID_MAIN", grid)
+    monkeypatch.setattr(T, "_matmul_cb_budget", lambda: bank)
+    T._triangle_mul_program_config.cache_clear()
+    try:
+        for kt in range(1, first):
+            assert T._triangle_mul_program_config(kt).in0_block_w == T._trimul_in0_block_w(kt), kt
+        cfg = T._triangle_mul_program_config(first)
+        assert cfg.in0_block_w < T._trimul_in0_block_w(first)
+        assert T._matmul_cb_bytes(cfg.in0_block_w, cfg.per_core_M, cfg.per_core_N, BF16) <= bank
+        if grid == (8, 9):
+            assert T._triangle_mul_program_config(81).in0_block_w == 3
+    finally:
+        T._triangle_mul_program_config.cache_clear()

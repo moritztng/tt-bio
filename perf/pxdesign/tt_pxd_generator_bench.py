@@ -154,8 +154,7 @@ def main():
     from tt_bio.main import ensure_p300_mesh_descriptor
     from tt_bio.tenstorrent import get_device
     ensure_p300_mesh_descriptor()
-    trs = (1 << 30) if args.trace else 0
-    device = get_device(trace_region_size=trs)
+    device = get_device(trace="protenix" if args.trace else None)
     ckc = ttnn.init_device_compute_kernel_config(
         device.arch(), math_fidelity=ttnn.MathFidelity.HiFi4,
         fp32_dest_acc_en=True, packer_l1_acc=True)

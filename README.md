@@ -120,30 +120,33 @@ templates and affinity are one generated matrix:
 [`docs/model-capabilities.md`](docs/model-capabilities.md). Anything a model cannot honour is
 refused by name before the fold starts, never accepted and dropped.
 
-Targets of 850-1095 residues have folded on a single 12 GiB Wormhole card on every structure
-model, but that is not the same as a ceiling: a few models fail at sizes *below* one they handle,
-because the failure is an L1 layout clash that follows the padded tile shape rather than the
-residue count -- a model can fold 608 residues and throw at 576. So the size a model is safe up
-to is the largest one below its first measured failure, which for several models on Wormhole is
-under 1024:
+Every structure model folds at least 1536 residues on a single 12 GiB Wormhole chip. The limit
+below is the largest size that folded, under the first measured failure where one was found,
+walked with the settings the platform sends:
 
 | model | Wormhole limit | first measured failure |
 |---|---:|---:|
-| `opendde`, `opendde-abag` | 1536 | none found; top of the ladder |
-| `openfold3` | 1536 | none found; top of the ladder |
-| `openbind` | 1536 (residues; a ligand adds tokens) | none found; top of the ladder |
+| `boltz2` | 1920 | 2048 |
+| `opendde`, `opendde-abag` | 1536 | 1664 (it runs for hours rather than crashing) |
+| `openfold3` | 1664 | 1792 |
+| `openbind` | 1664 (residues; a ligand adds tokens) | 1792 |
 | `pxdesign` | 1536 (target residues; the binder is on top) | none found; top of the ladder |
-| `protenix-v2` | 1024 (residues; a ligand adds tokens) | 1095 |
-| `esmfold2` | 1024 (residues; a ligand adds tokens) | 1056 |
-| `esmfold2-fast` | 1152 (residues; a ligand adds tokens) | 1248 |
+| `protenix-v2` | 2048 (residues; a ligand adds tokens) | none found; top of the ladder |
+| `esmfold2` | 1664 (residues; a ligand adds tokens) | 1792 |
+| `esmfold2-fast` | 1664 (residues; a ligand adds tokens) | 1792 |
+| `rf3` | 1600 | 1664 |
+| `protenix-v1` | 2048 | none found; top of the ladder |
 | `rfd3` | 1536 (motif + designed) | none found; top of the ladder |
 | `boltzgen` | 14786 (atoms in the target) | none found; top of the ladder |
 | `esmc-6b` (embed) | 1968; 8192 with `--fast` | 1984 |
 
+For every model here that reads an alignment, the limit was measured with 16384 alignment rows,
+the most any of them reads, so a deeper a3m does not lower it.
+
 Ask for more than a model's limit and tt-bio refuses before it opens a device, naming the
-model, the limit and any model that does take the input. `rf3` is not in the table because
-it folds every rung to 1095 residues, the top of its ladder. `boltz2` and `nesso1` have no
-measured limit and are never refused.
+model, the limit and any model that does take the input. `nesso1` has no measured
+limit and is never refused. What sets each wall is in
+[docs/large-targets.md](docs/large-targets.md#what-stops-each-model-above-1024-on-a-galaxy-chip).
 
 `boltzgen` is the one model sized on atoms rather than residues, because its wall follows the
 target's atom count and atoms per residue vary with what the target is made of: the 14786-atom
@@ -195,15 +198,14 @@ into a warning and runs it anyway.
 A ligand counts against these limits. Its heavy atoms are tokens the model pays for exactly like
 residues, and on `esmfold2`, `esmfold2-fast`, `openbind` and `protenix-v2` the wall is on tokens,
 so a cocrystal is checked on residues plus ligand atoms rather than on the residue count alone.
-`esmfold2` folds 1024 residues, which leaves no room at all: 1024 residues plus any ligand is
-refused, and 991 residues with a 33-atom ligand folds. `openbind` is the same: its 1536 was
+`esmfold2` folds 1664 residues, which leaves no room at all: 1664 residues plus any ligand is
+refused, and 1640 residues with a 24-atom ligand is admitted. `openbind` is the same: its 1664 was
 walked apo, so a ligand counts against it atom for atom. Either way the
 refusal names the token count and the wall, and it arrives before a device is opened instead of
 as an out-of-memory error part way through the fold.
 
-`esmfold2-fast` is the same architecture at half the trunk depth and is roomier, which is why it
-has its own row rather than sharing one: it folds 1152 residues and fails at 1280, where the full
-trunk already fails at 1057.
+`esmfold2-fast` is the same architecture at half the trunk depth. It has its own row because it
+was walked on its own; today both fold 1664 residues and fail at 1792.
 
 The pair track switches to row-blocked execution at a size threshold smaller targets never reach,
 so their speed and numerics are untouched. See [docs/large-targets.md](docs/large-targets.md).
@@ -489,7 +491,9 @@ Against a GPU it is 7.9x off an H200 at that size, so choose it for what the ans
 hardware rather than expecting it to beat a GPU.
 
 Use it to rank a series; use `predict --model boltz2` when you need the pose. Proteins and ligands
-only, one ligand scored per input. The trunk runs bf16 by default: it is about 6x faster than fp32
+only, one ligand scored per input. One Wormhole chip scores a 3072-residue target with any
+ligand up to cobalamin's size in about 15 minutes. 3584 residues also completes but takes about
+two hours, because the chip's memory spills to the host; 4096 is refused. The trunk runs bf16 by default: it is about 6x faster than fp32
 and no less accurate from 276 tokens up, and fp32 runs out of DRAM around 1000 tokens. On inputs
 under ~150 tokens fp32 is the more faithful arm, and `--trunk fp32` switches back. See
 [`docs/nesso1.md`](docs/nesso1.md) for the input schema, the four upstream limits, and what to watch
@@ -726,11 +730,11 @@ Model-specific options are labelled below.
 | `--partial_t` | `0` | rf3 only. Schedule index the diffusion rollout starts at, so it refines `--partial_structure` instead of folding from scratch. Higher stays closer to that structure |
 | `--partial_structure` | — | rf3 only. The `.cif`/`.pdb`/`.json` structure `--partial_t` refines. It supplies the sequences too, so no MSA is attached |
 | `--early_stop_plddt` | — | rf3 only. Abandon a target after the first trunk recycle if its mean pLDDT is below this. Writes no structure; the results entry carries `early_stopped` |
-| `--max_parallel_samples` | `5` | **(Boltz-2/Protenix/OpenDDE)** Diffusion samples denoised in one batched forward. Device memory grows linearly in it; lower it if a large target runs out of memory. ESMFold2 sizes its own chunk to free memory; OpenFold3, OpenBind and RF3 denoise one sample at a time |
+| `--max_parallel_samples` | `5` | **(Boltz-2/Protenix/OpenDDE)** Diffusion samples denoised in one batched forward. Device memory grows linearly in it; when the chip refuses a batch the fold halves it on its own, down to one sample, instead of failing. ESMFold2 sizes its own chunk to free memory; OpenFold3, OpenBind and RF3 denoise one sample at a time |
 | `--output_format` | `cif` | `cif` or `pdb`. A PDB has one column for the chain id, so a longer name is rewritten `A`, `B`, `C`... and the originals go into a `REMARK 999` block; `cif` keeps them as submitted. See [docs/model-capabilities.md](docs/model-capabilities.md#outputs) |
 | `--seed` | `0` | Random seed for the diffusion sampler |
-| `--trace` | `False` | **(Protenix-v1/Protenix-v2/OpenDDE)** Replay a captured trace of the per-step diffusion device stream. Lossless, and removes the per-step host dispatch; reserves 1 GiB of device memory |
-| `--diffusion_trace` | `False` | **(Boltz-2)** The same for Boltz-2's diffusion DiT stream |
+| `--trace` | `False` | **(Protenix-v1/Protenix-v2/OpenDDE)** Replay a captured trace of the per-step diffusion device stream instead of dispatching it from the host every step. The output is identical to a run without it. On Wormhole at 512 tokens it did not change the end-to-end time, and it reserves 0.2-0.3 GB of device memory |
+| `--diffusion_trace` | `False` | **(Boltz-2)** The same for Boltz-2's diffusion DiT stream; `tt-bio design --model boltzgen` takes the same flag |
 | `--write_pde` | `False` | **(Boltz-2)** Write the PDE matrix to its own `<name>_pde.npz`. The Protenix family and OpenDDE put PDE next to PAE in one file under `--write_pae` instead |
 | `--write_embeddings` | `False` | **(Boltz-2)** Write the `s`/`z` embeddings per target |
 | `--override` | `False` | Re-run from scratch |
@@ -768,7 +772,7 @@ Model-specific options are labelled below.
 | `--single_sequence` | `False` | Fold without an MSA (Boltz-2/Protenix-v1/Protenix-v2/OpenFold3/OpenDDE) |
 | `--msa_server_url` | `https://api.colabfold.com` | MSA server URL |
 | `--msa_pairing_strategy` | `greedy` | `greedy` or `complete` |
-| `--max_msa_seqs` | `8192` | Maximum MSA depth. The default applies to Boltz-2 and ESMFold-2 only; Protenix, OpenDDE, RF3, OpenFold3 and OpenBind fold the whole alignment unless you set it. Each fold reports the depth it used as `msa_depth` |
+| `--max_msa_seqs` | `8192` | Maximum MSA depth. The default applies to Boltz-2 only. Unless you set it, the other models read what their upstream reads: ESMFold-2, Protenix, OpenDDE, OpenFold3 and OpenBind up to 16384 rows, RF3 1024 rows drawn per recycle. Each fold reports the depth it used as `msa_depth` |
 | `--subsample_msa` | `False` | Subsample MSA |
 | `--num_subsampled_msa` | `1024` | Number of subsampled sequences |
 

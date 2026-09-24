@@ -1,0 +1,7 @@
+# interleaved trace/eager pairs at 512: is the trace faster, slower, or inside the noise
+b2t_512_tr_1 predict perf/size512/fixtures/cdk2x2_512.yaml --model boltz2 --out_dir {out} --diffusion_samples 1 --seed 0 --host_threads 2 --accelerator tenstorrent --override --diffusion_trace
+b2t_512_ea_1 predict perf/size512/fixtures/cdk2x2_512.yaml --model boltz2 --out_dir {out} --diffusion_samples 1 --seed 0 --host_threads 2 --accelerator tenstorrent --override
+b2t_512_tr_2 predict perf/size512/fixtures/cdk2x2_512.yaml --model boltz2 --out_dir {out} --diffusion_samples 1 --seed 0 --host_threads 2 --accelerator tenstorrent --override --diffusion_trace
+b2t_512_ea_2 predict perf/size512/fixtures/cdk2x2_512.yaml --model boltz2 --out_dir {out} --diffusion_samples 1 --seed 0 --host_threads 2 --accelerator tenstorrent --override
+b2t_512_tr_3 predict perf/size512/fixtures/cdk2x2_512.yaml --model boltz2 --out_dir {out} --diffusion_samples 1 --seed 0 --host_threads 2 --accelerator tenstorrent --override --diffusion_trace
+b2t_512_ea_3 predict perf/size512/fixtures/cdk2x2_512.yaml --model boltz2 --out_dir {out} --diffusion_samples 1 --seed 0 --host_threads 2 --accelerator tenstorrent --override

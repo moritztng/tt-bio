@@ -1,0 +1,2 @@
+{"tag": "p_trimul_cb", "surface": "script", "input": "perf/mgx_affinity/trimul_cb_probe.py", "args": ["--out", "perf/mgx_affinity/results/trimul_cb_probe_wh.json"]}
+{"tag": "nf_2560_small_fix", "surface": "nesso1", "input": "perf/mgx_affinity/inputs/size/cdk2_2560_small.yaml"}

@@ -45,6 +45,7 @@ from tt_bio.tenstorrent import (
     _PAIR_FFN_FC1_BW,
     _pair_proj_linear,
     _sdpa_program_config_for_lengths,
+    fused_sdpa,
     get_device,
     trace_region_size,
 )
@@ -241,8 +242,8 @@ class Attention(Module):
             k = ttnn.multiply(k, key_valid)
             v = ttnn.multiply(v, key_valid)
 
-        o = ttnn.transformer.scaled_dot_product_attention(
-            q, k, v, attn_mask=attn_mask, is_causal=False, scale=head_dim**-0.5,
+        o = fused_sdpa(
+            q, k, v, attn_mask=attn_mask, scale=head_dim**-0.5,
             program_config=_sdpa_program_config_for_lengths(q.shape[2], k.shape[2], q.shape[0] * q.shape[1], site="esmc", d=q.shape[3]),
         )
         ttnn.deallocate(q); ttnn.deallocate(k); ttnn.deallocate(v)
@@ -981,9 +982,10 @@ class ESMC(TorchWrapper):
     """
 
     # One captured trace per (bucketed length, mask layout) key. 8 concurrent
-    # traces fit the reserved region with headroom (one ESMC-300M trace is a
-    # few MB of trace buffer) and cover the working set of a length-sorted
-    # single-sequence stream.
+    # traces fit the reserved region with 2x headroom (one ESMC-300M trace at
+    # 1534 residues is 1.25 MB on each of Wormhole's 12 banks) and cover the working set
+    # of a length-sorted single-sequence stream. A capture that does not fit
+    # raises, and _dispatch falls back to eager.
     _TRACE_CACHE_MAX = 8
 
     def __init__(self, d_model: int, n_heads: int, n_layers: int, *, trace: bool = True):
@@ -1051,13 +1053,22 @@ class ESMC(TorchWrapper):
             key_valid.to(torch.bfloat16), device=dev,
             layout=ttnn.TILE_LAYOUT, dtype=ttnn.bfloat16)
         rope = rope_tables(tokens.shape[-1], self.d_model // self.n_heads, device=dev)
-        for _ in range(2):  # warm compile + program cache outside the capture
+        # warm compile + program cache outside the capture; also leaves fused_sdpa's zero mask
+        # on the device for an unpadded forward, so the capture does not upload one
+        for _ in range(2):
             wl, we = self.module(tok_d, mask_d, kv_d, _rope=rope)
             ttnn.deallocate(wl)
             ttnn.deallocate(we)
         ttnn.synchronize_device(dev)
         tid = ttnn.begin_trace_capture(dev, cq_id=0)
-        lg, em = self.module(tok_d, mask_d, kv_d, _rope=rope)
+        try:
+            lg, em = self.module(tok_d, mask_d, kv_d, _rope=rope)
+        except BaseException:
+            # Close the capture, or the device stays in it and the eager fallback's first
+            # upload throws too.
+            ttnn.end_trace_capture(dev, tid, cq_id=0)
+            ttnn.release_trace(dev, tid)
+            raise
         ttnn.end_trace_capture(dev, tid, cq_id=0)
         tr = {"tid": tid, "tokens": tok_d, "mask": mask_d, "kv": kv_d,
               "cos": rope[0], "sin": rope[1], "logits": lg, "emb": em}
@@ -1141,7 +1152,7 @@ class ESMC(TorchWrapper):
                     self._trace_note_shown = True
                     print("ESMC trace disabled: device was opened without a trace "
                           "region; running eager. Open with get_device("
-                          "trace_region_size=...) before load_esmc to enable.",
+                          "trace=\"esmc\") before load_esmc to enable.",
                           file=sys.stderr)
             else:
                 # Capture on the SECOND sighting of a shape: tracing pays only
@@ -1368,27 +1379,27 @@ class ESMCLanguageModel(TorchWrapper):
         # Padded tokens are masked out of attention (additive -inf, seq_id-style
         # mask like the reference) and sliced off — the residual numerical effect
         # is within the diffusion's seed-to-seed noise floor.
-        # Always masked, even with no padding: see bucket_token_axis for the unmasked SDPA defect.
         Lb = ((Lm + BUCKET - 1) // BUCKET) * BUCKET
-        pad = Lb - Lm
-        if attn_mask is None:
-            attn_mask = torch.zeros(B, Lb, Lb, dtype=torch.float32)
-        elif pad:
-            attn_mask = torch.nn.functional.pad(attn_mask, (0, pad, 0, pad), value=0.0)
-        if pad:
+        if Lb != Lm:
+            pad = Lb - Lm
             input_ids = torch.nn.functional.pad(input_ids, (0, pad), value=PAD_TOKEN)
+            if attn_mask is None:
+                attn_mask = torch.zeros(B, Lb, Lb, dtype=torch.float32)
+            else:
+                attn_mask = torch.nn.functional.pad(attn_mask, (0, pad, 0, pad), value=0.0)
             attn_mask[:, :, Lm:] = float("-inf")  # no token attends to padded keys
         tokens_tt = ttnn.from_torch(
             input_ids.to(torch.int32), device=self.tt_device,
             layout=ttnn.ROW_MAJOR_LAYOUT, dtype=ttnn.uint32,
         )
-        key_valid_tt = None
-        # [B,L,L] additive mask -> [B,1,L,L] bf16 for SDPA
-        mask_tt = ttnn.from_torch(
-            attn_mask.unsqueeze(1).to(torch.bfloat16), device=self.tt_device,
-            layout=ttnn.TILE_LAYOUT, dtype=ttnn.bfloat16,
-        )
-        if pad:
+        mask_tt = key_valid_tt = None
+        if attn_mask is not None:
+            # [B,L,L] additive mask -> [B,1,L,L] bf16 for SDPA
+            mask_tt = ttnn.from_torch(
+                attn_mask.unsqueeze(1).to(torch.bfloat16), device=self.tt_device,
+                layout=ttnn.TILE_LAYOUT, dtype=ttnn.bfloat16,
+            )
+        if Lb != Lm:
             kv = torch.ones(1, 1, Lb, 1); kv[:, :, Lm:, :] = 0.0  # zero padded keys/values
             key_valid_tt = ttnn.from_torch(
                 kv.to(torch.bfloat16), device=self.tt_device,
@@ -1561,17 +1572,13 @@ def load_sequences(data) -> dict[str, str]:
     return seqs
 
 
-# DRAM reserved for ttnn trace capture when an ESMC-300M/600M model is loaded
-# with tracing on. Sized for _TRACE_CACHE_MAX concurrent captured forwards.
-#
-# It does NOT leave the device layout otherwise unchanged, which this comment used to claim. The
-# reservation comes off EVERY DRAM BANK, so on a 12-bank Wormhole Galaxy chip it costs 12 x 256 MB
-# = 3 GiB of a 12.8 GiB part. Measured on j10glx02 chip 8 against chip 7 on the same day, off the
-# allocator's own refusal message: "bank size is 805306336 B" with the region reserved against
-# "1073741792 B" without it, a difference of exactly 268435456 B per bank. That is 24 % of the
-# chip, and on the sequence-length axis it is the difference between esmc-300m refusing 65537
-# residues and saprot-35m -- same code path, no reservation -- embedding 73728 on the same part.
-_ESMC_TRACE_REGION_SIZE = 1 << 28
+# The trace region an ESMC-300M/600M load reserves (tenstorrent.TRACE_REGIONS["esmc"]) is not
+# free: it comes off EVERY DRAM bank, so on a 12-bank Wormhole chip every MiB of it costs 12 MiB.
+# Measured on j10glx02 off the allocator's own refusal: "bank size is 805306336 B" with a 256 MiB
+# region against "1073741792 B" without. On the sequence-length axis that was the difference
+# between esmc-300m refusing 65537 residues and saprot-35m, same code path and no region,
+# embedding 73728 on the same part. The region is sized to the 8 live traces (221 MiB on
+# Wormhole, since ttnn checks their total against it), so trace_pays still matters.
 
 
 def trace_pays(sequences, bucket: int = BUCKET) -> bool:
@@ -1580,8 +1587,8 @@ def trace_pays(sequences, bucket: int = BUCKET) -> bool:
     ``_dispatch`` captures a trace only on the SECOND sighting of a bucketed shape, on purpose:
     "tracing pays only when a shape repeats ... a one-shot call stays pure eager and never pays
     the capture cost". So on a workload where no bucketed width repeats, the region is reserved,
-    never captured into, and never replayed -- while still costing 3 GiB of the chip and 1.18x of
-    the sequence ceiling.
+    never captured into, and never replayed -- while still costing its bytes on every DRAM bank
+    (221 MiB per bank, 2.6 GiB of a Wormhole chip, and 1.18x of the sequence ceiling at 256 MiB).
 
     This is the same condition, asked one step earlier, where it can still be acted on: the
     reservation has to happen at device OPEN and cannot be taken back once a capture turns out to
@@ -1620,7 +1627,7 @@ def load_esmc(name: str = "esmc-300m", *, fast: bool = False, trace: bool = True
         # Reserve the trace region up front. If the device is already open this
         # returns it unchanged and forward() simply stays eager (it checks
         # trace_region_size() per call).
-        get_device(trace_region_size=_ESMC_TRACE_REGION_SIZE)
+        get_device(trace="esmc")
     return ESMC.from_pretrained(name, trace=trace)
 
 
@@ -1649,27 +1656,19 @@ def bucket_token_axis(tokens, attn_mask=None, key_valid=None, embed_mask=None,
                       bucket: int = BUCKET, pad_token: int = PAD_TOKEN):
     """Pad a forward's token axis to a multiple of *bucket* and extend the padding masks.
 
-    ``_batch_tokens`` already buckets, so on every shipped CLI path ``Lb == L``. The bucket
-    exists for the direct API caller, who reaches ``Model.forward`` with whatever length they
-    have: a ragged L used to go straight into the SDPA and pick up its padded key columns at a
-    bias of zero. See ``tt_bio/token_axis.py`` and PLAYBOOKS.md §MODEL 2b.
-
-    The returned ``attn_mask`` is never None, even when nothing is padded. ttnn's unmasked SDPA
-    returns the wrong attention at some chunk configs on an 8x9 grid (q_chunk = k_chunk = 128 at
-    any head dim; also 128/256 and 256/256 at head dim 32), PCC 0.2-0.9 against fp32, while the
-    same call with an all-zero mask is right at every config. On Wormhole that put esmc-6b at
-    PCC 0.34 for every 126-residue sequence and saprot-35m at 0.78-0.93 for 254/510/1534
-    residues. See ``perf/mgx_embed/sdpa_sweep.py``.
+    ``_batch_tokens`` already buckets, so on every shipped CLI path ``Lb == L`` and this returns
+    its arguments unchanged. It exists for the direct API caller, who reaches ``Model.forward``
+    with whatever length they have: a ragged L used to go straight into the SDPA and pick up its
+    padded key columns at a bias of zero. See ``tt_bio/token_axis.py`` and PLAYBOOKS.md §MODEL 2b.
+    An unpadded call keeps ``attn_mask=None``; ``tenstorrent.fused_sdpa`` masks it.
 
     Returns ``(tokens, attn_mask, key_valid, embed_mask, L)``; slice the outputs back to ``L``.
     """
     L = int(tokens.shape[1])
     Lb = ((L + bucket - 1) // bucket) * bucket
-    B, pad = int(tokens.shape[0]), Lb - L
-    if pad == 0:
-        if attn_mask is None:
-            attn_mask = torch.zeros(B, L, L, dtype=torch.float32)
+    if Lb == L:
         return tokens, attn_mask, key_valid, embed_mask, L
+    B, pad = int(tokens.shape[0]), Lb - L
     tokens = torch.nn.functional.pad(tokens, (0, pad), value=pad_token)
     # Same construction as _batch_tokens: additive -inf takes padded keys out of the softmax
     # denominator, key_valid zeroes their value contribution, embed_mask zeroes their embedding.

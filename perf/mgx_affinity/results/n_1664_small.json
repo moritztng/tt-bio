@@ -1,0 +1,63 @@
+{
+ "tag": "n_1664_small",
+ "surface": "nesso1",
+ "input": "perf/mgx_affinity/inputs/size/cdk2_1664_small.yaml",
+ "args": [],
+ "host": "j10glx02",
+ "cards": [
+  21
+ ],
+ "commit": "dc34becb8",
+ "rc": 1,
+ "wall_s": 211.7,
+ "aiclk": {
+  "0": {
+   "min": 500,
+   "median": 1000,
+   "max": 1000,
+   "n": 11
+  }
+ },
+ "load": {
+  "min": 61.34,
+  "median": 65.52,
+  "max": 73.4,
+  "nproc": 64
+ },
+ "census": null,
+ "adopted": false,
+ "rows": [
+  {
+   "id": "cdk2_1664_small",
+   "n_tokens": "",
+   "seconds": "",
+   "affinity_pred_value": "",
+   "affinity_pred_value1": "",
+   "affinity_pred_value2": "",
+   "affinity_logits_binary": "",
+   "affinity_probability_binary": "",
+   "entropy_pp": "",
+   "entropy_pl": "",
+   "entropy_ll": "",
+   "entropy_crop_pp": "",
+   "entropy_crop_pl": "",
+   "entropy_crop_ll": "",
+   "error": "RuntimeError: out of device DRAM: 10.97 GiB was requested, needing 936.3 MiB per DRAM bank, and only 846.4 MiB is free. The chip is full."
+  }
+ ],
+ "contention": false,
+ "errors": [
+  "2026-09-23 12:59:01.449 | critical |          Always | TT_FATAL: Out of Memory: Not enough space to allocate 11781799936 B DRAM buffer across 12 banks, where each bank needs to store 981817344 B, but bank size is 1073741792 B (allocated: 186220544 B, free: 887521248 B, largest free block: 869760992 B) (assert.hpp:104)",
+  "  cdk2_1664_small: RuntimeError: out of device DRAM: 10.97 GiB was requested, needing 936.3 MiB per DRAM bank, and only 846.4 MiB is free. The chip is full."
+ ],
+ "tail": [
+  "START 2026-09-23T12:55:37Z cards=21 commit=dc34becb8",
+  "CMD /home/agent/env/bin/python -m tt_bio.main affinity perf/mgx_affinity/inputs/size/cdk2_1664_small.yaml --out_dir /home/agent/wt-mgx-affinity-scale/perf/mgx_affinity/out/n_1664_small --host_threads 2",
+  "Loading nesso1 (tenstorrent, trunk bf16) \u2026",
+  "Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.",
+  "[tt-bio] device bring-up lock: cannot use /tmp/tt-bio-device-open.lock (Permission denied); serializing on /tmp/tt-bio-device-open.lock.uid1004 instead. That covers tt-bio processes running under uid 1004 on this host and nothing else, so a tt-bio process running as a different unix account brings chips up unserialized against this one.",
+  "2026-09-23 12:59:01.449 | critical |          Always | TT_FATAL: Out of Memory: Not enough space to allocate 11781799936 B DRAM buffer across 12 banks, where each bank needs to store 981817344 B, but bank size is 1073741792 B (allocated: 186220544 B, free: 887521248 B, largest free block: 869760992 B) (assert.hpp:104)",
+  "  cdk2_1664_small: RuntimeError: out of device DRAM: 10.97 GiB was requested, needing 936.3 MiB per DRAM bank, and only 846.4 MiB is free. The chip is full.",
+  "Done \u2014 0/1 scored \u2192 /home/agent/wt-mgx-affinity-scale/perf/mgx_affinity/out/n_1664_small/affinity.csv"
+ ]
+}

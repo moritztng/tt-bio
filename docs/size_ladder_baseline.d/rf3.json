@@ -9,32 +9,985 @@
     896,
     1024,
     1088,
-    1152,
     1280,
-    1408,
     1536
   ],
   "cards": {
     "tt-galaxy-wh-l": {
-      "recorded": "2026-09-07",
-      "host": "UF-EV-A13-GWH02",
-      "commit": "8ae33de8",
+      "recorded": "2026-09-24",
+      "host": "j10glx02",
+      "commit": "1fca1430",
       "models": {
         "rf3": {
-          "grid": "11x10/8x9",
-          "recorded": "2026-09-07",
-          "host": "UF-EV-A13-GWH02",
-          "commit": "8ae33de8",
+          "grid": "8x9",
+          "recorded": "2026-09-24",
+          "host": "j10glx02",
+          "commit": "1fca1430",
+          "host_threads": 2,
           "runtime_s": {
-            "256": 47.8,
-            "640": 117.8,
-            "1088": 422.4,
-            "1024": 292.9,
-            "768": 174.4,
-            "512": 120.6,
-            "896": 246.1
+            "1280": 518.9,
+            "1536": 785.2,
+            "1024": 295.9,
+            "256": 51.3,
+            "768": 179.7,
+            "512": 118.0,
+            "896": 236.4,
+            "1088": 383.1,
+            "640": 123.6
           },
           "levers": {
+            "1280": {
+              "SPLIT_SWIGLU": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "esmc-only: lives in tt_bio.esmc, which rf3's fold never enters. 0/0 at every rung. [carried from tt-galaxy-wh l] [carried from rung 1088] [carried from p150a]"
+              },
+              "SPLIT_SWIGLU_SMALL_GRID": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats-shared",
+                "reason": "esmc-only: lives in tt_bio.esmc, which rf3's fold never enters. 0/0 at every rung. [carried from tt-galaxy-wh l] [carried from rung 1088] [carried from p150a]"
+              },
+              "PAIR_FFN_L1_FC1": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "esmc-only: lives in tt_bio.esmc, which rf3's fold never enters. 0/0 at every rung. [carried from tt-galaxy-wh l] [carried from rung 1088] [carried from p150a]"
+              },
+              "PAIR_FFN_L1_LN": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "esmc-only: lives in tt_bio.esmc, which rf3's fold never enters. 0/0 at every rung. [carried from tt-galaxy-wh l] [carried from rung 1088] [carried from p150a]"
+              },
+              "PAIR_FFN_L1_SLICE": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "esmc-only: lives in tt_bio.esmc, which rf3's fold never enters. 0/0 at every rung. [carried from tt-galaxy-wh l] [carried from rung 1088] [carried from p150a]"
+              },
+              "PAIR_FFN_FUSED_RESIDUAL": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "esmc-only: lives in tt_bio.esmc, which rf3's fold never enters. 0/0 at every rung. [carried from tt-galaxy-wh l] [carried from rung 1088] [carried from p150a]"
+              },
+              "PAIR_FFN_FILL_ASSEMBLY": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "esmc-only: lives in tt_bio.esmc, which rf3's fold never enters. 0/0 at every rung. [carried from tt-galaxy-wh l] [carried from rung 1088] [carried from p150a]"
+              },
+              "TRIMUL_IN_PROJ_DUAL_NOC": {
+                "resolved": "True",
+                "served": 2136,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats"
+              },
+              "ADALN_S_HOIST": {
+                "resolved": "True",
+                "served": 66,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "wrap"
+              },
+              "FP32_SOFTMAX_BIAS_HOIST": {
+                "resolved": "True",
+                "served": 33,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats-dict"
+              },
+              "FP32_SOFTMAX_L1_GRID": {
+                "resolved": "(9, 8)",
+                "served": 33,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats-dict"
+              },
+              "PAIR_TRANSPOSE_VIA_ROW_MAJOR": {
+                "resolved": "True",
+                "served": 3204,
+                "declined": 6408,
+                "frac": 0.3333333333333333,
+                "how": "wrap",
+                "rejects": {
+                  "l1_dest_is_faster:1280x448x64": 80,
+                  "l1_dest_is_faster:1280x384x64": 40,
+                  "l1_dest_is_faster:1280x224x128": 5240,
+                  "l1_dest_is_faster:1280x160x128": 1048
+                }
+              },
+              "PAIR_PROJ_MINIMAL_MATMUL": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 9108,
+                "frac": 0.0,
+                "how": "wrap",
+                "rejects": {
+                  "k_tiles=2:(2,1)": 120,
+                  "no_mm_block:(8,2)": 80,
+                  "k_tiles=4:(4,1)": 4716,
+                  "k_tiles=4:(4,4)": 4192
+                },
+                "reason": "declines on k_tiles=4, which is rf3's c_z=128 in tiles -- a channel width, not a sequence length, so it is dark identically at every rung. rf3 gets nothing from this lever at its channel; widening it to k_tiles=4 is a lever-owner question, not a size-band one. [carried from tt-galaxy-wh l] [carried from rung 1088] [carried from p150a]"
+              },
+              "TRIMUL_TAIL_F1": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "declines on k_tiles=4, which is rf3's c_z=128 in tiles -- a channel width, not a sequence length, so it is dark identically at every rung. rf3 gets nothing from this lever at its channel; widening it to k_tiles=4 is a lever-owner question, not a size-band one. [carried from tt-galaxy-wh l] [carried from rung 1088] [carried from p150a]"
+              },
+              "QKV_MM_CONFIG": {
+                "resolved": "True",
+                "served": 9552,
+                "declined": 200,
+                "frac": 0.9794913863822805,
+                "how": "wrap",
+                "rejects": {
+                  "no_mm_block:(2,24)": 120,
+                  "no_mm_block:(8,2)": 80
+                }
+              },
+              "DEVICE_LM_HANDOFF": {
+                "resolved": "not-imported",
+                "served": null,
+                "declined": null,
+                "frac": null,
+                "how": "stats"
+              },
+              "REBLOCK_PERMUTE": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "superseded at this rung, not broken: `TT_BIO_TRIMUL_MASK_AFTER_MOVE` moves the pair mask past the channel move, so the trimul reaches the fused gated kernel first and this ungated site is never called (0 served AND 0 declined). The handover is visible in this same baseline -- `REBLOCK_PERMUTE_GATED` serves 4272 per fold here and 0 at 256 aa, which is the one rung where this ungated lever is still the one being called. The fused pair is bit-exact (perf/b2x_trimul/), so the traffic changed route without changing the answer. [carried from p300c] [carried from rung 1088] [carried from p150a]"
+              },
+              "REBLOCK_PERMUTE_BACK": {
+                "resolved": "True",
+                "served": 2136,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats"
+              },
+              "REBLOCK_PERMUTE_GATED": {
+                "resolved": "True",
+                "served": 4272,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats"
+              },
+              "TRIMUL_MASK_AFTER_MOVE": {
+                "resolved": "True",
+                "served": 4272,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats-shared"
+              },
+              "TRIATT_PERSISTENT_MASK": {
+                "resolved": "True",
+                "served": 4836,
+                "declined": 4836,
+                "frac": 0.5,
+                "how": "stats",
+                "rejects": {
+                  "l1_budget": 1,
+                  "pm_over_l1": 4835
+                }
+              },
+              "SDPA_WIDE_K": {
+                "resolved": "True",
+                "served": 4836,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats"
+              },
+              "SDPA_FUSED_LARGE_S": {
+                "resolved": "True",
+                "served": 4836,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats"
+              },
+              "RFD3_SPARSE_BIAS": {
+                "resolved": "not-imported",
+                "served": null,
+                "declined": null,
+                "frac": null,
+                "how": "stats"
+              },
+              "RFD3_FUSED_SCORES": {
+                "resolved": "not-imported",
+                "served": null,
+                "declined": null,
+                "frac": null,
+                "how": "stats"
+              },
+              "TRIATT_HEAD_MAJOR_QKV": {
+                "resolved": "True",
+                "served": 4716,
+                "declined": 120,
+                "frac": 0.9751861042183623,
+                "how": "stats",
+                "rejects": {
+                  "head_dim_or_width": 120
+                }
+              },
+              "TRIATT_HEAD_MAJOR_TAIL": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "rf3's triangle attention takes the fused SDPA route (TRIATT_PERSISTENT_MASK serves 1088/rung), so triatt_qkv's tail is never offered a call. 0/0 at every rung. [carried from tt-galaxy-wh l] [carried from rung 1088] [carried from p150a]"
+              },
+              "TRIATT_TAIL_OVER_L1": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats-shared",
+                "reason": "the L1 sibling of TRIATT_HEAD_MAJOR_TAIL, on the same never-reached triatt_qkv tail. 0/0 at every rung. [carried from tt-galaxy-wh l] [carried from rung 1088] [carried from p150a]"
+              },
+              "B2_BIAS_SLICE_HOIST": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "wrap",
+                "reason": "boltz-2 only (BOLTZ2_BIAS_SLICE_HOIST): rf3's diffusion module has no such bias slice. 0/0 at every rung. [carried from tt-galaxy-wh l] [carried from rung 1088] [carried from p150a]"
+              },
+              "B2_ADALN_S_MEMO": {
+                "resolved": "True",
+                "served": 66,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "wrap"
+              },
+              "B2_TOKEN_DIT_SDPA": {
+                "resolved": "True",
+                "served": 120,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats"
+              },
+              "APB_CONCAT_HEADS": {
+                "resolved": "False",
+                "served": 0,
+                "declined": 604,
+                "frac": 0.0,
+                "how": "stats"
+              },
+              "ATOM_AXIS_BUCKET": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "no call site on this path: 0 served AND 0 declined at every rung. The counter sits in `tenstorrent.DiffusionModule._populate_diffusion_cache` (tt_bio/tenstorrent.py:11271-11278), and `tenstorrent.DiffusionModule` is constructed only by Boltz-2 (tt_bio/boltz2.py:4232); rf3 runs its own diffusion module and never reaches it. Control in this same baseline: boltz2 serves 6 per fold at every rung. [carried from p300c] [carried from rung 1088] [carried from p150a]"
+              },
+              "TRANSPOSE_L1_RESIDENT": {
+                "resolved": "1.25",
+                "served": 3204,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "wrap"
+              },
+              "SDPA_Q_CHUNK_FITS": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "setlen"
+              },
+              "RFD3_SOFTMAX_PV_FUSED": {
+                "resolved": "not-imported",
+                "served": null,
+                "declined": null,
+                "frac": null,
+                "how": "stats"
+              },
+              "RFD3_FC1_SPLIT_SILU": {
+                "resolved": "not-imported",
+                "served": null,
+                "declined": null,
+                "frac": null,
+                "how": "stats"
+              },
+              "TRANSITION_H_CHUNK": {
+                "resolved": "16",
+                "served": 0,
+                "declined": 596,
+                "frac": 0.0,
+                "how": "stats",
+                "rejects": {
+                  "base-unraised": 20,
+                  "h-clamped-to-H": 50,
+                  "ratio-shrunk": 526
+                },
+                "reason": "declines all 596 calls on ratio-shrunk x526, h-clamped-to-H x50, base-unraised x20: on Wormhole the height cannot exceed its base at this width, whatever the channel. Served means a height above TRANSITION_H_CHUNK_SIZE=16, and the base is 32 only when W <= 384 (tt_bio/tenstorrent.py:8628). Every small-grid clause after that can only lower it: the ratio is min(1, ...), the 256 < c <= 384 clause is bounded by min(_base_h, ...), and the per-core L1 row cap is a min. The raise above the base is the Blackhole elif, so this board reads 0.0 from 512 up on every model and the lever has no Wormhole raise to decline [carried from rung 1088]"
+              },
+              "TRIATT_SDPA_HIFI": {
+                "resolved": "none",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats-dict"
+              }
+            },
+            "1536": {
+              "SPLIT_SWIGLU": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "esmc-only: lives in tt_bio.esmc, which rf3's fold never enters. 0/0 at every rung. [carried from tt-galaxy-wh l] [carried from rung 1088] [carried from p150a]"
+              },
+              "SPLIT_SWIGLU_SMALL_GRID": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats-shared",
+                "reason": "esmc-only: lives in tt_bio.esmc, which rf3's fold never enters. 0/0 at every rung. [carried from tt-galaxy-wh l] [carried from rung 1088] [carried from p150a]"
+              },
+              "PAIR_FFN_L1_FC1": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "esmc-only: lives in tt_bio.esmc, which rf3's fold never enters. 0/0 at every rung. [carried from tt-galaxy-wh l] [carried from rung 1088] [carried from p150a]"
+              },
+              "PAIR_FFN_L1_LN": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "esmc-only: lives in tt_bio.esmc, which rf3's fold never enters. 0/0 at every rung. [carried from tt-galaxy-wh l] [carried from rung 1088] [carried from p150a]"
+              },
+              "PAIR_FFN_L1_SLICE": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "esmc-only: lives in tt_bio.esmc, which rf3's fold never enters. 0/0 at every rung. [carried from tt-galaxy-wh l] [carried from rung 1088] [carried from p150a]"
+              },
+              "PAIR_FFN_FUSED_RESIDUAL": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "esmc-only: lives in tt_bio.esmc, which rf3's fold never enters. 0/0 at every rung. [carried from tt-galaxy-wh l] [carried from rung 1088] [carried from p150a]"
+              },
+              "PAIR_FFN_FILL_ASSEMBLY": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "esmc-only: lives in tt_bio.esmc, which rf3's fold never enters. 0/0 at every rung. [carried from tt-galaxy-wh l] [carried from rung 1088] [carried from p150a]"
+              },
+              "TRIMUL_IN_PROJ_DUAL_NOC": {
+                "resolved": "True",
+                "served": 4272,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats"
+              },
+              "ADALN_S_HOIST": {
+                "resolved": "True",
+                "served": 66,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "wrap"
+              },
+              "FP32_SOFTMAX_BIAS_HOIST": {
+                "resolved": "True",
+                "served": 33,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats-dict"
+              },
+              "FP32_SOFTMAX_L1_GRID": {
+                "resolved": "(9, 8)",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats-dict",
+                "reason": "declines all 0 calls: rf3 does enter `_fp32_softmax_attention`, 33 calls per fold at every rung (FP32_SOFTMAX_BIAS_HOIST counts them), but at this size the L1 plan (`_fp32_softmax_l1_plan`, tt_bio/tenstorrent.py:3769) finds no row block that fits: 0 blocks and 0 refusals, so the scores stay in DRAM. Same state at 512-1088; only 256 and 1280 land a block. A plan outcome, not a refusal"
+              },
+              "PAIR_TRANSPOSE_VIA_ROW_MAJOR": {
+                "resolved": "True",
+                "served": 4272,
+                "declined": 8544,
+                "frac": 0.3333333333333333,
+                "how": "wrap",
+                "rejects": {
+                  "l1_dest_is_faster:1536x384x64": 160,
+                  "l1_dest_is_faster:1536x192x128": 8384
+                }
+              },
+              "PAIR_PROJ_MINIMAL_MATMUL": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 11808,
+                "frac": 0.0,
+                "how": "wrap",
+                "rejects": {
+                  "k_tiles=2:(2,1)": 140,
+                  "no_mm_block:(8,2)": 140,
+                  "k_tiles=4:(4,1)": 5764,
+                  "k_tiles=4:(4,4)": 5764
+                },
+                "reason": "declines on k_tiles=4, which is rf3's c_z=128 in tiles -- a channel width, not a sequence length, so it is dark identically at every rung. rf3 gets nothing from this lever at its channel; widening it to k_tiles=4 is a lever-owner question, not a size-band one. [carried from tt-galaxy-wh l] [carried from rung 1088] [carried from p150a]"
+              },
+              "TRIMUL_TAIL_F1": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "declines on k_tiles=4, which is rf3's c_z=128 in tiles -- a channel width, not a sequence length, so it is dark identically at every rung. rf3 gets nothing from this lever at its channel; widening it to k_tiles=4 is a lever-owner question, not a size-band one. [carried from tt-galaxy-wh l] [carried from p150a] [carried from rung 1088]"
+              },
+              "QKV_MM_CONFIG": {
+                "resolved": "True",
+                "served": 11668,
+                "declined": 280,
+                "frac": 0.9765651155005022,
+                "how": "wrap",
+                "rejects": {
+                  "no_mm_block:(2,24)": 140,
+                  "no_mm_block:(8,2)": 140
+                }
+              },
+              "DEVICE_LM_HANDOFF": {
+                "resolved": "not-imported",
+                "served": null,
+                "declined": null,
+                "frac": null,
+                "how": "stats"
+              },
+              "REBLOCK_PERMUTE": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "superseded at this rung, not broken: `TT_BIO_TRIMUL_MASK_AFTER_MOVE` moves the pair mask past the channel move, so the trimul reaches the fused gated kernel first and this ungated site is never called (0 served AND 0 declined). The handover is visible in this same baseline -- `REBLOCK_PERMUTE_GATED` serves 4272 per fold here and 0 at 256 aa, which is the one rung where this ungated lever is still the one being called. The fused pair is bit-exact (perf/b2x_trimul/), so the traffic changed route without changing the answer. [carried from p300c] [carried from rung 1088] [carried from p150a]"
+              },
+              "REBLOCK_PERMUTE_BACK": {
+                "resolved": "True",
+                "served": 4272,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats"
+              },
+              "REBLOCK_PERMUTE_GATED": {
+                "resolved": "True",
+                "served": 8544,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats"
+              },
+              "TRIMUL_MASK_AFTER_MOVE": {
+                "resolved": "True",
+                "served": 8544,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats-shared"
+              },
+              "TRIATT_PERSISTENT_MASK": {
+                "resolved": "True",
+                "served": 5904,
+                "declined": 140,
+                "frac": 0.9768365320979484,
+                "how": "stats",
+                "rejects": {
+                  "l1_budget": 1,
+                  "pm_over_l1": 139
+                }
+              },
+              "SDPA_WIDE_K": {
+                "resolved": "True",
+                "served": 5904,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats"
+              },
+              "SDPA_FUSED_LARGE_S": {
+                "resolved": "True",
+                "served": 5904,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats"
+              },
+              "RFD3_SPARSE_BIAS": {
+                "resolved": "not-imported",
+                "served": null,
+                "declined": null,
+                "frac": null,
+                "how": "stats"
+              },
+              "RFD3_FUSED_SCORES": {
+                "resolved": "not-imported",
+                "served": null,
+                "declined": null,
+                "frac": null,
+                "how": "stats"
+              },
+              "TRIATT_HEAD_MAJOR_QKV": {
+                "resolved": "True",
+                "served": 5764,
+                "declined": 140,
+                "frac": 0.9762872628726287,
+                "how": "stats",
+                "rejects": {
+                  "head_dim_or_width": 140
+                }
+              },
+              "TRIATT_HEAD_MAJOR_TAIL": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "rf3's triangle attention takes the fused SDPA route (TRIATT_PERSISTENT_MASK serves 1088/rung), so triatt_qkv's tail is never offered a call. 0/0 at every rung. [carried from tt-galaxy-wh l] [carried from rung 1088] [carried from p150a]"
+              },
+              "TRIATT_TAIL_OVER_L1": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats-shared",
+                "reason": "the L1 sibling of TRIATT_HEAD_MAJOR_TAIL, on the same never-reached triatt_qkv tail. 0/0 at every rung. [carried from tt-galaxy-wh l] [carried from rung 1088] [carried from p150a]"
+              },
+              "B2_BIAS_SLICE_HOIST": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "wrap",
+                "reason": "boltz-2 only (BOLTZ2_BIAS_SLICE_HOIST): rf3's diffusion module has no such bias slice. 0/0 at every rung. [carried from tt-galaxy-wh l] [carried from rung 1088] [carried from p150a]"
+              },
+              "B2_ADALN_S_MEMO": {
+                "resolved": "True",
+                "served": 66,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "wrap"
+              },
+              "B2_TOKEN_DIT_SDPA": {
+                "resolved": "True",
+                "served": 120,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats"
+              },
+              "APB_CONCAT_HEADS": {
+                "resolved": "False",
+                "served": 0,
+                "declined": 604,
+                "frac": 0.0,
+                "how": "stats"
+              },
+              "ATOM_AXIS_BUCKET": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "no call site on this path: 0 served AND 0 declined at every rung. The counter sits in `tenstorrent.DiffusionModule._populate_diffusion_cache` (tt_bio/tenstorrent.py:11271-11278), and `tenstorrent.DiffusionModule` is constructed only by Boltz-2 (tt_bio/boltz2.py:4232); rf3 runs its own diffusion module and never reaches it. Control in this same baseline: boltz2 serves 6 per fold at every rung. [carried from p300c] [carried from rung 1088] [carried from p150a]"
+              },
+              "TRANSPOSE_L1_RESIDENT": {
+                "resolved": "1.25",
+                "served": 4272,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "wrap"
+              },
+              "SDPA_Q_CHUNK_FITS": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "setlen"
+              },
+              "RFD3_SOFTMAX_PV_FUSED": {
+                "resolved": "not-imported",
+                "served": null,
+                "declined": null,
+                "frac": null,
+                "how": "stats"
+              },
+              "RFD3_FC1_SPLIT_SILU": {
+                "resolved": "not-imported",
+                "served": null,
+                "declined": null,
+                "frac": null,
+                "how": "stats"
+              },
+              "TRANSITION_H_CHUNK": {
+                "resolved": "16",
+                "served": 0,
+                "declined": 596,
+                "frac": 0.0,
+                "how": "stats",
+                "rejects": {
+                  "base-unraised": 20,
+                  "h-clamped-to-H": 50,
+                  "ratio-shrunk": 526
+                },
+                "reason": "declines all 596 calls on ratio-shrunk x526, h-clamped-to-H x50, base-unraised x20: on Wormhole the height cannot exceed its base at this width, whatever the channel. Served means a height above TRANSITION_H_CHUNK_SIZE=16, and the base is 32 only when W <= 384 (tt_bio/tenstorrent.py:8628). Every small-grid clause after that can only lower it: the ratio is min(1, ...), the 256 < c <= 384 clause is bounded by min(_base_h, ...), and the per-core L1 row cap is a min. The raise above the base is the Blackhole elif, so this board reads 0.0 from 512 up on every model and the lever has no Wormhole raise to decline [carried from rung 1088]"
+              },
+              "TRIATT_SDPA_HIFI": {
+                "resolved": "none",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats-dict"
+              }
+            },
+            "1024": {
+              "SPLIT_SWIGLU": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "esmc-only: lives in tt_bio.esmc, which rf3's fold never enters. 0/0 at every rung."
+              },
+              "SPLIT_SWIGLU_SMALL_GRID": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats-shared",
+                "reason": "esmc-only: lives in tt_bio.esmc, which rf3's fold never enters. 0/0 at every rung."
+              },
+              "PAIR_FFN_L1_FC1": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "esmc-only: lives in tt_bio.esmc, which rf3's fold never enters. 0/0 at every rung."
+              },
+              "PAIR_FFN_L1_LN": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "esmc-only: lives in tt_bio.esmc, which rf3's fold never enters. 0/0 at every rung."
+              },
+              "PAIR_FFN_L1_SLICE": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "esmc-only: lives in tt_bio.esmc, which rf3's fold never enters. 0/0 at every rung."
+              },
+              "PAIR_FFN_FUSED_RESIDUAL": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "esmc-only: lives in tt_bio.esmc, which rf3's fold never enters. 0/0 at every rung."
+              },
+              "PAIR_FFN_FILL_ASSEMBLY": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "esmc-only: lives in tt_bio.esmc, which rf3's fold never enters. 0/0 at every rung."
+              },
+              "TRIMUL_IN_PROJ_DUAL_NOC": {
+                "resolved": "True",
+                "served": 1088,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats"
+              },
+              "ADALN_S_HOIST": {
+                "resolved": "True",
+                "served": 66,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "wrap"
+              },
+              "FP32_SOFTMAX_BIAS_HOIST": {
+                "resolved": "True",
+                "served": 33,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats-dict"
+              },
+              "FP32_SOFTMAX_L1_GRID": {
+                "resolved": "(9, 8)",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats-dict",
+                "reason": "declines all 0 calls: rf3 does enter `_fp32_softmax_attention`, 33 calls per fold at every rung (FP32_SOFTMAX_BIAS_HOIST counts them), but at this size the L1 plan (`_fp32_softmax_l1_plan`, tt_bio/tenstorrent.py:3769) finds no row block that fits: 0 blocks and 0 refusals, so the scores stay in DRAM. Same state at 512-1088; only 256 and 1280 land a block. A plan outcome, not a refusal"
+              },
+              "PAIR_TRANSPOSE_VIA_ROW_MAJOR": {
+                "resolved": "True",
+                "served": 1088,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "wrap"
+              },
+              "PAIR_PROJ_MINIMAL_MATMUL": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 3264,
+                "frac": 0.0,
+                "how": "wrap",
+                "rejects": {
+                  "k_tiles=2:(2,2)": 40,
+                  "k_tiles=2:(2,1)": 40,
+                  "no_mm_block:(8,2)": 40,
+                  "k_tiles=4:(4,4)": 2096,
+                  "k_tiles=4:(4,1)": 1048
+                },
+                "reason": "declines on k_tiles=4, which is rf3's c_z=128 in tiles -- a channel width, not a sequence length, so it is dark identically at every rung. rf3 gets nothing from this lever at its channel; widening it to k_tiles=4 is a lever-owner question, not a size-band one."
+              },
+              "TRIMUL_TAIL_F1": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "declines on k_tiles=4, which is rf3's c_z=128 in tiles -- a channel width, not a sequence length, so it is dark identically at every rung. rf3 gets nothing from this lever at its channel; widening it to k_tiles=4 is a lever-owner question, not a size-band one."
+              },
+              "QKV_MM_CONFIG": {
+                "resolved": "True",
+                "served": 2136,
+                "declined": 120,
+                "frac": 0.9468085106382979,
+                "how": "wrap",
+                "rejects": {
+                  "no_mm_block:(2,24)": 80,
+                  "no_mm_block:(8,2)": 40
+                }
+              },
+              "DEVICE_LM_HANDOFF": {
+                "resolved": "not-imported",
+                "served": null,
+                "declined": null,
+                "frac": null,
+                "how": "stats"
+              },
+              "REBLOCK_PERMUTE": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "superseded at this rung, not broken: `TT_BIO_TRIMUL_MASK_AFTER_MOVE` moves the pair mask past the channel move, so the trimul reaches the fused gated kernel first and this ungated site is never called (0 served AND 0 declined). The handover is visible in this same baseline -- `REBLOCK_PERMUTE_GATED` serves 2176 per fold here and 0 at 256 aa, which is the one rung where this ungated lever is still the one being called. The fused pair is bit-exact (perf/b2x_trimul/), so the traffic changed route without changing the answer. [carried from p300c] [carried from p150a]"
+              },
+              "REBLOCK_PERMUTE_BACK": {
+                "resolved": "True",
+                "served": 1088,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats"
+              },
+              "REBLOCK_PERMUTE_GATED": {
+                "resolved": "True",
+                "served": 2176,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats"
+              },
+              "TRIMUL_MASK_AFTER_MOVE": {
+                "resolved": "True",
+                "served": 2176,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats-shared"
+              },
+              "TRIATT_PERSISTENT_MASK": {
+                "resolved": "True",
+                "served": 1088,
+                "declined": 2176,
+                "frac": 0.3333333333333333,
+                "how": "stats",
+                "rejects": {
+                  "l1_budget": 2,
+                  "pm_over_l1": 2174
+                }
+              },
+              "SDPA_WIDE_K": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "structural, not size-specific: both SDPA_K_CHUNK_STATS sites are inside `_tri_att_sdpa_at`'s `len(k_chunks) > 1` block, and served 0 declined 0 means no call entered it: the shipped k_chunk divides the padded length at this rung, so there is no wider dividing pick to offer"
+              },
+              "SDPA_FUSED_LARGE_S": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "below the cap, by construction: 0 served AND 0 declined at this rung. The route is offered only for q_len > `_Q_SPLIT_MAX_S` = 1024 padded tokens (tt_bio/triatt_sdpa.py:88, gate at tt_bio/tenstorrent.py:1843), and at or below the cap the stock ladder already lands on a fused pair -- the shipped bit-exact path this flag was written not to disturb. Negative control in this same baseline: rf3's 1088 rung, the one rung above the cap, serves 1088 of 1088 calls fused -- the lever is alive on this model's path and only the rungs at or below the cap are dark. [carried from p300c] [carried from p150a]"
+              },
+              "RFD3_SPARSE_BIAS": {
+                "resolved": "not-imported",
+                "served": null,
+                "declined": null,
+                "frac": null,
+                "how": "stats"
+              },
+              "RFD3_FUSED_SCORES": {
+                "resolved": "not-imported",
+                "served": null,
+                "declined": null,
+                "frac": null,
+                "how": "stats"
+              },
+              "TRIATT_HEAD_MAJOR_QKV": {
+                "resolved": "True",
+                "served": 1048,
+                "declined": 40,
+                "frac": 0.9632352941176471,
+                "how": "stats",
+                "rejects": {
+                  "head_dim_or_width": 40
+                }
+              },
+              "TRIATT_HEAD_MAJOR_TAIL": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "rf3's triangle attention takes the fused SDPA route (TRIATT_PERSISTENT_MASK serves 1088/rung), so triatt_qkv's tail is never offered a call. 0/0 at every rung."
+              },
+              "TRIATT_TAIL_OVER_L1": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats-shared",
+                "reason": "the L1 sibling of TRIATT_HEAD_MAJOR_TAIL, on the same never-reached triatt_qkv tail. 0/0 at every rung."
+              },
+              "B2_BIAS_SLICE_HOIST": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "wrap",
+                "reason": "boltz-2 only (BOLTZ2_BIAS_SLICE_HOIST): rf3's diffusion module has no such bias slice. 0/0 at every rung."
+              },
+              "B2_ADALN_S_MEMO": {
+                "resolved": "True",
+                "served": 66,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "wrap"
+              },
+              "B2_TOKEN_DIT_SDPA": {
+                "resolved": "True",
+                "served": 120,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats"
+              },
+              "APB_CONCAT_HEADS": {
+                "resolved": "False",
+                "served": 0,
+                "declined": 604,
+                "frac": 0.0,
+                "how": "stats"
+              },
+              "ATOM_AXIS_BUCKET": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "no call site on this path: 0 served AND 0 declined at every rung. The counter sits in `tenstorrent.DiffusionModule._populate_diffusion_cache` (tt_bio/tenstorrent.py:11271-11278), and `tenstorrent.DiffusionModule` is constructed only by Boltz-2 (tt_bio/boltz2.py:4232); rf3 runs its own diffusion module and never reaches it. Control in this same baseline: boltz2 serves 6 per fold at every rung. [carried from p300c] [carried from p150a]"
+              },
+              "TRANSPOSE_L1_RESIDENT": {
+                "resolved": "1.25",
+                "served": 0,
+                "declined": 1088,
+                "frac": 0.0,
+                "how": "wrap",
+                "reason": "pair tensor outgrows aggregate L1 on a 72-core grid: 1.25 x 104.9 MB at 640 aa against ~100 MB, so the transpose moves to DRAM. Arithmetic, not a mistuned constant; monotone in the size and Wormhole-specific."
+              },
+              "SDPA_Q_CHUNK_FITS": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "setlen"
+              },
+              "RFD3_SOFTMAX_PV_FUSED": {
+                "resolved": "not-imported",
+                "served": null,
+                "declined": null,
+                "frac": null,
+                "how": "stats"
+              },
+              "RFD3_FC1_SPLIT_SILU": {
+                "resolved": "not-imported",
+                "served": null,
+                "declined": null,
+                "frac": null,
+                "how": "stats"
+              },
+              "TRANSITION_H_CHUNK": {
+                "resolved": "16",
+                "served": 0,
+                "declined": 596,
+                "frac": 0.0,
+                "how": "stats",
+                "rejects": {
+                  "base-unraised": 22,
+                  "h-clamped-to-H": 50,
+                  "ratio-shrunk": 524
+                },
+                "reason": "declines all 596 calls on ratio-shrunk x524, h-clamped-to-H x50, base-unraised x22: on Wormhole the height cannot exceed its base at this width, whatever the channel. Served means a height above TRANSITION_H_CHUNK_SIZE=16, and the base is 32 only when W <= 384 (tt_bio/tenstorrent.py:8628). Every small-grid clause after that can only lower it: the ratio is min(1, ...), the 256 < c <= 384 clause is bounded by min(_base_h, ...), and the per-core L1 row cap is a min. The raise above the base is the Blackhole elif, so this board reads 0.0 from 512 up on every model and the lever has no Wormhole raise to decline"
+              },
+              "TRIATT_SDPA_HIFI": {
+                "resolved": "none",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats-dict"
+              }
+            },
             "256": {
               "SPLIT_SWIGLU": {
                 "resolved": "True",
@@ -105,13 +1058,20 @@
               },
               "ADALN_S_HOIST": {
                 "resolved": "True",
-                "served": 306,
+                "served": 66,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "wrap"
               },
               "FP32_SOFTMAX_BIAS_HOIST": {
                 "resolved": "True",
+                "served": 33,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats-dict"
+              },
+              "FP32_SOFTMAX_L1_GRID": {
+                "resolved": "(9, 8)",
                 "served": 33,
                 "declined": 0,
                 "frac": 1.0,
@@ -155,13 +1115,12 @@
               },
               "QKV_MM_CONFIG": {
                 "resolved": "True",
-                "served": 2096,
-                "declined": 120,
-                "frac": 0.9458483754512635,
+                "served": 2136,
+                "declined": 80,
+                "frac": 0.9638989169675091,
                 "how": "wrap",
                 "rejects": {
-                  "no_mm_block:(2,24)": 80,
-                  "no_mm_block:(2,8)": 40
+                  "no_mm_block:(2,24)": 80
                 }
               },
               "DEVICE_LM_HANDOFF": {
@@ -174,11 +1133,13 @@
               "REBLOCK_PERMUTE": {
                 "resolved": "True",
                 "served": 0,
-                "declined": 4272,
+                "declined": 17088,
                 "frac": 0.0,
                 "how": "stats",
                 "rejects": {
-                  "window_BufferType.L1": 4272
+                  "gated_window_BufferType.L1": 4272,
+                  "window_BufferType.L1": 8544,
+                  "back_l1_src_narrow": 4272
                 },
                 "reason": "size-conditioned and correctly off at 256 aa (declines on width); serves 240 calls per fold from 512 aa up."
               },
@@ -198,6 +1159,14 @@
                 "how": "stats",
                 "reason": "the gated leg of REBLOCK_PERMUTE: never offered a call at 256 aa because the forward permute declined there. Serves 1936 from 512 aa up."
               },
+              "TRIMUL_MASK_AFTER_MOVE": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats-shared",
+                "reason": "nothing to fuse into at this rung: the counter is `reblock_permute.STATS_GATED`, which counts serves of the fused gated move, and the gated window admits none of this model's 256 aa channel moves. At 256 aa the pair track is N=256 on an L1 destination, below `L1_N_MIN` = 288 (tt_bio/reblock_permute.py:338, the same band enforced for the fused path in `eligible_gated` at :877-878); the band opens at 288 because N=256 on an L1 output is a measured 0.952x loss on 110 cores. The same rung shows the ungated `REBLOCK_PERMUTE` declining 4272 calls on exactly that clause. It serves 2176 per fold from 512 aa up. [carried from p300c] [carried from p150a]"
+              },
               "TRIATT_PERSISTENT_MASK": {
                 "resolved": "True",
                 "served": 1088,
@@ -206,11 +1175,20 @@
                 "how": "stats"
               },
               "SDPA_WIDE_K": {
-                "resolved": "False",
+                "resolved": "True",
                 "served": 0,
                 "declined": 0,
                 "frac": 0.0,
-                "how": "stats"
+                "how": "stats",
+                "reason": "structural, not size-specific: both SDPA_K_CHUNK_STATS sites are inside `_tri_att_sdpa_at`'s `len(k_chunks) > 1` block, and served 0 declined 0 means no call entered it: the shipped k_chunk divides the padded length at this rung, so there is no wider dividing pick to offer"
+              },
+              "SDPA_FUSED_LARGE_S": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "below the cap, by construction: 0 served AND 0 declined at this rung. The route is offered only for q_len > `_Q_SPLIT_MAX_S` = 1024 padded tokens (tt_bio/triatt_sdpa.py:88, gate at tt_bio/tenstorrent.py:1843), and at or below the cap the stock ladder already lands on a fused pair -- the shipped bit-exact path this flag was written not to disturb. Negative control in this same baseline: rf3's 1088 rung, the one rung above the cap, serves 1088 of 1088 calls fused -- the lever is alive on this model's path and only the rungs at or below the cap are dark. [carried from p300c] [carried from p150a]"
               },
               "RFD3_SPARSE_BIAS": {
                 "resolved": "not-imported",
@@ -268,11 +1246,26 @@
                 "how": "wrap"
               },
               "B2_TOKEN_DIT_SDPA": {
+                "resolved": "True",
+                "served": 120,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats"
+              },
+              "APB_CONCAT_HEADS": {
                 "resolved": "False",
-                "served": null,
-                "declined": null,
-                "frac": null,
-                "how": "off-by-design"
+                "served": 0,
+                "declined": 604,
+                "frac": 0.0,
+                "how": "stats"
+              },
+              "ATOM_AXIS_BUCKET": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "no call site on this path: 0 served AND 0 declined at every rung. The counter sits in `tenstorrent.DiffusionModule._populate_diffusion_cache` (tt_bio/tenstorrent.py:11271-11278), and `tenstorrent.DiffusionModule` is constructed only by Boltz-2 (tt_bio/boltz2.py:4232); rf3 runs its own diffusion module and never reaches it. Control in this same baseline: boltz2 serves 6 per fold at every rung. [carried from p300c] [carried from p150a]"
               },
               "TRANSPOSE_L1_RESIDENT": {
                 "resolved": "1.25",
@@ -301,793 +1294,23 @@
                 "declined": null,
                 "frac": null,
                 "how": "stats"
-              }
-            },
-            "640": {
-              "SPLIT_SWIGLU": {
-                "resolved": "True",
-                "served": 0,
-                "declined": 0,
-                "frac": 0.0,
+              },
+              "TRANSITION_H_CHUNK": {
+                "resolved": "16",
+                "served": 586,
+                "declined": 10,
+                "frac": 0.9832214765100671,
                 "how": "stats",
-                "reason": "esmc-only: lives in tt_bio.esmc, which rf3's fold never enters. 0/0 at every rung."
+                "rejects": {
+                  "h-clamped-to-H": 10
+                }
               },
-              "SPLIT_SWIGLU_SMALL_GRID": {
-                "resolved": "True",
+              "TRIATT_SDPA_HIFI": {
+                "resolved": "none",
                 "served": 0,
                 "declined": 0,
                 "frac": 0.0,
-                "how": "stats-shared",
-                "reason": "esmc-only: lives in tt_bio.esmc, which rf3's fold never enters. 0/0 at every rung."
-              },
-              "PAIR_FFN_L1_FC1": {
-                "resolved": "True",
-                "served": 0,
-                "declined": 0,
-                "frac": 0.0,
-                "how": "stats",
-                "reason": "esmc-only: lives in tt_bio.esmc, which rf3's fold never enters. 0/0 at every rung."
-              },
-              "PAIR_FFN_L1_LN": {
-                "resolved": "True",
-                "served": 0,
-                "declined": 0,
-                "frac": 0.0,
-                "how": "stats",
-                "reason": "esmc-only: lives in tt_bio.esmc, which rf3's fold never enters. 0/0 at every rung."
-              },
-              "PAIR_FFN_L1_SLICE": {
-                "resolved": "True",
-                "served": 0,
-                "declined": 0,
-                "frac": 0.0,
-                "how": "stats",
-                "reason": "esmc-only: lives in tt_bio.esmc, which rf3's fold never enters. 0/0 at every rung."
-              },
-              "PAIR_FFN_FUSED_RESIDUAL": {
-                "resolved": "True",
-                "served": 0,
-                "declined": 0,
-                "frac": 0.0,
-                "how": "stats",
-                "reason": "esmc-only: lives in tt_bio.esmc, which rf3's fold never enters. 0/0 at every rung."
-              },
-              "PAIR_FFN_FILL_ASSEMBLY": {
-                "resolved": "True",
-                "served": 0,
-                "declined": 0,
-                "frac": 0.0,
-                "how": "stats",
-                "reason": "esmc-only: lives in tt_bio.esmc, which rf3's fold never enters. 0/0 at every rung."
-              },
-              "TRIMUL_IN_PROJ_DUAL_NOC": {
-                "resolved": "True",
-                "served": 1088,
-                "declined": 0,
-                "frac": 1.0,
-                "how": "stats"
-              },
-              "ADALN_S_HOIST": {
-                "resolved": "True",
-                "served": 306,
-                "declined": 0,
-                "frac": 1.0,
-                "how": "wrap"
-              },
-              "FP32_SOFTMAX_BIAS_HOIST": {
-                "resolved": "True",
-                "served": 33,
-                "declined": 0,
-                "frac": 1.0,
                 "how": "stats-dict"
-              },
-              "PAIR_TRANSPOSE_VIA_ROW_MAJOR": {
-                "resolved": "True",
-                "served": 1087,
-                "declined": 2,
-                "frac": 0.9981634527089073,
-                "how": "wrap",
-                "rejects": {
-                  "l1_dest_is_faster:640x640x64": 2
-                }
-              },
-              "PAIR_PROJ_MINIMAL_MATMUL": {
-                "resolved": "True",
-                "served": 0,
-                "declined": 4308,
-                "frac": 0.0,
-                "how": "wrap",
-                "rejects": {
-                  "k_tiles=2:(2,2)": 76,
-                  "k_tiles=2:(2,1)": 40,
-                  "k_tiles=4:(4,4)": 3144,
-                  "k_tiles=4:(4,1)": 1048
-                },
-                "reason": "declines on k_tiles=4, which is rf3's c_z=128 in tiles -- a channel width, not a sequence length, so it is dark identically at every rung. rf3 gets nothing from this lever at its channel; widening it to k_tiles=4 is a lever-owner question, not a size-band one."
-              },
-              "TRIMUL_TAIL_F1": {
-                "resolved": "True",
-                "served": 0,
-                "declined": 1088,
-                "frac": 0.0,
-                "how": "stats",
-                "rejects": {
-                  "k_tiles=2": 40,
-                  "k_tiles=4": 1048
-                },
-                "reason": "declines on k_tiles=4, which is rf3's c_z=128 in tiles -- a channel width, not a sequence length, so it is dark identically at every rung. rf3 gets nothing from this lever at its channel; widening it to k_tiles=4 is a lever-owner question, not a size-band one."
-              },
-              "QKV_MM_CONFIG": {
-                "resolved": "True",
-                "served": 2096,
-                "declined": 120,
-                "frac": 0.9458483754512635,
-                "how": "wrap",
-                "rejects": {
-                  "no_mm_block:(2,24)": 80,
-                  "no_mm_block:(2,8)": 40
-                }
-              },
-              "DEVICE_LM_HANDOFF": {
-                "resolved": "not-imported",
-                "served": null,
-                "declined": null,
-                "frac": null,
-                "how": "stats"
-              },
-              "REBLOCK_PERMUTE": {
-                "resolved": "True",
-                "served": 240,
-                "declined": 0,
-                "frac": 1.0,
-                "how": "stats"
-              },
-              "REBLOCK_PERMUTE_BACK": {
-                "resolved": "True",
-                "served": 1088,
-                "declined": 0,
-                "frac": 1.0,
-                "how": "stats"
-              },
-              "REBLOCK_PERMUTE_GATED": {
-                "resolved": "True",
-                "served": 1936,
-                "declined": 0,
-                "frac": 1.0,
-                "how": "stats"
-              },
-              "TRIATT_PERSISTENT_MASK": {
-                "resolved": "True",
-                "served": 1088,
-                "declined": 1088,
-                "frac": 0.5,
-                "how": "stats",
-                "rejects": {
-                  "l1_budget": 1,
-                  "pm_over_l1": 1087
-                }
-              },
-              "SDPA_WIDE_K": {
-                "resolved": "False",
-                "served": 0,
-                "declined": 0,
-                "frac": 0.0,
-                "how": "stats"
-              },
-              "RFD3_SPARSE_BIAS": {
-                "resolved": "not-imported",
-                "served": null,
-                "declined": null,
-                "frac": null,
-                "how": "stats"
-              },
-              "RFD3_FUSED_SCORES": {
-                "resolved": "not-imported",
-                "served": null,
-                "declined": null,
-                "frac": null,
-                "how": "stats"
-              },
-              "TRIATT_HEAD_MAJOR_QKV": {
-                "resolved": "True",
-                "served": 1048,
-                "declined": 40,
-                "frac": 0.9632352941176471,
-                "how": "stats",
-                "rejects": {
-                  "head_dim_or_width": 40
-                }
-              },
-              "TRIATT_HEAD_MAJOR_TAIL": {
-                "resolved": "True",
-                "served": 0,
-                "declined": 0,
-                "frac": 0.0,
-                "how": "stats",
-                "reason": "rf3's triangle attention takes the fused SDPA route (TRIATT_PERSISTENT_MASK serves 1088/rung), so triatt_qkv's tail is never offered a call. 0/0 at every rung."
-              },
-              "TRIATT_TAIL_OVER_L1": {
-                "resolved": "True",
-                "served": 0,
-                "declined": 0,
-                "frac": 0.0,
-                "how": "stats-shared",
-                "reason": "the L1 sibling of TRIATT_HEAD_MAJOR_TAIL, on the same never-reached triatt_qkv tail. 0/0 at every rung."
-              },
-              "B2_BIAS_SLICE_HOIST": {
-                "resolved": "True",
-                "served": 0,
-                "declined": 0,
-                "frac": 0.0,
-                "how": "wrap",
-                "reason": "boltz-2 only (BOLTZ2_BIAS_SLICE_HOIST): rf3's diffusion module has no such bias slice. 0/0 at every rung."
-              },
-              "B2_ADALN_S_MEMO": {
-                "resolved": "True",
-                "served": 66,
-                "declined": 0,
-                "frac": 1.0,
-                "how": "wrap"
-              },
-              "B2_TOKEN_DIT_SDPA": {
-                "resolved": "False",
-                "served": null,
-                "declined": null,
-                "frac": null,
-                "how": "off-by-design"
-              },
-              "TRANSPOSE_L1_RESIDENT": {
-                "resolved": "1.25",
-                "served": 40,
-                "declined": 1048,
-                "frac": 0.03676470588235294,
-                "how": "wrap"
-              },
-              "SDPA_Q_CHUNK_FITS": {
-                "resolved": "True",
-                "served": 0,
-                "declined": 0,
-                "frac": 0.0,
-                "how": "setlen"
-              },
-              "RFD3_SOFTMAX_PV_FUSED": {
-                "resolved": "not-imported",
-                "served": null,
-                "declined": null,
-                "frac": null,
-                "how": "stats"
-              },
-              "RFD3_FC1_SPLIT_SILU": {
-                "resolved": "not-imported",
-                "served": null,
-                "declined": null,
-                "frac": null,
-                "how": "stats"
-              }
-            },
-            "1088": {
-              "SPLIT_SWIGLU": {
-                "resolved": "True",
-                "served": 0,
-                "declined": 0,
-                "frac": 0.0,
-                "how": "stats",
-                "reason": "esmc-only: lives in tt_bio.esmc, which rf3's fold never enters. 0/0 at every rung."
-              },
-              "SPLIT_SWIGLU_SMALL_GRID": {
-                "resolved": "True",
-                "served": 0,
-                "declined": 0,
-                "frac": 0.0,
-                "how": "stats-shared",
-                "reason": "esmc-only: lives in tt_bio.esmc, which rf3's fold never enters. 0/0 at every rung."
-              },
-              "PAIR_FFN_L1_FC1": {
-                "resolved": "True",
-                "served": 0,
-                "declined": 0,
-                "frac": 0.0,
-                "how": "stats",
-                "reason": "esmc-only: lives in tt_bio.esmc, which rf3's fold never enters. 0/0 at every rung."
-              },
-              "PAIR_FFN_L1_LN": {
-                "resolved": "True",
-                "served": 0,
-                "declined": 0,
-                "frac": 0.0,
-                "how": "stats",
-                "reason": "esmc-only: lives in tt_bio.esmc, which rf3's fold never enters. 0/0 at every rung."
-              },
-              "PAIR_FFN_L1_SLICE": {
-                "resolved": "True",
-                "served": 0,
-                "declined": 0,
-                "frac": 0.0,
-                "how": "stats",
-                "reason": "esmc-only: lives in tt_bio.esmc, which rf3's fold never enters. 0/0 at every rung."
-              },
-              "PAIR_FFN_FUSED_RESIDUAL": {
-                "resolved": "True",
-                "served": 0,
-                "declined": 0,
-                "frac": 0.0,
-                "how": "stats",
-                "reason": "esmc-only: lives in tt_bio.esmc, which rf3's fold never enters. 0/0 at every rung."
-              },
-              "PAIR_FFN_FILL_ASSEMBLY": {
-                "resolved": "True",
-                "served": 0,
-                "declined": 0,
-                "frac": 0.0,
-                "how": "stats",
-                "reason": "esmc-only: lives in tt_bio.esmc, which rf3's fold never enters. 0/0 at every rung."
-              },
-              "TRIMUL_IN_PROJ_DUAL_NOC": {
-                "resolved": "True",
-                "served": 2136,
-                "declined": 0,
-                "frac": 1.0,
-                "how": "stats"
-              },
-              "ADALN_S_HOIST": {
-                "resolved": "True",
-                "served": 306,
-                "declined": 0,
-                "frac": 1.0,
-                "how": "wrap"
-              },
-              "FP32_SOFTMAX_BIAS_HOIST": {
-                "resolved": "True",
-                "served": 33,
-                "declined": 0,
-                "frac": 1.0,
-                "how": "stats-dict"
-              },
-              "PAIR_TRANSPOSE_VIA_ROW_MAJOR": {
-                "resolved": "True",
-                "served": 1088,
-                "declined": 0,
-                "frac": 1.0,
-                "how": "wrap"
-              },
-              "PAIR_PROJ_MINIMAL_MATMUL": {
-                "resolved": "True",
-                "served": 0,
-                "declined": 4352,
-                "frac": 0.0,
-                "how": "wrap",
-                "rejects": {
-                  "k_tiles=2:(2,2)": 80,
-                  "k_tiles=2:(2,1)": 40,
-                  "no_mm_block:(8,2)": 40,
-                  "k_tiles=4:(4,4)": 3144,
-                  "k_tiles=4:(4,1)": 1048
-                },
-                "reason": "declines on k_tiles=4, which is rf3's c_z=128 in tiles -- a channel width, not a sequence length, so it is dark identically at every rung. rf3 gets nothing from this lever at its channel; widening it to k_tiles=4 is a lever-owner question, not a size-band one."
-              },
-              "TRIMUL_TAIL_F1": {
-                "resolved": "True",
-                "served": 0,
-                "declined": 1088,
-                "frac": 0.0,
-                "how": "stats",
-                "rejects": {
-                  "k_tiles=2": 40,
-                  "k_tiles=4": 1048
-                },
-                "reason": "declines on k_tiles=4, which is rf3's c_z=128 in tiles -- a channel width, not a sequence length, so it is dark identically at every rung. rf3 gets nothing from this lever at its channel; widening it to k_tiles=4 is a lever-owner question, not a size-band one."
-              },
-              "QKV_MM_CONFIG": {
-                "resolved": "True",
-                "served": 2096,
-                "declined": 160,
-                "frac": 0.9290780141843972,
-                "how": "wrap",
-                "rejects": {
-                  "no_mm_block:(2,24)": 80,
-                  "no_mm_block:(2,8)": 40,
-                  "no_mm_block:(8,2)": 40
-                }
-              },
-              "DEVICE_LM_HANDOFF": {
-                "resolved": "not-imported",
-                "served": null,
-                "declined": null,
-                "frac": null,
-                "how": "stats"
-              },
-              "REBLOCK_PERMUTE": {
-                "resolved": "True",
-                "served": 400,
-                "declined": 0,
-                "frac": 1.0,
-                "how": "stats"
-              },
-              "REBLOCK_PERMUTE_BACK": {
-                "resolved": "True",
-                "served": 2136,
-                "declined": 0,
-                "frac": 1.0,
-                "how": "stats"
-              },
-              "REBLOCK_PERMUTE_GATED": {
-                "resolved": "True",
-                "served": 3872,
-                "declined": 0,
-                "frac": 1.0,
-                "how": "stats"
-              },
-              "TRIATT_PERSISTENT_MASK": {
-                "resolved": "True",
-                "served": 0,
-                "declined": 1090,
-                "frac": 0.0,
-                "how": "stats",
-                "rejects": {
-                  "fill_preconditions": 1090
-                },
-                "reason": "KNOWN DEFECT, not an exemption. Dark at 896 and 1088 only, serving all 1088 calls at 768 and at 1024. Once L1 refuses every q_chunk wider than the fixed 256 production pick, a fallback that does not DIVIDE the padded length sets use_padded_mask and fails the hoisted-fill precondition, so the whole call drops to the stock op. Costs 16.7 s (6.8%) at 896. Fixed at 896 by TT_BIO_TRIATT_NARROW_Q_FALLBACK, on by default: +9.5000 s, 1.1005x, A/A floor 0.635 %, bit-exact. At 1088 the flag does not restore the kernel and the bound makes it a no-op, so that rung stays dark for another reason."
-              },
-              "SDPA_WIDE_K": {
-                "resolved": "False",
-                "served": 0,
-                "declined": 0,
-                "frac": 0.0,
-                "how": "stats"
-              },
-              "RFD3_SPARSE_BIAS": {
-                "resolved": "not-imported",
-                "served": null,
-                "declined": null,
-                "frac": null,
-                "how": "stats"
-              },
-              "RFD3_FUSED_SCORES": {
-                "resolved": "not-imported",
-                "served": null,
-                "declined": null,
-                "frac": null,
-                "how": "stats"
-              },
-              "TRIATT_HEAD_MAJOR_QKV": {
-                "resolved": "True",
-                "served": 1048,
-                "declined": 40,
-                "frac": 0.9632352941176471,
-                "how": "stats",
-                "rejects": {
-                  "head_dim_or_width": 40
-                }
-              },
-              "TRIATT_HEAD_MAJOR_TAIL": {
-                "resolved": "True",
-                "served": 0,
-                "declined": 0,
-                "frac": 0.0,
-                "how": "stats",
-                "reason": "rf3's triangle attention takes the fused SDPA route (TRIATT_PERSISTENT_MASK serves 1088/rung), so triatt_qkv's tail is never offered a call. 0/0 at every rung."
-              },
-              "TRIATT_TAIL_OVER_L1": {
-                "resolved": "True",
-                "served": 0,
-                "declined": 0,
-                "frac": 0.0,
-                "how": "stats-shared",
-                "reason": "the L1 sibling of TRIATT_HEAD_MAJOR_TAIL, on the same never-reached triatt_qkv tail. 0/0 at every rung."
-              },
-              "B2_BIAS_SLICE_HOIST": {
-                "resolved": "True",
-                "served": 0,
-                "declined": 0,
-                "frac": 0.0,
-                "how": "wrap",
-                "reason": "boltz-2 only (BOLTZ2_BIAS_SLICE_HOIST): rf3's diffusion module has no such bias slice. 0/0 at every rung."
-              },
-              "B2_ADALN_S_MEMO": {
-                "resolved": "True",
-                "served": 66,
-                "declined": 0,
-                "frac": 1.0,
-                "how": "wrap"
-              },
-              "B2_TOKEN_DIT_SDPA": {
-                "resolved": "False",
-                "served": null,
-                "declined": null,
-                "frac": null,
-                "how": "off-by-design"
-              },
-              "TRANSPOSE_L1_RESIDENT": {
-                "resolved": "1.25",
-                "served": 0,
-                "declined": 1088,
-                "frac": 0.0,
-                "how": "wrap",
-                "reason": "pair tensor outgrows aggregate L1 on a 72-core grid: 1.25 x 104.9 MB at 640 aa against ~100 MB, so the transpose moves to DRAM. Arithmetic, not a mistuned constant; monotone in the size and Wormhole-specific."
-              },
-              "SDPA_Q_CHUNK_FITS": {
-                "resolved": "True",
-                "served": 0,
-                "declined": 2,
-                "frac": 0.0,
-                "how": "setlen",
-                "reason": "same root cause as TRIATT_PERSISTENT_MASK: reached-and-declined at 896 and 1088 only, unused at every other rung. See that entry."
-              },
-              "RFD3_SOFTMAX_PV_FUSED": {
-                "resolved": "not-imported",
-                "served": null,
-                "declined": null,
-                "frac": null,
-                "how": "stats"
-              },
-              "RFD3_FC1_SPLIT_SILU": {
-                "resolved": "not-imported",
-                "served": null,
-                "declined": null,
-                "frac": null,
-                "how": "stats"
-              }
-            },
-            "1024": {
-              "SPLIT_SWIGLU": {
-                "resolved": "True",
-                "served": 0,
-                "declined": 0,
-                "frac": 0.0,
-                "how": "stats",
-                "reason": "esmc-only: lives in tt_bio.esmc, which rf3's fold never enters. 0/0 at every rung."
-              },
-              "SPLIT_SWIGLU_SMALL_GRID": {
-                "resolved": "True",
-                "served": 0,
-                "declined": 0,
-                "frac": 0.0,
-                "how": "stats-shared",
-                "reason": "esmc-only: lives in tt_bio.esmc, which rf3's fold never enters. 0/0 at every rung."
-              },
-              "PAIR_FFN_L1_FC1": {
-                "resolved": "True",
-                "served": 0,
-                "declined": 0,
-                "frac": 0.0,
-                "how": "stats",
-                "reason": "esmc-only: lives in tt_bio.esmc, which rf3's fold never enters. 0/0 at every rung."
-              },
-              "PAIR_FFN_L1_LN": {
-                "resolved": "True",
-                "served": 0,
-                "declined": 0,
-                "frac": 0.0,
-                "how": "stats",
-                "reason": "esmc-only: lives in tt_bio.esmc, which rf3's fold never enters. 0/0 at every rung."
-              },
-              "PAIR_FFN_L1_SLICE": {
-                "resolved": "True",
-                "served": 0,
-                "declined": 0,
-                "frac": 0.0,
-                "how": "stats",
-                "reason": "esmc-only: lives in tt_bio.esmc, which rf3's fold never enters. 0/0 at every rung."
-              },
-              "PAIR_FFN_FUSED_RESIDUAL": {
-                "resolved": "True",
-                "served": 0,
-                "declined": 0,
-                "frac": 0.0,
-                "how": "stats",
-                "reason": "esmc-only: lives in tt_bio.esmc, which rf3's fold never enters. 0/0 at every rung."
-              },
-              "PAIR_FFN_FILL_ASSEMBLY": {
-                "resolved": "True",
-                "served": 0,
-                "declined": 0,
-                "frac": 0.0,
-                "how": "stats",
-                "reason": "esmc-only: lives in tt_bio.esmc, which rf3's fold never enters. 0/0 at every rung."
-              },
-              "TRIMUL_IN_PROJ_DUAL_NOC": {
-                "resolved": "True",
-                "served": 1088,
-                "declined": 0,
-                "frac": 1.0,
-                "how": "stats"
-              },
-              "ADALN_S_HOIST": {
-                "resolved": "True",
-                "served": 306,
-                "declined": 0,
-                "frac": 1.0,
-                "how": "wrap"
-              },
-              "FP32_SOFTMAX_BIAS_HOIST": {
-                "resolved": "True",
-                "served": 33,
-                "declined": 0,
-                "frac": 1.0,
-                "how": "stats-dict"
-              },
-              "PAIR_TRANSPOSE_VIA_ROW_MAJOR": {
-                "resolved": "True",
-                "served": 1088,
-                "declined": 0,
-                "frac": 1.0,
-                "how": "wrap"
-              },
-              "PAIR_PROJ_MINIMAL_MATMUL": {
-                "resolved": "True",
-                "served": 0,
-                "declined": 4352,
-                "frac": 0.0,
-                "how": "wrap",
-                "rejects": {
-                  "k_tiles=2:(2,2)": 80,
-                  "k_tiles=2:(2,1)": 40,
-                  "no_mm_block:(8,2)": 40,
-                  "k_tiles=4:(4,4)": 3144,
-                  "k_tiles=4:(4,1)": 1048
-                },
-                "reason": "declines on k_tiles=4, which is rf3's c_z=128 in tiles -- a channel width, not a sequence length, so it is dark identically at every rung. rf3 gets nothing from this lever at its channel; widening it to k_tiles=4 is a lever-owner question, not a size-band one."
-              },
-              "TRIMUL_TAIL_F1": {
-                "resolved": "True",
-                "served": 0,
-                "declined": 1088,
-                "frac": 0.0,
-                "how": "stats",
-                "rejects": {
-                  "k_tiles=2": 40,
-                  "k_tiles=4": 1048
-                },
-                "reason": "declines on k_tiles=4, which is rf3's c_z=128 in tiles -- a channel width, not a sequence length, so it is dark identically at every rung. rf3 gets nothing from this lever at its channel; widening it to k_tiles=4 is a lever-owner question, not a size-band one."
-              },
-              "QKV_MM_CONFIG": {
-                "resolved": "True",
-                "served": 2096,
-                "declined": 160,
-                "frac": 0.9290780141843972,
-                "how": "wrap",
-                "rejects": {
-                  "no_mm_block:(2,24)": 80,
-                  "no_mm_block:(2,8)": 40,
-                  "no_mm_block:(8,2)": 40
-                }
-              },
-              "DEVICE_LM_HANDOFF": {
-                "resolved": "not-imported",
-                "served": null,
-                "declined": null,
-                "frac": null,
-                "how": "stats"
-              },
-              "REBLOCK_PERMUTE": {
-                "resolved": "True",
-                "served": 240,
-                "declined": 0,
-                "frac": 1.0,
-                "how": "stats"
-              },
-              "REBLOCK_PERMUTE_BACK": {
-                "resolved": "True",
-                "served": 1088,
-                "declined": 0,
-                "frac": 1.0,
-                "how": "stats"
-              },
-              "REBLOCK_PERMUTE_GATED": {
-                "resolved": "True",
-                "served": 1936,
-                "declined": 0,
-                "frac": 1.0,
-                "how": "stats"
-              },
-              "TRIATT_PERSISTENT_MASK": {
-                "resolved": "True",
-                "served": 1088,
-                "declined": 2176,
-                "frac": 0.3333333333333333,
-                "how": "stats",
-                "rejects": {
-                  "l1_budget": 2,
-                  "pm_over_l1": 2174
-                }
-              },
-              "SDPA_WIDE_K": {
-                "resolved": "False",
-                "served": 0,
-                "declined": 0,
-                "frac": 0.0,
-                "how": "stats"
-              },
-              "RFD3_SPARSE_BIAS": {
-                "resolved": "not-imported",
-                "served": null,
-                "declined": null,
-                "frac": null,
-                "how": "stats"
-              },
-              "RFD3_FUSED_SCORES": {
-                "resolved": "not-imported",
-                "served": null,
-                "declined": null,
-                "frac": null,
-                "how": "stats"
-              },
-              "TRIATT_HEAD_MAJOR_QKV": {
-                "resolved": "True",
-                "served": 1048,
-                "declined": 40,
-                "frac": 0.9632352941176471,
-                "how": "stats",
-                "rejects": {
-                  "head_dim_or_width": 40
-                }
-              },
-              "TRIATT_HEAD_MAJOR_TAIL": {
-                "resolved": "True",
-                "served": 0,
-                "declined": 0,
-                "frac": 0.0,
-                "how": "stats",
-                "reason": "rf3's triangle attention takes the fused SDPA route (TRIATT_PERSISTENT_MASK serves 1088/rung), so triatt_qkv's tail is never offered a call. 0/0 at every rung."
-              },
-              "TRIATT_TAIL_OVER_L1": {
-                "resolved": "True",
-                "served": 0,
-                "declined": 0,
-                "frac": 0.0,
-                "how": "stats-shared",
-                "reason": "the L1 sibling of TRIATT_HEAD_MAJOR_TAIL, on the same never-reached triatt_qkv tail. 0/0 at every rung."
-              },
-              "B2_BIAS_SLICE_HOIST": {
-                "resolved": "True",
-                "served": 0,
-                "declined": 0,
-                "frac": 0.0,
-                "how": "wrap",
-                "reason": "boltz-2 only (BOLTZ2_BIAS_SLICE_HOIST): rf3's diffusion module has no such bias slice. 0/0 at every rung."
-              },
-              "B2_ADALN_S_MEMO": {
-                "resolved": "True",
-                "served": 66,
-                "declined": 0,
-                "frac": 1.0,
-                "how": "wrap"
-              },
-              "B2_TOKEN_DIT_SDPA": {
-                "resolved": "False",
-                "served": null,
-                "declined": null,
-                "frac": null,
-                "how": "off-by-design"
-              },
-              "TRANSPOSE_L1_RESIDENT": {
-                "resolved": "1.25",
-                "served": 0,
-                "declined": 1088,
-                "frac": 0.0,
-                "how": "wrap",
-                "reason": "pair tensor outgrows aggregate L1 on a 72-core grid: 1.25 x 104.9 MB at 640 aa against ~100 MB, so the transpose moves to DRAM. Arithmetic, not a mistuned constant; monotone in the size and Wormhole-specific."
-              },
-              "SDPA_Q_CHUNK_FITS": {
-                "resolved": "True",
-                "served": 0,
-                "declined": 0,
-                "frac": 0.0,
-                "how": "setlen"
-              },
-              "RFD3_SOFTMAX_PV_FUSED": {
-                "resolved": "not-imported",
-                "served": null,
-                "declined": null,
-                "frac": null,
-                "how": "stats"
-              },
-              "RFD3_FC1_SPLIT_SILU": {
-                "resolved": "not-imported",
-                "served": null,
-                "declined": null,
-                "frac": null,
-                "how": "stats"
               }
             },
             "768": {
@@ -1156,7 +1379,7 @@
               },
               "ADALN_S_HOIST": {
                 "resolved": "True",
-                "served": 306,
+                "served": 66,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "wrap"
@@ -1167,6 +1390,14 @@
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats-dict"
+              },
+              "FP32_SOFTMAX_L1_GRID": {
+                "resolved": "(9, 8)",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats-dict",
+                "reason": "declines all 0 calls: rf3 does enter `_fp32_softmax_attention`, 33 calls per fold at every rung (FP32_SOFTMAX_BIAS_HOIST counts them), but at this size the L1 plan (`_fp32_softmax_l1_plan`, tt_bio/tenstorrent.py:3769) finds no row block that fits: 0 blocks and 0 refusals, so the scores stay in DRAM. Same state at 512-1088; only 256 and 1280 land a block. A plan outcome, not a refusal"
               },
               "PAIR_TRANSPOSE_VIA_ROW_MAJOR": {
                 "resolved": "True",
@@ -1181,14 +1412,13 @@
               "PAIR_PROJ_MINIMAL_MATMUL": {
                 "resolved": "True",
                 "served": 0,
-                "declined": 4348,
+                "declined": 3224,
                 "frac": 0.0,
                 "how": "wrap",
                 "rejects": {
-                  "k_tiles=2:(2,2)": 76,
                   "k_tiles=2:(2,1)": 40,
                   "no_mm_block:(8,2)": 40,
-                  "k_tiles=4:(4,4)": 3144,
+                  "k_tiles=4:(4,4)": 2096,
                   "k_tiles=4:(4,1)": 1048
                 },
                 "reason": "declines on k_tiles=4, which is rf3's c_z=128 in tiles -- a channel width, not a sequence length, so it is dark identically at every rung. rf3 gets nothing from this lever at its channel; widening it to k_tiles=4 is a lever-owner question, not a size-band one."
@@ -1196,24 +1426,19 @@
               "TRIMUL_TAIL_F1": {
                 "resolved": "True",
                 "served": 0,
-                "declined": 1088,
+                "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "rejects": {
-                  "k_tiles=2": 40,
-                  "k_tiles=4": 1048
-                },
                 "reason": "declines on k_tiles=4, which is rf3's c_z=128 in tiles -- a channel width, not a sequence length, so it is dark identically at every rung. rf3 gets nothing from this lever at its channel; widening it to k_tiles=4 is a lever-owner question, not a size-band one."
               },
               "QKV_MM_CONFIG": {
                 "resolved": "True",
-                "served": 2096,
-                "declined": 160,
-                "frac": 0.9290780141843972,
+                "served": 2136,
+                "declined": 120,
+                "frac": 0.9468085106382979,
                 "how": "wrap",
                 "rejects": {
                   "no_mm_block:(2,24)": 80,
-                  "no_mm_block:(2,8)": 40,
                   "no_mm_block:(8,2)": 40
                 }
               },
@@ -1226,10 +1451,11 @@
               },
               "REBLOCK_PERMUTE": {
                 "resolved": "True",
-                "served": 240,
+                "served": 0,
                 "declined": 0,
-                "frac": 1.0,
-                "how": "stats"
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "superseded at this rung, not broken: `TT_BIO_TRIMUL_MASK_AFTER_MOVE` moves the pair mask past the channel move, so the trimul reaches the fused gated kernel first and this ungated site is never called (0 served AND 0 declined). The handover is visible in this same baseline -- `REBLOCK_PERMUTE_GATED` serves 2176 per fold here and 0 at 256 aa, which is the one rung where this ungated lever is still the one being called. The fused pair is bit-exact (perf/b2x_trimul/), so the traffic changed route without changing the answer. [carried from p300c] [carried from p150a]"
               },
               "REBLOCK_PERMUTE_BACK": {
                 "resolved": "True",
@@ -1240,10 +1466,17 @@
               },
               "REBLOCK_PERMUTE_GATED": {
                 "resolved": "True",
-                "served": 1936,
+                "served": 2176,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
+              },
+              "TRIMUL_MASK_AFTER_MOVE": {
+                "resolved": "True",
+                "served": 2176,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats-shared"
               },
               "TRIATT_PERSISTENT_MASK": {
                 "resolved": "True",
@@ -1257,11 +1490,20 @@
                 }
               },
               "SDPA_WIDE_K": {
-                "resolved": "False",
+                "resolved": "True",
                 "served": 0,
                 "declined": 0,
                 "frac": 0.0,
-                "how": "stats"
+                "how": "stats",
+                "reason": "structural, not size-specific: both SDPA_K_CHUNK_STATS sites are inside `_tri_att_sdpa_at`'s `len(k_chunks) > 1` block, and served 0 declined 0 means no call entered it: the shipped k_chunk divides the padded length at this rung, so there is no wider dividing pick to offer"
+              },
+              "SDPA_FUSED_LARGE_S": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "below the cap, by construction: 0 served AND 0 declined at this rung. The route is offered only for q_len > `_Q_SPLIT_MAX_S` = 1024 padded tokens (tt_bio/triatt_sdpa.py:88, gate at tt_bio/tenstorrent.py:1843), and at or below the cap the stock ladder already lands on a fused pair -- the shipped bit-exact path this flag was written not to disturb. Negative control in this same baseline: rf3's 1088 rung, the one rung above the cap, serves 1088 of 1088 calls fused -- the lever is alive on this model's path and only the rungs at or below the cap are dark. [carried from p300c] [carried from p150a]"
               },
               "RFD3_SPARSE_BIAS": {
                 "resolved": "not-imported",
@@ -1319,11 +1561,26 @@
                 "how": "wrap"
               },
               "B2_TOKEN_DIT_SDPA": {
+                "resolved": "True",
+                "served": 120,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats"
+              },
+              "APB_CONCAT_HEADS": {
                 "resolved": "False",
-                "served": null,
-                "declined": null,
-                "frac": null,
-                "how": "off-by-design"
+                "served": 0,
+                "declined": 604,
+                "frac": 0.0,
+                "how": "stats"
+              },
+              "ATOM_AXIS_BUCKET": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "no call site on this path: 0 served AND 0 declined at every rung. The counter sits in `tenstorrent.DiffusionModule._populate_diffusion_cache` (tt_bio/tenstorrent.py:11271-11278), and `tenstorrent.DiffusionModule` is constructed only by Boltz-2 (tt_bio/boltz2.py:4232); rf3 runs its own diffusion module and never reaches it. Control in this same baseline: boltz2 serves 6 per fold at every rung. [carried from p300c] [carried from p150a]"
               },
               "TRANSPOSE_L1_RESIDENT": {
                 "resolved": "1.25",
@@ -1352,6 +1609,25 @@
                 "declined": null,
                 "frac": null,
                 "how": "stats"
+              },
+              "TRANSITION_H_CHUNK": {
+                "resolved": "16",
+                "served": 0,
+                "declined": 596,
+                "frac": 0.0,
+                "how": "stats",
+                "rejects": {
+                  "base-unraised": 546,
+                  "h-clamped-to-H": 50
+                },
+                "reason": "declines all 596 calls on base-unraised x546, h-clamped-to-H x50: on Wormhole the height cannot exceed its base at this width, whatever the channel. Served means a height above TRANSITION_H_CHUNK_SIZE=16, and the base is 32 only when W <= 384 (tt_bio/tenstorrent.py:8628). Every small-grid clause after that can only lower it: the ratio is min(1, ...), the 256 < c <= 384 clause is bounded by min(_base_h, ...), and the per-core L1 row cap is a min. The raise above the base is the Blackhole elif, so this board reads 0.0 from 512 up on every model and the lever has no Wormhole raise to decline"
+              },
+              "TRIATT_SDPA_HIFI": {
+                "resolved": "none",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats-dict"
               }
             },
             "512": {
@@ -1420,7 +1696,7 @@
               },
               "ADALN_S_HOIST": {
                 "resolved": "True",
-                "served": 306,
+                "served": 66,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "wrap"
@@ -1431,6 +1707,14 @@
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats-dict"
+              },
+              "FP32_SOFTMAX_L1_GRID": {
+                "resolved": "(9, 8)",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats-dict",
+                "reason": "declines all 0 calls: rf3 does enter `_fp32_softmax_attention`, 33 calls per fold at every rung (FP32_SOFTMAX_BIAS_HOIST counts them), but at this size the L1 plan (`_fp32_softmax_l1_plan`, tt_bio/tenstorrent.py:3769) finds no row block that fits: 0 blocks and 0 refusals, so the scores stay in DRAM. Same state at 512-1088; only 256 and 1280 land a block. A plan outcome, not a refusal"
               },
               "PAIR_TRANSPOSE_VIA_ROW_MAJOR": {
                 "resolved": "True",
@@ -1446,12 +1730,11 @@
               "PAIR_PROJ_MINIMAL_MATMUL": {
                 "resolved": "True",
                 "served": 0,
-                "declined": 3178,
+                "declined": 1088,
                 "frac": 0.0,
                 "how": "wrap",
                 "rejects": {
                   "k_tiles=2:(2,1)": 40,
-                  "k_tiles=4:(4,4)": 2090,
                   "k_tiles=4:(4,1)": 1048
                 },
                 "reason": "declines on k_tiles=4, which is rf3's c_z=128 in tiles -- a channel width, not a sequence length, so it is dark identically at every rung. rf3 gets nothing from this lever at its channel; widening it to k_tiles=4 is a lever-owner question, not a size-band one."
@@ -1459,24 +1742,19 @@
               "TRIMUL_TAIL_F1": {
                 "resolved": "True",
                 "served": 0,
-                "declined": 1088,
+                "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "rejects": {
-                  "k_tiles=2": 40,
-                  "k_tiles=4": 1048
-                },
                 "reason": "declines on k_tiles=4, which is rf3's c_z=128 in tiles -- a channel width, not a sequence length, so it is dark identically at every rung. rf3 gets nothing from this lever at its channel; widening it to k_tiles=4 is a lever-owner question, not a size-band one."
               },
               "QKV_MM_CONFIG": {
                 "resolved": "True",
-                "served": 2096,
-                "declined": 120,
-                "frac": 0.9458483754512635,
+                "served": 2136,
+                "declined": 80,
+                "frac": 0.9638989169675091,
                 "how": "wrap",
                 "rejects": {
-                  "no_mm_block:(2,24)": 80,
-                  "no_mm_block:(2,8)": 40
+                  "no_mm_block:(2,24)": 80
                 }
               },
               "DEVICE_LM_HANDOFF": {
@@ -1488,10 +1766,11 @@
               },
               "REBLOCK_PERMUTE": {
                 "resolved": "True",
-                "served": 240,
+                "served": 0,
                 "declined": 0,
-                "frac": 1.0,
-                "how": "stats"
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "superseded at this rung, not broken: `TT_BIO_TRIMUL_MASK_AFTER_MOVE` moves the pair mask past the channel move, so the trimul reaches the fused gated kernel first and this ungated site is never called (0 served AND 0 declined). The handover is visible in this same baseline -- `REBLOCK_PERMUTE_GATED` serves 2176 per fold here and 0 at 256 aa, which is the one rung where this ungated lever is still the one being called. The fused pair is bit-exact (perf/b2x_trimul/), so the traffic changed route without changing the answer. [carried from p300c] [carried from p150a]"
               },
               "REBLOCK_PERMUTE_BACK": {
                 "resolved": "True",
@@ -1502,10 +1781,17 @@
               },
               "REBLOCK_PERMUTE_GATED": {
                 "resolved": "True",
-                "served": 1936,
+                "served": 2176,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
+              },
+              "TRIMUL_MASK_AFTER_MOVE": {
+                "resolved": "True",
+                "served": 2176,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats-shared"
               },
               "TRIATT_PERSISTENT_MASK": {
                 "resolved": "True",
@@ -1515,11 +1801,20 @@
                 "how": "stats"
               },
               "SDPA_WIDE_K": {
-                "resolved": "False",
+                "resolved": "True",
                 "served": 0,
                 "declined": 0,
                 "frac": 0.0,
-                "how": "stats"
+                "how": "stats",
+                "reason": "structural, not size-specific: both SDPA_K_CHUNK_STATS sites are inside `_tri_att_sdpa_at`'s `len(k_chunks) > 1` block, and served 0 declined 0 means no call entered it: the shipped k_chunk divides the padded length at this rung, so there is no wider dividing pick to offer"
+              },
+              "SDPA_FUSED_LARGE_S": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "below the cap, by construction: 0 served AND 0 declined at this rung. The route is offered only for q_len > `_Q_SPLIT_MAX_S` = 1024 padded tokens (tt_bio/triatt_sdpa.py:88, gate at tt_bio/tenstorrent.py:1843), and at or below the cap the stock ladder already lands on a fused pair -- the shipped bit-exact path this flag was written not to disturb. Negative control in this same baseline: rf3's 1088 rung, the one rung above the cap, serves 1088 of 1088 calls fused -- the lever is alive on this model's path and only the rungs at or below the cap are dark. [carried from p300c] [carried from p150a]"
               },
               "RFD3_SPARSE_BIAS": {
                 "resolved": "not-imported",
@@ -1577,11 +1872,26 @@
                 "how": "wrap"
               },
               "B2_TOKEN_DIT_SDPA": {
+                "resolved": "True",
+                "served": 120,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats"
+              },
+              "APB_CONCAT_HEADS": {
                 "resolved": "False",
-                "served": null,
-                "declined": null,
-                "frac": null,
-                "how": "off-by-design"
+                "served": 0,
+                "declined": 604,
+                "frac": 0.0,
+                "how": "stats"
+              },
+              "ATOM_AXIS_BUCKET": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "no call site on this path: 0 served AND 0 declined at every rung. The counter sits in `tenstorrent.DiffusionModule._populate_diffusion_cache` (tt_bio/tenstorrent.py:11271-11278), and `tenstorrent.DiffusionModule` is constructed only by Boltz-2 (tt_bio/boltz2.py:4232); rf3 runs its own diffusion module and never reaches it. Control in this same baseline: boltz2 serves 6 per fold at every rung. [carried from p300c] [carried from p150a]"
               },
               "TRANSPOSE_L1_RESIDENT": {
                 "resolved": "1.25",
@@ -1610,6 +1920,25 @@
                 "declined": null,
                 "frac": null,
                 "how": "stats"
+              },
+              "TRANSITION_H_CHUNK": {
+                "resolved": "16",
+                "served": 0,
+                "declined": 596,
+                "frac": 0.0,
+                "how": "stats",
+                "rejects": {
+                  "base-unraised": 546,
+                  "h-clamped-to-H": 50
+                },
+                "reason": "declines all 596 calls on base-unraised x546, h-clamped-to-H x50: on Wormhole the height cannot exceed its base at this width, whatever the channel. Served means a height above TRANSITION_H_CHUNK_SIZE=16, and the base is 32 only when W <= 384 (tt_bio/tenstorrent.py:8628). Every small-grid clause after that can only lower it: the ratio is min(1, ...), the 256 < c <= 384 clause is bounded by min(_base_h, ...), and the per-core L1 row cap is a min. The raise above the base is the Blackhole elif, so this board reads 0.0 from 512 up on every model and the lever has no Wormhole raise to decline"
+              },
+              "TRIATT_SDPA_HIFI": {
+                "resolved": "none",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats-dict"
               }
             },
             "896": {
@@ -1678,7 +2007,7 @@
               },
               "ADALN_S_HOIST": {
                 "resolved": "True",
-                "served": 306,
+                "served": 66,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "wrap"
@@ -1690,6 +2019,14 @@
                 "frac": 1.0,
                 "how": "stats-dict"
               },
+              "FP32_SOFTMAX_L1_GRID": {
+                "resolved": "(9, 8)",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats-dict",
+                "reason": "declines all 0 calls: rf3 does enter `_fp32_softmax_attention`, 33 calls per fold at every rung (FP32_SOFTMAX_BIAS_HOIST counts them), but at this size the L1 plan (`_fp32_softmax_l1_plan`, tt_bio/tenstorrent.py:3769) finds no row block that fits: 0 blocks and 0 refusals, so the scores stay in DRAM. Same state at 512-1088; only 256 and 1280 land a block. A plan outcome, not a refusal"
+              },
               "PAIR_TRANSPOSE_VIA_ROW_MAJOR": {
                 "resolved": "True",
                 "served": 1088,
@@ -1700,14 +2037,14 @@
               "PAIR_PROJ_MINIMAL_MATMUL": {
                 "resolved": "True",
                 "served": 0,
-                "declined": 4352,
+                "declined": 3264,
                 "frac": 0.0,
                 "how": "wrap",
                 "rejects": {
-                  "k_tiles=2:(2,2)": 80,
+                  "k_tiles=2:(2,2)": 40,
                   "k_tiles=2:(2,1)": 40,
                   "no_mm_block:(8,2)": 40,
-                  "k_tiles=4:(4,4)": 3144,
+                  "k_tiles=4:(4,4)": 2096,
                   "k_tiles=4:(4,1)": 1048
                 },
                 "reason": "declines on k_tiles=4, which is rf3's c_z=128 in tiles -- a channel width, not a sequence length, so it is dark identically at every rung. rf3 gets nothing from this lever at its channel; widening it to k_tiles=4 is a lever-owner question, not a size-band one."
@@ -1715,24 +2052,19 @@
               "TRIMUL_TAIL_F1": {
                 "resolved": "True",
                 "served": 0,
-                "declined": 1088,
+                "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "rejects": {
-                  "k_tiles=2": 40,
-                  "k_tiles=4": 1048
-                },
                 "reason": "declines on k_tiles=4, which is rf3's c_z=128 in tiles -- a channel width, not a sequence length, so it is dark identically at every rung. rf3 gets nothing from this lever at its channel; widening it to k_tiles=4 is a lever-owner question, not a size-band one."
               },
               "QKV_MM_CONFIG": {
                 "resolved": "True",
-                "served": 2096,
-                "declined": 160,
-                "frac": 0.9290780141843972,
+                "served": 2136,
+                "declined": 120,
+                "frac": 0.9468085106382979,
                 "how": "wrap",
                 "rejects": {
                   "no_mm_block:(2,24)": 80,
-                  "no_mm_block:(2,8)": 40,
                   "no_mm_block:(8,2)": 40
                 }
               },
@@ -1745,10 +2077,11 @@
               },
               "REBLOCK_PERMUTE": {
                 "resolved": "True",
-                "served": 240,
+                "served": 0,
                 "declined": 0,
-                "frac": 1.0,
-                "how": "stats"
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "superseded at this rung, not broken: `TT_BIO_TRIMUL_MASK_AFTER_MOVE` moves the pair mask past the channel move, so the trimul reaches the fused gated kernel first and this ungated site is never called (0 served AND 0 declined). The handover is visible in this same baseline -- `REBLOCK_PERMUTE_GATED` serves 2176 per fold here and 0 at 256 aa, which is the one rung where this ungated lever is still the one being called. The fused pair is bit-exact (perf/b2x_trimul/), so the traffic changed route without changing the answer. [carried from p300c] [carried from p150a]"
               },
               "REBLOCK_PERMUTE_BACK": {
                 "resolved": "True",
@@ -1759,29 +2092,357 @@
               },
               "REBLOCK_PERMUTE_GATED": {
                 "resolved": "True",
-                "served": 1936,
+                "served": 2176,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
               },
+              "TRIMUL_MASK_AFTER_MOVE": {
+                "resolved": "True",
+                "served": 2176,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats-shared"
+              },
               "TRIATT_PERSISTENT_MASK": {
                 "resolved": "True",
-                "served": 0,
-                "declined": 2177,
-                "frac": 0.0,
+                "served": 1088,
+                "declined": 2176,
+                "frac": 0.3333333333333333,
                 "how": "stats",
                 "rejects": {
                   "l1_budget": 2,
-                  "fill_preconditions": 1088,
-                  "pm_over_l1": 1087
-                },
-                "reason": "KNOWN DEFECT, not an exemption. Dark at 896 and 1088 only, serving all 1088 calls at 768 and at 1024. Once L1 refuses every q_chunk wider than the fixed 256 production pick, a fallback that does not DIVIDE the padded length sets use_padded_mask and fails the hoisted-fill precondition, so the whole call drops to the stock op. Costs 16.7 s (6.8%) at 896. Fixed at 896 by TT_BIO_TRIATT_NARROW_Q_FALLBACK, on by default: +9.5000 s, 1.1005x, A/A floor 0.635 %, bit-exact. At 1088 the flag does not restore the kernel and the bound makes it a no-op, so that rung stays dark for another reason."
+                  "pm_over_l1": 2174
+                }
               },
               "SDPA_WIDE_K": {
-                "resolved": "False",
+                "resolved": "True",
                 "served": 0,
                 "declined": 0,
                 "frac": 0.0,
+                "how": "stats",
+                "reason": "structural, not size-specific: both SDPA_K_CHUNK_STATS sites are inside `_tri_att_sdpa_at`'s `len(k_chunks) > 1` block, and served 0 declined 0 means no call entered it: the shipped k_chunk divides the padded length at this rung, so there is no wider dividing pick to offer"
+              },
+              "SDPA_FUSED_LARGE_S": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "below the cap, by construction: 0 served AND 0 declined at this rung. The route is offered only for q_len > `_Q_SPLIT_MAX_S` = 1024 padded tokens (tt_bio/triatt_sdpa.py:88, gate at tt_bio/tenstorrent.py:1843), and at or below the cap the stock ladder already lands on a fused pair -- the shipped bit-exact path this flag was written not to disturb. Negative control in this same baseline: rf3's 1088 rung, the one rung above the cap, serves 1088 of 1088 calls fused -- the lever is alive on this model's path and only the rungs at or below the cap are dark. [carried from p300c] [carried from p150a]"
+              },
+              "RFD3_SPARSE_BIAS": {
+                "resolved": "not-imported",
+                "served": null,
+                "declined": null,
+                "frac": null,
+                "how": "stats"
+              },
+              "RFD3_FUSED_SCORES": {
+                "resolved": "not-imported",
+                "served": null,
+                "declined": null,
+                "frac": null,
+                "how": "stats"
+              },
+              "TRIATT_HEAD_MAJOR_QKV": {
+                "resolved": "True",
+                "served": 1048,
+                "declined": 40,
+                "frac": 0.9632352941176471,
+                "how": "stats",
+                "rejects": {
+                  "head_dim_or_width": 40
+                }
+              },
+              "TRIATT_HEAD_MAJOR_TAIL": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "rf3's triangle attention takes the fused SDPA route (TRIATT_PERSISTENT_MASK serves 1088/rung), so triatt_qkv's tail is never offered a call. 0/0 at every rung."
+              },
+              "TRIATT_TAIL_OVER_L1": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats-shared",
+                "reason": "the L1 sibling of TRIATT_HEAD_MAJOR_TAIL, on the same never-reached triatt_qkv tail. 0/0 at every rung."
+              },
+              "B2_BIAS_SLICE_HOIST": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "wrap",
+                "reason": "boltz-2 only (BOLTZ2_BIAS_SLICE_HOIST): rf3's diffusion module has no such bias slice. 0/0 at every rung."
+              },
+              "B2_ADALN_S_MEMO": {
+                "resolved": "True",
+                "served": 66,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "wrap"
+              },
+              "B2_TOKEN_DIT_SDPA": {
+                "resolved": "True",
+                "served": 120,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats"
+              },
+              "APB_CONCAT_HEADS": {
+                "resolved": "False",
+                "served": 0,
+                "declined": 604,
+                "frac": 0.0,
+                "how": "stats"
+              },
+              "ATOM_AXIS_BUCKET": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "no call site on this path: 0 served AND 0 declined at every rung. The counter sits in `tenstorrent.DiffusionModule._populate_diffusion_cache` (tt_bio/tenstorrent.py:11271-11278), and `tenstorrent.DiffusionModule` is constructed only by Boltz-2 (tt_bio/boltz2.py:4232); rf3 runs its own diffusion module and never reaches it. Control in this same baseline: boltz2 serves 6 per fold at every rung. [carried from p300c] [carried from p150a]"
+              },
+              "TRANSPOSE_L1_RESIDENT": {
+                "resolved": "1.25",
+                "served": 0,
+                "declined": 1088,
+                "frac": 0.0,
+                "how": "wrap",
+                "reason": "pair tensor outgrows aggregate L1 on a 72-core grid: 1.25 x 104.9 MB at 640 aa against ~100 MB, so the transpose moves to DRAM. Arithmetic, not a mistuned constant; monotone in the size and Wormhole-specific."
+              },
+              "SDPA_Q_CHUNK_FITS": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "setlen"
+              },
+              "RFD3_SOFTMAX_PV_FUSED": {
+                "resolved": "not-imported",
+                "served": null,
+                "declined": null,
+                "frac": null,
+                "how": "stats"
+              },
+              "RFD3_FC1_SPLIT_SILU": {
+                "resolved": "not-imported",
+                "served": null,
+                "declined": null,
+                "frac": null,
+                "how": "stats"
+              },
+              "TRANSITION_H_CHUNK": {
+                "resolved": "16",
+                "served": 0,
+                "declined": 596,
+                "frac": 0.0,
+                "how": "stats",
+                "rejects": {
+                  "base-unraised": 22,
+                  "h-clamped-to-H": 50,
+                  "ratio-shrunk": 524
+                },
+                "reason": "declines all 596 calls on ratio-shrunk x524, h-clamped-to-H x50, base-unraised x22: on Wormhole the height cannot exceed its base at this width, whatever the channel. Served means a height above TRANSITION_H_CHUNK_SIZE=16, and the base is 32 only when W <= 384 (tt_bio/tenstorrent.py:8628). Every small-grid clause after that can only lower it: the ratio is min(1, ...), the 256 < c <= 384 clause is bounded by min(_base_h, ...), and the per-core L1 row cap is a min. The raise above the base is the Blackhole elif, so this board reads 0.0 from 512 up on every model and the lever has no Wormhole raise to decline"
+              },
+              "TRIATT_SDPA_HIFI": {
+                "resolved": "none",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats-dict"
+              }
+            },
+            "1088": {
+              "SPLIT_SWIGLU": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "esmc-only: lives in tt_bio.esmc, which rf3's fold never enters. 0/0 at every rung."
+              },
+              "SPLIT_SWIGLU_SMALL_GRID": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats-shared",
+                "reason": "esmc-only: lives in tt_bio.esmc, which rf3's fold never enters. 0/0 at every rung."
+              },
+              "PAIR_FFN_L1_FC1": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "esmc-only: lives in tt_bio.esmc, which rf3's fold never enters. 0/0 at every rung."
+              },
+              "PAIR_FFN_L1_LN": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "esmc-only: lives in tt_bio.esmc, which rf3's fold never enters. 0/0 at every rung."
+              },
+              "PAIR_FFN_L1_SLICE": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "esmc-only: lives in tt_bio.esmc, which rf3's fold never enters. 0/0 at every rung."
+              },
+              "PAIR_FFN_FUSED_RESIDUAL": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "esmc-only: lives in tt_bio.esmc, which rf3's fold never enters. 0/0 at every rung."
+              },
+              "PAIR_FFN_FILL_ASSEMBLY": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "esmc-only: lives in tt_bio.esmc, which rf3's fold never enters. 0/0 at every rung."
+              },
+              "TRIMUL_IN_PROJ_DUAL_NOC": {
+                "resolved": "True",
+                "served": 2136,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats"
+              },
+              "ADALN_S_HOIST": {
+                "resolved": "True",
+                "served": 66,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "wrap"
+              },
+              "FP32_SOFTMAX_BIAS_HOIST": {
+                "resolved": "True",
+                "served": 33,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats-dict"
+              },
+              "FP32_SOFTMAX_L1_GRID": {
+                "resolved": "(9, 8)",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats-dict",
+                "reason": "declines all 0 calls: rf3 does enter `_fp32_softmax_attention`, 33 calls per fold at every rung (FP32_SOFTMAX_BIAS_HOIST counts them), but at this size the L1 plan (`_fp32_softmax_l1_plan`, tt_bio/tenstorrent.py:3769) finds no row block that fits: 0 blocks and 0 refusals, so the scores stay in DRAM. Same state at 512-1088; only 256 and 1280 land a block. A plan outcome, not a refusal"
+              },
+              "PAIR_TRANSPOSE_VIA_ROW_MAJOR": {
+                "resolved": "True",
+                "served": 1088,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "wrap"
+              },
+              "PAIR_PROJ_MINIMAL_MATMUL": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 4312,
+                "frac": 0.0,
+                "how": "wrap",
+                "rejects": {
+                  "k_tiles=2:(2,2)": 40,
+                  "k_tiles=2:(2,1)": 40,
+                  "no_mm_block:(8,2)": 40,
+                  "k_tiles=4:(4,4)": 3144,
+                  "k_tiles=4:(4,1)": 1048
+                },
+                "reason": "declines on k_tiles=4, which is rf3's c_z=128 in tiles -- a channel width, not a sequence length, so it is dark identically at every rung. rf3 gets nothing from this lever at its channel; widening it to k_tiles=4 is a lever-owner question, not a size-band one."
+              },
+              "TRIMUL_TAIL_F1": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 1048,
+                "frac": 0.0,
+                "how": "stats",
+                "rejects": {
+                  "k_tiles=4": 1048
+                },
+                "reason": "declines on k_tiles=4, which is rf3's c_z=128 in tiles -- a channel width, not a sequence length, so it is dark identically at every rung. rf3 gets nothing from this lever at its channel; widening it to k_tiles=4 is a lever-owner question, not a size-band one."
+              },
+              "QKV_MM_CONFIG": {
+                "resolved": "True",
+                "served": 2136,
+                "declined": 120,
+                "frac": 0.9468085106382979,
+                "how": "wrap",
+                "rejects": {
+                  "no_mm_block:(2,24)": 80,
+                  "no_mm_block:(8,2)": 40
+                }
+              },
+              "DEVICE_LM_HANDOFF": {
+                "resolved": "not-imported",
+                "served": null,
+                "declined": null,
+                "frac": null,
+                "how": "stats"
+              },
+              "REBLOCK_PERMUTE": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "superseded at this rung, not broken: `TT_BIO_TRIMUL_MASK_AFTER_MOVE` moves the pair mask past the channel move, so the trimul reaches the fused gated kernel first and this ungated site is never called (0 served AND 0 declined). The handover is visible in this same baseline -- `REBLOCK_PERMUTE_GATED` serves 4272 per fold here and 0 at 256 aa, which is the one rung where this ungated lever is still the one being called. The fused pair is bit-exact (perf/b2x_trimul/), so the traffic changed route without changing the answer. [carried from p300c] [carried from p150a]"
+              },
+              "REBLOCK_PERMUTE_BACK": {
+                "resolved": "True",
+                "served": 2136,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats"
+              },
+              "REBLOCK_PERMUTE_GATED": {
+                "resolved": "True",
+                "served": 4272,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats"
+              },
+              "TRIMUL_MASK_AFTER_MOVE": {
+                "resolved": "True",
+                "served": 4272,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats-shared"
+              },
+              "TRIATT_PERSISTENT_MASK": {
+                "resolved": "True",
+                "served": 1088,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats"
+              },
+              "SDPA_WIDE_K": {
+                "resolved": "True",
+                "served": 1088,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats"
+              },
+              "SDPA_FUSED_LARGE_S": {
+                "resolved": "True",
+                "served": 1088,
+                "declined": 0,
+                "frac": 1.0,
                 "how": "stats"
               },
               "RFD3_SPARSE_BIAS": {
@@ -1840,11 +2501,26 @@
                 "how": "wrap"
               },
               "B2_TOKEN_DIT_SDPA": {
+                "resolved": "True",
+                "served": 120,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats"
+              },
+              "APB_CONCAT_HEADS": {
                 "resolved": "False",
-                "served": null,
-                "declined": null,
-                "frac": null,
-                "how": "off-by-design"
+                "served": 0,
+                "declined": 604,
+                "frac": 0.0,
+                "how": "stats"
+              },
+              "ATOM_AXIS_BUCKET": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "no call site on this path: 0 served AND 0 declined at every rung. The counter sits in `tenstorrent.DiffusionModule._populate_diffusion_cache` (tt_bio/tenstorrent.py:11271-11278), and `tenstorrent.DiffusionModule` is constructed only by Boltz-2 (tt_bio/boltz2.py:4232); rf3 runs its own diffusion module and never reaches it. Control in this same baseline: boltz2 serves 6 per fold at every rung. [carried from p300c] [carried from p150a]"
               },
               "TRANSPOSE_L1_RESIDENT": {
                 "resolved": "1.25",
@@ -1857,10 +2533,9 @@
               "SDPA_Q_CHUNK_FITS": {
                 "resolved": "True",
                 "served": 0,
-                "declined": 1,
+                "declined": 0,
                 "frac": 0.0,
-                "how": "setlen",
-                "reason": "same root cause as TRIATT_PERSISTENT_MASK: reached-and-declined at 896 and 1088 only, unused at every other rung. See that entry."
+                "how": "setlen"
               },
               "RFD3_SOFTMAX_PV_FUSED": {
                 "resolved": "not-imported",
@@ -1875,10 +2550,692 @@
                 "declined": null,
                 "frac": null,
                 "how": "stats"
+              },
+              "TRANSITION_H_CHUNK": {
+                "resolved": "16",
+                "served": 0,
+                "declined": 596,
+                "frac": 0.0,
+                "how": "stats",
+                "rejects": {
+                  "base-unraised": 20,
+                  "h-clamped-to-H": 50,
+                  "ratio-shrunk": 526
+                },
+                "reason": "declines all 596 calls on ratio-shrunk x526, h-clamped-to-H x50, base-unraised x20: on Wormhole the height cannot exceed its base at this width, whatever the channel. Served means a height above TRANSITION_H_CHUNK_SIZE=16, and the base is 32 only when W <= 384 (tt_bio/tenstorrent.py:8628). Every small-grid clause after that can only lower it: the ratio is min(1, ...), the 256 < c <= 384 clause is bounded by min(_base_h, ...), and the per-core L1 row cap is a min. The raise above the base is the Blackhole elif, so this board reads 0.0 from 512 up on every model and the lever has no Wormhole raise to decline"
+              },
+              "TRIATT_SDPA_HIFI": {
+                "resolved": "none",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats-dict"
+              }
+            },
+            "640": {
+              "SPLIT_SWIGLU": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "esmc-only: lives in tt_bio.esmc, which rf3's fold never enters. 0/0 at every rung."
+              },
+              "SPLIT_SWIGLU_SMALL_GRID": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats-shared",
+                "reason": "esmc-only: lives in tt_bio.esmc, which rf3's fold never enters. 0/0 at every rung."
+              },
+              "PAIR_FFN_L1_FC1": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "esmc-only: lives in tt_bio.esmc, which rf3's fold never enters. 0/0 at every rung."
+              },
+              "PAIR_FFN_L1_LN": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "esmc-only: lives in tt_bio.esmc, which rf3's fold never enters. 0/0 at every rung."
+              },
+              "PAIR_FFN_L1_SLICE": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "esmc-only: lives in tt_bio.esmc, which rf3's fold never enters. 0/0 at every rung."
+              },
+              "PAIR_FFN_FUSED_RESIDUAL": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "esmc-only: lives in tt_bio.esmc, which rf3's fold never enters. 0/0 at every rung."
+              },
+              "PAIR_FFN_FILL_ASSEMBLY": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "esmc-only: lives in tt_bio.esmc, which rf3's fold never enters. 0/0 at every rung."
+              },
+              "TRIMUL_IN_PROJ_DUAL_NOC": {
+                "resolved": "True",
+                "served": 1088,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats"
+              },
+              "ADALN_S_HOIST": {
+                "resolved": "True",
+                "served": 66,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "wrap"
+              },
+              "FP32_SOFTMAX_BIAS_HOIST": {
+                "resolved": "True",
+                "served": 33,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats-dict"
+              },
+              "FP32_SOFTMAX_L1_GRID": {
+                "resolved": "(9, 8)",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats-dict",
+                "reason": "declines all 0 calls: rf3 does enter `_fp32_softmax_attention`, 33 calls per fold at every rung (FP32_SOFTMAX_BIAS_HOIST counts them), but at this size the L1 plan (`_fp32_softmax_l1_plan`, tt_bio/tenstorrent.py:3769) finds no row block that fits: 0 blocks and 0 refusals, so the scores stay in DRAM. Same state at 512-1088; only 256 and 1280 land a block. A plan outcome, not a refusal"
+              },
+              "PAIR_TRANSPOSE_VIA_ROW_MAJOR": {
+                "resolved": "True",
+                "served": 1087,
+                "declined": 2,
+                "frac": 0.9981634527089073,
+                "how": "wrap",
+                "rejects": {
+                  "l1_dest_is_faster:640x640x64": 2
+                }
+              },
+              "PAIR_PROJ_MINIMAL_MATMUL": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 3184,
+                "frac": 0.0,
+                "how": "wrap",
+                "rejects": {
+                  "k_tiles=2:(2,1)": 40,
+                  "k_tiles=4:(4,4)": 2096,
+                  "k_tiles=4:(4,1)": 1048
+                },
+                "reason": "declines on k_tiles=4, which is rf3's c_z=128 in tiles -- a channel width, not a sequence length, so it is dark identically at every rung. rf3 gets nothing from this lever at its channel; widening it to k_tiles=4 is a lever-owner question, not a size-band one."
+              },
+              "TRIMUL_TAIL_F1": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "declines on k_tiles=4, which is rf3's c_z=128 in tiles -- a channel width, not a sequence length, so it is dark identically at every rung. rf3 gets nothing from this lever at its channel; widening it to k_tiles=4 is a lever-owner question, not a size-band one."
+              },
+              "QKV_MM_CONFIG": {
+                "resolved": "True",
+                "served": 2136,
+                "declined": 80,
+                "frac": 0.9638989169675091,
+                "how": "wrap",
+                "rejects": {
+                  "no_mm_block:(2,24)": 80
+                }
+              },
+              "DEVICE_LM_HANDOFF": {
+                "resolved": "not-imported",
+                "served": null,
+                "declined": null,
+                "frac": null,
+                "how": "stats"
+              },
+              "REBLOCK_PERMUTE": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "superseded at this rung, not broken: `TT_BIO_TRIMUL_MASK_AFTER_MOVE` moves the pair mask past the channel move, so the trimul reaches the fused gated kernel first and this ungated site is never called (0 served AND 0 declined). The handover is visible in this same baseline -- `REBLOCK_PERMUTE_GATED` serves 2176 per fold here and 0 at 256 aa, which is the one rung where this ungated lever is still the one being called. The fused pair is bit-exact (perf/b2x_trimul/), so the traffic changed route without changing the answer. [carried from p300c] [carried from p150a]"
+              },
+              "REBLOCK_PERMUTE_BACK": {
+                "resolved": "True",
+                "served": 1088,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats"
+              },
+              "REBLOCK_PERMUTE_GATED": {
+                "resolved": "True",
+                "served": 2176,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats"
+              },
+              "TRIMUL_MASK_AFTER_MOVE": {
+                "resolved": "True",
+                "served": 2176,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats-shared"
+              },
+              "TRIATT_PERSISTENT_MASK": {
+                "resolved": "True",
+                "served": 1088,
+                "declined": 1088,
+                "frac": 0.5,
+                "how": "stats",
+                "rejects": {
+                  "l1_budget": 1,
+                  "pm_over_l1": 1087
+                }
+              },
+              "SDPA_WIDE_K": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "structural, not size-specific: both SDPA_K_CHUNK_STATS sites are inside `_tri_att_sdpa_at`'s `len(k_chunks) > 1` block, and served 0 declined 0 means no call entered it: the shipped k_chunk divides the padded length at this rung, so there is no wider dividing pick to offer"
+              },
+              "SDPA_FUSED_LARGE_S": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "below the cap, by construction: 0 served AND 0 declined at this rung. The route is offered only for q_len > `_Q_SPLIT_MAX_S` = 1024 padded tokens (tt_bio/triatt_sdpa.py:88, gate at tt_bio/tenstorrent.py:1843), and at or below the cap the stock ladder already lands on a fused pair -- the shipped bit-exact path this flag was written not to disturb. Negative control in this same baseline: rf3's 1088 rung, the one rung above the cap, serves 1088 of 1088 calls fused -- the lever is alive on this model's path and only the rungs at or below the cap are dark. [carried from p300c] [carried from p150a]"
+              },
+              "RFD3_SPARSE_BIAS": {
+                "resolved": "not-imported",
+                "served": null,
+                "declined": null,
+                "frac": null,
+                "how": "stats"
+              },
+              "RFD3_FUSED_SCORES": {
+                "resolved": "not-imported",
+                "served": null,
+                "declined": null,
+                "frac": null,
+                "how": "stats"
+              },
+              "TRIATT_HEAD_MAJOR_QKV": {
+                "resolved": "True",
+                "served": 1048,
+                "declined": 40,
+                "frac": 0.9632352941176471,
+                "how": "stats",
+                "rejects": {
+                  "head_dim_or_width": 40
+                }
+              },
+              "TRIATT_HEAD_MAJOR_TAIL": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "rf3's triangle attention takes the fused SDPA route (TRIATT_PERSISTENT_MASK serves 1088/rung), so triatt_qkv's tail is never offered a call. 0/0 at every rung."
+              },
+              "TRIATT_TAIL_OVER_L1": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats-shared",
+                "reason": "the L1 sibling of TRIATT_HEAD_MAJOR_TAIL, on the same never-reached triatt_qkv tail. 0/0 at every rung."
+              },
+              "B2_BIAS_SLICE_HOIST": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "wrap",
+                "reason": "boltz-2 only (BOLTZ2_BIAS_SLICE_HOIST): rf3's diffusion module has no such bias slice. 0/0 at every rung."
+              },
+              "B2_ADALN_S_MEMO": {
+                "resolved": "True",
+                "served": 66,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "wrap"
+              },
+              "B2_TOKEN_DIT_SDPA": {
+                "resolved": "True",
+                "served": 120,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats"
+              },
+              "APB_CONCAT_HEADS": {
+                "resolved": "False",
+                "served": 0,
+                "declined": 604,
+                "frac": 0.0,
+                "how": "stats"
+              },
+              "ATOM_AXIS_BUCKET": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "no call site on this path: 0 served AND 0 declined at every rung. The counter sits in `tenstorrent.DiffusionModule._populate_diffusion_cache` (tt_bio/tenstorrent.py:11271-11278), and `tenstorrent.DiffusionModule` is constructed only by Boltz-2 (tt_bio/boltz2.py:4232); rf3 runs its own diffusion module and never reaches it. Control in this same baseline: boltz2 serves 6 per fold at every rung. [carried from p300c] [carried from p150a]"
+              },
+              "TRANSPOSE_L1_RESIDENT": {
+                "resolved": "1.25",
+                "served": 40,
+                "declined": 1048,
+                "frac": 0.03676470588235294,
+                "how": "wrap"
+              },
+              "SDPA_Q_CHUNK_FITS": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "setlen"
+              },
+              "RFD3_SOFTMAX_PV_FUSED": {
+                "resolved": "not-imported",
+                "served": null,
+                "declined": null,
+                "frac": null,
+                "how": "stats"
+              },
+              "RFD3_FC1_SPLIT_SILU": {
+                "resolved": "not-imported",
+                "served": null,
+                "declined": null,
+                "frac": null,
+                "how": "stats"
+              },
+              "TRANSITION_H_CHUNK": {
+                "resolved": "16",
+                "served": 0,
+                "declined": 596,
+                "frac": 0.0,
+                "how": "stats",
+                "rejects": {
+                  "base-unraised": 546,
+                  "h-clamped-to-H": 50
+                },
+                "reason": "declines all 596 calls on base-unraised x546, h-clamped-to-H x50: on Wormhole the height cannot exceed its base at this width, whatever the channel. Served means a height above TRANSITION_H_CHUNK_SIZE=16, and the base is 32 only when W <= 384 (tt_bio/tenstorrent.py:8628). Every small-grid clause after that can only lower it: the ratio is min(1, ...), the 256 < c <= 384 clause is bounded by min(_base_h, ...), and the per-core L1 row cap is a min. The raise above the base is the Blackhole elif, so this board reads 0.0 from 512 up on every model and the lever has no Wormhole raise to decline"
+              },
+              "TRIATT_SDPA_HIFI": {
+                "resolved": "none",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats-dict"
               }
             }
           },
+          "runtime_reps_s": {
+            "1280": [
+              518.9
+            ],
+            "1536": [
+              785.2
+            ],
+            "1024": [
+              295.9
+            ],
+            "256": [
+              44.8,
+              48.7,
+              57.1,
+              51.3,
+              74.6
+            ],
+            "768": [
+              179.7
+            ],
+            "512": [
+              118.9,
+              101.8,
+              118.0,
+              132.5,
+              110.1
+            ],
+            "896": [
+              236.4
+            ],
+            "1088": [
+              383.1
+            ],
+            "640": [
+              123.6
+            ]
+          },
+          "aiclk": {
+            "1280": {
+              "card": "8",
+              "min": 500,
+              "max": 1000,
+              "rep_median": [
+                1000
+              ],
+              "n": 100
+            },
+            "1536": {
+              "card": "8",
+              "min": 500,
+              "max": 1000,
+              "rep_median": [
+                1000
+              ],
+              "n": 149
+            },
+            "1024": {
+              "card": "8",
+              "min": 500,
+              "max": 1000,
+              "rep_median": [
+                1000
+              ],
+              "n": 58
+            },
+            "256": {
+              "card": "8",
+              "min": 500,
+              "max": 1000,
+              "rep_median": [
+                1000,
+                1000,
+                1000,
+                500,
+                1000
+              ],
+              "n": 209
+            },
+            "768": {
+              "card": "8",
+              "min": 500,
+              "max": 1000,
+              "rep_median": [
+                1000
+              ],
+              "n": 37
+            },
+            "512": {
+              "card": "8",
+              "min": 500,
+              "max": 1000,
+              "rep_median": [
+                1000,
+                1000,
+                1000,
+                1000,
+                1000
+              ],
+              "n": 124
+            },
+            "896": {
+              "card": "8",
+              "min": 500,
+              "max": 1000,
+              "rep_median": [
+                1000
+              ],
+              "n": 47
+            },
+            "1088": {
+              "card": "8",
+              "min": 500,
+              "max": 1000,
+              "rep_median": [
+                1000
+              ],
+              "n": 74
+            },
+            "640": {
+              "card": "8",
+              "min": 500,
+              "max": 1000,
+              "rep_median": [
+                1000
+              ],
+              "n": 26
+            }
+          },
+          "load": {
+            "1280": {
+              "max": 0.57,
+              "rep_median": [
+                0.45
+              ]
+            },
+            "1536": {
+              "max": 0.59,
+              "rep_median": [
+                0.49
+              ]
+            },
+            "1024": {
+              "max": 1.31,
+              "rep_median": [
+                0.58
+              ]
+            },
+            "256": {
+              "max": 1.74,
+              "rep_median": [
+                0.57,
+                0.6,
+                0.61,
+                0.85,
+                0.42
+              ]
+            },
+            "768": {
+              "max": 1.65,
+              "rep_median": [
+                1.03
+              ]
+            },
+            "512": {
+              "max": 1.93,
+              "rep_median": [
+                1.17,
+                0.85,
+                1.48,
+                1.65,
+                1.02
+              ]
+            },
+            "896": {
+              "max": 1.35,
+              "rep_median": [
+                0.7
+              ]
+            },
+            "1088": {
+              "max": 0.78,
+              "rep_median": [
+                0.53
+              ]
+            },
+            "640": {
+              "max": 1.23,
+              "rep_median": [
+                0.89
+              ]
+            }
+          },
+          "structure": {
+            "1280": {
+              "file": "cdk2x2_1280.cif",
+              "steps": 6,
+              "n_ca": 1280,
+              "clash_frac": 0.0469,
+              "chain_break_frac": 1.0,
+              "ca_ca_median_A": 120.8074,
+              "radius_of_gyration_A": 111.729,
+              "plddt_mean": 0.757663,
+              "geometry_ok": false,
+              "geometry_fail": [
+                "median CA-CA 120.807 A outside [3.6, 4.0]",
+                "100.0% of consecutive CA pairs exceed 5.0 A",
+                "4.7% of CA atoms sit under 3.5 A from a non-bonded CA",
+                "radius of gyration 111.7 A outside [16.7, 83.4]"
+              ]
+            },
+            "1536": {
+              "file": "cdk2x2_1536.cif",
+              "steps": 6,
+              "n_ca": 1536,
+              "clash_frac": 0.1022,
+              "chain_break_frac": 1.0,
+              "ca_ca_median_A": 111.3739,
+              "radius_of_gyration_A": 104.101,
+              "plddt_mean": 0.752903,
+              "geometry_ok": false,
+              "geometry_fail": [
+                "median CA-CA 111.374 A outside [3.6, 4.0]",
+                "100.0% of consecutive CA pairs exceed 5.0 A",
+                "10.2% of CA atoms sit under 3.5 A from a non-bonded CA",
+                "radius of gyration 104.1 A outside [17.9, 89.4]"
+              ]
+            },
+            "1024": {
+              "file": "cdk2x2_1024.cif",
+              "steps": 6,
+              "n_ca": 1024,
+              "clash_frac": 0.0547,
+              "chain_break_frac": 1.0,
+              "ca_ca_median_A": 122.4071,
+              "radius_of_gyration_A": 107.746,
+              "plddt_mean": 0.752093,
+              "geometry_ok": false,
+              "geometry_fail": [
+                "median CA-CA 122.407 A outside [3.6, 4.0]",
+                "100.0% of consecutive CA pairs exceed 5.0 A",
+                "5.5% of CA atoms sit under 3.5 A from a non-bonded CA",
+                "radius of gyration 107.7 A outside [15.3, 76.6]"
+              ]
+            },
+            "256": {
+              "file": "cdk2x2_256.cif",
+              "steps": 6,
+              "n_ca": 256,
+              "clash_frac": 0.0,
+              "chain_break_frac": 1.0,
+              "ca_ca_median_A": 112.7044,
+              "radius_of_gyration_A": 106.057,
+              "plddt_mean": 0.698859,
+              "geometry_ok": false,
+              "geometry_fail": [
+                "median CA-CA 112.704 A outside [3.6, 4.0]",
+                "100.0% of consecutive CA pairs exceed 5.0 A",
+                "radius of gyration 106.1 A outside [9.0, 45.2]"
+              ]
+            },
+            "768": {
+              "file": "cdk2x2_768.cif",
+              "steps": 6,
+              "n_ca": 768,
+              "clash_frac": 0.0312,
+              "chain_break_frac": 1.0,
+              "ca_ca_median_A": 124.197,
+              "radius_of_gyration_A": 109.415,
+              "plddt_mean": 0.751998,
+              "geometry_ok": false,
+              "geometry_fail": [
+                "median CA-CA 124.197 A outside [3.6, 4.0]",
+                "100.0% of consecutive CA pairs exceed 5.0 A",
+                "3.1% of CA atoms sit under 3.5 A from a non-bonded CA",
+                "radius of gyration 109.4 A outside [13.7, 68.7]"
+              ]
+            },
+            "512": {
+              "file": "cdk2x2_512.cif",
+              "steps": 6,
+              "n_ca": 512,
+              "clash_frac": 0.0215,
+              "chain_break_frac": 1.0,
+              "ca_ca_median_A": 116.594,
+              "radius_of_gyration_A": 109.023,
+              "plddt_mean": 0.743875,
+              "geometry_ok": false,
+              "geometry_fail": [
+                "median CA-CA 116.594 A outside [3.6, 4.0]",
+                "100.0% of consecutive CA pairs exceed 5.0 A",
+                "2.1% of CA atoms sit under 3.5 A from a non-bonded CA",
+                "radius of gyration 109.0 A outside [11.8, 58.9]"
+              ]
+            },
+            "896": {
+              "file": "cdk2x2_896.cif",
+              "steps": 6,
+              "n_ca": 896,
+              "clash_frac": 0.0279,
+              "chain_break_frac": 1.0,
+              "ca_ca_median_A": 119.8492,
+              "radius_of_gyration_A": 110.071,
+              "plddt_mean": 0.748831,
+              "geometry_ok": false,
+              "geometry_fail": [
+                "median CA-CA 119.849 A outside [3.6, 4.0]",
+                "100.0% of consecutive CA pairs exceed 5.0 A",
+                "2.8% of CA atoms sit under 3.5 A from a non-bonded CA",
+                "radius of gyration 110.1 A outside [14.6, 72.8]"
+              ]
+            },
+            "1088": {
+              "file": "cdk2x2_1088.cif",
+              "steps": 6,
+              "n_ca": 1088,
+              "clash_frac": 0.0358,
+              "chain_break_frac": 1.0,
+              "ca_ca_median_A": 119.1313,
+              "radius_of_gyration_A": 109.552,
+              "plddt_mean": 0.751203,
+              "geometry_ok": false,
+              "geometry_fail": [
+                "median CA-CA 119.131 A outside [3.6, 4.0]",
+                "100.0% of consecutive CA pairs exceed 5.0 A",
+                "3.6% of CA atoms sit under 3.5 A from a non-bonded CA",
+                "radius of gyration 109.6 A outside [15.7, 78.4]"
+              ]
+            },
+            "640": {
+              "file": "cdk2x2_640.cif",
+              "steps": 6,
+              "n_ca": 640,
+              "clash_frac": 0.0203,
+              "chain_break_frac": 1.0,
+              "ca_ca_median_A": 115.6293,
+              "radius_of_gyration_A": 110.239,
+              "plddt_mean": 0.746464,
+              "geometry_ok": false,
+              "geometry_fail": [
+                "median CA-CA 115.629 A outside [3.6, 4.0]",
+                "100.0% of consecutive CA pairs exceed 5.0 A",
+                "2.0% of CA atoms sit under 3.5 A from a non-bonded CA",
+                "radius of gyration 110.2 A outside [12.8, 64.1]"
+              ]
+            }
+          },
           "rungs_carried": [
+            "256",
             "512",
             "640",
             "768",
@@ -1886,17 +3243,20 @@
             "1024",
             "1088"
           ],
-          "exponents_skipped": "no noise measurement (rung 512 absent from the ladder)",
+          "exponents_skipped": "256 aa was timed at 1.7x nproc, above the 1.5x load ceiling: the runtimes are the host's, re-time on a quiet box",
           "exponents_measured": {
-            "256->512": 1.335,
-            "512->640": -0.105,
-            "640->768": 2.152,
-            "768->896": 2.234,
-            "896->1024": 1.304,
-            "1024->1088": 6.039
+            "256->512": 1.202,
+            "512->640": 0.208,
+            "640->768": 2.053,
+            "768->896": 1.779,
+            "896->1024": 1.681,
+            "1024->1088": 4.26,
+            "1088->1280": 1.867,
+            "1280->1536": 2.272
           }
         }
-      }
+      },
+      "host_threads": 2
     },
     "p150a": {
       "recorded": "2026-09-20",

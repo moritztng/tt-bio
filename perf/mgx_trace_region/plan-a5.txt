@@ -1,0 +1,3 @@
+# rfd3 after both traces are removed: eager unchanged, decoder flag refuses by name
+rfd3_eager_v3 design examples/rfd3_binder.json --model rfd3 --from_pdb --num_designs 1 --seed 0 --num_timesteps 20 --out_dir {out}
+rfd3_dec_refuse RFD3_TRACE_DECODER=1 design examples/rfd3_binder.json --model rfd3 --from_pdb --num_designs 1 --seed 0 --num_timesteps 20 --out_dir {out}

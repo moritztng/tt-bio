@@ -1,0 +1,5 @@
+# boltz2 DiT trace vs eager at 512 and 1536 tokens (census + AFTER)
+b2_512_trace predict perf/size512/fixtures/cdk2x2_512.yaml --model boltz2 --out_dir {out} --diffusion_samples 1 --seed 0 --host_threads 2 --accelerator tenstorrent --override --diffusion_trace
+b2_512_eager predict perf/size512/fixtures/cdk2x2_512.yaml --model boltz2 --out_dir {out} --diffusion_samples 1 --seed 0 --host_threads 2 --accelerator tenstorrent --override
+b2_1536_trace predict perf/size512/fixtures/cdk2x2_1536.yaml --model boltz2 --out_dir {out} --diffusion_samples 1 --seed 0 --host_threads 2 --accelerator tenstorrent --override --diffusion_trace
+b2_1536_eager predict perf/size512/fixtures/cdk2x2_1536.yaml --model boltz2 --out_dir {out} --diffusion_samples 1 --seed 0 --host_threads 2 --accelerator tenstorrent --override

@@ -107,7 +107,9 @@ tt-bio affinity complex.yaml --accelerator cpu     # the torch reference
 
 Writes `<id>_affinity.json` per input and one `affinity.csv` for the run, plus a `processed/`
 directory holding the parsed structures, the RDKit conformers and the ESM-2 embeddings so a
-re-run skips them.
+re-run skips them. An input that fails, whether its SMILES does not parse or the device raises on
+it, gets its reason in the `error` column and the screen carries on; the command exits 1 if any
+input failed.
 
 ## What it takes as input
 

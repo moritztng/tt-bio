@@ -243,14 +243,6 @@ def _unmeasured(evidence: str, counts: str = RESIDUES) -> Ceiling:
     return Ceiling(None, None, None, UNMEASURED, UNKNOWN, evidence, counts=counts)
 
 
-# Shared by every model that carries no ceiling of its own. Spelled once because the reason is one
-# reason, and a reader who sees it eight times should see the same sentence eight times.
-_INHERITS_DEMO_FENCE = (
-    "no measured engine ceiling. The catalog's 1024 for this model is LIMITS['max_residues'], the "
-    "platform's free-demo fence, which no ladder walked to a failure -- so tt-bio does not refuse "
-    "on it. Walking a ladder here is outstanding work, not a missing guard."
-)
-
 # model id (as it appears in a CLI --model choice) -> arch (ttnn.get_arch_name()) -> Ceiling
 #
 # The Wormhole rows are copied from the ladders recorded in japanfold/catalog.py, each attributed to
@@ -280,9 +272,25 @@ CEILINGS: dict[str, dict[str, Ceiling]] = {
                      "failure rather than at the largest passing size",
         ),
         "wormhole_b0": Ceiling(
-            residues=1536, pass_at=1536, fail_at=None, binds=LADDER_TOP, mechanism=NO_FAILURE,
-            msa_rows=8192,
-            evidence="1536 residues fold at 8192 alignment rows on the j10glx02 Galaxy, 2026-09-23 "
+            residues=1536, pass_at=1536, fail_at=1664, binds=RUNTIME, mechanism=FRAGMENTATION,
+            msa_rows=16384,
+            evidence="1664 is where the fold stops being usable, walked 2026-09-23/24 on origin/main "
+                     "c5b346679 (mgx-bigalloc merged), j10glx02 card 16, guard off, --host_threads "
+                     "2, 8192 rows (ws:mgx-ceilings, perf/mgxceil). The residue pair, 1664^2 x 384 "
+                     "x 2 B = 2126512128 B, is refused as one allocation (177209344 B per bank "
+                     "against a 134360608 B largest block with 361496608 B free: fragmentation), "
+                     "so every chunked pair op joins its blocks on the host "
+                     "(tenstorrent.py host_acc_after_refusal -> _acc_concat). py-spy put 99-100 "
+                     "percent of the main thread there and a trunk recycle took ~20 min, against "
+                     "at most 9 min at 1536 (5223.9 s for the whole fold). After 7897.1 s the "
+                     "trunk was on recycle 6 of 10, past the 6436 s watchdog JapanFold's "
+                     "wk/mgx-platform-cap gives a 1664 predict (1500 s x (1664/1024)^3), and the fold was stopped with SIGINT so ttnn closed the chip cleanly. AICLK median 1000 MHz over 749 "
+                     "samples, host load 44-63 on 64 cores. 1792 was at recycle 2 of 10 after "
+                     "5536.2 s (card 19) and 1920 fails outright after 93.1 s on the trunk "
+                     "recycle pair add (protenix.py trunk, 2831155200 B, 225 MiB per bank, 98.8 "
+                     "MiB largest). So the cap stays 1536 and the reason above it is run time, not "
+                     "a crash; TT_BIO_SIZE_LIMIT=0 runs 1664 for anyone prepared to wait hours. "
+                     "1536 residues fold at 8192 alignment rows on the j10glx02 Galaxy, 2026-09-23 "
                      "(ws:mgx-bigalloc, perf/whceil/ladder.py, chip 20, tt-bio c8f75a9f0): "
                      "cdk2x2_1536_d8192 with all 10 trunk recycles, PASS in 5223.9 s at AICLK "
                      "1000 MHz sampled DURING the fold, under a host load that voids the time for "
@@ -301,10 +309,18 @@ CEILINGS: dict[str, dict[str, Ceiling]] = {
                      "the upstream reference, which has one seed there. 1536 has no reference yet; "
                      "its fold keeps the backbone except one stretched 14-residue segment "
                      "(586-599, CA-CA up to 5.5 A, pLDDT 48-56) on a junction of the tiled "
-                     "fixture, whose repeats have no defined arrangement. 1536 is the MGX target "
-                     "and nothing above it was walked, hence LADDER_TOP. The previous row, 1024 "
+                     "fixture, whose repeats have no defined arrangement. The previous row, 1024 "
                      "on GWH02 at the same depth with 1088 failing on the j10glx02 Galaxy, is "
-                     "what these fixes moved",
+                     "what these fixes moved. AT 16384 ROWS, the most the featurizer keeps "
+                     "(ws:mgx-msa-depth, perf/mgx_msa_depth, chip 18, tt-bio 2f7e0606c): "
+                     "cdk2_1536_d16384 PASS in 5951 s at AICLK 1000 MHz on 563 samples taken "
+                     "DURING the fold, ten refusals absorbed, msa_depth 16384 in results.json, "
+                     "CA-CA median 3.83 A with 98.0 % in band, so this row holds at every depth a "
+                     "user reaches. "
+                     "Re-passed on origin/main 6ea518246 (after sdpa-mask 94e7a002c), j10glx02, "
+                     "2026-09-24, guard off, --host_threads 2, AICLK median 1000 MHz sampled during "
+                     "the fold: 1536 at 16384 rows PASS in 5402.8 s (card 8, msa_depth 16384, pLDDT "
+                     "0.725), above the 5062 s cube-scaled platform watchdog at 1536 on a loaded host",
         ),
     },
     "opendde-abag": {
@@ -330,9 +346,18 @@ CEILINGS: dict[str, dict[str, Ceiling]] = {
                      "failure rather than at the largest passing size",
         ),
         "wormhole_b0": Ceiling(
-            residues=1536, pass_at=1536, fail_at=None, binds=LADDER_TOP, mechanism=NO_FAILURE,
-            msa_rows=8192,
-            evidence="its OWN 1536 rung at 8192 alignment rows on the j10glx02 Galaxy, 2026-09-23, "
+            residues=1536, pass_at=1536, fail_at=1664, binds=RUNTIME, mechanism=FRAGMENTATION,
+            msa_rows=16384,
+            evidence="its OWN 1664 rung, walked 2026-09-23/24 on origin/main a102dfb5c (the "
+                     "bigalloc engine; c5b346679 after it changes nothing opendde runs), j10glx02 "
+                     "card 14, guard off, --host_threads 2, 8192 rows (ws:mgx-ceilings, "
+                     "perf/mgxceil). The same 2126512128 B residue pair as opendde is refused as "
+                     "one allocation (fragmentation), every chunked pair op joins its blocks on "
+                     "the host, and after 9037.5 s the trunk was on recycle 7 of 10, past the "
+                     "same 6436 s watchdog at 1664; stopped with SIGINT for a clean "
+                     "close. AICLK median 1000 MHz over 857 samples, host load 43-63 on 64 cores. "
+                     "Run time, not a crash, is what binds above 1536. "
+                     "Its OWN 1536 rung at 8192 alignment rows on the j10glx02 Galaxy, 2026-09-23, "
                      "not inherited from opendde by architecture argument (ws:mgx-bigalloc, "
                      "perf/whceil/ladder.py, chip 18, tt-bio c8f75a9f0): cdk2x2_1536_d8192 with all "
                      "10 trunk recycles, PASS in 5366.1 s at AICLK 1000 MHz on 497 of 501 samples "
@@ -348,14 +373,49 @@ CEILINGS: dict[str, dict[str, Ceiling]] = {
                      "checkpoint. The size ladder's own cdk2x2_1280 rung (single sequence, 6 steps), which "
                      "crashed after the trunk on an L1 clash before 72ea47311, folds on 598f158a8 "
                      "(chip 30, 2005.9 s, AICLK median 1000 MHz). The previous row was 1024 (3/3 byte-identical folds, 2026-09-08) "
-                     "with 1088 failing",
+                     "with 1088 failing. AT 16384 ROWS, the most the featurizer keeps (ws:mgx-msa-depth, "
+                     "perf/mgx_msa_depth, chip 23, tt-bio b08951fd6): cdk2_1024_d16384 PASS in 1779 s "
+                     "at AICLK 1000 MHz sampled DURING the fold, three DRAM refusals absorbed; "
+                     "cdk2_1536_d16384 PASS in 5891 s at AICLK 1000 MHz on 556 samples taken DURING "
+                     "the fold (chip 12, tt-bio b9cdecce1), ten refusals absorbed, msa_depth 16384 "
+                     "in results.json, CA-CA median 3.85 A with 98.0 % in band. "
+                     "Re-passed on origin/main 6ea518246 (after sdpa-mask 94e7a002c), j10glx02, "
+                     "2026-09-24, guard off, --host_threads 2, AICLK median 1000 MHz sampled during "
+                     "the fold: 1536 at 16384 rows PASS in 5342.0 s (card 16, msa_depth 16384, pLDDT "
+                     "0.701), above the 5062 s cube-scaled platform watchdog at 1536 on a loaded host",
         ),
     },
     "openfold3": {
         "wormhole_b0": Ceiling(
-            residues=1536, pass_at=1536, fail_at=None, binds=LADDER_TOP, mechanism=NO_FAILURE,
-            msa_rows=14190,
-            evidence="1536 residues fold at 14190 alignment rows on the j10glx02 Galaxy, "
+            residues=1664, pass_at=1664, fail_at=1792, binds=MEMORY, mechanism=FRAGMENTATION,
+            msa_rows=16384,
+            evidence="1792 x 14190 re-failed on origin/main a102dfb5c (mgx-bigalloc merged; the "
+                     "later c5b346679 and 720b43a5d do not change this path's allocations), j10glx02 "
+                     "card 19, 2026-09-23, guard off, --host_threads 2, after 1018.1 s: bigalloc "
+                     "moved the wall out of triangle attention into the diffusion transformer's "
+                     "attention scores (openfold3_diffusion_transformer.py:216 scale_add), one "
+                     "205520896 B request, 17129472 B per bank against a 17128832 B largest block "
+                     "on a chip 95.8 percent full (43.4 MiB free): fragmentation on a full chip. "
+                     "AICLK median 1000 MHz. Before that, "
+                     "walked 2026-09-23 on origin/main a2a70b160 (combos merge: template features "
+                     "stay on the host), j10glx02 card 19, guard off, --host_threads 2, apo CDK2 "
+                     "tiled at 14190 alignment rows (ws:mgx-ceilings, perf/mgxceil). 1664 x 14190 "
+                     "PASS in 3625.5 s, complex pLDDT 0.49. 1792 x 14190 fails after 1372.1 s in the "
+                     "MSA stack's triangle attention (openfold3_msa_embedder.py:141 -> "
+                     "TriangleAttention, the fp32 softmax tail after host_acc_after_refusal had "
+                     "already absorbed an 8220835840 B refusal): one 822083584 B request, 65.3 MiB "
+                     "per bank against a 63.0 MiB largest block with 202.8 MiB free, so "
+                     "fragmentation. AICLK median 1000 MHz sampled during both. The 1664 wall "
+                     "below, 512 B short in the diffusion transformer, is what the combos merge "
+                     "removed. At 16384 alignment rows, the most the featurizer ever keeps, 1536 folds "
+                     "(ws:mgx-msa-depth, chip 9, tt-bio 3f10800fd, 2026-09-23): cdk2_1536_d16384 PASS "
+                     "in 2599.8 s at AICLK 1000 MHz sampled DURING the fold, 4 refusals recovered; "
+                     "and 1664 x 16384 PASS on origin/main 811ac1316 (ws:mgx-ceilings, card 13, "
+                     "2026-09-24, guard off, --host_threads 2, msa_depth 16384 in results.json) in "
+                     "1158.4 s at AICLK median 1000 MHz over 112 samples DURING the fold, pLDDT "
+                     "0.408, CA-CA median 3.83 A with 99.0 percent in band, no non-adjacent CA "
+                     "pair under 3 A. 1792 failed at the shallower 14190, so it fails here too. "
+                     "Earlier: 1536 residues fold at 14190 alignment rows on the j10glx02 Galaxy, "
                      "2026-09-23 (ws:mgx-bigalloc, perf/whceil/ladder.py, chip 9, tt-bio 296f5fcea): "
                      "cdk2x2_1536_d14190, PASS in 1917.9 s at AICLK 1000 MHz sampled DURING the fold, "
                      "under a host load that voids the time for speed. 1536 x 8192 rows folds too "
@@ -371,17 +431,36 @@ CEILINGS: dict[str, dict[str, Ceiling]] = {
                      "seeds, whose own floor is 0.379 A, and its CIF is byte-identical across "
                      "296f5fcea. At 1024 on 7aqx every chain moves less than the reference "
                      "between its own seeds (OuterProductMean's chunked depth sum reassociates "
-                     "in bf16). 1536 is the MGX target and nothing above it was walked, hence "
-                     "LADDER_TOP. The previous row, 1024 on GWH02 at the same depth "
+                     "in bf16). Re-walked on origin/main cec7979b1 (ws:mgx-ceilings, perf/mgxceil, "
+                     "card 12, 2026-09-23, guard off, --host_threads 2): 1536 x 14190 PASS in "
+                     "2641.7 s, 1664 x 14190 fails after 2873.0 s in the diffusion transformer's "
+                     "scale_add (openfold3_diffusion_transformer.py -> eltwise_fusion.py), one "
+                     "177209344 B request, 14770176 B per bank, with 58276320 B free and a "
+                     "largest block 512 B too small: fragmentation. AICLK median 1000 MHz during "
+                     "both. The previous row, 1024 on GWH02 at the same depth "
                      "(ws:ceiling-openfold3-1024, ws:ceiling-1024-integration-and-gate), stays "
                      "valid below: every rung 640-1024 folded with an intact backbone",
         ),
     },
     "openbind": {
         "wormhole_b0": Ceiling(
-            residues=1536, pass_at=1536, fail_at=None, binds=LADDER_TOP, mechanism=NO_FAILURE,
-            msa_rows=14190, ladder_ligand_atoms=0,
-            evidence="1536 residues fold apo at 14190 alignment rows on the j10glx02 Galaxy, "
+            residues=1664, pass_at=1664, fail_at=1792, binds=MEMORY, mechanism=FRAGMENTATION,
+            msa_rows=16384, ladder_ligand_atoms=0,
+            evidence="walked on origin/main a102dfb5c (mgx-bigalloc merged; c5b346679 and 720b43a5d "
+                     "do not change this path's allocations), j10glx02 card 19, 2026-09-23, guard "
+                     "off, --host_threads 2, 14190 rows: 1664 PASS again in 1013.0 s, and 1792 "
+                     "fails after 1185.2 s on openfold3's 1792 wall, the diffusion transformer's "
+                     "scale_add (openfold3_diffusion_transformer.py:216), one 205520896 B request, "
+                     "17129472 B per bank against a 17128832 B largest block on a chip 95.8 percent "
+                     "full: fragmentation on a full chip. AICLK median 1000 MHz during both. "
+                     "Earlier, 1664 residues fold apo at 14190 alignment rows on origin/main a2a70b160 "
+                     "(ws:mgx-ceilings, perf/mgxceil, j10glx02 card 19, 2026-09-23, guard off, "
+                     "--host_threads 2): PASS in 2909.6 s, AICLK median 1000 MHz over 278 samples "
+                     "during the fold, pLDDT 0.442 (0.451 at 1536), no CA-CA break, no non-adjacent "
+                     "CA pair under 3 A, 4 refused allocations recovered. The a2a70b160 tree keeps "
+                     "OF3/openbind template features on the host; the bigalloc merge after it only "
+                     "adds refusal recovery on this path. "
+                     "1536 residues fold apo at 14190 alignment rows on the j10glx02 Galaxy, "
                      "2026-09-23 (ws:mgx-bigalloc, perf/whceil/ladder.py, chip 17, tt-bio 296f5fcea): "
                      "cdk2x2_1536_d14190, PASS in 1914.2 s at AICLK 1000 MHz sampled DURING the fold, "
                      "under a host load that voids the time for speed. 1536 x 8192 rows folds too "
@@ -396,71 +475,101 @@ CEILINGS: dict[str, dict[str, Ceiling]] = {
                      "refused at submission. The previous cap, 960 residues walked with CCD STU "
                      "(35 atoms) on GWH02 at e9cb5b70 (ws:ceiling-1024-integration-and-gate), "
                      "folded 768/896/960 with intact backbones and stays valid below. "
-                     "Nothing above 1536 was walked, hence LADDER_TOP",
+                     "Re-walked on origin/main cec7979b1 (ws:mgx-ceilings, perf/mgxceil, card 20, "
+                     "2026-09-23, guard off, --host_threads 2): 1536 x 14190 PASS in 2250.8 s, "
+                     "1664 x 14190 fails after 2561.9 s on the same diffusion-transformer "
+                     "request as openfold3, 177209344 B, 14770176 B per bank, with 58366432 B "
+                     "free on a 94.6 percent full chip and a largest block 512 B too small: "
+                     "fragmentation. AICLK median 1000 MHz during both. "
+                                          "AT 16384 ROWS, the most the vendored featurizer keeps, 2026-09-23 "
+                     "(ws:mgx-msa-depth, perf/mgx_msa_depth, chip 29, tt-bio 3f10800fd): "
+                     "cdk2_1536_d16384 PASS in 2383 s at AICLK 1000 MHz sampled DURING the fold, "
+                     "four DRAM refusals absorbed. 1664 x 16384 PASS on origin/main 811ac1316 "
+                     "(ws:mgx-ceilings, card 14, 2026-09-24, guard off, --host_threads 2, msa_depth "
+                     "16384 in results.json) in 1225.6 s at AICLK median 1000 MHz over 118 samples "
+                     "DURING the fold, pLDDT 0.443, CA-CA median 3.84 A with 97.2 percent in band; "
+                     "1792 failed at the shallower 14190, so it fails here too",
         ),
     },
     "rf3": {
         "wormhole_b0": Ceiling(
-            residues=1095, pass_at=1095, fail_at=None, binds=LADDER_TOP, mechanism=NO_FAILURE,
-            msa_rows=27317,
-            evidence="was 627 (fail_at 630) until the two allocations that set it were fixed; "
-                     "state/ceiling-rf3-1024.md, measured 2026-09-07 on GWH02 card UMD 2 with real "
-                     "ColabFold alignments. Both walls were shape choices, not memory the model "
-                     "needs. The template embedder and the MSA module were the last two RF3 "
-                     "triangle-attention sites on the materialised fp32-softmax route, which writes "
-                     "[tokens, heads, S_pad, S_pad] over the RAW token axis: 656 aa asked "
-                     "2369912832 B = 656 x 4 x 672 x 672 x 2 at trunk 0/10. The confidence head's "
-                     "global layer norm flattened the pair tensor to one row, and TILE_LAYOUT pads "
-                     "one row to 32, so it asked 32x: 640 aa died on 3355443200 B = 32 x (640 x 640 "
-                     "x 128 x 2), reproduced on this card at 179 s. Ladder above the old cap, fix "
-                     "arm, all folded with zero backbone breaks and clash fractions of 0.2-0.7%: "
-                     "630 (22936 rows), 656 (23951), 716 (11615), 796 (21448), 891 (16253), 980 "
-                     "(12267), 1095 (25815, pLDDT 80.5 in 584 s). 640 aa carries the deepest "
-                     "alignment walked, 27317 rows. Nothing above 1095 has been run, hence "
-                     "LADDER_TOP: the real ceiling may be higher. The fix is on by default; "
-                     "TT_BIO_RF3_TEMPLATE_FUSED_SDPA=0, TT_BIO_RF3_MSA_FUSED_SDPA=0 or "
-                     "TT_BIO_RF3_GLN_ROW_FOLD=0 restore the old route and the old 627 wall with it. "
-                     "A SHALLOWER LADDER, 2026-09-11 on the j10glx02 Galaxy "
-                     "(ws:wh-seqlen-structure, perf/whceil), and it does not fill in this "
-                     "row's fail_at because it is not this row's configuration: at 8192 "
-                     "alignment rows rather than 27317, rf3 folds 1024 through 1536 (393 s to "
-                     "1026 s) and first fails at 1600 -- 655360000 B, 52.1 MiB per bank "
-                     "against a 1024.0 MiB bank, 97.1 MiB free and a 50.3 MiB largest block on "
-                     "a chip 90 percent full. Fragmentation on a nearly full chip, so both "
-                     "residency and layout are in it. What this does establish is that nothing "
-                     "between 1095 and 1536 fails at the shallower depth, which is why this "
-                     "row stays LADDER_TOP rather than gaining a failure it did not measure",
+            residues=1600, pass_at=1600, fail_at=1664, binds=MEMORY, mechanism=FRAGMENTATION,
+            msa_rows=8192,
+            evidence="walked 2026-09-23 on origin/main cec7979b1 (pair-residency merged), "
+                     "j10glx02 card 29, guard off, --host_threads 2, apo CDK2 tiled with 8192 "
+                     "alignment rows (ws:mgx-ceilings, perf/mgxceil). rf3 subsamples the "
+                     "alignment to 1024 rows (rf3/featurize.py), so this row speaks for any depth "
+                     "of 1024 or more. 1600 folds in 1159.6 s and 1664 fails after 1256.3 s in the "
+                     "diffusion atom encoder's trunk-pair permute (rf3/diffusion_atom_encoder.py "
+                     "_trunk_pair), one 1427898368 B request, 118992896 B per bank, on a chip 85.5 "
+                     "percent full with 155415968 B free and a 59496448 B largest block: "
+                     "fragmentation. AICLK median 1000 MHz sampled during both folds, host load "
+                     "56-67 on 64 cores. 1664 re-fails on origin/main c5b346679 (bigalloc and "
+                     "embed-scale merged), card 29, 2026-09-24, after 1192.6 s at the same request "
+                     "and site, 85.5 percent full with an 82092064 B largest block, AICLK median "
+                     "1000 MHz over 114 samples. The rungs below were walked on 8906d35a0 (1024 554.0 s to "
+                     "1536 952.3 s, pLDDT 0.77-0.78, no clash), where 1600 still failed in the "
+                     "ending-node triangle attention's pair transpose (655360000 B, 139.0 MiB free, "
+                     "46.9 MiB largest block); pair-residency removed that wall. The row was 1095 "
+                     "LADDER_TOP before that, from a 2026-09-07 GWH02 ladder that stopped there; "
+                     "its 627 wall was the materialised fp32-softmax triangle attention and the "
+                     "confidence head's one-row layer norm, and TT_BIO_RF3_TEMPLATE_FUSED_SDPA=0, "
+                     "TT_BIO_RF3_MSA_FUSED_SDPA=0 or TT_BIO_RF3_GLN_ROW_FOLD=0 still restore that "
+                     "route and that wall. "
+                     "Re-passed on origin/main 6ea518246 (after sdpa-mask 94e7a002c), j10glx02, "
+                     "2026-09-24, guard off, --host_threads 2, AICLK median 1000 MHz sampled during "
+                     "the fold: 1600 PASS in 1057.3 s (card 3, pLDDT 0.771, no CA-CA break)",
         ),
     },
     "protenix-v2": {
         "wormhole_b0": Ceiling(
-            residues=1024, pass_at=1024, fail_at=1095, binds=MEMORY, mechanism=DRAM,
-            msa_rows=8832, ladder_ligand_atoms=0,
-            evidence="1024 measured 2026-09-08 on GWH02 (8x9, 12 GiB/card), "
-                     "ws:wh-transition-wchunk-hang-fix-p2, AT PRODUCTION MSA DEPTH: "
-                     "capacity_gate.py --tokens 1024 folds screen and full residency at 8832 "
-                     "unique alignment rows, 730.5 s, DRAM peak 5.79 GiB = 48% of the card "
-                     "(perf/capacity/wh_1024_protenix-v2_msa8832.json). Depth is the load-bearing "
-                     "part: the failing tensor here scales with tokens x rows, so the "
-                     "single-sequence 1024 fold measured the same day (476.8 s, pLDDT 0.745, "
-                     "digest 2226d5a9adfa135810f3f2df9a4a3460, bit-identical to the same rung "
-                     "pre-merge on the fix branch) would not have been evidence for this row on "
-                     "its own. Both needed 938989d7: under the shipped W-chunk gate this band did "
-                     "not OOM, it hung the chip, which is why the row called 1024 UNTESTED for a "
-                     "month. 1095 still OOMs on DRAM (catalog.py, 2026-08-11, tree d0ff69b2). "
-                     "The wall is on TOKENS and not on the polymer: the failing tensor scales "
-                     "with tokens x rows, and the ladder was walked with capacity_gate.py "
-                     "--tokens. ladder_ligand_atoms=0 records that those rungs were apo, so 1024 "
-                     "residues is 1024 tokens and a ligand's heavy atoms are counted against the "
-                     "same 1024 instead of being invisible to the residue count. "
-                     "DOES NOT REPRODUCE AT 8192 ROWS, 2026-09-11 on the j10glx02 Galaxy "
-                     "(ws:wh-seqlen-structure, perf/whceil): 1024, 1088 and 1152 aa all fold "
-                     "(1215 s, 1452 s, 1626 s) and the first failure is 1300, not 1095 -- "
-                     "3493068800 B, 277.6 MiB per bank against a 1024.0 MiB bank, 296.0 MiB "
-                     "free, largest block 197.6 MiB, fragmentation. That ladder is apo at 8192 "
-                     "rows and this row was walked deeper, so the two are not the same "
-                     "configuration and the cap stays where it is; what no longer holds at "
-                     "this depth is the number above it",
+            residues=2048, pass_at=2048, fail_at=None, binds=LADDER_TOP,
+            mechanism=NO_FAILURE, msa_rows=16384, ladder_ligand_atoms=0,
+            evidence="2048, the top rung, folds at 16384 rows on origin/main 6ea518246, j10glx02 card "
+                     "16, 2026-09-24, guard off, --host_threads 2 (ws:mgx-ceilings, perf/mgxceil, "
+                     "msa_depth 16384 in results.json): PASS in 4832.6 s, AICLK median 1000 MHz over "
+                     "466 samples during the fold, pLDDT 0.699, no CA-CA break, 46 refused "
+                     "allocations recovered, the largest 8589934592 B. On the same tree 1920 at 8192 "
+                     "rows folds in 3929.0 s (card 6, 1000 MHz, pLDDT 0.730), so the 8192-row OPM "
+                     "failure at 1920 below is gone: mgx-msa-depth (a239d22da) re-runs a refused OPM "
+                     "as host-tiled depth chunks. On 811ac1316 (no protenix-v2 default-path change "
+                     "to 6ea518246: trace regions are opt-in, the trimul block narrows only from 2560 "
+                     "tokens), card 16, 16384 rows, 1000 MHz: 1664 in 3079.8 s, 1792 in 3340.3 s, "
+                     "1920 in 7266.5 s (45 refusals recovered, pLDDT 0.713). Above 1792 the trunk "
+                     "joins pair blocks on host after a refusal, so wall time follows which "
+                     "allocations were refused, not size alone. "
+                     "1792 folds on origin/main a102dfb5c (mgx-bigalloc merged; the later "
+                     "c5b346679 adds only ESMC/SaProt masks and perf/, neither reaches protenix-v2), "
+                     "j10glx02 card 29, 2026-09-23, guard off, --host_threads 2, 8192 rows: PASS "
+                     "in 2623.4 s, AICLK median 1000 MHz over 251 samples during the fold, pLDDT "
+                     "0.714, no CA-CA break, 21 refused allocations recovered by the row-blocked "
+                     "pair path. 1920 fails on the same tree and card after 168.1 s in the MSA "
+                     "module's OuterProductMean (protenix.py _msa -> tenstorrent.py "
+                     "outer_product_mean, after a 1006632960 B refusal was absorbed): one "
+                     "125829120 B request, 10487040 B per bank against a 10485760 B largest block "
+                     "on a chip 96.8 percent full (32.3 MiB free), so fragmentation on a full "
+                     "chip. AICLK 1000 MHz. "
+                     "Before bigalloc the row was 1664/1792: walked 2026-09-23 on origin/main cec7979b1 (pair-residency merged), "
+                     "j10glx02, guard off, --host_threads 2, apo CDK2 tiled with 8192 "
+                     "alignment rows, the --max_msa_seqs default (ws:mgx-ceilings, "
+                     "perf/mgxceil). 1024 folds in 913.5 s, 1152 in 1292.5 s, 1280 in 1486.7 s, "
+                     "1408 in 1881.7 s (card 3), 1536 in 2046.8 s and 1664 in 2609.9 s (card 9), "
+                     "AICLK median 1000 MHz sampled during every fold, at host load 52-214 on 64 "
+                     "cores. 1792 fails after 2692.9 s (card 17, same tree, 1000 MHz) in the diffusion "
+                     "pair conditioning (protenix.py _diffusion_pair_cond), which asks for "
+                     "3288334336 B, 261.3 MiB per bank, with 514.5 MiB free and a 219.3 MiB "
+                     "largest block: fragmentation, not a full chip. The earlier row "
+                     "(1024, fail 1095) was walked at 8832 rows, deeper than the default allows; "
+                     "the 2026-09-11 whglx ladder at 8192 rows already folded 1152 on the tree "
+                     "before pair-residency. The wall is on TOKENS (the failing tensor scales "
+                     "with tokens x rows), so ladder_ligand_atoms=0 counts a ligand against it. "
+                     "AT 16384 ROWS, the pool cap tt_bio/protenix_data.py now applies as upstream "
+                     "does, 2026-09-23 on the j10glx02 Galaxy (ws:mgx-msa-depth, perf/mgx_msa_depth, "
+                     "chip 0, tt-bio b08951fd6): cdk2_1024_d16384 PASS in 1277 s at AICLK 1000 MHz "
+                     "sampled DURING the fold, two DRAM refusals absorbed; 1280 and 1536 fold at "
+                     "16384 too (1803 s, 2574 s, chip 2, 3f10800fd). Before the block-0 OPM "
+                     "fallback the 1280-token 2ad6 fold at 14743 rows died on a 160 MiB OPM depth "
+                     "slice with a 10.0 MiB largest free block. The cap was then re-walked at 16384 (first sentence)",
         ),
     },
     "rfd3": {
@@ -641,84 +750,155 @@ CEILINGS: dict[str, dict[str, Ceiling]] = {
         ),
     },
     # --- No measured ceiling. Never refused. ---------------------------------------------------
-    "boltz2": {"wormhole_b0": _unmeasured(
-        _INHERITS_DEMO_FENCE + " "
-        "THE LADDER HAS NOW BEEN WALKED and this row still does not refuse on it: "
-        "2026-09-11 on the j10glx02 Galaxy (ws:wh-seqlen-structure, perf/whceil) "
-        "at 8192 alignment rows, 1024/1088/1152/1300/1408/1536/1664 all fold (586 "
-        "s to 1169 s, on a box at load 379) and 1792 FAILS -- 704643072 B across "
-        "12 banks, 56.0 MiB per bank against a 1024.0 MiB bank, 226.8 MiB per "
-        "bank free, largest free block 51.3 MiB: fragmentation, not one oversized "
-        "tensor. Giving this row residues=1664 would START refusing work that is "
-        "accepted today and would restamp every capacity cell, so that is a "
-        "release decision. The measurement is here; the decision is not taken")},
+    "boltz2": {
+        "wormhole_b0": Ceiling(
+            residues=1920, pass_at=1920, fail_at=2048, binds=MEMORY, mechanism=FRAGMENTATION,
+            msa_rows=8192,
+            evidence="re-walked 2026-09-23 after the combos merge freed the trunk's staged inputs "
+                     "before diffusion (ws:mgx-ceilings, perf/mgxceil, j10glx02 card 16, guard off, "
+                     "--host_threads 2, apo CDK2 tiled with 8192 alignment rows). On a2a70b160 1792 "
+                     "folds in 813.6 s (pLDDT 0.77, no CA-CA gap over 4.2 A), 1920 in 880.7 s, and "
+                     "2048 fails after 1172.9 s in the diffusion cache's token-bias permute "
+                     "(tenstorrent.py _populate_diffusion_cache): one 3221225472 B tensor, 256.0 MiB "
+                     "per bank against a 246.8 MiB largest block with 562.7 MiB free, so "
+                     "fragmentation. On a102dfb5c (bigalloc merged) 1920 folds again in 914.0 s, "
+                     "pLDDT 0.77. AICLK median 1000 MHz sampled during every fold. "
+                     "Earlier: walked 2026-09-23 on origin/main 8906d35a0, j10glx02 card 31, guard off, "
+                     "--host_threads 2, apo CDK2 tiled with 8192 alignment rows "
+                     "(ws:mgx-ceilings, perf/mgxceil). 1024 folds in 380.5 s, 1152 in 428.4 s, "
+                     "1280 in 456.9 s, 1408 in 556.5 s, 1536 in 595.4 s and 1664 in 678.1 s, "
+                     "AICLK median 1000 MHz sampled during every fold. 1792 fails in the "
+                     "confidence module's relative-position gather (tenstorrent.py pair_gather "
+                     "via RelPosGather), which asks for one 1792 x 1792 x 128 bf16 pair tensor, "
+                     "822083584 B or 65.3 MiB per bank, on a chip 91.9 percent full with 83.0 MiB "
+                     "free and a 60.1 MiB largest block. The 2026-09-11 ladder on the same box "
+                     "found the same two sizes. Until this row it was unmeasured and never "
+                     "refused, so 1792 and above was admitted and died on the chip. Re-folded on "
+                     "52c621bc2 (narrow-q on by default, card 29): 1664 still folds, 612.3 s at "
+                     "1000 MHz. Re-walked after pair-residency: on cec7979b1 1792 still fails "
+                     "(card 18, 741.3 s), now earlier, in the diffusion cache "
+                     "(tenstorrent.py _populate_diffusion_cache), 2466250752 B or 196.0 MiB per "
+                     "bank with 428.6 MiB free and a 178.0 MiB largest block; on 1b423e9e4, the "
+                     "same boltz2 code, 1664 folds in 701.8 s (card 16), both at 1000 MHz. "
+                     "Re-passed on origin/main 6ea518246 (after sdpa-mask 94e7a002c), j10glx02, "
+                     "2026-09-24, guard off, --host_threads 2, AICLK median 1000 MHz sampled during "
+                     "the fold: 1920 at 8192 rows PASS in 804.2 s (card 3, pLDDT 0.775, no CA-CA "
+                     "break). 2048 fails on the same tree and card after 1007.9 s at the same "
+                     "site, the diffusion cache's token-bias staging (tenstorrent.py _stage_token_bias), "
+                     "3221225472 B or 256 MiB per bank against a 246.8 MiB largest block with 562.7 MiB free",
+        ),
+    },
     "esmfold2": {
         "wormhole_b0": Ceiling(
-            residues=1024, pass_at=1024, fail_at=1056, binds=MEMORY, mechanism=DRAM,
-            msa_rows=0, ladder_ligand_atoms=0,
-            evidence="its own ladder, walked 2026-09-09 on GWH02 card 1 by "
-                     "ws:esmfold2-cocrystal-everywhere at the settings a user gets: "
-                     "single-sequence, which is this model's default, and --fast, which "
-                     "tt_bio/main.py forces on Wormhole because ESMC-6B needs ~12.8 GB against "
-                     "a ~12 GB chip. 895 folds in 213 s, 960 in 273 s, 1024 in 287 s; 1057 does "
-                     "not fold. The failure is one DRAM allocation the chip cannot serve, and it "
-                     "is refused on BANK size rather than total memory: 588808192 B across 12 "
-                     "banks wants 49068032 B per bank against a 43118592 B largest free block. "
-                     "It is a TOKEN wall, not a polymer one -- a cocrystal at 1024 tokens (991 "
-                     "residues plus a 33-atom ligand) folds in 278 s and one at 1057 tokens is "
-                     "refused with the identical message, so a ligand costs nothing beyond the "
-                     "tokens it adds. This model read UNMEASURED until now because its published "
-                     "ladder (docs/size-generality.md, 2026-09-08) stopped at 1024, the "
-                     "platform's demo fence, and so never recorded a failing size above the cap: "
-                     "the ceiling was there, the negative control was not. The wall is recorded "
-                     "in TOKENS on the strength of that cocrystal pair, and ladder_ligand_atoms=0 "
-                     "says the rungs above were walked apo, so the cap is 1024 tokens: 991 "
-                     "residues + 33 atoms is admitted because it is the 1024 that folded, and "
-                     "1024 residues plus any ligand at all is refused. It used to be admitted "
-                     "here and fail on the chip. "
-                     "TIGHTENED 2026-09-11 on the j10glx02 Galaxy (ws:wh-seqlen-structure, "
-                     "perf/whceil): the first failure is 1056, not 1057 -- 1024 folds "
-                     "single-sequence in 470 s and 1056 is refused on 570949632 B, 45.4 MiB "
-                     "per bank against a 1024.0 MiB bank, with 122.5 MiB per bank free and a "
-                     "largest free block of 38.5 MiB. Fragmentation, not one oversized tensor, "
-                     "and the cap of 1024 is unchanged because it was already the largest size "
-                     "below the first failure. An independent ladder landing one residue from "
-                     "the recorded number is the closest thing this table has to a "
-                     "reproduction",
+            residues=1664, pass_at=1664, fail_at=1792, binds=MEMORY, mechanism=DRAM,
+            msa_rows=16384, ladder_ligand_atoms=0,
+            evidence="walked 2026-09-23 on origin/main 1b423e9e4 (esmfold2 folds its MSA, a "
+                     "fresh <=1024-row subsample per trunk loop), j10glx02, guard off, "
+                     "--host_threads 2, --fast as Wormhole forces, apo CDK2 tiled "
+                     "(ws:mgx-ceilings, perf/mgxceil), AICLK median 1000 MHz sampled during "
+                     "every fold. Two arms, and the row is the tighter of them, which here is "
+                     "the same number. With the 8192-row alignment (the default): 1024 1343.9 s, "
+                     "1152 1538.5 s, 1280 1606.2 s, 1408 2163.8 s (card 14), 1664 3100.5 s "
+                     "(card 16, mean CA pLDDT 87.2). Single-sequence: 1408 1559.1 s, 1536 "
+                     "1842.3 s, 1664 2196.0 s (card 0, pLDDT 88.3). 1792 fails in both, three "
+                     "times (MSA card 19 after 817.3 s, single-sequence card 0 after 364.9 s) "
+                     "on the same request: the pair FFN output (esmc.py _row_blocked), "
+                     "1644167168 B or 130.7 MiB per bank with the chip 99.4 percent full and "
+                     "6.4 MiB free, residency rather than one oversized block. The encoder "
+                     "sees at most 1024 rows per loop, so the row speaks for any alignment "
+                     "depth. The wall is on TOKENS (the 09-09 cocrystal pair showed a ligand "
+                     "costs exactly the tokens it adds), so ladder_ligand_atoms=0 counts a "
+                     "ligand against the 1664. Was 1024/1056 from the 2026-09-09 GWH02 and "
+                     "09-11 j10glx02 single-sequence ladders, walked before pair-residency and "
+                     "bigalloc reached this trunk. Re-checked on cc908c377 (diffusion conditioning "
+                     "prepared once per fold), card 29: 1792 single-sequence still fails on the "
+                     "same request after 255.0 s, but now with 137.7 MiB free per bank and a "
+                     "122.2 MiB largest block, so the merge turned a full chip into a "
+                     "fragmented one 8.5 MiB short of the wall. Re-walked single-sequence on origin/main "
+                     "c5b346679 (embed-scale: the LM now passes SDPA a mask), card 29, "
+                     "2026-09-24: 1664 PASS in 2066.3 s, 1792 fails after 317.5 s on the same "
+                     "request with the chip 99.4 percent full and 6.4 MiB free, residency again. "
+                     "AICLK median 1000 MHz during both. "
+                     "WITH AN ALIGNMENT, 2026-09-23 on the j10glx02 Galaxy (ws:mgx-msa-depth, "
+                     "perf/mgx_msa_depth, tt-bio 5d1f961c0): 1024 x 8192 rows PASS in 904 s (chip "
+                     "20) and 1024 x 16384 rows, upstream's own depth, PASS in 1120 s (chip 14), "
+                     "both at AICLK 1000 MHz sampled DURING the fold. Re-measured after the MSA "
+                     "encoder took upstream's fresh 1024-row subsample per trunk loop (tt-bio "
+                     "2f7e0606c, chip 16): 1024 x 16384 PASS in 1426 s at AICLK 1000 MHz DURING, "
+                     "one L1 refusal absorbed; the encoder never holds more than 1024 rows. "
+                     "Re-passed on origin/main 6ea518246 (after sdpa-mask 94e7a002c), j10glx02, "
+                     "2026-09-24, guard off, --host_threads 2, AICLK median 1000 MHz sampled during "
+                     "the fold: 1664 with a 16384-row alignment PASS in 2350.3 s (card 20, msa true, "
+                     "pLDDT 0.874) and single-sequence PASS in 1968.2 s (card 3, pLDDT 0.884), with "
+                     "the same CA-CA gap count as the earlier passes",
         ),
     },
     "esmfold2-fast": {
         "wormhole_b0": Ceiling(
-            residues=1152, pass_at=1152, fail_at=1248, binds=MEMORY, mechanism=DRAM,
+            residues=1664, pass_at=1664, fail_at=1792, binds=MEMORY, mechanism=DRAM,
             msa_rows=0, ladder_ligand_atoms=0,
-            evidence="its OWN ladder, walked 2026-09-09 on GWH02 card 1 by "
-                     "ws:esmfold2-cocrystal-everywhere, not inherited from esmfold2 by "
-                     "architecture argument -- and it had to be walked separately, because the "
-                     "two checkpoints do NOT share a ceiling. 960 folds in 202 s, 1024 in 214 s, "
-                     "1057 in 261 s, 1152 in 278 s; 1280 does not fold (838860800 B DRAM buffer "
-                     "across 12 banks, 69906432 B wanted per bank). 1057 is the rung that stops "
-                     "the full trunk and this checkpoint clears it, which is the expected "
-                     "direction: same architecture at half the trunk depth (24 blocks against "
-                     "48), so a smaller DRAM peak. Same settings as the esmfold2 row -- "
-                     "single-sequence (this checkpoint has no MSA encoder at all) and --fast, "
-                     "forced on Wormhole. The wall is on TOKENS for the same reason esmfold2's "
-                     "is -- same trunk, same allocation, same per-atom ligand tokenisation -- and "
-                     "it is closed the same way rather than left as a caveat: "
-                     "ladder_ligand_atoms=0 records apo rungs, so the cap is 1152 tokens and a "
-                     "ligand is counted against it. The NUMBERS are still this checkpoint's own; "
-                     "only the denominator is shared. "
-                     "TIGHTENED 2026-09-11 on the j10glx02 Galaxy (ws:wh-seqlen-structure, "
-                     "perf/whceil), in the SAME single-sequence configuration this row was "
-                     "walked in: 1216 aa folds in 488 s and the first failure is 1248, not "
-                     "1280 -- 1594884096 B, 126.8 MiB per bank against a 1024.0 MiB bank, "
-                     "127.5 MiB per bank free and a largest free block of 104.7 MiB. It is "
-                     "refused while holding 0.7 MiB MORE free memory per bank than it asked "
-                     "for, which is fragmentation in its purest form. So the cap could be 1216 "
-                     "rather than 1152; it is not raised here, because raising a cap accepts "
-                     "more work and restamps every capacity cell",
+            evidence="walked 2026-09-23 on origin/main 1b423e9e4 (esmfold2 MSA and LM-dropout "
+                     "merge), j10glx02 card 15, guard off, --host_threads 2, --fast as Wormhole "
+                     "forces, apo CDK2 tiled (ws:mgx-ceilings, perf/mgxceil). This checkpoint has "
+                     "no MSA encoder, so the rungs are single-sequence whatever the input carries. "
+                     "1536 folds in 1149.8 s and 1664 in 1281.0 s, AICLK median 1000 MHz sampled "
+                     "during every fold. 1792 fails after 264.6 s in the pair FFN "
+                     "(esmc.py _row_blocked): the 1 x 1792 x 1792 x 256 bf16 output is "
+                     "1644167168 B, 130.7 MiB per bank, and after the row-blocked retry the chip "
+                     "is 99.0 percent full with 10.5 MiB free, so it is residency and not one "
+                     "oversized block. A repeat on card 16 fails at the same request with the "
+                     "same free bytes, in 308.6 s. The same code before that merge "
+                     "(cec7979b1, card 0) "
+                     "folded 1024 through 1792 (1792 in 1105.2 s) and failed 1920 on "
+                     "fragmentation, so the merge costs this model the 1792 rung. The rungs "
+                     "were apo and the wall is on TOKENS (same trunk and tokenisation as "
+                     "esmfold2), so ladder_ligand_atoms=0 counts a ligand against the 1664. "
+                     "Was 1152/1248 from the 2026-09-09 and 09-11 ladders, walked before "
+                     "pair-residency and bigalloc reached this trunk. Re-checked on cc908c377 "
+                     "(diffusion conditioning prepared once per fold), card 29: 1792 still fails "
+                     "on the same request after 270.2 s, now with 141.8 MiB free per bank but no "
+                     "block large enough, fragmentation rather than residency. Re-walked on origin/main "
+                     "c5b346679, card 29, 2026-09-23: 1664 PASS in 1214.2 s, 1792 fails after "
+                     "328.3 s on the same request with the chip 99.0 percent full and 10.5 MiB "
+                     "free, residency again. AICLK median 1000 MHz during both. "
+                     "Re-passed on origin/main 6ea518246 (after sdpa-mask 94e7a002c), j10glx02, "
+                     "2026-09-24, guard off, --host_threads 2, AICLK median 1000 MHz sampled during "
+                     "the fold: 1664 PASS in 1095.2 s (card 20, pLDDT 0.891, no CA-CA break)",
         ),
     },
-    "protenix-v1": {"wormhole_b0": _unmeasured(_INHERITS_DEMO_FENCE)},
+    "protenix-v1": {
+        "wormhole_b0": Ceiling(
+            residues=2048, pass_at=2048, fail_at=None, binds=LADDER_TOP, mechanism=NO_FAILURE,
+            msa_rows=16384,
+            evidence="At 16384 alignment rows, the pool depth tt_bio/protenix_data.py reads as "
+                     "upstream does, on origin/main 811ac1316, j10glx02 card 19, 2026-09-24, guard "
+                     "off, --host_threads 2 (ws:mgx-ceilings, perf/mgxceil, msa_depth 16384 in "
+                     "results.json): 1792 PASS in 965.8 s, 1920 in 1064.7 s and 2048 in 1270.2 s, "
+                     "AICLK median 1000 MHz sampled during each fold (93, 103, 123 samples), 4-7 "
+                     "refused allocations recovered per fold. 2048 at 16384: pLDDT 48.7, 6 CA-CA gaps "
+                     "over 4.2 A, 96.6 percent of CA-CA in band, the same band as at 8192. "
+                     "At 8192 rows: 2048 folds on origin/main c5b346679 (mgx-bigalloc parks the DiT pair bias, "
+                     "the allocation that failed 2048 below), j10glx02 card 29, 2026-09-24, guard "
+                     "off, --host_threads 2, 8192 rows: PASS in 1021.0 s, AICLK median 1000 MHz "
+                     "over 97 samples during the fold, 2 refused allocations recovered (the largest "
+                     "4294967296 B). pLDDT 45.3, 6 CA-CA gaps over 4.2 A and 7 non-adjacent CA pairs "
+                     "under 3 A on the tiled apo fixture, inside the band the published rungs carry "
+                     "(1536: 48.2, 0 and 23; 1920: 47.2, 17 and 19). LADDER_TOP because 2048 is "
+                     "the top of this row's walk; nothing above it was run. Before bigalloc: "
+                     "walked 2026-09-23 on origin/main cec7979b1 (pair-residency merged), "
+                     "j10glx02 card 31, guard off, --host_threads 2, apo CDK2 tiled with 8192 "
+                     "alignment rows (ws:mgx-ceilings, perf/mgxceil). 1664 folds in 738.6 s, "
+                     "1792 in 960.3 s and 1920 in 999.0 s, AICLK median 1000 MHz sampled during "
+                     "every fold, at host load 54-86 on 64 cores. 2048 fails after 958.8 s in the "
+                     "diffusion DiT block biases (protenix.py _dit_block_biases, tenstorrent.py "
+                     "compute_bias), one 536870912 B request, 44740608 B per bank, with 54913440 B "
+                     "free and a 23117344 B largest block: fragmentation. The rungs below 1664 "
+                     "were walked on 8906d35a0 (1024 281.8 s to 1536 554.0 s, card 29), where "
+                     "1664 still failed in the diffusion conditioner's pair transition (1417674752 "
+                     "B, more than the chip had free); pair-residency removed that wall. Until "
+                     "these rows it was unmeasured and never refused",
+        ),
+    },
     "nesso1": {
         "wormhole_b0": _unmeasured(
             "no ceiling, and unusually this is a positive result rather than an untested gap: the "
@@ -1175,6 +1355,8 @@ def check(model: str, residues: int, *, ligand_atoms: int = 0, arch: str | None 
     depth = (f" (measured with alignments up to {c.msa_rows} rows)" if c.msa_rows else "")
     top = ("the largest size proven on a ladder that never failed above it"
            if c.binds == LADDER_TOP else
+           "the largest size below the first one measured to run for hours instead of minutes"
+           if c.binds == RUNTIME else
            "the largest size below the first measured failure")
     raise SizeTooLargeError(
         f"{where} has {had}, and {model} is measured to handle at "

@@ -7,10 +7,8 @@ ceilings, and one of them re-added a stale table row for a model another branch 
 moved, which would have re-published 627 for rf3 after it went to 1095.
 
 The invariant is one-directional on purpose. Every row in the table must match the guard.
-The reverse is NOT required: rf3 has a measured ceiling and is deliberately absent from the
-table, because the prose under it says it folds every rung to the top of its ladder, and
-`boltz2` and `nesso1` are absent because they have no measured limit at all. Requiring a row
-for every ceiling would force those editorial calls into the table.
+The reverse is NOT required: `nesso1` is absent because it has no measured limit at all, and
+requiring a row for every ceiling would force that editorial call into the table.
 
 The published number carries its own UNIT, read off the row rather than assumed: boltzgen's
 14786 is atoms in the target, not residues, and a failure message that called it residues would
@@ -115,3 +113,47 @@ def test_a_drifted_number_fails(monkeypatch):
     monkeypatch.setitem(size_limits.CEILINGS[model], ARCH, bumped)
     with pytest.raises(AssertionError):
         test_the_published_limit_is_the_enforced_limit((models, limit_cell, fail_cell))
+
+
+FLOOR = re.compile(r"Every structure model folds at least (\d+) residues on a single 12 GiB "
+                   r"Wormhole chip")
+
+
+def _residue_ceilings() -> dict[str, int]:
+    """Published limits that count residues, keyed by model.
+
+    BoltzGen's 14786 counts atoms, so it is not comparable with a residue floor and is left out
+    the same way ``models_accepting`` leaves it out of a residue refusal.
+    """
+    out = {}
+    for models, _, _ in _rows():
+        for model in models:
+            c = size_limits.ceiling(model, ARCH)
+            if size_limits._COUNT_DIMENSION[c.counts] == "residues":
+                out[model] = c.residues
+    return out
+
+
+def test_the_floor_sentence_is_the_smallest_published_ceiling():
+    """The sentence above the table is the only number most readers take away, and nothing
+    checked it. It said 1024 while the table under it published 1536 as the smallest row and
+    2048 as the largest, so the repo's own headline under-sold the guard by a third of a rung.
+    Understating is the direction that costs a user a job they could have run.
+    """
+    stated = FLOOR.search(README.read_text())
+    assert stated, "the floor sentence above the ceiling table is gone or reworded"
+    smallest = min(_residue_ceilings().values())
+    assert int(stated.group(1)) == smallest, (
+        f"README's floor sentence says {stated.group(1)} residues; the smallest residue ceiling "
+        f"it publishes is {smallest}.")
+
+
+def test_a_lowered_ceiling_moves_the_floor_sentence(monkeypatch):
+    """Negative control: the sentence tracks the guard, it is not just a number that parses."""
+    model = min(_residue_ceilings(), key=lambda m: _residue_ceilings()[m])
+    import dataclasses
+    c = size_limits.ceiling(model, ARCH)
+    monkeypatch.setitem(size_limits.CEILINGS[model], ARCH,
+                        dataclasses.replace(c, residues=c.residues - 512))
+    with pytest.raises(AssertionError):
+        test_the_floor_sentence_is_the_smallest_published_ceiling()

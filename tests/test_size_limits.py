@@ -203,7 +203,7 @@ def test_check_refuses_above_and_admits_at_the_cap():
 
 def test_unmeasured_and_unknown_arch_never_refuse(monkeypatch):
     """Absence of a limit is not a limit -- the rule that keeps this guard from inventing ceilings."""
-    sl.check("boltz2", 100_000, arch="wormhole_b0")     # measured-nothing model
+    sl.check("nesso1", 100_000, arch="wormhole_b0")     # measured-nothing model
     sl.check("boltz2", 100_000, arch="blackhole")       # no row on this arch
     sl.check("opendde", 100_000, arch="grayskull")      # nor on an arch nobody measured
     # The no-card case has to be FORCED. Passing arch=None only reaches it on a host that has no
@@ -251,6 +251,49 @@ def test_the_freeze_rows_refuse_1536_and_admit_the_size_that_folds():
         assert "blackhole" in msg, (
             f"{m}: the refusal must name the arch, because the same size folds elsewhere: {msg}")
         sl.check(m, 1024, arch="blackhole")     # the size that folds is admitted, silently
+
+
+@pytest.mark.parametrize("model", ["boltz2", "rf3", "openfold3",
+                                   "openbind", "esmfold2", "esmfold2-fast"])
+def test_a_wormhole_row_walked_past_1536_admits_1536_and_refuses_its_first_failure(model):
+    """These rows were walked on one Galaxy chip past the 1536 the campaign targets. Before they
+    existed boltz2 and protenix-v1 were never refused and rf3, openfold3, protenix-v2 and openbind
+    stopped at the top of a ladder, so each first failure was admitted and died on the chip; each row has to turn that into
+    a refusal without losing the 1536 that folds."""
+    c = sl.ceiling(model, "wormhole_b0")
+    assert c.binds == sl.MEMORY and c.fail_at > c.residues >= 1536
+    sl.check(model, 1536, arch="wormhole_b0")
+    sl.check(model, c.residues, arch="wormhole_b0")
+    with pytest.raises(sl.SizeTooLargeError):
+        sl.check(model, c.fail_at, arch="wormhole_b0")
+
+
+@pytest.mark.parametrize("model", ["protenix-v1", "protenix-v2"])
+def test_a_wormhole_row_that_folds_the_top_of_its_walk_refuses_above_it(model):
+    """Both fold 2048, the top rung the walk runs: protenix-v1 once mgx-bigalloc landed,
+    protenix-v2 at 16384 rows once a refused OPM re-runs in depth chunks. Nothing above was
+    measured, so the cap is the size that folded: 1536 and the cap are admitted and one residue
+    more is refused, so nothing unmeasured is let in."""
+    c = sl.ceiling(model, "wormhole_b0")
+    assert c.binds == sl.LADDER_TOP and c.fail_at is None and c.pass_at == c.residues > 1536
+    sl.check(model, 1536, arch="wormhole_b0")
+    sl.check(model, c.residues, arch="wormhole_b0")
+    with pytest.raises(sl.SizeTooLargeError):
+        sl.check(model, c.residues + 1, arch="wormhole_b0")
+
+
+@pytest.mark.parametrize("model", ["opendde", "opendde-abag"])
+def test_a_wormhole_row_bound_by_run_time_says_so_when_it_refuses(model):
+    """OpenDDE at 1664 does not crash on a Galaxy chip: the residue pair no longer fits as one
+    allocation, every pair op joins its blocks on the host, and the fold runs for hours. A
+    refusal that called that a failure would send the user hunting for an OOM that never happens,
+    so the message has to name run time, and 1536 has to stay admitted."""
+    c = sl.ceiling(model, "wormhole_b0")
+    assert c.binds == sl.RUNTIME and c.pass_at == c.residues == 1536 and c.fail_at == 1664
+    sl.check(model, 1536, arch="wormhole_b0")
+    with pytest.raises(sl.SizeTooLargeError) as e:
+        sl.check(model, c.fail_at, arch="wormhole_b0")
+    assert "hours" in str(e.value), str(e.value)
 
 
 def test_each_arch_refuses_on_its_own_number():
@@ -579,7 +622,7 @@ def test_check_input_refuses_a_real_file_before_any_device(tmp_path):
         sl.check_input(big, "opendde", arch="wormhole_b0")
     assert "big.yaml" in str(e.value)
     sl.check_input(big, "opendde", arch="grayskull")   # unmeasured arch: silent
-    sl.check_input(big, "boltz2", arch="wormhole_b0")  # unmeasured model: silent
+    sl.check_input(big, "nesso1", arch="wormhole_b0")  # unmeasured model: silent
 
 
 def test_check_input_scans_every_file_in_a_directory(tmp_path):
@@ -698,7 +741,7 @@ def test_every_sizer_covers_the_suffixes_its_command_accepts(tmp_path):
 #: MSA track's DRAM defects are fixed -- so they stopped exercising the hatch and started asserting
 #: that a passing size raises. `residues + 1` is over the cap for BOTH kinds of row: one with a
 #: recorded negative control, and one that is simply the top of its ladder with nothing above it
-#: measured (which is what openfold3 became). Derived, so it cannot go stale when a ladder moves.
+#: measured (which openfold3 was until its 1088 failure was measured). Derived, so it cannot go stale.
 def _over_cap(model="openfold3", arch="wormhole_b0"):
     row = sl.ceiling(model, arch)
     assert row.measured and row.residues, (model, arch)
@@ -928,17 +971,19 @@ def test_an_input_with_no_ligand_scores_zero_and_junk_never_raises(tmp_path):
 
 @_needs_ccd
 def test_check_input_refuses_a_cocrystal_before_any_device(tmp_path):
-    """End to end on the CLI's own entry point: 1000 residues is under esmfold2's 1024 cap and was
-    admitted, STU takes it to 1035 tokens, and 1035 pads to 1056 against a 1024 wall."""
+    """End to end on the CLI's own entry point: cap - 24 residues is under esmfold2's cap and is
+    admitted, STU's 35 atoms take it 11 tokens over, and that pads past the wall."""
     cap = sl.ceiling("esmfold2", "wormhole_b0").residues
     body = ("sequences:\n  - protein: {id: A, sequence: " + "A" * (cap - 24) + "}\n"
             "  - ligand: {id: L, ccd: STU}\n")
     q = _yaml(tmp_path, "cocrystal.yaml", body)
-    sl.check_input(str(q), "rf3", arch="wormhole_b0")            # no token wall: still admitted
+    sl.check_input(str(q), "protenix-v1", arch="wormhole_b0")    # no token wall: still admitted
     with pytest.raises(sl.SizeTooLargeError) as e:
         sl.check_input(str(q), "esmfold2", arch="wormhole_b0")
     msg = str(e.value)
-    assert "35-atom ligand" in msg and "1035 tokens" in msg and "1056" in msg, msg
+    padded = sl.padded_tokens("esmfold2", cap + 11)
+    assert padded > cap, padded
+    assert "35-atom ligand" in msg and f"{cap + 11} tokens" in msg and str(padded) in msg, msg
     # and the same file without its ligand is admitted, so the ligand is what refused it
     apo = _yaml(tmp_path, "apo.yaml", body.split("  - ligand")[0])
     sl.check_input(str(apo), "esmfold2", arch="wormhole_b0")

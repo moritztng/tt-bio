@@ -146,7 +146,7 @@ from tt_bio import __version__, size_limits, weights
 from tt_bio.data import const
 from tt_bio.data.mol import load_molecules
 from tt_bio.data.msa import run_mmseqs2
-from tt_bio.cache import cached, paired_msa_dir, publish_file, publish_text, seq_hash
+from tt_bio.cache import EMPTY_MSA, cached, paired_msa_dir, publish_file, publish_text, seq_hash
 from tt_bio.data.parse import parse_a3m, parse_csv, parse_fasta, parse_yaml
 from tt_bio.data.pdb import write_atom_array
 from tt_bio.data.types import Coords, Input, Interface
@@ -161,6 +161,7 @@ from tt_bio.distributed import (
 from tt_bio.energy import DEFAULT_ENERGY_SAMPLE_HZ, PowerProfiler
 from tt_bio.progress import DebugDisplay, NullDisplay, ProgressDisplay
 from tt_bio.runtime import (
+    bind_host_threads,
     build_local_workers,
     conflicting_mpi_env,
     mpi_env_warning,
@@ -1404,6 +1405,7 @@ def _stream_run(client: ControllerClient, run_id: str, total: int, n_workers: in
     failed = 0
     all_dead_seen = False
     failures: dict[str, str] = {}  # this run's failures: job id -> error message
+    aff_failures: dict[str, str] = {}  # structure ok, affinity leg raised
     rows_by_id: dict[str, dict] = {}
     if results_path is not None:
         rows_by_id = {r["id"]: r for r in _load_results_resilient(results_path)
@@ -1425,6 +1427,8 @@ def _stream_run(client: ControllerClient, run_id: str, total: int, n_workers: in
                     if isinstance(row, dict) and "id" in row:
                         if row.get("status") == "failed":
                             failures[row["id"]] = row.get("error") or "failed"
+                        elif row.get("affinity_error"):
+                            aff_failures[row["id"]] = row["affinity_error"]
                         if results_path is not None:
                             rows_by_id[row["id"]] = row
                             try:
@@ -1512,6 +1516,11 @@ def _stream_run(client: ControllerClient, run_id: str, total: int, n_workers: in
             click.echo(f"  ✗ {job_id}: {summary or lines[0]}")
             for extra in (lines if summary else lines[1:]):
                 click.echo(f"      {extra}")
+    if aff_failures:
+        click.echo(f"\n{len(aff_failures)} structure(s) folded but their affinity failed "
+                   f"(no affinity keys in results.json, reason under affinity_error):")
+        for job_id, error in aff_failures.items():
+            click.echo(f"  ✗ {job_id}: {(str(error).splitlines() or [''])[0]}")
     return failed
 
 
@@ -2400,7 +2409,7 @@ def _read_bio_chains(path, what="input"):
                 if typ in ("", "protein"):
                     cid, buf, mt = parts[0].strip(), [], "protein"
                     m = parts[2].strip() if len(parts) > 2 else ""
-                    msa = m if m and m.lower() != "empty" else None
+                    msa = EMPTY_MSA if m.lower() == EMPTY_MSA else (m or None)
                 elif typ in _NA_HEADER_TYPES:
                     cid, buf, mt, msa = parts[0].strip(), [], _NA_HEADER_TYPES[typ], None
                 elif typ in ("ccd", "ion", "smiles", "ligand"):
@@ -2425,7 +2434,8 @@ def _read_bio_chains(path, what="input"):
                     # chain; skipping it here folded the rest of the complex without it
                     continue
                 m = sub.get("msa") if mt == "protein" else None
-                m = str(m) if m and str(m).lower() not in ("", "empty") else None
+                m = str(m).strip() if m else None
+                m = EMPTY_MSA if m and m.lower() == EMPTY_MSA else (m or None)
                 mods = _read_modifications(sub, key)
                 ids = sub.get("id", "A")
                 id_list = ([str(x) for x in ids] if isinstance(ids, (list, tuple))
@@ -2601,6 +2611,8 @@ def _resolve_a3m_path(msa_spec, sequence, msa_dir):
     explicit a3m path (``msa_spec``), then the shared ``{sha256(seq)[:16]}.a3m`` cache in
     ``msa_dir`` (written by the same MSA generation ESMFold2/Boltz-2 use). Mirrors
     resolve_msa's candidate order."""
+    if msa_spec == EMPTY_MSA:
+        return None
     candidates = []
     if msa_spec:
         candidates.append(Path(msa_spec).expanduser())
@@ -3027,7 +3039,8 @@ def _resolve_msa_default(model, use_msa_server, msa_db_path, msa_endpoint,
 @click.option("--max_parallel_samples", default=5, type=int,   # protenix.DEFAULT_MAX_PARALLEL_SAMPLES
               help="Diffusion samples denoised in one batched forward by boltz2, protenix-v1/v2, "
                    "opendde and opendde-abag; the other models pick their own width. Device memory "
-                   "grows linearly in it; lower it if a large target runs out.")
+                   "grows linearly in it; if the chip refuses a batch, it halves on its own, down "
+                   "to one sample.")
 @click.option("--step_scale", default=None, type=float)
 @click.option("--output_format", type=click.Choice(["pdb", "cif"]), default="cif")
 @click.option("--override", is_flag=True)
@@ -3062,12 +3075,11 @@ def _resolve_msa_default(model, use_msa_server, msa_db_path, msa_endpoint,
 @click.option("--trace", is_flag=True,
               help="Replay a captured ttnn trace of the per-step diffusion device "
                    "stream (lossless; collapses per-step host dispatch). protenix-v1, "
-                   "protenix-v2 and opendde. Opt-in — reserves a 1 GiB trace region on "
-                   "the device.")
+                   "protenix-v2 and opendde. Opt-in; reserves 0.2-0.3 GB of device memory.")
 @click.option("--diffusion_trace", is_flag=True,
               help="Replay a captured ttnn trace of the per-step diffusion DiT device "
                    "stream (lossless; collapses per-step host dispatch). boltz2 only. "
-                   "Opt-in — reserves a 1 GiB trace region on the device.")
+                   "Opt-in; reserves 0.2-0.3 GB of device memory.")
 @click.option("--write_pae", is_flag=True, help="Write PAE matrix per target (not openfold3)")
 @click.option("--write_pde", is_flag=True, help="Write PDE matrix per target")
 @click.option("--write_embeddings", is_flag=True, help="Write s/z embeddings per target")
@@ -3294,12 +3306,6 @@ def predict(data, out_dir, cache, checkpoint, accelerator, recycling_steps, samp
         # renders the "MSA" stage, generates any missing {seq_hash}.a3m into the
         # shared msa_dir cache, and folds. MSA is optional here (single-sequence
         # folding when no source is given), so unlike Boltz-2 it never errors out.
-        # --trace: reserve a ttnn trace region on each worker before its first
-        # get_device() open (workers inherit the parent env). Protenix (v1 and v2) and
-        # OpenDDE fold(trace=True) read it back via trace_region_size(); the device must be
-        # opened with the region up front (a later reopen is unstable on TT).
-        if trace:
-            os.environ.setdefault("TT_BIO_TRACE_REGION_SIZE", str(1 << 30))
         worker_cfg = {
             "model": model, "fast": fast, "output_format": output_format,
             "recycling_steps": recycling_steps, "sampling_steps": sampling_steps,
@@ -3318,10 +3324,9 @@ def predict(data, out_dir, cache, checkpoint, accelerator, recycling_steps, samp
             "msa_server_url": msa_server_url, "msa_pairing_strategy": msa_pairing_strategy,
             "msa_server_username": msa_server_username, "msa_server_password": msa_server_password,
             "api_key_value": api_key_value, "max_msa_seqs": max_msa_seqs,
-            # The cap the USER asked for, None when the flag was left alone. esmfold2 keeps
-            # reading max_msa_seqs (8192 is its shipped default); protenix, opendde, rf3 and
-            # the OF3 family read this one, so leaving the flag alone folds exactly the depth
-            # they folded before.
+            # The cap the USER asked for, None when the flag was left alone. esmfold2,
+            # protenix, opendde, rf3 and the OF3 family read this one, so leaving the flag alone
+            # folds the depth each model's upstream reads.
             "msa_cap": msa_cap,
             "msa_cache_only": msa_cache_only,
             "write_pae": write_pae,
@@ -3831,8 +3836,7 @@ def embed_cmd(data, model, out_dir, out_format, pool, return_logits, fast, batch
             ensure_p300_mesh_descriptor()
             click.echo(f"Loading {model}{' (fast)' if fast else ''} …")
             # A trace region is reserved only where a captured trace could be replayed. It comes
-            # off every DRAM bank, so on a 12-bank Wormhole chip it costs 3 GiB and lowers the
-            # sequence ceiling -- see esmc.trace_pays.
+            # off every DRAM bank -- see esmc.trace_pays.
             m = esmc.load_esmc(model, fast=fast, trace=esmc.trace_pays(seqs))
             click.echo(f"Embedding {len(seqs)} sequence(s) → {out}")
             results = esmc.embed_sequences(m, seqs, return_logits=return_logits, pool=pool,
@@ -3885,9 +3889,12 @@ def embed_cmd(data, model, out_dir, out_format, pool, return_logits, fast, batch
               help="HuggingFace cache dir for the checkpoint and the ESM-2 encoder.")
 @click.option("--devices", default=None,
               help="Physical TT card id to pin, e.g. '2'. Default: this machine's first card.")
+@click.option("--host_threads", default=None, type=int,
+              help="CPU threads this process may use (default: all cores). Set it when you run "
+                   "one affinity screen per card side by side, as for `predict`.")
 @torch.no_grad()
 def affinity_cmd(data, model, out_dir, accelerator, trunk, recycling_steps, tokens_budget,
-                 num_workers, seed, ccd, cache, devices):
+                 num_workers, seed, ccd, cache, devices, host_threads):
     """Predict protein-ligand binding affinity without folding a structure.
 
     DATA is a YAML file or a directory of them. Each needs ``version: 1``, at least one
@@ -3915,6 +3922,8 @@ def affinity_cmd(data, model, out_dir, accelerator, trunk, recycling_steps, toke
         if len(ids) > 1:
             raise click.UsageError("--model nesso1 is batch-1 by construction; pass one card id")
         os.environ["TT_VISIBLE_DEVICES"] = ids[0]
+    _cap_worker_threads(1, host_threads)
+    bind_host_threads()
     use_tt = accelerator == "tenstorrent"
     if use_tt:
         _require_ttnn()
@@ -3922,7 +3931,8 @@ def affinity_cmd(data, model, out_dir, accelerator, trunk, recycling_steps, toke
     from tt_bio.nesso1 import DEFAULT_SEED, REPORTED_SCALARS, screen
 
     out = Path(out_dir).expanduser()
-    click.echo(f"Loading {model} ({'tenstorrent' if use_tt else 'cpu'}, trunk {trunk}) …")
+    # --trunk picks the device pairformer; the torch path is fp32 whatever it says.
+    click.echo(f"Loading {model} ({f'tenstorrent, trunk {trunk}' if use_tt else 'cpu, fp32'}) …")
     try:
         rows = screen(
             data, out,
@@ -3945,10 +3955,14 @@ def affinity_cmd(data, model, out_dir, accelerator, trunk, recycling_steps, toke
 
     csv_path = out / "affinity.csv"
     cols = ["id", "n_tokens", "seconds", *REPORTED_SCALARS]
-    with csv_path.open("w") as fh:
-        fh.write(",".join([*cols, "error"]) + "\n")
+    import csv
+
+    with csv_path.open("w", newline="") as fh:
+        # csv quotes an error message's commas; a plain join split them into extra columns.
+        w = csv.writer(fh)
+        w.writerow([*cols, "error"])
         for r in rows:
-            fh.write(",".join([str(r.get(c, "")) for c in cols] + [r.get("error", "")]) + "\n")
+            w.writerow([r.get(c, "") for c in cols] + [r.get("error", "")])
     ok = [r for r in rows if "error" not in r]
     click.echo(f"Done — {len(ok)}/{len(rows)} scored → {csv_path}")
     if len(ok) != len(rows):
@@ -4193,8 +4207,8 @@ def _run_pxdesign_cli(inputs: Path, out_dir, cache, num_designs, n_step, seed) -
                    "precision, faster).")
 @click.option("--diffusion_trace", is_flag=True,
               help="boltzgen only. Replay a captured ttnn trace of the per-step diffusion "
-                   "DiT device stream (lossless; collapses per-step host dispatch). Opt-in — "
-                   "reserves a 1 GiB trace region on the device.")
+                   "DiT device stream (lossless; collapses per-step host dispatch). Opt-in; "
+                   "reserves 0.2-0.3 GB of device memory.")
 @click.option("--debug", is_flag=True,
               help="boltzgen only. Debug mode: no Rich display, no output suppression.")
 @click.option("--log", is_flag=True,

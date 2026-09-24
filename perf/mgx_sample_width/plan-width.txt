@@ -1,0 +1,8 @@
+# Width at production steps (200): the same 10 samples at the default width 5 and at 1, 2 and 10.
+b2_256_x10_w5 boltz2 perf/size512/fixtures/cdk2x2_256.yaml 10
+b2_256_x10_w1 boltz2 perf/size512/fixtures/cdk2x2_256.yaml 10 mps=1
+b2_256_x10_w2 boltz2 perf/size512/fixtures/cdk2x2_256.yaml 10 mps=2
+b2_256_x10_w10 boltz2 perf/size512/fixtures/cdk2x2_256.yaml 10 mps=10
+px2_256_x10_w5 protenix-v2 perf/size512/fixtures/cdk2x2_256.yaml 10
+px2_256_x10_w1 protenix-v2 perf/size512/fixtures/cdk2x2_256.yaml 10 mps=1
+b2_1536_x25 boltz2 perf/size512/fixtures/cdk2x2_1536.yaml 25
