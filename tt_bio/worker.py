@@ -723,6 +723,10 @@ class _WorkerState:
             self.model._esmc.preload()
         elif model_id in _protenix_family():
             from tt_bio.protenix import Protenix
+            from tt_bio.tenstorrent import get_device
+
+            if cfg.get("trace"):
+                get_device(trace="protenix")   # reset() closed the chip; this open reserves it
 
             # Same class for both ids: c_z, the stack depths and the recycling count all come
             # off the weights (Trunk._derive_c_z / n_blocks / trunk_recycles).
@@ -755,6 +759,10 @@ class _WorkerState:
                 num_timesteps=int(cfg.get("sampling_steps") or 200))
         elif model_id in ("opendde", "opendde-abag"):
             from tt_bio.opendde import OpenDDE
+            from tt_bio.tenstorrent import get_device
+
+            if cfg.get("trace"):
+                get_device(trace="protenix")
 
             self.model = OpenDDE.load_from_checkpoint(
                 cfg.get("opendde_ckpt"), abag=(model_id == "opendde-abag"))

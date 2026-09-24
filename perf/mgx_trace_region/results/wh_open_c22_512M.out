@@ -1,0 +1,67 @@
+{"t": 0.03, "step": "start", "region": 536870912, "arch": "wormhole_b0"}
+{"t": 0.04, "step": "leased"}
+2026-09-24 00:23:45.625 | info     |             UMD | Creating TopologyDiscovery for architecture: wormhole_b0 (topology_discovery.cpp:69)
+2026-09-24 00:23:45.697 | info     |             UMD | Established firmware bundle version: 19.6.0 (topology_discovery.cpp:471)
+2026-09-24 00:23:45.697 | info     |             UMD | Firmware bundle version 19.6.0 on the system is newer than the latest fully tested version 19.5.0 for wormhole_b0 architecture. Newest features may not be supported. (topology_discovery.cpp:503)
+2026-09-24 00:23:45.698 | warning  |             UMD | Board 0x100035100000000 has 1 chips, but expected 32 chips for board type ubb. (cluster_descriptor.cpp:1229)
+2026-09-24 00:23:45.700 | info     |          Device | Opening user mode device driver (tt_cluster.cpp:224)
+2026-09-24 00:23:45.727 | info     |             UMD | Creating TopologyDiscovery for architecture: wormhole_b0 (topology_discovery.cpp:69)
+2026-09-24 00:23:45.762 | info     |             UMD | Established firmware bundle version: 19.6.0 (topology_discovery.cpp:471)
+2026-09-24 00:23:45.762 | info     |             UMD | Firmware bundle version 19.6.0 on the system is newer than the latest fully tested version 19.5.0 for wormhole_b0 architecture. Newest features may not be supported. (topology_discovery.cpp:503)
+2026-09-24 00:23:45.764 | warning  |             UMD | Board 0x100035100000000 has 1 chips, but expected 32 chips for board type ubb. (cluster_descriptor.cpp:1229)
+2026-09-24 00:23:45.791 | info     |             UMD | Creating TopologyDiscovery for architecture: wormhole_b0 (topology_discovery.cpp:69)
+2026-09-24 00:23:45.819 | info     |             UMD | Established firmware bundle version: 19.6.0 (topology_discovery.cpp:471)
+2026-09-24 00:23:45.819 | info     |             UMD | Firmware bundle version 19.6.0 on the system is newer than the latest fully tested version 19.5.0 for wormhole_b0 architecture. Newest features may not be supported. (topology_discovery.cpp:503)
+2026-09-24 00:23:45.826 | warning  |             UMD | Board 0x100035100000000 has 1 chips, but expected 32 chips for board type ubb. (cluster_descriptor.cpp:1229)
+2026-09-24 00:23:45.828 | info     |             UMD | Harvesting masks for chip 0 tensix: 0x0 dram: 0x0 eth: 0x0 pcie: 0x0 l2cpu: 0x0 (cluster.cpp:325)
+2026-09-24 00:23:45.840 | info     |             UMD | Initializing iommu for sysmem (size: 0x40000000). (silicon_sysmem_manager.cpp:275)
+2026-09-24 00:23:45.840 | info     |             UMD | Allocating sysmem without hugepages (size: 0x40000000). (silicon_sysmem_manager.cpp:281)
+2026-09-24 00:23:46.229 | info     |             UMD | Opening local chip ids/PCIe ids: {0}/[14] and remote chip ids {} (cluster.cpp:180)
+2026-09-24 00:23:46.229 | info     |             UMD | IOMMU: enabled (cluster.cpp:155)
+2026-09-24 00:23:46.229 | info     |             UMD | KMD version: 2.9.0 (cluster.cpp:158)
+2026-09-24 00:23:46.230 | info     |             UMD | Starting devices in cluster (cluster.cpp:951)
+2026-09-24 00:23:46.271 | info     |             UMD | Mapped sysmem without hugepages to IOVA 0xffffffff40000000; NOC address 0x800000000 (silicon_sysmem_manager.cpp:329)
+2026-09-24 00:23:46.342 | info     |     Distributed | Using auto discovery to generate mesh graph. (metal_env.cpp:330)
+2026-09-24 00:23:46.342 | info     |     Distributed | Constructing control plane using auto-discovery (no mesh graph descriptor). (metal_env.cpp:392)
+2026-09-24 00:23:46.364 | info     |             UMD | Creating TopologyDiscovery for architecture: wormhole_b0 (topology_discovery.cpp:69)
+2026-09-24 00:23:46.394 | info     |             UMD | Established firmware bundle version: 19.6.0 (topology_discovery.cpp:471)
+2026-09-24 00:23:46.394 | info     |             UMD | Firmware bundle version 19.6.0 on the system is newer than the latest fully tested version 19.5.0 for wormhole_b0 architecture. Newest features may not be supported. (topology_discovery.cpp:503)
+2026-09-24 00:23:46.395 | warning  |             UMD | Board 0x100035100000000 has 1 chips, but expected 32 chips for board type ubb. (cluster_descriptor.cpp:1229)
+2026-09-24 00:23:46.397 | info     |          Fabric | TopologyMapper: Logical Multi-Mesh Adjacency Map: (topology_mapper.cpp:1474)
+2026-09-24 00:23:46.397 | info     |          Fabric | 
+=== Logical Mesh-Level Graph Adjacency Map ===
+Total nodes: 1
+Degree histogram: {0:1}
+ (topology_solver.tpp:91)
+2026-09-24 00:23:46.397 | info     |          Fabric | 
+=== Logical Mesh 0 Internal Graph Adjacency Map ===
+Total nodes: 1
+Degree histogram: {0:1}
+ (topology_solver.tpp:91)
+2026-09-24 00:23:46.397 | info     |          Fabric | TopologyMapper: Physical Multi-Mesh Adjacency Map: (topology_mapper.cpp:1485)
+2026-09-24 00:23:46.397 | info     |          Fabric | 
+=== Physical Mesh-Level Graph Adjacency Map ===
+Total nodes: 1
+Degree histogram: {0:1}
+ (topology_solver.tpp:91)
+2026-09-24 00:23:46.397 | info     |          Fabric | 
+=== Physical Mesh 0 Internal Graph Adjacency Map ===
+Total nodes: 1
+Degree histogram: {0:1}
+ (topology_solver.tpp:91)
+2026-09-24 00:23:46.397 | info     |          Fabric | Starting multi-mesh mapping: 1 logical mesh(es) to 1 physical mesh(es) (topology_mapper_utils.cpp:1117)
+2026-09-24 00:23:46.397 | info     |          Fabric | Multi-mesh mapping attempt 1/2: Trying inter-mesh mapping (topology_mapper_utils.cpp:1158)
+2026-09-24 00:23:46.397 | info     |          Fabric | Attempt 1: Inter-mesh mapping succeeded, found 1 mesh pair(s) (topology_mapper_utils.cpp:1187)
+2026-09-24 00:23:46.397 | info     |          Fabric | Multi-mesh mapping succeeded after 1 attempt(s): 1 mesh pair(s) mapped (topology_mapper_utils.cpp:1326)
+2026-09-24 00:23:46.398 | warning  |       Inspector | Failed to start Inspector RPC server: ::bind(sockfd, &addr.generic, addrlen): Address already in use; toString() = 127.0.0.1:50051 (data.cpp:65)
+2026-09-24 00:23:46.404 | info     |    BuildKernels | Using pre-compiled firmware from: /home/agent/env/lib/python3.10/site-packages/ttnn/tt_metal/pre-compiled/17780141658864180974/ (build_env_manager.cpp:259)
+2026-09-24 00:23:46.443 | info     |           Metal | Enabling program cache on MeshDevice 1 (mesh_device.cpp:967)
+{"t": 1.68, "step": "opened", "dram": {"num_banks": 12, "total_bytes_per_bank": 536870880, "total_bytes_allocated_per_bank": 0, "total_bytes_free_per_bank": 536870880, "largest_contiguous_bytes_free_per_bank": 536870880}, "trace": {"num_banks": 12, "total_bytes_per_bank": 536870912, "total_bytes_allocated_per_bank": 0, "total_bytes_free_per_bank": 536870912, "largest_contiguous_bytes_free_per_bank": 536870912}}
+{"t": 1.68, "step": "from_torch"}
+{"t": 1.69, "step": "add_enqueued"}
+{"t": 1.69, "step": "synchronized"}
+{"t": 1.69, "step": "captured", "trace": {"num_banks": 12, "total_bytes_per_bank": 536870912, "total_bytes_allocated_per_bank": 1024, "total_bytes_free_per_bank": 536869888, "largest_contiguous_bytes_free_per_bank": 536869888}}
+{"t": 1.69, "step": "replayed"}
+2026-09-24 00:23:46.593 | info     |          Device | Closing user mode device drivers (tt_cluster.cpp:478)
+2026-09-24 00:23:46.593 | info     |             UMD | Closing devices in cluster (cluster.cpp:962)
+{"t": 1.96, "step": "closed"}

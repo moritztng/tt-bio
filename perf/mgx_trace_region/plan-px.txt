@@ -1,0 +1,12 @@
+# protenix family denoise trace, esmc forward traces, rfd3 decoder trace + encoder refusal
+px2_512_trace predict perf/size512/fixtures/cdk2x2_512.yaml --model protenix-v2 --out_dir {out} --diffusion_samples 1 --seed 0 --host_threads 2 --accelerator tenstorrent --override --trace
+px2_512_eager predict perf/size512/fixtures/cdk2x2_512.yaml --model protenix-v2 --out_dir {out} --diffusion_samples 1 --seed 0 --host_threads 2 --accelerator tenstorrent --override
+od_512_trace predict perf/size512/fixtures/cdk2x2_512.yaml --model opendde --out_dir {out} --diffusion_samples 1 --seed 0 --host_threads 2 --accelerator tenstorrent --override --trace
+px1_512_trace predict perf/size512/fixtures/cdk2x2_512.yaml --model protenix-v1 --out_dir {out} --diffusion_samples 1 --seed 0 --host_threads 2 --accelerator tenstorrent --override --trace
+rfd3_enc RFD3_TRACE_ENCODER=1 design examples/rfd3_binder.json --model rfd3 --from_pdb --num_designs 1 --seed 0 --num_timesteps 20 --out_dir {out}
+esmc_510 embed perf/mgx_trace_region/inputs/esmc_510x3.fasta --model esmc-300m --batch_size 1 --out_dir {out}
+esmc_1534 embed perf/mgx_trace_region/inputs/esmc_1534x3.fasta --model esmc-300m --batch_size 1 --out_dir {out}
+esmc_fill8 embed perf/mgx_trace_region/inputs/esmc_fill8.fasta --model esmc-300m --batch_size 1 --out_dir {out}
+rfd3_dec RFD3_TRACE_DECODER=1 design examples/rfd3_binder.json --model rfd3 --from_pdb --num_designs 1 --seed 0 --num_timesteps 20 --out_dir {out}
+rfd3_eager design examples/rfd3_binder.json --model rfd3 --from_pdb --num_designs 1 --seed 0 --num_timesteps 20 --out_dir {out}
+px2_1536_trace predict perf/size512/fixtures/cdk2x2_1536.yaml --model protenix-v2 --out_dir {out} --diffusion_samples 1 --seed 0 --host_threads 2 --accelerator tenstorrent --override --trace

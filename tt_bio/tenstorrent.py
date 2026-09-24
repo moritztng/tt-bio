@@ -5624,19 +5624,49 @@ def _assert_local_dispatch(dev):
                            f"(likely a remote-only init): {e}") from e
 
 
-def get_device(trace_region_size=0):
+#: Trace region per capture, per arch. ttnn takes this many bytes off EVERY DRAM bank, yet
+#: end_trace_capture checks the device's live trace buffers, summed over all banks, against it:
+#: "Creating trace buffers of size 7929856B ..., but only 2097152B is allocated" is boltz2's
+#: 663552 B/bank DiT step on 12 Wormhole banks. So each entry is the largest measured total
+#: (bytes per bank x banks), doubled and rounded up to a MiB (perf/mgx_trace_region/CENSUS.md).
+#: A capture is its command stream, not its tensors, and barely moves with size: 671744 B/bank
+#: for the same step at 1536 tokens. A capture that outgrows its region raises (TT_FATAL, the
+#: chip stays usable). A region at or past a bank does not raise: 1 GiB is larger than a whole
+#: Wormhole bank (1073741792 B), the allocator's bank size underflows to 2**64 - 32 and the
+#: chip's first dispatch never completes. So a caller names its capture and never passes bytes.
+TRACE_REGIONS = {
+    "diffusion": {"wormhole_b0": 16 << 20, "blackhole": 27 << 20},    # boltz2 / boltzgen DiT step
+    "protenix": {"wormhole_b0": 20 << 20, "blackhole": 36 << 20},     # protenix-v1/v2, opendde step
+    "esmc": {"wormhole_b0": 221 << 20, "blackhole": 126 << 20},       # ESMC._TRACE_CACHE_MAX live traces
+}
+
+
+def trace_region_bytes(capture):
+    """Bytes per DRAM bank to reserve at open for ``capture`` (a TRACE_REGIONS key) on this arch."""
+    try:
+        return TRACE_REGIONS[capture][arch_name()]
+    except KeyError:
+        raise ValueError(f"no trace region for capture {capture!r} on {arch_name()}; "
+                         f"known captures: {sorted(TRACE_REGIONS)}") from None
+
+
+def require_trace_region(what):
+    """Raise, naming ``what``, unless the open device reserved a trace region."""
+    if _trace_region_size <= 0:
+        raise ValueError(f"{what} needs a device opened with a trace region: call "
+                         f"get_device(trace=<capture>) before anything else opens it.")
+
+
+def get_device(trace=None):
     """Open (or return cached) TT device 0.
 
     Worker processes set TT_VISIBLE_DEVICES before importing ttnn, so the
     assigned physical chip appears as logical device 0.
 
-    trace_region_size: bytes to reserve for ttnn trace capture. Pass a nonzero
-    size (e.g. 1 << 30) to enable the Protenix denoise trace via fold(trace=True)
-    or BoltzGen's diffusion trace (Boltz.__init__(diffusion_trace=True)); the
-    default 0 leaves the device layout unchanged. If the arg is 0,
-    ``TT_BIO_TRACE_REGION_SIZE`` is consulted as a dev-only escape hatch so a
-    single-BH open can reserve a trace region without the caller threading the
-    kwarg.
+    trace: the capture this process will replay (a TRACE_REGIONS key, e.g. "diffusion"),
+    which reserves that capture's trace region at open. None leaves the device layout
+    unchanged. Only the first call opens, so the capture must be named before anything
+    else asks for the device.
     """
     global _device, _trace_region_size, _device_lease
     if _device is None:
@@ -5658,7 +5688,7 @@ def get_device(trace_region_size=0):
         if _device_lease is None:
             _device_lease = CardSetLease().acquire()
         try:
-            _device = _open_and_init_device(trace_region_size)
+            _device = _open_and_init_device(trace_region_bytes(trace) if trace else 0)
         except Exception:
             _device_lease.release()
             _device_lease = None
@@ -6113,21 +6143,6 @@ def _acc_append(acc: list, t: ttnn.Tensor, host: bool) -> None:
 def _open_and_init_device(trace_region_size):
     """Open + configure TT device 0 (the physical card is already leased by the caller)."""
     global _trace_region_size
-    if trace_region_size == 0:
-        env_sz = os.environ.get("TT_BIO_TRACE_REGION_SIZE")
-        if env_sz:
-            trace_region_size = int(env_sz)
-    if trace_region_size >= 2 ** 32:
-        # A trace region of exactly 4 GiB or more wedges tt-metal instead of erroring: the
-        # capture records fine, then end_trace_capture blocks forever inside
-        # MeshTrace::populate_mesh_buffer -> enqueue_write_shard_to_sub_grid -> finish(), and
-        # the completion-queue reader thread spins at 100 % CPU on a completion that never
-        # arrives. Measured on qb2 / ttnn 0.68.0 / P300: 3.9 GiB closes a capture in 2.6 ms,
-        # 4.0 GiB never closes, for a bare ttnn.add with no model. Refuse it here rather than
-        # let a caller hang, and keep the byte count so the message is unambiguous.
-        raise ValueError(
-            f"trace_region_size={trace_region_size} is >= 2**32; tt-metal truncates it and "
-            "end_trace_capture never returns. Use 1 GiB (what the denoiser trace asks for).")
     device_id = int(os.environ.get("TT_BIO_LOGICAL_DEVICE_ID", "0"))
     # A lone P300 chip is a custom topology and open_device() is a TT_FATAL without a mesh
     # graph descriptor ("Custom fabric mesh graph descriptor path must be specified for CUSTOM
@@ -6154,8 +6169,6 @@ def _open_and_init_device(trace_region_size):
         {"dispatch_core_config": ttnn.DispatchCoreConfig(ttnn.DispatchCoreType.ETH)}
         if eth_dispatch else {}
     )
-    # Opt-in ttnn trace region for the Protenix denoise trace (dispatch-bound
-    # diffusion). Default 0 -> device layout unchanged when tracing is off.
     if trace_region_size > 0:
         kwargs["trace_region_size"] = trace_region_size
     dev = _open_device_locked(device_id, kwargs)
@@ -12737,14 +12750,8 @@ class DiffusionModule(TorchWrapper):
         """Traced equivalent of ``forward``. Captures the per-step DiT device
         graph once per (B, N_padded) and replays it each step with the new
         ``r`` / ``times`` staged into the captured input buffers. Requires a
-        device opened with a trace region (get_device(trace_region_size=1<<30)
-        or TT_BIO_TRACE_REGION_SIZE)."""
-        import tt_bio.tenstorrent as _TTd
-        if _TTd.trace_region_size() <= 0:
-            raise ValueError(
-                "forward_traced needs a device opened with a trace region; "
-                "call get_device(trace_region_size=1 << 30) (or set "
-                "TT_BIO_TRACE_REGION_SIZE) before tracing.")
+        device opened with get_device(trace="diffusion")."""
+        require_trace_region("the diffusion trace")
         seq_len, N, N_padded = self._populate_diffusion_cache(
             r.shape[0], s_inputs, s_trunk, q, c,
             bias_encoder, bias_token, bias_decoder,

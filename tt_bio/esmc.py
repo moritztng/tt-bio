@@ -982,9 +982,10 @@ class ESMC(TorchWrapper):
     """
 
     # One captured trace per (bucketed length, mask layout) key. 8 concurrent
-    # traces fit the reserved region with headroom (one ESMC-300M trace is a
-    # few MB of trace buffer) and cover the working set of a length-sorted
-    # single-sequence stream.
+    # traces fit the reserved region with 2x headroom (one ESMC-300M trace at
+    # 1534 residues is 1.25 MB on each of Wormhole's 12 banks) and cover the working set
+    # of a length-sorted single-sequence stream. A capture that does not fit
+    # raises, and _dispatch falls back to eager.
     _TRACE_CACHE_MAX = 8
 
     def __init__(self, d_model: int, n_heads: int, n_layers: int, *, trace: bool = True):
@@ -1151,7 +1152,7 @@ class ESMC(TorchWrapper):
                     self._trace_note_shown = True
                     print("ESMC trace disabled: device was opened without a trace "
                           "region; running eager. Open with get_device("
-                          "trace_region_size=...) before load_esmc to enable.",
+                          "trace=\"esmc\") before load_esmc to enable.",
                           file=sys.stderr)
             else:
                 # Capture on the SECOND sighting of a shape: tracing pays only
@@ -1571,17 +1572,13 @@ def load_sequences(data) -> dict[str, str]:
     return seqs
 
 
-# DRAM reserved for ttnn trace capture when an ESMC-300M/600M model is loaded
-# with tracing on. Sized for _TRACE_CACHE_MAX concurrent captured forwards.
-#
-# It does NOT leave the device layout otherwise unchanged, which this comment used to claim. The
-# reservation comes off EVERY DRAM BANK, so on a 12-bank Wormhole Galaxy chip it costs 12 x 256 MB
-# = 3 GiB of a 12.8 GiB part. Measured on j10glx02 chip 8 against chip 7 on the same day, off the
-# allocator's own refusal message: "bank size is 805306336 B" with the region reserved against
-# "1073741792 B" without it, a difference of exactly 268435456 B per bank. That is 24 % of the
-# chip, and on the sequence-length axis it is the difference between esmc-300m refusing 65537
-# residues and saprot-35m -- same code path, no reservation -- embedding 73728 on the same part.
-_ESMC_TRACE_REGION_SIZE = 1 << 28
+# The trace region an ESMC-300M/600M load reserves (tenstorrent.TRACE_REGIONS["esmc"]) is not
+# free: it comes off EVERY DRAM bank, so on a 12-bank Wormhole chip every MiB of it costs 12 MiB.
+# Measured on j10glx02 off the allocator's own refusal: "bank size is 805306336 B" with a 256 MiB
+# region against "1073741792 B" without. On the sequence-length axis that was the difference
+# between esmc-300m refusing 65537 residues and saprot-35m, same code path and no region,
+# embedding 73728 on the same part. The region is sized to the 8 live traces (221 MiB on
+# Wormhole, since ttnn checks their total against it), so trace_pays still matters.
 
 
 def trace_pays(sequences, bucket: int = BUCKET) -> bool:
@@ -1590,8 +1587,8 @@ def trace_pays(sequences, bucket: int = BUCKET) -> bool:
     ``_dispatch`` captures a trace only on the SECOND sighting of a bucketed shape, on purpose:
     "tracing pays only when a shape repeats ... a one-shot call stays pure eager and never pays
     the capture cost". So on a workload where no bucketed width repeats, the region is reserved,
-    never captured into, and never replayed -- while still costing 3 GiB of the chip and 1.18x of
-    the sequence ceiling.
+    never captured into, and never replayed -- while still costing its bytes on every DRAM bank
+    (221 MiB per bank, 2.6 GiB of a Wormhole chip, and 1.18x of the sequence ceiling at 256 MiB).
 
     This is the same condition, asked one step earlier, where it can still be acted on: the
     reservation has to happen at device OPEN and cannot be taken back once a capture turns out to
@@ -1630,7 +1627,7 @@ def load_esmc(name: str = "esmc-300m", *, fast: bool = False, trace: bool = True
         # Reserve the trace region up front. If the device is already open this
         # returns it unchanged and forward() simply stays eager (it checks
         # trace_region_size() per call).
-        get_device(trace_region_size=_ESMC_TRACE_REGION_SIZE)
+        get_device(trace="esmc")
     return ESMC.from_pretrained(name, trace=trace)
 
 

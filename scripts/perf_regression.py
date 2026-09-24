@@ -301,12 +301,11 @@ SPECS: dict[str, dict] = {
     # capture replays (ESMC forward auto-traces B=1 repeated shapes — see
     # tt_bio.esmc.ESMC). Gated separately from the batch-8 leg above so a
     # regression in the traced single-seq path can't hide behind the batched
-    # number. trace_region_size mirrors tt_bio.esmc._ESMC_TRACE_REGION_SIZE —
-    # the measurement child must open the device WITH a trace region or the
-    # forward stays eager and the leg measures the wrong thing.
+    # number. The measurement child must open the device WITH the esmc trace
+    # region or the forward stays eager and the leg measures the wrong thing.
     "esmc-300m-single": dict(kind="embed", unit="seq/s", direction="higher",
                              embed_model="esmc-300m",
-                             batch_size=1, n_seqs=8, trace_region_size=1 << 28),
+                             batch_size=1, n_seqs=8, trace="esmc"),
     "esmc-600m":      dict(kind="embed", unit="seq/s", direction="higher",
                            batch_size=8, n_seqs=8),
     # ESMC-6B is the sharded-TransformerEngine LM backbone (~13 GB resident
@@ -1235,7 +1234,7 @@ def measure(model: str, out_path: Path) -> dict:
     # Open the chip once for this process. Legs whose shipped path uses ttnn
     # trace capture (esmc-300m-single) must reserve the trace region HERE —
     # get_device caches the first open, so a later load_esmc cannot add one.
-    get_device(trace_region_size=spec.get("trace_region_size", 0))
+    get_device(trace=spec.get("trace"))
     hw = arch_name()
     card = detect_card_type()
 

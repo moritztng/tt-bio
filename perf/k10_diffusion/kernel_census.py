@@ -191,7 +191,7 @@ def main() -> int:
     sys.path[:] = snap
     patch_boltz2_cfg()
 
-    T.get_device(trace_region_size=int(os.environ.get("TT_BIO_TRACE_REGION_SIZE", 1 << 30)))
+    T.get_device(trace="diffusion")
     fix = ROOT / "perf" / "size512" / "fixtures"
     tgt, a3m = fix / f"cdk2x2_{a.size}.yaml", fix / f"cdk2x2_{a.size}.a3m"
     one_fold, meta, state = B.build_fold("boltz2", HERE / f".msa_{a.size}", tgt, a3m)

@@ -404,10 +404,9 @@ def main() -> int:
     ap.add_argument("--probe-rows", type=int, default=512)
     ap.add_argument("--mode", choices=("sync", "trace"), default="sync")
     ap.add_argument("--skip", default=None, help="comma-separated arm names to leave out")
-    ap.add_argument("--trace-region", type=int, default=1 << 29)
     a = ap.parse_args()
 
-    dev = T.get_device(trace_region_size=a.trace_region)
+    dev = T.get_device(trace="diffusion")
     kcls = (ttnn.types.WormholeComputeKernelConfig if dev.arch() == ttnn.Arch.WORMHOLE_B0
             else ttnn.types.BlackholeComputeKernelConfig)
     kc = kcls(math_fidelity=ttnn.MathFidelity.HiFi4, math_approx_mode=False,

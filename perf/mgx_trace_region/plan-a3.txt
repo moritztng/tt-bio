@@ -1,0 +1,4 @@
+# AFTER chain 3: the two diffusion captures that ran before the table was corrected to total bytes
+b2_512_trace_v2 predict perf/size512/fixtures/cdk2x2_512.yaml --model boltz2 --out_dir {out} --diffusion_samples 1 --seed 0 --host_threads 2 --accelerator tenstorrent --override --diffusion_trace
+bg400_trace_v2 design tests/fixtures/boltzgen/bg400.yaml --model boltzgen --num_designs 1 --steps design --seed 0 --diffusion_trace --out_dir {out}
+bg400_eager_v2 design tests/fixtures/boltzgen/bg400.yaml --model boltzgen --num_designs 1 --steps design --seed 0 --out_dir {out}
