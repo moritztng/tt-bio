@@ -1,0 +1,14 @@
+# EVERY CLAIM THIS ROW PUBLISHED AND THEN WITHDREW, one line each, oldest first.
+# Kept out of the state doc because the doc is re-read every pass and this list only grows.
+# A claim here must not be re-made without new measurement that names why this line is wrong.
+#
+# - 11.480 vs 4.054 A opening gap — two single draws from one distribution.
+# - 7.1x clash fraction — 2.04x at n=8, does not separate (U=15, z=1.79).
+# - "the 2.10 A across-target floor" — two targets that happened to be close; it is 11.4-13.0 A.
+# - "upstream does not degrade 512->1536" and "the 1536 loss is the port's" — wrong fixture.
+# - "crop matters MORE than size" — size at offset 0 is 14.77 A, which exceeds the crop gap.
+# - "an n=8 median repeats to 0.117 A" — over-generalised from one cell; it is 0.1-1.8 A.
+# - "upstream's run-to-run spread is 3.87 A" — that is one design refolded twice, so it bounds the
+#   refold instrument; upstream's design-to-design spread is still unmeasured.
+# - "the two qb2 references give upstream's size trend" — each is `--num_designs 1`; the `6` in
+#   their command line is threads. Two singletons are not a trend.
