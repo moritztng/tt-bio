@@ -191,3 +191,15 @@ three is a wedge, and only one of them is anybody else's fault.
 Consequence for an ETA: a rate measured once is not a rate. This row quoted ~22:02Z off the
 2.25-core reading and missed it. Re-difference before quoting, which is what the DEFER rule
 already says and what this is a concrete instance of.
+
+## `pgrep -cf <tree>` COUNTS ITS OWN SHELL, SO AN EMPTY TREE READS AS BUSY
+
+Before rebuilding `~/wt-mgx-catcher` onto d8f17563c, `pgrep -cf "wt-mgx-catcher"` returned 1,
+which reads as "a job is running out of this tree, do not touch it". `pgrep -af` showed the
+single match was the `bash -c` wrapper of the query itself. Filtered, the count is 0 and the
+rebuild was safe.
+
+Use `pgrep -af <pattern> | grep -v "pgrep\|bash -c" | wc -l`, never the bare `-c`. The bare
+form is wrong in the DANGEROUS direction here: it says busy when the tree is free, which costs
+a pass; but the same self-match in a wait loop says alive when the job is gone, which is
+`wait-loop-pgrep-pattern-self-matches-its-own-wrapper` and costs hours.
