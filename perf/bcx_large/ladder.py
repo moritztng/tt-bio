@@ -50,6 +50,12 @@ def main():
     ap.add_argument("--evo", type=int, default=48)
     ap.add_argument("--seed", type=int, default=0)
     ap.add_argument("--arm", default="stack")
+    ap.add_argument("--trimul-mm-out", action="store_true",
+                    help="route both trimul output projections to DRAM (tenstorrent._TRIMUL_MM_OUT). "
+                         "A memory-config arm, not a change to the model's work: it removes the two "
+                         "L1-resident pair tensors whose third sibling the n=512 multiply is refused. "
+                         "_trimul_out_proj says minimal_matmul is not bit-exact against the L1 path, "
+                         "so any ceiling measured under this arm carries the arm's name.")
     ap.add_argument("--reps", type=int, default=2, help="rep 0 is cold (JIT compile), later reps warm")
     ap.add_argument("--save-grad", action="store_true", help="keep the logit gradient (.pt)")
     args = ap.parse_args()
@@ -58,7 +64,7 @@ def main():
            "seed": args.seed, "stamp": A.stamp(os.environ.get("TT_VISIBLE_DEVICES", "?")),
            "pci": S.sysfs_node()[1], "completed": False, "reps": []}
     rec["stamp"].pop("subsystem_device", None)     # afgrad reads the naive node, wrong on qb1
-    out = OUT / f"ladder_n{n}.json"
+    out = OUT / f"ladder_n{n}{'_mmout' if args.trimul_mm_out else ''}.json"
     OUT.mkdir(parents=True, exist_ok=True)
 
     def save():
@@ -67,6 +73,10 @@ def main():
 
     t_open = time.time()
     lv = S.Levers()
+    if args.trimul_mm_out:                         # before the first taped call
+        from tt_bio import tenstorrent as _tn
+        _tn._TRIMUL_MM_OUT = True
+    rec["trimul_mm_out"] = args.trimul_mm_out
     dm, ref = A.load_models(args.params)
     dev = A.Dev(dm)
     lv.arm(args.arm)
