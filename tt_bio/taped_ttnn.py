@@ -522,10 +522,35 @@ def _v_permute(shipped, args, kwargs):
 
     def make():
         def bw(g):
-            x.add_grad(ttnn.permute(g, inv))
+            x.add_grad(_permute_back(g, inv))
         return bw
 
     return _tape(out_v, [x], make)
+
+
+# Whether a permute's backward goes through the reblock kernels where they serve its inverse.
+# A module switch so an A/B can flip it in one process.
+REBLOCK_PERMUTE_BW = True
+
+
+def _permute_back(g, inv):
+    """``ttnn.permute(g, inv)``, through the reblock kernel the forward's channel move uses
+    when ``inv`` is one of its two moves and its own gate says yes.
+
+    The tape records a model's channel move as the stock permute it falls back to under a tape,
+    so its gradient paid the stock permute too: 12 calls on [1, 64, 256, 256] per AF2 Evoformer
+    block at n=256. The kernel is a pure index reordering, so the gradient keeps its bits.
+    Outside the gate the kernel's callers fall back to two transposes, slower than the one
+    permute this replaces, so here the fallback is the permute.
+    """
+    if REBLOCK_PERMUTE_BW:
+        from . import reblock_permute as R
+        mc = g.memory_config()
+        if inv == [0, 2, 3, 1] and R.eligible_back(g, mc):
+            return R.reblock_permute_back(g, mc)
+        if inv == [0, 3, 1, 2] and R.eligible(g, mc):
+            return R.reblock_permute(g, mc)
+    return ttnn.permute(g, inv)
 
 
 @_verb("transpose")
