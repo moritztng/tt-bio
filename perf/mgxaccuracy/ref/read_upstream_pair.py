@@ -68,9 +68,18 @@ def main() -> int:
         u, p, total = exact_p_less(up, dev)
         print(f"{name}")
         print(f"  device n=8  median {median(dev):.3f}  min {min(dev):.3f}  max {max(dev):.3f}")
+        # Report U and the crossings, not `up[1] < min(dev)`. That is the U=16 test, but the
+        # rule rejects from U>=15 (2/45 = 0.0444), so "separation: no" used to print beside
+        # "upstream BETTER at 0.05" and read as a contradiction. See
+        # plans/upstream_pair_amendment.txt §1: the operative bar is the cell's SECOND-smallest
+        # design, because U>=15 tolerates exactly one device value below an upstream draw.
+        crossings = sum(1 for y in dev for x in up if y < x)
+        print(f"  device 2nd-smallest {sorted(dev)[1]:.3f}  (the bar: a draw above it spends "
+              f"the one crossing the test allows)")
         print(f"  U = {u:.1f} of {len(up)*len(dev)}   exact one-sided p = {p:.4f}"
               f"   ({total} interleavings)"
-              f"   separation: {'PERFECT' if up[1] < min(dev) else 'no'}")
+              f"   device designs below an upstream draw: {crossings}"
+              f" (0 or 1 can still reject)")
         print("  -> " + ("upstream BETTER at 0.05: closing_rule clause 3, a 1536 port defect"
                          " to locate" if p <= 0.05 else
                          "no ordering readable: upstream is at the same level, clause 4"))
