@@ -191,17 +191,19 @@ class Dev:
         const = self.dm._up(self.dm.opm_constant[i].reshape(1, 1, -1))
         return blk(blk._residual(z, const))
 
-    def evo(self, i, m, z):
-        return self.dm.device_evoformer[i](m, z)
+    def evo(self, i, m, z, msa_mask=None):
+        return self.dm.device_evoformer[i](m, z, msa_mask)
 
-    def stack(self, m, z, k_extra, k_evo, extra_first=0, evo_first=0, ckpt=False):
+    def stack(self, m, z, k_extra, k_evo, extra_first=0, evo_first=0, ckpt=False,
+              msa_mask=None):
         for i in range(extra_first, extra_first + k_extra):
             z = self.ag.checkpoint(lambda t, i=i: self.extra(i, t), z) if ckpt else self.extra(i, z)
         for i in range(evo_first, evo_first + k_evo):
             if ckpt:
-                m, z = self.ag.checkpoint(lambda a, b, i=i: self.evo(i, a, b), m, z)
+                m, z = self.ag.checkpoint(
+                    lambda a, b, i=i: self.evo(i, a, b, msa_mask), m, z)
             else:
-                m, z = self.evo(i, m, z)
+                m, z = self.evo(i, m, z, msa_mask)
         return m, z
 
     def seed(self, t, like):
