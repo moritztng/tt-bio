@@ -39,3 +39,29 @@ WHAT TO RUN, the same two cases every previous row of CATCHER used: pxdesign 2 d
 (rc 0, scRMSD inside the banked n=8 band 0.693-12.925). Pinned card, AICLK sampled DURING.
 From `~/wt-mgx-catcher` against main, NOT from the design checkout, which is deliberately held
 at ff5435cba for the ladder.
+
+DISCHARGED: BOTH LEGS PASS, 2026-09-24 21:19-21:31Z
+=====================================================
+
+Run from `~/wt-mgx-catcher` standing at d8f17563c with a clean engine-path diff, whglx card 0,
+which the FAS 768 rung released at 21:18Z. Raw records appended to `results/catcher_ws.jsonl`.
+
+    merge        model     card  rc   wall_s  AICLK  metric
+    d8f17563c    pxdesign    0    0    225.9   1000  fit_rmsd 0.1446 / 0.158
+    d8f17563c    boltzgen    0    0    490.7   1000  scRMSD   7.120 / 9.723
+
+pxdesign is **unmoved to four decimals for the SIXTH consecutive merge point** — 0.1446 and
+0.158 are the same two values 428670d60 returned, and 0.158 is what 720b43a5d, 1f338604e,
+811ac1316 and 6ea518246 each returned. boltzgen's two draws sit inside the banked n=8 band
+0.693-12.925, which is all n=2 on that case can be read for. AICLK sampled DURING both folds,
+median 1000 over n=95 and n=206.
+
+So the six autograd/tape commits are inert for both designers at these sizes, which is what the
+`ops.taping()` gating predicted. The prediction was written down before the jobs ran
+(`plans/catcher_d8f17563c.txt`) and the jobs ran anyway, which is the point: this row has twice
+seen a lever that read inert fire, and the triatt latch these commits touch is the subject of
+`a-state-dependent-decline-must-not-be-cached-as-a-permanent-refusal`.
+
+rfd3 was not owed and was not run: the six commits touch neither `rfd3/design.py` nor the trace
+code, and rfd3 does not reach `_tri_att_sdpa_hifi_inner` or `_fp32_softmax_attention` through
+boltz2's modules.
