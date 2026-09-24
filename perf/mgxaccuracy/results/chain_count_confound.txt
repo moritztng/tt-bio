@@ -51,9 +51,25 @@ WHAT THE 768 RUNG DOES AND DOES NOT SETTLE. Both 768 crops carry a second partia
 It remains a valid CEILING measurement, which is what `plans/groel_768.txt` claims for it, and
 it is not a test of this confound. Do not read it as one.
 
-THE CONTROL THAT WOULD SETTLE IT cannot be built on GroEL: a single-chain crop above ~524
-residues does not exist there. It has to be a long-chain target, which is 1GPB, where the
-823-residue single-chain cell already exists. A second single-chain rung at ~1000 residues on
-1GPB, against the 823 cell and against a two-chain crop of the same total size, is the
-experiment. Not launched this pass: the two cards this row holds are running the 768 rung and
-the brief caps it at three chips.
+THE CONTROL THAT WOULD SETTLE IT CANNOT BE BUILT ON EITHER TARGET THIS ROW HAS.
+
+Corrected within this pass, after writing the paragraph above and then checking the noun rather
+than the number. The obvious control -- a bigger single-chain rung on 1GPB -- does not exist:
+`results/size_within_one_chain.txt` states that chain A of the 1GPB dimer IS 823 residues, so
+the 823 cell is already ALL of it and there is no 1000-residue single-chain 1GPB crop to run.
+GroEL's chains are ~524. Neither target has a chain long enough to put a single-chain cell at
+1024 or 1536, which is why `size_within_one_chain.txt` says in its own words that isolating the
+interface "would need a >=1536-residue single chain, which this protein does not have".
+
+So the control needs a THIRD target: one protein with a single chain of 1024-1536 residues,
+cropped at 512 / 1024 / 1536 with the same 80-residue binder and the same n=8, which holds chain
+count at one across the whole ladder. That is a new target with its own fixture work, not
+another rung on an existing one. Not launched this pass, and not something the 768 rung or the
+qb2 reference pair can substitute for.
+
+WHAT WAS ALREADY KNOWN AND WHAT IS NEW. `results/size_within_one_chain.txt` identified this
+confound on 1GPB and measured the decomposition; its first line is "ADDING 311 RESIDUES WITHIN
+ONE CHAIN DOES NOT MEASURABLY HURT. ADDING A SECOND CHAIN DOES." What is new here is that the
+same confound is perfect on GROEL, the target the row's verdict rests on and whose fixtures
+nobody had censused, and that the row's user-facing instruction and VERDICT were still worded
+as a residue rule while the only decomposition available pointed at the chain.
