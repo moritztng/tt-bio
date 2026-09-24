@@ -573,6 +573,35 @@ class AF2MaskedOuterProductMean(OuterProductMean):
 
     EPS = 1e-3
 
+    def _sum_rows(self, a: ttnn.Tensor, b: ttnn.Tensor) -> ttnn.Tensor:
+        """`sum_s a_sic b_sjd W_cdk + o_bias`, unscaled, without `ttnn.repeat`.
+
+        `OuterProductMean._small_depth` gives `b` the I batch with `ttnn.repeat`, which has
+        no tape entry, so the masked OPM's backward cannot reach it. The same contraction
+        runs transposed here: `[I, c_z, D] x [D, J]` broadcasts a 2D in1 over in0's batch,
+        the direction ttnn supports, and both permutes are verbs the trunk already tapes.
+        """
+        S, I, C = (int(d) for d in a.shape)
+        _, J, D = (int(d) for d in b.shape)
+        w = self._proj_o_folded(C, D)
+        c_z = int(w.shape[1]) // D
+        out = None
+        for s_i in range(S):
+            a_s = ttnn.reshape(a if S == 1 else a[s_i:s_i + 1], (I, C))
+            A = ttnn.matmul(a_s, w, compute_kernel_config=self.compute_kernel_config,
+                            core_grid=CORE_GRID_MAIN)
+            A = ttnn.to_layout(A, ttnn.ROW_MAJOR_LAYOUT)
+            A = ttnn.reshape(A, (I, D, c_z))
+            A = ttnn.to_layout(A, ttnn.TILE_LAYOUT)
+            A = ttnn.permute(A, (0, 2, 1))
+            b_s = ttnn.reshape(b if S == 1 else b[s_i:s_i + 1], (J, D))
+            bt = ttnn.permute(b_s, (1, 0))
+            part = ttnn.matmul(A, bt, compute_kernel_config=self.compute_kernel_config)
+            part = ttnn.permute(part, (0, 2, 1))
+            out = part if out is None else ttnn.add(out, part)
+        out = ttnn.add(out, self.o_bias)
+        return ttnn.reshape(out, (1, *tuple(out.shape)))
+
     def masked(self, x: ttnn.Tensor, msa_mask: ttnn.Tensor) -> ttnn.Tensor:
         if len(x.shape) == 4:
             x = ttnn.reshape(x, tuple(x.shape)[1:])
@@ -597,7 +626,10 @@ class AF2MaskedOuterProductMean(OuterProductMean):
 
         # `n_msa=1` asks for the raw sum over rows plus proj_o's bias, unscaled: AF2's own
         # numerator. The divisor is applied below because it is per residue pair.
-        z = self._small_depth(a, b, 1)
+        # `_sum_rows` rather than `_small_depth`: same contraction, no `ttnn.repeat`, so the
+        # backward can reach it. Both score 0.0040 against a float64 reference of the same
+        # numbers (`perf/bcx_predictor/opm_unit.json`).
+        z = self._sum_rows(a, b)
 
         # norm_ij = sum_s m_si m_sj, as a matmul over the row axis.
         mt = ttnn.permute(msa_mask, (1, 0))
