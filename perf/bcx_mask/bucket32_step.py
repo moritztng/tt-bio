@@ -178,14 +178,24 @@ def main():
     import afgrad as A
     _, ref = A.load_models(G.PARAM_NPZ, device_arm=False)
     model = ref["f32"]
+    # The two arms the verdict rests on first, then the host floor.
     arms = {"jax_b1": (1, None), "jax_b32": (32, None),
-            "host_b1": (1, HostEvoformer(model, "af2")),
             "host_today_b32": (32, HostEvoformer(model, "device_today")),
             "host_fixed_b32": (32, HostEvoformer(model, "device_fixed")),
+            "host_b1": (1, HostEvoformer(model, "af2")),
             "host_af2_b32": (32, HostEvoformer(model, "af2"))}
-    got, out = {}, {"arms": {}}
+    out = json.loads(OUT.read_text()) if OUT.is_file() else {"arms": {}}
+    got = {}
     for name, (bucket, host) in arms.items():
         t0 = time.time()
+        saved = HERE / f"step_{name}.npz"
+        if name in out["arms"] and saved.is_file() and "loss" in out["arms"][name]:
+            # A finished arm is read back, not rerun: one JAX step here is minutes of CPU.
+            with np.load(saved) as z:
+                got[name] = {"loss": out["arms"][name]["loss"], "plddt_real": z["plddt_real"],
+                             "grads": {k[5:]: z[k] for k in z.files if k.startswith("grad_")}}
+            print(name, "reused", flush=True)
+            continue
         r = got[name] = step(bucket, host)
         # Every arm's own arrays on disk, so a comparison can be redone without a rerun.
         np.savez(HERE / f"step_{name}.npz", plddt_real=r["plddt_real"],
