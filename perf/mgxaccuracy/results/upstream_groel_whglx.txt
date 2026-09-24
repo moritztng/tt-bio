@@ -114,3 +114,35 @@ One caveat on transferring the cost band: it was derived from a 1GPB draw and Gr
 chains where 1GPB has two. Token count is identical (1616) and cost is driven by tokens, so the
 band should hold, but treat the landings as projections until the 512 rung actually lands and
 gives this target its own anchor.
+
+THE 512 RUNG LANDED: UPSTREAM 5.437 A AGAINST THE DEVICE'S 0.852 A MEDIAN
+==========================================================================
+
+2026-09-24 20:0xZ. Upstream BoltzGen, torch fp32 on whglx CPUs, one design against the
+byte-identical GroEL 512 offset-0 fixture the device's eight used, scored by the same
+`scrmsd.py` on the same `designfolding-bb_rmsd` over N/CA/C/O:
+
+    upstream fp32 CPU   m=1    5.437 A                 0 of 1 under 4 A
+    device n=8                 0.852 A  0.585-9.694    5 of 8 under the STRICT 2 A bar
+
+Upstream's draw is worse than SEVEN of the device's eight and beats only the 9.694 outlier. It
+is inside the device's own range and it misses the 4 A permissive bar that five of the eight
+device designs clear at 2 A.
+
+WHAT THIS IS AND IS NOT. m=1 against n=8 cannot reject at 0.05 either way -- the smallest
+one-sided p is 1/C(9,1) = 0.111 (`results/upstream_draw_count.txt`) -- so this does NOT order
+the two sides and "inside the device's range" is not "no difference". What it does is remove a
+direction, on the target the row's verdict actually rests on. Until now the reference half sat
+entirely on 1GPB, where upstream read 11.375 A against the device's 4.749 median and was also
+worse than seven of eight. Two targets, two single draws, same direction: at 512 there is no
+port defect visible on the reference's own terms.
+
+The deciding test is unchanged and is still the qb2 1GPB 1536 PAIR under
+`plans/closing_rule.txt` §3-4 with `plans/upstream_pair_amendment.txt`. GroEL does not move the
+verdict mapping and this rung is corroboration.
+
+A DEFECT IN THE HARVEST SCRIPT, FOUND THE MOMENT IT FIRST MATTERED. `harvest_groel_upstream.sh`
+called bare `python3`, which on whglx has no numpy, so `scrmsd.py` died on import. The dry-run
+this row did earlier exercised only the NOT-READY branch and never reached the scoring line, so
+it passed while the working path was broken. Fixed to `${PY:-$HOME/env/bin/python}` and re-run
+end to end, reproducing 5.437 A. The 1536 rung will therefore not hit it.

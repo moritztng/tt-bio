@@ -26,7 +26,10 @@ for size in 512 1536; do
         continue
     fi
     echo "groel${size}: $n refold cif, scoring"
-    python3 perf/mgxaccuracy/scrmsd.py "$d" --json \
+    # whglx's system python3 has no numpy; the row's interpreter is $HOME/env/bin/python.
+    # Caught 2026-09-24 20:0xZ when the 512 draw finally landed: the earlier dry-run exercised
+    # only the NOT-READY branch and never reached this line, so it passed while this was broken.
+    "${PY:-$HOME/env/bin/python}" perf/mgxaccuracy/scrmsd.py "$d" --json \
         --model boltzgen --target perf/mgxaccuracy/targets/groel_ring4_2096.cif \
         --target-res "$size" --side upstream-design-upstream-refold
 done
