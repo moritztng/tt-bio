@@ -71,11 +71,13 @@ def traced(self, protein_states, losses, *a, **kw):
 
 T.TTBioAlphaFoldDesignModel.sequence_gradients = traced
 
-OUT = HERE / "runs" / "trace_seam_seed0"
+BUCKET = os.environ.get("BCX_BUCKET", "")
+OUT = HERE / "runs" / ("trace_seam_seed0_b" + (BUCKET or "32"))
 OUT.mkdir(parents=True, exist_ok=True)
 ov = [f"campaign_seed=0", "max_trajectories=1", "validation_model=monomer",
       'design_models=["model_1_ptm"]', 'validation_models=["model_2_ptm"]',
       "autotune=false", "compile_next_length=false",
+      *([("length_bucket_size=" + BUCKET)] if BUCKET else []),
       "save_failed_trajectories=true", "save_design_sequences=true",
       f"project_folder={OUT}"]
 settings = cleaned_campaign_settings(read_settings(
@@ -101,6 +103,6 @@ finally:
             "first_bad_round": next((c["round"] for c in LOG
                                      if c["predictions_bad"] or c["grad_bad"]
                                      or not c["design_loss_finite"]), None)}
-    (HERE / "trace_seam.json").write_text(json.dumps(blob, indent=1, default=str))
+    (HERE / ("trace_seam_b" + (BUCKET or "32") + ".json")).write_text(json.dumps(blob, indent=1, default=str))
     print(json.dumps({"rounds": len(LOG), "first_bad_round": blob["first_bad_round"],
                       "device_calls": blob["device_calls"]}, indent=1))
