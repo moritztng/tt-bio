@@ -17,6 +17,7 @@ from . import triatt_qkv as _triatt_qkv
 from . import triatt_sdpa as _triatt_sdpa
 from . import trimul_tail as _trimul_tail
 from . import mm_generic as _mm_generic
+from . import page_copy as _page_copy
 from .envflags import env_flag, env_int
 from .device_lease import device_init_lock
 from .eltwise_fusion import scale_add
@@ -6131,16 +6132,87 @@ def _chunk_l1_per_core(t: ttnn.Tensor) -> int:
 def _add_input(x: ttnn.Tensor, u: ttnn.Tensor) -> ttnn.Tensor:
     """`x + u`, consuming `x`: the end of every pair op's `add_to_input` path.
 
-    A row-blocked op whose blocks go to the host adds each block's own rows of `x` before the
-    block leaves, and its join frees `x` before the one upload, so the pair and its update are
-    never on the chip together (6.95 GB each for OpenDDE's refiner at 1536 residues). Then `u`
-    already is the sum and `x` is gone. Every other path returns the bare update and gets the
-    caller's in-place add here, the same op the Pairformer layer ran itself."""
-    if not x.is_allocated():
+    A row-blocked op past `concat_host_bytes()` writes each block's `x + update` back into `x`
+    (`_pair_inplace`), so it returns `x` itself and there is nothing left to add. One whose blocks
+    went to the host instead frees `x` before its upload, so `u` already is the sum and `x` is
+    gone. Every other path returns the bare update and gets the caller's in-place add here, the
+    same op the Pairformer layer ran itself."""
+    if u is x or not x.is_allocated():
         return u
     x = ttnn.add_(x, u)
     ttnn.deallocate(u)
     return x
+
+
+# Row-blocked pair updates written back into the pair they update. ON.
+#
+# Past `concat_host_bytes()` the pair ops used to join their row blocks on the host: each block's
+# `z + update` went down, the join came back up, because the result is a second pair tensor and a
+# 12 GiB chip cannot hold two of OpenDDE's 6.95 GB structural pairs at 1536 residues. But every
+# one of these tails computes block I from z's own block I -- the triangle attentions once their
+# bias is built from the whole pair, the transition, the triangle multiplication's output tail
+# once its hidden exists -- so z[I] is dead as soon as block I is done, and the block can take its
+# place. `tt_bio/page_copy.py` does the write on the device: the same bytes, in the same place a
+# join would have put them, so it is bit-exact by construction.
+#
+# MEASURED on whglx (8x9 Wormhole) at the 1536-residue refiner, width 3008, before: 452 GB down
+# and 454 GB up over four Pairformer blocks, ~950 s of an 1201 s seam (`perf/mgx_wide_seq/`).
+# With TT_BIO_TRIMUL_INPROJ_ROWBLOCK_NORM the whole 1536-residue fold goes from 4221 s to 2826 s.
+# `TT_BIO_PAIR_INPLACE=0` restores the host join.
+PAIR_INPLACE = True
+_PAIR_INPLACE = env_flag("TT_BIO_PAIR_INPLACE", PAIR_INPLACE)
+# (pair ops served in place, blocks written)
+PAIR_INPLACE_STATS = [0, 0]
+
+
+def _pair_inplace(z: ttnn.Tensor, add_to_input: bool) -> bool:
+    """Whether a row-blocked `z + update` should be written back into `z` block by block.
+
+    From the size where the join may go to the host (`host_acc_after_refusal`), so every smaller
+    pair keeps its device concat and its numbers. Above it the device join is still tried first
+    and often fits (Nesso-1 at 3072 tokens never left the card); there the write replaces a device
+    concat, which is why `page_copy` has to move bytes at least as fast as ttnn.concat does. Not
+    under a tape: the write mutates a tensor the tape may still hold."""
+    return (add_to_input and _PAIR_INPLACE and not ops.taping()
+            and z.dtype == ttnn.bfloat16 and _dtype() == ttnn.bfloat16
+            and z.logical_volume() * 2 > concat_host_bytes() and _page_copy.ok(z, z))
+
+
+def _write_rows(z: ttnn.Tensor, blk: ttnn.Tensor, start: int) -> None:
+    """`z[:, start:start + R] = blk`, freeing `blk` (see `_pair_inplace`)."""
+    _page_copy.write_rows(z, blk, start)
+    ttnn.deallocate(blk)
+    PAIR_INPLACE_STATS[1] += 1
+
+
+def _write_cols(z: ttnn.Tensor, blk: ttnn.Tensor, start: int) -> None:
+    """`z[:, :, start:start + R] = blk`, freeing `blk` (see `_pair_inplace`)."""
+    _page_copy.write_cols(z, blk, start)
+    ttnn.deallocate(blk)
+    PAIR_INPLACE_STATS[1] += 1
+
+
+def _inplace_guarded(what: str, run):
+    """`run()`, where a refusal after `run` has written into its input is no longer retryable.
+
+    Every refusal-retry wrapper around these ops (`row_block_after_refusal`,
+    `host_acc_after_refusal`) re-runs the op on its input. Once a block has been written that input
+    is half updated, and re-running would add the update to those rows twice -- the retry defect
+    `ttnn-inplace-op-on-caller-tensor-breaks-restaging` records. So such a refusal is re-raised as
+    a plain error none of them retries; one before the first write is still an ordinary refusal.
+    """
+    n0 = PAIR_INPLACE_STATS[1]
+    try:
+        out = run()
+    except Exception as exc:
+        from tt_bio.size_limits import is_alloc_refusal
+        if PAIR_INPLACE_STATS[1] != n0 and is_alloc_refusal(exc):
+            raise RuntimeError(
+                f"{what}: the device refused a block after {PAIR_INPLACE_STATS[1] - n0} were "
+                f"written into the input in place, so the op cannot be re-run on it") from exc
+        raise
+    PAIR_INPLACE_STATS[0] += PAIR_INPLACE_STATS[1] != n0
+    return out
 
 
 def _acc_append(acc: list, t: ttnn.Tensor, host: bool) -> None:
@@ -6610,6 +6682,11 @@ TRIMUL_INPROJ_ROWBLOCK = False
 _TRIMUL_INPROJ_ROWBLOCK = os.environ.get(
     "TT_BIO_TRIMUL_INPROJ_ROWBLOCK", "1" if TRIMUL_INPROJ_ROWBLOCK else "0") == "1"
 _TRIMUL_INPROJ_ROWBLOCK_R = int(os.environ.get("TT_BIO_TRIMUL_INPROJ_ROWBLOCK_R", "128"))
+# The same route where the LN'd pair was too big to exist: each block norms its own rows (see
+# `_gated_rowblocked`). Independent of the flag above, whose loss was measured at 512 aa where
+# the alternative is a DRAM round trip; here the alternative is `_in_proj_rows`, joined on the
+# host past `concat_host_bytes()`. ON; "0" sends those shapes back to it.
+_TRIMUL_INPROJ_ROWBLOCK_NORM = env_flag("TT_BIO_TRIMUL_INPROJ_ROWBLOCK_NORM", True)
 
 
 def set_trimul_inproj_rowblock(on: bool, r: int | None = None) -> tuple[bool, int]:
@@ -6979,7 +7056,7 @@ class TriangleMultiplication(Module):
         return _acc_concat(blocks, 1, host)
 
     def _gated_rowblocked(self, x_norm_in, w, bias, H, slice_c, perm_a, perm_b, memory_config,
-                          defer_transpose=False):
+                          defer_transpose=False, x_in=None):
         """`LN(z) @ w` in row blocks in L1, gated and moved straight into the full destination.
 
         The whole-tensor path writes the fused projection to DRAM and the gated move reads it
@@ -6994,19 +7071,40 @@ class TriangleMultiplication(Module):
         that is `torch.equal` at 24 shapes; an L1 source changes the TensorAccessor, not the
         arithmetic.
 
+        With `x_norm_in=None` and `x_in` given, the LN'd pair was too big to exist
+        (`TRIMUL_IN_NORM_ROWBLOCK_BYTES`), so each block norms its own rows of `x_in` -- the same
+        row-local norm `_in_proj_rows` computes -- and the block and its projection live in DRAM,
+        since at that size one row block of the pair is already more than the grid's L1. The
+        alternative is `_in_proj_rows`, which builds each channel group's whole projection and,
+        past `concat_host_bytes()`, joins it on the host: at OpenDDE's 1536-residue refiner that
+        was four 6.95 GB round trips per trimul. R is then the widest tile multiple up to
+        `_TRIMUL_INPROJ_ROWBLOCK_R` that divides H, so 3008 (= 64 * 47) blocks at 64.
+
         Returns `(None, None)` if the block shape is not eligible, so the caller falls back to the
         whole-tensor projection with nothing spent but the gate.
         """
-        R = _TRIMUL_INPROJ_ROWBLOCK_R
-        if R % _reblock.TILE_H or H % R:
+        if x_norm_in is None:
+            R = next((r for r in range(_TRIMUL_INPROJ_ROWBLOCK_R, 0, -_reblock.TILE_H)
+                      if H % r == 0), 0)
+            l1 = ttnn.DRAM_MEMORY_CONFIG
+        else:
+            R = _TRIMUL_INPROJ_ROWBLOCK_R
+            l1 = ttnn.L1_MEMORY_CONFIG
+        if not R or R % _reblock.TILE_H or H % R:
             return None, None
-        l1 = ttnn.L1_MEMORY_CONFIG
-        cw = int(x_norm_in.shape[-1])
+        cw = int((x_in if x_norm_in is None else x_norm_in).shape[-1])
         a = b = None
         try:
             for s_off in range(0, H, R):
-                rows = ttnn.slice(x_norm_in, [0, s_off, 0, 0], [1, s_off + R, H, cw],
-                                  memory_config=l1)
+                if x_norm_in is None:
+                    raw = x_in[:, s_off:s_off + R]
+                    rows = ttnn.layer_norm(
+                        raw, weight=self.in_norm_weight, bias=self.in_norm_bias, epsilon=1e-5,
+                        compute_kernel_config=self.compute_kernel_config, memory_config=l1)
+                    ttnn.deallocate(raw)
+                else:
+                    rows = ttnn.slice(x_norm_in, [0, s_off, 0, 0], [1, s_off + R, H, cw],
+                                      memory_config=l1)
                 blk = ttnn.experimental.minimal_matmul(
                     rows, w, bias_tensor=bias, memory_config=l1, dtype=_dtype(),
                     compute_kernel_config=self.compute_kernel_config)
@@ -7073,8 +7171,9 @@ class TriangleMultiplication(Module):
     def __call__(self, x: ttnn.Tensor, mask: ttnn.Tensor | None = None,
                  add_to_input: bool = False) -> ttnn.Tensor:
         """The update, or `x + update` consuming `x` with `add_to_input` (see `_add_input`)."""
-        u = host_acc_after_refusal(("trimul", tuple(x.padded_shape), self.ending), x,
-                                   lambda: self._multiply(x, mask, add_to_input))
+        u = host_acc_after_refusal(
+            ("trimul", tuple(x.padded_shape), self.ending), x, lambda: _inplace_guarded(
+                "triangle multiplication", lambda: self._multiply(x, mask, add_to_input)))
         return _add_input(x, u) if add_to_input else u
 
     def _multiply(self, x: ttnn.Tensor, mask: ttnn.Tensor | None,
@@ -7224,14 +7323,16 @@ class TriangleMultiplication(Module):
                     defer_a = defer_b = False
                     branch = "?"
                     defer = _mm_transpose_deferred(program_config)
-                    if (_TRIMUL_INPROJ_ROWBLOCK and not row_norm and not _FAST_MODE
+                    if ((_TRIMUL_INPROJ_ROWBLOCK and not row_norm
+                         or _TRIMUL_INPROJ_ROWBLOCK_NORM and row_norm and len(shp) == 4)
+                            and not _FAST_MODE
                             and not _TRIMUL_RAW_CHANNEL_MOVES
                             and (mask is None or mask_moved_ok)
                             and memory_config.buffer_type == ttnn.BufferType.DRAM):
                         a_chunk, b_chunk = self._gated_rowblocked(
                             x_norm_in, gp_in_chunks[i], bias_i, H,
                             int(gp_in_chunks[i].shape[-1]) // 4, perm_a, perm_b, memory_config,
-                            defer_transpose=defer)
+                            defer_transpose=defer, x_in=x_in)
                         branch = "rowblock" if a_chunk is not None else "rowblock-declined"
                         if a_chunk is not None and defer:
                             defer_a = perm_a == (0, 3, 2, 1)
@@ -7599,12 +7700,16 @@ class TriangleMultiplication(Module):
         join frees `x_in` before its upload (`_add_input`).
         """
         on_host = isinstance(x, list)
-        residual = add_to_input and host_acc
+        # Block s reads only rows s:e of `x_in`, so past `concat_host_bytes()` it overwrites them
+        # (`_pair_inplace`) instead of joining the blocks on the host.
+        inplace = _pair_inplace(x_in, add_to_input)
+        residual = add_to_input and (host_acc or inplace)
         blocks = []
         for s in range(0, H, PAIR_ROW_BLOCK):
             e = min(s + PAIR_ROW_BLOCK, H)
+            r = x_in[:, s:e]                # the norm's input, and the residual's
             z_rows = ttnn.layer_norm(
-                x_in[:, s:e],
+                r,
                 weight=self.in_norm_weight,
                 bias=self.in_norm_bias,
                 epsilon=1e-5,
@@ -7620,6 +7725,8 @@ class TriangleMultiplication(Module):
                 core_grid=CORE_GRID_MAIN,
             )
             ttnn.deallocate(z_rows)
+            if not residual and e - s < H:  # a whole-axis slice is x_in itself
+                ttnn.deallocate(r)
             x_blk = (ttnn.from_torch(torch.cat([c[:, s:e] for c in x], dim=-1),
                                      layout=ttnn.TILE_LAYOUT, device=get_device(),
                                      dtype=ttnn.bfloat16)
@@ -7647,16 +7754,20 @@ class TriangleMultiplication(Module):
                 p_block, g_block, input_tensor_b_activations=[ttnn.UnaryOpType.SIGMOID])
             ttnn.deallocate(g_block)
             if residual:
-                r = x_in[:, s:e]
                 y_add = ttnn.add(r, y)
                 ttnn.deallocate(y)
                 if e - s < H:               # a whole-axis slice is x_in itself
                     ttnn.deallocate(r)
                 y = y_add
-            _acc_append(blocks, y, host_acc)
+            if inplace:
+                _write_rows(x_in, y, s)
+            else:
+                _acc_append(blocks, y, host_acc)
         if not on_host:
             ttnn.deallocate(x)
         dram_peak(f"trimul({'end' if self.ending else 'start'}) tail blocks done [z={'x'.join(str(d) for d in x_in.shape)}]")
+        if inplace:
+            return x_in
         return _acc_concat(blocks, 1, host_acc, consume=x_in if residual else None)
 
 
@@ -8135,7 +8246,8 @@ class TriangleAttention(Module):
         def blocked(rows):
             return host_acc_after_refusal(
                 ("tri_att", tuple(x.padded_shape), self.ending), x,
-                lambda: self._attend_pair(x, attn_mask, rows, add_to_input))
+                lambda: _inplace_guarded("triangle attention", lambda: self._attend_pair(
+                    x, attn_mask, rows, add_to_input)))
 
         key = (tuple(x.padded_shape), self.ending)
         if S > SEQ_LEN_MORE_CHUNKING and (self.affinity or not _FAST_MODE or _IS_SMALL_GRID):
@@ -8401,8 +8513,11 @@ class TriangleAttention(Module):
             # Assemble the row blocks on the host when the full result is large enough
             # that the concat's full-size allocation would risk a fragmented-DRAM
             # refusal (concat_host_bytes()); the loop then holds one block on device.
-            host_acc = _host_concat(x)
-            residual = add_to_input and host_acc
+            # In place (`_pair_inplace`) once the bias exists: block s reads only its own rows (its
+            # own column strip for the ending variant) of the input, so it can overwrite them.
+            inplace = _pair_inplace(x_in, add_to_input) and (not self.ending or chunk % 32 == 0)
+            host_acc = not inplace and _host_concat(x)
+            residual = add_to_input and (host_acc or inplace)
             parts = []
             for s in range(0, S, chunk):
                 end = min(s + chunk, S)
@@ -8508,18 +8623,34 @@ class TriangleAttention(Module):
                     out_dram = ttnn.to_memory_config(out_chunk, ttnn.DRAM_MEMORY_CONFIG)
                     ttnn.deallocate(out_chunk)
                     out_chunk = out_dram
+                # In place, the ending block goes back to the pair's own layout first, so its
+                # residual is a plain column strip of x: one transpose per block, not two.
+                back = inplace and self.ending
+                if back:
+                    strip = _pair_transpose(out_chunk, ttnn.DRAM_MEMORY_CONFIG)
+                    ttnn.deallocate(out_chunk)
+                    out_chunk = strip
                 if residual:
-                    r = (_pair_transpose(x[:, s:end, :], ttnn.DRAM_MEMORY_CONFIG)
-                         if self.ending else x[s:end, :, :])
+                    r = x[:, s:end, :] if self.ending else x[s:end, :, :]
+                    if self.ending and not back:
+                        r = _pair_transpose(r, ttnn.DRAM_MEMORY_CONFIG)
                     r_add = ttnn.add(r, out_chunk)
                     ttnn.deallocate(out_chunk)
-                    ttnn.deallocate(r)
+                    if end - s < S or (self.ending and not back):  # a whole-axis slice is x
+                        ttnn.deallocate(r)
                     out_chunk = r_add
-                _acc_append(parts, out_chunk, host_acc)
+                if back:
+                    _write_cols(x_in, ttnn.reshape(out_chunk, (1, *out_chunk.shape)), s)
+                elif inplace:
+                    _write_rows(x_in, ttnn.reshape(out_chunk, (1, *out_chunk.shape)), s)
+                else:
+                    _acc_append(parts, out_chunk, host_acc)
             dram_peak(f"tri_att({'end' if self.ending else 'start'}) row loop done [z={'x'.join(str(d) for d in x.shape)}]")
             # x here is the reshaped (unpermuted) input -- for the starting variant it can
             # alias the caller's pair tensor, so it must NOT be deallocated.
             ttnn.deallocate(triangle_bias)
+            if inplace:
+                return x_in
             if host_acc:
                 h = torch.cat(parts, dim=0)
                 # The ending variant's back-transpose rides the host assembly (pure
@@ -9206,8 +9337,9 @@ class Transition(Module):
 
     def __call__(self, x: ttnn.Tensor, memory_config: ttnn.MemoryConfig | None = None,
                  add_to_input: bool = False) -> ttnn.Tensor:
-        return host_acc_after_refusal(("transition", tuple(x.padded_shape)), x,
-                                      lambda: self._transition(x, memory_config, add_to_input))
+        return host_acc_after_refusal(
+            ("transition", tuple(x.padded_shape)), x, lambda: _inplace_guarded(
+                "transition", lambda: self._transition(x, memory_config, add_to_input)))
 
     def _transition(self, x: ttnn.Tensor, memory_config: ttnn.MemoryConfig | None,
                     add_to_input: bool) -> ttnn.Tensor:
@@ -9502,7 +9634,10 @@ class Transition(Module):
             # Host-assemble the row blocks when the full result is large enough that
             # the concat's full-size allocation would risk a fragmented-DRAM refusal
             # (concat_host_bytes()). Guarded on the swiglu output dtype being bf16.
-            host_acc = _host_concat(x) and (self.dtype or _dtype()) == ttnn.bfloat16
+            inplace = (_pair_inplace(x, add_to_input) and transition_h_chunk_size < H
+                       and (self.dtype or _dtype()) == ttnn.bfloat16)
+            host_acc = (not inplace and _host_concat(x)
+                        and (self.dtype or _dtype()) == ttnn.bfloat16)
             parts = []
             # A ttnn slice over a whole axis is its input, buffer and all, so freeing it would
             # free x (or c); only a real sub-range is ours to free.
@@ -9514,9 +9649,12 @@ class Transition(Module):
                         y_add = ttnn.add(c, y)
                         ttnn.deallocate(y)
                         y = y_add
-                    _acc_append(parts, y, host_acc)
                     if c is not x:
                         ttnn.deallocate(c)
+                    if inplace:
+                        _write_rows(x, y, s)
+                    else:
+                        _acc_append(parts, y, host_acc)
                 else:
                     w_parts = []
                     for w in range(0, W, w_chunk):
@@ -9535,8 +9673,13 @@ class Transition(Module):
                         y = y_add
                     if c is not x:
                         ttnn.deallocate(c)
-                    _acc_append(parts, y, host_acc)
+                    if inplace:
+                        _write_rows(x, y, s)
+                    else:
+                        _acc_append(parts, y, host_acc)
             dram_peak(f"transition4d loop done (lazy, h={transition_h_chunk_size}) [z={'x'.join(str(d) for d in x.shape)}]")
+            if inplace:
+                return x
             return _acc_concat(parts, 1, host_acc, memory_config,
                                consume=x if add_to_input else None)
         chunks = ttnn.chunk(x, -(-H // transition_h_chunk_size), dim=1)
