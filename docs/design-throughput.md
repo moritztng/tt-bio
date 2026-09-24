@@ -83,13 +83,24 @@ surface you actually want bound. A 120-residue target is a different problem fro
 512-residue one, and residues you hand the model that are not part of the interface tend to
 cost you designs.
 
-**Which residues you pick matters as much as how many.** Two 512-residue crops of the same
-chain, 100 residues apart along its own sequence, scored medians of 4.6 A and 16.0 A over
-eight designs each, and a repeat of that pair gave 4.7 A and 17.8 A. So moving the crop along
-one protein at a fixed size is worth 11 to 13 A, the same order as the roughly 15 A we measure
-going from 512 to 1536 residues on one crop. Neither is a second-order effect. If a target
-designs badly, re-run it against a different crop before concluding it is too big: you are
-choosing a binding problem, not just a length.
+**Which residues you pick matters as much as how many, and a good surface is the exception.**
+Three 512-residue windows of the same chain, 100 residues apart, eight designs each:
+
+| crop | scRMSD median | designable at 4 A |
+|---|---|---|
+| residues 1-512 | **4.6 A** | 50 % |
+| residues 101-612 | **16.0 A** | 0 % |
+| residues 201-712 | **17.3 A** | 0 % |
+
+Two of the three sit at 16-17 A and returned nothing usable; the good one is the outlier. So
+moving the window along one protein at a fixed size is worth up to 12.7 A, the same order as
+the roughly 15 A we measure going from 512 to 1536 residues on one crop. Neither is a
+second-order effect.
+
+The practical consequence is to search the target, not just generate more designs against one
+crop: eight designs against a bad window returned zero binders under 4 A, twice over, and
+eight against a good one returned four. If your target designs badly, try a different window
+before concluding it is too big.
 
 What does *not* degrade is docking. All eight designs against the 512-residue dimer sit on the
 target — closest heavy atom 1.29 to 2.41 A, 478 to 1199 contacts under 5 A. The failure mode
