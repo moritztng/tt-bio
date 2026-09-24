@@ -117,6 +117,18 @@ def capture(bucket: int) -> dict:
     return got
 
 
+def cached_capture(bucket: int) -> dict:
+    """`capture`, kept on disk. One BindCraft 2 CPU fold is minutes on a loaded host and the
+    arms are the cheap part, so a rerun that only changes an arm must not pay for it twice."""
+    path = HERE / f"capture_b{bucket}.npz"
+    if path.is_file():
+        with np.load(path) as z:
+            return {k: z[k] for k in z.files}
+    got = capture(bucket)
+    np.savez(path, **got)
+    return got
+
+
 def one_sided_trimul():
     """The reference's triangle multiplication with only the `a` half masked.
 
@@ -203,7 +215,7 @@ def main():
     _, ref = A.load_models(PARAM_NPZ, device_arm=False)
     out = {}
     for bucket in (32, 1):
-        cap = capture(bucket)
+        cap = cached_capture(bucket)
         n = int(cap["pair_in"].shape[0])
         masked = int((cap["msa_mask"][0] == 0).sum())
         arms = run_arms(cap, ref)
