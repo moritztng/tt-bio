@@ -6653,6 +6653,9 @@ TRIMUL_INPROJ_ROWBLOCK = False
 _TRIMUL_INPROJ_ROWBLOCK = os.environ.get(
     "TT_BIO_TRIMUL_INPROJ_ROWBLOCK", "1" if TRIMUL_INPROJ_ROWBLOCK else "0") == "1"
 _TRIMUL_INPROJ_ROWBLOCK_R = int(os.environ.get("TT_BIO_TRIMUL_INPROJ_ROWBLOCK_R", "128"))
+# The same route where the LN'd pair was too big to exist: each block norms its own rows (see
+# `_gated_rowblocked`). ON; "0" sends those shapes back to `_in_proj_rows` and its host join.
+_TRIMUL_INPROJ_ROWBLOCK_NORM = env_flag("TT_BIO_TRIMUL_INPROJ_ROWBLOCK_NORM", True)
 
 
 def set_trimul_inproj_rowblock(on: bool, r: int | None = None) -> tuple[bool, int]:
@@ -7022,7 +7025,7 @@ class TriangleMultiplication(Module):
         return _acc_concat(blocks, 1, host)
 
     def _gated_rowblocked(self, x_norm_in, w, bias, H, slice_c, perm_a, perm_b, memory_config,
-                          defer_transpose=False):
+                          defer_transpose=False, x_in=None):
         """`LN(z) @ w` in row blocks in L1, gated and moved straight into the full destination.
 
         The whole-tensor path writes the fused projection to DRAM and the gated move reads it
@@ -7037,19 +7040,40 @@ class TriangleMultiplication(Module):
         that is `torch.equal` at 24 shapes; an L1 source changes the TensorAccessor, not the
         arithmetic.
 
+        With `x_norm_in=None` and `x_in` given, the LN'd pair was too big to exist
+        (`TRIMUL_IN_NORM_ROWBLOCK_BYTES`), so each block norms its own rows of `x_in` -- the same
+        row-local norm `_in_proj_rows` computes -- and the block and its projection live in DRAM,
+        since at that size one row block of the pair is already more than the grid's L1. The
+        alternative is `_in_proj_rows`, which builds each channel group's whole projection and,
+        past `concat_host_bytes()`, joins it on the host: at OpenDDE's 1536-residue refiner that
+        was four 6.95 GB round trips per trimul. R is then the widest tile multiple up to
+        `_TRIMUL_INPROJ_ROWBLOCK_R` that divides H, so 3008 (= 64 * 47) blocks at 64.
+
         Returns `(None, None)` if the block shape is not eligible, so the caller falls back to the
         whole-tensor projection with nothing spent but the gate.
         """
-        R = _TRIMUL_INPROJ_ROWBLOCK_R
-        if R % _reblock.TILE_H or H % R:
+        if x_norm_in is None:
+            R = next((r for r in range(_TRIMUL_INPROJ_ROWBLOCK_R, 0, -_reblock.TILE_H)
+                      if H % r == 0), 0)
+            l1 = ttnn.DRAM_MEMORY_CONFIG
+        else:
+            R = _TRIMUL_INPROJ_ROWBLOCK_R
+            l1 = ttnn.L1_MEMORY_CONFIG
+        if not R or R % _reblock.TILE_H or H % R:
             return None, None
-        l1 = ttnn.L1_MEMORY_CONFIG
-        cw = int(x_norm_in.shape[-1])
+        cw = int((x_in if x_norm_in is None else x_norm_in).shape[-1])
         a = b = None
         try:
             for s_off in range(0, H, R):
-                rows = ttnn.slice(x_norm_in, [0, s_off, 0, 0], [1, s_off + R, H, cw],
-                                  memory_config=l1)
+                if x_norm_in is None:
+                    raw = x_in[:, s_off:s_off + R]
+                    rows = ttnn.layer_norm(
+                        raw, weight=self.in_norm_weight, bias=self.in_norm_bias, epsilon=1e-5,
+                        compute_kernel_config=self.compute_kernel_config, memory_config=l1)
+                    ttnn.deallocate(raw)
+                else:
+                    rows = ttnn.slice(x_norm_in, [0, s_off, 0, 0], [1, s_off + R, H, cw],
+                                      memory_config=l1)
                 blk = ttnn.experimental.minimal_matmul(
                     rows, w, bias_tensor=bias, memory_config=l1, dtype=_dtype(),
                     compute_kernel_config=self.compute_kernel_config)
@@ -7268,14 +7292,15 @@ class TriangleMultiplication(Module):
                     defer_a = defer_b = False
                     branch = "?"
                     defer = _mm_transpose_deferred(program_config)
-                    if (_TRIMUL_INPROJ_ROWBLOCK and not row_norm and not _FAST_MODE
+                    if (_TRIMUL_INPROJ_ROWBLOCK and (not row_norm or _TRIMUL_INPROJ_ROWBLOCK_NORM)
+                            and not _FAST_MODE
                             and not _TRIMUL_RAW_CHANNEL_MOVES
                             and (mask is None or mask_moved_ok)
                             and memory_config.buffer_type == ttnn.BufferType.DRAM):
                         a_chunk, b_chunk = self._gated_rowblocked(
                             x_norm_in, gp_in_chunks[i], bias_i, H,
                             int(gp_in_chunks[i].shape[-1]) // 4, perm_a, perm_b, memory_config,
-                            defer_transpose=defer)
+                            defer_transpose=defer, x_in=x_in)
                         branch = "rowblock" if a_chunk is not None else "rowblock-declined"
                         if a_chunk is not None and defer:
                             defer_a = perm_a == (0, 3, 2, 1)
