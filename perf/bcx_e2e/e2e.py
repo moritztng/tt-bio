@@ -516,13 +516,21 @@ def cmd_grad(args):
                                        "vs_f64": A.cmp(gms, g64), "vs_hybrid": A.cmp(gms, gh),
                                        "msa_leaf_grad_norm": exm["msa_leaf_grad_norm"]}
             step()
+            only = {}
             for which in ("single", "pair"):
                 go, _, _, _ = hybrid_step(dev, ref, vg32, logits, ridx, ke, kv, n, only=which)
+                only[which] = go
                 out[f"control_only_{which}"] = {
                     "grad_norm": float(go.norm()),
                     "share_of_hybrid_norm": float(go.norm() / gh.norm()),
                     "cos_with_hybrid": A.cosine(go, gh), "vs_hybrid": A.cmp(go, gh)}
                 step()
+            # The backward is linear in its seed, so the two one-sided arms must sum to the
+            # full one. A double count at the seam would break this and nothing else here
+            # would notice.
+            out["control_seed_additivity"] = A.cmp(only["single"] + only["pair"], gh)
+            grads["only_single"], grads["only_pair"] = only["single"], only["pair"]
+            step()
             g2, _, _, _ = hybrid_step(dev, ref, vg32, logits, ridx, ke, kv, n)
             out["control_repeat_bit_identical"] = bool(torch.equal(g2, gh))
             step()
