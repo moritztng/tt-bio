@@ -191,19 +191,26 @@ class Dev:
         const = self.dm._up(self.dm.opm_constant[i].reshape(1, 1, -1))
         return blk(blk._residual(z, const))
 
-    def evo(self, i, m, z, msa_mask=None):
-        return self.dm.device_evoformer[i](m, z, msa_mask)
+    def evo(self, i, m, z, msa_mask=None, pair_masks=(None, None)):
+        return self.dm.device_evoformer[i](m, z, msa_mask, *pair_masks)
 
     def stack(self, m, z, k_extra, k_evo, extra_first=0, evo_first=0, ckpt=False,
-              msa_mask=None):
+              msa_mask=None, pair_masks=(None, None)):
+        """`pair_masks` is `af2.af2_pair_masks(mask_2d)` -- the multiply and the key bias.
+
+        Defaulted to `(None, None)`, which is the unmasked fold every leg in this file times,
+        so the stack this row prices is unchanged. A padded fold has to pass it: the pair track
+        reads it, and dropping it cost the positive control 0.95 pLDDT against 0.53
+        (`perf/bcx_mono/masked_fold.json`).
+        """
         for i in range(extra_first, extra_first + k_extra):
             z = self.ag.checkpoint(lambda t, i=i: self.extra(i, t), z) if ckpt else self.extra(i, z)
         for i in range(evo_first, evo_first + k_evo):
             if ckpt:
                 m, z = self.ag.checkpoint(
-                    lambda a, b, i=i: self.evo(i, a, b, msa_mask), m, z)
+                    lambda a, b, i=i: self.evo(i, a, b, msa_mask, pair_masks), m, z)
             else:
-                m, z = self.evo(i, m, z, msa_mask)
+                m, z = self.evo(i, m, z, msa_mask, pair_masks)
         return m, z
 
     def seed(self, t, like):

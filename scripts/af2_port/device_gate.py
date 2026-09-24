@@ -274,9 +274,11 @@ def main() -> int:
                     got_tt = (tt_call(up(margs[0])),)
 
             for i in MASK_ARGS.get(name, (1,)):
-                # `tt_bio/af2.py` says why an all-ones mask is a property of this port, not a
-                # shortcut, and what a genuinely masked AF2 fold would need first.
-                assert bool((margs[i] == 1).all()), "a masked AF2 fold is not wired up"
+                # The captures this gate scores come from an unmasked reference fold, so an
+                # all-ones mask here is a property of the FIXTURE. The trunk itself takes a real
+                # mask (`tt_bio.af2.af2_pair_masks`); grading that needs masked captures, which
+                # `perf/bcx_mask/` produces against BindCraft 2's own JAX instead.
+                assert bool((margs[i] == 1).all()), "these captures are an unmasked fold"
             want = tuple(t.float() for t in want)
             envelope = torch_arm(module, margs, torch.float32)
             kind = "chained" if name in CHAINED else "op"

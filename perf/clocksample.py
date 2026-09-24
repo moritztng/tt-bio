@@ -16,21 +16,34 @@ import subprocess
 import threading
 import time
 
-# Resolved, not hardcoded. The only copy of this path was qb1's `/home/ttuser/.local/bin/tt-smi`,
-# which does not exist on the Wormhole Galaxy (`/usr/local/bin/tt-smi`, user `agent`): every
-# sample raised FileNotFoundError, the bare `except` swallowed it, and `summary()` came back
-# empty -- so a harness run there reported no clock at all instead of failing loudly. `TT_SMI`
-# overrides, then PATH, and the old absolute path stays last so qb1 keeps working unchanged.
-TT_SMI = os.environ.get("TT_SMI") or shutil.which("tt-smi") or "/home/ttuser/.local/bin/tt-smi"
+
+def _tt_smi():
+    """The first tt-smi that exists. `TT_SMI` overrides; then PATH, ~/.local/bin (the Blackhole
+    boxes) and qb1's old absolute path. On whglx it is /usr/local/bin, where a path hardcoded to
+    the last one silently sampled nothing and every Galaxy size-ladder cell had no clock."""
+    for c in (os.environ.get("TT_SMI"), shutil.which("tt-smi"),
+              os.path.expanduser("~/.local/bin/tt-smi"), "/home/ttuser/.local/bin/tt-smi"):
+        if c and os.path.exists(c):
+            return c
+    return "tt-smi"
 
 
-def sample_aiclk(stop, out, *, period=2.0):
+TT_SMI = _tt_smi()
+
+
+def sample_aiclk(stop, out, *, period=2.0, load=None):
     """Append AICLK samples per device index into ``out`` until ``stop`` is set.
 
     With TT_VISIBLE_DEVICES exported, tt-smi honours it and reports the granted chip as
     index 0, so index 0 here is the granted card rather than UMD 0.
+
+    ``load``, if given, collects the host's 1-min loadavg / nproc at the same instants. On a
+    shared host the scheduler times the fold as much as the chip does (whglx ran at 8.5x during
+    the MGX re-record), so a runtime needs its load beside it just as it needs its clock.
     """
     while not stop.is_set():
+        if load is not None:
+            load.append(os.getloadavg()[0] / (os.cpu_count() or 1))
         try:
             r = subprocess.run([TT_SMI, "-s"], capture_output=True, text=True, timeout=25)
             d = json.loads(r.stdout)
@@ -52,13 +65,15 @@ class during:
 
     def __init__(self, period=2.0):
         self.clocks = {}
+        self.load = []
         self._stop = threading.Event()
         self._period = period
 
     def __enter__(self):
         self._t = threading.Thread(target=sample_aiclk,
                                    args=(self._stop, self.clocks),
-                                   kwargs={"period": self._period}, daemon=True)
+                                   kwargs={"period": self._period, "load": self.load},
+                                   daemon=True)
         self._t.start()
         return self
 

@@ -1,0 +1,103 @@
+{
+ "bucket": 32,
+ "arms": {
+  "jax": {
+   "target_alone": {
+    "plddt": {
+     "target_hPDL1": 0.9501,
+     "_all": 0.9501,
+     "_ptm": 0.8536
+    },
+    "target_ca_rmsd_A": 0.263
+   },
+   "complex": {
+    "plddt": {
+     "binder": 0.4461,
+     "target_hPDL1": 0.9282,
+     "_all": 0.7349,
+     "_ptm": 0.5642
+    },
+    "target_ca_rmsd_A": 0.336
+   },
+   "binder_alone": {
+    "plddt": {
+     "binder": 0.5932,
+     "_all": 0.5932,
+     "_ptm": 0.2004
+    }
+   }
+  },
+  "pairmask_dropped": {
+   "target_alone": {
+    "plddt": {
+     "target_hPDL1": 0.534,
+     "_all": 0.534,
+     "_ptm": 0.3718
+    },
+    "target_ca_rmsd_A": 1.66
+   },
+   "complex": {
+    "plddt": {
+     "binder": 0.4596,
+     "target_hPDL1": 0.9386,
+     "_all": 0.7465,
+     "_ptm": 0.5696
+    },
+    "target_ca_rmsd_A": 0.296
+   },
+   "binder_alone": {
+    "plddt": {
+     "binder": 0.4039,
+     "_all": 0.4039,
+     "_ptm": 0.2854
+    }
+   }
+  },
+  "pairmask_on": {
+   "target_alone": {
+    "plddt": {
+     "target_hPDL1": 0.9541,
+     "_all": 0.9541,
+     "_ptm": 0.8597
+    },
+    "target_ca_rmsd_A": 0.251
+   },
+   "complex": {
+    "plddt": {
+     "binder": 0.4596,
+     "target_hPDL1": 0.9386,
+     "_all": 0.7465,
+     "_ptm": 0.5696
+    },
+    "target_ca_rmsd_A": 0.296
+   },
+   "binder_alone": {
+    "plddt": {
+     "binder": 0.6059,
+     "_all": 0.6059,
+     "_ptm": 0.2105
+    }
+   }
+  }
+ },
+ "aiclk": {
+  "n": 1643,
+  "min": 800,
+  "median": 800,
+  "max": 1350
+ },
+ "stamp": {
+  "host": "tt-quietbox2",
+  "card": 0,
+  "subsystem_device": "0x0046",
+  "commit": "b9ac8a660c76f39224bd1e873a54fd1acbd1cef6",
+  "tt_bio_dirty": false,
+  "torch_threads": 4,
+  "loadavg": [
+   70.63134765625,
+   67.88818359375,
+   66.6669921875
+  ],
+  "utc": "2026-09-24T13:34:10Z"
+ }
+}

@@ -41,7 +41,7 @@ def _pad32(n: int) -> int:
     return -(-n // BUCKET) * BUCKET
 
 
-def _pad_inputs(m, z, mask):
+def _pad_inputs(m, z, mask, pair_mask):
     """Pad the token axis up to a multiple of 32 and mask what was added.
 
     BindCraft 2 samples a binder length per trajectory and at `length_bucket_size` 1 the
@@ -54,12 +54,13 @@ def _pad_inputs(m, z, mask):
     n = z.shape[0]
     n32 = _pad32(n)
     if n32 == n:
-        return m, z, mask, n, n32
+        return m, z, mask, pair_mask, n, n32
     pad = n32 - n
     m = torch.nn.functional.pad(m, (0, 0, 0, pad))
     z = torch.nn.functional.pad(z, (0, 0, 0, pad, 0, pad))
     mask = torch.nn.functional.pad(mask, (0, pad))
-    return m, z, mask, n, n32
+    pair_mask = torch.nn.functional.pad(pair_mask, (0, pad, 0, pad))
+    return m, z, mask, pair_mask, n, n32
 
 
 #: Per-call finiteness at the seam, filled only when BCX_NANLOG is set. The gradient goes
@@ -97,6 +98,7 @@ class EvoformerOnDevice:
         self.dev, self.k_evo, self.checkpoint = dev, k_evo, checkpoint
         self.calls = {"primal": 0, "taped": 0, "backward": 0}
         self._mask_dev = {}
+        self._pair_mask_dev = {}
 
     def _mask(self, mask_np):
         """Upload per call and cache by shape: the binder length changes per trajectory."""
@@ -108,32 +110,54 @@ class EvoformerOnDevice:
             self._mask_dev[key] = got
         return got
 
-    def _primal(self, msa_np, pair_np, mask_np):
+    def _pair_mask(self, pm):
+        """`af2_pair_masks` for this shape, cached. `(None, None)` on an all-ones mask.
+
+        BindCraft 2 buckets the token axis to 32 and masks the pad out of `seq_mask`, so
+        `masks["pair"]` is all ones only when the complex happens to land on a multiple of
+        32 -- 77 + 115 = 192 does, and PD-L1's two single-chain folds (115 and 77) do not.
+        Dropping it read pLDDT 0.534 against BindCraft 2's own 0.950 on the 115-residue
+        target alone, a natural protein with a known fold, and 0.9541 with it
+        (`perf/bcx_mono/masked_fold.json`).
+        """
+        from tt_bio.af2 import af2_pair_masks
+        key = (tuple(pm.shape), float(pm.sum()))
+        got = self._pair_mask_dev.get(key)
+        if got is None:
+            got = af2_pair_masks(pm, self.dev.device)
+            self._pair_mask_dev[key] = got
+        return got
+
+    def _primal(self, msa_np, pair_np, mask_np, pair_mask_np):
         """No tape. `predict` is forward-only and MPNN_stage.py:125 calls it once per
         validation model, so a primal that banks a tape is an out-of-memory bug."""
         dev = self.dev
         m = torch.from_numpy(np.asarray(msa_np).copy()).float()
         z = torch.from_numpy(np.asarray(pair_np).copy()).float()
         mk = torch.from_numpy(np.asarray(mask_np).copy()).float()
-        m, z, mk, n, n32 = _pad_inputs(m, z, mk)
+        pmk = torch.from_numpy(np.asarray(pair_mask_np).copy()).float()
+        m, z, mk, pmk, n, n32 = _pad_inputs(m, z, mk, pmk)
         mo, zo = dev.stack(dev.up(m), dev.up(z), 0, self.k_evo, ckpt=False,
-                           msa_mask=self._mask(mk.numpy()))
+                           msa_mask=self._mask(mk.numpy()),
+                           pair_masks=self._pair_mask(pmk))
         dev.sync()
         out_m = dev.down(mo, tuple(m.shape))[:, :n]
         out_z = dev.down(zo, tuple(z.shape))[:n, :n]
         self.calls["primal"] += 1
         return out_m.numpy(), out_z.numpy()
 
-    def _taped(self, msa_np, pair_np, mask_np):
+    def _taped(self, msa_np, pair_np, mask_np, pair_mask_np):
         dev = self.dev
         m = torch.from_numpy(np.asarray(msa_np).copy()).float()
         z = torch.from_numpy(np.asarray(pair_np).copy()).float()
         mk = torch.from_numpy(np.asarray(mask_np).copy()).float()
-        m, z, mk, n, n32 = _pad_inputs(m, z, mk)
+        pmk = torch.from_numpy(np.asarray(pair_mask_np).copy()).float()
+        m, z, mk, pmk, n, n32 = _pad_inputs(m, z, mk, pmk)
         ml, zl = dev.leaf(m), dev.leaf(z)
         with dev.tt.tape():
             mo, zo = dev.stack(ml, zl, 0, self.k_evo, ckpt=self.checkpoint,
-                               msa_mask=self._mask(mk.numpy()))
+                               msa_mask=self._mask(mk.numpy()),
+                               pair_masks=self._pair_mask(pmk))
         dev.sync()
         # recycled_alphafold_outputs stop_gradients every recycle but the last and JAX
         # routes all of them through fwd, so superseded tapes are dropped here: at
@@ -200,12 +224,12 @@ class EvoformerOnDevice:
     # ------------------------------------------------------------------ the JAX face
 
     def as_jax(self):
-        """`(msa, pair, msa_mask) -> (msa, pair)`, differentiable in the first two.
+        """`(msa, pair, msa_mask, pair_mask) -> (msa, pair)`, differentiable in the first two.
 
-        The mask is an ARGUMENT, not a captured host array: BindCraft 2 draws a new binder
-        length per trajectory, so its shape changes under us, and `find_evoformer_masks`
-        recovers the live tracer from the closure the stack replacement displaces. It is
-        not differentiable, so the backward returns zeros for it.
+        Both masks are ARGUMENTS, not captured host arrays: BindCraft 2 draws a new binder
+        length per trajectory, so their shapes change under us, and `find_evoformer_masks`
+        recovers the live tracers from the closure the stack replacement displaces. Neither
+        is differentiable, so the backward returns zeros for both.
 
         The callback works in float32 while the model around it runs bfloat16, and
         `recycled_alphafold_outputs` carries `pair` through a `while_loop` whose carry types
@@ -216,27 +240,30 @@ class EvoformerOnDevice:
                     jax.ShapeDtypeStruct(pair.shape, jnp.float32))
 
         @jax.custom_vjp
-        def stack(msa, pair, mask):
+        def stack(msa, pair, mask, pair_mask):
             m, z = jax.pure_callback(self._primal, f32(msa, pair),
                                      msa.astype(jnp.float32), pair.astype(jnp.float32),
-                                     mask.astype(jnp.float32))
+                                     mask.astype(jnp.float32),
+                                     pair_mask.astype(jnp.float32))
             return m.astype(msa.dtype), z.astype(pair.dtype)
 
-        def fwd(msa, pair, mask):
+        def fwd(msa, pair, mask, pair_mask):
             m, z, token = jax.pure_callback(
                 self._taped, f32(msa, pair) + (jax.ShapeDtypeStruct((), jnp.int32),),
-                msa.astype(jnp.float32), pair.astype(jnp.float32), mask.astype(jnp.float32))
-            return (m.astype(msa.dtype), z.astype(pair.dtype)), (token, mask)
+                msa.astype(jnp.float32), pair.astype(jnp.float32), mask.astype(jnp.float32),
+                pair_mask.astype(jnp.float32))
+            return (m.astype(msa.dtype), z.astype(pair.dtype)), (token, mask, pair_mask)
 
         def bwd(res, cts):
-            token, mask = res
+            token, mask, pair_mask = res
             g_msa, g_pair = cts
             gm, gz = jax.pure_callback(
                 self._backward,
                 (jax.ShapeDtypeStruct(g_msa.shape, jnp.float32),
                  jax.ShapeDtypeStruct(g_pair.shape, jnp.float32)),
                 token, g_msa.astype(jnp.float32), g_pair.astype(jnp.float32))
-            return gm.astype(g_msa.dtype), gz.astype(g_pair.dtype), jnp.zeros_like(mask)
+            return (gm.astype(g_msa.dtype), gz.astype(g_pair.dtype),
+                    jnp.zeros_like(mask), jnp.zeros_like(pair_mask))
 
         stack.defvjp(fwd, bwd)
         return stack
@@ -297,7 +324,8 @@ def evoformer_on_device(evo: EvoformerOnDevice, expect_blocks: int = 48):
 
                 def on_device(x):
                     act, safe_key = x
-                    msa, pair = device_stack(act["msa"], act["pair"], masks["msa"])
+                    msa, pair = device_stack(act["msa"], act["pair"],
+                                             masks["msa"], masks["pair"])
                     return {**act, "msa": msa, "pair": pair}, safe_key
                 return on_device
             return made(fn)
