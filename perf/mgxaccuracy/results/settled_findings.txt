@@ -1,0 +1,32 @@
+SETTLED FINDINGS, moved out of the state doc because they are argued and closed
+==============================================================================
+
+The state doc is re-read every pass, so material that no longer drives a decision
+belongs here with a one-line pointer there. Nothing below has changed since it was
+measured; each block names the results file with the underlying numbers.
+
+**1GPB, the opening target, is one protein's personality and is not the row's answer.** Its 2x2
+(`results/twobytwo_result.txt`): 4.748 / 17.785 / 19.398 / 13.273 A, four significant simple
+effects that all cancel, interaction -19.16 A about 4x either main effect. Never quote its
+POOLED test — pooling makes each group bimodal and MW rejects neither factor. Supporting cells
+in `results/gpb_supporting.txt`: three 512 windows of one chain 100 residues apart read
+4.631 / 16.021 / 17.300 A, and the size half is +3.33 A for 823 residues of ONE chain
+(4.631 -> 7.962, 25% still under 4 A, not rejected) against +14.77 A for adding chain B at the
+same crop (rejected, 0 under 4 A).
+
+**NO CELL IN THIS ROW IS AN ENGINE ARTIFACT, at either size**
+(`results/engine_delta_is_inert.txt`, `results/onetree_1536_result.txt`): the same crop on trees
+422 and 525 insertions apart reads 4.748 vs 4.631 at 512 and 13.273 vs 12.950 at 1536/off100,
+U=28/64 and U=32.0/64 (p=1.0000, the no-difference centre). One caveat carried forward:
+`plans/onetree_1536.txt` pre-registered a 7.2 A threshold its own contrast misses by 0.2 A, and
+that 7.2 was a four-median budget transcribed onto a two-median contrast whose budget is 3.6 A.
+Stated, not applied — a threshold re-derived after seeing its number is worth nothing.
+
+**The other two designers.** pxdesign `fit_rmsd`, n=8: 0.1128 A at 592 tokens against 0.1747 at
+1616 with the binder held at 80, both ~86x under its own 15 A gate; the 1224-token production
+case reads 0.1423 on a 200-residue binder, a different configuration and NOT a third rung
+(`results/pxdesign_size_ladder.txt`). rfd3 has no designability metric at all — it leaves the
+sequence to an inverse-folding step the design command never runs — but completes at both rungs
+(rc 0, 387.8 s and 1478.0 s, AICLK 1000) and labels sizes by TOTAL residues, so it never shares
+a column with boltzgen (`results/rfd3_has_no_designability.txt`).
+
