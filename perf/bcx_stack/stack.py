@@ -15,10 +15,11 @@ inside ONE process. Nothing in a lever is changed: the switches sit around it.
 Arms: base (all off), mm2d, triatt (bmm + heads), stack (all on); `bmm` and `heads` alone too.
 `bcx-bwdplan` adds its three levers on top of `stack`: `bwd` (all three) or any of `bwd1` (the
 batched plan for the backward's batched products and the one-row fold in `_via2d`), `bwd2`
-(slice gradients joined once instead of padded with host-built zeros), `bwd4` (a reshape the
-forward made in ROW_MAJOR is undone in ROW_MAJOR), combined as e.g. `bwd12`. Off means the code
-this row replaced, reproduced here: no program config, the one-row operand left rank-3, the
-per-slice `_pad_slice`, and the TILE reshape.
+(slice gradients joined once instead of padded with host-built zeros), `bwd4` (a gradient
+arrives in its parent's own layout, so a reshape the forward made in ROW_MAJOR is undone in
+ROW_MAJOR), combined as e.g. `bwd12`. Off means the code this row replaced, reproduced here: no
+program config, the one-row operand left rank-3, the per-slice `_pad_slice`, and an `add_grad`
+that keeps the layout the gradient came in.
 
 Subcommands, each one device open on the card TT_VISIBLE_DEVICES names:
 
@@ -281,29 +282,29 @@ class Levers:
 
         ag.Tensor.add_grad_slice = add_grad_slice
 
-        new_reshape = T._VERBS["reshape"]
+        add_grad = ag.Tensor.add_grad
 
-        def _old_reshape(shipped, args, kwargs):
-            """`237f53064` `taped_ttnn._v_reshape`, verbatim apart from the counter."""
-            x = T._wrap(args[0])
-            src = [int(d) for d in x.value.shape]
-            ra, rk = T._raw(args, kwargs)
-            out_v = shipped(*ra, **rk)
+        def _old_add_grad(t, grad):
+            """`237f53064` `Tensor.add_grad`: the gradient kept whatever layout it came in."""
+            if not t.requires_grad:
+                return
+            want, got = tuple(t.value.shape), tuple(grad.shape)
+            if want != got:
+                raise ValueError(f"gradient shape {got} does not match value shape {want}")
+            if t._grad is None:
+                t._grad = grad
+                return
+            if t._grad.dtype != ttnn.float32:
+                t._grad = ttnn.typecast(t._grad, ttnn.float32)
+            t._grad = ttnn.add(t._grad, grad if grad.dtype == ttnn.float32
+                               else ttnn.typecast(grad, ttnn.float32))
 
-            def make():
-                def bw(g):
-                    count("reshape_bw_tile")
-                    x.add_grad(ttnn.reshape(g, src))
-                return bw
+        def add_grad_(t, grad):
+            if t.requires_grad and grad.layout != t.value.layout:
+                count("add_grad_relayout", str(grad.layout), _site())
+            return (add_grad if "4" in self.bwd else _old_add_grad)(t, grad)
 
-            return T._tape(out_v, [x], make)
-
-        def reshape(s, a, k):
-            return new_reshape(s, a, k) if "4" in self.bwd else _old_reshape(s, a, k)
-
-        for verb in ("reshape", "unsqueeze", "squeeze"):
-            assert T._VERBS[verb] is new_reshape
-            T._VERBS[verb] = reshape
+        ag.Tensor.add_grad = add_grad_
 
         tri = ag.triangle_attention
 

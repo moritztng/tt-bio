@@ -339,6 +339,20 @@ class Tensor:
         want, got = tuple(self.value.shape), tuple(grad.shape)
         if want != got:
             raise ValueError(f"gradient shape {got} does not match value shape {want}")
+        # A parent receives its cotangent in ITS OWN layout. Closures compute in whatever
+        # layout their output arrived in, and most of the tape is tiled end to end so this
+        # never came up; a row-major activation -- `ttnn.embedding`'s table, the atom
+        # broadcasts either side of it -- sends a row-major gradient up a chain of tiled
+        # ops, and the throw lands in the first matmul or concat that sees it, several
+        # closures away from the one that produced it. Enforcing the invariant here costs
+        # a comparison per contribution and removes the whole class.
+        # (OF3T's rule, verbatim from wk/of3t.) It is also a speed rule: a reshape the forward
+        # made in ROW_MAJOR because it is not a tile view gets its gradient in ROW_MAJOR, so
+        # the backward reshape is a view too. Taken in TILE, the outer-product mean's
+        # [8192,8192] -> [256,1024,256] was a ReshapeView kernel at 5.5 % of the copy roof,
+        # 11.95 ms per AF2 Evoformer block at n=256 (`perf/bcx_realcensus`).
+        if grad.layout != self.value.layout:
+            grad = ttnn.to_layout(grad, self.value.layout)
         if self._grad is None:
             self._grad = grad
             return
@@ -359,6 +373,10 @@ class Tensor:
         """
         if not self.requires_grad:
             return
+        # `ttnn.concat` is tile-only, and a slice of a row-major tensor hands this a row-major
+        # cotangent; `add_grad` puts the joined gradient back into this value's layout.
+        if grad.layout != ttnn.TILE_LAYOUT:
+            grad = ttnn.to_layout(grad, ttnn.TILE_LAYOUT)
         if self._parts is None:
             self._parts = []
         self._parts.append(([int(v) for v in starts], [int(v) for v in ends], grad))
