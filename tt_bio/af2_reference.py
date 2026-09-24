@@ -92,6 +92,17 @@ CHI_PI_PERIODIC = np.asarray(_rc.chi_pi_periodic, dtype=np.float32)
 # ---------------------------------------------------------------------------- primitives
 
 
+def _wide(x: torch.Tensor) -> torch.Tensor:
+    """Widen to float32 for a reduction, unless the caller is already wider.
+
+    AlphaFold normalises and accumulates in float32 even in a bfloat16 trunk, which is what the
+    LayerNorm and the distogram below do. The parity harness's reference arm is float64, and a
+    plain `.float()` would silently narrow it, so the rule is "at least float32" rather than
+    "exactly float32". Nothing changes for a bfloat16 or float32 trunk.
+    """
+    return x if x.dtype == torch.float64 else x.float()
+
+
 class Linear(nn.Module):
     """AlphaFold's `common_modules.Linear`: haiku `[in, *out]` stored as torch `[out, in]`.
 
@@ -131,13 +142,14 @@ class LayerNorm(nn.Module):
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         dtype = x.dtype
-        y = x.float()
+        y = _wide(x)
         mean = y.mean(-1, keepdim=True)
         if self.fast_variance:
             var = (y * y).mean(-1, keepdim=True) - mean * mean
         else:
             var = (y - mean).square().mean(-1, keepdim=True)
-        out = (y - mean) * torch.rsqrt(var + self.eps) * self.weight.float() + self.bias.float()
+        out = ((y - mean) * torch.rsqrt(var + self.eps) * self.weight.to(y.dtype)
+               + self.bias.to(y.dtype))
         return out.to(dtype)
 
 
@@ -401,11 +413,12 @@ class EvoformerBlock(PairBlock):
 def dgram_from_positions(positions: torch.Tensor, num_bins: int, min_bin: float,
                          max_bin: float) -> torch.Tensor:
     """`modules.py::dgram_from_positions`. The last bin catches everything above `max_bin`."""
-    lower = torch.linspace(min_bin, max_bin, num_bins, dtype=torch.float32).square()
-    upper = torch.cat([lower[1:], torch.tensor([1e8])])
-    delta = positions.float().unsqueeze(-2) - positions.float().unsqueeze(-3)
+    pos = _wide(positions)
+    lower = torch.linspace(min_bin, max_bin, num_bins, dtype=pos.dtype).square()
+    upper = torch.cat([lower[1:], torch.tensor([1e8], dtype=pos.dtype)])
+    delta = pos.unsqueeze(-2) - pos.unsqueeze(-3)
     dist2 = delta.square().sum(-1, keepdim=True)
-    return ((dist2 > lower).float() * (dist2 < upper).float())
+    return ((dist2 > lower).to(pos.dtype) * (dist2 < upper).to(pos.dtype))
 
 
 def pseudo_beta(aatype: torch.Tensor, positions: torch.Tensor) -> torch.Tensor:
@@ -447,9 +460,9 @@ def backbone_unit_vectors(positions: torch.Tensor, mask: torch.Tensor) -> torch.
 
     Returns `[num_res, num_res, 3]` in float32 and the `[num_res]` backbone mask.
     """
-    positions = positions.float()
+    positions = _wide(positions)
     n, ca, c = (positions[:, ATOM_ORDER[a], :] for a in ("N", "CA", "C"))
-    mask = mask.float()
+    mask = _wide(mask)
     rigid_mask = mask[:, ATOM_ORDER["N"]] * mask[:, ATOM_ORDER["CA"]] * mask[:, ATOM_ORDER["C"]]
 
     def unit(v):
@@ -525,6 +538,19 @@ class _TemplatePairStack(nn.Module):
     lives here rather than twice.
     """
 
+    #: `(act, mask_2d) -> act`, replacing the two-block loop. `tt_bio.af2.AF2DeviceModel`
+    #: sets it to the ttnn stack; None runs the torch blocks. Deliberately not an `nn.Module`:
+    #: registering a submodule here would put it in `state_dict()`.
+    pair_stack_device = None
+
+    def run_pair_stack(self, act: torch.Tensor, mask_2d: torch.Tensor) -> torch.Tensor:
+        """The two `PairBlock`s, on whichever arm is installed."""
+        if self.pair_stack_device is not None:
+            return self.pair_stack_device(act, mask_2d)
+        for block in self.pair_stack:
+            act = block(act, mask_2d)
+        return act
+
 
 class TemplateEmbeddingMultimer(_TemplatePairStack):
     """multimer_v3's template embedder, which is a different module from the monomer's.
@@ -568,7 +594,7 @@ class TemplateEmbeddingMultimer(_TemplatePairStack):
         """
         dtype = pair.dtype
         num_res = pair.shape[0]
-        pb_mask = feats["template_pseudo_beta_mask"][index].float()
+        pb_mask = _wide(feats["template_pseudo_beta_mask"][index])
         mask_pb = pb_mask[:, None] * pb_mask[None, :] * multichain_mask
         dgram = dgram_from_positions(feats["template_pseudo_beta"][index], *TEMPLATE_DGRAM)
         aatype = F.one_hot(feats["template_aatype"][index].long(), 22).to(dtype)
@@ -656,11 +682,11 @@ class TemplateEmbedding(_TemplatePairStack):
         num_res = pair.shape[0]
         out = []
         for t in range(feats["template_mask"].shape[0]):
-            pb_mask = feats["template_pseudo_beta_mask"][t].float()
+            pb_mask = _wide(feats["template_pseudo_beta_mask"][t])
             mask_pb = pb_mask[:, None] * pb_mask[None, :] * multichain_mask
             dgram = dgram_from_positions(feats["template_pseudo_beta"][t], *TEMPLATE_DGRAM)
             aatype = F.one_hot(feats["template_aatype"][t].long(), 22).to(dtype)
-            atom_mask = feats["template_all_atom_mask"][t].float()
+            atom_mask = _wide(feats["template_all_atom_mask"][t])
             bb = atom_mask[:, ATOM_ORDER["N"]] * atom_mask[:, ATOM_ORDER["CA"]] \
                 * atom_mask[:, ATOM_ORDER["C"]]
             mask_bb = (bb[:, None] * bb[None, :] * multichain_mask).to(dtype)
@@ -1159,7 +1185,7 @@ class AF2Model(nn.Module):
         right = self.embed["right_single"](target_feat)
         pair = left.unsqueeze(1) + right.unsqueeze(0)
 
-        seq_mask = feats["seq_mask"].float()
+        seq_mask = _wide(feats["seq_mask"])
         mask_2d = (seq_mask[:, None] * seq_mask[None, :]).to(dtype)
 
         dgram = dgram_from_positions(pseudo_beta(feats["aatype"], prev["prev_pos"]),
@@ -1177,10 +1203,11 @@ class AF2Model(nn.Module):
             asym = feats["asym_id"]
             same_chain = (asym[:, None] == asym[None, :])
             multichain = (same_chain if bool(feats["mask_template_interchain"])
-                          else torch.ones_like(same_chain)).float()
+                          else torch.ones_like(same_chain)).to(seq_mask.dtype)
             pair = pair + self.template_embedding(pair, feats, mask_2d, multichain)
 
-        extra = self.embed["extra_msa_activations"](_extra_msa_feature(feats).to(dtype))
+        extra = self.embed["extra_msa_activations"](
+            _extra_msa_feature(feats, self.multimer).to(dtype))
         extra_mask = feats["extra_msa_mask"].to(dtype)
         pair = self.extra_msa_stack(extra, pair, extra_mask, mask_2d)
 
@@ -1210,12 +1237,24 @@ class AF2Model(nn.Module):
         return out
 
 
-def _extra_msa_feature(feats: dict) -> torch.Tensor:
-    """`modules.py::create_extra_msa_feature`: a 23-wide one-hot plus the two deletion channels."""
+def _extra_msa_feature(feats: dict, multimer: bool = False) -> torch.Tensor:
+    """`create_extra_msa_feature`: a 23-wide one-hot plus the two deletion channels.
+
+    Same 25 channels in both variants, from different inputs. The monomer featuriser hands the
+    model `extra_has_deletion` and `extra_deletion_value` ready-made; multimer_v3 derives both
+    from the raw deletion matrix inside the model (`modules_multimer.py:56-61`), which is where
+    the arctan lives.
+    """
     one_hot = F.one_hot(feats["extra_msa"].long(), 23).float()
-    return torch.cat([one_hot,
-                      feats["extra_has_deletion"].float().unsqueeze(-1),
-                      feats["extra_deletion_value"].float().unsqueeze(-1)], dim=-1)
+    if multimer:
+        deletions = feats["extra_deletion_value"].float()
+        has_deletion = deletions.clamp(0.0, 1.0)
+        deletion_value = torch.arctan(deletions / 3.0) * (2.0 / torch.pi)
+    else:
+        has_deletion = feats["extra_has_deletion"].float()
+        deletion_value = feats["extra_deletion_value"].float()
+    return torch.cat([one_hot, has_deletion.unsqueeze(-1),
+                      deletion_value.unsqueeze(-1)], dim=-1)
 
 
 def load_af2_model(state_dict: dict[str, torch.Tensor], *, template: bool = True,
