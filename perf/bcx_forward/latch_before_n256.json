@@ -1,0 +1,61 @@
+{
+ "stamp": {
+  "host": "tt-quietbox2",
+  "card": 0,
+  "subsystem_device": "0x0046",
+  "commit": "934dbd309943e9c121252775f774da55428d677c",
+  "tt_bio_dirty": false,
+  "torch_threads": 8,
+  "loadavg": [
+   43.84716796875,
+   37.0439453125,
+   32.2841796875
+  ],
+  "utc": "2026-09-24T11:27:40Z",
+  "pci": "0000:01:00.0",
+  "aiclk_node": null
+ },
+ "n": 256,
+ "rows": [
+  {
+   "stage": "untaped",
+   "seconds": 1.1300137042999268,
+   "stats": {
+    "served": 2,
+    "declined": 0,
+    "too_short": 0
+   },
+   "retired_configs": 0
+  },
+  {
+   "stage": "taped",
+   "seconds": 0.4253273010253906,
+   "stats": {
+    "served": 0,
+    "declined": 2,
+    "too_short": 0
+   },
+   "retired_configs": 1
+  },
+  {
+   "stage": "untaped",
+   "seconds": 0.10326838493347168,
+   "stats": {
+    "served": 0,
+    "declined": 2,
+    "too_short": 0
+   },
+   "retired_configs": 1
+  },
+  {
+   "stage": "untaped",
+   "seconds": 0.032004356384277344,
+   "stats": {
+    "served": 0,
+    "declined": 2,
+    "too_short": 0
+   },
+   "retired_configs": 1
+  }
+ ]
+}
