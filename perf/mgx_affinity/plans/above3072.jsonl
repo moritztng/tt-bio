@@ -1,0 +1,3 @@
+# Nesso-1 above 3072 on the merged head: where the target-size ceiling actually is once 3072 clears with every ligand.
+{"tag": "v_n_4096_small", "surface": "nesso1", "input": "perf/mgx_affinity/inputs/size/cdk2_4096_small.yaml"}
+{"tag": "v_n_3584_small", "surface": "nesso1", "input": "perf/mgx_affinity/inputs/size/cdk2_3584_small.yaml"}

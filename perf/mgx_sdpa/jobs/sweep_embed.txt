@@ -1,0 +1,2 @@
+$HOME/env/bin/python perf/mgx_embed/sdpa_sweep.py --out $S/sweep.jsonl --arms none,zero,bias --batch 1 --heads 16,40 --dims 32,64,128 --lengths 640,1024,1536,2048 --chunks 64,128,256,512
+$HOME/env/bin/python perf/mgx_embed/sdpa_sweep.py --out $S/sweep.jsonl --arms none,zero,bias --batch 1 --heads 15,18,20 --dims 32,64 --lengths 128,512,1536 --chunks 32,64,128,256

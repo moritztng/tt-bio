@@ -1,0 +1,15 @@
+openfold3    1emv  before DockQ 0.959 fnat 0.96 iRMS 0.40 LRMS 1.21  DockQ 0.948 fnat 0.96 iRMS 0.44 LRMS 1.78 | seed floor 0.71 A
+openfold3    1emv  after  DockQ 0.959 fnat 0.96 iRMS 0.40 LRMS 1.21  DockQ 0.948 fnat 0.96 iRMS 0.44 LRMS 1.78 | seed floor 0.71 A
+openfold3    1emv  bit-identical before/after on seeds [0, 1] of [0, 1]
+openfold3    1brs  before DockQ 0.947 fnat 0.91 iRMS 0.38 LRMS 0.81  DockQ 0.936 fnat 0.85 iRMS 0.32 LRMS 0.53 | seed floor 0.34 A
+openfold3    1brs  after  DockQ 0.947 fnat 0.91 iRMS 0.38 LRMS 0.81  DockQ 0.936 fnat 0.85 iRMS 0.32 LRMS 0.53 | seed floor 0.34 A
+openfold3    1brs  bit-identical before/after on seeds [0, 1] of [0, 1]
+openfold3    8pu1  before DockQ 0.905 fnat 0.90 iRMS 0.67 LRMS 1.06  DockQ 0.920 fnat 0.93 iRMS 0.64 LRMS 1.08 | seed floor 0.56 A
+openfold3    8pu1  after  DockQ 0.905 fnat 0.90 iRMS 0.67 LRMS 1.06  DockQ 0.920 fnat 0.93 iRMS 0.64 LRMS 1.08 | seed floor 0.56 A
+openfold3    8pu1  bit-identical before/after on seeds [0, 1] of [0, 1]
+openfold3    8wt4  before DockQ 0.852 fnat 0.85 iRMS 0.81 LRMS 2.39  DockQ 0.902 fnat 0.89 iRMS 0.69 LRMS 0.88 | seed floor 0.84 A
+openfold3    8wt4  after  DockQ 0.852 fnat 0.85 iRMS 0.81 LRMS 2.39  DockQ 0.902 fnat 0.89 iRMS 0.69 LRMS 0.88 | seed floor 0.84 A
+openfold3    8wt4  bit-identical before/after on seeds [0, 1] of [0, 1]
+openfold3    im9   before CA-RMSD 0.79
+openfold3    im9   after  CA-RMSD 0.79
+openfold3    im9   bit-identical before/after on seeds [0] of [0]

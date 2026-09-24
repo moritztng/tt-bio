@@ -9,9 +9,9 @@ residue count, and its pair tensor is 3.7x the residue-scale one.
 The pair-track ops (triangle multiplication, triangle attention, the pair transition) are all
 row-local along the token axis, so past a size threshold they run in row blocks and free every
 intermediate that is not the input or the output. The peak then scales as three live pair
-tensors instead of four. The MSA features of very deep MSAs are streamed from the host between
-recycling cycles instead of staying resident. ESMFold2's pair initialisation is row-tiled the
-same way.
+tensors instead of four. The blocks are joined on the chip, and on the host only when the chip refuses the join. A deep alignment's MSA representation lives on the host and passes
+through the chip one depth chunk at a time instead of being held whole beside the pair
+tensors. ESMFold2's pair initialisation is row-tiled the same way.
 
 Measured on the WH Galaxy (12 GiB chips) on the four targets the AbAg-XM campaign had to
 exclude:
@@ -66,6 +66,31 @@ Both ceilings hold at the 100 diffusion steps a real run uses, not at a short on
 never passes `D_II_self`, so it never enters self-conditioning, and the same SwiGLU then asks for
 half the bytes. A ladder walked at 2 steps reported 992 and that number is withdrawn.
 
+## 1536 tokens on one Wormhole chip
+
+ESMFold2 (both checkpoints), Protenix-v1, Protenix-v2, Boltz-2 and RoseTTAFold3 fold 1536-token
+targets on a 12 GiB Wormhole chip. On 3ABQ (1518 residues, real MSA) every one of them lands
+0.6 to 1.6 Å CA-RMSD from the crystal, with CA lDDT at or above 0.95.
+
+Before this, the first failures were between 1056 (ESMFold2) and 1184 (Protenix-v2) tokens, and
+none of them was one tensor too big for the chip. Each was an allocation that DRAM refused
+because too many pair-sized buffers were live at once or the free space was fragmented. Three
+changes fix that class in the shared pair-track code:
+
+- When DRAM refuses a whole-tensor pair op, the op re-runs in row blocks instead of failing, and
+  the shape is remembered so later calls go straight to the blocked path.
+- When the row blocks fit but their device concatenation does not, the blocks are assembled on
+  the host and uploaded once.
+- Tensors that a later stage never reads are freed when the stage ends. ESMFold2 releases its
+  ESMC-6B language model after its single forward on Wormhole targets above 1088 tokens, which
+  frees about half of the chip; a server folding many such targets reloads it once per fold.
+  Protenix and RoseTTAFold3 free the diffusion conditioning before the confidence head.
+
+The fallbacks only fire on a refusal, so a target that fits keeps its single pass. At 1024
+tokens the output matches the previous code to within 0.41 Å CA-RMSD, and bit for bit on most
+models, against a seed-to-seed spread of 1.7 to 3.3 Å on the same targets. The walls that remain
+above 1536 are listed [below](#what-stops-each-model-above-1024-on-a-galaxy-chip).
+
 **A cell that folds does not license the sizes below it.** These four targets fold, and OpenDDE
 still throws at 576 residues on the same pool. The throw is an L1 static circular-buffer clash:
 the layout follows the padded tile shape and the core-grid split, neither of which is monotonic
@@ -90,3 +115,37 @@ half of DRAM free because no single hole is big enough — 992 residues on OpenD
 one, and that band takes row blocks whatever the token threshold says. Anything below it keeps
 the byte-identical unblocked path, and on a 32 GiB Blackhole part the bound is above every size
 the models reach, so Blackhole never changes path.
+
+## What stops each model above 1024 on a Galaxy chip
+
+Walked on one j10glx02 chip with an 8192-row alignment (OpenFold3 at 14190) up to 2048, every
+first failure above 1536 is a single pair-sized allocation that no free block on the chip can
+hold:
+
+- `boltz2` folds 1920 and fails at 2048 in the diffusion cache, one 3.0 GiB tensor with 55 % of
+  the chip free but no block large enough.
+- `protenix-v1` folds 2048, the top of the ladder, since the diffusion transformer's pair bias
+  waits on the host. Before that it failed at 2048 on that bias, with enough memory free but no
+  block large enough.
+- `protenix-v2` folds 1792 since the pair path row-blocks an allocation the chip refuses, and
+  fails at 1920 in the MSA module's outer product mean, with 97 % of the chip in use and the
+  largest free block 1280 bytes per bank too small. Before the row blocking it failed at 1792 in
+  the diffusion pair conditioning.
+- `rf3` folds 1600 and fails at 1664 in the diffusion atom encoder's pair permute, with enough
+  memory free but no block large enough.
+- `opendde` and `opendde-abag` fold 1536. At 1664 the residue pair no longer fits as one
+  allocation, so every pair operation assembles its blocks on the host and a trunk recycle takes
+  about 20 minutes instead of under 9. Both runs were past the 107 minutes the platform allows a
+  1664-residue fold with three or four of their ten recycles still to run, so the limit stays at
+  1536 because of run time, not a crash. At 1920 the fold fails outright on the trunk's pair.
+
+`esmfold2` and `esmfold2-fast` both fold 1664 and fail at 1792 in the pair feed-forward, whose
+1.5 GiB output needs 130.7 MiB in every DRAM bank. The largest free block is about 122 MiB by then,
+with 86 % of the chip in use. `esmfold2` lands in the same place with its alignment
+and single-sequence, because its MSA encoder sees at most 1024 rows per trunk loop.
+
+`openfold3` and `openbind` fold 1536 residues at 14190 alignment rows now that the MSA
+representation streams through the chip a depth chunk at a time. Both fold 1664 and fail at 1792
+in the diffusion transformer's attention scores, one 206 MB tensor on a chip 96 % full whose
+largest free block is 640 bytes per bank too small. The measured rows, with commits, wall times and allocation sizes, are in
+`tt_bio/size_limits.py`.

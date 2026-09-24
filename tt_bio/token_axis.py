@@ -216,8 +216,7 @@ TOKEN_AXIS = {
         "tt_bio/rfd3/tiles.py::TILE, reached through tt_bio/rfd3/tiles.py::align_tile and "
         "tt_bio/rfd3/tiles.py::pad_axis. Applied on the TOKEN axis in "
         "tt_bio/rfd3/model.py::PairformerAttention.__call__, and on the ATOM axis in "
-        "tt_bio/rfd3/model.py::RFD3AtomBlock.__call__ and "
-        "tt_bio/rfd3/model.py::CompactStreamingDecoder._capture_sparse_trace; the bias "
+        "tt_bio/rfd3/model.py::RFD3AtomBlock.__call__; the bias "
         "templates it pads are tt_bio/rfd3/model.py::_mask_template, "
         "tt_bio/rfd3/model.py::_zero_template and tt_bio/rfd3/model.py::_sparse_qk_inputs",
         "every TOKEN-axis reduce runs on a tile multiple: censused 0 ragged / 6 aligned and "
@@ -448,8 +447,18 @@ def bucketed_pairformer(pf, s, z, dev, Np: int, extra_attn_bias=None):
     head, and OpenDDE keeps 8 more in a structural-token refiner on a different token axis
     entirely. One helper covers all of them and any that get added -- fixing one caller is the
     recurring failure (`fused-sdpa-ragged-tile-tail-and-census-discipline`).
+
+    The padded pair CONSUMES `z`: every caller hands over a pair it never reads again, and holding
+    it beside its padded copy through the whole stack is one extra pair tensor for nothing. That
+    is 3.2 GiB for OpenDDE's refiner at 1088 residues (2113 structural tokens x 384 channels), and
+    the refiner was refused on a 12 GiB Wormhole part with it live. At 1536 residues the pad
+    itself is refused (6.95 GB beside its input), so the pad and the slice back fall to the host
+    through `replace_after_refusal`. `s` is left alone: the
+    confidence head passes a cached single representation it reuses per sample.
     """
     import ttnn
+    import torch.nn.functional as F
+    from tt_bio.tenstorrent import replace_after_refusal
     N = int(z.shape[1])
     pad = Np - N
     assert pad >= 0, f"bucket width {Np} is below the real length {N}"
@@ -457,14 +466,16 @@ def bucketed_pairformer(pf, s, z, dev, Np: int, extra_attn_bias=None):
         return pf(s, z, extra_attn_bias=extra_attn_bias)
     _, pmask, attn = token_pad_masks_tt(N, Np, dev)
     s = ttnn.pad(s, [(0, 0), (0, pad), (0, 0)], 0.0) if s is not None else None
-    z = ttnn.pad(z, [(0, 0), (0, pad), (0, pad), (0, 0)], 0.0)
+    z = replace_after_refusal(z, lambda t: ttnn.pad(t, [(0, 0), (0, pad), (0, pad), (0, 0)], 0.0),
+                              lambda h: F.pad(h, (0, 0, 0, pad, 0, pad)))
     if extra_attn_bias is not None:
         extra_attn_bias = ttnn.pad(
             extra_attn_bias, [(0, 0), (0, 0), (0, pad), (0, pad)], -1e9)
     so, zo = pf(s, z, pmask, attn, attn, extra_attn_bias)
     if so is not None:
         so = ttnn.slice(so, (0, 0, 0), (1, N, so.shape[2]))
-    zo = ttnn.slice(zo, (0, 0, 0, 0), (1, N, N, zo.shape[3]))
+    zo = replace_after_refusal(zo, lambda t: ttnn.slice(t, (0, 0, 0, 0), (1, N, N, t.shape[3])),
+                               lambda h: h[:, :N, :N])
     return so, zo
 
 

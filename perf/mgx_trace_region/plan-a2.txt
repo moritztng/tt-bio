@@ -1,0 +1,3 @@
+# AFTER chain 2: is boltz2 at 1536 deterministic eager-to-eager, and trace-to-eager
+b2_1536_eager_after predict perf/size512/fixtures/cdk2x2_1536.yaml --model boltz2 --out_dir {out} --diffusion_samples 1 --seed 0 --host_threads 2 --accelerator tenstorrent --override
+b2_1536_trace_after predict perf/size512/fixtures/cdk2x2_1536.yaml --model boltz2 --out_dir {out} --diffusion_samples 1 --seed 0 --host_threads 2 --accelerator tenstorrent --override --diffusion_trace

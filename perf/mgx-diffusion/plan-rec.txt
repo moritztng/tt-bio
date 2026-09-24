@@ -1,0 +1,53 @@
+# Recycles: cycles actually run (progress stream) against the help text's N / N+1, and the
+# time per cycle, at 256 tokens and 6 steps (recycles touch the trunk only). Then memory
+# at 768 for each distinct trunk at the default and at 20.
+boltz2 256 1 steps=6 recycles=0
+boltz2 256 1 steps=6 recycles=1
+boltz2 256 1 steps=6 recycles=3
+boltz2 256 1 steps=6 recycles=20
+esmfold2 256 1 steps=6 recycles=0
+esmfold2 256 1 steps=6 recycles=1
+esmfold2 256 1 steps=6 recycles=10
+esmfold2 256 1 steps=6 recycles=20
+esmfold2-fast 256 1 steps=6 recycles=0
+esmfold2-fast 256 1 steps=6 recycles=1
+esmfold2-fast 256 1 steps=6 recycles=10
+esmfold2-fast 256 1 steps=6 recycles=20
+protenix-v1 256 1 steps=6 recycles=0
+protenix-v1 256 1 steps=6 recycles=1
+protenix-v1 256 1 steps=6 recycles=4
+protenix-v1 256 1 steps=6 recycles=20
+protenix-v2 256 1 steps=6 recycles=0
+protenix-v2 256 1 steps=6 recycles=1
+protenix-v2 256 1 steps=6 recycles=10
+protenix-v2 256 1 steps=6 recycles=20
+openfold3 256 1 steps=6 recycles=0
+openfold3 256 1 steps=6 recycles=1
+openfold3 256 1 steps=6 recycles=3
+openfold3 256 1 steps=6 recycles=20
+openbind 256 1 steps=6 recycles=0
+openbind 256 1 steps=6 recycles=1
+openbind 256 1 steps=6 recycles=3
+openbind 256 1 steps=6 recycles=20
+opendde 256 1 steps=6 recycles=0
+opendde 256 1 steps=6 recycles=1
+opendde 256 1 steps=6 recycles=10
+opendde 256 1 steps=6 recycles=20
+opendde-abag 256 1 steps=6 recycles=0
+opendde-abag 256 1 steps=6 recycles=1
+opendde-abag 256 1 steps=6 recycles=10
+opendde-abag 256 1 steps=6 recycles=20
+rf3 256 1 steps=6 recycles=0
+rf3 256 1 steps=6 recycles=1
+rf3 256 1 steps=6 recycles=10
+rf3 256 1 steps=6 recycles=20
+boltz2 768 1 steps=6 recycles=3 probe=1
+boltz2 768 1 steps=6 recycles=20 probe=1
+esmfold2 768 1 steps=6 recycles=10 probe=1
+esmfold2 768 1 steps=6 recycles=20 probe=1
+protenix-v2 768 1 steps=6 recycles=10 probe=1
+protenix-v2 768 1 steps=6 recycles=20 probe=1
+openfold3 768 1 steps=6 recycles=3 probe=1
+openfold3 768 1 steps=6 recycles=20 probe=1
+rf3 768 1 steps=6 recycles=10 probe=1
+rf3 768 1 steps=6 recycles=20 probe=1

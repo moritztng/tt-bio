@@ -1,0 +1,13 @@
+version: 1
+# SFTI-1 (PDB 1SFI chain I): a head-to-tail cyclic 14-mer with a Cys3-Cys11 disulfide.
+# Both constraints, the crystal's own topology.
+sequences:
+  - protein:
+      id: A
+      sequence: GRCTKSIPPICFPD
+      msa: empty
+      cyclic: true
+constraints:
+  - bond:
+      atom1: [A, 3, SG]
+      atom2: [A, 11, SG]

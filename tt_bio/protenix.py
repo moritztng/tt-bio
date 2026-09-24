@@ -33,11 +33,14 @@ import ttnn
 
 from . import protenix_weights as PW
 from .envflags import env_flag
+from .sample_chunks import denoise_in_chunks, resolve_sample_chunk_width
 from .token_axis import bucket_multiple as _bucket_multiple
 from .protenix_weights import remap_adaln  # single source of all v2->tt-bio weight remaps
 from . import ops
 from .tenstorrent import (Module, CORE_GRID_MAIN, get_device, dram_peak,
-                          MSA_CHUNK_SIZE, batched_matmul,
+                          MSA_CHUNK_SIZE, batched_matmul, msa_depth_chunks,
+                          host_park, host_unpark, msa_embed, msa_update_chunks, pair_row_blocks,
+                          row_block_after_refusal,
                           device_generation, accurate_softmax_site)
 from . import tenstorrent as _T   # for the module-level A/B toggles, which must be read live
 from .eltwise_fusion import scale_add, norm_residual
@@ -78,12 +81,6 @@ DEFAULT_MAX_PARALLEL_SAMPLES = 5
 # chunk too. That is numerically inert; it is NOT perf-measured on Blackhole yet.
 MSA_ROW_CHUNK_BUDGET_BYTES = 1 << 28      # 0.25 GiB
 
-# Above this size the pristine m_feat lives on the HOST between recycling cycles and is
-# streamed up one depth-chunk at a time (see Trunk.__call__). A 1 GiB pristine held for all
-# 10 cycles is affordable; the 2.5-3.2 GiB ones the WH-DRAM-blocked targets carry are not --
-# the per-cycle peak pays pristine + updated copy at once. 117/298-aa targets are far below
-# the gate, so their path (and perf) is untouched.
-MSA_HOST_OFFLOAD_MIN_BYTES = 1 << 30      # 1 GiB
 
 
 TOKEN_PAD_MULTIPLE = _bucket_multiple("protenix-v2")
@@ -176,14 +173,6 @@ def bucketed_pairformer(pf, s, z, dev, mult: int | None = None, extra_attn_bias=
     """
     from .token_axis import bucketed_pairformer as _bp
     return _bp(pf, s, z, dev, bucketed_width(int(z.shape[1]), mult), extra_attn_bias)
-
-
-def _msa_host_offload_min_bytes():
-    """Offload gate, with a test-only env override (same rationale as the chunk budget):
-    forcing it to 0 makes a SMALL target take the host-streamed path so its output can be
-    compared byte-for-byte against the same target folded device-resident."""
-    v = os.environ.get("TT_BIO_MSA_HOST_OFFLOAD_MIN_BYTES")
-    return int(v) if v else MSA_HOST_OFFLOAD_MIN_BYTES
 
 
 def _msa_take_whole_path(nbytes):
@@ -304,6 +293,9 @@ def _window_q(x, N, NP, nq=32):
     return ttnn.to_layout(ttnn.reshape(x, (NP // nq, nq, x.shape[-1])), ttnn.TILE_LAYOUT)
 
 
+_UPLOAD_REFUSED_ROWS = {}  # host m shape -> depth-chunk rows, once DRAM refused its whole upload or the OPM over it
+_TEMPLATE_ROWS_REFUSED = {}  # pair shape -> row block the template residual settled at
+
 _WIN_KV_IDX = {}  # (gen,NP,nq,nk) -> (1, nb*nk) uint32 gather index, device tensor on the
                   # CURRENT mesh. gen = tenstorrent.device_generation(): a model switch closes
                   # the mesh and this module-level dict survives, so entries from an older
@@ -416,6 +408,41 @@ class _KeyedWeights:
         """Upload an activation/host tensor (per call, not cached)."""
         return ttnn.from_torch(t, layout=ttnn.TILE_LAYOUT, device=get_device(),
                                dtype=getattr(self, "dtype", ttnn.bfloat16))
+
+    def _opm_from_host(self, opm, t, z):
+        """`z + opm(t)` for a host-resident `t` [1, depth, tokens, c]: `t` uploaded whole, or, if
+        DRAM refuses that upload or the OPM that reads it, as host-tiled depth chunks that
+        OuterProductMean uploads one at a time (its chunk-list input).
+
+        Both refusals are fragmentation, not a full chip. protenix-v2 at 1408 tokens against 8192
+        alignment rows was refused the upload itself (2952790016 B, 596 MiB per bank free, 202 MiB
+        largest block). At 1280 tokens against 14743 rows the 2.4 GB upload lands and OPM's own
+        160 MiB depth slice of it is then refused with 10 MiB largest free block per bank: the
+        whole `m` is still on the chip beside OPM's full-depth projections. The chunk list is the
+        form every later MSA block already hands OPM, and it is not bit-exact against the
+        whole-depth product (it reassociates the depth sum), so it runs only after a refusal. The
+        memo skips the refused attempt on later recycling cycles.
+
+        OPM gives back its own partial buffers before a refusal leaves it, and adds its residual
+        out of place until a successful join, so the chunked retry reads the same `z`. A refusal
+        that did consume `z` is raised as it is rather than retried on a freed buffer."""
+        def whole():
+            d = self._up(t)
+            try:
+                return opm(d, None, None, residual=z)
+            finally:
+                ttnn.deallocate(d)
+
+        def chunked(r):
+            if not z.is_allocated():
+                raise RuntimeError("protenix msa: OPM was refused after it consumed its residual; "
+                                   "the depth-chunked retry has no pair to add to")
+            return opm([ttnn.from_torch(t[:, s:s + r].contiguous(), layout=ttnn.TILE_LAYOUT,
+                                        dtype=getattr(self, "dtype", ttnn.bfloat16))
+                        for s in range(0, t.shape[1], r)], None, None, residual=z)
+
+        return _T.row_block_after_refusal(_UPLOAD_REFUSED_ROWS, tuple(t.shape), whole, chunked,
+                                          MSA_CHUNK_SIZE, "protenix msa upload")
 
     def _lin(self, x, wkey, bkey=None, activation=None):
         # `narrow_proj` is where the template z projection lands, at [1,298,320,256] @ [256,64].
@@ -1184,6 +1211,12 @@ class DiffusionModule(_KeyedWeights):
         self._atom_cond(cond)
         if not (self.device_dit and cond.get("dit_z") is not None):
             return self.denoise(x_noisy, t_hat, cond)
+        if "dit_block_biases" not in cond:
+            cond["dit_block_biases"] = self._dit_block_biases(
+                cond["dit_z"], cond.get("structural_pair_attn_bias"))
+        if any(b.storage_type() != ttnn.StorageType.DEVICE for b in cond["dit_block_biases"]):
+            # A trace cannot hold the upload of a parked bias.
+            return self.denoise(x_noisy, t_hat, cond)
         sd = self.SIGMA_DATA; N = cond["c_l"].shape[0]
         wf = self._w["diffusion_conditioning.fourier_embedding.w"]; bf = self._w["diffusion_conditioning.fourier_embedding.b"]
         tp = torch.log(t_hat / sd) / 4
@@ -1268,8 +1301,27 @@ class DiffusionModule(_KeyedWeights):
             extra = self._up_dit(extra_attn_bias.float().reshape(
                 1, 1, extra_attn_bias.shape[-2], extra_attn_bias.shape[-1])
                 * self.DIT_HEAD_DIM ** 0.5)
-        return [ttnn.add(apb.compute_bias(z_dev), extra) if extra is not None
-                else apb.compute_bias(z_dev) for (_, apb, _, _, _) in self._dit]
+        # A step's attention holds about three tensors of a bias's shape (scores, the biased
+        # scores, the softmax) beside one bias uploaded for its read: keep that free, park the
+        # rest. At 2987 structural tokens the 24 biases are 13.9 GB of fp32 on a 12 GiB chip.
+        NT = int(z_dev.shape[-2])
+        reserve = 4 * _T._padded_bytes((1, self.DIT_N_HEADS, NT, NT),
+                                       4 if self._dit_dtype == ttnn.float32 else 2)
+        biases = []
+        for (_, apb, _, _, _) in self._dit:
+            b = apb.compute_bias(z_dev)
+            if extra is not None:
+                b = ttnn.add(b, extra)
+            biases.append(_T.place_by_reserve(b, reserve))
+        # z_dev's only reader was this loop, and the room it frees takes parked biases back.
+        ttnn.deallocate(z_dev)
+        biases = [_T.place_by_reserve(b, reserve) for b in biases]
+        parked = sum(b.storage_type() != ttnn.StorageType.DEVICE for b in biases)
+        if parked:
+            print(f"[dit] {parked} of {len(biases)} pair biases parked on the host at "
+                  f"{NT} tokens, uploaded for each read", flush=True)
+        dram_peak(f"dit pair biases placed ({parked} parked)")
+        return biases
 
     def _token_dit_device(self, a_t, s_t, biases, NT):
         """On-device 24-block token DiT (ttnn). a_t (1,NT,768), s_t (1,NT,384); biases = list
@@ -1288,7 +1340,10 @@ class DiffusionModule(_KeyedWeights):
                                compute_kernel_config=ckc, core_grid=CORE_GRID_MAIN)
         for _bi, ((adaln_a, apb, ctb_adaln, A, Cc), bias) in enumerate(zip(self._dit, biases)):
             b = adaln_a(a_t, s_t)
-            attn = apb(b, bias, bias_precomputed=True)
+            bias_dev = _T.host_unpark(bias)
+            attn = apb(b, bias_dev, bias_precomputed=True)
+            if bias_dev is not bias:
+                ttnn.deallocate(bias_dev)
             dram_peak(f"dit[M={a_t.shape[0]}] block {_bi}")
             sg = ttnn.sigmoid(linb(s_t, A + "linear_a_last.weight", A + "linear_a_last.bias"))
             ao = ttnn.add(ttnn.multiply(attn, sg), a_t)
@@ -1316,7 +1371,10 @@ class DiffusionModule(_KeyedWeights):
                                compute_kernel_config=ckc, core_grid=CORE_GRID_MAIN)
         for _bi, ((adaln_a, apb, ctb_adaln, A, Cc), bias) in enumerate(zip(self._dit, biases)):
             b = adaln_a(a_t, s_t)
-            attn = apb(b, bias, bias_precomputed=True)
+            bias_dev = _T.host_unpark(bias)
+            attn = apb(b, bias_dev, bias_precomputed=True)
+            if bias_dev is not bias:
+                ttnn.deallocate(bias_dev)
             dram_peak(f"dit[M={a_t.shape[0]}] block {_bi}")
             sg = ttnn.sigmoid(linb(s_t, A + "linear_a_last.weight", A + "linear_a_last.bias"))
             ao = ttnn.add(ttnn.multiply(attn, sg), a_t)
@@ -1927,6 +1985,8 @@ class Protenix:
         self.compute_kernel_config = compute_kernel_config
         self.dev = device or get_device()
         self._c_z = c_z
+        # Pair-conditioning shapes DRAM refused whole -> the rows they settled at.
+        self._paircond_rows_refused: dict = {}
         def under(pfx):
             return {k[len(pfx):]: v for k, v in self._w.items() if k.startswith(pfx)}
         resolved_diffusion_fp32 = (env_flag("PROTENIX_DIFFUSION_FP32_DEVICE", True)
@@ -2083,7 +2143,8 @@ class Protenix:
         """DiffusionConditioning pair branch (computed once; t-independent):
         zc = LN(concat[z_trunk, relpe(relp)]); pz = linear_z(zc); pz += transition_z1 +
         transition_z2. Reference diffusion_module.diffusion_conditioning. Validated
-        PCC ~1.0 (scripts/protenix_diffcond_parity.py). Returns conditioned pair_z host.
+        PCC ~1.0 (scripts/protenix_diffcond_parity.py). Returns conditioned pair_z host, and
+        frees `z_trunk_tt`, whose only reader this is.
 
         When c_z_pair_diffusion < c_z (OpenDDE: pair-diffusion channel compressed to 128 vs
         the shared Trunk's c_z=384; Protenix-v2 keeps them equal, 256==256, no compression),
@@ -2117,87 +2178,115 @@ class Protenix:
                     _f.write(f"{tag} done\n")
 
         _w_relpe = self._w[C + "relpe.linear_no_bias.weight"]
-        relpe = ttnn.linear(T(relp), T(_w_relpe.t().contiguous()),
-                            **paircond_mm_kw(self.compute_kernel_config,
-                                             self.diffusion.dtype, _w_relpe.shape[0]))
-        _sync("relpe linear")
-        if self.diffusion._diffusion_fp32:
-            z_trunk_tt = ttnn.typecast(z_trunk_tt, self.diffusion.dtype)
+        w_relpe = T(_w_relpe.t().contiguous())
+        N, W = int(relp.shape[0]), int(relp.shape[1])
+        z_in = z_trunk_tt
+        z_trunk_tt = ttnn.reshape(z_trunk_tt, (N, W, -1))
+        cz = int(z_trunk_tt.shape[-1])
+        compress = C + "linear_no_bias_z_trunk.weight" in self._w
+        transitions = []
+        for nm in ("transition_z1", "transition_z2"):
+            sub = {k[len(C + nm + "."):]: v for k, v in self._w.items() if k.startswith(C + nm + ".")}
+            transitions.append((nm, Transition(PW.remap_transition(sub), self.compute_kernel_config,
+                                               dtype=self.diffusion.dtype)))
+
+        def _relpe(rp):
+            out = ttnn.linear(T(rp), w_relpe,
+                              **paircond_mm_kw(self.compute_kernel_config,
+                                               self.diffusion.dtype, _w_relpe.shape[0]))
+            _sync("relpe linear")
+            return out
+
+        def _cast(zt):
+            if not self.diffusion._diffusion_fp32 or zt.dtype == self.diffusion.dtype:
+                return zt
+            out = ttnn.typecast(zt, self.diffusion.dtype)
             _sync("typecast")
-        z_trunk_tt = ttnn.reshape(z_trunk_tt, (relpe.shape[0], relpe.shape[1], -1))
-        _sync("reshape-3d")
-        N, W, cz = (int(d) for d in z_trunk_tt.shape)
-        if N * W * cz * 2 > PAIRCOND_BLOCK_BYTES and self.diffusion.dtype == ttnn.bfloat16:
-            # Row-blocked chain (see PAIRCOND_BLOCK_BYTES): no full-size LN'd z or channel
-            # concat ever materializes; pz assembles on the host (bf16 round trip is
-            # bit-preserving) and uploads once at [Ns,Ns,128].
-            rb = max(32, (256 * 2 ** 20) // (W * cz * 2) // 32 * 32)
+            return out
+
+        def _z_proj(zt):
+            # OpenDDE's compression of z_trunk to c_z_pair_diffusion (see the docstring).
+            zn = ttnn.layer_norm(zt, weight=T(self._w[C + "layernorm_z_trunk.weight"]),
+                                 epsilon=1e-5, compute_kernel_config=self.compute_kernel_config)
+            _w_zt = self._w[C + "linear_no_bias_z_trunk.weight"]
+            out = ttnn.linear(zn, T(_w_zt.t().contiguous()),
+                              **paircond_mm_kw(self.compute_kernel_config,
+                                               self.diffusion.dtype, _w_zt.shape[0]))
+            ttnn.deallocate(zn)
+            return out
+
+        def _cond(zt, rp):
+            zc = ttnn.concat([zt, rp], dim=-1)
+            _sync("concat")
+            zc = ttnn.layer_norm(zc, weight=T(self._w[C + "layernorm_z.weight"]), epsilon=1e-5,
+                                 compute_kernel_config=self.compute_kernel_config)
+            _sync("layernorm_z")
+            # Force the core grid only when the output is wide enough for ttnn's multicast
+            # matmul to be safe -- see PAIRCOND_MM_NARROW_MAX_TILES for the deadlock this avoids
+            # and the A/B behind it. PROTENIX_PAIRCOND_MM_FORCE_GRID=1 restores the old
+            # unconditional behaviour, which is how the A/B arms were taken and how a regression
+            # would be bisected.
+            _w_z = self._w[C + "linear_no_bias_z.weight"]
+            pb = ttnn.linear(zc, T(_w_z.t().contiguous()),
+                             **paircond_mm_kw(self.compute_kernel_config,
+                                              self.diffusion.dtype, _w_z.shape[0]))
+            ttnn.deallocate(zc)
+            _sync("linear_z")
+            return pb
+
+        def _chain(zt, rp):
+            """cast, compress, concat + LN + projection, both transitions: every step is
+            per (i, j) position, so a row block of the output is this chain on that block."""
+            zf = _cast(zt)
+            zp = _z_proj(zf) if compress else zf
+            _sync("z_trunk LN+proj")
+            if zf is not zt and zp is not zf:
+                ttnn.deallocate(zf)
+            relpe = _relpe(rp)
+            pz = _cond(zp, relpe)
+            ttnn.deallocate(relpe)
+            if zp is not zt:
+                ttnn.deallocate(zp)
+            # keep the pair tensor 4D (1,n,N,c) so Transition uses its chunked H/W path
+            # (the 3D path doesn't chunk pair tensors -> OOM at large N).
+            pz = ttnn.reshape(pz, (1, int(pz.shape[0]), N, pz.shape[-1]))
+            for nm, t in transitions:
+                pz = t(pz, add_to_input=True)
+                _sync(nm)
+            return pz
+
+        def _whole():
+            return _pz_cond_probe(_chain(z_trunk_tt, relp), _z_sha)
+
+        def _rows(rb):
+            # Row-blocked chain (see PAIRCOND_BLOCK_BYTES): no full-size relpe, cast, LN'd z,
+            # channel concat or transition ever materializes. Each finished block goes to the
+            # host, which is where the conditioned pair is returned. OpenDDE's structural pair
+            # at 1536 residues (2987 tokens) wanted a 2300133376 B fp32 relpe before any block.
             blocks = []
             for s in range(0, N, rb):
                 e = min(s + rb, N)
-                zt = z_trunk_tt[s:e]
-                if C + "linear_no_bias_z_trunk.weight" in self._w:
-                    zn = ttnn.layer_norm(zt, weight=T(self._w[C + "layernorm_z_trunk.weight"]),
-                                         epsilon=1e-5, compute_kernel_config=self.compute_kernel_config)
-                    _w_zt = self._w[C + "linear_no_bias_z_trunk.weight"]
-                    zt = ttnn.linear(zn, T(_w_zt.t().contiguous()),
-                                     **paircond_mm_kw(self.compute_kernel_config,
-                                                      self.diffusion.dtype, _w_zt.shape[0]))
-                    ttnn.deallocate(zn)
-                zc = ttnn.concat([zt, relpe[s:e]], dim=-1)
-                ttnn.deallocate(zt)
-                zc = ttnn.layer_norm(zc, weight=T(self._w[C + "layernorm_z.weight"]), epsilon=1e-5,
-                                     compute_kernel_config=self.compute_kernel_config)
-                _w_zb = self._w[C + "linear_no_bias_z.weight"]
-                pb = ttnn.linear(zc, T(_w_zb.t().contiguous()),
-                                 **paircond_mm_kw(self.compute_kernel_config,
-                                                  self.diffusion.dtype, _w_zb.shape[0]))
-                ttnn.deallocate(zc)
-                blocks.append(torch.Tensor(ttnn.to_torch(pb)))
+                zt = z_trunk_tt if e - s == N else z_trunk_tt[s:e]
+                pb = _chain(zt, relp[s:e])
+                if zt is not z_trunk_tt:
+                    ttnn.deallocate(zt)
+                blocks.append(Protenix._to_host(pb).reshape(e - s, N, -1))
                 ttnn.deallocate(pb)
-            pz = ttnn.from_torch(torch.cat(blocks, dim=0), layout=ttnn.TILE_LAYOUT,
-                                 device=get_device(), dtype=self.diffusion.dtype)
-            pz = ttnn.reshape(pz, (1, N, N, pz.shape[-1]))
-            for nm in ("transition_z1", "transition_z2"):
-                sub = {k[len(C + nm + "."):]: v for k, v in self._w.items() if k.startswith(C + nm + ".")}
-                t = Transition(PW.remap_transition(sub), self.compute_kernel_config,
-                               dtype=self.diffusion.dtype)
-                pz = ttnn.add(pz, t(pz))
-            return _pz_cond_probe(pz, _z_sha)
-        if C + "linear_no_bias_z_trunk.weight" in self._w:
-            zt = ttnn.layer_norm(z_trunk_tt, weight=T(self._w[C + "layernorm_z_trunk.weight"]),
-                                 epsilon=1e-5, compute_kernel_config=self.compute_kernel_config)
-            _w_zt2 = self._w[C + "linear_no_bias_z_trunk.weight"]
-            z_trunk_tt = ttnn.linear(zt, T(_w_zt2.t().contiguous()),
-                                     **paircond_mm_kw(self.compute_kernel_config,
-                                                      self.diffusion.dtype, _w_zt2.shape[0]))
-            _sync("z_trunk LN+proj")
-        zc = ttnn.concat([z_trunk_tt, relpe], dim=-1)
-        _sync("concat")
-        zc = ttnn.layer_norm(zc, weight=T(self._w[C + "layernorm_z.weight"]), epsilon=1e-5,
-                             compute_kernel_config=self.compute_kernel_config)
-        _sync("layernorm_z")
-        # Force the core grid only when the output is wide enough for ttnn's multicast matmul
-        # to be safe -- see PAIRCOND_MM_NARROW_MAX_TILES for the deadlock this avoids and the
-        # A/B behind it. PROTENIX_PAIRCOND_MM_FORCE_GRID=1 restores the old unconditional
-        # behaviour, which is how the A/B arms were taken and how a regression would be bisected.
-        _w_z = self._w[C + "linear_no_bias_z.weight"]
-        pz = ttnn.linear(zc, T(_w_z.t().contiguous()),
-                         **paircond_mm_kw(self.compute_kernel_config,
-                                          self.diffusion.dtype, _w_z.shape[0]))
-        _sync("linear_z")
-        # keep the pair tensor 4D (1,N,N,c) so Transition uses its chunked H/W path
-        # (the 3D path doesn't chunk pair tensors -> OOM at large N).
-        N = relpe.shape[0]
-        pz = ttnn.reshape(pz, (1, N, N, pz.shape[-1]))
-        _sync("reshape")
-        for nm in ("transition_z1", "transition_z2"):
-            sub = {k[len(C + nm + "."):]: v for k, v in self._w.items() if k.startswith(C + nm + ".")}
-            t = Transition(PW.remap_transition(sub), self.compute_kernel_config,
-                           dtype=self.diffusion.dtype)
-            pz = ttnn.add(pz, t(pz))
-            _sync(nm)
-        return _pz_cond_probe(pz, _z_sha)
+            return torch.cat(blocks, dim=0)
+
+        rb = max(32, (256 * 2 ** 20) // (W * cz * 2) // 32 * 32)
+        if N * W * cz * 2 > PAIRCOND_BLOCK_BYTES and self.diffusion.dtype == ttnn.bfloat16:
+            pz = _rows(rb)
+        else:
+            # The fp32 diffusion (Protenix's default) never takes the byte gate above, so the
+            # whole chain runs until DRAM refuses it: protenix-v2 at 1300 tokens on a Wormhole
+            # chip was refused the 3.25 GiB fp32 layernorm_z of the [N,N,512] concat.
+            pz = _T.row_block_after_refusal(
+                self._paircond_rows_refused, (N, W, cz, str(self.diffusion.dtype)),
+                _whole, _rows, rows=rb, tag="protenix pair conditioning")
+        # The input pair's only reader was this chain.
+        ttnn.deallocate(z_in)
+        return pz
 
     def _plm_z_term(self, pair_z, a2t, nb, nq, nk):
         """broadcast_token_to_local_atom_pair: W_z(LN_z(z_trunk)) gathered into windowed
@@ -2251,6 +2340,8 @@ class Protenix:
                             max_parallel_samples=B, member_seeds=[seed] * B,
                             progress_fn=progress_fn)
         out = [coords[b:b + 1] for b in range(B)]
+        from .esmc import _free_ttnn_tensors
+        _free_ttnn_tensors((merged, conds))     # sampler state, as in fold()
         if not return_confidence:
             return out
         if progress_fn:
@@ -2337,7 +2428,7 @@ class Protenix:
         ptm, iptm} for n_sample==1, or a list of such dicts (one per sample) for n_sample>1.
         trace=True replays a captured ttnn trace of the denoise stream (lossless; faster on
         dispatch-bound diffusion, e.g. -22% warm at L256). Requires the device to have been
-        opened with a trace region: get_device(trace_region_size=1 << 30).
+        opened with get_device(trace="protenix").
 
         gamma0 / step_scale are the sampler's churn and step-size knobs. None keeps
         `edm_sample`'s protenix-v2 defaults (0.8 and 1.5). They are arguments because they are
@@ -2347,10 +2438,7 @@ class Protenix:
         import torch
         if trace:
             import tt_bio.tenstorrent as _TTd
-            if _TTd.trace_region_size() <= 0:
-                raise ValueError(
-                    "fold(trace=True) needs a device opened with a trace region; "
-                    "call get_device(trace_region_size=1 << 30) before folding.")
+            _TTd.require_trace_region("fold(trace=True)")
         cond, _aux = self._trunk_cond(feats, progress_fn=progress_fn, n_cycles=n_cycles)
         N, NT = _aux["N"], _aux["NT"]
         s_inputs, s_trunk, z_trunk = _aux["s_inputs"], _aux["s_trunk"], _aux["z_trunk"]
@@ -2409,6 +2497,13 @@ class Protenix:
                 if _prof:
                     import ttnn as _tn; _tn.synchronize_device(self.diffusion.dev); print(f"[PROF] edm_sample[{k}] {_time.time()-_ts:.3f}s", flush=True)
             coords = torch.stack(coords, 0)
+        # The conditioning is sampler state: the confidence head reads the trunk's host s and z
+        # and the coordinates, never `cond`. Held through it, the DiT pair, its per-block biases
+        # and the atom-pair track left protenix-v2 on 3abq at 1536 with 8.77 of 12 GiB in use
+        # before the confidence pairformer, and its trimul was refused at every chunk width.
+        if not _os.environ.get("TT_PROTENIX_DBG_COND"):
+            from .esmc import _free_ttnn_tensors
+            _free_ttnn_tensors(cond)
         if return_confidence:
             if progress_fn:
                 progress_fn("confidence")
@@ -2581,9 +2676,13 @@ class Trunk(_KeyedWeights):
         # and holding 48.82 MB of L1 across them makes their trimul throw.
         zn = self._ln(z3, "template_embedder.layernorm_z.weight",
                       "template_embedder.layernorm_z.bias", l1=True)
-        vs = [ttnn.add(tpl_a[t],
-                       self._lin(zn, "template_embedder.linear_no_bias_z.weight"),
-                       memory_config=ttnn.DRAM_MEMORY_CONFIG) for t in range(nt)]
+        vs = []
+        for t in range(nt):
+            a = host_unpark(tpl_a[t])
+            vs.append(ttnn.add(a, self._lin(zn, "template_embedder.linear_no_bias_z.weight"),
+                               memory_config=ttnn.DRAM_MEMORY_CONFIG))
+            if a is not tpl_a[t]:
+                ttnn.deallocate(a)
         ttnn.deallocate(zn)
         u = None
         for t in range(nt):
@@ -2593,7 +2692,15 @@ class Trunk(_KeyedWeights):
             v = self._ln(v, "template_embedder.layernorm_v.weight", "template_embedder.layernorm_v.bias")
             u = v if u is None else ttnn.add(u, v)
         u = ttnn.multiply(u, 1.0 / (1e-7 + nt))
-        return self._lin(ttnn.relu(u), "template_embedder.linear_no_bias_u.weight")
+        # z + linear_u(relu(u)), the embedder's residual. Per pair position, so after DRAM refuses
+        # the single pass it runs in row blocks and the old z is freed at the join: at 1536 tokens
+        # the c_z=384 projection alone is 1811939328 B, refused beside z with a 96 MiB/bank run.
+        res = lambda zr, ur: ttnn.add(
+            zr, self._lin(ttnn.relu(ur), "template_embedder.linear_no_bias_u.weight"))
+        return row_block_after_refusal(
+            _TEMPLATE_ROWS_REFUSED, tuple(z3.padded_shape), lambda: res(z3, u),
+            lambda rows: pair_row_blocks(res, (z3, u), rows, consume=z3),
+            rows=256, tag="protenix template")
 
     def _noisy_structure_dist(self, feat, N):
         """The cycle-invariant half of `NoisyStructureEmbedder`: the binned CB distogram.
@@ -2644,20 +2751,10 @@ class Trunk(_KeyedWeights):
             if pwa is None:
                 return m
             if isinstance(m, list):
-                # Already chunked: transform each chunk in place of the list, freeing the old
-                # chunk as soon as its replacement exists, so the peak stays ~2 chunks over the
-                # list rather than a second full copy.
-                zc = ttnn.clone(z)
-                out = []
-                for mc in m:
-                    t1 = ttnn.add(mc, ttnn.reshape(pwa(mc, zc, attn_tt), tuple(mc.shape)))
-                    ttnn.deallocate(mc)
-                    t2 = ttnn.add(t1, ttnn.reshape(transition(t1), tuple(t1.shape)))
-                    ttnn.deallocate(t1)
-                    out.append(t2)
-                    dram_peak("trunk msa block: after pwa add (list)")
-                ttnn.deallocate(zc)
-                return out
+                # Already chunked: transform each chunk in place of the list, parked chunks
+                # back to the host.
+                return msa_update_chunks(m, z, pwa, transition, attn_tt,
+                                         park=m[0].storage_type() != ttnn.StorageType.DEVICE)
             D = m.shape[1]                                  # MSA depth
             # Row-chunk the MSA depth axis when the representation is too big to hold several
             # copies of. Unchunked, PairWeightedAveraging's FIRST op is an out-of-place
@@ -2684,29 +2781,11 @@ class Trunk(_KeyedWeights):
                 if m_up is not m:
                     ttnn.deallocate(m_up)
                 return out
-            # One clone of z for the whole loop, not one per chunk: PWA only reads z (it
-            # rebinds its own local through reshape/layer_norm and never deallocates it), and
-            # at c_z=384 a per-chunk clone would cost ~0.9 GiB each for a 1120-token target.
-            zc = ttnn.clone(z)
-            parts = []
-            cw = _msa_row_chunk_size()
-            host_m = torch.is_tensor(m)     # host-resident pristine (deep-MSA offload)
-            for s in range(0, D, cw):
-                if host_m:
-                    mc = self._up(m[:, s:min(s + cw, D)])         # stream one chunk from host
-                else:
-                    mc = m[:, s:min(s + cw, D), :, :]             # slice => private copy
-                # Deliberately the SAME out-of-place ttnn.add as the unchunked branch above.
-                # An in-place add_ here would be safe for aliasing (mc is a private copy) and
-                # would save a chunk-sized buffer, but it is a second change riding along with
-                # the chunking, and the acceptance test cannot then attribute a difference to
-                # one or the other. Keep the arithmetic identical to the whole path; the memory
-                # win comes from the chunk being small, not from mutating it.
-                mc = ttnn.add(mc, ttnn.reshape(pwa(mc, zc, attn_tt), tuple(mc.shape)))
-                mc = ttnn.add(mc, ttnn.reshape(transition(mc), tuple(mc.shape)))
-                parts.append(mc)
-                dram_peak("trunk msa block: after pwa add")
-            ttnn.deallocate(zc)
+            # A host-resident pristine (deep-MSA offload) streams up one chunk at a time; a
+            # device one is sliced, and those slices are not ours to free.
+            parts = msa_update_chunks(msa_depth_chunks(m, _msa_row_chunk_size()), z, pwa,
+                                      transition, attn_tt, own=torch.is_tensor(m),
+                                      park=torch.is_tensor(m))
             # Return the CHUNKS, not a concatenation of them. The terminal concat used to need a
             # third full-size buffer (source + parts + destination) and that 3x peak is what made
             # 9d72 OOM at 1.78 GiB m_feat even with chunking on. Every downstream consumer is
@@ -2733,13 +2812,11 @@ class Trunk(_KeyedWeights):
             if self._msa_update_first:
                 m_feat = update_msa(m_feat, z3, pwa, tm)
             if torch.is_tensor(m_feat):
-                # Protenix-order block 0 reads the pristine m with OPM. OPM chunk-gates itself,
-                # so a single transient upload is enough; update_msa below streams from host.
-                m_dev = self._up(m_feat)
-                z3 = ttnn.add(z3, opm(m_dev, None, None))
-                ttnn.deallocate(m_dev)
+                # Protenix-order block 0 reads the pristine m with OPM, from one transient upload
+                # or its depth chunks; update_msa below streams from host.
+                z3 = self._opm_from_host(opm, m_feat, z3)
             else:
-                z3 = ttnn.add(z3, opm(m_feat, None, None))
+                z3 = opm(m_feat, None, None, residual=z3)
             dram_peak("trunk msa block: after opm")
             if not self._msa_update_first:
                 m_feat = update_msa(m_feat, z3, pwa, tm)
@@ -2840,23 +2917,18 @@ class Trunk(_KeyedWeights):
         # original expression frees it, and moved the OOM to a different allocation.
         dram_peak(f"trunk msa pre-upload [ms={tuple(ms.shape)} {ms.dtype}"
                   f" -> dtype={getattr(self, 'dtype', ttnn.bfloat16)}]")
-        m_feat = ttnn.add(self._lin(self._up(ms), "msa_module.linear_no_bias_m.weight"),
-                          self._lin(self._up(s_inputs), "msa_module.linear_no_bias_s.weight"))
-        dram_peak(f"trunk m_feat built [{tuple(m_feat.shape)} {m_feat.dtype}]")
         # Deep-MSA offload: every read of the pristine m_feat is row-local (PWA/Transition per
-        # row, OPM per chunk), so past 1 GiB it is kept on the host between recycling cycles and
-        # streamed up one depth-chunk at a time in update_msa. That removes a full-size device
-        # copy from the per-cycle peak (pristine + updated list used to coexist). Bit-exact:
-        # to_torch preserves the bf16 bytes and _up re-tilizes the same values, so each chunk
-        # holds exactly the bytes a device slice would have held. bf16 only: a bfloat8_b tensor
-        # is block-floating-point, so a host round-trip would re-quantise the tile scales.
-        if (m_feat.dtype == ttnn.bfloat16
-                and m_feat.shape[1] * m_feat.shape[2] * m_feat.shape[3] * 2 > _msa_host_offload_min_bytes()):
-            _m_host = ttnn.to_torch(m_feat)
-            ttnn.deallocate(m_feat)
-            m_feat = _m_host
-            dram_peak(f"trunk m_feat host-offloaded [{tuple(m_feat.shape)} torch]")
+        # row, OPM per chunk), so past 1 GiB `msa_embed` builds it one depth chunk at a time on
+        # the host and update_msa streams it back up a chunk at a time. Neither the whole `ms`
+        # upload nor a full-size device copy of m_feat enters the per-cycle peak.
+        s_m = self._lin(self._up(s_inputs), "msa_module.linear_no_bias_s.weight")
+        m_feat = msa_embed(ms, lambda x: ttnn.add(
+            self._lin(x, "msa_module.linear_no_bias_m.weight"), s_m))
+        ttnn.deallocate(s_m)
+        dram_peak(f"trunk m_feat built [{tuple(m_feat.shape)} {m_feat.dtype}]")
         z3 = ttnn.reshape(ttnn.mul(z_init, 0.0), (1, N, N, self.C_Z))
+        # Both are read once per cycle and never written, so past 1 GiB they wait on the host.
+        z_init, tpl_a = host_park(z_init), host_park(tpl_a)
         s = ttnn.mul(s_init, 0.0)
         n_cycles = self.N_CYCLES if n_cycles is None else n_cycles
         for cyc in range(n_cycles):
@@ -2869,7 +2941,10 @@ class Trunk(_KeyedWeights):
                 if progress_fn:
                     progress_fn("trunk", step=cyc, total=n_cycles)
                 zc = self._lin(self._ln(z3, "layernorm_z_cycle.weight", "layernorm_z_cycle.bias"), "linear_no_bias_z_cycle.weight")
-                z3 = ttnn.add(ttnn.reshape(z_init, (1, N, N, self.C_Z)), zc)
+                zi = host_unpark(z_init)
+                z3 = ttnn.add(ttnn.reshape(zi, (1, N, N, self.C_Z)), zc)
+                if zi is not z_init:
+                    ttnn.deallocate(zi)
                 if nse_d is not None:
                     z3 = ttnn.add(z3, self._noisy_structure(z3, nse_d))
                 # Gate on BOTH the feature's template slots and the checkpoint's own template
@@ -2882,7 +2957,7 @@ class Trunk(_KeyedWeights):
                 # where upstream adds nothing. Inert for protenix-v2 and opendde, which both ship
                 # a 2-block stack (pinned by tests/test_protenix_template_gate.py).
                 if nt > 0 and self.TPL:
-                    z3 = ttnn.add(z3, self._template(z3, tpl_a, N, nt, pmask_tt, attn_tt))
+                    z3 = self._template(z3, tpl_a, N, nt, pmask_tt, attn_tt)
                 z3 = self._msa(z3, m_feat, pmask_tt, attn_tt)
                 sc = self._lin(self._ln(s, "layernorm_s.weight", "layernorm_s.bias"), "linear_no_bias_s.weight")
                 s = ttnn.add(s_init, sc)
@@ -2893,8 +2968,9 @@ class Trunk(_KeyedWeights):
                 # so this both tests cycle 0 and, if cycle 0 matches, names the first cycle that does not.
                 trunk_tap(f"cyc{cyc}_after_PF:s", s, always=True)
                 trunk_tap(f"cyc{cyc}_after_PF:z3", z3, always=True)
-        for t in tpl_a:
-            ttnn.deallocate(t)
+        for t in [z_init, *tpl_a]:
+            if t.storage_type() == ttnn.StorageType.DEVICE:
+                ttnn.deallocate(t)
         if nse_d is not None:
             ttnn.deallocate(nse_d)
         # The trunk's final conditioning. If cycle 0's blocks matched but this differs, the
@@ -2946,7 +3022,7 @@ def merge_conds(diffusion_module, conds):
         m[key] = ([cat([z[b] for z in z_pre]) for b in range(len(z_pre[0]))],
                   cat([c[key][1] for c in conds]))
     if conds[0].get("dit_block_biases") is not None:
-        m["dit_block_biases"] = [cat([c["dit_block_biases"][b] for c in conds])
+        m["dit_block_biases"] = [cat([_T.host_unpark(c["dit_block_biases"][b]) for c in conds])
                                  for b in range(len(conds[0]["dit_block_biases"]))]
     m["_members"] = B
     return m
@@ -3022,13 +3098,10 @@ def edm_sample(diffusion_module, cond, n_atoms, *, multiplicity=1, max_parallel_
     collapses per-step dispatch on dispatch-bound diffusion). The captured trace is fixed
     at (1,N,3), so trace=True with multiplicity>1 falls back to the untraced denoise
     (correctness first; a batched trace would need re-capture per (N,M)). Requires the
-    device to have been opened with a trace region (get_device(trace_region_size=...))."""
+    device to have been opened with get_device(trace="protenix")."""
     import torch
     from .boltz2 import compute_random_augmentation
     M = max(1, int(multiplicity))
-    if max_parallel_samples is None or max_parallel_samples > M:
-        max_parallel_samples = M
-    max_parallel_samples = max(1, int(max_parallel_samples))
     # trace is captured at (1,N,3): keep it only for the unbatched path; fall back to
     # the untraced (but batch-aware) denoise for M>1 so the device forward is correct.
     _denoise = (diffusion_module.denoise_traced if trace and M == 1 else diffusion_module.denoise)
@@ -3088,9 +3161,10 @@ def edm_sample(diffusion_module, cond, n_atoms, *, multiplicity=1, max_parallel_
     # NOT replicated; the device denoise is responsible for carrying the chunk's leading
     # dim through the atom encoder / DiT / decoder (see DiffusionModule.denoise).
     etas = step_scale_schedule(step_scale, n_step)
-    sample_ids = torch.arange(M)
-    n_chunks = max(1, (M + max_parallel_samples - 1) // max_parallel_samples)
-    chunks = [c for c in sample_ids.chunk(n_chunks) if c.numel() > 0]
+    width = resolve_sample_chunk_width(M, max_parallel_samples)
+    # A multi-target batch concatenates its conditioning per member, so a chunk would slice
+    # the coordinate stream but not the conditioning: it runs whole or not at all.
+    narrowest = M if "_members" in cond else 1
     for k in range(n_step):
         if progress_fn:
             progress_fn("diffusion", step=k, total=n_step)
@@ -3113,9 +3187,10 @@ def edm_sample(diffusion_module, cond, n_atoms, *, multiplicity=1, max_parallel_
         else:
             eps = (noise_var ** 0.5) * torch.randn(shape)
         x_noisy = x + eps
-        denoised = torch.zeros_like(x_noisy)
-        for _chunk in chunks:
-            denoised[_chunk] = _denoise(x_noisy[_chunk], torch.tensor([t_hat], dtype=torch.float32), cond)
+        t_dev = torch.tensor([t_hat], dtype=torch.float32)
+        denoised, width = denoise_in_chunks(
+            x_noisy, width, lambda chunk, _w: _denoise(chunk, t_dev, cond),
+            narrowest=narrowest, tag="protenix diffusion")
         dram_peak(f"edm step {k}")
         trunk_tap_host(f"edm_denoised[step{k}]", denoised)
         d = (x_noisy - denoised) / t_hat

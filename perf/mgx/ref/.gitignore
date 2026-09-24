@@ -1,0 +1,2 @@
+# run_mmseqs2 scratch (make_fixtures.py); the pinned a3m files under fixtures/ are the record
+.msa_tmp*/

@@ -32,6 +32,9 @@ import sys
 import time
 
 ROOT = pathlib.Path(__file__).resolve().parents[2]
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
+from perf.clocksample import during  # noqa: E402
 # The interpreter a rung runs under. Defaults to the one running this walk, which is right
 # on every host; the old default was a qb1-only absolute path, so pointing the script at a
 # second machine meant editing it.
@@ -416,7 +419,12 @@ def run_rung(model: str, size: int, args, work: pathlib.Path) -> dict:
     # kill. A file also keeps stderr, which the TimeoutExpired branch used to drop entirely.
     log = work / f"log_{model}_{size}.txt"
     ended = ""
-    with log.open("w") as fh:
+    # The clock is sampled DURING the rung, on a thread, because a rung's seconds are only a
+    # measurement beside the AICLK they were taken at, and a walk whose rungs ran at different
+    # clocks is a curve through two chips' worth of speed. tt-smi honours TT_VISIBLE_DEVICES,
+    # so index 0 in the summary is this rung's card.
+    os.environ["TT_VISIBLE_DEVICES"] = str(args.card)
+    with log.open("w") as fh, during() as clk:
         # Own process group, so the kill reaches the model's dataloader workers too. Killing the
         # outer pid alone leaves the engine holding the card, and the next rung then measures
         # device contention instead of its own size.
@@ -455,7 +463,24 @@ def run_rung(model: str, size: int, args, work: pathlib.Path) -> dict:
     rec = {"model": model, "size": size, "rc": rc, "wall_s": wall,
            "cmd": " ".join(cmd[3:]), "arch": args.arch, "board": args.board,
            "host": os.uname().nodename, "card": args.card,
+           "aiclk": clk.summary().get(0),
            "ts": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()), **extra}
+
+    # The FOLD's own seconds, not the process's. docs/speed-bar.md judges `runtime_s` with "no
+    # model load or process start", and wall_s here carries import, a checkpoint load and, on a
+    # cold cache, a multi-GB download. Both design models already write it per design into
+    # designs.json (`tt_bio/pxdesign/design.py:_write_metrics`), so the number is read from the
+    # artifact rather than re-derived.
+    designs = out_dir / "designs.json"
+    if designs.is_file():
+        try:
+            rows_ = [r for r in json.loads(designs.read_text()) if isinstance(r, dict)]
+            rts = [r["runtime_s"] for r in rows_ if r.get("runtime_s") is not None]
+            if rts:
+                rec["runtime_s"] = max(rts)
+                rec["n_token"] = next((r.get("n_token") for r in rows_ if r.get("n_token")), None)
+        except Exception:
+            pass
 
     ok, detail = check_artifact(checker, out_dir, model)
     rec["artifact"] = detail
@@ -464,8 +489,15 @@ def run_rung(model: str, size: int, args, work: pathlib.Path) -> dict:
         rec["mechanism"] = "none"
     else:
         rec["verdict"] = "FAIL"
-        rec["mechanism"] = classify(blob)
-        rec.update(dram_numbers(blob))
+        # A budget kill has no failing allocation. Classifying its log anyway reads the refusals
+        # the model caught and carried on from (rfd3's calibration absorbs candidate OOMs by
+        # design) as the reason it stopped: rfd3 1280 was recorded as a 41943040 B `dram`
+        # failure after running its full 5400 s budget.
+        if ended == "TIMEOUT":
+            rec["mechanism"] = "timeout"
+        else:
+            rec["mechanism"] = classify(blob)
+            rec.update(dram_numbers(blob))
         rec["diag"] = diagnosis(blob)
         rec["tail"] = blob[-2500:]
     return rec

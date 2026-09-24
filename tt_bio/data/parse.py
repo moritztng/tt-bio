@@ -2684,6 +2684,41 @@ def parse_polymer(
     )
 
 
+def portable_atom_names(atoms) -> dict[str, str]:
+    """``{portable name: the model's own name}`` for a SMILES ligand's heavy atoms, given as
+    ``(name, element)`` in SMILES order. The portable name is the element and its 1-based
+    count among that element's atoms: C1 is the first carbon written."""
+    out, seen = {}, {}
+    for name, element in atoms:
+        el = str(element).upper()
+        seen[el] = seen.get(el, 0) + 1
+        out[f"{el}{seen[el]}"] = name
+    return out
+
+
+def _resolve_bond_atom(portable, chain, name, key):
+    """The name a model gave the SMILES-ligand atom a `bond` endpoint means.
+
+    Every tt-bio model reads a SMILES atom name the portable way: element plus its 1-based
+    count in SMILES order, heavy atoms only, so C1 is the first carbon written (Protenix's
+    and OpenFold3's naming, atomworks' documented one). Boltz-2 names the same atoms by
+    RDKit canonical rank over the molecule with hydrogens (C7, O6, N10 for ``C=CC(=O)N``),
+    and so does ESMFold2; that is what their structures carry, so that name keeps working when it cannot be read
+    the other way. A name that is valid in both schemes and means different atoms is refused
+    rather than guessed. ``portable`` is None for anything that is not a SMILES ligand.
+    """
+    if not portable:
+        return name
+    inverse = {v: k for k, v in portable.items()}
+    if name in portable and name in inverse and portable[name] != name:
+        raise ValueError(
+            f"Bond {key} [{chain}, 1, {name}] is ambiguous on this SMILES ligand: in SMILES "
+            f"order {name} is the atom Boltz-2 names {portable[name]}, and Boltz-2's own "
+            f"{name} is the atom SMILES order names {inverse[name]}. Write "
+            f"{portable[name]} for the first or {inverse[name]} for the second.")
+    return portable.get(name, name)
+
+
 def token_spec_to_ids(
     chain_name, residue_index_or_atom_name, chain_to_idx, atom_idx_map, chains
 ):
@@ -2863,9 +2898,13 @@ def parse_boltz_schema(  # noqa: C901, PLR0915, PLR0912
     is_msa_custom = False
     is_msa_auto = False
     ligand_id = 1
+    # chain -> {portable atom name: this parser's name} for each SMILES ligand; see
+    # _resolve_bond_atom.
+    smiles_names: dict[str, dict[str, str]] = {}
     for entity_id, items in enumerate(items_to_group.values()):
         # Get entity type and sequence
         entity_type = next(iter(items[0].keys())).lower()
+        portable = None
 
         # Get ids
         ids = []
@@ -3050,6 +3089,9 @@ def parse_boltz_schema(  # noqa: C901, PLR0915, PLR0912
                     )
                     raise ValueError(msg)
                 atom.SetProp("name", atom_name)
+            # AddHs appends the hydrogens, so the heavy atoms are still in SMILES order.
+            portable = portable_atom_names(
+                (a.GetProp("name"), a.GetSymbol()) for a in mol.GetAtoms() if a.GetAtomicNum() > 1)
 
             success = compute_3d_conformer(mol)
             if not success:
@@ -3102,6 +3144,8 @@ def parse_boltz_schema(  # noqa: C901, PLR0915, PLR0912
             for chain_name in ids:
                 chains[chain_name] = parsed_chain
                 chain_to_msa[chain_name] = msa
+                if portable:
+                    smiles_names[chain_name] = portable
 
     # Check if msa is custom or auto
     if is_msa_custom and is_msa_auto:
@@ -3118,7 +3162,10 @@ def parse_boltz_schema(  # noqa: C901, PLR0915, PLR0912
     bond_data = []
     res_data = []
     chain_data = []
-    protein_chains = set()
+    # Ordered, not a set: the template search below breaks score ties by position, and a set of
+    # names iterates in a per-process hash order, so a template with two copies of a chain gave a
+    # different copy (and a different fold) from run to run.
+    protein_chains = {}
     affinity_info = None
 
     rdkit_bounds_constraint_data = []
@@ -3145,7 +3192,7 @@ def parse_boltz_schema(  # noqa: C901, PLR0915, PLR0912
 
         # Save protein chains for later
         if chain.type == const.chain_type_ids["PROTEIN"]:
-            protein_chains.add(chain_name)
+            protein_chains[chain_name] = None
 
         # Add affinity info
         if chain.affinity and affinity_info is not None:
@@ -3315,10 +3362,20 @@ def parse_boltz_schema(  # noqa: C901, PLR0915, PLR0912
                 msg = f"Bond constraint was not properly specified"
                 raise ValueError(msg)
 
-            c1, r1, a1 = tuple(constraint["bond"]["atom1"])
-            c2, r2, a2 = tuple(constraint["bond"]["atom2"])
-            c1, r1, a1 = atom_idx_map[(c1, r1 - 1, a1)]  # 1-indexed
-            c2, r2, a2 = atom_idx_map[(c2, r2 - 1, a2)]  # 1-indexed
+            ends = []
+            for key in ("atom1", "atom2"):
+                c, r, a = tuple(constraint["bond"][key])
+                a = _resolve_bond_atom(smiles_names.get(c), c, a, key)
+                hit = atom_idx_map.get((c, r - 1, a))  # 1-indexed
+                if hit is None:
+                    here = sorted(n for (cc, rr, n) in atom_idx_map if cc == c and rr == r - 1)
+                    raise ValueError(
+                        f"Bond {key} [{c}, {r}, {a}] names an atom that is not in the input: "
+                        + (f"residue {r} of chain '{c}' has atoms {', '.join(here)}."
+                           if here else f"chain '{c}' has no residue {r}.")
+                    )
+                ends.append(hit)
+            (c1, r1, a1), (c2, r2, a2) = ends
             connections.append((c1, c2, r1, r2, a1, a2))
         elif "pocket" in constraint:
             if (
@@ -3472,11 +3529,11 @@ def parse_boltz_schema(  # noqa: C901, PLR0915, PLR0912
                 use_assembly=False,
                 compute_interfaces=False,
             )
-        template_proteins = {
+        template_proteins = [
             str(c["name"])
             for c in parsed_template.data.chains
             if c["mol_type"] == const.chain_type_ids["PROTEIN"]
-        }
+        ]
         if template_chain_ids is None:
             template_chain_ids = list(template_proteins)
 
@@ -3646,6 +3703,11 @@ def standardize(smiles: str) -> Optional[str]:
     if exclude:
         raise ValueError("Molecule is excluded")
 
+    # The fragment chooser counts implicit Hs, which RDKit 2026.03 refuses on an unsanitized
+    # mol ("getNumImplicitHs() called without preceding call to calcImplicitValence()"), so
+    # every salt-form ligand failed here. Computing valences without sanitizing leaves a
+    # single-fragment result unchanged.
+    mol.UpdatePropertyCache(strict=False)
     # Standardize with ChEMBL data curation pipeline. During standardization, the molecule may be broken
     # Choose molecule with largest component
     mol = LARGEST_FRAGMENT_CHOOSER.choose(mol)

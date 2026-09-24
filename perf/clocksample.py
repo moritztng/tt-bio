@@ -10,11 +10,18 @@ between rows makes their numbers incomparable.
 """
 
 import json
+import os
+import shutil
 import subprocess
 import threading
 import time
 
-TT_SMI = "/home/ttuser/.local/bin/tt-smi"
+# Resolved, not hardcoded. The only copy of this path was qb1's `/home/ttuser/.local/bin/tt-smi`,
+# which does not exist on the Wormhole Galaxy (`/usr/local/bin/tt-smi`, user `agent`): every
+# sample raised FileNotFoundError, the bare `except` swallowed it, and `summary()` came back
+# empty -- so a harness run there reported no clock at all instead of failing loudly. `TT_SMI`
+# overrides, then PATH, and the old absolute path stays last so qb1 keeps working unchanged.
+TT_SMI = os.environ.get("TT_SMI") or shutil.which("tt-smi") or "/home/ttuser/.local/bin/tt-smi"
 
 
 def sample_aiclk(stop, out, *, period=2.0):

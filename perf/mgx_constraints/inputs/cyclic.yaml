@@ -1,0 +1,7 @@
+version: 1
+sequences:
+  - protein:
+      id: A
+      sequence: QLEDSEVEAVAKG
+      msa: empty
+      cyclic: true

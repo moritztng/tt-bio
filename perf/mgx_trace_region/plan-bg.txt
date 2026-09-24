@@ -1,0 +1,5 @@
+# boltzgen DiT trace vs eager, ~480 and ~1380 tokens
+bg400_trace design tests/fixtures/boltzgen/bg400.yaml --model boltzgen --num_designs 1 --steps design --seed 0 --diffusion_trace --out_dir {out}
+bg400_eager design tests/fixtures/boltzgen/bg400.yaml --model boltzgen --num_designs 1 --steps design --seed 0 --out_dir {out}
+bg1300_trace design tests/fixtures/boltzgen/bg1300.yaml --model boltzgen --num_designs 1 --steps design --seed 0 --diffusion_trace --out_dir {out}
+bg1300_eager design tests/fixtures/boltzgen/bg1300.yaml --model boltzgen --num_designs 1 --steps design --seed 0 --out_dir {out}

@@ -19,13 +19,9 @@ import ttnn
 
 from .protenix import _KeyedWeights
 from .envflags import env_flag
-from .tenstorrent import _acc_concat, concat_host_bytes, get_device
+from .opendde_data import STRUCTURAL_TOKEN_ROLES
+from .tenstorrent import _acc_concat, concat_host_bytes, dram_peak, get_device
 
-# opendde/data/tokenizer.py
-STRUCTURAL_TOKEN_ROLES = {
-    "atom": 0, "protein_bb": 1, "protein_sc": 2,
-    "dna_bb": 3, "dna_base": 4, "rna_bb": 5, "rna_base": 6,
-}
 _BACKBONE = (STRUCTURAL_TOKEN_ROLES["protein_bb"],
              STRUCTURAL_TOKEN_ROLES["dna_bb"],
              STRUCTURAL_TOKEN_ROLES["rna_bb"])
@@ -270,7 +266,8 @@ class StructuralTokenExpander(_KeyedWeights):
         # reason _host_concat gives: a bf8 or fp32 round trip through torch bf16 would not be.
         host_z = (z_flat.dtype == ttnn.bfloat16
                   and Ns * Ns * self.c_z * 2 > concat_host_bytes())
-        z_chunks, ab_chunks, live = [], [], []
+        dram_peak("expander enter")
+        z_chunks, ab_chunks = [], []
         for start in range(0, Ns, chunk):
             end = min(start + chunk, Ns)
             row_index = torch.arange(start, end)
@@ -287,21 +284,20 @@ class StructuralTokenExpander(_KeyedWeights):
             z_tile = ttnn.add(z_tile, self._pair_project_full(z_dev, role, row_index))
             z_tile = ttnn.add(z_tile, self._pair_init_bias(pf))
             if host_z:
+                # Freed as soon as its bytes are on the host. Holding every chunk to the end of
+                # the loop kept the whole z_struct on device beside its host copy, 7.1 GB at
+                # Ns=3008 (1536 residues), and refused the last chunks' pair-init bias. The
+                # freeing order inside this loop was measured value-neutral
+                # (state/ttnn-retilize-zstruct-anomaly.md); what moves the fold is the tilize.
                 z_chunks.append(ttnn.to_torch(z_tile))
-                live.append(z_tile)      # freed together below, NOT one per iteration
+                ttnn.deallocate(z_tile)
             else:
                 z_chunks.append(z_tile)
             ab_chunks.append(self._attn_bias(pf))
-        # Free the row loop's residents before the upload, in one go at the end. Deallocating
-        # each chunk inside the loop instead lets the next iteration's tensors reuse its memory,
-        # and that -- not the host assembly, which is bit-identical (verified in a real fold,
-        # scripts/probe_zstruct_assembly.py: 8 blocks, (977,977,384), equal=True) -- is what moved
-        # 9i3p's structure. Freeing here keeps the loop's allocation pattern as it was and still
-        # leaves the heap empty for the upload, which is the whole point of the change.
-        for t in live:
-            ttnn.deallocate(t)
+        dram_peak("expander row loop done")
         ttnn.deallocate(z_flat)
         z_struct = _acc_concat(z_chunks, -3, host_z)
+        dram_peak("expander z_struct assembled")
         attn_bias = ab_chunks[0] if len(ab_chunks) == 1 else ttnn.concat(ab_chunks, dim=0)
         return s_inputs_struct, s_struct, z_struct, attn_bias
 
@@ -497,7 +493,7 @@ class OpenDDE:
         both apply unchanged to OpenDDE. trace=True replays a
         captured ttnn trace of the shared denoise stream (lossless; faster on
         dispatch-bound diffusion, mirroring Protenix-v2.fold(trace=)); needs a device
-        opened with a trace region (get_device(trace_region_size=1 << 30)). Returns
+        opened with get_device(trace="protenix"). Returns
         coords (n_sample, N_atom, 3) host tensor; if
         return_confidence, returns (coords, conf) where conf is a dict (n_sample==1) or a
         list of dicts (n_sample>1), same shape as tt_bio.protenix.Protenix.fold.
@@ -508,10 +504,7 @@ class OpenDDE:
 
         if trace:
             import tt_bio.tenstorrent as _TTd
-            if _TTd.trace_region_size() <= 0:
-                raise ValueError(
-                    "fold(trace=True) needs a device opened with a trace region; "
-                    "call get_device(trace_region_size=1 << 30) before folding.")
+            _TTd.require_trace_region("fold(trace=True)")
         P = self._protenix
         tt = P._tt
         ifd = build_structural_token_features(feats)
@@ -553,6 +546,7 @@ class OpenDDE:
         # 2) the novel seam: residue -> structural-token axis
         s_inputs_st, s_st, z_st, structural_attn_bias = self.expand_and_refine(
             ifd, s_inputs, s_trunk, z_trunk, return_attn_bias=True)
+        dram_peak(f"refiner done [Ns={Ns}]")
         s_inputs_struct = P._to_host(s_inputs_st, (Ns, self.expander.c_s_inputs))
         s_struct = P._to_host(s_st, (Ns, self.expander.c_s))
         structural_attn_bias = P._to_host(structural_attn_bias, (Ns, Ns))
@@ -566,11 +560,10 @@ class OpenDDE:
             "sym_id": feats["sym_id"].index_select(0, parent),
             "token_index": ifd["structural_token_index"],
         })
+        # The structural pair's only consumer, so the conditioning frees it (confidence runs
+        # on the residue axis): at Ns=2113 it is 3.2 GiB the confidence pairformer needs back.
         pair_z = P._diffusion_pair_cond(z_st, relp_struct).reshape(Ns, Ns, -1)
-        # The structural pair tensor's only consumer was the pair conditioning above
-        # (confidence runs on the residue axis). Free it before the sampler stage: at
-        # Ns=2113 it is 3.2 GiB the confidence pairformer will need back.
-        ttnn.deallocate(z_st)
+        dram_peak("structural pair conditioned")
         a2s = ifd["atom_to_structural_token_idx"]
         S_struct = torch.zeros(N, Ns); S_struct[torch.arange(N), a2s] = 1.0
         p_lm = p_lm + P._plm_z_term(pair_z, a2s, nb, nq, nk)
@@ -598,11 +591,11 @@ class OpenDDE:
                 coords.append(edm_sample(P.diffusion, cond, N, n_step=n_step, seed=sd_seed,
                                          trace=trace, progress_fn=progress_fn, dump_fn=_df)[0])
             coords = torch.stack(coords, 0)
-        # dit_z (LN(pair_z) uploaded for the on-device DiT) is sampler-only state; the
-        # residue-axis confidence head never reads it. At Ns=2113 it is another ~1.1 GiB
-        # the confidence pairformer needs back.
-        if "dit_z" in cond:
-            ttnn.deallocate(cond["dit_z"])
+        # The conditioning is sampler-only state (dit_z alone is ~1.1 GiB at Ns=2113, and the
+        # per-block DiT biases and the atom-pair track sit beside it); the residue-axis
+        # confidence head never reads it, and its pairformer needs the room back.
+        from .esmc import _free_ttnn_tensors
+        _free_ttnn_tensors(cond)
         if return_confidence:
             if progress_fn:
                 progress_fn("confidence")

@@ -1,0 +1,19 @@
+# Lane C: opendde, whose refiner expands tokens ~1.9x; 512 not 768, a 768 fold is ~10 min at 6 steps.
+# Per model: memory points first (6 steps, DRAM probe on), which also compile every
+# kernel shape the timing points use; then timing (production steps, probe off).
+opendde 256 1 steps=6 probe=1
+opendde 256 25 steps=6 probe=1
+opendde 512 1 steps=6 probe=1
+opendde 512 25 steps=6 probe=1
+opendde 256 1
+opendde 256 5
+opendde 512 1
+opendde 512 5
+opendde 256 5 steps=6 probe=1
+opendde 512 5 steps=6 probe=1
+opendde 256 25
+opendde 512 25
+opendde 256 10 steps=6 probe=1
+opendde 512 10 steps=6 probe=1
+opendde 256 10
+opendde 512 10

@@ -1,0 +1,2 @@
+# Boltz-2 1536 small seed 1 on the merged head: seed 0 moved 1.494 -> 1.190, so the head's own seed spread is needed beside it.
+{"tag": "v_b_1536_small_s1", "surface": "boltz2", "input": "perf/mgx_affinity/inputs/size/cdk2_1536_small.yaml", "args": ["--seed", "1"]}

@@ -1,0 +1,7 @@
+# bbde79de7 (zero-mask cache). ESMC trace at aligned lengths, then mask cost on three trees, DURING AICLK.
+cd $HOME/wt-mgx-sdpa-mask && $HOME/env/bin/python perf/mgx_sdpa/trace_probe.py --model esmc-300m --lengths 126,510,1534 --out $S/trace.jsonl
+cd $HOME/wt-mgx-sdpa-mask && $HOME/env/bin/python perf/mgx_embed/timing.py --pdb $HOME/scratch/mgxembed/mtor.pdb --lengths 125,126,510,1534 --calls 20 --out $S/timing2.jsonl --model esmc-300m
+cd $HOME/wt-mgx-sdpa-main && $HOME/env/bin/python perf/mgx_embed/timing.py --pdb $HOME/scratch/mgxembed/mtor.pdb --lengths 125,126,510,1534 --calls 20 --out $S/timing2.jsonl --model esmc-300m
+cd $HOME/wt-mgx-embed-fix && $HOME/env/bin/python perf/mgx_embed/timing.py --pdb $HOME/scratch/mgxembed/mtor.pdb --lengths 125,126,510,1534 --calls 20 --out $S/timing2.jsonl --model esmc-300m
+cd $HOME/wt-mgx-sdpa-mask && $HOME/env/bin/python perf/mgx_sdpa/trace_probe.py --model esmc-6b --lengths 126,1534 --out $S/trace.jsonl
+cd $HOME/wt-mgx-sdpa-main && $HOME/env/bin/python perf/mgx_sdpa/trace_probe.py --model esmc-300m --lengths 126,510,1534 --out $S/trace.jsonl

@@ -37,6 +37,7 @@ from tt_bio.tenstorrent import (
     _sdpa_program_config_for_lengths,
     accurate_softmax_site,
     attn_value_matmul,
+    fused_sdpa,
 )
 from tt_bio.eltwise_fusion import scale_add
 
@@ -92,13 +93,13 @@ def _attn_fp32(q, k, v, attn_mask, scale, ck, accurate_softmax: bool = False):
 def _sdpa_bf16(q, k, v, attn_mask, scale):
     """Scaled-dot-product attention; ttnn SDPA needs bf16, so cast i/o when _DTYPE is fp32."""
     if _DTYPE == ttnn.bfloat16:
-        return ttnn.transformer.scaled_dot_product_attention(
-            q, k, v, attn_mask=attn_mask, is_causal=False, scale=scale,
+        return fused_sdpa(
+            q, k, v, attn_mask=attn_mask, scale=scale,
             program_config=_sdpa_program_config_for_lengths(q.shape[2], k.shape[2], q.shape[0] * q.shape[1], site="esmfold2", d=q.shape[3]))
     qb, kb, vb = (ttnn.typecast(t, ttnn.bfloat16) for t in (q, k, v))
     mb = ttnn.typecast(attn_mask, ttnn.bfloat16) if attn_mask is not None else None
-    ctx = ttnn.transformer.scaled_dot_product_attention(
-        qb, kb, vb, attn_mask=mb, is_causal=False, scale=scale,
+    ctx = fused_sdpa(
+        qb, kb, vb, attn_mask=mb, scale=scale,
         program_config=_sdpa_program_config_for_lengths(q.shape[2], k.shape[2], q.shape[0] * q.shape[1], site="esmfold2", d=q.shape[3]))
     ctx = ttnn.typecast(ctx, _DTYPE)
     ttnn.deallocate(qb); ttnn.deallocate(kb); ttnn.deallocate(vb)
@@ -488,8 +489,21 @@ class TransitionLayer(Module):
             rows=_TRANSITION_FALLBACK_ROWS, tag="transition")
 
     def _tiled(self, x: ttnn.Tensor, chunk: int) -> ttnn.Tensor:
-        parts = ttnn.chunk(x, -(-x.shape[1] // chunk), dim=1)
-        return ttnn.concat([self._body(p) for p in parts], dim=1)
+        # Sliced one block at a time and assembled by `_acc_concat`, as the shared Transition
+        # does: `ttnn.chunk` copied every block up front, a whole second x, and the device concat
+        # then wanted the whole output beside every part. That concat was esmfold2-fast's next
+        # refusal at 1248 once the pair conditioning fitted. Same blocks, same order.
+        from tt_bio import tenstorrent
+        L = int(x.shape[1])
+        host = tenstorrent._host_concat(x)
+        parts = []
+        for s in range(0, L, chunk):
+            e = min(s + chunk, L)
+            p = x[:, s:e]
+            tenstorrent._acc_append(parts, self._body(p), host)
+            if (s, e) != (0, L):          # a whole-range slice may alias x itself
+                ttnn.deallocate(p)
+        return tenstorrent._acc_concat(parts, 1, host)
 
 
 class DiffusionConditioningModel(Module):
@@ -508,6 +522,35 @@ class DiffusionConditioningModel(Module):
         self.noise_n_b = self.torch_to_tt("noise_norm.bias")
         self.noise_proj_w = self.torch_to_tt("noise_proj.weight")
         self.s_trans = [TransitionLayer(self.scope(f"s_transitions.{i}"), compute_kernel_config) for i in range(2)]
+        self._rows_refused: dict = {}
+
+    def _pair_in(self, z_trunk, relpos):
+        """`z_proj(LN(concat(z_trunk, relpos)))` over the whole pair tensor."""
+        # Freed in `finally`, so a refused norm or projection leaves nothing behind for the
+        # row-blocked retry to allocate around.
+        zc = ttnn.concat([z_trunk, relpos], dim=-1)
+        try:
+            zn = ttnn.layer_norm(zc, weight=self.z_in_w, bias=self.z_in_b, epsilon=1e-5,
+                                 compute_kernel_config=self.compute_kernel_config)
+        finally:
+            ttnn.deallocate(zc)
+        try:
+            return self._lin(zn, self.z_proj_w)
+        finally:
+            ttnn.deallocate(zn)
+
+    def _pair_in_rows(self, z_trunk, relpos, rows):
+        """`_pair_in` in row blocks. The concat, the norm and the projection are all row-local,
+        so no [B,L,L,c_z+c_rel] tensor ever exists whole and the blocks reassemble exactly."""
+        from tt_bio import tenstorrent
+        L = int(z_trunk.shape[1])
+        host = tenstorrent._host_concat(z_trunk)
+        blocks = []
+        for s in range(0, L, rows):
+            e = min(s + rows, L)
+            tenstorrent._acc_append(
+                blocks, self._pair_in(z_trunk[:, s:e], relpos[:, s:e]), host)
+        return tenstorrent._acc_concat(blocks, 1, host)
 
     def cond_pair(self, z_trunk, relpos):
         """Pair conditioning z = f(z_trunk, relpos). Step-INVARIANT (no t / no
@@ -523,15 +566,24 @@ class DiffusionConditioningModel(Module):
         # them there costs nothing and changes no arithmetic. The concat alone is wider
         # than the refused buffer, so releasing it before the matmul is what makes 9j4c
         # fit; releasing the norm after it keeps the transitions off the same ceiling.
-        ck = self.compute_kernel_config
-        lin = self._lin
-        zc = ttnn.concat([z_trunk, relpos], dim=-1)
-        zn = ttnn.layer_norm(zc, weight=self.z_in_w, bias=self.z_in_b, epsilon=1e-5, compute_kernel_config=ck)
-        ttnn.deallocate(zc)
-        z = lin(zn, self.z_proj_w)
-        ttnn.deallocate(zn)
+        #
+        # Even freed promptly the concat and its norm are two [B,L,L,512] tensors live at once, and
+        # at 1248 tokens on the Galaxy that second 1.49 GiB was refused with 127.5 MiB free per bank
+        # against 126.8 wanted, in pieces (esmfold2-fast). After a refusal the same three ops run in
+        # row blocks, so the widest thing alive is one [B,L,L,256] output.
+        from tt_bio import tenstorrent
+        z = tenstorrent.row_block_after_refusal(
+            self._rows_refused, tuple(z_trunk.padded_shape),
+            lambda: self._pair_in(z_trunk, relpos),
+            lambda rows: self._pair_in_rows(z_trunk, relpos, rows),
+            rows=_TRANSITION_FALLBACK_ROWS, tag="cond_pair")
+        # In place: `z` is this function's own tensor, and a fresh sum would be a third
+        # [B,L,L,256] beside `z` and the update -- esmfold2-fast's next refusal at 1248, once the
+        # two lines above fitted (797442048 B against a 62.1 MiB/bank largest block).
         for t in self.z_trans:
-            z = ttnn.add(z, t(z))
+            u = t(z)
+            ttnn.add_(z, u)
+            ttnn.deallocate(u)
         return z
 
     def cond_single(self, s_inputs, n_raw):
@@ -1117,7 +1169,10 @@ def _msa_transition_residual(m, ffn):
         upd = ffn(part)
         out.append(ttnn.add(part, upd))
         ttnn.deallocate(upd)
-    return ttnn.concat(out, dim=1)
+    # The concat needs the whole result while `m` and every block are live. With a real MSA
+    # (2ad6, 1280 tokens x 8192 rows) DRAM refused it: 106.7 MiB/bank against a 74.7 MiB
+    # largest block. `m` is the MPWA output and nothing else holds it, so it is consumed.
+    return tenstorrent._acc_concat(out, 1, False, consume=m)
 
 
 #: L -> outer-product row block, once DRAM has refused the single pass at that L. Keyed on L
@@ -1156,23 +1211,25 @@ class OuterProductMean(Module):
         out = self._lin(outer, self.Wout, self.Wout_b)  # [B,Bl,L,256]
         return ttnn.multiply(out, recip_blk)
 
-    def _project(self, mm):  # [B,rows,M,128] -> a, b each [B,rows,M,32]
+    def _project(self, mm, mf=None):  # [B,rows,M,128] -> a, b each [B,rows,M,32]
         ck = self.compute_kernel_config
         x = self._lin(ttnn.layer_norm(mm, weight=self.norm_w, bias=self.norm_b, epsilon=1e-5, compute_kernel_config=ck), self.W)
+        if mf is not None:  # masked MSA entries contribute nothing to the outer product
+            x = ttnn.multiply(x, mf)
         return ttnn.chunk(x, 2, dim=-1)
 
-    def __call__(self, m, recip_nvalid):  # m [B,L,M,128]; recip_nvalid [B,L,L,1]
+    def __call__(self, m, recip_nvalid, mf=None):  # m [B,L,M,128]; recip_nvalid [B,L,L,1]; mf [B,L,M,1] or None
         ck = self.compute_kernel_config
         B, L, M = m.shape[0], m.shape[1], m.shape[2]
         # The LayerNorm transient is a full [B,L,M,128] (2 GiB at L=1024, M=8192);
         # rows are independent, so build a/b in row blocks.
         blocks = _msa_row_blocks(L, M)
         if blocks:
-            parts = [self._project(m[:, s:e]) for s, e in blocks]
+            parts = [self._project(m[:, s:e], None if mf is None else mf[:, s:e]) for s, e in blocks]
             a = ttnn.concat([p[0] for p in parts], dim=1)
             b = ttnn.concat([p[1] for p in parts], dim=1)
         else:
-            a, b = self._project(m)  # [B,L,M,32]
+            a, b = self._project(m, mf)  # [B,L,M,32]
         b2 = ttnn.reshape(ttnn.permute(b, (0, 2, 1, 3)), (B, M, L * 32))   # [B,M,L*32]
         # The a2@b2 product is [B,L*32,L*32] (~2 GiB at L=1024), which OOMs the
         # 12 GB/chip Wormhole DRAM. Output row i depends only on a[i] and b, so
@@ -1249,7 +1306,8 @@ class MSAPairWeightedAveraging(Module):
         for s, e in blocks:
             out_tt = ttnn.from_torch(rows(out, s, e), layout=ttnn.TILE_LAYOUT, device=self.device, dtype=_DTYPE)
             upd.append(ttnn.add(rows(m, s, e), lin(out_tt, self.Wout)))
-        return upd[0] if len(upd) == 1 else ttnn.concat(upd, dim=1)
+        from tt_bio import tenstorrent
+        return tenstorrent._acc_concat(upd, 1, False)
 
 
 class MSAEncoderBlock(Module):
@@ -1264,14 +1322,21 @@ class MSAEncoderBlock(Module):
         self.tri_in = TriangleMultiplication(True, _remap_trimul(self.weights.as_dict(), "tri_mul_in._engine"), compute_kernel_config)
         self.pair_transition = SwiGLUFFN(_remap_transition_named(self.weights.as_dict(), "pair_transition"), compute_kernel_config)
 
-    def __call__(self, m, pair, recip_nvalid):
-        pair = ttnn.add(pair, self.opm(m, recip_nvalid))
+    def __call__(self, m, pair, recip_nvalid, mf=None):
+        # `pair` is the encoder's own tensor (block 0 gets MSAEncoder.forward's upload), so every
+        # residual adds in place. A fresh sum is a third pair tensor beside the MSA: 3abq at 1536
+        # with its MSA was refused the pair-transition sum, 1193803776 B against a 64.7 MiB/bank
+        # largest block.
+        u = self.opm(m, recip_nvalid, mf)
+        ttnn.add_(pair, u)
+        ttnn.deallocate(u)
         if not self.is_final:
             m = self.mpwa(m, pair)  # residual included
             m = _msa_transition_residual(m, self.msa_transition)
-        pair = ttnn.add(pair, self.tri_out(pair, None))
-        pair = ttnn.add(pair, self.tri_in(pair, None))
-        pair = ttnn.add(pair, self.pair_transition(pair))
+        for f in (lambda z: self.tri_out(z, None), lambda z: self.tri_in(z, None), self.pair_transition):
+            u = f(pair)
+            ttnn.add_(pair, u)
+            ttnn.deallocate(u)
         return m, pair
 
 
@@ -1292,13 +1357,15 @@ class MSAEncoderModel(Module):
             for i in range(n_layers)
         ]
 
-    def __call__(self, x_pair, x_inputs, m_feat, recip_nvalid):
+    def __call__(self, x_pair, x_inputs, m_feat, recip_nvalid, mf=None):
         ck = self.compute_kernel_config
         lin = self._lin
         m = ttnn.add(lin(m_feat, self.embed_w), ttnn.unsqueeze(lin(x_inputs, self.project_w), 2))
+        # The features are an MSA-sized upload used only here; the blocks hold `m` beside it.
+        ttnn.deallocate(m_feat)
         pair = x_pair
         for block in self.blocks:
-            m, pair = block(m, pair, recip_nvalid)
+            m, pair = block(m, pair, recip_nvalid, mf)
         return pair
 
 
@@ -1317,7 +1384,9 @@ class MSAEncoder(TorchWrapper):
         mask_f = msa_mask.float()
         n_valid = (mask_f @ mask_f.transpose(-1, -2)).clamp(min=1.0).unsqueeze(-1)  # [B,L,L,1]
         ft = self._from_torch
-        out = self.module(ft(x_pair), ft(x_inputs), ft(m_feat.float()), ft((1.0 / n_valid).float()))
+        # An all-ones mask (no column masking) multiplies by one: skip it.
+        mf = None if bool(mask_f.all()) else ft(mask_f.unsqueeze(-1))
+        out = self.module(ft(x_pair), ft(x_inputs), ft(m_feat.float()), ft((1.0 / n_valid).float()), mf)
         return self._to_torch(out)
 
 
@@ -1434,14 +1503,24 @@ class StructureHead(TorchWrapper):
         self._fb = weights["diffusion_module.conditioning.fourier.b"]
         return DiffusionModuleModel(weights.child("diffusion_module"), self.compute_kernel_config)
 
-    def sample(self, z_trunk, s_inputs, relpos, ref_pos, ref_charge, ref_mask, ref_element,
-               ref_atom_name_chars, ref_space_uid, tok_idx, steps=14, seed=0, multiplicity=1):
+    def sample(self, *args, steps=14, seed=0, multiplicity=1):
+        self.prepare(*args)
+        try:
+            return self.draw(steps=steps, seed=seed, multiplicity=multiplicity)
+        finally:
+            self.release()
+
+    def prepare(self, z_trunk, s_inputs, relpos, ref_pos, ref_charge, ref_mask, ref_element,
+                ref_atom_name_chars, ref_space_uid, tok_idx):
         # Build the step-invariant tensors ONCE and keep them resident on the
-        # device for the whole trajectory: the pair conditioning, atom features,
+        # device until release(): the pair conditioning, atom features,
         # 3D-RoPE / band / scatter / gather tables. Only the (tiny) noisy coords
         # cross PCIe each step — z_trunk/relpos (~L²·256) and the pair
-        # conditioning are not re-transferred / re-computed per step.
-        dmm, sigma = self.module, self.sigma_data
+        # conditioning are not re-transferred / re-computed per step, nor per
+        # sample chunk: the fp32 z_trunk upload is one contiguous L²·256·4 B
+        # request, and re-making it per chunk is what failed 1152 tokens x 2
+        # samples on Wormhole once the first chunk had fragmented DRAM.
+        dmm = self.module
         B, N, L = ref_pos.shape[0], ref_pos.shape[1], s_inputs.shape[1]
         ft = self._from_torch
         atom_feats = torch.cat([
@@ -1457,21 +1536,26 @@ class StructureHead(TorchWrapper):
         dmm.prepare(ft(s_inputs), ft(z_trunk), ft(relpos), ft(atom_feats.float()),
                     ft(cos.float()), ft(sin.float()), ft(band.float()),
                     ft(scatter_m.float()), ft(gather_g.float()), ft(valid))
+        self._base, self._ref_mask, self._n_atoms = dmm._ctx, ref_mask, N
 
-        # Best-of-N batching: the conditioning above is molecule-only (identical
+    def draw(self, steps=14, seed=0, multiplicity=1):
+        """One trajectory of `multiplicity` samples on the tensors prepare() left resident."""
+        dmm, sigma, ft = self.module, self.sigma_data, self._from_torch
+        ref_mask, N = self._ref_mask, self._n_atoms
+
+        # Best-of-N batching: the conditioning is molecule-only (identical
         # across diffusion samples), so replicate the resident tensors to
-        # `multiplicity` once — then a SINGLE B=N trajectory draws N distinct
+        # `multiplicity` — then a SINGLE B=N trajectory draws N distinct
         # samples (different noise per batch row) for ~1x the device cost of one
         # (B=1 underutilizes the grid). B=1 is untouched (bit-identical). The
-        # only data crossing PCIe per step stays the tiny noisy coords.
+        # only data crossing PCIe per step stays the tiny noisy coords. The base
+        # stays resident beside the replicas for the next chunk; multiplicity > 1
+        # only happens where B·L² fits the budget, so that costs at most one
+        # L≈390 pair conditioning.
         if multiplicity > 1:
-            def _rep(v):
-                if not isinstance(v, ttnn.Tensor):
-                    return v
-                r = ttnn.repeat(v, [multiplicity] + [1] * (len(v.shape) - 1))
-                ttnn.deallocate(v)
-                return r
-            dmm._ctx = {k: _rep(v) for k, v in dmm._ctx.items()}
+            rep = lambda v: (ttnn.repeat(v, [multiplicity] + [1] * (len(v.shape) - 1))
+                             if isinstance(v, ttnn.Tensor) else v)
+            dmm._ctx = {k: rep(v) for k, v in self._base.items()}
             ref_mask = ref_mask.repeat(multiplicity, 1)
 
         def denoise(x_noisy, t_hat):
@@ -1492,7 +1576,14 @@ class StructureHead(TorchWrapper):
             return sample_structure(denoise, N, ref_mask, steps=steps,
                                     sigma_data=sigma, seed=seed)
         finally:
-            dmm.release_cache()
+            if dmm._ctx is not self._base:
+                dmm.release_cache()
+                dmm._ctx = self._base
+
+    def release(self):
+        self.module._ctx = getattr(self, "_base", {}) or {}
+        self.module.release_cache()
+        self._base = self._ref_mask = None
 
 
 # ===========================================================================

@@ -61,7 +61,7 @@ from tt_bio._vendor.openfold3.projects.of3_all_atom.config.dataset_config_compon
 from tt_bio._vendor.openfold3.projects.of3_all_atom.config.inference_query_format import (
     Query,
 )
-from tt_bio.cache import cached, publish_text, seq_hash, staged
+from tt_bio.cache import cached, paired_msa_dir, publish_text, seq_hash, staged
 
 
 def resolve_openfold3_msas(
@@ -110,22 +110,50 @@ def resolve_openfold3_msas(
         )
     paths = {i: p for i, p in paths.items() if cached(p)}
     for i, path in paths.items():
-        # OF3 filters direct MSA files by canonical source basename. Keep the shared
-        # hash cache unchanged and expose the same bytes under its ColabFold source name.
-        of3_path = msa_dir / "of3" / path.stem / "colabfold_main.a3m"
-        of3_path.parent.mkdir(parents=True, exist_ok=True)
-        if not cached(of3_path):
-            # A previous run's cross-device fallback could be killed mid-copy, and the copy
-            # went straight to this name, so drop whatever is there before relinking.
-            of3_path.unlink(missing_ok=True)
-            try:
-                os.link(path, of3_path)
-            except FileExistsError:
-                pass  # a concurrent worker linked it first
-            except OSError:
-                with staged(of3_path) as tmp:
-                    shutil.copyfile(path, tmp)
-        query.chains[i].main_msa_file_paths = [of3_path]
+        query.chains[i].main_msa_file_paths = [
+            _expose(path, msa_dir / "of3" / path.stem / "colabfold_main.a3m")]
+    return query
+
+
+def _expose(src: Path, dst: Path) -> Path:
+    """OF3 filters direct MSA files by canonical source basename. Keep the shared cache
+    unchanged and expose the same bytes under the ColabFold source name the parser wants."""
+    dst.parent.mkdir(parents=True, exist_ok=True)
+    if not cached(dst):
+        # A previous run's cross-device fallback could be killed mid-copy, and the copy
+        # went straight to this name, so drop whatever is there before relinking.
+        dst.unlink(missing_ok=True)
+        try:
+            os.link(src, dst)
+        except FileExistsError:
+            pass  # a concurrent worker linked it first
+        except OSError:
+            with staged(dst) as tmp:
+                shutil.copyfile(src, tmp)
+    return dst
+
+
+def attach_openfold3_paired_msas(query: Query, msa_dir: str | Path, pairable=None) -> Query:
+    """Give each protein chain of a heteromer the paired MSA already cached for its complex,
+    as ``colabfold_paired``: the file upstream's ColabFold client writes and the
+    ``paired_msa_order`` the featurizer stacks on top of the main MSA
+    (``create_paired_from_precomputed``). A complex with one unique protein sequence, or
+    whose paired MSA is not cached, is left alone and folds unpaired, as upstream does.
+
+    ``pairable`` (sequence hashes) limits pairing to the chains the paired search covered,
+    so a ``msa: empty`` chain neither gets paired rows nor changes its partners' cache key."""
+    seqs = {seq_hash(c.sequence): c.sequence for c in query.chains
+            if c.molecule_type.name == "PROTEIN" and c.sequence
+            and (pairable is None or seq_hash(c.sequence) in pairable)}
+    pdir = paired_msa_dir(Path(msa_dir).expanduser(), seqs.values())
+    if pdir is None or not all(cached(pdir / f"{h}.a3m") for h in seqs):
+        return query
+    for chain in query.chains:
+        h = seq_hash(chain.sequence) if chain.sequence else None
+        if chain.molecule_type.name == "PROTEIN" and h in seqs:
+            chain.paired_msa_file_paths = [
+                _expose(pdir / f"{h}.a3m", pdir / h / "colabfold_paired.a3m")]
+    query.use_paired_msas = True
     return query
 
 
@@ -153,18 +181,24 @@ def augment_openfold3_msas_with_query_sequence(
     the write is tmp-file + rename so concurrent workers never expose a
     partial file.
     """
-    msa_dir = Path(msa_dir).expanduser()
     for chain in query.chains:
         if chain.molecule_type.name not in ("PROTEIN", "RNA"):
             continue
         if chain.main_msa_file_paths:
             continue
-        a3m = (msa_dir / "of3" / "dummy" / seq_hash(chain.sequence)
-               / "colabfold_main.a3m")
-        if not cached(a3m):
-            publish_text(a3m, ">query\n" + chain.sequence)
-        chain.main_msa_file_paths = [a3m]
+        chain.main_msa_file_paths = [query_only_msa(msa_dir, chain.sequence)]
     return query
+
+
+def query_only_msa(msa_dir, sequence: str) -> Path:
+    """The one-row alignment upstream folds a chain with when it has no MSA, published once
+    per sequence. A chain whose input says ``msa: empty`` gets this too: it is what upstream
+    means by single-sequence, and what ``--single_sequence`` already gives every chain."""
+    a3m = (Path(msa_dir).expanduser() / "of3" / "dummy" / seq_hash(sequence)
+           / "colabfold_main.a3m")
+    if not cached(a3m):
+        publish_text(a3m, ">query\n" + sequence)
+    return a3m
 
 
 def make_openfold3_msa_features(
@@ -187,10 +221,37 @@ def make_openfold3_msa_features(
     return msa_feat.index_select(0, valid)
 
 
-def _get_structure_with_ref_mols(query: Query):
+def _atom_index(atom_array, cid, res, atom) -> int:
+    """The atom a `bond` endpoint (chain id, 1-indexed residue, atom name) names. A SMILES
+    ligand is one residue whose atoms upstream names element + 1-based count in SMILES order
+    (C1, O1, C2), the portable naming every model accepts."""
+    on = np.flatnonzero(atom_array.chain_id == cid)
+    if not len(on):
+        raise ValueError(f"bond constraint references chain '{cid}', which is not in the input.")
+    ids = list(dict.fromkeys(atom_array.res_id[on].tolist()))
+    if not 1 <= res <= len(ids):
+        raise ValueError(f"bond constraint references residue {res} on chain '{cid}', "
+                         f"which has {len(ids)}.")
+    r = on[atom_array.res_id[on] == ids[res - 1]]
+    hit = r[atom_array.atom_name[r] == atom]
+    if not len(hit):
+        raise ValueError(
+            f"bond constraint references atom '{atom}' on residue {res} "
+            f"({atom_array.res_name[r[0]]}) of chain '{cid}', which it does not have. "
+            f"Its atoms: {', '.join(atom_array.atom_name[r].tolist())}.")
+    return int(hit[0])
+
+
+def _get_structure_with_ref_mols(query: Query, bonds=None):
     atom_array, processed_reference_molecules = structure_with_ref_mols_from_query(
         query=query
     )
+    # A user `bond` joins the two atoms BEFORE tokenization, which is where upstream reads
+    # the bond graph: tokenize_atom_array atomizes a residue that makes a non-peptide bond
+    # to another residue, and token_bonds keeps the bonds between atomized atoms (AF3 SI
+    # Table 5). Query.covalent_bonds is declared upstream and read by nothing.
+    for a1, a2 in bonds or []:
+        atom_array.bonds.add_bond(_atom_index(atom_array, *a1), _atom_index(atom_array, *a2), 1)
     tokenize_atom_array(atom_array)
     add_token_positions(atom_array)
     return atom_array, processed_reference_molecules
@@ -288,6 +349,8 @@ def build_openfold3_features(
     ccd_file_path: str | None = None,
     template_structures_directory: str | Path | None = None,
     openbind: bool = False,
+    bonds: list | None = None,
+    cyclic: list[str] | None = None,
 ) -> dict[str, torch.Tensor]:
     """Featurizes a single OpenFold3 `Query` into a model-ready feature dict.
 
@@ -334,7 +397,7 @@ def build_openfold3_features(
         CIFFile.read(ccd_file_path) if ccd_file_path is not None else BiotiteCCDWrapper()
     )
 
-    atom_array, processed_reference_molecules = _get_structure_with_ref_mols(query)
+    atom_array, processed_reference_molecules = _get_structure_with_ref_mols(query, bonds)
     n_tokens = get_token_count(atom_array)
 
     features: dict = {"atom_array": atom_array}
@@ -350,6 +413,11 @@ def build_openfold3_features(
         add_ref_space_uid_to_perm=False,
     )
     features.update(structure_features | reference_conformer_features)
+    if cyclic:
+        # `cyclic: true` -> upstream's relpos wrap (relpos_complex reads cyclic_mask), the
+        # same cyclic offset RF3 applies. Absent, relpos is untouched.
+        tok_chain = atom_array.chain_id[features["start_atom_index"].long().numpy()]
+        features["cyclic_mask"] = torch.from_numpy(np.isin(tok_chain, list(cyclic)))
 
     msa_sample_processor = MsaSampleProcessorInference(config=msa_settings)
     msa_featurizer = MsaFeaturizerOF3(

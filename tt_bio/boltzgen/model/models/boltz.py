@@ -121,13 +121,11 @@ class Boltz(nn.Module):
         3. Inverse folding
         4. Affinity prediction
         """
-        # Reserve a ttnn trace region BEFORE any module opens the device: the
-        # per-step DiT trace (AtomDiffusion -> TTScoreModelAdapter.forward_traced)
-        # needs it. Mirrors Protenix's get_device(trace_region_size=1<<30). The
-        # first get_device() call opens, so this must precede module construction.
+        # Reserve the DiT trace region BEFORE any module opens the device: the first
+        # get_device() opens, so this must precede module construction.
         if diffusion_trace:
             from tt_bio.tenstorrent import get_device
-            get_device(trace_region_size=1 << 30)
+            get_device(trace="diffusion")
         self.inverse_fold = inverse_fold
         self.inference_logging = inference_logging
         self.use_kernels = use_kernels
@@ -528,6 +526,8 @@ class Boltz(nn.Module):
                         s_inputs, s_init, z_init, feats, recycling_steps,
                         relative_position_encoding,
                     )
+                    # Its staged inputs are dead now; see the same call in boltz2.py.
+                    _trunk.reset_static_cache()
                     _emit_progress("trunk", recycling_steps + 1, recycling_steps + 1)
                 else:
                     for i in range(recycling_steps + 1):
@@ -637,6 +637,10 @@ class Boltz(nn.Module):
                         feats=feats,
                     )
                 dict_out.update(struct_out)
+            # The sampler's staged conditioning is dead too, and the confidence head is next.
+            for m in self.structure_module.modules():
+                if hasattr(m, "reset_static_cache"):
+                    m.reset_static_cache()
 
         if self.confidence_prediction:
             dict_out.update(

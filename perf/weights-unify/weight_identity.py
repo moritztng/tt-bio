@@ -78,16 +78,17 @@ def resolve_all() -> dict:
     from tt_bio.saprot import CONFIGS as SAPROT_CONFIGS
     try:
         from huggingface_hub import hf_hub_download, snapshot_download
+        from tt_bio.weights import hf_revision
         for name, (_c, repo, wpath) in ESMC_CONFIGS.items():
-            p = Path(hf_hub_download(repo, wpath))
+            p = Path(hf_hub_download(repo, wpath, revision=hf_revision(repo)))
             out.setdefault(name, {})["weights"] = {"path": str(p), "digest": digest(p)}
         for name, (_c, repo) in SAPROT_CONFIGS.items():
             if name == "saprot-1.3b":
                 continue                     # not cached on this host
-            p = Path(snapshot_download(repo))
+            p = Path(snapshot_download(repo, revision=hf_revision(repo)))
             out.setdefault(name, {})["snapshot"] = {"path": str(p), "digest": digest(p)}
-        out["esmc-6b"] = {"snapshot": {"path": str(Path(snapshot_download("biohub/ESMC-6B"))),
-                                       "digest": digest(Path(snapshot_download("biohub/ESMC-6B")))}}
+        p = Path(snapshot_download("biohub/ESMC-6B", revision=hf_revision("biohub/ESMC-6B")))
+        out["esmc-6b"] = {"snapshot": {"path": str(p), "digest": digest(p)}}
     except Exception as e:
         out["_embed_error"] = f"{type(e).__name__}: {str(e)[:120]}"
 

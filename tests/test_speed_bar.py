@@ -51,6 +51,12 @@ def test_mixed_hosts_void_the_comparison():
     assert sb.judge(rt, 1536, rt[1024] * 3, identity=ids)["verdict"] == "VOID"
 
 
+def test_mixed_thread_caps_void_the_comparison():
+    rt = _curve(2.0)
+    ids = {n: ("whglx", 3, "abc", 64) for n in FIT} | {1536: ("whglx", 3, "abc", 2)}
+    assert sb.judge(rt, 1536, rt[1024] * 1.5 ** 3, identity=ids)["verdict"] == "VOID"
+
+
 def test_an_oversubscribed_host_voids_the_comparison():
     rt = _curve(2.0)
     quiet = {n: 0.6 for n in FIT} | {1536: 0.6}

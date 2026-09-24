@@ -150,6 +150,34 @@ def test_the_fast_arm_is_only_reachable_by_asking_for_it():
                     f"{model}/{arch}: no fast sibling, so both arms must give the same row")
 
 
+def test_a_refusal_names_the_fast_arm_when_it_admits_the_input(monkeypatch):
+    """A refusal on the default arm says --fast when the model's own fp8 row takes the input.
+
+    esmc-6b on Wormhole is weight-bound: 1968 aa in bf16, 8192 with --fast. Without this the
+    refusal at 1984 named other models and TT_BIO_SIZE_LIMIT=0, which runs into the allocator
+    (1984 OOMs on a 30965760 B request, measured 2026-09-23 on j10glx02). The two negative controls
+    are a run that already asked for --fast and a size above the fast cap: neither may say it.
+    """
+    monkeypatch.delenv("TT_BIO_SIZE_LIMIT", raising=False)
+    rows = [(m, a, c) for m, per in sl.CEILINGS.items() for a, c in per.items()
+            if c.fast is not None]
+    assert rows
+    for model, arch, c in rows:
+        between = c.residues + 1
+        with pytest.raises(sl.SizeTooLargeError) as e:
+            sl.check(model, between, arch=arch)
+        assert "--fast" in str(e.value) and str(c.fast.residues) in str(e.value), str(e.value)
+        sl.check(model, between, arch=arch, fast=True)          # admitted: the hint was true
+        if c.fast.residues is not None:
+            above = c.fast.residues + 1
+            with pytest.raises(sl.SizeTooLargeError) as e:
+                sl.check(model, above, arch=arch)
+            assert "--fast" not in str(e.value), str(e.value)
+            with pytest.raises(sl.SizeTooLargeError) as e:
+                sl.check(model, above, arch=arch, fast=True)
+            assert "rerun with --fast" not in str(e.value), str(e.value)
+
+
 def test_ladder_top_publishes_the_size_it_proved():
     """A ladder-top cap must BE the top rung, not a rung below it held back for margin.
 
@@ -175,7 +203,7 @@ def test_check_refuses_above_and_admits_at_the_cap():
 
 def test_unmeasured_and_unknown_arch_never_refuse(monkeypatch):
     """Absence of a limit is not a limit -- the rule that keeps this guard from inventing ceilings."""
-    sl.check("boltz2", 100_000, arch="wormhole_b0")     # measured-nothing model
+    sl.check("nesso1", 100_000, arch="wormhole_b0")     # measured-nothing model
     sl.check("boltz2", 100_000, arch="blackhole")       # no row on this arch
     sl.check("opendde", 100_000, arch="grayskull")      # nor on an arch nobody measured
     # The no-card case has to be FORCED. Passing arch=None only reaches it on a host that has no
@@ -223,6 +251,48 @@ def test_the_freeze_rows_refuse_1536_and_admit_the_size_that_folds():
         assert "blackhole" in msg, (
             f"{m}: the refusal must name the arch, because the same size folds elsewhere: {msg}")
         sl.check(m, 1024, arch="blackhole")     # the size that folds is admitted, silently
+
+
+@pytest.mark.parametrize("model", ["boltz2", "rf3", "protenix-v2", "openfold3",
+                                   "openbind", "esmfold2", "esmfold2-fast"])
+def test_a_wormhole_row_walked_past_1536_admits_1536_and_refuses_its_first_failure(model):
+    """These rows were walked on one Galaxy chip past the 1536 the campaign targets. Before they
+    existed boltz2 and protenix-v1 were never refused and rf3, openfold3, protenix-v2 and openbind
+    stopped at the top of a ladder, so each first failure was admitted and died on the chip; each row has to turn that into
+    a refusal without losing the 1536 that folds."""
+    c = sl.ceiling(model, "wormhole_b0")
+    assert c.binds == sl.MEMORY and c.fail_at > c.residues >= 1536
+    sl.check(model, 1536, arch="wormhole_b0")
+    sl.check(model, c.residues, arch="wormhole_b0")
+    with pytest.raises(sl.SizeTooLargeError):
+        sl.check(model, c.fail_at, arch="wormhole_b0")
+
+
+@pytest.mark.parametrize("model", ["protenix-v1"])
+def test_a_wormhole_row_that_folds_the_top_of_its_walk_refuses_above_it(model):
+    """protenix-v1 folded 2048, the top rung its walk runs, once mgx-bigalloc landed. Nothing above
+    was measured, so the cap is the size that folded: 1536 and the cap are admitted and one
+    residue more is refused, so nothing unmeasured is let in."""
+    c = sl.ceiling(model, "wormhole_b0")
+    assert c.binds == sl.LADDER_TOP and c.fail_at is None and c.pass_at == c.residues > 1536
+    sl.check(model, 1536, arch="wormhole_b0")
+    sl.check(model, c.residues, arch="wormhole_b0")
+    with pytest.raises(sl.SizeTooLargeError):
+        sl.check(model, c.residues + 1, arch="wormhole_b0")
+
+
+@pytest.mark.parametrize("model", ["opendde", "opendde-abag"])
+def test_a_wormhole_row_bound_by_run_time_says_so_when_it_refuses(model):
+    """OpenDDE at 1664 does not crash on a Galaxy chip: the residue pair no longer fits as one
+    allocation, every pair op joins its blocks on the host, and the fold runs for hours. A
+    refusal that called that a failure would send the user hunting for an OOM that never happens,
+    so the message has to name run time, and 1536 has to stay admitted."""
+    c = sl.ceiling(model, "wormhole_b0")
+    assert c.binds == sl.RUNTIME and c.pass_at == c.residues == 1536 and c.fail_at == 1664
+    sl.check(model, 1536, arch="wormhole_b0")
+    with pytest.raises(sl.SizeTooLargeError) as e:
+        sl.check(model, c.fail_at, arch="wormhole_b0")
+    assert "hours" in str(e.value), str(e.value)
 
 
 def test_each_arch_refuses_on_its_own_number():
@@ -321,11 +391,11 @@ def test_pxdesign_is_sized_from_the_crop_and_excludes_the_binder():
     y = ("target:\n  file: t.cif\n  chains:\n    A:\n      crop: [\"1-116\"]\n"
          "binder_length: 80\n")
     assert sl.scan_pxdesign_target(y) == 116        # 116, not 196
-    two = ("target:\n  file: t.cif\n  chains:\n    A:\n      crop: [\"1-600\"]\n"
-           "    B:\n      crop: [\"1-500\"]\nbinder_length: 80\n")
-    assert sl.scan_pxdesign_target(two) == 1100
+    two = ("target:\n  file: t.cif\n  chains:\n    A:\n      crop: [\"1-1000\"]\n"
+           "    B:\n      crop: [\"1-600\"]\nbinder_length: 80\n")
+    assert sl.scan_pxdesign_target(two) == 1600
     with pytest.raises(sl.SizeTooLargeError):
-        sl.check("pxdesign", 1100, arch="wormhole_b0")
+        sl.check("pxdesign", 1600, arch="wormhole_b0")
 
 
 def test_pxdesign_admits_the_target_the_platform_advertises():
@@ -334,10 +404,15 @@ def test_pxdesign_admits_the_target_the_platform_advertises():
     2026-09-08 to 2026-09-19 while the platform advertised and enforced 1024, so every job in
     between was accepted by the service and refused here -- the service shells out to
     `tt-bio design` and sets no TT_BIO_SIZE_LIMIT. Measured, twice, on the serving Galaxy.
+
+    The cap is 1536 now (ws:mgx-design-ceiling walked the ladder there on whglx), so the
+    platform's own number is no longer the boundary. It is still the number that has to be
+    admitted, which is what this asserts; the boundary is asserted beside it.
     """
     sl.check("pxdesign", 960, arch="wormhole_b0")
+    sl.check("pxdesign", 1536, arch="wormhole_b0")
     with pytest.raises(sl.SizeTooLargeError):
-        sl.check("pxdesign", 961, arch="wormhole_b0")
+        sl.check("pxdesign", 1537, arch="wormhole_b0")
 
 
 def test_an_unsizable_design_spec_refuses_nothing():
@@ -433,7 +508,7 @@ def test_a_residue_refusal_never_offers_the_atom_denominated_model():
     assert "boltzgen" not in sl.models_accepting(1200, "wormhole_b0")
     assert "boltzgen" in sl.models_accepting(1200, "wormhole_b0", counts=sl.TARGET_ATOMS)
     with pytest.raises(sl.SizeTooLargeError) as e:
-        sl.check("opendde", 1200, arch="wormhole_b0")
+        sl.check("opendde", _OVER_OPENDDE, arch="wormhole_b0")
     assert "boltzgen" not in str(e.value), str(e.value)
 
 
@@ -546,7 +621,7 @@ def test_check_input_refuses_a_real_file_before_any_device(tmp_path):
         sl.check_input(big, "opendde", arch="wormhole_b0")
     assert "big.yaml" in str(e.value)
     sl.check_input(big, "opendde", arch="grayskull")   # unmeasured arch: silent
-    sl.check_input(big, "boltz2", arch="wormhole_b0")  # unmeasured model: silent
+    sl.check_input(big, "nesso1", arch="wormhole_b0")  # unmeasured model: silent
 
 
 def test_check_input_scans_every_file_in_a_directory(tmp_path):
@@ -639,8 +714,12 @@ def test_every_sizer_covers_the_suffixes_its_command_accepts(tmp_path):
         ("opendde", "big.fasta", ">t|protein\n" + "A" * _OVER_OPENDDE + "\n"),
         ("rfd3", "spec.json", '{"a": {"input": "t.pdb", "contig": "A1-2,4000"}}'),
         ("rfd3", "spec.yaml", 'a:\n  input: t.pdb\n  contig: A1-2,4000\n'),
+        # Derived from the row, not written down: a literal 1100 was over the cap when this was
+        # written and under it once ws:mgx-design-ceiling walked pxdesign to 1536, at which point
+        # the case stopped exercising the sizer and started asserting that a passing size raises.
         ("pxdesign", "t.yaml",
-         'target:\n  file: t.cif\n  chains:\n    A:\n      crop: ["1-1100"]\n'),
+         'target:\n  file: t.cif\n  chains:\n    A:\n      crop: '
+         f'["1-{_over_cap("pxdesign")}"]\n'),
         # BoltzGen is sized off the file its spec points at, so its oversized case needs one on
         # disk beside the spec -- written below, and named here as `big.cif`.
         ("boltzgen", "bg.yaml", 'entities:\n  - protein:\n      id: Z\n      sequence: 80\n'
@@ -661,7 +740,7 @@ def test_every_sizer_covers_the_suffixes_its_command_accepts(tmp_path):
 #: MSA track's DRAM defects are fixed -- so they stopped exercising the hatch and started asserting
 #: that a passing size raises. `residues + 1` is over the cap for BOTH kinds of row: one with a
 #: recorded negative control, and one that is simply the top of its ladder with nothing above it
-#: measured (which is what openfold3 became). Derived, so it cannot go stale when a ladder moves.
+#: measured (which openfold3 was until its 1088 failure was measured). Derived, so it cannot go stale.
 def _over_cap(model="openfold3", arch="wormhole_b0"):
     row = sl.ceiling(model, arch)
     assert row.measured and row.residues, (model, arch)
@@ -712,8 +791,8 @@ def test_a_refusal_on_a_mostly_unmeasured_arch_does_not_claim_nothing_fits():
     assert "no measured ceiling on blackhole" in msg_unmeasured, msg_unmeasured
     # and where every model IS measured the original sentence still has to be reachable
     with pytest.raises(sl.SizeTooLargeError) as e2:
-        sl.check("opendde", 1200, arch="wormhole_b0")
-    assert "Models with a measured ceiling above 1200" in str(e2.value)
+        sl.check("opendde", _OVER_OPENDDE, arch="wormhole_b0")
+    assert f"Models with a measured ceiling above {_OVER_OPENDDE}" in str(e2.value)
 
 
 # --- The ligand is tokens, and tokens are what the wall is made of ---------------------------
@@ -772,8 +851,7 @@ def test_a_ligand_at_the_residue_cap_is_refused_instead_of_reaching_the_chip():
     residue count cannot see one, and the fold then died on the chip instead of at submission.
 
     What a row has room for at its own cap is `wall - residues`, and that is not a free parameter:
-    it is 0 on the three ladders walked apo, and 64 on openbind, whose 960 was walked with 35
-    ligand atoms already on it -- the number that row's evidence states in words.
+    it is 0 on every ladder walked apo, which is every token row today.
     """
     for model, arch, c in _TOKEN_ROWS:
         wall = sl.padded_tokens(model, c.tokens)
@@ -784,26 +862,23 @@ def test_a_ligand_at_the_residue_cap_is_refused_instead_of_reaching_the_chip():
             sl.check(model, c.residues, ligand_atoms=room + 1, arch=arch)
         msg = str(e.value)
         assert "tokens" in msg and str(wall) in msg, msg
-    assert sl.padded_tokens("openbind", sl.ceiling("openbind", "wormhole_b0").tokens) - 960 == 64
 
 
 def test_the_cocrystals_measured_to_fold_are_still_admitted():
     """From the evidence, not invented: esmfold2 folded 991 aa + a 33-atom ligand in 278 s, and
-    openbind's row states 960 residues holds for a ligand of 64 atoms or fewer. A guard that
-    refuses either has over-corrected, which is the worse failure of the two."""
+    openbind folded 960 aa + CCD STU (35 atoms) on GWH02. A guard that refuses either has
+    over-corrected, which is the worse failure of the two."""
     sl.check("esmfold2", 991, ligand_atoms=33, arch="wormhole_b0")
-    sl.check("openbind", 960, ligand_atoms=64, arch="wormhole_b0")
-    with pytest.raises(sl.SizeTooLargeError):
-        sl.check("openbind", 960, ligand_atoms=65, arch="wormhole_b0")
+    sl.check("openbind", 960, ligand_atoms=35, arch="wormhole_b0")
 
 
 def test_a_ligand_free_input_is_checked_exactly_as_it_was():
     """No false-refusal regression: with no ligand the verdict is the residue comparison, on every
     row of the table, including the four that now carry a token wall.
 
-    openbind is why this is asserted and not assumed. Its 960 was walked WITH a 35-atom ligand, so
-    its token wall is 1024 -- and letting that wall speak for a ligand-free input would raise a
-    published cap by 64 residues on the strength of no ladder at all.
+    A row walked WITH a ligand has a token wall above its residue cap (openbind's old 960 with a
+    35-atom ligand had 1024), and letting that wall speak for a ligand-free input would raise a
+    published cap on the strength of no ladder at all.
     """
     for model, arch, fast, c in _rows():
         if not c.measured or c.residues is None:
@@ -860,12 +935,13 @@ def _yaml(tmp_path, name, body):
 
 @_needs_ccd
 def test_ligand_atoms_are_counted_from_the_ccd_component_the_model_tokenises(tmp_path):
-    """35 for STU is not a number this test chose -- it is the ligand openbind's ladder was walked
-    with, written into that row's evidence, so the counter and the row agree on the same molecule."""
+    """35 for STU is not a number this test chose -- it is the ligand openbind's GWH02 ladder was
+    walked with, written into that row's evidence, so the counter and the row agree on the same
+    molecule."""
     q = _yaml(tmp_path, "co.yaml",
               "sequences:\n  - protein: {id: A, sequence: MKTAYIAK}\n  - ligand: {id: L, ccd: STU}\n")
     assert sl.scan_ligand_atoms(q) == 35
-    assert sl.ceiling("openbind", "wormhole_b0").ladder_ligand_atoms == 35
+    assert "STU (35 atoms)" in sl.ceiling("openbind", "wormhole_b0").evidence
 
 
 @_needs_ccd
@@ -894,17 +970,19 @@ def test_an_input_with_no_ligand_scores_zero_and_junk_never_raises(tmp_path):
 
 @_needs_ccd
 def test_check_input_refuses_a_cocrystal_before_any_device(tmp_path):
-    """End to end on the CLI's own entry point: 1000 residues is under esmfold2's 1024 cap and was
-    admitted, STU takes it to 1035 tokens, and 1035 pads to 1056 against a 1024 wall."""
+    """End to end on the CLI's own entry point: cap - 24 residues is under esmfold2's cap and is
+    admitted, STU's 35 atoms take it 11 tokens over, and that pads past the wall."""
     cap = sl.ceiling("esmfold2", "wormhole_b0").residues
     body = ("sequences:\n  - protein: {id: A, sequence: " + "A" * (cap - 24) + "}\n"
             "  - ligand: {id: L, ccd: STU}\n")
     q = _yaml(tmp_path, "cocrystal.yaml", body)
-    sl.check_input(str(q), "rf3", arch="wormhole_b0")            # no token wall: still admitted
+    sl.check_input(str(q), "protenix-v1", arch="wormhole_b0")    # no token wall: still admitted
     with pytest.raises(sl.SizeTooLargeError) as e:
         sl.check_input(str(q), "esmfold2", arch="wormhole_b0")
     msg = str(e.value)
-    assert "35-atom ligand" in msg and "1035 tokens" in msg and "1056" in msg, msg
+    padded = sl.padded_tokens("esmfold2", cap + 11)
+    assert padded > cap, padded
+    assert "35-atom ligand" in msg and f"{cap + 11} tokens" in msg and str(padded) in msg, msg
     # and the same file without its ligand is admitted, so the ligand is what refused it
     apo = _yaml(tmp_path, "apo.yaml", body.split("  - ligand")[0])
     sl.check_input(str(apo), "esmfold2", arch="wormhole_b0")

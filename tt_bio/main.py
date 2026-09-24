@@ -146,7 +146,7 @@ from tt_bio import __version__, size_limits, weights
 from tt_bio.data import const
 from tt_bio.data.mol import load_molecules
 from tt_bio.data.msa import run_mmseqs2
-from tt_bio.cache import cached, publish_file, publish_text, seq_hash
+from tt_bio.cache import EMPTY_MSA, cached, paired_msa_dir, publish_file, publish_text, seq_hash
 from tt_bio.data.parse import parse_a3m, parse_csv, parse_fasta, parse_yaml
 from tt_bio.data.pdb import write_atom_array
 from tt_bio.data.types import Coords, Input, Interface
@@ -161,6 +161,7 @@ from tt_bio.distributed import (
 from tt_bio.energy import DEFAULT_ENERGY_SAMPLE_HZ, PowerProfiler
 from tt_bio.progress import DebugDisplay, NullDisplay, ProgressDisplay
 from tt_bio.runtime import (
+    bind_host_threads,
     build_local_workers,
     conflicting_mpi_env,
     mpi_env_warning,
@@ -288,37 +289,54 @@ def ensure_pxdesign_weights(cache: Path) -> Path:
 
 def compute_msa(seqs: dict[str, str], target_id: str, msa_dir: Path, url: str, strategy: str,
                 username: str = None, password: str = None, api_key: str = None) -> None:
-    """Generate MSAs for protein sequences via ColabFold server."""
+    """Generate Boltz-2 ``{seq_hash}.csv`` MSAs via the ColabFold server.
+
+    ``seqs`` maps seq_hash -> sequence. Two or more sequences are one complex: their paired
+    rows come from the shared paired search (:func:`_generate_paired_a3m`) and the CSVs are
+    written to that complex's :func:`paired_msa_dir`, because the ``key`` column only means
+    something against the partners it was searched with. One sequence writes
+    ``msa_dir/{seq_hash}.csv`` with no paired rows, as before.
+    """
     click.echo(f"MSA for {target_id} ({len(seqs)} sequences)")
     headers = {"Content-Type": "application/json", "X-API-Key": api_key} if api_key else None
     seqs_list = list(seqs.values())
-    # Key run_mmseqs2's working/cache dir by the exact sequence set, NOT by
-    # target_id. target_id is the input filename stem (e.g. "target_1") and
-    # repeats across inputs, so a target-keyed prefix makes one run's cached a3m
-    # get reused by another: a single-chain run caches one query, then a later
-    # multi-chain run with the same target_id reuses it while expecting N queries
-    # and dies with KeyError on the missing query index. A content hash keys the
-    # cache by what was actually searched — collision-free, still reused when the
-    # same sequence set recurs.
-    tag = hashlib.sha256("\n".join(seqs_list).encode()).hexdigest()[:16]
 
-    paired = (run_mmseqs2(seqs_list, msa_dir / f"{tag}_paired_tmp", use_env=True,
-                         use_pairing=True, host_url=url, pairing_strategy=strategy,
-                         msa_server_username=username, msa_server_password=password, auth_headers=headers)
-             if len(seqs) > 1 else [""] * len(seqs))
+    paired = _generate_paired_a3m(seqs, target_id, msa_dir, url, strategy,
+                                  username, password, api_key) or {}
+    out_dir = paired_msa_dir(msa_dir, seqs_list) or msa_dir
 
-    unpaired = run_mmseqs2(seqs_list, msa_dir / f"{tag}_unpaired_tmp", use_env=True,
+    unpaired = run_mmseqs2(seqs_list, _mmseqs_prefix(msa_dir, seqs_list, "unpaired"), use_env=True,
                           use_pairing=False, host_url=url, pairing_strategy=strategy,
                           msa_server_username=username, msa_server_password=password, auth_headers=headers)
 
-    for i, name in enumerate(seqs):
-        paired_seqs = [s for s in paired[i].strip().splitlines()[1::2][:const.max_paired_seqs] if s != "-" * len(s)]
-        unpaired_seqs = unpaired[i].strip().splitlines()[1::2][:const.max_msa_seqs - len(paired_seqs)]
+    write_boltz_csvs(out_dir, paired, dict(zip(seqs, unpaired)))
+
+
+def _mmseqs_prefix(msa_dir: Path, seqs, kind: str) -> Path:
+    """``run_mmseqs2``'s working dir, keyed by the exact sequences searched.
+
+    ``run_mmseqs2`` reuses an ``out.tar.gz`` it finds there, so a prefix keyed by the input
+    file stem (which repeats: "target_1", "complex") hands one run's alignments to the next
+    run under the same name. With the same number of queries nothing fails: each new sequence
+    is cached with another protein's MSA. A content hash is still reused when the same
+    sequences recur.
+    """
+    tag = hashlib.sha256("\n".join(seqs).encode()).hexdigest()[:16]
+    return msa_dir / f"{tag}_{kind}_tmp"
+
+
+def write_boltz_csvs(out_dir: Path, paired: dict[str, str], unpaired: dict[str, str]) -> None:
+    """Write one Boltz-2 ``{seq_hash}.csv`` per sequence: its paired a3m rows keyed 0..n on top
+    (row j of every chain is one genome), then its unpaired rows keyed -1. ``paired`` and
+    ``unpaired`` map seq_hash -> a3m text; a sequence with no paired a3m gets unpaired rows only."""
+    for name, text in unpaired.items():
+        paired_seqs = [s for s in paired.get(name, "").strip().splitlines()[1::2][:const.max_paired_seqs] if s != "-" * len(s)]
+        unpaired_seqs = text.strip().splitlines()[1::2][:const.max_msa_seqs - len(paired_seqs)]
         if paired_seqs:
             unpaired_seqs = unpaired_seqs[1:]
         keys = list(range(len(paired_seqs))) + [-1] * len(unpaired_seqs)
         lines = ["key,sequence"] + [f"{k},{s}" for k, s in zip(keys, paired_seqs + unpaired_seqs)]
-        publish_text(msa_dir / f"{name}.csv", "\n".join(lines))
+        publish_text(out_dir / f"{name}.csv", "\n".join(lines))
 
 
 _COLABFOLD_SEARCH_PATHS = [
@@ -620,6 +638,7 @@ def prepare_features(path, ccd, mol_dir, msa_dir, tokenizer, featurizer,
 
     # Identify protein chains needing MSA, keyed by sequence hash for global caching
     to_gen = {}
+    searched = []
     for chain in record.chains:
         # --single_sequence: fold every protein chain without an MSA (self-only),
         # skipping both cached alignments and any online/offline search.
@@ -627,14 +646,31 @@ def prepare_features(path, ccd, mol_dir, msa_dir, tokenizer, featurizer,
             chain.msa_id = -1
             continue
         if chain.mol_type == const.chain_type_ids["PROTEIN"] and chain.msa_id == 0:
-            seq = target.sequences[chain.entity_id]
-            h = seq_hash(seq)
-            a3m = msa_dir / f"{h}.a3m"
-            chain.msa_id = str(a3m) if cached(a3m) else str(msa_dir / f"{h}.csv")
-            if not cached(chain.msa_id):
-                to_gen[h] = seq
+            searched.append(chain)
         elif chain.msa_id == 0:
             chain.msa_id = -1
+    # A heteromer's CSVs carry pairing keys, which mean something only against the partners
+    # they were searched with, so the complex gets its own directory and is searched whole.
+    # Keyed per chain, a partner already cached from an earlier fold left the new chain to be
+    # searched alone, and nothing paired. A cache-only run reads the complex's CSVs when they
+    # are there; an offline run keeps the per-chain cache.
+    prot = {seq_hash(target.sequences[c.entity_id]): target.sequences[c.entity_id]
+            for c in searched}
+    pdir = None if msa_db_path else paired_msa_dir(msa_dir, prot.values())
+    if pdir is not None and not use_msa and not all(cached(pdir / f"{h}.csv") for h in prot):
+        pdir = None
+    for chain in searched:
+        seq = target.sequences[chain.entity_id]
+        h = seq_hash(seq)
+        a3m = msa_dir / f"{h}.a3m"
+        if pdir is not None:
+            chain.msa_id = str(pdir / f"{h}.csv")
+        else:
+            chain.msa_id = str(a3m) if cached(a3m) else str(msa_dir / f"{h}.csv")
+        if not cached(chain.msa_id):
+            to_gen[h] = seq
+    if pdir is not None and to_gen:
+        to_gen = prot
 
     if to_gen:
         # Serialize MSA generation per sequence across all workers sharing this
@@ -650,9 +686,12 @@ def prepare_features(path, ccd, mol_dir, msa_dir, tokenizer, featurizer,
                 locks.append(lf)
             # Re-check under the locks: another worker may have produced some of
             # these while we waited, so only generate what is still missing.
-            to_gen = {h: s for h, s in to_gen.items()
-                      if not cached(msa_dir / f"{h}.a3m")
-                      and not cached(msa_dir / f"{h}.csv")}
+            if pdir is not None:
+                to_gen = prot if not all(cached(pdir / f"{h}.csv") for h in prot) else {}
+            else:
+                to_gen = {h: s for h, s in to_gen.items()
+                          if not cached(msa_dir / f"{h}.a3m")
+                          and not cached(msa_dir / f"{h}.csv")}
             if to_gen and msa_db_path:
                 compute_msa_offline(to_gen, record.id, msa_dir, msa_db_path,
                                     use_env=use_envdb, pairing_strategy=msa_strategy)
@@ -1366,6 +1405,7 @@ def _stream_run(client: ControllerClient, run_id: str, total: int, n_workers: in
     failed = 0
     all_dead_seen = False
     failures: dict[str, str] = {}  # this run's failures: job id -> error message
+    aff_failures: dict[str, str] = {}  # structure ok, affinity leg raised
     rows_by_id: dict[str, dict] = {}
     if results_path is not None:
         rows_by_id = {r["id"]: r for r in _load_results_resilient(results_path)
@@ -1387,6 +1427,8 @@ def _stream_run(client: ControllerClient, run_id: str, total: int, n_workers: in
                     if isinstance(row, dict) and "id" in row:
                         if row.get("status") == "failed":
                             failures[row["id"]] = row.get("error") or "failed"
+                        elif row.get("affinity_error"):
+                            aff_failures[row["id"]] = row["affinity_error"]
                         if results_path is not None:
                             rows_by_id[row["id"]] = row
                             try:
@@ -1474,6 +1516,11 @@ def _stream_run(client: ControllerClient, run_id: str, total: int, n_workers: in
             click.echo(f"  ✗ {job_id}: {summary or lines[0]}")
             for extra in (lines if summary else lines[1:]):
                 click.echo(f"      {extra}")
+    if aff_failures:
+        click.echo(f"\n{len(aff_failures)} structure(s) folded but their affinity failed "
+                   f"(no affinity keys in results.json, reason under affinity_error):")
+        for job_id, error in aff_failures.items():
+            click.echo(f"  ✗ {job_id}: {(str(error).splitlines() or [''])[0]}")
     return failed
 
 
@@ -1583,6 +1630,36 @@ def _dispatch_to_controller(controller_url: str, run_payload: dict, *, total: in
         _clear_shared_outputs(run_payload, struct_dir)
     click.echo(f"\nDone: {total - failed} ok, {failed} failed — {results_path}")
     return failed
+
+
+def _refuse_unfoldable_jobs(jobs, model: str, results_path: Path):
+    """Split ``jobs`` into the ones ``model`` can fold and the ones it refuses.
+
+    A refused input is reported and recorded as a failed row in results.json, and the rest of
+    the batch folds: one file with a key this model cannot honour used to abort a directory
+    of fifty before the first fold. Returns ``(foldable, {job id: refusal})``.
+    """
+    from tt_bio.capabilities import check_capabilities
+
+    keep, refused = [], {}
+    for job in jobs:
+        jp = Path(job.path)
+        try:
+            check_capabilities(jp, _read_bio_chains(jp, what=model), model)
+            keep.append(job)
+        except (RuntimeError, click.ClickException) as e:
+            refused[job.id] = e.message if isinstance(e, click.ClickException) else str(e)
+    if refused and keep:
+        click.secho(f"Skipping {len(refused)} of {len(jobs)} input(s) --model {model} "
+                    f"refuses; folding the other {len(keep)}:", fg="red", err=True)
+        for job_id, why in refused.items():
+            click.secho(f"  ✗ {job_id}: {why}", fg="red", err=True)
+        rows = {r["id"]: r for r in _load_results_resilient(results_path)
+                if isinstance(r, dict) and "id" in r}
+        rows.update({j: {"id": j, "status": "failed", "error": why}
+                     for j, why in refused.items()})
+        _save_results(list(rows.values()), results_path)
+    return keep, refused
 
 
 def _exit_for_failed_jobs(failed: int, total: int) -> None:
@@ -2299,7 +2376,8 @@ def _read_bio_chains(path, what="input"):
     and one set of accepted keys.
 
     The FASTA type field and the YAML entry key select the modality; protein keeps its
-    MSA, nucleic-acid and ligand chains are single-sequence (``msa_spec=None``). A ligand
+    MSA, nucleic-acid and ligand chains are single-sequence (``msa_spec=None``). Polymer
+    sequences are uppercased here, once, because RF3's tokenizer rejects lowercase. A ligand
     carries its spec in the ``sequence`` slot: ``CCD_<code>`` for a CCD component (comma
     separated for a multi-residue ligand chain) or a raw SMILES string. ``modifications``
     is the polymer's ``[{"position": N, "ccd": CODE}]`` list (1-indexed, Boltz
@@ -2317,7 +2395,8 @@ def _read_bio_chains(path, what="input"):
             # we auto-assign below — gate on `is not None` so it isn't silently dropped.
             if cid is not None and buf:
                 seq = "".join(buf)
-                seq = ("CCD_" + seq.upper()) if mt == "_ccd" else seq   # ccd code -> CCD_ spec
+                # ccd code -> CCD_ spec; a polymer is case-insensitive, a SMILES is not
+                seq = "CCD_" + seq.upper() if mt == "_ccd" else seq if mt == "ligand" else seq.upper()
                 mtype = "ligand" if mt in ("_ccd", "ligand") else mt
                 for c in cid.split(","):
                     chains.append((c.strip() or _chain_label(len(chains)), seq, msa, mtype, None))
@@ -2330,7 +2409,7 @@ def _read_bio_chains(path, what="input"):
                 if typ in ("", "protein"):
                     cid, buf, mt = parts[0].strip(), [], "protein"
                     m = parts[2].strip() if len(parts) > 2 else ""
-                    msa = m if m and m.lower() != "empty" else None
+                    msa = EMPTY_MSA if m.lower() == EMPTY_MSA else (m or None)
                 elif typ in _NA_HEADER_TYPES:
                     cid, buf, mt, msa = parts[0].strip(), [], _NA_HEADER_TYPES[typ], None
                 elif typ in ("ccd", "ion", "smiles", "ligand"):
@@ -2350,16 +2429,19 @@ def _read_bio_chains(path, what="input"):
                 continue
             for key, mt in (("protein", "protein"), ("rna", "rna"), ("dna", "dna")):
                 sub = entry.get(key)
-                if not (sub and sub.get("sequence")):
+                if not isinstance(sub, dict):
+                    # an empty `sequence:` still reaches the blank check below, which names the
+                    # chain; skipping it here folded the rest of the complex without it
                     continue
                 m = sub.get("msa") if mt == "protein" else None
-                m = str(m) if m and str(m).lower() not in ("", "empty") else None
+                m = str(m).strip() if m else None
+                m = EMPTY_MSA if m and m.lower() == EMPTY_MSA else (m or None)
                 mods = _read_modifications(sub, key)
                 ids = sub.get("id", "A")
                 id_list = ([str(x) for x in ids] if isinstance(ids, (list, tuple))
                            else str(ids).split(","))
                 for c in id_list:
-                    chains.append((c.strip(), sub["sequence"], m, mt, mods))
+                    chains.append((c.strip(), str(sub.get("sequence") or "").upper(), m, mt, mods))
             lig = entry.get("ligand")                       # {ccd: CODE|[CODE, ...]} or {smiles: STR}
             if isinstance(lig, dict) and (lig.get("ccd") or lig.get("smiles")):
                 if lig.get("ccd"):
@@ -2379,6 +2461,14 @@ def _read_bio_chains(path, what="input"):
         raise click.ClickException(
             f"{path.name}: chain(s) {', '.join(blank)} have empty/whitespace-only "
             f"sequences (a ligand carries its CCD/SMILES spec in the same slot).")
+    # A digit or symbol in a polymer folded as an extra residue on the models that map an
+    # unknown letter to UNK. Whitespace is layout, not a residue.
+    for cid, cseq, _sp, mt, _mods in chains:
+        bad = [f"{i + 1}{c}" for i, c in enumerate("".join(cseq.split())) if not c.isalpha()]
+        if mt != "ligand" and bad:
+            raise click.ClickException(
+                f"{path.name}: chain {cid} has non-letter character(s) at "
+                f"{', '.join(bad[:8])}; a {mt} sequence is one letter per residue.")
     return chains
 
 
@@ -2392,7 +2482,7 @@ def _read_modifications(sub: dict, key: str):
     mods = sub.get("modifications")
     if not mods:
         return None
-    seq_len = len("".join(str(sub["sequence"]).split()))
+    seq_len = len("".join(str(sub.get("sequence") or "").split()))
     for mod in mods:
         pos = mod.get("position") if isinstance(mod, dict) else None
         if not isinstance(pos, int) or not (1 <= pos <= seq_len) or not mod.get("ccd"):
@@ -2439,6 +2529,46 @@ def _read_bio_constraints(path):
     return bonds
 
 
+def _read_cyclic(path) -> list[str]:
+    """Chain ids whose entry says ``cyclic: true`` (the Boltz YAML flag), in input order."""
+    if path.suffix.lower() not in (".yml", ".yaml"):
+        return []
+    import yaml
+    doc = yaml.safe_load(path.read_text()) or {}
+    out = []
+    for entry in doc.get("sequences") or []:
+        for sub in (entry or {}).values():
+            if isinstance(sub, dict) and sub.get("cyclic"):
+                ids = sub.get("id", "A")
+                out += ([str(x) for x in ids] if isinstance(ids, (list, tuple))
+                        else [c.strip() for c in str(ids).split(",")])
+    return out
+
+
+def _read_bio_bonds(path, chains):
+    """Every covalent bond a token-bond model has to see: the `bond` constraints plus, for
+    each ``cyclic: true`` protein, the head-to-tail amide that closes it (C of the last
+    residue to N of the first).
+
+    That amide is how upstream Protenix expresses a cyclic peptide (its
+    docs/infer_json_format.md), and Protenix and OpenDDE have no other cyclic signal: no
+    relpos wrap, no cyclic flag. Models that do have one (Boltz-2, RF3, the OF3 family) read
+    ``_read_cyclic`` directly instead. A nucleic-acid ring would need an O3'-P link the
+    featurizer does not place, so it is refused rather than folded open.
+    """
+    bonds = _read_bio_constraints(path)
+    cyclic = set(_read_cyclic(path))
+    for cid, seq, _sp, mt, _mods in chains:
+        if cid not in cyclic:
+            continue
+        if mt != "protein":
+            raise click.ClickException(
+                f"{path.name}: `cyclic: true` on {mt} chain {cid}: this model closes a ring "
+                "as a peptide bond, so only a protein chain can be cyclic. Use --model boltz2.")
+        bonds.append(((cid, len("".join(seq.split())), "C"), (cid, 1, "N")))
+    return bonds
+
+
 def cap_a3m_text(text, max_seqs):
     """``text`` truncated to its first ``max_seqs`` alignment records (the query is record 0).
 
@@ -2481,6 +2611,8 @@ def _resolve_a3m_path(msa_spec, sequence, msa_dir):
     explicit a3m path (``msa_spec``), then the shared ``{sha256(seq)[:16]}.a3m`` cache in
     ``msa_dir`` (written by the same MSA generation ESMFold2/Boltz-2 use). Mirrors
     resolve_msa's candidate order."""
+    if msa_spec == EMPTY_MSA:
+        return None
     candidates = []
     if msa_spec:
         candidates.append(Path(msa_spec).expanduser())
@@ -2503,7 +2635,7 @@ def _resolve_a3m_text(msa_spec, sequence, msa_dir, max_seqs=None):
 
 
 def _write_protenix_structure(coords, feats, aatype, outpath, output_format, b_factors=None,
-                              mod_names=None):
+                              mod_names=None, chain_ids=None):
     """Write a Protenix-v2 prediction (coords + atom metadata) as PDB/mmCIF via biotite.
 
     Reconstructed entirely from the feature dict so it is modality- and chain-agnostic
@@ -2516,9 +2648,14 @@ def _write_protenix_structure(coords, feats, aatype, outpath, output_format, b_f
     cannot name it: a `modifications:` residue or a CCD ligand chain. Both are tokenized
     per atom and carry restype UNK, so without it the writer names them "LIG" and a user
     who asked for SEP reads back a ligand, or who asked for ATP reads back an unnamed
-    one."""
+    one.
+
+    `chain_ids` is the reader's chain list, one id per asym_id in order. Without it the chains
+    are written A, B, C..., so a ligand submitted as L came back as B and any script selecting
+    a chain by the id it submitted read the wrong one."""
     import biotite.structure as struc
     import biotite.structure.io.pdbx as _pdbx
+    import numpy as np
 
     from tt_bio.data import const
     from tt_bio.protenix_data import restype_to_resname
@@ -2545,9 +2682,11 @@ def _write_protenix_structure(coords, feats, aatype, outpath, output_format, b_f
     arr.add_annotation("occupancy", float); arr.occupancy[:] = 1.0
     arr.add_annotation("b_factor", float)
     arr.b_factor[:] = b_factors.numpy().astype("float32") if b_factors is not None else 0.0
+    label = (lambda n: str(chain_ids[n])) if chain_ids else _chain_label
+    # set, not assigned per atom: the default chain_id dtype is <U4 and truncates a longer id
+    arr.set_annotation("chain_id", np.array([label(int(asym[t])) for t in a2t]))
     for i in range(coords.shape[0]):
         t = a2t[i]
-        arr.chain_id[i] = _chain_label(int(asym[t]))
         arr.res_id[i] = int(resid[t])
         mod = (mod_names or {}).get((int(asym[t]), int(resid[t])))
         arr.res_name[i] = mod or ("LIG" if is_lig_tok[t] else resname[t])
@@ -2611,61 +2750,54 @@ def _generate_esmfold2_a3m(seqs, target_id, msa_dir, msa_db_path, use_envdb,
                             use_env=use_envdb, pairing_strategy=msa_strategy, pair=False)
         return
     headers = {"Content-Type": "application/json", "X-API-Key": api_key} if api_key else None
-    res = run_mmseqs2(list(seqs.values()), msa_dir / f"{target_id}_esm_tmp", use_env=use_envdb,
+    res = run_mmseqs2(list(seqs.values()), _mmseqs_prefix(msa_dir, seqs.values(), "esm"), use_env=use_envdb,
                       use_pairing=False, host_url=msa_url, pairing_strategy=msa_strategy,
                       msa_server_username=msa_user, msa_server_password=msa_pass, auth_headers=headers)
     for i, h in enumerate(seqs):
         publish_text(msa_dir / f"{h}.a3m", res[i])
 
 
-def _generate_opendde_paired_a3m(seqs, target_id, msa_dir, msa_server_url,
-                                 msa_pairing_strategy, msa_server_username,
-                                 msa_server_password, api_key_value,
-                                 msa_db_path=None, use_envdb=False):
-    """Run a species-pairing MSA search for a multi-chain protein complex and return
-    per-seq-hash paired a3m text (one per chain, rows species-aligned across chains).
+def _generate_paired_a3m(seqs, target_id, msa_dir, msa_server_url,
+                         msa_pairing_strategy, msa_server_username,
+                         msa_server_password, api_key_value,
+                         msa_db_path=None, use_envdb=False, search=True):
+    """The species-paired MSA of one complex: ``{seq_hash: a3m_text}`` for ``seqs``
+    (``seq_hash -> sequence``, the complex's unique protein sequences), or None when the
+    complex does not pair or nothing is cached and ``search`` is False.
 
-    With ``msa_db_path`` set, searches a local ColabFold DB via ``compute_msa_offline``
-    (``pair=True``, the same offline pairing path boltz2/protenix-v2 already use in
-    ``prepare_features``) instead of ever touching the network. Otherwise uses the
-    ColabFold pair endpoint (``ticket/pair``) -- the same paired-MSA utility Boltz-2
-    uses and the standard AF3/Protenix docking input -- so the species pairing is done
-    server-side, matching what the reference ``MSAPairingEngine.pair_chains_by_species``
-    produces from per-chain MSAs carrying UniProt/UniRef species IDs. Each returned a3m
-    has the chain's own query as row 0 followed by the paired homologs; row j across
-    chains corresponds to the same genome. Best-effort: callers should catch exceptions
-    and fall back to unpaired-only (no cross-chain signal) rather than failing the
-    whole fold.
+    Each a3m has the chain's own query as row 0 and row j of every chain comes from the
+    same genome. The ColabFold pair endpoint (``ticket/pair``) does the species pairing
+    server-side; it is the source OpenFold3's upstream MSA client writes
+    ``colabfold_paired.a3m`` from, and the one Boltz-2's ``compute_msa`` reads its paired
+    keys from. With ``msa_db_path`` a local ColabFold DB is searched instead.
 
-    Returns ``{seq_hash: a3m_text}`` parallel to the input ``seqs`` dict.
+    Cached under :func:`tt_bio.cache.paired_msa_dir`, one directory per set of sequences.
+    It used to be ``paired/{seq_hash}.a3m``, which handed chain A the rows it had been
+    paired with against its FIRST partner in every later complex, out of step with the new
+    partner's rows.
     """
-    if msa_db_path:
-        # Cache into a DEDICATED subdir, and only search what is missing. Two bugs this fixes,
-        # both found auditing the AbAg-XM campaign (2026-07-27):
-        #  (1) PERF: this helper had no cache check at all (unlike prepare_features above, which
-        #      filters to_gen to the missing hashes), so EVERY multi-chain OpenDDE fold re-ran a
-        #      full offline ColabFold search against the ~279 GB uniref30 index -- pure waste on a
-        #      campaign that pre-warms one MSA per target and folds it many times.
-        #  (2) CORRECTNESS: it wrote `{seq_hash}.a3m` into the SHARED msa_dir, silently
-        #      overwriting the very files boltz2/protenix-v2 read for the same chains. Keeping
-        #      paired results in their own namespace means the "identical MSA input across
-        #      generators" fairness contract can no longer be clobbered by an OpenDDE run, and a
-        #      cached unpaired a3m can never be served as if it were paired.
-        paired_dir = msa_dir / "paired"
-        paired_dir.mkdir(parents=True, exist_ok=True)
-        to_gen = {k: s for k, s in seqs.items() if not cached(paired_dir / f"{k}.a3m")}
-        if to_gen:
-            compute_msa_offline(to_gen, target_id, paired_dir, msa_db_path, use_env=use_envdb,
+    pdir = paired_msa_dir(msa_dir, seqs.values())
+    if pdir is None:
+        return None
+    if not all(cached(pdir / f"{k}.a3m") for k in seqs):
+        if not search:
+            return None
+        pdir.mkdir(parents=True, exist_ok=True)
+        if msa_db_path:
+            compute_msa_offline(seqs, target_id, pdir, msa_db_path, use_env=use_envdb,
                                 pairing_strategy=msa_pairing_strategy, pair=True)
-        return {k: (paired_dir / f"{k}.a3m").read_text() for k in seqs}
-    headers = {"Content-Type": "application/json", "X-API-Key": api_key_value} if api_key_value else None
-    keys = list(seqs)
-    res = run_mmseqs2([seqs[k] for k in keys], msa_dir / f"{target_id}_paired_tmp",
-                      use_env=True, use_pairing=True, host_url=msa_server_url,
-                      pairing_strategy=msa_pairing_strategy,
-                      msa_server_username=msa_server_username,
-                      msa_server_password=msa_server_password, auth_headers=headers)
-    return {k: res[i] for i, k in enumerate(keys)}
+        else:
+            headers = ({"Content-Type": "application/json", "X-API-Key": api_key_value}
+                       if api_key_value else None)
+            keys = sorted(seqs, key=seqs.get)   # one order per complex, whatever the chain order
+            res = run_mmseqs2([seqs[k] for k in keys], _mmseqs_prefix(msa_dir, [seqs[k] for k in keys], "paired"),
+                              use_env=True, use_pairing=True, host_url=msa_server_url,
+                              pairing_strategy=msa_pairing_strategy,
+                              msa_server_username=msa_server_username,
+                              msa_server_password=msa_server_password, auth_headers=headers)
+            for i, k in enumerate(keys):
+                publish_text(pdir / f"{k}.a3m", res[i])
+    return {k: (pdir / f"{k}.a3m").read_text() for k in seqs}
 
 
 #: Per-model default trunk-recycling count. A TABLE, not a set literal: the count is a
@@ -2701,6 +2833,21 @@ RECYCLING_STEPS_DEFAULT = 3
 #: of 10, openfold3 "Trunk 0/4" at 3, while rf3 and opendde show 10/10 at 10. The help is
 #: built from this, because it used to name openfold3 alone.
 TRUNK_CYCLES_PLUS_ONE = ("boltz2", "esmfold2", "esmfold2-fast", "openfold3", "openbind")
+
+
+def _check_recycling_steps(recycling_steps, model):
+    """Refuse a --recycling_steps that would run no trunk.
+
+    Models outside TRUNK_CYCLES_PLUS_ONE count trunk cycles, not recycles after a first pass,
+    so 0 asks for no trunk at all: protenix folded one from the input embedding alone and rf3
+    silently ran its default of 10 instead (recycle ladder, 2026-09-23).
+    """
+    if recycling_steps is not None and recycling_steps < (0 if model in TRUNK_CYCLES_PLUS_ONE else 1):
+        raise click.BadParameter(
+            f"--recycling_steps counts trunk cycles for {model}, so the smallest is 1 "
+            f"(got {recycling_steps}). " + ", ".join(TRUNK_CYCLES_PLUS_ONE)
+            + " count recycles after a first pass and accept 0.")
+
 
 #: Requested diffusion-sampling steps per model, and what the request executes where the
 #: two differ (see _resolve_sampling_steps for why). The help is built from this: it used
@@ -2871,7 +3018,10 @@ def _resolve_msa_default(model, use_msa_server, msa_db_path, msa_endpoint,
                    + ". A request of 100 executes 68 (the sigma_max=256 schedule clip) and 50 "
                      "executes 49 (the rollout consumes consecutive schedule pairs). Explicit "
                      "values are honored verbatim.")
-@click.option("--diffusion_samples", default=1, type=int)
+@click.option("--diffusion_samples", default=1, type=int,
+              help="Structures to generate. Samples are denoised in chunks, so device memory stops "
+                   "growing once the count passes the chunk width and time grows linearly. See "
+                   "docs/sample-scaling.md.")
 @click.option("--partial_t", default=0, type=int,
               help="RF3 only. Start the diffusion rollout at schedule index N instead of "
                    "from pure noise, so the rollout refines --partial_structure rather than "
@@ -2887,8 +3037,10 @@ def _resolve_msa_default(model, use_msa_server, msa_db_path, msa_endpoint,
                    "confidence head and abandon the target if it is below this. Writes no "
                    "structure and reports early_stopped in the metrics.")
 @click.option("--max_parallel_samples", default=5, type=int,   # protenix.DEFAULT_MAX_PARALLEL_SAMPLES
-              help="Diffusion samples denoised in one batched forward. Higher is faster but "
-                   "costs device memory linearly; lower it if a large target runs out.")
+              help="Diffusion samples denoised in one batched forward by boltz2, protenix-v1/v2, "
+                   "opendde and opendde-abag; the other models pick their own width. Device memory "
+                   "grows linearly in it; if the chip refuses a batch, it halves on its own, down "
+                   "to one sample.")
 @click.option("--step_scale", default=None, type=float)
 @click.option("--output_format", type=click.Choice(["pdb", "cif"]), default="cif")
 @click.option("--override", is_flag=True)
@@ -2923,12 +3075,11 @@ def _resolve_msa_default(model, use_msa_server, msa_db_path, msa_endpoint,
 @click.option("--trace", is_flag=True,
               help="Replay a captured ttnn trace of the per-step diffusion device "
                    "stream (lossless; collapses per-step host dispatch). protenix-v1, "
-                   "protenix-v2 and opendde. Opt-in — reserves a 1 GiB trace region on "
-                   "the device.")
+                   "protenix-v2 and opendde. Opt-in; reserves 0.2-0.3 GB of device memory.")
 @click.option("--diffusion_trace", is_flag=True,
               help="Replay a captured ttnn trace of the per-step diffusion DiT device "
                    "stream (lossless; collapses per-step host dispatch). boltz2 only. "
-                   "Opt-in — reserves a 1 GiB trace region on the device.")
+                   "Opt-in; reserves 0.2-0.3 GB of device memory.")
 @click.option("--write_pae", is_flag=True, help="Write PAE matrix per target (not openfold3)")
 @click.option("--write_pde", is_flag=True, help="Write PDE matrix per target")
 @click.option("--write_embeddings", is_flag=True, help="Write s/z embeddings per target")
@@ -3036,6 +3187,7 @@ def predict(data, out_dir, cache, checkpoint, accelerator, recycling_steps, samp
         raise click.BadParameter("--diffusion_samples_affinity must be at least 1")
     if max_parallel_samples < 1:
         raise click.BadParameter("--max_parallel_samples must be at least 1")
+    _check_recycling_steps(recycling_steps, model)
 
     # Per-model trunk-recycling default (see RECYCLING_STEPS): protenix-v2/opendde/esmfold2/rf3
     # -> 10, protenix-v1 -> 4, boltz2/openfold3 -> 3; --recycling_steps overrides any of them.
@@ -3065,7 +3217,7 @@ def predict(data, out_dir, cache, checkpoint, accelerator, recycling_steps, samp
         model, use_msa_server, msa_db_path, msa_endpoint, single_sequence, cache,
         controller, msa_server_url, msa_cache_only, msa_dir_opt)
 
-    from tt_bio.capabilities import check_capabilities, unread_flags
+    from tt_bio.capabilities import unread_flags
 
     if model in ("esmfold2", "esmfold2-fast", *PROTENIX_FAMILY, "openfold3", "openbind", "opendde",
                  "opendde-abag", "rf3"):
@@ -3144,23 +3296,16 @@ def predict(data, out_dir, cache, checkpoint, accelerator, recycling_steps, samp
         # authoritative point, because the platform submits jobs straight to the controller
         # and never comes through here -- but a user typing a command should not wait two
         # minutes for a model load to be told the yaml key is unsupported.
-        for job in jobs:
-            jp = Path(job.path)
-            try:
-                check_capabilities(jp, _read_bio_chains(jp, what=model), model)
-            except RuntimeError as e:
-                raise click.ClickException(str(e)) from e
+        results_path = out / "results.json"
+        total = len(jobs)
+        jobs, refused = _refuse_unfoldable_jobs(jobs, model, results_path)
+        if not jobs:
+            raise click.ClickException("\n".join(refused.values()))
 
         # MSA is resolved + searched worker-side, exactly like Boltz-2: the worker
         # renders the "MSA" stage, generates any missing {seq_hash}.a3m into the
         # shared msa_dir cache, and folds. MSA is optional here (single-sequence
         # folding when no source is given), so unlike Boltz-2 it never errors out.
-        # --trace: reserve a ttnn trace region on each worker before its first
-        # get_device() open (workers inherit the parent env). Protenix (v1 and v2) and
-        # OpenDDE fold(trace=True) read it back via trace_region_size(); the device must be
-        # opened with the region up front (a later reopen is unstable on TT).
-        if trace:
-            os.environ.setdefault("TT_BIO_TRACE_REGION_SIZE", str(1 << 30))
         worker_cfg = {
             "model": model, "fast": fast, "output_format": output_format,
             "recycling_steps": recycling_steps, "sampling_steps": sampling_steps,
@@ -3179,15 +3324,13 @@ def predict(data, out_dir, cache, checkpoint, accelerator, recycling_steps, samp
             "msa_server_url": msa_server_url, "msa_pairing_strategy": msa_pairing_strategy,
             "msa_server_username": msa_server_username, "msa_server_password": msa_server_password,
             "api_key_value": api_key_value, "max_msa_seqs": max_msa_seqs,
-            # The cap the USER asked for, None when the flag was left alone. esmfold2 keeps
-            # reading max_msa_seqs (8192 is its shipped default); protenix, opendde, rf3 and
-            # the OF3 family read this one, so leaving the flag alone folds exactly the depth
-            # they folded before.
+            # The cap the USER asked for, None when the flag was left alone. esmfold2,
+            # protenix, opendde, rf3 and the OF3 family read this one, so leaving the flag alone
+            # folds the depth each model's upstream reads.
             "msa_cap": msa_cap,
             "msa_cache_only": msa_cache_only,
             "write_pae": write_pae,
         }
-        results_path = out / "results.json"
         run_payload = {"data": str(data), "out_dir": str(out_dir_path), "result_dir": str(out),
                        "jobs": job_payloads(jobs), "config": worker_cfg, "owner": owner}
         # Fetch this model's weights ONCE here, before fanning out. Skipped in
@@ -3197,13 +3340,13 @@ def predict(data, out_dir, cache, checkpoint, accelerator, recycling_steps, samp
         if controller:
             failed = _dispatch_to_controller(controller, run_payload, total=len(jobs), results_path=results_path,
                                              struct_dir=struct_dir, model=model, debug=debug, log=log, run_id=run_id)
-            _exit_for_failed_jobs(failed, len(jobs))
+            _exit_for_failed_jobs(failed + len(refused), total)
             return
         workers = _local_workers("tenstorrent", num_devices, device_ids, max_workers=max(len(jobs), 1))
         _cap_worker_threads(len(workers), host_threads)
         failed = _dispatch_run(run_payload, workers, total=len(jobs), results_path=results_path,
                                struct_dir=struct_dir, model=model, listen=listen, debug=debug, log=log)
-        _exit_for_failed_jobs(failed, len(jobs))
+        _exit_for_failed_jobs(failed + len(refused), total)
         return
 
     os.environ.setdefault("CUEQ_DEFAULT_CONFIG", "1")
@@ -3693,8 +3836,7 @@ def embed_cmd(data, model, out_dir, out_format, pool, return_logits, fast, batch
             ensure_p300_mesh_descriptor()
             click.echo(f"Loading {model}{' (fast)' if fast else ''} …")
             # A trace region is reserved only where a captured trace could be replayed. It comes
-            # off every DRAM bank, so on a 12-bank Wormhole chip it costs 3 GiB and lowers the
-            # sequence ceiling -- see esmc.trace_pays.
+            # off every DRAM bank -- see esmc.trace_pays.
             m = esmc.load_esmc(model, fast=fast, trace=esmc.trace_pays(seqs))
             click.echo(f"Embedding {len(seqs)} sequence(s) → {out}")
             results = esmc.embed_sequences(m, seqs, return_logits=return_logits, pool=pool,
@@ -3747,9 +3889,12 @@ def embed_cmd(data, model, out_dir, out_format, pool, return_logits, fast, batch
               help="HuggingFace cache dir for the checkpoint and the ESM-2 encoder.")
 @click.option("--devices", default=None,
               help="Physical TT card id to pin, e.g. '2'. Default: this machine's first card.")
+@click.option("--host_threads", default=None, type=int,
+              help="CPU threads this process may use (default: all cores). Set it when you run "
+                   "one affinity screen per card side by side, as for `predict`.")
 @torch.no_grad()
 def affinity_cmd(data, model, out_dir, accelerator, trunk, recycling_steps, tokens_budget,
-                 num_workers, seed, ccd, cache, devices):
+                 num_workers, seed, ccd, cache, devices, host_threads):
     """Predict protein-ligand binding affinity without folding a structure.
 
     DATA is a YAML file or a directory of them. Each needs ``version: 1``, at least one
@@ -3777,6 +3922,8 @@ def affinity_cmd(data, model, out_dir, accelerator, trunk, recycling_steps, toke
         if len(ids) > 1:
             raise click.UsageError("--model nesso1 is batch-1 by construction; pass one card id")
         os.environ["TT_VISIBLE_DEVICES"] = ids[0]
+    _cap_worker_threads(1, host_threads)
+    bind_host_threads()
     use_tt = accelerator == "tenstorrent"
     if use_tt:
         _require_ttnn()
@@ -3784,7 +3931,8 @@ def affinity_cmd(data, model, out_dir, accelerator, trunk, recycling_steps, toke
     from tt_bio.nesso1 import DEFAULT_SEED, REPORTED_SCALARS, screen
 
     out = Path(out_dir).expanduser()
-    click.echo(f"Loading {model} ({'tenstorrent' if use_tt else 'cpu'}, trunk {trunk}) …")
+    # --trunk picks the device pairformer; the torch path is fp32 whatever it says.
+    click.echo(f"Loading {model} ({f'tenstorrent, trunk {trunk}' if use_tt else 'cpu, fp32'}) …")
     try:
         rows = screen(
             data, out,
@@ -3807,10 +3955,14 @@ def affinity_cmd(data, model, out_dir, accelerator, trunk, recycling_steps, toke
 
     csv_path = out / "affinity.csv"
     cols = ["id", "n_tokens", "seconds", *REPORTED_SCALARS]
-    with csv_path.open("w") as fh:
-        fh.write(",".join([*cols, "error"]) + "\n")
+    import csv
+
+    with csv_path.open("w", newline="") as fh:
+        # csv quotes an error message's commas; a plain join split them into extra columns.
+        w = csv.writer(fh)
+        w.writerow([*cols, "error"])
         for r in rows:
-            fh.write(",".join([str(r.get(c, "")) for c in cols] + [r.get("error", "")]) + "\n")
+            w.writerow([r.get(c, "") for c in cols] + [r.get("error", "")])
     ok = [r for r in rows if "error" not in r]
     click.echo(f"Done — {len(ok)}/{len(rows)} scored → {csv_path}")
     if len(ok) != len(rows):
@@ -3986,8 +4138,9 @@ def _run_pxdesign_cli(inputs: Path, out_dir, cache, num_designs, n_step, seed) -
                    "(rfd3; each design gets noise seed --seed + design_idx, written as "
                    "<spec_id>.cif when 1 else <spec_id>_<i>.cif), or 1 (pxdesign, where it is "
                    "also the batch axis: every requested design comes from one batched "
-                   "diffusion trajectory, and 8 at a time runs about 1.25x faster per design "
-                   "than 1; past 8 it gets slower again).")
+                   "diffusion trajectory, and the gain per design grows with the batch and "
+                   "shrinks with the target: 2.7x at 8 against a 256-residue target, 1.5x at "
+                   "a 512-residue one, and flat from 16 up rather than turning back).")
 @click.option("--devices", "--device_ids", "devices", default=None,
               help="Comma-separated physical TT card ids to fan the designs across, e.g. "
                    "'0,1,2,3' (data-parallel, the same pattern `tt-bio predict` uses). "
@@ -4054,8 +4207,8 @@ def _run_pxdesign_cli(inputs: Path, out_dir, cache, num_designs, n_step, seed) -
                    "precision, faster).")
 @click.option("--diffusion_trace", is_flag=True,
               help="boltzgen only. Replay a captured ttnn trace of the per-step diffusion "
-                   "DiT device stream (lossless; collapses per-step host dispatch). Opt-in — "
-                   "reserves a 1 GiB trace region on the device.")
+                   "DiT device stream (lossless; collapses per-step host dispatch). Opt-in; "
+                   "reserves 0.2-0.3 GB of device memory.")
 @click.option("--debug", is_flag=True,
               help="boltzgen only. Debug mode: no Rich display, no output suppression.")
 @click.option("--log", is_flag=True,

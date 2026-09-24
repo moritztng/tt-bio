@@ -1,0 +1,3 @@
+# Boltz-2 + small on the HiFi3 revert (the head readings ran HiFi3), seed 0.
+{"tag": "rev_b_512_small", "surface": "boltz2", "input": "perf/mgx_affinity/inputs/size/cdk2_512_small.yaml"}
+{"tag": "rev_b_1536_small", "surface": "boltz2", "input": "perf/mgx_affinity/inputs/size/cdk2_1536_small.yaml"}

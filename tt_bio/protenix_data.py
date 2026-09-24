@@ -37,6 +37,16 @@ from pathlib import Path
 # standard AlphaFold restype order (index -> one-letter); index 7=G, 15=S (matches v2 golden)
 RESTYPE_ORDER = "ARNDCQEGHILKMFPSTWYV"
 RESTYPE_DIM = 32  # protenix restype width (20 aa + X/gap/other slots)
+
+
+def residue_atoms(res: str) -> list:
+    """Heavy-atom names of a protein residue, in CCD order: the atom list every Protenix-family
+    featurizer lays out. The 20 standard residues are Boltz's ``const.ref_atoms``. UNK, which
+    is what `X` in a sequence becomes, follows upstream Protenix (``constants.py``, "UNK": N CA
+    C O CB CG) and the CCD component rather than Boltz's table, which stops at CB. The bundled
+    conformers carry the CCD ideal coordinates for exactly these atoms."""
+    from .data import const
+    return ["N", "CA", "C", "O", "CB", "CG"] if res == "UNK" else list(const.ref_atoms[res])
 MOL_TYPE_IDS = {"protein": 0, "rna": 1, "dna": 2, "ligand": 3}  # per-token mol_type enum (build_complex_features -> feats["mol_type"])
 _AA1_TO_IDX = {c: i for i, c in enumerate(RESTYPE_ORDER)}
 
@@ -91,6 +101,12 @@ def load_ref_conformers() -> dict:
 
 
 MSA_GAP_IDX = RESTYPE_DIM - 1  # protenix MSA vocab: gap '-' is the last class (31)
+# The alignment pool every upstream of this featurizer assembles at inference, paired rows first
+# and at most half of it: Protenix v2.0.0 `MSAFeaturizer(max_msa_size=16384)`
+# (protenix/data/msa/msa_featurizer.py:171,253,272-274), OpenDDE 1.1.1 the same class
+# (opendde/data/msa/msa_featurizer.py:42,124,145, `msa_pool_size` 16384) and Protenix v0.5.0
+# `max_size` 16384 (configs/configs_data.py:202-205). Rows past it are rows upstream never reads.
+MSA_POOL_ROWS = 16384
 
 
 def dummy_template_features(n_token: int, max_templates: int = 4) -> dict:
@@ -264,9 +280,11 @@ def build_protein_features(sequence: str, a3m: str | None = None) -> dict:
 def _resolve_bond_token(placement: dict, cid, res, atom) -> int:
     """Map a `bond` constraint endpoint (chain id, 1-indexed residue, atom name) to its
     global token index, using the per-chain placement recorded in build_complex_features.
-    A standard polymer residue is one token (atom name unused); a ligand and a MODIFIED
-    residue are tokenized per atom, so there the atom name picks the token and an unknown
-    name is an error rather than a bond quietly landing on the wrong atom."""
+    A standard polymer residue is one token, so its atom name does not pick the token; it is
+    still checked against the residue's atoms, because SG named on an Asp is a wrong input and
+    not a bond. A ligand and a MODIFIED residue are tokenized per atom, so there the atom name
+    picks the token. Either way an unknown name is an error rather than a bond quietly
+    landing on the wrong atom."""
     cid = str(cid)
     if cid not in placement:
         raise ValueError(f"bond constraint references chain '{cid}', which is not in the input.")
@@ -287,6 +305,12 @@ def _resolve_bond_token(placement: dict, cid, res, atom) -> int:
             raise ValueError(f"bond constraint references atom '{atom}' on modified residue "
                              f"{res} of chain '{cid}', which has no such atom.")
         return start + mod_atoms[atom]
+    from .data import const
+    name = p["res_names"][res - 1]
+    known = residue_atoms(name) if name in const.ref_atoms else []
+    if atom not in known and atom not in ("OXT", "OP3"):
+        raise ValueError(f"bond constraint references atom '{atom}' on residue {res} ({name}) "
+                         f"of chain '{cid}', which has atoms {', '.join(known)}.")
     return start + p["res_tok"][res - 1]
 
 
@@ -359,6 +383,7 @@ def build_complex_features(chains: list, mol_dir: str | None = None,
     per_chain_msa = []                               # (start_col, n_tok, raw_msa|None, restype_idx, seq, msa_col)
     placement = {}                                    # chain_id -> how a bond endpoint resolves
     tpl_blocks = []                                   # (tok_off, msa_col, aatype, pos, mask)
+    c_bonded = {(str(c), int(r)) for pair in (bonds or []) for c, r, a in pair if a == "C"}
     for ci, (seq, a3m, mt) in enumerate(norm):
         lig_names, res_tok, res_atoms = None, None, {}
         msa_col = None
@@ -370,9 +395,19 @@ def build_complex_features(chains: list, mol_dir: str | None = None,
             block_bonds.append((tok_off, lbonds))
         else:
             mods_ci = modifications[ci] if modifications else None
+            oxt_ci = None if oxt is None else oxt[ci]
+            if mt == "protein" and c_bonded and chain_ids is not None:
+                # A bond on a residue's backbone C consumes its OXT, the CCD leaving group
+                # upstream's remove_leaving_atoms drops. A cyclic peptide's closing amide
+                # left it on, so the ring's carbon carried four heavy neighbours and the
+                # N-C distance could not come below ~2.2 A.
+                taken = {r for c, r in c_bonded if c == str(chain_ids[ci])}
+                if taken:
+                    n_seq = len("".join(str(seq).split()))
+                    oxt_ci = [(bool(oxt_ci[k]) if oxt_ci is not None else k == n_seq - 1)
+                              and k + 1 not in taken for k in range(n_seq)]
             af, rt_idx, res_index, mbonds, res_tok, res_atoms, msa_col = polymer_chain_features(
-                seq, mt, mods_ci, conformers, mols,
-                oxt=None if oxt is None else oxt[ci])
+                seq, mt, mods_ci, conformers, mols, oxt=oxt_ci)
             n = rt_idx.shape[0]
             n_res = len(res_tok)
             if mbonds is not None:                            # modified residues: CCD bonds
@@ -405,7 +440,8 @@ def build_complex_features(chains: list, mol_dir: str | None = None,
             name_to_local = {nm: i for i, nm in enumerate(lig_names)} if lig_names is not None else None
             placement[str(chain_ids[ci])] = {"start": tok_off, "mt": mt, "n": n_res,
                                              "atoms": name_to_local, "res_tok": res_tok,
-                                             "res_atoms": res_atoms}
+                                             "res_atoms": res_atoms,
+                                             "res_names": _res_names(seq, mt)}
         tok_off += n
         res_off += n_res
     N_tot = tok_off
@@ -469,12 +505,21 @@ def build_complex_features(chains: list, mol_dir: str | None = None,
     # the min-truncate is a robustness guard in case a chain's paired a3m is shorter. Dropping
     # the query avoids double-counting it (it is already row 0 of the unpaired block); the
     # reference does the equivalent via cleanup_unpaired_features.
-    if paired_chain_msa and all(pm.shape[0] > 0 for pm, _ in paired_chain_msa):
-        min_pd = min(pm.shape[0] for pm, _ in paired_chain_msa)
+    # Only protein chains pair (the reference's msa_featurizer pairs PROTEIN_CHAIN only); a
+    # nucleic-acid or ligand chain keeps an empty block and reads as gaps in the paired rows.
+    prot_pd = [pm.shape[0] for (pm, _), (_s, _a, mt) in zip(paired_chain_msa, norm) if mt == "protein"]
+    if prot_pd and all(prot_pd):
+        # Upstream keeps at most MSA_POOL_ROWS // 2 paired rows counting the query, which this
+        # layout carries in the unpaired block instead.
+        min_pd = min(min(prot_pd), MSA_POOL_ROWS // 2)
         paired_chain_msa = [(pm[1:min_pd], pdm[1:min_pd]) for pm, pdm in paired_chain_msa]
         max_pd = min_pd - 1
     else:
         max_pd = 0
+    # Each chain's unpaired rows fill the pool after its paired ones (upstream step 4, first rows
+    # kept). profile and deletion_mean above were taken before the crop, as upstream takes them.
+    msa_full = msa_full[:MSA_POOL_ROWS - max_pd]
+    del_full = del_full[:MSA_POOL_ROWS - max_pd]
     if max_pd > 0:
         paired_full = torch.full((max_pd, N_tot), GAP, dtype=torch.long)
         paired_del = torch.zeros((max_pd, N_tot))
@@ -557,13 +602,13 @@ def protein_atom_features(aatype: torch.Tensor, conformers: dict, oxt=None) -> d
     elem_idx, name_chars, tokatom, disto_rep = [], [], [], []
     for t, aa in enumerate(aatype.tolist()):
         res = letter_to_res[RESTYPE_ORDER[aa]] if aa < len(RESTYPE_ORDER) else "UNK"
-        atoms = list(const.ref_atoms[res])
+        atoms = residue_atoms(res)
         disto_atom = const.res_to_disto_atom.get(res, "CA")  # distogram rep atom (CB, or CA for GLY)
         conf = torch.as_tensor(conformers[res], dtype=torch.float32)
         if bool(oxt[t]) if oxt is not None else t == n_tok - 1:  # C-terminal carboxylate O
-            atoms = atoms + ["OXT"]
             # synthesize OXT as the carboxylate mirror of O through C (any valid ref conformer)
-            c_i, o_i = const.ref_atoms[res].index("C"), const.ref_atoms[res].index("O")
+            c_i, o_i = atoms.index("C"), atoms.index("O")
+            atoms = atoms + ["OXT"]
             conf = torch.cat([conf, (2 * conf[c_i] - conf[o_i])[None]], 0)
         for k, nm in enumerate(atoms):
             elem_idx.append(z_of[nm[0]] - 1)
@@ -619,6 +664,17 @@ def seq_to_restype(seq: str, mol_type: str = "protein") -> torch.Tensor:
         return aatype_from_sequence(seq)
     table, unk = (_RNA_LETTER_IDX, 25) if mol_type == "rna" else (_DNA_LETTER_IDX, 30)
     return torch.tensor([table.get(c.upper(), unk) for c in seq], dtype=torch.long)
+
+
+def _res_names(seq, mol_type: str) -> list:
+    """Per-residue CCD code of a polymer chain, the key into const.ref_atoms (None for a ligand)."""
+    from .data import const
+    if mol_type == "ligand":
+        return None
+    seq = "".join(str(seq).split())
+    if mol_type in ("rna", "dna"):
+        return _na_res_codes(seq, mol_type)
+    return [const.prot_letter_to_token.get(c.upper(), "UNK") for c in seq]
 
 
 def _na_res_codes(seq: str, mol_type: str) -> list:
@@ -707,19 +763,21 @@ def polymer_chain_features(seq: str, mt: str, mods: list | None, conformers: dic
     mod_ccd = {int(m["position"]): str(m["ccd"]).upper() for m in (mods or [])}
     codes = _na_res_codes(seq, mt) if mt in ("rna", "dna") else None
     if mt == "protein":
-        # Only the 20 standard residues have a bundled reference conformer. A
-        # non-standard one is representable, but only through `mod_ccd`, which splices
-        # the CCD component's atoms in. Undeclared, the conformer lookup below died on a
-        # bare KeyError("UNK") several frames deep, naming neither the residue nor the fix.
+        # The 20 standard residues and X have a bundled reference conformer; X is UNK, one
+        # residue token with the CCD component's atoms, which is what upstream Protenix
+        # builds for it. Any other letter (U, B, Z, O, J) names a residue this cannot guess:
+        # a real one goes in through `mod_ccd`, which splices the CCD component's atoms in.
+        # Undeclared, the conformer lookup below died on a bare KeyError("UNK") several
+        # frames deep, naming neither the residue nor the fix.
         bad = [f"{i + 1}{c}" for i, c in enumerate(seq)
-               if c.upper() not in _AA1_TO_IDX and i + 1 not in mod_ccd]
+               if c.upper() not in _AA1_TO_IDX and c.upper() != "X" and i + 1 not in mod_ccd]
         if bad:
             shown = ", ".join(bad[:8]) + (f" (+{len(bad) - 8} more)" if len(bad) > 8 else "")
             raise ValueError(
-                f"non-standard residue(s) at {shown}: only the 20 standard amino acids have "
-                "a reference conformer. Declare each one as a `modifications:` entry with "
-                "its CCD code (MSE for selenomethionine, SEP for phosphoserine), or "
-                "substitute a standard residue.")
+                f"non-standard residue(s) at {shown}: only the 20 standard amino acids and X "
+                "(unknown) have a reference conformer. Declare each one as a `modifications:` "
+                "entry with its CCD code (SEC for selenocysteine, MSE for selenomethionine, "
+                "SEP for phosphoserine), or substitute a standard residue.")
 
     def _standard(lo, hi):                       # residues [lo, hi) as one per-residue block
         if mt == "protein":
@@ -1063,10 +1121,13 @@ def structure_token_coords(path, chains=None, crop=None) -> dict:
 
 def res_names_to_sequence(res_names, mol_type: str = "protein") -> str:
     """Per-residue CCD names to the one-letter sequence `build_complex_features` eats.
-    Anything outside the modality's standard set becomes the unknown letter."""
+    A nucleotide outside the standard set becomes the unknown letter. A protein residue does
+    only when the file itself calls it UNK: a named non-standard one (MSE, SEP) becomes "?",
+    which the featurizer refuses by position, because folding it as UNK would drop the atoms
+    the file actually has."""
     from .data import const
     if mol_type == "protein":
-        return "".join(const.prot_token_to_letter.get(n, "X") for n in res_names)
+        return "".join(const.prot_token_to_letter.get(n, "?") for n in res_names)
     std = set("AGCU") if mol_type == "rna" else set("AGCT")
     letters = [n[1:] if mol_type == "dna" and n.startswith("D") else n for n in res_names]
     return "".join(c if c in std else "N" for c in letters)
