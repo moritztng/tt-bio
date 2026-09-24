@@ -751,6 +751,21 @@ CEILINGS: dict[str, dict[str, Ceiling]] = {
         ),
     },
     "protenix-v1": {"wormhole_b0": _unmeasured(_INHERITS_DEMO_FENCE)},
+    "af2ig": {
+        # Folds exist at 208, 336, 592 and 848 tokens on qb1 p150a (scripts/af2_port/fold_timing.py
+        # and the perf/pxdesign cells the AF2-IG selection stage was priced on), and none of them
+        # is a ladder: nobody walked af2ig up to a failure on either board, so there is no size to
+        # refuse on and this row refuses nothing. The token axis is the sum of the target chain and
+        # the binder, and the trunk is O(N^3) in it, so the ceiling is a real question -- it is
+        # unanswered, not absent.
+        "blackhole": _unmeasured(
+            "no ladder. AF2-IG folds are on record at 208-848 tokens on qb1 p150a and nothing "
+            "above 848 has been tried, so the first failing rung is unknown"),
+        "wormhole_b0": _unmeasured(
+            "no ladder, and nothing has folded af2ig on a Wormhole chip at all -- the port was "
+            "measured on Blackhole, and a Blackhole number says nothing about a 12-bank Wormhole "
+            "chip (japanfold/size_evidence.py carries the same warning for every other model)"),
+    },
     "nesso1": {
         "wormhole_b0": _unmeasured(
             "no ceiling, and unusually this is a positive result rather than an untested gap: the "
