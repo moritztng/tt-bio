@@ -167,3 +167,4 @@ perf/bcx_predictor/params_fetch.log
 
 # The NaN capture is a 52 MB npz of device activations, an artifact not source
 perf/bcx_predictor/nancap/
+perf/bcx_predictor/trace_seam_b32.json
