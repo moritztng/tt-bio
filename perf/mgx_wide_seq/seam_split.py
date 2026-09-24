@@ -78,14 +78,15 @@ def timed(dev, label, fn):
 
 
 def build_feats(rung):
+    from tt_bio import main as M
     from tt_bio import worker as W
     from tt_bio.protenix_data import build_complex_features
     path = ROOT / "perf" / "size512" / "fixtures" / f"cdk2x2_{rung}.yaml"
-    chains = W._read_bio_chains(path)
+    chains = M._read_bio_chains(path)
     cfg = {"msa_dir": "/tmp/mgx-wide-seq-msa", "model": "opendde"}
     specs = W._build_chain_specs(chains, Path(cfg["msa_dir"]), cfg, protein_only=False)
     return build_complex_features(specs, chain_ids=[c[0] for c in chains],
-                                  bonds=W._read_bio_bonds(path, chains))
+                                  bonds=M._read_bio_bonds(path, chains))
 
 
 def main():
@@ -103,10 +104,10 @@ def main():
     from tt_bio.opendde_data import build_structural_token_features
     from tt_bio.tenstorrent import get_device
 
-    dev = get_device()
-    model = OpenDDE.load_from_checkpoint(abag=args.abag)
     feats = build_feats(args.rung)
     ifd = build_structural_token_features(feats)
+    dev = get_device()
+    model = OpenDDE.load_from_checkpoint(abag=args.abag)
     NT = int(feats["restype"].shape[0])
     Ns = int(ifd["parent_residue_idx"].shape[0])
     from tt_bio.protenix import bucketed_width
