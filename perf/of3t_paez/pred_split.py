@@ -48,7 +48,7 @@ def main() -> int:
     bm.pin_deterministic_kernels(True)
     from tt_bio.train import losses
     from tt_bio.train.openfold3 import denoise_draw
-    c = torch.load(a.cache, weights_only=False)
+    c = torch.load(a.cache, weights_only=False, mmap=True)   # 16 GB: the per-stage pair curve
     W = c["f64"]["z_trunk"].shape[-2]
     conf = torch.load(a.conf, weights_only=False)["inputs"]
     dev_in = {"s_input": conf["s_input"].double().reshape(1, -1, conf["s_input"].shape[-1])[:, :W],
@@ -116,12 +116,13 @@ def main() -> int:
         r = {"pred_xyz_rel": float((px - preds["f64"]).norm() / preds["f64"].norm()),
              "pred_xyz_max_abs_A": float((px - preds["f64"]).abs().max()),
              "pae_bins_differ": int((b[0] != b0[0]).sum()),
-             "pde_bins_differ": int((b[1] != b0[1]).sum())}
+             "pae_mean_signed_bin_shift": float((b[0] - b0[0])[b0[0] >= 0].mean())}
         g, v = grad(px)
         r["pae_grad_at_f64_z"] = score.triple([(g0[n], g[n]) for n in sorted(g0)])
         r["pae_value_at_f64_z"] = v
         rec["sides"][k] = r
     json.dump(rec, open(a.out, "w"), indent=1)
+    torch.save(preds, a.out.with_suffix(".preds.pt"))
     print(json.dumps(rec, indent=1))
     return 0
 
