@@ -120,7 +120,7 @@ templates and affinity are one generated matrix:
 [`docs/model-capabilities.md`](docs/model-capabilities.md). Anything a model cannot honour is
 refused by name before the fold starts, never accepted and dropped.
 
-Every structure model folds at least 1024 residues on a single 12 GiB Wormhole chip. The limit
+Every structure model folds at least 1536 residues on a single 12 GiB Wormhole chip. The limit
 below is the largest size that folded, under the first measured failure where one was found,
 walked with the settings the platform sends:
 
