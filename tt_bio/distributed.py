@@ -267,9 +267,21 @@ class ControllerStore:
 
     def heartbeat(self, payload: dict[str, Any]) -> dict[str, Any]:
         """A liveness ping a worker sends while it's busy computing (and so not
-        leasing), so the fleet never shows an active worker as offline."""
+        leasing), so the fleet never shows an active worker as offline.
+
+        It also renews the leases of the jobs this worker holds. Without that a job
+        longer than LEASE_SECONDS was handed to a second worker while the first was
+        still computing it, and ``complete_job`` then discarded the first result
+        because the lease had moved: a 1792-residue Protenix-v2 fold (45 min) never
+        finished, it restarted on a new chip every 30 min. A worker that dies stops
+        heartbeating, so its jobs still go back to the queue LEASE_SECONDS later."""
+        now = time.time()
+        worker = payload["worker"]
         with self._lock, self._connect() as conn:
-            self._upsert_worker(conn, payload["worker"], time.time())
+            self._upsert_worker(conn, worker, now)
+            conn.execute(
+                "UPDATE jobs SET lease_until=? WHERE worker_id=? AND status='running'",
+                (now + LEASE_SECONDS, worker["worker_id"]))
         return {"ok": True}
 
     def cancel_run(self, run_id: str) -> dict[str, Any]:
