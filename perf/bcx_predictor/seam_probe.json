@@ -1,0 +1,77 @@
+{
+ "jax": {
+  "bwd:msa_in": [
+   1.3013
+  ],
+  "bwd:msa_out": [
+   0.3704
+  ],
+  "bwd:pair_in": [
+   0.0624
+  ],
+  "bwd:pair_out": [
+   0.1369
+  ],
+  "fwd:msa_in": [
+   684.4862,
+   804.064
+  ],
+  "fwd:msa_out": [
+   3560.6531,
+   4552.166
+  ],
+  "fwd:pair_in": [
+   49743.6289,
+   57112.1445
+  ],
+  "fwd:pair_out": [
+   45544.7031,
+   45813.0117
+  ]
+ },
+ "jax_grad_norms": {
+  "binder": 0.3193359375,
+  "target_hPDL1": 1.4453125
+ },
+ "jax_loss": 10.269110679626465,
+ "device": {
+  "bwd:msa_in": [
+   0.2131
+  ],
+  "bwd:msa_out": [
+   0.0405
+  ],
+  "bwd:pair_in": [
+   0.01
+  ],
+  "bwd:pair_out": [
+   0.043
+  ],
+  "fwd:msa_in": [
+   684.4862,
+   802.6627
+  ],
+  "fwd:msa_out": [
+   3660.4988,
+   4646.127
+  ],
+  "fwd:pair_in": [
+   49743.6289,
+   56303.543
+  ],
+  "fwd:pair_out": [
+   45820.3086,
+   46428.0391
+  ]
+ },
+ "device_grad_norms": {
+  "binder": 0.045745849609375,
+  "target_hPDL1": 0.258544921875
+ },
+ "device_loss": 10.381475448608398,
+ "device_calls": {
+  "primal": 0,
+  "taped": 2,
+  "backward": 1
+ }
+}
