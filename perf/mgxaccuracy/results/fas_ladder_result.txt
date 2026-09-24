@@ -1,0 +1,31 @@
+FAS single-chain ladder — PARTIAL, one of three rungs in
+==========================================================
+
+The control for `results/chain_count_confound.txt`: a size ladder that holds chain count at
+ONE, which neither GroEL (~524-residue chains) nor 1GPB (823, all of chain A) can provide.
+Target `targets/fas_chainA_1962.cif`, plan `plans/chain_vs_residues.txt`, reader
+`perf/mgxaccuracy/fas_read.py` — all three written before any cell existed.
+
+Launched 19:54:57Z on whglx cards 0, 2 and 3, tree ff5435cba, n=8 per rung, offset 0, same
+80-residue binder and same `designfolding-bb_rmsd` as every other cell in this row.
+
+    size   n   median     range              <=2A    <=4A   card  wall_s   AICLK
+     512   8    3.782    1.363-11.155     12.5%   50.0%      0   1848.6    1000
+    1024   -   running, ETA ~21:25Z
+    1536   -   running, ETA ~23:12Z        <- the cell the whole control is for
+
+NO VERDICT YET, and the reader refuses to give one: `plans/chain_vs_residues.txt` reads
+512 -> 1536 and needs 1024 beside it to tell a monotone ladder from one odd cell. What the 512
+rung establishes is only that the control is alive — a single chain of 512 residues on a third
+protein designs at 3.782 A with 4 of 8 under the 4 A bar, so the ladder has a working bottom
+rung to measure against. Its wall, 1848.6 s, is within 7 s of GroEL's 512 cell at 1842.0 s,
+which is the cost model behaving.
+
+READ WITHIN TARGET ONLY. FAS at 512 is worse than GroEL at 512 (3.782 against 0.852) and better
+than 1GPB's worst 512 window (17.785). That spread across targets is the thing this row already
+published as target-to-target variation; it is NOT evidence about size or chains, and the
+plan's clauses deliberately compare FAS only with FAS.
+
+THE PREDICTION THE 1536 RUNG HAS TO BEAT. Every multi-chain 1536 cell in this row — four on
+two targets — returned 0 of 8 under 4 A. If chain count is the carrier, the single-chain 1536
+cell should not. If residue count is the carrier, it should look like the rest of them.
