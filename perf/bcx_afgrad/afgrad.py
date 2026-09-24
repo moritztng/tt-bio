@@ -420,10 +420,13 @@ def cmd_vjp(args):
         d, fwd, census = device_vjp(gm, gz)
         row = {"block": tag, "reach": census["reach"], "nodes": census["nodes"]}
         for key in d:
+            ref_norm = float(r64[key].norm())
             row[key] = cmp(d[key], r64[key])
-            row[key]["norm_ref"] = float(r64[key].norm())
-            row[key + "_torch_bf16"] = cmp(arms["bf16"][key], r64[key])
-            row[key + "_torch_f32"] = cmp(arms["f32"][key], r64[key])
+            row[key]["norm_ref"] = ref_norm
+            row[key]["norm_ratio"] = float(d[key].norm()) / ref_norm
+            for arm in ("bf16", "f32"):
+                row[f"{key}_torch_{arm}"] = cmp(arms[arm][key], r64[key])
+                row[f"{key}_torch_{arm}"]["norm_ratio"] = float(arms[arm][key].norm()) / ref_norm
         # forward on the same inputs, so a bad gradient can be told from a bad forward
         with torch.no_grad():
             if kind == "extra":
@@ -443,7 +446,7 @@ def cmd_vjp(args):
             row["census"] = census
         rows.append(row)
         print(json.dumps({k: v for k, v in row.items() if k != "census"}), flush=True)
-    save(f"vjp_n{n}.json", {"stamp": stamp(args.card), "n": n, "seed": args.seed,
+    save(f"vjp_n{n}{'_' + args.tag if args.tag else ''}.json", {"stamp": stamp(args.card), "n": n, "seed": args.seed,
                             "loss": "fixed random linear readout of (msa_out, pair_out)",
                             "rows": rows})
 
@@ -516,7 +519,7 @@ def cmd_stack(args):
     blob["device_vs_f64"] = cmp(g_dev, g64)
     print("device vs f64", blob["device_vs_f64"], flush=True)
     # The envelope: torch's own autograd through the same stack in bf16 and fp32, same logits.
-    for arm in ("bf16", "f32"):
+    for arm in () if args.controls_only else ("bf16", "f32"):
         lg = logits.clone().float().requires_grad_(True)
         m, z = embed(ref[arm], lg, ridx)
         m, z = ref_stack(ref[arm], m, z, ke, kv)
@@ -528,7 +531,7 @@ def cmd_stack(args):
     d = g_dev / g_dev.norm()
     fd = []
     with torch.no_grad():
-        for eps in [float(e) for e in args.eps.split(",")]:
+        for eps in [] if args.controls_only else [float(e) for e in args.eps.split(",")]:
             lp, lm = float(loss64(logits.double() + eps * d)), float(loss64(logits.double() - eps * d))
             slope = (lp - lm) / (2 * eps)
             fd.append({"eps": eps, "L+": lp, "L-": lm, "fd_slope": slope,
@@ -537,19 +540,26 @@ def cmd_stack(args):
                        "ratio_fd_over_device": slope / float(g_dev.norm())})
             print(json.dumps(fd[-1]), flush=True)
     blob["fd_along_device"] = fd
-    best = min(fd, key=lambda r: abs(r["fd_slope"] / r["f64_predicted"] - 1.0))
-    blob["fd_best"] = best
-    # controls
-    gz_, _, cz, _, _ = device_grad(logits, zero=True)
+    if fd:
+        blob["fd_best"] = min(fd, key=lambda r: abs(r["fd_slope"] / r["f64_predicted"] - 1.0))
+    # controls, checkpointed exactly like the measured arm: the uncheckpointed 4 + 48 stack does
+    # not fit in DRAM at n=128, which is how the first run of these died
+    g_rep, _, _, _, _ = device_grad(logits, ckpt=args.ckpt)
+    blob["device_repeat_max_abs_diff"] = float((g_rep - g_dev).abs().max())
+    gz_, _, cz, _, _ = device_grad(logits, zero=True, ckpt=args.ckpt)
     blob["zero_seed_max_abs"] = float(gz_.abs().max())
     reach = [cz["reach"]]
     for s in range(2):
-        _, _, c, _, _ = device_grad(logits + 0.1 * torch.randn_like(logits))
+        _, _, c, _, _ = device_grad(logits + 0.1 * torch.randn_like(logits), ckpt=args.ckpt)
         reach.append(c["reach"])
     blob["reach_across_steps"] = [cen["reach"]] + reach
     perm = g_dev.flatten()[torch.randperm(g_dev.numel())].reshape(g_dev.shape)
     blob["permuted_device_grad_vs_f64"] = cmp(perm, g64)
-    save(f"stack_n{n}_e{ke}_v{kv}{'_ckpt' if args.ckpt else ''}.json", blob)
+    print(json.dumps({k: blob[k] for k in ("device_repeat_max_abs_diff", "zero_seed_max_abs",
+                                           "reach_across_steps", "permuted_device_grad_vs_f64")}),
+          flush=True)
+    save(f"stack_n{n}_e{ke}_v{kv}{'_ckpt' if args.ckpt else ''}"
+         f"{'_controls' if args.controls_only else ''}.json", blob)
 
 
 # ------------------------------------------------------------------------------ reach vs K
@@ -830,6 +840,8 @@ def main():
     ap.add_argument("--evo", type=int, default=48)
     ap.add_argument("--blocks", default=None, help="boundary indices to score (vjp)")
     ap.add_argument("--controls-all", action="store_true")
+    ap.add_argument("--controls-only", action="store_true",
+                    help="stack: device and float64 gradients and the controls, no envelope or FD")
     ap.add_argument("--seed", type=int, default=0)
     ap.add_argument("--eps", default="1e-1,3e-2,1e-2,3e-3,1e-3")
     ap.add_argument("--ckpt", action="store_true")
@@ -839,6 +851,7 @@ def main():
     ap.add_argument("--steps", type=int, default=30)
     ap.add_argument("--warm", type=int, default=3)
     ap.add_argument("--out", default="time.json")
+    ap.add_argument("--tag", default="")
     ap.add_argument("--threads", type=int, default=8)
     args = ap.parse_args()
     torch.set_num_threads(args.threads)
