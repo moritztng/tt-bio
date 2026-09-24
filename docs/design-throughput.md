@@ -132,8 +132,8 @@ than a 768 number: both mean nothing usable came back.
 every 512-residue cell is a single chain and every cell at 1024 or 1536 has a second chain in
 it, which is not a choice we made: GroEL's chains are about 524 residues and 1GPB's longest is
 823, so on those two targets a bigger crop is also a multi-chain crop. To separate the two we
-measured a third protein whose chain A is 1962 residues long, and cropped it to 512, 768 and
-1024 residues of that one chain:
+measured a third protein, fatty acid synthase (2VZ8), whose chain A is 1962 residues on its
+own, and cropped it to 512, 768 and 1024 residues of that single chain:
 
 | single chain of | scRMSD median | designable at 4 A |
 |---|---|---|
