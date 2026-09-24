@@ -25,6 +25,11 @@ PLAN=${1:?plan path relative to the repo root}
 OUT=${2:?out jsonl path on whglx}
 CAP=${3:-3}
 LINES=${4:-}
+# --max-concurrent caps THIS fan; the brief's 3-chip grant is per ROW, and on 2026-09-24 at
+# 07:17Z a third fan launched with cap 1 while two fans already held three chips took the row
+# to four. fan.py --row-cap counts the row's chips from the lease dir, the only state the fans
+# share, so enforcing it here makes that arithmetic unrepeatable from any caller.
+ROW_CAP=${MGX_ROW_CAP:-3}
 
 # OUT is single-quoted inside the remote command, so it is NOT expanded on whglx: a
 # $HOME-relative path arrives literally and fan.py creates a directory called '$HOME' inside
@@ -82,7 +87,8 @@ ssh -o BatchMode=yes whglx "cd $REMOTE_TREE \
   && export TT_BIO_LEASE_DIR=\$HOME/leases PYTHONPATH=\$PWD LADDER_PY=\$HOME/env/bin/python \
   && setsid nohup \$HOME/env/bin/python -u perf/mgxscale/fan.py \
        --plan '$PLAN' --out '$OUT' --holder worker:mgx-design-accuracy \
-       --max-concurrent $CAP --work \$HOME/mgxacc-work --wait-s 10 --retries 3000 \
+       --max-concurrent $CAP --row-cap $ROW_CAP \
+       --work \$HOME/mgxacc-work --wait-s 10 --retries 3000 \
        ${LINES:+--lines $LINES} \
        > \$HOME/mgxacc-work/fan_\$(date +%H%M%S).log 2>&1 < /dev/null &
      sleep 8; echo launched" 2>&1 | tail -3

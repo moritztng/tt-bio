@@ -52,3 +52,36 @@
 #
 # Reproduce: perf/mgxaccuracy/plans/floor512_onetree.txt entry 1, against the banked
 # offset-0 cell in results/size_1536.jsonl (engine "after-fix", crop_offset 0).
+
+
+# THE SAME CONTROL AT 1536, 2026-09-24 07:58Z: ENGINE-INERT THERE TOO, AT U = 32 OF 64.
+#
+# Everything above is the 512 crop. The 1536 cells had no such control, and the row's headline
+# interaction depends on them, so 1536/offset-100 was re-run on a THIRD tree (72ad980ee: 20
+# tt_bio files and 525 insertions against the cell's original engine, tenstorrent.py +145 and
+# boltzgen's own model/models/boltz.py among them). Reading pre-registered before it landed.
+#
+#   1536 offset 100, original (tag gpbo100)   n=8   median 13.273   range  7.951-15.153
+#   1536 offset 100, repeat   (tag o100r2)    n=8   median 12.950   range  9.101-16.733
+#                                                   shift  0.323 A
+#
+#   Mann-Whitney U = 32.0 of 64, where 32 is no difference at all; exact two-sided
+#   p = 1.0000 (all 12870 splits of C(16,8) are at least as extreme as the observed one).
+#   This is not "fails to reject" -- it is the statistic's exact centre.
+#   0 of 8 under 4 A both times. rc 0, wall 11923.9 s, card 2, AICLK median 1000 over
+#   n=4990 samples taken DURING the fold.
+#
+# So the cell is reproducible AND engine-inert, which by the pre-registered bands (inside
+# 11.5-15.1 A) leaves every sign in the 2x2 untouched. The more expensive branch -- the 2x2
+# not being engine-stable, forcing all four cells to be re-collected on one tree -- is closed.
+#
+# REPEATABILITY BOUND, which the closing rule depends on. This is the row's third n=8 median
+# repeat: 0.117 A (512/off0), 0.323 A (here) and the 1.8 A reading. The worst case is still
+# 1.8 A, so plans/closing_rule.txt keeps 4 x 1.8 = 7.2 A as GroEL's conservative threshold; it
+# is not recomputed, because this repeat did not move the bound.
+#
+# WHAT THIS DOES NOT SETTLE. Pairing the repeat with 19.398 gives a 1536 crop contrast of
+# -6.448 A against the published -6.125, same sign and nearly the same size -- but that pairing
+# is STILL cross-tree, because 19.398 was measured on the pre-revert engine and the repeat on a
+# third one. Only plans/onetree_1536.txt, the 1536/off0 cell running on 72ad980ee since
+# 08:04Z, makes the 1536 contrast within-tree the way the 512 one already is.
