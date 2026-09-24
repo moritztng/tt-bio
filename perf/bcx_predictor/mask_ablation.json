@@ -1,0 +1,33 @@
+{
+ "msa_shape": [
+  2,
+  192,
+  256
+ ],
+ "msa_mask_shape": [
+  2,
+  192
+ ],
+ "msa_mask_row0_ones": true,
+ "msa_mask_row1_ones": false,
+ "msa_mask_row1_zero_fraction": 0.4010416666666667,
+ "pair_mask_all_ones": true,
+ "all_ones_vs_true_mask": {
+  "msa": {
+   "rel_l2": 0.21908854835869324,
+   "cos": 0.9759038649403684
+  },
+  "pair": {
+   "rel_l2": 0.10881896082595824,
+   "cos": 0.9940636620618367
+  },
+  "msa_row0": {
+   "rel_l2": 0.10502026817385253,
+   "cos": 0.9950442125092361
+  },
+  "msa_row1": {
+   "rel_l2": 0.5274264266906379,
+   "cos": 0.8553275029137649
+  }
+ }
+}

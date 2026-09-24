@@ -1,0 +1,27 @@
+benchlock: bcx-mm2d waiting; currently held by: bcx-mm2d pid=2042637 since=2026-09-24T01:10:16+00:00
+benchlock: WARNING after 240s load=41.76 foreign_folds=3 [01:03:35 main.py, 15:08 bcx-afgrad, 13:43 of3t-confpfe]. Proceeding, RECORD THIS.
+benchlock: a co-tenanted arm measured 0.84 % slow once; treat this run as suspect.
+benchlock: bcx-mm2d acquired after 246s, loadavg 41.20 40.50 28.57
+fwd 128->128  (census row 1)     rank3   801.9  2D   126.0  2D+reshapes   119.0  reshape   1.7 us  view=True bitexact=False (886901 diff)  relL2 1.717e-03/1.707e-03 rounded 0.8385/0.8405 ulp 30697/30848 arms 30670 fp32-out identical False relL2 4.52e-04/4.10e-04
+dX  128->128  (census row 2)     rank3   790.6  2D   118.1  2D+reshapes   118.5  reshape   1.5 us  view=True bitexact=False (887364 diff)  relL2 1.718e-03/1.707e-03 rounded 0.8382/0.8399 ulp 30681/30770 arms 30664 fp32-out identical False relL2 4.55e-04/4.13e-04
+dX  512->128  (census row 11)    rank3  2827.8  2D   480.2  2D+reshapes   477.5  reshape   1.8 us  view=True bitexact=False (698633 diff)  relL2 1.724e-03/1.722e-03 rounded 0.8387/0.8372 ulp 30951/30963 arms 30668 fp32-out identical False relL2 4.80e-04/4.70e-04
+fwd 512->128  (census row 22)    rank3  2842.7  2D   471.7  2D+reshapes   466.5  reshape   1.4 us  view=True bitexact=False (697606 diff)  relL2 1.724e-03/1.722e-03 rounded 0.8384/0.8372 ulp 30927/30936 arms 30662 fp32-out identical False relL2 4.80e-04/4.71e-04
+fwd 128->512  (census row 24)    rank3  1077.2  2D   454.1  2D+reshapes   453.6  reshape   1.7 us  view=True bitexact=True (0 diff)  relL2 1.707e-03/1.707e-03 rounded 0.8403/0.8403 ulp 30821/30821 arms 0 fp32-out identical True relL2 4.11e-04/4.11e-04
+dX  4->128    (census row 31)    rank3   835.3  2D   157.9  2D+reshapes   158.1  reshape   1.6 us  view=True bitexact=True (0 diff)  relL2 1.673e-03/1.673e-03 rounded 0.9321/0.9321 ulp 29992/29992 arms 0 fp32-out identical True relL2 2.20e-04/2.20e-04
+fwd 128->4                       rank3   535.1  2D    99.4  2D+reshapes    81.8  reshape   1.5 us  view=True bitexact=True (0 diff)  relL2 1.705e-03/1.705e-03 rounded 0.8414/0.8414 ulp 30540/30540 arms 0 fp32-out identical True relL2 4.06e-04/4.06e-04
+fwd 128->128 rank-4 [1,N,N,c]    rank3   796.8  2D   118.6  2D+reshapes   118.2  reshape   1.5 us  view=True bitexact=False (885431 diff)  relL2 1.715e-03/1.705e-03 rounded 0.8390/0.8412 ulp 30728/30810 arms 30611 fp32-out identical False relL2 4.50e-04/4.08e-04
+fwd 128->128 via ops.linear      rank3   799.4  2D   118.4  2D+reshapes   118.4  reshape   1.5 us  view=True bitexact=False (887450 diff)  relL2 1.717e-03/1.707e-03 rounded 0.8382/0.8402 ulp 30686/30801 arms 30648 fp32-out identical None relL2 0.00e+00/0.00e+00
+heads reshape {'median_us': 2016.4149995252956, 'min_us': 2006.2430499820039, 'max_us': 2109.25724968547}
+AICLK {'min': 1350, 'max': 1350, 'median': 1350, 'samples': 15, 'attributable': True}
+# warm-up
+# 20 rounds, arm order and K order alternating
+  base  b 0.23780 s (fwd 0.08757 [0.07282,0.09315] + bwd 0.15023 [0.13655,0.16094])  step-paired median 0.27480 p10 0.14582 p90 0.31575
+  mm2d  b 0.19417 s (fwd 0.07024 [0.06050,0.08744] + bwd 0.12393 [0.09473,0.14384])  step-paired median 0.19987 p10 0.08799 p90 0.37703
+  AICLK {'min': 1337, 'max': 1350, 'median': 1350, 'samples': 23, 'attributable': True}
+  b speedup 1.225x
+# exactness, every taped value and every gradient
+  K=1: fwd 105/105 values, 95 differ; bwd 129/129 grads, 129 differ; logits identical False, logit grad identical False
+  K=2: fwd 199/199 values, 189 differ; bwd 246/246 grads, 246 differ; logits identical False, logit grad identical False
+# wrote perf/bcx_mm2d/ab_n256_r2.json
+gradcheck rc=0
+benchlock: bcx-mm2d released, rc=0, loadavg 29.57 36.90 29.68

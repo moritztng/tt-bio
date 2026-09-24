@@ -1,0 +1,128 @@
+{
+ "B128:QKt:cur(1,1,4,M,8)": {
+  "N": 60,
+  "nonfinite": 0,
+  "differs": 0,
+  "error": null,
+  "secs": 2.514810562133789
+ },
+ "B128:QKt:cur_nol1acc": {
+  "N": 60,
+  "nonfinite": 0,
+  "differs": 0,
+  "error": null,
+  "secs": 2.227397918701172
+ },
+ "B128:QKt:sub(1,1,2,M,8)": {
+  "N": 60,
+  "nonfinite": 0,
+  "differs": 0,
+  "error": null,
+  "secs": 2.9736692905426025
+ },
+ "B128:QKt:pn4(1,1,4,M,4)": {
+  "N": 60,
+  "nonfinite": 0,
+  "differs": 0,
+  "error": "TT_FATAL @ /project/ttnn/cpp/ttnn/operations/matmul/device/matmul_device_operation.cpp:973: N == per_core_N\ninfo:\nError: N, 8, is not equal to per_core_N, 4\nbacktrace:\n --- /home/ttuser/tt-bio-dev/env",
+  "secs": 0.036849260330200195
+ },
+ "B128:QKt:pm2(1,1,4,2,8)": {
+  "N": 60,
+  "nonfinite": 0,
+  "differs": 0,
+  "error": null,
+  "secs": 3.024352788925171
+ },
+ "B128:QKt:none": {
+  "N": 60,
+  "nonfinite": 0,
+  "differs": 0,
+  "error": null,
+  "secs": 2.9925620555877686
+ },
+ "B128:PV:cur": {
+  "N": 60,
+  "nonfinite": 0,
+  "differs": 0,
+  "error": null,
+  "secs": 0.202622652053833
+ },
+ "B128:PV:cur_nol1acc": {
+  "N": 60,
+  "nonfinite": 0,
+  "differs": 0,
+  "error": null,
+  "secs": 0.18038153648376465
+ },
+ "B128:PtdO:cur": {
+  "N": 60,
+  "nonfinite": 0,
+  "differs": 0,
+  "error": null,
+  "secs": 0.3495512008666992
+ },
+ "B256:QKt:cur(1,1,4,M,8)": {
+  "N": 60,
+  "nonfinite": 0,
+  "differs": 0,
+  "error": null,
+  "secs": 19.91242742538452
+ },
+ "B256:QKt:cur_nol1acc": {
+  "N": 60,
+  "nonfinite": 0,
+  "differs": 0,
+  "error": null,
+  "secs": 19.12323784828186
+ },
+ "B256:QKt:sub(1,1,2,M,8)": {
+  "N": 60,
+  "nonfinite": 0,
+  "differs": 0,
+  "error": null,
+  "secs": 19.86438298225403
+ },
+ "B256:QKt:pn4(1,1,4,M,4)": {
+  "N": 60,
+  "nonfinite": 0,
+  "differs": 0,
+  "error": "TT_FATAL @ /project/ttnn/cpp/ttnn/operations/matmul/device/matmul_device_operation.cpp:973: N == per_core_N\ninfo:\nError: N, 8, is not equal to per_core_N, 4\nbacktrace:\n --- /home/ttuser/tt-bio-dev/env",
+  "secs": 0.0009965896606445312
+ },
+ "B256:QKt:pm2(1,1,4,2,8)": {
+  "N": 60,
+  "nonfinite": 0,
+  "differs": 0,
+  "error": null,
+  "secs": 19.697689294815063
+ },
+ "B256:QKt:none": {
+  "N": 60,
+  "nonfinite": 0,
+  "differs": 0,
+  "error": null,
+  "secs": 19.391664266586304
+ },
+ "B256:PV:cur": {
+  "N": 60,
+  "nonfinite": 0,
+  "differs": 0,
+  "error": null,
+  "secs": 0.8915629386901855
+ },
+ "B256:PV:cur_nol1acc": {
+  "N": 60,
+  "nonfinite": 0,
+  "differs": 0,
+  "error": null,
+  "secs": 1.1975867748260498
+ },
+ "B256:PtdO:cur": {
+  "N": 60,
+  "nonfinite": 0,
+  "differs": 0,
+  "error": null,
+  "secs": 1.3681268692016602
+ }
+}

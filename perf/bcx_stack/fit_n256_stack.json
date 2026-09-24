@@ -1,0 +1,86 @@
+{
+ "stamp": {
+  "host": "tt-quietbox",
+  "card": 1,
+  "subsystem_device": "0x0040",
+  "commit": "8ae35c46b295dd08e9324486ce1e5d29edadab88",
+  "tt_bio_dirty": false,
+  "torch_threads": 8,
+  "loadavg": [
+   0.3740234375,
+   0.21484375,
+   1.392578125
+  ],
+  "utc": "2026-09-24T03:55:25Z",
+  "pci": "0000:41:00.0",
+  "aiclk_node": null
+ },
+ "n": 256,
+ "arm": "stack",
+ "ckpt": false,
+ "tries": [
+  {
+   "stack": "evo",
+   "k_extra": 0,
+   "k_evo": 1,
+   "base_bytes": 234979328,
+   "fwd_s": 33.71673369407654,
+   "after_fwd_bytes": 5348655104,
+   "bwd_s": 47.0373113155365,
+   "after_bwd_bytes": 10556522496,
+   "ok": true,
+   "loadavg": [
+    3.09130859375,
+    1.1181640625,
+    1.60888671875
+   ]
+  },
+  {
+   "stack": "evo",
+   "k_extra": 0,
+   "k_evo": 2,
+   "base_bytes": 307494912,
+   "fwd_s": 0.07522153854370117,
+   "after_fwd_bytes": 10675585024,
+   "bwd_s": 0.9878623485565186,
+   "after_bwd_bytes": 20934262784,
+   "ok": true,
+   "loadavg": [
+    3.09130859375,
+    1.1181640625,
+    1.60888671875
+   ]
+  },
+  {
+   "stack": "evo",
+   "k_extra": 0,
+   "k_evo": 3,
+   "base_bytes": 307822592,
+   "fwd_s": 0.11078977584838867,
+   "after_fwd_bytes": 16004759552,
+   "bwd_s": 1.4678704738616943,
+   "after_bwd_bytes": 31384190976,
+   "ok": true,
+   "loadavg": [
+    3.09130859375,
+    1.1181640625,
+    1.60888671875
+   ]
+  },
+  {
+   "stack": "evo",
+   "k_extra": 0,
+   "k_evo": 4,
+   "base_bytes": 308150272,
+   "fwd_s": 0.14643359184265137,
+   "after_fwd_bytes": 21333934080,
+   "ok": false,
+   "error": "TT_FATAL @ /project/tt_metal/impl/allocator/bank_manager.cpp:439: false",
+   "loadavg": [
+    2.923828125,
+    1.11572265625,
+    1.60546875
+   ]
+  }
+ ]
+}

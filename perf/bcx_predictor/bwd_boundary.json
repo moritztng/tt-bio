@@ -1,0 +1,46 @@
+{
+ "tape_reach_nodes": {
+  "reach": 98,
+  "nodes": 96,
+  "kinds": {
+   "checkpoint": 96
+  },
+  "identity_plus_sliced": 0,
+  "identity_plus_sliced_share": 0.0,
+  "all_shape_ops": 0,
+  "all_shape_ops_share": 0.0
+ },
+ "msa_shape": [
+  2,
+  192,
+  256
+ ],
+ "d_msa": {
+  "rel_l2": 0.31647107703896327,
+  "cos": 0.9630430762176995,
+  "norm_device": 11099.424236001649,
+  "norm_f64": 9829.51623030249,
+  "norm_ratio": 1.1291933372859468
+ },
+ "d_pair": {
+  "rel_l2": 0.2521742349022172,
+  "cos": 0.9751080113640891,
+  "norm_device": 562.6716609134116,
+  "norm_f64": 513.7510288190045,
+  "norm_ratio": 1.0952224508569148
+ },
+ "stamp": {
+  "host": "tt-quietbox2",
+  "card": 3,
+  "subsystem_device": "0x0046",
+  "commit": "b0cd4243bd1a09765a121128ae9bd004bfcb9c4f",
+  "tt_bio_dirty": false,
+  "torch_threads": 8,
+  "loadavg": [
+   24.02099609375,
+   24.310546875,
+   23.26904296875
+  ],
+  "utc": "2026-09-24T09:48:06Z"
+ }
+}

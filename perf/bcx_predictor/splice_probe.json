@@ -1,0 +1,33 @@
+{
+ "call_sites": [
+  {
+   "num_layers": 2,
+   "fn_name": "block",
+   "wrapped": true
+  },
+  {
+   "num_layers": 2,
+   "fn_name": "block",
+   "wrapped": true
+  },
+  {
+   "num_layers": 4,
+   "fn_name": "extra_msa_stack_fn",
+   "wrapped": true
+  },
+  {
+   "num_layers": 48,
+   "fn_name": "evoformer_fn",
+   "wrapped": true
+  }
+ ],
+ "distinct_names": [
+  "block",
+  "evoformer_fn",
+  "extra_msa_stack_fn"
+ ],
+ "evoformer_identifiable": true,
+ "extra_msa_identifiable": true,
+ "template_stack_present": true,
+ "discriminator_is_safe": true
+}
