@@ -130,8 +130,10 @@ row was:
 
     fx_boltzgen_512_d8_bgall_fas512o0/bgt512.cif      512 CA   {'A': 512}
     fx_boltzgen_1024_d8_bgall_fas1024o0/bgt1024.cif  1024 CA   {'A': 1024}
+    fx_boltzgen_768_d8_bgall_fas768o0/bgt768.cif      768 CA   {'A': 768}
     fx_boltzgen_1536_d8_bgall_fas1536o0/bgt1536.cif  1536 CA   {'A': 1536}
 
-One chain at every rung, including 1536, which is the cell no other target in this row can
-produce. Every GroEL and 1GPB cell at 1024 or 1536 has two or three chains; these have one.
+One chain at every rung, including 768 and 1536, which are the cells no other target in this
+row can produce. The 768 one is the confound's most directly comparable cell: GroEL collapsed
+at exactly that residue count with a second chain in the crop. Every GroEL and 1GPB cell at 1024 or 1536 has two or three chains; these have one.
 So whatever the FAS ladder reads, the residue axis is the only thing moving along it.
