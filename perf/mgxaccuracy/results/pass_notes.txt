@@ -1,0 +1,75 @@
+# PROCESS NOTES — the parts of this row's method a successor needs and that are not numbers.
+# Moved out of state/mgx-design-accuracy.md 2026-09-24 17:1xZ, which is re-read every pass.
+
+## MEASURING A LONG CPU JOB'S REMAINING TIME: USE A DIFFERENCED RATE, NEVER `ps -o pcpu`.
+
+`pcpu` is times/etime over the whole run, a LIFETIME AVERAGE. On a box whose load has climbed it
+reports what the job USED TO get, and it ran one ETA on this row ~1.5x fast. Difference two
+readings instead, either `ps -o times` or utime+stime from /proc/<pid>/stat (fields 14-17, in
+clock ticks at 100 Hz, so divide by 100). The two agree: over 423 s they gave 2.286/2.260 cores
+where /proc summed over the whole process tree gave 2.250/2.269, against lifetime averages of
+3.39/3.12. Summing the tree rather than the main pid changes the answer by 58 CPU-s in 182,437,
+so for these draws the `num_workers 2` dataloader children are 0.03 % and the main pid is the job.
+
+The band on a boltzgen CPU draw comes from one unrecorded input. The 512 valid draw's design step
+ran 5126.3 s at OMP_NUM_THREADS=6 but its core occupancy c was never recorded and is
+unrecoverable (`run_valid.sh` wraps nothing in /usr/bin/time). At (1616/592)^2 = 7.45x, a 1536
+draw costs 38,198 x c CPU-s, and c is bounded below by whatever the running draw has already
+spent and above by the 6-thread ceiling. So the band tightens by itself as the draw runs: c > 4.775
+at 182,437 CPU-s, c > 4.963 at 189,600. Re-derive from two readings taken THIS pass, never from a
+clock time written in an earlier one.
+
+The WORKER child (`boltzgen/resources/main.py`) is what must show CPU. The `boltzgen run` launcher
+sits at 0.0 % and is not evidence of a stall. qb2 at load 51-61 on 16 cores is carrying other
+rows; a long slip there is load, not a wedge.
+
+## BUILDING A TREE FOR A CATCHER ON AN UNLANDED BRANCH
+
+Check the harness ONTO the trial commit; do not merge the trial branch into this one:
+
+    git checkout --detach <trial>
+    git checkout origin/wk/mgx-design-accuracy -- perf/mgxaccuracy perf/mgxscale perf/bhdesign perf/mgx_trace_region
+
+All four are needed: `job.py` calls `perf/bhdesign/ladder.py:pxdesign_fixture`, and the first
+attempt died on `TypeError: takes from 3 to 4 positional arguments but 5 were given` with only two
+checked out. Confirm with `git diff --name-only HEAD | grep -E '^(tt_bio|scripts|tests)/'`
+returning nothing.
+
+## RUNNING A LADDER RUNG ON A TREE THAT IS BEHIND MAIN
+
+A catcher must be attributable to main. A ladder rung has the opposite requirement: it is
+comparable only with the rungs it is read against, which were measured on an older tree.
+`launch_if_clear.sh` takes `MGX_ALLOW_BEHIND_MAIN=<plan path>` for that case — a bare =1 is
+refused, because an override with no written reason is how a catcher ends up on a stale tree. The
+plan file's header must name the banked cells the run shares a tree with.
+
+The launcher prints "launched" and the fan can still die one second later; it did, twice. Once on
+`FileNotFoundError` for a plan committed after the remote tree was last checked out, once on
+`fan.py: error: unrecognized arguments: --row-cap 3` because the remote tree predated that flag.
+ALWAYS read `~/mgxacc-work/fan_*.log` after launching. Bringing the scheduler forward without
+moving the tree is `git checkout FETCH_HEAD -- perf/mgxscale/fan.py perf/mgxscale/job.py`; between
+ff5435cba and 793c43d16 those two differ only by `BLOCKED` gaining card 4 and a `holder_cards()`
+helper for row-cap accounting, so the design and scoring path is byte-identical and the rung stays
+comparable.
+
+## CHIPS
+
+Pick at acquire time, never from a census: the fan resolves the lease dir when it acquires, which
+is the only non-stale reading. Count the row's own chips by `released is None` AND pid alive, never
+by grepping the lease dir for this row's name — a released lease still records who held it last, so
+several files name it. `BLOCKED = {1, 4, 24, 25, 26, 27}` in `job.py` is the brief's exclusion list;
+card 4's hung holder only reads busy for as long as that holder's process lives, which is why it is
+in the constant and not left to the four signals. A per-process concurrency flag is not a per-row
+grant: on 2026-09-24 at 07:17Z a third fan with cap 1 took the row to four chips
+(`results/incident_4chip_20260924.txt`); `fan.py --row-cap` counts from the lease dir, the only
+state the fans share.
+
+## READING UPSTREAM's rc
+
+`rc=1` on `run_valid.sh` references is EXPECTED and the run is still good. The script skips the
+whole-complex `folding` step, so upstream's analysis step finds no `fold_out_npz/*.npz`, skips its
+only sample and asserts (`analyze.py:275`). The aggregate CSV is unwritable BY CONSTRUCTION on a
+4-step run, while designability is already fixed at step 4 (`refold_design_cif/`), which is what
+`scrmsd.py` reads and what `scrmsd.py --check` reproduced against the pipeline's own column. Score
+from disk; never read rc=1 here as a dead run. The `6` in `run_valid.sh <size> 6` is the THREAD
+count: the script passes `--num_designs 1 --budget 1`.
