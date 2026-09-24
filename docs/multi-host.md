@@ -137,10 +137,11 @@ flag is the only setting.
 If a worker dies, its heartbeats stop and its jobs go back in the queue `lease_s` later,
 keeping their place in line. The next worker to ask gets them. The heartbeat runs on its
 own thread, so a job may run far longer than its lease without being handed out twice.
-Sampled once a second on four Galaxies while they folded twelve inputs, some of them for
-up to 21 minutes, the longest a busy worker went unheard was 14.7 s, with heartbeats
-then 8 s apart. The same stall at 10 s apart reads about 17 s, seven times inside the
-lease.
+On four Galaxies folding eight inputs, one of them held for 20 minutes, the controllers
+recorded 540 renewals: 8.1 s apart at the median, and never more than 14.2 s, with
+heartbeats then 8 s apart. The same stall at 10 s apart reads about 16 s, seven times
+inside the lease. Every job finished on its first attempt
+([measurement](../perf/dst_boundary/)).
 
 The controller has no attempt limit: a job goes back as often as the worker holding it
 dies. Put a limit in your layer if you want one. JapanFold fails a job after two tries.
@@ -183,7 +184,8 @@ python examples/many_hosts.py ./targets ./out --model esmfold2 \
 ```
 
 On four Wormhole Galaxies with 127 usable chips between them it folded twelve inputs
-of 120 to 1300 residues, three per host, all twelve `ok`.
+of 120 to 1300 residues, three per host, all twelve `ok`, and in a second run eight more
+in 21 minutes, two per host, all `ok`.
 
 A service with many users wants the other direction: an agent on each host pulls jobs
 from a central queue, submits each to its own controller with `--run-id` and `--owner`,

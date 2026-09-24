@@ -1,0 +1,8 @@
+q00_1300.fasta ok attempts 1 runtime_s 1106.2
+q07_300.fasta ok attempts 1 runtime_s 76.5
+q01_1200.fasta ok attempts 1 runtime_s 880.4
+q06_400.fasta ok attempts 1 runtime_s 118.8
+q02_1100.fasta ok attempts 1 runtime_s 729.8
+q05_500.fasta ok attempts 1 runtime_s 159.1
+q03_1000.fasta ok attempts 1 runtime_s 539.4
+q04_600.fasta ok attempts 1 runtime_s 207.3
