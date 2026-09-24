@@ -64,9 +64,8 @@ behind this are in `perf/mgxaccuracy/`.
 Throughput is half the question. The other half is BoltzGen's own designability filter: the
 designed binder's sequence refolded **alone**, aligned back to the backbone it was designed
 for, reported as `designfolding-bb_rmsd`. BoltzGen's paper calls a design good at 2 A and
-acceptable at 4 A. Every number in this section used an 80-residue binder, so the crop advice
-below is about how much TARGET you hand the model, not about binder length, which we have not
-varied. It varies enormously from target to target, and that is not a Tenstorrent effect:
+acceptable at 4 A. It varies enormously from target to target, and that is not a Tenstorrent
+effect:
 
 | target | designs | scRMSD median | designable at 2 A |
 |---|---|---|---|
@@ -74,6 +73,9 @@ varied. It varies enormously from target to target, and that is not a Tenstorren
 | 1GPB biological dimer, first 512 residues | 8 | **8.46 A** | 25 % |
 | first 512 residues of a 1008-residue chain | 9 | **10.56 A** | 0 % |
 | the same 512 residues, **upstream BoltzGen, torch fp32 on a CPU** | 1 | **7.17 A** | 0 % |
+
+Every number in this section used an 80-residue binder, so the crop advice below is about how
+much TARGET you hand the model, not about binder length, which we have not varied.
 
 **The last row is the one to read.** The stock package, on a CPU, in fp32, returns the same
 quality on the same target. It is one design, and that number is not reproducible: repeating
@@ -118,9 +120,11 @@ or 1536, and at 768 the drop from the same window at 512 separates completely: n
 eight designs at 768 residues is as good as the worst of the eight at 512. So the size where
 quality falls is between 512 and 768, and 512 is the largest extent measured to work. On 1GPB
 the two windows move in opposite directions between 512 and 1536, which is why that first pair
-alone could not be read as a size rule. Across both targets no cell above 512 has produced a
-usable design: those sizes run, they just return binders that do not refold into the shape they
-were drawn as.
+alone could not be read as a size rule. On these two targets no cell above 512 has produced a
+usable design at all: those sizes run, they just return binders that do not refold into the
+shape they were drawn as. (A third target, below, does return a couple at 768 before going to
+zero at 1024 — so treat 512 as the safe extent and anything above it as a gamble whose odds
+you would have to measure on your own target.)
 
 Above that ceiling the numbers stop being ordered. The GroEL row starting at residue 1 reads
 15.2 A at 768, 8.7 A at 1024 and 15.6 A at 1536, and the 768-to-1024 difference is real rather
@@ -149,8 +153,8 @@ the crop from 512 to all 823 of that chain moved the median from 4.6 to 8.0 A wi
 designs still under 4 A, while adding the second chain at the same extent cost 14.8 A and left
 nothing under 4 A. Both directions hurt and the chain hurts more.
 
-The practical form: crop to one chain if you can, and still keep the extent near 512. With two
-300-residue chains, try one at a time even though the total looks small.
+So: crop to one chain if you can, and still keep the extent near 512. With two 300-residue
+chains, try one at a time even though the total looks small.
 
 Which window you pick matters on one of these targets and not the other. At 512 residues it
 swings 1GPB by 13 A and moves GroEL by under 1 A. It is not safe to read that as "window does
