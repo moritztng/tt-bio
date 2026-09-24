@@ -1,0 +1,28 @@
+{
+ "arm": "device",
+ "seed": 100,
+ "trajectories": 1,
+ "length_bucket_size": 1,
+ "length_bucket_flag": 1,
+ "predictor": "TTBioAlphaFoldDesignModel",
+ "host": "tt-quietbox2",
+ "started_utc": "2026-09-24T20:38:06Z",
+ "loadavg_start": [
+  30.5771484375,
+  30.02978515625,
+  34.8740234375
+ ],
+ "stage_plan": {
+  "per_stage": {
+   "screen": 50,
+   "refine": 25,
+   "anneal": 45,
+   "harden": 5,
+   "mutate": 15
+  },
+  "gradient_steps": 125,
+  "mutate_steps": 15
+ },
+ "threads": "--xla_gpu_enable_triton_gemm=false",
+ "project": "/home/ttuser/.coworker/wt/bcx-predictor/perf/bcx_predictor/runs/b1_seed100_try2"
+}
