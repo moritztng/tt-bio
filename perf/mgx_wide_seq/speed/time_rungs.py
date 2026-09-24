@@ -26,6 +26,7 @@ import os
 import socket
 import subprocess
 import sys
+import threading
 import time
 from pathlib import Path
 
@@ -59,8 +60,20 @@ work = Path(os.environ.get("RELEASE_GATE_SIZE_WORKDIR", ROOT / "perf" / "mgx_wid
 
 
 def fold(rung, tag):
+    # The 1-min loadavg / nproc every 5 s DURING the fold. mgx-speed's release_gate records it in
+    # the fold result; main's does not, so a record without it would read as VOID.
+    loads, stop = [], threading.Event()
+    th = threading.Thread(target=lambda: [loads.append(round(os.getloadavg()[0] / os.cpu_count(), 3))
+                                          for _ in iter(lambda: stop.wait(5.0), True)], daemon=True)
+    th.start()
     t0 = time.time()
-    r = rg._run_census_fold(model, rung, work, tag)
+    try:
+        r = rg._run_census_fold(model, rung, work, tag)
+    finally:
+        stop.set()
+        th.join()
+    if r.get("load") is None and loads:
+        r["load"] = {"max": max(loads), "median": sorted(loads)[len(loads) // 2], "n": len(loads)}
     cell = {**ident, "rung": rung, "tag": tag,
             "started_utc": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(t0)),
             "wall_s": round(time.time() - t0, 1)}
