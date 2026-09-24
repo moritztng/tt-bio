@@ -160,3 +160,19 @@ def test_boltzgen_design_head_differs_only_below_the_reference_d0_floor():
             got = compute_ipsae_score(src, tgt, P, one, one).item()
             gap = abs(got - ref[key]["ipsae"])
             assert gap < (1e-6 if ref[key]["n0res"] >= 27 else 1e-2), (key, ref[key]["n0res"], gap)
+
+
+def test_distribution_keeps_every_sample_and_reports_its_spread(tmp_path):
+    samples = []
+    for seed in (11, 12, 13):
+        d = _case(tmp_path, seed, (30, 25))
+        samples.append(isc.score_files(d / "m_model_0.cif", d / "pae_m_model_0.npz",
+                                       d / "plddt_m_model_0.npz"))
+    dist = isc.distribution(samples)
+    got = dist["pairs"]["A-B"]["ipsae_min"]
+    vals = [s["pairs"]["A-B"]["ipsae_min"] for s in samples]
+    assert dist["n"] == 3 and got["values"] == vals
+    assert got["mean"] == pytest.approx(np.mean(vals)) and got["sd"] == pytest.approx(np.std(vals, ddof=1))
+    assert got["min"] == min(vals) and got["max"] == max(vals)
+    assert "iptm" not in dist["pairs"]["A-B"]           # no model ipTM given: absent, not zero
+    assert isc.distribution(samples[:1])["pairs"]["A-B"]["ipsae"]["sd"] is None

@@ -257,3 +257,36 @@ def score_files(structure, pae, plddt=None, confidence=None,
             iptm = {a: {b: pci[str(ord(a) - 65)][str(ord(b) - 65)] for b in ids if b != a} for a in ids}
     return score(pae_full[np.ix_(m, m)], pl, tok["chains"], tok["cb"], tok["resnums"],
                  tok["resnames"], iptm, pae_cutoff, dist_cutoff)
+
+
+# The metrics a distribution is summarised for. The counts and d0 values are bookkeeping.
+DISTRIBUTION_KEYS = ("ipsae", "ipsae_min", "ipsae_d0chn", "ipsae_d0dom", "iptm", "iptm_d0chn",
+                     "pdockq", "pdockq2", "lis", "interface_pae")
+
+
+def distribution(samples: list[dict]) -> dict:
+    """Summarise per-sample `score` outputs of one input into a distribution per chain pair.
+
+    For each pair and metric: every value in sample order, their mean, the sample standard
+    deviation (ddof=1, None for a single sample) and the range. The standard deviation of a score
+    is its stability figure. Nothing is collapsed: the values stay in the output, so a caller can
+    compute any other statistic without refolding.
+
+    Boltz-2's only stochastic step at inference is the diffusion noise (featurization draws from a
+    fixed generator, and dropout is off), so the diffusion samples of one fold and the same number
+    of separately seeded folds draw from the same distribution. The samples share one trunk pass
+    and cost a fraction of the folds."""
+    if not samples:
+        raise ValueError("no samples to summarise")
+    out = {}
+    for pair in samples[0]["pairs"]:
+        out[pair] = {}
+        for key in DISTRIBUTION_KEYS:
+            vals = [s["pairs"][pair][key] for s in samples]
+            if any(v is None for v in vals):
+                continue
+            a = np.asarray(vals, dtype=float)
+            out[pair][key] = {"values": [float(v) for v in a], "mean": float(a.mean()),
+                              "sd": float(a.std(ddof=1)) if a.size > 1 else None,
+                              "min": float(a.min()), "max": float(a.max())}
+    return {"version": SCORES_VERSION, "n": len(samples), "pairs": out}

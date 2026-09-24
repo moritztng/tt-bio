@@ -913,22 +913,35 @@ def write_result(pred, batch, input_struct, out_dir, fmt,
     if write_pae and "pae" in pred:
         # Real tokens only: a bucketed batch pads the token axis, and a padded PAE no longer lines
         # up with the structure file it is meant to be read with.
-        pae = pred["pae"][best_idx].cpu().numpy()
+        n_tok = pred["pae"].shape[-1]
         real = (batch["token_pad_mask"][0].bool().cpu().numpy() if "token_pad_mask" in batch
-                else np.ones(pae.shape[0], dtype=bool))
-        pae = pae[np.ix_(real, real)]
+                else np.ones(n_tok, dtype=bool))
+
+        def _arrays(idx):
+            pae = pred["pae"][idx].cpu().numpy()[np.ix_(real, real)]
+            return pae, (pred["plddt"][idx].cpu().numpy()[real] if "plddt" in pred else None)
+
+        pae, plddt = _arrays(best_idx)
         np.savez_compressed(out_dir / f"{record.id}_pae.npz", pae=pae)
-        plddt = pred["plddt"][best_idx].cpu().numpy()[real] if "plddt" in pred else None
         if plddt is not None:
             np.savez_compressed(out_dir / f"{record.id}_plddt.npz", plddt=plddt)
         if fmt == "cif" and len(struct.chains) > 1:
             from tt_bio import interface_scores
             name = {int(c["asym_id"]): str(c["name"]) for c in struct.chains}
-            pci = metrics.get("pair_chains_iptm") or {}
-            iptm = {name[int(i)]: {name[int(j)]: v for j, v in row.items() if int(j) != int(i)}
-                    for i, row in pci.items()} or None
-            metrics["interface_scores"] = interface_scores.score_files(
-                out_dir / f"{record.id}.cif", pae, plddt, pair_iptm=iptm)
+            pci = pred.get("pair_chains_iptm") or {}
+
+            def _score(idx):
+                iptm = {name[int(i)]: {name[int(j)]: round(pci[i][j][idx].item(), 6)
+                                       for j in pci[i] if int(j) != int(i)} for i in pci} or None
+                r = rank[idx]
+                cif = out_dir / (f"{record.id}.cif" if r == 0 else f"{record.id}_model_{r}.cif")
+                return interface_scores.score_files(cif, *_arrays(idx), pair_iptm=iptm)
+
+            # The top-ranked sample is the point value; every sample, in rank order, is the
+            # distribution it is drawn from.
+            samples = [_score(i) for i in sorted(rank, key=rank.get)]
+            metrics["interface_scores"] = samples[0]
+            metrics["interface_score_distribution"] = interface_scores.distribution(samples)
     if write_pde and "pde" in pred:
         np.savez_compressed(out_dir / f"{record.id}_pde.npz", pde=pred["pde"][best_idx].cpu().numpy())
     if write_embeddings and "s" in pred and "z" in pred:
