@@ -73,3 +73,23 @@ only sample and asserts (`analyze.py:275`). The aggregate CSV is unwritable BY C
 `scrmsd.py` reads and what `scrmsd.py --check` reproduced against the pipeline's own column. Score
 from disk; never read rc=1 here as a dead run. The `6` in `run_valid.sh <size> 6` is the THREAD
 count: the script passes `--num_designs 1 --budget 1`.
+
+## `refold_cif` IS A DECOY NEXT TO `refold_design_cif`
+
+`intermediate_designs_inverse_folded/` holds BOTH `refold_cif/` and `refold_design_cif/`, and
+only the second one is the designability output. The first is created early and stays empty:
+whglx's outgroel512 had `refold_cif/` on disk holding 0 cif while still mid-refold, and qb2's
+FINISHED out512_valid has `refold_cif/` holding 0 and `refold_design_cif/` holding 1. So a
+completion test written against `refold_cif` would read 0 forever on a finished run and look
+exactly like a job that never got there. `ref/harvest_upstream_1536.sh` and
+`ref/harvest_groel_upstream.sh` both test `refold_design_cif`, which is correct; checked against
+the finished qb2 run rather than assumed.
+
+## THE LAUNCHER SURVIVES ITS OWN SIGTERM, THE FAN DOES NOT REPORT IT
+
+`launch_if_clear.sh` does four ssh round trips plus `sleep 8`, so a local `timeout 180` can
+SIGTERM it mid-print: exit 143, no "launched" line, nothing in the local output. That kills the
+LOCAL script only — the fan is `setsid nohup`'d on whglx and keeps running. Happened at 19:01Z on
+the 768 rung; the fan (2654682) and both jobs (2654684, 2654692) were verified alive afterwards
+and the cells ran normally. The lesson is the verification, not the timeout: the launcher's own
+output is not the evidence that a fan started. `~/mgxacc-work/fan_*.log` plus live job pids is.
