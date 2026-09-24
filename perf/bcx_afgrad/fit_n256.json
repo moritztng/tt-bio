@@ -1,0 +1,44 @@
+{
+ "stamp": {
+  "host": "tt-quietbox2",
+  "card": 3,
+  "subsystem_device": "0x0046",
+  "commit": "56d7ea88b3632c5e767f3cbf3dd49e9227db4bf6",
+  "tt_bio_dirty": false,
+  "torch_threads": 8,
+  "loadavg": [
+   23.716796875,
+   26.02294921875,
+   27.591796875
+  ],
+  "utc": "2026-09-24T02:57:08Z"
+ },
+ "n": 256,
+ "ckpt": false,
+ "tries": [
+  {
+   "K": 1,
+   "after_fwd_bytes": 5348622336,
+   "after_bwd_bytes": 10615898112,
+   "ok": true
+  },
+  {
+   "K": 2,
+   "after_fwd_bytes": 10675585024,
+   "after_bwd_bytes": 20934131712,
+   "ok": true
+  },
+  {
+   "K": 3,
+   "after_fwd_bytes": 16004759552,
+   "after_bwd_bytes": 31384059904,
+   "ok": true
+  },
+  {
+   "K": 4,
+   "after_fwd_bytes": 21333934080,
+   "ok": false,
+   "error": "TT_FATAL @ /project/tt_metal/impl/allocator/bank_manager.cpp:439: false"
+  }
+ ]
+}

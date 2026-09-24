@@ -1,0 +1,1 @@
+{"accepted": 0, "attempted": ["ffb9c87873af6d36", "d562f4cc36694e2c"], "autotune": {"accepted": 0, "alternating": false, "loss": null, "overrides": {}, "restores": {}, "reviewed": 0}, "rejections": {"candidates_rejected": 0, "candidates_scored": 0, "failed_filters": {}, "terminated": {"screen": 1}}, "trajectories": 2}

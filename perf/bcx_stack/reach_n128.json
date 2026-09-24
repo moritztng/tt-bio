@@ -1,0 +1,309 @@
+{
+ "stamp": {
+  "host": "tt-quietbox",
+  "card": 1,
+  "subsystem_device": "0x0040",
+  "commit": "3351832bd3d1474367b01331cef1035cef6f9289",
+  "tt_bio_dirty": false,
+  "torch_threads": 8,
+  "loadavg": [
+   4.08544921875,
+   4.248046875,
+   3.64990234375
+  ],
+  "utc": "2026-09-24T02:25:51Z",
+  "pci": "0000:41:00.0",
+  "aiclk_node": null
+ },
+ "n": 128,
+ "arms": {
+  "stack": {
+   "evo": {
+    "per_block": {
+     "bwd | _merge_heads_v": 12,
+     "bwd | _split_heads_v": 4,
+     "bwd | via2d | collapsed | autograd.py:bw:1704": 20,
+     "bwd | via2d | collapsed | taped_ttnn.py:bw:136": 4,
+     "bwd | via2d | declined:rank<=2 | autograd.py:bw:1704": 1,
+     "bwd | via2d | declined:rank<=2 | taped_ttnn.py:bw:136": 1,
+     "bwd | via2d | declined:rows-not-tile | autograd.py:bw:1704": 3,
+     "fwd | route:_fp32_softmax_attention | af2.py:_attend:486": 1,
+     "fwd | route:_fp32_softmax_attention | tenstorrent.py:_attend_heads:8273": 2,
+     "fwd | verb:linear | a2d b2d": 1,
+     "fwd | verb:linear | a3d b2d": 9,
+     "fwd | verb:linear | a4d b2d": 4,
+     "fwd | verb:matmul | a2d b2d": 1,
+     "fwd | verb:matmul | a4d b4d": 2,
+     "fwd | verb:matmul | a4d b4d program_config": 8,
+     "fwd | verb:nlp_concat_heads | new": 4,
+     "fwd | verb:nlp_create_qkv_heads | new": 4,
+     "fwd | verb:softmax | a4d b?d": 1
+    },
+    "K1": {
+     "bwd | _merge_heads_v": 12,
+     "bwd | _split_heads_v": 4,
+     "bwd | via2d | collapsed | autograd.py:bw:1704": 20,
+     "bwd | via2d | collapsed | taped_ttnn.py:bw:136": 4,
+     "bwd | via2d | declined:rank<=2 | autograd.py:bw:1704": 1,
+     "bwd | via2d | declined:rank<=2 | taped_ttnn.py:bw:136": 1,
+     "bwd | via2d | declined:rows-not-tile | autograd.py:bw:1704": 3,
+     "fwd | route:_fp32_softmax_attention | af2.py:_attend:486": 1,
+     "fwd | route:_fp32_softmax_attention | tenstorrent.py:_attend_heads:8273": 2,
+     "fwd | verb:linear | a2d b2d": 1,
+     "fwd | verb:linear | a3d b2d": 9,
+     "fwd | verb:linear | a4d b2d": 4,
+     "fwd | verb:matmul | a2d b2d": 1,
+     "fwd | verb:matmul | a4d b4d": 2,
+     "fwd | verb:matmul | a4d b4d program_config": 8,
+     "fwd | verb:nlp_concat_heads | new": 4,
+     "fwd | verb:nlp_create_qkv_heads | new": 4,
+     "fwd | verb:softmax | a4d b?d": 1
+    },
+    "K2": {
+     "bwd | _merge_heads_v": 24,
+     "bwd | _split_heads_v": 8,
+     "bwd | via2d | collapsed | autograd.py:bw:1704": 40,
+     "bwd | via2d | collapsed | taped_ttnn.py:bw:136": 8,
+     "bwd | via2d | declined:rank<=2 | autograd.py:bw:1704": 2,
+     "bwd | via2d | declined:rank<=2 | taped_ttnn.py:bw:136": 2,
+     "bwd | via2d | declined:rows-not-tile | autograd.py:bw:1704": 6,
+     "fwd | route:_fp32_softmax_attention | af2.py:_attend:486": 2,
+     "fwd | route:_fp32_softmax_attention | tenstorrent.py:_attend_heads:8273": 4,
+     "fwd | verb:linear | a2d b2d": 2,
+     "fwd | verb:linear | a3d b2d": 18,
+     "fwd | verb:linear | a4d b2d": 8,
+     "fwd | verb:matmul | a2d b2d": 2,
+     "fwd | verb:matmul | a4d b4d": 4,
+     "fwd | verb:matmul | a4d b4d program_config": 16,
+     "fwd | verb:nlp_concat_heads | new": 8,
+     "fwd | verb:nlp_create_qkv_heads | new": 8,
+     "fwd | verb:softmax | a4d b?d": 2
+    },
+    "K1_shapes": {
+     "via2d | collapsed | autograd.py:bw:1704": {
+      "[1, 128, 128, 128]": 5,
+      "[1, 128, 128, 512]": 1,
+      "[128, 128, 128]": 2,
+      "[128, 128, 4]": 2,
+      "[128, 128, 384]": 2,
+      "[1, 128, 32]": 2,
+      "[1, 1, 128, 256]": 1,
+      "[1, 1, 128, 1024]": 1,
+      "[1, 128, 256]": 2,
+      "[128, 128, 8]": 1,
+      "[1, 128, 768]": 1
+     },
+     "via2d | collapsed | taped_ttnn.py:bw:136": {
+      "[128, 128, 128]": 2,
+      "[1, 128, 128, 512]": 2
+     },
+     "via2d | declined:rank<=2 | autograd.py:bw:1704": {
+      "[16384, 128]": 1
+     },
+     "via2d | declined:rank<=2 | taped_ttnn.py:bw:136": {
+      "[4096, 4096]": 1
+     },
+     "via2d | declined:rows-not-tile | autograd.py:bw:1704": {
+      "[128, 1, 256]": 2,
+      "[128, 1, 768]": 1
+     }
+    }
+   },
+   "extra": {
+    "per_block": {
+     "bwd | _merge_heads_v": 6,
+     "bwd | _split_heads_v": 2,
+     "bwd | via2d | collapsed | autograd.py:bw:1704": 12,
+     "bwd | via2d | collapsed | taped_ttnn.py:bw:136": 4,
+     "fwd | route:_fp32_softmax_attention | tenstorrent.py:_attend_heads:8273": 2,
+     "fwd | verb:linear | a3d b2d": 6,
+     "fwd | verb:linear | a4d b2d": 4,
+     "fwd | verb:matmul | a4d b4d program_config": 6,
+     "fwd | verb:nlp_concat_heads | new": 2,
+     "fwd | verb:nlp_create_qkv_heads | new": 2
+    },
+    "K1": {
+     "bwd | _merge_heads_v": 6,
+     "bwd | _split_heads_v": 2,
+     "bwd | via2d | collapsed | autograd.py:bw:1704": 12,
+     "bwd | via2d | collapsed | taped_ttnn.py:bw:136": 4,
+     "fwd | route:_fp32_softmax_attention | tenstorrent.py:_attend_heads:8273": 2,
+     "fwd | verb:linear | a3d b2d": 6,
+     "fwd | verb:linear | a4d b2d": 4,
+     "fwd | verb:matmul | a4d b4d program_config": 6,
+     "fwd | verb:nlp_concat_heads | new": 2,
+     "fwd | verb:nlp_create_qkv_heads | new": 2
+    },
+    "K2": {
+     "bwd | _merge_heads_v": 12,
+     "bwd | _split_heads_v": 4,
+     "bwd | via2d | collapsed | autograd.py:bw:1704": 24,
+     "bwd | via2d | collapsed | taped_ttnn.py:bw:136": 8,
+     "fwd | route:_fp32_softmax_attention | tenstorrent.py:_attend_heads:8273": 4,
+     "fwd | verb:linear | a3d b2d": 12,
+     "fwd | verb:linear | a4d b2d": 8,
+     "fwd | verb:matmul | a4d b4d program_config": 12,
+     "fwd | verb:nlp_concat_heads | new": 4,
+     "fwd | verb:nlp_create_qkv_heads | new": 4
+    },
+    "K1_shapes": {
+     "via2d | collapsed | autograd.py:bw:1704": {
+      "[1, 128, 128, 128]": 5,
+      "[1, 128, 128, 512]": 1,
+      "[128, 128, 128]": 2,
+      "[128, 128, 4]": 2,
+      "[128, 128, 384]": 2
+     },
+     "via2d | collapsed | taped_ttnn.py:bw:136": {
+      "[128, 128, 128]": 2,
+      "[1, 128, 128, 512]": 2
+     }
+    }
+   }
+  },
+  "base": {
+   "evo": {
+    "per_block": {
+     "bwd | concat_heads_bw_old": 4,
+     "bwd | create_qkv_heads_bw_old": 12,
+     "bwd | via2d | collapsed | autograd.py:bw:1704": 20,
+     "bwd | via2d | collapsed | taped_ttnn.py:bw:136": 4,
+     "bwd | via2d | declined:rank<=2 | autograd.py:bw:1704": 1,
+     "bwd | via2d | declined:rank<=2 | taped_ttnn.py:bw:136": 1,
+     "bwd | via2d | declined:rows-not-tile | autograd.py:bw:1704": 3,
+     "fwd | route:_fp32_softmax_attention | af2.py:_attend:486": 1,
+     "fwd | route:_fp32_softmax_attention | tenstorrent.py:_attend_heads:8273": 2,
+     "fwd | verb:linear | a2d b2d": 1,
+     "fwd | verb:linear | a3d b2d": 9,
+     "fwd | verb:linear | a4d b2d": 4,
+     "fwd | verb:matmul | a2d b2d": 1,
+     "fwd | verb:matmul | a4d b4d": 2,
+     "fwd | verb:matmul | a4d b4d program_config": 8,
+     "fwd | verb:nlp_concat_heads | old": 4,
+     "fwd | verb:nlp_create_qkv_heads | old": 4,
+     "fwd | verb:softmax | a4d b?d": 1
+    },
+    "K1": {
+     "bwd | concat_heads_bw_old": 4,
+     "bwd | create_qkv_heads_bw_old": 12,
+     "bwd | via2d | collapsed | autograd.py:bw:1704": 20,
+     "bwd | via2d | collapsed | taped_ttnn.py:bw:136": 4,
+     "bwd | via2d | declined:rank<=2 | autograd.py:bw:1704": 1,
+     "bwd | via2d | declined:rank<=2 | taped_ttnn.py:bw:136": 1,
+     "bwd | via2d | declined:rows-not-tile | autograd.py:bw:1704": 3,
+     "fwd | route:_fp32_softmax_attention | af2.py:_attend:486": 1,
+     "fwd | route:_fp32_softmax_attention | tenstorrent.py:_attend_heads:8273": 2,
+     "fwd | verb:linear | a2d b2d": 1,
+     "fwd | verb:linear | a3d b2d": 9,
+     "fwd | verb:linear | a4d b2d": 4,
+     "fwd | verb:matmul | a2d b2d": 1,
+     "fwd | verb:matmul | a4d b4d": 2,
+     "fwd | verb:matmul | a4d b4d program_config": 8,
+     "fwd | verb:nlp_concat_heads | old": 4,
+     "fwd | verb:nlp_create_qkv_heads | old": 4,
+     "fwd | verb:softmax | a4d b?d": 1
+    },
+    "K2": {
+     "bwd | concat_heads_bw_old": 8,
+     "bwd | create_qkv_heads_bw_old": 24,
+     "bwd | via2d | collapsed | autograd.py:bw:1704": 40,
+     "bwd | via2d | collapsed | taped_ttnn.py:bw:136": 8,
+     "bwd | via2d | declined:rank<=2 | autograd.py:bw:1704": 2,
+     "bwd | via2d | declined:rank<=2 | taped_ttnn.py:bw:136": 2,
+     "bwd | via2d | declined:rows-not-tile | autograd.py:bw:1704": 6,
+     "fwd | route:_fp32_softmax_attention | af2.py:_attend:486": 2,
+     "fwd | route:_fp32_softmax_attention | tenstorrent.py:_attend_heads:8273": 4,
+     "fwd | verb:linear | a2d b2d": 2,
+     "fwd | verb:linear | a3d b2d": 18,
+     "fwd | verb:linear | a4d b2d": 8,
+     "fwd | verb:matmul | a2d b2d": 2,
+     "fwd | verb:matmul | a4d b4d": 4,
+     "fwd | verb:matmul | a4d b4d program_config": 16,
+     "fwd | verb:nlp_concat_heads | old": 8,
+     "fwd | verb:nlp_create_qkv_heads | old": 8,
+     "fwd | verb:softmax | a4d b?d": 2
+    },
+    "K1_shapes": {
+     "via2d | collapsed | autograd.py:bw:1704": {
+      "[1, 128, 128, 128]": 5,
+      "[1, 128, 128, 512]": 1,
+      "[128, 128, 128]": 2,
+      "[128, 128, 4]": 2,
+      "[128, 128, 384]": 2,
+      "[1, 128, 32]": 2,
+      "[1, 1, 128, 256]": 1,
+      "[1, 1, 128, 1024]": 1,
+      "[1, 128, 256]": 2,
+      "[128, 128, 8]": 1,
+      "[1, 128, 768]": 1
+     },
+     "via2d | collapsed | taped_ttnn.py:bw:136": {
+      "[128, 128, 128]": 2,
+      "[1, 128, 128, 512]": 2
+     },
+     "via2d | declined:rank<=2 | autograd.py:bw:1704": {
+      "[16384, 128]": 1
+     },
+     "via2d | declined:rank<=2 | taped_ttnn.py:bw:136": {
+      "[4096, 4096]": 1
+     },
+     "via2d | declined:rows-not-tile | autograd.py:bw:1704": {
+      "[128, 1, 256]": 2,
+      "[128, 1, 768]": 1
+     }
+    }
+   },
+   "extra": {
+    "per_block": {
+     "bwd | concat_heads_bw_old": 2,
+     "bwd | create_qkv_heads_bw_old": 6,
+     "bwd | via2d | collapsed | autograd.py:bw:1704": 12,
+     "bwd | via2d | collapsed | taped_ttnn.py:bw:136": 4,
+     "fwd | route:_fp32_softmax_attention | tenstorrent.py:_attend_heads:8273": 2,
+     "fwd | verb:linear | a3d b2d": 6,
+     "fwd | verb:linear | a4d b2d": 4,
+     "fwd | verb:matmul | a4d b4d program_config": 6,
+     "fwd | verb:nlp_concat_heads | old": 2,
+     "fwd | verb:nlp_create_qkv_heads | old": 2
+    },
+    "K1": {
+     "bwd | concat_heads_bw_old": 2,
+     "bwd | create_qkv_heads_bw_old": 6,
+     "bwd | via2d | collapsed | autograd.py:bw:1704": 12,
+     "bwd | via2d | collapsed | taped_ttnn.py:bw:136": 4,
+     "fwd | route:_fp32_softmax_attention | tenstorrent.py:_attend_heads:8273": 2,
+     "fwd | verb:linear | a3d b2d": 6,
+     "fwd | verb:linear | a4d b2d": 4,
+     "fwd | verb:matmul | a4d b4d program_config": 6,
+     "fwd | verb:nlp_concat_heads | old": 2,
+     "fwd | verb:nlp_create_qkv_heads | old": 2
+    },
+    "K2": {
+     "bwd | concat_heads_bw_old": 4,
+     "bwd | create_qkv_heads_bw_old": 12,
+     "bwd | via2d | collapsed | autograd.py:bw:1704": 24,
+     "bwd | via2d | collapsed | taped_ttnn.py:bw:136": 8,
+     "fwd | route:_fp32_softmax_attention | tenstorrent.py:_attend_heads:8273": 4,
+     "fwd | verb:linear | a3d b2d": 12,
+     "fwd | verb:linear | a4d b2d": 8,
+     "fwd | verb:matmul | a4d b4d program_config": 12,
+     "fwd | verb:nlp_concat_heads | old": 4,
+     "fwd | verb:nlp_create_qkv_heads | old": 4
+    },
+    "K1_shapes": {
+     "via2d | collapsed | autograd.py:bw:1704": {
+      "[1, 128, 128, 128]": 5,
+      "[1, 128, 128, 512]": 1,
+      "[128, 128, 128]": 2,
+      "[128, 128, 4]": 2,
+      "[128, 128, 384]": 2
+     },
+     "via2d | collapsed | taped_ttnn.py:bw:136": {
+      "[128, 128, 128]": 2,
+      "[1, 128, 128, 512]": 2
+     }
+    }
+   }
+  }
+ }
+}

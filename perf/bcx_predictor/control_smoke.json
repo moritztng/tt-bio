@@ -1,0 +1,11 @@
+{
+ "question": "does BindCraft 2's campaign.py construct and drive TTBioAlphaFoldDesignModel?",
+ "predictor_in_stamp": "TTBioAlphaFoldDesignModel",
+ "length_bucket_size": 1,
+ "arm": "control",
+ "campaign_reached_trajectory_1": true,
+ "trajectory_name": "pdl1_denovo_l146_d2bfded440698f32",
+ "campaign_header_printed": true,
+ "filters_are_bc2_own": true,
+ "note": "stopped after the campaign reached its first trajectory: the question is whether BindCraft 2 drives the class, not whether this trajectory finishes, and the reference arm wants the cores."
+}

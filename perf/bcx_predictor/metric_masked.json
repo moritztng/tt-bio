@@ -1,0 +1,55 @@
+{
+ "bucket": 32,
+ "n": 211,
+ "chains": [
+  96,
+  115
+ ],
+ "masked_residues": 19,
+ "mask_all_ones": false,
+ "jax": {
+  "plddt_mean": 0.7348635792732239,
+  "plddt_min": 0.2605011463165283,
+  "plddt_max": 0.9744397401809692,
+  "ptm": 0.5642497539520264,
+  "iptm": 0.08843609690666199
+ },
+ "jax_s": 127.2,
+ "device": {
+  "plddt_mean": 0.7432979941368103,
+  "plddt_min": 0.312349796295166,
+  "plddt_max": 0.9769772291183472,
+  "ptm": 0.5697672963142395,
+  "iptm": 0.08701092004776001
+ },
+ "device_s": 29.7,
+ "aiclk": {
+  "n": 112,
+  "min": 1350,
+  "median": 1350,
+  "max": 1350
+ },
+ "plddt_ratio_device_over_jax": 1.0115,
+ "screen_bar_min_plddt": 0.6,
+ "trajectories_rejected_at": [
+  0.41,
+  0.38,
+  0.38,
+  0.38,
+  0.38
+ ],
+ "stamp": {
+  "host": "tt-quietbox2",
+  "card": 3,
+  "subsystem_device": "0x0046",
+  "commit": "e92d1a62054ef8986e3e91370155db1d74ee5f68",
+  "tt_bio_dirty": false,
+  "torch_threads": 8,
+  "loadavg": [
+   63.416015625,
+   57.19384765625,
+   47.076171875
+  ],
+  "utc": "2026-09-24T12:05:07Z"
+ }
+}

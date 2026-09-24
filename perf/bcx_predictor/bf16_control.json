@@ -1,0 +1,27 @@
+{
+ "bf16_activations_the_honest_control": {
+  "arm": "bf16",
+  "input_dtype": "torch.bfloat16",
+  "activations_float32": false,
+  "g_msa_rel_l2": 0.090651885036844,
+  "g_msa_cos": 0.9958835722138072,
+  "g_pair_rel_l2": 0.06736185356357148,
+  "g_pair_cos": 0.9977308335290357
+ },
+ "float32_activations_what_was_measured_before": {
+  "arm": "mislabelled",
+  "input_dtype": "torch.float32",
+  "activations_float32": true,
+  "g_msa_rel_l2": 0.0007410910613042404,
+  "g_msa_cos": 0.9999997255841466,
+  "g_pair_rel_l2": 0.0005714773718660227,
+  "g_pair_cos": 0.9999998367071604
+ },
+ "device_from_device_trunk_check": {
+  "g_msa_rel_l2": 0.12259594010820524,
+  "g_msa_cos": 0.9924605386448399,
+  "g_pair_rel_l2": 0.08311615476329591,
+  "g_pair_cos": 0.996540010736473
+ },
+ "device_over_bf16_g_msa": 1.35
+}

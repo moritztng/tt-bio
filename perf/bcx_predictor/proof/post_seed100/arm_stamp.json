@@ -1,0 +1,42 @@
+{
+ "arm": "device",
+ "seed": 100,
+ "trajectories": 1,
+ "length_bucket_size": 32,
+ "length_bucket_flag": 0,
+ "predictor": "TTBioAlphaFoldDesignModel",
+ "host": "tt-quietbox2",
+ "started_utc": "2026-09-24T17:12:04Z",
+ "loadavg_start": [
+  50.20556640625,
+  51.55712890625,
+  53.7978515625
+ ],
+ "stage_plan": {
+  "per_stage": {
+   "screen": 50,
+   "refine": 25,
+   "anneal": 45,
+   "harden": 5,
+   "mutate": 15
+  },
+  "gradient_steps": 125,
+  "mutate_steps": 15
+ },
+ "threads": "--xla_gpu_enable_triton_gemm=false",
+ "project": "runs/post_seed100",
+ "device_card": 3,
+ "device_calls": {
+  "primal": 32,
+  "taped": 250,
+  "backward": 125
+ },
+ "trajectories_run": 1,
+ "wall_seconds": 6591.0,
+ "finished_utc": "2026-09-24T19:01:55Z",
+ "loadavg_end": [
+  59.314453125,
+  58.703125,
+  60.865234375
+ ]
+}

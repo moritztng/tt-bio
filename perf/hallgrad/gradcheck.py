@@ -136,6 +136,20 @@ def case_mm_tb(rng, m=64, k=96, n=128):
     return {"a": rng.standard_normal((m, k)) , "b": rng.standard_normal((n, k))}
 
 
+def case_linear3d(rng, lead=(3, 64), k=128, n_out=96):
+    """A rank-3 linear, which `_via2d` runs on its rows view: forward, dX, dW and db."""
+    return {
+        "x": rng.standard_normal((*lead, k)),
+        "w": rng.standard_normal((k, n_out)) / math.sqrt(k),
+        "b": rng.standard_normal((1, n_out)),
+    }
+
+
+def case_mm_tb3d(rng, lead=(3, 64), k=96, n=128):
+    """A rank-3 left operand against a 2-D right one, transposed: `_via2d`'s matmul path."""
+    return {"a": rng.standard_normal((*lead, k)), "b": rng.standard_normal((n, k))}
+
+
 def case_mm_ta(rng, m=96, k=64, n=128):
     """a^T @ b, also non-square."""
     return {"a": rng.standard_normal((k, m)), "b": rng.standard_normal((k, n))}
@@ -216,7 +230,7 @@ def torch_forward(name, t):
         if "bias" in t:
             base = base + t["bias"]
         return base + ((t["x"] @ t["a"]) @ t["b"]) * LORA_SCALING
-    if name == "linear":
+    if name in ("linear", "linear3d"):
         return t["x"] @ t["w"] + t["b"]
     if name == "chain":
         return (t["x"] @ t["w1"]) @ t["w2"]
@@ -233,7 +247,7 @@ def torch_forward(name, t):
         s = t["q"] @ t["k"].transpose(-2, -1) * TRIATT_SCALE + t["bias"]
         o = torch.softmax(s, dim=-1) @ t["v"]
         return o * torch.sigmoid(t["g"]) if name == "triatt_gated" else o
-    if name == "mm_tb":
+    if name in ("mm_tb", "mm_tb3d"):
         return t["a"] @ t["b"].transpose(-2, -1)
     if name == "mm_ta":
         return t["a"].transpose(-2, -1) @ t["b"]
@@ -251,7 +265,7 @@ def tt_forward(name, ag, t):
         from tt_bio import train as ft
         return ft.lora_linear(t["x"], t["w"], t["a"], t["b"], t.get("bias"),
                               scaling=LORA_SCALING)
-    if name == "linear":
+    if name in ("linear", "linear3d"):
         return ag.linear(t["x"], t["w"], t["b"])
     if name == "chain":
         return ag.linear(ag.linear(t["x"], t["w1"]), t["w2"])
@@ -266,7 +280,7 @@ def tt_forward(name, ag, t):
         o = ag.triangle_attention(t["q"], t["k"], t["v"], t["bias"],
                                   scale=TRIATT_SCALE, **kw)
         return ag.mul(o, ag.sigmoid(t["g"])) if name == "triatt_gated" else o
-    if name == "mm_tb":
+    if name in ("mm_tb", "mm_tb3d"):
         return ag.matmul(t["a"], t["b"], transpose_b=True)
     if name == "mm_ta":
         return ag.matmul(t["a"], t["b"], transpose_a=True)
@@ -284,7 +298,8 @@ CASES = {
     "layernorm": case_layernorm, "softmax": case_softmax,
     "triatt": case_triatt, "triatt_chunked": case_triatt_chunked,
     "triatt_gated": case_triatt_gated,
-    "mm_tb": case_mm_tb, "mm_ta": case_mm_ta, "permute": case_permute,
+    "mm_tb": case_mm_tb, "mm_ta": case_mm_ta,
+    "linear3d": case_linear3d, "mm_tb3d": case_mm_tb3d, "permute": case_permute,
     "paircontract": case_paircontract, "paircontract_in": case_paircontract_in,
     "lora": case_lora, "lora_pair": case_lora_pair, "lora_bias": case_lora_bias,
 }
@@ -293,7 +308,10 @@ CASES = {
 # accounting detail: if W takes a gradient you are full fine-tuning and calling it LoRA,
 # and the failure is invisible in every error metric because the gradient is correct. The
 # harness asserts absence, which is why these are declared rather than simply omitted.
-FROZEN = {"lora": ("w",), "lora_pair": ("w",), "lora_bias": ("w", "bias")}
+# `mm_tb3d` holds its 2-D operand fixed because `matmul`'s dB against a rank-3 left operand is
+# a batched product with one gradient per batch, which add_grad refuses; that is older than
+# `_via2d` and not what the case is testing.
+FROZEN = {"mm_tb3d": ("b",), "lora": ("w",), "lora_pair": ("w",), "lora_bias": ("w", "bias")}
 
 
 def main():

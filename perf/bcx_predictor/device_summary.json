@@ -1,0 +1,80 @@
+{
+ "arm": "device",
+ "card": 3,
+ "bucket": 32,
+ "min_plddt_screen": 0.6,
+ "trajectories": [
+  {
+   "seed": 0,
+   "trajectory": "pdl1_denovo_l146_d2bfded440698f32",
+   "binder": 146,
+   "n_bucket32": 275,
+   "stage": "screen",
+   "i_pTM": 0.36,
+   "pLDDT": 0.41,
+   "rejected_on": "pLDDT",
+   "rounds": 5,
+   "iptm_first": "0.36",
+   "iptm_last": "0.36",
+   "accepted": 0
+  },
+  {
+   "seed": 100,
+   "trajectory": "pdl1_denovo_l71_c019673d64134f64",
+   "binder": 71,
+   "n_bucket32": 211,
+   "stage": "screen",
+   "i_pTM": 0.4,
+   "pLDDT": 0.38,
+   "rejected_on": "pLDDT",
+   "rounds": 13,
+   "iptm_first": "0.37",
+   "iptm_last": "0.39",
+   "accepted": 0
+  },
+  {
+   "seed": 200,
+   "trajectory": "pdl1_denovo_l176_09b8e7a3d08bc7b6",
+   "binder": 176,
+   "n_bucket32": 307,
+   "stage": "screen",
+   "i_pTM": 0.37,
+   "pLDDT": 0.38,
+   "rejected_on": "pLDDT",
+   "rounds": 6,
+   "iptm_first": "0.39",
+   "iptm_last": "0.36",
+   "accepted": 0
+  },
+  {
+   "seed": 300,
+   "trajectory": "pdl1_denovo_l138_aaf0e3cad8e56a88",
+   "binder": 138,
+   "n_bucket32": 275,
+   "stage": "screen",
+   "i_pTM": 0.39,
+   "pLDDT": 0.38,
+   "rejected_on": "pLDDT",
+   "rounds": 1,
+   "iptm_first": "0.39",
+   "iptm_last": "0.39",
+   "accepted": 0
+  },
+  {
+   "seed": 400,
+   "trajectory": "pdl1_denovo_l180_070665c423a0a4ee",
+   "binder": 180,
+   "n_bucket32": 307,
+   "stage": "screen",
+   "i_pTM": 0.33,
+   "pLDDT": 0.38,
+   "rejected_on": "pLDDT",
+   "rounds": 4,
+   "iptm_first": "0.35",
+   "iptm_last": "0.33",
+   "accepted": 0
+  }
+ ],
+ "accepted_total": 0,
+ "note": "All five rejected by BindCraft 2's own screen filter. No accepted design, so chip-seconds per accepted design is undefined from this run."
+}
