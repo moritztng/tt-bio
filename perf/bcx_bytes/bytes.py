@@ -197,10 +197,10 @@ def cmd_trace(args):
                 rec.on = False
                 ag.release_pins()
                 del mo, zo, ml, zl, roots, seeds
-                blob = {"arm": arm, "stack": stack_name, "n": n, "K": 1, "ckpt": True,
+                blob = {"arm": arm + args.tag, "stack": stack_name, "n": n, "K": 1, "ckpt": True,
                         "fwd": fwd, "bwd": bwd, "nested": {"fwd": fn_, "bwd": bn_}}
                 OUT.mkdir(parents=True, exist_ok=True)
-                p = OUT / f"trace_{arm}_{stack_name}_n{n}.json"
+                p = OUT / f"trace_{arm}{args.tag}_{stack_name}_n{n}.json"
                 p.write_text(json.dumps(blob))
                 print(f"{p.name}: fwd {len(fwd)} ops, bwd {len(bwd)} ops", flush=True)
 
@@ -423,8 +423,8 @@ def cmd_join(args):
             segs[seg].append(r)
     out = {}
     for stack_name in ("evo", "extra"):
-        t = json.loads((OUT / f"trace_stack_{stack_name}_n256.json").read_text())
-        cr = segs[f"bwd {stack_name} K=1 rep=0"]
+        t = json.loads((OUT / f"trace_{args.trace_arm}_{stack_name}_n256.json").read_text())
+        cr = segs[args.seg.format(stack=stack_name)]
         cen = census(t["bwd"])
         j, matched, ms = 0, 0, collections.defaultdict(float)
         per_row = []
@@ -446,6 +446,8 @@ def cmd_join(args):
                     if r["why"]:
                         ms["why:" + r["why"]] += d
                     per_row.append([r["i"], r["op"], cr[k]["OP CODE"], d, r["nodeop"]])
+                    site = r["node"] or r["model"] or "tape:" + str(r["tape"])
+                    ms["site:" + site.split(":")[0] + ":" + site.rsplit(":", 1)[-1]] += d
                     break
         total = sum(float(x["DEVICE KERNEL DURATION [ns]"]) for x in cr) * 1e-6
         out[stack_name] = {"csv_rows": len(cr), "csv_ms": total, "matched": matched,
@@ -453,7 +455,7 @@ def cmd_join(args):
                            "top_nodes": sorted(per_row, key=lambda x: -x[3])[:60]}
         print(f"{stack_name}: matched {matched}/{len(cr)} rows, {ms['all']:.1f}/{total:.1f} ms; "
               + ", ".join(f"{k} {v:.1f}" for k, v in sorted(ms.items(), key=lambda x: -x[1])), flush=True)
-    (OUT / "join.json").write_text(json.dumps(out, indent=1))
+    (OUT / args.out).write_text(json.dumps(out, indent=1))
 
 
 # ------------------------------------------------------------------------------ arms
@@ -465,15 +467,16 @@ class Arms:
       perm  a permute's backward goes through `_channel_move` / `_channel_move_back` when its
             inverse is one of their two index moves: the reblock kernels, bit-exact against
             `ttnn.permute`, which the generic tape backward never reaches
-      tri   `_fp32_softmax_attention` takes no L1-plan block cap while a tape is open, where
-            `shard_for` refuses the shard anyway; `tri<k>` caps it at k rows instead
+      chunk the shipped taped triangle-attention blocking: the L1 plan's rows, which
+            `tenstorrent.py` no longer applies under a tape (`shard_for` refuses the shard there),
+            pinned back through `_FP32_SOFTMAX_DRAM_ROW_CAP`, which does apply
     An arm is `+`-joined switches on top of the lever arm `--arm` (e.g. `base`, `perm+tri`).
     """
 
     def __init__(self):
         import ttnn
         from tt_bio import ops, taped_ttnn as T, tenstorrent as tn
-        self.perm, self.tri = False, None
+        self.perm, self.chunk = False, False
         self.served = collections.Counter()
         arms = self
 
@@ -511,12 +514,15 @@ class Arms:
         assert "permute" not in vars(T._SHIM), "taped_ttnn shim already cached permute"
         T._VERBS["permute"] = _v_permute
         real = tn._fp32_softmax_l1_plan
+        self.tn, self.pinned = tn, set()
 
-        def plan(*a, **k):
-            r = real(*a, **k)
-            if ops.taping() and arms.tri is not None:
-                arms.served[f"tri:{arms.tri}:shipped={r[0]}"] += 1
-                return (0, 0) if arms.tri == 0 else (min(arms.tri, r[0]) if r[0] else 0, r[1])
+        def plan(per_row, height_per_row, width, *a, **k):
+            r = real(per_row, height_per_row, width, *a, **k)
+            if ops.taping() and r[0]:
+                arms.served[f"tri:{'chunk' if arms.chunk else 'whole'}:plan={r[0]}"] += 1
+                if arms.chunk:
+                    tn._FP32_SOFTMAX_DRAM_ROW_CAP[(height_per_row, width)] = r[0]
+                    arms.pinned.add((height_per_row, width))
             return r
 
         tn._fp32_softmax_l1_plan = plan
@@ -524,8 +530,10 @@ class Arms:
     def set(self, name):
         sw = set(name.split("+")) - {"base"}
         self.perm = "perm" in sw
-        tri = [x for x in sw if x.startswith("tri")]
-        self.tri = None if not tri else (int(tri[0][3:]) if tri[0][3:] else 0)
+        self.chunk = "chunk" in sw
+        for key in self.pinned:
+            self.tn._FP32_SOFTMAX_DRAM_ROW_CAP.pop(key, None)
+        self.pinned.clear()
 
 
 def _run_block(dev, lv, m0, z0, wm, wz, stack_name, sign=None):
@@ -705,14 +713,39 @@ def cmd_psum(args):
     (OUT / args.out).write_text(json.dumps(out, indent=1))
 
 
+def cmd_whole(args):
+    """`stack.py whole` with this row's switches: `--arms bwd+chunk,bwd` runs the lever arm `bwd`
+    with the shipped taped blocking pinned, then without it, reps interleaved in one process."""
+    arms_ = Arms()
+    from perf.bcx_stack import stack as S
+    real = S.open_all
+
+    def open_all(a):
+        lv, dev, ref = real(a)
+        lever = lv.arm
+
+        def arm(name):
+            parts = name.split("+")
+            mine = [p for p in parts if p in ("chunk", "perm")]
+            lever("+".join(p for p in parts if p not in mine))
+            arms_.set("+".join(mine) or "base")
+
+        lv.arm = arm
+        return lv, dev, ref
+
+    S.open_all = open_all
+    S.cmd_whole(args)
+    print("served", dict(arms_.served), flush=True)
+
+
 def main():
     from perf.bcx_afgrad import afgrad as A
     ap = argparse.ArgumentParser()
-    ap.add_argument("cmd", choices=["trace", "census", "chunk", "join", "arms", "psum"])
+    ap.add_argument("cmd", choices=["trace", "census", "chunk", "join", "arms", "psum", "whole"])
     ap.add_argument("--params", default=A.DEFAULT_PARAMS)
     ap.add_argument("--card", type=int, default=int(os.environ.get("TT_VISIBLE_DEVICES", "0")))
     ap.add_argument("--arms", default="stack,bwd",
-                    help="trace: lever arms; arms/psum: this row's arms, e.g. base,perm,tri,perm+tri")
+                    help="trace: lever arms; arms/psum: this row's arms, e.g. chunk,base,perm")
     ap.add_argument("--stacks", default="evo,extra")
     ap.add_argument("--ns", default="256,128")
     ap.add_argument("--warm", type=int, default=1)
@@ -722,12 +755,20 @@ def main():
     ap.add_argument("--steps", type=int, default=5)
     ap.add_argument("--out", default=None)
     ap.add_argument("--prof", action="store_true")
+    ap.add_argument("--n", type=int, default=256, help="whole: tokens")
+    ap.add_argument("--extra", type=int, default=4)
+    ap.add_argument("--evo", type=int, default=48)
+    ap.add_argument("--reps", type=int, default=2)
+    ap.add_argument("--tag", default="", help="trace: suffix on the arm name, for the same lever "
+                    "arm on a different tt_bio tree (e.g. -fix)")
+    ap.add_argument("--trace-arm", default="stack", help="join: which trace_<arm>_* to join")
+    ap.add_argument("--seg", default="bwd {stack} K=1 rep=0", help="join: report segment")
     ap.add_argument("--f64", action="store_true", help="arms: grade each arm against float64")
     ap.add_argument("--top", type=int, default=15)
     ap.add_argument("--report", default="/dev/shm/bcx-rc-out/ops_perf_results_n256.csv")
     ap.add_argument("--threads", type=int, default=8)
     args = ap.parse_args()
-    {"trace": cmd_trace, "census": cmd_census, "chunk": cmd_chunk, "join": cmd_join, "arms": cmd_arms, "psum": cmd_psum}[args.cmd](args)
+    {"trace": cmd_trace, "census": cmd_census, "chunk": cmd_chunk, "join": cmd_join, "arms": cmd_arms, "psum": cmd_psum, "whole": cmd_whole}[args.cmd](args)
 
 
 if __name__ == "__main__":
