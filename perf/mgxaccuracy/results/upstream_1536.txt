@@ -29,13 +29,23 @@
 #
 # So the row's opening question now has a sign: **the 1536 loss is the port's, not BoltzGen's.**
 #
-# WHAT n=1 DOES AND DOES NOT BUY. One upstream design bounds the LEVEL; it does not describe
-# upstream's 1536 distribution, and this row has said all pass that an n=1 reference cannot
-# rank two things that overlap. These do not overlap: for the reading above to be wrong,
-# upstream's 1536 bulk would have to sit above 16.45 A with this draw landing at 7.91, a 8.5 A
-# excursion where the measured instrument noise is under 2 A. A second upstream 1536 design
-# costs another ~12 h design step on 16 cores and is the honest way to firm it up; ask 9957
-# (vast.ai GPU) is the cheap way and has been unanswered since 02:27Z 09-23.
+# THE REFOLD NOISE IS NOW MEASURED AT 1536, not borrowed from 512. The same upstream design
+# was refolded a second time, same config, same checkpoint:
+#
+#   upstream 1536 design, refold 1     7.907 A
+#   upstream 1536 design, refold 2     6.668 A   -> spread 1.239 A, mean 7.287
+#
+# which sits inside the 0.86 / 1.93 A pairs measured at 512, so the scoring fold behaves the
+# same way at this size. The gap from upstream's WORST draw (7.907) to the device's BEST 1536
+# design (16.446) is 8.539 A, which is 6.9x that measured spread.
+#
+# WHAT IS STILL n=1, EXACTLY. One upstream DESIGN, refolded twice. The refold axis is now
+# doubled; the DESIGN axis is not, so upstream's design-to-design spread at 1536 remains
+# unmeasured and that is the load-bearing caveat, not the refold. For the reading above to be
+# wrong, upstream's 1536 design distribution would have to have its bulk above 16.45 A with
+# this one draw landing at 7.9 and 6.7 on two independent refolds. A second upstream 1536
+# design costs another ~12 h design step on 16 cores and is the honest way to firm it up;
+# ask 9957 (vast.ai GPU) is the cheap way and has been unanswered since 02:27Z 09-23.
 #
 # AND EVERY DEVICE 1536 NUMBER HERE IS PRE-FIX. cc908c377 corrects TokenDistanceRecycle, the
 # module that injects the target's token distances -- the conditioning a binder design is
