@@ -1,0 +1,219 @@
+{
+ "stamp": {
+  "host": "tt-quietbox",
+  "card": 1,
+  "subsystem_device": "0x0040",
+  "commit": "ee17d415091231c4bf4aa2aa08372924bdd23aa8",
+  "tt_bio_dirty": false,
+  "torch_threads": 8,
+  "loadavg": [
+   4.345703125,
+   6.16259765625,
+   5.0498046875
+  ],
+  "utc": "2026-09-24T02:33:32Z",
+  "pci": "0000:41:00.0",
+  "aiclk_node": null
+ },
+ "n": 256,
+ "arms": [
+  "base",
+  "mm2d",
+  "bmm",
+  "heads",
+  "triatt",
+  "stack"
+ ],
+ "stacks": {
+  "evo": {
+   "base": {
+    "dm": {
+     "bit_identical_to_base": true,
+     "vs_base": {
+      "rel_l2": 0.0,
+      "cos": 1.0000000000000002
+     },
+     "norm": 29.665407180786133,
+     "repeat_bit_identical": true
+    },
+    "dz": {
+     "bit_identical_to_base": true,
+     "vs_base": {
+      "rel_l2": 0.0,
+      "cos": 1.0000000000004086
+     },
+     "norm": 2.441681146621704,
+     "repeat_bit_identical": true
+    }
+   },
+   "mm2d": {
+    "dm": {
+     "bit_identical_to_base": false,
+     "vs_base": {
+      "rel_l2": 0.0097521159815713,
+      "cos": 0.9999525702494717
+     },
+     "norm": 29.678733825683594,
+     "repeat_bit_identical": true
+    },
+    "dz": {
+     "bit_identical_to_base": false,
+     "vs_base": {
+      "rel_l2": 0.006914881945328859,
+      "cos": 0.9999761206539722
+     },
+     "norm": 2.442209005355835,
+     "repeat_bit_identical": true
+    }
+   },
+   "bmm": {
+    "dm": {
+     "bit_identical_to_base": true,
+     "vs_base": {
+      "rel_l2": 0.0,
+      "cos": 1.0000000000000002
+     },
+     "norm": 29.665407180786133,
+     "repeat_bit_identical": true
+    },
+    "dz": {
+     "bit_identical_to_base": true,
+     "vs_base": {
+      "rel_l2": 0.0,
+      "cos": 1.0000000000004086
+     },
+     "norm": 2.441681146621704,
+     "repeat_bit_identical": true
+    }
+   },
+   "heads": {
+    "dm": {
+     "bit_identical_to_base": true,
+     "vs_base": {
+      "rel_l2": 0.0,
+      "cos": 1.0000000000000002
+     },
+     "norm": 29.665407180786133,
+     "repeat_bit_identical": true
+    },
+    "dz": {
+     "bit_identical_to_base": true,
+     "vs_base": {
+      "rel_l2": 0.0,
+      "cos": 1.0000000000004086
+     },
+     "norm": 2.441681146621704,
+     "repeat_bit_identical": true
+    }
+   },
+   "triatt": {
+    "dm": {
+     "bit_identical_to_base": true,
+     "vs_base": {
+      "rel_l2": 0.0,
+      "cos": 1.0000000000000002
+     },
+     "norm": 29.665407180786133,
+     "repeat_bit_identical": true
+    },
+    "dz": {
+     "bit_identical_to_base": true,
+     "vs_base": {
+      "rel_l2": 0.0,
+      "cos": 1.0000000000004086
+     },
+     "norm": 2.441681146621704,
+     "repeat_bit_identical": true
+    }
+   },
+   "stack": {
+    "dm": {
+     "bit_identical_to_base": false,
+     "vs_base": {
+      "rel_l2": 0.0097521159815713,
+      "cos": 0.9999525702494717
+     },
+     "norm": 29.678733825683594,
+     "repeat_bit_identical": true
+    },
+    "dz": {
+     "bit_identical_to_base": false,
+     "vs_base": {
+      "rel_l2": 0.006914881945328859,
+      "cos": 0.9999761206539722
+     },
+     "norm": 2.442209005355835,
+     "repeat_bit_identical": true
+    }
+   }
+  },
+  "extra": {
+   "base": {
+    "dz": {
+     "bit_identical_to_base": true,
+     "vs_base": {
+      "rel_l2": 0.0,
+      "cos": 1.0000000000000016
+     },
+     "norm": 5.8519463539123535,
+     "repeat_bit_identical": true
+    }
+   },
+   "mm2d": {
+    "dz": {
+     "bit_identical_to_base": false,
+     "vs_base": {
+      "rel_l2": 0.0021497381300853583,
+      "cos": 0.9999976897360934
+     },
+     "norm": 5.85210657119751,
+     "repeat_bit_identical": true
+    }
+   },
+   "bmm": {
+    "dz": {
+     "bit_identical_to_base": true,
+     "vs_base": {
+      "rel_l2": 0.0,
+      "cos": 1.0000000000000016
+     },
+     "norm": 5.8519463539123535,
+     "repeat_bit_identical": true
+    }
+   },
+   "heads": {
+    "dz": {
+     "bit_identical_to_base": true,
+     "vs_base": {
+      "rel_l2": 0.0,
+      "cos": 1.0000000000000016
+     },
+     "norm": 5.8519463539123535,
+     "repeat_bit_identical": true
+    }
+   },
+   "triatt": {
+    "dz": {
+     "bit_identical_to_base": true,
+     "vs_base": {
+      "rel_l2": 0.0,
+      "cos": 1.0000000000000016
+     },
+     "norm": 5.8519463539123535,
+     "repeat_bit_identical": true
+    }
+   },
+   "stack": {
+    "dz": {
+     "bit_identical_to_base": false,
+     "vs_base": {
+      "rel_l2": 0.0021497381300853583,
+      "cos": 0.9999976897360934
+     },
+     "norm": 5.85210657119751,
+     "repeat_bit_identical": true
+    }
+   }
+  }
+ }
+}

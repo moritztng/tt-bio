@@ -21,6 +21,8 @@ Subcommands, each one device open on the card TT_VISIBLE_DEVICES names:
          and their backwards, which attention route each call took, and every taped matmul
   time   fwd and bwd per block, arms interleaved step by step with rotating order, p10/p50/p90,
          AICLK from the card's own sysfs node sampled every 0.25 s inside each timed window
+  vjp    `afgrad vjp` under one arm: every block teacher-forced against float64
+  bits   one block's input gradients per arm against base: bit-identical, rel L2, repeatable
   whole  the whole 4 + 48 stack, checkpointed as `afgrad stack --ckpt` runs it, from sequence
          logits: wall per arm, and each arm's logit gradient against the float64 chain
 """
@@ -347,17 +349,17 @@ def save(name, blob):
 
 def cmd_reach(args):
     lv, dev, ref = open_all(args)
-    out = {"stamp": stamp(args), "n": args.n, "arms": {}}
+    out = {"stamp": stamp(args), "n": args.n, "ckpt": args.ckpt, "arms": {}}
     for arm in args.arms.split(","):
         lv.arm(arm)
         out["arms"][arm] = {}
         for stack_name in args.stacks.split(","):
             m0, z0, wm, wz = inputs(ref, args.n, args.seed)
-            block_step(dev, lv, m0, z0, wm, wz, stack_name)       # warm; its counts are dropped
+            block_step(dev, lv, m0, z0, wm, wz, stack_name, ckpt=args.ckpt)   # warm, dropped
             lv.take()
             per = {}
             for k in (1, 2):
-                block_step(dev, lv, m0, z0, wm, wz, stack_name, k=k)
+                block_step(dev, lv, m0, z0, wm, wz, stack_name, k=k, ckpt=args.ckpt)
                 per[k] = lv.take()
             # per block = K2 - K1, so anything outside the blocks cancels
             c1, c2 = per[1][0], per[2][0]
@@ -382,19 +384,21 @@ def cmd_time(args):
             "order": "arms rotate by one position every step", "points": []}
     for n in [int(x) for x in args.ns.split(",")]:
         m0, z0, wm, wz = inputs(ref, n, args.seed)
-        for stack_name in args.stacks.split(","):
+        for stack_name, k in [(s_, int(k_)) for s_ in args.stacks.split(",")
+                              for k_ in args.ks.split(",")]:
             rec = {a: [] for a in arms}
             t_start = time.time()
             for step in range(args.warm + args.steps):
                 order = arms[step % len(arms):] + arms[:step % len(arms)]
                 for arm in order:
                     lv.arm(arm)
-                    r, _ = block_step(dev, lv, m0, z0, wm, wz, stack_name)
+                    r, _ = block_step(dev, lv, m0, z0, wm, wz, stack_name, k=k, ckpt=args.ckpt)
                     if step >= args.warm:
                         rec[arm].append(r)
                 lv.take()
-            pt = {"n": n, "stack": stack_name, "loadavg": os.getloadavg(),
-                  "wall": [t_start, time.time()], "arms": {}}
+            pt = {"n": n, "stack": stack_name, "K": k, "ckpt": args.ckpt, "loadavg": os.getloadavg(),
+                  "wall": [t_start, time.time()], "arms": {},
+                  "aiclk_point": clock.window([(t_start, time.time())])}
             for arm in arms:
                 rs = rec[arm]
                 pt["arms"][arm] = {
@@ -408,14 +412,59 @@ def cmd_time(args):
                 if base:
                     a["x_vs_base"] = {m: base[m]["median"] / a[m]["median"]
                                       for m in ("fwd", "bwd", "step")}
-                print(json.dumps({"n": n, "stack": stack_name, "arm": arm,
+                print(json.dumps({"n": n, "stack": stack_name, "K": k, "ckpt": args.ckpt, "arm": arm,
                                   "fwd": round(a["fwd"]["median"], 4),
                                   "bwd": round(a["bwd"]["median"], 4),
                                   "bwd_p10_p90": [round(a["bwd"]["p10"], 4), round(a["bwd"]["p90"], 4)],
-                                  "x": a.get("x_vs_base"), "aiclk": a["aiclk"]}), flush=True)
+                                  "bwd_cpu": round(a["bwd_host_cpu"]["median"], 4),
+                                  "x": a.get("x_vs_base"), "aiclk": a["aiclk"],
+                                  "aiclk_point": pt["aiclk_point"]}), flush=True)
             blob["points"].append(pt)
             save(args.out or "time.json", blob)
     clock.stop()
+
+
+# ------------------------------------------------------------------------------ vjp
+
+
+def cmd_vjp(args):
+    """`afgrad vjp` (every block teacher-forced against float64) with one arm's levers set."""
+    lv = Levers()
+    lv.arm(args.arm)
+    A.OUT = OUT / f"vjp_{args.arm}"
+    A.cmd_vjp(args)
+
+
+# ------------------------------------------------------------------------------ bits
+
+
+def cmd_bits(args):
+    """One block's input gradients per arm against the base arm, on identical inputs and seeds:
+    bit-identical or not, and the relative L2 between them. The head entries are pure
+    rearrangements, so an arm that differs from base only in them must be bit-identical."""
+    lv, dev, ref = open_all(args)
+    arms = args.arms.split(",")
+    out = {"stamp": stamp(args), "n": args.n, "arms": arms, "stacks": {}}
+    for stack_name in args.stacks.split(","):
+        m0, z0, wm, wz = inputs(ref, args.n, args.seed)
+        g = {}
+        for arm in arms:
+            lv.arm(arm)
+            block_step(dev, lv, m0, z0, wm, wz, stack_name)
+            g[arm] = [block_step(dev, lv, m0, z0, wm, wz, stack_name)[1] for _ in range(2)]
+            lv.take()
+        rec = {}
+        for arm in arms:
+            names = ("dz",) if stack_name == "extra" else ("dm", "dz")
+            pick = (lambda gs: gs[1:]) if stack_name == "extra" else (lambda gs: gs)
+            a, b, a2 = pick(g[arm][0]), pick(g["base"][0]), pick(g[arm][1])
+            rec[arm] = {nm: {"bit_identical_to_base": bool(torch.equal(x, y)),
+                             "vs_base": A.cmp(x, y), "norm": float(x.norm()),
+                             "repeat_bit_identical": bool(torch.equal(x, x2))}
+                        for nm, x, y, x2 in zip(names, a, b, a2)}
+            print(stack_name, arm, json.dumps(rec[arm]), flush=True)
+        out["stacks"][stack_name] = rec
+    save(args.out or f"bits_n{args.n}.json", out)
 
 
 # ------------------------------------------------------------------------------ whole
@@ -506,11 +555,16 @@ def cmd_whole(args):
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("cmd", choices=["reach", "time", "whole"])
+    ap.add_argument("cmd", choices=["reach", "time", "bits", "vjp", "whole"])
     ap.add_argument("--params", default=A.DEFAULT_PARAMS)
     ap.add_argument("--card", type=int, default=int(os.environ.get("TT_VISIBLE_DEVICES", "0")))
     ap.add_argument("--arms", default="base,mm2d,triatt,stack",
                     help=f"comma list from {sorted(ARMS)}")
+    ap.add_argument("--arm", default="stack", help="vjp: the one arm this process runs")
+    ap.add_argument("--blocks", default=None, help="vjp: boundary indices to score")
+    ap.add_argument("--controls-all", action="store_true")
+    ap.add_argument("--ks", default="1", help="time: blocks per timed step")
+    ap.add_argument("--ckpt", action="store_true", help="time, reach: checkpoint each block")
     ap.add_argument("--n", type=int, default=256)
     ap.add_argument("--ns", default="128,256")
     ap.add_argument("--stacks", default="evo,extra")
@@ -524,7 +578,7 @@ def main():
     ap.add_argument("--threads", type=int, default=8)
     args = ap.parse_args()
     torch.set_num_threads(args.threads)
-    {"reach": cmd_reach, "time": cmd_time, "whole": cmd_whole}[args.cmd](args)
+    {"reach": cmd_reach, "time": cmd_time, "bits": cmd_bits, "vjp": cmd_vjp, "whole": cmd_whole}[args.cmd](args)
 
 
 if __name__ == "__main__":
