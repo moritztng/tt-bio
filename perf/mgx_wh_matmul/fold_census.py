@@ -177,6 +177,7 @@ def main():
     ap.add_argument("--out", required=True)
     ap.add_argument("--frac", type=float, default=0.5, help="scoring time budget, fraction of wall")
     ap.add_argument("--channels", type=int, default=2, help="batch slices read back per scored call")
+    ap.add_argument("--env", action="append", default=[], metavar="K=V", help="extra env for the run")
     ap.add_argument("cli", nargs=argparse.REMAINDER)
     a = ap.parse_args()
     cli = a.cli[1:] if a.cli[:1] == ["--"] else a.cli
@@ -185,7 +186,7 @@ def main():
         env = dict(os.environ, MM_CENSUS_DIR=dump, MM_CENSUS_FRAC=str(a.frac),
                    MM_CENSUS_CHANNELS=str(a.channels),
                    PYTHONPATH=os.pathsep.join([hook, str(REPO)] + [p for p in os.environ.get(
-                       "PYTHONPATH", "").split(os.pathsep) if p]))
+                       "PYTHONPATH", "").split(os.pathsep) if p]), **dict(e.split("=", 1) for e in a.env))
         rc = subprocess.call([sys.executable, "-m", "tt_bio.main"] + cli, cwd=REPO, env=env)
         merged = {}
         for p in glob.glob(os.path.join(dump, "*.json")):
@@ -199,7 +200,7 @@ def main():
     rows.sort(key=lambda r: (-r["wrong"], r["site"]))
     tot = {k: sum(r.get(k, 0) for r in rows) for k in ("calls", "scored", "elems", "wrong", "gross", "capture")}
     with open(a.out, "a") as f:
-        f.write(json.dumps({"label": a.label, "cli": cli, "rc": rc, **tot, "error": err, "rows": rows}) + "\n")
+        f.write(json.dumps({"label": a.label, "cli": cli, "env": a.env, "rc": rc, **tot, "error": err, "rows": rows}) + "\n")
     print(f"{a.label}: rc={rc} {tot} error={err}")
     for r in rows[:40]:
         print("  ", {k: r.get(k) for k in ("site", "M", "K", "N", "batch", "in0_block_w", "core_grid",

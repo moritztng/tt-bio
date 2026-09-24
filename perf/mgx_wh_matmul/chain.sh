@@ -15,7 +15,7 @@ while read -r line; do
     [ -n "$out" ] && [ -s "$out" ] && { echo "skip $line"; continue; }
     echo "$(date -u +%FT%TZ) start $line"
     # shellcheck disable=SC2086
-    timeout 3000 perf/mgx_wh_matmul/run.sh $line
+    timeout ${LINE_TIMEOUT:-9000} perf/mgx_wh_matmul/run.sh $line
     echo "$(date -u +%FT%TZ) rc=$? $line"
 done < "$JOBS"
 python3 - "$CARD" <<'PY'
