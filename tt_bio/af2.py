@@ -21,12 +21,13 @@ The reference is `tt_bio/af2_reference.py`, scored against a captured JAX run by
 `scripts/af2_port/tap_gate.py`. This file is scored against the reference's own activations by
 `scripts/af2_port/device_gate.py`.
 
-**The masks.** AF2 builds `mask_2d` from `seq_mask`, and PXDesign folds every residue it is
-given, so `mask_2d` is all ones for every fold this port serves and both mask arguments are
-None. That is not a shortcut that can be relaxed silently: AF2's triangle multiplication masks
-BOTH halves of the fused projection (`mask * p_in(x)` before the split) where
-`TriangleMultiplication` masks only the `a` half, so a genuinely masked AF2 fold needs that
-difference resolved first.
+**The masks.** AF2 builds `mask_2d = seq_mask[:, None] * seq_mask[None, :]`, so a masked fold
+arrives as an outer product and never as an arbitrary matrix. That is what makes the shared
+triangle multiplication usable: it masks the `a` half of the fused projection alone
+(`tenstorrent.py:7326`) where AF2 masks both halves before the split
+(`af2_reference.py:242`), and on an outer-product mask the two are the same number on every
+real residue pair. `af2_pair_masks` carries the algebra and the guard that keeps it true. An
+all-ones mask still takes the None path, so every fold PXDesign runs today is unchanged.
 """
 from __future__ import annotations
 
@@ -112,9 +113,9 @@ SUBSTITUTION_CLASSES["all"] = tuple(
 def _host_twins(block, msa_mask: torch.Tensor, pair_mask: torch.Tensor) -> dict:
     """Each substitutable op's reference module, curried with the masks the reference takes.
 
-    The ttnn blocks take their masks implicitly -- all ones for every fold this port serves --
-    and `af2_reference` takes them as arguments, so the currying is where the two signatures
-    meet.
+    The ttnn blocks take their masks as two prepared tensors (`af2_pair_masks`) and
+    `af2_reference` takes the one `mask_2d` they were built from, so the currying is where the
+    two signatures meet.
     """
     return {
         "tri_mul_out": lambda z: block.tri_mul_out(z, pair_mask),
@@ -127,6 +128,50 @@ def _host_twins(block, msa_mask: torch.Tensor, pair_mask: torch.Tensor) -> dict:
         "msa_transition": lambda m: block.msa_transition(m),
         "opm": lambda m: block.opm(m, msa_mask),
     }
+
+
+#: AF2's masked-logit constant (`modules.py`: `1e9 * (mask - 1)`), shared by the pair track's key
+#: bias and `AF2EvoformerBlock._mask_biases`.
+MASK_LOGIT_BIAS = 1e9
+
+
+def af2_pair_masks(mask_2d: torch.Tensor,
+                   device=None) -> tuple[ttnn.Tensor, ttnn.Tensor] | tuple[None, None]:
+    """`mask_2d` -> the two tensors `AF2PairBlock` takes, or `(None, None)` if it is all ones.
+
+    AF2 builds `mask_2d = seq_mask[:, None] * seq_mask[None, :]`, so it is an OUTER PRODUCT of a
+    0/1 vector. Everything below rests on that, and the assert is what keeps it honest.
+
+    *The multiply.* AF2 masks the fused projection before the split -- `mask * p_in(x)`, both
+    halves (`af2_reference.py:242`) -- and `TriangleMultiplication` masks the `a` half alone
+    (`tenstorrent.py:7326`, and its own comment at :7155 says so). On an outer-product mask the
+    two are the same number on every real pair: masking both gives
+    `s_i s_j sum_k s_k a_ik b_jk` and masking `a` gives `s_i sum_k s_k a_ik b_jk`, equal wherever
+    `s_j = 1`, and the padded `k` is killed by `a`'s own mask in either. They differ only on
+    masked rows and columns, which nothing downstream reads: the padded key `j` is removed by the
+    bias below, the padded MSA column by `AF2EvoformerBlock._mask_biases`, and the padded
+    residue pair by `AF2MaskedOuterProductMean`. Measured in float64 on both directions,
+    max |difference| 0.0 over the real block (`perf/bcx_mask/one_sided_algebra.json`). So this
+    port needs no both-halves triangle multiplication, and the shared class stays shared.
+
+    *The key bias.* AF2's triangle attention adds `1e9 * (mask_2d - 1)` per query row
+    (`af2_reference.py:262`). This returns `1e9 * (seq_mask - 1)` broadcast over the query axis
+    instead: `[1, 1, 1, n]` against `[n, 1, 1, n]`, the same numbers on every real row, and the
+    rows where they differ are the masked queries whose output nothing reads. The pair mask is
+    the outer product and not the 1-D mask for the reason `token_axis.py:420` records.
+    """
+    assert mask_2d.dim() == 2 and mask_2d.shape[0] == mask_2d.shape[1], mask_2d.shape
+    if bool((mask_2d == 1).all()):
+        return None, None
+    seq = torch.diagonal(mask_2d).float()
+    assert bool(((seq == 0) | (seq == 1)).all()), "mask_2d's diagonal is not 0/1"
+    assert torch.equal(mask_2d.float(), seq[:, None] * seq[None, :]), (
+        "AF2's mask_2d is an outer product of seq_mask; the `a`-half triangle multiplication is "
+        "only exact on one, so a general pair mask needs the both-halves form written first")
+    up = lambda t: ttnn.from_torch(t.to(torch.bfloat16), layout=ttnn.TILE_LAYOUT,
+                                   device=device or get_device(), dtype=ttnn.bfloat16)
+    return (up(mask_2d.float().unsqueeze(0)),
+            up(((seq - 1.0) * MASK_LOGIT_BIAS).reshape(1, 1, 1, -1)))
 
 
 def compute_kernel_config() -> ttnn.DeviceComputeKernelConfig:
@@ -373,22 +418,19 @@ class AF2DeviceTemplatePairStack:
     """The template's two `PairBlock`s in ttnn: host torch in, host torch out.
 
     `AF2PairBlock` with `evoformer_order=False` -- the template runs the attentions before the
-    multiplications -- at the template's own widths. `mask_2d` is asserted all ones rather than
-    plumbed, for `evoformer_stack`'s reason: AF2 masks BOTH halves of the triangle
-    multiplication's fused projection where `TriangleMultiplication` masks only the `a` half, so
-    a genuinely masked fold needs that difference resolved before a mask can be honoured here.
+    multiplications -- at the template's own widths. It takes the same `mask_2d` the trunk does,
+    through the same `af2_pair_masks`; the template's pair stack is the same four ops.
     """
 
     def __init__(self, blocks: list, up, down):
         self.blocks, self._up, self._down = blocks, up, down
 
     def __call__(self, act: torch.Tensor, mask_2d: torch.Tensor) -> torch.Tensor:
-        assert bool((mask_2d == 1).all()), (
-            "a masked AF2 template pair stack is not wired up; see AF2PairBlock")
+        masks = af2_pair_masks(mask_2d)
         shape = tuple(act.shape)
         z = self._up(act)
         for block in self.blocks:
-            z = block(z)
+            z = block(z, *masks)
         out = self._down(z, shape)
         ttnn.deallocate(z)
         return out
@@ -665,9 +707,6 @@ class AF2EvoformerBlock(AF2PairBlock):
         self.opm = AF2MaskedOuterProductMean(
             self.scope("opm"), compute_kernel_config, scale_bias=True)
 
-    #: AF2's masked-logit constant (`modules.py`: `1e9 * (mask - 1)`).
-    MASK_LOGIT_BIAS = 1e9
-
     def _mask_biases(self, msa_mask: ttnn.Tensor) -> tuple[ttnn.Tensor, ttnn.Tensor]:
         """`[rows, n]` mask -> the row and column additive logit biases.
 
@@ -678,7 +717,7 @@ class AF2EvoformerBlock(AF2PairBlock):
         if len(msa_mask.shape) == 3:
             msa_mask = ttnn.reshape(msa_mask, tuple(msa_mask.shape)[1:])
         rows, n = (int(d) for d in msa_mask.shape)
-        flat = ttnn.multiply(ttnn.subtract(msa_mask, 1.0), self.MASK_LOGIT_BIAS)
+        flat = ttnn.multiply(ttnn.subtract(msa_mask, 1.0), MASK_LOGIT_BIAS)
         row_bias = ttnn.reshape(flat, (rows, 1, 1, n))
         transposed = ttnn.permute(flat, (1, 0))
         col_bias = ttnn.reshape(transposed, (n, 1, 1, rows))
@@ -972,6 +1011,7 @@ class AF2DeviceModel(AF2Model):
             "this port replaces the extra-MSA track with the constant its outer product mean "
             "collapses to under an all-zero mask; a real extra MSA needs the track written")
         shape = tuple(pair.shape)
+        masks = af2_pair_masks(pair_mask, self._device)
         z = self._up(pair)
         for index, block in enumerate(self.device_extra_msa):
             if self.block_tap is not None:
@@ -979,7 +1019,7 @@ class AF2DeviceModel(AF2Model):
                 # reads the block's INPUT pair, which is what the reference hands it.
                 extra = self.extra_msa[index]._msa_track(extra, self._down(z, shape), extra_mask)
             const = self._up(self.opm_constant[index].reshape(1, 1, -1))
-            z = block(block._residual(z, const))
+            z = block(block._residual(z, const), *masks)
             if self.block_tap is not None:
                 self._tap("extra_msa_stack", msa=extra, pair=self._down(z, shape))
         out = self._down(z, shape)
@@ -988,13 +1028,17 @@ class AF2DeviceModel(AF2Model):
 
     def evoformer_stack(self, msa: torch.Tensor, pair: torch.Tensor, msa_mask: torch.Tensor,
                         pair_mask: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
-        assert bool((msa_mask == 1).all()), "a masked AF2 MSA is not wired up; see AF2Attention"
         if self.substitute:
             self._install_substitution(msa_mask, pair_mask)
         msa_shape, pair_shape = tuple(msa.shape), tuple(pair.shape)
+        # One set of mask tensors for all 48 blocks. `None` on an all-ones mask, which keeps
+        # every fold PXDesign runs today on the arithmetic it ran before, bit for bit.
+        pair_masks = af2_pair_masks(pair_mask, self._device)
+        msa_mask_tt = (None if bool((msa_mask == 1).all())
+                       else self._up(msa_mask.float()))
         m, z = self._up(msa), self._up(pair)
         for block in self.device_evoformer:
-            m, z = block(m, z)
+            m, z = block(m, z, msa_mask_tt, *pair_masks)
             if self.block_tap is not None:
                 self._tap("evoformer_iteration", msa=self._down(m, msa_shape),
                           pair=self._down(z, pair_shape))
