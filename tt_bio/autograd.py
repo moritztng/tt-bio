@@ -169,7 +169,7 @@ class Tensor:
     taped one may not.
     """
 
-    __slots__ = ("_value", "grad", "requires_grad", "node", "pinned", "evictable")
+    __slots__ = ("_value", "grad", "requires_grad", "node", "pinned", "evictable", "shares")
 
     def __init__(self, value, requires_grad: bool = False):
         self._value = value
@@ -179,13 +179,15 @@ class Tensor:
         # Set by `_tape` the moment a closure is built that can read this value. It is the
         # whole of the lifetime rule: `free` refuses a pinned tensor and nothing else.
         self.pinned = False
-        # Whether `free` may touch this value at all. Cleared in two cases. First, the few
-        # ops whose backward reads their own OUTPUT -- relu, sigmoid, softmax, max --
+        # Whether `free` may touch this value at all. Cleared for the few ops whose
+        # backward reads their own OUTPUT -- relu, sigmoid, softmax, max --
         # because those closures hold the handle directly and deliberately do not hold the
         # `Tensor` (a closure that did would make the cycle out -> node -> fn -> out that
-        # CPython cannot collect). Second, a tensor that SHARES STORAGE with another taped
-        # tensor, which `_tape` detects.
+        # CPython cannot collect). Storage sharing is `shares`, not this.
         self.evictable = True
+        # The taped tensors over this one's buffer, itself included, or None if it owns its
+        # buffer alone. One list object shared by every member; see `_free_shared`.
+        self.shares = None
 
     @property
     def value(self):
@@ -258,6 +260,9 @@ class Tensor:
         """
         if not self.evictable:
             return
+        if self.shares is not None:
+            self._free_shared()
+            return
         if not self.pinned and not self.requires_grad:
             ttnn.deallocate(self.value)
         elif self.value.memory_config().buffer_type == ttnn.BufferType.L1:
@@ -275,6 +280,41 @@ class Tensor:
             old = self.value
             self.value = ttnn.to_memory_config(old, ttnn.DRAM_MEMORY_CONFIG)
             ttnn.deallocate(old)
+
+    def _free_shared(self) -> None:
+        """`free` for a buffer several taped tensors are views of, decided for all of them.
+
+        A ttnn shape op can hand back a view (`_tape` explains), and a view pair used to be
+        marked non-evictable outright, because releasing or evicting either one alone kills the
+        other. That is safe and it strands L1: the shipped attention projects q/k/v into L1 and
+        reshapes it for the head split, so every AF2 attention left its packed projection and
+        the view of it resident for the rest of the tape. After one extra-MSA block the tape held
+        three such pairs, and the second block's triangle multiplication could not lay out its
+        circular buffers at any chunk width (`perf/bcx_afgrad/l1diag.py`).
+
+        So the group moves together. With nothing pinned the buffer is released, which is what
+        the shipped deallocate of any one view does in inference; that is also every group in a
+        checkpointed segment's untaped forward, where no tensor has a node. Otherwise every
+        member gets its own DRAM copy read through its own shape and the shared L1 buffer is
+        released once, refused if a member is a leaf (its placement is the module's tuning, as in
+        `_evict_read_parents`). Either way a member that holds its buffer for the other reason,
+        `evictable` False for a closure that reads its output by raw handle, refuses both.
+        """
+        group = self.shares
+        if any(not t.evictable for t in group):
+            return
+        if not any(t.pinned or t.requires_grad for t in group):
+            ttnn.deallocate(self.value)
+            return
+        if any(t.node is None for t in group):
+            return
+        if self.value.memory_config().buffer_type != ttnn.BufferType.L1:
+            return
+        old = self.value
+        for t in group:
+            t.value = ttnn.to_memory_config(t.value, ttnn.DRAM_MEMORY_CONFIG)
+            t.shares = None
+        ttnn.deallocate(old)
 
     def add_grad(self, grad) -> None:
         """Accumulate one contribution. A tensor read by k consumers gets k calls.
@@ -400,7 +440,8 @@ def _tape(out_value, parents: Sequence[Tensor], make_fn) -> Tensor:
     # holds two `Tensor`s over one allocation. Freeing or evicting either kills both, and
     # the throw lands much later and somewhere else: in AttentionPairBias it surfaced as
     # "Buffer is not allocated" inside a sigmoid in the gate's backward, two ops
-    # downstream of the reshape that caused it. Neither may be released.
+    # downstream of the reshape that caused it. Neither may be released alone, so both join
+    # one `shares` group and `Tensor._free_shared` decides for the group.
     #
     # Checked on EVERY op, not only the differentiated ones: a view whose own gradient
     # nobody wants still shares storage with one that somebody does, and it is the view
@@ -416,7 +457,7 @@ def _tape(out_value, parents: Sequence[Tensor], make_fn) -> Tensor:
             except Exception:
                 shared = False
             if shared:
-                p.evictable = out.evictable = False
+                _share(p, out)
     if needs:
         # `make_fn` takes no arguments and the closure it returns takes the output gradient,
         # so no backward closure ever captures `out`. That matters for more than style: a
@@ -432,7 +473,62 @@ def _tape(out_value, parents: Sequence[Tensor], make_fn) -> Tensor:
         out.pinned = True
         for p in parents:
             p.pinned = True
+        _evict_read_parents(parents)
     return out
+
+
+def _share(a: Tensor, b: Tensor) -> None:
+    """Put `a` and `b` in one storage group, merging any groups they already belong to."""
+    group = a.shares if a.shares is not None else [a]
+    for t in (b.shares if b.shares is not None else [b]):
+        if not any(t is m for m in group):
+            group.append(t)
+    for t in group:
+        t.shares = group
+
+
+def _evict_read_parents(parents: Sequence[Tensor]) -> None:
+    """Move every L1-resident intermediate this op has just read down to DRAM.
+
+    `free` is the tape's answer to `ttnn.deallocate`, and it only ever runs where the shipped
+    forward CALLS that verb. Most of a tuned forward does not: it lets an activation go out of
+    scope and the handle's destructor releases the buffer. Under a tape the wrapper is held by
+    the node graph, the raw handle never drops, and an L1-resident activation the forward
+    merely stopped using occupies its place for the rest of the tape.
+
+    Measured, and it is not the mechanism this was expected to be. At crop 384 the taped
+    backward threw "statically allocated circular buffers in program 413 clash with L1 buffers
+    ... L1 buffer allocated at 344064" inside a checkpoint recompute, with four taped tensors
+    holding L1. The one AT the clash address is a [20, 4, 384, 384] fp32 triangle-attention
+    score block, and its lifetime bits read `evictable=True, pinned=True` -- `free` would have
+    moved it and was never offered it (`perf/of3t_l1/out/seam_384_holders.json`). Two of the
+    other three are the non-evictable set, which is a separate defect and not this one.
+
+    So the trigger is the READ rather than the release: once a consumer has run, the forward's
+    reason for the tensor being in L1 is spent, and only the backward's reason to keep the
+    VALUE is left. That is exactly what `free` already does for a pinned tensor, so this routes
+    through `free` rather than repeating it, and every guard it has applies unchanged -- a
+    tensor sharing storage with another taped one, or one whose backward closure holds the raw
+    handle, is marked non-evictable and is left alone.
+
+    LEAVES ARE NOT TOUCHED. A parameter or a model input has no node, and its placement is the
+    shipped module's tuning rather than an intermediate's lifetime; evicting one would move a
+    weight to DRAM permanently on the first step of training.
+
+    The price is the one the tape's own docstring already names: a later forward op that wanted
+    the same operand in L1 now reads it from DRAM. That is the Protenix inversion, where the
+    tape turned L1-placement levers from 1.19-1.29x faster into 0.83-0.85x slower, paid
+    deliberately here because in OF3 the alternative is not a slower step but no step at all.
+    """
+    for p in parents:
+        if p.node is None or not p.evictable:
+            continue
+        try:
+            if p.value.memory_config().buffer_type != ttnn.BufferType.L1:
+                continue
+        except Exception:                                        # noqa: BLE001
+            continue                                             # host tensor, or no buffer
+        p.free()
 
 
 def _flat2d(t):

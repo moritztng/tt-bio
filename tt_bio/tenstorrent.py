@@ -3802,7 +3802,11 @@ def _fp32_softmax_attention(
         # remaining blocks of THIS call go interleaved and the next call re-derives a smaller block.
         caps = _FP32_SOFTMAX_L1_FREE_ROW_CAP if free else _FP32_SOFTMAX_L1_ROW_CAP
         cap = caps.get(l1_key)
-        if not l1_rows or (cap is not None and n > cap):
+        # No shard under a tape (`_l1_fits` says why). The softmax closure holds its output, which
+        # here is the shard itself, so it stays in L1 until the backward, whose multiply against it
+        # is then refused: AF2 at 256 tokens died that way on the fifth step, once the refusals
+        # had narrowed the shard far enough to fit. The interleaved tail is the same bits.
+        if not l1_rows or ops.taping() or (cap is not None and n > cap):
             return None
         return _fp32_softmax_shard(n, height_per_row, k_len, l1_cores)
 
