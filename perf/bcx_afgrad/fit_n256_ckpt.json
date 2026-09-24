@@ -1,0 +1,50 @@
+{
+ "stamp": {
+  "host": "tt-quietbox2",
+  "card": 3,
+  "subsystem_device": "0x0046",
+  "commit": "56d7ea88b3632c5e767f3cbf3dd49e9227db4bf6",
+  "tt_bio_dirty": false,
+  "torch_threads": 8,
+  "loadavg": [
+   23.22412109375,
+   25.1240234375,
+   27.13330078125
+  ],
+  "utc": "2026-09-24T02:58:28Z"
+ },
+ "n": 256,
+ "ckpt": true,
+ "tries": [
+  {
+   "K": 4,
+   "after_fwd_bytes": 122585088,
+   "after_bwd_bytes": 420249600,
+   "ok": true
+  },
+  {
+   "K": 8,
+   "after_fwd_bytes": 166461440,
+   "after_bwd_bytes": 491388928,
+   "ok": true
+  },
+  {
+   "K": 16,
+   "after_fwd_bytes": 298713088,
+   "after_bwd_bytes": 898629632,
+   "ok": true
+  },
+  {
+   "K": 32,
+   "after_fwd_bytes": 571604992,
+   "after_bwd_bytes": 1713111040,
+   "ok": true
+  },
+  {
+   "K": 48,
+   "after_fwd_bytes": 850001920,
+   "after_bwd_bytes": 2524708864,
+   "ok": true
+  }
+ ]
+}

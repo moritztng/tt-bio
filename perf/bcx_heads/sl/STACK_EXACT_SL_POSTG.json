@@ -1,0 +1,43 @@
+{
+ "exact": [
+  "layer_norm",
+  "softmax"
+ ],
+ "installed": {
+  "softmax_installed_inside_the_scope": true,
+  "layer_norm_verb_is_ours": true
+ },
+ "counters": {
+  "softmax": {
+   "verb": 5901,
+   "raw": 1742,
+   "raw_elements": 21856518144
+  },
+  "layer_norm": {
+   "verb": 2160,
+   "raw": 720,
+   "elements": 29047652352,
+   "bw": 1296
+  }
+ },
+ "why_counters": "softmax: `verb` taped exact forward+Jacobian, `raw` the module-wide ttnn.softmax. layer_norm: `verb` taped exact forward, `bw` exact backwards taken, `raw` untaped forwards. All zero on a rung that does not open the scope is the check that it ran without it.",
+ "argv": [
+  "--census-out",
+  "/home/ttuser/.coworker/wt/bcx-heads/perf/bcx_heads/sl/CENSUS_SL_POSTG.json",
+  "--lever",
+  "none",
+  "--",
+  "--boundary",
+  "/home/ttuser/.coworker/wt/bcx-heads/.of3t/inputs/boundary_model_n384.pt",
+  "--cap-last",
+  "/home/ttuser/.coworker/wt/bcx-heads/.of3t/inputs/cot_external.pt",
+  "--out",
+  "/home/ttuser/.coworker/wt/bcx-heads/.of3t/out/dev_SL_POSTG.pt",
+  "--report",
+  "/home/ttuser/.coworker/wt/bcx-heads/perf/bcx_heads/sl/DEV_SL_POSTG.json",
+  "--arm",
+  "flipped",
+  "--crop",
+  "0"
+ ]
+}

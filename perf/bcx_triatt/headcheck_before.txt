@@ -1,0 +1,7 @@
+reference vs float64 central differences: worst 5.28e-10 over 40 of 24576 eligible
+forward q: BIT-EXACT
+forward k: BIT-EXACT
+forward v: BIT-EXACT
+dx  rel_l2 2.148e-03  cos 0.999998  max_abs 7.657e-02  PASS
+negative control (q and k slots swapped): rel_l2 1.244e+00 -- rejected, the check can fail
+VERDICT: PASS

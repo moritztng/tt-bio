@@ -1,0 +1,72 @@
+{
+ "concat_heads_bw:BFLOAT16": {
+  "bitexact": true,
+  "old_us": 2608.1943997269263,
+  "new_us": 291.02319967933,
+  "clock_old": {
+   "min": 1350,
+   "max": 1350,
+   "median": 1350,
+   "samples": 2,
+   "attributable": true
+  },
+  "clock_new": {
+   "min": 1350,
+   "max": 1350,
+   "median": 1350,
+   "samples": 1,
+   "attributable": true
+  }
+ },
+ "create_qkv_heads_bw:BFLOAT16": {
+  "bitexact": true,
+  "old_us": 16566.32759986678,
+  "new_us": 372.66779982019216,
+  "clock_old": {
+   "samples": 0,
+   "attributable": false
+  },
+  "clock_new": {
+   "min": 1350,
+   "max": 1350,
+   "median": 1350,
+   "samples": 2,
+   "attributable": true
+  }
+ },
+ "concat_heads_bw:FLOAT32": {
+  "bitexact": true,
+  "old_us": 4138.5349999472965,
+  "new_us": 555.5708004976623,
+  "clock_old": {
+   "min": 1350,
+   "max": 1350,
+   "median": 1350,
+   "samples": 1,
+   "attributable": true
+  },
+  "clock_new": {
+   "min": 1350,
+   "max": 1350,
+   "median": 1350,
+   "samples": 1,
+   "attributable": true
+  }
+ },
+ "create_qkv_heads_bw:FLOAT32": {
+  "bitexact": true,
+  "old_us": 29266.24080027977,
+  "new_us": 730.0279001356103,
+  "clock_old": {
+   "samples": 0,
+   "attributable": false
+  },
+  "clock_new": {
+   "min": 1350,
+   "max": 1350,
+   "median": 1350,
+   "samples": 2,
+   "attributable": true
+  }
+ }
+}
