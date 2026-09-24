@@ -15,7 +15,7 @@ Every structure model denoises its samples in chunks and runs confidence one sam
 
 | model | chunk width |
 |---|---|
-| Boltz-2, Protenix-v1/v2, OpenDDE, OpenDDE-abag | `--max_parallel_samples`, default 5 |
+| Boltz-2, Protenix-v1/v2, OpenDDE, OpenDDE-abag | `--max_parallel_samples`, default 5, halved on a refusal |
 | ESMFold2, ESMFold2-fast | as many as fit in free device memory, halved on a refusal |
 | OpenFold3, OpenBind, RF3 | 1 |
 

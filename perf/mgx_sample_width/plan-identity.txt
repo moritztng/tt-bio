@@ -1,0 +1,3 @@
+# A size that fits must be bit-identical to the base (the branch without the fix): run this plan in both trees.
+b2_256_x5 boltz2 perf/size512/fixtures/cdk2x2_256.yaml 5
+px2_256_x5 protenix-v2 perf/size512/fixtures/cdk2x2_256.yaml 5
