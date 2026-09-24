@@ -138,3 +138,12 @@ So building a new control target is host-only work that needs no card and no qui
 `make_contact_target.py` prints the 2-22 A component count and Rg itself, which is the whole
 validity check. There is no reason for "the control needs a new target" to sit as a blocker for
 more than one pass.
+
+## `ladder_read.py` IS HARDCODED TO GroEL AND WILL READ ZERO FAS CELLS SILENTLY
+
+`TARGET = "groel_ring4_2096"` at module scope and `load()` skips any row whose `target` does
+not contain it. On the FAS ladder that is not an error, it is an empty table: every cell prints
+MISSING and the rung says "not readable". Harvesting `fas_ladder.jsonl` therefore needs a
+`--target` argument or a sibling reader, ADDED beside the GroEL path and not repointing it,
+because the GroEL verdicts are published and this script has to keep reproducing them --
+`--selfcheck` is the check that it still does.
