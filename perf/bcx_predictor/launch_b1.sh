@@ -11,7 +11,7 @@
 set -u
 WT=/home/ttuser/.coworker/wt/bcx-predictor
 cd "$WT" || exit 1
-OUT=$WT/perf/bcx_predictor/runs/b1_seed100
+OUT=$WT/perf/bcx_predictor/runs/b1_seed100_try2
 mkdir -p "$OUT"
 export TT_VISIBLE_DEVICES=3 TT_BIO_LEASE_CARDS=3 TT_BIO_LEASE_HOLDER=worker:bcx-predictor
 export OMP_NUM_THREADS=6 MKL_NUM_THREADS=6 PYTHONUNBUFFERED=1
