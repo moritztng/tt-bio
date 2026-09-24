@@ -13,7 +13,10 @@ chip to another opener is put back in the queue and that chip is skipped for the
 Never touches chip 1 or 24-27 (the live app and a co-tenant) or a chip with a cardblock marker.
 Starts nothing while an MGX quiet window is open: whglx cannot read pc's state/mgx/quiet-window,
 so the window is mirrored to whglx as either path in QUIET_WINDOW (other rows use both). Jobs
-already running finish.
+already running finish. The lease directory is pinned to the one ladder_card.sh exports: without
+it lease_dir() fell back to /tmp/tt-bio-device-leases, whose files belong to another account, and
+the first claim after the 2026-09-23 quiet window raised PermissionError and killed the queue.
+A lease file this account cannot open is now a busy chip, not a crash.
 """
 import fcntl
 import json
@@ -22,6 +25,7 @@ import subprocess
 import sys
 import time
 
+os.environ["TT_BIO_LEASE_DIR"] = os.path.expanduser("~/leases")
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", ".."))
 from tt_bio.device_lease import lease_dir, lease_host  # noqa: E402
 
@@ -64,7 +68,10 @@ def claim(card):
             return False
     except OSError:
         pass
-    fd = os.open(path, os.O_RDWR | os.O_CREAT, 0o664)
+    try:
+        fd = os.open(path, os.O_RDWR | os.O_CREAT, 0o664)
+    except OSError:
+        return False
     try:
         fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
     except OSError:
