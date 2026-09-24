@@ -1,0 +1,51 @@
+{
+ "raw": {
+  "hPDL1": {
+   "binder": 77,
+   "target_hPDL1": 115
+  }
+ },
+ "padded": {
+  "hPDL1": {
+   "binder": 96,
+   "target_hPDL1": 115
+  }
+ },
+ "shapes": [
+  [
+   "hPDL1",
+   [
+    "binder",
+    "target_hPDL1"
+   ],
+   [
+    96,
+    115
+   ]
+  ]
+ ],
+ "n_raw": 192,
+ "n_padded": 211,
+ "n_device_bucket_32": 224,
+ "stage_plan": {
+  "per_stage": {
+   "screen": 50,
+   "refine": 25,
+   "anneal": 45,
+   "harden": 5,
+   "mutate": 15
+  },
+  "gradient_steps": 125,
+  "mutate_steps": 15
+ },
+ "losses": [
+  "binder_contacts",
+  "binder_helicity",
+  "binder_pae",
+  "compactness",
+  "interface_contacts",
+  "interface_pae",
+  "iptm_loss",
+  "plddt_loss"
+ ]
+}

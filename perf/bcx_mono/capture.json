@@ -1,0 +1,144 @@
+{
+ "bucket": 32,
+ "cases": {
+  "complex": {
+   "plddt_jax": {
+    "binder": 0.4461,
+    "target_hPDL1": 0.9282,
+    "_all": 0.7349,
+    "_ptm": 0.5642
+   },
+   "seconds": 114.0,
+   "recycles_taped": 2,
+   "mask_keys": [
+    "msa",
+    "pair"
+   ],
+   "shapes": {
+    "msa": [
+     2,
+     192,
+     256
+    ],
+    "pair": [
+     192,
+     192,
+     128
+    ],
+    "msa_mask": [
+     2,
+     192
+    ],
+    "pair_mask": [
+     192,
+     192
+    ]
+   },
+   "msa_mask_rows_all_ones": [
+    true,
+    false
+   ],
+   "msa_mask_zero_frac": 0.20052083333333334,
+   "pair_mask_all_ones": true,
+   "pair_mask_zero_frac": 0.0,
+   "dtypes": {
+    "msa": "bfloat16",
+    "pair": "bfloat16",
+    "msa_mask": "bfloat16",
+    "pair_mask": "bfloat16"
+   }
+  },
+  "target_alone": {
+   "plddt_jax": {
+    "target_hPDL1": 0.9501,
+    "_all": 0.9501,
+    "_ptm": 0.8536
+   },
+   "seconds": 59.5,
+   "recycles_taped": 2,
+   "mask_keys": [
+    "msa",
+    "pair"
+   ],
+   "shapes": {
+    "msa": [
+     2,
+     128,
+     256
+    ],
+    "pair": [
+     128,
+     128,
+     128
+    ],
+    "msa_mask": [
+     2,
+     128
+    ],
+    "pair_mask": [
+     128,
+     128
+    ]
+   },
+   "msa_mask_rows_all_ones": [
+    false,
+    false
+   ],
+   "msa_mask_zero_frac": 0.1015625,
+   "pair_mask_all_ones": false,
+   "pair_mask_zero_frac": 0.19281005859375,
+   "dtypes": {
+    "msa": "bfloat16",
+    "pair": "bfloat16",
+    "msa_mask": "bfloat16",
+    "pair_mask": "bfloat16"
+   }
+  },
+  "binder_alone": {
+   "plddt_jax": {
+    "binder": 0.5932,
+    "_all": 0.5932,
+    "_ptm": 0.2004
+   },
+   "seconds": 46.1,
+   "recycles_taped": 2,
+   "mask_keys": [
+    "msa",
+    "pair"
+   ],
+   "shapes": {
+    "msa": [
+     2,
+     96,
+     256
+    ],
+    "pair": [
+     96,
+     96,
+     128
+    ],
+    "msa_mask": [
+     2,
+     96
+    ],
+    "pair_mask": [
+     96,
+     96
+    ]
+   },
+   "msa_mask_rows_all_ones": [
+    false,
+    false
+   ],
+   "msa_mask_zero_frac": 0.5989583333333334,
+   "pair_mask_all_ones": false,
+   "pair_mask_zero_frac": 0.3566623263888889,
+   "dtypes": {
+    "msa": "bfloat16",
+    "pair": "bfloat16",
+    "msa_mask": "bfloat16",
+    "pair_mask": "bfloat16"
+   }
+  }
+ }
+}

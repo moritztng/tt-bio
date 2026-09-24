@@ -1,0 +1,30 @@
+{
+  "n": 256,
+  "loss_value": 7.024649620056152,
+  "single_activations_weight_shape": [
+    256,
+    384
+  ],
+  "single_activations_scope": "alphafold/alphafold_iteration/evoformer/single_activations  (TRUNK side -- the Linear is on the device)",
+  "norms_into_msa_activations_row0": {
+    "via_single": 13.520126342773438,
+    "via_msa": 0.0,
+    "via_msa_first_row": 0.0,
+    "total": 13.520126342773438
+  },
+  "share_of_row0_cotangent_via_single": 1.0,
+  "relative_error_if_single_path_dropped": 1.0,
+  "cotangent_norms": {
+    "msa": 0.0,
+    "msa_first_row": 0.0,
+    "pair": 2.558333158493042,
+    "single": 2.3922524452209473
+  },
+  "bytes_bf16_per_step_one_way": {
+    "pair": 16777216,
+    "single": 196608,
+    "msa": 131072,
+    "msa_first_row": 131072
+  },
+  "bytes_bf16_round_trip_total": 34471936
+}

@@ -1,0 +1,8 @@
+  File "/home/ttuser/.coworker/wt/bcx-predictor/tt_bio/autograd.py", line 397, in backward
+  File "/home/ttuser/.coworker/wt/bcx-predictor/tt_bio/taped_ttnn.py", line 598, in bw
+  File "/home/ttuser/.coworker/wt/bcx-predictor/tt_bio/autograd.py", line 343, in add_grad
+  File "/home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/ttnn/decorators.py", line 483, in __call__
+info:
+Out of Memory: Not enough space to allocate 84934656 B DRAM buffer across 8 banks, where each bank needs to store 10616832 B, but bank size is 4278190016 B (allocated: 4248063936 B, free: 30126080 B, largest free block: 6635520 B)
+backtrace:
+

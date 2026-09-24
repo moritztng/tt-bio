@@ -1,0 +1,43 @@
+{
+ "stamp": {
+  "host": "tt-quietbox",
+  "card": 1,
+  "subsystem_device": "0x0040",
+  "commit": "8ae35c46b295dd08e9324486ce1e5d29edadab88",
+  "tt_bio_dirty": true,
+  "torch_threads": 8,
+  "loadavg": [
+   3.3232421875,
+   3.6904296875,
+   3.47314453125
+  ],
+  "utc": "2026-09-24T04:24:38Z",
+  "pci": "0000:41:00.0",
+  "aiclk_node": null
+ },
+ "arm": "stack@new",
+ "points": [
+  {
+   "n": 128,
+   "stack": "evo",
+   "collects": [],
+   "after_step": [
+    {
+     "seconds": 0.17211484799918253,
+     "unreachable": 6,
+     "tracked": 541522,
+     "cycles": {
+      "{\"types\": {\"Tensor\": 2, \"list\": 1}, \"via\": [\"Tensor.shares\"]}": 2
+     },
+     "types": {
+      "Tensor": 4,
+      "list": 2
+     },
+     "tensors": 4,
+     "tensors_with_node": 0,
+     "tensors_with_shares": 4
+    }
+   ]
+  }
+ ]
+}

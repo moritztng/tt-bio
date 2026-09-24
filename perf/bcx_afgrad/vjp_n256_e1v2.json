@@ -1,0 +1,205 @@
+{
+ "stamp": {
+  "host": "tt-quietbox2",
+  "card": 3,
+  "subsystem_device": "0x0046",
+  "commit": "56d7ea88b3632c5e767f3cbf3dd49e9227db4bf6",
+  "tt_bio_dirty": false,
+  "torch_threads": 8,
+  "loadavg": [
+   25.7705078125,
+   26.67041015625,
+   27.86181640625
+  ],
+  "utc": "2026-09-24T02:56:28Z"
+ },
+ "n": 256,
+ "seed": 0,
+ "loss": "fixed random linear readout of (msa_out, pair_out)",
+ "rows": [
+  {
+   "block": "extra0",
+   "reach": 269,
+   "nodes": 221,
+   "dz": {
+    "rel_l2": 0.032442735196053216,
+    "cos": 0.9994740595572195,
+    "norm_ref": 6.57568916994815,
+    "norm_ratio": 1.0003389580419002
+   },
+   "dz_torch_bf16": {
+    "rel_l2": 0.031486963853130254,
+    "cos": 0.9995045606578432,
+    "norm_ratio": 1.0003965631881104
+   },
+   "dz_torch_f32": {
+    "rel_l2": 0.00020849808764388395,
+    "cos": 0.9999999782641096,
+    "norm_ratio": 0.9999999484185282
+   },
+   "fwd_z": {
+    "rel_l2": 0.004027252960287625,
+    "cos": 0.9999919857680512
+   },
+   "permuted": {
+    "dz": {
+     "rel_l2": 1.376752269010321,
+     "cos": 0.0006545271551427374
+    }
+   },
+   "zero_seed_max_abs": {
+    "dz": 0.0
+   },
+   "census": {
+    "reach": 269,
+    "nodes": 221,
+    "kinds": {
+     "_identity_grad": 51,
+     "_sliced": 40,
+     "_binary": 30,
+     "_v_matmul": 28,
+     "_v_permute": 24,
+     "_taped_linear": 10,
+     "_v_reshape": 10,
+     "_v_softmax": 8,
+     "_taped_layer_norm": 7,
+     "_v_create_qkv_heads": 6,
+     "_v_concat": 4,
+     "_v_concat_heads": 2,
+     "relu": 1
+    },
+    "identity_plus_sliced": 91,
+    "identity_plus_sliced_share": 0.4117647058823529,
+    "all_shape_ops": 137,
+    "all_shape_ops_share": 0.6199095022624435
+   }
+  },
+  {
+   "block": "evo0",
+   "reach": 382,
+   "nodes": 303,
+   "dz": {
+    "rel_l2": 0.04257350160991039,
+    "cos": 0.9990934371169189,
+    "norm_ref": 1.0664260093242932,
+    "norm_ratio": 0.9983758070937353
+   },
+   "dz_torch_bf16": {
+    "rel_l2": 0.034620567897456433,
+    "cos": 0.999400589338909,
+    "norm_ratio": 0.9997494338518024
+   },
+   "dz_torch_f32": {
+    "rel_l2": 0.00014335302553693537,
+    "cos": 0.9999999897247948,
+    "norm_ratio": 0.9999999902044386
+   },
+   "dm": {
+    "rel_l2": 0.05445399712820468,
+    "cos": 0.99852634282162,
+    "norm_ref": 16.958080151198967,
+    "norm_ratio": 0.9940455050029052
+   },
+   "dm_torch_bf16": {
+    "rel_l2": 0.05629543420014426,
+    "cos": 0.998414155557585,
+    "norm_ratio": 0.9984580821610415
+   },
+   "dm_torch_f32": {
+    "rel_l2": 7.858500449342017e-05,
+    "cos": 0.999999996912193,
+    "norm_ratio": 1.0000000567984144
+   },
+   "fwd_m": {
+    "rel_l2": 0.002984494034371029,
+    "cos": 0.9999956153945498
+   },
+   "fwd_z": {
+    "rel_l2": 0.008000459112565562,
+    "cos": 0.9999680001332223
+   }
+  },
+  {
+   "block": "evo1",
+   "reach": 382,
+   "nodes": 303,
+   "dz": {
+    "rel_l2": 0.050361290326290976,
+    "cos": 0.9987312549228909,
+    "norm_ref": 1.0133917276130284,
+    "norm_ratio": 0.9991043404545542
+   },
+   "dz_torch_bf16": {
+    "rel_l2": 0.040484966120228505,
+    "cos": 0.9991805102858878,
+    "norm_ratio": 1.000031754622703
+   },
+   "dz_torch_f32": {
+    "rel_l2": 9.403573540254373e-05,
+    "cos": 0.9999999955784555,
+    "norm_ratio": 1.0000000255515438
+   },
+   "dm": {
+    "rel_l2": 0.09683827529561961,
+    "cos": 0.9953067019400589,
+    "norm_ref": 4.023106008721483,
+    "norm_ratio": 0.9989251223495468
+   },
+   "dm_torch_bf16": {
+    "rel_l2": 0.07739766523675874,
+    "cos": 0.9970194835273398,
+    "norm_ratio": 1.003204070597232
+   },
+   "dm_torch_f32": {
+    "rel_l2": 9.156594837122386e-05,
+    "cos": 0.9999999958108626,
+    "norm_ratio": 1.000002458593534
+   },
+   "fwd_m": {
+    "rel_l2": 0.0024926309699421383,
+    "cos": 0.9999975566415042
+   },
+   "fwd_z": {
+    "rel_l2": 0.006004707987747088,
+    "cos": 0.9999821319323503
+   },
+   "permuted": {
+    "dz": {
+     "rel_l2": 1.4140237401277924,
+     "cos": 0.0003488630383777102
+    },
+    "dm": {
+     "rel_l2": 1.4158657845143983,
+     "cos": 0.010531727540703273
+    }
+   },
+   "zero_seed_max_abs": {
+    "dz": 0.0,
+    "dm": 0.0
+   },
+   "census": {
+    "reach": 382,
+    "nodes": 303,
+    "kinds": {
+     "_identity_grad": 68,
+     "_sliced": 40,
+     "_binary": 39,
+     "_v_matmul": 33,
+     "_v_permute": 32,
+     "_v_reshape": 25,
+     "_taped_linear": 22,
+     "_taped_layer_norm": 12,
+     "_v_create_qkv_heads": 12,
+     "_v_softmax": 10,
+     "_v_concat_heads": 4,
+     "_v_concat": 4,
+     "relu": 2
+    },
+    "identity_plus_sliced": 108,
+    "identity_plus_sliced_share": 0.3564356435643564,
+    "all_shape_ops": 185,
+    "all_shape_ops_share": 0.6105610561056105
+   }
+  }
+ ]
+}

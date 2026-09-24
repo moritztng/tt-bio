@@ -160,3 +160,11 @@ perf/pvx_land/*.json
 .msa_pvxel_*/
 perf/sizegate/failures/
 perf/sizegate/campaign/card*.lock
+
+# bcx-predictor campaign runs: trajectory outputs, PDBs and logs are artifacts, not source
+perf/bcx_predictor/runs/
+perf/bcx_predictor/params_fetch.log
+
+# The NaN capture is a 52 MB npz of device activations, an artifact not source
+perf/bcx_predictor/nancap/
+perf/bcx_predictor/trace_seam_b32.json

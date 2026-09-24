@@ -1,0 +1,14 @@
+{
+ "same_key_binder_rmsd_A": 0.0,
+ "same_key_target_rmsd_A": 0.0,
+ "seed_floor_binder_unsuperposed_A": 20.06621997216049,
+ "seed_floor_binder_kabsch_A": 10.3406941626536,
+ "seed_floor_target_unsuperposed_A": 0.107623791211714,
+ "plddt_key0": 0.7348635792732239,
+ "plddt_key1": 0.7371194362640381,
+ "device_binder_unsuperposed_A": 36.6509605844655,
+ "device_binder_kabsch_A": 24.944468734975832,
+ "device_target_unsuperposed_A": 0.106021473387675,
+ "seconds": 242.8,
+ "device_over_seed_floor_binder_kabsch": 2.41
+}
