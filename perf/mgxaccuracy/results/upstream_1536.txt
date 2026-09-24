@@ -1,3 +1,8 @@
+# *** WITHDRAWN -- DO NOT QUOTE. Every number in this file was measured on the DISQUALIFIED
+# *** disconnected fixture (chains A=1008 B=528, 162.40 A apart), not the valid contacting
+# *** dimer the device ran. See results/upstream_reference_wrong_fixture.txt. The replacement
+# *** run is out1536_valid on qb2. Full withdrawal note at the end of this file.
+#
 # UPSTREAM'S OWN 1536 DESIGN, and the answer to "is a worse number at 1536 a defect".
 #
 # The brief's joint 2: a worse device number at 1536 is a defect only if upstream does better

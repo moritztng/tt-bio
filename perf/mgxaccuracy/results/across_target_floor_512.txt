@@ -1,4 +1,12 @@
-# THE ACROSS-TARGET FLOOR AT A FIXED SIZE IS 13.0 A, WHICH IS LARGER THAN THE SIZE EFFECT.
+# THE ACROSS-TARGET FLOOR AT A FIXED SIZE IS 11.4-13.0 A, THE SAME ORDER AS THE SIZE EFFECT.
+#
+# HEADLINE CORRECTED 2026-09-24 03:4xZ. This file used to say the floor was LARGER than the
+# size effect. That compared 13.04 A against a 12.34 A size gap computed on the UPSTREAM
+# refolder; the after-fix DEVICE number at 1536 is 19.398, so the size gap at offset 0 is
+# 14.77 A and it EXCEEDS the target gap either way. Neither effect dominates. A same-tree
+# repeat also put the target gap at 11.39 A rather than 13.04
+# (results/engine_delta_is_inert.txt, results/token_distance_fix_refuted.txt).
+# The measurements below are unchanged; only the comparison in the old headline was wrong.
 #
 # Two 512-residue crops of the SAME protein, differing only by a 100-residue offset along its
 # own sequence. Same designer, same engine (after-fix), same binder length, same metric, same
