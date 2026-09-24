@@ -1,0 +1,39 @@
+# THE ENGINE DELTA BETWEEN THE 2x2's TREES IS 0.117 A, AND THE TARGET EFFECT IS 13.04 A.
+#
+# The 2x2's four cells did not all run the same tree (720b43a5d, d1133c67e, 07bd40614,
+# d0c4f33e4), and `git diff 07bd40614 d0c4f33e4 -- tt_bio/` is 422 insertions across 14 files
+# including 128 changed lines of tenstorrent.py, which every model rides. The 13.04 A target
+# effect is in docs/design-throughput.md, so that had to be measured rather than argued away.
+#
+# The control is the SAME CROP on two trees, n=8 each, everything else identical:
+#
+#   512 offset 0, tree 720b43a5d   n=8   median  4.748   range 0.693-12.925
+#   512 offset 0, current tree     n=8   median  4.631   range 0.823-13.493
+#                                        shift   0.117 A
+#
+#   Mann-Whitney does NOT reject: U = 28 of 64, where 32 is no difference at all. The two
+#   cells are statistically indistinguishable.
+#
+#   target effect, as published (cross-tree)        13.04 A
+#   target effect against the new same-tree cell    13.15 A
+#   engine delta is 111x smaller than the effect it could have contaminated.
+#
+# So the cross-tree construction of the 2x2 does not threaten the target effect, and the docs
+# sentence stands as written. The offset-100 re-run on the current tree is queued behind this
+# one (card 2) and will make the pair fully same-tree; this control already bounds what that
+# can change.
+#
+# A SECOND THING THIS BUYS, and it is worth more than the control. These two cells are also a
+# REPEAT of one configuration: same crop, same n, same everything the row controls. So the
+# run-to-run reproducibility of an n=8 MEDIAN on this metric is 0.117 A -- even though the
+# individual designs inside those cells span 0.693 to 13.493 A. The median is a stable
+# statistic here and a single design is not, which is the quantitative version of the rule
+# this row has been applying by instinct: eight-design cells carry quality claims, catchers
+# and single draws do not.
+#
+#   per-design spread within a cell    0.7 - 13.5 A
+#   run-to-run spread of the n=8 median      0.117 A
+#   the effect being claimed                13.04 A
+#
+# Reproduce: perf/mgxaccuracy/plans/floor512_onetree.txt entry 1, against the banked
+# offset-0 cell in results/size_1536.jsonl (engine "after-fix", crop_offset 0).
