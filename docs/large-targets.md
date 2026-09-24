@@ -133,6 +133,11 @@ hold:
   the diffusion pair conditioning.
 - `rf3` folds 1600 and fails at 1664 in the diffusion atom encoder's pair permute, with enough
   memory free but no block large enough.
+- `opendde` and `opendde-abag` fold 1536. At 1664 the residue pair no longer fits as one
+  allocation, so every pair operation assembles its blocks on the host and a trunk recycle takes
+  about 20 minutes instead of under 9. Both runs were past the 107 minutes the platform allows a
+  1664-residue fold with three or four of their ten recycles still to run, so the limit stays at
+  1536 because of run time, not a crash. At 1920 the fold fails outright on the trunk's pair.
 
 `esmfold2` and `esmfold2-fast` both fold 1664 and fail at 1792 in the pair feed-forward, whose
 1.5 GiB output needs 130.7 MiB in every DRAM bank. The largest free block is about 122 MiB by then,

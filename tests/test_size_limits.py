@@ -281,6 +281,20 @@ def test_a_wormhole_row_that_folds_the_top_of_its_walk_refuses_above_it(model):
         sl.check(model, c.residues + 1, arch="wormhole_b0")
 
 
+@pytest.mark.parametrize("model", ["opendde", "opendde-abag"])
+def test_a_wormhole_row_bound_by_run_time_says_so_when_it_refuses(model):
+    """OpenDDE at 1664 does not crash on a Galaxy chip: the residue pair no longer fits as one
+    allocation, every pair op joins its blocks on the host, and the fold runs for hours. A
+    refusal that called that a failure would send the user hunting for an OOM that never happens,
+    so the message has to name run time, and 1536 has to stay admitted."""
+    c = sl.ceiling(model, "wormhole_b0")
+    assert c.binds == sl.RUNTIME and c.pass_at == c.residues == 1536 and c.fail_at == 1664
+    sl.check(model, 1536, arch="wormhole_b0")
+    with pytest.raises(sl.SizeTooLargeError) as e:
+        sl.check(model, c.fail_at, arch="wormhole_b0")
+    assert "hours" in str(e.value), str(e.value)
+
+
 def test_each_arch_refuses_on_its_own_number():
     """A row that is present but never consulted refuses nothing, and a row consulted on the wrong
     arch refuses everything. Both are silent, and saprot-35m now has a row on BOTH parts, which

@@ -272,9 +272,25 @@ CEILINGS: dict[str, dict[str, Ceiling]] = {
                      "failure rather than at the largest passing size",
         ),
         "wormhole_b0": Ceiling(
-            residues=1536, pass_at=1536, fail_at=None, binds=LADDER_TOP, mechanism=NO_FAILURE,
+            residues=1536, pass_at=1536, fail_at=1664, binds=RUNTIME, mechanism=FRAGMENTATION,
             msa_rows=8192,
-            evidence="1536 residues fold at 8192 alignment rows on the j10glx02 Galaxy, 2026-09-23 "
+            evidence="1664 is where the fold stops being usable, walked 2026-09-23/24 on origin/main "
+                     "c5b346679 (mgx-bigalloc merged), j10glx02 card 16, guard off, --host_threads "
+                     "2, 8192 rows (ws:mgx-ceilings, perf/mgxceil). The residue pair, 1664^2 x 384 "
+                     "x 2 B = 2126512128 B, is refused as one allocation (177209344 B per bank "
+                     "against a 134360608 B largest block with 361496608 B free: fragmentation), "
+                     "so every chunked pair op joins its blocks on the host "
+                     "(tenstorrent.py host_acc_after_refusal -> _acc_concat). py-spy put 99-100 "
+                     "percent of the main thread there and a trunk recycle took ~20 min, against "
+                     "at most 9 min at 1536 (5223.9 s for the whole fold). After 7897.1 s the "
+                     "trunk was on recycle 6 of 10, past the 6436 s watchdog JapanFold's "
+                     "wk/mgx-platform-cap gives a 1664 predict (1500 s x (1664/1024)^3), and the fold was stopped with SIGINT so ttnn closed the chip cleanly. AICLK median 1000 MHz over 749 "
+                     "samples, host load 44-63 on 64 cores. 1792 was at recycle 2 of 10 after "
+                     "5536.2 s (card 19) and 1920 fails outright after 93.1 s on the trunk "
+                     "recycle pair add (protenix.py trunk, 2831155200 B, 225 MiB per bank, 98.8 "
+                     "MiB largest). So the cap stays 1536 and the reason above it is run time, not "
+                     "a crash; TT_BIO_SIZE_LIMIT=0 runs 1664 for anyone prepared to wait hours. "
+                     "1536 residues fold at 8192 alignment rows on the j10glx02 Galaxy, 2026-09-23 "
                      "(ws:mgx-bigalloc, perf/whceil/ladder.py, chip 20, tt-bio c8f75a9f0): "
                      "cdk2x2_1536_d8192 with all 10 trunk recycles, PASS in 5223.9 s at AICLK "
                      "1000 MHz sampled DURING the fold, under a host load that voids the time for "
@@ -293,8 +309,7 @@ CEILINGS: dict[str, dict[str, Ceiling]] = {
                      "the upstream reference, which has one seed there. 1536 has no reference yet; "
                      "its fold keeps the backbone except one stretched 14-residue segment "
                      "(586-599, CA-CA up to 5.5 A, pLDDT 48-56) on a junction of the tiled "
-                     "fixture, whose repeats have no defined arrangement. 1536 is the MGX target "
-                     "and nothing above it was walked, hence LADDER_TOP. The previous row, 1024 "
+                     "fixture, whose repeats have no defined arrangement. The previous row, 1024 "
                      "on GWH02 at the same depth with 1088 failing on the j10glx02 Galaxy, is "
                      "what these fixes moved",
         ),
@@ -322,9 +337,18 @@ CEILINGS: dict[str, dict[str, Ceiling]] = {
                      "failure rather than at the largest passing size",
         ),
         "wormhole_b0": Ceiling(
-            residues=1536, pass_at=1536, fail_at=None, binds=LADDER_TOP, mechanism=NO_FAILURE,
+            residues=1536, pass_at=1536, fail_at=1664, binds=RUNTIME, mechanism=FRAGMENTATION,
             msa_rows=8192,
-            evidence="its OWN 1536 rung at 8192 alignment rows on the j10glx02 Galaxy, 2026-09-23, "
+            evidence="its OWN 1664 rung, walked 2026-09-23/24 on origin/main a102dfb5c (the "
+                     "bigalloc engine; c5b346679 after it changes nothing opendde runs), j10glx02 "
+                     "card 14, guard off, --host_threads 2, 8192 rows (ws:mgx-ceilings, "
+                     "perf/mgxceil). The same 2126512128 B residue pair as opendde is refused as "
+                     "one allocation (fragmentation), every chunked pair op joins its blocks on "
+                     "the host, and after 9037.5 s the trunk was on recycle 7 of 10, past the "
+                     "same 6436 s watchdog at 1664; stopped with SIGINT for a clean "
+                     "close. AICLK median 1000 MHz over 857 samples, host load 43-63 on 64 cores. "
+                     "Run time, not a crash, is what binds above 1536. "
+                     "Its OWN 1536 rung at 8192 alignment rows on the j10glx02 Galaxy, 2026-09-23, "
                      "not inherited from opendde by architecture argument (ws:mgx-bigalloc, "
                      "perf/whceil/ladder.py, chip 18, tt-bio c8f75a9f0): cdk2x2_1536_d8192 with all "
                      "10 trunk recycles, PASS in 5366.1 s at AICLK 1000 MHz on 497 of 501 samples "
@@ -1246,6 +1270,8 @@ def check(model: str, residues: int, *, ligand_atoms: int = 0, arch: str | None 
     depth = (f" (measured with alignments up to {c.msa_rows} rows)" if c.msa_rows else "")
     top = ("the largest size proven on a ladder that never failed above it"
            if c.binds == LADDER_TOP else
+           "the largest size below the first one measured to run for hours instead of minutes"
+           if c.binds == RUNTIME else
            "the largest size below the first measured failure")
     raise SizeTooLargeError(
         f"{where} has {had}, and {model} is measured to handle at "
