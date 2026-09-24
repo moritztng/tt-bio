@@ -35,6 +35,7 @@ for _p in (str(_ROOT), str(_ROOT / "perf" / "bcx_afgrad"), str(_ROOT / "perf" / 
     if _p not in sys.path:
         sys.path.insert(0, _p)
 import bindcraft.campaign as campaign                                  # noqa: E402
+from bindcraft.af2 import campaign_length_bucket                       # noqa: E402
 from bindcraft.settings import parse_setting_overrides, read_settings  # noqa: E402
 from bindcraft.preflight import cleaned_campaign_settings              # noqa: E402
 
@@ -63,6 +64,8 @@ def main():
     overrides = [f"campaign_seed={args.seed}", f"max_trajectories={args.trajectories}",
                  "validation_model=monomer", 'design_models=["model_1_ptm"]',
                  'validation_models=["model_2_ptm"]', f"project_folder={project}"]
+    if args.bucket:
+        overrides.append(f"length_bucket_size={args.bucket}")
     settings = cleaned_campaign_settings(
         read_settings(args.settings or os.path.join(B.BC2, "examples", "pdl1.json"),
                       parse_setting_overrides(overrides)))
@@ -81,7 +84,13 @@ def main():
 
     mpnn = os.path.join(B.BC2, "bindcraft", "weights", "proteinmpnn", "weights_neutral")
     stamp = {"arm": args.arm, "seed": args.seed, "trajectories": args.trajectories,
-             "length_bucket_size": args.bucket,
+             # The EFFECTIVE bucket, read back off the settings the campaign gets.
+             # This used to record args.bucket, which is the flag: three device
+             # trajectories and five reference streams all stamped
+             # length_bucket_size 1 while the override was missing from the
+             # overrides list entirely and every run used BindCraft 2's default 32.
+             "length_bucket_size": campaign_length_bucket(settings),
+             "length_bucket_flag": args.bucket,
              "predictor": "AlphaFoldDesignModel" if args.arm == "reference"
                           else "TTBioAlphaFoldDesignModel",
              "host": os.uname().nodename, "started_utc": time.strftime("%FT%TZ", time.gmtime()),
