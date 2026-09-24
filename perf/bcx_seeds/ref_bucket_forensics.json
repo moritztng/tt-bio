@@ -1,0 +1,147 @@
+{
+ "0": {
+  "observed_reference_hash": "d2bfded440698f32",
+  "candidates": {
+   "key_absent": {
+    "hash": "d2bfded440698f32",
+    "effective_bucket": 32,
+    "key_present": false,
+    "matches_reference_run": true
+   },
+   "key_1": {
+    "hash": "a5bd4efa07616cc5",
+    "effective_bucket": 1,
+    "key_present": true,
+    "matches_reference_run": false
+   },
+   "key_32": {
+    "hash": "ca4fe44ca7aac5cd",
+    "effective_bucket": 32,
+    "key_present": true,
+    "matches_reference_run": false
+   }
+  },
+  "drawn": {
+   "binder_length": 146,
+   "trajectory_seed": 121455052
+  },
+  "draw_identical_across_candidates": true,
+  "reference_actually_ran": "key_absent"
+ },
+ "100": {
+  "observed_reference_hash": "c019673d64134f64",
+  "candidates": {
+   "key_absent": {
+    "hash": "c019673d64134f64",
+    "effective_bucket": 32,
+    "key_present": false,
+    "matches_reference_run": true
+   },
+   "key_1": {
+    "hash": "a393928f44515d47",
+    "effective_bucket": 1,
+    "key_present": true,
+    "matches_reference_run": false
+   },
+   "key_32": {
+    "hash": "746e618341b8c7e8",
+    "effective_bucket": 32,
+    "key_present": true,
+    "matches_reference_run": false
+   }
+  },
+  "drawn": {
+   "binder_length": 71,
+   "trajectory_seed": 466451203
+  },
+  "draw_identical_across_candidates": true,
+  "reference_actually_ran": "key_absent"
+ },
+ "200": {
+  "observed_reference_hash": "09b8e7a3d08bc7b6",
+  "candidates": {
+   "key_absent": {
+    "hash": "09b8e7a3d08bc7b6",
+    "effective_bucket": 32,
+    "key_present": false,
+    "matches_reference_run": true
+   },
+   "key_1": {
+    "hash": "9d1bf5c3ee9c62ec",
+    "effective_bucket": 1,
+    "key_present": true,
+    "matches_reference_run": false
+   },
+   "key_32": {
+    "hash": "37ae4c91f677dccf",
+    "effective_bucket": 32,
+    "key_present": true,
+    "matches_reference_run": false
+   }
+  },
+  "drawn": {
+   "binder_length": 176,
+   "trajectory_seed": 354839001
+  },
+  "draw_identical_across_candidates": true,
+  "reference_actually_ran": "key_absent"
+ },
+ "300": {
+  "observed_reference_hash": "aaf0e3cad8e56a88",
+  "candidates": {
+   "key_absent": {
+    "hash": "aaf0e3cad8e56a88",
+    "effective_bucket": 32,
+    "key_present": false,
+    "matches_reference_run": true
+   },
+   "key_1": {
+    "hash": "53e2bca99978ac76",
+    "effective_bucket": 1,
+    "key_present": true,
+    "matches_reference_run": false
+   },
+   "key_32": {
+    "hash": "407bf61c54608fb4",
+    "effective_bucket": 32,
+    "key_present": true,
+    "matches_reference_run": false
+   }
+  },
+  "drawn": {
+   "binder_length": 138,
+   "trajectory_seed": 132133377
+  },
+  "draw_identical_across_candidates": true,
+  "reference_actually_ran": "key_absent"
+ },
+ "400": {
+  "observed_reference_hash": "ffb9c87873af6d36",
+  "candidates": {
+   "key_absent": {
+    "hash": "ffb9c87873af6d36",
+    "effective_bucket": 32,
+    "key_present": false,
+    "matches_reference_run": true
+   },
+   "key_1": {
+    "hash": "070665c423a0a4ee",
+    "effective_bucket": 1,
+    "key_present": true,
+    "matches_reference_run": false
+   },
+   "key_32": {
+    "hash": "4c3643dbdced5ecd",
+    "effective_bucket": 32,
+    "key_present": true,
+    "matches_reference_run": false
+   }
+  },
+  "drawn": {
+   "binder_length": 180,
+   "trajectory_seed": 915059132
+  },
+  "draw_identical_across_candidates": true,
+  "reference_actually_ran": "key_absent"
+ }
+}
