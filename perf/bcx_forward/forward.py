@@ -452,6 +452,7 @@ def cmd_fused(args):
             dev.dm.set_triatt_fused(s_)
             o = dev.stack(dev.up(m0), dev.up(z0), ke, kv)
             out_t[a] = [dev.down(o[0], m0.shape), dev.down(o[1], z0.shape)]
+        r64 = A.ref_stack(ref["f64"], m0.double(), z0.double(), ke, kv) if args.f64 else None
         blob["whole"] = {
             "k_extra": ke, "k_evo": kv,
             "seconds": {a: {m: dist(v) for m, v in d.items()} for a, d in rec.items()},
@@ -462,16 +463,46 @@ def cmd_fused(args):
             "fused_stats": stats, "loadavg": os.getloadavg(),
             "on_vs_off": {nm: A.cmp(x, y) for nm, x, y in
                           zip(("m", "z"), out_t["on"], out_t["off"])},
+            "vs_f64": ({a: {nm: A.cmp(x, y) for nm, x, y in zip(("m", "z"), out_t[a], r64)}
+                        for a in out_t} if r64 else None),
             "aiclk": clock.window([(spans[0][0], spans[-1][1])])}
         print("whole", json.dumps(blob["whole"], default=str), flush=True)
         save(args.out or f"fused_n{args.n}.json", blob)
     clock.stop()
 
 
+# ------------------------------------------------------------------------------ latch
+
+
+def cmd_latch(args):
+    """Does one taped forward retire the fused route for every later UNTAPED forward?
+
+    BC2's loop runs the recycle pass untaped and then the differentiated pass taped, in one
+    process, 125 times. The fused SDPA declines under a tape by design; this asks whether that
+    decline is remembered as an L1 refusal. Sequence: untaped, taped, untaped, untaped, one
+    Evoformer block, fused on throughout, stats and the retired-config set read after each."""
+    lv, dev, ref = open_all(args, args.arm)
+    import tt_bio.tenstorrent as tn
+    m0, z0, wm, wz = inputs(ref, args.n, args.seed)
+    dev.dm.set_triatt_fused(frozenset(["extra_msa", "evoformer"]))
+    rows = []
+    for stage in ("untaped", "taped", "untaped", "untaped"):
+        before = dict(tn.TRIATT_FUSED_HIFI_STATS)
+        if stage == "untaped":
+            t0, t1 = untaped_fwd(dev, m0, z0, 0, 1)
+            sec = t1 - t0
+        else:
+            sec = taped_step(dev, lv, m0, z0, wm, wz, 0, 1, ckpt=True, backward=False)["taped_fwd"]
+        rows.append({"stage": stage, "seconds": sec,
+                     "stats": {k: v - before.get(k, 0) for k, v in tn.TRIATT_FUSED_HIFI_STATS.items()},
+                     "retired_configs": len(tn._TRIATT_HIFI_OVER_L1)})
+        print(json.dumps(rows[-1]), flush=True)
+    save(args.out or f"latch_n{args.n}.json", {"stamp": stamp(args), "n": args.n, "rows": rows})
+
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("cmd", choices=["step", "blocks", "census", "fused"])
+    ap.add_argument("cmd", choices=["step", "blocks", "census", "fused", "latch"])
     ap.add_argument("--params", default=A.DEFAULT_PARAMS)
     ap.add_argument("--card", type=int, default=int(os.environ.get("TT_VISIBLE_DEVICES", "0")))
     ap.add_argument("--arm", default="stack")
@@ -487,6 +518,7 @@ def main():
     ap.add_argument("--ckpt", action="store_true")
     ap.add_argument("--no-ckpt", action="store_true")
     ap.add_argument("--no-backward", action="store_true")
+    ap.add_argument("--f64", action="store_true", help="fused --whole: grade both arms against float64")
     ap.add_argument("--whole", action="store_true",
                     help="fused: also A/B the whole 4+48 forward, taped and untaped")
     ap.add_argument("--out", default=None)
@@ -494,7 +526,7 @@ def main():
     args = ap.parse_args()
     torch.set_num_threads(args.threads)
     {"step": cmd_step, "blocks": cmd_blocks, "census": cmd_census,
-     "fused": cmd_fused}[args.cmd](args)
+     "fused": cmd_fused, "latch": cmd_latch}[args.cmd](args)
 
 
 if __name__ == "__main__":
