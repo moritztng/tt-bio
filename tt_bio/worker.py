@@ -911,7 +911,8 @@ class _WorkerState:
         import types
 
         from tt_bio.esmfold2 import report_progress
-        from tt_bio.esmfold2_runtime import fold_complex, pair_keyed_msa, resolve_msa
+        from tt_bio.esmfold2_runtime import (ESMFOLD2_MSA_ROWS, fold_complex, pair_keyed_msa,
+                                             resolve_msa)
         from tt_bio.main import (_generate_esmfold2_a3m, _read_bio_bonds, _read_bio_chains,
                                  _write_structure)
 
@@ -922,7 +923,9 @@ class _WorkerState:
         # covalent bonds + ring closures, upstream's covalent_bonds -> token_bonds
         bonds = _read_bio_bonds(path, chains)
         msa_dir = Path(cfg["msa_dir"])
-        max_msa = cfg.get("max_msa_seqs") or 16384
+        # Upstream's featurizer reads at most ESMFOLD2_MSA_ROWS, so that is the pool unless the
+        # user asked for less; the MSA encoder draws its per-loop subsample from it.
+        max_msa = min(cfg.get("msa_cap") or ESMFOLD2_MSA_ROWS, ESMFOLD2_MSA_ROWS)
         # Only the checkpoints that ship an MSA encoder can use an MSA. ESMFold2
         # has one; ESMFold2-Fast does not (model.msa_encoder is None), so there's
         # nothing to consume an alignment — skip the search and fold single-seq

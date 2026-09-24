@@ -40,3 +40,41 @@ def test_build_features_msa_vs_single():
     assert withmsa["msa"].shape[0] == 3
     # query row of the MSA equals the single-sequence msa (the query itself)
     assert withmsa["msa"][0].tolist() == single["msa"][0].tolist()
+
+
+def _rows(n, k=5):
+    """n distinct alignment rows over ACDEF, query first."""
+    aa, out = "ACDEFGHIKLMNPQRSTVWY", ["ACDEF"]
+    i = 0
+    while len(out) < n:
+        s = "".join(aa[(i // 20 ** j) % 20] for j in range(k))
+        i += 1
+        if s not in out:
+            out.append(s)
+    return out
+
+
+def test_pool_crops_to_upstream_rows_after_the_profile(monkeypatch):
+    # Upstream assembles at most MSA_POOL_ROWS rows and reads nothing past them; the profile is
+    # taken over the chain's whole alignment first, as upstream takes it.
+    import tt_bio.protenix_data as PD
+    monkeypatch.setattr(PD, "MSA_POOL_ROWS", 6)
+    rows = _rows(9)
+    a3m = "".join(f">{i}\n{s}\n" for i, s in enumerate(rows))
+    f = build_protein_features(QUERY, a3m=a3m)
+    whole = protein_msa_features(a3m, QUERY)
+    assert f["msa"].shape[0] == 6
+    assert torch.equal(f["msa"], whole["msa"][:6])
+    assert torch.equal(f["profile"], whole["profile"])
+
+
+def test_pool_keeps_half_paired_then_fills_unpaired(monkeypatch):
+    import tt_bio.protenix_data as PD
+    monkeypatch.setattr(PD, "MSA_POOL_ROWS", 8)
+    rows = _rows(12)
+    a3m = "".join(f">{i}\n{s}\n" for i, s in enumerate(rows))
+    f = PD.build_complex_features([(QUERY, a3m), (QUERY, a3m)], paired_a3ms=[a3m, a3m])
+    # 4 paired rows counting the query (which sits in the unpaired block), 4 unpaired: 3 + 5.
+    assert f["msa"].shape[0] == 8
+    paired_only = f["msa"][:3, :5]
+    assert paired_only.tolist() == protein_msa_features(a3m, QUERY)["msa"][1:4].tolist()

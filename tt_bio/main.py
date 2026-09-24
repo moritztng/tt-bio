@@ -3036,7 +3036,8 @@ def _resolve_msa_default(model, use_msa_server, msa_db_path, msa_endpoint,
 @click.option("--max_parallel_samples", default=5, type=int,   # protenix.DEFAULT_MAX_PARALLEL_SAMPLES
               help="Diffusion samples denoised in one batched forward by boltz2, protenix-v1/v2, "
                    "opendde and opendde-abag; the other models pick their own width. Device memory "
-                   "grows linearly in it; lower it if a large target runs out.")
+                   "grows linearly in it; if the chip refuses a batch, it halves on its own, down "
+                   "to one sample.")
 @click.option("--step_scale", default=None, type=float)
 @click.option("--output_format", type=click.Choice(["pdb", "cif"]), default="cif")
 @click.option("--override", is_flag=True)
@@ -3327,10 +3328,9 @@ def predict(data, out_dir, cache, checkpoint, accelerator, recycling_steps, samp
             "msa_server_url": msa_server_url, "msa_pairing_strategy": msa_pairing_strategy,
             "msa_server_username": msa_server_username, "msa_server_password": msa_server_password,
             "api_key_value": api_key_value, "max_msa_seqs": max_msa_seqs,
-            # The cap the USER asked for, None when the flag was left alone. esmfold2 keeps
-            # reading max_msa_seqs (8192 is its shipped default); protenix, opendde, rf3 and
-            # the OF3 family read this one, so leaving the flag alone folds exactly the depth
-            # they folded before.
+            # The cap the USER asked for, None when the flag was left alone. esmfold2,
+            # protenix, opendde, rf3 and the OF3 family read this one, so leaving the flag alone
+            # folds the depth each model's upstream reads.
             "msa_cap": msa_cap,
             "msa_cache_only": msa_cache_only,
             "write_pae": write_pae,
