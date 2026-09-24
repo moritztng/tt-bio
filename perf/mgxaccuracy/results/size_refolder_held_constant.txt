@@ -1,3 +1,9 @@
+# REFRAMED 2026-09-24 01:3xZ: this is an INSTRUMENT result, not a size result. It rules the
+# refolder out as the cause of the offset-0 512-vs-1536 gap. It does NOT show the cause is
+# size, because the across-target spread at a FIXED 512 residues was then measured at 13.04 A
+# -- larger than the 12.34 A gap below (results/across_target_floor_512.txt). Every number
+# here stands exactly as measured; only the word "size" in the title is wrong.
+#
 # The size claim with the SCORING FOLD held constant, n=8 per size, one valid target.
 #
 # Both rows below are the DEVICE's own designs. The only thing that folds them is upstream
@@ -40,9 +46,13 @@
 # What this does NOT establish, and neither does anything else in this row:
 #   * that TT is worse than upstream AT 1536. That needs upstream's own 1536 DESIGN, which
 #     is the qb2 out1536 run -- 11.7 h in and now past its design step into folding.
-#   * that the size effect is not a target effect. One valid target per size; the 512
-#     across-target floor is 2.10 A and the gap here is 12.33 A, so the floor does not cover
-#     it, but plans/bg_floor_1536.txt is the honest second target and it has not run.
+#   * that the size effect is not a target effect. SETTLED, AND IT WENT THE OTHER WAY: the
+#     second target ran on 2026-09-24 and the across-target spread at a fixed 512 residues is
+#     13.04 A (4.749 vs 17.785, n=8 each, U=2 of 64), which EXCEEDS the 12.34 A gap below. The
+#     2.10 A figure this line used to quote was two targets that happened to be close, not a
+#     floor. So the gap below is between two particular crops and is not attributable to size.
+#   * that the four cells share an engine. They do not: they ran on 720b43a5d, d1133c67e,
+#     07bd40614 and d0c4f33e4. plans/floor512_onetree.txt re-measures the 512 pair on one tree.
 #
 # Reproduce:
 #   ssh qb2 'cd ~/mgxacc-tools && ~/bgref-env/bin/python3 scrmsd.py ~/bgref-work/<out> \
