@@ -18,10 +18,16 @@
 #   target effect against the new same-tree cell    13.15 A
 #   engine delta is 111x smaller than the effect it could have contaminated.
 #
-# So the cross-tree construction of the 2x2 does not threaten the target effect, and the docs
-# sentence stands as written. The offset-100 re-run on the current tree is queued behind this
-# one (card 2) and will make the pair fully same-tree; this control already bounds what that
-# can change.
+# So the cross-tree construction of the 2x2 does not threaten the target effect. The offset-100
+# re-run then landed and completed the same-tree pair:
+#
+#   512 offset 0 / offset 100, BOTH on the current tree   4.631 -> 16.021   gap 11.39 A
+#   the same pair cross-tree                              4.748 -> 17.785   gap 13.04 A
+#
+# The effect reproduces. What did NOT survive is the ORDERING claim the docs carried: the size
+# gap at offset 0 on the after-fix engine is 19.398 - 4.631 = 14.77 A, which EXCEEDS the target
+# gap either way. The doc now says the two are the same order rather than that target beats
+# size (results/token_distance_fix_refuted.txt has the 1536 cell).
 #
 # A SECOND THING THIS BUYS, and it is worth more than the control. These two cells are also a
 # REPEAT of one configuration: same crop, same n, same everything the row controls. So they
