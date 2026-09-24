@@ -125,9 +125,13 @@ where quality falls is somewhere between 512 and 1024, and 512 is the largest ex
 to work.
 
 **If your target has several chains, crop to one of them before you crop by residue count.**
-GroEL's chains are about 524 residues, so every GroEL crop above 512 in the table also pulls in
-a second chain, and the two cells that refold are exactly the two that are essentially a single
-chain. On 1GPB the two can be told apart, because chain A is 823 residues on its own. Stretching
+Every 512-residue cell in the table above is a single chain, and every cell at 1024 or 1536 has
+a second chain in it. That is not a choice we made: GroEL's chains are about 524 residues and
+1GPB's longest is 823, so on these two targets a bigger crop is also a multi-chain crop. Every
+single-chain cell returned designs that refold and no multi-chain cell has returned one under
+4 A.
+
+The two can be told apart once, on 1GPB, because chain A is 823 residues on its own. Stretching
 the crop from 512 to all 823 of that one chain moved the median from 4.6 to 8.0 A, and 25 % of
 designs still came in under 4 A; adding the second chain instead cost 14.8 A and left nothing
 under 4 A. Both directions hurt, the chain hurts far more, and only the chain effect is large
