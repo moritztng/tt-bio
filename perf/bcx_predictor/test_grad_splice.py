@@ -15,6 +15,7 @@ import numpy as np, jax, jax.numpy as jnp
 import bc2_state as B
 import afgrad as A, stack as S
 from splice import EvoformerOnDevice, evoformer_on_device
+from bindcraft.af.alphafold.model import modules as _mods
 from ttbio_predictor import TTBioAlphaFoldDesignModel
 from bindcraft.sequence_optimization import normalize_sequence_gradient
 
@@ -43,8 +44,25 @@ out["jax"] = {"loss": l_jax, "seconds": round(t_jax, 1),
               "grad_shapes": {k: list(v.shape) for k, v in g_jax.items()}}
 print("jax arm:", json.dumps(out["jax"]), flush=True)
 
+# Capture BindCraft 2's own MSA mask once: the stack replacement never sees the masks dict.
+_cap = {}
+_real_it = _mods.EvoformerIteration.__call__
+def _store(mm): _cap.setdefault("msa_mask", np.asarray(mm, np.float32))
+def _spy(self, activations, masks, safe_key, use_dropout, **kw):
+    if not self.is_extra_msa:
+        jax.debug.callback(_store, masks["msa"])
+    return _real_it(self, activations=activations, masks=masks, safe_key=safe_key,
+                    use_dropout=use_dropout, **kw)
+_mods.EvoformerIteration.__call__ = _spy
+try:
+    model().predict(states)
+finally:
+    _mods.EvoformerIteration.__call__ = _real_it
+out["msa_mask_shape"] = list(_cap["msa_mask"].shape)
+out["msa_mask_row1_zero_fraction"] = float((_cap["msa_mask"][1] == 0).mean())
+
 lv = S.Levers(); dm, _r = A.load_models(A.DEFAULT_PARAMS); dev = A.Dev(dm.to_device()); lv.arm("stack")
-evo = EvoformerOnDevice(dev, k_evo=48)
+evo = EvoformerOnDevice(dev, k_evo=48, msa_mask=_cap["msa_mask"])
 clock = S.Clock(); t0 = time.time()
 with evoformer_on_device(evo) as swapped:
     _, g_dev, l_dev, t_dev = run(model())
@@ -73,5 +91,5 @@ out["bc2_normalised_update"] = {
     "norm_ratio": float(np.linalg.norm(ub) / max(np.linalg.norm(ua), 1e-30))}
 out["loss_rel"] = abs(l_dev - l_jax) / max(abs(l_jax), 1e-30)
 out["stamp"] = A.stamp(3)
-(HERE / f"grad_splice_check_dropout{int(DROPOUT)}.json").write_text(json.dumps(out, indent=1, default=str))
+(HERE / f"grad_splice_masked_dropout{int(DROPOUT)}.json").write_text(json.dumps(out, indent=1, default=str))
 print(json.dumps({k: v for k, v in out.items() if k != "stamp"}, indent=1, default=str))

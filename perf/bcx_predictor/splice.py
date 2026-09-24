@@ -31,9 +31,27 @@ _NEXT = [0]
 class EvoformerOnDevice:
     """tt-bio's 48 Evoformer blocks as `(msa, pair) -> (msa, pair)`, differentiable."""
 
-    def __init__(self, dev, k_evo: int = 48, checkpoint: bool = True):
+    def __init__(self, dev, k_evo: int = 48, checkpoint: bool = True, msa_mask=None):
+        """`msa_mask` is BindCraft 2's `[rows, n]` Evoformer MSA mask, as a host array.
+
+        It is passed in rather than read off the traced activations because the stack
+        replacement never sees the `masks` dict -- `evoformer_fn` closes over it and this
+        swaps out the whole `layer_stack`. The mask is fixed for a given target and binder
+        length, so capturing it once per shape is exact; a predictor class that reads it
+        from BindCraft 2's own batch is the general form and this is the harness's.
+        """
         self.dev, self.k_evo, self.checkpoint = dev, k_evo, checkpoint
         self.calls = {"primal": 0, "taped": 0, "backward": 0}
+        self._mask_host = msa_mask
+        self._mask_dev = None
+
+    def _mask(self):
+        if self._mask_host is None:
+            return None
+        if self._mask_dev is None:
+            self._mask_dev = self.dev.up(torch.from_numpy(
+                np.asarray(self._mask_host, dtype=np.float32).copy()).float())
+        return self._mask_dev
 
     # ------------------------------------------------------------------ host halves
 
@@ -43,7 +61,8 @@ class EvoformerOnDevice:
         dev = self.dev
         m = torch.from_numpy(np.asarray(msa_np).copy()).float()
         z = torch.from_numpy(np.asarray(pair_np).copy()).float()
-        mo, zo = dev.stack(dev.up(m), dev.up(z), 0, self.k_evo, ckpt=False)
+        mo, zo = dev.stack(dev.up(m), dev.up(z), 0, self.k_evo, ckpt=False,
+                           msa_mask=self._mask())
         dev.sync()
         self.calls["primal"] += 1
         return (dev.down(mo, tuple(m.shape)).numpy(), dev.down(zo, tuple(z.shape)).numpy())
@@ -54,7 +73,8 @@ class EvoformerOnDevice:
         z = torch.from_numpy(np.asarray(pair_np).copy()).float()
         ml, zl = dev.leaf(m), dev.leaf(z)
         with dev.tt.tape():
-            mo, zo = dev.stack(ml, zl, 0, self.k_evo, ckpt=self.checkpoint)
+            mo, zo = dev.stack(ml, zl, 0, self.k_evo, ckpt=self.checkpoint,
+                               msa_mask=self._mask())
         dev.sync()
         # recycled_alphafold_outputs runs design_recycles stop-gradient passes and then one
         # differentiated pass, and JAX routes ALL of them through fwd -- it cannot know the
