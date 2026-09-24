@@ -159,3 +159,18 @@ Fixed to `${PY:-$HOME/env/bin/python}` and re-run, reproducing 5.437 A.
 The general form: a guard that refuses early makes every downstream line unexecuted, so
 exercising the guard tells you nothing about them. If a script cannot be run against real
 inputs yet, say which BRANCH was exercised rather than that the script was checked.
+
+## A READER'S OWN SIZES TUPLE MAKES EVERY CELL OUTSIDE IT INVISIBLE, AND IT LOOKS LIKE NO DATA
+
+Hit three times on 2026-09-24, each time on a cell that had just been measured:
+
+  ladder_read.py  SIZES = (512, 1024, 1536)   blind to the 768 rung until 768 was added
+  ladder_read.py  TARGET = "groel_ring4_2096" blind to every FAS cell, prints an empty table
+  fas_read.py     RUNGS = (512, 1024, 1536)   blind to the FAS 768 addition until SHOW was added
+
+Every one of these fails by printing MISSING or nothing at all, never by raising, so a harvest
+that ran correctly and a harvest that silently dropped its cell look identical in the output.
+The rule this row now follows: when a new rung or a new target is launched, check the reader's
+constants in the SAME pass, before the cells land, and add rather than repoint -- the existing
+constants are load-bearing for verdicts that are already published, which is what `--selfcheck`
+exists to prove after every such edit.
