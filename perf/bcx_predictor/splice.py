@@ -162,8 +162,12 @@ class EvoformerOnDevice:
         # recycled_alphafold_outputs stop_gradients every recycle but the last and JAX
         # routes all of them through fwd, so superseded tapes are dropped here: at
         # bcx-ckpt's 5.33 GB an Evoformer block, keeping them is fatal over 125 steps.
+        # Popping the entry is not enough on its own -- a tape holds a storage-group cycle
+        # refcounting cannot break, so `drop_tape` is what actually frees the buffers.
         for stale in list(_LIVE):
-            _LIVE.pop(stale, None)
+            entry = _LIVE.pop(stale, None)
+            if entry is not None:
+                dev.ag.drop_tape(entry["roots"], also=entry["leaves"])
         dev.ag.release_pins()
         token = _NEXT[0]; _NEXT[0] += 1
         _LIVE[token] = {"roots": [mo, zo], "leaves": [ml, zl],
@@ -195,6 +199,11 @@ class EvoformerOnDevice:
         dev.ag.backward([mo, zo], [dev.seed(gm, mo), dev.seed(gz, zo)])
         dev.sync()
         out = (dev.grad(ml, m_shape)[:, :n].numpy(), dev.grad(zl, z_shape)[:n, :n].numpy())
+        # The gradients are off the leaves, so the tape is finished. Tearing it down HERE is
+        # the whole of this fix: without it the step's buffers wait for the cyclic collector,
+        # which counts objects and cannot see the 4.746 GB per step they hold on the card
+        # (perf/bcx_dram/memtrace_seed200t1.json, n=307, OOM in step 4).
+        dev.ag.drop_tape([mo, zo], also=[ml, zl])
         dev.ag.release_pins()
         self.calls["backward"] += 1
         if _CAPTURE_DIR and not _CAPTURED and not (

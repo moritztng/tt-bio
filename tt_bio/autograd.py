@@ -33,7 +33,7 @@ from tt_bio.envflags import env_flag
 __all__ = [
     "Tensor", "precise_config", "bmm_program_config", "softmax_bw_inner", "no_grad", "parameter",
     "forget_parameters", "parameter_for",
-    "release_pins",
+    "release_pins", "drop_tape",
     "linear", "matmul", "layer_norm", "softmax", "mul", "add", "scale", "sigmoid",
     "relu", "silu", "reshape", "split_heads", "merge_heads",
     "triangle_attention", "permute", "pair_contract", "checkpoint",
@@ -1352,6 +1352,30 @@ def release_pins() -> None:
     _CKPT_PINS.clear()
 
 
+def drop_tape(roots, also: Sequence = ()) -> None:
+    """Break the cycles in a tape nobody will read again, so refcounting can free it.
+
+    A view and the tensor it views list each other in one `shares` group, and the view's node
+    leads back to its source, so every storage group on a tape is a cycle holding everything
+    upstream of it. That is the only edge on a tape that is not a parent pointer (`_tape` keeps
+    closures off their own outputs), and `perf/bcx_stack/stack.py gcdiag` finds no other cycle
+    in a recomputed AF2 block. So a tape with a view in it does not die when its last reference
+    goes: it waits for the cyclic collector, which counts OBJECTS and cannot see the gigabytes
+    those objects hold on the card. Clearing the groups makes the tape a plain DAG, and dropping
+    the roots then releases every buffer at once.
+
+    Called on the tape a checkpointed segment recomputes, and on a FORWARD tape whose backward
+    will never run -- the stop-gradient recycles of a design step are exactly that. It is a
+    teardown, not a release: read whatever gradients you want off the leaves first.
+
+    `also` names tensors to clear that carry no node of their own, i.e. the leaves a caller
+    made for this tape.
+    """
+    for t in _reverse_topo(roots):
+        if t.node is not None or any(t is d for d in also):
+            t.shares = None
+
+
 # Sentinel: "whichever registered parameters this segment turns out to read", resolved by the
 # touch census around the untaped forward. A caller that names its own parameters still can.
 _ALL_PARAMS = object()
@@ -1420,20 +1444,9 @@ def checkpoint(fn, *inputs: Tensor, params: Sequence[Tensor] = ()) -> Tensor:
         for src, dup in zip(inputs, inner):
             if isinstance(src, Tensor) and isinstance(dup, Tensor) and dup.grad is not None:
                 src.add_grad(dup.grad)
-        # Drop the inner tape NOW, because refcounting alone will not: a view and the tensor it
-        # views list each other in one `shares` group, and the view's node leads back to its
-        # source, so every storage group on the tape is a cycle holding everything upstream of
-        # it. That is the only edge on a tape that is not a parent pointer (`_tape` keeps
-        # closures off their own outputs), and `perf/bcx_stack/stack.py gcdiag` finds no other
-        # cycle in a recomputed AF2 block. Clearing the groups of the tensors this recompute
-        # made frees the tape the moment it goes out of scope. It used to be a `gc.collect()`,
-        # which walks the whole interpreter heap: 0.16 s per recompute in a process holding
-        # AF2, at any sequence length, and the largest item in a checkpointed block's backward.
-        # One leaked inner tape per block is invisible; 96 of them are the difference between
-        # a backward that peaks at 8.92 GiB and one that is refused 2.4 GB with 30.3 GiB held.
-        for t in _reverse_topo(roots):
-            if t.node is not None or any(t is d for d in inner):
-                t.shares = None
+        # Drop the inner tape NOW, because refcounting alone will not. `drop_tape` says why;
+        # the duplicates are named as well because a leaf carries no node of its own.
+        drop_tape(roots, also=inner)
         del y, inner, roots
 
     if not isinstance(produced, (tuple, list)):
