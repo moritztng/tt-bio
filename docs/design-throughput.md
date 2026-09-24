@@ -157,17 +157,28 @@ own, and cropped it to 512, 768 and 1024 residues of that single chain:
 | 512 residues | **3.8 A** | 50 % |
 | 768 residues | **9.1 A** | 25 % |
 | 1024 residues | **10.7 A** | 0 % |
+| 1536 residues | **3.3 A** | 50 % |
 
-So a single chain of 1024 residues returns nothing usable either. Size costs you something on
-its own, and cropping to one chain does not make a large target behave like a small one.
+That last row is not a typo, and it is the clearest result we have on chains: **a single chain
+still designs at 1536 residues**, where every multi-chain cell at that size, four of them across
+the other two targets, returned nothing under 4 A. The dip at 1024 is real and we cannot explain
+it — the 1536 crop contains the 1024 crop, so the same residues that returned nothing usable
+return four good designs once more of the same chain is added. Two windows at 1024 both came
+back at 0 of 8, so the dip is not one unlucky crop either.
+
+Read it as: chain count is what the size ceiling on the other two targets was really tracking,
+and a long single chain is not the same problem as a multi-chain complex of the same length.
+Read it as a smooth curve at your peril — on this target it is not one.
 
 What the chain is worth is visible on 1GPB, where chain A is 823 residues by itself: stretching
 the crop from 512 to all 823 of that chain moved the median from 4.6 to 8.0 A with 25 % of
 designs still under 4 A, while adding the second chain at the same extent cost 14.8 A and left
 nothing under 4 A. Both directions hurt and the chain hurts more.
 
-So: crop to one chain if you can, and still keep the extent near 512. With two 300-residue
-chains, try one at a time even though the total looks small.
+So: crop to one chain if you can. If your target IS one chain, the 512 rule is softer than it
+looks — this one designed as well at 1536 as at 512 — but the 1024 dip says do not count on it
+without measuring your own target. With two 300-residue chains, try one at a time even though
+the total looks small.
 
 Which window you pick matters on one of these targets and not the other. At 512 residues it
 swings 1GPB by 13 A and moves GroEL by under 1 A. It is not safe to read that as "window does
