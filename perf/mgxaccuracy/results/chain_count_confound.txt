@@ -100,3 +100,22 @@ The one point anywhere in the row that separates residue count from chain count 
 at n=8 while the chain move at the same crop cost 14.77 A and did reject. One point is one
 point. But the row does not have a second, and the size axis it has published is, on the
 evidence of the fixtures themselves, a chain-count axis.
+
+
+THE GROUPING, AND WHY IT IS NOT EXTRA EVIDENCE
+-----------------------------------------------
+
+Counting only chain fragments of >= 100 residues (so GroEL's 24- and 12-residue stubs do not
+count as chains), the six banked GroEL medians group without overlap:
+
+    1 chain    0.852   1.739     <- 5 of 8 and 7 of 8 under 4 A
+    2 chains   8.718  14.457     <- 0 of 8
+    3 chains  15.606  14.387     <- 0 of 8
+
+and the 1 -> 2 step is far larger than the 2 -> 3 step. That is a tidy picture and it is NOT
+additional evidence for anything. Size and chain count are perfectly confounded in these six
+cells, so every monotone function of size orders them exactly the same way; this table is the
+same numbers already in `results/groel_2x2_result.txt` and `results/groel_1024_result.txt`,
+re-sorted. It is written down because it makes the prediction the FAS control has to beat
+concrete -- if chain count is the carrier, FAS at 1536 on one chain should sit with the top row
+and not the bottom one -- and for no other reason.
