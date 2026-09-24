@@ -1,0 +1,178 @@
+{
+ "arch": "Arch.WORMHOLE_B0",
+ "mkn": [
+  8192,
+  1536,
+  128
+ ],
+ "rows": [
+  {
+   "form": "plain",
+   "guard": false,
+   "took": {
+    "k1": 0,
+    "declined": 0,
+    "refused": 0
+   },
+   "fault": 1,
+   "max_q": 0.7962,
+   "mean_q": 0.001196
+  },
+  {
+   "form": "plain",
+   "guard": true,
+   "took": {
+    "k1": 1,
+    "declined": 0,
+    "refused": 0
+   },
+   "fault": 0,
+   "max_q": 0.0162,
+   "mean_q": 0.001195
+  },
+  {
+   "form": "transpose_b",
+   "guard": false,
+   "took": {
+    "k1": 0,
+    "declined": 0,
+    "refused": 0
+   },
+   "fault": 1,
+   "max_q": 0.7962,
+   "mean_q": 0.001196
+  },
+  {
+   "form": "transpose_b",
+   "guard": true,
+   "took": {
+    "k1": 1,
+    "declined": 0,
+    "refused": 0
+   },
+   "fault": 0,
+   "max_q": 0.0162,
+   "mean_q": 0.001195
+  },
+  {
+   "form": "transpose_a",
+   "guard": false,
+   "took": {
+    "k1": 0,
+    "declined": 0,
+    "refused": 0
+   },
+   "fault": 1,
+   "max_q": 0.7962,
+   "mean_q": 0.001196
+  },
+  {
+   "form": "transpose_a",
+   "guard": true,
+   "took": {
+    "k1": 1,
+    "declined": 0,
+    "refused": 0
+   },
+   "fault": 0,
+   "max_q": 0.0162,
+   "mean_q": 0.001195
+  },
+  {
+   "form": "batched_a",
+   "guard": false,
+   "took": {
+    "k1": 0,
+    "declined": 0,
+    "refused": 0
+   },
+   "fault": 1,
+   "max_q": 0.7962,
+   "mean_q": 0.001196
+  },
+  {
+   "form": "batched_a",
+   "guard": true,
+   "took": {
+    "k1": 1,
+    "declined": 0,
+    "refused": 0
+   },
+   "fault": 0,
+   "max_q": 0.0162,
+   "mean_q": 0.001195
+  },
+  {
+   "form": "linear_bias",
+   "guard": false,
+   "took": {
+    "k1": 0,
+    "declined": 0,
+    "refused": 0
+   },
+   "fault": 1,
+   "max_q": 0.7957,
+   "mean_q": 0.00118
+  },
+  {
+   "form": "linear_bias",
+   "guard": true,
+   "took": {
+    "k1": 1,
+    "declined": 0,
+    "refused": 0
+   },
+   "fault": 0,
+   "max_q": 0.014,
+   "mean_q": 0.00118
+  },
+  {
+   "form": "linear_sigmoid",
+   "guard": false,
+   "took": {
+    "k1": 0,
+    "declined": 0,
+    "refused": 0
+   },
+   "fault": 0,
+   "max_q": 0.0013,
+   "mean_q": 1.6e-05
+  },
+  {
+   "form": "linear_sigmoid",
+   "guard": true,
+   "took": {
+    "k1": 1,
+    "declined": 0,
+    "refused": 0
+   },
+   "fault": 0,
+   "max_q": 0.0013,
+   "mean_q": 1.6e-05
+  },
+  {
+   "form": "linear_gelu",
+   "guard": false,
+   "took": {
+    "k1": 0,
+    "declined": 0,
+    "refused": 0
+   },
+   "fault": 0,
+   "max_q": 0.0552,
+   "mean_q": 0.002366
+  },
+  {
+   "form": "linear_gelu",
+   "guard": true,
+   "took": {
+    "k1": 1,
+    "declined": 0,
+    "refused": 0
+   },
+   "fault": 0,
+   "max_q": 0.0552,
+   "mean_q": 0.002366
+  }
+ ]
+}

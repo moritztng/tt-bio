@@ -1,0 +1,55 @@
+{
+ "rows": [
+  {
+   "m": 64,
+   "k": 128,
+   "n": 128,
+   "off": {
+    "host_us_per_call": 12.7,
+    "wall_us_per_call": 12.7
+   },
+   "on": {
+    "host_us_per_call": 19.0,
+    "wall_us_per_call": 19.0
+   },
+   "pinned": {
+    "host_us_per_call": 10.7,
+    "wall_us_per_call": 10.7
+   }
+  },
+  {
+   "m": 1536,
+   "k": 128,
+   "n": 128,
+   "off": {
+    "host_us_per_call": 12.2,
+    "wall_us_per_call": 15.0
+   },
+   "on": {
+    "host_us_per_call": 18.9,
+    "wall_us_per_call": 19.0
+   },
+   "pinned": {
+    "host_us_per_call": 11.1,
+    "wall_us_per_call": 16.9
+   }
+  },
+  {
+   "m": 1536,
+   "k": 384,
+   "n": 384,
+   "off": {
+    "host_us_per_call": 20.7,
+    "wall_us_per_call": 49.1
+   },
+   "on": {
+    "host_us_per_call": 22.0,
+    "wall_us_per_call": 49.2
+   },
+   "pinned": {
+    "host_us_per_call": 11.2,
+    "wall_us_per_call": 49.2
+   }
+  }
+ ]
+}
