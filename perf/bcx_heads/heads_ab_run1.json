@@ -1,0 +1,638 @@
+{
+ "host": "tt-quietbox",
+ "pci": "0000:41:00.0",
+ "aiclk_node": "/sys/class/tenstorrent/tenstorrent!2/tt_aiclk",
+ "visible": "1",
+ "shapes": {
+  "af2_tri_n128": {
+   "B": 128,
+   "L": 128,
+   "H": 4,
+   "dh": 32,
+   "forms": {
+    "transpose": {
+     "bitexact": true,
+     "out_buffer": "BufferType.DRAM",
+     "us_median": 45.629294850796306,
+     "us_p10": 45.57512990695894,
+     "us_p90": 48.523185565856465,
+     "inner": 485,
+     "reps": 15
+    },
+    "slice": {
+     "bitexact": true,
+     "out_buffer": "BufferType.DRAM",
+     "us_median": 99.39995154237486,
+     "us_p10": 98.09657578554118,
+     "us_p90": 100.40713938051891,
+     "inner": 165,
+     "reps": 15
+    },
+    "main": {
+     "bitexact": true,
+     "out_buffer": "BufferType.DRAM",
+     "us_median": 629.0381184762258,
+     "us_p10": 628.3407631264325,
+     "us_p90": 630.2357500029949,
+     "inner": 76,
+     "reps": 15
+    },
+    "rows_nopin": {
+     "bitexact": true,
+     "out_buffer": "BufferType.DRAM",
+     "us_median": 25.99272901873614,
+     "us_p10": 25.874480280657444,
+     "us_p90": 26.181542973294928,
+     "inner": 989,
+     "reps": 15
+    },
+    "rows_pin": {
+     "bitexact": true,
+     "out_buffer": "BufferType.DRAM",
+     "us_median": 25.937654164705805,
+     "us_p10": 25.88772827434317,
+     "us_p90": 26.048915825235895,
+     "inner": 1093,
+     "reps": 15
+    }
+   },
+   "aiclk": {
+    "n": 7,
+    "min": 1350,
+    "median": 1350,
+    "max": 1350
+   },
+   "load1": [
+    0.16357421875,
+    0.16357421875
+   ]
+  },
+  "af2_tri_n256": {
+   "B": 256,
+   "L": 256,
+   "H": 4,
+   "dh": 32,
+   "forms": {
+    "transpose": {
+     "bitexact": true,
+     "out_buffer": "BufferType.DRAM",
+     "us_median": 178.15398431255247,
+     "us_p10": 177.9265411588473,
+     "us_p90": 178.67138821576887,
+     "inner": 255,
+     "reps": 15
+    },
+    "slice": {
+     "bitexact": true,
+     "out_buffer": "BufferType.DRAM",
+     "us_median": 276.60901240841054,
+     "us_p10": 275.9485279559881,
+     "us_p90": 276.8481428563589,
+     "inner": 161,
+     "reps": 15
+    },
+    "main": {
+     "bitexact": true,
+     "out_buffer": "BufferType.DRAM",
+     "us_median": 2581.0324736276493,
+     "us_p10": 2577.9088946843617,
+     "us_p90": 2589.329789196582,
+     "inner": 19,
+     "reps": 15
+    },
+    "rows_nopin": {
+     "bitexact": true,
+     "out_buffer": "BufferType.DRAM",
+     "us_median": 90.3874148981289,
+     "us_p10": 90.29903192137508,
+     "us_p90": 90.51313616974437,
+     "inner": 470,
+     "reps": 15
+    },
+    "rows_pin": {
+     "bitexact": true,
+     "out_buffer": "BufferType.DRAM",
+     "us_median": 90.35014838031853,
+     "us_p10": 90.24720325177758,
+     "us_p90": 90.53880284027844,
+     "inner": 492,
+     "reps": 15
+    }
+   },
+   "aiclk": {
+    "n": 10,
+    "min": 1350,
+    "median": 1350,
+    "max": 1350
+   },
+   "load1": [
+    0.16357421875,
+    0.23095703125
+   ]
+  },
+  "of3_tri_n384": {
+   "B": 384,
+   "L": 384,
+   "H": 4,
+   "dh": 32,
+   "forms": {
+    "transpose": {
+     "bitexact": true,
+     "out_buffer": "BufferType.DRAM",
+     "us_median": 411.1288290627054,
+     "us_p10": 410.3653418730037,
+     "us_p90": 412.0344529550276,
+     "inner": 117,
+     "reps": 15
+    },
+    "slice": {
+     "bitexact": true,
+     "out_buffer": "BufferType.DRAM",
+     "us_median": 621.7899604770968,
+     "us_p10": 621.4116710907547,
+     "us_p90": 622.9832236529451,
+     "inner": 76,
+     "reps": 15
+    },
+    "main": {
+     "bitexact": true,
+     "out_buffer": "BufferType.DRAM",
+     "us_median": 5816.091124870582,
+     "us_p10": 5808.4461252292385,
+     "us_p90": 5830.647124639654,
+     "inner": 8,
+     "reps": 15
+    },
+    "rows_nopin": {
+     "bitexact": true,
+     "out_buffer": "BufferType.DRAM",
+     "us_median": 205.35934667956704,
+     "us_p10": 205.21019999351768,
+     "us_p90": 205.93938666732154,
+     "inner": 225,
+     "reps": 15
+    },
+    "rows_pin": {
+     "bitexact": true,
+     "out_buffer": "BufferType.DRAM",
+     "us_median": 205.32528821513154,
+     "us_p10": 205.12847597639617,
+     "us_p90": 205.97365937845407,
+     "inner": 229,
+     "reps": 15
+    }
+   },
+   "aiclk": {
+    "n": 9,
+    "min": 1350,
+    "median": 1350,
+    "max": 1350
+   },
+   "load1": [
+    0.23095703125,
+    0.29296875
+   ]
+  },
+  "of3_tri_n576": {
+   "B": 576,
+   "L": 576,
+   "H": 4,
+   "dh": 32,
+   "forms": {
+    "transpose": {
+     "bitexact": true,
+     "out_buffer": "BufferType.DRAM",
+     "us_median": 882.4366545675068,
+     "us_p10": 880.9019636828452,
+     "us_p90": 883.4402726444586,
+     "inner": 55,
+     "reps": 15
+    },
+    "slice": {
+     "bitexact": true,
+     "out_buffer": "BufferType.DRAM",
+     "us_median": 1382.259114221337,
+     "us_p10": 1381.5608285118028,
+     "us_p90": 1386.1707430416054,
+     "inner": 35,
+     "reps": 15
+    },
+    "main": {
+     "bitexact": true,
+     "out_buffer": "BufferType.DRAM",
+     "us_median": 13004.840332238624,
+     "us_p10": 12980.907333258074,
+     "us_p90": 13041.670000044784,
+     "inner": 3,
+     "reps": 15
+    },
+    "rows_nopin": {
+     "bitexact": true,
+     "out_buffer": "BufferType.DRAM",
+     "us_median": 451.2959802212046,
+     "us_p10": 450.59104949998954,
+     "us_p90": 452.2205247730478,
+     "inner": 101,
+     "reps": 15
+    },
+    "rows_pin": {
+     "bitexact": true,
+     "out_buffer": "BufferType.DRAM",
+     "us_median": 451.28059614049005,
+     "us_p10": 450.7024326672903,
+     "us_p90": 452.29124995015667,
+     "inner": 104,
+     "reps": 15
+    }
+   },
+   "aiclk": {
+    "n": 8,
+    "min": 1350,
+    "median": 1350,
+    "max": 1350
+   },
+   "load1": [
+    0.29296875,
+    0.40185546875
+   ]
+  },
+  "of3_apb_n384_h16": {
+   "B": 1,
+   "L": 384,
+   "H": 16,
+   "dh": 32,
+   "forms": {
+    "transpose": {
+     "bitexact": true,
+     "out_buffer": "BufferType.DRAM",
+     "us_median": 31.296937486331444,
+     "us_p10": 30.97639499173965,
+     "us_p90": 31.45733500787173,
+     "inner": 400,
+     "reps": 15
+    },
+    "slice": {
+     "bitexact": true,
+     "out_buffer": "BufferType.DRAM",
+     "us_median": 291.73800004204605,
+     "us_p10": 288.8707930306454,
+     "us_p90": 295.33913791589123,
+     "inner": 58,
+     "reps": 15
+    },
+    "main": {
+     "bitexact": true,
+     "out_buffer": "BufferType.DRAM",
+     "us_median": 58.60575525001091,
+     "us_p10": 58.595498829498226,
+     "us_p90": 58.75388577570683,
+     "inner": 429,
+     "reps": 15
+    },
+    "rows_nopin": {
+     "bitexact": true,
+     "out_buffer": "BufferType.DRAM",
+     "us_median": 9.953942695814236,
+     "us_p10": 9.903982732634336,
+     "us_p90": 10.075761381347753,
+     "inner": 1274,
+     "reps": 15
+    },
+    "rows_pin": {
+     "bitexact": true,
+     "out_buffer": "BufferType.DRAM",
+     "us_median": 10.252891868118303,
+     "us_p10": 10.207510476308185,
+     "us_p90": 10.365614412748235,
+     "inner": 1193,
+     "reps": 15
+    }
+   },
+   "aiclk": {
+    "n": 4,
+    "min": 1350,
+    "median": 1350,
+    "max": 1350
+   },
+   "load1": [
+    0.40185546875,
+    0.40185546875
+   ]
+  },
+  "of3_apb_n576_h16": {
+   "B": 1,
+   "L": 576,
+   "H": 16,
+   "dh": 32,
+   "forms": {
+    "transpose": {
+     "bitexact": true,
+     "out_buffer": "BufferType.DRAM",
+     "us_median": 31.430819672308818,
+     "us_p10": 31.386393441903717,
+     "us_p90": 31.9129461279429,
+     "inner": 427,
+     "reps": 15
+    },
+    "slice": {
+     "bitexact": true,
+     "out_buffer": "BufferType.DRAM",
+     "us_median": 295.67199999291915,
+     "us_p10": 290.29241668467876,
+     "us_p90": 300.3824166322981,
+     "inner": 60,
+     "reps": 15
+    },
+    "main": {
+     "bitexact": true,
+     "out_buffer": "BufferType.DRAM",
+     "us_median": 81.90114974552667,
+     "us_p10": 81.84044927826538,
+     "us_p90": 82.11638647340268,
+     "inner": 414,
+     "reps": 15
+    },
+    "rows_nopin": {
+     "bitexact": true,
+     "out_buffer": "BufferType.DRAM",
+     "us_median": 10.261513189182455,
+     "us_p10": 10.124876413004124,
+     "us_p90": 10.353372269204783,
+     "inner": 1327,
+     "reps": 15
+    },
+    "rows_pin": {
+     "bitexact": true,
+     "out_buffer": "BufferType.DRAM",
+     "us_median": 10.45561981308074,
+     "us_p10": 10.26544792344285,
+     "us_p90": 10.523796797162282,
+     "inner": 1373,
+     "reps": 15
+    }
+   },
+   "aiclk": {
+    "n": 4,
+    "min": 1350,
+    "median": 1350,
+    "max": 1350
+   },
+   "load1": [
+    0.40185546875,
+    0.4501953125
+   ]
+  },
+  "af2_msa_row_s128_h8": {
+   "B": 128,
+   "L": 256,
+   "H": 8,
+   "dh": 32,
+   "forms": {
+    "transpose": {
+     "bitexact": true,
+     "out_buffer": "BufferType.DRAM",
+     "us_median": 177.73767497904677,
+     "us_p10": 177.5280541551183,
+     "us_p90": 178.24787501012906,
+     "inner": 240,
+     "reps": 15
+    },
+    "slice": {
+     "bitexact": true,
+     "out_buffer": "BufferType.DRAM",
+     "us_median": 418.26293333239545,
+     "us_p10": 417.88116666591833,
+     "us_p90": 418.60103333925105,
+     "inner": 90,
+     "reps": 15
+    },
+    "main": {
+     "bitexact": true,
+     "out_buffer": "BufferType.DRAM",
+     "us_median": 2061.654130596688,
+     "us_p10": 2058.869782637845,
+     "us_p90": 2065.967913000824,
+     "inner": 23,
+     "reps": 15
+    },
+    "rows_nopin": {
+     "bitexact": true,
+     "out_buffer": "BufferType.DRAM",
+     "us_median": 96.23532227882718,
+     "us_p10": 96.1360805618281,
+     "us_p90": 96.57223459958846,
+     "inner": 422,
+     "reps": 15
+    },
+    "rows_pin": {
+     "bitexact": true,
+     "out_buffer": "BufferType.DRAM",
+     "us_median": 96.23776642907129,
+     "us_p10": 96.14577324669744,
+     "us_p90": 96.44579364669502,
+     "inner": 441,
+     "reps": 15
+    }
+   },
+   "aiclk": {
+    "n": 9,
+    "min": 1350,
+    "median": 1350,
+    "max": 1350
+   },
+   "load1": [
+    0.4501953125,
+    0.4501953125
+   ]
+  },
+  "pair_n256_h8": {
+   "B": 256,
+   "L": 256,
+   "H": 8,
+   "dh": 32,
+   "forms": {
+    "transpose": {
+     "bitexact": true,
+     "out_buffer": "BufferType.DRAM",
+     "us_median": 351.57101502365435,
+     "us_p10": 351.33823306873944,
+     "us_p90": 352.58257893768416,
+     "inner": 133,
+     "reps": 15
+    },
+    "slice": {
+     "bitexact": true,
+     "out_buffer": "BufferType.DRAM",
+     "us_median": 825.906482751979,
+     "us_p10": 825.5290861064889,
+     "us_p90": 827.1845861223671,
+     "inner": 58,
+     "reps": 15
+    },
+    "main": {
+     "bitexact": true,
+     "out_buffer": "BufferType.DRAM",
+     "us_median": 4191.150545507712,
+     "us_p10": 4184.539726834787,
+     "us_p90": 4207.563818040812,
+     "inner": 11,
+     "reps": 15
+    },
+    "rows_nopin": {
+     "bitexact": true,
+     "out_buffer": "BufferType.DRAM",
+     "us_median": 188.41357140241155,
+     "us_p10": 188.2860204204917,
+     "us_p90": 188.99878365230003,
+     "inner": 245,
+     "reps": 15
+    },
+    "rows_pin": {
+     "bitexact": true,
+     "out_buffer": "BufferType.DRAM",
+     "us_median": 188.45070518142325,
+     "us_p10": 188.28954982229945,
+     "us_p90": 189.06423903095435,
+     "inner": 251,
+     "reps": 15
+    }
+   },
+   "aiclk": {
+    "n": 10,
+    "min": 1350,
+    "median": 1350,
+    "max": 1350
+   },
+   "load1": [
+    0.4501953125,
+    0.49462890625
+   ]
+  },
+  "pair_n256_h16": {
+   "B": 256,
+   "L": 256,
+   "H": 16,
+   "dh": 32,
+   "forms": {
+    "transpose": {
+     "bitexact": true,
+     "out_buffer": "BufferType.DRAM",
+     "us_median": 693.738942832819,
+     "us_p10": 693.2113714615948,
+     "us_p90": 694.3684999506721,
+     "inner": 70,
+     "reps": 15
+    },
+    "slice": {
+     "bitexact": true,
+     "out_buffer": "BufferType.DRAM",
+     "us_median": 1658.0222067643952,
+     "us_p10": 1657.4280345029647,
+     "us_p90": 1658.5597585272526,
+     "inner": 29,
+     "reps": 15
+    },
+    "main": {
+     "bitexact": true,
+     "out_buffer": "BufferType.DRAM",
+     "us_median": 7919.938833462462,
+     "us_p10": 7901.9658332981635,
+     "us_p90": 7939.275000050353,
+     "inner": 6,
+     "reps": 15
+    },
+    "rows_nopin": {
+     "bitexact": true,
+     "out_buffer": "BufferType.DRAM",
+     "us_median": 384.0014537940186,
+     "us_p10": 383.0799496044921,
+     "us_p90": 384.596067183835,
+     "inner": 119,
+     "reps": 15
+    },
+    "rows_pin": {
+     "bitexact": true,
+     "out_buffer": "BufferType.DRAM",
+     "us_median": 383.6656748118424,
+     "us_p10": 383.0201626183632,
+     "us_p90": 384.3828130109289,
+     "inner": 123,
+     "reps": 15
+    }
+   },
+   "aiclk": {
+    "n": 7,
+    "min": 1350,
+    "median": 1350,
+    "max": 1350
+   },
+   "load1": [
+    0.49462890625,
+    0.646484375
+   ]
+  },
+  "pair_n256_h4_dh16": {
+   "B": 256,
+   "L": 256,
+   "H": 4,
+   "dh": 16,
+   "forms": {
+    "transpose": {
+     "bitexact": true,
+     "out_buffer": "BufferType.DRAM",
+     "us_median": 350.0006279173531,
+     "us_p10": 349.15723258317195,
+     "us_p90": 350.9843333257911,
+     "inner": 129,
+     "reps": 15
+    },
+    "slice": {
+     "bitexact": true,
+     "out_buffer": "BufferType.DRAM",
+     "us_median": 1851.5054613929422,
+     "us_p10": 1847.4332307680295,
+     "us_p90": 1855.6176921545277,
+     "inner": 26,
+     "reps": 15
+    },
+    "main": {
+     "bitexact": true,
+     "out_buffer": "BufferType.DRAM",
+     "us_median": 1850.3981921709894,
+     "us_p10": 1846.8632308493118,
+     "us_p90": 1852.7250769973482,
+     "inner": 26,
+     "reps": 15
+    },
+    "rows_nopin": {
+     "bitexact": false,
+     "out_buffer": "BufferType.DRAM",
+     "us_median": 90.40416285359309,
+     "us_p10": 90.22189679445054,
+     "us_p90": 90.6278302797187,
+     "inner": 436,
+     "reps": 15
+    },
+    "rows_pin": {
+     "bitexact": false,
+     "out_buffer": "BufferType.DRAM",
+     "us_median": 90.4035316010448,
+     "us_p10": 90.22094336277978,
+     "us_p90": 90.67400654347732,
+     "inner": 459,
+     "reps": 15
+    }
+   },
+   "aiclk": {
+    "n": 9,
+    "min": 1350,
+    "median": 1350,
+    "max": 1350
+   },
+   "load1": [
+    0.646484375,
+    0.6748046875
+   ]
+  }
+ }
+}

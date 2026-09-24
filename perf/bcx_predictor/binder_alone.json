@@ -1,0 +1,67 @@
+{
+ "bucket": 32,
+ "state_chains": {
+  "binder_alone": [
+   "binder"
+  ]
+ },
+ "jax": {
+  "binder_alone": {
+   "chains": {
+    "binder": 77
+   },
+   "n": 77,
+   "plddt": 0.5932,
+   "ptm": 0.2004
+  }
+ },
+ "jax_s": 43.9,
+ "device": {
+  "binder_alone": {
+   "chains": {
+    "binder": 77
+   },
+   "n": 77,
+   "plddt": 0.4039,
+   "ptm": 0.2854
+  }
+ },
+ "device_s": 46.9,
+ "aiclk": {
+  "n": 103,
+  "min": 1350,
+  "median": 1350,
+  "max": 1350
+ },
+ "ratio": {
+  "binder_alone": {
+   "plddt": 0.6809,
+   "ptm": 1.4242,
+   "n": 77
+  }
+ },
+ "target_alone_reference": {
+  "jax_plddt": 0.9501,
+  "device_plddt": 0.534,
+  "n": 115
+ },
+ "complex_reference": {
+  "jax_plddt": 0.7349,
+  "device_plddt": 0.7465,
+  "n": 211
+ },
+ "stamp": {
+  "host": "tt-quietbox2",
+  "card": 3,
+  "subsystem_device": "0x0046",
+  "commit": "11efe91804faaf3fc4d16e5eeed002ca84857ab6",
+  "tt_bio_dirty": false,
+  "torch_threads": 8,
+  "loadavg": [
+   65.78564453125,
+   64.2705078125,
+   56.466796875
+  ],
+  "utc": "2026-09-24T12:21:26Z"
+ }
+}

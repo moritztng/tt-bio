@@ -1,0 +1,137 @@
+{
+ "host": "tt-quietbox",
+ "pci": "0000:42:00.0",
+ "aiclk_node": "/sys/class/tenstorrent/tenstorrent!3/tt_aiclk",
+ "visible": "2",
+ "shapes": {
+  "pair_n256_h4_dh16": {
+   "B": 256,
+   "L": 256,
+   "H": 4,
+   "dh": 16,
+   "forms": {
+    "transpose": {
+     "bitexact": true,
+     "out_buffer": "BufferType.DRAM"
+    },
+    "slice": {
+     "bitexact": true,
+     "out_buffer": "BufferType.DRAM"
+    },
+    "shipped": {
+     "bitexact": true,
+     "out_buffer": "BufferType.DRAM"
+    },
+    "rows_shipped": {
+     "bitexact": true,
+     "out_buffer": "BufferType.DRAM"
+    },
+    "main": {
+     "bitexact": true,
+     "out_buffer": "BufferType.DRAM"
+    },
+    "rows_nopin": {
+     "bitexact": false,
+     "out_buffer": "BufferType.DRAM"
+    },
+    "rows_pin": {
+     "bitexact": false,
+     "out_buffer": "BufferType.DRAM"
+    }
+   },
+   "aiclk": {
+    "n": 0
+   },
+   "load1": [
+    0.34765625,
+    0.39990234375
+   ]
+  },
+  "odd_L100_h4_dh24": {
+   "B": 3,
+   "L": 100,
+   "H": 4,
+   "dh": 24,
+   "forms": {
+    "transpose": {
+     "bitexact": true,
+     "out_buffer": "BufferType.DRAM"
+    },
+    "slice": {
+     "bitexact": true,
+     "out_buffer": "BufferType.DRAM"
+    },
+    "shipped": {
+     "bitexact": true,
+     "out_buffer": "BufferType.DRAM"
+    },
+    "rows_shipped": {
+     "bitexact": true,
+     "out_buffer": "BufferType.DRAM"
+    },
+    "main": {
+     "bitexact": true,
+     "out_buffer": "BufferType.DRAM"
+    },
+    "rows_nopin": {
+     "bitexact": false,
+     "out_buffer": "BufferType.DRAM"
+    },
+    "rows_pin": {
+     "bitexact": false,
+     "out_buffer": "BufferType.DRAM"
+    }
+   },
+   "aiclk": {
+    "n": 0
+   },
+   "load1": [
+    0.39990234375,
+    0.39990234375
+   ]
+  },
+  "odd_L77_h2_dh32": {
+   "B": 2,
+   "L": 77,
+   "H": 2,
+   "dh": 32,
+   "forms": {
+    "transpose": {
+     "bitexact": true,
+     "out_buffer": "BufferType.DRAM"
+    },
+    "slice": {
+     "bitexact": true,
+     "out_buffer": "BufferType.DRAM"
+    },
+    "shipped": {
+     "bitexact": true,
+     "out_buffer": "BufferType.DRAM"
+    },
+    "rows_shipped": {
+     "bitexact": true,
+     "out_buffer": "BufferType.DRAM"
+    },
+    "main": {
+     "bitexact": true,
+     "out_buffer": "BufferType.DRAM"
+    },
+    "rows_nopin": {
+     "bitexact": true,
+     "out_buffer": "BufferType.DRAM"
+    },
+    "rows_pin": {
+     "bitexact": true,
+     "out_buffer": "BufferType.DRAM"
+    }
+   },
+   "aiclk": {
+    "n": 0
+   },
+   "load1": [
+    0.39990234375,
+    0.39990234375
+   ]
+  }
+ }
+}

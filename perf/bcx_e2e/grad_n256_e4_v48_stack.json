@@ -1,0 +1,170 @@
+{
+ "stamp": {
+  "host": "tt-quietbox2",
+  "card": 3,
+  "subsystem_device": "0x0046",
+  "commit": "8f487514f8e6cfb13c412daf2d31738a2c3ac041",
+  "tt_bio_dirty": false,
+  "torch_threads": 8,
+  "loadavg": [
+   16.15673828125,
+   16.63037109375,
+   15.87841796875
+  ],
+  "utc": "2026-09-24T04:59:30Z",
+  "pci": "0000:04:00.0",
+  "aiclk_node": null
+ },
+ "n": 256,
+ "k_extra": 4,
+ "k_evo": 48,
+ "arm": "stack",
+ "n_target": 115,
+ "n_binder": 141,
+ "n_binder_real": 130,
+ "bc2_pin": "7a2dfdb8a285232a6f881899fe135c6dc48679f1",
+ "multimer_ckpt": "/home/ttuser/bcx_e2e/params_model_1_multimer_v3.npz",
+ "seeds": {
+  "0": {
+   "jax_f64": {
+    "loss": -1.462025415589527,
+    "grad_norm": 0.7290338873089802,
+    "seconds": 516.8416016101837,
+    "dtype": "float64"
+   },
+   "hybrid": {
+    "loss": -1.4746980667114258,
+    "grad_norm": 2.136169784532688,
+    "vs_f64": {
+     "rel_l2": 2.637581703774468,
+     "cos": 0.44859161800006164
+    },
+    "norm_ratio": 2.9301378464281638,
+    "timings": {
+     "trunk_fwd": 1.6922,
+     "seam_down": 0.037,
+     "tail": 3.1037,
+     "seam_up": 0.0404,
+     "trunk_bwd": 135.5189,
+     "trunk_bwd_cpu": 135.3285,
+     "step": 140.3928
+    },
+    "msa_leaf_grad_norm": 2.7269431954002274,
+    "tail_g_msa_norm": 0.0,
+    "tail_g_single_norm": 0.05566845712310539,
+    "tail_g_pair_norm": 0.029562736041890678,
+    "tape_reach": {
+     "reach": 105,
+     "nodes": 101,
+     "kinds": {
+      "checkpoint": 100,
+      "_taped_linear": 1
+     },
+     "identity_plus_sliced": 0,
+     "identity_plus_sliced_share": 0.0,
+     "all_shape_ops": 0,
+     "all_shape_ops_share": 0.0
+    },
+    "vs_jax_f64": {
+     "rel_l2": 2.637581703774468,
+     "cos": 0.44859161800006164
+    }
+   },
+   "torch_bf16": {
+    "loss": -1.4793298244476318,
+    "grad_norm": 1.998298229478761,
+    "vs_f64": {
+     "rel_l2": 2.642110404419562,
+     "cos": 0.27954103963847937
+    },
+    "norm_ratio": 2.7410224192114123,
+    "step": 361.87026500701904,
+    "g_single_norm": 0.05152484194257626,
+    "g_pair_norm": 0.03937431259305271,
+    "g_msa_norm": 0.0
+   },
+   "control_zero_seed": {
+    "grad_norm": 0.0,
+    "exactly_zero": true
+   },
+   "control_permuted": {
+    "vs_f64": {
+     "rel_l2": 7.2337723782367025,
+     "cos": -0.018819865817369677
+    }
+   },
+   "control_msa_seam": {
+    "grad_norm": 0.657426649718266,
+    "vs_f64": {
+     "rel_l2": 0.8758190847270103,
+     "cos": 0.5800454376504258
+    },
+    "vs_hybrid": {
+     "rel_l2": 0.915223906391718,
+     "cos": 0.41766558012592436
+    },
+    "msa_leaf_grad_norm": 0.9672170117716563
+   },
+   "control_only_single": {
+    "grad_norm": 1.9598032924243103,
+    "share_of_hybrid_norm": 0.9174379801711502,
+    "cos_with_hybrid": 0.9526599368699352,
+    "vs_hybrid": {
+     "rel_l2": 0.3060712840445199,
+     "cos": 0.9526599368699352
+    }
+   },
+   "control_only_pair": {
+    "grad_norm": 0.657426649718266,
+    "share_of_hybrid_norm": 0.30775954911378256,
+    "cos_with_hybrid": 0.41766558012592436,
+    "vs_hybrid": {
+     "rel_l2": 0.915223906391718,
+     "cos": 0.41766558012592436
+    }
+   },
+   "control_repeat_bit_identical": true,
+   "norm": {
+    "reference": "jax_f64",
+    "design_rows": 130,
+    "update_norm_reference": 1.1401751903615078,
+    "hybrid": {
+     "raw_design_norm_ratio": 2.0501981412403647,
+     "raw_design_vs_ref": {
+      "rel_l2": 1.6069720423129437,
+      "cos": 0.6391951150595478
+     },
+     "update_norm_ratio": 1.0000001001475864,
+     "update_vs_ref": {
+      "rel_l2": 0.8494762243076114,
+      "cos": 0.6391951083017862
+     }
+    },
+    "torch_bf16": {
+     "raw_design_norm_ratio": 1.7611630438089079,
+     "raw_design_vs_ref": {
+      "rel_l2": 1.5117461657207463,
+      "cos": 0.5156589004328305
+     },
+     "update_norm_ratio": 1.0000001700791765,
+     "update_vs_ref": {
+      "rel_l2": 0.984216638338179,
+      "cos": 0.5156588867854986
+     }
+    },
+    "permuted": {
+     "raw_design_norm_ratio": 5.176025186770336,
+     "raw_design_vs_ref": {
+      "rel_l2": 5.373295217258618,
+      "cos": -0.10443001325579214
+     },
+     "update_norm_ratio": 1.0000002216912882,
+     "update_vs_ref": {
+      "rel_l2": 1.4862235830103185,
+      "cos": -0.10443002450547503
+     }
+    }
+   }
+  }
+ }
+}

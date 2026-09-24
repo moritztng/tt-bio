@@ -1,0 +1,4 @@
+=== preguard n256 start 2026-09-24T07:18:32Z load 5.67 7.61 6.87
+=== preguard n256 end 2026-09-24T07:20:31Z rc=0 not_allocated=576 tt_fatal=576
+=== guard n256 start 2026-09-24T07:20:31Z load 10.60 8.66 7.33
+=== guard n256 end 2026-09-24T07:22:30Z rc=0 not_allocated=0 tt_fatal=0

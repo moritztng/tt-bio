@@ -20,7 +20,6 @@ topological sort and the fan-in sum below are the whole of what it would have su
 
 from __future__ import annotations
 
-import gc
 import contextlib
 import math
 import os
@@ -32,11 +31,12 @@ import ttnn
 from tt_bio.envflags import env_flag
 
 __all__ = [
-    "Tensor", "precise_config", "softmax_bw_inner", "no_grad", "parameter",
+    "Tensor", "precise_config", "bmm_program_config", "bmm", "softmax_bw_inner", "no_grad", "parameter",
     "forget_parameters", "parameter_for",
     "release_pins",
     "linear", "matmul", "layer_norm", "softmax", "mul", "add", "scale", "sigmoid",
-    "relu", "silu", "reshape",
+    "relu", "silu", "reshape", "split_heads", "merge_heads", "split_heads_value",
+    "merge_heads_value",
     "triangle_attention", "permute", "pair_contract", "checkpoint",
     "install", "uninstall", "installed", "is_grad_enabled", "backward", "tape",
 ]
@@ -148,11 +148,14 @@ class no_grad:
 
 
 class _Node:
-    __slots__ = ("fn", "parents")
+    __slots__ = ("fn", "parents", "group")
 
-    def __init__(self, fn, parents):
+    def __init__(self, fn, parents, group=None):
         self.fn = fn
         self.parents = parents
+        # A callable shared by the output nodes of one multi-output segment; `backward` calls
+        # it once, after the last of them. None for every ordinary op.
+        self.group = group
 
 
 class Tensor:
@@ -169,23 +172,28 @@ class Tensor:
     taped one may not.
     """
 
-    __slots__ = ("_value", "grad", "requires_grad", "node", "pinned", "evictable")
+    __slots__ = ("_value", "_grad", "_parts", "requires_grad", "node", "pinned", "evictable",
+                 "shares")
 
     def __init__(self, value, requires_grad: bool = False):
         self._value = value
-        self.grad = None
+        self._grad = None
+        # Gradients of slices of this value, (starts, ends, g), until `grad` is read.
+        self._parts = None
         self.requires_grad = requires_grad
         self.node = None
         # Set by `_tape` the moment a closure is built that can read this value. It is the
         # whole of the lifetime rule: `free` refuses a pinned tensor and nothing else.
         self.pinned = False
-        # Whether `free` may touch this value at all. Cleared in two cases. First, the few
-        # ops whose backward reads their own OUTPUT -- relu, sigmoid, softmax, max --
+        # Whether `free` may touch this value at all. Cleared for the few ops whose
+        # backward reads their own OUTPUT -- relu, sigmoid, softmax, max --
         # because those closures hold the handle directly and deliberately do not hold the
         # `Tensor` (a closure that did would make the cycle out -> node -> fn -> out that
-        # CPython cannot collect). Second, a tensor that SHARES STORAGE with another taped
-        # tensor, which `_tape` detects.
+        # CPython cannot collect). Storage sharing is `shares`, not this.
         self.evictable = True
+        # The taped tensors over this one's buffer, itself included, or None if it owns its
+        # buffer alone. One list object shared by every member; see `_free_shared`.
+        self.shares = None
 
     @property
     def value(self):
@@ -258,6 +266,9 @@ class Tensor:
         """
         if not self.evictable:
             return
+        if self.shares is not None:
+            self._free_shared()
+            return
         if not self.pinned and not self.requires_grad:
             ttnn.deallocate(self.value)
         elif self.value.memory_config().buffer_type == ttnn.BufferType.L1:
@@ -276,6 +287,41 @@ class Tensor:
             self.value = ttnn.to_memory_config(old, ttnn.DRAM_MEMORY_CONFIG)
             ttnn.deallocate(old)
 
+    def _free_shared(self) -> None:
+        """`free` for a buffer several taped tensors are views of, decided for all of them.
+
+        A ttnn shape op can hand back a view (`_tape` explains), and a view pair used to be
+        marked non-evictable outright, because releasing or evicting either one alone kills the
+        other. That is safe and it strands L1: the shipped attention projects q/k/v into L1 and
+        reshapes it for the head split, so every AF2 attention left its packed projection and
+        the view of it resident for the rest of the tape. After one extra-MSA block the tape held
+        three such pairs, and the second block's triangle multiplication could not lay out its
+        circular buffers at any chunk width (`perf/bcx_afgrad/l1diag.py`).
+
+        So the group moves together. With nothing pinned the buffer is released, which is what
+        the shipped deallocate of any one view does in inference; that is also every group in a
+        checkpointed segment's untaped forward, where no tensor has a node. Otherwise every
+        member gets its own DRAM copy read through its own shape and the shared L1 buffer is
+        released once, refused if a member is a leaf (its placement is the module's tuning, as in
+        `_evict_read_parents`). Either way a member that holds its buffer for the other reason,
+        `evictable` False for a closure that reads its output by raw handle, refuses both.
+        """
+        group = self.shares
+        if any(not t.evictable for t in group):
+            return
+        if not any(t.pinned or t.requires_grad for t in group):
+            ttnn.deallocate(self.value)
+            return
+        if any(t.node is None for t in group):
+            return
+        if self.value.memory_config().buffer_type != ttnn.BufferType.L1:
+            return
+        old = self.value
+        for t in group:
+            t.value = ttnn.to_memory_config(t.value, ttnn.DRAM_MEMORY_CONFIG)
+            t.shares = None
+        ttnn.deallocate(old)
+
     def add_grad(self, grad) -> None:
         """Accumulate one contribution. A tensor read by k consumers gets k calls.
 
@@ -293,17 +339,107 @@ class Tensor:
         want, got = tuple(self.value.shape), tuple(grad.shape)
         if want != got:
             raise ValueError(f"gradient shape {got} does not match value shape {want}")
-        if self.grad is None:
-            self.grad = grad
+        # A parent receives its cotangent in ITS OWN layout. Closures compute in whatever
+        # layout their output arrived in, and most of the tape is tiled end to end so this
+        # never came up; a row-major activation -- `ttnn.embedding`'s table, the atom
+        # broadcasts either side of it -- sends a row-major gradient up a chain of tiled
+        # ops, and the throw lands in the first matmul or concat that sees it, several
+        # closures away from the one that produced it. Enforcing the invariant here costs
+        # a comparison per contribution and removes the whole class.
+        # (OF3T's rule, verbatim from wk/of3t.) It is also a speed rule: a reshape the forward
+        # made in ROW_MAJOR because it is not a tile view gets its gradient in ROW_MAJOR, so
+        # the backward reshape is a view too. Taken in TILE, the outer-product mean's
+        # [8192,8192] -> [256,1024,256] was a ReshapeView kernel at 5.5 % of the copy roof,
+        # 11.95 ms per AF2 Evoformer block at n=256 (`perf/bcx_realcensus`).
+        if grad.layout != self.value.layout:
+            grad = ttnn.to_layout(grad, self.value.layout)
+        if self._grad is None:
+            self._grad = grad
             return
-        if self.grad.dtype != ttnn.float32:
-            self.grad = ttnn.typecast(self.grad, ttnn.float32)
-        self.grad = ttnn.add(self.grad, grad if grad.dtype == ttnn.float32
-                             else ttnn.typecast(grad, ttnn.float32))
+        if self._grad.dtype != ttnn.float32:
+            self._grad = ttnn.typecast(self._grad, ttnn.float32)
+        self._grad = ttnn.add(self._grad, grad if grad.dtype == ttnn.float32
+                              else ttnn.typecast(grad, ttnn.float32))
+
+    def add_grad_slice(self, grad, starts, ends) -> None:
+        """Accumulate the gradient of the slice ``[starts, ends)`` of this value.
+
+        A chunked forward slices a tensor into blocks, and padding each block's gradient back
+        out to the full shape before summing costs two host-built `ttnn.zeros` per block (a
+        host build and upload at about 7 GB/s) plus a full-size fp32 add on device. In an AF2
+        Evoformer block backward at n=256 that was 60 pads and 100.9 of the 182 ms of host
+        time (`perf/bcx_realcensus`). The blocks are kept instead and joined when `grad` is
+        first read, which the reverse topological order puts after the last of them.
+        """
+        if not self.requires_grad:
+            return
+        # `ttnn.concat` is tile-only, and a slice of a row-major tensor hands this a row-major
+        # cotangent; `add_grad` puts the joined gradient back into this value's layout.
+        if grad.layout != ttnn.TILE_LAYOUT:
+            grad = ttnn.to_layout(grad, ttnn.TILE_LAYOUT)
+        if self._parts is None:
+            self._parts = []
+        self._parts.append(([int(v) for v in starts], [int(v) for v in ends], grad))
+
+    @property
+    def grad(self):
+        if self._parts:
+            parts, self._parts = self._parts, None
+            for g in _join_slices(parts, [int(d) for d in self.value.shape]):
+                self.add_grad(g)
+        return self._grad
+
+    @grad.setter
+    def grad(self, g):
+        self._grad, self._parts = g, None
 
     def backward(self, seed=None) -> None:
         """Replay the tape from here. ``seed`` defaults to ones, i.e. d(sum(self))/d(self)."""
         backward([self], [seed])
+
+
+def _pad_slice(g, starts, ends, shape):
+    """A slice's gradient padded with zeros back out to the shape it was cut from."""
+    for ax in range(len(shape)):
+        before, after = starts[ax], shape[ax] - ends[ax]
+        if before or after:
+            g = ttnn.concat(([_zeros_like_along(g, ax, before)] if before else []) + [g]
+                            + ([_zeros_like_along(g, ax, after)] if after else []), dim=ax)
+    return g
+
+
+def _zeros_like_along(g, ax, n):
+    z = [int(d) for d in g.shape]
+    z[ax] = n
+    return ttnn.zeros(z, dtype=g.dtype, layout=ttnn.TILE_LAYOUT, device=g.device())
+
+
+def _join_slices(parts, shape):
+    """Slice gradients as full-shape contributions to sum.
+
+    Slices that cut one and the same axis without overlapping, which is every chunked loop,
+    are one concat in axis order, with zeros only where no slice was read. Anything else is
+    padded slice by slice. Both give the same numbers, since a padded zero adds nothing.
+    """
+    cuts = {tuple(ax for ax in range(len(shape)) if (s[ax], e[ax]) != (0, shape[ax]))
+            for s, e, _ in parts}
+    if len(cuts) == 1 and len(next(iter(cuts))) == 1:
+        (ax,) = next(iter(cuts))
+        parts = sorted(parts, key=lambda p: p[0][ax])
+        if all(a[1][ax] <= b[0][ax] for a, b in zip(parts, parts[1:])):
+            if len({g.dtype for _, _, g in parts}) > 1:
+                parts = [(s, e, g if g.dtype == ttnn.float32 else ttnn.typecast(g, ttnn.float32))
+                         for s, e, g in parts]
+            blocks, at = [], 0
+            for s, e, g in parts:
+                if s[ax] > at:
+                    blocks.append(_zeros_like_along(g, ax, s[ax] - at))
+                blocks.append(g)
+                at = e[ax]
+            if at < shape[ax]:
+                blocks.append(_zeros_like_along(blocks[-1], ax, shape[ax] - at))
+            return [blocks[0] if len(blocks) == 1 else ttnn.concat(blocks, dim=ax)]
+    return [_pad_slice(g, s, e, shape) for s, e, g in parts]
 
 
 def backward(roots, seeds=None) -> None:
@@ -338,20 +474,32 @@ def backward(roots, seeds=None) -> None:
     for r, sd in zip(roots, seeds):
         g = ttnn.ones_like(r.value) if sd is None else sd
         r.grad = g if r.grad is None else ttnn.add(r.grad, g)
+    # Nodes that share a `group` are the outputs of one multi-output segment (`checkpoint`).
+    # Each one's closure only deposits its gradient; the group fires once, after the last of its
+    # members on THIS walk. Every parent of every member comes later in the order, so nothing
+    # the group writes to has run yet when it fires.
+    pending: dict = {}
+    for t in order:
+        if t.node is not None and t.node.group is not None:
+            pending[t.node.group] = pending.get(t.node.group, 0) + 1
     for t in order:
         if t.node is not None:
             g = t.grad
-            if g is None:
-                # On the tape and reachable from a root, but no gradient ever landed on it. A
-                # multi-output segment makes this ordinary rather than exceptional: a
-                # checkpointed `PairformerLayer` publishes both `s` and `z` as parents of the
-                # next block, and an objective that seeds only the pair track leaves the single
-                # track's node with nothing to propagate. Zero in, zero out -- running the
-                # closure on a None is the crash, not the diagnosis.
-                continue
-            if g.dtype != t.value.dtype:
-                g = ttnn.typecast(g, t.value.dtype)
-            t.node.fn(g)
+            if g is not None:
+                if g.dtype != t.value.dtype:
+                    g = ttnn.typecast(g, t.value.dtype)
+                t.node.fn(g)
+            # else: on the tape and reachable from a root, but no gradient ever landed on it. A
+            # multi-output segment makes this ordinary rather than exceptional: a checkpointed
+            # `PairformerLayer` publishes both `s` and `z` as parents of the next block, and an
+            # objective that seeds only the pair track leaves the single track's node with
+            # nothing to propagate. Zero in, zero out -- running the closure on a None is the
+            # crash, not the diagnosis. Its group still counts it as arrived.
+            fire = t.node.group
+            if fire is not None:
+                pending[fire] -= 1
+                if not pending[fire]:
+                    fire()
 
 
 def _reverse_topo(roots) -> list:
@@ -400,7 +548,8 @@ def _tape(out_value, parents: Sequence[Tensor], make_fn) -> Tensor:
     # holds two `Tensor`s over one allocation. Freeing or evicting either kills both, and
     # the throw lands much later and somewhere else: in AttentionPairBias it surfaced as
     # "Buffer is not allocated" inside a sigmoid in the gate's backward, two ops
-    # downstream of the reshape that caused it. Neither may be released.
+    # downstream of the reshape that caused it. Neither may be released alone, so both join
+    # one `shares` group and `Tensor._free_shared` decides for the group.
     #
     # Checked on EVERY op, not only the differentiated ones: a view whose own gradient
     # nobody wants still shares storage with one that somebody does, and it is the view
@@ -418,7 +567,7 @@ def _tape(out_value, parents: Sequence[Tensor], make_fn) -> Tensor:
             except Exception:
                 shared = False
             if shared:
-                p.evictable = out.evictable = False
+                _share(p, out)
     if needs:
         # `make_fn` takes no arguments and the closure it returns takes the output gradient,
         # so no backward closure ever captures `out`. That matters for more than style: a
@@ -434,7 +583,62 @@ def _tape(out_value, parents: Sequence[Tensor], make_fn) -> Tensor:
         out.pinned = True
         for p in parents:
             p.pinned = True
+        _evict_read_parents(parents)
     return out
+
+
+def _share(a: Tensor, b: Tensor) -> None:
+    """Put `a` and `b` in one storage group, merging any groups they already belong to."""
+    group = a.shares if a.shares is not None else [a]
+    for t in (b.shares if b.shares is not None else [b]):
+        if not any(t is m for m in group):
+            group.append(t)
+    for t in group:
+        t.shares = group
+
+
+def _evict_read_parents(parents: Sequence[Tensor]) -> None:
+    """Move every L1-resident intermediate this op has just read down to DRAM.
+
+    `free` is the tape's answer to `ttnn.deallocate`, and it only ever runs where the shipped
+    forward CALLS that verb. Most of a tuned forward does not: it lets an activation go out of
+    scope and the handle's destructor releases the buffer. Under a tape the wrapper is held by
+    the node graph, the raw handle never drops, and an L1-resident activation the forward
+    merely stopped using occupies its place for the rest of the tape.
+
+    Measured, and it is not the mechanism this was expected to be. At crop 384 the taped
+    backward threw "statically allocated circular buffers in program 413 clash with L1 buffers
+    ... L1 buffer allocated at 344064" inside a checkpoint recompute, with four taped tensors
+    holding L1. The one AT the clash address is a [20, 4, 384, 384] fp32 triangle-attention
+    score block, and its lifetime bits read `evictable=True, pinned=True` -- `free` would have
+    moved it and was never offered it (`perf/of3t_l1/out/seam_384_holders.json`). Two of the
+    other three are the non-evictable set, which is a separate defect and not this one.
+
+    So the trigger is the READ rather than the release: once a consumer has run, the forward's
+    reason for the tensor being in L1 is spent, and only the backward's reason to keep the
+    VALUE is left. That is exactly what `free` already does for a pinned tensor, so this routes
+    through `free` rather than repeating it, and every guard it has applies unchanged -- a
+    tensor sharing storage with another taped one, or one whose backward closure holds the raw
+    handle, is marked non-evictable and is left alone.
+
+    LEAVES ARE NOT TOUCHED. A parameter or a model input has no node, and its placement is the
+    shipped module's tuning rather than an intermediate's lifetime; evicting one would move a
+    weight to DRAM permanently on the first step of training.
+
+    The price is the one the tape's own docstring already names: a later forward op that wanted
+    the same operand in L1 now reads it from DRAM. That is the Protenix inversion, where the
+    tape turned L1-placement levers from 1.19-1.29x faster into 0.83-0.85x slower, paid
+    deliberately here because in OF3 the alternative is not a slower step but no step at all.
+    """
+    for p in parents:
+        if p.node is None or not p.evictable:
+            continue
+        try:
+            if p.value.memory_config().buffer_type != ttnn.BufferType.L1:
+                continue
+        except Exception:                                        # noqa: BLE001
+            continue                                             # host tensor, or no buffer
+        p.free()
 
 
 def _flat2d(t):
@@ -461,6 +665,98 @@ def _flat2d(t):
     if t.memory_config().buffer_type == ttnn.BufferType.L1:
         t = ttnn.to_memory_config(t, ttnn.DRAM_MEMORY_CONFIG)
     return ttnn.reshape(t, [int(math.prod(s[:-1])), s[-1]])
+
+
+def _via2d(x, fn, kw=None):
+    """``fn(x)`` on ``x`` with its leading dims collapsed, when collapsing them is a view.
+
+    ``fn`` is a matmul against a 2-D weight. At a rank-3 left operand ttnn picks a program
+    that runs several times slower than the same product on the (prod(leading), K) view:
+    [256,256,128] @ [128,128] takes 792 us, the view 118 us, HiFi4 on a p300c at 1350 MHz
+    (``perf/bcx_mm2d/probe.json``). Collapsing moves no data when the second-last dim fills
+    whole tiles, because the tiles already sit in that order; any other reshape here is a
+    relayout (the heads split [N,N,128] -> [N,N,4,32] costs 2 ms), so such a shape, a
+    sharded operand, or a caller-chosen program config is left as it came. The exception is
+    one row per leading index, AF2's MSA track at depth 1: the relayout is small and the
+    rank-3 plan is not. dX = dY @ W^T at [256,1,768] took 2280 us as issued and 104 us folded,
+    and the forward linear 130 against 125 us (`perf/bcx_bwdplan/mm_probe.json`,
+    `lin_fwd_probe.json`).
+
+    Same operands, same reduction, not always the same bits: where they differ, the 2-D
+    result is the one closer to float64.
+    """
+    s = [int(d) for d in x.shape]
+    mc = (kw or {}).get("memory_config")
+    if (len(s) <= 2 or (s[-2] % ttnn.TILE_SIZE and s[-2] != 1) or x.layout != ttnn.TILE_LAYOUT
+            or x.is_sharded() or (kw or {}).get("program_config") is not None
+            or (mc is not None and mc.is_sharded())):
+        return fn(x)
+    y = fn(ttnn.reshape(x, [int(math.prod(s[:-1])), s[-1]]))
+    return ttnn.reshape(y, s[:-1] + [int(y.shape[-1])])
+
+
+# `triangle_attention` issues its six batched products with `bmm_program_config`. A module
+# attribute rather than an argument because it exists for one reason, the same-process A/B that
+# prices it (`perf/bcx_triatt/block_ab.py`); nothing else sets it.
+TRIATT_BMM_CONFIG = True
+
+# The largest output matrix `bmm_program_config` gives one core-block: 64 tiles is 256 KB of fp32
+# partials. `triangle_attention` narrows its query chunk so a score block fits under it.
+BMM_OUT_TILES = 64
+
+
+def bmm_program_config(a, b, transpose_a: bool = False, transpose_b: bool = False):
+    """An explicit program config for a batched ``op(a) @ op(b)``, or None to keep ttnn's plan.
+
+    With a real batch axis on both operands and no program config, ttnn's matmul plans a
+    kernel that runs the triangle-attention products at 0.66-1.9 TFLOP/s on Blackhole: PV
+    ``[128,4,128,256] x [128,4,256,32]`` took 1627 us, 6.5 % of its byte roof. The batched
+    reuse kernel with one whole output matrix per core-block does the same product in 104 us
+    at the same HiFi4 config and sits closer to float64 (`perf/bcx_triatt/mm_probe2_n256.json`).
+    A rank-3 view changes nothing and the default fidelity only 3 %, so the plan was the gap.
+
+    The backward needs it more than the forward. A product with a transposed operand gets a
+    1-to-8-core plan from ttnn, so the VJPs of batched products ran there: at n=256, AF2's
+    column attention over a one-sequence MSA (2048 single-tile products, 6.5 ms on one core,
+    63 us here) and the triangle-attention blocks (1132 us against 122 us), 2.29 s of an AF2
+    gradient step (`perf/bcx_realcensus`, `perf/bcx_bwdplan/mm_probe.json`). So `bmm`, which
+    every batched VJP product goes through, asks here first.
+
+    ONLY the region that was proven. The reuse kernel requires ``per_core_N == N``, and with
+    ``per_core_M < M`` -- one batch's output split over two M blocks -- it returned a few
+    non-finite elements and non-reproducible finite ones inside a real block, from finite
+    inputs, while never failing in isolation (`perf/bcx_triatt/HAZARD.md`). So the whole
+    output matrix goes to one block, at most `BMM_OUT_TILES`; the contraction runs in K blocks
+    of up to 8 tiles. Both operands batched with equal batch dims. A dim that is not a whole
+    number of tiles counts its padded tiles, which is what every plan computes on; at depth 1
+    the column-attention products are bit-identical to ttnn's own plan. Anything else returns
+    None and ttnn plans it as before.
+    """
+    sa = [int(d) for d in a.shape]
+    sb = [int(d) for d in b.shape]
+    if len(sa) < 3 or len(sa) != len(sb) or sa[:-2] != sb[:-2]:
+        return None
+    M, K = (sa[-1], sa[-2]) if transpose_a else (sa[-2], sa[-1])
+    N = sb[-2] if transpose_b else sb[-1]
+    Mt, Nt, Kt = (-(-d // ttnn.TILE_SIZE) for d in (M, N, K))
+    if Mt * Nt > BMM_OUT_TILES:
+        return None
+
+    def largest_divisor(n, cap):
+        return max(d for d in range(1, min(n, cap) + 1) if n % d == 0)
+
+    # The dest register holds 4 fp32 tiles, which bounds the subblock.
+    sw = largest_divisor(Nt, 4)
+    sh = largest_divisor(Mt, max(1, 4 // sw))
+    return ttnn.MatmulMultiCoreReuseProgramConfig(
+        compute_with_storage_grid_size=a.device().compute_with_storage_grid_size(),
+        in0_block_w=largest_divisor(Kt, 8), out_subblock_h=sh, out_subblock_w=sw,
+        per_core_M=Mt, per_core_N=Nt)
+
+def bmm(a, b, transpose_a: bool = False, transpose_b: bool = False, **kw):
+    """``ttnn.matmul`` under `bmm_program_config`'s plan where it has one, ttnn's otherwise."""
+    return ttnn.matmul(a, b, transpose_a=transpose_a, transpose_b=transpose_b,
+                       program_config=bmm_program_config(a, b, transpose_a, transpose_b), **kw)
 
 
 def _reduce_to(g, shape):
@@ -520,29 +816,29 @@ def matmul(a: Tensor, b: Tensor, *, transpose_a: bool = False, transpose_b: bool
     it when both dims are equal, which for a pair tensor they always are.
     """
     cfg = config or precise_config()
-    out_v = ttnn.matmul(a.value, b.value, transpose_a=transpose_a, transpose_b=transpose_b,
-                        compute_kernel_config=cfg)
+    # Against a 2-D weight the leading dims are a batch of rows, and `_via2d` runs them as one.
+    rows = _via2d if not transpose_a and len(b.value.shape) == 2 else (lambda t, fn: fn(t))
+    out_v = rows(a.value, lambda v: ttnn.matmul(v, b.value, transpose_a=transpose_a,
+                                                transpose_b=transpose_b,
+                                                compute_kernel_config=cfg))
 
     def make():
         def bw(g):
             if a.requires_grad:
                 if not transpose_a:
                     # dA = g @ op(b)^T
-                    a.add_grad(ttnn.matmul(g, b.value, transpose_b=not transpose_b,
-                                           compute_kernel_config=cfg))
+                    a.add_grad(rows(g, lambda v: bmm(v, b.value, False, not transpose_b,
+                                                     compute_kernel_config=cfg)))
                 else:
                     # A entered as A^T, so dA = (dA_eff)^T = op(b) @ g^T
-                    a.add_grad(ttnn.matmul(b.value, g, transpose_a=transpose_b,
-                                           transpose_b=True, compute_kernel_config=cfg))
+                    a.add_grad(bmm(b.value, g, transpose_b, True, compute_kernel_config=cfg))
             if b.requires_grad:
                 if not transpose_b:
                     # dB = op(a)^T @ g
-                    b.add_grad(ttnn.matmul(a.value, g, transpose_a=not transpose_a,
-                                           compute_kernel_config=cfg))
+                    b.add_grad(bmm(a.value, g, not transpose_a, compute_kernel_config=cfg))
                 else:
                     # B entered as B^T, so dB = (dB_eff)^T = g^T @ op(a)
-                    b.add_grad(ttnn.matmul(g, a.value, transpose_a=True,
-                                           transpose_b=transpose_a, compute_kernel_config=cfg))
+                    b.add_grad(bmm(g, a.value, True, transpose_a, compute_kernel_config=cfg))
         return bw
 
     return _tape(out_v, [a, b], make)
@@ -576,16 +872,17 @@ def linear(x: Tensor, w: Tensor, b: Optional[Tensor] = None, *, dtype=None, core
     """
     cfg = config or precise_config()
     bwcfg = backward_config or cfg
-    out_v = ttnn.linear(x.value, w.value,
-                        bias=(b.value if b is not None else None),
-                        dtype=dtype, core_grid=core_grid,
-                        compute_kernel_config=cfg, **kw)
+    out_v = _via2d(x.value, lambda v: ttnn.linear(v, w.value,
+                                                  bias=(b.value if b is not None else None),
+                                                  dtype=dtype, core_grid=core_grid,
+                                                  compute_kernel_config=cfg, **kw), kw)
     parents = [p for p in (x, w, b) if p is not None]
 
     def make():
         def bw(g):
             if x.requires_grad:
-                x.add_grad(ttnn.matmul(g, w.value, transpose_b=True, compute_kernel_config=bwcfg))
+                x.add_grad(_via2d(g, lambda v: ttnn.matmul(v, w.value, transpose_b=True,
+                                                           compute_kernel_config=bwcfg)))
             if w.requires_grad:
                 # dW = X^T @ dY, summed over every leading dim, so flatten both first:
                 # a batched matmul would give one dW per batch instead of their sum.
@@ -810,6 +1107,70 @@ def reshape(x: Tensor, shape: Sequence[int]) -> Tensor:
     return _tape(out_v, [x], make)
 
 
+def split_heads_value(x, heads):
+    """``[B, S, H*d]`` or ``[B, 1, S, H*d] -> [B, H, S, d]`` on a raw ttnn tensor, untaped.
+    `split_heads` tapes it and `taped_ttnn`'s ``nlp_concat_heads`` backward calls it directly.
+
+    Transposing first puts the head split on a dim of extent d rather than H, so no H axis ever
+    becomes a tile row, and it is three ops whatever the head count. Against H tile-aligned
+    slices and a concat it is 178 us to 277 us at [256, 256, 4x32], 882 to 1382 us at
+    [576, 576, 4x32] and 694 to 1658 us at 16 heads, bit-exact at every shape including d=16,
+    where the slice form had to fall back to a permute (`perf/bcx_heads/heads_ab.json`, qb1
+    p150a, 1350 MHz).
+    """
+    B, S, C = int(x.shape[0]), int(x.shape[-2]), int(x.shape[-1])
+    t = ttnn.reshape(ttnn.transpose(x, -2, -1), [B, heads, C // heads, S])
+    return ttnn.transpose(t, -2, -1)
+
+
+def merge_heads_value(x):
+    """``[B, H, S, d] -> [B, S, H*d]`` on a raw ttnn tensor, untaped. See `merge_heads`.
+
+    ``nlp_concat_heads`` keeps the pad lanes of a head width that is not whole tiles, and at
+    d=16 it is not the permutation (`perf/bcx_heads/heads_ab.json`), so such a width takes
+    ``permute`` + ``reshape``. The DRAM pin costs nothing measurable at nine shapes.
+    """
+    B, H, S, d = (int(e) for e in x.shape)
+    if d % 32:
+        return ttnn.reshape(ttnn.permute(x, (0, 2, 1, 3)), [B, S, H * d])
+    return ttnn.reshape(ttnn.experimental.nlp_concat_heads(x, memory_config=ttnn.DRAM_MEMORY_CONFIG),
+                        [B, S, H * d])
+
+
+def split_heads(x: Tensor, heads: int) -> Tensor:
+    """``[B, S, H*d] -> [B, H, S, d]``, the attention head split. The backward is `merge_heads`.
+
+    ``permute(reshape(x, [B, S, H, d]), (0, 2, 1, 3))`` is the same rearrangement and in tile
+    layout it moves 8x the bytes, because the H axis becomes a tile row and 4 heads pad to 32:
+    2581 us against 178 us for `split_heads_value` at [256, 256, 128] with 4 heads. A pure
+    rearrangement, so bit-exact either way.
+    """
+    out_v = split_heads_value(x.value, heads)
+
+    def make():
+        def bw(g):
+            x.add_grad(merge_heads_value(g))
+        return bw
+
+    return _tape(out_v, [x], make)
+
+
+def merge_heads(x: Tensor) -> Tensor:
+    """``[B, H, S, d] -> [B, S, H*d]``, the inverse of `split_heads`, on ``nlp_concat_heads``.
+
+    90 us against 2208 us for ``permute`` + ``reshape`` at the same shape, bit-exact.
+    """
+    heads = int(x.value.shape[1])
+    out_v = merge_heads_value(x.value)
+
+    def make():
+        def bw(g):
+            x.add_grad(split_heads_value(g, heads))
+        return bw
+
+    return _tape(out_v, [x], make)
+
+
 def triangle_attention(q: Tensor, k: Tensor, v: Tensor, bias: Optional[Tensor] = None,
                        *, scale: Optional[float] = None, chunk: Optional[int] = None,
                        q_chunk: Optional[int] = None, config=None, value=None) -> Tensor:
@@ -843,6 +1204,12 @@ def triangle_attention(q: Tensor, k: Tensor, v: Tensor, bias: Optional[Tensor] =
     here, which is how the production forward and this backward end up in one node.
     """
     cfg = config or precise_config()
+
+    def mm(a, b, ta=False, tb=False):
+        if TRIATT_BMM_CONFIG:
+            return bmm(a, b, ta, tb, compute_kernel_config=cfg)
+        return ttnn.matmul(a, b, transpose_a=ta, transpose_b=tb, compute_kernel_config=cfg)
+
     qs = [int(d) for d in q.value.shape]
     ks = [int(d) for d in k.value.shape]
     if len(qs) != 4 or len(ks) != 4:
@@ -859,10 +1226,14 @@ def triangle_attention(q: Tensor, k: Tensor, v: Tensor, bias: Optional[Tensor] =
     bias_bcast = bias is None or int(bias.value.shape[0]) == 1
     cB = B if chunk is None else min(int(chunk), B)
     cQ = n_q if q_chunk is None else min(int(q_chunk), n_q)
+    if TRIATT_BMM_CONFIG and n_k % 32 == 0:
+        # A score block wider than one core-block leaves the fast plan; more query chunks do
+        # not change the gradient, which the chunk invariance below already relies on.
+        cQ = min(cQ, max(32, BMM_OUT_TILES // (n_k // 32) * 32))
 
     def _scores(qb, b0, b1, i0, i1):
         """Recompute one score block and its softmax. The only place the scores exist."""
-        s = ttnn.matmul(qb, k.value[b0:b1], transpose_b=True, compute_kernel_config=cfg)
+        s = mm(qb, k.value[b0:b1], tb=True)
         s = ttnn.multiply(s, scale)
         if bias is not None:
             # bias is [1, H, n_q, n_k] and broadcasts over the leading axis, so the row
@@ -877,7 +1248,7 @@ def triangle_attention(q: Tensor, k: Tensor, v: Tensor, bias: Optional[Tensor] =
         for i0 in range(0, n_q, cQ):
             i1 = min(i0 + cQ, n_q)
             p = _scores(q.value[b0:b1, :, i0:i1, :], b0, b1, i0, i1)
-            row_blocks.append(ttnn.matmul(p, v.value[b0:b1], compute_kernel_config=cfg))
+            row_blocks.append(mm(p, v.value[b0:b1]))
             ttnn.deallocate(p)
         out_blocks.append(row_blocks[0] if len(row_blocks) == 1
                           else ttnn.concat(row_blocks, dim=2))
@@ -903,11 +1274,10 @@ def triangle_attention(q: Tensor, k: Tensor, v: Tensor, bias: Optional[Tensor] =
                     p = _scores(q.value[b0:b1, :, i0:i1, :], b0, b1, i0, i1)
                     go = g[b0:b1, :, i0:i1, :]
                     # dV = P^T @ dO, summed over the query chunks that share these keys.
-                    dv_part = ttnn.matmul(p, go, transpose_a=True, compute_kernel_config=cfg)
+                    dv_part = mm(p, go, ta=True)
                     dv_acc = dv_part if dv_acc is None else ttnn.add(dv_acc, dv_part)
                     # dS = P * (dP - rowsum(dP * P)), the softmax backward on the block.
-                    dp = ttnn.matmul(go, v.value[b0:b1], transpose_b=True,
-                                     compute_kernel_config=cfg)
+                    dp = mm(go, v.value[b0:b1], tb=True)
                     inner = softmax_bw_inner(p, dp, dim=-1, config=cfg)
                     ds = ttnn.multiply(p, ttnn.subtract(dp, inner))
                     ttnn.deallocate(p)
@@ -919,11 +1289,8 @@ def triangle_attention(q: Tensor, k: Tensor, v: Tensor, bias: Optional[Tensor] =
                         # unrelated permute backward.
                         dbias_acc.append(ttnn.sum(ds, dim=0, keepdim=True)
                                          if bias_bcast else ttnn.clone(ds))
-                    dq_rows.append(ttnn.multiply(
-                        ttnn.matmul(ds, k.value[b0:b1], compute_kernel_config=cfg), scale))
-                    dk_part = ttnn.multiply(
-                        ttnn.matmul(ds, q.value[b0:b1, :, i0:i1, :], transpose_a=True,
-                                    compute_kernel_config=cfg), scale)
+                    dq_rows.append(ttnn.multiply(mm(ds, k.value[b0:b1]), scale))
+                    dk_part = ttnn.multiply(mm(ds, q.value[b0:b1, :, i0:i1, :], ta=True), scale)
                     dk_acc = dk_part if dk_acc is None else ttnn.add(dk_acc, dk_part)
                     ttnn.deallocate(ds)
                 dq_blocks.append(dq_rows[0] if len(dq_rows) == 1
@@ -1153,52 +1520,69 @@ def checkpoint(fn, *inputs: Tensor, params: Sequence[Tensor] = ()) -> Tensor:
     _TOUCHED.clear()
     parents = list(held) + touched
 
-    def _recompute(k, g):
-        """Re-run the segment on fresh nodes over the same input VALUES, seed output `k`."""
+    def _recompute(seeded):
+        """Re-run the segment on fresh nodes over the same input VALUES and replay its tape
+        ONCE, seeding every output in `seeded`, a list of (output index or None, gradient)."""
         from .taped_ttnn import recompute_scope
         inner = [Tensor(t.value, requires_grad=t.requires_grad) if isinstance(t, Tensor) else t
                  for t in inputs]
         with recompute_scope():
             y = fn(*inner)
-        y = y[k] if k is not None else y
-        if y.node is None:
+        roots = [y[k] if k is not None else y for k, _ in seeded]
+        if any(r.node is None for r in roots):
             raise RuntimeError("checkpoint(fn): the recomputed segment built no tape; fn must "
                                "use taped ops and at least one input must require a gradient")
-        y.backward(seed=g)
+        backward(roots, [g for _, g in seeded])
         for src, dup in zip(inputs, inner):
             if isinstance(src, Tensor) and isinstance(dup, Tensor) and dup.grad is not None:
                 src.add_grad(dup.grad)
-        # Drop the inner tape NOW, and collect, because refcounting will not. A node closure
-        # that reads its own output makes the cycle out -> node -> fn -> out, which is
-        # `hallgrad-tape-self-closure-leak` and is exactly what the ops whose backward reads
-        # their output (relu, sigmoid, softmax, max) build. One leaked inner tape per block is
-        # invisible; 96 of them -- two recomputes per block over 48 blocks -- is the difference
-        # between a backward that peaks at 8.92 GiB and one that is refused 2.4 GB with 30.3 GiB
-        # held. The collect is per segment, not per op, so it costs a few seconds over a trunk.
-        del y, inner
-        gc.collect()
+        # Drop the inner tape NOW, because refcounting alone will not: a view and the tensor it
+        # views list each other in one `shares` group, and the view's node leads back to its
+        # source, so every storage group on the tape is a cycle holding everything upstream of
+        # it. That is the only edge on a tape that is not a parent pointer (`_tape` keeps
+        # closures off their own outputs), and `perf/bcx_stack/stack.py gcdiag` finds no other
+        # cycle in a recomputed AF2 block. Clearing the groups of the tensors this recompute
+        # made frees the tape the moment it goes out of scope. It used to be a `gc.collect()`,
+        # which walks the whole interpreter heap: 0.16 s per recompute in a process holding
+        # AF2, at any sequence length, and the largest item in a checkpointed block's backward.
+        # One leaked inner tape per block is invisible; 96 of them are the difference between
+        # a backward that peaks at 8.92 GiB and one that is refused 2.4 GB with 30.3 GiB held.
+        for t in _reverse_topo(roots):
+            if t.node is not None or any(t is d for d in inner):
+                t.shares = None
+        del y, inner, roots
 
     if not isinstance(produced, (tuple, list)):
         return _tape(produced.value if isinstance(produced, Tensor) else produced, parents,
-                     lambda: (lambda g: _recompute(None, g)))
+                     lambda: (lambda g: _recompute([(None, g)])))
 
     # A segment with SEVERAL outputs, which is what a real block is: a `PairformerLayer`
     # returns the pair (s, z) and the single-output form cannot express it.
     #
-    # One node per output, and each one recomputes the segment seeding ONLY itself. That costs
-    # a recompute per output rather than per segment, and it is exact rather than approximate:
-    # the derivative through a shared ancestor is the SUM over the output paths that reach it,
-    # so two backward passes with one seed each add up to precisely what one pass with both
-    # seeds would have produced. The alternative -- one node that waits for every output's
-    # gradient before recomputing -- needs to know when the last one has arrived, and the
-    # reverse-topological walk gives no such signal per tensor.
+    # One node per output, all in one `group`: each output's closure deposits its gradient, and
+    # `backward` fires the group once, after the last of its members on the walk, so the segment
+    # is recomputed and replayed ONCE with every seed. It used to be once per output, which is
+    # exact (the derivative through a shared ancestor is the sum over the output paths) and cost
+    # the whole recompute again: on AF2's two-output Evoformer block that was a second taped
+    # forward, a second inner backward and a second collect per block.
+    seeds = [None] * len(produced)
+
+    def fire():
+        seeded = [(k, g) for k, g in enumerate(seeds) if g is not None]
+        seeds[:] = [None] * len(seeds)
+        if seeded:
+            _recompute(seeded)
+
     outs = []
     for k, prod in enumerate(produced):
         if prod is None:
             outs.append(None)
             continue
-        outs.append(_tape(prod.value if isinstance(prod, Tensor) else prod, parents,
-                          (lambda k=k: (lambda g: _recompute(k, g)))))
+        out = _tape(prod.value if isinstance(prod, Tensor) else prod, parents,
+                    (lambda k=k: (lambda g: seeds.__setitem__(k, g))))
+        if out.node is not None:
+            out.node.group = fire
+        outs.append(out)
     return tuple(outs)
 
 
@@ -1466,8 +1850,9 @@ def _taped_linear(shipped, args, kwargs):
                 # `_reduce_to` because a matmul normalises rank: an x of (1, N, N, c)
                 # comes back as (N, N, c) and `add_grad` refuses a gradient that is not
                 # its value's shape, correctly.
-                x.add_grad(_reduce_to(ttnn.matmul(g, w.value, transpose_b=True,
-                                                  compute_kernel_config=bwcfg),
+                x.add_grad(_reduce_to(_via2d(g, lambda v: ttnn.matmul(
+                                          v, w.value, transpose_b=True,
+                                          compute_kernel_config=bwcfg)),
                                       x.value.shape))
             if w.requires_grad:
                 # dW reduces over every token at once: 4096 terms on a 64x64 pair block,
