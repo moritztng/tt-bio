@@ -21,6 +21,7 @@ changing the structure. That prints a warning and the fold runs.
 | `opendde` | yes | yes | yes | yes | yes | yes | yes | yes | yes | yes | refused | ignored, warns |
 | `opendde-abag` | yes | yes | yes | yes | yes | yes | yes | yes | yes | yes | refused | ignored, warns |
 | `rf3` | yes | yes | yes | yes | refused | yes | yes | yes | yes | refused | refused | ignored, warns |
+| `af2ig` | refused | refused | refused | refused | refused | refused | refused | refused | refused | refused | refused | ignored, warns |
 <!-- END CAPABILITY TABLE -->
 
 `boltz2` is the fallback for anything the others refuse: it takes the whole input language,

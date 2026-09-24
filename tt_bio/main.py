@@ -199,6 +199,7 @@ _MODEL_RESULTS_PREFIX = {
     "opendde": "opendde_results",
     "opendde-abag": "opendde_results",
     "rf3": "rf3_results",
+    "af2ig": "af2ig_results",
 }
 PREDICT_MODELS = tuple(_MODEL_RESULTS_PREFIX)
 
@@ -1636,9 +1637,19 @@ def _refuse_unfoldable_jobs(jobs, model: str, results_path: Path):
     for job in jobs:
         jp = Path(job.path)
         try:
-            check_capabilities(jp, _read_bio_chains(jp, what=model), model)
+            # af2ig takes a structure plus a binder sequence, so it reads its own input shape
+            # (capabilities.CHAINS_ELSEWHERE) and the chain columns of its row are a record
+            # rather than the enforcement. Its reader runs here for the same reason this
+            # function exists: a malformed submission should be a sentence, not a stack trace
+            # two minutes into a weights download.
+            chains = None if model == "af2ig" else _read_bio_chains(jp, what=model)
+            if model == "af2ig":
+                from tt_bio.af2ig import read_af2ig_input
+
+                read_af2ig_input(jp)
+            check_capabilities(jp, chains, model)
             keep.append(job)
-        except (RuntimeError, click.ClickException) as e:
+        except (RuntimeError, ValueError, click.ClickException) as e:
             refused[job.id] = e.message if isinstance(e, click.ClickException) else str(e)
     if refused and keep:
         click.secho(f"Skipping {len(refused)} of {len(jobs)} input(s) --model {model} "
@@ -3114,6 +3125,10 @@ def _resolve_msa_default(model, use_msa_server, msa_db_path, msa_endpoint,
                    "opendde-abag selects the antibody-antigen checkpoint. "
                    "rf3: RoseTTAFold3 (AF3-family; MSA + template embedder + 48-block Pairformer "
                    "+ atom diffusion), MSA on by default; proteins, nucleic acids and ligands. "
+                   "af2ig: AlphaFold2 initial-guess, the binder-design selection filter. It takes a "
+                   "designed complex (a structure carrying the target and the binder backbone) plus "
+                   "the binder sequence, and returns pLDDT, pTM, ipTM, pAE and interface pAE; "
+                   "single-sequence, no diffusion, no seed. "
                    "All run on-device via the ttnn pipeline; ligand / affinity options apply to boltz2 only.")
 @torch.no_grad()
 def predict(data, out_dir, cache, checkpoint, accelerator, recycling_steps, sampling_steps,
@@ -3212,7 +3227,7 @@ def predict(data, out_dir, cache, checkpoint, accelerator, recycling_steps, samp
     from tt_bio.capabilities import unread_flags
 
     if model in ("esmfold2", "esmfold2-fast", *PROTENIX_FAMILY, "openfold3", "openbind", "opendde",
-                 "opendde-abag", "rf3"):
+                 "opendde-abag", "rf3", "af2ig"):
         # ESMFold2, Protenix, OpenFold3, OpenDDE and RF3 ride the SAME scheduler / worker /
         # progress path as Boltz-2: build a run config, then fan jobs across devices via
         # _local_workers + _dispatch_run (or submit to a remote --controller). Only the
@@ -3262,6 +3277,20 @@ def predict(data, out_dir, cache, checkpoint, accelerator, recycling_steps, samp
                 fast = True
                 click.secho("Note: --model {} runs in --fast mode on Wormhole (normal "
                             "precision needs >12 GB DRAM/chip); enabling --fast.".format(model), fg="yellow")
+        # AF2-IG is single-sequence on both chains by construction (ColabDesign's binder
+        # protocol builds `msa_feat` from the one sequence, and the extra-MSA mask is all
+        # zeros), and it samples nothing: no diffusion, no seed, the same input gives the
+        # same structure. Say so rather than accept a knob that changes nothing.
+        if model == "af2ig":
+            src = click.get_current_context().get_parameter_source
+            unread = [f"--{n}" for n, on in (("sampling_steps", sampling_steps),
+                                             ("diffusion_samples", diffusion_samples))
+                      if src(n) is not ParameterSource.DEFAULT]
+            if use_msa_server or msa_db_path or msa_endpoint:
+                unread.append("the MSA options")
+            if unread:
+                click.secho(f"Note: --model af2ig does not read {', '.join(unread)}: it folds "
+                            f"one sequence per chain and draws no samples.", fg="yellow")
         if model == "esmfold2-fast" and (use_msa_server or msa_db_path):
             click.echo()
             click.secho("Note: --model esmfold2-fast has no MSA encoder; folding single-sequence "

@@ -189,6 +189,16 @@ def _ensure_local_artifacts(cfg: dict[str, Any]) -> None:
     if cfg.get("model", "boltz2") in ("opendde", "opendde-abag"):
         cfg["opendde_ckpt"] = os.environ.get("TT_BIO_OPENDDE") or os.environ.get("OPENDDE_CKPT")
         return
+    # AF2-IG reads one member out of DeepMind's 4 GB parameter archive (weights.py:
+    # `af2-params`), and folds single-sequence, so it needs no MSA dir and no molecule
+    # library. main.py pre-fetches in the parent before fanning out; a worker joined to a
+    # remote controller fetches on its own host.
+    if cfg.get("model") == "af2ig":
+        # The row's derived output is the directory; $AF2IG_PARAMS may name either it or the
+        # one member inside it, and both spellings are in use on this fleet.
+        got = weights.fetch("af2-params", root=cache)
+        cfg["af2_params"] = str(got if got.is_file() else got / "params_model_1_ptm.npz")
+        return
     # ESMFold2 loads its weights from HF on the first fold and needs no Boltz-2
     # checkpoints / molecule library — only a writable MSA dir.
     if cfg.get("model", "boltz2") in ("esmfold2", "esmfold2-fast"):
@@ -758,6 +768,14 @@ class _WorkerState:
 
             self.model = OpenDDE.load_from_checkpoint(
                 cfg.get("opendde_ckpt"), abag=(model_id == "opendde-abag"))
+        elif model_id == "af2ig":
+            from tt_bio.af2 import load_af2_device_model
+            from tt_bio.af2_weights import load_af2_state_dict
+
+            # template=True is the binder protocol: AF2-IG's template IS the complex you
+            # submitted, which is also its initial guess.
+            self.model = load_af2_device_model(load_af2_state_dict(cfg["af2_params"]),
+                                               template=True).eval()
         elif _is_esmc_model(model_id):
             from tt_bio.esmc import load_esmc
 
@@ -862,6 +880,8 @@ class _WorkerState:
             return self._predict_openfold3_one(path, cfg)
         if cfg.get("model") == "rf3":
             return self._predict_rf3_one(path, cfg)
+        if cfg.get("model") == "af2ig":
+            return self._predict_af2ig_one(path, cfg)
         if cfg.get("model", "boltz2") in ("esmfold2", "esmfold2-fast"):
             return self._predict_esmfold2_one(path, cfg)
         if _is_embed_model(cfg.get("model", "boltz2")):
@@ -910,6 +930,41 @@ class _WorkerState:
             cfg["write_embeddings"],
         )
         return metrics, best, feats
+
+    def _predict_af2ig_one(self, path: Path, cfg: dict[str, Any]):
+        """AF2-IG: re-predict a designed complex from its own coordinates, report the
+        interface. No MSA search, no diffusion, no seed -- the whole job is the trunk."""
+        import types
+
+        from tt_bio import af2ig
+        from tt_bio.esmfold2 import report_progress
+
+        # af2ig reads its own input shape (a structure plus a binder sequence), so the chain
+        # columns of its capability row are a record rather than the enforcement -- see
+        # capabilities.CHAINS_ELSEWHERE. The keyed features (a pocket constraint, an affinity
+        # block) are still checked here, which is what refuses a boltz2 YAML pasted at it.
+        chains = None
+        check_capabilities(path, chains, "af2ig")
+        spec = af2ig.read_af2ig_input(path)
+        report_progress("prep")
+        recycles = _recycles(cfg, 3)
+        pred = af2ig.fold(self.model, spec, recycles=recycles,
+                          progress=lambda i, n: report_progress("trunk", i, n))
+        report_progress("saving")
+        fmt = cfg["output_format"]
+        _write_atom_array_structure(
+            pred.atom_array, torch.from_numpy(pred.coords),
+            Path(cfg["struct_dir"]) / f"{path.stem}.{fmt}", fmt,
+            b_factors=torch.from_numpy(pred.b_factors))
+        metrics = {**pred.metrics,
+                   "n_residues": pred.tokens,
+                   "n_atoms": int(pred.atom_array.array_length()),
+                   "n_chains": 2,
+                   "binder_residues": pred.binder_length,
+                   "msa": False,
+                   "recycling_steps": recycles}
+        # _execute_job inspects feats["record"].affinity; AF2-IG has no affinity head.
+        return metrics, None, {"record": types.SimpleNamespace(affinity=False)}
 
     def _predict_esmfold2_one(self, path: Path, cfg: dict[str, Any]):
         import types
