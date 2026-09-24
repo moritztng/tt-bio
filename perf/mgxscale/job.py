@@ -154,6 +154,24 @@ def held_cards() -> set[int]:
     return busy
 
 
+def holder_cards(holder: str) -> set[int]:
+    """Chips THIS row is holding right now, across every fan it is running.
+
+    `--max-concurrent` caps one fan. A row's chip budget is not per fan: three fans at 1, 2 and
+    1 sum to 4 against a 3-chip grant, and none of them can see the other two. Counted from the
+    lease dir, which is the only place the fans share state. Same pid check as `held_cards` --
+    a SIGKILLed holder leaves `"released": null` forever and would inflate the count."""
+    held: set[int] = set()
+    for c in range(32):
+        try:
+            rec = json.loads((LEASES / f"{HOST}-card{c}.json").read_text())
+        except Exception:
+            continue
+        if rec.get("holder") == holder and rec.get("released") is None and _live(rec.get("pid")):
+            held.add(c)
+    return held
+
+
 def free_cards() -> list[int]:
     """Chips no other row is on. Four signals, every one of which is wrong on its own:
 

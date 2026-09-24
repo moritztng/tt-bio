@@ -26,7 +26,7 @@ import time
 ROOT = pathlib.Path(__file__).resolve().parents[2]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
-from perf.mgxscale.job import free_cards  # noqa: E402
+from perf.mgxscale.job import free_cards, holder_cards  # noqa: E402
 
 PY = os.environ.get("LADDER_PY") or sys.executable
 
@@ -37,6 +37,9 @@ def main():
     ap.add_argument("--out", required=True)
     ap.add_argument("--holder", default="worker:mgx-design-scale")
     ap.add_argument("--max-concurrent", type=int, default=8)
+    ap.add_argument("--row-cap", type=int, default=0,
+                    help="max chips this HOLDER may hold across all its fans "
+                         "(0 = unlimited); --max-concurrent only caps this fan")
     ap.add_argument("--work", default=str(pathlib.Path.home() / "mgxscale-work"))
     ap.add_argument("--wait-s", type=int, default=120, help="poll period when no chip is free")
     ap.add_argument("--retries", type=int, default=6, help="requeues allowed per job on contention")
@@ -82,6 +85,17 @@ def main():
 
     while queue or live:
         while queue and len(live) < args.max_concurrent:
+            # The row's chip grant is not per fan. --max-concurrent caps THIS fan; --row-cap
+            # caps the row across every fan it has running, counted from the shared lease dir.
+            # Without it three fans at 1, 2 and 1 take four chips against a 3-chip grant and
+            # none of them can see the other two (done 2026-09-24: a third fan launched while
+            # two held three chips went straight to a fourth).
+            if args.row_cap:
+                held = holder_cards(args.holder)
+                if len(held) >= args.row_cap:
+                    print(f"[fan] row-cap {args.row_cap} reached, holding "
+                          f"{sorted(held)} -- waiting", flush=True)
+                    break
             free = [c for c in free_cards() if c not in mine]
             if not free:
                 break
