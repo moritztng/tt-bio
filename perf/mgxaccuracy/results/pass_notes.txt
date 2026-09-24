@@ -203,3 +203,23 @@ Use `pgrep -af <pattern> | grep -v "pgrep\|bash -c" | wc -l`, never the bare `-c
 form is wrong in the DANGEROUS direction here: it says busy when the tree is free, which costs
 a pass; but the same self-match in a wait loop says alive when the job is gone, which is
 `wait-loop-pgrep-pattern-self-matches-its-own-wrapper` and costs hours.
+
+## A COST MODEL FITTED ON THE DEVICE DOES NOT TRANSFER TO THE CPU REFERENCE
+
+The row's wall-clock predictions for its own device cells have been excellent all day: the
+quadratic through the GroEL walls put FAS 512 at ~1.8 ks against 1848.6 s measured, FAS 1024 at
+~5.4 ks against 5406.3 s, GroEL 768 at 3272 s against 3023.8 s. That success is what made it
+feel safe to predict the qb2 CPU reference the same way, and the same exponent is wrong there:
+
+    device, GroEL boltzgen walls   592 -> 1104 tokens   exponent 1.731
+                                   592 -> 1616 tokens   exponent 1.853
+    upstream CPU, draw a           592 -> 1616 tokens   exponent >= 2.012, probably >= 2.7
+
+Sub-quadratic on the card, super-quadratic on the CPU. The card's cost is dominated by work
+that parallelises across its grid and by fixed per-step overheads that amortise as the problem
+grows; the CPU reference has neither, so the same algorithm reads a different exponent.
+
+The general rule, which this row already holds for QUALITY and had not applied to TIME: the
+reference is part of the measurement's identity. A number fitted on one machine predicts that
+machine. Carrying it to the other one produces a band with a measured floor and an imaginary
+ceiling, which then survives because every pass tightens the floor and nobody looks up.
