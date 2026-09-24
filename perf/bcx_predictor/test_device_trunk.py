@@ -66,25 +66,12 @@ def probe(n, ke, kv, tag):
 
 probe(64, 1, 2, "plumbing_n64_k1_2")
 
-# bf16's own distance on the same stack and the same readout: the device is graded against
-# float64, and this says what float64 costs in bf16 alone, so 0.12 can be read.
-m0, z0 = build(64)
-mb = m0.clone().to(torch.bfloat16).float().requires_grad_(True)
-zb = z0.clone().to(torch.bfloat16).float().requires_grad_(True)
-mbb, zbb = A.ref_stack(ref["bf16"], mb, zb, 1, 2)
-sbb = ref["bf16"].single_activations(mbb[0])
-rng = np.random.default_rng(0)
-ws = rng.standard_normal((64, 384)).astype(np.float32)
-wp = rng.standard_normal((64, 64, z0.shape[-1])).astype(np.float32)
-((sbb * torch.from_numpy(ws)).sum() + (zbb * torch.from_numpy(wp)).sum()).backward()
-mr2 = m0.double().clone().requires_grad_(True); zr2 = z0.double().clone().requires_grad_(True)
-m642, z642 = A.ref_stack(ref["f64"], mr2, zr2, 1, 2)
-s642 = ref["f64"].single_activations(m642[0])
-((s642 * torch.from_numpy(ws).double()).sum() + (z642 * torch.from_numpy(wp).double()).sum()).backward()
-out["torch_bf16_own_distance"] = {
-    "g_msa_rel_l2": A.rel_l2(mb.grad, mr2.grad), "g_msa_cos": A.cosine(mb.grad, mr2.grad),
-    "g_pair_rel_l2": A.rel_l2(zb.grad, zr2.grad), "g_pair_cos": A.cosine(zb.grad, zr2.grad)}
-print("torch bf16 own distance:", json.dumps(out["torch_bf16_own_distance"], indent=1), flush=True)
+# bf16's own distance is measured by bf16_control.py, CPU-only, and is NOT repeated here:
+# the first attempt at it in this file handed the bf16 model float32 activations and so
+# measured a float32 arm (0.00074), which made the device look 166x worse than bf16 when it
+# is 1.35x. A dtype-parameterised reference takes its precision from the ACTIVATIONS --
+# load_models says so in its own comment: the parameters stay float32 and the Linear casts
+# the weight to the activation dtype per call.
 
 # Controls that must MOVE: a zero cotangent gives zero, and the tape must not leak.
 m0, z0 = build(64)
