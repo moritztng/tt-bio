@@ -120,22 +120,22 @@ templates and affinity are one generated matrix:
 [`docs/model-capabilities.md`](docs/model-capabilities.md). Anything a model cannot honour is
 refused by name before the fold starts, never accepted and dropped.
 
-Targets of 850-1095 residues have folded on a single 12 GiB Wormhole card on every structure
-model, but that is not the same as a ceiling: a few models fail at sizes *below* one they handle,
-because the failure is an L1 layout clash that follows the padded tile shape rather than the
-residue count -- a model can fold 608 residues and throw at 576. So the size a model is safe up
-to is the largest one below its first measured failure, which for several models on Wormhole is
-under 1024:
+Every structure model folds at least 1024 residues on a single 12 GiB Wormhole chip. The limit
+below is the largest size that folded, under the first measured failure where one was found,
+walked with the settings the platform sends:
 
 | model | Wormhole limit | first measured failure |
 |---|---:|---:|
-| `opendde`, `opendde-abag` | 1536 | none found; top of the ladder |
-| `openfold3` | 1536 | none found; top of the ladder |
-| `openbind` | 1536 (residues; a ligand adds tokens) | none found; top of the ladder |
+| `boltz2` | 1920 | 2048 |
+| `opendde`, `opendde-abag` | 1536 | 1664 (it runs for hours rather than crashing) |
+| `openfold3` | 1664 | 1792 |
+| `openbind` | 1664 (residues; a ligand adds tokens) | 1792 |
 | `pxdesign` | 1536 (target residues; the binder is on top) | none found; top of the ladder |
-| `protenix-v2` | 1024 (residues; a ligand adds tokens) | 1095 |
-| `esmfold2` | 1024 (residues; a ligand adds tokens) | 1056 |
-| `esmfold2-fast` | 1152 (residues; a ligand adds tokens) | 1248 |
+| `protenix-v2` | 1792 (residues; a ligand adds tokens) | 1920 |
+| `esmfold2` | 1664 (residues; a ligand adds tokens) | 1792 |
+| `esmfold2-fast` | 1664 (residues; a ligand adds tokens) | 1792 |
+| `rf3` | 1600 | 1664 |
+| `protenix-v1` | 2048 | none found; top of the ladder |
 | `rfd3` | 1536 (motif + designed) | none found; top of the ladder |
 | `boltzgen` | 14786 (atoms in the target) | none found; top of the ladder |
 | `esmc-6b` (embed) | 1968; 8192 with `--fast` | 1984 |
@@ -144,9 +144,9 @@ For every model here that reads an alignment, the limit was measured with 16384 
 the most any of them reads, so a deeper a3m does not lower it.
 
 Ask for more than a model's limit and tt-bio refuses before it opens a device, naming the
-model, the limit and any model that does take the input. `rf3` is not in the table because
-it folds every rung to 1095 residues, the top of its ladder. `boltz2` and `nesso1` have no
-measured limit and are never refused.
+model, the limit and any model that does take the input. `nesso1` has no measured
+limit and is never refused. What sets each wall is in
+[docs/large-targets.md](docs/large-targets.md#what-stops-each-model-above-1024-on-a-galaxy-chip).
 
 `boltzgen` is the one model sized on atoms rather than residues, because its wall follows the
 target's atom count and atoms per residue vary with what the target is made of: the 14786-atom
@@ -198,15 +198,14 @@ into a warning and runs it anyway.
 A ligand counts against these limits. Its heavy atoms are tokens the model pays for exactly like
 residues, and on `esmfold2`, `esmfold2-fast`, `openbind` and `protenix-v2` the wall is on tokens,
 so a cocrystal is checked on residues plus ligand atoms rather than on the residue count alone.
-`esmfold2` folds 1024 residues, which leaves no room at all: 1024 residues plus any ligand is
-refused, and 991 residues with a 33-atom ligand folds. `openbind` is the same: its 1536 was
+`esmfold2` folds 1664 residues, which leaves no room at all: 1664 residues plus any ligand is
+refused, and 1640 residues with a 24-atom ligand is admitted. `openbind` is the same: its 1664 was
 walked apo, so a ligand counts against it atom for atom. Either way the
 refusal names the token count and the wall, and it arrives before a device is opened instead of
 as an out-of-memory error part way through the fold.
 
-`esmfold2-fast` is the same architecture at half the trunk depth and is roomier, which is why it
-has its own row rather than sharing one: it folds 1152 residues and fails at 1280, where the full
-trunk already fails at 1057.
+`esmfold2-fast` is the same architecture at half the trunk depth. It has its own row because it
+was walked on its own; today both fold 1664 residues and fail at 1792.
 
 The pair track switches to row-blocked execution at a size threshold smaller targets never reach,
 so their speed and numerics are untouched. See [docs/large-targets.md](docs/large-targets.md).

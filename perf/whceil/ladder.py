@@ -138,7 +138,12 @@ def classify(stderr: str, rc: int, timed_out: bool) -> tuple[str, dict]:
         if c[2]:
             d.update(l1_buffer_at=int(c[2]), cb_region_ends=int(c[3]))
         return "CLASH_L1", d
-    m = _OOM.search(stderr)
+    # The LAST refusal, not the first. The engine narrows and retries after a refusal, so on a
+    # failed rung the early ones are what it recovered from and only the last one killed it.
+    # protenix-v1 at 2048 logs a recovered 4 GiB request before the 512 MiB one it died on.
+    m = None
+    for m in _OOM.finditer(stderr):
+        pass
     if m:
         total, space, banks = int(m[1]), m[2], int(m[3])
         # Absent, the per-bank share is the interleaved split, which is what the allocator
