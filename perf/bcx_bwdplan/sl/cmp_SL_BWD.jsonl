@@ -1,0 +1,2 @@
+{"a": "/home/ttuser/.coworker/wt/bcx-bwdplan/perf/bcx_heads/sl/digest_banked_SL.json", "b": "/home/ttuser/.coworker/wt/bcx-bwdplan/perf/bcx_bwdplan/sl/digest_SL_BWD.json", "a_n": 2736, "b_n": 2736, "common": 2736, "bit_identical": 2736, "differ": []}
+{"a": "/home/ttuser/.coworker/wt/bcx-bwdplan/perf/bcx_heads/sl/digest_SL_POSTG.json", "b": "/home/ttuser/.coworker/wt/bcx-bwdplan/perf/bcx_bwdplan/sl/digest_SL_BWD.json", "a_n": 2736, "b_n": 2736, "common": 2736, "bit_identical": 2736, "differ": []}
