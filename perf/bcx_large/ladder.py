@@ -58,13 +58,21 @@ def main():
                          "so any ceiling measured under this arm carries the arm's name.")
     ap.add_argument("--reps", type=int, default=2, help="rep 0 is cold (JIT compile), later reps warm")
     ap.add_argument("--save-grad", action="store_true", help="keep the logit gradient (.pt)")
+    ap.add_argument("--node-peak", action="store_true",
+                    help="also sample DRAM at every tape node and after every node's backward, "
+                         "which sees the in-block transient the block-boundary samples miss. "
+                         "Each sample drains the pipeline, so this run's wall is not a timing")
+    ap.add_argument("--save-out", action="store_true",
+                    help="keep the trunk outputs (.pt) for structure_check.py")
     args = ap.parse_args()
     n = args.n
     rec = {"n": n, "k_extra": args.extra, "k_evo": args.evo, "ckpt": True, "arm": args.arm,
            "seed": args.seed, "stamp": A.stamp(os.environ.get("TT_VISIBLE_DEVICES", "?")),
            "pci": S.sysfs_node()[1], "completed": False, "reps": []}
     rec["stamp"].pop("subsystem_device", None)     # afgrad reads the naive node, wrong on qb1
-    out = OUT / f"ladder_n{n}{'_mmout' if args.trimul_mm_out else ''}.json"
+    tag = ("_mmout" if args.trimul_mm_out else "") + ("_nodepeak" if args.node_peak else "")
+    out = OUT / f"ladder_n{n}{tag}.json"
+    rec["node_peak"] = args.node_peak
     OUT.mkdir(parents=True, exist_ok=True)
 
     def save():
@@ -94,26 +102,55 @@ def main():
     rec["dram_total_gb"], rec["dram_weights_gb"] = total / GB, base / GB
     st = {"phase": "fwd", "peak": 0, "trace": []}
 
-    def sample(where):
+    def sample(where, keep=True):
         used, free, _, lcf = view()
-        st["trace"].append((st["phase"], where, round(used / GB, 4), round(free / GB, 4)))
+        if keep:
+            st["trace"].append((st["phase"], where, round(used / GB, 4), round(free / GB, 4)))
+        key = f"{st['phase']}:{st.get('cur')}"
+        st.setdefault("block_max", {})
+        st["block_max"][key] = max(st["block_max"].get(key, 0.0), round(used / GB, 4))
         if used > st["peak"]:
-            st.update(peak=used, peak_at=(st["phase"], where), peak_free_gb=free / GB,
+            st.update(peak=used, peak_at=(st["phase"], where, st.get("cur")), peak_free_gb=free / GB,
                       peak_largest_free_per_bank_gb=lcf / GB)
 
     ex, ev = dev.extra, dev.evo
 
     def extra(i, z):
+        st["cur"] = f"extra{i}"
         r = ex(i, z)
         sample(f"extra{i}")
         return r
 
     def evo(i, m, z):
+        st["cur"] = f"evo{i}"
         r = ev(i, m, z)
         sample(f"evo{i}")
         return r
 
     dev.extra, dev.evo = extra, evo
+
+    if args.node_peak:                             # both bindings: taped_ttnn imports its own
+        from tt_bio import taped_ttnn as T
+        orig = ag._tape
+        st["node_samples"] = 0
+
+        def node_sample():
+            st["node_samples"] += 1
+            sample("node", keep=False)
+
+        def tape(out_value, parents, make_fn):
+            def make(*a, **k):
+                fn = make_fn(*a, **k)
+
+                def bw(g):
+                    r = fn(g)
+                    node_sample()
+                    return r
+                return bw
+            t = orig(out_value, parents, make)
+            node_sample()
+            return t
+        ag._tape = T._tape = tape
 
     def peak_of():
         return {"gb": st["peak"] / GB, "at": st.get("peak_at"), "free_gb": st.get("peak_free_gb"),
@@ -127,7 +164,7 @@ def main():
     clock = S.Clock()
     try:
         for rep in range(args.reps):
-            st.update(phase="fwd", peak=0, trace=[])
+            st.update(phase="fwd", peak=0, trace=[], block_max={}, node_samples=0)
             gc.collect()
             lgt = logits.clone().float().requires_grad_(True)
             m0, z0 = A.embed(ref["bf16"], lgt, ridx)
@@ -148,14 +185,16 @@ def main():
             t3 = time.time()
             sample("end of backward")
             gm0, gz0 = dev.grad(ml, m0.shape), dev.grad(zl, z0.shape)
-            out_finite = {"m": bool(torch.isfinite(dev.down(mo.value, m0.shape)).all()),
-                          "z": bool(torch.isfinite(dev.down(zo.value, z0.shape)).all())}
+            m_host, z_host = dev.down(mo.value, m0.shape), dev.down(zo.value, z0.shape)
+            out_finite = {"m": bool(torch.isfinite(m_host).all()),
+                          "z": bool(torch.isfinite(z_host).all())}
             torch.autograd.backward([m0, z0], [gm0.to(m0.dtype), gz0.to(z0.dtype)])
             ag.release_pins()
             g = lgt.grad.double()
             r = {"rep": rep, "fwd_s": t1 - t0, "bwd_s": t3 - t2, "step_s": t3 - t0,
                  "aiclk": clock.window([(t0, t3)]), "load1_end": os.getloadavg()[0],
                  "dram_after_fwd_gb": after_fwd, "peak": peak_of(),
+                 "node_samples": st.get("node_samples"), "block_max": dict(st.get("block_max", {})),
                  "grad": {"finite": bool(torch.isfinite(g).all()), "norm": float(g.norm()),
                           "absmax": float(g.abs().max()),
                           "nonzero_frac": float((g != 0).double().mean()),
@@ -169,6 +208,10 @@ def main():
                 rec["_g0"] = g
             if args.save_grad and rep == 0:
                 torch.save({"logits": logits, "grad": g}, OUT / f"grad_n{n}.pt")
+            if args.save_out and rep == 0:
+                torch.save({"logits": logits, "m": m_host, "z": z_host, "seed": args.seed},
+                           OUT / f"out_n{n}.pt")
+            del m_host, z_host
             del mo, zo, ml, zl, seeds, m0, z0, lgt, gm0, gz0
             gc.collect()
             r["dram_after_release_gb"] = view()[0] / GB
@@ -184,6 +227,7 @@ def main():
                          for f in traceback.extract_tb(e.__traceback__)]
         rec["traceback_tail"] = traceback.format_exc()[:3000]
         rec["failed_rep"] = {"rep": len(rec["reps"]), "phase": st["phase"], "peak": peak_of(),
+                             "block_max": dict(st.get("block_max", {})),
                              "trace": list(st["trace"]), "load1": os.getloadavg()[0],
                              "aiclk": clock.window([(t_open, time.time())])}
     finally:
