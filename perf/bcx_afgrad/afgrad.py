@@ -412,7 +412,8 @@ def cmd_vjp(args):
                     zo = dev.extra(i, zl)
                     roots, seeds = [zo], [dev.seed(gz_, zo)]
                 else:
-                    mo, zo = dev.evo(i, ml, zl)
+                    mask = dev.up(torch.ones(min_.shape[:-1])) if args.msa_mask else None
+                    mo, zo = dev.evo(i, ml, zl, mask)
                     roots, seeds = [mo, zo], [dev.seed(gm_, mo), dev.seed(gz_, zo)]
             census = node_census(ag, roots)
             ag.backward(roots, seeds)
@@ -857,6 +858,10 @@ def main():
     ap.add_argument("--seed", type=int, default=0)
     ap.add_argument("--eps", default="1e-1,3e-2,1e-2,3e-3,1e-3")
     ap.add_argument("--ckpt", action="store_true")
+    ap.add_argument("--msa-mask", action="store_true",
+                    help="vjp: Evoformer blocks read an all-ones MSA mask, which routes them "
+                         "through the mask biases a design step builds; the float64 reference "
+                         "stays unmasked, which an all-ones mask equals")
     ap.add_argument("--ns", default="128,256")
     ap.add_argument("--ks", default="1,2,4")
     ap.add_argument("--stacks", default="evo,extra")

@@ -713,14 +713,23 @@ class AF2EvoformerBlock(AF2PairBlock):
         Built once per block rather than once per attention: the two variants are the same
         numbers in different layouts, because the row attention's keys are residues and the
         column attention's keys are rows.
+
+        Both reshapes move a tile row into tiles of their own and write only its logical
+        elements, so the new tiles' padding is whatever the buffer last held, which after a
+        backward is often NaN or Inf. The broadcast add copies row 0's padding columns into the
+        score tile's padding, and `softmax_in_place` masks a finite padding value but not a NaN:
+        every row of that tile comes back NaN. On identical inputs the 48-block backward
+        alternated clean, NaN, clean, NaN (perf/bcx_nan/). The padding is zeroed where it is
+        created: tracing every op of a block's forward, these two reshapes are the only ones
+        whose output padding is not finite (perf/bcx_nan/optrace_pad.json).
         """
         if len(msa_mask.shape) == 3:
             msa_mask = ttnn.reshape(msa_mask, tuple(msa_mask.shape)[1:])
         rows, n = (int(d) for d in msa_mask.shape)
         flat = ttnn.multiply(ttnn.subtract(msa_mask, 1.0), MASK_LOGIT_BIAS)
-        row_bias = ttnn.reshape(flat, (rows, 1, 1, n))
+        row_bias = ttnn.fill_implicit_tile_padding(ttnn.reshape(flat, (rows, 1, 1, n)), 0.0)
         transposed = ttnn.permute(flat, (1, 0))
-        col_bias = ttnn.reshape(transposed, (n, 1, 1, rows))
+        col_bias = ttnn.fill_implicit_tile_padding(ttnn.reshape(transposed, (n, 1, 1, rows)), 0.0)
         return row_bias, col_bias
 
     def _msa_track(self, msa: ttnn.Tensor, pair: ttnn.Tensor,
