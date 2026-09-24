@@ -1,12 +1,18 @@
-"""`ops.linear` as the models call it, rank-3/4 against the 2-D view, on this card.
+"""`ops.linear` as the models call it: rank-3/4, its 2-D view, and the view with ttnn's own grid.
 
     TT_VISIBLE_DEVICES=0 TT_BIO_LEASE_CARDS=0 python perf/bcx_oplin/probe.py out.json
 
-Every shape twice: with the model wrappers' own `core_grid=CORE_GRID_MAIN`, and without a
-core grid (ttnn picks). HiFi4 fp32-acc config, bf16 out, both arms through `ops.linear` itself with `_via2d` switched. 5 x 20 calls, median,
-AICLK sampled during each timed window. Accuracy is graded against a float64 product of the
-same bf16 operands, never against the other arm. Also asserts that both arms return the same
-shape, which is what a caller downstream actually depends on.
+Per shape and per caller grid (the 11x10 that protenix/openfold3 import at module load, the
+device grid `tenstorrent.py` reads after the open, and no grid at all), three arms of one
+`ops.linear` call:
+
+  rank         today: the rank-3/4 call as the caller wrote it
+  view         `_via2d`: the same call on the (prod(leading), K) view
+  view_auto    the view with the caller's core grid dropped, so ttnn picks the program
+
+HiFi4 fp32-acc, bf16 out, 5 x 20 calls interleaved across arms, median, AICLK sampled during
+the timed window. Accuracy is graded against a float64 product of the same bf16 operands, never
+against another arm; `bits` says which arms return exactly the rank arm's bytes.
 """
 import json
 import statistics
@@ -20,7 +26,7 @@ import ttnn
 
 from common import Clock, arm
 from tt_bio import ops
-from tt_bio.tenstorrent import CORE_GRID_MAIN, get_device
+import tt_bio.tenstorrent as T
 
 SHAPES = [  # (x shape, K, N, bias)
     ((256, 256, 128), 128, 128, False),
@@ -36,13 +42,18 @@ SHAPES = [  # (x shape, K, N, bias)
 
 
 def main(out):
-    dev = get_device()
+    grid_import = T.CORE_GRID_MAIN
+    dev = T.get_device()
+    grid_dev = T.CORE_GRID_MAIN
+    grids = {f"{grid_import.x}x{grid_import.y}": grid_import}
+    grids.setdefault(f"{grid_dev.x}x{grid_dev.y}", grid_dev)
+    grids["none"] = None
     ckc = ttnn.types.BlackholeComputeKernelConfig(math_fidelity=ttnn.MathFidelity.HiFi4,
-                                           math_approx_mode=False, fp32_dest_acc_en=True,
-                                           packer_l1_acc=True)
+                                                  math_approx_mode=False,
+                                                  fp32_dest_acc_en=True, packer_l1_acc=True)
     torch.manual_seed(0)
     rows = []
-    for (xs, k, n, has_b), grid in [(c, g) for c in SHAPES for g in (CORE_GRID_MAIN, None)]:
+    for xs, k, n, has_b in SHAPES:
         xh = torch.randn(xs).bfloat16()
         wh = (torch.randn(k, n) / k ** 0.5).bfloat16()
         bh = torch.randn(n).bfloat16() if has_b else None
@@ -51,38 +62,38 @@ def main(out):
         w = ttnn.from_torch(wh, dtype=ttnn.bfloat16, layout=ttnn.TILE_LAYOUT, device=dev)
         b = (ttnn.from_torch(bh.reshape(1, n), dtype=ttnn.bfloat16, layout=ttnn.TILE_LAYOUT,
                              device=dev) if has_b else None)
-        call = lambda: ops.linear(x, w, bias=b, compute_kernel_config=ckc, dtype=ttnn.bfloat16,
-                                  core_grid=grid)
-        row = dict(shape=list(xs), k=k, n=n, bias=has_b, core_grid=grid is not None)
-        outs = {}
-        for name, on in (("rank", False), ("view", True)):
-            with arm(on):
-                y = call()
-                outs[name] = y
-                row[f"{name}_shape"] = [int(d) for d in y.shape]
-                yt = ttnn.to_torch(y).double().reshape(ref.shape)
-                row[f"{name}_rel_l2"] = float((yt - ref).norm() / ref.norm())
-        for name, on in (("rank", False), ("view", True)):
-            row[f"{name}_us"] = []
-        with Clock() as clk:
-            for _ in range(5):  # interleaved so both arms see the same clock window
-                for name, on in (("rank", False), ("view", True)):
-                    with arm(on):
-                        call(); ttnn.synchronize_device(dev)
+        for gname, grid in grids.items():
+            arms = {"rank": (False, grid), "view": (True, grid), "view_auto": (True, None)}
+
+            def call(on, g):
+                with arm(on):
+                    return ops.linear(x, w, bias=b, compute_kernel_config=ckc,
+                                      dtype=ttnn.bfloat16, core_grid=g)
+
+            row = dict(shape=list(xs), k=k, n=n, bias=has_b, grid=gname)
+            outs = {}
+            for a, (on, g) in arms.items():
+                y = call(on, g)
+                row[f"{a}_shape"] = [int(d) for d in y.shape]
+                outs[a] = ttnn.to_torch(y).reshape(ref.shape)
+                row[f"{a}_rel_l2"] = float((outs[a].double() - ref).norm() / ref.norm())
+            row["bits"] = {a: bool(torch.equal(outs["rank"], outs[a])) for a in arms}
+            row["same_shape"] = len({tuple(row[f"{a}_shape"]) for a in arms}) == 1
+            ts = {a: [] for a in arms}
+            with Clock() as clk:
+                for _ in range(5):
+                    for a, (on, g) in arms.items():
+                        call(on, g); ttnn.synchronize_device(dev)
                         t0 = time.perf_counter()
                         for _ in range(20):
-                            call()
+                            call(on, g)
                         ttnn.synchronize_device(dev)
-                        row[f"{name}_us"].append((time.perf_counter() - t0) / 20 * 1e6)
-        for name in ("rank", "view"):
-            row[f"{name}_us"] = round(statistics.median(row[f"{name}_us"]), 1)
-        row["ratio"] = round(row["rank_us"] / row["view_us"], 2)
-        row["same_shape"] = row["rank_shape"] == row["view_shape"]
-        row["bit_identical"] = bool(torch.equal(ttnn.to_torch(outs["rank"]).reshape(ref.shape),
-                                                ttnn.to_torch(outs["view"]).reshape(ref.shape)))
-        row["aiclk"] = clk.stats()
-        rows.append(row)
-        print(json.dumps(row), flush=True)
+                        ts[a].append((time.perf_counter() - t0) / 20 * 1e6)
+            for a in arms:
+                row[f"{a}_us"] = round(statistics.median(ts[a]), 1)
+            row["aiclk"] = clk.stats()
+            rows.append(row)
+            print(json.dumps(row), flush=True)
     Path(out).write_text(json.dumps(rows, indent=1))
 
 

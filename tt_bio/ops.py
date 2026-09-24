@@ -131,12 +131,15 @@ def _via2d(x, fn, kw=None):
     reshape here is a relayout (the heads split [N,N,128] -> [N,N,4,32] costs 2 ms), so such
     a shape, a sharded operand, or a caller-chosen program config is left as it came.
 
+    A batch of one is already that product, and reshaping it only adds two dispatches
+    (+20 us on a [1,512,384] projection), so it is left alone too.
+
     Same operands, same reduction, not always the same bits: where they differ, the 2-D
     result is the one closer to float64. ``linear`` below and the tape's matmuls share it.
     """
     s = [int(d) for d in x.shape]
     mc = (kw or {}).get("memory_config")
-    if (len(s) <= 2 or s[-2] % ttnn.TILE_SIZE or x.layout != ttnn.TILE_LAYOUT
+    if (math.prod(s[:-2]) <= 1 or s[-2] % ttnn.TILE_SIZE or x.layout != ttnn.TILE_LAYOUT
             or x.is_sharded() or (kw or {}).get("program_config") is not None
             or (mc is not None and mc.is_sharded())):
         return fn(x)
@@ -170,9 +173,14 @@ def linear(x, w, bias=None, *, activation=None, compute_kernel_config=None, dtyp
         out = _NARROW_PROJ(x, w, compute_kernel_config, dtype, l1_out=in_l1)
         if out is not None:
             return out
+    # On the rows view ttnn's own program beats the caller's core grid, which was only ever
+    # the fix for the slow rank-3 program: [512,512,128] @ [128,128] runs 2296 us rank-3 with
+    # no grid, 950 us with the 11x10 grid and 502 us on the view with none, closer to float64
+    # too (perf/bcx_oplin/probe_p150a.json). So the grid stands only where the view does not.
     return _via2d(x, lambda v: ttnn.linear(v, w, bias=bias, activation=activation,
                                            compute_kernel_config=compute_kernel_config,
-                                           dtype=dtype, core_grid=core_grid, **kw), kw)
+                                           dtype=dtype,
+                                           core_grid=core_grid if v is x else None, **kw), kw)
 
 
 @_dispatching
