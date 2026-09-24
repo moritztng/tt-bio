@@ -20,7 +20,7 @@ from itertools import combinations
 
 TARGET = "groel_ring4_2096"
 ENGINE = "groel-onetree-ff5435cba"
-SIZES = (512, 1024, 1536)
+SIZES = (512, 768, 1024, 1536)
 OFFSETS = (0, 560)
 PERMISSIVE = 4.0          # BoltzGen's own designability bar, unchanged throughout this row
 STRICT = 2.0
@@ -119,19 +119,36 @@ def selfcheck(cells) -> int:
     return bad
 
 
-def verdict_one(cells, off):
-    """The pre-registered clauses of plans/groel_1024.txt, for ONE crop."""
-    v = cells[(1024, off)]["scrmsd"]
+def verdict_one(cells, off, rung=1024):
+    """The pre-registered clauses of plans/groel_<rung>.txt, for ONE crop.
+
+    Each rung carries its OWN clause bodies and they are not shared: 1024's USABLE clause
+    requires the upper contrast to reject and 768's does not, because at 1024 the upper
+    neighbour was the only measured point above it and at 768 it is not. Adding a rung must
+    therefore ADD a branch, never repoint the existing one -- the 1024 verdict is published
+    (results/groel_1024_result.txt) and this function has to keep reproducing it exactly.
+    """
+    lo, hi = {1024: (512, 1536), 768: (512, 1024)}[rung]
+    v = cells[(rung, off)]["scrmsd"]
     med, f4 = st.median(v), sum(x <= PERMISSIVE for x in v)
-    print(f"\nOFFSET {off}")
-    up = contrast(cells, 1536, 1024, off, "1024 -> 1536")
-    dn = contrast(cells, 1024, 512, off, " 512 -> 1024")
-    if med <= PERMISSIVE and f4 >= 4 and up[2] <= 0.05:
-        v_ = "USABLE AT 1024"
-    elif med > PERMISSIVE and f4 <= 1 and dn[2] <= 0.05:
-        v_ = "COLLAPSED BY 1024"
+    print(f"\nOFFSET {off}   rung {rung}")
+    up = contrast(cells, hi, rung, off, f"{rung} -> {hi}")
+    dn = contrast(cells, rung, lo, off, f"{lo:>4} -> {rung}")
+    if rung == 1024:
+        if med <= PERMISSIVE and f4 >= 4 and up[2] <= 0.05:
+            v_ = "USABLE AT 1024"
+        elif med > PERMISSIVE and f4 <= 1 and dn[2] <= 0.05:
+            v_ = "COLLAPSED BY 1024"
+        else:
+            v_ = "INTERMEDIATE"
     else:
-        v_ = "INTERMEDIATE"
+        # plans/groel_768.txt, clause bodies disjoint by construction.
+        if med <= PERMISSIVE and f4 >= 4:
+            v_ = "USABLE AT 768"
+        elif med > PERMISSIVE and f4 <= 1 and dn[2] <= 0.05:
+            v_ = "COLLAPSED BY 768"
+        else:
+            v_ = "INTERMEDIATE"
     print(f"  median {med:.3f} A, {f4} of {len(v)} under {PERMISSIVE} A  ->  {v_}")
     return v_
 
@@ -165,18 +182,22 @@ def main() -> int:
             print(f"  {s:>4}  {o:>6}  {len(v):>2}  {st.median(v):>7.3f}   "
                   f"{min(v):6.3f}-{max(v):6.3f}    {frac(v, STRICT):5.1f}%  {frac(v, PERMISSIVE):5.1f}%")
 
-    missing = [(s, o) for s in SIZES for o in OFFSETS if (s, o) not in cells]
-    if missing:
-        print(f"\n{len(missing)} cell(s) missing: {missing}")
-        print("No rung verdict until both 1024 crops are in: plans/groel_1024.txt requires the "
-              "two crops to agree, which a single crop cannot establish.")
-        return 1
-
-    vs = [verdict_one(cells, o) for o in OFFSETS]
-    print("\nRUNG VERDICT: ", end="")
-    print(vs[0] if vs[0] == vs[1] else
-          f"INTERMEDIATE (the two crops disagree: {vs[0]} at 0, {vs[1]} at 560)")
-    return 0
+    # A rung is readable only when BOTH its crops and both crops of each neighbour it is
+    # contrasted against are in. Every plan in this row requires the two crops to agree, which
+    # a single crop cannot establish, so a half-landed rung is skipped rather than half-read.
+    rc = 1
+    for rung, (lo, hi) in ((768, (512, 1024)), (1024, (512, 1536))):
+        need = [(s, o) for s in (lo, rung, hi) for o in OFFSETS]
+        gaps = [k for k in need if k not in cells]
+        if gaps:
+            print(f"\nrung {rung}: not readable, {len(gaps)} cell(s) missing {gaps}")
+            continue
+        vs = [verdict_one(cells, o, rung) for o in OFFSETS]
+        print(f"\nRUNG {rung} VERDICT: ", end="")
+        print(vs[0] if vs[0] == vs[1] else
+              f"INTERMEDIATE (the two crops disagree: {vs[0]} at 0, {vs[1]} at 560)")
+        rc = 0
+    return rc
 
 
 if __name__ == "__main__":
