@@ -1,0 +1,4 @@
+# Merge re-check on main + bigalloc: identity (run in both trees), eal_b12 at the default width, forced width.
+b2_256_x5_m boltz2 perf/size512/fixtures/cdk2x2_256.yaml 5
+b2_b12_x5_m boltz2 perf/mgx_sample_width/inputs/eal_b12.yaml 5
+b2_1536_x25_w25_m boltz2 perf/size512/fixtures/cdk2x2_1536.yaml 25 mps=25
