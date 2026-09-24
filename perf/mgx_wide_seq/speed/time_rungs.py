@@ -41,6 +41,10 @@ CONTENDED = 6                       # lease refusals per rung and pass before th
 
 model, rungs = sys.argv[1], [int(x) for x in sys.argv[2].split(",")]
 rg.HOST_THREADS = int(sys.argv[3]) if len(sys.argv) > 3 else 2
+# main's release_gate has no HOST_THREADS; mgx-speed's capped each fold through the environment,
+# so do the same here or the "host_threads" in every record names a cap nothing applied
+from tt_bio import runtime  # noqa: E402
+os.environ.update(runtime.host_thread_cap_env(1, rg.HOST_THREADS))
 sigma_reps = int(sys.argv[4]) if len(sys.argv) > 4 else 3
 sigma_rung = int(sys.argv[5]) if len(sys.argv) > 5 else rg._size_ladder_sigma_rung(model)
 git = lambda *a: subprocess.run(["git", *a], cwd=ROOT, capture_output=True, text=True).stdout.strip()
