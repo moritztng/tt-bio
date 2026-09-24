@@ -46,13 +46,13 @@ def main():
         arms = {
             "concat_heads_bw": (
                 lambda: ttnn.permute(ttnn.reshape(gc, [B, L, H, dh]), [0, 2, 1, 3]),
-                lambda: ag._split_heads_v(ttnn.reshape(gc, [B, L, H * dh]), H)),
+                lambda: ag.split_heads_value(ttnn.reshape(gc, [B, L, H * dh]), H)),
             "create_qkv_heads_bw": (
                 lambda: ttnn.reshape(ttnn.concat(
                     [ttnn.reshape(ttnn.permute(gq, [0, 2, 1, 3]), [B, L, 1, H * dh])
                      if i == s else zero_old for i in range(3)], dim=2), [B, 1, L, 3 * H * dh]),
                 lambda: ttnn.concat(
-                    [ttnn.reshape(ag._merge_heads_v(gq), [B, 1, L, H * dh])
+                    [ttnn.reshape(ag.merge_heads_value(gq), [B, 1, L, H * dh])
                      if i == s else zero_new for i in range(3)], dim=-1)),
         }
         for name, (old, new) in arms.items():
