@@ -19,6 +19,7 @@ extra-MSA blocks bake into `opm_constant`, so it is a legal swap -- just not mad
 """
 import contextlib
 import os
+import pathlib
 
 import jax
 import jax.numpy as jnp
@@ -26,6 +27,11 @@ import numpy as np
 import torch
 
 _NANLOG_ON = bool(os.environ.get("BCX_NANLOG"))
+#: When set, the FIRST backward that returns a non-finite gradient writes its exact inputs
+#: here. The NaN appears after 3 to 5 optimisation rounds and the round varies run to run,
+#: so a trajectory is a 6-minute stochastic reproducer; this makes it a deterministic
+#: seconds-long one that replays the single failing call.
+_CAPTURE_DIR = os.environ.get("BCX_NANCAP")
 
 
 BUCKET = 32
@@ -71,6 +77,7 @@ def _nan(a):
                 np.abs(a[np.isfinite(a)]).max()) if np.isfinite(a).any() else None}
 
 
+_CAPTURED: list = []
 _LIVE: dict[int, dict] = {}
 _NEXT = [0]
 
@@ -136,7 +143,10 @@ class EvoformerOnDevice:
         dev.ag.release_pins()
         token = _NEXT[0]; _NEXT[0] += 1
         _LIVE[token] = {"roots": [mo, zo], "leaves": [ml, zl],
-                        "shapes": [tuple(m.shape), tuple(z.shape)], "n": n}
+                        "shapes": [tuple(m.shape), tuple(z.shape)], "n": n,
+                        "msa_in": m.numpy() if _CAPTURE_DIR else None,
+                        "pair_in": z.numpy() if _CAPTURE_DIR else None,
+                        "mask_in": mk.numpy() if _CAPTURE_DIR else None}
         self.calls["taped"] += 1
         if _NANLOG_ON:
             NANLOG.append({"op": "taped", "call": self.calls["taped"],
@@ -163,6 +173,19 @@ class EvoformerOnDevice:
         out = (dev.grad(ml, m_shape)[:, :n].numpy(), dev.grad(zl, z_shape)[:n, :n].numpy())
         dev.ag.release_pins()
         self.calls["backward"] += 1
+        if _CAPTURE_DIR and not _CAPTURED and not (
+                np.isfinite(out[0]).all() and np.isfinite(out[1]).all()):
+            _CAPTURED.append(1)
+            d = pathlib.Path(_CAPTURE_DIR); d.mkdir(parents=True, exist_ok=True)
+            np.savez_compressed(
+                d / "nan_backward_inputs.npz",
+                msa_leaf=entry["msa_in"], pair_leaf=entry["pair_in"],
+                mask=entry["mask_in"], cot_msa=np.asarray(g_msa_np),
+                cot_pair=np.asarray(g_pair_np),
+                grad_msa_out=out[0], grad_pair_out=out[1],
+                backward_call=np.int64(self.calls["backward"]), n=np.int64(n))
+            print(f"captured the failing backward (call {self.calls['backward']}) to "
+                  f"{d / 'nan_backward_inputs.npz'}", flush=True)
         if _NANLOG_ON:
             NANLOG.append({"op": "backward", "call": self.calls["backward"],
                            "cotangent_msa_in": _nan(g_msa_np),
