@@ -5,10 +5,18 @@
 # draws in sequence), then confpfe's chain_cf.sh scoring. Every step skips when its output exists,
 # so a relaunch resumes.
 #
-#   chain_pd.sh [K...]      default 1 2 3 4 5
+#   chain_pd.sh [K...]              default 1 2 3 4 5
+#   CARD=0 REFS=0 chain_pd.sh 1 3   device draws only, on card 0
+#
+# A failed device step leaves its card un-reinitialisable, and on qb2 the next open of that card
+# hangs the host, so every failed step is followed by `tt-smi -r $CARD` before the next open
+# (per-chip on tt-kmd 2.11: card 0 kept its heartbeat through a card 1 reset, 2026-09-24). A step
+# still in the bring-up probe after 600 s is wedged (draw 1 sat there 2h08m on card 1 on
+# 2026-09-24, the C call SIGALRM cannot interrupt) and is killed. Each draw gets two attempts.
 W=/home/ttuser/.coworker/wt/of3t-paedraws; P=$W/perf/of3t_paedraws; S=/home/ttuser/of3t_paedraws
 R=/home/ttuser/of3t-campaign-refs; CK=/home/ttuser/of3-weights/of3-p2-155k.pt
 DRAWS=/home/ttuser/of3t_fullstep64/draws.pt; CARD=${CARD:-1}; SMI=/home/ttuser/.local/bin/tt-smi
+SPY=/home/ttuser/.local/bin/py-spy
 KS=("${@:-1 2 3 4 5}"); KS=(${KS[*]})
 L=$S/chain.log
 cd $W
@@ -17,7 +25,7 @@ log() { echo "=== $* $(date -u +%FT%TZ)" >> $L; }
 
 # --- references: every missing (k, mode) at once
 export MALLOC_MMAP_THRESHOLD_=1048576 MALLOC_TRIM_THRESHOLD_=1048576 MALLOC_ARENA_MAX=2
-for k in "${KS[@]}"; do
+[ "${REFS:-1}" = 1 ] && for k in "${KS[@]}"; do
   for mode in f64 bf16; do
     O=$S/ref_s$k/$mode; G=$O/grads_$mode.pt
     [ -s "$G" ] && continue
@@ -44,14 +52,25 @@ for k in "${KS[@]}"; do
   if [ ! -s "$G" ] || [ ! -s "$OUT" ]; then
     (while true; do echo "$(date -u +%T) $("$SMI" -s 2>/dev/null | python3 -c "import sys,json;d=json.load(sys.stdin);print(d['device_info'][$CARD]['telemetry']['aiclk'].strip())")"; sleep 5; done) > $P/AICLK_$T.txt 2>&1 &
     M=$!
-    log "dev $T start $(hostname) card $CARD $BOARD $(git rev-parse --short HEAD)"
-    env TT_VISIBLE_DEVICES=$CARD TT_BIO_LEASE_CARDS=$CARD TT_BIO_LEASE_HOLDER=worker:of3t-paedraws \
-      OMP_NUM_THREADS=8 PYTHONPATH=$W timeout 10800 python3 $P/devstep.py --seed $k \
-      --repr-out $S/repr_$T.pt --denoise --exact on --draws $DRAWS --grad-out $G \
-      --weights-out $S/weights_walked_$T.pt --out $OUT > $S/dev_$T.log 2>&1
-    rc=$?
+    for attempt in 1 2; do
+      log "dev $T start $(hostname) card $CARD $BOARD $(git rev-parse --short HEAD) attempt $attempt"
+      env TT_VISIBLE_DEVICES=$CARD TT_BIO_LEASE_CARDS=$CARD TT_BIO_LEASE_HOLDER=worker:of3t-paedraws \
+        OMP_NUM_THREADS=8 PYTHONPATH=$W timeout 18000 python3 $P/devstep.py --seed $k \
+        --repr-out $S/repr_$T.pt --denoise --exact on --draws $DRAWS --grad-out $G \
+        --weights-out $S/weights_walked_$T.pt --out $OUT > $S/dev_$T.log 2>&1 &
+      D=$!   # timeout's pid, which leads the step's process group
+      ( sleep 600; py=$(pgrep -P $D | head -1)
+        [ -n "$py" ] && timeout 60 "$SPY" dump --pid $py 2>/dev/null | grep -q _assert_local_dispatch \
+          && { log "dev $T still in the bring-up probe after 600 s, killing"; kill -KILL -- -$D; } ) &
+      WD=$!
+      wait $D; rc=$?
+      kill $WD 2>/dev/null
+      log "dev $T exit $rc"
+      [ "$rc" = 0 ] && break
+      kill -KILL -- -$D 2>/dev/null; sleep 5
+      log "dev $T reset card $CARD: $(timeout 180 "$SMI" -r $CARD 2>&1 | tail -1)"
+    done
     kill $M
-    log "dev $T exit $rc"
     [ "$rc" = 0 ] || continue
     python3 - "$OUT" "$CARD" "$BOARD" "$rc" "$G" <<'PY'
 import hashlib, json, socket, subprocess, sys
