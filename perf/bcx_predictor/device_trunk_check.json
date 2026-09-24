@@ -1,0 +1,52 @@
+{
+ "plumbing_n64_k1_2": {
+  "n": 64,
+  "k_extra": 1,
+  "k_evo": 2,
+  "loss_device": 10454.4326171875,
+  "loss_f64": 10189.97382944766,
+  "loss_rel": 0.025952842683029304,
+  "g_msa_rel_l2": 0.12259594010820524,
+  "g_msa_cos": 0.9924605386448399,
+  "g_pair_rel_l2": 0.08311615476329591,
+  "g_pair_cos": 0.996540010736473,
+  "fwd_s": 1.33,
+  "bwd_s": 2.37,
+  "live_tapes_after": 0
+ },
+ "torch_bf16_own_distance": {
+  "g_msa_rel_l2": 0.0007410910613042404,
+  "g_msa_cos": 0.9999997255841466,
+  "g_pair_rel_l2": 0.0005714773718660227,
+  "g_pair_cos": 0.9999998367071604
+ },
+ "zero_cotangent_gives_zero": true,
+ "live_tapes_at_end": 0,
+ "production_n192_k4_48": {
+  "single_shape": [
+   192,
+   384
+  ],
+  "pair_shape": [
+   192,
+   192,
+   128
+  ],
+  "finite": true,
+  "fwd_s": 3.66
+ },
+ "stamp": {
+  "host": "tt-quietbox2",
+  "card": 3,
+  "subsystem_device": "0x0046",
+  "commit": "be32408e2b2221fbd457a109192d2bbd0df7e9d3",
+  "tt_bio_dirty": false,
+  "torch_threads": 8,
+  "loadavg": [
+   28.71826171875,
+   28.46875,
+   29.49169921875
+  ],
+  "utc": "2026-09-24T07:18:34Z"
+ }
+}
