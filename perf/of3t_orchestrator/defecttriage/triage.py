@@ -81,11 +81,6 @@ TABLE = {
                     "and the sdist's train_pdb_subset.yaml is stale against its own generator."),
 
     # --- ships to users: inference -----------------------------------------------------------
-    "D10": (USER, "The confidence head mis-ranks diffusion samples on the SHIPPED selector, "
-                  "measured end to end through the production CLI on 1UBQ."),
-    "D24": (USER, "On a single chain OpenFold3's ranking rule has two of its four terms "
-                  "identically zero -- the shipped default, machine-checked in rank_rule.py."),
-
     # --- ships to users: training on the shipped default -------------------------------------
     "D32": (USER, "Twenty-one sites in nine shipped modules route down a different, unfused path "
                   "while a tape is open, so a training step is a materially different execution."),
@@ -374,8 +369,9 @@ TABLE = {
              "shipped OpenFold3."),
     "D252": (CAMP, "the training default's exact LayerNorm was chosen on a pad-dominated "
              "boundary; no inference path reads it."),
-    "D266": (CAMP, "set by hand at pass 427: training-path gradient defect in the confidence "
-             "pairformer; the adapter is not on main and inference runs no tape. Blocks GO."),
+    "D267": (CAMP, "set by hand at pass 429: aux_heads.pae gradient 6.07x its bf16 on the taped "
+             "training step; inference runs no tape and the confidence head's inference path is "
+             "byte-identical across D266's fix (of3t-confpfe INFAB.json). Blocks GO."),
 }
 
 # Close calls, recorded with the argument on both sides. A triage that hides these is worth less
