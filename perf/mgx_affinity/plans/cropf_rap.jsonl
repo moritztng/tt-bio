@@ -1,0 +1,2 @@
+# Nesso-1 1536 + RAP on the tiled target: device and CPU crops share 214 of 256 tokens, so score the CPU reference crop on device (same method as 1536 + small).
+{"tag": "cropf_1536_rap_cpucrop", "surface": "script", "input": "perf/mgx_affinity/crop_probe.py", "args": ["perf/mgx_affinity/inputs/size/cdk2_1536_rap.yaml", "perf/mgx_affinity/results/crop/cdk2_1536_rap_devcpucrop.json", "--force", "perf/mgx_affinity/results/crop/cdk2_1536_rap_cpu.json"]}

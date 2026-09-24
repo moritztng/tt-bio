@@ -5295,13 +5295,11 @@ class Boltz2(nn.Module):
         diffusion_trace: bool = False,
     ) -> None:
         super().__init__()
-        # Reserve a ttnn trace region BEFORE any module opens the device: the
-        # per-step DiT trace (AtomDiffusion -> DiffusionModule.forward_traced)
-        # needs it. Mirrors Protenix/BoltzGen's get_device(trace_region_size=1<<30).
-        # The first get_device() opens, so this must precede module construction.
+        # Reserve the DiT trace region BEFORE any module opens the device: the first
+        # get_device() opens, so this must precede module construction.
         if diffusion_trace:
             from tt_bio.tenstorrent import get_device
-            get_device(trace_region_size=1 << 30)
+            get_device(trace="diffusion")
         
         # Store all hyperparameters for checkpoint loading
         self.hparams = {

@@ -88,9 +88,8 @@ changes fix that class in the shared pair-track code:
 
 The fallbacks only fire on a refusal, so a target that fits keeps its single pass. At 1024
 tokens the output matches the previous code to within 0.41 Å CA-RMSD, and bit for bit on most
-models, against a seed-to-seed spread of 1.7 to 3.3 Å on the same targets. The remaining walls
-above 1536 (Boltz-2 at 1792, RoseTTAFold3 at 1600) are a single pair tensor that no free block
-can hold.
+models, against a seed-to-seed spread of 1.7 to 3.3 Å on the same targets. The walls that remain
+above 1536 are listed [below](#what-stops-each-model-above-1024-on-a-galaxy-chip).
 
 **A cell that folds does not license the sizes below it.** These four targets fold, and OpenDDE
 still throws at 576 residues on the same pool. The throw is an L1 static circular-buffer clash:
@@ -116,3 +115,37 @@ half of DRAM free because no single hole is big enough — 992 residues on OpenD
 one, and that band takes row blocks whatever the token threshold says. Anything below it keeps
 the byte-identical unblocked path, and on a 32 GiB Blackhole part the bound is above every size
 the models reach, so Blackhole never changes path.
+
+## What stops each model above 1024 on a Galaxy chip
+
+Walked on one j10glx02 chip with an 8192-row alignment (OpenFold3 at 14190) up to 2048, every
+first failure above 1536 is a single pair-sized allocation that no free block on the chip can
+hold:
+
+- `boltz2` folds 1920 and fails at 2048 in the diffusion cache, one 3.0 GiB tensor with 55 % of
+  the chip free but no block large enough.
+- `protenix-v1` folds 2048, the top of the ladder, since the diffusion transformer's pair bias
+  waits on the host. Before that it failed at 2048 on that bias, with enough memory free but no
+  block large enough.
+- `protenix-v2` folds 1792 since the pair path row-blocks an allocation the chip refuses, and
+  fails at 1920 in the MSA module's outer product mean, with 97 % of the chip in use and the
+  largest free block 1280 bytes per bank too small. Before the row blocking it failed at 1792 in
+  the diffusion pair conditioning.
+- `rf3` folds 1600 and fails at 1664 in the diffusion atom encoder's pair permute, with enough
+  memory free but no block large enough.
+- `opendde` and `opendde-abag` fold 1536. At 1664 the residue pair no longer fits as one
+  allocation, so every pair operation assembles its blocks on the host and a trunk recycle takes
+  about 20 minutes instead of under 9. Both runs were past the 107 minutes the platform allows a
+  1664-residue fold with three or four of their ten recycles still to run, so the limit stays at
+  1536 because of run time, not a crash. At 1920 the fold fails outright on the trunk's pair.
+
+`esmfold2` and `esmfold2-fast` both fold 1664 and fail at 1792 in the pair feed-forward, whose
+1.5 GiB output needs 130.7 MiB in every DRAM bank. The largest free block is about 122 MiB by then,
+with 86 % of the chip in use. `esmfold2` lands in the same place with its alignment
+and single-sequence, because its MSA encoder sees at most 1024 rows per trunk loop.
+
+`openfold3` and `openbind` fold 1536 residues at 14190 alignment rows now that the MSA
+representation streams through the chip a depth chunk at a time. Both fold 1664 and fail at 1792
+in the diffusion transformer's attention scores, one 206 MB tensor on a chip 96 % full whose
+largest free block is 640 bytes per bank too small. The measured rows, with commits, wall times and allocation sizes, are in
+`tt_bio/size_limits.py`.

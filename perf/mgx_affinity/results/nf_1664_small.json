@@ -1,0 +1,56 @@
+{
+ "tag": "nf_1664_small",
+ "surface": "nesso1",
+ "input": "perf/mgx_affinity/inputs/size/cdk2_1664_small.yaml",
+ "args": [],
+ "host": "j10glx02",
+ "cards": [
+  17
+ ],
+ "commit": "0186ef509",
+ "rc": 0,
+ "wall_s": 181.9,
+ "aiclk": {
+  "0": {
+   "min": 500,
+   "median": 1000,
+   "max": 1000,
+   "n": 9
+  }
+ },
+ "load": {
+  "min": 56.43,
+  "median": 62.91,
+  "max": 68.41,
+  "nproc": 64
+ },
+ "census": null,
+ "adopted": false,
+ "rows": [
+  {
+   "id": "cdk2_1664_small",
+   "n_tokens": "1684",
+   "seconds": "153.2427974959137",
+   "affinity_pred_value": "1.5094914436340332",
+   "affinity_pred_value1": "1.4428091049194336",
+   "affinity_pred_value2": "1.5761737823486328",
+   "affinity_logits_binary": "-2.798929214477539",
+   "affinity_probability_binary": "0.05738207325339317",
+   "entropy_pp": "0.140798419713974",
+   "entropy_pl": "0.31454646587371826",
+   "entropy_ll": "0.22681213915348053",
+   "entropy_crop_pp": "0.6620127558708191",
+   "entropy_crop_pl": "0.9224441647529602",
+   "entropy_crop_ll": "0.22681213915348053",
+   "error": ""
+  }
+ ],
+ "contention": false,
+ "errors": [
+  "2026-09-23 13:47:25.024 | critical |          Always | TT_THROW: Statically allocated circular buffers on core range [(x=0,y=0) - (x=7,y=8)] grow to 13026592 B which is beyond max L1 size of 1499136 B (assert.hpp:104)",
+  "2026-09-23 13:47:26.495 | critical |          Always | TT_THROW: Statically allocated circular buffers on core range [(x=0,y=0) - (x=7,y=8)] grow to 18777376 B which is beyond max L1 size of 1499136 B (assert.hpp:104)",
+  "2026-09-23 13:47:28.306 | critical |          Always | TT_THROW: Statically allocated circular buffers on core range [(x=0,y=0) - (x=7,y=8)] grow to 3755296 B which is beyond max L1 size of 1499136 B (assert.hpp:104)",
+  "2026-09-23 13:49:25.590 | critical |          Always | TT_THROW: Statically allocated circular buffers in program 675 clash with L1 buffers on core range [(x=0,y=0) - (x=7,y=8)]. L1 buffer allocated at 1144832 and static circular buffer region ends at 1152288 (assert.hpp:104)"
+ ],
+ "tail": []
+}

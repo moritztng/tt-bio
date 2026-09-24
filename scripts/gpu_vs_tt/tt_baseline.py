@@ -357,8 +357,8 @@ def build_fold(model: str, msa_dir: Path, target: Path, a3m: Path,
     _E.set_progress(_noop)
 
     # --trace replays a captured ttnn trace of the per-step diffusion device graph, and
-    # opendde.py:481 refuses to fold with trace=True unless the device carries a region.
-    get_device(trace_region_size=(1 << 30) if trace else 0)  # open the chip once (lease enforced here)
+    # Protenix/OpenDDE fold(trace=True) refuses unless the device carries a region.
+    get_device(trace="protenix" if trace else None)  # open the chip once (lease enforced here)
     hw = arch_name()
 
     work = Path(tempfile.mkdtemp(prefix=f"ttbase-{model}-"))
@@ -602,7 +602,7 @@ def main() -> int:
     ap.add_argument("--fast", action="store_true",
                     help="fold with the shipped --fast block-fp8 path (not the default arm)")
     ap.add_argument("--trace", action="store_true",
-                    help="replay a captured ttnn trace of the diffusion step (reserves 1 GiB)")
+                    help="replay a captured ttnn trace of the diffusion step")
     ap.add_argument("--keep-cif", type=Path, default=None,
                     help="copy each fold's CIF here, so an arm can be scored against another")
     ap.add_argument("--ab-env", default=None, metavar="NAME",

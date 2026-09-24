@@ -1,0 +1,7 @@
+{"tag": "s_512_small_a10", "surface": "boltz2", "input": "perf/mgx_affinity/inputs/size/cdk2_512_small.yaml", "args": ["--diffusion_samples_affinity", "10"]}
+{"tag": "s_512_small_a25", "surface": "boltz2", "input": "perf/mgx_affinity/inputs/size/cdk2_512_small.yaml", "args": ["--diffusion_samples_affinity", "25"]}
+{"tag": "m_512_small_a5", "surface": "boltz2", "input": "perf/mgx_affinity/inputs/size/cdk2_512_small.yaml", "census": true, "args": ["--diffusion_samples_affinity", "5", "--sampling_steps", "20", "--sampling_steps_affinity", "20"]}
+{"tag": "m_512_small_a10", "surface": "boltz2", "input": "perf/mgx_affinity/inputs/size/cdk2_512_small.yaml", "census": true, "args": ["--diffusion_samples_affinity", "10", "--sampling_steps", "20", "--sampling_steps_affinity", "20"]}
+{"tag": "m_512_small_a25", "surface": "boltz2", "input": "perf/mgx_affinity/inputs/size/cdk2_512_small.yaml", "census": true, "args": ["--diffusion_samples_affinity", "25", "--sampling_steps", "20", "--sampling_steps_affinity", "20"]}
+{"tag": "m_1536_b12_a5", "surface": "boltz2", "input": "perf/mgx_affinity/inputs/size/cdk2_1536_b12.yaml", "census": true, "args": ["--sampling_steps", "20", "--sampling_steps_affinity", "20"]}
+{"tag": "mn_1536_b12", "surface": "nesso1", "input": "perf/mgx_affinity/inputs/size/cdk2_1536_b12.yaml", "census": true}

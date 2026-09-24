@@ -232,7 +232,7 @@ SAMPLING_STEPS_BY_MODEL = {"rf3": 50}
 # Defaults off: the standing floors below were calibrated for full precision.
 FAST = False
 # When set (via --diffusion_trace), fold boltz2 with the per-step DiT trace
-# replay on (lossless; reserves a 1 GiB trace region). boltz2 only — other fold
+# replay on (lossless; reserves a trace region). boltz2 only — other fold
 # models do not wire diffusion_trace through. Defaults off.
 DIFFUSION_TRACE = False
 

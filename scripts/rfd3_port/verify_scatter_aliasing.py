@@ -41,7 +41,7 @@ def _template(dev):
 
 
 def main() -> None:
-    dev = get_device(trace_region_size=1 << 26)
+    dev = get_device(trace="diffusion")   # any sized region holds one scatter
     torch.manual_seed(0)
     a_idx = torch.stack([torch.randperm(L)[:K] for _ in range(L)])
     b_idx = torch.stack([torch.randperm(L)[:K] for _ in range(L)])

@@ -40,7 +40,7 @@ def main() -> int:
     ap.add_argument("--blocks", type=int, default=5)
     a = ap.parse_args()
 
-    dev = T.get_device(trace_region_size=1 << 28)
+    dev = T.get_device(trace="diffusion")
     kcls = (ttnn.types.WormholeComputeKernelConfig if dev.arch() == ttnn.Arch.WORMHOLE_B0
             else ttnn.types.BlackholeComputeKernelConfig)
     kc = kcls(math_fidelity=ttnn.MathFidelity.HiFi4, math_approx_mode=False,

@@ -1,0 +1,2 @@
+# Boltz-2 1536 small on the merged head: the pose upstream's affinity stage (upstream_aff_on.py) re-scores.
+{"tag": "v_b_1536_small", "surface": "boltz2", "input": "perf/mgx_affinity/inputs/size/cdk2_1536_small.yaml"}

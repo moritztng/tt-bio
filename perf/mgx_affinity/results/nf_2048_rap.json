@@ -1,0 +1,73 @@
+{
+ "tag": "nf_2048_rap",
+ "surface": "nesso1",
+ "input": "perf/mgx_affinity/inputs/size/cdk2_2048_rap.yaml",
+ "args": [],
+ "host": "j10glx02",
+ "cards": [
+  17
+ ],
+ "commit": "2c0cb57d7",
+ "rc": null,
+ "wall_s": 314.4,
+ "aiclk": {
+  "0": {
+   "min": 500,
+   "median": 1000,
+   "max": 1000,
+   "n": 13
+  }
+ },
+ "load": {
+  "min": 55.74,
+  "median": 60.54,
+  "max": 68.17,
+  "nproc": 64
+ },
+ "census": null,
+ "adopted": true,
+ "rows": [
+  {
+   "id": "cdk2_2048_rap",
+   "n_tokens": "2113",
+   "seconds": "245.43860182201024",
+   "affinity_pred_value": "0.5549334287643433",
+   "affinity_pred_value1": "0.5219773054122925",
+   "affinity_pred_value2": "0.5878896117210388",
+   "affinity_logits_binary": "-1.3045345544815063",
+   "affinity_probability_binary": "0.21340283751487732",
+   "entropy_pp": "0.1760668307542801",
+   "entropy_pl": "0.41288191080093384",
+   "entropy_ll": "0.3348170220851898",
+   "entropy_crop_pp": "0.7620430588722229",
+   "entropy_crop_pl": "0.9206993579864502",
+   "entropy_crop_ll": "0.3348170220851898",
+   "error": ""
+  }
+ ],
+ "contention": false,
+ "errors": [
+  "2026-09-23 14:05:00.331 | critical |          Always | TT_THROW: Statically allocated circular buffers on core range [(x=0,y=0) - (x=7,y=8)] grow to 20280608 B which is beyond max L1 size of 1499136 B (assert.hpp:104)",
+  "2026-09-23 14:05:02.180 | critical |          Always | TT_THROW: Statically allocated circular buffers on core range [(x=0,y=0) - (x=7,y=8)] grow to 29472032 B which is beyond max L1 size of 1499136 B (assert.hpp:104)",
+  "2026-09-23 14:05:04.034 | critical |          Always | TT_THROW: Statically allocated circular buffers on core range [(x=0,y=0) - (x=7,y=8)] grow to 4701472 B which is beyond max L1 size of 1499136 B (assert.hpp:104)",
+  "2026-09-23 14:08:09.919 | critical |          Always | TT_THROW: Statically allocated circular buffers in program 1065 clash with L1 buffers on core range [(x=0,y=0) - (x=7,y=8)]. L1 buffer allocated at 1144832 and static circular buffer region ends at 1152288 (assert.hpp:104)"
+ ],
+ "tail": [
+  "START 2026-09-23T14:03:20Z cards=17 commit=13dddf32c",
+  "CMD /home/agent/env/bin/python -m tt_bio.main affinity perf/mgx_affinity/inputs/size/cdk2_2048_rap.yaml --out_dir /home/agent/wt-mgx-affinity-scale/perf/mgx_affinity/out/nf_2048_rap --host_threads 2",
+  "Loading nesso1 (tenstorrent, trunk bf16) \u2026",
+  "Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.",
+  "[tt-bio] device bring-up lock: cannot use /tmp/tt-bio-device-open.lock (Permission denied); serializing on /tmp/tt-bio-device-open.lock.uid1004 instead. That covers tt-bio processes running under uid 1004 on this host and nothing else, so a tt-bio process running as a different unix account brings chips up unserialized against this one.",
+  "2026-09-23 14:05:00.331 | critical |          Always | TT_THROW: Statically allocated circular buffers on core range [(x=0,y=0) - (x=7,y=8)] grow to 20280608 B which is beyond max L1 size of 1499136 B (assert.hpp:104)",
+  "2026-09-23 14:05:02.180 | critical |          Always | TT_THROW: Statically allocated circular buffers on core range [(x=0,y=0) - (x=7,y=8)] grow to 29472032 B which is beyond max L1 size of 1499136 B (assert.hpp:104)",
+  "[tt-bio] tri_att_sdpa/wide_k: device refused this L1 plan, retrying a narrower one (expected, not a crash)",
+  "[tt-bio] L1 census: grid=(8, 9) cores=72 cb_need=29472032 l1_top=1499136 resident_per_core=0 shortfall=27972896",
+  "2026-09-23 14:05:04.034 | critical |          Always | TT_THROW: Statically allocated circular buffers on core range [(x=0,y=0) - (x=7,y=8)] grow to 4701472 B which is beyond max L1 size of 1499136 B (assert.hpp:104)",
+  "[tt-bio] tri_att_sdpa/q_chunk: device refused this L1 plan, retrying a narrower one (expected, not a crash)",
+  "[tt-bio] L1 census: grid=(8, 9) cores=72 cb_need=4701472 l1_top=1499136 resident_per_core=0 shortfall=3202336",
+  "2026-09-23 14:08:09.919 | critical |          Always | TT_THROW: Statically allocated circular buffers in program 1065 clash with L1 buffers on core range [(x=0,y=0) - (x=7,y=8)]. L1 buffer allocated at 1144832 and static circular buffer region ends at 1152288 (assert.hpp:104)",
+  "[tt-bio] trimul L1/circular-buffer clash at chunk width 32 (seq 256, 8x9 grid): retrying narrower. The tt-metal 'critical' line above is expected and handled; the result is unchanged.",
+  "  cdk2_2048_rap: affinity 0.555 p(binder) 0.213 (2113 tokens, 245.4s)",
+  "Done \u2014 1/1 scored \u2192 /home/agent/wt-mgx-affinity-scale/perf/mgx_affinity/out/nf_2048_rap/affinity.csv"
+ ]
+}

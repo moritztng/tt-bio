@@ -1,0 +1,54 @@
+{
+ "tag": "n_512_b12",
+ "surface": "nesso1",
+ "input": "perf/mgx_affinity/inputs/size/cdk2_512_b12.yaml",
+ "args": [],
+ "host": "j10glx02",
+ "cards": [
+  21
+ ],
+ "commit": "dc34becb8",
+ "rc": 0,
+ "wall_s": 143.0,
+ "aiclk": {
+  "0": {
+   "min": 1000,
+   "median": 1000,
+   "max": 1000,
+   "n": 7
+  }
+ },
+ "load": {
+  "min": 62.21,
+  "median": 67.48,
+  "max": 74.12,
+  "nproc": 64
+ },
+ "census": null,
+ "adopted": false,
+ "rows": [
+  {
+   "id": "cdk2_512_b12",
+   "n_tokens": "603",
+   "seconds": "23.276787123060785",
+   "affinity_pred_value": "0.029524758458137512",
+   "affinity_pred_value1": "-0.1822471022605896",
+   "affinity_pred_value2": "0.24129661917686462",
+   "affinity_logits_binary": "-2.6344261169433594",
+   "affinity_probability_binary": "0.06695540249347687",
+   "entropy_pp": "0.16437526047229767",
+   "entropy_pl": "0.4146473705768585",
+   "entropy_ll": "0.4135940670967102",
+   "entropy_crop_pp": "0.49444809556007385",
+   "entropy_crop_pl": "0.828533947467804",
+   "entropy_crop_ll": "0.4135940670967102",
+   "error": ""
+  }
+ ],
+ "contention": false,
+ "errors": [
+  "2026-09-23 12:55:10.829 | critical |          Always | TT_THROW: Statically allocated circular buffers on core range [(x=0,y=0) - (x=7,y=8)] grow to 2831648 B which is beyond max L1 size of 1499136 B (assert.hpp:104)",
+  "2026-09-23 12:55:20.896 | critical |          Always | TT_THROW: Statically allocated circular buffers in program 133 clash with L1 buffers on core range [(x=0,y=0) - (x=7,y=8)]. L1 buffer allocated at 1144832 and static circular buffer region ends at 1152288 (assert.hpp:104)"
+ ],
+ "tail": []
+}
