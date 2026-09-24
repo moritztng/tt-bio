@@ -113,3 +113,28 @@ overwritten under the running 768 rung.
 
 The general rule: anything the next pass is told to run ON whglx has to be checked present ON
 whglx in the pass that writes the instruction, not in the pass that follows it.
+
+## TWO mmCIF COLUMN LAYOUTS IN THIS ROW, AND THE CENSUS READS THE RIGHT ONE
+
+The fixtures the jobs use and the targets `make_contact_target.py` writes do NOT share an
+`_atom_site` column order, so one hardcoded index set silently reads the wrong field on the
+other family. Checked by parsing each file's own loop header rather than assuming:
+
+  job fixture (`fx_*/bgt*.cif`)   0 group_PDB 1 id 2 type_symbol 3 label_atom_id ...
+                                  6 label_asym_id ... 10/11/12 Cartn_x/y/z
+  make_contact_target output      0 group_PDB 1 type_symbol 2 label_atom_id 3 label_alt_id ...
+                                  5 label_asym_id ... 13/14/15 Cartn_x/y/z
+
+The chain census in `results/chain_count_confound.txt` used field 3 == "CA" and field 6 as the
+chain, which is correct for the FIRST layout and is the one it ran on. On the second layout
+field 3 is `label_alt_id` and would have matched nothing, giving an empty counter rather than a
+wrong one -- so the failure mode here is a silent zero, not a silent wrong number. Verified
+after publishing the census, because the census is what the chain-count finding rests on.
+
+## AN UPSTREAM TARGET CAN BE FETCHED FROM pc
+
+`curl https://files.rcsb.org/download/<ID>.cif.gz` works from pc; 2VZ8 came down in seconds.
+So building a new control target is host-only work that needs no card and no quiet window, and
+`make_contact_target.py` prints the 2-22 A component count and Rg itself, which is the whole
+validity check. There is no reason for "the control needs a new target" to sit as a blocker for
+more than one pass.
