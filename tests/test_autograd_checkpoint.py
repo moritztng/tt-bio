@@ -36,11 +36,17 @@ class _Handle:
     def shape(self):
         return self.arr.shape
 
+    def storage_type(self):
+        return ag.ttnn.StorageType.DEVICE
+
+    def is_allocated(self):
+        return True
+
     def buffer_address(self):
         return id(self.storage)
 
     def memory_config(self):
-        raise RuntimeError("host stand-in")      # `_evict_read_parents` treats it as host
+        return ag.ttnn.DRAM_MEMORY_CONFIG        # never L1, so nothing evicts it
 
 
 @pytest.fixture(autouse=True)

@@ -1,0 +1,2 @@
+{"ev": "capture", "caller": "rfd3/model.py:2661", "region_per_bank": 268435456, "banks": 8, "trace_used_before": 0, "trace_used_after": 335872, "dram_bank": 4009754560, "dram_used_per_bank": 76045376, "pid": 1936861, "t": 1790211838.54}
+{"ev": "capture", "caller": "rfd3/model.py:2668", "region_per_bank": 268435456, "banks": 8, "trace_used_before": 335872, "trace_used_after": 630784, "dram_bank": 4009754560, "dram_used_per_bank": 76090432, "pid": 1936861, "t": 1790211838.55}

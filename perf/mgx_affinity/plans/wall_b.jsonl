@@ -1,0 +1,2 @@
+{"tag": "nf_2560_rap", "surface": "nesso1", "input": "perf/mgx_affinity/inputs/size/cdk2_2560_rap.yaml"}
+{"tag": "nf_2560_b12", "surface": "nesso1", "input": "perf/mgx_affinity/inputs/size/cdk2_2560_b12.yaml"}

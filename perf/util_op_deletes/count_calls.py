@@ -32,7 +32,7 @@ B.SAMPLING_STEPS = 200
 sys.path.insert(0, str(ROOT / "perf" / "other512"))
 from fold_ab_multi import patch_boltz2_cfg
 patch_boltz2_cfg()
-T.get_device(trace_region_size=1 << 30)
+T.get_device(trace="diffusion")
 fix = ROOT / "perf" / "size512" / "fixtures"
 one_fold, meta, state = B.build_fold(
     "boltz2", Path("/home/ttuser/scratch/uod/.msa_512"),

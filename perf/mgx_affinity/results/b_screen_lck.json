@@ -1,0 +1,3607 @@
+{
+ "tag": "b_screen_lck",
+ "surface": "boltz2",
+ "input": "perf/mgx_affinity/inputs/screen/lck",
+ "args": [],
+ "host": "j10glx02",
+ "cards": [
+  10,
+  22
+ ],
+ "commit": "0186ef509",
+ "rc": null,
+ "wall_s": 10351.1,
+ "aiclk": {
+  "0": {
+   "min": 500,
+   "median": 1000,
+   "max": 1000,
+   "n": 58
+  },
+  "1": {
+   "min": 500,
+   "median": 1000,
+   "max": 1000,
+   "n": 58
+  }
+ },
+ "load": {
+  "min": 52.65,
+  "median": 62.67,
+  "max": 78.4,
+  "nproc": 64
+ },
+ "census": null,
+ "adopted": true,
+ "rows": [
+  {
+   "id": "c00",
+   "status": "ok",
+   "confidence_score": 0.875919,
+   "ptm": 0.725815,
+   "iptm": 0.95125,
+   "ligand_iptm": 0.95125,
+   "protein_iptm": 0.0,
+   "complex_plddt": 0.857086,
+   "complex_iplddt": 0.874907,
+   "complex_pde": 1.272992,
+   "complex_ipde": 1.152675,
+   "plddt": 0.857086,
+   "pair_chains_iptm": {
+    "0": {
+     "0": 0.71541,
+     "1": 0.514634
+    },
+    "1": {
+     "0": 0.95125,
+     "1": 0.930468
+    }
+   },
+   "chains_ptm": {
+    "0": 0.71541,
+    "1": 0.930468
+   },
+   "affinity_pred_value": 2.605038,
+   "affinity_probability_binary": 0.103561,
+   "affinity_pred_value1": 2.13683,
+   "affinity_probability_binary1": 0.095026,
+   "affinity_pred_value2": 3.073247,
+   "affinity_probability_binary2": 0.112096,
+   "structure_runtime_s": 247.7,
+   "affinity_runtime_s": 300.7,
+   "runtime_s": 548.4
+  },
+  {
+   "id": "c01",
+   "status": "ok",
+   "confidence_score": 0.809029,
+   "ptm": 0.740975,
+   "iptm": 0.715595,
+   "ligand_iptm": 0.715595,
+   "protein_iptm": 0.0,
+   "complex_plddt": 0.832388,
+   "complex_iplddt": 0.719305,
+   "complex_pde": 1.416356,
+   "complex_ipde": 4.133449,
+   "plddt": 0.832388,
+   "pair_chains_iptm": {
+    "0": {
+     "0": 0.743323,
+     "1": 0.184437
+    },
+    "1": {
+     "0": 0.715595,
+     "1": 0.785156
+    }
+   },
+   "chains_ptm": {
+    "0": 0.743323,
+    "1": 0.785156
+   },
+   "affinity_pred_value": 2.086224,
+   "affinity_probability_binary": 0.099487,
+   "affinity_pred_value1": 1.737654,
+   "affinity_probability_binary1": 0.110395,
+   "affinity_pred_value2": 2.434793,
+   "affinity_probability_binary2": 0.088579,
+   "structure_runtime_s": 247.6,
+   "affinity_runtime_s": 304.1,
+   "runtime_s": 551.7
+  },
+  {
+   "id": "c03",
+   "status": "ok",
+   "confidence_score": 0.884109,
+   "ptm": 0.728641,
+   "iptm": 0.965422,
+   "ligand_iptm": 0.965422,
+   "protein_iptm": 0.0,
+   "complex_plddt": 0.863781,
+   "complex_iplddt": 0.902409,
+   "complex_pde": 1.244991,
+   "complex_ipde": 0.917828,
+   "plddt": 0.863781,
+   "pair_chains_iptm": {
+    "0": {
+     "0": 0.717025,
+     "1": 0.542392
+    },
+    "1": {
+     "0": 0.965422,
+     "1": 0.943142
+    }
+   },
+   "chains_ptm": {
+    "0": 0.717025,
+    "1": 0.943142
+   },
+   "affinity_pred_value": 2.530696,
+   "affinity_probability_binary": 0.148753,
+   "affinity_pred_value1": 2.052867,
+   "affinity_probability_binary1": 0.127377,
+   "affinity_pred_value2": 3.008525,
+   "affinity_probability_binary2": 0.170128,
+   "structure_runtime_s": 56.6,
+   "affinity_runtime_s": 130.3,
+   "runtime_s": 186.9
+  },
+  {
+   "id": "c02",
+   "status": "ok",
+   "confidence_score": 0.883164,
+   "ptm": 0.699773,
+   "iptm": 0.963341,
+   "ligand_iptm": 0.963341,
+   "protein_iptm": 0.0,
+   "complex_plddt": 0.86312,
+   "complex_iplddt": 0.905565,
+   "complex_pde": 1.340092,
+   "complex_ipde": 0.910842,
+   "plddt": 0.86312,
+   "pair_chains_iptm": {
+    "0": {
+     "0": 0.687014,
+     "1": 0.518958
+    },
+    "1": {
+     "0": 0.963341,
+     "1": 0.941406
+    }
+   },
+   "chains_ptm": {
+    "0": 0.687014,
+    "1": 0.941406
+   },
+   "affinity_pred_value": 2.234297,
+   "affinity_probability_binary": 0.11252,
+   "affinity_pred_value1": 1.731626,
+   "affinity_probability_binary1": 0.021876,
+   "affinity_pred_value2": 2.736967,
+   "affinity_probability_binary2": 0.203163,
+   "structure_runtime_s": 57.8,
+   "affinity_runtime_s": 139.0,
+   "runtime_s": 196.7
+  },
+  {
+   "id": "c04",
+   "status": "ok",
+   "confidence_score": 0.819701,
+   "ptm": 0.808276,
+   "iptm": 0.746244,
+   "ligand_iptm": 0.746244,
+   "protein_iptm": 0.0,
+   "complex_plddt": 0.838065,
+   "complex_iplddt": 0.740006,
+   "complex_pde": 1.156737,
+   "complex_ipde": 3.486235,
+   "plddt": 0.838065,
+   "pair_chains_iptm": {
+    "0": {
+     "0": 0.812442,
+     "1": 0.173837
+    },
+    "1": {
+     "0": 0.746244,
+     "1": 0.775015
+    }
+   },
+   "chains_ptm": {
+    "0": 0.812442,
+    "1": 0.775015
+   },
+   "affinity_pred_value": 1.964458,
+   "affinity_probability_binary": 0.078312,
+   "affinity_pred_value1": 1.269654,
+   "affinity_probability_binary1": 0.050709,
+   "affinity_pred_value2": 2.659261,
+   "affinity_probability_binary2": 0.105914,
+   "structure_runtime_s": 90.1,
+   "affinity_runtime_s": 261.0,
+   "runtime_s": 351.1
+  },
+  {
+   "id": "c05",
+   "status": "ok",
+   "confidence_score": 0.868503,
+   "ptm": 0.723565,
+   "iptm": 0.931423,
+   "ligand_iptm": 0.931423,
+   "protein_iptm": 0.0,
+   "complex_plddt": 0.852773,
+   "complex_iplddt": 0.825438,
+   "complex_pde": 1.294187,
+   "complex_ipde": 1.360734,
+   "plddt": 0.852773,
+   "pair_chains_iptm": {
+    "0": {
+     "0": 0.713514,
+     "1": 0.508881
+    },
+    "1": {
+     "0": 0.931423,
+     "1": 0.913628
+    }
+   },
+   "chains_ptm": {
+    "0": 0.713514,
+    "1": 0.913628
+   },
+   "affinity_pred_value": 2.156904,
+   "affinity_probability_binary": 0.079065,
+   "affinity_pred_value1": 1.485013,
+   "affinity_probability_binary1": 0.041565,
+   "affinity_pred_value2": 2.828796,
+   "affinity_probability_binary2": 0.116566,
+   "structure_runtime_s": 93.4,
+   "affinity_runtime_s": 254.1,
+   "runtime_s": 347.6
+  },
+  {
+   "id": "c06",
+   "status": "ok",
+   "confidence_score": 0.828429,
+   "ptm": 0.727863,
+   "iptm": 0.793981,
+   "ligand_iptm": 0.793981,
+   "protein_iptm": 0.0,
+   "complex_plddt": 0.837041,
+   "complex_iplddt": 0.748603,
+   "complex_pde": 1.406506,
+   "complex_ipde": 3.011906,
+   "plddt": 0.837041,
+   "pair_chains_iptm": {
+    "0": {
+     "0": 0.725584,
+     "1": 0.215331
+    },
+    "1": {
+     "0": 0.793981,
+     "1": 0.803096
+    }
+   },
+   "chains_ptm": {
+    "0": 0.725584,
+    "1": 0.803096
+   },
+   "affinity_pred_value": 2.100831,
+   "affinity_probability_binary": 0.076339,
+   "affinity_pred_value1": 1.374873,
+   "affinity_probability_binary1": 0.046494,
+   "affinity_pred_value2": 2.826788,
+   "affinity_probability_binary2": 0.106183,
+   "structure_runtime_s": 58.9,
+   "affinity_runtime_s": 155.6,
+   "runtime_s": 214.5
+  },
+  {
+   "id": "c07",
+   "status": "ok",
+   "confidence_score": 0.8068,
+   "ptm": 0.72575,
+   "iptm": 0.695731,
+   "ligand_iptm": 0.695731,
+   "protein_iptm": 0.0,
+   "complex_plddt": 0.834567,
+   "complex_iplddt": 0.712514,
+   "complex_pde": 1.51594,
+   "complex_ipde": 4.670533,
+   "plddt": 0.834567,
+   "pair_chains_iptm": {
+    "0": {
+     "0": 0.72902,
+     "1": 0.151981
+    },
+    "1": {
+     "0": 0.695731,
+     "1": 0.746303
+    }
+   },
+   "chains_ptm": {
+    "0": 0.72902,
+    "1": 0.746303
+   },
+   "affinity_pred_value": 2.152995,
+   "affinity_probability_binary": 0.069682,
+   "affinity_pred_value1": 1.465389,
+   "affinity_probability_binary1": 0.021732,
+   "affinity_pred_value2": 2.840601,
+   "affinity_probability_binary2": 0.117631,
+   "structure_runtime_s": 58.1,
+   "affinity_runtime_s": 157.8,
+   "runtime_s": 215.9
+  },
+  {
+   "id": "c08",
+   "status": "ok",
+   "confidence_score": 0.815301,
+   "ptm": 0.671523,
+   "iptm": 0.749699,
+   "ligand_iptm": 0.749699,
+   "protein_iptm": 0.0,
+   "complex_plddt": 0.831702,
+   "complex_iplddt": 0.710929,
+   "complex_pde": 1.71751,
+   "complex_ipde": 6.34613,
+   "plddt": 0.831702,
+   "pair_chains_iptm": {
+    "0": {
+     "0": 0.668782,
+     "1": 0.210691
+    },
+    "1": {
+     "0": 0.749699,
+     "1": 0.805739
+    }
+   },
+   "chains_ptm": {
+    "0": 0.668782,
+    "1": 0.805739
+   },
+   "affinity_pred_value": 1.12896,
+   "affinity_probability_binary": 0.144125,
+   "affinity_pred_value1": 0.884014,
+   "affinity_probability_binary1": 0.16837,
+   "affinity_pred_value2": 1.373907,
+   "affinity_probability_binary2": 0.119879,
+   "structure_runtime_s": 58.7,
+   "affinity_runtime_s": 147.7,
+   "runtime_s": 206.5
+  },
+  {
+   "id": "c09",
+   "status": "ok",
+   "confidence_score": 0.807909,
+   "ptm": 0.690844,
+   "iptm": 0.704571,
+   "ligand_iptm": 0.704571,
+   "protein_iptm": 0.0,
+   "complex_plddt": 0.833744,
+   "complex_iplddt": 0.684127,
+   "complex_pde": 1.631497,
+   "complex_ipde": 4.46021,
+   "plddt": 0.833744,
+   "pair_chains_iptm": {
+    "0": {
+     "0": 0.691413,
+     "1": 0.172654
+    },
+    "1": {
+     "0": 0.704571,
+     "1": 0.778718
+    }
+   },
+   "chains_ptm": {
+    "0": 0.691413,
+    "1": 0.778718
+   },
+   "affinity_pred_value": 1.186238,
+   "affinity_probability_binary": 0.122356,
+   "affinity_pred_value1": 0.805957,
+   "affinity_probability_binary1": 0.128277,
+   "affinity_pred_value2": 1.566519,
+   "affinity_probability_binary2": 0.116436,
+   "structure_runtime_s": 61.6,
+   "affinity_runtime_s": 147.0,
+   "runtime_s": 208.6
+  },
+  {
+   "id": "c10",
+   "status": "ok",
+   "confidence_score": 0.837593,
+   "ptm": 0.717779,
+   "iptm": 0.826244,
+   "ligand_iptm": 0.826244,
+   "protein_iptm": 0.0,
+   "complex_plddt": 0.84043,
+   "complex_iplddt": 0.784437,
+   "complex_pde": 1.463614,
+   "complex_ipde": 4.224712,
+   "plddt": 0.84043,
+   "pair_chains_iptm": {
+    "0": {
+     "0": 0.712785,
+     "1": 0.320319
+    },
+    "1": {
+     "0": 0.826244,
+     "1": 0.858073
+    }
+   },
+   "chains_ptm": {
+    "0": 0.712785,
+    "1": 0.858073
+   },
+   "affinity_pred_value": 1.279137,
+   "affinity_probability_binary": 0.098898,
+   "affinity_pred_value1": 0.396474,
+   "affinity_probability_binary1": 0.107392,
+   "affinity_pred_value2": 2.1618,
+   "affinity_probability_binary2": 0.090404,
+   "structure_runtime_s": 58.9,
+   "affinity_runtime_s": 147.4,
+   "runtime_s": 206.3
+  },
+  {
+   "id": "c11",
+   "status": "ok",
+   "confidence_score": 0.810488,
+   "ptm": 0.807848,
+   "iptm": 0.747907,
+   "ligand_iptm": 0.747907,
+   "protein_iptm": 0.0,
+   "complex_plddt": 0.826134,
+   "complex_iplddt": 0.694902,
+   "complex_pde": 1.148533,
+   "complex_ipde": 3.473194,
+   "plddt": 0.826134,
+   "pair_chains_iptm": {
+    "0": {
+     "0": 0.811771,
+     "1": 0.191318
+    },
+    "1": {
+     "0": 0.747907,
+     "1": 0.789341
+    }
+   },
+   "chains_ptm": {
+    "0": 0.811771,
+    "1": 0.789341
+   },
+   "affinity_pred_value": 1.234836,
+   "affinity_probability_binary": 0.069453,
+   "affinity_pred_value1": 0.414125,
+   "affinity_probability_binary1": 0.082475,
+   "affinity_pred_value2": 2.055546,
+   "affinity_probability_binary2": 0.056432,
+   "structure_runtime_s": 57.7,
+   "affinity_runtime_s": 144.6,
+   "runtime_s": 202.3
+  },
+  {
+   "id": "c12",
+   "status": "ok",
+   "confidence_score": 0.811969,
+   "ptm": 0.724511,
+   "iptm": 0.722656,
+   "ligand_iptm": 0.722656,
+   "protein_iptm": 0.0,
+   "complex_plddt": 0.834297,
+   "complex_iplddt": 0.759892,
+   "complex_pde": 1.509211,
+   "complex_ipde": 4.167175,
+   "plddt": 0.834297,
+   "pair_chains_iptm": {
+    "0": {
+     "0": 0.725975,
+     "1": 0.168037
+    },
+    "1": {
+     "0": 0.722656,
+     "1": 0.790943
+    }
+   },
+   "chains_ptm": {
+    "0": 0.725975,
+    "1": 0.790943
+   },
+   "affinity_pred_value": 1.548048,
+   "affinity_probability_binary": 0.115233,
+   "affinity_pred_value1": 1.194089,
+   "affinity_probability_binary1": 0.12045,
+   "affinity_pred_value2": 1.902008,
+   "affinity_probability_binary2": 0.110017,
+   "structure_runtime_s": 57.0,
+   "affinity_runtime_s": 146.8,
+   "runtime_s": 203.8
+  },
+  {
+   "id": "c13",
+   "status": "ok",
+   "confidence_score": 0.829424,
+   "ptm": 0.791041,
+   "iptm": 0.749581,
+   "ligand_iptm": 0.749581,
+   "protein_iptm": 0.0,
+   "complex_plddt": 0.849385,
+   "complex_iplddt": 0.737198,
+   "complex_pde": 1.236525,
+   "complex_ipde": 3.681371,
+   "plddt": 0.849385,
+   "pair_chains_iptm": {
+    "0": {
+     "0": 0.79455,
+     "1": 0.187121
+    },
+    "1": {
+     "0": 0.749581,
+     "1": 0.786691
+    }
+   },
+   "chains_ptm": {
+    "0": 0.79455,
+    "1": 0.786691
+   },
+   "affinity_pred_value": 1.443099,
+   "affinity_probability_binary": 0.089413,
+   "affinity_pred_value1": 1.011666,
+   "affinity_probability_binary1": 0.102145,
+   "affinity_pred_value2": 1.874532,
+   "affinity_probability_binary2": 0.076681,
+   "structure_runtime_s": 56.4,
+   "affinity_runtime_s": 150.9,
+   "runtime_s": 207.3
+  },
+  {
+   "id": "c14",
+   "status": "ok",
+   "confidence_score": 0.781546,
+   "ptm": 0.715775,
+   "iptm": 0.622489,
+   "ligand_iptm": 0.622489,
+   "protein_iptm": 0.0,
+   "complex_plddt": 0.82131,
+   "complex_iplddt": 0.678078,
+   "complex_pde": 1.658183,
+   "complex_ipde": 5.781521,
+   "plddt": 0.82131,
+   "pair_chains_iptm": {
+    "0": {
+     "0": 0.721912,
+     "1": 0.141826
+    },
+    "1": {
+     "0": 0.622489,
+     "1": 0.764718
+    }
+   },
+   "chains_ptm": {
+    "0": 0.721912,
+    "1": 0.764718
+   },
+   "affinity_pred_value": 1.624035,
+   "affinity_probability_binary": 0.044182,
+   "affinity_pred_value1": 0.610533,
+   "affinity_probability_binary1": 0.036091,
+   "affinity_pred_value2": 2.637536,
+   "affinity_probability_binary2": 0.052274,
+   "structure_runtime_s": 57.3,
+   "affinity_runtime_s": 148.8,
+   "runtime_s": 206.2
+  },
+  {
+   "id": "c15",
+   "status": "ok",
+   "confidence_score": 0.826421,
+   "ptm": 0.716779,
+   "iptm": 0.780846,
+   "ligand_iptm": 0.780846,
+   "protein_iptm": 0.0,
+   "complex_plddt": 0.837815,
+   "complex_iplddt": 0.748558,
+   "complex_pde": 1.454175,
+   "complex_ipde": 3.440405,
+   "plddt": 0.837815,
+   "pair_chains_iptm": {
+    "0": {
+     "0": 0.714418,
+     "1": 0.195481
+    },
+    "1": {
+     "0": 0.780846,
+     "1": 0.79903
+    }
+   },
+   "chains_ptm": {
+    "0": 0.714418,
+    "1": 0.79903
+   },
+   "affinity_pred_value": 2.077828,
+   "affinity_probability_binary": 0.080777,
+   "affinity_pred_value1": 1.61713,
+   "affinity_probability_binary1": 0.121822,
+   "affinity_pred_value2": 2.538527,
+   "affinity_probability_binary2": 0.039731,
+   "structure_runtime_s": 57.5,
+   "affinity_runtime_s": 153.5,
+   "runtime_s": 211.0
+  },
+  {
+   "id": "c17",
+   "status": "ok",
+   "confidence_score": 0.866561,
+   "ptm": 0.727839,
+   "iptm": 0.902054,
+   "ligand_iptm": 0.902054,
+   "protein_iptm": 0.0,
+   "complex_plddt": 0.857688,
+   "complex_iplddt": 0.862775,
+   "complex_pde": 1.276303,
+   "complex_ipde": 1.661549,
+   "plddt": 0.857688,
+   "pair_chains_iptm": {
+    "0": {
+     "0": 0.719465,
+     "1": 0.440834
+    },
+    "1": {
+     "0": 0.902054,
+     "1": 0.888455
+    }
+   },
+   "chains_ptm": {
+    "0": 0.719465,
+    "1": 0.888455
+   },
+   "affinity_pred_value": 2.011055,
+   "affinity_probability_binary": 0.119334,
+   "affinity_pred_value1": 1.346483,
+   "affinity_probability_binary1": 0.154434,
+   "affinity_pred_value2": 2.675628,
+   "affinity_probability_binary2": 0.084233,
+   "structure_runtime_s": 59.7,
+   "affinity_runtime_s": 130.5,
+   "runtime_s": 190.2
+  },
+  {
+   "id": "c16",
+   "status": "ok",
+   "confidence_score": 0.868912,
+   "ptm": 0.736557,
+   "iptm": 0.907902,
+   "ligand_iptm": 0.907902,
+   "protein_iptm": 0.0,
+   "complex_plddt": 0.859165,
+   "complex_iplddt": 0.857486,
+   "complex_pde": 1.251031,
+   "complex_ipde": 1.545239,
+   "plddt": 0.859165,
+   "pair_chains_iptm": {
+    "0": {
+     "0": 0.728565,
+     "1": 0.357648
+    },
+    "1": {
+     "0": 0.907902,
+     "1": 0.866586
+    }
+   },
+   "chains_ptm": {
+    "0": 0.728565,
+    "1": 0.866586
+   },
+   "affinity_pred_value": 1.983286,
+   "affinity_probability_binary": 0.063711,
+   "affinity_pred_value1": 1.525999,
+   "affinity_probability_binary1": 0.077239,
+   "affinity_pred_value2": 2.440574,
+   "affinity_probability_binary2": 0.050184,
+   "structure_runtime_s": 58.1,
+   "affinity_runtime_s": 149.8,
+   "runtime_s": 207.9
+  },
+  {
+   "id": "c18",
+   "status": "ok",
+   "confidence_score": 0.806382,
+   "ptm": 0.676208,
+   "iptm": 0.700955,
+   "ligand_iptm": 0.700955,
+   "protein_iptm": 0.0,
+   "complex_plddt": 0.832738,
+   "complex_iplddt": 0.742265,
+   "complex_pde": 1.741536,
+   "complex_ipde": 6.245411,
+   "plddt": 0.832738,
+   "pair_chains_iptm": {
+    "0": {
+     "0": 0.675854,
+     "1": 0.189639
+    },
+    "1": {
+     "0": 0.700955,
+     "1": 0.784867
+    }
+   },
+   "chains_ptm": {
+    "0": 0.675854,
+    "1": 0.784867
+   },
+   "affinity_pred_value": 1.757396,
+   "affinity_probability_binary": 0.117543,
+   "affinity_pred_value1": 1.331457,
+   "affinity_probability_binary1": 0.145439,
+   "affinity_pred_value2": 2.183334,
+   "affinity_probability_binary2": 0.089647,
+   "structure_runtime_s": 57.4,
+   "affinity_runtime_s": 131.6,
+   "runtime_s": 189.0
+  },
+  {
+   "id": "c19",
+   "status": "ok",
+   "confidence_score": 0.868869,
+   "ptm": 0.718708,
+   "iptm": 0.929687,
+   "ligand_iptm": 0.929687,
+   "protein_iptm": 0.0,
+   "complex_plddt": 0.853664,
+   "complex_iplddt": 0.86418,
+   "complex_pde": 1.316541,
+   "complex_ipde": 1.805805,
+   "plddt": 0.853664,
+   "pair_chains_iptm": {
+    "0": {
+     "0": 0.708246,
+     "1": 0.46884
+    },
+    "1": {
+     "0": 0.929687,
+     "1": 0.920201
+    }
+   },
+   "chains_ptm": {
+    "0": 0.708246,
+    "1": 0.920201
+   },
+   "affinity_pred_value": 2.732759,
+   "affinity_probability_binary": 0.08611,
+   "affinity_pred_value1": 2.030563,
+   "affinity_probability_binary1": 0.095085,
+   "affinity_pred_value2": 3.434954,
+   "affinity_probability_binary2": 0.077136,
+   "structure_runtime_s": 56.3,
+   "affinity_runtime_s": 150.4,
+   "runtime_s": 206.6
+  },
+  {
+   "id": "c20",
+   "status": "ok",
+   "confidence_score": 0.801228,
+   "ptm": 0.698894,
+   "iptm": 0.699508,
+   "ligand_iptm": 0.699508,
+   "protein_iptm": 0.0,
+   "complex_plddt": 0.826658,
+   "complex_iplddt": 0.699882,
+   "complex_pde": 1.612511,
+   "complex_ipde": 5.969215,
+   "plddt": 0.826658,
+   "pair_chains_iptm": {
+    "0": {
+     "0": 0.700059,
+     "1": 0.179173
+    },
+    "1": {
+     "0": 0.699508,
+     "1": 0.799045
+    }
+   },
+   "chains_ptm": {
+    "0": 0.700059,
+    "1": 0.799045
+   },
+   "affinity_pred_value": 1.728199,
+   "affinity_probability_binary": 0.08002,
+   "affinity_pred_value1": 1.509395,
+   "affinity_probability_binary1": 0.079019,
+   "affinity_pred_value2": 1.947002,
+   "affinity_probability_binary2": 0.081021,
+   "structure_runtime_s": 60.3,
+   "affinity_runtime_s": 198.0,
+   "runtime_s": 258.3
+  },
+  {
+   "id": "c21",
+   "status": "ok",
+   "confidence_score": 0.815303,
+   "ptm": 0.669737,
+   "iptm": 0.737165,
+   "ligand_iptm": 0.737165,
+   "protein_iptm": 0.0,
+   "complex_plddt": 0.834838,
+   "complex_iplddt": 0.735538,
+   "complex_pde": 1.729238,
+   "complex_ipde": 6.061142,
+   "plddt": 0.834838,
+   "pair_chains_iptm": {
+    "0": {
+     "0": 0.667141,
+     "1": 0.218771
+    },
+    "1": {
+     "0": 0.737165,
+     "1": 0.813476
+    }
+   },
+   "chains_ptm": {
+    "0": 0.667141,
+    "1": 0.813476
+   },
+   "affinity_pred_value": 1.952429,
+   "affinity_probability_binary": 0.095545,
+   "affinity_pred_value1": 1.298045,
+   "affinity_probability_binary1": 0.082234,
+   "affinity_pred_value2": 2.606813,
+   "affinity_probability_binary2": 0.108856,
+   "structure_runtime_s": 115.1,
+   "affinity_runtime_s": 150.4,
+   "runtime_s": 265.5
+  },
+  {
+   "id": "c22",
+   "status": "ok",
+   "confidence_score": 0.80466,
+   "ptm": 0.64715,
+   "iptm": 0.688476,
+   "ligand_iptm": 0.688476,
+   "protein_iptm": 0.0,
+   "complex_plddt": 0.833706,
+   "complex_iplddt": 0.772832,
+   "complex_pde": 1.859864,
+   "complex_ipde": 6.166421,
+   "plddt": 0.833706,
+   "pair_chains_iptm": {
+    "0": {
+     "0": 0.646304,
+     "1": 0.174593
+    },
+    "1": {
+     "0": 0.688476,
+     "1": 0.787179
+    }
+   },
+   "chains_ptm": {
+    "0": 0.646304,
+    "1": 0.787179
+   },
+   "affinity_pred_value": 2.090839,
+   "affinity_probability_binary": 0.062159,
+   "affinity_pred_value1": 1.640508,
+   "affinity_probability_binary1": 0.036627,
+   "affinity_pred_value2": 2.541171,
+   "affinity_probability_binary2": 0.087691,
+   "structure_runtime_s": 56.3,
+   "affinity_runtime_s": 150.8,
+   "runtime_s": 207.0
+  },
+  {
+   "id": "c23",
+   "status": "ok",
+   "confidence_score": 0.789811,
+   "ptm": 0.685342,
+   "iptm": 0.652074,
+   "ligand_iptm": 0.652074,
+   "protein_iptm": 0.0,
+   "complex_plddt": 0.824245,
+   "complex_iplddt": 0.718653,
+   "complex_pde": 1.761322,
+   "complex_ipde": 7.420882,
+   "plddt": 0.824245,
+   "pair_chains_iptm": {
+    "0": {
+     "0": 0.68845,
+     "1": 0.20795
+    },
+    "1": {
+     "0": 0.652074,
+     "1": 0.790948
+    }
+   },
+   "chains_ptm": {
+    "0": 0.68845,
+    "1": 0.790948
+   },
+   "affinity_pred_value": 2.097257,
+   "affinity_probability_binary": 0.067171,
+   "affinity_pred_value1": 1.609028,
+   "affinity_probability_binary1": 0.080251,
+   "affinity_pred_value2": 2.585486,
+   "affinity_probability_binary2": 0.054091,
+   "structure_runtime_s": 61.8,
+   "affinity_runtime_s": 148.9,
+   "runtime_s": 210.7
+  },
+  {
+   "id": "c24",
+   "status": "ok",
+   "confidence_score": 0.798741,
+   "ptm": 0.642721,
+   "iptm": 0.665943,
+   "ligand_iptm": 0.665943,
+   "protein_iptm": 0.0,
+   "complex_plddt": 0.83194,
+   "complex_iplddt": 0.69972,
+   "complex_pde": 1.911515,
+   "complex_ipde": 8.037714,
+   "plddt": 0.83194,
+   "pair_chains_iptm": {
+    "0": {
+     "0": 0.642502,
+     "1": 0.167681
+    },
+    "1": {
+     "0": 0.665943,
+     "1": 0.776041
+    }
+   },
+   "chains_ptm": {
+    "0": 0.642502,
+    "1": 0.776041
+   },
+   "affinity_pred_value": 1.171567,
+   "affinity_probability_binary": 0.110753,
+   "affinity_pred_value1": 1.441058,
+   "affinity_probability_binary1": 0.125934,
+   "affinity_pred_value2": 0.902076,
+   "affinity_probability_binary2": 0.095572,
+   "structure_runtime_s": 57.9,
+   "affinity_runtime_s": 153.8,
+   "runtime_s": 211.7
+  },
+  {
+   "id": "c25",
+   "status": "ok",
+   "confidence_score": 0.787892,
+   "ptm": 0.653748,
+   "iptm": 0.621931,
+   "ligand_iptm": 0.621931,
+   "protein_iptm": 0.0,
+   "complex_plddt": 0.829382,
+   "complex_iplddt": 0.690982,
+   "complex_pde": 1.869828,
+   "complex_ipde": 8.556665,
+   "plddt": 0.829382,
+   "pair_chains_iptm": {
+    "0": {
+     "0": 0.656407,
+     "1": 0.179223
+    },
+    "1": {
+     "0": 0.621931,
+     "1": 0.781947
+    }
+   },
+   "chains_ptm": {
+    "0": 0.656407,
+    "1": 0.781947
+   },
+   "affinity_pred_value": 1.178217,
+   "affinity_probability_binary": 0.216927,
+   "affinity_pred_value1": 1.28834,
+   "affinity_probability_binary1": 0.337428,
+   "affinity_pred_value2": 1.068094,
+   "affinity_probability_binary2": 0.096426,
+   "structure_runtime_s": 56.9,
+   "affinity_runtime_s": 152.9,
+   "runtime_s": 209.8
+  },
+  {
+   "id": "c26",
+   "status": "ok",
+   "confidence_score": 0.760486,
+   "ptm": 0.634246,
+   "iptm": 0.517508,
+   "ligand_iptm": 0.517508,
+   "protein_iptm": 0.0,
+   "complex_plddt": 0.82123,
+   "complex_iplddt": 0.64036,
+   "complex_pde": 2.008673,
+   "complex_ipde": 10.004124,
+   "plddt": 0.82123,
+   "pair_chains_iptm": {
+    "0": {
+     "0": 0.641367,
+     "1": 0.143149
+    },
+    "1": {
+     "0": 0.517508,
+     "1": 0.759417
+    }
+   },
+   "chains_ptm": {
+    "0": 0.641367,
+    "1": 0.759417
+   },
+   "affinity_pred_value": 1.04708,
+   "affinity_probability_binary": 0.165494,
+   "affinity_pred_value1": 1.091617,
+   "affinity_probability_binary1": 0.226367,
+   "affinity_pred_value2": 1.002543,
+   "affinity_probability_binary2": 0.104621,
+   "structure_runtime_s": 58.5,
+   "affinity_runtime_s": 138.2,
+   "runtime_s": 196.7
+  },
+  {
+   "id": "c27",
+   "status": "ok",
+   "confidence_score": 0.810893,
+   "ptm": 0.690288,
+   "iptm": 0.752559,
+   "ligand_iptm": 0.752559,
+   "protein_iptm": 0.0,
+   "complex_plddt": 0.825476,
+   "complex_iplddt": 0.705642,
+   "complex_pde": 1.658892,
+   "complex_ipde": 7.059013,
+   "plddt": 0.825476,
+   "pair_chains_iptm": {
+    "0": {
+     "0": 0.68826,
+     "1": 0.24712
+    },
+    "1": {
+     "0": 0.752559,
+     "1": 0.82139
+    }
+   },
+   "chains_ptm": {
+    "0": 0.68826,
+    "1": 0.82139
+   },
+   "affinity_pred_value": 1.740257,
+   "affinity_probability_binary": 0.071015,
+   "affinity_pred_value1": 1.18991,
+   "affinity_probability_binary1": 0.092808,
+   "affinity_pred_value2": 2.290604,
+   "affinity_probability_binary2": 0.049223,
+   "structure_runtime_s": 57.2,
+   "affinity_runtime_s": 138.8,
+   "runtime_s": 196.0
+  },
+  {
+   "id": "c28",
+   "status": "ok",
+   "confidence_score": 0.802056,
+   "ptm": 0.658561,
+   "iptm": 0.720424,
+   "ligand_iptm": 0.720424,
+   "protein_iptm": 0.0,
+   "complex_plddt": 0.822464,
+   "complex_iplddt": 0.657449,
+   "complex_pde": 1.845036,
+   "complex_ipde": 7.677947,
+   "plddt": 0.822464,
+   "pair_chains_iptm": {
+    "0": {
+     "0": 0.656665,
+     "1": 0.186965
+    },
+    "1": {
+     "0": 0.720424,
+     "1": 0.814174
+    }
+   },
+   "chains_ptm": {
+    "0": 0.656665,
+    "1": 0.814174
+   },
+   "affinity_pred_value": 1.025717,
+   "affinity_probability_binary": 0.092451,
+   "affinity_pred_value1": 0.981925,
+   "affinity_probability_binary1": 0.110926,
+   "affinity_pred_value2": 1.06951,
+   "affinity_probability_binary2": 0.073976,
+   "structure_runtime_s": 56.8,
+   "affinity_runtime_s": 152.9,
+   "runtime_s": 209.7
+  },
+  {
+   "id": "c29",
+   "status": "ok",
+   "confidence_score": 0.767469,
+   "ptm": 0.68227,
+   "iptm": 0.597387,
+   "ligand_iptm": 0.597387,
+   "protein_iptm": 0.0,
+   "complex_plddt": 0.80999,
+   "complex_iplddt": 0.599371,
+   "complex_pde": 1.768242,
+   "complex_ipde": 8.400566,
+   "plddt": 0.80999,
+   "pair_chains_iptm": {
+    "0": {
+     "0": 0.688741,
+     "1": 0.168537
+    },
+    "1": {
+     "0": 0.597387,
+     "1": 0.78556
+    }
+   },
+   "chains_ptm": {
+    "0": 0.688741,
+    "1": 0.78556
+   },
+   "affinity_pred_value": 1.470228,
+   "affinity_probability_binary": 0.072364,
+   "affinity_pred_value1": 1.13068,
+   "affinity_probability_binary1": 0.085794,
+   "affinity_pred_value2": 1.809777,
+   "affinity_probability_binary2": 0.058934,
+   "structure_runtime_s": 57.8,
+   "affinity_runtime_s": 156.6,
+   "runtime_s": 214.3
+  },
+  {
+   "id": "d01_44259",
+   "status": "ok",
+   "confidence_score": 0.877944,
+   "ptm": 0.733371,
+   "iptm": 0.987276,
+   "ligand_iptm": 0.987276,
+   "protein_iptm": 0.0,
+   "complex_plddt": 0.85061,
+   "complex_iplddt": 0.924611,
+   "complex_pde": 1.042299,
+   "complex_ipde": 0.549923,
+   "plddt": 0.85061,
+   "pair_chains_iptm": {
+    "0": {
+     "0": 0.716485,
+     "1": 0.614557
+    },
+    "1": {
+     "0": 0.987276,
+     "1": 0.96741
+    }
+   },
+   "chains_ptm": {
+    "0": 0.716485,
+    "1": 0.96741
+   },
+   "affinity_pred_value": -2.288413,
+   "affinity_probability_binary": 0.910335,
+   "affinity_pred_value1": -2.485504,
+   "affinity_probability_binary1": 0.909262,
+   "affinity_pred_value2": -2.091321,
+   "affinity_probability_binary2": 0.911408,
+   "structure_runtime_s": 57.7,
+   "affinity_runtime_s": 161.0,
+   "runtime_s": 218.7
+  },
+  {
+   "id": "d00_5291",
+   "status": "ok",
+   "confidence_score": 0.863303,
+   "ptm": 0.71592,
+   "iptm": 0.980257,
+   "ligand_iptm": 0.980257,
+   "protein_iptm": 0.0,
+   "complex_plddt": 0.834064,
+   "complex_iplddt": 0.884181,
+   "complex_pde": 1.159074,
+   "complex_ipde": 0.753601,
+   "plddt": 0.834064,
+   "pair_chains_iptm": {
+    "0": {
+     "0": 0.697426,
+     "1": 0.571114
+    },
+    "1": {
+     "0": 0.980257,
+     "1": 0.956609
+    }
+   },
+   "chains_ptm": {
+    "0": 0.697426,
+    "1": 0.956609
+   },
+   "affinity_pred_value": -0.670147,
+   "affinity_probability_binary": 0.621755,
+   "affinity_pred_value1": -0.971037,
+   "affinity_probability_binary1": 0.601535,
+   "affinity_pred_value2": -0.369257,
+   "affinity_probability_binary2": 0.641975,
+   "structure_runtime_s": 134.8,
+   "affinity_runtime_s": 153.5,
+   "runtime_s": 288.3
+  },
+  {
+   "id": "d02_123631",
+   "status": "ok",
+   "confidence_score": 0.87338,
+   "ptm": 0.78291,
+   "iptm": 0.966482,
+   "ligand_iptm": 0.966482,
+   "protein_iptm": 0.0,
+   "complex_plddt": 0.850104,
+   "complex_iplddt": 0.897145,
+   "complex_pde": 0.990786,
+   "complex_ipde": 0.732047,
+   "plddt": 0.850104,
+   "pair_chains_iptm": {
+    "0": {
+     "0": 0.772359,
+     "1": 0.579306
+    },
+    "1": {
+     "0": 0.966482,
+     "1": 0.94254
+    }
+   },
+   "chains_ptm": {
+    "0": 0.772359,
+    "1": 0.94254
+   },
+   "affinity_pred_value": 0.093028,
+   "affinity_probability_binary": 0.399956,
+   "affinity_pred_value1": -0.085863,
+   "affinity_probability_binary1": 0.431801,
+   "affinity_pred_value2": 0.271918,
+   "affinity_probability_binary2": 0.368111,
+   "structure_runtime_s": 57.1,
+   "affinity_runtime_s": 153.0,
+   "runtime_s": 210.0
+  },
+  {
+   "id": "d03_126565",
+   "status": "ok",
+   "confidence_score": 0.874216,
+   "ptm": 0.746193,
+   "iptm": 0.988399,
+   "ligand_iptm": 0.988399,
+   "protein_iptm": 0.0,
+   "complex_plddt": 0.845671,
+   "complex_iplddt": 0.914296,
+   "complex_pde": 1.114705,
+   "complex_ipde": 0.533679,
+   "plddt": 0.845671,
+   "pair_chains_iptm": {
+    "0": {
+     "0": 0.731181,
+     "1": 0.633014
+    },
+    "1": {
+     "0": 0.988399,
+     "1": 0.972064
+    }
+   },
+   "chains_ptm": {
+    "0": 0.731181,
+    "1": 0.972064
+   },
+   "affinity_pred_value": -0.438135,
+   "affinity_probability_binary": 0.522507,
+   "affinity_pred_value1": -0.540595,
+   "affinity_probability_binary1": 0.513431,
+   "affinity_pred_value2": -0.335674,
+   "affinity_probability_binary2": 0.531584,
+   "structure_runtime_s": 57.4,
+   "affinity_runtime_s": 152.8,
+   "runtime_s": 210.2
+  },
+  {
+   "id": "d04_151194",
+   "status": "ok",
+   "confidence_score": 0.866203,
+   "ptm": 0.727341,
+   "iptm": 0.984375,
+   "ligand_iptm": 0.984375,
+   "protein_iptm": 0.0,
+   "complex_plddt": 0.83666,
+   "complex_iplddt": 0.892116,
+   "complex_pde": 1.156845,
+   "complex_ipde": 0.708984,
+   "plddt": 0.83666,
+   "pair_chains_iptm": {
+    "0": {
+     "0": 0.715177,
+     "1": 0.549286
+    },
+    "1": {
+     "0": 0.984375,
+     "1": 0.941718
+    }
+   },
+   "chains_ptm": {
+    "0": 0.715177,
+    "1": 0.941718
+   },
+   "affinity_pred_value": -0.134564,
+   "affinity_probability_binary": 0.567992,
+   "affinity_pred_value1": -0.126473,
+   "affinity_probability_binary1": 0.496959,
+   "affinity_pred_value2": -0.142656,
+   "affinity_probability_binary2": 0.639025,
+   "structure_runtime_s": 57.1,
+   "affinity_runtime_s": 131.1,
+   "runtime_s": 188.2
+  },
+  {
+   "id": "d05_153999",
+   "status": "ok",
+   "confidence_score": 0.861295,
+   "ptm": 0.801447,
+   "iptm": 0.958705,
+   "ligand_iptm": 0.958705,
+   "protein_iptm": 0.0,
+   "complex_plddt": 0.836942,
+   "complex_iplddt": 0.848435,
+   "complex_pde": 0.939763,
+   "complex_ipde": 0.959208,
+   "plddt": 0.836942,
+   "pair_chains_iptm": {
+    "0": {
+     "0": 0.791263,
+     "1": 0.613592
+    },
+    "1": {
+     "0": 0.958705,
+     "1": 0.929241
+    }
+   },
+   "chains_ptm": {
+    "0": 0.791263,
+    "1": 0.929241
+   },
+   "affinity_pred_value": 0.408385,
+   "affinity_probability_binary": 0.157142,
+   "affinity_pred_value1": 0.900668,
+   "affinity_probability_binary1": 0.07651,
+   "affinity_pred_value2": -0.083898,
+   "affinity_probability_binary2": 0.237774,
+   "structure_runtime_s": 58.5,
+   "affinity_runtime_s": 162.7,
+   "runtime_s": 221.3
+  },
+  {
+   "id": "d06_156414",
+   "status": "ok",
+   "confidence_score": 0.878858,
+   "ptm": 0.734308,
+   "iptm": 0.975413,
+   "ligand_iptm": 0.975413,
+   "protein_iptm": 0.0,
+   "complex_plddt": 0.85472,
+   "complex_iplddt": 0.917345,
+   "complex_pde": 1.079505,
+   "complex_ipde": 0.67888,
+   "plddt": 0.85472,
+   "pair_chains_iptm": {
+    "0": {
+     "0": 0.719086,
+     "1": 0.525217
+    },
+    "1": {
+     "0": 0.975413,
+     "1": 0.924517
+    }
+   },
+   "chains_ptm": {
+    "0": 0.719086,
+    "1": 0.924517
+   },
+   "affinity_pred_value": -0.800324,
+   "affinity_probability_binary": 0.449602,
+   "affinity_pred_value1": -0.606473,
+   "affinity_probability_binary1": 0.54432,
+   "affinity_pred_value2": -0.994175,
+   "affinity_probability_binary2": 0.354883,
+   "structure_runtime_s": 57.5,
+   "affinity_runtime_s": 178.2,
+   "runtime_s": 235.7
+  },
+  {
+   "id": "d07_156422",
+   "status": "ok",
+   "confidence_score": 0.862781,
+   "ptm": 0.765477,
+   "iptm": 0.983874,
+   "ligand_iptm": 0.983874,
+   "protein_iptm": 0.0,
+   "complex_plddt": 0.832508,
+   "complex_iplddt": 0.897297,
+   "complex_pde": 1.028842,
+   "complex_ipde": 0.682166,
+   "plddt": 0.832508,
+   "pair_chains_iptm": {
+    "0": {
+     "0": 0.74925,
+     "1": 0.461568
+    },
+    "1": {
+     "0": 0.983874,
+     "1": 0.878405
+    }
+   },
+   "chains_ptm": {
+    "0": 0.74925,
+    "1": 0.878405
+   },
+   "affinity_pred_value": 0.511652,
+   "affinity_probability_binary": 0.819912,
+   "affinity_pred_value1": 1.054738,
+   "affinity_probability_binary1": 0.827522,
+   "affinity_pred_value2": -0.031434,
+   "affinity_probability_binary2": 0.812302,
+   "structure_runtime_s": 77.7,
+   "affinity_runtime_s": 163.2,
+   "runtime_s": 240.9
+  },
+  {
+   "id": "d08_176155",
+   "status": "ok",
+   "confidence_score": 0.881207,
+   "ptm": 0.767268,
+   "iptm": 0.963397,
+   "ligand_iptm": 0.963397,
+   "protein_iptm": 0.0,
+   "complex_plddt": 0.860659,
+   "complex_iplddt": 0.901635,
+   "complex_pde": 1.024381,
+   "complex_ipde": 0.881853,
+   "plddt": 0.860659,
+   "pair_chains_iptm": {
+    "0": {
+     "0": 0.757632,
+     "1": 0.542096
+    },
+    "1": {
+     "0": 0.963397,
+     "1": 0.901475
+    }
+   },
+   "chains_ptm": {
+    "0": 0.757632,
+    "1": 0.901475
+   },
+   "affinity_pred_value": 0.936225,
+   "affinity_probability_binary": 0.256666,
+   "affinity_pred_value1": 1.090781,
+   "affinity_probability_binary1": 0.253144,
+   "affinity_pred_value2": 0.78167,
+   "affinity_probability_binary2": 0.260188,
+   "structure_runtime_s": 57.1,
+   "affinity_runtime_s": 171.8,
+   "runtime_s": 228.9
+  },
+  {
+   "id": "d09_176167",
+   "status": "ok",
+   "confidence_score": 0.844286,
+   "ptm": 0.729811,
+   "iptm": 0.869591,
+   "ligand_iptm": 0.869591,
+   "protein_iptm": 0.0,
+   "complex_plddt": 0.83796,
+   "complex_iplddt": 0.841852,
+   "complex_pde": 1.216953,
+   "complex_ipde": 1.993161,
+   "plddt": 0.83796,
+   "pair_chains_iptm": {
+    "0": {
+     "0": 0.720575,
+     "1": 0.473813
+    },
+    "1": {
+     "0": 0.869591,
+     "1": 0.898838
+    }
+   },
+   "chains_ptm": {
+    "0": 0.720575,
+    "1": 0.898838
+   },
+   "affinity_pred_value": 0.411777,
+   "affinity_probability_binary": 0.187691,
+   "affinity_pred_value1": 0.713331,
+   "affinity_probability_binary1": 0.242708,
+   "affinity_pred_value2": 0.110224,
+   "affinity_probability_binary2": 0.132675,
+   "structure_runtime_s": 88.6,
+   "affinity_runtime_s": 145.8,
+   "runtime_s": 234.4
+  },
+  {
+   "id": "d10_176870",
+   "status": "ok",
+   "confidence_score": 0.876143,
+   "ptm": 0.732345,
+   "iptm": 0.970905,
+   "ligand_iptm": 0.970905,
+   "protein_iptm": 0.0,
+   "complex_plddt": 0.852453,
+   "complex_iplddt": 0.90223,
+   "complex_pde": 1.129283,
+   "complex_ipde": 0.789554,
+   "plddt": 0.852453,
+   "pair_chains_iptm": {
+    "0": {
+     "0": 0.719789,
+     "1": 0.447781
+    },
+    "1": {
+     "0": 0.970905,
+     "1": 0.899111
+    }
+   },
+   "chains_ptm": {
+    "0": 0.719789,
+    "1": 0.899111
+   },
+   "affinity_pred_value": 0.350063,
+   "affinity_probability_binary": 0.343551,
+   "affinity_pred_value1": 0.049222,
+   "affinity_probability_binary1": 0.280318,
+   "affinity_pred_value2": 0.650904,
+   "affinity_probability_binary2": 0.406784,
+   "structure_runtime_s": 55.0,
+   "affinity_runtime_s": 138.7,
+   "runtime_s": 193.7
+  },
+  {
+   "id": "d11_208908",
+   "status": "ok",
+   "confidence_score": 0.845126,
+   "ptm": 0.731479,
+   "iptm": 0.938867,
+   "ligand_iptm": 0.938867,
+   "protein_iptm": 0.0,
+   "complex_plddt": 0.821691,
+   "complex_iplddt": 0.828534,
+   "complex_pde": 1.120187,
+   "complex_ipde": 1.028151,
+   "plddt": 0.821691,
+   "pair_chains_iptm": {
+    "0": {
+     "0": 0.716817,
+     "1": 0.417708
+    },
+    "1": {
+     "0": 0.938867,
+     "1": 0.839453
+    }
+   },
+   "chains_ptm": {
+    "0": 0.716817,
+    "1": 0.839453
+   },
+   "affinity_pred_value": -0.045705,
+   "affinity_probability_binary": 0.400821,
+   "affinity_pred_value1": 0.038364,
+   "affinity_probability_binary1": 0.382985,
+   "affinity_pred_value2": -0.129775,
+   "affinity_probability_binary2": 0.418656,
+   "structure_runtime_s": 51.2,
+   "affinity_runtime_s": 144.4,
+   "runtime_s": 195.7
+  },
+  {
+   "id": "d12_216239",
+   "status": "ok",
+   "confidence_score": 0.860767,
+   "ptm": 0.758405,
+   "iptm": 0.98352,
+   "ligand_iptm": 0.98352,
+   "protein_iptm": 0.0,
+   "complex_plddt": 0.830079,
+   "complex_iplddt": 0.88657,
+   "complex_pde": 1.071029,
+   "complex_ipde": 0.681253,
+   "plddt": 0.830079,
+   "pair_chains_iptm": {
+    "0": {
+     "0": 0.744987,
+     "1": 0.609951
+    },
+    "1": {
+     "0": 0.98352,
+     "1": 0.940673
+    }
+   },
+   "chains_ptm": {
+    "0": 0.744987,
+    "1": 0.940673
+   },
+   "affinity_pred_value": -1.004721,
+   "affinity_probability_binary": 0.549201,
+   "affinity_pred_value1": -1.062271,
+   "affinity_probability_binary1": 0.471133,
+   "affinity_pred_value2": -0.947172,
+   "affinity_probability_binary2": 0.627269,
+   "structure_runtime_s": 55.1,
+   "affinity_runtime_s": 153.0,
+   "runtime_s": 208.1
+  },
+  {
+   "id": "d13_447077",
+   "status": "ok",
+   "confidence_score": 0.880521,
+   "ptm": 0.748929,
+   "iptm": 0.981681,
+   "ligand_iptm": 0.981681,
+   "protein_iptm": 0.0,
+   "complex_plddt": 0.855231,
+   "complex_iplddt": 0.916819,
+   "complex_pde": 1.097306,
+   "complex_ipde": 0.604917,
+   "plddt": 0.855231,
+   "pair_chains_iptm": {
+    "0": {
+     "0": 0.736482,
+     "1": 0.620049
+    },
+    "1": {
+     "0": 0.981681,
+     "1": 0.935749
+    }
+   },
+   "chains_ptm": {
+    "0": 0.736482,
+    "1": 0.935749
+   },
+   "affinity_pred_value": -1.543506,
+   "affinity_probability_binary": 0.838827,
+   "affinity_pred_value1": -1.304454,
+   "affinity_probability_binary1": 0.900143,
+   "affinity_pred_value2": -1.782557,
+   "affinity_probability_binary2": 0.777511,
+   "structure_runtime_s": 54.9,
+   "affinity_runtime_s": 145.9,
+   "runtime_s": 200.9
+  },
+  {
+   "id": "d14_644241",
+   "status": "ok",
+   "confidence_score": 0.866854,
+   "ptm": 0.762506,
+   "iptm": 0.982372,
+   "ligand_iptm": 0.982372,
+   "protein_iptm": 0.0,
+   "complex_plddt": 0.837975,
+   "complex_iplddt": 0.891097,
+   "complex_pde": 1.004964,
+   "complex_ipde": 0.668133,
+   "plddt": 0.837975,
+   "pair_chains_iptm": {
+    "0": {
+     "0": 0.74632,
+     "1": 0.636754
+    },
+    "1": {
+     "0": 0.982372,
+     "1": 0.965545
+    }
+   },
+   "chains_ptm": {
+    "0": 0.74632,
+    "1": 0.965545
+   },
+   "affinity_pred_value": -0.533155,
+   "affinity_probability_binary": 0.724158,
+   "affinity_pred_value1": -0.507108,
+   "affinity_probability_binary1": 0.683241,
+   "affinity_pred_value2": -0.559203,
+   "affinity_probability_binary2": 0.765074,
+   "structure_runtime_s": 51.8,
+   "affinity_runtime_s": 149.9,
+   "runtime_s": 201.7
+  },
+  {
+   "id": "d15_3025986",
+   "status": "ok",
+   "confidence_score": 0.865266,
+   "ptm": 0.774655,
+   "iptm": 0.965312,
+   "ligand_iptm": 0.965312,
+   "protein_iptm": 0.0,
+   "complex_plddt": 0.840254,
+   "complex_iplddt": 0.863249,
+   "complex_pde": 1.043517,
+   "complex_ipde": 0.839046,
+   "plddt": 0.840254,
+   "pair_chains_iptm": {
+    "0": {
+     "0": 0.765874,
+     "1": 0.593407
+    },
+    "1": {
+     "0": 0.965312,
+     "1": 0.95125
+    }
+   },
+   "chains_ptm": {
+    "0": 0.765874,
+    "1": 0.95125
+   },
+   "affinity_pred_value": 0.712928,
+   "affinity_probability_binary": 0.245034,
+   "affinity_pred_value1": 0.813439,
+   "affinity_probability_binary1": 0.279325,
+   "affinity_pred_value2": 0.612416,
+   "affinity_probability_binary2": 0.210743,
+   "structure_runtime_s": 55.7,
+   "affinity_runtime_s": 144.4,
+   "runtime_s": 200.1
+  },
+  {
+   "id": "d16_3038522",
+   "status": "ok",
+   "confidence_score": 0.827442,
+   "ptm": 0.751893,
+   "iptm": 0.895579,
+   "ligand_iptm": 0.895579,
+   "protein_iptm": 0.0,
+   "complex_plddt": 0.810408,
+   "complex_iplddt": 0.782624,
+   "complex_pde": 1.167203,
+   "complex_ipde": 1.692681,
+   "plddt": 0.810408,
+   "pair_chains_iptm": {
+    "0": {
+     "0": 0.741432,
+     "1": 0.387673
+    },
+    "1": {
+     "0": 0.895579,
+     "1": 0.796827
+    }
+   },
+   "chains_ptm": {
+    "0": 0.741432,
+    "1": 0.796827
+   },
+   "affinity_pred_value": -0.385145,
+   "affinity_probability_binary": 0.193934,
+   "affinity_pred_value1": -0.111487,
+   "affinity_probability_binary1": 0.181469,
+   "affinity_pred_value2": -0.658802,
+   "affinity_probability_binary2": 0.206399,
+   "structure_runtime_s": 51.1,
+   "affinity_runtime_s": 148.5,
+   "runtime_s": 199.6
+  },
+  {
+   "id": "d17_3038525",
+   "status": "ok",
+   "confidence_score": 0.877078,
+   "ptm": 0.815493,
+   "iptm": 0.972377,
+   "ligand_iptm": 0.972377,
+   "protein_iptm": 0.0,
+   "complex_plddt": 0.853253,
+   "complex_iplddt": 0.896863,
+   "complex_pde": 0.841899,
+   "complex_ipde": 0.889125,
+   "plddt": 0.853253,
+   "pair_chains_iptm": {
+    "0": {
+     "0": 0.807753,
+     "1": 0.612828
+    },
+    "1": {
+     "0": 0.972377,
+     "1": 0.937918
+    }
+   },
+   "chains_ptm": {
+    "0": 0.807753,
+    "1": 0.937918
+   },
+   "affinity_pred_value": 1.365684,
+   "affinity_probability_binary": 0.216867,
+   "affinity_pred_value1": 0.790419,
+   "affinity_probability_binary1": 0.158298,
+   "affinity_pred_value2": 1.940949,
+   "affinity_probability_binary2": 0.275437,
+   "structure_runtime_s": 55.4,
+   "affinity_runtime_s": 119.8,
+   "runtime_s": 175.2
+  },
+  {
+   "id": "d18_3062316",
+   "status": "ok",
+   "confidence_score": 0.877497,
+   "ptm": 0.717565,
+   "iptm": 0.980824,
+   "ligand_iptm": 0.980824,
+   "protein_iptm": 0.0,
+   "complex_plddt": 0.851665,
+   "complex_iplddt": 0.913991,
+   "complex_pde": 1.133825,
+   "complex_ipde": 0.597307,
+   "plddt": 0.851665,
+   "pair_chains_iptm": {
+    "0": {
+     "0": 0.701649,
+     "1": 0.607623
+    },
+    "1": {
+     "0": 0.980824,
+     "1": 0.963541
+    }
+   },
+   "chains_ptm": {
+    "0": 0.701649,
+    "1": 0.963541
+   },
+   "affinity_pred_value": -3.362748,
+   "affinity_probability_binary": 0.994637,
+   "affinity_pred_value1": -3.00625,
+   "affinity_probability_binary1": 0.995066,
+   "affinity_pred_value2": -3.719246,
+   "affinity_probability_binary2": 0.994207,
+   "structure_runtime_s": 54.6,
+   "affinity_runtime_s": 142.2,
+   "runtime_s": 196.8
+  },
+  {
+   "id": "d19_3081361",
+   "status": "ok",
+   "confidence_score": 0.878617,
+   "ptm": 0.740939,
+   "iptm": 0.987369,
+   "ligand_iptm": 0.987369,
+   "protein_iptm": 0.0,
+   "complex_plddt": 0.851429,
+   "complex_iplddt": 0.916639,
+   "complex_pde": 1.06357,
+   "complex_ipde": 0.562398,
+   "plddt": 0.851429,
+   "pair_chains_iptm": {
+    "0": {
+     "0": 0.727351,
+     "1": 0.516103
+    },
+    "1": {
+     "0": 0.987369,
+     "1": 0.93789
+    }
+   },
+   "chains_ptm": {
+    "0": 0.727351,
+    "1": 0.93789
+   },
+   "affinity_pred_value": -1.52254,
+   "affinity_probability_binary": 0.691453,
+   "affinity_pred_value1": -1.24794,
+   "affinity_probability_binary1": 0.724441,
+   "affinity_pred_value2": -1.797139,
+   "affinity_probability_binary2": 0.658466,
+   "structure_runtime_s": 55.7,
+   "affinity_runtime_s": 141.2,
+   "runtime_s": 196.8
+  },
+  {
+   "id": "d20_4908365",
+   "status": "ok",
+   "confidence_score": 0.862649,
+   "ptm": 0.821089,
+   "iptm": 0.962993,
+   "ligand_iptm": 0.962993,
+   "protein_iptm": 0.0,
+   "complex_plddt": 0.837563,
+   "complex_iplddt": 0.809206,
+   "complex_pde": 0.929476,
+   "complex_ipde": 0.99954,
+   "plddt": 0.837563,
+   "pair_chains_iptm": {
+    "0": {
+     "0": 0.816314,
+     "1": 0.58125
+    },
+    "1": {
+     "0": 0.962993,
+     "1": 0.974506
+    }
+   },
+   "chains_ptm": {
+    "0": 0.816314,
+    "1": 0.974506
+   },
+   "affinity_pred_value": 1.539821,
+   "affinity_probability_binary": 0.121875,
+   "affinity_pred_value1": 1.345344,
+   "affinity_probability_binary1": 0.079095,
+   "affinity_pred_value2": 1.734297,
+   "affinity_probability_binary2": 0.164655,
+   "structure_runtime_s": 54.1,
+   "affinity_runtime_s": 112.8,
+   "runtime_s": 166.9
+  },
+  {
+   "id": "d21_5287969",
+   "status": "ok",
+   "confidence_score": 0.857045,
+   "ptm": 0.780612,
+   "iptm": 0.945173,
+   "ligand_iptm": 0.945173,
+   "protein_iptm": 0.0,
+   "complex_plddt": 0.835014,
+   "complex_iplddt": 0.826652,
+   "complex_pde": 1.111333,
+   "complex_ipde": 1.154933,
+   "plddt": 0.835014,
+   "pair_chains_iptm": {
+    "0": {
+     "0": 0.77205,
+     "1": 0.460516
+    },
+    "1": {
+     "0": 0.945173,
+     "1": 0.892438
+    }
+   },
+   "chains_ptm": {
+    "0": 0.77205,
+    "1": 0.892438
+   },
+   "affinity_pred_value": 0.381949,
+   "affinity_probability_binary": 0.309039,
+   "affinity_pred_value1": 0.631019,
+   "affinity_probability_binary1": 0.311252,
+   "affinity_pred_value2": 0.132878,
+   "affinity_probability_binary2": 0.306826,
+   "structure_runtime_s": 55.4,
+   "affinity_runtime_s": 142.8,
+   "runtime_s": 198.2
+  },
+  {
+   "id": "d22_5328940",
+   "status": "ok",
+   "confidence_score": 0.877023,
+   "ptm": 0.780535,
+   "iptm": 0.973741,
+   "ligand_iptm": 0.973741,
+   "protein_iptm": 0.0,
+   "complex_plddt": 0.852844,
+   "complex_iplddt": 0.904373,
+   "complex_pde": 0.98304,
+   "complex_ipde": 0.667288,
+   "plddt": 0.852844,
+   "pair_chains_iptm": {
+    "0": {
+     "0": 0.767745,
+     "1": 0.58643
+    },
+    "1": {
+     "0": 0.973741,
+     "1": 0.917209
+    }
+   },
+   "chains_ptm": {
+    "0": 0.767745,
+    "1": 0.917209
+   },
+   "affinity_pred_value": -2.294997,
+   "affinity_probability_binary": 0.874438,
+   "affinity_pred_value1": -2.194991,
+   "affinity_probability_binary1": 0.921603,
+   "affinity_pred_value2": -2.395003,
+   "affinity_probability_binary2": 0.827273,
+   "structure_runtime_s": 50.9,
+   "affinity_runtime_s": 140.3,
+   "runtime_s": 191.3
+  },
+  {
+   "id": "d23_5329102",
+   "status": "ok",
+   "confidence_score": 0.864149,
+   "ptm": 0.781929,
+   "iptm": 0.948006,
+   "ligand_iptm": 0.948006,
+   "protein_iptm": 0.0,
+   "complex_plddt": 0.843184,
+   "complex_iplddt": 0.868565,
+   "complex_pde": 1.008977,
+   "complex_ipde": 0.848892,
+   "plddt": 0.843184,
+   "pair_chains_iptm": {
+    "0": {
+     "0": 0.773058,
+     "1": 0.624234
+    },
+    "1": {
+     "0": 0.948006,
+     "1": 0.925242
+    }
+   },
+   "chains_ptm": {
+    "0": 0.773058,
+    "1": 0.925242
+   },
+   "affinity_pred_value": -0.375369,
+   "affinity_probability_binary": 0.53671,
+   "affinity_pred_value1": -0.470016,
+   "affinity_probability_binary1": 0.675122,
+   "affinity_pred_value2": -0.280723,
+   "affinity_probability_binary2": 0.398298,
+   "structure_runtime_s": 54.6,
+   "affinity_runtime_s": 139.2,
+   "runtime_s": 193.8
+  },
+  {
+   "id": "d24_5494449",
+   "status": "ok",
+   "confidence_score": 0.868324,
+   "ptm": 0.746836,
+   "iptm": 0.964843,
+   "ligand_iptm": 0.964843,
+   "protein_iptm": 0.0,
+   "complex_plddt": 0.844195,
+   "complex_iplddt": 0.887141,
+   "complex_pde": 1.073725,
+   "complex_ipde": 0.866987,
+   "plddt": 0.844195,
+   "pair_chains_iptm": {
+    "0": {
+     "0": 0.7335,
+     "1": 0.562555
+    },
+    "1": {
+     "0": 0.964843,
+     "1": 0.890861
+    }
+   },
+   "chains_ptm": {
+    "0": 0.7335,
+    "1": 0.890861
+   },
+   "affinity_pred_value": -0.206061,
+   "affinity_probability_binary": 0.65165,
+   "affinity_pred_value1": -0.057932,
+   "affinity_probability_binary1": 0.628258,
+   "affinity_pred_value2": -0.354191,
+   "affinity_probability_binary2": 0.675041,
+   "structure_runtime_s": 55.6,
+   "affinity_runtime_s": 144.0,
+   "runtime_s": 199.6
+  },
+  {
+   "id": "d25_6450551",
+   "status": "ok",
+   "confidence_score": 0.876455,
+   "ptm": 0.747343,
+   "iptm": 0.985491,
+   "ligand_iptm": 0.985491,
+   "protein_iptm": 0.0,
+   "complex_plddt": 0.849196,
+   "complex_iplddt": 0.906579,
+   "complex_pde": 1.076532,
+   "complex_ipde": 0.583408,
+   "plddt": 0.849196,
+   "pair_chains_iptm": {
+    "0": {
+     "0": 0.735094,
+     "1": 0.592787
+    },
+    "1": {
+     "0": 0.985491,
+     "1": 0.950474
+    }
+   },
+   "chains_ptm": {
+    "0": 0.735094,
+    "1": 0.950474
+   },
+   "affinity_pred_value": -0.363187,
+   "affinity_probability_binary": 0.623045,
+   "affinity_pred_value1": -0.547127,
+   "affinity_probability_binary1": 0.619655,
+   "affinity_pred_value2": -0.179247,
+   "affinity_probability_binary2": 0.626436,
+   "structure_runtime_s": 53.9,
+   "affinity_runtime_s": 118.8,
+   "runtime_s": 172.7
+  },
+  {
+   "id": "d26_6918454",
+   "status": "ok",
+   "confidence_score": 0.857954,
+   "ptm": 0.804986,
+   "iptm": 0.971718,
+   "ligand_iptm": 0.971718,
+   "protein_iptm": 0.0,
+   "complex_plddt": 0.829513,
+   "complex_iplddt": 0.880609,
+   "complex_pde": 0.995601,
+   "complex_ipde": 0.891673,
+   "plddt": 0.829513,
+   "pair_chains_iptm": {
+    "0": {
+     "0": 0.79718,
+     "1": 0.608504
+    },
+    "1": {
+     "0": 0.971718,
+     "1": 0.9625
+    }
+   },
+   "chains_ptm": {
+    "0": 0.79718,
+    "1": 0.9625
+   },
+   "affinity_pred_value": 0.36859,
+   "affinity_probability_binary": 0.332995,
+   "affinity_pred_value1": -0.211279,
+   "affinity_probability_binary1": 0.214875,
+   "affinity_pred_value2": 0.948458,
+   "affinity_probability_binary2": 0.451114,
+   "structure_runtime_s": 54.4,
+   "affinity_runtime_s": 148.1,
+   "runtime_s": 202.5
+  },
+  {
+   "id": "d27_9809715",
+   "status": "ok",
+   "confidence_score": 0.872234,
+   "ptm": 0.742796,
+   "iptm": 0.96875,
+   "ligand_iptm": 0.96875,
+   "protein_iptm": 0.0,
+   "complex_plddt": 0.848105,
+   "complex_iplddt": 0.891455,
+   "complex_pde": 1.067506,
+   "complex_ipde": 0.784687,
+   "plddt": 0.848105,
+   "pair_chains_iptm": {
+    "0": {
+     "0": 0.726382,
+     "1": 0.61065
+    },
+    "1": {
+     "0": 0.96875,
+     "1": 0.939453
+    }
+   },
+   "chains_ptm": {
+    "0": 0.726382,
+    "1": 0.939453
+   },
+   "affinity_pred_value": -1.881928,
+   "affinity_probability_binary": 0.788104,
+   "affinity_pred_value1": -1.81895,
+   "affinity_probability_binary1": 0.889934,
+   "affinity_pred_value2": -1.944906,
+   "affinity_probability_binary2": 0.686275,
+   "structure_runtime_s": 50.2,
+   "affinity_runtime_s": 146.9,
+   "runtime_s": 197.0
+  },
+  {
+   "id": "d28_9884685",
+   "status": "ok",
+   "confidence_score": 0.846384,
+   "ptm": 0.755752,
+   "iptm": 0.903395,
+   "ligand_iptm": 0.903395,
+   "protein_iptm": 0.0,
+   "complex_plddt": 0.832132,
+   "complex_iplddt": 0.733859,
+   "complex_pde": 1.123323,
+   "complex_ipde": 1.680438,
+   "plddt": 0.832132,
+   "pair_chains_iptm": {
+    "0": {
+     "0": 0.748686,
+     "1": 0.400754
+    },
+    "1": {
+     "0": 0.903395,
+     "1": 0.923828
+    }
+   },
+   "chains_ptm": {
+    "0": 0.748686,
+    "1": 0.923828
+   },
+   "affinity_pred_value": 0.635226,
+   "affinity_probability_binary": 0.188053,
+   "affinity_pred_value1": 0.797037,
+   "affinity_probability_binary1": 0.179548,
+   "affinity_pred_value2": 0.473416,
+   "affinity_probability_binary2": 0.196558,
+   "structure_runtime_s": 55.1,
+   "affinity_runtime_s": 127.3,
+   "runtime_s": 182.4
+  },
+  {
+   "id": "d30_9926054",
+   "status": "failed",
+   "error": "Pre-condition Violation\n\tgetNumImplicitHs() called without preceding call to calcImplicitValence()\n\tViolation occurred on line 303 in file Code/GraphMol/Atom.cpp\n\tFailed Expression: d_implicitValence > -1\n\tRDKIT: 2026.03.6\n\tBOOST: 1_85\n\n[tt_bio origin: parse.py:3705 in standardize]"
+  },
+  {
+   "id": "d29_9915743",
+   "status": "ok",
+   "confidence_score": 0.857142,
+   "ptm": 0.766441,
+   "iptm": 0.967676,
+   "ligand_iptm": 0.967676,
+   "protein_iptm": 0.0,
+   "complex_plddt": 0.829509,
+   "complex_iplddt": 0.867845,
+   "complex_pde": 1.013432,
+   "complex_ipde": 0.799612,
+   "plddt": 0.829509,
+   "pair_chains_iptm": {
+    "0": {
+     "0": 0.752246,
+     "1": 0.50291
+    },
+    "1": {
+     "0": 0.967676,
+     "1": 0.861718
+    }
+   },
+   "chains_ptm": {
+    "0": 0.752246,
+    "1": 0.861718
+   },
+   "affinity_pred_value": -1.652254,
+   "affinity_probability_binary": 0.748701,
+   "affinity_pred_value1": -1.533372,
+   "affinity_probability_binary1": 0.752647,
+   "affinity_pred_value2": -1.771135,
+   "affinity_probability_binary2": 0.744754,
+   "structure_runtime_s": 49.1,
+   "affinity_runtime_s": 141.6,
+   "runtime_s": 190.7
+  },
+  {
+   "id": "d31_9926791",
+   "status": "ok",
+   "confidence_score": 0.867857,
+   "ptm": 0.747006,
+   "iptm": 0.946501,
+   "ligand_iptm": 0.946501,
+   "protein_iptm": 0.0,
+   "complex_plddt": 0.848196,
+   "complex_iplddt": 0.876498,
+   "complex_pde": 1.125871,
+   "complex_ipde": 1.11369,
+   "plddt": 0.848196,
+   "pair_chains_iptm": {
+    "0": {
+     "0": 0.738544,
+     "1": 0.453041
+    },
+    "1": {
+     "0": 0.946501,
+     "1": 0.897588
+    }
+   },
+   "chains_ptm": {
+    "0": 0.738544,
+    "1": 0.897588
+   },
+   "affinity_pred_value": -0.197198,
+   "affinity_probability_binary": 0.154599,
+   "affinity_pred_value1": -0.181343,
+   "affinity_probability_binary1": 0.164546,
+   "affinity_pred_value2": -0.213054,
+   "affinity_probability_binary2": 0.144652,
+   "structure_runtime_s": 55.3,
+   "affinity_runtime_s": 121.9,
+   "runtime_s": 177.2
+  },
+  {
+   "id": "d32_9929127",
+   "status": "ok",
+   "confidence_score": 0.855225,
+   "ptm": 0.827349,
+   "iptm": 0.903395,
+   "ligand_iptm": 0.903395,
+   "protein_iptm": 0.0,
+   "complex_plddt": 0.843183,
+   "complex_iplddt": 0.778525,
+   "complex_pde": 0.94766,
+   "complex_ipde": 1.541445,
+   "plddt": 0.843183,
+   "pair_chains_iptm": {
+    "0": {
+     "0": 0.824102,
+     "1": 0.498082
+    },
+    "1": {
+     "0": 0.903395,
+     "1": 0.932692
+    }
+   },
+   "chains_ptm": {
+    "0": 0.824102,
+    "1": 0.932692
+   },
+   "affinity_pred_value": 1.225952,
+   "affinity_probability_binary": 0.132876,
+   "affinity_pred_value1": 0.845063,
+   "affinity_probability_binary1": 0.14968,
+   "affinity_pred_value2": 1.60684,
+   "affinity_probability_binary2": 0.116071,
+   "structure_runtime_s": 55.2,
+   "affinity_runtime_s": 122.3,
+   "runtime_s": 177.4
+  },
+  {
+   "id": "d33_9933475",
+   "status": "ok",
+   "confidence_score": 0.877388,
+   "ptm": 0.736364,
+   "iptm": 0.976681,
+   "ligand_iptm": 0.976681,
+   "protein_iptm": 0.0,
+   "complex_plddt": 0.852565,
+   "complex_iplddt": 0.914367,
+   "complex_pde": 1.079528,
+   "complex_ipde": 0.677031,
+   "plddt": 0.852565,
+   "pair_chains_iptm": {
+    "0": {
+     "0": 0.721505,
+     "1": 0.518568
+    },
+    "1": {
+     "0": 0.976681,
+     "1": 0.921756
+    }
+   },
+   "chains_ptm": {
+    "0": 0.721505,
+    "1": 0.921756
+   },
+   "affinity_pred_value": -1.415711,
+   "affinity_probability_binary": 0.512766,
+   "affinity_pred_value1": -1.213551,
+   "affinity_probability_binary1": 0.594794,
+   "affinity_pred_value2": -1.617871,
+   "affinity_probability_binary2": 0.430739,
+   "structure_runtime_s": 55.1,
+   "affinity_runtime_s": 145.7,
+   "runtime_s": 200.8
+  },
+  {
+   "id": "d34_10074640",
+   "status": "ok",
+   "confidence_score": 0.866253,
+   "ptm": 0.733023,
+   "iptm": 0.980468,
+   "ligand_iptm": 0.980468,
+   "protein_iptm": 0.0,
+   "complex_plddt": 0.837699,
+   "complex_iplddt": 0.893621,
+   "complex_pde": 1.108553,
+   "complex_ipde": 0.748007,
+   "plddt": 0.837699,
+   "pair_chains_iptm": {
+    "0": {
+     "0": 0.71619,
+     "1": 0.59595
+    },
+    "1": {
+     "0": 0.980468,
+     "1": 0.958225
+    }
+   },
+   "chains_ptm": {
+    "0": 0.71619,
+    "1": 0.958225
+   },
+   "affinity_pred_value": -0.922125,
+   "affinity_probability_binary": 0.705469,
+   "affinity_pred_value1": -0.799734,
+   "affinity_probability_binary1": 0.638034,
+   "affinity_pred_value2": -1.044515,
+   "affinity_probability_binary2": 0.772905,
+   "structure_runtime_s": 50.8,
+   "affinity_runtime_s": 146.8,
+   "runtime_s": 197.6
+  },
+  {
+   "id": "d35_10113978",
+   "status": "ok",
+   "confidence_score": 0.847998,
+   "ptm": 0.775253,
+   "iptm": 0.886214,
+   "ligand_iptm": 0.886214,
+   "protein_iptm": 0.0,
+   "complex_plddt": 0.838443,
+   "complex_iplddt": 0.832311,
+   "complex_pde": 1.101252,
+   "complex_ipde": 1.943401,
+   "plddt": 0.838443,
+   "pair_chains_iptm": {
+    "0": {
+     "0": 0.769009,
+     "1": 0.427365
+    },
+    "1": {
+     "0": 0.886214,
+     "1": 0.882686
+    }
+   },
+   "chains_ptm": {
+    "0": 0.769009,
+    "1": 0.882686
+   },
+   "affinity_pred_value": -0.237676,
+   "affinity_probability_binary": 0.45162,
+   "affinity_pred_value1": -0.061809,
+   "affinity_probability_binary1": 0.500306,
+   "affinity_pred_value2": -0.413543,
+   "affinity_probability_binary2": 0.402933,
+   "structure_runtime_s": 55.6,
+   "affinity_runtime_s": 149.9,
+   "runtime_s": 205.4
+  },
+  {
+   "id": "d36_10127622",
+   "status": "ok",
+   "confidence_score": 0.865056,
+   "ptm": 0.764778,
+   "iptm": 0.940827,
+   "ligand_iptm": 0.940827,
+   "protein_iptm": 0.0,
+   "complex_plddt": 0.846114,
+   "complex_iplddt": 0.863204,
+   "complex_pde": 1.082784,
+   "complex_ipde": 1.270496,
+   "plddt": 0.846114,
+   "pair_chains_iptm": {
+    "0": {
+     "0": 0.756828,
+     "1": 0.437629
+    },
+    "1": {
+     "0": 0.940827,
+     "1": 0.931857
+    }
+   },
+   "chains_ptm": {
+    "0": 0.756828,
+    "1": 0.931857
+   },
+   "affinity_pred_value": 0.300582,
+   "affinity_probability_binary": 0.088642,
+   "affinity_pred_value1": 0.406568,
+   "affinity_probability_binary1": 0.100518,
+   "affinity_pred_value2": 0.194596,
+   "affinity_probability_binary2": 0.076765,
+   "structure_runtime_s": 54.2,
+   "affinity_runtime_s": 124.5,
+   "runtime_s": 178.7
+  },
+  {
+   "id": "d37_10138260",
+   "status": "ok",
+   "confidence_score": 0.867997,
+   "ptm": 0.775252,
+   "iptm": 0.950683,
+   "ligand_iptm": 0.950683,
+   "protein_iptm": 0.0,
+   "complex_plddt": 0.847325,
+   "complex_iplddt": 0.879229,
+   "complex_pde": 1.026921,
+   "complex_ipde": 0.874163,
+   "plddt": 0.847325,
+   "pair_chains_iptm": {
+    "0": {
+     "0": 0.764944,
+     "1": 0.611004
+    },
+    "1": {
+     "0": 0.950683,
+     "1": 0.919311
+    }
+   },
+   "chains_ptm": {
+    "0": 0.764944,
+    "1": 0.919311
+   },
+   "affinity_pred_value": -0.703892,
+   "affinity_probability_binary": 0.257135,
+   "affinity_pred_value1": -0.578995,
+   "affinity_probability_binary1": 0.304445,
+   "affinity_pred_value2": -0.82879,
+   "affinity_probability_binary2": 0.209824,
+   "structure_runtime_s": 55.4,
+   "affinity_runtime_s": 146.2,
+   "runtime_s": 201.6
+  },
+  {
+   "id": "d38_10184653",
+   "status": "ok",
+   "confidence_score": 0.870638,
+   "ptm": 0.764086,
+   "iptm": 0.973575,
+   "ligand_iptm": 0.973575,
+   "protein_iptm": 0.0,
+   "complex_plddt": 0.844903,
+   "complex_iplddt": 0.902345,
+   "complex_pde": 1.019258,
+   "complex_ipde": 0.75581,
+   "plddt": 0.844903,
+   "pair_chains_iptm": {
+    "0": {
+     "0": 0.751335,
+     "1": 0.529026
+    },
+    "1": {
+     "0": 0.973575,
+     "1": 0.914637
+    }
+   },
+   "chains_ptm": {
+    "0": 0.751335,
+    "1": 0.914637
+   },
+   "affinity_pred_value": -0.144752,
+   "affinity_probability_binary": 0.195634,
+   "affinity_pred_value1": -0.193383,
+   "affinity_probability_binary1": 0.215425,
+   "affinity_pred_value2": -0.096121,
+   "affinity_probability_binary2": 0.175844,
+   "structure_runtime_s": 54.9,
+   "affinity_runtime_s": 142.2,
+   "runtime_s": 197.1
+  },
+  {
+   "id": "d39_10427712",
+   "status": "ok",
+   "confidence_score": 0.844628,
+   "ptm": 0.761421,
+   "iptm": 0.910456,
+   "ligand_iptm": 0.910456,
+   "protein_iptm": 0.0,
+   "complex_plddt": 0.828171,
+   "complex_iplddt": 0.78811,
+   "complex_pde": 1.151716,
+   "complex_ipde": 1.540215,
+   "plddt": 0.828171,
+   "pair_chains_iptm": {
+    "0": {
+     "0": 0.754526,
+     "1": 0.466884
+    },
+    "1": {
+     "0": 0.910456,
+     "1": 0.909555
+    }
+   },
+   "chains_ptm": {
+    "0": 0.754526,
+    "1": 0.909555
+   },
+   "affinity_pred_value": 0.7462,
+   "affinity_probability_binary": 0.521258,
+   "affinity_pred_value1": 0.8014,
+   "affinity_probability_binary1": 0.564342,
+   "affinity_pred_value2": 0.691001,
+   "affinity_probability_binary2": 0.478175,
+   "structure_runtime_s": 55.7,
+   "affinity_runtime_s": 145.3,
+   "runtime_s": 201.0
+  },
+  {
+   "id": "d40_10461815",
+   "status": "ok",
+   "confidence_score": 0.861296,
+   "ptm": 0.746239,
+   "iptm": 0.95158,
+   "ligand_iptm": 0.95158,
+   "protein_iptm": 0.0,
+   "complex_plddt": 0.838725,
+   "complex_iplddt": 0.857342,
+   "complex_pde": 1.022346,
+   "complex_ipde": 0.923042,
+   "plddt": 0.838725,
+   "pair_chains_iptm": {
+    "0": {
+     "0": 0.729843,
+     "1": 0.606716
+    },
+    "1": {
+     "0": 0.95158,
+     "1": 0.924418
+    }
+   },
+   "chains_ptm": {
+    "0": 0.729843,
+    "1": 0.924418
+   },
+   "affinity_pred_value": -1.524407,
+   "affinity_probability_binary": 0.549371,
+   "affinity_pred_value1": -1.329761,
+   "affinity_probability_binary1": 0.503131,
+   "affinity_pred_value2": -1.719052,
+   "affinity_probability_binary2": 0.59561,
+   "structure_runtime_s": 50.1,
+   "affinity_runtime_s": 151.2,
+   "runtime_s": 201.4
+  },
+  {
+   "id": "d41_11234052",
+   "status": "ok",
+   "confidence_score": 0.872536,
+   "ptm": 0.768704,
+   "iptm": 0.977864,
+   "ligand_iptm": 0.977864,
+   "protein_iptm": 0.0,
+   "complex_plddt": 0.846203,
+   "complex_iplddt": 0.905589,
+   "complex_pde": 1.042681,
+   "complex_ipde": 0.742561,
+   "plddt": 0.846203,
+   "pair_chains_iptm": {
+    "0": {
+     "0": 0.758676,
+     "1": 0.51787
+    },
+    "1": {
+     "0": 0.977864,
+     "1": 0.932436
+    }
+   },
+   "chains_ptm": {
+    "0": 0.758676,
+    "1": 0.932436
+   },
+   "affinity_pred_value": -0.168203,
+   "affinity_probability_binary": 0.325644,
+   "affinity_pred_value1": 0.506168,
+   "affinity_probability_binary1": 0.457697,
+   "affinity_pred_value2": -0.842574,
+   "affinity_probability_binary2": 0.193591,
+   "structure_runtime_s": 55.0,
+   "affinity_runtime_s": 140.1,
+   "runtime_s": 195.1
+  },
+  {
+   "id": "d42_11314340",
+   "status": "ok",
+   "confidence_score": 0.870806,
+   "ptm": 0.726322,
+   "iptm": 0.96846,
+   "ligand_iptm": 0.96846,
+   "protein_iptm": 0.0,
+   "complex_plddt": 0.846392,
+   "complex_iplddt": 0.872141,
+   "complex_pde": 1.255459,
+   "complex_ipde": 0.883377,
+   "plddt": 0.846392,
+   "pair_chains_iptm": {
+    "0": {
+     "0": 0.714138,
+     "1": 0.501318
+    },
+    "1": {
+     "0": 0.96846,
+     "1": 0.918547
+    }
+   },
+   "chains_ptm": {
+    "0": 0.714138,
+    "1": 0.918547
+   },
+   "affinity_pred_value": 0.390602,
+   "affinity_probability_binary": 0.372669,
+   "affinity_pred_value1": 0.861358,
+   "affinity_probability_binary1": 0.477544,
+   "affinity_pred_value2": -0.080153,
+   "affinity_probability_binary2": 0.267793,
+   "structure_runtime_s": 54.8,
+   "affinity_runtime_s": 145.7,
+   "runtime_s": 200.5
+  },
+  {
+   "id": "d43_11338033",
+   "status": "ok",
+   "confidence_score": 0.873703,
+   "ptm": 0.779253,
+   "iptm": 0.969687,
+   "ligand_iptm": 0.969687,
+   "protein_iptm": 0.0,
+   "complex_plddt": 0.849707,
+   "complex_iplddt": 0.874551,
+   "complex_pde": 1.021256,
+   "complex_ipde": 0.849314,
+   "plddt": 0.849707,
+   "pair_chains_iptm": {
+    "0": {
+     "0": 0.770667,
+     "1": 0.553916
+    },
+    "1": {
+     "0": 0.969687,
+     "1": 0.957656
+    }
+   },
+   "chains_ptm": {
+    "0": 0.770667,
+    "1": 0.957656
+   },
+   "affinity_pred_value": 0.776721,
+   "affinity_probability_binary": 0.287495,
+   "affinity_pred_value1": 0.762215,
+   "affinity_probability_binary1": 0.255261,
+   "affinity_pred_value2": 0.791226,
+   "affinity_probability_binary2": 0.31973,
+   "structure_runtime_s": 55.7,
+   "affinity_runtime_s": 130.5,
+   "runtime_s": 186.2
+  },
+  {
+   "id": "d44_11364421",
+   "status": "ok",
+   "confidence_score": 0.861267,
+   "ptm": 0.759182,
+   "iptm": 0.95148,
+   "ligand_iptm": 0.95148,
+   "protein_iptm": 0.0,
+   "complex_plddt": 0.838714,
+   "complex_iplddt": 0.868678,
+   "complex_pde": 1.032983,
+   "complex_ipde": 0.936526,
+   "plddt": 0.838714,
+   "pair_chains_iptm": {
+    "0": {
+     "0": 0.745501,
+     "1": 0.541067
+    },
+    "1": {
+     "0": 0.95148,
+     "1": 0.932052
+    }
+   },
+   "chains_ptm": {
+    "0": 0.745501,
+    "1": 0.932052
+   },
+   "affinity_pred_value": 0.713584,
+   "affinity_probability_binary": 0.152663,
+   "affinity_pred_value1": 0.585185,
+   "affinity_probability_binary1": 0.197964,
+   "affinity_pred_value2": 0.841983,
+   "affinity_probability_binary2": 0.107363,
+   "structure_runtime_s": 50.1,
+   "affinity_runtime_s": 150.3,
+   "runtime_s": 200.4
+  },
+  {
+   "id": "d45_11409972",
+   "status": "ok",
+   "confidence_score": 0.86438,
+   "ptm": 0.745637,
+   "iptm": 0.982833,
+   "ligand_iptm": 0.982833,
+   "protein_iptm": 0.0,
+   "complex_plddt": 0.834767,
+   "complex_iplddt": 0.900394,
+   "complex_pde": 1.082551,
+   "complex_ipde": 0.618938,
+   "plddt": 0.834767,
+   "pair_chains_iptm": {
+    "0": {
+     "0": 0.728197,
+     "1": 0.585843
+    },
+    "1": {
+     "0": 0.982833,
+     "1": 0.91766
+    }
+   },
+   "chains_ptm": {
+    "0": 0.728197,
+    "1": 0.91766
+   },
+   "affinity_pred_value": -0.827884,
+   "affinity_probability_binary": 0.820537,
+   "affinity_pred_value1": -0.839466,
+   "affinity_probability_binary1": 0.793031,
+   "affinity_pred_value2": -0.816302,
+   "affinity_probability_binary2": 0.848042,
+   "structure_runtime_s": 50.9,
+   "affinity_runtime_s": 156.4,
+   "runtime_s": 207.3
+  },
+  {
+   "id": "d46_11427553",
+   "status": "ok",
+   "confidence_score": 0.86637,
+   "ptm": 0.788146,
+   "iptm": 0.967968,
+   "ligand_iptm": 0.967968,
+   "protein_iptm": 0.0,
+   "complex_plddt": 0.840971,
+   "complex_iplddt": 0.885448,
+   "complex_pde": 0.980329,
+   "complex_ipde": 0.692858,
+   "plddt": 0.840971,
+   "pair_chains_iptm": {
+    "0": {
+     "0": 0.779844,
+     "1": 0.490275
+    },
+    "1": {
+     "0": 0.967968,
+     "1": 0.929218
+    }
+   },
+   "chains_ptm": {
+    "0": 0.779844,
+    "1": 0.929218
+   },
+   "affinity_pred_value": -0.022937,
+   "affinity_probability_binary": 0.486509,
+   "affinity_pred_value1": -0.24971,
+   "affinity_probability_binary1": 0.521668,
+   "affinity_pred_value2": 0.203836,
+   "affinity_probability_binary2": 0.451349,
+   "structure_runtime_s": 55.2,
+   "affinity_runtime_s": 143.7,
+   "runtime_s": 198.9
+  },
+  {
+   "id": "d47_11485656",
+   "status": "ok",
+   "confidence_score": 0.867209,
+   "ptm": 0.785505,
+   "iptm": 0.986746,
+   "ligand_iptm": 0.986746,
+   "protein_iptm": 0.0,
+   "complex_plddt": 0.837325,
+   "complex_iplddt": 0.895228,
+   "complex_pde": 0.972455,
+   "complex_ipde": 0.613186,
+   "plddt": 0.837325,
+   "pair_chains_iptm": {
+    "0": {
+     "0": 0.774911,
+     "1": 0.505763
+    },
+    "1": {
+     "0": 0.986746,
+     "1": 0.887137
+    }
+   },
+   "chains_ptm": {
+    "0": 0.774911,
+    "1": 0.887137
+   },
+   "affinity_pred_value": -0.137227,
+   "affinity_probability_binary": 0.366544,
+   "affinity_pred_value1": -0.109564,
+   "affinity_probability_binary1": 0.327961,
+   "affinity_pred_value2": -0.164891,
+   "affinity_probability_binary2": 0.405128,
+   "structure_runtime_s": 55.3,
+   "affinity_runtime_s": 143.6,
+   "runtime_s": 198.9
+  },
+  {
+   "id": "d48_11617559",
+   "status": "ok",
+   "confidence_score": 0.837702,
+   "ptm": 0.772556,
+   "iptm": 0.889033,
+   "ligand_iptm": 0.889033,
+   "protein_iptm": 0.0,
+   "complex_plddt": 0.82487,
+   "complex_iplddt": 0.723963,
+   "complex_pde": 1.124703,
+   "complex_ipde": 1.825631,
+   "plddt": 0.82487,
+   "pair_chains_iptm": {
+    "0": {
+     "0": 0.766861,
+     "1": 0.312364
+    },
+    "1": {
+     "0": 0.889033,
+     "1": 0.873553
+    }
+   },
+   "chains_ptm": {
+    "0": 0.766861,
+    "1": 0.873553
+   },
+   "affinity_pred_value": 0.025102,
+   "affinity_probability_binary": 0.119162,
+   "affinity_pred_value1": -0.687248,
+   "affinity_probability_binary1": 0.180953,
+   "affinity_pred_value2": 0.737452,
+   "affinity_probability_binary2": 0.057371,
+   "structure_runtime_s": 54.8,
+   "affinity_runtime_s": 147.9,
+   "runtime_s": 202.7
+  },
+  {
+   "id": "d49_11626560",
+   "status": "ok",
+   "confidence_score": 0.878132,
+   "ptm": 0.763817,
+   "iptm": 0.98138,
+   "ligand_iptm": 0.98138,
+   "protein_iptm": 0.0,
+   "complex_plddt": 0.852321,
+   "complex_iplddt": 0.91249,
+   "complex_pde": 1.029408,
+   "complex_ipde": 0.643007,
+   "plddt": 0.852321,
+   "pair_chains_iptm": {
+    "0": {
+     "0": 0.751853,
+     "1": 0.634157
+    },
+    "1": {
+     "0": 0.98138,
+     "1": 0.947786
+    }
+   },
+   "chains_ptm": {
+    "0": 0.751853,
+    "1": 0.947786
+   },
+   "affinity_pred_value": -1.447882,
+   "affinity_probability_binary": 0.782874,
+   "affinity_pred_value1": -1.092485,
+   "affinity_probability_binary1": 0.70343,
+   "affinity_pred_value2": -1.803279,
+   "affinity_probability_binary2": 0.862316,
+   "structure_runtime_s": 54.6,
+   "affinity_runtime_s": 144.5,
+   "runtime_s": 199.1
+  },
+  {
+   "id": "d50_11656518",
+   "status": "ok",
+   "confidence_score": 0.861599,
+   "ptm": 0.727267,
+   "iptm": 0.984269,
+   "ligand_iptm": 0.984269,
+   "protein_iptm": 0.0,
+   "complex_plddt": 0.830932,
+   "complex_iplddt": 0.907233,
+   "complex_pde": 1.082191,
+   "complex_ipde": 0.606396,
+   "plddt": 0.830932,
+   "pair_chains_iptm": {
+    "0": {
+     "0": 0.709379,
+     "1": 0.586522
+    },
+    "1": {
+     "0": 0.984269,
+     "1": 0.91913
+    }
+   },
+   "chains_ptm": {
+    "0": 0.709379,
+    "1": 0.91913
+   },
+   "affinity_pred_value": -0.335582,
+   "affinity_probability_binary": 0.426092,
+   "affinity_pred_value1": -0.590726,
+   "affinity_probability_binary1": 0.368806,
+   "affinity_pred_value2": -0.080438,
+   "affinity_probability_binary2": 0.483378,
+   "structure_runtime_s": 51.0,
+   "affinity_runtime_s": 145.3,
+   "runtime_s": 196.3
+  },
+  {
+   "id": "d51_11667893",
+   "status": "ok",
+   "confidence_score": 0.865252,
+   "ptm": 0.698345,
+   "iptm": 0.982561,
+   "ligand_iptm": 0.982561,
+   "protein_iptm": 0.0,
+   "complex_plddt": 0.835925,
+   "complex_iplddt": 0.892281,
+   "complex_pde": 1.228678,
+   "complex_ipde": 0.739713,
+   "plddt": 0.835925,
+   "pair_chains_iptm": {
+    "0": {
+     "0": 0.683585,
+     "1": 0.566468
+    },
+    "1": {
+     "0": 0.982561,
+     "1": 0.969726
+    }
+   },
+   "chains_ptm": {
+    "0": 0.683585,
+    "1": 0.969726
+   },
+   "affinity_pred_value": -0.04165,
+   "affinity_probability_binary": 0.66074,
+   "affinity_pred_value1": -0.716668,
+   "affinity_probability_binary1": 0.615956,
+   "affinity_pred_value2": 0.633368,
+   "affinity_probability_binary2": 0.705524,
+   "structure_runtime_s": 55.2,
+   "affinity_runtime_s": 145.9,
+   "runtime_s": 201.1
+  },
+  {
+   "id": "d52_11712649",
+   "status": "ok",
+   "confidence_score": 0.878842,
+   "ptm": 0.729715,
+   "iptm": 0.96829,
+   "ligand_iptm": 0.96829,
+   "protein_iptm": 0.0,
+   "complex_plddt": 0.85648,
+   "complex_iplddt": 0.913991,
+   "complex_pde": 1.079141,
+   "complex_ipde": 0.895611,
+   "plddt": 0.85648,
+   "pair_chains_iptm": {
+    "0": {
+     "0": 0.714754,
+     "1": 0.565396
+    },
+    "1": {
+     "0": 0.96829,
+     "1": 0.915096
+    }
+   },
+   "chains_ptm": {
+    "0": 0.714754,
+    "1": 0.915096
+   },
+   "affinity_pred_value": -0.164154,
+   "affinity_probability_binary": 0.403607,
+   "affinity_pred_value1": -0.023956,
+   "affinity_probability_binary1": 0.359411,
+   "affinity_pred_value2": -0.304352,
+   "affinity_probability_binary2": 0.447804,
+   "structure_runtime_s": 55.0,
+   "affinity_runtime_s": 144.8,
+   "runtime_s": 199.8
+  },
+  {
+   "id": "d54_11984591",
+   "status": "failed",
+   "error": "Pre-condition Violation\n\tgetNumImplicitHs() called without preceding call to calcImplicitValence()\n\tViolation occurred on line 303 in file Code/GraphMol/Atom.cpp\n\tFailed Expression: d_implicitValence > -1\n\tRDKIT: 2026.03.6\n\tBOOST: 1_85\n\n[tt_bio origin: parse.py:3705 in standardize]"
+  },
+  {
+   "id": "d53_11717001",
+   "status": "ok",
+   "confidence_score": 0.873279,
+   "ptm": 0.784417,
+   "iptm": 0.971875,
+   "ligand_iptm": 0.971875,
+   "protein_iptm": 0.0,
+   "complex_plddt": 0.84863,
+   "complex_iplddt": 0.890019,
+   "complex_pde": 0.989402,
+   "complex_ipde": 0.820312,
+   "plddt": 0.84863,
+   "pair_chains_iptm": {
+    "0": {
+     "0": 0.775847,
+     "1": 0.53776
+    },
+    "1": {
+     "0": 0.971875,
+     "1": 0.9125
+    }
+   },
+   "chains_ptm": {
+    "0": 0.775847,
+    "1": 0.9125
+   },
+   "affinity_pred_value": -0.361496,
+   "affinity_probability_binary": 0.217926,
+   "affinity_pred_value1": -0.763691,
+   "affinity_probability_binary1": 0.202788,
+   "affinity_pred_value2": 0.0407,
+   "affinity_probability_binary2": 0.233064,
+   "structure_runtime_s": 55.4,
+   "affinity_runtime_s": 143.3,
+   "runtime_s": 198.7
+  },
+  {
+   "id": "d55_16007391",
+   "status": "ok",
+   "confidence_score": 0.847166,
+   "ptm": 0.730347,
+   "iptm": 0.930004,
+   "ligand_iptm": 0.930004,
+   "protein_iptm": 0.0,
+   "complex_plddt": 0.826456,
+   "complex_iplddt": 0.841274,
+   "complex_pde": 1.155653,
+   "complex_ipde": 1.150978,
+   "plddt": 0.826456,
+   "pair_chains_iptm": {
+    "0": {
+     "0": 0.716686,
+     "1": 0.492578
+    },
+    "1": {
+     "0": 0.930004,
+     "1": 0.866765
+    }
+   },
+   "chains_ptm": {
+    "0": 0.716686,
+    "1": 0.866765
+   },
+   "affinity_pred_value": -0.778238,
+   "affinity_probability_binary": 0.548295,
+   "affinity_pred_value1": -0.959812,
+   "affinity_probability_binary1": 0.732244,
+   "affinity_pred_value2": -0.596663,
+   "affinity_probability_binary2": 0.364346,
+   "structure_runtime_s": 50.7,
+   "affinity_runtime_s": 145.4,
+   "runtime_s": 196.1
+  },
+  {
+   "id": "d56_16038120",
+   "status": "ok",
+   "confidence_score": 0.877531,
+   "ptm": 0.766864,
+   "iptm": 0.967448,
+   "ligand_iptm": 0.967448,
+   "protein_iptm": 0.0,
+   "complex_plddt": 0.855052,
+   "complex_iplddt": 0.892425,
+   "complex_pde": 0.914428,
+   "complex_ipde": 0.679488,
+   "plddt": 0.855052,
+   "pair_chains_iptm": {
+    "0": {
+     "0": 0.75128,
+     "1": 0.547094
+    },
+    "1": {
+     "0": 0.967448,
+     "1": 0.895554
+    }
+   },
+   "chains_ptm": {
+    "0": 0.75128,
+    "1": 0.895554
+   },
+   "affinity_pred_value": -1.305494,
+   "affinity_probability_binary": 0.748582,
+   "affinity_pred_value1": -1.434844,
+   "affinity_probability_binary1": 0.806377,
+   "affinity_pred_value2": -1.176144,
+   "affinity_probability_binary2": 0.690787,
+   "structure_runtime_s": 50.7,
+   "affinity_runtime_s": 148.8,
+   "runtime_s": 199.5
+  },
+  {
+   "id": "d57_16722836",
+   "status": "ok",
+   "confidence_score": 0.859342,
+   "ptm": 0.721029,
+   "iptm": 0.934227,
+   "ligand_iptm": 0.934227,
+   "protein_iptm": 0.0,
+   "complex_plddt": 0.840621,
+   "complex_iplddt": 0.865346,
+   "complex_pde": 1.161647,
+   "complex_ipde": 1.04948,
+   "plddt": 0.840621,
+   "pair_chains_iptm": {
+    "0": {
+     "0": 0.706375,
+     "1": 0.476356
+    },
+    "1": {
+     "0": 0.934227,
+     "1": 0.844383
+    }
+   },
+   "chains_ptm": {
+    "0": 0.706375,
+    "1": 0.844383
+   },
+   "affinity_pred_value": -0.942663,
+   "affinity_probability_binary": 0.551472,
+   "affinity_pred_value1": -1.139343,
+   "affinity_probability_binary1": 0.486111,
+   "affinity_pred_value2": -0.745982,
+   "affinity_probability_binary2": 0.616834,
+   "structure_runtime_s": 50.2,
+   "affinity_runtime_s": 151.4,
+   "runtime_s": 201.6
+  },
+  {
+   "id": "d58_16725726",
+   "status": "ok",
+   "confidence_score": 0.871258,
+   "ptm": 0.764318,
+   "iptm": 0.969002,
+   "ligand_iptm": 0.969002,
+   "protein_iptm": 0.0,
+   "complex_plddt": 0.846822,
+   "complex_iplddt": 0.898897,
+   "complex_pde": 1.046708,
+   "complex_ipde": 0.85758,
+   "plddt": 0.846822,
+   "pair_chains_iptm": {
+    "0": {
+     "0": 0.752412,
+     "1": 0.591541
+    },
+    "1": {
+     "0": 0.969002,
+     "1": 0.935988
+    }
+   },
+   "chains_ptm": {
+    "0": 0.752412,
+    "1": 0.935988
+   },
+   "affinity_pred_value": -0.025684,
+   "affinity_probability_binary": 0.201392,
+   "affinity_pred_value1": -0.001029,
+   "affinity_probability_binary1": 0.128284,
+   "affinity_pred_value2": -0.05034,
+   "affinity_probability_binary2": 0.2745,
+   "structure_runtime_s": 56.0,
+   "affinity_runtime_s": 118.4,
+   "runtime_s": 174.4
+  },
+  {
+   "id": "d59_17755052",
+   "status": "ok",
+   "confidence_score": 0.867868,
+   "ptm": 0.77052,
+   "iptm": 0.928683,
+   "ligand_iptm": 0.928683,
+   "protein_iptm": 0.0,
+   "complex_plddt": 0.852664,
+   "complex_iplddt": 0.88698,
+   "complex_pde": 1.039207,
+   "complex_ipde": 1.185398,
+   "plddt": 0.852664,
+   "pair_chains_iptm": {
+    "0": {
+     "0": 0.760328,
+     "1": 0.462997
+    },
+    "1": {
+     "0": 0.928683,
+     "1": 0.910156
+    }
+   },
+   "chains_ptm": {
+    "0": 0.760328,
+    "1": 0.910156
+   },
+   "affinity_pred_value": 0.480903,
+   "affinity_probability_binary": 0.065017,
+   "affinity_pred_value1": 0.230367,
+   "affinity_probability_binary1": 0.030462,
+   "affinity_pred_value2": 0.731438,
+   "affinity_probability_binary2": 0.099572,
+   "structure_runtime_s": 54.6,
+   "affinity_runtime_s": 142.6,
+   "runtime_s": 197.2
+  },
+  {
+   "id": "d60_24180719",
+   "status": "ok",
+   "confidence_score": 0.871448,
+   "ptm": 0.746315,
+   "iptm": 0.975549,
+   "ligand_iptm": 0.975549,
+   "protein_iptm": 0.0,
+   "complex_plddt": 0.845423,
+   "complex_iplddt": 0.889785,
+   "complex_pde": 1.087774,
+   "complex_ipde": 0.693648,
+   "plddt": 0.845423,
+   "pair_chains_iptm": {
+    "0": {
+     "0": 0.734928,
+     "1": 0.594265
+    },
+    "1": {
+     "0": 0.975549,
+     "1": 0.945167
+    }
+   },
+   "chains_ptm": {
+    "0": 0.734928,
+    "1": 0.945167
+   },
+   "affinity_pred_value": -0.628615,
+   "affinity_probability_binary": 0.764404,
+   "affinity_pred_value1": -0.678036,
+   "affinity_probability_binary1": 0.779434,
+   "affinity_pred_value2": -0.579194,
+   "affinity_probability_binary2": 0.749373,
+   "structure_runtime_s": 55.7,
+   "affinity_runtime_s": 115.5,
+   "runtime_s": 171.2
+  },
+  {
+   "id": "d61_24779724",
+   "status": "ok",
+   "confidence_score": 0.865789,
+   "ptm": 0.778328,
+   "iptm": 0.938101,
+   "ligand_iptm": 0.938101,
+   "protein_iptm": 0.0,
+   "complex_plddt": 0.847711,
+   "complex_iplddt": 0.830058,
+   "complex_pde": 1.026109,
+   "complex_ipde": 1.140879,
+   "plddt": 0.847711,
+   "pair_chains_iptm": {
+    "0": {
+     "0": 0.770742,
+     "1": 0.386223
+    },
+    "1": {
+     "0": 0.938101,
+     "1": 0.888672
+    }
+   },
+   "chains_ptm": {
+    "0": 0.770742,
+    "1": 0.888672
+   },
+   "affinity_pred_value": 0.394156,
+   "affinity_probability_binary": 0.137131,
+   "affinity_pred_value1": 0.457786,
+   "affinity_probability_binary1": 0.067816,
+   "affinity_pred_value2": 0.330526,
+   "affinity_probability_binary2": 0.206447,
+   "structure_runtime_s": 54.3,
+   "affinity_runtime_s": 139.6,
+   "runtime_s": 193.9
+  },
+  {
+   "id": "d63_25127112",
+   "status": "failed",
+   "error": "Pre-condition Violation\n\tgetNumImplicitHs() called without preceding call to calcImplicitValence()\n\tViolation occurred on line 303 in file Code/GraphMol/Atom.cpp\n\tFailed Expression: d_implicitValence > -1\n\tRDKIT: 2026.03.6\n\tBOOST: 1_85\n\n[tt_bio origin: parse.py:3705 in standardize]"
+  },
+  {
+   "id": "d62_24889392",
+   "status": "ok",
+   "confidence_score": 0.862665,
+   "ptm": 0.760564,
+   "iptm": 0.974707,
+   "ligand_iptm": 0.974707,
+   "protein_iptm": 0.0,
+   "complex_plddt": 0.834654,
+   "complex_iplddt": 0.887105,
+   "complex_pde": 1.065962,
+   "complex_ipde": 0.727362,
+   "plddt": 0.834654,
+   "pair_chains_iptm": {
+    "0": {
+     "0": 0.744628,
+     "1": 0.478517
+    },
+    "1": {
+     "0": 0.974707,
+     "1": 0.851367
+    }
+   },
+   "chains_ptm": {
+    "0": 0.744628,
+    "1": 0.851367
+   },
+   "affinity_pred_value": -1.048534,
+   "affinity_probability_binary": 0.673867,
+   "affinity_pred_value1": -0.357707,
+   "affinity_probability_binary1": 0.702275,
+   "affinity_pred_value2": -1.73936,
+   "affinity_probability_binary2": 0.645458,
+   "structure_runtime_s": 50.2,
+   "affinity_runtime_s": 155.6,
+   "runtime_s": 205.8
+  },
+  {
+   "id": "d64_25243800",
+   "status": "ok",
+   "confidence_score": 0.866851,
+   "ptm": 0.711389,
+   "iptm": 0.97894,
+   "ligand_iptm": 0.97894,
+   "protein_iptm": 0.0,
+   "complex_plddt": 0.838829,
+   "complex_iplddt": 0.8887,
+   "complex_pde": 1.203704,
+   "complex_ipde": 0.70625,
+   "plddt": 0.838829,
+   "pair_chains_iptm": {
+    "0": {
+     "0": 0.699884,
+     "1": 0.577807
+    },
+    "1": {
+     "0": 0.97894,
+     "1": 0.94718
+    }
+   },
+   "chains_ptm": {
+    "0": 0.699884,
+    "1": 0.94718
+   },
+   "affinity_pred_value": -0.669109,
+   "affinity_probability_binary": 0.801498,
+   "affinity_pred_value1": -0.528232,
+   "affinity_probability_binary1": 0.851555,
+   "affinity_pred_value2": -0.809986,
+   "affinity_probability_binary2": 0.75144,
+   "structure_runtime_s": 55.6,
+   "affinity_runtime_s": 126.2,
+   "runtime_s": 181.7
+  },
+  {
+   "id": "d66_44150621",
+   "status": "failed",
+   "error": "Pre-condition Violation\n\tgetNumImplicitHs() called without preceding call to calcImplicitValence()\n\tViolation occurred on line 303 in file Code/GraphMol/Atom.cpp\n\tFailed Expression: d_implicitValence > -1\n\tRDKIT: 2026.03.6\n\tBOOST: 1_85\n\n[tt_bio origin: parse.py:3705 in standardize]"
+  },
+  {
+   "id": "d65_42642645",
+   "status": "ok",
+   "confidence_score": 0.850641,
+   "ptm": 0.734842,
+   "iptm": 0.967816,
+   "ligand_iptm": 0.967816,
+   "protein_iptm": 0.0,
+   "complex_plddt": 0.821347,
+   "complex_iplddt": 0.861221,
+   "complex_pde": 1.051763,
+   "complex_ipde": 0.844918,
+   "plddt": 0.821347,
+   "pair_chains_iptm": {
+    "0": {
+     "0": 0.714882,
+     "1": 0.493651
+    },
+    "1": {
+     "0": 0.967816,
+     "1": 0.865574
+    }
+   },
+   "chains_ptm": {
+    "0": 0.714882,
+    "1": 0.865574
+   },
+   "affinity_pred_value": -1.971383,
+   "affinity_probability_binary": 0.817502,
+   "affinity_pred_value1": -1.752341,
+   "affinity_probability_binary1": 0.832774,
+   "affinity_pred_value2": -2.190425,
+   "affinity_probability_binary2": 0.802229,
+   "structure_runtime_s": 51.2,
+   "affinity_runtime_s": 156.5,
+   "runtime_s": 207.7
+  },
+  {
+   "id": "d67_51004351",
+   "status": "ok",
+   "confidence_score": 0.859642,
+   "ptm": 0.710225,
+   "iptm": 0.960756,
+   "ligand_iptm": 0.960756,
+   "protein_iptm": 0.0,
+   "complex_plddt": 0.834364,
+   "complex_iplddt": 0.873094,
+   "complex_pde": 1.09403,
+   "complex_ipde": 0.973224,
+   "plddt": 0.834364,
+   "pair_chains_iptm": {
+    "0": {
+     "0": 0.690384,
+     "1": 0.584957
+    },
+    "1": {
+     "0": 0.960756,
+     "1": 0.932413
+    }
+   },
+   "chains_ptm": {
+    "0": 0.690384,
+    "1": 0.932413
+   },
+   "affinity_pred_value": -0.190544,
+   "affinity_probability_binary": 0.366777,
+   "affinity_pred_value1": -0.038598,
+   "affinity_probability_binary1": 0.334202,
+   "affinity_pred_value2": -0.342491,
+   "affinity_probability_binary2": 0.399352,
+   "structure_runtime_s": 52.7,
+   "affinity_runtime_s": 153.9,
+   "runtime_s": 206.6
+  },
+  {
+   "id": "x_bad",
+   "status": "failed",
+   "error": "'NoneType' object has no attribute 'GetAtoms'\n[tt_bio origin: parse.py:3698 in standardize]"
+  },
+  {
+   "id": "x_b12",
+   "status": "ok",
+   "confidence_score": 0.627783,
+   "ptm": 0.531318,
+   "iptm": 0.285875,
+   "ligand_iptm": 0.285875,
+   "protein_iptm": 0.0,
+   "complex_plddt": 0.71326,
+   "complex_iplddt": 0.330686,
+   "complex_pde": 1.920444,
+   "complex_ipde": 10.093508,
+   "plddt": 0.71326,
+   "pair_chains_iptm": {
+    "0": {
+     "0": 0.598742,
+     "1": 0.118574
+    },
+    "1": {
+     "0": 0.285875,
+     "1": 0.803657
+    }
+   },
+   "chains_ptm": {
+    "0": 0.598742,
+    "1": 0.803657
+   },
+   "affinity_pred_value": -1.240949,
+   "affinity_probability_binary": 0.565598,
+   "affinity_pred_value1": -1.59353,
+   "affinity_probability_binary1": 0.804703,
+   "affinity_pred_value2": -0.888368,
+   "affinity_probability_binary2": 0.326493,
+   "structure_runtime_s": 128.9,
+   "affinity_runtime_s": 151.2,
+   "runtime_s": 280.2
+  }
+ ],
+ "contention": false,
+ "errors": [],
+ "tail": [
+  "      \tFailed Expression: d_implicitValence > -1",
+  "      \tRDKIT: 2026.03.6",
+  "      \tBOOST: 1_85",
+  "      ",
+  "      [tt_bio origin: parse.py:3705 in standardize]",
+  "  \u2717 d63_25127112: Pre-condition Violation",
+  "      \tgetNumImplicitHs() called without preceding call to calcImplicitValence()",
+  "      \tViolation occurred on line 303 in file Code/GraphMol/Atom.cpp",
+  "      \tFailed Expression: d_implicitValence > -1",
+  "      \tRDKIT: 2026.03.6",
+  "      \tBOOST: 1_85",
+  "      ",
+  "      [tt_bio origin: parse.py:3705 in standardize]",
+  "  \u2717 d66_44150621: Pre-condition Violation",
+  "      \tgetNumImplicitHs() called without preceding call to calcImplicitValence()",
+  "      \tViolation occurred on line 303 in file Code/GraphMol/Atom.cpp",
+  "      \tFailed Expression: d_implicitValence > -1",
+  "      \tRDKIT: 2026.03.6",
+  "      \tBOOST: 1_85",
+  "      ",
+  "      [tt_bio origin: parse.py:3705 in standardize]",
+  "  \u2717 x_bad: 'NoneType' object has no attribute 'GetAtoms'",
+  "      [tt_bio origin: parse.py:3698 in standardize]",
+  "",
+  "Done: 95 ok, 5 failed \u2014 /home/agent/wt-mgx-affinity-scale/perf/mgx_affinity/out/b_screen_lck/boltz2_results_lck/results.json"
+ ]
+}

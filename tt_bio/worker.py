@@ -723,6 +723,10 @@ class _WorkerState:
             self.model._esmc.preload()
         elif model_id in _protenix_family():
             from tt_bio.protenix import Protenix
+            from tt_bio.tenstorrent import get_device
+
+            if cfg.get("trace"):
+                get_device(trace="protenix")   # reset() closed the chip; this open reserves it
 
             # Same class for both ids: c_z, the stack depths and the recycling count all come
             # off the weights (Trunk._derive_c_z / n_blocks / trunk_recycles).
@@ -755,6 +759,10 @@ class _WorkerState:
                 num_timesteps=int(cfg.get("sampling_steps") or 200))
         elif model_id in ("opendde", "opendde-abag"):
             from tt_bio.opendde import OpenDDE
+            from tt_bio.tenstorrent import get_device
+
+            if cfg.get("trace"):
+                get_device(trace="protenix")
 
             self.model = OpenDDE.load_from_checkpoint(
                 cfg.get("opendde_ckpt"), abag=(model_id == "opendde-abag"))
@@ -2196,8 +2204,11 @@ def _execute_job(
                 try:
                     aff = state.predict_affinity(input_path, best, job_cfg)
                     row.update(aff)
-                except Exception:
+                except Exception as exc:
+                    # The structure stands, so the row stays ok; but a screen reads the
+                    # affinity, and a row with no affinity and no reason reads as a pass.
                     traceback.print_exc()
+                    row["affinity_error"] = _err_text(exc)
                 row["structure_runtime_s"] = structure_runtime_s
                 row["affinity_runtime_s"] = round(time.time() - t_aff, 1)
             row["runtime_s"] = round(time.time() - t0, 1)

@@ -104,6 +104,16 @@ def test_enough_free_but_not_in_one_run_is_fragmentation_not_residency():
     assert classify(t, 1, False)[1]["wall_kind"] == "FRAGMENTATION"
 
 
+def test_a_failed_rung_is_named_by_the_refusal_that_killed_it_not_one_it_recovered_from():
+    recovered = _HEAD.format(req=4294967296, per=357916672, alloc=906635904, free=167105888,
+                             run=57253408)
+    fatal = _HEAD.format(req=536870912, per=44740608, alloc=1018828352, free=54913440,
+                         run=23117344)
+    verdict, d = classify(recovered + "\nretrying narrower\n" + fatal, 1, False)
+    assert verdict == "OOM_DRAM"
+    assert d["request_bytes"] == 536870912 and d["largest_free_block_bytes"] == 23117344
+
+
 def test_a_refusal_with_no_allocator_state_says_so_rather_than_guessing():
     assert classify(NO_PER_BANK, 1, False)[1]["wall_kind"] == "UNCLASSIFIED"
 
