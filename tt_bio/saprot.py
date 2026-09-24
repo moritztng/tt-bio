@@ -39,6 +39,7 @@ from tt_bio.tenstorrent import (
     WeightScope,
     _dtype,
     _sdpa_program_config_for_lengths,
+    fused_sdpa,
 )
 from tt_bio.esmc import (
     rope_tables,
@@ -197,8 +198,8 @@ class ESM2Attention(Module):
             k = ttnn.multiply(k, key_valid)
             v = ttnn.multiply(v, key_valid)
         scale = head_dim ** -0.5
-        o = ttnn.transformer.scaled_dot_product_attention(
-            q, k, v, attn_mask=attn_mask, is_causal=False, scale=scale,
+        o = fused_sdpa(
+            q, k, v, attn_mask=attn_mask, scale=scale,
             program_config=_sdpa_program_config_for_lengths(q.shape[2], k.shape[2], q.shape[0] * q.shape[1], site="saprot", d=q.shape[3]),
         )
         ttnn.deallocate(q); ttnn.deallocate(k); ttnn.deallocate(v)
