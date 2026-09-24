@@ -1,0 +1,7 @@
+# Nesso-1 on the HiFi3 revert (1c2847f66): the cells HiFi3 moved, own crop, plus 1536 + RAP on the CPU crop.
+{"tag": "rev_1536_b12", "surface": "script", "input": "perf/mgx_affinity/crop_probe.py", "args": ["perf/mgx_affinity/inputs/size/cdk2_1536_b12.yaml", "perf/mgx_affinity/results/crop/cdk2_1536_b12_rev.json", "--score"]}
+{"tag": "rev_512_b12", "surface": "script", "input": "perf/mgx_affinity/crop_probe.py", "args": ["perf/mgx_affinity/inputs/size/cdk2_512_b12.yaml", "perf/mgx_affinity/results/crop/cdk2_512_b12_rev.json", "--score"]}
+{"tag": "rev_512_small", "surface": "script", "input": "perf/mgx_affinity/crop_probe.py", "args": ["perf/mgx_affinity/inputs/size/cdk2_512_small.yaml", "perf/mgx_affinity/results/crop/cdk2_512_small_rev.json", "--score"]}
+{"tag": "rev_1536_small", "surface": "script", "input": "perf/mgx_affinity/crop_probe.py", "args": ["perf/mgx_affinity/inputs/size/cdk2_1536_small.yaml", "perf/mgx_affinity/results/crop/cdk2_1536_small_rev.json", "--score"]}
+{"tag": "rev_1536_rap_cpucrop", "surface": "script", "input": "perf/mgx_affinity/crop_probe.py", "args": ["perf/mgx_affinity/inputs/size/cdk2_1536_rap.yaml", "perf/mgx_affinity/results/crop/cdk2_1536_rap_devcpucrop_rev.json", "--force", "perf/mgx_affinity/results/crop/cdk2_1536_rap_cpu.json"]}
+{"tag": "rev_3abq_b12", "surface": "script", "input": "perf/mgx_affinity/crop_probe.py", "args": ["perf/mgx_affinity/inputs/real/3abq_1536_b12.yaml", "perf/mgx_affinity/results/crop/3abq_b12_rev.json", "--score"]}
