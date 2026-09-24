@@ -1,0 +1,69 @@
+{
+ "stamp": {
+  "host": "tt-quietbox",
+  "card": 1,
+  "subsystem_device": "0x0040",
+  "commit": "8ae35c46b295dd08e9324486ce1e5d29edadab88",
+  "tt_bio_dirty": false,
+  "torch_threads": 8,
+  "loadavg": [
+   2.0615234375,
+   3.775390625,
+   3.38818359375
+  ],
+  "utc": "2026-09-24T04:19:43Z",
+  "pci": "0000:41:00.0",
+  "aiclk_node": null
+ },
+ "arm": "stack",
+ "points": [
+  {
+   "n": 128,
+   "stack": "evo",
+   "collects": [
+    {
+     "seconds": 0.16262581400224008,
+     "unreachable": 1683,
+     "tracked": 544933,
+     "cycles": {
+      "{\"types\": {\"list\": 2, \"Tensor\": 2, \"cell\": 1, \"tuple\": 1, \"function\": 1, \"_Node\": 1}, \"via\": [\"Tensor.node\", \"Tensor.shares\", \"_Node.fn\", \"_Node.parents\", \"fn:_v_reshape.<locals>.make.<locals>.bw\"]}": 13,
+      "{\"types\": {\"list\": 2, \"cell\": 1, \"tuple\": 1, \"function\": 1, \"_Node\": 1, \"Tensor\": 2}, \"via\": [\"Tensor.node\", \"Tensor.shares\", \"_Node.fn\", \"_Node.parents\", \"fn:_v_reshape.<locals>.make.<locals>.bw\"]}": 5,
+      "{\"types\": {\"list\": 3, \"Tensor\": 3, \"cell\": 2, \"tuple\": 2, \"function\": 2, \"_Node\": 2}, \"via\": [\"Tensor.node\", \"Tensor.shares\", \"_Node.fn\", \"_Node.parents\", \"fn:_v_reshape.<locals>.make.<locals>.bw\"]}": 1
+     },
+     "types": {
+      "cell": 640,
+      "list": 275,
+      "tuple": 197,
+      "function": 194,
+      "Tensor": 189,
+      "_Node": 188
+     },
+     "tensors": 189,
+     "tensors_with_node": 188,
+     "tensors_with_shares": 39
+    },
+    {
+     "seconds": 0.16391168300469872,
+     "unreachable": 3376,
+     "tracked": 548341,
+     "cycles": {
+      "{\"types\": {\"list\": 2, \"Tensor\": 2, \"cell\": 1, \"tuple\": 1, \"function\": 1, \"_Node\": 1}, \"via\": [\"Tensor.node\", \"Tensor.shares\", \"_Node.fn\", \"_Node.parents\", \"fn:_v_reshape.<locals>.make.<locals>.bw\"]}": 31,
+      "{\"types\": {\"list\": 2, \"cell\": 1, \"tuple\": 1, \"function\": 1, \"_Node\": 1, \"Tensor\": 2}, \"via\": [\"Tensor.node\", \"Tensor.shares\", \"_Node.fn\", \"_Node.parents\", \"fn:_v_reshape.<locals>.make.<locals>.bw\"]}": 6,
+      "{\"types\": {\"list\": 3, \"Tensor\": 3, \"cell\": 2, \"tuple\": 2, \"function\": 2, \"_Node\": 2}, \"via\": [\"Tensor.node\", \"Tensor.shares\", \"_Node.fn\", \"_Node.parents\", \"fn:_v_reshape.<locals>.make.<locals>.bw\"]}": 2
+     },
+     "types": {
+      "cell": 1282,
+      "list": 553,
+      "tuple": 395,
+      "function": 389,
+      "Tensor": 380,
+      "_Node": 377
+     },
+     "tensors": 380,
+     "tensors_with_node": 377,
+     "tensors_with_shares": 80
+    }
+   ]
+  }
+ ]
+}

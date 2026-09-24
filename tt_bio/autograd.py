@@ -20,7 +20,6 @@ topological sort and the fan-in sum below are the whole of what it would have su
 
 from __future__ import annotations
 
-import gc
 import contextlib
 import math
 import os
@@ -148,11 +147,14 @@ class no_grad:
 
 
 class _Node:
-    __slots__ = ("fn", "parents")
+    __slots__ = ("fn", "parents", "group")
 
-    def __init__(self, fn, parents):
+    def __init__(self, fn, parents, group=None):
         self.fn = fn
         self.parents = parents
+        # A callable shared by the output nodes of one multi-output segment; `backward` calls
+        # it once, after the last of them. None for every ordinary op.
+        self.group = group
 
 
 class Tensor:
@@ -378,20 +380,32 @@ def backward(roots, seeds=None) -> None:
     for r, sd in zip(roots, seeds):
         g = ttnn.ones_like(r.value) if sd is None else sd
         r.grad = g if r.grad is None else ttnn.add(r.grad, g)
+    # Nodes that share a `group` are the outputs of one multi-output segment (`checkpoint`).
+    # Each one's closure only deposits its gradient; the group fires once, after the last of its
+    # members on THIS walk. Every parent of every member comes later in the order, so nothing
+    # the group writes to has run yet when it fires.
+    pending: dict = {}
+    for t in order:
+        if t.node is not None and t.node.group is not None:
+            pending[t.node.group] = pending.get(t.node.group, 0) + 1
     for t in order:
         if t.node is not None:
             g = t.grad
-            if g is None:
-                # On the tape and reachable from a root, but no gradient ever landed on it. A
-                # multi-output segment makes this ordinary rather than exceptional: a
-                # checkpointed `PairformerLayer` publishes both `s` and `z` as parents of the
-                # next block, and an objective that seeds only the pair track leaves the single
-                # track's node with nothing to propagate. Zero in, zero out -- running the
-                # closure on a None is the crash, not the diagnosis.
-                continue
-            if g.dtype != t.value.dtype:
-                g = ttnn.typecast(g, t.value.dtype)
-            t.node.fn(g)
+            if g is not None:
+                if g.dtype != t.value.dtype:
+                    g = ttnn.typecast(g, t.value.dtype)
+                t.node.fn(g)
+            # else: on the tape and reachable from a root, but no gradient ever landed on it. A
+            # multi-output segment makes this ordinary rather than exceptional: a checkpointed
+            # `PairformerLayer` publishes both `s` and `z` as parents of the next block, and an
+            # objective that seeds only the pair track leaves the single track's node with
+            # nothing to propagate. Zero in, zero out -- running the closure on a None is the
+            # crash, not the diagnosis. Its group still counts it as arrived.
+            fire = t.node.group
+            if fire is not None:
+                pending[fire] -= 1
+                if not pending[fire]:
+                    fire()
 
 
 def _reverse_topo(roots) -> list:
@@ -1388,52 +1402,69 @@ def checkpoint(fn, *inputs: Tensor, params: Sequence[Tensor] = ()) -> Tensor:
     _TOUCHED.clear()
     parents = list(held) + touched
 
-    def _recompute(k, g):
-        """Re-run the segment on fresh nodes over the same input VALUES, seed output `k`."""
+    def _recompute(seeded):
+        """Re-run the segment on fresh nodes over the same input VALUES and replay its tape
+        ONCE, seeding every output in `seeded`, a list of (output index or None, gradient)."""
         from .taped_ttnn import recompute_scope
         inner = [Tensor(t.value, requires_grad=t.requires_grad) if isinstance(t, Tensor) else t
                  for t in inputs]
         with recompute_scope():
             y = fn(*inner)
-        y = y[k] if k is not None else y
-        if y.node is None:
+        roots = [y[k] if k is not None else y for k, _ in seeded]
+        if any(r.node is None for r in roots):
             raise RuntimeError("checkpoint(fn): the recomputed segment built no tape; fn must "
                                "use taped ops and at least one input must require a gradient")
-        y.backward(seed=g)
+        backward(roots, [g for _, g in seeded])
         for src, dup in zip(inputs, inner):
             if isinstance(src, Tensor) and isinstance(dup, Tensor) and dup.grad is not None:
                 src.add_grad(dup.grad)
-        # Drop the inner tape NOW, and collect, because refcounting will not. A node closure
-        # that reads its own output makes the cycle out -> node -> fn -> out, which is
-        # `hallgrad-tape-self-closure-leak` and is exactly what the ops whose backward reads
-        # their output (relu, sigmoid, softmax, max) build. One leaked inner tape per block is
-        # invisible; 96 of them -- two recomputes per block over 48 blocks -- is the difference
-        # between a backward that peaks at 8.92 GiB and one that is refused 2.4 GB with 30.3 GiB
-        # held. The collect is per segment, not per op, so it costs a few seconds over a trunk.
-        del y, inner
-        gc.collect()
+        # Drop the inner tape NOW, because refcounting alone will not: a view and the tensor it
+        # views list each other in one `shares` group, and the view's node leads back to its
+        # source, so every storage group on the tape is a cycle holding everything upstream of
+        # it. That is the only edge on a tape that is not a parent pointer (`_tape` keeps
+        # closures off their own outputs), and `perf/bcx_stack/stack.py gcdiag` finds no other
+        # cycle in a recomputed AF2 block. Clearing the groups of the tensors this recompute
+        # made frees the tape the moment it goes out of scope. It used to be a `gc.collect()`,
+        # which walks the whole interpreter heap: 0.16 s per recompute in a process holding
+        # AF2, at any sequence length, and the largest item in a checkpointed block's backward.
+        # One leaked inner tape per block is invisible; 96 of them are the difference between
+        # a backward that peaks at 8.92 GiB and one that is refused 2.4 GB with 30.3 GiB held.
+        for t in _reverse_topo(roots):
+            if t.node is not None or any(t is d for d in inner):
+                t.shares = None
+        del y, inner, roots
 
     if not isinstance(produced, (tuple, list)):
         return _tape(produced.value if isinstance(produced, Tensor) else produced, parents,
-                     lambda: (lambda g: _recompute(None, g)))
+                     lambda: (lambda g: _recompute([(None, g)])))
 
     # A segment with SEVERAL outputs, which is what a real block is: a `PairformerLayer`
     # returns the pair (s, z) and the single-output form cannot express it.
     #
-    # One node per output, and each one recomputes the segment seeding ONLY itself. That costs
-    # a recompute per output rather than per segment, and it is exact rather than approximate:
-    # the derivative through a shared ancestor is the SUM over the output paths that reach it,
-    # so two backward passes with one seed each add up to precisely what one pass with both
-    # seeds would have produced. The alternative -- one node that waits for every output's
-    # gradient before recomputing -- needs to know when the last one has arrived, and the
-    # reverse-topological walk gives no such signal per tensor.
+    # One node per output, all in one `group`: each output's closure deposits its gradient, and
+    # `backward` fires the group once, after the last of its members on the walk, so the segment
+    # is recomputed and replayed ONCE with every seed. It used to be once per output, which is
+    # exact (the derivative through a shared ancestor is the sum over the output paths) and cost
+    # the whole recompute again: on AF2's two-output Evoformer block that was a second taped
+    # forward, a second inner backward and a second collect per block.
+    seeds = [None] * len(produced)
+
+    def fire():
+        seeded = [(k, g) for k, g in enumerate(seeds) if g is not None]
+        seeds[:] = [None] * len(seeds)
+        if seeded:
+            _recompute(seeded)
+
     outs = []
     for k, prod in enumerate(produced):
         if prod is None:
             outs.append(None)
             continue
-        outs.append(_tape(prod.value if isinstance(prod, Tensor) else prod, parents,
-                          (lambda k=k: (lambda g: _recompute(k, g)))))
+        out = _tape(prod.value if isinstance(prod, Tensor) else prod, parents,
+                    (lambda k=k: (lambda g: seeds.__setitem__(k, g))))
+        if out.node is not None:
+            out.node.group = fire
+        outs.append(out)
     return tuple(outs)
 
 
