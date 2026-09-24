@@ -131,7 +131,7 @@ class DeviceTrunk:
         dev = self.dev
         gs = torch.from_numpy(np.asarray(g_single_np).copy()).float()
         gp = torch.from_numpy(np.asarray(g_pair_np).copy()).float()
-        if self.wire is not None:
+        if entry.get("key") is not None:
             g_msa, g_pair = self.wire.backward(entry["key"], [gs, gp], entry["shapes"])
             return g_msa.numpy(), g_pair.numpy()
         so, zo = entry["roots"]

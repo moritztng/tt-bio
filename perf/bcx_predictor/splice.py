@@ -104,6 +104,10 @@ class EvoformerOnDevice:
         # between two seeds of a matched pair makes the pair meaningless. An argument, not an
         # environment variable, so a run records it in its own stamp.
         self.wire = None
+        #: Flipped per round by `perf/bcx_tracewire/round_ab.py` so both arms run in one
+        #: process on the same trajectory. A backward follows the arm its own forward took,
+        #: read off the token, never off this flag.
+        self.trace_on = bool(trace)
         if trace:
             from trace_wire import TraceWire
             self.wire = TraceWire(dev)
@@ -169,7 +173,7 @@ class EvoformerOnDevice:
         mk = torch.from_numpy(np.asarray(mask_np).copy()).float()
         pmk = torch.from_numpy(np.asarray(pair_mask_np).copy()).float()
         m, z, mk, pmk, n, n32 = _pad_inputs(m, z, mk, pmk)
-        if self.wire is not None:
+        if self.wire is not None and self.trace_on:
             return self._taped_traced(m, z, mk, pmk, n)
         ml, zl = dev.leaf(m), dev.leaf(z)
         with dev.tt.tape():
@@ -236,7 +240,7 @@ class EvoformerOnDevice:
         gz = torch.zeros(z_shape)
         gm[:, :n] = torch.from_numpy(np.asarray(g_msa_np).copy()).float()
         gz[:n, :n] = torch.from_numpy(np.asarray(g_pair_np).copy()).float()
-        if self.wire is not None:
+        if entry.get("key") is not None:
             g_m, g_z = self.wire.backward(entry["key"], [gm, gz], [m_shape, z_shape])
             out = (g_m[:, :n].numpy(), g_z[:n, :n].numpy())
         else:
