@@ -102,8 +102,8 @@ Three 512-residue windows of the same chain, 100 residues apart, eight designs e
 Two of the three sit at 16-17 A and returned nothing usable; the good one is the outlier.
 
 **Crop to 512 residues or so, and to a single chain if your target has several.** Above that,
-designability falls away. The same two windows taken out to 1536 residues, eight designs per
-cell:
+designability falls away. The same windows taken out to 768, 1024 and 1536 residues, eight
+designs per cell:
 
 | | 512 residues | 768 residues | 1024 residues | 1536 residues |
 |---|---|---|---|---|
@@ -112,18 +112,14 @@ cell:
 | GroEL, window starting at residue 1 | **0.9 A** | **15.2 A** | **8.7 A** | **15.6 A** |
 | GroEL, window starting at residue 561 | **1.7 A** | **13.0 A** | **14.5 A** | **14.4 A** |
 
-On GroEL both windows collapse by 12.6 and 14.8 A, and neither returned a single design under
-4 A at 1536 against five of eight under 2 A at 512. On 1GPB the two windows move in opposite
-directions, which is why the first pair alone could not be read as a size rule. Across both
-targets no 1536 cell has produced a usable design, so treat 1536 as outside the useful range
-whatever the target: it runs, it just returns binders that do not refold into the shape they
+768 is already too big. Neither GroEL window returned a single design under 4 A at 768, 1024
+or 1536, and at 768 the drop from the same window at 512 separates completely: not one of the
+eight designs at 768 residues is as good as the worst of the eight at 512. So the size where
+quality falls is between 512 and 768, and 512 is the largest extent measured to work. On 1GPB
+the two windows move in opposite directions between 512 and 1536, which is why that first pair
+alone could not be read as a size rule. Across both targets no cell above 512 has produced a
+usable design: those sizes run, they just return binders that do not refold into the shape they
 were drawn as.
-
-768 is already too big. Neither GroEL window returned a design under 4 A at 768, 1024 or
-1536, and at 768 the drop from the same window at 512 is large enough that the eight designs
-separate it completely: not one of the eight at 768 residues is as good as the worst of the
-eight at 512. So the size where quality falls is between 512 and 768, and 512 is the largest
-extent measured to work.
 
 Above that ceiling the numbers stop being ordered. The GroEL row starting at residue 1 reads
 15.2 A at 768, 8.7 A at 1024 and 15.6 A at 1536, and the 768-to-1024 difference is real rather
