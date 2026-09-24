@@ -1625,7 +1625,7 @@ def _refuse_unfoldable_jobs(jobs, model: str, results_path: Path):
             # two minutes into a weights download.
             chains = None if model == "af2ig" else _read_bio_chains(jp, what=model)
             if model == "af2ig":
-                from tt_bio.af2ig import read_af2ig_input
+                from tt_bio.af2ig_input import read_af2ig_input
 
                 read_af2ig_input(jp)
             check_capabilities(jp, chains, model)
