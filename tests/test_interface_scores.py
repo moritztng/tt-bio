@@ -135,3 +135,28 @@ def test_missing_plddt_floors_pdockq_like_the_reference(tmp_path):
     d = _case(tmp_path, 8, (30, 30))
     s = isc.score_files(d / "m_model_0.cif", d / "pae_m_model_0.npz")
     assert s["pairs"]["A-B"]["pdockq2"] == pytest.approx(1.31 / (1 + np.exp(0.075 * 84.733)) + 0.005)
+
+
+def test_boltzgen_design_head_differs_only_below_the_reference_d0_floor():
+    """BoltzGen's `compute_ipsae_score` is the same per-residue ipSAE with a d0 floor of 19
+    residues instead of 27. Holds that it agrees to float precision when the best residue has
+    27+ partners under the cutoff, and that the gap below that stays under 0.01."""
+    torch = pytest.importorskip("torch")
+    from tt_bio.boltzgen.model.layers.confidence_utils import compute_ipsae_score
+    rng = np.random.default_rng(0)
+    for _ in range(60):
+        n1, n2 = int(rng.integers(40, 150)), int(rng.integers(60, 250))
+        n = n1 + n2
+        chains = np.array(["B"] * n1 + ["A"] * n2)
+        same = chains[:, None] == chains[None, :]
+        frac = rng.uniform(0.0, 0.6)
+        inter = np.where(rng.random((n, n)) < frac, rng.uniform(1, 12, (n, n)), rng.uniform(12, 31, (n, n)))
+        pae = np.where(same, rng.uniform(0.5, 5, (n, n)), inter)
+        ref = isc.score(pae, np.full(n, 80.0), chains, rng.normal(0, 20, (n, 3)))["directions"]
+        P = torch.tensor(pae)[None]
+        one = torch.ones(1, n, dtype=P.dtype)
+        b = torch.tensor(chains == "B", dtype=P.dtype)[None]
+        for src, tgt, key in ((b, 1 - b, "B->A"), (1 - b, b, "A->B")):
+            got = compute_ipsae_score(src, tgt, P, one, one).item()
+            gap = abs(got - ref[key]["ipsae"])
+            assert gap < (1e-6 if ref[key]["n0res"] >= 27 else 1e-2), (key, ref[key]["n0res"], gap)

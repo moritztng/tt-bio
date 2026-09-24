@@ -25,6 +25,23 @@ Two outputs are not in the script and are defined here:
   beside the script's "max" row; the 2025 meta-analysis of 3,766 binders found it the better
   ranker, so both are returned and neither is chosen for the caller.
 
+How this relates to the two other ipSAE computations in tt-bio:
+
+- BoltzGen's design head (`boltzgen/model/layers/confidence_utils.py:compute_ipsae_score`, which
+  design results report as `design_ipsae_min`) has this module's per-residue d0 and max over
+  residues, at the same 15 A cutoff. Its d0 floor is 19 residues where the reference's is 27. On
+  identical PAE the two agree to 6e-8 whenever the best residue has 27 or more partners under the
+  cutoff, and differ by up to 0.0075 below that (400 random interfaces, rank correlation 0.9998;
+  `tests/test_interface_scores.py`). The larger difference is the input: it scores BoltzGen's
+  own refold with every target chain pooled, not a pinned Boltz-2 fold. It is a model-internal
+  design score and stays as upstream BoltzGen wrote it. The canonical number is this module's.
+- `scripts/abag_pae_metrics.py` computes a different quantity it also calls ipsae (see its
+  docstring). It labels one finished research campaign and is not served.
+
+The reference script takes its cutoffs as required arguments and has no default. Dunbrack's usage
+examples pass 10/10; Adaptyv's competition notebook passes 15/15, and that is the call this module
+matches.
+
 `SCORES_VERSION` names these definitions. Anything that changes a number for the same inputs
 must bump it: a stored score carries the version it was computed under, so an old number is
 never silently re-meant.
