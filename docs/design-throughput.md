@@ -166,9 +166,12 @@ it — the 1536 crop contains the 1024 crop, so the same residues that returned 
 return four good designs once more of the same chain is added. Two windows at 1024 both came
 back at 0 of 8, so the dip is not one unlucky crop either.
 
-Read it as: chain count is what the size ceiling on the other two targets was really tracking,
-and a long single chain is not the same problem as a multi-chain complex of the same length.
-Read it as a smooth curve at your peril — on this target it is not one.
+Across every cell we have measured, the pattern is one-sided. Twelve multi-chain crops, on
+three targets, returned **zero** usable designs between them. Single-chain crops range from
+nothing to seven of eight. So a second chain looks like enough to sink a run on its own, while
+one chain is no guarantee of anything — four of our single-chain crops also came back at zero,
+two of them only 512 residues long. A long single chain is not the same problem as a
+multi-chain complex of the same length, and neither is a smooth function of size.
 
 What the chain is worth is visible on 1GPB, where chain A is 823 residues by itself: stretching
 the crop from 512 to all 823 of that chain moved the median from 4.6 to 8.0 A with 25 % of
