@@ -629,9 +629,10 @@ def cmd_whole(args):
     blob = {"stamp": stamp(args, clock), "n": n, "k_extra": ke, "k_evo": kv, "ckpt": True,
             "seed": args.seed, "arms": arms, "reps": args.reps, "per_arm": {}}
     grads, runs = {a: [] for a in arms}, {a: [] for a in arms}
-    lv.arm(arms[0])
-    device_grad()                                  # warm: JIT + program cache, discarded
-    lv.take()
+    for arm in arms:                               # warm every arm: each compiles its own
+        lv.arm(arm)                                # programs, and an unwarmed `+mask` arm read
+        device_grad()                              # 34.8 s against 15.0 s on its next rep
+        lv.take()
     for rep in range(args.reps):
         for arm in (arms if rep % 2 == 0 else arms[::-1]):
             lv.arm(arm)
