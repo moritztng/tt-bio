@@ -35,8 +35,16 @@ CHAINS = {
 _KIND = {"R": "rna", "L": "ligand"}
 
 
+#: af2ig submits a structure, not a chain list, so its ids come off the pasted complex and its
+#: expectation is its own. T and Q are neither the letters the fixture carries nor the ones a
+#: writer relabelling by position would pick.
+AF2IG_CHAINS = {"T": 32, "Q": 16}
+
+
 def _expected(model):
     """The chains this model folds: a molecule type it refuses is left out of its input."""
+    if model == "af2ig":
+        return dict(AF2IG_CHAINS)
     return {c: n for c, (_y, n) in CHAINS.items()
             if c not in _KIND or CAPABILITY[model][_KIND[c]] == HONOURED}
 
@@ -131,7 +139,36 @@ def _boltz2(tmp_path):
     return _chains_in(out)
 
 
+class _AF2IGStub:
+    """The AF2-IG trunk's output contract; tests/test_af2ig_input.py drives the same shape."""
+
+    def __call__(self, feats, prev):
+        n = feats["seq_mask"].shape[0]
+        return {"msa_first_row": torch.zeros(n, 256), "pair": torch.zeros(n, n, 128),
+                "plddt_logits": torch.zeros(n, 50), "pae_logits": torch.zeros(n, n, 64),
+                "pae_breaks": torch.linspace(0.0, 31.0, 63),
+                "structure": {"final_atom_positions": prev["prev_pos"],
+                              "final_atom_mask": feats["atom37_atom_exists"]}}
+
+
+def _af2ig(tmp_path, model):
+    """The committed fixture with its chains renamed, through the real front door."""
+    src = (Path(__file__).resolve().parent / "fixtures" / "af2ig"
+           / "designed_complex.pdb").read_text()
+    renamed = "".join(ln[:21] + {"A": "T", "B": "Q"}.get(ln[21:22], ln[21:22]) + ln[22:] + "\n"
+                      if ln.startswith("ATOM") else ln + "\n" for ln in src.splitlines())
+    struct = tmp_path / "complex.pdb"
+    struct.write_text(renamed)
+    p = tmp_path / "ids.yaml"
+    p.write_text(f'target:\n  file: "{struct}"\n  chain: T\n'
+                 f"binder:\n  sequence: LYRWIKSVDPSRPVQY\n  chain: Q\n")
+    _state(_AF2IGStub()).predict_one(p, _cfg(tmp_path, model))
+    return _chains_in(tmp_path / f"{p.stem}.cif")
+
+
 def _probe(model, tmp_path, monkeypatch):
+    if model == "af2ig":
+        return _af2ig(tmp_path, model)
     if model == "boltz2":
         return _boltz2(tmp_path)
     if model in ("esmfold2", "esmfold2-fast"):

@@ -93,6 +93,7 @@ Every command names its model with `--model`:
 - **`saprot`**: structure-aware protein embeddings, an ESM-2 encoder over a fused amino-acid + Foldseek-3Di vocabulary (446 tokens). Needs a structure for the 3Di structural tokens (`--structure`); runs sequence-only without it. Use for variant-effect / mutation-fitness scoring and function prediction.
 - **`nesso1`** (`tt-bio affinity`): protein-ligand binding affinity without a structure. Predicts a soft distogram and reads the affinity off that, so it is much cheaper than folding and it returns no coordinates. Proteins and ligands only.
 - **`opendde`** / **`opendde-abag`**: antibody-antigen co-folding built on the Protenix-v2 stack plus a structural-token expander; `opendde-abag` selects the antibody-antigen checkpoint. Protein, RNA, DNA and ligand chains, with covalent `bond` constraints, cyclic peptides, modified residues and templates in either form (see [Templates](#templates)). Proteins are MSA-dependent (uses an MSA by default, like Protenix-v2).
+- **`af2ig`**: AlphaFold2 initial-guess, the filter binder-design pipelines use to tell a real design from a plausible one. It takes a design you already have -- a structure carrying the target chain and the binder backbone, plus the binder's sequence -- re-predicts the complex starting from those coordinates, and reports pLDDT, pTM, ipTM, pAE and interface pAE. Single-sequence, no diffusion, no seed: the same input gives the same answer. Input format and an example are in [`examples/af2_designed_complex.yaml`](examples/af2_designed_complex.yaml). Weights are DeepMind's AlphaFold2 monomer pTM parameters; `tt-bio weights --download af2ig` fetches them (4 GB, one file kept).
 - **`rf3`**: folds complexes of proteins, RNA, DNA, and ligands (an AlphaFold3-family model, [RoseTTAFold3](https://github.com/RosettaCommons/foundry) from the Institute for Protein Design); MSA-dependent for proteins (uses an MSA by default). Writes AlphaFold3-style `<name>_summary_confidences.json` (pTM, ipTM, chain-pair PAE/PDE, ranking score) next to each structure. Modified residues and covalent bonds to a ligand or modified residue are supported; cyclic chains, a bond between two standard residues (a disulfide) and pocket constraints are refused. Templates work in either form (see [Templates](#templates)). Weights download from the IPD on first use.
 
 ```bash
@@ -107,6 +108,7 @@ tt-bio predict examples/prot.yaml --model rf3            # MSA on by default; we
 tt-bio predict examples/prot.yaml --model rf3 \
     --partial_t 150 --partial_structure start.cif       # refine start.cif instead of folding from scratch
 tt-bio predict targets.yaml --model rf3 --early_stop_plddt 0.5   # skip the rollout on hopeless targets
+tt-bio predict examples/af2_designed_complex.yaml --model af2ig  # score a designed complex: ipTM + interface pAE
 ```
 
 | Feature | Boltz-2 | ESMFold2 | Protenix-v1 | Protenix-v2 | OpenFold3 | OpenBind-0 | OpenDDE | RF3 |

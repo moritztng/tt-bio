@@ -204,13 +204,21 @@ def test_the_committed_cyclic_example_is_accepted(model):
 
 
 def test_a_cyclic_refusal_says_what_was_measured():
-    """Each model that refuses `cyclic: true` reached the closing bond and did not form it
-    (perf/mgx_constraints), so the refusal carries that reason rather than a workaround: the
-    head-to-tail `bond` is the very route that failed on protenix-v1."""
+    """Each model that READS the closing bond and refuses `cyclic: true` reached it and did
+    not form it (perf/mgx_constraints), so the refusal carries that reason rather than a
+    workaround: the head-to-tail `bond` is the very route that failed on protenix-v1.
+
+    A model whose own reader never takes a constraints block (CHAINS_ELSEWHERE: af2ig takes a
+    structure plus a binder sequence) has no such measurement to quote and must not invent
+    one; what it owes is a reason, which the loop below still requires."""
     from tt_bio.capabilities import WHY
     for m in CAPABILITY:
-        if CAPABILITY[m]["cyclic"] == REFUSED:
-            assert "1.33 A" in WHY.get((m, "cyclic"), ""), m
+        if CAPABILITY[m]["cyclic"] != REFUSED:
+            continue
+        why = WHY.get((m, "cyclic"), "")
+        assert why, m
+        if m not in CHAINS_ELSEWHERE:
+            assert "1.33 A" in why, m
 
 
 def test_every_predict_path_calls_check_capabilities():
@@ -219,7 +227,7 @@ def test_every_predict_path_calls_check_capabilities():
     from tt_bio.worker import _WorkerState
 
     for method in ("_predict_esmfold2_one", "_predict_opendde_one", "_protenix_inputs",
-                   "_predict_rf3_one", "_predict_openfold3_one"):
+                   "_predict_rf3_one", "_predict_openfold3_one", "_predict_af2ig_one"):
         src = inspect.getsource(getattr(_WorkerState, method))
         assert "check_capabilities(path, chains," in src, f"{method} does not call check_input"
     # protenix-v1/v2 reach it one level down, through the shared input builder.
@@ -266,8 +274,10 @@ def test_cyclic_and_bond_reach_every_path_that_honours_them():
         src = inspect.getsource(getattr(_WorkerState, method))
         for needle in needles:
             assert needle in src, f"{method} no longer reads {needle}"
+    # af2ig is here for a different reason than the other two: it has no constraints reader
+    # at all, so there is no door for `cyclic:` to be read through (see CHAINS_ELSEWHERE).
     assert [m for m in PREDICT_MODELS if CAPABILITY[m]["cyclic"] != HONOURED] == [
-        "protenix-v1", "rf3"]
+        "protenix-v1", "rf3", "af2ig"]
 
 
 def test_modifications_reach_every_featurizer_that_honours_them():
