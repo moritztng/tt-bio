@@ -1,0 +1,3 @@
+openfold3 rc=0
+rf3 rc=0
+boltz2 rc=0
