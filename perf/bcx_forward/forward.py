@@ -121,32 +121,43 @@ def cmd_step(args):
             "reps": args.reps, "backward": not args.no_backward, "points": []}
     for n in [int(x) for x in args.ns.split(",")]:
         m0, z0, wm, wz = inputs(ref, n, args.seed)
-        untaped_fwd(dev, m0, z0, ke, kv)                      # warm: JIT + program cache
-        rec = {"recycle_fwd": [], "taped_fwd": [], "bwd": [], "bwd_cpu": []}
-        spans = []
+        import tt_bio.tenstorrent as tn
+        routes = {"off": frozenset(), "on": frozenset(["extra_msa", "evoformer"])}
+        arms = args.routes.split(",")
+        for a in arms:                                        # warm: JIT + program cache
+            dev.dm.set_triatt_fused(routes[a])
+            untaped_fwd(dev, m0, z0, ke, kv)
+        rec = {a: {"recycle_fwd": [], "taped_fwd": [], "bwd": [], "bwd_cpu": []} for a in arms}
+        spans, served = [], {a: 0 for a in arms}
         t_start = time.time()
         for rep in range(args.reps):
-            t0, t1 = untaped_fwd(dev, m0, z0, ke, kv)
-            rec["recycle_fwd"].append(t1 - t0)
-            spans.append((t0, t1))
-            r = taped_step(dev, lv, m0, z0, wm, wz, ke, kv, ckpt=not args.no_ckpt,
-                           backward=not args.no_backward)
-            rec["taped_fwd"].append(r["taped_fwd"])
-            if "bwd" in r:
-                rec["bwd"].append(r["bwd"])
-                rec["bwd_cpu"].append(r["bwd_cpu"])
-            spans += r["spans"]
-            print(n, rep, {k: round(v[-1], 4) for k, v in rec.items() if v}, flush=True)
+            for a in (arms if rep % 2 == 0 else arms[::-1]):
+                dev.dm.set_triatt_fused(routes[a])
+                s0 = tn.TRIATT_FUSED_HIFI_STATS["served"]
+                t0, t1 = untaped_fwd(dev, m0, z0, ke, kv)
+                rec[a]["recycle_fwd"].append(t1 - t0)
+                spans.append((t0, t1))
+                r = taped_step(dev, lv, m0, z0, wm, wz, ke, kv, ckpt=not args.no_ckpt,
+                               backward=not args.no_backward)
+                served[a] = tn.TRIATT_FUSED_HIFI_STATS["served"] - s0
+                rec[a]["taped_fwd"].append(r["taped_fwd"])
+                if "bwd" in r:
+                    rec[a]["bwd"].append(r["bwd"])
+                    rec[a]["bwd_cpu"].append(r["bwd_cpu"])
+                spans += r["spans"]
+                print(n, rep, a, {k: round(v[-1], 4) for k, v in rec[a].items() if v}, flush=True)
         pt = {"n": n, "loadavg": os.getloadavg(), "wall": [t_start, time.time()],
-              "aiclk": clock.window(spans),
-              "per": {k: dist(v) for k, v in rec.items() if v}}
-        p = pt["per"]
-        pt["forward_seconds_per_gradient_step"] = (p["recycle_fwd"]["median"]
-                                                   + p["taped_fwd"]["median"])
-        if "bwd" in p:
-            tot = pt["forward_seconds_per_gradient_step"] + p["bwd"]["median"]
-            pt["trunk_step_seconds"] = tot
-            pt["forward_share_of_trunk"] = pt["forward_seconds_per_gradient_step"] / tot
+              "aiclk": clock.window(spans), "served_last_rep": served, "arms": {}}
+        for a in arms:
+            p = {k: dist(v) for k, v in rec[a].items() if v}
+            q = {"per": p, "forward_seconds_per_gradient_step":
+                 p["recycle_fwd"]["median"] + p["taped_fwd"]["median"]}
+            if "bwd" in p:
+                q["trunk_step"] = dist([f + t + b for f, t, b in zip(
+                    rec[a]["recycle_fwd"], rec[a]["taped_fwd"], rec[a]["bwd"])])
+                q["forward_share_of_trunk"] = (q["forward_seconds_per_gradient_step"]
+                                               / q["trunk_step"]["median"])
+            pt["arms"][a] = q
         blob["points"].append(pt)
         print(json.dumps(pt, default=str), flush=True)
         save(args.out or f"step_n{'_'.join(args.ns.split(','))}.json", blob)
@@ -298,41 +309,55 @@ class OpRecorder:
 
 
 def roofs(dev, clock):
-    """Same process, same clock, this card: a matmul roof and a copy/DRAM roof."""
+    """Same process, same clock, this card: one roof per op CLASS, each at the trunk's own config.
+
+    matmul at HiFi4 + fp32_dest_acc (`af2.compute_kernel_config`), since a roof at the default
+    fidelity is a rate the shipped kernel never runs at; copy (`clone`) for layout ops; DRAM
+    eltwise from an add of two DISTINCT tensors; layernorm, softmax, a reduction and the shipped
+    permute measured as themselves, on shapes large enough to be DRAM-bound."""
     import ttnn
-    d = dev.device
+    from tt_bio.af2 import compute_kernel_config
+    d, ckc = dev.device, compute_kernel_config()
+
+    def up(*shape):
+        return ttnn.from_torch(torch.randn(*shape), layout=ttnn.TILE_LAYOUT, device=d,
+                               dtype=ttnn.bfloat16)
+
+    a, b = up(4096, 4096), up(4096, 4096)
+    p = up(1, 512, 512, 128)
+    w, bb = up(1, 1, 1, 128), up(1, 1, 1, 128)
+    s4 = up(64, 4, 256, 256)
+    N, P, S = 4096 ** 2 * 2, 512 * 512 * 128 * 2, 64 * 4 * 256 * 256 * 2
+    cases = [
+        ("matmul", lambda: ttnn.matmul(a, b, compute_kernel_config=ckc), 2 * 4096 ** 3, 3 * N),
+        ("copy", lambda: ttnn.clone(a), 0, 2 * N),
+        ("eltwise", lambda: ttnn.add(a, b), 0, 3 * N),
+        ("layernorm", lambda: ttnn.layer_norm(p, weight=w, bias=bb, epsilon=1e-5,
+                                              compute_kernel_config=ckc), 0, 2 * P),
+        ("softmax", lambda: ttnn.softmax(s4, dim=-1, compute_kernel_config=ckc), 0, 2 * S),
+        ("reduction", lambda: ttnn.sum(p, dim=-1), 0, P),
+        ("permute", lambda: ttnn.permute(p, (0, 2, 1, 3)), 0, 2 * P),
+    ]
     out = {}
-    t = ttnn.from_torch(torch.randn(4096, 4096), layout=ttnn.TILE_LAYOUT, device=d,
-                        dtype=ttnn.bfloat16)
-    for name, fn, flops, byt in [
-            ("matmul_4096_bf16", lambda: ttnn.matmul(t, t), 2 * 4096 ** 3, 3 * 4096 ** 2 * 2),
-            ("clone_4096_bf16", lambda: ttnn.clone(t), 0, 2 * 4096 ** 2 * 2),
-            ("add_4096_bf16", lambda: ttnn.add(t, t), 0, 3 * 4096 ** 2 * 2)]:
-        fn()
+    for name, fn, flops, byt in cases:
+        ttnn.deallocate(fn())
         ttnn.synchronize_device(d)
-        ts = []
-        for _ in range(8):
+        # eight back-to-back ops per sync, so a loaded host's dispatch latency is amortised
+        # instead of timed: one synced op on a box at loadavg 59 read clone at 80 GB/s
+        ts, t_a = [], time.time()
+        for _ in range(5):
             t0 = time.time()
-            r = fn()
+            rs = [fn() for _ in range(8)]
             ttnn.synchronize_device(d)
-            ts.append(time.time() - t0)
-            ttnn.deallocate(r)
-        s = float(np.median(ts))
-        out[name] = {"seconds": s, "tflops": flops / s / 1e12 if flops else None,
-                     "gbytes_s": byt / s / 1e9, "aiclk": clock.window([(time.time() - 1, time.time())])}
-    big = ttnn.from_torch(torch.randn(256, 256, 128), layout=ttnn.TILE_LAYOUT, device=d,
-                          dtype=ttnn.bfloat16)
-    ts = []
-    for _ in range(8):
-        t0 = time.time()
-        r = ttnn.permute(big, [1, 0, 2])
-        ttnn.synchronize_device(d)
-        ts.append(time.time() - t0)
-        ttnn.deallocate(r)
-    s = float(np.median(ts))
-    out["permute_256_256_128"] = {"seconds": s, "gbytes_s": 2 * 2 * 256 * 256 * 128 / s / 1e9}
-    ttnn.deallocate(t)
-    ttnn.deallocate(big)
+            ts.append((time.time() - t0) / 8)
+            for r in rs:
+                ttnn.deallocate(r)
+        sec = float(np.min(ts))
+        out[name] = {"seconds": sec, "tflops": flops / sec / 1e12 if flops else None,
+                     "gbytes_s": byt / sec / 1e9,
+                     "aiclk": clock.window([(t_a - 0.5, time.time() + 0.5)])}
+    for t in (a, b, p, w, bb, s4):
+        ttnn.deallocate(t)
     return out
 
 
@@ -524,10 +549,34 @@ def cmd_serves(args):
         print(json.dumps(rows[-1]), flush=True)
     save(args.out or "serves.json", {"stamp": stamp(args), "rows": rows})
 
+# ------------------------------------------------------------------------------ exact
+
+
+def cmd_exact(args):
+    """torch bf16 and fp32 against float64 on the SAME inputs the device runs drew
+    (`inputs(ref, n, seed)`), so the device's distance to float64 has the lab's own precision
+    beside it. CPU only; no device is opened."""
+    _, ref = A.load_models(args.params, device_arm=False)
+    m0, z0, _, _ = inputs(ref, args.n, args.seed)
+    blob = {"stamp": A.stamp(-1), "n": args.n, "k_extra": args.extra, "k_evo": args.evo}
+    t0 = time.time()
+    with torch.no_grad():
+        r64 = A.ref_stack(ref["f64"], m0.double(), z0.double(), args.extra, args.evo)
+    blob["f64_seconds"] = time.time() - t0
+    for name in args.precisions.split(","):
+        dt = {"bf16": torch.bfloat16, "f32": torch.float32}[name]
+        t0 = time.time()
+        with torch.no_grad():
+            r = A.ref_stack(ref[name], m0.to(dt), z0.to(dt), args.extra, args.evo)
+        blob[name] = {"seconds": time.time() - t0,
+                      "m": A.cmp(r[0].double(), r64[0]), "z": A.cmp(r[1].double(), r64[1])}
+        print(name, json.dumps(blob[name]), flush=True)
+        save(args.out or f"exact_n{args.n}_e{args.extra}_v{args.evo}.json", blob)
+
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("cmd", choices=["step", "blocks", "census", "fused", "latch", "serves"])
+    ap.add_argument("cmd", choices=["step", "blocks", "census", "fused", "latch", "serves", "exact"])
     ap.add_argument("--params", default=A.DEFAULT_PARAMS)
     ap.add_argument("--card", type=int, default=int(os.environ.get("TT_VISIBLE_DEVICES", "0")))
     ap.add_argument("--arm", default="stack")
@@ -543,6 +592,8 @@ def main():
     ap.add_argument("--ckpt", action="store_true")
     ap.add_argument("--no-ckpt", action="store_true")
     ap.add_argument("--no-backward", action="store_true")
+    ap.add_argument("--routes", default="off", help="step: triangle-attention routes, off,on")
+    ap.add_argument("--precisions", default="bf16", help="exact: bf16,f32")
     ap.add_argument("--f64", action="store_true", help="fused --whole: grade both arms against float64")
     ap.add_argument("--whole", action="store_true",
                     help="fused: also A/B the whole 4+48 forward, taped and untaped")
@@ -551,7 +602,7 @@ def main():
     args = ap.parse_args()
     torch.set_num_threads(args.threads)
     {"step": cmd_step, "blocks": cmd_blocks, "census": cmd_census,
-     "fused": cmd_fused, "latch": cmd_latch, "serves": cmd_serves}[args.cmd](args)
+     "fused": cmd_fused, "latch": cmd_latch, "serves": cmd_serves, "exact": cmd_exact}[args.cmd](args)
 
 
 if __name__ == "__main__":

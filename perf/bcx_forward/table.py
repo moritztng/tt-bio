@@ -1,63 +1,81 @@
 #!/usr/bin/env python3
-"""bcx-forward: render the census json as a table, each op against a roof for its own class."""
+"""bcx-forward: the census json as a table sorted to 90 % of the block, each op against the roof
+for its OWN class, measured in the same process (`forward.roofs`).
+
+Per-op device time is the synced reading minus the unsynced enqueue reading for the same op, so
+it keeps each op's sync latency; on a loaded host that understates small ops' utilisation. A
+matmul sits at whichever of its FLOP time and its byte time is larger."""
 import json
 import re
 import sys
 
-CLASS = [("matmul", r"^(matmul|linear)\b"), ("layout", r"^(permute|transpose|reshape|concat|clone|"
-          r"to_layout|pad|slice|chunk|squeeze|unsqueeze|copy|tilize|untilize|to_memory_config|"
-          r"reallocate|experimental\.nlp)"), ("softmax", r"^(softmax|transformer\.)"),
-         ("layernorm", r"^layer_norm"), ("reduction", r"^(sum|mean|max|min|prod)\b"),
-         ("eltwise", r"")]
+CLASSES = [("matmul", r"^(matmul|linear|experimental\.minimal_matmul)\b"),
+           ("layout", r"^(permute|transpose|reshape|concat|clone|to_layout|pad|slice|chunk|squeeze|"
+                      r"unsqueeze|copy|tilize|untilize|to_memory_config|reallocate|typecast|"
+                      r"experimental\.nlp|experimental\.view|view)"),
+           ("softmax", r"^(softmax|transformer\.)"), ("layernorm", r"^layer_norm"),
+           ("reduction", r"^(sum|mean|max|min|prod)\b")]
+ROOF_OF = {"layout": "copy", "eltwise": "eltwise", "softmax": "softmax", "layernorm": "layernorm",
+           "reduction": "reduction", "matmul": "eltwise"}
 
 
-def klass(name):
-    for k, pat in CLASS:
-        if re.match(pat, name):
+def klass(op):
+    for k, pat in CLASSES:
+        if re.match(pat, op):
             return k
     return "eltwise"
 
 
-def main(path, top=25):
+def matmul_flops(inshapes):
+    sh = [list(map(int, m.split(","))) for m in re.findall(r"\[([\d, ]+)\]", inshapes)]
+    if len(sh) < 2:
+        return 0
+    a, b = sh[0], sh[1]
+    m, k = a[-2], a[-1]
+    n = b[-1]
+    batch = 1
+    for d in a[:-2]:
+        batch *= d
+    return 2 * batch * m * k * n
+
+
+def main(path, cover=0.90):
     b = json.load(open(path))
     r = b["roofs"]
-    copy_roof = r["clone_4096_bf16"]["gbytes_s"] * 1e9
-    dram_roof = max(r["clone_4096_bf16"]["gbytes_s"], r.get("add3_4096_bf16", r["add_4096_bf16"])
-                    ["gbytes_s"]) * 1e9
-    mm_roof = r["matmul_4096_bf16"]["tflops"] * 1e12
-    print(f"roofs: matmul {mm_roof/1e12:.1f} TFLOP/s  copy {copy_roof/1e9:.0f} GB/s  "
-          f"dram {dram_roof/1e9:.0f} GB/s")
+    gbs = {k: v["gbytes_s"] * 1e9 for k, v in r.items()}
+    mm = r["matmul"]["tflops"] * 1e12
+    print("roofs: " + ", ".join(f"{k} {v['tflops']:.1f} TFLOP/s" if v["tflops"] else
+                                f"{k} {v['gbytes_s']:.0f} GB/s" for k, v in r.items()))
     for st, d in b["blocks"].items():
-        wall = d["wall_unwrapped"]["median"]
         syn, enq = d["synced"]["rows"], d["enqueue"]["rows"]
         tot = sum(v["t"] for v in syn.values())
-        print(f"\n==== {st}  wall {wall*1e3:.1f} ms  enqueue_sum {d['enqueue']['sum_t']*1e3:.1f} ms "
-              f"synced_sum {tot*1e3:.1f} ms  calls {d['enqueue']['calls']}  "
-              f"loadavg {d['loadavg'][0]:.1f}  aiclk {d['aiclk'].get('median')}")
-        by = {}
-        for k, v in syn.items():
-            c = klass(k.split(" ")[0])
-            a = by.setdefault(c, {"t": 0.0, "e": 0.0, "calls": 0})
-            a["t"] += v["t"]
-            a["e"] += enq.get(k, {"t": 0})["t"]
-            a["calls"] += v["calls"]
-        for c, a in sorted(by.items(), key=lambda kv: -kv[1]["t"]):
-            print(f"   class {c:10} {a['t']*1e3:7.2f} ms  {a['t']/tot*100:5.1f}%  "
-                  f"enqueue {a['e']*1e3:6.2f} ms  calls {a['calls']}")
-        print(f"   {'op / in-shapes':62} {'n':>3} {'syn':>6} {'enq':>6} {'dev':>6} "
-              f"{'sh':>5} {'cum':>5} {'MB':>6} {'roof':>6}")
+        print(f"\n{st}: wall {d['wall_unwrapped']['median']*1e3:.1f} ms, {d['enqueue']['calls']} "
+              f"calls, enqueue {d['enqueue']['sum_t']*1e3:.1f} ms, synced sum {tot*1e3:.1f} ms, "
+              f"loadavg {d['loadavg'][0]:.1f}")
+        print("| # | op | in shapes | calls | ms | share | cum | class | vs own roof |")
+        print("|---|---|---|---|---|---|---|---|---|")
         cum = 0.0
-        for k, v in list(syn.items())[:top]:
-            e = enq.get(k, {"t": 0})["t"]
+        for i, (key, v) in enumerate(syn.items(), 1):
+            op, ins = key.split(" ", 1)[0], key.split(" ", 1)[1].rsplit(" ", 1)[0]
+            c = klass(op)
+            dev = max(v["t"] - enq.get(key, {"t": 0})["t"], 1e-9)
+            byt = v["in_bytes"] + v["out_bytes"]
+            ideal = byt / gbs[ROOF_OF[c]]
+            if c == "matmul":
+                ideal = max(ideal, matmul_flops(ins) * v["calls"] / mm)
             cum += v["t"]
-            dev = max(v["t"] - e, 1e-9)
-            mb = (v["in_bytes"] + v["out_bytes"]) / 1e6
-            c = klass(k.split(" ")[0])
-            roof = copy_roof if c == "layout" else dram_roof
-            u = mb * 1e6 / dev / roof * 100
-            print(f"   {k[:62]:62} {v['calls']:3d} {v['t']*1e3:6.2f} {e*1e3:6.2f} {dev*1e3:6.2f} "
-                  f"{v['t']/tot*100:4.1f}% {cum/tot*100:4.1f}% {mb:6.1f} {u:5.0f}%")
+            u = ideal / dev * 100
+            if dev < 20e-6 * v["calls"]:
+                note = "sync latency, no kernel time resolved"
+            elif u > 100:
+                note = f"{u:.0f} %: above the DRAM roof, operand L1-resident or in place"
+            else:
+                note = f"{u:.0f} %"
+            print(f"| {i} | {op} | {ins[:60]} | {v['calls']} | {v['t']*1e3:.2f} | "
+                  f"{v['t']/tot*100:.1f} % | {cum/tot*100:.1f} % | {c} | {note} |")
+            if cum / tot >= cover:
+                break
 
 
 if __name__ == "__main__":
-    main(sys.argv[1], int(sys.argv[2]) if len(sys.argv) > 2 else 25)
+    main(sys.argv[1])
