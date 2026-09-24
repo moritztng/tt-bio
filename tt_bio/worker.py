@@ -2204,8 +2204,11 @@ def _execute_job(
                 try:
                     aff = state.predict_affinity(input_path, best, job_cfg)
                     row.update(aff)
-                except Exception:
+                except Exception as exc:
+                    # The structure stands, so the row stays ok; but a screen reads the
+                    # affinity, and a row with no affinity and no reason reads as a pass.
                     traceback.print_exc()
+                    row["affinity_error"] = _err_text(exc)
                 row["structure_runtime_s"] = structure_runtime_s
                 row["affinity_runtime_s"] = round(time.time() - t_aff, 1)
             row["runtime_s"] = round(time.time() - t0, 1)

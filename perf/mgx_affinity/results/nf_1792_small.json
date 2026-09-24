@@ -1,0 +1,60 @@
+{
+ "tag": "nf_1792_small",
+ "surface": "nesso1",
+ "input": "perf/mgx_affinity/inputs/size/cdk2_1792_small.yaml",
+ "args": [],
+ "host": "j10glx02",
+ "cards": [
+  17
+ ],
+ "commit": "0186ef509",
+ "rc": 0,
+ "wall_s": 325.2,
+ "aiclk": {
+  "0": {
+   "min": 500,
+   "median": 1000,
+   "max": 1000,
+   "n": 16
+  }
+ },
+ "load": {
+  "min": 56.03,
+  "median": 60.7,
+  "max": 68.86,
+  "nproc": 64
+ },
+ "census": null,
+ "adopted": false,
+ "rows": [
+  {
+   "id": "cdk2_1792_small",
+   "n_tokens": "1812",
+   "seconds": "170.47701328003313",
+   "affinity_pred_value": "1.5607783794403076",
+   "affinity_pred_value1": "1.5258610248565674",
+   "affinity_pred_value2": "1.5956958532333374",
+   "affinity_logits_binary": "-2.942931652069092",
+   "affinity_probability_binary": "0.05007164180278778",
+   "entropy_pp": "0.13696183264255524",
+   "entropy_pl": "0.30575186014175415",
+   "entropy_ll": "0.2126353234052658",
+   "entropy_crop_pp": "0.6909082531929016",
+   "entropy_crop_pl": "0.9258633255958557",
+   "entropy_crop_ll": "0.2126353234052658",
+   "error": ""
+  }
+ ],
+ "contention": false,
+ "errors": [
+  "2026-09-23 13:52:35.088 | critical |          Always | TT_THROW: Statically allocated circular buffers on core range [(x=0,y=0) - (x=7,y=8)] grow to 14935328 B which is beyond max L1 size of 1499136 B (assert.hpp:104)",
+  "2026-09-23 13:52:36.342 | critical |          Always | TT_THROW: Statically allocated circular buffers on core range [(x=0,y=0) - (x=7,y=8)] grow to 21587232 B which is beyond max L1 size of 1499136 B (assert.hpp:104)",
+  "2026-09-23 13:52:37.883 | critical |          Always | TT_THROW: Statically allocated circular buffers on core range [(x=0,y=0) - (x=7,y=8)] grow to 7617824 B which is beyond max L1 size of 1499136 B (assert.hpp:104)",
+  "2026-09-23 13:52:39.848 | critical |          Always | TT_THROW: Statically allocated circular buffers on core range [(x=0,y=0) - (x=7,y=8)] grow to 10188064 B which is beyond max L1 size of 1499136 B (assert.hpp:104)",
+  "2026-09-23 13:52:41.508 | critical |          Always | TT_THROW: Statically allocated circular buffers on core range [(x=0,y=0) - (x=7,y=8)] grow to 7968032 B which is beyond max L1 size of 1499136 B (assert.hpp:104)",
+  "2026-09-23 13:52:43.120 | critical |          Always | TT_THROW: Statically allocated circular buffers on core range [(x=0,y=0) - (x=7,y=8)] grow to 2870560 B which is beyond max L1 size of 1499136 B (assert.hpp:104)",
+  "2026-09-23 13:52:44.832 | critical |          Always | TT_THROW: Statically allocated circular buffers on core range [(x=0,y=0) - (x=7,y=8)] grow to 4025632 B which is beyond max L1 size of 1499136 B (assert.hpp:104)",
+  "2026-09-23 13:54:49.990 | critical |          Always | TT_THROW: Statically allocated circular buffers in program 811 clash with L1 buffers on core range [(x=0,y=0) - (x=7,y=8)]. L1 buffer allocated at 1144832 and static circular buffer region ends at 1152288 (assert.hpp:104)"
+ ],
+ "tail": []
+}

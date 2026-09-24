@@ -1,0 +1,74 @@
+{
+ "tag": "b_512_small_s2",
+ "surface": "boltz2",
+ "input": "perf/mgx_affinity/inputs/size/cdk2_512_small.yaml",
+ "args": [
+  "--seed",
+  "2"
+ ],
+ "host": "j10glx02",
+ "cards": [
+  31
+ ],
+ "commit": "dc34becb8",
+ "rc": 0,
+ "wall_s": 212.9,
+ "aiclk": {
+  "0": {
+   "min": 500,
+   "median": 1000,
+   "max": 1000,
+   "n": 11
+  }
+ },
+ "load": {
+  "min": 59.55,
+  "median": 64.28,
+  "max": 73.29,
+  "nproc": 64
+ },
+ "census": null,
+ "adopted": false,
+ "rows": [
+  {
+   "id": "cdk2_512_small",
+   "status": "ok",
+   "confidence_score": 0.838145,
+   "ptm": 0.633207,
+   "iptm": 0.768164,
+   "ligand_iptm": 0.768164,
+   "protein_iptm": 0.0,
+   "complex_plddt": 0.85564,
+   "complex_iplddt": 0.741646,
+   "complex_pde": 1.255606,
+   "complex_ipde": 9.325571,
+   "plddt": 0.85564,
+   "pair_chains_iptm": {
+    "0": {
+     "0": 0.646544,
+     "1": 0.302977
+    },
+    "1": {
+     "0": 0.768164,
+     "1": 0.948046
+    }
+   },
+   "chains_ptm": {
+    "0": 0.646544,
+    "1": 0.948046
+   },
+   "affinity_pred_value": 1.16439,
+   "affinity_probability_binary": 0.272983,
+   "affinity_pred_value1": 1.231261,
+   "affinity_probability_binary1": 0.345292,
+   "affinity_pred_value2": 1.097519,
+   "affinity_probability_binary2": 0.200675,
+   "structure_runtime_s": 59.0,
+   "affinity_runtime_s": 115.5,
+   "runtime_s": 174.5
+  }
+ ],
+ "contention": false,
+ "errors": [],
+ "tail": []
+}
