@@ -69,6 +69,12 @@ __all__ = ["tape", "recompute_scope", "VERBS", "taped_ttnn"]
 # tape cannot follow is loud, not a silently dropped gradient.
 # ---------------------------------------------------------------------------------------
 
+# `ttnn.zeros(..., device=)` builds its zeros on the host and uploads them, and a trace cannot
+# hold a host write: it is the one write left in a warm taped AF2 block (`perf/bcx_trace`). On,
+# the head backward takes its zero slot from `ttnn.zeros_like` of the same-shaped gradient, a
+# device fill with the same zeros. Off by default until `bcx-dram` hands back the tape.
+DEVICE_ZEROS = False
+
 _VERBS: dict = {}
 VERBS = _VERBS
 
@@ -789,8 +795,9 @@ def _v_create_qkv_heads(shipped, args, kwargs):
                 # the single-allocation form and cannot be used: it refuses front padding
                 # (`pad.cpp:278 front_padding_is_zero`), so slots 1 and 2 have no pad
                 # expression.
-                zero = ttnn.zeros([B, 1, L, H * dh], dtype=rows.dtype,
-                                  layout=ttnn.TILE_LAYOUT, device=rows.device())
+                zero = (ttnn.zeros_like(rows) if DEVICE_ZEROS else
+                        ttnn.zeros([B, 1, L, H * dh], dtype=rows.dtype,
+                                   layout=ttnn.TILE_LAYOUT, device=rows.device()))
                 parts = [rows if i == s else zero for i in range(3)]
                 x.add_grad(ttnn.concat(parts, dim=-1))
             return bw
