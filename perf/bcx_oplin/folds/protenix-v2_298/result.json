@@ -1,7 +1,7 @@
 {
  "model": "protenix-v2",
- "target": "/home/ttuser/.coworker/wt/bcx-oplin/perf/size512/fixtures/cdk2x2_512.yaml",
- "n_ca": 512,
+ "target": "examples/prot300.yaml",
+ "n_ca": 298,
  "recycling_steps": 10,
  "sampling_steps": 200,
  "seeds": [
@@ -10,52 +10,66 @@
   2
  ],
  "deviation_A": {
-  "0": 4.0529,
-  "1": 4.7171,
-  "2": 2.7683
+  "0": 0.1053,
+  "1": 0.1665,
+  "2": 0.1535
  },
  "seed_floor_off_A": {
-  "1": 2.9112,
-  "2": 2.997
+  "1": 0.6872,
+  "2": 0.4103
  },
  "seed_floor_on_A": {
-  "1": 1.7786,
-  "2": 1.4617
+  "1": 0.7465,
+  "2": 0.4404
  },
- "truth": null,
+ "truth": {
+  "file": "perf/bcx_oplin/1hcl.cif",
+  "off": [
+   2.0608,
+   1.961,
+   2.1244
+  ],
+  "on": [
+   2.0231,
+   1.9576,
+   2.0845
+  ],
+  "off_mean": 2.0487,
+  "on_mean": 2.0217
+ },
  "same_seed_repeat_identical": true,
  "bit_identical_arms": false,
  "warm_off_s": [
-  50.985,
-  50.878,
-  50.951,
-  50.832
+  28.012,
+  27.733,
+  27.653,
+  27.895
  ],
  "warm_on_s": [
-  50.865,
-  50.876,
-  50.895,
-  50.931
+  27.812,
+  27.806,
+  27.752,
+  27.743
  ],
- "speedup": 1.0006,
+ "speedup": 1.0013,
  "census": {
   "rank<=2": [
    {
     "shape": [
-     512,
-     384
-    ],
-    "calls": 213
-   },
-   {
-    "shape": [
-     4117,
+     2398,
      3
     ],
     "calls": 202
    },
    {
     "shape": [
+     298,
+     384
+    ],
+    "calls": 201
+   },
+   {
+    "shape": [
      1,
      256
     ],
@@ -63,78 +77,67 @@
    },
    {
     "shape": [
-     512,
+     298,
      768
     ],
     "calls": 200
    },
    {
     "shape": [
-     528384,
+     320,
+     384
+    ],
+    "calls": 12
+   },
+   {
+    "shape": [
+     307200,
      1
     ],
     "calls": 4
    },
    {
     "shape": [
-     4117,
+     2398,
      1
     ],
     "calls": 2
    },
    {
     "shape": [
-     4117,
+     2398,
      385
     ],
     "calls": 2
    },
    {
     "shape": [
-     528384,
+     307200,
      3
     ],
     "calls": 2
    },
    {
     "shape": [
-     512,
+     320,
      449
     ],
     "calls": 2
    },
    {
     "shape": [
-     512,
+     298,
      833
     ],
     "calls": 1
-   }
-  ],
-  "batch of one": [
-   {
-    "shape": [
-     1,
-     4117,
-     128
-    ],
-    "calls": 10025
-   },
-   {
-    "shape": [
-     1,
-     4117,
-     256
-    ],
-    "calls": 1203
    }
   ],
   "collapsed": [
    {
     "shape": [
      1,
-     512,
-     512,
+     320,
+     320,
      256
     ],
     "calls": 10
@@ -142,15 +145,15 @@
    {
     "shape": [
      1,
-     512,
-     512,
+     320,
+     320,
      64
     ],
     "calls": 10
    },
    {
     "shape": [
-     129,
+     75,
      32,
      128,
      16
@@ -159,16 +162,24 @@
    },
    {
     "shape": [
-     512,
-     512,
+     75,
+     32,
+     128
+    ],
+    "calls": 2
+   },
+   {
+    "shape": [
+     320,
+     320,
      139
     ],
     "calls": 1
    },
    {
     "shape": [
-     512,
-     512,
+     320,
+     320,
      1
     ],
     "calls": 1
@@ -177,26 +188,36 @@
     "shape": [
      1,
      35,
-     512,
+     320,
      34
     ],
     "calls": 1
    },
    {
     "shape": [
-     129,
-     32,
-     128
-    ],
-    "calls": 1
-   },
-   {
-    "shape": [
-     129,
+     75,
      128,
      128
     ],
     "calls": 1
+   }
+  ],
+  "batch of one": [
+   {
+    "shape": [
+     1,
+     2398,
+     128
+    ],
+    "calls": 10025
+   },
+   {
+    "shape": [
+     1,
+     2398,
+     256
+    ],
+    "calls": 1203
    }
   ]
  },
@@ -205,136 +226,145 @@
    "tag": "cold_on",
    "on": true,
    "seed": 0,
-   "wall_s": 57.214,
-   "plddt": 0.833472,
+   "wall_s": 34.408,
+   "plddt": 0.869919,
    "aiclk": {
-    "n": 192,
+    "n": 120,
     "median": 1350.0,
     "min": 1343,
     "max": 1350,
     "pci": "0000:01:00.0"
    },
-   "sha16": "1c653e4102901a23"
+   "sha16": "e35ec54b984b67a6",
+   "ca_rmsd_vs_truth": 2.0231
   },
   {
    "tag": "s0_off",
    "on": false,
    "seed": 0,
-   "wall_s": 50.985,
-   "plddt": 0.810638,
+   "wall_s": 28.012,
+   "plddt": 0.863671,
    "aiclk": {
-    "n": 173,
-    "median": 1350,
+    "n": 98,
+    "median": 1350.0,
     "min": 1343,
     "max": 1350,
     "pci": "0000:01:00.0"
    },
-   "sha16": "22bc3eaafd886c17"
+   "sha16": "75cd11045995c642",
+   "ca_rmsd_vs_truth": 2.0608
   },
   {
    "tag": "s0_on",
    "on": true,
    "seed": 0,
-   "wall_s": 50.865,
-   "plddt": 0.833472,
+   "wall_s": 27.812,
+   "plddt": 0.869919,
    "aiclk": {
-    "n": 167,
+    "n": 97,
     "median": 1350,
     "min": 1343,
     "max": 1350,
     "pci": "0000:01:00.0"
    },
-   "sha16": "1c653e4102901a23"
+   "sha16": "e35ec54b984b67a6",
+   "ca_rmsd_vs_truth": 2.0231
   },
   {
    "tag": "s1_on",
    "on": true,
    "seed": 1,
-   "wall_s": 50.876,
-   "plddt": 0.83439,
+   "wall_s": 27.806,
+   "plddt": 0.86973,
    "aiclk": {
-    "n": 170,
+    "n": 98,
     "median": 1350.0,
     "min": 1343,
     "max": 1350,
     "pci": "0000:01:00.0"
    },
-   "sha16": "637d414d1d000a1a"
+   "sha16": "17a7571e25d172a2",
+   "ca_rmsd_vs_truth": 1.9576
   },
   {
    "tag": "s1_off",
    "on": false,
    "seed": 1,
-   "wall_s": 50.878,
-   "plddt": 0.812925,
+   "wall_s": 27.733,
+   "plddt": 0.863441,
    "aiclk": {
-    "n": 169,
-    "median": 1350,
-    "min": 1343,
-    "max": 1350,
-    "pci": "0000:01:00.0"
-   },
-   "sha16": "306cc553c8200944"
-  },
-  {
-   "tag": "s2_off",
-   "on": false,
-   "seed": 2,
-   "wall_s": 50.951,
-   "plddt": 0.81231,
-   "aiclk": {
-    "n": 169,
-    "median": 1350,
-    "min": 1343,
-    "max": 1350,
-    "pci": "0000:01:00.0"
-   },
-   "sha16": "4ead68caf5c21d16"
-  },
-  {
-   "tag": "s2_on",
-   "on": true,
-   "seed": 2,
-   "wall_s": 50.895,
-   "plddt": 0.833117,
-   "aiclk": {
-    "n": 170,
+    "n": 96,
     "median": 1350.0,
     "min": 1343,
     "max": 1350,
     "pci": "0000:01:00.0"
    },
-   "sha16": "2c190233fd4045af"
+   "sha16": "177585a02312187d",
+   "ca_rmsd_vs_truth": 1.961
+  },
+  {
+   "tag": "s2_off",
+   "on": false,
+   "seed": 2,
+   "wall_s": 27.653,
+   "plddt": 0.863593,
+   "aiclk": {
+    "n": 97,
+    "median": 1350,
+    "min": 1343,
+    "max": 1350,
+    "pci": "0000:01:00.0"
+   },
+   "sha16": "f28bf7653dd2ee65",
+   "ca_rmsd_vs_truth": 2.1244
+  },
+  {
+   "tag": "s2_on",
+   "on": true,
+   "seed": 2,
+   "wall_s": 27.752,
+   "plddt": 0.869757,
+   "aiclk": {
+    "n": 97,
+    "median": 1350,
+    "min": 1343,
+    "max": 1350,
+    "pci": "0000:01:00.0"
+   },
+   "sha16": "1d0e6fa79053e993",
+   "ca_rmsd_vs_truth": 2.0845
   },
   {
    "tag": "s0_on_t1",
    "on": true,
    "seed": 0,
-   "wall_s": 50.931,
-   "plddt": 0.833472,
+   "wall_s": 27.743,
+   "plddt": 0.869919,
    "aiclk": {
-    "n": 171,
+    "n": 97,
     "median": 1350,
     "min": 1343,
     "max": 1350,
     "pci": "0000:01:00.0"
    },
-   "sha16": "1c653e4102901a23"
+   "sha16": "e35ec54b984b67a6",
+   "ca_rmsd_vs_truth": 2.0231
   },
   {
    "tag": "s0_off_t1",
    "on": false,
    "seed": 0,
-   "wall_s": 50.832,
-   "plddt": 0.810638,
+   "wall_s": 27.895,
+   "plddt": 0.863671,
    "aiclk": {
-    "n": 171,
+    "n": 97,
     "median": 1350,
     "min": 1343,
     "max": 1350,
     "pci": "0000:01:00.0"
    },
-   "sha16": "22bc3eaafd886c17"
+   "sha16": "75cd11045995c642",
+   "ca_rmsd_vs_truth": 2.0608
   }
  ],
  "card": {
@@ -348,8 +378,8 @@
  },
  "host": "tt-quietbox",
  "loadavg": [
-  1.68603515625,
-  1.8447265625,
-  1.77685546875
+  4.4453125,
+  7.80126953125,
+  8.458984375
  ]
 }

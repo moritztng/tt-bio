@@ -1,0 +1,85 @@
+{
+ "model": "saprot-650m",
+ "lengths": [
+  64,
+  79,
+  95,
+  110,
+  126,
+  142,
+  157,
+  173,
+  188,
+  204,
+  220,
+  235,
+  251,
+  266,
+  273,
+  280
+ ],
+ "on_vs_off": {
+  "per_residue_rel_l2_max": 0.018224,
+  "pooled_cos_min": 0.9999809
+ },
+ "off_vs_alone": {
+  "per_residue_rel_l2_max": 0.018285,
+  "pooled_cos_min": 0.9999755
+ },
+ "on_vs_alone": {
+  "per_residue_rel_l2_max": 0.018912,
+  "pooled_cos_min": 0.9999824
+ },
+ "wall_off_s": [
+  0.1431,
+  0.141,
+  0.1418
+ ],
+ "wall_on_s": [
+  0.1508,
+  0.1486,
+  0.1461
+ ],
+ "speedup": 0.9542,
+ "aiclk": {
+  "min": 1350,
+  "max": 1350,
+  "pci": "0000:01:00.0"
+ },
+ "census": {
+  "collapsed": [
+   {
+    "shape": [
+     8,
+     192,
+     1280
+    ],
+    "calls": 99
+   },
+   {
+    "shape": [
+     8,
+     288,
+     1280
+    ],
+    "calls": 99
+   },
+   {
+    "shape": [
+     8,
+     192,
+     5120
+    ],
+    "calls": 33
+   },
+   {
+    "shape": [
+     8,
+     288,
+     5120
+    ],
+    "calls": 33
+   }
+  ]
+ }
+}

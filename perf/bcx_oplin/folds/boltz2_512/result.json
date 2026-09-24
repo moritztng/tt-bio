@@ -1,0 +1,243 @@
+{
+ "model": "boltz2",
+ "target": "/home/ttuser/.coworker/wt/bcx-oplin/perf/size512/fixtures/cdk2x2_512.yaml",
+ "n_ca": 512,
+ "recycling_steps": 3,
+ "sampling_steps": 200,
+ "seeds": [
+  0,
+  1,
+  2
+ ],
+ "deviation_A": {
+  "0": 0.547,
+  "1": 0.2775,
+  "2": 0.5163
+ },
+ "seed_floor_off_A": {
+  "1": 15.5683,
+  "2": 16.6034
+ },
+ "seed_floor_on_A": {
+  "1": 15.6924,
+  "2": 16.8277
+ },
+ "truth": null,
+ "same_seed_repeat_identical": true,
+ "bit_identical_arms": false,
+ "warm_off_s": [
+  17.931,
+  17.751,
+  17.759,
+  17.822
+ ],
+ "warm_on_s": [
+  18.034,
+  17.829,
+  18.122,
+  17.869
+ ],
+ "speedup": 0.991,
+ "census": {
+  "collapsed": [
+   {
+    "shape": [
+     1,
+     512,
+     512,
+     128
+    ],
+    "calls": 13
+   },
+   {
+    "shape": [
+     1,
+     512,
+     512,
+     8
+    ],
+    "calls": 10
+   },
+   {
+    "shape": [
+     1,
+     512,
+     512,
+     64
+    ],
+    "calls": 4
+   },
+   {
+    "shape": [
+     1,
+     512,
+     512,
+     256
+    ],
+    "calls": 3
+   }
+  ],
+  "batch of one": [
+   {
+    "shape": [
+     1,
+     512,
+     384
+    ],
+    "calls": 6
+   }
+  ]
+ },
+ "folds": [
+  {
+   "tag": "cold_on",
+   "on": true,
+   "seed": 0,
+   "wall_s": 26.705,
+   "plddt": 0.84507,
+   "aiclk": {
+    "n": 77,
+    "median": 1350,
+    "min": 1343,
+    "max": 1350,
+    "pci": "0000:01:00.0"
+   },
+   "sha16": "4d8ca2cf1a610ffd"
+  },
+  {
+   "tag": "s0_off",
+   "on": false,
+   "seed": 0,
+   "wall_s": 17.931,
+   "plddt": 0.844645,
+   "aiclk": {
+    "n": 64,
+    "median": 1350.0,
+    "min": 1343,
+    "max": 1350,
+    "pci": "0000:01:00.0"
+   },
+   "sha16": "57995ebbbe68ff1a"
+  },
+  {
+   "tag": "s0_on",
+   "on": true,
+   "seed": 0,
+   "wall_s": 18.034,
+   "plddt": 0.84507,
+   "aiclk": {
+    "n": 65,
+    "median": 1350,
+    "min": 1343,
+    "max": 1350,
+    "pci": "0000:01:00.0"
+   },
+   "sha16": "4d8ca2cf1a610ffd"
+  },
+  {
+   "tag": "s1_on",
+   "on": true,
+   "seed": 1,
+   "wall_s": 17.829,
+   "plddt": 0.861194,
+   "aiclk": {
+    "n": 64,
+    "median": 1350.0,
+    "min": 1350,
+    "max": 1350,
+    "pci": "0000:01:00.0"
+   },
+   "sha16": "fa943239257258fc"
+  },
+  {
+   "tag": "s1_off",
+   "on": false,
+   "seed": 1,
+   "wall_s": 17.751,
+   "plddt": 0.861199,
+   "aiclk": {
+    "n": 64,
+    "median": 1350.0,
+    "min": 1343,
+    "max": 1350,
+    "pci": "0000:01:00.0"
+   },
+   "sha16": "b19ca62f62f3d00c"
+  },
+  {
+   "tag": "s2_off",
+   "on": false,
+   "seed": 2,
+   "wall_s": 17.759,
+   "plddt": 0.85579,
+   "aiclk": {
+    "n": 63,
+    "median": 1350,
+    "min": 1343,
+    "max": 1350,
+    "pci": "0000:01:00.0"
+   },
+   "sha16": "f8b0bd91757477a7"
+  },
+  {
+   "tag": "s2_on",
+   "on": true,
+   "seed": 2,
+   "wall_s": 18.122,
+   "plddt": 0.854826,
+   "aiclk": {
+    "n": 64,
+    "median": 1350.0,
+    "min": 1343,
+    "max": 1350,
+    "pci": "0000:01:00.0"
+   },
+   "sha16": "ac33a2e302c2ab82"
+  },
+  {
+   "tag": "s0_on_t1",
+   "on": true,
+   "seed": 0,
+   "wall_s": 17.869,
+   "plddt": 0.84507,
+   "aiclk": {
+    "n": 64,
+    "median": 1350.0,
+    "min": 1343,
+    "max": 1350,
+    "pci": "0000:01:00.0"
+   },
+   "sha16": "4d8ca2cf1a610ffd"
+  },
+  {
+   "tag": "s0_off_t1",
+   "on": false,
+   "seed": 0,
+   "wall_s": 17.822,
+   "plddt": 0.844645,
+   "aiclk": {
+    "n": 64,
+    "median": 1350.0,
+    "min": 1350,
+    "max": 1350,
+    "pci": "0000:01:00.0"
+   },
+   "sha16": "57995ebbbe68ff1a"
+  }
+ ],
+ "card": {
+  "hardware": "blackhole",
+  "card_type": "p150a",
+  "sysfs_subsystem": "0x0040",
+  "grid": [
+   11,
+   10
+  ]
+ },
+ "host": "tt-quietbox",
+ "loadavg": [
+  8.39892578125,
+  5.998046875,
+  3.73291015625
+ ]
+}

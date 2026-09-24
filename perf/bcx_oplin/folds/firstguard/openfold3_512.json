@@ -1,0 +1,337 @@
+{
+ "model": "openfold3",
+ "target": "perf/size512/fixtures/cdk2x2_512.yaml",
+ "n_ca": 512,
+ "recycling_steps": 3,
+ "sampling_steps": 200,
+ "deviation_A": 4.1357,
+ "seed_floor_A": 20.9584,
+ "seed1_on_vs_off_A": 23.1817,
+ "off_repeat_identical": true,
+ "on_repeat_identical": true,
+ "warm_off_s": [
+  25.464,
+  24.985
+ ],
+ "warm_on_s": [
+  25.227,
+  24.85
+ ],
+ "speedup": 1.0074,
+ "census": {
+  "collapsed": [
+   {
+    "shape": [
+     1,
+     512,
+     768
+    ],
+    "calls": 24400
+   },
+   {
+    "shape": [
+     1,
+     512,
+     384
+    ],
+    "calls": 10604
+   },
+   {
+    "shape": [
+     1,
+     512,
+     1536
+    ],
+    "calls": 4800
+   },
+   {
+    "shape": [
+     1,
+     129,
+     32,
+     128
+    ],
+    "calls": 3610
+   },
+   {
+    "shape": [
+     1,
+     4128,
+     128
+    ],
+    "calls": 2424
+   },
+   {
+    "shape": [
+     1,
+     129,
+     128,
+     128
+    ],
+    "calls": 2407
+   },
+   {
+    "shape": [
+     1,
+     4128,
+     256
+    ],
+    "calls": 1203
+   },
+   {
+    "shape": [
+     1,
+     512,
+     833
+    ],
+    "calls": 200
+   },
+   {
+    "shape": [
+     1,
+     512,
+     512,
+     128
+    ],
+    "calls": 36
+   },
+   {
+    "shape": [
+     1,
+     129,
+     32,
+     128,
+     16
+    ],
+    "calls": 12
+   },
+   {
+    "shape": [
+     1,
+     512,
+     512,
+     1
+    ],
+    "calls": 6
+   },
+   {
+    "shape": [
+     1,
+     512,
+     449
+    ],
+    "calls": 4
+   },
+   {
+    "shape": [
+     1,
+     512,
+     512,
+     64
+    ],
+    "calls": 4
+   },
+   {
+    "shape": [
+     1,
+     512,
+     512,
+     32
+    ],
+    "calls": 2
+   },
+   {
+    "shape": [
+     1,
+     512,
+     512,
+     256
+    ],
+    "calls": 2
+   },
+   {
+    "shape": [
+     1,
+     512,
+     512,
+     139
+    ],
+    "calls": 1
+   },
+   {
+    "shape": [
+     1,
+     36,
+     512,
+     34
+    ],
+    "calls": 1
+   },
+   {
+    "shape": [
+     1,
+     512,
+     512,
+     39
+    ],
+    "calls": 1
+   },
+   {
+    "shape": [
+     1,
+     512,
+     512,
+     267
+    ],
+    "calls": 1
+   }
+  ],
+  "rows%32": [
+   {
+    "shape": [
+     1,
+     1,
+     256
+    ],
+    "calls": 200
+   },
+   {
+    "shape": [
+     1,
+     4116,
+     128
+    ],
+    "calls": 200
+   }
+  ]
+ },
+ "folds": [
+  {
+   "tag": "cold_on",
+   "on": true,
+   "seed": 0,
+   "wall_s": 47.161,
+   "plddt": 0.556417,
+   "aiclk": {
+    "n": 121,
+    "median": 1350,
+    "min": 1343,
+    "max": 1350,
+    "pci": "0000:01:00.0"
+   },
+   "sha16": "8aaf1d3f33fdeac5",
+   "ca_rmsd_vs_off_s0": 4.1357
+  },
+  {
+   "tag": "s0_off_0",
+   "on": false,
+   "seed": 0,
+   "wall_s": 25.464,
+   "plddt": 0.543953,
+   "aiclk": {
+    "n": 89,
+    "median": 1350,
+    "min": 1343,
+    "max": 1350,
+    "pci": "0000:01:00.0"
+   },
+   "sha16": "0dfa5a6b5bd9a25b",
+   "ca_rmsd_vs_off_s0": 0.0
+  },
+  {
+   "tag": "s0_on_0",
+   "on": true,
+   "seed": 0,
+   "wall_s": 25.227,
+   "plddt": 0.556417,
+   "aiclk": {
+    "n": 89,
+    "median": 1350,
+    "min": 1343,
+    "max": 1350,
+    "pci": "0000:01:00.0"
+   },
+   "sha16": "8aaf1d3f33fdeac5",
+   "ca_rmsd_vs_off_s0": 4.1357
+  },
+  {
+   "tag": "s0_on_1",
+   "on": true,
+   "seed": 0,
+   "wall_s": 24.85,
+   "plddt": 0.556417,
+   "aiclk": {
+    "n": 88,
+    "median": 1350.0,
+    "min": 1350,
+    "max": 1350,
+    "pci": "0000:01:00.0"
+   },
+   "sha16": "8aaf1d3f33fdeac5",
+   "ca_rmsd_vs_off_s0": 4.1357
+  },
+  {
+   "tag": "s0_off_1",
+   "on": false,
+   "seed": 0,
+   "wall_s": 24.985,
+   "plddt": 0.543953,
+   "aiclk": {
+    "n": 89,
+    "median": 1350,
+    "min": 1343,
+    "max": 1350,
+    "pci": "0000:01:00.0"
+   },
+   "sha16": "0dfa5a6b5bd9a25b",
+   "ca_rmsd_vs_off_s0": 0.0
+  },
+  {
+   "tag": "s1_off",
+   "on": false,
+   "seed": 1,
+   "wall_s": 24.877,
+   "plddt": 0.56931,
+   "aiclk": {
+    "n": 89,
+    "median": 1350,
+    "min": 1343,
+    "max": 1350,
+    "pci": "0000:01:00.0"
+   },
+   "sha16": "01cd8892baca3287",
+   "ca_rmsd_vs_off_s0": 20.9584
+  },
+  {
+   "tag": "s1_on",
+   "on": true,
+   "seed": 1,
+   "wall_s": 24.943,
+   "plddt": 0.543045,
+   "aiclk": {
+    "n": 88,
+    "median": 1350.0,
+    "min": 1343,
+    "max": 1350,
+    "pci": "0000:01:00.0"
+   },
+   "sha16": "5cae9f16a9549657",
+   "ca_rmsd_vs_off_s0": 7.445
+  }
+ ],
+ "card": {
+  "hardware": "blackhole",
+  "card_type": "p150a",
+  "sysfs_subsystem": "0x0040",
+  "grid": [
+   11,
+   10
+  ]
+ },
+ "host": "tt-quietbox",
+ "loadavg": [
+  5.43115234375,
+  3.8779296875,
+  3.1201171875
+ ]
+}

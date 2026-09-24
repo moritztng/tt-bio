@@ -1,0 +1,356 @@
+{
+ "model": "esmfold2-fast",
+ "target": "examples/prot300.yaml",
+ "n_ca": 298,
+ "recycling_steps": 10,
+ "sampling_steps": 200,
+ "seeds": [
+  0,
+  1,
+  2
+ ],
+ "deviation_A": {
+  "0": 0.0,
+  "1": 0.0,
+  "2": 0.0
+ },
+ "seed_floor_off_A": {
+  "1": 0.2229,
+  "2": 0.532
+ },
+ "seed_floor_on_A": {
+  "1": 0.2229,
+  "2": 0.532
+ },
+ "truth": {
+  "file": "perf/bcx_oplin/1hcl.cif",
+  "off": [
+   0.4856,
+   0.4684,
+   0.488
+  ],
+  "on": [
+   0.4856,
+   0.4684,
+   0.488
+  ],
+  "off_mean": 0.4807,
+  "on_mean": 0.4807
+ },
+ "same_seed_repeat_identical": true,
+ "bit_identical_arms": true,
+ "warm_off_s": [
+  20.344,
+  19.89,
+  20.542,
+  24.644
+ ],
+ "warm_on_s": [
+  20.911,
+  20.471,
+  21.27,
+  20.729
+ ],
+ "speedup": 0.9819,
+ "census": {
+  "batch of one": [
+   {
+    "shape": [
+     1,
+     298,
+     768
+    ],
+    "calls": 23316
+   },
+   {
+    "shape": [
+     1,
+     2400,
+     128
+    ],
+    "calls": 3506
+   },
+   {
+    "shape": [
+     1,
+     298,
+     1536
+    ],
+    "calls": 1876
+   },
+   {
+    "shape": [
+     1,
+     298,
+     1024
+    ],
+    "calls": 1608
+   },
+   {
+    "shape": [
+     1,
+     2400,
+     256
+    ],
+    "calls": 807
+   },
+   {
+    "shape": [
+     1,
+     320,
+     2560
+    ],
+    "calls": 240
+   },
+   {
+    "shape": [
+     1,
+     298,
+     451
+    ],
+    "calls": 134
+   },
+   {
+    "shape": [
+     1,
+     2400,
+     6
+    ],
+    "calls": 134
+   },
+   {
+    "shape": [
+     1,
+     320,
+     6912
+    ],
+    "calls": 80
+   },
+   {
+    "shape": [
+     1,
+     2400,
+     389
+    ],
+    "calls": 2
+   },
+   {
+    "shape": [
+     1,
+     24138,
+     2560
+    ],
+    "calls": 1
+   },
+   {
+    "shape": [
+     1,
+     298,
+     256
+    ],
+    "calls": 1
+   }
+  ],
+  "rows%32": [
+   {
+    "shape": [
+     1,
+     298,
+     298,
+     256
+    ],
+    "calls": 18
+   },
+   {
+    "shape": [
+     1,
+     298,
+     298,
+     512
+    ],
+    "calls": 4
+   }
+  ],
+  "memory_config": [
+   {
+    "shape": [
+     1,
+     32,
+     320,
+     1024
+    ],
+    "calls": 3140
+   }
+  ],
+  "rank<=2": [
+   {
+    "shape": [
+     1,
+     256
+    ],
+    "calls": 134
+   }
+  ]
+ },
+ "folds": [
+  {
+   "tag": "cold_on",
+   "on": true,
+   "seed": 0,
+   "wall_s": 30.706,
+   "plddt": 0.9058,
+   "aiclk": {
+    "n": 104,
+    "median": 1350.0,
+    "min": 1350,
+    "max": 1350,
+    "pci": "0000:01:00.0"
+   },
+   "sha16": "418c3c5cb280bf39",
+   "ca_rmsd_vs_truth": 0.4856
+  },
+  {
+   "tag": "s0_off",
+   "on": false,
+   "seed": 0,
+   "wall_s": 20.344,
+   "plddt": 0.9058,
+   "aiclk": {
+    "n": 73,
+    "median": 1350,
+    "min": 1343,
+    "max": 1350,
+    "pci": "0000:01:00.0"
+   },
+   "sha16": "418c3c5cb280bf39",
+   "ca_rmsd_vs_truth": 0.4856
+  },
+  {
+   "tag": "s0_on",
+   "on": true,
+   "seed": 0,
+   "wall_s": 20.911,
+   "plddt": 0.9058,
+   "aiclk": {
+    "n": 73,
+    "median": 1350,
+    "min": 1343,
+    "max": 1350,
+    "pci": "0000:01:00.0"
+   },
+   "sha16": "418c3c5cb280bf39",
+   "ca_rmsd_vs_truth": 0.4856
+  },
+  {
+   "tag": "s1_on",
+   "on": true,
+   "seed": 1,
+   "wall_s": 20.471,
+   "plddt": 0.905,
+   "aiclk": {
+    "n": 74,
+    "median": 1350.0,
+    "min": 1343,
+    "max": 1350,
+    "pci": "0000:01:00.0"
+   },
+   "sha16": "472bf426c8ca1eeb",
+   "ca_rmsd_vs_truth": 0.4684
+  },
+  {
+   "tag": "s1_off",
+   "on": false,
+   "seed": 1,
+   "wall_s": 19.89,
+   "plddt": 0.905,
+   "aiclk": {
+    "n": 72,
+    "median": 1350.0,
+    "min": 1343,
+    "max": 1350,
+    "pci": "0000:01:00.0"
+   },
+   "sha16": "472bf426c8ca1eeb",
+   "ca_rmsd_vs_truth": 0.4684
+  },
+  {
+   "tag": "s2_off",
+   "on": false,
+   "seed": 2,
+   "wall_s": 20.542,
+   "plddt": 0.9029,
+   "aiclk": {
+    "n": 73,
+    "median": 1350,
+    "min": 1343,
+    "max": 1350,
+    "pci": "0000:01:00.0"
+   },
+   "sha16": "4183932b3a9a5e87",
+   "ca_rmsd_vs_truth": 0.488
+  },
+  {
+   "tag": "s2_on",
+   "on": true,
+   "seed": 2,
+   "wall_s": 21.27,
+   "plddt": 0.9029,
+   "aiclk": {
+    "n": 75,
+    "median": 1350,
+    "min": 1350,
+    "max": 1350,
+    "pci": "0000:01:00.0"
+   },
+   "sha16": "4183932b3a9a5e87",
+   "ca_rmsd_vs_truth": 0.488
+  },
+  {
+   "tag": "s0_on_t1",
+   "on": true,
+   "seed": 0,
+   "wall_s": 20.729,
+   "plddt": 0.9058,
+   "aiclk": {
+    "n": 73,
+    "median": 1350,
+    "min": 1343,
+    "max": 1350,
+    "pci": "0000:01:00.0"
+   },
+   "sha16": "418c3c5cb280bf39",
+   "ca_rmsd_vs_truth": 0.4856
+  },
+  {
+   "tag": "s0_off_t1",
+   "on": false,
+   "seed": 0,
+   "wall_s": 24.644,
+   "plddt": 0.9058,
+   "aiclk": {
+    "n": 85,
+    "median": 1350,
+    "min": 1343,
+    "max": 1350,
+    "pci": "0000:01:00.0"
+   },
+   "sha16": "418c3c5cb280bf39",
+   "ca_rmsd_vs_truth": 0.4856
+  }
+ ],
+ "card": {
+  "hardware": "blackhole",
+  "card_type": "p150a",
+  "sysfs_subsystem": "0x0040",
+  "grid": [
+   11,
+   10
+  ]
+ },
+ "host": "tt-quietbox",
+ "loadavg": [
+  17.64306640625,
+  11.5908203125,
+  8.77001953125
+ ]
+}

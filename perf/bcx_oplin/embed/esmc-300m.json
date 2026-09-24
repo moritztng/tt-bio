@@ -1,0 +1,85 @@
+{
+ "model": "esmc-300m",
+ "lengths": [
+  64,
+  79,
+  95,
+  110,
+  126,
+  142,
+  157,
+  173,
+  188,
+  204,
+  220,
+  235,
+  251,
+  266,
+  273,
+  280
+ ],
+ "on_vs_off": {
+  "per_residue_rel_l2_max": 0.042733,
+  "pooled_cos_min": 0.999853
+ },
+ "off_vs_alone": {
+  "per_residue_rel_l2_max": 0.043154,
+  "pooled_cos_min": 0.9998257
+ },
+ "on_vs_alone": {
+  "per_residue_rel_l2_max": 0.042594,
+  "pooled_cos_min": 0.999835
+ },
+ "wall_off_s": [
+  0.1175,
+  0.1175,
+  0.1173
+ ],
+ "wall_on_s": [
+  0.1259,
+  0.1226,
+  0.1254
+ ],
+ "speedup": 0.937,
+ "aiclk": {
+  "min": 1350,
+  "max": 1350,
+  "pci": "0000:01:00.0"
+ },
+ "census": {
+  "collapsed": [
+   {
+    "shape": [
+     8,
+     192,
+     960
+    ],
+    "calls": 92
+   },
+   {
+    "shape": [
+     8,
+     288,
+     960
+    ],
+    "calls": 92
+   },
+   {
+    "shape": [
+     8,
+     192,
+     2560
+    ],
+    "calls": 30
+   },
+   {
+    "shape": [
+     8,
+     288,
+     2560
+    ],
+    "calls": 30
+   }
+  ]
+ }
+}

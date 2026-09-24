@@ -1,0 +1,200 @@
+{
+ "model": "protenix-v2",
+ "target": "/home/ttuser/.coworker/wt/bcx-oplin/perf/size512/fixtures/cdk2x2_512.yaml",
+ "wall_s": 84.88,
+ "plddt": 0.810638,
+ "aiclk": {
+  "n": 281,
+  "median": 1350,
+  "min": 1343,
+  "max": 1350,
+  "pci": "0000:c1:00.0"
+ },
+ "calls": [
+  {
+   "x": [
+    1,
+    512,
+    512,
+    256
+   ],
+   "w": [
+    256,
+    256
+   ],
+   "bias": false,
+   "activation": null,
+   "calls": 10,
+   "rank_rel_max": 0.0017417884167398158,
+   "rank_rel_median": 0.0017307886672885302,
+   "view_rel_max": 0.0017298275907235616,
+   "view_rel_median": 0.001722726267522664,
+   "rank_vs_view_rel_max": 0.0011674590377341516,
+   "rank_vs_view_rel_median": 0.0011648445045375122
+  },
+  {
+   "x": [
+    512,
+    512,
+    139
+   ],
+   "w": [
+    139,
+    256
+   ],
+   "bias": false,
+   "activation": null,
+   "calls": 1,
+   "rank_rel_max": 0.00173831324025252,
+   "rank_rel_median": 0.00173831324025252,
+   "view_rel_max": 0.00173831324025252,
+   "view_rel_median": 0.00173831324025252,
+   "rank_vs_view_rel_max": 0.0,
+   "rank_vs_view_rel_median": 0.0
+  },
+  {
+   "x": [
+    129,
+    128,
+    128
+   ],
+   "w": [
+    128,
+    16
+   ],
+   "bias": false,
+   "activation": null,
+   "calls": 1,
+   "rank_rel_max": 0.0016188771608177123,
+   "rank_rel_median": 0.0016188771608177123,
+   "view_rel_max": 0.001604645290005762,
+   "view_rel_median": 0.001604645290005762,
+   "rank_vs_view_rel_max": 0.00016503322906880028,
+   "rank_vs_view_rel_median": 0.00016503322906880028
+  },
+  {
+   "x": [
+    1,
+    512,
+    512,
+    64
+   ],
+   "w": [
+    64,
+    256
+   ],
+   "bias": false,
+   "activation": null,
+   "calls": 10,
+   "rank_rel_max": 0.0015745409276387151,
+   "rank_rel_median": 0.0015723054900011956,
+   "view_rel_max": 0.0015736010536785952,
+   "view_rel_median": 0.0015709865784636783,
+   "rank_vs_view_rel_max": 0.0009687498115697685,
+   "rank_vs_view_rel_median": 0.0009626002579438471
+  },
+  {
+   "x": [
+    129,
+    32,
+    128,
+    16
+   ],
+   "w": [
+    16,
+    4
+   ],
+   "bias": false,
+   "activation": null,
+   "calls": 6,
+   "rank_rel_max": 0.0013777750639454298,
+   "rank_rel_median": 0.0012228900535520644,
+   "view_rel_max": 0.0013777750639454298,
+   "view_rel_median": 0.0012228900535520644,
+   "rank_vs_view_rel_max": 0.0,
+   "rank_vs_view_rel_median": 0.0
+  },
+  {
+   "x": [
+    129,
+    32,
+    128
+   ],
+   "w": [
+    128,
+    16
+   ],
+   "bias": false,
+   "activation": null,
+   "calls": 1,
+   "rank_rel_max": 0.001226247632685753,
+   "rank_rel_median": 0.001226247632685753,
+   "view_rel_max": 0.0011889977095616655,
+   "view_rel_median": 0.0011889977095616655,
+   "rank_vs_view_rel_max": 0.00019201549364141084,
+   "rank_vs_view_rel_median": 0.00019201549364141084
+  },
+  {
+   "x": [
+    129,
+    32,
+    128,
+    16
+   ],
+   "w": [
+    16,
+    16
+   ],
+   "bias": false,
+   "activation": null,
+   "calls": 3,
+   "rank_rel_max": 0.0011211189685798844,
+   "rank_rel_median": 0.0010291205941401979,
+   "view_rel_max": 0.0011211189685798844,
+   "view_rel_median": 0.0010291205941401979,
+   "rank_vs_view_rel_max": 0.0,
+   "rank_vs_view_rel_median": 0.0
+  },
+  {
+   "x": [
+    1,
+    35,
+    512,
+    34
+   ],
+   "w": [
+    34,
+    128
+   ],
+   "bias": false,
+   "activation": null,
+   "calls": 1,
+   "rank_rel_max": 9.120751163800748e-05,
+   "rank_rel_median": 9.120751163800748e-05,
+   "view_rel_max": 9.120751163800748e-05,
+   "view_rel_median": 9.120751163800748e-05,
+   "rank_vs_view_rel_max": 0.0,
+   "rank_vs_view_rel_median": 0.0
+  },
+  {
+   "x": [
+    512,
+    512,
+    1
+   ],
+   "w": [
+    1,
+    256
+   ],
+   "bias": false,
+   "activation": null,
+   "calls": 1,
+   "rank_rel_max": 0.0,
+   "rank_rel_median": 0.0,
+   "view_rel_max": 0.0,
+   "view_rel_median": 0.0,
+   "rank_vs_view_rel_max": 0.0,
+   "rank_vs_view_rel_median": 0.0
+  }
+ ]
+}

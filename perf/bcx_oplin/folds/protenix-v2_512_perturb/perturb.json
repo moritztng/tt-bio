@@ -1,0 +1,96 @@
+{
+ "model": "protenix-v2",
+ "eps": 0.0012,
+ "folds": [
+  {
+   "tag": "s0_off",
+   "seed": 0,
+   "draw": null,
+   "wall_s": 56.97,
+   "plddt": 0.810638,
+   "aiclk": {
+    "n": 192,
+    "median": 1350.0,
+    "min": 1343,
+    "max": 1350,
+    "pci": "0000:c1:00.0"
+   },
+   "sha16": "22bc3eaafd886c17"
+  },
+  {
+   "tag": "s0_noise0",
+   "seed": 0,
+   "draw": 0,
+   "wall_s": 70.87,
+   "plddt": 0.8334,
+   "aiclk": {
+    "n": 233,
+    "median": 1350,
+    "min": 1343,
+    "max": 1350,
+    "pci": "0000:c1:00.0"
+   },
+   "sha16": "bcfdf341b5687fa8"
+  },
+  {
+   "tag": "s0_noise1",
+   "seed": 0,
+   "draw": 1,
+   "wall_s": 71.3,
+   "plddt": 0.834338,
+   "aiclk": {
+    "n": 236,
+    "median": 1350.0,
+    "min": 1343,
+    "max": 1350,
+    "pci": "0000:c1:00.0"
+   },
+   "sha16": "2988fcc0a9507991"
+  },
+  {
+   "tag": "s1_off",
+   "seed": 1,
+   "draw": null,
+   "wall_s": 51.08,
+   "plddt": 0.812925,
+   "aiclk": {
+    "n": 168,
+    "median": 1350.0,
+    "min": 1343,
+    "max": 1350,
+    "pci": "0000:c1:00.0"
+   },
+   "sha16": "306cc553c8200944"
+  },
+  {
+   "tag": "s1_noise0",
+   "seed": 1,
+   "draw": 0,
+   "wall_s": 71.99,
+   "plddt": 0.834284,
+   "aiclk": {
+    "n": 237,
+    "median": 1350,
+    "min": 1343,
+    "max": 1350,
+    "pci": "0000:c1:00.0"
+   },
+   "sha16": "4edb639e04957b29"
+  },
+  {
+   "tag": "s1_noise1",
+   "seed": 1,
+   "draw": 1,
+   "wall_s": 71.78,
+   "plddt": 0.835236,
+   "aiclk": {
+    "n": 236,
+    "median": 1350.0,
+    "min": 1343,
+    "max": 1350,
+    "pci": "0000:c1:00.0"
+   },
+   "sha16": "d04a1ea0b1b93245"
+  }
+ ]
+}

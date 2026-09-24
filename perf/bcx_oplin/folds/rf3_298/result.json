@@ -1,0 +1,217 @@
+{
+ "model": "rf3",
+ "target": "examples/prot300.yaml",
+ "n_ca": 298,
+ "recycling_steps": 10,
+ "sampling_steps": 200,
+ "seeds": [
+  0,
+  1,
+  2
+ ],
+ "deviation_A": {
+  "0": 0.0,
+  "1": 0.0,
+  "2": 0.0
+ },
+ "seed_floor_off_A": {
+  "1": 0.9378,
+  "2": 0.8955
+ },
+ "seed_floor_on_A": {
+  "1": 0.9378,
+  "2": 0.8955
+ },
+ "truth": {
+  "file": "perf/bcx_oplin/1hcl.cif",
+  "off": [
+   2.4052,
+   2.6616,
+   2.5304
+  ],
+  "on": [
+   2.4052,
+   2.6616,
+   2.5304
+  ],
+  "off_mean": 2.5324,
+  "on_mean": 2.5324
+ },
+ "same_seed_repeat_identical": true,
+ "bit_identical_arms": true,
+ "warm_off_s": [
+  40.503,
+  40.388,
+  40.422,
+  40.495
+ ],
+ "warm_on_s": [
+  48.382,
+  40.459,
+  49.754,
+  40.591
+ ],
+ "speedup": 0.9095,
+ "census": {},
+ "folds": [
+  {
+   "tag": "cold_on",
+   "on": true,
+   "seed": 0,
+   "wall_s": 132.28,
+   "plddt": 0.805899,
+   "aiclk": {
+    "n": 202,
+    "median": 1350.0,
+    "min": 1350,
+    "max": 1350,
+    "pci": "0000:01:00.0"
+   },
+   "sha16": "dba0bc42db9cf781",
+   "ca_rmsd_vs_truth": 2.4052
+  },
+  {
+   "tag": "s0_off",
+   "on": false,
+   "seed": 0,
+   "wall_s": 40.503,
+   "plddt": 0.805899,
+   "aiclk": {
+    "n": 129,
+    "median": 1350,
+    "min": 1350,
+    "max": 1350,
+    "pci": "0000:01:00.0"
+   },
+   "sha16": "dba0bc42db9cf781",
+   "ca_rmsd_vs_truth": 2.4052
+  },
+  {
+   "tag": "s0_on",
+   "on": true,
+   "seed": 0,
+   "wall_s": 48.382,
+   "plddt": 0.805899,
+   "aiclk": {
+    "n": 160,
+    "median": 1350.0,
+    "min": 1343,
+    "max": 1350,
+    "pci": "0000:01:00.0"
+   },
+   "sha16": "dba0bc42db9cf781",
+   "ca_rmsd_vs_truth": 2.4052
+  },
+  {
+   "tag": "s1_on",
+   "on": true,
+   "seed": 1,
+   "wall_s": 40.459,
+   "plddt": 0.80685,
+   "aiclk": {
+    "n": 130,
+    "median": 1350.0,
+    "min": 1343,
+    "max": 1350,
+    "pci": "0000:01:00.0"
+   },
+   "sha16": "72586308cd044a8b",
+   "ca_rmsd_vs_truth": 2.6616
+  },
+  {
+   "tag": "s1_off",
+   "on": false,
+   "seed": 1,
+   "wall_s": 40.388,
+   "plddt": 0.80685,
+   "aiclk": {
+    "n": 130,
+    "median": 1350.0,
+    "min": 1343,
+    "max": 1350,
+    "pci": "0000:01:00.0"
+   },
+   "sha16": "72586308cd044a8b",
+   "ca_rmsd_vs_truth": 2.6616
+  },
+  {
+   "tag": "s2_off",
+   "on": false,
+   "seed": 2,
+   "wall_s": 40.422,
+   "plddt": 0.80887,
+   "aiclk": {
+    "n": 130,
+    "median": 1350.0,
+    "min": 1343,
+    "max": 1350,
+    "pci": "0000:01:00.0"
+   },
+   "sha16": "b8eb92804dbe82a4",
+   "ca_rmsd_vs_truth": 2.5304
+  },
+  {
+   "tag": "s2_on",
+   "on": true,
+   "seed": 2,
+   "wall_s": 49.754,
+   "plddt": 0.80887,
+   "aiclk": {
+    "n": 164,
+    "median": 1350.0,
+    "min": 1350,
+    "max": 1350,
+    "pci": "0000:01:00.0"
+   },
+   "sha16": "b8eb92804dbe82a4",
+   "ca_rmsd_vs_truth": 2.5304
+  },
+  {
+   "tag": "s0_on_t1",
+   "on": true,
+   "seed": 0,
+   "wall_s": 40.591,
+   "plddt": 0.805899,
+   "aiclk": {
+    "n": 129,
+    "median": 1350,
+    "min": 1343,
+    "max": 1350,
+    "pci": "0000:01:00.0"
+   },
+   "sha16": "dba0bc42db9cf781",
+   "ca_rmsd_vs_truth": 2.4052
+  },
+  {
+   "tag": "s0_off_t1",
+   "on": false,
+   "seed": 0,
+   "wall_s": 40.495,
+   "plddt": 0.805899,
+   "aiclk": {
+    "n": 129,
+    "median": 1350,
+    "min": 1343,
+    "max": 1350,
+    "pci": "0000:01:00.0"
+   },
+   "sha16": "dba0bc42db9cf781",
+   "ca_rmsd_vs_truth": 2.4052
+  }
+ ],
+ "card": {
+  "hardware": "blackhole",
+  "card_type": "p150a",
+  "sysfs_subsystem": "0x0040",
+  "grid": [
+   11,
+   10
+  ]
+ },
+ "host": "tt-quietbox",
+ "loadavg": [
+  5.56787109375,
+  7.26123046875,
+  7.1279296875
+ ]
+}

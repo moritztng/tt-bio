@@ -1,0 +1,392 @@
+{
+ "model": "esmfold2",
+ "target": "examples/prot300.yaml",
+ "n_ca": 298,
+ "recycling_steps": 10,
+ "sampling_steps": 200,
+ "seeds": [
+  0,
+  1,
+  2
+ ],
+ "deviation_A": {
+  "0": 0.0,
+  "1": 0.0,
+  "2": 0.0
+ },
+ "seed_floor_off_A": {
+  "1": 0.3493,
+  "2": 0.2601
+ },
+ "seed_floor_on_A": {
+  "1": 0.3493,
+  "2": 0.2601
+ },
+ "truth": {
+  "file": "perf/bcx_oplin/1hcl.cif",
+  "off": [
+   1.6928,
+   1.6103,
+   1.7404
+  ],
+  "on": [
+   1.6928,
+   1.6103,
+   1.7404
+  ],
+  "off_mean": 1.6812,
+  "on_mean": 1.6812
+ },
+ "same_seed_repeat_identical": true,
+ "bit_identical_arms": true,
+ "warm_off_s": [
+  29.26,
+  29.025,
+  29.853,
+  29.083
+ ],
+ "warm_on_s": [
+  29.447,
+  29.448,
+  29.303,
+  29.395
+ ],
+ "speedup": 0.9915,
+ "census": {
+  "batch of one": [
+   {
+    "shape": [
+     1,
+     298,
+     768
+    ],
+    "calls": 23316
+   },
+   {
+    "shape": [
+     1,
+     2400,
+     128
+    ],
+    "calls": 3506
+   },
+   {
+    "shape": [
+     1,
+     298,
+     1536
+    ],
+    "calls": 1876
+   },
+   {
+    "shape": [
+     1,
+     298,
+     1024
+    ],
+    "calls": 1608
+   },
+   {
+    "shape": [
+     1,
+     2400,
+     256
+    ],
+    "calls": 807
+   },
+   {
+    "shape": [
+     1,
+     320,
+     2560
+    ],
+    "calls": 240
+   },
+   {
+    "shape": [
+     1,
+     298,
+     451
+    ],
+    "calls": 145
+   },
+   {
+    "shape": [
+     1,
+     2400,
+     6
+    ],
+    "calls": 134
+   },
+   {
+    "shape": [
+     1,
+     320,
+     6912
+    ],
+    "calls": 80
+   },
+   {
+    "shape": [
+     1,
+     2400,
+     389
+    ],
+    "calls": 2
+   },
+   {
+    "shape": [
+     1,
+     24138,
+     2560
+    ],
+    "calls": 1
+   },
+   {
+    "shape": [
+     1,
+     298,
+     256
+    ],
+    "calls": 1
+   }
+  ],
+  "rows%32": [
+   {
+    "shape": [
+     1,
+     298,
+     35,
+     128
+    ],
+    "calls": 176
+   },
+   {
+    "shape": [
+     1,
+     298,
+     298,
+     256
+    ],
+    "calls": 95
+   },
+   {
+    "shape": [
+     1,
+     298,
+     298,
+     1024
+    ],
+    "calls": 88
+   },
+   {
+    "shape": [
+     1,
+     298,
+     35,
+     512
+    ],
+    "calls": 33
+   },
+   {
+    "shape": [
+     1,
+     298,
+     35,
+     35
+    ],
+    "calls": 11
+   },
+   {
+    "shape": [
+     1,
+     298,
+     298,
+     512
+    ],
+    "calls": 4
+   }
+  ],
+  "memory_config": [
+   {
+    "shape": [
+     1,
+     32,
+     320,
+     1024
+    ],
+    "calls": 5780
+   }
+  ],
+  "rank<=2": [
+   {
+    "shape": [
+     1,
+     256
+    ],
+    "calls": 134
+   }
+  ]
+ },
+ "folds": [
+  {
+   "tag": "cold_on",
+   "on": true,
+   "seed": 0,
+   "wall_s": 46.271,
+   "plddt": 0.9549,
+   "aiclk": {
+    "n": 132,
+    "median": 1350.0,
+    "min": 1343,
+    "max": 1350,
+    "pci": "0000:01:00.0"
+   },
+   "sha16": "3bce6fb401e7adab",
+   "ca_rmsd_vs_truth": 1.6928
+  },
+  {
+   "tag": "s0_off",
+   "on": false,
+   "seed": 0,
+   "wall_s": 29.26,
+   "plddt": 0.9549,
+   "aiclk": {
+    "n": 99,
+    "median": 1350,
+    "min": 1343,
+    "max": 1350,
+    "pci": "0000:01:00.0"
+   },
+   "sha16": "3bce6fb401e7adab",
+   "ca_rmsd_vs_truth": 1.6928
+  },
+  {
+   "tag": "s0_on",
+   "on": true,
+   "seed": 0,
+   "wall_s": 29.447,
+   "plddt": 0.9549,
+   "aiclk": {
+    "n": 100,
+    "median": 1350.0,
+    "min": 1343,
+    "max": 1350,
+    "pci": "0000:01:00.0"
+   },
+   "sha16": "3bce6fb401e7adab",
+   "ca_rmsd_vs_truth": 1.6928
+  },
+  {
+   "tag": "s1_on",
+   "on": true,
+   "seed": 1,
+   "wall_s": 29.448,
+   "plddt": 0.9452,
+   "aiclk": {
+    "n": 100,
+    "median": 1350.0,
+    "min": 1343,
+    "max": 1350,
+    "pci": "0000:01:00.0"
+   },
+   "sha16": "7a362076102ba601",
+   "ca_rmsd_vs_truth": 1.6103
+  },
+  {
+   "tag": "s1_off",
+   "on": false,
+   "seed": 1,
+   "wall_s": 29.025,
+   "plddt": 0.9452,
+   "aiclk": {
+    "n": 99,
+    "median": 1350,
+    "min": 1350,
+    "max": 1350,
+    "pci": "0000:01:00.0"
+   },
+   "sha16": "7a362076102ba601",
+   "ca_rmsd_vs_truth": 1.6103
+  },
+  {
+   "tag": "s2_off",
+   "on": false,
+   "seed": 2,
+   "wall_s": 29.853,
+   "plddt": 0.9535,
+   "aiclk": {
+    "n": 99,
+    "median": 1350,
+    "min": 1343,
+    "max": 1350,
+    "pci": "0000:01:00.0"
+   },
+   "sha16": "cd54aacf63617bab",
+   "ca_rmsd_vs_truth": 1.7404
+  },
+  {
+   "tag": "s2_on",
+   "on": true,
+   "seed": 2,
+   "wall_s": 29.303,
+   "plddt": 0.9535,
+   "aiclk": {
+    "n": 100,
+    "median": 1350.0,
+    "min": 1343,
+    "max": 1350,
+    "pci": "0000:01:00.0"
+   },
+   "sha16": "cd54aacf63617bab",
+   "ca_rmsd_vs_truth": 1.7404
+  },
+  {
+   "tag": "s0_on_t1",
+   "on": true,
+   "seed": 0,
+   "wall_s": 29.395,
+   "plddt": 0.9549,
+   "aiclk": {
+    "n": 100,
+    "median": 1350.0,
+    "min": 1343,
+    "max": 1350,
+    "pci": "0000:01:00.0"
+   },
+   "sha16": "3bce6fb401e7adab",
+   "ca_rmsd_vs_truth": 1.6928
+  },
+  {
+   "tag": "s0_off_t1",
+   "on": false,
+   "seed": 0,
+   "wall_s": 29.083,
+   "plddt": 0.9549,
+   "aiclk": {
+    "n": 99,
+    "median": 1350,
+    "min": 1343,
+    "max": 1350,
+    "pci": "0000:01:00.0"
+   },
+   "sha16": "3bce6fb401e7adab",
+   "ca_rmsd_vs_truth": 1.6928
+  }
+ ],
+ "card": {
+  "hardware": "blackhole",
+  "card_type": "p150a",
+  "sysfs_subsystem": "0x0040",
+  "grid": [
+   11,
+   10
+  ]
+ },
+ "host": "tt-quietbox",
+ "loadavg": [
+  4.587890625,
+  5.28369140625,
+  7.0244140625
+ ]
+}

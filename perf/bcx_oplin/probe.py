@@ -1,6 +1,6 @@
 """`ops.linear` as the models call it: rank-3/4, its 2-D view, and the view with ttnn's own grid.
 
-    TT_VISIBLE_DEVICES=0 TT_BIO_LEASE_CARDS=0 python perf/bcx_oplin/probe.py out.json
+    TT_VISIBLE_DEVICES=0 TT_BIO_LEASE_CARDS=0 python perf/bcx_oplin/probe.py out.json [shapes.json]
 
 Per shape and per caller grid (the 11x10 that protenix/openfold3 import at module load, the
 device grid `tenstorrent.py` reads after the open, and no grid at all), three arms of one
@@ -45,7 +45,7 @@ SHAPES = [  # (x shape, K, N, bias)
 ]
 
 
-def main(out):
+def main(out, shapes=SHAPES):
     grid_import = T.CORE_GRID_MAIN
     dev = T.get_device()
     grid_dev = T.CORE_GRID_MAIN
@@ -57,7 +57,7 @@ def main(out):
                                                   fp32_dest_acc_en=True, packer_l1_acc=True)
     torch.manual_seed(0)
     rows = []
-    for xs, k, n, has_b in SHAPES:
+    for xs, k, n, has_b in shapes:
         xh = torch.randn(xs).bfloat16()
         wh = (torch.randn(k, n) / k ** 0.5).bfloat16()
         bh = torch.randn(n).bfloat16() if has_b else None
@@ -102,4 +102,5 @@ def main(out):
 
 
 if __name__ == "__main__":
-    main(sys.argv[1])
+    # optional second argument: a JSON list of [x shape, K, N, bias] to probe instead
+    main(sys.argv[1], *([json.loads(sys.argv[2])] if len(sys.argv) > 2 else []))

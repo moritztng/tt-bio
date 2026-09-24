@@ -1,0 +1,466 @@
+{
+ "model": "opendde",
+ "target": "examples/prot300.yaml",
+ "n_ca": 298,
+ "recycling_steps": 10,
+ "sampling_steps": 200,
+ "seeds": [
+  0,
+  1,
+  2
+ ],
+ "deviation_A": {
+  "0": 0.1353,
+  "1": 0.1293,
+  "2": 0.0523
+ },
+ "seed_floor_off_A": {
+  "1": 0.6368,
+  "2": 0.7374
+ },
+ "seed_floor_on_A": {
+  "1": 0.7069,
+  "2": 0.81
+ },
+ "truth": {
+  "file": "perf/bcx_oplin/1hcl.cif",
+  "off": [
+   3.2559,
+   3.2776,
+   3.5271
+  ],
+  "on": [
+   3.1862,
+   3.2589,
+   3.5244
+  ],
+  "off_mean": 3.3535,
+  "on_mean": 3.3232
+ },
+ "same_seed_repeat_identical": true,
+ "bit_identical_arms": false,
+ "warm_off_s": [
+  42.448,
+  40.855,
+  40.71,
+  40.872
+ ],
+ "warm_on_s": [
+  42.497,
+  41.122,
+  40.818,
+  40.771
+ ],
+ "speedup": 0.9974,
+ "census": {
+  "rank<=2": [
+   {
+    "shape": [
+     2398,
+     3
+    ],
+    "calls": 202
+   },
+   {
+    "shape": [
+     580,
+     384
+    ],
+    "calls": 202
+   },
+   {
+    "shape": [
+     580,
+     768
+    ],
+    "calls": 201
+   },
+   {
+    "shape": [
+     1,
+     256
+    ],
+    "calls": 200
+   },
+   {
+    "shape": [
+     320,
+     384
+    ],
+    "calls": 12
+   },
+   {
+    "shape": [
+     307200,
+     1
+    ],
+    "calls": 4
+   },
+   {
+    "shape": [
+     2398,
+     1
+    ],
+    "calls": 2
+   },
+   {
+    "shape": [
+     2398,
+     385
+    ],
+    "calls": 2
+   },
+   {
+    "shape": [
+     307200,
+     3
+    ],
+    "calls": 2
+   },
+   {
+    "shape": [
+     320,
+     449
+    ],
+    "calls": 2
+   },
+   {
+    "shape": [
+     19668,
+     384
+    ],
+    "calls": 2
+   },
+   {
+    "shape": [
+     18612,
+     384
+    ],
+    "calls": 2
+   },
+   {
+    "shape": [
+     18476,
+     384
+    ],
+    "calls": 2
+   },
+   {
+    "shape": [
+     17484,
+     384
+    ],
+    "calls": 2
+   },
+   {
+    "shape": [
+     10132,
+     384
+    ],
+    "calls": 2
+   },
+   {
+    "shape": [
+     9588,
+     384
+    ],
+    "calls": 2
+   },
+   {
+    "shape": [
+     19966,
+     384
+    ],
+    "calls": 1
+   },
+   {
+    "shape": [
+     18894,
+     384
+    ],
+    "calls": 1
+   },
+   {
+    "shape": [
+     18178,
+     384
+    ],
+    "calls": 1
+   },
+   {
+    "shape": [
+     17202,
+     384
+    ],
+    "calls": 1
+   },
+   {
+    "shape": [
+     19370,
+     384
+    ],
+    "calls": 1
+   },
+   {
+    "shape": [
+     18330,
+     384
+    ],
+    "calls": 1
+   },
+   {
+    "shape": [
+     18774,
+     384
+    ],
+    "calls": 1
+   },
+   {
+    "shape": [
+     17766,
+     384
+    ],
+    "calls": 1
+   },
+   {
+    "shape": [
+     580,
+     833
+    ],
+    "calls": 1
+   }
+  ],
+  "collapsed": [
+   {
+    "shape": [
+     1,
+     320,
+     320,
+     384
+    ],
+    "calls": 10
+   },
+   {
+    "shape": [
+     1,
+     320,
+     320,
+     64
+    ],
+    "calls": 10
+   },
+   {
+    "shape": [
+     75,
+     32,
+     128
+    ],
+    "calls": 2
+   },
+   {
+    "shape": [
+     320,
+     320,
+     139
+    ],
+    "calls": 1
+   },
+   {
+    "shape": [
+     320,
+     320,
+     1
+    ],
+    "calls": 1
+   },
+   {
+    "shape": [
+     1,
+     35,
+     320,
+     34
+    ],
+    "calls": 1
+   }
+  ],
+  "batch of one": [
+   {
+    "shape": [
+     1,
+     2398,
+     128
+    ],
+    "calls": 10025
+   },
+   {
+    "shape": [
+     1,
+     2398,
+     256
+    ],
+    "calls": 1203
+   }
+  ]
+ },
+ "folds": [
+  {
+   "tag": "cold_on",
+   "on": true,
+   "seed": 0,
+   "wall_s": 124.557,
+   "plddt": 0.823205,
+   "aiclk": {
+    "n": 202,
+    "median": 1350.0,
+    "min": 1343,
+    "max": 1350,
+    "pci": "0000:01:00.0"
+   },
+   "sha16": "87c423f2e8fb175e",
+   "ca_rmsd_vs_truth": 3.1862
+  },
+  {
+   "tag": "s0_off",
+   "on": false,
+   "seed": 0,
+   "wall_s": 42.448,
+   "plddt": 0.825251,
+   "aiclk": {
+    "n": 139,
+    "median": 1350,
+    "min": 1343,
+    "max": 1350,
+    "pci": "0000:01:00.0"
+   },
+   "sha16": "d98e3da8fdbb094b",
+   "ca_rmsd_vs_truth": 3.2559
+  },
+  {
+   "tag": "s0_on",
+   "on": true,
+   "seed": 0,
+   "wall_s": 42.497,
+   "plddt": 0.823205,
+   "aiclk": {
+    "n": 149,
+    "median": 1350,
+    "min": 1343,
+    "max": 1350,
+    "pci": "0000:01:00.0"
+   },
+   "sha16": "87c423f2e8fb175e",
+   "ca_rmsd_vs_truth": 3.1862
+  },
+  {
+   "tag": "s1_on",
+   "on": true,
+   "seed": 1,
+   "wall_s": 41.122,
+   "plddt": 0.82313,
+   "aiclk": {
+    "n": 142,
+    "median": 1350.0,
+    "min": 1343,
+    "max": 1350,
+    "pci": "0000:01:00.0"
+   },
+   "sha16": "86b9e8f9a87e1ceb",
+   "ca_rmsd_vs_truth": 3.2589
+  },
+  {
+   "tag": "s1_off",
+   "on": false,
+   "seed": 1,
+   "wall_s": 40.855,
+   "plddt": 0.825194,
+   "aiclk": {
+    "n": 142,
+    "median": 1350.0,
+    "min": 1343,
+    "max": 1350,
+    "pci": "0000:01:00.0"
+   },
+   "sha16": "f4fe60f13e4ac8c7",
+   "ca_rmsd_vs_truth": 3.2776
+  },
+  {
+   "tag": "s2_off",
+   "on": false,
+   "seed": 2,
+   "wall_s": 40.71,
+   "plddt": 0.824804,
+   "aiclk": {
+    "n": 140,
+    "median": 1350.0,
+    "min": 1343,
+    "max": 1350,
+    "pci": "0000:01:00.0"
+   },
+   "sha16": "2b84b4adac4faffb",
+   "ca_rmsd_vs_truth": 3.5271
+  },
+  {
+   "tag": "s2_on",
+   "on": true,
+   "seed": 2,
+   "wall_s": 40.818,
+   "plddt": 0.822829,
+   "aiclk": {
+    "n": 140,
+    "median": 1350.0,
+    "min": 1343,
+    "max": 1350,
+    "pci": "0000:01:00.0"
+   },
+   "sha16": "63cbd202c1e76320",
+   "ca_rmsd_vs_truth": 3.5244
+  },
+  {
+   "tag": "s0_on_t1",
+   "on": true,
+   "seed": 0,
+   "wall_s": 40.771,
+   "plddt": 0.823205,
+   "aiclk": {
+    "n": 141,
+    "median": 1350,
+    "min": 1343,
+    "max": 1350,
+    "pci": "0000:01:00.0"
+   },
+   "sha16": "87c423f2e8fb175e",
+   "ca_rmsd_vs_truth": 3.1862
+  },
+  {
+   "tag": "s0_off_t1",
+   "on": false,
+   "seed": 0,
+   "wall_s": 40.872,
+   "plddt": 0.825251,
+   "aiclk": {
+    "n": 138,
+    "median": 1350.0,
+    "min": 1343,
+    "max": 1350,
+    "pci": "0000:01:00.0"
+   },
+   "sha16": "d98e3da8fdbb094b",
+   "ca_rmsd_vs_truth": 3.2559
+  }
+ ],
+ "card": {
+  "hardware": "blackhole",
+  "card_type": "p150a",
+  "sysfs_subsystem": "0x0040",
+  "grid": [
+   11,
+   10
+  ]
+ },
+ "host": "tt-quietbox",
+ "loadavg": [
+  3.07958984375,
+  4.70556640625,
+  5.072265625
+ ]
+}
