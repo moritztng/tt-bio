@@ -21,9 +21,9 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
 - **A job whose worker goes silent returns to the queue after 120 s, not 30 minutes.** The worker
   heartbeats from its own thread every twelfth of the lease, 10 s by default, and takes the
   interval from the lease the controller names in each answer, so `tt-bio controller --lease-s`
-  is the only setting. Sampled on four Wormhole Galaxies during folds of up to 21 minutes, the
-  longest a busy worker went unheard was 14.7 s. A dead worker used to strand its job for half an
-  hour.
+  is the only setting. On four Wormhole Galaxies, across 540 renewals of jobs held for up to 20
+  minutes, the longest a busy worker went unheard was 14.2 s. A dead worker used to strand its job
+  for half an hour.
 
 - **OpenFold3 trunk triangle attention runs on the fused SDPA at HiFi4, and a 512-residue fold is
   1.5123x faster.** 34.138 s to 22.574 s on a Blackhole p300c with the AICLK at 1350 MHz, and

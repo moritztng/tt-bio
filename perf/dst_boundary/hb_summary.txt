@@ -1,0 +1,9 @@
+{'job': 'q00_1300.fasta', 'worker': 'UF-EV-A2-GWH01:tt:13', 'renewals': 147, 'held_s': 1204.7, 'median_gap_s': 8.13, 'max_gap_s': 11.7}
+{'job': 'q07_300.fasta', 'worker': 'UF-EV-A2-GWH01:tt:3', 'renewals': 22, 'held_s': 172.2, 'median_gap_s': 8.23, 'max_gap_s': 14.19}
+{'job': 'q01_1200.fasta', 'worker': 'UF-EV-A2-GWH02:tt:3', 'renewals': 112, 'held_s': 976.4, 'median_gap_s': 8.15, 'max_gap_s': 13.41}
+{'job': 'q06_400.fasta', 'worker': 'UF-EV-A2-GWH02:tt:18', 'renewals': 27, 'held_s': 217.0, 'median_gap_s': 8.1, 'max_gap_s': 12.4}
+{'job': 'q02_1100.fasta', 'worker': 'UF-EV-A4-GWH01:tt:19', 'renewals': 101, 'held_s': 825.5, 'median_gap_s': 8.11, 'max_gap_s': 10.38}
+{'job': 'q05_500.fasta', 'worker': 'UF-EV-A4-GWH01:tt:16', 'renewals': 32, 'held_s': 253.9, 'median_gap_s': 8.08, 'max_gap_s': 11.99}
+{'job': 'q03_1000.fasta', 'worker': 'UF-EV-A4-GWH02:tt:17', 'renewals': 73, 'held_s': 608.7, 'median_gap_s': 8.15, 'max_gap_s': 10.29}
+{'job': 'q04_600.fasta', 'worker': 'UF-EV-A4-GWH02:tt:30', 'renewals': 26, 'held_s': 208.4, 'median_gap_s': 8.11, 'max_gap_s': 12.52}
+{"jobs": 8, "renewals": 540, "longest_held_s": 1204.7, "max_gap_s": 14.19, "on": "UF-EV-A2-GWH01:tt:3"}
