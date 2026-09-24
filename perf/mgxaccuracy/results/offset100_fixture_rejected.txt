@@ -1,3 +1,14 @@
+# RESOLVED 2026-09-24 01:0xZ by 1f6e813dc. crop_cif now rebases label_seq per chain to 1..n;
+# auth_seq_id is left alone so a crop still records which parent residues it took. Verified
+# host-only against BoltzGen's own parser: pre-fix, 512/off0 and 1536/off0 parse while both
+# off100 crops raise AssertionError; post-fix all four parse. Offset 0 output is BYTE-IDENTICAL
+# pre vs post at both sizes, so nothing this row has shipped moves.
+# tests/test_crop_cif_offset_seq_numbering.py pins the invariant with no artifact needed --
+# 6 passed on qb2, and with the fix reverted exactly the two off100 cases fail.
+# plans/bg_floor_1536.txt relaunched 01:0xZ on cards 13 and 23 and is past the failure point.
+#
+# The record of the defect follows, unchanged.
+#
 # The second-target floor is BLOCKED, and the blocker is this row's own crop writer.
 #
 # plans/bg_floor_1536.txt was launched 01:12Z on the after-fix tree (d1133c67e). Its first
