@@ -102,9 +102,15 @@ draws, so the banked cost model applies unchanged: design cost scales as tokens^
 5126.3 s / 6-thread 512 draw, and the 1536 job costs (195.5k, 229.2k] CPU-s. The lower bound
 is an observation, not an assumption: qb2 draw a is still running at 195,500 CPU-s.
 
-    rung   threads   occupancy measured   expected wall     expected landing
-     512         6   4.1 cores            ~1.7 h            ~19:40Z
-    1536        16   to be differenced    ~6-7 h if ~10     ~00:30-01:30Z
+    rung   threads   occupancy (child)   expected wall     expected landing
+     512         6   4.39 cores          1.66-1.95 h       ~19:33-19:51Z
+    1536        16   7.68 cores          7.07-8.29 h       ~01:03-02:17Z
 
-Occupancy at 16 threads is NOT yet measured and the 1536 landing above is a projection from an
-assumed 10 cores. Difference the child over 300 s next pass and replace it.
+Both occupancies are measured, not assumed: cumulative child CPU over a 735 s (512) and 501 s
+(1536) baseline. 16 threads buys 7.68 cores, not 16, so the thread count is worth about 1.75x the
+6-thread rung rather than 2.7x.
+
+One caveat on transferring the cost band: it was derived from a 1GPB draw and GroEL 1536 has three
+chains where 1GPB has two. Token count is identical (1616) and cost is driven by tokens, so the
+band should hold, but treat the landings as projections until the 512 rung actually lands and
+gives this target its own anchor.
