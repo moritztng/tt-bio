@@ -79,3 +79,27 @@ both crops halves it. Launched this pass on the same tree.
 WHAT THIS RUNG DOES NOT SPEAK TO. Upstream. Every cell here is a device cell and the question
 of whether the device is WORSE than upstream at a given size is the qb2 fp32 pair's, still
 computing.
+
+POST-HOC, NOT PRE-REGISTERED: CROP IS NOTHING AT 512 AND 1536 AND REAL AT 1024
+------------------------------------------------------------------------------
+
+Computed after the verdict above and reported as post-hoc, because `plans/groel_1024.txt`
+pre-registered the two SIZE contrasts and said nothing about a crop contrast at the new rung.
+It changes no verdict: both 1024 cells are 0 of 8 under 4 A whichever window they used.
+
+  crop 560-vs-0 at  512:   +0.887 A   U = 21.0/64   p = 0.2786   does not reject
+  crop 560-vs-0 at 1024:   +5.739 A   U =  4.0/64   p = 0.0019   REJECTS
+  crop 560-vs-0 at 1536:   -1.219 A   U = 47.0/64   p = 0.1304   does not reject
+
+Three tests at 0.05; a crude Bonferroni bar is 0.0167 and 0.0019 clears it, so this is unlikely
+to be the multiplicity. Taken at face value the crop factor is absent at both ends of the ladder
+and worth 5.7 A in the middle, which is where the two windows are falling at different rates —
+offset 0 is midway down (8.718) while offset 560 has already arrived at the 1536 level (14.457).
+That is the same disagreement the shape reading found, seen from the other axis.
+
+WHAT IT MEANS FOR THE 768 RUNG. `plans/groel_768.txt` requires its two crops to agree or the
+verdict is INTERMEDIATE. On the evidence here that clause is likely to bite rather than be a
+formality: 768 sits in the same middle region where the two windows have just been shown to
+separate. The clause stands unchanged — it was written before this contrast was computed and
+before the 768 cells exist — but a next pass reading INTERMEDIATE there should not treat it as
+a surprise or as a reason to go looking for a different test.
