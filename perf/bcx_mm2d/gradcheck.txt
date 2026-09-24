@@ -1,0 +1,42 @@
+# dtype=bfloat16 seed=7 bars: rel_l2<=1.0e-02 cos>=0.9999 | bf16 quantisation floor 2.76e-03
+case       param       rel_l2    max_abs    max_rel        cos  verdict
+linear     [fd]                            6.80e-10             reference OK (72 of 20576 resolvable coords probed)
+linear     x         2.40e-03   1.06e-02   1.07e-01   0.999997  PASS
+linear     w         2.41e-03   1.13e-01   1.41e-01   0.999997  PASS
+linear     b         2.61e-03   5.82e-02   9.10e-02   0.999997  PASS
+linear3d   [fd]                            3.24e-10             reference OK (72 of 36960 resolvable coords probed)
+linear3d   x         2.39e-03   1.04e-02   9.95e-02   0.999997  PASS
+linear3d   w         2.40e-03   1.76e-01   9.87e-02   0.999997  PASS
+linear3d   b         2.20e-03   1.06e-01   3.83e-02   0.999998  PASS
+mm_tb      [fd]                            6.25e-10             reference OK (48 of 18432 resolvable coords probed)
+mm_tb      a         2.43e-03   1.55e-01   9.96e-02   0.999997  PASS
+mm_tb      b         2.40e-03   9.23e-02   1.32e-01   0.999997  PASS
+mm_tb3d    [fd]                            7.19e-10             reference OK (24 of 18432 resolvable coords probed)
+mm_tb3d    a         2.39e-03   1.69e-01   1.13e-01   0.999997  PASS
+mm_tb3d    b                                                    FROZEN, no gradient
+chain      [fd]                            9.09e-10             reference OK (72 of 23552 resolvable coords probed)
+chain      x         2.92e-03   6.65e-03   1.19e-01   0.999996  PASS
+chain      w1        2.87e-03   7.46e-02   1.29e-01   0.999996  PASS
+chain      w2        2.91e-03   1.10e-01   1.46e-01   0.999996  PASS
+fanin      [fd]                            3.87e-10             reference OK (72 of 32767 resolvable coords probed)
+fanin      x         2.41e-03   1.24e-02   1.97e-01   0.999997  PASS
+fanin      wa        2.36e-03   8.88e-02   1.06e-01   0.999997  PASS
+fanin      wb        2.36e-03   8.88e-02   1.06e-01   0.999997  PASS
+lora       [fd]                            3.45e-10             reference OK (72 of 7936 resolvable coords probed)
+lora       x         2.44e-03   1.51e-02   1.14e-01   0.999997  PASS
+lora       w                                                    FROZEN, no gradient
+lora       a         2.87e-03   2.12e-01   1.13e-01   0.999996  PASS
+lora       b         3.15e-03   1.15e-01   2.08e-01   0.999995  PASS
+lora_pair  [fd]                            3.63e-10             reference OK (72 of 50048 resolvable coords probed)
+lora_pair  x         2.42e-03   1.72e-02   1.28e-01   0.999997  PASS
+lora_pair  w                                                    FROZEN, no gradient
+lora_pair  a         2.78e-03   2.10e-01   6.60e-02   0.999996  PASS
+lora_pair  b         2.71e-03   2.32e-01   1.98e-01   0.999996  PASS
+lora_bias  [fd]                            3.02e-10             reference OK (72 of 7936 resolvable coords probed)
+lora_bias  x         2.46e-03   1.28e-02   1.31e-01   0.999997  PASS
+lora_bias  w                                                    FROZEN, no gradient
+lora_bias  a         2.97e-03   1.83e-01   1.24e-01   0.999996  PASS
+lora_bias  b         2.88e-03   9.15e-02   1.21e-01   0.999996  PASS
+lora_bias  bias                                                 FROZEN, no gradient
+
+GRADCHECK PASS: every gradient within the pre-registered bar

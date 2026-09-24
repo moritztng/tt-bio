@@ -92,6 +92,9 @@ def main():
         for k, v in (("rank3", a), ("view2d", b)):
             rec[f"frac_correctly_rounded_{k}"] = float((v.view(torch.int16) == rb.view(torch.int16)).double().mean())
             rec[f"max_ulp_vs_rounded_{k}"] = int((ordered(v) - ordered(rb)).abs().max())
+            d = v.double() - ref
+            rec[f"rel_l2_vs_f64_{k}"] = float(d.norm() / ref.norm())
+            rec[f"max_abs_vs_f64_{k}"] = float(d.abs().max())
         # Same two programs with an fp32 result: if these agree and the bf16 ones do not, the
         # arms differ only in where the running sum is rounded to bf16, not in what they sum.
         if op != "ops.linear":
@@ -104,9 +107,6 @@ def main():
             rec["fp32_out_rel_l2_between_arms"] = float((a32 - b32).norm() / a32.norm())
             rec["fp32_out_rel_l2_vs_f64_rank3"] = float((a32 - ref).norm() / ref.norm())
             rec["fp32_out_rel_l2_vs_f64_view2d"] = float((b32 - ref).norm() / ref.norm())
-            d = v.double() - ref
-            rec[f"rel_l2_vs_f64_{k}"] = float(d.norm() / ref.norm())
-            rec[f"max_abs_vs_f64_{k}"] = float(d.abs().max())
         out["cases"][name] = rec
         print(f"{name:32s} rank3 {rec['rank3']['median_us']:7.1f}  2D {rec['view2d_call_only']['median_us']:7.1f}  "
               f"2D+reshapes {rec['view2d_with_reshapes']['median_us']:7.1f}  reshape {rec['reshape_in_only']['median_us']:5.1f} us  "
