@@ -51,6 +51,9 @@ class TraceWire:
         self._shapes: dict = {}
         self._order: list = []
         self.captures: list = []
+        # Replay wall split four ways, summed over every replay. Everything but `wait` is the
+        # host's, so their sum is the host floor this capture leaves behind.
+        self.seg = {"write": 0.0, "enqueue": 0.0, "wait": 0.0, "read": 0.0}
         dev.ag.DEVICE_ZEROS = True
 
     # ------------------------------------------------------------------ device plumbing
@@ -153,27 +156,40 @@ class TraceWire:
         if sh is None:
             sh = self._capture(key, ins, body)
         else:
-            for t, dst in zip(ins, sh.bufs):
-                self._write(t, dst)
-            self.dev.ttnn.execute_trace(self.dev.device, sh.tid_f, cq_id=0, blocking=False)
-            self._sync()
-            sh.replays[0] += 1
-        return self._out(sh.prim, out_shapes)
+            self._replay(sh, 0, ins, sh.bufs)
+        t = time.perf_counter()
+        out = self._out(sh.prim, out_shapes)
+        self.seg["read"] += time.perf_counter() - t
+        return out
 
     def backward(self, key, cotangents, out_shapes):
         """Cotangents in, leaf gradients out, all host tensors."""
         sh = self._shapes[key]
-        for t, dst in zip(cotangents, sh.seeds):
+        self._replay(sh, 1, cotangents, sh.seeds)
+        t = time.perf_counter()
+        out = self._out(sh.gout, out_shapes)
+        self.seg["read"] += time.perf_counter() - t
+        return out
+
+    def _replay(self, sh, which, ins, dsts) -> None:
+        t0 = time.perf_counter()
+        for t, dst in zip(ins, dsts):
             self._write(t, dst)
-        self.dev.ttnn.execute_trace(self.dev.device, sh.tid_b, cq_id=0, blocking=False)
+        t1 = time.perf_counter()
+        self.dev.ttnn.execute_trace(self.dev.device, (sh.tid_f, sh.tid_b)[which], cq_id=0,
+                                    blocking=False)
+        t2 = time.perf_counter()
         self._sync()
-        sh.replays[1] += 1
-        return self._out(sh.gout, out_shapes)
+        t3 = time.perf_counter()
+        sh.replays[which] += 1
+        for k, dt in zip(("write", "enqueue", "wait"), (t1 - t0, t2 - t1, t3 - t2)):
+            self.seg[k] += dt
 
     def stats(self) -> dict:
         return {"captures": self.captures,
                 "replays": {str(k): s.replays for k, s in self._shapes.items()},
-                "capture_s_total": round(sum(c["capture_s"] for c in self.captures), 2)}
+                "capture_s_total": round(sum(c["capture_s"] for c in self.captures), 2),
+                "seg_s": {k: round(v, 4) for k, v in self.seg.items()}}
 
 
 #: A capture is its command stream, not its tensors: `bcx-trace` read metal's own refusal at

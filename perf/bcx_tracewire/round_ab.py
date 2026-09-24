@@ -130,7 +130,8 @@ def main():
             t0, arm, load0 = marks[-1]
             rounds.append({"i": len(rounds), "arm": arm, "s": t_now - t0,
                            "aiclk": clock.window([(t0, t_now)]), "load1": load0,
-                           "span": (t0, t_now), "calls": dict(evo.calls)})
+                           "span": (t0, t_now), "calls": dict(evo.calls),
+                           "seg": dict(evo.wire.seg)})
             print(json.dumps(rounds[-1]), flush=True)
             if len(rounds) >= 3 and rounds[-1]["calls"]["backward"] == rounds[-2]["calls"]["backward"]:
                 raise RuntimeError("a timed round ran no device backward: the trunk is not the card's")
