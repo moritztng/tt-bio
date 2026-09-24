@@ -174,3 +174,20 @@ The rule this row now follows: when a new rung or a new target is launched, chec
 constants in the SAME pass, before the cells land, and add rather than repoint -- the existing
 constants are load-bearing for verdicts that are already published, which is what `--selfcheck`
 exists to prove after every such edit.
+
+## TWO JOBS HALVING TO THE SAME RATE IS A PHASE, NOT CONTENTION
+
+2026-09-24 20:32Z. The two qb2 upstream draws both fell from ~2.25 cores to 1.154 and 1.149
+cores over the same 3h34m window, while qb2's own load FELL from 55-62 to 32.5 on 16 cores.
+Contention cannot produce that: less load would give MORE share, not half. Two independent
+jobs 5 h apart in their pipelines converging on ~one core each reads as a single-threaded
+phase of `boltzgen run`.
+
+The diagnostic worth reusing: when a job slows, difference its CPU time AND read the host's
+load over the SAME window. Load up and share down is contention. Load down and share down is
+the job's own phase. Share landing on ~1.0 cores exactly is a serial section. None of the
+three is a wedge, and only one of them is anybody else's fault.
+
+Consequence for an ETA: a rate measured once is not a rate. This row quoted ~22:02Z off the
+2.25-core reading and missed it. Re-difference before quoting, which is what the DEFER rule
+already says and what this is a concrete instance of.
