@@ -106,11 +106,17 @@ def capture(bucket: int) -> dict:
     modules.layer_stack.layer_stack = factory
     try:
         settings = B.campaign_settings(overrides=[f"length_bucket_size={bucket}"])
-        _, states, _ = B.design_state(settings)
+        _, states, losses = B.design_state(settings)
+        # `sequence_gradients`, not `predict`: it is the program every design step runs, and it
+        # is the one that pads. `bindcraft/af2.py:385` pads the DESIGN chain to the bucket
+        # whatever the target, so PD-L1 goes 77 + 115 -> 96 + 115 = 211 with 19 masked in the
+        # middle of the complex. `predict` pads the design chain only for multi-target campaigns
+        # (`af2.py:295`) and otherwise pads the TOTAL at the end, and 192 is already a multiple
+        # of 32, so a predict capture at bucket 32 is the unpadded fold.
         TTBioAlphaFoldDesignModel(
             presets=("model_1_ptm",), data_dir=PARAM_DIR, models=("model_1_ptm",), num_recycle=1,
             key=jax.random.PRNGKey(0), length_bucket_size=bucket, max_cache_size=2,
-            trunk="jax").predict(states)
+            trunk="jax").sequence_gradients(states, losses)
     finally:
         modules.layer_stack.layer_stack = real
     assert got, "the Evoformer stack never ran"
@@ -120,7 +126,7 @@ def capture(bucket: int) -> dict:
 def cached_capture(bucket: int) -> dict:
     """`capture`, kept on disk. One BindCraft 2 CPU fold is minutes on a loaded host and the
     arms are the cheap part, so a rerun that only changes an arm must not pay for it twice."""
-    path = HERE / f"capture_b{bucket}.npz"
+    path = HERE / f"capture_grad_b{bucket}.npz"
     if path.is_file():
         with np.load(path) as z:
             return {k: z[k] for k in z.files}

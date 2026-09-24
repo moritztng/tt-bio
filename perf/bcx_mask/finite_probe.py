@@ -150,21 +150,34 @@ def arm_masks(mode: str, pm: torch.Tensor):
     return pm, pm, pm, False
 
 
-def run_stack(model, m, z, mm, pm, mode, stats=None):
+import contextlib
+
+
+@contextlib.contextmanager
+def trimul_mode(one_sided: bool):
+    """Hold the reference's triangle multiplication one-sided (the card's) or both-halves (AF2's)
+    for the whole extent, including a backward's recompute."""
+    import tt_bio.af2_reference as R
+    both = R.TriangleMultiplication.forward
+    R.TriangleMultiplication.forward = G.one_sided_trimul() if one_sided else both
+    try:
+        yield
+    finally:
+        R.TriangleMultiplication.forward = both
+
+
+def run_stack(model, m, z, mm, pm, mode, stats=None, hold=False):
     """48 blocks, op by op, with the arm's masks.
 
     Differentiable if the inputs are, and then each block is checkpointed: an uncheckpointed
     fp32 backward over 48 blocks at n=211 holds tens of GB of attention logits. The recompute
-    runs after this function has restored the both-halves multiplication, so only the arms whose
-    multiplication IS both-halves (`af2`, `device_today`) may be differentiated.
+    runs during `.backward()`, so a caller that differentiates a one-sided arm must hold
+    `trimul_mode` across its backward and pass `hold=True`.
     """
-    import tt_bio.af2_reference as R
     from torch.utils.checkpoint import checkpoint
     pm_mul, pm_start, pm_end, one = arm_masks(mode, pm)
     taped = torch.is_grad_enabled() and m.requires_grad
-    assert not (taped and one), "a one-sided arm cannot be recomputed after the swap is undone"
-    both = R.TriangleMultiplication.forward
-    R.TriangleMultiplication.forward = G.one_sided_trimul() if one else both
+    assert hold or not (taped and one), "hold trimul_mode across the backward of a one-sided arm"
     rec = (lambda name, t: stats.op(name, t)) if stats is not None else (lambda *_: None)
 
     def block(i, m, z):
@@ -184,12 +197,11 @@ def run_stack(model, m, z, mm, pm, mode, stats=None):
         rec("pair", z)
         return m, z
 
-    try:
+    ctx = contextlib.nullcontext() if hold else trimul_mode(one)
+    with ctx:
         for i in range(BLOCKS):
             m, z = (checkpoint(block, i, m, z, use_reentrant=False) if taped
                     else block(i, m, z))
-    finally:
-        R.TriangleMultiplication.forward = both
     return m, z
 
 
