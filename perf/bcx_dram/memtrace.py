@@ -97,6 +97,59 @@ def cycle_probe(dev):
     return out
 
 
+def _module_dicts():
+    return {id(vars(m)): name for name, m in list(sys.modules.items())
+            if m is not None and hasattr(m, "__dict__")}
+
+
+def holder_paths(survivors, limit=12, depth=14):
+    """For a sample of tensors that outlived their step, the chain of referrers from the
+    tensor up to the first object that is not part of a tape: a module global, a class
+    attribute, a bound method's owner. Each chain is reported as type names, with the key
+    for a dict hop and the module name when that dict is a module's globals, so the holder
+    reads as file-and-name rather than as a guess."""
+    import inspect
+    mods = _module_dicts()
+    tape_types = (ag.Tensor, list, tuple, dict, set, frozenset)
+    frame = inspect.currentframe()
+    out, seen_roots = [], {}
+    for start in survivors[:limit]:
+        path, cur, visited = [type(start).__name__], start, {id(start)}
+        ignore = {id(survivors), id(frame), id(path)}
+        for _ in range(depth):
+            refs = [r for r in gc.get_referrers(cur)
+                    if id(r) not in ignore and id(r) not in visited
+                    and not inspect.isframe(r)]
+            if not refs:
+                path.append("<no referrer>")
+                break
+            # Prefer a module dict if one is directly holding it, otherwise walk the first.
+            nxt = next((r for r in refs if id(r) in mods), refs[0])
+            visited.add(id(nxt))
+            if isinstance(nxt, dict):
+                key = next((k for k, v in nxt.items() if v is cur), None)
+                if id(nxt) in mods:
+                    path.append(f"{mods[id(nxt)]}.{key}")
+                    break
+                path.append(f"dict[{key!r}]" if isinstance(key, str) else
+                            f"dict[{type(key).__name__}]")
+            elif type(nxt).__name__ == "_Node":
+                path.append("_Node")
+            elif type(nxt).__name__ == "cell":
+                path.append("cell")
+            elif inspect.isfunction(nxt):
+                path.append(f"fn:{nxt.__module__}.{nxt.__qualname__}")
+            elif not isinstance(nxt, tape_types):
+                path.append(f"{type(nxt).__module__}.{type(nxt).__qualname__}")
+            else:
+                path.append(type(nxt).__name__)
+            cur = nxt
+        key = " <- ".join(path)
+        seen_roots[key] = seen_roots.get(key, 0) + 1
+    del frame
+    return seen_roots
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--seed", type=int, default=200, help="campaign seed; 200 draws binder 176 -> n=307")
@@ -112,6 +165,10 @@ def main():
                     help="at step K, collect with DEBUG_SAVEALL and report what was "
                          "unreachable, by type and by the reference that closed the cycle, "
                          "with the DRAM the collect released")
+    ap.add_argument("--holder-probe", action="store_true",
+                    help="after step 1 remember which autograd.Tensors are live; after step 2 "
+                         "walk the survivors' referrers up to the module-level object that "
+                         "keeps them reachable, then price a gc.collect()")
     ap.add_argument("--out", default=None)
     args = ap.parse_args()
 
@@ -150,8 +207,11 @@ def main():
     lv = S.Levers(); dm, _ = A.load_models(A.DEFAULT_PARAMS); dev = A.Dev(dm.to_device()); lv.arm("stack")
     evo = SP.EvoformerOnDevice(dev, k_evo=48)
 
-    rows, seam = [], {"fwd": 0, "bwd": 0}
-    jsonl = HERE / f"memtrace_seed{args.seed}t{args.trajectory}.jsonl"
+    rows, seam, first_ids = [], {"fwd": 0, "bwd": 0}, set()
+    dest = (pathlib.Path(args.out) if args.out
+            else HERE / f"memtrace_seed{args.seed}t{args.trajectory}.json")
+    jsonl = dest.with_suffix(".jsonl")
+    jsonl.unlink(missing_ok=True)
     base = dram_bytes(dev)
 
     _taped, _backward = SP.EvoformerOnDevice._taped, SP.EvoformerOnDevice._backward
@@ -190,12 +250,38 @@ def main():
                "calls": dict(self_calls) if (self_calls := evo.calls) else {},
                "rss_gb": round(resource.getrusage(resource.RUSAGE_SELF).ru_maxrss / 2**20, 3)}
         row.update(live_counts())
+        if args.holder_probe and step == 1:
+            first_ids.update(id(o) for o in gc.get_objects() if type(o) is ag.Tensor)
+        if args.holder_probe and step == 2:
+            survivors = [o for o in gc.get_objects()
+                         if type(o) is ag.Tensor and id(o) in first_ids]
+            survivors.sort(key=lambda t: t.node is None)
+            row["holder"] = {
+                "survivors_from_step1": len(survivors),
+                "wrapped": len(ag._WRAPPED), "params": len(ag._PARAMS),
+                "survivors_with_node": sum(t.node is not None for t in survivors),
+                "survivors_leaf_requires_grad": sum(t.node is None and t.requires_grad
+                                                    for t in survivors),
+                "paths": holder_paths(survivors)}
+            del survivors
+            before_gc = dram_bytes(dev)
+            n_unreach = gc.collect()
+            row["holder"]["gc_unreachable"] = n_unreach
+            row["holder"]["gc_released_gb"] = round((before_gc - dram_bytes(dev)) / 2**30, 4)
+            print(json.dumps({"step": step, "holder": row["holder"]}), flush=True)
         if step == args.cycle_probe:
             row["cycle"] = cycle_probe(dev)
             print(json.dumps({"step": step, "cycle": row["cycle"]}), flush=True)
         if args.gc_probe:
+            # The GUARD arm: a collect after every step. It is what the fix must not need, and
+            # it is also the only way the pre-fix tree reaches the last step to be compared.
             gc.collect()
             row["dram_after_gc_gb"] = round(dram_bytes(dev) / 2**30, 4)
+        if step in (1, args.steps):
+            # The logit gradient BindCraft 2 hands its optimiser, saved so two trees can be
+            # compared value for value at the first step and the last.
+            np.savez(dest.with_name(f"{dest.stem}_grad_step{step}.npz"),
+                     **{str(k): np.asarray(v, dtype=np.float32) for k, v in grads.items()})
         rows.append(row)
         with open(jsonl, "a") as fh:
             fh.write(json.dumps(row) + "\n")
@@ -247,8 +333,6 @@ def main():
             out["resident_rise_gb"] = round(rows[-1]["dram_after_gb"] - rows[0]["dram_after_gb"], 4)
             out["peak_max_gb"] = round(max(max(r["dram_peak_fwd_gb"], r["dram_peak_bwd_gb"])
                                            for r in rows), 4)
-        dest = (pathlib.Path(args.out) if args.out
-                else HERE / f"memtrace_seed{args.seed}t{args.trajectory}.json")
         dest.write_text(json.dumps(out, indent=1, default=str))
         print(json.dumps({k: v for k, v in out.items() if k != "rows"}, indent=1, default=str))
 

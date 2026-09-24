@@ -1,0 +1,115 @@
+{
+ "seed": 200,
+ "binder": 176,
+ "n_complex": 291,
+ "n_padded": 307,
+ "bucket": 32,
+ "steps_requested": 2,
+ "base_dram_bytes": 235208704,
+ "gc_probe": false,
+ "stage": "screen",
+ "stage_iterations": 50,
+ "stopped": "step budget reached",
+ "rows": [
+  {
+   "step": 1,
+   "seconds": 170.889,
+   "span": [
+    1790279508.794228,
+    1790279679.68274
+   ],
+   "design_loss": 10.529776573181152,
+   "dram_before_gb": 0.2191,
+   "dram_peak_fwd_gb": 2.6561,
+   "dram_peak_bwd_gb": 5.3578,
+   "dram_after_gb": 5.3578,
+   "live_tapes": 0,
+   "ckpt_pins": 0,
+   "calls": {
+    "primal": 0,
+    "taped": 2,
+    "backward": 1
+   },
+   "rss_gb": 10.189,
+   "ag_tensor": 4761,
+   "ag_node": 0,
+   "ttnn_tensor": 0
+  },
+  {
+   "step": 2,
+   "seconds": 116.09,
+   "span": [
+    1790279682.039242,
+    1790279798.1294167
+   ],
+   "design_loss": 9.190805435180664,
+   "dram_before_gb": 5.3578,
+   "dram_peak_fwd_gb": 7.4057,
+   "dram_peak_bwd_gb": 10.1039,
+   "dram_after_gb": 10.1039,
+   "live_tapes": 0,
+   "ckpt_pins": 0,
+   "calls": {
+    "primal": 0,
+    "taped": 4,
+    "backward": 2
+   },
+   "rss_gb": 10.251,
+   "ag_tensor": 5151,
+   "ag_node": 0,
+   "ttnn_tensor": 0,
+   "cycle": {
+    "seconds": 1.022,
+    "unreachable": 5321,
+    "types": {
+     "cell": 1140,
+     "tuple": 1128,
+     "list": 955,
+     "function": 940,
+     "Tensor": 782,
+     "_Node": 376
+    },
+    "tensors": 782,
+    "tensors_with_node": 376,
+    "tensors_with_shares": 398,
+    "cycles": {
+     "{\"types\": {\"Tensor\": 1, \"list\": 1}, \"via\": [\"Tensor.shares\"]}": 383,
+     "{\"types\": {\"Tensor\": 2, \"list\": 1}, \"via\": [\"Tensor.shares\"]}": 7,
+     "{\"types\": {\"list\": 1, \"Tensor\": 1}, \"via\": [\"Tensor.shares\"]}": 1
+    },
+    "dram_before_gb": 10.1039,
+    "dram_after_gb": 10.1039,
+    "released_gb": 0.0
+   }
+  }
+ ],
+ "device_calls": {
+  "primal": 0,
+  "taped": 4,
+  "backward": 2
+ },
+ "aiclk": {
+  "n": 1101,
+  "min": 1312,
+  "median": 1350,
+  "max": 1350
+ },
+ "stamp": {
+  "host": "tt-quietbox2",
+  "card": 2,
+  "subsystem_device": "0x0046",
+  "commit": "fdcc9655c72c4169f773d0fd53653749b572596f",
+  "tt_bio_dirty": false,
+  "torch_threads": 8,
+  "loadavg": [
+   62.4033203125,
+   61.7587890625,
+   60.34912109375
+  ],
+  "utc": "2026-09-24T19:56:40Z"
+ },
+ "resident_first_gb": 5.3578,
+ "resident_last_gb": 10.1039,
+ "resident_rise_gb": 4.7461,
+ "peak_max_gb": 10.1039
+}
