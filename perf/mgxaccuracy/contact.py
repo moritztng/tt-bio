@@ -127,14 +127,19 @@ def conditioning_graph(meta, xyz, top_a: float = TEMPL_TOP_A) -> dict:
                                     / max(1, (~np.eye(len(P), dtype=bool)).sum()))}
 
 
-def split_complex(path: pathlib.Path):
-    """(binder xyz, target xyz, binder chain) for a design written as one complex.
+def split_complex(path: pathlib.Path, binder_res: int = None, target_chains=None):
+    """(binder xyz, target xyz, binder chain, residues per chain, target chain labels).
 
     BoltzGen writes the design and the target it was designed against into a single file, so
-    the docking question cannot be asked with a separate --binder. The binder is the chain
-    with the FEWEST residues, which is unambiguous here -- an 80-residue binder against a
-    512- or 1536-residue target -- and a tie is refused rather than guessed, because picking
-    the wrong chain silently measures the target against itself and reports 0.00 A."""
+    the docking question cannot be asked with a separate --binder.
+
+    Pass `binder_res` -- the binder's residue count, which the refold knows because it holds
+    the binder alone -- and the chain with exactly that many residues is taken, the same rule
+    `scrmsd.py:designed_chain` uses for every quality number in this row. Without it the chain
+    with the FEWEST residues is taken, and THAT RULE IS WRONG WHENEVER A TARGET FRAGMENT IS
+    SHORTER THAN THE BINDER: on GroEL 512/off560 (A 80 binder, B 488, C 24) it silently picked
+    the 24-residue target fragment and measured the target against itself. Both rules refuse a
+    tie rather than guess."""
     import numpy as np
     meta, xyz = atoms(path)
     per: dict = {}
@@ -143,14 +148,83 @@ def split_complex(path: pathlib.Path):
             per[c] = per.get(c, 0) + 1
     if len(per) < 2:
         raise SystemExit(f"{path.name}: one chain — nothing to measure a contact against")
-    lo = min(per.values())
-    small = [c for c, n in per.items() if n == lo]
-    if len(small) != 1:
-        raise SystemExit(f"{path.name}: {len(small)} chains tie at {lo} residues {per} — "
-                         "cannot identify the binder")
-    b = small[0]
+    if binder_res is not None:
+        hits = [c for c, n in per.items() if n == binder_res]
+        if len(hits) != 1:
+            raise SystemExit(f"{path.name}: {len(hits)} chains with {binder_res} residues "
+                             f"{per} — cannot identify the binder")
+        b = hits[0]
+    else:
+        lo = min(per.values())
+        small = [c for c, n in per.items() if n == lo]
+        if len(small) != 1:
+            raise SystemExit(f"{path.name}: {len(small)} chains tie at {lo} residues {per} — "
+                             "cannot identify the binder")
+        b = small[0]
     m = np.array([c == b for c, _, _ in meta])
-    return np.asarray(xyz)[m], np.asarray(xyz)[~m], b, per
+    tmeta = [r for r, keep in zip(meta, m) if not keep]
+    tch = np.array([c for c, _, _ in tmeta])
+    if target_chains:
+        # BoltzGen's design writer MERGES adjacent target chains: the GroEL 1536/off0 fixture
+        # is 524 + 524 + 488 and the design is written as 1048 + 488. Counting chains off the
+        # output therefore undercounts, so the fixture's own sizes are imposed here, in file
+        # order, and the total is checked rather than trusted.
+        bounds, acc = [], 0
+        for n in target_chains:
+            acc += n
+            bounds.append(acc)
+        lab, seen, idx = [], None, 0
+        for c, sq, _a in tmeta:
+            if (c, sq) != seen:
+                seen = (c, sq)
+                idx += 1
+            lab.append(f"c{next(j for j, bd in enumerate(bounds) if idx <= bd) + 1}")
+        if idx != bounds[-1]:
+            raise SystemExit(f"{path.name}: --target-chains sums to {bounds[-1]} but the "
+                             f"target has {idx} residues")
+        tch = np.array(lab)
+        per = {**{c: n for c, n in zip((f"c{i+1}" for i in range(len(target_chains))),
+                                       target_chains)}, b: per[b]}
+    return np.asarray(xyz)[m], np.asarray(xyz)[~m], b, per, tch
+
+
+def per_chain_report(paths, contact_a: float, binder_res: int = None,
+                     target_chains=None) -> int:
+    """How many TARGET CHAINS does the delivered binder actually touch?
+
+    `results/chain_census_all_cells.txt` sorts every cell in this row by chain count and finds
+    every multi-chain crop at 0 % under the 4 A bar. That headline has a dial in it: GroEL
+    512/off560 is B 488 + C 24, and it is the row's BEST cell at 87.5 % only because a
+    24-residue fragment is called not-a-chain by a 100-residue threshold that is not derived
+    from anything.
+
+    A chain the binder never comes near is not part of the design problem, whatever its length.
+    So this counts the chains the binder contacts instead of the chains present in the file --
+    a property of the delivered structure rather than of a threshold chosen by hand. It can
+    equally refute the headline: if a failing multi-chain cell also has its binders on one
+    chain, interface chain count is not the carrier either, and the census keeps its caveat.
+    """
+    import numpy as np
+    print(f"\ncontact = any atom pair within {contact_a} A. n_touched counts TARGET chains "
+          f"with >= 1 contact.\n")
+    touched_hist: dict = {}
+    for f in paths:
+        f = pathlib.Path(f)
+        bxyz, txyz, b, per, tch = split_complex(f, binder_res, target_chains)
+        d = np.linalg.norm(bxyz[:, None, :] - txyz[None, :, :], axis=-1)
+        near = d <= contact_a
+        chains = sorted(set(tch.tolist()))
+        counts = {c: int(near[:, tch == c].sum()) for c in chains}
+        dmins = {c: float(d[:, tch == c].min()) for c in chains}
+        n_touched = sum(1 for c in chains if counts[c] > 0)
+        touched_hist[n_touched] = touched_hist.get(n_touched, 0) + 1
+        cells = "  ".join(f"{c}({per[c]}):{counts[c]}@{dmins[c]:.1f}" for c in chains)
+        print(f"{f.name:<20} binder {b}({per[b]:>3})  n_touched={n_touched}   {cells}")
+    total = sum(touched_hist.values())
+    summary = ", ".join(f"{n} chain{'s' if n != 1 else ''}: {k}/{total}"
+                        for n, k in sorted(touched_hist.items()))
+    print(f"\nINTERFACE CHAIN COUNT over {total} design(s) -- {summary}")
+    return 0
 
 
 def main() -> int:
@@ -166,14 +240,28 @@ def main() -> int:
     ap.add_argument("--binder", nargs="+", default=None)
     ap.add_argument("--contact-a", type=float, default=5.0,
                     help="an atom pair this close or closer is a contact")
+    ap.add_argument("--binder-res", type=int, default=None,
+                    help="binder residue count; picks that chain instead of the smallest one, "
+                         "which is wrong when a target fragment is shorter than the binder")
+    ap.add_argument("--target-chains", default=None,
+                    help="comma list of the FIXTURE's target chain sizes, imposed in file "
+                         "order; the design writer merges adjacent chains and undercounts")
+    ap.add_argument("--per-chain", action="store_true",
+                    help="with --complex: break the contacts down per target chain and count "
+                         "how many chains the binder actually touches")
     args = ap.parse_args()
+
+    if args.complex and args.per_chain:
+        return per_chain_report(args.complex, args.contact_a, args.binder_res,
+                                [int(x) for x in args.target_chains.split(",")]
+                                if args.target_chains else None)
 
     if args.complex:
         print(f"\n{'design':<18}{'binder':>7}{'chain':>7}{'min d':>9}{'median d':>10}"
               f"{'contacts':>10}   verdict")
         for f in args.complex:
             f = pathlib.Path(f)
-            bxyz, txyz, ch, per = split_complex(f)
+            bxyz, txyz, ch, per, _tch = split_complex(f, args.binder_res)
             d = np.linalg.norm(bxyz[:, None, :] - txyz[None, :, :], axis=-1)
             dmin = d.min(1)
             verdict = ("IN CONTACT" if dmin.min() <= args.contact_a else

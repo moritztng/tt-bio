@@ -25,7 +25,7 @@ TWO OR MORE CHAINS
     GroEL    768 / off  0    A 524 + B 244      0.0 %
     GroEL    768 / off560    B 488 + C 280      0.0 %
     GroEL   1024 / off  0    A 524 + B 500      0.0 %
-    GroEL   1024 / off560    B 488 + C 524      0.0 %
+    GroEL   1024 / off560    B 488 + C 524 + D 12    0.0 %
     GroEL   1536 / off  0    A 524 + B 524 + C 488   0.0 %
     GroEL   1536 / off560    B 488 + C 524 + D 524   0.0 %
     gpb     1536 / off  0    A 823 + B 713      0.0 %   (three engines)
@@ -50,8 +50,15 @@ THREE CAVEATS, AND THE FIRST IS LOAD-BEARING
    B 488 + C 24. Counted as one chain plus a stub it is the BEST cell in the row at 87.5 %;
    counted as two chains it is a multi-chain cell at 87.5 % and the headline above is false.
    The 100-residue threshold was chosen when the census was first written and is not derived
-   from anything. Nothing else in the row turns on it — no other cell has a fragment between
-   25 and 244 residues — but a reader is entitled to know the sentence has a dial in it.
+   from anything. **AN ATTEMPT TO DERIVE IT FAILED** (`results/interface_chain_count_refuted.txt`):
+   replacing it with the chains the binder actually TOUCHES gives a dial that runs backwards —
+   GroEL 1536/off0 has 8 of 8 binders on ONE chain and returns 0 %, while GroEL 512/off560 has
+   5 of 8 spanning TWO chains at 87.5 %. So the caveat is irreducible by that route, not merely
+   unexamined, and the MECHANISM behind chain count — a binder designed across a seam — is
+   refuted even though the fixture-chain-count correlation stands.
+   This census also MISSED a chain: GroEL 1024/off560 is B 488 + C 524 + D 12, corrected above,
+   and the old entry summed to 1012 rather than 1024. Chain counts here come from the FIXTURES;
+   BoltzGen's design writer merges adjacent chains and undercounts.
 
 2. ON GroEL AND 1GPB, MULTI-CHAIN IS PERFECTLY CONFOUNDED WITH SIZE. Every multi-chain cell on
    those two targets is also >= 768 residues, because their chains are ~524 and 823 long. So
