@@ -120,14 +120,38 @@ def main() -> int:
     off0 = [x for k in CELLS if k[1] == 0 for x in cells[k]["scrmsd"]]
     off100 = [x for k in CELLS if k[1] == 100 for x in cells[k]["scrmsd"]]
 
-    print(f"\n  SIZE effect    {size:+8.2f} A   "
-          f"(pooled n={len(small)} vs {len(big)}, MW rejects: {mw_reject(small, big)})")
-    print(f"  TARGET effect  {targ:+8.2f} A   "
-          f"(pooled n={len(off0)} vs {len(off100)}, MW rejects: {mw_reject(off0, off100)})")
-    print(f"  interaction    {inter:+8.2f} A   "
-          f"(how much the size effect itself depends on which crop)")
-    print("\n  The larger of the two main effects is what dominates designability here.")
-    print("  Report both with their medians; neither number means anything alone.")
+    # SIMPLE effects first. Each is a clean n=8 vs n=8 comparison holding the other factor
+    # fixed, which is the only test here that a Mann-Whitney is straightforwardly valid for.
+    print("\n  SIMPLE effects (the other factor held fixed, n=8 vs n=8):")
+    for lo, hi, label in ((512, 1536, "size  "), ):
+        for off in (0, 100):
+            a, b = cells[(lo, off)]["scrmsd"], cells[(hi, off)]["scrmsd"]
+            print(f"    {label} at offset {off:>3}   {med[(hi, off)] - med[(lo, off)]:+8.2f} A"
+                  f"   MW rejects: {mw_reject(a, b)}")
+    for size_ in (512, 1536):
+        a, b = cells[(size_, 0)]["scrmsd"], cells[(size_, 100)]["scrmsd"]
+        print(f"    target at {size_:>4}        "
+              f"{med[(size_, 100)] - med[(size_, 0)]:+8.2f} A   MW rejects: {mw_reject(a, b)}")
+
+    print(f"\n  MAIN effects (mean of the two simple effects):")
+    print(f"    SIZE           {size:+8.2f} A")
+    print(f"    TARGET         {targ:+8.2f} A")
+    print(f"    interaction    {inter:+8.2f} A   "
+          f"(how much the size effect depends on which crop)")
+
+    # The pooled tests are printed last and deliberately hedged. Pooling two cells that differ
+    # by more than the effect under test makes each pooled group bimodal, and a Mann-Whitney on
+    # a bimodal group answers a question nobody asked. Kept because it is what an earlier
+    # version of this row would have quoted, and it should be visible next to the honest test.
+    print(f"\n  pooled, FOR REFERENCE ONLY -- each group is bimodal when the interaction is")
+    print(f"  large, so read the simple effects above instead:")
+    print(f"    size   pooled n={len(small)} vs {len(big)}   MW rejects: {mw_reject(small, big)}")
+    print(f"    target pooled n={len(off0)} vs {len(off100)}   MW rejects: "
+          f"{mw_reject(off0, off100)}")
+
+    print("\n  Report the larger main effect as what dominates designability, with the two")
+    print("  simple effects behind it. Neither main effect means anything alone, and the")
+    print("  size axis here also changes chain count (see results/across_target_floor_512.txt).")
     return 0
 
 
