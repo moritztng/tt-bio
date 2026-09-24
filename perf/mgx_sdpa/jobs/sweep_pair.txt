@@ -1,0 +1,3 @@
+$HOME/env/bin/python perf/mgx_embed/sdpa_sweep.py --out $S/sweep.jsonl --arms none,zero,bias --configs "256,4,256,32,256,256;288,4,288,32,288,288;480,4,480,32,480,160;480,4,480,32,160,256;512,4,512,32,256,256;512,4,512,32,512,256;512,4,512,32,128,128"
+$HOME/env/bin/python perf/mgx_embed/sdpa_sweep.py --out $S/sweep.jsonl --arms none,zero,bias --batch 1 --heads 4,8 --dims 32 --lengths 256,288,512,1024,1536,2048 --chunks 64,128,256,512
+$HOME/env/bin/python perf/mgx_embed/sdpa_sweep.py --out $S/sweep.jsonl --arms none,zero,bias --configs "1024,4,1024,32,256,256;1024,4,1024,32,512,256;1024,4,1024,32,128,128;1536,4,1536,32,256,256;1536,4,1536,32,512,256;1536,4,1536,32,128,128;1536,8,1536,32,256,256"

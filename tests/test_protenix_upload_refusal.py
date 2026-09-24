@@ -1,12 +1,15 @@
-"""Protenix's block-0 upload of the host-resident MSA falls back to depth chunks on a refusal.
+"""Protenix's block-0 OPM over the host-resident MSA falls back to depth chunks on a refusal.
 
-protenix-v2 at 1408 tokens against 8192 alignment rows was refused the whole upload of the
-pristine m (2952790016 B, 596 MiB per bank free, 202 MiB largest block). After a refusal the
-upload comes back as host-tiled depth chunks holding exactly the rows of the whole tensor, and
-the shape is remembered so the next recycling cycle does not ask again.
+Two refusals send it there. protenix-v2 at 1408 tokens against 8192 alignment rows was refused
+the whole upload of the pristine m (2952790016 B, 596 MiB per bank free, 202 MiB largest block).
+At 1280 tokens against 14743 rows the upload landed and OPM's 160 MiB depth slice of it was
+refused (10 MiB largest block per bank). After either, OPM gets host-tiled depth chunks holding
+exactly the rows of the whole tensor and the same residual, and the shape is remembered so the
+next recycling cycle does not ask again.
 
-Host-only: `_up` and `ttnn.from_torch` are stand-ins (a host tilize still queries the cluster),
-so what runs is the control flow and the row partition, and no device is opened.
+Host-only: `_up`, `ttnn.from_torch`, `ttnn.deallocate` and the OPM are stand-ins (a host tilize
+still queries the cluster), so what runs is the control flow and the row partition, and no
+device is opened.
 """
 
 from __future__ import annotations
@@ -28,51 +31,82 @@ REFUSAL = ("Out of Memory: Not enough space to allocate 2952790016 B DRAM buffer
            "449108160 B, free: 624633632 B, largest free block: 211896800 B)")
 
 
+class _Z:
+    def __init__(self, alive=True):
+        self.alive = alive
+
+    def is_allocated(self):
+        return self.alive
+
+
 class _Trunk:
     dtype = ttnn.bfloat16
-    _up_or_host_chunks = P.Trunk._up_or_host_chunks
+    _opm_from_host = P.Trunk._opm_from_host
 
-    def __init__(self, refuse):
-        self.refuse, self.ups = refuse, 0
+    def __init__(self, refuse_upload=False):
+        self.refuse_upload, self.ups = refuse_upload, 0
 
     def _up(self, t):
         self.ups += 1
-        if self.refuse:
+        if self.refuse_upload:
             raise RuntimeError(REFUSAL)
         return "whole"
 
 
+class _Opm:
+    """Refuses a whole (device) input when `refuse_whole`, returns what it was given."""
+
+    def __init__(self, refuse_whole=False):
+        self.refuse_whole, self.calls = refuse_whole, []
+
+    def __call__(self, x, mask, n, residual):
+        self.calls.append(x)
+        if x == "whole" and self.refuse_whole:
+            raise RuntimeError(REFUSAL)
+        return x, residual
+
+
 @pytest.fixture(autouse=True)
-def _fresh_memo():
+def _stubs(monkeypatch):
     P._UPLOAD_REFUSED_ROWS.clear()
-    yield
+    freed = []
+    monkeypatch.setattr(P.ttnn, "deallocate", freed.append)
+    monkeypatch.setattr(P.ttnn, "from_torch", lambda t, **kw: (t, kw))
+    yield freed
     P._UPLOAD_REFUSED_ROWS.clear()
 
 
-def test_an_upload_that_fits_is_the_whole_upload():
-    tr = _Trunk(refuse=False)
-    assert tr._up_or_host_chunks(torch.zeros(1, 1100, 64, 32, dtype=torch.bfloat16)) == "whole"
+def _check_chunks(out, m, tr, z):
+    parts, res = out
+    assert res is z
+    assert [p.shape[1] for p, _ in parts] == [512, 512, 76]
+    assert torch.equal(torch.cat([p for p, _ in parts], dim=1), m)
+    # Host chunks, in the dtype the whole upload would have had; OPM uploads them one at a time.
+    assert all("device" not in kw and kw["dtype"] == tr.dtype for _, kw in parts)
+
+
+def test_an_opm_that_fits_reads_the_whole_upload_and_frees_it(_stubs):
+    tr, opm, z = _Trunk(), _Opm(), _Z()
+    assert tr._opm_from_host(opm, torch.zeros(1, 1100, 64, 32), z) == ("whole", z)
+    assert _stubs == ["whole"]
     assert not P._UPLOAD_REFUSED_ROWS
 
 
-def test_a_refused_upload_comes_back_as_the_same_rows_in_host_chunks(monkeypatch):
-    calls = []
-
-    def from_torch(t, **kw):
-        calls.append(kw)
-        return t
-
-    monkeypatch.setattr(P.ttnn, "from_torch", from_torch)
+@pytest.mark.parametrize("where", ["upload", "opm"])
+def test_a_refusal_comes_back_as_the_same_rows_in_host_chunks(_stubs, where):
     m = torch.randn(1, 1100, 64, 32).to(torch.bfloat16)
-    tr = _Trunk(refuse=True)
-    parts = tr._up_or_host_chunks(m)
-    assert [p.shape[1] for p in parts] == [512, 512, 76]
-    assert torch.equal(torch.cat(parts, dim=1), m)
-    # Host chunks, in the dtype the whole upload would have had; OPM uploads them one at a time.
-    assert all("device" not in kw and kw["dtype"] == tr.dtype for kw in calls)
-    # The next cycle goes straight to the chunks instead of paying the refused upload again.
-    tr._up_or_host_chunks(m)
+    tr, opm, z = _Trunk(refuse_upload=where == "upload"), _Opm(refuse_whole=where == "opm"), _Z()
+    _check_chunks(tr._opm_from_host(opm, m, z), m, tr, z)
+    # A refused OPM still gives the whole upload back before the chunks go up.
+    assert _stubs == ([] if where == "upload" else ["whole"])
+    # The next cycle goes straight to the chunks instead of paying the refused attempt again.
+    _check_chunks(tr._opm_from_host(opm, m, z), m, tr, z)
     assert tr.ups == 1
+
+
+def test_a_consumed_residual_is_not_retried():
+    with pytest.raises(RuntimeError, match="consumed its residual"):
+        _Trunk()._opm_from_host(_Opm(refuse_whole=True), torch.zeros(1, 64, 32, 32), _Z(False))
 
 
 def test_a_non_allocator_error_is_not_retried():
@@ -81,4 +115,4 @@ def test_a_non_allocator_error_is_not_retried():
             raise RuntimeError("TT_FATAL: bad shape")
 
     with pytest.raises(RuntimeError, match="bad shape"):
-        _Broken(refuse=False)._up_or_host_chunks(torch.zeros(1, 64, 32, 32))
+        _Broken()._opm_from_host(_Opm(), torch.zeros(1, 64, 32, 32), _Z())

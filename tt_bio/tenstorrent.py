@@ -1859,6 +1859,38 @@ def _sdpa_pad_ragged(q, k, v, bias):
     return qp, kp, vp, bp, q_pad
 
 
+_ZERO_MASKS = {}  # (id(device), Lq, Lk) -> (device, zero [1, 1, Lq, Lk]); cleanup() empties it
+
+
+def fused_sdpa(q, k, v, attn_mask=None, *, scale: float, **kw):
+    """`ttnn.transformer.scaled_dot_product_attention`, never unmasked. Every tt_bio call of the
+    fused op goes through here; `tests/test_fused_sdpa_single_site.py` fails on one that does not.
+
+    With `attn_mask=None` the op returns the wrong attention at some program configs on both
+    Wormhole's 8x9 and Blackhole's 13x10 grid: q_chunk = k_chunk = 128 at any head dim, and
+    128/256 and 256/256 at head dim 32, PCC 0.2-0.9 against torch fp32 and a different wrong
+    output from one call to the next. The same call with an all-zero additive mask is right at
+    every config swept, to 2048 tokens (`perf/mgx_sdpa/`). So a missing mask becomes a zero
+    [1, 1, Lq, Lk] one, which the op broadcasts over batch and heads.
+
+    The zero mask is uploaded once per (device, Lq, Lk) and kept, because an upload is a host
+    write and a trace capture refuses those. A caller that captures a trace runs the same forward
+    eagerly first (every capture in tt_bio warms up outside it), so the capture finds the mask
+    already on the device and the replay reads a buffer that stays alive. Only lengths that reach
+    here unmasked are cached, one [Lq, Lk] bf16 tile grid each.
+    """
+    if attn_mask is None:
+        dev = q.device()
+        key = (id(dev), int(q.shape[2]), int(k.shape[2]))
+        hit = _ZERO_MASKS.get(key)
+        if hit is None:  # the device is kept in the entry so its id cannot be reused
+            hit = _ZERO_MASKS[key] = (dev, ttnn.zeros([1, 1, key[1], key[2]], dtype=ttnn.bfloat16,
+                                                      layout=ttnn.TILE_LAYOUT, device=dev))
+        attn_mask = hit[1]
+    return ttnn.transformer.scaled_dot_product_attention(
+        q, k, v, attn_mask=attn_mask, is_causal=False, scale=scale, **kw)
+
+
 def _sdpa_masked(fn, q, k, v, bias, *args, site: str, pad: bool = False, **kw):
     """Run a fused SDPA through `fn` with the ragged tile tail masked out.
 
@@ -2196,8 +2228,8 @@ def _tri_att_sdpa_at(q, k, v, bias, scale: float, ckc=None, gate=None):
                 if gate is not None:
                     continue
                 try:
-                    o = ttnn.transformer.scaled_dot_product_attention(
-                        q, k, v, attn_mask=bias, is_causal=False, scale=scale,
+                    o = fused_sdpa(
+                        q, k, v, attn_mask=bias, scale=scale,
                         program_config=_sdpa_program_config(q_chunk, k_chunk),
                     )
                     SDPA_K_CHUNK_STATS[0] += 1
@@ -2225,8 +2257,8 @@ def _tri_att_sdpa_at(q, k, v, bias, scale: float, ckc=None, gate=None):
         return None
     for q_chunk in fits[:-1]:
         try:
-            o = ttnn.transformer.scaled_dot_product_attention(
-                q, k, v, attn_mask=bias, is_causal=False, scale=scale,
+            o = fused_sdpa(
+                q, k, v, attn_mask=bias, scale=scale,
                 program_config=_sdpa_program_config(q_chunk, k_chunk),
             )
             _sdpa_pick(q_len, k_len, q_chunk, k_chunk, "stock")
@@ -2248,8 +2280,8 @@ def _tri_att_sdpa_at(q, k, v, bias, scale: float, ckc=None, gate=None):
     # which is why it is reached ONLY after the device has refused: a length that folds today
     # never enters this branch and keeps its exact numbers.
     try:
-        o = ttnn.transformer.scaled_dot_product_attention(
-            q, k, v, attn_mask=bias, is_causal=False, scale=scale,
+        o = fused_sdpa(
+            q, k, v, attn_mask=bias, scale=scale,
             program_config=_sdpa_program_config(fits[-1], k_chunk),
         )
         _sdpa_pick(q_len, k_len, fits[-1], k_chunk, "stock")
@@ -2258,8 +2290,8 @@ def _tri_att_sdpa_at(q, k, v, bias, scale: float, ckc=None, gate=None):
         absorb_l1_refusal("tri_att_sdpa/last_q_chunk", exc)
         _SDPA_Q_CHUNK_OVER_L1.add((q_len, k_len, fits[-1], q.dtype))
         _latch("sdpa_q_chunk", "refused", exc)
-    o = ttnn.transformer.scaled_dot_product_attention(
-        q, k, v, attn_mask=bias, is_causal=False, scale=scale)
+    o = fused_sdpa(
+        q, k, v, attn_mask=bias, scale=scale)
     _sdpa_pick(q_len, k_len, 0, k_chunk, "stock")
     return o
 
@@ -6151,6 +6183,7 @@ def cleanup():
             ttnn.synchronize_device(_device)
         except Exception:
             pass
+        _ZERO_MASKS.clear()  # device tensors, freed while the device is still open
         _close_device_locked(_device)
         _device = None
         _trace_region_size = 0
@@ -8764,12 +8797,11 @@ class AttentionPairBias(Module):
             )
         if self.dtype != ttnn.float32:
             return _sdpa_masked(
-                lambda q_, k_, v_, b_: ttnn.transformer.scaled_dot_product_attention(
+                lambda q_, k_, v_, b_: fused_sdpa(
                     q_,
                     k_,
                     v_,
                     attn_mask=b_,
-                    is_causal=False,
                     scale=self.head_dim**-0.5,
                     program_config=_sdpa_program_config_for_lengths(
                         q_.shape[2], k_.shape[2], q_.shape[0] * q_.shape[1],
@@ -8792,12 +8824,11 @@ class AttentionPairBias(Module):
             bias, ttnn.bfloat16, memory_config=bias.memory_config()
         )
         out_bf16 = _sdpa_masked(
-            lambda q_, k_, v_, b_: ttnn.transformer.scaled_dot_product_attention(
+            lambda q_, k_, v_, b_: fused_sdpa(
                 q_,
                 k_,
                 v_,
                 attn_mask=b_,
-                is_causal=False,
                 scale=self.head_dim**-0.5,
                 program_config=_sdpa_program_config_for_lengths(
                     q_.shape[2], k_.shape[2], q_.shape[0] * q_.shape[1],
@@ -9010,10 +9041,9 @@ class AttentionPairBias(Module):
                 # chain's (q@k^T + z) * head_dim**-0.5 exactly in exact arithmetic; what differs
                 # is the bf16 exponentiated-score buffer, hence the accuracy gate on this arm.
                 o = _sdpa_masked(
-                    lambda q_, k_, v_, b_: ttnn.transformer.scaled_dot_product_attention(
+                    lambda q_, k_, v_, b_: fused_sdpa(
                         q_, k_, v_,
                         attn_mask=b_,
-                        is_causal=False,
                         scale=self.head_dim**-0.5,
                         program_config=_sdpa_program_config_for_lengths(
                             q_.shape[2], k_.shape[2], q_.shape[0] * q_.shape[1],
