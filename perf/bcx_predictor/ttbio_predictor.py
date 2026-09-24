@@ -21,16 +21,23 @@ stack (`modules.py:1528`) and the Evoformer stack (`modules.py:1594`) both consu
 (`:1599`) projects the first MSA row. `bcx-e2e` proved that cut at `(single, pair)`, with
 the projection on the DEVICE side, and showed the tail's cotangents seed those two roots.
 
-WHY THE MASK DECIDES THE CONFIGURATION. tt-bio's trunk serves an all-ones mask only, and
-asserts it: `tt_bio/af2.py:385` on `mask_2d`, `:509` on `msa_mask`, with the reason at
-`:24-28` -- AF2 masks both halves of the fused triangle-multiplication projection where
-`TriangleMultiplication` masks only the `a` half. BindCraft 2 pads its DESIGN chain to
-`length_bucket_size` and `real_residue_weights` zeroes `seq_mask` on the pad, which is 19
-of 211 residues on PD-L1 (`mask_probe.json`). So the campaign must run at
-`length_bucket_size` 1, where the complex is unpadded and the mask is all ones. That is a
-compile-reuse setting, not part of the model: the fold is the unpadded one and no step,
-recycle, loss or filter changes. `refuse_masked_state` below turns the assert into an
-error that names the setting, because an assert deep in a kernel is not a diagnosis.
+THE MASK NO LONGER DECIDES THE CONFIGURATION, AND THE REFUSAL BELOW IS STALE. This class
+was written when tt-bio's trunk served an all-ones mask only and asserted it. It does not:
+`af2.af2_pair_masks` builds the pair track's multiply and key bias, `AF2EvoformerBlock`
+takes the MSA mask, and `splice.py` passes both. `length_bucket_size` 32 is therefore
+available, which is the setting the device wants -- the PD-L1 complex costs 4.504 s at 211
+and 1.369 s padded to 224.
+
+And the refusal below never covered the padding that actually broke a fold.
+`masked_residue_count` counts what `pad_design_chains` pads, which is the DESIGN chain and
+only when `target_pad_length` is set (`bindcraft/af2.py:56` and `:295`). `predict` pads the
+TOTAL at `bindcraft/af2.py:298` and `real_residue_weights` zeroes `seq_mask` on that tail.
+Nothing here counts it: on the 115-residue PD-L1 target folded ALONE the count is 0 while
+the fold carries 13 masked residues and a pair mask 19.3% zero
+(`perf/bcx_mono/capture.json`). That is the fold that read pLDDT 0.534 against BindCraft 2's
+own 0.950, so the guard would have waved it through. Counting the tail is `bcx-predictor`'s
+to land with its own test; `bcx-mono` left the function alone and recorded the undercount
+(`state/bcx-mono.md`).
 """
 import numpy as np
 
