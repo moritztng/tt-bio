@@ -1,6 +1,15 @@
-"""HTTP scheduler that dispatches Boltz-2 prediction jobs to local and remote
-worker processes. Inputs ship to workers and outputs ship back over the wire,
-so no shared filesystem is required."""
+"""The controller that fans one host's jobs out across that host's chips.
+
+One worker process per chip leases jobs from it over HTTP on 127.0.0.1, so a run
+of many targets or design shards uses every chip on the box. It is not a cluster
+manager: it binds loopback only, and spreading work across machines is the job of
+whatever runs on top (JapanFold, Slurm, a fifty-line loop). The HTTP interface a
+platform drives and the protocol a worker speaks are the published contract,
+docs/multi-host.md; ``examples/many_hosts.py`` drives four hosts with it.
+
+Inputs travel to workers as bytes and outputs come back the same way unless a
+worker proves it shares the submitter's filesystem, so the contract holds for a
+worker in another container or mount namespace too."""
 
 from __future__ import annotations
 
@@ -19,7 +28,14 @@ from pathlib import Path
 from typing import Any
 
 
-LEASE_SECONDS = 30 * 60
+#: How long a leased job stays with a worker that stops heartbeating. A worker renews
+#: its leases every ``LEASE_S / HEARTBEAT_PER_LEASE`` seconds from a thread of its own,
+#: whatever the fold is doing, so a live worker keeps a job of any length, and a dead
+#: one's job goes back in the queue two minutes after it died instead of thirty. The
+#: same policy as JapanFold's API-to-host lease, one level up (docs/multi-host.md).
+LEASE_S = 120.0
+#: Renewals per lease: ten seconds between heartbeats at the default lease.
+HEARTBEAT_PER_LEASE = 12
 
 
 def _json_response(handler: BaseHTTPRequestHandler, status: int, payload: dict[str, Any]) -> None:
@@ -64,8 +80,9 @@ def _coarse_stage(event: dict[str, Any]) -> str | None:
 class ControllerStore:
     """SQLite-backed controller state."""
 
-    def __init__(self, path: Path):
+    def __init__(self, path: Path, lease_s: float = LEASE_S):
         self.path = path
+        self.lease_s = float(lease_s)
         self.path.parent.mkdir(parents=True, exist_ok=True)
         self._lock = threading.RLock()
         self._init_db()
@@ -115,6 +132,7 @@ class ControllerStore:
                     accelerator TEXT NOT NULL,
                     device_id TEXT NOT NULL,
                     label TEXT NOT NULL,
+                    model TEXT,
                     last_seen REAL NOT NULL
                 );
                 CREATE TABLE IF NOT EXISTS events (
@@ -129,7 +147,8 @@ class ControllerStore:
             # Migrate pre-existing tables that lack newer columns.
             for stmt in ("ALTER TABLE jobs ADD COLUMN stage TEXT",
                          "ALTER TABLE runs ADD COLUMN owner TEXT",
-                         "ALTER TABLE runs ADD COLUMN model TEXT"):
+                         "ALTER TABLE runs ADD COLUMN model TEXT",
+                         "ALTER TABLE workers ADD COLUMN model TEXT"):
                 try:
                     conn.execute(stmt)
                 except sqlite3.OperationalError:
@@ -190,7 +209,7 @@ class ControllerStore:
         warm_model = worker.get("model")  # model this worker already has resident
         batch_size = max(1, int(payload.get("batch_size") or 1))
         now = time.time()
-        lease_until = now + LEASE_SECONDS
+        lease_until = now + self.lease_s
         with self._lock, self._connect() as conn:
             self._upsert_worker(conn, worker, now)
             # Work-conserving max-min fair share across users (owners). Devices in
@@ -217,7 +236,7 @@ class ControllerStore:
                 (now,),
             ).fetchall()
             if not rows:
-                return {"jobs": []}
+                return {"jobs": [], "lease_s": self.lease_s}
             # Pick by, in order: (1) fairness — the owner using the fewest devices
             # right now; (2) model affinity — among equally-underserved owners,
             # prefer a job whose model this worker already has loaded, so it
@@ -248,21 +267,22 @@ class ControllerStore:
                     "name": row["name"],
                     "input_b64": row["input_b64"],
                 })
-            return {"run_id": run_id, "config": json.loads(config_json), "jobs": jobs}
+            return {"run_id": run_id, "config": json.loads(config_json), "jobs": jobs,
+                    "lease_s": self.lease_s}
 
     def _upsert_worker(self, conn: sqlite3.Connection, worker: dict[str, Any], now: float) -> None:
-        """Register/refresh a worker's heartbeat (last_seen)."""
+        """Register/refresh a worker's heartbeat (last_seen) and resident model."""
         conn.execute(
             """
-            INSERT INTO workers (worker_id, host, accelerator, device_id, label, last_seen)
-            VALUES (?, ?, ?, ?, ?, ?)
+            INSERT INTO workers (worker_id, host, accelerator, device_id, label, model, last_seen)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
             ON CONFLICT(worker_id) DO UPDATE SET
                 host=excluded.host, accelerator=excluded.accelerator,
                 device_id=excluded.device_id, label=excluded.label,
-                last_seen=excluded.last_seen
+                model=excluded.model, last_seen=excluded.last_seen
             """,
             (worker["worker_id"], worker["host"], worker["accelerator"],
-             str(worker["device_id"]), worker["label"], now),
+             str(worker["device_id"]), worker["label"], worker.get("model"), now),
         )
 
     def heartbeat(self, payload: dict[str, Any]) -> dict[str, Any]:
@@ -270,19 +290,22 @@ class ControllerStore:
         leasing), so the fleet never shows an active worker as offline.
 
         It also renews the leases of the jobs this worker holds. Without that a job
-        longer than LEASE_SECONDS was handed to a second worker while the first was
+        longer than the lease was handed to a second worker while the first was
         still computing it, and ``complete_job`` then discarded the first result
         because the lease had moved: a 1792-residue Protenix-v2 fold (45 min) never
         finished, it restarted on a new chip every 30 min. A worker that dies stops
-        heartbeating, so its jobs still go back to the queue LEASE_SECONDS later."""
+        heartbeating, so its jobs still go back to the queue ``lease_s`` later.
+
+        The answer carries ``lease_s`` so the worker paces its heartbeat to this
+        controller's lease rather than to a constant of its own."""
         now = time.time()
         worker = payload["worker"]
         with self._lock, self._connect() as conn:
             self._upsert_worker(conn, worker, now)
             conn.execute(
                 "UPDATE jobs SET lease_until=? WHERE worker_id=? AND status='running'",
-                (now + LEASE_SECONDS, worker["worker_id"]))
-        return {"ok": True}
+                (now + self.lease_s, worker["worker_id"]))
+        return {"ok": True, "lease_s": self.lease_s}
 
     def cancel_run(self, run_id: str) -> dict[str, Any]:
         """Cancel a run: stop new jobs being leased (run no longer 'running')
@@ -413,18 +436,28 @@ class ControllerStore:
             return {}
 
     def cluster(self, stale_after: float = 20.0) -> dict[str, Any]:
-        """Fleet snapshot: which workers are registered (grouped by host), how
-        many are live, and run/job counts. Used for operator + platform status.
+        """What this host advertises: its workers, how many can compute now, and
+        run/job counts. Used for operator + platform status.
 
-        A worker heartbeats on every lease poll (~1s when idle), so anything not
-        seen within ``stale_after`` seconds is treated as gone (machine left).
+        A worker registers only once its chip has opened, so ``online_workers`` is
+        the number of usable chips, not the number installed: a chip that fails to
+        open never appears. Each worker also names the model it has resident and
+        the jobs it holds. It heartbeats on every lease poll (~1 s when idle) and
+        from its own thread while busy, so one not seen within ``stale_after``
+        seconds is treated as gone.
         """
         now = time.time()
         with self._connect() as conn:
             workers = [dict(row) for row in conn.execute(
-                "SELECT worker_id, host, accelerator, device_id, label, last_seen "
+                "SELECT worker_id, host, accelerator, device_id, label, model, last_seen "
                 "FROM workers ORDER BY host, device_id"
             )]
+            held: dict[str, list[dict[str, str]]] = {}
+            for row in conn.execute(
+                "SELECT worker_id, run_id, job_id FROM jobs "
+                "WHERE status='running' AND lease_until >= ?", (now,)):
+                held.setdefault(row["worker_id"], []).append(
+                    {"run_id": row["run_id"], "job_id": row["job_id"]})
             run_rows = conn.execute(
                 "SELECT status, COUNT(*) AS n FROM runs GROUP BY status"
             ).fetchall()
@@ -434,6 +467,7 @@ class ControllerStore:
         for w in workers:
             w["idle_s"] = round(now - float(w["last_seen"]), 1)
             w["online"] = w["idle_s"] <= stale_after
+            w["running"] = held.get(w["worker_id"], [])
         hosts: dict[str, dict[str, Any]] = {}
         for w in workers:
             if not w["online"]:
@@ -486,8 +520,10 @@ class ControllerStore:
 
 
 class ControllerServer:
-    def __init__(self, host: str, port: int, db_path: Path):
-        self.store = ControllerStore(db_path)
+    """The HTTP face of :class:`ControllerStore`, on loopback only."""
+
+    def __init__(self, port: int, db_path: Path, lease_s: float = LEASE_S):
+        self.store = ControllerStore(db_path, lease_s)
         store = self.store
 
         class Handler(BaseHTTPRequestHandler):
@@ -549,7 +585,7 @@ class ControllerServer:
                 except Exception as exc:
                     _json_response(self, 503, {"error": str(exc)})
 
-        self.httpd = ThreadingHTTPServer((host, port), Handler)
+        self.httpd = ThreadingHTTPServer(("127.0.0.1", port), Handler)
         self.port = self.httpd.server_address[1]
 
     def serve_in_background(self) -> threading.Thread:
@@ -635,8 +671,8 @@ class ControllerClient:
             payload["outputs"] = outputs
         self._request("POST", "/complete", payload)
 
-    def heartbeat(self, worker: dict[str, Any]) -> None:
-        self._request("POST", "/heartbeat", {"worker": worker})
+    def heartbeat(self, worker: dict[str, Any]) -> dict[str, Any]:
+        return self._request("POST", "/heartbeat", {"worker": worker})
 
     def cancel_run(self, run_id: str) -> dict[str, Any]:
         return self._request("POST", f"/runs/{run_id}/cancel", {})
@@ -687,7 +723,7 @@ def connect_controller(url: str) -> tuple[ControllerClient, int]:
     if online < 1:
         raise ControllerUnreachable(
             f"No workers connected to {url}. Start a pool with `tt-bio controller`, "
-            f"or join one with `tt-bio worker --connect {url}`.")
+            f"or start workers against it with `tt-bio worker --connect {url}`.")
     client.read_attempts = ControllerClient.READ_ATTEMPTS
     return client, online
 

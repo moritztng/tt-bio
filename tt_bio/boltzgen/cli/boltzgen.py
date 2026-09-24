@@ -419,10 +419,9 @@ def add_device_arguments(p: argparse.ArgumentParser) -> None:
         type=str,
         default=None,
         metavar="URL",
-        help="Distribute this run across a fleet: dispatch design shards to the "
-        "controller at URL (e.g. http://HOST:8765) whose workers run them on "
-        "their own cards, then merge + filter here. Mirrors `tt-bio predict "
-        "--controller`. Other machines join with `tt-bio worker --connect URL`.",
+        help="Dispatch design shards to the running `tt-bio controller` at URL "
+        "(e.g. http://127.0.0.1:8765), whose workers run them on their own "
+        "cards, then merge + filter here. Mirrors `tt-bio predict --controller`.",
     )
     p.add_argument(
         "--run-id", dest="run_id", type=str, default=None, metavar="ID",
@@ -859,18 +858,18 @@ def _merge_and_filter(args: argparse.Namespace, shard_dirs: list[Path], *, debug
 
 
 def _run_via_controller(args: argparse.Namespace, controller_url: str) -> None:
-    """Fan design shards across a fleet via the shared controller, then merge +
-    filter here — the multi-host twin of ``_run_distributed``.
+    """Fan design shards across a persistent controller's workers, then merge +
+    filter here — the controller twin of ``_run_distributed``.
 
     Each shard is a job carrying a slice of num_designs; any connected worker
-    (this machine and/or remote galaxies) leases one, runs a single-device
+    leases one, runs a single-device
     ``gen run`` on it, and ships its output dir back. We collect those into
     ``shards/`` and reuse the same global reduce as the local path.
     """
     import base64
     import json as _json
 
-    from tt_bio.distributed import connect_controller
+    from tt_bio.host_controller import connect_controller
     from tt_bio.main import _write_job_outputs
 
     debug = getattr(args, "debug", False)

@@ -22,7 +22,7 @@ import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from tt_bio.distributed import (  # noqa: E402
+from tt_bio.host_controller import (  # noqa: E402
     ControllerClient,
     ControllerUnreachable,
     connect_controller,
@@ -51,7 +51,7 @@ def urlopen(monkeypatch):
     Sleep is stubbed out: the backoff is 1+2+4+8 s and the point under test is the
     number of attempts, not the wall-clock.
     """
-    monkeypatch.setattr("tt_bio.distributed.time.sleep", lambda _s: None)
+    monkeypatch.setattr("tt_bio.host_controller.time.sleep", lambda _s: None)
 
     class Scripted:
         def __init__(self):
