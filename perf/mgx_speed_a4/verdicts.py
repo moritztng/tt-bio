@@ -4,8 +4,11 @@
 scripts/speed_bar.judge is called unchanged, with all three guards on. Per rung: runtime = median of
 its timed units (warm-ups are never timed), AICLK = median of the units' DURING medians, load = the
 worst 1-min loadavg/nproc any unit saw, identity = (host, chip, engine tree, host thread cap), one
-value per rung. When a rung has units under the load ceiling only those are judged. sigma = relative
-stdev of the timed units at 512. order = 3 for pair models (designers, affinity), 2 for the
+value per rung. When a rung has units under the load ceiling only those are judged. The fit takes the
+rungs in 512..1024 whose AICLK is within the bar's CLOCK_TOL of the judged rung's, and sigma is the
+relative stdev at the fit rung timed most often (512 unless a model's 512 is off-clock). That is
+mgx-speed's route (a) for nesso1, whose small rungs are host-bound at 500 MHz; where every rung
+reads one clock it changes nothing. order = 3 for pair models (designers, affinity), 2 for the
 sequence-only embedders, as the brief and docs/speed-bar.md set it.
 
 Throughput per rung is what a sponsor sizes against: designs/h/chip = 3600 / (s per design),
@@ -50,34 +53,37 @@ def model_verdicts(lines: list[dict]) -> dict:
             clk[n].append(c["aiclk"]["median"])
         load[n].append((c.get("load") or {}).get("max", float("inf")))
     rt = {n: statistics.median(v) for n, v in timed.items()}
-    s = timed.get(SIGMA_RUNG, [])
-    sigma = statistics.stdev(s) / statistics.mean(s) if len(s) > 1 else 0.0
+    aiclk = {n: statistics.median(v) for n, v in clk.items()}
     unit, rate = UNIT[family]
-    out = {"family": family, "order": ORDER[family], "sigma": round(sigma, 4), "sigma_reps": s,
-           "runtimes": rt, "aiclk": {n: statistics.median(v) for n, v in clk.items()},
+    out = {"family": family, "order": ORDER[family], "runtimes": rt, "aiclk": aiclk,
            "load_max": {n: max(v) for n, v in load.items()}, "coverage": failed,
            "throughput": {n: round(rate(t), 3) for n, t in rt.items()}, "throughput_unit": unit,
            "rungs": {}}
-    fit_rungs = sorted(n for n in rt if sb.FIT_LO <= n <= sb.FIT_HI)
     for n in sorted(r for r in {*rt, *failed} if r > sb.FIT_HI):
         if n in failed and n not in rt:
             out["rungs"][n] = {"verdict": "COVERAGE", "why": failed[n][:300]}
             continue
-        if len(s) < 2:
-            out["rungs"][n] = {"verdict": "VOID", "why": f"sigma rung {SIGMA_RUNG} has {len(s)} timed units, needs 2"}
+        if n not in aiclk:
+            out["rungs"][n] = {"verdict": "VOID", "why": "the rung has no DURING-sampled AICLK"}
             continue
+        fit_rungs = sorted(r for r in rt if sb.FIT_LO <= r <= sb.FIT_HI and r in aiclk
+                           and abs(aiclk[r] - aiclk[n]) / aiclk[n] <= sb.CLOCK_TOL)
+        sr = max(fit_rungs, key=lambda r: (len(timed[r]), r == SIGMA_RUNG), default=None)
+        s = timed[sr] if sr else []
+        if len(s) < 2:
+            out["rungs"][n] = {"verdict": "VOID", "why": "no clock-matched fit rung has 2 timed units"}
+            continue
+        sigma = statistics.stdev(s) / statistics.mean(s)
         rungs = [*fit_rungs, n]
         if any(len(ident[r]) != 1 for r in rungs):
             out["rungs"][n] = {"verdict": "VOID", "why": "units within one rung differ in identity"}
             continue
-        if any(r not in out["aiclk"] for r in rungs):
-            out["rungs"][n] = {"verdict": "VOID", "why": "a rung has no DURING-sampled AICLK"}
-            continue
         v = sb.judge({r: rt[r] for r in fit_rungs}, n, rt[n], order=ORDER[family], sigma=sigma,
-                     aiclk={r: out["aiclk"][r] for r in rungs},
+                     aiclk={r: aiclk[r] for r in rungs},
                      identity={r: next(iter(ident[r])) for r in rungs},
                      load={r: out["load_max"][r] for r in rungs})
-        out["rungs"][n] = {**v, "fit_rungs": fit_rungs, "runtime_s": rt[n], "aiclk": out["aiclk"][n],
+        out["rungs"][n] = {**v, "fit_rungs": fit_rungs, "sigma": round(sigma, 4), "sigma_rung": sr,
+                           "sigma_reps": s, "runtime_s": rt[n], "aiclk": aiclk[n],
                            "load": out["load_max"][n]}
     return out
 
@@ -94,7 +100,7 @@ def main(argv):
         for n, r in v["rungs"].items():
             table.append(f"{f.stem:16s} {n:5d} {r['verdict']:8s} "
                          + (f"t={r['runtime_s']:.4g} pred={r['predicted_s']} ratio={r['ratio']} "
-                            f"allowed={r['allowed']} k_fit={r['k_fit']} sigma={v['sigma']:.2%} "
+                            f"allowed={r['allowed']} k_fit={r['k_fit']} sigma={r['sigma']:.2%}@{r['sigma_rung']} "
                             f"clk={r['aiclk']} load={r['load']:.2f}" if "ratio" in r else r["why"]))
     print("\n".join(table))
 

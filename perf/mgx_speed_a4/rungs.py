@@ -123,6 +123,11 @@ def design_unit(model, rung, warm, card, work):
 
 def affinity_unit(model, rung, warm, card, work):
     fx = ROOT / f"perf/nesso1/inputs/ladder/aa{rung}/cdk2_{rung}.yaml"
+    if not fx.exists():  # rungs off the committed ladder: same CDK2 tiling, same ligand
+        sys.path.insert(0, str(ROOT / "perf/nesso1"))
+        import make_inputs as mi
+        fx = work / f"cdk2_{rung}.yaml"
+        fx.write_text(mi.yaml_for(mi.cdk2(rung), mi.LADDER_LIGAND))
     out_dir = work / f"out_{model}_{rung}{'_w' if warm else ''}"
     subprocess.run(["rm", "-rf", str(out_dir)])
     py = [sys.executable, "-m", "tt_bio.main"]
@@ -211,6 +216,8 @@ def main():
     ap.add_argument("model", choices=[*DESIGN, *AFFINITY, *EMBED])
     ap.add_argument("rungs")
     ap.add_argument("--out", default=str(HERE / "runs"))
+    ap.add_argument("--sigma_rung", type=int, default=SIGMA_RUNG,
+                    help="rung timed SIGMA_REPS times; nesso1 takes one inside its clock-matched fit")
     ap.add_argument("--work", default=str(pathlib.Path.home() / "mgx-speed-a4-work"))
     a = ap.parse_args()
     model, rungs = a.model, [int(x) for x in a.rungs.split(",")]
@@ -255,7 +262,7 @@ def main():
     quiet = lambda c: (c.get("load") or {}).get("max", DEFAULT_LOAD_CEILING + 1) <= DEFAULT_LOAD_CEILING
     for rung in rungs:
         mine = [c for c in done if c["rung"] == rung and not contended(c)]
-        reps = SIGMA_REPS if rung == SIGMA_RUNG else 1
+        reps = SIGMA_REPS if rung == a.sigma_rung else 1
         refused = 0
         while not any(c["tag"] == "warmup" for c in mine) and not any(map(failed, mine)) and refused < 6:
             w = unit(rung, "warmup")
