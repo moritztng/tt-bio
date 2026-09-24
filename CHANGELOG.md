@@ -53,8 +53,9 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
 - **Nesso-1 scores large targets with large ligands on Wormhole.** The trunk built a cross-chain
   attention bias it had no use for (its pair mask is separable), 10.9 GB at 1632 tokens, so a
   1536-residue target with sirolimus or cobalamin and any target from 1664 residues up ran out of
-  DRAM. The trunk now takes the plain masked path; a 2048-residue target with sirolimus (2113
-  tokens) scores on one chip. Predictions are byte-identical to before at every size that fitted,
+  DRAM. The trunk now takes the plain masked path, and with the triangle product's K block sized
+  to fit L1, a 3072-residue target scores on one chip with a small drug, sirolimus or cobalamin
+  (up to 3163 tokens); 4096 residues still runs out of L1. Predictions are byte-identical to before at every size that fitted,
   and the 1536-residue forward is 40% faster.
 
 - **Salt-form SMILES work again in Boltz-2 affinity.** Under RDKit 2026.03 every multi-fragment

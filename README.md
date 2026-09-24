@@ -492,8 +492,8 @@ Against a GPU it is 7.9x off an H200 at that size, so choose it for what the ans
 hardware rather than expecting it to beat a GPU.
 
 Use it to rank a series; use `predict --model boltz2` when you need the pose. Proteins and ligands
-only, one ligand scored per input. One Wormhole chip scores a 2048-residue target with a
-sirolimus-sized ligand. The trunk runs bf16 by default: it is about 6x faster than fp32
+only, one ligand scored per input. One Wormhole chip scores a 3072-residue target with any
+ligand up to cobalamin's size; 4096 residues runs out of on-chip memory. The trunk runs bf16 by default: it is about 6x faster than fp32
 and no less accurate from 276 tokens up, and fp32 runs out of DRAM around 1000 tokens. On inputs
 under ~150 tokens fp32 is the more faithful arm, and `--trunk fp32` switches back. See
 [`docs/nesso1.md`](docs/nesso1.md) for the input schema, the four upstream limits, and what to watch
