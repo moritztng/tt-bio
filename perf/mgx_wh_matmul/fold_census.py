@@ -15,7 +15,7 @@ same operands (the device's own bf16 / bfp8 values, so input quantisation is not
 
 Rows past MM_CENSUS_ROWS (4096) of a tall operand are not read (the K and N axes always are).
 
-wrong: |err| > 0.25 * (sqrt(sum_k a_k^2 b_k^2) + 16 output ulps of |ref|). The dot product's own
+wrong: |err| > 0.25 * (sqrt(sum_k a_k^2 b_k^2 + bias^2) + 16 output ulps of |ref|). The dot product's own
        scale: HiFi4's ordinary accumulation error is ~1e-3 of it and the -2^k misses are one to
        tens of times it, so the bar sits in the empty gap between them. `max_q` is the largest
        |err| / that scale seen per signature.
@@ -137,9 +137,13 @@ if os.environ.get("MM_CENSUS_DIR"):
                 O = O[..., :n, :, :] if O.dim() >= 3 else O
                 ref = torch.matmul(A, B)
                 bias = kw.get("bias")
+                scale2 = torch.matmul(A * A, B * B)
                 if bias is not None:
-                    ref = ref + ttnn.to_torch(bias).double().reshape(-1)[:ref.shape[-1]]
-                scale = torch.matmul(A * A, B * B).sqrt()
+                    # the bias is part of the output's own scale: an fp32 bias rounded on the way
+                    # in is not a matmul fault
+                    bh = ttnn.to_torch(bias).double().reshape(-1)[:ref.shape[-1]]
+                    ref, scale2 = ref + bh, scale2 + bh * bh
+                scale = scale2.sqrt()
                 e = O.reshape(ref.shape) - ref
                 q = e.abs() / (scale + 16 * _ulp(ref, str(o.dtype)))
                 w = q > 0.25
