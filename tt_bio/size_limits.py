@@ -512,13 +512,19 @@ CEILINGS: dict[str, dict[str, Ceiling]] = {
     },
     "protenix-v2": {
         "wormhole_b0": Ceiling(
-            residues=1792, pass_at=1792, fail_at=1920, binds=MEMORY,
-            mechanism=FRAGMENTATION, msa_rows=16384, ladder_ligand_atoms=0,
-            evidence="At 16384 rows, the depth the featurizer now reads, 1664 and 1792 fold on origin/main "
-                     "811ac1316, j10glx02 card 16, 2026-09-24, guard off, --host_threads 2: 1664 PASS "
-                     "in 3079.8 s, 1792 PASS in 3340.3 s (22 refused allocations recovered), AICLK "
-                     "median 1000 MHz during each fold, msa_depth 16384 in results.json, pLDDT 0.723 "
-                     "and 0.713, no CA-CA break. "
+            residues=1920, pass_at=1920, fail_at=None, binds=LADDER_TOP,
+            mechanism=NO_FAILURE, msa_rows=16384, ladder_ligand_atoms=0,
+            evidence="At 16384 rows, the depth the featurizer now reads, 1664, 1792 and 1920 fold on "
+                     "origin/main 811ac1316, j10glx02 card 16, 2026-09-24, guard off, --host_threads 2 "
+                     "(ws:mgx-ceilings, perf/mgxceil, msa_depth 16384 in results.json): 1664 PASS in "
+                     "3079.8 s, 1792 in 3340.3 s, 1920 in 7266.5 s, AICLK median 1000 MHz sampled "
+                     "during each fold (297, 322, 698 samples), pLDDT 0.723, 0.713, 0.713, no CA-CA "
+                     "break. 1920 recovers 45 refused allocations, the largest 8053063680 B, and its "
+                     "trunk joins pair blocks on host after a refusal, about 10 minutes per recycle. "
+                     "main 6ea518246 changes no protenix-v2 default path from 811ac1316 (trace regions "
+                     "are opt-in, the trimul block only narrows from 2560 tokens). Nothing above 1920 "
+                     "was walked. The 8192-row failure at 1920 below was an OPM refusal, and "
+                     "mgx-msa-depth (a239d22da) re-runs a refused OPM as host-tiled depth chunks. "
                      "1792 folds on origin/main a102dfb5c (mgx-bigalloc merged; the later "
                      "c5b346679 adds only ESMC/SaProt masks and perf/, neither reaches protenix-v2), "
                      "j10glx02 card 29, 2026-09-23, guard off, --host_threads 2, 8192 rows: PASS "
@@ -550,7 +556,7 @@ CEILINGS: dict[str, dict[str, Ceiling]] = {
                      "sampled DURING the fold, two DRAM refusals absorbed; 1280 and 1536 fold at "
                      "16384 too (1803 s, 2574 s, chip 2, 3f10800fd). Before the block-0 OPM "
                      "fallback the 1280-token 2ad6 fold at 14743 rows died on a 160 MiB OPM depth "
-                     "slice with a 10.0 MiB largest free block. The 1792 cap was then re-walked at 16384 (first sentence)",
+                     "slice with a 10.0 MiB largest free block. The cap was then re-walked at 16384 (first sentence)",
         ),
     },
     "rfd3": {
