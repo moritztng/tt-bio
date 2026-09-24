@@ -60,3 +60,12 @@
 #   ssh qb2 'cd ~/mgxacc-tools && ~/bgref-env/bin/python3 scrmsd.py ~/bgref-work/out1536_df \
 #            --json --model boltzgen --target gpb_dimer_1646 --target-res 1536 \
 #            --side upstream-design-upstream-refold'
+#
+# ============================================================================================
+# WITHDRAWN 2026-09-24 01:1xZ. Everything above is measured on the WRONG TARGET: the upstream
+# fixture ~/bgref-work/fx/bgt1536.cif is the disconnected rung this row disqualified (chains
+# A=1008 B=528, min inter-chain distance 162.40 A, centroid separation 250.81 A), not the
+# valid gpb_dimer_1646 crop the device ran (A=823 B=713). The 7.91/6.67 A readings are real
+# numbers against an easier problem and must not be set beside the device's 19.35 A.
+# See results/upstream_reference_wrong_fixture.txt. Joint 2 is OPEN.
+# ============================================================================================
