@@ -48,9 +48,10 @@ say so; do not keep 7.2 as a number of its own.
 
   REFUTED      interaction >= +7.2 A, or both size simple effects share a sign with both
                outside the repeatability band.
-               -> the 1GPB four-cell table is one target's personality. docs/design-throughput.md
-                  must then label its size table as measured on one target and drop the general
-                  form of the no-size-rule sentence.
+               -> the 1GPB four-cell table is one target's personality. The one-target LABEL is
+                  already in docs/design-throughput.md as of this pass, so the remaining edit in
+                  this branch is only to drop the general form of "there is no size rule to
+                  apply" and replace it with what GroEL showed. Do not re-add the label.
 
   INCONCLUSIVE |interaction| < 7.2 A.
                -> GroEL shows no demonstrable interaction. This is consistent with "no
