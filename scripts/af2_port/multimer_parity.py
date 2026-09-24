@@ -28,11 +28,45 @@ from pathlib import Path
 import numpy as np
 import torch
 
+from tt_bio import af2_reference
 from tt_bio.af2_data import ATOM_ORDER
 from tt_bio.af2_reference import load_af2_model
 from tt_bio.af2_weights import load_af2_state_dict
 
 DTYPES = {"float64": torch.float64, "float32": torch.float32, "bfloat16": torch.bfloat16}
+
+
+def alphafold_unit_vectors(positions: torch.Tensor,
+                           mask: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
+    """`backbone_unit_vectors` written the way AlphaFold writes it, in float32.
+
+    Same frame, same feature, one difference: AlphaFold reaches the local vector as
+    `R^T p + (-R^T t)` -- `Rigid3Array.inverse()` builds the inverse translation first and
+    `apply_to_point` adds it afterwards -- where `tt_bio` subtracts the two positions before
+    rotating. For i == j those are two ~30 A quantities cancelling in float32, so AlphaFold is
+    left with ~1e-6 of rounding where the exact answer is 0, and `Vec3Array.normalized` clips
+    the norm at 1e-6 instead of adding an epsilon, which scales that rounding up to O(1).
+
+    This exists to hold the claim to evidence rather than to assert it: with the reference's own
+    formulation the port has to reproduce the reference's diagonal too, and if the remaining
+    difference is really just this, it goes away.
+    """
+    positions = positions.float()
+    n, ca, c = (positions[:, ATOM_ORDER[a], :] for a in ("N", "CA", "C"))
+    mask = mask.float()
+    rigid_mask = mask[:, ATOM_ORDER["N"]] * mask[:, ATOM_ORDER["CA"]] * mask[:, ATOM_ORDER["C"]]
+
+    def unit(v):
+        return v / v.square().sum(-1, keepdim=True).clamp_min(1e-12).sqrt()
+
+    e0 = unit(c - ca)
+    v1 = n - ca
+    e1 = unit(v1 - (v1 * e0).sum(-1, keepdim=True) * e0)
+    e2 = torch.cross(e0, e1, dim=-1)
+    frame = torch.stack([e0, e1, e2], dim=-2)                       # [i, 3, 3], rows are axes
+    inverse_translation = -(frame * ca[:, None, :]).sum(-1)          # -R_i^T t_i
+    rotated = torch.einsum("iac,jc->ija", frame, ca)                 # R_i^T p_j
+    return unit(rotated + inverse_translation[:, None, :]), rigid_mask
 INTEGER_FEATURES = ("aatype", "residue_index", "asym_id", "entity_id", "sym_id", "extra_msa",
                     "template_aatype")
 
@@ -93,18 +127,34 @@ def main() -> None:
     ap.add_argument("--ref", required=True)
     ap.add_argument("--npz", required=True)
     ap.add_argument("--dtype", default="float64", choices=sorted(DTYPES))
+    ap.add_argument("--frames", default="exact", choices=["exact", "alphafold"],
+                    help="exact subtracts the two positions before rotating; alphafold "
+                         "reproduces the reference's own float32 formulation, including its "
+                         "cancellation on the diagonal")
+    ap.add_argument("--device", action="store_true",
+                    help="run the two block stacks on card (tt_bio.af2.AF2DeviceModel)")
     ap.add_argument("--json", help="write the per-tap table here")
     args = ap.parse_args()
 
     dtype = DTYPES[args.dtype]
+    if args.frames == "alphafold":
+        af2_reference.backbone_unit_vectors = alphafold_unit_vectors
     batch, taps, meta = load_reference(args.ref)
     assert not meta["bfloat16"], "the reference arm must be the float32 one"
     feats = to_feats(batch, dtype)
 
     state = load_af2_state_dict(args.npz, multimer=True)
-    model = load_af2_model(state, multimer=True, trunk_dtype=dtype,
-                           num_evoformer_blocks=meta["blocks"],
-                           num_extra_msa_blocks=meta["extra_blocks"])
+    if args.device:
+        # The card is bfloat16, so a float64 host arm would only be measuring the boundary.
+        assert dtype == torch.bfloat16, "--device runs the trunk in bfloat16; pass that dtype"
+        from tt_bio.af2 import load_af2_device_model
+        model = load_af2_device_model(state, multimer=True, trunk_dtype=dtype,
+                                      num_evoformer_blocks=meta["blocks"],
+                                      num_extra_msa_blocks=meta["extra_blocks"])
+    else:
+        model = load_af2_model(state, multimer=True, trunk_dtype=dtype,
+                               num_evoformer_blocks=meta["blocks"],
+                               num_extra_msa_blocks=meta["extra_blocks"])
     if dtype == torch.float64:
         model.double()
 
@@ -115,18 +165,39 @@ def main() -> None:
             captured.setdefault(tag, []).append(output)
         return hook
 
-    for index, block in enumerate(model.extra_msa):
-        block.register_forward_hook(capture(f"extra_msa_stack#{index}"))
-    for index, block in enumerate(model.evoformer):
-        block.register_forward_hook(capture(f"evoformer_iteration#{index}"))
-    for index, block in enumerate(model.template.pair_stack):
-        block.register_forward_hook(capture(f"template_embedding_iteration#{index}"))
-    model.template.register_forward_hook(capture("template_embedding#0"))
+    if args.device:
+        # On card the stacks are not torch modules, so the taps come off the block_tap hook the
+        # device model already offers, which is the same seam `tap_gate.py` uses.
+        order = {"extra_msa_stack": [], "evoformer_iteration": [], "template_pair_stack": []}
+
+        def block_tap(tag, payload):
+            order.setdefault(tag, []).append(payload)
+
+        model.block_tap = block_tap
+        model.template_cached = False
+    else:
+        for index, block in enumerate(model.extra_msa):
+            block.register_forward_hook(capture(f"extra_msa_stack#{index}"))
+        for index, block in enumerate(model.evoformer):
+            block.register_forward_hook(capture(f"evoformer_iteration#{index}"))
+        for index, block in enumerate(model.template.pair_stack):
+            block.register_forward_hook(capture(f"template_embedding_iteration#{index}"))
+        model.template.register_forward_hook(capture("template_embedding#0"))
 
     prev = {"prev_pos": feats["prev_pos"], "prev_pair": feats["prev_pair"],
             "prev_msa_first_row": feats["prev_msa_first_row"]}
     with torch.no_grad():
         out = model(feats, prev)
+
+    if args.device:
+        for index, payload in enumerate(order["extra_msa_stack"]):
+            captured[f"extra_msa_stack#{index}"] = [(payload["msa"], payload["pair"])]
+        for index, payload in enumerate(order["evoformer_iteration"]):
+            captured[f"evoformer_iteration#{index}"] = [(payload["msa"], payload["pair"])]
+        for index, payload in enumerate(order["template_pair_stack"][-1:]):
+            # The device template stack emits one tap for the whole two-block stack.
+            captured["template_embedding_iteration#1"] = [payload["out"]]
+        captured.setdefault("template_embedding#0", [out["pair"] * 0])
 
     rows = []
     for index in range(meta["extra_blocks"]):
@@ -137,11 +208,12 @@ def main() -> None:
         msa, pair = captured[tag][0]
         rows.append(report(f"{tag}/msa", msa, taps[f"{tag}/msa"]))
         rows.append(report(f"{tag}/pair", pair, taps[f"{tag}/pair"]))
-    for index in range(2):
+    for index in (range(1, 2) if args.device else range(2)):
         tag = f"template_embedding_iteration#{index}"
         rows.append(report(f"{tag}/act", captured[tag][0], taps[f"{tag}/out"]))
-    rows.append(report("template_embedding/out", captured["template_embedding#0"][0],
-                       taps["template_embedding#0/out"]))
+    if not args.device:
+        rows.append(report("template_embedding/out", captured["template_embedding#0"][0],
+                           taps["template_embedding#0/out"]))
     for key in ("single", "pair", "msa", "msa_first_row"):
         rows.append(report(f"trunk/{key}", out[key], taps[f"out/{key}"]))
 
@@ -160,7 +232,8 @@ def main() -> None:
     if args.json:
         Path(args.json).parent.mkdir(parents=True, exist_ok=True)
         Path(args.json).write_text(json.dumps(
-            {"dtype": args.dtype, "reference": Path(args.ref).name, "meta": meta, "taps": rows},
+            {"dtype": args.dtype, "frames": args.frames, "reference": Path(args.ref).name,
+             "meta": meta, "taps": rows},
             indent=1) + "\n")
         print(f"wrote {args.json}")
 

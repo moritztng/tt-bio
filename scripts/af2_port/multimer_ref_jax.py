@@ -27,12 +27,18 @@ from pathlib import Path
 
 import numpy as np
 
+from tt_bio._vendor.esm.utils import residue_constants as _rc
+
 OUT: dict = {}
 COUNTS: dict = {}
 
 
+#: float64 on the x64 arm, so the reference is not stored through a float32 round trip.
+STORE_DTYPE = [np.float32]
+
+
 def _store(key: str, arr) -> None:
-    OUT[key] = np.asarray(arr, dtype=np.float32)
+    OUT[key] = np.asarray(arr, dtype=STORE_DTYPE[0])
 
 
 def _emit(jax, tag: str, payload: dict) -> None:
@@ -93,7 +99,28 @@ def _install_taps(jax) -> None:
     wrap(modules_multimer.EmbeddingsAndEvoformer, lambda m: "trunk")
 
 
-def build_fixture(num_res: int, chain_lengths, num_templates: int, seed: int) -> dict:
+class _Float64Numpy:
+    """`jnp` with `float32` reading as `float64`, for the x64 reference arm.
+
+    AlphaFold picks its activation dtype as `bfloat16 if gc.bfloat16 else jnp.float32` and its
+    LayerNorm upcasts with `astype(jnp.float32)`, so under `jax_enable_x64` the trunk would
+    still narrow to float32 at every one of those sites and the "float64 reference" would be a
+    float32 one wearing a wider container. Rebinding the name in the three modules that make
+    those choices is the smallest change that makes the arm honest; it touches the external JAX
+    environment only, never tt_bio.
+    """
+
+    def __init__(self, jnp):
+        self._jnp = jnp
+
+    def __getattr__(self, name):
+        if name == "float32":
+            return self._jnp.float64
+        return getattr(self._jnp, name)
+
+
+def build_fixture(num_res: int, chain_lengths, num_templates: int, seed: int,
+                  translate: float = 0.0) -> dict:
     """A two-chain fixture with a helical backbone. Every array is what the trunk reads."""
     rng = np.random.default_rng(seed)
     assert sum(chain_lengths) == num_res
@@ -124,14 +151,32 @@ def build_fixture(num_res: int, chain_lengths, num_templates: int, seed: int) ->
     for index, coords in ((0, n), (1, ca), (2, c), (3, o), (4, cb)):
         positions[:, index] = coords
         mask[:, index] = 1.0
-    # The five chi atoms an arginine needs, so the template's chi angles are not all masked.
-    for index in (5, 6, 11, 17, 24):
+    # Every remaining atom37 slot, so chi 1 is defined whatever residue is drawn: the
+    # side-chain gamma atom sits at a different index for serine, threonine and cysteine than
+    # for arginine, and a template row with no chi 1 is masked out of the MSA.
+    for index in range(5, 37):
         positions[:, index] = ca + rng.normal(0, 1.4, (num_res, 3))
         mask[:, index] = 1.0
 
-    aatype = rng.integers(0, 20, num_res).astype(np.int32)
+    # Alanine and glycine have no chi 1, so a template row of either makes multimer_v3's
+    # template MSA mask row zero there. The device stack asserts an unmasked MSA
+    # (`tt_bio.af2.AF2DeviceModel.evoformer_stack`), so drawing them would make the fixture
+    # untestable on card for a reason that has nothing to do with the multimer delta. The mask
+    # itself is a real build item and it is costed as one; this keeps it out of the fixture.
+    CHI1 = np.array([r for r in range(20) if r not in (_rc.restype_order["A"],
+                                                       _rc.restype_order["G"])])
+    aatype = CHI1[rng.integers(0, len(CHI1), num_res)].astype(np.int32)
     template_positions = np.repeat(positions[None], num_templates, 0)
     template_positions += rng.normal(0, 0.15, template_positions.shape).astype(np.float32)
+
+    # Every feature AF2 reads off coordinates is relative, so a rigid translation must not move
+    # the trunk's output. It does move the float32 cancellation in the template unit vectors,
+    # which is the whole point of the knob: the residual that survives it scales with the
+    # offset, and a residual that scales with an offset the model is invariant to is the
+    # reference's rounding, not a difference between the two implementations.
+    if translate:
+        positions = positions + np.float32(translate)
+        template_positions = template_positions + np.float32(translate)
 
     return {
         "aatype": aatype,
@@ -170,9 +215,21 @@ def main() -> None:
     ap.add_argument("--blocks", type=int, default=48)
     ap.add_argument("--extra-blocks", type=int, default=4)
     ap.add_argument("--seed", type=int, default=7)
+    ap.add_argument("--translate", type=float, default=0.0,
+                    help="rigidly translate every coordinate by this many Angstrom")
     ap.add_argument("--float32", action="store_true",
                     help="run with global_config.bfloat16 off (the transform question)")
+    ap.add_argument("--float64", action="store_true",
+                    help="float64 throughout: implies --float32 and enables jax x64. This is "
+                         "the arm the port is scored against, because float32 is itself an "
+                         "approximation and one of its roundings is amplified to O(1) by the "
+                         "1e-6 norm clip on the template unit vectors.")
     args = ap.parse_args()
+
+    if args.float64:
+        args.float32 = True
+        import jax as _jax
+        _jax.config.update("jax_enable_x64", True)
 
     import haiku as hk
     import jax
@@ -180,6 +237,8 @@ def main() -> None:
     from colabdesign.af.alphafold.model import config as af_config
     from colabdesign.af.alphafold.model import modules_multimer, prng, utils
 
+    if args.float64:
+        STORE_DTYPE[0] = np.float64
     _install_taps(jax)
 
     cfg = af_config.CONFIG_MULTIMER.model.embeddings_and_evoformer
@@ -197,29 +256,40 @@ def main() -> None:
         if not scope.startswith(prefix + "evoformer"):
             continue
         scope = scope[len(prefix):]
-        params.setdefault(scope, {})[name] = jnp.asarray(array)
+        params.setdefault(scope, {})[name] = jnp.asarray(
+            array, dtype=jnp.float64 if args.float64 else jnp.float32)
 
     batch = build_fixture(args.num_res, [int(x) for x in args.chains.split(",")],
-                          args.templates, args.seed)
+                          args.templates, args.seed, args.translate)
 
     def forward(batch):
         return modules_multimer.EmbeddingsAndEvoformer(cfg, gc, name="evoformer")(
             batch, safe_key=prng.SafeKey(jax.random.PRNGKey(0)))
 
     model = hk.transform(forward)
-    out = jax.jit(model.apply)(params, jax.random.PRNGKey(0),
-                               {k: jnp.asarray(v) for k, v in batch.items()})
+    if args.float64:
+        from colabdesign.af.alphafold.model import common_modules, modules, modules_multimer
+        wide = _Float64Numpy(jnp)
+        for module in (common_modules, modules, modules_multimer):
+            module.jnp = wide
+
+    float_dtype = jnp.float64 if args.float64 else jnp.float32
+    inputs = {k: jnp.asarray(v, dtype=float_dtype if np.asarray(v).dtype.kind == "f" else None)
+              for k, v in batch.items()}
+    out = jax.jit(model.apply)(params, jax.random.PRNGKey(0), inputs)
     out = jax.tree_util.tree_map(np.asarray, out)
 
     for key, value in batch.items():
         OUT[f"batch/{key}"] = np.asarray(value, dtype=np.float32)
+    # The fixture is built in float32 and is exact in both arms; only the taps need the width.
     for key, value in out.items():
         _store(f"out/{key}", value)
     OUT["_meta/json"] = np.frombuffer(json.dumps({
         "npz": Path(args.npz).name, "num_res": args.num_res, "chains": args.chains,
-        "templates": args.templates, "blocks": args.blocks,
+        "templates": args.templates, "blocks": args.blocks, "translate": args.translate,
         "extra_blocks": args.extra_blocks, "seed": args.seed,
-        "bfloat16": bool(gc.bfloat16), "jax_version": jax.__version__,
+        "bfloat16": bool(gc.bfloat16), "float64": bool(args.float64),
+        "jax_version": jax.__version__,
         "counts": COUNTS,
     }, sort_keys=True).encode(), dtype=np.uint8)
 
