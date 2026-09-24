@@ -421,6 +421,38 @@ calls in both arms (`perf/ttx_b3/fold_ab_b2_512_c1.json`, `fold_ab_px2_512_c0.js
 
 `TT_BIO_PAIR_FFN_L1_FC1=0` restores the DRAM output and the same coordinates.
 
+## `TT_BIO_PAIR_INPLACE`, `TT_BIO_TRIMUL_INPROJ_ROWBLOCK_NORM` — both on
+
+The pair operations process a big pair tensor in row blocks and then join the blocks into the
+result. When the pair tensor is more than an eighth of the card's DRAM (1.5 GiB on a 12 GiB
+Wormhole chip) that join ran on the host, because the result is a second pair-sized tensor and the
+card cannot hold two. At OpenDDE's 1536-residue refiner the pair tensor is 6.95 GB (2987
+structural tokens padded to 3008, 384 channels), and every pair operation sent it to the host and
+back, the triangle multiplication six times. Over PCIe that was about 950 of the 1201 seconds the
+refiner took.
+
+Every block of these operations reads only its own rows of the pair tensor. So `TT_BIO_PAIR_INPLACE`
+writes each finished block of triangle attention, the pair transition and the triangle
+multiplication's output back into the pair tensor on the card. `TT_BIO_TRIMUL_INPROJ_ROWBLOCK_NORM`
+does the same for the triangle multiplication's input projection above 3 GiB: each row block
+normalises its own rows and is gated straight into the two operands, so the projection is never
+joined anywhere. What still goes to the host is the triangle multiplication's hidden tensor, once
+down and once up, because the pair tensor and a 384-channel hidden tensor together do not fit in 12
+GiB.
+
+**Accuracy: bit-exact.** Layer norm, the projections and the gates are all row-local, so the blocks
+compute exactly what the join did. The refiner's output digests at 1536 residues are identical with
+both flags on and both off.
+
+**Speed: the refiner's first two blocks at 1536 residues go from 649.6 s to 232.5 s** (two host
+threads, 1000 MHz). The triangle multiplication drops from about 110 s to 24 s per call, triangle
+attention from 22 s to 6 s, the transition from 17 s to 2 s.
+
+**Reach:** sizes only. Anything whose pair tensor stays under the threshold runs the same
+operations as before. On a 12 GiB chip that is OpenDDE and OpenDDE-AbAg above about 760 residues
+(the input-projection change above about 1080). Models with a 128-channel pair track cross it only
+past about 2500 tokens. `0` on either flag restores the host join for that part.
+
 ## `TT_BIO_PWA_BATCH_HEAD_WEIGHTS` — on
 
 The MSA track weights each row of the alignment by a softmax over the token axis, one softmax per
