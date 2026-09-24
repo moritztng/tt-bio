@@ -132,6 +132,8 @@ def main():
                            "aiclk": clock.window([(t0, t_now)]), "load1": load0,
                            "span": (t0, t_now), "calls": dict(evo.calls)})
             print(json.dumps(rounds[-1]), flush=True)
+            if len(rounds) >= 3 and rounds[-1]["calls"]["backward"] == rounds[-2]["calls"]["backward"]:
+                raise RuntimeError("a timed round ran no device backward: the trunk is not the card's")
 
     real_sg = T.TTBioAlphaFoldDesignModel.sequence_gradients
 
@@ -161,8 +163,11 @@ def main():
             "mode": "interleave" if args.interleave else args.arm}
     t0 = time.time()
     try:
-        campaign.run_campaign(settings, project, af2_weights=args.params, mpnn_weights=mpnn,
-                              max_trajectories=1)
+        # The same install run_arm.py does: without it BindCraft 2 runs its own JAX Evoformer
+        # on the host and neither arm touches the card.
+        with evoformer_on_device(evo):
+            campaign.run_campaign(settings, project, af2_weights=args.params,
+                                  mpnn_weights=mpnn, max_trajectories=1)
     except _Enough:
         print(f"collected {len(rounds)} rounds", flush=True)
     blob["wall_s"] = round(time.time() - t0, 1)
