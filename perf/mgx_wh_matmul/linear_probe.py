@@ -65,7 +65,7 @@ for shp in a.shapes.split(","):
             print(json.dumps(r), flush=True)
         ttnn.deallocate(ta)
         ttnn.deallocate(tb)
-print("DEST_CARRY_STATS", T.DEST_CARRY_STATS, flush=True)
+print("DEST_CARRY_STATS", getattr(T, "DEST_CARRY_STATS", None), flush=True)
 if a.out:
-    Path(a.out).write_text(json.dumps({"arch": str(dev.arch()), "guard": T.DEST_CARRY_STATS, "rows": rows},
+    Path(a.out).write_text(json.dumps({"arch": str(dev.arch()), "guard": getattr(T, "DEST_CARRY_STATS", None), "rows": rows},
                                       indent=1) + "\n")

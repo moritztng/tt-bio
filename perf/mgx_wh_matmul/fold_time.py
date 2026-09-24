@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Time one tt-bio CLI run: wall, AICLK and host load sampled DURING it, one JSON line out.
 
-    python3 perf/mgx_wh_matmul/fold_time.py --label boltz2-g1 --env TT_BIO_DEST_CARRY_GUARD=1 \
+    python3 perf/mgx_wh_matmul/fold_time.py --label boltz2 --env TT_BIO_SIZE_LIMIT=0 \
         --out times.jsonl -- predict fixture.yaml --model boltz2 --out_dir out/ ...
 
 Everything after `--` goes to `python -m tt_bio.main`. The wall is the whole subprocess (load,

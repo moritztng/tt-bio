@@ -59,8 +59,7 @@ if os.environ.get("MM_CENSUS_DIR"):
 
     def _site():
         for fr in reversed(traceback.extract_stack()[:-2]):
-            # skip the dest-carry guard's own wrapper frame, which sits between the caller and us
-            if "/tt_bio/" in fr.filename and not (fr.name == "call" and fr.filename.endswith("tenstorrent.py")):
+            if "/tt_bio/" in fr.filename:
                 return f"{fr.filename.split('/tt_bio/')[-1]}:{fr.lineno}:{fr.name}"
         return "?"
 
@@ -71,9 +70,6 @@ if os.environ.get("MM_CENSUS_DIR"):
         return torch.pow(2.0, e - (bits - 1))
 
     def _dump():
-        t = sys.modules.get("tt_bio.tenstorrent")
-        if t is not None and hasattr(t, "DEST_CARRY_STATS"):
-            _rows["__guard__"] = dict(t.DEST_CARRY_STATS)
         p = os.path.join(os.environ["MM_CENSUS_DIR"], f"{os.getpid()}.json")
         with open(p + ".tmp", "w") as f:
             json.dump(_rows, f)
@@ -225,13 +221,12 @@ def main():
                     m[k] = (max(m.get(k, 0), v) if k == "max_q" else m.get(k, 0) + v) if isinstance(v, (int, float)) \
                         else (m.get(k) or v)
     err = merged.pop("error", None)
-    guard = merged.pop("__guard__", None)
     rows = [dict(zip(FIELDS, json.loads(k)), **r) for k, r in merged.items()]
     rows.sort(key=lambda r: (-r["wrong"], r["site"]))
     tot = {k: sum(r.get(k, 0) for r in rows) for k in ("calls", "scored", "elems", "wrong", "gross", "capture")}
     with open(a.out, "a") as f:
-        f.write(json.dumps({"label": a.label, "cli": cli, "env": a.env, "rc": rc, **tot, "error": err, "guard": guard, "rows": rows}) + "\n")
-    print(f"{a.label}: rc={rc} {tot} error={err} guard={guard}")
+        f.write(json.dumps({"label": a.label, "cli": cli, "env": a.env, "rc": rc, **tot, "error": err, "rows": rows}) + "\n")
+    print(f"{a.label}: rc={rc} {tot} error={err}")
     for r in rows[:40]:
         print("  ", {k: r.get(k) for k in ("site", "M", "K", "N", "batch", "in0_block_w", "core_grid",
                                             "calls", "scored", "elems", "wrong", "gross", "max_q", "capture")},
