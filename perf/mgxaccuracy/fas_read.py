@@ -96,6 +96,85 @@ def selfcheck(paths) -> int:
     return bad
 
 
+def _bar_class(v):
+    """(median, count under the permissive bar) for one cell."""
+    return st.median(v), sum(x <= PERMISSIVE for x in v)
+
+
+def dip(cells) -> int:
+    """plans/fas_dip.txt, clause bodies verbatim. Two independent questions, reported
+    separately: (A) does the verdict cell replicate on a second window, and (B) is the 1024 dip
+    a trough, a slope, or wide.
+
+    Clause A CANNOT retract the recorded verdict of plans/chain_vs_residues.txt. A verdict is
+    not retracted by a cell run after it under a rule written after it; the worst A can say is
+    that the clause fired and its cell does not replicate.
+    """
+    rc = 1
+    print("plans/fas_dip.txt\n")
+    print("  size  offset   n   median     range              <=2A    <=4A")
+    for key in ((512, 0), (1024, 0), (1536, 0), (1536, 426), (1280, 0), (1280, 682)):
+        d = cells.get(key)
+        if d is None:
+            print(f"  {key[0]:>4}  {key[1]:>6}   -   MISSING")
+            continue
+        v = d["scrmsd"]
+        print(f"  {key[0]:>4}  {key[1]:>6}  {len(v):>2}  {st.median(v):>7.3f}   {min(v):6.3f}-"
+              f"{max(v):6.3f}    {frac(v, STRICT):5.1f}%  {frac(v, PERMISSIVE):5.1f}%")
+
+    # A: the verdict's second window.
+    print("\n--- A. the verdict cell's second window (72% overlap, the most this chain allows) ---")
+    if (1536, 426) in cells and (1536, 0) in cells:
+        hi, ref = cells[(1536, 426)]["scrmsd"], cells[(1536, 0)]["scrmsd"]
+        contrast(hi, ref, "1536/0 -> 1536/426")
+        contrast(hi, cells[(512, 0)]["scrmsd"], " 512/0 -> 1536/426")
+        _, f4 = _bar_class(hi)
+        v = ("VERDICT HOLDS" if f4 >= 4 else
+             "VERDICT SHAKEN" if f4 <= 1 else "INTERMEDIATE")
+        note = {"VERDICT HOLDS": "both 1536 windows return usable designs where every "
+                                 "multi-chain 1536 cell returned none",
+                "VERDICT SHAKEN": "the two 1536 windows disagree despite sharing 72% of their "
+                                  "residues; report the clause as resting on one window, and do "
+                                  "NOT report it as not having fired",
+                "INTERMEDIATE": "report both windows and claim neither"}[v]
+        print(f"  1536/off426: {f4} of {len(hi)} under {PERMISSIVE} A (1536/off0 was 4 of 8)"
+              f"  ->  {v}\n     {note}")
+        rc = 0
+    else:
+        print("  not readable: needs 1536/off426 and 1536/off0")
+
+    # B: the dip.
+    print("\n--- B. the 1024 dip: trough, slope, or wide ---")
+    if (1280, 0) in cells and (1280, 682) in cells:
+        f = []
+        for off in (0, 682):
+            v = cells[(1280, off)]["scrmsd"]
+            m, c = _bar_class(v)
+            print(f"  1280/off{off:<4} median {m:7.3f} A, {c} of {len(v)} under {PERMISSIVE} A")
+            f.append(c)
+        cls = [("TROUGH" if c >= 4 else "DOWN" if c <= 1 else "MID") for c in f]
+        if cls[0] != cls[1]:
+            v = "NO CALL"
+            note = ("the two 1280 windows disagree by more than one clause, so the window "
+                    "dominates the size at this extent — which is itself the answer to "
+                    "'is the dip a window artefact'")
+        elif cls[0] == "TROUGH":
+            v = "TROUGH AT 1024"
+            note = "recovery is complete by 1280; 1024 is an isolated trough, not a slope"
+        elif cls[0] == "MID":
+            v = "GRADUAL RECOVERY"
+            note = "quality climbs back across 1024 -> 1536 rather than stepping"
+        else:
+            v = "STILL DOWN AT 1280"
+            note = "the dip is wide; the recovery happens between 1280 and 1536"
+        print(f"  ->  {v}\n     {note}")
+        rc = 0
+    else:
+        print("  not readable: needs BOTH 1280 cells; one window cannot say whether the dip "
+              "is a window artefact")
+    return rc
+
+
 def replication(cells) -> int:
     """plans/fas_offset900.txt, clause bodies verbatim, on the offset-900 1024 cell.
 
@@ -142,6 +221,9 @@ def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("jsonl", nargs="+")
     ap.add_argument("--offset", type=int, default=0)
+    ap.add_argument("--dip", action="store_true",
+                    help="apply plans/fas_dip.txt: the verdict's second window and the two "
+                         "1280 cells, and stop")
     ap.add_argument("--replication", action="store_true",
                     help="apply plans/fas_offset900.txt to the offset-900 1024 cell and stop")
     ap.add_argument("--selfcheck", action="store_true")
@@ -153,6 +235,8 @@ def main() -> int:
     for key, why in refused:
         print(f"  refused {key}: {why}")
 
+    if a.dip:
+        return dip(cells)
     if a.replication:
         return replication(cells)
     print(f"target {TARGET}   engine {ENGINE}   metric designfolding-bb_rmsd   "
