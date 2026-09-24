@@ -30,3 +30,46 @@ sequence to an inverse-folding step the design command never runs — but comple
 (rc 0, 387.8 s and 1478.0 s, AICLK 1000) and labels sizes by TOTAL residues, so it never shares
 a column with boltzgen (`results/rfd3_has_no_designability.txt`).
 
+
+THE FULL CATCHER LEDGER, moved out of the state doc
+====================================================
+
+## CATCHER
+
+**THE d8f17563c CATCHER IS DISCHARGED AND BOTH LEGS PASS**
+(`results/catcher_owed_d8f17563c.txt`), run 21:19-21:31Z from `~/wt-mgx-catcher` on the card
+the FAS 768 rung released:
+
+    d8f17563c    pxdesign    0    0    225.9   1000  fit_rmsd 0.1446 / 0.158
+    d8f17563c    boltzgen    0    0    490.7   1000  scRMSD   7.120 / 9.723
+
+pxdesign unmoved to four decimals for the SIXTH consecutive merge point; boltzgen inside the
+banked n=8 band 0.693-12.925. So the six autograd/tape commits are inert for both designers,
+as the `ops.taping()` gating predicted — a prediction written down in
+`plans/catcher_d8f17563c.txt` BEFORE the jobs ran, which is why the jobs ran anyway. rfd3 was
+not owed: the commits touch neither its design path nor the trace code.
+
+Every catcher handed to this row BEFORE that one is discharged and every one PASSES
+(`results/catcher_ws.jsonl`):
+
+    merge        model     card  rc   wall_s  AICLK  metric
+    cc908c377    boltzgen   21    0    632.6   1000  scRMSD   2.37 / 11.35 A
+    720b43a5d    boltzgen    5    0   2082.7   1000  scRMSD   median 4.749, n=8
+    1f338604e    boltzgen   31    0    576.5   1000  scRMSD   12.117 / 13.912
+    811ac1316    boltzgen    2    0    543.0   1000  scRMSD   2.131 / 0.552
+    6ea518246    boltzgen    5    0    492.0   1000  scRMSD   8.786 / 7.735
+    6ea518246    rfd3       29    0     45.1   1000  digest   7ab5705258251e10 MATCHES
+    428670d60    pxdesign    0    0    222.4   1000  fit_rmsd 0.1446 / 0.158
+    428670d60    boltzgen    2    0    486.0   1000  scRMSD   9.632 / 7.270
+    428670d60    rfd3        3    0     16.2    500  digest   7ab5705258251e10 MATCHES
+
+Two reading rules that keep applying. rfd3's AICLK median 500 over n=3 is a 16.2 s run failing
+to fill a sampling window, fine for a hash check and not for a timing claim, which is why this
+row reads its digest and not its wall. And boltzgen n=2 is pure sampling — consecutive catchers
+drew 12.117/13.912, 2.131/0.552, 8.786/7.735, 9.632/7.270 from one distribution — so only the
+exit code and an excursion outside the banked band 0.693-12.925 are readable.
+
+Nothing between 428670d60 and f374c883e owed one: that stretch was af2ig rows plus a
+`tt_bio.distributed` -> `tt_bio.host_controller` rename, with every trigger-list file untouched
+(`results/catcher_not_owed_f374c883e.txt`).
+
