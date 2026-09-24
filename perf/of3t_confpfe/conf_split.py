@@ -115,7 +115,39 @@ def main() -> int:
         rec["head"][k] = rel(dv, real(at_dev[k], n, p))
         rec["carried"][k] = rel(real(at_dev[k], n, p), real(at_f64[k], n, p))
         rec["total"][k] = rel(dv, real(at_f64[k], n, p))
+    # Where in the head: upstream's float64 s-heads applied to the DEVICE's own si_conf. Against
+    # the device logits this is the heads' final LayerNorm + Linear; against float64 at the
+    # device inputs it is what si_conf's error alone carries into the logits.
+    ah = model.aux_heads
+    si_dev = dev_out["si_conf"].to(dt).reshape(-1, dev_out["si_conf"].shape[-1])[:W][None]
+    rec["post"] = {}
+    with torch.no_grad():
+        for k, head in (("resolved_logits", ah.experimentally_resolved), ("plddt_logits", ah.plddt)):
+            lg = head.linear(head.layer_norm(si_dev))
+            dv = real(dev_out[DEV_KEYS.get(k, k)].to(dt), n, False)
+            rec["post"][k] = {"final_ln_linear": rel(dv, real(lg, n, False)),
+                              "si_conf_carries": rel(real(lg, n, False), real(at_dev[k], n, False))}
+        ln_dev = ah.experimentally_resolved.layer_norm(si_dev)
+        ln_ref = ah.experimentally_resolved.layer_norm(at_dev["si_conf"])
+        rec["post"]["si_conf_after_layernorm"] = rel(real(ln_dev, n, False), real(ln_ref, n, False))
+        sr, sd_ = real(at_dev["si_conf"], n, False), real(si_dev, n, False)
+        rec["post"]["si_conf_centred"] = rel(sd_ - sd_.mean(-1, keepdim=True),
+                                             sr - sr.mean(-1, keepdim=True))
+        rec["post"]["si_conf_row_mean_over_std"] = float((sr.mean(-1).abs() / sr.std(-1)).median())
+    # The atom-slot heads on the slots that exist. Our layout carries 23 slots per token and the
+    # loss weights them by the atom mask; upstream gathers exactly these (max_atom_per_token_mask).
+    napt = batch["num_atoms_per_token"].reshape(-1)[:n].long()
+    slot = (torch.arange(23)[None, :] < napt[:, None])            # [n, 23]
+    rec["existing_atoms"] = {"n_slots": int(slot.sum())}
+    for k, c in (("resolved_logits", 2), ("plddt_logits", 50)):
+        dv = real(dev_out[DEV_KEYS.get(k, k)].to(dt), n, False).reshape(n, 23, c)[slot]
+        rf = real(at_dev[k], n, False).reshape(n, 23, c)[slot]
+        f6 = real(at_f64[k], n, False).reshape(n, 23, c)[slot]
+        rec["existing_atoms"][k] = {"head": rel(dv, rf), "total": rel(dv, f6)}
     json.dump(rec, open(a.out, "w"), indent=1)
+    print("existing_atoms", rec["existing_atoms"])
+    for k, v in rec["post"].items():
+        print("post", k, v)
     for part in ("inputs", "head", "carried", "total"):
         for k, v in rec[part].items():
             print(f"{part:8s} {k:16s} rel {v['rel']:.4e} cos {v['cos']:.6f} r {v['norm_ratio']:.4f}")
