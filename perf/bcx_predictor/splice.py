@@ -18,11 +18,14 @@ under an all-zero `extra_msa_mask` (`bindcraft/af2.py:134`), which is exactly wh
 extra-MSA blocks bake into `opm_constant`, so it is a legal swap -- just not made yet.
 """
 import contextlib
+import os
 
 import jax
 import jax.numpy as jnp
 import numpy as np
 import torch
+
+_NANLOG_ON = bool(os.environ.get("BCX_NANLOG"))
 
 
 BUCKET = 32
@@ -51,6 +54,21 @@ def _pad_inputs(m, z, mask):
     z = torch.nn.functional.pad(z, (0, 0, 0, pad, 0, pad))
     mask = torch.nn.functional.pad(mask, (0, pad))
     return m, z, mask, n, n32
+
+
+#: Per-call finiteness at the seam, filled only when BCX_NANLOG is set. The gradient goes
+#: non-finite mid-trajectory (trace_exit.json) and this says which SIDE it is born on: a
+#: cotangent that arrives NaN is BindCraft 2's tail, one that leaves NaN is our backward.
+NANLOG: list = []
+
+
+def _nan(a):
+    a = np.asarray(a, dtype=np.float64)
+    if a.size == 0 or np.isfinite(a).all():
+        return None
+    return {"nan": int(np.isnan(a).sum()), "inf": int(np.isinf(a).sum()),
+            "size": int(a.size), "absmax_finite": float(
+                np.abs(a[np.isfinite(a)]).max()) if np.isfinite(a).any() else None}
 
 
 _LIVE: dict[int, dict] = {}
@@ -120,6 +138,11 @@ class EvoformerOnDevice:
         _LIVE[token] = {"roots": [mo, zo], "leaves": [ml, zl],
                         "shapes": [tuple(m.shape), tuple(z.shape)], "n": n}
         self.calls["taped"] += 1
+        if _NANLOG_ON:
+            NANLOG.append({"op": "taped", "call": self.calls["taped"],
+                           "in_msa": _nan(msa_np), "in_pair": _nan(pair_np),
+                           "out_msa": _nan(dev.down(mo.value, tuple(m.shape)).numpy()),
+                           "out_pair": _nan(dev.down(zo.value, tuple(z.shape)).numpy())})
         return (dev.down(mo.value, tuple(m.shape))[:, :n].numpy(),
                 dev.down(zo.value, tuple(z.shape))[:n, :n].numpy(), np.int32(token))
 
@@ -140,6 +163,11 @@ class EvoformerOnDevice:
         out = (dev.grad(ml, m_shape)[:, :n].numpy(), dev.grad(zl, z_shape)[:n, :n].numpy())
         dev.ag.release_pins()
         self.calls["backward"] += 1
+        if _NANLOG_ON:
+            NANLOG.append({"op": "backward", "call": self.calls["backward"],
+                           "cotangent_msa_in": _nan(g_msa_np),
+                           "cotangent_pair_in": _nan(g_pair_np),
+                           "grad_msa_out": _nan(out[0]), "grad_pair_out": _nan(out[1])})
         return out
 
     @staticmethod

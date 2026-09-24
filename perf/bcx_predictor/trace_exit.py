@@ -22,7 +22,7 @@ import bindcraft.campaign as campaign
 from bindcraft.af2 import campaign_length_bucket
 from bindcraft.settings import parse_setting_overrides, read_settings
 from bindcraft.preflight import cleaned_campaign_settings
-from splice import EvoformerOnDevice, evoformer_on_device
+from splice import EvoformerOnDevice, evoformer_on_device, NANLOG
 import ttbio_predictor as T
 
 LOG = []
@@ -71,7 +71,7 @@ def traced(self, protein_states, losses, *a, **kw):
 
 T.TTBioAlphaFoldDesignModel.sequence_gradients = traced
 
-OUT = HERE / "runs" / "trace_exit_seed0"
+OUT = HERE / "runs" / "trace_seam_seed0"
 OUT.mkdir(parents=True, exist_ok=True)
 ov = [f"campaign_seed=0", "max_trajectories=1", "validation_model=monomer",
       'design_models=["model_1_ptm"]', 'validation_models=["model_2_ptm"]',
@@ -94,10 +94,13 @@ try:
                               mpnn_weights=mpnn, max_trajectories=1)
 finally:
     blob = {"bucket": campaign_length_bucket(settings), "rounds": LOG,
+            "seam": NANLOG,
+            "first_seam_bad": next((i for i, e in enumerate(NANLOG)
+                                    if any(e.get(k) for k in e if k not in ("op", "call"))), None),
             "device_calls": dict(evo.calls),
             "first_bad_round": next((c["round"] for c in LOG
                                      if c["predictions_bad"] or c["grad_bad"]
                                      or not c["design_loss_finite"]), None)}
-    (HERE / "trace_exit.json").write_text(json.dumps(blob, indent=1, default=str))
+    (HERE / "trace_seam.json").write_text(json.dumps(blob, indent=1, default=str))
     print(json.dumps({"rounds": len(LOG), "first_bad_round": blob["first_bad_round"],
                       "device_calls": blob["device_calls"]}, indent=1))
