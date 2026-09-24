@@ -80,6 +80,8 @@ if os.environ.get("MM_CENSUS_DIR"):
         os.replace(p + ".tmp", p)
 
     _rmax = int(os.environ.get("MM_CENSUS_ROWS", "4096"))
+    _save_dir = os.environ.get("MM_CENSUS_SAVE_DIR")
+    _save, _saved = int(os.environ.get("MM_CENSUS_SAVE", "0")) if _save_dir else 0, [0]
 
     def _host(t, n, rows=False):
         """The first n slices of the batch dims (and, with rows, the first _rmax rows) as float64."""
@@ -156,6 +158,18 @@ if os.environ.get("MM_CENSUS_DIR"):
                 r["elems"] += ref.numel()
                 r["wrong"] += int(w.sum())
                 r["gross"] += int(g.sum())
+                if _save and w.any() and _saved[0] < _save:
+                    # the failing dot products' own operands, for a one-tile replay
+                    bs = tuple(ref.shape[:-2])
+                    Ab, Bb = A.expand(*bs, *A.shape[-2:]), B.expand(*bs, *B.shape[-2:])
+                    hit = torch.nonzero(w)[:4].tolist()
+                    torch.save({"key": key, "hits": [{"a": Ab[tuple(i[:-1])].clone(), "b": Bb[tuple(i[:-2])][:, i[-1]].clone(),
+                                                      "got": float(O.reshape(ref.shape)[tuple(i)]),
+                                                      "ref": float(ref[tuple(i)]),
+                                                      "bias": float(bh[i[-1]]) if bias is not None else 0.0}
+                                                     for i in hit]},
+                               os.path.join(_save_dir, f"cap_{os.getpid()}_{_saved[0]}.pt"))
+                    _saved[0] += 1
                 if len(r["worst"]) < 8 and w.any():
                     idx = torch.nonzero(w)[:8 - len(r["worst"])].tolist()
                     r["worst"] += [[round(float(ref[tuple(i)]), 4), round(float(e[tuple(i)]), 4),
@@ -185,14 +199,21 @@ def main():
     ap.add_argument("--out", required=True)
     ap.add_argument("--frac", type=float, default=0.5, help="scoring time budget, fraction of wall")
     ap.add_argument("--channels", type=int, default=2, help="batch slices read back per scored call")
+    ap.add_argument("--save", default=None, metavar="DIR",
+                    help="write the operands of wrong elements here (cap_<pid>_<n>.pt), for replay.py")
+    ap.add_argument("--save-max", type=int, default=64, help="captures per process")
     ap.add_argument("--env", action="append", default=[], metavar="K=V", help="extra env for the run")
     ap.add_argument("cli", nargs=argparse.REMAINDER)
     a = ap.parse_args()
     cli = a.cli[1:] if a.cli[:1] == ["--"] else a.cli
+    if a.save:
+        Path(a.save).mkdir(parents=True, exist_ok=True)
     with tempfile.TemporaryDirectory() as hook, tempfile.TemporaryDirectory() as dump:
         Path(hook, "sitecustomize.py").write_text(HOOK)
         env = dict(os.environ, MM_CENSUS_DIR=dump, MM_CENSUS_FRAC=str(a.frac),
                    MM_CENSUS_CHANNELS=str(a.channels),
+                   **({"MM_CENSUS_SAVE_DIR": str(Path(a.save).resolve()), "MM_CENSUS_SAVE": str(a.save_max)}
+                      if a.save else {}),
                    PYTHONPATH=os.pathsep.join([hook, str(REPO)] + [p for p in os.environ.get(
                        "PYTHONPATH", "").split(os.pathsep) if p]), **dict(e.split("=", 1) for e in a.env))
         rc = subprocess.call([sys.executable, "-m", "tt_bio.main"] + cli, cwd=REPO, env=env)
