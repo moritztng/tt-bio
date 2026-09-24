@@ -172,10 +172,137 @@ def tail_arms(n_target, n_binder, n_binder_real, seed=0):
         meta64 = {k: (promote(v, jnp.float64) if k in ("sequence", "atoms") else v)
                   for k, v in meta.items()}
         batch64 = {k: promote(v, jnp.float64) for k, v in batch.items()}
-        vg64 = jax.jit(jax.value_and_grad(
-            TP.tail_program(cfg64, losses, batch64, meta64, p64, key)))
+        prog64 = TP.tail_program(cfg64, losses, batch64, meta64, p64, key)
+        vg64 = jax.jit(jax.value_and_grad(prog64))
 
+    TAIL64["program"], TAIL64["meta"] = prog64, meta
     return scoped(vg32, False), scoped(vg64, True), batch, meta
+
+
+TAIL64 = {}
+
+
+# ------------------------------------------------------------------------------ all-JAX trunk
+
+
+class _Float64Names:
+    """`jnp` for the trunk modules with `float32` read as `float64`.
+
+    The monomer `EmbeddingsAndEvoformer` computes `dtype = bfloat16 if gc.bfloat16 else float32`
+    (`modules.py:1410`) and casts its inputs to it, so with bfloat16 off it still runs float32.
+    `modules.py` and `common_modules.py` only ever use `jnp.float32` as a cast target (no dtype
+    comparisons), so reading it as float64 makes the trunk float64 without touching arithmetic.
+    Under x64 off, float64 canonicalises to float32, so the lab-precision arm is unchanged.
+    """
+
+    def __init__(self, real):
+        self._real = real
+
+    def __getattr__(self, name):
+        return self._real.float64 if name == "float32" else getattr(self._real, name)
+
+
+def _install_float64_names():
+    from bindcraft.af.alphafold.model import common_modules, modules
+    for m in (modules, common_modules):
+        if not isinstance(m.jnp, _Float64Names):
+            m.jnp = _Float64Names(m.jnp)
+
+
+def jax_program(params_path, meta, n):
+    """logits -> loss, all in upstream JAX at float64: BindCraft 2's own vendored monomer
+    `EmbeddingsAndEvoformer` with `model_1_ptm`'s trunk parameters, then the float64 tail.
+
+    Featurisation is `afgrad.embed`'s (ColabDesign's soft sequence, one MSA row, zero recycle
+    state, a zero extra-MSA row under an all-zero mask, all-ones residue masks), because that is
+    what the device trunk is fed; this is the transcription check on `af2_reference.py`.
+    """
+    import haiku as hk
+    from bindcraft.af.alphafold.model import config as af_config, modules
+
+    _install_float64_names()
+    with x64(True):
+        cfg = af_config.model_config("model_3_ptm")
+        gc = cfg.model.global_config
+        gc.bfloat16, gc.subbatch_size, gc.use_remat = False, None, True
+        # The same global keys `tail_price.model_config` sets for BindCraft 2's run.
+        with gc.unlocked():
+            gc.use_dgram, gc.bfloat16_output = False, False
+            gc.attention_backend, gc.use_cueq = "stock", False
+        c = cfg.model.embeddings_and_evoformer
+        c.template.enabled = False
+        # BindCraft 2's vendored config fuses the triangle-multiplication projections
+        # (`config.py:205,213`, the multimer_v3 layout); `model_1_ptm`'s checkpoint is unfused.
+        for tm in ("triangle_multiplication_outgoing", "triangle_multiplication_incoming"):
+            c.evoformer[tm].fuse_projection_weights = False
+
+        def fn(batch):
+            class Iteration(hk.Module):
+                def __init__(self):
+                    super().__init__(name="alphafold_iteration")
+
+                def __call__(self, b):
+                    return modules.EmbeddingsAndEvoformer(c, gc)(b)
+
+            class AlphaFold(hk.Module):
+                def __init__(self):
+                    super().__init__(name="alphafold")
+
+                def __call__(self, b):
+                    return Iteration()(b)
+
+            return AlphaFold()(batch)
+
+        trunk = hk.transform(fn)
+        raw = np.load(params_path)
+        params = {}
+        for k in raw.files:
+            scope, name = k.rsplit("//", 1)
+            if scope.startswith("alphafold/alphafold_iteration/evoformer") and \
+                    "template" not in scope:
+                params.setdefault(scope, {})[name] = jnp.asarray(raw[k], jnp.float64)
+        ridx = jnp.asarray(np.asarray(meta["residue_index"]))
+        const = {
+            "seq_mask": jnp.ones(n), "msa_mask": jnp.ones((1, n)),
+            "residue_index": ridx,
+            "prev_pos": jnp.zeros((n, 37, 3)), "prev_msa_first_row": jnp.zeros((n, 256)),
+            "prev_pair": jnp.zeros((n, n, 128)),
+            "extra_msa": jnp.zeros((1, n), jnp.int32), "extra_msa_mask": jnp.zeros((1, n)),
+            "extra_has_deletion": jnp.zeros((1, n)), "extra_deletion_value": jnp.zeros((1, n)),
+            "use_dropout": jnp.asarray(False),
+        }
+        key = jax.random.PRNGKey(0)
+        tail = TAIL64["program"]
+
+        def full(logits):
+            p = jax.nn.softmax(logits, -1)
+            z5, z4 = jnp.zeros((n, 5)), jnp.zeros((n, 4))
+            batch = dict(const, target_feat=p,
+                         msa_feat=jnp.concatenate([p, z5, p, z4], -1)[None],
+                         aatype=jnp.argmax(jax.lax.stop_gradient(logits), -1))
+            reps_ = trunk.apply(params, key, batch)
+            return tail(reps_), reps_
+
+        vg = jax.jit(jax.value_and_grad(full, has_aux=True))
+    return scoped(vg, True)
+
+
+# ------------------------------------------------------------------------------ the optimiser
+
+
+def bc2_update(grad, n_binder_real):
+    """The step BindCraft 2 actually takes from a gradient (`sequence_optimization.py:78-99`):
+    mask to DESIGN residues, `normalize_sequence_gradient` to norm sqrt(designed rows), then
+    `optax.sgd(0.1)`. Magnitude is divided out; only the design-masked direction survives."""
+    import optax
+    from bindcraft.sequence_optimization import normalize_sequence_gradient
+    with x64(False):
+        g = np.zeros(grad.shape, np.float32)
+        g[:n_binder_real] = grad[:n_binder_real].numpy()
+        ng = normalize_sequence_gradient(jnp.asarray(g))
+        opt = optax.sgd(0.1)
+        upd, _ = opt.update(ng, opt.init(jnp.zeros_like(ng)))
+        return torch.from_numpy(np.asarray(upd, np.float64))
 
 
 def reps(single, pair, msa, np_dt):
@@ -235,6 +362,8 @@ def hybrid_step(dev, ref, vg32, logits, ridx, ke, kv, n, seam="single", zero_see
     else:
         raise ValueError(seam)
 
+    dev.sync()
+    t3u = time.time()
     reach = A.node_census(ag, roots) if census else None
     dev.sync()
     t4, c4 = time.time(), time.process_time()
@@ -250,7 +379,7 @@ def hybrid_step(dev, ref, vg32, logits, ridx, ke, kv, n, seam="single", zero_see
     del mo, zo, so, ml, zl, seeds, roots
     gc.collect()
     return grad, loss, {
-        "trunk_fwd": t1 - t0, "seam_down": t2 - t1, "tail": t3 - t2,
+        "trunk_fwd": t1 - t0, "seam_down": t2 - t1, "tail": t3 - t2, "seam_up": t3u - t3,
         "trunk_bwd": t5 - t4, "trunk_bwd_cpu": c5 - c4, "step": t5 - t0,
         "spans": [(t0, t1), (t4, t5)],
     }, {"msa_leaf_grad_norm": msa_track,
@@ -302,6 +431,7 @@ def head(args):
 
 def cmd_grad(args):
     n, (nt, nb, nbr), vg32, vg64, ridx = head(args)
+    vgj = jax_program(args.params, TAIL64["meta"], n) if args.jax else None
     lv, dev, ref = open_all(args)
     ke, kv = args.extra, args.evo
     blob = {"stamp": S.stamp(args), "n": n, "k_extra": ke, "k_evo": kv, "arm": args.arm,
@@ -315,9 +445,26 @@ def cmd_grad(args):
         torch.manual_seed(sd)
         logits = torch.randn(n, 20) * 2.0
         out = {}
-        g64, l64, i64 = ref_step(ref, vg64, logits, ridx, ke, kv, "f64",
-                                 torch.float64, np.float64)
-        out["f64"] = {"loss": l64, "grad_norm": float(g64.norm()), **i64}
+        grads = {}
+        if not args.skip_torch_f64:
+            g64, l64, i64 = ref_step(ref, vg64, logits, ridx, ke, kv, "f64",
+                                     torch.float64, np.float64)
+            out["f64"] = {"loss": l64, "grad_norm": float(g64.norm()), **i64}
+            grads["f64"] = g64
+        if vgj is not None:
+            t0 = time.time()
+            (lj, rj), gj = vgj(logits.double().numpy())
+            gj = to_t(gj)
+            grads["jax_f64"] = gj
+            out["jax_f64"] = {"loss": float(lj), "grad_norm": float(gj.norm()),
+                              "seconds": time.time() - t0,
+                              "dtype": str(np.asarray(rj["pair"]).dtype)}
+            if "f64" in grads:
+                out["jax_f64"]["torch_f64_vs_jax_f64"] = A.cmp(g64, gj)
+                out["jax_f64"]["loss_abs_diff_vs_torch_f64"] = abs(float(lj) - l64)
+            else:
+                # The grading reference is the all-JAX program itself.
+                g64, l64 = gj, float(lj)
 
         gh, lh, th, ex = hybrid_step(dev, ref, vg32, logits, ridx, ke, kv, n, census=True)
         out["hybrid"] = {"loss": lh, "grad_norm": float(gh.norm()), "vs_f64": A.cmp(gh, g64),
@@ -325,6 +472,9 @@ def cmd_grad(args):
                          "timings": {k: round(v, 4) for k, v in th.items() if k != "spans"},
                          **{k: v for k, v in ex.items() if k != "reach"},
                          "tape_reach": ex["reach"]}
+        grads["hybrid"] = gh
+        if vgj is not None:
+            out["hybrid"]["vs_jax_f64"] = A.cmp(gh, grads["jax_f64"])
 
         for arm in ("bf16", "f32"):
             ga, la, ia = ref_step(ref, vg32, logits, ridx, ke, kv, arm,
@@ -332,10 +482,13 @@ def cmd_grad(args):
             out[f"torch_{arm}"] = {"loss": la, "grad_norm": float(ga.norm()),
                                    "vs_f64": A.cmp(ga, g64),
                                    "norm_ratio": float(ga.norm() / g64.norm()), **ia}
+            grads[f"torch_{arm}"] = ga
 
-        gt, lt, _ = ref_step(ref, vg32, logits, ridx, ke, kv, "f64", torch.float64, np.float32)
-        out["tail_precision_only"] = {"loss": lt, "vs_f64": A.cmp(gt, g64),
-                                      "norm_ratio": float(gt.norm() / g64.norm())}
+        if not args.skip_torch_f64:
+            gt, lt, _ = ref_step(ref, vg32, logits, ridx, ke, kv, "f64",
+                                 torch.float64, np.float32)
+            out["tail_precision_only"] = {"loss": lt, "vs_f64": A.cmp(gt, g64),
+                                          "norm_ratio": float(gt.norm() / g64.norm())}
 
         if args.controls:
             gz, _, _, _ = hybrid_step(dev, ref, vg32, logits, ridx, ke, kv, n, zero_seed=True)
@@ -343,6 +496,7 @@ def cmd_grad(args):
                                         "exactly_zero": bool(gz.abs().max() == 0)}
             gpm, _, _, _ = hybrid_step(dev, ref, vg32, logits, ridx, ke, kv, n, permute=True)
             out["control_permuted"] = {"vs_f64": A.cmp(gpm, g64)}
+            grads["permuted"] = gpm
             gms, _, _, exm = hybrid_step(dev, ref, vg32, logits, ridx, ke, kv, n, seam="msa")
             out["control_msa_seam"] = {"grad_norm": float(gms.norm()),
                                        "vs_f64": A.cmp(gms, g64), "vs_hybrid": A.cmp(gms, gh),
@@ -355,6 +509,23 @@ def cmd_grad(args):
                     "cos_with_hybrid": A.cosine(go, gh), "vs_hybrid": A.cmp(go, gh)}
             g2, _, _, _ = hybrid_step(dev, ref, vg32, logits, ridx, ke, kv, n)
             out["control_repeat_bit_identical"] = bool(torch.equal(g2, gh))
+
+        # NORM: what BindCraft 2's own optimiser does with each gradient.
+        refk = "jax_f64" if "jax_f64" in grads else "f64"
+        u_ref = bc2_update(grads[refk], nbr)
+        norm = {"reference": refk, "design_rows": nbr,
+                "update_norm_reference": float(u_ref.norm())}
+        for k, g in grads.items():
+            if k == refk:
+                continue
+            u = bc2_update(g, nbr)
+            gd, rd = g[:nbr], grads[refk][:nbr]
+            norm[k] = {"raw_design_norm_ratio": float(gd.norm() / rd.norm()),
+                       "raw_design_vs_ref": A.cmp(gd, rd),
+                       "update_norm_ratio": float(u.norm() / u_ref.norm()),
+                       "update_vs_ref": A.cmp(u, u_ref)}
+        out["norm"] = norm
+        np.savez(OUT / f"grads_n{n}_seed{sd}.npz", **{k: v.numpy() for k, v in grads.items()})
 
         blob["seeds"][sd] = out
         print(sd, json.dumps({"hybrid_vs_f64": out["hybrid"]["vs_f64"],
@@ -398,6 +569,9 @@ def main():
     ap.add_argument("--seed", type=int, default=0)
     ap.add_argument("--reps", type=int, default=3)
     ap.add_argument("--controls", action="store_true")
+    ap.add_argument("--jax", action="store_true", help="grad: add the all-JAX float64 arm")
+    ap.add_argument("--skip-torch-f64", action="store_true",
+                    help="grad: grade against the all-JAX float64 program alone")
     ap.add_argument("--threads", type=int, default=8)
     ap.add_argument("--out", default=None)
     args = ap.parse_args()
