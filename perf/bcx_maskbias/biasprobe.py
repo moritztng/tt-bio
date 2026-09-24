@@ -21,14 +21,20 @@ ap.add_argument("--params", default=S.A.DEFAULT_PARAMS)
 ap.add_argument("--card", type=int, default=0)
 ap.add_argument("--arms", default="nomask,mask,row,col,none")
 ap.add_argument("--bwd", action="store_true")
+ap.add_argument("--pair", action="store_true",
+                help="every masked arm also forces the pair masks, as steptime's tree+ones does")
 ap.add_argument("--out", default=None)
 args = ap.parse_args()
 lv, dev, ref = S.open_all(args)
 n = args.n
 m0, z0, wm, wz = S.inputs(ref, n, 0)
 mask = dev.up(torch.ones(1, n))
+up = lambda t: dev.ttnn.from_torch(t.to(torch.bfloat16), layout=dev.ttnn.TILE_LAYOUT,
+                                   device=dev.device, dtype=dev.ttnn.bfloat16)
+pm = (up(torch.ones(1, n, n)), up(torch.zeros(1, 1, 1, n))) if args.pair else (None, None)
 built = af2.AF2EvoformerBlock._mask_biases
 KEEP = {"mask": (1, 1), "row": (1, 0), "col": (0, 1), "none": (0, 0)}
+# `pair`: the pair masks alone, MSA mask None, which isolates the pair track's masked sites.
 
 
 def run(arm):
@@ -40,7 +46,8 @@ def run(arm):
     ml, zl = dev.leaf(m0), dev.leaf(z0)
     with dev.tt.tape():
         mo, zo = dev.stack(ml, zl, 0, 1, evo_first=args.block,
-                           msa_mask=None if keep is None else mask)
+                           msa_mask=None if keep is None else mask,
+                           pair_masks=(None, None) if arm == "nomask" else pm)
     dev.sync()
     outs = (dev.down(mo.value, m0.shape), dev.down(zo.value, z0.shape))
     if args.bwd:

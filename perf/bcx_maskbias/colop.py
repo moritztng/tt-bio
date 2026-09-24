@@ -24,17 +24,22 @@ for R in [int(r) for r in sys.argv[1].split(",")]:
     s = (q.double() @ k.double().transpose(-1, -2)) * 32 ** -0.5
     want = torch.softmax(s, -1) @ v.double()
     flat = ttnn.multiply(ttnn.subtract(up(torch.ones(R, 256)), 1.0), af2.MASK_LOGIT_BIAS)
-    bias = ttnn.fill_implicit_tile_padding(
-        ttnn.reshape(ttnn.permute(flat, (1, 0)), (256, 1, 1, R)), 0.0)
-    fp32 = tn._fp32_softmax_attention(up(q), up(k), up(v), bias, scale_inv=32 ** -0.5,
+    raw = ttnn.reshape(ttnn.permute(flat, (1, 0)), (256, 1, 1, R))
+    fp32 = tn._fp32_softmax_attention(up(q), up(k), up(v), ttnn.fill_implicit_tile_padding(raw, 0.0),
+                                      scale_inv=32 ** -0.5,
                                       compute_kernel_config=ckc, out_dtype=ttnn.bfloat16,
                                       bias_scale_inv=1.0, l1_padded_plan=True)
+    # `_mask_biases` before bcx-nan's e5cf74790: the reshape's padding left as the buffer held it.
+    nofill = tn._fp32_softmax_attention(up(q), up(k), up(v), raw, scale_inv=32 ** -0.5,
+                                        compute_kernel_config=ckc, out_dtype=ttnn.bfloat16,
+                                        bias_scale_inv=1.0, l1_padded_plan=True)
     sc = ttnn.multiply_(tn.batched_matmul(up(q), ttnn.permute(up(k), (0, 1, 3, 2)),
                                           compute_kernel_config=ckc), 32 ** -0.5)
     col = tn.batched_matmul(ttnn.softmax(sc, dim=-1, compute_kernel_config=ckc), up(v),
                             compute_kernel_config=ckc, dtype=ttnn.bfloat16)
     rec = {}
-    for name, t in (("fp32_softmax_attention", fp32), ("column_ckc_softmax", col)):
+    for name, t in (("fp32_softmax_attention", fp32), ("fp32_softmax_attention@nofill", nofill),
+                    ("column_ckc_softmax", col)):
         got = ttnn.to_torch(t).double()
         rec[name] = {"rel_l2": float((got - want).norm() / want.norm()),
                      "max_abs": float((got - want).abs().max())}
