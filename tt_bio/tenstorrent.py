@@ -4477,23 +4477,32 @@ def _k1_program_config(m_tiles: int, n_tiles: int, fused_activation=None,
 
 
 # What the guard did, per outcome: `k1` took the K-block-1 plan, `declined` is a call it cannot
-# plan (sharded, transposed, fused activation, batched weight, positional args), `refused` is a
+# plan (sharded, batched right operand, one K tile, positional args), `refused` is a
 # k1 plan the device threw on, which then ran as the caller wrote it.
 DEST_CARRY_STATS = {"k1": 0, "declined": 0, "refused": 0}
 _OUT_BYTES = {ttnn.float32: 4, ttnn.bfloat16: 2, ttnn.bfloat8_b: 1}
 
 
 def _k1_plan(a, b, kw):
-    """The K-block-1 plan for `a @ b` as the caller wrote it, or None where it cannot apply."""
-    if (kw.get("transpose_a") or kw.get("transpose_b") or kw.get("activation")
-            or a.layout != ttnn.TILE_LAYOUT or b.layout != ttnn.TILE_LAYOUT
+    """The K-block-1 plan for `a @ b` as the caller wrote it, or None where it cannot apply.
+
+    This config family folds `transpose_a` / `transpose_b` into the program (ttnn `matmul.cpp:200`,
+    the transpose note below `_triangle_mul_program_config`); a fused activation rides through as
+    the caller's own `activation` argument, the plan carries none of its own.
+    """
+    ta, tb = bool(kw.get("transpose_a")), bool(kw.get("transpose_b"))
+    if (a.layout != ttnn.TILE_LAYOUT or b.layout != ttnn.TILE_LAYOUT
             or a.memory_config().is_sharded() or b.memory_config().is_sharded()
             or (kw.get("memory_config") is not None and kw["memory_config"].is_sharded())):
         return None
     sa, sb = list(a.padded_shape), list(b.padded_shape)
-    if len(sb) < 2 or prod(sb[:-2]) != 1 or sa[-1] // 32 < 2:
-        return None  # a batched right operand, or a single K tile (nothing to carry)
-    return _k1_program_config(prod(sa[:-1]) // 32, sb[-1] // 32,
+    if len(sb) < 2 or prod(sb[:-2]) != 1 or (ta and prod(sa[:-2]) != 1):
+        return None  # a batched right operand, or a transposed batched left one
+    k_tiles = (sa[-2] if ta else sa[-1]) // 32
+    if k_tiles < 2:
+        return None  # a single K tile: nothing for dest to carry
+    m_tiles = sa[-1] // 32 if ta else prod(sa[:-1]) // 32
+    return _k1_program_config(m_tiles, (sb[-2] if tb else sb[-1]) // 32,
                               out_bytes=_OUT_BYTES.get(kw.get("dtype") or a.dtype, 2))
 
 

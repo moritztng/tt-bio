@@ -59,7 +59,8 @@ if os.environ.get("MM_CENSUS_DIR"):
 
     def _site():
         for fr in reversed(traceback.extract_stack()[:-2]):
-            if "/tt_bio/" in fr.filename:
+            # skip the dest-carry guard's own wrapper frame, which sits between the caller and us
+            if "/tt_bio/" in fr.filename and not (fr.name == "call" and fr.filename.endswith("tenstorrent.py")):
                 return f"{fr.filename.split('/tt_bio/')[-1]}:{fr.lineno}:{fr.name}"
         return "?"
 
