@@ -316,7 +316,11 @@ CEILINGS: dict[str, dict[str, Ceiling]] = {
                      "cdk2_1536_d16384 PASS in 5951 s at AICLK 1000 MHz on 563 samples taken "
                      "DURING the fold, ten refusals absorbed, msa_depth 16384 in results.json, "
                      "CA-CA median 3.83 A with 98.0 % in band, so this row holds at every depth a "
-                     "user reaches",
+                     "user reaches. "
+                     "Re-passed on origin/main 6ea518246 (after sdpa-mask 94e7a002c), j10glx02, "
+                     "2026-09-24, guard off, --host_threads 2, AICLK median 1000 MHz sampled during "
+                     "the fold: 1536 at 16384 rows PASS in 5402.8 s (card 8, msa_depth 16384, pLDDT "
+                     "0.725), above the 5062 s cube-scaled platform watchdog at 1536 on a loaded host",
         ),
     },
     "opendde-abag": {
@@ -374,7 +378,11 @@ CEILINGS: dict[str, dict[str, Ceiling]] = {
                      "at AICLK 1000 MHz sampled DURING the fold, three DRAM refusals absorbed; "
                      "cdk2_1536_d16384 PASS in 5891 s at AICLK 1000 MHz on 556 samples taken DURING "
                      "the fold (chip 12, tt-bio b9cdecce1), ten refusals absorbed, msa_depth 16384 "
-                     "in results.json, CA-CA median 3.85 A with 98.0 % in band",
+                     "in results.json, CA-CA median 3.85 A with 98.0 % in band. "
+                     "Re-passed on origin/main 6ea518246 (after sdpa-mask 94e7a002c), j10glx02, "
+                     "2026-09-24, guard off, --host_threads 2, AICLK median 1000 MHz sampled during "
+                     "the fold: 1536 at 16384 rows PASS in 5342.0 s (card 16, msa_depth 16384, pLDDT "
+                     "0.701), above the 5062 s cube-scaled platform watchdog at 1536 on a loaded host",
         ),
     },
     "openfold3": {
@@ -507,7 +515,10 @@ CEILINGS: dict[str, dict[str, Ceiling]] = {
                      "its 627 wall was the materialised fp32-softmax triangle attention and the "
                      "confidence head's one-row layer norm, and TT_BIO_RF3_TEMPLATE_FUSED_SDPA=0, "
                      "TT_BIO_RF3_MSA_FUSED_SDPA=0 or TT_BIO_RF3_GLN_ROW_FOLD=0 still restore that "
-                     "route and that wall",
+                     "route and that wall. "
+                     "Re-passed on origin/main 6ea518246 (after sdpa-mask 94e7a002c), j10glx02, "
+                     "2026-09-24, guard off, --host_threads 2, AICLK median 1000 MHz sampled during "
+                     "the fold: 1600 PASS in 1057.3 s (card 3, pLDDT 0.771, no CA-CA break)",
         ),
     },
     "protenix-v2": {
@@ -768,7 +779,11 @@ CEILINGS: dict[str, dict[str, Ceiling]] = {
                      "(card 18, 741.3 s), now earlier, in the diffusion cache "
                      "(tenstorrent.py _populate_diffusion_cache), 2466250752 B or 196.0 MiB per "
                      "bank with 428.6 MiB free and a 178.0 MiB largest block; on 1b423e9e4, the "
-                     "same boltz2 code, 1664 folds in 701.8 s (card 16), both at 1000 MHz",
+                     "same boltz2 code, 1664 folds in 701.8 s (card 16), both at 1000 MHz. "
+                     "Re-passed on origin/main 6ea518246 (after sdpa-mask 94e7a002c), j10glx02, "
+                     "2026-09-24, guard off, --host_threads 2, AICLK median 1000 MHz sampled during "
+                     "the fold: 1920 at 8192 rows PASS in 804.2 s (card 3, pLDDT 0.775, no CA-CA "
+                     "break)",
         ),
     },
     "esmfold2": {
@@ -808,7 +823,12 @@ CEILINGS: dict[str, dict[str, Ceiling]] = {
                      "both at AICLK 1000 MHz sampled DURING the fold. Re-measured after the MSA "
                      "encoder took upstream's fresh 1024-row subsample per trunk loop (tt-bio "
                      "2f7e0606c, chip 16): 1024 x 16384 PASS in 1426 s at AICLK 1000 MHz DURING, "
-                     "one L1 refusal absorbed; the encoder never holds more than 1024 rows",
+                     "one L1 refusal absorbed; the encoder never holds more than 1024 rows. "
+                     "Re-passed on origin/main 6ea518246 (after sdpa-mask 94e7a002c), j10glx02, "
+                     "2026-09-24, guard off, --host_threads 2, AICLK median 1000 MHz sampled during "
+                     "the fold: 1664 with a 16384-row alignment PASS in 2350.3 s (card 20, msa true, "
+                     "pLDDT 0.874) and single-sequence PASS in 1968.2 s (card 3, pLDDT 0.884), with "
+                     "the same CA-CA gap count as the earlier passes",
         ),
     },
     "esmfold2-fast": {
@@ -838,7 +858,10 @@ CEILINGS: dict[str, dict[str, Ceiling]] = {
                      "block large enough, fragmentation rather than residency. Re-walked on origin/main "
                      "c5b346679, card 29, 2026-09-23: 1664 PASS in 1214.2 s, 1792 fails after "
                      "328.3 s on the same request with the chip 99.0 percent full and 10.5 MiB "
-                     "free, residency again. AICLK median 1000 MHz during both",
+                     "free, residency again. AICLK median 1000 MHz during both. "
+                     "Re-passed on origin/main 6ea518246 (after sdpa-mask 94e7a002c), j10glx02, "
+                     "2026-09-24, guard off, --host_threads 2, AICLK median 1000 MHz sampled during "
+                     "the fold: 1664 PASS in 1095.2 s (card 20, pLDDT 0.891, no CA-CA break)",
         ),
     },
     "protenix-v1": {
