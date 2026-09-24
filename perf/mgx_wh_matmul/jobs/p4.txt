@@ -1,0 +1,1 @@
+perf/mgx_wh_matmul/linear_probe.py --out perf/mgx_wh_matmul/results/linear_probe.json

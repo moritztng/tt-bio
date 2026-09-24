@@ -1,0 +1,2 @@
+perf/mgx_wh_matmul/timing.py --kt 16 32 48 --channels 128 --w 1 2 --out perf/mgx_wh_matmul/results/timing_wh.json
+perf/mgx_wh_matmul/fold_census.py --label boltz2-3abq1536-main --out perf/mgx_wh_matmul/results/census_boltz2_main.jsonl -- predict perf/mgx/ref/fixtures/3abq_1536.yaml --model boltz2 --out_dir perf/mgx_wh_matmul/results/runs/boltz2_main --accelerator tenstorrent --override --host_threads 2

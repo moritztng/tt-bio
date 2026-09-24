@@ -1,0 +1,98 @@
+{
+ "arch": "Arch.WORMHOLE_B0",
+ "grid": [
+  8,
+  9
+ ],
+ "aiclk": {
+  "0": {
+   "min": 961,
+   "max": 1000,
+   "median": 1000,
+   "n": 6
+  }
+ },
+ "rows": [
+  {
+   "kt": 16,
+   "channels": 128,
+   "w": 8,
+   "band": true,
+   "median_ms": 1.762,
+   "min_ms": 1.718,
+   "tflops": 19.5
+  },
+  {
+   "kt": 16,
+   "channels": 128,
+   "w": 1,
+   "band": false,
+   "median_ms": 2.992,
+   "min_ms": 2.98,
+   "tflops": 11.48
+  },
+  {
+   "kt": 16,
+   "channels": 128,
+   "w": 2,
+   "band": false,
+   "median_ms": 2.236,
+   "min_ms": 2.217,
+   "tflops": 15.37
+  },
+  {
+   "kt": 32,
+   "channels": 128,
+   "w": 8,
+   "band": true,
+   "median_ms": 8.793,
+   "min_ms": 8.769,
+   "tflops": 31.26
+  },
+  {
+   "kt": 32,
+   "channels": 128,
+   "w": 1,
+   "band": false,
+   "median_ms": 15.13,
+   "min_ms": 15.089,
+   "tflops": 18.17
+  },
+  {
+   "kt": 32,
+   "channels": 128,
+   "w": 2,
+   "band": false,
+   "median_ms": 10.706,
+   "min_ms": 10.685,
+   "tflops": 25.68
+  },
+  {
+   "kt": 48,
+   "channels": 128,
+   "w": 8,
+   "band": true,
+   "median_ms": 24.896,
+   "min_ms": 24.295,
+   "tflops": 37.26
+  },
+  {
+   "kt": 48,
+   "channels": 128,
+   "w": 1,
+   "band": false,
+   "median_ms": 42.883,
+   "min_ms": 42.758,
+   "tflops": 21.63
+  },
+  {
+   "kt": 48,
+   "channels": 128,
+   "w": 2,
+   "band": false,
+   "median_ms": 29.543,
+   "min_ms": 29.385,
+   "tflops": 31.4
+  }
+ ]
+}

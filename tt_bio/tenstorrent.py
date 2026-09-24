@@ -8,6 +8,7 @@ import torch, ttnn, atexit
 from torch import nn
 from typing import Callable, Mapping
 from math import pi, prod
+import functools
 from functools import lru_cache, partial
 from types import MappingProxyType
 
@@ -4382,7 +4383,8 @@ def _trimul_in0_block_w(seq_len_tiles: int) -> int:
 # and already banked by pinning this program config. KIND=placement, and no Wormhole ratio is
 # carried across: the number above is Blackhole's own.
 @lru_cache(maxsize=None)
-def _triangle_mul_program_config(seq_len_tiles: int) -> ttnn.MatmulMultiCoreReuseMultiCastProgramConfig:
+def _triangle_mul_program_config(seq_len_tiles: int,
+                                 k1: bool = False) -> ttnn.MatmulMultiCoreReuseMultiCastProgramConfig:
     gx, gy = COMPUTE_GRID_MAIN
     per_core_M = -(-seq_len_tiles // gy)
     per_core_N = -(-seq_len_tiles // gx)
@@ -4396,7 +4398,8 @@ def _triangle_mul_program_config(seq_len_tiles: int) -> ttnn.MatmulMultiCoreReus
     # activation of throwing. Past Kt = 113 on Wormhole even a block of 1 is over the bank:
     # the output block itself is the next wall.
     budget = _matmul_cb_budget()
-    in0_block_w = _trimul_in0_block_w(seq_len_tiles)
+    # `k1`: the caller's compute config is one `dest_carry_fault` covers, so K is not blocked.
+    in0_block_w = 1 if k1 else _trimul_in0_block_w(seq_len_tiles)
     while in0_block_w > 1 and _matmul_cb_bytes(in0_block_w, per_core_M, per_core_N, 2) > budget:
         in0_block_w = max(d for d in range(in0_block_w - 1, 0, -1) if seq_len_tiles % d == 0)
     return ttnn.MatmulMultiCoreReuseMultiCastProgramConfig(
@@ -4412,6 +4415,119 @@ def _triangle_mul_program_config(seq_len_tiles: int) -> ttnn.MatmulMultiCoreReus
         fused_activation=None,
         fuse_batch=False,
     )
+
+
+# A/B switch for the guard below; on by default. Off reproduces the shipped plans exactly.
+_DEST_CARRY_GUARD = env_flag("TT_BIO_DEST_CARRY_GUARD", True)
+
+
+@lru_cache(maxsize=1)
+def _wormhole() -> bool:
+    return is_wormhole()
+
+
+def dest_carry_fault(ckc) -> bool:
+    """True where a K block wider than one tile returns wrong elements: Wormhole, HiFi4, fp32 dest.
+
+    There the FPU occasionally lands an output element off by exactly -2^k, with 2^k at the
+    scale of the partial sums (misses of 16 to 128 on N(0, 1) operands, 1.7x to 5x the dot
+    product's own RMS scale, where HiFi4's ordinary error is ~0.01x). It is deterministic, it
+    reproduces in one 32x32 tile on one core, and it needs the dest register to CARRY a value
+    from an earlier K tile into the next tile's MVMULs: at `in0_block_w = 1` every tile starts
+    from a zeroed dest and the packer sums the tiles in L1, and that is clean at every K probed
+    (perf/mgx_wh_matmul/). HiFi3 and Blackhole never show it; subblock, dst_full_sync,
+    throttle_level and packer_l1_acc do not remove it. Rate ~5e-7 per output element.
+    """
+    return (_DEST_CARRY_GUARD and ckc is not None and _wormhole() and bool(ckc.fp32_dest_acc_en)
+            and ckc.math_fidelity == ttnn.MathFidelity.HiFi4)
+
+
+def _k1_program_config(m_tiles: int, n_tiles: int, fused_activation=None,
+                       out_bytes: int = 2) -> ttnn.MatmulMultiCoreReuseMultiCastProgramConfig:
+    """2D multicast config with `in0_block_w = 1`, for a matmul `dest_carry_fault` covers.
+
+    The per-core block is ttnn's own split of the grid; only the drain block shrinks, and only
+    until its circular buffers fit the bank.
+    """
+    gx, gy = COMPUTE_GRID_MAIN
+    per_core_M = -(-m_tiles // gy)
+    per_core_N = -(-n_tiles // gx)
+    budget = _matmul_cb_budget()
+    divisors = lambda x: [d for d in range(x, 0, -1) if x % d == 0]  # noqa: E731
+    out_w = next((d for d in divisors(per_core_N)
+                  if _matmul_cb_bytes(1, 1, d, out_bytes) <= budget), 1)
+    out_h = next((d for d in divisors(per_core_M)
+                  if _matmul_cb_bytes(1, d, out_w, out_bytes) <= budget), 1)
+    # fp32 dest holds 4 tiles: the widest subblock that divides the drain block
+    sub_w = next(d for d in divisors(out_w) if d <= 4)
+    sub_h = next(d for d in divisors(out_h) if d * sub_w <= 4)
+    return ttnn.MatmulMultiCoreReuseMultiCastProgramConfig(
+        compute_with_storage_grid_size=(gx, gy),
+        in0_block_w=1,
+        out_subblock_h=sub_h,
+        out_subblock_w=sub_w,
+        out_block_h=out_h,
+        out_block_w=out_w,
+        per_core_M=per_core_M,
+        per_core_N=per_core_N,
+        transpose_mcast=False,
+        fused_activation=fused_activation,
+        fuse_batch=True,
+    )
+
+
+# What the guard did, per outcome: `k1` took the K-block-1 plan, `declined` is a call it cannot
+# plan (sharded, transposed, fused activation, batched weight, positional args), `refused` is a
+# k1 plan the device threw on, which then ran as the caller wrote it.
+DEST_CARRY_STATS = {"k1": 0, "declined": 0, "refused": 0}
+_OUT_BYTES = {ttnn.float32: 4, ttnn.bfloat16: 2, ttnn.bfloat8_b: 1}
+
+
+def _k1_plan(a, b, kw):
+    """The K-block-1 plan for `a @ b` as the caller wrote it, or None where it cannot apply."""
+    if (kw.get("transpose_a") or kw.get("transpose_b") or kw.get("activation")
+            or a.layout != ttnn.TILE_LAYOUT or b.layout != ttnn.TILE_LAYOUT
+            or a.memory_config().is_sharded() or b.memory_config().is_sharded()
+            or (kw.get("memory_config") is not None and kw["memory_config"].is_sharded())):
+        return None
+    sa, sb = list(a.padded_shape), list(b.padded_shape)
+    if len(sb) < 2 or prod(sb[:-2]) != 1 or sa[-1] // 32 < 2:
+        return None  # a batched right operand, or a single K tile (nothing to carry)
+    return _k1_program_config(prod(sa[:-1]) // 32, sb[-1] // 32,
+                              out_bytes=_OUT_BYTES.get(kw.get("dtype") or a.dtype, 2))
+
+
+def _dest_carry_guard(op):
+    """`op` (ttnn.matmul or ttnn.linear) with the K-block-1 plan wherever `dest_carry_fault` holds
+    and the caller left the plan to ttnn. 251 of the 264 matmul/linear call sites in tt_bio pass
+    no program config, and ttnn's own choice carries dest across K tiles (auto-configured
+    [16384, 768] x [768, 1536] returns 3 wrong elements in 25.2M on Wormhole, the k1 plan 0 and in
+    0.70x the time, perf/mgx_wh_matmul/results/autocfg_probe.json). Everywhere else, Blackhole
+    included, the call is untouched.
+    """
+    @functools.wraps(op)
+    def call(a, b, *args, **kw):
+        if kw.get("program_config") is not None or not dest_carry_fault(kw.get("compute_kernel_config")):
+            return op(a, b, *args, **kw)
+        cfg = None if args else _k1_plan(a, b, kw)
+        if cfg is None:
+            DEST_CARRY_STATS["declined"] += 1
+            return op(a, b, *args, **kw)
+        k1 = dict(kw, program_config=cfg)
+        k1.pop("core_grid", None)
+        try:
+            out = op(a, b, **k1)
+        except RuntimeError:
+            DEST_CARRY_STATS["refused"] += 1
+            return op(a, b, **kw)
+        DEST_CARRY_STATS["k1"] += 1
+        return out
+    call.shipped = op
+    return call
+
+
+ttnn.matmul = _dest_carry_guard(ttnn.matmul)
+ttnn.linear = _dest_carry_guard(ttnn.linear)
 
 
 # The trimul's channel move produces permute (0, 3, 1, 2) and exactly one of the matmul's two
@@ -7127,7 +7243,8 @@ class TriangleMultiplication(Module):
             x_norm_in, H, n_pairs, group, memory_config, row_norm)
         g_out_fused = None
         seq_len_tiles = (H + 31) // 32
-        program_config = _triangle_mul_program_config(seq_len_tiles)
+        program_config = _triangle_mul_program_config(
+            seq_len_tiles, dest_carry_fault(self.compute_kernel_config))
         if not row_norm and H > SEQ_LEN_MORE_CHUNKING:
             # Compact large input activation for better large-sequence placement.
             x_norm_in = ttnn.reallocate(x_norm_in)

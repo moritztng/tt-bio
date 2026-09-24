@@ -15,8 +15,10 @@ same operands (the device's own bf16 / bfp8 values, so input quantisation is not
 
 Rows past MM_CENSUS_ROWS (4096) of a tall operand are not read (the K and N axes always are).
 
-wrong: |err| > 16 output ulps of |ref| + 2^-10 * sqrt(sum_k a_k^2 b_k^2)   (the dot product's own
-       scale, so a cancellation to ~0 is not called wrong)
+wrong: |err| > 0.25 * (sqrt(sum_k a_k^2 b_k^2) + 16 output ulps of |ref|). The dot product's own
+       scale: HiFi4's ordinary accumulation error is ~1e-3 of it and the -2^k misses are one to
+       tens of times it, so the bar sits in the empty gap between them. `max_q` is the largest
+       |err| / that scale seen per signature.
 gross: |err| > 5 % of the largest |ref| in the scored slice
 
 Calls inside a trace capture are counted, never read (a host read breaks the capture). Run with
@@ -56,7 +58,7 @@ if os.environ.get("MM_CENSUS_DIR"):
     ttnn.begin_trace_capture, ttnn.end_trace_capture = _b, _e
 
     def _site():
-        for fr in reversed(traceback.extract_stack()[:-3]):
+        for fr in reversed(traceback.extract_stack()[:-2]):
             if "/tt_bio/" in fr.filename:
                 return f"{fr.filename.split('/tt_bio/')[-1]}:{fr.lineno}:{fr.name}"
         return "?"
@@ -106,7 +108,8 @@ if os.environ.get("MM_CENSUS_DIR"):
                                   getattr(pc, "in0_block_w", "auto") if pc is not None else "auto",
                                   type(pc).__name__ if pc is not None else None,
                                   str(getattr(ck, "math_fidelity", None)), getattr(ck, "fp32_dest_acc_en", None),
-                                  getattr(ck, "packer_l1_acc", None), str(o.dtype), str(a.dtype), str(b.dtype)])
+                                  getattr(ck, "packer_l1_acc", None), str(o.dtype), str(a.dtype), str(b.dtype),
+                                  kw.get("core_grid") is not None])
                 r = _rows.setdefault(key, {"calls": 0, "scored": 0, "elems": 0, "wrong": 0, "gross": 0,
                                            "worst": [], "capture": 0})
                 r["calls"] += 1
@@ -137,9 +140,10 @@ if os.environ.get("MM_CENSUS_DIR"):
                     ref = ref + ttnn.to_torch(bias).double().reshape(-1)[:ref.shape[-1]]
                 scale = torch.matmul(A * A, B * B).sqrt()
                 e = O.reshape(ref.shape) - ref
-                tol = 16 * _ulp(ref, str(o.dtype)) + 2.0 ** -10 * scale
-                w = e.abs() > tol
+                q = e.abs() / (scale + 16 * _ulp(ref, str(o.dtype)))
+                w = q > 0.25
                 g = e.abs() > 0.05 * ref.abs().max()
+                r["max_q"] = max(r.get("max_q", 0.0), round(float(q.max()), 4))
                 r["scored"] += 1
                 r["elems"] += ref.numel()
                 r["wrong"] += int(w.sum())
@@ -164,7 +168,7 @@ if os.environ.get("MM_CENSUS_DIR"):
 '''
 
 FIELDS = ("site", "kind", "M", "K", "N", "batch", "in0_block_w", "config", "fidelity", "fp32_dest",
-          "l1_acc", "out", "a_dtype", "b_dtype")
+          "l1_acc", "out", "a_dtype", "b_dtype", "core_grid")
 
 
 def main():
@@ -188,7 +192,8 @@ def main():
             for key, r in json.load(open(p)).items():
                 m = merged.setdefault(key, {})
                 for k, v in r.items():
-                    m[k] = m.get(k, 0) + v if isinstance(v, (int, float)) else (m.get(k) or v)
+                    m[k] = (max(m.get(k, 0), v) if k == "max_q" else m.get(k, 0) + v) if isinstance(v, (int, float)) \
+                        else (m.get(k) or v)
     err = merged.pop("error", None)
     rows = [dict(zip(FIELDS, json.loads(k)), **r) for k, r in merged.items()]
     rows.sort(key=lambda r: (-r["wrong"], r["site"]))
@@ -197,8 +202,8 @@ def main():
         f.write(json.dumps({"label": a.label, "cli": cli, "rc": rc, **tot, "error": err, "rows": rows}) + "\n")
     print(f"{a.label}: rc={rc} {tot} error={err}")
     for r in rows[:40]:
-        print("  ", {k: r.get(k) for k in ("site", "M", "K", "N", "batch", "in0_block_w", "fidelity",
-                                            "calls", "scored", "elems", "wrong", "gross", "capture")},
+        print("  ", {k: r.get(k) for k in ("site", "M", "K", "N", "batch", "in0_block_w", "core_grid",
+                                            "calls", "scored", "elems", "wrong", "gross", "max_q", "capture")},
               r.get("worst", [])[:3])
     return rc
 

@@ -1,17 +1,23 @@
 #!/bin/bash
-# Detached probe chain on whglx: wait for a cleanly released chip, run the probes, release it.
-# Usage (from the whglx worktree): nohup perf/mgx_wh_matmul/chain.sh > perf/mgx_wh_matmul/results/chain.log 2>&1 &
+# Detached probe chain on whglx: wait for a cleanly released chip, run each line of JOBS (a script
+# path plus its args) whose output file (the value after --out) does not exist yet, release it.
+# Usage (from the whglx worktree):
+#   setsid nohup perf/mgx_wh_matmul/chain.sh perf/mgx_wh_matmul/jobs/<name>.txt > <log> 2>&1 < /dev/null &
 cd "$(dirname "$0")/../.." || exit 1
-R=perf/mgx_wh_matmul/results
-mkdir -p $R
+JOBS=$1
 sleep 20000 & HOLD=$!
 CARD=$(timeout 10800 python3 perf/mgx_wh_matmul/claim.py $HOLD) || { echo "no chip in 3 h"; kill $HOLD; exit 1; }
 echo "$(date -u +%FT%TZ) claimed card $CARD (hold pid $HOLD)"
 export CARD HOLD_PID=$HOLD
-run() { echo "$(date -u +%FT%TZ) start $*"; timeout 1500 perf/mgx_wh_matmul/run.sh "$@"; echo "$(date -u +%FT%TZ) rc=$? $1"; }
-[ -s $R/knobs.json ] || run perf/mgx_wh_matmul/knobs.py --out $R/knobs.json
-[ -s $R/element_kt16.json ] || run perf/mgx_wh_matmul/element.py --kt 16 --out $R/element_kt16.json
-[ -s $R/element_kt64.json ] || run perf/mgx_wh_matmul/element.py --kt 64 --max-elems 3 --out $R/element_kt64.json
+while read -r line; do
+    [ -z "$line" ] && continue
+    out=$(sed -n 's/.*--out \([^ ]*\).*/\1/p' <<<"$line")
+    [ -n "$out" ] && [ -s "$out" ] && { echo "skip $line"; continue; }
+    echo "$(date -u +%FT%TZ) start $line"
+    # shellcheck disable=SC2086
+    timeout 3000 perf/mgx_wh_matmul/run.sh $line
+    echo "$(date -u +%FT%TZ) rc=$? $line"
+done < "$JOBS"
 python3 - "$CARD" <<'PY'
 import json, sys, time
 p = f"/home/agent/leases/j10glx02-card{sys.argv[1]}.json"

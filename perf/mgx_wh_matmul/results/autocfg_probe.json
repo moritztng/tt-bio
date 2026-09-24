@@ -1,0 +1,244 @@
+{
+ "arch": "Arch.WORMHOLE_B0",
+ "aiclk": {
+  "0": {
+   "min": 1000,
+   "max": 1000,
+   "median": 1000,
+   "n": 6
+  }
+ },
+ "rows": [
+  {
+   "m": 16384,
+   "k": 768,
+   "n": 3072,
+   "arm": "auto",
+   "config": "none",
+   "fault": 5,
+   "max_q": 4.5953,
+   "median_ms": 2.9766,
+   "elems": 50331648
+  },
+  {
+   "m": 16384,
+   "k": 768,
+   "n": 3072,
+   "arm": "w1",
+   "config": "compute_with_storage_grid_size=(x=8,y=9) in0_block_w=1 out_subblock_h=1 out_subblock_w=4 per_core_M=57 per_core_N=12",
+   "fault": 0,
+   "max_q": 0.0193,
+   "median_ms": 3.5726,
+   "elems": 50331648
+  },
+  {
+   "m": 16384,
+   "k": 768,
+   "n": 3072,
+   "arm": "wk",
+   "config": "compute_with_storage_grid_size=(x=8,y=9) in0_block_w=8 out_subblock_h=1 out_subblock_w=4 per_core_M=57 per_core_N=12",
+   "fault": 11,
+   "max_q": 5.1037,
+   "median_ms": 2.609,
+   "elems": 50331648
+  },
+  {
+   "m": 16384,
+   "k": 768,
+   "n": 1536,
+   "arm": "auto",
+   "config": "none",
+   "fault": 3,
+   "max_q": 2.4112,
+   "median_ms": 2.3886,
+   "elems": 25165824
+  },
+  {
+   "m": 16384,
+   "k": 768,
+   "n": 1536,
+   "arm": "w1",
+   "config": "compute_with_storage_grid_size=(x=8,y=9) in0_block_w=1 out_subblock_h=1 out_subblock_w=3 per_core_M=57 per_core_N=6",
+   "fault": 0,
+   "max_q": 0.0197,
+   "median_ms": 1.6836,
+   "elems": 25165824
+  },
+  {
+   "m": 16384,
+   "k": 768,
+   "n": 1536,
+   "arm": "wk",
+   "config": "compute_with_storage_grid_size=(x=8,y=9) in0_block_w=4 out_subblock_h=1 out_subblock_w=3 per_core_M=57 per_core_N=6",
+   "fault": 4,
+   "max_q": 2.4164,
+   "median_ms": 1.2774,
+   "elems": 25165824
+  },
+  {
+   "m": 16384,
+   "k": 1536,
+   "n": 768,
+   "arm": "auto",
+   "config": "none",
+   "fault": 5,
+   "max_q": 3.2147,
+   "median_ms": 2.2569,
+   "elems": 12582912
+  },
+  {
+   "m": 16384,
+   "k": 1536,
+   "n": 768,
+   "arm": "w1",
+   "config": "compute_with_storage_grid_size=(x=8,y=9) in0_block_w=1 out_subblock_h=1 out_subblock_w=3 per_core_M=57 per_core_N=3",
+   "fault": 0,
+   "max_q": 0.0163,
+   "median_ms": 1.6125,
+   "elems": 12582912
+  },
+  {
+   "m": 16384,
+   "k": 1536,
+   "n": 768,
+   "arm": "wk",
+   "config": "compute_with_storage_grid_size=(x=8,y=9) in0_block_w=8 out_subblock_h=1 out_subblock_w=3 per_core_M=57 per_core_N=3",
+   "fault": 3,
+   "max_q": 1.7474,
+   "median_ms": 1.0959,
+   "elems": 12582912
+  },
+  {
+   "m": 16384,
+   "k": 384,
+   "n": 1536,
+   "arm": "auto",
+   "config": "none",
+   "fault": 1,
+   "max_q": 1.7639,
+   "median_ms": 1.6957,
+   "elems": 25165824
+  },
+  {
+   "m": 16384,
+   "k": 384,
+   "n": 1536,
+   "arm": "w1",
+   "config": "compute_with_storage_grid_size=(x=8,y=9) in0_block_w=1 out_subblock_h=1 out_subblock_w=3 per_core_M=57 per_core_N=6",
+   "fault": 0,
+   "max_q": 0.0169,
+   "median_ms": 1.1825,
+   "elems": 25165824
+  },
+  {
+   "m": 16384,
+   "k": 384,
+   "n": 1536,
+   "arm": "wk",
+   "config": "compute_with_storage_grid_size=(x=8,y=9) in0_block_w=4 out_subblock_h=1 out_subblock_w=3 per_core_M=57 per_core_N=6",
+   "fault": 3,
+   "max_q": 6.7018,
+   "median_ms": 0.9702,
+   "elems": 25165824
+  },
+  {
+   "m": 16384,
+   "k": 512,
+   "n": 128,
+   "arm": "auto",
+   "config": "none",
+   "fault": 1,
+   "max_q": 5.0584,
+   "median_ms": 0.3791,
+   "elems": 2097152
+  },
+  {
+   "m": 16384,
+   "k": 512,
+   "n": 128,
+   "arm": "w1",
+   "config": "compute_with_storage_grid_size=(x=8,y=9) in0_block_w=1 out_subblock_h=3 out_subblock_w=1 per_core_M=57 per_core_N=1",
+   "fault": 0,
+   "max_q": 0.014,
+   "median_ms": 0.374,
+   "elems": 2097152
+  },
+  {
+   "m": 16384,
+   "k": 512,
+   "n": 128,
+   "arm": "wk",
+   "config": "compute_with_storage_grid_size=(x=8,y=9) in0_block_w=2 out_subblock_h=3 out_subblock_w=1 per_core_M=57 per_core_N=1",
+   "fault": 1,
+   "max_q": 5.0584,
+   "median_ms": 0.372,
+   "elems": 2097152
+  },
+  {
+   "m": 16384,
+   "k": 128,
+   "n": 512,
+   "arm": "auto",
+   "config": "none",
+   "fault": 0,
+   "max_q": 0.0146,
+   "median_ms": 0.4114,
+   "elems": 8388608
+  },
+  {
+   "m": 16384,
+   "k": 128,
+   "n": 512,
+   "arm": "w1",
+   "config": "compute_with_storage_grid_size=(x=8,y=9) in0_block_w=1 out_subblock_h=1 out_subblock_w=2 per_core_M=57 per_core_N=2",
+   "fault": 0,
+   "max_q": 0.0151,
+   "median_ms": 0.3584,
+   "elems": 8388608
+  },
+  {
+   "m": 16384,
+   "k": 128,
+   "n": 512,
+   "arm": "wk",
+   "config": "compute_with_storage_grid_size=(x=8,y=9) in0_block_w=2 out_subblock_h=1 out_subblock_w=2 per_core_M=57 per_core_N=2",
+   "fault": 0,
+   "max_q": 0.0146,
+   "median_ms": 0.3431,
+   "elems": 8388608
+  },
+  {
+   "m": 16384,
+   "k": 256,
+   "n": 64,
+   "arm": "auto",
+   "config": "none",
+   "fault": 0,
+   "max_q": 0.0147,
+   "median_ms": 0.2084,
+   "elems": 1048576
+  },
+  {
+   "m": 16384,
+   "k": 256,
+   "n": 64,
+   "arm": "w1",
+   "config": "compute_with_storage_grid_size=(x=8,y=9) in0_block_w=1 out_subblock_h=3 out_subblock_w=1 per_core_M=57 per_core_N=1",
+   "fault": 0,
+   "max_q": 0.0167,
+   "median_ms": 0.2132,
+   "elems": 1048576
+  },
+  {
+   "m": 16384,
+   "k": 256,
+   "n": 64,
+   "arm": "wk",
+   "config": "compute_with_storage_grid_size=(x=8,y=9) in0_block_w=2 out_subblock_h=3 out_subblock_w=1 per_core_M=57 per_core_N=1",
+   "fault": 0,
+   "max_q": 0.0147,
+   "median_ms": 0.2127,
+   "elems": 1048576
+  }
+ ]
+}

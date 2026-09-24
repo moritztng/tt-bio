@@ -3,7 +3,7 @@
 # not take the chip between probes. Usage: CARD=31 perf/mgx_wh_matmul/run.sh script.py args...
 CARD=${CARD:-31}
 cd "$(dirname "$0")/../.." || exit 1
-TT_VISIBLE_DEVICES=$CARD TT_BIO_LEASE_CARDS=$CARD TT_BIO_LEASE_HOLDER=worker:mgx-wh-matmul \
+TT_BIO_SIZE_LIMIT=${TT_BIO_SIZE_LIMIT:-0} TT_VISIBLE_DEVICES=$CARD TT_BIO_LEASE_CARDS=$CARD TT_BIO_LEASE_HOLDER=worker:mgx-wh-matmul \
     ~/env/bin/python3 "$@" 2>&1 | grep -v -E "DEBUG|\| INFO|^Config|device bring-up lock"
 rc=${PIPESTATUS[0]}
 python3 - "$CARD" <<'PY'

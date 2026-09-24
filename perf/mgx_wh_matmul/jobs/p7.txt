@@ -1,0 +1,2 @@
+perf/mgx_wh_matmul/linear_probe.py --out perf/mgx_wh_matmul/results/linear_probe_guard.json
+perf/mgx_wh_matmul/fold_census.py --label boltz2-3abq1536-guard --out perf/mgx_wh_matmul/results/census_boltz2_guard.jsonl -- predict perf/mgx/ref/fixtures/3abq_1536.yaml --model boltz2 --out_dir perf/mgx_wh_matmul/results/runs/boltz2_guard --accelerator tenstorrent --override --host_threads 2
