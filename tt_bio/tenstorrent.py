@@ -4402,11 +4402,15 @@ def _triangle_mul_program_config(seq_len_tiles: int,
     in0_block_w = 1 if k1 else _trimul_in0_block_w(seq_len_tiles)
     while in0_block_w > 1 and _matmul_cb_bytes(in0_block_w, per_core_M, per_core_N, 2) > budget:
         in0_block_w = max(d for d in range(in0_block_w - 1, 0, -1) if seq_len_tiles % d == 0)
+    # A K block of 1 packs every output tile once per K tile, so the drain dominates and a wider
+    # subblock pays for itself: at Kt 48 x 32 channels on Wormhole 1x1 costs 1.73x the band, 1x3
+    # 1.55x (perf/mgx_wh_matmul/results/cost_probe.json). The band keeps 1x1, measured best above.
+    sub_w = max(d for d in (4, 3, 2, 1) if per_core_N % d == 0) if k1 else 1
     return ttnn.MatmulMultiCoreReuseMultiCastProgramConfig(
         compute_with_storage_grid_size=(gx, gy),
         in0_block_w=in0_block_w,
         out_subblock_h=1,
-        out_subblock_w=1,
+        out_subblock_w=sub_w,
         out_block_h=per_core_M,
         out_block_w=per_core_N,
         per_core_M=per_core_M,
