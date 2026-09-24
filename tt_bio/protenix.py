@@ -33,6 +33,7 @@ import ttnn
 
 from . import protenix_weights as PW
 from .envflags import env_flag
+from .sample_chunks import denoise_in_chunks, resolve_sample_chunk_width
 from .token_axis import bucket_multiple as _bucket_multiple
 from .protenix_weights import remap_adaln  # single source of all v2->tt-bio weight remaps
 from . import ops
@@ -3088,9 +3089,6 @@ def edm_sample(diffusion_module, cond, n_atoms, *, multiplicity=1, max_parallel_
     import torch
     from .boltz2 import compute_random_augmentation
     M = max(1, int(multiplicity))
-    if max_parallel_samples is None or max_parallel_samples > M:
-        max_parallel_samples = M
-    max_parallel_samples = max(1, int(max_parallel_samples))
     # trace is captured at (1,N,3): keep it only for the unbatched path; fall back to
     # the untraced (but batch-aware) denoise for M>1 so the device forward is correct.
     _denoise = (diffusion_module.denoise_traced if trace and M == 1 else diffusion_module.denoise)
@@ -3150,9 +3148,10 @@ def edm_sample(diffusion_module, cond, n_atoms, *, multiplicity=1, max_parallel_
     # NOT replicated; the device denoise is responsible for carrying the chunk's leading
     # dim through the atom encoder / DiT / decoder (see DiffusionModule.denoise).
     etas = step_scale_schedule(step_scale, n_step)
-    sample_ids = torch.arange(M)
-    n_chunks = max(1, (M + max_parallel_samples - 1) // max_parallel_samples)
-    chunks = [c for c in sample_ids.chunk(n_chunks) if c.numel() > 0]
+    width = resolve_sample_chunk_width(M, max_parallel_samples)
+    # A multi-target batch concatenates its conditioning per member, so a chunk would slice
+    # the coordinate stream but not the conditioning: it runs whole or not at all.
+    narrowest = M if "_members" in cond else 1
     for k in range(n_step):
         if progress_fn:
             progress_fn("diffusion", step=k, total=n_step)
@@ -3175,9 +3174,10 @@ def edm_sample(diffusion_module, cond, n_atoms, *, multiplicity=1, max_parallel_
         else:
             eps = (noise_var ** 0.5) * torch.randn(shape)
         x_noisy = x + eps
-        denoised = torch.zeros_like(x_noisy)
-        for _chunk in chunks:
-            denoised[_chunk] = _denoise(x_noisy[_chunk], torch.tensor([t_hat], dtype=torch.float32), cond)
+        t_dev = torch.tensor([t_hat], dtype=torch.float32)
+        denoised, width = denoise_in_chunks(
+            x_noisy, width, lambda chunk, _w: _denoise(chunk, t_dev, cond),
+            narrowest=narrowest, tag="protenix diffusion")
         dram_peak(f"edm step {k}")
         trunk_tap_host(f"edm_denoised[step{k}]", denoised)
         d = (x_noisy - denoised) / t_hat

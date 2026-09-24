@@ -1,0 +1,4 @@
+# The two walls, with the fix. eal_b12 x5 is the fold mgx-combos saw refused at diffusion 0/200 on main.
+b2_b12_x5 boltz2 perf/mgx_sample_width/inputs/eal_b12.yaml 5
+px1_1536_x5 protenix-v1 perf/size512/fixtures/cdk2x2_1536.yaml 5
+px1_1536_x25 protenix-v1 perf/size512/fixtures/cdk2x2_1536.yaml 25
