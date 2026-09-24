@@ -28,6 +28,14 @@
 # (Rg 123.3 A, 2 components, zero inter-chain edges under 22 A). A disconnected conditioning
 # graph is what got an earlier 1536 answer withdrawn; this one is connected at every rung.
 #
+# ONE TREE, ff5435cba, the tree every GroEL and 1GPB cell in this row was measured on. The
+# three FAS rungs are read against EACH OTHER, so they must share a tree; ff5435cba is the one
+# the whglx design checkout sits at and the one the comparison cells used. Same deliberate
+# MGX_ALLOW_BEHIND_MAIN override as plans/groel_1024.txt and plans/groel_768.txt, for the same
+# reason: these are not catchers, catchers run from ~/wt-mgx-catcher against main, and the
+# main-vs-branch engine delta is separately measured as inert on this row's own cells
+# (results/engine_delta_is_inert.txt).
+#
 # CAVEAT STATED UP FRONT: this is a THIRD protein, so a difference between its ladder and the
 # other two is a target difference until shown otherwise. That is unavoidable -- the control
 # cannot be built on either target the row already has -- and it is why the reading below is
