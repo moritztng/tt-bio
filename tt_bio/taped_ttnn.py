@@ -29,6 +29,7 @@ tape cannot follow is loud, not a silently dropped gradient.
 from __future__ import annotations
 
 import contextlib
+import re
 import sys
 
 import ttnn
@@ -37,7 +38,7 @@ from . import autograd as ag
 from .autograd import Tensor, precise_config
 from .autograd import (_axis, _differentiating, _flat2d, _on_tape, _raw,
                        _reduce_to, _sum_leading, _tape,
-                       _taped_layer_norm, _taped_linear, _unwrap, _wrap)
+                       _taped_layer_norm, _taped_linear, _unwrap, _via2d, _wrap)
 
 __all__ = ["tape", "recompute_scope", "VERBS", "taped_ttnn"]
 
@@ -131,8 +132,10 @@ def _v_matmul(shipped, args, kwargs):
     def make():
         def bw(g):
             if a.requires_grad:
-                a.add_grad(ttnn.matmul(g, b.value, transpose_b=not tb,
-                                       compute_kernel_config=cfg) if not ta else
+                rows = _via2d if len(b.value.shape) == 2 else (lambda t, fn: fn(t))
+                a.add_grad(rows(g, lambda v: ttnn.matmul(v, b.value, transpose_b=not tb,
+                                                         compute_kernel_config=cfg))
+                           if not ta else
                            ttnn.matmul(b.value, g, transpose_a=tb, transpose_b=True,
                                        compute_kernel_config=cfg))
             if b.requires_grad:
@@ -234,10 +237,26 @@ _VERBS["exp"] = _unary(lambda xv, y: y, reads_output=True)
 _FUSED_UNARY = {}
 
 
+# A fused activation that carries a scalar. `UnaryWithParam(MUL_UNARY_SFPU, c)` is one
+# op_type with a different function per call site, so it cannot be a constant entry above:
+# the registry holds a builder that is handed the scalar and returns the same
+# (forward, derivative) pair the plain entries are.
+_FUSED_UNARY_PARAM: dict = {}
+
+
 def _register_fused_unary():
     u = getattr(ttnn, "UnaryOpType", None)
     if u is None:                                                  # pragma: no cover
         return
+    if hasattr(u, "MUL_UNARY_SFPU"):
+        # `add_(x, y, input_tensor_a_activations=[MUL_UNARY_SFPU(c)])` is `x * c + y`. The
+        # fp32-softmax tail rides the score scale on the add instead of paying a pass for
+        # it (`tenstorrent.py:3757`), and openfold3's trunk, template and MSA stacks all
+        # take that path by default -- `fp32_softmax=True` at every one of them -- so this
+        # is the shipped path for a whole model, not an opt-in corner. The derivative is
+        # the constant.
+        _FUSED_UNARY_PARAM[u.MUL_UNARY_SFPU] = lambda c: (
+            lambda x: ttnn.multiply(x, c), lambda x, y: c)
     if hasattr(u, "SIGMOID"):
         _FUSED_UNARY[u.SIGMOID] = (
             ttnn.sigmoid, lambda x, y: ttnn.multiply(y, ttnn.rsub(y, 1.0)))
@@ -253,12 +272,86 @@ def _register_fused_unary():
 _register_fused_unary()
 
 
-def _activation(kwargs, key):
+_SCALAR_RE = re.compile(r"params=\[([^\]]*)\]")
+_PARAM_CHECKED: set = set()
+
+
+def _unary_scalar(op):
+    """The scalar a parameterised fused unary carries, or None if it carries none.
+
+    ttnn binds `op_type` on `UnaryWithParam` and nothing else -- there is no `params`
+    attribute -- so the value is read out of the repr, which prints `params=[0.25]`. A
+    format dependency is not something a gradient may rest on, so the number is not
+    trusted: `_fused_param` measures it against the kernel the first time it sees it.
+    """
+    m = _SCALAR_RE.search(repr(op))
+    if m is None:
+        return None
+    parts = [p for p in m.group(1).split(",") if p.strip()]
+    if len(parts) != 1:
+        return None
+    try:
+        return float(parts[0])
+    except ValueError:                                             # pragma: no cover
+        return None
+
+
+def _check_param(op, fwd, probe):
+    """Confirm the scalar read out of the repr is the one the kernel applies.
+
+    One comparison per distinct activation, on the operand already in hand: the kernel
+    computes `f(x) + 0` through the fused path, and the model computes `f(x)` directly.
+    The bar is loose on purpose. This is not a precision check -- it is here to catch the
+    parse returning something that is not the scale at all, which is what an fp32 bit
+    pattern (`rfd3_bias._scale_bits`) would look like if ttnn ever stored one: off by nine
+    orders, not by a rounding.
+    """
+    key = repr(op)
+    if key in _PARAM_CHECKED:
+        return
+    _PARAM_CHECKED.add(key)
+    zero = ttnn.multiply(probe, 0.0)
+    kern = ttnn.add(probe, zero, input_tensor_a_activations=[op])
+    ours = fwd(probe)
+    diff = ttnn.max(ttnn.abs(ttnn.subtract(kern, ours)))
+    scale = ttnn.max(ttnn.abs(kern))
+    d = float(ttnn.to_torch(diff).flatten()[0])
+    sc = float(ttnn.to_torch(scale).flatten()[0])
+    for t in (zero, kern, ours, diff, scale):
+        ttnn.deallocate(t)
+    if d > 1.0e-3 * (sc + 1.0e-30):
+        raise NotImplementedError(
+            f"tt_bio.autograd read the scalar of {op!r} out of its repr and the kernel "
+            f"disagrees: max |kernel - model| {d:.3e} against |kernel| {sc:.3e}. The "
+            f"gradient would be scaled by the wrong constant, so this refuses.")
+
+
+def _fused_param(op, probe):
+    """A parameterised fused unary as a (forward, derivative) pair, or None if it is not
+    one. Unknown `op_type` returns None so `_activation` can raise with its own message."""
+    build = _FUSED_UNARY_PARAM.get(getattr(op, "op_type", None))
+    if build is None:
+        return None
+    c = _unary_scalar(op)
+    if c is None:                                                  # pragma: no cover
+        raise NotImplementedError(
+            f"tt_bio.autograd cannot read the scalar of {op!r}, so it cannot differentiate "
+            f"it. Guessing it would scale the gradient by the wrong constant.")
+    pair = build(c)
+    if probe is not None:
+        _check_param(op, pair[0], probe)
+    return pair
+
+
+def _activation(kwargs, key, probe=None):
     """The single fused unary on one operand, or None. Anything unmodelled raises.
 
     Declining loudly is the whole point. The forward would be right either way, because it
     comes from the shipped verb; it is the backward that would quietly differentiate a
     different function.
+
+    `probe` is the operand the activation is fused onto, when the caller has it. It is what
+    a parameterised activation's scalar is checked against.
     """
     acts = kwargs.get(key) or ()
     acts = list(acts)
@@ -268,13 +361,19 @@ def _activation(kwargs, key):
         raise NotImplementedError(
             f"tt_bio.autograd tapes one fused activation per operand; {key} has {len(acts)}.")
     op = acts[0]
-    if op not in _FUSED_UNARY:
-        raise NotImplementedError(
-            f"tt_bio.autograd has no backward for the fused activation {op!r} on {key}. "
-            f"Add it to tt_bio.taped_ttnn._FUSED_UNARY -- forwarding it to the shipped verb "
-            f"and ignoring it here gives a correct forward and a wrong gradient, which is "
-            f"how the TriangleAttention gate read 4.88x high.")
-    return _FUSED_UNARY[op]
+    pair = _fused_param(op, probe)
+    if pair is not None:
+        return pair
+    # A bare `UnaryOpType` carries no scalar and has no `op_type` attribute; only the
+    # plain registry can hold it, and only it is safe to look up as a dict key.
+    if not hasattr(op, "op_type") and op in _FUSED_UNARY:
+        return _FUSED_UNARY[op]
+    raise NotImplementedError(
+        f"tt_bio.autograd has no backward for the fused activation {op!r} on {key}. "
+        f"Add it to tt_bio.taped_ttnn._FUSED_UNARY, or to _FUSED_UNARY_PARAM if it carries "
+        f"a scalar -- forwarding it to the shipped verb and ignoring it here gives a "
+        f"correct forward and a wrong gradient, which is how the TriangleAttention gate "
+        f"read 4.88x high.")
 
 
 def _binary(grad_a, grad_b, scalar, out_of_place=None):
@@ -315,8 +414,8 @@ def _binary(grad_a, grad_b, scalar, out_of_place=None):
 
             return _tape(out_v, [a], make_s)
         b = _wrap(raw_b)
-        fa = _activation(kwargs, "input_tensor_a_activations")
-        fb = _activation(kwargs, "input_tensor_b_activations")
+        fa = _activation(kwargs, "input_tensor_a_activations", a.value)
+        fb = _activation(kwargs, "input_tensor_b_activations", b.value)
         out_v = shipped(a.value, b.value, **kw)
         def make():
             def bw(g):
@@ -661,7 +760,9 @@ def _v_concat_heads(shipped, args, kwargs):
 
     def make():
         def bw(g):
-            x.add_grad(ttnn.permute(ttnn.reshape(g, [B, L, H, dh]), [0, 2, 1, 3]))
+            # `ag.split_heads`'s tile-aligned slices rather than reshape to [B, L, H, dh] +
+            # permute, which pads H to a tile row: 275 us against 2576 us at [256, 256, 128].
+            x.add_grad(ag._split_heads_v(ttnn.reshape(g, [B, L, H * dh]), H))
         return bw
 
     return _tape(out_v, [x], make)
@@ -689,17 +790,20 @@ def _v_create_qkv_heads(shipped, args, kwargs):
     def slot(s):
         def make():
             def bw(g):
-                # [B, H, L, dh] -> [B, L, 1, H*dh], then into slot s of the packed axis.
-                rows = ttnn.reshape(ttnn.permute(g, [0, 2, 1, 3]), [B, L, 1, H * dh])
+                # [B, H, L, dh] -> [B, 1, L, H*dh] on `nlp_concat_heads`, then into slot s of the
+                # packed LAST axis. Permuting to [B, L, H, dh] and concatenating on a unit axis
+                # pads H and the slot axis to a tile row each; this moves every tile once and is
+                # the same rearrangement (`perf/bcx_triatt/heads_verbs.py`).
+                rows = ttnn.reshape(ag._merge_heads_v(g), [B, 1, L, H * dh])
                 # One zero tensor for both empty slots, then one concat. `ttnn.pad` would be
                 # the single-allocation form and cannot be used: it refuses front padding
                 # (`pad.cpp:278 front_padding_is_zero`), so slots 1 and 2 have no pad
                 # expression. The packed width is 2,415,919,104 B at a 384-token pair track,
                 # which is why this op is where the backward runs out of card.
-                zero = ttnn.zeros([B, L, 1, H * dh], dtype=rows.dtype,
+                zero = ttnn.zeros([B, 1, L, H * dh], dtype=rows.dtype,
                                   layout=ttnn.TILE_LAYOUT, device=rows.device())
                 parts = [rows if i == s else zero for i in range(3)]
-                x.add_grad(ttnn.reshape(ttnn.concat(parts, dim=2), [B, 1, L, 3 * H * dh]))
+                x.add_grad(ttnn.concat(parts, dim=-1))
             return bw
         return make
 

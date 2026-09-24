@@ -1,0 +1,22 @@
+2026-09-24 01:28:31.796 | DEBUG    | ttnn:<module>:77 - Initial ttnn.CONFIG:
+Config{cache_path=/home/ttuser/.cache/ttnn,model_cache_path=/home/ttuser/.cache/ttnn/models,tmp_dir=/tmp/ttnn,enable_model_cache=false,enable_fast_runtime_mode=true,throw_exception_on_fallback=false,enable_logging=false,enable_graph_report=false,enable_detailed_buffer_report=false,enable_detailed_tensor_report=false,enable_comparison_mode=false,comparison_mode_should_raise_exception=false,comparison_mode_pcc=0.9999,root_report_path=generated/ttnn/reports,report_name=std::nullopt,std::nullopt}
+# N=256 c_z=128 heads=4 head_dim=32 bins=64 chunk=128 checkpoint=False blocks=1 block_transition=True
+# 1 pairformer unit(s): trimul out, trimul in, tri-attention start, tri-attention end, transition (in unit)
+# loss 4.760655   forward 0.560 s   backward 0.755 s   bwd/fwd 1.35
+# |grad| = 1.968891e-02 over 5376 logits
+
+# whole-chain FORWARD vs float64: rel_l2 7.55e-03
+# whole-chain LOGIT GRADIENT vs float64: rel_l2 7.05e-03, cos 0.999980
+# PASS (bar rel_l2 <= 5.0e-2, cos >= 0.999; looser than the per-op 1.0e-2 because this is ~40 bf16 ops deep)
+
+# directional finite difference along the reported gradient.
+# 'nominal' predicts 2*eps*|g|, which assumes the whole step is applied. 'applied'
+# predicts g . (bf16(l+eps*u) - bf16(l-eps*u)), the step the device actually took:
+# the logits are bf16 on device, so a step below bf16 spacing is silently rounded
+# away. 'kept' is the fraction of the intended step that survived rounding.
+     eps    kept   measured dL      nominal   r_nom      applied   r_app  verdict
+     0.1   1.005   2.85412e-03  3.93778e-03  0.7248  2.79880e-03  1.0198  PASS
+
+# AICLK during: min 1350 max 1350 median 1350 MHz over 3 samples
+
+E2E PASS: the distogram gradient reaches the sequence logits and moves the loss as predicted
