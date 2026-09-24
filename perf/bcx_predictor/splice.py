@@ -56,6 +56,16 @@ class EvoformerOnDevice:
         with dev.tt.tape():
             mo, zo = dev.stack(ml, zl, 0, self.k_evo, ckpt=self.checkpoint)
         dev.sync()
+        # recycled_alphafold_outputs runs design_recycles stop-gradient passes and then one
+        # differentiated pass, and JAX routes ALL of them through fwd -- it cannot know the
+        # stop_gradient discards the first until after the trace. Measured: taped 2,
+        # backward 1, one tape left live per step. At bcx-ckpt's 5.33 GB an Evoformer block
+        # that is fatal over 125 steps, so the superseded tapes are dropped here. The
+        # differentiated pass is the LAST taped call, so keeping only the newest is correct;
+        # _backward raises by token if that ever stops holding.
+        for stale in list(_LIVE):
+            _LIVE.pop(stale, None)
+        dev.ag.release_pins()
         token = _NEXT[0]; _NEXT[0] += 1
         _LIVE[token] = {"roots": [mo, zo], "leaves": [ml, zl],
                         "shapes": [tuple(m.shape), tuple(z.shape)]}
@@ -85,29 +95,43 @@ class EvoformerOnDevice:
     # ------------------------------------------------------------------ the JAX face
 
     def as_jax(self):
-        def shapes_of(msa, pair):
+        """The callback works in float32; the model around it runs bfloat16.
+
+        `recycled_alphafold_outputs` carries `pair` through a `while_loop`, whose carry
+        types must match exactly, so every value handed back takes the dtype it arrived
+        with rather than the float32 the host computes in. Declaring float32 outputs cost
+        a `while_loop body function carry input and carry output must have equal types`
+        on the first attempt.
+        """
+        def f32(msa, pair):
             return (jax.ShapeDtypeStruct(msa.shape, jnp.float32),
                     jax.ShapeDtypeStruct(pair.shape, jnp.float32))
 
         @jax.custom_vjp
         def stack(msa, pair):
-            return jax.pure_callback(self._primal, shapes_of(msa, pair),
+            m, z = jax.pure_callback(self._primal, f32(msa, pair),
                                      msa.astype(jnp.float32), pair.astype(jnp.float32))
+            return m.astype(msa.dtype), z.astype(pair.dtype)
 
         def fwd(msa, pair):
-            out = jax.pure_callback(
-                self._taped, shapes_of(msa, pair) + (jax.ShapeDtypeStruct((), jnp.int32),),
+            m, z, token = jax.pure_callback(
+                self._taped, f32(msa, pair) + (jax.ShapeDtypeStruct((), jnp.int32),),
                 msa.astype(jnp.float32), pair.astype(jnp.float32))
-            return (out[0], out[1]), (out[2], msa.shape, pair.shape)
+            return (m.astype(msa.dtype), z.astype(pair.dtype)), token
 
-        def bwd(res, cts):
-            token, msa_shape, pair_shape = res
+        def bwd(token, cts):
+            # The residual is the token ALONE. A custom_vjp residual must be a pytree of
+            # JAX types, and a numpy dtype is not one -- carrying msa.dtype in it cost a
+            # "Argument 'bfloat16' ... is not a valid JAX type". The shapes and dtypes are
+            # already on the cotangents, because the forward casts its outputs back to the
+            # dtype it was handed.
             g_msa, g_pair = cts
-            return jax.pure_callback(
+            gm, gz = jax.pure_callback(
                 self._backward,
-                (jax.ShapeDtypeStruct(msa_shape, jnp.float32),
-                 jax.ShapeDtypeStruct(pair_shape, jnp.float32)),
+                (jax.ShapeDtypeStruct(g_msa.shape, jnp.float32),
+                 jax.ShapeDtypeStruct(g_pair.shape, jnp.float32)),
                 token, g_msa.astype(jnp.float32), g_pair.astype(jnp.float32))
+            return gm.astype(g_msa.dtype), gz.astype(g_pair.dtype)
 
         stack.defvjp(fwd, bwd)
         return stack

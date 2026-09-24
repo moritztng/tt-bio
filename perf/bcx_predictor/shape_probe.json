@@ -1,0 +1,31 @@
+{
+ "msa_in": [
+  2,
+  192,
+  256
+ ],
+ "msa_dtype": "bfloat16",
+ "pair_in": [
+  192,
+  192,
+  128
+ ],
+ "act_keys": [
+  "msa",
+  "pair"
+ ],
+ "msa_out": [
+  2,
+  192,
+  256
+ ],
+ "pair_out": [
+  192,
+  192,
+  128
+ ],
+ "out_keys": [
+  "msa",
+  "pair"
+ ]
+}
