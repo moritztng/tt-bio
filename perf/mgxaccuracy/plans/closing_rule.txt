@@ -1,0 +1,97 @@
+# HOW THIS ROW CLOSES, WRITTEN BEFORE THE LAST TWO RESULTS LAND.
+# 2026-09-24 07:1xZ. GroEL's two 1536 cells are 1h20m into a ~3.4 h run (ETA ~09:05Z) and its
+# 512 pair is queued behind them (~09:45Z). qb2's upstream 1536 draw a is 5h40m in (~11:20Z)
+# and draw b started 06:04Z (~16:45Z). Nothing below has been seen.
+#
+# WHY THIS FILE EXISTS. The row has pre-registered every individual cell it ran, but not the
+# reading that turns those cells into a verdict. A final verdict picked after seeing the last
+# two results is the one thing this row has spent eight withdrawn claims learning not to do.
+# `results/upstream_draw_count.txt` already fixes how the upstream pair is read; this file
+# fixes how GroEL is read, and how the two together decide GO.
+
+## 1. THE 1GPB RESULT THIS IS TESTING, recomputed here so the comparison is exact
+
+  cell (n=8 median designfolding-bb_rmsd, A)      512      1536
+    crop offset 0                                4.748    19.398
+    crop offset 100                             17.785    13.273
+
+  size at offset 0     19.398 - 4.748  = +14.650     MW rejects
+  size at offset 100   13.273 - 17.785 =  -4.512     MW rejects
+  crop at 512          17.785 - 4.748  = +13.037     MW rejects
+  crop at 1536         13.273 - 19.398 =  -6.125     MW rejects
+  interaction          -4.512 - 14.650 = -19.162   (= -6.125 - 13.037, same number both ways)
+  main effects         size +5.069, crop +3.456  -- averages of opposing numbers, not effects
+
+The claim under test: the interaction is real, it is ~4x either main effect, and each factor's
+two simple effects point OPPOSITE ways. GroEL either reproduces that structure or it does not.
+
+## 2. WHAT COUNTS AS REPLICATION, AND THE THRESHOLD'S ARITHMETIC
+
+GroEL's crops are 0 and 560, not 0 and 100, so its cells are NOT comparable to 1GPB's one by
+one. Only the STRUCTURE is comparable: the sign of the interaction and whether the two simple
+effects of each factor oppose. Read the sign, never the magnitude, against 1GPB.
+
+Threshold. An n=8 median in this row repeats to 0.1-1.8 A (two cells; the card-2 repeat lands
+a third reading ~08:00Z and REPLACES the 1.8 if it is worse). The interaction is a +/-1
+combination of four such medians, so in the worst case the four errors add:
+
+    4 x 1.8 = 7.2 A      conservative, assumes every cell wobbles the wrong way at once
+    2 x 1.8 = 3.6 A      RMS, if the four are independent
+
+Use the CONSERVATIVE 7.2 A. A claim this row publishes should survive the pessimistic bound.
+If the card-2 repeat moves the 1.8, recompute 4x the new worst case before reading GroEL and
+say so; do not keep 7.2 as a number of its own.
+
+  REPLICATES   interaction negative AND |interaction| >= 7.2 A.
+               -> the interaction is a property of the task, not of 1GPB, and the doc's
+                  "there is no size rule to apply" stands as written.
+
+  REFUTED      interaction >= +7.2 A, or both size simple effects share a sign with both
+               outside the repeatability band.
+               -> the 1GPB four-cell table is one target's personality. docs/design-throughput.md
+                  must then label its size table as measured on one target and drop the general
+                  form of the no-size-rule sentence.
+
+  INCONCLUSIVE |interaction| < 7.2 A.
+               -> GroEL shows no demonstrable interaction. This is consistent with "no
+                  consistent direction" but does NOT confirm the 1GPB structure, so the doc
+                  keeps the table and labels it one protein. Do not read a null as a
+                  replication; that is the flattering direction.
+
+Also record, without letting them decide the verdict: MW at n=8 vs 8 on each of the four simple
+effects, and whether any GroEL cell clears the 4 A bar (1GPB's 1536 cells never did).
+
+## 3. THE UPSTREAM 1536 PAIR
+
+Read by `results/upstream_draw_count.txt`, unchanged: m=2 against n=8 rejects at 0.05 only on
+perfect separation (p=0.0222); anything less is "the same level". Hash the fixture against the
+device's before quoting any gap -- the first 1536 reference was withdrawn for exactly that.
+
+## 4. THE VERDICT MAPPING
+
+The row goes GO when BOTH have landed and been read:
+
+  (a) the upstream 1536 pair, and
+  (b) the GroEL 2x2, all four cells.
+
+and the upstream pair does NOT show perfect separation in upstream's favour at 1536. In that
+case the brief's clause 4 applies: upstream is at the same level, so the size where quality
+falls is a BoltzGen property, it goes in docs/design-throughput.md in one sentence with the
+numbers, and the row closes. GO here does not require a fix; it requires that the measurement
+is complete and that no port defect is demonstrable.
+
+The row stays PARTIAL, and clause 3 opens, only if the upstream 1536 pair separates perfectly
+in upstream's favour (p=0.0222). Then there is a real 1536 port defect and the next pass
+locates it by shared-noise step comparison, in the shared path, fixed by effect. The brief's
+suspects in order: row-block/refused-upload, narrow-q, bf16 accumulation over the token axis.
+
+Nothing else keeps the row open. In particular the GroEL outcome changes what the doc SAYS but
+never whether the row closes: replication, refutation and a null each have a sentence above,
+and all three are publishable.
+
+## 5. WHAT DOES NOT CHANGE IN ANY BRANCH
+
+The doc's operational advice -- search the window and the extent rather than generating more
+designs against one crop -- rests on the three-crop table (12.67 A spread across three windows
+of one chain at a FIXED size), which is a within-1GPB result and is not what GroEL is testing.
+It survives all three GroEL outcomes.

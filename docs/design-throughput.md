@@ -108,6 +108,11 @@ Eight designs per cell. Growing the target makes the first window much worse and
 one better, so there is no size rule to apply: what decides whether a design refolds is the
 particular surface at the particular extent, not either on its own.
 
+Both of those tables are windows of one target, 1GPB. Eight designs per cell is enough to
+separate the cells from each other, but whether the directions carry to a different protein is
+not something they can tell you. Use them as a reason to try more than one window, not as
+constants to plan around.
+
 The practical consequence is to search the target rather than generate more designs against
 one crop. Eight designs against a bad window returned zero binders under 4 A, twice over, and
 eight against a good one returned four. If your target designs badly, try a different window
