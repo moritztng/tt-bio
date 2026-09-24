@@ -1,0 +1,191 @@
+{
+ "stamp": {
+  "host": "tt-quietbox2",
+  "card": 3,
+  "subsystem_device": "0x0046",
+  "commit": "57f2fb0a9b7f8b6c2b9ce72faadfdb3e9b697264",
+  "tt_bio_dirty": false,
+  "torch_threads": 8,
+  "loadavg": [
+   24.2080078125,
+   22.92138671875,
+   24.90478515625
+  ],
+  "utc": "2026-09-24T03:09:03Z"
+ },
+ "n": 128,
+ "evo": {
+  "wall": [
+   0.5919356346130371,
+   0.5701990127563477,
+   0.5848016738891602,
+   0.6678304672241211,
+   0.9017534255981445,
+   0.5732223987579346,
+   0.680548906326294,
+   0.8594627380371094,
+   0.7188513278961182,
+   0.6398897171020508
+  ],
+  "cpu": [
+   0.5990878709999947,
+   0.5926977039999883,
+   0.5864038039999855,
+   0.6655636580000248,
+   0.9066486940000118,
+   0.5670398599999942,
+   0.6986846719999846,
+   0.8689561660000038,
+   0.7172323179999864,
+   0.6456653090000088
+  ],
+  "wall_mean": 0.6788495302200317,
+  "cpu_mean": 0.6847980055999983,
+  "cprofile_wall": 0.7111043930053711,
+  "cprofile_top": "         4351 function calls in 0.711 seconds\n\n   Ordered by: internal time\n   List reduced from 36 to 25 due to restriction <25>\n\n   ncalls  tottime  percall  cumtime  percall filename:lineno(function)\n      614    0.697    0.001    0.697    0.001 /home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/ttnn/decorators.py:455(__call__)\n        1    0.005    0.005    0.005    0.005 /home/ttuser/.coworker/wt/bcx-afgrad/perf/bcx_afgrad/afgrad.py:186(sync)\n      234    0.003    0.000    0.008    0.000 /home/ttuser/.coworker/wt/bcx-afgrad/tt_bio/autograd.py:319(add_grad)\n        1    0.001    0.001    0.706    0.706 /home/ttuser/.coworker/wt/bcx-afgrad/tt_bio/autograd.py:349(backward)\n       70    0.001    0.000    0.001    0.000 /home/ttuser/.coworker/wt/bcx-afgrad/tt_bio/autograd.py:560(_reduce_to)\n        1    0.001    0.001    0.001    0.001 /home/ttuser/.coworker/wt/bcx-afgrad/tt_bio/autograd.py:397(_reverse_topo)\n       12    0.000    0.000    0.622    0.052 /home/ttuser/.coworker/wt/bcx-afgrad/tt_bio/taped_ttnn.py:788(bw)\n       12    0.000    0.000    0.049    0.004 /home/ttuser/.coworker/wt/bcx-afgrad/tt_bio/taped_ttnn.py:587(pad)\n        8    0.000    0.000    0.054    0.007 /home/ttuser/.coworker/wt/bcx-afgrad/tt_bio/taped_ttnn.py:581(bw)\n       12    0.000    0.000    0.009    0.001 /home/ttuser/.coworker/wt/bcx-afgrad/tt_bio/autograd.py:1626(bw)\n       24    0.000    0.000    0.004    0.000 /home/ttuser/.coworker/wt/bcx-afgrad/tt_bio/taped_ttnn.py:419(bw)\n       24    0.000    0.000    0.004    0.000 /home/ttuser/.coworker/wt/bcx-afgrad/tt_bio/autograd.py:1556(bw)\n       15    0.000    0.000    0.002    0.000 /home/ttuser/.coworker/wt/bcx-afgrad/tt_bio/taped_ttnn.py:133(bw)\n      618    0.000    0.000    0.000    0.000 /home/ttuser/.coworker/wt/bcx-afgrad/tt_bio/autograd.py:192(value)\n      859    0.000    0.000    0.000    0.000 {built-in method builtins.id}\n      826    0.000    0.000    0.000    0.000 {method 'append' of 'list' objects}\n       46    0.000    0.000    0.002    0.000 /home/ttuser/.coworker/wt/bcx-afgrad/tt_bio/taped_ttnn.py:98(bw)\n        1    0.000    0.000    0.000    0.000 {method 'disable' of '_lsprof.Profiler' objects}\n      276    0.000    0.000    0.000    0.000 {method 'add' of 'set' objects}\n        4    0.000    0.000    0.001    0.000 /home/ttuser/.coworker/wt/bcx-afgrad/tt_bio/autograd.py:110(softmax_bw_inner)\n       10    0.000    0.000    0.001    0.000 /home/ttuser/.coworker/wt/bcx-afgrad/tt_bio/taped_ttnn.py:260(<lambda>)\n        6    0.000    0.000    0.000    0.000 /home/ttuser/.coworker/wt/bcx-afgrad/tt_bio/autograd.py:45(precise_config)\n       25    0.000    0.000    0.001    0.000 /home/ttuser/.coworker/wt/bcx-afgrad/tt_bio/taped_ttnn.py:503(bw)\n      552    0.000    0.000    0.000    0.000 {method 'pop' of 'list' objects}\n       20    0.000    0.000    0.001    0.000 /home/ttuser/.coworker/wt/bcx-afgrad/tt_bio/taped_ttnn.py:521(bw)\n\n\n",
+  "synced_total": 0.7754209041595459,
+  "per_kind": {
+   "_v_create_qkv_heads": {
+    "count": 12,
+    "seconds": 0.6527178287506104
+   },
+   "_sliced": {
+    "count": 8,
+    "seconds": 0.030632495880126953
+   },
+   "_v_matmul": {
+    "count": 15,
+    "seconds": 0.02554464340209961
+   },
+   "_taped_layer_norm": {
+    "count": 12,
+    "seconds": 0.017797231674194336
+   },
+   "_taped_linear": {
+    "count": 24,
+    "seconds": 0.01482081413269043
+   },
+   "_identity_grad": {
+    "count": 46,
+    "seconds": 0.006903409957885742
+   },
+   "_v_reshape": {
+    "count": 25,
+    "seconds": 0.006825685501098633
+   },
+   "_binary": {
+    "count": 29,
+    "seconds": 0.0067517757415771484
+   },
+   "_v_permute": {
+    "count": 20,
+    "seconds": 0.005654573440551758
+   },
+   "_v_softmax": {
+    "count": 4,
+    "seconds": 0.003352642059326172
+   },
+   "_v_concat_heads": {
+    "count": 4,
+    "seconds": 0.0017468929290771484
+   },
+   "relu": {
+    "count": 2,
+    "seconds": 0.0005967617034912109
+   }
+  },
+  "aiclk": {
+   "n": 6,
+   "min": 1350,
+   "median": 1350,
+   "max": 1350
+  }
+ },
+ "extra": {
+  "wall": [
+   0.9432523250579834,
+   0.7830295562744141,
+   0.551835298538208,
+   0.5708065032958984,
+   0.8837912082672119,
+   1.0479509830474854,
+   0.7941994667053223,
+   0.7635998725891113,
+   0.7748532295227051,
+   0.9695768356323242
+  ],
+  "cpu": [
+   0.9400186969999993,
+   0.7961474680000151,
+   0.5480009870000231,
+   0.5779860359999986,
+   0.8860296349999999,
+   1.0420104140000035,
+   0.8060546619999798,
+   0.7542017379999777,
+   0.7789806670000132,
+   0.9686123630000054
+  ],
+  "wall_mean": 0.8082895278930664,
+  "cpu_mean": 0.8098042667000016,
+  "cprofile_wall": 0.6722166538238525,
+  "cprofile_top": "         2729 function calls (2728 primitive calls) in 0.672 seconds\n\n   Ordered by: internal time\n   List reduced from 111 to 25 due to restriction <25>\n\n   ncalls  tottime  percall  cumtime  percall filename:lineno(function)\n      372    0.447    0.001    0.447    0.001 /home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/ttnn/decorators.py:455(__call__)\n      2/1    0.115    0.057    0.148    0.148 /home/ttuser/.coworker/wt/bcx-afgrad/tt_bio/autograd.py:349(backward)\n        1    0.098    0.098    0.098    0.098 {built-in method _posixsubprocess.fork_exec}\n        1    0.007    0.007    0.007    0.007 /home/ttuser/.coworker/wt/bcx-afgrad/perf/bcx_afgrad/afgrad.py:186(sync)\n      140    0.001    0.000    0.004    0.000 /home/ttuser/.coworker/wt/bcx-afgrad/tt_bio/autograd.py:319(add_grad)\n        6    0.000    0.000    0.411    0.068 /home/ttuser/.coworker/wt/bcx-afgrad/tt_bio/taped_ttnn.py:788(bw)\n        1    0.000    0.000    0.000    0.000 /home/ttuser/.coworker/wt/bcx-afgrad/tt_bio/autograd.py:397(_reverse_topo)\n       45    0.000    0.000    0.001    0.000 /home/ttuser/.coworker/wt/bcx-afgrad/tt_bio/autograd.py:560(_reduce_to)\n       18    0.000    0.000    0.002    0.000 /home/ttuser/.coworker/wt/bcx-afgrad/tt_bio/taped_ttnn.py:419(bw)\n       12    0.000    0.000    0.025    0.002 /home/ttuser/.coworker/wt/bcx-afgrad/tt_bio/taped_ttnn.py:587(pad)\n        7    0.000    0.000    0.004    0.001 /home/ttuser/.coworker/wt/bcx-afgrad/tt_bio/autograd.py:1626(bw)\n        1    0.000    0.000    0.101    0.101 /usr/lib/python3.12/subprocess.py:807(__init__)\n        8    0.000    0.000    0.026    0.003 /home/ttuser/.coworker/wt/bcx-afgrad/tt_bio/taped_ttnn.py:581(bw)\n       12    0.000    0.000    0.002    0.000 /home/ttuser/.coworker/wt/bcx-afgrad/tt_bio/autograd.py:1556(bw)\n        4    0.000    0.000    0.000    0.000 {built-in method posix.close}\n        1    0.000    0.000    0.000    0.000 {method 'disable' of '_lsprof.Profiler' objects}\n        1    0.000    0.000    0.099    0.099 /usr/lib/python3.12/subprocess.py:1791(_execute_child)\n        1    0.000    0.000    0.155    0.155 /usr/lib/python3.12/subprocess.py:1165(communicate)\n        1    0.000    0.000    0.000    0.000 /usr/lib/python3.12/subprocess.py:1282(_close_pipe_fds)\n        3    0.000    0.000    0.000    0.000 {built-in method posix.pipe}\n        1    0.000    0.000    0.000    0.000 /usr/lib/python3.12/contextlib.py:567(__exit__)\n      370    0.000    0.000    0.000    0.000 /home/ttuser/.coworker/wt/bcx-afgrad/tt_bio/autograd.py:192(value)\n        2    0.000    0.000    0.000    0.000 {built-in method _io.open}\n        1    0.000    0.000    0.000    0.000 {built-in method posix.read}\n        1    0.000    0.000    0.256    0.256 /usr/lib/python3.12/subprocess.py:506(run)\n\n\n",
+  "synced_total": 0.7639968395233154,
+  "per_kind": {
+   "_v_create_qkv_heads": {
+    "count": 6,
+    "seconds": 0.6414976119995117
+   },
+   "_sliced": {
+    "count": 8,
+    "seconds": 0.03888106346130371
+   },
+   "_binary": {
+    "count": 20,
+    "seconds": 0.01676797866821289
+   },
+   "_v_matmul": {
+    "count": 10,
+    "seconds": 0.01434326171875
+   },
+   "_v_permute": {
+    "count": 12,
+    "seconds": 0.012799263000488281
+   },
+   "_taped_linear": {
+    "count": 12,
+    "seconds": 0.010990619659423828
+   },
+   "_identity_grad": {
+    "count": 29,
+    "seconds": 0.01046133041381836
+   },
+   "_v_reshape": {
+    "count": 10,
+    "seconds": 0.006891965866088867
+   },
+   "_taped_layer_norm": {
+    "count": 7,
+    "seconds": 0.006373405456542969
+   },
+   "_v_softmax": {
+    "count": 2,
+    "seconds": 0.002051115036010742
+   },
+   "_v_concat_heads": {
+    "count": 2,
+    "seconds": 0.0013413429260253906
+   },
+   "relu": {
+    "count": 1,
+    "seconds": 0.0002799034118652344
+   }
+  },
+  "aiclk": {
+   "n": 7,
+   "min": 1350,
+   "median": 1350,
+   "max": 1350
+  }
+ }
+}

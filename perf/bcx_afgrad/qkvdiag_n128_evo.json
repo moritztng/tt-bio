@@ -1,0 +1,1422 @@
+{
+ "stamp": {
+  "host": "tt-quietbox2",
+  "card": 3,
+  "subsystem_device": "0x0046",
+  "commit": "57f2fb0a9b7f8b6c2b9ce72faadfdb3e9b697264",
+  "tt_bio_dirty": false,
+  "torch_threads": 8,
+  "loadavg": [
+   27.02001953125,
+   24.44873046875,
+   25.0361328125
+  ],
+  "utc": "2026-09-24T03:12:57Z"
+ },
+ "n": 128,
+ "stack": "evo",
+ "synced_bwd_wall": 1.1609416007995605,
+ "timed_total": 1.1149187088012695,
+ "calls": [
+  {
+   "fn": "zeros",
+   "shape": "[128, 128, 1, 128]",
+   "site": "taped_ttnn.py:796",
+   "count": 6,
+   "seconds": 0.9162867069244385
+  },
+  {
+   "fn": "zeros",
+   "shape": "[1, 128, 128, 384]",
+   "site": "taped_ttnn.py:590",
+   "count": 4,
+   "seconds": 0.023241519927978516
+  },
+  {
+   "fn": "zeros",
+   "shape": "[1, 128, 128, 256]",
+   "site": "taped_ttnn.py:590",
+   "count": 4,
+   "seconds": 0.014764547348022461
+  },
+  {
+   "fn": "concat",
+   "shape": "((128, 128, 1, 128), (128, 128, 1, 128), (128, 128, 1, 128))",
+   "site": "taped_ttnn.py:799",
+   "count": 6,
+   "seconds": 0.014547109603881836
+  },
+  {
+   "fn": "reshape",
+   "shape": "(128, 128, 3, 128)",
+   "site": "taped_ttnn.py:799",
+   "count": 6,
+   "seconds": 0.009813070297241211
+  },
+  {
+   "fn": "zeros",
+   "shape": "[1, 128, 128, 128]",
+   "site": "taped_ttnn.py:590",
+   "count": 4,
+   "seconds": 0.008863449096679688
+  },
+  {
+   "fn": "reshape",
+   "shape": "(128, 128, 4, 32)",
+   "site": "taped_ttnn.py:790",
+   "count": 6,
+   "seconds": 0.006257772445678711
+  },
+  {
+   "fn": "matmul",
+   "shape": "(1, 128, 128, 128)",
+   "site": "taped_ttnn.py:137",
+   "count": 1,
+   "seconds": 0.0039215087890625
+  },
+  {
+   "fn": "zeros",
+   "shape": "[1, 128, 1, 256]",
+   "site": "taped_ttnn.py:796",
+   "count": 3,
+   "seconds": 0.003729104995727539
+  },
+  {
+   "fn": "zeros",
+   "shape": "[128, 1, 1, 256]",
+   "site": "taped_ttnn.py:796",
+   "count": 3,
+   "seconds": 0.0037093162536621094
+  },
+  {
+   "fn": "matmul",
+   "shape": "(128, 8, 1, 32)",
+   "site": "taped_ttnn.py:152",
+   "count": 1,
+   "seconds": 0.003598928451538086
+  },
+  {
+   "fn": "matmul",
+   "shape": "(128, 8, 1, 1)",
+   "site": "taped_ttnn.py:152",
+   "count": 1,
+   "seconds": 0.003496408462524414
+  },
+  {
+   "fn": "matmul",
+   "shape": "(128, 8, 1, 1)",
+   "site": "taped_ttnn.py:135",
+   "count": 1,
+   "seconds": 0.003493070602416992
+  },
+  {
+   "fn": "multiply",
+   "shape": "(1, 128, 128, 128)",
+   "site": "taped_ttnn.py:473",
+   "count": 12,
+   "seconds": 0.0032715797424316406
+  },
+  {
+   "fn": "matmul",
+   "shape": "(1, 128, 128, 512)",
+   "site": "taped_ttnn.py:135",
+   "count": 2,
+   "seconds": 0.0032172203063964844
+  },
+  {
+   "fn": "permute",
+   "shape": "(1, 128, 128, 128)",
+   "site": "taped_ttnn.py:522",
+   "count": 6,
+   "seconds": 0.0030884742736816406
+  },
+  {
+   "fn": "reshape",
+   "shape": "(128, 1024, 128)",
+   "site": "taped_ttnn.py:504",
+   "count": 1,
+   "seconds": 0.003076314926147461
+  },
+  {
+   "fn": "typecast",
+   "shape": "(1, 128, 128, 128)",
+   "site": "taped_ttnn.py:99",
+   "count": 18,
+   "seconds": 0.0027294158935546875
+  },
+  {
+   "fn": "matmul",
+   "shape": "(128, 128, 384)",
+   "site": "autograd.py:1563",
+   "count": 2,
+   "seconds": 0.0025587081909179688
+  },
+  {
+   "fn": "matmul",
+   "shape": "(1, 128, 128, 128)",
+   "site": "autograd.py:1563",
+   "count": 5,
+   "seconds": 0.0024652481079101562
+  },
+  {
+   "fn": "add",
+   "shape": "(1, 128, 128, 512)",
+   "site": "autograd.py:341",
+   "count": 6,
+   "seconds": 0.0023832321166992188
+  },
+  {
+   "fn": "add",
+   "shape": "(128, 1, 128, 384)",
+   "site": "autograd.py:341",
+   "count": 4,
+   "seconds": 0.002246379852294922
+  },
+  {
+   "fn": "matmul",
+   "shape": "(128, 4, 128, 128)",
+   "site": "taped_ttnn.py:135",
+   "count": 2,
+   "seconds": 0.002205371856689453
+  },
+  {
+   "fn": "matmul",
+   "shape": "(128, 4, 128, 128)",
+   "site": "taped_ttnn.py:152",
+   "count": 2,
+   "seconds": 0.0022039413452148438
+  },
+  {
+   "fn": "permute",
+   "shape": "(128, 4, 128, 32)",
+   "site": "taped_ttnn.py:790",
+   "count": 6,
+   "seconds": 0.0019903182983398438
+  },
+  {
+   "fn": "matmul",
+   "shape": "(128, 4, 128, 32)",
+   "site": "taped_ttnn.py:152",
+   "count": 2,
+   "seconds": 0.0018811225891113281
+  },
+  {
+   "fn": "typecast",
+   "shape": "(128, 1, 128, 384)",
+   "site": "autograd.py:342",
+   "count": 4,
+   "seconds": 0.0017616748809814453
+  },
+  {
+   "fn": "matmul",
+   "shape": "(1, 128, 128, 512)",
+   "site": "autograd.py:1563",
+   "count": 1,
+   "seconds": 0.0014929771423339844
+  },
+  {
+   "fn": "multiply",
+   "shape": "(1, 128, 128, 128)",
+   "site": "taped_ttnn.py:260",
+   "count": 6,
+   "seconds": 0.0014240741729736328
+  },
+  {
+   "fn": "typecast",
+   "shape": "(1, 128, 128, 512)",
+   "site": "autograd.py:342",
+   "count": 6,
+   "seconds": 0.0014183521270751953
+  },
+  {
+   "fn": "matmul",
+   "shape": "(128, 4, 128, 32)",
+   "site": "taped_ttnn.py:135",
+   "count": 2,
+   "seconds": 0.0013899803161621094
+  },
+  {
+   "fn": "multiply",
+   "shape": "(1, 128, 128, 128)",
+   "site": "taped_ttnn.py:435",
+   "count": 6,
+   "seconds": 0.0013899803161621094
+  },
+  {
+   "fn": "sum",
+   "shape": "(128, 4, 128, 128)",
+   "site": "autograd.py:586",
+   "count": 2,
+   "seconds": 0.0012650489807128906
+  },
+  {
+   "fn": "matmul",
+   "shape": "(128, 1, 768)",
+   "site": "autograd.py:1563",
+   "count": 1,
+   "seconds": 0.0012562274932861328
+  },
+  {
+   "fn": "concat",
+   "shape": "((1, 128, 1, 256), (1, 128, 1, 256), (1, 128, 1, 256))",
+   "site": "taped_ttnn.py:799",
+   "count": 3,
+   "seconds": 0.0012416839599609375
+  },
+  {
+   "fn": "add",
+   "shape": "(1, 128, 128, 128)",
+   "site": "autograd.py:341",
+   "count": 8,
+   "seconds": 0.0012023448944091797
+  },
+  {
+   "fn": "permute",
+   "shape": "(128, 8, 1, 32)",
+   "site": "taped_ttnn.py:790",
+   "count": 3,
+   "seconds": 0.0011975765228271484
+  },
+  {
+   "fn": "matmul",
+   "shape": "(128, 128, 4)",
+   "site": "autograd.py:1563",
+   "count": 2,
+   "seconds": 0.0011928081512451172
+  },
+  {
+   "fn": "reshape",
+   "shape": "(128, 1, 128, 128)",
+   "site": "taped_ttnn.py:761",
+   "count": 2,
+   "seconds": 0.0011904239654541016
+  },
+  {
+   "fn": "reshape",
+   "shape": "(128, 1, 8, 32)",
+   "site": "taped_ttnn.py:790",
+   "count": 3,
+   "seconds": 0.0011548995971679688
+  },
+  {
+   "fn": "matmul",
+   "shape": "(128, 8, 1, 32)",
+   "site": "taped_ttnn.py:135",
+   "count": 1,
+   "seconds": 0.0011353492736816406
+  },
+  {
+   "fn": "concat",
+   "shape": "((128, 1, 1, 256), (128, 1, 1, 256), (128, 1, 1, 256))",
+   "site": "taped_ttnn.py:799",
+   "count": 3,
+   "seconds": 0.0011138916015625
+  },
+  {
+   "fn": "matmul",
+   "shape": "(1, 128, 128, 128)",
+   "site": "taped_ttnn.py:152",
+   "count": 1,
+   "seconds": 0.0010187625885009766
+  },
+  {
+   "fn": "matmul",
+   "shape": "(128, 128, 128)",
+   "site": "autograd.py:1563",
+   "count": 2,
+   "seconds": 0.0010082721710205078
+  },
+  {
+   "fn": "concat",
+   "shape": "((1, 128, 128, 128), (1, 128, 128, 384))",
+   "site": "taped_ttnn.py:595",
+   "count": 2,
+   "seconds": 0.0009937286376953125
+  },
+  {
+   "fn": "matmul",
+   "shape": "(128, 128, 128)",
+   "site": "taped_ttnn.py:135",
+   "count": 2,
+   "seconds": 0.0009815692901611328
+  },
+  {
+   "fn": "matmul",
+   "shape": "(128, 1, 256)",
+   "site": "autograd.py:1563",
+   "count": 2,
+   "seconds": 0.0009667873382568359
+  },
+  {
+   "fn": "typecast",
+   "shape": "(128, 1, 128, 384)",
+   "site": "autograd.py:393",
+   "count": 2,
+   "seconds": 0.0009317398071289062
+  },
+  {
+   "fn": "typecast",
+   "shape": "(128, 4, 128, 128)",
+   "site": "taped_ttnn.py:99",
+   "count": 4,
+   "seconds": 0.0008604526519775391
+  },
+  {
+   "fn": "typecast",
+   "shape": "(1, 128, 128, 128)",
+   "site": "autograd.py:340",
+   "count": 8,
+   "seconds": 0.0008170604705810547
+  },
+  {
+   "fn": "typecast",
+   "shape": "(1, 1, 128, 256)",
+   "site": "taped_ttnn.py:99",
+   "count": 7,
+   "seconds": 0.0007410049438476562
+  },
+  {
+   "fn": "concat",
+   "shape": "((1, 128, 128, 256), (1, 128, 128, 128), (1, 128, 128, 128))",
+   "site": "taped_ttnn.py:595",
+   "count": 2,
+   "seconds": 0.00074005126953125
+  },
+  {
+   "fn": "multiply",
+   "shape": "(128, 4, 128, 128)",
+   "site": "autograd.py:118",
+   "count": 2,
+   "seconds": 0.0007081031799316406
+  },
+  {
+   "fn": "permute",
+   "shape": "(128, 4, 32, 128)",
+   "site": "taped_ttnn.py:522",
+   "count": 2,
+   "seconds": 0.0006718635559082031
+  },
+  {
+   "fn": "concat",
+   "shape": "((1, 128, 128, 128), (1, 128, 128, 128), (1, 128, 128, 256))",
+   "site": "taped_ttnn.py:595",
+   "count": 2,
+   "seconds": 0.0006718635559082031
+  },
+  {
+   "fn": "add",
+   "shape": "(128, 128, 128)",
+   "site": "autograd.py:341",
+   "count": 4,
+   "seconds": 0.0006458759307861328
+  },
+  {
+   "fn": "typecast",
+   "shape": "(1, 128, 128, 128)",
+   "site": "autograd.py:393",
+   "count": 7,
+   "seconds": 0.0006282329559326172
+  },
+  {
+   "fn": "multiply",
+   "shape": "(1, 128, 128, 128)",
+   "site": "autograd.py:1645",
+   "count": 5,
+   "seconds": 0.0006089210510253906
+  },
+  {
+   "fn": "concat",
+   "shape": "((1, 128, 128, 384), (1, 128, 128, 128))",
+   "site": "taped_ttnn.py:595",
+   "count": 2,
+   "seconds": 0.0006046295166015625
+  },
+  {
+   "fn": "multiply",
+   "shape": "(1, 128, 128, 128)",
+   "site": "autograd.py:1639",
+   "count": 5,
+   "seconds": 0.0006031990051269531
+  },
+  {
+   "fn": "multiply",
+   "shape": "(128, 4, 128, 128)",
+   "site": "taped_ttnn.py:178",
+   "count": 2,
+   "seconds": 0.0005860328674316406
+  },
+  {
+   "fn": "typecast",
+   "shape": "(1, 128, 128, 128)",
+   "site": "autograd.py:342",
+   "count": 8,
+   "seconds": 0.0005762577056884766
+  },
+  {
+   "fn": "typecast",
+   "shape": "(128, 1, 128, 384)",
+   "site": "autograd.py:340",
+   "count": 2,
+   "seconds": 0.0005664825439453125
+  },
+  {
+   "fn": "add",
+   "shape": "(1, 1, 128, 256)",
+   "site": "autograd.py:341",
+   "count": 4,
+   "seconds": 0.0005342960357666016
+  },
+  {
+   "fn": "matmul",
+   "shape": "(128, 128, 8)",
+   "site": "autograd.py:1563",
+   "count": 1,
+   "seconds": 0.0005235671997070312
+  },
+  {
+   "fn": "multiply",
+   "shape": "(128, 4, 128, 128)",
+   "site": "taped_ttnn.py:257",
+   "count": 2,
+   "seconds": 0.0005230903625488281
+  },
+  {
+   "fn": "matmul",
+   "shape": "(1, 128, 128, 128)",
+   "site": "taped_ttnn.py:135",
+   "count": 1,
+   "seconds": 0.0005106925964355469
+  },
+  {
+   "fn": "multiply",
+   "shape": "(1, 128, 128, 128)",
+   "site": "autograd.py:1636",
+   "count": 5,
+   "seconds": 0.0004982948303222656
+  },
+  {
+   "fn": "matmul",
+   "shape": "(1, 128, 128, 128)",
+   "site": "taped_ttnn.py:154",
+   "count": 1,
+   "seconds": 0.0004928112030029297
+  },
+  {
+   "fn": "add",
+   "shape": "(1, 128, 128, 1)",
+   "site": "autograd.py:1638",
+   "count": 5,
+   "seconds": 0.00048542022705078125
+  },
+  {
+   "fn": "typecast",
+   "shape": "(1, 128, 128, 512)",
+   "site": "autograd.py:340",
+   "count": 2,
+   "seconds": 0.0004534721374511719
+  },
+  {
+   "fn": "permute",
+   "shape": "(128, 128, 4, 32)",
+   "site": "taped_ttnn.py:761",
+   "count": 2,
+   "seconds": 0.0004353523254394531
+  },
+  {
+   "fn": "multiply",
+   "shape": "(1, 128, 128, 128)",
+   "site": "autograd.py:1650",
+   "count": 5,
+   "seconds": 0.0004329681396484375
+  },
+  {
+   "fn": "multiply",
+   "shape": "(128, 128, 128)",
+   "site": "taped_ttnn.py:473",
+   "count": 4,
+   "seconds": 0.0004296302795410156
+  },
+  {
+   "fn": "typecast",
+   "shape": "(1, 128, 128, 512)",
+   "site": "autograd.py:393",
+   "count": 2,
+   "seconds": 0.00042939186096191406
+  },
+  {
+   "fn": "multiply",
+   "shape": "(1, 128, 256)",
+   "site": "autograd.py:1639",
+   "count": 2,
+   "seconds": 0.0004227161407470703
+  },
+  {
+   "fn": "multiply",
+   "shape": "(128, 4, 128, 128)",
+   "site": "taped_ttnn.py:431",
+   "count": 2,
+   "seconds": 0.0004184246063232422
+  },
+  {
+   "fn": "add",
+   "shape": "(1, 128, 1)",
+   "site": "autograd.py:1638",
+   "count": 2,
+   "seconds": 0.0004093647003173828
+  },
+  {
+   "fn": "multiply",
+   "shape": "(1, 128, 128, 128)",
+   "site": "autograd.py:1648",
+   "count": 5,
+   "seconds": 0.0004088878631591797
+  },
+  {
+   "fn": "multiply",
+   "shape": "(1, 128, 256)",
+   "site": "autograd.py:1645",
+   "count": 2,
+   "seconds": 0.00040721893310546875
+  },
+  {
+   "fn": "multiply",
+   "shape": "(1, 128, 128, 128)",
+   "site": "autograd.py:1651",
+   "count": 5,
+   "seconds": 0.0004062652587890625
+  },
+  {
+   "fn": "matmul",
+   "shape": "(1, 128, 32)",
+   "site": "autograd.py:1563",
+   "count": 2,
+   "seconds": 0.00040340423583984375
+  },
+  {
+   "fn": "add",
+   "shape": "(128, 1, 1, 768)",
+   "site": "autograd.py:341",
+   "count": 2,
+   "seconds": 0.00040268898010253906
+  },
+  {
+   "fn": "multiply",
+   "shape": "(128, 128, 128)",
+   "site": "autograd.py:1636",
+   "count": 3,
+   "seconds": 0.00040149688720703125
+  },
+  {
+   "fn": "sum",
+   "shape": "(128, 4, 128, 128)",
+   "site": "autograd.py:118",
+   "count": 2,
+   "seconds": 0.0003914833068847656
+  },
+  {
+   "fn": "permute",
+   "shape": "(128, 128, 128)",
+   "site": "taped_ttnn.py:522",
+   "count": 2,
+   "seconds": 0.0003859996795654297
+  },
+  {
+   "fn": "multiply",
+   "shape": "(128, 128, 128)",
+   "site": "autograd.py:1645",
+   "count": 3,
+   "seconds": 0.0003781318664550781
+  },
+  {
+   "fn": "multiply",
+   "shape": "(1, 128, 256)",
+   "site": "autograd.py:1648",
+   "count": 2,
+   "seconds": 0.0003628730773925781
+  },
+  {
+   "fn": "reshape",
+   "shape": "(128, 1, 3, 256)",
+   "site": "taped_ttnn.py:799",
+   "count": 3,
+   "seconds": 0.0003566741943359375
+  },
+  {
+   "fn": "multiply",
+   "shape": "(1, 128, 256)",
+   "site": "autograd.py:1650",
+   "count": 2,
+   "seconds": 0.00034928321838378906
+  },
+  {
+   "fn": "matmul",
+   "shape": "(4096, 4096)",
+   "site": "taped_ttnn.py:154",
+   "count": 1,
+   "seconds": 0.00034546852111816406
+  },
+  {
+   "fn": "multiply",
+   "shape": "(128, 128, 128)",
+   "site": "autograd.py:1639",
+   "count": 3,
+   "seconds": 0.00034499168395996094
+  },
+  {
+   "fn": "typecast",
+   "shape": "(1, 1, 128, 256)",
+   "site": "autograd.py:340",
+   "count": 4,
+   "seconds": 0.0003440380096435547
+  },
+  {
+   "fn": "multiply",
+   "shape": "(128, 32, 1)",
+   "site": "taped_ttnn.py:474",
+   "count": 1,
+   "seconds": 0.00034356117248535156
+  },
+  {
+   "fn": "multiply",
+   "shape": "(1, 4, 128, 128)",
+   "site": "taped_ttnn.py:474",
+   "count": 2,
+   "seconds": 0.0003371238708496094
+  },
+  {
+   "fn": "reshape",
+   "shape": "(1, 128, 3, 256)",
+   "site": "taped_ttnn.py:799",
+   "count": 3,
+   "seconds": 0.0003345012664794922
+  },
+  {
+   "fn": "sum",
+   "shape": "(128, 4, 128, 128)",
+   "site": "autograd.py:122",
+   "count": 2,
+   "seconds": 0.0003273487091064453
+  },
+  {
+   "fn": "matmul",
+   "shape": "(16384, 128)",
+   "site": "autograd.py:1563",
+   "count": 1,
+   "seconds": 0.0003268718719482422
+  },
+  {
+   "fn": "add",
+   "shape": "(1, 128, 256)",
+   "site": "autograd.py:341",
+   "count": 2,
+   "seconds": 0.0003261566162109375
+  },
+  {
+   "fn": "typecast",
+   "shape": "(128, 128, 128)",
+   "site": "autograd.py:342",
+   "count": 4,
+   "seconds": 0.00032329559326171875
+  },
+  {
+   "fn": "matmul",
+   "shape": "(1, 128, 256)",
+   "site": "autograd.py:1563",
+   "count": 2,
+   "seconds": 0.00031495094299316406
+  },
+  {
+   "fn": "typecast",
+   "shape": "(1, 1, 128, 256)",
+   "site": "autograd.py:393",
+   "count": 3,
+   "seconds": 0.00030994415283203125
+  },
+  {
+   "fn": "add",
+   "shape": "(1, 1, 128, 768)",
+   "site": "autograd.py:341",
+   "count": 2,
+   "seconds": 0.00030922889709472656
+  },
+  {
+   "fn": "permute",
+   "shape": "(1, 4, 128, 128)",
+   "site": "taped_ttnn.py:522",
+   "count": 2,
+   "seconds": 0.00030803680419921875
+  },
+  {
+   "fn": "add",
+   "shape": "(128, 128, 1)",
+   "site": "autograd.py:1638",
+   "count": 3,
+   "seconds": 0.00029850006103515625
+  },
+  {
+   "fn": "matmul",
+   "shape": "(4096, 4096)",
+   "site": "taped_ttnn.py:135",
+   "count": 1,
+   "seconds": 0.0002906322479248047
+  },
+  {
+   "fn": "reshape",
+   "shape": "(1, 128, 8, 32)",
+   "site": "taped_ttnn.py:790",
+   "count": 3,
+   "seconds": 0.0002899169921875
+  },
+  {
+   "fn": "multiply",
+   "shape": "(128, 128, 128)",
+   "site": "autograd.py:1650",
+   "count": 3,
+   "seconds": 0.0002894401550292969
+  },
+  {
+   "fn": "multiply",
+   "shape": "(1, 128, 256)",
+   "site": "autograd.py:1636",
+   "count": 2,
+   "seconds": 0.0002846717834472656
+  },
+  {
+   "fn": "multiply",
+   "shape": "(128, 128, 128)",
+   "site": "autograd.py:1648",
+   "count": 3,
+   "seconds": 0.0002834796905517578
+  },
+  {
+   "fn": "typecast",
+   "shape": "(128, 128, 128)",
+   "site": "autograd.py:340",
+   "count": 2,
+   "seconds": 0.00028204917907714844
+  },
+  {
+   "fn": "permute",
+   "shape": "(128, 32, 1)",
+   "site": "taped_ttnn.py:522",
+   "count": 1,
+   "seconds": 0.0002617835998535156
+  },
+  {
+   "fn": "multiply",
+   "shape": "(128, 8, 1, 1)",
+   "site": "autograd.py:118",
+   "count": 1,
+   "seconds": 0.00025653839111328125
+  },
+  {
+   "fn": "permute",
+   "shape": "(128, 128, 1024)",
+   "site": "taped_ttnn.py:522",
+   "count": 1,
+   "seconds": 0.0002503395080566406
+  },
+  {
+   "fn": "typecast",
+   "shape": "(1, 8, 128, 128)",
+   "site": "taped_ttnn.py:99",
+   "count": 3,
+   "seconds": 0.0002465248107910156
+  },
+  {
+   "fn": "multiply",
+   "shape": "(128, 128, 128)",
+   "site": "autograd.py:1651",
+   "count": 3,
+   "seconds": 0.0002455711364746094
+  },
+  {
+   "fn": "multiply",
+   "shape": "(1, 128, 128, 512)",
+   "site": "autograd.py:838",
+   "count": 1,
+   "seconds": 0.0002434253692626953
+  },
+  {
+   "fn": "typecast",
+   "shape": "(1, 128, 256)",
+   "site": "autograd.py:340",
+   "count": 2,
+   "seconds": 0.0002338886260986328
+  },
+  {
+   "fn": "permute",
+   "shape": "(1, 8, 128, 32)",
+   "site": "taped_ttnn.py:790",
+   "count": 3,
+   "seconds": 0.00023317337036132812
+  },
+  {
+   "fn": "matmul",
+   "shape": "(1, 128, 768)",
+   "site": "autograd.py:1563",
+   "count": 1,
+   "seconds": 0.0002186298370361328
+  },
+  {
+   "fn": "multiply",
+   "shape": "(128, 1, 256)",
+   "site": "taped_ttnn.py:473",
+   "count": 2,
+   "seconds": 0.0002143383026123047
+  },
+  {
+   "fn": "typecast",
+   "shape": "(1, 128, 256)",
+   "site": "autograd.py:393",
+   "count": 2,
+   "seconds": 0.00020051002502441406
+  },
+  {
+   "fn": "matmul",
+   "shape": "(1, 1, 128, 256)",
+   "site": "autograd.py:1563",
+   "count": 1,
+   "seconds": 0.0001990795135498047
+  },
+  {
+   "fn": "multiply",
+   "shape": "(1, 1, 128, 1024)",
+   "site": "autograd.py:838",
+   "count": 1,
+   "seconds": 0.0001990795135498047
+  },
+  {
+   "fn": "matmul",
+   "shape": "(1, 1, 128, 1024)",
+   "site": "autograd.py:1563",
+   "count": 1,
+   "seconds": 0.00019812583923339844
+  },
+  {
+   "fn": "sum",
+   "shape": "(128, 8, 1, 1)",
+   "site": "autograd.py:118",
+   "count": 1,
+   "seconds": 0.0001952648162841797
+  },
+  {
+   "fn": "typecast",
+   "shape": "(128, 1, 1, 768)",
+   "site": "autograd.py:342",
+   "count": 2,
+   "seconds": 0.00019288063049316406
+  },
+  {
+   "fn": "permute",
+   "shape": "(32, 128, 1)",
+   "site": "taped_ttnn.py:522",
+   "count": 1,
+   "seconds": 0.00019240379333496094
+  },
+  {
+   "fn": "typecast",
+   "shape": "(128, 128, 128)",
+   "site": "autograd.py:393",
+   "count": 2,
+   "seconds": 0.0001914501190185547
+  },
+  {
+   "fn": "multiply",
+   "shape": "(1, 128, 256)",
+   "site": "autograd.py:1651",
+   "count": 2,
+   "seconds": 0.00018310546875
+  },
+  {
+   "fn": "typecast",
+   "shape": "(1, 1, 128, 256)",
+   "site": "autograd.py:342",
+   "count": 4,
+   "seconds": 0.00017499923706054688
+  },
+  {
+   "fn": "typecast",
+   "shape": "(1, 1, 128, 768)",
+   "site": "autograd.py:342",
+   "count": 2,
+   "seconds": 0.0001709461212158203
+  },
+  {
+   "fn": "typecast",
+   "shape": "(1, 4, 128, 128)",
+   "site": "taped_ttnn.py:99",
+   "count": 2,
+   "seconds": 0.00016951560974121094
+  },
+  {
+   "fn": "reshape",
+   "shape": "(4096, 1)",
+   "site": "taped_ttnn.py:504",
+   "count": 2,
+   "seconds": 0.00015997886657714844
+  },
+  {
+   "fn": "multiply",
+   "shape": "(1, 128, 256)",
+   "site": "taped_ttnn.py:473",
+   "count": 2,
+   "seconds": 0.00015473365783691406
+  },
+  {
+   "fn": "multiply",
+   "shape": "(128, 128, 128)",
+   "site": "taped_ttnn.py:260",
+   "count": 2,
+   "seconds": 0.00014901161193847656
+  },
+  {
+   "fn": "multiply",
+   "shape": "(128, 128, 128)",
+   "site": "taped_ttnn.py:435",
+   "count": 2,
+   "seconds": 0.00014853477478027344
+  },
+  {
+   "fn": "add",
+   "shape": "(1, 1, 128, 1)",
+   "site": "autograd.py:1638",
+   "count": 1,
+   "seconds": 0.00014138221740722656
+  },
+  {
+   "fn": "permute",
+   "shape": "(1, 8, 128, 128)",
+   "site": "taped_ttnn.py:522",
+   "count": 1,
+   "seconds": 0.00013947486877441406
+  },
+  {
+   "fn": "reshape",
+   "shape": "(128, 128, 128)",
+   "site": "taped_ttnn.py:504",
+   "count": 6,
+   "seconds": 0.0001380443572998047
+  },
+  {
+   "fn": "multiply",
+   "shape": "(1, 1, 128, 256)",
+   "site": "autograd.py:1645",
+   "count": 1,
+   "seconds": 0.0001380443572998047
+  },
+  {
+   "fn": "typecast",
+   "shape": "(1, 1, 128, 768)",
+   "site": "autograd.py:393",
+   "count": 1,
+   "seconds": 0.00013637542724609375
+  },
+  {
+   "fn": "reshape",
+   "shape": "(1, 128, 256)",
+   "site": "taped_ttnn.py:504",
+   "count": 4,
+   "seconds": 0.0001342296600341797
+  },
+  {
+   "fn": "multiply",
+   "shape": "(1, 1, 128, 256)",
+   "site": "autograd.py:1639",
+   "count": 1,
+   "seconds": 0.00013375282287597656
+  },
+  {
+   "fn": "permute",
+   "shape": "(1, 128, 256)",
+   "site": "taped_ttnn.py:522",
+   "count": 1,
+   "seconds": 0.00013303756713867188
+  },
+  {
+   "fn": "permute",
+   "shape": "(128, 1, 256)",
+   "site": "taped_ttnn.py:522",
+   "count": 1,
+   "seconds": 0.00013256072998046875
+  },
+  {
+   "fn": "matmul",
+   "shape": "(1, 8, 128, 32)",
+   "site": "taped_ttnn.py:135",
+   "count": 1,
+   "seconds": 0.0001285076141357422
+  },
+  {
+   "fn": "add",
+   "shape": "(128, 1, 256)",
+   "site": "autograd.py:341",
+   "count": 1,
+   "seconds": 0.00012493133544921875
+  },
+  {
+   "fn": "permute",
+   "shape": "(128, 1, 8, 32)",
+   "site": "taped_ttnn.py:761",
+   "count": 1,
+   "seconds": 0.00012445449829101562
+  },
+  {
+   "fn": "typecast",
+   "shape": "(128, 1, 1, 768)",
+   "site": "autograd.py:340",
+   "count": 1,
+   "seconds": 0.00012254714965820312
+  },
+  {
+   "fn": "multiply",
+   "shape": "(1, 1, 128, 256)",
+   "site": "autograd.py:1636",
+   "count": 1,
+   "seconds": 0.00011992454528808594
+  },
+  {
+   "fn": "matmul",
+   "shape": "(1, 8, 128, 128)",
+   "site": "taped_ttnn.py:135",
+   "count": 1,
+   "seconds": 0.00011420249938964844
+  },
+  {
+   "fn": "typecast",
+   "shape": "(1, 128, 256)",
+   "site": "autograd.py:342",
+   "count": 2,
+   "seconds": 0.00011229515075683594
+  },
+  {
+   "fn": "sum",
+   "shape": "(128, 8, 1, 1)",
+   "site": "autograd.py:122",
+   "count": 1,
+   "seconds": 0.00010943412780761719
+  },
+  {
+   "fn": "reshape",
+   "shape": "(128, 1, 1, 256)",
+   "site": "taped_ttnn.py:761",
+   "count": 1,
+   "seconds": 0.00010704994201660156
+  },
+  {
+   "fn": "multiply",
+   "shape": "(1, 8, 128, 128)",
+   "site": "autograd.py:118",
+   "count": 1,
+   "seconds": 0.0001068115234375
+  },
+  {
+   "fn": "reshape",
+   "shape": "(1, 1, 128, 256)",
+   "site": "taped_ttnn.py:761",
+   "count": 1,
+   "seconds": 0.00010371208190917969
+  },
+  {
+   "fn": "multiply",
+   "shape": "(1, 8, 128, 128)",
+   "site": "taped_ttnn.py:474",
+   "count": 1,
+   "seconds": 0.00010347366333007812
+  },
+  {
+   "fn": "reshape",
+   "shape": "(1, 128, 128, 128)",
+   "site": "taped_ttnn.py:504",
+   "count": 3,
+   "seconds": 0.00010085105895996094
+  },
+  {
+   "fn": "multiply",
+   "shape": "(128, 8, 1, 1)",
+   "site": "taped_ttnn.py:474",
+   "count": 1,
+   "seconds": 9.989738464355469e-05
+  },
+  {
+   "fn": "multiply",
+   "shape": "(128, 1, 256)",
+   "site": "autograd.py:1636",
+   "count": 1,
+   "seconds": 9.989738464355469e-05
+  },
+  {
+   "fn": "multiply",
+   "shape": "(128, 1, 256)",
+   "site": "autograd.py:1650",
+   "count": 1,
+   "seconds": 9.965896606445312e-05
+  },
+  {
+   "fn": "permute",
+   "shape": "(1, 128, 8, 32)",
+   "site": "taped_ttnn.py:761",
+   "count": 1,
+   "seconds": 9.822845458984375e-05
+  },
+  {
+   "fn": "typecast",
+   "shape": "(128, 1, 1, 768)",
+   "site": "autograd.py:393",
+   "count": 1,
+   "seconds": 9.417533874511719e-05
+  },
+  {
+   "fn": "multiply",
+   "shape": "(128, 8, 1, 1)",
+   "site": "taped_ttnn.py:178",
+   "count": 1,
+   "seconds": 9.298324584960938e-05
+  },
+  {
+   "fn": "add",
+   "shape": "(128, 1, 1)",
+   "site": "autograd.py:1638",
+   "count": 1,
+   "seconds": 9.298324584960938e-05
+  },
+  {
+   "fn": "matmul",
+   "shape": "(1, 8, 128, 128)",
+   "site": "taped_ttnn.py:152",
+   "count": 1,
+   "seconds": 8.96453857421875e-05
+  },
+  {
+   "fn": "multiply",
+   "shape": "(1, 1, 128, 256)",
+   "site": "autograd.py:1648",
+   "count": 1,
+   "seconds": 8.940696716308594e-05
+  },
+  {
+   "fn": "multiply",
+   "shape": "(128, 1, 256)",
+   "site": "autograd.py:1639",
+   "count": 1,
+   "seconds": 8.845329284667969e-05
+  },
+  {
+   "fn": "multiply",
+   "shape": "(1, 1, 128, 256)",
+   "site": "autograd.py:1650",
+   "count": 1,
+   "seconds": 8.821487426757812e-05
+  },
+  {
+   "fn": "multiply",
+   "shape": "(1, 8, 128, 128)",
+   "site": "taped_ttnn.py:257",
+   "count": 1,
+   "seconds": 8.368492126464844e-05
+  },
+  {
+   "fn": "multiply",
+   "shape": "(128, 1, 256)",
+   "site": "autograd.py:1648",
+   "count": 1,
+   "seconds": 8.225440979003906e-05
+  },
+  {
+   "fn": "typecast",
+   "shape": "(1, 1, 128, 768)",
+   "site": "autograd.py:340",
+   "count": 1,
+   "seconds": 8.106231689453125e-05
+  },
+  {
+   "fn": "matmul",
+   "shape": "(1, 8, 128, 32)",
+   "site": "taped_ttnn.py:152",
+   "count": 1,
+   "seconds": 8.0108642578125e-05
+  },
+  {
+   "fn": "permute",
+   "shape": "(128, 8, 32, 1)",
+   "site": "taped_ttnn.py:522",
+   "count": 1,
+   "seconds": 7.915496826171875e-05
+  },
+  {
+   "fn": "reshape",
+   "shape": "(1, 128, 128, 4)",
+   "site": "taped_ttnn.py:504",
+   "count": 2,
+   "seconds": 7.843971252441406e-05
+  },
+  {
+   "fn": "multiply",
+   "shape": "(128, 1, 256)",
+   "site": "taped_ttnn.py:260",
+   "count": 1,
+   "seconds": 7.724761962890625e-05
+  },
+  {
+   "fn": "typecast",
+   "shape": "(128, 1, 256)",
+   "site": "autograd.py:340",
+   "count": 1,
+   "seconds": 7.62939453125e-05
+  },
+  {
+   "fn": "sum",
+   "shape": "(1, 8, 128, 128)",
+   "site": "autograd.py:118",
+   "count": 1,
+   "seconds": 7.510185241699219e-05
+  },
+  {
+   "fn": "multiply",
+   "shape": "(128, 1, 256)",
+   "site": "taped_ttnn.py:435",
+   "count": 1,
+   "seconds": 7.414817810058594e-05
+  },
+  {
+   "fn": "multiply",
+   "shape": "(128, 1, 256)",
+   "site": "autograd.py:1651",
+   "count": 1,
+   "seconds": 7.05718994140625e-05
+  },
+  {
+   "fn": "reshape",
+   "shape": "(128, 1, 128, 384)",
+   "site": "taped_ttnn.py:504",
+   "count": 2,
+   "seconds": 6.866455078125e-05
+  },
+  {
+   "fn": "typecast",
+   "shape": "(128, 1, 256)",
+   "site": "autograd.py:393",
+   "count": 1,
+   "seconds": 6.866455078125e-05
+  },
+  {
+   "fn": "multiply",
+   "shape": "(1, 1, 128, 256)",
+   "site": "autograd.py:1651",
+   "count": 1,
+   "seconds": 6.723403930664062e-05
+  },
+  {
+   "fn": "reshape",
+   "shape": "(1, 1, 128, 256)",
+   "site": "autograd.py:581",
+   "count": 2,
+   "seconds": 6.723403930664062e-05
+  },
+  {
+   "fn": "multiply",
+   "shape": "(128, 1, 256)",
+   "site": "autograd.py:1645",
+   "count": 1,
+   "seconds": 6.461143493652344e-05
+  },
+  {
+   "fn": "permute",
+   "shape": "(1, 8, 32, 128)",
+   "site": "taped_ttnn.py:522",
+   "count": 1,
+   "seconds": 6.437301635742188e-05
+  },
+  {
+   "fn": "typecast",
+   "shape": "(1, 128, 256)",
+   "site": "taped_ttnn.py:99",
+   "count": 2,
+   "seconds": 6.103515625e-05
+  },
+  {
+   "fn": "multiply",
+   "shape": "(1, 128, 256)",
+   "site": "taped_ttnn.py:435",
+   "count": 1,
+   "seconds": 6.008148193359375e-05
+  },
+  {
+   "fn": "reshape",
+   "shape": "(1, 4, 128, 128)",
+   "site": "autograd.py:587",
+   "count": 2,
+   "seconds": 5.3882598876953125e-05
+  },
+  {
+   "fn": "reshape",
+   "shape": "(1, 1, 128, 768)",
+   "site": "taped_ttnn.py:504",
+   "count": 1,
+   "seconds": 5.2928924560546875e-05
+  },
+  {
+   "fn": "typecast",
+   "shape": "(128, 1, 256)",
+   "site": "autograd.py:342",
+   "count": 1,
+   "seconds": 5.269050598144531e-05
+  },
+  {
+   "fn": "multiply",
+   "shape": "(1, 8, 128, 128)",
+   "site": "taped_ttnn.py:178",
+   "count": 1,
+   "seconds": 5.1975250244140625e-05
+  },
+  {
+   "fn": "multiply",
+   "shape": "(1, 8, 128, 128)",
+   "site": "taped_ttnn.py:431",
+   "count": 1,
+   "seconds": 4.792213439941406e-05
+  },
+  {
+   "fn": "sum",
+   "shape": "(1, 8, 128, 128)",
+   "site": "autograd.py:122",
+   "count": 1,
+   "seconds": 4.601478576660156e-05
+  },
+  {
+   "fn": "multiply",
+   "shape": "(1, 128, 256)",
+   "site": "taped_ttnn.py:260",
+   "count": 1,
+   "seconds": 4.57763671875e-05
+  },
+  {
+   "fn": "reshape",
+   "shape": "(128, 1, 256)",
+   "site": "taped_ttnn.py:504",
+   "count": 1,
+   "seconds": 3.8623809814453125e-05
+  },
+  {
+   "fn": "reshape",
+   "shape": "(1, 128, 128, 8)",
+   "site": "taped_ttnn.py:504",
+   "count": 1,
+   "seconds": 2.6226043701171875e-05
+  },
+  {
+   "fn": "reshape",
+   "shape": "(128, 1, 1, 768)",
+   "site": "taped_ttnn.py:504",
+   "count": 1,
+   "seconds": 1.8835067749023438e-05
+  },
+  {
+   "fn": "reshape",
+   "shape": "(16384, 1024)",
+   "site": "taped_ttnn.py:504",
+   "count": 1,
+   "seconds": 1.52587890625e-05
+  }
+ ]
+}
