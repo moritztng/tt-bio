@@ -39,6 +39,24 @@ windows wrong, and still wrote the identical structure, because the attention ma
 same matrix and discards exactly the entries the selection got wrong. Nothing the model outputs
 distinguishes the two, at any size. The matrix comparison does.
 
+## `TT_BIO_DEST_CARRY_GUARD` — on, Wormhole only
+
+On Wormhole, a HiFi4 matmul that accumulates in fp32 returns an occasional wrong element when its
+K dimension is blocked more than one tile deep: the value comes back off by exactly a power of two
+at the scale of the partial sums, about once in 2-5 million outputs. It is a wrong result, not a
+rounding: on unit-scale operands the misses are 16 to 128 where the ordinary error is below 0.02
+of the dot product's own scale. It is deterministic, independent of the chip, and every model's
+matmuls meet it, including the ones that let ttnn pick their own plan. Blackhole and HiFi3 do not
+show it.
+
+With the flag on, every such matmul runs with a K block of one tile, which the hardware computes
+correctly, and the flag changes nothing on Blackhole or at any other fidelity. Measured at 1536
+tokens on 3ABQ, one Wormhole chip at 1000 MHz: misses per fold go to zero (Boltz-2 15, OpenFold3 92,
+Nesso-1 20 before), and the structure moves 0.755 Å (Boltz-2, all CA) against 3.78 Å between two
+seeds, with the crystal RMSD unchanged (0.963 to 0.954 Å). Boltz-2 folds 1.116x slower and
+OpenFold3 1.057x, both inside the speed bar. The evidence and a one-tile repro are in
+`perf/mgx_wh_matmul/`.
+
 ## `TT_BIO_DEVICE_CONDITIONING` — on, Boltz-2 only
 
 Boltz-2's diffusion conditioning reads the trunk's pair tensor three times, and upstream does all
