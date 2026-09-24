@@ -7707,8 +7707,9 @@ class TriangleMultiplication(Module):
         blocks = []
         for s in range(0, H, PAIR_ROW_BLOCK):
             e = min(s + PAIR_ROW_BLOCK, H)
+            r = x_in[:, s:e]                # the norm's input, and the residual's
             z_rows = ttnn.layer_norm(
-                x_in[:, s:e],
+                r,
                 weight=self.in_norm_weight,
                 bias=self.in_norm_bias,
                 epsilon=1e-5,
@@ -7724,6 +7725,8 @@ class TriangleMultiplication(Module):
                 core_grid=CORE_GRID_MAIN,
             )
             ttnn.deallocate(z_rows)
+            if not residual and e - s < H:  # a whole-axis slice is x_in itself
+                ttnn.deallocate(r)
             x_blk = (ttnn.from_torch(torch.cat([c[:, s:e] for c in x], dim=-1),
                                      layout=ttnn.TILE_LAYOUT, device=get_device(),
                                      dtype=ttnn.bfloat16)
@@ -7751,7 +7754,6 @@ class TriangleMultiplication(Module):
                 p_block, g_block, input_tensor_b_activations=[ttnn.UnaryOpType.SIGMOID])
             ttnn.deallocate(g_block)
             if residual:
-                r = x_in[:, s:e]
                 y_add = ttnn.add(r, y)
                 ttnn.deallocate(y)
                 if e - s < H:               # a whole-axis slice is x_in itself
@@ -8621,17 +8623,24 @@ class TriangleAttention(Module):
                     out_dram = ttnn.to_memory_config(out_chunk, ttnn.DRAM_MEMORY_CONFIG)
                     ttnn.deallocate(out_chunk)
                     out_chunk = out_dram
-                if residual:
-                    r = (_pair_transpose(x[:, s:end, :], ttnn.DRAM_MEMORY_CONFIG)
-                         if self.ending else x[s:end, :, :])
-                    r_add = ttnn.add(r, out_chunk)
-                    ttnn.deallocate(out_chunk)
-                    ttnn.deallocate(r)
-                    out_chunk = r_add
-                if inplace and self.ending:
+                # In place, the ending block goes back to the pair's own layout first, so its
+                # residual is a plain column strip of x: one transpose per block, not two.
+                back = inplace and self.ending
+                if back:
                     strip = _pair_transpose(out_chunk, ttnn.DRAM_MEMORY_CONFIG)
                     ttnn.deallocate(out_chunk)
-                    _write_cols(x_in, ttnn.reshape(strip, (1, *strip.shape)), s)
+                    out_chunk = strip
+                if residual:
+                    r = x[:, s:end, :] if self.ending else x[s:end, :, :]
+                    if self.ending and not back:
+                        r = _pair_transpose(r, ttnn.DRAM_MEMORY_CONFIG)
+                    r_add = ttnn.add(r, out_chunk)
+                    ttnn.deallocate(out_chunk)
+                    if end - s < S or (self.ending and not back):  # a whole-axis slice is x
+                        ttnn.deallocate(r)
+                    out_chunk = r_add
+                if back:
+                    _write_cols(x_in, ttnn.reshape(out_chunk, (1, *out_chunk.shape)), s)
                 elif inplace:
                     _write_rows(x_in, ttnn.reshape(out_chunk, (1, *out_chunk.shape)), s)
                 else:
