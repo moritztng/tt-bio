@@ -1,0 +1,17 @@
+{
+ "evo": {
+  "tapes": 596,
+  "dead_parent": 16,
+  "ttnn.reallocate out_live=True": 16
+ },
+ "extra": {
+  "tapes": 440,
+  "dead_parent": 16,
+  "ttnn.reallocate out_live=True": 16
+ },
+ "view": {
+  "same_address": true,
+  "view_alive_after_source_deallocate": false,
+  "source_alive_after_view_deallocate": false
+ }
+}
