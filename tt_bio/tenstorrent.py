@@ -4446,25 +4446,41 @@ def dest_carry_fault(ckc) -> bool:
             and ckc.math_fidelity == ttnn.MathFidelity.HiFi4)
 
 
-def _k1_program_config(m_tiles: int, n_tiles: int, fused_activation=None,
-                       out_bytes: int = 2) -> ttnn.MatmulMultiCoreReuseMultiCastProgramConfig:
-    """2D multicast config with `in0_block_w = 1`, for a matmul `dest_carry_fault` covers.
+@lru_cache(maxsize=None)
+def _k1_program_config(m_tiles: int, n_tiles: int, out_bytes: int = 2):
+    """Multicast plan with `in0_block_w = 1`, for a matmul `dest_carry_fault` covers.
 
-    The per-core block is ttnn's own split of the grid; only the drain block shrinks, and only
-    until its circular buffers fit the bank.
+    2D over the grid, with ttnn's own per-core split; only the drain block shrinks, and only until
+    its circular buffers fit the bank. An output narrower than the grid's columns would leave most
+    of them idle in 2D, so there M is split over every core and in1 multicast instead (K 512 x N
+    128 at M 1536: 0.0753 ms against 0.1223 in 2D and ttnn's own 0.0749,
+    perf/mgx_wh_matmul/results/cost_probe2.json). Cached: the guard asks once per shape, not once
+    per call, so the returned plan is shared and must not be mutated.
     """
     gx, gy = COMPUTE_GRID_MAIN
-    per_core_M = -(-m_tiles // gy)
-    per_core_N = -(-n_tiles // gx)
     budget = _matmul_cb_budget()
     divisors = lambda x: [d for d in range(x, 0, -1) if x % d == 0]  # noqa: E731
+
+    def subblock(h, w):
+        # fp32 dest holds 4 tiles: the widest subblock that divides the drain block
+        sub_w = next(d for d in divisors(w) if d <= 4)
+        return next(d for d in divisors(h) if d * sub_w <= 4), sub_w
+
+    if n_tiles < gx:
+        per_core_M = -(-m_tiles // (gx * gy))
+        if _matmul_cb_bytes(1, per_core_M, n_tiles, out_bytes) <= budget:
+            sub_h, sub_w = subblock(per_core_M, n_tiles)
+            return ttnn.MatmulMultiCoreReuseMultiCast1DProgramConfig(
+                compute_with_storage_grid_size=(gx, gy), in0_block_w=1, out_subblock_h=sub_h,
+                out_subblock_w=sub_w, out_block_h=per_core_M, out_block_w=n_tiles, per_core_M=per_core_M,
+                per_core_N=n_tiles, fuse_batch=True, fused_activation=None, mcast_in0=False)
+    per_core_M = -(-m_tiles // gy)
+    per_core_N = -(-n_tiles // gx)
     out_w = next((d for d in divisors(per_core_N)
                   if _matmul_cb_bytes(1, 1, d, out_bytes) <= budget), 1)
     out_h = next((d for d in divisors(per_core_M)
                   if _matmul_cb_bytes(1, d, out_w, out_bytes) <= budget), 1)
-    # fp32 dest holds 4 tiles: the widest subblock that divides the drain block
-    sub_w = next(d for d in divisors(out_w) if d <= 4)
-    sub_h = next(d for d in divisors(out_h) if d * sub_w <= 4)
+    sub_h, sub_w = subblock(out_h, out_w)
     return ttnn.MatmulMultiCoreReuseMultiCastProgramConfig(
         compute_with_storage_grid_size=(gx, gy),
         in0_block_w=1,
@@ -4475,7 +4491,7 @@ def _k1_program_config(m_tiles: int, n_tiles: int, fused_activation=None,
         per_core_M=per_core_M,
         per_core_N=per_core_N,
         transpose_mcast=False,
-        fused_activation=fused_activation,
+        fused_activation=None,
         fuse_batch=True,
     )
 

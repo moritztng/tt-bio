@@ -47,7 +47,8 @@ with during() as clk:
         tb = ttnn.from_torch(B, layout=ttnn.TILE_LAYOUT, device=dev)
         arms = {"auto": None, "w1": T._k1_program_config(a.m // 32, n // 32)}
         # the same config at the widest K block <= 8 that fits: the price of w = 1 within one family
-        wk = T._k1_program_config(a.m // 32, n // 32)
+        base = T._k1_program_config(a.m // 32, n // 32)  # shared (cached): copy before mutating
+        wk = type(base).from_json(base.to_json())
         kt = k // 32
         wk.in0_block_w = max(d for d in range(min(8, kt), 0, -1) if kt % d == 0
                              and T._matmul_cb_bytes(d, wk.out_block_h, wk.out_block_w, 2) <= T._matmul_cb_budget())
