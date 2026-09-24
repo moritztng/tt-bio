@@ -31,11 +31,11 @@ import pytest
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from tt_bio import worker as W  # noqa: E402
-from tt_bio.distributed import ControllerClient, ControllerServer  # noqa: E402
+from tt_bio.host_controller import ControllerClient, ControllerServer  # noqa: E402
 
 
 def _controller(tmpdir: Path):
-    server = ControllerServer("127.0.0.1", 0, tmpdir / "controller.sqlite3")
+    server = ControllerServer(0, tmpdir / "controller.sqlite3")
     server.serve_in_background()
     return server, ControllerClient(f"http://127.0.0.1:{server.port}")
 

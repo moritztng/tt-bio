@@ -46,7 +46,7 @@ def host_predict(monkeypatch):
         lambda *a, **k: build_local_workers("cpu", [object()], [0]))
 
     def fake_dispatch_run(run_payload, workers, *, total, results_path,
-                          struct_dir, model, listen, debug, log):
+                          struct_dir, model, debug, log):
         state["total"] = total
         return state["failed"]
 
@@ -105,7 +105,7 @@ def test_ttnn_model_branch_all_failed_exits_1(host_predict, tmp_path):
 
 
 def test_controller_mode_all_failed_exits_1(host_predict, tmp_path):
-    """--controller submits to a remote cluster; the exit contract is the same."""
+    """--controller submits to a running controller; the exit contract is the same."""
     host_predict["failed"] = 1
     result = CliRunner().invoke(
         cli, ["predict", str(_target(tmp_path / "t.yaml")), "--model", "boltz2",

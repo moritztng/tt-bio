@@ -5,7 +5,25 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
 
 ## [Unreleased]
 
+### Removed
+
+- **`tt-bio predict --listen`, and a controller bound to anything but 127.0.0.1.** tt-bio no
+  longer takes workers from other machines. Each machine runs its own `tt-bio controller`, and
+  the layer that spreads work across machines talks to each one. `tt-bio controller --listen
+  HOST:PORT` is now `--port PORT`.
+
 ### Changed
+
+- **`tt_bio.distributed` is `tt_bio.host_controller`**, named for what it is: the controller of one
+  host's chips. Code that imported `ControllerClient` or `ControllerServer` from the old path
+  imports them from the new one, and `ControllerServer` takes no host argument.
+
+- **A job whose worker goes silent returns to the queue after 120 s, not 30 minutes.** The worker
+  heartbeats from its own thread every twelfth of the lease, 10 s by default, and takes the
+  interval from the lease the controller names in each answer, so `tt-bio controller --lease-s`
+  is the only setting. Sampled on four Wormhole Galaxies during folds of up to 21 minutes, the
+  longest a busy worker went unheard was 14.7 s. A dead worker used to strand its job for half an
+  hour.
 
 - **OpenFold3 trunk triangle attention runs on the fused SDPA at HiFi4, and a 512-residue fold is
   1.5123x faster.** 34.138 s to 22.574 s on a Blackhole p300c with the AICLK at 1350 MHz, and
@@ -49,6 +67,12 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
   [docs/sdpa-wide-k-parity.md](docs/sdpa-wide-k-parity.md).
 
 ### Fixed
+
+- **A completion lost on the wire no longer strands its job forever.** `/complete` was never
+  retried, and the job stayed leased to a worker whose heartbeats kept renewing it, so the run
+  never ended. A result settles only from the lease holder and a replay matches nothing, so the
+  client now retries `/complete` like a read, and a worker that asks for work gives back any job
+  still leased to it.
 
 - **Nesso-1 scores large targets with large ligands on Wormhole.** The trunk built a cross-chain
   attention bias it had no use for (its pair mask is separable), 10.9 GB at 1632 tokens, so a
@@ -109,6 +133,12 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
   off; the setting now stops at the verb's edge. Same inputs give the same outputs.
 
 ### Added
+
+- **[docs/multi-host.md](docs/multi-host.md): the contract for running tt-bio on many machines.**
+  The endpoints a scheduler answers and a platform polls, what a host advertises, the lease and
+  how a result settles exactly once. [`examples/many_hosts.py`](examples/many_hosts.py) is a
+  fifty-line driver built on it; it folded twelve inputs across four Galaxies. `GET /cluster` now
+  names each worker's loaded model and the jobs it holds.
 
 - **A structure template given as an mmCIF works on every model that takes templates.** The
   top-level `templates:` block (`cif`, optional `chain_id` and `template_id`) was read only by

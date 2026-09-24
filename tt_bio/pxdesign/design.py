@@ -112,12 +112,12 @@ def run_design_via_controller(
 ) -> list[dict]:
     """Fleet twin of :func:`run_design`: one shard per design, collected here.
 
-    The target YAML and the structure it names are both shipped inline, so workers on
-    other machines need no shared filesystem. Each shard runs in-process on its
+    The target YAML and the structure it names are both shipped inline, so a worker
+    needs no view of the submitter's filesystem. Each shard runs in-process on its
     worker's already-open chip (no cold device open) and gets seed ``seed + k``, which
     is the same per-design seeding the local non-batched path uses.
     """
-    from tt_bio.distributed import connect_controller
+    from tt_bio.host_controller import connect_controller
     from tt_bio.main import _write_job_outputs
     from tt_bio.pxdesign.inputs import read_design_yaml
 
