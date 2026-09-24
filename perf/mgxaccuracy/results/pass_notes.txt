@@ -147,3 +147,15 @@ MISSING and the rung says "not readable". Harvesting `fas_ladder.jsonl` therefor
 `--target` argument or a sibling reader, ADDED beside the GroEL path and not repointing it,
 because the GroEL verdicts are published and this script has to keep reproducing them --
 `--selfcheck` is the check that it still does.
+
+## A DRY-RUN OF THE REFUSAL BRANCH IS NOT A DRY-RUN OF THE SCRIPT
+
+`ref/harvest_groel_upstream.sh` was dry-run at 19:0xZ and printed "groel512: NOT READY" for
+both rungs, which was recorded as "verified end to end in its NOT-READY path". It was not
+verified in any other path, and the scoring line it had never reached called bare `python3` --
+no numpy on whglx -- so the moment the 512 draw actually landed the harvest died on import.
+Fixed to `${PY:-$HOME/env/bin/python}` and re-run, reproducing 5.437 A.
+
+The general form: a guard that refuses early makes every downstream line unexecuted, so
+exercising the guard tells you nothing about them. If a script cannot be run against real
+inputs yet, say which BRANCH was exercised rather than that the script was checked.
