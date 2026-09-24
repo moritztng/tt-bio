@@ -706,6 +706,11 @@ SIZE_LADDER_EXEMPT = {
                      "and opendde-abag differs only in load_opendde_checkpoint's abag flag. "
                      "Its independent perf coverage is perf_regression.py's own SPECS cell, "
                      "added after a 60x regression shipped behind that same reasoning.",
+    "af2ig":         "Re-predicts a complex you already designed, so its input is a target "
+                     "structure plus the binder's backbone and sequence, and the arm's cdk2x2 "
+                     "chain list is refused by its reader at every rung. Its perf cell is "
+                     "perf_regression.py's own af2ig SPECS entry on the committed example; a "
+                     "ladder needs a designed complex walked up in size, a fixture of its own.",
 }
 # A model ON the ladder (SIZE_LADDER_MODELS, not SIZE_LADDER_EXEMPT) can still ship with no
 # recorded rungs on a given card because the hardware to record them was unavailable, not
