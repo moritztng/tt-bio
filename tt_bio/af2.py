@@ -37,6 +37,7 @@ import ttnn
 
 from .af2_reference import AF2Model, load_af2_model
 from .tenstorrent import (
+    CORE_GRID_MAIN,
     PAIR_ROW_BLOCK,
     Module,
     OuterProductMean,
@@ -552,6 +553,64 @@ class AF2Attention(Module):
         return projected
 
 
+class AF2MaskedOuterProductMean(OuterProductMean):
+    """AF2's outer product mean with a real MSA mask.
+
+    The shared `OuterProductMean` cannot express this and must not be changed to: it is
+    Boltz's, BoltzGen's, OpenFold3's, Protenix's, OpenDDE's, RF3's and AF2-IG's as well.
+    It differs from AF2 in exactly two ways, and both matter once a mask is not all ones.
+
+    It masks only the `a` operand -- the same one-sided masking `AF2PairBlock` documents for
+    the triangle multiplication -- where AF2 masks both, so its sum is
+    `sum_s m_si a_si b_sj` against AF2's `sum_s m_si m_sj a_si b_sj`. And it divides by a
+    scalar depth, where AF2 divides by `eps + sum_s m_si m_sj`, which is a matrix once the
+    rows disagree about which residues are real.
+
+    `eps` stops being cosmetic here. `AF2EvoformerBlock` drops it at an all-ones mask
+    because bf16 rounds `eps + depth` back to the depth; with a real mask the norm is 0
+    wherever both residues are masked in every row, and 1e-3 is what keeps that finite.
+    """
+
+    EPS = 1e-3
+
+    def masked(self, x: ttnn.Tensor, msa_mask: ttnn.Tensor) -> ttnn.Tensor:
+        if len(x.shape) == 4:
+            x = ttnn.reshape(x, tuple(x.shape)[1:])
+        if len(msa_mask.shape) == 3:
+            msa_mask = ttnn.reshape(msa_mask, tuple(msa_mask.shape)[1:])
+        rows, n = (int(d) for d in msa_mask.shape)
+        mask_col = ttnn.reshape(msa_mask, (rows, n, 1))
+
+        normed = ttnn.layer_norm(x, weight=self.norm_weight, bias=self.norm_bias,
+                                 epsilon=1e-5,
+                                 compute_kernel_config=self.compute_kernel_config)
+        a = ttnn.linear(normed, self.a_weight, bias=self.a_bias,
+                        compute_kernel_config=self.compute_kernel_config,
+                        core_grid=CORE_GRID_MAIN)
+        b = ttnn.linear(normed, self.b_weight, bias=self.b_bias,
+                        compute_kernel_config=self.compute_kernel_config,
+                        core_grid=CORE_GRID_MAIN)
+        ttnn.deallocate(normed)
+        # BOTH operands, which is the difference from the shared class.
+        a = ttnn.multiply_(a, mask_col)
+        b = ttnn.multiply_(b, mask_col)
+
+        # `n_msa=1` asks for the raw sum over rows plus proj_o's bias, unscaled: AF2's own
+        # numerator. The divisor is applied below because it is per residue pair.
+        z = self._small_depth(a, b, 1)
+
+        # norm_ij = sum_s m_si m_sj, as a matmul over the row axis.
+        mt = ttnn.permute(msa_mask, (1, 0))
+        norm = ttnn.matmul(mt, msa_mask, compute_kernel_config=self.compute_kernel_config)
+        ttnn.deallocate(mt)
+        norm = ttnn.add_(norm, self.EPS)
+        norm = ttnn.reshape(norm, (1, n, n, 1))
+        out = ttnn.divide(z, norm)
+        ttnn.deallocate(z)
+        ttnn.deallocate(norm)
+        return out
+
+
 class AF2EvoformerBlock(AF2PairBlock):
     """One `EvoformerIteration`: the MSA track, the outer product mean, then the pair track.
 
@@ -571,7 +630,7 @@ class AF2EvoformerBlock(AF2PairBlock):
             self.scope("msa_transition"), compute_kernel_config)
         # `scale_bias=True` puts the proj_o bias inside the division by the pair norm, which is
         # AF2s own semantics.
-        self.opm = OuterProductMean(
+        self.opm = AF2MaskedOuterProductMean(
             self.scope("opm"), compute_kernel_config, scale_bias=True)
 
     #: AF2's masked-logit constant (`modules.py`: `1e9 * (mask - 1)`).
@@ -615,7 +674,10 @@ class AF2EvoformerBlock(AF2PairBlock):
         # the spacing scales with the value. Adding it anyway measures 1.7x worse on card at
         # Evoformer 0 and 47 (`device_gate.py --opm-eps 1e-3`). `None` reads the depth off the
         # tensor, which is that divisor.
-        z = self._residual(z, self._update("opm", lambda m: self.opm(m, None), msa))
+        opm_call = (self.opm if msa_mask is None
+                    else lambda m: self.opm.masked(m, msa_mask))
+        z = self._residual(z, self._update(
+            "opm", (lambda m: self.opm(m, None)) if msa_mask is None else opm_call, msa))
         return msa, super().__call__(z, mask, attn_mask)
 
 
