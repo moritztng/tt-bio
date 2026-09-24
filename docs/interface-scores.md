@@ -16,6 +16,13 @@ because a score that is "more correct" than the one participants are compared by
 score. `tests/test_interface_scores.py` runs that script unmodified on the same files and holds
 every column it prints to half a unit of its last printed digit.
 
+`scripts/interface_scores_agreement.py` prints the number behind that pass. Over 200 generated
+complexes at 15/15 (1,194 chain-pair comparisons), every metric agrees within the precision the
+reference itself prints: ipSAE to 5.0e-7, ipTM to 5.0e-4, pDockQ, pDockQ2 and LIS to 5.0e-5,
+Pearson r of 1.00000000 for ipSAE and no lower than 0.999996 for any metric. At Dunbrack's 10/10
+over 100 complexes, the same. Nothing exceeds the reference's own printing precision, so the
+residual is the reference's `%.6f`, not the arithmetic.
+
 The choices, where the reference leaves room for one:
 
 | | choice | why |
@@ -44,6 +51,17 @@ The top-ranked sample stays in `interface_scores` as the point value.
 At inference Boltz-2's only random step is the diffusion noise, so K samples of one fold and K
 separately seeded folds draw from the same distribution, and the samples share one trunk pass.
 That follows from the code. It has not been measured on a device yet.
+
+## Run to run
+
+Scoring the same files twice gives the same bytes. `scripts/interface_scores_determinism.py`
+runs eight fresh interpreters over one three-chain complex with a different `PYTHONHASHSEED` and
+a different BLAS thread count each, and the serialised output has one distinct sha256 across all
+eight. Dict order, thread count and reduction order are what would move a float here, and none
+of them does.
+
+That covers the scoring step. Whether two runs of the *model* give the same coordinates is a
+separate question, answered per design by the distribution above rather than asserted.
 
 ## Other ipSAE numbers in tt-bio
 
