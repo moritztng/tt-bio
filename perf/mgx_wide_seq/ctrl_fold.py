@@ -15,7 +15,9 @@ sys.path.insert(0, str(ROOT / "scripts"))
 os.environ.update(TT_BIO_SIZE_LIMIT="0", TT_BIO_PAIR_INPLACE="0", TT_BIO_TRIMUL_INPROJ_ROWBLOCK_NORM="0")
 import release_gate as rg  # noqa: E402
 
-rg.HOST_THREADS = 2
+from tt_bio import runtime  # noqa: E402
+
+os.environ.update(runtime.host_thread_cap_env(1, 2))  # the speed ladder's cap (time_rungs.py)
 model = sys.argv[1]
 for rung in map(int, sys.argv[2].split(",")):
     r = rg._run_census_fold(model, rung, ROOT / "perf" / "mgx_wide_seq" / "ctrl", "flagsoff")
