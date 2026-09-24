@@ -493,6 +493,10 @@ class AF2Attention(Module):
             scores = batched_matmul(q, kt, compute_kernel_config=self.compute_kernel_config)
             ttnn.deallocate(kt)
             scores = ttnn.multiply_(scores, self.scale_inv)
+            if bias is not None:
+                # AF2 adds the mask bias AFTER the scale, unscaled, so it goes here and not
+                # into `scale_inv`.
+                scores = ttnn.add(scores, bias)
             probs = ttnn.softmax(scores, dim=-1,
                                  compute_kernel_config=self.compute_kernel_config)
             ttnn.deallocate(scores)
@@ -504,9 +508,15 @@ class AF2Attention(Module):
         return out
 
     def __call__(self, msa: ttnn.Tensor, pair: ttnn.Tensor | None = None,
-                 msa_mask: ttnn.Tensor | None = None) -> ttnn.Tensor:
+                 mask_bias: ttnn.Tensor | None = None) -> ttnn.Tensor:
+        """`mask_bias` is AF2's `1e9 * (msa_mask - 1)` already shaped for the softmax axis.
+
+        It arrives prepared rather than as a mask because the two variants need different
+        layouts of the same numbers -- `[rows, 1, 1, n]` for the row attention, whose keys
+        are residues, and `[n, 1, 1, rows]` for the column attention, whose keys are rows --
+        and `AF2EvoformerBlock` builds both once per block instead of once per attention.
+        """
         assert (pair is not None) == self.pair_bias, "pair_bias and the pair argument disagree"
-        assert msa_mask is None, "a masked AF2 MSA is not wired up; see the class docstring"
         if len(msa.shape) == 4:
             msa = ttnn.reshape(msa, tuple(msa.shape)[1:])
         if self.column:
@@ -519,8 +529,14 @@ class AF2Attention(Module):
         if self.column:
             ttnn.deallocate(msa)  # the permutes own copy, not the callers tensor
         qkv = self._lin(x, self.qkv_weight, memory_config=ttnn.DRAM_MEMORY_CONFIG)
-        out = self._attend(*self._split_heads(qkv, self.n_heads),
-                           self._bias(pair) if self.pair_bias else None)
+        bias = self._bias(pair) if self.pair_bias else None
+        if mask_bias is not None:
+            # AF2 adds the pair bias and the mask bias to the same logits. The pair bias is
+            # [1, heads, n, n] and broadcasts over rows; the mask bias is per row, so the sum
+            # is [rows, heads, n, n] -- 1.2 MB at n=192 with 2 rows, which is why this is an
+            # add rather than a second softmax argument.
+            bias = mask_bias if bias is None else ttnn.add(bias, mask_bias)
+        out = self._attend(*self._split_heads(qkv, self.n_heads), bias)
         out = self._merge_heads(out)
         gate = self._lin(x, self.g_weight, bias=self.g_bias,
                          memory_config=ttnn.DRAM_MEMORY_CONFIG)
@@ -558,18 +574,41 @@ class AF2EvoformerBlock(AF2PairBlock):
         self.opm = OuterProductMean(
             self.scope("opm"), compute_kernel_config, scale_bias=True)
 
-    def _msa_track(self, msa: ttnn.Tensor, pair: ttnn.Tensor) -> ttnn.Tensor:
-        msa = self._residual(msa, self._update("msa_row_attn", self.msa_row_attn, msa, pair))
-        for name, module in (("msa_col_attn", self.msa_col_attn),
-                             ("msa_transition", self.msa_transition)):
-            msa = self._residual(msa, self._update(name, module, msa))
+    #: AF2's masked-logit constant (`modules.py`: `1e9 * (mask - 1)`).
+    MASK_LOGIT_BIAS = 1e9
+
+    def _mask_biases(self, msa_mask: ttnn.Tensor) -> tuple[ttnn.Tensor, ttnn.Tensor]:
+        """`[rows, n]` mask -> the row and column additive logit biases.
+
+        Built once per block rather than once per attention: the two variants are the same
+        numbers in different layouts, because the row attention's keys are residues and the
+        column attention's keys are rows.
+        """
+        if len(msa_mask.shape) == 3:
+            msa_mask = ttnn.reshape(msa_mask, tuple(msa_mask.shape)[1:])
+        rows, n = (int(d) for d in msa_mask.shape)
+        flat = ttnn.multiply(ttnn.subtract(msa_mask, 1.0), self.MASK_LOGIT_BIAS)
+        row_bias = ttnn.reshape(flat, (rows, 1, 1, n))
+        transposed = ttnn.permute(flat, (1, 0))
+        col_bias = ttnn.reshape(transposed, (n, 1, 1, rows))
+        return row_bias, col_bias
+
+    def _msa_track(self, msa: ttnn.Tensor, pair: ttnn.Tensor,
+                   row_bias: ttnn.Tensor | None = None,
+                   col_bias: ttnn.Tensor | None = None) -> ttnn.Tensor:
+        msa = self._residual(msa, self._update("msa_row_attn", self.msa_row_attn, msa, pair,
+                                               row_bias))
+        msa = self._residual(msa, self._update("msa_col_attn", self.msa_col_attn, msa, None,
+                                               col_bias))
+        msa = self._residual(msa, self._update("msa_transition", self.msa_transition, msa))
         return msa
 
     def __call__(self, msa: ttnn.Tensor, z: ttnn.Tensor,
                  msa_mask: ttnn.Tensor | None = None, mask: ttnn.Tensor | None = None,
                  attn_mask: ttnn.Tensor | None = None) -> tuple[ttnn.Tensor, ttnn.Tensor]:
-        assert msa_mask is None, "a masked AF2 MSA is not wired up; see AF2Attention"
-        msa = self._msa_track(msa, z)
+        row_bias, col_bias = (self._mask_biases(msa_mask) if msa_mask is not None
+                              else (None, None))
+        msa = self._msa_track(msa, z, row_bias, col_bias)
         # AF2 divides the outer product mean by `eps + norm`, and at an all-ones mask the norm
         # is the MSA depth everywhere. `eps` is 1e-3 and the trunk is bfloat16, whose spacing at
         # 2.0 is 0.0078, so `eps + norm` rounds back to the depth exactly -- at any depth, since
