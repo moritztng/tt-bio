@@ -1,0 +1,52 @@
+# UPSTREAM'S OWN 1536 DESIGN, and the answer to "is a worse number at 1536 a defect".
+#
+# The brief's joint 2: a worse device number at 1536 is a defect only if upstream does better
+# at 1536. Upstream's six-step CPU run (out1536, qb2, torch fp32, --protocol protein-anything
+# --budget 1) took 11.7 h to get through its design step and is still inside the whole-complex
+# fold at 1616 tokens. The scRMSD does not need that step: design_folding reads design_dir,
+# not the folding output, and the two configs differ by two lines (ref/designfolding_only.sh
+# documents the diff). So step 4 was run directly off the finished inverse-folded design.
+#
+# ONE METRIC, ONE REFOLDER, ONE TOOL on every row below. designfolding-bb_rmsd, N,CA,C,O
+# backbone, upstream BoltzGen torch fp32 on qb2 CPU, scored by scrmsd.py off refold_design_cif.
+# The only thing that changes between rows is WHO DESIGNED and AT WHAT SIZE.
+#
+#   designed by   size   n    min    median    max
+#   upstream       512   1     -      11.04     -      (step-4-only; the six-step run's own
+#                                                       analysis CSV on the same design: 7.17)
+#   device         512   8   0.98     7.01    12.32
+#   upstream      1536   1     -       7.91     -
+#   device        1536   8  16.45     19.35    22.21
+#
+# READ THE COLUMN, NOT THE CELL. Upstream does not degrade from 512 to 1536: 11.04 -> 7.91 by
+# the identical method, or 7.17 -> 7.91 if the six-step analysis column is used at 512, and
+# both moves are inside the 0.9-1.9 A repeat spread this row measured for a single upstream
+# refold. The device does degrade, hard: 7.01 -> 19.35 on the same axis.
+#
+# At 1536 the device's ENTIRE eight-design range sits above upstream's draw. The smallest gap
+# is 16.45 - 7.91 = 8.54 A, against a refold repeat spread of 0.9-1.9 A and an across-target
+# 512 floor of 2.10 A. At 512 the device is at or better than upstream on the same comparison.
+#
+# So the row's opening question now has a sign: **the 1536 loss is the port's, not BoltzGen's.**
+#
+# WHAT n=1 DOES AND DOES NOT BUY. One upstream design bounds the LEVEL; it does not describe
+# upstream's 1536 distribution, and this row has said all pass that an n=1 reference cannot
+# rank two things that overlap. These do not overlap: for the reading above to be wrong,
+# upstream's 1536 bulk would have to sit above 16.45 A with this draw landing at 7.91, a 8.5 A
+# excursion where the measured instrument noise is under 2 A. A second upstream 1536 design
+# costs another ~12 h design step on 16 cores and is the honest way to firm it up; ask 9957
+# (vast.ai GPU) is the cheap way and has been unanswered since 02:27Z 09-23.
+#
+# AND EVERY DEVICE 1536 NUMBER HERE IS PRE-FIX. cc908c377 corrects TokenDistanceRecycle, the
+# module that injects the target's token distances -- the conditioning a binder design is
+# built on -- where the old code returned twice the pairformer's output instead of its input
+# plus the update. That is an error whose size grows with token count, which is the shape of
+# exactly this table. The after-fix 1536 arm is running (card 3) and is what decides whether
+# the bug WAS this gap. Do not publish a 1536 quality number to users until it lands: the fix
+# is already on main, so the pre-fix rows describe an engine nobody will run.
+#
+# Reproduce:
+#   ssh qb2 'cd ~/mgxacc-tools && bash designfolding_only.sh --size 1536 --threads 6'
+#   ssh qb2 'cd ~/mgxacc-tools && ~/bgref-env/bin/python3 scrmsd.py ~/bgref-work/out1536_df \
+#            --json --model boltzgen --target gpb_dimer_1646 --target-res 1536 \
+#            --side upstream-design-upstream-refold'
