@@ -119,3 +119,19 @@ same numbers already in `results/groel_2x2_result.txt` and `results/groel_1024_r
 re-sorted. It is written down because it makes the prediction the FAS control has to beat
 concrete -- if chain count is the carrier, FAS at 1536 on one chain should sit with the top row
 and not the bottom one -- and for no other reason.
+
+THE CONTROL'S VALIDITY CONDITION, CHECKED ON THE FIXTURES THE JOBS ARE ACTUALLY USING
+--------------------------------------------------------------------------------------
+
+2026-09-24 20:0xZ, eleven minutes into the FAS run. The point of this control is that chain
+count is held at ONE across the whole ladder, and that is a property of the three fixtures
+`job.py` built, not of the source target. Censused the same way every other fixture in this
+row was:
+
+    fx_boltzgen_512_d8_bgall_fas512o0/bgt512.cif      512 CA   {'A': 512}
+    fx_boltzgen_1024_d8_bgall_fas1024o0/bgt1024.cif  1024 CA   {'A': 1024}
+    fx_boltzgen_1536_d8_bgall_fas1536o0/bgt1536.cif  1536 CA   {'A': 1536}
+
+One chain at every rung, including 1536, which is the cell no other target in this row can
+produce. Every GroEL and 1GPB cell at 1024 or 1536 has two or three chains; these have one.
+So whatever the FAS ladder reads, the residue axis is the only thing moving along it.
