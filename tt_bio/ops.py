@@ -12,9 +12,9 @@ copy of it, and a copy is what a differentiable second implementation becomes: t
 twin under ``perf/ptxft`` had already drifted 2.56e-02 on the denoiser before anyone
 looked. The twin was deleted in commit 81eaa6a6a, which is where that reading is on the
 record. So the call site dispatches. With no hook installed -- every inference path,
-always -- ``linear`` is the ``ttnn.linear`` call that was written here before, same
-arguments, same kernel, same output bytes. ``tt_bio.autograd`` installs a hook when a user
-opts into training, and then the same call site records a tape node.
+always -- ``linear`` is the plain ``ttnn.linear`` call. ``tt_bio.autograd`` installs a hook
+when a user opts into training, and then the same call site records a tape node whose value
+is that same call's output.
 
 The hook is injected rather than imported, and that is the whole of what keeps the tape off
 the inference path: nothing in this module knows ``tt_bio.autograd`` exists, so importing
@@ -31,6 +31,7 @@ move inference numerics whether or not a tape node survived. Dispatching cannot.
 from __future__ import annotations
 
 import contextlib
+import math
 
 import ttnn
 
@@ -119,6 +120,30 @@ _NARROW_PROJ = None
 _L1_NORM = None
 
 
+def _via2d(x, fn, kw=None):
+    """``fn(x)`` on ``x`` with its leading dims collapsed, when collapsing them is a view.
+
+    ``fn`` is a matmul against a 2-D weight. At a rank-3 or rank-4 left operand ttnn picks a
+    program that runs several times slower than the same product on the (prod(leading), K)
+    view: [256,256,128] @ [128,128] takes 792 us, the view 118 us, HiFi4 on a p300c at
+    1350 MHz (``perf/bcx_mm2d/probe_n256.json``). Collapsing moves no data when the
+    second-last dim fills whole tiles, because the tiles already sit in that order; any other
+    reshape here is a relayout (the heads split [N,N,128] -> [N,N,4,32] costs 2 ms), so such
+    a shape, a sharded operand, or a caller-chosen program config is left as it came.
+
+    Same operands, same reduction, not always the same bits: where they differ, the 2-D
+    result is the one closer to float64. ``linear`` below and the tape's matmuls share it.
+    """
+    s = [int(d) for d in x.shape]
+    mc = (kw or {}).get("memory_config")
+    if (len(s) <= 2 or s[-2] % ttnn.TILE_SIZE or x.layout != ttnn.TILE_LAYOUT
+            or x.is_sharded() or (kw or {}).get("program_config") is not None
+            or (mc is not None and mc.is_sharded())):
+        return fn(x)
+    y = fn(ttnn.reshape(x, [int(math.prod(s[:-1])), s[-1]]))
+    return ttnn.reshape(y, s[:-1] + [int(y.shape[-1])])
+
+
 @_dispatching
 def linear(x, w, bias=None, *, activation=None, compute_kernel_config=None, dtype=None,
            core_grid=None, narrow_proj=False, **kw):
@@ -145,9 +170,9 @@ def linear(x, w, bias=None, *, activation=None, compute_kernel_config=None, dtyp
         out = _NARROW_PROJ(x, w, compute_kernel_config, dtype, l1_out=in_l1)
         if out is not None:
             return out
-    return ttnn.linear(x, w, bias=bias, activation=activation,
-                       compute_kernel_config=compute_kernel_config, dtype=dtype,
-                       core_grid=core_grid, **kw)
+    return _via2d(x, lambda v: ttnn.linear(v, w, bias=bias, activation=activation,
+                                           compute_kernel_config=compute_kernel_config,
+                                           dtype=dtype, core_grid=core_grid, **kw), kw)
 
 
 @_dispatching

@@ -30,6 +30,7 @@ from typing import Optional, Sequence
 import ttnn
 
 from tt_bio.envflags import env_flag
+from tt_bio.ops import _via2d
 
 __all__ = [
     "Tensor", "precise_config", "softmax_bw_inner", "no_grad", "parameter",
@@ -459,30 +460,6 @@ def _flat2d(t):
     if t.memory_config().buffer_type == ttnn.BufferType.L1:
         t = ttnn.to_memory_config(t, ttnn.DRAM_MEMORY_CONFIG)
     return ttnn.reshape(t, [int(math.prod(s[:-1])), s[-1]])
-
-
-def _via2d(x, fn, kw=None):
-    """``fn(x)`` on ``x`` with its leading dims collapsed, when collapsing them is a view.
-
-    ``fn`` is a matmul against a 2-D weight. At a rank-3 left operand ttnn picks a program
-    that runs several times slower than the same product on the (prod(leading), K) view:
-    [256,256,128] @ [128,128] takes 792 us, the view 118 us, HiFi4 on a p300c at 1350 MHz
-    (``perf/bcx_mm2d/probe.json``). Collapsing moves no data when the second-last dim fills
-    whole tiles, because the tiles already sit in that order; any other reshape here is a
-    relayout (the heads split [N,N,128] -> [N,N,4,32] costs 2 ms), so such a shape, a
-    sharded operand, or a caller-chosen program config is left as it came.
-
-    Same operands, same reduction, not always the same bits: where they differ, the 2-D
-    result is the one closer to float64.
-    """
-    s = [int(d) for d in x.shape]
-    mc = (kw or {}).get("memory_config")
-    if (len(s) <= 2 or s[-2] % ttnn.TILE_SIZE or x.layout != ttnn.TILE_LAYOUT
-            or x.is_sharded() or (kw or {}).get("program_config") is not None
-            or (mc is not None and mc.is_sharded())):
-        return fn(x)
-    y = fn(ttnn.reshape(x, [int(math.prod(s[:-1])), s[-1]]))
-    return ttnn.reshape(y, s[:-1] + [int(y.shape[-1])])
 
 
 def _reduce_to(g, shape):
