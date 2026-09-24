@@ -380,7 +380,7 @@ CEILINGS: dict[str, dict[str, Ceiling]] = {
     "openfold3": {
         "wormhole_b0": Ceiling(
             residues=1664, pass_at=1664, fail_at=1792, binds=MEMORY, mechanism=FRAGMENTATION,
-            msa_rows=14190,
+            msa_rows=16384,
             evidence="1792 x 14190 re-failed on origin/main a102dfb5c (mgx-bigalloc merged; the "
                      "later c5b346679 and 720b43a5d do not change this path's allocations), j10glx02 "
                      "card 19, 2026-09-23, guard off, --host_threads 2, after 1018.1 s: bigalloc "
@@ -402,8 +402,12 @@ CEILINGS: dict[str, dict[str, Ceiling]] = {
                      "removed. At 16384 alignment rows, the most the featurizer ever keeps, 1536 folds "
                      "(ws:mgx-msa-depth, chip 9, tt-bio 3f10800fd, 2026-09-23): cdk2_1536_d16384 PASS "
                      "in 2599.8 s at AICLK 1000 MHz sampled DURING the fold, 4 refusals recovered; "
-                     "nothing above 1536 was walked at that depth, so msa_rows names the 14190 "
-                     "the 1664 cap was walked at. Earlier: 1536 residues fold at 14190 alignment rows on the j10glx02 Galaxy, "
+                     "and 1664 x 16384 PASS on origin/main 811ac1316 (ws:mgx-ceilings, card 13, "
+                     "2026-09-24, guard off, --host_threads 2, msa_depth 16384 in results.json) in "
+                     "1158.4 s at AICLK median 1000 MHz over 112 samples DURING the fold, pLDDT "
+                     "0.408, CA-CA median 3.83 A with 99.0 percent in band, no non-adjacent CA "
+                     "pair under 3 A. 1792 failed at the shallower 14190, so it fails here too. "
+                     "Earlier: 1536 residues fold at 14190 alignment rows on the j10glx02 Galaxy, "
                      "2026-09-23 (ws:mgx-bigalloc, perf/whceil/ladder.py, chip 9, tt-bio 296f5fcea): "
                      "cdk2x2_1536_d14190, PASS in 1917.9 s at AICLK 1000 MHz sampled DURING the fold, "
                      "under a host load that voids the time for speed. 1536 x 8192 rows folds too "
@@ -433,7 +437,7 @@ CEILINGS: dict[str, dict[str, Ceiling]] = {
     "openbind": {
         "wormhole_b0": Ceiling(
             residues=1664, pass_at=1664, fail_at=1792, binds=MEMORY, mechanism=FRAGMENTATION,
-            msa_rows=14190, ladder_ligand_atoms=0,
+            msa_rows=16384, ladder_ligand_atoms=0,
             evidence="walked on origin/main a102dfb5c (mgx-bigalloc merged; c5b346679 and 720b43a5d "
                      "do not change this path's allocations), j10glx02 card 19, 2026-09-23, guard "
                      "off, --host_threads 2, 14190 rows: 1664 PASS again in 1013.0 s, and 1792 "
@@ -472,7 +476,11 @@ CEILINGS: dict[str, dict[str, Ceiling]] = {
                                           "AT 16384 ROWS, the most the vendored featurizer keeps, 2026-09-23 "
                      "(ws:mgx-msa-depth, perf/mgx_msa_depth, chip 29, tt-bio 3f10800fd): "
                      "cdk2_1536_d16384 PASS in 2383 s at AICLK 1000 MHz sampled DURING the fold, "
-                     "four DRAM refusals absorbed, nothing above 1536 was walked at that depth, so msa_rows names the 14190 the 1664 cap was walked at",
+                     "four DRAM refusals absorbed. 1664 x 16384 PASS on origin/main 811ac1316 "
+                     "(ws:mgx-ceilings, card 14, 2026-09-24, guard off, --host_threads 2, msa_depth "
+                     "16384 in results.json) in 1225.6 s at AICLK median 1000 MHz over 118 samples "
+                     "DURING the fold, pLDDT 0.443, CA-CA median 3.84 A with 97.2 percent in band; "
+                     "1792 failed at the shallower 14190, so it fails here too",
         ),
     },
     "rf3": {
