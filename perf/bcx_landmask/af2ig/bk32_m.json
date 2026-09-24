@@ -1,0 +1,33 @@
+{
+ "tree": "/home/ttuser/scratch/landmask-main",
+ "n": 208,
+ "bucket": 32,
+ "padded_to": 224,
+ "host": "tt-quietbox",
+ "error": "AssertionError: a masked AF2 template pair stack is not wired up; see AF2PairBlock",
+ "wall_s": 16.034313440322876,
+ "aiclk_mhz": [
+  "1350",
+  "800"
+ ],
+ "aiclk_samples": [
+  "800",
+  "800",
+  "800",
+  "800",
+  "800",
+  "1350",
+  "1350",
+  "1350"
+ ],
+ "loadavg": [
+  57.39,
+  57.39,
+  57.39,
+  59.52,
+  59.52,
+  61.8,
+  61.8,
+  61.8
+ ]
+}

@@ -1,0 +1,132 @@
+[
+  {
+    "id": "prot",
+    "status": "ok",
+    "confidence_score": 0.857228,
+    "ptm": 0.863749,
+    "iptm": 0.0,
+    "ligand_iptm": 0.0,
+    "protein_iptm": 0.0,
+    "complex_plddt": 0.855598,
+    "complex_iplddt": 0.855598,
+    "complex_pde": 0.508506,
+    "complex_ipde": 0.0,
+    "plddt": 0.855598,
+    "pair_chains_iptm": {
+      "0": {
+        "0": 0.863749
+      }
+    },
+    "chains_ptm": {
+      "0": 0.863749
+    },
+    "all_runs": [
+      {
+        "rank": 0,
+        "confidence_score": 0.857228,
+        "ptm": 0.863749,
+        "iptm": 0.0,
+        "ligand_iptm": 0.0,
+        "protein_iptm": 0.0,
+        "complex_plddt": 0.855598,
+        "complex_iplddt": 0.855598,
+        "complex_pde": 0.508506,
+        "complex_ipde": 0.0,
+        "plddt": 0.855598,
+        "pair_chains_iptm": {
+          "0": {
+            "0": 0.863749
+          }
+        },
+        "chains_ptm": {
+          "0": 0.863749
+        }
+      },
+      {
+        "rank": 1,
+        "confidence_score": 0.856081,
+        "ptm": 0.894898,
+        "iptm": 0.0,
+        "ligand_iptm": 0.0,
+        "protein_iptm": 0.0,
+        "complex_plddt": 0.846377,
+        "complex_iplddt": 0.846377,
+        "complex_pde": 0.457564,
+        "complex_ipde": 0.0,
+        "plddt": 0.846377,
+        "pair_chains_iptm": {
+          "0": {
+            "0": 0.894898
+          }
+        },
+        "chains_ptm": {
+          "0": 0.894898
+        }
+      },
+      {
+        "rank": 2,
+        "confidence_score": 0.846828,
+        "ptm": 0.856604,
+        "iptm": 0.0,
+        "ligand_iptm": 0.0,
+        "protein_iptm": 0.0,
+        "complex_plddt": 0.844384,
+        "complex_iplddt": 0.844384,
+        "complex_pde": 0.545202,
+        "complex_ipde": 0.0,
+        "plddt": 0.844384,
+        "pair_chains_iptm": {
+          "0": {
+            "0": 0.856604
+          }
+        },
+        "chains_ptm": {
+          "0": 0.856604
+        }
+      },
+      {
+        "rank": 3,
+        "confidence_score": 0.846193,
+        "ptm": 0.86465,
+        "iptm": 0.0,
+        "ligand_iptm": 0.0,
+        "protein_iptm": 0.0,
+        "complex_plddt": 0.841578,
+        "complex_iplddt": 0.841578,
+        "complex_pde": 0.493343,
+        "complex_ipde": 0.0,
+        "plddt": 0.841578,
+        "pair_chains_iptm": {
+          "0": {
+            "0": 0.86465
+          }
+        },
+        "chains_ptm": {
+          "0": 0.86465
+        }
+      },
+      {
+        "rank": 4,
+        "confidence_score": 0.837078,
+        "ptm": 0.839143,
+        "iptm": 0.0,
+        "ligand_iptm": 0.0,
+        "protein_iptm": 0.0,
+        "complex_plddt": 0.836562,
+        "complex_iplddt": 0.836562,
+        "complex_pde": 0.647628,
+        "complex_ipde": 0.0,
+        "plddt": 0.836562,
+        "pair_chains_iptm": {
+          "0": {
+            "0": 0.839143
+          }
+        },
+        "chains_ptm": {
+          "0": 0.839143
+        }
+      }
+    ],
+    "runtime_s": 53.4
+  }
+]

@@ -1,0 +1,61 @@
+[
+  {
+    "id": "prot",
+    "status": "ok",
+    "plddt": 0.844032,
+    "ptm": 0.8908,
+    "iptm": null,
+    "ranking_score": 0.8534,
+    "has_clash": false,
+    "n_tokens": 117,
+    "n_atoms": 899,
+    "n_chains": 1,
+    "msa": true,
+    "msa_depth": 35,
+    "recycling_steps": 10,
+    "samples": 5,
+    "all_runs": [
+      {
+        "rank": 0,
+        "plddt": 0.844032,
+        "ptm": 0.8908,
+        "iptm": null,
+        "ranking_score": 0.8534,
+        "has_clash": false
+      },
+      {
+        "rank": 1,
+        "plddt": 0.844042,
+        "ptm": 0.8906,
+        "iptm": null,
+        "ranking_score": 0.8533,
+        "has_clash": false
+      },
+      {
+        "rank": 2,
+        "plddt": 0.843992,
+        "ptm": 0.8907,
+        "iptm": null,
+        "ranking_score": 0.8533,
+        "has_clash": false
+      },
+      {
+        "rank": 3,
+        "plddt": 0.843978,
+        "ptm": 0.8907,
+        "iptm": null,
+        "ranking_score": 0.8533,
+        "has_clash": false
+      },
+      {
+        "rank": 4,
+        "plddt": 0.844008,
+        "ptm": 0.8905,
+        "iptm": null,
+        "ranking_score": 0.8533,
+        "has_clash": false
+      }
+    ],
+    "runtime_s": 147.6
+  }
+]
