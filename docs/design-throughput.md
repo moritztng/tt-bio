@@ -83,10 +83,17 @@ the same refold of the same design with the same config gave 7.17 A and 11.04 A.
 row as "the same level", never as an ordering. On this target the device's nine designs
 span 3.30 to 13.78 A and both upstream readings fall inside that.
 
-The same check on the 1GPB dimer window below, where the two sides ran the byte-identical
-target file and the same spec: upstream returns 11.4 A on its one design where the device's
-eight read a median of 4.7 A, worse than seven of the eight. One upstream draw cannot order
-the two sides either way, but nothing measured so far says the card is the weaker one.
+The same check on two more targets, in both cases with the two sides running the
+byte-identical target file and the same spec:
+
+| 512-residue target | device, 8 designs | upstream fp32 CPU, 1 design |
+|---|---|---|
+| 1GPB dimer window | **4.7 A** median | **11.4 A** |
+| GroEL, window starting at residue 1 | **0.9 A** median | **5.4 A** |
+
+On each, the upstream draw is worse than seven of the device's eight. One draw cannot order the
+two sides either way and we do not claim it does, but across three targets nothing measured so
+far says the card is the weaker one.
 
 So the number to act on is the target, not the card: crop to the surface you actually want
 bound. A 120-residue target is a different problem from a
