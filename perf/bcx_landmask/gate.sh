@@ -14,8 +14,10 @@ ENV_CACHE=/home/ttuser/scratch/landmask-envcache PYTHONPATH=$tree TT_VISIBLE_DEV
   > $out/$name.stdout 2> $out/$name.stderr
 rc=$?
 kill $s
+# tt-metal writes its 'critical' L1-clash retry line to stdout ahead of the report; score the JSON only.
+sed -n '/^{/,$p' $out/$name.stdout > $out/$name.report.json
 floor=$(cd $tree && PYTHONPATH=$tree /home/ttuser/tt-bio-dev/env/bin/python3 scripts/af2_port/device_floor.py \
-  --report $out/$name.stdout --committed docs/implementation-parity-data/af2ig-trunk-device.json 2>&1 | tail -1)
+  --report $out/$name.report.json --committed docs/implementation-parity-data/af2ig-trunk-device.json 2>&1 | tr -d '\n')
 commit=$(cat $tree/.commit 2>/dev/null || git -C $tree rev-parse HEAD)
 echo "rc=$rc wall=$(( $(date -u +%s) - start ))s commit=$commit floor: $floor" > $out/$name.rc
 cat $out/$name.rc

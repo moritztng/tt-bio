@@ -1,0 +1,4 @@
+{
+ "verdict": "GAP",
+ "detail": "13/94 taps and 2/6 scalars on the committed bf16 floor (tol 1.10x)"
+}

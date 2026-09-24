@@ -1,0 +1,4 @@
+{
+ "verdict": "FAIL",
+ "detail": "off the committed floor: new failing tap evoformer#3/msa; new failing tap evoformer#3/msa_first_row; new failing tap evoformer#3/pair; new failing tap evoformer#3/single"
+}
