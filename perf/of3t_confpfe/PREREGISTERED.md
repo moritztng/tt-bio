@@ -54,3 +54,46 @@ f4d02be69 plus this row's perf-only commits; `git diff a9dd90e9e -- tt_bio/` is 
 
 Predicted verdict: STOP, the five holding, `aux_heads.pairformer_embedding` cleared, first
 failing section `aux_heads.experimentally_resolved`. None of these tolerances move after the arm.
+
+## Amendment, committed before the fixed arm runs
+
+Bisection went one step further than the arm above anticipated, and the arm launched as CF384 at
+01:05Z runs the tree BEFORE the second fix. Its artifacts are filed as **RF384** (reference fix
+only): it measures the pae/pde reference correction alone. Predictions 1 to 6 above are scored on
+RF384 as written. The arm the charter reads, **CF384**, is the tree with both fixes.
+
+### What step 3 found
+
+`resolved` sits 0.078 off float64 on the device (2.7917 against 2.7166), and the rollout
+structure carries 0.003 of that: float64 at the device's own structure reads 2.7137
+(`split_dev64`, prediction 6 refuted). So the head itself. `conf_split.py` runs upstream's float64
+head on the device step's own confidence inputs (dumped by `devstep.py --conf-dump`, self-control
+2.6e-8 to 3.7e-8 everywhere):
+
+| output | head (device vs f64 at device inputs) | carried (f64 at device inputs vs f64 inputs) |
+|---|---|---|
+| resolved_logits | 2.28e-01, norm ratio 0.787 | 5.2e-02 |
+| plddt_logits | 1.72e-01 | 4.5e-02 |
+| pae_logits | 4.3e-03 | 5.8e-02 |
+| pde_logits | 3.7e-03 | 2.8e-02 |
+| si_conf | 2.4e-02 | 8.4e-03 |
+
+The z-path heads are clean and the two s-path heads are not. The device dumped
+`s_trunk` as BFLOAT16. `forward_device` took the caller's dtype; inference casts `si_trunk` to
+fp32 before calling it, the training step handed the trunk's bf16 output, so the confidence
+Pairformer's s-track ran bf16 on a tensor at absmax 2.28e5 and the LayerNorm the s-heads read lost
+its precision before the fp32 cast `_ln` does. Fix 6267fc178: `forward_device` upcasts
+`si_trunk_d` to fp32 at entry when it is not already.
+
+### CF384 predictions (fixed tree, same chain, reference ref384c)
+
+7. The five GRADIENTS conditions hold (probability 0.95), global rel within 0.005 of RF384's.
+8. `aux_heads.experimentally_resolved` within 3x its bf16 (probability 0.7): the head error
+   drops to the 5e-3 auxgrad measured with fp32 inputs, leaving about the 5e-2 carried from the
+   trunk.
+9. `aux_heads.pairformer_embedding` within 3x its bf16 (probability 0.75).
+10. `resolved` loss value within 0.02 of float64's 2.7166 (probability 0.8).
+11. `diffusion_module.*` gradients bit-identical to RF384's (probability 0.85): the fix reaches
+    only what the confidence backward reaches, the trunk and the heads.
+
+Predicted verdict: GO if 7 to 9 hold. None of these tolerances move after the arm.
