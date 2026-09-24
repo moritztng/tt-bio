@@ -1,0 +1,46 @@
+{
+ "stamp": {
+  "host": "tt-quietbox",
+  "card": "0",
+  "subsystem_device": "0x0040",
+  "commit": "ac864188af9ec1bfff1a04e4256e645bebb1867d",
+  "tt_bio_dirty": false,
+  "torch_threads": 16,
+  "loadavg": [
+   91.55615234375,
+   87.39697265625,
+   78.73876953125
+  ],
+  "utc": "2026-09-24T17:39:19Z",
+  "pci": "0000:01:00.0",
+  "aiclk_node": "/sys/class/tenstorrent/tenstorrent!1/tt_aiclk",
+  "trace_region_mb": 256,
+  "argv": [
+   "perf/bcx_trace/trace.py",
+   "floor",
+   "--n",
+   "64",
+   "--reps",
+   "2",
+   "--kinds",
+   "evo",
+   "--units",
+   "taped",
+   "--region",
+   "256",
+   "--out",
+   "floor_n64_dbg.json"
+  ]
+ },
+ "n": 64,
+ "reps": 2,
+ "units": {
+  "evo.taped": {
+   "capture": {
+    "ok": false,
+    "error": "RuntimeError: TT_FATAL @ /project/tt_metal/distributed/fd_mesh_command_queue.cpp:600: !trace_id_.has_value()\ninfo:\nWrites are not supported during trace capture. trace id: 0\nbacktrace:\n --- /home/ttuser/tt-bio-dev/env/lib/python3.10/site-packages/ttnn/build/lib/libtt_metal.so(+0x91cee0) [0x784374b1cee0]\n --- /home/ttuser/tt-bio-dev/env/lib/python3.10/site-packages/ttnn/build/lib/libtt_metal.so(_ZN2tt8tt_metal11distributed18FDMeshCommandQueue21write_shard_to_deviceERKNS1_10MeshBufferERKNS1_14MeshCoordinateEPKvRKSt8optionalINS0_12BufferRegionEESt4spanIKN4ttsl10StrongTypeIhNS0_14SubDeviceIdTagEEELm18446744073709551615EESt10shared_ptrINS0_12experimental12PinnedMemoryEE+0x230) [0x784374b07030]\n --- /home/ttuser/tt-bio-dev/env/lib/python3.10/site-packages/ttnn/build/lib/libtt_metal.so(+0x91adaf) [0x784374b1adaf]\n --- tt::tt_metal::distributed::MeshCommandQueueBase::enqueue_write_shards_nolock(std::shared_ptr<tt::tt_metal::distributed::MeshBuffer> const&, std::vector<tt::tt_metal::distributed::ShardDataTransfer, std::allocator<tt::tt_metal::distributed::ShardDataTransfer> > const&, bool)\n --- tt::tt_metal::distributed::MeshCommandQueueBase::enqueue_write(std::shared_ptr<tt::tt_metal::distributed::MeshBuffer> const&, tt::tt_metal::DistributedHostBuffer const&, bool)\n --- tt::tt_metal::tensor_impl::to_device_mesh_buffer(tt::tt_metal::HostStorage const&, std::shared_ptr<tt::tt_metal::distributed::MeshBuffer> const&, tt::tt_metal::TensorSpec const&, tt::tt_metal::TensorTopology const&, std::optional<ttsl::StrongType<unsigned char, tt::tt_metal::QueueIdTag> >)\n --- tt::tt_metal::tensor_impl::to_device(tt::tt_metal::Tensor const&, tt::tt_metal::distributed::MeshDevice*, ttsl::optional_reference<tt::tt_metal::MemoryConfig const>, std::optional<ttsl::StrongType<unsigned char, tt::tt_metal::QueueIdTag> >)\n --- tt::tt_metal::to_device(tt::tt_metal::Tensor const&, tt::tt_metal::distributed::MeshDevice*, ttsl::optional_reference<tt::tt_metal::MemoryConfig const>, std::optional<ttsl::S",
+    "py_trace": "  File \"/home/ttuser/.coworker/wt/bcx-trace/perf/bcx_trace/trace.py\", line 265, in cmd_floor\n    tid, touts, tcap = capture(dev, U, unit, kind)\n  File \"/home/ttuser/.coworker/wt/bcx-trace/perf/bcx_trace/trace.py\", line 219, in capture\n    outs = U.run(unit, kind)\n  File \"/home/ttuser/.coworker/wt/bcx-trace/perf/bcx_trace/trace.py\", line 139, in run\n    return getattr(self, unit)(kind)\n  File \"/home/ttuser/.coworker/wt/bcx-trace/perf/bcx_trace/trace.py\", line 128, in taped\n    ag.backward([mo, zo], [ttnn.clone(self.sm), ttnn.clone(self.sz)])\n  File \"/home/ttuser/.coworker/wt/bcx-trace/tt_bio/autograd.py\", line 502, in backward\n    fire()\n  File \"/home/ttuser/.coworker/wt/bcx-trace/tt_bio/autograd.py\", line 1574, in fire\n    _recompute(seeded)\n  File \"/home/ttuser/.coworker/wt/bcx-trace/tt_bio/autograd.py\", line 1535, in _recompute\n    backward(roots, [g for _, g in seeded])\n  File \"/home/ttuser/.coworker/wt/bcx-trace/tt_bio/autograd.py\", line 491, in backward\n    t.node.fn(g)\n  File \"/home/ttuser/.coworker/wt/bcx-trace/tt_bio/taped_ttnn.py\", line 792, in bw\n    zero = ttnn.zeros([B, 1, L, H * dh], dtype=rows.dtype,\n  File \"/home/ttuser/.coworker/wt/bcx-trace/perf/bcx_trace/trace.py\", line 66, in call\n    return fn(*a, **k)\n  File \"/home/ttuser/tt-bio-dev/env/lib/python3.10/site-packages/ttnn/decorators.py\", line 473, in __call__\n    result = self.function(*function_args, **function_kwargs)\n"
+   }
+  }
+ }
+}
