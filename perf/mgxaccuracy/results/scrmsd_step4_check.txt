@@ -17,3 +17,25 @@ bg512_7         10.60405    10.60405    10.38423    10.40130
                max |gap|     0.00000     0.21982     0.20275
 
 closest backbone definition: N,CA,C,O  max gap 0.00000 A  -> REPRODUCES the pipeline column
+
+=== offset-100 512 cell, checked 2026-09-24 02:0xZ ===
+The 17.785 A median went into docs/design-throughput.md, so it was recomputed from
+refold_design_cif on disk rather than taken from job.py's reading of the pipeline CSV.
+
+  id            designfold    N,CA,C,O      N,CA,C          CA
+  bg512o100       12.32780    12.32780    12.20917    12.28665
+  bg512o100_1     12.24938    12.24939    12.18929    12.27876
+  bg512o100_2     15.27045    15.27045    15.18471    15.27876
+  bg512o100_3     17.73677    17.73678    17.64403    17.71369
+  bg512o100_4     17.83168    17.83168    17.83021    17.95067
+  bg512o100_5     18.40775    18.40774    18.34074    18.41027
+  bg512o100_6     18.20520    18.20519    18.23196    18.31994
+  bg512o100_7     28.62282    28.62282    28.51053    28.53891
+                 max |gap|     0.00001     0.11863     0.11899
+
+8 of 8 reproduce the pipeline's own designfolding-bb_rmsd column to 0.00001 A with the
+N,CA,C,O backbone. N,CA,C and CA alone miss by 0.119 A, so the atom set is measured here
+too rather than carried over from the offset-0 check.
+
+Both numbers now in the user-facing doc have an independent recomputation behind them:
+4.75 A (offset 0, checked earlier in this file) and 17.79 A (offset 100, above).
