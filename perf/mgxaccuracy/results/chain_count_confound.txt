@@ -1,0 +1,59 @@
+CHAIN COUNT CO-VARIES WITH SIZE IN EVERY GroEL CELL THIS ROW HAS MEASURED
+==========================================================================
+
+2026-09-24 19:1xZ. Found by reading the CA chain composition of the six banked GroEL fixtures
+and the two 768 fixtures now running, on whglx, off the files the jobs actually used. Nothing
+here is a new fold; it is a census of inputs that were already on disk.
+
+  cell            chains in the crop (CA count)        full chains   scRMSD median   <=4 A
+  512 / off   0   A 512                                    1            0.852        62.5%
+  512 / off 560   B 488, C 24                              1 + stub     1.739        87.5%
+  768 / off   0   A 524, B 244                             1 + 244      running
+  768 / off 560   B 488, C 280                             1 + 280      running
+ 1024 / off   0   A 524, B 500                             2            8.718         0%
+ 1024 / off 560   B 488, C 524, D 12                       2 + stub    14.457         0%
+ 1536 / off   0   A 524, B 524, C 488                      3           15.606         0%
+ 1536 / off 560   B 488, C 524, D 524                      3           14.387         0%
+
+GroEL's chains are ~524 residues, so ANY crop of this target above ~524 residues necessarily
+adds a second chain. The size ladder and the chain count are therefore not separable on this
+target, and the separation is perfect: the only two cells without a genuine second chain are
+the only two cells that refold.
+
+THE ROW HAS ALREADY SEPARATED THEM ONCE, ON THE OTHER TARGET, AND THE CARRIER WAS THE CHAIN
+-------------------------------------------------------------------------------------------
+
+`results/gpb_supporting.txt`, banked before this pass: 1GPB's chains are ~1008 residues, long
+enough to hold a big single-chain crop, and the 512 -> 1536 size effect decomposes into
+
+    +3.33 A   for 823 residues of ONE chain          does not reject
+   +14.77 A   for adding chain B at the same crop    rejects
+
+So on the target where the two CAN be separated, adding a chain carried the effect and stretching
+one chain to 823 residues did not. That is one target and one decomposition, and "does not
+reject" at n=8 is not "is zero" — but it points the opposite way from a residue-count rule.
+
+WHAT THIS CHANGES AND WHAT IT DOES NOT
+---------------------------------------
+
+DOES NOT CHANGE: every number in QUALITY. The cells are what they are and the ladder still says
+a user who crops GroEL to 512 gets designs that refold and one who crops to 1024 or 1536 does
+not. The practical instruction is unaffected for anyone cropping GroEL.
+
+DOES CHANGE what the instruction is ABOUT. "Crop to about 512 residues" is a residue-count rule
+read off a ladder that cannot distinguish residue count from chain count, and the one experiment
+that did distinguish them chose the chain. A user with a 700-residue SINGLE-CHAIN target is told
+by the residue rule to crop away 200 residues, on no evidence that applies to their case, while
+a user with two 300-residue chains is told they are fine when the chain rule would warn them.
+
+WHAT THE 768 RUNG DOES AND DOES NOT SETTLE. Both 768 crops carry a second partial chain (244 and
+280 residues), so 768 adds residues AND chain content over 512 and cannot separate them either.
+It remains a valid CEILING measurement, which is what `plans/groel_768.txt` claims for it, and
+it is not a test of this confound. Do not read it as one.
+
+THE CONTROL THAT WOULD SETTLE IT cannot be built on GroEL: a single-chain crop above ~524
+residues does not exist there. It has to be a long-chain target, which is 1GPB, where the
+823-residue single-chain cell already exists. A second single-chain rung at ~1000 residues on
+1GPB, against the 823 cell and against a two-chain crop of the same total size, is the
+experiment. Not launched this pass: the two cards this row holds are running the 768 rung and
+the brief caps it at three chips.
