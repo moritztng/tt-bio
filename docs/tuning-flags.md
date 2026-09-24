@@ -446,7 +446,10 @@ both flags on and both off.
 
 **Speed: the refiner's first two blocks at 1536 residues go from 649.6 s to 232.5 s** (two host
 threads, 1000 MHz). The triangle multiplication drops from about 110 s to 24 s per call, triangle
-attention from 22 s to 6 s, the transition from 17 s to 2 s.
+attention from 22 s to 6 s, the transition from 17 s to 2 s. A whole OpenDDE fold of 1536
+residues on one Wormhole chip at 1000 MHz takes 2826 s, down from 4221 s before these flags
+(OpenDDE-AbAg 2748 s, down from 4223 s); at 1024 residues it is 769 s with them and 846 s with
+both set to `0`.
 
 **Reach:** sizes only. Anything whose pair tensor stays under the threshold runs the same
 operations as before. On a 12 GiB chip that is OpenDDE and OpenDDE-AbAg above about 760 residues
