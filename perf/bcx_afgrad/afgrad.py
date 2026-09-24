@@ -71,8 +71,12 @@ def _float64_layernorm():
     R.LayerNorm.forward = forward
 
 
-def load_models(params, device_arm=True):
-    """(device model or None, float64 reference, fp32 reference, bf16 reference)."""
+def load_models(params, device_arm=True, refs=("f64", "f32", "bf16")):
+    """(device model or None, float64 reference, fp32 reference, bf16 reference).
+
+    ``refs`` narrows which reference arms are built. A float64 AF2 is minutes of host time on
+    a loaded box and a device-only run never reads it.
+    """
     from tt_bio.af2_reference import load_af2_model
     from tt_bio.af2_weights import load_af2_state_dict
     _float64_layernorm()
@@ -83,6 +87,8 @@ def load_models(params, device_arm=True):
         dm = load_af2_device_model(state, template=False, trunk_dtype=torch.bfloat16)
     ref = {}
     for name, dt in (("f64", torch.float64), ("f32", torch.float32), ("bf16", torch.bfloat16)):
+        if name not in refs:
+            continue
         m = load_af2_model(state, template=False, trunk_dtype=dt)
         # Parameters stay float32 in the bf16/fp32 arms, which is AF2's own convention (the
         # Linear casts the weight to the activation dtype per call). float64 promotes them.

@@ -112,11 +112,17 @@ class TraceWire:
 
         sh.tid_b = ttnn.begin_trace_capture(dev.device, cq_id=0)
         try:
+            # No `release_pins` and no clone of the gradients. The pins are what keep the
+            # addresses this trace was captured against, and every replay writes the same
+            # `leaf.grad` buffers, so the tape is held until the shape changes -- which is the
+            # lifetime `bcx-trace` named. `ttnn.clone` of a gradient refuses inside a capture.
             ag.backward(roots, [ttnn.clone(s) for s in sh.seeds])
-            sh.gout = [ttnn.clone(lf.grad) for lf in leaves]
-            ag.release_pins()
+            sh.gout = [lf.grad for lf in leaves]
         finally:
             ttnn.end_trace_capture(dev.device, sh.tid_b, cq_id=0)
+        if any(g is None for g in sh.gout):
+            raise RuntimeError("a leaf took no gradient in the captured backward; the trace "
+                               "would replay a gradient that is never written")
         self._sync()
         sh.leaves, sh.roots = leaves, roots
         sh.capture_s = time.time() - t0

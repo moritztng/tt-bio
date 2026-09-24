@@ -56,7 +56,7 @@ def main():
     from splice import EvoformerOnDevice
 
     lv = S.Levers()
-    dm, ref = A.load_models(args.params or A.DEFAULT_PARAMS)
+    dm, ref = A.load_models(args.params or A.DEFAULT_PARAMS, refs=("bf16",))
     dev = A.Dev(dm.to_device())
     lv.arm("stack")
     clock = S.Clock(dt=0.1)
