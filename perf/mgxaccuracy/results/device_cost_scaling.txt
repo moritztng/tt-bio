@@ -1,0 +1,32 @@
+BOLTZGEN'S COST ON THE CARD IS SUB-QUADRATIC IN TOKENS: ~tokens^1.7-1.9
+=========================================================================
+
+Fitted 2026-09-24 22:1xZ across seven cells measured by this row, all boltzgen, all n=8 per
+cell with an 80-residue binder, all on whglx at AICLK median 1000, all on tree ff5435cba. Wall
+is the whole `job.py` cell including designability scoring, which is what a user waits for.
+
+    GroEL   exponent 1.878    wall = 0.0106 x tokens^1.878
+              592 tok   measured  1842.0 s   fit  1710.1 s    -7.2%
+              848 tok   measured  3023.8 s   fit  3359.0 s   +11.1%
+             1104 tok   measured  5416.0 s   fit  5513.6 s    +1.8%
+             1616 tok   measured 11842.0 s   fit 11279.0 s    -4.8%
+
+    FAS     exponent 1.699    wall = 0.0346 x tokens^1.699
+              592 tok   measured  1848.6 s   fit  1777.6 s    -3.8%
+              848 tok   measured  2984.5 s   fit  3273.7 s    +9.7%
+             1104 tok   measured  5406.3 s   fit  5125.5 s    -5.2%
+
+Two targets, seven points, every residual inside 11%. The two exponents bracket 1.7-1.9, so a
+user estimating a size the row has not measured is within about 10% using either.
+
+WHY IT IS WORTH WRITING DOWN. The naive expectation for an attention-shaped model is the
+square of the token count, and the card comes in clearly under it: 592 -> 1616 tokens is 2.73x
+the tokens and 6.43x the wall, not 7.45x. Per-step dispatch and fixed setup amortise as the
+problem grows, and the grid keeps more of the work parallel.
+
+AND IT DOES NOT TRANSFER TO THE CPU REFERENCE. The same algorithm on qb2's CPU draws is
+SUPER-quadratic — draw a's 231,908 CPU-s implies an exponent of at least 2.012 at the most
+generous occupancy and at least 2.7 at the occupancies actually observed
+(`results/upstream_pair_ceiling_refuted.txt`). Fitting on the card and predicting the
+reference is what produced a cost band with a measured floor and an imaginary ceiling. Use this
+fit for card-side planning only.
