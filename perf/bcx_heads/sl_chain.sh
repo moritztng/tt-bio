@@ -8,8 +8,8 @@ cd "$BH/.of3t/se"
 bash "$BH/perf/bcx_heads/sl_arm.sh" SL_PRE 3
 git stash pop -q && git -c user.name=moritztng -c user.email=moritz.thuening@gmail.com \
   commit -qam "bcx-heads: the unified head verbs on of3t-stackexact (test tree)" && git log --oneline -1
-bash "$BH/perf/bcx_heads/sl_arm.sh" SL_POST 3
+SL_OUT=/dev/shm/bcx-heads-sl SL_AICLK_NODE=0 bash "$BH/perf/bcx_heads/sl_arm.sh" SL_POSTG 3
 cd "$BH/perf/bcx_heads/sl"
-for p in "digest_SL_PRE.json digest_SL_POST.json" "digest_banked_SL.json digest_SL_PRE.json" "digest_banked_SL.json digest_SL_POST.json"; do
+for p in "digest_SL_PRE.json digest_SL_POSTG.json" "digest_banked_SL.json digest_SL_PRE.json" "digest_banked_SL.json digest_SL_POSTG.json"; do
   python3 "$BH/perf/bcx_heads/ptdigest.py" --cmp $p
 done | tee cmp.jsonl

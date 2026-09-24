@@ -1,0 +1,9 @@
+=== SL_POSTG start 2026-09-24T07:05:29Z tt-quietbox card 3 commit c0c47c5b7 dirty=0 load 5.21 5.68 5.26
+[1933s] OUR GRADIENT: 2736 of 2736 of their tensors carry one, 0 absent
+{"arm": "flipped", "placed": 2736, "absent": 0, "s_norm": 5304813.324476078, "z_norm": 12562573.833680848, "seconds": 1934.0}
+{"lever": "none", "softmax_backward_firings": 0, "raw_ttnn_softmax_host_f64": {"fired": 0, "elements": 0}, "layer_norm_backward_reach": {"bw": 0, "dw": 0, "dx": 0, "dxcfg_applied": 0, "dx_fp32_applied": 0}, "seconds": 1934.0}
+STACK_EXACT {"exact": ["layer_norm", "softmax"], "installed": {"softmax_installed_inside_the_scope": true, "layer_norm_verb_is_ours": true}, "counters": {"softmax": {"verb": 5901, "raw": 1742, "raw_elements": 21856518144}, "layer_norm": {"verb": 2160, "raw": 720, "elements": 29047652352, "bw": 1296}}, "why_counters": "softmax: `verb` taped exact forward+Jacobian, `raw` the module-wide ttnn.softmax
+=== SL_POSTG exit 0 elapsed 1938s 2026-09-24T07:37:47Z load 5.74 5.30 5.94
+no clock
+35935d32311bda3c2afdcc27e0da8ff531078417f3b156dbbd2fdc22fae7a67a  /home/ttuser/.coworker/wt/bcx-heads/.of3t/out/dev_SL_POSTG.pt
+/home/ttuser/.coworker/wt/bcx-heads/.of3t/out/dev_SL_POSTG.pt 2736 tensors

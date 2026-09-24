@@ -13,9 +13,8 @@ TAG=${1:?tag}; CARD=${2:?card}
 W=$(pwd)
 BH=/home/ttuser/.coworker/wt/bcx-heads
 I=$BH/.of3t/inputs
-O=$BH/.of3t/out; mkdir -p "$O"
+O=${SL_OUT:-$BH/.of3t/out}; mkdir -p "$O"   # the .pt is 1.3 GB and qb1 root once filled mid-save: use /dev/shm
 R=$BH/perf/bcx_heads/sl; mkdir -p "$R"
-SMI=/home/ttuser/.local/bin/tt-smi
 B=$I/boundary_model_n384.pt; C=$I/cot_external.pt
 [ "$(sha256sum < "$B" | cut -d' ' -f1)" = 583bcd7c91ce6ed46aea59844954fb2bf7ddc3d553d7f9d4f238998183db99e2 ] || { echo "boundary digest mismatch"; exit 2; }
 [ "$(sha256sum < "$C" | cut -d' ' -f1)" = 1d15a8dc6db2a14b678e5ed5d92558af99d369599226391fa59f36ed84192ef4 ] || { echo "cotangent digest mismatch (A42)"; exit 2; }
@@ -25,7 +24,8 @@ ENV=(TT_BIO_SOFTMAX_BW_RENORM=1 TT_VISIBLE_DEVICES=$CARD TT_BIO_LEASE_CARDS=$CAR
      TT_BIO_LEASE_HOLDER=worker:bcx-heads OMP_NUM_THREADS=8 PYTHONPATH="$W")
 CLK=$R/aiclk_${TAG}.txt; : > "$CLK"
 ( while true; do
-    "$SMI" -s 2>/dev/null | python3 -c "import sys,json;d=json.load(sys.stdin);print(d['device_info'][$CARD]['telemetry']['aiclk'].strip())" >> "$CLK" 2>/dev/null
+    # sysfs node, not card index: on qb1 TT_VISIBLE_DEVICES 0,1,2,3 are nodes 1,2,3,0. tt-smi -s gave nothing.
+    cat "/sys/class/tenstorrent/tenstorrent!${SL_AICLK_NODE:?sysfs node of this card}/tt_aiclk" >> "$CLK" 2>/dev/null
     sleep 4
   done ) &
 SAMPLER=$!
