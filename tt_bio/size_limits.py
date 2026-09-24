@@ -724,7 +724,11 @@ CEILINGS: dict[str, dict[str, Ceiling]] = {
                      "prepared once per fold), card 29: 1792 single-sequence still fails on the "
                      "same request after 255.0 s, but now with 137.7 MiB free per bank and a "
                      "122.2 MiB largest block, so the merge turned a full chip into a "
-                     "fragmented one 8.5 MiB short of the wall",
+                     "fragmented one 8.5 MiB short of the wall. Re-walked single-sequence on origin/main "
+                     "c5b346679 (embed-scale: the LM now passes SDPA a mask), card 29, "
+                     "2026-09-24: 1664 PASS in 2066.3 s, 1792 fails after 317.5 s on the same "
+                     "request with the chip 99.4 percent full and 6.4 MiB free, residency again. "
+                     "AICLK median 1000 MHz during both",
         ),
     },
     "esmfold2-fast": {
@@ -751,7 +755,10 @@ CEILINGS: dict[str, dict[str, Ceiling]] = {
                      "pair-residency and bigalloc reached this trunk. Re-checked on cc908c377 "
                      "(diffusion conditioning prepared once per fold), card 29: 1792 still fails "
                      "on the same request after 270.2 s, now with 141.8 MiB free per bank but no "
-                     "block large enough, fragmentation rather than residency",
+                     "block large enough, fragmentation rather than residency. Re-walked on origin/main "
+                     "c5b346679, card 29, 2026-09-23: 1664 PASS in 1214.2 s, 1792 fails after "
+                     "328.3 s on the same request with the chip 99.0 percent full and 10.5 MiB "
+                     "free, residency again. AICLK median 1000 MHz during both",
         ),
     },
     "protenix-v1": {
