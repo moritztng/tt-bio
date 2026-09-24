@@ -39,7 +39,11 @@ MONOMER = ("model_1_ptm", "model_2_ptm")
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--arm", choices=["reference", "device"], default="reference")
+    ap.add_argument("--arm", choices=["reference", "control", "device"], default="reference",
+                    help="reference: BindCraft 2's own AlphaFoldDesignModel, untouched. "
+                         "control: TTBioAlphaFoldDesignModel with trunk='jax' -- our class, "
+                         "BindCraft 2's trunk, so a device result is compared against the same "
+                         "call path. device: trunk on card.")
     ap.add_argument("--trajectories", type=int, default=1)
     ap.add_argument("--seed", type=int, default=0)
     ap.add_argument("--params", default="/home/ttuser/bcx_e2e/af2_params")
@@ -62,12 +66,20 @@ def main():
     # Both arms on the monomer checkpoints -- see the module docstring.
     campaign.MULTIMER_POOL = MONOMER
 
-    if args.arm == "device":
-        raise SystemExit("the device arm needs the tt-bio predictor class; run --arm reference")
+    if args.arm != "reference":
+        # campaign.py:262 is the only construction of a predictor in the repository, so an
+        # arm is chosen by rebinding that one name. An upstream PR would make it a factory
+        # read from settings; the loop itself needs no change either way.
+        import ttbio_predictor as T
+        import functools
+        campaign.AlphaFoldDesignModel = functools.partial(
+            T.TTBioAlphaFoldDesignModel, trunk="jax" if args.arm == "control" else "device")
 
     mpnn = os.path.join(B.BC2, "bindcraft", "weights", "proteinmpnn", "weights_neutral")
     stamp = {"arm": args.arm, "seed": args.seed, "trajectories": args.trajectories,
              "length_bucket_size": args.bucket,
+             "predictor": "AlphaFoldDesignModel" if args.arm == "reference"
+                          else "TTBioAlphaFoldDesignModel",
              "host": os.uname().nodename, "started_utc": time.strftime("%FT%TZ", time.gmtime()),
              "loadavg_start": os.getloadavg(), "stage_plan": B.stage_plan(settings),
              "threads": os.environ.get("XLA_FLAGS", ""), "project": project}
