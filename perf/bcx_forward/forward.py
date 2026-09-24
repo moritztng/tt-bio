@@ -373,9 +373,105 @@ def cmd_census(args):
     clock.stop()
 
 
+# ------------------------------------------------------------------------------ fused route
+
+
+def cmd_fused(args):
+    """The one route change the forward's own census points at, A/B'd in one process.
+
+    AF2's triangle attentions ship on `_fp32_softmax_attention`, which materialises the whole
+    [rows, heads, S, S] score tensor and pays four typecasts and twelve memory-config moves a
+    block for it. `AF2DeviceModel.set_triatt_fused` swaps them onto the fused SDPA at the same
+    HiFi4 / fp32_dest_acc the block's other matmuls already use, without rebuilding the blocks.
+    A declined fused config is indistinguishable from an absent one from the outside, so every
+    reading here carries `TRIATT_FUSED_HIFI_STATS`, and the accuracy of both arms is graded
+    against the float64 reference block rather than against each other.
+    """
+    lv, dev, ref = open_all(args, args.arm)
+    import tt_bio.tenstorrent as tn
+    clock = Clock()
+    m0, z0, wm, wz = inputs(ref, args.n, args.seed)
+    stacks = {"off": frozenset(), "on": frozenset(["extra_msa", "evoformer"])}
+    blob = {"stamp": stamp(args, clock), "n": args.n, "arm": args.arm, "steps": args.steps,
+            "blocks": {}}
+    for stack_name in args.stacks.split(","):
+        ke, kv = (1, 0) if stack_name == "extra" else (0, 1)
+        rec, spans, stats = {a: [] for a in stacks}, [], {}
+        for s in stacks.values():                                    # warm both arms
+            dev.dm.set_triatt_fused(s)
+            untaped_fwd(dev, m0, z0, ke, kv)
+        for step in range(args.steps):
+            for a in (list(stacks) if step % 2 == 0 else list(stacks)[::-1]):
+                dev.dm.set_triatt_fused(stacks[a])
+                before = dict(tn.TRIATT_FUSED_HIFI_STATS)
+                t0, t1 = untaped_fwd(dev, m0, z0, ke, kv)
+                rec[a].append(t1 - t0)
+                spans.append((t0, t1))
+                stats[a] = {k: v - before.get(k, 0)
+                            for k, v in tn.TRIATT_FUSED_HIFI_STATS.items()}
+        names = ("z",) if stack_name == "extra" else ("m", "z")
+        r = A.ref_stack(ref["f64"], m0.double(), z0.double(), ke, kv)
+        tgt = (r[1],) if stack_name == "extra" else (r[0], r[1])
+        acc = {}
+        for a, s in stacks.items():
+            dev.dm.set_triatt_fused(s)
+            out = dev.stack(dev.up(m0), dev.up(z0), ke, kv)           # fresh uploads per arm
+            got = ([dev.down(out[1], z0.shape)] if stack_name == "extra"
+                   else [dev.down(out[0], m0.shape), dev.down(out[1], z0.shape)])
+            acc[a] = {nm: A.cmp(g, t) for nm, g, t in zip(names, got, tgt)}
+        blob["blocks"][stack_name] = {
+            "seconds": {a: dist(v) for a, v in rec.items()},
+            "x_vs_off": float(np.median(rec["off"]) / np.median(rec["on"])),
+            "fused_stats": stats, "vs_f64": acc, "loadavg": os.getloadavg(),
+            # the A/B's whole window, not the individual spans: a block forward is 28 ms and the
+            # clock samples every 250 ms, so a per-span window is empty and stamps nothing
+            "aiclk": clock.window([(spans[0][0], spans[-1][1])])}
+        print(stack_name, json.dumps(blob["blocks"][stack_name], default=str), flush=True)
+        save(args.out or f"fused_n{args.n}.json", blob)
+
+    if args.whole:
+        ke, kv = args.extra, args.evo
+        rec = {a: {"untaped": [], "taped": []} for a in stacks}
+        spans, stats, out_t = [], {}, {}
+        for s_ in stacks.values():
+            dev.dm.set_triatt_fused(s_)
+            untaped_fwd(dev, m0, z0, ke, kv)
+        for step in range(args.reps):
+            for a in (list(stacks) if step % 2 == 0 else list(stacks)[::-1]):
+                dev.dm.set_triatt_fused(stacks[a])
+                before = dict(tn.TRIATT_FUSED_HIFI_STATS)
+                t0, t1 = untaped_fwd(dev, m0, z0, ke, kv)
+                rec[a]["untaped"].append(t1 - t0)
+                spans.append((t0, t1))
+                r = taped_step(dev, lv, m0, z0, wm, wz, ke, kv, ckpt=True, backward=False)
+                rec[a]["taped"].append(r["taped_fwd"])
+                spans += r["spans"]
+                stats[a] = {k: v - before.get(k, 0)
+                            for k, v in tn.TRIATT_FUSED_HIFI_STATS.items()}
+        for a, s_ in stacks.items():
+            dev.dm.set_triatt_fused(s_)
+            o = dev.stack(dev.up(m0), dev.up(z0), ke, kv)
+            out_t[a] = [dev.down(o[0], m0.shape), dev.down(o[1], z0.shape)]
+        blob["whole"] = {
+            "k_extra": ke, "k_evo": kv,
+            "seconds": {a: {m: dist(v) for m, v in d.items()} for a, d in rec.items()},
+            "x_untaped": float(np.median(rec["off"]["untaped"]) / np.median(rec["on"]["untaped"])),
+            "x_taped": float(np.median(rec["off"]["taped"]) / np.median(rec["on"]["taped"])),
+            "forward_per_step": {a: float(np.median(d["untaped"]) + np.median(d["taped"]))
+                                 for a, d in rec.items()},
+            "fused_stats": stats, "loadavg": os.getloadavg(),
+            "on_vs_off": {nm: A.cmp(x, y) for nm, x, y in
+                          zip(("m", "z"), out_t["on"], out_t["off"])},
+            "aiclk": clock.window([(spans[0][0], spans[-1][1])])}
+        print("whole", json.dumps(blob["whole"], default=str), flush=True)
+        save(args.out or f"fused_n{args.n}.json", blob)
+    clock.stop()
+
+
+
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("cmd", choices=["step", "blocks", "census"])
+    ap.add_argument("cmd", choices=["step", "blocks", "census", "fused"])
     ap.add_argument("--params", default=A.DEFAULT_PARAMS)
     ap.add_argument("--card", type=int, default=int(os.environ.get("TT_VISIBLE_DEVICES", "0")))
     ap.add_argument("--arm", default="stack")
@@ -391,11 +487,14 @@ def main():
     ap.add_argument("--ckpt", action="store_true")
     ap.add_argument("--no-ckpt", action="store_true")
     ap.add_argument("--no-backward", action="store_true")
+    ap.add_argument("--whole", action="store_true",
+                    help="fused: also A/B the whole 4+48 forward, taped and untaped")
     ap.add_argument("--out", default=None)
     ap.add_argument("--threads", type=int, default=8)
     args = ap.parse_args()
     torch.set_num_threads(args.threads)
-    {"step": cmd_step, "blocks": cmd_blocks, "census": cmd_census}[args.cmd](args)
+    {"step": cmd_step, "blocks": cmd_blocks, "census": cmd_census,
+     "fused": cmd_fused}[args.cmd](args)
 
 
 if __name__ == "__main__":
