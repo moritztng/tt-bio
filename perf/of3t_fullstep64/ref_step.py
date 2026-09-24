@@ -402,6 +402,9 @@ def main() -> int:
                     help="run --fd against a banked grads_f64.pt instead of a fresh backward")
     ap.add_argument("--expect-loss", type=float,
                     help="with --fd-from: the loss the banked gradient's run logged, matched exactly")
+    ap.add_argument("--repr-from", type=Path,
+                    help="skip the rollout and score the confidence heads at this token-scope "
+                         "structure (the `repr_x` of a device arm's repr_*.pt)")
     ap.add_argument("--threads", type=int, default=10)
     ap.add_argument("--rss-cap-gb", type=float, default=22.0)
     ap.add_argument("--chunk-size", type=int, default=None)
@@ -486,24 +489,31 @@ def main() -> int:
     # --fd-from never backpropagates this forward, so it runs without a graph and spills nothing;
     # the exact-loss assertion below is what says it is still the banked forward.
     with policy, (saved.hooks() if saved else _Null()), (torch.no_grad() if a.fd_from else _Null()):
-        out, xl, repr_x, drec = trunk_and_heads(model, batch, cfg=cfg, seed=a.seed, replay=replay,
-                                                draw=draw)
+        repr_in = None
+        if a.repr_from:
+            n_tok = batch["token_mask"].shape[-1]
+            repr_in = torch.load(a.repr_from, weights_only=False)["repr_x"][:n_tok].to(dtype)
+            rec["repr_from"] = {"file": str(a.repr_from), "sha256": sha256_file(a.repr_from)}
+        out, xl, repr_x, drec = trunk_and_heads(model, batch, repr_x=repr_in, cfg=cfg,
+                                                seed=a.seed, replay=replay, draw=draw)
     if saved:
         rec["disk_saved"] = {"n": saved.n, "gb": saved.bytes / 2 ** 30,
                              "ram_storage_gb": sum(saved.ram.values()) / 2 ** 30}
         print(f"saved: {rec['disk_saved']}, rss {guard.rss_gb():.1f} GB", flush=True)
     rec["forward_s"] = time.time() - t_f
     rec["cast_policy"] = policy.report()
-    rec["draws"] = {"n_calls": len(drec.recorded), "replayed": replay is not None,
-                    "mismatch_count": len(drec.mismatch), "mismatch": drec.mismatch[:20]}
-    if a.mode == "f64":
+    if drec is not None:
+        rec["draws"] = {"n_calls": len(drec.recorded), "replayed": replay is not None,
+                        "mismatch_count": len(drec.mismatch), "mismatch": drec.mismatch[:20]}
+    if a.mode == "f64" and drec is not None:
         dp = a.out_dir / "draws.pt"
         torch.save({"torch_randn": drec.recorded, "seed": a.seed,
                     "note": "sampled by the float64 reference; every other arm replays these"}, dp)
         rec["draws"]["file"], rec["draws"]["sha256"] = str(dp), sha256_file(dp)
         print(f"DRAWS {dp} {rec['draws']['sha256']} n={len(drec.recorded)}", flush=True)
-    torch.save({"atoms": xl.detach().to(torch.float64), "repr_x": repr_x.to(torch.float64)},
-               a.out_dir / f"rollout_{a.mode}.pt")
+    if xl is not None:
+        torch.save({"atoms": xl.detach().to(torch.float64), "repr_x": repr_x.to(torch.float64)},
+                   a.out_dir / f"rollout_{a.mode}.pt")
 
     loss, breakdown, seeds = objective(lab, out)
     rec["loss"], rec["seeded_outputs"] = loss, sorted(seeds)
