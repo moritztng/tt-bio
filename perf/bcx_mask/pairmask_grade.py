@@ -30,20 +30,20 @@ import sys
 
 HERE = pathlib.Path(__file__).resolve().parent
 ROOT = HERE.parents[1]
-for p in (str(ROOT / "perf" / "shared"), str(ROOT)):
+# `perf/shared` is the staged copy on a host without a checkout; the other two are the repo's
+# own homes of the same three modules, so this runs from either.
+for p in (str(ROOT / "perf" / "shared"), str(ROOT / "perf" / "bcx_afgrad"),
+          str(ROOT / "perf" / "bcx_predictor"), str(ROOT)):
     sys.path.insert(0, p)
 
-import jax                                                             # noqa: E402
 import numpy as np                                                     # noqa: E402
 import torch                                                           # noqa: E402
 
-import afgrad as A                                                     # noqa: E402
-import bc2_state as B                                                  # noqa: E402
-from bindcraft.af.alphafold.model import modules                       # noqa: E402
-from ttbio_predictor import TTBioAlphaFoldDesignModel                  # noqa: E402
-
 PARAM_DIR = os.environ.get("BCX_PARAM_DIR", "/home/ttuser/bcx_e2e/af2_params")
 PARAM_NPZ = os.path.join(PARAM_DIR, "params_model_1_ptm.npz")
+#: Where the captured BindCraft 2 states live. The torch arms need only these, so a host with
+#: no JAX can run every arm once a JAX host has written them.
+CAPTURE_DIR = pathlib.Path(os.environ.get("BCX_CAPTURE_DIR", str(HERE)))
 
 
 def find_evoformer_masks(fn, depth=0, seen=None):
@@ -72,7 +72,11 @@ def capture(bucket: int) -> dict:
     One callback holding all six arrays, so the input and the output can never come from
     different recycles.
     """
+    import jax
+    import bc2_state as B
     from bindcraft.af.alphafold.model import layer_stack as LS
+    from bindcraft.af.alphafold.model import modules
+    from ttbio_predictor import TTBioAlphaFoldDesignModel
     got: dict = {}
 
     def store(mi, pi, mm, pm, mo, po):
@@ -126,7 +130,7 @@ def capture(bucket: int) -> dict:
 def cached_capture(bucket: int) -> dict:
     """`capture`, kept on disk. One BindCraft 2 CPU fold is minutes on a loaded host and the
     arms are the cheap part, so a rerun that only changes an arm must not pay for it twice."""
-    path = HERE / f"capture_grad_b{bucket}.npz"
+    path = CAPTURE_DIR / f"capture_grad_b{bucket}.npz"
     if path.is_file():
         with np.load(path) as z:
             return {k: z[k] for k in z.files}
@@ -223,6 +227,7 @@ def grade(cap: dict, arms: dict, ref) -> dict:
 
 
 def main():
+    import afgrad as A
     _, ref = A.load_models(PARAM_NPZ, device_arm=False)
     out = {}
     for bucket in (32, 1):

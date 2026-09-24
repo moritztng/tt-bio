@@ -166,7 +166,7 @@ def trimul_mode(one_sided: bool):
         R.TriangleMultiplication.forward = both
 
 
-def run_stack(model, m, z, mm, pm, mode, stats=None, hold=False):
+def run_stack(model, m, z, mm, pm, mode, stats=None, hold=False, grad_stats=None):
     """48 blocks, op by op, with the arm's masks.
 
     Differentiable if the inputs are, and then each block is checkpointed: an uncheckpointed
@@ -202,6 +202,11 @@ def run_stack(model, m, z, mm, pm, mode, stats=None, hold=False):
         for i in range(BLOCKS):
             m, z = (checkpoint(block, i, m, z, use_reentrant=False) if taped
                     else block(i, m, z))
+            if taped and grad_stats is not None:
+                # The cotangent arriving at each block's OUTPUT, so a non-finite backward is
+                # located to the block that produced it rather than seen only at the input.
+                m.register_hook(lambda g, i=i: grad_stats.op(f"d_msa_out_block{i:02d}", g))
+                z.register_hook(lambda g, i=i: grad_stats.op(f"d_pair_out_block{i:02d}", g))
     return m, z
 
 
@@ -237,15 +242,16 @@ def part_a(ref, cap, out):
             run_stack(model, m0.clone(), z0.clone(), mm, pm, mode, st)
         stats_ref[0] = None
         arm = {"forward_s": round(time.time() - t0, 1), "ops": st.ops, "layernorm": st.ln}
-        if mode in ("af2", "device_today"):
+        if True:
             t0 = time.time()
             ml, zl = m0.clone().requires_grad_(True), z0.clone().requires_grad_(True)
-            mo, zo = run_stack(model, ml, zl, mm, pm, mode)
-            g = torch.Generator().manual_seed(1)
-            cm = torch.randn(mo.shape, generator=g) * real_m
-            cz = torch.randn(zo.shape, generator=g) * real_z
-            ((mo * cm).sum() + (zo * cz).sum()).backward()
             gst = Stats(seq)
+            with trimul_mode(arm_masks(mode, pm)[3]):
+                mo, zo = run_stack(model, ml, zl, mm, pm, mode, grad_stats=gst, hold=True)
+                g = torch.Generator().manual_seed(1)
+                cm = torch.randn(mo.shape, generator=g) * real_m
+                cz = torch.randn(zo.shape, generator=g) * real_z
+                ((mo * cm).sum() + (zo * cz).sum()).backward()
             gst.op("d_msa_in", ml.grad)
             gst.op("d_pair_in", zl.grad)
             arm["backward"] = gst.ops
@@ -315,16 +321,19 @@ def part_c(ref, caps, out):
 
 def main():
     import afgrad as A
+    parts = os.environ.get("BCX_PARTS", "ABC")
     _, ref = A.load_models(G.PARAM_NPZ, device_arm=False)
     out = json.loads(OUT.read_text()) if OUT.is_file() else {}
+    print(f"finite_probe start parts={parts} out={OUT}", flush=True)
     cap32 = G.cached_capture(32)
-    if "A_bucket32_finiteness" not in out or len(out["A_bucket32_finiteness"]["arms"]) < 3:
+    if "A" in parts:
         part_a(ref, cap32, out)
-    cap1 = G.cached_capture(1)
-    if "B_pad_sweep_bucket1_internal_pad" not in out or \
-            len(out["B_pad_sweep_bucket1_internal_pad"]["pads"]) < 3:
-        part_b(ref, cap1, out)
-    part_c(ref, {32: cap32, 1: cap1}, out)
+    if "B" in parts or "C" in parts:
+        cap1 = G.cached_capture(1)
+        if "B" in parts:
+            part_b(ref, cap1, out)
+        if "C" in parts:
+            part_c(ref, {32: cap32, 1: cap1}, out)
     print("finite_probe complete", flush=True)
 
 
