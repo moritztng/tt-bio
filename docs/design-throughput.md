@@ -64,8 +64,8 @@ behind this are in `perf/mgxaccuracy/`.
 Throughput is half the question. The other half is BoltzGen's own designability filter: the
 designed binder's sequence refolded **alone**, aligned back to the backbone it was designed
 for, reported as `designfolding-bb_rmsd`. BoltzGen's paper calls a design good at 2 A and
-acceptable at 4 A. It falls off sharply as the target grows, and that is not a Tenstorrent
-effect:
+acceptable at 4 A. It falls off sharply on a bigger, harder target, and that is not a
+Tenstorrent effect:
 
 | target | designs | scRMSD median | designable at 2 A |
 |---|---|---|---|
@@ -80,8 +80,14 @@ the same refold of the same design with the same config gave 7.17 A and 11.04 A.
 row as "the same level", never as an ordering — on this target the device's nine designs
 span 3.30 to 13.78 A and both upstream draws fall inside that. So the number to act on is the target, not the card: crop to the
 surface you actually want bound. A 120-residue target is a different problem from a
-512-residue one, and every hundred residues you hand the model that are not part of the
-interface costs you designs.
+512-residue one, and residues you hand the model that are not part of the interface tend to
+cost you designs.
+
+**Which residues you pick matters more than how many.** Two 512-residue crops of the same
+chain, 100 residues apart along its own sequence, scored a median 4.75 A and 17.79 A over
+eight designs each. That 13 A gap at one fixed size is larger than any gap we have measured
+between 512 and 1536 residues. So if a target designs badly, re-run it against a different
+crop before concluding it is too big: you are choosing a binding problem, not just a length.
 
 What does *not* degrade is docking. All eight designs against the 512-residue dimer sit on the
 target — closest heavy atom 1.29 to 2.41 A, 478 to 1199 contacts under 5 A. The failure mode
