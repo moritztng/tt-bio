@@ -105,12 +105,12 @@ Two of the three sit at 16-17 A and returned nothing usable; the good one is the
 designability falls away. The same two windows taken out to 1536 residues, eight designs per
 cell:
 
-| | 512 residues | 1024 residues | 1536 residues |
-|---|---|---|---|
-| 1GPB, window starting at residue 1 | **4.7 A** | | **19.4 A** |
-| 1GPB, window starting at residue 101 | **17.8 A** | | **13.3 A** |
-| GroEL, window starting at residue 1 | **0.9 A** | **8.7 A** | **15.6 A** |
-| GroEL, window starting at residue 561 | **1.7 A** | **14.5 A** | **14.4 A** |
+| | 512 residues | 768 residues | 1024 residues | 1536 residues |
+|---|---|---|---|---|
+| 1GPB, window starting at residue 1 | **4.7 A** | | | **19.4 A** |
+| 1GPB, window starting at residue 101 | **17.8 A** | | | **13.3 A** |
+| GroEL, window starting at residue 1 | **0.9 A** | **15.2 A** | **8.7 A** | **15.6 A** |
+| GroEL, window starting at residue 561 | **1.7 A** | **13.0 A** | **14.5 A** | **14.4 A** |
 
 On GroEL both windows collapse by 12.6 and 14.8 A, and neither returned a single design under
 4 A at 1536 against five of eight under 2 A at 512. On 1GPB the two windows move in opposite
@@ -119,10 +119,17 @@ targets no 1536 cell has produced a usable design, so treat 1536 as outside the 
 whatever the target: it runs, it just returns binders that do not refold into the shape they
 were drawn as.
 
-1024 is already too big. Neither GroEL window returned a design under 4 A there either, and
-both are worse than the same window at 512 by a margin the sample sizes separate. So the size
-where quality falls is somewhere between 512 and 1024, and 512 is the largest extent measured
-to work.
+768 is already too big. Neither GroEL window returned a design under 4 A at 768, 1024 or
+1536, and at 768 the drop from the same window at 512 is large enough that the eight designs
+separate it completely: not one of the eight at 768 residues is as good as the worst of the
+eight at 512. So the size where quality falls is between 512 and 768, and 512 is the largest
+extent measured to work.
+
+Above that ceiling the numbers stop being ordered. The GroEL row starting at residue 1 reads
+15.2 A at 768, 8.7 A at 1024 and 15.6 A at 1536, and the 768-to-1024 difference is real rather
+than noise. All three returned zero designs under 4 A, so the column is measuring how badly a
+design fails to refold rather than whether you get one. Do not read a 1024 number as better
+than a 768 number: both mean nothing usable came back.
 
 **If your target has several chains, crop to one of them before you crop by residue count.**
 Every 512-residue cell in the table above is a single chain, and every cell at 1024 or 1536 has
