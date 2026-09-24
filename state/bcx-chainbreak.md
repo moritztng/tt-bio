@@ -85,10 +85,13 @@ PREDICTION: written before any model ran, with its refutation beside it, and rep
 - **H1 (single chain).** With one chain the branch at `af2.py:305` cannot fire, so both paths get
   the same `residue_index` and the gap should be zero rather than merely small. REFUTED IF a
   single-chain design shows a gap of the same order as the two-chain gap.
-  **Status: `predict` on one chain of 128 residues reads pTM 0.2111928015947342, pLDDT
-  0.2989578079432249, i_pTM 0.0 (undefined with one assembly, as expected). Its `sequence_gradients`
-  partner is the leg `runner.sh` is executing now; `out/gradient_64_64_1_c1_s0.json` is where it
-  lands.**
+  **CONFIRMED.** On one chain of 128 residues the two entry points agree: pTM
+  `0.2111928015947342` from both, bit for bit; pLDDT `0.2989578155102208` from
+  `sequence_gradients` against `0.2989578079432249` from `predict`, a difference of
+  **8e-9**, which is float32 reduction order in the mean and not a feature difference. i_pTM is 0.0
+  on both, undefined with one assembly, as expected. Against the two-chain i_pTM gap of 0.380671
+  that residual is smaller by a factor of 5e7. Remove the second chain and the two paths become the
+  same program.
 
 - **H2 (the carrier is the window, not the numbering).** The corruption is the count of cross-chain
   pairs with `|residue_index_t − residue_index_b| <= 32`, computable from the inputs with no model.
@@ -164,7 +167,9 @@ chip-seconds-per-accepted-design axis inherits that, and `bcx-gpuref`'s denomina
 know it.
 
 VERDICT: PARTIAL — the asymmetry is established as a bit-exact causal fact rather than an argument,
-H2 is confirmed and H3 (mine) is refuted with the census that explains why, and the reproducer is
-pure upstream CPU and runs in minutes. Outstanding for the next pass: H1's gradient leg and the
-per-length distributions, both executing under `runner.sh` into `out/`, and the upstream issue,
-which is written from this file once those land.
+H1 and H2 are confirmed and H3 (mine) is refuted with the census that explains why, and the
+reproducer is pure upstream CPU and runs in minutes. Outstanding for the next pass: the per-length
+distributions over further binder draws, accumulating under `runner.sh` into `out/`, and the
+upstream issue, which is written from this file once they land. The issue is held back one pass
+deliberately: it is the outward-facing artifact, the mechanism half of it is already bit-exact, and
+the effect-size half reads better with more than one draw per cell.
