@@ -466,6 +466,10 @@ def _flat2d(t):
 # prices it (`perf/bcx_triatt/block_ab.py`); nothing else sets it.
 TRIATT_BMM_CONFIG = True
 
+# The largest output matrix `bmm_program_config` gives one core-block: 64 tiles is 256 KB of fp32
+# partials. `triangle_attention` narrows its query chunk so a score block fits under it.
+BMM_OUT_TILES = 64
+
 
 def bmm_program_config(a, b, transpose_a: bool = False, transpose_b: bool = False):
     """An explicit program config for a batched ``op(a) @ op(b)``, or None to keep ttnn's plan.
@@ -481,9 +485,9 @@ def bmm_program_config(a, b, transpose_a: bool = False, transpose_b: bool = Fals
     ``per_core_M < M`` -- one batch's output split over two M blocks -- it returned a few
     non-finite elements and non-reproducible finite ones inside a real block, from finite
     inputs, while never failing in isolation (`perf/bcx_triatt/HAZARD.md`). So the whole
-    output matrix goes to one block (at most 64 tiles) and the whole contraction to one K
-    block (at most 8 tiles); both operands batched with equal batch dims and every matmul dim
-    a whole number of tiles. Anything else returns None and ttnn plans it as before.
+    output matrix goes to one block, at most `BMM_OUT_TILES`; the contraction runs in K blocks
+    of up to 8 tiles. Both operands batched with equal batch dims and every matmul dim a whole
+    number of tiles. Anything else returns None and ttnn plans it as before.
     """
     sa = [int(d) for d in a.shape]
     sb = [int(d) for d in b.shape]
@@ -494,7 +498,7 @@ def bmm_program_config(a, b, transpose_a: bool = False, transpose_b: bool = Fals
     if M % 32 or N % 32 or K % 32:
         return None
     Mt, Nt, Kt = M // 32, N // 32, K // 32
-    if Mt * Nt > 64 or Kt > 8:
+    if Mt * Nt > BMM_OUT_TILES:
         return None
 
     def largest_divisor(n, cap):
@@ -505,7 +509,8 @@ def bmm_program_config(a, b, transpose_a: bool = False, transpose_b: bool = Fals
     sh = largest_divisor(Mt, max(1, 4 // sw))
     return ttnn.MatmulMultiCoreReuseProgramConfig(
         compute_with_storage_grid_size=a.device().compute_with_storage_grid_size(),
-        in0_block_w=Kt, out_subblock_h=sh, out_subblock_w=sw, per_core_M=Mt, per_core_N=Nt)
+        in0_block_w=largest_divisor(Kt, 8), out_subblock_h=sh, out_subblock_w=sw,
+        per_core_M=Mt, per_core_N=Nt)
 
 def _reduce_to(g, shape):
     """A broadcast operand's gradient: the output's, summed over the axes it was spread along.
@@ -964,6 +969,10 @@ def triangle_attention(q: Tensor, k: Tensor, v: Tensor, bias: Optional[Tensor] =
     bias_bcast = bias is None or int(bias.value.shape[0]) == 1
     cB = B if chunk is None else min(int(chunk), B)
     cQ = n_q if q_chunk is None else min(int(q_chunk), n_q)
+    if TRIATT_BMM_CONFIG and n_k % 32 == 0:
+        # A score block wider than one core-block leaves the fast plan; more query chunks do
+        # not change the gradient, which the chunk invariance below already relies on.
+        cQ = min(cQ, max(32, BMM_OUT_TILES // (n_k // 32) * 32))
 
     def _scores(qb, b0, b1, i0, i1):
         """Recompute one score block and its softmax. The only place the scores exist."""
