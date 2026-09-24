@@ -832,8 +832,15 @@ CEILINGS: dict[str, dict[str, Ceiling]] = {
     "protenix-v1": {
         "wormhole_b0": Ceiling(
             residues=2048, pass_at=2048, fail_at=None, binds=LADDER_TOP, mechanism=NO_FAILURE,
-            msa_rows=8192,
-            evidence="2048 folds on origin/main c5b346679 (mgx-bigalloc parks the DiT pair bias, "
+            msa_rows=16384,
+            evidence="At 16384 alignment rows, the pool depth tt_bio/protenix_data.py reads as "
+                     "upstream does, on origin/main 811ac1316, j10glx02 card 19, 2026-09-24, guard "
+                     "off, --host_threads 2 (ws:mgx-ceilings, perf/mgxceil, msa_depth 16384 in "
+                     "results.json): 1792 PASS in 965.8 s, 1920 in 1064.7 s and 2048 in 1270.2 s, "
+                     "AICLK median 1000 MHz sampled during each fold (93, 103, 123 samples), 4-7 "
+                     "refused allocations recovered per fold. 2048 at 16384: pLDDT 48.7, 6 CA-CA gaps "
+                     "over 4.2 A, 96.6 percent of CA-CA in band, the same band as at 8192. "
+                     "At 8192 rows: 2048 folds on origin/main c5b346679 (mgx-bigalloc parks the DiT pair bias, "
                      "the allocation that failed 2048 below), j10glx02 card 29, 2026-09-24, guard "
                      "off, --host_threads 2, 8192 rows: PASS in 1021.0 s, AICLK median 1000 MHz "
                      "over 97 samples during the fold, 2 refused allocations recovered (the largest "
