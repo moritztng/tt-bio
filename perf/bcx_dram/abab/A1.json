@@ -1,0 +1,244 @@
+{
+ "seed": 200,
+ "binder": 176,
+ "n_complex": 291,
+ "n_padded": 307,
+ "bucket": 32,
+ "steps_requested": 8,
+ "base_dram_bytes": 235208704,
+ "gc_probe": false,
+ "stage": "screen",
+ "stage_iterations": 50,
+ "stopped": "step budget reached",
+ "rows": [
+  {
+   "step": 1,
+   "seconds": 142.49,
+   "span": [
+    1790287533.140929,
+    1790287675.631163
+   ],
+   "design_loss": 10.529776573181152,
+   "dram_before_gb": 0.2191,
+   "dram_peak_fwd_gb": 1.4635,
+   "dram_peak_bwd_gb": 0.6117,
+   "dram_after_gb": 0.6117,
+   "live_tapes": 0,
+   "ckpt_pins": 0,
+   "calls": {
+    "primal": 0,
+    "taped": 2,
+    "backward": 1
+   },
+   "rss_gb": 10.155,
+   "loadavg1": 43.18,
+   "ag_tensor": 4369,
+   "ag_node": 0,
+   "ttnn_tensor": 0
+  },
+  {
+   "step": 2,
+   "seconds": 91.37,
+   "span": [
+    1790287677.6053035,
+    1790287768.9751976
+   ],
+   "design_loss": 9.190805435180664,
+   "dram_before_gb": 0.6117,
+   "dram_peak_fwd_gb": 1.467,
+   "dram_peak_bwd_gb": 0.6117,
+   "dram_after_gb": 0.6117,
+   "live_tapes": 0,
+   "ckpt_pins": 0,
+   "calls": {
+    "primal": 0,
+    "taped": 4,
+    "backward": 2
+   },
+   "rss_gb": 10.278,
+   "loadavg1": 47.46,
+   "ag_tensor": 4369,
+   "ag_node": 0,
+   "ttnn_tensor": 0
+  },
+  {
+   "step": 3,
+   "seconds": 99.852,
+   "span": [
+    1790287769.2596185,
+    1790287869.1120725
+   ],
+   "design_loss": 8.372480392456055,
+   "dram_before_gb": 0.6117,
+   "dram_peak_fwd_gb": 1.467,
+   "dram_peak_bwd_gb": 0.6117,
+   "dram_after_gb": 0.6117,
+   "live_tapes": 0,
+   "ckpt_pins": 0,
+   "calls": {
+    "primal": 0,
+    "taped": 6,
+    "backward": 3
+   },
+   "rss_gb": 10.324,
+   "loadavg1": 48.06,
+   "ag_tensor": 4369,
+   "ag_node": 0,
+   "ttnn_tensor": 0
+  },
+  {
+   "step": 4,
+   "seconds": 99.478,
+   "span": [
+    1790287869.5171864,
+    1790287968.9947896
+   ],
+   "design_loss": 8.029733657836914,
+   "dram_before_gb": 0.6117,
+   "dram_peak_fwd_gb": 1.467,
+   "dram_peak_bwd_gb": 0.6117,
+   "dram_after_gb": 0.6117,
+   "live_tapes": 0,
+   "ckpt_pins": 0,
+   "calls": {
+    "primal": 0,
+    "taped": 8,
+    "backward": 4
+   },
+   "rss_gb": 10.404,
+   "loadavg1": 48.21,
+   "ag_tensor": 4369,
+   "ag_node": 0,
+   "ttnn_tensor": 0
+  },
+  {
+   "step": 5,
+   "seconds": 94.864,
+   "span": [
+    1790287969.4078386,
+    1790288064.2723317
+   ],
+   "design_loss": 8.336535453796387,
+   "dram_before_gb": 0.6117,
+   "dram_peak_fwd_gb": 1.467,
+   "dram_peak_bwd_gb": 0.6117,
+   "dram_after_gb": 0.6117,
+   "live_tapes": 0,
+   "ckpt_pins": 0,
+   "calls": {
+    "primal": 0,
+    "taped": 10,
+    "backward": 5
+   },
+   "rss_gb": 10.423,
+   "loadavg1": 46.87,
+   "ag_tensor": 4369,
+   "ag_node": 0,
+   "ttnn_tensor": 0
+  },
+  {
+   "step": 6,
+   "seconds": 103.446,
+   "span": [
+    1790288064.6093738,
+    1790288168.0551584
+   ],
+   "design_loss": 6.7641921043396,
+   "dram_before_gb": 0.6117,
+   "dram_peak_fwd_gb": 1.467,
+   "dram_peak_bwd_gb": 0.6117,
+   "dram_after_gb": 0.6117,
+   "live_tapes": 0,
+   "ckpt_pins": 0,
+   "calls": {
+    "primal": 0,
+    "taped": 12,
+    "backward": 6
+   },
+   "rss_gb": 10.487,
+   "loadavg1": 45.17,
+   "ag_tensor": 4369,
+   "ag_node": 0,
+   "ttnn_tensor": 0
+  },
+  {
+   "step": 7,
+   "seconds": 94.457,
+   "span": [
+    1790288168.5048018,
+    1790288262.961538
+   ],
+   "design_loss": 5.859213829040527,
+   "dram_before_gb": 0.6117,
+   "dram_peak_fwd_gb": 1.467,
+   "dram_peak_bwd_gb": 0.6117,
+   "dram_after_gb": 0.6117,
+   "live_tapes": 0,
+   "ckpt_pins": 0,
+   "calls": {
+    "primal": 0,
+    "taped": 14,
+    "backward": 7
+   },
+   "rss_gb": 10.489,
+   "loadavg1": 45.41,
+   "ag_tensor": 4369,
+   "ag_node": 0,
+   "ttnn_tensor": 0
+  },
+  {
+   "step": 8,
+   "seconds": 99.359,
+   "span": [
+    1790288263.4213276,
+    1790288362.7804985
+   ],
+   "design_loss": 5.588455677032471,
+   "dram_before_gb": 0.6117,
+   "dram_peak_fwd_gb": 1.467,
+   "dram_peak_bwd_gb": 0.6117,
+   "dram_after_gb": 0.6117,
+   "live_tapes": 0,
+   "ckpt_pins": 0,
+   "calls": {
+    "primal": 0,
+    "taped": 16,
+    "backward": 8
+   },
+   "rss_gb": 10.512,
+   "loadavg1": 46.32,
+   "ag_tensor": 4369,
+   "ag_node": 0,
+   "ttnn_tensor": 0
+  }
+ ],
+ "device_calls": {
+  "primal": 0,
+  "taped": 16,
+  "backward": 8
+ },
+ "aiclk": {
+  "n": 3186,
+  "min": 1306,
+  "median": 1350,
+  "max": 1350
+ },
+ "stamp": {
+  "host": "tt-quietbox2",
+  "card": 2,
+  "subsystem_device": "0x0046",
+  "commit": "a2c1e972f04d3c8a850bbe7ed9260cac0ad7e32e",
+  "tt_bio_dirty": false,
+  "torch_threads": 8,
+  "loadavg": [
+   46.3212890625,
+   46.451171875,
+   45.12255859375
+  ],
+  "utc": "2026-09-24T22:19:23Z"
+ },
+ "resident_first_gb": 0.6117,
+ "resident_last_gb": 0.6117,
+ "resident_rise_gb": 0.0,
+ "peak_max_gb": 1.467
+}
