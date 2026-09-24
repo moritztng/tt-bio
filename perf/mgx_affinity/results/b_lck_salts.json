@@ -1,0 +1,208 @@
+{
+ "tag": "b_lck_salts",
+ "surface": "boltz2",
+ "input": "perf/mgx_affinity/out/shards/lck_salts",
+ "args": [],
+ "host": "j10glx02",
+ "cards": [
+  6
+ ],
+ "commit": "9b35f5d2b",
+ "rc": null,
+ "wall_s": 861.3,
+ "aiclk": {
+  "0": {
+   "min": 982,
+   "median": 1000,
+   "max": 1000,
+   "n": 31
+  }
+ },
+ "load": {
+  "min": 77.8,
+  "median": 101.08,
+  "max": 122.97,
+  "nproc": 64
+ },
+ "census": null,
+ "adopted": true,
+ "rows": [
+  {
+   "id": "d30_9926054",
+   "status": "ok",
+   "confidence_score": 0.8843,
+   "ptm": 0.737832,
+   "iptm": 0.984991,
+   "ligand_iptm": 0.984991,
+   "protein_iptm": 0.0,
+   "complex_plddt": 0.859128,
+   "complex_iplddt": 0.910875,
+   "complex_pde": 1.114017,
+   "complex_ipde": 0.607417,
+   "plddt": 0.859128,
+   "pair_chains_iptm": {
+    "0": {
+     "0": 0.729227,
+     "1": 0.486901
+    },
+    "1": {
+     "0": 0.984991,
+     "1": 0.961554
+    }
+   },
+   "chains_ptm": {
+    "0": 0.729227,
+    "1": 0.961554
+   },
+   "affinity_pred_value": 0.954684,
+   "affinity_probability_binary": 0.278689,
+   "affinity_pred_value1": 1.1148,
+   "affinity_probability_binary1": 0.315053,
+   "affinity_pred_value2": 0.794568,
+   "affinity_probability_binary2": 0.242325,
+   "structure_runtime_s": 60.3,
+   "affinity_runtime_s": 128.9,
+   "runtime_s": 189.2
+  },
+  {
+   "id": "d54_11984591",
+   "status": "ok",
+   "confidence_score": 0.878478,
+   "ptm": 0.734643,
+   "iptm": 0.982536,
+   "ligand_iptm": 0.982536,
+   "protein_iptm": 0.0,
+   "complex_plddt": 0.852463,
+   "complex_iplddt": 0.914124,
+   "complex_pde": 1.076932,
+   "complex_ipde": 0.650497,
+   "plddt": 0.852463,
+   "pair_chains_iptm": {
+    "0": {
+     "0": 0.718982,
+     "1": 0.53439
+    },
+    "1": {
+     "0": 0.982536,
+     "1": 0.93187
+    }
+   },
+   "chains_ptm": {
+    "0": 0.718982,
+    "1": 0.93187
+   },
+   "affinity_pred_value": -1.053803,
+   "affinity_probability_binary": 0.526005,
+   "affinity_pred_value1": -0.855671,
+   "affinity_probability_binary1": 0.506916,
+   "affinity_pred_value2": -1.251936,
+   "affinity_probability_binary2": 0.545094,
+   "structure_runtime_s": 55.7,
+   "affinity_runtime_s": 152.5,
+   "runtime_s": 208.2
+  },
+  {
+   "id": "d63_25127112",
+   "status": "ok",
+   "confidence_score": 0.877017,
+   "ptm": 0.778131,
+   "iptm": 0.965183,
+   "ligand_iptm": 0.965183,
+   "protein_iptm": 0.0,
+   "complex_plddt": 0.854976,
+   "complex_iplddt": 0.88881,
+   "complex_pde": 1.034588,
+   "complex_ipde": 0.847464,
+   "plddt": 0.854976,
+   "pair_chains_iptm": {
+    "0": {
+     "0": 0.770086,
+     "1": 0.49231
+    },
+    "1": {
+     "0": 0.965183,
+     "1": 0.902853
+    }
+   },
+   "chains_ptm": {
+    "0": 0.770086,
+    "1": 0.902853
+   },
+   "affinity_pred_value": -0.277142,
+   "affinity_probability_binary": 0.284071,
+   "affinity_pred_value1": -0.09104,
+   "affinity_probability_binary1": 0.263552,
+   "affinity_pred_value2": -0.463244,
+   "affinity_probability_binary2": 0.304591,
+   "structure_runtime_s": 55.9,
+   "affinity_runtime_s": 137.7,
+   "runtime_s": 193.6
+  },
+  {
+   "id": "d66_44150621",
+   "status": "ok",
+   "confidence_score": 0.869496,
+   "ptm": 0.776912,
+   "iptm": 0.969423,
+   "ligand_iptm": 0.969423,
+   "protein_iptm": 0.0,
+   "complex_plddt": 0.844514,
+   "complex_iplddt": 0.886049,
+   "complex_pde": 1.00367,
+   "complex_ipde": 0.75422,
+   "plddt": 0.844514,
+   "pair_chains_iptm": {
+    "0": {
+     "0": 0.766573,
+     "1": 0.604148
+    },
+    "1": {
+     "0": 0.969423,
+     "1": 0.945716
+    }
+   },
+   "chains_ptm": {
+    "0": 0.766573,
+    "1": 0.945716
+   },
+   "affinity_pred_value": -1.462081,
+   "affinity_probability_binary": 0.667695,
+   "affinity_pred_value1": -1.542786,
+   "affinity_probability_binary1": 0.75488,
+   "affinity_pred_value2": -1.381375,
+   "affinity_probability_binary2": 0.580509,
+   "structure_runtime_s": 60.1,
+   "affinity_runtime_s": 166.2,
+   "runtime_s": 226.3
+  }
+ ],
+ "contention": false,
+ "errors": [],
+ "tail": [
+  "14:21:45  [j10glx02:tt6]   diffusion 0/200",
+  "14:21:50  [j10glx02:tt6]   diffusion 10/200",
+  "14:21:51  [j10glx02:tt6]   diffusion 20/200",
+  "14:21:52  [j10glx02:tt6]   diffusion 30/200",
+  "14:21:53  [j10glx02:tt6]   diffusion 40/200",
+  "14:21:53  [j10glx02:tt6]   diffusion 50/200",
+  "14:21:54  [j10glx02:tt6]   diffusion 60/200",
+  "14:21:55  [j10glx02:tt6]   diffusion 70/200",
+  "14:21:56  [j10glx02:tt6]   diffusion 80/200",
+  "14:21:57  [j10glx02:tt6]   diffusion 90/200",
+  "14:21:57  [j10glx02:tt6]   diffusion 100/200",
+  "14:21:58  [j10glx02:tt6]   diffusion 110/200",
+  "14:21:59  [j10glx02:tt6]   diffusion 120/200",
+  "14:22:00  [j10glx02:tt6]   diffusion 130/200",
+  "14:22:01  [j10glx02:tt6]   diffusion 140/200",
+  "14:22:02  [j10glx02:tt6]   diffusion 150/200",
+  "14:22:02  [j10glx02:tt6]   diffusion 160/200",
+  "14:22:03  [j10glx02:tt6]   diffusion 170/200",
+  "14:22:04  [j10glx02:tt6]   diffusion 180/200",
+  "14:22:05  [j10glx02:tt6]   diffusion 190/200",
+  "14:22:05  [j10glx02:tt6]   confidence",
+  "14:22:08  [j10glx02:tt6]   saving",
+  "14:24:54  [j10glx02:tt6] \u2713 d66_44150621 \u2014 226.3s",
+  "",
+  "Done: 4 ok, 0 failed \u2014 /home/agent/wt-mgx-affinity-scale/perf/mgx_affinity/out/b_lck_salts/boltz2_results_lck_salts/results.json"
+ ]
+}

@@ -493,7 +493,7 @@ class OpenDDE:
         both apply unchanged to OpenDDE. trace=True replays a
         captured ttnn trace of the shared denoise stream (lossless; faster on
         dispatch-bound diffusion, mirroring Protenix-v2.fold(trace=)); needs a device
-        opened with a trace region (get_device(trace_region_size=1 << 30)). Returns
+        opened with get_device(trace="protenix"). Returns
         coords (n_sample, N_atom, 3) host tensor; if
         return_confidence, returns (coords, conf) where conf is a dict (n_sample==1) or a
         list of dicts (n_sample>1), same shape as tt_bio.protenix.Protenix.fold.
@@ -504,10 +504,7 @@ class OpenDDE:
 
         if trace:
             import tt_bio.tenstorrent as _TTd
-            if _TTd.trace_region_size() <= 0:
-                raise ValueError(
-                    "fold(trace=True) needs a device opened with a trace region; "
-                    "call get_device(trace_region_size=1 << 30) before folding.")
+            _TTd.require_trace_region("fold(trace=True)")
         P = self._protenix
         tt = P._tt
         ifd = build_structural_token_features(feats)

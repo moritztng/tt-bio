@@ -1,0 +1,82 @@
+{
+ "tag": "m_512_small_a5",
+ "surface": "boltz2",
+ "input": "perf/mgx_affinity/inputs/size/cdk2_512_small.yaml",
+ "args": [
+  "--diffusion_samples_affinity",
+  "5",
+  "--sampling_steps",
+  "20",
+  "--sampling_steps_affinity",
+  "20"
+ ],
+ "host": "j10glx02",
+ "cards": [
+  29
+ ],
+ "commit": "49b3b6eae",
+ "rc": 0,
+ "wall_s": 169.7,
+ "aiclk": {
+  "0": {
+   "min": 500,
+   "median": 1000,
+   "max": 1000,
+   "n": 9
+  }
+ },
+ "load": {
+  "min": 52.69,
+  "median": 58.54,
+  "max": 62.78,
+  "nproc": 64
+ },
+ "census": {
+  "peak_gib": 3.499,
+  "peak_tag": "tri_att(start) bias built [z=224x224x128]",
+  "min_maxfree_mib_per_bank": 713
+ },
+ "adopted": false,
+ "rows": [
+  {
+   "id": "cdk2_512_small",
+   "status": "ok",
+   "confidence_score": 0.869403,
+   "ptm": 0.67242,
+   "iptm": 0.846484,
+   "ligand_iptm": 0.846484,
+   "protein_iptm": 0.0,
+   "complex_plddt": 0.875133,
+   "complex_iplddt": 0.779708,
+   "complex_pde": 0.979124,
+   "complex_ipde": 6.042053,
+   "plddt": 0.875133,
+   "pair_chains_iptm": {
+    "0": {
+     "0": 0.666491,
+     "1": 0.398376
+    },
+    "1": {
+     "0": 0.846484,
+     "1": 0.954882
+    }
+   },
+   "chains_ptm": {
+    "0": 0.666491,
+    "1": 0.954882
+   },
+   "affinity_pred_value": 1.352204,
+   "affinity_probability_binary": 0.224903,
+   "affinity_pred_value1": 1.270996,
+   "affinity_probability_binary1": 0.308479,
+   "affinity_pred_value2": 1.433411,
+   "affinity_probability_binary2": 0.141328,
+   "structure_runtime_s": 43.1,
+   "affinity_runtime_s": 92.3,
+   "runtime_s": 135.4
+  }
+ ],
+ "contention": false,
+ "errors": [],
+ "tail": []
+}

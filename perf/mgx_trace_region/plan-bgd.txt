@@ -1,0 +1,4 @@
+# is bg400's intermediate designed sequence deterministic run to run without the trace?
+bg400_eager_r2 design tests/fixtures/boltzgen/bg400.yaml --model boltzgen --num_designs 1 --steps design --seed 0 --out_dir {out}
+bg400_trace_r2 design tests/fixtures/boltzgen/bg400.yaml --model boltzgen --num_designs 1 --steps design --seed 0 --out_dir {out} --diffusion_trace
+bg400_eager_r3 design tests/fixtures/boltzgen/bg400.yaml --model boltzgen --num_designs 1 --steps design --seed 0 --out_dir {out}

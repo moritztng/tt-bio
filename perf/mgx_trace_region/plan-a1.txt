@@ -1,0 +1,8 @@
+# AFTER on measured TRACE_REGIONS, chain 1
+b2_512_trace_after predict perf/size512/fixtures/cdk2x2_512.yaml --model boltz2 --out_dir {out} --diffusion_samples 1 --seed 0 --host_threads 2 --accelerator tenstorrent --override --diffusion_trace
+b2_512_eager_after predict perf/size512/fixtures/cdk2x2_512.yaml --model boltz2 --out_dir {out} --diffusion_samples 1 --seed 0 --host_threads 2 --accelerator tenstorrent --override
+bg400_trace_after design tests/fixtures/boltzgen/bg400.yaml --model boltzgen --num_designs 1 --steps design --seed 0 --diffusion_trace --out_dir {out}
+esmc_fill8_after embed perf/mgx_trace_region/inputs/esmc_fill8.fasta --model esmc-300m --batch_size 1 --out_dir {out}
+rfd3_dec_after RFD3_TRACE_DECODER=1 design examples/rfd3_binder.json --model rfd3 --from_pdb --num_designs 1 --seed 0 --num_timesteps 20 --out_dir {out}
+rfd3_dec_1280_after RFD3_TRACE_DECODER=1 design perf/mgx_trace_region/inputs/rfd3_1280.json --model rfd3 --from_pdb --num_designs 1 --seed 0 --num_timesteps 3 --out_dir {out}
+px2_512_trace_after predict perf/size512/fixtures/cdk2x2_512.yaml --model protenix-v2 --out_dir {out} --diffusion_samples 1 --seed 0 --host_threads 2 --accelerator tenstorrent --override --trace

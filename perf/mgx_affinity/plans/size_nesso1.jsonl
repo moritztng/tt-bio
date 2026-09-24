@@ -1,0 +1,11 @@
+{"tag": "n_512_small", "surface": "nesso1", "input": "perf/mgx_affinity/inputs/size/cdk2_512_small.yaml"}
+{"tag": "n_1024_small", "surface": "nesso1", "input": "perf/mgx_affinity/inputs/size/cdk2_1024_small.yaml"}
+{"tag": "n_1536_small", "surface": "nesso1", "input": "perf/mgx_affinity/inputs/size/cdk2_1536_small.yaml"}
+{"tag": "n_1536_rap", "surface": "nesso1", "input": "perf/mgx_affinity/inputs/size/cdk2_1536_rap.yaml"}
+{"tag": "n_1536_b12", "surface": "nesso1", "input": "perf/mgx_affinity/inputs/size/cdk2_1536_b12.yaml"}
+{"tag": "n_512_rap", "surface": "nesso1", "input": "perf/mgx_affinity/inputs/size/cdk2_512_rap.yaml"}
+{"tag": "n_512_b12", "surface": "nesso1", "input": "perf/mgx_affinity/inputs/size/cdk2_512_b12.yaml"}
+{"tag": "n_1664_small", "surface": "nesso1", "input": "perf/mgx_affinity/inputs/size/cdk2_1664_small.yaml"}
+{"tag": "n_1792_small", "surface": "nesso1", "input": "perf/mgx_affinity/inputs/size/cdk2_1792_small.yaml"}
+{"tag": "n_2048_small", "surface": "nesso1", "input": "perf/mgx_affinity/inputs/size/cdk2_2048_small.yaml"}
+{"tag": "n_screen_lck", "surface": "nesso1", "input": "perf/mgx_affinity/inputs/screen/lck"}

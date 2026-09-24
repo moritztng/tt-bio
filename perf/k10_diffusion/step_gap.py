@@ -80,7 +80,6 @@ def main() -> int:
     ap.add_argument("--workers", type=int, default=8,
                     help="host_thread_cap_env worker count; 8 is the whglx K10 standard")
     ap.add_argument("--host-threads", type=int, default=None)
-    ap.add_argument("--trace-region-mib", type=int, default=512)
     ap.add_argument("--series", action="store_true",
                     help="record every step's wall, not just the summary")
     ap.add_argument("--open-lock", type=Path, default=None,
@@ -122,7 +121,7 @@ def main() -> int:
     sys.path[:] = snap
     patch_boltz2_cfg()
 
-    # Open the chip ourselves with a region build_fold would size at 1 GiB, which hangs here.
+    # Open the chip ourselves, under the optional open lock.
     lk = None
     if a.open_lock:
         import fcntl
@@ -130,7 +129,7 @@ def main() -> int:
         lk = open(a.open_lock, "a+")
         fcntl.flock(lk, fcntl.LOCK_EX)
     try:
-        T.get_device(trace_region_size=a.trace_region_mib << 20)
+        T.get_device(trace="diffusion")
     finally:
         if lk:
             import fcntl

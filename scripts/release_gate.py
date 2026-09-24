@@ -238,7 +238,7 @@ FAST = False
 # fold's host-side work scales with the cap, so it is part of a timing's identity.
 HOST_THREADS = None
 # When set (via --diffusion_trace), fold boltz2 with the per-step DiT trace
-# replay on (lossless; reserves a 1 GiB trace region). boltz2 only — other fold
+# replay on (lossless; reserves a trace region). boltz2 only — other fold
 # models do not wire diffusion_trace through. Defaults off.
 DIFFUSION_TRACE = False
 
