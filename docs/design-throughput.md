@@ -64,8 +64,9 @@ behind this are in `perf/mgxaccuracy/`.
 Throughput is half the question. The other half is BoltzGen's own designability filter: the
 designed binder's sequence refolded **alone**, aligned back to the backbone it was designed
 for, reported as `designfolding-bb_rmsd`. BoltzGen's paper calls a design good at 2 A and
-acceptable at 4 A. It varies enormously from target to target, and that is not a Tenstorrent
-effect:
+acceptable at 4 A. Every number in this section used an 80-residue binder, so the crop advice
+below is about how much TARGET you hand the model, not about binder length, which we have not
+varied. It varies enormously from target to target, and that is not a Tenstorrent effect:
 
 | target | designs | scRMSD median | designable at 2 A |
 |---|---|---|---|
