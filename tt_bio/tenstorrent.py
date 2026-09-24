@@ -6157,6 +6157,7 @@ def _add_input(x: ttnn.Tensor, u: ttnn.Tensor) -> ttnn.Tensor:
 #
 # MEASURED on whglx (8x9 Wormhole) at the 1536-residue refiner, width 3008, before: 452 GB down
 # and 454 GB up over four Pairformer blocks, ~950 s of an 1201 s seam (`perf/mgx_wide_seq/`).
+# With TT_BIO_TRIMUL_INPROJ_ROWBLOCK_NORM the whole 1536-residue fold goes from 4221 s to 2826 s.
 # `TT_BIO_PAIR_INPLACE=0` restores the host join.
 PAIR_INPLACE = True
 _PAIR_INPLACE = env_flag("TT_BIO_PAIR_INPLACE", PAIR_INPLACE)
@@ -6167,8 +6168,11 @@ PAIR_INPLACE_STATS = [0, 0]
 def _pair_inplace(z: ttnn.Tensor, add_to_input: bool) -> bool:
     """Whether a row-blocked `z + update` should be written back into `z` block by block.
 
-    Exactly where the host join used to take over, so every smaller pair keeps its device concat
-    and its numbers. Not under a tape: the write mutates a tensor the tape may still hold."""
+    From the size where the join may go to the host (`host_acc_after_refusal`), so every smaller
+    pair keeps its device concat and its numbers. Above it the device join is still tried first
+    and often fits (Nesso-1 at 3072 tokens never left the card); there the write replaces a device
+    concat, which is why `page_copy` has to move bytes at least as fast as ttnn.concat does. Not
+    under a tape: the write mutates a tensor the tape may still hold."""
     return (add_to_input and _PAIR_INPLACE and not ops.taping()
             and z.dtype == ttnn.bfloat16 and _dtype() == ttnn.bfloat16
             and z.logical_volume() * 2 > concat_host_bytes() and _page_copy.ok(z, z))
