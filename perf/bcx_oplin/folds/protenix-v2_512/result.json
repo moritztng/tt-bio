@@ -1,0 +1,305 @@
+{
+ "model": "protenix-v2",
+ "target": "perf/size512/fixtures/cdk2x2_512.yaml",
+ "n_ca": 512,
+ "recycling_steps": 10,
+ "sampling_steps": 200,
+ "deviation_A": 4.0529,
+ "seed_floor_A": 2.9112,
+ "seed1_on_vs_off_A": 4.7171,
+ "off_repeat_identical": true,
+ "on_repeat_identical": true,
+ "warm_off_s": [
+  51.681,
+  50.855
+ ],
+ "warm_on_s": [
+  50.924,
+  50.777
+ ],
+ "speedup": 1.0082,
+ "census": {
+  "rank<=2": [
+   {
+    "shape": [
+     512,
+     384
+    ],
+    "calls": 213
+   },
+   {
+    "shape": [
+     4117,
+     3
+    ],
+    "calls": 202
+   },
+   {
+    "shape": [
+     1,
+     256
+    ],
+    "calls": 200
+   },
+   {
+    "shape": [
+     512,
+     768
+    ],
+    "calls": 200
+   },
+   {
+    "shape": [
+     528384,
+     1
+    ],
+    "calls": 4
+   },
+   {
+    "shape": [
+     4117,
+     1
+    ],
+    "calls": 2
+   },
+   {
+    "shape": [
+     4117,
+     385
+    ],
+    "calls": 2
+   },
+   {
+    "shape": [
+     528384,
+     3
+    ],
+    "calls": 2
+   },
+   {
+    "shape": [
+     512,
+     449
+    ],
+    "calls": 2
+   },
+   {
+    "shape": [
+     512,
+     833
+    ],
+    "calls": 1
+   }
+  ],
+  "rows%32": [
+   {
+    "shape": [
+     1,
+     4117,
+     128
+    ],
+    "calls": 10025
+   },
+   {
+    "shape": [
+     1,
+     4117,
+     256
+    ],
+    "calls": 1203
+   }
+  ],
+  "collapsed": [
+   {
+    "shape": [
+     1,
+     512,
+     512,
+     256
+    ],
+    "calls": 10
+   },
+   {
+    "shape": [
+     1,
+     512,
+     512,
+     64
+    ],
+    "calls": 10
+   },
+   {
+    "shape": [
+     129,
+     32,
+     128,
+     16
+    ],
+    "calls": 9
+   },
+   {
+    "shape": [
+     512,
+     512,
+     139
+    ],
+    "calls": 1
+   },
+   {
+    "shape": [
+     512,
+     512,
+     1
+    ],
+    "calls": 1
+   },
+   {
+    "shape": [
+     1,
+     35,
+     512,
+     34
+    ],
+    "calls": 1
+   },
+   {
+    "shape": [
+     129,
+     32,
+     128
+    ],
+    "calls": 1
+   },
+   {
+    "shape": [
+     129,
+     128,
+     128
+    ],
+    "calls": 1
+   }
+  ]
+ },
+ "folds": [
+  {
+   "tag": "cold_on",
+   "on": true,
+   "seed": 0,
+   "wall_s": 80.051,
+   "plddt": 0.833472,
+   "aiclk": {
+    "n": 203,
+    "median": 800,
+    "min": 800,
+    "max": 800
+   },
+   "sha16": "1c653e4102901a23",
+   "ca_rmsd_vs_off_s0": 4.0529
+  },
+  {
+   "tag": "s0_off_0",
+   "on": false,
+   "seed": 0,
+   "wall_s": 51.681,
+   "plddt": 0.810638,
+   "aiclk": {
+    "n": 173,
+    "median": 800,
+    "min": 800,
+    "max": 800
+   },
+   "sha16": "22bc3eaafd886c17",
+   "ca_rmsd_vs_off_s0": 0.0
+  },
+  {
+   "tag": "s0_on_0",
+   "on": true,
+   "seed": 0,
+   "wall_s": 50.924,
+   "plddt": 0.833472,
+   "aiclk": {
+    "n": 169,
+    "median": 800,
+    "min": 800,
+    "max": 800
+   },
+   "sha16": "1c653e4102901a23",
+   "ca_rmsd_vs_off_s0": 4.0529
+  },
+  {
+   "tag": "s0_on_1",
+   "on": true,
+   "seed": 0,
+   "wall_s": 50.777,
+   "plddt": 0.833472,
+   "aiclk": {
+    "n": 170,
+    "median": 800.0,
+    "min": 800,
+    "max": 800
+   },
+   "sha16": "1c653e4102901a23",
+   "ca_rmsd_vs_off_s0": 4.0529
+  },
+  {
+   "tag": "s0_off_1",
+   "on": false,
+   "seed": 0,
+   "wall_s": 50.855,
+   "plddt": 0.810638,
+   "aiclk": {
+    "n": 169,
+    "median": 800,
+    "min": 800,
+    "max": 800
+   },
+   "sha16": "22bc3eaafd886c17",
+   "ca_rmsd_vs_off_s0": 0.0
+  },
+  {
+   "tag": "s1_off",
+   "on": false,
+   "seed": 1,
+   "wall_s": 50.852,
+   "plddt": 0.812925,
+   "aiclk": {
+    "n": 169,
+    "median": 800,
+    "min": 800,
+    "max": 800
+   },
+   "sha16": "306cc553c8200944",
+   "ca_rmsd_vs_off_s0": 2.9112
+  },
+  {
+   "tag": "s1_on",
+   "on": true,
+   "seed": 1,
+   "wall_s": 50.859,
+   "plddt": 0.83439,
+   "aiclk": {
+    "n": 167,
+    "median": 800,
+    "min": 800,
+    "max": 800
+   },
+   "sha16": "637d414d1d000a1a",
+   "ca_rmsd_vs_off_s0": 5.0337
+  }
+ ],
+ "card": {
+  "hardware": "blackhole",
+  "card_type": "p150a",
+  "sysfs_subsystem": "0x0040",
+  "grid": [
+   11,
+   10
+  ]
+ },
+ "host": "tt-quietbox",
+ "loadavg": [
+  3.13818359375,
+  2.056640625,
+  2.486328125
+ ]
+}

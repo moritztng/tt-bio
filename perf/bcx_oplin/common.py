@@ -5,6 +5,7 @@ a module global on every call, so the rebind reaches every caller of `ops.linear
 else: `autograd` holds its own reference, and inference never goes through it.
 """
 import contextlib
+import math
 import os
 import statistics
 import threading
@@ -43,6 +44,7 @@ class Census:
             s = tuple(int(d) for d in x.shape)
             mc = (kw or {}).get("memory_config")
             why = ("rank<=2" if len(s) <= 2 else
+                   "batch of one" if math.prod(s[:-2]) <= 1 else
                    "rows%32" if s[-2] % ttnn.TILE_SIZE else
                    "not TILE" if x.layout != ttnn.TILE_LAYOUT else
                    "sharded x" if x.is_sharded() else
@@ -66,12 +68,27 @@ class Census:
         return {why: sorted(v, key=lambda r: -r["calls"]) for why, v in out.items()}
 
 
+def sysfs_node(visible=None):
+    """The sysfs node of the card TT_VISIBLE_DEVICES names.
+
+    TT_VISIBLE_DEVICES counts cards in PCI bus order, as UMD and tt-smi do; the kernel's
+    /dev/tenstorrent/N does not. On qb1 index 0 is 0000:01:00.0, which is node 1: reading
+    node 0 sampled an idle card at 800 MHz while the fold ran at 1350.
+    """
+    visible = visible or os.environ.get("TT_VISIBLE_DEVICES", "0").split(",")[0] or "0"
+    root = "/sys/class/tenstorrent"
+    nodes = sorted(os.listdir(root),
+                   key=lambda n: os.path.basename(os.path.realpath(f"{root}/{n}/device")))
+    node = nodes[int(visible)]
+    return f"{root}/{node}", os.path.basename(os.path.realpath(f"{root}/{node}/device"))
+
+
 class Clock:
-    """AICLK from sysfs every `dt` s while the block runs. Reads the card TT_VISIBLE_DEVICES names."""
+    """AICLK from sysfs every `dt` s while the block runs, off the card TT_VISIBLE_DEVICES names."""
 
     def __init__(self, dt=0.25):
-        card = os.environ.get("TT_VISIBLE_DEVICES", "0").split(",")[0] or "0"
-        self.path = f"/sys/class/tenstorrent/tenstorrent!{card}/tt_aiclk"
+        node, self.pci = sysfs_node()
+        self.path = f"{node}/tt_aiclk"
         self.dt, self.samples = dt, []
 
     def _run(self):
@@ -95,4 +112,4 @@ class Clock:
     def stats(self):
         s = self.samples
         return dict(n=len(s), median=statistics.median(s) if s else None,
-                    min=min(s) if s else None, max=max(s) if s else None)
+                    min=min(s) if s else None, max=max(s) if s else None, pci=self.pci)

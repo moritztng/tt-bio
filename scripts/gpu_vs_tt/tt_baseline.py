@@ -319,7 +319,7 @@ class Instrument:
 def build_fold(model: str, msa_dir: Path, target: Path, a3m: Path,
                samples: int = DIFFUSION_SAMPLES, hoist: bool = False,
                instrument: bool = False, fast: bool = False, trace: bool = False,
-               recycling_steps: int | None = None):
+               recycling_steps: int | None = None, extra_cfg: dict | None = None):
     """Open the card, load the model, seed the MSA cache; return ``(one_fold, meta)``.
 
     Split out of ``measure`` so the multi-card fan-out driver (``tt_concurrency.py``)
@@ -379,6 +379,8 @@ def build_fold(model: str, msa_dir: Path, target: Path, a3m: Path,
         msa_server_password=None, api_key_value=None, max_msa_seqs=8192,
         write_pae=False, write_pde=False, write_embeddings=False, method=None,
     )
+    # The keys a model's load needs beyond the shared set above: boltz2's `conf_kwargs`.
+    cfg.update(extra_cfg or {})
     _ensure_local_artifacts(cfg)
     n_msa = seed_msa_cache(target, a3m, msa_dir)
 
