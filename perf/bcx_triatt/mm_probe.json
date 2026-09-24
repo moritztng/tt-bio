@@ -1,0 +1,190 @@
+{
+ "grid": [
+  11,
+  10
+ ],
+ "cases": {
+  "PV": {
+   "shipped_r4_hifi": {
+    "us": 1627.4150166282197,
+    "us_min": 1627.0495166584926,
+    "us_max": 1627.674000034555,
+    "tflops": 0.6597836526202427,
+    "bitexact": true,
+    "maxdiff": 0.0,
+    "clock": {
+     "samples": 0,
+     "attributable": false
+    }
+   },
+   "r3_hifi": {
+    "us": 1629.638799992487,
+    "us_min": 1626.6323499924815,
+    "us_max": 1643.2724166710007,
+    "tflops": 0.6588833206505332,
+    "bitexact": true,
+    "maxdiff": 0.0,
+    "clock": {
+     "samples": 0,
+     "attributable": false
+    }
+   },
+   "r4_default": {
+    "us": 1583.9891999955096,
+    "us_min": 1582.7713999897242,
+    "us_max": 1584.869200026636,
+    "tflops": 0.677871934987337,
+    "bitexact": false,
+    "maxdiff": 1.0,
+    "clock": {
+     "samples": 0,
+     "attributable": false
+    }
+   },
+   "r4_lofi": {
+    "us": 1581.788250041427,
+    "us_min": 1581.4159166742077,
+    "us_max": 1583.2108833516638,
+    "tflops": 0.6788151473320647,
+    "bitexact": false,
+    "maxdiff": 2.25,
+    "clock": {
+     "samples": 0,
+     "attributable": false
+    }
+   },
+   "r4_hifi_reusecfg": {
+    "us": 105.23528338429362,
+    "us_min": 105.00294999170971,
+    "us_max": 107.10425000676575,
+    "tflops": 10.203249228483154,
+    "bitexact": false,
+    "maxdiff": 0.5,
+    "clock": {
+     "samples": 0,
+     "attributable": false
+    }
+   },
+   "r3_hifi_reusecfg": {
+    "us": 105.95141666271957,
+    "us_min": 105.85659996043735,
+    "us_max": 108.38954998083257,
+    "tflops": 10.134284729935194,
+    "bitexact": false,
+    "maxdiff": 0.5,
+    "clock": {
+     "samples": 0,
+     "attributable": false
+    }
+   }
+  },
+  "QKt": {
+   "shipped_r4_hifi": {
+    "us": 572.9062833779608,
+    "us_min": 572.6629666848263,
+    "us_max": 573.571950008045,
+    "tflops": 1.8742015145461852,
+    "bitexact": true,
+    "maxdiff": 0.0,
+    "clock": {
+     "samples": 0,
+     "attributable": false
+    }
+   },
+   "r3_hifi": {
+    "us": 573.3229500037851,
+    "us_min": 572.8246166351406,
+    "us_max": 574.7974166903683,
+    "tflops": 1.872839424957454,
+    "bitexact": true,
+    "maxdiff": 0.0,
+    "clock": {
+     "samples": 0,
+     "attributable": false
+    }
+   },
+   "r4_default": {
+    "us": 558.3743499907239,
+    "us_min": 557.2641999606276,
+    "us_max": 559.3978333611934,
+    "tflops": 1.9229784176472968,
+    "bitexact": false,
+    "maxdiff": 0.25,
+    "clock": {
+     "samples": 0,
+     "attributable": false
+    }
+   },
+   "r4_lofi": {
+    "us": 551.4382999535883,
+    "us_min": 550.306149974252,
+    "us_max": 552.3717833057162,
+    "tflops": 1.947165846279396,
+    "bitexact": false,
+    "maxdiff": 1.125,
+    "clock": {
+     "samples": 0,
+     "attributable": false
+    }
+   }
+  },
+  "dV_PtdO": {
+   "shipped_r4_hifi": {
+    "us": 1084.4215667020762,
+    "us_min": 1084.2470666830195,
+    "us_max": 1085.1393833339291,
+    "tflops": 0.990151668843552,
+    "bitexact": true,
+    "maxdiff": 0.0,
+    "clock": {
+     "samples": 0,
+     "attributable": false
+    }
+   },
+   "r3_hifi": {
+    "us": 1086.0595333118301,
+    "us_min": 1085.8567166602975,
+    "us_max": 1086.1340333576663,
+    "tflops": 0.9886583479689474,
+    "bitexact": true,
+    "maxdiff": 0.0,
+    "clock": {
+     "samples": 0,
+     "attributable": false
+    }
+   },
+   "r4_default": {
+    "us": 1037.5528333800805,
+    "us_min": 1037.303350009703,
+    "us_max": 1037.7696666788931,
+    "tflops": 1.0348791786361617,
+    "bitexact": false,
+    "maxdiff": 0.75,
+    "clock": {
+     "samples": 0,
+     "attributable": false
+    }
+   },
+   "r4_lofi": {
+    "us": 1029.1794833392487,
+    "us_min": 1029.0826333099783,
+    "us_max": 1029.6453000288843,
+    "tflops": 1.043298901097567,
+    "bitexact": false,
+    "maxdiff": 1.75,
+    "clock": {
+     "samples": 0,
+     "attributable": false
+    }
+   }
+  }
+ },
+ "clock_meta": {
+  "device_counts": [
+   1
+  ],
+  "failures": 0,
+  "total_samples": 5,
+  "poll_s": 1.0
+ }
+}

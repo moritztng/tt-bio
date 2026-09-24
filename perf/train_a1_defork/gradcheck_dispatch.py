@@ -96,6 +96,8 @@ MASK_BAR = 0.99
 # "eltwise" means eltwise ALL THE WAY DOWN, not an eltwise forward.
 CLASS = {
     ("linear", "x"): "reduction", ("linear", "w"): "reduction", ("linear", "b"): "reduction",
+    ("linear3d", "x"): "reduction", ("linear3d", "w"): "reduction",
+    ("linear3d", "b"): "reduction",
     ("linear_nobias", "x"): "reduction", ("linear_nobias", "w"): "reduction",
     ("linear_silu", "x"): "reduction", ("linear_silu", "w"): "reduction",
     ("linear_silu", "b"): "reduction",
@@ -123,7 +125,9 @@ def build(name, rng):
         return {"a": rng.standard_normal((64, 128)), "b": rng.standard_normal((64, 128))}
     if name in ("sigmoid", "silu"):
         return {"x": rng.standard_normal((64, 128))}
-    t = GC.case_linear(rng)
+    # A rank-3 input is what a pair module hands its linears, and it is the shape whose dX the
+    # installed linear runs on the rows view.
+    t = GC.case_linear3d(rng) if name == "linear3d" else GC.case_linear(rng)
     if name == "linear_nobias":
         t.pop("b")
     return t
