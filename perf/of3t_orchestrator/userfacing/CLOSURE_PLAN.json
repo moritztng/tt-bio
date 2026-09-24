@@ -6,29 +6,33 @@
    "D205",
    "D250"
   ],
-  "MERGE": [
-   "D10",
-   "D24",
-   "D184"
-  ],
+  "MERGE": [],
   "RELEASE": [
    "D210"
+  ],
+  "ON_MAIN": [
+   "D10",
+   "D24",
+   "D264"
+  ],
+  "TRAINING_ROUTE": [
+   "D184"
   ]
  },
  "plan": {
   "D10": {
    "asked": "belongs in the same merge question as D184 and D126: built, measured, release-gated, waiting only on Moritz",
-   "closes_when": "the repaired rule merges. It is BUILT and MEASURED end to end through the production CLI -- what is left is a merge, which is Moritz's gate and not this campaign's",
+   "closes_when": "the repaired rule merges. It is BUILT and MEASURED end to end through the production CLI -- what is left is a merge, which is Moritz's gate and not this campaign's | 2026-09-24 (land-standing handback, checked against origin/main 6ea518246): closed. On main by content since e7f44de53: frame-mask pTM rule at tt_bio/openfold3_fold.py:271-286.",
    "evidence_held": "`of3t-confhead`, 1UBQ, production CLI, 200 sampling steps, arms interleaved, p300c at AICLK 1350 sampled during, nine ship-arm seeds and eight fix-arm seeds over a 28-pair seed floor, read from perf/of3t_confhead/analyze.json at 5588d889a rather than from the row's prose. Served rank-0 CA-RMSD: shipped 0.775 A, D10 alone 0.760 A, best-of-5 0.679 A in both. **The 0.015 A the fix gains is well inside the 0.226 A seed floor**, which is why the entry says D10 ships as a CORRECTNESS fix with NO ACCURACY CLAIM. D1 alone serves 1.201 A and D1+D10 0.924 A, so D1 does not ship",
-   "needs": "MERGE",
+   "needs": "ON_MAIN",
    "one_line": "the confidence head mis-ranks diffusion samples on the shipped selector, so the served structure is not the best of the five",
    "would_a_row_help": false
   },
   "D184": {
    "asked": "not yet asked. It belongs with D126 in one merge question rather than as a separate ask: both are built, measured, release-gated and waiting only on Moritz",
-   "closes_when": "REWRITTEN pass 363: not the flag. `of3t-covdefault` NO-GO'd flipping it (+198.476 ms cold / +50.231 ms warm on openfold3) and `of3t-refcov` then reached those gradients WITHOUT it -- `git diff -- tt_bio/` empty, the arm constructing RefAtomFeatureEmbedder directly -- taking coverage to 99.50523155277438 %. The symbol does not exist on origin/main at all. What is left is the narrower true statement that on the shipped inference default those seventeen parameters receive no gradient, which matters to TRAINING and not to a user's fold; it closes when a shipped training route reaches them. Superseded text: `of3t-hostleg` wired both legs and measured them: the `all` arm reads mass-weighted rel_l2 0.05013681 against float64 over the seventeen, 6 of 17 over the 5.0e-02 per-tensor bar, worst 1.175005e-01, and its inference default is byte-identical to the base tree on both models that execute the changed path. Nothing further is measurable until it lands",
+   "closes_when": "REWRITTEN pass 363: not the flag. `of3t-covdefault` NO-GO'd flipping it (+198.476 ms cold / +50.231 ms warm on openfold3) and `of3t-refcov` then reached those gradients WITHOUT it -- `git diff -- tt_bio/` empty, the arm constructing RefAtomFeatureEmbedder directly -- taking coverage to 99.50523155277438 %. The symbol does not exist on origin/main at all. What is left is the narrower true statement that on the shipped inference default those seventeen parameters receive no gradient, which matters to TRAINING and not to a user's fold; it closes when a shipped training route reaches them. Superseded text: `of3t-hostleg` wired both legs and measured them: the `all` arm reads mass-weighted rel_l2 0.05013681 against float64 over the seventeen, 6 of 17 over the 5.0e-02 per-tensor bar, worst 1.175005e-01, and its inference default is byte-identical to the base tree on both models that execute the changed path. Nothing further is measurable until it lands | 2026-09-24 (land-standing handback, checked against origin/main 6ea518246): not a merge: TT_BIO_OF3_DEVICE_REFATOM is absent from main, of3t-covdefault NO-GO'd it; closes through the training adapter. A user's fold is unaffected.",
    "evidence_held": "the shipped arm reads rel_l2 exactly 1.00000000 on all seventeen -- the A16 zero-model signature, so the default computes no gradient for them at all. The arm ladder is shipped 1.00000000, refatom 0.71215816, all 0.05013681, break 0.82521107. CORRECTED at pass 358 (D212): this field said landing the flag takes GRADIENTS' coverage to 99.50523155277438 %, crediting all seventeen. `of3t-covdefault` measured the key-set diff and the flag reaches EIGHT -- 97.98499306866148 % + 0.7530394291090192 = 98.73803249777050 %, which is 0.52 points SHORT of the 99.2594 % bar. The other nine cannot enter the reading at all: `input_embedder` reads n_compared 0 of 98 in the boundary artifact. And the flag is now a measured inference regression (+198.476 ms cold, +50.231 ms warm on openfold3), so the coverage route does not run through it -- it runs through the TRAINING ADAPTER, which `tt_bio/train/` confines to training by construction. Row `of3t-refcov`",
-   "needs": "MERGE",
+   "needs": "TRAINING_ROUTE",
    "one_line": "seventeen parameters get no gradient at all on the shipped default; the fix is built, measured and default-off",
    "would_a_row_help": false
   },
@@ -50,9 +54,9 @@
   },
   "D24": {
    "asked": "not yet asked. The complex-side measurement has no owner",
-   "closes_when": "the ipTM->pTM fallback the other four models carry is given to OpenFold3 and merged. **It is measured to change nothing a single-chain user is served** and it is still the right consistency change for complexes, so what closes it is a merge plus one measurement on a COMPLEX, where the terms are not degenerate",
+   "closes_when": "the ipTM->pTM fallback the other four models carry is given to OpenFold3 and merged. **It is measured to change nothing a single-chain user is served** and it is still the right consistency change for complexes, so what closes it is a merge plus one measurement on a COMPLEX, where the terms are not degenerate | 2026-09-24 (land-standing handback, checked against origin/main 6ea518246): merged by content since e7f44de53; OpenFold3 ranks through tt_bio/ranking.py:ranking_score (no-interface fallback). The complex-side reading is a measurement, not a merge.",
    "evidence_held": "machine-checked in perf/of3t_confhead/rank_rule.py on the shipped default, independent of D1. On ubiquitin the rule reduces one step further than filed: `disorder` reads 0.0 on all five samples -- a compact 76-residue fold never pushes a 25-residue smoothed RASA window past the 0.581 threshold -- so every rank_score is 0.2*pTM to the last digit. With iptm = 0 and disorder = 0 the shipped, family, no_disorder and ptm rules all reduce to a POSITIVE MULTIPLE of pTM, and a positive multiple cannot change an ordering: rules.py puts all four on identical served RMSDs, sample for sample. So the heading's 'affects every monomer fold shipped today' is true of the RULE and not of the STRUCTURE a monomer user receives. It stays USER-FACING: the shipped selector is degenerate and that is a real defect; what the measurement bounds is its consequence, not its existence. `disorder = 0` is a property of a compact 76-residue monomer, not of monomers, so a larger or genuinely disordered single chain is unmeasured",
-   "needs": "MERGE",
+   "needs": "ON_MAIN",
    "one_line": "on a single chain OpenFold3's ranking rule has two of its four terms identically zero, and it is the only model of five that leaves it unhandled",
    "would_a_row_help": true
   },
