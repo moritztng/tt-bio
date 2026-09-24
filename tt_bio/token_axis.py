@@ -244,6 +244,31 @@ TOKEN_AXIS = {
         "The two routes a padded token could reach a real one are the DiT attention keys, "
         "closed by the structural_pair_attn_bias slot, and S, closed by zero columns",
     ),
+    # AF2-IG runs RAGGED, and it is the one row here whose bucket is not a mechanical change.
+    # Where it reduces: both triangle attentions and the MSA row attention go through
+    # `tenstorrent._fp32_softmax_attention` (af2.py sets `fp32_softmax=True` on all three), the
+    # MSA column attention writes its own `ttnn.softmax` with a compute kernel config, and the
+    # fused SDPA is reached only when `TT_BIO_TRIATT_FUSED_HIFI` is set, which is env_flag(...,
+    # False) and which nothing in the engine or the platform sets. So every ragged reduce af2ig
+    # runs today lands on a primitive that masks its own tile tail. That is the IMMUNE-by-route
+    # argument and it is NOT a census: the counters this table asks for come from
+    # tests/token_axis_probe.py on a card, and this row was wired on a cpu dispatch.
+    # Why it cannot simply be padded, which is the part worth reading before someone tries:
+    # `af2.AF2Attention.__call__` asserts `msa_mask is None` ("a masked AF2 MSA is not wired
+    # up"), and the whole port rests on that -- af2_data builds `msa_mask` all-ones and af2.py
+    # therefore never builds AF2's `1e9 * (msa_mask - 1)` logit bias. Padding the token axis
+    # gives those attentions padded columns with no bias to suppress them, over a LONGER logical
+    # axis, which is exactly the contamination the bucket exists to prevent. So bucketing af2ig
+    # means wiring the mask path first, and that is a trunk change whose A/A control (bit-exact
+    # at an aligned N) needs a device.
+    "af2ig": (
+        UNCENSUSED, None,
+        "nowhere yet: af2.py pads no token axis. The reduces are the two triangle attentions "
+        "tt_bio/af2.py::AF2PairBlock builds and tt_bio/af2.py::AF2Attention (row and column), "
+        "all via tt_bio/tenstorrent.py::_fp32_softmax_attention except the column path's own "
+        "ttnn.softmax",
+        "cmp-af2ig-bucket",
+    ),
     "nesso1": (
         BUCKETED, TOKEN_BUCKET,
         "nesso1.py routes both trunk stacks through tenstorrent.PairformerModule / "

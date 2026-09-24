@@ -210,6 +210,14 @@ EXEMPT = {
     "pxdesign": "design, not a fold: sized on DESIGN_TARGET from a target STRUCTURE, so it needs a "
                 "1536-residue PDB rather than a sequence. The shipped ladder's own fixture source "
                 "(1DP0 chain A, 1011 residues) cannot reach the bar either.",
+    "af2ig":    "not a folder this gate can hand a sequence to: AF2-IG re-predicts a complex you "
+                "already designed, so its input is a target structure plus the binder's backbone "
+                "and sequence, and the polymer-sequence fixture here is not a valid input at any "
+                "bar. Its cell wants a designed complex walked up a ladder, which is a fixture of "
+                "its own -- the same shape pxdesign and rfd3 need above. What is on record today "
+                "is folds at 208, 336, 592 and 848 tokens on a p150a "
+                "(scripts/af2_port/fold_timing.py, perf/pxdesign), and no ladder walked to a "
+                "failure on either board.",
     "nesso1":   "affinity, and the roster's only such model: it is handed a protein AND a ligand, "
                 "and this gate's fixture is polymer-only by construction, so its batch builder "
                 "refuses the input outright with 'No protein or ligand tokens found in the batch'. "
