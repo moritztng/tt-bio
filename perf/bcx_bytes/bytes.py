@@ -470,6 +470,8 @@ class Arms:
       chunk the shipped taped triangle-attention blocking: the L1 plan's rows, which
             `tenstorrent.py` no longer applies under a tape (`shard_for` refuses the shard there),
             pinned back through `_FP32_SOFTMAX_DRAM_ROW_CAP`, which does apply
+      bf16res  every trunk residual as the plain bf16 `ttnn.add_` instead of the fp32 round trip
+            `AF2PairBlock.rne_residual` takes for torch-bf16 bit parity: a precision arm
     An arm is `+`-joined switches on top of the lever arm `--arm` (e.g. `base`, `perm+tri`).
     """
 
@@ -531,6 +533,8 @@ class Arms:
         sw = set(name.split("+")) - {"base"}
         self.perm = "perm" in sw
         self.chunk = "chunk" in sw
+        from tt_bio import af2
+        af2.AF2PairBlock.rne_residual = "bf16res" not in sw
         for key in self.pinned:
             self.tn._FP32_SOFTMAX_DRAM_ROW_CAP.pop(key, None)
         self.pinned.clear()
@@ -726,7 +730,7 @@ def cmd_whole(args):
 
         def arm(name):
             parts = name.split("+")
-            mine = [p for p in parts if p in ("chunk", "perm")]
+            mine = [p for p in parts if p in ("chunk", "perm", "bf16res")]
             lever("+".join(p for p in parts if p not in mine))
             arms_.set("+".join(mine) or "base")
 
