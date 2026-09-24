@@ -123,6 +123,15 @@ both are worse than the same window at 512 by a margin the sample sizes separate
 where quality falls is somewhere between 512 and 1024, and 512 is the largest extent measured
 to work.
 
+**If your target has several chains, crop to one of them before you crop by residue count.**
+GroEL's chains are about 524 residues, so every GroEL crop above 512 in the table also pulls in
+a second chain, and the two cells that refold are exactly the two that are essentially a single
+chain. The two effects can be separated on 1GPB, whose chains are about 1008 residues, and there
+it was the chain that mattered: stretching one chain out to 823 residues cost 3.3 A and did not
+separate from the spread between designs, while adding the second chain at the same extent cost
+14.8 A and did. So a 700-residue single-chain target is probably fine as it is, and two
+300-residue chains are worth trying one at a time even though the total is small.
+
 Which window you pick matters on one of these targets and not the other. At 512 residues it
 swings 1GPB by 13 A and moves GroEL by under 1 A. It is not safe to read that as "window does
 not matter on easy targets": the same two GroEL windows differ by 5.7 A at 1024, where one has
