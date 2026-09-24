@@ -77,8 +77,13 @@ effect:
 **The last row is the one to read.** The stock package, on a CPU, in fp32, returns the same
 quality on the same target. It is one design, and that number is not reproducible: repeating
 the same refold of the same design with the same config gave 7.17 A and 11.04 A. So read the
-row as "the same level", never as an ordering — on this target the device's nine designs
+row as "the same level", never as an ordering. On this target the device's nine designs
 span 3.30 to 13.78 A and both upstream readings fall inside that.
+
+The same check on the 1GPB dimer window below, where the two sides ran the byte-identical
+target file and the same spec: upstream returns 11.4 A on its one design where the device's
+eight read a median of 4.7 A, worse than seven of the eight. One upstream draw cannot order
+the two sides either way, but nothing measured so far says the card is the weaker one.
 
 So the number to act on is the target, not the card: crop to the surface you actually want
 bound. A 120-residue target is a different problem from a
