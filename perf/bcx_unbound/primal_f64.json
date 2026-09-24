@@ -15,71 +15,102 @@
   128
  ],
  "capture": "bindcraft/af/alphafold/model/modules.py evoformer_fn, during predict",
- "device_s": 3.5,
+ "device_s": 89.4,
  "aiclk_during": {
-  "n": 12,
+  "n": 40,
   "min": 1350,
   "median": 1350,
   "max": 1350
  },
- "f64_block_s": 9.2,
- "f64_blocks_graded": 45,
- "f64_s": 436.3,
+ "f64_block_s": 6.6,
+ "f64_blocks_graded": 48,
+ "f64_s": 337.5,
  "ref_f64": {
-  "msa_norm": 7738.614799301017,
-  "pair_norm": 51068.72763197689
+  "msa_norm": 4347.047521826385,
+  "pair_norm": 43849.8464678897
  },
- "bf16_s": 109.2,
+ "bf16_s": 117.1,
  "ref_bf16": {
-  "msa_norm": 7758.332299129691,
-  "pair_norm": 51044.913786221245
+  "msa_norm": 4381.7771501454645,
+  "pair_norm": 43853.612289630495
  },
- "prefix_only": "45 of 48 blocks: the f64 arm did not fit the budget, so both arms stop at the same block and the whole-stack device output is not compared against a partial reference",
  "device_vs_f64": {
   "msa": {
-   "rel_l2": 0.022483837130473854,
-   "cos": 0.9997477460803762,
-   "max_abs": 20.111300134275695,
-   "norm_ref": 7738.614799300995,
-   "norm_other": 7728.6252478801825
+   "rel_l2": 0.03965002767381035,
+   "cos": 0.99925003297579,
+   "max_abs": 16.283395769124837,
+   "norm_ref": 4347.0475218263855,
+   "norm_other": 4380.865706474005
   },
   "pair": {
-   "rel_l2": 0.020801066204033915,
-   "cos": 0.9997852553248883,
-   "max_abs": 44.541332901480814,
-   "norm_ref": 51068.72763197713,
-   "norm_other": 50965.82129429754
+   "rel_l2": 0.021817282917774024,
+   "cos": 0.999763098324418,
+   "max_abs": 41.08609718730304,
+   "norm_ref": 43849.846467890115,
+   "norm_other": 43773.73323598234
   }
  },
  "host_bf16_vs_f64": {
   "msa": {
-   "rel_l2": 0.019215985520016344,
-   "cos": 0.9998190799135975,
-   "max_abs": 20.111300134275695,
-   "norm_ref": 7738.614799300995,
-   "norm_other": 7758.332299129691
+   "rel_l2": 0.033808055266852356,
+   "cos": 0.9994646983744632,
+   "max_abs": 15.283395769124837,
+   "norm_ref": 4347.0475218263855,
+   "norm_other": 4381.7771501454645
   },
   "pair": {
-   "rel_l2": 0.018275678107246257,
-   "cos": 0.9998330306578204,
-   "max_abs": 44.541332901480814,
-   "norm_ref": 51068.72763197713,
-   "norm_other": 51044.91378622126
+   "rel_l2": 0.019604716462973393,
+   "cos": 0.9998078477359074,
+   "max_abs": 44.97410365337237,
+   "norm_ref": 43849.846467890115,
+   "norm_other": 43853.6122896305
+  }
+ },
+ "bc2_jax_vs_f64": {
+  "msa": {
+   "rel_l2": 0.035364454031988075,
+   "cos": 0.9994283174501468,
+   "max_abs": 16.283395769124837,
+   "norm_ref": 4347.0475218263855,
+   "norm_other": 4389.65582345135
+  },
+  "pair": {
+   "rel_l2": 0.017773300709594157,
+   "cos": 0.9998421579072738,
+   "max_abs": 33.64596454057721,
+   "norm_ref": 43849.846467890115,
+   "norm_other": 43863.99800342789
+  }
+ },
+ "device_vs_bc2_jax": {
+  "msa": {
+   "rel_l2": 0.029115457901409646,
+   "cos": 0.9995773035483236,
+   "max_abs": 12.5,
+   "norm_ref": 4389.65582345135,
+   "norm_other": 4380.865706474005
+  },
+  "pair": {
+   "rel_l2": 0.023040599627272278,
+   "cos": 0.999736139741769,
+   "max_abs": 40.0,
+   "norm_ref": 43863.99800342789,
+   "norm_other": 43773.73323598234
   }
  },
  "stamp": {
   "host": "tt-quietbox",
   "card": 0,
   "subsystem_device": "0x0040",
-  "commit": "5d3cb147fae0ebd1b9e0f99b805a722a42b7e6a9",
+  "commit": "cee6311d4ae0ad8d50a1155335c0333e2a9cf203",
   "tt_bio_dirty": false,
-  "torch_threads": 6,
+  "torch_threads": 16,
   "loadavg": [
-   57.23974609375,
-   62.25146484375,
-   63.35302734375
+   74.3046875,
+   60.533203125,
+   53.9375
   ],
-  "utc": "2026-09-24T21:03:17Z"
+  "utc": "2026-09-24T21:31:31Z"
  },
  "sysfs_node": [
   "/sys/class/tenstorrent/tenstorrent!1",
