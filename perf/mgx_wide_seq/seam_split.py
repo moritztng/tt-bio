@@ -52,6 +52,10 @@ def _wrap_xfer(mod, name, direction, size_of):
         t0 = time.perf_counter()
         out = f(*a, **kw)
         c = XFER[direction]
+        pc = XFER[f"{direction}@{_STACK[-1] if _STACK else '-'}"]
+        pc[0] += 1
+        pc[1] += size_of(a, out)
+        pc[2] += time.perf_counter() - t0
         c[0] += 1
         c[1] += size_of(a, out)
         c[2] += time.perf_counter() - t0
