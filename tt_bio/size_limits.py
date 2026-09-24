@@ -513,8 +513,13 @@ CEILINGS: dict[str, dict[str, Ceiling]] = {
     "protenix-v2": {
         "wormhole_b0": Ceiling(
             residues=1792, pass_at=1792, fail_at=1920, binds=MEMORY,
-            mechanism=FRAGMENTATION, msa_rows=8192, ladder_ligand_atoms=0,
-            evidence="1792 folds on origin/main a102dfb5c (mgx-bigalloc merged; the later "
+            mechanism=FRAGMENTATION, msa_rows=16384, ladder_ligand_atoms=0,
+            evidence="At 16384 rows, the depth the featurizer now reads, 1664 and 1792 fold on origin/main "
+                     "811ac1316, j10glx02 card 16, 2026-09-24, guard off, --host_threads 2: 1664 PASS "
+                     "in 3079.8 s, 1792 PASS in 3340.3 s (22 refused allocations recovered), AICLK "
+                     "median 1000 MHz during each fold, msa_depth 16384 in results.json, pLDDT 0.723 "
+                     "and 0.713, no CA-CA break. "
+                     "1792 folds on origin/main a102dfb5c (mgx-bigalloc merged; the later "
                      "c5b346679 adds only ESMC/SaProt masks and perf/, neither reaches protenix-v2), "
                      "j10glx02 card 29, 2026-09-23, guard off, --host_threads 2, 8192 rows: PASS "
                      "in 2623.4 s, AICLK median 1000 MHz over 251 samples during the fold, pLDDT "
@@ -545,8 +550,7 @@ CEILINGS: dict[str, dict[str, Ceiling]] = {
                      "sampled DURING the fold, two DRAM refusals absorbed; 1280 and 1536 fold at "
                      "16384 too (1803 s, 2574 s, chip 2, 3f10800fd). Before the block-0 OPM "
                      "fallback the 1280-token 2ad6 fold at 14743 rows died on a 160 MiB OPM depth "
-                     "slice with a 10.0 MiB largest free block. Nothing above 1536 was walked at 16384, so msa_rows names the 8192 the "
-                     "1792 cap was walked at",
+                     "slice with a 10.0 MiB largest free block. The 1792 cap was then re-walked at 16384 (first sentence)",
         ),
     },
     "rfd3": {
