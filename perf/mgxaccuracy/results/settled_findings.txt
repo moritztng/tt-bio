@@ -90,3 +90,25 @@ Both rungs launched there against a reference whose package pin, HF revision, we
 fixtures were checked against qb2's first (`results/upstream_groel_whglx.txt`). Corroboration,
 not the deciding test: `plans/closing_rule.txt` §4 stays pre-registered on the qb2 1GPB pair.
 
+
+WHAT "SIZE" MEANS IN THIS ROW, moved out of the state doc header
+=================================================================
+
+TARGET residues at a FIXED 80-residue binder. Every boltzgen cell in this row holds the binder
+at 80, so the binder's share of the token axis falls from 13.5% at 512 tokens to 5.0% at 1536
+as the target grows. Those two move together in every cell and the row has never separated
+them.
+
+It scopes the claim rather than weakening any comparison:
+
+  - The METRIC is unaffected. `designfolding-bb_rmsd` is an 80-residue backbone RMSD at every
+    rung, so it is not measuring a bigger object at a bigger size.
+  - The FAS CONTROL is unaffected. It holds the binder at 80 exactly as GroEL and 1GPB did, so
+    the chain-vs-residues comparison is not confounded by it.
+
+The only place a different binder appears anywhere in the row is pxdesign's 1224-token
+production case, which uses 200 residues and is already flagged in
+`results/pxdesign_size_ladder.txt` as a different configuration and NOT a rung.
+
+`docs/design-throughput.md` states the 80-residue binder to the user, so nobody reads the crop
+advice as covering a longer one.
