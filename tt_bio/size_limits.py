@@ -763,9 +763,17 @@ CEILINGS: dict[str, dict[str, Ceiling]] = {
     },
     "protenix-v1": {
         "wormhole_b0": Ceiling(
-            residues=1920, pass_at=1920, fail_at=2048, binds=MEMORY, mechanism=FRAGMENTATION,
+            residues=2048, pass_at=2048, fail_at=None, binds=LADDER_TOP, mechanism=NO_FAILURE,
             msa_rows=8192,
-            evidence="walked 2026-09-23 on origin/main cec7979b1 (pair-residency merged), "
+            evidence="2048 folds on origin/main c5b346679 (mgx-bigalloc parks the DiT pair bias, "
+                     "the allocation that failed 2048 below), j10glx02 card 29, 2026-09-24, guard "
+                     "off, --host_threads 2, 8192 rows: PASS in 1021.0 s, AICLK median 1000 MHz "
+                     "over 97 samples during the fold, 2 refused allocations recovered (the largest "
+                     "4294967296 B). pLDDT 45.3, 6 CA-CA gaps over 4.2 A and 7 non-adjacent CA pairs "
+                     "under 3 A on the tiled apo fixture, inside the band the published rungs carry "
+                     "(1536: 48.2, 0 and 23; 1920: 47.2, 17 and 19). LADDER_TOP because 2048 is "
+                     "the top of this row's walk; nothing above it was run. Before bigalloc: "
+                     "walked 2026-09-23 on origin/main cec7979b1 (pair-residency merged), "
                      "j10glx02 card 31, guard off, --host_threads 2, apo CDK2 tiled with 8192 "
                      "alignment rows (ws:mgx-ceilings, perf/mgxceil). 1664 folds in 738.6 s, "
                      "1792 in 960.3 s and 1920 in 999.0 s, AICLK median 1000 MHz sampled during "

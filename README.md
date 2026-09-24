@@ -135,7 +135,7 @@ walked with the settings the platform sends:
 | `esmfold2` | 1664 (residues; a ligand adds tokens) | 1792 |
 | `esmfold2-fast` | 1664 (residues; a ligand adds tokens) | 1792 |
 | `rf3` | 1600 | 1664 |
-| `protenix-v1` | 1920 | 2048 |
+| `protenix-v1` | 2048 | none found; top of the ladder |
 | `rfd3` | 1536 (motif + designed) | none found; top of the ladder |
 | `boltzgen` | 14786 (atoms in the target) | none found; top of the ladder |
 | `esmc-6b` (embed) | 1968; 8192 with `--fast` | 1984 |

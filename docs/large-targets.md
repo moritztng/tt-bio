@@ -118,14 +118,15 @@ the models reach, so Blackhole never changes path.
 
 ## What stops each model above 1024 on a Galaxy chip
 
-Walked on one j10glx02 chip with an 8192-row alignment (OpenFold3 at 14190), the first failure
-of every model that clears 1536 is a single pair-sized allocation that no free block on the chip
-can hold:
+Walked on one j10glx02 chip with an 8192-row alignment (OpenFold3 at 14190) up to 2048, every
+first failure above 1536 is a single pair-sized allocation that no free block on the chip can
+hold:
 
 - `boltz2` folds 1920 and fails at 2048 in the diffusion cache, one 3.0 GiB tensor with 55 % of
   the chip free but no block large enough.
-- `protenix-v1` folds 1920 and fails at 2048 in the diffusion transformer's attention bias, with
-  enough memory free but no block large enough.
+- `protenix-v1` folds 2048, the top of the ladder, since the diffusion transformer's pair bias
+  waits on the host. Before that it failed at 2048 on that bias, with enough memory free but no
+  block large enough.
 - `protenix-v2` folds 1792 since the pair path row-blocks an allocation the chip refuses, and
   fails at 1920 in the MSA module's outer product mean, with 97 % of the chip in use and the
   largest free block 1280 bytes per bank too small. Before the row blocking it failed at 1792 in
