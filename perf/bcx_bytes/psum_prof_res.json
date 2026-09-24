@@ -1,0 +1,209 @@
+{
+ "report": "/dev/shm/bcx-by-prof/reports/2026_09_24_13_13_46/ops_perf_results_2026_09_24_13_13_46.csv",
+ "points": {
+  "base evo n=256": {
+   "ms": [
+    132.262,
+    131.956
+   ],
+   "ops": [
+    851,
+    851
+   ],
+   "median_ms": 132.10930949999997,
+   "by_class_ms": {
+    "eltwise": 45.104,
+    "layernorm": 0.91,
+    "layout": 58.778,
+    "matmul": 18.262,
+    "other": 0.115,
+    "reduction": 6.098,
+    "softmax": 2.843
+   }
+  },
+  "base extra n=256": {
+   "ms": [
+    115.941,
+    116.029
+   ],
+   "ops": [
+    563,
+    563
+   ],
+   "median_ms": 115.985128,
+   "by_class_ms": {
+    "eltwise": 42.964,
+    "layernorm": 0.733,
+    "layout": 50.149,
+    "matmul": 13.548,
+    "other": 0.115,
+    "reduction": 5.685,
+    "softmax": 2.791
+   }
+  },
+  "bf16res evo n=256": {
+   "ms": [
+    126.972,
+    126.957
+   ],
+   "ops": [
+    797,
+    797
+   ],
+   "median_ms": 126.96428450000002,
+   "by_class_ms": {
+    "eltwise": 44.388,
+    "layernorm": 0.915,
+    "layout": 54.324,
+    "matmul": 18.27,
+    "other": 0.115,
+    "reduction": 6.093,
+    "softmax": 2.86
+   },
+   "moved_vs_base": [
+    [
+     4.48,
+     "TypecastDeviceOperation [1, 256, 256, 128] cores=110"
+    ],
+    [
+     0.724,
+     "BinaryNgDeviceOperation [1, 256, 256, 128] cores=110"
+    ],
+    [
+     0.143,
+     "PermuteDeviceOperation [1, 64, 256, 256] cores=110"
+    ],
+    [
+     -0.052,
+     "MatmulDeviceOperation [1, 1, 65536, 1024] cores=108"
+    ],
+    [
+     0.038,
+     "TypecastDeviceOperation [1, 1, 256, 256] cores=64"
+    ],
+    [
+     0.038,
+     "UnaryDeviceOperation [1, 256, 256, 128] cores=110"
+    ],
+    [
+     -0.029,
+     "PermuteDeviceOperation [256, 4, 256, 256] cores=110"
+    ],
+    [
+     -0.027,
+     "BinaryNgDeviceOperation [256, 1, 256, 384] cores=110"
+    ],
+    [
+     -0.024,
+     "SoftmaxDeviceOperation [256, 4, 256, 256] cores=110"
+    ],
+    [
+     0.02,
+     "TilizeDeviceOperation [1, 256, 1024, 256] cores=110"
+    ],
+    [
+     0.019,
+     "UnaryDeviceOperation [1, 256, 256, 64] cores=110"
+    ],
+    [
+     0.017,
+     "TransposeDeviceOperation [1, 256, 256, 1024] cores=110"
+    ],
+    [
+     -0.017,
+     "TilizeDeviceOperation [1, 1, 8192, 8192] cores=100"
+    ],
+    [
+     -0.012,
+     "MatmulDeviceOperation [256, 4, 256, 32] cores=110"
+    ],
+    [
+     0.011,
+     "MinimalMatmulDeviceOperation [1, 256, 256, 128] cores=110"
+    ]
+   ]
+  },
+  "bf16res extra n=256": {
+   "ms": [
+    110.553,
+    110.676
+   ],
+   "ops": [
+    528,
+    528
+   ],
+   "median_ms": 110.61456999999997,
+   "by_class_ms": {
+    "eltwise": 41.705,
+    "layernorm": 0.73,
+    "layout": 46.02,
+    "matmul": 13.568,
+    "other": 0.115,
+    "reduction": 5.689,
+    "softmax": 2.789
+   },
+   "moved_vs_base": [
+    [
+     4.239,
+     "TypecastDeviceOperation [1, 256, 256, 128] cores=110"
+    ],
+    [
+     1.292,
+     "BinaryNgDeviceOperation [1, 256, 256, 128] cores=110"
+    ],
+    [
+     -0.148,
+     "PermuteDeviceOperation [256, 4, 256, 256] cores=110"
+    ],
+    [
+     -0.049,
+     "MatmulDeviceOperation [1, 1, 65536, 512] cores=108"
+    ],
+    [
+     -0.039,
+     "MatmulDeviceOperation [1, 1, 65536, 384] cores=108"
+    ],
+    [
+     0.024,
+     "NlpCreateHeadsDeviceOperation [256, 1, 256, 384] cores=110"
+    ],
+    [
+     0.022,
+     "PermuteDeviceOperation [1, 256, 256, 64] cores=110"
+    ],
+    [
+     0.018,
+     "PermuteDeviceOperation [1, 64, 256, 256] cores=110"
+    ],
+    [
+     -0.015,
+     "ReduceDeviceOperation [256, 4, 256, 256] cores=110"
+    ],
+    [
+     0.015,
+     "UnaryDeviceOperation [1, 256, 256, 64] cores=110"
+    ],
+    [
+     0.014,
+     "MinimalMatmulDeviceOperation [1, 256, 256, 128] cores=110"
+    ],
+    [
+     0.012,
+     "MatmulDeviceOperation [256, 4, 256, 256] cores=110"
+    ],
+    [
+     0.01,
+     "TypecastDeviceOperation [256, 1, 256, 384] cores=110"
+    ],
+    [
+     0.01,
+     "TypecastDeviceOperation [256, 4, 256, 256] cores=110"
+    ],
+    [
+     -0.009,
+     "BinaryNgDeviceOperation [256, 1, 256, 384] cores=110"
+    ]
+   ]
+  }
+ }
+}

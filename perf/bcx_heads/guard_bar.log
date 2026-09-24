@@ -1,0 +1,10 @@
+=== preguard seed 0 start 2026-09-24T07:05:29Z load 5.21 5.68 5.26
+=== preguard seed 0 end 2026-09-24T07:07:46Z rc=0 not_allocated=0 tt_fatal=0
+=== guard seed 0 start 2026-09-24T07:07:46Z load 8.69 6.84 5.74
+=== guard seed 0 end 2026-09-24T07:10:03Z rc=0 not_allocated=0 tt_fatal=0
+=== guard seed 1 start 2026-09-24T07:10:03Z load 9.28 7.33 6.04
+=== guard seed 1 end 2026-09-24T07:12:21Z rc=0 not_allocated=0 tt_fatal=0
+=== guard seed 2 start 2026-09-24T07:12:21Z load 9.10 7.76 6.38
+=== guard seed 2 end 2026-09-24T07:14:47Z rc=0 not_allocated=0 tt_fatal=0
+=== guard seed 3 start 2026-09-24T07:14:47Z load 11.17 8.63 6.87
+=== guard seed 3 end 2026-09-24T07:17:14Z rc=0 not_allocated=0 tt_fatal=0

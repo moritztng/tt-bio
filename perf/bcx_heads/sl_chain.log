@@ -1,0 +1,44 @@
+=== SL_PRE start 2026-09-24T05:40:21Z tt-quietbox card 3 commit a005dda39 dirty=0 load 2.50 3.67 2.57
+[2039s] OUR GRADIENT: 2736 of 2736 of their tensors carry one, 0 absent
+{"arm": "flipped", "placed": 2736, "absent": 0, "s_norm": 5304813.324476078, "z_norm": 12562573.833680848, "seconds": 2040.9}
+{"lever": "none", "softmax_backward_firings": 0, "raw_ttnn_softmax_host_f64": {"fired": 0, "elements": 0}, "layer_norm_backward_reach": {"bw": 0, "dw": 0, "dx": 0, "dxcfg_applied": 0, "dx_fp32_applied": 0}, "seconds": 2040.9}
+STACK_EXACT {"exact": ["layer_norm", "softmax"], "installed": {"softmax_installed_inside_the_scope": true, "layer_norm_verb_is_ours": true}, "counters": {"softmax": {"verb": 5901, "raw": 1742, "raw_elements": 21856518144}, "layer_norm": {"verb": 2160, "raw": 720, "elements": 29047652352, "bw": 1296}}, "why_counters": "softmax: `verb` taped exact forward+Jacobian, `raw` the module-wide ttnn.softmax
+=== SL_PRE exit 0 elapsed 2045s 2026-09-24T06:14:26Z load 5.95 5.69 5.75
+no clock
+6c272a78ec4516dc58a7f0832fff34cc6bf4fcf76a601c5fe1a0c72d3e064335  /home/ttuser/.coworker/wt/bcx-heads/.of3t/out/dev_SL_PRE.pt
+/home/ttuser/.coworker/wt/bcx-heads/.of3t/out/dev_SL_PRE.pt 2736 tensors
+9723ed150 bcx-heads: the unified head verbs on of3t-stackexact (test tree)
+=== SL_POST start 2026-09-24T06:14:35Z tt-quietbox card 3 commit 9723ed150 dirty=0 load 5.43 5.59 5.72
+[1973s] OUR GRADIENT: 2736 of 2736 of their tensors carry one, 0 absent
+Traceback (most recent call last):
+RuntimeError: [enforce fail at inline_container.cc:858] . PytorchStreamWriter failed writing file data/2737: file write failed
+Traceback (most recent call last):
+RuntimeError: [enforce fail at inline_container.cc:664] . unexpected pos 1181154624 vs 1181154512
+=== SL_POST exit 1 elapsed 1979s 2026-09-24T06:47:34Z load 4.38 5.83 6.07
+no clock
+aa469531d6f2cb156664445fc4a0b70645baf9655f26fee80581eed885defe24  /home/ttuser/.coworker/wt/bcx-heads/.of3t/out/dev_SL_POST.pt
+tee: /home/ttuser/.coworker/wt/bcx-heads/perf/bcx_heads/sl/dev_SL_POST.sha256: No space left on device
+Traceback (most recent call last):
+  File "/home/ttuser/.coworker/wt/bcx-heads/perf/bcx_heads/ptdigest.py", line 45, in <module>
+    d = digest(sys.argv[1])
+  File "/home/ttuser/.coworker/wt/bcx-heads/perf/bcx_heads/ptdigest.py", line 25, in digest
+    g = grads(torch.load(path, map_location="cpu"))
+  File "/home/ttuser/tt-bio-dev/env/lib/python3.10/site-packages/torch/serialization.py", line 1491, in load
+    with _open_zipfile_reader(opened_file) as opened_zipfile:
+  File "/home/ttuser/tt-bio-dev/env/lib/python3.10/site-packages/torch/serialization.py", line 771, in __init__
+    super().__init__(torch._C.PyTorchFileReader(name_or_buffer))
+RuntimeError: PytorchStreamReader failed reading zip archive: failed finding central directory
+Traceback (most recent call last):
+  File "/home/ttuser/.coworker/wt/bcx-heads/perf/bcx_heads/ptdigest.py", line 38, in <module>
+    a, b = (json.load(open(p))["tensors"] for p in sys.argv[2:4])
+  File "/home/ttuser/.coworker/wt/bcx-heads/perf/bcx_heads/ptdigest.py", line 38, in <genexpr>
+    a, b = (json.load(open(p))["tensors"] for p in sys.argv[2:4])
+FileNotFoundError: [Errno 2] No such file or directory: 'digest_SL_POST.json'
+{"a": "digest_banked_SL.json", "b": "digest_SL_PRE.json", "a_n": 2736, "b_n": 2736, "common": 2736, "bit_identical": 2736, "differ": []}
+tee: cmp.jsonl: No space left on device
+Traceback (most recent call last):
+  File "/home/ttuser/.coworker/wt/bcx-heads/perf/bcx_heads/ptdigest.py", line 38, in <module>
+    a, b = (json.load(open(p))["tensors"] for p in sys.argv[2:4])
+  File "/home/ttuser/.coworker/wt/bcx-heads/perf/bcx_heads/ptdigest.py", line 38, in <genexpr>
+    a, b = (json.load(open(p))["tensors"] for p in sys.argv[2:4])
+FileNotFoundError: [Errno 2] No such file or directory: 'digest_SL_POST.json'

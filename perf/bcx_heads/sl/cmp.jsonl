@@ -1,0 +1,3 @@
+{"a": "digest_SL_PRE.json", "b": "digest_SL_POSTG.json", "a_n": 2736, "b_n": 2736, "common": 2736, "bit_identical": 2736, "differ": []}
+{"a": "digest_banked_SL.json", "b": "digest_SL_PRE.json", "a_n": 2736, "b_n": 2736, "common": 2736, "bit_identical": 2736, "differ": []}
+{"a": "digest_banked_SL.json", "b": "digest_SL_POSTG.json", "a_n": 2736, "b_n": 2736, "common": 2736, "bit_identical": 2736, "differ": []}

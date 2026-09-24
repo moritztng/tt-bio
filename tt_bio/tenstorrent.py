@@ -3787,7 +3787,11 @@ def _fp32_softmax_attention(
         # census rather than being inferred from a speedup.
         FP32_SOFTMAX_STATS["l1_free_walked"] += 1
     free = l1_cores != tuned_cores
-    if l1_rows:
+    # Under a tape `shard_for` refuses every shard, so an L1-sized block would buy no residency and
+    # pay a slice per operand, a concat, and in the backward a zero-padded gradient per slice. AF2
+    # at 256 tokens took three 81-row blocks and a 13-row tail per call for nothing. The byte
+    # budget above still bounds the block, and `_with_dram_narrowing` still narrows it on an OOM.
+    if l1_rows and not ops.taping():
         blk = min(blk, l1_rows)
         FP32_SOFTMAX_STATS["l1"] += 1
         FP32_SOFTMAX_STATS["l1_cores"] = l1_cores
