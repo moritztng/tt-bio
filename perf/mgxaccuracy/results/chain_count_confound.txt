@@ -137,3 +137,35 @@ One chain at every rung, including 768 and 1536, which are the cells no other ta
 row can produce. The 768 one is the confound's most directly comparable cell: GroEL collapsed
 at exactly that residue count with a second chain in the crop. Every GroEL and 1GPB cell at 1024 or 1536 has two or three chains; these have one.
 So whatever the FAS ladder reads, the residue axis is the only thing moving along it.
+
+THE WITHIN-TARGET CHAIN TEST IS NOT BUILDABLE WITH A CONTIGUOUS CROP, AND WAS NOT LAUNCHED
+---------------------------------------------------------------------------------------------
+
+2026-09-24 21:3xZ, with two cards free and 15 minutes of pass left, the obvious next experiment
+was a TWO-chain 768 crop of the SAME protein: FAS single-chain 768 against FAS two-chain 768
+holds target, size and binder fixed and moves only chain count, which is the clean test this
+whole file is about. It was built, checked, and NOT launched, because it does not pass the
+row's own validity criterion.
+
+`fas_dimer_3966.cif` (chains A+B of 2VZ8) is a real complex: min inter-chain atom distance
+2.31 A, 25,539 inter-chain edges under 22 A, ONE connected component over all 3966 residues,
+Rg 61.6 A. The whole assembly is fine. The 768-residue CROPS are not:
+
+    offset 1500   A 462, B 306    2 components [462, 306]    Rg 48.2 A
+    offset 1600   A 362, B 406    2 components [406, 362]    Rg 48.3 A
+    offset 1700   A 262, B 506    2 components [506, 262]    Rg 49.7 A
+
+Every contiguous window across the sequence boundary is DISCONNECTED under the 2-22 A graph.
+The A/B interface of this dimer is not at the sequence boundary, so a contiguous crop that
+contains residues from both chains does not contain the contact between them. A disconnected
+conditioning graph is what disqualified `perf/bhdesign/targets/big_1831.cif` and what got this
+row's first 1536 reference answer WITHDRAWN
+(`results/upstream_reference_wrong_fixture.txt`); running one here would have manufactured
+exactly the artefact the row already paid for once.
+
+WHAT WOULD BE NEEDED: a crop selected by interface proximity rather than by a contiguous
+`--crop-offset` window, which is a fixture construction neither `job.py` nor
+`make_contact_target.py` currently does. That is a real piece of work, not a rung, and it
+should be scoped rather than improvised. Until it exists, the chain-vs-residues question is
+answered only by the single-chain FAS ladder, where a 1536 cell is still the pre-registered
+decision.
