@@ -439,12 +439,21 @@ def cmd_grad(args):
             "bc2_pin": os.popen(f"git -C {BC2} rev-parse HEAD").read().strip(),
             "multimer_ckpt": MULTIMER, "seeds": {}}
 
+    name = args.out or f"grad_n{n}_e{ke}_v{kv}_{args.arm}.json"
+    sd_now = {}
+
+    def step():
+        """Write after every arm: an n=256 sweep must survive its own wall clock."""
+        blob["seeds"][str(sd_now.get("sd"))] = sd_now.get("out")
+        save(name, blob)
+
     torch.manual_seed(0)
     hybrid_step(dev, ref, vg32, torch.randn(n, 20) * 2.0, ridx, ke, kv, n)  # warm, discarded
     for sd in [int(s) for s in args.seeds.split(",")]:
         torch.manual_seed(sd)
         logits = torch.randn(n, 20) * 2.0
         out = {}
+        sd_now["sd"], sd_now["out"] = sd, out
         grads = {}
         if not args.skip_torch_f64:
             g64, l64, i64 = ref_step(ref, vg64, logits, ridx, ke, kv, "f64",
@@ -465,6 +474,7 @@ def cmd_grad(args):
             else:
                 # The grading reference is the all-JAX program itself.
                 g64, l64 = gj, float(lj)
+            step()
 
         gh, lh, th, ex = hybrid_step(dev, ref, vg32, logits, ridx, ke, kv, n, census=True)
         out["hybrid"] = {"loss": lh, "grad_norm": float(gh.norm()), "vs_f64": A.cmp(gh, g64),
@@ -475,14 +485,16 @@ def cmd_grad(args):
         grads["hybrid"] = gh
         if vgj is not None:
             out["hybrid"]["vs_jax_f64"] = A.cmp(gh, grads["jax_f64"])
+        step()
 
-        for arm in ("bf16", "f32"):
+        for arm in args.ref_arms.split(",") if args.ref_arms else ():
             ga, la, ia = ref_step(ref, vg32, logits, ridx, ke, kv, arm,
                                   torch.float32, np.float32)
             out[f"torch_{arm}"] = {"loss": la, "grad_norm": float(ga.norm()),
                                    "vs_f64": A.cmp(ga, g64),
                                    "norm_ratio": float(ga.norm() / g64.norm()), **ia}
             grads[f"torch_{arm}"] = ga
+            step()
 
         if not args.skip_torch_f64:
             gt, lt, _ = ref_step(ref, vg32, logits, ridx, ke, kv, "f64",
@@ -494,21 +506,26 @@ def cmd_grad(args):
             gz, _, _, _ = hybrid_step(dev, ref, vg32, logits, ridx, ke, kv, n, zero_seed=True)
             out["control_zero_seed"] = {"grad_norm": float(gz.norm()),
                                         "exactly_zero": bool(gz.abs().max() == 0)}
+            step()
             gpm, _, _, _ = hybrid_step(dev, ref, vg32, logits, ridx, ke, kv, n, permute=True)
             out["control_permuted"] = {"vs_f64": A.cmp(gpm, g64)}
             grads["permuted"] = gpm
+            step()
             gms, _, _, exm = hybrid_step(dev, ref, vg32, logits, ridx, ke, kv, n, seam="msa")
             out["control_msa_seam"] = {"grad_norm": float(gms.norm()),
                                        "vs_f64": A.cmp(gms, g64), "vs_hybrid": A.cmp(gms, gh),
                                        "msa_leaf_grad_norm": exm["msa_leaf_grad_norm"]}
+            step()
             for which in ("single", "pair"):
                 go, _, _, _ = hybrid_step(dev, ref, vg32, logits, ridx, ke, kv, n, only=which)
                 out[f"control_only_{which}"] = {
                     "grad_norm": float(go.norm()),
                     "share_of_hybrid_norm": float(go.norm() / gh.norm()),
                     "cos_with_hybrid": A.cosine(go, gh), "vs_hybrid": A.cmp(go, gh)}
+                step()
             g2, _, _, _ = hybrid_step(dev, ref, vg32, logits, ridx, ke, kv, n)
             out["control_repeat_bit_identical"] = bool(torch.equal(g2, gh))
+            step()
 
         # NORM: what BindCraft 2's own optimiser does with each gradient.
         refk = "jax_f64" if "jax_f64" in grads else "f64"
@@ -527,11 +544,10 @@ def cmd_grad(args):
         out["norm"] = norm
         np.savez(OUT / f"grads_n{n}_seed{sd}.npz", **{k: v.numpy() for k, v in grads.items()})
 
-        blob["seeds"][sd] = out
         print(sd, json.dumps({"hybrid_vs_f64": out["hybrid"]["vs_f64"],
                               "norm_ratio": round(out["hybrid"]["norm_ratio"], 4),
                               "loss": round(lh, 5), "loss64": round(l64, 5)}), flush=True)
-    save(args.out or f"grad_n{n}_e{ke}_v{kv}_{args.arm}.json", blob)
+        step()
 
 
 def cmd_time(args):
@@ -570,6 +586,8 @@ def main():
     ap.add_argument("--reps", type=int, default=3)
     ap.add_argument("--controls", action="store_true")
     ap.add_argument("--jax", action="store_true", help="grad: add the all-JAX float64 arm")
+    ap.add_argument("--ref-arms", default="bf16,f32",
+                    help="grad: torch trunk reference arms, comma list or empty")
     ap.add_argument("--skip-torch-f64", action="store_true",
                     help="grad: grade against the all-JAX float64 program alone")
     ap.add_argument("--threads", type=int, default=8)
