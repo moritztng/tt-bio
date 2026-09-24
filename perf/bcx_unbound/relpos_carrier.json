@@ -1,0 +1,82 @@
+{
+ "why": "does the monomer chain break carry the whole gap between the two instruments",
+ "against": {
+  "grad_unpatched_on_this_card": {
+   "iptm": 0.284293,
+   "ptm": 0.452477,
+   "plddt": 0.4162,
+   "binder_plddt": 0.3448
+  },
+  "predict_shipped_on_this_card": {
+   "iptm": 0.084367,
+   "ptm": 0.569915,
+   "plddt": 0.7172,
+   "binder_plddt": 0.4005
+  }
+ },
+ "invalidates": "relpos_fix.json grad_patched/predict_patched -- compile cache reuse, bit-identical at 84.3 s against 546.2 s",
+ "result": {
+  "predict_break_on_fresh_process": {
+   "n": 192,
+   "ptm": 0.569915,
+   "iptm": 0.084367,
+   "binder_plddt": 0.4005,
+   "plddt": 0.7172,
+   "s": 44.3,
+   "chain_break_applied": true
+  },
+  "predict_break_off": {
+   "n": 192,
+   "ptm": 0.452234,
+   "iptm": 0.285507,
+   "binder_plddt": 0.3456,
+   "plddt": 0.4168,
+   "s": 39.7,
+   "chain_break_applied": false
+  }
+ },
+ "aiclk_during": {
+  "n": 352,
+  "min": 1350,
+  "median": 1350,
+  "max": 1350
+ },
+ "device_calls": {
+  "primal": 4,
+  "taped": 0,
+  "backward": 0
+ },
+ "sysfs_node": [
+  "/sys/class/tenstorrent/tenstorrent!1",
+  "0000:01:00.0"
+ ],
+ "stamp": {
+  "host": "tt-quietbox",
+  "card": 0,
+  "subsystem_device": "0x0040",
+  "commit": "5d3cb147fae0ebd1b9e0f99b805a722a42b7e6a9",
+  "tt_bio_dirty": false,
+  "torch_threads": 6,
+  "loadavg": [
+   71.2197265625,
+   68.2958984375,
+   63.99169921875
+  ],
+  "utc": "2026-09-24T20:50:57Z"
+ },
+ "verdict": {
+  "break_off_minus_break_on": {
+   "iptm": 0.20114,
+   "ptm": -0.117681,
+   "plddt": -0.3004,
+   "binder_plddt": -0.0549
+  },
+  "break_off_minus_gradient_instrument": {
+   "iptm": 0.001214,
+   "ptm": -0.000243,
+   "plddt": 0.0006,
+   "binder_plddt": 0.0008
+  },
+  "retrace_happened": false
+ }
+}

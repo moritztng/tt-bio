@@ -1,0 +1,227 @@
+{
+ "why": "the gradient path never renumbers the complex for the monomer model; predict does",
+ "source": {
+  "predict_renumbers": "bindcraft/af2.py:305-306",
+  "gradient_path_does_not": "bindcraft/af2.py:337-345",
+  "relpos_uses_offset_only": "af/alphafold/model/config.py:226 clip 32, af/alphafold/model/modules.py:1469-1484",
+  "monomer_chain_gap": 49
+ },
+ "sequence_parameters": {
+  "softmax_weight": 1.0,
+  "one_hot_weight": 1.0,
+  "temperature": 0.01,
+  "logit_scale": 2.0
+ },
+ "dropout": false,
+ "num_recycle": 1,
+ "arm": "device",
+ "binder_len": 77,
+ "census": {
+  "gradient_path": {
+   "n": 211,
+   "chain_lengths": [
+    96,
+    115
+   ],
+   "junction_step": -78,
+   "cross_chain_pairs": 22080,
+   "cross_pairs_inside_clip": 10030,
+   "fraction_inside_clip": 0.4543,
+   "cross_pairs_at_offset_zero": 158
+  },
+  "predict_path": {
+   "n": 192,
+   "chain_lengths": [
+    77,
+    115
+   ],
+   "junction_step": 50,
+   "cross_chain_pairs": 17710,
+   "cross_pairs_inside_clip": 0,
+   "fraction_inside_clip": 0.0,
+   "cross_pairs_at_offset_zero": 0
+  }
+ },
+ "result": {
+  "grad_unpatched": {
+   "n": 192,
+   "ptm": 0.452477,
+   "iptm": 0.284293,
+   "ptm_csv": 0.45,
+   "iptm_csv": 0.28,
+   "binder_plddt": 0.3448,
+   "plddt": 0.4162,
+   "s": 546.2
+  },
+  "predict_unpatched": {
+   "n": 192,
+   "ptm": 0.569915,
+   "iptm": 0.084367,
+   "ptm_csv": 0.57,
+   "iptm_csv": 0.08,
+   "binder_plddt": 0.4005,
+   "plddt": 0.7172,
+   "s": 169.1
+  },
+  "grad_patched": {
+   "n": 192,
+   "ptm": 0.452477,
+   "iptm": 0.284293,
+   "ptm_csv": 0.45,
+   "iptm_csv": 0.28,
+   "binder_plddt": 0.3448,
+   "plddt": 0.4162,
+   "s": 84.3
+  },
+  "predict_patched": {
+   "n": 192,
+   "ptm": 0.569915,
+   "iptm": 0.084367,
+   "ptm_csv": 0.57,
+   "iptm_csv": 0.08,
+   "binder_plddt": 0.4005,
+   "plddt": 0.7172,
+   "s": 13.7
+  },
+  "probe_v0_base": {
+   "n": 192,
+   "ptm": 0.569915,
+   "iptm": 0.084367,
+   "ptm_csv": 0.57,
+   "iptm_csv": 0.08,
+   "binder_plddt": 0.4005,
+   "plddt": 0.7172,
+   "s": 14.0
+  },
+  "probe_v1_pos5": {
+   "n": 192,
+   "ptm": 0.570872,
+   "iptm": 0.089017,
+   "ptm_csv": 0.57,
+   "iptm_csv": 0.09,
+   "binder_plddt": 0.376,
+   "plddt": 0.7035,
+   "s": 13.4
+  },
+  "probe_v2_pos38": {
+   "n": 192,
+   "ptm": 0.569894,
+   "iptm": 0.084091,
+   "ptm_csv": 0.57,
+   "iptm_csv": 0.08,
+   "binder_plddt": 0.3885,
+   "plddt": 0.7122,
+   "s": 14.4
+  },
+  "probe_v3_pos71": {
+   "n": 192,
+   "ptm": 0.568486,
+   "iptm": 0.082824,
+   "ptm_csv": 0.57,
+   "iptm_csv": 0.08,
+   "binder_plddt": 0.4054,
+   "plddt": 0.7194,
+   "s": 15.1
+  },
+  "probe_v4_polyala": {
+   "n": 192,
+   "ptm": 0.550469,
+   "iptm": 0.168793,
+   "ptm_csv": 0.55,
+   "iptm_csv": 0.17,
+   "binder_plddt": 0.521,
+   "plddt": 0.7555,
+   "s": 14.1
+  },
+  "predict_used_process": {
+   "n": 192,
+   "ptm": 0.569915,
+   "iptm": 0.084367,
+   "ptm_csv": 0.57,
+   "iptm_csv": 0.08,
+   "binder_plddt": 0.4005,
+   "plddt": 0.7172,
+   "s": 14.2
+  }
+ },
+ "sequences": {
+  "v0_base": null,
+  "v1_pos5": "F5Y",
+  "v2_pos38": "N38H",
+  "v3_pos71": "H71S",
+  "v4_polyala": "poly-A"
+ },
+ "aiclk_during": {
+  "n": 1654,
+  "min": 1350,
+  "median": 1350,
+  "max": 1350
+ },
+ "device_calls": {
+  "primal": 16,
+  "taped": 4,
+  "backward": 2
+ },
+ "sysfs_node": [
+  "/sys/class/tenstorrent/tenstorrent!1",
+  "0000:01:00.0"
+ ],
+ "stamp": {
+  "host": "tt-quietbox",
+  "card": 0,
+  "subsystem_device": "0x0040",
+  "commit": "5d3cb147fae0ebd1b9e0f99b805a722a42b7e6a9",
+  "tt_bio_dirty": false,
+  "torch_threads": 6,
+  "loadavg": [
+   65.40576171875,
+   65.5546875,
+   62.43359375
+  ],
+  "utc": "2026-09-24T20:48:05Z"
+ },
+ "verdict": {
+  "instrument_gap_unpatched": {
+   "iptm": 0.1999,
+   "ptm": -0.1174,
+   "plddt": -0.301,
+   "binder_plddt": -0.0557
+  },
+  "instrument_gap_patched": {
+   "iptm": 0.1999,
+   "ptm": -0.1174,
+   "plddt": -0.301,
+   "binder_plddt": -0.0557
+  },
+  "predict_patch_is_a_noop": {
+   "iptm": 0.0,
+   "ptm": 0.0,
+   "plddt": 0.0,
+   "binder_plddt": 0.0
+  },
+  "probe_distinct_ptm_full": [
+   0.550469,
+   0.568486,
+   0.569894,
+   0.569915,
+   0.570872
+  ],
+  "probe_distinct_ptm_csv": [
+   0.55,
+   0.57
+  ],
+  "probe_distinct_iptm_full": [
+   0.082824,
+   0.084091,
+   0.084367,
+   0.089017,
+   0.168793
+  ],
+  "carried_used_minus_first": {
+   "iptm": 0.0,
+   "ptm": 0.0,
+   "plddt": 0.0,
+   "binder_plddt": 0.0
+  }
+ }
+}
