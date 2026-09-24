@@ -12525,33 +12525,8 @@ class DiffusionModule(TorchWrapper):
             self._cache_set("bias_decoder", self._hoist_layer_bias(
                 prepare_atom_bias(bias_decoder), self.module.decoder))
 
-            if isinstance(bias_token, ttnn.Tensor):
-                # PairConditioningDevice produced it on the device, already padded. Both the
-                # 201 MB download the host path did to build it and this upload disappear.
-                bias = bias_token
-            else:
-                if token_pad:
-                    bias_token = torch.nn.functional.pad(
-                        bias_token, (0, 0, 0, token_pad, 0, token_pad))
-                bias = self._from_torch(bias_token)
-            bias = ttnn.multiply_(
-                bias, (TOKEN_DIM / TOKEN_N_HEADS) ** 0.5
-            )
-            bias_token_tt = ttnn.permute(bias, (0, 3, 1, 2))
-            if isinstance(bias_token, ttnn.Tensor):
-                # The device conditioning hands its tensor over (the multiply_ above already
-                # scaled it in place) and nothing reads it after this permute. Kept, it was a
-                # second [n, n, heads * layers] copy through the whole sampler: 2.14 GiB at
-                # 1728 tokens.
-                ttnn.deallocate(bias)
-            if token_pad:
-                # Fuse additive padding mask into token bias (bfloat16 for -1e9)
-                seq_mask = torch.zeros(1, 1, 1, padded_seq)
-                seq_mask[..., seq_len:] = -1e9
-                bias_token_tt = ttnn.add_(bias_token_tt, self._from_torch(seq_mask))
-            self._cache_set("bias_token", self._hoist_layer_bias(
-                bias_token_tt,
-                None if self.module.token_transformer_fp32 else self.module.token_transformer))
+            if self._cache_get("bias_token") is None:
+                self._cache_set("bias_token", self._stage_token_bias(bias_token, token_pad, seq_len))
 
             if atom_pad or token_pad:
                 atom_to_token = torch.nn.functional.pad(atom_to_token, (0, token_pad, 0, atom_pad))
@@ -12569,6 +12544,38 @@ class DiffusionModule(TorchWrapper):
             self._cache_set("cond_ref", cond_key)
             self._first_forward_pass = False
         return seq_len, N, N_padded
+
+    def _stage_token_bias(self, bias_token, token_pad: int, seq_len: int):
+        """Scale, permute and pad-mask the token DiT's attention bias. It does not depend on the
+        sample width, so a narrower chunk keeps it (``reset_sample_width``)."""
+        padded_seq = seq_len + token_pad
+        if isinstance(bias_token, ttnn.Tensor):
+            # PairConditioningDevice produced it on the device, already padded. Both the
+            # 201 MB download the host path did to build it and this upload disappear.
+            bias = bias_token
+        else:
+            if token_pad:
+                bias_token = torch.nn.functional.pad(
+                    bias_token, (0, 0, 0, token_pad, 0, token_pad))
+            bias = self._from_torch(bias_token)
+        bias = ttnn.multiply_(
+            bias, (TOKEN_DIM / TOKEN_N_HEADS) ** 0.5
+        )
+        bias_token_tt = ttnn.permute(bias, (0, 3, 1, 2))
+        if isinstance(bias_token, ttnn.Tensor):
+            # The device conditioning hands its tensor over (the multiply_ above already
+            # scaled it in place) and nothing reads it after this permute. Kept, it was a
+            # second [n, n, heads * layers] copy through the whole sampler: 2.14 GiB at
+            # 1728 tokens. Nothing may re-stage from it, hence reset_sample_width.
+            ttnn.deallocate(bias)
+        if token_pad:
+            # Fuse additive padding mask into token bias (bfloat16 for -1e9)
+            seq_mask = torch.zeros(1, 1, 1, padded_seq)
+            seq_mask[..., seq_len:] = -1e9
+            bias_token_tt = ttnn.add_(bias_token_tt, self._from_torch(seq_mask))
+        return self._hoist_layer_bias(
+            bias_token_tt,
+            None if self.module.token_transformer_fp32 else self.module.token_transformer)
 
     def _hoist_layer_bias(self, bias: ttnn.Tensor, transformer):
         """L7: cut the per-layer head-ranges once, here, instead of once per denoise step.
@@ -12727,6 +12734,15 @@ class DiffusionModule(TorchWrapper):
         ttnn.execute_trace(self.tt_device, tr["tid"], cq_id=0, blocking=False)
         result = torch.Tensor(ttnn.to_torch(tr["out"])).to(torch.float32)
         return result[:, :N, :]
+
+    def reset_sample_width(self):
+        """Drop what is staged per sample batch so a narrower chunk re-stages it, but keep the
+        token bias: it does not depend on the width, and its device source was freed when it
+        was staged. ``cond_ref`` stays so a new fold still resets everything."""
+        kept = {k: self._runtime_cache.pop(k) for k in ("bias_token", "cond_ref")
+                if k in self._runtime_cache}
+        self.reset_static_cache()
+        self._runtime_cache.update(kept)
 
     def reset_static_cache(self):
         super().reset_static_cache()
