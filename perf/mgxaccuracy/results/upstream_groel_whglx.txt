@@ -1,0 +1,110 @@
+# THE UPSTREAM REFERENCE ON GroEL, THE TARGET THE VERDICT ACTUALLY RESTS ON.
+# Launched 2026-09-24 17:53:56Z (512) and 17:59:36Z (1536) on whglx. No value seen yet.
+
+## WHY THIS ARM EXISTS
+
+The row's verdict rests on GroEL: four n=8 cells, size costs +14.754 A at offset 0 and
++12.647 A at offset 560. The reference half rests entirely on 1GPB -- the target whose 2x2
+this row REFUTED as one protein's personality. So the close, as it stood, refuted a target
+and then used that same target as its only upstream comparison. The doc named this as a limit
+of the close. It is now a measurement instead.
+
+This does NOT change how the row closes. `plans/closing_rule.txt` §4 is pre-registered on the
+qb2 1GPB pair and stays the deciding test. GroEL here is corroboration, read the same way the
+banked 512 valid draw was read: m=1 orders nothing at 0.05, but a draw landing inside the
+device's own range removes a direction.
+
+## WHY whglx AND NOT qb2, WHICH THE BRIEF NAMES
+
+The brief routes CPU references to qb2 "where there are idle cores". That premise expired.
+Measured this pass:
+
+    qb2     16 cores, load 66-70   -- oversubscribed 4x, carrying three non-MGX rows
+    whglx   64 cores, load 10-20   -- ~45 cores idle, 402 GiB free
+
+qb2's saturation is exactly why the two draws that gate this row are 8-12 h out: each gets
+2.26 cores of the 6 it asked for. Putting a third draw there would slow the two that decide
+the row. whglx's live app is served off its cards, not its CPUs, and the brief's own limit
+there is to keep load low: this arm's two draws take ~15 of 64 cores, load 15 -> ~30.
+
+## THE REFERENCE'S IDENTITY IS THE SAME REFERENCE, CHECKED NOT ASSUMED
+
+A reference on a new host is a new measurement unless every part of its identity matches.
+All four parts were verified against qb2 before either draw was launched:
+
+    boltzgen      0.3.2                 pypi, same pin as qb2:~/bgref-env
+    torch         2.14.0+cpu            same
+    HF revision   c1be29e1f82ffcc72264f64b993c43fb4e0d17f0
+                  read from ~/.cache/huggingface/hub/models--boltzgen--boltzgen-1/refs/main,
+                  identical to the snapshot ref/README.md records for the qb2 reference and
+                  to docs/implementation-parity-data/boltzgen.json
+    weights       sha256-identical across hosts, not merely same-size:
+                    boltzgen1_ifold.ckpt      dd4cf108c94471bdc3a326b7b180fa3854dc019110fae780208c30b50bd56578
+                    boltzgen1_adherence.ckpt  ac7078b3dc13064c68e0c3fd542e5bc538c33558bf6607f65e499eb336ca5e5d
+                  Both hashes are also the HF blob names under that revision, so the local
+                  ~/.boltz copies ARE the pinned snapshot's files. The other three shared
+                  checkpoints match qb2 by byte size (boltz2_conf_final 2087255089,
+                  boltzgen1_diverse 1930847192, mols.zip 391401102).
+
+whglx's system python is 3.10 and boltzgen 0.3.2 declares Requires-Python >=3.11, so the first
+build failed outright rather than silently installing boltzgen 0.1.4, the newest version that
+does accept 3.10. uv fetches a standalone 3.12, which is what qb2 runs. `build_env.sh` on
+whglx records this.
+
+`cpu_capability.patch` is applied at `boltzgen/cli/boltzgen.py:921`, the same single call the
+committed patch names, by an edit that asserts exactly one occurrence before writing.
+
+`run_groel.sh` is `ref/run.sh` with the fixture directory as an argument. Every sampling
+parameter is upstream's default: sampling_steps 500, recycling_steps 3, diffusion_samples 1,
+--num_designs 1 --budget 1. The three CPU deviations are the recorded ones and all move the
+reference toward being MORE exact: accelerator cpu, precision 32, matmul_precision highest.
+
+## THE FIXTURES ARE THE DEVICE CELLS' OWN FILES
+
+Copied from the directories the device jobs read, and hashed after the copy. Byte-identical,
+yaml and cif both:
+
+    fxgroel512/bg512.yaml     84a8281ab387225f9526518cba2d5c0b1f7dc385d2a125165227ab34bada2296
+    fxgroel512/bgt512.cif     c1e4806602967ca367be472f300dcd0fa518b635b2d3b07e5dc8047950997580
+    fxgroel1536/bg1536.yaml   d22404bab26edcdb5d652badb076a01793c3684b7a329eb6a0fcb5dd0652ec8f
+    fxgroel1536/bgt1536.cif   236b1340395482236d62b61d65feece3b6573b4c005b77566fae1ac3b298d1cc
+
+sources: mgxacc-work/fx_boltzgen_512_d8_bgall_groel512o0 and fx_boltzgen_1536_d8_bgall_groel1536o0,
+i.e. the offset-0 cells reading 0.852 A (512) and 15.606 A (1536).
+
+Kept in SEPARATE directories under the fixtures' own names rather than renamed. Both targets
+call their files bg<size>.yaml / bgt<size>.cif, which is precisely how the first 1536 reference
+was withdrawn: two specs both said `bgt1536.cif` and the files differed
+(`results/upstream_reference_wrong_fixture.txt`). Renaming would have made the yaml differ from
+the device's; separate directories keep both files byte-identical and put the target in the path.
+
+Both yamls request an 80-residue binder (entity Z), the same binder length as the 1GPB valid
+case, so target size is the only thing that moves between the two rungs.
+
+## READING THE PROGRESS OF THESE RUNS: THE LAUNCHED PID IS NOT THE JOB
+
+On whglx, `boltzgen run` forks a Lightning child and waits on it. `ps -o times` on the pid the
+launcher started reads a frozen 61 s and `/proc/<pid>/wchan` reads `do_wait`, which looks
+exactly like a wedge. The work is in the child:
+
+    2229330  boltzgen (wrapper)   61 CPU-s, not moving, state Sl, wchan do_wait
+      2241290  python (the job)   809 CPU-s in 197 s = 4.1 cores    <- this is the measurement
+
+This is the third instrument trap in this row's CPU accounting, after `ps -o pcpu` being a
+lifetime average (`results/upstream_pair_eta.txt` §1). Read the CHILD, differenced over >= 300 s.
+qb2's draws do not have this shape -- there the tracked pid is itself the worker -- so the same
+command means different things on the two hosts.
+
+## COST AND EXPECTED LANDING
+
+The 512 rung is 592 tokens and the 1536 rung is 1616, the same token counts as the 1GPB valid
+draws, so the banked cost model applies unchanged: design cost scales as tokens^2 off the
+5126.3 s / 6-thread 512 draw, and the 1536 job costs (195.5k, 229.2k] CPU-s. The lower bound
+is an observation, not an assumption: qb2 draw a is still running at 195,500 CPU-s.
+
+    rung   threads   occupancy measured   expected wall     expected landing
+     512         6   4.1 cores            ~1.7 h            ~19:40Z
+    1536        16   to be differenced    ~6-7 h if ~10     ~00:30-01:30Z
+
+Occupancy at 16 threads is NOT yet measured and the 1536 landing above is a projection from an
+assumed 10 cores. Difference the child over 300 s next pass and replace it.
