@@ -1,0 +1,5 @@
+arch Arch.WORMHOLE_B0 grid 8x9 ttnn ?
+attn_mask=None  run 0: PCC 0.2248
+attn_mask=None  run 1: PCC 0.2254
+zero mask       run 0: PCC 0.9997
+zero mask       run 1: PCC 0.9997

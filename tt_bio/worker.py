@@ -29,7 +29,7 @@ from tt_bio.device_lease import CONTENDED_EXIT_CODE, DeviceInUseError, install_p
 from tt_bio.distributed import ControllerClient, HttpProgressQueue
 from tt_bio.envflags import env_flag
 from tt_bio import ranking as rank
-from tt_bio.cache import cached, seq_hash, staged
+from tt_bio.cache import EMPTY_MSA, cached, msa_pinned, seq_hash, staged
 from tt_bio.capabilities import check_capabilities
 
 
@@ -471,7 +471,10 @@ def _paired_msa(path, chains, msa_dir, cfg):
 
     if cfg.get("single_sequence"):
         return None
-    seqs = {seq_hash(s): s for _c, s, _sp, mt, _m in chains if mt == "protein"}
+    # A chain the input marked `msa: empty` takes no part in pairing either: pairing is a
+    # search, and the paired block is that chain's alignment as much as the unpaired one.
+    seqs = {seq_hash(s): s for _c, s, sp, mt, _m in chains
+            if mt == "protein" and sp != EMPTY_MSA}
     if len(seqs) < 2:
         return None
     try:
@@ -498,8 +501,9 @@ def _paired_a3ms(path, chains, msa_dir, cfg):
     paired = _paired_msa(path, chains, msa_dir, cfg)
     if paired is None:
         return None
-    return [cap_a3m_text(paired[seq_hash(s)], cfg.get("msa_cap")) if mt == "protein" else None
-            for _c, s, _sp, mt, _m in chains]
+    return [cap_a3m_text(paired[seq_hash(s)], cfg.get("msa_cap"))
+            if mt == "protein" and sp != EMPTY_MSA else None
+            for _c, s, sp, mt, _m in chains]
 
 
 def _artifact_residue_names(chains) -> dict:
@@ -948,7 +952,7 @@ class _WorkerState:
             for _cid, seq, spec, mt, _mods in chains:
                 if mt != "protein":
                     continue
-                if spec and Path(spec).expanduser().exists():
+                if msa_pinned(spec):
                     continue
                 h = seq_hash(seq)
                 if not cached(msa_dir / f"{h}.a3m") and not cached(msa_dir / f"{h}.csv"):
@@ -968,7 +972,8 @@ class _WorkerState:
 
         def _msa(spec, seq):
             msa = resolve_msa(spec, seq, msa_dir, max_sequences=max_msa)
-            return (pair_keyed_msa(msa, paired[seq_hash(seq)], max_msa) if paired else msa)
+            return (pair_keyed_msa(msa, paired[seq_hash(seq)], max_msa)
+                    if paired and spec != EMPTY_MSA else msa)
 
         chains = [(cid, seq, _msa(spec, seq) if (uses_msa and mt == "protein") else None,
                    mt, mods)
@@ -1043,8 +1048,7 @@ class _WorkerState:
         want_msa = cfg.get("use_msa_server") or cfg.get("msa_db_path") or cfg.get("msa_endpoint")
         need = {}
         for _cid, cseq, spec, mt, _mods in chains:
-            have_spec = bool(spec and Path(spec).expanduser().exists())
-            if mt == "protein" and want_msa and not have_spec:
+            if mt == "protein" and want_msa and not msa_pinned(spec):
                 h = seq_hash(cseq)
                 if not cached(msa_dir / f"{h}.a3m"):
                     need[h] = cseq
@@ -1127,8 +1131,7 @@ class _WorkerState:
         want_msa = cfg.get("use_msa_server") or cfg.get("msa_db_path") or cfg.get("msa_endpoint")
         need = {}
         for _cid, cseq, spec, mt, _mods in chains:
-            have_spec = bool(spec and Path(spec).expanduser().exists())
-            if mt == "protein" and want_msa and not have_spec:
+            if mt == "protein" and want_msa and not msa_pinned(spec):
                 h = seq_hash(cseq)
                 if not cached(msa_dir / f"{h}.a3m"):
                     need[h] = cseq
@@ -1333,7 +1336,7 @@ class _WorkerState:
         for _cid, cseq, spec, mt, _mods in chains:
             if mt != "protein" or not want_msa:
                 continue
-            if spec and Path(spec).expanduser().exists():
+            if msa_pinned(spec):
                 continue
             h = seq_hash(cseq)
             if not cached(msa_dir / f"{h}.a3m"):
@@ -1555,11 +1558,15 @@ class _WorkerState:
                              ccd_codes=[ccd] if ccd else None,
                              main_msa_file_paths=None)
                 return chain
-            chain.update(
-                sequence=cseq, smiles=None, ccd_codes=None,
-                main_msa_file_paths=([str(Path(spec).expanduser())]
-                                     if spec and Path(spec).expanduser().exists()
-                                     else None))
+            if spec == EMPTY_MSA:
+                from tt_bio.openfold3_data import query_only_msa
+                msa_paths = [str(query_only_msa(msa_dir, cseq))]
+            elif spec and Path(spec).expanduser().exists():
+                msa_paths = [str(Path(spec).expanduser())]
+            else:
+                msa_paths = None
+            chain.update(sequence=cseq, smiles=None, ccd_codes=None,
+                         main_msa_file_paths=msa_paths)
             chain["template_alignment_file_path"] = tmpl_map.get(cid)
             return chain
 
@@ -1639,8 +1646,8 @@ class _WorkerState:
         # (primitives/featurization/msa.py:112) and upstream folds a heteromer unpaired;
         # 0.5.0 (PR #373) keeps it. Keyed on the checkpoint like the other 0.5.0 MSA fixes.
         # Feeding preview2 the rows anyway cost 0.06 DockQ on 8WT4, worse on 6 of 6 seeds.
-        if model == "openbind" and _paired_msa(path, chains, msa_dir, cfg) is not None:
-            of3_query = attach_openfold3_paired_msas(of3_query, msa_dir)
+        if model == "openbind" and (paired := _paired_msa(path, chains, msa_dir, cfg)) is not None:
+            of3_query = attach_openfold3_paired_msas(of3_query, msa_dir, paired)
         if cfg.get("single_sequence"):
             # --single_sequence is upstream's no-MSA mode, not an MSA-stack
             # disable: upstream substitutes a one-row alignment holding the

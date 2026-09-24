@@ -1,0 +1,7 @@
+# mask cost, interleaved repeats: this branch, pre-fix main, embed-scale's call-site mask
+cd $HOME/wt-mgx-sdpa-mask && $HOME/env/bin/python perf/mgx_embed/timing.py --pdb $HOME/scratch/mgxembed/mtor.pdb --lengths 125,126,510,1534 --calls 40 --out $S/timing3.jsonl --model esmc-300m
+cd $HOME/wt-mgx-sdpa-main && $HOME/env/bin/python perf/mgx_embed/timing.py --pdb $HOME/scratch/mgxembed/mtor.pdb --lengths 125,126,510,1534 --calls 40 --out $S/timing3.jsonl --model esmc-300m
+cd $HOME/wt-mgx-embed-fix && $HOME/env/bin/python perf/mgx_embed/timing.py --pdb $HOME/scratch/mgxembed/mtor.pdb --lengths 125,126,510,1534 --calls 40 --out $S/timing3.jsonl --model esmc-300m
+cd $HOME/wt-mgx-sdpa-mask && $HOME/env/bin/python perf/mgx_embed/timing.py --pdb $HOME/scratch/mgxembed/mtor.pdb --lengths 125,126,510,1534 --calls 40 --out $S/timing3.jsonl --model esmc-300m
+cd $HOME/wt-mgx-sdpa-main && $HOME/env/bin/python perf/mgx_embed/timing.py --pdb $HOME/scratch/mgxembed/mtor.pdb --lengths 125,126,510,1534 --calls 40 --out $S/timing3.jsonl --model esmc-300m
+cd $HOME/wt-mgx-embed-fix && $HOME/env/bin/python perf/mgx_embed/timing.py --pdb $HOME/scratch/mgxembed/mtor.pdb --lengths 125,126,510,1534 --calls 40 --out $S/timing3.jsonl --model esmc-300m
