@@ -1,0 +1,1041 @@
+{
+ "instrument": "jax.profiler thunk events + optimised HLO op_name",
+ "hlo": "perf/bcx_extramsa/runs/confirm_prof/hlo/module_0402.jit_sequence_design_loss.cpu_after_optimizations.txt",
+ "programs": {
+  "jit__threefry_split#18": 40,
+  "jit_unstack#20": 8,
+  "jit__randint#22": 112,
+  "jit_bitwise_and#316": 8,
+  "jit_not_equal#318": 8,
+  "jit__reduce_any#352": 8,
+  "jit__pad#358": 4,
+  "jit__pad#362": 4,
+  "jit__pad#366": 4,
+  "jit__pad#368": 4,
+  "jit_dynamic_slice#372": 4,
+  "jit_squeeze#376": 4,
+  "jit_add#380": 4,
+  "jit_iota#384": 4,
+  "jit_add#390": 4,
+  "jit_concatenate#392": 4,
+  "jit_bitwise_and#356": 4,
+  "jit_not_equal#360": 4,
+  "jit__reduce_any#364": 8,
+  "jit_concatenate#394": 4,
+  "jit_concatenate#396": 4,
+  "jit_concatenate#398": 4,
+  "jit_concatenate#400": 4,
+  "jit_convert_element_type#386": 32,
+  "jit_stage#388": 4,
+  "jit_sequence_design_loss#402": 171216,
+  "jit_dynamic_slice#406": 4,
+  "jit_dynamic_slice#408": 4,
+  "jit_dynamic_slice#410": 4,
+  "jit_dynamic_slice#412": 4,
+  "jit_dynamic_slice#414": 4,
+  "jit_dynamic_slice#416": 4,
+  "jit_iota#300": 4,
+  "jit_convert_element_type#38": 4,
+  "jit_iota#418": 4,
+  "jit_add#420": 4,
+  "jit_concatenate#422": 4,
+  "jit_broadcast_in_dim#424": 20,
+  "jit_broadcast_in_dim#426": 8,
+  "jit_less#428": 8,
+  "jit_add#430": 8,
+  "jit_select_n#432": 8,
+  "jit_less#434": 8,
+  "jit_add#436": 8,
+  "jit_select_n#438": 8,
+  "jit__broadcast_arrays#440": 16,
+  "jit_broadcast_in_dim#442": 16,
+  "jit_concatenate#444": 8,
+  "jit_gather#446": 4,
+  "jit_broadcast_in_dim#448": 4,
+  "jit_less#450": 12,
+  "jit_add#452": 12,
+  "jit_select_n#454": 12,
+  "jit__broadcast_arrays#456": 12,
+  "jit_gather#458": 12,
+  "jit_broadcast_in_dim#460": 12,
+  "jit_gather#462": 4,
+  "jit_broadcast_in_dim#464": 4,
+  "jit_dynamic_slice#466": 4,
+  "jit_greater#516": 8,
+  "jit_stack#468": 4,
+  "jit__reduce_sum#470": 4,
+  "jit_stack#472": 4,
+  "jit__reduce_sum#474": 4,
+  "jit_stage#52": 36,
+  "jit_broadcast_in_dim#320": 4,
+  "jit_greater#484": 4,
+  "jit__reduce_sum#486": 12,
+  "jit_sqrt#488": 4,
+  "jit_multiply#490": 4,
+  "jit_norm#492": 12,
+  "jit_add#494": 4,
+  "jit_true_divide#496": 8,
+  "jit_subtract#498": 4,
+  "jit_multiply#500": 4,
+  "jit_add#502": 4,
+  "jit_convert_element_type#476": 8,
+  "jit_multiply#504": 4,
+  "jit_multiply#506": 4,
+  "jit_less_equal#508": 4,
+  "jit_add#510": 4,
+  "jit__where#512": 4,
+  "jit_convert_element_type#514": 4,
+  "jit__where#478": 4,
+  "jit_square#480": 4,
+  "jit__reduce_sum#482": 4
+ },
+ "offset_spread_ms": 26.86,
+ "rounds": [
+  {
+   "round": 3,
+   "sequence_gradients_s": 36.04,
+   "lower_compile_s": 0.007,
+   "outside_xla_s": 2.3,
+   "outside_xla_before_first_thunk_s": 0.023,
+   "outside_xla_after_last_thunk_s": 0.171,
+   "outside_xla_gaps_inside_execution_s": 2.107,
+   "charged_by_enclosing_computation_s": 4.494,
+   "unmapped_by_opcode_s": {},
+   "rows": [
+    {
+     "module": "extra-MSA stack [bwd]",
+     "wall_s": 14.993,
+     "cpu_s": 17.437,
+     "share_of_sg": 0.416
+    },
+    {
+     "module": "device: Evoformer callback",
+     "wall_s": 7.645,
+     "cpu_s": 7.645,
+     "share_of_sg": 0.2121
+    },
+    {
+     "module": "extra-MSA stack [fwd]",
+     "wall_s": 5.387,
+     "cpu_s": 6.19,
+     "share_of_sg": 0.1495
+    },
+    {
+     "module": "template embedding [bwd]",
+     "wall_s": 1.896,
+     "cpu_s": 1.906,
+     "share_of_sg": 0.0526
+    },
+    {
+     "module": "template embedding [fwd]",
+     "wall_s": 1.785,
+     "cpu_s": 2.03,
+     "share_of_sg": 0.0495
+    },
+    {
+     "module": "structure module [fwd]",
+     "wall_s": 1.133,
+     "cpu_s": 1.978,
+     "share_of_sg": 0.0314
+    },
+    {
+     "module": "structure module [bwd]",
+     "wall_s": 0.585,
+     "cpu_s": 1.369,
+     "share_of_sg": 0.0162
+    },
+    {
+     "module": "loss [fwd]",
+     "wall_s": 0.142,
+     "cpu_s": 0.305,
+     "share_of_sg": 0.0039
+    },
+    {
+     "module": "loss [bwd]",
+     "wall_s": 0.087,
+     "cpu_s": 0.155,
+     "share_of_sg": 0.0024
+    },
+    {
+     "module": "evoformer (JAX side) [fwd]",
+     "wall_s": 0.03,
+     "cpu_s": 0.046,
+     "share_of_sg": 0.0008
+    },
+    {
+     "module": "embedder: recycling [fwd]",
+     "wall_s": 0.018,
+     "cpu_s": 0.021,
+     "share_of_sg": 0.0005
+    },
+    {
+     "module": "evoformer (JAX side) [bwd]",
+     "wall_s": 0.01,
+     "cpu_s": 0.014,
+     "share_of_sg": 0.0003
+    },
+    {
+     "module": "single_activations [fwd]",
+     "wall_s": 0.007,
+     "cpu_s": 0.013,
+     "share_of_sg": 0.0002
+    },
+    {
+     "module": "embedder: relpos [fwd]",
+     "wall_s": 0.007,
+     "cpu_s": 0.013,
+     "share_of_sg": 0.0002
+    },
+    {
+     "module": "heads: PAE/pTM [fwd]",
+     "wall_s": 0.006,
+     "cpu_s": 0.014,
+     "share_of_sg": 0.0002
+    },
+    {
+     "module": "heads: distogram [fwd]",
+     "wall_s": 0.006,
+     "cpu_s": 0.017,
+     "share_of_sg": 0.0002
+    },
+    {
+     "module": "heads: pLDDT [fwd]",
+     "wall_s": 0.001,
+     "cpu_s": 0.001,
+     "share_of_sg": 0.0
+    },
+    {
+     "module": "heads: pLDDT [bwd]",
+     "wall_s": 0.001,
+     "cpu_s": 0.001,
+     "share_of_sg": 0.0
+    },
+    {
+     "module": "heads: distogram [bwd]",
+     "wall_s": 0.001,
+     "cpu_s": 0.001,
+     "share_of_sg": 0.0
+    },
+    {
+     "module": "embedder: MSA/target [fwd]",
+     "wall_s": 0.0,
+     "cpu_s": 0.0,
+     "share_of_sg": 0.0
+    },
+    {
+     "module": "template single/torsion [fwd]",
+     "wall_s": 0.0,
+     "cpu_s": 0.0,
+     "share_of_sg": 0.0
+    },
+    {
+     "module": "embedder: MSA/target [bwd]",
+     "wall_s": 0.0,
+     "cpu_s": 0.0,
+     "share_of_sg": 0.0
+    },
+    {
+     "module": "single_activations [bwd]",
+     "wall_s": 0.0,
+     "cpu_s": 0.0,
+     "share_of_sg": 0.0
+    },
+    {
+     "module": "heads: exp. resolved [fwd]",
+     "wall_s": 0.0,
+     "cpu_s": 0.0,
+     "share_of_sg": 0.0
+    },
+    {
+     "module": "extra-MSA embedding [fwd]",
+     "wall_s": 0.0,
+     "cpu_s": 0.0,
+     "share_of_sg": 0.0
+    }
+   ],
+   "detail": {
+    "device: Evoformer callback [bwd] other": 5.331,
+    "extra-MSA stack [bwd] triangle_attention_ending_node": 3.846,
+    "extra-MSA stack [bwd] triangle_attention_starting_node": 3.451,
+    "extra-MSA stack [bwd] other": 3.234,
+    "device: Evoformer callback [fwd] other": 2.314,
+    "template embedding [bwd] other": 1.896,
+    "extra-MSA stack [bwd] triangle_multiplication_incoming": 1.69,
+    "template embedding [fwd] template_pair_stack (remat)": 1.626,
+    "extra-MSA stack [bwd] triangle_multiplication_outgoing": 1.503,
+    "extra-MSA stack [fwd] triangle_attention_ending_node": 1.028,
+    "structure module [fwd] invariant_point_attention": 0.991,
+    "extra-MSA stack [fwd] triangle_multiplication_incoming": 0.901,
+    "extra-MSA stack [fwd] triangle_attention_starting_node": 0.873,
+    "extra-MSA stack [fwd] triangle_multiplication_outgoing": 0.814,
+    "extra-MSA stack [fwd] transition": 0.794,
+    "extra-MSA stack [fwd] outer_product_mean": 0.562,
+    "structure module [bwd] invariant_point_attention": 0.537,
+    "extra-MSA stack [bwd] outer_product_mean": 0.507,
+    "extra-MSA stack [bwd] msa_row_attention_with_pair_bias": 0.383,
+    "extra-MSA stack [bwd] transition": 0.375,
+    "extra-MSA stack [fwd] other": 0.269,
+    "extra-MSA stack [fwd] msa_row_attention_with_pair_bias": 0.143,
+    "loss [fwd] other": 0.132,
+    "template embedding [fwd] template_pair_stack/transition (remat)": 0.097,
+    "structure module [fwd] other": 0.093,
+    "loss [bwd] other": 0.087,
+    "template embedding [fwd] other": 0.06
+   },
+   "by_phase": {
+    "host: before trunk #1": {
+     "extra-MSA stack": 2.44,
+     "template embedding": 1.764,
+     "loss": 0.074,
+     "embedder: recycling": 0.009,
+     "evoformer (JAX side)": 0.008,
+     "embedder: relpos": 0.007,
+     "structure module": 0.006,
+     "heads: PAE/pTM": 0.0,
+     "template single/torsion": 0.0,
+     "embedder: MSA/target": 0.0,
+     "single_activations": 0.0,
+     "heads: pLDDT": 0.0,
+     "extra-MSA embedding": 0.0
+    },
+    "host: between trunk calls": {
+     "extra-MSA stack": 2.946,
+     "structure module": 0.561,
+     "template embedding": 0.021,
+     "evoformer (JAX side)": 0.015,
+     "loss": 0.012,
+     "embedder: recycling": 0.01,
+     "single_activations": 0.007
+    },
+    "host: fwd tail + bwd entry": {
+     "structure module": 1.151,
+     "loss": 0.076,
+     "evoformer (JAX side)": 0.008,
+     "heads: distogram": 0.007,
+     "heads: PAE/pTM": 0.005,
+     "heads: pLDDT": 0.001,
+     "single_activations": 0.0,
+     "heads: exp. resolved": 0.0
+    },
+    "host: JAX backward tail": {
+     "extra-MSA stack": 14.993,
+     "template embedding": 1.896,
+     "loss": 0.067,
+     "evoformer (JAX side)": 0.01,
+     "embedder: MSA/target": 0.0
+    }
+   },
+   "unmapped_ops": []
+  },
+  {
+   "round": 4,
+   "sequence_gradients_s": 35.477,
+   "lower_compile_s": 0.009,
+   "outside_xla_s": 2.274,
+   "outside_xla_before_first_thunk_s": 0.027,
+   "outside_xla_after_last_thunk_s": 0.14,
+   "outside_xla_gaps_inside_execution_s": 2.107,
+   "charged_by_enclosing_computation_s": 4.143,
+   "unmapped_by_opcode_s": {},
+   "rows": [
+    {
+     "module": "extra-MSA stack [bwd]",
+     "wall_s": 14.036,
+     "cpu_s": 16.365,
+     "share_of_sg": 0.3957
+    },
+    {
+     "module": "device: Evoformer callback",
+     "wall_s": 7.528,
+     "cpu_s": 7.528,
+     "share_of_sg": 0.2122
+    },
+    {
+     "module": "extra-MSA stack [fwd]",
+     "wall_s": 5.957,
+     "cpu_s": 6.889,
+     "share_of_sg": 0.1679
+    },
+    {
+     "module": "template embedding [bwd]",
+     "wall_s": 1.734,
+     "cpu_s": 1.745,
+     "share_of_sg": 0.0489
+    },
+    {
+     "module": "template embedding [fwd]",
+     "wall_s": 1.435,
+     "cpu_s": 1.62,
+     "share_of_sg": 0.0404
+    },
+    {
+     "module": "structure module [bwd]",
+     "wall_s": 1.117,
+     "cpu_s": 2.853,
+     "share_of_sg": 0.0315
+    },
+    {
+     "module": "structure module [fwd]",
+     "wall_s": 1.005,
+     "cpu_s": 1.785,
+     "share_of_sg": 0.0283
+    },
+    {
+     "module": "loss [fwd]",
+     "wall_s": 0.159,
+     "cpu_s": 0.347,
+     "share_of_sg": 0.0045
+    },
+    {
+     "module": "loss [bwd]",
+     "wall_s": 0.117,
+     "cpu_s": 0.186,
+     "share_of_sg": 0.0033
+    },
+    {
+     "module": "evoformer (JAX side) [fwd]",
+     "wall_s": 0.031,
+     "cpu_s": 0.06,
+     "share_of_sg": 0.0009
+    },
+    {
+     "module": "embedder: recycling [fwd]",
+     "wall_s": 0.022,
+     "cpu_s": 0.023,
+     "share_of_sg": 0.0006
+    },
+    {
+     "module": "single_activations [fwd]",
+     "wall_s": 0.015,
+     "cpu_s": 0.03,
+     "share_of_sg": 0.0004
+    },
+    {
+     "module": "heads: PAE/pTM [fwd]",
+     "wall_s": 0.014,
+     "cpu_s": 0.04,
+     "share_of_sg": 0.0004
+    },
+    {
+     "module": "evoformer (JAX side) [bwd]",
+     "wall_s": 0.012,
+     "cpu_s": 0.024,
+     "share_of_sg": 0.0003
+    },
+    {
+     "module": "embedder: relpos [fwd]",
+     "wall_s": 0.007,
+     "cpu_s": 0.015,
+     "share_of_sg": 0.0002
+    },
+    {
+     "module": "heads: distogram [fwd]",
+     "wall_s": 0.006,
+     "cpu_s": 0.018,
+     "share_of_sg": 0.0002
+    },
+    {
+     "module": "heads: distogram [bwd]",
+     "wall_s": 0.006,
+     "cpu_s": 0.006,
+     "share_of_sg": 0.0002
+    },
+    {
+     "module": "heads: pLDDT [fwd]",
+     "wall_s": 0.001,
+     "cpu_s": 0.001,
+     "share_of_sg": 0.0
+    },
+    {
+     "module": "embedder: MSA/target [fwd]",
+     "wall_s": 0.0,
+     "cpu_s": 0.0,
+     "share_of_sg": 0.0
+    },
+    {
+     "module": "extra-MSA embedding [fwd]",
+     "wall_s": 0.0,
+     "cpu_s": 0.0,
+     "share_of_sg": 0.0
+    },
+    {
+     "module": "template single/torsion [fwd]",
+     "wall_s": 0.0,
+     "cpu_s": 0.001,
+     "share_of_sg": 0.0
+    },
+    {
+     "module": "embedder: MSA/target [bwd]",
+     "wall_s": 0.0,
+     "cpu_s": 0.0,
+     "share_of_sg": 0.0
+    },
+    {
+     "module": "heads: exp. resolved [fwd]",
+     "wall_s": 0.0,
+     "cpu_s": 0.0,
+     "share_of_sg": 0.0
+    },
+    {
+     "module": "heads: pLDDT [bwd]",
+     "wall_s": 0.0,
+     "cpu_s": 0.001,
+     "share_of_sg": 0.0
+    },
+    {
+     "module": "single_activations [bwd]",
+     "wall_s": 0.0,
+     "cpu_s": 0.0,
+     "share_of_sg": 0.0
+    }
+   ],
+   "detail": {
+    "device: Evoformer callback [bwd] other": 5.306,
+    "extra-MSA stack [bwd] triangle_attention_ending_node": 3.751,
+    "extra-MSA stack [bwd] triangle_attention_starting_node": 3.684,
+    "extra-MSA stack [bwd] other": 2.896,
+    "device: Evoformer callback [fwd] other": 2.222,
+    "template embedding [bwd] other": 1.734,
+    "extra-MSA stack [bwd] triangle_multiplication_outgoing": 1.306,
+    "template embedding [fwd] template_pair_stack (remat)": 1.278,
+    "extra-MSA stack [bwd] triangle_multiplication_incoming": 1.222,
+    "extra-MSA stack [fwd] triangle_multiplication_outgoing": 1.099,
+    "structure module [bwd] invariant_point_attention": 1.039,
+    "extra-MSA stack [fwd] triangle_multiplication_incoming": 1.017,
+    "extra-MSA stack [fwd] triangle_attention_ending_node": 0.975,
+    "extra-MSA stack [fwd] triangle_attention_starting_node": 0.967,
+    "structure module [fwd] invariant_point_attention": 0.828,
+    "extra-MSA stack [fwd] transition": 0.822,
+    "extra-MSA stack [fwd] outer_product_mean": 0.62,
+    "extra-MSA stack [bwd] outer_product_mean": 0.582,
+    "extra-MSA stack [bwd] transition": 0.312,
+    "extra-MSA stack [fwd] other": 0.294,
+    "extra-MSA stack [bwd] msa_row_attention_with_pair_bias": 0.277,
+    "extra-MSA stack [fwd] msa_row_attention_with_pair_bias": 0.16,
+    "loss [fwd] other": 0.149,
+    "structure module [fwd] other": 0.13,
+    "loss [bwd] other": 0.117,
+    "template embedding [fwd] template_pair_stack/transition (remat)": 0.087,
+    "template embedding [fwd] other": 0.067,
+    "structure module [bwd] other": 0.053
+   },
+   "by_phase": {
+    "host: before trunk #1": {
+     "extra-MSA stack": 3.307,
+     "template embedding": 1.413,
+     "loss": 0.076,
+     "embedder: recycling": 0.017,
+     "evoformer (JAX side)": 0.009,
+     "structure module": 0.007,
+     "embedder: relpos": 0.007,
+     "heads: PAE/pTM": 0.001,
+     "template single/torsion": 0.0,
+     "embedder: MSA/target": 0.0,
+     "heads: pLDDT": 0.0,
+     "single_activations": 0.0,
+     "extra-MSA embedding": 0.0
+    },
+    "host: between trunk calls": {
+     "extra-MSA stack": 2.65,
+     "structure module": 0.428,
+     "template embedding": 0.022,
+     "evoformer (JAX side)": 0.012,
+     "loss": 0.01,
+     "embedder: recycling": 0.005,
+     "single_activations": 0.004
+    },
+    "host: fwd tail + bwd entry": {
+     "structure module": 1.687,
+     "loss": 0.111,
+     "heads: PAE/pTM": 0.013,
+     "heads: distogram": 0.012,
+     "single_activations": 0.011,
+     "evoformer (JAX side)": 0.01,
+     "heads: pLDDT": 0.001,
+     "heads: exp. resolved": 0.0
+    },
+    "host: JAX backward tail": {
+     "extra-MSA stack": 14.036,
+     "template embedding": 1.734,
+     "loss": 0.08,
+     "evoformer (JAX side)": 0.012,
+     "embedder: MSA/target": 0.0
+    }
+   },
+   "unmapped_ops": []
+  },
+  {
+   "round": 5,
+   "sequence_gradients_s": 35.043,
+   "lower_compile_s": 0.009,
+   "outside_xla_s": 2.599,
+   "outside_xla_before_first_thunk_s": 0.026,
+   "outside_xla_after_last_thunk_s": 0.16,
+   "outside_xla_gaps_inside_execution_s": 2.413,
+   "charged_by_enclosing_computation_s": 3.726,
+   "unmapped_by_opcode_s": {},
+   "rows": [
+    {
+     "module": "extra-MSA stack [bwd]",
+     "wall_s": 13.878,
+     "cpu_s": 16.27,
+     "share_of_sg": 0.396
+    },
+    {
+     "module": "device: Evoformer callback",
+     "wall_s": 7.515,
+     "cpu_s": 7.515,
+     "share_of_sg": 0.2145
+    },
+    {
+     "module": "extra-MSA stack [fwd]",
+     "wall_s": 5.578,
+     "cpu_s": 6.401,
+     "share_of_sg": 0.1592
+    },
+    {
+     "module": "template embedding [bwd]",
+     "wall_s": 1.593,
+     "cpu_s": 1.6,
+     "share_of_sg": 0.0454
+    },
+    {
+     "module": "template embedding [fwd]",
+     "wall_s": 1.486,
+     "cpu_s": 1.67,
+     "share_of_sg": 0.0424
+    },
+    {
+     "module": "structure module [bwd]",
+     "wall_s": 1.1,
+     "cpu_s": 2.844,
+     "share_of_sg": 0.0314
+    },
+    {
+     "module": "structure module [fwd]",
+     "wall_s": 0.891,
+     "cpu_s": 1.701,
+     "share_of_sg": 0.0254
+    },
+    {
+     "module": "loss [fwd]",
+     "wall_s": 0.136,
+     "cpu_s": 0.295,
+     "share_of_sg": 0.0039
+    },
+    {
+     "module": "loss [bwd]",
+     "wall_s": 0.126,
+     "cpu_s": 0.181,
+     "share_of_sg": 0.0036
+    },
+    {
+     "module": "evoformer (JAX side) [fwd]",
+     "wall_s": 0.058,
+     "cpu_s": 0.087,
+     "share_of_sg": 0.0017
+    },
+    {
+     "module": "heads: distogram [bwd]",
+     "wall_s": 0.02,
+     "cpu_s": 0.02,
+     "share_of_sg": 0.0006
+    },
+    {
+     "module": "embedder: recycling [fwd]",
+     "wall_s": 0.018,
+     "cpu_s": 0.02,
+     "share_of_sg": 0.0005
+    },
+    {
+     "module": "heads: PAE/pTM [fwd]",
+     "wall_s": 0.011,
+     "cpu_s": 0.032,
+     "share_of_sg": 0.0003
+    },
+    {
+     "module": "embedder: relpos [fwd]",
+     "wall_s": 0.01,
+     "cpu_s": 0.016,
+     "share_of_sg": 0.0003
+    },
+    {
+     "module": "heads: distogram [fwd]",
+     "wall_s": 0.009,
+     "cpu_s": 0.026,
+     "share_of_sg": 0.0002
+    },
+    {
+     "module": "evoformer (JAX side) [bwd]",
+     "wall_s": 0.008,
+     "cpu_s": 0.015,
+     "share_of_sg": 0.0002
+    },
+    {
+     "module": "single_activations [fwd]",
+     "wall_s": 0.006,
+     "cpu_s": 0.013,
+     "share_of_sg": 0.0002
+    },
+    {
+     "module": "heads: pLDDT [fwd]",
+     "wall_s": 0.001,
+     "cpu_s": 0.001,
+     "share_of_sg": 0.0
+    },
+    {
+     "module": "heads: pLDDT [bwd]",
+     "wall_s": 0.0,
+     "cpu_s": 0.001,
+     "share_of_sg": 0.0
+    },
+    {
+     "module": "template single/torsion [fwd]",
+     "wall_s": 0.0,
+     "cpu_s": 0.0,
+     "share_of_sg": 0.0
+    },
+    {
+     "module": "extra-MSA embedding [fwd]",
+     "wall_s": 0.0,
+     "cpu_s": 0.0,
+     "share_of_sg": 0.0
+    },
+    {
+     "module": "embedder: MSA/target [bwd]",
+     "wall_s": 0.0,
+     "cpu_s": 0.0,
+     "share_of_sg": 0.0
+    },
+    {
+     "module": "single_activations [bwd]",
+     "wall_s": 0.0,
+     "cpu_s": 0.0,
+     "share_of_sg": 0.0
+    },
+    {
+     "module": "embedder: MSA/target [fwd]",
+     "wall_s": 0.0,
+     "cpu_s": 0.001,
+     "share_of_sg": 0.0
+    },
+    {
+     "module": "heads: exp. resolved [fwd]",
+     "wall_s": 0.0,
+     "cpu_s": 0.0,
+     "share_of_sg": 0.0
+    }
+   ],
+   "detail": {
+    "device: Evoformer callback [bwd] other": 5.217,
+    "extra-MSA stack [bwd] triangle_attention_starting_node": 3.709,
+    "extra-MSA stack [bwd] triangle_attention_ending_node": 3.601,
+    "extra-MSA stack [bwd] other": 2.717,
+    "device: Evoformer callback [fwd] other": 2.298,
+    "template embedding [bwd] other": 1.593,
+    "extra-MSA stack [bwd] triangle_multiplication_outgoing": 1.388,
+    "template embedding [fwd] template_pair_stack (remat)": 1.337,
+    "extra-MSA stack [bwd] triangle_multiplication_incoming": 1.283,
+    "extra-MSA stack [fwd] triangle_multiplication_outgoing": 1.07,
+    "structure module [bwd] invariant_point_attention": 1.036,
+    "extra-MSA stack [fwd] triangle_attention_ending_node": 0.92,
+    "extra-MSA stack [fwd] triangle_attention_starting_node": 0.909,
+    "extra-MSA stack [fwd] triangle_multiplication_incoming": 0.862,
+    "extra-MSA stack [fwd] transition": 0.828,
+    "structure module [fwd] invariant_point_attention": 0.741,
+    "extra-MSA stack [bwd] outer_product_mean": 0.538,
+    "extra-MSA stack [fwd] outer_product_mean": 0.529,
+    "extra-MSA stack [bwd] transition": 0.339,
+    "extra-MSA stack [bwd] msa_row_attention_with_pair_bias": 0.301,
+    "extra-MSA stack [fwd] other": 0.291,
+    "extra-MSA stack [fwd] msa_row_attention_with_pair_bias": 0.166,
+    "loss [fwd] other": 0.129,
+    "loss [bwd] other": 0.126,
+    "structure module [fwd] other": 0.112,
+    "template embedding [fwd] template_pair_stack/transition (remat)": 0.085,
+    "template embedding [fwd] other": 0.062,
+    "evoformer (JAX side) [fwd] other": 0.058
+   },
+   "by_phase": {
+    "host: before trunk #1": {
+     "extra-MSA stack": 3.08,
+     "template embedding": 1.462,
+     "loss": 0.048,
+     "evoformer (JAX side)": 0.012,
+     "embedder: relpos": 0.01,
+     "structure module": 0.005,
+     "embedder: recycling": 0.005,
+     "heads: PAE/pTM": 0.0,
+     "embedder: MSA/target": 0.0,
+     "template single/torsion": 0.0,
+     "heads: pLDDT": 0.0,
+     "single_activations": 0.0,
+     "extra-MSA embedding": 0.0
+    },
+    "host: between trunk calls": {
+     "extra-MSA stack": 2.497,
+     "structure module": 0.405,
+     "template embedding": 0.024,
+     "evoformer (JAX side)": 0.017,
+     "embedder: recycling": 0.013,
+     "loss": 0.008,
+     "single_activations": 0.003
+    },
+    "host: fwd tail + bwd entry": {
+     "structure module": 1.582,
+     "loss": 0.141,
+     "evoformer (JAX side)": 0.029,
+     "heads: distogram": 0.029,
+     "heads: PAE/pTM": 0.01,
+     "single_activations": 0.003,
+     "heads: pLDDT": 0.001,
+     "heads: exp. resolved": 0.0
+    },
+    "host: JAX backward tail": {
+     "extra-MSA stack": 13.878,
+     "template embedding": 1.593,
+     "loss": 0.065,
+     "evoformer (JAX side)": 0.008,
+     "embedder: MSA/target": 0.0
+    }
+   },
+   "unmapped_ops": []
+  },
+  {
+   "round": 6,
+   "sequence_gradients_s": 32.387,
+   "lower_compile_s": 0.013,
+   "outside_xla_s": 1.743,
+   "outside_xla_before_first_thunk_s": 0.032,
+   "outside_xla_after_last_thunk_s": 0.179,
+   "outside_xla_gaps_inside_execution_s": 1.533,
+   "charged_by_enclosing_computation_s": 3.365,
+   "unmapped_by_opcode_s": {},
+   "rows": [
+    {
+     "module": "extra-MSA stack [bwd]",
+     "wall_s": 13.364,
+     "cpu_s": 15.517,
+     "share_of_sg": 0.4126
+    },
+    {
+     "module": "device: Evoformer callback",
+     "wall_s": 7.492,
+     "cpu_s": 7.492,
+     "share_of_sg": 0.2313
+    },
+    {
+     "module": "extra-MSA stack [fwd]",
+     "wall_s": 5.19,
+     "cpu_s": 5.99,
+     "share_of_sg": 0.1602
+    },
+    {
+     "module": "template embedding [fwd]",
+     "wall_s": 1.4,
+     "cpu_s": 1.586,
+     "share_of_sg": 0.0432
+    },
+    {
+     "module": "template embedding [bwd]",
+     "wall_s": 0.988,
+     "cpu_s": 0.991,
+     "share_of_sg": 0.0305
+    },
+    {
+     "module": "structure module [fwd]",
+     "wall_s": 0.946,
+     "cpu_s": 1.557,
+     "share_of_sg": 0.0292
+    },
+    {
+     "module": "structure module [bwd]",
+     "wall_s": 0.943,
+     "cpu_s": 2.704,
+     "share_of_sg": 0.0291
+    },
+    {
+     "module": "loss [fwd]",
+     "wall_s": 0.133,
+     "cpu_s": 0.269,
+     "share_of_sg": 0.0041
+    },
+    {
+     "module": "loss [bwd]",
+     "wall_s": 0.098,
+     "cpu_s": 0.174,
+     "share_of_sg": 0.003
+    },
+    {
+     "module": "evoformer (JAX side) [fwd]",
+     "wall_s": 0.035,
+     "cpu_s": 0.049,
+     "share_of_sg": 0.0011
+    },
+    {
+     "module": "embedder: recycling [fwd]",
+     "wall_s": 0.015,
+     "cpu_s": 0.017,
+     "share_of_sg": 0.0005
+    },
+    {
+     "module": "embedder: relpos [fwd]",
+     "wall_s": 0.011,
+     "cpu_s": 0.019,
+     "share_of_sg": 0.0004
+    },
+    {
+     "module": "evoformer (JAX side) [bwd]",
+     "wall_s": 0.011,
+     "cpu_s": 0.018,
+     "share_of_sg": 0.0003
+    },
+    {
+     "module": "heads: PAE/pTM [fwd]",
+     "wall_s": 0.009,
+     "cpu_s": 0.022,
+     "share_of_sg": 0.0003
+    },
+    {
+     "module": "heads: pLDDT [bwd]",
+     "wall_s": 0.002,
+     "cpu_s": 0.005,
+     "share_of_sg": 0.0001
+    },
+    {
+     "module": "heads: distogram [bwd]",
+     "wall_s": 0.002,
+     "cpu_s": 0.002,
+     "share_of_sg": 0.0
+    },
+    {
+     "module": "heads: distogram [fwd]",
+     "wall_s": 0.002,
+     "cpu_s": 0.006,
+     "share_of_sg": 0.0001
+    },
+    {
+     "module": "single_activations [fwd]",
+     "wall_s": 0.001,
+     "cpu_s": 0.005,
+     "share_of_sg": 0.0
+    },
+    {
+     "module": "embedder: MSA/target [fwd]",
+     "wall_s": 0.0,
+     "cpu_s": 0.0,
+     "share_of_sg": 0.0
+    },
+    {
+     "module": "heads: pLDDT [fwd]",
+     "wall_s": 0.0,
+     "cpu_s": 0.001,
+     "share_of_sg": 0.0
+    },
+    {
+     "module": "embedder: MSA/target [bwd]",
+     "wall_s": 0.0,
+     "cpu_s": 0.0,
+     "share_of_sg": 0.0
+    },
+    {
+     "module": "template single/torsion [fwd]",
+     "wall_s": 0.0,
+     "cpu_s": 0.0,
+     "share_of_sg": 0.0
+    },
+    {
+     "module": "single_activations [bwd]",
+     "wall_s": 0.0,
+     "cpu_s": 0.0,
+     "share_of_sg": 0.0
+    },
+    {
+     "module": "heads: exp. resolved [fwd]",
+     "wall_s": 0.0,
+     "cpu_s": 0.0,
+     "share_of_sg": 0.0
+    },
+    {
+     "module": "extra-MSA embedding [fwd]",
+     "wall_s": 0.0,
+     "cpu_s": 0.0,
+     "share_of_sg": 0.0
+    }
+   ],
+   "detail": {
+    "device: Evoformer callback [bwd] other": 5.269,
+    "extra-MSA stack [bwd] triangle_attention_ending_node": 3.48,
+    "extra-MSA stack [bwd] triangle_attention_starting_node": 3.461,
+    "extra-MSA stack [bwd] other": 2.658,
+    "device: Evoformer callback [fwd] other": 2.223,
+    "extra-MSA stack [bwd] triangle_multiplication_incoming": 1.453,
+    "extra-MSA stack [bwd] triangle_multiplication_outgoing": 1.338,
+    "template embedding [fwd] template_pair_stack (remat)": 1.244,
+    "template embedding [bwd] other": 0.988,
+    "extra-MSA stack [fwd] triangle_multiplication_outgoing": 0.987,
+    "extra-MSA stack [fwd] triangle_attention_ending_node": 0.896,
+    "structure module [bwd] invariant_point_attention": 0.886,
+    "extra-MSA stack [fwd] triangle_attention_starting_node": 0.874,
+    "structure module [fwd] invariant_point_attention": 0.819,
+    "extra-MSA stack [fwd] triangle_multiplication_incoming": 0.802,
+    "extra-MSA stack [fwd] transition": 0.651,
+    "extra-MSA stack [fwd] outer_product_mean": 0.509,
+    "extra-MSA stack [bwd] outer_product_mean": 0.469,
+    "extra-MSA stack [fwd] other": 0.289,
+    "extra-MSA stack [bwd] msa_row_attention_with_pair_bias": 0.252,
+    "extra-MSA stack [bwd] transition": 0.249,
+    "extra-MSA stack [fwd] msa_row_attention_with_pair_bias": 0.177,
+    "loss [fwd] other": 0.124,
+    "loss [bwd] other": 0.098,
+    "structure module [fwd] other": 0.093,
+    "template embedding [fwd] template_pair_stack/transition (remat)": 0.081,
+    "template embedding [fwd] other": 0.075
+   },
+   "by_phase": {
+    "host: before trunk #1": {
+     "extra-MSA stack": 2.51,
+     "template embedding": 1.371,
+     "loss": 0.065,
+     "evoformer (JAX side)": 0.012,
+     "embedder: relpos": 0.011,
+     "embedder: recycling": 0.007,
+     "structure module": 0.006,
+     "heads: PAE/pTM": 0.003,
+     "single_activations": 0.001,
+     "template single/torsion": 0.0,
+     "embedder: MSA/target": 0.0,
+     "heads: pLDDT": 0.0,
+     "extra-MSA embedding": 0.0
+    },
+    "host: between trunk calls": {
+     "extra-MSA stack": 2.68,
+     "structure module": 0.634,
+     "template embedding": 0.029,
+     "evoformer (JAX side)": 0.019,
+     "loss": 0.019,
+     "embedder: recycling": 0.008,
+     "single_activations": 0.0
+    },
+    "host: fwd tail + bwd entry": {
+     "structure module": 1.249,
+     "loss": 0.073,
+     "heads: PAE/pTM": 0.006,
+     "evoformer (JAX side)": 0.005,
+     "heads: distogram": 0.004,
+     "heads: pLDDT": 0.002,
+     "single_activations": 0.0,
+     "heads: exp. resolved": 0.0
+    },
+    "host: JAX backward tail": {
+     "extra-MSA stack": 13.364,
+     "template embedding": 0.988,
+     "loss": 0.073,
+     "evoformer (JAX side)": 0.011,
+     "embedder: MSA/target": 0.0
+    }
+   },
+   "unmapped_ops": []
+  }
+ ]
+}
