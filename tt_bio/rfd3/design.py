@@ -38,8 +38,6 @@ from typing import Mapping, Sequence
 
 import torch
 
-from ..envflags import env_flag
-from ..tenstorrent import get_device
 from .model import (build_diffusion_module, build_token_initializer,
                     set_tune_matmul_for_atoms)
 from .input import InputSpecification
@@ -574,8 +572,6 @@ def _run_design_jobs(jobs, specs, out_dir, *, checkpoint_dir, from_pdb, num_time
     cap = Path(checkpoint_dir)
     dm_weights = torch.load(cap / "diffusion_module.real_weights.pt", map_location="cpu", weights_only=True)
     ti_weights = torch.load(cap / "token_initializer.real_weights.pt", map_location="cpu", weights_only=True)
-    if env_flag("RFD3_TRACE_DECODER", False):
-        get_device(trace="rfd3")   # the first open reserves the decoder's trace region
     dev_ti = build_token_initializer(ti_weights)
     dev_dm = build_diffusion_module(dm_weights)
     sampler = RFD3Sampler(num_timesteps=num_timesteps)

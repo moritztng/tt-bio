@@ -23,7 +23,6 @@ CAPTURE_SITES = {
     "tt_bio/tenstorrent.py": "diffusion",
     "tt_bio/protenix.py": "protenix",
     "tt_bio/esmc.py": "esmc",
-    "tt_bio/rfd3/model.py": "rfd3",
 }
 
 
@@ -88,13 +87,14 @@ def test_every_capture_site_is_sized():
 
 
 def test_no_entry_can_eat_a_bank():
-    """An eighth of a Wormhole bank at most, on every arch: the region is taken from every bank,
-    so anything near the bank size starves the model and at the bank size wedges the chip."""
+    """A quarter of a Wormhole bank at most, on every arch: the region is taken from every bank,
+    so anything near the bank size starves the model and at the bank size wedges the chip.
+    The largest entry, ESMC's eight live traces on Wormhole, is 221 MiB."""
     from tt_bio.tenstorrent import TRACE_REGIONS
     for cap, per_arch in TRACE_REGIONS.items():
         assert set(per_arch) == {"wormhole_b0", "blackhole"}, (cap, sorted(per_arch))
         for arch, n in per_arch.items():
-            assert 0 < n <= WORMHOLE_BANK // 8, (cap, arch, n)
+            assert 0 < n <= WORMHOLE_BANK // 4, (cap, arch, n)
             assert n % (1 << 20) == 0, (cap, arch, n)
 
 
@@ -108,12 +108,13 @@ def test_lookup_is_by_arch_and_refuses_unknown_names(monkeypatch):
         T.trace_region_bytes("1 << 30")
 
 
-def test_rfd3_encoder_trace_refuses_by_name():
-    """The encoder trace hung a Wormhole chip after its first replay and was 74.5% slower; the
-    flag must raise before any capture, naming itself."""
+def test_rfd3_traces_refuse_by_name():
+    """Both RFD3 traces are withdrawn: the encoder's hung a Wormhole chip after its first replay,
+    the decoder's was slower, changed the design and ran out of memory at 1280 residues. Each
+    flag must raise, naming itself, before anything is captured (rfd3 has no capture site left,
+    which test_every_capture_site_is_sized pins)."""
     src = (ROOT / "tt_bio/rfd3/model.py").read_text()
     init = src[src.index("class RFD3DiffusionModule"):]
     init = init[:init.index("self.encoder = LocalAtomTransformer(")]
-    assert 'if env_flag("RFD3_TRACE_ENCODER", False):' in init and "raise ValueError(" in init
-    assert "RFD3_TRACE_ENCODER is withdrawn" in init
-    assert "_encoder_downcast_traced" not in src
+    assert '("RFD3_TRACE_ENCODER",' in init and '("RFD3_TRACE_DECODER",' in init
+    assert "is withdrawn" in init and "raise ValueError(" in init

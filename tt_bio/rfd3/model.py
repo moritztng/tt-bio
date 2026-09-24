@@ -796,20 +796,6 @@ def _tt_cached(x, dev, dtype=ttnn.bfloat16):
     return out
 
 
-def _tt_host(x, dtype=ttnn.bfloat16):
-    """Host-side tiled tensor, for filling a persistent trace-input buffer.
-
-    Cannot use _tt: copy_host_to_device_tensor needs a host tensor whose spec already
-    matches the tiled device buffer the trace captured, so the tilize has to happen here.
-    Casting in torch first still avoids the expensive part -- letting ttnn convert fp32
-    while it tilizes costs 42.7 ms for a 6.9M-element bf16 tensor against 17.3 ms
-    pre-cast, and the result is bit-identical."""
-    torch_dtype = _TORCH_DTYPE.get(dtype)
-    if torch_dtype is not None:
-        x = x.to(torch_dtype)
-    return ttnn.from_torch(x, layout=ttnn.TILE_LAYOUT, dtype=dtype)
-
-
 def _pair_transition_chunk_h(w_pad, hidden, height, residents=2):
     """Rows of the pair tensor one L1-resident SwiGLU chunk may cover.
 
@@ -885,31 +871,6 @@ def _pair_transition_join(parts, batch):
     for r in rows:
         ttnn.deallocate(r)
     return out
-
-
-def _tt_refresh(x, dev_tensor, dtype=ttnn.bfloat16):
-    """Overwrite a persistent trace-input buffer with fresh host data."""
-    ttnn.copy_host_to_device_tensor(_tt_host(x, dtype), dev_tensor)
-
-
-def _trace_output_copy(out):
-    """Hand a trace's result to a caller that owns what it is given.
-
-    A replay writes into the buffer the capture allocated, and that buffer has to stay
-    alive for every later replay -- so returning it directly hands the caller a tensor it
-    must not free. The eager paths return per-call intermediates, and RFD3's consumers
-    deallocate accordingly: `RFD3DiffusionModule._process_` does `ttnn.deallocate(Q_L)`
-    on the decoder's output once the R update is read back (6985b2f37, "keep the decoder's
-    two outputs on the card"). That freed the traced decoder's own output buffer, so
-    `RFD3_TRACE_DECODER=1` produced correct coordinates for exactly one step and then
-    replayed into freed memory: the third call raised "Buffer is not allocated" out of the
-    first op that touched the result. p25/p26 measured the path before the residency change
-    landed, and it is opt-in and default-off, so nothing caught the regression (p32).
-
-    Copying keeps both contracts intact and is not worth avoiding: the decoder's output is
-    [B, L, C_ATOM] -- 0.86 MB at 3359 atoms against the ~250 ms step that produced it.
-    """
-    return ttnn.clone(out)
 
 
 def _tt_idx(indices, dev):
@@ -2239,8 +2200,7 @@ class RFD3AtomBlock(Module):
             # dense fp32 bias never exists in DRAM and 8.5 ms/call of traffic becomes 1.67.
             # Bit-exact against the five ops it replaces by construction and by torch.equal at
             # the production shape (scripts/rfd3_port/p42_fused_scores_probe.py), including on
-            # the softmax that consumes it. `dense_bias is None` is L6a's own gate, so the trace
-            # path -- which passes its own template -- keeps the old route untouched.
+            # the softmax that consumes it. `dense_bias is None` is L6a's own gate.
             fused = dense_bias is None and rfd3_bias.fused_enabled() and dt == ttnn.bfloat16
             if fused:
                 pair_bias = self._sparse_pair_bias(p, bias_cache)
@@ -2348,34 +2308,9 @@ class RFD3AtomBlock(Module):
 
 
 class LocalAtomTransformer(Module):
-    """Three-block RFD3 atom encoder with parity-preserving sparse QK.
+    """Three-block RFD3 atom encoder with parity-preserving sparse QK."""
 
-    trace=True opts into a ttnn trace-capture/replay fast path (per
-    rfd3-trace-viability-submodule-granularity: this narrow-channel/few-head
-    3-block stack measured a real 5.46-5.56x isolated speedup, unlike the
-    18-block token DiT's confirmed dead end). Default off -- bit-identical
-    eager path unchanged unless the caller opts in. The trace is captured
-    once per (L, n_key) shape and replayed with fresh q/c/p/mask data staged
-    into persistent device buffers every call (correct regardless of how
-    often the data actually changes -- see the class docstring on _trace).
-
-    p26 found this class's OWN trace=True unsafe when wired directly into
-    RFD3DiffusionModule (encoder call, trace stays open) followed by `_downcast_q`
-    running eagerly right after: `_downcast_q` re-derived and re-uploaded its packing
-    index on every call (a fresh device allocation immediately after the trace had just
-    executed) and that hung the device (py-spy: stuck in `_downcast_q`'s closing
-    `ttnn.to_torch()`, same stack frame every time -- see
-    ttnn-trace-interleaved-eager-corruption / rfd3-trace-hang-vs-corruption-two-gate-catch).
-    Isolated component-level PCC (direct repeated __call__ invocations, no intervening
-    eager allocation) was always clean -- the bug was specific to the full-pipeline
-    interleaving.
-
-    RFD3DiffusionModule always builds its encoder with trace=False, and the combined
-    encoder+downcast_q trace that replaced this path in p27 is withdrawn (74.5% slower, and it
-    hung a Wormhole chip; see RFD3DiffusionModule.__init__). This class's own trace=True path
-    is kept only for isolated-component testing."""
-
-    def __init__(self, state_dict, ckc, n_blocks=3, dtype=None, fp32_residual=False, trace=False):
+    def __init__(self, state_dict, ckc, n_blocks=3, dtype=None, fp32_residual=False):
         super().__init__(state_dict, ckc)
         self.dtype = dtype or ttnn.bfloat16
         self.blocks = [
@@ -2383,49 +2318,12 @@ class LocalAtomTransformer(Module):
                           fp32_residual=fp32_residual)
             for i in range(n_blocks)
         ]
-        self.trace = trace
-        self._trace_state = None  # {"id", "shape", "q", "c", "p", "mask", "output"}
         self._mask_cache = {}  # one -1e4 scatter template, see _mask_template
 
     def run_device(self, q, c, p, additive_mask):
         for block in self.blocks:
             q = block(q, c, p, additive_mask)
         return q
-
-    def _persist(self, x_host):
-        host_t = _tt_host(x_host, self.dtype)
-        dev_t = ttnn.allocate_tensor_on_device(host_t.spec, self.device)
-        ttnn.copy_host_to_device_tensor(host_t, dev_t)
-        return dev_t
-
-    def _capture_trace(self, q_host, c_host, p_host, mask_host, shape_key):
-        dev = self.device
-        q_p, c_p, p_p, mask_p = (self._persist(x) for x in (q_host, c_host, p_host, mask_host))
-        for _ in range(2):  # warmup: compiles every kernel (capture disallows compilation)
-            _ = self.run_device(q_p, c_p, p_p, mask_p)
-        ttnn.synchronize_device(dev)
-        tid = ttnn.begin_trace_capture(dev, cq_id=0)
-        out = self.run_device(q_p, c_p, p_p, mask_p)
-        ttnn.end_trace_capture(dev, tid, cq_id=0)
-        self._trace_state = dict(id=tid, shape=shape_key, q=q_p, c=c_p, p=p_p, mask=mask_p, output=out)
-
-    def _run_device_traced(self, q_host, c_host, p_host, mask_host):
-        import tt_bio.tenstorrent as _TTd
-        _TTd.require_trace_region("LocalAtomTransformer(trace=True)")
-        dev, dt = self.device, self.dtype
-        shape_key = (tuple(q_host.shape), tuple(c_host.shape), tuple(p_host.shape), tuple(mask_host.shape))
-        st = self._trace_state
-        if st is None or st["shape"] != shape_key:
-            if st is not None:
-                ttnn.release_trace(dev, st["id"])
-            self._capture_trace(q_host, c_host, p_host, mask_host, shape_key)
-        else:
-            _tt_refresh(q_host, st["q"], dt)
-            _tt_refresh(c_host, st["c"], dt)
-            _tt_refresh(p_host, st["p"], dt)
-            _tt_refresh(mask_host, st["mask"], dt)
-        ttnn.execute_trace(dev, self._trace_state["id"], cq_id=0, blocking=True)
-        return self._trace_state["output"]
 
     def __call__(self, q_host, c_host, p_host, indices):
         dt, dev = self.dtype, self.device
@@ -2440,44 +2338,26 @@ class LocalAtomTransformer(Module):
                 q = block(q, c, p, sparse_qk=sparse_qk)
             out = q
         else:
-            mask_host = _dense_attention_mask(indices)
-            if self.trace:
-                out = self._run_device_traced(q_host, c_host, p_host, mask_host)
-            else:
-                q = _tt(q_host, dev, dt)
-                c = _tt(c_host, dev, dt)
-                p = _tt(p_host, dev, dt)
-                mask = _tt(mask_host, dev, dt)
-                out = self.run_device(q, c, p, mask)
+            q = _tt(q_host, dev, dt)
+            c = _tt(c_host, dev, dt)
+            p = _tt(p_host, dev, dt)
+            mask = _tt(_dense_attention_mask(indices), dev, dt)
+            out = self.run_device(q, c, p, mask)
         return ttnn.to_torch(out).float()
 
 
 class CompactStreamingDecoder(Module):
     """RFD3 decoder: three device Upcast/atom blocks plus device Downcast.
 
-    trace=True opts into a ttnn trace-capture/replay fast path over the core
-    upcast/atom-block loop (per rfd3-trace-viability-submodule-granularity: this
-    narrow-channel/few-head 3-block loop measured a real 4.12x isolated speedup).
-    The downcast GCA + final s-processing tail stay eager -- not part of the
-    traced region. Default off -- bit-identical eager path unchanged unless the
-    caller opts in.
+    pack_idx/unpack_idx/valid/upcast_mask_dev depend only on tok_idx, which is the SAME
+    object for an entire design's sampling loop (RFD3Sampler.sample passes one `f` dict by
+    reference through every step), so they are cached by id(tok_idx) and rebuilt only when
+    that identity (or shape) changes. a/q/c/p/mask are uploaded every call."""
 
-    Two independent buffer lifetimes (see rfd3-rfdiffusion3-port-p24 handoff):
-    pack_idx/unpack_idx/valid/upcast_mask_dev depend only on tok_idx, which is
-    the SAME object for an entire design's sampling loop (RFD3Sampler.sample
-    passes one `f` dict by reference through every step) -- cached by id(tok_idx)
-    and rebuilt only when that identity (or shape) changes. a/q/c/p/mask change
-    every call (q/c/p are step-fixed across the decoder's 2 recycle calls but
-    that's a perf nuance, not a correctness one -- refreshing them on every call
-    via copy_host_to_device_tensor into the same persistent trace buffers is
-    always correct, just leaves one redundant re-upload per step on the table)."""
-
-    def __init__(self, state_dict, ckc, dtype=None, fp32_residual=False, trace=False):
+    def __init__(self, state_dict, ckc, dtype=None, fp32_residual=False):
         super().__init__(state_dict, ckc)
         self.dtype = dtype or ttnn.bfloat16
-        self.trace = trace
         self._design_state = None  # {"key", "valid", "pack_idx_dev", "unpack_idx_dev", "upcast_mask_dev"}
-        self._trace_state = None   # {"id", "shape", "a", "q", "c", "p", "mask", "output"}
         self._mask_cache = {}      # one -1e4 scatter template, see _mask_template
         self._bias_cache = {}      # one dense bias per atom block, see _sparse_bias_f32
         self.upcast = [
@@ -2567,9 +2447,7 @@ class CompactStreamingDecoder(Module):
         unpack_idx_dev, valid, length, sparse_qk=None, bias_cache=None,
     ):
         """Pure-device core loop (pack -> upcast -> unpack -> atom_block, x3).
-        `a` is the FLAT (not pre-split) atom-pair stream; the reshape to
-        a_split runs here (not by the caller) so a trace replay re-derives
-        a_split from whatever fresh data was staged into `a`'s buffer."""
+        `a` is the FLAT (not pre-split) atom-pair stream."""
         a_split = ttnn.reshape(a, (a.shape[0], a.shape[1], 3, 256))
         for upcast, atom_block in zip(self.upcast, self.atom_blocks):
             q_grouped = self._pack_atoms_device(q, pack_idx_dev, valid)
@@ -2594,181 +2472,7 @@ class CompactStreamingDecoder(Module):
             st = dict(key=key, valid=valid, pack_idx_dev=pack_idx_dev,
                       unpack_idx_dev=unpack_idx_dev, upcast_mask_dev=upcast_mask_dev)
             self._design_state = st
-            if self._trace_state is not None:
-                # a design change can change L/I shapes -- any captured trace is stale.
-                self._release_sparse_trace(self._trace_state)
-                self._trace_state = None
         return st["valid"], st["pack_idx_dev"], st["unpack_idx_dev"], st["upcast_mask_dev"]
-
-    def _persist(self, x_host):
-        host_t = _tt_host(x_host, self.dtype)
-        dev_t = ttnn.allocate_tensor_on_device(host_t.spec, self.device)
-        ttnn.copy_host_to_device_tensor(host_t, dev_t)
-        return dev_t
-
-    def _persist_index(self, x_host, layout):
-        host_t = ttnn.from_torch(x_host, layout=layout, dtype=ttnn.uint32)
-        dev_t = ttnn.allocate_tensor_on_device(host_t.spec, self.device)
-        ttnn.copy_host_to_device_tensor(host_t, dev_t)
-        return dev_t
-
-    def _capture_sparse_trace(
-        self, a_host, q_host, c_host, p_sparse_host,
-        attn_idx_host, n_keys, upcast_mask_dev, pack_idx_dev,
-        unpack_idx_dev, valid, length, shape_key, step_key,
-    ):
-        dev = self.device
-        a_p, q_p, c_p, p_p = (
-            self._persist(x) for x in (a_host, q_host, c_host, p_sparse_host)
-        )
-        attn_p = self._persist_index(attn_idx_host, ttnn.TILE_LAYOUT)
-        batch = q_host.shape[0]
-        n_heads = self.atom_blocks[0].n_head
-        # tile-multiple key axis, see _mask_template
-        dense_bias = ttnn.full(
-            (batch, n_heads, length, align_tile(length)), -1e4,
-            dtype=self.dtype, layout=ttnn.TILE_LAYOUT, device=dev)
-        sparse_qk = (n_keys, attn_p, dense_bias, None, None)
-        for _ in range(2):
-            _ = self.run_device(
-                a_p, q_p, c_p, p_p, None, upcast_mask_dev, pack_idx_dev,
-                unpack_idx_dev, valid, length, sparse_qk=sparse_qk,
-            )
-        ttnn.synchronize_device(dev)
-        # TWO traces, so p30's dense-bias reuse survives tracing instead of being traded
-        # for it. A trace has no branches: whatever `run_device` issued at capture time it
-        # re-issues on every replay, so a single trace containing the pair-bias scatter pays
-        # it on BOTH of a step's recycle calls -- exactly the six-scatter cost the eager
-        # `_bias_cache` removes (p30, +7%). Capturing the loop twice against ONE cache dict
-        # splits it: the first capture misses on every block and bakes in the scatter,
-        # writing each block's fp32 bias into a buffer the dict now holds; the second
-        # capture hits on every block and bakes in only the reads of those buffers. So
-        # replaying `id` for recycle 1 and `id_reuse` for recycle >= 2 issues three
-        # scatters per step, not six, and trace and cache compound (p32).
-        #
-        # The bias buffers are ordinary live device tensors -- the dict's reference keeps
-        # them allocated, so the second capture's own intermediates cannot land on them,
-        # and the two traces are only ever replayed in order (build then reuse) within a
-        # step. Their CONTENTS at capture time are irrelevant: capture records commands
-        # without executing them.
-        bias_cache = {}
-        tid = ttnn.begin_trace_capture(dev, cq_id=0)
-        out = self.run_device(
-            a_p, q_p, c_p, p_p, None, upcast_mask_dev, pack_idx_dev,
-            unpack_idx_dev, valid, length, sparse_qk=sparse_qk,
-            bias_cache=bias_cache,
-        )
-        ttnn.end_trace_capture(dev, tid, cq_id=0)
-        tid_reuse = ttnn.begin_trace_capture(dev, cq_id=0)
-        out_reuse = self.run_device(
-            a_p, q_p, c_p, p_p, None, upcast_mask_dev, pack_idx_dev,
-            unpack_idx_dev, valid, length, sparse_qk=sparse_qk,
-            bias_cache=bias_cache,
-        )
-        ttnn.end_trace_capture(dev, tid_reuse, cq_id=0)
-        self._trace_state = dict(
-            id=tid, id_reuse=tid_reuse, shape=shape_key, step_key=step_key,
-            a=a_p, q=q_p, c=c_p, p=p_p, attn_idx=attn_p, dense_bias=dense_bias,
-            bias_cache=bias_cache, output=out, output_reuse=out_reuse,
-        )
-
-    def _run_device_sparse_traced(
-        self, a_host, q_host, c_host, p_host, indices, upcast_mask_dev,
-        pack_idx_dev, unpack_idx_dev, valid, length,
-    ):
-        import tt_bio.tenstorrent as _TTd
-        _TTd.require_trace_region("RFD3_TRACE_DECODER")
-        dev, dt = self.device, self.dtype
-        step_key = (id(q_host), id(c_host), id(p_host), id(indices))
-        st = self._trace_state
-        reuse = (st is not None and st.get("step_key") == step_key
-                 and st["shape"][1] == tuple(a_host.shape))
-        if reuse:
-            # The decoder's second recycle call within a step: q/c/p and the
-            # neighbour index are already staged and only `a` differs, so the host
-            # pair gather (6.5 ms at 250 residues) would be thrown away. Skip it --
-            # and replay the trace that reuses the bias the previous call built
-            # (see _capture_sparse_trace) rather than rebuilding it.
-            _tt_refresh(a_host, st["a"], dt)
-        else:
-            # The traced decoder stages p_sparse in a persistent buffer that
-            # ttnn.embedding cannot write into, so this path keeps the host gather
-            # _sparse_qk_inputs no longer needs. RFD3_TRACE_DECODER is opt-in and off
-            # in production, so the gather lever above is what a shipped run takes.
-            p_sparse, attn_idx, n_keys = _sparse_qk_host(p_host, indices)
-            shape_key = (
-                "sparse_qk", tuple(a_host.shape), tuple(q_host.shape),
-                tuple(c_host.shape), tuple(p_sparse.shape), n_keys,
-            )
-            if st is None or st["shape"] != shape_key:
-                if st is not None:
-                    self._release_sparse_trace(st)
-                self._capture_sparse_trace(
-                    a_host, q_host, c_host, p_sparse, attn_idx, n_keys,
-                    upcast_mask_dev, pack_idx_dev, unpack_idx_dev, valid, length,
-                    shape_key, step_key,
-                )
-            else:
-                _tt_refresh(a_host, st["a"], dt)
-                for host, target in ((q_host, st["q"]), (c_host, st["c"]),
-                                     (p_sparse, st["p"])):
-                    _tt_refresh(host, target, dt)
-                _tt_refresh(attn_idx, st["attn_idx"], ttnn.uint32)
-                st["step_key"] = step_key
-        st = self._trace_state
-        key = "id_reuse" if reuse else "id"
-        ttnn.execute_trace(dev, st[key], cq_id=0, blocking=True)
-        return _trace_output_copy(st["output_reuse" if reuse else "output"])
-
-    def _release_sparse_trace(self, st):
-        for key in ("id", "id_reuse"):
-            if st.get(key) is not None:
-                ttnn.release_trace(self.device, st[key])
-
-    def _capture_trace(self, a_host, q_host, c_host, p_host, mask_host,
-                        upcast_mask_dev, pack_idx_dev, unpack_idx_dev, valid, length, shape_key):
-        dev = self.device
-        a_p, q_p, c_p, p_p, mask_p = (self._persist(x) for x in (a_host, q_host, c_host, p_host, mask_host))
-        for _ in range(2):  # warmup: compiles every kernel (capture disallows compilation)
-            _ = self.run_device(a_p, q_p, c_p, p_p, mask_p, upcast_mask_dev, pack_idx_dev, unpack_idx_dev, valid, length)
-        ttnn.synchronize_device(dev)
-        tid = ttnn.begin_trace_capture(dev, cq_id=0)
-        out = self.run_device(a_p, q_p, c_p, p_p, mask_p, upcast_mask_dev, pack_idx_dev, unpack_idx_dev, valid, length)
-        ttnn.end_trace_capture(dev, tid, cq_id=0)
-        self._trace_state = dict(id=tid, shape=shape_key, a=a_p, q=q_p, c=c_p, p=p_p, mask=mask_p, output=out)
-
-    def _run_device_traced(self, a_host, q_host, c_host, p_host, indices,
-                            upcast_mask_dev, pack_idx_dev, unpack_idx_dev, valid, length):
-        """q_host/c_host/p_host/indices are the SAME tensor objects across the
-        decoder's 2 recycle calls within one step (RFD3DiffusionModule._process_
-        takes them from a fixed `kw`, only A_I/S_I are recomputed per recycle) --
-        skip re-uploading (and re-deriving mask_host from indices) when the
-        object identity hasn't changed since the last call. `a` always changes
-        and is always refreshed. This is a perf-only cache: a step boundary
-        (new identities) always falls through to a full refresh, so a wrong
-        cache hit is impossible, only a missed skip."""
-        import tt_bio.tenstorrent as _TTd
-        _TTd.require_trace_region("RFD3_TRACE_DECODER")
-        dev, dt = self.device, self.dtype
-        shape_key = (tuple(a_host.shape), tuple(q_host.shape), tuple(c_host.shape), tuple(p_host.shape))
-        step_key = (id(q_host), id(c_host), id(p_host), id(indices))
-        st = self._trace_state
-        if st is None or st["shape"] != shape_key:
-            mask_host = _dense_attention_mask(indices)
-            self._capture_trace(a_host, q_host, c_host, p_host, mask_host,
-                                 upcast_mask_dev, pack_idx_dev, unpack_idx_dev, valid, length, shape_key)
-            self._trace_state["step_key"] = step_key
-        else:
-            _tt_refresh(a_host, st["a"], dt)
-            if st.get("step_key") != step_key:
-                mask_host = _dense_attention_mask(indices)
-                _tt_refresh(q_host, st["q"], dt)
-                _tt_refresh(c_host, st["c"], dt)
-                _tt_refresh(p_host, st["p"], dt)
-                _tt_refresh(mask_host, st["mask"], dt)
-                st["step_key"] = step_key
-        ttnn.execute_trace(dev, self._trace_state["id"], cq_id=0, blocking=True)
-        return _trace_output_copy(self._trace_state["output"])
 
     def __call__(self, a_host, s_host, q_host, c_host, p_host, tok_idx, indices):
         """Host-in/host-out, for the component parity scripts. The per-step path calls
@@ -2783,30 +2487,19 @@ class CompactStreamingDecoder(Module):
         p_host = p_host.unsqueeze(0) if p_host.ndim == 2 else p_host
 
         if env_flag("RFD3_SPARSE_QK", True):
-            if self.trace:
-                q = self._run_device_sparse_traced(
-                    a_host, q_host, c_host, p_host, indices, upcast_mask_dev,
-                    pack_idx_dev, unpack_idx_dev, valid, length,
-                )
-                a = _tt(a_host, dev, dt)
-            else:
-                p, n_keys, attn_idx_dev, dense_bias, gathered, block = _sparse_qk_inputs(
-                    p_host, indices, dev, dt, mask_cache=self._mask_cache
-                )
-                sparse_qk = (n_keys, attn_idx_dev, dense_bias, gathered, block)
-                a, q, c = (_tt(x, dev, dt) for x in (a_host, q_host, c_host))
-                # The two recycle calls in a step share p and the neighbour index, so
-                # each atom block's dense bias is bit-identical between them; build it
-                # on the first call only (see GatedCrossAttention._sparse_bias_f32).
-                q = self.run_device(
-                    a, q, c, p, None, upcast_mask_dev, pack_idx_dev,
-                    unpack_idx_dev, valid, length, sparse_qk=sparse_qk,
-                    bias_cache=self._bias_cache,
-                )
-        elif self.trace:
-            q = self._run_device_traced(a_host, q_host, c_host, p_host, indices,
-                                         upcast_mask_dev, pack_idx_dev, unpack_idx_dev, valid, length)
-            a = _tt(a_host, dev, dt)
+            p, n_keys, attn_idx_dev, dense_bias, gathered, block = _sparse_qk_inputs(
+                p_host, indices, dev, dt, mask_cache=self._mask_cache
+            )
+            sparse_qk = (n_keys, attn_idx_dev, dense_bias, gathered, block)
+            a, q, c = (_tt(x, dev, dt) for x in (a_host, q_host, c_host))
+            # The two recycle calls in a step share p and the neighbour index, so
+            # each atom block's dense bias is bit-identical between them; build it
+            # on the first call only (see GatedCrossAttention._sparse_bias_f32).
+            q = self.run_device(
+                a, q, c, p, None, upcast_mask_dev, pack_idx_dev,
+                unpack_idx_dev, valid, length, sparse_qk=sparse_qk,
+                bias_cache=self._bias_cache,
+            )
         else:
             a = _tt(a_host, dev, dt)
             q = _tt(q_host, dev, dt)
@@ -3515,31 +3208,26 @@ class RFD3DiffusionModule(Module):
         # The fp32-residual lever threads through the DiT and the encoder (the two pure
         # atom-block stacks); the decoder accepts the flag but ignores it (see its ctor).
         # Default off keeps the verified bf16 behavior.
-        # Decoder trace (opt-in RFD3_TRACE_DECODER=1, default off): bit-exact and 12.3% SLOWER
-        # (p32, scripts/rfd3_port/p32_trace_ab.py, 3359 atoms: 246.3 -> 280.8 ms/step). The
-        # decoder's run_device costs 9.66 ms/step of host dispatch, the ceiling on what a trace can
-        # save, and the traced path pays 26.5 ms/step refreshing its input buffers plus 6.0 ms/step
-        # of host pair gather, because a trace reads inputs at fixed addresses and the gathered
-        # pair features and scatter index are exactly the tensors p26 made device-resident. Kept
-        # because the ceiling is size-dependent. It needs get_device(trace="rfd3") before anything
-        # else opens the device, which design._run_design_jobs does when the flag is set.
-        #
-        # The encoder trace (RFD3_TRACE_ENCODER=1) is withdrawn and refuses by name: p32 measured it
-        # 74.5% slower (its traced form took the dense pair-bias path and re-staged P_LL every
-        # step), and on Wormhole it hung the chip in the first eager to_torch after its replay
-        # (whglx card 17, 2026-09-23, 256 MiB region). The eager encoder is the only encoder.
-        if env_flag("RFD3_TRACE_ENCODER", False):
-            raise ValueError(
-                "RFD3_TRACE_ENCODER is withdrawn: the encoder trace was 74.5% slower than the eager "
-                "encoder and hung a Wormhole chip after its first replay. Unset it; "
-                "RFD3_TRACE_DECODER is the remaining opt-in trace.")
+        # Both RFD3 traces are withdrawn and refuse by name, so no flag can reach a capture.
+        # The encoder trace was 74.5% slower than eager (p32) and hung a Wormhole chip in the
+        # first eager to_torch after its replay (whglx card 17, 2026-09-23). The decoder trace
+        # was 12.3% slower (p32, 3359 atoms: 246.3 -> 280.8 ms/step), deterministically moved a
+        # 120-residue design 8.9 A CA-RMSD from eager because it kept the host pair gather the
+        # eager path had replaced, and ran out of DRAM at 1280 residues where eager reaches 1536
+        # (perf/mgx_trace_region, 2026-09-24).
+        for flag, why in (("RFD3_TRACE_ENCODER", "was 74.5% slower than eager and hung a "
+                           "Wormhole chip after its first replay"),
+                          ("RFD3_TRACE_DECODER", "was 12.3% slower than eager, changed the "
+                           "design, and ran out of memory at 1280 residues")):
+            if env_flag(flag, False):
+                raise ValueError(f"{flag} is withdrawn: the trace {why}. Unset it; RFD3 runs "
+                                 f"eager.")
         self._grouping_cache = {}      # batch -> {"valid", "pack_idx_dev", ...}, shared by downcast_c/downcast_q
         self._grouping_owner = None    # (id(tok_idx), shape) the cached slots belong to
         self.encoder = LocalAtomTransformer(self.scope("encoder"), ckc, n_blocks=3, dtype=dt,
-                                            fp32_residual=self._dit_fp32_residual, trace=False)
+                                            fp32_residual=self._dit_fp32_residual)
         self.decoder = CompactStreamingDecoder(self.scope("decoder"), ckc, dtype=dt,
-                                               fp32_residual=self._dit_fp32_residual,
-                                               trace=env_flag("RFD3_TRACE_DECODER", False))
+                                               fp32_residual=self._dit_fp32_residual)
         # One sparse-QK cache for both: they are handed the same P_LL and the same
         # attn_indices every step, so sharing collapses three identical builds into
         # one (see _sparse_qk_inputs) and leaves one -1e4 scatter template alive

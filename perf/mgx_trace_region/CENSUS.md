@@ -20,8 +20,16 @@ All at a 256 MiB region, so no capture was truncated.
 
 A capture is its command stream, not its tensors, so the bytes barely move with size: 1.2%
 from 512 to 1536 tokens for boltz2 on Wormhole, 7% for protenix-v2 on Blackhole, 3% from 120 to
-500 residues for rfd3. `TRACE_REGIONS` is each capture's largest reading doubled and rounded up
-to a MiB: diffusion 2 / 4 MiB (WH / BH), protenix 2 / 5, esmc 19 / 16, rfd3 1 / 2.
+500 residues for rfd3.
+
+The table's unit is NOT bytes per bank. ttnn carves `trace_region_size` off every bank, but
+`end_trace_capture` compares the device's live trace buffers summed over all banks against it.
+A 2 MiB region, the per-bank reading doubled, refused boltz2's step: "Creating trace buffers of
+size 7929856B on MeshDevice 3, but only 2097152B is allocated for trace region", a total that
+lands as 663552 B on each of 12 banks. So `TRACE_REGIONS` is the largest reading x banks, doubled,
+rounded up to a MiB (WH / BH): diffusion 16 / 27 MiB, protenix 20 / 36, esmc 221 / 126,
+rfd3 7 / 10. What the chip loses is that figure on every bank, e.g. 192 MiB of a Wormhole chip
+for the diffusion trace, against 3 GiB at the old 256 MiB.
 
 ## What happens at the edges
 

@@ -5592,20 +5592,20 @@ def _assert_local_dispatch(dev):
                            f"(likely a remote-only init): {e}") from e
 
 
-#: Trace region per DRAM bank, per capture, per arch. The region comes off EVERY bank and is
-#: DRAM the model can no longer use, so each entry is the capture's measured peak, doubled and
-#: rounded up to a MiB (perf/mgx_trace_region/CENSUS.md). A capture's bytes are its command
-#: stream, not its tensors, so they barely move with size: boltz2's DiT step is 663552 B/bank at
-#: 512 tokens and 671744 B at 1536 on Wormhole. A capture that outgrows its region raises in
-#: end_trace_capture (TT_FATAL, the chip stays usable). A region at or past a bank does not
-#: raise: 1 GiB is larger than a whole Wormhole bank (1073741792 B), the allocator's bank size
-#: underflows to 2**64 - 32 and the chip's first dispatch never completes. So a caller names its
-#: capture and never passes bytes.
+#: Trace region per capture, per arch. ttnn takes this many bytes off EVERY DRAM bank, yet
+#: end_trace_capture checks the device's live trace buffers, summed over all banks, against it:
+#: "Creating trace buffers of size 7929856B ..., but only 2097152B is allocated" is boltz2's
+#: 663552 B/bank DiT step on 12 Wormhole banks. So each entry is the largest measured total
+#: (bytes per bank x banks), doubled and rounded up to a MiB (perf/mgx_trace_region/CENSUS.md).
+#: A capture is its command stream, not its tensors, and barely moves with size: 671744 B/bank
+#: for the same step at 1536 tokens. A capture that outgrows its region raises (TT_FATAL, the
+#: chip stays usable). A region at or past a bank does not raise: 1 GiB is larger than a whole
+#: Wormhole bank (1073741792 B), the allocator's bank size underflows to 2**64 - 32 and the
+#: chip's first dispatch never completes. So a caller names its capture and never passes bytes.
 TRACE_REGIONS = {
-    "diffusion": {"wormhole_b0": 2 << 20, "blackhole": 4 << 20},    # boltz2 / boltzgen DiT step
-    "protenix": {"wormhole_b0": 2 << 20, "blackhole": 5 << 20},     # protenix-v1/v2, opendde step
-    "esmc": {"wormhole_b0": 19 << 20, "blackhole": 16 << 20},       # ESMC._TRACE_CACHE_MAX live traces
-    "rfd3": {"wormhole_b0": 1 << 20, "blackhole": 2 << 20},         # RFD3_TRACE_DECODER, both traces
+    "diffusion": {"wormhole_b0": 16 << 20, "blackhole": 27 << 20},    # boltz2 / boltzgen DiT step
+    "protenix": {"wormhole_b0": 20 << 20, "blackhole": 36 << 20},     # protenix-v1/v2, opendde step
+    "esmc": {"wormhole_b0": 221 << 20, "blackhole": 126 << 20},       # ESMC._TRACE_CACHE_MAX live traces
 }
 
 

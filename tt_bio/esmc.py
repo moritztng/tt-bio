@@ -982,7 +982,7 @@ class ESMC(TorchWrapper):
 
     # One captured trace per (bucketed length, mask layout) key. 8 concurrent
     # traces fit the reserved region with 2x headroom (one ESMC-300M trace at
-    # 1534 residues is 1.25 MB per bank on Wormhole) and cover the working set
+    # 1534 residues is 1.25 MB on each of Wormhole's 12 banks) and cover the working set
     # of a length-sorted single-sequence stream. A capture that does not fit
     # raises, and _dispatch falls back to eager.
     _TRACE_CACHE_MAX = 8
@@ -1567,8 +1567,8 @@ def load_sequences(data) -> dict[str, str]:
 # Measured on j10glx02 off the allocator's own refusal: "bank size is 805306336 B" with a 256 MiB
 # region against "1073741792 B" without. On the sequence-length axis that was the difference
 # between esmc-300m refusing 65537 residues and saprot-35m, same code path and no region,
-# embedding 73728 on the same part. The region is now sized to the 8 live traces (19 MiB per
-# bank on Wormhole), and trace_pays still skips it where no capture could be replayed.
+# embedding 73728 on the same part. The region is sized to the 8 live traces (221 MiB on
+# Wormhole, since ttnn checks their total against it), so trace_pays still matters.
 
 
 def trace_pays(sequences, bucket: int = BUCKET) -> bool:
@@ -1578,7 +1578,7 @@ def trace_pays(sequences, bucket: int = BUCKET) -> bool:
     "tracing pays only when a shape repeats ... a one-shot call stays pure eager and never pays
     the capture cost". So on a workload where no bucketed width repeats, the region is reserved,
     never captured into, and never replayed -- while still costing its bytes on every DRAM bank
-    (at the old 256 MiB region that was 3 GiB of the chip and 1.18x of the sequence ceiling).
+    (221 MiB per bank, 2.6 GiB of a Wormhole chip, and 1.18x of the sequence ceiling at 256 MiB).
 
     This is the same condition, asked one step earlier, where it can still be acted on: the
     reservation has to happen at device OPEN and cannot be taken back once a capture turns out to
