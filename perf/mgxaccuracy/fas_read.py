@@ -26,7 +26,10 @@ from ladder_read import u_stat, exact_two_sided, PERMISSIVE, STRICT  # noqa: E40
 
 TARGET = "fas_chainA_1962"
 ENGINE = "groel-onetree-ff5435cba"   # the tree label, not the target; see plans/groel_1024.txt
-RUNGS = (512, 1024, 1536)
+RUNGS = (512, 1024, 1536)          # the pre-registered ladder of plans/chain_vs_residues.txt
+SHOW = (512, 768, 1024, 1536)      # what the table prints; 768 is plans/fas_768.txt, an
+                                   # ADDITION that is reported separately and enters no clause
+                                   # of chain_vs_residues.txt
 
 
 def load(paths, target, engine):
@@ -108,7 +111,7 @@ def main() -> int:
     print(f"target {TARGET}   engine {ENGINE}   metric designfolding-bb_rmsd   "
           f"offset {a.offset}\n")
     print("  size   n   median     range              <=2A    <=4A")
-    for s in RUNGS:
+    for s in SHOW:
         d = cells.get((s, a.offset))
         if d is None:
             print(f"  {s:>4}   -   MISSING")
@@ -148,6 +151,23 @@ def main() -> int:
         why = ("report all three medians, all three fractions and both contrasts; the doc says "
                "both residue count and chain count cost something, with the numbers for each")
     print(f"\nFAS LADDER VERDICT: {v}\n  -> {why}")
+    # plans/fas_768.txt, reported separately and entering none of the clauses above.
+    d768 = cells.get((768, a.offset))
+    if d768 is not None:
+        v768 = d768["scrmsd"]
+        m768, f768 = st.median(v768), sum(x <= PERMISSIVE for x in v768)
+        print("\n--- plans/fas_768.txt, an addition: a single chain at the residue count where "
+              "GroEL collapsed ---")
+        c768 = contrast(v768, bot, " 512 ->  768")
+        if m768 <= PERMISSIVE and f768 >= 4:
+            v = "SURVIVES AT 768"
+        elif m768 > PERMISSIVE and f768 <= 1 and c768[2] <= 0.05:
+            v = "COLLAPSED AT 768"
+        else:
+            v = "INTERMEDIATE"
+        print(f"  median {m768:.3f} A, {f768} of {len(v768)} under {PERMISSIVE} A  ->  {v}")
+        print("  (GroEL at 768 residues, two chains, was 0 of 8 under 4 A on both crops.)")
+
     print("\nRead WITHIN this target only. FAS is a third protein, so a difference between its "
           "ladder and\nGroEL's or 1GPB's is a target difference until shown otherwise.")
     return 0
