@@ -1,0 +1,78 @@
+{
+ "cpu_reference_step_s": 177.145,
+ "cpu_reference_n": 211,
+ "cpu_reference_loadavg1": 16.8,
+ "gradient_steps_per_trajectory": 125,
+ "device_rows": [
+  {
+   "artifact": "time_n211_pdl1.json",
+   "label": "device n=211 as BC2 hands it",
+   "n": 211,
+   "step_median_s": 26.578,
+   "trunk_fwd_s": 4.504,
+   "trunk_bwd_s": 20.45,
+   "tail_s": 1.577,
+   "aiclk": {
+    "n": 242,
+    "min": 1325,
+    "median": 1350,
+    "max": 1350
+   },
+   "loadavg1": 13.4,
+   "commit": "78429d689",
+   "host": "tt-quietbox2",
+   "card": 3,
+   "utc": "2026-09-24T06:09:01Z",
+   "speedup_vs_cpu_ref": 6.67,
+   "trajectory_hours": 0.92
+  },
+  {
+   "artifact": "time_n224_aligned.json",
+   "label": "device n=224 bucket-aligned",
+   "n": 224,
+   "step_median_s": 23.733,
+   "trunk_fwd_s": 1.369,
+   "trunk_bwd_s": 19.638,
+   "tail_s": 2.881,
+   "aiclk": {
+    "n": 252,
+    "min": 1325,
+    "median": 1350,
+    "max": 1350
+   },
+   "loadavg1": 26.3,
+   "commit": "78429d689",
+   "host": "tt-quietbox2",
+   "card": 3,
+   "utc": "2026-09-24T06:18:33Z",
+   "speedup_vs_cpu_ref": 7.46,
+   "trajectory_hours": 0.82
+  },
+  {
+   "artifact": "time_n256_ckpt_control.json",
+   "label": "device n=256 control, this base",
+   "n": 256,
+   "step_median_s": 36.37,
+   "trunk_fwd_s": 1.691,
+   "trunk_bwd_s": 31.39,
+   "tail_s": 3.572,
+   "aiclk": {
+    "n": 366,
+    "min": 1318,
+    "median": 1350,
+    "max": 1350
+   },
+   "loadavg1": 20.6,
+   "commit": "78429d689",
+   "host": "tt-quietbox2",
+   "card": 3,
+   "utc": "2026-09-24T06:13:04Z",
+   "speedup_vs_cpu_ref": 4.87,
+   "trajectory_hours": 1.26
+  }
+ ],
+ "bcx_e2e_n256_no_ckpt_step_s": 115.33,
+ "cpu_reference_trajectory_hours": 6.15,
+ "ckpt_merge_speedup_at_n256": 3.17,
+ "bucket_alignment_fwd_speedup": 3.29
+}

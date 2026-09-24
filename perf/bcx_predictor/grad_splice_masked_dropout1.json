@@ -1,0 +1,75 @@
+{
+ "design_dropout": true,
+ "jax": {
+  "loss": 10.269110679626465,
+  "seconds": 252.1,
+  "grad_shapes": {
+   "binder": [
+    77,
+    20
+   ],
+   "target_hPDL1": [
+    115,
+    20
+   ]
+  }
+ },
+ "msa_mask_shape": [
+  2,
+  192
+ ],
+ "msa_mask_row1_zero_fraction": 0.4010416666666667,
+ "device": {
+  "loss": 10.381475448608398,
+  "seconds": 84.2,
+  "stacks_swapped": [
+   48
+  ],
+  "calls": {
+   "primal": 0,
+   "taped": 2,
+   "backward": 1
+  },
+  "live_tapes": 0,
+  "aiclk": {
+   "n": 294,
+   "min": 1337,
+   "median": 1350,
+   "max": 1350
+  }
+ },
+ "raw_gradient": {
+  "binder": {
+   "rel_l2": 0.96923828125,
+   "cos": 0.284423828125,
+   "norm_jax": 0.3193359375,
+   "norm_device": 0.045745849609375
+  },
+  "target_hPDL1": {
+   "rel_l2": 0.9912109375,
+   "cos": 0.1390380859375,
+   "norm_jax": 1.4453125,
+   "norm_device": 0.258544921875
+  }
+ },
+ "bc2_normalised_update": {
+  "rel_l2": 1.30781888961792,
+  "cos": 0.1443965584039688,
+  "norm_ratio": 0.9995226860046387
+ },
+ "loss_rel": 0.010942015573447966,
+ "stamp": {
+  "host": "tt-quietbox2",
+  "card": 3,
+  "subsystem_device": "0x0046",
+  "commit": "25564fee2caae7c003fef8d59f239a2a01accbd6",
+  "tt_bio_dirty": false,
+  "torch_threads": 8,
+  "loadavg": [
+   21.71826171875,
+   22.2099609375,
+   21.55810546875
+  ],
+  "utc": "2026-09-24T09:30:37Z"
+ }
+}

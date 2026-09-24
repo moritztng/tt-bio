@@ -1,0 +1,27 @@
+{
+ "arm": "reference",
+ "seed": 400,
+ "trajectories": 3,
+ "length_bucket_size": 1,
+ "predictor": "AlphaFoldDesignModel",
+ "host": "tt-quietbox",
+ "started_utc": "2026-09-24T08:22:53Z",
+ "loadavg_start": [
+  8.04345703125,
+  4.56005859375,
+  2.49609375
+ ],
+ "stage_plan": {
+  "per_stage": {
+   "screen": 50,
+   "refine": 25,
+   "anneal": 45,
+   "harden": 5,
+   "mutate": 15
+  },
+  "gradient_steps": 125,
+  "mutate_steps": 15
+ },
+ "threads": "--xla_gpu_enable_triton_gemm=false",
+ "project": "/dev/shm/bcx-ref/runs/reference_qb1_seed400"
+}

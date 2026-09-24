@@ -1,0 +1,195 @@
+{
+ "argv": "perf/bcx_triatt/block_ab.py --n 384 --arms census,new --warm 1 --pairs 3 --out perf/bcx_triatt/n384/ab_committed.json",
+ "stamp_start": {
+  "host": "tt-quietbox",
+  "board_subsystem_device": {
+   "1": "0x0040"
+  },
+  "board_subsystem_vendor": {
+   "1": "0x1e52"
+  },
+  "git_sha": "53d81ece104e204d6c0d59067c50af971de16e7c",
+  "git_dirty": "11",
+  "tt_visible_devices": "1",
+  "torch_threads": 16,
+  "omp_num_threads": null,
+  "loadavg": [
+   3.21435546875,
+   4.6015625,
+   3.97900390625
+  ],
+  "nproc": 32,
+  "top_cpu": "%CPU COMMAND\n 319 python3\n 2.1 polkitd\n 0.6 sshd",
+  "utc": "2026-09-24T01:44:48Z"
+ },
+ "n": 384,
+ "arms": {
+  "census": [
+   false,
+   false,
+   128,
+   null
+  ],
+  "new": [
+   true,
+   true,
+   128,
+   null
+  ]
+ },
+ "window": [
+  1790214293.7421012,
+  1790214304.120457
+ ],
+ "clock_window": {
+  "min": 1350,
+  "max": 1350,
+  "median": 1350,
+  "samples": 4,
+  "attributable": true
+ },
+ "results": {
+  "census": {
+   "b": 0.575349904000177,
+   "b_fwd": 0.21109816399984993,
+   "b_bwd": 0.3642517400003271,
+   "step_diff_median": 0.5770704669994302,
+   "step_diff_p10": 0.5751326181984041,
+   "step_diff_p90": 0.5775936813995941,
+   "bwd_K2_p10": 0.7520702977992186,
+   "bwd_K2_p90": 0.7530045625993808,
+   "reached": [
+    145,
+    273
+   ],
+   "raw": {
+    "K1": [
+     {
+      "step_s": 0.7045000690013694,
+      "fwd_s": 0.2357092250022106,
+      "bwd_s": 0.388060184999631,
+      "reached": 145
+     },
+     {
+      "step_s": 0.7066339140001219,
+      "fwd_s": 0.23889006200261065,
+      "bwd_s": 0.3884979479989852,
+      "reached": 145
+     },
+     {
+      "step_s": 0.7049954809990595,
+      "fwd_s": 0.23531388199990033,
+      "bwd_s": 0.38837906000117073,
+      "reached": 145
+     }
+    ],
+    "K2": [
+     {
+      "step_s": 1.2822245540010044,
+      "fwd_s": 0.4468073890020605,
+      "bwd_s": 0.7523119249999581,
+      "reached": 273
+     },
+     {
+      "step_s": 1.2812820699982694,
+      "fwd_s": 0.44685000800018315,
+      "bwd_s": 0.7531777219992364,
+      "reached": 273
+     },
+     {
+      "step_s": 1.2820659479984897,
+      "fwd_s": 0.4467863600002602,
+      "bwd_s": 0.7520098909990338,
+      "reached": 273
+     }
+    ]
+   }
+  },
+  "new": {
+   "b": 0.4033816900009697,
+   "b_fwd": 0.14650737600095454,
+   "b_bwd": 0.25687431400001515,
+   "step_diff_median": 0.4047312079965195,
+   "step_diff_p10": 0.4045698664012889,
+   "step_diff_p90": 0.4057819743997243,
+   "bwd_K2_p10": 0.5354378016010741,
+   "bwd_K2_p90": 0.5368819856012124,
+   "reached": [
+    133,
+    249
+   ],
+   "raw": {
+    "K1": [
+     {
+      "step_s": 0.5329931779997423,
+      "fwd_s": 0.1717743769986555,
+      "bwd_s": 0.2793237299993052,
+      "reached": 133
+     },
+     {
+      "step_s": 0.5327390720012772,
+      "fwd_s": 0.1713655640014622,
+      "bwd_s": 0.27961751600014395,
+      "reached": 133
+     },
+     {
+      "step_s": 0.5348326679995807,
+      "fwd_s": 0.17222830999889993,
+      "bwd_s": 0.27955423799721757,
+      "reached": 133
+     }
+    ],
+    "K2": [
+     {
+      "step_s": 0.9375227090022236,
+      "fwd_s": 0.3181468559996574,
+      "bwd_s": 0.5361980439993204,
+      "reached": 249
+     },
+     {
+      "step_s": 0.9374702799977968,
+      "fwd_s": 0.31889248299921746,
+      "bwd_s": 0.5352477410015126,
+      "reached": 249
+     },
+     {
+      "step_s": 0.9408773340001062,
+      "fwd_s": 0.31873568599985447,
+      "bwd_s": 0.5370529710016854,
+      "reached": 249
+     }
+    ]
+   }
+  }
+ },
+ "stamp_end": {
+  "host": "tt-quietbox",
+  "board_subsystem_device": {
+   "1": "0x0040"
+  },
+  "board_subsystem_vendor": {
+   "1": "0x1e52"
+  },
+  "git_sha": "53d81ece104e204d6c0d59067c50af971de16e7c",
+  "git_dirty": "11",
+  "tt_visible_devices": "1",
+  "torch_threads": 16,
+  "omp_num_threads": null,
+  "loadavg": [
+   3.90185546875,
+   4.68603515625,
+   4.0166015625
+  ],
+  "nproc": 32,
+  "top_cpu": "%CPU COMMAND\n 244 python3\n 2.1 polkitd\n 0.5 dbus-daemon",
+  "utc": "2026-09-24T01:45:04Z"
+ },
+ "clock_meta": {
+  "device_counts": [
+   1
+  ],
+  "failures": 0,
+  "total_samples": 7,
+  "poll_s": 1.0
+ }
+}

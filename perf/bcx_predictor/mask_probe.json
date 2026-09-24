@@ -1,0 +1,36 @@
+{
+ "bucket_32_default": {
+  "hPDL1": {
+   "chains": [
+    "binder",
+    "target_hPDL1"
+   ],
+   "chain_lengths": [
+    96,
+    115
+   ],
+   "n_total": 211,
+   "seq_mask_all_ones": false,
+   "n_masked_residues": 19,
+   "n_total_mod_32": 19,
+   "n_design_residues": 77
+  }
+ },
+ "bucket_1_unpadded": {
+  "hPDL1": {
+   "chains": [
+    "binder",
+    "target_hPDL1"
+   ],
+   "chain_lengths": [
+    77,
+    115
+   ],
+   "n_total": 192,
+   "seq_mask_all_ones": true,
+   "n_masked_residues": 0,
+   "n_total_mod_32": 0,
+   "n_design_residues": 77
+  }
+ }
+}

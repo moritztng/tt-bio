@@ -1,0 +1,17 @@
+{
+  "n": 24,
+  "multimer_opm_first": {
+    "tangent_at_msa_1_reaching_pair_1": 0.0,
+    "pair_1_descends_from_msa_1": false,
+    "is_graph_cut": true,
+    "joint_injection_vs_truth_msa0": 0.0,
+    "joint_injection_vs_truth_pair0": 0.0
+  },
+  "monomer_opm_last": {
+    "tangent_at_msa_1_reaching_pair_1": 23.949581146240234,
+    "pair_1_descends_from_msa_1": true,
+    "is_graph_cut": false,
+    "joint_injection_vs_truth_msa0": 0.0,
+    "joint_injection_vs_truth_pair0": 0.0
+  }
+}

@@ -1,0 +1,33 @@
+{
+ "masked_at_bucket_32": 19,
+ "masked_at_bucket_1": 0,
+ "guard_refused_bucket_32": true,
+ "guard_message_names_setting": true,
+ "guard_passed_bucket_1": true,
+ "protocol_conformant": true,
+ "is_alphafold_design_model": true,
+ "provides_distogram": true,
+ "campaign_distogram_check_passed": true,
+ "device_padded_length_192": 192,
+ "device_padded_length_211": 224,
+ "device_trunk_refuses": true,
+ "predict_seconds": 104.49,
+ "predict_states": [
+  "hPDL1"
+ ],
+ "predict_chains": [
+  "binder",
+  "target_hPDL1"
+ ],
+ "predict_metrics": [
+  "distogram",
+  "experimentally_resolved_ca",
+  "iptm",
+  "iptm_per_residue",
+  "pae",
+  "plddt",
+  "ptm"
+ ],
+ "predict_binder_residues": 77,
+ "predict_atoms_finite": true
+}
