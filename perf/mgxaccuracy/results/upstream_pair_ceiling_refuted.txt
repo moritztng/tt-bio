@@ -1,0 +1,39 @@
+THE UPSTREAM 1536 PAIR'S ASSUMED COST CEILING IS REFUTED BY OBSERVATION
+=========================================================================
+
+2026-09-24 21:38Z. `ps -o time` on the two qb2 draws, differenced against the 20:32Z reading:
+
+    draw a  pid 2095799   219,214 -> 231,908 CPU-s over 3,960 s   =  3.205 cores
+    draw b  pid 2767286   151,553 -> 164,061 CPU-s over 3,960 s   =  3.159 cores
+
+Neither has written a refold cif. qb2's load is unchanged at 32.6 on 16 cores against 32.5 an
+hour ago.
+
+TWO THINGS FOLLOW, ONE OF THEM UNCOMFORTABLE.
+
+1. THE PHASE DIAGNOSIS IS CONFIRMED. At 20:32Z both draws had halved from ~2.25 cores to ~1.15
+   while qb2's load FELL, and `results/pass_notes.txt` called that a single-threaded phase
+   rather than contention. They have now both recovered to ~3.2 cores, together, with the load
+   flat. Contention does not do that either. Two independent jobs moving in lockstep through
+   1.15 -> 3.2 cores while the host stays still is the jobs' own pipeline, and the diagnostic
+   in pass_notes stands.
+
+2. THE COST CEILING IS GONE. The row has been carrying a band of (204.4k, 229.2k] CPU-s for a
+   draw, raising the floor by observation each pass and leaving the ceiling where an early
+   estimate put it. **Draw a is now at 231,908 CPU-s and still running**, which is past 229.2k.
+   The ceiling was never measured — it was an extrapolation — and it is now falsified. There is
+   no evidence-backed upper bound on this draw's cost, so there is no honest ETA to quote for
+   it, and every ETA this row has published for the qb2 pair (~22:00Z, then ~22:02Z, then
+   ~22:57Z) came off that ceiling and was wrong.
+
+WHAT TO SAY INSTEAD. Draw a has cost > 231.9k CPU-s and is running at 3.2 cores; draw b has
+cost > 164.1k and is running at 3.2 cores, about 68k CPU-s behind a. The only defensible
+statement about when they land is that a leads b by roughly 5.9 h of CPU at the current rate.
+Report the floor and the rate, not a finish time, until one of them writes a refold cif — which
+is the completion test either way (`ref/harvest_upstream_1536.sh`).
+
+THE GENERAL SHAPE. A band with a measured floor and an estimated ceiling reads like a
+measurement and is half of one. Every pass tightened the floor and none of them ever tested the
+ceiling, so the ceiling survived on nobody having looked at it — the same structure as
+`a-stale-ceiling-justifies-not-looking`. Raising a floor is not narrowing a band unless the
+ceiling is measured too.
