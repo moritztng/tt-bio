@@ -34,14 +34,16 @@ run() {  # $1 = log tag, rest = extra args
         --load-ceiling 0 --host-threads "$threads" "$@" >> "$log/$model.$tag.log" 2>&1
   local rc=$?   # before the echo: its $(date) would reset $? to 0
   echo "[$(date -u +%FT%TZ)] EXIT $rc $mode $model" >> "$log/$model.$tag.log"
+  [ "$rc" -eq 0 ] || status=$rc
 }
+status=0
 if [ "$mode" = check ]; then
   run check
 elif [ "$mode" = probe ]; then
   echo "[$(date -u +%FT%TZ)] START probe $model $rungs card $card" >> "$log/$model.probe.log"
   "$py" perf/sizegate/mgx/probe.py "$model" "$rungs" "$threads" >> "$log/$model.probe.log" 2>&1
-  rc=$?
-  echo "[$(date -u +%FT%TZ)] EXIT $rc probe $model" >> "$log/$model.probe.log"
+  status=$?
+  echo "[$(date -u +%FT%TZ)] EXIT $status probe $model" >> "$log/$model.probe.log"
 elif [ -n "$rungs" ]; then
   run "rec-$rungs" --size-ladder-record --size-ladder-fragment --size-ladder-rungs "$rungs"
 else
@@ -50,3 +52,5 @@ print(','.join(str(r) for r in rg._size_ladder_model_rungs('$model', card='tt-ga
   run rec-low --size-ladder-record --size-ladder-fragment --size-ladder-rungs "$low"
   run rec-top --size-ladder-record --size-ladder-fragment --size-ladder-rungs 1280,1536
 fi
+# The queue reads this: without it a failing check was logged "exit 0" by claim.py.
+exit $status
