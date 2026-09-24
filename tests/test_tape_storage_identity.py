@@ -34,8 +34,10 @@ pytestmark = pytest.mark.device
 TILE = dict(dtype=ttnn.bfloat16, layout=ttnn.TILE_LAYOUT)
 
 
-@pytest.fixture(scope="module")
+@pytest.fixture
 def dev():
+    # Per test: conftest closes the device after every test, so a module-scoped handle is stale
+    # from the second test on.
     return T.get_device()
 
 
@@ -61,9 +63,11 @@ def test_a_moved_parent_is_not_asked_for_its_address(dev, mc, capfd):
         a = tt.taped_ttnn().typecast(x, ttnn.float32, memory_config=mc)
         capfd.readouterr()
         b = tt.taped_ttnn().reallocate(a)
-        err = capfd.readouterr().err
-    assert not a.value.is_allocated(), "precondition: reallocate frees its input"
-    assert "Tensor is not allocated" not in err, err[-400:]
+        log = "".join(capfd.readouterr())
+    assert "Tensor is not allocated" not in log, log[-400:]
+    assert not a.value.is_allocated(), (
+        "reallocate frees its input, and the tape then gave the freed handle a live DRAM copy "
+        "of whatever sits at its old L1 address")
     assert not _linked(a, b)
 
 
