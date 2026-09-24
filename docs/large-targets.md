@@ -118,9 +118,9 @@ the models reach, so Blackhole never changes path.
 
 ## What stops each model above 1024 on a Galaxy chip
 
-Walked on one j10glx02 chip with an 8192-row alignment (OpenFold3 at 14190) up to 2048, every
-first failure above 1536 is a single pair-sized allocation that no free block on the chip can
-hold:
+Walked on one j10glx02 chip up to 2048 with the alignment depth each model reads (16384 rows;
+Boltz-2 at its 8192 default, RF3 drawing 1024 per recycle), every first failure above 1536 is a
+single pair-sized allocation that no free block on the chip can hold:
 
 - `boltz2` folds 1920 and fails at 2048 in the diffusion cache, one 3.0 GiB tensor with 55 % of
   the chip free but no block large enough.
