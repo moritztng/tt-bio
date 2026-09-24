@@ -4,7 +4,7 @@
     "-m",
     "tt_bio.main",
     "predict",
-    "/home/agent/wt-mgxi-rec/perf/size512/fixtures/cdk2x2_896.yaml",
+    "/home/agent/wt-mgxi-m10/perf/size512/fixtures/cdk2x2_896.yaml",
     "--model",
     "protenix-v2",
     "--single_sequence",
@@ -15,7 +15,7 @@
     "--seed",
     "0",
     "--out_dir",
-    "/home/agent/wt-mgxi-rec/perf/sizegate/work-record-protenix-v2/out_protenix-v2-896-rep0"
+    "/home/agent/wt-mgxi-m10/perf/sizegate/work-record-protenix-v2/out_protenix-v2-896-rep0"
   ],
   "rc": 0,
   "processes": 2,
