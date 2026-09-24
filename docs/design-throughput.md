@@ -78,8 +78,10 @@ effect:
 quality on the same target. It is one design, and that number is not reproducible: repeating
 the same refold of the same design with the same config gave 7.17 A and 11.04 A. So read the
 row as "the same level", never as an ordering — on this target the device's nine designs
-span 3.30 to 13.78 A and both upstream draws fall inside that. So the number to act on is the target, not the card: crop to the
-surface you actually want bound. A 120-residue target is a different problem from a
+span 3.30 to 13.78 A and both upstream readings fall inside that.
+
+So the number to act on is the target, not the card: crop to the surface you actually want
+bound. A 120-residue target is a different problem from a
 512-residue one, and residues you hand the model that are not part of the interface tend to
 cost you designs.
 
