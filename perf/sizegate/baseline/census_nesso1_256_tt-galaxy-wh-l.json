@@ -4,7 +4,7 @@
     "-m",
     "tt_bio.main",
     "affinity",
-    "/home/agent/wt-mgxi-m1/perf/nesso1/inputs/ladder/aa256/cdk2_256.yaml",
+    "/home/agent/wt-mgxi-m10/perf/nesso1/inputs/ladder/aa256/cdk2_256.yaml",
     "--model",
     "nesso1",
     "--trunk",
@@ -14,7 +14,7 @@
     "--tokens_budget",
     "256",
     "--out_dir",
-    "/home/agent/wt-mgxi-m1/perf/sizegate/work-record-nesso1/out_nesso1-256-rep0"
+    "/home/agent/wt-mgxi-m10/perf/sizegate/work-record-nesso1/out_nesso1-256-rep0"
   ],
   "rc": 0,
   "processes": 1,
@@ -235,11 +235,9 @@
       "how": "stats",
       "counter": "tt_bio.triatt_sdpa.STATS",
       "resolved": "True",
-      "served": 0,
-      "declined": 576,
-      "rejects": {
-        "fill_preconditions": 576
-      },
+      "served": 576,
+      "declined": 0,
+      "rejects": null,
       "gauges": null
     },
     {

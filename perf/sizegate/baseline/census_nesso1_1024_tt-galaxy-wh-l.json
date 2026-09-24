@@ -4,7 +4,7 @@
     "-m",
     "tt_bio.main",
     "affinity",
-    "/home/agent/wt-mgxi-m1/perf/nesso1/inputs/ladder/aa1024/cdk2_1024.yaml",
+    "/home/agent/wt-mgxi-m10/perf/nesso1/inputs/ladder/aa1024/cdk2_1024.yaml",
     "--model",
     "nesso1",
     "--trunk",
@@ -14,7 +14,7 @@
     "--tokens_budget",
     "256",
     "--out_dir",
-    "/home/agent/wt-mgxi-m1/perf/sizegate/work-record-nesso1/out_nesso1-1024-rep0"
+    "/home/agent/wt-mgxi-m10/perf/sizegate/work-record-nesso1/out_nesso1-1024-rep0"
   ],
   "rc": 0,
   "processes": 1,
@@ -236,11 +236,9 @@
       "how": "stats",
       "counter": "tt_bio.triatt_sdpa.STATS",
       "resolved": "True",
-      "served": 0,
-      "declined": 1251,
-      "rejects": {
-        "fill_preconditions": 1251
-      },
+      "served": 576,
+      "declined": 0,
+      "rejects": null,
       "gauges": null
     },
     {
@@ -258,8 +256,8 @@
       "how": "stats",
       "counter": "tt_bio.tenstorrent.SDPA_FUSED_LARGE_S_STATS",
       "resolved": "True",
-      "served": 0,
-      "declined": 96,
+      "served": 96,
+      "declined": 0,
       "rejects": null,
       "gauges": null
     },
