@@ -39,3 +39,20 @@ too rather than carried over from the offset-0 check.
 
 Both numbers now in the user-facing doc have an independent recomputation behind them:
 4.75 A (offset 0, checked earlier in this file) and 17.79 A (offset 100, above).
+
+=== the three crop cells now in docs/design-throughput.md, checked 2026-09-24 03:3xZ ===
+The doc's three-row table (4.6 / 16.0 / 17.3 A) is read by users, so each cell was
+recomputed from refold_design_cif on disk rather than taken from job.py's reading of the
+pipeline CSV.
+
+  cell                              max |gap| vs pipeline   N,CA,C    CA      verdict
+  512 offset   0  (onetree)              0.00001           0.21514  0.16448  REPRODUCES
+  512 offset 100  (onetree)              0.00001           0.13845  0.10277  REPRODUCES
+  512 offset 200  (off200)               0.00000           0.07353  0.13323  REPRODUCES
+
+All three agree with the pipeline's own designfolding-bb_rmsd column on the N,CA,C,O
+backbone. The N,CA,C and CA-only columns miss by 0.07 to 0.22 A, so the atom set is
+measured for each cell separately rather than carried over from an earlier check.
+
+Every number this row has put in front of a user now has an independent recomputation
+behind it.
