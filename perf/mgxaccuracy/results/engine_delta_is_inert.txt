@@ -24,16 +24,25 @@
 # can change.
 #
 # A SECOND THING THIS BUYS, and it is worth more than the control. These two cells are also a
-# REPEAT of one configuration: same crop, same n, same everything the row controls. So the
-# run-to-run reproducibility of an n=8 MEDIAN on this metric is 0.117 A -- even though the
-# individual designs inside those cells span 0.693 to 13.493 A. The median is a stable
-# statistic here and a single design is not, which is the quantitative version of the rule
-# this row has been applying by instinct: eight-design cells carry quality claims, catchers
-# and single draws do not.
+# REPEAT of one configuration: same crop, same n, same everything the row controls. So they
+# measure the run-to-run reproducibility of an n=8 MEDIAN.
+#
+# CORRECTED 2026-09-24 03:0xZ: an earlier version of this file read 0.117 A off the offset-0
+# cell alone and stated it as THE reproducibility of an n=8 median. That over-generalised from
+# one cell. The offset-100 cell was then repeated too and moved 1.764 A:
+#
+#   cell             first     repeat    spread
+#   512 offset   0   4.748     4.631     0.117 A
+#   512 offset 100  17.785    16.021     1.764 A
+#
+# So the honest figure is 0.1 to 1.8 A over two cells, and it is cell-dependent rather than a
+# constant. The qualitative point survives and is what matters: the n=8 median moves by ~1 A
+# or less between runs while individual designs inside one cell span 0.7 to 13.5 A, so
+# eight-design cells carry quality claims and catchers and single draws do not.
 #
 #   per-design spread within a cell    0.7 - 13.5 A
-#   run-to-run spread of the n=8 median      0.117 A
-#   the effect being claimed                13.04 A
+#   run-to-run spread of the n=8 median  0.1 - 1.8 A  (two cells)
+#   the effect being claimed            11.4 - 13.0 A (same-tree / cross-tree)
 #
 # Reproduce: perf/mgxaccuracy/plans/floor512_onetree.txt entry 1, against the banked
 # offset-0 cell in results/size_1536.jsonl (engine "after-fix", crop_offset 0).
