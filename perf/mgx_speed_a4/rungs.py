@@ -169,6 +169,7 @@ class Embedder:
     def __init__(self, model):
         import torch
         torch.set_grad_enabled(False)
+        torch.set_num_threads(2)  # the record says host_threads 2; the CLI paths cap via OMP env
         sys.path.insert(0, str(ROOT / "perf" / "mgx_embed"))
         from accuracy import pdb_sequence
         pdb = os.environ.get("MGX_EMBED_PDB", str(pathlib.Path.home() / "scratch/mgxembed/mtor.pdb"))
