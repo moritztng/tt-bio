@@ -1,0 +1,245 @@
+{
+ "bucket": 1,
+ "rounds": [
+  {
+   "round": 1,
+   "input_logits_bad": {},
+   "input_logits_absmax": {
+    "binder": 10000.0,
+    "target_hPDL1": 1.0
+   },
+   "design_loss": 6.503891944885254,
+   "design_loss_finite": true,
+   "grad_bad": {
+    "binder": {
+     "nan": 2920,
+     "inf": 0
+    },
+    "target_hPDL1": {
+     "nan": 2300,
+     "inf": 0
+    }
+   },
+   "predictions_bad": {}
+  },
+  {
+   "round": 2,
+   "input_logits_bad": {
+    "binder": {
+     "nan": 2774,
+     "inf": 0
+    }
+   },
+   "input_logits_absmax": {
+    "binder": NaN,
+    "target_hPDL1": 1.0
+   },
+   "design_loss": NaN,
+   "design_loss_finite": false,
+   "grad_bad": {
+    "binder": {
+     "nan": 2920,
+     "inf": 0
+    },
+    "target_hPDL1": {
+     "nan": 2300,
+     "inf": 0
+    }
+   },
+   "predictions_bad": {
+    "hPDL1.metrics.binder_helicity": {
+     "nan": 1,
+     "inf": 0,
+     "size": 1
+    },
+    "hPDL1.metrics.binder_pae": {
+     "nan": 1,
+     "inf": 0,
+     "size": 1
+    },
+    "hPDL1.metrics.compactness": {
+     "nan": 1,
+     "inf": 0,
+     "size": 1
+    },
+    "hPDL1.metrics.distogram": {
+     "nan": 4359744,
+     "inf": 0,
+     "size": 4359744
+    },
+    "hPDL1.metrics.experimentally_resolved_ca": {
+     "nan": 261,
+     "inf": 0,
+     "size": 261
+    },
+    "hPDL1.metrics.interface_pae": {
+     "nan": 1,
+     "inf": 0,
+     "size": 1
+    },
+    "hPDL1.metrics.iptm": {
+     "nan": 1,
+     "inf": 0,
+     "size": 1
+    },
+    "hPDL1.metrics.iptm_loss": {
+     "nan": 1,
+     "inf": 0,
+     "size": 1
+    },
+    "hPDL1.metrics.iptm_per_residue": {
+     "nan": 261,
+     "inf": 0,
+     "size": 261
+    },
+    "hPDL1.metrics.pae": {
+     "nan": 68121,
+     "inf": 0,
+     "size": 68121
+    },
+    "hPDL1.metrics.ptm": {
+     "nan": 1,
+     "inf": 0,
+     "size": 1
+    },
+    "hPDL1.binder.atoms": {
+     "nan": 2190,
+     "inf": 0,
+     "size": 16206
+    },
+    "hPDL1.target_hPDL1.atoms": {
+     "nan": 2763,
+     "inf": 0,
+     "size": 12765
+    }
+   }
+  }
+ ],
+ "seam": [
+  {
+   "op": "taped",
+   "call": 1,
+   "in_msa": null,
+   "in_pair": null,
+   "out_msa": null,
+   "out_pair": null
+  },
+  {
+   "op": "taped",
+   "call": 2,
+   "in_msa": null,
+   "in_pair": null,
+   "out_msa": null,
+   "out_pair": null
+  },
+  {
+   "op": "backward",
+   "call": 1,
+   "cotangent_msa_in": null,
+   "cotangent_pair_in": null,
+   "grad_msa_out": {
+    "nan": 8438,
+    "inf": 124464,
+    "size": 133632,
+    "absmax_finite": 3.39617752923046e+38
+   },
+   "grad_pair_out": {
+    "nan": 164221,
+    "inf": 8551509,
+    "size": 8719488,
+    "absmax_finite": 3.3598314512207163e+38
+   }
+  },
+  {
+   "op": "taped",
+   "call": 3,
+   "in_msa": {
+    "nan": 37376,
+    "inf": 0,
+    "size": 133632,
+    "absmax_finite": 40.5
+   },
+   "in_pair": {
+    "nan": 8719488,
+    "inf": 0,
+    "size": 8719488,
+    "absmax_finite": null
+   },
+   "out_msa": {
+    "nan": 0,
+    "inf": 100136,
+    "size": 147456,
+    "absmax_finite": 3.3895313892515355e+38
+   },
+   "out_pair": {
+    "nan": 0,
+    "inf": 10559268,
+    "size": 10616832,
+    "absmax_finite": 3.3895313892515355e+38
+   }
+  },
+  {
+   "op": "taped",
+   "call": 4,
+   "in_msa": {
+    "nan": 66816,
+    "inf": 0,
+    "size": 133632,
+    "absmax_finite": 40.5
+   },
+   "in_pair": {
+    "nan": 8719488,
+    "inf": 0,
+    "size": 8719488,
+    "absmax_finite": null
+   },
+   "out_msa": {
+    "nan": 0,
+    "inf": 147456,
+    "size": 147456,
+    "absmax_finite": null
+   },
+   "out_pair": {
+    "nan": 0,
+    "inf": 9902628,
+    "size": 10616832,
+    "absmax_finite": 3.3895313892515355e+38
+   }
+  },
+  {
+   "op": "backward",
+   "call": 2,
+   "cotangent_msa_in": {
+    "nan": 66816,
+    "inf": 0,
+    "size": 133632,
+    "absmax_finite": 0.0
+   },
+   "cotangent_pair_in": {
+    "nan": 8719488,
+    "inf": 0,
+    "size": 8719488,
+    "absmax_finite": null
+   },
+   "grad_msa_out": {
+    "nan": 10172,
+    "inf": 115398,
+    "size": 133632,
+    "absmax_finite": 3.303131569525516e+38
+   },
+   "grad_pair_out": {
+    "nan": 0,
+    "inf": 8719488,
+    "size": 8719488,
+    "absmax_finite": null
+   }
+  }
+ ],
+ "first_seam_bad": 2,
+ "device_calls": {
+  "primal": 0,
+  "taped": 4,
+  "backward": 2
+ },
+ "first_bad_round": 1
+}

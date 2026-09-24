@@ -1,0 +1,70 @@
+{
+ "mode": "none",
+ "depth": 32,
+ "first": 0,
+ "nomask": false,
+ "reps": [
+  {
+   "rep": 1,
+   "digest": "88acae90ee84384d",
+   "clean": true,
+   "d_msa_nonfinite": 0,
+   "d_pair_nonfinite": 0,
+   "d_msa_absmax": 0.55224609375,
+   "d_pair_absmax": 0.01605224609375,
+   "progcache": 269,
+   "s": 27.6
+  },
+  {
+   "rep": 2,
+   "digest": "88acae90ee84384d",
+   "clean": true,
+   "d_msa_nonfinite": 0,
+   "d_pair_nonfinite": 0,
+   "d_msa_absmax": 0.55224609375,
+   "d_pair_absmax": 0.01605224609375,
+   "progcache": 269,
+   "s": 25.6
+  },
+  {
+   "rep": 3,
+   "digest": "88acae90ee84384d",
+   "clean": true,
+   "d_msa_nonfinite": 0,
+   "d_pair_nonfinite": 0,
+   "d_msa_absmax": 0.55224609375,
+   "d_pair_absmax": 0.01605224609375,
+   "progcache": 269,
+   "s": 23.9
+  },
+  {
+   "rep": 4,
+   "digest": "88acae90ee84384d",
+   "clean": true,
+   "d_msa_nonfinite": 0,
+   "d_pair_nonfinite": 0,
+   "d_msa_absmax": 0.55224609375,
+   "d_pair_absmax": 0.01605224609375,
+   "progcache": 269,
+   "s": 24.4
+  }
+ ],
+ "clean": 4,
+ "distinct_digests": [
+  "88acae90ee84384d"
+ ],
+ "stamp": {
+  "host": "tt-quietbox2",
+  "card": 2,
+  "subsystem_device": "0x0046",
+  "commit": "4ef68dbaaa3ef07f8010d55e3472d169b2a8ec81",
+  "tt_bio_dirty": false,
+  "torch_threads": 4,
+  "loadavg": [
+   48.37451171875,
+   51.45068359375,
+   53.42431640625
+  ],
+  "utc": "2026-09-24T14:56:15Z"
+ }
+}
