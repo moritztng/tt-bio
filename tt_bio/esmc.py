@@ -1141,7 +1141,7 @@ class ESMC(TorchWrapper):
                     self._trace_note_shown = True
                     print("ESMC trace disabled: device was opened without a trace "
                           "region; running eager. Open with get_device("
-                          "trace_region_size=...) before load_esmc to enable.",
+                          "trace=\"esmc\") before load_esmc to enable.",
                           file=sys.stderr)
             else:
                 # Capture on the SECOND sighting of a shape: tracing pays only
@@ -1561,17 +1561,12 @@ def load_sequences(data) -> dict[str, str]:
     return seqs
 
 
-# DRAM reserved for ttnn trace capture when an ESMC-300M/600M model is loaded
-# with tracing on. Sized for _TRACE_CACHE_MAX concurrent captured forwards.
-#
-# It does NOT leave the device layout otherwise unchanged, which this comment used to claim. The
-# reservation comes off EVERY DRAM BANK, so on a 12-bank Wormhole Galaxy chip it costs 12 x 256 MB
-# = 3 GiB of a 12.8 GiB part. Measured on j10glx02 chip 8 against chip 7 on the same day, off the
-# allocator's own refusal message: "bank size is 805306336 B" with the region reserved against
-# "1073741792 B" without it, a difference of exactly 268435456 B per bank. That is 24 % of the
-# chip, and on the sequence-length axis it is the difference between esmc-300m refusing 65537
-# residues and saprot-35m -- same code path, no reservation -- embedding 73728 on the same part.
-_ESMC_TRACE_REGION_SIZE = 1 << 28
+# The trace region an ESMC-300M/600M load reserves (tenstorrent.TRACE_REGIONS["esmc"]) is not
+# free: it comes off EVERY DRAM bank, so on a 12-bank Wormhole chip every MiB of it costs 12 MiB.
+# Measured on j10glx02 off the allocator's own refusal: "bank size is 805306336 B" with a 256 MiB
+# region against "1073741792 B" without. On the sequence-length axis that was the difference
+# between esmc-300m refusing 65537 residues and saprot-35m, same code path and no region,
+# embedding 73728 on the same part. Hence trace_pays below.
 
 
 def trace_pays(sequences, bucket: int = BUCKET) -> bool:
@@ -1620,7 +1615,7 @@ def load_esmc(name: str = "esmc-300m", *, fast: bool = False, trace: bool = True
         # Reserve the trace region up front. If the device is already open this
         # returns it unchanged and forward() simply stays eager (it checks
         # trace_region_size() per call).
-        get_device(trace_region_size=_ESMC_TRACE_REGION_SIZE)
+        get_device(trace="esmc")
     return ESMC.from_pretrained(name, trace=trace)
 
 

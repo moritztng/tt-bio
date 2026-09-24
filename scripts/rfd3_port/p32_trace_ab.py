@@ -1,15 +1,16 @@
-"""p32: interleaved A/B over the two RFD3 trace levers, with p30's bias reuse wired in.
+"""p32: interleaved A/B over the RFD3 decoder trace lever, with p30's bias reuse wired in.
 
-Four legs, all in one process on one hot card so drift and thermals hit them equally (p14):
+Two legs, both in one process on one hot card so drift and thermals hit them equally (p14):
 
-  eager  decoder eager,  encoder eager   -- shipped
-  dec    decoder traced, encoder eager
-  enc    decoder eager,  encoder traced
-  both   decoder traced, encoder traced
+  eager  decoder eager   -- shipped
+  dec    decoder traced
 
-Both trace flags are read from the environment in `RFD3DiffusionModule.__init__`, but they
-are plain attributes afterwards (`decoder.trace`, `dm._trace_encoder`), so one process can
-alternate them and the legs differ only in which code path runs -- no cross-tree harness
+p32 also ran the encoder trace (74.5% slower); that lever is withdrawn since (it hung a
+Wormhole chip, see RFD3DiffusionModule.__init__), so its legs are gone from this script.
+
+The flag is read from the environment in `RFD3DiffusionModule.__init__`, but it is a plain
+attribute afterwards (`decoder.trace`), so one process can alternate it and the legs differ
+only in which code path runs -- no cross-tree harness
 difference (p31 had to use two trees because the head-merge change rewrote the call graph;
 this one does not).
 
@@ -24,7 +25,7 @@ the two-gate check (`ttnn-trace-interleaved-eager-corruption`) runs in the same 
 measures the speedup: a trace that passes an isolated component PCC can still corrupt or
 hang once it is interleaved with eager allocation in the real loop.
 
-Run: TT_VISIBLE_DEVICES=0 TT_BIO_LEASE_HOLDER=... TT_BIO_TRACE_REGION_SIZE=$((1<<30)) \
+Run: TT_VISIBLE_DEVICES=0 TT_BIO_LEASE_HOLDER=... \
        PYTHONPATH=$PWD python3 scripts/rfd3_port/p32_trace_ab.py \
          --contig "A1-10,230,A31-40" --batch 1
 """
@@ -43,8 +44,7 @@ ROOT = Path(__file__).resolve().parents[2]
 PDB = ROOT / "scripts/rfd3_port/parity_artifacts/iai_protein/IAI_protein.pdb"
 GOLDEN_DIR = Path("~/.coworker/artifacts/rfd3-goldens/capture").expanduser()
 
-LEGS = {"eager": (False, False), "dec": (True, False),
-        "enc": (False, True), "both": (True, True)}
+LEGS = {"eager": False, "dec": True}
 
 
 def main() -> None:
@@ -65,7 +65,7 @@ def main() -> None:
     from tt_bio.rfd3.input import InputSpecification
     from tt_bio.rfd3.sampler import RFD3Sampler
 
-    TTd.get_device(trace_region_size=1 << 30)
+    TTd.get_device(trace="rfd3")
 
     data = {"input": str(args.pdb), "contig": args.contig}
     spec = InputSpecification.from_dict(data)
@@ -86,7 +86,7 @@ def main() -> None:
         init = ti({k: (v.clone() if torch.is_tensor(v) else v) for k, v in f.items()})
 
         def run(name, timesteps, seed):
-            dm.decoder.trace, dm._trace_encoder = LEGS[name]
+            dm.decoder.trace = LEGS[name]
             g = torch.Generator().manual_seed(seed)
             t0 = time.perf_counter()
             out = RFD3Sampler(num_timesteps=timesteps).sample(

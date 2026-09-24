@@ -331,8 +331,7 @@ def main() -> int:
     }
     dump()
 
-    dev = T.get_device(trace_region_size=int(os.environ.get("TT_BIO_TRACE_REGION_SIZE",
-                                                            512 * 1024 * 1024)))
+    dev = T.get_device(trace="diffusion")
     grid = tuple(T.COMPUTE_GRID_MAIN)
     OUT["env"]["grid"] = list(grid)
     OUT["env"]["arch"] = str(dev.arch())

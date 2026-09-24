@@ -40,7 +40,7 @@ def main() -> None:
     from tt_bio.rfd3.input import InputSpecification
     from tt_bio.rfd3.sampler import RFD3Sampler
 
-    TTd.get_device(trace_region_size=1 << 30)
+    TTd.get_device(trace="rfd3")
     acc = defaultdict(float)
 
     def timed(name, fn):

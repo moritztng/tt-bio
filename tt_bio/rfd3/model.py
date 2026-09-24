@@ -2370,15 +2370,10 @@ class LocalAtomTransformer(Module):
     eager allocation) was always clean -- the bug was specific to the full-pipeline
     interleaving.
 
-    p27 fix: RFD3DiffusionModule no longer uses THIS class's own trace mechanism in
-    production (self.encoder is always built with trace=False). Production encoder
-    tracing now lives in RFD3DiffusionModule._encoder_downcast_traced, which captures
-    the encoder's run_device AND downcast_q's core in ONE combined trace (so no eager
-    allocation ever runs while that trace is open) and uses a cached packing-index
-    buffer (RFD3DiffusionModule._grouping_buffers) instead of re-uploading it every call.
-    This class's own trace=True path is kept only for isolated-component testing
-    -- do not wire it directly into a production pipeline without the same
-    combined-trace treatment."""
+    RFD3DiffusionModule always builds its encoder with trace=False, and the combined
+    encoder+downcast_q trace that replaced this path in p27 is withdrawn (74.5% slower, and it
+    hung a Wormhole chip; see RFD3DiffusionModule.__init__). This class's own trace=True path
+    is kept only for isolated-component testing."""
 
     def __init__(self, state_dict, ckc, n_blocks=3, dtype=None, fp32_residual=False, trace=False):
         super().__init__(state_dict, ckc)
@@ -2416,10 +2411,7 @@ class LocalAtomTransformer(Module):
 
     def _run_device_traced(self, q_host, c_host, p_host, mask_host):
         import tt_bio.tenstorrent as _TTd
-        if _TTd.trace_region_size() <= 0:
-            raise ValueError(
-                "LocalAtomTransformer(trace=True) needs a device opened with a trace "
-                "region; call get_device(trace_region_size=1 << 28) (or larger) first.")
+        _TTd.require_trace_region("LocalAtomTransformer(trace=True)")
         dev, dt = self.device, self.dtype
         shape_key = (tuple(q_host.shape), tuple(c_host.shape), tuple(p_host.shape), tuple(mask_host.shape))
         st = self._trace_state
@@ -2685,8 +2677,7 @@ class CompactStreamingDecoder(Module):
         pack_idx_dev, unpack_idx_dev, valid, length,
     ):
         import tt_bio.tenstorrent as _TTd
-        if _TTd.trace_region_size() <= 0:
-            raise ValueError("Sparse decoder trace needs an enabled trace region")
+        _TTd.require_trace_region("RFD3_TRACE_DECODER")
         dev, dt = self.device, self.dtype
         step_key = (id(q_host), id(c_host), id(p_host), id(indices))
         st = self._trace_state
@@ -2757,10 +2748,7 @@ class CompactStreamingDecoder(Module):
         (new identities) always falls through to a full refresh, so a wrong
         cache hit is impossible, only a missed skip."""
         import tt_bio.tenstorrent as _TTd
-        if _TTd.trace_region_size() <= 0:
-            raise ValueError(
-                "CompactStreamingDecoder(trace=True) needs a device opened with a trace "
-                "region; call get_device(trace_region_size=1 << 28) (or larger) first.")
+        _TTd.require_trace_region("RFD3_TRACE_DECODER")
         dev, dt = self.device, self.dtype
         shape_key = (tuple(a_host.shape), tuple(q_host.shape), tuple(c_host.shape), tuple(p_host.shape))
         step_key = (id(q_host), id(c_host), id(p_host), id(indices))
@@ -3527,49 +3515,26 @@ class RFD3DiffusionModule(Module):
         # The fp32-residual lever threads through the DiT and the encoder (the two pure
         # atom-block stacks); the decoder accepts the flag but ignores it (see its ctor).
         # Default off keeps the verified bf16 behavior.
-        # ttnn trace-capture lever (p25, opt-in via RFD3_TRACE_ENCODER=1 / RFD3_TRACE_DECODER=1).
-        # BOTH ARE MEASURED NEGATIVE AND STAY DEFAULT-OFF. p32 ran the two-gate check p25-p28
-        # never got to (scripts/rfd3_port/p32_trace_ab.py, all four combinations alternated in
-        # one process on one hot card, 3359 atoms, 3 alternations): every leg is BIT-EXACT
-        # (trajectory maxabs 0.0 against the eager leg -- the correctness gate passes), and
-        # every leg is SLOWER. Decoder -12.3% (246.3 -> 280.8 ms/step), encoder -74.5%
-        # (-> 967.5), both -75.5%.
+        # Decoder trace (opt-in RFD3_TRACE_DECODER=1, default off): bit-exact and 12.3% SLOWER
+        # (p32, scripts/rfd3_port/p32_trace_ab.py, 3359 atoms: 246.3 -> 280.8 ms/step). The
+        # decoder's run_device costs 9.66 ms/step of host dispatch, the ceiling on what a trace can
+        # save, and the traced path pays 26.5 ms/step refreshing its input buffers plus 6.0 ms/step
+        # of host pair gather, because a trace reads inputs at fixed addresses and the gathered
+        # pair features and scatter index are exactly the tensors p26 made device-resident. Kept
+        # because the ceiling is size-dependent. It needs get_device(trace="rfd3") before anything
+        # else opens the device, which design._run_design_jobs does when the flag is set.
         #
-        # The reason is structural, not a tuning miss (p32_trace_attribution.py, same shape):
-        # the decoder's `run_device` -- exactly the graph the trace replaces -- costs
-        # 9.66 ms/step of HOST DISPATCH, 3.9% of the step. That is the ceiling on what tracing
-        # it can ever save. Against it the traced path pays 26.5 ms/step refreshing its
-        # persistent input buffers plus 6.0 ms/step of host pair gather, because a trace can
-        # only read inputs at fixed addresses: the gathered pair features and the
-        # head-replicated scatter index (20.7 of 22.8 MB per step) are precisely the two
-        # tensors p26 had already made device-resident (_pair_gather_table,
-        # _sparse_attn_index's device concat), and staging them for a trace pushes them back
-        # across the host boundary. Tracing here undoes a residency win to buy a 3.9% one, so
-        # the two levers are mutually exclusive rather than compounding -- and even free
-        # staging would leave a wash, not a win. p25/p26's isolated 1.25x measured `run_device`
-        # in a tight loop where those 9.66 ms were nearly all the wall time; in the real step
-        # they are 3.9%. The encoder is worse for the same reason plus one more: its traced
-        # form (_encoder_downcast_device) takes the DENSE pair-bias path, so it re-stages
-        # P_LL ([1,L,L,16], 361 MB at 3359 atoms) and a dense [1,1,L,L] mask every step where
-        # the eager sparse path moves a [1,L,128,16] gather (13.8 MB) off a resident table.
-        #
-        # Kept, not deleted: both paths are correct and bit-exact, the ceiling is
-        # size-dependent (dispatch is a larger share of a 419-atom step), and the flags are the
-        # only way to re-measure if ttnn ever grows a device-side way to stage a trace input.
-        # Requires get_device(trace_region_size=1 << 28) or larger; nothing in production opens
-        # the device that way, which is consistent with both flags being off.
-        #
-        # History: RFD3_TRACE_ENCODER's capture-time hang was root-caused in p27 (run_device's
-        # internal host-mask upload hard-errors inside an open capture region; fixed by
-        # precomputing the mask and folding encoder + _downcast_q into ONE trace, see
-        # _encoder_downcast_traced). RFD3_TRACE_DECODER's own crash-after-one-step was
-        # root-caused in p32 (see _trace_output_copy). self.encoder itself is always built with
-        # trace=False -- production tracing of the encoder lives in _encoder_downcast_traced,
-        # not in LocalAtomTransformer's own (isolated-test-only) trace mechanism.
-        self._trace_encoder = env_flag("RFD3_TRACE_ENCODER", False)
+        # The encoder trace (RFD3_TRACE_ENCODER=1) is withdrawn and refuses by name: p32 measured it
+        # 74.5% slower (its traced form took the dense pair-bias path and re-staged P_LL every
+        # step), and on Wormhole it hung the chip in the first eager to_torch after its replay
+        # (whglx card 17, 2026-09-23, 256 MiB region). The eager encoder is the only encoder.
+        if env_flag("RFD3_TRACE_ENCODER", False):
+            raise ValueError(
+                "RFD3_TRACE_ENCODER is withdrawn: the encoder trace was 74.5% slower than the eager "
+                "encoder and hung a Wormhole chip after its first replay. Unset it; "
+                "RFD3_TRACE_DECODER is the remaining opt-in trace.")
         self._grouping_cache = {}      # batch -> {"valid", "pack_idx_dev", ...}, shared by downcast_c/downcast_q
         self._grouping_owner = None    # (id(tok_idx), shape) the cached slots belong to
-        self._encoder_trace_state = None  # {"id", "shape", "q", "c", "p", "mask", "a", "s", "out_q", "out_a"}
         self.encoder = LocalAtomTransformer(self.scope("encoder"), ckc, n_blocks=3, dtype=dt,
                                             fp32_residual=self._dit_fp32_residual, trace=False)
         self.decoder = CompactStreamingDecoder(self.scope("decoder"), ckc, dtype=dt,
@@ -3616,17 +3581,8 @@ class RFD3DiffusionModule(Module):
         CompactStreamingDecoder._design_buffers -- so caching by id(tok_idx) means the
         pack_idx_dev upload happens ONCE per design, not once per step.
 
-        p27 root cause of the encoder-trace hang (rfd3-trace-hang-vs-corruption-two-gate-catch):
-        before this fix, _downcast_q re-derived AND RE-UPLOADED pack_idx_dev via
-        ttnn.from_torch(..., device=dev) on every single call -- a fresh device allocation
-        immediately after the encoder's persistent trace had just executed. Caching this
-        (like the decoder already does) means that after the first call, NO allocation
-        happens here at all -- only a python-side cache hit -- so nothing can race with an
-        open trace region on steady-state steps. Combined with folding the remaining first-call
-        interleaving into the encoder+downcast_q trace itself (_encoder_downcast_traced), this
-        closed the hang: p32 ran the multi-step trajectory replay end-to-end and it is
-        bit-exact (maxabs 0.0). The encoder trace is still default-off, on perf grounds
-        rather than correctness -- see the RFD3DiffusionModule.__init__ comment."""
+        Before this cache, _downcast_q re-derived and re-uploaded pack_idx_dev on every call.
+        """
         dev = self.device
         # One slot PER BATCH SIZE, not one slot total: _downcast_c is called with the
         # batch-1 S_I while the encoder downcast is called with the batch-D A_I, so a
@@ -3634,11 +3590,7 @@ class RFD3DiffusionModule(Module):
         # 8.7 ms per call at 3359 atoms, 31x what eight batch-1 calls cost (p11).
         owner = (id(tok_idx), tuple(tok_idx.shape))
         if self._grouping_owner != owner:
-            # a design change can change L/I shapes -- any captured combined trace is stale.
             self._grouping_owner, self._grouping_cache = owner, {}
-            if self._encoder_trace_state is not None:
-                ttnn.release_trace(dev, self._encoder_trace_state["id"])
-                self._encoder_trace_state = None
         st = self._grouping_cache.get(batch)
         if st is None:
             valid, pack, _ = _grouping_indices(tok_idx, batch, dev)
@@ -3647,7 +3599,7 @@ class RFD3DiffusionModule(Module):
             # shape/content, mask is about which atom-slots are valid, independent of
             # which GCA's weights consume it): precomputed and persisted here, NOT passed
             # as a raw host `attn_mask` into run_device (which would upload it internally
-            # on every call -- see _encoder_downcast_device / _downcast_q_device).
+            # on every call -- see _downcast_q_device).
             downcast_mask_dev = self.downcast_q._prepare_additive_mask(
                 valid.unsqueeze(1), batch, valid.shape[0], 1, valid.shape[1])
             st = dict(valid=valid, pack_idx_dev=pack_idx_dev, downcast_mask_dev=downcast_mask_dev)
@@ -3667,12 +3619,9 @@ class RFD3DiffusionModule(Module):
         return ttnn.to_torch(ttnn.add(S_I_dev, upd)).float()
 
     def _downcast_q_device(self, q_g, a, s, mask_dev):
-        """Pure-device tail of downcast_q (GCA + s-norm/linear), shared by the eager
-        _downcast_q and the combined encoder+downcast_q trace (_encoder_downcast_device).
-        mask_dev is the ALREADY-persisted additive mask from _grouping_buffers -- passed
-        via attn_mask_dev so run_device never uploads a fresh mask itself (p27: doing so
-        inside a trace capture region hard-errors with "Writes are not supported during
-        trace capture", the actual root cause of the p26 encoder-trace hang)."""
+        """Pure-device tail of downcast_q (GCA + s-norm/linear). mask_dev is the
+        already-persisted additive mask from _grouping_buffers, passed via attn_mask_dev so
+        run_device never uploads a fresh mask itself."""
         ckc, dt = self.compute_kernel_config, self.dtype
         upd = ttnn.squeeze(self.downcast_q.run_device(ttnn.unsqueeze(a, 2), q_g, attn_mask_dev=mask_dev), 2)
         a = ttnn.add(a, upd)
@@ -3689,71 +3638,6 @@ class RFD3DiffusionModule(Module):
         s = _tt(S_I, dev, dt)
         out = self._downcast_q_device(q_g, a, s, mask_dev)
         return ttnn.to_torch(out).float()
-
-    def _encoder_downcast_device(self, q, c, p, mask, a, s, pack_idx_dev, downcast_mask_dev, valid):
-        """Pure-device core for the combined encoder+downcast_q trace: encoder's 3 atom
-        blocks, then downcast_q's pack/GCA/norm/linear, all in ONE captured region so no
-        eager allocation OR host-mask upload ever runs while the trace is open (see
-        _grouping_buffers and _encoder_downcast_traced for why the split version hung -- p27)."""
-        q = self.encoder.run_device(q, c, p, mask)
-        q_g = _pack_atoms_dev_core(q, pack_idx_dev, valid)
-        a_out = self._downcast_q_device(q_g, a, s, downcast_mask_dev)
-        return q, a_out
-
-    def _persist_ed(self, x_host):
-        host_t = _tt_host(x_host, self.dtype)
-        dev_t = ttnn.allocate_tensor_on_device(host_t.spec, self.device)
-        ttnn.copy_host_to_device_tensor(host_t, dev_t)
-        return dev_t
-
-    def _capture_encoder_downcast_trace(self, q_host, c_host, p_host, mask_host, a_host, s_host,
-                                         pack_idx_dev, downcast_mask_dev, valid, shape_key):
-        dev = self.device
-        q_p, c_p, p_p, mask_p, a_p, s_p = (
-            self._persist_ed(x) for x in (q_host, c_host, p_host, mask_host, a_host, s_host))
-        for _ in range(2):  # warmup: compiles every kernel (capture disallows compilation)
-            _ = self._encoder_downcast_device(q_p, c_p, p_p, mask_p, a_p, s_p, pack_idx_dev,
-                                               downcast_mask_dev, valid)
-        ttnn.synchronize_device(dev)
-        tid = ttnn.begin_trace_capture(dev, cq_id=0)
-        out_q, out_a = self._encoder_downcast_device(q_p, c_p, p_p, mask_p, a_p, s_p, pack_idx_dev,
-                                                       downcast_mask_dev, valid)
-        ttnn.end_trace_capture(dev, tid, cq_id=0)
-        self._encoder_trace_state = dict(id=tid, shape=shape_key, q=q_p, c=c_p, p=p_p, mask=mask_p,
-                                          a=a_p, s=s_p, out_q=out_q, out_a=out_a)
-
-    def _encoder_downcast_traced(self, Q_L_host, C_L_host, P_LL_host, indices, A_I_host, S_I_host,
-                                  pack_idx_dev, downcast_mask_dev, valid):
-        """RFD3_TRACE_ENCODER=1 production path: encoder + downcast_q as one combined ttnn
-        trace (see _encoder_downcast_device). pack_idx_dev/downcast_mask_dev/valid come from
-        the ALREADY-cached _grouping_buffers -- by the time this runs, no allocation happens
-        for them here."""
-        import tt_bio.tenstorrent as _TTd
-        if _TTd.trace_region_size() <= 0:
-            raise ValueError(
-                "RFD3_TRACE_ENCODER=1 needs a device opened with a trace region; call "
-                "get_device(trace_region_size=1 << 28) (or larger) first.")
-        dev, dt = self.device, self.dtype
-        shape_key = (tuple(Q_L_host.shape), tuple(C_L_host.shape), tuple(P_LL_host.shape),
-                     tuple(A_I_host.shape), tuple(S_I_host.shape))
-        mask_host = _dense_attention_mask(indices)
-        st = self._encoder_trace_state
-        if st is None or st["shape"] != shape_key:
-            if st is not None:
-                ttnn.release_trace(dev, st["id"])
-            self._capture_encoder_downcast_trace(Q_L_host, C_L_host, P_LL_host, mask_host,
-                                                  A_I_host, S_I_host, pack_idx_dev,
-                                                  downcast_mask_dev, valid, shape_key)
-        else:
-            _tt_refresh(Q_L_host, st["q"], dt)
-            _tt_refresh(C_L_host, st["c"], dt)
-            _tt_refresh(P_LL_host, st["p"], dt)
-            _tt_refresh(mask_host, st["mask"], dt)
-            _tt_refresh(A_I_host, st["a"], dt)
-            _tt_refresh(S_I_host, st["s"], dt)
-        st = self._encoder_trace_state
-        ttnn.execute_trace(dev, st["id"], cq_id=0, blocking=True)
-        return ttnn.to_torch(st["out_q"]).float(), ttnn.to_torch(st["out_a"]).float()
 
     def __call__(self, X_noisy_L, t, f, Q_L_init, C_L, P_LL, S_I, Z_II, n_recycle=None):
         dev, ckc, dt = self.device, self.compute_kernel_config, self.dtype
@@ -3801,15 +3685,8 @@ class RFD3DiffusionModule(Module):
         C_L = C_L + ttnn.to_torch(
             ttnn.linear(ttnn.rms_norm(_tt(C_L, dev, dt), weight=self.process_c_n, epsilon=1e-6, compute_kernel_config=ckc),
                         self.process_c_w, compute_kernel_config=ckc, dtype=dt, core_grid=BATCH_INVARIANT_GRID)).float()
-        if self._trace_encoder:
-            B = A_I.shape[0] if A_I.ndim == 3 else 1
-            valid, pack_idx_dev, downcast_mask_dev = self._grouping_buffers(tok_idx, B)
-            P_LL_in = P_LL.unsqueeze(0) if P_LL.ndim == 2 else P_LL
-            Q_L, A_I = self._encoder_downcast_traced(Q_L, C_L, P_LL_in, f["attn_indices"], A_I, S_I,
-                                                      pack_idx_dev, downcast_mask_dev, valid)
-        else:
-            Q_L = self.encoder(Q_L, C_L, P_LL, indices=f["attn_indices"])
-            A_I = self._downcast_q(Q_L, A_I, S_I, tok_idx)
+        Q_L = self.encoder(Q_L, C_L, P_LL, indices=f["attn_indices"])
+        A_I = self._downcast_q(Q_L, A_I, S_I, tok_idx)
         recycled = self._forward_with_recycle(
             n_recycle, X_noisy_L=X_noisy_L, R_L_uniform=R_L_uniform, t_L=t_L, f=f, Q_L=Q_L,
             C_L=C_L, P_LL=P_LL, A_I=A_I, S_I=S_I, Z_II=Z_II)

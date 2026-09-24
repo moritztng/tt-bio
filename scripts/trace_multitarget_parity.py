@@ -40,15 +40,10 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
-import os
 import sys
 import tempfile
 import time
 from pathlib import Path
-
-# The trace region must be reserved at device open; get_device reads this env
-# var then. Set before any tt_bio import that could open the device.
-os.environ.setdefault("TT_BIO_TRACE_REGION_SIZE", str(1 << 30))
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 FIXTURES = REPO_ROOT / "scripts" / "gpu_vs_tt" / "fixtures" / "distinct"
@@ -139,7 +134,8 @@ def main() -> int:
     _noop = lambda *a, **k: None
     _E.set_progress(_noop)
 
-    get_device()  # open the chip once, with the trace region (env set above)
+    # open the chip once, with the region the model's capture needs
+    get_device(trace="diffusion" if args.model == "boltz2" else "protenix")
 
     work = Path(tempfile.mkdtemp(prefix=f"trace-parity-{args.model}-"))
     struct_dir = work / "out"

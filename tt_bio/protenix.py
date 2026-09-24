@@ -2409,7 +2409,7 @@ class Protenix:
         ptm, iptm} for n_sample==1, or a list of such dicts (one per sample) for n_sample>1.
         trace=True replays a captured ttnn trace of the denoise stream (lossless; faster on
         dispatch-bound diffusion, e.g. -22% warm at L256). Requires the device to have been
-        opened with a trace region: get_device(trace_region_size=1 << 30).
+        opened with get_device(trace="protenix").
 
         gamma0 / step_scale are the sampler's churn and step-size knobs. None keeps
         `edm_sample`'s protenix-v2 defaults (0.8 and 1.5). They are arguments because they are
@@ -2419,10 +2419,7 @@ class Protenix:
         import torch
         if trace:
             import tt_bio.tenstorrent as _TTd
-            if _TTd.trace_region_size() <= 0:
-                raise ValueError(
-                    "fold(trace=True) needs a device opened with a trace region; "
-                    "call get_device(trace_region_size=1 << 30) before folding.")
+            _TTd.require_trace_region("fold(trace=True)")
         cond, _aux = self._trunk_cond(feats, progress_fn=progress_fn, n_cycles=n_cycles)
         N, NT = _aux["N"], _aux["NT"]
         s_inputs, s_trunk, z_trunk = _aux["s_inputs"], _aux["s_trunk"], _aux["z_trunk"]
@@ -3085,7 +3082,7 @@ def edm_sample(diffusion_module, cond, n_atoms, *, multiplicity=1, max_parallel_
     collapses per-step dispatch on dispatch-bound diffusion). The captured trace is fixed
     at (1,N,3), so trace=True with multiplicity>1 falls back to the untraced denoise
     (correctness first; a batched trace would need re-capture per (N,M)). Requires the
-    device to have been opened with a trace region (get_device(trace_region_size=...))."""
+    device to have been opened with get_device(trace="protenix")."""
     import torch
     from .boltz2 import compute_random_augmentation
     M = max(1, int(multiplicity))
