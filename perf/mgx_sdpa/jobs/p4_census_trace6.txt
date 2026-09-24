@@ -1,0 +1,3 @@
+# boltz2/boltzgen DiT captures with the trace region capped at 256 MiB by the census hook (1 GiB sat in bring-up on cards 11 and 10)
+cd $HOME/wt-mgx-sdpa-mask && SDPA_CENSUS_TRACE_REGION=268435456 $HOME/env/bin/python perf/mgx_sdpa/census.py --out $S/census_trace.jsonl --label boltz2-510-trace -- predict $S/in/prot_510.yaml --model boltz2 --single_sequence --sampling_steps 6 --diffusion_samples 1 --seed 0 --diffusion_trace --out_dir $S/o/tr6-boltz2-510
+cd $HOME/wt-mgx-sdpa-mask && SDPA_CENSUS_TRACE_REGION=268435456 $HOME/env/bin/python perf/mgx_sdpa/census.py --out $S/census_trace.jsonl --label boltzgen-400-trace -- design tests/fixtures/boltzgen/bg400.yaml --model boltzgen --num_designs 1 --steps design --diffusion_trace --out_dir $S/o/tr6-bg

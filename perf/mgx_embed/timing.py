@@ -40,7 +40,8 @@ def main():
         model = mod.load_esmc(a.model)
     full = pdb_sequence(a.pdb)
     tree = subprocess.run(["git", "-C", str(ROOT), "log", "-1", "--format=%h"],
-                          capture_output=True, text=True).stdout.strip()
+                          capture_output=True, text=True).stdout.strip() \
+        or (ROOT / "REV").read_text().strip()  # a tree synced without .git names itself in REV
     with open(a.out, "a") as fh:
         for L in [int(x) for x in a.lengths.split(",")]:
             seqs = {"s": full[:L]}

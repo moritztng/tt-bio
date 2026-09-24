@@ -273,7 +273,7 @@ CEILINGS: dict[str, dict[str, Ceiling]] = {
         ),
         "wormhole_b0": Ceiling(
             residues=1536, pass_at=1536, fail_at=1664, binds=RUNTIME, mechanism=FRAGMENTATION,
-            msa_rows=8192,
+            msa_rows=16384,
             evidence="1664 is where the fold stops being usable, walked 2026-09-23/24 on origin/main "
                      "c5b346679 (mgx-bigalloc merged), j10glx02 card 16, guard off, --host_threads "
                      "2, 8192 rows (ws:mgx-ceilings, perf/mgxceil). The residue pair, 1664^2 x 384 "
@@ -311,7 +311,12 @@ CEILINGS: dict[str, dict[str, Ceiling]] = {
                      "(586-599, CA-CA up to 5.5 A, pLDDT 48-56) on a junction of the tiled "
                      "fixture, whose repeats have no defined arrangement. The previous row, 1024 "
                      "on GWH02 at the same depth with 1088 failing on the j10glx02 Galaxy, is "
-                     "what these fixes moved",
+                     "what these fixes moved. AT 16384 ROWS, the most the featurizer keeps "
+                     "(ws:mgx-msa-depth, perf/mgx_msa_depth, chip 18, tt-bio 2f7e0606c): "
+                     "cdk2_1536_d16384 PASS in 5951 s at AICLK 1000 MHz on 563 samples taken "
+                     "DURING the fold, ten refusals absorbed, msa_depth 16384 in results.json, "
+                     "CA-CA median 3.83 A with 98.0 % in band, so this row holds at every depth a "
+                     "user reaches",
         ),
     },
     "opendde-abag": {
@@ -338,7 +343,7 @@ CEILINGS: dict[str, dict[str, Ceiling]] = {
         ),
         "wormhole_b0": Ceiling(
             residues=1536, pass_at=1536, fail_at=1664, binds=RUNTIME, mechanism=FRAGMENTATION,
-            msa_rows=8192,
+            msa_rows=16384,
             evidence="its OWN 1664 rung, walked 2026-09-23/24 on origin/main a102dfb5c (the "
                      "bigalloc engine; c5b346679 after it changes nothing opendde runs), j10glx02 "
                      "card 14, guard off, --host_threads 2, 8192 rows (ws:mgx-ceilings, "
@@ -364,7 +369,12 @@ CEILINGS: dict[str, dict[str, Ceiling]] = {
                      "checkpoint. The size ladder's own cdk2x2_1280 rung (single sequence, 6 steps), which "
                      "crashed after the trunk on an L1 clash before 72ea47311, folds on 598f158a8 "
                      "(chip 30, 2005.9 s, AICLK median 1000 MHz). The previous row was 1024 (3/3 byte-identical folds, 2026-09-08) "
-                     "with 1088 failing",
+                     "with 1088 failing. AT 16384 ROWS, the most the featurizer keeps (ws:mgx-msa-depth, "
+                     "perf/mgx_msa_depth, chip 23, tt-bio b08951fd6): cdk2_1024_d16384 PASS in 1779 s "
+                     "at AICLK 1000 MHz sampled DURING the fold, three DRAM refusals absorbed; "
+                     "cdk2_1536_d16384 PASS in 5891 s at AICLK 1000 MHz on 556 samples taken DURING "
+                     "the fold (chip 12, tt-bio b9cdecce1), ten refusals absorbed, msa_depth 16384 "
+                     "in results.json, CA-CA median 3.85 A with 98.0 % in band",
         ),
     },
     "openfold3": {
@@ -389,7 +399,11 @@ CEILINGS: dict[str, dict[str, Ceiling]] = {
                      "per bank against a 63.0 MiB largest block with 202.8 MiB free, so "
                      "fragmentation. AICLK median 1000 MHz sampled during both. The 1664 wall "
                      "below, 512 B short in the diffusion transformer, is what the combos merge "
-                     "removed. Earlier: 1536 residues fold at 14190 alignment rows on the j10glx02 Galaxy, "
+                     "removed. At 16384 alignment rows, the most the featurizer ever keeps, 1536 folds "
+                     "(ws:mgx-msa-depth, chip 9, tt-bio 3f10800fd, 2026-09-23): cdk2_1536_d16384 PASS "
+                     "in 2599.8 s at AICLK 1000 MHz sampled DURING the fold, 4 refusals recovered; "
+                     "nothing above 1536 was walked at that depth, so msa_rows names the 14190 "
+                     "the 1664 cap was walked at. Earlier: 1536 residues fold at 14190 alignment rows on the j10glx02 Galaxy, "
                      "2026-09-23 (ws:mgx-bigalloc, perf/whceil/ladder.py, chip 9, tt-bio 296f5fcea): "
                      "cdk2x2_1536_d14190, PASS in 1917.9 s at AICLK 1000 MHz sampled DURING the fold, "
                      "under a host load that voids the time for speed. 1536 x 8192 rows folds too "
@@ -454,7 +468,11 @@ CEILINGS: dict[str, dict[str, Ceiling]] = {
                      "1664 x 14190 fails after 2561.9 s on the same diffusion-transformer "
                      "request as openfold3, 177209344 B, 14770176 B per bank, with 58366432 B "
                      "free on a 94.6 percent full chip and a largest block 512 B too small: "
-                     "fragmentation. AICLK median 1000 MHz during both",
+                     "fragmentation. AICLK median 1000 MHz during both. "
+                                          "AT 16384 ROWS, the most the vendored featurizer keeps, 2026-09-23 "
+                     "(ws:mgx-msa-depth, perf/mgx_msa_depth, chip 29, tt-bio 3f10800fd): "
+                     "cdk2_1536_d16384 PASS in 2383 s at AICLK 1000 MHz sampled DURING the fold, "
+                     "four DRAM refusals absorbed, nothing above 1536 was walked at that depth, so msa_rows names the 14190 the 1664 cap was walked at",
         ),
     },
     "rf3": {
@@ -512,7 +530,15 @@ CEILINGS: dict[str, dict[str, Ceiling]] = {
                      "(1024, fail 1095) was walked at 8832 rows, deeper than the default allows; "
                      "the 2026-09-11 whglx ladder at 8192 rows already folded 1152 on the tree "
                      "before pair-residency. The wall is on TOKENS (the failing tensor scales "
-                     "with tokens x rows), so ladder_ligand_atoms=0 counts a ligand against it",
+                     "with tokens x rows), so ladder_ligand_atoms=0 counts a ligand against it. "
+                     "AT 16384 ROWS, the pool cap tt_bio/protenix_data.py now applies as upstream "
+                     "does, 2026-09-23 on the j10glx02 Galaxy (ws:mgx-msa-depth, perf/mgx_msa_depth, "
+                     "chip 0, tt-bio b08951fd6): cdk2_1024_d16384 PASS in 1277 s at AICLK 1000 MHz "
+                     "sampled DURING the fold, two DRAM refusals absorbed; 1280 and 1536 fold at "
+                     "16384 too (1803 s, 2574 s, chip 2, 3f10800fd). Before the block-0 OPM "
+                     "fallback the 1280-token 2ad6 fold at 14743 rows died on a 160 MiB OPM depth "
+                     "slice with a 10.0 MiB largest free block. Nothing above 1536 was walked at 16384, so msa_rows names the 8192 the "
+                     "1792 cap was walked at",
         ),
     },
     "rfd3": {
@@ -728,7 +754,7 @@ CEILINGS: dict[str, dict[str, Ceiling]] = {
     "esmfold2": {
         "wormhole_b0": Ceiling(
             residues=1664, pass_at=1664, fail_at=1792, binds=MEMORY, mechanism=DRAM,
-            msa_rows=8192, ladder_ligand_atoms=0,
+            msa_rows=16384, ladder_ligand_atoms=0,
             evidence="walked 2026-09-23 on origin/main 1b423e9e4 (esmfold2 folds its MSA, a "
                      "fresh <=1024-row subsample per trunk loop), j10glx02, guard off, "
                      "--host_threads 2, --fast as Wormhole forces, apo CDK2 tiled "
@@ -755,7 +781,14 @@ CEILINGS: dict[str, dict[str, Ceiling]] = {
                      "c5b346679 (embed-scale: the LM now passes SDPA a mask), card 29, "
                      "2026-09-24: 1664 PASS in 2066.3 s, 1792 fails after 317.5 s on the same "
                      "request with the chip 99.4 percent full and 6.4 MiB free, residency again. "
-                     "AICLK median 1000 MHz during both",
+                     "AICLK median 1000 MHz during both. "
+                     "WITH AN ALIGNMENT, 2026-09-23 on the j10glx02 Galaxy (ws:mgx-msa-depth, "
+                     "perf/mgx_msa_depth, tt-bio 5d1f961c0): 1024 x 8192 rows PASS in 904 s (chip "
+                     "20) and 1024 x 16384 rows, upstream's own depth, PASS in 1120 s (chip 14), "
+                     "both at AICLK 1000 MHz sampled DURING the fold. Re-measured after the MSA "
+                     "encoder took upstream's fresh 1024-row subsample per trunk loop (tt-bio "
+                     "2f7e0606c, chip 16): 1024 x 16384 PASS in 1426 s at AICLK 1000 MHz DURING, "
+                     "one L1 refusal absorbed; the encoder never holds more than 1024 rows",
         ),
     },
     "esmfold2-fast": {

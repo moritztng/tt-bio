@@ -1,0 +1,3 @@
+# protenix-v1 again with the census counting captures
+cd $HOME/wt-mgx-sdpa-mask && TT_BIO_TRACE_REGION_SIZE=268435456 $HOME/env/bin/python perf/mgx_sdpa/census.py --out $S/census_trace.jsonl --label protenix-v1-510-trace -- predict $S/in/prot_510.yaml --model protenix-v1 --single_sequence --sampling_steps 6 --diffusion_samples 1 --seed 0 --trace --out_dir $S/o/tr4-protenix-v1-510
+cd $HOME/wt-mgx-sdpa-mask && $HOME/env/bin/python perf/mgx_sdpa/census.py --out $S/census_trace.jsonl --label esmc-300m-trace-probe -- embed $S/in/rep126x3.fasta --model esmc-300m --batch_size 1 --out_dir $S/o/tr4-esmc

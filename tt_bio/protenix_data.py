@@ -101,6 +101,12 @@ def load_ref_conformers() -> dict:
 
 
 MSA_GAP_IDX = RESTYPE_DIM - 1  # protenix MSA vocab: gap '-' is the last class (31)
+# The alignment pool every upstream of this featurizer assembles at inference, paired rows first
+# and at most half of it: Protenix v2.0.0 `MSAFeaturizer(max_msa_size=16384)`
+# (protenix/data/msa/msa_featurizer.py:171,253,272-274), OpenDDE 1.1.1 the same class
+# (opendde/data/msa/msa_featurizer.py:42,124,145, `msa_pool_size` 16384) and Protenix v0.5.0
+# `max_size` 16384 (configs/configs_data.py:202-205). Rows past it are rows upstream never reads.
+MSA_POOL_ROWS = 16384
 
 
 def dummy_template_features(n_token: int, max_templates: int = 4) -> dict:
@@ -503,11 +509,17 @@ def build_complex_features(chains: list, mol_dir: str | None = None,
     # nucleic-acid or ligand chain keeps an empty block and reads as gaps in the paired rows.
     prot_pd = [pm.shape[0] for (pm, _), (_s, _a, mt) in zip(paired_chain_msa, norm) if mt == "protein"]
     if prot_pd and all(prot_pd):
-        min_pd = min(prot_pd)
+        # Upstream keeps at most MSA_POOL_ROWS // 2 paired rows counting the query, which this
+        # layout carries in the unpaired block instead.
+        min_pd = min(min(prot_pd), MSA_POOL_ROWS // 2)
         paired_chain_msa = [(pm[1:min_pd], pdm[1:min_pd]) for pm, pdm in paired_chain_msa]
         max_pd = min_pd - 1
     else:
         max_pd = 0
+    # Each chain's unpaired rows fill the pool after its paired ones (upstream step 4, first rows
+    # kept). profile and deletion_mean above were taken before the crop, as upstream takes them.
+    msa_full = msa_full[:MSA_POOL_ROWS - max_pd]
+    del_full = del_full[:MSA_POOL_ROWS - max_pd]
     if max_pd > 0:
         paired_full = torch.full((max_pd, N_tot), GAP, dtype=torch.long)
         paired_del = torch.zeros((max_pd, N_tot))
