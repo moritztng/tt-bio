@@ -147,12 +147,12 @@ An output flag a model does not read prints a note saying which model does read 
 never silently accepted: `--write_pde` on Protenix (`--write_pae` already writes both) and
 `--write_embeddings` outside Boltz-2.
 
-`--max_msa_seqs` caps alignment depth on every model that folds from an MSA. Left alone it
-changes nothing: Boltz-2 and ESMFold-2 keep their shipped 8192 default, and `protenix-v1`,
-`protenix-v2`, `opendde`, `opendde-abag`, `rf3`, `openfold3` and `openbind` keep folding the
-resolved alignment whole, which is the depth their reference numbers were measured at. Set it
-and all of them cap. Every fold writes the depth it actually used as `msa_depth` in
-`results.json`.
+`--max_msa_seqs` caps alignment depth on every model that folds from an MSA. Left alone, each
+model reads what its upstream reads: Boltz-2 keeps its shipped 8192 default; `esmfold2`,
+`protenix-v1`, `protenix-v2`, `opendde`, `opendde-abag`, `openfold3` and `openbind` read up to
+16384 rows, paired rows first, as their upstream featurizers do (`esmfold2` then draws 1024 of
+them per trunk loop, as upstream does); `rf3` loads up to 10000 and draws 1024 per recycle. Set it and all of them cap. Every fold writes the depth it actually
+used as `msa_depth` in `results.json`.
 
 ## Keeping this honest
 
