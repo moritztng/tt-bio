@@ -1,0 +1,79 @@
+# THE CONTROL THE ROW HAS NEVER HAD: A SIZE LADDER THAT HOLDS CHAIN COUNT AT ONE.
+#
+# `results/chain_count_confound.txt` censused every fixture on both targets. Every cell this
+# row has measured at 512 is a single chain and refolds; every cell at 1024 or 1536 has a
+# genuine second chain and not one has returned a design under the 4 A bar. The size axis the
+# row publishes is a chain-count axis, and the only point anywhere that separates the two is
+# the 823-residue single-chain 1GPB cell (4.631 -> 7.962 A, does not reject, against +14.77 A
+# for adding chain B at the same crop, which does).
+#
+# Neither existing target can fix this. GroEL's chains are ~524 residues and 1GPB's longest is
+# 823, so neither holds a single-chain crop at 1024 or 1536. The control needs a third target.
+#
+# THE TARGET: `targets/fas_chainA_1962.cif`, chain A of pig fatty acid synthase (RCSB 2VZ8),
+# 1962 resolved residues in ONE chain, built this pass with the row's own
+# `make_contact_target.py` and committed beside the other two. Why it qualifies, all measured
+# rather than assumed, with `make_contact_target.py`'s own 2-22 A criterion:
+#
+#     whole chain              1 component [1962], 0 inter-chain edges, 92.5% saturated,
+#                              Rg 48.9 A, max radius 84.9 A
+#     every crop below is ONE connected component, at two offsets:
+#        512 off   0   1 comp   Rg 24.6 A   maxR 58.9 A      512 off 400   Rg 32.6   maxR 72.9
+#        768 off   0   1 comp   Rg 35.5 A   maxR 60.3 A      768 off 400   Rg 43.1   maxR 67.2
+#       1024 off   0   1 comp   Rg 39.3 A   maxR 76.1 A     1024 off 400   Rg 44.0   maxR 65.3
+#       1536 off   0   1 comp   Rg 46.8 A   maxR 82.6 A     1536 off 400   Rg 48.2   maxR 83.2
+#
+# Compare the 1GPB dimer at 1646 residues: Rg 38.4 A, max radius 64.6 A. FAS is a little more
+# extended at the top of the ladder and nowhere near the disqualified `big_1831.cif`
+# (Rg 123.3 A, 2 components, zero inter-chain edges under 22 A). A disconnected conditioning
+# graph is what got an earlier 1536 answer withdrawn; this one is connected at every rung.
+#
+# CAVEAT STATED UP FRONT: this is a THIRD protein, so a difference between its ladder and the
+# other two is a target difference until shown otherwise. That is unavoidable -- the control
+# cannot be built on either target the row already has -- and it is why the reading below is
+# WITHIN this target and never across targets.
+
+--model boltzgen --target perf/mgxaccuracy/targets/fas_chainA_1962.cif --target-res 512 --crop-offset 0 --designs 8 --budget 8 --score-dsg --host-threads 2 --timeout 21600 --tag fas512o0
+--model boltzgen --target perf/mgxaccuracy/targets/fas_chainA_1962.cif --target-res 1024 --crop-offset 0 --designs 8 --budget 8 --score-dsg --host-threads 2 --timeout 21600 --tag fas1024o0
+--model boltzgen --target perf/mgxaccuracy/targets/fas_chainA_1962.cif --target-res 1536 --crop-offset 0 --designs 8 --budget 8 --score-dsg --host-threads 2 --timeout 21600 --tag fas1536o0
+
+# THREE RUNGS, ONE OFFSET, n=8, same 80-residue binder and same designfolding-bb_rmsd as every
+# other cell in this row. One offset and not two, deliberately: the crop factor has been read
+# four times on GroEL and rejected at 512 and 1536, and the chips are capped at three. If the
+# rung verdict comes out INTERMEDIATE, the second offset is the follow-up, not a prerequisite.
+#
+# COST, pre-registered. GroEL's measured walls were 1842 s at 592 tokens, 5416 at 1104 and
+# 11842 at 1616. FAS crops are the same token counts with one chain instead of two or three, so
+# the same quadratic applies: ~1.8 ks, ~5.4 ks, ~11.8 ks, about 5.3 h of one card if run in
+# series or ~3.3 h on three. Run it on whatever card count the row's 3-chip cap allows once the
+# 768 rung has released cards 0 and 2.
+#
+# PRE-REGISTERED READING, written before any FAS cell exists. Exact two-sided Mann-Whitney by
+# enumeration, n=8 vs n=8, WITHIN this target only:
+#
+#   RESIDUE COUNT IS THE CARRIER   512 -> 1536 rejects at 0.05 AND the 1536 cell is <= 1 of 8
+#                                  under 4.0 A. Quality falls with residue count even with one
+#                                  chain throughout, the row's published size axis means what
+#                                  it says, and the doc's residue rule stands as written.
+#
+#   CHAIN COUNT IS THE CARRIER     512 -> 1536 does NOT reject at 0.05 AND the 1536 cell is
+#                                  >= 4 of 8 under 4.0 A. A single chain survives to 1536 where
+#                                  every multi-chain 1536 cell in this row returned nothing
+#                                  under 4 A, so the doc's rule becomes a chain rule outright
+#                                  and the residue ceiling applies only to multi-chain targets.
+#
+#   INTERMEDIATE                   anything else: rejects but the 1536 cell still has 2 or 3
+#                                  of 8 under 4 A, or does not reject with 2 or 3 under 4 A, or
+#                                  the 1024 rung contradicts the 512->1536 direction. Report
+#                                  all three medians, all three fractions and both contrasts,
+#                                  and the doc says both residue count and chain count cost
+#                                  something with the numbers for each.
+#
+# The 4.0 A bar is BoltzGen's own permissive designability bar, unchanged throughout this row.
+# The 1024 rung is read the same way against both neighbours and is what makes a monotone
+# reading distinguishable from one cell being odd.
+#
+# WHAT THIS DOES NOT DO. It says nothing about upstream, and nothing about whether the DEVICE
+# is worse than upstream at any size; that is the qb2 fp32 pair's question and neither arm
+# borrows the other's evidence. It also does not re-open the GroEL ceiling: [512, 1024) is
+# measured on GroEL and stays measured on GroEL whatever FAS does.
