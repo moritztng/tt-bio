@@ -11,8 +11,8 @@ What a capture needs that an eager call does not:
 * **Persistent buffers.** A trace is a command stream over fixed addresses, so the inputs, the
   cotangents, the primal outputs and the gradients all live in buffers allocated before capture.
   A step writes its inputs into them and reads its outputs out of them.
-* **No host write inside the captured region.** `taped_ttnn.DEVICE_ZEROS` moves the head
-  backward's zero slot to a device fill; this module turns it on. The masks are uploaded once
+* **No host write inside the captured region.** `autograd.DEVICE_ZEROS` takes every zero a
+  backward builds on the host off the host; this module turns it on. The masks are uploaded once
   per shape before capture. The loop runs no extra-MSA block on device, so the per-call OPM
   constant upload `bcx-trace` had to hoist is not on this path.
 * **A tape that outlives the callback.** The captured backward reads the addresses the captured
@@ -51,7 +51,7 @@ class TraceWire:
         self._shapes: dict = {}
         self._order: list = []
         self.captures: list = []
-        dev.tt.DEVICE_ZEROS = True
+        dev.ag.DEVICE_ZEROS = True
 
     # ------------------------------------------------------------------ device plumbing
 

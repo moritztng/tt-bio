@@ -31,6 +31,30 @@ import ttnn
 
 from tt_bio.envflags import env_flag
 
+#: `ttnn.zeros(..., device=)` builds its zeros on the host and uploads them, and a trace
+#: capture refuses a host write: those uploads are the last host writes in a warm taped AF2
+#: block (`perf/bcx_trace`). On, every zero a backward needs comes from a per-shape cache
+#: filled outside the capture and is handed out as a device-side clone, and the head
+#: backward's zero slot is a device fill. Default off; `perf/bcx_predictor/trace_wire.py`
+#: turns it on for the arm that captures.
+DEVICE_ZEROS = False
+_ZERO_CACHE: dict = {}
+
+
+def grad_zeros(shape, dtype, device):
+    """A zero tensor of ``shape`` on ``device``, for a backward that pads a gradient out."""
+    shape = [int(d) for d in shape]
+    if not DEVICE_ZEROS:
+        return ttnn.zeros(shape, dtype=dtype, layout=ttnn.TILE_LAYOUT, device=device)
+    key = (tuple(shape), str(dtype), id(device))
+    z = _ZERO_CACHE.get(key)
+    if z is None:
+        z = _ZERO_CACHE[key] = ttnn.zeros(shape, dtype=dtype, layout=ttnn.TILE_LAYOUT,
+                                          device=device)
+    # A clone, so a caller that frees its input cannot free the cache entry.
+    return ttnn.clone(z)
+
+
 __all__ = [
     "Tensor", "precise_config", "bmm_program_config", "softmax_bw_inner", "no_grad", "parameter",
     "forget_parameters", "parameter_for",
@@ -1256,14 +1280,12 @@ def narrow(x: Tensor, dim: int, start: int, length: int) -> Tensor:
             if before:
                 z = list(shape)
                 z[ax] = before
-                parts.append(ttnn.zeros(z, dtype=g.dtype, layout=ttnn.TILE_LAYOUT,
-                                        device=g.device()))
+                parts.append(grad_zeros(z, g.dtype, g.device()))
             parts.append(g)
             if after:
                 z = list(shape)
                 z[ax] = after
-                parts.append(ttnn.zeros(z, dtype=g.dtype, layout=ttnn.TILE_LAYOUT,
-                                        device=g.device()))
+                parts.append(grad_zeros(z, g.dtype, g.device()))
             x.add_grad(parts[0] if len(parts) == 1 else ttnn.concat(parts, dim=ax))
         return bw
 
