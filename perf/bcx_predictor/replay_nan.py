@@ -24,8 +24,10 @@ import afgrad as A, stack as S
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("npz")
-    ap.add_argument("--per-block", action="store_true",
-                    help="gradient magnitude after each block, to separate growth from one bad op")
+    ap.add_argument("--depths", default="",
+                    help="comma list of Evoformer depths to bisect, e.g. 1,2,4,8,16,32,48. "
+                         "The captured inputs make every depth deterministic, so the first "
+                         "depth whose backward is non-finite is the block the NaN is born in.")
     ap.add_argument("--k-evo", type=int, default=48)
     args = ap.parse_args()
     z = np.load(args.npz)
@@ -35,7 +37,20 @@ def main():
     dev = A.Dev(dm.to_device()); lv.arm("stack")
     m = torch.from_numpy(z["msa_leaf"]).float()
     p_ = torch.from_numpy(z["pair_leaf"]).float()
-    mask = dev.up(torch.from_numpy(z["mask"]).float())
+    mask_host = torch.from_numpy(z["mask"]).float()
+    FRESH = bool(__import__("os").environ.get("BCX_FRESH_MASK"))
+
+    def mask_t():
+        """One upload per call when BCX_FRESH_MASK is set, otherwise one shared tensor.
+
+        The shared tensor is what splice.py does -- it caches the uploaded mask by shape
+        and hands the same device tensor to every round of a trajectory. If an op in the
+        trunk writes through it, the second call sees a mutated mask, which is the shape
+        of the clean/NaN alternation this replay shows on identical inputs.
+        """
+        return dev.up(mask_host)
+
+    mask = mask_t()
     n = int(z["n"])
 
     out = {"npz": args.npz, "n": n, "k_evo": args.k_evo}
@@ -76,6 +91,35 @@ def main():
     out["reproduced"] = not (torch.isfinite(dm_).all() and torch.isfinite(dz_).all())
     print("backward:", json.dumps(out["backward"]), flush=True)
     print("REPRODUCED" if out["reproduced"] else "did NOT reproduce", flush=True)
+    if args.depths:
+        # The forward is finite at full depth, so a depth sweep on the SAME inputs says
+        # where in the 48-block chain the backward first goes bad. Each depth reseeds the
+        # same cotangents at that depth's own roots.
+        sweep = []
+        for k in [int(x) for x in args.depths.split(",") if x.strip()]:
+            ml2, zl2 = dev.leaf(m), dev.leaf(p_)
+            with dev.tt.tape():
+                mo2, zo2 = dev.stack(ml2, zl2, 0, k, ckpt=True,
+                                     msa_mask=mask_t() if FRESH else mask)
+            dev.sync()
+            f_ok = bool(torch.isfinite(dev.down(mo2.value, tuple(m.shape))).all()
+                        and torch.isfinite(dev.down(zo2.value, tuple(p_.shape))).all())
+            dev.ag.backward([mo2, zo2], [dev.seed(gm, mo2), dev.seed(gz, zo2)])
+            dev.sync()
+            a = dev.grad(ml2, tuple(m.shape)); b = dev.grad(zl2, tuple(p_.shape))
+            dev.ag.release_pins()
+            fin_a, fin_b = torch.isfinite(a), torch.isfinite(b)
+            row = {"k_evo": k, "forward_finite": f_ok,
+                   "d_msa_nonfinite": int((~fin_a).sum()), "d_pair_nonfinite": int((~fin_b).sum()),
+                   "d_msa_absmax": float(a[fin_a].abs().max()) if fin_a.any() else None,
+                   "d_pair_absmax": float(b[fin_b].abs().max()) if fin_b.any() else None}
+            sweep.append(row)
+            print("depth", json.dumps(row), flush=True)
+            del ml2, zl2, mo2, zo2
+        out["depth_sweep"] = sweep
+        out["first_bad_depth"] = next((r["k_evo"] for r in sweep
+                                       if r["d_msa_nonfinite"] or r["d_pair_nonfinite"]), None)
+        print("first bad depth:", out["first_bad_depth"], flush=True)
     out["stamp"] = A.stamp(int(__import__("os").environ.get("TT_VISIBLE_DEVICES", -1)))
     (HERE / "replay_nan.json").write_text(json.dumps(out, indent=1, default=str))
 
