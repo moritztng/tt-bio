@@ -65,6 +65,8 @@ def cmd_calls(args):
         if g.dtype == ttnn.float32 and [int(d) for d in g.shape] != [int(d) for d in shape]:
             x = ttnn.to_torch(g).double()
             want = [int(d) for d in shape]
+            if x.numel() <= torch.Size(want).numel():
+                return out                  # a reshape, or an operand wider than its gradient
             pad = [1] * (x.dim() - len(want)) + want
             axes = [i for i in range(x.dim()) if pad[i] == 1 and x.shape[i] != 1]
             ref = x.sum(dim=axes, keepdim=True).reshape(want)
