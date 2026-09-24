@@ -73,3 +73,30 @@ ONE CHAIN DOES NOT MEASURABLY HURT. ADDING A SECOND CHAIN DOES." What is new her
 same confound is perfect on GROEL, the target the row's verdict rests on and whose fixtures
 nobody had censused, and that the row's user-facing instruction and VERDICT were still worded
 as a residue rule while the only decomposition available pointed at the chain.
+
+
+THE SAME CENSUS ON 1GPB: THE CONFOUND IS COMPLETE ON BOTH TARGETS
+------------------------------------------------------------------
+
+Run after the GroEL census, on every 1GPB fixture on whglx, for the same reason: the row had
+been reasoning about 1GPB's chain structure from one results file's prose rather than from the
+files the jobs used.
+
+  512-residue cells (all of them, including every catcher)   A 512                  1 chain
+  1536 / offset   0  (fixed, onetree, s400_gpb)              A 823, B 713           2 chains
+  1536 / offset 100  (gpbo100, o100r2)                       A 723, B 813           2 chains
+  1536 / s400_q  (the WITHDRAWN disconnected fixture)        A 1008, B 528          2 chains
+
+So on 1GPB too, every 512 cell is a single chain and every 1536 cell is two. Put beside the
+GroEL table above, this is the row's whole size axis:
+
+  EVERY cell measured at 512 is one chain, or one chain plus a stub of 24 residues.
+  EVERY cell measured at 1024 or 1536 has a genuine second chain, and some have a third.
+  EVERY cell in the first group refolds. NO cell in the second group has produced a single
+  design under the 4 A bar, on either target.
+
+The one point anywhere in the row that separates residue count from chain count is the
+823-residue single-chain 1GPB cell, and it moved the median 4.631 -> 7.962 A without rejecting
+at n=8 while the chain move at the same crop cost 14.77 A and did reject. One point is one
+point. But the row does not have a second, and the size axis it has published is, on the
+evidence of the fixtures themselves, a chain-count axis.
