@@ -30,6 +30,7 @@ from __future__ import annotations
 
 import argparse
 import collections
+import contextlib
 import gc
 import json
 import os
@@ -133,6 +134,54 @@ def _old_create_qkv_heads(shipped, args, kwargs, T, ttnn, count):
     return tuple(T._tape(o, [x], slot(s)) for s, o in enumerate(outs))
 
 
+def _old_checkpoint(fn, *inputs, params=()):
+    """`8ae35c46b` `autograd.checkpoint` (comments dropped, module names prefixed): one
+    recompute and one inner backward per OUTPUT, and a `gc.collect()` after each."""
+    from tt_bio import autograd as ag
+    held = [t for t in inputs if isinstance(t, ag.Tensor)]
+    for t in held:
+        t.pinned = True
+        ag._CKPT_PINS.append(t)
+    ag._TOUCHED.clear()
+    with ag.no_grad():
+        produced = fn(*inputs)
+    touched = [t for k, t in ag._PARAMS.items() if k in ag._TOUCHED] if params is ag._ALL_PARAMS \
+        else list(params)
+    ag._TOUCHED.clear()
+    parents = list(held) + touched
+
+    def _recompute(k, g):
+        """Re-run the segment on fresh nodes over the same input VALUES, seed output `k`."""
+        from tt_bio.taped_ttnn import recompute_scope
+        inner = [ag.Tensor(t.value, requires_grad=t.requires_grad) if isinstance(t, ag.Tensor) else t
+                 for t in inputs]
+        with recompute_scope():
+            y = fn(*inner)
+        y = y[k] if k is not None else y
+        if y.node is None:
+            raise RuntimeError("checkpoint(fn): the recomputed segment built no tape; fn must "
+                               "use taped ops and at least one input must require a gradient")
+        y.backward(seed=g)
+        for src, dup in zip(inputs, inner):
+            if isinstance(src, ag.Tensor) and isinstance(dup, ag.Tensor) and dup.grad is not None:
+                src.add_grad(dup.grad)
+        del y, inner
+        gc.collect()
+
+    if not isinstance(produced, (tuple, list)):
+        return ag._tape(produced.value if isinstance(produced, ag.Tensor) else produced, parents,
+                     lambda: (lambda g: _recompute(None, g)))
+
+    outs = []
+    for k, prod in enumerate(produced):
+        if prod is None:
+            outs.append(None)
+            continue
+        outs.append(ag._tape(prod.value if isinstance(prod, ag.Tensor) else prod, parents,
+                          (lambda k=k: (lambda g: _recompute(k, g)))))
+    return tuple(outs)
+
+
 def _site(depth=2):
     f = sys._getframe(depth)
     return f"{pathlib.Path(f.f_code.co_filename).name}:{f.f_code.co_name}:{f.f_lineno}"
@@ -154,6 +203,7 @@ class Levers:
         import ttnn
         from tt_bio import af2, autograd as ag, taped_ttnn as T, tenstorrent as tn
         self.ttnn, self.ag, self.T = ttnn, ag, T
+        self._new_checkpoint = ag.checkpoint
         self.mm2d = self.bmm = self.heads = True
         self.phase = "fwd"
         self.counts = collections.Counter()
@@ -268,9 +318,12 @@ class Levers:
         self.counts[(self.phase,) + key] += 1
 
     def arm(self, name):
+        """`<lever arm>[@old|@new]`: the suffix picks `autograd.checkpoint`, default new."""
+        name, _, impl = name.partition("@")
+        self.ag.checkpoint = _old_checkpoint if impl == "old" else self._new_checkpoint
         self.mm2d, self.bmm, self.heads = ARMS[name]
         self.ag.TRIATT_BMM_CONFIG = self.bmm
-        self.name = name
+        self.name = name + ("@" + impl if impl else "")
 
     def take(self):
         c, s = self.counts, self.shapes
@@ -406,7 +459,7 @@ def cmd_time(args):
                     "step": dist([r["fwd"] + r["bwd"] for r in rs]),
                     "bwd_host_cpu": dist([r["bwd_cpu"] for r in rs]),
                     "aiclk": clock.window([s for r in rs for s in r["spans"]])}
-            base = pt["arms"].get("base")
+            base = pt["arms"].get("base" if "base" in arms else arms[0])
             for arm in arms:
                 a = pt["arms"][arm]
                 if base:
@@ -543,29 +596,311 @@ def cmd_whole(args):
             "reps_bit_identical": all(torch.equal(grads[arm][0], g) for g in grads[arm][1:])}
         print(arm, json.dumps({k: blob["per_arm"][arm][k] for k in ("vs_f64", "reps_bit_identical")}),
               "step", round(blob["per_arm"][arm]["step"]["median"], 3), flush=True)
-    if "base" in arms:
-        for arm in arms:
-            blob["per_arm"][arm]["vs_base"] = A.cmp(grads[arm][0], grads["base"][0])
-            blob["per_arm"][arm]["bit_identical_to_base"] = torch.equal(grads[arm][0], grads["base"][0])
-            blob["per_arm"][arm]["x_step_vs_base"] = (blob["per_arm"]["base"]["step"]["median"]
-                                                      / blob["per_arm"][arm]["step"]["median"])
+    ref = "base" if "base" in arms else arms[0]           # the reference arm
+    blob["ref_arm"] = ref
+    for arm in arms:
+        blob["per_arm"][arm]["vs_base"] = A.cmp(grads[arm][0], grads[ref][0])
+        blob["per_arm"][arm]["bit_identical_to_base"] = torch.equal(grads[arm][0], grads[ref][0])
+        blob["per_arm"][arm]["x_step_vs_base"] = (blob["per_arm"][ref]["step"]["median"]
+                                                  / blob["per_arm"][arm]["step"]["median"])
     clock.stop()
     save(args.out or f"whole_n{n}_e{ke}_v{kv}.json", blob)
 
 
+# ------------------------------------------------------------------------------ fit
+
+
+def cmd_fit(args):
+    """`afgrad fit` under one arm: the largest K of blocks whose taped forward + backward
+    completes, with the DRAM the tape holds after the forward and after the backward.
+    Per-block tape bytes are the slope over K. `--stacks whole` runs `--extra` + `--evo`."""
+    lv, dev, ref = open_all(args)
+    lv.arm(args.arm)
+    ag, ttnn = dev.ag, dev.ttnn
+    n = args.n
+    m0, z0, wm, wz = inputs(ref, n, args.seed)
+    res = {"stamp": stamp(args), "n": n, "arm": args.arm, "ckpt": args.ckpt, "tries": []}
+
+    def dram():
+        mv = ttnn.get_memory_view(dev.device, ttnn.BufferType.DRAM)
+        return int(mv.total_bytes_allocated_per_bank) * int(mv.num_banks)
+
+    for stack_name in args.stacks.split(","):
+        for k in [int(x) for x in args.ks.split(",")]:
+            ke, kv = {"extra": (k, 0), "evo": (0, k), "whole": (args.extra, args.evo)}[stack_name]
+            gc.collect()
+            rec = {"stack": stack_name, "k_extra": ke, "k_evo": kv, "base_bytes": dram()}
+            mo = zo = ml = zl = roots = seeds = None
+            try:
+                ml, zl = dev.leaf(m0), dev.leaf(z0)
+                t0 = time.time()
+                with dev.tt.tape():
+                    mo, zo = dev.stack(ml, zl, ke, kv, ckpt=args.ckpt)
+                dev.sync()
+                rec["fwd_s"] = time.time() - t0
+                rec["after_fwd_bytes"] = dram() - rec["base_bytes"]
+                roots = [zo] if stack_name == "extra" else [mo, zo]
+                seeds = ([dev.seed(wz, zo)] if stack_name == "extra"
+                         else [dev.seed(wm, mo), dev.seed(wz, zo)])
+                t0 = time.time()
+                ag.backward(roots, seeds)
+                dev.sync()
+                rec["bwd_s"] = time.time() - t0
+                rec["after_bwd_bytes"] = dram() - rec["base_bytes"]
+                rec["ok"] = True
+            except Exception as e:                  # an allocation refusal is the answer
+                rec["ok"] = False
+                rec["error"] = str(e).splitlines()[0][:300]
+            finally:
+                if args.ckpt:
+                    ag.release_pins()
+                mo = zo = ml = zl = roots = seeds = None
+                gc.collect()
+            rec["loadavg"] = os.getloadavg()
+            res["tries"].append(rec)
+            print(json.dumps(rec), flush=True)
+            save(args.out or f"fit_n{n}_{args.arm}{'_ckpt' if args.ckpt else ''}.json", res)
+            if not rec["ok"]:
+                break
+
+
+# ------------------------------------------------------------------------------ ckprof
+
+
+def cmd_ckprof(args):
+    """Where a checkpointed block's backward goes, against the same block uncheckpointed.
+    Inside the backward: every `autograd.checkpoint` recompute (count), the taped re-forward in
+    `recompute_scope`, the inner `Tensor.backward`, and every `gc.collect`, each synced on exit
+    so device work is charged to the part that queued it. The remainder is the outer tape walk."""
+    lv, dev, ref = open_all(args)
+    lv.arm(args.arm)
+    ag, T, ttnn = dev.ag, dev.tt, dev.ttnn
+    parts = collections.defaultdict(float)
+    counts = collections.Counter()
+
+    def timed(name, fn):
+        def wrapped(*a, **k):
+            if lv.phase != "bwd":
+                return fn(*a, **k)
+            t0 = time.perf_counter()
+            try:
+                return fn(*a, **k)
+            finally:
+                if args.sync:
+                    dev.sync()
+                parts[name] += time.perf_counter() - t0
+                counts[name] += 1
+        return wrapped
+
+    gc.collect = timed("gc.collect", gc.collect)
+    ag.Tensor.backward = timed("inner backward", ag.Tensor.backward)
+    outer, depth = ag.backward, [0]
+
+    def backward(*a, **k):                  # the recompute's own replay is a nested call
+        depth[0] += 1
+        try:
+            return (inner if depth[0] > 1 else outer)(*a, **k)
+        finally:
+            depth[0] -= 1
+
+    inner = timed("inner backward", outer)
+    ag.backward = backward
+    real_scope = T.recompute_scope
+
+    @contextlib.contextmanager
+    def scope():
+        t0 = time.perf_counter()
+        with real_scope():
+            yield
+        if args.sync:
+            dev.sync()
+        parts["recompute fwd"] += time.perf_counter() - t0
+        counts["recompute fwd"] += 1
+
+    T.recompute_scope = scope
+    clock = Clock()
+    blob = {"stamp": stamp(args, clock), "arm": args.arm, "sync": args.sync, "points": []}
+    for n in [int(x) for x in args.ns.split(",")]:
+        m0, z0, wm, wz = inputs(ref, n, args.seed)
+        for stack_name in args.stacks.split(","):
+            pt = {"n": n, "stack": stack_name, "K": args.k, "gc_objects": len(gc.get_objects())}
+            for ckpt in (False, True):
+                rows = []
+                for step in range(args.warm + args.steps):
+                    parts.clear()
+                    counts.clear()
+                    r, _ = block_step(dev, lv, m0, z0, wm, wz, stack_name, k=args.k, ckpt=ckpt)
+                    if step >= args.warm:
+                        r["parts"], r["counts"] = dict(parts), dict(counts)
+                        rows.append(r)
+                keys = sorted({k_ for r in rows for k_ in r["parts"]})
+                pt["ckpt" if ckpt else "plain"] = {
+                    "fwd": dist([r["fwd"] for r in rows]), "bwd": dist([r["bwd"] for r in rows]),
+                    "bwd_cpu": dist([r["bwd_cpu"] for r in rows]),
+                    "parts": {k_: dist([r["parts"].get(k_, 0.0) for r in rows]) for k_ in keys},
+                    "counts": rows[-1]["counts"],
+                    "aiclk": clock.window([s_ for r in rows for s_ in r["spans"]])}
+            pt["loadavg"] = os.getloadavg()
+            blob["points"].append(pt)
+            c, p_ = pt["ckpt"], pt["plain"]
+            print(json.dumps({"n": n, "stack": stack_name, "plain_bwd": round(p_["bwd"]["median"], 4),
+                              "ckpt_bwd": round(c["bwd"]["median"], 4),
+                              "ckpt_fwd": round(c["fwd"]["median"], 4),
+                              "parts": {k_: round(v["median"], 4) for k_, v in c["parts"].items()},
+                              "counts": c["counts"], "aiclk": c["aiclk"],
+                              "loadavg": pt["loadavg"]}), flush=True)
+            save(args.out or f"ckprof_{args.arm}{'' if args.sync else '_nosync'}.json", blob)
+    clock.stop()
+
+
+# ------------------------------------------------------------------------------ gcdiag
+
+
+def _cycles(objs):
+    """Strongly connected components (size > 1, or a self-reference) of the reference graph
+    restricted to `objs`, each described by its member types and, for a `Tensor` member, which
+    attribute points back into the component."""
+    idx = {id(o): i for i, o in enumerate(objs)}
+    adj = [[idx[id(r)] for r in gc.get_referents(o) if id(r) in idx] for o in objs]
+    index, low, on, st, comps, counter = {}, {}, set(), [], [], [0]
+    sys.setrecursionlimit(max(10000, 4 * len(objs)))
+
+    def strong(v):
+        index[v] = low[v] = counter[0]
+        counter[0] += 1
+        st.append(v)
+        on.add(v)
+        for w in adj[v]:
+            if w not in index:
+                strong(w)
+                low[v] = min(low[v], low[w])
+            elif w in on:
+                low[v] = min(low[v], index[w])
+        if low[v] == index[v]:
+            comp = []
+            while True:
+                w = st.pop()
+                on.discard(w)
+                comp.append(w)
+                if w == v:
+                    break
+            if len(comp) > 1 or v in adj[v]:
+                comps.append(comp)
+
+    for v in range(len(objs)):
+        if v not in index:
+            strong(v)
+    kinds = collections.Counter()
+    for comp in comps:
+        members = set(comp)
+        sig = collections.Counter(type(objs[i]).__name__ for i in comp)
+        back = []
+        for i in comp:
+            o = objs[i]
+            for attr in getattr(type(o), "__slots__", ()):
+                v = getattr(o, attr, None)
+                if v is not None and id(v) in idx and idx[id(v)] in members:
+                    back.append(f"{type(o).__name__}.{attr}")
+            if type(o).__name__ == "function":
+                back.append(f"fn:{o.__qualname__}")
+        kinds[json.dumps({"types": dict(sig), "via": sorted(set(back))[:8]})] += 1
+    return dict(kinds.most_common(10))
+
+
+def cmd_gcdiag(args):
+    """What the recompute's `gc.collect()` actually reclaims: the unreachable objects it finds,
+    by type, and for the taped `Tensor`s among them which reference could close a cycle."""
+    lv, dev, ref = open_all(args)
+    lv.arm(args.arm)
+    ag = dev.ag
+    real = gc.collect
+    found = []
+
+    def collect(*a, **k):
+        if lv.phase != "bwd":
+            return real(*a, **k)
+        gc.set_debug(gc.DEBUG_SAVEALL)
+        t0 = time.perf_counter()
+        n_ = real()
+        dt = time.perf_counter() - t0
+        gc.set_debug(0)
+        kinds = collections.Counter(type(o).__name__ for o in gc.garbage)
+        tens = [o for o in gc.garbage if isinstance(o, ag.Tensor)]
+        cyc = _cycles(gc.garbage)
+        found.append({"seconds": dt, "unreachable": n_, "tracked": len(gc.get_objects()),
+                      "cycles": cyc,
+                      "types": dict(kinds.most_common(15)),
+                      "tensors": len(tens),
+                      "tensors_with_node": sum(t.node is not None for t in tens),
+                      "tensors_with_shares": sum(t.shares is not None for t in tens)})
+        gc.garbage.clear()
+        real()
+        return n_
+
+    gc.collect = collect
+    out = {"stamp": stamp(args), "arm": args.arm, "points": []}
+    for n in [int(x) for x in args.ns.split(",")]:
+        m0, z0, wm, wz = inputs(ref, n, args.seed)
+        for stack_name in args.stacks.split(","):
+            block_step(dev, lv, m0, z0, wm, wz, stack_name, ckpt=True)       # warm
+            found.clear()
+            block_step(dev, lv, m0, z0, wm, wz, stack_name, ckpt=True)
+            in_bwd = list(found)
+            lv.phase = "bwd"                 # what a collect AFTER the step still finds
+            gc.collect()
+            lv.phase = "fwd"
+            out["points"].append({"n": n, "stack": stack_name, "collects": in_bwd,
+                                  "after_step": found[len(in_bwd):]})
+            print(n, stack_name, json.dumps(out["points"][-1]), flush=True)
+    save(args.out or f"gcdiag_{args.arm}.json", out)
+
+
+# ------------------------------------------------------------------------------ ckbits
+
+
+def cmd_ckbits(args):
+    """One block's input gradients, checkpointed under each implementation, against the SAME
+    block uncheckpointed. A checkpoint that recomputes once and replays the recomputed tape with
+    every output's seed runs the uncheckpointed backward exactly, so it must be bit-identical to
+    it; one that replays once per output sums partial passes and need not be."""
+    lv, dev, ref = open_all(args)
+    out = {"stamp": stamp(args), "arm": args.arm, "points": []}
+    for n in [int(x) for x in args.ns.split(",")]:
+        m0, z0, wm, wz = inputs(ref, n, args.seed)
+        for stack_name in args.stacks.split(","):
+            names = ("dz",) if stack_name == "extra" else ("dm", "dz")
+            pick = (lambda gs: gs[1:]) if stack_name == "extra" else (lambda gs: gs)
+            g = {}
+            for tag, impl, ckpt in (("plain", "new", False), ("new", "new", True), ("old", "old", True)):
+                lv.arm(f"{args.arm}@{impl}")
+                block_step(dev, lv, m0, z0, wm, wz, stack_name, ckpt=ckpt)
+                g[tag] = pick(block_step(dev, lv, m0, z0, wm, wz, stack_name, ckpt=ckpt)[1])
+            pt = {"n": n, "stack": stack_name}
+            for tag in ("new", "old"):
+                pt[tag] = {nm: {"bit_identical_to_plain": bool(torch.equal(x, y)),
+                                "vs_plain": A.cmp(x, y), "max_abs_diff": float((x - y).abs().max())}
+                           for nm, x, y in zip(names, g[tag], g["plain"])}
+            out["points"].append(pt)
+            print(json.dumps(pt), flush=True)
+    save(args.out or f"ckbits_{args.arm}.json", out)
+
+
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("cmd", choices=["reach", "time", "bits", "vjp", "whole"])
+    ap.add_argument("cmd", choices=["reach", "time", "bits", "vjp", "whole", "fit", "ckprof", "gcdiag", "ckbits"])
     ap.add_argument("--params", default=A.DEFAULT_PARAMS)
     ap.add_argument("--card", type=int, default=int(os.environ.get("TT_VISIBLE_DEVICES", "0")))
     ap.add_argument("--arms", default="base,mm2d,triatt,stack",
                     help=f"comma list from {sorted(ARMS)}")
-    ap.add_argument("--arm", default="stack", help="vjp: the one arm this process runs")
+    ap.add_argument("--arm", default="stack", help="vjp, fit: the one arm this process runs")
     ap.add_argument("--blocks", default=None, help="vjp: boundary indices to score")
     ap.add_argument("--controls-all", action="store_true")
     ap.add_argument("--ks", default="1", help="time: blocks per timed step")
     ap.add_argument("--ckpt", action="store_true", help="time, reach: checkpoint each block")
     ap.add_argument("--n", type=int, default=256)
+    ap.add_argument("--k", type=int, default=1, help="ckprof: blocks per step")
+    ap.add_argument("--no-sync", dest="sync", action="store_false",
+                    help="ckprof: do not sync at the end of each timed part")
     ap.add_argument("--ns", default="128,256")
     ap.add_argument("--stacks", default="evo,extra")
     ap.add_argument("--extra", type=int, default=4)
@@ -578,7 +913,7 @@ def main():
     ap.add_argument("--threads", type=int, default=8)
     args = ap.parse_args()
     torch.set_num_threads(args.threads)
-    {"reach": cmd_reach, "time": cmd_time, "bits": cmd_bits, "vjp": cmd_vjp, "whole": cmd_whole}[args.cmd](args)
+    {"reach": cmd_reach, "time": cmd_time, "bits": cmd_bits, "vjp": cmd_vjp, "whole": cmd_whole, "fit": cmd_fit, "ckprof": cmd_ckprof, "gcdiag": cmd_gcdiag, "ckbits": cmd_ckbits}[args.cmd](args)
 
 
 if __name__ == "__main__":
