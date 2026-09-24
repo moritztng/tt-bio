@@ -19,6 +19,7 @@ Subcommands, each one device open:
          extra-MSA separately, fit a + b*K, every point stamped with the AICLK sampled at 1 s
          inside its own timed window
   fit    how many Evoformer blocks fit uncheckpointed at n, and the checkpointed per-block cost
+  prof   one block's backward: host CPU vs wall, cProfile, synced wall per tape-node kind
 
 The reference is float64 all the way through. `af2_reference.LayerNorm` hard-codes `.float()`,
 which would quietly run every LayerNorm of a `.double()` model in float32; `_float64_layernorm`
@@ -722,9 +723,106 @@ def cmd_fit(args):
             break
 
 
+# ------------------------------------------------------------------------------ prof
+
+
+def _kind(t):
+    return t.node.fn.__qualname__.split(".<locals>")[0]
+
+
+def cmd_prof(args):
+    """Where one block's backward goes: host CPU vs wall, cProfile of the unsynced backward,
+    and wall per tape-node kind with a device sync after every node (device + host per kind)."""
+    import cProfile
+    import io
+    import pstats
+    torch.manual_seed(args.seed)
+    dm, ref = load_models(args.params)
+    dev = Dev(dm)
+    ag = dev.ag
+    trace = clock_trace()
+    n = args.n
+    m0, z0 = embed(ref["bf16"], torch.randn(n, 20), torch.arange(n))
+    m0, z0 = m0.detach(), z0.detach()
+    wm, wz = torch.randn(m0.shape), torch.randn(z0.shape)
+    out = {"stamp": stamp(args.card), "n": n}
+    for stack_name in args.stacks.split(","):
+        ke, kv = (1, 0) if stack_name == "extra" else (0, 1)
+
+        def taped():
+            gc.collect()
+            ml, zl = dev.leaf(m0), dev.leaf(z0)
+            with dev.tt.tape():
+                mo, zo = dev.stack(ml, zl, ke, kv)
+            roots = [zo] if stack_name == "extra" else [mo, zo]
+            seeds = [dev.seed(wz, zo)] if stack_name == "extra" else \
+                [dev.seed(wm, mo), dev.seed(wz, zo)]
+            dev.sync()
+            return roots, seeds, (ml, zl)
+
+        for _ in range(3):
+            roots, seeds, keep = taped()
+            ag.backward(roots, seeds)
+            dev.sync()
+        t_start = time.time()
+        rec = {"wall": [], "cpu": []}
+        for _ in range(args.steps):
+            roots, seeds, keep = taped()
+            w0, c0 = time.time(), time.process_time()
+            ag.backward(roots, seeds)
+            dev.sync()
+            rec["wall"].append(time.time() - w0)
+            rec["cpu"].append(time.process_time() - c0)
+        rec["wall_mean"] = float(np.mean(rec["wall"]))
+        rec["cpu_mean"] = float(np.mean(rec["cpu"]))
+        roots, seeds, keep = taped()
+        pr = cProfile.Profile()
+        t0 = time.time()
+        pr.enable()
+        ag.backward(roots, seeds)
+        dev.sync()
+        pr.disable()
+        rec["cprofile_wall"] = time.time() - t0
+        buf = io.StringIO()
+        pstats.Stats(pr, stream=buf).sort_stats("tottime").print_stats(25)
+        rec["cprofile_top"] = buf.getvalue()
+        # wall per node kind, synced after every node: the same replay as autograd.backward
+        roots, seeds, keep = taped()
+        order = ag._reverse_topo(roots)
+        for r, sd in zip(roots, seeds):
+            r.grad = sd if r.grad is None else dev.ttnn.add(r.grad, sd)
+        per = collections.defaultdict(lambda: [0, 0.0])
+        t_all = time.time()
+        for t in order:
+            if t.node is None or t.grad is None:
+                continue
+            g = t.grad
+            if g.dtype != t.value.dtype:
+                g = dev.ttnn.typecast(g, t.value.dtype)
+            t0 = time.time()
+            t.node.fn(g)
+            dev.sync()
+            k = per[_kind(t)]
+            k[0] += 1
+            k[1] += time.time() - t0
+        rec["synced_total"] = time.time() - t_all
+        rec["per_kind"] = {k: {"count": c, "seconds": s_}
+                           for k, (c, s_) in sorted(per.items(), key=lambda kv_: -kv_[1][1])}
+        rec["aiclk"] = window(trace, t_start, time.time())
+        out[stack_name] = rec
+        print(stack_name, "wall", round(rec["wall_mean"], 4), "cpu", round(rec["cpu_mean"], 4),
+              "synced", round(rec["synced_total"], 4), rec["aiclk"], flush=True)
+        for k, v in list(rec["per_kind"].items())[:14]:
+            print("  ", k, v, flush=True)
+        print(rec["cprofile_top"][:3500], flush=True)
+        del roots, seeds, keep
+    trace.stop()
+    save(f"prof_n{n}.json", out)
+
+
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("cmd", choices=["vjp", "stack", "reach", "time", "fit"])
+    ap.add_argument("cmd", choices=["vjp", "stack", "reach", "time", "fit", "prof"])
     ap.add_argument("--params", default=DEFAULT_PARAMS)
     ap.add_argument("--card", type=int, default=int(os.environ.get("TT_VISIBLE_DEVICES", "3")))
     ap.add_argument("--n", type=int, default=128)
@@ -745,7 +843,7 @@ def main():
     args = ap.parse_args()
     torch.set_num_threads(args.threads)
     {"vjp": cmd_vjp, "stack": cmd_stack, "reach": cmd_reach, "time": cmd_time,
-     "fit": cmd_fit}[args.cmd](args)
+     "fit": cmd_fit, "prof": cmd_prof}[args.cmd](args)
 
 
 if __name__ == "__main__":
