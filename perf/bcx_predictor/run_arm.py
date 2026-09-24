@@ -45,6 +45,8 @@ def main():
     ap.add_argument("--params", default="/home/ttuser/bcx_e2e/af2_params")
     ap.add_argument("--out", default=None)
     ap.add_argument("--settings", default=None)
+    ap.add_argument("--bucket", type=int, default=1,
+                    help="length_bucket_size. 1 leaves the complex unpadded, which is\nthe only regime tt-bio's AF2 trunk serves: it asserts an all-ones mask\n(af2.py:385, :509) and BindCraft 2's design-chain padding is masked.")
     args = ap.parse_args()
 
     project = args.out or str(HERE / "runs" / f"{args.arm}_seed{args.seed}")
@@ -65,6 +67,7 @@ def main():
 
     mpnn = os.path.join(B.BC2, "bindcraft", "weights", "proteinmpnn", "weights_neutral")
     stamp = {"arm": args.arm, "seed": args.seed, "trajectories": args.trajectories,
+             "length_bucket_size": args.bucket,
              "host": os.uname().nodename, "started_utc": time.strftime("%FT%TZ", time.gmtime()),
              "loadavg_start": os.getloadavg(), "stage_plan": B.stage_plan(settings),
              "threads": os.environ.get("XLA_FLAGS", ""), "project": project}
