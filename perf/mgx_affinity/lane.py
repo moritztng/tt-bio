@@ -38,7 +38,7 @@ from perf.clocksample import TT_SMI  # noqa: E402
 HOST = os.uname().nodename
 LEASES = pathlib.Path(os.environ.get("TT_BIO_LEASE_DIR", str(pathlib.Path.home() / "leases")))
 ME = "worker:mgx-affinity-scale"
-BLOCKED = {1, 24, 25, 26, 27}
+BLOCKED = {1, 4, 10, 11, 15, 17, 24, 25, 26, 27}  # fenced whglx cards (brief, 2026-09-24)
 PY = os.environ.get("LANE_PY") or sys.executable
 RES, OUT = HERE / "results", HERE / "out"
 # card -> lane, for every chip a lane of this process holds. The lease JSON is shared with every
