@@ -1,0 +1,121 @@
+{
+  "source": "/tmp/of3t/of3t-orchestrator/SCORE_GO384.json",
+  "arm": "GO384",
+  "limit": 3.0,
+  "sections": {
+    "aux_heads.distogram": {
+      "rel": 0.14783598064257344,
+      "bf16_rel": 0.1054626794765584,
+      "ratio": 1.4017847960655458,
+      "within_3x": true
+    },
+    "aux_heads.experimentally_resolved": {
+      "rel": 0.130152989183705,
+      "bf16_rel": 0.022839275356880972,
+      "ratio": 5.698647927745779,
+      "within_3x": false
+    },
+    "aux_heads.pairformer_embedding": {
+      "rel": 11.438905050645367,
+      "bf16_rel": 0.31206017766985916,
+      "ratio": 36.656087092109004,
+      "within_3x": false
+    },
+    "diffusion_module.atom_attn_dec": {
+      "rel": 0.1866616177113514,
+      "bf16_rel": 0.6017908997961734,
+      "ratio": 0.31017687003006145,
+      "within_3x": true
+    },
+    "diffusion_module.atom_attn_enc": {
+      "rel": 0.18990926752407364,
+      "bf16_rel": 0.5109896906301782,
+      "ratio": 0.37164990019635813,
+      "within_3x": true
+    },
+    "diffusion_module.diffusion_conditioning": {
+      "rel": 0.10569117532435553,
+      "bf16_rel": 0.33169779829053214,
+      "ratio": 0.3186369516742503,
+      "within_3x": true
+    },
+    "diffusion_module.diffusion_transformer": {
+      "rel": 0.16419786120533808,
+      "bf16_rel": 0.7078727956270491,
+      "ratio": 0.2319595585812675,
+      "within_3x": true
+    },
+    "diffusion_module.layer_norm_a": {
+      "rel": 0.2197714928484697,
+      "bf16_rel": 0.558477323813707,
+      "ratio": 0.39351909822891856,
+      "within_3x": true
+    },
+    "diffusion_module.layer_norm_s": {
+      "rel": 0.04112795152285663,
+      "bf16_rel": 0.3209603855603512,
+      "ratio": 0.12814027329588687,
+      "within_3x": true
+    },
+    "diffusion_module.linear_s": {
+      "rel": 0.15933764761327088,
+      "bf16_rel": 0.47199294895356203,
+      "ratio": 0.33758480495637155,
+      "within_3x": true
+    },
+    "input_embedder": {
+      "rel": 0.8245765685837211,
+      "bf16_rel": 0.9265892983205467,
+      "ratio": 0.889905128494658,
+      "within_3x": true
+    },
+    "layer_norm_s": {
+      "rel": 0.25169406172415654,
+      "bf16_rel": 0.4404265656634221,
+      "ratio": 0.5714779292321421,
+      "within_3x": true
+    },
+    "layer_norm_z": {
+      "rel": 0.1859680102846341,
+      "bf16_rel": 0.4456798387991516,
+      "ratio": 0.4172681689746387,
+      "within_3x": true
+    },
+    "linear_s": {
+      "rel": 0.15890630909616818,
+      "bf16_rel": 0.38840497138910657,
+      "ratio": 0.40912532228372234,
+      "within_3x": true
+    },
+    "linear_z": {
+      "rel": 0.17533943248463435,
+      "bf16_rel": 0.3959567423666716,
+      "ratio": 0.4428247172572783,
+      "within_3x": true
+    },
+    "msa_module": {
+      "rel": 0.27479270557991853,
+      "bf16_rel": 0.5593322322240581,
+      "ratio": 0.4912870915507005,
+      "within_3x": true
+    },
+    "msa_module_embedder": {
+      "rel": 0.29101605011807363,
+      "bf16_rel": 0.4925128261991544,
+      "ratio": 0.5908801449170732,
+      "within_3x": true
+    },
+    "pairformer_stack": {
+      "rel": 0.20909672502642945,
+      "bf16_rel": 0.3815345262811588,
+      "ratio": 0.5480414238378594,
+      "within_3x": true
+    },
+    "template_embedder": {
+      "rel": 0.21396945746228443,
+      "bf16_rel": 0.40409455785543913,
+      "ratio": 0.5295034375068963,
+      "within_3x": true
+    }
+  }
+}

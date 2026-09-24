@@ -374,17 +374,8 @@ TABLE = {
              "shipped OpenFold3."),
     "D252": (CAMP, "the training default's exact LayerNorm was chosen on a pad-dominated "
              "boundary; no inference path reads it."),
-    "D254": (CAMP, "set by hand at pass 421: training-path gradient defect (473 leaves "
-             "untrained); the training adapter is not on main and no inference fold executes "
-             "the tape, so no user reach today, but it blocks GO."),
-    "D255": (CAMP, "set by hand at pass 421: training objective only; inference never "
-             "evaluates the resolved loss."),
-    "D256": (CAMP, "set by hand at pass 422: training-path registration defect (84 diffusion "
-             "weights would train as constants); adapter not on main, inference uploads the "
-             "same weights and is unaffected. Blocks GO."),
-    "D257": (CAMP, "set by hand at pass 422: the training adapter (not on main) trains no "
-             "diffusion module on its default. Would be USER-FACING the day the adapter "
-             "ships; blocks GO now."),
+    "D266": (CAMP, "set by hand at pass 427: training-path gradient defect in the confidence "
+             "pairformer; the adapter is not on main and inference runs no tape. Blocks GO."),
 }
 
 # Close calls, recorded with the argument on both sides. A triage that hides these is worth less
