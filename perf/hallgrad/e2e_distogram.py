@@ -301,7 +301,8 @@ def _block(ag, z, W, cfg, n, scale, prefix=""):
         bias = ag.reshape(ag.permute(ag.linear(zn, W[f"{prefix}ta_{tag}_b"]), (2, 0, 1)),
                           [1, heads, n, n])
         o = ag.triangle_attention(q, k, v, bias, scale=scale,
-                                  chunk=cfg["chunk"], q_chunk=cfg["chunk"])
+                                  chunk=cfg["chunk"], q_chunk=cfg["chunk"],
+                                  config=cfg.get("triatt_config"))
         if split_verbs:
             # The gate is elementwise, so it commutes with the head merge: gating after the
             # merge is the same arithmetic on the same values and never splits g at all.

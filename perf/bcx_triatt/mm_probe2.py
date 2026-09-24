@@ -23,6 +23,7 @@ def main():
     ap.add_argument("--B", type=int, default=128)
     ap.add_argument("--nq", type=int, default=128)
     ap.add_argument("--nk", type=int, default=256)
+    ap.add_argument("--grad-fp32", action="store_true", help="dO and dS in fp32, as a backward may hand them")
     args = ap.parse_args()
     import ttnn
     from tt_bio import tenstorrent as tt
@@ -35,9 +36,11 @@ def main():
     host = {}
 
     def T(name, *s, scale=1.0):
-        x = (torch.randn(*s, generator=g) * scale).to(torch.bfloat16)
+        fp32 = args.grad_fp32 and name in ("dO", "dS")
+        x = (torch.randn(*s, generator=g) * scale).to(torch.float32 if fp32 else torch.bfloat16)
         host[name] = x
-        return ttnn.from_torch(x, dtype=ttnn.bfloat16, layout=ttnn.TILE_LAYOUT, device=dev)
+        return ttnn.from_torch(x, dtype=ttnn.float32 if fp32 else ttnn.bfloat16,
+                               layout=ttnn.TILE_LAYOUT, device=dev)
 
     q, k, v = T("q", B, H, nq, d), T("k", B, H, nk, d), T("v", B, H, nk, d)
     P = T("P", B, H, nq, nk, scale=1 / 16)  # softmax-sized entries
