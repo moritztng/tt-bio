@@ -1,0 +1,1178 @@
+{
+ "n": 256,
+ "intensity": 22.349616471538152,
+ "ridge": 47.7315075505503,
+ "achieved_tflops": 1.0006751828995002,
+ "achieved_gbs": 44.77370715393898,
+ "matmul_roof": 18648700000000.0,
+ "dram_roof": 390700000000.0,
+ "measured": {
+  "b_256_transition_on": 0.23204,
+  "b_256_transition_off": 0.21106,
+  "b_fwd_256": 0.08542,
+  "b_bwd_256": 0.14662,
+  "b_128_transition_on": 0.06491
+ },
+ "total_floor_s": 0.030049696289871877,
+ "by_class": {
+  "layernorm": {
+   "flops": 0,
+   "bytes": 939524096,
+   "floor": 0.002404719979523931,
+   "ops": 14
+  },
+  "matmul": {
+   "flops": 232196669440,
+   "bytes": 4666163200,
+   "floor": 0.015401301593173655,
+   "ops": 72
+  },
+  "eltwise": {
+   "flops": 0,
+   "bytes": 2634022912,
+   "floor": 0.006741804228308168,
+   "ops": 44
+  },
+  "movement": {
+   "flops": 0,
+   "bytes": 807403520,
+   "floor": 0.0020665562324033793,
+   "ops": 25
+  },
+  "softmax": {
+   "flops": 0,
+   "bytes": 1342177280,
+   "floor": 0.003435314256462759,
+   "ops": 4
+  }
+ },
+ "by_phase": {
+  "fwd": {
+   "flops": 98918465536,
+   "bytes": 4163895296,
+   "floor": 0.012242207799629253,
+   "ops": 78
+  },
+  "bwd": {
+   "flops": 133278203904,
+   "bytes": 6225395712,
+   "floor": 0.017807488490242634,
+   "ops": 81
+  }
+ },
+ "rows": [
+  {
+   "op": "fwd tm_out/layer_norm",
+   "class": "layernorm",
+   "flops": 0,
+   "bytes": 33554432,
+   "floor_s": 8.588285641156898e-05
+  },
+  {
+   "op": "fwd tm_out/linear_ag",
+   "class": "matmul",
+   "flops": 2147483648,
+   "bytes": 33554432,
+   "floor_s": 0.00011515460316268694
+  },
+  {
+   "op": "fwd tm_out/linear_a",
+   "class": "matmul",
+   "flops": 2147483648,
+   "bytes": 33554432,
+   "floor_s": 0.00011515460316268694
+  },
+  {
+   "op": "fwd tm_out/linear_bg",
+   "class": "matmul",
+   "flops": 2147483648,
+   "bytes": 33554432,
+   "floor_s": 0.00011515460316268694
+  },
+  {
+   "op": "fwd tm_out/linear_b",
+   "class": "matmul",
+   "flops": 2147483648,
+   "bytes": 33554432,
+   "floor_s": 0.00011515460316268694
+  },
+  {
+   "op": "fwd tm_out/sigmoid_ag",
+   "class": "eltwise",
+   "flops": 0,
+   "bytes": 33554432,
+   "floor_s": 8.588285641156898e-05
+  },
+  {
+   "op": "fwd tm_out/mul_a",
+   "class": "eltwise",
+   "flops": 0,
+   "bytes": 50331648,
+   "floor_s": 0.00012882428461735346
+  },
+  {
+   "op": "fwd tm_out/sigmoid_bg",
+   "class": "eltwise",
+   "flops": 0,
+   "bytes": 33554432,
+   "floor_s": 8.588285641156898e-05
+  },
+  {
+   "op": "fwd tm_out/mul_b",
+   "class": "eltwise",
+   "flops": 0,
+   "bytes": 50331648,
+   "floor_s": 0.00012882428461735346
+  },
+  {
+   "op": "fwd tm_out/pair_contract",
+   "class": "matmul",
+   "flops": 4294967296,
+   "bytes": 50331648,
+   "floor_s": 0.00023030920632537388
+  },
+  {
+   "op": "fwd tm_out/layer_norm2",
+   "class": "layernorm",
+   "flops": 0,
+   "bytes": 33554432,
+   "floor_s": 8.588285641156898e-05
+  },
+  {
+   "op": "fwd tm_out/linear_g",
+   "class": "matmul",
+   "flops": 2147483648,
+   "bytes": 33554432,
+   "floor_s": 0.00011515460316268694
+  },
+  {
+   "op": "fwd tm_out/sigmoid_g",
+   "class": "eltwise",
+   "flops": 0,
+   "bytes": 33554432,
+   "floor_s": 8.588285641156898e-05
+  },
+  {
+   "op": "fwd tm_out/linear_z",
+   "class": "matmul",
+   "flops": 2147483648,
+   "bytes": 33554432,
+   "floor_s": 0.00011515460316268694
+  },
+  {
+   "op": "fwd tm_out/mul_gate",
+   "class": "eltwise",
+   "flops": 0,
+   "bytes": 50331648,
+   "floor_s": 0.00012882428461735346
+  },
+  {
+   "op": "fwd tm_out/add_residual",
+   "class": "eltwise",
+   "flops": 0,
+   "bytes": 50331648,
+   "floor_s": 0.00012882428461735346
+  },
+  {
+   "op": "fwd tm_in/layer_norm",
+   "class": "layernorm",
+   "flops": 0,
+   "bytes": 33554432,
+   "floor_s": 8.588285641156898e-05
+  },
+  {
+   "op": "fwd tm_in/linear_ag",
+   "class": "matmul",
+   "flops": 2147483648,
+   "bytes": 33554432,
+   "floor_s": 0.00011515460316268694
+  },
+  {
+   "op": "fwd tm_in/linear_a",
+   "class": "matmul",
+   "flops": 2147483648,
+   "bytes": 33554432,
+   "floor_s": 0.00011515460316268694
+  },
+  {
+   "op": "fwd tm_in/linear_bg",
+   "class": "matmul",
+   "flops": 2147483648,
+   "bytes": 33554432,
+   "floor_s": 0.00011515460316268694
+  },
+  {
+   "op": "fwd tm_in/linear_b",
+   "class": "matmul",
+   "flops": 2147483648,
+   "bytes": 33554432,
+   "floor_s": 0.00011515460316268694
+  },
+  {
+   "op": "fwd tm_in/sigmoid_ag",
+   "class": "eltwise",
+   "flops": 0,
+   "bytes": 33554432,
+   "floor_s": 8.588285641156898e-05
+  },
+  {
+   "op": "fwd tm_in/mul_a",
+   "class": "eltwise",
+   "flops": 0,
+   "bytes": 50331648,
+   "floor_s": 0.00012882428461735346
+  },
+  {
+   "op": "fwd tm_in/sigmoid_bg",
+   "class": "eltwise",
+   "flops": 0,
+   "bytes": 33554432,
+   "floor_s": 8.588285641156898e-05
+  },
+  {
+   "op": "fwd tm_in/mul_b",
+   "class": "eltwise",
+   "flops": 0,
+   "bytes": 50331648,
+   "floor_s": 0.00012882428461735346
+  },
+  {
+   "op": "fwd tm_in/pair_contract",
+   "class": "matmul",
+   "flops": 4294967296,
+   "bytes": 50331648,
+   "floor_s": 0.00023030920632537388
+  },
+  {
+   "op": "fwd tm_in/layer_norm2",
+   "class": "layernorm",
+   "flops": 0,
+   "bytes": 33554432,
+   "floor_s": 8.588285641156898e-05
+  },
+  {
+   "op": "fwd tm_in/linear_g",
+   "class": "matmul",
+   "flops": 2147483648,
+   "bytes": 33554432,
+   "floor_s": 0.00011515460316268694
+  },
+  {
+   "op": "fwd tm_in/sigmoid_g",
+   "class": "eltwise",
+   "flops": 0,
+   "bytes": 33554432,
+   "floor_s": 8.588285641156898e-05
+  },
+  {
+   "op": "fwd tm_in/linear_z",
+   "class": "matmul",
+   "flops": 2147483648,
+   "bytes": 33554432,
+   "floor_s": 0.00011515460316268694
+  },
+  {
+   "op": "fwd tm_in/mul_gate",
+   "class": "eltwise",
+   "flops": 0,
+   "bytes": 50331648,
+   "floor_s": 0.00012882428461735346
+  },
+  {
+   "op": "fwd tm_in/add_residual",
+   "class": "eltwise",
+   "flops": 0,
+   "bytes": 50331648,
+   "floor_s": 0.00012882428461735346
+  },
+  {
+   "op": "fwd ta_start/layer_norm",
+   "class": "layernorm",
+   "flops": 0,
+   "bytes": 33554432,
+   "floor_s": 8.588285641156898e-05
+  },
+  {
+   "op": "fwd ta_start/linear_q",
+   "class": "matmul",
+   "flops": 2147483648,
+   "bytes": 33554432,
+   "floor_s": 0.00011515460316268694
+  },
+  {
+   "op": "fwd ta_start/reshape_permute_q",
+   "class": "movement",
+   "flops": 0,
+   "bytes": 33554432,
+   "floor_s": 8.588285641156898e-05
+  },
+  {
+   "op": "fwd ta_start/linear_k",
+   "class": "matmul",
+   "flops": 2147483648,
+   "bytes": 33554432,
+   "floor_s": 0.00011515460316268694
+  },
+  {
+   "op": "fwd ta_start/reshape_permute_k",
+   "class": "movement",
+   "flops": 0,
+   "bytes": 33554432,
+   "floor_s": 8.588285641156898e-05
+  },
+  {
+   "op": "fwd ta_start/linear_v",
+   "class": "matmul",
+   "flops": 2147483648,
+   "bytes": 33554432,
+   "floor_s": 0.00011515460316268694
+  },
+  {
+   "op": "fwd ta_start/reshape_permute_v",
+   "class": "movement",
+   "flops": 0,
+   "bytes": 33554432,
+   "floor_s": 8.588285641156898e-05
+  },
+  {
+   "op": "fwd ta_start/linear_g",
+   "class": "matmul",
+   "flops": 2147483648,
+   "bytes": 33554432,
+   "floor_s": 0.00011515460316268694
+  },
+  {
+   "op": "fwd ta_start/reshape_permute_g",
+   "class": "movement",
+   "flops": 0,
+   "bytes": 33554432,
+   "floor_s": 8.588285641156898e-05
+  },
+  {
+   "op": "fwd ta_start/linear_bias",
+   "class": "matmul",
+   "flops": 67108864,
+   "bytes": 17301504,
+   "floor_s": 4.428334783721526e-05
+  },
+  {
+   "op": "fwd ta_start/permute_bias",
+   "class": "movement",
+   "flops": 0,
+   "bytes": 1048576,
+   "floor_s": 2.6838392628615307e-06
+  },
+  {
+   "op": "fwd ta_start/attn_qk",
+   "class": "matmul",
+   "flops": 4294967296,
+   "bytes": 167772160,
+   "floor_s": 0.0004294142820578449
+  },
+  {
+   "op": "fwd ta_start/attn_softmax",
+   "class": "softmax",
+   "flops": 0,
+   "bytes": 268435456,
+   "floor_s": 0.0006870628512925519
+  },
+  {
+   "op": "fwd ta_start/attn_pv",
+   "class": "matmul",
+   "flops": 4294967296,
+   "bytes": 167772160,
+   "floor_s": 0.0004294142820578449
+  },
+  {
+   "op": "fwd ta_start/sigmoid_g",
+   "class": "eltwise",
+   "flops": 0,
+   "bytes": 33554432,
+   "floor_s": 8.588285641156898e-05
+  },
+  {
+   "op": "fwd ta_start/mul_gate",
+   "class": "eltwise",
+   "flops": 0,
+   "bytes": 50331648,
+   "floor_s": 0.00012882428461735346
+  },
+  {
+   "op": "fwd ta_start/permute_reshape_o",
+   "class": "movement",
+   "flops": 0,
+   "bytes": 33554432,
+   "floor_s": 8.588285641156898e-05
+  },
+  {
+   "op": "fwd ta_start/linear_o",
+   "class": "matmul",
+   "flops": 2147483648,
+   "bytes": 33554432,
+   "floor_s": 0.00011515460316268694
+  },
+  {
+   "op": "fwd ta_start/add_residual",
+   "class": "eltwise",
+   "flops": 0,
+   "bytes": 50331648,
+   "floor_s": 0.00012882428461735346
+  },
+  {
+   "op": "fwd ta_end/permute_in",
+   "class": "movement",
+   "flops": 0,
+   "bytes": 33554432,
+   "floor_s": 8.588285641156898e-05
+  },
+  {
+   "op": "fwd ta_end/layer_norm",
+   "class": "layernorm",
+   "flops": 0,
+   "bytes": 33554432,
+   "floor_s": 8.588285641156898e-05
+  },
+  {
+   "op": "fwd ta_end/linear_q",
+   "class": "matmul",
+   "flops": 2147483648,
+   "bytes": 33554432,
+   "floor_s": 0.00011515460316268694
+  },
+  {
+   "op": "fwd ta_end/reshape_permute_q",
+   "class": "movement",
+   "flops": 0,
+   "bytes": 33554432,
+   "floor_s": 8.588285641156898e-05
+  },
+  {
+   "op": "fwd ta_end/linear_k",
+   "class": "matmul",
+   "flops": 2147483648,
+   "bytes": 33554432,
+   "floor_s": 0.00011515460316268694
+  },
+  {
+   "op": "fwd ta_end/reshape_permute_k",
+   "class": "movement",
+   "flops": 0,
+   "bytes": 33554432,
+   "floor_s": 8.588285641156898e-05
+  },
+  {
+   "op": "fwd ta_end/linear_v",
+   "class": "matmul",
+   "flops": 2147483648,
+   "bytes": 33554432,
+   "floor_s": 0.00011515460316268694
+  },
+  {
+   "op": "fwd ta_end/reshape_permute_v",
+   "class": "movement",
+   "flops": 0,
+   "bytes": 33554432,
+   "floor_s": 8.588285641156898e-05
+  },
+  {
+   "op": "fwd ta_end/linear_g",
+   "class": "matmul",
+   "flops": 2147483648,
+   "bytes": 33554432,
+   "floor_s": 0.00011515460316268694
+  },
+  {
+   "op": "fwd ta_end/reshape_permute_g",
+   "class": "movement",
+   "flops": 0,
+   "bytes": 33554432,
+   "floor_s": 8.588285641156898e-05
+  },
+  {
+   "op": "fwd ta_end/linear_bias",
+   "class": "matmul",
+   "flops": 67108864,
+   "bytes": 17301504,
+   "floor_s": 4.428334783721526e-05
+  },
+  {
+   "op": "fwd ta_end/permute_bias",
+   "class": "movement",
+   "flops": 0,
+   "bytes": 1048576,
+   "floor_s": 2.6838392628615307e-06
+  },
+  {
+   "op": "fwd ta_end/attn_qk",
+   "class": "matmul",
+   "flops": 4294967296,
+   "bytes": 167772160,
+   "floor_s": 0.0004294142820578449
+  },
+  {
+   "op": "fwd ta_end/attn_softmax",
+   "class": "softmax",
+   "flops": 0,
+   "bytes": 268435456,
+   "floor_s": 0.0006870628512925519
+  },
+  {
+   "op": "fwd ta_end/attn_pv",
+   "class": "matmul",
+   "flops": 4294967296,
+   "bytes": 167772160,
+   "floor_s": 0.0004294142820578449
+  },
+  {
+   "op": "fwd ta_end/sigmoid_g",
+   "class": "eltwise",
+   "flops": 0,
+   "bytes": 33554432,
+   "floor_s": 8.588285641156898e-05
+  },
+  {
+   "op": "fwd ta_end/mul_gate",
+   "class": "eltwise",
+   "flops": 0,
+   "bytes": 50331648,
+   "floor_s": 0.00012882428461735346
+  },
+  {
+   "op": "fwd ta_end/permute_reshape_o",
+   "class": "movement",
+   "flops": 0,
+   "bytes": 33554432,
+   "floor_s": 8.588285641156898e-05
+  },
+  {
+   "op": "fwd ta_end/linear_o",
+   "class": "matmul",
+   "flops": 2147483648,
+   "bytes": 33554432,
+   "floor_s": 0.00011515460316268694
+  },
+  {
+   "op": "fwd ta_end/permute_out",
+   "class": "movement",
+   "flops": 0,
+   "bytes": 33554432,
+   "floor_s": 8.588285641156898e-05
+  },
+  {
+   "op": "fwd ta_end/add_residual",
+   "class": "eltwise",
+   "flops": 0,
+   "bytes": 50331648,
+   "floor_s": 0.00012882428461735346
+  },
+  {
+   "op": "fwd tr/layer_norm",
+   "class": "layernorm",
+   "flops": 0,
+   "bytes": 33554432,
+   "floor_s": 8.588285641156898e-05
+  },
+  {
+   "op": "fwd tr/linear_a",
+   "class": "matmul",
+   "flops": 8589934592,
+   "bytes": 83886080,
+   "floor_s": 0.00046061841265074776
+  },
+  {
+   "op": "fwd tr/silu_mul",
+   "class": "eltwise",
+   "flops": 0,
+   "bytes": 268435456,
+   "floor_s": 0.0006870628512925519
+  },
+  {
+   "op": "fwd tr/linear_b",
+   "class": "matmul",
+   "flops": 8589934592,
+   "bytes": 83886080,
+   "floor_s": 0.00046061841265074776
+  },
+  {
+   "op": "fwd tr/linear_o",
+   "class": "matmul",
+   "flops": 8589934592,
+   "bytes": 83886080,
+   "floor_s": 0.00046061841265074776
+  },
+  {
+   "op": "fwd tr/add_residual",
+   "class": "eltwise",
+   "flops": 0,
+   "bytes": 50331648,
+   "floor_s": 0.00012882428461735346
+  },
+  {
+   "op": "bwd tm_out/add_residual^",
+   "class": "eltwise",
+   "flops": 0,
+   "bytes": 33554432,
+   "floor_s": 8.588285641156898e-05
+  },
+  {
+   "op": "bwd tm_out/mul_gate^",
+   "class": "eltwise",
+   "flops": 0,
+   "bytes": 67108864,
+   "floor_s": 0.00017176571282313797
+  },
+  {
+   "op": "bwd tm_out/linear_z^",
+   "class": "matmul",
+   "flops": 2147483648,
+   "bytes": 33554432,
+   "floor_s": 0.00011515460316268694
+  },
+  {
+   "op": "bwd tm_out/sigmoid_g^",
+   "class": "eltwise",
+   "flops": 0,
+   "bytes": 50331648,
+   "floor_s": 0.00012882428461735346
+  },
+  {
+   "op": "bwd tm_out/linear_g^",
+   "class": "matmul",
+   "flops": 2147483648,
+   "bytes": 33554432,
+   "floor_s": 0.00011515460316268694
+  },
+  {
+   "op": "bwd tm_out/layer_norm2^",
+   "class": "layernorm",
+   "flops": 0,
+   "bytes": 100663296,
+   "floor_s": 0.0002576485692347069
+  },
+  {
+   "op": "bwd tm_out/pair_contract^",
+   "class": "matmul",
+   "flops": 8589934592,
+   "bytes": 83886080,
+   "floor_s": 0.00046061841265074776
+  },
+  {
+   "op": "bwd tm_out/mul_a^",
+   "class": "eltwise",
+   "flops": 0,
+   "bytes": 67108864,
+   "floor_s": 0.00017176571282313797
+  },
+  {
+   "op": "bwd tm_out/sigmoid_ag^",
+   "class": "eltwise",
+   "flops": 0,
+   "bytes": 50331648,
+   "floor_s": 0.00012882428461735346
+  },
+  {
+   "op": "bwd tm_out/mul_b^",
+   "class": "eltwise",
+   "flops": 0,
+   "bytes": 67108864,
+   "floor_s": 0.00017176571282313797
+  },
+  {
+   "op": "bwd tm_out/sigmoid_bg^",
+   "class": "eltwise",
+   "flops": 0,
+   "bytes": 50331648,
+   "floor_s": 0.00012882428461735346
+  },
+  {
+   "op": "bwd tm_out/linear_ag^",
+   "class": "matmul",
+   "flops": 2147483648,
+   "bytes": 33554432,
+   "floor_s": 0.00011515460316268694
+  },
+  {
+   "op": "bwd tm_out/linear_a^",
+   "class": "matmul",
+   "flops": 2147483648,
+   "bytes": 33554432,
+   "floor_s": 0.00011515460316268694
+  },
+  {
+   "op": "bwd tm_out/linear_bg^",
+   "class": "matmul",
+   "flops": 2147483648,
+   "bytes": 33554432,
+   "floor_s": 0.00011515460316268694
+  },
+  {
+   "op": "bwd tm_out/linear_b^",
+   "class": "matmul",
+   "flops": 2147483648,
+   "bytes": 33554432,
+   "floor_s": 0.00011515460316268694
+  },
+  {
+   "op": "bwd tm_out/layer_norm^",
+   "class": "layernorm",
+   "flops": 0,
+   "bytes": 100663296,
+   "floor_s": 0.0002576485692347069
+  },
+  {
+   "op": "bwd tm_in/add_residual^",
+   "class": "eltwise",
+   "flops": 0,
+   "bytes": 33554432,
+   "floor_s": 8.588285641156898e-05
+  },
+  {
+   "op": "bwd tm_in/mul_gate^",
+   "class": "eltwise",
+   "flops": 0,
+   "bytes": 67108864,
+   "floor_s": 0.00017176571282313797
+  },
+  {
+   "op": "bwd tm_in/linear_z^",
+   "class": "matmul",
+   "flops": 2147483648,
+   "bytes": 33554432,
+   "floor_s": 0.00011515460316268694
+  },
+  {
+   "op": "bwd tm_in/sigmoid_g^",
+   "class": "eltwise",
+   "flops": 0,
+   "bytes": 50331648,
+   "floor_s": 0.00012882428461735346
+  },
+  {
+   "op": "bwd tm_in/linear_g^",
+   "class": "matmul",
+   "flops": 2147483648,
+   "bytes": 33554432,
+   "floor_s": 0.00011515460316268694
+  },
+  {
+   "op": "bwd tm_in/layer_norm2^",
+   "class": "layernorm",
+   "flops": 0,
+   "bytes": 100663296,
+   "floor_s": 0.0002576485692347069
+  },
+  {
+   "op": "bwd tm_in/pair_contract^",
+   "class": "matmul",
+   "flops": 8589934592,
+   "bytes": 83886080,
+   "floor_s": 0.00046061841265074776
+  },
+  {
+   "op": "bwd tm_in/mul_a^",
+   "class": "eltwise",
+   "flops": 0,
+   "bytes": 67108864,
+   "floor_s": 0.00017176571282313797
+  },
+  {
+   "op": "bwd tm_in/sigmoid_ag^",
+   "class": "eltwise",
+   "flops": 0,
+   "bytes": 50331648,
+   "floor_s": 0.00012882428461735346
+  },
+  {
+   "op": "bwd tm_in/mul_b^",
+   "class": "eltwise",
+   "flops": 0,
+   "bytes": 67108864,
+   "floor_s": 0.00017176571282313797
+  },
+  {
+   "op": "bwd tm_in/sigmoid_bg^",
+   "class": "eltwise",
+   "flops": 0,
+   "bytes": 50331648,
+   "floor_s": 0.00012882428461735346
+  },
+  {
+   "op": "bwd tm_in/linear_ag^",
+   "class": "matmul",
+   "flops": 2147483648,
+   "bytes": 33554432,
+   "floor_s": 0.00011515460316268694
+  },
+  {
+   "op": "bwd tm_in/linear_a^",
+   "class": "matmul",
+   "flops": 2147483648,
+   "bytes": 33554432,
+   "floor_s": 0.00011515460316268694
+  },
+  {
+   "op": "bwd tm_in/linear_bg^",
+   "class": "matmul",
+   "flops": 2147483648,
+   "bytes": 33554432,
+   "floor_s": 0.00011515460316268694
+  },
+  {
+   "op": "bwd tm_in/linear_b^",
+   "class": "matmul",
+   "flops": 2147483648,
+   "bytes": 33554432,
+   "floor_s": 0.00011515460316268694
+  },
+  {
+   "op": "bwd tm_in/layer_norm^",
+   "class": "layernorm",
+   "flops": 0,
+   "bytes": 100663296,
+   "floor_s": 0.0002576485692347069
+  },
+  {
+   "op": "bwd ta_start/add_residual^",
+   "class": "eltwise",
+   "flops": 0,
+   "bytes": 33554432,
+   "floor_s": 8.588285641156898e-05
+  },
+  {
+   "op": "bwd ta_start/linear_o^",
+   "class": "matmul",
+   "flops": 2147483648,
+   "bytes": 33554432,
+   "floor_s": 0.00011515460316268694
+  },
+  {
+   "op": "bwd ta_start/permute_reshape_o^",
+   "class": "movement",
+   "flops": 0,
+   "bytes": 33554432,
+   "floor_s": 8.588285641156898e-05
+  },
+  {
+   "op": "bwd ta_start/mul_gate^",
+   "class": "eltwise",
+   "flops": 0,
+   "bytes": 67108864,
+   "floor_s": 0.00017176571282313797
+  },
+  {
+   "op": "bwd ta_start/sigmoid_g^",
+   "class": "eltwise",
+   "flops": 0,
+   "bytes": 50331648,
+   "floor_s": 0.00012882428461735346
+  },
+  {
+   "op": "bwd ta_start/attn_recompute_qk",
+   "class": "matmul",
+   "flops": 4294967296,
+   "bytes": 167772160,
+   "floor_s": 0.0004294142820578449
+  },
+  {
+   "op": "bwd ta_start/attn_softmax^",
+   "class": "softmax",
+   "flops": 0,
+   "bytes": 402653184,
+   "floor_s": 0.0010305942769388277
+  },
+  {
+   "op": "bwd ta_start/attn_dv",
+   "class": "matmul",
+   "flops": 4294967296,
+   "bytes": 167772160,
+   "floor_s": 0.0004294142820578449
+  },
+  {
+   "op": "bwd ta_start/attn_dp",
+   "class": "matmul",
+   "flops": 4294967296,
+   "bytes": 167772160,
+   "floor_s": 0.0004294142820578449
+  },
+  {
+   "op": "bwd ta_start/attn_dq",
+   "class": "matmul",
+   "flops": 4294967296,
+   "bytes": 167772160,
+   "floor_s": 0.0004294142820578449
+  },
+  {
+   "op": "bwd ta_start/attn_dk",
+   "class": "matmul",
+   "flops": 4294967296,
+   "bytes": 167772160,
+   "floor_s": 0.0004294142820578449
+  },
+  {
+   "op": "bwd ta_start/reshape_permute_q^",
+   "class": "movement",
+   "flops": 0,
+   "bytes": 33554432,
+   "floor_s": 8.588285641156898e-05
+  },
+  {
+   "op": "bwd ta_start/linear_q^",
+   "class": "matmul",
+   "flops": 2147483648,
+   "bytes": 33554432,
+   "floor_s": 0.00011515460316268694
+  },
+  {
+   "op": "bwd ta_start/reshape_permute_k^",
+   "class": "movement",
+   "flops": 0,
+   "bytes": 33554432,
+   "floor_s": 8.588285641156898e-05
+  },
+  {
+   "op": "bwd ta_start/linear_k^",
+   "class": "matmul",
+   "flops": 2147483648,
+   "bytes": 33554432,
+   "floor_s": 0.00011515460316268694
+  },
+  {
+   "op": "bwd ta_start/reshape_permute_v^",
+   "class": "movement",
+   "flops": 0,
+   "bytes": 33554432,
+   "floor_s": 8.588285641156898e-05
+  },
+  {
+   "op": "bwd ta_start/linear_v^",
+   "class": "matmul",
+   "flops": 2147483648,
+   "bytes": 33554432,
+   "floor_s": 0.00011515460316268694
+  },
+  {
+   "op": "bwd ta_start/reshape_permute_g^",
+   "class": "movement",
+   "flops": 0,
+   "bytes": 33554432,
+   "floor_s": 8.588285641156898e-05
+  },
+  {
+   "op": "bwd ta_start/linear_g^",
+   "class": "matmul",
+   "flops": 2147483648,
+   "bytes": 33554432,
+   "floor_s": 0.00011515460316268694
+  },
+  {
+   "op": "bwd ta_start/linear_bias^",
+   "class": "matmul",
+   "flops": 67108864,
+   "bytes": 17301504,
+   "floor_s": 4.428334783721526e-05
+  },
+  {
+   "op": "bwd ta_start/layer_norm^",
+   "class": "layernorm",
+   "flops": 0,
+   "bytes": 100663296,
+   "floor_s": 0.0002576485692347069
+  },
+  {
+   "op": "bwd ta_end/add_residual^",
+   "class": "eltwise",
+   "flops": 0,
+   "bytes": 33554432,
+   "floor_s": 8.588285641156898e-05
+  },
+  {
+   "op": "bwd ta_end/linear_o^",
+   "class": "matmul",
+   "flops": 2147483648,
+   "bytes": 33554432,
+   "floor_s": 0.00011515460316268694
+  },
+  {
+   "op": "bwd ta_end/permute_reshape_o^",
+   "class": "movement",
+   "flops": 0,
+   "bytes": 33554432,
+   "floor_s": 8.588285641156898e-05
+  },
+  {
+   "op": "bwd ta_end/mul_gate^",
+   "class": "eltwise",
+   "flops": 0,
+   "bytes": 67108864,
+   "floor_s": 0.00017176571282313797
+  },
+  {
+   "op": "bwd ta_end/sigmoid_g^",
+   "class": "eltwise",
+   "flops": 0,
+   "bytes": 50331648,
+   "floor_s": 0.00012882428461735346
+  },
+  {
+   "op": "bwd ta_end/attn_recompute_qk",
+   "class": "matmul",
+   "flops": 4294967296,
+   "bytes": 167772160,
+   "floor_s": 0.0004294142820578449
+  },
+  {
+   "op": "bwd ta_end/attn_softmax^",
+   "class": "softmax",
+   "flops": 0,
+   "bytes": 402653184,
+   "floor_s": 0.0010305942769388277
+  },
+  {
+   "op": "bwd ta_end/attn_dv",
+   "class": "matmul",
+   "flops": 4294967296,
+   "bytes": 167772160,
+   "floor_s": 0.0004294142820578449
+  },
+  {
+   "op": "bwd ta_end/attn_dp",
+   "class": "matmul",
+   "flops": 4294967296,
+   "bytes": 167772160,
+   "floor_s": 0.0004294142820578449
+  },
+  {
+   "op": "bwd ta_end/attn_dq",
+   "class": "matmul",
+   "flops": 4294967296,
+   "bytes": 167772160,
+   "floor_s": 0.0004294142820578449
+  },
+  {
+   "op": "bwd ta_end/attn_dk",
+   "class": "matmul",
+   "flops": 4294967296,
+   "bytes": 167772160,
+   "floor_s": 0.0004294142820578449
+  },
+  {
+   "op": "bwd ta_end/reshape_permute_q^",
+   "class": "movement",
+   "flops": 0,
+   "bytes": 33554432,
+   "floor_s": 8.588285641156898e-05
+  },
+  {
+   "op": "bwd ta_end/linear_q^",
+   "class": "matmul",
+   "flops": 2147483648,
+   "bytes": 33554432,
+   "floor_s": 0.00011515460316268694
+  },
+  {
+   "op": "bwd ta_end/reshape_permute_k^",
+   "class": "movement",
+   "flops": 0,
+   "bytes": 33554432,
+   "floor_s": 8.588285641156898e-05
+  },
+  {
+   "op": "bwd ta_end/linear_k^",
+   "class": "matmul",
+   "flops": 2147483648,
+   "bytes": 33554432,
+   "floor_s": 0.00011515460316268694
+  },
+  {
+   "op": "bwd ta_end/reshape_permute_v^",
+   "class": "movement",
+   "flops": 0,
+   "bytes": 33554432,
+   "floor_s": 8.588285641156898e-05
+  },
+  {
+   "op": "bwd ta_end/linear_v^",
+   "class": "matmul",
+   "flops": 2147483648,
+   "bytes": 33554432,
+   "floor_s": 0.00011515460316268694
+  },
+  {
+   "op": "bwd ta_end/reshape_permute_g^",
+   "class": "movement",
+   "flops": 0,
+   "bytes": 33554432,
+   "floor_s": 8.588285641156898e-05
+  },
+  {
+   "op": "bwd ta_end/linear_g^",
+   "class": "matmul",
+   "flops": 2147483648,
+   "bytes": 33554432,
+   "floor_s": 0.00011515460316268694
+  },
+  {
+   "op": "bwd ta_end/linear_bias^",
+   "class": "matmul",
+   "flops": 67108864,
+   "bytes": 17301504,
+   "floor_s": 4.428334783721526e-05
+  },
+  {
+   "op": "bwd ta_end/layer_norm^",
+   "class": "layernorm",
+   "flops": 0,
+   "bytes": 100663296,
+   "floor_s": 0.0002576485692347069
+  },
+  {
+   "op": "bwd ta_end/permute^",
+   "class": "movement",
+   "flops": 0,
+   "bytes": 67108864,
+   "floor_s": 0.00017176571282313797
+  },
+  {
+   "op": "bwd tr/add_residual^",
+   "class": "eltwise",
+   "flops": 0,
+   "bytes": 33554432,
+   "floor_s": 8.588285641156898e-05
+  },
+  {
+   "op": "bwd tr/linear_o^",
+   "class": "matmul",
+   "flops": 8589934592,
+   "bytes": 83886080,
+   "floor_s": 0.00046061841265074776
+  },
+  {
+   "op": "bwd tr/silu_mul^",
+   "class": "eltwise",
+   "flops": 0,
+   "bytes": 335544320,
+   "floor_s": 0.0008588285641156898
+  },
+  {
+   "op": "bwd tr/linear_b^",
+   "class": "matmul",
+   "flops": 8589934592,
+   "bytes": 83886080,
+   "floor_s": 0.00046061841265074776
+  },
+  {
+   "op": "bwd tr/linear_a^",
+   "class": "matmul",
+   "flops": 8589934592,
+   "bytes": 83886080,
+   "floor_s": 0.00046061841265074776
+  },
+  {
+   "op": "bwd tr/layer_norm^",
+   "class": "layernorm",
+   "flops": 0,
+   "bytes": 100663296,
+   "floor_s": 0.0002576485692347069
+  }
+ ]
+}
