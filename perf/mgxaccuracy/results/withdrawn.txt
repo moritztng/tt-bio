@@ -12,3 +12,8 @@
 #   refold instrument; upstream's design-to-design spread is still unmeasured.
 # - "the two qb2 references give upstream's size trend" — each is `--num_designs 1`; the `6` in
 #   their command line is threads. Two singletons are not a trend.
+# - "every single-chain cell returned designs that refold" — published in
+#   docs/design-throughput.md at 20:0xZ on the GroEL+1GPB census, false by 21:2xZ: the FAS
+#   single-chain ladder reads 3.782/9.050/10.665 A at 512/768/1024 with 4/2/0 of 8 under the
+#   bar. A single chain of 1024 residues returns nothing usable. The doc now carries the FAS
+#   table and says cropping to one chain does not buy back the size.
