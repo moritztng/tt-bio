@@ -59,7 +59,16 @@ def main():
                          "default of 32. It used to have to be 1 because the trunk "
                          "refused a masked fold; all three mask sites are in af2.py "
                          "now, so 32 runs and is the lab's configuration.")
+    ap.add_argument("--trace", action="store_true",
+                    help="device arm only: capture the taped forward and the backward once "
+                         "per shape and replay them (perf/bcx_predictor/trace_wire.py). OFF "
+                         "by default -- it is a program change, so it is switched at a "
+                         "trajectory boundary and never inside a matched-seed set.")
+    ap.add_argument("--region-mb", type=int, default=None,
+                    help="trace region reserved at device open, MiB (default 768)")
     args = ap.parse_args()
+    if args.trace and args.arm != "device":
+        ap.error("--trace only means anything on --arm device")
 
     project = args.out or str(HERE / "runs" / f"{args.arm}_seed{args.seed}")
     pathlib.Path(project).mkdir(parents=True, exist_ok=True)
@@ -98,7 +107,8 @@ def main():
                           else "TTBioAlphaFoldDesignModel",
              "host": os.uname().nodename, "started_utc": time.strftime("%FT%TZ", time.gmtime()),
              "loadavg_start": os.getloadavg(), "stage_plan": B.stage_plan(settings),
-             "threads": os.environ.get("XLA_FLAGS", ""), "project": project}
+             "threads": os.environ.get("XLA_FLAGS", ""), "project": project,
+             "trace": bool(args.trace)}
     (pathlib.Path(project) / "arm_stamp.json").write_text(json.dumps(stamp, indent=1))
     print(json.dumps(stamp, indent=1), flush=True)
 
@@ -110,16 +120,24 @@ def main():
         import afgrad as _A, stack as _S
         from splice import EvoformerOnDevice, evoformer_on_device
         _lv = _S.Levers()
+        if args.trace:
+            # The trace region is reserved at open, so it has to be named before anything
+            # else asks for the device.
+            import trace_wire
+            trace_wire.open_traced_device(args.region_mb or trace_wire.REGION_MB)
+            stamp["trace_region_mb"] = args.region_mb or trace_wire.REGION_MB
         _dm, _ = _A.load_models(_A.DEFAULT_PARAMS)
         _dev = _A.Dev(_dm.to_device())
         _lv.arm("stack")
-        evo = EvoformerOnDevice(_dev, k_evo=48)
+        evo = EvoformerOnDevice(_dev, k_evo=48, trace=args.trace)
         stamp["device_card"] = int(os.environ.get("TT_VISIBLE_DEVICES", "-1"))
         with evoformer_on_device(evo):
             count = campaign.run_campaign(settings, project, af2_weights=args.params,
                                           mpnn_weights=mpnn,
                                           max_trajectories=args.trajectories)
         stamp["device_calls"] = dict(evo.calls)
+        if evo.wire is not None:
+            stamp["trace"] = evo.wire.stats()
     else:
         count = campaign.run_campaign(settings, project, af2_weights=args.params,
                                       mpnn_weights=mpnn,

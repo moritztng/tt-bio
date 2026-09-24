@@ -86,7 +86,7 @@ _NEXT = [0]
 class EvoformerOnDevice:
     """tt-bio's 48 Evoformer blocks as `(msa, pair) -> (msa, pair)`, differentiable."""
 
-    def __init__(self, dev, k_evo: int = 48, checkpoint: bool = True):
+    def __init__(self, dev, k_evo: int = 48, checkpoint: bool = True, trace: bool = False):
         """`msa_mask` is BindCraft 2's `[rows, n]` Evoformer MSA mask, as a host array.
 
         It is passed in rather than read off the traced activations because the stack
@@ -99,10 +99,26 @@ class EvoformerOnDevice:
         self.calls = {"primal": 0, "taped": 0, "backward": 0}
         self._mask_dev = {}
         self._pair_mask_dev = {}
+        # `trace=True` captures the taped forward and the backward once per shape and replays
+        # them (`trace_wire.py`). Default OFF: it is a program change, and a program change
+        # between two seeds of a matched pair makes the pair meaningless. An argument, not an
+        # environment variable, so a run records it in its own stamp.
+        self.wire = None
+        if trace:
+            from trace_wire import TraceWire
+            self.wire = TraceWire(dev)
+
+    @staticmethod
+    def _mask_key(mask_np):
+        return tuple(np.asarray(mask_np).shape)
+
+    @staticmethod
+    def _pair_mask_key(pm):
+        return (tuple(pm.shape), float(pm.sum()))
 
     def _mask(self, mask_np):
         """Upload per call and cache by shape: the binder length changes per trajectory."""
-        key = tuple(np.asarray(mask_np).shape)
+        key = self._mask_key(mask_np)
         got = self._mask_dev.get(key)
         if got is None:
             got = self.dev.up(torch.from_numpy(
@@ -121,7 +137,7 @@ class EvoformerOnDevice:
         (`perf/bcx_mono/masked_fold.json`).
         """
         from tt_bio.af2 import af2_pair_masks
-        key = (tuple(pm.shape), float(pm.sum()))
+        key = self._pair_mask_key(pm)
         got = self._pair_mask_dev.get(key)
         if got is None:
             got = af2_pair_masks(pm, self.dev.device)
@@ -153,6 +169,8 @@ class EvoformerOnDevice:
         mk = torch.from_numpy(np.asarray(mask_np).copy()).float()
         pmk = torch.from_numpy(np.asarray(pair_mask_np).copy()).float()
         m, z, mk, pmk, n, n32 = _pad_inputs(m, z, mk, pmk)
+        if self.wire is not None:
+            return self._taped_traced(m, z, mk, pmk, n)
         ml, zl = dev.leaf(m), dev.leaf(z)
         with dev.tt.tape():
             mo, zo = dev.stack(ml, zl, 0, self.k_evo, ckpt=self.checkpoint,
@@ -180,22 +198,53 @@ class EvoformerOnDevice:
         return (dev.down(mo.value, tuple(m.shape))[:, :n].numpy(),
                 dev.down(zo.value, tuple(z.shape))[:n, :n].numpy(), np.int32(token))
 
+    def _taped_traced(self, m, z, mk, pmk, n):
+        """The same taped forward, replayed from a capture (`trace_wire.py`).
+
+        The tape is the capture's, not this call's, so nothing is dropped or released here:
+        the backward trace reads the addresses the forward trace writes, and both live until
+        the shape changes. BindCraft 2 runs two forwards per round -- the stop-gradient recycle
+        and the differentiated one -- and both replay the same trace into the same buffers, so
+        the backward sees the second one's residuals, which is the pair eager produces too.
+        """
+        dev = self.dev
+        msa_mask, pair_masks = self._mask(mk.numpy()), self._pair_mask(pmk)
+        key = (tuple(m.shape), tuple(z.shape), self._mask_key(mk.numpy()),
+               self._pair_mask_key(pmk), self.k_evo, self.checkpoint)
+
+        def body(ml, zl):
+            return dev.stack(ml, zl, 0, self.k_evo, ckpt=self.checkpoint,
+                             msa_mask=msa_mask, pair_masks=pair_masks)
+
+        out_m, out_z = self.wire.forward(key, [m, z], body, [tuple(m.shape), tuple(z.shape)])
+        for stale in list(_LIVE):
+            _LIVE.pop(stale, None)
+        token = _NEXT[0]; _NEXT[0] += 1
+        _LIVE[token] = {"key": key, "shapes": [tuple(m.shape), tuple(z.shape)], "n": n,
+                        "msa_in": None, "pair_in": None, "mask_in": None}
+        self.calls["taped"] += 1
+        return (out_m[:, :n].numpy(), out_z[:n, :n].numpy(), np.int32(token))
+
     def _backward(self, token, g_msa_np, g_pair_np):
         entry = _LIVE.pop(int(token), None)
         if entry is None:
             raise RuntimeError(f"no live tape for token {int(token)}")
         dev = self.dev
-        mo, zo = entry["roots"]; ml, zl = entry["leaves"]
         m_shape, z_shape = entry["shapes"]
         n = entry["n"]
         gm = torch.zeros(m_shape)
         gz = torch.zeros(z_shape)
         gm[:, :n] = torch.from_numpy(np.asarray(g_msa_np).copy()).float()
         gz[:n, :n] = torch.from_numpy(np.asarray(g_pair_np).copy()).float()
-        dev.ag.backward([mo, zo], [dev.seed(gm, mo), dev.seed(gz, zo)])
-        dev.sync()
-        out = (dev.grad(ml, m_shape)[:, :n].numpy(), dev.grad(zl, z_shape)[:n, :n].numpy())
-        dev.ag.release_pins()
+        if self.wire is not None:
+            g_m, g_z = self.wire.backward(entry["key"], [gm, gz], [m_shape, z_shape])
+            out = (g_m[:, :n].numpy(), g_z[:n, :n].numpy())
+        else:
+            mo, zo = entry["roots"]; ml, zl = entry["leaves"]
+            dev.ag.backward([mo, zo], [dev.seed(gm, mo), dev.seed(gz, zo)])
+            dev.sync()
+            out = (dev.grad(ml, m_shape)[:, :n].numpy(), dev.grad(zl, z_shape)[:n, :n].numpy())
+            dev.ag.release_pins()
         self.calls["backward"] += 1
         if _CAPTURE_DIR and not _CAPTURED and not (
                 np.isfinite(out[0]).all() and np.isfinite(out[1]).all()):

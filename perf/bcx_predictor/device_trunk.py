@@ -29,9 +29,20 @@ _NEXT = [0]
 class DeviceTrunk:
     """One device context, reused across steps. tt-bio refuses an unpinned open."""
 
-    def __init__(self, dev, k_extra: int = 4, k_evo: int = 48, checkpoint: bool = True):
+    def __init__(self, dev, k_extra: int = 4, k_evo: int = 48, checkpoint: bool = True,
+                 trace: bool = False):
         self.dev, self.k_extra, self.k_evo, self.checkpoint = dev, k_extra, k_evo, checkpoint
         self.c_single = 384
+        # `trace=True` captures the taped forward and the backward once per shape and replays
+        # them (`trace_wire.py`), which is what takes the host enqueue out of the step. Default
+        # OFF, and an argument rather than an environment variable so a run stamps it: it is a
+        # program change, and a program change between two seeds of a matched pair makes the
+        # pair meaningless.
+        self.wire = None
+        self._const = None
+        if trace:
+            from trace_wire import TraceWire
+            self.wire = TraceWire(dev)
 
     # ------------------------------------------------------------------ the two halves
 
@@ -57,7 +68,44 @@ class DeviceTrunk:
         return (dev.down(so, (n, self.c_single)).numpy(),
                 dev.down(zo, (n, n, z0.shape[-1])).numpy())
 
+    def _extra_hoisted(self, i, z):
+        """`Dev.extra` with the OPM constant uploaded once instead of per call.
+
+        `afgrad.Dev.extra` (and `af2.py:1030` in the shipped stack) rebuilds that constant on
+        the host and uploads it every block call. A capture refuses a host write, so the
+        traced arm hoists it: same bytes, four fewer uploads per step.
+        """
+        blk = self.dev.dm.device_extra_msa[i]
+        return blk(blk._residual(z, self.dev.ttnn.clone(self._const[i])))
+
+    def _traced_body(self, ml, zl):
+        dev, ag = self.dev, self.dev.ag
+        if self._const is None:
+            self._const = [dev.dm._up(dev.dm.opm_constant[i].reshape(1, 1, -1))
+                           for i in range(self.k_extra)]
+        z = zl
+        for i in range(self.k_extra):
+            z = (ag.checkpoint(lambda t, i=i: self._extra_hoisted(i, t), z)
+                 if self.checkpoint else self._extra_hoisted(i, z))
+        m, z = dev.stack(ml, z, 0, self.k_evo, ckpt=self.checkpoint)
+        return dev.dm.device_single(m), z
+
+    def _forward_traced(self, msa_np, pair_np):
+        dev = self.dev
+        m0 = torch.from_numpy(np.asarray(msa_np).copy()).float()
+        z0 = torch.from_numpy(np.asarray(pair_np).copy()).float()
+        n = z0.shape[0]
+        out = [(n, self.c_single), (n, n, z0.shape[-1])]
+        key = (tuple(m0.shape), tuple(z0.shape), self.k_extra, self.k_evo, self.checkpoint)
+        single, pair = self.wire.forward(key, [m0, z0], self._traced_body, out)
+        token = _NEXT[0]
+        _NEXT[0] += 1
+        _LIVE[token] = {"key": key, "shapes": [tuple(m0.shape), tuple(z0.shape)]}
+        return single.numpy(), pair.numpy(), np.int32(token)
+
     def _forward(self, msa_np, pair_np):
+        if self.wire is not None:
+            return self._forward_traced(msa_np, pair_np)
         dev = self.dev
         m0 = torch.from_numpy(np.asarray(msa_np).copy()).float()
         z0 = torch.from_numpy(np.asarray(pair_np).copy()).float()
@@ -81,10 +129,13 @@ class DeviceTrunk:
             raise RuntimeError(f"no live tape for token {int(token)}; a backward ran twice or "
                                "the forward was released before its gradient was taken")
         dev = self.dev
-        so, zo = entry["roots"]
-        ml, zl = entry["leaves"]
         gs = torch.from_numpy(np.asarray(g_single_np).copy()).float()
         gp = torch.from_numpy(np.asarray(g_pair_np).copy()).float()
+        if self.wire is not None:
+            g_msa, g_pair = self.wire.backward(entry["key"], [gs, gp], entry["shapes"])
+            return g_msa.numpy(), g_pair.numpy()
+        so, zo = entry["roots"]
+        ml, zl = entry["leaves"]
         dev.ag.backward([so, zo], [dev.seed(gs, so), dev.seed(gp, zo)])
         dev.sync()
         g_msa = dev.grad(ml, entry["shapes"][0])
