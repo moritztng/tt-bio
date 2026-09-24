@@ -1,0 +1,83 @@
+{
+ "why": "predict renumbers for a monomer model; sequence_gradients does not",
+ "seed0": {
+  "chains": {
+   "binder": 77,
+   "target_hPDL1": 115
+  },
+  "model_family": [
+   "monomer"
+  ],
+  "gradient_path": {
+   "n": 211,
+   "chain_lengths": [
+    96,
+    115
+   ],
+   "index_at_junction": 96,
+   "last_of_chain0": 96,
+   "first_of_chain1": 18,
+   "step": -78,
+   "abs_offset_across": 78
+  },
+  "predict_path": {
+   "n": 192,
+   "chain_lengths": [
+    77,
+    115
+   ],
+   "index_at_junction": 77,
+   "last_of_chain0": 76,
+   "first_of_chain1": 126,
+   "step": 50,
+   "abs_offset_across": 50
+  },
+  "predict_path_before_renumber": {
+   "index_at_junction": 77,
+   "last_of_chain0": 77,
+   "first_of_chain1": 18,
+   "step": -59,
+   "abs_offset_across": 59
+  }
+ },
+ "seed100": {
+  "chains": {
+   "binder": 148,
+   "target_hPDL1": 115
+  },
+  "model_family": [
+   "monomer"
+  ],
+  "gradient_path": {
+   "n": 275,
+   "chain_lengths": [
+    160,
+    115
+   ],
+   "index_at_junction": 160,
+   "last_of_chain0": 160,
+   "first_of_chain1": 18,
+   "step": -142,
+   "abs_offset_across": 142
+  },
+  "predict_path": {
+   "n": 263,
+   "chain_lengths": [
+    148,
+    115
+   ],
+   "index_at_junction": 148,
+   "last_of_chain0": 147,
+   "first_of_chain1": 197,
+   "step": 50,
+   "abs_offset_across": 50
+  },
+  "predict_path_before_renumber": {
+   "index_at_junction": 148,
+   "last_of_chain0": 148,
+   "first_of_chain1": 18,
+   "step": -130,
+   "abs_offset_across": 130
+  }
+ }
+}
