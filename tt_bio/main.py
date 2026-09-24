@@ -3319,10 +3319,9 @@ def predict(data, out_dir, cache, checkpoint, accelerator, recycling_steps, samp
             "msa_server_url": msa_server_url, "msa_pairing_strategy": msa_pairing_strategy,
             "msa_server_username": msa_server_username, "msa_server_password": msa_server_password,
             "api_key_value": api_key_value, "max_msa_seqs": max_msa_seqs,
-            # The cap the USER asked for, None when the flag was left alone. esmfold2 keeps
-            # reading max_msa_seqs (8192 is its shipped default); protenix, opendde, rf3 and
-            # the OF3 family read this one, so leaving the flag alone folds exactly the depth
-            # they folded before.
+            # The cap the USER asked for, None when the flag was left alone. esmfold2,
+            # protenix, opendde, rf3 and the OF3 family read this one, so leaving the flag alone
+            # folds the depth each model's upstream reads.
             "msa_cap": msa_cap,
             "msa_cache_only": msa_cache_only,
             "write_pae": write_pae,
