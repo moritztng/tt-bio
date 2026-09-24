@@ -32,10 +32,7 @@ import sys
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
 from power import mw_reject  # noqa: E402
 
-CELLS = [(512, 0), (512, 100), (1536, 0), (1536, 100)]
-
-
-def load(paths, side, target, engine):
+def load(paths, side, target, engine, cells_wanted):
     """Rows for the four cells, from ONE named target.
 
     The target filter is not optional and is not cosmetic. `size_1536.jsonl` also carries a
@@ -55,7 +52,7 @@ def load(paths, side, target, engine):
             if d.get("side") != side or "scrmsd" not in d:
                 continue
             key = (d.get("target_res"), d.get("crop_offset", 0))
-            if key not in CELLS:
+            if key not in cells_wanted:
                 continue
             if target not in str(d.get("target", "")):
                 rejected.append((key, f"target {d.get('target')!r}"))
@@ -84,9 +81,21 @@ def main() -> int:
     ap.add_argument("--target", default="gpb_dimer_1646",
                     help="substring every row's `target` must contain (default: the valid "
                          "target; rows from any other fixture are refused, not averaged in)")
+    # The two crops are a property of the TARGET, not of the design: 1GPB's 1646 residues
+    # admit 0 and 100, GroEL's 2096 admit 0 and 560, and a hardcoded 100 finds no GroEL cell
+    # at all rather than failing loudly.
+    ap.add_argument("--offsets", default="0,100",
+                    help="the two crop offsets, low first (default 0,100 for gpb_dimer_1646; "
+                         "GroEL's most separated legal 1536 pair is 0,560)")
+    ap.add_argument("--sizes", default="512,1536",
+                    help="the two target sizes, small first (default 512,1536)")
     args = ap.parse_args()
 
-    cells, rejected = load(args.jsonl, args.side, args.target, args.engine)
+    off0, off1 = (int(x) for x in args.offsets.split(","))
+    lo, hi = (int(x) for x in args.sizes.split(","))
+    CELLS = [(lo, off0), (lo, off1), (hi, off0), (hi, off1)]
+
+    cells, rejected = load(args.jsonl, args.side, args.target, args.engine, CELLS)
     print(f"side = {args.side}   target contains {args.target!r}   "
           f"engine == {args.engine!r}\n")
     for key, tgt in rejected:
@@ -111,27 +120,26 @@ def main() -> int:
         return 1
 
     med = {k: st.median(cells[k]["scrmsd"]) for k in CELLS}
-    size = ((med[(1536, 0)] - med[(512, 0)]) + (med[(1536, 100)] - med[(512, 100)])) / 2
-    targ = ((med[(512, 100)] - med[(512, 0)]) + (med[(1536, 100)] - med[(1536, 0)])) / 2
-    inter = (med[(1536, 100)] - med[(512, 100)]) - (med[(1536, 0)] - med[(512, 0)])
+    size = ((med[(hi, off0)] - med[(lo, off0)]) + (med[(hi, off1)] - med[(lo, off1)])) / 2
+    targ = ((med[(lo, off1)] - med[(lo, off0)]) + (med[(hi, off1)] - med[(hi, off0)])) / 2
+    inter = (med[(hi, off1)] - med[(lo, off1)]) - (med[(hi, off0)] - med[(lo, off0)])
 
-    small = [x for k in CELLS if k[0] == 512 for x in cells[k]["scrmsd"]]
-    big = [x for k in CELLS if k[0] == 1536 for x in cells[k]["scrmsd"]]
-    off0 = [x for k in CELLS if k[1] == 0 for x in cells[k]["scrmsd"]]
-    off100 = [x for k in CELLS if k[1] == 100 for x in cells[k]["scrmsd"]]
+    small = [x for k in CELLS if k[0] == lo for x in cells[k]["scrmsd"]]
+    big = [x for k in CELLS if k[0] == hi for x in cells[k]["scrmsd"]]
+    a_off0 = [x for k in CELLS if k[1] == off0 for x in cells[k]["scrmsd"]]
+    a_off1 = [x for k in CELLS if k[1] == off1 for x in cells[k]["scrmsd"]]
 
     # SIMPLE effects first. Each is a clean n=8 vs n=8 comparison holding the other factor
     # fixed, which is the only test here that a Mann-Whitney is straightforwardly valid for.
     print("\n  SIMPLE effects (the other factor held fixed, n=8 vs n=8):")
-    for lo, hi, label in ((512, 1536, "size  "), ):
-        for off in (0, 100):
-            a, b = cells[(lo, off)]["scrmsd"], cells[(hi, off)]["scrmsd"]
-            print(f"    {label} at offset {off:>3}   {med[(hi, off)] - med[(lo, off)]:+8.2f} A"
-                  f"   MW rejects: {mw_reject(a, b)}")
-    for size_ in (512, 1536):
-        a, b = cells[(size_, 0)]["scrmsd"], cells[(size_, 100)]["scrmsd"]
-        print(f"    target at {size_:>4}        "
-              f"{med[(size_, 100)] - med[(size_, 0)]:+8.2f} A   MW rejects: {mw_reject(a, b)}")
+    for off in (off0, off1):
+        a, b = cells[(lo, off)]["scrmsd"], cells[(hi, off)]["scrmsd"]
+        print(f"    size   at offset {off:>3}   {med[(hi, off)] - med[(lo, off)]:+8.2f} A"
+              f"   MW rejects: {mw_reject(a, b)}")
+    for size_ in (lo, hi):
+        a, b = cells[(size_, off0)]["scrmsd"], cells[(size_, off1)]["scrmsd"]
+        print(f"    crop   at {size_:>4}        "
+              f"{med[(size_, off1)] - med[(size_, off0)]:+8.2f} A   MW rejects: {mw_reject(a, b)}")
 
     print(f"\n  MAIN effects (mean of the two simple effects):")
     print(f"    SIZE           {size:+8.2f} A")
@@ -146,8 +154,8 @@ def main() -> int:
     print(f"\n  pooled, FOR REFERENCE ONLY -- each group is bimodal when the interaction is")
     print(f"  large, so read the simple effects above instead:")
     print(f"    size   pooled n={len(small)} vs {len(big)}   MW rejects: {mw_reject(small, big)}")
-    print(f"    target pooled n={len(off0)} vs {len(off100)}   MW rejects: "
-          f"{mw_reject(off0, off100)}")
+    print(f"    crop   pooled n={len(a_off0)} vs {len(a_off1)}   MW rejects: "
+          f"{mw_reject(a_off0, a_off1)}")
 
     print("\n  Report the larger main effect as what dominates designability, with the two")
     print("  simple effects behind it. Neither main effect means anything alone, and the")
