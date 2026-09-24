@@ -44,8 +44,11 @@
 # instrument reads the same on both sides, so the 12.33 A it reports between them is not it.
 #
 # What this does NOT establish, and neither does anything else in this row:
-#   * that TT is worse than upstream AT 1536. That needs upstream's own 1536 DESIGN, which
-#     is the qb2 out1536 run -- 11.7 h in and now past its design step into folding.
+#   * that TT is worse than upstream AT 1536. That needs upstream's own 1536 DESIGN on THIS
+#     target. The out1536 run this line used to point at was on the disconnected fixture, so
+#     it answered nothing and was killed 2026-09-24 01:1xZ to free cores
+#     (results/upstream_reference_wrong_fixture.txt). Its replacement, out1536_valid, is in
+#     its design step on qb2 against a fixture whose coord_sha matches the device's.
 #   * that the size effect is not a target effect. SETTLED, AND IT WENT THE OTHER WAY: the
 #     second target ran on 2026-09-24 and the across-target spread at a fixed 512 residues is
 #     13.04 A (4.749 vs 17.785, n=8 each, U=2 of 64), which EXCEEDS the 12.34 A gap below. The
