@@ -1,0 +1,62 @@
+EVERY DEVICE CELL IN THIS ROW, SORTED BY CHAIN COUNT
+======================================================
+
+2026-09-24 23:2xZ. A synthesis of banked cells, no new folds. Chain counts come from the CA
+censuses in `results/chain_count_confound.txt`, read off the fixtures the jobs used. Metric is
+the fraction of eight designs under BoltzGen's own 4 A permissive bar.
+
+ONE CHAIN (or one chain plus a fragment under 100 residues)
+
+    GroEL    512 / off560    B 488 + C 24      87.5 %
+    GroEL    512 / off  0    A 512             62.5 %
+    FAS      512 / off900    A 512             62.5 %
+    FAS      512 / off  0    A 512             50.0 %
+    FAS     1536 / off  0    A 1536            50.0 %
+    gpb      512 / off  0    A 512             50.0 %   (37.5 % on the other engine)
+    FAS      768 / off  0    A 768             25.0 %
+    gpb      823 / off  0    A 823             25.0 %
+    FAS     1024 / off  0    A 1024             0.0 %
+    FAS     1024 / off900    A 1024             0.0 %
+    gpb      512 / off100    A 512              0.0 %   (both engines)
+    gpb      512 / off200    A 512              0.0 %
+
+TWO OR MORE CHAINS
+
+    GroEL    768 / off  0    A 524 + B 244      0.0 %
+    GroEL    768 / off560    B 488 + C 280      0.0 %
+    GroEL   1024 / off  0    A 524 + B 500      0.0 %
+    GroEL   1024 / off560    B 488 + C 524      0.0 %
+    GroEL   1536 / off  0    A 524 + B 524 + C 488   0.0 %
+    GroEL   1536 / off560    B 488 + C 524 + D 524   0.0 %
+    gpb     1536 / off  0    A 823 + B 713      0.0 %   (three engines)
+    gpb     1536 / off100    A 723 + B 813      0.0 %   (two engines)
+    big_1831 1536            disqualified, disconnected   0.0 %
+
+**Every multi-chain cell in this row returned zero designs under the bar. Twelve of them.**
+Single-chain cells run from 0 % to 87.5 %, with eight of twelve above zero.
+
+THREE CAVEATS, AND THE FIRST IS LOAD-BEARING
+----------------------------------------------
+
+1. THE CLAIM DEPENDS ON CALLING A 24-RESIDUE FRAGMENT NOT-A-CHAIN. GroEL 512/off560 is
+   B 488 + C 24. Counted as one chain plus a stub it is the BEST cell in the row at 87.5 %;
+   counted as two chains it is a multi-chain cell at 87.5 % and the headline above is false.
+   The 100-residue threshold was chosen when the census was first written and is not derived
+   from anything. Nothing else in the row turns on it — no other cell has a fragment between
+   25 and 244 residues — but a reader is entitled to know the sentence has a dial in it.
+
+2. ON GroEL AND 1GPB, MULTI-CHAIN IS PERFECTLY CONFOUNDED WITH SIZE. Every multi-chain cell on
+   those two targets is also >= 768 residues, because their chains are ~524 and 823 long. So
+   the twelve zeros are equally consistent with "big fails". What breaks that is FAS, the only
+   target with single-chain cells above 823: it reads 0 % at 1024 on two windows and 50 % at
+   1536. Size alone does not order the single-chain column either.
+
+3. SINGLE-CHAIN IS NOT SUFFICIENT. Four single-chain cells are at 0 %, and two of them are
+   512-residue crops of 1GPB. Which window you take matters as much as how many chains, which
+   this row measured long before FAS existed: three 512 windows of one 1GPB chain read
+   4.631 / 16.021 / 17.300 A.
+
+WHAT TO SAY, THEN. Multi-chain looks sufficient for failure and single-chain is necessary but
+nowhere near sufficient. That is a weaker and more useful claim than "chain count is the
+carrier" on its own, and it is what `docs/design-throughput.md` already tells a user: crop to
+one chain if you can, keep the extent near 512, and try more than one window.
