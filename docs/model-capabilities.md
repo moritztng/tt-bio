@@ -27,6 +27,14 @@ changing the structure. That prints a warning and the fold runs.
 `boltz2` is the fallback for anything the others refuse: it takes the whole input language,
 with a template given as a structure file rather than an alignment npz.
 
+`af2ig` refuses every column for one reason: it does not read this input language. AF2-IG scores
+a binder you already designed, so its input is a designed complex -- a structure carrying the
+target chain and the binder backbone, plus the binder's sequence -- and a chain list is refused
+whole, before any of these keys is looked at. The row is here because a Boltz-2 yaml pasted at
+`--model af2ig` still has to be told what is wrong with it. See
+[`examples/af2_designed_complex.yaml`](../examples/af2_designed_complex.yaml) for the shape it
+does take.
+
 `tt-bio affinity --model nesso1` reads the same file through its own parser and is not in the
 matrix, because it returns a scalar and no coordinates. It answers `properties: affinity`,
 takes protein and ligand chains, refuses a third entity type, and warns about everything else
