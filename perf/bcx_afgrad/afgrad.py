@@ -558,8 +558,11 @@ def cmd_stack(args):
     print(json.dumps({k: blob[k] for k in ("device_repeat_max_abs_diff", "zero_seed_max_abs",
                                            "reach_across_steps", "permuted_device_grad_vs_f64")}),
           flush=True)
-    save(f"stack_n{n}_e{ke}_v{kv}{'_ckpt' if args.ckpt else ''}"
-         f"{'_controls' if args.controls_only else ''}.json", blob)
+    stem = (f"stack_n{n}_e{ke}_v{kv}{'_ckpt' if args.ckpt else ''}"
+            f"{'_controls' if args.controls_only else ''}")
+    save(stem + ".json", blob)
+    # the vectors themselves, so two arms (plain vs checkpointed) can be compared bit for bit
+    torch.save({"g_dev": g_dev, "g64": g64, "logits": logits}, OUT / (stem + ".pt"))
 
 
 # ------------------------------------------------------------------------------ reach vs K
