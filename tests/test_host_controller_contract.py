@@ -92,6 +92,17 @@ def test_a_result_settles_once_and_only_from_the_lease_holder(tmp_path, clock):
     assert store.results(run) == [{"id": "x", "status": "ok"}]
 
 
+def test_a_worker_asking_for_work_gives_back_what_it_still_held(tmp_path, clock):
+    """Its completion never arrived; without this its heartbeats renewed the job forever."""
+    store = H.ControllerStore(tmp_path / "c.sqlite3")
+    run = _run(store, "x", "y")
+    assert [j["id"] for j in store.lease({"worker": _worker("a")})["jobs"]] == ["x"]
+    assert [j["id"] for j in store.lease({"worker": _worker("a")})["jobs"]] == ["x"]
+    store.heartbeat({"worker": _worker("a")})
+    assert [j["id"] for j in store.lease({"worker": _worker("b")})["jobs"]] == ["y"]
+    assert {j["id"]: j["status"] for j in store.run_jobs(run)} == {"x": "running", "y": "running"}
+
+
 def test_a_canceled_run_is_not_reopened_by_a_completion(tmp_path, clock):
     store = H.ControllerStore(tmp_path / "c.sqlite3")
     run = _run(store, "x")

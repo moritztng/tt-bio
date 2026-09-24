@@ -204,6 +204,12 @@ class ControllerStore:
         )
 
     def lease(self, payload: dict[str, Any]) -> dict[str, Any]:
+        """Hand a worker its next jobs, all from one run.
+
+        A worker that asks for work is holding none, so any job still leased to it is
+        one it abandoned (a respawned process under the same id, a completion that
+        never arrived) and goes back in the queue now. Otherwise its heartbeats would
+        keep renewing a lease on work nobody is doing."""
         worker = payload["worker"]
         worker_id = worker["worker_id"]
         warm_model = worker.get("model")  # model this worker already has resident
@@ -212,6 +218,8 @@ class ControllerStore:
         lease_until = now + self.lease_s
         with self._lock, self._connect() as conn:
             self._upsert_worker(conn, worker, now)
+            conn.execute("UPDATE jobs SET lease_until=0 WHERE worker_id=? AND status='running'",
+                         (worker_id,))
             # Work-conserving max-min fair share across users (owners). Devices in
             # use right now, per owner:
             load: dict[str, int] = {}
@@ -309,8 +317,8 @@ class ControllerStore:
 
     def cancel_run(self, run_id: str) -> dict[str, Any]:
         """Cancel a run: stop new jobs being leased (run no longer 'running')
-        and mark its unfinished jobs canceled. Workers check this to abort the
-        work they're currently running for the run."""
+        and mark its unfinished jobs canceled. A job already on a chip runs to its
+        end, and ``complete_job`` then drops its result."""
         now = time.time()
         with self._lock, self._connect() as conn:
             conn.execute("UPDATE runs SET status='canceled', updated_at=? WHERE run_id=?", (now, run_id))
@@ -629,12 +637,15 @@ class ControllerClient:
             method=method,
             headers={"Content-Type": "application/json"},
         )
-        # GET only. Every GET here is a read, so replaying one is free; POST covers
-        # /lease, /complete and /events, where a replay would double-serve a job or
-        # duplicate a result. And only on a transient signal: a 4xx is the controller's
-        # settled answer, so retrying a missing run would just spend the backoff before
-        # giving the same reply.
-        attempts = self.read_attempts if method == "GET" else 1
+        # Every GET here is a read, so replaying one is free, and so is /complete: a
+        # result settles once, from the lease holder, and a replay of one that landed
+        # matches nothing (``complete_job``). Unretried, one dropped /complete left the
+        # job running under a worker that heartbeats on, so the run never ended. A
+        # replayed /lease would double-serve a job and a replayed /events duplicates a
+        # line, so neither is retried. And only on a transient signal: a 4xx is the
+        # controller's settled answer, so retrying a missing run would just spend the
+        # backoff before giving the same reply.
+        attempts = self.read_attempts if method == "GET" or path == "/complete" else 1
         for attempt in range(attempts):
             try:
                 with urllib.request.urlopen(req, timeout=self.timeout) as resp:
