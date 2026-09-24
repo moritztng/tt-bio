@@ -15,6 +15,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "scripts"))
 os.environ["TT_BIO_SIZE_LIMIT"] = "0"
+os.environ.setdefault("RELEASE_GATE_FOLD_TIMEOUT", "5400")  # the ladder's bound (speed/launch.sh)
 import release_gate as rg  # noqa: E402
 
 from tt_bio import runtime  # noqa: E402
