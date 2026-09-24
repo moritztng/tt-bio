@@ -2588,10 +2588,13 @@ def _tri_att_sdpa_hifi_inner(q, k, v, bias, scale: float, one_k_chunk: bool = Fa
                     TRIATT_FUSED_HIFI_STATS["served"] += 1
                     TRIATT_FUSED_HIFI_PICKS[(q_len, k_len)] = [q_chunk, k_chunk, kv_bf]
                     return o
-                # None is the kernel declining THIS call (under a tape: generic_op has no
-                # backward), not the device refusing the config. Retiring the config on it let one
-                # taped forward switch the route off for every untaped forward after it in the
-                # process, which is BindCraft 2's whole loop (perf/bcx_forward/latch_*.json).
+                # Under a tape None is the kernel declining THIS call (generic_op has no
+                # backward), not the config failing. Retiring it there let one taped forward
+                # switch the route off for every untaped forward after it in the process, which is
+                # BindCraft 2's whole loop (perf/bcx_forward/latch_*.json). Untaped, a decline
+                # retires the config exactly as before.
+                if not ops.taping():
+                    _TRIATT_HIFI_OVER_L1.add(cfg)
     TRIATT_FUSED_HIFI_STATS["declined"] += 1
     return None
 
