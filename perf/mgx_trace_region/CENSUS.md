@@ -27,8 +27,8 @@ The table's unit is NOT bytes per bank. ttnn carves `trace_region_size` off ever
 A 2 MiB region, the per-bank reading doubled, refused boltz2's step: "Creating trace buffers of
 size 7929856B on MeshDevice 3, but only 2097152B is allocated for trace region", a total that
 lands as 663552 B on each of 12 banks. So `TRACE_REGIONS` is the largest reading x banks, doubled,
-rounded up to a MiB (WH / BH): diffusion 16 / 27 MiB, protenix 20 / 36, esmc 221 / 126,
-rfd3 7 / 10. What the chip loses is that figure on every bank, e.g. 192 MiB of a Wormhole chip
+rounded up to a MiB (WH / BH): diffusion 16 / 27 MiB, protenix 20 / 36, esmc 221 / 126.
+RFD3 has no entry: both its traces are withdrawn (below). What the chip loses is that figure on every bank, e.g. 192 MiB of a Wormhole chip
 for the diffusion trace, against 3 GiB at the old 256 MiB.
 
 ## What happens at the edges
@@ -46,3 +46,16 @@ for the diffusion trace, against 3 GiB at the old 256 MiB.
 - Region displacing the model: rfd3 at 1280 residues (`inputs/rfd3_1280.json`) with
   `RFD3_TRACE_DECODER=1` ran out of DRAM (`bank_manager.cpp:439`) before any capture under the
   old 256 MiB region, which takes 3 GiB of a 12 GiB Wormhole chip.
+- Region changing the model: tt-bio scales budgets from the DRAM it sees at open
+  (`_dram_total_bytes`), so the 256 MiB region changed boltz2's configuration. boltz2 at 1536
+  tokens with `--diffusion_trace` came out 19.6 A CA-RMSD from eager, deterministically
+  (d7fd4b7b on cards 31 and 30, eager ef880d1e on cards 30 and 5). At a 16 MiB region the traced
+  fold is ef880d1e, bit-identical to eager (`~/wt-mgx-trace-region-after` runs.jsonl on whglx).
+
+## RFD3 decoder trace, withdrawn
+
+`RFD3_TRACE_DECODER=1` was 12.3% slower than eager (p32), OOMed at 1280 residues where eager runs
+to 1536, and computed something different: it kept the host pair gather the eager path had
+replaced with a device gather. Eager 7ab57052 in 3 of 3 runs, trace 23666f4c in 3 of 3, 8.9 A
+CA-RMSD between them on the 120-residue binder. The flag now refuses by name like
+`RFD3_TRACE_ENCODER`, and the RFD3 trace code is gone.
