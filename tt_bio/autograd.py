@@ -32,11 +32,11 @@ import ttnn
 from tt_bio.envflags import env_flag
 
 __all__ = [
-    "Tensor", "precise_config", "softmax_bw_inner", "no_grad", "parameter",
+    "Tensor", "precise_config", "bmm_program_config", "softmax_bw_inner", "no_grad", "parameter",
     "forget_parameters", "parameter_for",
     "release_pins",
     "linear", "matmul", "layer_norm", "softmax", "mul", "add", "scale", "sigmoid",
-    "relu", "silu", "reshape",
+    "relu", "silu", "reshape", "split_heads", "merge_heads",
     "triangle_attention", "permute", "pair_contract", "checkpoint",
     "install", "uninstall", "installed", "is_grad_enabled", "backward", "tape",
 ]
@@ -581,6 +581,57 @@ def _via2d(x, fn, kw=None):
     return ttnn.reshape(y, s[:-1] + [int(y.shape[-1])])
 
 
+# `triangle_attention` issues its six batched products with `bmm_program_config`. A module
+# attribute rather than an argument because it exists for one reason, the same-process A/B that
+# prices it (`perf/bcx_triatt/block_ab.py`); nothing else sets it.
+TRIATT_BMM_CONFIG = True
+
+# The largest output matrix `bmm_program_config` gives one core-block: 64 tiles is 256 KB of fp32
+# partials. `triangle_attention` narrows its query chunk so a score block fits under it.
+BMM_OUT_TILES = 64
+
+
+def bmm_program_config(a, b, transpose_a: bool = False, transpose_b: bool = False):
+    """An explicit program config for a batched ``op(a) @ op(b)``, or None to keep ttnn's plan.
+
+    With a real batch axis on both operands and no program config, ttnn's matmul plans a
+    kernel that runs the triangle-attention products at 0.66-1.9 TFLOP/s on Blackhole: PV
+    ``[128,4,128,256] x [128,4,256,32]`` took 1627 us, 6.5 % of its byte roof. The batched
+    reuse kernel with one whole output matrix per core-block does the same product in 104 us
+    at the same HiFi4 config and sits closer to float64 (`perf/bcx_triatt/mm_probe2_n256.json`).
+    A rank-3 view changes nothing and the default fidelity only 3 %, so the plan was the gap.
+
+    ONLY the region that was proven. The reuse kernel requires ``per_core_N == N``, and with
+    ``per_core_M < M`` -- one batch's output split over two M blocks -- it returned a few
+    non-finite elements and non-reproducible finite ones inside a real block, from finite
+    inputs, while never failing in isolation (`perf/bcx_triatt/HAZARD.md`). So the whole
+    output matrix goes to one block, at most `BMM_OUT_TILES`; the contraction runs in K blocks
+    of up to 8 tiles. Both operands batched with equal batch dims and every matmul dim a whole
+    number of tiles. Anything else returns None and ttnn plans it as before.
+    """
+    sa = [int(d) for d in a.shape]
+    sb = [int(d) for d in b.shape]
+    if len(sa) < 3 or len(sa) != len(sb) or sa[:-2] != sb[:-2]:
+        return None
+    M, K = (sa[-1], sa[-2]) if transpose_a else (sa[-2], sa[-1])
+    N = sb[-2] if transpose_b else sb[-1]
+    if M % 32 or N % 32 or K % 32:
+        return None
+    Mt, Nt, Kt = M // 32, N // 32, K // 32
+    if Mt * Nt > BMM_OUT_TILES:
+        return None
+
+    def largest_divisor(n, cap):
+        return max(d for d in range(1, min(n, cap) + 1) if n % d == 0)
+
+    # The dest register holds 4 fp32 tiles, which bounds the subblock.
+    sw = largest_divisor(Nt, 4)
+    sh = largest_divisor(Mt, max(1, 4 // sw))
+    return ttnn.MatmulMultiCoreReuseProgramConfig(
+        compute_with_storage_grid_size=a.device().compute_with_storage_grid_size(),
+        in0_block_w=largest_divisor(Kt, 8), out_subblock_h=sh, out_subblock_w=sw,
+        per_core_M=Mt, per_core_N=Nt)
+
 def _reduce_to(g, shape):
     """A broadcast operand's gradient: the output's, summed over the axes it was spread along.
 
@@ -933,6 +984,61 @@ def reshape(x: Tensor, shape: Sequence[int]) -> Tensor:
     return _tape(out_v, [x], make)
 
 
+def _split_heads_v(x, heads):
+    """``[B, S, H*d] -> [B, H, S, d]`` on a raw tensor. See `split_heads`."""
+    B, S, C = (int(d) for d in x.shape)
+    d = C // heads
+    if d % 32:
+        return ttnn.permute(ttnn.reshape(x, [B, S, heads, d]), (0, 2, 1, 3))
+    return ttnn.concat([ttnn.reshape(ttnn.slice(x, [0, 0, h * d], [B, S, (h + 1) * d]),
+                                     [B, 1, S, d]) for h in range(heads)], dim=1)
+
+
+def _merge_heads_v(x):
+    """``[B, H, S, d] -> [B, S, H*d]`` on a raw tensor. See `merge_heads`."""
+    B, H, S, d = (int(e) for e in x.shape)
+    if d % 32:
+        return ttnn.reshape(ttnn.permute(x, (0, 2, 1, 3)), [B, S, H * d])
+    return ttnn.reshape(ttnn.experimental.nlp_concat_heads(x, memory_config=ttnn.DRAM_MEMORY_CONFIG),
+                        [B, S, H * d])
+
+
+def split_heads(x: Tensor, heads: int) -> Tensor:
+    """``[B, S, H*d] -> [B, H, S, d]``, the attention head split. The backward is `merge_heads`.
+
+    ``permute(reshape(x, [B, S, H, d]), (0, 2, 1, 3))`` is the same rearrangement and in tile
+    layout it moves 8x the bytes, because the H axis becomes a tile row and 4 heads pad to 32.
+    Slicing the channel axis into H tile-aligned strips and concatenating them on a new head
+    axis moves each tile once: 275 us against 2576 us at [256, 256, 128] with 4 heads
+    (`perf/bcx_triatt/heads_probe_n256.json`, qb1 p150a, 1350 MHz). A pure rearrangement, so
+    bit-exact either way; a head width that is not whole tiles keeps the reshape.
+    """
+    out_v = _split_heads_v(x.value, heads)
+
+    def make():
+        def bw(g):
+            x.add_grad(_merge_heads_v(g))
+        return bw
+
+    return _tape(out_v, [x], make)
+
+
+def merge_heads(x: Tensor) -> Tensor:
+    """``[B, H, S, d] -> [B, S, H*d]``, the inverse of `split_heads`, on ``nlp_concat_heads``.
+
+    90 us against 2208 us for ``permute`` + ``reshape`` at the same shape, bit-exact.
+    """
+    heads = int(x.value.shape[1])
+    out_v = _merge_heads_v(x.value)
+
+    def make():
+        def bw(g):
+            x.add_grad(_split_heads_v(g, heads))
+        return bw
+
+    return _tape(out_v, [x], make)
+
+
 def triangle_attention(q: Tensor, k: Tensor, v: Tensor, bias: Optional[Tensor] = None,
                        *, scale: Optional[float] = None, chunk: Optional[int] = None,
                        q_chunk: Optional[int] = None, config=None, value=None) -> Tensor:
@@ -966,6 +1072,12 @@ def triangle_attention(q: Tensor, k: Tensor, v: Tensor, bias: Optional[Tensor] =
     here, which is how the production forward and this backward end up in one node.
     """
     cfg = config or precise_config()
+
+    def mm(a, b, ta=False, tb=False):
+        pc = bmm_program_config(a, b, ta, tb) if TRIATT_BMM_CONFIG else None
+        return ttnn.matmul(a, b, transpose_a=ta, transpose_b=tb, compute_kernel_config=cfg,
+                           program_config=pc)
+
     qs = [int(d) for d in q.value.shape]
     ks = [int(d) for d in k.value.shape]
     if len(qs) != 4 or len(ks) != 4:
@@ -982,10 +1094,14 @@ def triangle_attention(q: Tensor, k: Tensor, v: Tensor, bias: Optional[Tensor] =
     bias_bcast = bias is None or int(bias.value.shape[0]) == 1
     cB = B if chunk is None else min(int(chunk), B)
     cQ = n_q if q_chunk is None else min(int(q_chunk), n_q)
+    if TRIATT_BMM_CONFIG and n_k % 32 == 0:
+        # A score block wider than one core-block leaves the fast plan; more query chunks do
+        # not change the gradient, which the chunk invariance below already relies on.
+        cQ = min(cQ, max(32, BMM_OUT_TILES // (n_k // 32) * 32))
 
     def _scores(qb, b0, b1, i0, i1):
         """Recompute one score block and its softmax. The only place the scores exist."""
-        s = ttnn.matmul(qb, k.value[b0:b1], transpose_b=True, compute_kernel_config=cfg)
+        s = mm(qb, k.value[b0:b1], tb=True)
         s = ttnn.multiply(s, scale)
         if bias is not None:
             # bias is [1, H, n_q, n_k] and broadcasts over the leading axis, so the row
@@ -1000,7 +1116,7 @@ def triangle_attention(q: Tensor, k: Tensor, v: Tensor, bias: Optional[Tensor] =
         for i0 in range(0, n_q, cQ):
             i1 = min(i0 + cQ, n_q)
             p = _scores(q.value[b0:b1, :, i0:i1, :], b0, b1, i0, i1)
-            row_blocks.append(ttnn.matmul(p, v.value[b0:b1], compute_kernel_config=cfg))
+            row_blocks.append(mm(p, v.value[b0:b1]))
             ttnn.deallocate(p)
         out_blocks.append(row_blocks[0] if len(row_blocks) == 1
                           else ttnn.concat(row_blocks, dim=2))
@@ -1026,11 +1142,10 @@ def triangle_attention(q: Tensor, k: Tensor, v: Tensor, bias: Optional[Tensor] =
                     p = _scores(q.value[b0:b1, :, i0:i1, :], b0, b1, i0, i1)
                     go = g[b0:b1, :, i0:i1, :]
                     # dV = P^T @ dO, summed over the query chunks that share these keys.
-                    dv_part = ttnn.matmul(p, go, transpose_a=True, compute_kernel_config=cfg)
+                    dv_part = mm(p, go, ta=True)
                     dv_acc = dv_part if dv_acc is None else ttnn.add(dv_acc, dv_part)
                     # dS = P * (dP - rowsum(dP * P)), the softmax backward on the block.
-                    dp = ttnn.matmul(go, v.value[b0:b1], transpose_b=True,
-                                     compute_kernel_config=cfg)
+                    dp = mm(go, v.value[b0:b1], tb=True)
                     inner = softmax_bw_inner(p, dp, dim=-1, config=cfg)
                     ds = ttnn.multiply(p, ttnn.subtract(dp, inner))
                     ttnn.deallocate(p)
@@ -1042,11 +1157,8 @@ def triangle_attention(q: Tensor, k: Tensor, v: Tensor, bias: Optional[Tensor] =
                         # unrelated permute backward.
                         dbias_acc.append(ttnn.sum(ds, dim=0, keepdim=True)
                                          if bias_bcast else ttnn.clone(ds))
-                    dq_rows.append(ttnn.multiply(
-                        ttnn.matmul(ds, k.value[b0:b1], compute_kernel_config=cfg), scale))
-                    dk_part = ttnn.multiply(
-                        ttnn.matmul(ds, q.value[b0:b1, :, i0:i1, :], transpose_a=True,
-                                    compute_kernel_config=cfg), scale)
+                    dq_rows.append(ttnn.multiply(mm(ds, k.value[b0:b1]), scale))
+                    dk_part = ttnn.multiply(mm(ds, q.value[b0:b1, :, i0:i1, :], ta=True), scale)
                     dk_acc = dk_part if dk_acc is None else ttnn.add(dk_acc, dk_part)
                     ttnn.deallocate(ds)
                 dq_blocks.append(dq_rows[0] if len(dq_rows) == 1

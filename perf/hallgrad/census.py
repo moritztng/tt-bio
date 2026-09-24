@@ -329,6 +329,9 @@ def main():
     ap.add_argument("--replay", type=int, default=5)
     ap.add_argument("--chunk", type=int, default=128)
     ap.add_argument("--seed", type=int, default=5)
+    ap.add_argument("--heads-path", choices=("verbs", "reshape"), default="verbs",
+                    help="reshape reproduces the census arm of 2026-09-24 (see e2e_distogram)")
+    ap.add_argument("--triatt-bmm", choices=("on", "off"), default="on")
     args = ap.parse_args()
 
     import ttnn
@@ -338,7 +341,7 @@ def main():
     device = tt.get_device()
     clocks = ClockTrace(period=1.0).start()
     blob = {"argv": " ".join(sys.argv), "stamp_start": stamp(), "n": args.n, "replay": args.replay,
-            "chunk": args.chunk, "c_z": C_Z, "heads": HEADS, "head_dim": HEAD_DIM,
+            "chunk": args.chunk, "heads_path": args.heads_path, "triatt_bmm": args.triatt_bmm, "c_z": C_Z, "heads": HEADS, "head_dim": HEAD_DIM,
             "block_transition": True, "checkpoint": False}
 
     def flush():
@@ -363,8 +366,9 @@ def main():
                                             dtype=ttnn.bfloat16, layout=ttnn.TILE_LAYOUT, device=device))
                for k, v in Wnp.items()}
         cfg = dict(heads=HEADS, head_dim=HEAD_DIM, hidden=C_Z, chunk=args.chunk, checkpoint=False,
-                   blocks=K, block_transition=True)
+                   blocks=K, block_transition=True, split_verbs=args.heads_path == "verbs")
         arms[K] = (Wtt, cfg)
+    ag.TRIATT_BMM_CONFIG = args.triatt_bmm == "on"
 
     step = lambda K, rec=None: one_step(ag, ttnn, device, *arms[K], logits, mask_t, M, inC, rec)
 
