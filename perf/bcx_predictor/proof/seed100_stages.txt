@@ -1,5 +1,9 @@
+campaign pdl1
+results runs/proof_seed100 | 3_Ranked/!_Ranked.csv rewritten as each design is accepted | summary.csv written when the campaign ends
 === trajectory 1 | pdl1_denovo_l71_c019673d64134f64 | accepted 0/10 ===
   passed screen design stage  i_pTM=0.77    pLDDT=0.69  
   passed refine design stage  i_pTM=0.71    pLDDT=0.64  
   passed anneal design stage  i_pTM=0.73    pLDDT=0.66  
   rejected at harden design stage  i_pTM=0.74    pLDDT=0.64   due to [pLDDT]
+campaign stopped: 1 trajectories ran and none were accepted, so the settings rather than the budget are what to change
+campaign done: 0 accepted design(s) after 1 trajectory, ranked by i_pDAE
