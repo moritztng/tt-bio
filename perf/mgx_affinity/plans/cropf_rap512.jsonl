@@ -1,0 +1,3 @@
+# Nesso-1 512 + RAP: device and CPU crops share 247-248 of 256 tokens and seed 1 reads 0.119 vs 0.399, so score each CPU crop on device at its own seed.
+{"tag": "cropf_512_rap_cpucrop", "surface": "script", "input": "perf/mgx_affinity/crop_probe.py", "args": ["perf/mgx_affinity/inputs/size/cdk2_512_rap.yaml", "perf/mgx_affinity/results/crop/cdk2_512_rap_devcpucrop.json", "--force", "perf/mgx_affinity/results/crop/cdk2_512_rap_cpu.json"]}
+{"tag": "cropf_512_rap_cpucrop_s1", "surface": "script", "input": "perf/mgx_affinity/crop_probe.py", "args": ["perf/mgx_affinity/inputs/size/cdk2_512_rap.yaml", "perf/mgx_affinity/results/crop/cdk2_512_rap_devcpucrop_s1.json", "--seed", "1", "--force", "perf/mgx_affinity/results/crop/cdk2_512_rap_cpu_s1.json"]}
