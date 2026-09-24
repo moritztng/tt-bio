@@ -1,0 +1,4 @@
+b2_512_n5_tr_m1 predict perf/size512/fixtures/cdk2x2_512.yaml --model boltz2 --out_dir {out} --diffusion_samples 5 --seed 0 --host_threads 2 --accelerator tenstorrent --override --diffusion_trace
+b2_512_n5_ea_m1 predict perf/size512/fixtures/cdk2x2_512.yaml --model boltz2 --out_dir {out} --diffusion_samples 5 --seed 0 --host_threads 2 --accelerator tenstorrent --override
+b2_512_n5_tr_m2 predict perf/size512/fixtures/cdk2x2_512.yaml --model boltz2 --out_dir {out} --diffusion_samples 5 --seed 0 --host_threads 2 --accelerator tenstorrent --override --diffusion_trace
+b2_512_n5_ea_m2 predict perf/size512/fixtures/cdk2x2_512.yaml --model boltz2 --out_dir {out} --diffusion_samples 5 --seed 0 --host_threads 2 --accelerator tenstorrent --override

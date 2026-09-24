@@ -1,0 +1,9 @@
+{"t": 0.0, "step": "start", "region": 268435456, "arch": "blackhole"}
+{"t": 0.01, "step": "leased"}
+{"t": 0.4, "step": "opened", "dram": {"num_banks": 8, "total_bytes_per_bank": 4009754560, "total_bytes_allocated_per_bank": 0, "total_bytes_free_per_bank": 4009754560, "largest_contiguous_bytes_free_per_bank": 4009754560}, "trace": {"num_banks": 8, "total_bytes_per_bank": 268435456, "total_bytes_allocated_per_bank": 0, "total_bytes_free_per_bank": 268435456, "largest_contiguous_bytes_free_per_bank": 268435456}}
+{"t": 0.4, "step": "from_torch"}
+{"t": 1.13, "step": "add_enqueued"}
+{"t": 1.13, "step": "synchronized"}
+{"t": 1.13, "step": "captured", "trace": {"num_banks": 8, "total_bytes_per_bank": 268435456, "total_bytes_allocated_per_bank": 3072, "total_bytes_free_per_bank": 268432384, "largest_contiguous_bytes_free_per_bank": 268432384}}
+{"t": 1.13, "step": "replayed"}
+{"t": 1.27, "step": "closed"}

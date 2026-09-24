@@ -155,7 +155,7 @@ def build(ttnn, T, B, size, recycles):
     B.RECYCLING_STEPS = recycles
     B.SAMPLING_STEPS = 200
     patch_cfg()
-    T.get_device(trace_region_size=512 << 20)
+    T.get_device(trace="diffusion")
     fix = ROOT / "perf" / "size512" / "fixtures"
     one_fold, meta, _state = B.build_fold(
         "boltz2", HERE / f".msa_{size}", fix / f"cdk2x2_{size}.yaml", fix / f"cdk2x2_{size}.a3m")

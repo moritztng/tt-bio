@@ -1,0 +1,4 @@
+# is rfd3 eager deterministic run to run, and the decoder trace?
+rfd3_eager_r2 design examples/rfd3_binder.json --model rfd3 --from_pdb --num_designs 1 --seed 0 --num_timesteps 20 --out_dir {out}
+rfd3_dec_r2 RFD3_TRACE_DECODER=1 design examples/rfd3_binder.json --model rfd3 --from_pdb --num_designs 1 --seed 0 --num_timesteps 20 --out_dir {out}
+rfd3_eager_r3 design examples/rfd3_binder.json --model rfd3 --from_pdb --num_designs 1 --seed 0 --num_timesteps 20 --out_dir {out}

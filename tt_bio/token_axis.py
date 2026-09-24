@@ -216,8 +216,7 @@ TOKEN_AXIS = {
         "tt_bio/rfd3/tiles.py::TILE, reached through tt_bio/rfd3/tiles.py::align_tile and "
         "tt_bio/rfd3/tiles.py::pad_axis. Applied on the TOKEN axis in "
         "tt_bio/rfd3/model.py::PairformerAttention.__call__, and on the ATOM axis in "
-        "tt_bio/rfd3/model.py::RFD3AtomBlock.__call__ and "
-        "tt_bio/rfd3/model.py::CompactStreamingDecoder._capture_sparse_trace; the bias "
+        "tt_bio/rfd3/model.py::RFD3AtomBlock.__call__; the bias "
         "templates it pads are tt_bio/rfd3/model.py::_mask_template, "
         "tt_bio/rfd3/model.py::_zero_template and tt_bio/rfd3/model.py::_sparse_qk_inputs",
         "every TOKEN-axis reduce runs on a tile multiple: censused 0 ragged / 6 aligned and "

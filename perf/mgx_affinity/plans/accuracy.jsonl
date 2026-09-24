@@ -1,0 +1,2 @@
+{"tag": "b_512_small_s1", "surface": "boltz2", "input": "perf/mgx_affinity/inputs/size/cdk2_512_small.yaml", "args": ["--seed", "1"]}
+{"tag": "b_512_small_s2", "surface": "boltz2", "input": "perf/mgx_affinity/inputs/size/cdk2_512_small.yaml", "args": ["--seed", "2"]}

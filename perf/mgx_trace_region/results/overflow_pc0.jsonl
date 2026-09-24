@@ -1,0 +1,9 @@
+{"t": 0.0, "step": "start", "region": 4096, "arch": "blackhole"}
+{"t": 0.0, "step": "leased"}
+{"t": 0.31, "step": "opened", "dram": {"num_banks": 8, "total_bytes_per_bank": 4278185920, "total_bytes_allocated_per_bank": 0, "total_bytes_free_per_bank": 4278185920, "largest_contiguous_bytes_free_per_bank": 4278185920}, "trace": {"num_banks": 8, "total_bytes_per_bank": 4096, "total_bytes_allocated_per_bank": 0, "total_bytes_free_per_bank": 4096, "largest_contiguous_bytes_free_per_bank": 4096}}
+{"t": 0.31, "step": "from_torch"}
+{"t": 0.33, "step": "add_enqueued"}
+{"t": 0.33, "step": "synchronized"}
+{"t": 0.34, "step": "capture_raised", "error": "TT_FATAL @ /project/tt_metal/distributed/mesh_trace.cpp:182: mesh_cq.device()->get_trace_buffers_size() <= trace_region_size"}
+{"t": 0.34, "step": "eager_after_raise_ok", "value": 0.0}
+{"t": 0.44, "step": "closed"}
