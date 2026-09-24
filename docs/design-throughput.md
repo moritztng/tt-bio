@@ -101,8 +101,9 @@ Three 512-residue windows of the same chain, 100 residues apart, eight designs e
 
 Two of the three sit at 16-17 A and returned nothing usable; the good one is the outlier.
 
-**Crop to 512 residues or so. Above that, designability falls away.** The same two windows
-taken out to 1536 residues, eight designs per cell:
+**Crop to 512 residues or so, and to a single chain if your target has several.** Above that,
+designability falls away. The same two windows taken out to 1536 residues, eight designs per
+cell:
 
 | | 512 residues | 1024 residues | 1536 residues |
 |---|---|---|---|
