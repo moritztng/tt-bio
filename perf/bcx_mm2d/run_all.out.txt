@@ -1,0 +1,52 @@
+benchlock: WARNING after 240s load=23.96 foreign_folds=2 [52:33 main.py, 04:06 bcx-afgrad]. Proceeding, RECORD THIS.
+benchlock: a co-tenanted arm measured 0.84 % slow once; treat this run as suspect.
+benchlock: bcx-mm2d acquired after 249s, loadavg 24.20 16.32 13.11
+Traceback (most recent call last):
+  File "/home/ttuser/.coworker/wt/bcx-mm2d/perf/bcx_mm2d/probe.py", line 130, in <module>
+    main()
+  File "/home/ttuser/.coworker/wt/bcx-mm2d/perf/bcx_mm2d/probe.py", line 114, in main
+    f"relL2 {rec['rel_l2_vs_f64_rank3']:.3e}/{rec['rel_l2_vs_f64_view2d']:.3e} "
+             ~~~^^^^^^^^^^^^^^^^^^^^^^^
+KeyError: 'rel_l2_vs_f64_rank3'
+# warm-up
+# 20 rounds, arm order and K order alternating
+  base  b 0.22912 s (fwd 0.08340 [0.07088,0.09243] + bwd 0.14573 [0.13477,0.15352])  step-paired median 0.22183 p10 0.13647 p90 0.30100
+  mm2d  b 0.18896 s (fwd 0.06495 [0.05808,0.08184] + bwd 0.12402 [0.11886,0.13466])  step-paired median 0.22737 p10 0.07933 p90 0.26985
+  AICLK {'min': 1337, 'max': 1350, 'median': 1350, 'samples': 20, 'attributable': True}
+  b speedup 1.213x
+# exactness, every taped value and every gradient
+  K=1: fwd 105/105 values, 95 differ; bwd 129/129 grads, 129 differ; logits identical False, logit grad identical False
+  K=2: fwd 199/199 values, 189 differ; bwd 246/246 grads, 246 differ; logits identical False, logit grad identical False
+# float64 reference, K=1 and K=2
+  K=1 base  logits rel_l2 7.9835e-03 max_abs 4.4113e-02 | logit grad rel_l2 6.8630e-03 cos 0.9999772
+  K=1 mm2d  logits rel_l2 7.9824e-03 max_abs 4.3466e-02 | logit grad rel_l2 6.6774e-03 cos 0.9999781
+  K=2 base  logits rel_l2 9.3548e-03 max_abs 5.7044e-02 | logit grad rel_l2 1.0426e-02 cos 0.9999569
+  K=2 mm2d  logits rel_l2 9.3339e-03 max_abs 5.3449e-02 | logit grad rel_l2 9.8029e-03 cos 0.9999607
+# wrote perf/bcx_mm2d/ab_n256.json
+# warm-up
+# 10 interleaved K=1/K=2 pairs
+  b median 0.26727 s  mean 0.25085  p10 0.17054  p90 0.30366  | AICLK {'min': 1350, 'max': 1350, 'median': 1350, 'samples': 5, 'attributable': True}
+# instrumented steps
+  K=1: 849 outermost ttnn calls, instrumented step 2.03 s | AICLK {'min': 1350, 'max': 1350, 'median': 1350, 'samples': 1, 'attributable': True}
+  K=2: 1650 outermost ttnn calls, instrumented step 3.34 s | AICLK {'min': 1350, 'max': 1350, 'median': 1350, 'samples': 2, 'attributable': True}
+# roofs
+  roof matmul_default_65536x128x128               0.1162 ms    18.48 TFLOP/s
+  roof matmul_hifi4_65536x128x128                 0.1186 ms    18.11 TFLOP/s
+  roof matmul_hifi4_4096cube                      1.4417 ms    95.33 TFLOP/s
+  roof matmul_default_4096cube                    0.8660 ms   158.71 TFLOP/s
+  roof matmul_hifi4_trimul_128x256x256x256        0.8159 ms     5.26 TFLOP/s
+  roof clone_pair                                 0.0890 ms    376.9 GB/s
+  roof add_pair                                   0.1169 ms    430.4 GB/s
+  roof multiply_pair                              0.1176 ms    427.9 GB/s
+  roof sigmoid_pair                               0.1149 ms    292.1 GB/s
+  roof permute_pair_201                           0.4056 ms     82.7 GB/s
+  roof permute_pair_102                           0.4291 ms     78.2 GB/s
+  roof layer_norm_pair                            0.1322 ms    253.9 GB/s
+  roof softmax_scores_128x4x128x256               0.3524 ms    190.5 GB/s
+  roof sum_pair_dim0                              0.0451 ms    371.8 GB/s
+  roof clone_4096sq                               0.1922 ms    349.2 GB/s
+  roof add_4096sq                                 0.2505 ms    401.9 GB/s
+  roofs AICLK {'min': 1350, 'max': 1350, 'median': 1350, 'samples': 1, 'attributable': True}
+  b after: median 0.30502 s | AICLK {'min': 1337, 'max': 1350, 'median': 1350, 'samples': 3, 'attributable': True}
+# wrote perf/bcx_mm2d/census_n256_after.json
+benchlock: bcx-mm2d released, rc=0, loadavg 51.36 36.01 22.38
