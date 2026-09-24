@@ -1,3 +1,4 @@
+2026-09-24 21:10:31.226 | critical |          Always | TT_THROW: Statically allocated circular buffers in program 129 clash with L1 buffers on core range [(x=0,y=0) - (x=10,y=9)]. L1 buffer allocated at 1138688 and static circular buffer region ends at 1176064 (assert.hpp:104)
 {
  "mode": "af2ig_taps",
  "stage": "complex",
