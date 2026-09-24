@@ -1885,6 +1885,29 @@ def gen(args):
     _run_boltzgen_cli("tt-bio gen", args)
 
 
+@cli.command("score")
+@click.argument("structure", type=click.Path(exists=True, dir_okay=False))
+@click.argument("pae", type=click.Path(exists=True, dir_okay=False))
+@click.option("--plddt", type=click.Path(exists=True, dir_okay=False), default=None,
+              help="pLDDT .npz (key plddt, 0-1). Without it pDockQ and pDockQ2 sit at their floor, "
+                   "as in the reference script.")
+@click.option("--confidence", type=click.Path(exists=True, dir_okay=False), default=None,
+              help="Confidence JSON with pair_chains_iptm, for the model's own chain-pair ipTM.")
+@click.option("--pae_cutoff", default=None, type=float, help="Default: 15, the Nipah competition's.")
+@click.option("--dist_cutoff", default=None, type=float, help="Default: 15, the Nipah competition's.")
+def score(structure, pae, plddt, confidence, pae_cutoff, dist_cutoff):
+    """Interface scores of an existing fold: ipSAE, ipTM, pDockQ2, interface pAE.
+
+    Reads an mmCIF and its PAE .npz from tt-bio or from upstream Boltz, needs no device, and
+    prints JSON. The definitions are those of Adaptyv's Nipah competition pipeline; see
+    docs/interface-scores.md."""
+    from tt_bio import interface_scores as isc
+    out = isc.score_files(structure, pae, plddt, confidence,
+                          isc.PAE_CUTOFF if pae_cutoff is None else pae_cutoff,
+                          isc.DIST_CUTOFF if dist_cutoff is None else dist_cutoff)
+    click.echo(json.dumps(out, indent=2))
+
+
 @cli.command("install-deps")
 def install_deps():
     """Install system dependencies that match the installed ttnn wheel."""

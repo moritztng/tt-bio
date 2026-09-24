@@ -176,3 +176,17 @@ def test_distribution_keeps_every_sample_and_reports_its_spread(tmp_path):
     assert got["min"] == min(vals) and got["max"] == max(vals)
     assert "iptm" not in dist["pairs"]["A-B"]           # no model ipTM given: absent, not zero
     assert isc.distribution(samples[:1])["pairs"]["A-B"]["ipsae"]["sd"] is None
+
+
+def test_score_command_prints_the_same_scores(tmp_path):
+    click = pytest.importorskip("click.testing")
+    try:
+        from tt_bio.main import cli
+    except Exception as e:                      # the CLI module needs the full engine stack
+        pytest.skip(f"tt_bio.main not importable here: {e}")
+    d = _case(tmp_path, 21, (30, 25))
+    r = click.CliRunner().invoke(cli, ["score", str(d / "m_model_0.cif"), str(d / "pae_m_model_0.npz"),
+                                       "--plddt", str(d / "plddt_m_model_0.npz")])
+    assert r.exit_code == 0, r.output
+    want = isc.score_files(d / "m_model_0.cif", d / "pae_m_model_0.npz", d / "plddt_m_model_0.npz")
+    assert json.loads(r.output)["pairs"] == want["pairs"]
