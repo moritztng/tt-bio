@@ -1,0 +1,53 @@
+# THE ACROSS-TARGET FLOOR AT A FIXED SIZE IS 13.0 A, WHICH IS LARGER THAN THE SIZE EFFECT.
+#
+# Two 512-residue crops of the SAME protein, differing only by a 100-residue offset along its
+# own sequence. Same designer, same engine (after-fix), same binder length, same metric, same
+# device refolder, n=8 each, both single-chain (chain A is 823 residues, so a 512 crop never
+# reaches chain B at either offset).
+#
+#   crop           n    min    median     max    <=2A  <=4A
+#   512 offset 0   8   0.693    4.749   12.925   25%   38%
+#   512 offset 100 8  12.249   17.785   28.623    0%    0%
+#
+#   median gap 13.04 A.  Mann-Whitney U = 2 of 64, rejects at 0.05.
+#   The two ranges touch only in 12.249-12.925.
+#
+# SET THAT AGAINST THE SIZE EFFECT THIS ROW HAS BEEN CHASING:
+#
+#   size   effect, offset 0, upstream refolder, n=8 per side   19.347 - 7.012 = 12.34 A
+#   target effect, FIXED size 512, device refolder, n=8 per side  17.785 - 4.749 = 13.04 A
+#
+# **Changing WHICH 512 residues you point at moves the median more than going from 512 to
+# 1536 does.** So the size claim does not clear its own across-target floor, and "1536 is
+# worse than 512" cannot be separated from "the 1536 crop is a different and harder binding
+# problem than the 512 crop" with the cells measured so far. The row's pre-registered rule was
+# that a 1536 median has to sit above the TOP of the 512 across-target band; the band is now
+# 4.75-17.79 by median and 0.69-28.62 by range, and 19.35 sits 1.6 A above the top median and
+# well inside the offset-100 range.
+#
+# This is not a retraction of a measurement -- every number above and in
+# results/size_refolder_held_constant.txt stands exactly as measured. It is a retraction of
+# the INFERENCE that the 512-to-1536 difference is about size. The previous across-target
+# floor of 2.10 A came from two targets that happened to be close; one more target shows that
+# 2.10 A was not the floor, it was a draw.
+#
+# WHAT FINISHES THIS, and it is already running: the 2x2. {offset 0, offset 100} x {512, 1536},
+# all on the after-fix engine, n=8 each.
+#
+#   offset   0  512   4.749   DONE
+#   offset 100  512  17.785   DONE (this file)
+#   offset   0 1536      ?    running, whglx card 3
+#   offset 100 1536      ?    running, whglx card 23
+#
+# With all four, size and target are separable for the first time in this row: the size effect
+# is the mean shift across the two offsets, and the target effect is the mean shift across the
+# two sizes. Until then, no size verdict should be written down.
+#
+# WHY THE OFFSET-100 CROP IS A FAIR TARGET AND NOT A BROKEN ONE. It is residues 101-612 of
+# chain A against 1-512, so it shares 412 of its 512 residues with the offset-0 crop and comes
+# from the same deposited structure. It is single-chain at both offsets, so no inter-chain
+# contact is gained or lost. The crop itself is the one whose label_seq numbering was fixed in
+# 1f6e813dc and verified against BoltzGen's own parser; offset 0 output is byte-identical
+# before and after that fix.
+#
+# Reproduce: perf/mgxaccuracy/plans/bg_floor_1536.txt, both entries, via launch_if_clear.sh.
