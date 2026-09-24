@@ -22,7 +22,7 @@ import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from tt_bio.distributed import (  # noqa: E402
+from tt_bio.host_controller import (  # noqa: E402
     ControllerClient,
     ControllerUnreachable,
     connect_controller,
@@ -51,7 +51,7 @@ def urlopen(monkeypatch):
     Sleep is stubbed out: the backoff is 1+2+4+8 s and the point under test is the
     number of attempts, not the wall-clock.
     """
-    monkeypatch.setattr("tt_bio.distributed.time.sleep", lambda _s: None)
+    monkeypatch.setattr("tt_bio.host_controller.time.sleep", lambda _s: None)
 
     class Scripted:
         def __init__(self):
@@ -107,15 +107,26 @@ def test_a_4xx_read_is_the_controllers_answer_and_is_not_retried(urlopen):
     assert urlopen.attempts == 1
 
 
-def test_a_post_is_never_replayed(urlopen):
-    """The safety half. /complete and /events(POST) are not idempotent: a replayed
-    completion double-serves a job or duplicates a result row."""
-    urlopen.install(*[_http_error(503)] * 9)
-    client = ControllerClient("http://c")
-    with pytest.raises(RuntimeError, match="controller error 503"):
-        client.complete("run1", "w0", {"id": "j0"}, {})
-    assert urlopen.attempts == 1
-    assert urlopen.methods == ["POST"]
+def test_a_non_idempotent_post_is_never_replayed(urlopen):
+    """The safety half. A replayed /lease double-serves a job and a replayed /events
+    duplicates a line."""
+    for call in (lambda c: c.lease({"worker_id": "w0"}, 1),
+                 lambda c: c.event("run1", "w0", {"event": "x"})):
+        urlopen.install(*[_http_error(503)] * 9)
+        with pytest.raises(RuntimeError, match="controller error 503"):
+            call(ControllerClient("http://c"))
+        assert urlopen.attempts == 1
+        assert urlopen.methods == ["POST"]
+
+
+def test_a_completion_is_retried_because_it_settles_once(urlopen):
+    """A dropped /complete used to strand the job: still running, its lease renewed by
+    every heartbeat of a worker that had moved on. Settlement is idempotent
+    (test_host_controller_contract), so the completion is retried like a read."""
+    urlopen.install(_http_error(503), b'{"ok": true}')
+    ControllerClient("http://c").complete("run1", "w0", {"id": "j0"}, {})
+    assert urlopen.attempts == 2
+    assert urlopen.methods == ["POST", "POST"]
 
 
 def test_every_read_method_goes_through_the_retry(urlopen):

@@ -2,8 +2,8 @@
 
 A worker process owns one accelerator slot for its entire lifetime: it loads the
 Boltz-2 model once, then pulls jobs from a scheduler over HTTP and runs them
-until cancelled. The same loop runs for local single-machine runs and for
-multi-host runs; only the scheduler URL differs.
+until cancelled. The same loop serves a `predict` run's own scheduler and a
+persistent `tt-bio controller`; only the scheduler URL differs.
 """
 
 from __future__ import annotations
@@ -26,7 +26,7 @@ from typing import Any
 import torch
 
 from tt_bio.device_lease import CONTENDED_EXIT_CODE, DeviceInUseError, install_parent_death_guard
-from tt_bio.distributed import ControllerClient, HttpProgressQueue
+from tt_bio.host_controller import HEARTBEAT_PER_LEASE, LEASE_S, ControllerClient, HttpProgressQueue
 from tt_bio.envflags import env_flag
 from tt_bio import ranking as rank
 from tt_bio.cache import EMPTY_MSA, cached, msa_pinned, seq_hash, staged
@@ -148,8 +148,8 @@ def _ensure_local_artifacts(cfg: dict[str, Any]) -> None:
     worker's own ~/.boltz/ cache. For the MSA directory we prefer the path
     the controller asked for (so single-machine and shared-filesystem runs
     keep populating <out_dir>/msa/ exactly like the legacy pipeline) and
-    only fall back to the local cache when that path is not writable on
-    this host (the no-shared-FS multi-machine case).
+    only fall back to the local cache when that path is not writable by
+    this worker (another user, container or mount namespace).
     """
     from tt_bio import weights
 
@@ -179,7 +179,7 @@ def _ensure_local_artifacts(cfg: dict[str, Any]) -> None:
         return
     # RF3: checkpoint from files.ipd.uw.edu (or $RF3_CKPT), MSA dir like the rest.
     # main.py pre-fetches in the parent before fanning out, so this is normally a
-    # cache hit; a worker joined to a remote controller fetches on its own host.
+    # cache hit; a worker serving a persistent controller fetches for itself.
     if cfg.get("model") == "rf3":
         cfg["msa_dir"] = _resolve_msa_dir(cfg.get("msa_dir"), cache)
         cfg["rf3_ckpt"] = str(weights.fetch("rf3"))
@@ -218,9 +218,8 @@ def _template_structure_dir(cache: Path) -> str:
 
 
 def _resolve_msa_dir(requested: str | None, cache: Path) -> str:
-    """Honor controller's msa_dir if it already exists and is writable on this
-    host (covers single-machine runs and shared-filesystem multi-machine
-    setups); otherwise fall back to ~/.boltz/msa/ on the worker."""
+    """Honor controller's msa_dir if it already exists and is writable by this
+    worker; otherwise fall back to ~/.boltz/msa/ on the worker."""
     if requested:
         path = Path(requested)
         if path.is_dir() and os.access(path, os.W_OK):
@@ -1955,7 +1954,7 @@ def run_worker_loop(
     # here; a dispatcher killed with SIGTERM skips its finally-block and would
     # otherwise orphan us holding the chip open indefinitely (observed: a stray
     # worker pinned /dev/tenstorrent/3 for 2h, silently blocking later runs on
-    # that card). Remote `worker --connect` processes leave the var unset.
+    # that card). Workers of a `tt-bio worker` pool leave the var unset.
     _dispatcher_pid = int(os.environ.get("TT_BIO_PARENT_PID") or 0)
     _install_orphan_guard(_dispatcher_pid)
 
@@ -1979,9 +1978,13 @@ def run_worker_loop(
     import threading
     _stop_beat = threading.Event()
 
+    # Paced to the controller's own lease, which every answer names, so a lease set
+    # with `tt-bio controller --lease-s` needs no matching change here.
+    beat_s = [LEASE_S / HEARTBEAT_PER_LEASE]
+
     def _heartbeat_loop():
         orphaned_since = None
-        while not _stop_beat.wait(8.0):
+        while not _stop_beat.wait(beat_s[0]):
             if _dispatcher_pid and os.getppid() != _dispatcher_pid:
                 # PDEATHSIG (see _install_orphan_guard) had 60 s to unwind this
                 # cleanly and did not, so we are stuck inside a call that does not
@@ -1993,7 +1996,9 @@ def run_worker_loop(
                 continue
             orphaned_since = None
             try:
-                client.heartbeat(worker_info)
+                lease_s = client.heartbeat(worker_info).get("lease_s")
+                if lease_s:
+                    beat_s[0] = float(lease_s) / HEARTBEAT_PER_LEASE
             except Exception:
                 pass
 

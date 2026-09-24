@@ -1,7 +1,7 @@
 """A fold longer than the lease must still finish, on the worker that started it.
 
 Seen on the JapanFold dev Galaxies, 2026-09-24: a 1792-residue Protenix-v2 fold
-leased to tt11 at 08:42 was leased again to tt1 at 09:12, exactly LEASE_SECONDS
+leased to tt11 at 08:42 was leased again to tt1 at 09:12, exactly the then 30-minute lease
 later, while tt11 was still in its trunk. tt11 saved its structure at 09:27 and
 `complete_job` dropped it because the lease had moved; tt1 would have been
 replaced the same way at 09:42. The heartbeat thread was pinging every 8 s the
@@ -17,7 +17,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from tt_bio import distributed as D  # noqa: E402
+from tt_bio import host_controller as D  # noqa: E402
 
 
 def _worker(wid: str) -> dict:
@@ -51,5 +51,5 @@ def test_a_silent_worker_still_loses_its_job(tmp_path, monkeypatch):
     store, run, clock = _store(tmp_path, monkeypatch)
     store.lease({"worker": _worker("tt11")})
     store.heartbeat({"worker": _worker("tt1")})   # somebody else's heartbeat renews nothing
-    clock[0] += D.LEASE_SECONDS + 1
+    clock[0] += D.LEASE_S + 1
     assert [j["id"] for j in store.lease({"worker": _worker("tt1")})["jobs"]] == ["big"]

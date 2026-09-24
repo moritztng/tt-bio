@@ -151,7 +151,8 @@ from tt_bio.data.parse import parse_a3m, parse_csv, parse_fasta, parse_yaml
 from tt_bio.data.pdb import write_atom_array
 from tt_bio.data.types import Coords, Input, Interface
 from tt_bio.data.write import to_mmcif, to_pdb
-from tt_bio.distributed import (
+from tt_bio.host_controller import (
+    LEASE_S,
     ControllerClient,
     ControllerServer,
     connect_controller,
@@ -1174,7 +1175,7 @@ def _spawn_worker_processes(controller_url: str, workers: list, debug: bool) -> 
     ctx = mp.get_context("spawn")
     _cap_worker_threads(len(workers))
     # So orphaned workers self-terminate (see run_worker_loop): spawn children
-    # inherit this, remote workers never see it.
+    # inherit this; workers of a `tt-bio worker` pool never see it.
     os.environ["TT_BIO_PARENT_PID"] = str(os.getpid())
     procs = []
     for worker in workers:
@@ -1340,31 +1341,6 @@ def _l1_census_line(text: str) -> str:
     return "\n    " + format_l1_census(census)
 
 
-def _parse_listen(listen: str | None) -> tuple[str, int]:
-    """Parse a --listen value into (host, port). Defaults are 0.0.0.0:8765."""
-    if not listen:
-        return "127.0.0.1", 0
-    listen = listen.strip()
-    if listen.isdigit():
-        return "0.0.0.0", int(listen)
-    if ":" in listen:
-        host, _, port = listen.rpartition(":")
-        return (host or "0.0.0.0"), int(port)
-    return listen, 8765
-
-
-def _public_join_url(bind_host: str, port: int) -> str:
-    """Best-effort host name to print so remote workers can connect."""
-    if bind_host not in ("0.0.0.0", "::", ""):
-        return f"http://{bind_host}:{port}"
-    try:
-        import socket
-
-        return f"http://{socket.gethostname()}:{port}"
-    except Exception:
-        return f"http://<this-host>:{port}"
-
-
 def _stream_run(client: ControllerClient, run_id: str, total: int, n_workers: int,
                 debug: bool, log: bool, results_path: Path | None = None,
                 struct_dir: Path | None = None, model: str | None = None,
@@ -1525,17 +1501,13 @@ def _stream_run(client: ControllerClient, run_id: str, total: int, n_workers: in
 
 
 def _dispatch_run(run_payload: dict, workers, *, total: int, results_path: Path,
-                  struct_dir: Path, model: str, listen, debug: bool, log: bool) -> int:
+                  struct_dir: Path, model: str, debug: bool, log: bool) -> int:
     """Run jobs through the scheduler, stream progress, persist results, and
     print the final summary. The single lifecycle shared by every predict
     path — keep it the one place so the paths can't drift apart. Returns the
     number of failed jobs.
     """
-    with _scheduler_session(listen, workers, debug) as (client, public_url, procs):
-        if public_url:
-            click.echo(f"Workers may join: tt-bio worker --connect {public_url}")
-        # Locally-spawned workers are on this filesystem by construction, but a --listen
-        # run can also pick up workers from other machines; the nonce sorts them out.
+    with _scheduler_session(workers, debug) as (client, procs):
         _offer_shared_outputs(run_payload, struct_dir)
         try:
             run_id = client.create_run(run_payload)["run_id"]
@@ -1605,9 +1577,9 @@ def _dispatch_to_controller(controller_url: str, run_payload: dict, *, total: in
 
     Unlike ``_dispatch_run`` this starts no scheduler and spawns no local
     workers — the compute is provided by whatever workers are already connected
-    to ``controller_url`` (this host's pool and/or remote machines). Lets many
-    independent ``predict`` invocations share one persistent cluster, which is
-    how the web platform fans concurrent users across a fleet of machines.
+    to ``controller_url``, this host's persistent pool. Lets many independent
+    ``predict`` invocations share one host's chips, which is how a platform
+    fans concurrent users across a machine (docs/multi-host.md).
     """
     client = ControllerClient(controller_url)
     try:
@@ -1705,27 +1677,21 @@ def _write_job_outputs(client: ControllerClient, run_id: str, job_id: str,
 
 
 @contextmanager
-def _scheduler_session(listen: str | None, workers: list, debug: bool):
-    """Start an in-process scheduler, spawn local worker subprocesses against
-    it, and yield (client, public_join_url, worker_procs) for the duration of
-    the run.
+def _scheduler_session(workers: list, debug: bool):
+    """Start an in-process scheduler on loopback, spawn local worker subprocesses
+    against it, and yield (client, worker_procs) for the duration of the run.
 
     The scheduler keeps its SQLite state in a private temp directory and
     discards it on exit, so a run never leaves bookkeeping artifacts in the
-    user's results directory. public_join_url is None unless --listen was
-    passed; when set, it's the address a remote `tt-bio worker --connect
-    ...` should target.
+    user's results directory.
     """
-    listen_host, listen_port = _parse_listen(listen)
     tmpdir = Path(tempfile.mkdtemp(prefix="tt-bio-scheduler-"))
-    db_path = tmpdir / "controller.sqlite3"
-    server = ControllerServer(listen_host, listen_port, db_path)
+    server = ControllerServer(0, tmpdir / "controller.sqlite3")
     server.serve_in_background()
     url = f"http://127.0.0.1:{server.port}"
-    public_url = _public_join_url(listen_host, server.port) if listen else None
     procs = _spawn_worker_processes(url, workers, debug)
     try:
-        yield ControllerClient(url), public_url, procs
+        yield ControllerClient(url), procs
     finally:
         _stop_worker_processes(procs)
         server.shutdown()
@@ -1783,7 +1749,7 @@ class _Cli(click.Group):
 
     def invoke(self, ctx):
         from tt_bio.device_lease import CONTENDED_EXIT_CODE, DeviceInUseError
-        from tt_bio.distributed import ControllerUnreachable
+        from tt_bio.host_controller import ControllerUnreachable
 
         try:
             return super().invoke(ctx)
@@ -2106,13 +2072,13 @@ def _prune_weights(rows, root, yes: bool) -> None:
 
 
 @cli.command("worker")
-@click.option("--connect", required=True, help="Controller URL, e.g. http://HOST:8765")
+@click.option("--connect", required=True, help="This host's controller, e.g. http://127.0.0.1:8765")
 @click.option("--accelerator", type=click.Choice(["gpu", "cpu", "tenstorrent"]), default="tenstorrent")
 @click.option("--num_devices", default=0, type=int, help="Number of TT devices to use (0=all available)")
 @click.option("--device_ids", default=None, type=str, help="Comma-separated TT device IDs to use")
 @click.option("--debug", is_flag=True, help="Do not suppress worker output")
 def worker_cmd(connect, accelerator, num_devices, device_ids, debug):
-    """Join a tt-bio controller and run predictions on this machine's accelerators."""
+    """Serve a controller with a worker per local chip, respawning any that dies."""
     workers = _local_workers(accelerator, num_devices, device_ids, max_workers=10_000)
     click.echo(f"Connecting {len(workers)} worker{'s' if len(workers) != 1 else ''} to {connect}")
     if accelerator == "tenstorrent":
@@ -2124,33 +2090,33 @@ def worker_cmd(connect, accelerator, num_devices, device_ids, debug):
 
 
 @cli.command("controller")
-@click.option("--listen", default="8765", help="Bind the controller HTTP server here: PORT or HOST:PORT (default 8765).")
+@click.option("--port", default=8765, type=int, show_default=True,
+              help="Port on 127.0.0.1 to serve on. The controller never binds another interface.")
+@click.option("--lease-s", "lease_s", default=LEASE_S, type=float, show_default=True,
+              help="Seconds a job stays with a worker that stops heartbeating before it is "
+                   "handed to another. Workers heartbeat every 1/12 of it.")
 @click.option("--accelerator", type=click.Choice(["gpu", "cpu", "tenstorrent"]), default="tenstorrent")
 @click.option("--num_devices", default=0, type=int, help="Local devices to serve with (0=all). Ignored with --no-local-workers.")
 @click.option("--device_ids", default=None, type=str, help="Comma-separated TT device IDs to use locally")
 @click.option("--no-local-workers", "no_local_workers", is_flag=True,
-              help="Run only the coordinator; all compute comes from remote `tt-bio worker --connect` machines.")
+              help="Start no workers; the caller starts them with `tt-bio worker --connect`, "
+                   "for example to own each chip's worker itself.")
 @click.option("--state-dir", default=None, type=click.Path(),
               help="Where to keep the controller's SQLite state (default: a temp dir, discarded on exit).")
 @click.option("--debug", is_flag=True, help="Do not suppress local worker output")
-def controller_cmd(listen, accelerator, num_devices, device_ids, no_local_workers, state_dir, debug):
-    """Run a persistent prediction controller (cluster coordinator).
+def controller_cmd(port, lease_s, accelerator, num_devices, device_ids, no_local_workers, state_dir, debug):
+    """Run a persistent controller for this host's chips.
 
-    Starts the HTTP scheduler and — unless --no-local-workers — a worker per
-    local device, then stays up serving any number of
-    `tt-bio predict --controller URL` runs and accepting remote
-    `tt-bio worker --connect URL` machines. Ctrl-C to stop.
+    Starts the scheduler on 127.0.0.1 and, unless --no-local-workers, a worker
+    per local device, then serves any number of `tt-bio predict --controller URL`
+    runs. Work across several machines is a scheduler's job on top of this one;
+    see docs/multi-host.md. Ctrl-C to stop.
 
     \b
-    Example — one coordinator, extra machines joining:
-        # on the master:
-        tt-bio controller --listen 0.0.0.0:8765
-        # on every other machine:
-        tt-bio worker --connect http://MASTER:8765
-        # submit work from anywhere that can reach the master:
-        tt-bio predict ./proteins --controller http://MASTER:8765 --use_msa_server
+    Example:
+        tt-bio controller --port 8765
+        tt-bio predict ./proteins --controller http://127.0.0.1:8765 --use_msa_server
     """
-    listen_host, listen_port = _parse_listen(listen)
     if state_dir:
         state_path = Path(state_dir).expanduser()
         state_path.mkdir(parents=True, exist_ok=True)
@@ -2160,10 +2126,9 @@ def controller_cmd(listen, accelerator, num_devices, device_ids, no_local_worker
         tmpdir = Path(tempfile.mkdtemp(prefix="tt-bio-controller-"))
         db_path = tmpdir / "controller.sqlite3"
 
-    server = ControllerServer(listen_host, listen_port, db_path)
+    server = ControllerServer(port, db_path, lease_s)
     server.serve_in_background()
     url = f"http://127.0.0.1:{server.port}"
-    public_url = _public_join_url(listen_host, server.port)
 
     workers, procs = [], []
     if not no_local_workers:
@@ -2174,11 +2139,11 @@ def controller_cmd(listen, accelerator, num_devices, device_ids, no_local_worker
         if workers:
             procs = _spawn_worker_processes(url, workers, debug)
 
-    click.echo(f"Controller listening on {public_url}")
+    click.echo(f"Controller listening on {url} (lease {lease_s:g} s)")
     click.echo(f"  local workers: {len(workers)}"
                + (f" (devices {[int(w.device_id) for w in workers]})" if workers and accelerator == 'tenstorrent' else ""))
-    click.echo(f"  machines join: tt-bio worker --connect {public_url}")
-    click.echo(f"  submit work:   tt-bio predict <data> --controller {public_url}")
+    click.echo(f"  add workers:   tt-bio worker --connect {url}")
+    click.echo(f"  submit work:   tt-bio predict <data> --controller {url}")
     click.echo("Ctrl-C to stop.")
     try:
         while True:
@@ -2977,7 +2942,7 @@ def _resolve_msa_default(model, use_msa_server, msa_db_path, msa_endpoint,
         return use_msa_server, msa_db_path
 
     # No source given. Prefer a host-local DB (skip in --controller mode, where
-    # remote workers resolve MSAs on their own hosts), else fall back online.
+    # the controller's workers resolve MSAs themselves), else fall back online.
     if not controller:
         default_db = Path(cache).expanduser() / "msa_db"
         if (default_db / "UNIREF30_READY").exists():
@@ -3104,8 +3069,7 @@ def _resolve_msa_default(model, use_msa_server, msa_db_path, msa_endpoint,
 @click.option("--report-energy", "report_energy", is_flag=True, help="Report TT device energy and write a power-vs-time plot (single-device TT runs)")
 @click.option("--energy-sample-hz", "energy_sample_hz", default=DEFAULT_ENERGY_SAMPLE_HZ, type=float, show_default=True, help="Sampling rate in Hz for power reporting")
 @click.option("--energy-metric", "energy_metric", default="both", type=click.Choice(["both", "tdp", "input"]), show_default=True, help="Which power channel(s) to measure")
-@click.option("--listen", default=None, help="Bind scheduler to HOST:PORT so remote workers can join (e.g. 8765 or 0.0.0.0:8765)")
-@click.option("--controller", default=None, help="Submit to an existing controller at URL (e.g. http://HOST:8765) instead of starting a local scheduler. Compute comes from that cluster's workers.")
+@click.option("--controller", default=None, help="Submit to a running `tt-bio controller` at URL (e.g. http://127.0.0.1:8765) instead of starting a scheduler for this run. Compute comes from its workers.")
 @click.option("--run-id", "run_id", default=None, help="Use this run id on the controller (lets the submitter cancel the run later). Requires --controller.")
 @click.option("--owner", "owner", default=None, help="Opaque fairness key (e.g. a hashed session id) the controller uses to fair-share devices across users. Requires --controller.")
 @click.option("--model", type=click.Choice(list(PREDICT_MODELS)), default="boltz2", show_default=True,
@@ -3133,13 +3097,13 @@ def predict(data, out_dir, cache, checkpoint, accelerator, recycling_steps, samp
             write_pae, write_pde, write_embeddings, affinity_mw_correction,
             sampling_steps_affinity, diffusion_samples_affinity, affinity_checkpoint,
             num_devices, device_ids, host_threads, fast, debug, log,
-            report_energy, energy_sample_hz, energy_metric, listen, controller, run_id, owner, model):
+            report_energy, energy_sample_hz, energy_metric, controller, run_id, owner, model):
     """Run structure prediction.
 
     DATA is a YAML/FASTA file or a directory of them.
 
     The default Boltz-2 path runs an in-process scheduler that dispatches jobs
-    to local workers (pass --listen to accept remote workers). With
+    to local workers, one per card. With
     --model esmfold2 it instead runs the on-device ttnn ESMFold2 pipeline
     (single-sequence, protein-only) and writes the same output layout.
 
@@ -3223,7 +3187,7 @@ def predict(data, out_dir, cache, checkpoint, accelerator, recycling_steps, samp
                  "opendde-abag", "rf3"):
         # ESMFold2, Protenix, OpenFold3, OpenDDE and RF3 ride the SAME scheduler / worker /
         # progress path as Boltz-2: build a run config, then fan jobs across devices via
-        # _local_workers + _dispatch_run (or submit to a remote --controller). Only the
+        # _local_workers + _dispatch_run (or submit to a running --controller). Only the
         # per-model config differs.
         #
         # Every model on this branch is a ttnn-only port: load_model imports ttnn and opens a
@@ -3334,7 +3298,7 @@ def predict(data, out_dir, cache, checkpoint, accelerator, recycling_steps, samp
         run_payload = {"data": str(data), "out_dir": str(out_dir_path), "result_dir": str(out),
                        "jobs": job_payloads(jobs), "config": worker_cfg, "owner": owner}
         # Fetch this model's weights ONCE here, before fanning out. Skipped in
-        # --controller mode: remote workers fetch on their own hosts.
+        # --controller mode: the controller's workers fetch their own.
         if not controller:
             download_all(Path(cache).expanduser(), model)
         if controller:
@@ -3345,7 +3309,7 @@ def predict(data, out_dir, cache, checkpoint, accelerator, recycling_steps, samp
         workers = _local_workers("tenstorrent", num_devices, device_ids, max_workers=max(len(jobs), 1))
         _cap_worker_threads(len(workers), host_threads)
         failed = _dispatch_run(run_payload, workers, total=len(jobs), results_path=results_path,
-                               struct_dir=struct_dir, model=model, listen=listen, debug=debug, log=log)
+                               struct_dir=struct_dir, model=model, debug=debug, log=log)
         _exit_for_failed_jobs(failed + len(refused), total)
         return
 
@@ -3504,7 +3468,7 @@ def predict(data, out_dir, cache, checkpoint, accelerator, recycling_steps, samp
                 energy_profiler = None
 
     failed = _dispatch_run(run_payload, workers, total=len(jobs), results_path=results_path,
-                           struct_dir=struct_dir, model=model, listen=listen, debug=debug, log=log)
+                           struct_dir=struct_dir, model=model, debug=debug, log=log)
 
     if energy_profiler is not None:
         energy_profiler.stop()
@@ -3758,9 +3722,8 @@ def _dispatch_embed_to_controller(controller_url: str, sequences: dict, *, model
                    "results are reassembled in input order. Default: this machine's single card. "
                    "Ignored with --controller.")
 @click.option("--controller", default=None,
-              help="Submit to a running `tt-bio controller` (or a fleet joined via `tt-bio "
-                   "worker --connect`) instead of spawning local subprocess shards. Workers keep "
-                   "the ESMC model resident across calls, so repeated embed runs against the same "
+              help="Submit to a running `tt-bio controller` instead of spawning local "
+                   "subprocess shards. Workers keep the ESMC model resident across calls, so repeated embed runs against the same "
                    "controller skip the weight reload that otherwise dominates wall-clock for "
                    "large models.")
 @click.option("--owner", default=None,
@@ -4006,8 +3969,8 @@ def affinity_cmd(data, model, out_dir, accelerator, trunk, recycling_steps, toke
                    "results are reassembled in input order. Default: this machine's single card. "
                    "Ignored with --controller.")
 @click.option("--controller", default=None,
-              help="Submit to a running `tt-bio controller` (or a fleet joined via `tt-bio "
-                   "worker --connect`) instead of spawning local subprocess shards. Sequence-only "
+              help="Submit to a running `tt-bio controller` instead of spawning local "
+                   "subprocess shards. Sequence-only "
                    "in this path (structures never leave the submitting client). Workers keep "
                    "the SaProt model resident across calls, so repeated runs against the same "
                    "controller skip the weight reload.")

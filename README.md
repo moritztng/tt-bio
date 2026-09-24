@@ -10,7 +10,7 @@
 > [!IMPORTANT]
 > **TT-Boltz is now TT-Bio**
 
-TT-Bio runs [Boltz-2](https://github.com/jwohlwend/boltz), [ESMFold2](https://github.com/Biohub/esm), [Protenix-v1 and Protenix-v2](https://github.com/bytedance/Protenix), [OpenFold3](https://github.com/aqlaboratory/openfold-3), [OpenBind-0](#structure-prediction), [OpenDDE](#structure-prediction), and [RoseTTAFold3](#structure-prediction) structure prediction, [BoltzGen](#design), [RFdiffusion3](#design) and [PXDesign](#design) binder/protein design, and [ESMC protein embeddings](#protein-embeddings-esmc), [SaProt structure-aware protein embeddings](#structure-aware-protein-embeddings-saprot), and [Nesso-1 structure-free binding affinity](#binding-affinity-without-a-structure-nesso-1) on Tenstorrent Blackhole and Wormhole, supporting single-card and multi-card configurations (e.g. QuietBox with 4 cards or Galaxy server with 32 cards). Multiple machines can also be combined into a single prediction run.
+TT-Bio runs [Boltz-2](https://github.com/jwohlwend/boltz), [ESMFold2](https://github.com/Biohub/esm), [Protenix-v1 and Protenix-v2](https://github.com/bytedance/Protenix), [OpenFold3](https://github.com/aqlaboratory/openfold-3), [OpenBind-0](#structure-prediction), [OpenDDE](#structure-prediction), and [RoseTTAFold3](#structure-prediction) structure prediction, [BoltzGen](#design), [RFdiffusion3](#design) and [PXDesign](#design) binder/protein design, and [ESMC protein embeddings](#protein-embeddings-esmc), [SaProt structure-aware protein embeddings](#structure-aware-protein-embeddings-saprot), and [Nesso-1 structure-free binding affinity](#binding-affinity-without-a-structure-nesso-1) on Tenstorrent Blackhole and Wormhole, supporting single-card and multi-card configurations (e.g. QuietBox with 4 cards or Galaxy server with 32 cards). Across several machines, each runs its own controller and a scheduler of your choice spreads the work; see [Running tt-bio on many machines](#running-tt-bio-on-many-machines).
 
 **Benchmarks: [tt-bio.com](https://tt-bio.com)** has throughput and cost for every model against
 NVIDIA DGX H200, B200 and A100. The [full benchmark page](https://tt-bio.com/benchmarks/) has the
@@ -262,8 +262,7 @@ spinning on them. The output is identical either way, and a single fold is
 unaffected. See [Tuning flags](docs/tuning-flags.md) for the measurement, or set
 `OMP_WAIT_POLICY` yourself to take the decision back.
 
-If you have additional machines with Tenstorrent cards, you can add them to a
-single run; see [Optional: Multi-Machine Prediction](#optional-multi-machine-prediction).
+To spread work across several machines, see [Running tt-bio on many machines](#running-tt-bio-on-many-machines).
 
 ### Protein Embeddings (ESMC)
 
@@ -312,8 +311,8 @@ loads its model once and keeps it resident across every call, so the reload cost
 above is paid once per worker, not once per invocation:
 
 ```bash
-tt-bio controller --listen 8765          # starts + keeps a worker per local card
-tt-bio embed proteins.fasta --model esmc-6b --controller http://localhost:8765
+tt-bio controller --port 8765            # starts + keeps a worker per local card
+tt-bio embed proteins.fasta --model esmc-6b --controller http://127.0.0.1:8765
 ```
 
 The same capability is available from Python:
@@ -748,7 +747,6 @@ Model-specific options are labelled below.
 | `--device_ids`, `--devices` | — | Comma-separated TT device IDs (e.g. `0,2`); `--devices` is the shorter alias (matches `tt-bio embed`) |
 | `--host_threads` | all cores | Total CPU threads this process may use, split across its cards. Set it when you run several single-card predicts side by side on one host: each one otherwise sizes its thread pools to every core and they fight for the CPU. Use cores ÷ concurrent predicts. At two threads per card or fewer the pools also stop spinning through device syncs ([Tuning flags](docs/tuning-flags.md)) |
 | `--fast` | `False` | Makes some operations use a lower-precision numeric format that runs faster; accuracy is typically very close |
-| `--listen` | — | Accept worker connections from other machines; see [Multi-Machine Prediction](#optional-multi-machine-prediction) |
 | `--report-energy` | `False` | **(Boltz-2)** Enables optional energy profiling for one TT device (requires `tt-mgmt` add-on); writes `power_profile.csv` and `power_profile.png` |
 | `--energy-metric` | `both` | **(Boltz-2)** Choose power channel(s): `tdp`, `input`, or `both` |
 | `--energy-sample-hz` | `20.0` | **(Boltz-2)** Sampling rate in Hz for both `power_w` and `input_power_w` channels |
@@ -851,23 +849,15 @@ export MSA_API_KEY_VALUE=your-api-key
 tt-bio predict ... --model boltz2 --use_msa_server
 ```
 
-## Optional: Multi-Machine Prediction
+## Running tt-bio on many machines
 
-Combine the cards across any mix of Tenstorrent machines (a workstation, one
-or more QuietBoxes, one or more Galaxy servers) into a single run.
-
-On the machine driving the run:
-
-```bash
-tt-bio predict ./proteins --model boltz2 --listen 8765 --use_msa_server --fast
-```
-
-On every additional machine, replace `HOST` with the driving machine's
-hostname or IP:
-
-```bash
-tt-bio worker --connect http://HOST:8765
-```
+Each machine runs its own `tt-bio controller`, which listens on 127.0.0.1 and keeps a
+worker on every chip. Work reaches it through `--controller`, and whatever spreads jobs
+across machines sits on top: a platform, a cluster scheduler, or the fifty-line
+[`examples/many_hosts.py`](examples/many_hosts.py), which folds a directory across
+several hosts over ssh. [docs/multi-host.md](docs/multi-host.md) is the contract a
+scheduler builds against: the endpoints, what a host advertises, the lease and how a
+result settles once.
 
 ## Optional: Energy Measurement (Boltz-2)
 
@@ -913,7 +903,7 @@ tt-bio design specs.json --model rfd3 --from_pdb --out_dir designs/
 
 **[PXDesign](https://github.com/bytedance/PXDesign)** generates binder backbones against a target structure, conditioned on a distogram of the target rather than its coordinates. Input is a target YAML naming a structure file, the chains to condition on (with optional per-chain crop and hotspots) and a `binder_length`; each design is written as a CIF in the target structure's own frame, so it opens alongside your input file. A `designs.json` lands beside them with each design's numbers: fit RMSD against the target, binder residue and atom counts, and how many target tokens it was conditioned on. The binder is written as GLY because PXDesign generates a backbone with no sequence. Hotspot residues are `label_seq` numbers, not the author numbering a viewer shows, and a number that names no residue is refused rather than dropped. `--num_designs` is also the batch axis for this model: every requested design comes from one batched diffusion trajectory, and the gain per design grows with the batch and shrinks with the target: 2.7x at 8 designs against a 256-residue target, 1.5x against a 512-residue one, and flat from 16 up rather than turning back. A given `--seed` and `--num_designs` always reproduce the same designs, but `--num_designs 1` and `--num_designs 2` do not share their design 0: asking for more designs currently changes which ones you get, so pin both values when you want a run back. Selecting designs, which upstream does with a Protenix and an AF2-IG filter, is not on the CLI yet.
 
-Each model downloads its weights automatically on first use. BoltzGen and RFdiffusion3 fan out across every available card (`--devices 0,2` restricts); PXDesign runs on one card locally, or one design per card across a fleet with `--controller http://host:8765`. `tt-bio gen` still works as a deprecated alias for `tt-bio design --model boltzgen`.
+Each model downloads its weights automatically on first use. BoltzGen and RFdiffusion3 fan out across every available card (`--devices 0,2` restricts); PXDesign runs on one card locally, or one design per card across a host's controller with `--controller http://127.0.0.1:8765`. `tt-bio gen` still works as a deprecated alias for `tt-bio design --model boltzgen`.
 
 How many designs a card returns per hour, how `--num_designs` and `--devices` move it, and how to size a campaign: [`docs/design-throughput.md`](docs/design-throughput.md).
 
