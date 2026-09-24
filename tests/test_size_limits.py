@@ -253,7 +253,7 @@ def test_the_freeze_rows_refuse_1536_and_admit_the_size_that_folds():
         sl.check(m, 1024, arch="blackhole")     # the size that folds is admitted, silently
 
 
-@pytest.mark.parametrize("model", ["boltz2", "rf3", "protenix-v2", "openfold3",
+@pytest.mark.parametrize("model", ["boltz2", "rf3", "openfold3",
                                    "openbind", "esmfold2", "esmfold2-fast"])
 def test_a_wormhole_row_walked_past_1536_admits_1536_and_refuses_its_first_failure(model):
     """These rows were walked on one Galaxy chip past the 1536 the campaign targets. Before they
@@ -268,11 +268,12 @@ def test_a_wormhole_row_walked_past_1536_admits_1536_and_refuses_its_first_failu
         sl.check(model, c.fail_at, arch="wormhole_b0")
 
 
-@pytest.mark.parametrize("model", ["protenix-v1"])
+@pytest.mark.parametrize("model", ["protenix-v1", "protenix-v2"])
 def test_a_wormhole_row_that_folds_the_top_of_its_walk_refuses_above_it(model):
-    """protenix-v1 folded 2048, the top rung its walk runs, once mgx-bigalloc landed. Nothing above
-    was measured, so the cap is the size that folded: 1536 and the cap are admitted and one
-    residue more is refused, so nothing unmeasured is let in."""
+    """Both fold 2048, the top rung the walk runs: protenix-v1 once mgx-bigalloc landed,
+    protenix-v2 at 16384 rows once a refused OPM re-runs in depth chunks. Nothing above was
+    measured, so the cap is the size that folded: 1536 and the cap are admitted and one residue
+    more is refused, so nothing unmeasured is let in."""
     c = sl.ceiling(model, "wormhole_b0")
     assert c.binds == sl.LADDER_TOP and c.fail_at is None and c.pass_at == c.residues > 1536
     sl.check(model, 1536, arch="wormhole_b0")

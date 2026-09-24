@@ -29,6 +29,8 @@ LEASES = Path.home() / "leases"
 HOST = "j10glx02"
 # The live japanfold app (24-27) and a co-tenant (1). Cardblocked; never ours to take.
 AVOID = {1, 24, 25, 26, 27}
+# MGX quiet window (mgx-speed's timing runs): start nothing while either file exists.
+QUIET = (Path.home() / "mgx-quiet-window", LEASES / ".mgx-quiet-window")
 ENV = {"PYTHONPATH": str(ROOT), "TT_BIO_LEASE_DIR": str(LEASES),
        "TT_BIO_LEASE_HOLDER": "worker:mgx-ceilings", "TT_METAL_LOGGER_LEVEL": "FATAL",
        "TT_METAL_CACHE": str(Path.home() / ".cache" / "tt-metal-cache-mgxceil"),
@@ -134,7 +136,8 @@ def main() -> int:
                 pending.insert(0, job)
             else:
                 log(f"card {card} {job[0]}: done, {len(rows)} rows, last {rows[-1]['verdict']}")
-        if pending and len(set(running) | held(ENV["TT_BIO_LEASE_HOLDER"])) < a.max:
+        quiet = any(q.exists() for q in QUIET)
+        if pending and not quiet and len(set(running) | held(ENV["TT_BIO_LEASE_HOLDER"])) < a.max:
             cards = free_cards(set(running))
             if cards:
                 card, job = cards[0], pending.pop(0)
