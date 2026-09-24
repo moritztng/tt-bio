@@ -1,0 +1,268 @@
+{
+ "arm": "PD384",
+ "protocol": "A44",
+ "draws": 5,
+ "five_hold_every_draw": false,
+ "per_draw": [
+  {
+   "k": 0,
+   "seed": 20260922,
+   "sigma": 0.30395649892572174,
+   "score": "perf/of3t_paedraws/SCORE_PD384.json",
+   "arm": "PD384",
+   "checks": {
+    "device_seed": true,
+    "ref_seed": true,
+    "sigma_matches_f64": true,
+    "device_replay_mismatch_0": true,
+    "ref_replay_mismatch_0": true,
+    "tt_bio_clean": true
+   },
+   "five": {
+    "unread_n": 0,
+    "placed_but_carried_nothing_n": 0,
+    "multi_placed": 0,
+    "global_rel": 0.15583423911529345,
+    "bf16_global_rel": 0.948232215673093,
+    "mass_at_or_better_than_bf16": 0.9807143131172233,
+    "holds": true
+   },
+   "reference_loss_f64": 1.7829546522283766,
+   "device_loss": 1.7811358958480372,
+   "rel": {
+    "aux_heads.pae": {
+     "ours": 0.07796630430359304,
+     "bf16": 0.012845890522010751
+    },
+    "aux_heads.pde": {
+     "ours": 0.04486649891633939,
+     "bf16": 0.017120011633940217
+    },
+    "global": {
+     "ours": 0.15583423911529345,
+     "bf16": 0.948232215673093
+    }
+   },
+   "host": "tt-quietbox2",
+   "card": 0,
+   "board_class": "p300c",
+   "git_commit": "2f4b83cbfab56e29898cb559ff64e19b332dbf1f",
+   "aiclk_during": {
+    "0": {
+     "min": 800,
+     "max": 1350,
+     "median": 1350,
+     "n": 1489
+    }
+   }
+  },
+  {
+   "k": 1,
+   "seed": 1,
+   "sigma": 8.092720956741498,
+   "score": "perf/of3t_paedraws/SCORE_PD384_s1.json",
+   "arm": "PD384_s1",
+   "checks": {
+    "device_seed": true,
+    "ref_seed": true,
+    "sigma_matches_f64": true,
+    "device_replay_mismatch_0": true,
+    "ref_replay_mismatch_0": true,
+    "tt_bio_clean": true
+   },
+   "five": {
+    "unread_n": 0,
+    "placed_but_carried_nothing_n": 0,
+    "multi_placed": 0,
+    "global_rel": 0.08141218523410682,
+    "bf16_global_rel": 0.3887194482566856,
+    "mass_at_or_better_than_bf16": 0.9960766171557919,
+    "holds": true
+   },
+   "reference_loss_f64": 1.657738375613631,
+   "device_loss": 1.6527446126880956,
+   "rel": {
+    "aux_heads.pae": {
+     "ours": 0.08595680271974485,
+     "bf16": 0.08037869796976492
+    },
+    "aux_heads.pde": {
+     "ours": 0.053035448115636076,
+     "bf16": 0.046043101539530173
+    },
+    "global": {
+     "ours": 0.08141218523410682,
+     "bf16": 0.3887194482566856
+    }
+   },
+   "host": "tt-quietbox2",
+   "card": 0,
+   "board_class": "p300c",
+   "git_commit": "589504144e43a3d9dca644c7385f4663c72d4e39",
+   "aiclk_during": {
+    "0": {
+     "min": 800,
+     "max": 1350,
+     "median": 1350,
+     "n": 3158
+    }
+   }
+  },
+  {
+   "k": 2,
+   "seed": 2,
+   "sigma": 6.399173202622884,
+   "score": "perf/of3t_paedraws/SCORE_PD384_s2.json",
+   "arm": "PD384_s2",
+   "checks": {
+    "device_seed": true,
+    "ref_seed": true,
+    "sigma_matches_f64": true,
+    "device_replay_mismatch_0": true,
+    "ref_replay_mismatch_0": true,
+    "tt_bio_clean": true
+   },
+   "five": {
+    "unread_n": 0,
+    "placed_but_carried_nothing_n": 0,
+    "multi_placed": 0,
+    "global_rel": 0.08741576901507099,
+    "bf16_global_rel": 0.24928347630295924,
+    "mass_at_or_better_than_bf16": 0.972878365076521,
+    "holds": true
+   },
+   "reference_loss_f64": 2.00179082735967,
+   "device_loss": 2.010792256437439,
+   "rel": {
+    "aux_heads.pae": {
+     "ours": 0.06658427833992205,
+     "bf16": 0.06035289426680833
+    },
+    "aux_heads.pde": {
+     "ours": 0.05070431719426245,
+     "bf16": 0.031835190899383324
+    },
+    "global": {
+     "ours": 0.08741576901507099,
+     "bf16": 0.24928347630295924
+    }
+   },
+   "host": "tt-quietbox2",
+   "card": 1,
+   "board_class": "p300c",
+   "git_commit": "589504144e43a3d9dca644c7385f4663c72d4e39",
+   "aiclk_during": {
+    "0": {
+     "min": 800,
+     "max": 1350,
+     "median": 1350,
+     "n": 3146
+    }
+   }
+  },
+  {
+   "k": 3,
+   "seed": 3,
+   "sigma": 102.92158671999199,
+   "score": "perf/of3t_paedraws/SCORE_PD384_s3.json",
+   "arm": "PD384_s3",
+   "checks": {
+    "device_seed": true,
+    "ref_seed": true,
+    "sigma_matches_f64": true,
+    "device_replay_mismatch_0": true,
+    "ref_replay_mismatch_0": true,
+    "tt_bio_clean": true
+   },
+   "five": {
+    "unread_n": 0,
+    "placed_but_carried_nothing_n": 0,
+    "multi_placed": 0,
+    "global_rel": 0.1806854274151017,
+    "bf16_global_rel": 0.3306228644867933,
+    "mass_at_or_better_than_bf16": 0.8364480455445844,
+    "holds": false
+   },
+   "reference_loss_f64": 1.5016800981647744,
+   "device_loss": 1.4994473959477386,
+   "rel": {
+    "aux_heads.pae": {
+     "ours": 0.1151053507125993,
+     "bf16": 0.12438407671800758
+    },
+    "aux_heads.pde": {
+     "ours": 0.05358036838715314,
+     "bf16": 0.07402647757323524
+    },
+    "global": {
+     "ours": 0.1806854274151017,
+     "bf16": 0.3306228644867933
+    }
+   },
+   "host": "tt-quietbox2",
+   "card": 0,
+   "board_class": "p300c",
+   "git_commit": "d9049e2a3f59af728f5ed957d2cbea259d439140",
+   "aiclk_during": {
+    "0": {
+     "min": 800,
+     "max": 1350,
+     "median": 1350,
+     "n": 3128
+    }
+   }
+  },
+  {
+   "k": 4,
+   "seed": 4,
+   "sigma": 1.812853264527654,
+   "score": "perf/of3t_paedraws/SCORE_PD384_s4.json",
+   "arm": "PD384_s4",
+   "checks": {
+    "device_seed": true,
+    "ref_seed": true,
+    "sigma_matches_f64": true,
+    "device_replay_mismatch_0": true,
+    "ref_replay_mismatch_0": true,
+    "tt_bio_clean": true
+   },
+   "five": {
+    "unread_n": 0,
+    "placed_but_carried_nothing_n": 0,
+    "multi_placed": 0,
+    "global_rel": 0.15776926719673365,
+    "bf16_global_rel": 0.6221914629370294,
+    "mass_at_or_better_than_bf16": 0.976198755442944,
+    "holds": true
+   },
+   "reference_loss_f64": 1.3748322241932596,
+   "device_loss": 1.3754665538495012,
+   "rel": {
+    "aux_heads.pae": {
+     "ours": 0.09525730048860977,
+     "bf16": 0.05520048335506971
+    },
+    "aux_heads.pde": {
+     "ours": 0.047217576634983806,
+     "bf16": 0.016320919937895365
+    },
+    "global": {
+     "ours": 0.15776926719673365,
+     "bf16": 0.6221914629370294
+    }
+   },
+   "host": "tt-quietbox2",
+   "card": 1,
+   "board_class": "p300c",
+   "git_commit": "d9049e2a3f59af728f5ed957d2cbea259d439140",
+   "aiclk_during": {
+    "0": {
+     "min": 800,
+     "max": 1350,
+     "median": 1350,
+     "n": 3115
+    }
+   }
+  }
+ ]
+}
