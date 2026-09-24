@@ -264,10 +264,10 @@ TOKEN_AXIS = {
     # at an aligned N) needs a device.
     "af2ig": (
         UNCENSUSED, None,
-        "nowhere yet: af2.py pads no token axis. The reduces are "
-        "tt_bio/af2.py::AF2PairBlock.tri_att_start / tri_att_end and "
-        "tt_bio/af2.py::AF2Attention (row and column), all via "
-        "tt_bio/tenstorrent.py::_fp32_softmax_attention except the column path's own ttnn.softmax",
+        "nowhere yet: af2.py pads no token axis. The reduces are the two triangle attentions "
+        "tt_bio/af2.py::AF2PairBlock builds and tt_bio/af2.py::AF2Attention (row and column), "
+        "all via tt_bio/tenstorrent.py::_fp32_softmax_attention except the column path's own "
+        "ttnn.softmax",
         "cmp-af2ig-bucket",
     ),
     "nesso1": (
