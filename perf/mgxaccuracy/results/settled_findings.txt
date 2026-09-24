@@ -73,3 +73,20 @@ Nothing between 428670d60 and f374c883e owed one: that stretch was af2ig rows pl
 `tt_bio.distributed` -> `tt_bio.host_controller` rename, with every trigger-list file untouched
 (`results/catcher_not_owed_f374c883e.txt`).
 
+
+SETTLED REFERENCE NOTES, moved out of the state doc
+====================================================
+
+**The 3.87 A "run-to-run spread" is the REFOLD instrument, not design variation.** Upstream's
+7.16724 and 11.04058 on the OLD 512 crop are the SAME DESIGN scored twice; its design-to-design
+spread is unmeasured at both sizes and the `_b` draws give the first reading. That old-crop
+reference stands on its own crop, 7.17 / 11.04 A against the device's 10.56 A n=9.
+
+**Why the GroEL reference exists at all.** The reference half sat entirely on 1GPB until
+17:5xZ — the row refuted a target and then used that same target as its only upstream
+comparison. The stated blocker, "another ~10-14 h of a qb2 already at load 54", was true of qb2
+and false of the fleet: whglx has ~45 idle cores and serves its live app off cards, not CPUs.
+Both rungs launched there against a reference whose package pin, HF revision, weight hashes and
+fixtures were checked against qb2's first (`results/upstream_groel_whglx.txt`). Corroboration,
+not the deciding test: `plans/closing_rule.txt` §4 stays pre-registered on the qb2 1GPB pair.
+
