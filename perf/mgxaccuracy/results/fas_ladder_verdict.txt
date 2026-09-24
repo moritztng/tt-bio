@@ -1,0 +1,77 @@
+FAS SINGLE-CHAIN LADDER — VERDICT: CHAIN COUNT IS THE CARRIER
+==============================================================
+
+Landed 2026-09-24 23:12Z, whglx card 3, tree ff5435cba, rc 0, n=8, AICLK median 1000 during
+the fold, wall 11917.0 s against GroEL 1536's 11842.0 s. Fixture checked on disk as SINGLE
+chain, 1536 CA, before the numbers were read. Read by fas_read.py, whose clause bodies were
+committed before any FAS cell existed.
+
+target fas_chainA_1962   engine groel-onetree-ff5435cba   metric designfolding-bb_rmsd   offset 0
+
+  size   n   median     range              <=2A    <=4A
+   512   8    3.782    1.363-11.155     12.5%   50.0%
+   768   8    9.050    1.435-17.952     12.5%   25.0%
+  1024   8   10.665    4.774-13.576      0.0%    0.0%
+  1536   8    3.274    0.783-12.322     25.0%   50.0%
+
+--- plans/fas_768.txt, an addition: a single chain at the residue count where GroEL collapsed ---
+   512 ->  768             +5.268 A   U =  16.0 of 64   exact p = 0.1049  does not reject
+  median 9.050 A, 2 of 8 under 4.0 A  ->  INTERMEDIATE
+  (GroEL at 768 residues, two chains, was 0 of 8 under 4 A on both crops.)
+
+   512 -> 1536             -0.508 A   U =  37.0 of 64   exact p = 0.6454  does not reject
+   512 -> 1024             +6.883 A   U =   8.0 of 64   exact p = 0.0104  rejects
+  1024 -> 1536             -7.392 A   U =  53.0 of 64   exact p = 0.0281  rejects
+
+  1536 single-chain cell: median 3.274 A, 4 of 8 under 4.0 A
+
+FAS LADDER VERDICT: CHAIN COUNT IS THE CARRIER
+  -> a single chain survives to 1536 where every multi-chain 1536 cell in this row returned nothing under 4 A; the doc's rule becomes a chain rule outright
+
+Read WITHIN this target only. FAS is a third protein, so a difference between its ladder and
+GroEL's or 1GPB's is a target difference until shown otherwise.
+
+A PREDICTION I PUBLISHED TWICE AND LOST
+----------------------------------------
+
+`results/fas_1024_result.txt` and the state doc both said CHAIN COUNT IS THE CARRIER "now looks
+unlikely to fire", on the strength of the 1024 cell being 0 of 8 — and that reading was
+reinforced when the 1024 finding REPLICATED on a second window at 21.003 A, also 0 of 8. It
+fired anyway. The clause was pre-registered in `plans/chain_vs_residues.txt` before any FAS cell
+existed, its two conditions are 512->1536 not rejecting AND >= 4 of 8 under the bar at 1536,
+and both hold: p = 0.6454 and 4 of 8. The verdict is the plan's, not mine, which is the entire
+reason the plan was written first.
+
+THE LADDER IS NOT MONOTONE, AND THAT IS THE THING TO CARRY FORWARD
+-------------------------------------------------------------------
+
+    512   3.782 A   4 of 8       1024  10.665 A   0 of 8
+    768   9.050 A   2 of 8       1536   3.274 A   4 of 8
+
+    512 -> 1536   -0.508 A   U=37.0/64   p=0.6454   does not reject
+    512 -> 1024   +6.883 A   U= 8.0/64   p=0.0104   rejects
+   1024 -> 1536   -7.392 A   U=53.0/64   p=0.0281   REJECTS — 1536 is BETTER than 1024
+
+The 1536 crop CONTAINS the 512 and 1024 crops as prefixes: the same residues that returned
+nothing usable at 1024 return four designs under 4 A when more of the same chain is added. So
+the 1024 dip is the anomaly here, not the 1536 recovery, and a single median per size is not
+describing a monotone decay on this target. GroEL's offset-0 ladder was non-monotone above its
+ceiling too (0.852 -> 15.226 -> 8.718 -> 15.606), which the row already reported; the
+difference is that there every cell above 512 was 0 of 8, so the wobble was among failures.
+Here it moves across the usability bar.
+
+WHAT THIS DOES AND DOES NOT LICENCE
+
+DOES: on this target, a single chain still designs at 1536 residues — 3.274 A with 4 of 8 under
+the bar and 2 of 8 under the STRICT 2 A bar — where every multi-chain 1536 cell this row has
+measured, four across two targets, returned 0 of 8. That is the clause firing and it is the
+strongest evidence the row has that the published size axis is carried by chain count.
+
+DOES NOT: it does not make the ladder monotone, it does not explain the 1024 dip, and it does
+not transfer to GroEL or 1GPB, whose chains cannot hold a single-chain crop above ~524 and 823
+residues. `docs/design-throughput.md` must be re-read against this before it ships another
+sentence about chains — it currently says a single chain "does not buy back the size", written
+when 1024 was the last cell in.
+
+NEXT: the 1024 dip is worth one more cell. A single-chain 1280 rung, or a third window at 1024,
+would say whether the dip is a window artefact or a real trough. Pre-register before running.
