@@ -4860,35 +4860,35 @@
       }
     },
     "tt-galaxy-wh-l": {
-      "recorded": "2026-09-23",
+      "recorded": "2026-09-24",
       "host": "j10glx02",
-      "commit": "7fc8ce5a",
+      "commit": "bc0c0f37",
       "models": {
         "openbind": {
           "grid": "8x9",
-          "recorded": "2026-09-23",
+          "recorded": "2026-09-24",
           "host": "j10glx02",
-          "commit": "7fc8ce5a",
+          "commit": "bc0c0f37",
           "host_threads": 2,
           "runtime_s": {
-            "1280": 1064.4,
-            "1536": 1780.9,
-            "512": 78.3,
-            "768": 251.4,
-            "640": 138.2,
-            "1024": 223.3,
-            "896": 231.7,
-            "256": 31.7
+            "256": 14.1,
+            "512": 33.9,
+            "640": 53.5,
+            "768": 79.7,
+            "896": 114.1,
+            "1024": 148.2,
+            "1280": 368.5,
+            "1536": 480.4
           },
           "levers": {
-            "1280": {
+            "256": {
               "SPLIT_SWIGLU": {
                 "resolved": "True",
                 "served": 0,
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "reason": "declines all 0 calls: an ESMC lever; openbind does not run that module [carried from p300c] [carried from rung 768] [carried from p150a]"
+                "reason": "declines all 0 calls: an ESMC lever; openbind does not run that module [carried from p150a]"
               },
               "SPLIT_SWIGLU_SMALL_GRID": {
                 "resolved": "True",
@@ -4896,7 +4896,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats-shared",
-                "reason": "declines all 0 calls: an ESMC lever; openbind does not run that module [carried from p300c] [carried from rung 768] [carried from p150a]"
+                "reason": "declines all 0 calls: an ESMC lever; openbind does not run that module [carried from p150a]"
               },
               "PAIR_FFN_L1_FC1": {
                 "resolved": "True",
@@ -4904,7 +4904,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "reason": "declines all 0 calls: an ESMC pair-FFN lever; openbind does not run that module [carried from p300c] [carried from rung 768] [carried from p150a]"
+                "reason": "declines all 0 calls: an ESMC pair-FFN lever; openbind does not run that module [carried from p150a]"
               },
               "PAIR_FFN_L1_LN": {
                 "resolved": "True",
@@ -4912,7 +4912,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "reason": "declines all 0 calls: an ESMC pair-FFN lever; openbind does not run that module [carried from p300c] [carried from rung 768] [carried from p150a]"
+                "reason": "declines all 0 calls: an ESMC pair-FFN lever; openbind does not run that module [carried from p150a]"
               },
               "PAIR_FFN_L1_SLICE": {
                 "resolved": "True",
@@ -4920,7 +4920,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "reason": "declines all 0 calls: an ESMC pair-FFN lever; openbind does not run that module [carried from p300c] [carried from rung 768] [carried from p150a]"
+                "reason": "declines all 0 calls: an ESMC pair-FFN lever; openbind does not run that module [carried from p150a]"
               },
               "PAIR_FFN_FUSED_RESIDUAL": {
                 "resolved": "True",
@@ -4928,7 +4928,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "reason": "declines all 0 calls: an ESMC pair-FFN lever; openbind does not run that module [carried from p300c] [carried from rung 768] [carried from p150a]"
+                "reason": "declines all 0 calls: an ESMC pair-FFN lever; openbind does not run that module [carried from p150a]"
               },
               "PAIR_FFN_FILL_ASSEMBLY": {
                 "resolved": "True",
@@ -4936,331 +4936,18 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "reason": "declines all 0 calls: an ESMC pair-FFN lever; openbind does not run that module [carried from p300c] [carried from rung 768] [carried from p150a]"
+                "reason": "declines all 0 calls: an ESMC pair-FFN lever; openbind does not run that module [carried from p150a]"
               },
               "TRIMUL_IN_PROJ_DUAL_NOC": {
                 "resolved": "True",
-                "served": 864,
-                "declined": 0,
-                "frac": 1.0,
-                "how": "stats"
-              },
-              "ADALN_S_HOIST": {
-                "resolved": "True",
-                "served": 315,
-                "declined": 0,
-                "frac": 1.0,
-                "how": "wrap"
-              },
-              "FP32_SOFTMAX_BIAS_HOIST": {
-                "resolved": "True",
-                "served": 1956,
-                "declined": 1958,
-                "frac": 0.49974450689831373,
-                "how": "stats-dict"
-              },
-              "FP32_SOFTMAX_L1_GRID": {
-                "resolved": "(9, 8)",
-                "served": 1,
-                "declined": 1,
-                "frac": 0.5,
-                "how": "stats-dict"
-              },
-              "PAIR_TRANSPOSE_VIA_ROW_MAJOR": {
-                "resolved": "True",
-                "served": 1296,
-                "declined": 2592,
-                "frac": 0.3333333333333333,
-                "how": "wrap",
-                "rejects": {
-                  "l1_dest_is_faster:1280x448x64": 32,
-                  "l1_dest_is_faster:1280x384x64": 16,
-                  "l1_dest_is_faster:1280x224x128": 2120,
-                  "l1_dest_is_faster:1280x160x128": 424
-                }
-              },
-              "PAIR_PROJ_MINIMAL_MATMUL": {
-                "resolved": "True",
-                "served": 0,
-                "declined": 1972,
-                "frac": 0.0,
-                "how": "wrap",
-                "rejects": {
-                  "k_tiles=2:(2,1)": 48,
-                  "k_tiles=2:(2,2)": 16,
-                  "k_tiles=4:(4,1)": 1908
-                },
-                "reason": "declines all 1972 calls on k_tiles=4:(4,1) x1908, k_tiles=2:(2,1) x48, k_tiles=2:(2,2) x16: the minimal matmul admits an 8-tile weight K dim and this checkpoint's pair projections resolve fewer, a property of c_z and not of N, so it is inert on this model at every size rather than dark at this one [carried from p300c] [carried from rung 768] [carried from p150a]"
-              },
-              "TRIMUL_TAIL_F1": {
-                "resolved": "True",
-                "served": 0,
-                "declined": 0,
-                "frac": 0.0,
-                "how": "stats",
-                "reason": "declines all 0 calls: F1_BLOCK_KEYS allow-lists only (8, 8) and openbind's trimul tails resolve 4 and 2 K tiles, which are properties of c_hidden and not of N -- so F1 is inert on this model at every size, not dark at this one [carried from p300c] [carried from p150a] [carried from rung 768]"
-              },
-              "QKV_MM_CONFIG": {
-                "resolved": "True",
-                "served": 5820,
-                "declined": 0,
-                "frac": 1.0,
-                "how": "wrap"
-              },
-              "DEVICE_LM_HANDOFF": {
-                "resolved": "not-imported",
-                "served": null,
-                "declined": null,
-                "frac": null,
-                "how": "stats"
-              },
-              "REBLOCK_PERMUTE": {
-                "resolved": "True",
-                "served": 0,
-                "declined": 0,
-                "frac": 0.0,
-                "how": "stats",
-                "reason": "superseded at this rung, not broken: `TT_BIO_TRIMUL_MASK_AFTER_MOVE` moves the pair mask past the channel move, so the trimul reaches the fused gated kernel first and this ungated site is never called (0 served AND 0 declined). The handover is visible in this same baseline -- `REBLOCK_PERMUTE_GATED` serves 880 per fold here and 0 at 256 aa, which is the one rung where this ungated lever is still the one being called. The fused pair is bit-exact (perf/b2x_trimul/), so the traffic changed route without changing the answer. [carried from p300c] [carried from rung 1024] [carried from p150a]"
-              },
-              "REBLOCK_PERMUTE_BACK": {
-                "resolved": "True",
-                "served": 864,
-                "declined": 0,
-                "frac": 1.0,
-                "how": "stats"
-              },
-              "REBLOCK_PERMUTE_GATED": {
-                "resolved": "True",
-                "served": 1728,
-                "declined": 0,
-                "frac": 1.0,
-                "how": "stats"
-              },
-              "TRIMUL_MASK_AFTER_MOVE": {
-                "resolved": "True",
-                "served": 1728,
-                "declined": 0,
-                "frac": 1.0,
-                "how": "stats-shared"
-              },
-              "TRIATT_PERSISTENT_MASK": {
-                "resolved": "True",
-                "served": 0,
-                "declined": 12,
-                "frac": 0.0,
-                "how": "stats",
-                "rejects": {
-                  "l1_budget": 3,
-                  "fill_preconditions": 9
-                },
-                "reason": "declines all 12 calls on fill_preconditions x9, l1_budget x3: openbind's triangle attention does not route through the fused kernel's call site at any rung [carried from p300c] [carried from rung 768] [carried from p150a]"
-              },
-              "SDPA_WIDE_K": {
-                "resolved": "True",
-                "served": 0,
-                "declined": 0,
-                "frac": 0.0,
-                "how": "stats",
-                "reason": "structural, not size-specific: both SDPA_K_CHUNK_STATS sites are inside `_tri_att_sdpa_at`'s `len(k_chunks) > 1` block, and served 0 declined 0 means no call entered it: the shipped k_chunk divides the padded length at this rung, so there is no wider dividing pick to offer [carried from rung 896]"
-              },
-              "SDPA_FUSED_LARGE_S": {
-                "resolved": "True",
-                "served": 0,
-                "declined": 0,
-                "frac": 0.0,
-                "how": "stats",
-                "reason": "below the cap, by construction: 0 served AND 0 declined at this rung. The route is offered only for q_len > `_Q_SPLIT_MAX_S` = 1024 padded tokens (tt_bio/triatt_sdpa.py:88, gate at tt_bio/tenstorrent.py:1843), and at or below the cap the stock ladder already lands on a fused pair -- the shipped bit-exact path this flag was written not to disturb. [carried from p300c] [carried from rung 1024] [carried from p150a]"
-              },
-              "RFD3_SPARSE_BIAS": {
-                "resolved": "not-imported",
-                "served": null,
-                "declined": null,
-                "frac": null,
-                "how": "stats"
-              },
-              "RFD3_FUSED_SCORES": {
-                "resolved": "not-imported",
-                "served": null,
-                "declined": null,
-                "frac": null,
-                "how": "stats"
-              },
-              "TRIATT_HEAD_MAJOR_QKV": {
-                "resolved": "True",
-                "served": 1908,
-                "declined": 48,
-                "frac": 0.9754601226993865,
-                "how": "stats",
-                "rejects": {
-                  "head_dim_or_width": 48
-                }
-              },
-              "TRIATT_HEAD_MAJOR_TAIL": {
-                "resolved": "True",
-                "served": 1908,
-                "declined": 0,
-                "frac": 1.0,
-                "how": "stats"
-              },
-              "TRIATT_TAIL_OVER_L1": {
-                "resolved": "True",
-                "served": 1908,
-                "declined": 0,
-                "frac": 1.0,
-                "how": "stats-shared"
-              },
-              "B2_BIAS_SLICE_HOIST": {
-                "resolved": "True",
-                "served": 0,
-                "declined": 0,
-                "frac": 0.0,
-                "how": "wrap",
-                "reason": "declines all 0 calls: a boltz-2 diffusion lever; openbind does not run that module [carried from p300c] [carried from rung 768] [carried from p150a]"
-              },
-              "B2_ADALN_S_MEMO": {
-                "resolved": "True",
-                "served": 0,
-                "declined": 0,
-                "frac": 0.0,
-                "how": "wrap",
-                "reason": "declines all 0 calls: a boltz-2 diffusion lever; openbind does not run that module [carried from p300c] [carried from rung 768] [carried from p150a]"
-              },
-              "B2_TOKEN_DIT_SDPA": {
-                "resolved": "True",
-                "served": 0,
-                "declined": 0,
-                "frac": 0.0,
-                "how": "stats",
-                "reason": "no call site on this path: 0 served AND 0 declined at every rung. The counter advances only where `AttentionPairBias.token_dit` is True (tt_bio/tenstorrent.py:8026), which only `DiffusionTransformerLayer` sets (`token_dit = not atom_level`, tt_bio/tenstorrent.py:9577) and only Boltz-2 builds (tt_bio/boltz2.py:2031); openbind never constructs it. Control in this same baseline: boltz2 serves 144 per fold at every rung. [carried from p300c] [carried from rung 1024] [carried from p150a]"
-              },
-              "APB_CONCAT_HEADS": {
-                "resolved": "False",
-                "served": 0,
-                "declined": 192,
-                "frac": 0.0,
-                "how": "stats"
-              },
-              "ATOM_AXIS_BUCKET": {
-                "resolved": "True",
-                "served": 0,
-                "declined": 0,
-                "frac": 0.0,
-                "how": "stats",
-                "reason": "no call site on this path: 0 served AND 0 declined at every rung. The counter sits in `tenstorrent.DiffusionModule._populate_diffusion_cache` (tt_bio/tenstorrent.py:11271-11278), and `tenstorrent.DiffusionModule` is constructed only by Boltz-2 (tt_bio/boltz2.py:4232); openbind runs its own diffusion module and never reaches it. Control in this same baseline: boltz2 serves 6 per fold at every rung. [carried from p300c] [carried from rung 1024] [carried from p150a]"
-              },
-              "TRANSPOSE_L1_RESIDENT": {
-                "resolved": "1.25",
-                "served": 1296,
-                "declined": 0,
-                "frac": 1.0,
-                "how": "wrap"
-              },
-              "SDPA_Q_CHUNK_FITS": {
-                "resolved": "True",
-                "served": 0,
-                "declined": 0,
-                "frac": 0.0,
-                "how": "setlen"
-              },
-              "RFD3_SOFTMAX_PV_FUSED": {
-                "resolved": "not-imported",
-                "served": null,
-                "declined": null,
-                "frac": null,
-                "how": "stats"
-              },
-              "RFD3_FC1_SPLIT_SILU": {
-                "resolved": "not-imported",
-                "served": null,
-                "declined": null,
-                "frac": null,
-                "how": "stats"
-              },
-              "TRANSITION_H_CHUNK": {
-                "resolved": "16",
-                "served": 0,
-                "declined": 232,
-                "frac": 0.0,
-                "how": "stats",
-                "rejects": {
-                  "base-unraised": 8,
-                  "h-clamped-to-H": 12,
-                  "ratio-shrunk": 212
-                },
-                "reason": "declines all 232 calls on ratio-shrunk x212, h-clamped-to-H x12, base-unraised x8: the height RAISE is the Blackhole branch and there is no Wormhole one. tt_bio/tenstorrent.py scores this counter as served only when the derived height comes out ABOVE the shipped base, and on a small grid it cannot: the small-grid raise is scoped to 256 < c <= 384 and this call site is c=128, so the height stays at the base (base-unraised) or the per-core L1 cap pulls it under (ratio-shrunk). The Blackhole elif takes the same budget the other way round -- there the measured L1 ceiling sits well above the base, so it raises -- which is why p150a and p300c read 1.0 at every rung and this board reads 0.0 from 512 up. 256 serves because the base is reached there. Nothing declines on a size the lever was tuned for; the lever has no Wormhole raise to decline [carried from rung 896]"
-              },
-              "TRIATT_SDPA_HIFI": {
-                "resolved": "openfold3.trunk",
                 "served": 0,
                 "declined": 1728,
                 "frac": 0.0,
-                "how": "stats-dict",
-                "reason": "every one of the 1728 calls exhausts the fused-HiFi config ladder in `_tri_att_sdpa_hifi_inner` and falls back to `_fp32_softmax_attention` (tenstorrent.py:8095), the materialised fp32 route. The ceiling is per-core L1, not N: the clauses on this same run are in TRIATT_PERSISTENT_MASK's rejects, fill_preconditions x9, l1_budget x3, and a config that throws is retired into `_TRIATT_HIFI_OVER_L1` so later calls decline without re-entering. The route serves all 384 calls at 1024 on this card, the same boundary a p300c measured (384 served at 1024, every call declined at 1088, 56ad6c0e0)."
-              }
-            },
-            "1536": {
-              "SPLIT_SWIGLU": {
-                "resolved": "True",
-                "served": 0,
-                "declined": 0,
-                "frac": 0.0,
                 "how": "stats",
-                "reason": "declines all 0 calls: an ESMC lever; openbind does not run that module [carried from p300c] [carried from rung 768] [carried from p150a]"
-              },
-              "SPLIT_SWIGLU_SMALL_GRID": {
-                "resolved": "True",
-                "served": 0,
-                "declined": 0,
-                "frac": 0.0,
-                "how": "stats-shared",
-                "reason": "declines all 0 calls: an ESMC lever; openbind does not run that module [carried from p300c] [carried from rung 768] [carried from p150a]"
-              },
-              "PAIR_FFN_L1_FC1": {
-                "resolved": "True",
-                "served": 0,
-                "declined": 0,
-                "frac": 0.0,
-                "how": "stats",
-                "reason": "declines all 0 calls: an ESMC pair-FFN lever; openbind does not run that module [carried from p300c] [carried from rung 768] [carried from p150a]"
-              },
-              "PAIR_FFN_L1_LN": {
-                "resolved": "True",
-                "served": 0,
-                "declined": 0,
-                "frac": 0.0,
-                "how": "stats",
-                "reason": "declines all 0 calls: an ESMC pair-FFN lever; openbind does not run that module [carried from p300c] [carried from rung 768] [carried from p150a]"
-              },
-              "PAIR_FFN_L1_SLICE": {
-                "resolved": "True",
-                "served": 0,
-                "declined": 0,
-                "frac": 0.0,
-                "how": "stats",
-                "reason": "declines all 0 calls: an ESMC pair-FFN lever; openbind does not run that module [carried from p300c] [carried from rung 768] [carried from p150a]"
-              },
-              "PAIR_FFN_FUSED_RESIDUAL": {
-                "resolved": "True",
-                "served": 0,
-                "declined": 0,
-                "frac": 0.0,
-                "how": "stats",
-                "reason": "declines all 0 calls: an ESMC pair-FFN lever; openbind does not run that module [carried from p300c] [carried from rung 768] [carried from p150a]"
-              },
-              "PAIR_FFN_FILL_ASSEMBLY": {
-                "resolved": "True",
-                "served": 0,
-                "declined": 0,
-                "frac": 0.0,
-                "how": "stats",
-                "reason": "declines all 0 calls: an ESMC pair-FFN lever; openbind does not run that module [carried from p300c] [carried from rung 768] [carried from p150a]"
-              },
-              "TRIMUL_IN_PROJ_DUAL_NOC": {
-                "resolved": "True",
-                "served": 1728,
-                "declined": 0,
-                "frac": 1.0,
-                "how": "stats"
+                "rejects": {
+                  "memory": 1728
+                },
+                "reason": "declines all 1728 calls on memory x1728: the dual-NoC in-projection needs a DRAM-interleaved activation and destination, and the pair buffer is L1-resident at this size [carried from p150a]"
               },
               "ADALN_S_HOIST": {
                 "resolved": "True",
@@ -5271,53 +4958,56 @@
               },
               "FP32_SOFTMAX_BIAS_HOIST": {
                 "resolved": "True",
-                "served": 2388,
-                "declined": 2390,
-                "frac": 0.4997907074089577,
+                "served": 56,
+                "declined": 56,
+                "frac": 0.5,
                 "how": "stats-dict"
               },
               "FP32_SOFTMAX_L1_GRID": {
                 "resolved": "(9, 8)",
-                "served": 1,
-                "declined": 1,
-                "frac": 0.5,
+                "served": 224,
+                "declined": 0,
+                "frac": 1.0,
                 "how": "stats-dict"
               },
               "PAIR_TRANSPOSE_VIA_ROW_MAJOR": {
                 "resolved": "True",
-                "served": 1728,
-                "declined": 3456,
-                "frac": 0.3333333333333333,
+                "served": 0,
+                "declined": 440,
+                "frac": 0.0,
                 "how": "wrap",
                 "rejects": {
-                  "l1_dest_is_faster:1536x384x64": 64,
-                  "l1_dest_is_faster:1536x192x128": 3392
-                }
+                  "l1_dest_is_faster:256x256x64": 16,
+                  "l1_dest_is_faster:256x256x128": 424
+                },
+                "reason": "declines all 440 calls on l1_dest_is_faster:256x256x128 x424, l1_dest_is_faster:256x256x64 x16: the row-major route needs a DRAM destination for a 3-D bf16 tiled pair tensor; wrap-counted, so the clause is not recorded [carried from p150a]"
               },
               "PAIR_PROJ_MINIMAL_MATMUL": {
                 "resolved": "True",
                 "served": 0,
-                "declined": 2412,
+                "declined": 16,
                 "frac": 0.0,
                 "how": "wrap",
                 "rejects": {
-                  "k_tiles=2:(2,1)": 56,
-                  "k_tiles=2:(2,2)": 24,
-                  "k_tiles=4:(4,1)": 2332
+                  "k_tiles=2:(2,1)": 16
                 },
-                "reason": "declines all 2412 calls on k_tiles=4:(4,1) x2332, k_tiles=2:(2,1) x56, k_tiles=2:(2,2) x24: the minimal matmul admits an 8-tile weight K dim and this checkpoint's pair projections resolve fewer, a property of c_z and not of N, so it is inert on this model at every size rather than dark at this one [carried from p300c] [carried from rung 768] [carried from p150a]"
+                "reason": "declines all 16 calls on k_tiles=2:(2,1) x16: it needs an 8-tile weight K dim AND an _MM_BLOCK entry for the shape; wrap-counted, so which of the two fails is not recorded. The call count rises from 440 to ~1288 at 640 and above, which is the pair track taking its row-blocked path [carried from p150a]"
               },
               "TRIMUL_TAIL_F1": {
                 "resolved": "True",
                 "served": 0,
-                "declined": 0,
+                "declined": 440,
                 "frac": 0.0,
                 "how": "stats",
-                "reason": "declines all 0 calls: F1_BLOCK_KEYS allow-lists only (8, 8) and openbind's trimul tails resolve 4 and 2 K tiles, which are properties of c_hidden and not of N -- so F1 is inert on this model at every size, not dark at this one [carried from p300c] [carried from p150a] [carried from rung 768]"
+                "rejects": {
+                  "k_tiles=2": 16,
+                  "k_tiles=4": 424
+                },
+                "reason": "declines all 440 calls on k_tiles=4 x424, k_tiles=2 x16: F1_BLOCK_KEYS allow-lists only (8, 8) and openbind's trimul tails resolve 4 and 2 K tiles, which are properties of c_hidden and not of N -- so F1 is inert on this model at every size, not dark at this one [carried from p150a]"
               },
               "QKV_MM_CONFIG": {
                 "resolved": "True",
-                "served": 7108,
+                "served": 472,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "wrap"
@@ -5332,43 +5022,46 @@
               "REBLOCK_PERMUTE": {
                 "resolved": "True",
                 "served": 0,
-                "declined": 0,
-                "frac": 0.0,
-                "how": "stats",
-                "reason": "superseded at this rung, not broken: `TT_BIO_TRIMUL_MASK_AFTER_MOVE` moves the pair mask past the channel move, so the trimul reaches the fused gated kernel first and this ungated site is never called (0 served AND 0 declined). The handover is visible in this same baseline -- `REBLOCK_PERMUTE_GATED` serves 880 per fold here and 0 at 256 aa, which is the one rung where this ungated lever is still the one being called. The fused pair is bit-exact (perf/b2x_trimul/), so the traffic changed route without changing the answer. [carried from p300c] [carried from rung 1024] [carried from p150a]"
-              },
-              "REBLOCK_PERMUTE_BACK": {
-                "resolved": "True",
-                "served": 1728,
-                "declined": 0,
-                "frac": 1.0,
-                "how": "stats"
-              },
-              "REBLOCK_PERMUTE_GATED": {
-                "resolved": "True",
-                "served": 3456,
-                "declined": 0,
-                "frac": 1.0,
-                "how": "stats"
-              },
-              "TRIMUL_MASK_AFTER_MOVE": {
-                "resolved": "True",
-                "served": 3456,
-                "declined": 0,
-                "frac": 1.0,
-                "how": "stats-shared"
-              },
-              "TRIATT_PERSISTENT_MASK": {
-                "resolved": "True",
-                "served": 0,
-                "declined": 15,
+                "declined": 6912,
                 "frac": 0.0,
                 "how": "stats",
                 "rejects": {
-                  "l1_budget": 3,
-                  "fill_preconditions": 12
+                  "gated_window_BufferType.L1": 1728,
+                  "window_BufferType.L1": 3456,
+                  "back_l1_src_narrow": 1728
                 },
-                "reason": "declines all 15 calls on fill_preconditions x12, l1_budget x3: openbind's triangle attention does not route through the fused kernel's call site at any rung [carried from p300c] [carried from rung 768] [carried from p150a]"
+                "reason": "declines all 6912 calls on window_BufferType.L1 x3456, gated_window_BufferType.L1 x1728, back_l1_src_narrow x1728: the gate's L1 leg admits 288 <= N <= 352 only, and its own docstring records N=256 on an L1 output measuring 0.952x, a real loss [carried from p150a]"
+              },
+              "REBLOCK_PERMUTE_BACK": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "declines all 0 calls: the move back only runs when a forward move fired, and none did here [carried from p150a]"
+              },
+              "REBLOCK_PERMUTE_GATED": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "declines all 0 calls: the gated channel move is never offered on openbind's pair track, at any rung [carried from p150a]"
+              },
+              "TRIMUL_MASK_AFTER_MOVE": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats-shared",
+                "reason": "nothing to fuse into at this rung: the counter is `reblock_permute.STATS_GATED`, which counts serves of the fused gated move, and the gated window admits none of this model's 256 aa channel moves. At 256 aa the pair track is N=256 on an L1 destination, below `L1_N_MIN` = 288 (tt_bio/reblock_permute.py:338, the same band enforced for the fused path in `eligible_gated` at :877-878); the band opens at 288 because N=256 on an L1 output is a measured 0.952x loss on 110 cores. The same rung shows the ungated `REBLOCK_PERMUTE` declining 1728 calls on exactly that clause. It serves 880 per fold from 512 aa up. [carried from p300c] [carried from p150a]"
+              },
+              "TRIATT_PERSISTENT_MASK": {
+                "resolved": "True",
+                "served": 384,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats"
               },
               "SDPA_WIDE_K": {
                 "resolved": "True",
@@ -5376,7 +5069,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "reason": "structural, not size-specific: both SDPA_K_CHUNK_STATS sites are inside `_tri_att_sdpa_at`'s `len(k_chunks) > 1` block, and served 0 declined 0 means no call entered it: the shipped k_chunk divides the padded length at this rung, so there is no wider dividing pick to offer [carried from rung 896]"
+                "reason": "structural, not size-specific: both SDPA_K_CHUNK_STATS sites are inside `_tri_att_sdpa_at`'s `len(k_chunks) > 1` block, and served 0 declined 0 means no call entered it: the shipped k_chunk divides the padded length at this rung, so there is no wider dividing pick to offer"
               },
               "SDPA_FUSED_LARGE_S": {
                 "resolved": "True",
@@ -5384,7 +5077,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "reason": "below the cap, by construction: 0 served AND 0 declined at this rung. The route is offered only for q_len > `_Q_SPLIT_MAX_S` = 1024 padded tokens (tt_bio/triatt_sdpa.py:88, gate at tt_bio/tenstorrent.py:1843), and at or below the cap the stock ladder already lands on a fused pair -- the shipped bit-exact path this flag was written not to disturb. [carried from p300c] [carried from rung 1024] [carried from p150a]"
+                "reason": "below the cap, by construction: 0 served AND 0 declined at this rung. The route is offered only for q_len > `_Q_SPLIT_MAX_S` = 1024 padded tokens (tt_bio/triatt_sdpa.py:88, gate at tt_bio/tenstorrent.py:1843), and at or below the cap the stock ladder already lands on a fused pair -- the shipped bit-exact path this flag was written not to disturb. [carried from p300c] [carried from p150a]"
               },
               "RFD3_SPARSE_BIAS": {
                 "resolved": "not-imported",
@@ -5402,24 +5095,24 @@
               },
               "TRIATT_HEAD_MAJOR_QKV": {
                 "resolved": "True",
-                "served": 2332,
-                "declined": 56,
-                "frac": 0.9765494137353434,
+                "served": 424,
+                "declined": 16,
+                "frac": 0.9636363636363636,
                 "how": "stats",
                 "rejects": {
-                  "head_dim_or_width": 56
+                  "head_dim_or_width": 16
                 }
               },
               "TRIATT_HEAD_MAJOR_TAIL": {
                 "resolved": "True",
-                "served": 2332,
+                "served": 424,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
               },
               "TRIATT_TAIL_OVER_L1": {
                 "resolved": "True",
-                "served": 2332,
+                "served": 424,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats-shared"
@@ -5430,7 +5123,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "wrap",
-                "reason": "declines all 0 calls: a boltz-2 diffusion lever; openbind does not run that module [carried from p300c] [carried from rung 768] [carried from p150a]"
+                "reason": "declines all 0 calls: a boltz-2 diffusion lever; openbind does not run that module [carried from p150a]"
               },
               "B2_ADALN_S_MEMO": {
                 "resolved": "True",
@@ -5438,7 +5131,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "wrap",
-                "reason": "declines all 0 calls: a boltz-2 diffusion lever; openbind does not run that module [carried from p300c] [carried from rung 768] [carried from p150a]"
+                "reason": "declines all 0 calls: a boltz-2 diffusion lever; openbind does not run that module [carried from p150a]"
               },
               "B2_TOKEN_DIT_SDPA": {
                 "resolved": "True",
@@ -5446,7 +5139,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "reason": "no call site on this path: 0 served AND 0 declined at every rung. The counter advances only where `AttentionPairBias.token_dit` is True (tt_bio/tenstorrent.py:8026), which only `DiffusionTransformerLayer` sets (`token_dit = not atom_level`, tt_bio/tenstorrent.py:9577) and only Boltz-2 builds (tt_bio/boltz2.py:2031); openbind never constructs it. Control in this same baseline: boltz2 serves 144 per fold at every rung. [carried from p300c] [carried from rung 1024] [carried from p150a]"
+                "reason": "no call site on this path: 0 served AND 0 declined at every rung. The counter advances only where `AttentionPairBias.token_dit` is True (tt_bio/tenstorrent.py:8026), which only `DiffusionTransformerLayer` sets (`token_dit = not atom_level`, tt_bio/tenstorrent.py:9577) and only Boltz-2 builds (tt_bio/boltz2.py:2031); openbind never constructs it. Control in this same baseline: boltz2 serves 144 per fold at every rung. [carried from p300c] [carried from p150a]"
               },
               "APB_CONCAT_HEADS": {
                 "resolved": "False",
@@ -5461,11 +5154,11 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "reason": "no call site on this path: 0 served AND 0 declined at every rung. The counter sits in `tenstorrent.DiffusionModule._populate_diffusion_cache` (tt_bio/tenstorrent.py:11271-11278), and `tenstorrent.DiffusionModule` is constructed only by Boltz-2 (tt_bio/boltz2.py:4232); openbind runs its own diffusion module and never reaches it. Control in this same baseline: boltz2 serves 6 per fold at every rung. [carried from p300c] [carried from rung 1024] [carried from p150a]"
+                "reason": "no call site on this path: 0 served AND 0 declined at every rung. The counter sits in `tenstorrent.DiffusionModule._populate_diffusion_cache` (tt_bio/tenstorrent.py:11271-11278), and `tenstorrent.DiffusionModule` is constructed only by Boltz-2 (tt_bio/boltz2.py:4232); openbind runs its own diffusion module and never reaches it. Control in this same baseline: boltz2 serves 6 per fold at every rung. [carried from p300c] [carried from p150a]"
               },
               "TRANSPOSE_L1_RESIDENT": {
                 "resolved": "1.25",
-                "served": 1728,
+                "served": 440,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "wrap"
@@ -5493,24 +5186,17 @@
               },
               "TRANSITION_H_CHUNK": {
                 "resolved": "16",
-                "served": 0,
-                "declined": 232,
-                "frac": 0.0,
-                "how": "stats",
-                "rejects": {
-                  "base-unraised": 8,
-                  "h-clamped-to-H": 12,
-                  "ratio-shrunk": 212
-                },
-                "reason": "declines all 232 calls on ratio-shrunk x212, h-clamped-to-H x12, base-unraised x8: the height RAISE is the Blackhole branch and there is no Wormhole one. tt_bio/tenstorrent.py scores this counter as served only when the derived height comes out ABOVE the shipped base, and on a small grid it cannot: the small-grid raise is scoped to 256 < c <= 384 and this call site is c=128, so the height stays at the base (base-unraised) or the per-core L1 cap pulls it under (ratio-shrunk). The Blackhole elif takes the same budget the other way round -- there the measured L1 ceiling sits well above the base, so it raises -- which is why p150a and p300c read 1.0 at every rung and this board reads 0.0 from 512 up. 256 serves because the base is reached there. Nothing declines on a size the lever was tuned for; the lever has no Wormhole raise to decline [carried from rung 896]"
+                "served": 232,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats"
               },
               "TRIATT_SDPA_HIFI": {
                 "resolved": "openfold3.trunk",
-                "served": 0,
-                "declined": 2112,
-                "frac": 0.0,
-                "how": "stats-dict",
-                "reason": "every one of the 2112 calls exhausts the fused-HiFi config ladder in `_tri_att_sdpa_hifi_inner` and falls back to `_fp32_softmax_attention` (tenstorrent.py:8095), the materialised fp32 route. The ceiling is per-core L1, not N: the clauses on this same run are in TRIATT_PERSISTENT_MASK's rejects, fill_preconditions x12, l1_budget x3, and a config that throws is retired into `_TRIATT_HIFI_OVER_L1` so later calls decline without re-entering. The route serves all 384 calls at 1024 on this card, the same boundary a p300c measured (384 served at 1024, every call declined at 1088, 56ad6c0e0)."
+                "served": 384,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats-dict"
               }
             },
             "512": {
@@ -5780,315 +5466,6 @@
                 "served": 440,
                 "declined": 0,
                 "frac": 1.0,
-                "how": "wrap"
-              },
-              "SDPA_Q_CHUNK_FITS": {
-                "resolved": "True",
-                "served": 0,
-                "declined": 0,
-                "frac": 0.0,
-                "how": "setlen"
-              },
-              "RFD3_SOFTMAX_PV_FUSED": {
-                "resolved": "not-imported",
-                "served": null,
-                "declined": null,
-                "frac": null,
-                "how": "stats"
-              },
-              "RFD3_FC1_SPLIT_SILU": {
-                "resolved": "not-imported",
-                "served": null,
-                "declined": null,
-                "frac": null,
-                "how": "stats"
-              },
-              "TRANSITION_H_CHUNK": {
-                "resolved": "16",
-                "served": 0,
-                "declined": 232,
-                "frac": 0.0,
-                "how": "stats",
-                "rejects": {
-                  "base-unraised": 220,
-                  "h-clamped-to-H": 12
-                },
-                "reason": "declines all 232 calls on base-unraised x220, h-clamped-to-H x12: the height RAISE is the Blackhole branch and there is no Wormhole one. tt_bio/tenstorrent.py scores this counter as served only when the derived height comes out ABOVE the shipped base, and on a small grid it cannot: the small-grid raise is scoped to 256 < c <= 384 and this call site is c=128, so the height stays at the base (base-unraised) or the per-core L1 cap pulls it under (ratio-shrunk). The Blackhole elif takes the same budget the other way round -- there the measured L1 ceiling sits well above the base, so it raises -- which is why p150a and p300c read 1.0 at every rung and this board reads 0.0 from 512 up. 256 serves because the base is reached there. Nothing declines on a size the lever was tuned for; the lever has no Wormhole raise to decline"
-              },
-              "TRIATT_SDPA_HIFI": {
-                "resolved": "openfold3.trunk",
-                "served": 384,
-                "declined": 0,
-                "frac": 1.0,
-                "how": "stats-dict"
-              }
-            },
-            "768": {
-              "SPLIT_SWIGLU": {
-                "resolved": "True",
-                "served": 0,
-                "declined": 0,
-                "frac": 0.0,
-                "how": "stats",
-                "reason": "declines all 0 calls: an ESMC lever; openbind does not run that module [carried from p150a]"
-              },
-              "SPLIT_SWIGLU_SMALL_GRID": {
-                "resolved": "True",
-                "served": 0,
-                "declined": 0,
-                "frac": 0.0,
-                "how": "stats-shared",
-                "reason": "declines all 0 calls: an ESMC lever; openbind does not run that module [carried from p150a]"
-              },
-              "PAIR_FFN_L1_FC1": {
-                "resolved": "True",
-                "served": 0,
-                "declined": 0,
-                "frac": 0.0,
-                "how": "stats",
-                "reason": "declines all 0 calls: an ESMC pair-FFN lever; openbind does not run that module [carried from p150a]"
-              },
-              "PAIR_FFN_L1_LN": {
-                "resolved": "True",
-                "served": 0,
-                "declined": 0,
-                "frac": 0.0,
-                "how": "stats",
-                "reason": "declines all 0 calls: an ESMC pair-FFN lever; openbind does not run that module [carried from p150a]"
-              },
-              "PAIR_FFN_L1_SLICE": {
-                "resolved": "True",
-                "served": 0,
-                "declined": 0,
-                "frac": 0.0,
-                "how": "stats",
-                "reason": "declines all 0 calls: an ESMC pair-FFN lever; openbind does not run that module [carried from p150a]"
-              },
-              "PAIR_FFN_FUSED_RESIDUAL": {
-                "resolved": "True",
-                "served": 0,
-                "declined": 0,
-                "frac": 0.0,
-                "how": "stats",
-                "reason": "declines all 0 calls: an ESMC pair-FFN lever; openbind does not run that module [carried from p150a]"
-              },
-              "PAIR_FFN_FILL_ASSEMBLY": {
-                "resolved": "True",
-                "served": 0,
-                "declined": 0,
-                "frac": 0.0,
-                "how": "stats",
-                "reason": "declines all 0 calls: an ESMC pair-FFN lever; openbind does not run that module [carried from p150a]"
-              },
-              "TRIMUL_IN_PROJ_DUAL_NOC": {
-                "resolved": "True",
-                "served": 440,
-                "declined": 0,
-                "frac": 1.0,
-                "how": "stats"
-              },
-              "ADALN_S_HOIST": {
-                "resolved": "True",
-                "served": 315,
-                "declined": 0,
-                "frac": 1.0,
-                "how": "wrap"
-              },
-              "FP32_SOFTMAX_BIAS_HOIST": {
-                "resolved": "True",
-                "served": 56,
-                "declined": 56,
-                "frac": 0.5,
-                "how": "stats-dict"
-              },
-              "FP32_SOFTMAX_L1_GRID": {
-                "resolved": "(9, 8)",
-                "served": 10561,
-                "declined": 1,
-                "frac": 0.9999053209619391,
-                "how": "stats-dict"
-              },
-              "PAIR_TRANSPOSE_VIA_ROW_MAJOR": {
-                "resolved": "True",
-                "served": 439,
-                "declined": 2,
-                "frac": 0.9954648526077098,
-                "how": "wrap",
-                "rejects": {
-                  "l1_dest_is_faster:768x768x64": 2
-                }
-              },
-              "PAIR_PROJ_MINIMAL_MATMUL": {
-                "resolved": "True",
-                "served": 0,
-                "declined": 440,
-                "frac": 0.0,
-                "how": "wrap",
-                "rejects": {
-                  "k_tiles=2:(2,1)": 16,
-                  "k_tiles=4:(4,4)": 424
-                },
-                "reason": "declines all 440 calls on k_tiles=4:(4,4) x424, k_tiles=2:(2,1) x16: it needs an 8-tile weight K dim AND an _MM_BLOCK entry for the shape; wrap-counted, so which of the two fails is not recorded. The call count rises from 440 to ~1288 at 640 and above, which is the pair track taking its row-blocked path [carried from p150a]"
-              },
-              "TRIMUL_TAIL_F1": {
-                "resolved": "True",
-                "served": 0,
-                "declined": 0,
-                "frac": 0.0,
-                "how": "stats",
-                "reason": "declines all 0 calls: F1_BLOCK_KEYS allow-lists only (8, 8) and openbind's trimul tails resolve 4 and 2 K tiles, which are properties of c_hidden and not of N -- so F1 is inert on this model at every size, not dark at this one [carried from p150a]"
-              },
-              "QKV_MM_CONFIG": {
-                "resolved": "True",
-                "served": 472,
-                "declined": 0,
-                "frac": 1.0,
-                "how": "wrap"
-              },
-              "DEVICE_LM_HANDOFF": {
-                "resolved": "not-imported",
-                "served": null,
-                "declined": null,
-                "frac": null,
-                "how": "stats"
-              },
-              "REBLOCK_PERMUTE": {
-                "resolved": "True",
-                "served": 0,
-                "declined": 0,
-                "frac": 0.0,
-                "how": "stats",
-                "reason": "superseded at this rung, not broken: `TT_BIO_TRIMUL_MASK_AFTER_MOVE` moves the pair mask past the channel move, so the trimul reaches the fused gated kernel first and this ungated site is never called (0 served AND 0 declined). The handover is visible in this same baseline -- `REBLOCK_PERMUTE_GATED` serves 880 per fold here and 0 at 256 aa, which is the one rung where this ungated lever is still the one being called. The fused pair is bit-exact (perf/b2x_trimul/), so the traffic changed route without changing the answer. [carried from p300c] [carried from p150a]"
-              },
-              "REBLOCK_PERMUTE_BACK": {
-                "resolved": "True",
-                "served": 440,
-                "declined": 0,
-                "frac": 1.0,
-                "how": "stats"
-              },
-              "REBLOCK_PERMUTE_GATED": {
-                "resolved": "True",
-                "served": 880,
-                "declined": 0,
-                "frac": 1.0,
-                "how": "stats"
-              },
-              "TRIMUL_MASK_AFTER_MOVE": {
-                "resolved": "True",
-                "served": 880,
-                "declined": 0,
-                "frac": 1.0,
-                "how": "stats-shared"
-              },
-              "TRIATT_PERSISTENT_MASK": {
-                "resolved": "True",
-                "served": 384,
-                "declined": 4,
-                "frac": 0.9896907216494846,
-                "how": "stats",
-                "rejects": {
-                  "l1_budget": 4
-                }
-              },
-              "SDPA_WIDE_K": {
-                "resolved": "True",
-                "served": 0,
-                "declined": 0,
-                "frac": 0.0,
-                "how": "stats",
-                "reason": "structural, not size-specific: both SDPA_K_CHUNK_STATS sites are inside `_tri_att_sdpa_at`'s `len(k_chunks) > 1` block, and served 0 declined 0 means no call entered it: the shipped k_chunk divides the padded length at this rung, so there is no wider dividing pick to offer"
-              },
-              "SDPA_FUSED_LARGE_S": {
-                "resolved": "True",
-                "served": 0,
-                "declined": 0,
-                "frac": 0.0,
-                "how": "stats",
-                "reason": "below the cap, by construction: 0 served AND 0 declined at this rung. The route is offered only for q_len > `_Q_SPLIT_MAX_S` = 1024 padded tokens (tt_bio/triatt_sdpa.py:88, gate at tt_bio/tenstorrent.py:1843), and at or below the cap the stock ladder already lands on a fused pair -- the shipped bit-exact path this flag was written not to disturb. [carried from p300c] [carried from p150a]"
-              },
-              "RFD3_SPARSE_BIAS": {
-                "resolved": "not-imported",
-                "served": null,
-                "declined": null,
-                "frac": null,
-                "how": "stats"
-              },
-              "RFD3_FUSED_SCORES": {
-                "resolved": "not-imported",
-                "served": null,
-                "declined": null,
-                "frac": null,
-                "how": "stats"
-              },
-              "TRIATT_HEAD_MAJOR_QKV": {
-                "resolved": "True",
-                "served": 424,
-                "declined": 16,
-                "frac": 0.9636363636363636,
-                "how": "stats",
-                "rejects": {
-                  "head_dim_or_width": 16
-                }
-              },
-              "TRIATT_HEAD_MAJOR_TAIL": {
-                "resolved": "True",
-                "served": 424,
-                "declined": 0,
-                "frac": 1.0,
-                "how": "stats"
-              },
-              "TRIATT_TAIL_OVER_L1": {
-                "resolved": "True",
-                "served": 424,
-                "declined": 0,
-                "frac": 1.0,
-                "how": "stats-shared"
-              },
-              "B2_BIAS_SLICE_HOIST": {
-                "resolved": "True",
-                "served": 0,
-                "declined": 0,
-                "frac": 0.0,
-                "how": "wrap",
-                "reason": "declines all 0 calls: a boltz-2 diffusion lever; openbind does not run that module [carried from p150a]"
-              },
-              "B2_ADALN_S_MEMO": {
-                "resolved": "True",
-                "served": 0,
-                "declined": 0,
-                "frac": 0.0,
-                "how": "wrap",
-                "reason": "declines all 0 calls: a boltz-2 diffusion lever; openbind does not run that module [carried from p150a]"
-              },
-              "B2_TOKEN_DIT_SDPA": {
-                "resolved": "True",
-                "served": 0,
-                "declined": 0,
-                "frac": 0.0,
-                "how": "stats",
-                "reason": "no call site on this path: 0 served AND 0 declined at every rung. The counter advances only where `AttentionPairBias.token_dit` is True (tt_bio/tenstorrent.py:8026), which only `DiffusionTransformerLayer` sets (`token_dit = not atom_level`, tt_bio/tenstorrent.py:9577) and only Boltz-2 builds (tt_bio/boltz2.py:2031); openbind never constructs it. Control in this same baseline: boltz2 serves 144 per fold at every rung. [carried from p300c] [carried from p150a]"
-              },
-              "APB_CONCAT_HEADS": {
-                "resolved": "False",
-                "served": 0,
-                "declined": 192,
-                "frac": 0.0,
-                "how": "stats"
-              },
-              "ATOM_AXIS_BUCKET": {
-                "resolved": "True",
-                "served": 0,
-                "declined": 0,
-                "frac": 0.0,
-                "how": "stats",
-                "reason": "no call site on this path: 0 served AND 0 declined at every rung. The counter sits in `tenstorrent.DiffusionModule._populate_diffusion_cache` (tt_bio/tenstorrent.py:11271-11278), and `tenstorrent.DiffusionModule` is constructed only by Boltz-2 (tt_bio/boltz2.py:4232); openbind runs its own diffusion module and never reaches it. Control in this same baseline: boltz2 serves 6 per fold at every rung. [carried from p300c] [carried from p150a]"
-              },
-              "TRANSPOSE_L1_RESIDENT": {
-                "resolved": "1.25",
-                "served": 16,
-                "declined": 424,
-                "frac": 0.03636363636363636,
                 "how": "wrap"
               },
               "SDPA_Q_CHUNK_FITS": {
@@ -6441,14 +5818,14 @@
                 "how": "stats-dict"
               }
             },
-            "1024": {
+            "768": {
               "SPLIT_SWIGLU": {
                 "resolved": "True",
                 "served": 0,
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "reason": "declines all 0 calls: an ESMC lever; openbind does not run that module [carried from rung 768] [carried from p300c] [carried from p150a]"
+                "reason": "declines all 0 calls: an ESMC lever; openbind does not run that module [carried from p150a]"
               },
               "SPLIT_SWIGLU_SMALL_GRID": {
                 "resolved": "True",
@@ -6456,7 +5833,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats-shared",
-                "reason": "declines all 0 calls: an ESMC lever; openbind does not run that module [carried from rung 768] [carried from p300c] [carried from p150a]"
+                "reason": "declines all 0 calls: an ESMC lever; openbind does not run that module [carried from p150a]"
               },
               "PAIR_FFN_L1_FC1": {
                 "resolved": "True",
@@ -6464,7 +5841,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "reason": "declines all 0 calls: an ESMC pair-FFN lever; openbind does not run that module [carried from rung 768] [carried from p300c] [carried from p150a]"
+                "reason": "declines all 0 calls: an ESMC pair-FFN lever; openbind does not run that module [carried from p150a]"
               },
               "PAIR_FFN_L1_LN": {
                 "resolved": "True",
@@ -6472,7 +5849,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "reason": "declines all 0 calls: an ESMC pair-FFN lever; openbind does not run that module [carried from rung 768] [carried from p300c] [carried from p150a]"
+                "reason": "declines all 0 calls: an ESMC pair-FFN lever; openbind does not run that module [carried from p150a]"
               },
               "PAIR_FFN_L1_SLICE": {
                 "resolved": "True",
@@ -6480,7 +5857,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "reason": "declines all 0 calls: an ESMC pair-FFN lever; openbind does not run that module [carried from rung 768] [carried from p300c] [carried from p150a]"
+                "reason": "declines all 0 calls: an ESMC pair-FFN lever; openbind does not run that module [carried from p150a]"
               },
               "PAIR_FFN_FUSED_RESIDUAL": {
                 "resolved": "True",
@@ -6488,7 +5865,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "reason": "declines all 0 calls: an ESMC pair-FFN lever; openbind does not run that module [carried from rung 768] [carried from p300c] [carried from p150a]"
+                "reason": "declines all 0 calls: an ESMC pair-FFN lever; openbind does not run that module [carried from p150a]"
               },
               "PAIR_FFN_FILL_ASSEMBLY": {
                 "resolved": "True",
@@ -6496,7 +5873,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "reason": "declines all 0 calls: an ESMC pair-FFN lever; openbind does not run that module [carried from rung 768] [carried from p300c] [carried from p150a]"
+                "reason": "declines all 0 calls: an ESMC pair-FFN lever; openbind does not run that module [carried from p150a]"
               },
               "TRIMUL_IN_PROJ_DUAL_NOC": {
                 "resolved": "True",
@@ -6521,30 +5898,32 @@
               },
               "FP32_SOFTMAX_L1_GRID": {
                 "resolved": "(9, 8)",
-                "served": 28162,
+                "served": 10561,
                 "declined": 1,
-                "frac": 0.9999644924191314,
+                "frac": 0.9999053209619391,
                 "how": "stats-dict"
               },
               "PAIR_TRANSPOSE_VIA_ROW_MAJOR": {
                 "resolved": "True",
-                "served": 440,
-                "declined": 0,
-                "frac": 1.0,
-                "how": "wrap"
+                "served": 439,
+                "declined": 2,
+                "frac": 0.9954648526077098,
+                "how": "wrap",
+                "rejects": {
+                  "l1_dest_is_faster:768x768x64": 2
+                }
               },
               "PAIR_PROJ_MINIMAL_MATMUL": {
                 "resolved": "True",
                 "served": 0,
-                "declined": 472,
+                "declined": 440,
                 "frac": 0.0,
                 "how": "wrap",
                 "rejects": {
-                  "k_tiles=2:(2,2)": 32,
                   "k_tiles=2:(2,1)": 16,
                   "k_tiles=4:(4,4)": 424
                 },
-                "reason": "declines all 472 calls on k_tiles=4:(4,4) x424, k_tiles=2:(2,2) x32, k_tiles=2:(2,1) x16: the minimal matmul admits an 8-tile weight K dim and this checkpoint's pair projections resolve fewer, a property of c_z and not of N, so it is inert on this model at every size rather than dark at this one [carried from rung 768] [carried from p300c] [carried from p150a]"
+                "reason": "declines all 440 calls on k_tiles=4:(4,4) x424, k_tiles=2:(2,1) x16: it needs an 8-tile weight K dim AND an _MM_BLOCK entry for the shape; wrap-counted, so which of the two fails is not recorded. The call count rises from 440 to ~1288 at 640 and above, which is the pair track taking its row-blocked path [carried from p150a]"
               },
               "TRIMUL_TAIL_F1": {
                 "resolved": "True",
@@ -6552,7 +5931,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "reason": "declines all 0 calls: F1_BLOCK_KEYS allow-lists only (8, 8) and openbind's trimul tails resolve 4 and 2 K tiles, which are properties of c_hidden and not of N -- so F1 is inert on this model at every size, not dark at this one [carried from rung 768] [carried from p300c] [carried from p150a]"
+                "reason": "declines all 0 calls: F1_BLOCK_KEYS allow-lists only (8, 8) and openbind's trimul tails resolve 4 and 2 K tiles, which are properties of c_hidden and not of N -- so F1 is inert on this model at every size, not dark at this one [carried from p150a]"
               },
               "QKV_MM_CONFIG": {
                 "resolved": "True",
@@ -6600,11 +5979,11 @@
               "TRIATT_PERSISTENT_MASK": {
                 "resolved": "True",
                 "served": 384,
-                "declined": 5,
-                "frac": 0.987146529562982,
+                "declined": 4,
+                "frac": 0.9896907216494846,
                 "how": "stats",
                 "rejects": {
-                  "l1_budget": 5
+                  "l1_budget": 4
                 }
               },
               "SDPA_WIDE_K": {
@@ -6613,7 +5992,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "reason": "structural, not size-specific: both SDPA_K_CHUNK_STATS sites are inside `_tri_att_sdpa_at`'s `len(k_chunks) > 1` block, and served 0 declined 0 means no call entered it: the shipped k_chunk divides the padded length at this rung, so there is no wider dividing pick to offer [carried from rung 896]"
+                "reason": "structural, not size-specific: both SDPA_K_CHUNK_STATS sites are inside `_tri_att_sdpa_at`'s `len(k_chunks) > 1` block, and served 0 declined 0 means no call entered it: the shipped k_chunk divides the padded length at this rung, so there is no wider dividing pick to offer"
               },
               "SDPA_FUSED_LARGE_S": {
                 "resolved": "True",
@@ -6667,7 +6046,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "wrap",
-                "reason": "declines all 0 calls: a boltz-2 diffusion lever; openbind does not run that module [carried from rung 768] [carried from p300c] [carried from p150a]"
+                "reason": "declines all 0 calls: a boltz-2 diffusion lever; openbind does not run that module [carried from p150a]"
               },
               "B2_ADALN_S_MEMO": {
                 "resolved": "True",
@@ -6675,7 +6054,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "wrap",
-                "reason": "declines all 0 calls: a boltz-2 diffusion lever; openbind does not run that module [carried from rung 768] [carried from p300c] [carried from p150a]"
+                "reason": "declines all 0 calls: a boltz-2 diffusion lever; openbind does not run that module [carried from p150a]"
               },
               "B2_TOKEN_DIT_SDPA": {
                 "resolved": "True",
@@ -6702,11 +6081,10 @@
               },
               "TRANSPOSE_L1_RESIDENT": {
                 "resolved": "1.25",
-                "served": 0,
-                "declined": 440,
-                "frac": 0.0,
-                "how": "wrap",
-                "reason": "declines all 440 calls: it is a fit test, not a tuned constant, and the pair tensor stops fitting one rung earlier on this grid. PAIR_TRANSPOSE_VIA_ROW_MAJOR takes over the same calls exactly: TRANSPOSE_L1_RESIDENT serves every call at 256 and 512 and the row-major route serves none, then the two swap, and from 896 up the row-major route serves all of them. One of the pair serves at every rung, so no transpose is unoptimised at any size. The Blackhole cards make the same swap at 768; 8x9 Wormhole cores hold less L1, so the headroom test flips at 640 [carried from rung 896]"
+                "served": 16,
+                "declined": 424,
+                "frac": 0.03636363636363636,
+                "how": "wrap"
               },
               "SDPA_Q_CHUNK_FITS": {
                 "resolved": "True",
@@ -6736,11 +6114,10 @@
                 "frac": 0.0,
                 "how": "stats",
                 "rejects": {
-                  "base-unraised": 8,
-                  "h-clamped-to-H": 12,
-                  "ratio-shrunk": 212
+                  "base-unraised": 220,
+                  "h-clamped-to-H": 12
                 },
-                "reason": "declines all 232 calls on ratio-shrunk x212, h-clamped-to-H x12, base-unraised x8: the height RAISE is the Blackhole branch and there is no Wormhole one. tt_bio/tenstorrent.py scores this counter as served only when the derived height comes out ABOVE the shipped base, and on a small grid it cannot: the small-grid raise is scoped to 256 < c <= 384 and this call site is c=128, so the height stays at the base (base-unraised) or the per-core L1 cap pulls it under (ratio-shrunk). The Blackhole elif takes the same budget the other way round -- there the measured L1 ceiling sits well above the base, so it raises -- which is why p150a and p300c read 1.0 at every rung and this board reads 0.0 from 512 up. 256 serves because the base is reached there. Nothing declines on a size the lever was tuned for; the lever has no Wormhole raise to decline [carried from rung 896]"
+                "reason": "declines all 232 calls on base-unraised x220, h-clamped-to-H x12: the height RAISE is the Blackhole branch and there is no Wormhole one. tt_bio/tenstorrent.py scores this counter as served only when the derived height comes out ABOVE the shipped base, and on a small grid it cannot: the small-grid raise is scoped to 256 < c <= 384 and this call site is c=128, so the height stays at the base (base-unraised) or the per-core L1 cap pulls it under (ratio-shrunk). The Blackhole elif takes the same budget the other way round -- there the measured L1 ceiling sits well above the base, so it raises -- which is why p150a and p300c read 1.0 at every rung and this board reads 0.0 from 512 up. 256 serves because the base is reached there. Nothing declines on a size the lever was tuned for; the lever has no Wormhole raise to decline"
               },
               "TRIATT_SDPA_HIFI": {
                 "resolved": "openfold3.trunk",
@@ -7059,14 +6436,14 @@
                 "how": "stats-dict"
               }
             },
-            "256": {
+            "1024": {
               "SPLIT_SWIGLU": {
                 "resolved": "True",
                 "served": 0,
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "reason": "declines all 0 calls: an ESMC lever; openbind does not run that module [carried from p150a]"
+                "reason": "declines all 0 calls: an ESMC lever; openbind does not run that module [carried from rung 768] [carried from p300c] [carried from p150a]"
               },
               "SPLIT_SWIGLU_SMALL_GRID": {
                 "resolved": "True",
@@ -7074,7 +6451,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats-shared",
-                "reason": "declines all 0 calls: an ESMC lever; openbind does not run that module [carried from p150a]"
+                "reason": "declines all 0 calls: an ESMC lever; openbind does not run that module [carried from rung 768] [carried from p300c] [carried from p150a]"
               },
               "PAIR_FFN_L1_FC1": {
                 "resolved": "True",
@@ -7082,7 +6459,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "reason": "declines all 0 calls: an ESMC pair-FFN lever; openbind does not run that module [carried from p150a]"
+                "reason": "declines all 0 calls: an ESMC pair-FFN lever; openbind does not run that module [carried from rung 768] [carried from p300c] [carried from p150a]"
               },
               "PAIR_FFN_L1_LN": {
                 "resolved": "True",
@@ -7090,7 +6467,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "reason": "declines all 0 calls: an ESMC pair-FFN lever; openbind does not run that module [carried from p150a]"
+                "reason": "declines all 0 calls: an ESMC pair-FFN lever; openbind does not run that module [carried from rung 768] [carried from p300c] [carried from p150a]"
               },
               "PAIR_FFN_L1_SLICE": {
                 "resolved": "True",
@@ -7098,7 +6475,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "reason": "declines all 0 calls: an ESMC pair-FFN lever; openbind does not run that module [carried from p150a]"
+                "reason": "declines all 0 calls: an ESMC pair-FFN lever; openbind does not run that module [carried from rung 768] [carried from p300c] [carried from p150a]"
               },
               "PAIR_FFN_FUSED_RESIDUAL": {
                 "resolved": "True",
@@ -7106,7 +6483,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "reason": "declines all 0 calls: an ESMC pair-FFN lever; openbind does not run that module [carried from p150a]"
+                "reason": "declines all 0 calls: an ESMC pair-FFN lever; openbind does not run that module [carried from rung 768] [carried from p300c] [carried from p150a]"
               },
               "PAIR_FFN_FILL_ASSEMBLY": {
                 "resolved": "True",
@@ -7114,18 +6491,14 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "reason": "declines all 0 calls: an ESMC pair-FFN lever; openbind does not run that module [carried from p150a]"
+                "reason": "declines all 0 calls: an ESMC pair-FFN lever; openbind does not run that module [carried from rung 768] [carried from p300c] [carried from p150a]"
               },
               "TRIMUL_IN_PROJ_DUAL_NOC": {
                 "resolved": "True",
-                "served": 0,
-                "declined": 1728,
-                "frac": 0.0,
-                "how": "stats",
-                "rejects": {
-                  "memory": 1728
-                },
-                "reason": "declines all 1728 calls on memory x1728: the dual-NoC in-projection needs a DRAM-interleaved activation and destination, and the pair buffer is L1-resident at this size [carried from p150a]"
+                "served": 440,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats"
               },
               "ADALN_S_HOIST": {
                 "resolved": "True",
@@ -7143,45 +6516,38 @@
               },
               "FP32_SOFTMAX_L1_GRID": {
                 "resolved": "(9, 8)",
-                "served": 224,
-                "declined": 0,
-                "frac": 1.0,
+                "served": 28162,
+                "declined": 1,
+                "frac": 0.9999644924191314,
                 "how": "stats-dict"
               },
               "PAIR_TRANSPOSE_VIA_ROW_MAJOR": {
                 "resolved": "True",
-                "served": 0,
-                "declined": 440,
-                "frac": 0.0,
-                "how": "wrap",
-                "rejects": {
-                  "l1_dest_is_faster:256x256x64": 16,
-                  "l1_dest_is_faster:256x256x128": 424
-                },
-                "reason": "declines all 440 calls on l1_dest_is_faster:256x256x128 x424, l1_dest_is_faster:256x256x64 x16: the row-major route needs a DRAM destination for a 3-D bf16 tiled pair tensor; wrap-counted, so the clause is not recorded [carried from p150a]"
+                "served": 440,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "wrap"
               },
               "PAIR_PROJ_MINIMAL_MATMUL": {
                 "resolved": "True",
                 "served": 0,
-                "declined": 16,
+                "declined": 472,
                 "frac": 0.0,
                 "how": "wrap",
                 "rejects": {
-                  "k_tiles=2:(2,1)": 16
+                  "k_tiles=2:(2,2)": 32,
+                  "k_tiles=2:(2,1)": 16,
+                  "k_tiles=4:(4,4)": 424
                 },
-                "reason": "declines all 16 calls on k_tiles=2:(2,1) x16: it needs an 8-tile weight K dim AND an _MM_BLOCK entry for the shape; wrap-counted, so which of the two fails is not recorded. The call count rises from 440 to ~1288 at 640 and above, which is the pair track taking its row-blocked path [carried from p150a]"
+                "reason": "declines all 472 calls on k_tiles=4:(4,4) x424, k_tiles=2:(2,2) x32, k_tiles=2:(2,1) x16: the minimal matmul admits an 8-tile weight K dim and this checkpoint's pair projections resolve fewer, a property of c_z and not of N, so it is inert on this model at every size rather than dark at this one [carried from rung 768] [carried from p300c] [carried from p150a]"
               },
               "TRIMUL_TAIL_F1": {
                 "resolved": "True",
                 "served": 0,
-                "declined": 440,
+                "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "rejects": {
-                  "k_tiles=2": 16,
-                  "k_tiles=4": 424
-                },
-                "reason": "declines all 440 calls on k_tiles=4 x424, k_tiles=2 x16: F1_BLOCK_KEYS allow-lists only (8, 8) and openbind's trimul tails resolve 4 and 2 K tiles, which are properties of c_hidden and not of N -- so F1 is inert on this model at every size, not dark at this one [carried from p150a]"
+                "reason": "declines all 0 calls: F1_BLOCK_KEYS allow-lists only (8, 8) and openbind's trimul tails resolve 4 and 2 K tiles, which are properties of c_hidden and not of N -- so F1 is inert on this model at every size, not dark at this one [carried from rung 768] [carried from p300c] [carried from p150a]"
               },
               "QKV_MM_CONFIG": {
                 "resolved": "True",
@@ -7200,46 +6566,41 @@
               "REBLOCK_PERMUTE": {
                 "resolved": "True",
                 "served": 0,
-                "declined": 6912,
+                "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "rejects": {
-                  "gated_window_BufferType.L1": 1728,
-                  "window_BufferType.L1": 3456,
-                  "back_l1_src_narrow": 1728
-                },
-                "reason": "declines all 6912 calls on window_BufferType.L1 x3456, gated_window_BufferType.L1 x1728, back_l1_src_narrow x1728: the gate's L1 leg admits 288 <= N <= 352 only, and its own docstring records N=256 on an L1 output measuring 0.952x, a real loss [carried from p150a]"
+                "reason": "superseded at this rung, not broken: `TT_BIO_TRIMUL_MASK_AFTER_MOVE` moves the pair mask past the channel move, so the trimul reaches the fused gated kernel first and this ungated site is never called (0 served AND 0 declined). The handover is visible in this same baseline -- `REBLOCK_PERMUTE_GATED` serves 880 per fold here and 0 at 256 aa, which is the one rung where this ungated lever is still the one being called. The fused pair is bit-exact (perf/b2x_trimul/), so the traffic changed route without changing the answer. [carried from p300c] [carried from p150a]"
               },
               "REBLOCK_PERMUTE_BACK": {
                 "resolved": "True",
-                "served": 0,
+                "served": 440,
                 "declined": 0,
-                "frac": 0.0,
-                "how": "stats",
-                "reason": "declines all 0 calls: the move back only runs when a forward move fired, and none did here [carried from p150a]"
+                "frac": 1.0,
+                "how": "stats"
               },
               "REBLOCK_PERMUTE_GATED": {
                 "resolved": "True",
-                "served": 0,
+                "served": 880,
                 "declined": 0,
-                "frac": 0.0,
-                "how": "stats",
-                "reason": "declines all 0 calls: the gated channel move is never offered on openbind's pair track, at any rung [carried from p150a]"
+                "frac": 1.0,
+                "how": "stats"
               },
               "TRIMUL_MASK_AFTER_MOVE": {
                 "resolved": "True",
-                "served": 0,
+                "served": 880,
                 "declined": 0,
-                "frac": 0.0,
-                "how": "stats-shared",
-                "reason": "nothing to fuse into at this rung: the counter is `reblock_permute.STATS_GATED`, which counts serves of the fused gated move, and the gated window admits none of this model's 256 aa channel moves. At 256 aa the pair track is N=256 on an L1 destination, below `L1_N_MIN` = 288 (tt_bio/reblock_permute.py:338, the same band enforced for the fused path in `eligible_gated` at :877-878); the band opens at 288 because N=256 on an L1 output is a measured 0.952x loss on 110 cores. The same rung shows the ungated `REBLOCK_PERMUTE` declining 1728 calls on exactly that clause. It serves 880 per fold from 512 aa up. [carried from p300c] [carried from p150a]"
+                "frac": 1.0,
+                "how": "stats-shared"
               },
               "TRIATT_PERSISTENT_MASK": {
                 "resolved": "True",
                 "served": 384,
-                "declined": 0,
-                "frac": 1.0,
-                "how": "stats"
+                "declined": 5,
+                "frac": 0.987146529562982,
+                "how": "stats",
+                "rejects": {
+                  "l1_budget": 5
+                }
               },
               "SDPA_WIDE_K": {
                 "resolved": "True",
@@ -7247,7 +6608,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "reason": "structural, not size-specific: both SDPA_K_CHUNK_STATS sites are inside `_tri_att_sdpa_at`'s `len(k_chunks) > 1` block, and served 0 declined 0 means no call entered it: the shipped k_chunk divides the padded length at this rung, so there is no wider dividing pick to offer"
+                "reason": "structural, not size-specific: both SDPA_K_CHUNK_STATS sites are inside `_tri_att_sdpa_at`'s `len(k_chunks) > 1` block, and served 0 declined 0 means no call entered it: the shipped k_chunk divides the padded length at this rung, so there is no wider dividing pick to offer [carried from rung 896]"
               },
               "SDPA_FUSED_LARGE_S": {
                 "resolved": "True",
@@ -7301,7 +6662,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "wrap",
-                "reason": "declines all 0 calls: a boltz-2 diffusion lever; openbind does not run that module [carried from p150a]"
+                "reason": "declines all 0 calls: a boltz-2 diffusion lever; openbind does not run that module [carried from rung 768] [carried from p300c] [carried from p150a]"
               },
               "B2_ADALN_S_MEMO": {
                 "resolved": "True",
@@ -7309,7 +6670,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "wrap",
-                "reason": "declines all 0 calls: a boltz-2 diffusion lever; openbind does not run that module [carried from p150a]"
+                "reason": "declines all 0 calls: a boltz-2 diffusion lever; openbind does not run that module [carried from rung 768] [carried from p300c] [carried from p150a]"
               },
               "B2_TOKEN_DIT_SDPA": {
                 "resolved": "True",
@@ -7336,7 +6697,318 @@
               },
               "TRANSPOSE_L1_RESIDENT": {
                 "resolved": "1.25",
-                "served": 440,
+                "served": 0,
+                "declined": 440,
+                "frac": 0.0,
+                "how": "wrap",
+                "reason": "declines all 440 calls: it is a fit test, not a tuned constant, and the pair tensor stops fitting one rung earlier on this grid. PAIR_TRANSPOSE_VIA_ROW_MAJOR takes over the same calls exactly: TRANSPOSE_L1_RESIDENT serves every call at 256 and 512 and the row-major route serves none, then the two swap, and from 896 up the row-major route serves all of them. One of the pair serves at every rung, so no transpose is unoptimised at any size. The Blackhole cards make the same swap at 768; 8x9 Wormhole cores hold less L1, so the headroom test flips at 640 [carried from rung 896]"
+              },
+              "SDPA_Q_CHUNK_FITS": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "setlen"
+              },
+              "RFD3_SOFTMAX_PV_FUSED": {
+                "resolved": "not-imported",
+                "served": null,
+                "declined": null,
+                "frac": null,
+                "how": "stats"
+              },
+              "RFD3_FC1_SPLIT_SILU": {
+                "resolved": "not-imported",
+                "served": null,
+                "declined": null,
+                "frac": null,
+                "how": "stats"
+              },
+              "TRANSITION_H_CHUNK": {
+                "resolved": "16",
+                "served": 0,
+                "declined": 232,
+                "frac": 0.0,
+                "how": "stats",
+                "rejects": {
+                  "base-unraised": 8,
+                  "h-clamped-to-H": 12,
+                  "ratio-shrunk": 212
+                },
+                "reason": "declines all 232 calls on ratio-shrunk x212, h-clamped-to-H x12, base-unraised x8: the height RAISE is the Blackhole branch and there is no Wormhole one. tt_bio/tenstorrent.py scores this counter as served only when the derived height comes out ABOVE the shipped base, and on a small grid it cannot: the small-grid raise is scoped to 256 < c <= 384 and this call site is c=128, so the height stays at the base (base-unraised) or the per-core L1 cap pulls it under (ratio-shrunk). The Blackhole elif takes the same budget the other way round -- there the measured L1 ceiling sits well above the base, so it raises -- which is why p150a and p300c read 1.0 at every rung and this board reads 0.0 from 512 up. 256 serves because the base is reached there. Nothing declines on a size the lever was tuned for; the lever has no Wormhole raise to decline [carried from rung 896]"
+              },
+              "TRIATT_SDPA_HIFI": {
+                "resolved": "openfold3.trunk",
+                "served": 384,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats-dict"
+              }
+            },
+            "1280": {
+              "SPLIT_SWIGLU": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "declines all 0 calls: an ESMC lever; openbind does not run that module [carried from p300c] [carried from rung 768] [carried from p150a]"
+              },
+              "SPLIT_SWIGLU_SMALL_GRID": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats-shared",
+                "reason": "declines all 0 calls: an ESMC lever; openbind does not run that module [carried from p300c] [carried from rung 768] [carried from p150a]"
+              },
+              "PAIR_FFN_L1_FC1": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "declines all 0 calls: an ESMC pair-FFN lever; openbind does not run that module [carried from p300c] [carried from rung 768] [carried from p150a]"
+              },
+              "PAIR_FFN_L1_LN": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "declines all 0 calls: an ESMC pair-FFN lever; openbind does not run that module [carried from p300c] [carried from rung 768] [carried from p150a]"
+              },
+              "PAIR_FFN_L1_SLICE": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "declines all 0 calls: an ESMC pair-FFN lever; openbind does not run that module [carried from p300c] [carried from rung 768] [carried from p150a]"
+              },
+              "PAIR_FFN_FUSED_RESIDUAL": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "declines all 0 calls: an ESMC pair-FFN lever; openbind does not run that module [carried from p300c] [carried from rung 768] [carried from p150a]"
+              },
+              "PAIR_FFN_FILL_ASSEMBLY": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "declines all 0 calls: an ESMC pair-FFN lever; openbind does not run that module [carried from p300c] [carried from rung 768] [carried from p150a]"
+              },
+              "TRIMUL_IN_PROJ_DUAL_NOC": {
+                "resolved": "True",
+                "served": 864,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats"
+              },
+              "ADALN_S_HOIST": {
+                "resolved": "True",
+                "served": 315,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "wrap"
+              },
+              "FP32_SOFTMAX_BIAS_HOIST": {
+                "resolved": "True",
+                "served": 228,
+                "declined": 230,
+                "frac": 0.4978165938864629,
+                "how": "stats-dict"
+              },
+              "FP32_SOFTMAX_L1_GRID": {
+                "resolved": "(9, 8)",
+                "served": 1,
+                "declined": 1,
+                "frac": 0.5,
+                "how": "stats-dict"
+              },
+              "PAIR_TRANSPOSE_VIA_ROW_MAJOR": {
+                "resolved": "True",
+                "served": 1296,
+                "declined": 2592,
+                "frac": 0.3333333333333333,
+                "how": "wrap",
+                "rejects": {
+                  "l1_dest_is_faster:1280x448x64": 32,
+                  "l1_dest_is_faster:1280x384x64": 16,
+                  "l1_dest_is_faster:1280x224x128": 2120,
+                  "l1_dest_is_faster:1280x160x128": 424
+                }
+              },
+              "PAIR_PROJ_MINIMAL_MATMUL": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 1972,
+                "frac": 0.0,
+                "how": "wrap",
+                "rejects": {
+                  "k_tiles=2:(2,1)": 48,
+                  "k_tiles=2:(2,2)": 16,
+                  "k_tiles=4:(4,1)": 1908
+                },
+                "reason": "declines all 1972 calls on k_tiles=4:(4,1) x1908, k_tiles=2:(2,1) x48, k_tiles=2:(2,2) x16: the minimal matmul admits an 8-tile weight K dim and this checkpoint's pair projections resolve fewer, a property of c_z and not of N, so it is inert on this model at every size rather than dark at this one [carried from p300c] [carried from rung 768] [carried from p150a]"
+              },
+              "TRIMUL_TAIL_F1": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "declines all 0 calls: F1_BLOCK_KEYS allow-lists only (8, 8) and openbind's trimul tails resolve 4 and 2 K tiles, which are properties of c_hidden and not of N -- so F1 is inert on this model at every size, not dark at this one [carried from p300c] [carried from p150a] [carried from rung 768]"
+              },
+              "QKV_MM_CONFIG": {
+                "resolved": "True",
+                "served": 5820,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "wrap"
+              },
+              "DEVICE_LM_HANDOFF": {
+                "resolved": "not-imported",
+                "served": null,
+                "declined": null,
+                "frac": null,
+                "how": "stats"
+              },
+              "REBLOCK_PERMUTE": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "superseded at this rung, not broken: `TT_BIO_TRIMUL_MASK_AFTER_MOVE` moves the pair mask past the channel move, so the trimul reaches the fused gated kernel first and this ungated site is never called (0 served AND 0 declined). The handover is visible in this same baseline -- `REBLOCK_PERMUTE_GATED` serves 880 per fold here and 0 at 256 aa, which is the one rung where this ungated lever is still the one being called. The fused pair is bit-exact (perf/b2x_trimul/), so the traffic changed route without changing the answer. [carried from p300c] [carried from rung 1024] [carried from p150a]"
+              },
+              "REBLOCK_PERMUTE_BACK": {
+                "resolved": "True",
+                "served": 864,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats"
+              },
+              "REBLOCK_PERMUTE_GATED": {
+                "resolved": "True",
+                "served": 1728,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats"
+              },
+              "TRIMUL_MASK_AFTER_MOVE": {
+                "resolved": "True",
+                "served": 1728,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats-shared"
+              },
+              "TRIATT_PERSISTENT_MASK": {
+                "resolved": "True",
+                "served": 1728,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats"
+              },
+              "SDPA_WIDE_K": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "structural, not size-specific: both SDPA_K_CHUNK_STATS sites are inside `_tri_att_sdpa_at`'s `len(k_chunks) > 1` block, and served 0 declined 0 means no call entered it: the shipped k_chunk divides the padded length at this rung, so there is no wider dividing pick to offer [carried from rung 896]"
+              },
+              "SDPA_FUSED_LARGE_S": {
+                "resolved": "True",
+                "served": 1728,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats"
+              },
+              "RFD3_SPARSE_BIAS": {
+                "resolved": "not-imported",
+                "served": null,
+                "declined": null,
+                "frac": null,
+                "how": "stats"
+              },
+              "RFD3_FUSED_SCORES": {
+                "resolved": "not-imported",
+                "served": null,
+                "declined": null,
+                "frac": null,
+                "how": "stats"
+              },
+              "TRIATT_HEAD_MAJOR_QKV": {
+                "resolved": "True",
+                "served": 1908,
+                "declined": 48,
+                "frac": 0.9754601226993865,
+                "how": "stats",
+                "rejects": {
+                  "head_dim_or_width": 48
+                }
+              },
+              "TRIATT_HEAD_MAJOR_TAIL": {
+                "resolved": "True",
+                "served": 1908,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats"
+              },
+              "TRIATT_TAIL_OVER_L1": {
+                "resolved": "True",
+                "served": 1908,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats-shared"
+              },
+              "B2_BIAS_SLICE_HOIST": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "wrap",
+                "reason": "declines all 0 calls: a boltz-2 diffusion lever; openbind does not run that module [carried from p300c] [carried from rung 768] [carried from p150a]"
+              },
+              "B2_ADALN_S_MEMO": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "wrap",
+                "reason": "declines all 0 calls: a boltz-2 diffusion lever; openbind does not run that module [carried from p300c] [carried from rung 768] [carried from p150a]"
+              },
+              "B2_TOKEN_DIT_SDPA": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "no call site on this path: 0 served AND 0 declined at every rung. The counter advances only where `AttentionPairBias.token_dit` is True (tt_bio/tenstorrent.py:8026), which only `DiffusionTransformerLayer` sets (`token_dit = not atom_level`, tt_bio/tenstorrent.py:9577) and only Boltz-2 builds (tt_bio/boltz2.py:2031); openbind never constructs it. Control in this same baseline: boltz2 serves 144 per fold at every rung. [carried from p300c] [carried from rung 1024] [carried from p150a]"
+              },
+              "APB_CONCAT_HEADS": {
+                "resolved": "False",
+                "served": 0,
+                "declined": 192,
+                "frac": 0.0,
+                "how": "stats"
+              },
+              "ATOM_AXIS_BUCKET": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "no call site on this path: 0 served AND 0 declined at every rung. The counter sits in `tenstorrent.DiffusionModule._populate_diffusion_cache` (tt_bio/tenstorrent.py:11271-11278), and `tenstorrent.DiffusionModule` is constructed only by Boltz-2 (tt_bio/boltz2.py:4232); openbind runs its own diffusion module and never reaches it. Control in this same baseline: boltz2 serves 6 per fold at every rung. [carried from p300c] [carried from rung 1024] [carried from p150a]"
+              },
+              "TRANSPOSE_L1_RESIDENT": {
+                "resolved": "1.25",
+                "served": 1296,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "wrap"
@@ -7364,14 +7036,328 @@
               },
               "TRANSITION_H_CHUNK": {
                 "resolved": "16",
-                "served": 232,
+                "served": 0,
+                "declined": 232,
+                "frac": 0.0,
+                "how": "stats",
+                "rejects": {
+                  "base-unraised": 8,
+                  "h-clamped-to-H": 12,
+                  "ratio-shrunk": 212
+                },
+                "reason": "declines all 232 calls on ratio-shrunk x212, h-clamped-to-H x12, base-unraised x8: the height RAISE is the Blackhole branch and there is no Wormhole one. tt_bio/tenstorrent.py scores this counter as served only when the derived height comes out ABOVE the shipped base, and on a small grid it cannot: the small-grid raise is scoped to 256 < c <= 384 and this call site is c=128, so the height stays at the base (base-unraised) or the per-core L1 cap pulls it under (ratio-shrunk). The Blackhole elif takes the same budget the other way round -- there the measured L1 ceiling sits well above the base, so it raises -- which is why p150a and p300c read 1.0 at every rung and this board reads 0.0 from 512 up. 256 serves because the base is reached there. Nothing declines on a size the lever was tuned for; the lever has no Wormhole raise to decline [carried from rung 896]"
+              },
+              "TRIATT_SDPA_HIFI": {
+                "resolved": "openfold3.trunk",
+                "served": 1728,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats-dict"
+              }
+            },
+            "1536": {
+              "SPLIT_SWIGLU": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "declines all 0 calls: an ESMC lever; openbind does not run that module [carried from p300c] [carried from rung 768] [carried from p150a]"
+              },
+              "SPLIT_SWIGLU_SMALL_GRID": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats-shared",
+                "reason": "declines all 0 calls: an ESMC lever; openbind does not run that module [carried from p300c] [carried from rung 768] [carried from p150a]"
+              },
+              "PAIR_FFN_L1_FC1": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "declines all 0 calls: an ESMC pair-FFN lever; openbind does not run that module [carried from p300c] [carried from rung 768] [carried from p150a]"
+              },
+              "PAIR_FFN_L1_LN": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "declines all 0 calls: an ESMC pair-FFN lever; openbind does not run that module [carried from p300c] [carried from rung 768] [carried from p150a]"
+              },
+              "PAIR_FFN_L1_SLICE": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "declines all 0 calls: an ESMC pair-FFN lever; openbind does not run that module [carried from p300c] [carried from rung 768] [carried from p150a]"
+              },
+              "PAIR_FFN_FUSED_RESIDUAL": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "declines all 0 calls: an ESMC pair-FFN lever; openbind does not run that module [carried from p300c] [carried from rung 768] [carried from p150a]"
+              },
+              "PAIR_FFN_FILL_ASSEMBLY": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "declines all 0 calls: an ESMC pair-FFN lever; openbind does not run that module [carried from p300c] [carried from rung 768] [carried from p150a]"
+              },
+              "TRIMUL_IN_PROJ_DUAL_NOC": {
+                "resolved": "True",
+                "served": 1728,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
               },
+              "ADALN_S_HOIST": {
+                "resolved": "True",
+                "served": 315,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "wrap"
+              },
+              "FP32_SOFTMAX_BIAS_HOIST": {
+                "resolved": "True",
+                "served": 276,
+                "declined": 278,
+                "frac": 0.4981949458483754,
+                "how": "stats-dict"
+              },
+              "FP32_SOFTMAX_L1_GRID": {
+                "resolved": "(9, 8)",
+                "served": 1,
+                "declined": 1,
+                "frac": 0.5,
+                "how": "stats-dict"
+              },
+              "PAIR_TRANSPOSE_VIA_ROW_MAJOR": {
+                "resolved": "True",
+                "served": 1728,
+                "declined": 3456,
+                "frac": 0.3333333333333333,
+                "how": "wrap",
+                "rejects": {
+                  "l1_dest_is_faster:1536x384x64": 64,
+                  "l1_dest_is_faster:1536x192x128": 3392
+                }
+              },
+              "PAIR_PROJ_MINIMAL_MATMUL": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 2412,
+                "frac": 0.0,
+                "how": "wrap",
+                "rejects": {
+                  "k_tiles=2:(2,1)": 56,
+                  "k_tiles=2:(2,2)": 24,
+                  "k_tiles=4:(4,1)": 2332
+                },
+                "reason": "declines all 2412 calls on k_tiles=4:(4,1) x2332, k_tiles=2:(2,1) x56, k_tiles=2:(2,2) x24: the minimal matmul admits an 8-tile weight K dim and this checkpoint's pair projections resolve fewer, a property of c_z and not of N, so it is inert on this model at every size rather than dark at this one [carried from p300c] [carried from rung 768] [carried from p150a]"
+              },
+              "TRIMUL_TAIL_F1": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "declines all 0 calls: F1_BLOCK_KEYS allow-lists only (8, 8) and openbind's trimul tails resolve 4 and 2 K tiles, which are properties of c_hidden and not of N -- so F1 is inert on this model at every size, not dark at this one [carried from p300c] [carried from p150a] [carried from rung 768]"
+              },
+              "QKV_MM_CONFIG": {
+                "resolved": "True",
+                "served": 7108,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "wrap"
+              },
+              "DEVICE_LM_HANDOFF": {
+                "resolved": "not-imported",
+                "served": null,
+                "declined": null,
+                "frac": null,
+                "how": "stats"
+              },
+              "REBLOCK_PERMUTE": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "superseded at this rung, not broken: `TT_BIO_TRIMUL_MASK_AFTER_MOVE` moves the pair mask past the channel move, so the trimul reaches the fused gated kernel first and this ungated site is never called (0 served AND 0 declined). The handover is visible in this same baseline -- `REBLOCK_PERMUTE_GATED` serves 880 per fold here and 0 at 256 aa, which is the one rung where this ungated lever is still the one being called. The fused pair is bit-exact (perf/b2x_trimul/), so the traffic changed route without changing the answer. [carried from p300c] [carried from rung 1024] [carried from p150a]"
+              },
+              "REBLOCK_PERMUTE_BACK": {
+                "resolved": "True",
+                "served": 1728,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats"
+              },
+              "REBLOCK_PERMUTE_GATED": {
+                "resolved": "True",
+                "served": 3456,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats"
+              },
+              "TRIMUL_MASK_AFTER_MOVE": {
+                "resolved": "True",
+                "served": 3456,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats-shared"
+              },
+              "TRIATT_PERSISTENT_MASK": {
+                "resolved": "True",
+                "served": 2112,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats"
+              },
+              "SDPA_WIDE_K": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "structural, not size-specific: both SDPA_K_CHUNK_STATS sites are inside `_tri_att_sdpa_at`'s `len(k_chunks) > 1` block, and served 0 declined 0 means no call entered it: the shipped k_chunk divides the padded length at this rung, so there is no wider dividing pick to offer [carried from rung 896]"
+              },
+              "SDPA_FUSED_LARGE_S": {
+                "resolved": "True",
+                "served": 2112,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats"
+              },
+              "RFD3_SPARSE_BIAS": {
+                "resolved": "not-imported",
+                "served": null,
+                "declined": null,
+                "frac": null,
+                "how": "stats"
+              },
+              "RFD3_FUSED_SCORES": {
+                "resolved": "not-imported",
+                "served": null,
+                "declined": null,
+                "frac": null,
+                "how": "stats"
+              },
+              "TRIATT_HEAD_MAJOR_QKV": {
+                "resolved": "True",
+                "served": 2332,
+                "declined": 56,
+                "frac": 0.9765494137353434,
+                "how": "stats",
+                "rejects": {
+                  "head_dim_or_width": 56
+                }
+              },
+              "TRIATT_HEAD_MAJOR_TAIL": {
+                "resolved": "True",
+                "served": 2332,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats"
+              },
+              "TRIATT_TAIL_OVER_L1": {
+                "resolved": "True",
+                "served": 2332,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats-shared"
+              },
+              "B2_BIAS_SLICE_HOIST": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "wrap",
+                "reason": "declines all 0 calls: a boltz-2 diffusion lever; openbind does not run that module [carried from p300c] [carried from rung 768] [carried from p150a]"
+              },
+              "B2_ADALN_S_MEMO": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "wrap",
+                "reason": "declines all 0 calls: a boltz-2 diffusion lever; openbind does not run that module [carried from p300c] [carried from rung 768] [carried from p150a]"
+              },
+              "B2_TOKEN_DIT_SDPA": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "no call site on this path: 0 served AND 0 declined at every rung. The counter advances only where `AttentionPairBias.token_dit` is True (tt_bio/tenstorrent.py:8026), which only `DiffusionTransformerLayer` sets (`token_dit = not atom_level`, tt_bio/tenstorrent.py:9577) and only Boltz-2 builds (tt_bio/boltz2.py:2031); openbind never constructs it. Control in this same baseline: boltz2 serves 144 per fold at every rung. [carried from p300c] [carried from rung 1024] [carried from p150a]"
+              },
+              "APB_CONCAT_HEADS": {
+                "resolved": "False",
+                "served": 0,
+                "declined": 192,
+                "frac": 0.0,
+                "how": "stats"
+              },
+              "ATOM_AXIS_BUCKET": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "no call site on this path: 0 served AND 0 declined at every rung. The counter sits in `tenstorrent.DiffusionModule._populate_diffusion_cache` (tt_bio/tenstorrent.py:11271-11278), and `tenstorrent.DiffusionModule` is constructed only by Boltz-2 (tt_bio/boltz2.py:4232); openbind runs its own diffusion module and never reaches it. Control in this same baseline: boltz2 serves 6 per fold at every rung. [carried from p300c] [carried from rung 1024] [carried from p150a]"
+              },
+              "TRANSPOSE_L1_RESIDENT": {
+                "resolved": "1.25",
+                "served": 1728,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "wrap"
+              },
+              "SDPA_Q_CHUNK_FITS": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "setlen"
+              },
+              "RFD3_SOFTMAX_PV_FUSED": {
+                "resolved": "not-imported",
+                "served": null,
+                "declined": null,
+                "frac": null,
+                "how": "stats"
+              },
+              "RFD3_FC1_SPLIT_SILU": {
+                "resolved": "not-imported",
+                "served": null,
+                "declined": null,
+                "frac": null,
+                "how": "stats"
+              },
+              "TRANSITION_H_CHUNK": {
+                "resolved": "16",
+                "served": 0,
+                "declined": 232,
+                "frac": 0.0,
+                "how": "stats",
+                "rejects": {
+                  "base-unraised": 8,
+                  "h-clamped-to-H": 12,
+                  "ratio-shrunk": 212
+                },
+                "reason": "declines all 232 calls on ratio-shrunk x212, h-clamped-to-H x12, base-unraised x8: the height RAISE is the Blackhole branch and there is no Wormhole one. tt_bio/tenstorrent.py scores this counter as served only when the derived height comes out ABOVE the shipped base, and on a small grid it cannot: the small-grid raise is scoped to 256 < c <= 384 and this call site is c=128, so the height stays at the base (base-unraised) or the per-core L1 cap pulls it under (ratio-shrunk). The Blackhole elif takes the same budget the other way round -- there the measured L1 ceiling sits well above the base, so it raises -- which is why p150a and p300c read 1.0 at every rung and this board reads 0.0 from 512 up. 256 serves because the base is reached there. Nothing declines on a size the lever was tuned for; the lever has no Wormhole raise to decline [carried from rung 896]"
+              },
               "TRIATT_SDPA_HIFI": {
                 "resolved": "openfold3.trunk",
-                "served": 384,
+                "served": 2112,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats-dict"
@@ -7379,60 +7365,55 @@
             }
           },
           "runtime_reps_s": {
-            "1280": [
-              1064.4
-            ],
-            "1536": [
-              1780.9
+            "256": [
+              14.3,
+              14.1,
+              14.2,
+              13.9,
+              13.6
             ],
             "512": [
-              71.1,
-              109.8,
-              78.3,
-              70.1,
-              79.5
-            ],
-            "768": [
-              251.4
+              33.8,
+              33.5,
+              34.0,
+              33.9,
+              34.2
             ],
             "640": [
-              138.2
+              53.5
             ],
-            "1024": [
-              223.3
+            "768": [
+              79.7
             ],
             "896": [
-              231.7
+              114.1
             ],
-            "256": [
-              28.5,
-              26.0,
-              48.9,
-              48.1,
-              31.7
+            "1024": [
+              148.2
+            ],
+            "1280": [
+              368.5
+            ],
+            "1536": [
+              480.4
             ]
           },
           "aiclk": {
-            "1280": {
-              "card": "28",
+            "256": {
+              "card": "6",
               "min": 500,
               "max": 1000,
               "rep_median": [
+                1000,
+                1000,
+                1000,
+                1000,
                 1000
               ],
-              "n": 199
-            },
-            "1536": {
-              "card": "28",
-              "min": 500,
-              "max": 1000,
-              "rep_median": [
-                1000
-              ],
-              "n": 328
+              "n": 40
             },
             "512": {
-              "card": "28",
+              "card": "6",
               "min": 500,
               "max": 1000,
               "rep_median": [
@@ -7442,148 +7423,136 @@
                 1000,
                 1000
               ],
-              "n": 106
-            },
-            "768": {
-              "card": "28",
-              "min": 500,
-              "max": 1000,
-              "rep_median": [
-                1000
-              ],
-              "n": 43
+              "n": 55
             },
             "640": {
-              "card": "28",
+              "card": "6",
               "min": 500,
               "max": 1000,
               "rep_median": [
                 1000
               ],
-              "n": 32
+              "n": 15
             },
-            "1024": {
-              "card": "28",
+            "768": {
+              "card": "6",
               "min": 500,
               "max": 1000,
               "rep_median": [
                 1000
               ],
-              "n": 47
+              "n": 20
             },
             "896": {
-              "card": "28",
+              "card": "6",
               "min": 500,
               "max": 1000,
               "rep_median": [
                 1000
               ],
-              "n": 47
+              "n": 26
             },
-            "256": {
-              "card": "28",
+            "1024": {
+              "card": "6",
               "min": 500,
               "max": 1000,
               "rep_median": [
-                1000,
-                1000,
-                1000,
-                1000,
                 1000
               ],
-              "n": 64
+              "n": 33
+            },
+            "1280": {
+              "card": "6",
+              "min": 500,
+              "max": 1000,
+              "rep_median": [
+                1000
+              ],
+              "n": 73
+            },
+            "1536": {
+              "card": "6",
+              "min": 500,
+              "max": 1000,
+              "rep_median": [
+                1000
+              ],
+              "n": 92
             }
           },
           "load": {
-            "1280": {
-              "max": 1.06,
+            "256": {
+              "max": 0.49,
               "rep_median": [
-                0.89
-              ]
-            },
-            "1536": {
-              "max": 1.27,
-              "rep_median": [
-                0.98
+                0.42,
+                0.44,
+                0.42,
+                0.44,
+                0.45
               ]
             },
             "512": {
-              "max": 1.5,
+              "max": 0.52,
               "rep_median": [
-                1.35,
-                1.21,
-                1.29,
-                1.44,
-                1.36
-              ]
-            },
-            "768": {
-              "max": 10.32,
-              "rep_median": [
-                2.42
+                0.4,
+                0.46,
+                0.43,
+                0.47,
+                0.42
               ]
             },
             "640": {
-              "max": 1.49,
+              "max": 0.4,
               "rep_median": [
-                1.22
+                0.36
               ]
             },
-            "1024": {
-              "max": 1.43,
+            "768": {
+              "max": 0.33,
               "rep_median": [
-                1.21
+                0.31
               ]
             },
             "896": {
-              "max": 1.47,
+              "max": 0.38,
               "rep_median": [
-                1.35
+                0.32
               ]
             },
-            "256": {
-              "max": 2.3,
+            "1024": {
+              "max": 0.36,
               "rep_median": [
-                1.93,
-                1.63,
-                1.37,
-                1.37,
-                1.37
+                0.32
+              ]
+            },
+            "1280": {
+              "max": 1.14,
+              "rep_median": [
+                0.78
+              ]
+            },
+            "1536": {
+              "max": 0.99,
+              "rep_median": [
+                0.8
               ]
             }
           },
           "structure": {
-            "1280": {
-              "file": "cdk2x2_1280.cif",
+            "256": {
+              "file": "cdk2x2_256.cif",
               "steps": 6,
-              "n_ca": 1280,
-              "clash_frac": 0.0375,
-              "chain_break_frac": 0.9992,
-              "ca_ca_median_A": 105.1781,
-              "radius_of_gyration_A": 86.167,
-              "plddt_mean": 0.336947,
+              "n_ca": 256,
+              "clash_frac": 0.0,
+              "chain_break_frac": 1.0,
+              "ca_ca_median_A": 108.2299,
+              "radius_of_gyration_A": 83.419,
+              "plddt_mean": 0.332016,
               "geometry_ok": false,
               "geometry_fail": [
-                "median CA-CA 105.178 A outside [3.6, 4.0]",
-                "99.9% of consecutive CA pairs exceed 5.0 A",
-                "3.8% of CA atoms sit under 3.5 A from a non-bonded CA",
-                "radius of gyration 86.2 A outside [16.7, 83.4]"
-              ]
-            },
-            "1536": {
-              "file": "cdk2x2_1536.cif",
-              "steps": 6,
-              "n_ca": 1536,
-              "clash_frac": 0.0658,
-              "chain_break_frac": 0.9993,
-              "ca_ca_median_A": 106.8372,
-              "radius_of_gyration_A": 84.648,
-              "plddt_mean": 0.351146,
-              "geometry_ok": false,
-              "geometry_fail": [
-                "median CA-CA 106.837 A outside [3.6, 4.0]",
-                "99.9% of consecutive CA pairs exceed 5.0 A",
-                "6.6% of CA atoms sit under 3.5 A from a non-bonded CA"
+                "median CA-CA 108.230 A outside [3.6, 4.0]",
+                "100.0% of consecutive CA pairs exceed 5.0 A",
+                "radius of gyration 83.4 A outside [9.0, 45.2]"
               ]
             },
             "512": {
@@ -7600,23 +7569,6 @@
                 "median CA-CA 109.571 A outside [3.6, 4.0]",
                 "100.0% of consecutive CA pairs exceed 5.0 A",
                 "radius of gyration 85.7 A outside [11.8, 58.9]"
-              ]
-            },
-            "768": {
-              "file": "cdk2x2_768.cif",
-              "steps": 6,
-              "n_ca": 768,
-              "clash_frac": 0.0234,
-              "chain_break_frac": 1.0,
-              "ca_ca_median_A": 105.599,
-              "radius_of_gyration_A": 82.598,
-              "plddt_mean": 0.31983,
-              "geometry_ok": false,
-              "geometry_fail": [
-                "median CA-CA 105.599 A outside [3.6, 4.0]",
-                "100.0% of consecutive CA pairs exceed 5.0 A",
-                "2.3% of CA atoms sit under 3.5 A from a non-bonded CA",
-                "radius of gyration 82.6 A outside [13.7, 68.7]"
               ]
             },
             "640": {
@@ -7636,21 +7588,21 @@
                 "radius of gyration 84.9 A outside [12.8, 64.1]"
               ]
             },
-            "1024": {
-              "file": "cdk2x2_1024.cif",
+            "768": {
+              "file": "cdk2x2_768.cif",
               "steps": 6,
-              "n_ca": 1024,
-              "clash_frac": 0.0303,
+              "n_ca": 768,
+              "clash_frac": 0.0234,
               "chain_break_frac": 1.0,
-              "ca_ca_median_A": 104.2803,
-              "radius_of_gyration_A": 85.052,
-              "plddt_mean": 0.335486,
+              "ca_ca_median_A": 105.599,
+              "radius_of_gyration_A": 82.598,
+              "plddt_mean": 0.31983,
               "geometry_ok": false,
               "geometry_fail": [
-                "median CA-CA 104.280 A outside [3.6, 4.0]",
+                "median CA-CA 105.599 A outside [3.6, 4.0]",
                 "100.0% of consecutive CA pairs exceed 5.0 A",
-                "3.0% of CA atoms sit under 3.5 A from a non-bonded CA",
-                "radius of gyration 85.1 A outside [15.3, 76.6]"
+                "2.3% of CA atoms sit under 3.5 A from a non-bonded CA",
+                "radius of gyration 82.6 A outside [13.7, 68.7]"
               ]
             },
             "896": {
@@ -7670,40 +7622,85 @@
                 "radius of gyration 87.4 A outside [14.6, 72.8]"
               ]
             },
-            "256": {
-              "file": "cdk2x2_256.cif",
+            "1024": {
+              "file": "cdk2x2_1024.cif",
               "steps": 6,
-              "n_ca": 256,
-              "clash_frac": 0.0,
+              "n_ca": 1024,
+              "clash_frac": 0.0303,
               "chain_break_frac": 1.0,
-              "ca_ca_median_A": 108.2299,
-              "radius_of_gyration_A": 83.419,
-              "plddt_mean": 0.332016,
+              "ca_ca_median_A": 104.2803,
+              "radius_of_gyration_A": 85.052,
+              "plddt_mean": 0.335486,
               "geometry_ok": false,
               "geometry_fail": [
-                "median CA-CA 108.230 A outside [3.6, 4.0]",
+                "median CA-CA 104.280 A outside [3.6, 4.0]",
                 "100.0% of consecutive CA pairs exceed 5.0 A",
-                "radius of gyration 83.4 A outside [9.0, 45.2]"
+                "3.0% of CA atoms sit under 3.5 A from a non-bonded CA",
+                "radius of gyration 85.1 A outside [15.3, 76.6]"
+              ]
+            },
+            "1280": {
+              "file": "cdk2x2_1280.cif",
+              "steps": 6,
+              "n_ca": 1280,
+              "clash_frac": 0.0445,
+              "chain_break_frac": 1.0,
+              "ca_ca_median_A": 104.7813,
+              "radius_of_gyration_A": 86.17,
+              "plddt_mean": 0.338291,
+              "geometry_ok": false,
+              "geometry_fail": [
+                "median CA-CA 104.781 A outside [3.6, 4.0]",
+                "100.0% of consecutive CA pairs exceed 5.0 A",
+                "4.5% of CA atoms sit under 3.5 A from a non-bonded CA",
+                "radius of gyration 86.2 A outside [16.7, 83.4]"
+              ]
+            },
+            "1536": {
+              "file": "cdk2x2_1536.cif",
+              "steps": 6,
+              "n_ca": 1536,
+              "clash_frac": 0.0605,
+              "chain_break_frac": 1.0,
+              "ca_ca_median_A": 106.6524,
+              "radius_of_gyration_A": 84.396,
+              "plddt_mean": 0.35222,
+              "geometry_ok": false,
+              "geometry_fail": [
+                "median CA-CA 106.652 A outside [3.6, 4.0]",
+                "100.0% of consecutive CA pairs exceed 5.0 A",
+                "6.0% of CA atoms sit under 3.5 A from a non-bonded CA"
               ]
             }
           },
           "rungs_carried": [
-            "256",
-            "512",
-            "640",
-            "768",
-            "896",
-            "1024"
+            "1280",
+            "1536"
           ],
-          "exponents_skipped": "256 aa was timed at 2.3x nproc, above the 1.5x load ceiling: the runtimes are the host's, re-time on a quiet box",
+          "reps": 1,
+          "sigma_runtime_512": 0.0076,
+          "exponents": {
+            "256->512": {
+              "k": 1.266,
+              "tol": 0.5
+            },
+            "512->768": {
+              "k": 2.108,
+              "tol": 0.5
+            }
+          },
+          "sigma_runtime": {
+            "256": 0.0198,
+            "512": 0.0076
+          },
           "exponents_measured": {
-            "256->512": 1.305,
-            "512->640": 2.546,
-            "640->768": 3.282,
-            "768->896": -0.529,
-            "896->1024": -0.277,
-            "1024->1280": 6.998,
-            "1280->1536": 2.823
+            "256->512": 1.266,
+            "512->640": 2.045,
+            "640->768": 2.186,
+            "768->896": 2.328,
+            "896->1024": 1.958,
+            "1024->1280": 4.082,
+            "1280->1536": 1.454
           }
         }
       },
