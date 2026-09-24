@@ -19,7 +19,9 @@ the step we run. Each departure is a finding about the adapter, recorded in the 
   * the confidence Pairformer is NOT detached from the trunk, where upstream detaches
     si_input / si / zij before it (head_modules.py);
   * `resolved_logits` reach the objective as [N_token, 23 * 2] and `losses.resolved` reads that
-    as 46 classes, where upstream gathers [N_atom, 2] under `max_atom_per_token_mask`.
+    as 46 classes, where upstream gathers [N_atom, 2] under `max_atom_per_token_mask`;
+  * with `--denoise`, `pae` and `pde` are labelled from the denoise arm's `pred_xyz`, where
+    upstream labels them from the rolled-out structure the heads see.
 
 MSA subsampling is off (our step feeds every MSA row; this batch has 2, both valid) and dropout
 is r = 0 (`bundle_min.disable_dropout`).
@@ -362,8 +364,14 @@ def trunk_and_heads(model, batch, repr_x=None, cfg=None, seed=None, replay=None,
     si_c, zij_c = pe.pairformer_emb(si_input=s_input, si=s, zij=z,
                                     x_pred=repr_x.to(z.dtype)[None], single_mask=tok,
                                     pair_mask=pair, chunk_size=chunk, _mask_trans=True)
-    er = model.aux_heads.experimentally_resolved
-    out["resolved_logits"] = er.linear(er.layer_norm(si_c))  # [1, N, 23 * 2], our layout
+    # Every head our step returns, in our step's layout. Without pae and pde this skipped two
+    # terms our objective weights 1e-4 each in initial_training, and the confidence Pairformer's
+    # gradient read 36.7x its bf16 against a reference that had no z-path loss at all (D266).
+    ah = model.aux_heads
+    for name, head in (("resolved_logits", ah.experimentally_resolved), ("plddt_logits", ah.plddt)):
+        out[name] = head.linear(head.layer_norm(si_c))       # [1, N, 23 * c_out], our layout
+    out["pde_logits"] = ah.pde(zij_c)
+    out["pae_logits"] = ah.pae(zij_c)
     return out, xl, repr_x, rec
 
 
@@ -455,6 +463,9 @@ def main() -> int:
                "representative atom = start_atom_index (first atom); upstream: CB / CA(gly)",
                "confidence Pairformer not detached from the trunk; upstream detaches its inputs",
                "resolved_logits [N_token, 46] read as 46 classes; upstream [N_atom, 2] gathered"]}
+    if a.denoise:
+        rec["adapter_departures"].append(
+            "denoise: pae / pde labelled from the denoise pred_xyz; upstream from the rollout")
     if a.denoise:
         rec["denoise"] = {
             "draw": "tt_bio.train.openfold3.denoise_draw(seed, n_atom)", "seed": a.seed,
