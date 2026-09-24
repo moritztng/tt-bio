@@ -1,0 +1,766 @@
+{
+ "3abq_1536": {
+  "boltz2": {
+   "0": {
+    "verdict": "PASS",
+    "runtime_s": 460.2,
+    "card": 20,
+    "commit": "6ea518246",
+    "aiclk_mhz": {
+     "n": 16,
+     "min": 500,
+     "median": 1000.0,
+     "max": 1000
+    },
+    "cif": "perf/mgx_seed_floor/out/runs/3abq-boltz2-s0/boltz2_3abq_1536/boltz2_results_3abq_1536/structures/3abq_1536.cif",
+    "crystal": {
+     "ca_rmsd_A": 0.963,
+     "lddt_ca": 0.9782,
+     "n_ca": 1406,
+     "worst_chain_ca_rmsd_A": 0.657
+    }
+   },
+   "1": {
+    "verdict": "PASS",
+    "runtime_s": 514.0,
+    "card": 23,
+    "commit": "6ea518246",
+    "aiclk_mhz": {
+     "n": 17,
+     "min": 500,
+     "median": 1000,
+     "max": 1000
+    },
+    "cif": "perf/mgx_seed_floor/out/runs/3abq-boltz2-s1/boltz2_3abq_1536/boltz2_results_3abq_1536/structures/3abq_1536.cif",
+    "crystal": {
+     "ca_rmsd_A": 0.794,
+     "lddt_ca": 0.9802,
+     "n_ca": 1406,
+     "worst_chain_ca_rmsd_A": 0.66
+    }
+   },
+   "2": {
+    "verdict": "PASS",
+    "runtime_s": 460.7,
+    "card": 20,
+    "commit": "6ea518246",
+    "aiclk_mhz": {
+     "n": 16,
+     "min": 500,
+     "median": 1000.0,
+     "max": 1000
+    },
+    "cif": "perf/mgx_seed_floor/out/runs/3abq-boltz2-s2/boltz2_3abq_1536/boltz2_results_3abq_1536/structures/3abq_1536.cif",
+    "crystal": {
+     "ca_rmsd_A": 0.879,
+     "lddt_ca": 0.98,
+     "n_ca": 1406,
+     "worst_chain_ca_rmsd_A": 0.732
+    }
+   }
+  },
+  "esmfold2-fast": {
+   "0": {
+    "verdict": "PASS",
+    "runtime_s": 961.9,
+    "card": 23,
+    "commit": "6ea518246",
+    "aiclk_mhz": {
+     "n": 32,
+     "min": 500,
+     "median": 1000.0,
+     "max": 1000
+    },
+    "cif": "perf/mgx_seed_floor/out/runs/3abq-esmfold2-fast-s0/esmfold2-fast_3abq_1536/esmfold2_results_3abq_1536/structures/3abq_1536.cif",
+    "crystal": {
+     "ca_rmsd_A": 1.26,
+     "lddt_ca": 0.9668,
+     "n_ca": 1406,
+     "worst_chain_ca_rmsd_A": 0.862
+    }
+   },
+   "1": {
+    "verdict": "PASS",
+    "runtime_s": 961.8,
+    "card": 20,
+    "commit": "6ea518246",
+    "aiclk_mhz": {
+     "n": 32,
+     "min": 500,
+     "median": 1000.0,
+     "max": 1000
+    },
+    "cif": "perf/mgx_seed_floor/out/runs/3abq-esmfold2-fast-s1/esmfold2-fast_3abq_1536/esmfold2_results_3abq_1536/structures/3abq_1536.cif",
+    "crystal": {
+     "ca_rmsd_A": 1.076,
+     "lddt_ca": 0.9605,
+     "n_ca": 1406,
+     "worst_chain_ca_rmsd_A": 1.124
+    }
+   },
+   "2": {
+    "verdict": "PASS",
+    "runtime_s": 962.7,
+    "card": 19,
+    "commit": "6ea518246",
+    "aiclk_mhz": {
+     "n": 32,
+     "min": 500,
+     "median": 1000.0,
+     "max": 1000
+    },
+    "cif": "perf/mgx_seed_floor/out/runs/3abq-esmfold2-fast-s2/esmfold2-fast_3abq_1536/esmfold2_results_3abq_1536/structures/3abq_1536.cif",
+    "crystal": {
+     "ca_rmsd_A": 1.202,
+     "lddt_ca": 0.9639,
+     "n_ca": 1406,
+     "worst_chain_ca_rmsd_A": 1.163
+    }
+   }
+  },
+  "esmfold2": {
+   "0": {
+    "verdict": "PASS",
+    "runtime_s": 1978.4,
+    "card": 16,
+    "commit": "6ea518246",
+    "aiclk_mhz": {
+     "n": 66,
+     "min": 500,
+     "median": 1000.0,
+     "max": 1000
+    },
+    "cif": "perf/mgx_seed_floor/out/runs/3abq-esmfold2-s0/esmfold2_3abq_1536/esmfold2_results_3abq_1536/structures/3abq_1536.cif",
+    "crystal": {
+     "ca_rmsd_A": 0.842,
+     "lddt_ca": 0.9617,
+     "n_ca": 1406,
+     "worst_chain_ca_rmsd_A": 0.867
+    }
+   },
+   "1": {
+    "verdict": "PASS",
+    "runtime_s": 1985.2,
+    "card": 12,
+    "commit": "6ea518246",
+    "aiclk_mhz": {
+     "n": 66,
+     "min": 500,
+     "median": 1000.0,
+     "max": 1000
+    },
+    "cif": "perf/mgx_seed_floor/out/runs/3abq-esmfold2-s1/esmfold2_3abq_1536/esmfold2_results_3abq_1536/structures/3abq_1536.cif",
+    "crystal": {
+     "ca_rmsd_A": 0.887,
+     "lddt_ca": 0.9655,
+     "n_ca": 1406,
+     "worst_chain_ca_rmsd_A": 0.929
+    }
+   },
+   "2": {
+    "verdict": "PASS",
+    "runtime_s": 1981.0,
+    "card": 16,
+    "commit": "6ea518246",
+    "aiclk_mhz": {
+     "n": 66,
+     "min": 500,
+     "median": 1000.0,
+     "max": 1000
+    },
+    "cif": "perf/mgx_seed_floor/out/runs/3abq-esmfold2-s2/esmfold2_3abq_1536/esmfold2_results_3abq_1536/structures/3abq_1536.cif",
+    "crystal": {
+     "ca_rmsd_A": 0.986,
+     "lddt_ca": 0.9586,
+     "n_ca": 1406,
+     "worst_chain_ca_rmsd_A": 1.003
+    }
+   }
+  },
+  "openbind": {
+   "0": {
+    "verdict": "PASS",
+    "runtime_s": 718.1,
+    "card": 20,
+    "commit": "6ea518246",
+    "aiclk_mhz": {
+     "n": 24,
+     "min": 500,
+     "median": 1000.0,
+     "max": 1000
+    },
+    "cif": "perf/mgx_seed_floor/out/runs/3abq-openbind-s0/openbind_3abq_1536/openbind_results_3abq_1536/structures/3abq_1536.cif",
+    "crystal": {
+     "ca_rmsd_A": 0.857,
+     "lddt_ca": 0.9663,
+     "n_ca": 1406,
+     "worst_chain_ca_rmsd_A": 0.846
+    }
+   },
+   "1": {
+    "verdict": "PASS",
+    "runtime_s": 802.4,
+    "card": 16,
+    "commit": "6ea518246",
+    "aiclk_mhz": {
+     "n": 27,
+     "min": 500,
+     "median": 1000,
+     "max": 1000
+    },
+    "cif": "perf/mgx_seed_floor/out/runs/3abq-openbind-s1/openbind_3abq_1536/openbind_results_3abq_1536/structures/3abq_1536.cif",
+    "crystal": {
+     "ca_rmsd_A": 0.803,
+     "lddt_ca": 0.9682,
+     "n_ca": 1406,
+     "worst_chain_ca_rmsd_A": 0.973
+    }
+   },
+   "2": {
+    "verdict": "PASS",
+    "runtime_s": 721.4,
+    "card": 20,
+    "commit": "6ea518246",
+    "aiclk_mhz": {
+     "n": 24,
+     "min": 500,
+     "median": 1000.0,
+     "max": 1000
+    },
+    "cif": "perf/mgx_seed_floor/out/runs/3abq-openbind-s2/openbind_3abq_1536/openbind_results_3abq_1536/structures/3abq_1536.cif",
+    "crystal": {
+     "ca_rmsd_A": 0.997,
+     "lddt_ca": 0.9655,
+     "n_ca": 1406,
+     "worst_chain_ca_rmsd_A": 1.001
+    }
+   }
+  },
+  "openfold3": {
+   "0": {
+    "verdict": "PASS",
+    "runtime_s": 719.4,
+    "card": 23,
+    "commit": "6ea518246",
+    "aiclk_mhz": {
+     "n": 24,
+     "min": 500,
+     "median": 1000.0,
+     "max": 1000
+    },
+    "cif": "perf/mgx_seed_floor/out/runs/3abq-openfold3-s0/openfold3_3abq_1536/openfold3_results_3abq_1536/structures/3abq_1536.cif",
+    "crystal": {
+     "ca_rmsd_A": 0.798,
+     "lddt_ca": 0.9699,
+     "n_ca": 1406,
+     "worst_chain_ca_rmsd_A": 0.872
+    }
+   },
+   "1": {
+    "verdict": "PASS",
+    "runtime_s": 822.2,
+    "card": 14,
+    "commit": "6ea518246",
+    "aiclk_mhz": {
+     "n": 28,
+     "min": 500,
+     "median": 1000.0,
+     "max": 1000
+    },
+    "cif": "perf/mgx_seed_floor/out/runs/3abq-openfold3-s1/openfold3_3abq_1536/openfold3_results_3abq_1536/structures/3abq_1536.cif",
+    "crystal": {
+     "ca_rmsd_A": 0.743,
+     "lddt_ca": 0.9718,
+     "n_ca": 1406,
+     "worst_chain_ca_rmsd_A": 0.911
+    }
+   },
+   "2": {
+    "verdict": "PASS",
+    "runtime_s": 720.5,
+    "card": 19,
+    "commit": "6ea518246",
+    "aiclk_mhz": {
+     "n": 24,
+     "min": 500,
+     "median": 1000.0,
+     "max": 1000
+    },
+    "cif": "perf/mgx_seed_floor/out/runs/3abq-openfold3-s2/openfold3_3abq_1536/openfold3_results_3abq_1536/structures/3abq_1536.cif",
+    "crystal": {
+     "ca_rmsd_A": 0.849,
+     "lddt_ca": 0.9709,
+     "n_ca": 1406,
+     "worst_chain_ca_rmsd_A": 0.893
+    }
+   }
+  },
+  "protenix-v1": {
+   "0": {
+    "verdict": "PASS",
+    "runtime_s": 515.6,
+    "card": 19,
+    "commit": "6ea518246",
+    "aiclk_mhz": {
+     "n": 17,
+     "min": 500,
+     "median": 1000,
+     "max": 1000
+    },
+    "cif": "perf/mgx_seed_floor/out/runs/3abq-protenix-v1-s0/protenix-v1_3abq_1536/protenix_results_3abq_1536/structures/3abq_1536.cif",
+    "crystal": {
+     "ca_rmsd_A": 1.623,
+     "lddt_ca": 0.9504,
+     "n_ca": 1406,
+     "worst_chain_ca_rmsd_A": 2.098
+    }
+   },
+   "1": {
+    "verdict": "PASS",
+    "runtime_s": 534.1,
+    "card": 23,
+    "commit": "6ea518246",
+    "aiclk_mhz": {
+     "n": 18,
+     "min": 500,
+     "median": 1000.0,
+     "max": 1000
+    },
+    "cif": "perf/mgx_seed_floor/out/runs/3abq-protenix-v1-s1/protenix-v1_3abq_1536/protenix_results_3abq_1536/structures/3abq_1536.cif",
+    "crystal": {
+     "ca_rmsd_A": 1.61,
+     "lddt_ca": 0.9517,
+     "n_ca": 1406,
+     "worst_chain_ca_rmsd_A": 2.199
+    }
+   },
+   "2": {
+    "verdict": "PASS",
+    "runtime_s": 518.2,
+    "card": 8,
+    "commit": "6ea518246",
+    "aiclk_mhz": {
+     "n": 18,
+     "min": 500,
+     "median": 1000.0,
+     "max": 1000
+    },
+    "cif": "perf/mgx_seed_floor/out/runs/3abq-protenix-v1-s2/protenix-v1_3abq_1536/protenix_results_3abq_1536/structures/3abq_1536.cif",
+    "crystal": {
+     "ca_rmsd_A": 0.796,
+     "lddt_ca": 0.9702,
+     "n_ca": 1406,
+     "worst_chain_ca_rmsd_A": 0.967
+    }
+   }
+  },
+  "protenix-v2": {
+   "0": {
+    "verdict": "PASS",
+    "runtime_s": 1893.6,
+    "card": 14,
+    "commit": "6ea518246",
+    "aiclk_mhz": {
+     "n": 63,
+     "min": 500,
+     "median": 1000,
+     "max": 1000
+    },
+    "cif": "perf/mgx_seed_floor/out/runs/3abq-protenix-v2-s0/protenix-v2_3abq_1536/protenix_results_3abq_1536/structures/3abq_1536.cif",
+    "crystal": {
+     "ca_rmsd_A": 0.607,
+     "lddt_ca": 0.9861,
+     "n_ca": 1406,
+     "worst_chain_ca_rmsd_A": 0.558
+    }
+   },
+   "1": {
+    "verdict": "PASS",
+    "runtime_s": 1981.7,
+    "card": 8,
+    "commit": "6ea518246",
+    "aiclk_mhz": {
+     "n": 66,
+     "min": 500,
+     "median": 1000.0,
+     "max": 1000
+    },
+    "cif": "perf/mgx_seed_floor/out/runs/3abq-protenix-v2-s1/protenix-v2_3abq_1536/protenix_results_3abq_1536/structures/3abq_1536.cif",
+    "crystal": {
+     "ca_rmsd_A": 0.664,
+     "lddt_ca": 0.9861,
+     "n_ca": 1406,
+     "worst_chain_ca_rmsd_A": 0.537
+    }
+   },
+   "2": {
+    "verdict": "PASS",
+    "runtime_s": 1891.6,
+    "card": 14,
+    "commit": "6ea518246",
+    "aiclk_mhz": {
+     "n": 63,
+     "min": 500,
+     "median": 1000,
+     "max": 1000
+    },
+    "cif": "perf/mgx_seed_floor/out/runs/3abq-protenix-v2-s2/protenix-v2_3abq_1536/protenix_results_3abq_1536/structures/3abq_1536.cif",
+    "crystal": {
+     "ca_rmsd_A": 0.629,
+     "lddt_ca": 0.9868,
+     "n_ca": 1406,
+     "worst_chain_ca_rmsd_A": 0.658
+    }
+   }
+  },
+  "rf3": {
+   "0": {
+    "verdict": "PASS",
+    "runtime_s": 843.2,
+    "card": 19,
+    "commit": "6ea518246",
+    "aiclk_mhz": {
+     "n": 28,
+     "min": 500,
+     "median": 1000.0,
+     "max": 1000
+    },
+    "cif": "perf/mgx_seed_floor/out/runs/3abq-rf3-s0/rf3_3abq_1536/rf3_results_3abq_1536/structures/3abq_1536.cif",
+    "crystal": {
+     "ca_rmsd_A": 0.745,
+     "lddt_ca": 0.9709,
+     "n_ca": 1406,
+     "worst_chain_ca_rmsd_A": 0.77
+    }
+   },
+   "1": {
+    "verdict": "PASS",
+    "runtime_s": 954.5,
+    "card": 19,
+    "commit": "6ea518246",
+    "aiclk_mhz": {
+     "n": 32,
+     "min": 500,
+     "median": 1000.0,
+     "max": 1000
+    },
+    "cif": "perf/mgx_seed_floor/out/runs/3abq-rf3-s1/rf3_3abq_1536/rf3_results_3abq_1536/structures/3abq_1536.cif",
+    "crystal": {
+     "ca_rmsd_A": 0.809,
+     "lddt_ca": 0.9714,
+     "n_ca": 1406,
+     "worst_chain_ca_rmsd_A": 0.8
+    }
+   },
+   "2": {
+    "verdict": "PASS",
+    "runtime_s": 846.2,
+    "card": 23,
+    "commit": "6ea518246",
+    "aiclk_mhz": {
+     "n": 28,
+     "min": 500,
+     "median": 1000.0,
+     "max": 1000
+    },
+    "cif": "perf/mgx_seed_floor/out/runs/3abq-rf3-s2/rf3_3abq_1536/rf3_results_3abq_1536/structures/3abq_1536.cif",
+    "crystal": {
+     "ca_rmsd_A": 0.83,
+     "lddt_ca": 0.9687,
+     "n_ca": 1406,
+     "worst_chain_ca_rmsd_A": 0.829
+    }
+   }
+  }
+ },
+ "cdk2x2_1280": {
+  "openbind": {
+   "0": {
+    "verdict": "PASS",
+    "runtime_s": 394.2,
+    "card": 20,
+    "commit": "6ea518246",
+    "aiclk_mhz": {
+     "n": 13,
+     "min": 500,
+     "median": 1000,
+     "max": 1000
+    },
+    "cif": "perf/mgx_seed_floor/out/runs/cdk2x2-openbind-s0/openbind_cdk2x2_1280/openbind_results_cdk2x2_1280/structures/cdk2x2_1280.cif"
+   },
+   "1": {
+    "verdict": "PASS",
+    "runtime_s": 393.3,
+    "card": 19,
+    "commit": "6ea518246",
+    "aiclk_mhz": {
+     "n": 13,
+     "min": 500,
+     "median": 1000,
+     "max": 1000
+    },
+    "cif": "perf/mgx_seed_floor/out/runs/cdk2x2-openbind-s1/openbind_cdk2x2_1280/openbind_results_cdk2x2_1280/structures/cdk2x2_1280.cif"
+   },
+   "s1_vs_s0": {
+    "whole": {
+     "ca_rmsd_A": 26.344,
+     "lddt_ca": 0.5785,
+     "n_ca": 1280,
+     "worst_chain_ca_rmsd_A": 26.344
+    },
+    "per_copy": [
+     [
+      6.36,
+      0.6242
+     ],
+     [
+      6.178,
+      0.6132
+     ],
+     [
+      6.512,
+      0.6108
+     ],
+     [
+      5.723,
+      0.6366
+     ]
+    ],
+    "per_copy_trim8": [
+     [
+      6.23,
+      0.6237
+     ],
+     [
+      6.043,
+      0.6215
+     ],
+     [
+      6.38,
+      0.6102
+     ],
+     [
+      5.716,
+      0.6378
+     ]
+    ]
+   }
+  },
+  "opendde-abag": {
+   "0": {
+    "verdict": "PASS",
+    "runtime_s": 2044.9,
+    "card": 12,
+    "commit": "6ea518246",
+    "aiclk_mhz": {
+     "n": 68,
+     "min": 500,
+     "median": 1000.0,
+     "max": 1000
+    },
+    "cif": "perf/mgx_seed_floor/out/runs/cdk2x2-opendde-abag-s0/opendde-abag_cdk2x2_1280/opendde_results_cdk2x2_1280/structures/cdk2x2_1280.cif"
+   },
+   "1": {
+    "verdict": "PASS",
+    "runtime_s": 1956.1,
+    "card": 8,
+    "commit": "6ea518246",
+    "aiclk_mhz": {
+     "n": 65,
+     "min": 500,
+     "median": 1000,
+     "max": 1000
+    },
+    "cif": "perf/mgx_seed_floor/out/runs/cdk2x2-opendde-abag-s1/opendde-abag_cdk2x2_1280/opendde_results_cdk2x2_1280/structures/cdk2x2_1280.cif"
+   },
+   "s1_vs_s0": {
+    "whole": {
+     "ca_rmsd_A": 28.894,
+     "lddt_ca": 0.7522,
+     "n_ca": 1280,
+     "worst_chain_ca_rmsd_A": 28.894
+    },
+    "per_copy": [
+     [
+      1.389,
+      0.893
+     ],
+     [
+      4.897,
+      0.8318
+     ],
+     [
+      1.599,
+      0.8754
+     ],
+     [
+      1.33,
+      0.8927
+     ]
+    ],
+    "per_copy_trim8": [
+     [
+      1.258,
+      0.8993
+     ],
+     [
+      1.386,
+      0.8921
+     ],
+     [
+      1.529,
+      0.8815
+     ],
+     [
+      1.288,
+      0.8985
+     ]
+    ]
+   }
+  },
+  "openfold3": {
+   "0": {
+    "verdict": "PASS",
+    "runtime_s": 427.3,
+    "card": 23,
+    "commit": "6ea518246",
+    "aiclk_mhz": {
+     "n": 15,
+     "min": 500,
+     "median": 1000,
+     "max": 1000
+    },
+    "cif": "perf/mgx_seed_floor/out/runs/cdk2x2-openfold3-s0/openfold3_cdk2x2_1280/openfold3_results_cdk2x2_1280/structures/cdk2x2_1280.cif"
+   },
+   "1": {
+    "verdict": "PASS",
+    "runtime_s": 394.3,
+    "card": 20,
+    "commit": "6ea518246",
+    "aiclk_mhz": {
+     "n": 13,
+     "min": 500,
+     "median": 1000,
+     "max": 1000
+    },
+    "cif": "perf/mgx_seed_floor/out/runs/cdk2x2-openfold3-s1/openfold3_cdk2x2_1280/openfold3_results_cdk2x2_1280/structures/cdk2x2_1280.cif"
+   },
+   "s1_vs_s0": {
+    "whole": {
+     "ca_rmsd_A": 5.036,
+     "lddt_ca": 0.7532,
+     "n_ca": 1280,
+     "worst_chain_ca_rmsd_A": 5.036
+    },
+    "per_copy": [
+     [
+      3.665,
+      0.7683
+     ],
+     [
+      3.596,
+      0.77
+     ],
+     [
+      3.641,
+      0.7609
+     ],
+     [
+      3.505,
+      0.7715
+     ]
+    ],
+    "per_copy_trim8": [
+     [
+      3.695,
+      0.7683
+     ],
+     [
+      3.633,
+      0.77
+     ],
+     [
+      3.677,
+      0.7618
+     ],
+     [
+      3.548,
+      0.7707
+     ]
+    ]
+   }
+  },
+  "protenix-v1": {
+   "0": {
+    "verdict": "PASS",
+    "runtime_s": 288.7,
+    "card": 23,
+    "commit": "6ea518246",
+    "aiclk_mhz": {
+     "n": 10,
+     "min": 500,
+     "median": 1000.0,
+     "max": 1000
+    },
+    "cif": "perf/mgx_seed_floor/out/runs/cdk2x2-protenix-v1-s0/protenix-v1_cdk2x2_1280/protenix_results_cdk2x2_1280/structures/cdk2x2_1280.cif"
+   },
+   "1": {
+    "verdict": "PASS",
+    "runtime_s": 272.8,
+    "card": 23,
+    "commit": "6ea518246",
+    "aiclk_mhz": {
+     "n": 9,
+     "min": 500,
+     "median": 1000,
+     "max": 1000
+    },
+    "cif": "perf/mgx_seed_floor/out/runs/cdk2x2-protenix-v1-s1/protenix-v1_cdk2x2_1280/protenix_results_cdk2x2_1280/structures/cdk2x2_1280.cif"
+   },
+   "s1_vs_s0": {
+    "whole": {
+     "ca_rmsd_A": 2.446,
+     "lddt_ca": 0.7563,
+     "n_ca": 1280,
+     "worst_chain_ca_rmsd_A": 2.446
+    },
+    "per_copy": [
+     [
+      2.236,
+      0.798
+     ],
+     [
+      2.335,
+      0.7928
+     ],
+     [
+      2.195,
+      0.7981
+     ],
+     [
+      2.224,
+      0.7949
+     ]
+    ],
+    "per_copy_trim8": [
+     [
+      2.216,
+      0.8004
+     ],
+     [
+      2.333,
+      0.7942
+     ],
+     [
+      2.179,
+      0.8004
+     ],
+     [
+      2.187,
+      0.7974
+     ]
+    ]
+   }
+  }
+ }
+}
