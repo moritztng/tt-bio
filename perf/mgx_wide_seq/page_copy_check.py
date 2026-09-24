@@ -23,11 +23,14 @@ for S, C, kind, s, R in [(64, 32, "rows", 0, 64), (96, 64, "rows", 32, 17), (320
     z = torch.randn(1, S, S, C, generator=g).bfloat16()
     b = torch.randn(*((1, R, S, C) if kind == "rows" else (1, S, R, C)), generator=g).bfloat16()
     zt, bt = up(z), up(b)
+    fn = PC.write_rows if kind == "rows" else PC.write_cols
+    fn(zt, bt, s)                      # compiles; the timed call below is warm
     ttnn.synchronize_device(dev)
     t0 = time.perf_counter()
-    (PC.write_rows if kind == "rows" else PC.write_cols)(zt, bt, s)
+    for _ in range(5):
+        fn(zt, bt, s)
     ttnn.synchronize_device(dev)
-    ms = (time.perf_counter() - t0) * 1e3
+    ms = (time.perf_counter() - t0) * 1e3 / 5
     ref = z.clone()
     if kind == "rows":
         ref[:, s:s + R] = b

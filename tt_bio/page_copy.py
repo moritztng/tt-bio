@@ -44,7 +44,7 @@ def ok(z, blk) -> bool:
     """Both tensors are bf16 TILE interleaved DRAM, rank 4, with the same channel width."""
     for t in (z, blk):
         mc = t.memory_config()
-        if (len(t.shape) != 4 or t.dtype != ttnn.bfloat16 or t.layout != ttnn.TILE_LAYOUT
+        if (len(t.shape) != 4 or int(t.shape[0]) != 1 or t.dtype != ttnn.bfloat16 or t.layout != ttnn.TILE_LAYOUT
                 or mc.buffer_type != ttnn.BufferType.DRAM
                 or mc.memory_layout != ttnn.TensorMemoryLayout.INTERLEAVED):
             return False

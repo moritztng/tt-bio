@@ -143,12 +143,19 @@ def main():
     _wrap_xfer(ttnn, "from_device", "d2h_raw", lambda a, out: _bytes(a[0]) if a else 0)
     _wrap_xfer(ttnn, "to_device", "h2d_raw", lambda a, out: _bytes(a[0]) if a else 0)
 
+    XFER.clear()
     t0 = time.perf_counter()
     out = model.expand_and_refine(ifd, s_inputs, s_trunk, z_trunk)
     ttnn.synchronize_device(dev)
     wall = time.perf_counter() - t0
-    for t in out:
-        if t is not None and hasattr(t, "is_allocated"):
+    import hashlib
+    digests = {}
+    for name, t in zip(("s_inputs", "s", "z"), out):
+        if t is None:
+            continue
+        h = ttnn.to_torch(t) if hasattr(t, "is_allocated") else t
+        digests[name] = hashlib.sha256(h.float().contiguous().numpy().tobytes()).hexdigest()[:16]
+        if hasattr(t, "is_allocated"):
             ttnn.deallocate(t)
 
     agg = defaultdict(float)
@@ -168,6 +175,8 @@ def main():
         "triatt_pm_rejects": {f"{r}:{s}": n for (r, s), n in TS.REJECTS.items()},
         "host_acc_keys": sorted(str(k) for k in TT._HOST_ACC_KEYS),
         "acc_concat_host_fallbacks": TT.ACC_CONCAT_HOST_FALLBACKS[0],
+        "pair_inplace": list(getattr(TT, "PAIR_INPLACE_STATS", [None, None])),
+        "digests": digests,
         "aiclk_note": "sample AICLK during the run with tt-smi; see the runner script",
         "env": {k: v for k, v in os.environ.items() if k.startswith("TT_BIO_")},
     }
