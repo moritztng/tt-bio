@@ -499,10 +499,35 @@ def cmd_latch(args):
         print(json.dumps(rows[-1]), flush=True)
     save(args.out or f"latch_n{args.n}.json", {"stamp": stamp(args), "n": args.n, "rows": rows})
 
+# ------------------------------------------------------------------------------ serves
+
+
+def cmd_serves(args):
+    """Which sizes does the fused route actually serve on one untaped Evoformer block, and when
+    it declines, what did the kernel say? A decline is invisible from outside, so ask per size."""
+    lv, dev, ref = open_all(args, args.arm)
+    import tt_bio.tenstorrent as tn
+    from tt_bio import triatt_sdpa as ts
+    dev.dm.set_triatt_fused(frozenset(["extra_msa", "evoformer"]))
+    rows = []
+    for n in [int(x) for x in args.ns.split(",")]:
+        m0, z0, _, _ = inputs(ref, n, args.seed)
+        before, rej0 = dict(tn.TRIATT_FUSED_HIFI_STATS), dict(ts.REJECTS)
+        l1_0 = len(tn.L1_CLASH_CENSUS)
+        untaped_fwd(dev, m0, z0, 0, 1)
+        rows.append({"n": n,
+                     "stats": {k: v - before.get(k, 0) for k, v in tn.TRIATT_FUSED_HIFI_STATS.items()},
+                     "rejects": {str(k): v - rej0.get(k, 0) for k, v in ts.REJECTS.items()
+                                 if v - rej0.get(k, 0)},
+                     "l1_refusals": [str(x)[:300] for x in tn.L1_CLASH_CENSUS[l1_0:]],
+                     "picks": {str(k): v for k, v in tn.TRIATT_FUSED_HIFI_PICKS.items()}})
+        print(json.dumps(rows[-1]), flush=True)
+    save(args.out or "serves.json", {"stamp": stamp(args), "rows": rows})
+
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("cmd", choices=["step", "blocks", "census", "fused", "latch"])
+    ap.add_argument("cmd", choices=["step", "blocks", "census", "fused", "latch", "serves"])
     ap.add_argument("--params", default=A.DEFAULT_PARAMS)
     ap.add_argument("--card", type=int, default=int(os.environ.get("TT_VISIBLE_DEVICES", "0")))
     ap.add_argument("--arm", default="stack")
@@ -526,7 +551,7 @@ def main():
     args = ap.parse_args()
     torch.set_num_threads(args.threads)
     {"step": cmd_step, "blocks": cmd_blocks, "census": cmd_census,
-     "fused": cmd_fused, "latch": cmd_latch}[args.cmd](args)
+     "fused": cmd_fused, "latch": cmd_latch, "serves": cmd_serves}[args.cmd](args)
 
 
 if __name__ == "__main__":
