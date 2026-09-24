@@ -512,19 +512,21 @@ CEILINGS: dict[str, dict[str, Ceiling]] = {
     },
     "protenix-v2": {
         "wormhole_b0": Ceiling(
-            residues=1920, pass_at=1920, fail_at=None, binds=LADDER_TOP,
+            residues=2048, pass_at=2048, fail_at=None, binds=LADDER_TOP,
             mechanism=NO_FAILURE, msa_rows=16384, ladder_ligand_atoms=0,
-            evidence="At 16384 rows, the depth the featurizer now reads, 1664, 1792 and 1920 fold on "
-                     "origin/main 811ac1316, j10glx02 card 16, 2026-09-24, guard off, --host_threads 2 "
-                     "(ws:mgx-ceilings, perf/mgxceil, msa_depth 16384 in results.json): 1664 PASS in "
-                     "3079.8 s, 1792 in 3340.3 s, 1920 in 7266.5 s, AICLK median 1000 MHz sampled "
-                     "during each fold (297, 322, 698 samples), pLDDT 0.723, 0.713, 0.713, no CA-CA "
-                     "break. 1920 recovers 45 refused allocations, the largest 8053063680 B, and its "
-                     "trunk joins pair blocks on host after a refusal, about 10 minutes per recycle. "
-                     "main 6ea518246 changes no protenix-v2 default path from 811ac1316 (trace regions "
-                     "are opt-in, the trimul block only narrows from 2560 tokens). Nothing above 1920 "
-                     "was walked. The 8192-row failure at 1920 below was an OPM refusal, and "
-                     "mgx-msa-depth (a239d22da) re-runs a refused OPM as host-tiled depth chunks. "
+            evidence="2048, the top rung, folds at 16384 rows on origin/main 6ea518246, j10glx02 card "
+                     "16, 2026-09-24, guard off, --host_threads 2 (ws:mgx-ceilings, perf/mgxceil, "
+                     "msa_depth 16384 in results.json): PASS in 4832.6 s, AICLK median 1000 MHz over "
+                     "466 samples during the fold, pLDDT 0.699, no CA-CA break, 46 refused "
+                     "allocations recovered, the largest 8589934592 B. On the same tree 1920 at 8192 "
+                     "rows folds in 3929.0 s (card 6, 1000 MHz, pLDDT 0.730), so the 8192-row OPM "
+                     "failure at 1920 below is gone: mgx-msa-depth (a239d22da) re-runs a refused OPM "
+                     "as host-tiled depth chunks. On 811ac1316 (no protenix-v2 default-path change "
+                     "to 6ea518246: trace regions are opt-in, the trimul block narrows only from 2560 "
+                     "tokens), card 16, 16384 rows, 1000 MHz: 1664 in 3079.8 s, 1792 in 3340.3 s, "
+                     "1920 in 7266.5 s (45 refusals recovered, pLDDT 0.713). Above 1792 the trunk "
+                     "joins pair blocks on host after a refusal, so wall time follows which "
+                     "allocations were refused, not size alone. "
                      "1792 folds on origin/main a102dfb5c (mgx-bigalloc merged; the later "
                      "c5b346679 adds only ESMC/SaProt masks and perf/, neither reaches protenix-v2), "
                      "j10glx02 card 29, 2026-09-23, guard off, --host_threads 2, 8192 rows: PASS "
