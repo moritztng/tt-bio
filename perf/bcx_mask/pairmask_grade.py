@@ -124,8 +124,12 @@ def cached_capture(bucket: int) -> dict:
     if path.is_file():
         with np.load(path) as z:
             return {k: z[k] for k in z.files}
+    import time
+    t0 = time.time()
     got = capture(bucket)
     np.savez(path, **got)
+    print(f"captured bucket {bucket}: n={got['pair_in'].shape[0]} in {time.time() - t0:.0f} s",
+          flush=True)
     return got
 
 
@@ -189,7 +193,8 @@ def run_arms(cap: dict, ref) -> dict:
 
 def grade(cap: dict, arms: dict, ref) -> dict:
     """Every arm against BindCraft 2's JAX, on the real residues the mask names."""
-    keep = torch.from_numpy(cap["msa_mask"][0]).bool()          # row 0 is the sequence mask
+    # `mask_2d` is `seq_mask` outer `seq_mask`, so its diagonal IS the sequence mask.
+    keep = torch.from_numpy(np.diagonal(cap["pair_mask"]).copy()).bool()
     jm = torch.from_numpy(cap["msa_out"]).float()
     jz = torch.from_numpy(cap["pair_out"]).float()
     single = ref["f32"].single_activations

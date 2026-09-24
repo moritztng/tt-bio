@@ -80,9 +80,14 @@ class HostEvoformer:
         elif self.mode == "fixed":
             # The broadcast key bias: every query row gets `1e9 * (seq_mask - 1)`.
             seq = torch.diagonal(pm)
-            pm_mul, pm_att = pm, torch.ones_like(pm) * seq[None, :]
+            pm_mul = pm
+            # The ending attention's mask is transposed by the reference, so it gets the
+            # transpose here and lands on the key axis, where the card puts it.
+            pm_att, pm_end = torch.ones_like(pm) * seq[None, :], seq[:, None] * torch.ones_like(pm)
         else:
             pm_mul = pm_att = pm
+        if self.mode != "fixed":
+            pm_end = pm_att
         R.TriangleMultiplication.forward = sided
         try:
             with torch.no_grad():
@@ -93,7 +98,7 @@ class HostEvoformer:
                     z = z + blk.tri_mul_out(z, pm_mul)
                     z = z + blk.tri_mul_in(z, pm_mul)
                     z = z + blk.tri_att_start(z, pm_att)
-                    z = z + blk.tri_att_end(z, pm_att)
+                    z = z + blk.tri_att_end(z, pm_end)
                     z = z + blk.pair_transition(z)
         finally:
             R.TriangleMultiplication.forward = both
