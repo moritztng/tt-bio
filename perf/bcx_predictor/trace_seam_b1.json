@@ -8,43 +8,7 @@
     "binder": 10000.0,
     "target_hPDL1": 1.0
    },
-   "design_loss": 6.998425006866455,
-   "design_loss_finite": true,
-   "grad_bad": {},
-   "predictions_bad": {}
-  },
-  {
-   "round": 2,
-   "input_logits_bad": {},
-   "input_logits_absmax": {
-    "binder": 10000.0,
-    "target_hPDL1": 1.0
-   },
-   "design_loss": 7.791377544403076,
-   "design_loss_finite": true,
-   "grad_bad": {},
-   "predictions_bad": {}
-  },
-  {
-   "round": 3,
-   "input_logits_bad": {},
-   "input_logits_absmax": {
-    "binder": 10000.0,
-    "target_hPDL1": 1.0
-   },
-   "design_loss": 6.720706939697266,
-   "design_loss_finite": true,
-   "grad_bad": {},
-   "predictions_bad": {}
-  },
-  {
-   "round": 4,
-   "input_logits_bad": {},
-   "input_logits_absmax": {
-    "binder": 10000.0,
-    "target_hPDL1": 1.0
-   },
-   "design_loss": 6.935215473175049,
+   "design_loss": 6.503891944885254,
    "design_loss_finite": true,
    "grad_bad": {
     "binder": {
@@ -59,7 +23,7 @@
    "predictions_bad": {}
   },
   {
-   "round": 5,
+   "round": 2,
    "input_logits_bad": {
     "binder": {
      "nan": 2774,
@@ -173,94 +137,22 @@
    "call": 1,
    "cotangent_msa_in": null,
    "cotangent_pair_in": null,
-   "grad_msa_out": null,
-   "grad_pair_out": null
-  },
-  {
-   "op": "taped",
-   "call": 3,
-   "in_msa": null,
-   "in_pair": null,
-   "out_msa": null,
-   "out_pair": null
-  },
-  {
-   "op": "taped",
-   "call": 4,
-   "in_msa": null,
-   "in_pair": null,
-   "out_msa": null,
-   "out_pair": null
-  },
-  {
-   "op": "backward",
-   "call": 2,
-   "cotangent_msa_in": null,
-   "cotangent_pair_in": null,
-   "grad_msa_out": null,
-   "grad_pair_out": null
-  },
-  {
-   "op": "taped",
-   "call": 5,
-   "in_msa": null,
-   "in_pair": null,
-   "out_msa": null,
-   "out_pair": null
-  },
-  {
-   "op": "taped",
-   "call": 6,
-   "in_msa": null,
-   "in_pair": null,
-   "out_msa": null,
-   "out_pair": null
-  },
-  {
-   "op": "backward",
-   "call": 3,
-   "cotangent_msa_in": null,
-   "cotangent_pair_in": null,
-   "grad_msa_out": null,
-   "grad_pair_out": null
-  },
-  {
-   "op": "taped",
-   "call": 7,
-   "in_msa": null,
-   "in_pair": null,
-   "out_msa": null,
-   "out_pair": null
-  },
-  {
-   "op": "taped",
-   "call": 8,
-   "in_msa": null,
-   "in_pair": null,
-   "out_msa": null,
-   "out_pair": null
-  },
-  {
-   "op": "backward",
-   "call": 4,
-   "cotangent_msa_in": null,
-   "cotangent_pair_in": null,
    "grad_msa_out": {
-    "nan": 13553,
-    "inf": 119947,
+    "nan": 8438,
+    "inf": 124464,
     "size": 133632,
-    "absmax_finite": 3.382885249272611e+38
+    "absmax_finite": 3.39617752923046e+38
    },
    "grad_pair_out": {
-    "nan": 181121,
-    "inf": 8538365,
+    "nan": 164221,
+    "inf": 8551509,
     "size": 8719488,
-    "absmax_finite": 1.9013671866268685e+38
+    "absmax_finite": 3.3598314512207163e+38
    }
   },
   {
    "op": "taped",
-   "call": 9,
+   "call": 3,
    "in_msa": {
     "nan": 37376,
     "inf": 0,
@@ -288,7 +180,7 @@
   },
   {
    "op": "taped",
-   "call": 10,
+   "call": 4,
    "in_msa": {
     "nan": 66816,
     "inf": 0,
@@ -316,7 +208,7 @@
   },
   {
    "op": "backward",
-   "call": 5,
+   "call": 2,
    "cotangent_msa_in": {
     "nan": 66816,
     "inf": 0,
@@ -343,11 +235,11 @@
    }
   }
  ],
- "first_seam_bad": 11,
+ "first_seam_bad": 2,
  "device_calls": {
   "primal": 0,
-  "taped": 10,
-  "backward": 5
+  "taped": 4,
+  "backward": 2
  },
- "first_bad_round": 4
+ "first_bad_round": 1
 }
