@@ -50,3 +50,6 @@ results /dev/shm/bcx-ref/runs/reference_qb1_seed100 | 3_Ranked/!_Ranked.csv rewr
   passed refine design stage  i_pTM=0.79    pLDDT=0.69  
   passed anneal design stage  i_pTM=0.81    pLDDT=0.71  
   passed harden design stage  i_pTM=0.83    pLDDT=0.69  
+  rejected at mutate design stage  i_pTM=0.15    pLDDT=0.41   due to [i_pTM, pLDDT]
+
+=== trajectory 2 | pdl1_denovo_l160_c81173aec1eca12f | accepted 0/10 ===

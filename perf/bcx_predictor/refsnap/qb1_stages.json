@@ -45,6 +45,15 @@
      "iptm": 0.83,
      "plddt": 0.69,
      "failed_filter": null
+    },
+    {
+     "trajectory": "pdl1_denovo_l71_c019673d64134f64",
+     "trajectory_index": 1,
+     "stage": "mutate",
+     "outcome": "rejected",
+     "iptm": 0.15,
+     "plddt": 0.41,
+     "failed_filter": "i_pTM, pLDDT"
     }
    ],
    "stages_passed": 4,
