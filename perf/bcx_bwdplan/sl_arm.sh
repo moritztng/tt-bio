@@ -27,7 +27,7 @@ SAMPLER=$!
 trap 'kill $SAMPLER 2>/dev/null || true' EXIT
 echo "=== $TAG start $(date -u +%FT%TZ) $(hostname) card $CARD node $NODE commit $(git rev-parse --short HEAD) dirty=$(git status --porcelain tt_bio | wc -l) load $(cut -d' ' -f1-3 /proc/loadavg)"
 S=$(date +%s)
-env "${ENV[@]}" timeout 5400 python3 perf/of3t_stackexact/stackarm.py --exact softmax,layer_norm \
+env "${ENV[@]}" timeout ${SL_TIMEOUT:-5400} python3 perf/of3t_stackexact/stackarm.py --exact softmax,layer_norm \
     --stats-out "$R/STACK_EXACT_${TAG}.json" --census-out "$R/CENSUS_${TAG}.json" --lever none -- \
     --boundary "$B" --cap-last "$C" --out "$O/dev_${TAG}.pt" --report "$R/DEV_${TAG}.json" --arm flipped --crop 0 2>&1 \
   | tee "$O/raw_${TAG}.log" | grep --line-buffered -E '^\{|OUR GRADIENT|STACK_EXACT|Traceback|rror|FAILED' | cut -c1-400 | tail -25
