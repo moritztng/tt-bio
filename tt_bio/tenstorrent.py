@@ -2582,12 +2582,16 @@ def _tri_att_sdpa_hifi_inner(q, k, v, bias, scale: float, one_k_chunk: bool = Fa
                                           kv_buffer_factor=kv_bf)
                 except Exception as exc:  # noqa: BLE001 -- an L1 refusal retires this config only
                     absorb_l1_refusal("tri_att_sdpa/fused_hifi", exc)
-                    o = None
+                    _TRIATT_HIFI_OVER_L1.add(cfg)
+                    continue
                 if o is not None:
                     TRIATT_FUSED_HIFI_STATS["served"] += 1
                     TRIATT_FUSED_HIFI_PICKS[(q_len, k_len)] = [q_chunk, k_chunk, kv_bf]
                     return o
-                _TRIATT_HIFI_OVER_L1.add(cfg)
+                # None is the kernel declining THIS call (under a tape: generic_op has no
+                # backward), not the device refusing the config. Retiring the config on it let one
+                # taped forward switch the route off for every untaped forward after it in the
+                # process, which is BindCraft 2's whole loop (perf/bcx_forward/latch_*.json).
     TRIATT_FUSED_HIFI_STATS["declined"] += 1
     return None
 
