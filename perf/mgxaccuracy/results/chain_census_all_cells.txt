@@ -32,8 +32,16 @@ TWO OR MORE CHAINS
     gpb     1536 / off100    A 723 + B 813      0.0 %   (two engines)
     big_1831 1536            disqualified, disconnected   0.0 %
 
-**Every multi-chain cell in this row returned zero designs under the bar. Twelve of them.**
-Single-chain cells run from 0 % to 87.5 %, with eight of twelve above zero.
+**Every multi-chain crop in this row returned zero designs under the bar.** Counted exactly:
+EIGHT distinct multi-chain crops on TWO valid targets (GroEL 768/1024/1536 at two offsets each,
+gpb 1536 at two offsets), measured as eleven cells because the gpb crops were re-run on several
+engine trees. `big_1831` is excluded throughout — it is the disqualified disconnected fixture.
+Single-chain crops run from 0 % to 87.5 %, with eight of twelve cells above zero.
+
+The distinction matters and this file got it wrong once: the first draft said "twelve of them"
+on "three targets", which counted re-runs of the same crop as separate evidence and counted the
+disqualified fixture as a target. Crops are the unit; a crop re-run on a second engine tree is
+a control, not another observation.
 
 THREE CAVEATS, AND THE FIRST IS LOAD-BEARING
 ----------------------------------------------

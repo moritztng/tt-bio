@@ -166,8 +166,9 @@ it — the 1536 crop contains the 1024 crop, so the same residues that returned 
 return four good designs once more of the same chain is added. Two windows at 1024 both came
 back at 0 of 8, so the dip is not one unlucky crop either.
 
-Across every cell we have measured, the pattern is one-sided. Twelve multi-chain crops, on
-three targets, returned **zero** usable designs between them. Single-chain crops range from
+Across every crop we have measured, the pattern is one-sided. Eight multi-chain crops, on two
+targets, returned **zero** usable designs between them — eleven runs in all, since some were
+repeated. Single-chain crops range from
 nothing to seven of eight. So a second chain looks like enough to sink a run on its own, while
 one chain is no guarantee of anything — four of our single-chain crops also came back at zero,
 two of them only 512 residues long. A long single chain is not the same problem as a
