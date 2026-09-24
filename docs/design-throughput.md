@@ -123,9 +123,11 @@ both are worse than the same window at 512 by a margin the sample sizes separate
 where quality falls is somewhere between 512 and 1024, and 512 is the largest extent measured
 to work.
 
-Which window you pick matters on one of these targets and not the other. It swings 1GPB by 13 A
-at a fixed 512 residues and moves GroEL by under 1 A, so it is worth trying more than one
-window on your own target rather than assuming either pattern.
+Which window you pick matters on one of these targets and not the other. At 512 residues it
+swings 1GPB by 13 A and moves GroEL by under 1 A. It is not safe to read that as "window does
+not matter on easy targets": the same two GroEL windows differ by 5.7 A at 1024, where one has
+fallen further than the other. Try more than one window on your own target rather than assuming
+either pattern.
 
 The practical consequence is to search the target rather than generate more designs against
 one crop. Eight designs against a bad window returned zero binders under 4 A, twice over, and
