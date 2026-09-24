@@ -126,11 +126,16 @@ to work.
 **If your target has several chains, crop to one of them before you crop by residue count.**
 GroEL's chains are about 524 residues, so every GroEL crop above 512 in the table also pulls in
 a second chain, and the two cells that refold are exactly the two that are essentially a single
-chain. The two effects can be separated on 1GPB, whose chains are about 1008 residues, and there
-it was the chain that mattered: stretching one chain out to 823 residues cost 3.3 A and did not
-separate from the spread between designs, while adding the second chain at the same extent cost
-14.8 A and did. So a 700-residue single-chain target is probably fine as it is, and two
-300-residue chains are worth trying one at a time even though the total is small.
+chain. On 1GPB the two can be told apart, because chain A is 823 residues on its own. Stretching
+the crop from 512 to all 823 of that one chain moved the median from 4.6 to 8.0 A, and 25 % of
+designs still came in under 4 A; adding the second chain instead cost 14.8 A and left nothing
+under 4 A. Both directions hurt, the chain hurts far more, and only the chain effect is large
+enough that eight designs can separate it from the spread between designs.
+
+The practical form: with two 300-residue chains, try one at a time even though the total looks
+small. With a single chain of 700 residues, expect something worse than a 512-residue crop but
+not the collapse the multi-chain rows show. Neither target here has a single chain longer than
+823 residues, so nothing above that is measured on one chain at all.
 
 Which window you pick matters on one of these targets and not the other. At 512 residues it
 swings 1GPB by 13 A and moves GroEL by under 1 A. It is not safe to read that as "window does
