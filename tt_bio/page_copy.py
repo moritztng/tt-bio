@@ -29,7 +29,7 @@ from . import core_split
 KERNEL = Path(__file__).resolve().parent / "kernels" / "page_copy" / "copy_pages.cpp"
 TILE = 32
 CB = 0
-DEPTH = 8                 # pages per half of the L1 window, 32 KiB per core in bf16
+DEPTH = 8                 # pages per batch; the buffer holds two, 32 KiB per core in bf16
 
 # (calls, pages moved)
 STATS = [0, 0]
@@ -65,17 +65,17 @@ def _build(src, dst, n_pages, run_len, src_stride, dst_stride):
                     rt[cx][cy] = [per, t0 // run_len, t0 % run_len]
                     t0 += per
     assert t0 == n_pages, (t0, n_pages)
-    ct = [CB, DEPTH, run_len, src_stride, dst_stride, page]
-    ct.extend(ttnn.TensorAccessorArgs(src).get_compile_time_args())
-    ct.extend(ttnn.TensorAccessorArgs(dst).get_compile_time_args())
+    acc = (ttnn.TensorAccessorArgs(src).get_compile_time_args()
+           + ttnn.TensorAccessorArgs(dst).get_compile_time_args())
     fmt = ttnn.CBFormatDescriptor(buffer_index=CB, data_format=ttnn.bfloat16, page_size=page)
     cbs = [ttnn.CBDescriptor(total_size=2 * DEPTH * page, core_ranges=core_grid,
                              format_descriptors=[fmt])]
-    k = ttnn.KernelDescriptor(
+    ks = [ttnn.KernelDescriptor(
         kernel_source=str(KERNEL), source_type=ttnn.KernelDescriptor.SourceType.FILE_PATH,
-        core_ranges=core_grid, compile_time_args=ct, runtime_args=rt,
-        common_runtime_args=[0, 0, 0, 0], config=ttnn.ReaderConfigDescriptor())
-    return {"k": k, "cbs": cbs}
+        core_ranges=core_grid, runtime_args=rt, common_runtime_args=[0, 0, 0, 0], config=config,
+        compile_time_args=[writer, CB, DEPTH, run_len, src_stride, dst_stride, page, *acc])
+        for writer, config in ((0, ttnn.ReaderConfigDescriptor()), (1, ttnn.WriterConfigDescriptor()))]
+    return {"ks": ks, "cbs": cbs}
 
 
 def _copy(src, dst, n_pages, run_len, src_stride, dst_stride, src_off, dst_off):
@@ -85,11 +85,11 @@ def _copy(src, dst, n_pages, run_len, src_stride, dst_stride, src_off, dst_off):
     e = _CACHE.get(key)
     if e is None:
         e = _CACHE[key] = _build(src, dst, n_pages, run_len, src_stride, dst_stride)
-    k = e["k"]
-    k.common_runtime_args = [src.buffer_address(), dst.buffer_address(), src_off, dst_off]
+    for k in e["ks"]:
+        k.common_runtime_args = [src.buffer_address(), dst.buffer_address(), src_off, dst_off]
     STATS[0] += 1
     STATS[1] += n_pages
-    ttnn.generic_op([src, dst], ttnn.ProgramDescriptor(kernels=[k], semaphores=[], cbs=e["cbs"]))
+    ttnn.generic_op([src, dst], ttnn.ProgramDescriptor(kernels=e["ks"], semaphores=[], cbs=e["cbs"]))
 
 
 def write_rows(z, blk, start: int) -> None:
