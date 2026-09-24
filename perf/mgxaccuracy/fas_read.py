@@ -96,10 +96,54 @@ def selfcheck(paths) -> int:
     return bad
 
 
+def replication(cells) -> int:
+    """plans/fas_offset900.txt, clause bodies verbatim, on the offset-900 1024 cell.
+
+    Separate from the ladder verdict on purpose: this rule asks only whether the offset-0 1024
+    finding survives a second window, and its DOES NOT REPLICATE branch obliges the row to
+    withdraw a published sentence. It reads the offset-900 512 cell only as this crop's own
+    baseline for the contrast, never as a fourth opinion on 512.
+    """
+    need = [(512, 900), (1024, 900)]
+    gaps = [k for k in need if k not in cells]
+    if gaps:
+        print(f"replication: not readable, missing {gaps}. plans/fas_offset900.txt needs BOTH "
+              f"cells:\nthe contrast that matters is 512 -> 1024 WITHIN this crop.")
+        return 1
+    lo, hi = cells[(512, 900)]["scrmsd"], cells[(1024, 900)]["scrmsd"]
+    print("plans/fas_offset900.txt, the replication check on the offset-0 1024 finding\n")
+    print("  size  offset   n   median     range              <=2A    <=4A")
+    for s, v in ((512, lo), (1024, hi)):
+        print(f"  {s:>4}  {900:>6}  {len(v):>2}  {st.median(v):>7.3f}   {min(v):6.3f}-"
+              f"{max(v):6.3f}    {frac(v, STRICT):5.1f}%  {frac(v, PERMISSIVE):5.1f}%")
+    print()
+    contrast(hi, lo, " 512 -> 1024")
+    f4 = sum(x <= PERMISSIVE for x in hi)
+    print(f"\n  1024/off900: {f4} of {len(hi)} under {PERMISSIVE} A "
+          f"(offset 0 was 0 of 8)")
+    if f4 <= 1:
+        v = "REPLICATES"
+        why = ("the offset-0 finding stands on two windows sharing 12% of their residues: a "
+               "single chain of 1024 residues returns nothing usable")
+    elif f4 >= 4:
+        v = "DOES NOT REPLICATE"
+        why = ("the offset-0 1024 cell was a WINDOW effect. results/fas_1024_result.txt's "
+               "sentence must be withdrawn in the words it was published in, and the chain "
+               "question reopens on this target")
+    else:
+        v = "INTERMEDIATE"
+        why = ("2 or 3 of 8 under the bar: claim neither, report both crops, and a third "
+               "window is the follow-up rather than a footnote")
+    print(f"\nREPLICATION VERDICT: {v}\n  -> {why}")
+    return 0
+
+
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("jsonl", nargs="+")
     ap.add_argument("--offset", type=int, default=0)
+    ap.add_argument("--replication", action="store_true",
+                    help="apply plans/fas_offset900.txt to the offset-900 1024 cell and stop")
     ap.add_argument("--selfcheck", action="store_true")
     a = ap.parse_args()
     if a.selfcheck:
@@ -108,6 +152,9 @@ def main() -> int:
     cells, refused = load(a.jsonl, TARGET, ENGINE)
     for key, why in refused:
         print(f"  refused {key}: {why}")
+
+    if a.replication:
+        return replication(cells)
     print(f"target {TARGET}   engine {ENGINE}   metric designfolding-bb_rmsd   "
           f"offset {a.offset}\n")
     print("  size   n   median     range              <=2A    <=4A")
