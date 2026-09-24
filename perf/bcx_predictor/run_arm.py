@@ -30,6 +30,10 @@ HERE = pathlib.Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
 
 import bc2_state as B                                                  # noqa: E402
+_ROOT = HERE.parents[1]
+for _p in (str(_ROOT), str(_ROOT / "perf" / "bcx_afgrad"), str(_ROOT / "perf" / "bcx_stack")):
+    if _p not in sys.path:
+        sys.path.insert(0, _p)
 import bindcraft.campaign as campaign                                  # noqa: E402
 from bindcraft.settings import parse_setting_overrides, read_settings  # noqa: E402
 from bindcraft.preflight import cleaned_campaign_settings              # noqa: E402
@@ -87,8 +91,27 @@ def main():
     print(json.dumps(stamp, indent=1), flush=True)
 
     t0 = time.time()
-    count = campaign.run_campaign(settings, project, af2_weights=args.params,
-                                  mpnn_weights=mpnn, max_trajectories=args.trajectories)
+    if args.arm == "device":
+        # The Evoformer runs on card for the WHOLE campaign: every trajectory, every
+        # gradient step, every validation refold. The mask travels with each call, so a
+        # new binder length per trajectory needs nothing from us.
+        import afgrad as _A, stack as _S
+        from splice import EvoformerOnDevice, evoformer_on_device
+        _lv = _S.Levers()
+        _dm, _ = _A.load_models(_A.DEFAULT_PARAMS)
+        _dev = _A.Dev(_dm.to_device())
+        _lv.arm("stack")
+        evo = EvoformerOnDevice(_dev, k_evo=48)
+        stamp["device_card"] = int(os.environ.get("TT_VISIBLE_DEVICES", "-1"))
+        with evoformer_on_device(evo):
+            count = campaign.run_campaign(settings, project, af2_weights=args.params,
+                                          mpnn_weights=mpnn,
+                                          max_trajectories=args.trajectories)
+        stamp["device_calls"] = dict(evo.calls)
+    else:
+        count = campaign.run_campaign(settings, project, af2_weights=args.params,
+                                      mpnn_weights=mpnn,
+                                      max_trajectories=args.trajectories)
     stamp.update({"trajectories_run": count, "wall_seconds": round(time.time() - t0, 1),
                   "finished_utc": time.strftime("%FT%TZ", time.gmtime()),
                   "loadavg_end": os.getloadavg()})
