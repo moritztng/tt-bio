@@ -1,0 +1,68 @@
+{
+ "n": 512,
+ "k_extra": 4,
+ "k_evo": 48,
+ "ckpt": true,
+ "arm": "stack",
+ "seed": 0,
+ "stamp": {
+  "host": "tt-quietbox",
+  "card": "2",
+  "commit": "68b7a49a05c1bd8983117a2c511ed0a0a81b85bf",
+  "tt_bio_dirty": false,
+  "torch_threads": 16,
+  "loadavg": [
+   55.591796875,
+   58.1806640625,
+   55.50390625
+  ],
+  "utc": "2026-09-24T14:23:00Z"
+ },
+ "pci": "0000:42:00.0",
+ "completed": false,
+ "reps": [],
+ "open_and_load_s": 39.16984844207764,
+ "host_rss_after_load_gb": 2.846265344,
+ "dram_total_gb": 34.225520128,
+ "dram_weights_gb": 0.234979328,
+ "error": "TT_FATAL @ /project/tt_metal/impl/allocator/bank_manager.cpp:439: false\ninfo:\nOut of Memory: Not enough space to allocate 67108864 B L1 buffer across 110 banks, where each bank needs to store 610304 B, but bank size is 1461760 B (allocated: 1220608 B, free: 241152 B, largest free block: 241152 B)\nbacktrace:\n --- /home/ttuser/.local/lib/python3.10/site-packages/ttnn/build/lib/libtt_metal.so(+0x69e427) [0x7f6ae129e427]\n --- tt::tt_metal::BankManager::allocate_buffer(unsigned long, unsigned long, bool, tt::tt_metal::CoreRangeSet const&, std::optional<unsigned int>, ttsl::StrongType<unsigned int, tt::tt_metal::AllocatorIDTag>)\n --- tt::tt_metal::AllocatorImpl::allocate_buffer(tt::tt_metal::Buffer*)\n --- tt::tt_metal::Buffer::allocate_impl()\n --- tt::tt_metal::Buffer::create(tt::tt_metal::IDevice*, unsigned long, unsigned long, tt::tt_metal::BufferType, tt::tt_metal::BufferShardingArgs const&, std::optional<bool>, std::optional<ttsl::StrongType<unsigned char, tt::tt_metal::SubDeviceIdTag> >)\n --- tt::tt_metal::distributed::MeshBuffer::create(std::variant<tt::tt_metal::distributed::ReplicatedBufferConfig, tt::tt_metal::distributed::ShardedBufferConfig> const&, tt::tt_metal::distributed::DeviceLocalBufferConfig const&, tt::tt_metal::distributed::MeshDevice*, std::optional<unsigned long>)\n --- tt::tt_metal::tensor_impl::allocate_device_buffer(tt::tt_metal::distributed::MeshDevice*, tt::tt_metal::TensorSpec const&)\n --- tt::tt_metal::create_device_tensor(tt::tt_metal::TensorSpec const&, tt::tt_metal::IDevice*)\n --- ttnn::operations::binary_ng::BinaryNgDeviceOperation::create_output_tensors(ttnn::operations::binary_ng::BinaryNgDeviceOperation::operation_attributes_t const&, ttnn::operations::binary_ng::BinaryNgDeviceOperation::tensor_args_t const&)\n --- /home/ttuser/.local/lib/python3.10/site-packages/ttnn/build/lib/_ttnncpp.so(_ZN4ttnn16device_operation6detail6launchITkNS0_22DeviceOperationConceptENS_10operations9binary_ng23BinaryNgDeviceOperationEEENT_21tensor_return_value_",
+ "error_type": "RuntimeError",
+ "frames": [
+  "ladder.py:128 main",
+  "afgrad.py:199 stack",
+  "autograd.py:1397 checkpoint",
+  "afgrad.py:199 <lambda>",
+  "ladder.py:97 extra",
+  "afgrad.py:192 extra",
+  "af2.py:369 __call__",
+  "af2.py:356 _update",
+  "af2.py:362 <lambda>",
+  "tenstorrent.py:7080 __call__",
+  "tenstorrent.py:6021 host_acc_after_refusal",
+  "tenstorrent.py:7081 <lambda>",
+  "tenstorrent.py:7584 _multiply",
+  "taped_ttnn.py:899 call",
+  "taped_ttnn.py:419 impl",
+  "decorators.py:473 __call__"
+ ],
+ "traceback_tail": "Traceback (most recent call last):\n  File \"/home/ttuser/.coworker/wt/bcx-large/perf/bcx_large/ladder.py\", line 128, in main\n    mo, zo = dev.stack(ml, zl, args.extra, args.evo, ckpt=True)\n  File \"/home/ttuser/.coworker/wt/bcx-large/perf/bcx_afgrad/afgrad.py\", line 199, in stack\n    z = self.ag.checkpoint(lambda t, i=i: self.extra(i, t), z) if ckpt else self.extra(i, z)\n  File \"/home/ttuser/.coworker/wt/bcx-large/tt_bio/autograd.py\", line 1397, in checkpoint\n    produced = fn(*inputs)\n  File \"/home/ttuser/.coworker/wt/bcx-large/perf/bcx_afgrad/afgrad.py\", line 199, in <lambda>\n    z = self.ag.checkpoint(lambda t, i=i: self.extra(i, t), z) if ckpt else self.extra(i, z)\n  File \"/home/ttuser/.coworker/wt/bcx-large/perf/bcx_large/ladder.py\", line 97, in extra\n    r = ex(i, z)\n  File \"/home/ttuser/.coworker/wt/bcx-large/perf/bcx_afgrad/afgrad.py\", line 192, in extra\n    return blk(blk._residual(z, const))\n  File \"/home/ttuser/.coworker/wt/bcx-large/tt_bio/af2.py\", line 369, in __call__\n    z = self._residual(z, self._update(name, device, z))\n  File \"/home/ttuser/.coworker/wt/bcx-large/tt_bio/af2.py\", line 356, in _update\n    return device(x, *args)\n  File \"/home/ttuser/.coworker/wt/bcx-large/tt_bio/af2.py\", line 362, in <lambda>\n    order = [(\"tri_mul_out\", lambda t: self.tri_mul_out(t, mask)),\n  File \"/home/ttuser/.coworker/wt/bcx-large/tt_bio/tenstorrent.py\", line 7080, in __call__\n    u = host_acc_after_refusal((\"trimul\", tuple(x.padded_shape), self.ending), x,\n  File \"/home/ttuser/.coworker/wt/bcx-large/tt_bio/tenstorrent.py\", line 6021, in host_acc_after_refusal\n    return run()\n  File \"/home/ttuser/.coworker/wt/bcx-large/tt_bio/tenstorrent.py\", line 7081, in <lambda>\n    lambda: self._multiply(x, mask, add_to_input))\n  File \"/home/ttuser/.coworker/wt/bcx-large/tt_bio/tenstorrent.py\", line 7584, in _multiply\n    x = ttnn.multiply_(\n  File \"/home/ttuser/.coworker/wt/bcx-large/tt_bio/taped_ttnn.py\", line 899, in call\n    out = impl(shipped, args, kwargs)\n  File \"/home/ttuser/.coworker/wt/bcx-large/tt_bio/taped_ttnn.py\", line 419, in impl\n    out_v = shipped(a.value, b.value, **kw)\n  File \"/home/ttuser/.local/lib/python3.10/site-packages/ttnn/decorators.py\", line 473, in __call__\n    result = self.function(*function_args, **function_kwargs)\nRuntimeError: TT_FATAL @ /project/tt_metal/impl/allocator/bank_manager.cpp:439: false\ninfo:\nOut of Memory: Not enough space to allocate 67108864 B L1 buffer across 110 banks, where each bank needs to store 610304 B, but bank size is 1461760 B (allocated: 1220608 B, free: 241152 B, largest free block: 241152 B)\nbacktrace:\n --- /home/ttuser/.local/lib/python3.10/site-packages/ttnn/build/lib/libtt_metal.so(+0x69e427) [0x7f6ae129e427]\n --- tt::tt_metal::BankManager::allocate_buffer(unsigned long, unsigned long, bool, tt::tt_metal::CoreRangeSet const&, std::optional<unsigned int>, ttsl::StrongType<unsigned int, tt::tt_metal::AllocatorIDTag>)\n --- tt::tt_metal::AllocatorImpl::allocate_buffer(tt::tt_metal::Buffer*)\n --- ",
+ "failed_rep": {
+  "rep": 0,
+  "phase": "fwd",
+  "peak": {
+   "gb": 0.0,
+   "at": null,
+   "free_gb": null,
+   "largest_free_per_bank_gb": null
+  },
+  "trace": [],
+  "load1": 56.24560546875,
+  "aiclk": {
+   "n": 10,
+   "min": 1350,
+   "median": 1350,
+   "max": 1350
+  }
+ },
+ "host_rss_peak_gb": 3.590447104
+}

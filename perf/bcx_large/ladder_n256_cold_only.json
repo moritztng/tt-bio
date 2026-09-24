@@ -1,0 +1,60 @@
+{
+ "n": 256,
+ "k_extra": 4,
+ "k_evo": 48,
+ "ckpt": true,
+ "arm": "stack",
+ "seed": 0,
+ "stamp": {
+  "host": "tt-quietbox",
+  "card": "2",
+  "commit": "68b7a49a05c1bd8983117a2c511ed0a0a81b85bf",
+  "tt_bio_dirty": false,
+  "torch_threads": 16,
+  "loadavg": [
+   47.61767578125,
+   50.6435546875,
+   50.87158203125
+  ],
+  "utc": "2026-09-24T14:07:50Z"
+ },
+ "pci": "0000:42:00.0",
+ "completed": true,
+ "open_and_load_s": 49.4355845451355,
+ "host_rss_after_load_gb": 2.83375616,
+ "dram_total_gb": 34.225520128,
+ "dram_weights_gb": 0.234979328,
+ "dram_after_fwd_gb": 1.193361408,
+ "peak_fwd_gb": 1.193361408,
+ "fwd_s": 201.9439299106598,
+ "bwd_s": 328.6280007362366,
+ "step_s": 530.6742715835571,
+ "aiclk": {
+  "n": 528,
+  "min": 1350,
+  "median": 1350,
+  "max": 1350
+ },
+ "load1_end": 60.296875,
+ "grad": {
+  "finite": true,
+  "norm": 16.791874226432252,
+  "absmax": 5.81205415725708,
+  "nonzero_frac": 1.0,
+  "gm0_finite": true,
+  "gz0_finite": true,
+  "gz0_norm": 1.5489214114694967
+ },
+ "out_finite": {
+  "m": true,
+  "z": true
+ },
+ "peak": {
+  "bytes": 8.173092864,
+  "where": "evo0",
+  "phase": "bwd",
+  "free_gb": 26.052427264,
+  "largest_free_per_bank_gb": 2.596802496
+ },
+ "host_rss_peak_gb": 3.165949952
+}
