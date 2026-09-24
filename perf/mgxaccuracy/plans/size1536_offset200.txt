@@ -1,0 +1,23 @@
+# A THIRD 1536 crop, to test the row's headline rather than assume it.
+#
+# The 2x2's answer is the INTERACTION: growing the target costs 14.65 A at crop offset 0 and
+# GAINS 4.51 A at offset 100, so "1536 is worse" is true at one crop and false at another
+# (results/twobytwo_result.txt). That rests on the 1536 row having offset 100 at 13.273 A
+# against offset 0 at 19.398 A -- a 6.13 A crop effect which MW rejects, but which comes from
+# exactly two cells.
+#
+# A third 1536 crop says whether the 1536 row really does reorder relative to the 512 row, or
+# whether offset 0 at 1536 is one bad cell. It is the same offset (200) whose 512 counterpart
+# is already measured at 17.300 A, so it lands as the sixth cell of a 3-crop x 2-size grid:
+#
+#            offset 0   offset 100   offset 200
+#    512       4.748      17.785      17.300
+#   1536      19.398      13.273        this
+#
+# At 512 the ordering is off0 << off100 ~ off200. If the 1536 row is genuinely reordered, this
+# cell should sit near 13 A with offset 0 the outlier; if instead it sits near 19 A, then
+# 1536/off100 is the odd one and the interaction needs re-reading.
+#
+# ~5 h on one chip. Its fixture is two-chain like the other 1536 cells; check it with
+# fixture_id.py before reading the number, as every other cell in this row was.
+--model boltzgen --target perf/mgxaccuracy/targets/gpb_dimer_1646.cif --target-res 1536 --crop-offset 200 --designs 8 --budget 8 --score-dsg --host-threads 2 --timeout 32400 --tag o200_1536
