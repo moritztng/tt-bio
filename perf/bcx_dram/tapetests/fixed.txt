@@ -1,0 +1,14 @@
+........................................................................ [ 92%]
+......                                                                   [100%]
+=============================== warnings summary ===============================
+tests/test_verbs_scope_autograd.py::test_cli_verb_scopes_autograd_to_its_own_body[predict]
+tests/test_verbs_scope_autograd.py::test_cli_verb_scopes_autograd_to_its_own_body[warmup]
+tests/test_verbs_scope_autograd.py::test_cli_verb_scopes_autograd_to_its_own_body[embed]
+tests/test_verbs_scope_autograd.py::test_cli_verb_scopes_autograd_to_its_own_body[affinity]
+tests/test_verbs_scope_autograd.py::test_cli_verb_scopes_autograd_to_its_own_body[saprot]
+tests/test_verbs_scope_autograd.py::test_cli_verb_scopes_autograd_to_its_own_body[design]
+  /home/ttuser/.coworker/wt/bcx-dram/tests/test_verbs_scope_autograd.py:75: DeprecationWarning: 'isolated_filesystem' is deprecated and will be removed in Click 9.0. Use 'tempfile.TemporaryDirectory' or pytest's 'tmp_path' fixture with absolute paths instead.
+    with runner.isolated_filesystem():
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+78 passed, 6 warnings in 1328.21s (0:22:08)

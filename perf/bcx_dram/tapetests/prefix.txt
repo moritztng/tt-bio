@@ -1,0 +1,186 @@
+.........................FFFFFFFF....................................... [ 92%]
+......                                                                   [100%]
+=================================== FAILURES ===================================
+_ test_a_retired_harness_is_actually_recoverable[the taped pair track against the production Pair-perf/ptxft/block_parity.py-ptx-fastpath owns the replacement] _
+
+claim = 'the taped pair track against the production PairformerLayer on real weights'
+path = 'perf/ptxft/block_parity.py', note = 'ptx-fastpath owns the replacement'
+
+    @pytest.mark.parametrize("claim,path,note", _statuses(RETIRED),
+                             ids=lambda v: v[:48] if isinstance(v, str) else v)
+    def test_a_retired_harness_is_actually_recoverable(claim, path, note):
+        """'Recoverable from git' is a fact about a commit, not a hope. Check the object reads."""
+        r = subprocess.run(["git", "cat-file", "-e", f"{RETIRED_AT}^:{path}"],
+                           cwd=REPO, capture_output=True)
+>       assert r.returncode == 0, (
+            f"{path} is listed as retired and recoverable at {RETIRED_AT}^, but git cannot read it "
+            f"there: {r.stderr.decode().strip()}. A retired check nobody can read back is simply a "
+            f"deleted one.")
+E       AssertionError: perf/ptxft/block_parity.py is listed as retired and recoverable at 81eaa6a6a^, but git cannot read it there: fatal: not a git repository (or any of the parent directories): .git. A retired check nobody can read back is simply a deleted one.
+E       assert 128 == 0
+E        +  where 128 = CompletedProcess(args=['git', 'cat-file', '-e', '81eaa6a6a^:perf/ptxft/block_parity.py'], returncode=128, stdout=b'', stderr=b'fatal: not a git repository (or any of the parent directories): .git\n').returncode
+
+tests/test_tape_evidence_ledger.py:111: AssertionError
+_ test_a_retired_harness_is_actually_recoverable[the single track: attention_pair_bias and single-perf/ptxft/single_track.py-ptx-fastpath owns the replacement] _
+
+claim = 'the single track: attention_pair_bias and single_transition, 52.9 % of block parameters'
+path = 'perf/ptxft/single_track.py', note = 'ptx-fastpath owns the replacement'
+
+    @pytest.mark.parametrize("claim,path,note", _statuses(RETIRED),
+                             ids=lambda v: v[:48] if isinstance(v, str) else v)
+    def test_a_retired_harness_is_actually_recoverable(claim, path, note):
+        """'Recoverable from git' is a fact about a commit, not a hope. Check the object reads."""
+        r = subprocess.run(["git", "cat-file", "-e", f"{RETIRED_AT}^:{path}"],
+                           cwd=REPO, capture_output=True)
+>       assert r.returncode == 0, (
+            f"{path} is listed as retired and recoverable at {RETIRED_AT}^, but git cannot read it "
+            f"there: {r.stderr.decode().strip()}. A retired check nobody can read back is simply a "
+            f"deleted one.")
+E       AssertionError: perf/ptxft/single_track.py is listed as retired and recoverable at 81eaa6a6a^, but git cannot read it there: fatal: not a git repository (or any of the parent directories): .git. A retired check nobody can read back is simply a deleted one.
+E       assert 128 == 0
+E        +  where 128 = CompletedProcess(args=['git', 'cat-file', '-e', '81eaa6a6a^:perf/ptxft/single_track.py'], returncode=128, stdout=b'', stderr=b'fatal: not a git repository (or any of the parent directories): .git\n').returncode
+
+tests/test_tape_evidence_ledger.py:111: AssertionError
+_ test_a_retired_harness_is_actually_recoverable[the four confidence heads against float64 on rea-perf/ptxft/confhead.py-unowned] _
+
+claim = 'the four confidence heads against float64 on real checkpoint weights'
+path = 'perf/ptxft/confhead.py', note = 'unowned'
+
+    @pytest.mark.parametrize("claim,path,note", _statuses(RETIRED),
+                             ids=lambda v: v[:48] if isinstance(v, str) else v)
+    def test_a_retired_harness_is_actually_recoverable(claim, path, note):
+        """'Recoverable from git' is a fact about a commit, not a hope. Check the object reads."""
+        r = subprocess.run(["git", "cat-file", "-e", f"{RETIRED_AT}^:{path}"],
+                           cwd=REPO, capture_output=True)
+>       assert r.returncode == 0, (
+            f"{path} is listed as retired and recoverable at {RETIRED_AT}^, but git cannot read it "
+            f"there: {r.stderr.decode().strip()}. A retired check nobody can read back is simply a "
+            f"deleted one.")
+E       AssertionError: perf/ptxft/confhead.py is listed as retired and recoverable at 81eaa6a6a^, but git cannot read it there: fatal: not a git repository (or any of the parent directories): .git. A retired check nobody can read back is simply a deleted one.
+E       assert 128 == 0
+E        +  where 128 = CompletedProcess(args=['git', 'cat-file', '-e', '81eaa6a6a^:perf/ptxft/confhead.py'], returncode=128, stdout=b'', stderr=b'fatal: not a git repository (or any of the parent directories): .git\n').returncode
+
+tests/test_tape_evidence_ledger.py:111: AssertionError
+_ test_a_retired_harness_is_actually_recoverable[one DiT block against ByteDance's own module-perf/ptxft/ditcheck.py-ptx-diffusion owns the replacement] _
+
+claim = "one DiT block against ByteDance's own module"
+path = 'perf/ptxft/ditcheck.py', note = 'ptx-diffusion owns the replacement'
+
+    @pytest.mark.parametrize("claim,path,note", _statuses(RETIRED),
+                             ids=lambda v: v[:48] if isinstance(v, str) else v)
+    def test_a_retired_harness_is_actually_recoverable(claim, path, note):
+        """'Recoverable from git' is a fact about a commit, not a hope. Check the object reads."""
+        r = subprocess.run(["git", "cat-file", "-e", f"{RETIRED_AT}^:{path}"],
+                           cwd=REPO, capture_output=True)
+>       assert r.returncode == 0, (
+            f"{path} is listed as retired and recoverable at {RETIRED_AT}^, but git cannot read it "
+            f"there: {r.stderr.decode().strip()}. A retired check nobody can read back is simply a "
+            f"deleted one.")
+E       AssertionError: perf/ptxft/ditcheck.py is listed as retired and recoverable at 81eaa6a6a^, but git cannot read it there: fatal: not a git repository (or any of the parent directories): .git. A retired check nobody can read back is simply a deleted one.
+E       assert 128 == 0
+E        +  where 128 = CompletedProcess(args=['git', 'cat-file', '-e', '81eaa6a6a^:perf/ptxft/ditcheck.py'], returncode=128, stdout=b'', stderr=b'fatal: not a git repository (or any of the parent directories): .git\n').returncode
+
+tests/test_tape_evidence_ledger.py:111: AssertionError
+_ test_a_retired_harness_is_actually_recoverable[the diffusion module differentiated end to end a-perf/ptxft/denoiser.py-ptx-diffusion owns the replacement] _
+
+claim = 'the diffusion module differentiated end to end at one sampled timestep'
+path = 'perf/ptxft/denoiser.py', note = 'ptx-diffusion owns the replacement'
+
+    @pytest.mark.parametrize("claim,path,note", _statuses(RETIRED),
+                             ids=lambda v: v[:48] if isinstance(v, str) else v)
+    def test_a_retired_harness_is_actually_recoverable(claim, path, note):
+        """'Recoverable from git' is a fact about a commit, not a hope. Check the object reads."""
+        r = subprocess.run(["git", "cat-file", "-e", f"{RETIRED_AT}^:{path}"],
+                           cwd=REPO, capture_output=True)
+>       assert r.returncode == 0, (
+            f"{path} is listed as retired and recoverable at {RETIRED_AT}^, but git cannot read it "
+            f"there: {r.stderr.decode().strip()}. A retired check nobody can read back is simply a "
+            f"deleted one.")
+E       AssertionError: perf/ptxft/denoiser.py is listed as retired and recoverable at 81eaa6a6a^, but git cannot read it there: fatal: not a git repository (or any of the parent directories): .git. A retired check nobody can read back is simply a deleted one.
+E       assert 128 == 0
+E        +  where 128 = CompletedProcess(args=['git', 'cat-file', '-e', '81eaa6a6a^:perf/ptxft/denoiser.py'], returncode=128, stdout=b'', stderr=b'fatal: not a git repository (or any of the parent directories): .git\n').returncode
+
+tests/test_tape_evidence_ledger.py:111: AssertionError
+_ test_a_retired_harness_is_actually_recoverable[memorisation of a tiny set from RANDOM initialis-perf/ptxft/overfit.py-the strongest single correctness signal a traini] _
+
+claim = 'memorisation of a tiny set from RANDOM initialisation'
+path = 'perf/ptxft/overfit.py'
+note = 'the strongest single correctness signal a training stack has, and the one a fine-tune from a good checkpoint cannot give. ptx-objective owns the replacement, on the composed objective rather than the distogram alone'
+
+    @pytest.mark.parametrize("claim,path,note", _statuses(RETIRED),
+                             ids=lambda v: v[:48] if isinstance(v, str) else v)
+    def test_a_retired_harness_is_actually_recoverable(claim, path, note):
+        """'Recoverable from git' is a fact about a commit, not a hope. Check the object reads."""
+        r = subprocess.run(["git", "cat-file", "-e", f"{RETIRED_AT}^:{path}"],
+                           cwd=REPO, capture_output=True)
+>       assert r.returncode == 0, (
+            f"{path} is listed as retired and recoverable at {RETIRED_AT}^, but git cannot read it "
+            f"there: {r.stderr.decode().strip()}. A retired check nobody can read back is simply a "
+            f"deleted one.")
+E       AssertionError: perf/ptxft/overfit.py is listed as retired and recoverable at 81eaa6a6a^, but git cannot read it there: fatal: not a git repository (or any of the parent directories): .git. A retired check nobody can read back is simply a deleted one.
+E       assert 128 == 0
+E        +  where 128 = CompletedProcess(args=['git', 'cat-file', '-e', '81eaa6a6a^:perf/ptxft/overfit.py'], returncode=128, stdout=b'', stderr=b'fatal: not a git repository (or any of the parent directories): .git\n').returncode
+
+tests/test_tape_evidence_ledger.py:111: AssertionError
+_ test_a_retired_harness_is_actually_recoverable[a held-out improvement from a LoRA fine-tune of -perf/ptxft/train_distogram.py-ptx-objective owns the replacement] _
+
+claim = 'a held-out improvement from a LoRA fine-tune of the trunk'
+path = 'perf/ptxft/train_distogram.py'
+note = 'ptx-objective owns the replacement'
+
+    @pytest.mark.parametrize("claim,path,note", _statuses(RETIRED),
+                             ids=lambda v: v[:48] if isinstance(v, str) else v)
+    def test_a_retired_harness_is_actually_recoverable(claim, path, note):
+        """'Recoverable from git' is a fact about a commit, not a hope. Check the object reads."""
+        r = subprocess.run(["git", "cat-file", "-e", f"{RETIRED_AT}^:{path}"],
+                           cwd=REPO, capture_output=True)
+>       assert r.returncode == 0, (
+            f"{path} is listed as retired and recoverable at {RETIRED_AT}^, but git cannot read it "
+            f"there: {r.stderr.decode().strip()}. A retired check nobody can read back is simply a "
+            f"deleted one.")
+E       AssertionError: perf/ptxft/train_distogram.py is listed as retired and recoverable at 81eaa6a6a^, but git cannot read it there: fatal: not a git repository (or any of the parent directories): .git. A retired check nobody can read back is simply a deleted one.
+E       assert 128 == 0
+E        +  where 128 = CompletedProcess(args=['git', 'cat-file', '-e', '81eaa6a6a^:perf/ptxft/train_distogram.py'], returncode=128, stdout=b'', stderr=b'fatal: not a git repository (or any of the parent directories): .git\n').returncode
+
+tests/test_tape_evidence_ledger.py:111: AssertionError
+_ test_a_retired_harness_is_actually_recoverable[how many blocks can be taped at what token count-perf/ptxft/memgate.py-ptx-crop owns the replacement] _
+
+claim = 'how many blocks can be taped at what token count inside 34.23 GB'
+path = 'perf/ptxft/memgate.py', note = 'ptx-crop owns the replacement'
+
+    @pytest.mark.parametrize("claim,path,note", _statuses(RETIRED),
+                             ids=lambda v: v[:48] if isinstance(v, str) else v)
+    def test_a_retired_harness_is_actually_recoverable(claim, path, note):
+        """'Recoverable from git' is a fact about a commit, not a hope. Check the object reads."""
+        r = subprocess.run(["git", "cat-file", "-e", f"{RETIRED_AT}^:{path}"],
+                           cwd=REPO, capture_output=True)
+>       assert r.returncode == 0, (
+            f"{path} is listed as retired and recoverable at {RETIRED_AT}^, but git cannot read it "
+            f"there: {r.stderr.decode().strip()}. A retired check nobody can read back is simply a "
+            f"deleted one.")
+E       AssertionError: perf/ptxft/memgate.py is listed as retired and recoverable at 81eaa6a6a^, but git cannot read it there: fatal: not a git repository (or any of the parent directories): .git. A retired check nobody can read back is simply a deleted one.
+E       assert 128 == 0
+E        +  where 128 = CompletedProcess(args=['git', 'cat-file', '-e', '81eaa6a6a^:perf/ptxft/memgate.py'], returncode=128, stdout=b'', stderr=b'fatal: not a git repository (or any of the parent directories): .git\n').returncode
+
+tests/test_tape_evidence_ledger.py:111: AssertionError
+=============================== warnings summary ===============================
+tests/test_verbs_scope_autograd.py::test_cli_verb_scopes_autograd_to_its_own_body[predict]
+tests/test_verbs_scope_autograd.py::test_cli_verb_scopes_autograd_to_its_own_body[warmup]
+tests/test_verbs_scope_autograd.py::test_cli_verb_scopes_autograd_to_its_own_body[embed]
+tests/test_verbs_scope_autograd.py::test_cli_verb_scopes_autograd_to_its_own_body[affinity]
+tests/test_verbs_scope_autograd.py::test_cli_verb_scopes_autograd_to_its_own_body[saprot]
+tests/test_verbs_scope_autograd.py::test_cli_verb_scopes_autograd_to_its_own_body[design]
+  /home/ttuser/bcx-dram-prefix/tests/test_verbs_scope_autograd.py:75: DeprecationWarning: 'isolated_filesystem' is deprecated and will be removed in Click 9.0. Use 'tempfile.TemporaryDirectory' or pytest's 'tmp_path' fixture with absolute paths instead.
+    with runner.isolated_filesystem():
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ============================
+FAILED tests/test_tape_evidence_ledger.py::test_a_retired_harness_is_actually_recoverable[the taped pair track against the production Pair-perf/ptxft/block_parity.py-ptx-fastpath owns the replacement]
+FAILED tests/test_tape_evidence_ledger.py::test_a_retired_harness_is_actually_recoverable[the single track: attention_pair_bias and single-perf/ptxft/single_track.py-ptx-fastpath owns the replacement]
+FAILED tests/test_tape_evidence_ledger.py::test_a_retired_harness_is_actually_recoverable[the four confidence heads against float64 on rea-perf/ptxft/confhead.py-unowned]
+FAILED tests/test_tape_evidence_ledger.py::test_a_retired_harness_is_actually_recoverable[one DiT block against ByteDance's own module-perf/ptxft/ditcheck.py-ptx-diffusion owns the replacement]
+FAILED tests/test_tape_evidence_ledger.py::test_a_retired_harness_is_actually_recoverable[the diffusion module differentiated end to end a-perf/ptxft/denoiser.py-ptx-diffusion owns the replacement]
+FAILED tests/test_tape_evidence_ledger.py::test_a_retired_harness_is_actually_recoverable[memorisation of a tiny set from RANDOM initialis-perf/ptxft/overfit.py-the strongest single correctness signal a traini]
+FAILED tests/test_tape_evidence_ledger.py::test_a_retired_harness_is_actually_recoverable[a held-out improvement from a LoRA fine-tune of -perf/ptxft/train_distogram.py-ptx-objective owns the replacement]
+FAILED tests/test_tape_evidence_ledger.py::test_a_retired_harness_is_actually_recoverable[how many blocks can be taped at what token count-perf/ptxft/memgate.py-ptx-crop owns the replacement]
+8 failed, 70 passed, 6 warnings in 1390.46s (0:23:10)
