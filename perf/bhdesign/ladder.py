@@ -252,12 +252,28 @@ def crop_cif(src: pathlib.Path, n_res: int, dst: pathlib.Path,
     if offset and len(seen) < n_res:
         raise SystemExit(f"crop_cif: {src} carries {len(skipped) + len(seen)} residues, "
                          f"cannot take {n_res} starting at {offset}")
+    # BoltzGen's parse_polymer walks entity_poly_seq POSITIONALLY -- it matches on
+    # `j == polymer[i].label_seq`, where j is the 1-based index into full_sequence -- so a
+    # chain whose label_seq does not start at 1 makes position and number disagree, and the
+    # parser asserts on the first residue it believes it matched. At offset 0 the two agree by
+    # luck, which is exactly why the offset axis had never run on any row sharing this ladder
+    # (measured 2026-09-24: offset 100 died in 7.5 s on an AssertionError, offset 0 unaffected).
+    # Rebase label_seq per chain. auth_seq_id is deliberately left alone, so the crop still
+    # records which residues of the parent it took.
+    reseq, n_by_chain = {}, {}
+    for r in keep:
+        key = (r[ch], r[sq])
+        if key not in reseq:
+            n_by_chain[r[ch]] = n_by_chain.get(r[ch], 0) + 1
+            reseq[key] = str(n_by_chain[r[ch]])
     idx = cols.index("id") if "id" in cols else None
     out = [f"data_{dst.stem}", "#", "loop_"] + [f"_atom_site.{c} " for c in cols]
     for i, r in enumerate(keep, 1):
+        key = (r[ch], r[sq])
         r = list(r)
         if idx is not None:
             r[idx] = str(i)      # renumber, or the crop carries the parent's atom serials
+        r[sq] = reseq[key]
         out.append(" ".join(r))
     raw = dst.with_suffix(".raw.cif")
     raw.write_text("\n".join(out) + "\n#\n")
