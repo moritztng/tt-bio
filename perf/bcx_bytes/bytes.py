@@ -395,13 +395,287 @@ def cmd_chunk(args):
     (OUT / (args.out or "chunk.json")).write_text(json.dumps(blob, indent=1, default=str))
 
 
+# ------------------------------------------------------------------------------ join
+
+
+def _csv_shape(r, pre):
+    out = []
+    for ax in "WZYX":
+        v = (r.get(f"{pre}_{ax}_PAD[LOGICAL]") or "").split("[")[0].strip()
+        if not v:
+            return None
+        out.append(int(v))
+    return out
+
+
+def cmd_join(args):
+    """Device ms per avoidable reason: each traced kernel matched, in order, to the next ops-report
+    row of the same backward whose first input has the same padded shape (right-aligned to 4-D).
+    The report is `bcx-realcensus`'s, arm `stack`, so only the `stack` traces can be joined."""
+    import csv
+    rows = list(csv.DictReader(open(args.report)))
+    seg, segs = None, collections.defaultdict(list)
+    for r in rows:
+        if (r.get("OP TYPE") or "").lower() == "signpost":
+            seg = r["OP CODE"]
+            continue
+        if seg and r.get("DEVICE KERNEL DURATION [ns]"):
+            segs[seg].append(r)
+    out = {}
+    for stack_name in ("evo", "extra"):
+        t = json.loads((OUT / f"trace_stack_{stack_name}_n256.json").read_text())
+        cr = segs[f"bwd {stack_name} K=1 rep=0"]
+        cen = census(t["bwd"])
+        j, matched, ms = 0, 0, collections.defaultdict(float)
+        per_row = []
+        for r, o in zip(cen, t["bwd"]):
+            if r["view"] or r["cls"] in ("alloc", "free") or not o["ins"]:
+                continue
+            want = ([1] * 4 + o["ins"][0]["padded"])[-4:]
+            for k in range(j, min(j + 12, len(cr))):
+                if _csv_shape(cr[k], "INPUT_0") == want:
+                    d = float(cr[k]["DEVICE KERNEL DURATION [ns]"]) * 1e-6
+                    matched += 1
+                    j = k + 1
+                    frac = {key: (r[key] / r["moved"] if r["moved"] else 0.0)
+                            for key in ("typecast", "layout", "padding", "fusible")}
+                    for key, f in frac.items():
+                        ms[key] += d * min(f, 1.0)
+                    ms["all"] += d
+                    ms["cls:" + r["cls"]] += d
+                    if r["why"]:
+                        ms["why:" + r["why"]] += d
+                    per_row.append([r["i"], r["op"], cr[k]["OP CODE"], d, r["nodeop"]])
+                    break
+        total = sum(float(x["DEVICE KERNEL DURATION [ns]"]) for x in cr) * 1e-6
+        out[stack_name] = {"csv_rows": len(cr), "csv_ms": total, "matched": matched,
+                           "matched_ms": ms["all"], "ms": dict(ms),
+                           "top_nodes": sorted(per_row, key=lambda x: -x[3])[:60]}
+        print(f"{stack_name}: matched {matched}/{len(cr)} rows, {ms['all']:.1f}/{total:.1f} ms; "
+              + ", ".join(f"{k} {v:.1f}" for k, v in sorted(ms.items(), key=lambda x: -x[1])), flush=True)
+    (OUT / "join.json").write_text(json.dumps(out, indent=1))
+
+
+# ------------------------------------------------------------------------------ arms
+
+
+class Arms:
+    """This row's levers as switches, installed BEFORE any taped call (the shim caches verbs).
+
+      perm  a permute's backward goes through `_channel_move` / `_channel_move_back` when its
+            inverse is one of their two index moves: the reblock kernels, bit-exact against
+            `ttnn.permute`, which the generic tape backward never reaches
+      tri   `_fp32_softmax_attention` takes no L1-plan block cap while a tape is open, where
+            `shard_for` refuses the shard anyway; `tri<k>` caps it at k rows instead
+    An arm is `+`-joined switches on top of the lever arm `--arm` (e.g. `base`, `perm+tri`).
+    """
+
+    def __init__(self):
+        import ttnn
+        from tt_bio import ops, taped_ttnn as T, tenstorrent as tn
+        self.perm, self.tri = False, None
+        self.served = collections.Counter()
+        arms = self
+
+        from tt_bio import reblock_permute as R
+
+        def fast(g, inv):
+            # Only where the kernel's own gate says yes: outside it `_channel_move_back` falls
+            # back to two transposes, which is slower than the one stock permute it replaces.
+            mc = g.memory_config()
+            if inv == [0, 2, 3, 1] and R.eligible_back(g, mc):
+                arms.served["perm:back"] += 1
+                return R.reblock_permute_back(g, mc)
+            if inv == [0, 3, 1, 2] and R.eligible(g, mc):
+                arms.served["perm:fwd"] += 1
+                return R.reblock_permute(g, mc)
+            arms.served[f"perm:stock {[int(d) for d in g.shape]} {inv}"] += 1
+            return ttnn.permute(g, inv)
+
+        def _v_permute(shipped, args, kwargs):
+            x = T._wrap(args[0])
+            dims = [int(d) for d in (kwargs.get("dims") if len(args) < 2 else args[1])]
+            inv = [0] * len(dims)
+            for i, d in enumerate(dims):
+                inv[d] = i
+            ra, rk = T._raw(args, kwargs)
+            out_v = shipped(*ra, **rk)
+
+            def make():
+                def bw(g):
+                    x.add_grad(fast(g, inv) if arms.perm else ttnn.permute(g, inv))
+                return bw
+
+            return T._tape(out_v, [x], make)
+
+        assert "permute" not in vars(T._SHIM), "taped_ttnn shim already cached permute"
+        T._VERBS["permute"] = _v_permute
+        real = tn._fp32_softmax_l1_plan
+
+        def plan(*a, **k):
+            r = real(*a, **k)
+            if ops.taping() and arms.tri is not None:
+                arms.served[f"tri:{arms.tri}:shipped={r[0]}"] += 1
+                return (0, 0) if arms.tri == 0 else (min(arms.tri, r[0]) if r[0] else 0, r[1])
+            return r
+
+        tn._fp32_softmax_l1_plan = plan
+
+    def set(self, name):
+        sw = set(name.split("+")) - {"base"}
+        self.perm = "perm" in sw
+        tri = [x for x in sw if x.startswith("tri")]
+        self.tri = None if not tri else (int(tri[0][3:]) if tri[0][3:] else 0)
+
+
+def _run_block(dev, lv, m0, z0, wm, wz, stack_name, sign=None):
+    """One checkpointed taped forward and backward of one block; signposts around the backward."""
+    ag = dev.ag
+    ke, kv = (1, 0) if stack_name == "extra" else (0, 1)
+    gc.collect()
+    ml, zl = dev.leaf(m0), dev.leaf(z0)
+    dev.sync()
+    t0 = time.time()
+    with dev.tt.tape():
+        mo, zo = dev.stack(ml, zl, ke, kv, ckpt=True)
+    dev.sync()
+    t1 = time.time()
+    roots = [zo] if stack_name == "extra" else [mo, zo]
+    seeds = [dev.seed(wz, zo)] if stack_name == "extra" else [dev.seed(wm, mo), dev.seed(wz, zo)]
+    dev.sync()
+    if sign:
+        sign(f"bwd {sign.tag}")
+    t2, c2 = time.time(), time.process_time()
+    ag.backward(roots, seeds)
+    dev.sync()
+    t3, c3 = time.time(), time.process_time()
+    if sign:
+        sign(f"end {sign.tag}")
+    g = (dev.grad(ml, m0.shape), dev.grad(zl, z0.shape))
+    ag.release_pins()
+    del mo, zo, ml, zl, roots, seeds
+    return {"fwd": t1 - t0, "bwd": t3 - t2, "bwd_cpu": c3 - c2, "spans": [(t0, t1), (t2, t3)]}, g
+
+
+def cmd_arms(args):
+    """Arms interleaved step by step in one process: walls, process CPU, AICLK inside the windows,
+    and each arm's block gradients against the first arm's, bit for bit. With `--prof` (run under
+    `python -m tracy` on the Tracy build) the backwards are signposted for `psum`."""
+    arms_ = Arms()
+    from perf.bcx_stack import stack as S
+    lv, dev, ref = S.open_all(args)
+    lv.arm(args.arm)
+    clock = S.Clock()
+    names = args.arms.split(",")
+    sign = None
+    if args.prof:
+        import ttnn
+        from perf.bcx_realcensus import realcensus as RC
+        sign = RC.signpost
+    blob = {"stamp": S.stamp(args, clock), "lever_arm": args.arm, "arms": names, "points": []}
+    for n in [int(x) for x in args.ns.split(",")]:
+        m0, z0, wm, wz = S.inputs(ref, n, args.seed)
+        for stack_name in args.stacks.split(","):
+            res, spans, grads = ({a: [] for a in names} for _ in range(3))
+            for a in names:
+                arms_.set(a)
+                for _ in range(args.warm):
+                    _run_block(dev, lv, m0, z0, wm, wz, stack_name)
+            if args.prof:
+                ttnn.ReadDeviceProfiler(dev.device)
+            for step in range(args.steps):
+                order = names[step % len(names):] + names[:step % len(names)]
+                for a in order:
+                    arms_.set(a)
+                    if sign:
+                        def sg(msg, _tag=f"{a} {stack_name} n={n} rep={step}"):
+                            RC.signpost(msg)
+                        sg.tag = f"{a} {stack_name} n={n} rep={step}"
+                    t, g = _run_block(dev, lv, m0, z0, wm, wz, stack_name, sg if sign else None)
+                    spans[a] += t.pop("spans")
+                    res[a].append(t)
+                    if not grads[a]:
+                        grads[a] = [x.float() for x in g]
+                if args.prof:
+                    ttnn.ReadDeviceProfiler(dev.device)
+            base = grads[names[0]]
+            pt = {"n": n, "stack": stack_name, "load1": os.getloadavg()[0], "arms": {}}
+            for a in names:
+                d = {k: S.dist([r[k] for r in res[a]]) for k in ("fwd", "bwd", "bwd_cpu")}
+                d["aiclk"] = clock.window(spans[a])
+                d["bits_vs_" + names[0]] = [
+                    {"identical": bool(torch_equal(x, y)), "rel_l2": rel(x, y)}
+                    for x, y in zip(grads[a], base)]
+                pt["arms"][a] = d
+                print(f"n={n} {stack_name} {a}: bwd {d['bwd']['median']:.4f} s, "
+                      f"cpu {d['bwd_cpu']['median']:.4f}, fwd {d['fwd']['median']:.4f}, "
+                      f"aiclk {d['aiclk']}, bits {d['bits_vs_' + names[0]]}", flush=True)
+            blob["points"].append(pt)
+            blob["served"] = dict(arms_.served)
+            OUT.mkdir(parents=True, exist_ok=True)
+            (OUT / args.out).write_text(json.dumps(blob, indent=1, default=str))
+    clock.stop()
+    print("served", dict(arms_.served), flush=True)
+
+
+def torch_equal(x, y):
+    return bool((x == y).all()) if x.shape == y.shape else False
+
+
+def rel(x, y):
+    d = float(y.norm())
+    return float((x - y).norm()) / d if d else float((x - y).norm())
+
+
+def cmd_psum(args):
+    """Device kernel ms per arm from a `--prof` run's ops report: per backward, by class, and the
+    op signatures that moved most against the first arm."""
+    import csv
+    from perf.bcx_realcensus import realcensus as RC
+    rep = args.report
+    seg, segs = None, collections.defaultdict(list)
+    for r in csv.DictReader(open(rep)):
+        if (r.get("OP TYPE") or "").lower() == "signpost":
+            seg = r["OP CODE"][4:] if r["OP CODE"].startswith("bwd ") else None
+            continue
+        if seg is not None and r.get("DEVICE KERNEL DURATION [ns]"):
+            segs[seg].append(r)
+    by = collections.defaultdict(list)
+    for tag, rs in segs.items():
+        arm, rest = tag.split(" ", 1)
+        key = (arm, rest.rsplit(" ", 1)[0])
+        sig = collections.Counter()
+        cls = collections.Counter()
+        for r in rs:
+            d = float(r["DEVICE KERNEL DURATION [ns]"]) * 1e-6
+            sig[f"{r['OP CODE']} {RC._dims(r, 'INPUT_0')} cores={r.get('CORE COUNT')}"] += d
+            cls[RC.op_class(r["OP CODE"])] += d
+        by[key].append({"ms": sum(sig.values()), "ops": len(rs), "sig": sig, "cls": cls})
+    names = args.arms.split(",")
+    out = {"report": rep, "points": {}}
+    for (arm, where), reps in sorted(by.items()):
+        b = by.get((names[0], where))
+        pt = {"ms": [round(x["ms"], 3) for x in reps], "ops": [x["ops"] for x in reps],
+              "median_ms": float(np.median([x["ms"] for x in reps])),
+              "by_class_ms": {c: round(float(np.median([x["cls"][c] for x in reps])), 3)
+                              for c in sorted({c for x in reps for c in x["cls"]})}}
+        if b and arm != names[0]:
+            bs, as_ = b[0]["sig"], reps[0]["sig"]
+            pt["moved_vs_" + names[0]] = [[round(bs[s] - as_[s], 3), s] for s in
+                                          sorted(set(bs) | set(as_), key=lambda s: -(abs(bs[s] - as_[s])))[:args.top]]
+        out["points"][f"{arm} {where}"] = pt
+        print(f"{arm} {where}: {pt['median_ms']:.2f} ms {pt['ms']} ops {pt['ops']}", flush=True)
+    (OUT / args.out).write_text(json.dumps(out, indent=1))
+
+
 def main():
     from perf.bcx_afgrad import afgrad as A
     ap = argparse.ArgumentParser()
-    ap.add_argument("cmd", choices=["trace", "census", "chunk"])
+    ap.add_argument("cmd", choices=["trace", "census", "chunk", "join", "arms", "psum"])
     ap.add_argument("--params", default=A.DEFAULT_PARAMS)
     ap.add_argument("--card", type=int, default=int(os.environ.get("TT_VISIBLE_DEVICES", "0")))
-    ap.add_argument("--arms", default="stack,bwd")
+    ap.add_argument("--arms", default="stack,bwd",
+                    help="trace: lever arms; arms/psum: this row's arms, e.g. base,perm,tri,perm+tri")
     ap.add_argument("--stacks", default="evo,extra")
     ap.add_argument("--ns", default="256,128")
     ap.add_argument("--warm", type=int, default=1)
@@ -410,9 +684,12 @@ def main():
     ap.add_argument("--chunks", default="ship,whole,128,64,32")
     ap.add_argument("--steps", type=int, default=5)
     ap.add_argument("--out", default=None)
+    ap.add_argument("--prof", action="store_true")
+    ap.add_argument("--top", type=int, default=15)
+    ap.add_argument("--report", default="/dev/shm/bcx-rc-out/ops_perf_results_n256.csv")
     ap.add_argument("--threads", type=int, default=8)
     args = ap.parse_args()
-    {"trace": cmd_trace, "census": cmd_census, "chunk": cmd_chunk}[args.cmd](args)
+    {"trace": cmd_trace, "census": cmd_census, "chunk": cmd_chunk, "join": cmd_join, "arms": cmd_arms, "psum": cmd_psum}[args.cmd](args)
 
 
 if __name__ == "__main__":

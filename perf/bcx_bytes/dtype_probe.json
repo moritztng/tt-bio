@@ -1,0 +1,907 @@
+{
+ "cases": [
+  {
+   "shape": [
+    1,
+    256,
+    256,
+    128
+   ],
+   "kind": "randn",
+   "arm": "a+b f32 [ref]",
+   "out_dtype": "DataType.FLOAT32",
+   "identical_to_ref": true,
+   "mismatch_frac": 0.0,
+   "rel_l2_vs_f64": 1.8975510294856572e-10,
+   "ms": 0.5677309964084998
+  },
+  {
+   "shape": [
+    1,
+    256,
+    256,
+    128
+   ],
+   "kind": "randn",
+   "arm": "a+b f32 [mixed]",
+   "out_dtype": "DataType.FLOAT32",
+   "identical_to_ref": false,
+   "mismatch_frac": 0.13587403297424316,
+   "rel_l2_vs_f64": 0.00014067760923816664,
+   "ms": 0.378464006644208
+  },
+  {
+   "shape": [
+    1,
+    256,
+    256,
+    128
+   ],
+   "kind": "randn",
+   "arm": "c+b f32 [ref]",
+   "out_dtype": "DataType.FLOAT32",
+   "identical_to_ref": true,
+   "mismatch_frac": 0.0,
+   "rel_l2_vs_f64": 2.5366692447874603e-08,
+   "ms": 0.46208200365072116
+  },
+  {
+   "shape": [
+    1,
+    256,
+    256,
+    128
+   ],
+   "kind": "randn",
+   "arm": "c+b f32 [mixed]",
+   "out_dtype": "DataType.FLOAT32",
+   "identical_to_ref": false,
+   "mismatch_frac": 0.9998615980148315,
+   "rel_l2_vs_f64": 0.00020787368298784127,
+   "ms": 0.25642599939601496
+  },
+  {
+   "shape": [
+    1,
+    256,
+    256,
+    128
+   ],
+   "kind": "randn",
+   "arm": "c+b f32 [mixed dtype]",
+   "out_dtype": "DataType.FLOAT32",
+   "identical_to_ref": false,
+   "mismatch_frac": 0.9998615980148315,
+   "rel_l2_vs_f64": 0.00020787368298784127,
+   "ms": 0.2514060033718124
+  },
+  {
+   "shape": [
+    1,
+    256,
+    256,
+    128
+   ],
+   "kind": "randn",
+   "arm": "a+b bf16 [ref]",
+   "out_dtype": "DataType.BFLOAT16",
+   "identical_to_ref": true,
+   "mismatch_frac": 0.0,
+   "rel_l2_vs_f64": 0.0017257278556255587,
+   "ms": 0.9920939992298372
+  },
+  {
+   "shape": [
+    1,
+    256,
+    256,
+    128
+   ],
+   "kind": "randn",
+   "arm": "a+b bf16 [mixed]",
+   "out_dtype": "DataType.BFLOAT16",
+   "identical_to_ref": false,
+   "mismatch_frac": 0.008885025978088379,
+   "rel_l2_vs_f64": 0.0017391836615595886,
+   "ms": 0.3594739973777905
+  },
+  {
+   "shape": [
+    1,
+    256,
+    256,
+    128
+   ],
+   "kind": "randn",
+   "arm": "a+b bf16 [plain]",
+   "out_dtype": "DataType.BFLOAT16",
+   "identical_to_ref": false,
+   "mismatch_frac": 0.10506069660186768,
+   "rel_l2_vs_f64": 0.0017391596951748254,
+   "ms": 0.28288500470807776
+  },
+  {
+   "shape": [
+    1,
+    256,
+    256,
+    128
+   ],
+   "kind": "randn",
+   "arm": "c+b bf16 [ref]",
+   "out_dtype": "DataType.BFLOAT16",
+   "identical_to_ref": true,
+   "mismatch_frac": 0.0,
+   "rel_l2_vs_f64": 0.001660669297767892,
+   "ms": 0.536521001777146
+  },
+  {
+   "shape": [
+    1,
+    256,
+    256,
+    128
+   ],
+   "kind": "randn",
+   "arm": "c+b bf16 [mixed]",
+   "out_dtype": "DataType.BFLOAT16",
+   "identical_to_ref": false,
+   "mismatch_frac": 0.08909571170806885,
+   "rel_l2_vs_f64": 0.0017006900297816664,
+   "ms": 0.21425600425573066
+  },
+  {
+   "shape": [
+    1,
+    256,
+    256,
+    128
+   ],
+   "kind": "ties",
+   "arm": "a+b f32 [ref]",
+   "out_dtype": "DataType.FLOAT32",
+   "identical_to_ref": true,
+   "mismatch_frac": 0.0,
+   "rel_l2_vs_f64": 0.0,
+   "ms": 0.5530310008907691
+  },
+  {
+   "shape": [
+    1,
+    256,
+    256,
+    128
+   ],
+   "kind": "ties",
+   "arm": "a+b f32 [mixed]",
+   "out_dtype": "DataType.FLOAT32",
+   "identical_to_ref": false,
+   "mismatch_frac": 0.9685796499252319,
+   "rel_l2_vs_f64": 0.00020581815546838383,
+   "ms": 0.25425600324524567
+  },
+  {
+   "shape": [
+    1,
+    256,
+    256,
+    128
+   ],
+   "kind": "ties",
+   "arm": "c+b f32 [ref]",
+   "out_dtype": "DataType.FLOAT32",
+   "identical_to_ref": true,
+   "mismatch_frac": 0.0,
+   "rel_l2_vs_f64": 1.8630531495340403e-08,
+   "ms": 0.4338830040069297
+  },
+  {
+   "shape": [
+    1,
+    256,
+    256,
+    128
+   ],
+   "kind": "ties",
+   "arm": "c+b f32 [mixed]",
+   "out_dtype": "DataType.FLOAT32",
+   "identical_to_ref": false,
+   "mismatch_frac": 0.9998304843902588,
+   "rel_l2_vs_f64": 0.0004054797607534817,
+   "ms": 0.291665994154755
+  },
+  {
+   "shape": [
+    1,
+    256,
+    256,
+    128
+   ],
+   "kind": "ties",
+   "arm": "c+b f32 [mixed dtype]",
+   "out_dtype": "DataType.FLOAT32",
+   "identical_to_ref": false,
+   "mismatch_frac": 0.9998304843902588,
+   "rel_l2_vs_f64": 0.0004054797607534817,
+   "ms": 0.2496070010238327
+  },
+  {
+   "shape": [
+    1,
+    256,
+    256,
+    128
+   ],
+   "kind": "ties",
+   "arm": "a+b bf16 [ref]",
+   "out_dtype": "DataType.BFLOAT16",
+   "identical_to_ref": true,
+   "mismatch_frac": 0.0,
+   "rel_l2_vs_f64": 0.002075422435041258,
+   "ms": 0.6673999960185029
+  },
+  {
+   "shape": [
+    1,
+    256,
+    256,
+    128
+   ],
+   "kind": "ties",
+   "arm": "a+b bf16 [mixed]",
+   "out_dtype": "DataType.BFLOAT16",
+   "identical_to_ref": false,
+   "mismatch_frac": 0.07445478439331055,
+   "rel_l2_vs_f64": 0.0021334394491302746,
+   "ms": 0.3400839996174909
+  },
+  {
+   "shape": [
+    1,
+    256,
+    256,
+    128
+   ],
+   "kind": "ties",
+   "arm": "a+b bf16 [plain]",
+   "out_dtype": "DataType.BFLOAT16",
+   "identical_to_ref": false,
+   "mismatch_frac": 0.008430838584899902,
+   "rel_l2_vs_f64": 0.002075422435041258,
+   "ms": 0.1664380033616908
+  },
+  {
+   "shape": [
+    1,
+    256,
+    256,
+    128
+   ],
+   "kind": "ties",
+   "arm": "c+b bf16 [ref]",
+   "out_dtype": "DataType.BFLOAT16",
+   "identical_to_ref": true,
+   "mismatch_frac": 0.0,
+   "rel_l2_vs_f64": 0.001657571403251599,
+   "ms": 0.530011995579116
+  },
+  {
+   "shape": [
+    1,
+    256,
+    256,
+    128
+   ],
+   "kind": "ties",
+   "arm": "c+b bf16 [mixed]",
+   "out_dtype": "DataType.BFLOAT16",
+   "identical_to_ref": false,
+   "mismatch_frac": 0.3951836824417114,
+   "rel_l2_vs_f64": 0.0031146961214190277,
+   "ms": 0.19623700063675642
+  },
+  {
+   "shape": [
+    1,
+    256,
+    256,
+    64
+   ],
+   "kind": "randn",
+   "arm": "a+b f32 [ref]",
+   "out_dtype": "DataType.FLOAT32",
+   "identical_to_ref": true,
+   "mismatch_frac": 0.0,
+   "rel_l2_vs_f64": 2.099835962594352e-10,
+   "ms": 0.31437500001629815
+  },
+  {
+   "shape": [
+    1,
+    256,
+    256,
+    64
+   ],
+   "kind": "randn",
+   "arm": "a+b f32 [mixed]",
+   "out_dtype": "DataType.FLOAT32",
+   "identical_to_ref": false,
+   "mismatch_frac": 0.13617324829101562,
+   "rel_l2_vs_f64": 0.00014080602294999587,
+   "ms": 0.1399469983880408
+  },
+  {
+   "shape": [
+    1,
+    256,
+    256,
+    64
+   ],
+   "kind": "randn",
+   "arm": "c+b f32 [ref]",
+   "out_dtype": "DataType.FLOAT32",
+   "identical_to_ref": true,
+   "mismatch_frac": 0.0,
+   "rel_l2_vs_f64": 2.5379928452639e-08,
+   "ms": 0.23005700495559722
+  },
+  {
+   "shape": [
+    1,
+    256,
+    256,
+    64
+   ],
+   "kind": "randn",
+   "arm": "c+b f32 [mixed]",
+   "out_dtype": "DataType.FLOAT32",
+   "identical_to_ref": false,
+   "mismatch_frac": 0.9998648166656494,
+   "rel_l2_vs_f64": 0.00020793259354293347,
+   "ms": 0.14744800137123093
+  },
+  {
+   "shape": [
+    1,
+    256,
+    256,
+    64
+   ],
+   "kind": "randn",
+   "arm": "c+b f32 [mixed dtype]",
+   "out_dtype": "DataType.FLOAT32",
+   "identical_to_ref": false,
+   "mismatch_frac": 0.9998648166656494,
+   "rel_l2_vs_f64": 0.00020793259354293347,
+   "ms": 0.14057799853617325
+  },
+  {
+   "shape": [
+    1,
+    256,
+    256,
+    64
+   ],
+   "kind": "randn",
+   "arm": "a+b bf16 [ref]",
+   "out_dtype": "DataType.BFLOAT16",
+   "identical_to_ref": true,
+   "mismatch_frac": 0.0,
+   "rel_l2_vs_f64": 0.0017270146911203801,
+   "ms": 0.3731339966179803
+  },
+  {
+   "shape": [
+    1,
+    256,
+    256,
+    64
+   ],
+   "kind": "randn",
+   "arm": "a+b bf16 [mixed]",
+   "out_dtype": "DataType.BFLOAT16",
+   "identical_to_ref": false,
+   "mismatch_frac": 0.00896310806274414,
+   "rel_l2_vs_f64": 0.0017406739760739054,
+   "ms": 0.21476700203493237
+  },
+  {
+   "shape": [
+    1,
+    256,
+    256,
+    64
+   ],
+   "kind": "randn",
+   "arm": "a+b bf16 [plain]",
+   "out_dtype": "DataType.BFLOAT16",
+   "identical_to_ref": false,
+   "mismatch_frac": 0.10499978065490723,
+   "rel_l2_vs_f64": 0.0017404631638354903,
+   "ms": 0.11396800255170092
+  },
+  {
+   "shape": [
+    1,
+    256,
+    256,
+    64
+   ],
+   "kind": "randn",
+   "arm": "c+b bf16 [ref]",
+   "out_dtype": "DataType.BFLOAT16",
+   "identical_to_ref": true,
+   "mismatch_frac": 0.0,
+   "rel_l2_vs_f64": 0.0016611636010543025,
+   "ms": 0.2778859998215921
+  },
+  {
+   "shape": [
+    1,
+    256,
+    256,
+    64
+   ],
+   "kind": "randn",
+   "arm": "c+b bf16 [mixed]",
+   "out_dtype": "DataType.BFLOAT16",
+   "identical_to_ref": false,
+   "mismatch_frac": 0.08906984329223633,
+   "rel_l2_vs_f64": 0.0017009247170128993,
+   "ms": 0.12755799980368465
+  },
+  {
+   "shape": [
+    1,
+    256,
+    256,
+    64
+   ],
+   "kind": "ties",
+   "arm": "a+b f32 [ref]",
+   "out_dtype": "DataType.FLOAT32",
+   "identical_to_ref": true,
+   "mismatch_frac": 0.0,
+   "rel_l2_vs_f64": 0.0,
+   "ms": 0.30165499629219994
+  },
+  {
+   "shape": [
+    1,
+    256,
+    256,
+    64
+   ],
+   "kind": "ties",
+   "arm": "a+b f32 [mixed]",
+   "out_dtype": "DataType.FLOAT32",
+   "identical_to_ref": false,
+   "mismatch_frac": 0.9686565399169922,
+   "rel_l2_vs_f64": 0.0002057342511621553,
+   "ms": 0.1392679987475276
+  },
+  {
+   "shape": [
+    1,
+    256,
+    256,
+    64
+   ],
+   "kind": "ties",
+   "arm": "c+b f32 [ref]",
+   "out_dtype": "DataType.FLOAT32",
+   "identical_to_ref": true,
+   "mismatch_frac": 0.0,
+   "rel_l2_vs_f64": 1.859769197017076e-08,
+   "ms": 0.23467600112780929
+  },
+  {
+   "shape": [
+    1,
+    256,
+    256,
+    64
+   ],
+   "kind": "ties",
+   "arm": "c+b f32 [mixed]",
+   "out_dtype": "DataType.FLOAT32",
+   "identical_to_ref": false,
+   "mismatch_frac": 0.9998164176940918,
+   "rel_l2_vs_f64": 0.0004057348370136446,
+   "ms": 0.13660699914908037
+  },
+  {
+   "shape": [
+    1,
+    256,
+    256,
+    64
+   ],
+   "kind": "ties",
+   "arm": "c+b f32 [mixed dtype]",
+   "out_dtype": "DataType.FLOAT32",
+   "identical_to_ref": false,
+   "mismatch_frac": 0.9998164176940918,
+   "rel_l2_vs_f64": 0.0004057348370136446,
+   "ms": 0.25986599939642474
+  },
+  {
+   "shape": [
+    1,
+    256,
+    256,
+    64
+   ],
+   "kind": "ties",
+   "arm": "a+b bf16 [ref]",
+   "out_dtype": "DataType.BFLOAT16",
+   "identical_to_ref": true,
+   "mismatch_frac": 0.0,
+   "rel_l2_vs_f64": 0.0020758481591275422,
+   "ms": 0.36970400105929
+  },
+  {
+   "shape": [
+    1,
+    256,
+    256,
+    64
+   ],
+   "kind": "ties",
+   "arm": "a+b bf16 [mixed]",
+   "out_dtype": "DataType.BFLOAT16",
+   "identical_to_ref": false,
+   "mismatch_frac": 0.07413935661315918,
+   "rel_l2_vs_f64": 0.0021336290674711417,
+   "ms": 0.19759700080612674
+  },
+  {
+   "shape": [
+    1,
+    256,
+    256,
+    64
+   ],
+   "kind": "ties",
+   "arm": "a+b bf16 [plain]",
+   "out_dtype": "DataType.BFLOAT16",
+   "identical_to_ref": false,
+   "mismatch_frac": 0.008439064025878906,
+   "rel_l2_vs_f64": 0.0020758481591275422,
+   "ms": 0.10834800195880234
+  },
+  {
+   "shape": [
+    1,
+    256,
+    256,
+    64
+   ],
+   "kind": "ties",
+   "arm": "c+b bf16 [ref]",
+   "out_dtype": "DataType.BFLOAT16",
+   "identical_to_ref": true,
+   "mismatch_frac": 0.0,
+   "rel_l2_vs_f64": 0.001658013871796043,
+   "ms": 0.2906759982579388
+  },
+  {
+   "shape": [
+    1,
+    256,
+    256,
+    64
+   ],
+   "kind": "ties",
+   "arm": "c+b bf16 [mixed]",
+   "out_dtype": "DataType.BFLOAT16",
+   "identical_to_ref": false,
+   "mismatch_frac": 0.3958916664123535,
+   "rel_l2_vs_f64": 0.0031168765205285666,
+   "ms": 0.13668799510924146
+  },
+  {
+   "shape": [
+    81,
+    4,
+    256,
+    256
+   ],
+   "kind": "randn",
+   "arm": "a+b f32 [ref]",
+   "out_dtype": "DataType.FLOAT32",
+   "identical_to_ref": true,
+   "mismatch_frac": 0.0,
+   "rel_l2_vs_f64": 1.8145779241752464e-10,
+   "ms": 1.416867999068927
+  },
+  {
+   "shape": [
+    81,
+    4,
+    256,
+    256
+   ],
+   "kind": "randn",
+   "arm": "a+b f32 [mixed]",
+   "out_dtype": "DataType.FLOAT32",
+   "identical_to_ref": false,
+   "mismatch_frac": 0.13622044026851654,
+   "rel_l2_vs_f64": 0.00014090057544214484,
+   "ms": 0.47835199802648276
+  },
+  {
+   "shape": [
+    81,
+    4,
+    256,
+    256
+   ],
+   "kind": "randn",
+   "arm": "c+b f32 [ref]",
+   "out_dtype": "DataType.FLOAT32",
+   "identical_to_ref": true,
+   "mismatch_frac": 0.0,
+   "rel_l2_vs_f64": 2.536263682515587e-08,
+   "ms": 0.9731039972393773
+  },
+  {
+   "shape": [
+    81,
+    4,
+    256,
+    256
+   ],
+   "kind": "randn",
+   "arm": "c+b f32 [mixed]",
+   "out_dtype": "DataType.FLOAT32",
+   "identical_to_ref": false,
+   "mismatch_frac": 0.9998690485954285,
+   "rel_l2_vs_f64": 0.00020794032061506785,
+   "ms": 0.564101996133104
+  },
+  {
+   "shape": [
+    81,
+    4,
+    256,
+    256
+   ],
+   "kind": "randn",
+   "arm": "c+b f32 [mixed dtype]",
+   "out_dtype": "DataType.FLOAT32",
+   "identical_to_ref": false,
+   "mismatch_frac": 0.9998690485954285,
+   "rel_l2_vs_f64": 0.00020794032061506785,
+   "ms": 0.5485010042320937
+  },
+  {
+   "shape": [
+    81,
+    4,
+    256,
+    256
+   ],
+   "kind": "randn",
+   "arm": "a+b bf16 [ref]",
+   "out_dtype": "DataType.BFLOAT16",
+   "identical_to_ref": true,
+   "mismatch_frac": 0.0,
+   "rel_l2_vs_f64": 0.0017259807432974384,
+   "ms": 1.6980630025500432
+  },
+  {
+   "shape": [
+    81,
+    4,
+    256,
+    256
+   ],
+   "kind": "randn",
+   "arm": "a+b bf16 [mixed]",
+   "out_dtype": "DataType.BFLOAT16",
+   "identical_to_ref": false,
+   "mismatch_frac": 0.00888311117887497,
+   "rel_l2_vs_f64": 0.0017394674386600392,
+   "ms": 0.7729080025455914
+  },
+  {
+   "shape": [
+    81,
+    4,
+    256,
+    256
+   ],
+   "kind": "randn",
+   "arm": "a+b bf16 [plain]",
+   "out_dtype": "DataType.BFLOAT16",
+   "identical_to_ref": false,
+   "mismatch_frac": 0.10493464767932892,
+   "rel_l2_vs_f64": 0.001739451044131409,
+   "ms": 0.33560500014573336
+  },
+  {
+   "shape": [
+    81,
+    4,
+    256,
+    256
+   ],
+   "kind": "randn",
+   "arm": "c+b bf16 [ref]",
+   "out_dtype": "DataType.BFLOAT16",
+   "identical_to_ref": true,
+   "mismatch_frac": 0.0,
+   "rel_l2_vs_f64": 0.0016609711107895392,
+   "ms": 1.350228994851932
+  },
+  {
+   "shape": [
+    81,
+    4,
+    256,
+    256
+   ],
+   "kind": "randn",
+   "arm": "c+b bf16 [mixed]",
+   "out_dtype": "DataType.BFLOAT16",
+   "identical_to_ref": false,
+   "mismatch_frac": 0.08923108875751495,
+   "rel_l2_vs_f64": 0.001701050721123284,
+   "ms": 0.5028919986216351
+  },
+  {
+   "shape": [
+    81,
+    4,
+    256,
+    256
+   ],
+   "kind": "ties",
+   "arm": "a+b f32 [ref]",
+   "out_dtype": "DataType.FLOAT32",
+   "identical_to_ref": true,
+   "mismatch_frac": 0.0,
+   "rel_l2_vs_f64": 0.0,
+   "ms": 1.8095120030920953
+  },
+  {
+   "shape": [
+    81,
+    4,
+    256,
+    256
+   ],
+   "kind": "ties",
+   "arm": "a+b f32 [mixed]",
+   "out_dtype": "DataType.FLOAT32",
+   "identical_to_ref": false,
+   "mismatch_frac": 0.9686522483825684,
+   "rel_l2_vs_f64": 0.00020579692686609137,
+   "ms": 0.5861309982719831
+  },
+  {
+   "shape": [
+    81,
+    4,
+    256,
+    256
+   ],
+   "kind": "ties",
+   "arm": "c+b f32 [ref]",
+   "out_dtype": "DataType.FLOAT32",
+   "identical_to_ref": true,
+   "mismatch_frac": 0.0,
+   "rel_l2_vs_f64": 1.859779573339313e-08,
+   "ms": 1.0390629977337085
+  },
+  {
+   "shape": [
+    81,
+    4,
+    256,
+    256
+   ],
+   "kind": "ties",
+   "arm": "c+b f32 [mixed]",
+   "out_dtype": "DataType.FLOAT32",
+   "identical_to_ref": false,
+   "mismatch_frac": 0.9998261332511902,
+   "rel_l2_vs_f64": 0.00040538186698463113,
+   "ms": 0.5463609995786101
+  },
+  {
+   "shape": [
+    81,
+    4,
+    256,
+    256
+   ],
+   "kind": "ties",
+   "arm": "c+b f32 [mixed dtype]",
+   "out_dtype": "DataType.FLOAT32",
+   "identical_to_ref": false,
+   "mismatch_frac": 0.9998261332511902,
+   "rel_l2_vs_f64": 0.00040538186698463113,
+   "ms": 0.6153299982543103
+  },
+  {
+   "shape": [
+    81,
+    4,
+    256,
+    256
+   ],
+   "kind": "ties",
+   "arm": "a+b bf16 [ref]",
+   "out_dtype": "DataType.BFLOAT16",
+   "identical_to_ref": true,
+   "mismatch_frac": 0.0,
+   "rel_l2_vs_f64": 0.00207533306891024,
+   "ms": 1.7468420046498068
+  },
+  {
+   "shape": [
+    81,
+    4,
+    256,
+    256
+   ],
+   "kind": "ties",
+   "arm": "a+b bf16 [mixed]",
+   "out_dtype": "DataType.BFLOAT16",
+   "identical_to_ref": false,
+   "mismatch_frac": 0.07436427474021912,
+   "rel_l2_vs_f64": 0.002133464700076048,
+   "ms": 0.8083380016614683
+  },
+  {
+   "shape": [
+    81,
+    4,
+    256,
+    256
+   ],
+   "kind": "ties",
+   "arm": "a+b bf16 [plain]",
+   "out_dtype": "DataType.BFLOAT16",
+   "identical_to_ref": false,
+   "mismatch_frac": 0.008439287543296814,
+   "rel_l2_vs_f64": 0.00207533306891024,
+   "ms": 0.36296399775892496
+  },
+  {
+   "shape": [
+    81,
+    4,
+    256,
+    256
+   ],
+   "kind": "ties",
+   "arm": "c+b bf16 [ref]",
+   "out_dtype": "DataType.BFLOAT16",
+   "identical_to_ref": true,
+   "mismatch_frac": 0.0,
+   "rel_l2_vs_f64": 0.0016568360582436897,
+   "ms": 1.313349996053148
+  },
+  {
+   "shape": [
+    81,
+    4,
+    256,
+    256
+   ],
+   "kind": "ties",
+   "arm": "c+b bf16 [mixed]",
+   "out_dtype": "DataType.BFLOAT16",
+   "identical_to_ref": false,
+   "mismatch_frac": 0.39523565769195557,
+   "rel_l2_vs_f64": 0.003115070054831422,
+   "ms": 0.42683300125645474
+  }
+ ],
+ "aiclk": {
+  "n": 0
+ }
+}
