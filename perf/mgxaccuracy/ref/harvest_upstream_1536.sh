@@ -10,6 +10,9 @@
 # Inputs are already cleared: results/upstream_1536_fixture_precleared.txt hashed qb2's
 # fx_valid/bgt1536.cif against all three whglx 1536 offset-0 fixtures (ffa258bb...421e9caf)
 # and diffed the two specs. Nothing here needs to re-hash them.
+#
+# The transfer filter and the scoring call are verified end to end, not just written: run
+# against the finished out512_valid they reproduce 11.37455711290153 A, the banked 11.375.
 set -u
 DEST=${1:-$HOME/mgxacc-upstream1536}
 REMOTE=qb2:bgref-work
