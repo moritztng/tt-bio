@@ -438,7 +438,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats-dict",
-                "reason": "TODO: say why this is legitimate at this size"
+                "reason": "declines all 0 calls: rf3 does enter `_fp32_softmax_attention`, 33 calls per fold at every rung (FP32_SOFTMAX_BIAS_HOIST counts them), but at this size the L1 plan (`_fp32_softmax_l1_plan`, tt_bio/tenstorrent.py:3769) finds no row block that fits: 0 blocks and 0 refusals, so the scores stay in DRAM. Same state at 512-1088; only 256 and 1280 land a block. A plan outcome, not a refusal"
               },
               "PAIR_TRANSPOSE_VIA_ROW_MAJOR": {
                 "resolved": "True",
@@ -755,7 +755,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats-dict",
-                "reason": "no call site on this path: 0 L1 blocks AND 0 L1 refusals at every rung. The counter advances only inside `_fp32_softmax_attention` (tt_bio/tenstorrent.py:3336), reached only by attentions constructed `fp32_softmax=True` -- an opt-in taken by the AF2 / OpenFold3 stack alone (tt_bio/af2.py:332,336 and tt_bio/openfold3_*.py). rf3 runs its triangle attention in bf16 and never enters it, so there is no fp32 softmax for an L1 grid to shard. Control in this same baseline: openfold3 and openbind, which do opt in, serve 1320 to 150040 L1 blocks across these same rungs. [carried from p300c] [carried from p150a]"
+                "reason": "declines all 0 calls: rf3 does enter `_fp32_softmax_attention`, 33 calls per fold at every rung (FP32_SOFTMAX_BIAS_HOIST counts them), but at this size the L1 plan (`_fp32_softmax_l1_plan`, tt_bio/tenstorrent.py:3769) finds no row block that fits: 0 blocks and 0 refusals, so the scores stay in DRAM. Same state at 512-1088; only 256 and 1280 land a block. A plan outcome, not a refusal"
               },
               "PAIR_TRANSPOSE_VIA_ROW_MAJOR": {
                 "resolved": "True",
@@ -1397,7 +1397,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats-dict",
-                "reason": "no call site on this path: 0 L1 blocks AND 0 L1 refusals at every rung. The counter advances only inside `_fp32_softmax_attention` (tt_bio/tenstorrent.py:3336), reached only by attentions constructed `fp32_softmax=True` -- an opt-in taken by the AF2 / OpenFold3 stack alone (tt_bio/af2.py:332,336 and tt_bio/openfold3_*.py). rf3 runs its triangle attention in bf16 and never enters it, so there is no fp32 softmax for an L1 grid to shard. Control in this same baseline: openfold3 and openbind, which do opt in, serve 1320 to 150040 L1 blocks across these same rungs. [carried from p300c] [carried from p150a] [carried from rung 640]"
+                "reason": "declines all 0 calls: rf3 does enter `_fp32_softmax_attention`, 33 calls per fold at every rung (FP32_SOFTMAX_BIAS_HOIST counts them), but at this size the L1 plan (`_fp32_softmax_l1_plan`, tt_bio/tenstorrent.py:3769) finds no row block that fits: 0 blocks and 0 refusals, so the scores stay in DRAM. Same state at 512-1088; only 256 and 1280 land a block. A plan outcome, not a refusal"
               },
               "PAIR_TRANSPOSE_VIA_ROW_MAJOR": {
                 "resolved": "True",
@@ -1714,7 +1714,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats-dict",
-                "reason": "no call site on this path: 0 L1 blocks AND 0 L1 refusals at every rung. The counter advances only inside `_fp32_softmax_attention` (tt_bio/tenstorrent.py:3336), reached only by attentions constructed `fp32_softmax=True` -- an opt-in taken by the AF2 / OpenFold3 stack alone (tt_bio/af2.py:332,336 and tt_bio/openfold3_*.py). rf3 runs its triangle attention in bf16 and never enters it, so there is no fp32 softmax for an L1 grid to shard. Control in this same baseline: openfold3 and openbind, which do opt in, serve 1320 to 150040 L1 blocks across these same rungs. [carried from p300c] [carried from p150a]"
+                "reason": "declines all 0 calls: rf3 does enter `_fp32_softmax_attention`, 33 calls per fold at every rung (FP32_SOFTMAX_BIAS_HOIST counts them), but at this size the L1 plan (`_fp32_softmax_l1_plan`, tt_bio/tenstorrent.py:3769) finds no row block that fits: 0 blocks and 0 refusals, so the scores stay in DRAM. Same state at 512-1088; only 256 and 1280 land a block. A plan outcome, not a refusal"
               },
               "PAIR_TRANSPOSE_VIA_ROW_MAJOR": {
                 "resolved": "True",
@@ -2025,7 +2025,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats-dict",
-                "reason": "no call site on this path: 0 L1 blocks AND 0 L1 refusals at every rung. The counter advances only inside `_fp32_softmax_attention` (tt_bio/tenstorrent.py:3336), reached only by attentions constructed `fp32_softmax=True` -- an opt-in taken by the AF2 / OpenFold3 stack alone (tt_bio/af2.py:332,336 and tt_bio/openfold3_*.py). rf3 runs its triangle attention in bf16 and never enters it, so there is no fp32 softmax for an L1 grid to shard. Control in this same baseline: openfold3 and openbind, which do opt in, serve 1320 to 150040 L1 blocks across these same rungs. [carried from p300c] [carried from p150a]"
+                "reason": "declines all 0 calls: rf3 does enter `_fp32_softmax_attention`, 33 calls per fold at every rung (FP32_SOFTMAX_BIAS_HOIST counts them), but at this size the L1 plan (`_fp32_softmax_l1_plan`, tt_bio/tenstorrent.py:3769) finds no row block that fits: 0 blocks and 0 refusals, so the scores stay in DRAM. Same state at 512-1088; only 256 and 1280 land a block. A plan outcome, not a refusal"
               },
               "PAIR_TRANSPOSE_VIA_ROW_MAJOR": {
                 "resolved": "True",
@@ -2342,7 +2342,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats-dict",
-                "reason": "no call site on this path: 0 L1 blocks AND 0 L1 refusals at every rung. The counter advances only inside `_fp32_softmax_attention` (tt_bio/tenstorrent.py:3336), reached only by attentions constructed `fp32_softmax=True` -- an opt-in taken by the AF2 / OpenFold3 stack alone (tt_bio/af2.py:332,336 and tt_bio/openfold3_*.py). rf3 runs its triangle attention in bf16 and never enters it, so there is no fp32 softmax for an L1 grid to shard. Control in this same baseline: openfold3 and openbind, which do opt in, serve 1320 to 150040 L1 blocks across these same rungs. [carried from p300c] [carried from p150a]"
+                "reason": "declines all 0 calls: rf3 does enter `_fp32_softmax_attention`, 33 calls per fold at every rung (FP32_SOFTMAX_BIAS_HOIST counts them), but at this size the L1 plan (`_fp32_softmax_l1_plan`, tt_bio/tenstorrent.py:3769) finds no row block that fits: 0 blocks and 0 refusals, so the scores stay in DRAM. Same state at 512-1088; only 256 and 1280 land a block. A plan outcome, not a refusal"
               },
               "PAIR_TRANSPOSE_VIA_ROW_MAJOR": {
                 "resolved": "True",
@@ -2656,7 +2656,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats-dict",
-                "reason": "no call site on this path: 0 L1 blocks AND 0 L1 refusals at every rung. The counter advances only inside `_fp32_softmax_attention` (tt_bio/tenstorrent.py:3336), reached only by attentions constructed `fp32_softmax=True` -- an opt-in taken by the AF2 / OpenFold3 stack alone (tt_bio/af2.py:332,336 and tt_bio/openfold3_*.py). rf3 runs its triangle attention in bf16 and never enters it, so there is no fp32 softmax for an L1 grid to shard. Control in this same baseline: openfold3 and openbind, which do opt in, serve 1320 to 150040 L1 blocks across these same rungs. [carried from p300c] [carried from p150a]"
+                "reason": "declines all 0 calls: rf3 does enter `_fp32_softmax_attention`, 33 calls per fold at every rung (FP32_SOFTMAX_BIAS_HOIST counts them), but at this size the L1 plan (`_fp32_softmax_l1_plan`, tt_bio/tenstorrent.py:3769) finds no row block that fits: 0 blocks and 0 refusals, so the scores stay in DRAM. Same state at 512-1088; only 256 and 1280 land a block. A plan outcome, not a refusal"
               },
               "PAIR_TRANSPOSE_VIA_ROW_MAJOR": {
                 "resolved": "True",

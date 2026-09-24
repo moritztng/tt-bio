@@ -4093,7 +4093,7 @@
                   "k_tiles=2:(2,1)": 480,
                   "k_tiles=12:(12,1)": 12414
                 },
-                "reason": "TODO: say why this is legitimate at this size (declines on k_tiles=12:(12,1) x12414, k_tiles=2:(2,1) x480)"
+                "reason": "declines all 12894 calls on k_tiles=12:(12,1) x12414, k_tiles=2:(2,1) x480: the minimal matmul admits an 8-tile weight K dim and this checkpoint's pair projections resolve 12 and 2, a property of c_z and not of N, so it is inert on this model at every size rather than dark at this one"
               },
               "TRIMUL_TAIL_F1": {
                 "resolved": "True",
@@ -4101,7 +4101,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "reason": "TODO: say why this is legitimate at this size"
+                "reason": "declines all 0 calls: not offered above SEQ_LEN_MORE_CHUNKING, which this part resolves to 1088 from its DRAM (tt_bio/tenstorrent.py:5103). Past it the trimul takes the row-blocked tail (`rows_tail`, tenstorrent.py:7498 -> `_tail_rows`), which recomputes both norms per 128-row block and makes no fused-tail call; `fused_tail`'s one call site (tenstorrent.py:7546) is on the whole-tensor branch. Path-level, set by the DRAM ceiling. Below 1088 it is offered and declines every call on k_tiles=12, so it serves opendde at no size"
               },
               "QKV_MM_CONFIG": {
                 "resolved": "True",
@@ -4404,7 +4404,7 @@
                   "k_tiles=2:(2,1)": 560,
                   "k_tiles=12:(12,1)": 15308
                 },
-                "reason": "TODO: say why this is legitimate at this size (declines on k_tiles=12:(12,1) x15308, k_tiles=2:(2,1) x560)"
+                "reason": "declines all 15868 calls on k_tiles=12:(12,1) x15308, k_tiles=2:(2,1) x560: the minimal matmul admits an 8-tile weight K dim and this checkpoint's pair projections resolve 12 and 2, a property of c_z and not of N, so it is inert on this model at every size rather than dark at this one"
               },
               "TRIMUL_TAIL_F1": {
                 "resolved": "True",
@@ -4412,7 +4412,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "reason": "TODO: say why this is legitimate at this size"
+                "reason": "declines all 0 calls: not offered above SEQ_LEN_MORE_CHUNKING, which this part resolves to 1088 from its DRAM (tt_bio/tenstorrent.py:5103). Past it the trimul takes the row-blocked tail (`rows_tail`, tenstorrent.py:7498 -> `_tail_rows`), which recomputes both norms per 128-row block and makes no fused-tail call; `fused_tail`'s one call site (tenstorrent.py:7546) is on the whole-tensor branch. Path-level, set by the DRAM ceiling. Below 1088 it is offered and declines every call on k_tiles=12, so it serves opendde at no size"
               },
               "QKV_MM_CONFIG": {
                 "resolved": "True",
