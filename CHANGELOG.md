@@ -162,6 +162,16 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
   @ssiddhantsharma; the diagonal (each chain's own pTM) and the device confidence path
   (`TT_PROTENIX_CONF_DEVICE=1`) were added on top of it.
 
+### The release gate itself
+
+- **The AF2-IG device-trunk floor is re-recorded at the OuterProductMean output-stage layout.**
+  That layout (638187138) is on for every model and makes a 512-residue fold 1.0111x faster. On
+  AF2-IG it moves the final structure 0.150 -> 0.210 A CA RMSD from JAX, inside the 0.60 A bar,
+  and the gate had read that move as a FAIL since the layout landed. The new record names the
+  layout as its cause. It was measured on qb1 at the p150a's 11x10 grid and reproduced in a second
+  process. The `--template-host` arm and both `--mutate` controls still FAIL against it, and the
+  template-host arm is now a test.
+
 ## [0.9.0] - 2026-09-18
 
 ### Added

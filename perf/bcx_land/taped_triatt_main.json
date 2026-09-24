@@ -1,0 +1,21 @@
+{
+ "tokens": 256,
+ "commit": "bc294645c",
+ "served_untaped_1": 1,
+ "taped": "raised NotImplementedError: ttnn.generic_op has no tape entry, and it was handed a taped tensor. Add one to tt_bio.autograd._VERBS -- unwrapping here would drop the gradient of everything upstream of this call, silently.",
+ "served_after_tape": 1,
+ "over_l1_after_tape": 0,
+ "served_untaped_2": 2,
+ "untaped_after_tape_served_fused": true,
+ "y1_equals_y0": true,
+ "aiclk_during": [
+  800,
+  1350,
+  10
+ ],
+ "loadavg": [
+  "60.41",
+  "74.09",
+  "73.76"
+ ]
+}
