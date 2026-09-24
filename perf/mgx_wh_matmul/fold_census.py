@@ -19,7 +19,7 @@ wrong: |err| > 0.25 * (sqrt(sum_k a_k^2 b_k^2 + bias^2) + 16 output ulps of |ref
        scale: HiFi4's ordinary accumulation error is ~1e-3 of it and the -2^k misses are one to
        tens of times it, so the bar sits in the empty gap between them. `max_q` is the largest
        |err| / that scale seen per signature.
-gross: |err| > 5 % of the largest |ref| in the scored slice
+gross: |err| > 1 x that scale (every -2^k miss seen is >= 1.7 x; a max-|ref| bar breaks on masked, near-zero slices)
 
 Calls inside a trace capture are counted, never read (a host read breaks the capture). Run with
 tracing off where the model allows, so the trunk's matmuls are reachable.
@@ -150,7 +150,7 @@ if os.environ.get("MM_CENSUS_DIR"):
                 e = O.reshape(ref.shape) - ref
                 q = e.abs() / (scale + 16 * _ulp(ref, str(o.dtype)))
                 w = q > 0.25
-                g = e.abs() > 0.05 * ref.abs().max()
+                g = q > 1.0
                 r["max_q"] = max(r.get("max_q", 0.0), round(float(q.max()), 4))
                 r["scored"] += 1
                 r["elems"] += ref.numel()
