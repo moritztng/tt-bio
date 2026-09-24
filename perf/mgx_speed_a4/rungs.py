@@ -127,7 +127,8 @@ def affinity_unit(model, rung, warm, card, work):
     subprocess.run(["rm", "-rf", str(out_dir)])
     py = [sys.executable, "-m", "tt_bio.main"]
     if model == "nesso1":
-        cmd = py + ["affinity", str(fx), "--out_dir", str(out_dir), "--host_threads", "2"]
+        # `affinity` has no --host_threads on main; the OMP/MKL caps below hold it at 2
+        cmd = py + ["affinity", str(fx), "--out_dir", str(out_dir)]
     else:
         cmd = py + ["predict", str(fx), "--model", "boltz2", "--out_dir", str(out_dir),
                     "--single_sequence", "--host_threads", "2", "--accelerator", "tenstorrent",
