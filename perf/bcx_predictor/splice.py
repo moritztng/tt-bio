@@ -24,6 +24,35 @@ import jax.numpy as jnp
 import numpy as np
 import torch
 
+
+BUCKET = 32
+
+
+def _pad32(n: int) -> int:
+    return -(-n // BUCKET) * BUCKET
+
+
+def _pad_inputs(m, z, mask):
+    """Pad the token axis up to a multiple of 32 and mask what was added.
+
+    BindCraft 2 samples a binder length per trajectory and at `length_bucket_size` 1 the
+    complex is whatever it drew: n = 186, 253, 261, 291, 295 on the five live reference
+    trajectories, not one of them a multiple of 32. tt-bio's token axis wants 32, and this
+    row measured 211 padded up to 224 running 3.29x FASTER on the trunk forward while doing
+    strictly more arithmetic. So pad, mask the padding, and slice back -- more work, not
+    less, and the masked ops that make it exact are now all in `tt_bio/af2.py`.
+    """
+    n = z.shape[0]
+    n32 = _pad32(n)
+    if n32 == n:
+        return m, z, mask, n, n32
+    pad = n32 - n
+    m = torch.nn.functional.pad(m, (0, 0, 0, pad))
+    z = torch.nn.functional.pad(z, (0, 0, 0, pad, 0, pad))
+    mask = torch.nn.functional.pad(mask, (0, pad))
+    return m, z, mask, n, n32
+
+
 _LIVE: dict[int, dict] = {}
 _NEXT = [0]
 
@@ -60,37 +89,39 @@ class EvoformerOnDevice:
         dev = self.dev
         m = torch.from_numpy(np.asarray(msa_np).copy()).float()
         z = torch.from_numpy(np.asarray(pair_np).copy()).float()
+        mk = torch.from_numpy(np.asarray(mask_np).copy()).float()
+        m, z, mk, n, n32 = _pad_inputs(m, z, mk)
         mo, zo = dev.stack(dev.up(m), dev.up(z), 0, self.k_evo, ckpt=False,
-                           msa_mask=self._mask(mask_np))
+                           msa_mask=self._mask(mk.numpy()))
         dev.sync()
+        out_m = dev.down(mo, tuple(m.shape))[:, :n]
+        out_z = dev.down(zo, tuple(z.shape))[:n, :n]
         self.calls["primal"] += 1
-        return (dev.down(mo, tuple(m.shape)).numpy(), dev.down(zo, tuple(z.shape)).numpy())
+        return out_m.numpy(), out_z.numpy()
 
     def _taped(self, msa_np, pair_np, mask_np):
         dev = self.dev
         m = torch.from_numpy(np.asarray(msa_np).copy()).float()
         z = torch.from_numpy(np.asarray(pair_np).copy()).float()
+        mk = torch.from_numpy(np.asarray(mask_np).copy()).float()
+        m, z, mk, n, n32 = _pad_inputs(m, z, mk)
         ml, zl = dev.leaf(m), dev.leaf(z)
         with dev.tt.tape():
             mo, zo = dev.stack(ml, zl, 0, self.k_evo, ckpt=self.checkpoint,
-                               msa_mask=self._mask(mask_np))
+                               msa_mask=self._mask(mk.numpy()))
         dev.sync()
-        # recycled_alphafold_outputs runs design_recycles stop-gradient passes and then one
-        # differentiated pass, and JAX routes ALL of them through fwd -- it cannot know the
-        # stop_gradient discards the first until after the trace. Measured: taped 2,
-        # backward 1, one tape left live per step. At bcx-ckpt's 5.33 GB an Evoformer block
-        # that is fatal over 125 steps, so the superseded tapes are dropped here. The
-        # differentiated pass is the LAST taped call, so keeping only the newest is correct;
-        # _backward raises by token if that ever stops holding.
+        # recycled_alphafold_outputs stop_gradients every recycle but the last and JAX
+        # routes all of them through fwd, so superseded tapes are dropped here: at
+        # bcx-ckpt's 5.33 GB an Evoformer block, keeping them is fatal over 125 steps.
         for stale in list(_LIVE):
             _LIVE.pop(stale, None)
         dev.ag.release_pins()
         token = _NEXT[0]; _NEXT[0] += 1
         _LIVE[token] = {"roots": [mo, zo], "leaves": [ml, zl],
-                        "shapes": [tuple(m.shape), tuple(z.shape)]}
+                        "shapes": [tuple(m.shape), tuple(z.shape)], "n": n}
         self.calls["taped"] += 1
-        return (dev.down(mo.value, tuple(m.shape)).numpy(),
-                dev.down(zo.value, tuple(z.shape)).numpy(), np.int32(token))
+        return (dev.down(mo.value, tuple(m.shape))[:, :n].numpy(),
+                dev.down(zo.value, tuple(z.shape))[:n, :n].numpy(), np.int32(token))
 
     def _backward(self, token, g_msa_np, g_pair_np):
         entry = _LIVE.pop(int(token), None)
@@ -98,11 +129,15 @@ class EvoformerOnDevice:
             raise RuntimeError(f"no live tape for token {int(token)}")
         dev = self.dev
         mo, zo = entry["roots"]; ml, zl = entry["leaves"]
-        gm = torch.from_numpy(np.asarray(g_msa_np).copy()).float()
-        gz = torch.from_numpy(np.asarray(g_pair_np).copy()).float()
+        m_shape, z_shape = entry["shapes"]
+        n = entry["n"]
+        gm = torch.zeros(m_shape)
+        gz = torch.zeros(z_shape)
+        gm[:, :n] = torch.from_numpy(np.asarray(g_msa_np).copy()).float()
+        gz[:n, :n] = torch.from_numpy(np.asarray(g_pair_np).copy()).float()
         dev.ag.backward([mo, zo], [dev.seed(gm, mo), dev.seed(gz, zo)])
         dev.sync()
-        out = (dev.grad(ml, entry["shapes"][0]).numpy(), dev.grad(zl, entry["shapes"][1]).numpy())
+        out = (dev.grad(ml, m_shape)[:, :n].numpy(), dev.grad(zl, z_shape)[:n, :n].numpy())
         dev.ag.release_pins()
         self.calls["backward"] += 1
         return out

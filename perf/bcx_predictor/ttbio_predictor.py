@@ -86,26 +86,26 @@ class TTBioAlphaFoldDesignModel(AlphaFoldDesignModel):
 
     def predict(self, protein_states, *args, **kwargs):
         if self.trunk == "device":
-            refuse_masked_state(protein_states, self.length_bucket_size, self.target_pad_length)
             self._open_device()
         return super().predict(protein_states, *args, **kwargs)
 
     def sequence_gradients(self, protein_states, losses, *args, **kwargs):
         if self.trunk == "device":
-            refuse_masked_state(protein_states, self.length_bucket_size, self.target_pad_length)
             self._open_device()
         return super().sequence_gradients(protein_states, losses, *args, **kwargs)
 
     # -------------------------------------------------------------- the device side
 
     def _open_device(self):
-        """One device context per process; tt-bio refuses an unpinned open."""
-        if self._device is not None:
-            return self._device
-        raise NotImplementedError(
-            "the device trunk is not wired to the haiku stacks yet. The seam is "
-            "modules.py:1528 and :1594; see this module's docstring. Run trunk='jax' for the "
-            "control arm.")
+        """The splice owns the device context, not this class.
+
+        `splice.evoformer_on_device` replaces `modules.py`'s Evoformer `layer_stack` for
+        the duration of a campaign, so by the time this class runs the trunk is already on
+        card and there is nothing here to open. `trunk='device'` is therefore a label on
+        the stamp and a statement of intent; `trunk='jax'` is the control arm, the same
+        class on BindCraft 2's trunk, which is what a device result gets compared against.
+        """
+        return None
 
     @staticmethod
     def device_padded_length(residue_count: int) -> int:
