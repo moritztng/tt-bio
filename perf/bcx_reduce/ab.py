@@ -12,7 +12,8 @@ An arm is `+`-joined switches; `base` is all three off:
   calls  one block per arm with every `_reduce_to` and `_permute_back` call of the backward graded
          where it happens: the reduce against a float64 sum of its own device input, the permute
          against torch's permute of its own device input, bit for bit
-  whole  bcx-stack's whole 4+48 gradient step, arms interleaved, logit gradient against float64
+  whole  bcx-stack's whole 4+48 gradient step, arms interleaved; --f64 grades the logit gradient
+         against float64 (~49 min at n=256), without it the arms are graded against base only
 """
 from __future__ import annotations
 

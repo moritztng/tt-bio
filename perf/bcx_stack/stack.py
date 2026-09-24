@@ -642,13 +642,15 @@ def cmd_whole(args):
             runs[arm].append(r)
             print(arm, rep, {k: round(v, 3) for k, v in r.items() if k != "spans"}, flush=True)
             lv.take()
-    lg64 = logits.double().clone().requires_grad_(True)
-    t0 = time.time()
-    m, z = A.embed(ref["f64"], lg64, ridx)
-    m, z = A.ref_stack(ref["f64"], m, z, ke, kv)
-    ((wm * m).sum() + (wz * z).sum()).backward()
-    g64 = lg64.grad.detach()
-    blob["f64"] = {"grad_norm": float(g64.norm()), "seconds": time.time() - t0}
+    g64 = None
+    if getattr(args, "f64", True):             # ~49 min at n=256 on a loaded qb1
+        lg64 = logits.double().clone().requires_grad_(True)
+        t0 = time.time()
+        m, z = A.embed(ref["f64"], lg64, ridx)
+        m, z = A.ref_stack(ref["f64"], m, z, ke, kv)
+        ((wm * m).sum() + (wz * z).sum()).backward()
+        g64 = lg64.grad.detach()
+        blob["f64"] = {"grad_norm": float(g64.norm()), "seconds": time.time() - t0}
     for arm in arms:
         rs = runs[arm]
         blob["per_arm"][arm] = {
@@ -657,7 +659,7 @@ def cmd_whole(args):
             "load1": [r["load1"] for r in rs],
             "aiclk": clock.window([s for r in rs for s in r["spans"]]),
             "grad_norm": float(grads[arm][0].norm()),
-            "vs_f64": A.cmp(grads[arm][0], g64),
+            "vs_f64": A.cmp(grads[arm][0], g64) if g64 is not None else None,
             "reps_bit_identical": all(torch.equal(grads[arm][0], g) for g in grads[arm][1:])}
         print(arm, json.dumps({k: blob["per_arm"][arm][k] for k in ("vs_f64", "reps_bit_identical")}),
               "step", round(blob["per_arm"][arm]["step"]["median"], 3), flush=True)

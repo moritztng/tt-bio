@@ -1,0 +1,88 @@
+{
+ "pci": "0000:01:00.0",
+ "loadavg_start": [
+  51.8466796875,
+  61.95556640625,
+  74.5068359375
+ ],
+ "burst": 24,
+ "bursts": 12,
+ "shapes": [
+  {
+   "shape": [
+    1,
+    64,
+    256,
+    256
+   ],
+   "inv": [
+    0,
+    2,
+    3,
+    1
+   ],
+   "bit_identical_to_permute": true,
+   "aiclk": {
+    "n": 10,
+    "min": 1350,
+    "median": 1350,
+    "max": 1350
+   },
+   "loadavg": [
+    51.8466796875,
+    61.95556640625,
+    74.5068359375
+   ],
+   "permute": {
+    "enqueue_ms_per_call_median": 0.042358333606292334,
+    "enqueue_ms_per_call_min": 0.0309241246820117,
+    "wall_ms_per_call_median": 0.8483938333180655,
+    "wall_ms_per_call_min": 0.8222720837996652
+   },
+   "reblock": {
+    "enqueue_ms_per_call_median": 0.2136558332495042,
+    "enqueue_ms_per_call_min": 0.08827829151414335,
+    "wall_ms_per_call_median": 0.23126891665015137,
+    "wall_ms_per_call_min": 0.11490458321835224
+   }
+  },
+  {
+   "shape": [
+    1,
+    256,
+    256,
+    64
+   ],
+   "inv": [
+    0,
+    3,
+    1,
+    2
+   ],
+   "bit_identical_to_permute": true,
+   "aiclk": {
+    "n": 3,
+    "min": 1350,
+    "median": 1350,
+    "max": 1350
+   },
+   "loadavg": [
+    50.09716796875,
+    61.4248046875,
+    74.267578125
+   ],
+   "permute": {
+    "enqueue_ms_per_call_median": 0.034665541534195654,
+    "enqueue_ms_per_call_min": 0.03105620817223098,
+    "wall_ms_per_call_median": 0.20933047896202575,
+    "wall_ms_per_call_min": 0.2035070416847399
+   },
+   "reblock": {
+    "enqueue_ms_per_call_median": 0.11461331238630615,
+    "enqueue_ms_per_call_min": 0.08263504120501845,
+    "wall_ms_per_call_median": 0.14512329168307286,
+    "wall_ms_per_call_min": 0.12549274955138875
+   }
+  }
+ ]
+}
