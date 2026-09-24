@@ -600,6 +600,9 @@ def cmd_arms(args):
                     ttnn.ReadDeviceProfiler(dev.device)
             base = grads[names[0]]
             pt = {"n": n, "stack": stack_name, "load1": os.getloadavg()[0], "arms": {}}
+            if args.f64:
+                pt["f64"] = f64_grade(ref, m0, z0, wm, wz, stack_name, grads)
+                print(f"n={n} {stack_name} vs float64: {pt['f64']}", flush=True)
             for a in names:
                 d = {k: S.dist([r[k] for r in res[a]]) for k in ("fwd", "bwd", "bwd_cpu")}
                 d["aiclk"] = clock.window(spans[a])
@@ -616,6 +619,40 @@ def cmd_arms(args):
             (OUT / args.out).write_text(json.dumps(blob, indent=1, default=str))
     clock.stop()
     print("served", dict(arms_.served), flush=True)
+
+
+def f64_grade(ref, m0, z0, wm, wz, stack_name, grads):
+    """Rel L2 of each arm's block input gradients against a float64 VJP of the same block on the
+    same bf16-rounded inputs and cotangents, with torch bf16 and fp32 on the reference beside it."""
+    from perf.bcx_afgrad import afgrad as A
+    import torch
+    m, z = A.bf(m0), A.bf(z0)
+    while m.dim() > 3:
+        m = m.squeeze(0)
+    gm, gz = A.bf(wm).reshape(m.shape), A.bf(wz).reshape(z.shape)
+
+    def vjp(arm):
+        mod = ref[arm]
+        dt = mod.trunk_dtype
+        if stack_name == "extra":
+            g, _ = A.ref_vjp(lambda a: A.ref_extra(mod, 0, a), [z.to(dt)], [gz])
+            return [None, g[0].double()]
+        g, _ = A.ref_vjp(lambda a, b: A.ref_evo(mod, 0, a, b), [m.to(dt), z.to(dt)], [gm, gz])
+        return [g[0].double(), g[1].double()]
+
+    with torch.enable_grad():
+        r = {arm: vjp(arm) for arm in ("f64", "f32", "bf16")}
+    out = {}
+    names = ("dm", "dz")
+
+    def d(x, y):
+        return float((x.double().reshape(y.shape) - y).norm() / y.norm())
+
+    for arm in ("bf16", "f32"):
+        out["torch " + arm] = {k: d(x, y) for k, x, y in zip(names, r[arm], r["f64"]) if y is not None}
+    for a, g in grads.items():
+        out[a] = {k: d(x, y) for k, x, y in zip(names, g, r["f64"]) if y is not None}
+    return out
 
 
 def torch_equal(x, y):
@@ -685,6 +722,7 @@ def main():
     ap.add_argument("--steps", type=int, default=5)
     ap.add_argument("--out", default=None)
     ap.add_argument("--prof", action="store_true")
+    ap.add_argument("--f64", action="store_true", help="arms: grade each arm against float64")
     ap.add_argument("--top", type=int, default=15)
     ap.add_argument("--report", default="/dev/shm/bcx-rc-out/ops_perf_results_n256.csv")
     ap.add_argument("--threads", type=int, default=8)
