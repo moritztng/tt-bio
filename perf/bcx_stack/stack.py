@@ -401,8 +401,9 @@ def block_step(dev, lv, m0, z0, wm, wz, stack_name, k=1, ckpt=False):
     dev.sync()
     lv.phase = "fwd"
     t0 = time.time()
+    mask = dev.up(torch.ones(1, m0.shape[-2])) if lv.mask else None
     with dev.tt.tape():
-        mo, zo = dev.stack(ml, zl, ke, kv, ckpt=ckpt)
+        mo, zo = dev.stack(ml, zl, ke, kv, ckpt=ckpt, msa_mask=mask)
     dev.sync()
     t1 = time.time()
     roots = [zo] if stack_name == "extra" else [mo, zo]
