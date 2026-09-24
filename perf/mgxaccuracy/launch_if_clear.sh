@@ -53,9 +53,28 @@ fi
 # mid-run, so "the branch is merged on pc" says nothing about what whglx would execute.
 # Checked against the checkout that will actually run the job, not against this worktree.
 REMOTE_TREE=${MGX_REMOTE_TREE:-\$HOME/wt-mgx-design-accuracy}
+#
+# OVERRIDE, deliberately narrow. A CATCHER has to be attributable to main and that is what the
+# guard protects. A SIZE LADDER has the opposite requirement: its rungs are comparable only if
+# they share a tree, and the tree its earlier rungs were measured on is by then behind main. So
+# MGX_ALLOW_BEHIND_MAIN takes the path of a committed plan file whose header states which banked
+# cells the run must share a tree with, the reason is echoed into the launch output, and a bare
+# =1 is refused -- an override without a written reason is how a catcher ends up on a stale tree.
 behind=$(ssh -o BatchMode=yes -o ConnectTimeout=30 whglx \
     "cd $REMOTE_TREE && git fetch -q origin main 2>/dev/null; \
      git merge-base --is-ancestor origin/main HEAD && echo ok || echo behind" 2>/dev/null)
+ALLOW_BEHIND=${MGX_ALLOW_BEHIND_MAIN:-}
+if [ -n "$ALLOW_BEHIND" ] && [ "$behind" != "ok" ]; then
+    if [ ! -f "$ALLOW_BEHIND" ]; then
+        echo "REFUSED: MGX_ALLOW_BEHIND_MAIN must be the path of a committed plan file stating"
+        echo "         which banked cells this run shares a tree with (got '$ALLOW_BEHIND')."
+        exit 1
+    fi
+    echo "behind-main override accepted, reason from $ALLOW_BEHIND:"
+    grep -m1 -n "ONE TREE" "$ALLOW_BEHIND" | sed 's/^/    /'
+    echo "    remote tree: $(ssh -o BatchMode=yes -o ConnectTimeout=30 whglx "cd $REMOTE_TREE && git rev-parse --short HEAD" 2>/dev/null)"
+    behind=ok
+fi
 if [ "$behind" != "ok" ]; then
     echo "REFUSED: the whglx checkout does not contain origin/main (got '${behind:-no answer}')."
     echo "         A device run from it is attributable to a tree that is not main. Update the"
