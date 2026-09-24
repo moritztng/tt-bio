@@ -34,6 +34,10 @@ fi
 git -C "$SRC" checkout --quiet "$COMMIT"
 git -C "$SRC" rev-parse HEAD > "$OUT/bc2_commit.txt"
 
+# Does this clone still have the methods the harness patches? Checked before the install, because
+# a moved method makes the harness measure nothing and the install is the slow part.
+BC2_SRC="$SRC" python3 "$HERE/test_bc2_contract.py" 2>&1 | tee "$OUT/contract.log"
+
 # install.sh reads the accelerator off the driver and downloads the 5.3 GB AlphaFold parameters.
 cd "$SRC"
 bash install.sh 2>&1 | tee "$OUT/install.log"
