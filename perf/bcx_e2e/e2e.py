@@ -192,7 +192,7 @@ def to_t(x, dtype=torch.float64):
 
 
 def hybrid_step(dev, ref, vg32, logits, ridx, ke, kv, n, seam="single", zero_seed=False,
-                permute=False, census=False):
+                permute=False, census=False, only=None):
     """The joined gradient step: device trunk, host tail, cotangents back to the tape."""
     ag, tt = dev.ag, dev.tt
     gc.collect()
@@ -207,9 +207,9 @@ def hybrid_step(dev, ref, vg32, logits, ridx, ke, kv, n, seam="single", zero_see
     dev.sync()
     t1 = time.time()
 
-    single = dev.down(so, (n, C_S))
-    msa = dev.down(mo, (1, n, C_M))
-    pair = dev.down(zo, (n, n, C_Z))
+    single = dev.down(so.value, (n, C_S))
+    msa = dev.down(mo.value, (1, n, C_M))
+    pair = dev.down(zo.value, (n, n, C_Z))
     t2 = time.time()
 
     loss, g = vg32(reps(single, pair, msa, np.float32))
@@ -217,6 +217,10 @@ def hybrid_step(dev, ref, vg32, logits, ridx, ke, kv, n, seam="single", zero_see
     gs, gp, gm = to_t(g["single"]), to_t(g["pair"]), to_t(g["msa"])
     t3 = time.time()
 
+    if only == "single":          # the MSA track's whole contribution to dL/dlogits
+        gp = torch.zeros_like(gp)
+    elif only == "pair":          # what survives if the MSA-track cotangent is lost
+        gs = torch.zeros_like(gs)
     if zero_seed:
         gs, gp, gm = torch.zeros_like(gs), torch.zeros_like(gp), torch.zeros_like(gm)
     if permute:
@@ -305,6 +309,8 @@ def cmd_grad(args):
             "bc2_pin": os.popen(f"git -C {BC2} rev-parse HEAD").read().strip(),
             "multimer_ckpt": MULTIMER, "seeds": {}}
 
+    torch.manual_seed(0)
+    hybrid_step(dev, ref, vg32, torch.randn(n, 20) * 2.0, ridx, ke, kv, n)  # warm, discarded
     for sd in [int(s) for s in args.seeds.split(",")]:
         torch.manual_seed(sd)
         logits = torch.randn(n, 20) * 2.0
@@ -341,6 +347,12 @@ def cmd_grad(args):
             out["control_msa_seam"] = {"grad_norm": float(gms.norm()),
                                        "vs_f64": A.cmp(gms, g64), "vs_hybrid": A.cmp(gms, gh),
                                        "msa_leaf_grad_norm": exm["msa_leaf_grad_norm"]}
+            for which in ("single", "pair"):
+                go, _, _, _ = hybrid_step(dev, ref, vg32, logits, ridx, ke, kv, n, only=which)
+                out[f"control_only_{which}"] = {
+                    "grad_norm": float(go.norm()),
+                    "share_of_hybrid_norm": float(go.norm() / gh.norm()),
+                    "cos_with_hybrid": A.cosine(go, gh), "vs_hybrid": A.cmp(go, gh)}
             g2, _, _, _ = hybrid_step(dev, ref, vg32, logits, ridx, ke, kv, n)
             out["control_repeat_bit_identical"] = bool(torch.equal(g2, gh))
 
