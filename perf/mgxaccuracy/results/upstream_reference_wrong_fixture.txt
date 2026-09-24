@@ -22,8 +22,13 @@
 #
 # AND THE UPSTREAM ONE IS THE DISCONNECTED FIXTURE, measured not inferred:
 #
-#   qb2 bgt1536.cif   min inter-chain heavy-atom distance  162.40 A
-#                     centroid separation                  250.81 A
+#   fixture                  min inter-chain heavy atom   centroid separation   chains
+#   qb2   (upstream design)            162.40 A                  250.81 A        A=1008 B=528
+#   whglx (device designs)               1.88 A                   51.17 A        A=823  B=713
+#
+# 1.88 A is a contacting dimer -- chains that touch, so the binder is designed into a real
+# two-chain interface. 162.40 A is two proteins that never come near each other, 86x further
+# apart at their CLOSEST approach than the device's are at their closest contact.
 #
 # which is the ladder's old 1536 rung -- "two proteins 246.9 A apart whose sub-22 A
 # conditioning graph has zero edges between them" -- that this row disqualified for the size
