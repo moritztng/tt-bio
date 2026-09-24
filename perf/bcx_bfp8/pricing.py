@@ -85,6 +85,7 @@ def main():
     print(f"branch, bfp8 included. Trace capture is the lever that moves it, and it has to land")
     print(f"BEFORE bfp8 is worth converting, not after.")
 
+    R = roofs()
     (HERE / "pricing.json").write_text(json.dumps(
         {"source": "bcx-realcensus n=256 stack arm, qb1 card 0, AICLK 1343-1350 sampled during",
          "inputs": {"block_device_ms": DEV_MS, "block_wall_ms": WALL_MS, "block_host_ms": HOST_MS,
@@ -94,10 +95,53 @@ def main():
          "sweep": rows,
          "bfp8_nominal": {"block_wall_x": WALL_MS / w, "step_s": st, "step_x": STEP_S / st,
                           "x_off_h200": st / H200_STEP_S, "left_to_bar_x": st / BAR_S},
+         "roof_rederived": R,
          "host_floor": {"step_s": free, "step_x": STEP_S / free,
                         "x_off_h200": free / H200_STEP_S, "left_to_bar_x": free / BAR_S}},
         indent=1))
     print("\nwrote", HERE / "pricing.json")
+
+
+
+
+# ---------------------------------------------------------------- ROOF re-derivation
+# bcx-plan's bracket (b needs 11.1x; bf16 is 8.73x from the DRAM roof, bfp8 17.5x) was computed
+# on the `perf/hallgrad` census PROXY unit, which the CENSUS ruling superseded. The real block is
+# 12.7x that unit with a different op mix, so the bracket has to be re-derived on the real block.
+# Per-class utilisation against that class's OWN roof, from bcx-realcensus.
+UTIL = {"layout": (79.2, 0.63), "matmul": (65.4, 0.15), "eltwise": (54.8, 0.89),
+        "reduction": (7.3, 0.88), "softmax": (2.9, 0.84), "layernorm": (0.9, 0.68),
+        "other": (0.1, 1.0)}
+
+
+def roofs():
+    at_roof = sum(ms * u for ms, u in UTIL.values())
+    bf16_x = DEV_MS / at_roof
+    bfp8_x = DEV_MS / (at_roof / NOMINAL)
+    print("\n================ ROOF, re-derived on the REAL block ================")
+    print(f"block backward device time {DEV_MS:.1f} ms; every op at its OWN class roof "
+          f"{at_roof:.1f} ms")
+    print(f"  bf16 DRAM roof is {bf16_x:.2f}x away on the real block  "
+          f"(bcx-plan said 8.73x, on the superseded proxy unit)")
+    print(f"  bfp8 DRAM roof is {bfp8_x:.2f}x away on the real block  "
+          f"(bcx-plan said 17.5x)")
+    need = STEP_S / BAR_S
+    print(f"  the bar needs {need:.2f}x on the whole step ({STEP_S:.3f} -> {BAR_S:.3f} s)")
+
+    # what each roof gives as a whole step, with the host floor and then without it
+    dev_bwd = 10.76                      # 48 x 0.2108 + 4 x 0.1599, bcx-realcensus
+    for name, x in (("bf16 roof", bf16_x), ("bfp8 roof", bfp8_x)):
+        bwd_dev = dev_bwd / x
+        clamped = STEP_FWD_S + max(bwd_dev + (STEP_BWD_S - dev_bwd), STEP_HOST_S)
+        traced = STEP_FWD_S + bwd_dev    # host enqueue removed by trace capture
+        print(f"  {name:9s}: bwd device {dev_bwd:.2f} -> {bwd_dev:.2f} s | step today "
+              f"{clamped:.2f} s ({STEP_S/clamped:.2f}x, {clamped/BAR_S:.2f}x over bar) | "
+              f"step if traced {traced:.2f} s ({STEP_S/traced:.2f}x, {traced/BAR_S:.2f}x over bar)")
+    print("NEITHER roof contains the target on the real block, with or without the host floor.")
+    print("bcx-plan's bracket -- 'the bar sits between two measured roofs and bfp8 is the only")
+    print("one that contains it' -- does not survive being re-derived on the block it has to run on.")
+    return {"at_roof_ms": at_roof, "bf16_roof_x": bf16_x, "bfp8_roof_x": bfp8_x,
+            "step_x_needed": need}
 
 
 if __name__ == "__main__":
