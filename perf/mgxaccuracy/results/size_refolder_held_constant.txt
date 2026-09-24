@@ -23,6 +23,20 @@
 # way on the identical designs (21.52 A at 1536, 8.46 A at 512 pre-fix), so two independent
 # refolders agree and neither is the cause.
 #
+# BOTH SIDES ARE PRE-FIX, checked rather than assumed. A 512 side taken from the after-fix
+# run would have confounded the token-distance fix with size, since only 512 has an after-fix
+# cell so far. The designs staged into out_devrefold512_all8 are timestamped 09-23 23:21Z and
+# the after-fix 512 run did not finish until 23:49:50Z, so they cannot be its output; they are
+# the pre-fix eight-design cell whose device-refolder median is 8.455 A.
+#
+# The two refolders track each other at both sizes, same direction, same order of magnitude:
+#   res    device refolder   upstream refolder   upstream - device
+#   512        8.455              7.012              -1.44
+#  1536       21.516             19.347              -2.17
+# Against the measured upstream refold repeat spread of 0.9-1.9 A on one design
+# (results/refolder_pair_512.txt) neither residual is a signal, which is the point: the
+# instrument reads the same on both sides, so the 12.33 A it reports between them is not it.
+#
 # What this does NOT establish, and neither does anything else in this row:
 #   * that TT is worse than upstream AT 1536. That needs upstream's own 1536 DESIGN, which
 #     is the qb2 out1536 run -- 11.7 h in and now past its design step into folding.
