@@ -88,6 +88,10 @@ class Meter:
     def on_sequence_gradients_enter(self):
         self.entries += 1
         if self.entries > self.rounds:
+            # Stamp the boundary BEFORE unwinding: it closes the last round's wall, and
+            # the campaign's own finally blocks run between the raise and the dump.
+            EVENTS.append({"kind": "round_stop", "phase": "round", "t0": time.time(),
+                           "round": self.entries})
             raise StopAfterRounds(f"{self.rounds} rounds collected")
         EVENTS.append({"kind": "round_start", "phase": "round", "t0": time.time(),
                        "round": self.entries, "load1": os.getloadavg()[0]})
