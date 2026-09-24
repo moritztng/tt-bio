@@ -1,0 +1,27 @@
+{
+ "what": "bcx-heads 8824b0a48 is_allocated() guard, verified in this row config",
+ "before": {
+  "source": "runs/post_seed100/run.log",
+  "total_lines": 144045,
+  "tt_fatal_tensor_not_allocated": 144000,
+  "backwards": 125,
+  "per_backward": 1152
+ },
+ "after": {
+  "source": "proof/guard_after.log",
+  "command": "TT_VISIBLE_DEVICES=3 TT_BIO_LEASE_CARDS=3 TT_BIO_LEASE_HOLDER=worker:bcx-predictor replay_nan.py nancap/nan_backward_inputs.npz --depths 48,48,48",
+  "tt_fatal_tensor_not_allocated": 0,
+  "backwards": 4
+ },
+ "nan_fix_still_holds": {
+  "backwards": 4,
+  "nonfinite": 0,
+  "d_msa_absmax": 0.2893524169921875,
+  "distinct_values": 1,
+  "d_pair_absmax": 0.007665276527404785
+ },
+ "host": "tt-quietbox2",
+ "card": 3,
+ "utc": "2026-09-24T19:05Z",
+ "note": "not a speed claim: bcx-heads measured the per-block effect as noise, 2.61 vs 2.64 s"
+}

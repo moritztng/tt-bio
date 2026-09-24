@@ -1,0 +1,106 @@
+{
+ "why": "post_seed100 logged pTM 0.59 on all 15 mutate rounds; the log is written to 2 decimals",
+ "source_fact": "trajectory.py:161-166 scores the CANDIDATE and records that object, so the log carries the proposal, not the incumbent",
+ "csv_resolution": 0.005,
+ "binder_len": 77,
+ "arm": "jax",
+ "mutations": {
+  "v0_unmutated": null,
+  "v1_pos5": "F5Y",
+  "v2_pos27": "P27A",
+  "v3_pos49": "W49C",
+  "v4_pos71": "H71T"
+ },
+ "result": {
+  "v0_unmutated": {
+   "ptm_full": 0.56956,
+   "iptm_full": 0.083997,
+   "ptm_csv": 0.57,
+   "iptm_csv": 0.08,
+   "binder_plddt": 0.403,
+   "plddt": 0.7175,
+   "s": 137.9
+  },
+  "v1_pos5": {
+   "ptm_full": 0.570517,
+   "iptm_full": 0.088631,
+   "ptm_csv": 0.57,
+   "iptm_csv": 0.09,
+   "binder_plddt": 0.3809,
+   "plddt": 0.7053,
+   "s": 108.7
+  },
+  "v2_pos27": {
+   "ptm_full": 0.578172,
+   "iptm_full": 0.109774,
+   "ptm_csv": 0.58,
+   "iptm_csv": 0.11,
+   "binder_plddt": 0.3241,
+   "plddt": 0.6689,
+   "s": 101.9
+  },
+  "v3_pos49": {
+   "ptm_full": 0.569365,
+   "iptm_full": 0.084242,
+   "ptm_csv": 0.57,
+   "iptm_csv": 0.08,
+   "binder_plddt": 0.3899,
+   "plddt": 0.7112,
+   "s": 104.3
+  },
+  "v4_pos71": {
+   "ptm_full": 0.568557,
+   "iptm_full": 0.084381,
+   "ptm_csv": 0.57,
+   "iptm_csv": 0.08,
+   "binder_plddt": 0.394,
+   "plddt": 0.7135,
+   "s": 104.0
+  }
+ },
+ "shift_from_unmutated": {
+  "v1_pos5": {
+   "d_ptm": 0.000957,
+   "d_iptm": 0.004634,
+   "moves_ptm_at_csv_resolution": false,
+   "moves_iptm_at_csv_resolution": true
+  },
+  "v2_pos27": {
+   "d_ptm": 0.008612,
+   "d_iptm": 0.025777,
+   "moves_ptm_at_csv_resolution": true,
+   "moves_iptm_at_csv_resolution": true
+  },
+  "v3_pos49": {
+   "d_ptm": -0.000195,
+   "d_iptm": 0.000245,
+   "moves_ptm_at_csv_resolution": false,
+   "moves_iptm_at_csv_resolution": false
+  },
+  "v4_pos71": {
+   "d_ptm": -0.001003,
+   "d_iptm": 0.000384,
+   "moves_ptm_at_csv_resolution": false,
+   "moves_iptm_at_csv_resolution": false
+  }
+ },
+ "verdict": {
+  "ptm_csv_values": [
+   0.57,
+   0.58
+  ],
+  "iptm_csv_values": [
+   0.08,
+   0.09,
+   0.11
+  ],
+  "max_abs_d_ptm": 0.008612,
+  "max_abs_d_iptm": 0.025777
+ },
+ "post_seed100_mutate": {
+  "ptm": "0.59 x15, 1 distinct value",
+  "iptm": "0.10/0.11, 2 distinct values",
+  "anneal_ptm_for_comparison": "9 distinct over 45 rounds, longest constant run 5",
+  "harden_ptm_for_comparison": "2 distinct over 5 rounds, longest constant run 4"
+ }
+}

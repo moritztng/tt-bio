@@ -1,0 +1,171 @@
+{
+ "why": "mutate reads i_pTM 0.11 flat where harden read 0.74; predict pads the total axis",
+ "mutate_settings": {
+  "num_recycle": 1,
+  "dropout": false,
+  "model": "model_1_ptm"
+ },
+ "configs": {
+  "A_binder77_b32": {
+   "seed": 0,
+   "bucket": 32,
+   "complex_tokens": 192,
+   "bc2_padded_to": 192,
+   "bc2_pad": 0
+  },
+  "B_binder148_b32": {
+   "seed": 100,
+   "bucket": 32,
+   "complex_tokens": 263,
+   "bc2_padded_to": 288,
+   "bc2_pad": 25
+  },
+  "C_binder148_b1": {
+   "seed": 100,
+   "bucket": 1,
+   "complex_tokens": 263,
+   "bc2_padded_to": 263,
+   "bc2_pad": 0
+  }
+ },
+ "result": {
+  "A_binder77_b32": {
+   "jax": {
+    "hPDL1": {
+     "n": 192,
+     "chains": {
+      "binder": 0.403,
+      "target_hPDL1": 0.928
+     },
+     "plddt": 0.7175,
+     "ptm": 0.5696,
+     "iptm": 0.084
+    }
+   },
+   "jax_s": 101.6,
+   "device": {
+    "hPDL1": {
+     "n": 192,
+     "chains": {
+      "binder": 0.4005,
+      "target_hPDL1": 0.9293
+     },
+     "plddt": 0.7172,
+     "ptm": 0.5699,
+     "iptm": 0.0844
+    }
+   },
+   "device_s": 27.4
+  },
+  "B_binder148_b32": {
+   "jax": {
+    "hPDL1": {
+     "n": 263,
+     "chains": {
+      "binder": 0.3254,
+      "target_hPDL1": 0.9028
+     },
+     "plddt": 0.5779,
+     "ptm": 0.4562,
+     "iptm": 0.1044
+    }
+   },
+   "jax_s": 276.5,
+   "device": {
+    "hPDL1": {
+     "n": 263,
+     "chains": {
+      "binder": 0.3214,
+      "target_hPDL1": 0.9031
+     },
+     "plddt": 0.5758,
+     "ptm": 0.4575,
+     "iptm": 0.1064
+    }
+   },
+   "device_s": 50.4
+  },
+  "C_binder148_b1": {
+   "jax": {
+    "hPDL1": {
+     "n": 263,
+     "chains": {
+      "binder": 0.3203,
+      "target_hPDL1": 0.9025
+     },
+     "plddt": 0.5749,
+     "ptm": 0.457,
+     "iptm": 0.1052
+    }
+   },
+   "jax_s": 228.7,
+   "device": {
+    "hPDL1": {
+     "n": 263,
+     "chains": {
+      "binder": 0.3203,
+      "target_hPDL1": 0.9036
+     },
+     "plddt": 0.5754,
+     "ptm": 0.4572,
+     "iptm": 0.1066
+    }
+   },
+   "device_s": 39.9
+  }
+ },
+ "aiclk": {
+  "n": 438,
+  "min": 1312,
+  "median": 1350,
+  "max": 1350
+ },
+ "device_calls": {
+  "primal": 6,
+  "taped": 0,
+  "backward": 0
+ },
+ "delta": {
+  "A_binder77_b32": {
+   "iptm_jax": 0.084,
+   "iptm_device": 0.0844,
+   "iptm_diff": 0.0004,
+   "ptm_diff": 0.0003,
+   "plddt_diff": -0.0003
+  },
+  "B_binder148_b32": {
+   "iptm_jax": 0.1044,
+   "iptm_device": 0.1064,
+   "iptm_diff": 0.002,
+   "ptm_diff": 0.0013,
+   "plddt_diff": -0.0021
+  },
+  "C_binder148_b1": {
+   "iptm_jax": 0.1052,
+   "iptm_device": 0.1066,
+   "iptm_diff": 0.0014,
+   "ptm_diff": 0.0002,
+   "plddt_diff": 0.0005
+  }
+ },
+ "mutate_reading_being_explained": {
+  "harden_round_5_iptm": 0.74,
+  "mutate_iptm": 0.11,
+  "mutate_ptm": 0.59,
+  "harden_ptm": 0.74
+ },
+ "stamp": {
+  "host": "tt-quietbox2",
+  "card": 3,
+  "subsystem_device": "0x0046",
+  "commit": "819500242066f6815c35c6e9e90775194e381c23",
+  "tt_bio_dirty": false,
+  "torch_threads": 8,
+  "loadavg": [
+   57.23583984375,
+   60.134765625,
+   58.4853515625
+  ],
+  "utc": "2026-09-24T19:38:23Z"
+ }
+}

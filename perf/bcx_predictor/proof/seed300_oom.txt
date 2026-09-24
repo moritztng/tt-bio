@@ -1,0 +1,25 @@
+    predictions, chain_gradients, graph_design_loss = design_model.sequence_gradients(active_protein_states, active_losses, softmax_weight=softmax_weight, one_hot_weight=one_hot_weight, temperature=temperature, logit_scale=logit_scale, reference_predictions=reference_predictions)
+                                                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/ttuser/.coworker/wt/bcx-predictor/perf/bcx_predictor/ttbio_predictor.py", line 132, in sequence_gradients
+    return super().sequence_gradients(protein_states, losses, *args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/ttuser/bcx_e2e/bc2/bindcraft/af2.py", line 406, in sequence_gradients
+    (design_loss, prediction_arrays), shared_chain_gradients = compiled_sequence_gradients(*gradient_arguments)
+                                                               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+ValueError: INTERNAL: CpuCallback error calling callback: Traceback (most recent call last):
+  File "/home/ttuser/bcx_e2e_venv/lib/python3.12/site-packages/jax/_src/callback.py", line 816, in _wrapped_callback
+  File "/home/ttuser/bcx_e2e_venv/lib/python3.12/site-packages/jax/_src/callback.py", line 226, in _callback
+  File "/home/ttuser/bcx_e2e_venv/lib/python3.12/site-packages/jax/_src/callback.py", line 96, in pure_callback_impl
+  File "/home/ttuser/bcx_e2e_venv/lib/python3.12/site-packages/jax/_src/callback.py", line 71, in __call__
+  File "/home/ttuser/.coworker/wt/bcx-predictor/perf/bcx_predictor/splice.py", line 195, in _backward
+  File "/home/ttuser/.coworker/wt/bcx-predictor/tt_bio/autograd.py", line 408, in backward
+  File "/home/ttuser/.coworker/wt/bcx-predictor/tt_bio/autograd.py", line 1456, in fire
+  File "/home/ttuser/.coworker/wt/bcx-predictor/tt_bio/autograd.py", line 1417, in _recompute
+  File "/home/ttuser/.coworker/wt/bcx-predictor/tt_bio/autograd.py", line 397, in backward
+  File "/home/ttuser/.coworker/wt/bcx-predictor/tt_bio/taped_ttnn.py", line 598, in bw
+  File "/home/ttuser/.coworker/wt/bcx-predictor/tt_bio/autograd.py", line 343, in add_grad
+  File "/home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/ttnn/decorators.py", line 483, in __call__
+info:
+Out of Memory: Not enough space to allocate 84934656 B DRAM buffer across 8 banks, where each bank needs to store 10616832 B, but bank size is 4278190016 B (allocated: 4248022976 B, free: 30167040 B, largest free block: 6635520 B)
+backtrace:
+

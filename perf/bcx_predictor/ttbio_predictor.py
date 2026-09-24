@@ -41,21 +41,51 @@ to land with its own test; `bcx-mono` left the function alone and recorded the u
 """
 import numpy as np
 
-from bindcraft.af2 import (AlphaFoldDesignModel, padded_prediction_length,
-                           protein_state_shapes, pad_design_chains, concatenate_chain_arrays)
+from bindcraft.af2 import (AlphaFoldDesignModel, padded_prediction_complex,
+                           padded_prediction_length, pad_design_chains,
+                           concatenate_chain_arrays)
 from bindcraft.prediction import DifferentiableProteinPredictor
 from bindcraft.protein import real_residue_weights
 
 DEVICE_TOKEN_BUCKET = 32
 
 
-def masked_residue_count(protein_states, length_bucket_size: int, target_pad_length: int = 0) -> int:
-    """How many residues BindCraft 2's own padding would mask out of this complex."""
-    padded = pad_design_chains(protein_states, length_bucket_size, target_pad_length)
+def masked_residue_count(protein_states, length_bucket_size: int, target_pad_length: int = 0,
+                         path: str = "predict") -> int:
+    """How many residues BindCraft 2's padding masks out of this complex.
+
+    BindCraft 2 pads in TWO places and they do not overlap, which is what this function
+    got wrong: it counted only the first and returned 0 for the single-chain PD-L1 fold
+    that reads 0.534 pLDDT with a 19.28% zero pair mask, so the refusal built to catch
+    exactly that padding would have waved it through.
+
+    * `pad_design_chains` pads each DESIGN chain up to the bucket. That is the
+      `sequence_gradients` path (`bindcraft/af2.py:385`) and it is what the old count saw.
+    * `predict` pads the TOTAL token axis to the bucket (`bindcraft/af2.py:298`), and it
+      only pads chains at all when `target_pad_length` is set. A single chain of 115 is
+      unpadded by the first rule and padded to 128 by the second.
+
+    `path` selects which one, because a caller asking about a gradient step and a caller
+    asking about a fold are asking different questions.
+    """
+    if path not in ("predict", "sequence_gradients"):
+        raise ValueError(f"path must be 'predict' or 'sequence_gradients', not {path!r}")
     masked = 0
-    for state_name, chain_names, _ in protein_state_shapes(padded):
-        flags = concatenate_chain_arrays(chain_names, padded[state_name], "flags")["flags"]
+    for state_name, protein_complex in protein_states.items():
+        if path == "sequence_gradients":
+            padded = pad_design_chains({state_name: protein_complex},
+                                       length_bucket_size, target_pad_length)[state_name]
+        else:
+            padded = (padded_prediction_complex(protein_complex, length_bucket_size,
+                                                target_pad_length)
+                      if target_pad_length else protein_complex)
+        names = tuple(sorted(padded))
+        flags = concatenate_chain_arrays(names, padded, "flags")["flags"]
         masked += int((np.asarray(real_residue_weights(flags)) == 0).sum())
+        if path == "predict":
+            # The token-axis pad `predict` adds on top, which is pure mask.
+            residues = sum(len(padded[n]) for n in names)
+            masked += padded_prediction_length(residues, length_bucket_size) - residues
     return masked
 
 
