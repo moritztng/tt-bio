@@ -55,7 +55,10 @@ def main():
     ap.add_argument("--out", default=None)
     ap.add_argument("--settings", default=None)
     ap.add_argument("--bucket", type=int, default=1,
-                    help="length_bucket_size. 1 leaves the complex unpadded, which is\nthe only regime tt-bio's AF2 trunk serves: it asserts an all-ones mask\n(af2.py:385, :509) and BindCraft 2's design-chain padding is masked.")
+                    help="length_bucket_size override; 0 leaves BindCraft 2's own "
+                         "default of 32. It used to have to be 1 because the trunk "
+                         "refused a masked fold; all three mask sites are in af2.py "
+                         "now, so 32 runs and is the lab's configuration.")
     args = ap.parse_args()
 
     project = args.out or str(HERE / "runs" / f"{args.arm}_seed{args.seed}")
