@@ -454,7 +454,9 @@ both set to `0`.
 **Reach:** sizes only. Anything whose pair tensor stays under the threshold runs the same
 operations as before. On a 12 GiB chip that is OpenDDE and OpenDDE-AbAg above about 760 residues
 (the input-projection change above about 1080). Models with a 128-channel pair track cross it only
-past about 2500 tokens. `0` on either flag restores the host join for that part.
+past about 2500 tokens: Nesso-1 affinity at 3072 tokens runs the same speed with the flags as without,
+and at 3584 tokens it takes 741 s instead of 5166 s, with the same affinity. `0` on either flag
+restores the host join for that part.
 
 ## `TT_BIO_PWA_BATCH_HEAD_WEIGHTS` — on
 
