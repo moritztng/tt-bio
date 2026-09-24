@@ -97,3 +97,35 @@ its precision before the fp32 cast `_ln` does. Fix 6267fc178: `forward_device` u
     only what the confidence backward reaches, the trunk and the heads.
 
 Predicted verdict: GO if 7 to 9 hold. None of these tolerances move after the arm.
+
+## Second amendment, committed before CF384 runs on the real fix
+
+The upcast (6267fc178) was wrong and is reverted (ef11e2409). Its arm is filed as **UC384**:
+`resolved` 5.63x its bf16, the same as RF384's 5.65x, and the head probe on the step's inputs read
+0.228 whatever the s_trunk dtype, tape or not, pads zeroed or not. Predictions 8 to 10 were made
+for a fix that did not touch the defect: 8 (resolved within 3x) and 10 (resolved loss within 0.02
+of float64) failed on UC384; 7 and 9 held. The mechanism named in the first amendment was a
+retrodiction and is withdrawn.
+
+What the defect is: at of3t-auxgrad's own capture boundary, upstream float64 matches upstream's
+captured outputs to 0.0 and the device head reads `resolved_logits` 2.85e-01 on this tree against
+5.37e-03 on auxgrad's tree f937e3029. `git bisect` localised it to a merge range where the probe
+cannot run, and the diff of the head across that range shows the one argument that changed:
+`scale_pair_bias` True -> False in the confidence Pairformer. 5ec179cda set it True ("the pair bias
+was arriving at 1/sqrt(24) of the reference"); merge 45100fbce took the other parent's False.
+Fix dfc21275d restores True. Probe on the fixed tree: boundary `resolved` 4.2e-3; on the step's
+own inputs `resolved` 4.8e-3, `plddt` 4.8e-3, `si_conf` 5.2e-3 (were 0.228, 0.172, 2.4e-2), z-path
+unchanged (pae 4.3e-3, pde 3.7e-3). What remains on the step's inputs is the trunk's: resolved
+5.3e-2 and pae 6.0e-2 total, carried from `z_trunk` 5.1e-2 off float64.
+
+### CF384 predictions (tree dfc21275d, card 0, reference ref384c, chain.sh unchanged)
+
+12. The five GRADIENTS conditions hold (probability 0.95).
+13. `aux_heads.experimentally_resolved` within 3x its bf16 (probability 0.75), rel 0.03 to 0.07.
+14. `aux_heads.pairformer_embedding` within 3x (probability 0.85).
+15. `aux_heads.pae` stays past 3x its bf16 (probability 0.7): the head's own error is 4.3e-3 and
+    the fix cannot reach the 6.0e-2 it carries from `z_trunk`. So the predicted verdict is STOP on
+    `aux_heads.pae`, with the cause moved from the head to the trunk's pair output.
+16. `resolved` loss within 0.02 of float64's 2.7166 (probability 0.8).
+17. OpenFold3 inference byte-identical across the fix (probability 0.9): inference runs the
+    host s-path, which does not read this flag.
