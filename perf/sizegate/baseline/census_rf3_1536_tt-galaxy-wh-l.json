@@ -1,10 +1,10 @@
 {
-  "label": "rf3-256-rep0",
+  "label": "rf3-1536-rep0",
   "cli": [
     "-m",
     "tt_bio.main",
     "predict",
-    "/home/agent/wt-mgxi-m10/perf/size512/fixtures/cdk2x2_256.yaml",
+    "/home/agent/wt-mgxi-m10/perf/size512/fixtures/cdk2x2_1536.yaml",
     "--model",
     "rf3",
     "--single_sequence",
@@ -15,7 +15,7 @@
     "--seed",
     "0",
     "--out_dir",
-    "/home/agent/wt-mgxi-m10/perf/sizegate/work-record-rf3/out_rf3-256-rep0"
+    "/home/agent/wt-mgxi-m10/perf/sizegate/work-record-rf3/out_rf3-1536-rep0"
   ],
   "rc": 0,
   "processes": 2,
@@ -95,11 +95,9 @@
       "how": "stats",
       "counter": "tt_bio.mm_dualnoc.STATS",
       "resolved": "True",
-      "served": 0,
-      "declined": 4272,
-      "rejects": {
-        "memory": 4272
-      },
+      "served": 4272,
+      "declined": 0,
+      "rejects": null,
       "gauges": null
     },
     {
@@ -127,23 +125,21 @@
       "how": "stats-dict",
       "counter": "tt_bio.tenstorrent.FP32_SOFTMAX_STATS:l1_blocks,l1_refused",
       "resolved": "(9, 8)",
-      "served": 33,
+      "served": 0,
       "declined": 0,
       "rejects": null,
-      "gauges": {
-        "l1_cores": "65"
-      }
+      "gauges": null
     },
     {
       "flag": "PAIR_TRANSPOSE_VIA_ROW_MAJOR",
       "how": "wrap",
       "counter": null,
       "resolved": "True",
-      "served": 0,
-      "declined": 1088,
+      "served": 4272,
+      "declined": 8544,
       "rejects": {
-        "l1_dest_is_faster:256x256x64": 40,
-        "l1_dest_is_faster:256x256x128": 1048
+        "l1_dest_is_faster:1536x384x64": 160,
+        "l1_dest_is_faster:1536x192x128": 8384
       },
       "gauges": null
     },
@@ -153,10 +149,12 @@
       "counter": null,
       "resolved": "True",
       "served": 0,
-      "declined": 1088,
+      "declined": 11808,
       "rejects": {
-        "k_tiles=2:(2,1)": 40,
-        "k_tiles=4:(4,1)": 1048
+        "k_tiles=2:(2,1)": 140,
+        "no_mm_block:(8,2)": 140,
+        "k_tiles=4:(4,1)": 5764,
+        "k_tiles=4:(4,4)": 5764
       },
       "gauges": null
     },
@@ -166,11 +164,8 @@
       "counter": "tt_bio.trimul_tail.STATS",
       "resolved": "True",
       "served": 0,
-      "declined": 1088,
-      "rejects": {
-        "k_tiles=2": 40,
-        "k_tiles=4": 1048
-      },
+      "declined": 0,
+      "rejects": null,
       "gauges": null
     },
     {
@@ -178,10 +173,11 @@
       "how": "wrap",
       "counter": null,
       "resolved": "True",
-      "served": 2136,
-      "declined": 80,
+      "served": 11668,
+      "declined": 280,
       "rejects": {
-        "no_mm_block:(2,24)": 80
+        "no_mm_block:(2,24)": 140,
+        "no_mm_block:(8,2)": 140
       },
       "gauges": null
     },
@@ -201,12 +197,8 @@
       "counter": "tt_bio.reblock_permute.STATS",
       "resolved": "True",
       "served": 0,
-      "declined": 17088,
-      "rejects": {
-        "gated_window_BufferType.L1": 4272,
-        "window_BufferType.L1": 8544,
-        "back_l1_src_narrow": 4272
-      },
+      "declined": 0,
+      "rejects": null,
       "gauges": null
     },
     {
@@ -214,7 +206,7 @@
       "how": "stats",
       "counter": "tt_bio.reblock_permute.STATS_BACK",
       "resolved": "True",
-      "served": 0,
+      "served": 4272,
       "declined": 0,
       "rejects": null,
       "gauges": null
@@ -224,7 +216,7 @@
       "how": "stats",
       "counter": "tt_bio.reblock_permute.STATS_GATED",
       "resolved": "True",
-      "served": 0,
+      "served": 8544,
       "declined": 0,
       "rejects": null,
       "gauges": null
@@ -234,7 +226,7 @@
       "how": "stats-shared",
       "counter": "tt_bio.reblock_permute.STATS_GATED",
       "resolved": "True",
-      "served": 0,
+      "served": 8544,
       "declined": 0,
       "rejects": null,
       "gauges": null
@@ -244,9 +236,12 @@
       "how": "stats",
       "counter": "tt_bio.triatt_sdpa.STATS",
       "resolved": "True",
-      "served": 1088,
-      "declined": 0,
-      "rejects": null,
+      "served": 5904,
+      "declined": 140,
+      "rejects": {
+        "l1_budget": 1,
+        "pm_over_l1": 139
+      },
       "gauges": null
     },
     {
@@ -254,7 +249,7 @@
       "how": "stats",
       "counter": "tt_bio.tenstorrent.SDPA_K_CHUNK_STATS",
       "resolved": "True",
-      "served": 0,
+      "served": 5904,
       "declined": 0,
       "rejects": null,
       "gauges": null
@@ -264,7 +259,7 @@
       "how": "stats",
       "counter": "tt_bio.tenstorrent.SDPA_FUSED_LARGE_S_STATS",
       "resolved": "True",
-      "served": 0,
+      "served": 5904,
       "declined": 0,
       "rejects": null,
       "gauges": null
@@ -294,10 +289,10 @@
       "how": "stats",
       "counter": "tt_bio.triatt_qkv.STATS",
       "resolved": "True",
-      "served": 1048,
-      "declined": 40,
+      "served": 5764,
+      "declined": 140,
       "rejects": {
-        "head_dim_or_width": 40
+        "head_dim_or_width": 140
       },
       "gauges": null
     },
@@ -376,7 +371,7 @@
       "how": "wrap",
       "counter": null,
       "resolved": "1.25",
-      "served": 1088,
+      "served": 4272,
       "declined": 0,
       "rejects": null,
       "gauges": null
@@ -416,10 +411,12 @@
       "how": "stats",
       "counter": "tt_bio.tenstorrent.TRANSITION_H_CHUNK_STATS",
       "resolved": "16",
-      "served": 586,
-      "declined": 10,
+      "served": 0,
+      "declined": 596,
       "rejects": {
-        "h-clamped-to-H": 10
+        "base-unraised": 20,
+        "h-clamped-to-H": 50,
+        "ratio-shrunk": 526
       },
       "gauges": null
     },
