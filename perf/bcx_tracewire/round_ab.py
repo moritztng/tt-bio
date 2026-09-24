@@ -59,7 +59,10 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--seed", type=int, default=100)
     ap.add_argument("--rounds", type=int, default=9)
-    ap.add_argument("--params", default="/home/ttuser/bcx_e2e/af2_params")
+    ap.add_argument("--params", default="/home/ttuser/bcx_e2e/af2_params",
+                    help="BindCraft 2's AF2 weights DIRECTORY")
+    ap.add_argument("--af2-npz", default=None,
+                    help="the npz tt-bio's own trunk loads (default afgrad.DEFAULT_PARAMS)")
     ap.add_argument("--bucket", type=int, default=32)
     ap.add_argument("--region-mb", type=int, default=768)
     ap.add_argument("--card", type=int, default=int(os.environ.get("TT_VISIBLE_DEVICES", "0")))
@@ -92,7 +95,7 @@ def main():
     from splice import EvoformerOnDevice, evoformer_on_device
 
     lv = S.Levers()
-    dm, _ = A.load_models(args.params, refs=("bf16",))
+    dm, _ = A.load_models(args.af2_npz or A.DEFAULT_PARAMS, refs=("bf16",))
     dev = A.Dev(dm.to_device())
     lv.arm("stack")
     clock = S.Clock(dt=0.25)
