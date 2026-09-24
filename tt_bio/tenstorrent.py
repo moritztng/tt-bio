@@ -6654,7 +6654,9 @@ _TRIMUL_INPROJ_ROWBLOCK = os.environ.get(
     "TT_BIO_TRIMUL_INPROJ_ROWBLOCK", "1" if TRIMUL_INPROJ_ROWBLOCK else "0") == "1"
 _TRIMUL_INPROJ_ROWBLOCK_R = int(os.environ.get("TT_BIO_TRIMUL_INPROJ_ROWBLOCK_R", "128"))
 # The same route where the LN'd pair was too big to exist: each block norms its own rows (see
-# `_gated_rowblocked`). ON; "0" sends those shapes back to `_in_proj_rows` and its host join.
+# `_gated_rowblocked`). Independent of the flag above, whose loss was measured at 512 aa where
+# the alternative is a DRAM round trip; here the alternative is `_in_proj_rows`, joined on the
+# host past `concat_host_bytes()`. ON; "0" sends those shapes back to it.
 _TRIMUL_INPROJ_ROWBLOCK_NORM = env_flag("TT_BIO_TRIMUL_INPROJ_ROWBLOCK_NORM", True)
 
 
@@ -7292,7 +7294,8 @@ class TriangleMultiplication(Module):
                     defer_a = defer_b = False
                     branch = "?"
                     defer = _mm_transpose_deferred(program_config)
-                    if (_TRIMUL_INPROJ_ROWBLOCK and (not row_norm or _TRIMUL_INPROJ_ROWBLOCK_NORM)
+                    if ((_TRIMUL_INPROJ_ROWBLOCK and not row_norm
+                         or _TRIMUL_INPROJ_ROWBLOCK_NORM and row_norm and len(shp) == 4)
                             and not _FAST_MODE
                             and not _TRIMUL_RAW_CHANNEL_MOVES
                             and (mask is None or mask_moved_ok)
