@@ -213,6 +213,7 @@ class Levers:
         self._new_checkpoint = ag.checkpoint
         self.mm2d = self.bmm = self.heads = True
         self.bwd = set("124")
+        self.mask = False
         self.phase = "fwd"
         self.counts = collections.Counter()
         self.shapes = collections.defaultdict(collections.Counter)
@@ -366,8 +367,11 @@ class Levers:
         self.counts[(self.phase,) + key] += 1
 
     def arm(self, name):
-        """`<lever arm>[@old|@new]`: the suffix picks `autograd.checkpoint`, default new."""
+        """`<lever arm>[+mask][@old|@new]`: `@` picks `autograd.checkpoint`, default new, and
+        `+mask` hands the Evoformer an MSA mask, which runs `bcx-predictor`'s masked sites."""
         name, _, impl = name.partition("@")
+        name, plus, _ = name.partition("+mask")
+        self.mask = bool(plus)
         self.ag.checkpoint = _old_checkpoint if impl == "old" else self._new_checkpoint
         if name.startswith("bwd"):
             self.bwd = set(name[3:] or "124")
@@ -376,7 +380,7 @@ class Levers:
             self.bwd = set()
             self.mm2d, self.bmm, self.heads = ARMS[name]
         self.ag.TRIATT_BMM_CONFIG = self.bmm
-        self.name = name + ("@" + impl if impl else "")
+        self.name = name + plus + ("@" + impl if impl else "")
 
     def take(self):
         c, s = self.counts, self.shapes
@@ -587,6 +591,9 @@ def cmd_whole(args):
     logits = torch.randn(n, 20) * 2.0
     wm = torch.randn(1, n, 256, dtype=torch.float64) / (n * 256) ** 0.5
     wz = torch.randn(n, n, 128, dtype=torch.float64) / (n * n * 128) ** 0.5
+    # All ones, so a `+mask` arm computes the float64 chain's function through the masked
+    # program and its distance to float64 stays a correctness check. Its cost is the ops.
+    mask = dev.up(torch.ones(1, n))
 
     def device_grad():
         gc.collect()
@@ -597,7 +604,7 @@ def cmd_whole(args):
         lv.phase = "fwd"
         t0 = time.time()
         with dev.tt.tape():
-            mo, zo = dev.stack(ml, zl, ke, kv, ckpt=True)
+            mo, zo = dev.stack(ml, zl, ke, kv, ckpt=True, msa_mask=mask if lv.mask else None)
         dev.sync()
         t1 = time.time()
         seeds = [dev.seed(wm, mo), dev.seed(wz, zo)]
