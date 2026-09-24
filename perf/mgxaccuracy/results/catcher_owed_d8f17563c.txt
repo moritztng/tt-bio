@@ -1,0 +1,41 @@
+A CATCHER IS OWED AT origin/main d8f17563c, AND IT IS NOT RUN THIS PASS
+========================================================================
+
+2026-09-24 20:3xZ. `origin/main` moved f374c883e -> d8f17563c, six commits:
+
+    c45c69244  triatt fused-HiFi: retire a config only on an L1 refusal, not on a declined call
+    0f94082c9  triatt fused-HiFi: only a taped decline keeps its config, untaped is main again
+    129886f73  taped_ttnn: tape the fused score scale on the fp32-softmax add
+    73dfad22d  triatt_qkv: every generic_op entry point declines under a tape
+    6daa0f25b  fp32-softmax attention: no L1 shard and no L1-plan block cap under a tape
+    d8f17563c  autograd: ask is_allocated() before buffer_address() in the storage-sharing probe
+
+Files: `tt_bio/autograd.py`, `tt_bio/taped_ttnn.py`, **`tt_bio/tenstorrent.py`** (23 lines),
+`tt_bio/triatt_qkv.py`, plus a test and a guard script. `tenstorrent.py` is on the catcher
+rule's own trigger list, so by that rule boltzgen AND pxdesign each owe one job on d8f17563c.
+
+WHY IT IS NOT RUN NOW. All three of this row's chips are carrying the FAS chain-count ladder
+(768 on card 0, 1024 on card 2, 1536 on card 3) and the row's grant is 3. Dropping a rung
+mid-ladder to run a catcher would cost the control its within-tree comparison for a check that
+can run an hour later on the card the 768 rung releases. First job once a card frees.
+
+THE CODE READ, WHICH IS NOT A SUBSTITUTE FOR THE CATCHER. Every `tenstorrent.py` hunk is gated
+on `ops.taping()`, and a design is inference with no tape:
+
+  - `_tri_att_sdpa_hifi_inner`: on an L1 refusal the config is retired and the loop continues,
+    which is what the old `o = None` fallthrough already did. On a DECLINE the config is
+    retired only `if not ops.taping()`. Untaped both branches are the old behaviour.
+  - `_fp32_softmax_attention`: `if l1_rows` became `if l1_rows and not ops.taping()`, and
+    `if not l1_rows or (cap ...)` became `if not l1_rows or ops.taping() or (cap ...)`. With
+    `ops.taping()` False both reduce to the original expressions.
+
+So the expected result is "no change", on every cell. That is exactly the claim a catcher
+tests and exactly the claim this row has seen fail before: `eligibility-firing-condition-is-
+not-a-code-fact`, and `a-state-dependent-decline-must-not-be-cached-as-a-permanent-refusal`,
+which is about this very triatt latch. Run the jobs.
+
+WHAT TO RUN, the same two cases every previous row of CATCHER used: pxdesign 2 designs at the
+1224-token case (fit_rmsd against 0.1446 / 0.158 / 0.1423), boltzgen 2 designs at gpb 512
+(rc 0, scRMSD inside the banked n=8 band 0.693-12.925). Pinned card, AICLK sampled DURING.
+From `~/wt-mgx-catcher` against main, NOT from the design checkout, which is deliberately held
+at ff5435cba for the ladder.
