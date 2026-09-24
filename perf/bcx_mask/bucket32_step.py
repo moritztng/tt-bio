@@ -157,39 +157,60 @@ def step(bucket: int, host: HostEvoformer | None) -> dict:
             "calls": None if host is None else dict(host.calls)}
 
 
+def compare(r, base):
+    out = {"loss_delta": r["loss"] - base["loss"],
+           "mean_plddt_delta": float(np.mean(r["plddt_real"]) - np.mean(base["plddt_real"])),
+           "max_abs_plddt_delta": float(np.abs(r["plddt_real"] - base["plddt_real"]).max())
+           if r["plddt_real"].shape == base["plddt_real"].shape else None,
+           "grad": {}}
+    for k, v in r["grads"].items():
+        b = base["grads"].get(k)
+        if b is None or b.shape != v.shape:
+            continue
+        out["grad"][k] = {
+            "cos": float(v.ravel() @ b.ravel() / (np.linalg.norm(v) * np.linalg.norm(b))),
+            "norm_ratio": float(np.linalg.norm(v) / np.linalg.norm(b)),
+            "rel_l2": float(np.linalg.norm(v - b) / np.linalg.norm(b))}
+    return out
+
+
 def main():
     import afgrad as A
     _, ref = A.load_models(G.PARAM_NPZ, device_arm=False)
     model = ref["f32"]
     arms = {"jax_b1": (1, None), "jax_b32": (32, None),
+            "host_b1": (1, HostEvoformer(model, "af2")),
             "host_today_b32": (32, HostEvoformer(model, "device_today")),
             "host_fixed_b32": (32, HostEvoformer(model, "device_fixed")),
-            "host_b1": (1, HostEvoformer(model, "af2"))}
+            "host_af2_b32": (32, HostEvoformer(model, "af2"))}
     got, out = {}, {"arms": {}}
     for name, (bucket, host) in arms.items():
         t0 = time.time()
         r = got[name] = step(bucket, host)
-        base = got["jax_b1"]
+        # Every arm's own arrays on disk, so a comparison can be redone without a rerun.
+        np.savez(HERE / f"step_{name}.npz", plddt_real=r["plddt_real"],
+                 **{f"grad_{k}": v for k, v in r["grads"].items()})
         row = {"bucket": bucket, "seconds": round(time.time() - t0),
                "loss": r["loss"], "loss_finite": r["loss_finite"], "n": r["n"],
                "n_real": r["n_real"], "mean_plddt_real": float(np.mean(r["plddt_real"])),
+               "plddt_real_nonfinite": int((~np.isfinite(r["plddt_real"])).sum()),
                "scalars": r["scalars"], "grads_nonfinite": r["grads_nonfinite"],
+               "grad_norms": {k: float(np.linalg.norm(v)) for k, v in r["grads"].items()},
                "calls": r["calls"]}
-        if name != "jax_b1":
-            row["vs_jax_b1"] = {
-                "loss_delta": r["loss"] - base["loss"],
-                "mean_plddt_delta": row["mean_plddt_real"] - float(np.mean(base["plddt_real"])),
-                "grad": {k: {"cos": float(v.ravel() @ base["grads"][k].ravel()
-                                          / (np.linalg.norm(v) * np.linalg.norm(base["grads"][k]))),
-                             "norm_ratio": float(np.linalg.norm(v) / np.linalg.norm(base["grads"][k]))}
-                         for k, v in r["grads"].items() if k in base["grads"]
-                         and base["grads"][k].shape == v.shape},
-            }
+        # Against the unpadded truth AND against JAX at the SAME bucket: BindCraft 2's own two
+        # buckets are not the same program (`padded_to` continues `residue_index` through the
+        # pad, so the monomer chain break moves), and only the same-bucket pair isolates masking.
+        for base_name in ("jax_b1", f"jax_b{bucket}"):
+            if base_name in got and base_name != name:
+                row[f"vs_{base_name}"] = compare(r, got[base_name])
         out["arms"][name] = row
         OUT.write_text(json.dumps(out, indent=1, default=float))
-        print(name, json.dumps({k: row[k] for k in ("loss", "loss_finite", "n", "n_real",
-                                                    "mean_plddt_real")}),
-              json.dumps(row.get("vs_jax_b1", {})), flush=True)
+        print(name, json.dumps({k: row[k] for k in ("loss", "loss_finite", "n_real",
+                                                   "mean_plddt_real", "grads_nonfinite")}),
+              flush=True)
+        for base_name in ("jax_b1", f"jax_b{bucket}"):
+            if f"vs_{base_name}" in row:
+                print(f"   vs {base_name}:", json.dumps(row[f"vs_{base_name}"]), flush=True)
     print("bucket32_step complete", flush=True)
 
 
