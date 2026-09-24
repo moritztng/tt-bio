@@ -93,3 +93,23 @@ LOCAL script only — the fan is `setsid nohup`'d on whglx and keeps running. Ha
 the 768 rung; the fan (2654682) and both jobs (2654684, 2654692) were verified alive afterwards
 and the cells ran normally. The lesson is the verification, not the timeout: the launcher's own
 output is not the evidence that a fan started. `~/mgxacc-work/fan_*.log` plus live job pids is.
+
+## A HARVEST SCRIPT COMMITTED ON THE BRANCH IS ABSENT FROM THE WHGLX TREE THAT MUST RUN IT
+
+`launch_if_clear.sh` already refuses a PLAN that is missing on whglx, because the launcher
+fetches and never checks out and the design tree is deliberately held behind main so the size
+ladder stays within-tree. Nothing applies that guard to `ref/` scripts. At 19:1xZ both
+`ref/harvest_groel_upstream.sh` and `ref/harvest_upstream_1536.sh` were absent from BOTH whglx
+checkouts (`~/wt-mgx-design-accuracy` at ff5435cba and `~/wt-mgx-catcher` at 428670d60) while
+the state doc instructed the next pass to run the first of them there. `bash ... :
+No such file or directory` at the moment a 2 h reference finally lands is the worst time to
+discover it.
+
+Both are now copied in, and the GroEL one dry-run in its NOT-READY path: it prints
+"groel512: NOT READY (refold_design_cif holds 0 cif)" for both rungs and the reading note. Its
+two dependencies were already there and byte-identical to the branch — `scrmsd.py`
+sha256 71a9384b50bd8952, `targets/groel_ring4_2096.cif` 50321c894b9eadb7 — so nothing had to be
+overwritten under the running 768 rung.
+
+The general rule: anything the next pass is told to run ON whglx has to be checked present ON
+whglx in the pass that writes the instruction, not in the pass that follows it.
