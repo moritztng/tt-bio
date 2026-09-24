@@ -13,6 +13,12 @@ inside ONE process. Nothing in a lever is changed: the switches sit around it.
          `1f338604e` backwards (permute + reshape), copied verbatim below
 
 Arms: base (all off), mm2d, triatt (bmm + heads), stack (all on); `bmm` and `heads` alone too.
+`bcx-bwdplan` adds its three levers on top of `stack`: `bwd` (all three) or any of `bwd1` (the
+batched plan for the backward's batched products and the one-row fold in `_via2d`), `bwd2`
+(slice gradients joined once instead of padded with host-built zeros), `bwd4` (a reshape the
+forward made in ROW_MAJOR is undone in ROW_MAJOR), combined as e.g. `bwd12`. Off means the code
+this row replaced, reproduced here: no program config, the one-row operand left rank-3, the
+per-slice `_pad_slice`, and the TILE reshape.
 
 Subcommands, each one device open on the card TT_VISIBLE_DEVICES names:
 
@@ -205,6 +211,7 @@ class Levers:
         self.ttnn, self.ag, self.T = ttnn, ag, T
         self._new_checkpoint = ag.checkpoint
         self.mm2d = self.bmm = self.heads = True
+        self.bwd = set("124")
         self.phase = "fwd"
         self.counts = collections.Counter()
         self.shapes = collections.defaultdict(collections.Counter)
@@ -217,7 +224,7 @@ class Levers:
             mc = (kw or {}).get("memory_config")
             if len(s) <= 2:
                 why = "declined:rank<=2"
-            elif s[-2] % ttnn.TILE_SIZE:
+            elif s[-2] % ttnn.TILE_SIZE and s[-2] != 1:
                 why = "declined:rows-not-tile"
             elif x.layout != ttnn.TILE_LAYOUT:
                 why = "declined:layout"
@@ -229,10 +236,14 @@ class Levers:
                 why = "declined:sharded-memory_config"
             else:
                 why = "collapsed"
+            if why == "collapsed" and s[-2] % ttnn.TILE_SIZE:
+                why = "collapsed:one-row"
             site = _site()
             count("via2d", why, site)
             self.shapes[("via2d", why, site)][str(s)] += 1
             if why == "collapsed" and not self.mm2d:
+                return fn(x)
+            if why == "collapsed:one-row" and "1" not in self.bwd:
                 return fn(x)
             return via2d(x, fn, kw)
 
@@ -241,7 +252,9 @@ class Levers:
         bmm = ag.bmm_program_config
 
         def _bmm(a, b, transpose_a=False, transpose_b=False):
-            pc = bmm(a, b, transpose_a, transpose_b)
+            # AF2 never reaches `autograd.triangle_attention` (`reach_n256.json`), so every call
+            # here is a VJP product through `autograd.bmm`, which had no config before bwd1.
+            pc = bmm(a, b, transpose_a, transpose_b) if "1" in self.bwd else None
             sa, sb = _shape(a), _shape(b)
             if pc is not None:
                 why = "config"
@@ -257,6 +270,40 @@ class Levers:
             return pc
 
         ag.bmm_program_config = _bmm
+
+        join = ag.Tensor.add_grad_slice
+
+        def add_grad_slice(t, g, starts, ends):
+            count("slice_grad", "join" if "2" in self.bwd else "pad")
+            if "2" in self.bwd:
+                return join(t, g, starts, ends)
+            return t.add_grad(ag._pad_slice(g, starts, ends, [int(d) for d in t.value.shape]))
+
+        ag.Tensor.add_grad_slice = add_grad_slice
+
+        new_reshape = T._VERBS["reshape"]
+
+        def _old_reshape(shipped, args, kwargs):
+            """`237f53064` `taped_ttnn._v_reshape`, verbatim apart from the counter."""
+            x = T._wrap(args[0])
+            src = [int(d) for d in x.value.shape]
+            ra, rk = T._raw(args, kwargs)
+            out_v = shipped(*ra, **rk)
+
+            def make():
+                def bw(g):
+                    count("reshape_bw_tile")
+                    x.add_grad(ttnn.reshape(g, src))
+                return bw
+
+            return T._tape(out_v, [x], make)
+
+        def reshape(s, a, k):
+            return new_reshape(s, a, k) if "4" in self.bwd else _old_reshape(s, a, k)
+
+        for verb in ("reshape", "unsqueeze", "squeeze"):
+            assert T._VERBS[verb] is new_reshape
+            T._VERBS[verb] = reshape
 
         tri = ag.triangle_attention
 
@@ -321,7 +368,12 @@ class Levers:
         """`<lever arm>[@old|@new]`: the suffix picks `autograd.checkpoint`, default new."""
         name, _, impl = name.partition("@")
         self.ag.checkpoint = _old_checkpoint if impl == "old" else self._new_checkpoint
-        self.mm2d, self.bmm, self.heads = ARMS[name]
+        if name.startswith("bwd"):
+            self.bwd = set(name[3:] or "124")
+            self.mm2d, self.bmm, self.heads = ARMS["stack"]
+        else:
+            self.bwd = set()
+            self.mm2d, self.bmm, self.heads = ARMS[name]
         self.ag.TRIATT_BMM_CONFIG = self.bmm
         self.name = name + ("@" + impl if impl else "")
 
@@ -493,7 +545,7 @@ def cmd_vjp(args):
 
 def cmd_bits(args):
     """One block's input gradients per arm against the base arm, on identical inputs and seeds:
-    bit-identical or not, and the relative L2 between them. The head entries are pure
+    bit-identical or not, and the relative L2 between them (the first arm is the base). The head entries are pure
     rearrangements, so an arm that differs from base only in them must be bit-identical."""
     lv, dev, ref = open_all(args)
     arms = args.arms.split(",")
@@ -510,7 +562,7 @@ def cmd_bits(args):
         for arm in arms:
             names = ("dz",) if stack_name == "extra" else ("dm", "dz")
             pick = (lambda gs: gs[1:]) if stack_name == "extra" else (lambda gs: gs)
-            a, b, a2 = pick(g[arm][0]), pick(g["base"][0]), pick(g[arm][1])
+            a, b, a2 = pick(g[arm][0]), pick(g[arms[0]][0]), pick(g[arm][1])
             rec[arm] = {nm: {"bit_identical_to_base": bool(torch.equal(x, y)),
                              "vs_base": A.cmp(x, y), "norm": float(x.norm()),
                              "repeat_bit_identical": bool(torch.equal(x, x2))}

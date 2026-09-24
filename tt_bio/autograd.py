@@ -31,7 +31,7 @@ import ttnn
 from tt_bio.envflags import env_flag
 
 __all__ = [
-    "Tensor", "precise_config", "bmm_program_config", "softmax_bw_inner", "no_grad", "parameter",
+    "Tensor", "precise_config", "bmm_program_config", "bmm", "softmax_bw_inner", "no_grad", "parameter",
     "forget_parameters", "parameter_for",
     "release_pins",
     "linear", "matmul", "layer_norm", "softmax", "mul", "add", "scale", "sigmoid",
@@ -172,11 +172,14 @@ class Tensor:
     taped one may not.
     """
 
-    __slots__ = ("_value", "grad", "requires_grad", "node", "pinned", "evictable", "shares")
+    __slots__ = ("_value", "_grad", "_parts", "requires_grad", "node", "pinned", "evictable",
+                 "shares")
 
     def __init__(self, value, requires_grad: bool = False):
         self._value = value
-        self.grad = None
+        self._grad = None
+        # Gradients of slices of this value, (starts, ends, g), until `grad` is read.
+        self._parts = None
         self.requires_grad = requires_grad
         self.node = None
         # Set by `_tape` the moment a closure is built that can read this value. It is the
@@ -336,17 +339,89 @@ class Tensor:
         want, got = tuple(self.value.shape), tuple(grad.shape)
         if want != got:
             raise ValueError(f"gradient shape {got} does not match value shape {want}")
-        if self.grad is None:
-            self.grad = grad
+        if self._grad is None:
+            self._grad = grad
             return
-        if self.grad.dtype != ttnn.float32:
-            self.grad = ttnn.typecast(self.grad, ttnn.float32)
-        self.grad = ttnn.add(self.grad, grad if grad.dtype == ttnn.float32
-                             else ttnn.typecast(grad, ttnn.float32))
+        if self._grad.dtype != ttnn.float32:
+            self._grad = ttnn.typecast(self._grad, ttnn.float32)
+        self._grad = ttnn.add(self._grad, grad if grad.dtype == ttnn.float32
+                              else ttnn.typecast(grad, ttnn.float32))
+
+    def add_grad_slice(self, grad, starts, ends) -> None:
+        """Accumulate the gradient of the slice ``[starts, ends)`` of this value.
+
+        A chunked forward slices a tensor into blocks, and padding each block's gradient back
+        out to the full shape before summing costs two host-built `ttnn.zeros` per block (a
+        host build and upload at about 7 GB/s) plus a full-size fp32 add on device. In an AF2
+        Evoformer block backward at n=256 that was 60 pads and 100.9 of the 182 ms of host
+        time (`perf/bcx_realcensus`). The blocks are kept instead and joined when `grad` is
+        first read, which the reverse topological order puts after the last of them.
+        """
+        if not self.requires_grad:
+            return
+        if self._parts is None:
+            self._parts = []
+        self._parts.append(([int(v) for v in starts], [int(v) for v in ends], grad))
+
+    @property
+    def grad(self):
+        if self._parts:
+            parts, self._parts = self._parts, None
+            for g in _join_slices(parts, [int(d) for d in self.value.shape]):
+                self.add_grad(g)
+        return self._grad
+
+    @grad.setter
+    def grad(self, g):
+        self._grad, self._parts = g, None
 
     def backward(self, seed=None) -> None:
         """Replay the tape from here. ``seed`` defaults to ones, i.e. d(sum(self))/d(self)."""
         backward([self], [seed])
+
+
+def _pad_slice(g, starts, ends, shape):
+    """A slice's gradient padded with zeros back out to the shape it was cut from."""
+    for ax in range(len(shape)):
+        before, after = starts[ax], shape[ax] - ends[ax]
+        if before or after:
+            g = ttnn.concat(([_zeros_like_along(g, ax, before)] if before else []) + [g]
+                            + ([_zeros_like_along(g, ax, after)] if after else []), dim=ax)
+    return g
+
+
+def _zeros_like_along(g, ax, n):
+    z = [int(d) for d in g.shape]
+    z[ax] = n
+    return ttnn.zeros(z, dtype=g.dtype, layout=ttnn.TILE_LAYOUT, device=g.device())
+
+
+def _join_slices(parts, shape):
+    """Slice gradients as full-shape contributions to sum.
+
+    Slices that cut one and the same axis without overlapping, which is every chunked loop,
+    are one concat in axis order, with zeros only where no slice was read. Anything else is
+    padded slice by slice. Both give the same numbers, since a padded zero adds nothing.
+    """
+    cuts = {tuple(ax for ax in range(len(shape)) if (s[ax], e[ax]) != (0, shape[ax]))
+            for s, e, _ in parts}
+    if len(cuts) == 1 and len(next(iter(cuts))) == 1:
+        (ax,) = next(iter(cuts))
+        parts = sorted(parts, key=lambda p: p[0][ax])
+        if all(a[1][ax] <= b[0][ax] for a, b in zip(parts, parts[1:])):
+            if len({g.dtype for _, _, g in parts}) > 1:
+                parts = [(s, e, g if g.dtype == ttnn.float32 else ttnn.typecast(g, ttnn.float32))
+                         for s, e, g in parts]
+            blocks, at = [], 0
+            for s, e, g in parts:
+                if s[ax] > at:
+                    blocks.append(_zeros_like_along(g, ax, s[ax] - at))
+                blocks.append(g)
+                at = e[ax]
+            if at < shape[ax]:
+                blocks.append(_zeros_like_along(blocks[-1], ax, shape[ax] - at))
+            return [blocks[0] if len(blocks) == 1 else ttnn.concat(blocks, dim=ax)]
+    return [_pad_slice(g, s, e, shape) for s, e, g in parts]
 
 
 def backward(roots, seeds=None) -> None:
@@ -583,14 +658,18 @@ def _via2d(x, fn, kw=None):
     (``perf/bcx_mm2d/probe.json``). Collapsing moves no data when the second-last dim fills
     whole tiles, because the tiles already sit in that order; any other reshape here is a
     relayout (the heads split [N,N,128] -> [N,N,4,32] costs 2 ms), so such a shape, a
-    sharded operand, or a caller-chosen program config is left as it came.
+    sharded operand, or a caller-chosen program config is left as it came. The exception is
+    one row per leading index, AF2's MSA track at depth 1: the relayout is small and the
+    rank-3 plan is not. dX = dY @ W^T at [256,1,768] took 2280 us as issued and 104 us folded,
+    and the forward linear 130 against 125 us (`perf/bcx_bwdplan/mm_probe.json`,
+    `lin_fwd_probe.json`).
 
     Same operands, same reduction, not always the same bits: where they differ, the 2-D
     result is the one closer to float64.
     """
     s = [int(d) for d in x.shape]
     mc = (kw or {}).get("memory_config")
-    if (len(s) <= 2 or s[-2] % ttnn.TILE_SIZE or x.layout != ttnn.TILE_LAYOUT
+    if (len(s) <= 2 or (s[-2] % ttnn.TILE_SIZE and s[-2] != 1) or x.layout != ttnn.TILE_LAYOUT
             or x.is_sharded() or (kw or {}).get("program_config") is not None
             or (mc is not None and mc.is_sharded())):
         return fn(x)
@@ -618,13 +697,22 @@ def bmm_program_config(a, b, transpose_a: bool = False, transpose_b: bool = Fals
     at the same HiFi4 config and sits closer to float64 (`perf/bcx_triatt/mm_probe2_n256.json`).
     A rank-3 view changes nothing and the default fidelity only 3 %, so the plan was the gap.
 
+    The backward needs it more than the forward. A product with a transposed operand gets a
+    1-to-8-core plan from ttnn, so the VJPs of batched products ran there: at n=256, AF2's
+    column attention over a one-sequence MSA (2048 single-tile products, 6.5 ms on one core,
+    63 us here) and the triangle-attention blocks (1132 us against 122 us), 2.29 s of an AF2
+    gradient step (`perf/bcx_realcensus`, `perf/bcx_bwdplan/mm_probe.json`). So `bmm`, which
+    every batched VJP product goes through, asks here first.
+
     ONLY the region that was proven. The reuse kernel requires ``per_core_N == N``, and with
     ``per_core_M < M`` -- one batch's output split over two M blocks -- it returned a few
     non-finite elements and non-reproducible finite ones inside a real block, from finite
     inputs, while never failing in isolation (`perf/bcx_triatt/HAZARD.md`). So the whole
     output matrix goes to one block, at most `BMM_OUT_TILES`; the contraction runs in K blocks
-    of up to 8 tiles. Both operands batched with equal batch dims and every matmul dim a whole
-    number of tiles. Anything else returns None and ttnn plans it as before.
+    of up to 8 tiles. Both operands batched with equal batch dims. A dim that is not a whole
+    number of tiles counts its padded tiles, which is what every plan computes on; at depth 1
+    the column-attention products are bit-identical to ttnn's own plan. Anything else returns
+    None and ttnn plans it as before.
     """
     sa = [int(d) for d in a.shape]
     sb = [int(d) for d in b.shape]
@@ -632,9 +720,7 @@ def bmm_program_config(a, b, transpose_a: bool = False, transpose_b: bool = Fals
         return None
     M, K = (sa[-1], sa[-2]) if transpose_a else (sa[-2], sa[-1])
     N = sb[-2] if transpose_b else sb[-1]
-    if M % 32 or N % 32 or K % 32:
-        return None
-    Mt, Nt, Kt = M // 32, N // 32, K // 32
+    Mt, Nt, Kt = (-(-d // ttnn.TILE_SIZE) for d in (M, N, K))
     if Mt * Nt > BMM_OUT_TILES:
         return None
 
@@ -648,6 +734,12 @@ def bmm_program_config(a, b, transpose_a: bool = False, transpose_b: bool = Fals
         compute_with_storage_grid_size=a.device().compute_with_storage_grid_size(),
         in0_block_w=largest_divisor(Kt, 8), out_subblock_h=sh, out_subblock_w=sw,
         per_core_M=Mt, per_core_N=Nt)
+
+def bmm(a, b, transpose_a: bool = False, transpose_b: bool = False, **kw):
+    """``ttnn.matmul`` under `bmm_program_config`'s plan where it has one, ttnn's otherwise."""
+    return ttnn.matmul(a, b, transpose_a=transpose_a, transpose_b=transpose_b,
+                       program_config=bmm_program_config(a, b, transpose_a, transpose_b), **kw)
+
 
 def _reduce_to(g, shape):
     """A broadcast operand's gradient: the output's, summed over the axes it was spread along.
@@ -717,22 +809,18 @@ def matmul(a: Tensor, b: Tensor, *, transpose_a: bool = False, transpose_b: bool
             if a.requires_grad:
                 if not transpose_a:
                     # dA = g @ op(b)^T
-                    a.add_grad(rows(g, lambda v: ttnn.matmul(v, b.value,
-                                                             transpose_b=not transpose_b,
-                                                             compute_kernel_config=cfg)))
+                    a.add_grad(rows(g, lambda v: bmm(v, b.value, False, not transpose_b,
+                                                     compute_kernel_config=cfg)))
                 else:
                     # A entered as A^T, so dA = (dA_eff)^T = op(b) @ g^T
-                    a.add_grad(ttnn.matmul(b.value, g, transpose_a=transpose_b,
-                                           transpose_b=True, compute_kernel_config=cfg))
+                    a.add_grad(bmm(b.value, g, transpose_b, True, compute_kernel_config=cfg))
             if b.requires_grad:
                 if not transpose_b:
                     # dB = op(a)^T @ g
-                    b.add_grad(ttnn.matmul(a.value, g, transpose_a=not transpose_a,
-                                           compute_kernel_config=cfg))
+                    b.add_grad(bmm(a.value, g, not transpose_a, compute_kernel_config=cfg))
                 else:
                     # B entered as B^T, so dB = (dB_eff)^T = g^T @ op(a)
-                    b.add_grad(ttnn.matmul(g, a.value, transpose_a=True,
-                                           transpose_b=transpose_a, compute_kernel_config=cfg))
+                    b.add_grad(bmm(g, a.value, True, transpose_a, compute_kernel_config=cfg))
         return bw
 
     return _tape(out_v, [a, b], make)
@@ -1100,9 +1188,9 @@ def triangle_attention(q: Tensor, k: Tensor, v: Tensor, bias: Optional[Tensor] =
     cfg = config or precise_config()
 
     def mm(a, b, ta=False, tb=False):
-        pc = bmm_program_config(a, b, ta, tb) if TRIATT_BMM_CONFIG else None
-        return ttnn.matmul(a, b, transpose_a=ta, transpose_b=tb, compute_kernel_config=cfg,
-                           program_config=pc)
+        if TRIATT_BMM_CONFIG:
+            return bmm(a, b, ta, tb, compute_kernel_config=cfg)
+        return ttnn.matmul(a, b, transpose_a=ta, transpose_b=tb, compute_kernel_config=cfg)
 
     qs = [int(d) for d in q.value.shape]
     ks = [int(d) for d in k.value.shape]

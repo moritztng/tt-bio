@@ -133,11 +133,10 @@ def _v_matmul(shipped, args, kwargs):
         def bw(g):
             if a.requires_grad:
                 rows = _via2d if len(b.value.shape) == 2 else (lambda t, fn: fn(t))
-                a.add_grad(rows(g, lambda v: ttnn.matmul(v, b.value, transpose_b=not tb,
-                                                         compute_kernel_config=cfg))
+                a.add_grad(rows(g, lambda v: ag.bmm(v, b.value, False, not tb,
+                                                    compute_kernel_config=cfg))
                            if not ta else
-                           ttnn.matmul(b.value, g, transpose_a=tb, transpose_b=True,
-                                       compute_kernel_config=cfg))
+                           ag.bmm(b.value, g, tb, True, compute_kernel_config=cfg))
             if b.requires_grad:
                 # The weight reduces over every token, so it is `_flat2d`'s DRAM-normalised
                 # long-K path and fp32 out, for the reason documented there.
@@ -151,10 +150,9 @@ def _v_matmul(shipped, args, kwargs):
                     b.add_grad(ttnn.matmul(_flat2d(a.value), _flat2d(g), transpose_a=True,
                                            compute_kernel_config=cfg, dtype=ttnn.float32))
                 else:
-                    b.add_grad(ttnn.matmul(a.value, g, transpose_a=not ta,
-                                           compute_kernel_config=cfg) if not tb else
-                               ttnn.matmul(g, a.value, transpose_a=True, transpose_b=ta,
-                                           compute_kernel_config=cfg))
+                    b.add_grad(ag.bmm(a.value, g, not ta, compute_kernel_config=cfg)
+                               if not tb else
+                               ag.bmm(g, a.value, True, ta, compute_kernel_config=cfg))
             if bias is not None and bias.requires_grad:
                 bias.add_grad(_sum_leading(g, bias.value.shape))
         return bw
@@ -501,12 +499,22 @@ def _v_reshape(shipped, args, kwargs):
     the backward of all three is the source shape, read here rather than inferred there."""
     x = _wrap(args[0])
     src = [int(d) for d in x.value.shape]
+    row_major = x.value.layout == ttnn.ROW_MAJOR_LAYOUT
     ra, rk = _raw(args, kwargs)
     out_v = shipped(*ra, **rk)
 
     def make():
         def bw(g):
-            x.add_grad(ttnn.reshape(g, src))
+            # A caller that untilizes to reshape does so because the reshape is not a tile view,
+            # and the gradient's reshape is not one either. Taken in TILE it is a ReshapeView
+            # kernel: the outer-product mean's [256,1024,256] -> [8192,8192] ran 11.95 ms at
+            # 5.5 % of the copy roof (`perf/bcx_realcensus`). Untilize, view, tilize instead.
+            if row_major and g.layout == ttnn.TILE_LAYOUT:
+                g = ttnn.to_layout(ttnn.reshape(ttnn.to_layout(g, ttnn.ROW_MAJOR_LAYOUT), src),
+                                   ttnn.TILE_LAYOUT)
+            else:
+                g = ttnn.reshape(g, src)
+            x.add_grad(g)
         return bw
 
     return _tape(out_v, [x], make)
@@ -576,29 +584,13 @@ def _sliced(x: "Tensor", out_v, starts, ends):
     """Tape one slice of ``x`` whose value is already computed.
 
     Shared by `slice`, `chunk` and `__getitem__`, which are the same op three ways: the
-    backward pads the gradient back out with zeros on every axis that was cut. `chunk`
+    backward hands its block to `add_grad_slice`, which joins the blocks of one tensor. `chunk`
     reads its cut points off the shipped call rather than recomputing them, so the tape
     cannot disagree with the kernel about where the blocks begin.
     """
-    shape = [int(d) for d in x.value.shape]
-
     def make():
         def bw(g):
-            for ax in range(len(shape)):
-                before, after = starts[ax], shape[ax] - ends[ax]
-                if not before and not after:
-                    continue
-
-                def pad(n):
-                    z = [int(d) for d in g.shape]
-                    z[ax] = n
-                    return ttnn.zeros(z, dtype=g.dtype, layout=ttnn.TILE_LAYOUT,
-                                      device=g.device())
-
-                parts = ([pad(before)] if before else []) + [g] + \
-                        ([pad(after)] if after else [])
-                g = ttnn.concat(parts, dim=ax)
-            x.add_grad(g)
+            x.add_grad_slice(g, starts, ends)
         return bw
 
     return _tape(out_v, [x], make)
