@@ -911,7 +911,24 @@ def write_result(pred, batch, input_struct, out_dir, fmt,
 
     # Optional large outputs
     if write_pae and "pae" in pred:
-        np.savez_compressed(out_dir / f"{record.id}_pae.npz", pae=pred["pae"][best_idx].cpu().numpy())
+        # Real tokens only: a bucketed batch pads the token axis, and a padded PAE no longer lines
+        # up with the structure file it is meant to be read with.
+        pae = pred["pae"][best_idx].cpu().numpy()
+        real = (batch["token_pad_mask"][0].bool().cpu().numpy() if "token_pad_mask" in batch
+                else np.ones(pae.shape[0], dtype=bool))
+        pae = pae[np.ix_(real, real)]
+        np.savez_compressed(out_dir / f"{record.id}_pae.npz", pae=pae)
+        plddt = pred["plddt"][best_idx].cpu().numpy()[real] if "plddt" in pred else None
+        if plddt is not None:
+            np.savez_compressed(out_dir / f"{record.id}_plddt.npz", plddt=plddt)
+        if fmt == "cif" and len(struct.chains) > 1:
+            from tt_bio import interface_scores
+            name = {int(c["asym_id"]): str(c["name"]) for c in struct.chains}
+            pci = metrics.get("pair_chains_iptm") or {}
+            iptm = {name[int(i)]: {name[int(j)]: v for j, v in row.items() if int(j) != int(i)}
+                    for i, row in pci.items()} or None
+            metrics["interface_scores"] = interface_scores.score_files(
+                out_dir / f"{record.id}.cif", pae, plddt, pair_iptm=iptm)
     if write_pde and "pde" in pred:
         np.savez_compressed(out_dir / f"{record.id}_pde.npz", pde=pred["pde"][best_idx].cpu().numpy())
     if write_embeddings and "s" in pred and "z" in pred:
