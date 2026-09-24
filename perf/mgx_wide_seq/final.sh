@@ -10,7 +10,7 @@ export PATH=$HOME/.local/bin:$PATH PYTHONPATH=$PWD RELEASE_GATE_CENSUS_PYTHONPAT
 export TT_VISIBLE_DEVICES=$card TT_BIO_LEASE_CARDS=$card TT_BIO_LEASE_HOLDER=worker:mgx-wide-seq
 export TT_BIO_LEASE_DIR=$HOME/leases TT_METAL_LOGGER_LEVEL=FATAL TT_METAL_CACHE=$HOME/.cache/tt-metal-cache-mgxws
 export OMP_NUM_THREADS=2 MKL_NUM_THREADS=2
-o=perf/mgx_wide_seq/out; py=$HOME/env/bin/python
+o=perf/mgx_wide_seq/out; py=$HOME/env/bin/python; mkdir -p $o
 while [ $# -ge 2 ]; do
   m=$1 n=$2; shift 2
   if [ "$m" = nesso1 ]; then
