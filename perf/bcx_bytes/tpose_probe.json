@@ -1,0 +1,168 @@
+{
+ "rows": [
+  {
+   "shape": [
+    81,
+    4,
+    256,
+    256
+   ],
+   "move_MB": 84.934656,
+   "bits_permute_eq_transpose": true,
+   "bits_product_eq": true,
+   "permute": {
+    "min_ms": 0.2560615539550781,
+    "median_ms": 0.2765655517578125,
+    "aiclk": {
+     "n": 0
+    },
+    "GBps_at_min": 331.69624525086033
+   },
+   "transpose": {
+    "min_ms": 0.2472400665283203,
+    "median_ms": 0.2639293670654297,
+    "aiclk": {
+     "n": 0
+    },
+    "GBps_at_min": 343.53111610359116
+   },
+   "bmm_transpose_a": {
+    "min_ms": 0.209808349609375,
+    "median_ms": 0.21719932556152344,
+    "aiclk": {
+     "n": 0
+    }
+   },
+   "transpose_then_bmm": {
+    "min_ms": 0.38909912109375,
+    "median_ms": 0.39768218994140625,
+    "aiclk": {
+     "n": 0
+    }
+   }
+  },
+  {
+   "shape": [
+    13,
+    4,
+    256,
+    256
+   ],
+   "move_MB": 13.631488,
+   "bits_permute_eq_transpose": true,
+   "bits_product_eq": true,
+   "permute": {
+    "min_ms": 0.0858306884765625,
+    "median_ms": 0.09632110595703125,
+    "aiclk": {
+     "n": 0
+    },
+    "GBps_at_min": 158.8183462343111
+   },
+   "transpose": {
+    "min_ms": 0.08440017700195312,
+    "median_ms": 0.09083747863769531,
+    "aiclk": {
+     "n": 0
+    },
+    "GBps_at_min": 161.51018261116383
+   },
+   "bmm_transpose_a": {
+    "min_ms": 0.12326240539550781,
+    "median_ms": 0.12922286987304688,
+    "aiclk": {
+     "n": 0
+    }
+   },
+   "transpose_then_bmm": {
+    "min_ms": 0.13065338134765625,
+    "median_ms": 0.1704692840576172,
+    "aiclk": {
+     "n": 0
+    }
+   }
+  },
+  {
+   "shape": [
+    256,
+    4,
+    256,
+    256
+   ],
+   "move_MB": 268.435456,
+   "bits_permute_eq_transpose": true,
+   "bits_product_eq": true,
+   "permute": {
+    "min_ms": 0.7560253143310547,
+    "median_ms": 0.8006095886230469,
+    "aiclk": {
+     "n": 0
+    },
+    "GBps_at_min": 355.06146541867673
+   },
+   "transpose": {
+    "min_ms": 0.7984638214111328,
+    "median_ms": 0.8580684661865234,
+    "aiclk": {
+     "n": 0
+    },
+    "GBps_at_min": 336.1898796185799
+   },
+   "bmm_transpose_a": {
+    "min_ms": 0.48041343688964844,
+    "median_ms": 0.4971027374267578,
+    "aiclk": {
+     "n": 0
+    }
+   },
+   "transpose_then_bmm": {
+    "min_ms": 1.1181831359863281,
+    "median_ms": 1.163482666015625,
+    "aiclk": {
+     "n": 0
+    }
+   }
+  },
+  {
+   "shape": [
+    128,
+    4,
+    128,
+    128
+   ],
+   "move_MB": 33.554432,
+   "bits_permute_eq_transpose": true,
+   "bits_product_eq": true,
+   "permute": {
+    "min_ms": 0.11873245239257812,
+    "median_ms": 0.1800060272216797,
+    "aiclk": {
+     "n": 0
+    },
+    "GBps_at_min": 282.6053983038715
+   },
+   "transpose": {
+    "min_ms": 0.11968612670898438,
+    "median_ms": 0.22172927856445312,
+    "aiclk": {
+     "n": 0
+    },
+    "GBps_at_min": 280.3535624608127
+   },
+   "bmm_transpose_a": {
+    "min_ms": 0.10633468627929688,
+    "median_ms": 0.1163482666015625,
+    "aiclk": {
+     "n": 0
+    }
+   },
+   "transpose_then_bmm": {
+    "min_ms": 0.18167495727539062,
+    "median_ms": 0.1971721649169922,
+    "aiclk": {
+     "n": 0
+    }
+   }
+  }
+ ]
+}

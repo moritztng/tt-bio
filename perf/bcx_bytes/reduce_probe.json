@@ -1,0 +1,108 @@
+{
+ "rows": [
+  {
+   "shape": [
+    256,
+    4,
+    256,
+    256
+   ],
+   "aiclk_before": 1350,
+   "sum": {
+    "rel_l2_vs_f64": 0.0008322594458067732,
+    "bits_eq_sum": true,
+    "min_ms": 7.074117660522461,
+    "median_ms": 7.365226745605469
+   },
+   "moreh": {
+    "error": "TT_FATAL @ /project/ttnn/cpp/ttnn/operations/moreh/moreh_helper_functions.cpp:282: dtype_supported"
+   },
+   "tree": {
+    "rel_l2_vs_f64": 7.714995246647524e-08,
+    "bits_eq_sum": false,
+    "min_ms": 4.662036895751953,
+    "median_ms": 4.75001335144043
+   },
+   "torch_f32_rel_l2_vs_f64": 1.0878236772822556e-07,
+   "aiclk_after": 1350
+  },
+  {
+   "shape": [
+    81,
+    4,
+    256,
+    256
+   ],
+   "aiclk_before": 1350,
+   "sum": {
+    "rel_l2_vs_f64": 0.0008315561882301906,
+    "bits_eq_sum": true,
+    "min_ms": 1.613616943359375,
+    "median_ms": 1.6436576843261719
+   },
+   "moreh": {
+    "error": "TT_FATAL @ /project/ttnn/cpp/ttnn/operations/moreh/moreh_helper_functions.cpp:282: dtype_supported"
+   },
+   "tree": {
+    "rel_l2_vs_f64": 6.917503459839336e-08,
+    "bits_eq_sum": false,
+    "min_ms": 2.0127296447753906,
+    "median_ms": 6.128549575805664
+   },
+   "torch_f32_rel_l2_vs_f64": 9.216428130001074e-08,
+   "aiclk_after": 1350
+  },
+  {
+   "shape": [
+    13,
+    4,
+    256,
+    256
+   ],
+   "aiclk_before": 1350,
+   "sum": {
+    "rel_l2_vs_f64": 0.0008327096292880761,
+    "bits_eq_sum": true,
+    "min_ms": 0.5803108215332031,
+    "median_ms": 0.5993843078613281
+   },
+   "moreh": {
+    "error": "TT_FATAL @ /project/ttnn/cpp/ttnn/operations/moreh/moreh_helper_functions.cpp:282: dtype_supported"
+   },
+   "tree": {
+    "rel_l2_vs_f64": 5.3570855038405043e-08,
+    "bits_eq_sum": false,
+    "min_ms": 0.44536590576171875,
+    "median_ms": 0.6618499755859375
+   },
+   "torch_f32_rel_l2_vs_f64": 6.994938774082193e-08,
+   "aiclk_after": 1350
+  },
+  {
+   "shape": [
+    128,
+    4,
+    128,
+    128
+   ],
+   "aiclk_before": 1350,
+   "sum": {
+    "rel_l2_vs_f64": 0.0008312371756604888,
+    "bits_eq_sum": true,
+    "min_ms": 0.6074905395507812,
+    "median_ms": 0.7767677307128906
+   },
+   "moreh": {
+    "error": "TT_FATAL @ /project/ttnn/cpp/ttnn/operations/moreh/moreh_helper_functions.cpp:282: dtype_supported"
+   },
+   "tree": {
+    "rel_l2_vs_f64": 7.231458993431403e-08,
+    "bits_eq_sum": false,
+    "min_ms": 0.63323974609375,
+    "median_ms": 0.9210109710693359
+   },
+   "torch_f32_rel_l2_vs_f64": 9.537202629083497e-08,
+   "aiclk_after": 1350
+  }
+ ]
+}
