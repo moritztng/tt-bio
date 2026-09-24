@@ -308,13 +308,6 @@ class OF3ConfidenceHead:
         """
         N = int(zij_trunk_d.shape[-2])
         pe = "pairformer_embedding."
-        # The s-track runs fp32 whoever calls. `si_trunk` arrives raw (see `_ln`), and the
-        # pLDDT and resolved logits are its LayerNorm; casting only at that LayerNorm cannot
-        # restore mantissa a bf16 Pairformer already dropped. Inference hands fp32 in, so this
-        # is a no-op there. The training step hands the trunk's bf16 output, and bf16 here put
-        # resolved_logits at 2.3e-01 against upstream float64 on the step's own inputs (D266).
-        if si_trunk_d.dtype != ttnn.float32:
-            si_trunk_d = ttnn.typecast(si_trunk_d, ttnn.float32)
         z = zij_trunk_d if use_zij_trunk_embedding else ttnn.multiply(zij_trunk_d, 0.0)
         # Out-of-place: zij_trunk_d is the trunk's own output and the distogram head
         # reads it again below. An in-place add here would corrupt both.
