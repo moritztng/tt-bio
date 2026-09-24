@@ -50,7 +50,10 @@ PY = os.environ.get("LADDER_PY") or sys.executable
 LEASES = pathlib.Path(os.environ.get("TT_BIO_LEASE_DIR", "/tmp/tt-bio-device-leases"))
 HOST = os.uname().nodename
 # app.japanfold.com (24-27) and the tri_mech co-tenant (1), as in perf/mgxdesign/walk.py.
-BLOCKED = {1, 24, 25, 26, 27}
+# 1, 24, 25, 26 and 27 carry the live app.japanfold.com product and a co-tenant. 4 has a hung
+# holder every MGX brief forbids taking; it was absent here, and the other three signals only
+# hide it for as long as that holder's process stays alive -- once it dies the chip reads free.
+BLOCKED = {1, 4, 24, 25, 26, 27}
 CONTENTION = re.compile(r"device contention, nothing ran|is in use by worker:")
 
 
