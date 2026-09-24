@@ -120,6 +120,28 @@ def main() -> int:
         print(f"  {s:>4}  {len(v):>2}  {st.median(v):>7.3f}   {min(v):6.3f}-{max(v):6.3f}    "
               f"{frac(v, STRICT):5.1f}%  {frac(v, PERMISSIVE):5.1f}%")
 
+    # The 768 addition is independent of the 512/1024/1536 ladder above and is printed
+    # as soon as its own two cells exist, which is why it sits BEFORE the gate: on
+    # 2026-09-24 it was written after it and stayed silent on a landed cell.
+    if (512, a.offset) in cells and (768, a.offset) in cells:
+        # plans/fas_768.txt, reported separately and entering none of the clauses above.
+        d768 = cells.get((768, a.offset))
+        if d768 is not None:
+            v768 = d768["scrmsd"]
+            m768, f768 = st.median(v768), sum(x <= PERMISSIVE for x in v768)
+            print("\n--- plans/fas_768.txt, an addition: a single chain at the residue count where "
+                  "GroEL collapsed ---")
+            c768 = contrast(v768, cells[(512, a.offset)]["scrmsd"], " 512 ->  768")
+            if m768 <= PERMISSIVE and f768 >= 4:
+                v = "SURVIVES AT 768"
+            elif m768 > PERMISSIVE and f768 <= 1 and c768[2] <= 0.05:
+                v = "COLLAPSED AT 768"
+            else:
+                v = "INTERMEDIATE"
+            print(f"  median {m768:.3f} A, {f768} of {len(v768)} under {PERMISSIVE} A  ->  {v}")
+            print("  (GroEL at 768 residues, two chains, was 0 of 8 under 4 A on both crops.)")
+
+
     missing = [s for s in RUNGS if (s, a.offset) not in cells]
     if missing:
         print(f"\nrungs missing: {missing} -- no verdict. plans/chain_vs_residues.txt reads "
@@ -151,23 +173,6 @@ def main() -> int:
         why = ("report all three medians, all three fractions and both contrasts; the doc says "
                "both residue count and chain count cost something, with the numbers for each")
     print(f"\nFAS LADDER VERDICT: {v}\n  -> {why}")
-    # plans/fas_768.txt, reported separately and entering none of the clauses above.
-    d768 = cells.get((768, a.offset))
-    if d768 is not None:
-        v768 = d768["scrmsd"]
-        m768, f768 = st.median(v768), sum(x <= PERMISSIVE for x in v768)
-        print("\n--- plans/fas_768.txt, an addition: a single chain at the residue count where "
-              "GroEL collapsed ---")
-        c768 = contrast(v768, bot, " 512 ->  768")
-        if m768 <= PERMISSIVE and f768 >= 4:
-            v = "SURVIVES AT 768"
-        elif m768 > PERMISSIVE and f768 <= 1 and c768[2] <= 0.05:
-            v = "COLLAPSED AT 768"
-        else:
-            v = "INTERMEDIATE"
-        print(f"  median {m768:.3f} A, {f768} of {len(v768)} under {PERMISSIVE} A  ->  {v}")
-        print("  (GroEL at 768 residues, two chains, was 0 of 8 under 4 A on both crops.)")
-
     print("\nRead WITHIN this target only. FAS is a third protein, so a difference between its "
           "ladder and\nGroEL's or 1GPB's is a target difference until shown otherwise.")
     return 0
