@@ -560,8 +560,10 @@ def cmd_whole(args):
         ag.release_pins()
         del mo, zo, ml, zl, seeds
         gc.collect()
+        # loadavg at the end of the window: this cost is host-bound, so it scales with co-tenants
         return lgt.grad.double(), {"fwd": t1 - t0, "bwd": t3 - t2, "bwd_cpu": c3 - c2,
-                                   "step": t3 - t0, "spans": [(t0, t1), (t2, t3)]}
+                                   "step": t3 - t0, "load1": os.getloadavg()[0],
+                                   "spans": [(t0, t1), (t2, t3)]}
 
     arms = args.arms.split(",")
     blob = {"stamp": stamp(args, clock), "n": n, "k_extra": ke, "k_evo": kv, "ckpt": True,
@@ -590,6 +592,7 @@ def cmd_whole(args):
         blob["per_arm"][arm] = {
             "fwd": dist([r["fwd"] for r in rs]), "bwd": dist([r["bwd"] for r in rs]),
             "step": dist([r["step"] for r in rs]), "bwd_host_cpu": dist([r["bwd_cpu"] for r in rs]),
+            "load1": [r["load1"] for r in rs],
             "aiclk": clock.window([s for r in rs for s in r["spans"]]),
             "grad_norm": float(grads[arm][0].norm()),
             "vs_f64": A.cmp(grads[arm][0], g64),
@@ -873,16 +876,27 @@ def cmd_ckbits(args):
             g = {}
             for tag, impl, ckpt in (("plain", "new", False), ("new", "new", True), ("old", "old", True)):
                 lv.arm(f"{args.arm}@{impl}")
-                block_step(dev, lv, m0, z0, wm, wz, stack_name, ckpt=ckpt)
-                g[tag] = pick(block_step(dev, lv, m0, z0, wm, wz, stack_name, ckpt=ckpt)[1])
-            pt = {"n": n, "stack": stack_name}
+                block_step(dev, lv, m0, z0, wm, wz, stack_name, k=args.k, ckpt=ckpt)
+                g[tag] = pick(block_step(dev, lv, m0, z0, wm, wz, stack_name, k=args.k, ckpt=ckpt)[1])
+            pt = {"n": n, "stack": stack_name, "K": args.k}
+            # float64 on the same bf16-rounded inputs and cotangents, so a disagreement between
+            # the device arms can be told apart: which one is wrong, not only that they differ
+            f64 = ref["f64"]
+            if stack_name == "extra":
+                r64, _ = A.ref_vjp(lambda z: A.ref_stack(f64, None, z, args.k, 0)[1],
+                                   [A.bf(z0)], [A.bf(wz)])
+            else:
+                r64, _ = A.ref_vjp(lambda m, z: A.ref_stack(f64, m, z, 0, args.k),
+                                   [A.bf(m0), A.bf(z0)], [A.bf(wm), A.bf(wz)])
+            pt["vs_f64"] = {tag: {nm: A.cmp(x, y) for nm, x, y in zip(names, g[tag], r64)}
+                            for tag in g}
             for tag in ("new", "old"):
                 pt[tag] = {nm: {"bit_identical_to_plain": bool(torch.equal(x, y)),
                                 "vs_plain": A.cmp(x, y), "max_abs_diff": float((x - y).abs().max())}
                            for nm, x, y in zip(names, g[tag], g["plain"])}
             out["points"].append(pt)
             print(json.dumps(pt), flush=True)
-    save(args.out or f"ckbits_{args.arm}.json", out)
+    save(args.out or f"ckbits_{args.arm}{'_k%d' % args.k if args.k > 1 else ''}.json", out)
 
 
 def main():
