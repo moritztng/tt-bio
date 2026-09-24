@@ -12,6 +12,7 @@ The clone is not vendored here: BindCraft 2 is under the UZH Source-Available li
 points at a clone rather than carrying one. Skips cleanly when `BC2_SRC` is unset.
 """
 import ast
+import json
 import os
 import sys
 import unittest
@@ -126,6 +127,78 @@ class StepShape(unittest.TestCase):
         self.assertIsNotNone(precompile)
         self.assertIn('threading.Thread', calls(precompile))
         self.assertIn('alphafold_model.sequence_gradients', calls(precompile))
+
+
+@unittest.skipUnless(SOURCE, 'set BC2_SRC to a BindCraft 2 clone')
+class StepAccounting(unittest.TestCase):
+    """How many gradient steps a trajectory spends, which is what turns a per-step figure into a wall.
+
+    The campaign quotes "125 backprop iterations per trajectory" for BindCraft 2 from the shape of
+    FreeBindCraft's schedule. It happens to be right, and these read it out of BC2 instead.
+    """
+
+    @classmethod
+    def setUpClass(cls):
+        cls.settings = module('settings.py')
+        cls.trajectory = module('trajectory.py')
+        cls.schedule = module('target_schedule.py')
+        cls.af2 = module('af2.py')
+        with open(os.path.join(SOURCE, 'settings', 'core', 'default.json')) as handle:
+            cls.defaults = json.load(handle)
+        with open(os.path.join(SOURCE, 'settings', 'core', 'benchmark.json')) as handle:
+            cls.benchmark = json.load(handle)
+
+    def rounds(self):
+        assignment, = [node for node in self.settings.body if isinstance(node, ast.Assign)
+                       and any(getattr(target, 'id', None) == 'DESIGN_STAGE_DEFAULT_ROUNDS' for target in node.targets)]
+        return ast.literal_eval(assignment.value)
+
+    def test_the_four_gradient_stages_sum_to_125_rounds(self):
+        rounds = self.rounds()
+        self.assertEqual(rounds, {'screen': 50, 'refine': 25, 'anneal': 45, 'harden': 5, 'mutate': 15})
+        gradient = {stage: count for stage, count in rounds.items() if stage != 'mutate'}
+        self.assertEqual(sum(gradient.values()), 125)
+
+    def test_mutate_is_the_forward_only_stage_and_is_left_out(self):
+        """`gradient_stage_rounds` drops exactly `mutate`, so its 15 rounds carry no backward."""
+        body = function(self.settings, 'gradient_stage_rounds')
+        self.assertIn("'mutate'", ast.unparse(body))
+        mutation_stage = function(self.trajectory, 'run_sequence_mutation_stage')
+        self.assertIsNotNone(mutation_stage)
+        self.assertNotIn('design_model.sequence_gradients', calls(mutation_stage))
+        self.assertIn('design_model.predict', calls(mutation_stage))
+
+    def test_one_round_is_one_gradient_call(self):
+        """The gradient stage calls `sequence_gradients` once per loop turn and the loop turns once
+        per sequence update, so rounds and gradient calls are the same number for one target."""
+        stage = function(self.trajectory, 'run_gradient_design_stage')
+        loop, = [node for node in stage.body if isinstance(node, ast.While)]
+        self.assertEqual(calls(loop).count('design_model.sequence_gradients'), 1)
+        updater = function(self.schedule, 'should_update_sequence', 'IterationLimitedDesignSchedule')
+        returned, = [node for node in updater.body if isinstance(node, ast.Return)]
+        self.assertIs(ast.literal_eval(returned.value), True)
+
+    def test_a_gradient_call_folds_one_sampled_model_not_the_pool(self):
+        """`model=None` resolves to one sampled design model, so a round is one step and not five."""
+        resolver = function(self.af2, '_resolve_model_name', 'AlphaFoldDesignModel')
+        self.assertIn('self._sample_design_model', calls(resolver))
+
+    def test_a_second_binding_target_doubles_the_budget(self):
+        """Not our case -- hPDL1 is one target -- but it is the one setting that moves 125."""
+        budget = function(self.settings, 'rounds_per_binding_target')
+        self.assertIn('2 if', ast.unparse(budget))
+
+    def test_the_betasheet_reopt_extras_are_zero_by_default(self):
+        self.assertEqual(self.defaults['betasheet_reopt_extra_refine_steps'], 0)
+        self.assertEqual(self.defaults['betasheet_reopt_extra_anneal_steps'], 0)
+        self.assertEqual(self.defaults['design_recycles'], 1)
+
+    def test_benchmark_core_turns_off_what_would_move_the_step_count(self):
+        """`--core benchmark` is what makes the reference run reproducible: autotune and
+        desperation both rewrite the stage budget mid-campaign."""
+        self.assertEqual(self.benchmark['campaign_seed'], 0)
+        self.assertIs(self.benchmark['autotune'], False)
+        self.assertIs(self.benchmark['desperation'], False)
 
 
 if __name__ == '__main__':
