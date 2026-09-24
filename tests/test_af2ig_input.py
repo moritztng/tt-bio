@@ -246,3 +246,20 @@ def test_the_first_pass_starts_from_the_design(tmp_path):
     af2ig.fold(_Recording(len(feats["residue_index"])), spec, recycles=0)
     design = torch.from_numpy(feats["batch/all_atom_positions"].astype(np.float32))
     assert design.abs().sum() > 0 and torch.equal(seen[0], design)
+
+
+def test_the_reader_imports_without_the_model():
+    """JapanFold's API host checks af2ig submissions with this reader and has no numpy,
+    biotite or torch. Importing any of them here would refuse every af2ig job there."""
+    import subprocess
+    code = ("import sys\n"
+            "class Block:\n"
+            "    def find_spec(self, name, path=None, target=None):\n"
+            "        if name.split('.')[0] in ('numpy', 'biotite', 'torch', 'ttnn'):\n"
+            "            raise ImportError(name)\n"
+            "sys.meta_path.insert(0, Block())\n"
+            "from tt_bio.af2ig_input import read_af2ig_input\n"
+            f"spec = read_af2ig_input({str(EXAMPLE)!r})\n"
+            "assert spec.binder_sequence and spec.structure.startswith('ATOM')\n")
+    r = subprocess.run([sys.executable, "-c", code], cwd=REPO, capture_output=True, text=True)
+    assert r.returncode == 0, r.stderr[-2000:]
