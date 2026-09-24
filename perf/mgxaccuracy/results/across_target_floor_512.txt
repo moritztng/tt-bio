@@ -51,3 +51,34 @@
 # before and after that fix.
 #
 # Reproduce: perf/mgxaccuracy/plans/bg_floor_1536.txt, both entries, via launch_if_clear.sh.
+#
+# ============================================================================================
+# ALL FOUR CELLS' FIXTURES, CHECKED WITH fixture_id.py BEFORE READING ANY EFFECT
+# (2026-09-24 01:57Z, host-only, no card)
+#
+#   cell             chains          atoms   coord_sha              inter-chain
+#   512  offset   0  A=512           4178    7c38b308048af951cc80   single chain
+#   512  offset 100  A=512           4154    2566001fefafee8b*      single chain
+#   1536 offset   0  A=823 B=713     12464   34d0b6f4ea7c10a61b96   1.88 A  CONTACTING
+#   1536 offset 100  A=723 B=813     12467   8fa52f0726e21ffb04bf   1.88 A  CONTACTING
+#   (* byte hash; the offset-100 512 crop predates fixture_id.py's coord_sha)
+#
+# The two 1536 cells are contacting dimers with the SAME minimum inter-chain distance to two
+# decimals, so they are the same kind of problem as each other. Neither is the disconnected
+# rung (162.40 A) that invalidated the upstream reference.
+#
+# A LIMITATION OF THIS 2x2, PRE-REGISTERED BEFORE THE LAST TWO CELLS LAND. Chain A of the
+# source is 823 residues, so a 512 crop in file order never reaches chain B: **both 512 cells
+# are single-chain and both 1536 cells are two-chain.** The "size" axis therefore also changes
+# the chain count, and a binder designed against one chain and a binder designed into a
+# two-chain interface are not only different sizes. So whatever the size main effect comes out
+# as, it is "512 single-chain vs 1536 two-chain", not "512 residues vs 1536 residues" in the
+# abstract, and it must be written down that way.
+#
+# The TARGET main effect does not have this problem: it compares offset 0 against offset 100
+# at a fixed size, and at each size both crops have the same chain count. That is the
+# comparison the 13.04 A figure comes from, and it is clean.
+#
+# Fixing the size axis properly would need a target whose first chain is >= 1536 residues, so
+# that both sizes are single-chain, or a 1536 crop restricted to chain A. Neither is measured
+# here and neither is required by the brief; naming it is what stops the 2x2 being overread.
