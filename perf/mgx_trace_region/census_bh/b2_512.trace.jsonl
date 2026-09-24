@@ -1,0 +1,1 @@
+{"ev": "capture", "caller": "tenstorrent.py:12697", "region_per_bank": 268435456, "banks": 8, "trace_used_before": 0, "trace_used_after": 1638400, "dram_bank": 4009754560, "dram_used_per_bank": 213224448, "pid": 1593394, "t": 1790210559.58}

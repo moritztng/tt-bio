@@ -1,0 +1,1 @@
+{"ev": "capture", "caller": "protenix.py:1183", "region_per_bank": 268435456, "banks": 8, "trace_used_before": 0, "trace_used_after": 2301952, "dram_bank": 4009754560, "dram_used_per_bank": 720030720, "pid": 1801569, "t": 1790211697.5}

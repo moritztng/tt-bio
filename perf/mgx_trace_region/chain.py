@@ -80,12 +80,15 @@ def _mark(card, released):
 
 
 def take(pool, current=None):
+    # Check-and-mark under one host lock: two chains started together both saw card 30 free.
     while True:
-        pinned = _pinned()
-        for c in ([current] if current else []) + pool:
-            if c not in NEVER and _free(c, pinned):
-                _mark(c, False)
-                return c
+        with open(LEASES / "mgx-trace-region-pick.lock", "a") as lk:
+            fcntl.flock(lk, fcntl.LOCK_EX)
+            pinned = _pinned()
+            for c in ([current] if current else []) + pool:
+                if c not in NEVER and _free(c, pinned):
+                    _mark(c, False)
+                    return c
         time.sleep(5)
 
 

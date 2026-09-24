@@ -277,8 +277,8 @@ def add_configure_arguments(
         "--diffusion_trace",
         action="store_true",
         help="Replay a captured ttnn trace of the per-step diffusion DiT device "
-        "stream (lossless; collapses per-step host dispatch). Opt-in — reserves a "
-        "1 GiB trace region on the device.",
+        "stream (lossless; collapses per-step host dispatch). Opt-in; reserves a "
+        "few MiB of device memory.",
     )
 
     # Inverse folding configuration options

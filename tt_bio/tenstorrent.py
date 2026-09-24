@@ -5593,16 +5593,19 @@ def _assert_local_dispatch(dev):
 
 
 #: Trace region per DRAM bank, per capture, per arch. The region comes off EVERY bank and is
-#: DRAM the model can no longer use, so each entry is the capture's measured peak
-#: (perf/mgx_trace_region: the largest shape the model accepts), doubled and rounded up to a MiB.
-#: A caller names its capture and never passes bytes: a 1 GiB region is larger than a whole
-#: Wormhole bank (1073741792 B), the allocator's bank size underflows to 2**64 - 32 and the
-#: chip's first dispatch never completes.
+#: DRAM the model can no longer use, so each entry is the capture's measured peak, doubled and
+#: rounded up to a MiB (perf/mgx_trace_region/CENSUS.md). A capture's bytes are its command
+#: stream, not its tensors, so they barely move with size: boltz2's DiT step is 663552 B/bank at
+#: 512 tokens and 671744 B at 1536 on Wormhole. A capture that outgrows its region raises in
+#: end_trace_capture (TT_FATAL, the chip stays usable). A region at or past a bank does not
+#: raise: 1 GiB is larger than a whole Wormhole bank (1073741792 B), the allocator's bank size
+#: underflows to 2**64 - 32 and the chip's first dispatch never completes. So a caller names its
+#: capture and never passes bytes.
 TRACE_REGIONS = {
-    "diffusion": {"wormhole_b0": 256 << 20, "blackhole": 256 << 20},  # boltz2 / boltzgen DiT step
-    "protenix": {"wormhole_b0": 256 << 20, "blackhole": 256 << 20},   # protenix-v1/v2, opendde step
-    "esmc": {"wormhole_b0": 256 << 20, "blackhole": 256 << 20},       # all ESMC._TRACE_CACHE_MAX shapes
-    "rfd3": {"wormhole_b0": 256 << 20, "blackhole": 256 << 20},       # RFD3_TRACE_DECODER step
+    "diffusion": {"wormhole_b0": 2 << 20, "blackhole": 4 << 20},    # boltz2 / boltzgen DiT step
+    "protenix": {"wormhole_b0": 2 << 20, "blackhole": 5 << 20},     # protenix-v1/v2, opendde step
+    "esmc": {"wormhole_b0": 19 << 20, "blackhole": 16 << 20},       # ESMC._TRACE_CACHE_MAX live traces
+    "rfd3": {"wormhole_b0": 1 << 20, "blackhole": 2 << 20},         # RFD3_TRACE_DECODER, both traces
 }
 
 

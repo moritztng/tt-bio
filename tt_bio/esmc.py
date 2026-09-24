@@ -981,9 +981,10 @@ class ESMC(TorchWrapper):
     """
 
     # One captured trace per (bucketed length, mask layout) key. 8 concurrent
-    # traces fit the reserved region with headroom (one ESMC-300M trace is a
-    # few MB of trace buffer) and cover the working set of a length-sorted
-    # single-sequence stream.
+    # traces fit the reserved region with 2x headroom (one ESMC-300M trace at
+    # 1534 residues is 1.25 MB per bank on Wormhole) and cover the working set
+    # of a length-sorted single-sequence stream. A capture that does not fit
+    # raises, and _dispatch falls back to eager.
     _TRACE_CACHE_MAX = 8
 
     def __init__(self, d_model: int, n_heads: int, n_layers: int, *, trace: bool = True):
@@ -1566,7 +1567,8 @@ def load_sequences(data) -> dict[str, str]:
 # Measured on j10glx02 off the allocator's own refusal: "bank size is 805306336 B" with a 256 MiB
 # region against "1073741792 B" without. On the sequence-length axis that was the difference
 # between esmc-300m refusing 65537 residues and saprot-35m, same code path and no region,
-# embedding 73728 on the same part. Hence trace_pays below.
+# embedding 73728 on the same part. The region is now sized to the 8 live traces (19 MiB per
+# bank on Wormhole), and trace_pays still skips it where no capture could be replayed.
 
 
 def trace_pays(sequences, bucket: int = BUCKET) -> bool:
@@ -1575,8 +1577,8 @@ def trace_pays(sequences, bucket: int = BUCKET) -> bool:
     ``_dispatch`` captures a trace only on the SECOND sighting of a bucketed shape, on purpose:
     "tracing pays only when a shape repeats ... a one-shot call stays pure eager and never pays
     the capture cost". So on a workload where no bucketed width repeats, the region is reserved,
-    never captured into, and never replayed -- while still costing 3 GiB of the chip and 1.18x of
-    the sequence ceiling.
+    never captured into, and never replayed -- while still costing its bytes on every DRAM bank
+    (at the old 256 MiB region that was 3 GiB of the chip and 1.18x of the sequence ceiling).
 
     This is the same condition, asked one step earlier, where it can still be acted on: the
     reservation has to happen at device OPEN and cannot be taken back once a capture turns out to
