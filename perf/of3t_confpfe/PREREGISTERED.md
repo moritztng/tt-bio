@@ -129,3 +129,27 @@ unchanged (pae 4.3e-3, pde 3.7e-3). What remains on the step's inputs is the tru
 16. `resolved` loss within 0.02 of float64's 2.7166 (probability 0.8).
 17. OpenFold3 inference byte-identical across the fix (probability 0.9): inference runs the
     host s-path, which does not read this flag.
+
+## Outcome (after CF384; nothing above edited)
+
+| # | prediction | result |
+|---|---|---|
+| 1 | RF384 gradient identical to GO384 | holds: 3822 of 3822 tensors bit-identical (card 0 vs card 3); the file hash differs only by torch.save's embedded archive name |
+| 2 | five conditions on RF384 | hold |
+| 3 | pairformer_embedding within 3x after the reference fix | holds: 1.33x (RF384), 1.34x (CF384) |
+| 4 | resolved stays past 3x on RF384; f64 resolved gradient unchanged | holds: 5.65x; 1.4e-15 |
+| 5 | diffusion f64 gradients qb2 vs pc within 1e-10 | holds: 1.2e-13 |
+| 6 | resolved split puts the 5.7x in the structure | refuted: the structure carries 0.003 of a 0.078 gap |
+| 7, 9 | (UC384) five hold, pairformer within 3x | hold |
+| 8, 10 | (UC384) resolved within 3x, loss within 0.02 | fail; the upcast is withdrawn |
+| 12 | five conditions on CF384 | hold: unread 0 of 4158, 0, 0, global 0.1558 vs bf16 0.9482, mass 0.9807 |
+| 13 | resolved within 3x | holds: 0.0239 vs bf16 0.0230, 1.04x (interval 0.03 to 0.07 missed low) |
+| 14 | pairformer_embedding within 3x | holds: 1.34x |
+| 15 | pae stays past 3x | holds: 0.0780 vs bf16 0.0128, 6.07x |
+| 16 | resolved loss within 0.02 of float64 | holds: 2.7225 vs 2.7166 |
+| 17 | inference byte-identical | holds: INFAB.json, four folds b70e195d... |
+
+The bf16 bar is host-dependent: rebuilt on qb2 (torch 2.8) the global bf16 rel reads 0.9482
+against pc's (torch 2.13) 0.6025; per section the two confidence sections move little (resolved
+0.0228 -> 0.0230, pairformer 0.312 -> 0.338). The float64 reference agrees across the hosts to
+1.2e-13.
