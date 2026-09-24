@@ -783,7 +783,9 @@ CEILINGS: dict[str, dict[str, Ceiling]] = {
                      "Re-passed on origin/main 6ea518246 (after sdpa-mask 94e7a002c), j10glx02, "
                      "2026-09-24, guard off, --host_threads 2, AICLK median 1000 MHz sampled during "
                      "the fold: 1920 at 8192 rows PASS in 804.2 s (card 3, pLDDT 0.775, no CA-CA "
-                     "break)",
+                     "break). 2048 fails on the same tree and card after 1007.9 s at the same "
+                     "site, the diffusion cache's token-bias staging (tenstorrent.py _stage_token_bias), "
+                     "3221225472 B or 256 MiB per bank against a 246.8 MiB largest block with 562.7 MiB free",
         ),
     },
     "esmfold2": {
