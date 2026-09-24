@@ -103,7 +103,7 @@ Three 512-residue windows of the same chain, 100 residues apart, eight designs e
 Two of the three sit at 16-17 A and returned nothing usable; the good one is the outlier.
 
 **Crop to 512 residues or so, and to a single chain if your target has several.** Above that,
-designability falls away. The same windows taken out to 768, 1024 and 1536 residues, eight
+designability falls away, and a single chain does not exempt you from it. The same windows taken out to 768, 1024 and 1536 residues, eight
 designs per cell:
 
 | | 512 residues | 768 residues | 1024 residues | 1536 residues |
@@ -128,23 +128,29 @@ than noise. All three returned zero designs under 4 A, so the column is measurin
 design fails to refold rather than whether you get one. Do not read a 1024 number as better
 than a 768 number: both mean nothing usable came back.
 
-**If your target has several chains, crop to one of them before you crop by residue count.**
-Every 512-residue cell in the table above is a single chain, and every cell at 1024 or 1536 has
-a second chain in it. That is not a choice we made: GroEL's chains are about 524 residues and
-1GPB's longest is 823, so on these two targets a bigger crop is also a multi-chain crop. Every
-single-chain cell returned designs that refold and no multi-chain cell has returned one under
-4 A.
+**Cropping to a single chain helps, but it does not buy back the size.** In the table above
+every 512-residue cell is a single chain and every cell at 1024 or 1536 has a second chain in
+it, which is not a choice we made: GroEL's chains are about 524 residues and 1GPB's longest is
+823, so on those two targets a bigger crop is also a multi-chain crop. To separate the two we
+measured a third protein whose chain A is 1962 residues long, and cropped it to 512, 768 and
+1024 residues of that one chain:
 
-The two can be told apart once, on 1GPB, because chain A is 823 residues on its own. Stretching
-the crop from 512 to all 823 of that one chain moved the median from 4.6 to 8.0 A, and 25 % of
-designs still came in under 4 A; adding the second chain instead cost 14.8 A and left nothing
-under 4 A. Both directions hurt, the chain hurts far more, and only the chain effect is large
-enough that eight designs can separate it from the spread between designs.
+| single chain of | scRMSD median | designable at 4 A |
+|---|---|---|
+| 512 residues | **3.8 A** | 50 % |
+| 768 residues | **9.1 A** | 25 % |
+| 1024 residues | **10.7 A** | 0 % |
 
-The practical form: with two 300-residue chains, try one at a time even though the total looks
-small. With a single chain of 700 residues, expect something worse than a 512-residue crop but
-not the collapse the multi-chain rows show. Neither target here has a single chain longer than
-823 residues, so nothing above that is measured on one chain at all.
+So a single chain of 1024 residues returns nothing usable either. Size costs you something on
+its own, and cropping to one chain does not make a large target behave like a small one.
+
+What the chain is worth is visible on 1GPB, where chain A is 823 residues by itself: stretching
+the crop from 512 to all 823 of that chain moved the median from 4.6 to 8.0 A with 25 % of
+designs still under 4 A, while adding the second chain at the same extent cost 14.8 A and left
+nothing under 4 A. Both directions hurt and the chain hurts more.
+
+The practical form: crop to one chain if you can, and still keep the extent near 512. With two
+300-residue chains, try one at a time even though the total looks small.
 
 Which window you pick matters on one of these targets and not the other. At 512 residues it
 swings 1GPB by 13 A and moves GroEL by under 1 A. It is not safe to read that as "window does
