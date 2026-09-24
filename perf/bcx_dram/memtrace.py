@@ -248,7 +248,8 @@ def main():
                "live_tapes": SP.EvoformerOnDevice.live_tapes(),
                "ckpt_pins": len(ag._CKPT_PINS),
                "calls": dict(self_calls) if (self_calls := evo.calls) else {},
-               "rss_gb": round(resource.getrusage(resource.RUSAGE_SELF).ru_maxrss / 2**20, 3)}
+               "rss_gb": round(resource.getrusage(resource.RUSAGE_SELF).ru_maxrss / 2**20, 3),
+               "loadavg1": round(os.getloadavg()[0], 2)}
         row.update(live_counts())
         if args.holder_probe and step == 1:
             first_ids.update(id(o) for o in gc.get_objects() if type(o) is ag.Tensor)
