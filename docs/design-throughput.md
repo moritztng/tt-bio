@@ -104,12 +104,12 @@ Two of the three sit at 16-17 A and returned nothing usable; the good one is the
 **Crop to 512 residues or so. Above that, designability falls away.** The same two windows
 taken out to 1536 residues, eight designs per cell:
 
-| | 512 residues | 1536 residues |
-|---|---|---|
-| 1GPB, window starting at residue 1 | **4.7 A** | **19.4 A** |
-| 1GPB, window starting at residue 101 | **17.8 A** | **13.3 A** |
-| GroEL, window starting at residue 1 | **0.9 A** | **15.6 A** |
-| GroEL, window starting at residue 561 | **1.7 A** | **14.4 A** |
+| | 512 residues | 1024 residues | 1536 residues |
+|---|---|---|---|
+| 1GPB, window starting at residue 1 | **4.7 A** | | **19.4 A** |
+| 1GPB, window starting at residue 101 | **17.8 A** | | **13.3 A** |
+| GroEL, window starting at residue 1 | **0.9 A** | **8.7 A** | **15.6 A** |
+| GroEL, window starting at residue 561 | **1.7 A** | **14.5 A** | **14.4 A** |
 
 On GroEL both windows collapse by 12.6 and 14.8 A, and neither returned a single design under
 4 A at 1536 against five of eight under 2 A at 512. On 1GPB the two windows move in opposite
@@ -117,6 +117,11 @@ directions, which is why the first pair alone could not be read as a size rule. 
 targets no 1536 cell has produced a usable design, so treat 1536 as outside the useful range
 whatever the target: it runs, it just returns binders that do not refold into the shape they
 were drawn as.
+
+1024 is already too big. Neither GroEL window returned a design under 4 A there either, and
+both are worse than the same window at 512 by a margin the sample sizes separate. So the size
+where quality falls is somewhere between 512 and 1024, and 512 is the largest extent measured
+to work.
 
 Which window you pick matters on one of these targets and not the other. It swings 1GPB by 13 A
 at a fixed 512 residues and moves GroEL by under 1 A, so it is worth trying more than one
