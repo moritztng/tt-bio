@@ -401,8 +401,9 @@ def block_step(dev, lv, m0, z0, wm, wz, stack_name, k=1, ckpt=False):
     dev.sync()
     lv.phase = "fwd"
     t0 = time.time()
+    mask = dev.up(torch.ones(1, m0.shape[-2])) if lv.mask else None
     with dev.tt.tape():
-        mo, zo = dev.stack(ml, zl, ke, kv, ckpt=ckpt)
+        mo, zo = dev.stack(ml, zl, ke, kv, ckpt=ckpt, msa_mask=mask)
     dev.sync()
     t1 = time.time()
     roots = [zo] if stack_name == "extra" else [mo, zo]
@@ -629,9 +630,10 @@ def cmd_whole(args):
     blob = {"stamp": stamp(args, clock), "n": n, "k_extra": ke, "k_evo": kv, "ckpt": True,
             "seed": args.seed, "arms": arms, "reps": args.reps, "per_arm": {}}
     grads, runs = {a: [] for a in arms}, {a: [] for a in arms}
-    lv.arm(arms[0])
-    device_grad()                                  # warm: JIT + program cache, discarded
-    lv.take()
+    for arm in arms:                               # warm every arm: each compiles its own
+        lv.arm(arm)                                # programs, and an unwarmed `+mask` arm read
+        device_grad()                              # 34.8 s against 15.0 s on its next rep
+        lv.take()
     for rep in range(args.reps):
         for arm in (arms if rep % 2 == 0 else arms[::-1]):
             lv.arm(arm)
