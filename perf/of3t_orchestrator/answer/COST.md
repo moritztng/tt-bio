@@ -31,7 +31,7 @@ compute / ~11x bandwidth silicon floor is a scope mismatch every time (K32).
 | of which genuine host float64 arithmetic | **94.07 s** | measured on the production route |
 | of which host tilize/untilize + buffer copy | **82.56 s** | host-only, no DMA in the number |
 | **unattributed: DMA, blocking sync, or queue drain** | **168.51 s (23.87 %)** | by subtraction; three different defects — `of3t-xsplit` owns splitting it |
-| forward half, exactness ON | **~299 s** against 5.5 s → **~54x** | coarse, from file write times, labelled coarse (`of3t-restep`) |
+| forward half, exactness ON | **<= 386 s** against 5.919 s → **<= 65.2x** | a BOUND from two durable clock stamps, not a timed run; matched one-taped-cycle axis, crop 384 (`of3t-restep`, concluded). Supersedes an earlier ~299 s / ~54x derivation that the row itself withdrew as unreproducible |
 | full step, exactness ON | **[OWED]** | `of3t-restep`. The campaign's one missing number |
 | full step, exactness OFF, current tree | **[OWED]** | `of3t-restep`; the stale 466.702 s is from `451ed56f4`, a tree where the feature did not exist |
 | GPU gap | **58-67x** step-to-step against an H200 at matched crop 384 | **on the pre-exactness tree**, so it prices a configuration whose gradients do not clear the bar |
@@ -125,6 +125,33 @@ deliberately broken arm was **refused by measuring** rather than by raising befo
 
 That last property is why the gate is evidence rather than decoration, and it is the one such
 harnesses usually lack.
+
+## No clean second exists yet, and that is stated rather than papered over
+
+**Not one exactness-ON run has produced a DURING-sampled AICLK.** All four died before
+`fullstep.py` writes `env.aiclk_during`, and `host_quiet` was RED at loadavg1 3.33 on the run that
+got furthest. So every seconds figure above that comes from this campaign's own OF3T arms is either
+a bound, an A/B between arms of identical scope, or banked from a quiet run that is named. **None
+of them is a clean step time on this hardware**, and the standing rule on this fleet is that a
+number without a DURING clock is not a measurement.
+
+Host memory is load-insensitive, so the memory decomposition above is unaffected by that — and the
+split between what load invalidates and what it does not is stated here rather than glossed.
+
+## The decision this campaign cannot make for itself, with a number on it
+
+A full exactness-ON step **cannot be measured on pc and will not be after the softmax fix**. Two
+ways forward, and both are outside a measurement row's remit:
+
+1. **A large-memory host with a recoverable card.** qb2 has 249 GB and one free card, but that card
+   is half a board pair whose sibling carries another campaign's live arm, so a failed open has no
+   reset path.
+2. **Move AdamW's masters and moments off host** — `tt_bio/train/optim.py`, three fp32 numpy copies
+   per weight over 381.3 M elements. **6.00 GiB**, the largest single term in the step's host
+   memory, spent before the first forward op runs.
+
+Option 2 is an engine change with real trade-offs (host pressure traded for device pressure) and it
+is release-gated. It is written here with its number so the choice is legible rather than implied.
 
 ## The capability limit, which is undocumented and whose number is not settled
 
