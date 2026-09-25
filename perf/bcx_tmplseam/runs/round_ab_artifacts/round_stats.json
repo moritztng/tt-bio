@@ -1,0 +1,60 @@
+{
+ "n_per_arm": {
+  "off": 5,
+  "on": 5
+ },
+ "off": {
+  "all": [
+   11.17,
+   11.234,
+   12.743,
+   12.253,
+   11.292
+  ],
+  "median": 11.292,
+  "mean": 11.7384,
+  "min": 11.17,
+  "max": 12.743
+ },
+ "on": {
+  "all": [
+   10.226,
+   11.526,
+   12.099,
+   11.613,
+   11.12
+  ],
+  "median": 11.526,
+  "mean": 11.3168,
+  "min": 10.226,
+  "max": 12.099
+ },
+ "ratio_of_medians_off_over_on": 0.9797,
+ "ratio_of_means_off_over_on": 1.0373,
+ "sign_of_effect_depends_on_statistic": true,
+ "permutation": {
+  "statistic": "difference in means, seconds",
+  "observed": 0.4216,
+  "two_sided_p": 0.4048,
+  "splits": 252,
+  "exact": true
+ },
+ "adjacent_pairs": {
+  "off_minus_following_on": [
+   0.944,
+   -0.292,
+   0.644,
+   0.64,
+   0.172
+  ],
+  "mean": 0.422,
+  "following_off_minus_on": [
+   1.008,
+   1.217,
+   0.154,
+   -0.321
+  ],
+  "mean_other_direction": 0.514
+ },
+ "on_range_nested_in_off_range": false
+}
