@@ -1,0 +1,23 @@
+k=4 total lost 0.0238
+diffusion_module.diffusion_transformer        sec_mass 0.7339 lost 0.0136 n    5  mass-wtd rel ours 0.308 bf16 0.209
+aux_heads.distogram                           sec_mass 0.0062 lost 0.0062 n    1  mass-wtd rel ours 0.148 bf16 0.102
+diffusion_module.diffusion_conditioning       sec_mass 0.2196 lost 0.0032 n    1  mass-wtd rel ours 0.442 bf16 0.315
+pairformer_stack                              sec_mass 0.0069 lost 0.0005 n  223  mass-wtd rel ours 0.385 bf16 0.283
+msa_module                                    sec_mass 0.0006 lost 0.0003 n   43  mass-wtd rel ours 0.422 bf16 0.335
+diffusion_module.atom_attn_dec                sec_mass 0.0096 lost 0.0000 n    2  mass-wtd rel ours 0.181 bf16 0.126
+msa_module_embedder                           sec_mass 0.0000 lost 0.0000 n    1  mass-wtd rel ours 0.384 bf16 0.354
+template_embedder                             sec_mass 0.0000 lost 0.0000 n   48  mass-wtd rel ours 0.570 bf16 0.430
+diffusion_module.atom_attn_enc                sec_mass 0.0209 lost 0.0000 n    2  mass-wtd rel ours 0.289 bf16 0.285
+input_embedder                                sec_mass 0.0001 lost 0.0000 n   38  mass-wtd rel ours 0.939 bf16 0.440
+aux_heads.pairformer_embedding                sec_mass 0.0000 lost 0.0000 n  214  mass-wtd rel ours 0.424 bf16 0.304
+aux_heads.pde                                 sec_mass 0.0000 lost 0.0000 n    3  mass-wtd rel ours 0.046 bf16 0.016
+aux_heads.pae                                 sec_mass 0.0000 lost 0.0000 n    2  mass-wtd rel ours 0.095 bf16 0.050
+aux_heads.experimentally_resolved             sec_mass 0.0000 lost 0.0000 n    2  mass-wtd rel ours 0.017 bf16 0.015
+  0.0117 diffusion_module.diffusion_transformer.blocks.14.attention_pair_bias.layer_norm_a.layer_norm_s.weight ours 0.274 bf16 0.195
+  0.0062 aux_heads.distogram.linear.weight                                      ours 0.148 bf16 0.102
+  0.0032 diffusion_module.diffusion_conditioning.transition_s.1.layer_norm.weight ours 0.442 bf16 0.315
+  0.0015 diffusion_module.diffusion_transformer.blocks.15.attention_pair_bias.layer_norm_a.layer_norm_s.weight ours 0.617 bf16 0.338
+  0.0004 diffusion_module.diffusion_transformer.blocks.18.conditioned_transition.layer_norm.layer_norm_s.weight ours 0.196 bf16 0.180
+  0.0001 msa_module.blocks.0.outer_product_mean.layer_norm.bias                 ours 0.394 bf16 0.316
+  0.0001 msa_module.blocks.1.outer_product_mean.layer_norm.bias                 ours 0.372 bf16 0.329
+  0.0000 pairformer_stack.blocks.47.pair_stack.tri_mul_in.layer_norm_in.weight  ours 0.161 bf16 0.064
