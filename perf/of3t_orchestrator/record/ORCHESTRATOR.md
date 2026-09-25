@@ -207,6 +207,29 @@ and the first lever is not: its guard is false untaped.
   perf risk; they land with the sprint's first batch rather than alone, because a batch of one is
   a gate run for nothing.
 
+EXIT: **What GO looks like for this sprint, written now so it cannot drift.** R212 answered the
+question the sprint was opened to answer — *why is the backward slow* — and the answer is that it
+is not: `exact_training` is 95.2 % of it, the real device backward is 33.63 s, and the fused
+backward-kernel programme the sprint was premised on is refuted (J1 NO-GO, J2's free route NO-GO,
+J3 dead at zero, the taped bypass 1.005x). **Three rows stand between that and a defensible GO,
+and nothing else does:**
+
+1. **`of3t-restep`** — the clean uninstrumented step on main with the exactness state named. Until
+   it lands every number this campaign publishes is either void (R209) or came off a profiling
+   harness, and neither is quotable.
+2. **`of3t-exactscope`** — whether exact softmax alone carries the accuracy. **128.73 s at no cost
+   to the bar** if yes; if no, it prices the fidelity as non-negotiable, which is equally an
+   answer and is the one Moritz needs.
+3. **`of3t-zerosfill`** — 11.80 s, **35.1 % of the real backward**, 424x off its own roof, and a
+   plain defect rather than a kernel.
+
+**GO is: those three reported, the batch gate run over whatever landed, and one honest paragraph
+saying what OF3T training costs and why.** **NO-GO/STOP is not available** — the work is
+reachable, the rows are dispatched, and nothing here needs hardware or an artifact we do not
+have. **What must NOT count as GO:** a speed number without the exactness state named beside it,
+or any claim that implies the 6-7x software target is in reach, which R212 refutes for the job
+list as it stands.
+
 PROVES: **OpenFold3's training gradient on Tenstorrent is upstream 0.4.3's gradient to within
 upstream's own bf16 error, on every section, over the whole step.** Stamped pass 444 on `wk/of3t`
 `f01fa0813` and unchanged since; that tree is now inside `origin/main`. The claim rests on the four
