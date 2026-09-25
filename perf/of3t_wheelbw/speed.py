@@ -22,6 +22,7 @@ import time
 
 import numpy as np
 import ttnn
+from tt_bio.tenstorrent import get_device
 
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[2]))
 from perf.clocksample import TT_SMI, during                           # noqa: E402
@@ -113,7 +114,7 @@ def main() -> int:
     shape = [int(v) for v in a.shape.split(",")]
     dt = {"float32": ttnn.float32, "bfloat16": ttnn.bfloat16}[a.dtype]
 
-    dev = ttnn.open_device(device_id=0)
+    dev = get_device()
     clk = during(period=1.0)
     clk.__enter__()
     out = {"host": os.uname().nodename, "card": a.card, "board": None,
@@ -172,7 +173,8 @@ def main() -> int:
         clk.__exit__()
         out["aiclk_during"] = clk.summary()
         out["aiclk_line"] = clk.line()
-        ttnn.close_device(dev)
+        # `get_device` owns the handle and the lease for the process;
+        # process exit releases both.
     print(out["aiclk_line"], flush=True)
     p = pathlib.Path(a.out); p.parent.mkdir(parents=True, exist_ok=True)
     p.write_text(json.dumps(out, indent=1))

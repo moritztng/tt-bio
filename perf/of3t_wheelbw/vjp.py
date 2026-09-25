@@ -24,6 +24,7 @@ import pathlib
 
 import numpy as np
 import ttnn
+from tt_bio.tenstorrent import get_device
 
 # Relative-error floor: below this magnitude a relative error is a division artefact, not a
 # disagreement. Fixed here, before any number exists, at the scale of a bf16 unit roundoff on
@@ -305,7 +306,7 @@ def main() -> int:
     a = ap.parse_args()
     dt = {"float32": ttnn.float32, "bfloat16": ttnn.bfloat16}[a.dtype]
 
-    dev = ttnn.open_device(device_id=0)
+    dev = get_device()
     out = {"dtype": a.dtype, "floor": FLOOR, "fd_h": FD_H, "fd_tol": FD_TOL, "ops": {}}
     try:
         for name in a.ops.split(","):
@@ -344,7 +345,10 @@ def main() -> int:
                   f"bit_identical={rec['identical']} @ {rec['arms']['wheel']['worst_path']}",
                   flush=True)
     finally:
-        ttnn.close_device(dev)
+        # No `close_device`: `get_device` caches the handle for the process and owns the
+        # lease, so closing it here would release a device other code in-process still holds.
+        # Process exit releases both.
+        pass
     p = pathlib.Path(a.out); p.parent.mkdir(parents=True, exist_ok=True)
     p.write_text(json.dumps(out, indent=1))
     print("wrote", p)

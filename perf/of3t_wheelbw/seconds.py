@@ -27,6 +27,38 @@ REPO = HERE.parents[1]
 OUT = HERE / "out"
 
 
+# The verbs each ACCEPTED substitution deletes per taped node, after the two withdrawals.
+# `narrow` and `concat` are absent on purpose: ttnn.pad cannot front-pad a tile-layout tensor
+# on device and ttnn.concat_bw throws on anything that is not rank 4, so both composed forms
+# still ship. The arithmetic lives here rather than in census.py so the census stays a raw
+# count and a withdrawal changes one table, not a measurement.
+ACCEPTED = {
+    "autograd:mul|both":          (2, 1),
+    "autograd:relu|one":          (2, 1),
+    "autograd:sigmoid|one":       (3, 1),
+    "autograd:silu|one":          (6, 1),
+    "taped_ttnn:relu":            (2, 1),
+    "taped_ttnn:sigmoid":         (3, 1),
+    "taped_ttnn:silu":            (6, 1),
+    "taped_ttnn:multiply|fastpath": (2, 1),
+}
+
+
+def deleted(cen):
+    """Verbs deleted, from the census's RAW counters and the table above."""
+    branch, taped, calls = cen["branch"], cen["taped_calls"], cen["calls"]
+    per = {}
+    for key, (before, after) in ACCEPTED.items():
+        if key.startswith("autograd:"):
+            n = sum(v for k, v in branch.items() if k.startswith(key + "|"))
+        elif key.endswith("|fastpath"):
+            n = calls.get(key, 0)
+        else:
+            n = taped.get(key, 0)
+        per[key] = {"nodes": n, "verbs_deleted": n * (before - after)}
+    return per
+
+
 def load(p):
     q = pathlib.Path(p)
     return json.loads(q.read_text()) if q.is_file() else None
@@ -55,10 +87,11 @@ def main() -> int:
     if cen is None:
         print("census_384.json not written yet -- reading A needs the node count")
     else:
-        n = cen["verbs_deleted_total"]
+        per = deleted(cen)
+        n = sum(v["verbs_deleted"] for v in per.values())
         s = n * ms / 1000.0
         res["reading_A"] = {
-            "verbs_deleted": n, "by_op": cen["verbs_deleted_by_op"],
+            "verbs_deleted": n, "by_op": per, "tape_nodes": cen.get("tape_nodes"),
             "seconds_off_step": s,
             "pct_of_step": 100.0 * s / rep["step_s"],
             "pct_of_backward": 100.0 * s / rep["backward_s"],

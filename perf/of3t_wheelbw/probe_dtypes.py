@@ -11,6 +11,7 @@ import sys
 
 import numpy as np
 import ttnn
+from tt_bio.tenstorrent import get_device
 
 OUT = pathlib.Path(sys.argv[1] if len(sys.argv) > 1 else "/tmp/of3t/of3t-wheelbw/dtypes.json")
 
@@ -25,7 +26,7 @@ CAND = {
 
 
 def main() -> int:
-    dev = ttnn.open_device(device_id=0)
+    dev = get_device()
     res = {}
     try:
         for dt_name, dt in (("float32", ttnn.float32), ("bfloat16", ttnn.bfloat16)):
@@ -71,7 +72,8 @@ def main() -> int:
                     res[key] = {"ok": False, "error": type(e).__name__ + ": " + str(e)[:300]}
                 print(key, res[key], flush=True)
     finally:
-        ttnn.close_device(dev)
+        # `get_device` owns the handle and the lease for the process; exit releases both.
+        pass
     OUT.parent.mkdir(parents=True, exist_ok=True)
     OUT.write_text(json.dumps(res, indent=1))
     print("wrote", OUT)
