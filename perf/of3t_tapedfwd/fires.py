@@ -192,12 +192,42 @@ def run_arm(trunk, held, cycles, arm, probe, attrs, out):
     return secs, d, sites, dig, teardown
 
 
+def declare_trunk(trunk, out):
+    """Register the trunk's device weights as tape leaves, the way a training step does.
+
+    THE ONE STRUCTURAL DIFFERENCE between this harness and `of3t-stepfloor`'s `fullstep.py`,
+    which measured the 3.415 s taped cycle this row prices against. That harness calls
+    `declare_all` before its taped forward, so 2531 weights are `ag.parameter()` leaves; this
+    one declared none, and its taped arm read 257 s for what should be the same work. 75x is
+    not a card difference, so the difference is in the harnesses and this flag is what tells
+    the two apart. Same walk (`step.walk_weights`), deduped by tensor IDENTITY for the reason
+    `fullstep.py` gives: the tape keys a leaf on the raw handle, so one tensor reachable by
+    two paths would be declared twice.
+    """
+    from tt_bio import autograd as ag
+    found, stats = S.walk_weights(trunk, prefix="trunk.")
+    by_id, n = set(), 0
+    for name, (owner, key, t) in sorted(found.items()):
+        if id(t) in by_id:
+            continue
+        by_id.add(id(t))
+        ag.parameter(t)
+        n += 1
+    out["declared"] = {"weights": n, "found": len(found),
+                       "walk_depth": stats["max_depth"], "truncated": stats["truncated"]}
+    print(f"[declare] {n} trunk weights registered as tape leaves", flush=True)
+    return n
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--tokens", type=int, default=384)
     ap.add_argument("--cycles", type=int, default=1)
     ap.add_argument("--reps", type=int, default=3)
     ap.add_argument("--arms", default="ABC")
+    ap.add_argument("--declare", action="store_true",
+                    help="register the trunk's weights as tape leaves before the arms, the "
+                         "way fullstep.py does. The arm-C discrepancy hangs on this.")
     ap.add_argument("--out", type=Path, default=Path("perf/of3t_tapedfwd/out/fires.json"))
     a = ap.parse_args()
 
@@ -221,6 +251,9 @@ def main():
             trunk = held["trunk"][0]
             attrs = counter_attrs()
             out["counters_watched"] = len(attrs)
+            out["declared"] = None
+            if a.declare:
+                declare_trunk(trunk, out)
             probe = TapingProbe().install()
 
             # Burn JIT off on every arm before any arm is timed. A first-call compile is
