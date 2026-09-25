@@ -42,14 +42,16 @@ author and cite what you took; gates are batched and a stack is approved whole. 
 speedup that does less of the model's own work. A1-A45 are the correctness protocol and are
 unchanged. History: `state/of3t/PASSLOG.md`.
 
-LEDGER: `~/.coworker/state/of3t/LEDGER.md`, **R1-R204 and K1-K19**. **R203, filed this pass, is
+LEDGER: `~/.coworker/state/of3t/LEDGER.md`, **R1-R204 and K1-K20**. **R203, filed this pass, is
 the sprint's first finding and it reordered the job list: an engine-wide fused-kernel bypass hid
 behind a per-module comment. A per-site comment that correctly explains one decline is the best
 camouflage a policy can have, because every reader who checks one site leaves satisfied. Count the
 sites before believing the anecdote — the grep took ten seconds. R204 is its inverse and worth
 as much: the mechanism that routes around R203's blocker shipped months ago and was never
 generalised. A comment explaining why something cannot be done is evidence about that call site,
-not about the codebase; grep for the thing already doing it before sizing the work to build it.** An INDEX, not a copy: every
+not about the codebase; grep for the thing already doing it before sizing the work to build it.**
+**K20, filed pass 446 after it cost this campaign a whole dispatch: when a file is owned by a
+periodic regenerator, writing to it is a request, not a change — read it back.** An INDEX, not a copy: every
 entry's text, evidence and artifact path is in that file while it is in the tail and in
 `state/archive/` once rotated (newest `of3t-LEDGER.*.md` there by mtime). The four that bind the
 sprint, rather than the forty this field used to transcribe:
@@ -138,18 +140,22 @@ for a structural reason — the DGX ships 8 accelerators and the QuietBox 4 — 
 number was the wrong headline: it credits us with a box we do not sell. Every sprint number states
 its axis.
 
-BRANCH: **`wk/of3t-bwd` is the sprint's single reviewable branch and I compose onto it; it does not
-exist yet because nothing has landed.** Verified against git this pass, not taken from a note:
-`wk/of3t` at `f01fa0813` is **fully contained in `origin/main`** (`git merge-base --is-ancestor`
-clean, 0 commits ahead, 680 behind), so the correctness campaign's composed branch is finished
-history and no row may branch from it or treat it as a tip. Branch from `origin/main`.
+BRANCH: **`wk/of3t-bwd` is the sprint's single reviewable branch and I compose onto it; it does
+not exist yet because no sprint row has landed engine code.** Verified against git this pass, not
+carried from a note. `origin/main` has moved twice today and is now `f0db89ef5`.
 
-Exactly two of3t branches are still ahead of main and **both are artifact-only** — every changed
-path is inside its own `perf/of3t_<row>/` namespace, zero engine files, verified by
-`git diff --name-only`: `wk/of3t-infab` (6 commits, `perf/of3t_infab/`) and
-`wk/of3t-orchestrator` (7 commits, `perf/of3t_orchestrator/`). They carry no code path, so they
-carry no accuracy, OOM or perf risk; they land with the sprint's first batch rather than on their
-own, because a batch of one is a gate run for nothing.
+- **`wk/of3t` is finished history**: fully contained in `origin/main` (`merge-base --is-ancestor`
+  clean). No row may branch from it or treat it as a tip. Branch from `origin/main`.
+- **Both concluded sprint rows are already safe in main and need no rescue** — checked because
+  `fleet.log` reported `wk/of3t-throughput` UNSHIPPED at 16:22 and fleet hygiene tears down a
+  concluded row's worktree. Both worktrees are indeed gone, but `wk/of3t-bwsurvey` (`59b3c2221`)
+  and `wk/of3t-throughput` (`bb2a75293`) are ancestors of `origin/main`; the UNSHIPPED line was
+  stamped before the merge. An orphaned-work claim is checked against git, not against a log line.
+- Still ahead of main: `wk/of3t-orchestrator` (11, artifacts and record only),
+  `wk/of3t-infab` (6, `perf/of3t_infab/` only) and `wk/of3t-tapedfwd` (3, a live row's work in
+  flight). The first two are artifact-only with zero engine files and carry no accuracy, OOM or
+  perf risk; they land with the sprint's first batch rather than alone, because a batch of one is
+  a gate run for nothing.
 
 PROVES: **OpenFold3's training gradient on Tenstorrent is upstream 0.4.3's gradient to within
 upstream's own bf16 error, on every section, over the whole step.** Stamped pass 444 on `wk/of3t`
@@ -201,9 +207,19 @@ GAP: **Pass 445, 2026-09-25 ~16:5x CEST.** What the sprint has not done, specifi
    used at one call site. Generalising it is shared work between J1, J2 and J3; whichever row
    needs it first carries it, which is a coordination risk I am holding rather than one I have
    solved.
-6. **Nothing has landed, so `wk/of3t-bwd` does not exist.** Two artifact-only branches wait for
-   the first batch (BRANCH).
-7. Carried from the correctness campaign and NOT this sprint's: D270
+6. **Nothing has landed, so `wk/of3t-bwd` does not exist.** Two artifact-only branches and one
+   live row's branch wait for the first batch (BRANCH).
+7. **The four J-rows were dispatched twice before they took, and the first attempt was silently
+   reverted** (K20). `queue.tsv` is regenerated from `TASKS.md` ws-tags, so a hand-append never
+   survives; and `reconcile_tasks.sh` read-modify-writes `TASKS.md` unlocked under a two-minute
+   cron, so the correct edit was lost too. Both are now applied and READ BACK: four tags in
+   `TASKS.md`, four rows in `queue.tsv`, briefs and gate entries already in place from pass 445.
+   The re-apply is one idempotent command
+   (`perf/of3t_orchestrator/bwd/apply_tasks_rows.py`) if a future reconcile eats it again. **I am
+   not fixing the race in `reconcile_tasks.sh`**: a lock there only helps if every writer takes
+   it, which is a fleet-wide convention change, and the script runs every two minutes so a bug in
+   it stops the whole fleet. It is reported, not patched.
+8. Carried from the correctness campaign and NOT this sprint's: D270
    (`aux_heads.distogram.linear.weight` at 1.44x its bf16 on every draw, 0.86 % of mass, inside
    the 3x section bar); the six user-facing defects D32, D55, D184, D205, D210, D250, owned
    outside this campaign under ask 10455; crop 640 as a single-card capacity wall.
