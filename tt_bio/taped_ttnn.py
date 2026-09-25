@@ -341,6 +341,19 @@ def _act_const(kwargs, key) -> bool:
     return getattr(acts[0], "op_type", None) in _FUSED_UNARY_CONST
 
 
+def _chain_fused(pair, d, xv, ev):
+    """Carry the binary rule's output `d` through the fused activation's derivative.
+
+    `pair[2]` is the wheel's own backward for that activation and does the whole thing in one
+    kernel; without it the derivative is materialised and multiplied in, which is 2 verbs for
+    relu, 3 for sigmoid and 6 for silu. `xv` is the PRE-activation operand and `ev` the
+    activated one, so a wheel op that wants the input gets `xv` -- the same argument the
+    plain-verb substitution takes, and graded on the same reading.
+    """
+    bw = pair[2] if len(pair) > 2 else None
+    return bw(d, xv, ev) if bw is not None else ttnn.multiply(d, pair[1](xv, ev))
+
+
 def _register_fused_unary():
     u = getattr(ttnn, "UnaryOpType", None)
     if u is None:                                                  # pragma: no cover
@@ -355,16 +368,27 @@ def _register_fused_unary():
         _FUSED_UNARY_PARAM[u.MUL_UNARY_SFPU] = lambda c: (
             lambda x: ttnn.multiply(x, c), lambda x, y: c)
         _FUSED_UNARY_CONST.add(u.MUL_UNARY_SFPU)
+    # The third element, where present, is the wheel's own backward for that activation:
+    # `bw(d, x, y) -> d * dy/dx` as one kernel, replacing the `multiply(d, derivative)` chain
+    # beside it. Same three ops the plain `_VERBS` entries take through `_unary(fused=...)`,
+    # reached here instead when the activation rides another verb -- `multiply(o, g,
+    # input_tensor_b_activations=[SIGMOID])` is how every OpenFold3 gate is written, so this
+    # copy of the derivative is on the training tape whether or not `ttnn.sigmoid` is.
+    # The composed form stays as the expression of record and as the control the wheel op
+    # was graded against.
     if hasattr(u, "SIGMOID"):
         _FUSED_UNARY[u.SIGMOID] = (
-            ttnn.sigmoid, lambda x, y: ttnn.multiply(y, ttnn.rsub(y, 1.0)))
+            ttnn.sigmoid, lambda x, y: ttnn.multiply(y, ttnn.rsub(y, 1.0)),
+            lambda d, x, y: ttnn.sigmoid_bw(d, x)[0])
     if hasattr(u, "RELU"):
-        _FUSED_UNARY[u.RELU] = (ttnn.relu, lambda x, y: ttnn.gtz(x))
+        _FUSED_UNARY[u.RELU] = (ttnn.relu, lambda x, y: ttnn.gtz(x),
+                                lambda d, x, y: ttnn.relu_bw(d, x)[0])
     if hasattr(u, "SILU"):
         _FUSED_UNARY[u.SILU] = (
             ttnn.silu,
             lambda x, y: (lambda sg: ttnn.multiply(
-                sg, ttnn.add(ttnn.multiply(x, ttnn.rsub(sg, 1.0)), 1.0)))(ttnn.sigmoid(x)))
+                sg, ttnn.add(ttnn.multiply(x, ttnn.rsub(sg, 1.0)), 1.0)))(ttnn.sigmoid(x)),
+            lambda d, x, y: ttnn.silu_bw(d, x)[0])
 
 
 _register_fused_unary()
@@ -567,11 +591,11 @@ def _binary(grad_a, grad_b, scalar, out_of_place=None, needs=(True, True), both=
                 eb = (fb[0](bv) if fb else bv) if reads_b else None
                 if a.requires_grad:
                     da = grad_a(g, ea, eb)
-                    da = ttnn.multiply(da, fa[1](av, ea)) if fa else da
+                    da = _chain_fused(fa, da, av, ea) if fa else da
                     a.add_grad(_reduce_to(da, av.shape))
                 if b.requires_grad:
                     db = grad_b(g, ea, eb)
-                    db = ttnn.multiply(db, fb[1](bv, eb)) if fb else db
+                    db = _chain_fused(fb, db, bv, eb) if fb else db
                     b.add_grad(_reduce_to(db, bv.shape))
             return bw
 
