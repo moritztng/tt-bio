@@ -4,6 +4,29 @@
 describes serve Boltz-2, OF3T, BC2 and RFD3. `bcx-orchestrator` is briefed on it as of 2026-09-25
 16:2x. For BC2 it matters MORE, not less: the gradient phase is 79.8 % of a BC2 cycle.
 
+> **[of3t-tapedfwd, 2026-09-25] READ BEFORE YOU QUOTE SECTION 1. The step those numbers come
+> from is from a tree two days behind the tape.** `of3t-stepfloor`'s 466.702 s step ran at
+> commit `451ed56f4` (2026-09-21 18:07Z, recorded in the artifact's own `env.commit`). Exact
+> softmax and layer norm went default-ON inside every `tape()` in `502ed112e` (2026-09-23
+> 03:59Z), which is NOT an ancestor of that commit but is an ancestor of main -- so a taped
+> forward now runs `ttnn.softmax` and `ttnn.layer_norm` on the HOST in float64.
+> Measured consequence at crop 384: a taped trunk cycle reads **251.66 s** where the banked
+> step records **3.415 s**, on two independent uncontended runs. `autograd.backward` opens the
+> same scope for itself, so the 456.668 s backward moved the same way.
+> **And the cause is now bounded without a card.** The residual over the identical-route arm is
+> 247.8 s, and the host float64 softmax alone is a **43.08 s floor of CPU arithmetic plus
+> 173.95 GB of host<->device traffic** per trunk cycle -- 96 softmaxes over `[384,4,384,384]`,
+> 21.74 G elements, at a contention-surviving 1.9813 ns/element measured on pc with no device
+> open (`perf/of3t_tapedfwd/exactprice.py`). The layer norm is not in that and its per-element
+> rate is 2.2x. So it is the exactness, not the tape's node recording, and **it is a knob rather
+> than a kernel.** Two prices already banked for the same lever and worth not re-deriving:
+> `of3t-f64softmax` has **166.8x on the op** and **1.47x on a whole diffusion gradient arm** --
+> neither transfers to the trunk, because the gap between them is the softmax's share of the
+> scope and a 48-block pairformer cycle is almost nothing but softmax.
+> **So the 58-67x, the 98.6 % / 1.4 % partition and every forward/backward share below are
+> stale until `fullstep.py` is re-run on main.** The hardware roofs, the tt-train inventory and
+> the throughput argument are unaffected. Detail and the git checks: `state/of3t-tapedfwd.md`.
+
 Established with Moritz in conversation 2026-09-25 14:00-16:00 CEST. Every row below reads this
 before it starts. Moritz: *"doing the same great job we did for forward also for backward ... using
 what already exists in the tenstorrent repositories. adapting. taking inspiration from gpu
@@ -89,13 +112,20 @@ sampled DURING. But those routes sit in **3.415 s of a 466.702 s step**, so the 
 diffusion in the same tape is **3.702 s**, so a forward that cost *nothing* would be **1.0080x**.
 **A big ratio on a small slice.**
 
-**Two consequences that bind the rest of the sprint:**
+**Three consequences that bind the rest of the sprint:**
 
 1. **Kernel authoring does not wait behind this.** The taped forward plus its diffusion is
    **0.79 %** of the step; the backward is **97.85 %**.
 2. **The taping guards never touch the backward at all.** Every `with ag.tape():` closes before
    `backward()` is called, so the backward already runs with the full lever set. Any hope that
    fused forwards were silently costing the backward seconds is dead.
+3. **The exact host float64 softmax and layer norm are the largest single line item this sprint
+   has found, and they are a knob.** Bounded in the block at the top of this file. `backward()`
+   opens the same scope, so this reaches the 97.85 % too. What is owed is one
+   `exact_training(False)` arm on an uncontended card 0 to turn the floor into a split, and then
+   an accuracy/perf decision: `of3t-stackexact` bought 0.9823x of the gradient bar with the
+   exact stack against 1.4512x without. That decision is `of3t-orchestrator`'s, not a kernel
+   row's.
 
 `of3t-tapedfwd` landed one free fix on its branch (`ae7bb5b68`): the fused-HiFi arm was walking
 `_sdpa_masked`'s ragged device pad and then the whole config ladder only to reach a `None` that
@@ -133,6 +163,35 @@ comparable number. Four rows went to Wormhole for exactly that reason. **And the
 them productive meanwhile: a formula-level check and a negative control are board-insensitive, so
 they can run anywhere; the graded VJP number and every timing number are Blackhole-only.** Say
 which half you have.
+
+## 4c. WHAT THE SPRINT CAN DELIVER AT ITS CEILING: 3.32x, which is 34 % of the way
+
+Computed 2026-09-25 pass 449 after J3 was retired.
+`perf/of3t_orchestrator/bwd/sprint_ceiling.py` — run it, do not quote this prose. It is a
+**CEILING**, not a projection: every job is credited its own best published number and J0 is
+credited a full solve of the per-verb cost (2.107 ms → 0.24 ms).
+
+| scenario | step | speedup | vs H200 |
+|---|---|---|---|
+| kernels alone, J0 fails | 372.50 s | **1.25x** | 46.6-53.2x |
+| J0 alone, full solve | 151.24 s | **3.09x** | 18.9-21.6x |
+| J0 + kernels, repriced per R206 | 140.52 s | **3.32x** | 17.6-20.1x |
+
+Reaching the silicon floor (8.5-11x) means a step of **60-88 s**, a **5.3-7.8x** software win.
+**The whole remaining list delivers 3.32x at its ceiling — 34 % of that.**
+
+**And here is where most of the difference sits: the 100.668 s of NON-VERB backward time.** The
+partition is 466.702 = 10.034 non-backward + 356.00 verb calls + **100.668 that is not verb
+calls**. Every job on the JOBS list attacks the 356.00 s. **Nothing attacks the 100.668 s, and it
+is 21.6 % of the step, larger than J1 + J2 + J4 combined (94.2 s).** It is assigned to
+`of3t-bwattrib` as a subtraction from the histogram it is already collecting rather than as a new
+row, because there is one Blackhole card and it holds it.
+
+**The honest statement of the sprint's scope, then:** it can roughly triple the step and it
+cannot reach the hardware floor, and the reason is a fifth of the step that nobody has yet
+partitioned. That is not a reason to stop — 3.32x is real and the residual may itself be
+tractable once it is named — but no number this sprint publishes should imply 6-7x is in reach
+from the job list as it stands.
 
 ## 5. Throughput, not latency — and the metric we have never computed
 

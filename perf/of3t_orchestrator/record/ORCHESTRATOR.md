@@ -260,7 +260,21 @@ sibling case where 79.2 % of a round was host work the port never covered, cappi
 lever at 1.25x. Stack perturbations are strongly sub-additive, so the sprint's levers are approved
 as a stack or not at all, never by summing individual readings.
 
-GAP: **Pass 448, 2026-09-25 ~17:0x CEST.**
+GAP: **Pass 449, 2026-09-25 ~17:1x CEST.**
+
+00. **THE SPRINT'S CEILING IS 3.32x AND THAT IS 34 % OF THE TARGET.** Computed after J3's
+   retirement, `perf/of3t_orchestrator/bwd/sprint_ceiling.py`, and it is a ceiling rather than a
+   projection — every job credited its best published number, J0 credited a FULL solve. Kernels
+   alone if J0 fails: 1.25x. J0 alone: 3.09x. J0 plus kernels repriced per R206: **3.32x**, or
+   17.6-20.1x against an H200. Reaching the silicon floor needs a step of 60-88 s, a 5.3-7.8x
+   software win. **Most of the shortfall is one unowned item: the 100.668 s of NON-VERB backward
+   time, 21.6 % of the step and larger than J1+J2+J4 combined (94.2 s).** Every job on the list
+   attacks the 356.00 s of verb calls; nothing attacks this. Assigned to `of3t-bwattrib` as a
+   subtraction from the histogram it is already collecting rather than as a new row, because
+   there is one Blackhole card and it holds it. **No number this sprint publishes may imply 6-7x
+   is in reach from the job list as it stands.**
+
+Superseded, pass 448 —
 
 0. **THE BINDING CONSTRAINT, and it is my dispatch error (K22).** I dispatched four device rows
    `host=any card=-`. `card=-` resolves to whatever is free, what was free was whglx, and

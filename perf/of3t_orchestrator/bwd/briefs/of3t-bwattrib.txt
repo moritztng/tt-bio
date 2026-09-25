@@ -213,3 +213,29 @@ Carry that into CAUSE with the roof named, per A46 clause 2.
 
 **You hold pc card 0 as of 17:03 and you are first in the queue by value.** J1 is behind you and
 J2 and J4 are parked behind it. Nothing is waiting on you except the sprint.
+
+## ONE MORE DELIVERABLE, and it is a subtraction from data you are already collecting (pass 449)
+
+With J3 retired I re-ran the sprint's arithmetic and found a hole nothing is assigned to.
+`perf/of3t_orchestrator/bwd/sprint_ceiling.py` on my branch; run it rather than trusting this.
+
+The partition is step **466.702 s** = non-backward **10.034 s** + verb calls **356.00 s** +
+**100.668 s that is NOT verb calls**. Every job on the JOBS list attacks the 356.00 s. **Nothing
+attacks the 100.668 s, and it is 21.6 % of the step — larger than J1 + J2 + J4 combined
+(94.2 s).** At its ceiling, with J0 a full solve and every kernel landing, the whole remaining
+list delivers **3.32x**, which is **34 %** of the 5.3-7.8x software win that reaching the silicon
+floor requires. That hole is most of the difference.
+
+**So: report the non-verb residual explicitly.** You are already timing every verb; the residual
+is the step's backward minus the sum of your histogram, and it costs you a subtraction rather
+than a run. Give it as a number with whatever partition you can put on it — synchronisation,
+allocator, host-side tape bookkeeping, Python overhead between verbs, whatever your instrument
+can separate. Even "100.7 s, unpartitioned, here is what it is NOT" is worth having, because
+right now the campaign does not know whether that fifth of the step is one thing or fifty.
+
+This does not displace your histogram, and I am not adding a row for it: you hold the only
+Blackhole card and you are already running the instrument that sees it. If the residual turns out
+to be large and structured, it becomes its own job and I will dispatch it from your number.
+
+Add a **RESIDUAL:** field to your state doc for it. Your gate does not require that field, so it
+will not block your conclusion — but it is the most valuable unclaimed number in the sprint.
