@@ -1,0 +1,218 @@
+{
+  "stamp": {
+    "host": "pc",
+    "cores": 12,
+    "affinity": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7
+    ],
+    "load1": 4.75,
+    "load5": 4.73,
+    "load15": 4.85,
+    "threads": "--xla_gpu_enable_triton_gemm=false",
+    "jax": "0.11.2",
+    "devices": "[CpuDevice(id=0)]"
+  },
+  "n": 320,
+  "real": 309,
+  "n_target": 115,
+  "n_binder": 205,
+  "n_binder_real": 194,
+  "losses": {
+    "binder_contacts": 1.0,
+    "binder_helicity": -0.3,
+    "binder_pae": 0.4,
+    "compactness": 0.5,
+    "interface_contacts": 1.0,
+    "interface_pae": 0.1,
+    "iptm_loss": 0.05,
+    "plddt_loss": 0.1
+  },
+  "loss_value": 6.9901123046875,
+  "compile_s": {
+    "1_structure_module_forward": 0.999,
+    "1_structure_module_value_and_grad": 4.104,
+    "2_plus_heads_forward": 1.052,
+    "2_plus_heads_value_and_grad": 4.42,
+    "3_plus_metrics_forward": 0.81,
+    "3_plus_metrics_value_and_grad": 3.257,
+    "4_plus_align_forward": 1.116,
+    "4_plus_align_value_and_grad": 4.421,
+    "5_full_tail_loss_forward": 1.579,
+    "5_full_tail_loss_value_and_grad": 4.641
+  },
+  "cotangent_shapes": {
+    "msa": [
+      1,
+      320,
+      256
+    ],
+    "msa_first_row": [
+      320,
+      256
+    ],
+    "pair": [
+      320,
+      320,
+      128
+    ],
+    "single": [
+      320,
+      384
+    ]
+  },
+  "cotangent_bytes_bf16": {
+    "msa": 163840,
+    "msa_first_row": 163840,
+    "pair": 26214400,
+    "single": 245760
+  },
+  "timings": [
+    {
+      "label": "1_structure_module_forward",
+      "n": 5,
+      "median": 0.21267437799542677,
+      "min": 0.20292192899796646,
+      "max": 0.23728903499431908,
+      "samples": [
+        0.23352,
+        0.23729,
+        0.21267,
+        0.20292,
+        0.20964
+      ]
+    },
+    {
+      "label": "1_structure_module_value_and_grad",
+      "n": 5,
+      "median": 1.338759605991072,
+      "min": 1.307189647006453,
+      "max": 1.357018270995468,
+      "samples": [
+        1.30719,
+        1.33266,
+        1.35702,
+        1.34909,
+        1.33876
+      ]
+    },
+    {
+      "label": "2_plus_heads_forward",
+      "n": 5,
+      "median": 0.2205489949992625,
+      "min": 0.2111779539991403,
+      "max": 0.22332309099147096,
+      "samples": [
+        0.21797,
+        0.22231,
+        0.22332,
+        0.22055,
+        0.21118
+      ]
+    },
+    {
+      "label": "2_plus_heads_value_and_grad",
+      "n": 5,
+      "median": 1.290794492000714,
+      "min": 1.2774225370085333,
+      "max": 1.3520692180027254,
+      "samples": [
+        1.28177,
+        1.27742,
+        1.319,
+        1.29079,
+        1.35207
+      ]
+    },
+    {
+      "label": "3_plus_metrics_forward",
+      "n": 5,
+      "median": 0.2136853049887577,
+      "min": 0.20570917999430094,
+      "max": 0.22604957899602596,
+      "samples": [
+        0.20986,
+        0.22605,
+        0.21542,
+        0.20571,
+        0.21369
+      ]
+    },
+    {
+      "label": "3_plus_metrics_value_and_grad",
+      "n": 5,
+      "median": 1.4858341149956686,
+      "min": 1.4316415859939298,
+      "max": 1.5534113009925932,
+      "samples": [
+        1.45762,
+        1.55341,
+        1.43164,
+        1.48583,
+        1.50491
+      ]
+    },
+    {
+      "label": "4_plus_align_forward",
+      "n": 5,
+      "median": 0.21581025699560996,
+      "min": 0.20151457999600098,
+      "max": 0.22187426401069388,
+      "samples": [
+        0.21726,
+        0.20151,
+        0.21389,
+        0.22187,
+        0.21581
+      ]
+    },
+    {
+      "label": "4_plus_align_value_and_grad",
+      "n": 5,
+      "median": 1.432442434001132,
+      "min": 1.4079627289902419,
+      "max": 1.456337216994143,
+      "samples": [
+        1.43244,
+        1.40796,
+        1.42982,
+        1.45634,
+        1.45431
+      ]
+    },
+    {
+      "label": "5_full_tail_loss_forward",
+      "n": 5,
+      "median": 0.2401210899988655,
+      "min": 0.22316205500101205,
+      "max": 0.25861465399793815,
+      "samples": [
+        0.23065,
+        0.24129,
+        0.25861,
+        0.24012,
+        0.22316
+      ]
+    },
+    {
+      "label": "5_full_tail_loss_value_and_grad",
+      "n": 5,
+      "median": 1.366354546000366,
+      "min": 1.2498575200006599,
+      "max": 1.4837702340009855,
+      "samples": [
+        1.48377,
+        1.44946,
+        1.36635,
+        1.24986,
+        1.29489
+      ]
+    }
+  ]
+}
