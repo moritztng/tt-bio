@@ -38,7 +38,7 @@ from . import autograd as ag
 from .autograd import Tensor, precise_config
 from .autograd import (_axis, _differentiating, _flat2d, _on_tape, _raw,
                        _reduce_to, _sum_leading, _tape,
-                       _taped_layer_norm, _taped_linear, _unwrap, _via2d, _wrap)
+                       _taped_layer_norm, _taped_linear, _unwrap, _wrap)
 
 __all__ = ["tape", "recompute_scope", "VERBS", "taped_ttnn"]
 
@@ -132,10 +132,8 @@ def _v_matmul(shipped, args, kwargs):
     def make():
         def bw(g):
             if a.requires_grad:
-                rows = _via2d if len(b.value.shape) == 2 else (lambda t, fn: fn(t))
-                a.add_grad(rows(g, lambda v: ttnn.matmul(v, b.value, transpose_b=not tb,
-                                                         compute_kernel_config=cfg))
-                           if not ta else
+                a.add_grad(ttnn.matmul(g, b.value, transpose_b=not tb,
+                                       compute_kernel_config=cfg) if not ta else
                            ttnn.matmul(b.value, g, transpose_a=tb, transpose_b=True,
                                        compute_kernel_config=cfg))
             if b.requires_grad:
