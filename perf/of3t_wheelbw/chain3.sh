@@ -10,18 +10,27 @@ set -u
 WT=/home/moritz/.coworker/wt/of3t-wheelbw
 OUT=$WT/perf/of3t_wheelbw/out
 PY=/home/moritz/tt-bio/env/bin/python3
+mkdir -p /tmp/of3t/of3t-wheelbw
 cd "$WT" || exit 1
 export PYTHONPATH="$WT:${PYTHONPATH:-}"
 export TT_VISIBLE_DEVICES=0 TT_BIO_LEASE_CARDS=0 TT_BIO_LEASE_HOLDER=worker:of3t-wheelbw
 
+# The status that matters is python's, and a pipeline hands back the LAST stage's -- so
+# `python ... | grep -v DEBUG` reports the grep's success and a DeviceInUseError reads as a
+# pass. Log to a file, keep python's own rc, then filter for the reader.
 step() {
   local label=$1; shift
+  local log
   for try in $(seq 1 40); do
+    log=/tmp/of3t/of3t-wheelbw/$label.$try.log
     echo "=== $label try $try $(date -u +%FT%TZ) ==="
-    if timeout 2400 "$@" 2>&1 | grep -v 'DEBUG *|\|Config{'; then
-      echo "=== $label OK $(date -u +%FT%TZ) ==="; return 0
+    timeout 2400 "$@" > "$log" 2>&1
+    local rc=$?
+    grep -v 'DEBUG *|\|Config{' "$log" | tail -40
+    if [ $rc -eq 0 ]; then
+      echo "=== $label OK rc=0 $(date -u +%FT%TZ) ==="; return 0
     fi
-    echo "=== $label retry: $(fuser /dev/tenstorrent/0 2>&1) ==="
+    echo "=== $label rc=$rc, card held by: $(fuser /dev/tenstorrent/0 2>&1) ==="
     sleep 60
   done
   echo "=== $label GAVE UP after 40 tries ==="
