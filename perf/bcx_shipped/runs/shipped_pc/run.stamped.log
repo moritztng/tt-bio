@@ -1,0 +1,40 @@
+2026-09-25T01:36:27Z {
+2026-09-25T01:36:27Z  "arm": "reference",
+2026-09-25T01:36:27Z  "seed": 0,
+2026-09-25T01:36:27Z  "trajectories": 10,
+2026-09-25T01:36:27Z  "length_bucket_size": 32,
+2026-09-25T01:36:27Z  "length_bucket_flag": 0,
+2026-09-25T01:36:27Z  "shipped_model_pool": true,
+2026-09-25T01:36:27Z  "settings_file": "/home/moritz/bcx_shipped/bc2/examples/pdl1.json",
+2026-09-25T01:36:27Z  "bc2": "/home/moritz/bcx_shipped/bc2",
+2026-09-25T01:36:27Z  "predictor": "AlphaFoldDesignModel",
+2026-09-25T01:36:27Z  "host": "pc",
+2026-09-25T01:36:27Z  "started_utc": "2026-09-25T01:33:50Z",
+2026-09-25T01:36:27Z  "loadavg_start": [
+2026-09-25T01:36:27Z   1.16455078125,
+2026-09-25T01:36:27Z   1.4248046875,
+2026-09-25T01:36:27Z   1.2314453125
+2026-09-25T01:36:27Z  ],
+2026-09-25T01:36:27Z  "stage_plan": {
+2026-09-25T01:36:27Z   "per_stage": {
+2026-09-25T01:36:27Z    "screen": 50,
+2026-09-25T01:36:27Z    "refine": 25,
+2026-09-25T01:36:27Z    "anneal": 45,
+2026-09-25T01:36:27Z    "harden": 5,
+2026-09-25T01:36:27Z    "mutate": 15
+2026-09-25T01:36:27Z   },
+2026-09-25T01:36:27Z   "gradient_steps": 125,
+2026-09-25T01:36:27Z   "mutate_steps": 15
+2026-09-25T01:36:27Z  },
+2026-09-25T01:36:27Z  "threads": "--xla_gpu_enable_triton_gemm=false",
+2026-09-25T01:36:27Z  "project": "/home/moritz/.coworker/wt/bcx-shipped/perf/bcx_shipped/runs/shipped_pc"
+2026-09-25T01:36:27Z }
+2026-09-25T01:36:27Z BindCraft 2 (unreleased)
+2026-09-25T01:36:27Z campaign pdl1
+2026-09-25T01:36:27Z binder length 60 to 180, drawn per trajectory
+2026-09-25T01:36:27Z target hPDL1 (target) | 115 residues | hotspots 54,56,66,115
+2026-09-25T01:36:27Z losses binder_contacts=1.0 binder_helicity=-0.3 binder_pae=0.4 compactness=0.5 interface_contacts=1.0 interface_pae=0.1 iptm_loss=0.05 plddt_loss=0.1
+2026-09-25T01:36:27Z filters Backbone_Clashes <= 0, Binder_RMSD <= 3.5, Interface_Residues >= 7, Unbound_Binder_pLDDT >= 0.7, i_pAE <= 0.35, i_pTM >= 0.7, pTM >= 0.55
+2026-09-25T01:36:27Z results /home/moritz/.coworker/wt/bcx-shipped/perf/bcx_shipped/runs/shipped_pc | 3_Ranked/!_Ranked.csv rewritten as each design is accepted | summary.csv written when the campaign ends
+2026-09-25T01:36:27Z 
+2026-09-25T01:36:27Z === trajectory 1 | pdl1_denovo_l146_747386c849de6b5b | accepted 0/10 ===

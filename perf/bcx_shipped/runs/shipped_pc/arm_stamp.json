@@ -1,0 +1,31 @@
+{
+ "arm": "reference",
+ "seed": 0,
+ "trajectories": 10,
+ "length_bucket_size": 32,
+ "length_bucket_flag": 0,
+ "shipped_model_pool": true,
+ "settings_file": "/home/moritz/bcx_shipped/bc2/examples/pdl1.json",
+ "bc2": "/home/moritz/bcx_shipped/bc2",
+ "predictor": "AlphaFoldDesignModel",
+ "host": "pc",
+ "started_utc": "2026-09-25T01:33:50Z",
+ "loadavg_start": [
+  1.16455078125,
+  1.4248046875,
+  1.2314453125
+ ],
+ "stage_plan": {
+  "per_stage": {
+   "screen": 50,
+   "refine": 25,
+   "anneal": 45,
+   "harden": 5,
+   "mutate": 15
+  },
+  "gradient_steps": 125,
+  "mutate_steps": 15
+ },
+ "threads": "--xla_gpu_enable_triton_gemm=false",
+ "project": "/home/moritz/.coworker/wt/bcx-shipped/perf/bcx_shipped/runs/shipped_pc"
+}
