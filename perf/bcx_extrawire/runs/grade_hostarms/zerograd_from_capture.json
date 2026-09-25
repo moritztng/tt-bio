@@ -1,0 +1,22 @@
+{
+ "source": "perf/bcx_extrawire/runs/grade_host/capture_dropout0.npz (dropout=False)",
+ "n": 275,
+ "extra_msa_mask_shape": [
+  1,
+  275
+ ],
+ "extra_msa_mask_nonzero": 0,
+ "extra_msa_mask_absmax": 0.0,
+ "msa_in_shape": [
+  1,
+  275,
+  64
+ ],
+ "g_msa_in_l2": 0.0,
+ "g_msa_in_nonzero": 0,
+ "g_pair_in_l2": 0.09918836962254299,
+ "g_pair_out_l2": 0.011526244007041189,
+ "g_sequences_l2_from_run_stdout": 0.2918504476547241,
+ "ratio_g_msa_in_to_g_sequences": 0.0,
+ "note": "g_sequences comes from the sequence_gradients call itself and is not in the capture; the dropout=True arm of the same run read g_msa_in_l2 0.0 against g_sequences_l2 0.49288424849510193."
+}
