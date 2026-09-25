@@ -54,6 +54,9 @@ def main():
     ap.add_argument("--params", default="/home/ttuser/bcx_e2e/af2_params")
     ap.add_argument("--out", default=None)
     ap.add_argument("--settings", default=None)
+    ap.add_argument("--binder-length", type=int, default=0,
+                    help="pin the drawn binder length, so a size can be held while something "
+                         "else varies; 0 leaves BindCraft 2 to draw from its own range")
     ap.add_argument("--no-levers", action="store_true",
                     help="skip perf/bcx_stack's lever arming. The levers are PERF levers and "
                          "the pool arm asks a correctness question; they also need "
@@ -79,6 +82,7 @@ def main():
     pathlib.Path(project).mkdir(parents=True, exist_ok=True)
 
     overrides = [f"campaign_seed={args.seed}", f"max_trajectories={args.trajectories}",
+                 *([f"binder_lengths=[{args.binder_length}]"] if args.binder_length else []),
                  f"project_folder={project}"]
     if not args.multimer_pool:
         # The monomer pin, unchanged. Every number this campaign has published was measured
