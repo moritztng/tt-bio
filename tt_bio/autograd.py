@@ -32,11 +32,11 @@ import ttnn
 from tt_bio.envflags import env_flag
 
 __all__ = [
-    "Tensor", "precise_config", "bmm_program_config", "softmax_bw_inner", "no_grad", "parameter",
+    "Tensor", "precise_config", "softmax_bw_inner", "no_grad", "parameter",
     "forget_parameters", "parameter_for",
     "release_pins",
     "linear", "matmul", "layer_norm", "softmax", "mul", "add", "scale", "sigmoid",
-    "relu", "silu", "reshape", "split_heads", "merge_heads",
+    "relu", "silu", "reshape",
     "triangle_attention", "permute", "pair_contract", "checkpoint",
     "install", "uninstall", "installed", "is_grad_enabled", "backward", "tape",
 ]
@@ -508,74 +508,6 @@ def _flat2d(t):
     return ttnn.reshape(t, [int(math.prod(s[:-1])), s[-1]])
 
 
-def _via2d(x, fn, kw=None):
-    """``fn(x)`` on ``x`` with its leading dims collapsed, when collapsing them is a view.
-
-    ``fn`` is a matmul against a 2-D weight. At a rank-3 left operand ttnn picks a program
-    that runs several times slower than the same product on the (prod(leading), K) view:
-    [256,256,128] @ [128,128] takes 792 us, the view 118 us, HiFi4 on a p300c at 1350 MHz
-    (``perf/bcx_mm2d/probe.json``). Collapsing moves no data when the second-last dim fills
-    whole tiles, because the tiles already sit in that order; any other reshape here is a
-    relayout (the heads split [N,N,128] -> [N,N,4,32] costs 2 ms), so such a shape, a
-    sharded operand, or a caller-chosen program config is left as it came.
-
-    Same operands, same reduction, not always the same bits: where they differ, the 2-D
-    result is the one closer to float64.
-    """
-    s = [int(d) for d in x.shape]
-    mc = (kw or {}).get("memory_config")
-    if (len(s) <= 2 or s[-2] % ttnn.TILE_SIZE or x.layout != ttnn.TILE_LAYOUT
-            or x.is_sharded() or (kw or {}).get("program_config") is not None
-            or (mc is not None and mc.is_sharded())):
-        return fn(x)
-    y = fn(ttnn.reshape(x, [int(math.prod(s[:-1])), s[-1]]))
-    return ttnn.reshape(y, s[:-1] + [int(y.shape[-1])])
-
-
-# `triangle_attention` issues its six batched products with `bmm_program_config`. A module
-# attribute rather than an argument because it exists for one reason, the same-process A/B that
-# prices it (`perf/bcx_triatt/block_ab.py`); nothing else sets it.
-TRIATT_BMM_CONFIG = True
-
-
-def bmm_program_config(a, b, transpose_a: bool = False, transpose_b: bool = False):
-    """An explicit program config for a batched ``op(a) @ op(b)``, or None to keep ttnn's choice.
-
-    With a real batch axis on both operands and no program config, ttnn's matmul plans a
-    kernel that runs the triangle-attention products at 0.66-1.9 TFLOP/s on Blackhole: PV
-    ``[128,4,128,256] x [128,4,256,32]`` took 1627 us, a 6.5 % share of its byte roof. The
-    batched reuse kernel with one output matrix per core-block does the same product in
-    105 us. A rank-3 view changes nothing and the default fidelity only 3 %, so the kernel
-    plan was the whole gap (`perf/bcx_triatt/mm_probe.json`).
-
-    Only for the shapes it was measured on: both operands batched with equal batch dims,
-    every matmul dim a whole number of tiles. Anything else returns None.
-    """
-    sa = [int(d) for d in a.shape]
-    sb = [int(d) for d in b.shape]
-    if len(sa) < 3 or len(sa) != len(sb) or sa[:-2] != sb[:-2]:
-        return None
-    M, K = (sa[-1], sa[-2]) if transpose_a else (sa[-2], sa[-1])
-    N = sb[-2] if transpose_b else sb[-1]
-    if M % 32 or N % 32 or K % 32:
-        return None
-    Mt, Nt, Kt = M // 32, N // 32, K // 32
-
-    def largest_divisor(n, cap):
-        return max(d for d in range(1, min(n, cap) + 1) if n % d == 0)
-
-    # Output block per core bounded at 32 tiles (128 KB of fp32 partials), K block at 8
-    # tiles; the dest register holds 4 fp32 tiles, which bounds the subblock.
-    per_core_N = largest_divisor(Nt, 8)
-    per_core_M = largest_divisor(Mt, max(1, 32 // per_core_N))
-    sw = largest_divisor(per_core_N, 4)
-    sh = largest_divisor(per_core_M, max(1, 4 // sw))
-    grid = a.device().compute_with_storage_grid_size()
-    return ttnn.MatmulMultiCoreReuseProgramConfig(
-        compute_with_storage_grid_size=grid, in0_block_w=largest_divisor(Kt, 8),
-        out_subblock_h=sh, out_subblock_w=sw, per_core_M=per_core_M, per_core_N=per_core_N)
-
-
 def _reduce_to(g, shape):
     """A broadcast operand's gradient: the output's, summed over the axes it was spread along.
 
@@ -633,20 +565,16 @@ def matmul(a: Tensor, b: Tensor, *, transpose_a: bool = False, transpose_b: bool
     it when both dims are equal, which for a pair tensor they always are.
     """
     cfg = config or precise_config()
-    # Against a 2-D weight the leading dims are a batch of rows, and `_via2d` runs them as one.
-    rows = _via2d if not transpose_a and len(b.value.shape) == 2 else (lambda t, fn: fn(t))
-    out_v = rows(a.value, lambda v: ttnn.matmul(v, b.value, transpose_a=transpose_a,
-                                                transpose_b=transpose_b,
-                                                compute_kernel_config=cfg))
+    out_v = ttnn.matmul(a.value, b.value, transpose_a=transpose_a, transpose_b=transpose_b,
+                        compute_kernel_config=cfg)
 
     def make():
         def bw(g):
             if a.requires_grad:
                 if not transpose_a:
                     # dA = g @ op(b)^T
-                    a.add_grad(rows(g, lambda v: ttnn.matmul(v, b.value,
-                                                             transpose_b=not transpose_b,
-                                                             compute_kernel_config=cfg)))
+                    a.add_grad(ttnn.matmul(g, b.value, transpose_b=not transpose_b,
+                                           compute_kernel_config=cfg))
                 else:
                     # A entered as A^T, so dA = (dA_eff)^T = op(b) @ g^T
                     a.add_grad(ttnn.matmul(b.value, g, transpose_a=transpose_b,
@@ -693,17 +621,16 @@ def linear(x: Tensor, w: Tensor, b: Optional[Tensor] = None, *, dtype=None, core
     """
     cfg = config or precise_config()
     bwcfg = backward_config or cfg
-    out_v = _via2d(x.value, lambda v: ttnn.linear(v, w.value,
-                                                  bias=(b.value if b is not None else None),
-                                                  dtype=dtype, core_grid=core_grid,
-                                                  compute_kernel_config=cfg, **kw), kw)
+    out_v = ttnn.linear(x.value, w.value,
+                        bias=(b.value if b is not None else None),
+                        dtype=dtype, core_grid=core_grid,
+                        compute_kernel_config=cfg, **kw)
     parents = [p for p in (x, w, b) if p is not None]
 
     def make():
         def bw(g):
             if x.requires_grad:
-                x.add_grad(_via2d(g, lambda v: ttnn.matmul(v, w.value, transpose_b=True,
-                                                           compute_kernel_config=bwcfg)))
+                x.add_grad(ttnn.matmul(g, w.value, transpose_b=True, compute_kernel_config=bwcfg))
             if w.requires_grad:
                 # dW = X^T @ dY, summed over every leading dim, so flatten both first:
                 # a batched matmul would give one dW per batch instead of their sum.
@@ -928,61 +855,6 @@ def reshape(x: Tensor, shape: Sequence[int]) -> Tensor:
     return _tape(out_v, [x], make)
 
 
-def _split_heads_v(x, heads):
-    """``[B, S, H*d] -> [B, H, S, d]`` on a raw tensor. See `split_heads`."""
-    B, S, C = (int(d) for d in x.shape)
-    d = C // heads
-    if d % 32:
-        return ttnn.permute(ttnn.reshape(x, [B, S, heads, d]), (0, 2, 1, 3))
-    return ttnn.concat([ttnn.reshape(ttnn.slice(x, [0, 0, h * d], [B, S, (h + 1) * d]),
-                                     [B, 1, S, d]) for h in range(heads)], dim=1)
-
-
-def _merge_heads_v(x):
-    """``[B, H, S, d] -> [B, S, H*d]`` on a raw tensor. See `merge_heads`."""
-    B, H, S, d = (int(e) for e in x.shape)
-    if d % 32:
-        return ttnn.reshape(ttnn.permute(x, (0, 2, 1, 3)), [B, S, H * d])
-    return ttnn.reshape(ttnn.experimental.nlp_concat_heads(x, memory_config=ttnn.DRAM_MEMORY_CONFIG),
-                        [B, S, H * d])
-
-
-def split_heads(x: Tensor, heads: int) -> Tensor:
-    """``[B, S, H*d] -> [B, H, S, d]``, the attention head split. The backward is `merge_heads`.
-
-    ``permute(reshape(x, [B, S, H, d]), (0, 2, 1, 3))`` is the same rearrangement and in tile
-    layout it moves 8x the bytes, because the H axis becomes a tile row and 4 heads pad to 32.
-    Slicing the channel axis into H tile-aligned strips and concatenating them on a new head
-    axis moves each tile once: 275 us against 2576 us at [256, 256, 128] with 4 heads
-    (`perf/bcx_triatt/heads_probe_n256.json`, qb1 p150a, 1350 MHz). A pure rearrangement, so
-    bit-exact either way; a head width that is not whole tiles keeps the reshape.
-    """
-    out_v = _split_heads_v(x.value, heads)
-
-    def make():
-        def bw(g):
-            x.add_grad(_merge_heads_v(g))
-        return bw
-
-    return _tape(out_v, [x], make)
-
-
-def merge_heads(x: Tensor) -> Tensor:
-    """``[B, H, S, d] -> [B, S, H*d]``, the inverse of `split_heads`, on ``nlp_concat_heads``.
-
-    90 us against 2208 us for ``permute`` + ``reshape`` at the same shape, bit-exact.
-    """
-    heads = int(x.value.shape[1])
-    out_v = _merge_heads_v(x.value)
-
-    def make():
-        def bw(g):
-            x.add_grad(_split_heads_v(g, heads))
-        return bw
-
-    return _tape(out_v, [x], make)
-
-
 def triangle_attention(q: Tensor, k: Tensor, v: Tensor, bias: Optional[Tensor] = None,
                        *, scale: Optional[float] = None, chunk: Optional[int] = None,
                        q_chunk: Optional[int] = None, config=None, value=None) -> Tensor:
@@ -1016,12 +888,6 @@ def triangle_attention(q: Tensor, k: Tensor, v: Tensor, bias: Optional[Tensor] =
     here, which is how the production forward and this backward end up in one node.
     """
     cfg = config or precise_config()
-
-    def mm(a, b, ta=False, tb=False):
-        pc = bmm_program_config(a, b, ta, tb) if TRIATT_BMM_CONFIG else None
-        return ttnn.matmul(a, b, transpose_a=ta, transpose_b=tb, compute_kernel_config=cfg,
-                           program_config=pc)
-
     qs = [int(d) for d in q.value.shape]
     ks = [int(d) for d in k.value.shape]
     if len(qs) != 4 or len(ks) != 4:
@@ -1041,7 +907,7 @@ def triangle_attention(q: Tensor, k: Tensor, v: Tensor, bias: Optional[Tensor] =
 
     def _scores(qb, b0, b1, i0, i1):
         """Recompute one score block and its softmax. The only place the scores exist."""
-        s = mm(qb, k.value[b0:b1], tb=True)
+        s = ttnn.matmul(qb, k.value[b0:b1], transpose_b=True, compute_kernel_config=cfg)
         s = ttnn.multiply(s, scale)
         if bias is not None:
             # bias is [1, H, n_q, n_k] and broadcasts over the leading axis, so the row
@@ -1056,7 +922,7 @@ def triangle_attention(q: Tensor, k: Tensor, v: Tensor, bias: Optional[Tensor] =
         for i0 in range(0, n_q, cQ):
             i1 = min(i0 + cQ, n_q)
             p = _scores(q.value[b0:b1, :, i0:i1, :], b0, b1, i0, i1)
-            row_blocks.append(mm(p, v.value[b0:b1]))
+            row_blocks.append(ttnn.matmul(p, v.value[b0:b1], compute_kernel_config=cfg))
             ttnn.deallocate(p)
         out_blocks.append(row_blocks[0] if len(row_blocks) == 1
                           else ttnn.concat(row_blocks, dim=2))
@@ -1082,10 +948,11 @@ def triangle_attention(q: Tensor, k: Tensor, v: Tensor, bias: Optional[Tensor] =
                     p = _scores(q.value[b0:b1, :, i0:i1, :], b0, b1, i0, i1)
                     go = g[b0:b1, :, i0:i1, :]
                     # dV = P^T @ dO, summed over the query chunks that share these keys.
-                    dv_part = mm(p, go, ta=True)
+                    dv_part = ttnn.matmul(p, go, transpose_a=True, compute_kernel_config=cfg)
                     dv_acc = dv_part if dv_acc is None else ttnn.add(dv_acc, dv_part)
                     # dS = P * (dP - rowsum(dP * P)), the softmax backward on the block.
-                    dp = mm(go, v.value[b0:b1], tb=True)
+                    dp = ttnn.matmul(go, v.value[b0:b1], transpose_b=True,
+                                     compute_kernel_config=cfg)
                     inner = softmax_bw_inner(p, dp, dim=-1, config=cfg)
                     ds = ttnn.multiply(p, ttnn.subtract(dp, inner))
                     ttnn.deallocate(p)
@@ -1097,8 +964,11 @@ def triangle_attention(q: Tensor, k: Tensor, v: Tensor, bias: Optional[Tensor] =
                         # unrelated permute backward.
                         dbias_acc.append(ttnn.sum(ds, dim=0, keepdim=True)
                                          if bias_bcast else ttnn.clone(ds))
-                    dq_rows.append(ttnn.multiply(mm(ds, k.value[b0:b1]), scale))
-                    dk_part = ttnn.multiply(mm(ds, q.value[b0:b1, :, i0:i1, :], ta=True), scale)
+                    dq_rows.append(ttnn.multiply(
+                        ttnn.matmul(ds, k.value[b0:b1], compute_kernel_config=cfg), scale))
+                    dk_part = ttnn.multiply(
+                        ttnn.matmul(ds, q.value[b0:b1, :, i0:i1, :], transpose_a=True,
+                                    compute_kernel_config=cfg), scale)
                     dk_acc = dk_part if dk_acc is None else ttnn.add(dk_acc, dk_part)
                     ttnn.deallocate(ds)
                 dq_blocks.append(dq_rows[0] if len(dq_rows) == 1
@@ -1641,9 +1511,8 @@ def _taped_linear(shipped, args, kwargs):
                 # `_reduce_to` because a matmul normalises rank: an x of (1, N, N, c)
                 # comes back as (N, N, c) and `add_grad` refuses a gradient that is not
                 # its value's shape, correctly.
-                x.add_grad(_reduce_to(_via2d(g, lambda v: ttnn.matmul(
-                                          v, w.value, transpose_b=True,
-                                          compute_kernel_config=bwcfg)),
+                x.add_grad(_reduce_to(ttnn.matmul(g, w.value, transpose_b=True,
+                                                  compute_kernel_config=bwcfg),
                                       x.value.shape))
             if w.requires_grad:
                 # dW reduces over every token at once: 4096 terms on a 64x64 pair block,
