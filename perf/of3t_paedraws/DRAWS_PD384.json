@@ -1,19 +1,22 @@
 {
  "arm": "PD384",
  "protocol": "A44",
- "draws": 5,
+ "draws": 6,
  "five_hold_every_draw": false,
  "per_draw": [
   {
    "k": 0,
    "seed": 20260922,
    "sigma": 0.30395649892572174,
+   "sigma_f64_rel_gap": 0.0,
    "score": "perf/of3t_paedraws/SCORE_PD384.json",
    "arm": "PD384",
    "checks": {
     "device_seed": true,
     "ref_seed": true,
+    "sigma_matches_bf16": true,
     "sigma_matches_f64": true,
+    "noise_matches": true,
     "device_replay_mismatch_0": true,
     "ref_replay_mismatch_0": true,
     "tt_bio_clean": true
@@ -60,12 +63,15 @@
    "k": 1,
    "seed": 1,
    "sigma": 8.092720956741498,
+   "sigma_f64_rel_gap": 0.0,
    "score": "perf/of3t_paedraws/SCORE_PD384_s1.json",
    "arm": "PD384_s1",
    "checks": {
     "device_seed": true,
     "ref_seed": true,
+    "sigma_matches_bf16": true,
     "sigma_matches_f64": true,
+    "noise_matches": true,
     "device_replay_mismatch_0": true,
     "ref_replay_mismatch_0": true,
     "tt_bio_clean": true
@@ -112,12 +118,15 @@
    "k": 2,
    "seed": 2,
    "sigma": 6.399173202622884,
+   "sigma_f64_rel_gap": 0.0,
    "score": "perf/of3t_paedraws/SCORE_PD384_s2.json",
    "arm": "PD384_s2",
    "checks": {
     "device_seed": true,
     "ref_seed": true,
+    "sigma_matches_bf16": true,
     "sigma_matches_f64": true,
+    "noise_matches": true,
     "device_replay_mismatch_0": true,
     "ref_replay_mismatch_0": true,
     "tt_bio_clean": true
@@ -164,12 +173,15 @@
    "k": 3,
    "seed": 3,
    "sigma": 102.92158671999199,
+   "sigma_f64_rel_gap": 0.0,
    "score": "perf/of3t_paedraws/SCORE_PD384_s3.json",
    "arm": "PD384_s3",
    "checks": {
     "device_seed": true,
     "ref_seed": true,
+    "sigma_matches_bf16": true,
     "sigma_matches_f64": true,
+    "noise_matches": true,
     "device_replay_mismatch_0": true,
     "ref_replay_mismatch_0": true,
     "tt_bio_clean": true
@@ -216,12 +228,15 @@
    "k": 4,
    "seed": 4,
    "sigma": 1.812853264527654,
+   "sigma_f64_rel_gap": 0.0,
    "score": "perf/of3t_paedraws/SCORE_PD384_s4.json",
    "arm": "PD384_s4",
    "checks": {
     "device_seed": true,
     "ref_seed": true,
+    "sigma_matches_bf16": true,
     "sigma_matches_f64": true,
+    "noise_matches": true,
     "device_replay_mismatch_0": true,
     "ref_replay_mismatch_0": true,
     "tt_bio_clean": true
@@ -261,6 +276,61 @@
      "max": 1350,
      "median": 1350,
      "n": 3115
+    }
+   }
+  },
+  {
+   "k": 5,
+   "seed": 5,
+   "sigma": 1.4472881795123587,
+   "sigma_f64_rel_gap": -1.1102230246251565e-16,
+   "score": "perf/of3t_paedraws/SCORE_PD384_s5.json",
+   "arm": "PD384_s5",
+   "checks": {
+    "device_seed": true,
+    "ref_seed": true,
+    "sigma_matches_bf16": true,
+    "sigma_matches_f64": true,
+    "noise_matches": true,
+    "device_replay_mismatch_0": true,
+    "ref_replay_mismatch_0": true,
+    "tt_bio_clean": true
+   },
+   "five": {
+    "unread_n": 0,
+    "placed_but_carried_nothing_n": 0,
+    "multi_placed": 0,
+    "global_rel": 0.1086818231634668,
+    "bf16_global_rel": 0.49825766564334656,
+    "mass_at_or_better_than_bf16": 0.6906138923800389,
+    "holds": false
+   },
+   "reference_loss_f64": 1.2440049286910222,
+   "device_loss": 1.2431603104889395,
+   "rel": {
+    "aux_heads.pae": {
+     "ours": 0.07325248969115557,
+     "bf16": 0.060536948662978186
+    },
+    "aux_heads.pde": {
+     "ours": 0.04797775428339979,
+     "bf16": 0.015708230621302118
+    },
+    "global": {
+     "ours": 0.1086818231634668,
+     "bf16": 0.49825766564334656
+    }
+   },
+   "host": "tt-quietbox2",
+   "card": 0,
+   "board_class": "p300c",
+   "git_commit": "e2ca74bac1d62a7c73a3ab57b82d25c00d2226db",
+   "aiclk_during": {
+    "0": {
+     "min": 800,
+     "max": 1350,
+     "median": 1350,
+     "n": 2520
     }
    }
   }
