@@ -1,0 +1,1417 @@
+{
+ "affinity": {
+  "nesso1": {
+   "aff_ccd": {
+    "exit": 0,
+    "wall_s": 584,
+    "error": null,
+    "last": "Done \u2014 1/1 scored \u2192 perf/mgx_matrix/out_np/affinity/nesso1/aff_ccd/affinity.csv",
+    "affinity": [
+     {
+      "file": "aff_ccd_affinity.json",
+      "values": {
+       "n_tokens": 107,
+       "seconds": 129.17258930008393,
+       "affinity_pred_value": 0.9717191457748413,
+       "affinity_pred_value1": 0.7912580370903015,
+       "affinity_pred_value2": 1.1521803140640259,
+       "affinity_logits_binary": -0.30285826325416565,
+       "affinity_probability_binary": 0.4248588979244232,
+       "entropy_pp": 0.3096671402454376,
+       "entropy_pl": 0.3315466046333313,
+       "entropy_ll": 0.4245058000087738,
+       "entropy_crop_pp": 0.3103387653827667,
+       "entropy_crop_pl": 0.6659315824508667,
+       "entropy_crop_ll": 0.4245058000087738
+      },
+      "finite": true
+     }
+    ]
+   },
+   "aff_modification": {
+    "exit": 0,
+    "wall_s": 339,
+    "error": null,
+    "last": "Done \u2014 1/1 scored \u2192 perf/mgx_matrix/out_np/affinity/nesso1/aff_modification/affinity.csv",
+    "affinity": [
+     {
+      "file": "aff_modification_affinity.json",
+      "values": {
+       "n_tokens": 107,
+       "seconds": 62.897643978009,
+       "affinity_pred_value": 0.9717191457748413,
+       "affinity_pred_value1": 0.7912580370903015,
+       "affinity_pred_value2": 1.1521803140640259,
+       "affinity_logits_binary": -0.30285826325416565,
+       "affinity_probability_binary": 0.4248588979244232,
+       "entropy_pp": 0.3096671402454376,
+       "entropy_pl": 0.3315466046333313,
+       "entropy_ll": 0.4245058000087738,
+       "entropy_crop_pp": 0.3103387653827667,
+       "entropy_crop_pl": 0.6659315824508667,
+       "entropy_crop_ll": 0.4245058000087738
+      },
+      "finite": true
+     }
+    ]
+   },
+   "aff_no_properties": {
+    "exit": 0,
+    "wall_s": 609,
+    "error": null,
+    "last": "Done \u2014 1/1 scored \u2192 perf/mgx_matrix/out_np/affinity/nesso1/aff_no_properties/affinity.csv",
+    "affinity": [
+     {
+      "file": "aff_no_properties_affinity.json",
+      "values": {
+       "n_tokens": 89,
+       "seconds": 103.67683568492066,
+       "affinity_pred_value": 1.8646645545959473,
+       "affinity_pred_value1": 1.951224446296692,
+       "affinity_pred_value2": 1.7781047821044922,
+       "affinity_logits_binary": -0.9705108404159546,
+       "affinity_probability_binary": 0.27477869391441345,
+       "entropy_pp": 0.253481924533844,
+       "entropy_pl": 0.5043888092041016,
+       "entropy_ll": 0.21667401492595673,
+       "entropy_crop_pp": 0.45097616314888,
+       "entropy_crop_pl": 0.8332656621932983,
+       "entropy_crop_ll": 0.21667401492595673
+      },
+      "finite": true
+     }
+    ]
+   },
+   "aff_pocket_constraint": {
+    "exit": 0,
+    "wall_s": 443,
+    "error": null,
+    "last": "Done \u2014 1/1 scored \u2192 perf/mgx_matrix/out_np/affinity/nesso1/aff_pocket_constraint/affinity.csv",
+    "affinity": [
+     {
+      "file": "aff_pocket_constraint_affinity.json",
+      "values": {
+       "n_tokens": 107,
+       "seconds": 65.67504148394801,
+       "affinity_pred_value": 0.9717191457748413,
+       "affinity_pred_value1": 0.7912580370903015,
+       "affinity_pred_value2": 1.1521803140640259,
+       "affinity_logits_binary": -0.30285826325416565,
+       "affinity_probability_binary": 0.4248588979244232,
+       "entropy_pp": 0.3096671402454376,
+       "entropy_pl": 0.3315466046333313,
+       "entropy_ll": 0.4245058000087738,
+       "entropy_crop_pp": 0.3103387653827667,
+       "entropy_crop_pl": 0.6659315824508667,
+       "entropy_crop_ll": 0.4245058000087738
+      },
+      "finite": true
+     }
+    ]
+   },
+   "aff_rna_third_entity": {
+    "exit": 1,
+    "wall_s": 193,
+    "error": "error processing aff_rna_third_entity.yaml: Unsupported entity type 'rna' (only protein, ligand)",
+    "last": "Done \u2014 0/1 scored \u2192 perf/mgx_matrix/out_np/affinity/nesso1/aff_rna_third_entity/affinity.csv",
+    "affinity": []
+   },
+   "aff_smiles": {
+    "exit": 0,
+    "wall_s": 240,
+    "error": null,
+    "last": "Done \u2014 1/1 scored \u2192 perf/mgx_matrix/out_np/affinity/nesso1/aff_smiles/affinity.csv",
+    "affinity": [
+     {
+      "file": "aff_smiles_affinity.json",
+      "values": {
+       "n_tokens": 89,
+       "seconds": 62.22880957101006,
+       "affinity_pred_value": 1.8646645545959473,
+       "affinity_pred_value1": 1.951224446296692,
+       "affinity_pred_value2": 1.7781047821044922,
+       "affinity_logits_binary": -0.9705108404159546,
+       "affinity_probability_binary": 0.27477869391441345,
+       "entropy_pp": 0.253481924533844,
+       "entropy_pl": 0.5043888092041016,
+       "entropy_ll": 0.21667401492595673,
+       "entropy_crop_pp": 0.45097616314888,
+       "entropy_crop_pl": 0.8332656621932983,
+       "entropy_crop_ll": 0.21667401492595673
+      },
+      "finite": true
+     }
+    ]
+   },
+   "aff_two_ligands": {
+    "exit": 0,
+    "wall_s": 52,
+    "error": null,
+    "last": "Done \u2014 1/1 scored \u2192 perf/mgx_matrix/out_np/affinity/nesso1/aff_two_ligands/affinity.csv",
+    "affinity": [
+     {
+      "file": "aff_two_ligands_affinity.json",
+      "values": {
+       "n_tokens": 110,
+       "seconds": 6.293525325017981,
+       "affinity_pred_value": 1.846469759941101,
+       "affinity_pred_value1": 1.4889132976531982,
+       "affinity_pred_value2": 2.204026222229004,
+       "affinity_logits_binary": -6.715558052062988,
+       "affinity_probability_binary": 0.0012104426277801394,
+       "entropy_pp": 0.2595328986644745,
+       "entropy_pl": 0.3440897464752197,
+       "entropy_ll": 0.38072678446769714,
+       "entropy_crop_pp": 0.3241623640060425,
+       "entropy_crop_pl": 0.4970244765281677,
+       "entropy_crop_ll": 0.38072678446769714
+      },
+      "finite": true
+     }
+    ]
+   }
+  }
+ },
+ "design": {
+  "boltzgen": {
+   "bg_cyclic_peptide": {
+    "exit": 0,
+    "wall_s": 2052,
+    "error": null,
+    "last": "\u2570\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u256f",
+    "structures": [
+     "bg_cyclic_peptide.cif",
+     "final_ranked_designs/final_1_designs/before_refolding/rank1_bg_cyclic_peptide.cif",
+     "final_ranked_designs/final_1_designs/rank1_bg_cyclic_peptide.cif",
+     "final_ranked_designs/intermediate_ranked_10_designs/before_refolding/rank0_bg_cyclic_peptide.cif",
+     "final_ranked_designs/intermediate_ranked_10_designs/before_refolding/rank1_bg_cyclic_peptide_1.cif",
+     "final_ranked_designs/intermediate_ranked_10_designs/rank0_bg_cyclic_peptide.cif",
+     "final_ranked_designs/intermediate_ranked_10_designs/rank1_bg_cyclic_peptide_1.cif",
+     "intermediate_designs/bg_cyclic_peptide.cif",
+     "intermediate_designs/bg_cyclic_peptide_1.cif",
+     "intermediate_designs_inverse_folded/bg_cyclic_peptide.cif",
+     "intermediate_designs_inverse_folded/bg_cyclic_peptide_1.cif",
+     "intermediate_designs_inverse_folded/refold_cif/bg_cyclic_peptide.cif"
+    ]
+   },
+   "bg_peptide": {
+    "exit": 0,
+    "wall_s": 2087,
+    "error": null,
+    "last": "\u2570\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u256f",
+    "structures": [
+     "bg_peptide.cif",
+     "final_ranked_designs/final_1_designs/before_refolding/rank1_bg_peptide_1.cif",
+     "final_ranked_designs/final_1_designs/rank1_bg_peptide_1.cif",
+     "final_ranked_designs/intermediate_ranked_10_designs/before_refolding/rank0_bg_peptide_1.cif",
+     "final_ranked_designs/intermediate_ranked_10_designs/before_refolding/rank1_bg_peptide.cif",
+     "final_ranked_designs/intermediate_ranked_10_designs/rank0_bg_peptide_1.cif",
+     "final_ranked_designs/intermediate_ranked_10_designs/rank1_bg_peptide.cif",
+     "intermediate_designs/bg_peptide.cif",
+     "intermediate_designs/bg_peptide_1.cif",
+     "intermediate_designs_inverse_folded/bg_peptide.cif",
+     "intermediate_designs_inverse_folded/bg_peptide_1.cif",
+     "intermediate_designs_inverse_folded/refold_cif/bg_peptide.cif"
+    ]
+   },
+   "bg_protein": {
+    "exit": 0,
+    "wall_s": 3571,
+    "error": null,
+    "last": "\u2570\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u256f",
+    "structures": [
+     "bg_protein.cif",
+     "final_ranked_designs/final_1_designs/before_refolding/rank1_bg_protein_1.cif",
+     "final_ranked_designs/final_1_designs/rank1_bg_protein_1.cif",
+     "final_ranked_designs/intermediate_ranked_10_designs/before_refolding/rank0_bg_protein_1.cif",
+     "final_ranked_designs/intermediate_ranked_10_designs/before_refolding/rank1_bg_protein.cif",
+     "final_ranked_designs/intermediate_ranked_10_designs/rank0_bg_protein_1.cif",
+     "final_ranked_designs/intermediate_ranked_10_designs/rank1_bg_protein.cif",
+     "intermediate_designs/bg_protein.cif",
+     "intermediate_designs/bg_protein_1.cif",
+     "intermediate_designs_inverse_folded/bg_protein.cif",
+     "intermediate_designs_inverse_folded/bg_protein_1.cif",
+     "intermediate_designs_inverse_folded/refold_cif/bg_protein.cif"
+    ]
+   },
+   "bg_small_molecule": {
+    "exit": null,
+    "wall_s": null,
+    "error": null,
+    "last": "\u001b[1;36m\u25b8 \u001b[0m  \u001b[1mdevice 2 \u001b[0m  \u001b[36m\u2588\u2588\u2588\u2588\u2588\u001b[0m\u001b[90m\u2591\u2591\u2591\u2591\u2591\u2591\u2591\u001b[0m  \u001b[2m 42%\u001b[0m  \u001b[90m\u2502\u001b[0m  \u001b[1mdesign_folding \u001b[0m  \u001b[36m\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u001b[0m  \u001b[36m0/2  trunk 4/4\u001b[0m",
+    "structures": [
+     "bg_small_molecule.cif",
+     "intermediate_designs/bg_small_molecule.cif",
+     "intermediate_designs/bg_small_molecule_1.cif",
+     "intermediate_designs_inverse_folded/bg_small_molecule.cif",
+     "intermediate_designs_inverse_folded/bg_small_molecule_1.cif",
+     "intermediate_designs_inverse_folded/refold_cif/bg_small_molecule.cif",
+     "intermediate_designs_inverse_folded/refold_cif/bg_small_molecule_1.cif"
+    ]
+   }
+  },
+  "pxdesign": {
+   "nohotspot": {
+    "exit": 0,
+    "wall_s": 412,
+    "error": null,
+    "last": "  px_nohotspot.cif: 60 residues, 241 atoms; target fit 0.08 A over 129 conditioned tokens",
+    "structures": [
+     "px_nohotspot.cif"
+    ]
+   },
+   "pdl1": {
+    "exit": 0,
+    "wall_s": 417,
+    "error": null,
+    "last": "  px_pdl1.cif: 80 residues, 321 atoms; target fit 0.07 A over 116 conditioned tokens",
+    "structures": [
+     "px_pdl1.cif"
+    ]
+   }
+  },
+  "rfd3": {
+   "binder": {
+    "exit": 0,
+    "wall_s": 318,
+    "error": null,
+    "last": "  binder#0: perf/mgx_matrix/out_np_par/design/rfd3/binder/binder.cif (1350 atoms)",
+    "structures": [
+     "binder.cif"
+    ]
+   },
+   "motif": {
+    "exit": 0,
+    "wall_s": 222,
+    "error": null,
+    "last": "  scaffold#0: perf/mgx_matrix/out_np_par/design/rfd3/motif/scaffold.cif (791 atoms)",
+    "structures": [
+     "scaffold.cif"
+    ]
+   }
+  }
+ },
+ "embed": {
+  "esmc-300m": {
+   "badchar": {
+    "exit": 0,
+    "wall_s": 32,
+    "error": null,
+    "last": "Done \u2014 1 sequence(s), d_model=960 \u2192 perf/mgx_matrix/out_np/embed/esmc-300m/badchar (see manifest.json)",
+    "embeddings": [
+     {
+      "id": "digit",
+      "length": 11,
+      "shape": [
+       11,
+       960
+      ],
+      "finite": true,
+      "nonzero": true,
+      "logits": false
+     }
+    ]
+   },
+   "bare_string": {
+    "exit": 0,
+    "wall_s": 45,
+    "error": null,
+    "last": "Done \u2014 1 sequence(s), d_model=960 \u2192 perf/mgx_matrix/out_np/embed/esmc-300m/bare_string (see manifest.json)",
+    "embeddings": [
+     {
+      "id": "seq0",
+      "length": 76,
+      "shape": [
+       76,
+       960
+      ],
+      "finite": true,
+      "nonzero": true,
+      "logits": false
+     }
+    ]
+   },
+   "empty_record": {
+    "exit": 1,
+    "wall_s": 17,
+    "error": "Error: sequence 'empty' is empty",
+    "last": "Error: sequence 'empty' is empty",
+    "embeddings": null
+   },
+   "good": {
+    "exit": 0,
+    "wall_s": 57,
+    "error": null,
+    "last": "Done \u2014 3 sequence(s), d_model=960 \u2192 perf/mgx_matrix/out_np/embed/esmc-300m/good (see manifest.json)",
+    "embeddings": [
+     {
+      "id": "ubq",
+      "length": 76,
+      "shape": [
+       76,
+       960
+      ],
+      "finite": true,
+      "nonzero": true,
+      "logits": false
+     },
+     {
+      "id": "trpcage",
+      "length": 20,
+      "shape": [
+       20,
+       960
+      ],
+      "finite": true,
+      "nonzero": true,
+      "logits": false
+     },
+     {
+      "id": "single",
+      "length": 1,
+      "shape": [
+       1,
+       960
+      ],
+      "finite": true,
+      "nonzero": true,
+      "logits": false
+     }
+    ]
+   },
+   "logits": {
+    "exit": 0,
+    "wall_s": 20,
+    "error": null,
+    "last": "Done \u2014 3 sequence(s), d_model=960 \u2192 perf/mgx_matrix/out_np/embed/esmc-300m/logits (see manifest.json)",
+    "embeddings": [
+     {
+      "id": "ubq",
+      "length": 76,
+      "shape": [
+       76,
+       960
+      ],
+      "finite": true,
+      "nonzero": true,
+      "logits": true
+     },
+     {
+      "id": "trpcage",
+      "length": 20,
+      "shape": [
+       20,
+       960
+      ],
+      "finite": true,
+      "nonzero": true,
+      "logits": true
+     },
+     {
+      "id": "single",
+      "length": 1,
+      "shape": [
+       1,
+       960
+      ],
+      "finite": true,
+      "nonzero": true,
+      "logits": true
+     }
+    ]
+   },
+   "long2100": {
+    "exit": 0,
+    "wall_s": 63,
+    "error": null,
+    "last": "Done \u2014 1 sequence(s), d_model=960 \u2192 perf/mgx_matrix/out_np/embed/esmc-300m/long2100 (see manifest.json)",
+    "embeddings": [
+     {
+      "id": "long2100",
+      "length": 2100,
+      "shape": [
+       2100,
+       960
+      ],
+      "finite": true,
+      "nonzero": true,
+      "logits": false
+     }
+    ]
+   },
+   "mapping": {
+    "exit": 0,
+    "wall_s": 144,
+    "error": null,
+    "last": "Done \u2014 2 sequence(s), d_model=960 \u2192 perf/mgx_matrix/out_np/embed/esmc-300m/mapping (see manifest.json)",
+    "embeddings": [
+     {
+      "id": "ubq",
+      "length": 76,
+      "shape": [
+       76,
+       960
+      ],
+      "finite": true,
+      "nonzero": true,
+      "logits": false
+     },
+     {
+      "id": "trpcage",
+      "length": 20,
+      "shape": [
+       20,
+       960
+      ],
+      "finite": true,
+      "nonzero": true,
+      "logits": false
+     }
+    ]
+   },
+   "unusual": {
+    "exit": 0,
+    "wall_s": 137,
+    "error": null,
+    "last": "Done \u2014 4 sequence(s), d_model=960 \u2192 perf/mgx_matrix/out_np/embed/esmc-300m/unusual (see manifest.json)",
+    "embeddings": [
+     {
+      "id": "withX",
+      "length": 22,
+      "shape": [
+       22,
+       960
+      ],
+      "finite": true,
+      "nonzero": true,
+      "logits": false
+     },
+     {
+      "id": "withU",
+      "length": 22,
+      "shape": [
+       22,
+       960
+      ],
+      "finite": true,
+      "nonzero": true,
+      "logits": false
+     },
+     {
+      "id": "lower",
+      "length": 22,
+      "shape": [
+       22,
+       960
+      ],
+      "finite": true,
+      "nonzero": true,
+      "logits": false
+     },
+     {
+      "id": "withBZO",
+      "length": 18,
+      "shape": [
+       18,
+       960
+      ],
+      "finite": true,
+      "nonzero": true,
+      "logits": false
+     }
+    ]
+   }
+  },
+  "esmc-600m": {
+   "badchar": {
+    "exit": 0,
+    "wall_s": 36,
+    "error": null,
+    "last": "Done \u2014 1 sequence(s), d_model=1152 \u2192 perf/mgx_matrix/out_np/embed/esmc-600m/badchar (see manifest.json)",
+    "embeddings": [
+     {
+      "id": "digit",
+      "length": 11,
+      "shape": [
+       11,
+       1152
+      ],
+      "finite": true,
+      "nonzero": true,
+      "logits": false
+     }
+    ]
+   },
+   "bare_string": {
+    "exit": 0,
+    "wall_s": 56,
+    "error": null,
+    "last": "Done \u2014 1 sequence(s), d_model=1152 \u2192 perf/mgx_matrix/out_np/embed/esmc-600m/bare_string (see manifest.json)",
+    "embeddings": [
+     {
+      "id": "seq0",
+      "length": 76,
+      "shape": [
+       76,
+       1152
+      ],
+      "finite": true,
+      "nonzero": true,
+      "logits": false
+     }
+    ]
+   },
+   "empty_record": {
+    "exit": 1,
+    "wall_s": 20,
+    "error": "Error: sequence 'empty' is empty",
+    "last": "Error: sequence 'empty' is empty",
+    "embeddings": null
+   },
+   "good": {
+    "exit": 0,
+    "wall_s": 69,
+    "error": null,
+    "last": "Done \u2014 3 sequence(s), d_model=1152 \u2192 perf/mgx_matrix/out_np/embed/esmc-600m/good (see manifest.json)",
+    "embeddings": [
+     {
+      "id": "ubq",
+      "length": 76,
+      "shape": [
+       76,
+       1152
+      ],
+      "finite": true,
+      "nonzero": true,
+      "logits": false
+     },
+     {
+      "id": "trpcage",
+      "length": 20,
+      "shape": [
+       20,
+       1152
+      ],
+      "finite": true,
+      "nonzero": true,
+      "logits": false
+     },
+     {
+      "id": "single",
+      "length": 1,
+      "shape": [
+       1,
+       1152
+      ],
+      "finite": true,
+      "nonzero": true,
+      "logits": false
+     }
+    ]
+   },
+   "logits": {
+    "exit": 0,
+    "wall_s": 28,
+    "error": null,
+    "last": "Done \u2014 3 sequence(s), d_model=1152 \u2192 perf/mgx_matrix/out_np/embed/esmc-600m/logits (see manifest.json)",
+    "embeddings": [
+     {
+      "id": "ubq",
+      "length": 76,
+      "shape": [
+       76,
+       1152
+      ],
+      "finite": true,
+      "nonzero": true,
+      "logits": true
+     },
+     {
+      "id": "trpcage",
+      "length": 20,
+      "shape": [
+       20,
+       1152
+      ],
+      "finite": true,
+      "nonzero": true,
+      "logits": true
+     },
+     {
+      "id": "single",
+      "length": 1,
+      "shape": [
+       1,
+       1152
+      ],
+      "finite": true,
+      "nonzero": true,
+      "logits": true
+     }
+    ]
+   },
+   "long2100": {
+    "exit": 0,
+    "wall_s": 83,
+    "error": null,
+    "last": "Done \u2014 1 sequence(s), d_model=1152 \u2192 perf/mgx_matrix/out_np/embed/esmc-600m/long2100 (see manifest.json)",
+    "embeddings": [
+     {
+      "id": "long2100",
+      "length": 2100,
+      "shape": [
+       2100,
+       1152
+      ],
+      "finite": true,
+      "nonzero": true,
+      "logits": false
+     }
+    ]
+   },
+   "mapping": {
+    "exit": 0,
+    "wall_s": 177,
+    "error": null,
+    "last": "Done \u2014 2 sequence(s), d_model=1152 \u2192 perf/mgx_matrix/out_np/embed/esmc-600m/mapping (see manifest.json)",
+    "embeddings": [
+     {
+      "id": "ubq",
+      "length": 76,
+      "shape": [
+       76,
+       1152
+      ],
+      "finite": true,
+      "nonzero": true,
+      "logits": false
+     },
+     {
+      "id": "trpcage",
+      "length": 20,
+      "shape": [
+       20,
+       1152
+      ],
+      "finite": true,
+      "nonzero": true,
+      "logits": false
+     }
+    ]
+   },
+   "unusual": {
+    "exit": 0,
+    "wall_s": 156,
+    "error": null,
+    "last": "Done \u2014 4 sequence(s), d_model=1152 \u2192 perf/mgx_matrix/out_np/embed/esmc-600m/unusual (see manifest.json)",
+    "embeddings": [
+     {
+      "id": "withX",
+      "length": 22,
+      "shape": [
+       22,
+       1152
+      ],
+      "finite": true,
+      "nonzero": true,
+      "logits": false
+     },
+     {
+      "id": "withU",
+      "length": 22,
+      "shape": [
+       22,
+       1152
+      ],
+      "finite": true,
+      "nonzero": true,
+      "logits": false
+     },
+     {
+      "id": "lower",
+      "length": 22,
+      "shape": [
+       22,
+       1152
+      ],
+      "finite": true,
+      "nonzero": true,
+      "logits": false
+     },
+     {
+      "id": "withBZO",
+      "length": 18,
+      "shape": [
+       18,
+       1152
+      ],
+      "finite": true,
+      "nonzero": true,
+      "logits": false
+     }
+    ]
+   }
+  },
+  "esmc-6b": {
+   "badchar": {
+    "exit": 0,
+    "wall_s": 259,
+    "error": null,
+    "last": "Done \u2014 1 sequence(s), d_model=2560 \u2192 perf/mgx_matrix/out_np/embed/esmc-6b/badchar (see manifest.json)",
+    "embeddings": [
+     {
+      "id": "digit",
+      "length": 11,
+      "shape": [
+       11,
+       2560
+      ],
+      "finite": true,
+      "nonzero": true,
+      "logits": false
+     }
+    ]
+   },
+   "bare_string": {
+    "exit": 0,
+    "wall_s": 240,
+    "error": null,
+    "last": "Done \u2014 1 sequence(s), d_model=2560 \u2192 perf/mgx_matrix/out_np/embed/esmc-6b/bare_string (see manifest.json)",
+    "embeddings": [
+     {
+      "id": "seq0",
+      "length": 76,
+      "shape": [
+       76,
+       2560
+      ],
+      "finite": true,
+      "nonzero": true,
+      "logits": false
+     }
+    ]
+   },
+   "empty_record": {
+    "exit": 1,
+    "wall_s": 112,
+    "error": "Error: sequence 'empty' is empty",
+    "last": "Error: sequence 'empty' is empty",
+    "embeddings": null
+   },
+   "good": {
+    "exit": 0,
+    "wall_s": 124,
+    "error": null,
+    "last": "Done \u2014 3 sequence(s), d_model=2560 \u2192 perf/mgx_matrix/out_np/embed/esmc-6b/good (see manifest.json)",
+    "embeddings": [
+     {
+      "id": "ubq",
+      "length": 76,
+      "shape": [
+       76,
+       2560
+      ],
+      "finite": true,
+      "nonzero": true,
+      "logits": false
+     },
+     {
+      "id": "trpcage",
+      "length": 20,
+      "shape": [
+       20,
+       2560
+      ],
+      "finite": true,
+      "nonzero": true,
+      "logits": false
+     },
+     {
+      "id": "single",
+      "length": 1,
+      "shape": [
+       1,
+       2560
+      ],
+      "finite": true,
+      "nonzero": true,
+      "logits": false
+     }
+    ]
+   },
+   "logits": {
+    "exit": 0,
+    "wall_s": 100,
+    "error": null,
+    "last": "Done \u2014 3 sequence(s), d_model=2560 \u2192 perf/mgx_matrix/out_np/embed/esmc-6b/logits (see manifest.json)",
+    "embeddings": [
+     {
+      "id": "ubq",
+      "length": 76,
+      "shape": [
+       76,
+       2560
+      ],
+      "finite": true,
+      "nonzero": true,
+      "logits": false
+     },
+     {
+      "id": "trpcage",
+      "length": 20,
+      "shape": [
+       20,
+       2560
+      ],
+      "finite": true,
+      "nonzero": true,
+      "logits": false
+     },
+     {
+      "id": "single",
+      "length": 1,
+      "shape": [
+       1,
+       2560
+      ],
+      "finite": true,
+      "nonzero": true,
+      "logits": false
+     }
+    ]
+   },
+   "long2100": {
+    "exit": 1,
+    "wall_s": 7,
+    "error": "tt_bio.size_limits.SizeTooLargeError: 'long2100.fasta' has 2100 residues in its longest sequence, and esmc-6b is measured to handle at most 1968 residues in its longest sequence on wormhole_b0 -- the largest size below the first measured failure. Models with a measured ceiling above 2100 on this hardware: esmc-300m, esmc-600m, saprot-1.3b, saprot-35m, saprot-650m. If you have reason to think this input is roomier than the ladder that set the limit (a single-sequence run of an MSA-dependent model is), set TT_BIO_SIZE_LIMIT=0 to run it anyway.",
+    "last": "tt_bio.size_limits.SizeTooLargeError: 'long2100.fasta' has 2100 residues in its longest sequence, and esmc-6b is measured to handle at most 1968 residues in its longest sequence on wormhole_b0 -- the largest size below the first measured failure. Models with a measured ceiling above 2100 on this har",
+    "embeddings": null
+   },
+   "mapping": {
+    "exit": 0,
+    "wall_s": 107,
+    "error": null,
+    "last": "Done \u2014 2 sequence(s), d_model=2560 \u2192 perf/mgx_matrix/out_np/embed/esmc-6b/mapping (see manifest.json)",
+    "embeddings": [
+     {
+      "id": "ubq",
+      "length": 76,
+      "shape": [
+       76,
+       2560
+      ],
+      "finite": true,
+      "nonzero": true,
+      "logits": false
+     },
+     {
+      "id": "trpcage",
+      "length": 20,
+      "shape": [
+       20,
+       2560
+      ],
+      "finite": true,
+      "nonzero": true,
+      "logits": false
+     }
+    ]
+   },
+   "unusual": {
+    "exit": 0,
+    "wall_s": 225,
+    "error": null,
+    "last": "Done \u2014 4 sequence(s), d_model=2560 \u2192 perf/mgx_matrix/out_np/embed/esmc-6b/unusual (see manifest.json)",
+    "embeddings": [
+     {
+      "id": "withX",
+      "length": 22,
+      "shape": [
+       22,
+       2560
+      ],
+      "finite": true,
+      "nonzero": true,
+      "logits": false
+     },
+     {
+      "id": "withU",
+      "length": 22,
+      "shape": [
+       22,
+       2560
+      ],
+      "finite": true,
+      "nonzero": true,
+      "logits": false
+     },
+     {
+      "id": "lower",
+      "length": 22,
+      "shape": [
+       22,
+       2560
+      ],
+      "finite": true,
+      "nonzero": true,
+      "logits": false
+     },
+     {
+      "id": "withBZO",
+      "length": 18,
+      "shape": [
+       18,
+       2560
+      ],
+      "finite": true,
+      "nonzero": true,
+      "logits": false
+     }
+    ]
+   }
+  }
+ },
+ "saprot": {
+  "saprot-1.3b": {
+   "badchar": {
+    "exit": 0,
+    "wall_s": 52,
+    "error": null,
+    "last": "Done \u2014 1 sequence(s), d_model=1280 \u2192 perf/mgx_matrix/out_np/saprot/saprot-1.3b/badchar (see manifest.json)",
+    "embeddings": [
+     {
+      "id": "digit",
+      "length": 11,
+      "shape": [
+       11,
+       1280
+      ],
+      "finite": true,
+      "nonzero": true,
+      "logits": false
+     }
+    ]
+   },
+   "empty_record": {
+    "exit": 1,
+    "wall_s": 195,
+    "error": "Error: sequence 'empty' is empty",
+    "last": "Error: sequence 'empty' is empty",
+    "embeddings": null
+   },
+   "good": {
+    "exit": 0,
+    "wall_s": 57,
+    "error": null,
+    "last": "Done \u2014 3 sequence(s), d_model=1280 \u2192 perf/mgx_matrix/out_np/saprot/saprot-1.3b/good (see manifest.json)",
+    "embeddings": [
+     {
+      "id": "ubq",
+      "length": 76,
+      "shape": [
+       76,
+       1280
+      ],
+      "finite": true,
+      "nonzero": true,
+      "logits": false
+     },
+     {
+      "id": "trpcage",
+      "length": 20,
+      "shape": [
+       20,
+       1280
+      ],
+      "finite": true,
+      "nonzero": true,
+      "logits": false
+     },
+     {
+      "id": "single",
+      "length": 1,
+      "shape": [
+       1,
+       1280
+      ],
+      "finite": true,
+      "nonzero": true,
+      "logits": false
+     }
+    ]
+   },
+   "structure_match": {
+    "exit": 0,
+    "wall_s": 80,
+    "error": null,
+    "last": "Done \u2014 1 sequence(s), d_model=1280 \u2192 perf/mgx_matrix/out_np/saprot/saprot-1.3b/structure_match (see manifest.json)",
+    "embeddings": [
+     {
+      "id": "base",
+      "length": 76,
+      "shape": [
+       76,
+       1280
+      ],
+      "finite": true,
+      "nonzero": true,
+      "logits": false
+     }
+    ]
+   },
+   "structure_mismatch": {
+    "exit": 1,
+    "wall_s": 7,
+    "error": "Error: examples/ground_truth_structures/prot.cif: the structure resolves 117 residues but only 21 of them appear in the 76-residue input sequence, so this structure is not of this sequence. Pass the matching structure, or drop --structure to run sequence-only.",
+    "last": "Error: examples/ground_truth_structures/prot.cif: the structure resolves 117 residues but only 21 of them appear in the 76-residue input sequence, so this structure is not of this sequence. Pass the matching structure, or drop --structure to run sequence-only.",
+    "embeddings": null
+   },
+   "unusual": {
+    "exit": 0,
+    "wall_s": 55,
+    "error": null,
+    "last": "Done \u2014 4 sequence(s), d_model=1280 \u2192 perf/mgx_matrix/out_np/saprot/saprot-1.3b/unusual (see manifest.json)",
+    "embeddings": [
+     {
+      "id": "withX",
+      "length": 22,
+      "shape": [
+       22,
+       1280
+      ],
+      "finite": true,
+      "nonzero": true,
+      "logits": false
+     },
+     {
+      "id": "withU",
+      "length": 22,
+      "shape": [
+       22,
+       1280
+      ],
+      "finite": true,
+      "nonzero": true,
+      "logits": false
+     },
+     {
+      "id": "lower",
+      "length": 22,
+      "shape": [
+       22,
+       1280
+      ],
+      "finite": true,
+      "nonzero": true,
+      "logits": false
+     },
+     {
+      "id": "withBZO",
+      "length": 18,
+      "shape": [
+       18,
+       1280
+      ],
+      "finite": true,
+      "nonzero": true,
+      "logits": false
+     }
+    ]
+   }
+  },
+  "saprot-35m": {
+   "badchar": {
+    "exit": 0,
+    "wall_s": 22,
+    "error": null,
+    "last": "Done \u2014 1 sequence(s), d_model=480 \u2192 perf/mgx_matrix/out_np/saprot/saprot-35m/badchar (see manifest.json)",
+    "embeddings": [
+     {
+      "id": "digit",
+      "length": 11,
+      "shape": [
+       11,
+       480
+      ],
+      "finite": true,
+      "nonzero": true,
+      "logits": false
+     }
+    ]
+   },
+   "empty_record": {
+    "exit": 1,
+    "wall_s": 14,
+    "error": "Error: sequence 'empty' is empty",
+    "last": "Error: sequence 'empty' is empty",
+    "embeddings": null
+   },
+   "good": {
+    "exit": 0,
+    "wall_s": 244,
+    "error": null,
+    "last": "Done \u2014 3 sequence(s), d_model=480 \u2192 perf/mgx_matrix/out_np/saprot/saprot-35m/good (see manifest.json)",
+    "embeddings": [
+     {
+      "id": "ubq",
+      "length": 76,
+      "shape": [
+       76,
+       480
+      ],
+      "finite": true,
+      "nonzero": true,
+      "logits": false
+     },
+     {
+      "id": "trpcage",
+      "length": 20,
+      "shape": [
+       20,
+       480
+      ],
+      "finite": true,
+      "nonzero": true,
+      "logits": false
+     },
+     {
+      "id": "single",
+      "length": 1,
+      "shape": [
+       1,
+       480
+      ],
+      "finite": true,
+      "nonzero": true,
+      "logits": false
+     }
+    ]
+   },
+   "structure_match": {
+    "exit": 0,
+    "wall_s": 29,
+    "error": null,
+    "last": "Done \u2014 1 sequence(s), d_model=480 \u2192 perf/mgx_matrix/out_np/saprot/saprot-35m/structure_match (see manifest.json)",
+    "embeddings": [
+     {
+      "id": "base",
+      "length": 76,
+      "shape": [
+       76,
+       480
+      ],
+      "finite": true,
+      "nonzero": true,
+      "logits": false
+     }
+    ]
+   },
+   "structure_mismatch": {
+    "exit": 1,
+    "wall_s": 7,
+    "error": "Error: examples/ground_truth_structures/prot.cif: the structure resolves 117 residues but only 21 of them appear in the 76-residue input sequence, so this structure is not of this sequence. Pass the matching structure, or drop --structure to run sequence-only.",
+    "last": "Error: examples/ground_truth_structures/prot.cif: the structure resolves 117 residues but only 21 of them appear in the 76-residue input sequence, so this structure is not of this sequence. Pass the matching structure, or drop --structure to run sequence-only.",
+    "embeddings": null
+   },
+   "unusual": {
+    "exit": 0,
+    "wall_s": 40,
+    "error": null,
+    "last": "Done \u2014 4 sequence(s), d_model=480 \u2192 perf/mgx_matrix/out_np/saprot/saprot-35m/unusual (see manifest.json)",
+    "embeddings": [
+     {
+      "id": "withX",
+      "length": 22,
+      "shape": [
+       22,
+       480
+      ],
+      "finite": true,
+      "nonzero": true,
+      "logits": false
+     },
+     {
+      "id": "withU",
+      "length": 22,
+      "shape": [
+       22,
+       480
+      ],
+      "finite": true,
+      "nonzero": true,
+      "logits": false
+     },
+     {
+      "id": "lower",
+      "length": 22,
+      "shape": [
+       22,
+       480
+      ],
+      "finite": true,
+      "nonzero": true,
+      "logits": false
+     },
+     {
+      "id": "withBZO",
+      "length": 18,
+      "shape": [
+       18,
+       480
+      ],
+      "finite": true,
+      "nonzero": true,
+      "logits": false
+     }
+    ]
+   }
+  },
+  "saprot-650m": {
+   "badchar": {
+    "exit": 0,
+    "wall_s": 217,
+    "error": null,
+    "last": "Done \u2014 1 sequence(s), d_model=1280 \u2192 perf/mgx_matrix/out_np/saprot/saprot-650m/badchar (see manifest.json)",
+    "embeddings": [
+     {
+      "id": "digit",
+      "length": 11,
+      "shape": [
+       11,
+       1280
+      ],
+      "finite": true,
+      "nonzero": true,
+      "logits": false
+     }
+    ]
+   },
+   "empty_record": {
+    "exit": 1,
+    "wall_s": 26,
+    "error": "Error: sequence 'empty' is empty",
+    "last": "Error: sequence 'empty' is empty",
+    "embeddings": null
+   },
+   "good": {
+    "exit": 0,
+    "wall_s": 187,
+    "error": null,
+    "last": "Done \u2014 3 sequence(s), d_model=1280 \u2192 perf/mgx_matrix/out_np/saprot/saprot-650m/good (see manifest.json)",
+    "embeddings": [
+     {
+      "id": "ubq",
+      "length": 76,
+      "shape": [
+       76,
+       1280
+      ],
+      "finite": true,
+      "nonzero": true,
+      "logits": false
+     },
+     {
+      "id": "trpcage",
+      "length": 20,
+      "shape": [
+       20,
+       1280
+      ],
+      "finite": true,
+      "nonzero": true,
+      "logits": false
+     },
+     {
+      "id": "single",
+      "length": 1,
+      "shape": [
+       1,
+       1280
+      ],
+      "finite": true,
+      "nonzero": true,
+      "logits": false
+     }
+    ]
+   },
+   "structure_match": {
+    "exit": 0,
+    "wall_s": 60,
+    "error": null,
+    "last": "Done \u2014 1 sequence(s), d_model=1280 \u2192 perf/mgx_matrix/out_np/saprot/saprot-650m/structure_match (see manifest.json)",
+    "embeddings": [
+     {
+      "id": "base",
+      "length": 76,
+      "shape": [
+       76,
+       1280
+      ],
+      "finite": true,
+      "nonzero": true,
+      "logits": false
+     }
+    ]
+   },
+   "structure_mismatch": {
+    "exit": 1,
+    "wall_s": 12,
+    "error": "Error: examples/ground_truth_structures/prot.cif: the structure resolves 117 residues but only 21 of them appear in the 76-residue input sequence, so this structure is not of this sequence. Pass the matching structure, or drop --structure to run sequence-only.",
+    "last": "Error: examples/ground_truth_structures/prot.cif: the structure resolves 117 residues but only 21 of them appear in the 76-residue input sequence, so this structure is not of this sequence. Pass the matching structure, or drop --structure to run sequence-only.",
+    "embeddings": null
+   },
+   "unusual": {
+    "exit": 0,
+    "wall_s": 48,
+    "error": null,
+    "last": "Done \u2014 4 sequence(s), d_model=1280 \u2192 perf/mgx_matrix/out_np/saprot/saprot-650m/unusual (see manifest.json)",
+    "embeddings": [
+     {
+      "id": "withX",
+      "length": 22,
+      "shape": [
+       22,
+       1280
+      ],
+      "finite": true,
+      "nonzero": true,
+      "logits": false
+     },
+     {
+      "id": "withU",
+      "length": 22,
+      "shape": [
+       22,
+       1280
+      ],
+      "finite": true,
+      "nonzero": true,
+      "logits": false
+     },
+     {
+      "id": "lower",
+      "length": 22,
+      "shape": [
+       22,
+       1280
+      ],
+      "finite": true,
+      "nonzero": true,
+      "logits": false
+     },
+     {
+      "id": "withBZO",
+      "length": 18,
+      "shape": [
+       18,
+       1280
+      ],
+      "finite": true,
+      "nonzero": true,
+      "logits": false
+     }
+    ]
+   }
+  }
+ }
+}
