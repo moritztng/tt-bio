@@ -1,74 +1,130 @@
 {
  "pcie_GB_per_s_measured": 2.199,
  "pcie_source": "of3t-bwattrib, 391.4 GB / 178 s, pc, Blackhole",
- "bytes_per_element": {
-  "forward": 8,
-  "backward": [
-   8,
-   12
-  ]
+ "bytes_per_element_per_direction": {
+  "softmax": 4,
+  "layer_norm": 2
  },
  "round_s_measured_without_instrument": 39.08,
- "round_source": "bcx-round, 25 rounds, n=224, AICLK 1350, loadavg 37-52",
+ "round_source": "bcx-round, 25 rounds, n=224, AICLK 1350",
+ "call_structure_source": "STRUCTURE.json, 5 checks green",
  "rows": [
   {
    "n": 224,
-   "elements_per_block_census": 141295616,
-   "forward_elements_per_round": 20346568704,
-   "backward_elements_per_round": 6782189568,
+   "per_op": {
+    "softmax": {
+     "bytes_per_element_per_direction": 4,
+     "forward_elements": 12947816448,
+     "backward_elements": 4315938816,
+     "GB_per_round": [
+      138.1,
+      155.4
+     ],
+     "s_per_round": [
+      62.8,
+      70.7
+     ]
+    },
+    "layer_norm": {
+     "bytes_per_element_per_direction": 2,
+     "forward_elements": 7398752256,
+     "backward_elements": 2466250752,
+     "GB_per_round": [
+      39.5,
+      44.4
+     ],
+     "s_per_round": [
+      17.9,
+      20.2
+     ]
+    }
+   },
    "pcie_GB_per_round": [
-    217.0,
-    244.2
+    177.6,
+    199.8
    ],
    "pcie_s_per_round": [
-    98.7,
-    111.0
+    80.8,
+    90.8
    ],
    "arithmetic_s_per_round_pc_quiet": [
     80.1,
     82.3
    ],
    "added_s_per_round": [
-    178.8,
-    193.3
+    160.9,
+    173.1
+   ],
+   "pcie_share_of_added": [
+    0.502,
+    0.525
    ],
    "round_s_with_instrument": [
-    217.9,
-    232.4
+    199.9,
+    212.2
    ],
    "slowdown_x": [
-    5.58,
-    5.95
+    5.12,
+    5.43
    ]
   },
   {
    "n": 288,
-   "elements_per_block_census": 276037632,
-   "forward_elements_per_round": 39749419008,
-   "backward_elements_per_round": 13249806336,
+   "per_op": {
+    "softmax": {
+     "bytes_per_element_per_direction": 4,
+     "forward_elements": 27518828544,
+     "backward_elements": 9172942848,
+     "GB_per_round": [
+      293.5,
+      330.2
+     ],
+     "s_per_round": [
+      133.5,
+      150.2
+     ]
+    },
+    "layer_norm": {
+     "bytes_per_element_per_direction": 2,
+     "forward_elements": 12230590464,
+     "backward_elements": 4076863488,
+     "GB_per_round": [
+      65.2,
+      73.4
+     ],
+     "s_per_round": [
+      29.7,
+      33.4
+     ]
+    }
+   },
    "pcie_GB_per_round": [
-    424.0,
-    477.0
+    358.8,
+    403.6
    ],
    "pcie_s_per_round": [
-    192.8,
-    216.9
+    163.2,
+    183.6
    ],
    "arithmetic_s_per_round_pc_quiet": [
     158.6,
     160.8
    ],
    "added_s_per_round": [
-    351.4,
-    377.7
+    321.8,
+    344.4
+   ],
+   "pcie_share_of_added": [
+    0.507,
+    0.533
    ],
    "round_s_with_instrument": [
-    390.5,
-    416.8
+    360.8,
+    383.4
    ],
    "slowdown_x": [
-    9.99,
-    10.67
+    9.23,
+    9.81
    ]
   }
  ]
