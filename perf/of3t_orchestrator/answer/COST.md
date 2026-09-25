@@ -176,13 +176,15 @@ swings from **~16.5 to ~26 GiB** with the resident agent population — 4.33 GiB
 OOM, ~14 GiB at both later attempts. A run that fits at one hour does not at another, independently
 of the ceiling, and a timing taken there is conditioned on a number nobody controls.
 
-**The capability limit is undocumented and its number is not settled.** Every figure here is at
-**crop 384**. `git grep` over `origin/main -- README.md docs/` finds **no crop or token limit
-stated anywhere**, and this campaign's own record gives three answers: **512**, a **576**-token
-capacity wall (fix release-gated and unmerged), and **640**. One size ladder on main settles it.
-Until it does, no number goes into user docs, because a wrong capability statement is worse than an
-absent one. Upstream ships four stage configs and this campaign has only run the smallest end to
-end.
+**The capability limit is 512 tokens, it is measured, and it is undocumented.** Every figure here
+is at **crop 384**. The largest crop that runs is **512**: `of3t-crop768` built the missing 544
+fixture and ran the ladder — **544, 576, 640 and 768 all refuse**, so there is no rung between 512
+and 640 that clears (measured 2026-09-21; nothing since has touched the device-side wall, and
+`of3t-cropwall`'s DRAM-padding fix that might raise it is release-gated and unmerged).
+
+**`git grep` over `origin/main -- README.md docs/` finds no crop or token limit stated anywhere.**
+Upstream ships four stage configs and this campaign has only ever run the smallest end to end. That
+is a capability a user meets and it belongs in the docs.
 
 ## What is missing, why, and the one decision with a number on it
 
