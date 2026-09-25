@@ -1,4 +1,12 @@
-"""AlphaFold2 (`model_1_ptm`) on ttnn: the blocks that are AF2's and nobody else's.
+"""AlphaFold2 on ttnn: the blocks that are AF2's and nobody else's.
+
+Serves `model_1_ptm` and AF2-multimer_v3 from one set of classes. The two variants run the same
+ops at the same widths on card and differ by two orderings: multimer_v3 folds the outer product
+mean into the pair before the row attention reads it, and its template pair stack runs the
+multiplications before the attentions where the monomer's runs the attentions first. Everything
+else that separates them -- the 73-channel relative encoding, the nine summed template feature
+embeddings, the backbone unit vectors -- is host featurisation, in `af2_reference.py`.
+
 
 Everything AF2 shares with the four models already in `tenstorrent.py` -- the triangle
 multiplication, the triangle attention, the outer product mean -- is that module's class, driven
@@ -458,10 +466,10 @@ class AF2Attention(Module):
     a probability, measured by `scripts/af2_port/softmax_ckc_probe.py`. Fixing the shared helper
     instead would move shipped numbers on Boltz-2, Protenix-v2, OpenFold3 and ESMFold2.
 
-    `msa_mask` is all ones for every fold this port serves, so AF2s `1e9 * (msa_mask - 1)` logit
-    bias is identically zero and is not built. ttnn masks its own tile padding, so a sequence
-    length that is not a multiple of 32 needs no mask either (measured: an explicit -1e9 fill is
-    bit-identical).
+    An all-ones `msa_mask` makes AF2s `1e9 * (msa_mask - 1)` logit bias identically zero, so the
+    caller passes no `mask_bias` and none is built; multimer_v3, whose template MSA rows are
+    masked by chi 1, passes one. ttnn masks its own tile padding, so a sequence length that is
+    not a multiple of 32 needs no mask either (measured: an explicit -1e9 fill is bit-identical).
     """
 
     #: Take the gating sigmoid in float32. OFF, and measured that way: widening it is
@@ -699,8 +707,10 @@ class AF2EvoformerBlock(AF2PairBlock):
     """
 
     def __init__(self, state_dict: Weights,
-                 compute_kernel_config: ttnn.DeviceComputeKernelConfig, **kwargs):
+                 compute_kernel_config: ttnn.DeviceComputeKernelConfig,
+                 opm_first: bool = False, **kwargs):
         super().__init__(state_dict, compute_kernel_config, **kwargs)
+        self.opm_first = opm_first
         self.msa_row_attn = AF2Attention(
             self.scope("msa_row_attn"), compute_kernel_config, pair_bias=True)
         self.msa_col_attn = AF2Attention(
@@ -737,6 +747,21 @@ class AF2EvoformerBlock(AF2PairBlock):
         col_bias = ttnn.fill_implicit_tile_padding(ttnn.reshape(transposed, (n, 1, 1, rows)), 0.0)
         return row_bias, col_bias
 
+    def _opm_update(self, msa: ttnn.Tensor, z: ttnn.Tensor,
+                    msa_mask: ttnn.Tensor | None) -> ttnn.Tensor:
+        """The outer product mean residual, at either position in the block.
+
+        AF2 divides the outer product mean by `eps + norm`, and at an all-ones mask the norm is
+        the MSA depth everywhere. `eps` is 1e-3 and the trunk is bfloat16, whose spacing at 2.0
+        is 0.0078, so `eps + norm` rounds back to the depth exactly -- at any depth, since the
+        spacing scales with the value. Adding it anyway measures 1.7x worse on card at Evoformer
+        0 and 47 (`device_gate.py --opm-eps 1e-3`). `None` reads the depth off the tensor, which
+        is that divisor.
+        """
+        call = ((lambda m: self.opm(m, None)) if msa_mask is None
+                else (lambda m: self.opm.masked(m, msa_mask)))
+        return self._residual(z, self._update("opm", call, msa))
+
     def _msa_track(self, msa: ttnn.Tensor, pair: ttnn.Tensor,
                    row_bias: ttnn.Tensor | None = None,
                    col_bias: ttnn.Tensor | None = None) -> ttnn.Tensor:
@@ -752,17 +777,14 @@ class AF2EvoformerBlock(AF2PairBlock):
                  attn_mask: ttnn.Tensor | None = None) -> tuple[ttnn.Tensor, ttnn.Tensor]:
         row_bias, col_bias = (self._mask_biases(msa_mask) if msa_mask is not None
                               else (None, None))
+        if self.opm_first:
+            # multimer_v3 sets `outer_product_mean.first`, so the pair carries the MSA before
+            # the row attention reads it as a bias. Same ops and same weights as the monomer
+            # block; only this order differs, and it differs for all 52 blocks.
+            z = self._opm_update(msa, z, msa_mask)
         msa = self._msa_track(msa, z, row_bias, col_bias)
-        # AF2 divides the outer product mean by `eps + norm`, and at an all-ones mask the norm
-        # is the MSA depth everywhere. `eps` is 1e-3 and the trunk is bfloat16, whose spacing at
-        # 2.0 is 0.0078, so `eps + norm` rounds back to the depth exactly -- at any depth, since
-        # the spacing scales with the value. Adding it anyway measures 1.7x worse on card at
-        # Evoformer 0 and 47 (`device_gate.py --opm-eps 1e-3`). `None` reads the depth off the
-        # tensor, which is that divisor.
-        opm_call = (self.opm if msa_mask is None
-                    else lambda m: self.opm.masked(m, msa_mask))
-        z = self._residual(z, self._update(
-            "opm", (lambda m: self.opm(m, None)) if msa_mask is None else opm_call, msa))
+        if not self.opm_first:
+            z = self._opm_update(msa, z, msa_mask)
         return msa, super().__call__(z, mask, attn_mask)
 
 
@@ -878,13 +900,17 @@ class AF2DeviceModel(AF2Model):
                                               fused_hifi=self._fused_hifi("extra_msa"))
                                  for i in range(len(self.extra_msa))]
         self.device_evoformer = [AF2EvoformerBlock(scoped(f"evoformer.{i}."), ckc,
+                                                   opm_first=self.multimer,
                                                    fused_hifi=self._fused_hifi("evoformer"))
                                  for i in range(len(self.evoformer))]
         if self.template is not None:
             self.device_template = [
                 AF2PairBlock(scoped(f"template.pair_stack.{i}."), ckc,
                              head_dim=TEMPLATE_TRI_ATT_HEAD_DIM,
-                             n_heads=TEMPLATE_TRI_ATT_HEADS, evoformer_order=False,
+                             n_heads=TEMPLATE_TRI_ATT_HEADS,
+                             # The monomer's template stack runs the attentions first;
+                             # multimer_v3's runs the Evoformer order.
+                             evoformer_order=self.multimer,
                              fused_hifi=self._fused_hifi("template"))
                 for i in range(len(self.template.pair_stack))]
             self._template_stack = AF2DeviceTemplatePairStack(
@@ -1032,6 +1058,8 @@ class AF2DeviceModel(AF2Model):
                 # The dead track, on host, only so the device leg owes the torch leg's taps. It
                 # reads the block's INPUT pair, which is what the reference hands it.
                 extra = self.extra_msa[index]._msa_track(extra, self._down(z, shape), extra_mask)
+            # `outer_product_mean.first` does not reach this path: the constant does not
+            # depend on the MSA, and it lands on the pair before the pair track either way.
             const = self._up(self.opm_constant[index].reshape(1, 1, -1))
             z = block(block._residual(z, const), *masks)
             if self.block_tap is not None:

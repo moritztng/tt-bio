@@ -1,0 +1,24 @@
+{
+ "params": "params_model_1_multimer_v3.npz",
+ "multimer": true,
+ "rows": [
+  {
+   "n": 192,
+   "blocks": 8,
+   "msa_pcc": 0.9999806987396852,
+   "pair_pcc": 0.998879171212694,
+   "pair_rel_max": 0.2116809549846323,
+   "host_fp64_s": 67.4,
+   "card_bf16_s": 1.21
+  },
+  {
+   "n": 320,
+   "blocks": 8,
+   "msa_pcc": 0.9999818491996889,
+   "pair_pcc": 0.9990757499713093,
+   "pair_rel_max": 0.12348269042920948,
+   "host_fp64_s": 95.85,
+   "card_bf16_s": 1.41
+  }
+ ]
+}

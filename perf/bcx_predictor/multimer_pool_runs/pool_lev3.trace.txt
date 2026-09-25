@@ -1,0 +1,11 @@
+[pool] model_1_multimer_v3 on card in 26.1s
+=== trajectory 1 | pdl1_denovo_l146_3150367da865d53b | accepted 0/10 ===
+[pool] model_3_multimer_v3 on card in 39.4s
+[pool] model_4_multimer_v3 on card in 4.4s
+[pool] model_2_multimer_v3 on card in 3.4s
+[pool] model_5_multimer_v3 on card in 5.0s
+2026-09-25 05:41:36.600 | critical |          Always | TT_FATAL: Out of Memory: Not enough space to allocate 84934656 B DRAM buffer across 8 banks, where each bank needs to store 10616832 B, but bank size is 4278190016 B (allocated: 4231296960 B, free: 46893056 B, largest free block: 9289728 B) (assert.hpp:104)
+RuntimeError: TT_FATAL @ /project/tt_metal/impl/allocator/bank_manager.cpp:439: false
+Out of Memory: Not enough space to allocate 84934656 B DRAM buffer across 8 banks, where each bank needs to store 10616832 B, but bank size is 4278190016 B (allocated: 4231296960 B, free: 46893056 B, largest free block: 9289728 B)
+RuntimeError: TT_FATAL @ /project/tt_metal/impl/allocator/bank_manager.cpp:439: false
+Out of Memory: Not enough space to allocate 84934656 B DRAM buffer across 8 banks, where each bank needs to store 10616832 B, but bank size is 4278190016 B (allocated: 4231296960 B, free: 46893056 B, largest free block: 9289728 B)
