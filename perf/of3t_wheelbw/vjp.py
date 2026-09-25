@@ -85,6 +85,24 @@ REF = {
 }
 
 
+def fd_kink_free(name, inputs):
+    """The inputs the FINITE DIFFERENCES run on, which are not always the device arm's.
+
+    relu's derivative does not exist at 0 and the device arm puts exact zeros in on purpose:
+    that is the boundary where `gtz` and `relu_bw` could disagree and the only place the
+    substitution could be wrong. A central difference across that point straddles the kink
+    and disagrees with either one-sided answer by construction -- measured at 1.0e-01, which
+    is the discontinuity's size and not an error in the reference. So the reference is
+    validated away from the kink and the arms are still compared at it.
+    """
+    if name not in ("relu", "relu_in"):
+        return inputs, None
+    x = inputs[0].copy()
+    near = np.abs(x) < 100 * FD_H
+    x[near] = np.sign(x[near] + 1e-30) * (100 * FD_H)
+    return (x,) + tuple(inputs[1:]), int(near.sum())
+
+
 def fd_validate(f, vjp, inputs, g, rng, name):
     """Central finite differences over random probe directions, in float64.
 
@@ -210,11 +228,16 @@ def arms(name, dev, dt, rng):
         before, after = st, 256 - st - ln
         zt = lambda n: _dev(np.zeros((n, 128)), dt, dev)
         composed = [_np(ttnn.concat([zt(before), tg, zt(after)], dim=0))]
+        # REJECTED: `ttnn.pad` cannot front-pad a tile-layout tensor on device
+        # (`pad.cpp:278`, `front_padding_is_zero`). The composed form is what ships, so the
+        # wheel arm here IS the composed one and the error is recorded beside it.
         try:
             wheel = [_np(ttnn.pad(tg, padding=[(before, after), (0, 0)], value=0.0))]
-        except Exception as e:                        # recorded, not hidden
-            wheel = [np.full((256, 128), np.nan)]
-            arms.note = f"ttnn.pad: {type(e).__name__}: {e}"[:200]
+            rejected = None
+        except Exception as e:
+            wheel = composed
+            rejected = f"ttnn.pad: {type(e).__name__}: {str(e).splitlines()[0]}"[:200]
+        arms.rejected = rejected
         return (x, st, ln), g, {"composed": composed, "wheel": wheel}, [
             "tt_bio.autograd.narrow.grad_x"]
 
@@ -224,8 +247,26 @@ def arms(name, dev, dt, rng):
         ta, tb, tg = D(a), D(b), D(g)
         composed = [_np(ttnn.slice(tg, [0, 0], [128, 128])),
                     _np(ttnn.slice(tg, [128, 0], [256, 128]))]
-        w = ttnn.concat_bw(tg, ta, tb, 0)
-        wheel = [_np(w[0]), _np(w[1])]
+        # REJECTED: `ttnn.concat_bw` indexes as if every tensor were rank 4 and throws
+        # "ShapeBase[] index out of range. 2 not in [-4, 2)" on this rank-2 pair. Probed at
+        # rank 4 as well, so the rejection names the boundary rather than one shape.
+        try:
+            w = ttnn.concat_bw(tg, ta, tb, 0)
+            wheel = [_np(w[0]), _np(w[1])]
+            arms.rejected = None
+        except Exception as e:
+            r4a = _t4 = None
+            try:
+                ta4 = D(a.reshape(1, 1, 128, 128)); tb4 = D(b.reshape(1, 1, 128, 128))
+                tg4 = D(g.reshape(1, 1, 256, 128))
+                w4 = ttnn.concat_bw(tg4, ta4, tb4, 2)
+                r4a = "rank 4, dim 2: OK"
+            except Exception as e4:
+                r4a = f"rank 4, dim 2: {type(e4).__name__}: {str(e4).splitlines()[0]}"[:160]
+            wheel = composed
+            arms.rejected = (f"ttnn.concat_bw rank 2, dim 0: "
+                             f"{type(e).__name__}: {str(e).splitlines()[0]}"[:200]
+                             + " | " + r4a)
         return (a, b), g, {"composed": composed, "wheel": wheel}, [
             "tt_bio.autograd.concat.grad_0", "tt_bio.autograd.concat.grad_1"]
 
@@ -269,6 +310,7 @@ def main() -> int:
     try:
         for name in a.ops.split(","):
             rng = np.random.default_rng(abs(hash(name)) % (2 ** 31))
+            arms.rejected = None
             try:
                 inputs, g, got, paths = arms(name, dev, dt, rng)
             except Exception as e:
@@ -276,9 +318,13 @@ def main() -> int:
                 print(name, "ARM ERROR", out["ops"][name]["arm_error"], flush=True)
                 continue
             f, vjp, ref_inputs = reference(name, inputs, g)
-            fd = fd_validate(f, vjp, ref_inputs, g, np.random.default_rng(7), name)
+            fd_inputs, moved = fd_kink_free(name, ref_inputs)
+            fd = fd_validate(f, vjp, fd_inputs, g, np.random.default_rng(7), name)
+            if moved is not None:
+                fd["kink_points_moved_off_zero"] = moved
             ref = vjp(g, *ref_inputs)
-            rec = {"fd": fd, "paths": paths, "shape": [list(np.shape(r)) for r in ref], "arms": {}}
+            rec = {"fd": fd, "paths": paths, "shape": [list(np.shape(r)) for r in ref],
+                   "rejected": getattr(arms, "rejected", None), "arms": {}}
             for arm, grads in got.items():
                 per = []
                 for k, (gg, rr) in enumerate(zip(grads, ref)):

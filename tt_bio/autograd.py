@@ -2064,18 +2064,24 @@ def narrow(x: Tensor, dim: int, start: int, length: int) -> Tensor:
     out_v = ttnn.slice(x.value, starts, ends)
     before, after = start, shape[ax] - (start + length)
 
+    # `ttnn.pad` would be this backward in one verb instead of three, and it cannot be:
+    # "ttnn.pad: on device tile padding does not support front padding"
+    # (`pad.cpp:278`, `front_padding_is_zero`), measured at fp32 and bf16 on a p150a. Every
+    # window but the first has `start > 0`, so front padding is the case. 0.68.0 binds no
+    # `slice_bw` either, so the zero blocks and the concat stay.
     def make():
         def bw(g):
-            if not before and not after:
-                x.add_grad(g)
-                return
-            # One `ttnn.pad` instead of allocating one or two zero blocks and concatenating
-            # them: same tensor, two verbs fewer, and no zero block is ever materialised as
-            # its own allocation. The tape's `narrow` only ever slices one axis, which is
-            # what makes a single padding spec enough.
-            padding = [(0, 0)] * len(shape)
-            padding[ax] = (before, after)
-            x.add_grad(ttnn.pad(g, padding=padding, value=0.0))
+            parts = []
+            if before:
+                z = list(shape)
+                z[ax] = before
+                parts.append(grad_zeros(z, g.dtype, g.device()))
+            parts.append(g)
+            if after:
+                z = list(shape)
+                z[ax] = after
+                parts.append(grad_zeros(z, g.dtype, g.device()))
+            x.add_grad(parts[0] if len(parts) == 1 else ttnn.concat(parts, dim=ax))
         return bw
 
     return _tape(out_v, [x], make)
@@ -2094,16 +2100,13 @@ def concat(xs: Sequence[Tensor], dim: int = -2) -> Tensor:
     sizes = [int(x.value.shape[ax]) for x in xs]
     out_v = ttnn.concat([x.value for x in xs], dim=ax)
 
+    # `ttnn.concat_bw` would cover the two-input case in one verb instead of two slices, and
+    # it throws on anything that is not rank 4: "ShapeBase[] index out of range. 2 not in
+    # [-4, 2)" from `shape_base.cpp:16` on a [128,128] pair at dim 0, at fp32 and at bf16.
+    # This op is called at rank 2 and rank 3 as well, and it takes four inputs at the atom
+    # window, which `concat_bw` cannot express at any rank.
     def make():
         def bw(g):
-            if len(xs) == 2 and xs[0].requires_grad and xs[1].requires_grad:
-                # `ttnn.concat_bw` takes exactly two inputs, so it covers the two-way case
-                # and nothing else -- the atom window build concatenates four slices and
-                # falls through to the loop below. Same two slices, one call.
-                ga, gb = ttnn.concat_bw(g, xs[0].value, xs[1].value, ax)
-                xs[0].add_grad(ga)
-                xs[1].add_grad(gb)
-                return
             off = 0
             gs = [int(d) for d in g.shape]
             for x, n in zip(xs, sizes):
