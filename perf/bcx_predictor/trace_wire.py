@@ -48,6 +48,8 @@ class _Shape:
         self.gout = None       # what the backward trace writes out
         self.leaves = self.roots = None   # held so the tape's addresses stay valid
         self.fence = None      # buffers that occupy the rest of the trace's scratch
+        self.pins = None       # the checkpoint pins the captured backward reads
+        self.wrapped = None    # autograd's wrappers over raw handles the capture allocated
         self.capture_s = 0.0
         self.replays = [0, 0]
 
@@ -64,6 +66,9 @@ class TraceWire:
         # host's, so their sum is the host floor this capture leaves behind.
         self.seg = {"write": 0.0, "enqueue": 0.0, "wait": 0.0, "read": 0.0}
         self.l1_foreign: list = []
+        self._hole = None
+        self._live_hole = None
+        self._guarded = False
         dev.ag.DEVICE_ZEROS = True
 
     # ------------------------------------------------------------------ the fence
@@ -153,10 +158,51 @@ class TraceWire:
             raise RuntimeError(f"no contiguous {k * self.CHUNK >> 20} MiB per bank for the "
                                f"trace's scratch; the capture would share addresses with "
                                f"whatever is allocated after it")
+        self._hole = (run[0].buffer_address(), run[0].buffer_address() + k * self.CHUNK)
         ids = {id(t) for t in run}
         for t in run:
             self.dev.ttnn.deallocate(t)
         return [t for t in ballast if id(t) not in ids]
+
+    def _guard_hole(self) -> None:
+        """Refuse any device op whose DRAM output lands inside the live capture's scratch.
+
+        The fence exists to make that impossible. If it happens anyway the next replay
+        overwrites a live tensor and the step returns a wrong gradient, so it raises instead.
+        Installed once; it reads whichever hole is live, so an evicted shape's hole is free
+        again the moment the next capture replaces it."""
+        if self._guarded:
+            return
+        self._guarded = True
+        from ttnn import decorators as D
+        ttnn = self.dev.ttnn
+
+        def check(op, out):
+            if self._live_hole is None:
+                return
+            lo, hi = self._live_hole
+            for o in (out if isinstance(out, (list, tuple)) else (out,)):
+                try:
+                    if (not isinstance(o, ttnn.Tensor) or not o.is_allocated()
+                            or o.memory_config().buffer_type != ttnn.BufferType.DRAM):
+                        continue
+                    a = o.buffer_address()
+                except Exception:                                        # noqa: BLE001
+                    continue
+                if lo <= a < hi:
+                    raise RuntimeError(
+                        f"{getattr(op, 'python_fully_qualified_name', op)} allocated at {a} per "
+                        f"bank, inside the trace's scratch [{lo}, {hi}); the next replay would "
+                        f"overwrite it")
+
+        for c in (D.FastOperation, D.Operation):
+            real = c.__call__
+
+            def call(op, *a, _real=real, **k):
+                out = _real(op, *a, **k)
+                check(op, out)
+                return out
+            c.__call__ = call
 
     def _per_bank(self, t) -> int:
         return int(t.shape[0]) * int(t.shape[1]) * 2 // int(self._mem().num_banks)
@@ -240,18 +286,31 @@ class TraceWire:
         finally:
             ttnn.end_trace_capture(dev.device, sh.tid_b, cq_id=0)
         self._sync()
+        # Everything the capture allocated and still holds is the capture's from here, or the
+        # rest of the process frees it inside the hole. Two process-wide registries held the
+        # last reference: autograd's raw-handle map, which the next tape to close anywhere
+        # clears (3985 wrappers at n=224, and the eager extra-MSA forward is that tape), and the
+        # checkpoint pin list, which `release_pins` clears. The first was measured: the next
+        # eager op landed in the hole and the extra-MSA backward read a replay's scratch from
+        # step 3 on (`perf/bcx_tracewire/round_digest_xmsa_hole_trace_seed100.json`).
+        sh.wrapped = list(ag._WRAPPED.values())
+        sh.pins = list(ag._CKPT_PINS)
+        ag._CKPT_PINS.clear()
         sh.fence = self._fill()
         for t in ballast:
             ttnn.deallocate(t)
         self.fence_mb = {"warm_rise": rise >> 20,
                          "filled_after_capture": sum(self._per_bank(t) for t in sh.fence) >> 20,
-                         "free_after": int(self._mem().total_bytes_free_per_bank) >> 20}
+                         "free_after": int(self._mem().total_bytes_free_per_bank) >> 20,
+                         "wrappers_held": len(sh.wrapped)}
         if any(g is None for g in sh.gout):
             raise RuntimeError("a leaf took no gradient in the captured backward; the trace "
                                "would replay a gradient that is never written")
         self._sync()
         sh.leaves, sh.roots = leaves, roots
         sh.l1_own = self._l1()
+        self._live_hole = self._hole
+        self._guard_hole()
         sh.capture_s = time.time() - t0
 
         self._evict()
@@ -273,8 +332,10 @@ class TraceWire:
                     self.dev.ttnn.release_trace(self.dev.device, tid)
             for t in old.fence or ():
                 self.dev.ttnn.deallocate(t)
+            for t in old.pins or ():
+                t.pinned = False
             old.leaves = old.roots = old.prim = old.gout = old.bufs = old.seeds = None
-            old.fence = None
+            old.fence = old.pins = old.wrapped = None
 
     # ------------------------------------------------------------------ the two verbs
 
