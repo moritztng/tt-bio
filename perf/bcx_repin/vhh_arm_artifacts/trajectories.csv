@@ -1,0 +1,4 @@
+trajectory,design,length,bindcraft_version,Timing,hash,terminated,autotuned
+1,design_l131_5675a9570201a2c4,131,BindCraft 2 (unreleased),worker=0;start=1790297534.32;design=4080.76;compiled=1,5675a9570201a2c4,screen,
+2,design_l123_4a0116986b2587bd,123,BindCraft 2 (unreleased),worker=0;start=1790301615.68;design=2826.72;compiled=0,4a0116986b2587bd,screen,
+3,design_l133_913c4e91d5bbc711,133,BindCraft 2 (unreleased),worker=0;start=1790304443.55;design=4144.44;compiled=0,913c4e91d5bbc711,screen,

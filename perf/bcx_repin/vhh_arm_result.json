@@ -1,0 +1,65 @@
+{
+ "arm": "device VHH, examples/pdl1_vhh.json at upstream 301efdd, monomer pin",
+ "host": "qb2",
+ "card": 0,
+ "pci": "0000:01:00.0",
+ "board": "Blackhole p300c",
+ "aiclk_mhz_during": {
+  "median": 1350,
+  "min": 1325,
+  "max": 1350,
+  "samples": "n=45 over 90s in traj3 hour 1; n=10 over 30s at 03:42 all 1350"
+ },
+ "seed": 0,
+ "bucket": 32,
+ "trajectories_completed": 3,
+ "accepted_designs": 0,
+ "candidates_scored": 0,
+ "candidates_rejected": 0,
+ "failed_filters": {},
+ "terminated_by_stage": {
+  "screen": 3
+ },
+ "screen_bars": {
+  "min_plddt_screen": 0.6,
+  "min_iptm_screen": null
+ },
+ "rejection_term": "[pLDDT]",
+ "per_trajectory": [
+  {
+   "trajectory": 1,
+   "design": "design_l131_5675a9570201a2c4",
+   "binder_length": 131,
+   "terminated": "screen",
+   "design_seconds": 4080.76,
+   "compiled": 1
+  },
+  {
+   "trajectory": 2,
+   "design": "design_l123_4a0116986b2587bd",
+   "binder_length": 123,
+   "terminated": "screen",
+   "design_seconds": 2826.72,
+   "compiled": 0
+  },
+  {
+   "trajectory": 3,
+   "design": "design_l133_913c4e91d5bbc711",
+   "binder_length": 133,
+   "terminated": "screen",
+   "design_seconds": 4144.44,
+   "compiled": 0
+  }
+ ],
+ "occupancy_chip_seconds_total": 11051.92,
+ "occupancy_chip_seconds_warm_mean": 3485.58,
+ "campaign_wall_seconds": 11100.5,
+ "finished_utc": "2026-09-25T03:56:28Z",
+ "device_calls": {
+  "primal": 0,
+  "taped": 300,
+  "backward": 150
+ },
+ "stop": "budget-ledger stop (perf/bcx_repin/stop_arm.py); SIGINT was SIG_IGN, see doc",
+ "card_released": true
+}
