@@ -46,12 +46,27 @@
    },
    "on": null,
    "verdict": "INERT - shipped arm already serves, on-arm not needed"
+  },
+  "1216": {
+   "off": {
+    "served": 384,
+    "declined": 0,
+    "pick": "(1216,1216) q64 k1216"
+   },
+   "on": null,
+   "verdict": "INERT - shipped arm already serves"
+  },
+  "1472": {
+   "off": {
+    "served": 384,
+    "declined": 0,
+    "pick": "(1472,1472) q64 k1472"
+   },
+   "on": null,
+   "verdict": "INERT - shipped arm already serves"
   }
  },
- "untested": [
-  1216,
-  1472
- ],
+ "untested": [],
  "note": "reach on the only model with the site on by default. 1 of 3 measured lengths is live.",
  "raw_1088_off": {
   "pid": 918389,
@@ -69,5 +84,49 @@
     2
    ]
   }
- }
+ },
+ "complete": true,
+ "summary": "all 5 presentable lengths measured; 832 is the ONLY one where the shipped arm declines. It is a HOLE between 704 and 1088, which both serve.",
+ "wall_seconds_off": {
+  "704": 89,
+  "832": "137,302",
+  "1088": 279,
+  "1216": 312,
+  "1472": 383
+ },
+ "raw_1216_off": {
+  "pid": 942160,
+  "flag": "0",
+  "stats": {
+   "served": 384,
+   "declined": 0,
+   "too_short": 0,
+   "taped": 0
+  },
+  "picks": {
+   "(1216, 1216)": [
+    64,
+    1216,
+    2
+   ]
+  }
+ },
+ "raw_1472_off": {
+  "pid": 967887,
+  "flag": "0",
+  "stats": {
+   "served": 384,
+   "declined": 0,
+   "too_short": 0,
+   "taped": 0
+  },
+  "picks": {
+   "(1472, 1472)": [
+    64,
+    1472,
+    2
+   ]
+  }
+ },
+ "aiclk_sysfs": "/sys/class/tenstorrent/tenstorrent!N/tt_aiclk -- node name is tenstorrent!N, and N is NOT the TT_VISIBLE_DEVICES index (sort nodes by PCI address, perf/bcx_stack/stack.py:sysfs_node)"
 }
