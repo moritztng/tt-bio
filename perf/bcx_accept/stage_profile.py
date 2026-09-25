@@ -39,6 +39,12 @@ RE_STAGE = re.compile(
     r"(passed|rejected at) (\w+) design stage\s+i_pTM=([\d.]+)\s+pLDDT=([\d.]+)"
     r"(?:\s+due to \[([^\]]*)\])?")
 RE_KEPT = re.compile(r"(\d+) of (\d+) redesigns passed")
+# BC2 applies the filter set to the finished trajectory BEFORE it spends MPNN redesigns on it
+# (.campaign_state.json terminated."final"). A trajectory that dies there cleared all five design
+# stages, so it is COMPLETED and belongs in the denominator -- it is not in flight, and it is not
+# an MPNN-candidate rejection either. accept_s4's l152 is the campaign's first of these.
+RE_FINAL = re.compile(
+    r"trajectory rejected\s+i_pTM=([\d.]+)\s+pLDDT=([\d.]+)(?:\s+due to \[([^\]]*)\])?")
 RE_DRAW = re.compile(r"_l(\d+)_([0-9a-f]+)$")
 RE_STAMP = re.compile(r"^\d{4}-\d\d-\d\dT[\d:]+Z ")
 
@@ -100,6 +106,11 @@ def parse(arm, side, path):
             if verb == "rejected at":
                 cur.terminal, cur.verdict = stage, "rejected"
                 cur.failed = failed or ""
+            continue
+        m = RE_FINAL.search(line)
+        if m:
+            cur.terminal, cur.verdict = "final", "rejected"
+            cur.failed = m.group(3) or ""
             continue
         if RE_KEPT.search(line):
             cur.terminal, cur.verdict = "validation", "ACCEPTED"
