@@ -25,6 +25,22 @@
 #    trajectory 11 is a different process from trajectory 1 and a ledger may not cross ten
 #    without splitting there. Six stays under it with room.
 set -u
+
+# Self-detach, and it is not decoration. The first qb1_s12 was launched over an ssh whose wrapper
+# timed out three seconds later, and the remote teardown SIGTERMed the arm at 23:55:11Z despite
+# `setsid nohup` around this script -- `arm exit 143`, one drawn trajectory lost and the card left
+# boosted with no holder, which is the state that hard-hangs the host on the next open. Its
+# sibling, launched 60 s earlier in the same command, survived. So the arm must not depend on the
+# caller outliving it: re-exec under our own session and return to the caller immediately.
+if [ -z "${BCXA_DETACHED:-}" ]; then
+  export BCXA_DETACHED=1
+  mkdir -p "${ART:-/home/ttuser/bcx_accept_art/qb1}"
+  setsid nohup "$0" "$@" \
+    > "${ART:-/home/ttuser/bcx_accept_art/qb1}/launch_s${SEED:-x}.out" 2>&1 < /dev/null &
+  echo "detached seed=${SEED:-?} card=${CARD:-?}"
+  exit 0
+fi
+
 ART=${ART:-/home/ttuser/bcx_accept_art/qb1}
 TREE=${TREE:-/home/ttuser/bcx_accept_art/qb1tree}
 SEED=${SEED:?set SEED}
