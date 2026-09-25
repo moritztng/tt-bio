@@ -1,6 +1,12 @@
 #!/usr/bin/env python3
 """Reproduce the seq-288 trimul clash in the Evoformer backward, without a BindCraft 2 campaign.
 
+READ FIRST: the attribution below is WITHDRAWN as stated. Every failing run shared two
+confounds, levers off and main's tt_bio. bcx-predictor ran the monomer trunk at n=288 and
+n=320 on wk/bcx-predictor with the stack levers armed, with zero trimul clashes and zero
+tracebacks. So the failing configuration is (main tt_bio, levers off), and which of the two
+carries it is untested. The notes below describe that configuration only.
+
 Found by `bcx-multimer` while running the shipped five-model pool end to end. It is NOT a
 multimer defect and NOT a pool defect: the monomer trunk fails identically at the same length,
 and one resident trunk fails the same as five. It is main's backward at a length BindCraft 2
