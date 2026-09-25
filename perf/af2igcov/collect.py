@@ -27,7 +27,13 @@ CA_BREAK = 5.0
 
 
 def _log_window(log: pathlib.Path, day: dt.date) -> tuple[float, float, list[tuple[str, float]]]:
-    """(first trunk epoch, last progress epoch, [(label, epoch)]) from the CLI's own stamps."""
+    """(first trunk epoch, last progress epoch, [(label, epoch)]) from the CLI's own stamps.
+
+    The CLI stamps a wall CLOCK with no date, so a rung that crosses midnight hands back a
+    negative step and a window that selects the wrong samples. `day` is the date of the
+    sampler's FIRST line, which is a real epoch, and every later stamp that runs backwards
+    against its predecessor rolls the day forward.
+    """
     marks = []
     for line in log.read_text(errors="replace").splitlines():
         head = line[:8]
@@ -37,6 +43,9 @@ def _log_window(log: pathlib.Path, day: dt.date) -> tuple[float, float, list[tup
             except ValueError:
                 continue
             epoch = dt.datetime.combine(day, t).timestamp()
+            while marks and epoch < marks[-1][1]:
+                day += dt.timedelta(days=1)
+                epoch = dt.datetime.combine(day, t).timestamp()
             marks.append((line[8:].strip(), epoch))
     trunk = [m for m in marks if "trunk" in m[0]]
     if not trunk:
@@ -95,7 +104,8 @@ def main() -> int:
 
     base = OUT / a.tag
     log = base / "rung.log"
-    day = dt.datetime.fromtimestamp(log.stat().st_mtime).date()
+    first = (base / "aiclk.log").read_text().split(None, 1)[0]
+    day = dt.datetime.fromtimestamp(float(first)).date()
     lo, hi, marks = _log_window(log, day)
     row = {"tag": a.tag, "board": "bh-p150a", "host": "pc", "card_umd": a.card,
            "tokens": a.tokens, "target_residues": a.target_residues,

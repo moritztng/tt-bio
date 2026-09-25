@@ -934,9 +934,12 @@ CEILINGS: dict[str, dict[str, Ceiling]] = {
             "perf/af2igcov/results). The 848 control on the same card reads 202.7 s, so the "
             "exponent between consecutive rungs is 2.00 and on the warm trunk pass alone 2.62 -- "
             "under the trunk's O(N^3), so nothing fast falls off. The older qb1 ladder reads "
-            "5.7 s at 208, 17.8 s at 336, 76.4 s at 592 and 160-194 s at 848. Nothing above "
-            "1536 has been tried, so there is still no failing size to refuse on and this row "
-            "refuses nothing"),
+            "5.7 s at 208, 17.8 s at 336, 76.4 s at 592 and 160-194 s at 848. 1792 folds too, "
+            "in 1216.3 s at the same clock with 0 breaks, so 1536 is the bar and not the wall -- "
+            "but the warm trunk pass steps from 152 s to 288 s across that gap, an exponent of "
+            "4.15 against 2.62 below it, which is a fast path falling off and is open. Nothing "
+            "above 1792 has been tried, so there is still no failing size to refuse on and this "
+            "row refuses nothing"),
         "wormhole_b0": _unmeasured(
             "no ladder, but no longer a blank: 1024 tokens (944 target + 80 binder, the sum the "
             "platform fences on) folded on a Galaxy chip in 487.9 s on 2026-09-25, GWH02 UMD 0, "
