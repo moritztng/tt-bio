@@ -169,3 +169,76 @@ its central-finite-difference validation, the node/dtype census read from source
 and switched off, and the negative controls. **A formula-level check is board-insensitive; the
 GRADED VJP number and every timing number are Blackhole-only.** Do not publish a graded number
 taken on Wormhole — say which half you have and which half waits.
+
+## GRADING CONVENTION — decided pass 450, binding on every arm you run
+
+`of3t-intensity` (GO) forced this and it is my call, not a row's: *"Every kernel row branching
+from `origin/main` today runs an 8.4x step. Either the sprint grades on `exact_training(False)`
+and says so in every arm, or it re-baselines the step. Both are fine; silently doing neither
+means an arm's A/B is 8.4x contaminated by a host term."*
+
+**The decision: kernel rows grade with `exact_training(False)`, and say so in every arm. The
+shipped-config baseline is `of3t-restep`'s job, not yours.**
+
+Why that split rather than the other: the two settings answer different questions and this sprint
+needs both answered separately. `exact_training(False)` answers *"does this kernel make the device
+backward faster"*, which is what a kernel row exists to establish — and with the host float64 term
+in the denominator an 8.4x contamination would swallow a 46 s win whole and make two real levers
+indistinguishable. `exact_training(True)` answers *"how fast is training today"*, which is a
+baseline question and belongs to one row taking one clean uninstrumented measurement, not to four
+rows each carrying a host term they did not cause and cannot fix.
+
+**So, concretely, every arm you publish:**
+
+1. States the setting explicitly — `exact_training(False)` — in the arm description, not only in
+   a config dump. An arm whose exactness setting is not written down is not comparable to any
+   other arm in this sprint.
+2. States the commit it ran on. R209 happened because a number outlived its tree with only a
+   provenance field and no expiry; `perf/of3t_orchestrator/bwd/baseline_expiry.py` is the check.
+3. Never mixes the two settings across the arms of one comparison. That is the A/A-floor rule
+   applied to a config axis.
+4. Quotes its saving in seconds and as a fraction of **the step it measured**, never as a
+   fraction of 466.702 s, which is void (R209).
+
+**And what this does NOT license.** It is a measurement convention, not a proposal to ship
+`exact_training(False)`. The host float64 path is a fidelity feature Moritz approved personally,
+training-only, and it is why this campaign's gradients are correct. Nothing here argues for
+turning it off; it argues for measuring the device path without a host term on top of it, which
+is the only way a device kernel's effect is visible at all.
+
+## !! RE-PRICE BEFORE YOU BUILD: on main, the closure you are fusing DOES NOT RUN !! (pass 450)
+
+`of3t-intensity` (GO): *"Both are briefed against `autograd.py`'s composed closure. On main that
+closure does not run — `_v_exact_layer_norm` and `_v_exact_softmax` replace it the moment a tape
+is entered, and their backward is float64 on the host. J1's '46.4 s, plausibly 150 s+' and J2's
+32.8 s are `451ed56f4` numbers. They may still be right; they are not currently checked."*
+
+Two consequences, and the second is the uncomfortable one.
+
+**1. Your number is void until you re-take it.** The shares you were briefed with were computed
+against the 466.702 s step that R209 invalidated. Re-price under the grading convention above
+(`exact_training(False)`, stated in every arm), against the step you actually measure. Do not
+quote 46.4 s, 32.8 s or any fraction of 466.702 s as if it were checked.
+
+**2. Under the SHIPPED training config your lever is currently invisible, and you must say so.**
+With exactness default-on — which is main today — the composed closure you are fusing is replaced
+before it executes. A fused kernel that speeds up a path the shipped config bypasses is a real
+engineering result and *not* a shipped win, and the difference is not yours to paper over. State
+it in your own words in UNIFIED: or FIX:, with the setting named.
+
+**This is not a reason to stop.** Three things make the work worth doing anyway, and you should
+say which of them your result rests on:
+
+* The exactness default is a **product decision on a price that has moved** — approved at 1.441x,
+  currently costing far more — and it goes to Moritz with a number from `of3t-restep`. If the
+  device path comes back, your lever is immediately live.
+* Your kernel is **engine-level** (standing: UNIFIED, NOT PER-MODEL). Boltz-2, BC2 and RFD3 reach
+  these same backwards without OF3T's exactness scope, so the win can be real for them today even
+  while it is dormant for OF3T training.
+* A measured ceiling on the device path is **what the product decision needs**. Nobody can weigh
+  fidelity against speed without knowing what the fast path is actually worth, and that number
+  does not exist until one of you produces it.
+
+**What I do not want:** a state doc that reports a clean speedup and omits that the path is
+bypassed in the shipped config. That is the flattering direction and this campaign has a ledger
+entry for it.

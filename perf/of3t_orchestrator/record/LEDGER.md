@@ -1089,6 +1089,31 @@ state doc nor its `CLAUSE_EXACT.json` names the version anywhere.
 
 **R200** (pass 423) The `of3t-denoise` A40 floor was attributed to mse's Kabsch stop-gradient and FD3 froze it. FD3 at h=1e-4 reads 15.897746748793073 against FD2's 15.897749718841725 (1.9e-7 relative) and both read 2.847e-05 at h=1e-5: the freeze is inert, as the envelope theorem predicts when the alignment minimises the loss it feeds. FD2's ladder 2.498e-04 / 7.634e-05 / 2.847e-05 falls ~h^0.5 without a plateau, which a missing gradient path (constant bias) cannot produce. h=1e-6 then read 6.972e-10 and h=1e-7 4.303e-09: a V with one kink crossing between 1e-6 and 1e-5, so A40 PASSES. Separately, `of3t-denoise` found D259 (`ttnn.multiply(bf16, fp32 [...,1])` nondeterministic, up to 16,061 wrong elements) and D258 (mixed-dtype `transpose_a` matmul); both are fixed on the training path only, and `of3t-bcastaudit` measures whether inference reaches them.
 
+- **R210** (pass 450) **THE KERNEL PROGRAMME OPTIMISES A PATH THE SHIPPED TRAINING CONFIG
+  BYPASSES, and that is the sprint's real structural problem — bigger than any job on the list.**
+  `of3t-intensity` (GO) found it while ranking: J1 and J2 are both briefed against
+  `autograd.py`'s composed closure, and **on main that closure does not run** —
+  `_v_exact_layer_norm` and `_v_exact_softmax` replace it the moment a tape is entered, and their
+  backward is float64 on the host. So a fused LayerNorm or softmax backward is, in the shipped
+  training configuration today, speeding up code that does not execute. Its second measurement is
+  the same fact from the cost side: **every kernel row branching from `origin/main` today runs an
+  8.4x step**, so an A/B taken without care is 8.4x contaminated by a host term — which it names
+  as `of3t-stepfloor`'s own "contaminated by a host arm" defect recurring. **My decision, taken
+  this pass and pushed into every brief: kernel rows grade with `exact_training(False)` and say so
+  in every arm; the shipped-config baseline is `of3t-restep`'s single clean measurement.** The two
+  settings answer different questions and the sprint needs both, separately: with the host term in
+  the denominator a 46 s win and a 33 s win are indistinguishable. **What no row may do is report
+  a clean speedup and omit that the path is bypassed as shipped** — that is the flattering
+  direction and this ledger already has an entry for it. The work stays worth doing for three
+  stated reasons: the exactness default is a product decision on a price that has moved and may
+  come back; the kernels are engine-level, so Boltz-2, BC2 and RFD3 reach the same backwards
+  without OF3T's exactness scope and the win is live for them today; and **the product decision
+  cannot be made at all until someone measures what the fast path is worth.** A third finding
+  attached: the exact LayerNorm backward does two `ttnn.to_torch(...).double()` per node over
+  1,296 of 2,473 tape nodes, which is a fifth and currently dominant suspect for J0 — and whose
+  list is right depends entirely on which tree J0 profiles, so the commit must be named in its
+  result.
+
 - **R209** (pass 450) **THE CAMPAIGN'S BASELINE WAS STALE BY ~65x AND EVERY SHARE BUILT ON IT IS
   VOID, INCLUDING TWO OF MY OWN LEDGER ENTRIES.** `of3t-tapedfwd` (GO) found it. The 466.702 s
   step was banked at `451ed56f4` (2026-09-21 18:07:08Z, from the artifact's own `env.commit`);

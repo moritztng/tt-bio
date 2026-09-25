@@ -42,7 +42,7 @@ author and cite what you took; gates are batched and a stack is approved whole. 
 speedup that does less of the model's own work. A1-A45 are the correctness protocol and are
 unchanged. History: `state/of3t/PASSLOG.md`.
 
-LEDGER: `~/.coworker/state/of3t/LEDGER.md`, **R1-R209 and K1-K22**. **R203, filed this pass, is
+LEDGER: `~/.coworker/state/of3t/LEDGER.md`, **R1-R210 and K1-K22**. **R203, filed this pass, is
 the sprint's first finding and it reordered the job list: an engine-wide fused-kernel bypass hid
 behind a per-module comment. A per-site comment that correctly explains one decline is the best
 camouflage a policy can have, because every reader who checks one site leaves satisfied. Count the
@@ -80,7 +80,7 @@ and the contested-file warning; the four sprint briefs went out without them and
 |---|---|---|---|
 | `of3t-bwsurvey` | **GO** — the JOBS list, J0-J7 | `state/of3t/BWJOBS.md` | `perf/of3t_bwsurvey/` |
 | `of3t-throughput` | **GO** — box-to-box is the honest axis | arithmetic only | `perf/of3t_throughput/` |
-| `of3t-tapedfwd` | **GO** — the bypass is worth 1.00508x | fused-kernel selection and decline sites | `perf/of3t_tapedfwd/` |
+| `of3t-tapedfwd` | **GO** — 1.00508x, and it invalidated the baseline (R209) | fused-kernel selection and decline sites | `perf/of3t_tapedfwd/` |
 | `of3t-intensity` | **live, whglx card 6** (relocated; pass 1 lost with qb1) | measurement scripts, read-only on engine | `perf/of3t_intensity/` |
 | `of3t-bwattrib` | live, queued for pc card 0 — J0 | the 2.107 ms attribution, wiring fixes | `perf/of3t_bwattrib/` |
 | `of3t-lnbw` | **BLOCKED on the card** — J1 | the LayerNorm backward | `perf/of3t_lnbw/` |
@@ -184,7 +184,7 @@ for a structural reason — the DGX ships 8 accelerators and the QuietBox 4 — 
 number was the wrong headline: it credits us with a box we do not sell. Every sprint number states
 its axis.
 
-BRANCH: **`wk/of3t-bwd` at `2cb645756`**, carrying all of `of3t-tapedfwd` (GO) including the
+BRANCH: **`wk/of3t-bwd` at `c499ae9c0`**, now carrying `of3t-intensity` (GO) as well, carrying all of `of3t-tapedfwd` (GO) including the
 three commits behind R209's evidence — artifacts only, no engine file among them, merge-tree
 clean before and after. Created from `origin/main` this pass and composed with `of3t-tapedfwd` (GO) by a
 no-ff merge, conflict-free (`git merge-tree` clean before the merge, verified after). The whole
@@ -261,7 +261,23 @@ sibling case where 79.2 % of a round was host work the port never covered, cappi
 lever at 1.25x. Stack perturbations are strongly sub-additive, so the sprint's levers are approved
 as a stack or not at all, never by summing individual readings.
 
-GAP: **Pass 450, 2026-09-25 ~17:2x CEST.**
+GAP: **Pass 450, 2026-09-25 ~17:3x CEST.**
+
+0000. **THE KERNEL PROGRAMME OPTIMISES A PATH THE SHIPPED CONFIG BYPASSES (R210).**
+   `of3t-intensity` GO: J1 and J2 are briefed against `autograd.py`'s composed closure and **on
+   main that closure does not run** — `_v_exact_layer_norm` and `_v_exact_softmax` replace it the
+   moment a tape is entered. So a fused LayerNorm or softmax backward speeds up code that does not
+   execute in shipped training today. Same fact from the cost side: **every kernel row branching
+   from main runs an 8.4x step**, so an uncontrolled A/B is 8.4x contaminated by a host term.
+   **Decided and pushed into every brief: kernel rows grade with `exact_training(False)`, stated
+   in every arm; the shipped baseline is `of3t-restep`'s one clean measurement.** With the host
+   term in the denominator a 46 s win and a 33 s win are indistinguishable. **No row may report a
+   clean speedup and omit that the path is bypassed as shipped.** The work stays worth doing
+   because the exactness default is a product decision on a price that has moved, because the
+   kernels are engine-level and live for Boltz-2/BC2/RFD3 today, and because the decision cannot
+   be made until someone measures what the fast path is worth.
+
+Superseded, pass 450 earlier —
 
 000. **THE BASELINE WAS STALE BY ~65x AND MOST OF THIS CAMPAIGN'S SHARES ARE VOID (R209).**
    `of3t-tapedfwd` concluded GO and found it. The 466.702 s step was banked at `451ed56f4`

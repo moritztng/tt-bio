@@ -194,3 +194,39 @@ timing is a real, publishable half-result and I would rather have it early than 
 but it is a half, and a state doc that does not say so has claimed the whole. If a substitution
 fails its VJP on Wormhole, that is a genuine refutation and you should land the rejection with
 its number; a formula that is wrong is wrong on every board.
+
+## GRADING CONVENTION — decided pass 450, binding on every arm you run
+
+`of3t-intensity` (GO) forced this and it is my call, not a row's: *"Every kernel row branching
+from `origin/main` today runs an 8.4x step. Either the sprint grades on `exact_training(False)`
+and says so in every arm, or it re-baselines the step. Both are fine; silently doing neither
+means an arm's A/B is 8.4x contaminated by a host term."*
+
+**The decision: kernel rows grade with `exact_training(False)`, and say so in every arm. The
+shipped-config baseline is `of3t-restep`'s job, not yours.**
+
+Why that split rather than the other: the two settings answer different questions and this sprint
+needs both answered separately. `exact_training(False)` answers *"does this kernel make the device
+backward faster"*, which is what a kernel row exists to establish — and with the host float64 term
+in the denominator an 8.4x contamination would swallow a 46 s win whole and make two real levers
+indistinguishable. `exact_training(True)` answers *"how fast is training today"*, which is a
+baseline question and belongs to one row taking one clean uninstrumented measurement, not to four
+rows each carrying a host term they did not cause and cannot fix.
+
+**So, concretely, every arm you publish:**
+
+1. States the setting explicitly — `exact_training(False)` — in the arm description, not only in
+   a config dump. An arm whose exactness setting is not written down is not comparable to any
+   other arm in this sprint.
+2. States the commit it ran on. R209 happened because a number outlived its tree with only a
+   provenance field and no expiry; `perf/of3t_orchestrator/bwd/baseline_expiry.py` is the check.
+3. Never mixes the two settings across the arms of one comparison. That is the A/A-floor rule
+   applied to a config axis.
+4. Quotes its saving in seconds and as a fraction of **the step it measured**, never as a
+   fraction of 466.702 s, which is void (R209).
+
+**And what this does NOT license.** It is a measurement convention, not a proposal to ship
+`exact_training(False)`. The host float64 path is a fidelity feature Moritz approved personally,
+training-only, and it is why this campaign's gradients are correct. Nothing here argues for
+turning it off; it argues for measuring the device path without a host term on top of it, which
+is the only way a device kernel's effect is visible at all.
