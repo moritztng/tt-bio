@@ -75,6 +75,35 @@ not fit on a 30 GB box: it was OOM-killed holding **81.4 %** of all resident mem
 comfortably on a 249 GB host. **Training OpenFold3 here is specified by host memory and host CPU as
 much as by the accelerator**, which follows directly from the fidelity mechanism being host work.
 
+## Where the host memory actually goes, measured
+
+A 5 Hz RSS sampler tagged with the running phase, crop 384, exactness ON
+(`perf/of3t_restep/out/rss_384_exacton.summary.json`):
+
+| phase | ΔGiB |
+|---|---|
+| imports | +0.43 |
+| capture: MSA resolve + featurizer | **+3.14** |
+| capture: shipped fold to the sampler | +0.94 |
+| **`AdamW.__init__`** | **+6.00** |
+| untaped trunk, 3 recycles | **+0.00** |
+| taped trunk, 1 cycle, exact | **+2.82** |
+
+**The largest single term is the optimizer, and it is spent before the first forward op runs.**
+`tt_bio/train/optim.py` keeps three host fp32 numpy copies per weight — master, exp_avg, exp_avg_sq
+— over 381.3 M elements: 4.26 GiB of buffers, 6.00 GiB measured with the download transient. That
+is **by design and documented**, not a defect, and it is **31.6 %** of the peak. The untaped recycle
+prefix retains **nothing**, which is the control that makes the rest of the table readable.
+
+One in-flight exact softmax costs **+2.85 GiB** measured, against 3.377 GiB predicted from a
+host-side 2.00x ratio — so the fidelity mechanism's memory cost is real, understood, and **a
+transient riding on a 10.6 GiB floor rather than the floor itself**. Removing it is worth having
+and does not on its own make the step fit in 30 GB.
+
+**So training OpenFold3 here needs roughly 6 GiB of host RAM for optimizer state before any
+compute**, plus ~4 GiB of capture, plus the tape. That is a sizing fact a user needs and it follows
+from the design rather than from a bug.
+
 ## The host requirement is worse than a ceiling: it is not repeatable
 
 pc is a 30.5 GiB box, and **its available memory at run start swings from ~16.5 GiB to ~26 GiB**
