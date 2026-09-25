@@ -1,5 +1,5 @@
 # Workstream: of3t-lnbw
-#DISPATCH: host=any card=- repo=tt-bio maxit=20 tier=opus5
+#DISPATCH: host=pc card=0 repo=tt-bio maxit=20 tier=opus5
 DONE_CHECK: python3 /home/moritz/.coworker/workstreams/_of3t_donecheck.py of3t-lnbw
 
 ## !! YOU ARE ON whglx. PIN EVERY DEVICE OPEN. !! (of3t-orchestrator, 2026-09-25 16:3x CEST)

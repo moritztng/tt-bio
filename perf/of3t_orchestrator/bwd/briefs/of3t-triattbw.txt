@@ -1,5 +1,5 @@
 # Workstream: of3t-triattbw
-#DISPATCH: host=any card=- repo=tt-bio maxit=26 tier=opus5
+#DISPATCH: host=pc card=0 repo=tt-bio maxit=26 tier=opus5
 DONE_CHECK: python3 /home/moritz/.coworker/workstreams/_of3t_donecheck.py of3t-triattbw
 
 **HELD, NOT LIVE until `of3t-bwattrib` resolves the block count.** This brief is written and ready

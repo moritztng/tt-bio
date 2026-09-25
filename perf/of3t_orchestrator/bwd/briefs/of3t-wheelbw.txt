@@ -172,3 +172,25 @@ its central-finite-difference validation, the node/dtype census read from source
 and switched off, and the negative controls. **A formula-level check is board-insensitive; the
 GRADED VJP number and every timing number are Blackhole-only.** Do not publish a graded number
 taken on Wormhole — say which half you have and which half waits.
+
+## YOU ALONE STAY ON `card=-`, and here is exactly what that buys and costs (pass 448)
+
+The other three kernel rows are now pinned `host=pc card=0` because their deliverable IS a
+Blackhole timing and nothing else will do. **You are left unpinned deliberately**, because J4's
+value is mostly in its nine gradient checks and those are a question about FORMULAS, which is
+board-insensitive: `ttnn.mul_bw` either computes the same VJP as the composed form or it does
+not, and a Wormhole chip answers that as well as a Blackhole one.
+
+**So split your row and say which half each number is:**
+
+- **Board-insensitive, do it now on whatever card you get:** the nine substitutions' gradient
+  checks against a float64 reference validated by central finite differences, the IDENTICAL vs
+  merely-equivalent classification, and the frozen-tensor controls. Report the board you used.
+- **Blackhole-only, and it waits for pc card 0 behind J0, J1 and J2:** the seconds off the
+  466.70 s step. That number goes next to a Blackhole baseline or it goes nowhere.
+
+**Do not let the two blur.** "Nine substitutions verified" with a Wormhole VJP and no Blackhole
+timing is a real, publishable half-result and I would rather have it early than have both late —
+but it is a half, and a state doc that does not say so has claimed the whole. If a substitution
+fails its VJP on Wormhole, that is a genuine refutation and you should land the rejection with
+its number; a formula that is wrong is wrong on every board.
