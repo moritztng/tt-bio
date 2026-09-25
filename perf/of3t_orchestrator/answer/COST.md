@@ -30,6 +30,15 @@ than wrong), LoRA's frozen base receives no gradient, and the deliberately broke
 by measuring** rather than by raising before it measured. That last property is why this is
 evidence rather than decoration, and it is the one such harnesses usually lack.
 
+**That gate covers the code shipping today, exactly.** It ran on `f0e8f3b71`, and the five
+gradient-bearing files are **byte-identical by blob hash** between that tree and current main.
+
+**One caveat, stated because it is the kind that gets lost.** A separate and stronger claim — the
+whole-model **per-parameter** score, 4,152 tensors with 21 of 21 sections inside a 3x bar — was
+stamped on an **earlier** tree, and **1,032 insertions / 297 deletions** in the gradient path sit
+between it and main. A per-op gate and a per-parameter model score are different instruments, so
+the byte-identity above does not extend to it. Re-scoring on current main is owed.
+
 ## What it costs, with the scope on every line
 
 **Nothing below is a chip-to-chip claim unless it says so**, and a ratio that beats the ~8.5x
