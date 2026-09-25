@@ -1,0 +1,23 @@
+{
+ "doc": "How many nodes of each J4 op the crop-384 OF3T step actually puts on the tape.",
+ "argv": [
+  "--tokens",
+  "384",
+  "--out",
+  "/home/moritz/.coworker/wt/of3t-wheelbw/perf/of3t_wheelbw/out/census_384.json"
+ ],
+ "env": {
+  "host": "pc",
+  "tt_visible_devices": "0",
+  "commit": "f12e921633374cb0985f102a86b655bc4e1b6544",
+  "branch": "wk/of3t-wheelbw",
+  "started_utc": "2026-09-25T15:43:30Z"
+ },
+ "config": {
+  "crop": 384,
+  "diffusion_samples": 4,
+  "cycles": 1,
+  "stage": "initial_training",
+  "backward_run": false
+ }
+}
