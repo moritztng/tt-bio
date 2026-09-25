@@ -124,68 +124,27 @@ requires the exact line ranges in its state doc and a re-run of BCX's bar rather
 clean textual merge. These are the two files where `land-d264` showed a merge error is invisible
 to inference and visible only to a taped arm. History: `state/of3t/PASSLOG.md`.
 
-SEQUENCE: **bwsurvey's JOBS list landed this pass and it reordered the sprint, so the AND-gate my
-earlier sequencing described is discharged: the four kernel-shaped rows are dispatched and J0
-outranks all of them.** The finding that did it, and it is the sprint's headline:
+SEQUENCE: **R212 ended the sprint's original sequencing question, so this is the order now.** The
+JOBS list is spent: J1 NO-GO, J2's free route NO-GO, J3 dead at zero, J4 down to its seconds, the
+taped bypass 1.005x. What is left is three rows on one Blackhole card, ordered by seconds off the
+SHIPPED (exact-on) step, which is the only denominator a product decision can use:
 
-> at the forward's own measured warm rate the backward's 168,922 verb calls would cost **8.03 s**;
-> they cost **356.00 s** ... **~348 s — 97.7 % of the backward — is not the model's arithmetic**
+1. **`of3t-exactscope`** — does exact softmax alone carry the accuracy, so the exact layer norm
+   can go? **128.73 s**, and it costs no fidelity if the answer is yes. Largest remaining number
+   that does not trade the bar away, and the scope already exists so it is a measurement.
+2. **`of3t-restep`** — the clean uninstrumented re-take. Still wanted after R212 because
+   `of3t-bwattrib`'s 980.73/39.11 s came off a profiling harness, and a profiled wall clock is
+   not a baseline. Cheap (maxit 10) and it is what makes any of this publishable.
+3. **`of3t-zerosfill`** — **11.80 s, 35.1 % of the REAL 33.63 s backward, 424x off its roof.**
+   Smaller in absolute seconds than exactscope but a plain defect with no fidelity question
+   attached, and it was invisible at 0.17 % until the denominator was fixed.
 
-A backward verb costs **44.3x a forward verb on operands of the same shape**, warm, JIT burned
-off, allocator probe off, and nothing in the record explains why. To reach 6x by deleting calls
-alone you would have to delete **142,382 of 168,922 backward verb calls, 84.3 %**, and no set of
-nine kernels does that — the calls are spread across elementwise adds, slices, concats, permutes,
-layout conversions and reductions. **So the whole kernel programme is worth about 1.6x and the
-remaining 4x is inside the 2.107 ms per call.** At a pessimistic 0.24 ms per verb the step lands
-near 51 s, which is 9.1x on its own.
+`of3t-wheelbw` is on `card=cpu` to clean up its own detached chain (K24/K25) and owes only J4's
+seconds. `of3t-softbw` is concluded in substance. **The contention is the schedule**: four rows,
+one card, and the queue is the sprint's rate limit rather than agent count.
 
-**Two corrections to that list, made this pass and both binding on the rows (R205, R206).**
-
-**R205 — the "9.1x on its own" is wrong by a dropped term, and its own floor refutes it.** The
-partition is step **466.702 s**, backward **456.668 s**, non-backward **10.034 s**; of the
-backward, **356.00 s** is the 168,922 verb calls and the other **100.668 s is not verb calls at
-all**. Repricing verbs at 0.24 ms gives 40.5 s, so the step becomes 10.034 + 100.668 + 40.5 =
-**151.24 s, which is 3.09x** — the 51 s figure is 10.034 + 40.5 with the 100.668 s silently
-dropped. The cross-check settles it without measuring anything: 50.58 s against H200's 7-8 s is
-**6.3-7.2x, below the ~8.5x compute / ~11x bandwidth silicon ratio**, so the 9.1x reading requires
-beating the hardware. 3.09x leaves 18.9-21.6x and is consistent. **A projection that breaches your
-own floor is arithmetic, not optimism.** J0's rank is unchanged; what it may promise is.
-
-**R206 — J0 and the kernel jobs are SUBSTITUTES, so their seconds must never be summed.** Every
-kernel saving on the list is (verbs removed) x (cost per verb) priced at today's 2.107 ms. J1's
-"≥46.4 s" is (31,104 − 9,072) x 2.107 ms; at J0's 0.24 ms the identical job saves **5.3 s**. So
-three kernel rows may be optimising work J0 is about to make nearly free, and 3.09x plus
-J1+J2+J4's ~94 s double-counts — that sum lands suspiciously exactly on the hardware floor, which
-is the tell. **Every saving is quoted against a STATED per-verb cost and the sprint total is a
-re-measurement, never a sum.** Not a reason to cancel the kernel rows: J0 may fail, and removing
-CALLS helps at either per-verb cost.
-
-That is why **J0 (`of3t-bwattrib`) is dispatched first and gates nothing**: it is worth ~315 s
-against J1's ≥46.4 s, J2's ~32.8 s and J4's 5-15 s, it settles J3's unresolved 14x bracket (2
-SDPA blocks per call at 10.7 s against 40 at 153.7 s) as a side effect, and its suspects are
-wiring rather than kernels — `Tensor.evict` over PCIe, `add_grad`'s typecast to fp32,
-`to_layout` at fan-in, allocation churn. **J3 is deliberately NOT dispatched** until that bracket
-resolves: it is the largest authoring effort on the page and briefing it against a 14x uncertainty
-is exactly the mistake this campaign has already paid for twice.
-
-J1, J2 and J4 do not wait on J0 — their value is independent of what J0 finds — so they run in
-parallel. J5 (`swiglu_elemwise_bw`, a handful of verbs), J6 (`cross_entropy_bw`, capped at 3.135 s
-of which 3.128 is host numpy) and J7 (`ring_sdpa_bw`, nothing to build for a single-chip step) are
-parked with their reasons, named so no row re-derives them.
-
-`of3t-intensity`'s brief was amended this pass: **a 44.3x per-call overhead is not a roofline
-story at all**, so it must say whether a backward part is doing arithmetic or paying per-call
-overhead before pricing headroom, and it must not duplicate J0's histogram.
-
-`of3t-throughput` concluded GO with the axis correction this sprint needed: **box to box, one DGX
-H200 trains 116.7-157.0x more OpenFold3 samples per second than one TT-QuietBox 2** at crop 384,
-falling to **16.7-26.2x** after the 6-7x software fix. That is about 2.1x worse than the chip axis
-for a structural reason — the DGX ships 8 accelerators and the QuietBox 4 — and it is why the chip
-number was the wrong headline: it credits us with a box we do not sell. Every sprint number states
-its axis.
-
-BRANCH: **`wk/of3t-bwd` at `c499ae9c0`**, carrying `of3t-tapedfwd` and `of3t-intensity`, both GO
-and both artifact-only apart from tapedfwd's 15-line early return.
+BRANCH: **`wk/of3t-bwd` at `4a86765bb`**, carrying `of3t-tapedfwd`, `of3t-intensity` and
+`of3t-bwattrib` — all GO, all artifact-only apart from tapedfwd's 15-line early return.
 
 **`of3t-lnbw` and `of3t-softbw` are deliberately NOT composed, and their branches are pushed so
 nothing is at risk** (`e77c3a5fb`, `afc6ecab6`). Three reasons that compound: both land in
