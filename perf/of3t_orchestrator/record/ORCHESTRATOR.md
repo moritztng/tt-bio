@@ -42,11 +42,14 @@ author and cite what you took; gates are batched and a stack is approved whole. 
 speedup that does less of the model's own work. A1-A45 are the correctness protocol and are
 unchanged. History: `state/of3t/PASSLOG.md`.
 
-LEDGER: `~/.coworker/state/of3t/LEDGER.md`, **R1-R203 and K1-K19**. **R203, filed this pass, is
+LEDGER: `~/.coworker/state/of3t/LEDGER.md`, **R1-R204 and K1-K19**. **R203, filed this pass, is
 the sprint's first finding and it reordered the job list: an engine-wide fused-kernel bypass hid
 behind a per-module comment. A per-site comment that correctly explains one decline is the best
 camouflage a policy can have, because every reader who checks one site leaves satisfied. Count the
-sites before believing the anecdote — the grep took ten seconds.** An INDEX, not a copy: every
+sites before believing the anecdote — the grep took ten seconds. R204 is its inverse and worth
+as much: the mechanism that routes around R203's blocker shipped months ago and was never
+generalised. A comment explaining why something cannot be done is evidence about that call site,
+not about the codebase; grep for the thing already doing it before sizing the work to build it.** An INDEX, not a copy: every
 entry's text, evidence and artifact path is in that file while it is in the tail and in
 `state/archive/` once rotated (newest `of3t-LEDGER.*.md` there by mtime). The four that bind the
 sprint, rather than the forty this field used to transcribe:
@@ -177,7 +180,15 @@ is expected: the four rows were dispatched 30 minutes ago and none has reported.
    seconds are owed by `of3t-tapedfwd` and until they exist the sprint has no defensible order.
    A related question its brief now carries, and the one the whole job list hangs on: a fused
    kernel survives taping when it is a taped ttnn VERB with a registered backward and not when it
-   is a tt-bio `generic_op`. If that generalises, every job is a verb-registration job.
+   is a tt-bio `generic_op`. **Answered the same pass, and it makes the sprint smaller (R204):**
+   the tape is not a verb registry — `autograd._tape` wraps any forward value with any
+   hand-written VJP, and `autograd.triangle_attention`'s `value=` argument already pairs the
+   shipped fused SDPA with an authored backward in one node at `taped_ttnn.py:862`. No nanobind,
+   no C++ build, no bridge to `ttml::autograd`. It is a one-off — one op, one call site — so
+   generalising that seam is the sprint's infrastructure job, in Python, inside `autograd.py`.
+   Every job is then "author or adapt the backward maths, wire the fused forward through
+   `value=`", eight modules. `of3t-bwsurvey`'s brief carries the retraction of my earlier
+   verb-registration framing, because a brief is the only channel that reaches a running row.
 5. **Nothing has landed, so `wk/of3t-bwd` does not exist.** Two artifact-only branches wait for the
    first batch (BRANCH).
 6. Carried from the correctness campaign and NOT this sprint's: D270 (`aux_heads.distogram.linear

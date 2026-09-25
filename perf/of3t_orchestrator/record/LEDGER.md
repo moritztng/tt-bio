@@ -1089,6 +1089,22 @@ state doc nor its `CLAUSE_EXACT.json` names the version anywhere.
 
 **R200** (pass 423) The `of3t-denoise` A40 floor was attributed to mse's Kabsch stop-gradient and FD3 froze it. FD3 at h=1e-4 reads 15.897746748793073 against FD2's 15.897749718841725 (1.9e-7 relative) and both read 2.847e-05 at h=1e-5: the freeze is inert, as the envelope theorem predicts when the alignment minimises the loss it feeds. FD2's ladder 2.498e-04 / 7.634e-05 / 2.847e-05 falls ~h^0.5 without a plateau, which a missing gradient path (constant bias) cannot produce. h=1e-6 then read 6.972e-10 and h=1e-7 4.303e-09: a V with one kink crossing between 1e-6 and 1e-5, so A40 PASSES. Separately, `of3t-denoise` found D259 (`ttnn.multiply(bf16, fp32 [...,1])` nondeterministic, up to 16,061 wrong elements) and D258 (mixed-dtype `transpose_a` matmul); both are fixed on the training path only, and `of3t-bcastaudit` measures whether inference reaches them.
 
+- **R204** (pass 445, backward sprint) **the blocker R203 found is not an infrastructure gap, and
+  the facility that routes around it is already in production.** `tt_bio/autograd.py`'s tape is
+  not a verb registry: `_tape(out_value, parents, make_fn, reads=None)` wraps any forward value
+  with any hand-written VJP closure, so a `generic_op` result can carry a backward with no
+  nanobind, no C++ build and no bridge to `ttml::autograd`. `autograd.triangle_attention`'s
+  `value=` argument is the seam and its docstring states the intent -- *"what lets the shipped
+  fused SDPA share this backward instead of getting a second copy of it"* -- so the fused forward
+  and the authored backward already end up in one tape node at `taped_ttnn.py:862`. **It is a
+  one-off: one op, one call site.** The lesson is the inverse of R203's and worth as much: R203
+  read a policy off thirteen honest comments and made the problem look like a kernel-porting
+  project; twenty minutes in the same file showed the mechanism to fix it shipped months ago and
+  was never generalised. **A comment that explains WHY something cannot be done is evidence about
+  that call site, not about the codebase -- grep for the thing already doing it before sizing the
+  work to build it.** The job list is therefore "author or adapt the backward maths, then wire the
+  fused forward through the `value=` seam", eight modules, in Python.
+
 - **R203** (pass 445, backward sprint) **an engine-wide fused-kernel bypass hid behind a
   per-module comment.** `ttnn.generic_op` has no backward, so every one of tt-bio's eleven fused
   kernels declines under taping BY DESIGN: thirteen guard sites in eight modules (`triatt_qkv` 4,

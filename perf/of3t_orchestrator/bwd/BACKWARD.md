@@ -103,6 +103,29 @@ register a backward for the `generic_op` pair, or re-drive tt-train's backward s
 `generic_op` and register the pair, or establish that the composed fallback is already at parity
 and the guard costs nothing there.
 
+**And the plumbing is NOT the blocker — established pass 445 by reading `tt_bio/autograd.py`.**
+The tape is not a verb registry. `autograd._tape(out_value, parents, make_fn, reads=None)` wraps
+any forward value with any hand-written VJP closure, so a `generic_op` result can carry a backward
+today with no new infrastructure, no nanobind and no C++ build. The pattern is already in
+production and its own docstring says so: `autograd.triangle_attention` takes a `value=` argument
+that *"hands in a forward that has already been computed, and it is what lets the shipped fused
+SDPA share this backward instead of getting a second copy of it... which is how the production
+forward and this backward end up in one node."* So the fused kernel runs, the authored backward is
+taped beside it, and `generic_op`'s own lack of a backward never comes up.
+
+**But it is a ONE-OFF, and that is the real infrastructure job.** `value=` exists on exactly one
+autograd op and is used at exactly one call site (`taped_ttnn.py:862`). Generalising that seam —
+a precomputed-forward argument on the autograd ops the other seven modules would need, several of
+which have no autograd counterpart at all today — is a small Python job inside `autograd.py`, not
+a bridge to `ttml::metal`. Size it as such.
+
+Consequence for the job list: **each of the eight modules is "author or adapt the backward maths,
+then wire the fused forward through the `value=` seam", not "expose a C++ op to Python".**
+`reblock_permute`'s backward is an inverse permutation and may be nearly free; `swiglu_fused` has
+tt-train's `swiglu_elemwise_bw` to adapt; `triatt_qkv` and `softmax_generic` are where the maths
+is real. That ordering is `of3t-bwsurvey`'s to establish, with `of3t-tapedfwd`'s seconds as the
+weights.
+
 **What is still owed, and it is a measurement, not a code read:** the seconds. `of3t-tapedfwd`
 counts which of these fire at runtime in a real crop-384 taped step and prices the decline per
 family inside the 466.70 s. A code read says the guard exists; only the run says what it costs,
