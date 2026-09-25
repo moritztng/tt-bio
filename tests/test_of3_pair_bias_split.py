@@ -11,9 +11,10 @@ AF3 Alg 24: relative L2 5.7577e-02 -> 1.7795e-02, PCC 0.998522 -> 0.999977
 
 Three properties to hold. The split exists and is wired the way round it is supposed to be. The
 default is transparent, so a caller that does not name `tri_att_scale_pair_bias` builds exactly
-the sub-modules it built before. And the OpenFold3 trunk is the one site that names it, with the
-value the float64 reference picked -- a silent revert there is a silent 0.204x, which is the
-failure this file exists to catch.
+the sub-modules it built before. And the OpenFold3 trunk and confidence Pairformers are the only
+sites that name it, both with the value the float64 reference picked. A silent revert there is a
+silent 0.204x, which is the failure this file exists to catch (D266 was one, in the confidence
+head).
 """
 import ast
 import pathlib
@@ -21,6 +22,7 @@ import pathlib
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 TS = ROOT / "tt_bio" / "tenstorrent.py"
 TRUNK = ROOT / "tt_bio" / "openfold3_trunk.py"
+SITES = (TRUNK, ROOT / "tt_bio" / "openfold3_confidence.py")
 
 TREE = ast.parse(TS.read_text())
 
@@ -90,13 +92,13 @@ def test_the_default_is_transparent():
     assert e.orelse.id == "tri_att_scale_pair_bias"
 
 
-def test_the_openfold3_trunk_is_the_one_site_that_names_it_and_names_it_right():
-    call = next(n for n in ast.walk(ast.parse(TRUNK.read_text()))
-                if isinstance(n, ast.Call) and getattr(n.func, "id", None) == "Pairformer")
-    assert _kw(call, "scale_pair_bias").value is True
-    assert _kw(call, "tri_att_scale_pair_bias").value is False
+def test_the_openfold3_pairformers_are_the_only_sites_that_name_it_and_name_it_right():
+    for site in SITES:
+        call = next(n for n in ast.walk(ast.parse(site.read_text()))
+                    if isinstance(n, ast.Call) and getattr(n.func, "id", None) == "Pairformer")
+        assert _kw(call, "scale_pair_bias").value is True, site.name
+        assert _kw(call, "tri_att_scale_pair_bias").value is False, site.name
 
     named = [p for p in sorted(ROOT.glob("tt_bio/**/*.py"))
-             if p != TRUNK and "tri_att_scale_pair_bias=" in p.read_text()
-             and p != TS]
+             if p not in SITES and p != TS and "tri_att_scale_pair_bias=" in p.read_text()]
     assert named == [], f"another site now names the split: {named}"
