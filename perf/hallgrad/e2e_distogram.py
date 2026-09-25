@@ -274,6 +274,8 @@ def _transition(ag, z, W, prefix=""):
 def _block(ag, z, W, cfg, n, scale, prefix=""):
     """trimul outgoing, trimul incoming, tri-attention starting, tri-attention ending."""
     heads, head_dim = cfg["heads"], cfg["head_dim"]
+    # `split_heads`/`merge_heads` rather than reshape + permute; off reproduces the census arm.
+    split_verbs = cfg.get("split_verbs", True)
     for tag, incoming in (("out", False), ("in", True)):
         zn = ag.layer_norm(z, W[f"{prefix}tm_{tag}_ln_g"])
         a = ag.mul(ag.sigmoid(ag.linear(zn, W[f"{prefix}tm_{tag}_ag"])),
@@ -291,14 +293,23 @@ def _block(ag, z, W, cfg, n, scale, prefix=""):
 
         def heads_of(key):
             h = ag.linear(zn, W[f"{prefix}ta_{tag}_{key}"])
+            if split_verbs:
+                return ag.split_heads(h, heads)
             return ag.permute(ag.reshape(h, [n, n, heads, head_dim]), (0, 2, 1, 3))
-        q, k, v, g = (heads_of(x) for x in ("q", "k", "v", "g"))
+        q, k, v = (heads_of(x) for x in ("q", "k", "v"))
+        g = ag.linear(zn, W[f"{prefix}ta_{tag}_g"])
         bias = ag.reshape(ag.permute(ag.linear(zn, W[f"{prefix}ta_{tag}_b"]), (2, 0, 1)),
                           [1, heads, n, n])
         o = ag.triangle_attention(q, k, v, bias, scale=scale,
                                   chunk=cfg["chunk"], q_chunk=cfg["chunk"])
-        o = ag.mul(o, ag.sigmoid(g))
-        o = ag.reshape(ag.permute(o, (0, 2, 1, 3)), [n, n, heads * head_dim])
+        if split_verbs:
+            # The gate is elementwise, so it commutes with the head merge: gating after the
+            # merge is the same arithmetic on the same values and never splits g at all.
+            o = ag.mul(ag.merge_heads(o), ag.sigmoid(g))
+        else:
+            g = ag.permute(ag.reshape(g, [n, n, heads, head_dim]), (0, 2, 1, 3))
+            o = ag.mul(o, ag.sigmoid(g))
+            o = ag.reshape(ag.permute(o, (0, 2, 1, 3)), [n, n, heads * head_dim])
         upd = ag.linear(o, W[f"{prefix}ta_{tag}_o"])
         z = ag.add(z, ag.permute(upd, (1, 0, 2)) if tag == "end" else upd)
     return z
@@ -341,6 +352,14 @@ def main():
                          "off keeps the single trailing transition this file always had")
     ap.add_argument("--checkpoint", action="store_true",
                     help="recompute each pairformer unit inside its own backward")
+    ap.add_argument("--heads-path", choices=("verbs", "reshape"), default="verbs",
+                    help="head split/merge through autograd.split_heads/merge_heads, or the "
+                         "reshape + permute chain the BCX census measured")
+    ap.add_argument("--triatt-bmm", choices=("on", "off"), default="on",
+                    help="triangle attention's batched matmuls with bmm_program_config, or "
+                         "ttnn's own plan")
+    ap.add_argument("--save-grad", default=None,
+                    help="write the device logit gradient (.npy), for a bit-exact A/B")
     ap.add_argument("--skip-reference", action="store_true",
                     help="skip the float64 chain (it is O(N^3) on CPU); keep the directional check")
     args = ap.parse_args()
@@ -355,7 +374,9 @@ def main():
 
     cfg = dict(heads=args.heads, head_dim=args.head_dim, hidden=args.c_z,
                chunk=args.chunk, checkpoint=args.checkpoint, blocks=args.blocks,
-               block_transition=args.block_transition)
+               block_transition=args.block_transition,
+               split_verbs=args.heads_path == "verbs")
+    ag.TRIATT_BMM_CONFIG = args.triatt_bmm == "on"
     rng = np.random.default_rng(args.seed)
     n, bins = args.n, args.bins
     Wnp = make_weights(rng, args.c_s, args.c_z, args.heads, args.head_dim, args.c_z, bins,
@@ -404,6 +425,8 @@ def main():
         print("E2E FAIL: no gradient reached the sequence logits")
         return 1
     g_dev = ttnn.to_torch(lt.grad).to(torch.float64).numpy()
+    if args.save_grad:
+        np.save(args.save_grad, g_dev)
 
     print(f"# N={n} c_z={args.c_z} heads={args.heads} head_dim={args.head_dim} bins={bins} "
           f"chunk={args.chunk} checkpoint={args.checkpoint} blocks={args.blocks} "
