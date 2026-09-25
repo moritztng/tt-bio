@@ -17,9 +17,22 @@ and an inference fold builds no tape, so BOTH of this row's arms must be byte-id
 Three equal digests prove nothing on their own -- a digest blind to the softmax would report
 byte-identity whatever happened -- so the run carries its own control:
 
-  control  base tree, TT_BIO_HOST_F64_SOFTMAX_AB=all, an unrelated lever on the same softmax
+  control  base tree, TT_BIO_ACCURATE_SOFTMAX_AB=all, an unrelated lever on the same softmax
            in the FORWARD. It must MOVE the digest, or this fixture cannot see a softmax and
            the other three arms are vacuous.
+
+THE CONTROL WAS ITSELF WRONG ONCE, WHICH IS WHY IT SAYS WHICH LEVER. This arm first used
+`TT_BIO_HOST_F64_SOFTMAX_AB=all`, and that lever cannot move an inference fold BY DESIGN --
+`tenstorrent.host_f64_softmax_site` is gated on a tape being open, and its own docstring says
+so: "the gate also needs a tape open, so the variable cannot move an inference fold whatever
+it is set to." A control tape-gated exactly like the thing it controls for would have read
+`control_moves_the_digest: false` and failed the run for a reason that has nothing to do with
+this branch. `accurate_softmax_site` is a plain `_site_flag` with no tape gate and it swaps the
+forward softmax for the 5-op accurate chain at `openfold3.trunk`, `.template`, `.msa` and
+`.confidence`, so on an openfold3 fold it reaches the forward and moves the digest.
+
+The model is therefore openfold3 and not boltz2: the control lever has to be wired to sites the
+fixture actually executes, and these four are openfold3's.
 """
 import argparse
 import hashlib
@@ -40,7 +53,8 @@ def fold(py, tree, model, fixture, out, env_extra, card, steps):
     env.update({"TT_VISIBLE_DEVICES": card, "TT_BIO_LEASE_CARDS": card,
                 "TT_BIO_LEASE_HOLDER": "worker:of3t-softbw", "PYTHONPATH": str(tree)})
     # every arm's levers are set explicitly, so an inherited one cannot decide an arm
-    for k in ("TT_BIO_SOFTMAX_BW_FUSED", "TT_BIO_HOST_F64_SOFTMAX_AB"):
+    for k in ("TT_BIO_SOFTMAX_BW_FUSED", "TT_BIO_ACCURATE_SOFTMAX_AB",
+              "TT_BIO_HOST_F64_SOFTMAX_AB"):
         env.pop(k, None)
     env.update(env_extra)
     cmd = [py, "-m", "tt_bio.main", "predict", str(fixture), "--model", model,
@@ -73,7 +87,7 @@ def main():
         "base": (Path(a.base_tree), {}),
         "off": (Path(a.tree), {}),
         "on": (Path(a.tree), {"TT_BIO_SOFTMAX_BW_FUSED": "1"}),
-        "control": (Path(a.base_tree), {"TT_BIO_HOST_F64_SOFTMAX_AB": "all"}),
+        "control": (Path(a.base_tree), {"TT_BIO_ACCURATE_SOFTMAX_AB": "all"}),
     }
     res = {}
     for name, (tree, env) in arms.items():
