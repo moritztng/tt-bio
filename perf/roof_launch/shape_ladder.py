@@ -86,7 +86,7 @@ def main() -> int:
                          "other row, so a partial table is still a usable table.")
     a = ap.parse_args()
 
-    dev = T.get_device(trace_region_size=1 << 29)
+    dev = T.get_device(trace="diffusion")
     kcls = (ttnn.types.WormholeComputeKernelConfig if dev.arch() == ttnn.Arch.WORMHOLE_B0
             else ttnn.types.BlackholeComputeKernelConfig)
     kc = kcls(math_fidelity=ttnn.MathFidelity.HiFi4, math_approx_mode=False,

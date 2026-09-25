@@ -2,8 +2,8 @@
 
 A worker process owns one accelerator slot for its entire lifetime: it loads the
 Boltz-2 model once, then pulls jobs from a scheduler over HTTP and runs them
-until cancelled. The same loop runs for local single-machine runs and for
-multi-host runs; only the scheduler URL differs.
+until cancelled. The same loop serves a `predict` run's own scheduler and a
+persistent `tt-bio controller`; only the scheduler URL differs.
 """
 
 from __future__ import annotations
@@ -26,10 +26,10 @@ from typing import Any
 import torch
 
 from tt_bio.device_lease import CONTENDED_EXIT_CODE, DeviceInUseError, install_parent_death_guard
-from tt_bio.distributed import ControllerClient, HttpProgressQueue
+from tt_bio.host_controller import HEARTBEAT_PER_LEASE, LEASE_S, ControllerClient, HttpProgressQueue
 from tt_bio.envflags import env_flag
 from tt_bio import ranking as rank
-from tt_bio.cache import cached, seq_hash, staged
+from tt_bio.cache import EMPTY_MSA, cached, msa_pinned, seq_hash, staged
 from tt_bio.capabilities import check_capabilities
 
 
@@ -148,8 +148,8 @@ def _ensure_local_artifacts(cfg: dict[str, Any]) -> None:
     worker's own ~/.boltz/ cache. For the MSA directory we prefer the path
     the controller asked for (so single-machine and shared-filesystem runs
     keep populating <out_dir>/msa/ exactly like the legacy pipeline) and
-    only fall back to the local cache when that path is not writable on
-    this host (the no-shared-FS multi-machine case).
+    only fall back to the local cache when that path is not writable by
+    this worker (another user, container or mount namespace).
     """
     from tt_bio import weights
 
@@ -179,7 +179,7 @@ def _ensure_local_artifacts(cfg: dict[str, Any]) -> None:
         return
     # RF3: checkpoint from files.ipd.uw.edu (or $RF3_CKPT), MSA dir like the rest.
     # main.py pre-fetches in the parent before fanning out, so this is normally a
-    # cache hit; a worker joined to a remote controller fetches on its own host.
+    # cache hit; a worker serving a persistent controller fetches for itself.
     if cfg.get("model") == "rf3":
         cfg["msa_dir"] = _resolve_msa_dir(cfg.get("msa_dir"), cache)
         cfg["rf3_ckpt"] = str(weights.fetch("rf3"))
@@ -188,6 +188,16 @@ def _ensure_local_artifacts(cfg: dict[str, Any]) -> None:
     # resolves it", which is what load_opendde_checkpoint does with a null path.
     if cfg.get("model", "boltz2") in ("opendde", "opendde-abag"):
         cfg["opendde_ckpt"] = os.environ.get("TT_BIO_OPENDDE") or os.environ.get("OPENDDE_CKPT")
+        return
+    # AF2-IG reads one member out of DeepMind's 4 GB parameter archive (weights.py:
+    # `af2-params`), and folds single-sequence, so it needs no MSA dir and no molecule
+    # library. main.py pre-fetches in the parent before fanning out; a worker joined to a
+    # remote controller fetches on its own host.
+    if cfg.get("model") == "af2ig":
+        # The row's derived output is the directory; $AF2IG_PARAMS may name either it or the
+        # one member inside it, and both spellings are in use on this fleet.
+        got = weights.fetch("af2-params", root=cache)
+        cfg["af2_params"] = str(got if got.is_file() else got / "params_model_1_ptm.npz")
         return
     # ESMFold2 loads its weights from HF on the first fold and needs no Boltz-2
     # checkpoints / molecule library — only a writable MSA dir.
@@ -218,9 +228,8 @@ def _template_structure_dir(cache: Path) -> str:
 
 
 def _resolve_msa_dir(requested: str | None, cache: Path) -> str:
-    """Honor controller's msa_dir if it already exists and is writable on this
-    host (covers single-machine runs and shared-filesystem multi-machine
-    setups); otherwise fall back to ~/.boltz/msa/ on the worker."""
+    """Honor controller's msa_dir if it already exists and is writable by this
+    worker; otherwise fall back to ~/.boltz/msa/ on the worker."""
     if requested:
         path = Path(requested)
         if path.is_dir() and os.access(path, os.W_OK):
@@ -471,7 +480,10 @@ def _paired_msa(path, chains, msa_dir, cfg):
 
     if cfg.get("single_sequence"):
         return None
-    seqs = {seq_hash(s): s for _c, s, _sp, mt, _m in chains if mt == "protein"}
+    # A chain the input marked `msa: empty` takes no part in pairing either: pairing is a
+    # search, and the paired block is that chain's alignment as much as the unpaired one.
+    seqs = {seq_hash(s): s for _c, s, sp, mt, _m in chains
+            if mt == "protein" and sp != EMPTY_MSA}
     if len(seqs) < 2:
         return None
     try:
@@ -498,8 +510,9 @@ def _paired_a3ms(path, chains, msa_dir, cfg):
     paired = _paired_msa(path, chains, msa_dir, cfg)
     if paired is None:
         return None
-    return [cap_a3m_text(paired[seq_hash(s)], cfg.get("msa_cap")) if mt == "protein" else None
-            for _c, s, _sp, mt, _m in chains]
+    return [cap_a3m_text(paired[seq_hash(s)], cfg.get("msa_cap"))
+            if mt == "protein" and sp != EMPTY_MSA else None
+            for _c, s, sp, mt, _m in chains]
 
 
 def _artifact_residue_names(chains) -> dict:
@@ -719,6 +732,10 @@ class _WorkerState:
             self.model._esmc.preload()
         elif model_id in _protenix_family():
             from tt_bio.protenix import Protenix
+            from tt_bio.tenstorrent import get_device
+
+            if cfg.get("trace"):
+                get_device(trace="protenix")   # reset() closed the chip; this open reserves it
 
             # Same class for both ids: c_z, the stack depths and the recycling count all come
             # off the weights (Trunk._derive_c_z / n_blocks / trunk_recycles).
@@ -751,9 +768,21 @@ class _WorkerState:
                 num_timesteps=int(cfg.get("sampling_steps") or 200))
         elif model_id in ("opendde", "opendde-abag"):
             from tt_bio.opendde import OpenDDE
+            from tt_bio.tenstorrent import get_device
+
+            if cfg.get("trace"):
+                get_device(trace="protenix")
 
             self.model = OpenDDE.load_from_checkpoint(
                 cfg.get("opendde_ckpt"), abag=(model_id == "opendde-abag"))
+        elif model_id == "af2ig":
+            from tt_bio.af2 import load_af2_device_model
+            from tt_bio.af2_weights import load_af2_state_dict
+
+            # template=True is the binder protocol: AF2-IG's template IS the complex you
+            # submitted, which is also its initial guess.
+            self.model = load_af2_device_model(load_af2_state_dict(cfg["af2_params"]),
+                                               template=True).eval()
         elif _is_esmc_model(model_id):
             from tt_bio.esmc import load_esmc
 
@@ -858,6 +887,8 @@ class _WorkerState:
             return self._predict_openfold3_one(path, cfg)
         if cfg.get("model") == "rf3":
             return self._predict_rf3_one(path, cfg)
+        if cfg.get("model") == "af2ig":
+            return self._predict_af2ig_one(path, cfg)
         if cfg.get("model", "boltz2") in ("esmfold2", "esmfold2-fast"):
             return self._predict_esmfold2_one(path, cfg)
         if _is_embed_model(cfg.get("model", "boltz2")):
@@ -907,11 +938,47 @@ class _WorkerState:
         )
         return metrics, best, feats
 
+    def _predict_af2ig_one(self, path: Path, cfg: dict[str, Any]):
+        """AF2-IG: re-predict a designed complex from its own coordinates, report the
+        interface. No MSA search, no diffusion, no seed -- the whole job is the trunk."""
+        import types
+
+        from tt_bio import af2ig
+        from tt_bio.esmfold2 import report_progress
+
+        # af2ig reads its own input shape (a structure plus a binder sequence), so the chain
+        # columns of its capability row are a record rather than the enforcement -- see
+        # capabilities.CHAINS_ELSEWHERE. The keyed features (a pocket constraint, an affinity
+        # block) are still checked here, which is what refuses a boltz2 YAML pasted at it.
+        chains = None
+        check_capabilities(path, chains, "af2ig")
+        spec = af2ig.read_af2ig_input(path)
+        report_progress("prep")
+        recycles = _recycles(cfg, 3)
+        pred = af2ig.fold(self.model, spec, recycles=recycles,
+                          progress=lambda i, n: report_progress("trunk", i, n))
+        report_progress("saving")
+        fmt = cfg["output_format"]
+        _write_atom_array_structure(
+            pred.atom_array, torch.from_numpy(pred.coords),
+            Path(cfg["struct_dir"]) / f"{path.stem}.{fmt}", fmt,
+            b_factors=torch.from_numpy(pred.b_factors))
+        metrics = {**pred.metrics,
+                   "n_residues": pred.tokens,
+                   "n_atoms": int(pred.atom_array.array_length()),
+                   "n_chains": 2,
+                   "binder_residues": pred.binder_length,
+                   "msa": False,
+                   "recycling_steps": recycles}
+        # _execute_job inspects feats["record"].affinity; AF2-IG has no affinity head.
+        return metrics, None, {"record": types.SimpleNamespace(affinity=False)}
+
     def _predict_esmfold2_one(self, path: Path, cfg: dict[str, Any]):
         import types
 
         from tt_bio.esmfold2 import report_progress
-        from tt_bio.esmfold2_runtime import fold_complex, pair_keyed_msa, resolve_msa
+        from tt_bio.esmfold2_runtime import (ESMFOLD2_MSA_ROWS, fold_complex, pair_keyed_msa,
+                                             resolve_msa)
         from tt_bio.main import (_generate_esmfold2_a3m, _read_bio_bonds, _read_bio_chains,
                                  _write_structure)
 
@@ -922,7 +989,9 @@ class _WorkerState:
         # covalent bonds + ring closures, upstream's covalent_bonds -> token_bonds
         bonds = _read_bio_bonds(path, chains)
         msa_dir = Path(cfg["msa_dir"])
-        max_msa = cfg.get("max_msa_seqs") or 16384
+        # Upstream's featurizer reads at most ESMFOLD2_MSA_ROWS, so that is the pool unless the
+        # user asked for less; the MSA encoder draws its per-loop subsample from it.
+        max_msa = min(cfg.get("msa_cap") or ESMFOLD2_MSA_ROWS, ESMFOLD2_MSA_ROWS)
         # Only the checkpoints that ship an MSA encoder can use an MSA. ESMFold2
         # has one; ESMFold2-Fast does not (model.msa_encoder is None), so there's
         # nothing to consume an alignment — skip the search and fold single-seq
@@ -945,7 +1014,7 @@ class _WorkerState:
             for _cid, seq, spec, mt, _mods in chains:
                 if mt != "protein":
                     continue
-                if spec and Path(spec).expanduser().exists():
+                if msa_pinned(spec):
                     continue
                 h = seq_hash(seq)
                 if not cached(msa_dir / f"{h}.a3m") and not cached(msa_dir / f"{h}.csv"):
@@ -965,7 +1034,8 @@ class _WorkerState:
 
         def _msa(spec, seq):
             msa = resolve_msa(spec, seq, msa_dir, max_sequences=max_msa)
-            return (pair_keyed_msa(msa, paired[seq_hash(seq)], max_msa) if paired else msa)
+            return (pair_keyed_msa(msa, paired[seq_hash(seq)], max_msa)
+                    if paired and spec != EMPTY_MSA else msa)
 
         chains = [(cid, seq, _msa(spec, seq) if (uses_msa and mt == "protein") else None,
                    mt, mods)
@@ -1040,8 +1110,7 @@ class _WorkerState:
         want_msa = cfg.get("use_msa_server") or cfg.get("msa_db_path") or cfg.get("msa_endpoint")
         need = {}
         for _cid, cseq, spec, mt, _mods in chains:
-            have_spec = bool(spec and Path(spec).expanduser().exists())
-            if mt == "protein" and want_msa and not have_spec:
+            if mt == "protein" and want_msa and not msa_pinned(spec):
                 h = seq_hash(cseq)
                 if not cached(msa_dir / f"{h}.a3m"):
                     need[h] = cseq
@@ -1124,8 +1193,7 @@ class _WorkerState:
         want_msa = cfg.get("use_msa_server") or cfg.get("msa_db_path") or cfg.get("msa_endpoint")
         need = {}
         for _cid, cseq, spec, mt, _mods in chains:
-            have_spec = bool(spec and Path(spec).expanduser().exists())
-            if mt == "protein" and want_msa and not have_spec:
+            if mt == "protein" and want_msa and not msa_pinned(spec):
                 h = seq_hash(cseq)
                 if not cached(msa_dir / f"{h}.a3m"):
                     need[h] = cseq
@@ -1330,7 +1398,7 @@ class _WorkerState:
         for _cid, cseq, spec, mt, _mods in chains:
             if mt != "protein" or not want_msa:
                 continue
-            if spec and Path(spec).expanduser().exists():
+            if msa_pinned(spec):
                 continue
             h = seq_hash(cseq)
             if not cached(msa_dir / f"{h}.a3m"):
@@ -1552,11 +1620,15 @@ class _WorkerState:
                              ccd_codes=[ccd] if ccd else None,
                              main_msa_file_paths=None)
                 return chain
-            chain.update(
-                sequence=cseq, smiles=None, ccd_codes=None,
-                main_msa_file_paths=([str(Path(spec).expanduser())]
-                                     if spec and Path(spec).expanduser().exists()
-                                     else None))
+            if spec == EMPTY_MSA:
+                from tt_bio.openfold3_data import query_only_msa
+                msa_paths = [str(query_only_msa(msa_dir, cseq))]
+            elif spec and Path(spec).expanduser().exists():
+                msa_paths = [str(Path(spec).expanduser())]
+            else:
+                msa_paths = None
+            chain.update(sequence=cseq, smiles=None, ccd_codes=None,
+                         main_msa_file_paths=msa_paths)
             chain["template_alignment_file_path"] = tmpl_map.get(cid)
             return chain
 
@@ -1636,8 +1708,8 @@ class _WorkerState:
         # (primitives/featurization/msa.py:112) and upstream folds a heteromer unpaired;
         # 0.5.0 (PR #373) keeps it. Keyed on the checkpoint like the other 0.5.0 MSA fixes.
         # Feeding preview2 the rows anyway cost 0.06 DockQ on 8WT4, worse on 6 of 6 seeds.
-        if model == "openbind" and _paired_msa(path, chains, msa_dir, cfg) is not None:
-            of3_query = attach_openfold3_paired_msas(of3_query, msa_dir)
+        if model == "openbind" and (paired := _paired_msa(path, chains, msa_dir, cfg)) is not None:
+            of3_query = attach_openfold3_paired_msas(of3_query, msa_dir, paired)
         if cfg.get("single_sequence"):
             # --single_sequence is upstream's no-MSA mode, not an MSA-stack
             # disable: upstream substitutes a one-row alignment holding the
@@ -1937,7 +2009,7 @@ def run_worker_loop(
     # here; a dispatcher killed with SIGTERM skips its finally-block and would
     # otherwise orphan us holding the chip open indefinitely (observed: a stray
     # worker pinned /dev/tenstorrent/3 for 2h, silently blocking later runs on
-    # that card). Remote `worker --connect` processes leave the var unset.
+    # that card). Workers of a `tt-bio worker` pool leave the var unset.
     _dispatcher_pid = int(os.environ.get("TT_BIO_PARENT_PID") or 0)
     _install_orphan_guard(_dispatcher_pid)
 
@@ -1961,9 +2033,13 @@ def run_worker_loop(
     import threading
     _stop_beat = threading.Event()
 
+    # Paced to the controller's own lease, which every answer names, so a lease set
+    # with `tt-bio controller --lease-s` needs no matching change here.
+    beat_s = [LEASE_S / HEARTBEAT_PER_LEASE]
+
     def _heartbeat_loop():
         orphaned_since = None
-        while not _stop_beat.wait(8.0):
+        while not _stop_beat.wait(beat_s[0]):
             if _dispatcher_pid and os.getppid() != _dispatcher_pid:
                 # PDEATHSIG (see _install_orphan_guard) had 60 s to unwind this
                 # cleanly and did not, so we are stuck inside a call that does not
@@ -1975,7 +2051,9 @@ def run_worker_loop(
                 continue
             orphaned_since = None
             try:
-                client.heartbeat(worker_info)
+                lease_s = client.heartbeat(worker_info).get("lease_s")
+                if lease_s:
+                    beat_s[0] = float(lease_s) / HEARTBEAT_PER_LEASE
             except Exception:
                 pass
 
@@ -2186,8 +2264,11 @@ def _execute_job(
                 try:
                     aff = state.predict_affinity(input_path, best, job_cfg)
                     row.update(aff)
-                except Exception:
+                except Exception as exc:
+                    # The structure stands, so the row stays ok; but a screen reads the
+                    # affinity, and a row with no affinity and no reason reads as a pass.
                     traceback.print_exc()
+                    row["affinity_error"] = _err_text(exc)
                 row["structure_runtime_s"] = structure_runtime_s
                 row["affinity_runtime_s"] = round(time.time() - t_aff, 1)
             row["runtime_s"] = round(time.time() - t0, 1)

@@ -108,6 +108,18 @@ CAPABILITY: dict[str, dict[str, str]] = {
     # RF3's YAML door writes upstream's own spec fields: `(CCD)` residues in the sequence and
     # top-level `bonds`. Upstream's cyclic_chains does not close the ring (WHY below).
     "rf3": _row(cyclic=REFUSED, polymer_bond=REFUSED, pocket=REFUSED, affinity=NOTED),
+    # AF2-IG is the odd one here and the row says why: its input is a DESIGNED COMPLEX, a
+    # structure carrying the target and the binder backbone plus the binder's sequence
+    # (tt_bio/af2ig.py), not a chain list. So a boltz2-shaped YAML handed to `--model af2ig`
+    # is refused by its own reader before this table is consulted, and every column below is
+    # about what the model itself has: one sequence per chain, no alignment, no ligand or
+    # nucleic-acid featurizer, no constraint embedder and no affinity head. The template
+    # columns are REFUSED rather than honoured on purpose -- AF2-IG does template, on its own
+    # initial guess, and a second template supplied as an npz or a cif reaches nothing.
+    "af2ig": _row(ligand=REFUSED, rna=REFUSED, dna=REFUSED, protein_free=REFUSED,
+                  cyclic=REFUSED, modifications=REFUSED, templates=REFUSED,
+                  template_structure=REFUSED, bond=REFUSED, polymer_bond=REFUSED,
+                  pocket=REFUSED, affinity=NOTED),
     # `tt-bio affinity --model nesso1`, not predict. It returns a scalar and no coordinates,
     # so nothing it drops can come back as a wrong structure, and the docs tell users to
     # reuse their Boltz-2 affinity yaml, which carries msa:, constraints: and properties:
@@ -126,8 +138,9 @@ CHAIN_FEATURES = frozenset({"ligand", "rna", "dna", "protein_free"})
 
 #: Models whose molecule types their own reader enforces, so check_capabilities is called
 #: with no chain list and the chain columns are a record rather than an enforcement. Only
-#: nesso1, which never goes through _read_bio_chains.
-CHAINS_ELSEWHERE = frozenset({"nesso1"})
+#: nesso1, whose vendored parser refuses a third entity type by name, and af2ig, whose reader
+#: takes a structure plus a binder sequence and never sees a chain list at all.
+CHAINS_ELSEWHERE = frozenset({"nesso1", "af2ig"})
 
 #: How a user reaches a model, for the "somewhere else to go" hint. predict is the default.
 COMMAND: dict[str, str] = {"nesso1": "tt-bio affinity --model nesso1"}
@@ -165,6 +178,16 @@ WHY: dict[tuple[str, str], str] = {
         "13-mer the N-C distance stays 2.1-2.2 A, in upstream Protenix as here, where a "
         "closed amide is 1.33 A; protenix-v2 closes it"),
     ("nesso1", "protein_free"): "it scores a protein-ligand pair",
+    **{("af2ig", f): "AF2-IG re-predicts a designed protein complex from its own coordinates; "
+       "it has no featurizer for anything else, and its input is a structure plus the binder "
+       "sequence rather than a chain list"
+       for f in ("ligand", "rna", "dna", "protein_free", "modifications", "bond",
+                 "polymer_bond")},
+    ("af2ig", "cyclic"): "AF2-IG folds a linear chain from a backbone it is handed; there is "
+                         "no ring encoding in its features",
+    **{("af2ig", f): "AF2-IG already templates on the complex you submit -- that is the "
+       "initial guess -- and reads no second template"
+       for f in ("templates", "template_structure")},
     ("boltz2", "templates"): "Boltz-2 reads a template as a structure file, a top-level "
         "`templates:` entry with `cif:` and `chain_id:`, not as a per-chain alignment npz",
     **{(m, f): "its v0.5.0 checkpoint ships an empty template stack, so upstream Protenix-v1 "
@@ -230,6 +253,10 @@ FLAG_WHY: dict[tuple[str, str], str] = {
     ("--write_pde", "opendde-abag"): "it writes PAE only, under --write_pae",
     ("--max_msa_seqs", "nesso1"): "it conditions on ESM-2 embeddings, not on an alignment, so "
                                   "there is no depth to cap",
+    ("--max_msa_seqs", "af2ig"): "AF2-IG is single-sequence on both chains, so there is no "
+                                 "depth to cap",
+    ("--write_pae", "af2ig"): "it reports interface pAE as a scalar beside pLDDT and ipTM; the "
+                              "matrix is not written",
 }
 
 

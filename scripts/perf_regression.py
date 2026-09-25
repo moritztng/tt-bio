@@ -207,6 +207,10 @@ TRPCAGE = REPO_ROOT / "examples" / "trpcage.yaml"
 # and the designability accuracy leg (scripts/release_gate.py) gates. Reused here
 # for the perf leg so the two legs share one fixture, not two.
 BINDER = REPO_ROOT / "examples" / "binder.yaml"
+# AF2-IG's fixture: a 32-residue target with a 16-residue binder parked clear of it, the
+# same file tests/test_af2ig_input.py reads. Small on purpose -- the cell measures the
+# trunk, and AF2-IG's cost is four passes over it whatever the pose says.
+AF2IG_COMPLEX = REPO_ROOT / "examples" / "af2_designed_complex.yaml"
 UBIQUITIN = ("MQIFVKTLTGKTITLEVEPSDTIENVKAKIQDKEGIPPDQQRLIFAGKQLEDGRTLSDYNIQKESTL"
              "LHLVLRLRGG")  # 76 aa — tests/test_esmc.py / scripts/esmc_embed_parity.py golden
 
@@ -285,6 +289,12 @@ SPECS: dict[str, dict] = {
     # single-chain protocol as "opendde" -- this gate measures the shared code path's
     # throughput, not docking quality (that's release_gate.py's DockQ leg).
     "opendde-abag":   dict(kind="fold", unit="structures/s", direction="higher"),
+    # AF2-IG, the binder-design selection filter. It cannot fold TRPCAGE -- its input is a
+    # designed complex, target plus binder backbone plus the binder's sequence -- so it
+    # carries the committed 48-token example instead. Four trunk passes, no diffusion and no
+    # MSA, which makes its structures/s a clean read on the evoformer stack alone.
+    "af2ig":          dict(kind="fold", unit="structures/s", direction="higher",
+                           input=str(AF2IG_COMPLEX)),
     # RoseTTAFold3, shipped in v0.6.6 as a `predict --model` choice. Same light
     # TRPCAGE single-seq protocol as every other fold model, and the knobs do
     # reach it: RF3 takes num_timesteps at LOAD (tt_bio/worker.py passes
@@ -301,12 +311,11 @@ SPECS: dict[str, dict] = {
     # capture replays (ESMC forward auto-traces B=1 repeated shapes — see
     # tt_bio.esmc.ESMC). Gated separately from the batch-8 leg above so a
     # regression in the traced single-seq path can't hide behind the batched
-    # number. trace_region_size mirrors tt_bio.esmc._ESMC_TRACE_REGION_SIZE —
-    # the measurement child must open the device WITH a trace region or the
-    # forward stays eager and the leg measures the wrong thing.
+    # number. The measurement child must open the device WITH the esmc trace
+    # region or the forward stays eager and the leg measures the wrong thing.
     "esmc-300m-single": dict(kind="embed", unit="seq/s", direction="higher",
                              embed_model="esmc-300m",
-                             batch_size=1, n_seqs=8, trace_region_size=1 << 28),
+                             batch_size=1, n_seqs=8, trace="esmc"),
     "esmc-600m":      dict(kind="embed", unit="seq/s", direction="higher",
                            batch_size=8, n_seqs=8),
     # ESMC-6B is the sharded-TransformerEngine LM backbone (~13 GB resident
@@ -1235,7 +1244,7 @@ def measure(model: str, out_path: Path) -> dict:
     # Open the chip once for this process. Legs whose shipped path uses ttnn
     # trace capture (esmc-300m-single) must reserve the trace region HERE —
     # get_device caches the first open, so a later load_esmc cannot add one.
-    get_device(trace_region_size=spec.get("trace_region_size", 0))
+    get_device(trace=spec.get("trace"))
     hw = arch_name()
     card = detect_card_type()
 
@@ -1246,9 +1255,13 @@ def measure(model: str, out_path: Path) -> dict:
     msa_dir.mkdir(parents=True, exist_ok=True)
 
     if spec["kind"] == "fold":
-        if not TRPCAGE.exists():
-            raise FileNotFoundError(f"missing fold input {TRPCAGE}")
-        input_path = TRPCAGE
+        # TRPCAGE for every model that folds a chain list. af2ig does not: its input is a
+        # designed complex (a structure plus the binder's sequence), so it names its own
+        # fixture rather than being left uncovered -- a shared input is not a requirement,
+        # a committed one is.
+        input_path = Path(spec.get("input") or TRPCAGE)
+        if not input_path.exists():
+            raise FileNotFoundError(f"missing fold input {input_path}")
     else:
         input_path = work / "embed.fasta"
         _write_embed_fasta(input_path, spec["n_seqs"])

@@ -146,12 +146,13 @@ from tt_bio import __version__, size_limits, weights
 from tt_bio.data import const
 from tt_bio.data.mol import load_molecules
 from tt_bio.data.msa import run_mmseqs2
-from tt_bio.cache import cached, paired_msa_dir, publish_file, publish_text, seq_hash
+from tt_bio.cache import EMPTY_MSA, cached, paired_msa_dir, publish_file, publish_text, seq_hash
 from tt_bio.data.parse import parse_a3m, parse_csv, parse_fasta, parse_yaml
 from tt_bio.data.pdb import write_atom_array
 from tt_bio.data.types import Coords, Input, Interface
 from tt_bio.data.write import to_mmcif, to_pdb
-from tt_bio.distributed import (
+from tt_bio.host_controller import (
+    LEASE_S,
     ControllerClient,
     ControllerServer,
     connect_controller,
@@ -161,6 +162,7 @@ from tt_bio.distributed import (
 from tt_bio.energy import DEFAULT_ENERGY_SAMPLE_HZ, PowerProfiler
 from tt_bio.progress import DebugDisplay, NullDisplay, ProgressDisplay
 from tt_bio.runtime import (
+    bind_host_threads,
     build_local_workers,
     conflicting_mpi_env,
     mpi_env_warning,
@@ -199,6 +201,7 @@ _MODEL_RESULTS_PREFIX = {
     "opendde": "opendde_results",
     "opendde-abag": "opendde_results",
     "rf3": "rf3_results",
+    "af2ig": "af2ig_results",
 }
 PREDICT_MODELS = tuple(_MODEL_RESULTS_PREFIX)
 
@@ -1173,7 +1176,7 @@ def _spawn_worker_processes(controller_url: str, workers: list, debug: bool) -> 
     ctx = mp.get_context("spawn")
     _cap_worker_threads(len(workers))
     # So orphaned workers self-terminate (see run_worker_loop): spawn children
-    # inherit this, remote workers never see it.
+    # inherit this; workers of a `tt-bio worker` pool never see it.
     os.environ["TT_BIO_PARENT_PID"] = str(os.getpid())
     procs = []
     for worker in workers:
@@ -1339,31 +1342,6 @@ def _l1_census_line(text: str) -> str:
     return "\n    " + format_l1_census(census)
 
 
-def _parse_listen(listen: str | None) -> tuple[str, int]:
-    """Parse a --listen value into (host, port). Defaults are 0.0.0.0:8765."""
-    if not listen:
-        return "127.0.0.1", 0
-    listen = listen.strip()
-    if listen.isdigit():
-        return "0.0.0.0", int(listen)
-    if ":" in listen:
-        host, _, port = listen.rpartition(":")
-        return (host or "0.0.0.0"), int(port)
-    return listen, 8765
-
-
-def _public_join_url(bind_host: str, port: int) -> str:
-    """Best-effort host name to print so remote workers can connect."""
-    if bind_host not in ("0.0.0.0", "::", ""):
-        return f"http://{bind_host}:{port}"
-    try:
-        import socket
-
-        return f"http://{socket.gethostname()}:{port}"
-    except Exception:
-        return f"http://<this-host>:{port}"
-
-
 def _stream_run(client: ControllerClient, run_id: str, total: int, n_workers: int,
                 debug: bool, log: bool, results_path: Path | None = None,
                 struct_dir: Path | None = None, model: str | None = None,
@@ -1404,6 +1382,7 @@ def _stream_run(client: ControllerClient, run_id: str, total: int, n_workers: in
     failed = 0
     all_dead_seen = False
     failures: dict[str, str] = {}  # this run's failures: job id -> error message
+    aff_failures: dict[str, str] = {}  # structure ok, affinity leg raised
     rows_by_id: dict[str, dict] = {}
     if results_path is not None:
         rows_by_id = {r["id"]: r for r in _load_results_resilient(results_path)
@@ -1425,6 +1404,8 @@ def _stream_run(client: ControllerClient, run_id: str, total: int, n_workers: in
                     if isinstance(row, dict) and "id" in row:
                         if row.get("status") == "failed":
                             failures[row["id"]] = row.get("error") or "failed"
+                        elif row.get("affinity_error"):
+                            aff_failures[row["id"]] = row["affinity_error"]
                         if results_path is not None:
                             rows_by_id[row["id"]] = row
                             try:
@@ -1512,21 +1493,22 @@ def _stream_run(client: ControllerClient, run_id: str, total: int, n_workers: in
             click.echo(f"  ✗ {job_id}: {summary or lines[0]}")
             for extra in (lines if summary else lines[1:]):
                 click.echo(f"      {extra}")
+    if aff_failures:
+        click.echo(f"\n{len(aff_failures)} structure(s) folded but their affinity failed "
+                   f"(no affinity keys in results.json, reason under affinity_error):")
+        for job_id, error in aff_failures.items():
+            click.echo(f"  ✗ {job_id}: {(str(error).splitlines() or [''])[0]}")
     return failed
 
 
 def _dispatch_run(run_payload: dict, workers, *, total: int, results_path: Path,
-                  struct_dir: Path, model: str, listen, debug: bool, log: bool) -> int:
+                  struct_dir: Path, model: str, debug: bool, log: bool) -> int:
     """Run jobs through the scheduler, stream progress, persist results, and
     print the final summary. The single lifecycle shared by every predict
     path — keep it the one place so the paths can't drift apart. Returns the
     number of failed jobs.
     """
-    with _scheduler_session(listen, workers, debug) as (client, public_url, procs):
-        if public_url:
-            click.echo(f"Workers may join: tt-bio worker --connect {public_url}")
-        # Locally-spawned workers are on this filesystem by construction, but a --listen
-        # run can also pick up workers from other machines; the nonce sorts them out.
+    with _scheduler_session(workers, debug) as (client, procs):
         _offer_shared_outputs(run_payload, struct_dir)
         try:
             run_id = client.create_run(run_payload)["run_id"]
@@ -1596,9 +1578,9 @@ def _dispatch_to_controller(controller_url: str, run_payload: dict, *, total: in
 
     Unlike ``_dispatch_run`` this starts no scheduler and spawns no local
     workers — the compute is provided by whatever workers are already connected
-    to ``controller_url`` (this host's pool and/or remote machines). Lets many
-    independent ``predict`` invocations share one persistent cluster, which is
-    how the web platform fans concurrent users across a fleet of machines.
+    to ``controller_url``, this host's persistent pool. Lets many independent
+    ``predict`` invocations share one host's chips, which is how a platform
+    fans concurrent users across a machine (docs/multi-host.md).
     """
     client = ControllerClient(controller_url)
     try:
@@ -1636,9 +1618,19 @@ def _refuse_unfoldable_jobs(jobs, model: str, results_path: Path):
     for job in jobs:
         jp = Path(job.path)
         try:
-            check_capabilities(jp, _read_bio_chains(jp, what=model), model)
+            # af2ig takes a structure plus a binder sequence, so it reads its own input shape
+            # (capabilities.CHAINS_ELSEWHERE) and the chain columns of its row are a record
+            # rather than the enforcement. Its reader runs here for the same reason this
+            # function exists: a malformed submission should be a sentence, not a stack trace
+            # two minutes into a weights download.
+            chains = None if model == "af2ig" else _read_bio_chains(jp, what=model)
+            if model == "af2ig":
+                from tt_bio.af2ig_input import read_af2ig_input
+
+                read_af2ig_input(jp)
+            check_capabilities(jp, chains, model)
             keep.append(job)
-        except (RuntimeError, click.ClickException) as e:
+        except (RuntimeError, ValueError, click.ClickException) as e:
             refused[job.id] = e.message if isinstance(e, click.ClickException) else str(e)
     if refused and keep:
         click.secho(f"Skipping {len(refused)} of {len(jobs)} input(s) --model {model} "
@@ -1696,27 +1688,21 @@ def _write_job_outputs(client: ControllerClient, run_id: str, job_id: str,
 
 
 @contextmanager
-def _scheduler_session(listen: str | None, workers: list, debug: bool):
-    """Start an in-process scheduler, spawn local worker subprocesses against
-    it, and yield (client, public_join_url, worker_procs) for the duration of
-    the run.
+def _scheduler_session(workers: list, debug: bool):
+    """Start an in-process scheduler on loopback, spawn local worker subprocesses
+    against it, and yield (client, worker_procs) for the duration of the run.
 
     The scheduler keeps its SQLite state in a private temp directory and
     discards it on exit, so a run never leaves bookkeeping artifacts in the
-    user's results directory. public_join_url is None unless --listen was
-    passed; when set, it's the address a remote `tt-bio worker --connect
-    ...` should target.
+    user's results directory.
     """
-    listen_host, listen_port = _parse_listen(listen)
     tmpdir = Path(tempfile.mkdtemp(prefix="tt-bio-scheduler-"))
-    db_path = tmpdir / "controller.sqlite3"
-    server = ControllerServer(listen_host, listen_port, db_path)
+    server = ControllerServer(0, tmpdir / "controller.sqlite3")
     server.serve_in_background()
     url = f"http://127.0.0.1:{server.port}"
-    public_url = _public_join_url(listen_host, server.port) if listen else None
     procs = _spawn_worker_processes(url, workers, debug)
     try:
-        yield ControllerClient(url), public_url, procs
+        yield ControllerClient(url), procs
     finally:
         _stop_worker_processes(procs)
         server.shutdown()
@@ -1774,7 +1760,7 @@ class _Cli(click.Group):
 
     def invoke(self, ctx):
         from tt_bio.device_lease import CONTENDED_EXIT_CODE, DeviceInUseError
-        from tt_bio.distributed import ControllerUnreachable
+        from tt_bio.host_controller import ControllerUnreachable
 
         try:
             return super().invoke(ctx)
@@ -2097,13 +2083,13 @@ def _prune_weights(rows, root, yes: bool) -> None:
 
 
 @cli.command("worker")
-@click.option("--connect", required=True, help="Controller URL, e.g. http://HOST:8765")
+@click.option("--connect", required=True, help="This host's controller, e.g. http://127.0.0.1:8765")
 @click.option("--accelerator", type=click.Choice(["gpu", "cpu", "tenstorrent"]), default="tenstorrent")
 @click.option("--num_devices", default=0, type=int, help="Number of TT devices to use (0=all available)")
 @click.option("--device_ids", default=None, type=str, help="Comma-separated TT device IDs to use")
 @click.option("--debug", is_flag=True, help="Do not suppress worker output")
 def worker_cmd(connect, accelerator, num_devices, device_ids, debug):
-    """Join a tt-bio controller and run predictions on this machine's accelerators."""
+    """Serve a controller with a worker per local chip, respawning any that dies."""
     workers = _local_workers(accelerator, num_devices, device_ids, max_workers=10_000)
     click.echo(f"Connecting {len(workers)} worker{'s' if len(workers) != 1 else ''} to {connect}")
     if accelerator == "tenstorrent":
@@ -2115,33 +2101,33 @@ def worker_cmd(connect, accelerator, num_devices, device_ids, debug):
 
 
 @cli.command("controller")
-@click.option("--listen", default="8765", help="Bind the controller HTTP server here: PORT or HOST:PORT (default 8765).")
+@click.option("--port", default=8765, type=int, show_default=True,
+              help="Port on 127.0.0.1 to serve on. The controller never binds another interface.")
+@click.option("--lease-s", "lease_s", default=LEASE_S, type=float, show_default=True,
+              help="Seconds a job stays with a worker that stops heartbeating before it is "
+                   "handed to another. Workers heartbeat every 1/12 of it.")
 @click.option("--accelerator", type=click.Choice(["gpu", "cpu", "tenstorrent"]), default="tenstorrent")
 @click.option("--num_devices", default=0, type=int, help="Local devices to serve with (0=all). Ignored with --no-local-workers.")
 @click.option("--device_ids", default=None, type=str, help="Comma-separated TT device IDs to use locally")
 @click.option("--no-local-workers", "no_local_workers", is_flag=True,
-              help="Run only the coordinator; all compute comes from remote `tt-bio worker --connect` machines.")
+              help="Start no workers; the caller starts them with `tt-bio worker --connect`, "
+                   "for example to own each chip's worker itself.")
 @click.option("--state-dir", default=None, type=click.Path(),
               help="Where to keep the controller's SQLite state (default: a temp dir, discarded on exit).")
 @click.option("--debug", is_flag=True, help="Do not suppress local worker output")
-def controller_cmd(listen, accelerator, num_devices, device_ids, no_local_workers, state_dir, debug):
-    """Run a persistent prediction controller (cluster coordinator).
+def controller_cmd(port, lease_s, accelerator, num_devices, device_ids, no_local_workers, state_dir, debug):
+    """Run a persistent controller for this host's chips.
 
-    Starts the HTTP scheduler and — unless --no-local-workers — a worker per
-    local device, then stays up serving any number of
-    `tt-bio predict --controller URL` runs and accepting remote
-    `tt-bio worker --connect URL` machines. Ctrl-C to stop.
+    Starts the scheduler on 127.0.0.1 and, unless --no-local-workers, a worker
+    per local device, then serves any number of `tt-bio predict --controller URL`
+    runs. Work across several machines is a scheduler's job on top of this one;
+    see docs/multi-host.md. Ctrl-C to stop.
 
     \b
-    Example — one coordinator, extra machines joining:
-        # on the master:
-        tt-bio controller --listen 0.0.0.0:8765
-        # on every other machine:
-        tt-bio worker --connect http://MASTER:8765
-        # submit work from anywhere that can reach the master:
-        tt-bio predict ./proteins --controller http://MASTER:8765 --use_msa_server
+    Example:
+        tt-bio controller --port 8765
+        tt-bio predict ./proteins --controller http://127.0.0.1:8765 --use_msa_server
     """
-    listen_host, listen_port = _parse_listen(listen)
     if state_dir:
         state_path = Path(state_dir).expanduser()
         state_path.mkdir(parents=True, exist_ok=True)
@@ -2151,10 +2137,9 @@ def controller_cmd(listen, accelerator, num_devices, device_ids, no_local_worker
         tmpdir = Path(tempfile.mkdtemp(prefix="tt-bio-controller-"))
         db_path = tmpdir / "controller.sqlite3"
 
-    server = ControllerServer(listen_host, listen_port, db_path)
+    server = ControllerServer(port, db_path, lease_s)
     server.serve_in_background()
     url = f"http://127.0.0.1:{server.port}"
-    public_url = _public_join_url(listen_host, server.port)
 
     workers, procs = [], []
     if not no_local_workers:
@@ -2165,11 +2150,11 @@ def controller_cmd(listen, accelerator, num_devices, device_ids, no_local_worker
         if workers:
             procs = _spawn_worker_processes(url, workers, debug)
 
-    click.echo(f"Controller listening on {public_url}")
+    click.echo(f"Controller listening on {url} (lease {lease_s:g} s)")
     click.echo(f"  local workers: {len(workers)}"
                + (f" (devices {[int(w.device_id) for w in workers]})" if workers and accelerator == 'tenstorrent' else ""))
-    click.echo(f"  machines join: tt-bio worker --connect {public_url}")
-    click.echo(f"  submit work:   tt-bio predict <data> --controller {public_url}")
+    click.echo(f"  add workers:   tt-bio worker --connect {url}")
+    click.echo(f"  submit work:   tt-bio predict <data> --controller {url}")
     click.echo("Ctrl-C to stop.")
     try:
         while True:
@@ -2400,7 +2385,7 @@ def _read_bio_chains(path, what="input"):
                 if typ in ("", "protein"):
                     cid, buf, mt = parts[0].strip(), [], "protein"
                     m = parts[2].strip() if len(parts) > 2 else ""
-                    msa = m if m and m.lower() != "empty" else None
+                    msa = EMPTY_MSA if m.lower() == EMPTY_MSA else (m or None)
                 elif typ in _NA_HEADER_TYPES:
                     cid, buf, mt, msa = parts[0].strip(), [], _NA_HEADER_TYPES[typ], None
                 elif typ in ("ccd", "ion", "smiles", "ligand"):
@@ -2425,7 +2410,8 @@ def _read_bio_chains(path, what="input"):
                     # chain; skipping it here folded the rest of the complex without it
                     continue
                 m = sub.get("msa") if mt == "protein" else None
-                m = str(m) if m and str(m).lower() not in ("", "empty") else None
+                m = str(m).strip() if m else None
+                m = EMPTY_MSA if m and m.lower() == EMPTY_MSA else (m or None)
                 mods = _read_modifications(sub, key)
                 ids = sub.get("id", "A")
                 id_list = ([str(x) for x in ids] if isinstance(ids, (list, tuple))
@@ -2601,6 +2587,8 @@ def _resolve_a3m_path(msa_spec, sequence, msa_dir):
     explicit a3m path (``msa_spec``), then the shared ``{sha256(seq)[:16]}.a3m`` cache in
     ``msa_dir`` (written by the same MSA generation ESMFold2/Boltz-2 use). Mirrors
     resolve_msa's candidate order."""
+    if msa_spec == EMPTY_MSA:
+        return None
     candidates = []
     if msa_spec:
         candidates.append(Path(msa_spec).expanduser())
@@ -2965,7 +2953,7 @@ def _resolve_msa_default(model, use_msa_server, msa_db_path, msa_endpoint,
         return use_msa_server, msa_db_path
 
     # No source given. Prefer a host-local DB (skip in --controller mode, where
-    # remote workers resolve MSAs on their own hosts), else fall back online.
+    # the controller's workers resolve MSAs themselves), else fall back online.
     if not controller:
         default_db = Path(cache).expanduser() / "msa_db"
         if (default_db / "UNIREF30_READY").exists():
@@ -3063,12 +3051,11 @@ def _resolve_msa_default(model, use_msa_server, msa_db_path, msa_endpoint,
 @click.option("--trace", is_flag=True,
               help="Replay a captured ttnn trace of the per-step diffusion device "
                    "stream (lossless; collapses per-step host dispatch). protenix-v1, "
-                   "protenix-v2 and opendde. Opt-in — reserves a 1 GiB trace region on "
-                   "the device.")
+                   "protenix-v2 and opendde. Opt-in; reserves 0.2-0.3 GB of device memory.")
 @click.option("--diffusion_trace", is_flag=True,
               help="Replay a captured ttnn trace of the per-step diffusion DiT device "
                    "stream (lossless; collapses per-step host dispatch). boltz2 only. "
-                   "Opt-in — reserves a 1 GiB trace region on the device.")
+                   "Opt-in; reserves 0.2-0.3 GB of device memory.")
 @click.option("--write_pae", is_flag=True, help="Write PAE matrix per target (not openfold3)")
 @click.option("--write_pde", is_flag=True, help="Write PDE matrix per target")
 @click.option("--write_embeddings", is_flag=True, help="Write s/z embeddings per target")
@@ -3093,8 +3080,7 @@ def _resolve_msa_default(model, use_msa_server, msa_db_path, msa_endpoint,
 @click.option("--report-energy", "report_energy", is_flag=True, help="Report TT device energy and write a power-vs-time plot (single-device TT runs)")
 @click.option("--energy-sample-hz", "energy_sample_hz", default=DEFAULT_ENERGY_SAMPLE_HZ, type=float, show_default=True, help="Sampling rate in Hz for power reporting")
 @click.option("--energy-metric", "energy_metric", default="both", type=click.Choice(["both", "tdp", "input"]), show_default=True, help="Which power channel(s) to measure")
-@click.option("--listen", default=None, help="Bind scheduler to HOST:PORT so remote workers can join (e.g. 8765 or 0.0.0.0:8765)")
-@click.option("--controller", default=None, help="Submit to an existing controller at URL (e.g. http://HOST:8765) instead of starting a local scheduler. Compute comes from that cluster's workers.")
+@click.option("--controller", default=None, help="Submit to a running `tt-bio controller` at URL (e.g. http://127.0.0.1:8765) instead of starting a scheduler for this run. Compute comes from its workers.")
 @click.option("--run-id", "run_id", default=None, help="Use this run id on the controller (lets the submitter cancel the run later). Requires --controller.")
 @click.option("--owner", "owner", default=None, help="Opaque fairness key (e.g. a hashed session id) the controller uses to fair-share devices across users. Requires --controller.")
 @click.option("--model", type=click.Choice(list(PREDICT_MODELS)), default="boltz2", show_default=True,
@@ -3111,6 +3097,10 @@ def _resolve_msa_default(model, use_msa_server, msa_db_path, msa_endpoint,
                    "opendde-abag selects the antibody-antigen checkpoint. "
                    "rf3: RoseTTAFold3 (AF3-family; MSA + template embedder + 48-block Pairformer "
                    "+ atom diffusion), MSA on by default; proteins, nucleic acids and ligands. "
+                   "af2ig: AlphaFold2 initial-guess, the binder-design selection filter. It takes a "
+                   "designed complex (a structure carrying the target and the binder backbone) plus "
+                   "the binder sequence, and returns pLDDT, pTM, ipTM, pAE and interface pAE; "
+                   "single-sequence, no diffusion, no seed. "
                    "All run on-device via the ttnn pipeline; ligand / affinity options apply to boltz2 only.")
 @torch.no_grad()
 def predict(data, out_dir, cache, checkpoint, accelerator, recycling_steps, sampling_steps,
@@ -3122,13 +3112,13 @@ def predict(data, out_dir, cache, checkpoint, accelerator, recycling_steps, samp
             write_pae, write_pde, write_embeddings, affinity_mw_correction,
             sampling_steps_affinity, diffusion_samples_affinity, affinity_checkpoint,
             num_devices, device_ids, host_threads, fast, debug, log,
-            report_energy, energy_sample_hz, energy_metric, listen, controller, run_id, owner, model):
+            report_energy, energy_sample_hz, energy_metric, controller, run_id, owner, model):
     """Run structure prediction.
 
     DATA is a YAML/FASTA file or a directory of them.
 
     The default Boltz-2 path runs an in-process scheduler that dispatches jobs
-    to local workers (pass --listen to accept remote workers). With
+    to local workers, one per card. With
     --model esmfold2 it instead runs the on-device ttnn ESMFold2 pipeline
     (single-sequence, protein-only) and writes the same output layout.
 
@@ -3209,10 +3199,10 @@ def predict(data, out_dir, cache, checkpoint, accelerator, recycling_steps, samp
     from tt_bio.capabilities import unread_flags
 
     if model in ("esmfold2", "esmfold2-fast", *PROTENIX_FAMILY, "openfold3", "openbind", "opendde",
-                 "opendde-abag", "rf3"):
+                 "opendde-abag", "rf3", "af2ig"):
         # ESMFold2, Protenix, OpenFold3, OpenDDE and RF3 ride the SAME scheduler / worker /
         # progress path as Boltz-2: build a run config, then fan jobs across devices via
-        # _local_workers + _dispatch_run (or submit to a remote --controller). Only the
+        # _local_workers + _dispatch_run (or submit to a running --controller). Only the
         # per-model config differs.
         #
         # Every model on this branch is a ttnn-only port: load_model imports ttnn and opens a
@@ -3259,6 +3249,20 @@ def predict(data, out_dir, cache, checkpoint, accelerator, recycling_steps, samp
                 fast = True
                 click.secho("Note: --model {} runs in --fast mode on Wormhole (normal "
                             "precision needs >12 GB DRAM/chip); enabling --fast.".format(model), fg="yellow")
+        # AF2-IG is single-sequence on both chains by construction (ColabDesign's binder
+        # protocol builds `msa_feat` from the one sequence, and the extra-MSA mask is all
+        # zeros), and it samples nothing: no diffusion, no seed, the same input gives the
+        # same structure. Say so rather than accept a knob that changes nothing.
+        if model == "af2ig":
+            src = click.get_current_context().get_parameter_source
+            unread = [f"--{n}" for n, on in (("sampling_steps", sampling_steps),
+                                             ("diffusion_samples", diffusion_samples))
+                      if src(n) is not ParameterSource.DEFAULT]
+            if use_msa_server or msa_db_path or msa_endpoint:
+                unread.append("the MSA options")
+            if unread:
+                click.secho(f"Note: --model af2ig does not read {', '.join(unread)}: it folds "
+                            f"one sequence per chain and draws no samples.", fg="yellow")
         if model == "esmfold2-fast" and (use_msa_server or msa_db_path):
             click.echo()
             click.secho("Note: --model esmfold2-fast has no MSA encoder; folding single-sequence "
@@ -3295,12 +3299,6 @@ def predict(data, out_dir, cache, checkpoint, accelerator, recycling_steps, samp
         # renders the "MSA" stage, generates any missing {seq_hash}.a3m into the
         # shared msa_dir cache, and folds. MSA is optional here (single-sequence
         # folding when no source is given), so unlike Boltz-2 it never errors out.
-        # --trace: reserve a ttnn trace region on each worker before its first
-        # get_device() open (workers inherit the parent env). Protenix (v1 and v2) and
-        # OpenDDE fold(trace=True) read it back via trace_region_size(); the device must be
-        # opened with the region up front (a later reopen is unstable on TT).
-        if trace:
-            os.environ.setdefault("TT_BIO_TRACE_REGION_SIZE", str(1 << 30))
         worker_cfg = {
             "model": model, "fast": fast, "output_format": output_format,
             "recycling_steps": recycling_steps, "sampling_steps": sampling_steps,
@@ -3319,10 +3317,9 @@ def predict(data, out_dir, cache, checkpoint, accelerator, recycling_steps, samp
             "msa_server_url": msa_server_url, "msa_pairing_strategy": msa_pairing_strategy,
             "msa_server_username": msa_server_username, "msa_server_password": msa_server_password,
             "api_key_value": api_key_value, "max_msa_seqs": max_msa_seqs,
-            # The cap the USER asked for, None when the flag was left alone. esmfold2 keeps
-            # reading max_msa_seqs (8192 is its shipped default); protenix, opendde, rf3 and
-            # the OF3 family read this one, so leaving the flag alone folds exactly the depth
-            # they folded before.
+            # The cap the USER asked for, None when the flag was left alone. esmfold2,
+            # protenix, opendde, rf3 and the OF3 family read this one, so leaving the flag alone
+            # folds the depth each model's upstream reads.
             "msa_cap": msa_cap,
             "msa_cache_only": msa_cache_only,
             "write_pae": write_pae,
@@ -3330,7 +3327,7 @@ def predict(data, out_dir, cache, checkpoint, accelerator, recycling_steps, samp
         run_payload = {"data": str(data), "out_dir": str(out_dir_path), "result_dir": str(out),
                        "jobs": job_payloads(jobs), "config": worker_cfg, "owner": owner}
         # Fetch this model's weights ONCE here, before fanning out. Skipped in
-        # --controller mode: remote workers fetch on their own hosts.
+        # --controller mode: the controller's workers fetch their own.
         if not controller:
             download_all(Path(cache).expanduser(), model)
         if controller:
@@ -3341,7 +3338,7 @@ def predict(data, out_dir, cache, checkpoint, accelerator, recycling_steps, samp
         workers = _local_workers("tenstorrent", num_devices, device_ids, max_workers=max(len(jobs), 1))
         _cap_worker_threads(len(workers), host_threads)
         failed = _dispatch_run(run_payload, workers, total=len(jobs), results_path=results_path,
-                               struct_dir=struct_dir, model=model, listen=listen, debug=debug, log=log)
+                               struct_dir=struct_dir, model=model, debug=debug, log=log)
         _exit_for_failed_jobs(failed + len(refused), total)
         return
 
@@ -3500,7 +3497,7 @@ def predict(data, out_dir, cache, checkpoint, accelerator, recycling_steps, samp
                 energy_profiler = None
 
     failed = _dispatch_run(run_payload, workers, total=len(jobs), results_path=results_path,
-                           struct_dir=struct_dir, model=model, listen=listen, debug=debug, log=log)
+                           struct_dir=struct_dir, model=model, debug=debug, log=log)
 
     if energy_profiler is not None:
         energy_profiler.stop()
@@ -3754,9 +3751,8 @@ def _dispatch_embed_to_controller(controller_url: str, sequences: dict, *, model
                    "results are reassembled in input order. Default: this machine's single card. "
                    "Ignored with --controller.")
 @click.option("--controller", default=None,
-              help="Submit to a running `tt-bio controller` (or a fleet joined via `tt-bio "
-                   "worker --connect`) instead of spawning local subprocess shards. Workers keep "
-                   "the ESMC model resident across calls, so repeated embed runs against the same "
+              help="Submit to a running `tt-bio controller` instead of spawning local "
+                   "subprocess shards. Workers keep the ESMC model resident across calls, so repeated embed runs against the same "
                    "controller skip the weight reload that otherwise dominates wall-clock for "
                    "large models.")
 @click.option("--owner", default=None,
@@ -3832,8 +3828,7 @@ def embed_cmd(data, model, out_dir, out_format, pool, return_logits, fast, batch
             ensure_p300_mesh_descriptor()
             click.echo(f"Loading {model}{' (fast)' if fast else ''} …")
             # A trace region is reserved only where a captured trace could be replayed. It comes
-            # off every DRAM bank, so on a 12-bank Wormhole chip it costs 3 GiB and lowers the
-            # sequence ceiling -- see esmc.trace_pays.
+            # off every DRAM bank -- see esmc.trace_pays.
             m = esmc.load_esmc(model, fast=fast, trace=esmc.trace_pays(seqs))
             click.echo(f"Embedding {len(seqs)} sequence(s) → {out}")
             results = esmc.embed_sequences(m, seqs, return_logits=return_logits, pool=pool,
@@ -3886,9 +3881,12 @@ def embed_cmd(data, model, out_dir, out_format, pool, return_logits, fast, batch
               help="HuggingFace cache dir for the checkpoint and the ESM-2 encoder.")
 @click.option("--devices", default=None,
               help="Physical TT card id to pin, e.g. '2'. Default: this machine's first card.")
+@click.option("--host_threads", default=None, type=int,
+              help="CPU threads this process may use (default: all cores). Set it when you run "
+                   "one affinity screen per card side by side, as for `predict`.")
 @torch.no_grad()
 def affinity_cmd(data, model, out_dir, accelerator, trunk, recycling_steps, tokens_budget,
-                 num_workers, seed, ccd, cache, devices):
+                 num_workers, seed, ccd, cache, devices, host_threads):
     """Predict protein-ligand binding affinity without folding a structure.
 
     DATA is a YAML file or a directory of them. Each needs ``version: 1``, at least one
@@ -3916,6 +3914,8 @@ def affinity_cmd(data, model, out_dir, accelerator, trunk, recycling_steps, toke
         if len(ids) > 1:
             raise click.UsageError("--model nesso1 is batch-1 by construction; pass one card id")
         os.environ["TT_VISIBLE_DEVICES"] = ids[0]
+    _cap_worker_threads(1, host_threads)
+    bind_host_threads()
     use_tt = accelerator == "tenstorrent"
     if use_tt:
         _require_ttnn()
@@ -3923,7 +3923,8 @@ def affinity_cmd(data, model, out_dir, accelerator, trunk, recycling_steps, toke
     from tt_bio.nesso1 import DEFAULT_SEED, REPORTED_SCALARS, screen
 
     out = Path(out_dir).expanduser()
-    click.echo(f"Loading {model} ({'tenstorrent' if use_tt else 'cpu'}, trunk {trunk}) …")
+    # --trunk picks the device pairformer; the torch path is fp32 whatever it says.
+    click.echo(f"Loading {model} ({f'tenstorrent, trunk {trunk}' if use_tt else 'cpu, fp32'}) …")
     try:
         rows = screen(
             data, out,
@@ -3946,10 +3947,14 @@ def affinity_cmd(data, model, out_dir, accelerator, trunk, recycling_steps, toke
 
     csv_path = out / "affinity.csv"
     cols = ["id", "n_tokens", "seconds", *REPORTED_SCALARS]
-    with csv_path.open("w") as fh:
-        fh.write(",".join([*cols, "error"]) + "\n")
+    import csv
+
+    with csv_path.open("w", newline="") as fh:
+        # csv quotes an error message's commas; a plain join split them into extra columns.
+        w = csv.writer(fh)
+        w.writerow([*cols, "error"])
         for r in rows:
-            fh.write(",".join([str(r.get(c, "")) for c in cols] + [r.get("error", "")]) + "\n")
+            w.writerow([r.get(c, "") for c in cols] + [r.get("error", "")])
     ok = [r for r in rows if "error" not in r]
     click.echo(f"Done — {len(ok)}/{len(rows)} scored → {csv_path}")
     if len(ok) != len(rows):
@@ -3993,8 +3998,8 @@ def affinity_cmd(data, model, out_dir, accelerator, trunk, recycling_steps, toke
                    "results are reassembled in input order. Default: this machine's single card. "
                    "Ignored with --controller.")
 @click.option("--controller", default=None,
-              help="Submit to a running `tt-bio controller` (or a fleet joined via `tt-bio "
-                   "worker --connect`) instead of spawning local subprocess shards. Sequence-only "
+              help="Submit to a running `tt-bio controller` instead of spawning local "
+                   "subprocess shards. Sequence-only "
                    "in this path (structures never leave the submitting client). Workers keep "
                    "the SaProt model resident across calls, so repeated runs against the same "
                    "controller skip the weight reload.")
@@ -4194,8 +4199,8 @@ def _run_pxdesign_cli(inputs: Path, out_dir, cache, num_designs, n_step, seed) -
                    "precision, faster).")
 @click.option("--diffusion_trace", is_flag=True,
               help="boltzgen only. Replay a captured ttnn trace of the per-step diffusion "
-                   "DiT device stream (lossless; collapses per-step host dispatch). Opt-in — "
-                   "reserves a 1 GiB trace region on the device.")
+                   "DiT device stream (lossless; collapses per-step host dispatch). Opt-in; "
+                   "reserves 0.2-0.3 GB of device memory.")
 @click.option("--debug", is_flag=True,
               help="boltzgen only. Debug mode: no Rich display, no output suppression.")
 @click.option("--log", is_flag=True,

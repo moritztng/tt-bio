@@ -1,0 +1,1 @@
+b2_1536_s5_eager predict perf/size512/fixtures/cdk2x2_1536.yaml --model boltz2 --out_dir {out} --diffusion_samples 1 --seed 0 --host_threads 2 --accelerator tenstorrent --override --sampling_steps 5

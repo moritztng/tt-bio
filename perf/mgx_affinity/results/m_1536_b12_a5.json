@@ -1,0 +1,80 @@
+{
+ "tag": "m_1536_b12_a5",
+ "surface": "boltz2",
+ "input": "perf/mgx_affinity/inputs/size/cdk2_1536_b12.yaml",
+ "args": [
+  "--sampling_steps",
+  "20",
+  "--sampling_steps_affinity",
+  "20"
+ ],
+ "host": "j10glx02",
+ "cards": [
+  23
+ ],
+ "commit": "0186ef509",
+ "rc": 0,
+ "wall_s": 704.0,
+ "aiclk": {
+  "0": {
+   "min": 500,
+   "median": 1000,
+   "max": 1000,
+   "n": 35
+  }
+ },
+ "load": {
+  "min": 51.88,
+  "median": 62.16,
+  "max": 68.41,
+  "nproc": 64
+ },
+ "census": {
+  "peak_gib": 7.948,
+  "peak_tag": "tri_att(start) row loop done [z=1632x1632x128]",
+  "min_maxfree_mib_per_bank": 288
+ },
+ "adopted": false,
+ "rows": [
+  {
+   "id": "cdk2_1536_b12",
+   "status": "ok",
+   "confidence_score": 0.716024,
+   "ptm": 0.409646,
+   "iptm": 0.369634,
+   "ligand_iptm": 0.369634,
+   "protein_iptm": 0.0,
+   "complex_plddt": 0.802622,
+   "complex_iplddt": 0.493471,
+   "complex_pde": 1.646684,
+   "complex_ipde": 18.03302,
+   "plddt": 0.802622,
+   "pair_chains_iptm": {
+    "0": {
+     "0": 0.412932,
+     "1": 0.166313
+    },
+    "1": {
+     "0": 0.369634,
+     "1": 0.805632
+    }
+   },
+   "chains_ptm": {
+    "0": 0.412932,
+    "1": 0.805632
+   },
+   "affinity_pred_value": -1.635697,
+   "affinity_probability_binary": 0.18958,
+   "affinity_pred_value1": -1.703792,
+   "affinity_probability_binary1": 0.259407,
+   "affinity_pred_value2": -1.567603,
+   "affinity_probability_binary2": 0.119753,
+   "structure_runtime_s": 546.2,
+   "affinity_runtime_s": 126.1,
+   "runtime_s": 672.4
+  }
+ ],
+ "contention": false,
+ "errors": [],
+ "tail": []
+}

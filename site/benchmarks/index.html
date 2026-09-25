@@ -175,6 +175,7 @@ details.disclose > div{ padding-top:var(--s-4); }
         <tr><td>esmfold2</td><td>single protein chain</td><td>no</td><td>not needed</td></tr>
         <tr><td>opendde</td><td>multi-chain protein complexes</td><td>no</td><td>on by default</td></tr>
         <tr><td>rf3</td><td>protein, nucleic acid, ligand</td><td>no</td><td>on by default</td></tr>
+        <tr><td>af2ig</td><td>a designed complex, from its own coordinates</td><td>no</td><td>not needed</td></tr>
         <tr><td>nesso1</td><td>nothing, it returns scalars</td><td>yes</td><td>not needed</td></tr>
       </tbody>
     </table></div>
@@ -182,7 +183,10 @@ details.disclose > div{ padding-top:var(--s-4); }
     upstream's own v0.5.0 base checkpoint: half the pair width and 4 trunk recycles against
     Protenix-v2's 10. OpenDDE runs the Protenix-v2 stack
     plus a structural-token expander. OpenBind-0 is the same OpenFold3 stack on upstream's v0.5.0
-    checkpoint, tuned for protein-ligand co-folding. Nesso-1 runs under <code>tt-bio affinity</code>
+    checkpoint, tuned for protein-ligand co-folding. AF2-IG takes a target plus a binder backbone
+    and the binder's sequence, and reports ipTM and interface pAE for the design; it is the
+    selection filter in a binder pipeline, not a folder you hand a sequence to.
+    Nesso-1 runs under <code>tt-bio affinity</code>
     rather than <code>predict</code>: no coordinates, no PAE, just an affinity value and ten other
     scalars. <code>esmfold2-fast</code> is lighter, <code>opendde-abag</code> is the antibody-antigen
     checkpoint.</p>

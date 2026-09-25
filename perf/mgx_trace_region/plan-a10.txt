@@ -1,0 +1,2 @@
+px2_512_trace_m predict perf/size512/fixtures/cdk2x2_512.yaml --model protenix-v2 --out_dir {out} --diffusion_samples 1 --seed 0 --host_threads 2 --accelerator tenstorrent --override --trace
+px2_512_eager_m predict perf/size512/fixtures/cdk2x2_512.yaml --model protenix-v2 --out_dir {out} --diffusion_samples 1 --seed 0 --host_threads 2 --accelerator tenstorrent --override

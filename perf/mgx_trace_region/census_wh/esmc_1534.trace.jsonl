@@ -1,0 +1,1 @@
+{"ev": "capture", "caller": "esmc.py:1061", "region_per_bank": 268435456, "banks": 12, "trace_used_before": 0, "trace_used_after": 1245184, "dram_bank": 805306336, "dram_used_per_bank": 57391104, "pid": 1571947, "t": 1790211914.56}

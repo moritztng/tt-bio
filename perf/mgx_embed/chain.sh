@@ -1,5 +1,5 @@
 #!/bin/bash
-# Run perf/mgx_embed jobs one after another on one whglx chip, holding the chip's lease file
+# Run jobs one after another on one whglx chip, holding the chip's lease file
 # between them (tt_bio's own lease lives only as long as the process that opens the device).
 #   bash perf/mgx_embed/chain.sh <jobs.txt> [preferred card]
 # Each line of jobs.txt is a command run from the clone root; `#` lines are skipped.
@@ -7,19 +7,20 @@
 # A chip is taken only if its lease is ours, its holder pid is dead, or it was released at least
 # QUIET_S ago: rows on this box release between rungs and re-claim seconds later, so a fresh
 # `released` is someone else's chip mid-walk. A chip whose flock is held is never taken, whatever
-# its json says. Cards 1 and 24-27 are never candidates. QUIET_S=0 POLL_S=5 takes the next chip a
+# its json says. Cards 1, 4 and 24-27 are never candidates. ROW names the lease holder (worker:$ROW). QUIET_S=0 POLL_S=5 takes the next chip a
 # row releases between rungs; use it only for work the orchestrator ranked above the re-walks.
 jobs=$1; card=${2:-}
 wt=$(cd "$(dirname "$0")/../.." && pwd)
-export TT_BIO_LEASE_DIR=/home/agent/leases TT_BIO_LEASE_HOLDER=worker:mgx-embed-scale \
+ROW=${ROW:-mgx-embed-scale}
+export TT_BIO_LEASE_DIR=/home/agent/leases TT_BIO_LEASE_HOLDER=worker:$ROW \
        TT_BIO_LEASE_TIMEOUT=600 ESM_ROOT=${ESM_ROOT:-/home/mthuening/work/esm} \
        OMP_NUM_THREADS=${OMP_NUM_THREADS:-8}
-S=$HOME/scratch/mgxembed; export S
+S=${S:-$HOME/scratch/mgxembed}; export S
 claim() {  # prints the claimed card, exit 1 if none is free
-  python3 - "$1" "$2" "${QUIET_S:-120}" <<'EOF'
+  python3 - "$1" "$2" "${QUIET_S:-120}" "$TT_BIO_LEASE_HOLDER" <<'EOF'
 import fcntl, glob, json, os, sys, time
 pid, pref, quiet = int(sys.argv[1]), sys.argv[2], float(sys.argv[3])
-ME, BLOCKED = "worker:mgx-embed-scale", {"1", "24", "25", "26", "27"}
+ME, BLOCKED = sys.argv[4], {"1", "4", "24", "25", "26", "27"}
 def alive(p):
     try:
         os.kill(int(p), 0); return True
@@ -53,12 +54,12 @@ sys.exit(1)
 EOF
 }
 release() {
-  python3 - "$1" "$2" <<'EOF'
+  python3 - "$1" "$2" "$TT_BIO_LEASE_HOLDER" <<'EOF'
 import json, sys, time
 p = f"/home/agent/leases/j10glx02-card{sys.argv[1]}.json"
 m = json.load(open(p))
 # Only our own claim: another row may have taken the chip after our last job.
-if m.get("holder") == "worker:mgx-embed-scale" and m.get("pid") == int(sys.argv[2]) and not m.get("released"):
+if m.get("holder") == sys.argv[3] and m.get("pid") == int(sys.argv[2]) and not m.get("released"):
     m["released"] = time.time(); json.dump(m, open(p, "w"))
 EOF
 }

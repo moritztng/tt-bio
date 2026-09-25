@@ -133,20 +133,24 @@ def _expose(src: Path, dst: Path) -> Path:
     return dst
 
 
-def attach_openfold3_paired_msas(query: Query, msa_dir: str | Path) -> Query:
+def attach_openfold3_paired_msas(query: Query, msa_dir: str | Path, pairable=None) -> Query:
     """Give each protein chain of a heteromer the paired MSA already cached for its complex,
     as ``colabfold_paired``: the file upstream's ColabFold client writes and the
     ``paired_msa_order`` the featurizer stacks on top of the main MSA
     (``create_paired_from_precomputed``). A complex with one unique protein sequence, or
-    whose paired MSA is not cached, is left alone and folds unpaired, as upstream does."""
+    whose paired MSA is not cached, is left alone and folds unpaired, as upstream does.
+
+    ``pairable`` (sequence hashes) limits pairing to the chains the paired search covered,
+    so a ``msa: empty`` chain neither gets paired rows nor changes its partners' cache key."""
     seqs = {seq_hash(c.sequence): c.sequence for c in query.chains
-            if c.molecule_type.name == "PROTEIN" and c.sequence}
+            if c.molecule_type.name == "PROTEIN" and c.sequence
+            and (pairable is None or seq_hash(c.sequence) in pairable)}
     pdir = paired_msa_dir(Path(msa_dir).expanduser(), seqs.values())
     if pdir is None or not all(cached(pdir / f"{h}.a3m") for h in seqs):
         return query
     for chain in query.chains:
-        if chain.molecule_type.name == "PROTEIN" and chain.sequence:
-            h = seq_hash(chain.sequence)
+        h = seq_hash(chain.sequence) if chain.sequence else None
+        if chain.molecule_type.name == "PROTEIN" and h in seqs:
             chain.paired_msa_file_paths = [
                 _expose(pdir / f"{h}.a3m", pdir / h / "colabfold_paired.a3m")]
     query.use_paired_msas = True
@@ -177,18 +181,24 @@ def augment_openfold3_msas_with_query_sequence(
     the write is tmp-file + rename so concurrent workers never expose a
     partial file.
     """
-    msa_dir = Path(msa_dir).expanduser()
     for chain in query.chains:
         if chain.molecule_type.name not in ("PROTEIN", "RNA"):
             continue
         if chain.main_msa_file_paths:
             continue
-        a3m = (msa_dir / "of3" / "dummy" / seq_hash(chain.sequence)
-               / "colabfold_main.a3m")
-        if not cached(a3m):
-            publish_text(a3m, ">query\n" + chain.sequence)
-        chain.main_msa_file_paths = [a3m]
+        chain.main_msa_file_paths = [query_only_msa(msa_dir, chain.sequence)]
     return query
+
+
+def query_only_msa(msa_dir, sequence: str) -> Path:
+    """The one-row alignment upstream folds a chain with when it has no MSA, published once
+    per sequence. A chain whose input says ``msa: empty`` gets this too: it is what upstream
+    means by single-sequence, and what ``--single_sequence`` already gives every chain."""
+    a3m = (Path(msa_dir).expanduser() / "of3" / "dummy" / seq_hash(sequence)
+           / "colabfold_main.a3m")
+    if not cached(a3m):
+        publish_text(a3m, ">query\n" + sequence)
+    return a3m
 
 
 def make_openfold3_msa_features(

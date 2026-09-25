@@ -1,0 +1,3 @@
+# Boltz-2 512 small seed 0 moved 0.872 -> 1.229 on cf11ba5d4 (inside TT's 0.40 seed range): seeds 1 and 2 re-establish the spread against upstream's 1.422/1.273.
+{"tag": "v_b_512_small_s1", "surface": "boltz2", "input": "perf/mgx_affinity/inputs/size/cdk2_512_small.yaml", "args": ["--seed", "1"]}
+{"tag": "v_b_512_small_s2", "surface": "boltz2", "input": "perf/mgx_affinity/inputs/size/cdk2_512_small.yaml", "args": ["--seed", "2"]}

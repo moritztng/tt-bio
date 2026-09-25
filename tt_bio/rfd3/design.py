@@ -434,8 +434,7 @@ def run_design_via_controller(
     verbose: bool = True,
 ) -> list[DesignResult]:
     """Fleet twin of :func:`run_design`: shard the specs across a controller's
-    workers, then collect the CIFs here — the multi-host twin of the local path,
-    mirroring BoltzGen's ``gen run --controller``.
+    workers, then collect the CIFs here, mirroring BoltzGen's ``gen run --controller``.
 
     One shard per spec: all of a spec's designs ride in it because they share
     the featurize + TokenInitializer pass and batch bit-identically, so
@@ -444,10 +443,10 @@ def run_design_via_controller(
     cold-open) and ships the CIFs back. There is no central merge/filter —
     RFD3 outputs are independent, one CIF per (spec, design).
 
-    Every spec's `input` structure is read here and shipped inline, so workers
-    on other machines need no shared filesystem.
+    Every spec's `input` structure is read here and shipped inline, so a worker
+    needs no view of the submitter's filesystem.
     """
-    from tt_bio.distributed import connect_controller
+    from tt_bio.host_controller import connect_controller
     from tt_bio.main import _write_job_outputs
 
     out_dir = Path(out_dir)

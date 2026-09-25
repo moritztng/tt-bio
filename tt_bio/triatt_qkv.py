@@ -52,6 +52,13 @@ def _reject(reason, shape):
     return None
 
 
+def _taping():
+    """Is a tape open? Every entry point here drives `generic_op`, which has no backward, so each
+    declines under one and the composed ops the tape can follow run instead (`ops.taping`)."""
+    from . import ops
+    return ops.taping()
+
+
 def _common_ok(x, w, dtype):
     """The dtype, layout and memory-config conditions the transcription was verified under."""
     if not G.fast_dtypes_ok(x.dtype, w.dtype, dest=dtype):
@@ -70,8 +77,7 @@ def qkv_heads(x, w, ckc, n_heads, head_dim, dtype, mm_config):
     Returns `(q, k, v)`, each `[batch, n_heads, seq, head_dim]`, byte-identical to what the two
     stock ops produce.
     """
-    from . import ops
-    if ops.taping():
+    if _taping():
         return None   # no backward for `generic_op`; the three composed ops run instead
 
     if not _ENABLED:
@@ -175,6 +181,8 @@ def gate_proj(x, w_g, w_o, ckc, n_heads, head_dim, dtype, mm_config):
     `gate_and_project` calls `out_proj`. `w_o` is only inspected, to ask whether the `out`
     projection it will feed would have taken the L1-output leg.
     """
+    if _taping():
+        return None   # no backward for `generic_op`; the composed ops run instead
     if not (_ENABLED and _TAIL_ENABLED):
         return None
     shape = [int(d) for d in x.shape]
@@ -268,6 +276,8 @@ def qkvg_heads(x, w, w_o, ckc, n_heads, head_dim, dtype, mm_config):
     destinations are four equal N chunks of one matmul. Byte-identical to
     `qkv_heads(x, w[:, :3c]) + gate_proj(x, w[:, 3c:])`.
     """
+    if _taping():
+        return None   # no backward for `generic_op`; the composed ops run instead
     if not (_ENABLED and _TAIL_ENABLED and _QKVG_ENABLED):
         return None
     shape = [int(d) for d in x.shape]
@@ -319,6 +329,8 @@ def out_proj(gated, w, ckc, dtype, memory_config=None):
     from the tensor it is handed, so an L1 destination changes which banks a tile is written to
     and nothing else: same blocking, same accumulation order, same bytes.
     """
+    if _taping():
+        return None   # no backward for `generic_op`; the composed ops run instead
     from .tenstorrent import _mm_block_for, COMPUTE_GRID_MAIN
     B, H, S, D = (int(d) for d in gated.shape)
     pad = [int(d) for d in gated.padded_shape]
@@ -378,6 +390,8 @@ def qkvgb_heads(x, w, w_o, ckc, n_heads, head_dim, dtype, mm_config, bias_channe
     its output axis, so the five destinations are five N chunks of one matmul -- four of four
     tiles and one of one. Byte-identical to the three calls it replaces.
     """
+    if _taping():
+        return None   # no backward for `generic_op`; the composed ops run instead
     if not (_ENABLED and _TAIL_ENABLED and _QKVG_ENABLED and _QKVGB_ENABLED):
         return None
     shape = [int(d) for d in x.shape]

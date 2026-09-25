@@ -1,0 +1,4 @@
+# trace probes (the first chain's copies failed on the make_inputs import)
+cd $HOME/wt-mgx-sdpa-mask && $HOME/env/bin/python perf/mgx_sdpa/trace_probe.py --model esmc-300m --lengths 126,510,1534 --out $S/trace.jsonl
+cd $HOME/wt-mgx-sdpa-mask && $HOME/env/bin/python perf/mgx_sdpa/trace_probe.py --model esmc-6b --lengths 126,1534 --out $S/trace.jsonl
+cd $HOME/wt-mgx-sdpa-main && $HOME/env/bin/python perf/mgx_sdpa/trace_probe.py --model esmc-300m --lengths 126,510,1534 --out $S/trace.jsonl

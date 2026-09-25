@@ -1,7 +1,7 @@
 """A trace region is reserved only where a captured trace could be replayed.
 
 The reservation is not free and the comment that said it was is the bug this guards. It comes off
-EVERY DRAM bank, so on a 12-bank Wormhole Galaxy chip `_ESMC_TRACE_REGION_SIZE` costs 3 GiB of a
+EVERY DRAM bank, so on a 12-bank Wormhole Galaxy chip the 256 MiB `esmc` trace region costs 3 GiB of a
 12.8 GiB part -- measured off the allocator's own refusal on j10glx02, "bank size is 805306336 B"
 with it against "1073741792 B" without. On the sequence axis that was the difference between
 esmc-300m refusing 65537 residues and saprot-35m, same code path and no reservation, embedding

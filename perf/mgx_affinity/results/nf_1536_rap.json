@@ -1,0 +1,53 @@
+{
+ "tag": "nf_1536_rap",
+ "surface": "nesso1",
+ "input": "perf/mgx_affinity/inputs/size/cdk2_1536_rap.yaml",
+ "args": [],
+ "host": "j10glx02",
+ "cards": [
+  31
+ ],
+ "commit": "0186ef509",
+ "rc": 0,
+ "wall_s": 189.9,
+ "aiclk": {
+  "0": {
+   "min": 500,
+   "median": 1000,
+   "max": 1000,
+   "n": 10
+  }
+ },
+ "load": {
+  "min": 61.81,
+  "median": 65.94,
+  "max": 68.63,
+  "nproc": 64
+ },
+ "census": null,
+ "adopted": false,
+ "rows": [
+  {
+   "id": "cdk2_1536_rap",
+   "n_tokens": "1601",
+   "seconds": "132.42420078499708",
+   "affinity_pred_value": "-0.04388725757598877",
+   "affinity_pred_value1": "-0.37069636583328247",
+   "affinity_pred_value2": "0.28292185068130493",
+   "affinity_logits_binary": "-2.905712604522705",
+   "affinity_probability_binary": "0.0518718846142292",
+   "entropy_pp": "0.1315976083278656",
+   "entropy_pl": "0.31717830896377563",
+   "entropy_ll": "0.35344305634498596",
+   "entropy_crop_pp": "0.5825374722480774",
+   "entropy_crop_pl": "0.8137338757514954",
+   "entropy_crop_ll": "0.35344305634498596",
+   "error": ""
+  }
+ ],
+ "contention": false,
+ "errors": [
+  "2026-09-23 13:34:50.846 | critical |          Always | TT_THROW: Statically allocated circular buffers in program 657 clash with L1 buffers on core range [(x=0,y=0) - (x=7,y=8)]. L1 buffer allocated at 1144832 and static circular buffer region ends at 1152288 (assert.hpp:104)"
+ ],
+ "tail": []
+}

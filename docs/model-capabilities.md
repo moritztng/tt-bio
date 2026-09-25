@@ -21,10 +21,19 @@ changing the structure. That prints a warning and the fold runs.
 | `opendde` | yes | yes | yes | yes | yes | yes | yes | yes | yes | yes | refused | ignored, warns |
 | `opendde-abag` | yes | yes | yes | yes | yes | yes | yes | yes | yes | yes | refused | ignored, warns |
 | `rf3` | yes | yes | yes | yes | refused | yes | yes | yes | yes | refused | refused | ignored, warns |
+| `af2ig` | refused | refused | refused | refused | refused | refused | refused | refused | refused | refused | refused | ignored, warns |
 <!-- END CAPABILITY TABLE -->
 
 `boltz2` is the fallback for anything the others refuse: it takes the whole input language,
 with a template given as a structure file rather than an alignment npz.
+
+`af2ig` refuses every column for one reason: it does not read this input language. AF2-IG scores
+a binder you already designed, so its input is a designed complex -- a structure carrying the
+target chain and the binder backbone, plus the binder's sequence -- and a chain list is refused
+whole, before any of these keys is looked at. The row is here because a Boltz-2 yaml pasted at
+`--model af2ig` still has to be told what is wrong with it. See
+[`examples/af2_designed_complex.yaml`](../examples/af2_designed_complex.yaml) for the shape it
+does take.
 
 `tt-bio affinity --model nesso1` reads the same file through its own parser and is not in the
 matrix, because it returns a scalar and no coordinates. It answers `properties: affinity`,
@@ -147,12 +156,12 @@ An output flag a model does not read prints a note saying which model does read 
 never silently accepted: `--write_pde` on Protenix (`--write_pae` already writes both) and
 `--write_embeddings` outside Boltz-2.
 
-`--max_msa_seqs` caps alignment depth on every model that folds from an MSA. Left alone it
-changes nothing: Boltz-2 and ESMFold-2 keep their shipped 8192 default, and `protenix-v1`,
-`protenix-v2`, `opendde`, `opendde-abag`, `rf3`, `openfold3` and `openbind` keep folding the
-resolved alignment whole, which is the depth their reference numbers were measured at. Set it
-and all of them cap. Every fold writes the depth it actually used as `msa_depth` in
-`results.json`.
+`--max_msa_seqs` caps alignment depth on every model that folds from an MSA. Left alone, each
+model reads what its upstream reads: Boltz-2 keeps its shipped 8192 default; `esmfold2`,
+`protenix-v1`, `protenix-v2`, `opendde`, `opendde-abag`, `openfold3` and `openbind` read up to
+16384 rows, paired rows first, as their upstream featurizers do (`esmfold2` then draws 1024 of
+them per trunk loop, as upstream does); `rf3` loads up to 10000 and draws 1024 per recycle. Set it and all of them cap. Every fold writes the depth it actually
+used as `msa_depth` in `results.json`.
 
 ## Keeping this honest
 

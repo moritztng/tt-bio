@@ -5,7 +5,25 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
 
 ## [Unreleased]
 
+### Removed
+
+- **`tt-bio predict --listen`, and a controller bound to anything but 127.0.0.1.** tt-bio no
+  longer takes workers from other machines. Each machine runs its own `tt-bio controller`, and
+  the layer that spreads work across machines talks to each one. `tt-bio controller --listen
+  HOST:PORT` is now `--port PORT`.
+
 ### Changed
+
+- **`tt_bio.distributed` is `tt_bio.host_controller`**, named for what it is: the controller of one
+  host's chips. Code that imported `ControllerClient` or `ControllerServer` from the old path
+  imports them from the new one, and `ControllerServer` takes no host argument.
+
+- **A job whose worker goes silent returns to the queue after 120 s, not 30 minutes.** The worker
+  heartbeats from its own thread every twelfth of the lease, 10 s by default, and takes the
+  interval from the lease the controller names in each answer, so `tt-bio controller --lease-s`
+  is the only setting. On four Wormhole Galaxies, across 540 renewals of jobs held for up to 20
+  minutes, the longest a busy worker went unheard was 14.2 s. A dead worker used to strand its job
+  for half an hour.
 
 - **OpenFold3 trunk triangle attention runs on the fused SDPA at HiFi4, and a 512-residue fold is
   1.5123x faster.** 34.138 s to 22.574 s on a Blackhole p300c with the AICLK at 1350 MHz, and
@@ -49,6 +67,26 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
   [docs/sdpa-wide-k-parity.md](docs/sdpa-wide-k-parity.md).
 
 ### Fixed
+
+- **A completion lost on the wire no longer strands its job forever.** `/complete` was never
+  retried, and the job stayed leased to a worker whose heartbeats kept renewing it, so the run
+  never ended. A result settles only from the lease holder and a replay matches nothing, so the
+  client now retries `/complete` like a read, and a worker that asks for work gives back any job
+  still leased to it.
+
+- **Nesso-1 scores large targets with large ligands on Wormhole.** The trunk built a cross-chain
+  attention bias it had no use for (its pair mask is separable), 10.9 GB at 1632 tokens, so a
+  1536-residue target with sirolimus or cobalamin and any target from 1664 residues up ran out of
+  DRAM. The trunk now takes the plain masked path, and with the triangle product's K block sized
+  to fit L1, a 3072-residue target scores on one chip with a small drug, sirolimus or cobalamin
+  (up to 3163 tokens). 3584 residues completes in about two hours with part of the work
+  assembled on the host; 4096 residues still runs out of L1. Predictions are byte-identical to before at every size that fitted,
+  and the 1536-residue forward is 40% faster.
+
+- **Salt-form SMILES work again in Boltz-2 affinity.** Under RDKit 2026.03 every multi-fragment
+  affinity ligand failed at parse time (`getNumImplicitHs() called without preceding call to
+  calcImplicitValence()`), so a screen lost its salts; 4 of 68 DAVIS LCK compounds are salts. They
+  now reduce to the parent compound, and the other fixture SMILES standardize exactly as before.
 
 - **An RF3 fold no longer depends on what the same process folded before it.** The atom
   transformer cached its output gate keyed by the length of the input, so a second input of the
@@ -96,6 +134,12 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
 
 ### Added
 
+- **[docs/multi-host.md](docs/multi-host.md): the contract for running tt-bio on many machines.**
+  The endpoints a scheduler answers and a platform polls, what a host advertises, the lease and
+  how a result settles exactly once. [`examples/many_hosts.py`](examples/many_hosts.py) is a
+  fifty-line driver built on it; it folded twelve inputs across four Galaxies. `GET /cluster` now
+  names each worker's loaded model and the jobs it holds.
+
 - **A structure template given as an mmCIF works on every model that takes templates.** The
   top-level `templates:` block (`cif`, optional `chain_id` and `template_id`) was read only by
   Boltz-2 and refused elsewhere. Protenix-v2, OpenDDE, OpenDDE-abag, OpenFold3, OpenBind and RF3
@@ -117,6 +161,16 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
   the same input gives the same coordinates, pLDDT, pTM and ipTM as before. Opened as #15 by
   @ssiddhantsharma; the diagonal (each chain's own pTM) and the device confidence path
   (`TT_PROTENIX_CONF_DEVICE=1`) were added on top of it.
+
+### The release gate itself
+
+- **The AF2-IG device-trunk floor is re-recorded at the OuterProductMean output-stage layout.**
+  That layout (638187138) is on for every model and makes a 512-residue fold 1.0111x faster. On
+  AF2-IG it moves the final structure 0.150 -> 0.210 A CA RMSD from JAX, inside the 0.60 A bar,
+  and the gate had read that move as a FAIL since the layout landed. The new record names the
+  layout as its cause. It was measured on qb1 at the p150a's 11x10 grid and reproduced in a second
+  process. The `--template-host` arm and both `--mutate` controls still FAIL against it, and the
+  template-host arm is now a test.
 
 ## [0.9.0] - 2026-09-18
 
