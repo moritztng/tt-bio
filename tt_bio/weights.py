@@ -881,8 +881,10 @@ def fetch_file(sources: tuple[str, ...], dest: Path, *, sha256: str | None = Non
 
     Staging is a stable ``.<name>.part`` next to the destination so an interrupted
     multi-GB download resumes instead of restarting, while the destination itself only
-    ever holds a verified file. ``check_archive=False`` skips the structural check for a
-    file too large to scan (the MSA databases), leaving the byte count to carry it.
+    ever holds a verified file. Concurrent callers for one ``dest`` are serialised on a
+    lock beside it, so the file is downloaded once and the rest read it from the cache.
+    ``check_archive=False`` skips the structural check for a file too large to scan (the
+    MSA databases), leaving the byte count to carry it.
 
     Raises ``DownloadFailed``, which names every source and tool that was tried."""
     dest = Path(dest)
@@ -927,34 +929,37 @@ def fetch_file(sources: tuple[str, ...], dest: Path, *, sha256: str | None = Non
             return False, f"{size} bytes, server says {expect}"
         return True, ""
 
-    if not force and dest.exists():
-        if cached_ok(dest):
-            return dest
-        _echo(f"Cached {dest.name} is incomplete/corrupt, re-downloading", quiet)
-    dest.parent.mkdir(parents=True, exist_ok=True)
-    part = dest.with_name(f".{dest.name}.part")
-
-    attempts: list[tuple[str, str, str, int]] = []
-    for source in sources:
-        # Twice per source: a resume that lands on a mid-file corruption can never be
-        # fixed by resuming, so the second try starts from scratch.
-        for attempt in (1, 2):
-            got_it, worth_retrying = _download_to(source, part, quiet=quiet,
-                                                  attempts=attempts)
-            if got_it:
-                good, why = fresh_ok(part, source)
-                if good:
-                    os.replace(part, dest)
-                    return dest
-                attempts.append((source, "verify", why, part.stat().st_size
-                                 if part.exists() else 0))
-                _echo(f"    verify: {why}", quiet)
-            part.unlink(missing_ok=True)
-            if not worth_retrying:
-                break
-            if attempt == 1:
-                _echo(f"    retrying {dest.name} from scratch", quiet)
-    raise DownloadFailed(dest.name, attempts)
+    # The `.part` is shared by name, so two processes fetching one file would each rename
+    # it away from the other: six BoltzGen shards on a cold cache raced one checkpoint and
+    # the loser verified a `.part` that had just become the winner's `dest`. Under the lock
+    # the second caller waits and then finds the first one's file in the cache.
+    with _lock(dest.with_name(f".{dest.name}.lock"), dest.name, quiet=quiet):
+        if not force and dest.exists():
+            if cached_ok(dest):
+                return dest
+            _echo(f"Cached {dest.name} is incomplete/corrupt, re-downloading", quiet)
+        part = dest.with_name(f".{dest.name}.part")
+        attempts: list[tuple[str, str, str, int]] = []
+        for source in sources:
+            # Twice per source: a resume that lands on a mid-file corruption can never be
+            # fixed by resuming, so the second try starts from scratch.
+            for attempt in (1, 2):
+                got_it, worth_retrying = _download_to(source, part, quiet=quiet,
+                                                      attempts=attempts)
+                if got_it:
+                    good, why = fresh_ok(part, source)
+                    if good:
+                        os.replace(part, dest)
+                        return dest
+                    attempts.append((source, "verify", why, part.stat().st_size
+                                     if part.exists() else 0))
+                    _echo(f"    verify: {why}", quiet)
+                part.unlink(missing_ok=True)
+                if not worth_retrying:
+                    break
+                if attempt == 1:
+                    _echo(f"    retrying {dest.name} from scratch", quiet)
+        raise DownloadFailed(dest.name, attempts)
 
 
 def fetch_hf_repo(repo_id: str, *, filename: str | None = None, revision: str | None = None,
@@ -1242,33 +1247,35 @@ def fetch(key: str, *, root: str | Path | None = None, force: bool = False,
                 f"or point ${art.env} at a good copy.")
         return dest
 
-    # Everything past here writes into the cache, and the cache is shared. Five tt-bio
-    # processes ran `weights --download` over one cache at once and interleaved:
-    # fetch_file stages into a stable `.<name>.part` so a multi-GB download resumes
-    # instead of restarting, which also means two downloaders of one artifact write the
-    # same file and each other's retry unlinks it, and sweep_stale_staging deletes
-    # staging older than an hour whoever owns it. One lock per artifact key closes both
-    # without giving up the resume: the waiter wakes to a finished file.
+    # Everything past here writes into the cache, and the cache is shared. fetch_file
+    # locks the one file it writes; this lock is for the rest of an artifact (a hub
+    # snapshot, an extracted directory), so a waiter wakes to the whole thing finished.
     with _artifact_lock(key, root, quiet=quiet):
         return _fetch_locked(art, root=root, force=force, quiet=quiet)
 
 
 @contextmanager
-def _artifact_lock(key: str, root, *, quiet: bool = False):
-    """Hold one artifact's download lock. Released by the kernel if the holder dies, so a
-    killed downloader cannot wedge every other process out of the cache."""
-    lock_dir = cache_root(root) / ".locks"
-    lock_dir.mkdir(parents=True, exist_ok=True)
-    with open(lock_dir / f"{key}.lock", "a+") as fh:
+def _lock(path: Path, what: str, *, quiet: bool = False):
+    """Hold an exclusive lock on ``path`` while ``what`` is fetched. Released by the kernel
+    if the holder dies, so a killed downloader cannot wedge every other process out of the
+    cache."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with open(path, "a+") as fh:
         try:
             fcntl.flock(fh, fcntl.LOCK_EX | fcntl.LOCK_NB)
         except OSError:
-            _echo(f"Waiting for another process to finish downloading {key}", quiet)
+            _echo(f"Waiting for another process to finish downloading {what}", quiet)
             fcntl.flock(fh, fcntl.LOCK_EX)
         try:
             yield
         finally:
             fcntl.flock(fh, fcntl.LOCK_UN)
+
+
+def _artifact_lock(key: str, root, *, quiet: bool = False):
+    """One registry artifact's lock, which also covers what `fetch_file` does not: a
+    hub snapshot and the extraction of a derived directory."""
+    return _lock(cache_root(root) / ".locks" / f"{key}.lock", key, quiet=quiet)
 
 
 def _fetch_locked(art, *, root, force: bool, quiet: bool) -> Path:
