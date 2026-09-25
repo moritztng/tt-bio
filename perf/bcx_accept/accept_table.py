@@ -57,6 +57,23 @@ FIX = "1127f9ea8"
 ROUTE_FILE = "perf/bcx_predictor/ttbio_predictor.py"
 ROUTE_MARK = "def _route"
 
+# The MSA-mask cache key. Before the fix `EvoformerOnDevice._mask` keyed on `tuple(mask.shape)`,
+# and that shape is the token axis AFTER `_pad_inputs` rounds it up to 32, so every binder length
+# in a bucket shares it. One `EvoformerOnDevice` is built per campaign, so the cache outlives every
+# trajectory: the first draw in a bucket populates the entry and every later draw in that bucket is
+# served ITS mask, running the difference as padding. Against the 115-residue PD-L1 target, binders
+# 142, 151 and 144 all land on (1, 288) carrying 257, 266 and 259 real residues. The fixed key is
+# (shape, blake2b(content)). The pair-mask cache was never affected: it already carried the mask's
+# sum. `perf/bcx_mutate/mask_cache_collision.py` is the card-free demonstration.
+MASK_FILE = "perf/bcx_predictor/splice.py"
+MASK_MARK = "hashlib.blake2b"
+
+# hPDL1, the target every arm in this campaign designs against. Used only when an arm's own
+# `sequences.jsonl` is missing, which is the case for arms from trees that predate it. Verifiable
+# from any arm that does have one: `target_hPDL1` is 115 characters, and that is the length of the
+# sequence in BindCraft 2's `settings/target/hPDL1.json`. The table says which source it used.
+TARGET_FALLBACK = 115
+
 STAGE_BUDGET = {"screen": 50, "refine": 25, "anneal": 45, "harden": 5, "mutate": 15}
 
 
@@ -238,6 +255,93 @@ def carries_route(commit):
     return ROUTE_MARK in done.stdout.decode("utf-8", "replace")
 
 
+def carries_mask_fix(commit):
+    """True/False when git can read the tree, None when it cannot."""
+    if not commit:
+        return None
+    try:
+        done = subprocess.run(["git", "show", "%s:%s" % (commit, MASK_FILE)], capture_output=True)
+    except OSError:
+        return None
+    if done.returncode != 0:
+        return None
+    return MASK_MARK in done.stdout.decode("utf-8", "replace")
+
+
+def target_length(arm):
+    """Residues in the target, off the arm's own `sequences.jsonl` rather than a constant.
+
+    Every chain in the first recorded state except the binder. The padded bucket is a function of
+    the TOTAL token count, so the target length is half the arithmetic and hardcoding it silently
+    moves every bucket edge if the campaign is ever pointed at another target.
+    """
+    path = os.path.join(arm, "sequences.jsonl")
+    if not os.path.exists(path):
+        return None
+    with open(path) as handle:
+        line = handle.readline()
+    if not line.strip():
+        return None
+    try:
+        states = json.loads(line)["states"]
+    except (ValueError, KeyError):
+        return None
+    state = next(iter(states.values()))
+    return sum(len(v) for k, v in state.items() if k != "binder") or None
+
+
+def target_or_fallback(arm):
+    """(residues, source). An arm with no `sequences.jsonl` still gets a bucket arithmetic."""
+    own = target_length(arm)
+    return (own, "this arm's sequences.jsonl") if own else (TARGET_FALLBACK, "hPDL1 constant")
+
+
+def draw_order(arm):
+    """Binder lengths in the order THIS PROCESS drew them, from the sibling run log.
+
+    The ledger is not enough. A trajectory that died on the DRAM ceiling leaves no ledger row and
+    still populated the mask cache, so reading order off `!_Trajectories.csv` can call a stale draw
+    fresh. The log records every draw, including the ones that left nothing behind.
+    """
+    sibling = os.path.join(os.path.dirname(arm.rstrip("/")),
+                           os.path.basename(arm.rstrip("/")) + ".log")
+    if not os.path.exists(sibling):
+        return None
+    order = []
+    with open(sibling, "rb") as handle:
+        for raw in handle:
+            line = raw.decode("utf-8", "replace")
+            if "=== trajectory" not in line or "pdl1_denovo_" not in line:
+                continue
+            name = line.split("|")[1].strip()
+            hash_ = name.rsplit("_", 1)[-1]
+            length = name.split("_l", 1)[1].split("_", 1)[0]
+            try:
+                order.append((hash_, int(length)))
+            except ValueError:
+                continue
+    return order or None
+
+
+def stale_mask(arm, design):
+    """The earlier draw whose MSA mask this one was served, or None when its mask was its own.
+
+    Returns (bucket, first_draw_length) so the classification can say which draw poisoned it.
+    """
+    target, _ = target_or_fallback(arm)
+    order = draw_order(arm)
+    if not target or not order:
+        return None
+    hash_ = design.rsplit("_", 1)[-1]
+    seen = {}
+    for h, length in order:
+        bucket = -(-(target + length) // 32) * 32
+        if h == hash_:
+            return (bucket, seen[bucket]) if bucket in seen else None
+        seen.setdefault(bucket, length)
+    return None
+
+
 def candidates(arm, design):
     """The MPNN candidate rows this trajectory was scored on, from `2_Refolded/!_Refolded.csv`.
 
@@ -259,7 +363,7 @@ def candidates(arm, design):
         return [r for r in csv.DictReader(handle) if r.get("design", "").startswith(design)]
 
 
-def classify(arm, row, fix_present):
+def classify(arm, row, fix_present, mask_fix):
     """Validity of this trajectory as evidence about acceptance."""
     design = row["design"]
     terminated = (row.get("terminated") or "").strip()
@@ -267,6 +371,10 @@ def classify(arm, row, fix_present):
         return "UNVERIFIED tree, no commit recorded for this arm"
     if not fix_present:
         return "INVALID chimera trunk (tree lacks %s)" % FIX
+    if mask_fix is False:
+        served = stale_mask(arm, design)
+        if served:
+            return ("INVALID stale MSA mask (bucket %d, served draw l%d's mask)" % served)
     trunc = truncated_stages(arm, design)
     if trunc:
         detail = ", ".join("%s %d/%d" % (s, n, b) for s, (n, b) in trunc.items())
@@ -292,6 +400,7 @@ def report(argument):
     commit = arm_commit(arm, explicit)
     fix_present = carries_fix(commit)
     route_present = carries_route(commit)
+    mask_fix = carries_mask_fix(commit)
     print("=" * 100)
     print(arm)
     print("  seed %-4s pool %-6s levers %-6s predictor %s"
@@ -303,6 +412,16 @@ def report(argument):
           % {True: "present, so this arm could reach the filters",
              False: "ABSENT, rejection profile only -- its successes crash unrecorded",
              None: "unknown"}[route_present])
+    print("  MSA-mask cache: %s"
+          % {True: "keyed on content",
+             False: "keyed on SHAPE -- a draw after the first in its 32-bucket ran a stale mask",
+             None: "unknown"}[mask_fix])
+    if mask_fix is False:
+        target, source = target_or_fallback(arm)
+        order = draw_order(arm)
+        print("  bucket arithmetic: target %d residues (%s), %s"
+              % (target, source,
+                 "draw order from the run log" if order else "NO run log, mask test not run"))
     rej = cs.get("rejections", {}) or {}
     print("  campaign_state: accepted=%s trajectories=%s candidates_scored=%s failed_filters=%s"
           % (cs.get("accepted"), cs.get("trajectories"), rej.get("candidates_scored"),
@@ -329,7 +448,7 @@ def report(argument):
     out = []
     for row in rows:
         secs = design_seconds(row.get("Timing"))
-        verdict = classify(arm, row, fix_present)
+        verdict = classify(arm, row, fix_present, mask_fix)
         print("  %-38s %5s %9s %-12s %s"
               % (row["design"][:38], row.get("length"),
                  "%.0f" % secs if secs else "?",
