@@ -4,14 +4,17 @@
  "sequence_gradients_s_per_round": 181.044,
  "thunk_wall_s_per_round": 166.903,
  "parts_s_per_round": {
-  "structure module [bwd]": 96.0548,
-  "structure module [fwd]": 48.7855,
+  "everything else [bwd]": 96.6227,
+  "everything else [fwd]": 48.4153,
+  "<unlabelled> [fwd]": 19.4981,
   "template: pair stack [fwd]": 0.8152,
+  "structure module [fwd]": 0.77,
+  "structure module [bwd]": 0.6385,
   "template: pointwise attention [fwd]": 0.04,
   "template: single embedding [fwd]": 0.0399,
   "template: single embedding [bwd]": 0.0395,
   "template: pointwise attention [bwd]": 0.0229,
   "template: single/torsion [fwd]": 0.0008
  },
- "parts_total_s_per_round": 145.799
+ "parts_total_s_per_round": 166.903
 }

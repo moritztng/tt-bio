@@ -1,0 +1,226 @@
+{
+ "run": "perf/bcx_tmplseam/runs/anatomy",
+ "profiled_rounds": 2,
+ "thunk_wall_s_per_round": 166.903,
+ "distinct_op_names": 1287,
+ "buckets_s_per_round": {
+  "ONLY by parts.py (fold_iteration|invariant_point|rigid_sidechain)": 143.437,
+  "<unlabelled>": 19.498,
+  "matched by opname.py (template|structure_module)": 2.361,
+  "everything else": 1.606
+ },
+ "buckets_rawsum_s_per_round": {
+  "ONLY by parts.py (fold_iteration|invariant_point|rigid_sidechain)": 169.353,
+  "<unlabelled>": 23.25,
+  "matched by opname.py (template|structure_module)": 3.803,
+  "everything else": 2.757
+ },
+ "buckets_segments": {
+  "ONLY by parts.py (fold_iteration|invariant_point|rigid_sidechain)": 375096,
+  "<unlabelled>": 211154,
+  "matched by opname.py (template|structure_module)": 69868,
+  "everything else": 14812
+ },
+ "parts_only_top": [
+  {
+   "op_name": "jit(sequence_design_loss)/transpose(jvp(jit(apply)))/jit(apply_fn)/alphafold/alphafold_iteration/evoformer/__layer_stack_no_state_1/while/body/eval_jaxpr/checkpoint/evoformer_iteration/triangle_attention_starting_node/attention/bqhc,bkhc->bhqk/dot_general",
+   "wall_s_per_round": 17.3239,
+   "rawsum_s_per_round": 17.6475,
+   "segments": 192,
+   "median_seg_ms": 116.7018,
+   "max_seg_ms": 504.0653
+  },
+  {
+   "op_name": "jit(sequence_design_loss)/transpose(jvp(jit(apply)))/jit(apply_fn)/alphafold/alphafold_iteration/evoformer/__layer_stack_no_state_1/while/body/eval_jaxpr/checkpoint/evoformer_iteration/triangle_attention_ending_node/attention/bqhc,bkhc->bhqk/dot_general",
+   "wall_s_per_round": 17.1734,
+   "rawsum_s_per_round": 17.405,
+   "segments": 192,
+   "median_seg_ms": 116.9274,
+   "max_seg_ms": 483.0351
+  },
+  {
+   "op_name": "jit(sequence_design_loss)/jvp(jit(apply))/jit(apply_fn)/alphafold/alphafold_iteration/evoformer/__layer_stack_no_state_1/while/body/eval_jaxpr/evoformer_iteration/pair_transition/input_layer_norm/input_layer_norm/mul",
+   "wall_s_per_round": 5.9984,
+   "rawsum_s_per_round": 5.9984,
+   "segments": 192,
+   "median_seg_ms": 59.6661,
+   "max_seg_ms": 118.1475
+  },
+  {
+   "op_name": "jit(sequence_design_loss)/transpose(jvp(jit(apply)))/jit(apply_fn)/alphafold/alphafold_iteration/evoformer/__layer_stack_no_state_1/while/body/eval_jaxpr/checkpoint/evoformer_iteration/triangle_multiplication_outgoing/mul",
+   "wall_s_per_round": 2.9732,
+   "rawsum_s_per_round": 2.9732,
+   "segments": 96,
+   "median_seg_ms": 55.6302,
+   "max_seg_ms": 118.5854
+  },
+  {
+   "op_name": "jit(sequence_design_loss)/transpose(jvp(jit(apply)))/jit(apply_fn)/alphafold/alphafold_iteration/evoformer/__layer_stack_no_state_1/while/body/eval_jaxpr/checkpoint/evoformer_iteration/triangle_multiplication_incoming/mul",
+   "wall_s_per_round": 2.9456,
+   "rawsum_s_per_round": 2.9456,
+   "segments": 96,
+   "median_seg_ms": 55.5092,
+   "max_seg_ms": 141.9016
+  },
+  {
+   "op_name": "jit(sequence_design_loss)/jvp(jit(apply))/jit(apply_fn)/alphafold/alphafold_iteration/evoformer/__layer_stack_no_state_1/while/body/eval_jaxpr/evoformer_iteration/outer_product_mean/acb,ade->dceb/transpose",
+   "wall_s_per_round": 2.36,
+   "rawsum_s_per_round": 2.36,
+   "segments": 192,
+   "median_seg_ms": 23.2201,
+   "max_seg_ms": 72.1371
+  },
+  {
+   "op_name": "jit(sequence_design_loss)/transpose(jvp(jit(apply)))/jit(apply_fn)/alphafold/alphafold_iteration/evoformer/__layer_stack_no_state_1/while/body/eval_jaxpr/checkpoint/evoformer_iteration/triangle_attention_starting_node/attention/mul",
+   "wall_s_per_round": 2.3366,
+   "rawsum_s_per_round": 2.3868,
+   "segments": 384,
+   "median_seg_ms": 9.9724,
+   "max_seg_ms": 68.809
+  },
+  {
+   "op_name": "jit(sequence_design_loss)/transpose(jvp(jit(apply)))/jit(apply_fn)/alphafold/alphafold_iteration/evoformer/__layer_stack_no_state_1/while/body/eval_jaxpr/checkpoint/evoformer_iteration/triangle_attention_ending_node/attention/mul",
+   "wall_s_per_round": 2.2719,
+   "rawsum_s_per_round": 2.3264,
+   "segments": 384,
+   "median_seg_ms": 9.9401,
+   "max_seg_ms": 41.2017
+  },
+  {
+   "op_name": "jit(sequence_design_loss)/jvp(jit(apply))/jit(apply_fn)/alphafold/alphafold_iteration/evoformer/__layer_stack_no_state_1/while/body/eval_jaxpr/evoformer_iteration/outer_product_mean/eval_jaxpr/while/body/eval_jaxpr/acb,ade->dceb/transpose",
+   "wall_s_per_round": 2.2418,
+   "rawsum_s_per_round": 2.2949,
+   "segments": 192,
+   "median_seg_ms": 21.2187,
+   "max_seg_ms": 70.0778
+  },
+  {
+   "op_name": "jit(sequence_design_loss)/jvp(jit(apply))/jit(apply_fn)/alphafold/alphafold_iteration/evoformer/__layer_stack_no_state_1/while/body/eval_jaxpr/evoformer_iteration/triangle_multiplication_incoming/center_norm/center_norm/mul",
+   "wall_s_per_round": 2.1244,
+   "rawsum_s_per_round": 2.1244,
+   "segments": 192,
+   "median_seg_ms": 19.718,
+   "max_seg_ms": 65.3114
+  },
+  {
+   "op_name": "jit(sequence_design_loss)/jvp(jit(apply))/jit(apply_fn)/alphafold/alphafold_iteration/evoformer/__layer_stack_no_state_1/while/body/eval_jaxpr/evoformer_iteration/triangle_multiplication_outgoing/slice",
+   "wall_s_per_round": 2.103,
+   "rawsum_s_per_round": 2.103,
+   "segments": 384,
+   "median_seg_ms": 8.8949,
+   "max_seg_ms": 47.9377
+  },
+  {
+   "op_name": "jit(sequence_design_loss)/jvp(jit(apply))/jit(apply_fn)/alphafold/alphafold_iteration/evoformer/__layer_stack_no_state_1/while/body/eval_jaxpr/evoformer_iteration/triangle_multiplication_incoming/slice",
+   "wall_s_per_round": 2.0571,
+   "rawsum_s_per_round": 2.0571,
+   "segments": 384,
+   "median_seg_ms": 8.5669,
+   "max_seg_ms": 38.2606
+  },
+  {
+   "op_name": "jit(sequence_design_loss)/jvp(jit(apply))/jit(apply_fn)/alphafold/alphafold_iteration/evoformer/__layer_stack_no_state_1/while/body/eval_jaxpr/evoformer_iteration/triangle_multiplication_outgoing/center_norm/center_norm/mul",
+   "wall_s_per_round": 1.9791,
+   "rawsum_s_per_round": 1.9791,
+   "segments": 192,
+   "median_seg_ms": 18.5907,
+   "max_seg_ms": 58.4947
+  },
+  {
+   "op_name": "jit(sequence_design_loss)/transpose(jvp(jit(apply)))/jit(apply_fn)/alphafold/alphafold_iteration/evoformer/__layer_stack_no_state_1/while/body/eval_jaxpr/checkpoint/rematted_computation/evoformer_iteration/triangle_multiplication_incoming/slice",
+   "wall_s_per_round": 1.601,
+   "rawsum_s_per_round": 1.6091,
+   "segments": 288,
+   "median_seg_ms": 9.6714,
+   "max_seg_ms": 50.3716
+  },
+  {
+   "op_name": "jit(sequence_design_loss)/transpose(jvp(jit(apply)))/jit(apply_fn)/alphafold/alphafold_iteration/evoformer/__layer_stack_no_state_1/while/body/eval_jaxpr/checkpoint/rematted_computation/evoformer_iteration/triangle_multiplication_outgoing/slice",
+   "wall_s_per_round": 1.5606,
+   "rawsum_s_per_round": 1.5606,
+   "segments": 288,
+   "median_seg_ms": 9.0894,
+   "max_seg_ms": 43.5823
+  },
+  {
+   "op_name": "jit(sequence_design_loss)/transpose(jvp(jit(apply)))/jit(apply_fn)/alphafold/alphafold_iteration/evoformer/__layer_stack_no_state_1/while/body/eval_jaxpr/checkpoint/rematted_computation/evoformer_iteration/jit(_bernoulli)/jit(_uniform)",
+   "wall_s_per_round": 1.5021,
+   "rawsum_s_per_round": 1.5104,
+   "segments": 1632,
+   "median_seg_ms": 0.8862,
+   "max_seg_ms": 27.6208
+  },
+  {
+   "op_name": "jit(sequence_design_loss)/jvp(jit(apply))/jit(apply_fn)/alphafold/alphafold_iteration/evoformer/__layer_stack_no_state_1/while/body/eval_jaxpr/evoformer_iteration/jit(_bernoulli)/jit(_uniform)",
+   "wall_s_per_round": 1.2644,
+   "rawsum_s_per_round": 1.2661,
+   "segments": 1728,
+   "median_seg_ms": 0.0804,
+   "max_seg_ms": 25.4062
+  },
+  {
+   "op_name": "jit(sequence_design_loss)/transpose(jvp(jit(apply)))/jit(apply_fn)/alphafold/alphafold_iteration/evoformer/__layer_stack_no_state_1/while/body/eval_jaxpr/checkpoint/rematted_computation/evoformer_iteration/msa_row_attention_with_pair_bias/attention/jit(clip)/convert_element_type",
+   "wall_s_per_round": 1.2552,
+   "rawsum_s_per_round": 1.2767,
+   "segments": 576,
+   "median_seg_ms": 0.308,
+   "max_seg_ms": 46.1274
+  },
+  {
+   "op_name": "jit(sequence_design_loss)/jvp(jit(apply))/jit(apply_fn)/alphafold/alphafold_iteration/evoformer/__layer_stack_no_state_1/while/body/eval_jaxpr/evoformer_iteration/triangle_attention_ending_node/attention/div",
+   "wall_s_per_round": 1.2077,
+   "rawsum_s_per_round": 1.2077,
+   "segments": 192,
+   "median_seg_ms": 10.5112,
+   "max_seg_ms": 60.1597
+  },
+  {
+   "op_name": "jit(sequence_design_loss)/transpose(jvp(jit(apply)))/jit(apply_fn)/alphafold/alphafold_iteration/evoformer/__layer_stack_no_state/while/body/eval_jaxpr/checkpoint/extra_msa_stack/triangle_attention_starting_node/attention/bqhc,bkhc->bhqk/dot_general",
+   "wall_s_per_round": 1.2058,
+   "rawsum_s_per_round": 1.2332,
+   "segments": 16,
+   "median_seg_ms": 115.3579,
+   "max_seg_ms": 387.0866
+  },
+  {
+   "op_name": "jit(sequence_design_loss)/transpose(jvp(jit(apply)))/jit(apply_fn)/alphafold/alphafold_iteration/evoformer/__layer_stack_no_state_1/while/body/eval_jaxpr/checkpoint/evoformer_iteration/triangle_multiplication_incoming/kjc,kic->ijc/transpose",
+   "wall_s_per_round": 1.1913,
+   "rawsum_s_per_round": 1.2296,
+   "segments": 384,
+   "median_seg_ms": 4.59,
+   "max_seg_ms": 35.1318
+  },
+  {
+   "op_name": "jit(sequence_design_loss)/transpose(jvp(jit(apply)))/jit(apply_fn)/alphafold/alphafold_iteration/evoformer/__layer_stack_no_state/while/body/eval_jaxpr/checkpoint/extra_msa_stack/triangle_attention_ending_node/attention/bqhc,bkhc->bhqk/dot_general",
+   "wall_s_per_round": 1.1863,
+   "rawsum_s_per_round": 1.2088,
+   "segments": 16,
+   "median_seg_ms": 115.2782,
+   "max_seg_ms": 454.865
+  },
+  {
+   "op_name": "jit(sequence_design_loss)/jvp(jit(apply))/jit(apply_fn)/alphafold/alphafold_iteration/evoformer/__layer_stack_no_state_1/while/body/eval_jaxpr/evoformer_iteration/triangle_attention_starting_node/attention/div",
+   "wall_s_per_round": 1.1747,
+   "rawsum_s_per_round": 1.1747,
+   "segments": 192,
+   "median_seg_ms": 10.5199,
+   "max_seg_ms": 36.9199
+  },
+  {
+   "op_name": "jit(sequence_design_loss)/jvp(jit(apply))/jit(apply_fn)/alphafold/alphafold_iteration/evoformer/__layer_stack_no_state_1/while/body/eval_jaxpr/evoformer_iteration/triangle_attention_starting_node/attention/mul",
+   "wall_s_per_round": 1.1292,
+   "rawsum_s_per_round": 1.1292,
+   "segments": 384,
+   "median_seg_ms": 4.898,
+   "max_seg_ms": 30.6467
+  },
+  {
+   "op_name": "jit(sequence_design_loss)/jvp(jit(apply))/jit(apply_fn)/alphafold/alphafold_iteration/evoformer/__layer_stack_no_state_1/while/body/eval_jaxpr/evoformer_iteration/triangle_attention_starting_node/attention/bka,ahc->bkhc/dot_general",
+   "wall_s_per_round": 1.1242,
+   "rawsum_s_per_round": 1.9446,
+   "segments": 768,
+   "median_seg_ms": 2.3984,
+   "max_seg_ms": 16.0382
+  }
+ ]
+}
