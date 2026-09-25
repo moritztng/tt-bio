@@ -189,10 +189,23 @@ is a capability a user meets and it belongs in the docs.
 ## What is missing, why, and the one decision with a number on it
 
 The full exactness-ON step time is **[OWED]**, and the reason is fleet capacity rather than
-engineering:
+engineering. **Updated 2026-09-25 19:5xZ: the pc half of this has been fixed and the fix is
+measurable in the fleet's own log.**
 
-- **pc (30.5 GB, 1 card)** cannot reliably *dispatch* a card row — the scheduler reserves half the
-  box, **15,617 MB**, against ~15,700 MB available, a **93 MB** margin — and cannot *hold* the step.
+- **pc (1 card) was failing its own card-row admission gate on every tick** — `host_mem_ok` logged
+  *"skipping host this run"* at 21:42:48, 21:44:42, 21:46:42, 21:48:43 and 21:50:46, the last with
+  **13,069 MB available against a 15,617 MB floor**. A card row on pc was structurally
+  undispatchable, not merely queued behind a busy card.
+  **Two things were wrong and only one of them was load.** The floor is
+  `total_mb / (2 * NCARDS) * in_flight` and `total_mb` is `MemTotal`, which does **not** fall when
+  memory is reserved as hugepages. pc had **4.000 GiB in the 1 GB hugepage pool**, so the gate was
+  demanding 15,617 MB of a box whose usable ceiling was **26,502 MiB** — **59 % of what a process
+  can actually obtain, while the gate's own comment says half.** Three of the four pages were free
+  with a device open (the pool is sized for a four-card QuietBox; pc has one card), so the
+  reservation bought nothing.
+  Set to two pages: **usable 28,502 MiB**, and pc now reads **18,777 MB available against the same
+  15,617 MB floor — a +3,160 MB margin** where it had 93 MB. It holds the step as well as
+  dispatching it: the ON arm reached **15.014 GiB** before its floor guard fired.
 - **qb2 (249 GB, 4 cards)** has one free card, half a p300c board pair whose sibling carries another
   campaign's live arm. While that sibling is in use a pair reset is unavailable, so a failed device
   open has **no recovery path** — on a box that hard-hung on exactly that failure the same day.
