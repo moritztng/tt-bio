@@ -143,6 +143,11 @@ class TTBioAlphaFoldDesignModel(AlphaFoldDesignModel):
     #: `campaign.py:59` negotiates this; the trunk returns AF2's distogram head unchanged.
     provides_distogram = True
 
+    #: Class-level default so `_record` is safe on an instance built without `__init__`.
+    #: `test_pool_checkpoint_match.py` does exactly that, and it is the test the decision
+    #: rule requires a tree to pass before any acceptance reading taken on it counts.
+    seqlog = None
+
     def __init__(self, *args, trunk: str = "jax", card: int | None = None,
                  pool=None, seqlog: str | None = None, **kwargs):
         if trunk not in ("jax", "device"):
