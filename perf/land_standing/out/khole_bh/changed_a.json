@@ -1,0 +1,768 @@
+{
+ "heads": 4,
+ "head_dim": 32,
+ "card": "3",
+ "batch": 32,
+ "graded": false,
+ "rows": [
+  {
+   "n": 416,
+   "padded": 416,
+   "batch": 32,
+   "graded": false,
+   "ref_rms": null,
+   "shipped_k": 256,
+   "dividing_k": [
+    416,
+    256
+   ],
+   "q_ladder": [
+    416,
+    256
+   ],
+   "arms": {
+    "shipped": {
+     "served": false,
+     "rmsd_vs_f64": null,
+     "stats": {
+      "served": 0,
+      "declined": 1,
+      "too_short": 0,
+      "taped": 0
+     },
+     "rejects": {
+      "('fill_preconditions', (32, 4, 416, 32))": 2
+     },
+     "rungs": [
+      {
+       "q_chunk": 416,
+       "k_chunk": 256,
+       "kv_bf": 2,
+       "k_divides": false,
+       "served": false
+      },
+      {
+       "q_chunk": 256,
+       "k_chunk": 256,
+       "kv_bf": 2,
+       "k_divides": false,
+       "served": false
+      }
+     ]
+    },
+    "dividing": {
+     "served": true,
+     "rmsd_vs_f64": null,
+     "stats": {
+      "served": 1,
+      "declined": 0,
+      "too_short": 0,
+      "taped": 0
+     },
+     "rejects": {},
+     "rungs": [
+      {
+       "q_chunk": 416,
+       "k_chunk": 416,
+       "kv_bf": 2,
+       "k_divides": true,
+       "served": true
+      }
+     ]
+    }
+   },
+   "fallback_rmsd_vs_f64": null,
+   "fused_vs_fallback": null,
+   "fallback_rms": null
+  },
+  {
+   "n": 544,
+   "padded": 544,
+   "batch": 32,
+   "graded": false,
+   "ref_rms": null,
+   "shipped_k": 256,
+   "dividing_k": [
+    544,
+    256
+   ],
+   "q_ladder": [
+    544,
+    256
+   ],
+   "arms": {
+    "shipped": {
+     "served": false,
+     "rmsd_vs_f64": null,
+     "stats": {
+      "served": 0,
+      "declined": 1,
+      "too_short": 0,
+      "taped": 0
+     },
+     "rejects": {
+      "('fill_preconditions', (32, 4, 544, 32))": 2
+     },
+     "rungs": [
+      {
+       "q_chunk": 544,
+       "k_chunk": 256,
+       "kv_bf": 2,
+       "k_divides": false,
+       "served": false
+      },
+      {
+       "q_chunk": 256,
+       "k_chunk": 256,
+       "kv_bf": 2,
+       "k_divides": false,
+       "served": false
+      }
+     ]
+    },
+    "dividing": {
+     "served": false,
+     "rmsd_vs_f64": null,
+     "stats": {
+      "served": 0,
+      "declined": 1,
+      "too_short": 0,
+      "taped": 0
+     },
+     "rejects": {
+      "('l1_budget', (32, 4, 544, 32))": 2,
+      "('fill_preconditions', (32, 4, 544, 32))": 2
+     },
+     "rungs": [
+      {
+       "q_chunk": 544,
+       "k_chunk": 544,
+       "kv_bf": 2,
+       "k_divides": true,
+       "served": false
+      },
+      {
+       "q_chunk": 544,
+       "k_chunk": 544,
+       "kv_bf": 1,
+       "k_divides": true,
+       "served": false
+      },
+      {
+       "q_chunk": 544,
+       "k_chunk": 256,
+       "kv_bf": 2,
+       "k_divides": false,
+       "served": false
+      },
+      {
+       "q_chunk": 256,
+       "k_chunk": 256,
+       "kv_bf": 2,
+       "k_divides": false,
+       "served": false
+      }
+     ]
+    }
+   },
+   "fallback_rmsd_vs_f64": null,
+   "fused_vs_fallback": null,
+   "fallback_rms": null
+  },
+  {
+   "n": 608,
+   "padded": 608,
+   "batch": 32,
+   "graded": false,
+   "ref_rms": null,
+   "shipped_k": 256,
+   "dividing_k": [
+    608,
+    256
+   ],
+   "q_ladder": [
+    608,
+    256
+   ],
+   "arms": {
+    "shipped": {
+     "served": false,
+     "rmsd_vs_f64": null,
+     "stats": {
+      "served": 0,
+      "declined": 1,
+      "too_short": 0,
+      "taped": 0
+     },
+     "rejects": {
+      "('fill_preconditions', (32, 4, 608, 32))": 2
+     },
+     "rungs": [
+      {
+       "q_chunk": 608,
+       "k_chunk": 256,
+       "kv_bf": 2,
+       "k_divides": false,
+       "served": false
+      },
+      {
+       "q_chunk": 256,
+       "k_chunk": 256,
+       "kv_bf": 2,
+       "k_divides": false,
+       "served": false
+      }
+     ]
+    },
+    "dividing": {
+     "served": false,
+     "rmsd_vs_f64": null,
+     "stats": {
+      "served": 0,
+      "declined": 1,
+      "too_short": 0,
+      "taped": 0
+     },
+     "rejects": {
+      "('l1_budget', (32, 4, 608, 32))": 2,
+      "('fill_preconditions', (32, 4, 608, 32))": 2
+     },
+     "rungs": [
+      {
+       "q_chunk": 608,
+       "k_chunk": 608,
+       "kv_bf": 2,
+       "k_divides": true,
+       "served": false
+      },
+      {
+       "q_chunk": 608,
+       "k_chunk": 608,
+       "kv_bf": 1,
+       "k_divides": true,
+       "served": false
+      },
+      {
+       "q_chunk": 608,
+       "k_chunk": 256,
+       "kv_bf": 2,
+       "k_divides": false,
+       "served": false
+      },
+      {
+       "q_chunk": 256,
+       "k_chunk": 256,
+       "kv_bf": 2,
+       "k_divides": false,
+       "served": false
+      }
+     ]
+    }
+   },
+   "fallback_rmsd_vs_f64": null,
+   "fused_vs_fallback": null,
+   "fallback_rms": null
+  },
+  {
+   "n": 704,
+   "padded": 704,
+   "batch": 32,
+   "graded": false,
+   "ref_rms": null,
+   "shipped_k": 256,
+   "dividing_k": [
+    704,
+    352,
+    256
+   ],
+   "q_ladder": [
+    704,
+    352,
+    256
+   ],
+   "arms": {
+    "shipped": {
+     "served": false,
+     "rmsd_vs_f64": null,
+     "stats": {
+      "served": 0,
+      "declined": 1,
+      "too_short": 0,
+      "taped": 0
+     },
+     "rejects": {
+      "('fill_preconditions', (32, 4, 704, 32))": 3
+     },
+     "rungs": [
+      {
+       "q_chunk": 704,
+       "k_chunk": 256,
+       "kv_bf": 2,
+       "k_divides": false,
+       "served": false
+      },
+      {
+       "q_chunk": 352,
+       "k_chunk": 256,
+       "kv_bf": 2,
+       "k_divides": false,
+       "served": false
+      },
+      {
+       "q_chunk": 256,
+       "k_chunk": 256,
+       "kv_bf": 2,
+       "k_divides": false,
+       "served": false
+      }
+     ]
+    },
+    "dividing": {
+     "served": true,
+     "rmsd_vs_f64": null,
+     "stats": {
+      "served": 1,
+      "declined": 0,
+      "too_short": 0,
+      "taped": 0
+     },
+     "rejects": {
+      "('l1_budget', (32, 4, 704, 32))": 2
+     },
+     "rungs": [
+      {
+       "q_chunk": 704,
+       "k_chunk": 704,
+       "kv_bf": 2,
+       "k_divides": true,
+       "served": false
+      },
+      {
+       "q_chunk": 704,
+       "k_chunk": 704,
+       "kv_bf": 1,
+       "k_divides": true,
+       "served": false
+      },
+      {
+       "q_chunk": 352,
+       "k_chunk": 704,
+       "kv_bf": 2,
+       "k_divides": true,
+       "served": true
+      }
+     ]
+    }
+   },
+   "fallback_rmsd_vs_f64": null,
+   "fused_vs_fallback": null,
+   "fallback_rms": null
+  },
+  {
+   "n": 736,
+   "padded": 736,
+   "batch": 32,
+   "graded": false,
+   "ref_rms": null,
+   "shipped_k": 256,
+   "dividing_k": [
+    736,
+    256
+   ],
+   "q_ladder": [
+    736,
+    256
+   ],
+   "arms": {
+    "shipped": {
+     "served": false,
+     "rmsd_vs_f64": null,
+     "stats": {
+      "served": 0,
+      "declined": 1,
+      "too_short": 0,
+      "taped": 0
+     },
+     "rejects": {
+      "('fill_preconditions', (32, 4, 736, 32))": 2
+     },
+     "rungs": [
+      {
+       "q_chunk": 736,
+       "k_chunk": 256,
+       "kv_bf": 2,
+       "k_divides": false,
+       "served": false
+      },
+      {
+       "q_chunk": 256,
+       "k_chunk": 256,
+       "kv_bf": 2,
+       "k_divides": false,
+       "served": false
+      }
+     ]
+    },
+    "dividing": {
+     "served": false,
+     "rmsd_vs_f64": null,
+     "stats": {
+      "served": 0,
+      "declined": 1,
+      "too_short": 0,
+      "taped": 0
+     },
+     "rejects": {
+      "('l1_budget', (32, 4, 736, 32))": 2,
+      "('fill_preconditions', (32, 4, 736, 32))": 2
+     },
+     "rungs": [
+      {
+       "q_chunk": 736,
+       "k_chunk": 736,
+       "kv_bf": 2,
+       "k_divides": true,
+       "served": false
+      },
+      {
+       "q_chunk": 736,
+       "k_chunk": 736,
+       "kv_bf": 1,
+       "k_divides": true,
+       "served": false
+      },
+      {
+       "q_chunk": 736,
+       "k_chunk": 256,
+       "kv_bf": 2,
+       "k_divides": false,
+       "served": false
+      },
+      {
+       "q_chunk": 256,
+       "k_chunk": 256,
+       "kv_bf": 2,
+       "k_divides": false,
+       "served": false
+      }
+     ]
+    }
+   },
+   "fallback_rmsd_vs_f64": null,
+   "fused_vs_fallback": null,
+   "fallback_rms": null
+  },
+  {
+   "n": 832,
+   "padded": 832,
+   "batch": 32,
+   "graded": false,
+   "ref_rms": null,
+   "shipped_k": 256,
+   "dividing_k": [
+    832,
+    416,
+    256
+   ],
+   "q_ladder": [
+    832,
+    416,
+    256
+   ],
+   "arms": {
+    "shipped": {
+     "served": false,
+     "rmsd_vs_f64": null,
+     "stats": {
+      "served": 0,
+      "declined": 1,
+      "too_short": 0,
+      "taped": 0
+     },
+     "rejects": {
+      "('fill_preconditions', (32, 4, 832, 32))": 3
+     },
+     "rungs": [
+      {
+       "q_chunk": 832,
+       "k_chunk": 256,
+       "kv_bf": 2,
+       "k_divides": false,
+       "served": false
+      },
+      {
+       "q_chunk": 416,
+       "k_chunk": 256,
+       "kv_bf": 2,
+       "k_divides": false,
+       "served": false
+      },
+      {
+       "q_chunk": 256,
+       "k_chunk": 256,
+       "kv_bf": 2,
+       "k_divides": false,
+       "served": false
+      }
+     ]
+    },
+    "dividing": {
+     "served": true,
+     "rmsd_vs_f64": null,
+     "stats": {
+      "served": 1,
+      "declined": 0,
+      "too_short": 0,
+      "taped": 0
+     },
+     "rejects": {
+      "('l1_budget', (32, 4, 832, 32))": 6
+     },
+     "rungs": [
+      {
+       "q_chunk": 832,
+       "k_chunk": 832,
+       "kv_bf": 2,
+       "k_divides": true,
+       "served": false
+      },
+      {
+       "q_chunk": 832,
+       "k_chunk": 832,
+       "kv_bf": 1,
+       "k_divides": true,
+       "served": false
+      },
+      {
+       "q_chunk": 416,
+       "k_chunk": 832,
+       "kv_bf": 2,
+       "k_divides": true,
+       "served": false
+      },
+      {
+       "q_chunk": 416,
+       "k_chunk": 832,
+       "kv_bf": 1,
+       "k_divides": true,
+       "served": false
+      },
+      {
+       "q_chunk": 832,
+       "k_chunk": 416,
+       "kv_bf": 2,
+       "k_divides": true,
+       "served": false
+      },
+      {
+       "q_chunk": 832,
+       "k_chunk": 416,
+       "kv_bf": 1,
+       "k_divides": true,
+       "served": false
+      },
+      {
+       "q_chunk": 416,
+       "k_chunk": 416,
+       "kv_bf": 2,
+       "k_divides": true,
+       "served": true
+      }
+     ]
+    }
+   },
+   "fallback_rmsd_vs_f64": null,
+   "fused_vs_fallback": null,
+   "fallback_rms": null
+  },
+  {
+   "n": 864,
+   "padded": 864,
+   "batch": 32,
+   "graded": false,
+   "ref_rms": null,
+   "shipped_k": 256,
+   "dividing_k": [
+    864,
+    288,
+    256
+   ],
+   "q_ladder": [
+    864,
+    288,
+    256
+   ],
+   "arms": {
+    "shipped": {
+     "served": false,
+     "rmsd_vs_f64": null,
+     "stats": {
+      "served": 0,
+      "declined": 1,
+      "too_short": 0,
+      "taped": 0
+     },
+     "rejects": {
+      "('fill_preconditions', (32, 4, 864, 32))": 3
+     },
+     "rungs": [
+      {
+       "q_chunk": 864,
+       "k_chunk": 256,
+       "kv_bf": 2,
+       "k_divides": false,
+       "served": false
+      },
+      {
+       "q_chunk": 288,
+       "k_chunk": 256,
+       "kv_bf": 2,
+       "k_divides": false,
+       "served": false
+      },
+      {
+       "q_chunk": 256,
+       "k_chunk": 256,
+       "kv_bf": 2,
+       "k_divides": false,
+       "served": false
+      }
+     ]
+    },
+    "dividing": {
+     "served": true,
+     "rmsd_vs_f64": null,
+     "stats": {
+      "served": 1,
+      "declined": 0,
+      "too_short": 0,
+      "taped": 0
+     },
+     "rejects": {
+      "('l1_budget', (32, 4, 864, 32))": 2
+     },
+     "rungs": [
+      {
+       "q_chunk": 864,
+       "k_chunk": 864,
+       "kv_bf": 2,
+       "k_divides": true,
+       "served": false
+      },
+      {
+       "q_chunk": 864,
+       "k_chunk": 864,
+       "kv_bf": 1,
+       "k_divides": true,
+       "served": false
+      },
+      {
+       "q_chunk": 288,
+       "k_chunk": 864,
+       "kv_bf": 2,
+       "k_divides": true,
+       "served": true
+      }
+     ]
+    }
+   },
+   "fallback_rmsd_vs_f64": null,
+   "fused_vs_fallback": null,
+   "fallback_rms": null
+  },
+  {
+   "n": 928,
+   "padded": 928,
+   "batch": 32,
+   "graded": false,
+   "ref_rms": null,
+   "shipped_k": 256,
+   "dividing_k": [
+    928,
+    256
+   ],
+   "q_ladder": [
+    928,
+    256
+   ],
+   "arms": {
+    "shipped": {
+     "served": false,
+     "rmsd_vs_f64": null,
+     "stats": {
+      "served": 0,
+      "declined": 1,
+      "too_short": 0,
+      "taped": 0
+     },
+     "rejects": {
+      "('fill_preconditions', (32, 4, 928, 32))": 2
+     },
+     "rungs": [
+      {
+       "q_chunk": 928,
+       "k_chunk": 256,
+       "kv_bf": 2,
+       "k_divides": false,
+       "served": false
+      },
+      {
+       "q_chunk": 256,
+       "k_chunk": 256,
+       "kv_bf": 2,
+       "k_divides": false,
+       "served": false
+      }
+     ]
+    },
+    "dividing": {
+     "served": false,
+     "rmsd_vs_f64": null,
+     "stats": {
+      "served": 0,
+      "declined": 1,
+      "too_short": 0,
+      "taped": 0
+     },
+     "rejects": {
+      "('l1_budget', (32, 4, 928, 32))": 2,
+      "('fill_preconditions', (32, 4, 928, 32))": 2
+     },
+     "rungs": [
+      {
+       "q_chunk": 928,
+       "k_chunk": 928,
+       "kv_bf": 2,
+       "k_divides": true,
+       "served": false
+      },
+      {
+       "q_chunk": 928,
+       "k_chunk": 928,
+       "kv_bf": 1,
+       "k_divides": true,
+       "served": false
+      },
+      {
+       "q_chunk": 928,
+       "k_chunk": 256,
+       "kv_bf": 2,
+       "k_divides": false,
+       "served": false
+      },
+      {
+       "q_chunk": 256,
+       "k_chunk": 256,
+       "kv_bf": 2,
+       "k_divides": false,
+       "served": false
+      }
+     ]
+    }
+   },
+   "fallback_rmsd_vs_f64": null,
+   "fused_vs_fallback": null,
+   "fallback_rms": null
+  }
+ ]
+}

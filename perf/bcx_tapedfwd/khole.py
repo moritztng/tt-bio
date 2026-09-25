@@ -63,12 +63,20 @@ class Rungs:
         return out
 
 
-def operands(dev, n, seed):
+def operands(dev, n, seed, batch=0):
     """One triangle-attention call's operands at BC2's head count, as the engine hands them over:
-    q/k/v [S, heads, S, head_dim] and an additive bias [1, heads, S, S]."""
+    q/k/v [S, heads, S, head_dim] and an additive bias [1, heads, S, S].
+
+    `batch` overrides the leading S. Which rung fires is a function of q_len, k_len and the
+    per-core L1 budget, all read off shape[2] and the chunk sizes, so the leading dim is free --
+    and it is the dim that makes this harness cost O(S^3): the float64 reference alone is 109 GB
+    at S = 1504. Pass 0 for the engine's own square batch. Whether the override is safe is not
+    assumed here: run the same n at two batches and compare the rungs.
+    """
+    b = batch or n
     g = torch.Generator().manual_seed(seed)
     mk = lambda *s: torch.randn(*s, generator=g, dtype=torch.float32)  # noqa: E731
-    q, k, v = (mk(n, HEADS, n, HEAD_DIM) for _ in range(3))
+    q, k, v = (mk(b, HEADS, n, HEAD_DIM) for _ in range(3))
     bias = mk(1, HEADS, n, n)
     up = lambda t: ttnn.from_torch(t, dtype=ttnn.bfloat16, layout=ttnn.TILE_LAYOUT, device=dev)
     return (q, k, v, bias), (up(q), up(k), up(v), up(bias))
@@ -96,6 +104,17 @@ def rmsd(a, b):
     return float(torch.sqrt(torch.mean((a - b) ** 2)))
 
 
+def _bank(args, rows):
+    out = Path(args.out)
+    if not out.is_absolute():
+        out = Path(__file__).resolve().parent / out
+    out.parent.mkdir(parents=True, exist_ok=True)
+    out.write_text(json.dumps({"heads": HEADS, "head_dim": HEAD_DIM, "card": args.card,
+                               "batch": args.batch, "graded": not args.no_grade,
+                               "rows": rows}, indent=1))
+    return out
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--ns", default="256,288,320")
@@ -103,9 +122,28 @@ def main():
     ap.add_argument("--seed", type=int, default=100)
     ap.add_argument("--card", default=os.environ.get("TT_VISIBLE_DEVICES", "0"))
     ap.add_argument("--out", default="out/khole.json")
+    ap.add_argument("--batch", type=int, default=0,
+                    help="leading dim of q/k/v; 0 is the engine's own square batch. Firing does "
+                         "not read it, cost is cubic in it.")
+    ap.add_argument("--no-grade", action="store_true",
+                    help="skip the float64 reference, the fall-back fold and every rmsd, and "
+                         "answer the firing question alone: which rungs each arm offers and "
+                         "whether one serves. Load-insensitive and O(S^2), so it reaches the "
+                         "lengths the graded arm cannot.")
     args = ap.parse_args()
 
     from tt_bio import device_lease as DL
+    # A probe that opens the device by hand also has to do what `tt_bio.main` does before the
+    # open. On a pinned p300c this box reports a CUSTOM cluster type and ttnn aborts with
+    # "Custom fabric mesh graph descriptor path must be specified" (tt_cluster.cpp:273) before
+    # a single tensor exists. Same four lines as perf/allm_gates/*; the p150 descriptor is the
+    # single-chip one and is right for a pinned card, which is the only kind of open this
+    # harness makes.
+    from tt_bio.main import _detect_p300_devices, _find_ttnn_mesh_graph_descriptor
+    if _detect_p300_devices() and not os.environ.get("TT_MESH_GRAPH_DESC_PATH"):
+        mgd = _find_ttnn_mesh_graph_descriptor("p150_mesh_graph_descriptor.textproto")
+        if mgd:
+            os.environ["TT_MESH_GRAPH_DESC_PATH"] = mgd
     dev = ttnn.open_device(device_id=0)
     # The engine's own grid adoption. Without it `COMPUTE_GRID_MAIN` stays at the import-time
     # 11x10 Blackhole guess, and on this 8x9 Wormhole Galaxy chip the plan then asks for cores
@@ -124,12 +162,14 @@ def main():
     rows = []
     try:
         for n in [int(x) for x in args.ns.split(",")]:
-            host, (q, k, v, bias) = operands(dev, n, args.seed)
+            host, (q, k, v, bias) = operands(dev, n, args.seed, args.batch)
             fused_out = None
             scale = HEAD_DIM ** -0.5
-            refs = reference(host, scale)
+            refs = None if args.no_grade else reference(host, scale)
             row = {"n": n, "padded": T._padded_sdpa_len(n),
-                   "ref_rms": {kk: float(torch.sqrt(torch.mean(vv ** 2)))
+                   "batch": int(q.shape[0]), "graded": not args.no_grade,
+                   "ref_rms": None if refs is None else
+                              {kk: float(torch.sqrt(torch.mean(vv ** 2)))
                                for kk, vv in refs.items()},
                    "shipped_k": shipped_k_ladder(n, n)[1],
                    "dividing_k": list(T._dividing_k_chunks(n, n)),
@@ -144,8 +184,9 @@ def main():
                 rungs.on = False
                 got, served_t = None, None
                 if o is not None:
-                    served_t = ttnn.to_torch(o).double()
-                    got = {kk: rmsd(served_t, vv) for kk, vv in refs.items()}
+                    if refs is not None:
+                        served_t = ttnn.to_torch(o).double()
+                        got = {kk: rmsd(served_t, vv) for kk, vv in refs.items()}
                     ttnn.deallocate(o)
                 if arm == "dividing" and served_t is not None:
                     fused_out = served_t
@@ -161,35 +202,36 @@ def main():
             # that None sends the caller to `_fp32_softmax_attention` and NOT to the stock bf16 op,
             # so the fused route's accuracy has to be read against that and not against float64
             # alone -- at 288 the fix replaces this path, and it is the more accurate one by design.
-            fb = T._fp32_softmax_attention(
-                q, k, v, bias, scale_inv=scale ** -1,
-                compute_kernel_config=T._SOFTMAX_PRECISE_CKC, out_dtype=ttnn.bfloat16,
-                bias_scale_inv=1.0, accurate_softmax=False)
-            fb_t = ttnn.to_torch(fb).double()
-            ttnn.deallocate(fb)
-            row["fallback_rmsd_vs_f64"] = {kk: rmsd(fb_t, vv) for kk, vv in refs.items()}
+            if refs is None:
+                row["fallback_rmsd_vs_f64"] = row["fused_vs_fallback"] = row["fallback_rms"] = None
+            else:
+              fb = T._fp32_softmax_attention(
+                  q, k, v, bias, scale_inv=scale ** -1,
+                  compute_kernel_config=T._SOFTMAX_PRECISE_CKC, out_dtype=ttnn.bfloat16,
+                  bias_scale_inv=1.0, accurate_softmax=False)
+              fb_t = ttnn.to_torch(fb).double()
+              ttnn.deallocate(fb)
+              row["fallback_rmsd_vs_f64"] = {kk: rmsd(fb_t, vv) for kk, vv in refs.items()}
             # The number the fix is actually graded on. At 288 the fused route REPLACES this path,
             # so fused-vs-fall-back is the change a caller sees, and unlike the float64 distance it
             # does not depend on which scale convention the reference guessed.
-            row["fused_vs_fallback"] = rmsd(fused_out, fb_t) if fused_out is not None else None
-            row["fallback_rms"] = float(torch.sqrt(torch.mean(fb_t ** 2)))
-            print(f"n={n} fall-back rmsd={row['fallback_rmsd_vs_f64']} "
-                  f"fused_vs_fallback={row['fused_vs_fallback']} "
-                  f"fb_rms={row['fallback_rms']:.5f}", flush=True)
+              row["fused_vs_fallback"] = (rmsd(fused_out, fb_t)
+                                          if fused_out is not None else None)
+              row["fallback_rms"] = float(torch.sqrt(torch.mean(fb_t ** 2)))
+              print(f"n={n} fall-back rmsd={row['fallback_rmsd_vs_f64']} "
+                    f"fused_vs_fallback={row['fused_vs_fallback']} "
+                    f"fb_rms={row['fallback_rms']:.5f}", flush=True)
             for t in (q, k, v, bias):
                 ttnn.deallocate(t)
             rows.append(row)
+            # Banked per length rather than at the end: an L1 refusal at a long length can take
+            # the host with it, and a clock written at the end of main() dies with the run.
+            _bank(args, rows)
     finally:
         TS.sdpa = rungs.real
         ttnn.close_device(dev)
 
-    out = Path(args.out)
-    if not out.is_absolute():
-        out = Path(__file__).resolve().parent / out
-    out.parent.mkdir(parents=True, exist_ok=True)
-    out.write_text(json.dumps({"heads": HEADS, "head_dim": HEAD_DIM,
-                               "card": args.card, "rows": rows}, indent=1))
-    print(f"wrote {out}")
+    print(f"wrote {_bank(args, rows)}")
 
 
 if __name__ == "__main__":

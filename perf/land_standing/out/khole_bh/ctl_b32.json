@@ -1,0 +1,96 @@
+{
+ "heads": 4,
+ "head_dim": 32,
+ "card": "3",
+ "batch": 32,
+ "graded": false,
+ "rows": [
+  {
+   "n": 288,
+   "padded": 288,
+   "batch": 32,
+   "graded": false,
+   "ref_rms": null,
+   "shipped_k": 64,
+   "dividing_k": [
+    288,
+    96,
+    64
+   ],
+   "q_ladder": [
+    288,
+    96,
+    32,
+    64
+   ],
+   "arms": {
+    "shipped": {
+     "served": false,
+     "rmsd_vs_f64": null,
+     "stats": {
+      "served": 0,
+      "declined": 1,
+      "too_short": 0,
+      "taped": 0
+     },
+     "rejects": {
+      "('fill_preconditions', (32, 4, 288, 32))": 4
+     },
+     "rungs": [
+      {
+       "q_chunk": 288,
+       "k_chunk": 64,
+       "kv_bf": 2,
+       "k_divides": false,
+       "served": false
+      },
+      {
+       "q_chunk": 96,
+       "k_chunk": 64,
+       "kv_bf": 2,
+       "k_divides": false,
+       "served": false
+      },
+      {
+       "q_chunk": 32,
+       "k_chunk": 64,
+       "kv_bf": 2,
+       "k_divides": false,
+       "served": false
+      },
+      {
+       "q_chunk": 64,
+       "k_chunk": 64,
+       "kv_bf": 2,
+       "k_divides": false,
+       "served": false
+      }
+     ]
+    },
+    "dividing": {
+     "served": true,
+     "rmsd_vs_f64": null,
+     "stats": {
+      "served": 1,
+      "declined": 0,
+      "too_short": 0,
+      "taped": 0
+     },
+     "rejects": {},
+     "rungs": [
+      {
+       "q_chunk": 288,
+       "k_chunk": 288,
+       "kv_bf": 2,
+       "k_divides": true,
+       "served": true
+      }
+     ]
+    }
+   },
+   "fallback_rmsd_vs_f64": null,
+   "fused_vs_fallback": null,
+   "fallback_rms": null
+  }
+ ]
+}
