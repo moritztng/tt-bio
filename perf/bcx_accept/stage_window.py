@@ -31,19 +31,24 @@ import sys
 
 STAGES = ("screen", "refine", "anneal", "harden", "mutate")
 METRIC = "hPDL1.iptm"
+PAIRED = ("hPDL1.iptm", "hPDL1.ptm", "hPDL1.plddt_loss")
 RE_DRAW = re.compile(r"_l(\d+)_([0-9a-f]+)_losses\.csv$")
 
 
-def series(path):
+def series(path, metric=METRIC):
     """stage -> list of the metric, in round order."""
     out = {}
     with open(path, newline="") as fh:
         for row in csv.DictReader(fh):
-            v = (row.get(METRIC) or "").strip()
+            v = (row.get(metric) or "").strip()
             if not v:
                 continue
             out.setdefault(row["phase"], []).append(float(v))
     return out
+
+
+def jitter(vals):
+    return st.median([abs(vals[i] - vals[i - 1]) for i in range(1, len(vals))])
 
 
 def stat(vals, window):
@@ -64,10 +69,12 @@ def main(argv):
             label, _, path = a.partition("=")
             specs.append((label, side, path))
 
-    rows = []
+    rows, raw = [], []
     for label, s, path in specs:
         m = RE_DRAW.search(path)
-        rows.append((label, s, f"l{m.group(1)}" if m else "?", series(path)))
+        draw = f"l{m.group(1)}" if m else "?"
+        rows.append((label, s, draw, series(path)))
+        raw.append((label, s, draw, path))
 
     print(f"\n# Per-stage i_pTM: the printed max against the last {window} rounds")
     print(f"# gap = stage max - max of its final {window} rounds. A stage that ends where it")
@@ -148,6 +155,25 @@ def main(argv):
             d += [abs(vals[i] - vals[i - 1]) for i in range(1, len(vals))]
         if d:
             print(f"{label:<13}{s_:<11}{draw:<7}{st.median(d):>12.3f}{len(d) + 1:>8}")
+
+
+    print("\n## is the jitter the interface, or the whole fold?")
+    print("i_pTM is predicted_tm_score over the cross-chain block of the PAE matrix; pTM is the")
+    print("same reduction over the whole complex and plddt_loss is per-residue confidence. A")
+    print("trajectory is its own control here, so the RATIO does not need a large reference n.\n")
+    print(f"{'arm':<13}{'side':<5}{'draw':<7}{'jit i_pTM':>11}{'jit pTM':>9}"
+          f"{'jit pLDDT':>11}{'i_pTM/pTM':>11}")
+    for label, s_, draw, path in raw:
+        j = {}
+        for k in PAIRED:
+            pooled = []
+            for stage, vals in series(path, k).items():
+                if len(vals) > 2:
+                    pooled += [abs(vals[i] - vals[i - 1]) for i in range(1, len(vals))]
+            j[k] = st.median(pooled) if pooled else 0.0
+        ip, pt = j["hPDL1.iptm"], j["hPDL1.ptm"]
+        print(f"{label:<13}{s_[:3]:<5}{draw:<7}{ip:>11.3f}{pt:>9.3f}"
+              f"{j['hPDL1.plddt_loss']:>11.3f}{(ip / pt if pt else 0):>11.2f}")
 
 
 if __name__ == "__main__":
