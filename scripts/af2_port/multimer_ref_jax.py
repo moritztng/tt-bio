@@ -142,7 +142,8 @@ class _Float64Numpy:
 
 
 def build_fixture(num_res: int, chain_lengths, num_templates: int, seed: int,
-                  translate: float = 0.0, chi1_only: bool = False) -> dict:
+                  translate: float = 0.0, chi1_only: bool = False,
+                  homomer: bool = False) -> dict:
     """A two-chain fixture with a helical backbone. Every array is what the trunk reads."""
     rng = np.random.default_rng(seed)
     assert sum(chain_lengths) == num_res
@@ -150,11 +151,14 @@ def build_fixture(num_res: int, chain_lengths, num_templates: int, seed: int,
     asym, entity, sym, residue_index = [], [], [], []
     for chain, length in enumerate(chain_lengths):
         asym += [chain + 1] * length
-        # Both chains are the same entity here only if their lengths match; keep them distinct
-        # so `entity_id_same` is not trivially all ones and the relative encoding's extra bins
-        # are all exercised.
-        entity += [chain + 1] * length
-        sym += [1] * length
+        # Two chains of different entities take the relative encoding's "different entity" bin
+        # and never reach the relative-chain bins, which is what BindCraft 2's pdl1 target and
+        # binder do. `homomer` makes both chains one entity with distinct `sym_id`, which is the
+        # only way bins other than the centre and the different-entity one ever fire -- BindCraft
+        # 2 reaches it through `multi_chain_binders`, and an untested branch of a one-hot is
+        # where an off-by-one hides.
+        entity += [1 if homomer else chain + 1] * length
+        sym += [chain + 1 if homomer else 1] * length
         residue_index += list(range(length))
 
     # An alpha helix: 1.5 A rise, 100 degrees per residue, N/CA/C offset around the axis.
@@ -243,6 +247,9 @@ def main() -> None:
     ap.add_argument("--chi1-only", action="store_true",
                     help="draw no alanine and no glycine, so every template MSA row is "
                          "unmasked; the fixture the ordering delta was first measured on")
+    ap.add_argument("--homomer", action="store_true",
+                    help="both chains one entity with distinct sym_id, so the relative-chain\n"
+                         "bins fire instead of the different-entity bin")
     ap.add_argument("--float32", action="store_true",
                     help="run with global_config.bfloat16 off (the transform question)")
     ap.add_argument("--float64", action="store_true",
@@ -286,7 +293,8 @@ def main() -> None:
             array, dtype=jnp.float64 if args.float64 else jnp.float32)
 
     batch = build_fixture(args.num_res, [int(x) for x in args.chains.split(",")],
-                          args.templates, args.seed, args.translate, args.chi1_only)
+                          args.templates, args.seed, args.translate, args.chi1_only,
+                          args.homomer)
 
     def forward(batch):
         return modules_multimer.EmbeddingsAndEvoformer(cfg, gc, name="evoformer")(
@@ -315,7 +323,8 @@ def main() -> None:
         "npz": Path(args.npz).name, "num_res": args.num_res, "chains": args.chains,
         "templates": args.templates, "blocks": args.blocks, "translate": args.translate,
         "extra_blocks": args.extra_blocks, "seed": args.seed,
-        "chi1_only": bool(args.chi1_only), "af_package": AF_PACKAGE[0],
+        "chi1_only": bool(args.chi1_only), "homomer": bool(args.homomer),
+        "af_package": AF_PACKAGE[0],
         "bfloat16": bool(gc.bfloat16), "float64": bool(args.float64),
         "jax_version": jax.__version__,
         "counts": COUNTS,
