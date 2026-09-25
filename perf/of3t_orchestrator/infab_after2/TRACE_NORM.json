@@ -1,0 +1,60 @@
+{
+ "openfold3": {
+  "lines": [
+   40994,
+   40994
+  ],
+  "differing_lines": 5,
+  "first_differing": [
+   31068
+  ],
+  "multiset_equal": true
+ },
+ "openbind": {
+  "lines": [
+   41187,
+   41187
+  ],
+  "differing_lines": 5,
+  "first_differing": [
+   31261
+  ],
+  "multiset_equal": true
+ },
+ "protenix-v2": {
+  "lines": [
+   87316,
+   87316
+  ],
+  "differing_lines": 0,
+  "first_differing": [],
+  "multiset_equal": true
+ },
+ "opendde": {
+  "lines": [
+   128976,
+   128976
+  ],
+  "differing_lines": 0,
+  "first_differing": [],
+  "multiset_equal": true
+ },
+ "rf3": {
+  "lines": [
+   79982,
+   79982
+  ],
+  "differing_lines": 0,
+  "first_differing": [],
+  "multiset_equal": true
+ },
+ "rfd3": {
+  "lines": [
+   62384,
+   62384
+  ],
+  "differing_lines": 0,
+  "first_differing": [],
+  "multiset_equal": true
+ }
+}
