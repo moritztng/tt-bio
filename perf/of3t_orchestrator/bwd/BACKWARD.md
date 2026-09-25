@@ -60,10 +60,37 @@ implementations ... full speed. with multiple agents."*
 > share of the instrument** — which is why §4c's ceiling, the JOBS shares and most of this
 > document's §1 were ranking noise.
 >
-> **What is actually left**, both invisible until the denominator was fixed and both dispatched:
-> `zeros [384,1,384,128]` at **35.1 % of the real backward, 424x off its 440 GB/s roof**
-> (`of3t-zerosfill`); and whether exact softmax alone carries the accuracy so the exact layer norm
-> can go, worth **128.73 s at no cost to the bar** (`of3t-exactscope`).
+> **What is actually left** — and as of pass 454 both of the two levers named here are CLOSED,
+> so read the two paragraphs below before you plan against either.
+>
+> **`zeros`: GO, and worth 1.0518x rather than the 35.1 % it was briefed at.** Fix on main at
+> `f0e8f3b71`, detail in the pass-450 banner below.
+>
+> **The exact scope CANNOT be narrowed, and the 128.73 s is not recoverable. `of3t-exactscope`
+> refuted it on the accuracy side, measured, on the bar `of3t-stackexact` pre-registered two days
+> before the arm existed** (clause / 0.15210099830945006 <= 1.0, `perf/of3t_modelframe/clause.py`):
+>
+>     rung  scope             x bar     clears   model grad err^2 vs float64
+>     1     none (SHIP)       1.45117   no       1.0000x
+>     2     softmax only      1.30379   no       1.1760x
+>     -     layer_norm only   1.28386   no       0.8986x
+>     3     softmax + LN      0.98226   YES      0.4440x
+>
+> **Only the pair clears, and softmax-only is worse than shipping nothing on the truth axis**: its
+> squared gradient error against float64 *rises* to 1.1760x SHIP while the graded clause improves,
+> so its apparent gain is partly matching upstream's own bf16 rounding rather than getting closer
+> to the truth. The median tensor regresses 52 % (0.3775 -> 0.5744). The worst tensor softmax-only
+> leaves is a layer norm's own weight, `pairformer_stack.blocks.23.single_transition.layer_norm.weight`
+> at rel_l2 **23.59** against float64. Leave the layer norm on the device op and the tensor that
+> hurts most is the layer norm's own parameter — which is the mechanism, not a coincidence.
+> Arm S reproduces `of3t-modelever`'s banked arm 2736/2736 bit-identical, so this is a
+> reproduction and not a fresh reading. Seconds still running; the accuracy answer is final.
+>
+> **So do not plan a lever that turns either scope off, at any scope, and do not re-open this.**
+> `exact_training(False)` is 1.4512x the bar and is not available either. The exactness is
+> load-bearing in full, it is 95.2 % of the backward, and the only remaining question of that
+> size is whether it can be made CHEAP AT UNCHANGED FIDELITY — which is `of3t-xcost`, dispatched
+> pass 454, and is the sprint's whole remaining upside.
 
 > # !! STALE BASELINE — READ THIS BEFORE ANY NUMBER BELOW. 2026-09-25, pass 450. !!
 >
@@ -98,6 +125,26 @@ implementations ... full speed. with multiple agents."*
 >
 > **The re-take is one `fullstep.py` run on main.** Until it lands, no row may build a share on
 > the numbers above. Say "stale baseline" rather than quoting one.
+>
+> **AND IT MOVED AGAIN, 2026-09-25 18:3x (orchestrator).** `wk/of3t-zerosfill` is on
+> `origin/main` at **`f0e8f3b71`** (fast-forward from `bcb51cf11`; merge tree `c8b91db8d` is
+> byte-identical to the tested branch tip, so its own gates carry the merge). `DEVICE_ZEROS`
+> now defaults **True** and `_v_create_qkv_heads` routes through `ag.grad_zeros` instead of
+> building a second zeros beside it. That is **1.04 s off a 21.12 s device backward (1.0518x)**
+> at crop 384 — the backward's wall goes 21.1 s -> 20.1 s.
+>
+> So **`of3t-restep` must take the re-take at `f0e8f3b71` or later**, not at `bcb51cf11`, and
+> should record `env.commit` in its artifact the way the banked step did. `of3t-exactscope` is
+> running from a `bcb51cf11` worktree: its A/B is still valid (both arms share that tree) but its
+> *absolute* seconds are pre-zerosfill and must be labelled as such, never merged into a table
+> with post-`f0e8f3b71` numbers.
+>
+> The same pass also retired its own brief's headline: `zeros` was briefed at **11.8 s / 35.1 %**
+> off a per-verb self-time table and is worth **1.04 s**. ttnn dispatch is asynchronous, so the
+> one blocking verb is billed for the queue draining behind it — `zeros` loses 12.018 s in the
+> table while the other verbs grow 10.650 s, 89 % of it. **Any J-row ranked off that table owes a
+> wall-clock A/B before its share is quoted.** Memory:
+> `a-blocking-op-is-charged-for-the-queue-drained-behind-it`.
 
 ## 1. The gap is software, and how much of it
 
