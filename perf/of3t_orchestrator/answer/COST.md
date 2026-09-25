@@ -53,7 +53,7 @@ compute / ~11x bandwidth silicon floor is a scope mismatch every time.
 | backward, both exact ops | **570.196 s of 705.78 s (80.79 %)** | verb self-time, the one additive axis (`of3t-xcost`) |
 | of which genuine host float64 arithmetic | **94.07 s** | measured on the production route |
 | of which host tilize/untilize + buffer copy | **82.56 s** | host-only, no DMA in the number |
-| **real transfer, at the achievable roof** | **165.99 s of a 168.51 s residual** | ATTRIBUTED (`of3t-xsplit`): only **2.54 s** is queue drain — `from_torch`'s is **zero by measurement** against an empty-queue sync floor. Arms alternated per crossing within one backward, n=110/106, 216 crossings each way. **Not recoverable by removing overhead** |
+| **real transfer, at the achievable roof** | **165.99 s of a 168.51 s residual** | ATTRIBUTED (`of3t-xsplit`, GO): only **2.54 s** is queue drain — `from_torch`'s is **zero by measurement**. The transfer half runs at the board's own achievable host-DMA rate measured in the same process, **1.265 GB/s live against 1.187 GB/s isolated**, so it is a **roof, not a defect**. **Not recoverable by removing overhead** |
 | forward half, exactness ON | **<= 386 s** against 5.919 s → **<= 65.2x** | a BOUND from two durable clock stamps, not a timed run; matched one-taped-cycle axis, crop 384 (`of3t-restep`). Supersedes a ~299 s / ~54x derivation that row withdrew as unreproducible |
 | full step, exactness ON | **[OWED]** | `of3t-stepqb2`. The campaign's one missing number |
 | full step, exactness OFF, current tree | **[OWED]** | `of3t-stepqb2`; the stale 466.702 s is from `451ed56f4`, a tree where the feature did not exist |
@@ -73,6 +73,13 @@ campaign's own OF3T arms is a bound, an A/B between arms of identical scope, or 
 The standing rule here is that a number without a DURING clock is not a measurement. Host memory is
 load-insensitive, so the decomposition below is unaffected — that split is stated rather than
 glossed.
+
+**A narrower transfer is not available either.** Halving the bytes would have been bit-exact only
+if the score block's fp32 words carried ≤ 8 explicit mantissa bits. Censused on the real tensor at
+real sites during a real backward — 324 crossings, **73,383,542,784 elements**, three sites, every
+block index, no synthetic data — **65.69 % of words carry a set bit below the bf16 boundary**, the
+mean is **8.47** set mantissa bits, and **20.76 % of the mass sits on bit 0 alone**. So a bf16
+crossing would be a rounding, and this campaign does not trade fidelity for bytes.
 
 ## Why it costs that
 
