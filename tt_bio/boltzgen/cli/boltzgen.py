@@ -1658,6 +1658,9 @@ class BinderDesignPipeline:
 
 ### Misc utiltiies ###
 def check_design_specs(args: argparse.Namespace, moldir: Path, mols: Dict[str, Any]):
+    # The preview structure each check writes draws its binder lengths.
+    if getattr(args, "seed", None) is not None:
+        seed_everything(args.seed)
     last_banner = ""
     for design_spec in args.design_spec:
         banner = f"************** Checking design spec: {design_spec} **************"
