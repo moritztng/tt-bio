@@ -148,10 +148,10 @@ use, inside `step()`, gives **construct 7.105 → 2.842 GiB (−60.0 %)** and **
 7.105 → 5.684 GiB**. Proven bit-identical across six arms and six steps by raw-byte comparison of
 masters, both moments, device weights and every report — 0 differences.
 
-**Which of those numbers is on main today: the 7.105 GiB one.** The fix is release-gated on
-`wk/of3t-optorder` and unmerged, so a user running main gets the full figure. The 2.842 / 5.684
-pair describes the configuration that would ship if it lands, and `docs/training.md` carries
-those two numbers on the same branch, so the doc and the code move together. The untaped recycle prefix retains
+**Which of those numbers is on main today: the 2.842 / 5.684 pair.** Corrected 2026-09-25: the
+fix **landed** as `9723f24e3` (`_LazyMoments` in `origin/main:tt_bio/train/optim.py`), so the
+4.263 GiB is what a user running main gets, not a configuration that would ship if it landed.
+`docs/training.md` on main carries the same two figures, so the doc and the code moved together. The untaped recycle prefix retains
 **nothing**, which is the control that makes the rest of the table readable. One in-flight exact
 softmax costs **+2.85 GiB** measured against 3.377 GiB predicted — real, understood, and a
 transient riding on a **10.6 GiB floor** rather than the floor itself.
