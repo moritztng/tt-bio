@@ -102,7 +102,8 @@ def main():
     pool = None
     if args.multimer_pool and args.arm == "device":
         import multimer_pool as MP
-        pool = MP.MultimerPool(args.params, resident=args.pool_resident or None)
+        pool = MP.MultimerPool(args.params, resident=args.pool_resident or None,
+                               log_path=os.path.join(project, "pool_selections.jsonl"))
 
     if args.arm != "reference":
         # campaign.py:262 is the only construction of a predictor in the repository, so an

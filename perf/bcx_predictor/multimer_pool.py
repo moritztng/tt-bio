@@ -25,6 +25,7 @@ anyone who does need it should measure the device allocator across an eviction f
 """
 from __future__ import annotations
 
+import json
 import os
 import pathlib
 import time
@@ -36,7 +37,8 @@ class MultimerPool:
     """Several `afgrad.Dev`s behind one `Dev`-shaped surface, selected by model name."""
 
     def __init__(self, params_dir: str, models=POOL, k_evo: int = 48,
-                 resident: int | None = None, verbose: bool = True):
+                 resident: int | None = None, verbose: bool = True,
+                 log_path: str | None = None):
         self.dir = pathlib.Path(os.path.expanduser(params_dir))
         self.models = tuple(models)
         self.k_evo = k_evo
@@ -47,6 +49,12 @@ class MultimerPool:
         self._current: str | None = None
         self.load_seconds: dict[str, float] = {}
         self.selections: dict[str, int] = {}
+        #: One line per selection, appended as it happens. `stamp()` only lands when the process
+        #: exits cleanly, and a design campaign is exactly the kind of run that does not: the
+        #: seq-288 arms all died mid-trajectory and took their selection counts with them. A
+        #: timestamped line per step is also the only way to get a per-model step RATE out of a
+        #: run, which is the number the campaign wants and the counts alone cannot give.
+        self.log_path = log_path
         missing = [m for m in self.models if not (self.dir / f"params_{m}.npz").exists()]
         if missing:
             raise FileNotFoundError(f"{self.dir} has no {', '.join(missing)}")
@@ -61,6 +69,14 @@ class MultimerPool:
         self._current = name
         self.selections[name] = self.selections.get(name, 0) + 1
         self._ensure(name)
+        if self.log_path:
+            try:
+                with open(self.log_path, "a") as fh:
+                    fh.write(json.dumps({"t": round(time.time(), 3), "model": name,
+                                         "n": self.selections[name]}) + "\n")
+            except OSError:
+                # A full or read-only disk must not end a design campaign for the sake of a log.
+                self.log_path = None
 
     def _ensure(self, name: str):
         dev = self._devs.get(name)
@@ -105,5 +121,6 @@ class MultimerPool:
 
     def stamp(self) -> dict:
         return {"models": list(self.models), "resident": self.resident,
+                "log_path": self.log_path,
                 "selections": dict(self.selections), "load_seconds": dict(self.load_seconds),
                 "on_card": list(self._order)}
