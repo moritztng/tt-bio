@@ -1,0 +1,76 @@
+# Workstream: of3t-bwattrib
+#DISPATCH: host=any card=- repo=tt-bio maxit=24 tier=opus5
+DONE_CHECK: python3 /home/moritz/.coworker/workstreams/_of3t_donecheck.py of3t-bwattrib
+
+**READ FIRST**: `/home/moritz/.coworker/state/of3t/BACKWARD.md` (shared findings), **§A46 of
+`state/of3t/PROTOCOL.md`** (how a backward result is graded), and **`state/of3t-bwsurvey.md`'s
+JOBS section**, which is why this row exists. Do not re-derive any of them.
+
+**This is J0, and it is the most valuable row in the sprint by a factor of four.** `of3t-bwsurvey`
+priced the whole kernel programme at roughly 1.6x and then found where the rest is:
+
+> at the forward's own measured warm rate the backward's 168,922 verb calls would cost **8.03 s**;
+> they cost **356.00 s**. Even pricing a backward verb at 5x a forward verb leaves 40.1 s predicted
+> against 356.00 s measured, still 8.9x short. **~348 s — 97.7 % of the backward — is not the
+> model's arithmetic.**
+
+A backward verb costs **44.3x a forward verb on operands of the same shape**, in a warm process
+with the JIT term burned off and the D164 allocator probe off, and **nothing in the record explains
+why**. At 0.24 ms per verb — 5x a forward verb, already pessimistic — the 168,922 calls cost 40.1 s,
+the step lands near 51 s, and that alone is **9.1x**. That is more than every kernel on the JOBS
+list combined times four, and no kernel row should be graded before this number exists.
+
+1. HISTOGRAM: one profiled taped backward at crop 384 with a **per-verb timing histogram** — verb
+   name, shape, dtype, layout, count, total. Not a total and not a mean: the distribution, because
+   the question is whether 44.3x is uniform (a fixed per-call overhead) or concentrated (a few
+   verb classes carrying it). Those are different defects with different fixes.
+2. CAUSE: the suspects are already named and cheap to separate. `Tensor.evict` moving activations
+   host-ward over PCIe; `add_grad`'s `typecast` to fp32 on every second contribution; `to_layout`
+   conversions enforced at every fan-in (`autograd.py:428-436`); allocation churn from a tape that
+   frees and re-reserves per closure. Separate them with break controls that MOVE the number —
+   a suspect you cannot make worse on purpose is a suspect you have not tested.
+3. BRACKET: settle J3's. The survey's two readings differ 14x — `_sdpa_chunking` with
+   `SDPA_SCORE_BUDGET = 256 MiB` implies 2 blocks per call (~10.7 s), the runtime census implies
+   40 (~153.7 s, 34 % of the backward). Your histogram resolves it as a side effect, and until it
+   does the largest kernel-authoring job on the page cannot be ranked or briefed. Report the block
+   count you actually observed.
+4. FIX: land what is unambiguously yours and safe. A host round trip that need not happen, a
+   typecast on a path that is already fp32, a layout conversion that both sides agree on — these
+   are wiring, not kernels, and they are the cheapest seconds in the sprint. Anything needing a
+   fused kernel goes back on the JOBS list with your measured share attached.
+
+**Grading.** Per A46: seconds off the recorded 466.70 s step, arms interleaved on one board, AICLK
+sampled DURING, board class named, `host_quiet.py` green. Any change touching the tape owes the
+gradient check, not a forward check — a bfp8 arm on this fleet read forward cosine 0.99999 and
+backward Inf/NaN on the same op.
+
+State doc `state/of3t-bwattrib.md`: HISTOGRAM:, CAUSE:, BRACKET:, FIX:, VERDICT:.
+
+## HOUSE RULES for the backward sprint — of3t-orchestrator, 2026-09-25 16:2x CEST
+
+Added after dispatch because the four briefs went out without them. A decision that is not in your
+brief does not reach you, so it is here rather than in a state doc.
+
+- **ARTIFACTS: `perf/of3t_<your-slug>/`, and nowhere else.** Yours alone. Four rows writing into one
+  perf tree is how a merge comes out textually clean and semantically broken
+  (`sibling-perf-campaigns-need-namespaced-output-paths`).
+- **SCRATCH: `/tmp/of3t/<your-slug>/`.** Never a shared generic name. Two of3t rows collided on
+  `/tmp/of3t/state.md` and one row's state doc silently became a verbatim copy of another's —
+  another row's branch, instruments and VERDICT, installed under the wrong slug. Nothing errored
+  (LEDGER K18).
+- **BRANCH: `wk/<your-slug>`, pushed every pass.** I compose the sprint onto `wk/of3t-bwd`; do not
+  merge to main and do not compose each other. `wk/of3t` is finished history: verified this pass,
+  it is fully contained in `origin/main` (`git merge-base --is-ancestor` clean), so do not branch
+  from it or treat it as the campaign's tip. Branch from `origin/main`.
+- **`tt_bio/autograd.py` and `tt_bio/taped_ttnn.py` are CONTESTED and moving right now.** BCX is
+  rewriting the head-verb backwards in both: `wk/bcx-heads` at `237f53064`, with `wk/bcx-bwdplan`
+  building on it this pass. If your fix lands in either file, keep the diff minimal, say so in your
+  state doc under its own heading, and expect to re-run BCX's bar rather than trusting a clean
+  textual merge — these are exactly the two files where `land-d264` showed a merge error is
+  invisible to inference and visible only to a taped arm.
+- **Say the AXIS on every number** (chip-to-chip, box-to-box, phase-matched, step-to-step), and the
+  clock: a DURING-sampled AICLK and the board class. qb1 p150a and qb2 p300c run the same 512 aa
+  fold 17.39 s against 14.59 s at the same 1350 MHz, so a board class is part of a measurement.
+- **The target stays honest.** ~8.5x compute / ~11x bandwidth is hardware; ~6-7x of the 58-67x is
+  software and that is what this sprint is for. 5x chip-to-chip is below the silicon floor — do not
+  promise it, in a state doc or anywhere else.

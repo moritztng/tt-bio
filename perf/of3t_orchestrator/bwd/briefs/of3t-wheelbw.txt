@@ -1,0 +1,68 @@
+# Workstream: of3t-wheelbw
+#DISPATCH: host=any card=- repo=tt-bio maxit=12 tier=opus5
+DONE_CHECK: python3 /home/moritz/.coworker/workstreams/_of3t_donecheck.py of3t-wheelbw
+
+**READ FIRST**: `/home/moritz/.coworker/state/of3t/BACKWARD.md`, **§A46 of
+`state/of3t/PROTOCOL.md`**, and **`state/of3t-bwsurvey.md`'s JOBS section, job J4**. Do not
+re-derive them.
+
+**J4 — nine one-line substitutions, 5-15 s, one afternoon.** `mul scale add relu sigmoid silu
+reshape narrow concat` in `tt_bio/autograd.py` are hand-composed from 1-6 verbs each, while
+`ttnn.mul_bw`, `ttnn.silu_bw`, `ttnn.sigmoid_bw`, `ttnn.relu_bw` and `ttnn.concat_bw` already exist
+and ship in 0.68.0. Individually small; they are on **every node in the tape**.
+
+This is the least glamorous job on the list and the one with the best ratio of seconds to risk, so
+do it properly rather than quickly:
+
+1. ADAPTED: one row per substitution — the composed form, the wheel op, verbs before and after, and
+   whether the wheel op's expression is IDENTICAL or merely equivalent. An op that is only
+   equivalent needs its own argument; an op that is identical needs only the PCC check.
+2. VJP: a per-op gradient check against a float64 reference validated by central finite
+   differences, worst case located by parameter path. Nine ops, nine readings, no sampling — these
+   are cheap and the whole point of the job is that it is low-risk, which is a claim you have to
+   earn. A forward check does not substitute (A46 clause 1).
+3. SPEED: seconds off the 466.70 s step for the batch, arms interleaved, DURING-sampled AICLK,
+   board class named. Report the batch, not nine separate wins: stack perturbations are strongly
+   sub-additive and this campaign approves a stack as a stack (A46 clause 6).
+4. UNIFIED: `tt_bio/autograd.py` is engine-level and serves Boltz-2, OF3T, BC2 and RFD3. If any
+   substitution is reachable from an inference fold, the A/B against an A/A floor first.
+5. FIX: land the ones that pass on `wk/of3t-wheelbw`, and say plainly which you rejected and why.
+   A rejected substitution with a measured reason is as good a result as an accepted one.
+
+**One warning.** `tt_bio/autograd.py` is CONTESTED: BCX is rewriting the head-verb backwards in it
+right now (`wk/bcx-heads` at `237f53064`, `wk/bcx-bwdplan` building on it). Your nine edits are
+small and local, so keep them that way, list the exact line ranges you touched in your state doc,
+and expect to re-run BCX's bar rather than trusting a clean textual merge. This is one of the two
+files where `land-d264` showed a merge error is invisible to inference and visible only to a taped
+arm.
+
+State doc `state/of3t-wheelbw.md`: ADAPTED:, VJP:, SPEED:, UNIFIED:, FIX:, VERDICT:.
+
+## HOUSE RULES for the backward sprint — of3t-orchestrator, 2026-09-25 16:2x CEST
+
+Added after dispatch because the four briefs went out without them. A decision that is not in your
+brief does not reach you, so it is here rather than in a state doc.
+
+- **ARTIFACTS: `perf/of3t_<your-slug>/`, and nowhere else.** Yours alone. Four rows writing into one
+  perf tree is how a merge comes out textually clean and semantically broken
+  (`sibling-perf-campaigns-need-namespaced-output-paths`).
+- **SCRATCH: `/tmp/of3t/<your-slug>/`.** Never a shared generic name. Two of3t rows collided on
+  `/tmp/of3t/state.md` and one row's state doc silently became a verbatim copy of another's —
+  another row's branch, instruments and VERDICT, installed under the wrong slug. Nothing errored
+  (LEDGER K18).
+- **BRANCH: `wk/<your-slug>`, pushed every pass.** I compose the sprint onto `wk/of3t-bwd`; do not
+  merge to main and do not compose each other. `wk/of3t` is finished history: verified this pass,
+  it is fully contained in `origin/main` (`git merge-base --is-ancestor` clean), so do not branch
+  from it or treat it as the campaign's tip. Branch from `origin/main`.
+- **`tt_bio/autograd.py` and `tt_bio/taped_ttnn.py` are CONTESTED and moving right now.** BCX is
+  rewriting the head-verb backwards in both: `wk/bcx-heads` at `237f53064`, with `wk/bcx-bwdplan`
+  building on it this pass. If your fix lands in either file, keep the diff minimal, say so in your
+  state doc under its own heading, and expect to re-run BCX's bar rather than trusting a clean
+  textual merge — these are exactly the two files where `land-d264` showed a merge error is
+  invisible to inference and visible only to a taped arm.
+- **Say the AXIS on every number** (chip-to-chip, box-to-box, phase-matched, step-to-step), and the
+  clock: a DURING-sampled AICLK and the board class. qb1 p150a and qb2 p300c run the same 512 aa
+  fold 17.39 s against 14.59 s at the same 1350 MHz, so a board class is part of a measurement.
+- **The target stays honest.** ~8.5x compute / ~11x bandwidth is hardware; ~6-7x of the 58-67x is
+  software and that is what this sprint is for. 5x chip-to-chip is below the silicon floor — do not
+  promise it, in a state doc or anywhere else.

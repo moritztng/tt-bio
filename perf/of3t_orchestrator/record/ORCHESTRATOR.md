@@ -68,54 +68,75 @@ sprint, rather than the forty this field used to transcribe:
 - **R166** a reference placed on a loaded host is not the reference you timed. At qb2 load 72/16 a
   float64 draw got 0.31 core and was a day out
 
-ROWS: **145 dispatched over the campaign, 141 concluded; four live, all dispatched 16:12:38Z today
-and all in their first pass, so none has a state doc yet.** File ownership and artifact namespaces
-were missing from all four briefs at dispatch and I appended them this pass — a decision that is
-not in a row's brief does not reach the row, which is the lesson that cost this campaign a day.
+ROWS: **145 dispatched over the campaign; of the four sprint rows launched 16:12:38Z,
+`of3t-bwsurvey` and `of3t-throughput` concluded GO within 11 minutes, `of3t-tapedfwd` (pc card 0)
+and `of3t-intensity` (qb1 card 3) are live. Four more dispatched this pass from bwsurvey's JOBS
+list.** All eight briefs carry artifact namespaces, slug-scoped scratch paths, branch discipline
+and the contested-file warning; the four sprint briefs went out without them and were amended.
 
-| row | host | owns | artifacts | gates what |
-|---|---|---|---|---|
-| `of3t-tapedfwd` | pc card 0 | fused-kernel selection and decline-caching sites under `tt_bio/kernels/` | `perf/of3t_tapedfwd/` | the SIZE of the kernel work |
-| `of3t-bwsurvey` | pc cpu | `state/of3t/BWJOBS.md`, no engine file | `perf/of3t_bwsurvey/` | **every kernel row** |
-| `of3t-intensity` | qb1 card 3 | measurement scripts only, read-only on engine code | `perf/of3t_intensity/` | **every kernel row** |
-| `of3t-throughput` | pc cpu | arithmetic and sourcing only | `perf/of3t_throughput/` | nothing; it produces the headline axis |
+| row | state | owns | artifacts |
+|---|---|---|---|
+| `of3t-bwsurvey` | **GO** — the JOBS list, J0-J7 | `state/of3t/BWJOBS.md` | `perf/of3t_bwsurvey/` |
+| `of3t-throughput` | **GO** — box-to-box is the honest axis | arithmetic only | `perf/of3t_throughput/` |
+| `of3t-tapedfwd` | live, pc card 0 | fused-kernel selection and decline sites | `perf/of3t_tapedfwd/` |
+| `of3t-intensity` | live, qb1 card 3 | measurement scripts, read-only on engine | `perf/of3t_intensity/` |
+| `of3t-bwattrib` | **dispatched, J0** | the 2.107 ms attribution, wiring fixes | `perf/of3t_bwattrib/` |
+| `of3t-lnbw` | **dispatched, J1** | the LayerNorm backward | `perf/of3t_lnbw/` |
+| `of3t-softbw` | **dispatched, J2** | the softmax backward | `perf/of3t_softbw/` |
+| `of3t-wheelbw` | **dispatched, J4** | nine `*_bw` substitutions in `autograd.py` | `perf/of3t_wheelbw/` |
 
-Explicitly NOT owned by this sprint: `tt_bio/autograd.py` and `tt_bio/taped_ttnn.py`. BCX is
-rewriting the head-verb backwards in both right now (`wk/bcx-heads` at `237f53064`,
-`wk/bcx-bwdplan` building on it this pass), and these are the two files where `land-d264` showed a
-merge error is invisible to inference and visible only to a taped arm. A sprint row that must
-change one keeps the diff minimal, says so under its own heading, and re-runs BCX's bar rather
-than trusting a clean textual merge. History: `state/of3t/PASSLOG.md`.
+Each new row's DONE_CHECK `EXTRA` entry and `_STAGE_HINTS` path landed in the same pass as its
+brief (R193), and the gate's own staging assertion caught the missing hints before any row could
+be refused for a reason it could not fix. Two new checks were added and negative-controlled in
+both directions rather than asserted: `worst_case_vjp` (a mean-only VJP and an unlocated worst
+case are both refused, a located one passes) and `bound_perf` (a bare seconds figure with no
+binding roof named is refused; "no headroom here" satisfies it).
 
-SEQUENCE: **`of3t-bwsurvey`'s JOBS crossed with `of3t-intensity`'s ORDER is the gate on every
-kernel row, and it is an AND.** JOBS says what can be built and what tt-train already has; ORDER
-says where the seconds actually are. A kernel briefed from one without the other is how a sprint
-authors something that saves nothing, and this campaign has burned the ORDER half twice — 18
-passes on a phantom 4.4x headroom, and three consecutive wrong conclusions from a "% of peak"
-against a roof nobody had established. So: **no kernel row is dispatched this pass, and that is
-the correct state, not a stall.** The four rows are 30 minutes old.
+Explicitly NOT owned by this sprint: `tt_bio/autograd.py` and `tt_bio/taped_ttnn.py` are contested
+— BCX is rewriting the head-verb backwards in both (`wk/bcx-heads` at `237f53064`,
+`wk/bcx-bwdplan` building on it). `of3t-wheelbw` necessarily edits `autograd.py`, so its brief
+requires the exact line ranges in its state doc and a re-run of BCX's bar rather than trust in a
+clean textual merge. These are the two files where `land-d264` showed a merge error is invisible
+to inference and visible only to a taped arm. History: `state/of3t/PASSLOG.md`.
 
-**`of3t-tapedfwd` has been promoted: it now feeds the other two rather than running beside them,
-because I answered its code half this pass and what is left is the number the sprint is ordered
-by.** BACKWARD.md §4 was replaced and both its brief and `of3t-bwsurvey`'s were amended (R203):
-`ttnn.generic_op` has no backward, so all eleven fused kernels decline under taping by design at
-thirteen located sites in eight modules, and `tenstorrent.py:9016` takes DRAM where an untaped run
-takes L1. A taped training step therefore runs a decomposed, DRAM-resident model. The shared
-record had this as *"one taped call switched fused triangle attention off for the whole process"*,
-a cached refusal in one op; it is not cached, not one op and not a bug. What remains is
-measurement: which of the thirteen guards a real crop-384 step actually reaches, and the seconds
-each costs inside the 466.70 s. Nothing else in the sprint produces that number, and JOBS shares
-should be read off it rather than estimated.
+SEQUENCE: **bwsurvey's JOBS list landed this pass and it reordered the sprint, so the AND-gate my
+earlier sequencing described is discharged: the four kernel-shaped rows are dispatched and J0
+outranks all of them.** The finding that did it, and it is the sprint's headline:
 
-`of3t-throughput` runs alongside and gates nothing. Its output is the axis correction: chip-to-chip
-58-67x is the wrong headline for a box anyone would buy, and samples/sec per box, per dollar and
-per watt is the number nobody has computed.
+> at the forward's own measured warm rate the backward's 168,922 verb calls would cost **8.03 s**;
+> they cost **356.00 s** ... **~348 s — 97.7 % of the backward — is not the model's arithmetic**
 
-When JOBS and ORDER both land I dispatch the kernel rows from
-`perf/of3t_orchestrator/bwd/KERNEL_ROW_TEMPLATE.md` (committed this pass), biggest share of the
-6-7x first, each named for its OP and never for OpenFold3 — a backward kernel is engine-level and
-serves Boltz-2, OF3T, BC2 and RFD3. The template carries its DONE_CHECK `EXTRA` entry beside the
-brief so both halves of the dispatch land together (R193).
+A backward verb costs **44.3x a forward verb on operands of the same shape**, warm, JIT burned
+off, allocator probe off, and nothing in the record explains why. To reach 6x by deleting calls
+alone you would have to delete **142,382 of 168,922 backward verb calls, 84.3 %**, and no set of
+nine kernels does that — the calls are spread across elementwise adds, slices, concats, permutes,
+layout conversions and reductions. **So the whole kernel programme is worth about 1.6x and the
+remaining 4x is inside the 2.107 ms per call.** At a pessimistic 0.24 ms per verb the step lands
+near 51 s, which is 9.1x on its own.
+
+That is why **J0 (`of3t-bwattrib`) is dispatched first and gates nothing**: it is worth ~315 s
+against J1's ≥46.4 s, J2's ~32.8 s and J4's 5-15 s, it settles J3's unresolved 14x bracket (2
+SDPA blocks per call at 10.7 s against 40 at 153.7 s) as a side effect, and its suspects are
+wiring rather than kernels — `Tensor.evict` over PCIe, `add_grad`'s typecast to fp32,
+`to_layout` at fan-in, allocation churn. **J3 is deliberately NOT dispatched** until that bracket
+resolves: it is the largest authoring effort on the page and briefing it against a 14x uncertainty
+is exactly the mistake this campaign has already paid for twice.
+
+J1, J2 and J4 do not wait on J0 — their value is independent of what J0 finds — so they run in
+parallel. J5 (`swiglu_elemwise_bw`, a handful of verbs), J6 (`cross_entropy_bw`, capped at 3.135 s
+of which 3.128 is host numpy) and J7 (`ring_sdpa_bw`, nothing to build for a single-chip step) are
+parked with their reasons, named so no row re-derives them.
+
+`of3t-intensity`'s brief was amended this pass: **a 44.3x per-call overhead is not a roofline
+story at all**, so it must say whether a backward part is doing arithmetic or paying per-call
+overhead before pricing headroom, and it must not duplicate J0's histogram.
+
+`of3t-throughput` concluded GO with the axis correction this sprint needed: **box to box, one DGX
+H200 trains 116.7-157.0x more OpenFold3 samples per second than one TT-QuietBox 2** at crop 384,
+falling to **16.7-26.2x** after the 6-7x software fix. That is about 2.1x worse than the chip axis
+for a structural reason — the DGX ships 8 accelerators and the QuietBox 4 — and it is why the chip
+number was the wrong headline: it credits us with a box we do not sell. Every sprint number states
+its axis.
 
 BRANCH: **`wk/of3t-bwd` is the sprint's single reviewable branch and I compose onto it; it does not
 exist yet because nothing has landed.** Verified against git this pass, not taken from a note:
@@ -161,48 +182,44 @@ sibling case where 79.2 % of a round was host work the port never covered, cappi
 lever at 1.25x. Stack perturbations are strongly sub-additive, so the sprint's levers are approved
 as a stack or not at all, never by summing individual readings.
 
-GAP: **What the sprint has not done, as of pass 445, 2026-09-25 16:2x CEST.** All of it, and that
-is expected: the four rows were dispatched 30 minutes ago and none has reported.
+GAP: **Pass 445, 2026-09-25 ~16:5x CEST.** What the sprint has not done, specifically.
 
-1. **No JOBS list, so no kernel row.** `of3t-bwsurvey` is in pass 1. Until JOBS exists I cannot
-   brief a kernel row without risking the sprint authoring what tt-metal's training library
-   already ships in `tt-train/sources/ttml/metal/ops/` (eight backward kernels; our
-   `tt_bio/kernels/` has eleven fused forwards and `grep backward` across it returns nothing).
-2. **No ORDER, so no pricing.** `of3t-intensity` is in pass 1. Every sprint number will name the
-   roof that binds its part; today none of the six step parts has one.
-3. **`grad_bias` is unanswered and it is the decisive question.** `sdpa_bw` returns
-   `[grad_Q, grad_K, grad_V]` and treats `attn_mask` as a constant, but triangle attention's bias
-   is a learned pair projection and its gradient is how signal reaches the pair track at all. It
-   may be nearly free from the softmax intermediates the kernel already saves, or it may be the
-   sprint's largest single job. `of3t-bwsurvey` sizes it either way.
-4. **The taped forward's fused-kernel bypass is LOCATED but unpriced.** The code half closed this
-   pass (R203, thirteen sites, eight modules, plus the DRAM-for-L1 residency downgrade). The
-   seconds are owed by `of3t-tapedfwd` and until they exist the sprint has no defensible order.
-   A related question its brief now carries, and the one the whole job list hangs on: a fused
-   kernel survives taping when it is a taped ttnn VERB with a registered backward and not when it
-   is a tt-bio `generic_op`. **Answered the same pass, and it makes the sprint smaller (R204):**
-   the tape is not a verb registry — `autograd._tape` wraps any forward value with any
-   hand-written VJP, and `autograd.triangle_attention`'s `value=` argument already pairs the
-   shipped fused SDPA with an authored backward in one node at `taped_ttnn.py:862`. No nanobind,
-   no C++ build, no bridge to `ttml::autograd`. It is a one-off — one op, one call site — so
-   generalising that seam is the sprint's infrastructure job, in Python, inside `autograd.py`.
-   Every job is then "author or adapt the backward maths, wire the fused forward through
-   `value=`", eight modules. `of3t-bwsurvey`'s brief carries the retraction of my earlier
-   verb-registration framing, because a brief is the only channel that reaches a running row.
-5. **Nothing has landed, so `wk/of3t-bwd` does not exist.** Two artifact-only branches wait for the
-   first batch (BRANCH).
-6. Carried from the correctness campaign and NOT this sprint's: D270 (`aux_heads.distogram.linear
-   .weight` at 1.44x its bf16 on every draw, 0.86 % of mass, inside the 3x section bar); the six
-   user-facing defects D32, D55, D184, D205, D210, D250, owned outside this campaign under ask
-   10455; crop 640 as a single-card capacity wall.
+1. **The 44.3x is unexplained and it is ~97.7 % of the backward.** `of3t-bwattrib` is dispatched
+   against it and nothing else in the sprint produces the number. Until it exists, every kernel
+   saving is priced inside a step whose dominant cost is unaccounted for.
+2. **J3's size is a 14x bracket** — 10.7 s or 153.7 s for the fused triangle-attention backward,
+   depending on whether the SDPA block count per call is 2 (`SDPA_SCORE_BUDGET = 256 MiB`) or 40
+   (the runtime census). The largest authoring job on the page cannot be ranked until J0 resolves
+   it, and it is deliberately not dispatched.
+3. **`grad_bias` is answered in survey but unbuilt.** `sdpa_bw` returns `[grad_Q, grad_K, grad_V]`
+   and treats `attn_mask` as a constant, while triangle attention's bias is a learned pair
+   projection whose gradient is how signal reaches the pair track at all. It is part of J3.
+4. **The taped forward's bypass is located but unpriced.** R203: thirteen `ops.taping()` guards in
+   eight modules, plus the DRAM-for-L1 residency downgrade at `tenstorrent.py:9016`. The seconds
+   are `of3t-tapedfwd`'s and it is still live.
+5. **The precomputed-forward seam is a one-off** (R204): `value=` exists on one autograd op and is
+   used at one call site. Generalising it is shared work between J1, J2 and J3; whichever row
+   needs it first carries it, which is a coordination risk I am holding rather than one I have
+   solved.
+6. **Nothing has landed, so `wk/of3t-bwd` does not exist.** Two artifact-only branches wait for
+   the first batch (BRANCH).
+7. Carried from the correctness campaign and NOT this sprint's: D270
+   (`aux_heads.distogram.linear.weight` at 1.44x its bf16 on every draw, 0.86 % of mass, inside
+   the 3x section bar); the six user-facing defects D32, D55, D184, D205, D210, D250, owned
+   outside this campaign under ask 10455; crop 640 as a single-card capacity wall.
 
-VERDICT: PARTIAL, pass 445. The sprint is four rows old and its subject is speed, not correctness.
-What this pass did: wrote A46 before any sprint number exists, which is the protocol duty for a new
-subject and the reason the correctness half held; gave the four live rows the artifact namespaces,
+VERDICT: PARTIAL, pass 445. The sprint's subject is speed and it is one pass old with two rows
+already GO. What this pass did: wrote **A46** before any sprint number existed, which is the
+protocol duty when the subject changes; gave all four launched rows the artifact namespaces,
 slug-scoped scratch paths, branch discipline and contested-file warning their briefs went out
-without; verified against git that `wk/of3t` is inside `origin/main` and that the only two of3t
-branches still ahead are artifact-only; and committed the kernel-row template with its gate entry
-so that the dispatch after JOBS and ORDER land is one pass rather than three.
+without; found and filed **R203** (`generic_op` has no backward, so all eleven fused kernels are
+off under taping — thirteen guards in eight modules, a policy hiding behind thirteen honest
+comments) and **R204** (the seam that routes around it shipped months ago and was never
+generalised); verified against git that `wk/of3t` is inside `origin/main` and that the only two
+of3t branches still ahead are artifact-only; and, when `of3t-bwsurvey` returned GO mid-pass,
+**dispatched four rows from its JOBS list with their gate entries, stage hints and two
+negative-controlled new checks in the same pass.** J0 leads because 97.7 % of the backward is not
+the model's arithmetic. J3 is held because its size is a 14x bracket that J0 settles.
 
 PASSLOG: the per-pass narrative lives in `state/of3t/PASSLOG.md`. This doc carries current state
 only, and as of this pass it carries the SPRINT's current state — the correctness campaign's is in

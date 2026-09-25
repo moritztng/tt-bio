@@ -1,0 +1,65 @@
+# Workstream: of3t-softbw
+#DISPATCH: host=any card=- repo=tt-bio maxit=16 tier=opus5
+DONE_CHECK: python3 /home/moritz/.coworker/workstreams/_of3t_donecheck.py of3t-softbw
+
+**READ FIRST**: `/home/moritz/.coworker/state/of3t/BACKWARD.md`, **§A46 of
+`state/of3t/PROTOCOL.md`**, and **`state/of3t-bwsurvey.md`'s JOBS section, job J2**. Do not
+re-derive them.
+
+**J2 — the fused softmax backward. Worth ~32.8 s, and it may ship without anyone touching C++.**
+The runtime census counts **3,888 softmax backwards** (3,840 TRI_ATT + 48 APB) at ~5 verbs each:
+**19,440 verbs = 41.0 s**, falling to ~3,888 calls = 8.2 s.
+
+**Try `ttnn.moreh_softmax_backward` from the wheel FIRST.** Same expression, zero build cost. Only
+if its accuracy or speed does not hold do you go to `ttml::metal::softmax_backward`, and then you
+say what you measured that sent you there — "adapt before you author" is standing and the wheel is
+the cheapest adaptation there is.
+
+**Two caveats, both cheap, both yours to close:**
+
+- **Last dim only.** Every one of our callers qualifies; confirm it rather than assuming it.
+- **No `SOFTMAX_BW_RENORM`.** The renorm went default-on at pass 274 for a reason and costs only
+  1.32 s. **Decide whether it is load-bearing BEFORE you drop it**, and say what the decision rests
+  on. Dropping a correctness measure to buy 1.32 s against a 32.8 s win would be a bad trade even
+  if it were free, and this campaign does not trade accuracy for speed by default.
+
+**Wiring.** No C++ bridge needed: `autograd._tape` wraps any forward value with any hand-written
+VJP, and `autograd.triangle_attention`'s `value=` argument already pairs a shipped fused forward
+with an authored backward in one node (`taped_ttnn.py:862`). If `of3t-lnbw` has generalised that
+seam by the time you need it, use theirs rather than adding a second.
+
+**UNIFIED, NOT PER-MODEL** (standing): the softmax backward is engine-level and serves Boltz-2,
+OF3T, BC2 and RFD3. The softmax sites are on the SHARED triangle path, so if your change is
+reachable from an inference fold you owe the A/B against an A/A floor on every model that executes
+it, floor reported first — Moritz's inference constraint is a hard stop, not a bar (A46 clause 4).
+
+State doc `state/of3t-softbw.md`: ADAPTED:, VJP:, SPEED:, UNIFIED:, FIX:, VERDICT:.
+
+## HOUSE RULES for the backward sprint — of3t-orchestrator, 2026-09-25 16:2x CEST
+
+Added after dispatch because the four briefs went out without them. A decision that is not in your
+brief does not reach you, so it is here rather than in a state doc.
+
+- **ARTIFACTS: `perf/of3t_<your-slug>/`, and nowhere else.** Yours alone. Four rows writing into one
+  perf tree is how a merge comes out textually clean and semantically broken
+  (`sibling-perf-campaigns-need-namespaced-output-paths`).
+- **SCRATCH: `/tmp/of3t/<your-slug>/`.** Never a shared generic name. Two of3t rows collided on
+  `/tmp/of3t/state.md` and one row's state doc silently became a verbatim copy of another's —
+  another row's branch, instruments and VERDICT, installed under the wrong slug. Nothing errored
+  (LEDGER K18).
+- **BRANCH: `wk/<your-slug>`, pushed every pass.** I compose the sprint onto `wk/of3t-bwd`; do not
+  merge to main and do not compose each other. `wk/of3t` is finished history: verified this pass,
+  it is fully contained in `origin/main` (`git merge-base --is-ancestor` clean), so do not branch
+  from it or treat it as the campaign's tip. Branch from `origin/main`.
+- **`tt_bio/autograd.py` and `tt_bio/taped_ttnn.py` are CONTESTED and moving right now.** BCX is
+  rewriting the head-verb backwards in both: `wk/bcx-heads` at `237f53064`, with `wk/bcx-bwdplan`
+  building on it this pass. If your fix lands in either file, keep the diff minimal, say so in your
+  state doc under its own heading, and expect to re-run BCX's bar rather than trusting a clean
+  textual merge — these are exactly the two files where `land-d264` showed a merge error is
+  invisible to inference and visible only to a taped arm.
+- **Say the AXIS on every number** (chip-to-chip, box-to-box, phase-matched, step-to-step), and the
+  clock: a DURING-sampled AICLK and the board class. qb1 p150a and qb2 p300c run the same 512 aa
+  fold 17.39 s against 14.59 s at the same 1350 MHz, so a board class is part of a measurement.
+- **The target stays honest.** ~8.5x compute / ~11x bandwidth is hardware; ~6-7x of the 58-67x is
+  software and that is what this sprint is for. 5x chip-to-chip is below the silicon floor — do not
+  promise it, in a state doc or anywhere else.

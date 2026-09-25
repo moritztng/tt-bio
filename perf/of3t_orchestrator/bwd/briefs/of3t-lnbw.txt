@@ -1,0 +1,80 @@
+# Workstream: of3t-lnbw
+#DISPATCH: host=any card=- repo=tt-bio maxit=20 tier=opus5
+DONE_CHECK: python3 /home/moritz/.coworker/workstreams/_of3t_donecheck.py of3t-lnbw
+
+**READ FIRST**: `/home/moritz/.coworker/state/of3t/BACKWARD.md`, **§A46 of
+`state/of3t/PROTOCOL.md`**, and **`state/of3t-bwsurvey.md`'s JOBS section, job J1**, which
+specified this row. Do not re-derive them.
+
+**J1 — the fused LayerNorm backward, adapted from `ttml::metal::layernorm_bw`. The biggest kernel
+job on the list, worth at least 46.4 s and plausibly 150 s+.** LayerNorm backward is **1,296 of
+2,473 tape nodes, 52.4 %** — the largest single class in the backward by node count, an order of
+magnitude larger than triangle attention.
+
+The cost is not the norm maths, it is `_sum_leading`. On an fp32 input it runs `_tree_sum`, a
+halving tree of `ttnn.slice` + `ttnn.add_` + `ttnn.deallocate` at ~5 verbs per level and ~13 levels
+on a pair-track `[147456, 128]` flattening, then a second tree: **~96 verbs per `_sum_leading`,
+~208 per pair-track node**. On bf16 it falls through to a single `ttnn.sum` at ~24 verbs.
+`layernorm_bw` computes the per-row dgamma/dbeta partials in the kernel and leaves one reduction,
+so the replacement is ~7 verbs per node.
+
+**Three things the survey already established — carry them, do not rediscover them:**
+
+- **`mean` and `rstd` are not a blocker.** `ttnn.layer_norm` returns neither, which is what ruled
+  out `moreh_layer_norm_backward`, but our own backward already recomputes both. Pass them in.
+- **Precision is a gate to check, not a blocker.** `layernorm_bw.cpp:29` reduces with `ttnn::sum`
+  at `precise()`. `_tree_sum`'s docstring measures `ttnn.sum` at **8.3e-4** relative L2 from
+  float64 against the tree's **7.7e-8** (`perf/bcx_reduce`). 8.3e-4 is 60x under this campaign's
+  5.0e-02 per-tensor bar. If it reads outside anyway, keep our tree on the kernel's partials and
+  bank most of the win rather than abandoning the job.
+- **Do not grade this job on the four LayerNorm affine leaves.** `of3t-bwdaccum` found them holding
+  92.68 % of the error mass while their own backward is correct to 1.4e-02 on the operands handed
+  to them: the error is injected upstream by AttentionPairBias. This job will look guilty for
+  someone else's reason if you score it there.
+
+**Also settle the arithmetic the survey could only bracket.** The verb bracket is 31,104 to 269,568
+and the upper branch is impossible against a measured 168,922 — so most LayerNorm backwards must be
+taking the bf16 fall-through today and the fp32 ones are disproportionately expensive. Measure
+which, because it decides whether this job is worth 46.4 s or 150 s+.
+
+**Wiring.** You do not need a C++ bridge. `autograd._tape(out_value, parents, make_fn, reads)`
+wraps any forward value with any hand-written VJP, and `autograd.triangle_attention`'s `value=`
+argument already pairs a shipped fused forward with an authored backward in one tape node
+(`taped_ttnn.py:862`). It is a one-off; if you need the same seam on the LayerNorm op, generalise
+it there and say so — that generalisation serves J2 and J3 too, so it is shared work and belongs
+in your diff only if you are first to need it.
+
+**UNIFIED, NOT PER-MODEL** (standing): `layernorm_bw` serves Boltz-2's trunk, OF3T's pairformer,
+BC2's gradient step and RFD3. There is no `of3t_layernorm_bw`. Grade per A46 and run the inference
+A/B if anything you touch is reachable from a fold.
+
+State doc `state/of3t-lnbw.md`: ADAPTED:, VJP:, SPEED:, UNIFIED:, FIX:, VERDICT:.
+
+## HOUSE RULES for the backward sprint — of3t-orchestrator, 2026-09-25 16:2x CEST
+
+Added after dispatch because the four briefs went out without them. A decision that is not in your
+brief does not reach you, so it is here rather than in a state doc.
+
+- **ARTIFACTS: `perf/of3t_<your-slug>/`, and nowhere else.** Yours alone. Four rows writing into one
+  perf tree is how a merge comes out textually clean and semantically broken
+  (`sibling-perf-campaigns-need-namespaced-output-paths`).
+- **SCRATCH: `/tmp/of3t/<your-slug>/`.** Never a shared generic name. Two of3t rows collided on
+  `/tmp/of3t/state.md` and one row's state doc silently became a verbatim copy of another's —
+  another row's branch, instruments and VERDICT, installed under the wrong slug. Nothing errored
+  (LEDGER K18).
+- **BRANCH: `wk/<your-slug>`, pushed every pass.** I compose the sprint onto `wk/of3t-bwd`; do not
+  merge to main and do not compose each other. `wk/of3t` is finished history: verified this pass,
+  it is fully contained in `origin/main` (`git merge-base --is-ancestor` clean), so do not branch
+  from it or treat it as the campaign's tip. Branch from `origin/main`.
+- **`tt_bio/autograd.py` and `tt_bio/taped_ttnn.py` are CONTESTED and moving right now.** BCX is
+  rewriting the head-verb backwards in both: `wk/bcx-heads` at `237f53064`, with `wk/bcx-bwdplan`
+  building on it this pass. If your fix lands in either file, keep the diff minimal, say so in your
+  state doc under its own heading, and expect to re-run BCX's bar rather than trusting a clean
+  textual merge — these are exactly the two files where `land-d264` showed a merge error is
+  invisible to inference and visible only to a taped arm.
+- **Say the AXIS on every number** (chip-to-chip, box-to-box, phase-matched, step-to-step), and the
+  clock: a DURING-sampled AICLK and the board class. qb1 p150a and qb2 p300c run the same 512 aa
+  fold 17.39 s against 14.59 s at the same 1350 MHz, so a board class is part of a measurement.
+- **The target stays honest.** ~8.5x compute / ~11x bandwidth is hardware; ~6-7x of the 58-67x is
+  software and that is what this sprint is for. 5x chip-to-chip is below the silicon floor — do not
+  promise it, in a state doc or anywhere else.
