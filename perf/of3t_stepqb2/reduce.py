@@ -91,6 +91,13 @@ def phases(jsonl: Path):
     return seen
 
 
+def header(jsonl: Path) -> dict:
+    for line in jsonl.read_text().splitlines():
+        if '"header"' in line:
+            return json.loads(line)
+    return {}
+
+
 def verbs(jsonl: Path):
     return [json.loads(l) for l in jsonl.read_text().splitlines()
             if '"verb"' in l]
@@ -107,7 +114,11 @@ def main() -> int:
            "env": {k: on.get("env", {}).get(k) for k in
                    ("host", "commit", "branch", "arch", "aiclk_during", "aiclk_line",
                     "loadavg_start", "loadavg_end", "started_utc")},
-           "host_facts": on.get("host_facts"), "config": on.get("config"),
+           # A killed arm never reaches the line that stamps host_facts into its own artifact,
+           # so fall back to the profile header, which is written before anything can die.
+           "host_facts": on.get("host_facts") or header(jsonl).get("host_facts"),
+           "avail_at_start_gib": header(jsonl).get("avail_at_start_gib"),
+           "config": on.get("config"),
            "scope": on.get("scope")}
 
     r_on, basis_on = rep(on)

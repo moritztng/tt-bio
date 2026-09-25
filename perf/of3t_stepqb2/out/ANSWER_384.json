@@ -16,7 +16,21 @@
   "loadavg_end": null,
   "started_utc": "2026-09-25T19:06:42Z"
  },
- "host_facts": null,
+ "host_facts": {
+  "card": "0",
+  "board": "p150a",
+  "serial": "000004033191410F",
+  "fw_bundle": "19.8.1.0",
+  "aiclk_idle_mhz": "800",
+  "pci": {
+   "addr": "0000:01:00.0",
+   "current_link_speed": "16.0 GT/s PCIe",
+   "current_link_width": "8",
+   "max_link_speed": "32.0 GT/s PCIe",
+   "max_link_width": "16"
+  }
+ },
+ "avail_at_start_gib": 17.341,
  "config": {
   "crop": 384,
   "batch": 1,
