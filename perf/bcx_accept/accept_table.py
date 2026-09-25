@@ -10,20 +10,28 @@ and reading a log does not:
    `bcx_mutate_art/profile_s1` counts `pdl1_denovo_l111_e04191bcdbcdfb6c`, whose trajectory
    directory is empty and predates that arm's launch by 11 minutes.
 
-2. A trajectory that did not reach the filters is not a rejection. Three things end one early and
-   none of them is a verdict on a binder: a DRAM ceiling on a long draw, a mutate stage returning
-   saturated metrics, and a trunk that ran a different checkpoint from the JAX side around it.
+2. A trajectory that did not reach the filters is not a rejection. Four things end one early and
+   none of them is a verdict on a binder: a DRAM ceiling on a long draw, a stage returning
+   saturated metrics, a trunk that ran a different checkpoint from the JAX side around it, and a
+   crash in binder optimization after hallucination succeeded. The last one is the dangerous one,
+   because it leaves a complete-looking ledger row with an empty `terminated` field and an arm
+   stamp reading `exit 0`.
 
 3. `candidates_scored` is the only field that says the acceptance filters ever ran. A campaign can
    report `accepted: 0` having never evaluated a single filter, which is a different finding from
    0 accepted out of N scored.
 
-Usage: accept_table.py ARM_DIR [ARM_DIR ...]
+Usage: accept_table.py ARM_DIR[=COMMIT] [ARM_DIR[=COMMIT] ...]
+
+Run it from inside the tt-bio worktree so the COMMIT ancestry check can reach git. An arm whose
+commit is neither given nor stamped is reported UNVERIFIED rather than counted, because a chimera
+trunk and a fixed one leave identical project folders.
 """
 import calendar
 import csv
 import json
 import os
+import subprocess
 import sys
 import time
 
@@ -68,6 +76,27 @@ def design_seconds(timing):
             except ValueError:
                 return None
     return None
+
+
+def last_recorded_stage(arm, design):
+    """The last stage this trajectory actually recorded rounds for.
+
+    `terminated` can name a stage that runs no gradient rounds. `pool_full`'s l146 reads
+    `terminated=final`, the gate that sits after the design stages and judges the trajectory on
+    the metrics the LAST design stage left behind. Testing the literal `terminated` value for
+    saturation finds no rounds under that name, returns nothing, and lets a verdict read off a
+    saturated mutate stage into the denominator as an ordinary design rejection. That is exactly
+    what happened: mutate read i_pTM 1.0 on all 15 rounds and `final` rejected it on pLDDT 0.6.
+    """
+    path = os.path.join(arm, "1_Trajectories", design, design + "_losses.csv")
+    if not os.path.exists(path):
+        return None
+    seen = []
+    with open(path) as handle:
+        for row in csv.DictReader(handle):
+            if row["phase"] not in seen:
+                seen.append(row["phase"])
+    return seen[-1] if seen else None
 
 
 def stage_is_degenerate(arm, design, stage):
@@ -137,10 +166,70 @@ def predates_launch(arm, design_hash, st):
     return False
 
 
+def arm_commit(arm, explicit):
+    """The commit the arm's tree was at, from the command line or the launcher's own stamp.
+
+    Nothing inside a BindCraft 2 project folder records which tree produced it, so an arm that ran
+    a chimera trunk and an arm that ran the checkpoint fix write byte-identical `arm_stamp.json`
+    shapes. Provenance therefore has to come from outside the project dir: either written on the
+    command line as ARM_DIR=COMMIT, or from a sibling `<name>_stamp.txt` the launcher wrote.
+    """
+    if explicit:
+        return explicit
+    for key in ("commit", "tree_commit"):
+        value = stamp(arm).get(key)
+        if value:
+            return value
+    sibling = os.path.join(os.path.dirname(arm.rstrip("/")),
+                           os.path.basename(arm.rstrip("/")) + "_stamp.txt")
+    if os.path.exists(sibling):
+        with open(sibling) as handle:
+            for line in handle:
+                field, _, value = line.strip().partition(" ")
+                if field == "commit" and value.strip():
+                    return value.strip()
+    return None
+
+
+def carries_fix(commit):
+    """True/False when git can answer, None when the commit is unknown or unreachable here."""
+    if not commit:
+        return None
+    try:
+        done = subprocess.run(["git", "merge-base", "--is-ancestor", FIX, commit],
+                              capture_output=True)
+    except OSError:
+        return None
+    return True if done.returncode == 0 else (False if done.returncode == 1 else None)
+
+
+def candidates(arm, design):
+    """The MPNN candidate rows this trajectory was scored on, from `2_Refolded/!_Refolded.csv`.
+
+    A trajectory that finished hallucination has NOT reached the acceptance filters. Between the
+    two sits binder optimization: ten MPNN redesigns, each refolded on the VALIDATION models and
+    tested against the filter set. Only those rows carry `Binder_RMSD` and `Unbound_Binder_pLDDT`,
+    and only those rows carry an `outcome`.
+
+    The distinction is not academic. `accept_s3` passed all five design stages at i_pTM 0.85 and
+    then died in `MPNN_stage.predict_validation_ensemble` because the validation models
+    (`model_1_ptm`, `model_2_ptm`) are monomer checkpoints and the resident pool holds the five
+    multimer ones. The ledger row it left behind has an empty `terminated` field, which reads
+    identically to a trajectory that was scored and accepted nothing.
+    """
+    path = os.path.join(arm, "2_Refolded", "!_Refolded.csv")
+    if not os.path.exists(path):
+        return []
+    with open(path) as handle:
+        return [r for r in csv.DictReader(handle) if r.get("design", "").startswith(design)]
+
+
 def classify(arm, row, fix_present):
     """Validity of this trajectory as evidence about acceptance."""
     design = row["design"]
     terminated = (row.get("terminated") or "").strip()
+    if fix_present is None:
+        return "UNVERIFIED tree, no commit recorded for this arm"
     if not fix_present:
         return "INVALID chimera trunk (tree lacks %s)" % FIX
     trunc = truncated_stages(arm, design)
@@ -148,21 +237,32 @@ def classify(arm, row, fix_present):
         detail = ", ".join("%s %d/%d" % (s, n, b) for s, (n, b) in trunc.items())
         return "INVALID stage truncated (%s)" % detail
     if terminated:
-        degenerate = stage_is_degenerate(arm, design, terminated)
+        judged = terminated if stage_is_degenerate(arm, design, terminated) else last_recorded_stage(arm, design)
+        degenerate = stage_is_degenerate(arm, design, judged)
         if degenerate and degenerate[0]:
-            return "INVALID saturated %s (i_pTM==1.0 x%d)" % (terminated, degenerate[1])
+            return "INVALID saturated %s (i_pTM==1.0 x%d)%s" % (
+                judged, degenerate[1], "" if judged == terminated else ", rejected at " + terminated)
     if not terminated:
-        return "VALID completed, reached the filters"
+        scored = candidates(arm, design)
+        if not scored:
+            return "INVALID hallucination completed, validation never ran (0 candidates scored)"
+        accepted = [c for c in scored if c.get("outcome") == "passed"]
+        return "VALID scored, %d of %d candidates passed" % (len(accepted), len(scored))
     return "VALID design rejection at %s" % terminated
 
 
-def report(arm):
+def report(argument):
+    arm, _, explicit = argument.partition("=")
     st, cs, rows = stamp(arm), campaign(arm), ledger(arm)
-    commit = st.get("commit") or st.get("tree") or "?"
+    commit = arm_commit(arm, explicit)
+    fix_present = carries_fix(commit)
     print("=" * 100)
     print(arm)
     print("  seed %-4s pool %-6s levers %-6s predictor %s"
           % (st.get("seed"), st.get("multimer_pool"), st.get("levers"), st.get("predictor")))
+    print("  tree %s, carries %s: %s"
+          % (commit or "UNRECORDED", FIX,
+             {True: "yes", False: "NO, chimera trunk", None: "unknown"}[fix_present]))
     rej = cs.get("rejections", {}) or {}
     print("  campaign_state: accepted=%s trajectories=%s candidates_scored=%s failed_filters=%s"
           % (cs.get("accepted"), cs.get("trajectories"), rej.get("candidates_scored"),
@@ -189,14 +289,14 @@ def report(arm):
     out = []
     for row in rows:
         secs = design_seconds(row.get("Timing"))
-        verdict = classify(arm, row, True)
+        verdict = classify(arm, row, fix_present)
         print("  %-38s %5s %9s %-12s %s"
               % (row["design"][:38], row.get("length"),
                  "%.0f" % secs if secs else "?",
                  (row.get("terminated") or "completed"), verdict))
         out.append({"arm": arm, "design": row["design"], "seconds": secs,
                     "terminated": row.get("terminated") or "completed",
-                    "validity": verdict, "commit": commit})
+                    "validity": verdict, "commit": commit or "UNRECORDED"})
     return out
 
 
@@ -209,11 +309,13 @@ def main(argv):
         allrows.extend(report(arm))
     print("=" * 100)
     valid = [r for r in allrows if r["validity"].startswith("VALID")]
-    invalid = [r for r in allrows if not r["validity"].startswith("VALID")]
-    scored = [r for r in valid if r["terminated"] == "completed"]
+    unverified = [r for r in allrows if r["validity"].startswith("UNVERIFIED")]
+    invalid = [r for r in allrows if not r["validity"].startswith(("VALID", "UNVERIFIED"))]
+    scored = [r for r in valid if r["validity"].startswith("VALID scored")]
     print("trajectories in ledgers            : %d" % len(allrows))
     print("  valid as acceptance evidence     : %d" % len(valid))
     print("  not a verdict on a binder        : %d" % len(invalid))
+    print("  tree unverified, provenance missing: %d" % len(unverified))
     print("  reached the acceptance filters   : %d" % len(scored))
     chip = sum(r["seconds"] for r in valid if r["seconds"])
     print("chip-seconds over valid trajectories: %.0f  (%.2f h, one chip)"
