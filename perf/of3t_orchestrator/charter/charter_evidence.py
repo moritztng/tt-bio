@@ -158,6 +158,18 @@ def code_staleness(root: Path, artifact: str, code_paths=("tt_bio",)) -> dict:
             return int(out) if out.isdigit() else None
         except Exception:
             return None
+    # NOTE on what this dates, because it is NOT what `baseline_expiry.py` dates and the two
+    # read opposite on the same five artifacts (2026-09-25). That one reads the artifact's
+    # SELF-RECORDED `env.commit` and returns UNDATABLE without one -- and none of the five
+    # charter artifacts has an `env` block at all, so it is undatable on every one, correctly.
+    # This one reads the artifact FILE's last commit time, which needs no cooperation from the
+    # producer and therefore always works. Weaker evidence always available, against stronger
+    # evidence usually absent.
+    #
+    # Weaker in a specific direction: an artifact is MEASURED before it is COMMITTED, never
+    # after, so its commit time OVERSTATES its freshness. `seconds_behind` is a LOWER BOUND --
+    # "stale by at least N hours". A positive reading is therefore safe to act on; it is the
+    # negative one ("at or after the newest code commit") that proves little.
     a = ts("--", artifact)
     c = ts("--", *code_paths)
     if a is None and (root / artifact).is_file():
@@ -175,7 +187,9 @@ def code_staleness(root: Path, artifact: str, code_paths=("tt_bio",)) -> dict:
             "note": ("this artifact predates the newest commit under "
                      + "/".join(code_paths)
                      + ", so its numbers describe an earlier tree. A clause reading it is "
-                       "reporting history, and a re-take may change the verdict"
+                       "reporting history, and a re-take may change the verdict. "
+                       "`seconds_behind` is a LOWER BOUND: this dates the artifact's COMMIT, "
+                       "and it was measured before it was committed"
                      if a < c else "the artifact is at or after the newest code commit")}
 
 
@@ -361,7 +375,7 @@ def main() -> int:
     for c in conds:
         cs = c["code_staleness"]
         if cs.get("artifact_is_older_than_code"):
-            age = f"  STALE by {cs['seconds_behind'] / 3600:.1f} h"
+            age = f"  STALE by >= {cs['seconds_behind'] / 3600:.1f} h"
         elif not cs.get("comparable") and not cs.get("generated_not_committed"):
             age = "  AGE UNREADABLE in this tree"
         else:
@@ -376,7 +390,9 @@ def main() -> int:
     # for several passes while this same information sat in the JSON.
     if payload["n_stale"]:
         print(f"\n{payload['n_stale']} of {payload['n_conditions']} were graded on an artifact "
-              f"OLDER than the newest commit under tt_bio/, so those clauses report history. "
+              f"committed BEFORE the newest commit under tt_bio/, so those clauses report "
+              f"history -- by AT LEAST the hours shown, since an artifact is measured before it "
+              f"is committed. "
               f"This does not fail the gate -- re-taking an artifact needs a card -- but "
               f"'{payload['n_met']} of {payload['n_conditions']} met' may not be quoted without "
               f"it.")
