@@ -1,0 +1,78 @@
+# Workstream: of3t-zerosfill
+#DISPATCH: host=pc card=0 repo=tt-bio maxit=14 tier=opus5
+DONE_CHECK: python3 /home/moritz/.coworker/workstreams/_of3t_donecheck.py of3t-zerosfill
+
+**READ FIRST**: the **STALE BASELINE banner** in `state/of3t/BACKWARD.md`, **§A46 of
+`state/of3t/PROTOCOL.md`**, and **`state/of3t-bwattrib.md`** (GO), which found this and which is
+the only reason it is visible. Do not re-derive any of it.
+
+**`zeros` is the largest single verb in OF3T's real backward and it is 424x off its own roof.**
+
+`of3t-bwattrib` established that `exact_training` is 95.2 % of the measured backward, so the
+REAL backward — the device compute — is **33.63 s**, not 705.78 s. Against that denominator:
+
+    zeros [384, 1, 384, 128] BFLOAT16 TILE
+      324 calls, 11.80 s self, 35.1 % of the 33.63 s backward
+      36.4 ms a call at 1.04 GB/s
+
+That shape is **37.75 MB**, the pair track. A write-only fill at the **440 GB/s** bandwidth roof
+that binds this workload is **0.086 ms**. It is running at 36.4 ms. **424x.**
+
+Under the old denominator this verb read 1.23 s and 0.17 % — the smallest of four suspects, not
+worth anyone's time. That is the whole lesson of R212 in one row: a step that is 95 % measurement
+instrument ranks every lever by its share of the instrument.
+
+1. **CONFIRM** the share on your own arm before you touch anything, with the exactness state
+   named — `exact_training(False)`, per the sprint's grading convention, because with it ON this
+   verb is invisible. A number without that setting written down is not comparable.
+2. **CAUSE.** 424x off a write-only roof is not a slow kernel, it is the wrong operation. Find
+   out what those 324 calls are: gradient accumulators being allocated and zero-filled per node
+   rather than reused? A `zeros` where a `zeros_like` on an existing buffer would do? An
+   allocation inside a loop that could be hoisted? Name it with a break control that MOVES the
+   number — a cause you cannot make worse on purpose is not established.
+3. **FIX.** This is plain engineering, not a fused kernel, which is why it is worth doing: no new
+   kernel, no C++, no build. If the fix is in `tt_bio/autograd.py` keep the diff minimal and list
+   the line ranges — BCX is rewriting the head verbs there at `wk/bcx-heads` `237f53064` and you
+   will owe their bar.
+4. **VJP.** Any change to allocation or fill on the tape is a change to the gradient until proven
+   otherwise. Per A46 clause 1: per-tensor worst case against a float64 reference validated by
+   central finite differences, located by parameter path. `perf/of3t_orchestrator/bwd/batch_gate.sh`
+   is the batch gate and its bars are `gradcheck.py`'s own.
+5. **SPEED.** Seconds off the REAL backward, arms interleaved, DURING-sampled AICLK, board class
+   named (pc card 0 is a Blackhole p150a on custom 130-core firmware). Quote your saving against
+   the step you measured, never against 466.702 s, which is void (R209).
+
+**Do not touch `exact_training`.** It is a fidelity feature Moritz approved personally and
+switching it off reads 1.4512x the accuracy bar where ON reads 0.9823x. You use it as a
+denominator, not as a lever.
+
+State doc `state/of3t-zerosfill.md`: CONFIRM:, CAUSE:, VJP:, SPEED:, FIX:, VERDICT:.
+
+## HOUSE RULES for the backward sprint — of3t-orchestrator, 2026-09-25 16:2x CEST
+
+Added after dispatch because the four briefs went out without them. A decision that is not in your
+brief does not reach you, so it is here rather than in a state doc.
+
+- **ARTIFACTS: `perf/of3t_<your-slug>/`, and nowhere else.** Yours alone. Four rows writing into one
+  perf tree is how a merge comes out textually clean and semantically broken
+  (`sibling-perf-campaigns-need-namespaced-output-paths`).
+- **SCRATCH: `/tmp/of3t/<your-slug>/`.** Never a shared generic name. Two of3t rows collided on
+  `/tmp/of3t/state.md` and one row's state doc silently became a verbatim copy of another's —
+  another row's branch, instruments and VERDICT, installed under the wrong slug. Nothing errored
+  (LEDGER K18).
+- **BRANCH: `wk/<your-slug>`, pushed every pass.** I compose the sprint onto `wk/of3t-bwd`; do not
+  merge to main and do not compose each other. `wk/of3t` is finished history: verified this pass,
+  it is fully contained in `origin/main` (`git merge-base --is-ancestor` clean), so do not branch
+  from it or treat it as the campaign's tip. Branch from `origin/main`.
+- **`tt_bio/autograd.py` and `tt_bio/taped_ttnn.py` are CONTESTED and moving right now.** BCX is
+  rewriting the head-verb backwards in both: `wk/bcx-heads` at `237f53064`, with `wk/bcx-bwdplan`
+  building on it this pass. If your fix lands in either file, keep the diff minimal, say so in your
+  state doc under its own heading, and expect to re-run BCX's bar rather than trusting a clean
+  textual merge — these are exactly the two files where `land-d264` showed a merge error is
+  invisible to inference and visible only to a taped arm.
+- **Say the AXIS on every number** (chip-to-chip, box-to-box, phase-matched, step-to-step), and the
+  clock: a DURING-sampled AICLK and the board class. qb1 p150a and qb2 p300c run the same 512 aa
+  fold 17.39 s against 14.59 s at the same 1350 MHz, so a board class is part of a measurement.
+- **The target stays honest.** ~8.5x compute / ~11x bandwidth is hardware; ~6-7x of the 58-67x is
+  software and that is what this sprint is for. 5x chip-to-chip is below the silicon floor — do not
+  promise it, in a state doc or anywhere else.

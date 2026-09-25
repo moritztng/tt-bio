@@ -1089,6 +1089,36 @@ state doc nor its `CLAUSE_EXACT.json` names the version anywhere.
 
 **R200** (pass 423) The `of3t-denoise` A40 floor was attributed to mse's Kabsch stop-gradient and FD3 froze it. FD3 at h=1e-4 reads 15.897746748793073 against FD2's 15.897749718841725 (1.9e-7 relative) and both read 2.847e-05 at h=1e-5: the freeze is inert, as the envelope theorem predicts when the alignment minimises the loss it feeds. FD2's ladder 2.498e-04 / 7.634e-05 / 2.847e-05 falls ~h^0.5 without a plateau, which a missing gradient path (constant bias) cannot produce. h=1e-6 then read 6.972e-10 and h=1e-7 4.303e-09: a V with one kink crossing between 1e-6 and 1e-5, so A40 PASSES. Separately, `of3t-denoise` found D259 (`ttnn.multiply(bf16, fp32 [...,1])` nondeterministic, up to 16,061 wrong elements) and D258 (mixed-dtype `transpose_a` matmul); both are fixed on the training path only, and `of3t-bcastaudit` measures whether inference reaches them.
 
+- **R212** (pass 453) **THE SPRINT'S ANSWER: OF3T TRAINING IS SLOW BECAUSE OF ONE KNOB, AND IT IS
+  THE FIDELITY FEATURE WE CHOSE.** `of3t-bwattrib` GO. `exact_training`'s host float64 softmax
+  and layer norm are **95.2 % of the backward and 98.0 % of the forward**, attributed per closure
+  AND per verb and confirmed by a break control on an identical route: step **980.73 s -> 39.11 s
+  = 25.08x** (forward 50.17x, backward 20.99x), with the knob's own counters reading zero served
+  softmaxes in the noexact arm. Per closure: `host_f64_softmax..bw` 111 fires / 250.35 s / 35.5 %
+  and `_v_exact_layer_norm..bw` 658 / 128.73 s / 18.2 %, a clean 53.7 % because they do not nest.
+  Per verb through the other door: `to_torch` 174.24 s + `from_torch` 142.88 s = **317.12 s,
+  44.9 % of the backward on the PCIe bus**, and 57.1 % of the forward. Mechanism, from the
+  dispatch table itself: the score tensor is `[384,4,384,384]` FLOAT32, 226,492,416 elements,
+  **1.81 GB of PCIe per exact softmax, 391.4 GB over 216 calls, 178 s at the measured 2.2 GB/s** —
+  and the residual host arithmetic matches `of3t-tapedfwd`'s independent 1.9813 ns/element.
+  **Three premises overturned at once.** (a) **The 44.3x per-verb overhead does not exist**: one
+  instrument on both legs reads **0.59x**, a backward verb being CHEAPER than a forward one.
+  (b) **All four suspects I pushed total 1.34 %**, and `Tensor.evict` is *inert* — 6,300 calls,
+  **0** moved L1->DRAM, the guard returns early every time — and was named against the wrong roof
+  anyway, being an on-device copy rather than PCIe. (c) **J3 is dead at zero, not bracketed**:
+  `sdpa_taped_calls = 0` and no SDPA verb appears in 24,928 forward or 61,746 backward calls,
+  because `fp32_softmax=True` at all four sites routes the forward away from `fused_sdpa`.
+  **And the knob is NOT a lever**: `exact_training(False)` reads 1.4512x the accuracy bar where
+  ON reads 0.9823x. Its value is as the correct DENOMINATOR — the backward's real compute is
+  **33.63 s**, not 705.78 s. **The general lesson, which cost this sprint most of its job list:
+  a step that is 95 % measurement instrument ranks every lever by its share of the instrument.**
+  Fix the denominator before ranking anything. Two real jobs became visible only once it was
+  fixed: **`zeros [384,1,384,128]` BFLOAT16, 324 calls, 11.80 s self = 35.1 % of the REAL
+  backward at 1.04 GB/s — 424x off the 440 GB/s roof that binds it**, a plain allocation/fill
+  defect that read 0.17 % under the old denominator; and **`EXACT_TRAINING_OPS = ("softmax",)`**,
+  worth 128.73 s of the base backward if softmax alone carries the accuracy, with
+  `exact_softmax()` already existing as that scope (`autograd.py:1599`).
+
 - **R211** (pass 451) **NODE COUNT IS NOT A COST PROXY, AND THE JOBS LIST WAS ORDERED BY IT — so
   J1 and J2 are both NO-GO and the kernel programme has largely collapsed.** `of3t-lnbw`, NO-GO
   with three independent reasons: the LayerNorm-backward site's whole ceiling is **9.40 s**

@@ -1,0 +1,72 @@
+# Workstream: of3t-exactscope
+#DISPATCH: host=pc card=0 repo=tt-bio maxit=16 tier=opus5
+DONE_CHECK: python3 /home/moritz/.coworker/workstreams/_of3t_donecheck.py of3t-exactscope
+
+**READ FIRST**: **`state/of3t-bwattrib.md`** (GO) and **§A46 of `state/of3t/PROTOCOL.md`**. Do
+not re-derive them.
+
+**Does the accuracy need EXACT LAYER NORM, or does exact softmax alone carry it?** That is the
+whole row, and it is worth **128.73 s of the base backward** — the largest single number left in
+this campaign that does not require giving up fidelity.
+
+`of3t-bwattrib` split `exact_training`'s cost per closure: `host_f64_softmax..bw` is 250.35 s
+(35.5 % of the base backward) and **`_v_exact_layer_norm..bw` is 128.73 s (18.2 %)**. The two do
+not nest, so the split is clean. If the campaign's gradient accuracy is carried by the softmax
+and the layer norm is along for the ride, narrowing the scope buys 18.2 % of the backward **at no
+cost to the bar**, and it is a configuration change rather than a kernel.
+
+**The scope already exists**: `exact_softmax()` at `autograd.py:1599`, and `_EXACT_OPS`
+(`autograd.py:1526-1533`) replaces exactly `softmax`, `softmax_in_place` and `layer_norm`. So
+this is a measurement, not a build.
+
+1. **BAR:** the arm is graded against **`of3t-stackexact`'s** bar, which is where the two live
+   readings come from: `exact_training(True)` reads **0.9823x** and `exact_training(False)` reads
+   **1.4512x**. Your arm is the third point. **Fix what "passes" means BEFORE you run it** — A46
+   clause 1 and the protocol's standing rule that a tolerance chosen after the number exists is
+   not evidence. Softmax-only passes if it is at or under the bar the way ON is.
+2. **GRADIENT:** per-tensor worst case against a float64 reference itself validated by central
+   finite differences, located by parameter path. A forward check cannot see this: the whole
+   question is what the BACKWARD's precision needs.
+3. **SPEED:** what the narrowed scope actually saves, measured, not the 128.73 s quoted above —
+   that is the closure's share of a base arm, and your arm is a different configuration. Arms
+   interleaved, DURING-sampled AICLK, board class named.
+4. **VERDICT:** if softmax-only holds the bar, this is the campaign's best fidelity-preserving
+   win and it goes to Moritz as a recommendation with both numbers. If it does not, say so with
+   the worst tensor named — **a refutation here is as valuable as a win**, because it tells him
+   the exact layer norm is load-bearing and the price is not negotiable.
+
+**What this row must not do.** It must not propose `exact_training(False)`, which fails the bar
+at 1.4512x. It must not widen a tolerance to make softmax-only pass. And it must not report a
+speed number without the accuracy arm beside it — the entire point is the trade, and half of it
+is not a result.
+
+State doc `state/of3t-exactscope.md`: BAR:, GRADIENT:, SPEED:, FIX:, VERDICT:.
+
+## HOUSE RULES for the backward sprint — of3t-orchestrator, 2026-09-25 16:2x CEST
+
+Added after dispatch because the four briefs went out without them. A decision that is not in your
+brief does not reach you, so it is here rather than in a state doc.
+
+- **ARTIFACTS: `perf/of3t_<your-slug>/`, and nowhere else.** Yours alone. Four rows writing into one
+  perf tree is how a merge comes out textually clean and semantically broken
+  (`sibling-perf-campaigns-need-namespaced-output-paths`).
+- **SCRATCH: `/tmp/of3t/<your-slug>/`.** Never a shared generic name. Two of3t rows collided on
+  `/tmp/of3t/state.md` and one row's state doc silently became a verbatim copy of another's —
+  another row's branch, instruments and VERDICT, installed under the wrong slug. Nothing errored
+  (LEDGER K18).
+- **BRANCH: `wk/<your-slug>`, pushed every pass.** I compose the sprint onto `wk/of3t-bwd`; do not
+  merge to main and do not compose each other. `wk/of3t` is finished history: verified this pass,
+  it is fully contained in `origin/main` (`git merge-base --is-ancestor` clean), so do not branch
+  from it or treat it as the campaign's tip. Branch from `origin/main`.
+- **`tt_bio/autograd.py` and `tt_bio/taped_ttnn.py` are CONTESTED and moving right now.** BCX is
+  rewriting the head-verb backwards in both: `wk/bcx-heads` at `237f53064`, with `wk/bcx-bwdplan`
+  building on it this pass. If your fix lands in either file, keep the diff minimal, say so in your
+  state doc under its own heading, and expect to re-run BCX's bar rather than trusting a clean
+  textual merge — these are exactly the two files where `land-d264` showed a merge error is
+  invisible to inference and visible only to a taped arm.
+- **Say the AXIS on every number** (chip-to-chip, box-to-box, phase-matched, step-to-step), and the
+  clock: a DURING-sampled AICLK and the board class. qb1 p150a and qb2 p300c run the same 512 aa
+  fold 17.39 s against 14.59 s at the same 1350 MHz, so a board class is part of a measurement.
+- **The target stays honest.** ~8.5x compute / ~11x bandwidth is hardware; ~6-7x of the 58-67x is
+  software and that is what this sprint is for. 5x chip-to-chip is below the silicon floor — do not
+  promise it, in a state doc or anywhere else.

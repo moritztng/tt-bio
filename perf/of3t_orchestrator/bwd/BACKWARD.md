@@ -32,6 +32,39 @@ before it starts. Moritz: *"doing the same great job we did for forward also for
 what already exists in the tenstorrent repositories. adapting. taking inspiration from gpu
 implementations ... full speed. with multiple agents."*
 
+> # ANSWERED, 2026-09-25 pass 453. Read this before anything below it.
+>
+> **`of3t-bwattrib` (GO) attributed the step and the sprint's premise is refuted: OF3T training
+> is slow because of ONE KNOB, and it is the fidelity feature we chose — not a missing fused
+> backward kernel.**
+>
+> `exact_training`'s host float64 softmax and layer norm are **95.2 % of the backward and 98.0 %
+> of the forward**. Break control, identical route, same board and clock: step **980.73 s ->
+> 39.11 s = 25.08x** (forward 50.17x, backward 20.99x), with the knob's own counters reading zero
+> served softmaxes in the noexact arm. Per closure: `host_f64_softmax..bw` 111 fires / 250.35 s /
+> 35.5 %, `_v_exact_layer_norm..bw` 658 / 128.73 s / 18.2 %, a clean 53.7 % since they do not
+> nest. Per verb, agreeing through another door: `to_torch` 174.24 s + `from_torch` 142.88 s =
+> **317.12 s, 44.9 % of the backward on the PCIe bus**. Mechanism from the dispatch table itself:
+> the score tensor is `[384,4,384,384]` FLOAT32, so **1.81 GB of PCIe per exact softmax and
+> 391.4 GB across 216 calls**.
+>
+> **Premises overturned — do not carry these forward:** the **44.3x per-verb overhead does not
+> exist** (one instrument on both legs reads **0.59x**, a backward verb cheaper than a forward
+> one); the four suspects total **1.34 %** and `Tensor.evict` is *inert* at **0 %** (6,300 calls,
+> nothing moved, and it was named against the wrong roof); **J3 is dead at zero**, since
+> `sdpa_taped_calls = 0` and no SDPA verb appears in 24,928 forward or 61,746 backward calls.
+>
+> **The knob is not a lever.** `exact_training(False)` reads **1.4512x** the accuracy bar where ON
+> reads **0.9823x**. Its value is as the correct DENOMINATOR: the real device backward is
+> **33.63 s**, not 705.78 s. **A step that is 95 % measurement instrument ranks every lever by its
+> share of the instrument** — which is why §4c's ceiling, the JOBS shares and most of this
+> document's §1 were ranking noise.
+>
+> **What is actually left**, both invisible until the denominator was fixed and both dispatched:
+> `zeros [384,1,384,128]` at **35.1 % of the real backward, 424x off its 440 GB/s roof**
+> (`of3t-zerosfill`); and whether exact softmax alone carries the accuracy so the exact layer norm
+> can go, worth **128.73 s at no cost to the bar** (`of3t-exactscope`).
+
 > # !! STALE BASELINE — READ THIS BEFORE ANY NUMBER BELOW. 2026-09-25, pass 450. !!
 >
 > **`of3t-tapedfwd` (GO) established that the 466.702 s step this whole document is built on

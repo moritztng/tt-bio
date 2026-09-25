@@ -42,7 +42,7 @@ author and cite what you took; gates are batched and a stack is approved whole. 
 speedup that does less of the model's own work. A1-A45 are the correctness protocol and are
 unchanged. History: `state/of3t/PASSLOG.md`.
 
-LEDGER: `~/.coworker/state/of3t/LEDGER.md`, **R1-R211 and K1-K25**. **R203, filed this pass, is
+LEDGER: `~/.coworker/state/of3t/LEDGER.md`, **R1-R212 and K1-K25**. **R203, filed this pass, is
 the sprint's first finding and it reordered the job list: an engine-wide fused-kernel bypass hid
 behind a per-module comment. A per-site comment that correctly explains one decline is the best
 camouflage a policy can have, because every reader who checks one site leaves satisfied. Count the
@@ -82,7 +82,7 @@ and the contested-file warning; the four sprint briefs went out without them and
 | `of3t-throughput` | **GO** — box-to-box is the honest axis | arithmetic only | `perf/of3t_throughput/` |
 | `of3t-tapedfwd` | **GO** — 1.00508x, and it invalidated the baseline (R209) | fused-kernel selection and decline sites | `perf/of3t_tapedfwd/` |
 | `of3t-intensity` | **live, whglx card 6** (relocated; pass 1 lost with qb1) | measurement scripts, read-only on engine | `perf/of3t_intensity/` |
-| `of3t-bwattrib` | live, queued for pc card 0 — J0 | the 2.107 ms attribution, wiring fixes | `perf/of3t_bwattrib/` |
+| `of3t-bwattrib` | **GO** — the answer: one knob, 95.2 % (R212) | the 2.107 ms attribution, wiring fixes | `perf/of3t_bwattrib/` |
 | `of3t-lnbw` | **NO-GO** — J1's ceiling is 9.40 s, not 46.4 s (R211) | the LayerNorm backward | `perf/of3t_lnbw/` |
 | `of3t-softbw` | **NO-GO on Route A**, Route B needs a build — J2 | the softmax backward | `perf/of3t_softbw/` |
 | `of3t-wheelbw` | **parked 4th in the card queue** — J4 | nine `*_bw` substitutions in `autograd.py` | `perf/of3t_wheelbw/` |
