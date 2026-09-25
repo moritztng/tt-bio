@@ -301,10 +301,13 @@ def _check_param(op, fwd, probe):
 
     One comparison per distinct activation, on the operand already in hand: the kernel
     computes `f(x) + 0` through the fused path, and the model computes `f(x)` directly.
-    The bar is loose on purpose. This is not a precision check -- it is here to catch the
-    parse returning something that is not the scale at all, which is what an fp32 bit
-    pattern (`rfd3_bias._scale_bits`) would look like if ttnn ever stored one: off by nine
-    orders, not by a rounding.
+    The bar is loose on purpose, and it has to be: the probe is bf16, so one ulp at
+    magnitude 1 is already 3.9e-03 and a tighter bar measures the dtype rather than the
+    parse. This is not a precision check. It is here to catch the parse returning something
+    that is not the scale at all, which is what an fp32 bit pattern
+    (`rfd3_bias._scale_bits`) would look like if ttnn ever stored one: off by nine orders,
+    not by a rounding. 5e-02 leaves a factor of twelve over the bf16 floor and still
+    refuses a scalar wrong by more than 5 %.
     """
     key = repr(op)
     if key in _PARAM_CHECKED:
@@ -319,7 +322,7 @@ def _check_param(op, fwd, probe):
     sc = float(ttnn.to_torch(scale).flatten()[0])
     for t in (zero, kern, ours, diff, scale):
         ttnn.deallocate(t)
-    if d > 1.0e-3 * (sc + 1.0e-30):
+    if d > 5.0e-2 * (sc + 1.0e-30):
         raise NotImplementedError(
             f"tt_bio.autograd read the scalar of {op!r} out of its repr and the kernel "
             f"disagrees: max |kernel - model| {d:.3e} against |kernel| {sc:.3e}. The "
@@ -754,15 +757,15 @@ def _v_concat_heads(shipped, args, kwargs):
     """``[B, H, L, dh] -> [B, 1, L, H*dh]``, measured equal to
     ``permute(0, 2, 1, 3).reshape(B, 1, L, H*dh)``. The backward is that inverted."""
     x = _wrap(args[0])
-    B, H, L, dh = (int(d) for d in x.value.shape)
+    H = int(x.value.shape[1])
     ra, rk = _raw(args, kwargs)
     out_v = shipped(*ra, **rk)
 
     def make():
         def bw(g):
-            # `ag.split_heads`'s tile-aligned slices rather than reshape to [B, L, H, dh] +
-            # permute, which pads H to a tile row: 275 us against 2576 us at [256, 256, 128].
-            x.add_grad(ag._split_heads_v(ttnn.reshape(g, [B, L, H * dh]), H))
+            # Not reshape to [B, L, H, dh] + permute, which puts H on a tile row and pads 4
+            # heads to 32: `split_heads_value` is 178 us against 2581 us at [256, 256, 128].
+            x.add_grad(ag.split_heads_value(g, H))
         return bw
 
     return _tape(out_v, [x], make)
@@ -790,16 +793,20 @@ def _v_create_qkv_heads(shipped, args, kwargs):
     def slot(s):
         def make():
             def bw(g):
-                # [B, H, L, dh] -> [B, 1, L, H*dh] on `nlp_concat_heads`, then into slot s of the
-                # packed LAST axis. Permuting to [B, L, H, dh] and concatenating on a unit axis
-                # pads H and the slot axis to a tile row each; this moves every tile once and is
-                # the same rearrangement (`perf/bcx_triatt/heads_verbs.py`).
-                rows = ttnn.reshape(ag._merge_heads_v(g), [B, 1, L, H * dh])
+                # [B, H, L, dh] -> [B, 1, L, H*dh], then into slot s of the packed axis.
+                #
+                # The slot rides the LAST axis. It used to ride dim 2, as an extent of 3, and
+                # TILE layout pads a second-to-last dim up to 32: at 576 tokens the concat
+                # asked for 2,717,908,992 B to carry 254,803,968 B of gradient, 90.6 %
+                # padding, and that is what refused the backward. On the last axis the extent
+                # is 3*H*dh, a whole number of tiles. The packed width decomposes as
+                # [3, H, dh], so slot s is the contiguous range [s*H*dh, (s+1)*H*dh) either
+                # way and the gradient is bit-identical.
+                rows = ttnn.reshape(ag.merge_heads_value(g), [B, 1, L, H * dh])
                 # One zero tensor for both empty slots, then one concat. `ttnn.pad` would be
                 # the single-allocation form and cannot be used: it refuses front padding
                 # (`pad.cpp:278 front_padding_is_zero`), so slots 1 and 2 have no pad
-                # expression. The packed width is 2,415,919,104 B at a 384-token pair track,
-                # which is why this op is where the backward runs out of card.
+                # expression.
                 zero = ttnn.zeros([B, 1, L, H * dh], dtype=rows.dtype,
                                   layout=ttnn.TILE_LAYOUT, device=rows.device())
                 parts = [rows if i == s else zero for i in range(3)]

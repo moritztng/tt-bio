@@ -35,7 +35,8 @@ __all__ = [
     "forget_parameters", "parameter_for",
     "release_pins",
     "linear", "matmul", "layer_norm", "softmax", "mul", "add", "scale", "sigmoid",
-    "relu", "silu", "reshape", "split_heads", "merge_heads",
+    "relu", "silu", "reshape", "split_heads", "merge_heads", "split_heads_value",
+    "merge_heads_value",
     "triangle_attention", "permute", "pair_contract", "checkpoint",
     "install", "uninstall", "installed", "is_grad_enabled", "backward", "tape",
 ]
@@ -1000,18 +1001,29 @@ def reshape(x: Tensor, shape: Sequence[int]) -> Tensor:
     return _tape(out_v, [x], make)
 
 
-def _split_heads_v(x, heads):
-    """``[B, S, H*d] -> [B, H, S, d]`` on a raw tensor. See `split_heads`."""
-    B, S, C = (int(d) for d in x.shape)
-    d = C // heads
-    if d % 32:
-        return ttnn.permute(ttnn.reshape(x, [B, S, heads, d]), (0, 2, 1, 3))
-    return ttnn.concat([ttnn.reshape(ttnn.slice(x, [0, 0, h * d], [B, S, (h + 1) * d]),
-                                     [B, 1, S, d]) for h in range(heads)], dim=1)
+def split_heads_value(x, heads):
+    """``[B, S, H*d]`` or ``[B, 1, S, H*d] -> [B, H, S, d]`` on a raw ttnn tensor, untaped.
+    `split_heads` tapes it and `taped_ttnn`'s ``nlp_concat_heads`` backward calls it directly.
+
+    Transposing first puts the head split on a dim of extent d rather than H, so no H axis ever
+    becomes a tile row, and it is three ops whatever the head count. Against H tile-aligned
+    slices and a concat it is 178 us to 277 us at [256, 256, 4x32], 882 to 1382 us at
+    [576, 576, 4x32] and 694 to 1658 us at 16 heads, bit-exact at every shape including d=16,
+    where the slice form had to fall back to a permute (`perf/bcx_heads/heads_ab.json`, qb1
+    p150a, 1350 MHz).
+    """
+    B, S, C = int(x.shape[0]), int(x.shape[-2]), int(x.shape[-1])
+    t = ttnn.reshape(ttnn.transpose(x, -2, -1), [B, heads, C // heads, S])
+    return ttnn.transpose(t, -2, -1)
 
 
-def _merge_heads_v(x):
-    """``[B, H, S, d] -> [B, S, H*d]`` on a raw tensor. See `merge_heads`."""
+def merge_heads_value(x):
+    """``[B, H, S, d] -> [B, S, H*d]`` on a raw ttnn tensor, untaped. See `merge_heads`.
+
+    ``nlp_concat_heads`` keeps the pad lanes of a head width that is not whole tiles, and at
+    d=16 it is not the permutation (`perf/bcx_heads/heads_ab.json`), so such a width takes
+    ``permute`` + ``reshape``. The DRAM pin costs nothing measurable at nine shapes.
+    """
     B, H, S, d = (int(e) for e in x.shape)
     if d % 32:
         return ttnn.reshape(ttnn.permute(x, (0, 2, 1, 3)), [B, S, H * d])
@@ -1023,17 +1035,15 @@ def split_heads(x: Tensor, heads: int) -> Tensor:
     """``[B, S, H*d] -> [B, H, S, d]``, the attention head split. The backward is `merge_heads`.
 
     ``permute(reshape(x, [B, S, H, d]), (0, 2, 1, 3))`` is the same rearrangement and in tile
-    layout it moves 8x the bytes, because the H axis becomes a tile row and 4 heads pad to 32.
-    Slicing the channel axis into H tile-aligned strips and concatenating them on a new head
-    axis moves each tile once: 275 us against 2576 us at [256, 256, 128] with 4 heads
-    (`perf/bcx_triatt/heads_probe_n256.json`, qb1 p150a, 1350 MHz). A pure rearrangement, so
-    bit-exact either way; a head width that is not whole tiles keeps the reshape.
+    layout it moves 8x the bytes, because the H axis becomes a tile row and 4 heads pad to 32:
+    2581 us against 178 us for `split_heads_value` at [256, 256, 128] with 4 heads. A pure
+    rearrangement, so bit-exact either way.
     """
-    out_v = _split_heads_v(x.value, heads)
+    out_v = split_heads_value(x.value, heads)
 
     def make():
         def bw(g):
-            x.add_grad(_merge_heads_v(g))
+            x.add_grad(merge_heads_value(g))
         return bw
 
     return _tape(out_v, [x], make)
@@ -1045,11 +1055,11 @@ def merge_heads(x: Tensor) -> Tensor:
     90 us against 2208 us for ``permute`` + ``reshape`` at the same shape, bit-exact.
     """
     heads = int(x.value.shape[1])
-    out_v = _merge_heads_v(x.value)
+    out_v = merge_heads_value(x.value)
 
     def make():
         def bw(g):
-            x.add_grad(_split_heads_v(g, heads))
+            x.add_grad(split_heads_value(g, heads))
         return bw
 
     return _tape(out_v, [x], make)
