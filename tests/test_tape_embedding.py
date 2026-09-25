@@ -19,6 +19,10 @@ import ttnn
 
 pytestmark = [pytest.mark.device]
 
+# `tape()` rebinds `ttnn` only in tt_bio's own modules, so a verb called from this file has to
+# go through the proxy or it runs untaped and the raw kernel is handed an `ag.Tensor`.
+tt = pytest.importorskip("tt_bio.taped_ttnn").taped_ttnn()
+
 # bf16 through a bf16 kernel. ttnn.embedding is bf16-only in the forward and
 # ttnn.embedding_bw refuses fp32 outright, so every shipped call site downcasts the table
 # before the gather and the gradient carries no rounding the forward did not already have.
@@ -54,7 +58,7 @@ def test_embedding_backward_is_a_scatter_add(V, C, N, dup):
     g = ttnn.from_torch(cot, layout=ttnn.ROW_MAJOR_LAYOUT, device=dev, dtype=ttnn.bfloat16)
 
     with ag.tape():
-        out = ttnn.embedding(idx_t, w, layout=ttnn.ROW_MAJOR_LAYOUT)
+        out = tt.embedding(idx_t, w, layout=ttnn.ROW_MAJOR_LAYOUT)
         ag.backward([out], [g])
 
     got = torch.Tensor(ttnn.to_torch(w.grad)).double().reshape(V, C)
@@ -81,7 +85,7 @@ def test_embedding_backward_accumulates_rather_than_assigns():
     g = ttnn.from_torch(cot, layout=ttnn.ROW_MAJOR_LAYOUT, device=dev, dtype=ttnn.bfloat16)
 
     with ag.tape():
-        ag.backward([ttnn.embedding(idx_t, w, layout=ttnn.ROW_MAJOR_LAYOUT)], [g])
+        ag.backward([tt.embedding(idx_t, w, layout=ttnn.ROW_MAJOR_LAYOUT)], [g])
 
     got = torch.Tensor(ttnn.to_torch(w.grad)).double()
     assert abs(float(got.mean()) - 8.0) < 0.1, (
@@ -104,6 +108,6 @@ def test_to_layout_backward_returns_the_parents_layout():
     g = ttnn.from_torch(torch.ones(1, 64, 32), layout=ttnn.ROW_MAJOR_LAYOUT, device=dev,
                         dtype=ttnn.bfloat16)
     with ag.tape():
-        ag.backward([ttnn.to_layout(x, ttnn.ROW_MAJOR_LAYOUT)], [g])
+        ag.backward([tt.to_layout(x, ttnn.ROW_MAJOR_LAYOUT)], [g])
     assert x.grad.layout == ttnn.TILE_LAYOUT, (
         f"gradient came back {x.grad.layout}, parent is {ttnn.TILE_LAYOUT}")
