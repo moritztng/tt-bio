@@ -15,20 +15,53 @@ import opname as O
 
 RUN = sys.argv[1]
 
-PARTS = [
-    ("template: pair stack", r"template_pair_stack"),
-    ("template: pointwise attention", r"template_embedding.*attention|template_pointwise"),
-    ("template: single embedding", r"single_template_embedding|template_embedding"),
-    ("template: single/torsion", r"template_single_embedding|template_projection"),
-    ("structure module", r"structure_module|fold_iteration|invariant_point|rigid_sidechain"),
-]
+# A part is a set of haiku module names matched against the op_name's PATH COMPONENTS, never
+# as a substring of the whole path. The substring form was wrong by a hundredfold: `fold_iteration`
+# is a substring of `alphafold_iteration`, which prefixes every op in the model, so the structure
+# module's bucket silently became the whole of AlphaFold -- 143.4 s of a 166.9 s round over
+# 375,096 segments, whose largest contributors are Evoformer triangle-attention dot_generals
+# (perf/bcx_tmplseam/attrib_check.py, runs/anatomy/attrib_check.json).
+STRUCTURE = {"structure_module", "fold_iteration", "invariant_point_attention",
+             "multi_rigid_sidechain", "rigid_sidechain"}
+WRAPPED = re.compile(r"^[\w.]+\((.*)\)$")
+
+
+def components(opn):
+    """Path components, with one level of `jit(...)`/`vmap(...)`/`transpose(...)` unwrapped."""
+    out = set()
+    for c in opn.split("/"):
+        if not c:
+            continue
+        out.add(c)
+        m = WRAPPED.match(c)
+        while m:
+            c = m.group(1)
+            out.add(c)
+            m = WRAPPED.match(c)
+    return out
 
 
 def part_of(opn):
-    for label, pat in PARTS:
-        if re.search(pat, opn):
-            return label
+    s = components(opn)
+    if "template_pair_stack" in s:
+        return "template: pair stack"
+    if "template_embedding" in s and (s & {"attention", "template_pointwise_attention"}):
+        return "template: pointwise attention"
+    if s & {"single_template_embedding", "template_embedding"}:
+        return "template: single embedding"
+    if s & {"template_single_embedding", "template_projection"}:
+        return "template: single/torsion"
+    if s & STRUCTURE:
+        return "structure module"
     return None
+
+
+# The regression this file is the site of, asserted rather than remembered.
+_EVO = ("jit(sequence_design_loss)/jvp(jit(apply))/jit(apply_fn)/alphafold/alphafold_iteration/"
+        "evoformer/__layer_stack_no_state_1/while/body/eval_jaxpr/evoformer_iteration/"
+        "triangle_attention_starting_node/attention/bqhc,bkhc->bhqk/dot_general")
+assert part_of(_EVO) is None, "an Evoformer op must not land in a template or structure bucket"
+assert part_of(_EVO.replace("evoformer_iteration", "structure_module")) == "structure module"
 
 
 from jax.profiler import ProfileData
@@ -65,9 +98,8 @@ total = 0.0
 for i, (_a, _b, op) in enumerate(segs):
     opn = names.get(op, "<unmapped>")
     total += wall[i]
-    p = part_of(opn)
-    if p is None:
-        continue
+    p = part_of(opn) or ("<unlabelled>" if opn in ("<unlabelled>", "<unmapped>")
+                         else "everything else")
     by[f"{p} [{'bwd' if 'transpose(' in opn else 'fwd'}]"] += wall[i]
 out = {"run": RUN, "profiled_rounds": n,
        "sequence_gradients_s_per_round": round(sg / n, 3),
