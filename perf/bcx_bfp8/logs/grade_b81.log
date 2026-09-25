@@ -1,0 +1,20 @@
+2026-09-25 04:55:24.944 | DEBUG    | ttnn:<module>:77 - Initial ttnn.CONFIG:
+Config{cache_path=/home/ttuser/.cache/ttnn,model_cache_path=/home/ttuser/.cache/ttnn/models,tmp_dir=/tmp/ttnn,enable_model_cache=false,enable_fast_runtime_mode=true,throw_exception_on_fallback=false,enable_logging=false,enable_graph_report=false,enable_detailed_buffer_report=false,enable_detailed_tensor_report=false,enable_comparison_mode=false,comparison_mode_should_raise_exception=false,comparison_mode_pcc=0.9999,root_report_path=generated/ttnn/reports,report_name=std::nullopt,std::nullopt}
+[grade] set_fast_mode(True) after the device model was built
+{"block": "extra0", "reach": 169, "nodes": 125, "dz": {"rel_l2": Infinity, "cos": NaN, "norm_ref": 1.9365994469117527, "norm_ratio": Infinity}, "dz_torch_bf16": {"rel_l2": 0.029246685386854748, "cos": 0.9995724751577638, "norm_ratio": 1.0002807823864137}, "dz_torch_f32": {"rel_l2": 0.00022794960986238005, "cos": 0.9999999740194595, "norm_ratio": 1.000000210197856}, "fwd_z": {"rel_l2": 0.005635102437045947, "cos": 0.9999842199465265}, "permuted": {"dz": {"rel_l2": Infinity, "cos": NaN}}, "zero_seed_max_abs": {"dz": 0.0}}
+{"block": "extra1", "reach": 169, "nodes": 125, "dz": {"rel_l2": Infinity, "cos": NaN, "norm_ref": 0.2821382852175072, "norm_ratio": Infinity}, "dz_torch_bf16": {"rel_l2": 0.013791253381216647, "cos": 0.999904902160522, "norm_ratio": 1.0000146039152522}, "dz_torch_f32": {"rel_l2": 1.3400204311463493e-07, "cos": 0.999999999999922, "norm_ratio": 1.0000000018377944}, "fwd_z": {"rel_l2": 0.00502473407239481, "cos": 0.9999882951530242}}
+{"block": "evo22", "reach": 287, "nodes": 208, "dz": {"rel_l2": NaN, "cos": NaN, "norm_ref": 0.2499276476399029, "norm_ratio": NaN}, "dz_torch_bf16": {"rel_l2": 0.022220103940467664, "cos": 0.9997531776178705, "norm_ratio": 1.0001394109032744}, "dz_torch_f32": {"rel_l2": 2.0538201569005475e-07, "cos": 0.9999999999999168, "norm_ratio": 1.000000001466634}, "dm": {"rel_l2": NaN, "cos": NaN, "norm_ref": 1.8875699780806225, "norm_ratio": NaN}, "dm_torch_bf16": {"rel_l2": 0.011142548622522208, "cos": 0.9999379242709976, "norm_ratio": 1.0000316536454912}, "dm_torch_f32": {"rel_l2": 1.252945713642924e-07, "cos": 0.999999999999988, "norm_ratio": 1.0000000101433797}, "fwd_m": {"rel_l2": 0.0029648752029663677, "cos": 0.9999956111091411}, "fwd_z": {"rel_l2": 0.004205440286553225, "cos": 0.9999911571686464}}
+Traceback (most recent call last):
+  File "/home/ttuser/.coworker/wt/bcx-bfp8/perf/bcx_bfp8/grade.py", line 34, in <module>
+    S.main()
+  File "/home/ttuser/.coworker/wt/bcx-bfp8/perf/bcx_stack/stack.py", line 941, in main
+    {"reach": cmd_reach, "time": cmd_time, "bits": cmd_bits, "vjp": cmd_vjp, "whole": cmd_whole, "fit": cmd_fit, "ckprof": cmd_ckprof, "gcdiag": cmd_gcdiag, "ckbits": cmd_ckbits}[args.cmd](args)
+  File "/home/ttuser/.coworker/wt/bcx-bfp8/perf/bcx_bfp8/grade.py", line 29, in cmd_vjp
+    return _cmd_vjp(args)
+           ^^^^^^^^^^^^^^
+  File "/home/ttuser/.coworker/wt/bcx-bfp8/perf/bcx_stack/stack.py", line 497, in cmd_vjp
+    A.cmd_vjp(args)
+  File "/home/ttuser/.coworker/wt/bcx-bfp8/perf/bcx_afgrad/afgrad.py", line 465, in cmd_vjp
+    save(f"vjp_n{n}{'_' + args.tag if args.tag else ''}.json", {"stamp": stamp(args.card), "n": n, "seed": args.seed,
+                                      ^^^^^^^^
+AttributeError: 'Namespace' object has no attribute 'tag'
