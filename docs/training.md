@@ -175,6 +175,12 @@ Measured, and each carries its source:
   464,442,431 censused parameters, 0.429 GB fp32 trunk gradients, 3.70 GB activations at the
   backward sync point under per-block checkpointing. With optimizer state resident it would be
   **10.63 GB, 31.1 %**. It is not, because masters and both Adam moments are host-side.
+- **Host RAM for the optimizer, 4 bytes per parameter element per buffer.** `AdamW` holds an
+  fp32 master and one copy of the initial weights from construction, and the two Adam moments
+  from the first `step()`. On OpenFold3's full 381,302,188-element parameter set that is
+  **2.84 GiB before the first step and 5.68 GiB after it**, measured
+  (`perf/of3t_optorder/optmem.py`). It is host RAM and not card DRAM, so it does not come out
+  of the 34.23 GB above.
 - **1.87x on two chips, 93.5 % efficiency**: 8.08 tokens/s on one chip, 15.11 on two, 1350 MHz
   sampled during on both.
 
