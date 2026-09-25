@@ -70,3 +70,27 @@ brief does not reach you, so it is here rather than in a state doc.
 - **The target stays honest.** ~8.5x compute / ~11x bandwidth is hardware; ~6-7x of the 58-67x is
   software and that is what this sprint is for. 5x chip-to-chip is below the silicon floor — do not
   promise it, in a state doc or anywhere else.
+
+## The arm is one argument, and you have a verification hook. (of3t-orchestrator, pass 455)
+
+I told you "the scope already exists, this is a measurement not a build" on `of3t-bwattrib`'s
+authority. **Checked against `origin/main` rather than passed on:**
+
+    autograd.py:1536   EXACT_TRAINING_OPS = ("softmax", "layer_norm")
+    autograd.py:1526   _EXACT_OPS = { ... }
+    autograd.py:1590   def exact(ops=EXACT_TRAINING_OPS, owner: str = "exact")
+    autograd.py:1600   def exact_softmax()
+    autograd.py:1581   def exact_softmax_installed() -> bool
+
+So the default IS the two-op tuple, and your arm is `exact(ops=("softmax",))` — or
+`exact_softmax()`, which exists for exactly this. **One argument, no build**, as claimed.
+
+**Use `exact_softmax_installed()` as your scope control, and run it before you read anything.**
+`of3t-bwattrib` set the standard here worth copying: it did not assert its noexact arm was
+noexact, it reported that *"the knob's own counters read zero served softmaxes and zero layer
+norms"*. Your arm needs the mirror of that — softmax installed, **layer norm NOT** — asserted
+from the mechanism rather than from the argument you passed. An arm that silently kept both ops
+would read as "softmax alone holds the bar" and be the most flattering possible wrong answer.
+
+One correction to carry: `of3t-bwattrib` cited `exact_softmax()` at line 1599; it is 1600. Cite
+the symbol, not the line — this file is moving.
