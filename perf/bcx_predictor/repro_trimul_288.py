@@ -1,70 +1,23 @@
 #!/usr/bin/env python3
-"""Reproduce the seq-288 trimul clash in the Evoformer backward, without a BindCraft 2 campaign.
+"""Reproduce the trimul circular-buffer clash in a taped Evoformer backward, in about a minute.
 
-READ FIRST: the attribution below is WITHDRAWN as stated. Every failing run shared two
-confounds, levers off and main's tt_bio. bcx-predictor ran the monomer trunk at n=288 and
-n=320 on wk/bcx-predictor with the stack levers armed, with zero trimul clashes and zero
-tracebacks. So the failing configuration is (main tt_bio, levers off), and which of the two
-carries it is untested. The notes below describe that configuration only.
+One taped Evoformer block, forward and backward with checkpoint recompute, at a chosen length.
+On main's tt_bio before `a09c43f42` it fails at n=224 and n=288: `tri_mul_in` narrows its chunk
+64 -> 32, falls back to DRAM, and the static circular buffers still clash with an L1 buffer
+(`program.cpp:1052`). With `a09c43f42` it passes at 224, 288 and 320 with zero ladder clashes.
 
-Found by `bcx-multimer` while running the shipped five-model pool end to end. It is NOT a
-multimer defect and NOT a pool defect: the monomer trunk fails identically at the same length,
-and one resident trunk fails the same as five. It is main's backward at a length BindCraft 2
-draws from every trajectory (binder 60..180 against a 115-residue target reaches seq 288), so it
-blocks the campaign's GO condition for every variant.
+The cause is the tape, not the trimul. An L1-resident intermediate that the forward merely
+stopped using stays allocated, because the tape holds its handle, and the trimul's CBs in the
+recompute collide with it. `a09c43f42` ("autograd: evict an L1 intermediate once its consumer has
+read it", from OF3T's `130f8b1a9`) moves such an intermediate to DRAM once its consumer has read
+it. It acts only under a tape.
 
-What happens. `tri_mul_in` narrows its channel chunk 64 -> 32, then takes the designed fallback
-to pair tensors in DRAM, and throws inside that fallback:
-
-    tt_bio/tenstorrent.py:7189  host_acc_after_refusal
-    ttnn::experimental::minimal_matmul
-    TT_THROW program.cpp:1052  Statically allocated circular buffers ... clash with L1 buffers
+Two earlier attributions in this file's history are withdrawn: "a size defect on main's
+backward" (every failing control shared levers-off and main's code) and "the 352-token residency
+threshold over-promises" (with the eviction fix, L1 fits at all three sizes).
 
     PYTHONPATH=.:perf/bcx_afgrad TT_VISIBLE_DEVICES=<card> TT_BIO_LEASE_CARDS=<card> \
         python3 perf/bcx_predictor/repro_trimul_288.py --seq 288
-
-`--seq 224` is the control and passes; the campaign's published device trajectories ran there.
-
-LEADS, so the next pass does not start from the traceback.
-
-This clash has a root-caused precedent in the same file. `tenstorrent.py:305-313` records
-OpenDDE (c_z=384) throwing the same `program.cpp:1052` on every seed -- "circular buffers in
-program 378 clash with L1 buffers on core range [(x=0,y=0) - (x=9,y=9)]" -- and names the
-mechanism: the clash lands on a 10x10 core range while `_l1_rows_at` divides the per-core budget
-by `COMPUTE_GRID_MAIN` = 11x10, "a 10% underestimate of the per-core bytes". A budget divided by
-a core count the kernel does not actually use is a standing defect class, not a one-off. Ours
-lands on an 11x10 range with the static CB region ending at 1176064 and an L1 buffer at 1132544,
-so the overlap is 43520 bytes.
-
-The threshold and the hardware disagree, and the file already holds the fix's template.
-The trimul's memory config at its call sites (`tenstorrent.py:7176` and `:7217`) comes from
-`_triangle_mul_memory_config(H)` (`:1139`), which decides on a SEQUENCE LENGTH against
-`TRIANGLE_MULT_L1_MAX_SEQ = 352` (`:667`), 640 in fast mode. Both 224 and 288 are well under
-either number, so both are told L1 fits, and both clash.
-
-Fifteen lines above it, `_trimul_l1_fits` (`:1114`) does the same decision properly: it prices
-the chunk's own bytes against `_l1_bank_bytes()` times the REAL grid, and its docstring says the
-rule outright -- priced "per bank ... never on a sequence length". So one gate in this file
-already knows not to do what the other one does, and the tail path uses the good one while the
-main memory config still uses the constant.
-
-224 then survives only by demotion: the ladder drops it into `_TRIMUL_DRAM_SHAPES` and
-`_triangle_mul_memory_config` returns DRAM for that length for the life of the process. 288 is
-where the DRAM leg fails too. So the fast path is already unreachable at a size this campaign has
-published numbers at, and the fix is to price the main config the way `_trimul_l1_fits` prices
-the tail, not to patch the throw at 288.
-
-Knobs to try before writing any code, both already in the engine:
-  TT_BIO_TRIMUL_CHUNK_CAP   cap the chunk below where the ladder bottoms out (32)
-  TT_BIO_FORCE_GRID="x,y"   pin the main grid, which is how issue #9 separated grid-path
-                            defects from hardware
-
-What NOT to do. The throw reaches Python through `host_acc_after_refusal`
-(`tenstorrent.py:6017`), which re-raises anything `size_limits.is_alloc_refusal` does not
-recognise. Widening that predicate to swallow a CB clash is the obvious one-line fix and it is
-wrong: the docstring at `size_limits.py:1998` says it excludes exactly this on purpose, "so a
-circular-buffer throw or a shape error is never quietly re-run through a fallback meant for an
-out-of-memory", and several retry paths share it.
 """
 import argparse
 import os
