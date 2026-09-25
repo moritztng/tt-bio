@@ -623,14 +623,17 @@ def design_model_class():
             self.routes: dict[str, str] = {}
             if pool is not None:
                 pool.require(sorted(set(self.presets) | set(self.models)))
-                self.routes = self._route_by_family()
-                if "device" not in self.routes.values():
+                if not pool.paths:
+                    # Not a route: an empty pool means the source is wrong, and a campaign that
+                    # runs entirely on the host while the caller believes it is on a card
+                    # misattributes every number it produces. A pool that holds SOMETHING and
+                    # is missing this model's checkpoints is the ordinary case, and falls back.
                     raise FileNotFoundError(
-                        "trunk='device' but no checkpoint this model draws is on card: " +
-                        ", ".join(f"{n} ({pool.absent.get(n, 'held out')})"
-                                  for n in sorted(self.routes)) +
+                        "trunk='device' but no AlphaFold 2 parameters resolved: " +
+                        ", ".join(f"{n} at {w}" for n, w in sorted(pool.absent.items())) +
                         ". Pass checkpoints=<directory or {name: file}> to name them, or run "
                         "`tt-bio weights --download af2ig` for the monomer checkpoint.")
+                self.routes = self._route_by_family()
 
         def _route_by_family(self) -> dict[str, str]:
             """Decide which folds go on card per model FAMILY, not per checkpoint.
@@ -757,8 +760,8 @@ def predictor(*, trunk: str = "device", card: int | str | None = None, checkpoin
 
     With `trunk="device"`, a checkpoint whose weights the source cannot supply folds on that host
     trunk rather than raising, decided per model family and announced on the first such fold. If
-    no checkpoint at all resolves, building the model raises instead: `trunk="device"` that folds
-    nothing on card is a misconfiguration, not a route.
+    the source supplies nothing at all, building the model raises instead: an empty pool is a
+    misconfiguration, not a route.
     """
     if trunk == "jax":
         yield _factory(trunk="jax", pool=None)

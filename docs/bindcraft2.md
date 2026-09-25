@@ -49,9 +49,9 @@ with bindcraft2.predictor(card=0) as build:
 
 ## Several checkpoints
 
-BindCraft 2 samples one design model per gradient step, so a campaign with a five-model pool needs
+BindCraft 2 samples one design model per gradient step, so a campaign with a five-model pool wants
 all five on card. Pass the directory and the pool fills itself from the models BindCraft 2 asks
-for; a model it draws that the directory does not have is an error, not a fallback:
+for:
 
 ```python
 with bindcraft2.campaign_predictor(card=0, checkpoints="/path/to/af2/params", resident=1):
@@ -62,6 +62,39 @@ with bindcraft2.campaign_predictor(card=0, checkpoints="/path/to/af2/params", re
 about 910 MB of weights. Holding all five brought a backward-pass allocator refusal forward at 288
 tokens that `resident=1` ran past, so set it if a long run dies in the allocator; the reload it
 costs is smaller than a step.
+
+A checkpoint the directory does not have folds on BindCraft 2's own trunk instead of stopping the
+campaign, and the first such fold says so on stdout. You will see this even with a complete
+directory, because the validation ensemble is deliberately kept off the card (below).
+
+The choice is made per model family rather than per checkpoint, and that is not a detail you can
+ignore when sizing a weights directory: BindCraft 2 compiles one program per family, so the five
+multimer checkpoints are all-or-nothing and so are the two monomer ones. Give it three of the five
+multimer files and all five design folds move to the host. Either hold a family completely or
+expect it on the host.
+
+If nothing you asked for is on card, building the predictor raises rather than falling back. A
+campaign that runs entirely on the host while you believe it is on a card produces numbers you
+would then misattribute.
+
+## Which folds run on the card
+
+The design loop runs on card. **The validation ensemble runs on BindCraft 2's own JAX trunk by
+default**, and that is the setting any accepted count should be quoted from.
+
+Validation is what decides whether a design is accepted. Folding it on card would put device
+numerics inside the instrument that grades the device; on the host trunk that stage is bit-for-bit
+BindCraft 2's own, so the thing being measured stays the gradient loop. Validation is a few
+forward folds per completed trajectory against the trajectory's own gradient steps, so it is not
+where a campaign spends its time; what that costs on your host has not been measured here.
+
+```python
+with bindcraft2.campaign_predictor(card=0, validation="device"):  # both on card
+    ...
+```
+
+`validation="device"` is a reasonable choice for throughput, but an accepted count measured that
+way is a different measurement. Re-measure before quoting it, and say which path produced it.
 
 ## The control arm
 
@@ -118,7 +151,8 @@ stage on a defect still under investigation. BindCraft 2's own JAX reference acc
 1 completed trajectory on the same settings.
 
 So this page says the loop runs, at these sizes and this cost. It does not say the designs are
-good, and you should qualify that yourself before trusting a run.
+good, and you should qualify that yourself before trusting a run. Both counts above come from the
+default path, with validation on BindCraft 2's own JAX trunk.
 
 One rough edge: closing the card at the end of a process that has also run JAX can abort in the
 driver, with `pthread_mutex_unlock failed for mutex CHIP_IN_USE_0_PCIe`. It happens after the work
