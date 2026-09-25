@@ -839,7 +839,18 @@ CEILINGS: dict[str, dict[str, Ceiling]] = {
                      "2026-09-24, guard off, --host_threads 2, AICLK median 1000 MHz sampled during "
                      "the fold: 1664 with a 16384-row alignment PASS in 2350.3 s (card 20, msa true, "
                      "pLDDT 0.874) and single-sequence PASS in 1968.2 s (card 3, pLDDT 0.884), with "
-                     "the same CA-CA gap count as the earlier passes",
+                     "the same CA-CA gap count as the earlier passes. "
+                     "RE-WALKED WITH AN ALIGNMENT on origin/main ce44136bc, GWH02, 2026-09-25 "
+                     "(ws:cov-stale-esmfold2-whgalaxy, perf/esmf2cov), guard ON and the flags a "
+                     "served job gets: 1664 x 8192 rows PASS on UMD 1 in 1948.3 s (pLDDT 0.8724, "
+                     "AICLK median 1000 MHz over 204 in-fold samples) against 3100.5 s at "
+                     "1b423e9e4, and 1024 x 8192 PASS on UMD 0 in 645.2 s with 0 backbone breaks "
+                     "and 0 heavy-atom contacts under 2.0 A. The 1024 rung run again on UMD 3 is "
+                     "sha256-identical, so the answer does not depend on which chip ran it. The "
+                     "11 CA-CA gaps at 1664 all fall at offset 136/137 of the fixture's "
+                     "298-residue CDK2 period, in every one of its 5.58 copies, which is the "
+                     "fixture and not the fold. Each 1024 leg absorbed exactly one 16777216 B L1 "
+                     "refusal in the MSA encoder and folded on",
         ),
     },
     "esmfold2-fast": {
