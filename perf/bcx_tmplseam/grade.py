@@ -47,7 +47,21 @@ from bindcraft.af.alphafold.model import modules                       # noqa: E
 from ttbio_predictor import TTBioAlphaFoldDesignModel                  # noqa: E402
 import splice                                                          # noqa: E402
 
+#: BindCraft 2's own AF2 params DIRECTORY, which is what `TTBioAlphaFoldDesignModel(data_dir=)`
+#: wants. It is not a file and `load_af2_state_dict` cannot read it.
 PARAMS = "/home/ttuser/bcx_e2e/af2_params"
+
+#: tt-bio's weights are ONE npz, and it has to be the same one `round_ab.py` built its device
+#: model from (`afgrad.DEFAULT_PARAMS`) or the grade compares two different weight sets. The two
+#: copies of model_1_ptm on this box are byte-identical (md5 dfca7cd972028fc6adcc0c8995857a2a),
+#: so the JAX capture and the torch/device arms are the same AF2.
+TTBIO_PARAMS = os.path.expanduser("~/.boltz/af2/params/params_model_1_ptm.npz")
+
+
+def say(msg):
+    """A phase marker with a clock. The first run of this script printed nothing for 12 minutes
+    and then died on the line below, which is 12 minutes of not knowing where it was."""
+    print(f"[{time.strftime('%FT%TZ', time.gmtime())}] {msg}", flush=True)
 
 
 def f32(x):
@@ -185,6 +199,7 @@ def main():
 
     caps = {}
     for tag, drop in (("dropout0", False), ("dropout1", True)):
+        say(f'capture {tag}: one sequence_gradients call on BC2 JAX (compiles first)')
         cap, got = capture(settings, drop)
         caps[tag] = cap
         report[f"round_{tag}"] = {k: v for k, v in got.items() if k != "g_sequences"}
@@ -206,9 +221,11 @@ def main():
     act, mask = st["act_in"], st["mask_2d"]
     ones = identity_masks(act)
 
+    say('capture done, building the torch reference stacks')
     from tt_bio.af2_reference import load_af2_model
     from tt_bio.af2_weights import load_af2_state_dict
-    state = load_af2_state_dict(PARAMS)
+    say(f'loading tt-bio AF2 weights from {TTBIO_PARAMS}')
+    state = load_af2_state_dict(TTBIO_PARAMS)
     arms, refs = {}, {}
     for name, dt in (("f64", torch.float64), ("f32", torch.float32), ("bf16", torch.bfloat16)):
         model = load_af2_model(state, template=True, trunk_dtype=dt)
@@ -221,6 +238,7 @@ def main():
 
     tmpl = None
     if not args.skip_device:
+        say('opening the card and loading the device model')
         import afgrad as _A
         from tt_bio.af2 import load_af2_device_model
         dm = load_af2_device_model(state, template=True, trunk_dtype=torch.bfloat16)
@@ -232,11 +250,14 @@ def main():
     report["graded_vs_f64"] = {k: rel(v, arms["f64"]) for k, v in arms.items() if k != "f64"}
     report["f64_norm"] = float(np.linalg.norm(arms["f64"]))
 
+    say('graded, starting the three envelope rounds')
     if args.envelope:
         env = {}
+        say("envelope arm 1/3: BindCraft 2's own JAX")
         base = run_round(settings, False)
         env["bc2_jax"] = {"loss": base["loss"], "g_l2": base["g_sequences_l2"],
                           "seconds": base["seconds"]}
+        say('envelope arm 2/3: float64 torch at the same seam')
         f64_arm = run_round(settings, False,
                             swap=HostReferenceStack(refs["f64"].template.pair_stack,
                                                     torch.float64))
@@ -245,6 +266,7 @@ def main():
                       "vs_f64": rel(f64_arm["g_sequences"], f64_arm["g_sequences"])}
         env["bc2_jax"]["vs_f64"] = rel(base["g_sequences"], f64_arm["g_sequences"])
         if tmpl is not None:
+            say('envelope arm 3/3: the device stack')
             dev_arm = run_round(settings, False, swap=tmpl)
             env["device"] = {"loss": dev_arm["loss"], "g_l2": dev_arm["g_sequences_l2"],
                              "seconds": dev_arm["seconds"],
@@ -255,6 +277,7 @@ def main():
                 if env["bc2_jax"]["vs_f64"]["rel"] else None)
         report["envelope"] = env
 
+    say("writing grade.json")
     report["finished_utc"] = time.strftime("%FT%TZ", time.gmtime())
     (out / "grade.json").write_text(json.dumps(report, indent=1, default=str))
     print(json.dumps(report, indent=1, default=str))
