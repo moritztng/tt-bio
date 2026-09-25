@@ -208,13 +208,13 @@ def test_a_measured_oom_is_reported_even_when_the_trunk_is_trained():
     trained-trunk case first would answer UNMEASURED there and hide a measurement behind the
     absence of one -- on the exact crop Protenix's own recipe uses.
     """
-    from tt_bio.train.dryrun import FORWARD_OOM, UNMEASURED, plan
+    from tt_bio.train.dryrun import FORWARD_OOM_BY_MODEL, UNMEASURED, plan
 
-    assert 384 in FORWARD_OOM
+    assert 384 in FORWARD_OOM_BY_MODEL["protenix-v2"]
     for frozen in (True, False):
-        p = plan(tokens=384, chips=1, global_batch=8, frozen_trunk=frozen)
+        p = plan(tokens=384, model="protenix-v2", chips=1, global_batch=8, frozen_trunk=frozen)
         assert p.verdict == "refused" and not p.fits, (frozen, p.verdict)
         assert "OOMs at 384 aa" in p.why
     # and a crop the forward does fit at still reports the honest UNMEASURED for the tape
-    assert plan(tokens=256, chips=1, global_batch=8,
+    assert plan(tokens=256, model="protenix-v2", chips=1, global_batch=8,
                 frozen_trunk=False).verdict == UNMEASURED

@@ -1029,8 +1029,9 @@ def host_f64_softmax(x, dim: int = -1):
 # `walked_weights`; `tape()` and `backward()` open it for their own extent too, for a caller
 # that drives a tape without `install()`. Each takes out only what it put in. While open the
 # raw half is a process-wide rebinding, which is why it never outlives the block. No inference
-# fold enters any of them: `tests/test_training_opt_in.py::test_no_inference_module_imports_
-# training` keeps the inference modules from importing this one at all. There is no
+# fold enters any of them:
+# `tests/test_training_opt_in.py::test_no_inference_module_imports_training` keeps the
+# inference modules from importing this one at all. There is no
 # environment variable; `exact_training(False)` is the off switch.
 
 EXACT_SOFTMAX_STATS = {"verb": 0, "raw": 0, "raw_elements": 0}

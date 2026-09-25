@@ -472,9 +472,9 @@ def test_invariant_plan_returns_unmeasured_rather_than_guessing():
     assert fits.verdict == "fits" and abs(fits.replica_gb - 5.06) < 1e-9
     assert abs(fits.occupancy - 0.1478) < 5e-4
 
-    # a measured OOM is a refusal, not an extrapolation
-    assert plan(tokens=384, chips=1).verdict == "refused"
-    assert plan(tokens=512, chips=1).verdict == "refused"
+    # a measured OOM is a refusal, not an extrapolation, and only for the model it was measured on
+    assert plan(tokens=384, model="protenix-v2", chips=1).verdict == "refused"
+    assert plan(tokens=512, model="protenix-v2", chips=1).verdict == "refused"
 
     # above the measured crop, and above a LoRA adapter, it says so
     assert plan(tokens=768, chips=1).verdict == UNMEASURED

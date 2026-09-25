@@ -26,11 +26,12 @@ import pytest
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent / "tt_bio"
 
-# Function-local `import ttnn`, by module, as of the OF3 tape census. Each is host-side or
-# diagnostic: `main`/`worker` defer the import cost off the CLI path, `protenix`,
+# Function-local `import ttnn`, by path under tt_bio/, as of the OF3 tape census. Each is
+# host-side or diagnostic: `main`/`worker` defer the import cost off the CLI path, `protenix`,
 # `esmfold2_runtime`, `opendde` and `token_axis` sync or move host tensors outside any tape,
 # and `mm_generic` reads the wheel's own install path. Adding an entry means asserting the
-# same of a new one.
+# same of a new one. Keyed by path, not file name, because `train/openfold3.py` is allowed and
+# the inference `openfold3.py` is not.
 ALLOWED = {
     "esmfold2_runtime.py", "main.py", "mm_generic.py", "opendde.py", "protenix.py",
     "token_axis.py", "worker.py",
@@ -38,9 +39,16 @@ ALLOWED = {
     # and says in its own docstring that the import is deferred so the module imports without
     # the wheel, and `mesh.py` all-reduces GRADIENTS between chips, after the backward has
     # closed. Neither is a call site a tape has to follow.
-    "tensors.py", "mesh.py",
+    "train/tensors.py", "train/mesh.py",
+    # `lineage.recording` patches the real `ttnn.from_torch` while the model is BUILT, to trace
+    # which weights each device tensor came from; the shim would be the wrong thing to patch.
+    "train/lineage.py",
+    # The OpenFold3 training forward builds its inputs with the raw `from_torch` and wraps each
+    # one in `ag.Tensor` itself, so they enter the tape as constants. A module-scope import
+    # would hand it the shim and change what the gradient-parity result was measured on.
+    "train/openfold3.py",
     # A kernel-source patcher, not a model path.
-    "patch_trimul_tail.py",
+    "kernels/trimul_tail/patch_trimul_tail.py",
 }
 
 
@@ -63,7 +71,7 @@ def test_no_new_function_local_ttnn_import():
             continue
         lines = _local_ttnn_imports(path)
         if lines:
-            found[path.name] = lines
+            found[path.relative_to(ROOT).as_posix()] = lines
     unexpected = {k: v for k, v in found.items() if k not in ALLOWED}
     assert not unexpected, (
         f"function-local `import ttnn` in {unexpected}: `tape()` rebinds the MODULE global, "
