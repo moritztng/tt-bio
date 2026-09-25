@@ -771,6 +771,29 @@ class AF2EvoformerBlock(AF2PairBlock):
         return msa, super().__call__(z, mask, attn_mask)
 
 
+class AF2SingleActivations(Module):
+    """`evoformer/single_activations`: MSA row 0 -> the single track, on card.
+
+    AF2 computes this inside the Evoformer scope, so its weights are trunk weights and it is the
+    only path from the structure module's cotangent back into the MSA track. Keeping it on the
+    device side of a trunk/tail split is what makes `(single, pair)` the hand-off: a split that
+    hands over `(msa, pair)` instead receives exactly zero on the MSA side, because no head or
+    loss BindCraft 2 runs reads the MSA track directly.
+    """
+
+    def __init__(self, state_dict: Weights,
+                 compute_kernel_config: ttnn.DeviceComputeKernelConfig):
+        super().__init__(state_dict, compute_kernel_config)
+        self.weight = self.torch_to_tt("weight")
+        self.bias = self.torch_to_tt("bias")
+
+    def __call__(self, msa: ttnn.Tensor) -> ttnn.Tensor:
+        """[.., rows, n, C_M] -> [.., 1, n, C_S], reading row 0 only."""
+        rows = int(msa.shape[-3])
+        row0 = msa if rows == 1 else msa[..., :1, :, :]
+        return self._lin(row0, self.weight, bias=self.bias)
+
+
 class AF2DeviceModel(AF2Model):
     """`AF2Model` with its two block stacks on card and everything else in torch.
 
@@ -841,6 +864,7 @@ class AF2DeviceModel(AF2Model):
         super().__init__(*args, **kwargs)
         self.device_extra_msa: list = []
         self.device_evoformer: list = []
+        self.device_single = None
         self.device_template: list = []
         self.opm_constant: list = []
         self._device = None
@@ -871,6 +895,7 @@ class AF2DeviceModel(AF2Model):
             self._template_stack = AF2DeviceTemplatePairStack(
                 self.device_template, self._up, self._down)
             self.set_template_host(self.template_host)
+        self.device_single = AF2SingleActivations(scoped("single_activations."), ckc)
         zero = torch.zeros((), dtype=self.trunk_dtype)
         self.opm_constant = [
             block.opm.proj_o.bias.to(self.trunk_dtype) / (block.opm.eps + zero)

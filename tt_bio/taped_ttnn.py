@@ -40,7 +40,7 @@ from . import autograd as ag
 from .autograd import Tensor, precise_config
 from .autograd import (_axis, _differentiating, _flat2d, _matmul, _on_tape, _raw,
                        _reduce_to, _sum_leading, _tape,
-                       _taped_layer_norm, _taped_linear, _unwrap, _wrap)
+                       _taped_layer_norm, _taped_linear, _unwrap, _via2d, _wrap)
 
 __all__ = ["tape", "recompute_scope", "VERBS", "taped_ttnn",
            "forget_shim_bindings"]
@@ -159,10 +159,11 @@ def _v_matmul(shipped, args, kwargs):
             # the same broadcast and not the same reduction. It is a no-op on equal shapes,
             # so the ordinary path pays one shape comparison.
             if a.requires_grad:
-                da = (ttnn.matmul(g, b.value, transpose_b=not tb,
-                                  compute_kernel_config=cfg) if not ta else
-                      _matmul(b.value, g, transpose_a=tb, transpose_b=True,
-                              compute_kernel_config=cfg))
+                rows = _via2d if len(b.value.shape) == 2 else (lambda t, fn: fn(t))
+                da = (rows(g, lambda v: ag.bmm(v, b.value, False, not tb,
+                                                compute_kernel_config=cfg))
+                      if not ta else
+                      ag.bmm(b.value, g, tb, True, compute_kernel_config=cfg))
                 a.add_grad(_reduce_to(da, a.value.shape))
             if b.requires_grad:
                 # The weight reduces over every token, so it is `_flat2d`'s DRAM-normalised
@@ -177,10 +178,8 @@ def _v_matmul(shipped, args, kwargs):
                     db = _matmul(_flat2d(a.value), _flat2d(g), transpose_a=True,
                                  compute_kernel_config=cfg, dtype=ttnn.float32)
                 else:
-                    db = (_matmul(a.value, g, transpose_a=not ta,
-                                  compute_kernel_config=cfg) if not tb else
-                          _matmul(g, a.value, transpose_a=True, transpose_b=ta,
-                                  compute_kernel_config=cfg))
+                    db = (ag.bmm(a.value, g, not ta, compute_kernel_config=cfg) if not tb else
+                          ag.bmm(g, a.value, True, ta, compute_kernel_config=cfg))
                 b.add_grad(_reduce_to(db, b.value.shape))
             if bias is not None and bias.requires_grad:
                 bias.add_grad(_sum_leading(g, bias.value.shape))
@@ -637,10 +636,35 @@ def _v_permute(shipped, args, kwargs):
 
     def make():
         def bw(g):
-            x.add_grad(ttnn.permute(g, inv))
+            x.add_grad(_permute_back(g, inv))
         return bw
 
     return _tape(out_v, [x], make)
+
+
+# Whether a permute's backward goes through the reblock kernels where they serve its inverse.
+# A module switch so an A/B can flip it in one process.
+REBLOCK_PERMUTE_BW = True
+
+
+def _permute_back(g, inv):
+    """``ttnn.permute(g, inv)``, through the reblock kernel the forward's channel move uses
+    when ``inv`` is one of its two moves and its own gate says yes.
+
+    The tape records a model's channel move as the stock permute it falls back to under a tape,
+    so its gradient paid the stock permute too: 12 calls on [1, 64, 256, 256] per AF2 Evoformer
+    block at n=256. The kernel is a pure index reordering, so the gradient keeps its bits.
+    Outside the gate the kernel's callers fall back to two transposes, slower than the one
+    permute this replaces, so here the fallback is the permute.
+    """
+    if REBLOCK_PERMUTE_BW:
+        from . import reblock_permute as R
+        mc = g.memory_config()
+        if inv == [0, 2, 3, 1] and R.eligible_back(g, mc):
+            return R.reblock_permute_back(g, mc)
+        if inv == [0, 3, 1, 2] and R.eligible(g, mc):
+            return R.reblock_permute(g, mc)
+    return ttnn.permute(g, inv)
 
 
 @_verb("transpose")
@@ -689,34 +713,13 @@ def _sliced(x: "Tensor", out_v, starts, ends):
     """Tape one slice of ``x`` whose value is already computed.
 
     Shared by `slice`, `chunk` and `__getitem__`, which are the same op three ways: the
-    backward pads the gradient back out with zeros on every axis that was cut. `chunk`
+    backward hands its block to `add_grad_slice`, which joins the blocks of one tensor. `chunk`
     reads its cut points off the shipped call rather than recomputing them, so the tape
     cannot disagree with the kernel about where the blocks begin.
     """
-    shape = [int(d) for d in x.value.shape]
-
     def make():
         def bw(g):
-            # `ttnn.concat` is tile-only, and a slice of a row-major tensor hands this
-            # closure a row-major cotangent. Tile once here rather than per axis;
-            # `add_grad` puts it back into the parent's layout.
-            if g.layout != ttnn.TILE_LAYOUT:
-                g = ttnn.to_layout(g, ttnn.TILE_LAYOUT)
-            for ax in range(len(shape)):
-                before, after = starts[ax], shape[ax] - ends[ax]
-                if not before and not after:
-                    continue
-
-                def pad(n):
-                    z = [int(d) for d in g.shape]
-                    z[ax] = n
-                    return ttnn.zeros(z, dtype=g.dtype, layout=ttnn.TILE_LAYOUT,
-                                      device=g.device())
-
-                parts = ([pad(before)] if before else []) + [g] + \
-                        ([pad(after)] if after else [])
-                g = ttnn.concat(parts, dim=ax)
-            x.add_grad(g)
+            x.add_grad_slice(g, starts, ends)
         return bw
 
     return _tape(out_v, [x], make)
@@ -913,19 +916,15 @@ def _v_concat_heads(shipped, args, kwargs):
     """``[B, H, L, dh] -> [B, 1, L, H*dh]``, measured equal to
     ``permute(0, 2, 1, 3).reshape(B, 1, L, H*dh)``. The backward is that inverted."""
     x = _wrap(args[0])
-    B, H, L, dh = (int(d) for d in x.value.shape)
+    H = int(x.value.shape[1])
     ra, rk = _raw(args, kwargs)
     out_v = shipped(*ra, **rk)
 
     def make():
         def bw(g):
-            # Transpose first, so the head split lands on a dim whose extent is dh, not H.
-            # `reshape(g, [B, L, H, dh])` put H on the second-to-last dim, which TILE layout
-            # pads to 32: at H=4 that is an 8x buffer, [B, L, 32, dh] for [B, L, 4, dh] of
-            # gradient. Same data movement, bit-identical, and every intermediate is the
-            # gradient's own size when dh and L are whole tiles.
-            t = ttnn.reshape(ttnn.transpose(g, -2, -1), [B, H, dh, L])
-            x.add_grad(ttnn.transpose(t, -2, -1))
+            # Not reshape to [B, L, H, dh] + permute, which puts H on a tile row and pads 4
+            # heads to 32: `split_heads_value` is 178 us against 2581 us at [256, 256, 128].
+            x.add_grad(ag.split_heads_value(g, H))
         return bw
 
     return _tape(out_v, [x], make)
@@ -956,25 +955,23 @@ def _v_create_qkv_heads(shipped, args, kwargs):
                 # [B, H, L, dh] -> [B, 1, L, H*dh], then into slot s of the packed axis.
                 #
                 # The slot rides the LAST axis. It used to ride dim 2, as an extent of 3, and
-                # that is what refused the 576-token backward: TILE layout pads a
-                # second-to-last dim up to 32, so a [N, N, 3, H*dh] concat output is allocated
-                # as [N, N, 32, H*dh] and the allocator is asked for 2,717,908,992 B to carry
-                # 254,803,968 B of gradient, 10.667x the tensor, 90.6 % of it padding. On the
-                # last axis the extent is 3*H*dh, a whole number of tiles, and nothing pads.
-                # Same bytes in, same bytes out, bit-identical: the packed width decomposes as
+                # TILE layout pads a second-to-last dim up to 32: at 576 tokens the concat
+                # asked for 2,717,908,992 B to carry 254,803,968 B of gradient, 90.6 %
+                # padding, and that is what refused the backward. On the last axis the extent
+                # is 3*H*dh, a whole number of tiles. The packed width decomposes as
                 # [3, H, dh], so slot s is the contiguous range [s*H*dh, (s+1)*H*dh) either
-                # way. `nlp_concat_heads` is the forward of `_v_concat_heads` above and lands
-                # the head axis in H*dh directly, which also drops the [B, L, H, dh]
-                # intermediate whose own dim 2 of 4 padded to 32.
-                rows = ttnn.experimental.nlp_concat_heads(g)
+                # way and the gradient is bit-identical.
+                rows = ttnn.reshape(ag.merge_heads_value(g), [B, 1, L, H * dh])
                 # One zero tensor for both empty slots, then one concat. `ttnn.pad` would be
                 # the single-allocation form and cannot be used: it refuses front padding
                 # (`pad.cpp:278 front_padding_is_zero`), so slots 1 and 2 have no pad
-                # expression.
-                zero = ttnn.zeros([B, 1, L, H * dh], dtype=rows.dtype,
-                                  layout=ttnn.TILE_LAYOUT, device=rows.device())
+                # expression. The packed width is 2,415,919,104 B at a 384-token pair track,
+                # which is why this op is where the backward runs out of card.
+                zero = (ttnn.zeros_like(rows) if ag.DEVICE_ZEROS else
+                        ttnn.zeros([B, 1, L, H * dh], dtype=rows.dtype,
+                                   layout=ttnn.TILE_LAYOUT, device=rows.device()))
                 parts = [rows if i == s else zero for i in range(3)]
-                x.add_grad(ttnn.concat(parts, dim=3))
+                x.add_grad(ttnn.concat(parts, dim=-1))
             return bw
         return make
 
@@ -1321,8 +1318,7 @@ def _v_sum(shipped, args, kwargs):
                 kept = list(shape)
                 kept[ax] = 1
                 g = ttnn.reshape(g, kept)
-            x.add_grad(ttnn.add(ttnn.zeros(shape, dtype=g.dtype, layout=ttnn.TILE_LAYOUT,
-                                           device=g.device()), g))
+            x.add_grad(ttnn.add(ag.grad_zeros(shape, g.dtype, g.device()), g))
         return bw
 
     return _tape(out_v, [x], make)
