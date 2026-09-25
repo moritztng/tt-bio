@@ -170,7 +170,7 @@ not what the default config does, and the difference matters for diagnosis:
 - The disk flushes are real but they are on program and mesh-workload create/destroy, not on
   enqueue: `logger.cpp` does `ostream << ...; ostream.flush()` per event. With the program cache
   on those do not fire on the warm path, and tt-bio enables the program cache
-  (`tt_bio/tenstorrent.py:4934`).
+  (`tt_bio/tenstorrent.py::_open_device_locked`, which calls `dev.enable_program_cache()`).
 
 **Measured cost on our stack: 8.29 us/op on, 8.05 us/op off — 3%** (section 2). Their +26% is
 8x that. If their Inspector really is disk-bound then something is creating and destroying
