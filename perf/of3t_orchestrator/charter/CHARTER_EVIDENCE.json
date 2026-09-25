@@ -1,10 +1,10 @@
 {
   "instrument": "perf/of3t_orchestrator/charter/charter_evidence.py",
   "spec_lifted_from": "/home/moritz/.coworker/workstreams/_of3t_donecheck.py",
-  "spec_sha256": "f34f87cbfad238886e2c1e8108778c9d6096619a9f196bddfcd15539faf3ef00",
-  "tree": "/home/ttuser/.coworker/wt/of3t-paedraws",
+  "spec_sha256": "b8874583f28bcfcb1faed1137be04829b2ae87ceae2f08e42067dd3954ff01be",
+  "tree": "/home/moritz/.coworker/wt/of3t-orchestrator",
   "break_control": "every condition can report MET on a synthetic artifact, and every requirement reports NOT MET on one built to violate it",
-  "n_met": 3,
+  "n_met": 5,
   "n_conditions": 5,
   "conditions": [
     {
@@ -68,22 +68,20 @@
       "code_staleness": {
         "comparable": true,
         "artifact_commit_unixtime": 1790250607,
-        "code_commit_unixtime": 1790223945,
-        "artifact_is_older_than_code": false,
-        "seconds_behind": 0,
-        "note": "the artifact is at or after the newest code commit"
+        "code_commit_unixtime": 1790298791,
+        "artifact_is_older_than_code": true,
+        "seconds_behind": 48184,
+        "note": "this artifact predates the newest commit under tt_bio, so its numbers describe an earlier tree. A clause reading it is reporting history, and a re-take may change the verdict"
       }
     },
     {
       "field": "GRADIENTS-DRAWS",
-      "artifact": "perf/of3t_paedraws/DRAWS_PD384.json",
-      "why": "the five GRADIENTS fields hold on every one of the six pre-registered denoise draws.",
+      "artifact": "perf/of3t_orchestrator/a45/DRAWS_A45.json",
+      "why": "on all six pre-registered denoise draws the four state-free GRADIENTS fields hold on every draw, and 95 % of the float64 mass sits in tensors at or better than bf16 on their six-draw mean (A45).",
       "artifact_exists": true,
-      "artifact_sha256": "61a6cefdbd0140efd5cd7fff3ff80bc0bdd4639121ebb1885a4b6835e1305811",
-      "met": false,
-      "misses": [
-        "five_hold_every_draw is True -- artifact has False (no draw fails a GRADIENTS field)"
-      ],
+      "artifact_sha256": "8acc484ff69e4407a160a6bba2b33bdcf2eac98f26ab669f82c92d56f282d431",
+      "met": true,
+      "misses": [],
       "checks": [
         {
           "key": "draws",
@@ -94,18 +92,34 @@
           "why": "the six draws A44 fixed before any existed"
         },
         {
-          "key": "five_hold_every_draw",
+          "key": "four_hold_every_draw",
           "op": "is",
           "bar": true,
-          "actual": "False",
-          "passed": false,
-          "why": "no draw fails a GRADIENTS field"
+          "actual": "True",
+          "passed": true,
+          "why": "no draw fails unread, carried-nothing, multi-placed or global rel"
+        },
+        {
+          "key": "mean_mass_at_or_better_than_bf16",
+          "op": ">=",
+          "bar": 0.95,
+          "actual": "0.9913",
+          "passed": true,
+          "why": "per tensor on the six-draw mean, 95 % of the mass at or better than bf16"
+        },
+        {
+          "key": "standing_losers_mass",
+          "op": "<=",
+          "bar": 0.05,
+          "actual": "0.00857",
+          "passed": true,
+          "why": "tensors worse than bf16 on 5 or 6 of 6 draws hold under 5 % of the mass"
         }
       ],
       "code_staleness": {
         "comparable": true,
-        "artifact_commit_unixtime": 1790289368,
-        "code_commit_unixtime": 1790223945,
+        "artifact_commit_unixtime": 1790298896,
+        "code_commit_unixtime": 1790298791,
         "artifact_is_older_than_code": false,
         "seconds_behind": 0,
         "note": "the artifact is at or after the newest code commit"
@@ -146,9 +160,12 @@
         }
       ],
       "code_staleness": {
-        "comparable": false,
-        "generated_not_committed": true,
-        "why": "composed at compose time from digest-pinned sources, so it cannot be stale"
+        "comparable": true,
+        "artifact_commit_unixtime": 1790297651,
+        "code_commit_unixtime": 1790298791,
+        "artifact_is_older_than_code": true,
+        "seconds_behind": 1140,
+        "note": "this artifact predates the newest commit under tt_bio, so its numbers describe an earlier tree. A clause reading it is reporting history, and a re-take may change the verdict"
       }
     },
     {
@@ -199,9 +216,9 @@
       "code_staleness": {
         "comparable": true,
         "artifact_commit_unixtime": 1790058785,
-        "code_commit_unixtime": 1790223945,
+        "code_commit_unixtime": 1790298791,
         "artifact_is_older_than_code": true,
-        "seconds_behind": 165160,
+        "seconds_behind": 240006,
         "note": "this artifact predates the newest commit under tt_bio, so its numbers describe an earlier tree. A clause reading it is reporting history, and a re-take may change the verdict"
       }
     },
@@ -209,34 +226,32 @@
       "field": "COVERAGE",
       "artifact": "perf/of3t_orchestrator/coverage/COVERAGE_MERGED.json",
       "why": "every loss term and every conditional path demonstrated to FIRE, on the batch, at runtime -- not enumerated in prose.",
-      "artifact_exists": false,
-      "artifact_sha256": null,
-      "met": false,
-      "misses": [
-        "union.*.covered all True -- artifact has artifact absent (all 8 of upstream's LossWeights terms fire, each carrying its own `carried_by` stage and dataset and its `n_pairs_firing` in the artifact. Do not restate the count here: this string said '7 do; `bond` has an empty mask on 5nw3' for fifty passes after `bond` was upgraded with evidence, so the clause and its own prose disagreed in the published CHARTER_EVIDENCE. The artifact is the count)",
-        "conditional_paths.*.covered all True -- artifact has artifact absent (all 11 conditional paths fire, each carrying `census_said`, this row's verdict (CONFIRMS / EXTENDS / CONTRADICTS) and the instrument or arm that settled it. Six were false in the original census and were upgraded by measurement, not by argument: `templates` and `nucleotide` by mask presence over 34 datapoints, `bond` by a firing datapoint (4g5j, finetune_1/weighted-pdb, crop 256), `disabled_parameters` by the gate firing on 5oid, and `diffusion_rollout` and `model_forward` by two-armed on/off tests (ARM_full against ARM_norollout, and ARM_full against ARM_zeroseed). Do not restate the count here -- the same rot that hit the loss-term clause above)"
-      ],
+      "artifact_exists": true,
+      "artifact_sha256": "c5b65aac3a11e9adc01d9dc074d6a3bdd826678f1de1151760f55ffb0e55607b",
+      "met": true,
+      "misses": [],
       "checks": [
         {
           "key": "union.*.covered",
           "op": "all",
           "bar": true,
-          "actual": "artifact absent",
-          "passed": false,
+          "actual": "8 of 8",
+          "passed": true,
           "why": "all 8 of upstream's LossWeights terms fire, each carrying its own `carried_by` stage and dataset and its `n_pairs_firing` in the artifact. Do not restate the count here: this string said '7 do; `bond` has an empty mask on 5nw3' for fifty passes after `bond` was upgraded with evidence, so the clause and its own prose disagreed in the published CHARTER_EVIDENCE. The artifact is the count"
         },
         {
           "key": "conditional_paths.*.covered",
           "op": "all",
           "bar": true,
-          "actual": "artifact absent",
-          "passed": false,
+          "actual": "11 of 11",
+          "passed": true,
           "why": "all 11 conditional paths fire, each carrying `census_said`, this row's verdict (CONFIRMS / EXTENDS / CONTRADICTS) and the instrument or arm that settled it. Six were false in the original census and were upgraded by measurement, not by argument: `templates` and `nucleotide` by mask presence over 34 datapoints, `bond` by a firing datapoint (4g5j, finetune_1/weighted-pdb, crop 256), `disabled_parameters` by the gate firing on 5oid, and `diffusion_rollout` and `model_forward` by two-armed on/off tests (ARM_full against ARM_norollout, and ARM_full against ARM_zeroseed). Do not restate the count here -- the same rot that hit the loss-term clause above"
         }
       ],
       "code_staleness": {
         "comparable": false,
-        "why": "the artifact or the code path has no commit in this tree"
+        "generated_not_committed": true,
+        "why": "composed at compose time from digest-pinned sources, so it cannot be stale"
       }
     }
   ]
