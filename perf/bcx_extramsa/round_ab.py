@@ -59,16 +59,23 @@ class ABMeter(M.Meter):
 
 
 def per_arm_cache(cls):
-    """`cls` with one compiled-gradient cache per arm."""
+    """`cls` with one compiled-gradient cache and one set of AF2 runners per arm.
+
+    The runners matter as much as the cache. `RunModel.apply` is a `jax.jit` built once per
+    runner (`af/alphafold/model/model.py:96`), and JAX keeps its traced jaxpr keyed by input
+    shapes, so a second outer program that calls the same runner reuses the first one's trace
+    and the factory is never asked again. The first version of this script shared the runners:
+    the extra-MSA stack traced once, in the OFF arm, and every ON round ran BindCraft 2's JAX.
+    """
     class PerArm(cls):
         def __init__(self, *a, **kw):
             super().__init__(*a, **kw)
-            self._arm_caches = {False: self.gradient_compile_cache,
-                                True: bc2_af2.CompiledModelCache(self.gradient_compile_cache
-                                                                 .max_size)}
+            self._arm_caches = {False: (self.gradient_compile_cache, self.alphafold_runners),
+                                True: (bc2_af2.CompiledModelCache(self.gradient_compile_cache
+                                                                  .max_size), {})}
 
         def _compiled_sequence_gradients(self, *a, **kw):
-            self.gradient_compile_cache = self._arm_caches[ARM["on"]]
+            self.gradient_compile_cache, self.alphafold_runners = self._arm_caches[ARM["on"]]
             return super()._compiled_sequence_gradients(*a, **kw)
     return PerArm
 
@@ -225,6 +232,10 @@ def main():
             LS.layer_stack = spliced
             M.CLOCK.stop()
     rows, summary = analyse(M.EVENTS, M.CLOCK.samples)
+    on_rounds = sum(1 for r in rows if r["extra_msa_on_device"])
+    if on_rounds and (traced["on"] == 0 or extra.calls["backward"] < on_rounds):
+        raise RuntimeError(f"{on_rounds} ON rounds but the device extra-MSA stack traced "
+                           f"{traced['on']} times and ran {extra.calls}: the ON arm is JAX")
     stamp.update({"wall_seconds": round(time.time() - t0, 2), "stopped": stopped,
                   "evo_calls": dict(evo.calls), "extra_calls": dict(extra.calls),
                   "extra_traces": traced,
