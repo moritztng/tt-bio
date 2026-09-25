@@ -1,0 +1,14 @@
+{
+ "scale": 2.0,
+ "rewrites_traced": 2,
+ "loss": 8.465317726135254,
+ "loss_base": 8.465317726135254,
+ "loss_bit_identical": true,
+ "grad_bit_identical": true,
+ "grad_max_abs_diff": 0.0,
+ "loadavg_end": [
+  41.1884765625,
+  44.0908203125,
+  39.7734375
+ ]
+}
