@@ -1,0 +1,13 @@
+{
+ "input_elems": 56623104,
+ "fp64_tensor_mib": 432.0,
+ "rss_base_mib": 419.4,
+ "rss_after_monolithic_mib": 1285.0,
+ "monolithic_growth_mib": 865.6,
+ "monolithic_growth_over_fp64_tensor": 2.0,
+ "chunked_rows8_growth_mib": 253.3,
+ "bit_identical": true,
+ "full_shape_elems": 226492416,
+ "full_fp64_gib": 1.688,
+ "note": "ru_maxrss is a process high-water mark, so chunked_rows8_growth_mib is measured against the mark the monolithic arm already set and floors at 0 rather than reporting its own peak. The finding is monolithic_growth_over_fp64_tensor."
+}
