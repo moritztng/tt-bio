@@ -1143,6 +1143,19 @@ state doc nor its `CLAUSE_EXACT.json` names the version anywhere.
   survey sizes jobs by multiplying a count by a global mean, it has assumed the mean is uniform
   — check one site's marginal cost against the mean before ranking anything by count.**
 
+- **K28** (pass 455) **AN ARTIFACTS-ONLY ORCHESTRATOR BRANCH DRIFTS, SO ITS `tt_bio/` READS ARE
+  STALE — CHECK `origin/main`, NOT YOUR WORKTREE.** `wk/of3t-orchestrator` never touches engine
+  code, so nothing ever forces it to rebase; it is **1,489 commits behind `origin/main`**. A
+  `grep` for `exact_softmax(` across my own `tt_bio/` returned NOTHING, which would have read as
+  "the symbol `of3t-bwattrib` cited does not exist" and sent `of3t-exactscope` off to build a
+  scope that already ships. Against `origin/main` every symbol is there:
+  `EXACT_TRAINING_OPS = ("softmax","layer_norm")` at 1536, `exact()` at 1590, `exact_softmax()`
+  at 1600, `exact_softmax_installed()` at 1581. **The orchestrator is the role most likely to
+  hold a stale tree, because it is the one role that never has a reason to update one** — and
+  the absence of a symbol is exactly the kind of finding that feels decisive and is worth
+  nothing. Corollary already earned: cite the SYMBOL, not the line number, in a file this active
+  (bwattrib's 1599 is now 1600).
+
 - **K27** (pass 454) **A PRIORITY WRITTEN IN A STATE DOC DOES NOT REACH THE DISPATCHER; QUEUE
   ORDER IS `TASKS.md` INSERTION ORDER.** I published the card queue as exactscope (128.73 s) ->
   restep -> zerosfill (11.80 s) in SEQUENCE, then inserted the two new TASKS.md rows in the order

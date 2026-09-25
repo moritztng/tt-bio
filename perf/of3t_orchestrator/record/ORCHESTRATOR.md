@@ -42,7 +42,7 @@ author and cite what you took; gates are batched and a stack is approved whole. 
 speedup that does less of the model's own work. A1-A45 are the correctness protocol and are
 unchanged. History: `state/of3t/PASSLOG.md`.
 
-LEDGER: `~/.coworker/state/of3t/LEDGER.md`, **R1-R212 and K1-K27**. **R203, filed this pass, is
+LEDGER: `~/.coworker/state/of3t/LEDGER.md`, **R1-R212 and K1-K28**. **R203, filed this pass, is
 the sprint's first finding and it reordered the job list: an engine-wide fused-kernel bypass hid
 behind a per-module comment. A per-site comment that correctly explains one decline is the best
 camouflage a policy can have, because every reader who checks one site leaves satisfied. Count the
@@ -152,7 +152,11 @@ alone**, leaving the device child to exit on its own: no device touched, no card
 verified after by `fuser` reporting nobody, a `released` lease and a chain log ending at try 5. `of3t-softbw` is concluded in substance. **The contention is the schedule**: four rows,
 one card, and the queue is the sprint's rate limit rather than agent count.
 
-BRANCH: **`wk/of3t-bwd` at `4a86765bb`**, carrying `of3t-tapedfwd`, `of3t-intensity` and
+BRANCH: **My own `wk/of3t-orchestrator` is 1,489 commits behind `origin/main` and always will be
+— it is artifacts-only, so nothing forces a rebase. Never read `tt_bio/` from this worktree; a
+missing symbol there means nothing (K28). Check `git show origin/main:<path>`.**
+
+**`wk/of3t-bwd` at `4a86765bb`**, carrying `of3t-tapedfwd`, `of3t-intensity` and
 `of3t-bwattrib` — all GO, all artifact-only apart from tapedfwd's 15-line early return.
 
 **`of3t-lnbw` and `of3t-softbw` are deliberately NOT composed, and their branches are pushed so
