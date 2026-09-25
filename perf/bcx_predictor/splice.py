@@ -522,3 +522,157 @@ def evoformer_on_device(evo: EvoformerOnDevice | None, expect_blocks: int = 48,
         yield swapped
     finally:
         modules.layer_stack.layer_stack = real
+
+
+class TemplatePairStackOnDevice:
+    """BindCraft 2's 2-block template pair stack on card, forward only.
+
+    The stack's input is not on the tangent graph. `SingleTemplateEmbedding` builds it from the
+    template features alone -- the dgram of the target's fixed coordinates, an int `aatype` the
+    target owns, two masks -- and never from `query_embedding` (`modules.py:1646-1728`), while
+    `sequence_design_loss` differentiates with respect to `sequences` only. So this swap has no
+    VJP and does not need one: `jax.pure_callback` has no JVP rule, so a program that did want a
+    gradient through here fails at trace time instead of quietly returning a wrong one. That is
+    the claim's own runtime check, in the same place `ExtraMsaOnDevice._check_mask` puts its.
+
+    Dropout is carried, not dropped. BindCraft 2 runs the design stage with `design_dropout`
+    True and the template stack's four non-transition ops at rate 0.25 (`config.py`), applied to
+    each op's residual UPDATE under a mask broadcast along a row or a column
+    (`modules.py:38-76`). tt-bio's `AF2PairBlock` has no dropout, so the masks are drawn in JAX
+    from the same `safe_key` split in the same order the scan's `block` draws them, and handed
+    down as arguments. An all-ones mask -- which is what `use_dropout=False` produces exactly --
+    is skipped, so the dropout-off arm pays nothing and stays bit-comparable.
+    """
+
+    #: The template's op order, `AF2PairBlock(evoformer_order=False)`'s and `modules.py:212`'s.
+    ORDER = ("tri_att_start", "tri_att_end", "tri_mul_out", "tri_mul_in", "pair_transition")
+
+    #: The matching config keys, which is the order `block` consumes its five sub-keys in.
+    CONFIG_ORDER = ("triangle_attention_starting_node", "triangle_attention_ending_node",
+                    "triangle_multiplication_outgoing", "triangle_multiplication_incoming",
+                    "pair_transition")
+
+    def __init__(self, dev, k_blocks: int = 2):
+        self.dev, self.k = dev, k_blocks
+        self.calls = {"primal": 0}
+        self.swapped = 0
+        self.dropout_seen = {"calls": 0, "masked_ops": 0, "identity_ops": 0}
+        self._pair_mask_dev = {}
+
+    def _pair_mask(self, pm):
+        from tt_bio.af2 import af2_pair_masks
+        key = (tuple(pm.shape), float(pm.sum()))
+        got = self._pair_mask_dev.get(key)
+        if got is None:
+            got = af2_pair_masks(pm, self.dev.device)
+            self._pair_mask_dev[key] = got
+        return got
+
+    @staticmethod
+    def _keep(keep_np, n, n32):
+        """A `[1, n, c]` or `[n, 1, c]` keep mask as `[n32, n32, c]`, or None if it is identity.
+
+        The pad rows and columns take 1.0: `af2_pair_masks` already zeroes them and a dropout
+        draw there would be arithmetic on something nothing reads.
+        """
+        k = np.asarray(keep_np, dtype=np.float32)
+        if np.array_equal(k, np.ones_like(k)):
+            return None
+        t = torch.from_numpy(k.copy())
+        pad = n32 - n
+        if pad:
+            t = (torch.nn.functional.pad(t, (0, 0, 0, pad), value=1.0) if t.shape[0] == 1
+                 else torch.nn.functional.pad(t, (0, 0, 0, 0, 0, pad), value=1.0))
+        return t.expand(n32, n32, t.shape[-1]).contiguous()
+
+    def _primal(self, act_np, mask_2d_np, *keeps_np):
+        import ttnn
+        dev = self.dev
+        z = torch.from_numpy(np.asarray(act_np).copy()).float()
+        pmk = torch.from_numpy(np.asarray(mask_2d_np).copy()).float()
+        z, pmk, n, n32 = _pad_pair(z, pmk)
+        mask, attn_mask = self._pair_mask(pmk)
+        blocks = dev.dm.device_template
+        if len(blocks) != self.k:
+            raise ValueError(f"tt-bio holds {len(blocks)} template blocks, the stack has {self.k}")
+        zz = dev.up(z)
+        self.dropout_seen["calls"] += 1
+        for b, blk in enumerate(blocks):
+            fns = {"tri_mul_out": lambda t: blk.tri_mul_out(t, mask),
+                   "tri_mul_in": lambda t: blk.tri_mul_in(t, mask),
+                   "tri_att_start": lambda t: blk.tri_att_start(t, attn_mask),
+                   "tri_att_end": lambda t: blk.tri_att_end(t, attn_mask),
+                   "pair_transition": blk.pair_transition}
+            for i, name in enumerate(self.ORDER):
+                update = blk._update(name, fns[name], zz)
+                keep = self._keep(keeps_np[b * len(self.ORDER) + i], n, n32)
+                if keep is None:
+                    self.dropout_seen["identity_ops"] += 1
+                else:
+                    self.dropout_seen["masked_ops"] += 1
+                    km = dev.up(keep)
+                    update = ttnn.multiply_(update, km)
+                    ttnn.deallocate(km)
+                zz = blk._residual(zz, update)
+        dev.sync()
+        out = dev.down(zz, tuple(z.shape))[:n, :n].numpy()
+        ttnn.deallocate(zz)
+        self.calls["primal"] += 1
+        return out
+
+    def as_jax(self):
+        """`(act, mask_2d, *keep_masks) -> act`, with no VJP, deliberately."""
+        def stack(act, mask_2d, *keeps):
+            out = jax.pure_callback(
+                self._primal, jax.ShapeDtypeStruct(act.shape, jnp.float32),
+                act.astype(jnp.float32), mask_2d.astype(jnp.float32),
+                *[k.astype(jnp.float32) for k in keeps])
+            return out.astype(act.dtype)
+        return stack
+
+
+@contextlib.contextmanager
+def template_pair_stack_on_device(tmpl: "TemplatePairStackOnDevice | None"):
+    """Swap `modules.TemplatePairStack.__call__` for `tmpl`, drawing its dropout in JAX.
+
+    The method, not the `layer_stack` factory the other two swaps patch: the stack's scan
+    carries the `safe_key` and this needs to split it itself to draw the same masks in the same
+    order. `None` leaves BindCraft 2's own stack alone, byte for byte.
+    """
+    from bindcraft.af.alphafold.model import modules
+    from bindcraft.af.alphafold.model import prng
+    import haiku as hk
+
+    if tmpl is None:
+        yield None
+        return
+    real = modules.TemplatePairStack.__call__
+    device_stack = tmpl.as_jax()
+
+    def patched(self, pair_act, pair_mask, use_dropout, safe_key=None):
+        c = self.config
+        if not c.num_block:
+            return pair_act
+        if int(c.num_block) != tmpl.k:
+            raise ValueError(f"template_pair_stack has {c.num_block} blocks, tt-bio holds "
+                             f"{tmpl.k}")
+        if safe_key is None:
+            safe_key = prng.SafeKey(hk.next_rng_key())
+        keeps = []
+        for _ in range(int(c.num_block)):
+            safe_key, *sub_keys = safe_key.split(6)
+            for name, sub in zip(tmpl.CONFIG_ORDER, sub_keys):
+                cfg = c[name]
+                shape = list(pair_act.shape)
+                shape[0 if cfg.orientation == "per_row" else 1] = 1
+                keep_rate = 1.0 - jnp.where(use_dropout, cfg.dropout_rate, 0)
+                keep = jax.random.bernoulli(sub.get(), keep_rate, shape=shape)
+                keeps.append((keep / keep_rate).astype(pair_act.dtype))
+        tmpl.swapped += 1
+        return device_stack(pair_act, pair_mask, *keeps)
+
+    modules.TemplatePairStack.__call__ = patched
+    try:
+        yield tmpl
+    finally:
+        modules.TemplatePairStack.__call__ = real
