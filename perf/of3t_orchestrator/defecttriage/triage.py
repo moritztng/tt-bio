@@ -81,16 +81,21 @@ TABLE = {
                     "and the sdist's train_pdb_subset.yaml is stale against its own generator."),
 
     # --- ships to users: inference -----------------------------------------------------------
-    "D10": (USER, "The confidence head mis-ranks diffusion samples on the SHIPPED selector, "
-                  "measured end to end through the production CLI on 1UBQ."),
-    "D24": (USER, "On a single chain OpenFold3's ranking rule has two of its four terms "
-                  "identically zero -- the shipped default, machine-checked in rank_rule.py."),
+    # D10 and D24 REMOVED at pass 528 (`of3t-retriage`): both read FIXED on their latest
+    # status-bearing heading, "FIXED on main by content since e7f44de53 (checked pass 429
+    # against origin/main)". Same rule that removed D56 and D164.
 
     # --- ships to users: training on the shipped default -------------------------------------
-    "D32": (USER, "Twenty-one sites in nine shipped modules route down a different, unfused path "
-                  "while a tape is open, so a training step is a materially different execution."),
-    "D55": (USER, "tt_bio's own tape gives precise_config() to the reductions feeding weight "
-                  "gradients and withholds it from four sitting inside near-cancellations."),
+    "D55": (USER, "tt_bio's tape gives precise_config() to the row-sum denominator inside "
+                  "`softmax_bw_inner` (autograd.py:158-171 on origin/main cdd2c2f38) and "
+                  "withholds it from the near-cancellation `inner = sum(g*y)` that `dx = "
+                  "y*(g - inner)` is built on, while the fused branch in `softmax_bw` "
+                  "(:211-217) configures the same reduction. Live on the shipped default: "
+                  "`_EXACT_OPS` (:1592) replaces only the softmax and layer_norm VERBS, and "
+                  "`triangle_attention`'s backward reaches it at :2069 -- main's own comment "
+                  "at :1452 says so. OF3's trunk is 48 blocks of triangle attention, and "
+                  "`tt-bio finetune` reaches it. What it moves is unmeasured; `of3t-innercfg` "
+                  "owns the VJP and zero movement closes it. Re-read pass 528."),
     # D56 REMOVED at pass 393: no longer UNFIXED on its latest status-bearing heading, and
     # this script refuses to report a classification of a set that has moved -- the same rule
     # that removed D164 at pass 340.
@@ -194,6 +199,20 @@ TABLE = {
     "D183": (CAMP, "The D149 reference-tree guard compares path STRINGS rather than tree "
              "content, so a legitimate path move makes earlier artifacts unscorable. An "
              "instrument defect; it can only ever mis-score our own evidence."),
+    "D32": (CAMP, "the filing's own status is \"UNFIXED as a METHOD GAP\" and its owner line "
+                  "reads \"a scope statement rather than work ... a constraint on the method, to "
+                  "be fixed in the brief rather than in code\". Both consequences it draws are "
+                  "about what this campaign may infer from its own instruments: a taped gradient "
+                  "figure does not transfer to the shipped inference path, and a training s/step "
+                  "may not be projected from an inference s/step. Neither is an inference output, "
+                  "a crash, or a change to a training run's result. The one residue a user can "
+                  "reach is SPEED on the training API and it is priced -- `of3t-tapedfwd` "
+                  "measured the declined routes at 3.2381x on the forward they sit in, worth "
+                  "1.00508x of the banked 466.702 s step and ~1.1 % of today's 251.66 s taped "
+                  "forward. MOVED OUT of USER-FACING at pass 528 by `of3t-retriage`; that is the "
+                  "flattering direction, so the counter-argument is in BOUNDARY and reversing it "
+                  "is one line. Census re-read by content the same pass: 31 taping() branch "
+                  "points in the nine named modules on origin/main cdd2c2f38, not the filed 21."),
     "D184": (USER, "The 99.50523 % coverage figure is arithmetically right and belongs to a "
              "default-OFF lever, so the shipped arm still reads 97.98499 % -- seventeen "
              "parameters receive no gradient on the default someone gets today. Pass 340 first "
@@ -203,7 +222,12 @@ TABLE = {
              "then zero forever -- so a user who trains today silently loses seventeen "
              "parameters. A reclassification that moves a defect OUT of USER-FACING is the one "
              "that flatters the campaign, and this table is not where that call gets made "
-             "quietly."),
+             "quietly. RE-CHECKED pass 528 (`of3t-retriage`) against origin/main cdd2c2f38: "
+             "`DEVICE_REF_ATOM` is at openfold3_host_prep.py:196 and its comment states the "
+             "default is OFF and why, so the shipped arm is still the one measured at "
+             "mass-weighted rel_l2 exactly 1.00000000, 17 of 17 over bar -- no gradient at "
+             "all. Decided-on-evidence describes why the coverage figure was not composed; it "
+             "does not change the reach. Stays USER-FACING."),
     "D186": (CAMP, "The trunk headline was a CROSS-FRAME comparison: a capture-scope numerator "
              "against a model-scope floor. A defect in how this campaign measures itself."),
     "D187": (CAMP, "With the trunk reframed, `diffusion_transformer` at 2.019x over 43.6 % of "
@@ -224,10 +248,9 @@ TABLE = {
              "tensors -- rel_d 2.2469e-01 against the shipped arm's 2.5643e-01 at k=20, in the "
              "FLATTERING direction, unexplained. A scope gain carrying an unattributed accuracy "
              "change is two results presented as one. Campaign-internal: our own measurement."),
-    "D205": (USER, "512 is the largest crop that RUNS: 544, 576, 640 and 768 all refuse, on two "
-             "different walls -- capacity at 640/768 and CONTIGUITY at 544/576, which a capacity "
-             "extrapolation cannot see. A capability limit someone using tt-bio meets today, and "
-             "the ledger had never recorded it."),
+    # D205 REMOVED at pass 528 (`of3t-retriage`): FIXED on main on both halves. 576 runs
+    # (docs/training.md:194, dryrun.py:108) after the concat-heads `dh` split e558bfb06
+    # removed the contiguity wall, and the frontier is now stated where a user reads it.
     "D204": (CAMP, "Nothing checks that a concluded row's findings reach the ledger: 8 of 99 "
              "concluded of3t rows were named nowhere in the union, and one row that IS named had "
              "its concluding STOP verdict unabsorbed for a hundred passes. A ratchet is built; "
@@ -324,12 +347,20 @@ TABLE = {
     # instead of hidden behind a count. Reviewing them is owed and is NOT done here; what is
     # done is making the generator runnable again, which restores the invariant that `classes`
     # and `reasons` cannot disagree.
-    "D210": (USER, "14.2M fused-QKV pad lanes are in the optimizer's parameter set and Adam "
-             "steps them; upstream does not have them. USER-FACING because a user who trains "
-             "gets them. R152 measured their one route into other parameters' updates -- the "
-             "global-norm clip -- INERT on the trajectory arm: clip exactly 1.0 at all 20 "
-             "steps and all 80 per-sample coefficients, 12.5703x of headroom. Confined by the "
-             "batch's gradient norm, not by the parameter set."),
+    "D210": (USER, "14,155,776 fused-QKV pad lanes (3 x 16 heads x 16 pad lanes x 768 x 24 "
+             "blocks) are in the optimizer's parameter set and Adam steps them; upstream does "
+             "not have them. USER-FACING because a user who trains gets them, and `tt-bio "
+             "finetune` is a shipped surface. R152 measured their one route into other "
+             "parameters' updates -- the global-norm clip -- INERT on the trajectory arm: clip "
+             "exactly 1.0 at all 20 steps and all 80 per-sample coefficients. RE-READ pass 528 "
+             "(`of3t-retriage`) against origin/main cdd2c2f38, two corrections. Only the "
+             "attention OUTPUT is sliced (:236); q and k keep all 64 lanes and the score "
+             "matmul at :221 contracts over the padded head dim, so the pads are inert only "
+             "while they are exactly 0.0 -- a checkpoint this port trained feeds nonzero pad "
+             "lanes into its own inference scores, mechanism from source, magnitude "
+             "unmeasured. And AdamW holds FOUR buffers per element (master :194, init :209, "
+             "the two moments :216-217), so the host cost is 226,492,416 B after the first "
+             "step, not 170.4 MB."),
     "D211": (CAMP, "GRADIENTS' coverage clause and its accuracy clause are not satisfiable by "
              "any single artifact the campaign holds. A defect in this campaign's own gate."),
     "D213": (SCOPE, "main's test suite is red on artifacts belonging to another campaign's "
@@ -371,20 +402,34 @@ TABLE = {
              "every site and unmerged -- nothing a user runs today reaches it."),
     "D250": (USER, "msa_module's forward is 3.54x less accurate than upstream 0.4.3 bf16 at the "
              "same boundary (8.176e-03 against 2.311e-03), an inference forward quantity in "
-             "shipped OpenFold3."),
+             "shipped OpenFold3. RE-CHECKED pass 528 (`of3t-retriage`) against origin/main "
+             "cdd2c2f38: `z_fp32_residual` defaults False at openfold3_msa_embedder.py:77 and "
+             "is gated on `ops.taping()` at :128, so the fix is training-only and OFF -- which "
+             "is WHY an inference fold still carries the error. The LEVER is decided; the "
+             "DEFECT is what a user gets. openfold3_trunk.py's docstring records the "
+             "acceptance in shipped source. Stays USER-FACING. Unmeasured: what enabling the "
+             "lever costs inference."),
     "D252": (CAMP, "the training default's exact LayerNorm was chosen on a pad-dominated "
              "boundary; no inference path reads it."),
-    "D254": (CAMP, "set by hand at pass 421: training-path gradient defect (473 leaves "
-             "untrained); the training adapter is not on main and no inference fold executes "
-             "the tape, so no user reach today, but it blocks GO."),
-    "D255": (CAMP, "set by hand at pass 421: training objective only; inference never "
-             "evaluates the resolved loss."),
-    "D256": (CAMP, "set by hand at pass 422: training-path registration defect (84 diffusion "
-             "weights would train as constants); adapter not on main, inference uploads the "
-             "same weights and is unaffected. Blocks GO."),
-    "D257": (CAMP, "set by hand at pass 422: the training adapter (not on main) trains no "
-             "diffusion module on its default. Would be USER-FACING the day the adapter "
-             "ships; blocks GO now."),
+    # D254, D255, D256 and D257 REMOVED at pass 528 (`of3t-retriage`): all four read FIXED
+    # on their latest status-bearing heading (`wk/of3t-inproj`, composed pass 424). Their
+    # reasons asserted "the training adapter is not on main". That is wrong as written and the
+    # correction matters for every class decision in this table: `tt_bio/train/openfold3.py` IS
+    # on main and calls `catalogue.register(MODEL, adapter)` at :639, and `tt-bio finetune` is a
+    # shipped CLI subcommand (`tt_bio/main.py:1792` -> `tt_bio.train.cli:finetune`). What is true
+    # is narrower: nothing on the CLI path imports that module, so `tt-bio finetune --model
+    # openfold3` refuses with `catalogue.load`'s NotImplementedError on an empty registry. The
+    # module ships in the wheel and self-registers on import, and `tt_bio/train/__init__.py:114`
+    # resolves it as a submodule, so the Tier-1 surface `cli.py:187` documents -- `python -c
+    # "from tt_bio import train; train.finetune(...)"` -- reaches it in one import.
+    "D267": (CAMP, "aux_heads.pae reads 6.07x its bf16 on CF384 (rel 0.0780 against float64). "
+             "The defect's own heading declares CAMPAIGN-INTERNAL and the reason holds: "
+             "inference runs no tape, and the confidence head's inference path is "
+             "byte-identical across D266's fix (of3t-confpfe INFAB.json). It is a "
+             "gradient-correctness defect on the training path, so it blocks GO without "
+             "reaching an inference fold. Entered into this table at pass 528 "
+             "(`of3t-retriage`) from the by-hand reason it carried in the artifact; the class "
+             "is unchanged, only its provenance."),
 }
 
 # Close calls, recorded with the argument on both sides. A triage that hides these is worth less
@@ -423,6 +468,19 @@ BOUNDARY = {
             "main, so it leaves this table as a closed defect rather than as a re-classified "
             "one. The lesson is not about ranking rules or tapes: I stopped checking once the "
             "library produced a satisfying answer.",
+
+    "D32": "MOVED from USER-FACING to CAMPAIGN-INTERNAL at pass 528 by `of3t-retriage`, which "
+           "was dispatched by the party a smaller USER-FACING count benefits, so the argument "
+           "is given in full and reversing it is one line. FOR the move: the filing's own "
+           "status word is \"UNFIXED as a METHOD GAP\", its owner line puts the fix \"in the "
+           "brief rather than in code\", and both consequences it draws are about the "
+           "transferability of this campaign's own measurements. The only thing a user can "
+           "reach is 1.00508x of a training step, measured. AGAINST the move, and it is not "
+           "weak: an unfused path is a different program, and nobody has compared the taped "
+           "path to the fused inference path directly -- the parity work compares the taped "
+           "path to float64. If that comparison is run and the two disagree beyond the bar, "
+           "D32 is USER-FACING again on an accuracy argument rather than a speed one, and the "
+           "class here should flip. Recorded as owed rather than assumed away.",
 
     "D28": "Could be read as USER-FACING: the forwards really do disagree. Kept CAMPAIGN-INTERNAL "
            "because the defect it FILES is that the gradient comparisons taken there are void; "
