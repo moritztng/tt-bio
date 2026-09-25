@@ -63,6 +63,7 @@ class TraceWire:
         # Replay wall split four ways, summed over every replay. Everything but `wait` is the
         # host's, so their sum is the host floor this capture leaves behind.
         self.seg = {"write": 0.0, "enqueue": 0.0, "wait": 0.0, "read": 0.0}
+        self.l1_foreign: list = []
         dev.ag.DEVICE_ZEROS = True
 
     # ------------------------------------------------------------------ the fence
@@ -71,9 +72,12 @@ class TraceWire:
     #: precision the hole is sized to.
     CHUNK = 64 << 20
 
-    def _mem(self):
+    def _mem(self, kind: str = "DRAM"):
         ttnn = self.dev.ttnn
-        return ttnn.get_memory_view(self.dev.device, ttnn.BufferType.DRAM)
+        return ttnn.get_memory_view(self.dev.device, getattr(ttnn.BufferType, kind))
+
+    def _l1(self) -> int:
+        return int(self._mem("L1").total_bytes_allocated_per_bank)
 
     def _hold(self, per_bank: int, banks: int):
         """One DRAM buffer taking ``per_bank`` bytes in every bank: a row-major bfloat16 tensor
@@ -247,6 +251,7 @@ class TraceWire:
                                "would replay a gradient that is never written")
         self._sync()
         sh.leaves, sh.roots = leaves, roots
+        sh.l1_own = self._l1()
         sh.capture_s = time.time() - t0
 
         self._evict()
@@ -298,6 +303,12 @@ class TraceWire:
         t0 = time.perf_counter()
         for t, dst in zip(ins, dsts):
             self._write(t, dst)
+        # L1 has no fence: a tensor held in L1 across this replay by anything but the capture
+        # sits where the captured program's own L1 intermediates may land. Record it.
+        extra = self._l1() - sh.l1_own
+        if extra:
+            self.l1_foreign.append({"replay": sh.replays[which], "which": which,
+                                    "bytes_per_bank": extra})
         t1 = time.perf_counter()
         self.dev.ttnn.execute_trace(self.dev.device, (sh.tid_f, sh.tid_b)[which], cq_id=0,
                                     blocking=False)
@@ -312,7 +323,8 @@ class TraceWire:
         return {"captures": self.captures,
                 "replays": {str(k): s.replays for k, s in self._shapes.items()},
                 "capture_s_total": round(sum(c["capture_s"] for c in self.captures), 2),
-                "seg_s": {k: round(v, 4) for k, v in self.seg.items()}}
+                "seg_s": {k: round(v, 4) for k, v in self.seg.items()},
+                "l1_foreign": self.l1_foreign}
 
 
 #: A capture is its command stream, not its tensors: `bcx-trace` read metal's own refusal at
