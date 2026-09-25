@@ -1,0 +1,70 @@
+{
+ "doc": "Does the zero swap move the gradient? Asked where the answer is deterministic.",
+ "argv": [
+  "perf/of3t_zerosfill/zeroident.py"
+ ],
+ "shape": [
+  384,
+  1,
+  384,
+  128
+ ],
+ "env": {
+  "host": "pc",
+  "tt_visible_devices": "0",
+  "commit": "e6848e3a65e821686222ab78252ad871f91d440b",
+  "started_utc": "2026-09-25T16:14:58Z",
+  "board": "pc card 0 -- Blackhole p150a, custom 130-core firmware"
+ },
+ "zeros": {
+  "host_sha256": "d4d77915154843d612e41c6a72645b31",
+  "device_sha256": "d4d77915154843d612e41c6a72645b31",
+  "host_absmax": 0.0,
+  "device_absmax": 0.0,
+  "host_numel": 18874368,
+  "device_numel": 18874368,
+  "byte_identical": true,
+  "both_exactly_zero": true
+ },
+ "concat_by_slot": {
+  "0": {
+   "host_sha256": "ab5e9842dab626c1319b5c20cd9880cf",
+   "device_sha256": "ab5e9842dab626c1319b5c20cd9880cf",
+   "byte_identical": true,
+   "shape": [
+    384,
+    1,
+    384,
+    384
+   ]
+  },
+  "1": {
+   "host_sha256": "ad02fee04d6206db23371c67863c93bc",
+   "device_sha256": "ad02fee04d6206db23371c67863c93bc",
+   "byte_identical": true,
+   "shape": [
+    384,
+    1,
+    384,
+    384
+   ]
+  },
+  "2": {
+   "host_sha256": "a291a3c038580a87ad1b1483d266f5b5",
+   "device_sha256": "a291a3c038580a87ad1b1483d266f5b5",
+   "byte_identical": true,
+   "shape": [
+    384,
+    1,
+    384,
+    384
+   ]
+  }
+ },
+ "verdict": {
+  "zeros_byte_identical": true,
+  "both_exactly_zero": true,
+  "closure_output_byte_identical_every_slot": true,
+  "vjp_unchanged_through_this_closure": true
+ }
+}
