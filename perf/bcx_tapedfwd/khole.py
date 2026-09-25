@@ -180,18 +180,26 @@ def main():
                 T.TRIATT_FUSED_HIFI_STATS.update(served=0, declined=0, too_short=0)
                 rungs.seen, rungs.on = [], True
                 os.environ["TT_BIO_TRIATT_DIVIDING_K"] = "1" if arm == "dividing" else "0"
-                o = T._tri_att_sdpa_hifi(q, k, v, bias, scale ** -1)
+                # `scale`, not `scale ** -1`. The parameter is a MULTIPLIER: a fresh process
+                # whose first fused call passes head_dim**-0.5 lands 0.00224 from the float64
+                # reference, and one that passes head_dim**0.5 lands 0.91016 on the same
+                # operands. This call had the reciprocal, which is why every rmsd_vs_f64 this
+                # harness has ever printed graded a softmax run at 32x its scale.
+                o = T._tri_att_sdpa_hifi(q, k, v, bias, scale)
                 rungs.on = False
-                got, served_t = None, None
+                got, served_t, rel = None, None, None
                 if o is not None:
                     if refs is not None:
                         served_t = ttnn.to_torch(o).double()
                         got = {kk: rmsd(served_t, vv) for kk, vv in refs.items()}
+                        rel = {kk: got[kk] / float(torch.sqrt(torch.mean(vv ** 2)))
+                               for kk, vv in refs.items()}
                     ttnn.deallocate(o)
                 if arm == "dividing" and served_t is not None:
                     fused_out = served_t
                 row["arms"][arm] = {
                     "served": o is not None, "rmsd_vs_f64": got,
+                    "rel_vs_f64": None if o is None or refs is None else rel,
                     "stats": dict(T.TRIATT_FUSED_HIFI_STATS),
                     "rejects": {str(kk): vv for kk, vv in TS.REJECTS.items()},
                     "rungs": list(rungs.seen)}
@@ -206,9 +214,14 @@ def main():
                 row["fallback_rmsd_vs_f64"] = row["fused_vs_fallback"] = row["fallback_rms"] = None
             else:
               fb = T._fp32_softmax_attention(
-                  q, k, v, bias, scale_inv=scale ** -1,
+                  # Same two corrections. `scale_inv` is also a multiplier here, and
+                  # `bias_scale_inv` decides whether the additive bias is read as raw z or as
+                  # pre-baked by sqrt(h). The fused path reads it as pre-baked, so the fall-back
+                  # has to as well or the two device paths are not computing the same function --
+                  # which is exactly what `fused_vs_fallback` was reporting at 56.6 %.
+                  q, k, v, bias, scale_inv=scale,
                   compute_kernel_config=T._SOFTMAX_PRECISE_CKC, out_dtype=ttnn.bfloat16,
-                  bias_scale_inv=1.0, accurate_softmax=False)
+                  bias_scale_inv=scale, accurate_softmax=False)
               fb_t = ttnn.to_torch(fb).double()
               ttnn.deallocate(fb)
               row["fallback_rmsd_vs_f64"] = {kk: rmsd(fb_t, vv) for kk, vv in refs.items()}
@@ -218,17 +231,19 @@ def main():
               row["fused_vs_fallback"] = (rmsd(fused_out, fb_t)
                                           if fused_out is not None else None)
               row["fallback_rms"] = float(torch.sqrt(torch.mean(fb_t ** 2)))
-              # The grade is only a grade if the reference computes the same function, and here
-              # it does not. `_fp32_softmax_attention` is the SHIPPED route -- it is what a
-              # decline falls through to and it is graded elsewhere at pair rel_l2 ~0.02 -- so a
-              # large gap between its rms and the reference's indicts the reference. On
-              # 2026-09-25 at n=288 on Blackhole: 6.32x against the MORE favourable convention
-              # (0.9317 vs scale_before_bias 0.1474) and 9.50x against scale_after_bias
-              # (0.0981), with the two device paths themselves 56.6 % apart. The banked whglx
-              # Wormhole run reads the same, so this is the harness and not a board class.
-              # Both convention guesses are wrong, not one of them. Say so in the artifact
-              # rather than emitting an rmsd column that reads as a measurement. The ratio is
-              # taken against the larger reference so the guard errs towards staying quiet.
+              # The grade is only a grade if the harness CALLS the same function it grades.
+              # It did not, from the day it was written until 2026-09-26, and the reference was
+              # innocent both times it was blamed. Two call errors, one per path: the fused
+              # entry point takes a softmax MULTIPLIER and was handed its reciprocal, and the
+              # fall-back was told `bias_scale_inv=1.0`, which reads the additive bias as raw z
+              # where the fused path reads it as pre-baked by sqrt(h). So the two device paths
+              # computed different functions (`fused_vs_fallback` 56.6 %) and neither computed
+              # the reference's. With both fixed the three agree: at n=256 fused 0.0022419,
+              # fall-back 0.0025604, reference rms 0.10461.
+              # The guard stays, because the failure it catches is real and looked green for a
+              # year: `_fp32_softmax_attention` is the shipped route, so a large gap between its
+              # rms and the reference's means the harness is mis-calling something. Taken
+              # against the larger reference so it errs towards silence.
               ratio = row["fallback_rms"] / max(row["ref_rms"].values())
               row["reference_usable"] = 0.5 <= ratio <= 2.0
               row["reference_rms_ratio"] = ratio

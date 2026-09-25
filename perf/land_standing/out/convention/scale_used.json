@@ -1,0 +1,17 @@
+{
+ "n": 256,
+ "batch": 64,
+ "ref_s_rms": 0.10461276500793201,
+ "ref_sq_rms": 0.9561100768121562,
+ "out_s_rms": 0.10408225334718181,
+ "out_s_abs_vs_ref_s": 0.0022418860209737516,
+ "out_s_abs_vs_ref_sq": 0.9150851765880624,
+ "out_sqrt_h_rms": 0.10408225334718181,
+ "out_sqrt_h_abs_vs_ref_s": 0.0022418860209737516,
+ "out_sqrt_h_abs_vs_ref_sq": 0.9150851765880624,
+ "out_one_rms": 0.10408225334718181,
+ "out_one_abs_vs_ref_s": 0.0022418860209737516,
+ "out_one_abs_vs_ref_sq": 0.9150851765880624,
+ "s_vs_sqrt_h_maxabs": 0.0,
+ "s_vs_one_maxabs": 0.0
+}

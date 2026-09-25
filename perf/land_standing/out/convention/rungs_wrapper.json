@@ -1,0 +1,15 @@
+{
+ "n": 256,
+ "batch": 64,
+ "ref_rms": 0.10461276500793201,
+ "plain_abs": 0.9101566360295315,
+ "wrapped_abs": 0.9101566360295315,
+ "plain_vs_wrapped_maxabs": 0.0,
+ "rungs_seen": [
+  [
+   256,
+   256,
+   true
+  ]
+ ]
+}

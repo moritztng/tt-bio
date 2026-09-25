@@ -60,6 +60,28 @@ def main():
     assert not bad, f"blast.py calls these inert but the rungs moved: {bad}"
     print("checked: no regression at any length, and every blast-inert length is byte-identical")
 
+    # The accuracy half, wherever a graded row exists. At a length the lever unlocks, the route
+    # it REPLACES is `_fp32_softmax_attention` -- a decline falls through to that, not to the
+    # stock bf16 op -- so fused-vs-fall-back against the same float64 reference is the change a
+    # caller sees.
+    graded = [(n, r) for n, (r, _) in sorted(rows.items())
+              if r.get("graded") and r.get("reference_usable")
+              and r["arms"].get("dividing", {}).get("rmsd_vs_f64")]
+    if graded:
+        print(f"\n{'n':>6} {'fused':>11} {'fall-back':>11} {'fused better by':>16}  "
+              f"{'shipped arm':>12}")
+        for n, r in graded:
+            f = r["arms"]["dividing"]["rmsd_vs_f64"]["scale_after_bias"]
+            b = r["fallback_rmsd_vs_f64"]["scale_after_bias"]
+            print(f"{n:>6} {f:>11.7f} {b:>11.7f} {100 * (b - f) / b:>15.1f} %  "
+                  f"{'serves' if r['arms']['shipped']['served'] else 'DECLINES':>12}")
+        worse = [n for n, r in graded
+                 if r["arms"]["dividing"]["rmsd_vs_f64"]["scale_after_bias"]
+                 > r["fallback_rmsd_vs_f64"]["scale_after_bias"]]
+        assert not worse, f"the lever is further from float64 than the route it replaces at {worse}"
+        print("checked: at every graded length the fused route is closer to float64 than the "
+              "fall-back it replaces")
+
 
 if __name__ == "__main__":
     main()
