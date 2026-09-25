@@ -53,7 +53,7 @@ compute / ~11x bandwidth silicon floor is a scope mismatch every time.
 | backward, both exact ops | **570.196 s of 705.78 s (80.79 %)** | verb self-time, the one additive axis (`of3t-xcost`) |
 | of which genuine host float64 arithmetic | **94.07 s** | measured on the production route |
 | of which host tilize/untilize + buffer copy | **82.56 s** | host-only, no DMA in the number |
-| **unattributed: DMA, blocking sync, or queue drain** | **168.51 s (23.87 %)** | by subtraction; three different defects — `of3t-xsplit` owns splitting it |
+| **real transfer, at the achievable roof** | **165.99 s of a 168.51 s residual** | ATTRIBUTED (`of3t-xsplit`): only **2.54 s** is queue drain — `from_torch`'s is **zero by measurement** against an empty-queue sync floor. Arms alternated per crossing within one backward, n=110/106, 216 crossings each way. **Not recoverable by removing overhead** |
 | forward half, exactness ON | **<= 386 s** against 5.919 s → **<= 65.2x** | a BOUND from two durable clock stamps, not a timed run; matched one-taped-cycle axis, crop 384 (`of3t-restep`). Supersedes a ~299 s / ~54x derivation that row withdrew as unreproducible |
 | full step, exactness ON | **[OWED]** | `of3t-stepqb2`. The campaign's one missing number |
 | full step, exactness OFF, current tree | **[OWED]** | `of3t-stepqb2`; the stale 466.702 s is from `451ed56f4`, a tree where the feature did not exist |
@@ -126,10 +126,20 @@ The fidelity is fixed; only its price is variable. Both scopes are load-bearing.
 | untaped trunk, 3 recycles | **+0.00** |
 | taped trunk, 1 cycle, exact | **+2.82** |
 
-**The largest single term is the optimizer, spent before the first forward op runs.**
-`tt_bio/train/optim.py` keeps three host fp32 numpy copies per weight — master, exp_avg, exp_avg_sq
-— over 381.3 M elements: 4.26 GiB of buffers, 6.00 GiB measured with the download transient. **By
-design and documented, not a defect, and 31.6 % of the peak.** The untaped recycle prefix retains
+**The largest single term is the optimizer, spent before the first forward op runs — and a direct
+census puts it higher than the sampler did.** `tt_bio/train/optim.py` builds **five** host fp32
+dicts, not three; the three resident before any compute are `master`, `init_master` and
+`init_device`, and at crop 384 they total **7.105 GiB** (3,152 parameters, 381.3 M elements,
+4.000-4.003 bytes/element/dict). **The 6.00 GiB in the phase table above is a 5 Hz sampler's phase
+boundary and is 1.10 GiB low** — a sampled trajectory bounds a phase, it does not census one.
+
+**4.263 GiB of it goes, with the gradients bit-identical.** `init_master` and `init_device` were
+built from the same unwritten value three lines apart and held **identical bytes**; and
+`np.zeros_like` is `empty_like` plus `copyto(0)`, so it **writes every page** — the moments were
+fully resident from construction rather than a cheap untouched mapping. Materialising them at first
+use, inside `step()`, gives **construct 7.105 → 2.842 GiB (−60.0 %)** and **after one step
+7.105 → 5.684 GiB**. Proven bit-identical across six arms and six steps by raw-byte comparison of
+masters, both moments, device weights and every report — 0 differences. The untaped recycle prefix retains
 **nothing**, which is the control that makes the rest of the table readable. One in-flight exact
 softmax costs **+2.85 GiB** measured against 3.377 GiB predicted — real, understood, and a
 transient riding on a **10.6 GiB floor** rather than the floor itself.
