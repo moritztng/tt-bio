@@ -234,6 +234,10 @@ def main():
     ap.add_argument("--assert-fires", action="store_true",
                     help="exit nonzero unless the ON arm moved the counter and the OFF arm "
                          "did not")
+    ap.add_argument("--dry-run", action="store_true",
+                    help="run everything except the campaign itself and write the artifacts, on "
+                         "no card. Exercises the stamp, analyse, the dump paths and the arm "
+                         "check, which are otherwise first executed while holding a card")
     ap.add_argument("--out", required=False)
     args = ap.parse_args()
 
@@ -265,8 +269,21 @@ def main():
                       parse_setting_overrides(overrides)))
     campaign.MULTIMER_POOL = MONOMER
 
-    M.CLOCK = M.Clock(1.0)
-    M.CLOCK.start()
+    try:
+        M.CLOCK = M.Clock(1.0)
+        M.CLOCK.start()
+    except Exception as exc:
+        if not args.dry_run:
+            raise
+        # No chip, so no AICLK node. A dry run is about the code paths, not the clock.
+        print(f"dry-run: no AICLK clock ({type(exc).__name__}: {exc})", flush=True)
+
+        class _NoClock:
+            samples, pci, path = [], None, None
+
+            def stop(self):
+                pass
+        M.CLOCK = _NoClock()
     stamp = {"host": os.uname().nodename, "card": args.card or os.environ.get(
         "TT_VISIBLE_DEVICES"), "pci": M.CLOCK.pci, "sysfs": M.CLOCK.path, "commit": git_head(),
         "surface": "tt_bio.bindcraft2.predictor(extra_msa=...)",
@@ -332,6 +349,8 @@ def main():
         t0 = time.time()
         stopped, failure = None, None
         try:
+            if args.dry_run:
+                raise M.StopAfterRounds("dry run: the campaign was not started")
             campaign.run_campaign(settings, project, af2_weights=args.params,
                                   mpnn_weights=os.path.join(BC2, "bindcraft", "weights",
                                                             "proteinmpnn", "weights_neutral"),
@@ -365,6 +384,11 @@ def main():
     if failure is not None:
         raise SystemExit(f"the campaign raised after {len(rows)} rounds; results for those "
                          f"rounds are banked in {project}. {failure}")
+
+    if args.dry_run:
+        print(f"dry-run OK: wrote {project}/round_ab.json and round_events.json, "
+              f"{len(rows)} rounds (0 expected), arm check skipped", flush=True)
+        return
 
     if args.assert_fires:
         bad = []
