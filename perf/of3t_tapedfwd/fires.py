@@ -54,6 +54,12 @@ EXTRA_COUNTERS = [
     "tt_bio.swiglu_fused.STATS", "tt_bio.page_copy.STATS",
     "tt_bio.softmax_generic.SSTATS", "tt_bio.tenstorrent.TRIMUL_TAIL_L1_STATS",
     "tt_bio.tenstorrent.PWA_DEPTH_STATS", "tt_bio.tenstorrent.OPM_ROW_STATS",
+    # `tape()` installs a HOST float64 softmax and layer norm for the whole taped forward
+    # (`autograd._EXACT_OPS`, opened by `taped_ttnn.tape` through `_training_exact`). That is
+    # an accuracy decision, not a route, and it is invisible to every counter above -- which
+    # is exactly how a 248 s arm C can look like "the tape is slow".
+    "tt_bio.autograd.EXACT_SOFTMAX_STATS", "tt_bio.tenstorrent.HOST_F64_SOFTMAX_STATS",
+    "tt_bio.autograd.EXACT_LAYER_NORM_STATS",
     # Every refusal LATCH, read as a set length. These are the caches the recorded suspicion
     # is about: if a taped call still poisons one, the arm that follows it serves less. Read
     # by `read_counters` as `len(set)`, so a latch that grows during arm B or C is visible
@@ -192,12 +198,45 @@ def run_arm(trunk, held, cycles, arm, probe, attrs, out):
     return secs, d, sites, dig, teardown
 
 
+def declare_trunk(trunk, out):
+    """Register the trunk's device weights as tape leaves, the way a training step does.
+
+    THE ONE STRUCTURAL DIFFERENCE between this harness and `of3t-stepfloor`'s `fullstep.py`,
+    which measured the 3.415 s taped cycle this row prices against. That harness calls
+    `declare_all` before its taped forward, so 2531 weights are `ag.parameter()` leaves; this
+    one declared none, and its taped arm read 257 s for what should be the same work. 75x is
+    not a card difference, so the difference is in the harnesses and this flag is what tells
+    the two apart. Same walk (`step.walk_weights`), deduped by tensor IDENTITY for the reason
+    `fullstep.py` gives: the tape keys a leaf on the raw handle, so one tensor reachable by
+    two paths would be declared twice.
+    """
+    from tt_bio import autograd as ag
+    found, stats = S.walk_weights(trunk, prefix="trunk.")
+    by_id, n = set(), 0
+    for name, (owner, key, t) in sorted(found.items()):
+        if id(t) in by_id:
+            continue
+        by_id.add(id(t))
+        ag.parameter(t)
+        n += 1
+    out["declared"] = {"weights": n, "found": len(found),
+                       "walk_depth": stats["max_depth"], "truncated": stats["truncated"]}
+    print(f"[declare] {n} trunk weights registered as tape leaves", flush=True)
+    return n
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--tokens", type=int, default=384)
     ap.add_argument("--cycles", type=int, default=1)
     ap.add_argument("--reps", type=int, default=3)
     ap.add_argument("--arms", default="ABC")
+    ap.add_argument("--profile", action="store_true",
+                    help="cProfile the LAST arm and report the top cumulative callees. One "
+                         "run names the cost instead of binary-searching hypotheses.")
+    ap.add_argument("--declare", action="store_true",
+                    help="register the trunk's weights as tape leaves before the arms, the "
+                         "way fullstep.py does. The arm-C discrepancy hangs on this.")
     ap.add_argument("--out", type=Path, default=Path("perf/of3t_tapedfwd/out/fires.json"))
     a = ap.parse_args()
 
@@ -221,6 +260,9 @@ def main():
             trunk = held["trunk"][0]
             attrs = counter_attrs()
             out["counters_watched"] = len(attrs)
+            out["declared"] = None
+            if a.declare:
+                declare_trunk(trunk, out)
             probe = TapingProbe().install()
 
             # Burn JIT off on every arm before any arm is timed. A first-call compile is
@@ -230,6 +272,28 @@ def main():
                 t0 = time.perf_counter()
                 run_arm(trunk, held, a.cycles, arm, probe, attrs, out)
                 print(f"[warm {arm}] {time.perf_counter() - t0:.3f}s", flush=True)
+
+            if a.profile:
+                import cProfile
+                import pstats
+                arm = a.arms[-1]
+                pr = cProfile.Profile()
+                pr.enable()
+                run_arm(trunk, held, a.cycles, arm, probe, attrs, out)
+                pr.disable()
+                st = pstats.Stats(pr).sort_stats("cumulative")
+                rows = []
+                for fn, (cc, nc, tt_, ct, _) in st.stats.items():
+                    rows.append({"fn": f"{fn[0].split('/')[-1]}:{fn[1]}({fn[2]})",
+                                 "ncalls": nc, "tottime": round(tt_, 3),
+                                 "cumtime": round(ct, 3)})
+                rows.sort(key=lambda r: -r["tottime"])
+                out["profile_arm"] = arm
+                out["profile_top_tottime"] = rows[:25]
+                print(f"[profile] arm {arm}: top self-time")
+                for r in rows[:15]:
+                    print(f"   {r['tottime']:9.3f}s self  {r['ncalls']:8d} calls  {r['fn']}",
+                          flush=True)
 
             reps = []
             for r in range(a.reps):
