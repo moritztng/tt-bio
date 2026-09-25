@@ -1,191 +1,162 @@
 # What OpenFold3 training costs on Tenstorrent, and why
 
-Owner: `of3t-orchestrator`. This is the campaign's answer document and the last EXIT item —
-*"one honest paragraph saying what OF3T training costs and why."* Drafted at pass 464 against what
-is established, with every still-missing number marked **[OWED]** rather than estimated. Nothing
-here may be filled in from a proxy; each gap names the row that closes it.
+Owner: `of3t-orchestrator`. The campaign's answer document and its last EXIT item. Every
+still-missing number is marked **[OWED]** rather than estimated, and each gap names what closes it.
+Restructured at pass 471 — it had grown by appending across seven passes into three overlapping
+sections on host memory and two on the same gap, which is the failure this campaign keeps paying
+for in its own state docs.
 
 ## The short answer
 
 **OpenFold3 trains correctly on Tenstorrent, and what it costs is dominated by the mechanism that
-makes it correct — which is host float64 arithmetic, not device work.**
+makes it correct — host float64 arithmetic, not device work.**
 
 The gradients are upstream 0.4.3's gradients to within upstream's own bf16 error, on every section,
-over the whole step; that is stamped, evidence-backed, and unchanged. The price is a host round
-trip per softmax and per layer norm inside every training tape, and on the measurements this
-campaign holds it is roughly a **25x** multiplier on the step. So the interesting number is not how
-fast the device is. It is how much of a training step is not on the device at all.
+over the whole step; stamped and unchanged. The price is a host round trip per softmax and per
+layer norm inside every training tape, and on the measurements held today that is roughly a **25x**
+multiplier. **So the interesting number is not how fast the device is. It is how much of a training
+step is not on the device at all.**
 
-## The arithmetic, with its scope on every line
+## Is it correct? The gate says yes, and it can fail
+
+The gradient gate was written *before* the levers it grades and came back **green** on the tree
+carrying the landed engine change: **16 of 16 cases** at `rel_l2 <= 1.0e-02` and `cos >= 0.9999`,
+against a float64 reference itself validated by central finite differences to **3.02e-10 –
+3.63e-10**, with the bf16 quantisation floor measured at **2.76e-03** against the **2.8e-3**
+predicted from the mantissa before any run.
+
+All three controls fired: the float32 arm collapses the error (so the formula is imprecise rather
+than wrong), LoRA's frozen base receives no gradient, and the deliberately broken arm was **refused
+by measuring** rather than by raising before it measured. That last property is why this is
+evidence rather than decoration, and it is the one such harnesses usually lack.
+
+## What it costs, with the scope on every line
 
 **Nothing below is a chip-to-chip claim unless it says so**, and a ratio that beats the ~8.5x
-compute / ~11x bandwidth silicon floor is a scope mismatch every time (K32).
+compute / ~11x bandwidth silicon floor is a scope mismatch every time.
 
 | quantity | value | scope, and where it comes from |
 |---|---|---|
 | exact softmax **alone**, whole step | **612.09 s**, 25.25x the noexact step | crop 384, 1 trunk cycle, taped, pc card 0 p150a, AICLK 1350 DURING, quiet box (`of3t-exactscope`) |
 | noexact step, quiet | **25.24 s** | same arm, same box, sole tenant |
-| noexact step, loaded | **39.11 s** | same arm at loadavg 4.58 — a **1.55x** contention penalty that bounds every contended figure on that box |
-| `exact_training`'s share of the backward | **95.2 %** | trunk-cycle A/B (`of3t-bwattrib`, R212) |
+| noexact step, loaded | **39.11 s** | same arm at loadavg 4.58 — a **1.55x** contention penalty bounding every contended figure on that box |
+| `exact_training`'s share of the backward | **95.2 %** | trunk-cycle A/B (`of3t-bwattrib`) |
 | backward, both exact ops | **570.196 s of 705.78 s (80.79 %)** | verb self-time, the one additive axis (`of3t-xcost`) |
 | of which genuine host float64 arithmetic | **94.07 s** | measured on the production route |
 | of which host tilize/untilize + buffer copy | **82.56 s** | host-only, no DMA in the number |
 | **unattributed: DMA, blocking sync, or queue drain** | **168.51 s (23.87 %)** | by subtraction; three different defects — `of3t-xsplit` owns splitting it |
-| forward half, exactness ON | **<= 386 s** against 5.919 s → **<= 65.2x** | a BOUND from two durable clock stamps, not a timed run; matched one-taped-cycle axis, crop 384 (`of3t-restep`, concluded). Supersedes an earlier ~299 s / ~54x derivation that the row itself withdrew as unreproducible |
-| full step, exactness ON | **[OWED]** | `of3t-restep`. The campaign's one missing number |
-| full step, exactness OFF, current tree | **[OWED]** | `of3t-restep`; the stale 466.702 s is from `451ed56f4`, a tree where the feature did not exist |
+| forward half, exactness ON | **<= 386 s** against 5.919 s → **<= 65.2x** | a BOUND from two durable clock stamps, not a timed run; matched one-taped-cycle axis, crop 384 (`of3t-restep`). Supersedes a ~299 s / ~54x derivation that row withdrew as unreproducible |
+| full step, exactness ON | **[OWED]** | `of3t-stepqb2`. The campaign's one missing number |
+| full step, exactness OFF, current tree | **[OWED]** | `of3t-stepqb2`; the stale 466.702 s is from `451ed56f4`, a tree where the feature did not exist |
 | GPU gap | **58-67x** step-to-step against an H200 at matched crop 384 | **on the pre-exactness tree**, so it prices a configuration whose gradients do not clear the bar |
 
-## Why it costs that, in one paragraph
+**No clean second exists yet, and that is not a quibble.** Not one exactness-ON run has produced a
+DURING-sampled AICLK — all four died before `fullstep.py` writes `env.aiclk_during`, and
+`host_quiet` was RED at loadavg1 3.33 on the one that got furthest. So every figure above from this
+campaign's own OF3T arms is a bound, an A/B between arms of identical scope, or a named quiet run.
+The standing rule here is that a number without a DURING clock is not a measurement. Host memory is
+load-insensitive, so the decomposition below is unaffected — that split is stated rather than
+glossed.
+
+## Why it costs that
 
 Tenstorrent's fp32 is a few mantissa bits short of IEEE fp32. Nothing on-device reaches real fp32:
-the device softmax reads 2.029e-02 against float64, `precise_config()` 1.646e-03, `_accurate_softmax`
-5.156e-04, where a true fp32 softmax agrees with float64 to ~1e-7. Upstream trains fp32 on GPU where
-fp32 means IEEE fp32, so a host round trip is not overshooting them — it is the only way to reach
-what they already do. That is a silicon ceiling, not a configuration choice, and it is why no
-on-device softmax configuration ever reached the accuracy bar.
+the device softmax reads **2.029e-02** against float64, `precise_config()` **1.646e-03**,
+`_accurate_softmax` **5.156e-04**, where a true fp32 softmax agrees with float64 to ~**1e-7**.
+Upstream trains fp32 on GPU where fp32 means IEEE fp32, so a host round trip is not overshooting
+them — it is the only way to reach what they already do. A silicon ceiling, not a configuration
+choice, and it is why no on-device softmax configuration ever cleared the accuracy bar.
 
 ## Why it cannot simply be turned off
 
-Measured against the pre-registered bar, lower is better, 1.0 is the bar:
+Against the pre-registered bar, lower is better, 1.0 is the bar:
 
-- both exact (shipped): **0.98226x** — the only configuration that clears it
-- softmax only: **1.30379x**, and it *raises* the model's squared gradient error against float64 to
-  **1.1760x** of shipping nothing, because part of the apparent gain is matching upstream's rounding
-  rather than approaching the truth
+- **both exact (shipped): 0.98226x** — the only configuration that clears it
+- softmax only: **1.30379x**, and it *raises* the squared gradient error against float64 to
+  **1.1760x** of shipping nothing, because part of the apparent gain is matching upstream's
+  rounding rather than approaching the truth
 - layer norm only: **1.28386x**
 - neither: **1.4512x**
 
-So the fidelity is fixed and only its price is variable. Both scopes are load-bearing.
+The fidelity is fixed; only its price is variable. Both scopes are load-bearing.
 
-## What has actually been recovered
+## What has been recovered
 
 - `of3t-zerosfill`: **1.0518x**, on main. A write-only fill running 424x off its roof — and its
-  briefed share of 35.1 % was an async-dispatch artifact worth 1.04 s (K30).
+  briefed share of 35.1 % was an async-dispatch artifact worth **1.04 s**.
 - `of3t-tapedfwd`: **1.00508x**. The eleven fused forward kernels decline under taping by design.
-- Refuted, and worth as much: the fused-backward-kernel programme the sprint was premised on.
+- **Refuted, and worth as much**: the fused-backward-kernel programme the sprint was premised on.
   J1 NO-GO at a 9.40 s ceiling against a 46.4 s brief, J2 NO-GO on its free route, J3 dead at
   `sdpa_taped_calls = 0`, J4 small. The job list had been ranked by tape-node **count**, and count
-  does not track seconds (R211: LayerNorm backward is 52.4 % of nodes and 2.6 % of seconds).
+  does not track seconds — LayerNorm backward is 52.4 % of nodes and 2.6 % of backward seconds.
 
-## The host requirement, which is a product fact and not a footnote
+## What it needs to run
 
-The shipped crop-384 step with the exactness on wants **more than 19.0 GiB of host RAM** and does
-not fit on a 30 GB box: it was OOM-killed holding **81.4 %** of all resident memory there. It fits
-comfortably on a 249 GB host. **Training OpenFold3 here is specified by host memory and host CPU as
-much as by the accelerator**, which follows directly from the fidelity mechanism being host work.
-
-## Where the host memory actually goes, measured
-
-A 5 Hz RSS sampler tagged with the running phase, crop 384, exactness ON
+**Host memory, measured.** A 5 Hz RSS sampler tagged with the running phase, crop 384, exactness ON
 (`perf/of3t_restep/out/rss_384_exacton.summary.json`):
 
 | phase | ΔGiB |
 |---|---|
 | imports | +0.43 |
 | capture: MSA resolve + featurizer | **+3.14** |
-| capture: shipped fold to the sampler | +0.94 |
+| capture: fold to the sampler | +0.94 |
 | **`AdamW.__init__`** | **+6.00** |
 | untaped trunk, 3 recycles | **+0.00** |
 | taped trunk, 1 cycle, exact | **+2.82** |
 
-**The largest single term is the optimizer, and it is spent before the first forward op runs.**
+**The largest single term is the optimizer, spent before the first forward op runs.**
 `tt_bio/train/optim.py` keeps three host fp32 numpy copies per weight — master, exp_avg, exp_avg_sq
-— over 381.3 M elements: 4.26 GiB of buffers, 6.00 GiB measured with the download transient. That
-is **by design and documented**, not a defect, and it is **31.6 %** of the peak. The untaped recycle
-prefix retains **nothing**, which is the control that makes the rest of the table readable.
+— over 381.3 M elements: 4.26 GiB of buffers, 6.00 GiB measured with the download transient. **By
+design and documented, not a defect, and 31.6 % of the peak.** The untaped recycle prefix retains
+**nothing**, which is the control that makes the rest of the table readable. One in-flight exact
+softmax costs **+2.85 GiB** measured against 3.377 GiB predicted — real, understood, and a
+transient riding on a **10.6 GiB floor** rather than the floor itself.
 
-One in-flight exact softmax costs **+2.85 GiB** measured, against 3.377 GiB predicted from a
-host-side 2.00x ratio — so the fidelity mechanism's memory cost is real, understood, and **a
-transient riding on a 10.6 GiB floor rather than the floor itself**. Removing it is worth having
-and does not on its own make the step fit in 30 GB.
+**So the step wants more than 19.0 GiB of host RAM**: ~6 GiB of optimizer state before any compute,
+~4 GiB of capture, then the tape. It was OOM-killed on a 30 GB box holding **81.4 %** of all
+resident memory there, and fits comfortably on a 249 GB host. **Training OpenFold3 here is
+specified by host memory and host CPU as much as by the accelerator**, which follows directly from
+the fidelity mechanism being host work.
 
-**So training OpenFold3 here needs roughly 6 GiB of host RAM for optimizer state before any
-compute**, plus ~4 GiB of capture, plus the tape. That is a sizing fact a user needs and it follows
-from the design rather than from a bug.
+**And a 30 GB box is not merely tight, it is not repeatable.** pc's available memory at run start
+swings from **~16.5 to ~26 GiB** with the resident agent population — 4.33 GiB of co-tenants at the
+OOM, ~14 GiB at both later attempts. A run that fits at one hour does not at another, independently
+of the ceiling, and a timing taken there is conditioned on a number nobody controls.
 
-## The host requirement is worse than a ceiling: it is not repeatable
+**The capability limit is undocumented and its number is not settled.** Every figure here is at
+**crop 384**. `git grep` over `origin/main -- README.md docs/` finds **no crop or token limit
+stated anywhere**, and this campaign's own record gives three answers: **512**, a **576**-token
+capacity wall (fix release-gated and unmerged), and **640**. One size ladder on main settles it.
+Until it does, no number goes into user docs, because a wrong capability statement is worse than an
+absent one. Upstream ships four stage configs and this campaign has only run the smallest end to
+end.
 
-pc is a 30.5 GiB box, and **its available memory at run start swings from ~16.5 GiB to ~26 GiB**
-with the resident agent population — 4.33 GiB of co-tenants at the 19:11:36 OOM, ~14 GiB at both
-of the later attempts. So a run that fits at one hour does not at another, independently of the
-ceiling. **pc is not a repeatable host for this step**, and a timing taken there is conditioned on
-a number nobody controls. `of3t-restep`'s profile records `avail_at_start` per run for exactly this
-reason; every figure quoted from that box owes it.
+## What is missing, why, and the one decision with a number on it
 
-## The accuracy evidence behind every number here
-
-The gradient gate this campaign wrote *before* the levers it grades came back **green** on the tree
-carrying the landed engine change: **16 of 16 cases** at `rel_l2 <= 1.0e-02` and `cos >= 0.9999`,
-against a float64 reference itself validated by central finite differences to **3.02e-10 - 3.63e-10**,
-with the bf16 quantisation floor measured at **2.76e-03** against the 2.8e-3 predicted from the
-mantissa before any run. All three controls fired: the float32 arm collapses the error (so the
-formula is imprecise rather than wrong), LoRA's frozen base receives no gradient, and the
-deliberately broken arm was **refused by measuring** rather than by raising before it measured.
-
-That last property is why the gate is evidence rather than decoration, and it is the one such
-harnesses usually lack.
-
-## No clean second exists yet, and that is stated rather than papered over
-
-**Not one exactness-ON run has produced a DURING-sampled AICLK.** All four died before
-`fullstep.py` writes `env.aiclk_during`, and `host_quiet` was RED at loadavg1 3.33 on the run that
-got furthest. So every seconds figure above that comes from this campaign's own OF3T arms is either
-a bound, an A/B between arms of identical scope, or banked from a quiet run that is named. **None
-of them is a clean step time on this hardware**, and the standing rule on this fleet is that a
-number without a DURING clock is not a measurement.
-
-Host memory is load-insensitive, so the memory decomposition above is unaffected by that — and the
-split between what load invalidates and what it does not is stated here rather than glossed.
-
-## The decision this campaign cannot make for itself, with a number on it
-
-A full exactness-ON step **cannot be measured on pc and will not be after the softmax fix**. Two
-ways forward, and both are outside a measurement row's remit:
-
-1. **A large-memory host with a recoverable card.** qb2 has 249 GB and one free card, but that card
-   is half a board pair whose sibling carries another campaign's live arm, so a failed open has no
-   reset path.
-2. **Move AdamW's masters and moments off host** — `tt_bio/train/optim.py`, three fp32 numpy copies
-   per weight over 381.3 M elements. **6.00 GiB**, the largest single term in the step's host
-   memory, spent before the first forward op runs.
-
-Option 2 is an engine change with real trade-offs (host pressure traded for device pressure) and it
-is release-gated. It is written here with its number so the choice is legible rather than implied.
-
-## The capability limit, which is undocumented and whose number is not settled
-
-Every figure here is at **crop 384**. What the largest runnable crop actually is on the shipping
-tree is **not stated anywhere a user can see** — `git grep` over `origin/main -- README.md docs/`
-finds no crop or token limit — and this campaign's own record gives three different answers: D205
-says **512**, D248 says a **576**-token capacity wall (fix release-gated and unmerged), and the
-sprint's own gap notes said **640**. One size ladder on main settles it.
-
-**Until it does, no number goes into user docs**, because a wrong capability statement is worse
-than an absent one. Stated here so the gap is visible rather than inherited: upstream ships four
-stage configs and this campaign has only ever run the smallest of them end to end.
-
-## Why the headline number is missing, stated as capacity rather than as an unfinished task
-
-The full exactness-ON step time is **[OWED]** and the reason is fleet capacity, not engineering.
-Three hosts, three independent blocks:
+The full exactness-ON step time is **[OWED]**, and the reason is fleet capacity rather than
+engineering:
 
 - **pc (30.5 GB, 1 card)** cannot reliably *dispatch* a card row — the scheduler reserves half the
-  box, 15,617 MB, against 15,710 MB available with the resident agent population, a 93 MB margin —
-  and cannot *hold* the step either, since the peak is above 19 GiB.
-- **qb2 (249 GB, 4 cards)** has one card free, and it is half a p300c board pair whose sibling
-  carries another campaign's live arm. While that sibling is in use a board-pair reset is
-  unavailable, so a failed device open has no recovery path — on a box that hard-hung on exactly
-  that failure earlier the same day. Taking it is a risk to three other campaigns' running work,
-  not just to this measurement.
-- **qb1** is unreachable (ssh timeout).
+  box, **15,617 MB**, against ~15,700 MB available, a **93 MB** margin — and cannot *hold* the step.
+- **qb2 (249 GB, 4 cards)** has one free card, half a p300c board pair whose sibling carries another
+  campaign's live arm. While that sibling is in use a pair reset is unavailable, so a failed device
+  open has **no recovery path** — on a box that hard-hung on exactly that failure the same day.
+  Taking it risks three other campaigns' running work, not just this measurement.
+- **qb1** is unreachable.
 
-**So the missing number is one card-hour away, not one fix away.** Everything it depends on is
-measured, gated and written down; what it waits for is a machine.
+**So the missing number is one card-hour away, not one fix away.** `of3t-stepqb2` is written and
+gated on qb2's card pair becoming recoverable.
+
+**The one decision, with its number:** the 6.00 GiB of AdamW host state could move to device.
+**Decided against** (`state/ask-of3t-optmem-decision.md`) — device DRAM is where this fleet already
+runs out, and trading a well-understood host ceiling for that failure mode is the wrong direction.
+The better and unasked question is **ordering**: `AdamW.__init__` runs *before* the trunk forward
+and its state is only touched in the optimizer step, so constructing it after the capture may be
+worth 6.00 GiB at the peak with no redesign.
 
 ## What this does NOT say
 
-It does not say what a full exactness-ON step costs — that is **[OWED]** and is the one number
-between this campaign and a defensible headline. It does not say the 6-7x software target is in
-reach; R212 refutes that for the job list as it stands. And no speed number here may be quoted
-without the exactness state, the scope and the board class beside it.
+It does not say what a full exactness-ON step costs — **[OWED]**, and it is the one number between
+this campaign and a defensible headline. It does not say the 6-7x software target is in reach; the
+job list as it stands refutes that. And no speed number here may be quoted without the exactness
+state, the scope and the board class beside it.
