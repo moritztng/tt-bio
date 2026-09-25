@@ -1,0 +1,30 @@
+{
+ "n_residues": 266,
+ "padded": 288,
+ "checkpoint": "model_4_multimer_v3",
+ "recycles": 1,
+ "trunk": "jax",
+ "card": null,
+ "rows": [
+  {
+   "msa_mask_short_by": 1,
+   "real_residues_masked": 1,
+   "ptm": 0.998279,
+   "iptm": 0.998279,
+   "plddt_mean": 0.514694,
+   "plddt_min": 0.194106,
+   "pae_mean_A": 22.7981,
+   "seconds": 65.8
+  },
+  {
+   "msa_mask_short_by": 2,
+   "real_residues_masked": 2,
+   "ptm": 0.998279,
+   "iptm": 0.998279,
+   "plddt_mean": 0.467784,
+   "plddt_min": 0.150723,
+   "pae_mean_A": 23.6898,
+   "seconds": 61.2
+  }
+ ]
+}

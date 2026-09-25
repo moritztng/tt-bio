@@ -1,0 +1,40 @@
+{
+ "n_residues": 266,
+ "padded": 288,
+ "checkpoint": "model_4_multimer_v3",
+ "recycles": 1,
+ "trunk": "jax",
+ "card": null,
+ "rows": [
+  {
+   "msa_mask_short_by": 0,
+   "real_residues_masked": 0,
+   "ptm": 0.45684,
+   "iptm": 0.113436,
+   "plddt_mean": 0.535549,
+   "plddt_min": 0.21978,
+   "pae_mean_A": 20.4328,
+   "seconds": 122.2
+  },
+  {
+   "msa_mask_short_by": 9,
+   "real_residues_masked": 9,
+   "ptm": 0.998279,
+   "iptm": 0.998279,
+   "plddt_mean": 0.233466,
+   "plddt_min": 0.136018,
+   "pae_mean_A": 24.9819,
+   "seconds": 133.0
+  },
+  {
+   "msa_mask_short_by": 25,
+   "real_residues_masked": 25,
+   "ptm": 0.998279,
+   "iptm": 0.998279,
+   "plddt_mean": 0.244602,
+   "plddt_min": 0.15969,
+   "pae_mean_A": 21.4283,
+   "seconds": 74.9
+  }
+ ]
+}
