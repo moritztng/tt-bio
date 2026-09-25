@@ -165,17 +165,20 @@ def main():
 
     evo._taped, evo._backward = taped, backward
 
-    def timed_extra(fn):
+    def timed_extra(fn, op):
         def f(*a):
             t, c = time.perf_counter(), time.thread_time()
             out = fn(*a)
             trunk["extra"] += time.perf_counter() - t
             trunk["extra_cpu"] += time.thread_time() - c
+            if args.digest:
+                digests.append({"op": op, "d": [digest(out[0] if op == "extra_taped" else out)]})
             return out
         return f
 
     if extra is not None:
-        extra._taped, extra._backward = timed_extra(extra._taped), timed_extra(extra._backward)
+        extra._taped = timed_extra(extra._taped, "extra_taped")
+        extra._backward = timed_extra(extra._backward, "extra_backward")
 
     rounds: list = []
     marks: list = []
