@@ -30,16 +30,40 @@ CANDIDATE = re.compile(r"^   (\d+)/(\d+)  (ACCEPTED|rejected)\s+(.*)$")
 FAILED = re.compile(r"failed \[(.*)\]")
 
 
+def find_log(project, explicit=None):
+    """The campaign stdout for a project: stamped if the run had a stamper, raw if not.
+
+    A run this row ADOPTS was launched by another arm, so its stdout is wherever that
+    launcher put it. For `ref_s1` it is `<project>.log`, a sibling of the project directory,
+    with no per-line stamp. Looking only inside the project finds nothing and prints a
+    running campaign as if it had no stages.
+    """
+    for c in ([explicit] if explicit else []) + [
+            os.path.join(project, "run.stamped.log"), project.rstrip("/") + ".log",
+            os.path.join(project, "run.log")]:
+        if c and os.path.exists(c):
+            return c
+    return None
+
+
 def parse_log(path):
-    """`[{n, name, binder_length, start, lines: [(t, dt_s, text)], end}]`."""
+    """`[{n, name, binder_length, start, lines: [(t, dt_s, text)], end}]`.
+
+    `t` and the per-line seconds are None for an unstamped log. The stage trace, the
+    rejection stage and the filter list are all in the line text; only the timing needs the
+    stamp, so refusing the whole trace for want of a timestamp throws away the answer to
+    keep the clock.
+    """
     trajectories, current = [], None
     prev_t = None
     for raw in open(path, errors="replace"):
         m = STAMP.match(raw.rstrip("\n"))
-        if not m:
-            continue
-        t = dt.datetime.strptime(m.group(1), "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=dt.timezone.utc)
-        text = m.group(2)
+        if m:
+            t = dt.datetime.strptime(m.group(1), "%Y-%m-%dT%H:%M:%SZ").replace(
+                tzinfo=dt.timezone.utc)
+            text = m.group(2)
+        else:
+            t, text = None, raw.rstrip("\n")
         start = TRAJ.match(text)
         if start:
             current = {"n": int(start.group(1)), "name": start.group(2),
@@ -52,8 +76,9 @@ def parse_log(path):
             continue
         if current is None or not (OUTCOME.match(text) or CANDIDATE.match(text)):
             continue
-        current["lines"].append((t, (t - prev_t).total_seconds(), text.strip()))
-        prev_t = t
+        gap = (t - prev_t).total_seconds() if t and prev_t else None
+        current["lines"].append((t, gap, text.strip()))
+        prev_t = t or prev_t
     return trajectories
 
 
@@ -84,6 +109,18 @@ def rows(path):
         return list(csv.DictReader(f))
 
 
+def shipped_pool(stamp):
+    """Whether the arm ran BindCraft 2's own model pool, under either flag name.
+
+    `--shipped` stamps `shipped_model_pool`; the sibling harness's `--multimer-pool` stamps
+    `multimer_pool`. They are the same configuration, both dropping the three model
+    overrides and leaving `select_design_and_validation_models` alone, and a trace keyed on
+    one flag name reads the other arm as monomer-pinned. That is the exact conflation this
+    row exists to end.
+    """
+    return bool(stamp.get("shipped_model_pool") or stamp.get("multimer_pool"))
+
+
 def resolved_pool(stamp, project):
     """The pools BindCraft 2's own resolver gives, banked beside the run.
 
@@ -100,7 +137,7 @@ def resolved_pool(stamp, project):
         from bindcraft.preflight import cleaned_campaign_settings
         from bindcraft.settings import (parse_setting_overrides, read_settings,
                                         select_design_and_validation_models)
-        overrides = [] if stamp.get("shipped_model_pool") else [
+        overrides = [] if shipped_pool(stamp) else [
             "validation_model=monomer", 'design_models=["model_1_ptm"]',
             'validation_models=["model_2_ptm"]']
         settings = cleaned_campaign_settings(
@@ -116,22 +153,34 @@ def resolved_pool(stamp, project):
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("project")
+    ap.add_argument("--log", default=None,
+                    help="campaign stdout; found beside the project if not given")
     ap.add_argument("--json", action="store_true")
     args = ap.parse_args()
     P = args.project
     stamp = json.load(open(os.path.join(P, "arm_stamp.json")))
-    log = os.path.join(P, "run.stamped.log")
-    trajectories = parse_log(log) if os.path.exists(log) else []
+    log = find_log(P, args.log)
+    trajectories = parse_log(log) if log else []
 
     ranked = rows(os.path.join(P, "3_Ranked", "!_Ranked.csv"))
     refolded = rows(os.path.join(P, "2_Refolded", "!_Refolded.csv"))
     traj_csv = rows(os.path.join(P, "1_Trajectories", "!_Trajectories.csv"))
 
+    # The sibling harness stamps the SAME resolved lists under the bare names and carries no
+    # `bc2` key, so reading only `resolved_*` sent an adopted arm into resolved_pool() and
+    # raised KeyError: 'bc2'.
+    # setdefault to a MISSING key writes None and then shadows the resolver's own
+    # setdefault below, so the pc arm -- whose stamp predates `resolved_*` entirely --
+    # printed `validation_models None`. Only carry a key across when it has a value.
+    for src, dst in (("design_models", "resolved_design_models"),
+                     ("validation_models", "resolved_validation_models")):
+        if stamp.get(src) and not stamp.get(dst):
+            stamp[dst] = stamp[src]
     pool = stamp.get("resolved_design_models") or resolved_pool(stamp, P)
     accepted, count_note, rejections = campaign_count(P, ranked)
     out = {
         "project": P, "bc2": stamp.get("bc2"), "settings_file": stamp.get("settings_file"),
-        "shipped_model_pool": stamp.get("shipped_model_pool"),
+        "shipped_model_pool": shipped_pool(stamp),
         "length_bucket_size": stamp.get("length_bucket_size"),
         "host": stamp.get("host"), "started_utc": stamp.get("started_utc"),
         "stage_plan": stamp.get("stage_plan"),
@@ -144,9 +193,11 @@ def main():
         last = t["lines"][-1] if t["lines"] else None
         out["trajectories"].append({
             "n": t["n"], "name": t["name"], "binder_length": t["binder_length"],
-            "start_utc": t["start"].strftime("%FT%TZ"),
-            "elapsed_s": round((last[0] - t["start"]).total_seconds(), 1) if last else None,
-            "stages": [{"utc": a.strftime("%FT%TZ"), "seconds": round(b, 1), "line": c}
+            "start_utc": t["start"].strftime("%FT%TZ") if t["start"] else None,
+            "elapsed_s": (round((last[0] - t["start"]).total_seconds(), 1)
+                          if last and last[0] and t["start"] else None),
+            "stages": [{"utc": a.strftime("%FT%TZ") if a else None,
+                        "seconds": round(b, 1) if b is not None else None, "line": c}
                        for a, b, c in t["lines"]],
             "outcome": last[2] if last else "in progress",
         })
@@ -155,6 +206,7 @@ def main():
         json.dump(out, sys.stdout, indent=1)
         print()
         return
+    print(f"log                {log}")
     print(f"bc2                {out['bc2']}")
     print(f"settings           {out['settings_file']}")
     print(f"shipped pool       {out['shipped_model_pool']}   bucket {out['length_bucket_size']}")
@@ -171,7 +223,8 @@ def main():
         print(f"\ntrajectory {t['n']}  binder {t['binder_length']}aa  start {t['start_utc']}  "
               f"elapsed {t['elapsed_s']}s")
         for s in t["stages"]:
-            print(f"  +{s['seconds']:>8.1f}s  {s['line']}")
+            when = f"+{s['seconds']:>8.1f}s" if s["seconds"] is not None else " " * 10
+            print(f"  {when}  {s['line']}")
 
 
 if __name__ == "__main__":
