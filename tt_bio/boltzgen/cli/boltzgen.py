@@ -95,6 +95,7 @@ from tt_bio.data.mol import load_canonicals
 from tt_bio.boltzgen.data.parse.schema import YamlDesignParser
 from tt_bio.boltzgen.data.write_mmcif import to_mmcif
 from tt_bio.boltzgen.task.task import Task
+from tt_bio.runtime import seed_everything
 from importlib.metadata import PackageNotFoundError, version as pkg_version
 
 ### Paths and constants ####
@@ -452,6 +453,14 @@ def add_execute_core_arguments(p: argparse.ArgumentParser) -> None:
         action="store_true",
         help="With --debug: print per-stage progress lines",
     )
+    p.add_argument(
+        "--seed",
+        type=int,
+        default=None,
+        help="Seed every random draw of the pipeline so the same inputs and seed give "
+        "the same designs. Multi-card runs give shard i seed+i. Default: a fresh draw "
+        "per run.",
+    )
 
 
 def build_run_parser(subparsers) -> argparse.ArgumentParser:
@@ -788,12 +797,12 @@ def _run_distributed(args: argparse.Namespace, devices: list[int]) -> None:
     )
 
     workers = []
-    for d in devices:
+    for i, d in enumerate(devices):
         shard = args.output / "shards" / f"device_{d}"
         shard.mkdir(parents=True, exist_ok=True)
-        argv = _rewrite_run_argv(sys.argv[1:], {"--output", "--num_designs", "--device_ids"},
+        argv = _rewrite_run_argv(sys.argv[1:], {"--output", "--num_designs", "--device_ids", "--seed"},
                                  ["--output", str(shard), "--num_designs", str(counts[d]),
-                                  "--device_ids", str(d)])
+                                  "--device_ids", str(d), *_shard_seed_argv(args, i)])
         env = {**os.environ, "TT_VISIBLE_DEVICES": str(d)}
         if d in p300_devices and p300_mgd:
             env.setdefault("TT_MESH_GRAPH_DESC_PATH", p300_mgd)
@@ -838,6 +847,13 @@ def _run_distributed(args: argparse.Namespace, devices: list[int]) -> None:
             f"{args.output}/shards/device_<id>/run.log. Re-run with --reuse to resume.")
 
     _merge_and_filter(args, [w["dir"] for w in workers], debug=debug)
+
+
+def _shard_seed_argv(args: argparse.Namespace, shard: int) -> list[str]:
+    """``--seed`` for one shard: seed+shard, so shards of a seeded run draw different
+    designs and the run still reproduces. Nothing when the run is unseeded."""
+    seed = getattr(args, "seed", None)
+    return [] if seed is None else ["--seed", str(seed + shard)]
 
 
 def _merge_and_filter(args: argparse.Namespace, shard_dirs: list[Path], *, debug: bool) -> None:
@@ -902,8 +918,11 @@ def _run_via_controller(args: argparse.Namespace, controller_url: str) -> None:
         config["steps"] = list(args.steps)
     if getattr(args, "moldir", None):
         config["moldir"] = str(args.moldir)
+    seed = getattr(args, "seed", None)
     jobs = [{"id": f"shard_{i}", "name": f"shard_{i}",
-             "input_b64": base64.b64encode(_json.dumps({"num_designs": c}).encode()).decode()}
+             "input_b64": base64.b64encode(_json.dumps(
+                 {"num_designs": c, **({"seed": seed + i} if seed is not None else {})}
+             ).encode()).decode()}
             for i, c in enumerate(counts)]
     run_payload = {"data": str(args.design_spec[0]), "out_dir": str(args.output),
                    "result_dir": str(args.output), "jobs": jobs, "config": config,
@@ -1218,6 +1237,10 @@ def execute_command(args: argparse.Namespace, *, headless: bool = False) -> None
             reporter.stage_start(step_name, index, total_steps)
             ok = True
             try:
+                # Each step reseeds, so a step's draws do not depend on which steps ran
+                # before it in this process (--steps, --reuse).
+                if getattr(args, "seed", None) is not None:
+                    seed_everything(args.seed)
                 config = _resolve_interpolations(_load_yaml(config_path))
                 task = _instantiate(config)
                 if not isinstance(task, Task):

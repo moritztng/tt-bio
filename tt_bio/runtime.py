@@ -101,6 +101,22 @@ def mpi_env_warning(found: list[str]) -> str:
             + "\nNothing has been changed for you.")
 
 
+def seed_everything(seed: int) -> None:
+    """Seed every RNG a pipeline draws from: python, numpy and torch (all devices).
+
+    RDKit's conformer embedding reads the python and numpy RNGs, not torch's, so a
+    torch-only seed leaves reference conformers different run to run.
+    """
+    import random
+
+    import numpy as np
+    import torch
+
+    random.seed(seed)
+    np.random.seed(seed)
+    torch.manual_seed(seed)
+
+
 def host_thread_cap(n_workers: int, host_threads: int | None = None) -> int:
     """Per-worker host thread budget for a process driving ``n_workers`` cards.
 
