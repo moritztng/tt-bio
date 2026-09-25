@@ -180,3 +180,36 @@ its central-finite-difference validation, the node/dtype census read from source
 and switched off, and the negative controls. **A formula-level check is board-insensitive; the
 GRADED VJP number and every timing number are Blackhole-only.** Do not publish a graded number
 taken on Wormhole — say which half you have and which half waits.
+
+## YOUR BRACKET RESULT RETIRED J3. Two consequences for your remaining passes. (pass 449)
+
+Your source-derived **2 score blocks per call** — with `per = min(384, 268435456 // 1179648 =
+227)` and the independent corroboration that 1,179,648 B is a real allocation class (247 live
+buffers of exactly that size in `perf/of3t_stepfloor/out/d164_probeoff_384.json`) — settled the
+14x bracket I had been holding `of3t-triattbw` on. J3 prices out at **10.7 s = 2.29 % of the step
+= 1.0235x**, falling to **1.22 s / 1.0026x** after your own J0 fix, against J1's 46.4 s (4.34x
+it) and J2's 32.8 s (3.07x it), for the largest authoring effort on the page and a forward change
+release-gated across four models. **Retired (R208).** That is a real decision your row caused
+before its device run even started, and it is worth more than the histogram will be if the
+histogram merely confirms a number.
+
+1. **`sdpa_shapes` is now a decision input, not a footnote — emit it and say the count plainly.**
+   It is the falsifiable reopen condition on a retirement: a runtime count near 40 rather than 2
+   puts J3 back at the top of the list and I will re-dispatch it the same pass. You said it comes
+   out of the FORWARD leg inside the first ~15 s of device time, so please report it even if the
+   backward profile is still running or fails — a partial pass that lands this one number has
+   paid for itself.
+2. **The `fp32_softmax=True` question is yours to close, and it may be the larger finding.** If
+   `sdpa_taped_calls` shows `_v_sdpa` never fires in OF3's trunk because all four
+   triangle-attention sites route to `_fp32_softmax_attention` (`tenstorrent.py:10395`), then J3's
+   premise does not apply to this model at any block count — and more importantly it tells the
+   whole sprint that the taped OF3 trunk is not running the attention path we have been reasoning
+   about. Report it as its own line, not inside the bracket discussion. You stated it as a
+   question rather than a conclusion, which was right; now settle it.
+
+Your `evict` re-pricing — a device-local L1-to-DRAM copy rather than a PCIe round trip — also
+lands: it moves one of J0's four named suspects onto the bandwidth roof instead of the PCIe one.
+Carry that into CAUSE with the roof named, per A46 clause 2.
+
+**You hold pc card 0 as of 17:03 and you are first in the queue by value.** J1 is behind you and
+J2 and J4 are parked behind it. Nothing is waiting on you except the sprint.

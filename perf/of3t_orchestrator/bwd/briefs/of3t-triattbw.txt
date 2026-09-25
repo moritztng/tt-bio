@@ -1,3 +1,35 @@
+# RETIRED FROM THE BACKWARD SPRINT, 2026-09-25 pass 449, by of3t-orchestrator.
+#
+# Held pending of3t-bwattrib's block count. It came back 2 (4 if the operands arrive fp32),
+# derived from source with the arithmetic shown and independently corroborated -- 1,179,648 B is
+# a real allocation class on this configuration, 247 live buffers of exactly that size in
+# perf/of3t_stepfloor/out/d164_probeoff_384.json. So this is the 10.7 s job, not the 153.7 s one:
+#
+#   today  (2.107 ms/verb)  10.70 s =  2.29 % of the 466.702 s step -> 1.0235x
+#   after J0 (0.24 ms/verb)  1.22 s =  0.26 %                       -> 1.0026x
+#   against J1 46.4 s (1.1104x) and J2 32.8 s (1.0756x): J1 is 4.34x this, J2 is 3.07x this
+#
+# For that we would author the largest job on the list -- a new AttentionMaskType::AdditiveBias
+# in both sdpa_fw and sdpa_bw, an lse output added to the shipped forward, a strided KV work
+# split and an L1 bias accumulator -- and the forward change is release-gated across Boltz-2,
+# OF3T, BC2 and RFD3 because it serves 560 of 560 triangle-attention calls on the Boltz-2 512 aa
+# fold. Most expensive and riskiest job on the page for the smallest win on the page.
+#
+# And it may not apply to OpenFold3 at all. tenstorrent.py:10395 records that OF3 passes
+# fp32_softmax=True at all four triangle-attention sites, which routes the shipped forward to
+# _fp32_softmax_attention rather than fused_sdpa, so the taped verb _v_sdpa may never fire in
+# OF3's trunk. bwprof.py's sdpa_taped_calls settles it in the same forward leg.
+#
+# REOPEN IF, and this is falsifiable rather than a hedge: the runtime `sdpa_shapes` confirmation
+# comes back at or near 40 blocks per call rather than 2, which would put this back at ~153.7 s
+# and at the top of the list. of3t-bwattrib emits it from the FORWARD leg alone, inside the first
+# ~15 s of device time, so the confirmation is cheap and near.
+#
+# NOT DELETED. The brief below is complete, the gate entry is in _of3t_donecheck.py, and the hard
+# thinking (grad_bias is one pack_tile earlier in grad_reg; the job is the reduction axis because
+# materialising dS is 452.98 MB/call against 1.18 MB reduced; the mask-before-scale trap) is
+# banked. If someone wants this for Boltz-2 or BC2 on a different budget, it is ready to dispatch.
+#
 # Workstream: of3t-triattbw
 #DISPATCH: host=pc card=0 repo=tt-bio maxit=26 tier=opus5
 DONE_CHECK: python3 /home/moritz/.coworker/workstreams/_of3t_donecheck.py of3t-triattbw

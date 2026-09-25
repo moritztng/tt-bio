@@ -42,7 +42,7 @@ author and cite what you took; gates are batched and a stack is approved whole. 
 speedup that does less of the model's own work. A1-A45 are the correctness protocol and are
 unchanged. History: `state/of3t/PASSLOG.md`.
 
-LEDGER: `~/.coworker/state/of3t/LEDGER.md`, **R1-R207 and K1-K22**. **R203, filed this pass, is
+LEDGER: `~/.coworker/state/of3t/LEDGER.md`, **R1-R208 and K1-K22**. **R203, filed this pass, is
 the sprint's first finding and it reordered the job list: an engine-wide fused-kernel bypass hid
 behind a per-module comment. A per-site comment that correctly explains one decline is the best
 camouflage a policy can have, because every reader who checks one site leaves satisfied. Count the
@@ -87,9 +87,18 @@ and the contested-file warning; the four sprint briefs went out without them and
 | `of3t-softbw` | **parked 3rd in the card queue** — J2 | the softmax backward | `perf/of3t_softbw/` |
 | `of3t-wheelbw` | **parked 4th in the card queue** — J4 | nine `*_bw` substitutions in `autograd.py` | `perf/of3t_wheelbw/` |
 
-**J3 (`of3t-triattbw`) is written, gated and HELD** — brief and `EXTRA` entry both in place, no
-ws-tag in `TASKS.md`, so it dispatches in one line the moment `of3t-bwattrib` reports a block
-count. Held because its size is a 14x bracket and it is the largest authoring effort on the list.
+**J3 (`of3t-triattbw`) is RETIRED (R208), and holding it is what made that callable** — `of3t-bwattrib` resolved its 14x bracket
+from source: **2 score blocks per call**, not 40, corroborated by 247 live buffers of exactly
+1,179,648 B in `perf/of3t_stepfloor/out/d164_probeoff_384.json`. So J3 is **10.7 s = 2.29 % of
+the step = 1.0235x**, falling to **1.22 s / 1.0026x** if J0 lands — against J1's 46.4 s
+(**4.34x** J3) and J2's 32.8 s (**3.07x** it) — while being the largest authoring effort on the
+page and release-gated across four models, since its forward change serves 560 of 560
+triangle-attention calls on the Boltz-2 512 aa fold. It may not apply to OF3 at all:
+`tenstorrent.py:10395` passes `fp32_softmax=True` at all four triangle-attention sites, routing
+the forward to `_fp32_softmax_attention`, so the taped `_v_sdpa` may never fire in OF3's trunk.
+**Retired, not deleted** — brief complete, gate entry in place — with a falsifiable reopen: a
+runtime `sdpa_shapes` count near 40 puts it back on top, and that lands in the first ~15 s of
+device time.
 
 All four J-rows landed on **whglx**, which co-hosts the live ai& app, four at once. That is the
 configuration that took the box to loadavg 256 on 2026-09-12 and cost a sibling row three

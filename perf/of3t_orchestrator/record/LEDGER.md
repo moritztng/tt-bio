@@ -1089,6 +1089,32 @@ state doc nor its `CLAUSE_EXACT.json` names the version anywhere.
 
 **R200** (pass 423) The `of3t-denoise` A40 floor was attributed to mse's Kabsch stop-gradient and FD3 froze it. FD3 at h=1e-4 reads 15.897746748793073 against FD2's 15.897749718841725 (1.9e-7 relative) and both read 2.847e-05 at h=1e-5: the freeze is inert, as the envelope theorem predicts when the alignment minimises the loss it feeds. FD2's ladder 2.498e-04 / 7.634e-05 / 2.847e-05 falls ~h^0.5 without a plateau, which a missing gradient path (constant bias) cannot produce. h=1e-6 then read 6.972e-10 and h=1e-7 4.303e-09: a V with one kink crossing between 1e-6 and 1e-5, so A40 PASSES. Separately, `of3t-denoise` found D259 (`ttnn.multiply(bf16, fp32 [...,1])` nondeterministic, up to 16,061 wrong elements) and D258 (mixed-dtype `transpose_a` matmul); both are fixed on the training path only, and `of3t-bcastaudit` measures whether inference reaches them.
 
+- **R208** (pass 449) **J3 is RETIRED from the sprint, and holding it rather than dispatching it
+  is what made that decision possible.** I held `of3t-triattbw` at pass 445 because its size was
+  a 14x bracket (2 SDPA score blocks per call = 10.7 s, or 40 = 153.7 s) and briefing the largest
+  authoring job on the page against a 14x uncertainty is a mistake this campaign had already paid
+  for twice. `of3t-bwattrib` resolved it from source with the arithmetic shown -- at
+  `SDPA_SCORE_BUDGET = 256 MiB`, `per = min(384, 268435456 // 1179648 = 227) = 227`, so
+  `ceil(384/227) = ` **2 blocks** (4 if operands arrive fp32) -- and corroborated 1,179,648 B as a
+  real allocation class independently: 247 live buffers of exactly that size in
+  `perf/of3t_stepfloor/out/d164_probeoff_384.json`. **So J3 is the 10.7 s job: 2.29 % of the
+  466.702 s step, 1.0235x, falling to 1.22 s and 1.0026x if J0 lands (R206).** Against J1 at
+  46.4 s / 1.1104x and J2 at 32.8 s / 1.0756x, J1 is **4.34x** J3 and J2 is **3.07x** it -- while
+  J3 is the largest authoring effort on the list (a new `AttentionMaskType::AdditiveBias` in both
+  `sdpa_fw` and `sdpa_bw`, an lse output on the shipped forward, a strided KV work split, an L1
+  bias accumulator) and its forward change is release-gated across four models because it serves
+  **560 of 560** triangle-attention calls on the Boltz-2 512 aa fold. **The most expensive and
+  riskiest job on the page for the smallest win on the page.** It may not even apply here:
+  `tenstorrent.py:10395` has OF3 passing `fp32_softmax=True` at all four triangle-attention
+  sites, routing the forward to `_fp32_softmax_attention` rather than `fused_sdpa`, so the taped
+  `_v_sdpa` may never fire in OF3's trunk. **Retired, not deleted** -- brief complete, gate entry
+  in place, the hard thinking banked -- with a falsifiable reopen: if the runtime `sdpa_shapes`
+  count comes back near 40 rather than 2, it returns to the top of the list. That confirmation
+  comes out of the FORWARD leg inside the first ~15 s of device time, so it is cheap and near.
+  **The general form: when a job's size is a bracket wider than its rank, hold it and buy the
+  measurement -- the cheap number that resolves the bracket is worth more than the expensive work
+  the bracket would have authorised.**
+
 - **R207** (pass 446) **R203 is CORRECT and worth 1.00508x, and I should have priced it before
   reordering a sprint around it.** `of3t-tapedfwd` (GO) measured what R203 located: untaped with
   every lever 1.2054 s, forced onto the taped route set 3.9032 s -- **3.2381x on the forward**,
