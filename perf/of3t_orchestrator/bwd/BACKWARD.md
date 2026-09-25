@@ -146,6 +146,56 @@ implementations ... full speed. with multiple agents."*
 > wall-clock A/B before its share is quoted.** Memory:
 > `a-blocking-op-is-charged-for-the-queue-drained-behind-it`.
 
+## 0. SCOPE TABLE — read this before you divide any two numbers in this document
+
+**Added pass 455 by `of3t-orchestrator`.** Nothing here is new measurement; it is the scope of
+measurements already banked, read off their own artifacts.
+
+**The finding: `of3t-bwattrib`'s two arms are a TRUNK CYCLE, not a step, and the sprint has been
+sizing levers off them as though they were the step.** Both artifacts record `config.cycles = 1`
+beside `capture.trunk_cycles = 4`, and their tape is **2,482 nodes against a full taped step's
+9,888** (`perf/of3t_stepfloor/out/step_rekey_b_384.json`). Neither arm contains the diffusion
+module, any loss head, or the optimizer.
+
+| number | scope | exactness | tree / board |
+|---|---|---|---|
+| **980.73 s** (fwd 274.95 + bwd 705.78) | taped **trunk cycle**, 2,482 nodes, `cycles=1` of 4 | **ON** | post-`502ed112e`, pc p150a 1350 |
+| **39.11 s** (fwd 5.48 + bwd 33.63) | same arm, same scope | **OFF** | same |
+| **466.70 s** | **full taped training step** — trunk + diffusion + loss heads + backward + optimizer, 9,888 nodes, 2,660 of 3,152 weights with a gradient, 4 diffusion samples | **absent (pre-feature)** | `451ed56f4`, qb2 p300c 1350 |
+| 370.85 s | taped trunk, probe off | absent | pre-feature, qb2 p300c |
+| **7-8 s** | **complete Lightning step**, U{0..3} recycle draw, 48 samples | n/a (IEEE fp32) | upstream 0.4.3, H200 1980 |
+
+**`of3t-gpugap`'s 58-67x is axis-consistent and stands as the EXACTNESS-OFF figure.** It divides a
+full taped step by a full Lightning step, and its own table already flagged and superseded the
+trunk-only 46-53x for exactly this reason. Its two remaining caveats are its own and are stated
+there: a pre-feature tree, and 4 diffusion samples against upstream's 48.
+
+**What must NOT be done: dividing a bwattrib arm by the GPU step.** `39.11 / 7.5 = 5.2x` is an
+axis error, and the free check that catches it is that it lands *below* the 8.5-11x silicon floor
+— a ratio that beats the hardware floor is a scope mismatch every time. Run that check on any
+ratio you produce.
+
+**And a correction to my own first draft of this section, kept because the error is instructive.**
+I first scaled 39.11 s to a step by the tape-node ratio (2,482 / 9,888 = 25.1 %), got ~156 s, and
+was about to publish **~21x**. That is unsound, and it is this campaign's own signature error:
+**node count does not track seconds** (R211 — LayerNorm backward is 52.4 % of nodes and 2.6 % of
+backward seconds). The measured exactness-off full step is **466.70 s**, three times my estimate,
+because the step's other 7,406 nodes are diffusion, losses and optimizer and cost far more per
+node than trunk nodes do. **Do not convert between scopes by node count, by cycle count, or by any
+other proxy — measure the scope you want to quote.**
+
+**THE MISSING NUMBER, and it is the campaign's most valuable one: nobody has measured a full step
+with exactness ON.** That is the number describing what we can train *correctly* today, and it is
+the only honest input to a GPU comparison, since 466.70 s came off a tree where the feature did
+not exist. `of3t-bwattrib`'s 25.08x is a valid A/B **on a trunk cycle** and does not transfer: the
+knob's share of a step depends on that step's op mix, and the diffusion module — 88.8 % of the
+compared gradient mass and absent from both arms — has a different one. `of3t-restep` owns this.
+
+**Standing rule from here**: every step figure states **what it contains, its cycle and sample
+count, its tree and its board**, or it is not quotable. Internal shares and A/Bs of identical
+scope stay valid whatever the scope is — bwattrib's 25.08x is unaffected. Only cross-scope
+DIVISION is invalid.
+
 ## 1. The gap is software, and how much of it
 
 | | |
