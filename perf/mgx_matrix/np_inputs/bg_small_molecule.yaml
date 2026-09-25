@@ -1,0 +1,7 @@
+entities:
+  - protein:
+      id: B
+      sequence: 60..70
+  - ligand:
+      id: L
+      ccd: ATP

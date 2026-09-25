@@ -911,15 +911,9 @@ class _WorkerState:
         # affinity floor catches as a GAP. Seed once here (before the structure
         # forward) and do NOT re-seed before ``predict_affinity`` so the device
         # matches the reference's single-seed structure->affinity RNG stream.
-        _seed = cfg.get("seed")
-        if _seed is not None:
-            import random as _random
-            import numpy as _np
-            _random.seed(_seed)
-            _np.random.seed(_seed)
-            torch.manual_seed(_seed)
-            if torch.cuda.is_available():
-                torch.cuda.manual_seed_all(_seed)
+        if cfg.get("seed") is not None:
+            from tt_bio.runtime import seed_everything
+            seed_everything(cfg["seed"])
 
         feats, input_struct = self.prepare(path, method=cfg.get("method"), progress=self.pfn)
         batch = to_batch(feats, self.torch_device)
@@ -2376,6 +2370,8 @@ def _execute_design_job_inprocess(
             argv.append("--fast")
         if cfg.get("moldir"):
             argv += ["--moldir", str(cfg["moldir"])]
+        if data.get("seed") is not None:
+            argv += ["--seed", str(data["seed"])]
 
         from tt_bio.boltzgen.cli.boltzgen import build_parser, run_command
         run_command(build_parser().parse_args(argv))  # reuses get_device(); no cold-open

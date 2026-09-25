@@ -68,6 +68,11 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
 
 ### Fixed
 
+- **`tt-bio design --model boltzgen --seed` did nothing.** The flag was dropped, and the design
+  and refold loaders featurized from OS entropy. It now reaches every draw, so the same spec and seed
+  give byte-identical designs; without `--seed` each run still draws fresh. Metrics CSV columns no
+  longer change order between runs.
+
 - **A completion lost on the wire no longer strands its job forever.** `/complete` was never
   retried, and the job stayed leased to a worker whose heartbeats kept renewing it, so the run
   never ended. A result settles only from the lease holder and a replay matches nothing, so the

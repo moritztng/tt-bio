@@ -1991,6 +1991,16 @@ def find_token_idx_for_atom(data: Input, atom_idx: int) -> int:
     raise ValueError(f"No token found containing atom index {atom_idx}")
 
 
+def global_stream_rng() -> np.random.Generator:
+    """A featurizer generator drawn from numpy's global stream.
+
+    ``--seed`` seeds that stream (``tt_bio.runtime.seed_everything``), so a seeded run
+    featurizes the same way every time, while an unseeded run, whose global stream
+    starts from OS entropy, still gets a fresh draw.
+    """
+    return np.random.default_rng(np.random.randint(2**32))
+
+
 class Featurizer:
     """Featurizer for model training."""
 

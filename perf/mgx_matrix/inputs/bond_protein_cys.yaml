@@ -1,0 +1,14 @@
+version: 1
+sequences:
+  - protein:
+      id: A
+      sequence: GCGSQWDRSGR
+      msa: empty
+  - protein:
+      id: B
+      sequence: NKLCGHEITWD
+      msa: empty
+constraints:
+  - bond:
+      atom1: [A, 2, SG]
+      atom2: [B, 4, SG]

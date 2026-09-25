@@ -1,0 +1,59 @@
+{
+ "scenarios": [
+  {
+   "scenario": "today, measured",
+   "b": 0.23204,
+   "t_step": 16.55324,
+   "t_grad": 12.105749999999999,
+   "t_fwd": 4.44749,
+   "traj_min": 34.48591666666666,
+   "x_h200": 32.39381604696673,
+   "why": "the floor screen as it stands"
+  },
+  {
+   "scenario": "AF2's own ReLU transition",
+   "b": 0.22504,
+   "t_step": 16.038439999999998,
+   "t_grad": 11.741749999999998,
+   "t_fwd": 4.29669,
+   "traj_min": 33.41341666666666,
+   "x_h200": 31.386379647749507,
+   "why": "the harness runs a SwiGLU (24 N^2 c^2); AF2's pair transition is LN/linear/ReLU/linear (16 N^2 c^2). Scaled from the measured transition-on minus transition-off delta 0.02098 s by the 2/3 FLOPs ratio and one fewer big eltwise"
+  },
+  {
+   "scenario": "trace capture alone",
+   "b": 0.21356999999999998,
+   "t_step": 15.239236886743663,
+   "t_grad": 11.145309999999998,
+   "t_fwd": 4.093926886743665,
+   "traj_min": 31.748410180715965,
+   "x_h200": 29.822381383060005,
+   "why": "removes ALL of the shape-invariant term. Capped by construction at 1.09x"
+  },
+  {
+   "scenario": "every op at its own measured roof",
+   "b": 0.030049696289871877,
+   "t_step": 2.244499012654059,
+   "t_grad": 1.6022542070733377,
+   "t_fwd": 0.6422448055807212,
+   "traj_min": 4.676039609695956,
+   "x_h200": 4.392365973882699,
+   "why": "each op at max(FLOPs/18.65 TFLOP/s, bytes/390.7 GB/s), intermediates still in DRAM"
+  },
+  {
+   "scenario": "+ fusion: only matmul bytes survive",
+   "b": 0.015401301593173655,
+   "t_step": 1.1676568175376016,
+   "t_grad": 0.84053768284503,
+   "t_fwd": 0.3271191346925716,
+   "traj_min": 2.4326183698700037,
+   "x_h200": 2.2850426957683005,
+   "why": "the non-matmul classes fused into their producers; matmul FLOPs are irreducible"
+  }
+ ],
+ "h200_step": 0.511,
+ "go_bar_s": 1.533,
+ "bh_chips": 8,
+ "wh_chips": 128,
+ "accept_per_traj": 1.10989010989011
+}

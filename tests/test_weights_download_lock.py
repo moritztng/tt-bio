@@ -9,6 +9,9 @@ key is the fix that keeps the resume.
 """
 import multiprocessing as mp
 import time
+import zipfile
+from concurrent.futures import ThreadPoolExecutor
+from pathlib import Path
 
 import pytest
 
@@ -69,3 +72,35 @@ def test_lock_is_released_when_the_holder_dies(tmp_path):
     waited = q.get(timeout=60)
     b.join(30)
     assert waited < HOLD_S / 2, f"lock survived its holder ({waited:.2f}s)"
+
+
+
+def test_concurrent_fetchers_download_one_file_once(tmp_path, monkeypatch):
+    """Six BoltzGen shards on a cold cache: every one gets the file, and it comes down once.
+
+    They call `fetch_file` directly, not through a registry key, which is how the dev
+    fleet lost a shard. The download count is the assertion that matters: a check on
+    exit status alone passes on the racy code whenever the race happens to be won.
+    Threads rather than processes: flock is held per open file, so they contend exactly
+    as processes do, and a fork after `tt_bio.main` has started threads can deadlock."""
+    import huggingface_hub
+
+    downloads = []
+
+    def slow_hub(repo_id, filename, local_dir, **kw):
+        downloads.append(filename)
+        time.sleep(0.5)                  # every shard is mid-download at once
+        out = Path(local_dir) / filename
+        with zipfile.ZipFile(out, "w") as z:
+            z.writestr("data.pkl", b"w" * 4096)
+        return str(out)
+
+    monkeypatch.setattr(huggingface_hub, "hf_hub_download", slow_hub)
+    dest = tmp_path / "cache" / "w.ckpt"
+    with ThreadPoolExecutor(6) as pool:
+        shards = [pool.submit(weights.fetch_file, ("hf://repo/w.ckpt",), dest, quiet=True)
+                  for _ in range(6)]
+        results = [f.result(timeout=60) for f in shards]
+    assert results == [dest] * 6
+    assert len(downloads) == 1, f"downloaded {len(downloads)} times, not once"
+    assert weights.artifact_intact(dest)

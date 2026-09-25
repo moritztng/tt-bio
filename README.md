@@ -549,6 +549,7 @@ properties:
 ├── power_profile.csv                 # (optional, --report-energy)
 ├── power_profile.png                 # (optional, --report-energy)
 ├── prot_pae.npz                      # (optional, --write_pae)
+├── prot_plddt.npz                    # (optional, --write_pae, Boltz-2)
 ├── prot_pde.npz                      # (optional, --write_pde)
 └── prot_embeddings.npz               # (optional, --write_embeddings)
 ```
@@ -585,6 +586,25 @@ Each target entry in `results.json` contains confidence metrics. The fields belo
 - `complex_plddt`, `plddt`: Mean confidence (0-1), the same value under both names. It is the mean of the B-factor column of the structure file the same fold wrote, so averaging that column reproduces it. Boltz-2 writes one pLDDT per residue, so average over one atom per residue (CA); Protenix-v2, OpenFold3, OpenBind-0 and OpenDDE write one per atom, so average over all of them
 - `chains_ptm`: Per-chain TM-scores (0-1)
 - `pair_chains_iptm`: Per-chain-pair interface TM-scores (0-1), with each chain's own `chains_ptm` on the diagonal. Read `pair_chains_iptm[binder][target]` to score one named interface of a complex; the global `iptm` is the whole-interface number and on a two-chain target the two agree. Like every other confidence value, these are comparable between targets of the same model, not between models
+
+### Interface Scores
+
+With `--write_pae`, a multi-chain Boltz-2 entry also carries `interface_scores`: ipSAE (both
+directions, their max and their min), ipTM, interface pAE, pDockQ, pDockQ2 and LIS for every chain
+pair. The definitions match the script Adaptyv scored its Nipah binder competition with, at the
+same 15 A cutoffs. `interface_score_distribution` gives the same scores for every diffusion
+sample, with mean, standard deviation and range, so `--diffusion_samples 5` shows how stable a
+design's score is as well as its value. To score a fold you already have, from tt-bio or from
+upstream Boltz, without a device:
+
+```bash
+tt-bio score prot_model_0.cif pae_prot_model_0.npz --plddt plddt_prot_model_0.npz
+```
+
+Tenstorrent arithmetic differs from a GPU's, so the same inputs fold to slightly different
+numbers than they do on CUDA. See [docs/interface-scores.md](docs/interface-scores.md) for the
+definitions, the choices made where the reference is ambiguous, and how this relates to the ipSAE
+BoltzGen reports while designing.
 
 ### Affinity Predictions
 
@@ -899,7 +919,7 @@ tt-bio design specs.json --model rfd3 --from_pdb --out_dir designs/
 | `rfd3` | all-atom structures: binders, motif scaffolding, nucleic-acid binders | JSON spec with contig strings |
 | `pxdesign` | binder backbones against a target structure | target YAML: structure file, chains to condition on, binder length |
 
-**[BoltzGen](https://github.com/HannesStark/boltzgen)** designs binders against a target structure. The pipeline runs design → inverse folding → folding → analysis → filtering and writes the top-ranked binders to `<out_dir>/final_ranked_designs/`. Input grammar, protocols, pipeline subsets, and options: [`docs/boltzgen-design.md`](docs/boltzgen-design.md). Designability (scRMSD) QA: [`docs/boltzgen-designability.md`](docs/boltzgen-designability.md).
+**[BoltzGen](https://github.com/HannesStark/boltzgen)** designs binders against a target structure. The pipeline runs design → inverse folding → folding → analysis → filtering and writes the top-ranked binders to `<out_dir>/final_ranked_designs/`. Pass `--seed N` to make a design reproducible; without it every run draws fresh. Input grammar, protocols, pipeline subsets, and options: [`docs/boltzgen-design.md`](docs/boltzgen-design.md). Designability (scRMSD) QA: [`docs/boltzgen-designability.md`](docs/boltzgen-designability.md).
 
 **[RFdiffusion3](https://www.biorxiv.org/content/10.1101/2025.09.18.676967)** (RFD3) is an all-atom generative model that designs new protein structures and sequences from a specification, rather than folding an existing one. Design modes, the contig-string input grammar, and which conditioning fields a spec can and cannot ask for: [`docs/rfd3-design.md`](docs/rfd3-design.md).
 
