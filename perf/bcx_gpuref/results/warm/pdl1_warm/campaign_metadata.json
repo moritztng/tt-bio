@@ -1,0 +1,325 @@
+{
+  "checkpoints": {
+    "/root/.cache/bindcraft/alphafold/params_model_1_multimer_v3.npz": "611da8fc7478928f68de12e8b226260ef1f4ce62bcc29b008572e52f4f212959",
+    "/root/.cache/bindcraft/alphafold/params_model_1_ptm.npz": "5e564f79af5bcd54ccef6e2a6bb0ff01015d01650ebc41d4575e35f0de9ecc84",
+    "/root/.cache/bindcraft/alphafold/params_model_2_multimer_v3.npz": "51362b0844382ae0f5720c59b81dd13a43eea40fbf9995dd2573bdab88865378",
+    "/root/.cache/bindcraft/alphafold/params_model_2_ptm.npz": "23645d9a82c4af2ed54cd48a7b3c1c2575dc6aa9fe931adb4d7203ca5f0dc398",
+    "/root/.cache/bindcraft/alphafold/params_model_3_multimer_v3.npz": "46d9bcad288edc7ad5a6362ee8e5f84307a69712e00e6c36b1ef9daf96ebc9ce",
+    "/root/.cache/bindcraft/alphafold/params_model_4_multimer_v3.npz": "59bdabd2d69c07fe26b37882d544acbd1b9f89f196828f4220da49e0610b572c",
+    "/root/.cache/bindcraft/alphafold/params_model_5_multimer_v3.npz": "917742be5a105d6b80f13f1f13f20459f27ec3fdcd34ea088b359f4502d6177f",
+    "/root/BindCraft2/bindcraft/weights/proteinmpnn/weights_negative/v_48_020.npz": "b166276f80a45cb3de24bceb3b47b2f47a60ff654660f09837cd775846411ad1"
+  },
+  "metadata": {
+    "settings_core": "benchmark",
+    "settings_modality": "binder",
+    "settings_overrides": "core=[\"benchmark\"] binder_lengths=[146] number_of_final_designs=4 max_trajectories=4 auto_multi_gpu=false workers_per_gpu=1 project_folder=/root/bcx_out/pdl1_warm",
+    "settings_target": "hPDL1"
+  },
+  "resolved": {
+    "binder_chains": [
+      "binder"
+    ],
+    "campaign_seed": 0,
+    "cyclic_offset_mode": "direction",
+    "design_models": [
+      "model_1_multimer_v3",
+      "model_2_multimer_v3",
+      "model_3_multimer_v3",
+      "model_4_multimer_v3",
+      "model_5_multimer_v3"
+    ],
+    "design_stage_steps": {
+      "anneal": 45,
+      "harden": 5,
+      "mutate": 15,
+      "refine": 25,
+      "screen": 50
+    },
+    "length_bucket_size": 32,
+    "oligomer_tie": "symmetric",
+    "validation_model": "monomer",
+    "validation_models": [
+      "model_1_ptm",
+      "model_2_ptm"
+    ]
+  },
+  "revision": "7a2dfdb8a285232a6f881899fe135c6dc48679f1-dirty",
+  "sampled_binder_lengths": "146",
+  "settings": {
+    "aa_bias": {
+      "C": 0
+    },
+    "archive_trajectories": false,
+    "attention_backend": "auto",
+    "auto_multi_gpu": false,
+    "autotune": false,
+    "betasheet_reopt_extra_anneal_steps": 0,
+    "betasheet_reopt_extra_refine_steps": 0,
+    "betasheet_reopt_trigger": 0.15,
+    "bigbang_initialization": false,
+    "binder_lengths": [
+      146
+    ],
+    "campaign_name": "pdl1",
+    "campaign_seed": 0,
+    "core": [
+      "benchmark"
+    ],
+    "design_dropout": true,
+    "design_recycles": 1,
+    "desperation": false,
+    "enough_passing_sequences": 3,
+    "filters": {
+      "All_Atom_Clashes": {
+        "higher": false,
+        "mandatory": false,
+        "threshold": "Infinity"
+      },
+      "Backbone_Clashes": {
+        "higher": false,
+        "threshold": 0
+      },
+      "Binder_BetaSheet_Fraction": {
+        "higher": false,
+        "mandatory": false,
+        "threshold": "Infinity"
+      },
+      "Binder_Cysteines": {
+        "higher": false,
+        "mandatory": false,
+        "threshold": "Infinity"
+      },
+      "Binder_Disulfides": {
+        "higher": false,
+        "mandatory": false,
+        "threshold": "Infinity"
+      },
+      "Binder_Extinction": {
+        "higher": false,
+        "mandatory": false,
+        "threshold": "Infinity"
+      },
+      "Binder_Free_Cysteines": {
+        "higher": false,
+        "mandatory": false,
+        "threshold": "Infinity"
+      },
+      "Binder_Helix_Fraction": {
+        "higher": false,
+        "mandatory": false,
+        "threshold": "Infinity"
+      },
+      "Binder_Loop_Fraction": {
+        "higher": false,
+        "mandatory": false,
+        "threshold": "Infinity"
+      },
+      "Binder_Mass_kDa": {
+        "higher": false,
+        "mandatory": false,
+        "threshold": "Infinity"
+      },
+      "Binder_Net_Charge": {
+        "higher": false,
+        "mandatory": false,
+        "threshold": "Infinity"
+      },
+      "Binder_RMSD": {
+        "higher": false,
+        "threshold": 3.5
+      },
+      "Binder_pI": {
+        "higher": false,
+        "mandatory": false,
+        "threshold": "Infinity"
+      },
+      "Epitope_Residues_Contacted": {
+        "higher": true,
+        "mandatory": false,
+        "threshold": 0.0
+      },
+      "Hotspot_Contact_Fraction": {
+        "higher": true,
+        "mandatory": false,
+        "threshold": 0.0
+      },
+      "Interface_BetaSheet_Fraction": {
+        "higher": false,
+        "mandatory": false,
+        "threshold": "Infinity"
+      },
+      "Interface_BuriedArea": {
+        "higher": true,
+        "mandatory": false,
+        "threshold": 0.0
+      },
+      "Interface_BuriedArea_Fraction": {
+        "higher": true,
+        "mandatory": false,
+        "threshold": 0.0
+      },
+      "Interface_Helix_Fraction": {
+        "higher": false,
+        "mandatory": false,
+        "threshold": "Infinity"
+      },
+      "Interface_Hydrophobicity": {
+        "higher": false,
+        "mandatory": false,
+        "threshold": "Infinity"
+      },
+      "Interface_Loop_Fraction": {
+        "higher": false,
+        "mandatory": false,
+        "threshold": "Infinity"
+      },
+      "Interface_Residues": {
+        "higher": true,
+        "threshold": 7
+      },
+      "Off_Epitope_Contact_Fraction": {
+        "higher": false,
+        "mandatory": false,
+        "threshold": 1.0
+      },
+      "Receptor_Chains_Contacted": {
+        "higher": true,
+        "mandatory": false,
+        "threshold": 0.0
+      },
+      "SS_pLDDT": {
+        "higher": true,
+        "mandatory": false,
+        "threshold": 0.0
+      },
+      "Surface_Hydrophobicity": {
+        "higher": false,
+        "mandatory": false,
+        "threshold": "Infinity"
+      },
+      "Target_RMSD": {
+        "higher": false,
+        "mandatory": false,
+        "threshold": "Infinity"
+      },
+      "Target_pLDDT": {
+        "higher": true,
+        "mandatory": false,
+        "threshold": 0.0
+      },
+      "Unbound_Binder_pLDDT": {
+        "higher": true,
+        "threshold": 0.7
+      },
+      "i_pAE": {
+        "higher": false,
+        "threshold": 0.35
+      },
+      "i_pTM": {
+        "higher": true,
+        "threshold": 0.7
+      },
+      "pTM": {
+        "higher": true,
+        "threshold": 0.55
+      }
+    },
+    "forced_targeting": false,
+    "hash_design_names": true,
+    "initial_guess": false,
+    "kept_sequences": 1,
+    "losses": {
+      "binder_contacts": {
+        "params": {
+          "chain": "binder",
+          "prediction_state": "complex"
+        }
+      },
+      "binder_helicity": {
+        "params": {
+          "chain": "binder",
+          "prediction_state": "complex"
+        }
+      },
+      "binder_pae": {
+        "params": {
+          "chain": "binder",
+          "prediction_state": "complex"
+        }
+      },
+      "compactness": {
+        "params": {
+          "chain": "binder",
+          "prediction_state": "complex"
+        }
+      },
+      "interface_contacts": {
+        "params": {
+          "contacts_per_residue": 2,
+          "cutoff": 20.0
+        }
+      },
+      "plddt_loss": {
+        "params": {
+          "chain": "binder",
+          "prediction_state": "complex"
+        }
+      }
+    },
+    "max_trajectories": 4,
+    "min_iptm_anneal": 0.5,
+    "min_iptm_final": 0.7,
+    "min_iptm_harden": 0.5,
+    "min_iptm_mutate": 0.5,
+    "min_monomer_plddt_final": 0.7,
+    "min_plddt_anneal": 0.65,
+    "min_plddt_final": 0.7,
+    "min_plddt_harden": 0.65,
+    "min_plddt_mutate": 0.6,
+    "min_plddt_refine": 0.6,
+    "min_plddt_screen": 0.6,
+    "modality": "binder",
+    "mpnn_model": "v_48_020",
+    "mpnn_variant": "negative",
+    "number_of_final_designs": 4,
+    "project_folder": "/root/bcx_out/pdl1_warm",
+    "redesign_interface": false,
+    "relax_accepted_designs": false,
+    "resume": true,
+    "save_binder_monomers": true,
+    "save_design_animations": false,
+    "save_design_frames": false,
+    "save_design_sequences": false,
+    "save_failed_refolds": true,
+    "save_failed_trajectories": true,
+    "save_loss_plots": false,
+    "sequence_candidates": 10,
+    "subbatch_size": "auto",
+    "target": "hPDL1",
+    "target_flexibility": 0.0,
+    "targets": [
+      {
+        "chains": "A",
+        "hotspots": "54,56,66,115",
+        "name": "hPDL1",
+        "target_path": "/root/BindCraft2/settings/target/structures/hPDL1.pdb"
+      }
+    ],
+    "trajectory_only": false,
+    "use_cueq": false,
+    "validation_crop_flank": 5,
+    "validation_recycles": 3,
+    "weights_binder_contacts": 1.0,
+    "weights_binder_helicity": -0.3,
+    "weights_binder_pae": 0.4,
+    "weights_compactness": 0.5,
+    "weights_interface_contacts": 1.0,
+    "weights_interface_pae": 0.1,
+    "weights_iptm_loss": 0.05,
+    "weights_plddt_loss": 0.1,
+    "workers_per_gpu": 1
+  },
+  "settings_digest": "c7f6f5de8c51",
+  "settings_path": "/root/BindCraft2/examples/pdl1.json",
+  "version": "BindCraft 2 v1.0.1"
+}

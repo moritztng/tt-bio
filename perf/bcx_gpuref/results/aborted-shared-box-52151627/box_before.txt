@@ -1,0 +1,8 @@
+Welcome to vast.ai. If authentication fails, try again after a few seconds, and double check your ssh key.
+Have fun!
+gpu_uuid, pid, used_gpu_memory [MiB]
+GPU-5e304ab3-aa22-bcee-5621-0c633c09c82b, 2520062, 31470 MiB
+GPU-9d799126-46fa-ffec-6c6b-496603cf8948, 2520060, 31478 MiB
+index, name, clocks.current.sm [MHz], utilization.gpu [%]
+0, NVIDIA H200, 1980 MHz, 100 %
+1, NVIDIA H200, 1980 MHz, 100 %
