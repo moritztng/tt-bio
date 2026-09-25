@@ -32,6 +32,40 @@ before it starts. Moritz: *"doing the same great job we did for forward also for
 what already exists in the tenstorrent repositories. adapting. taking inspiration from gpu
 implementations ... full speed. with multiple agents."*
 
+> # !! STALE BASELINE — READ THIS BEFORE ANY NUMBER BELOW. 2026-09-25, pass 450. !!
+>
+> **`of3t-tapedfwd` (GO) established that the 466.702 s step this whole document is built on
+> predates a commit that changed it by roughly 65x, and every share derived from it is stale.**
+>
+> The banked step ran at `451ed56f4` (2026-09-21 18:07:08Z, recorded in the artifact's own
+> `env.commit`). `502ed112e` (2026-09-23 03:59:45Z, *"training tape: exact softmax and layer norm
+> on by default"*) put a **HOST float64** softmax and layer norm inside every `tape()`.
+> `git merge-base --is-ancestor 502ed112e 451ed56f4` is **false** — the feature did not exist when
+> the step was measured — and it is an ancestor of HEAD. `origin/wk/of3t-stepfloor`'s tree contains
+> zero occurrences of `_training_exact`. **It reaches the backward too**: `autograd.backward` opens
+> `with _training_exact("backward")` for itself, because the tape block has closed by then.
+>
+> Measured on today's tree: a taped forward is **251.66 s** (median of 2, uncontended), reproduced
+> independently at 228.814 s (median of 3), against **3.415 s** banked. Not the card, not the
+> harness, not leaf registration — a `--declare` arm registering the same 2,531 weights read
+> 270.162 s. **247.8 s of that 251.66 s is the exactness**: arms B and C take identical routes at
+> identical counts and read 3.8884 s against 251.6566 s, and the teardown measures 0.0000 s.
+>
+> **STALE, do not quote until re-taken on main:** the **58-67x** whole-step GPU gap; the
+> **98.6 % / 1.4 %** ported partition; the **466.702 s** step and its **456.668 s** backward; the
+> **356.00 s / 168,922 calls / 2.107 ms** per-verb figures and the **44.3x**; the **97.7 %
+> "not arithmetic"**; the **100.668 s** non-verb residual; every JOBS share in
+> `state/of3t-bwsurvey.md`; LEDGER **R205**, **R206** and this document's §4c ceiling of 3.32x.
+>
+> **NOT stale, and still true:** `of3t-tapedfwd`'s own A/B (arms A and B are both UNTAPED, so
+> neither installs the exact ops) — the fused-kernel bypass is **3.2381x on the forward** and
+> **about 1.1 % of today's taped forward**, so §4's conclusion that kernel authoring does not wait
+> behind it survives both trees. §4b's board constraint is unaffected. **R208's retirement of J3
+> also survives**: a smaller share of a larger step is a smaller share.
+>
+> **The re-take is one `fullstep.py` run on main.** Until it lands, no row may build a share on
+> the numbers above. Say "stale baseline" rather than quoting one.
+
 ## 1. The gap is software, and how much of it
 
 | | |

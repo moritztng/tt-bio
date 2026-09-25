@@ -1089,6 +1089,31 @@ state doc nor its `CLAUSE_EXACT.json` names the version anywhere.
 
 **R200** (pass 423) The `of3t-denoise` A40 floor was attributed to mse's Kabsch stop-gradient and FD3 froze it. FD3 at h=1e-4 reads 15.897746748793073 against FD2's 15.897749718841725 (1.9e-7 relative) and both read 2.847e-05 at h=1e-5: the freeze is inert, as the envelope theorem predicts when the alignment minimises the loss it feeds. FD2's ladder 2.498e-04 / 7.634e-05 / 2.847e-05 falls ~h^0.5 without a plateau, which a missing gradient path (constant bias) cannot produce. h=1e-6 then read 6.972e-10 and h=1e-7 4.303e-09: a V with one kink crossing between 1e-6 and 1e-5, so A40 PASSES. Separately, `of3t-denoise` found D259 (`ttnn.multiply(bf16, fp32 [...,1])` nondeterministic, up to 16,061 wrong elements) and D258 (mixed-dtype `transpose_a` matmul); both are fixed on the training path only, and `of3t-bcastaudit` measures whether inference reaches them.
 
+- **R209** (pass 450) **THE CAMPAIGN'S BASELINE WAS STALE BY ~65x AND EVERY SHARE BUILT ON IT IS
+  VOID, INCLUDING TWO OF MY OWN LEDGER ENTRIES.** `of3t-tapedfwd` (GO) found it. The 466.702 s
+  step was banked at `451ed56f4` (2026-09-21 18:07:08Z, from the artifact's own `env.commit`);
+  `502ed112e` (2026-09-23 03:59:45Z, *"training tape: exact softmax and layer norm on by
+  default"*) then put a **HOST float64** softmax and layer norm inside every `tape()`.
+  `git merge-base --is-ancestor 502ed112e 451ed56f4` is **false** and `502ed112e` is an ancestor
+  of HEAD, so the feature did not exist when the number was taken and has existed ever since.
+  Measured: a taped forward is **251.66 s** today against **3.415 s** banked, reproduced
+  independently at 228.814 s, and **247.8 s of it is the exactness** — arms on identical routes
+  at identical counts read 3.8884 s against 251.6566 s, teardown 0.0000 s, and a `--declare` arm
+  ruled out leaf registration at 270.162 s. **It reaches the backward too**, because
+  `autograd.backward` opens `with _training_exact("backward")` for itself once the tape block has
+  closed. **Void until re-taken: 58-67x, 98.6/1.4, 466.702 and 456.668, 356.00 s / 168,922 calls
+  / 2.107 ms / 44.3x, the 97.7 %, the 100.668 s residual, every JOBS share, my own R205 and R206,
+  and BACKWARD.md §4c's 3.32x ceiling.** **Survives: R207** (of3t-tapedfwd's A/B is untaped on
+  both arms, so neither installs the exact ops — 3.2381x on the forward, ~1.1 % of today's taped
+  forward, and the conclusion holds on both trees), **R208** (a smaller share of a larger step is
+  a smaller share), and **K22** (a board fact). **The lesson, and it is aimed at me: an artifact's
+  `env.commit` is the only thing that dates a number, and a campaign that re-reads a banked
+  baseline every pass never re-checks it.** I built two ledger entries, a ceiling, a retirement
+  and a dispatch order on a constant nobody had re-dated in four days. **A banked number needs an
+  expiry check, not just a provenance field** — cheapest form: assert the baseline artifact's
+  `env.commit` is still an ancestor of HEAD before quoting it, which would have caught this the
+  first time any row read it after 09-23.
+
 - **R208** (pass 449) **J3 is RETIRED from the sprint, and holding it rather than dispatching it
   is what made that decision possible.** I held `of3t-triattbw` at pass 445 because its size was
   a 14x bracket (2 SDPA score blocks per call = 10.7 s, or 40 = 153.7 s) and briefing the largest

@@ -239,3 +239,38 @@ to be large and structured, it becomes its own job and I will dispatch it from y
 
 Add a **RESIDUAL:** field to your state doc for it. Your gate does not require that field, so it
 will not block your conclusion — but it is the most valuable unclaimed number in the sprint.
+
+## !! YOUR BASELINE IS STALE AND YOUR RESIDUAL IS NOW THE CAMPAIGN'S CENTRAL QUESTION !! (pass 450)
+
+`of3t-tapedfwd` concluded GO with a STOP THE PRESSES finding. Read the banner at the top of
+`state/of3t/BACKWARD.md` before you interpret anything. In short: **the 466.702 s step predates
+`502ed112e`** (2026-09-23, *"training tape: exact softmax and layer norm on by default"*), which
+put a **HOST float64** softmax and layer norm inside every `tape()`. A taped forward on today's
+tree is **251.66 s** against **3.415 s** banked, and **247.8 s of that is the exactness** — arms
+taking identical routes at identical counts read 3.8884 s against 251.6566 s, and teardown
+measures 0.0000 s.
+
+**What this does and does not do to your row:**
+
+- **Your RUN is fine.** You are profiling today's tree, so your histogram measures what actually
+  happens now. It is the *shares you compare against* that are stale — 356.00 s, 168,922 calls,
+  2.107 ms, 44.3x, the 97.7 %, and the 100.668 s residual I gave you. **Do not quote any of them
+  as a denominator.** Report your own totals and derive your own shares.
+- **Your RESIDUAL deliverable just became the most important number in the sprint**, and its
+  likely cause is now NAMED rather than open: `autograd.backward` opens
+  `with _training_exact("backward")` for itself — it has to, because the tape block has already
+  closed by then — so the backward carries the same host float64 softmax and layer norm the
+  forward does. **The non-verb time I asked you to report by subtraction may simply BE the host
+  float64 arithmetic.** That is a one-line hypothesis your instrument can confirm or kill
+  directly: time inside `_exact_softmax_raw` / `_exact_layer_norm_raw` against the residual.
+- **If it is, the sprint's whole premise moves.** A backward dominated by deliberate host float64
+  arithmetic is not a missing-fused-kernel problem, and J1/J2/J4 are second-order until it is
+  resolved. Say so plainly if your numbers say so; that is a more valuable result than the
+  histogram I originally asked for.
+
+**One thing to be careful about, because it is the flattering direction.** The host float64 path
+is a FIDELITY feature Moritz personally approved at a stated price of 1.441x, training-only, and
+it is the reason this campaign's gradients are correct. **Do not report it as a bug and do not
+propose switching it off to buy speed.** Report what it costs, precisely, with the axis and the
+arms. What to do about it is a product decision on a trade he already ruled on once, and it goes
+to him with a number, not to a row with a flag.

@@ -9,6 +9,16 @@ J1's 46.4 s becomes 46.4 x 0.24/2.107. Summing them at today's cost double-count
 
 Run it; do not quote the prose.
 """
+#
+# !! STALE INPUTS, 2026-09-25 pass 450. The constants below (466.702 / 456.668 / 356.00 /
+# 168922) come from a step banked at 451ed56f4, BEFORE 502ed112e put a host float64 softmax and
+# layer norm inside every tape(). of3t-tapedfwd measured a taped forward at 251.66 s against the
+# 3.415 s banked, ~65x, and the same scope reaches the backward. The ARITHMETIC in this file is
+# still correct and the REASONING it encodes still holds -- a dropped term is a dropped term, and
+# substitutes are still substitutes -- but the OUTPUT NUMBERS are against a tree nobody runs.
+# Re-run with the re-taken constants once fullstep.py has been run on main. Do not quote the
+# figures below until then. See the STALE BASELINE banner in state/of3t/BACKWARD.md.
+#
 STEP, BWD, VERB_S, N = 466.702, 456.668, 356.00, 168922   # of3t-gpugap PARTITION, arm B rep 2
 PER_NOW, PER_J0 = VERB_S / N * 1000, 0.24                 # ms per backward verb
 H200 = (7.0, 8.0)                                          # whole training step, crop 384
