@@ -143,7 +143,7 @@ class _Float64Numpy:
 
 def build_fixture(num_res: int, chain_lengths, num_templates: int, seed: int,
                   translate: float = 0.0, chi1_only: bool = False,
-                  homomer: bool = False) -> dict:
+                  homomer: bool = False, cyclic: bool = False) -> dict:
     """A two-chain fixture with a helical backbone. Every array is what the trunk reads."""
     rng = np.random.default_rng(seed)
     assert sum(chain_lengths) == num_res
@@ -205,8 +205,25 @@ def build_fixture(num_res: int, chain_lengths, num_templates: int, seed: int,
         positions = positions + np.float32(translate)
         template_positions = template_positions + np.float32(translate)
 
+    batch_offset = {}
+    if cyclic:
+        # `bindcraft/af2.py:115 cyclic_sequence_offsets`, with every residue of every chain
+        # flagged cyclic. AlphaFold's multimer relative encoding reads `batch["offset"]` when it
+        # is there (`modules_multimer.py:239`) and BindCraft 2 always supplies it, so a port that
+        # recomputes the offset from `residue_index` is right only while nothing is cyclic.
+        idx = np.asarray(residue_index, dtype=np.int64)
+        asym_arr = np.asarray(asym, dtype=np.int64)
+        offsets = idx[:, None] - idx[None, :]
+        same_chain = asym_arr[:, None] == asym_arr[None, :]
+        lengths = same_chain.sum(-1)
+        distance = np.minimum(np.abs(offsets), lengths[:, None] - np.abs(offsets))
+        distance = np.where(distance < np.abs(offsets), -distance, distance)
+        batch_offset["offset"] = np.where(
+            same_chain, distance * np.sign(offsets), offsets).astype(np.int32)
+
     return {
         "aatype": aatype,
+        **batch_offset,
         "residue_index": np.asarray(residue_index, dtype=np.int32),
         "asym_id": np.asarray(asym, dtype=np.int32),
         "entity_id": np.asarray(entity, dtype=np.int32),
@@ -250,6 +267,9 @@ def main() -> None:
     ap.add_argument("--homomer", action="store_true",
                     help="both chains one entity with distinct sym_id, so the relative-chain\n"
                          "bins fire instead of the different-entity bin")
+    ap.add_argument("--cyclic", action="store_true",
+                    help="supply batch['offset'] the way BindCraft 2 does for a "
+                         "cyclic chain, which is not residue_index difference")
     ap.add_argument("--float32", action="store_true",
                     help="run with global_config.bfloat16 off (the transform question)")
     ap.add_argument("--float64", action="store_true",
@@ -294,7 +314,7 @@ def main() -> None:
 
     batch = build_fixture(args.num_res, [int(x) for x in args.chains.split(",")],
                           args.templates, args.seed, args.translate, args.chi1_only,
-                          args.homomer)
+                          args.homomer, args.cyclic)
 
     def forward(batch):
         return modules_multimer.EmbeddingsAndEvoformer(cfg, gc, name="evoformer")(
@@ -324,6 +344,7 @@ def main() -> None:
         "templates": args.templates, "blocks": args.blocks, "translate": args.translate,
         "extra_blocks": args.extra_blocks, "seed": args.seed,
         "chi1_only": bool(args.chi1_only), "homomer": bool(args.homomer),
+        "cyclic": bool(args.cyclic),
         "af_package": AF_PACKAGE[0],
         "bfloat16": bool(gc.bfloat16), "float64": bool(args.float64),
         "jax_version": jax.__version__,

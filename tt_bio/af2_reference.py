@@ -1129,7 +1129,12 @@ class AF2Model(nn.Module):
         features read from `asym_id`, `entity_id` and `sym_id`.
         """
         index = feats["residue_index"].long()
-        offset = index[:, None] - index[None, :]
+        # AlphaFold takes `batch["offset"]` when the caller supplies one and only falls back to
+        # the residue-index difference otherwise (`modules_multimer.py:239`). BindCraft 2 always
+        # supplies one (`bindcraft/af2.py:128`), and for a cyclic chain it is not the difference:
+        # recomputing it here would silently give a cyclic binder the wrong relative encoding.
+        offset = (feats["offset"].long() if "offset" in feats
+                  else index[:, None] - index[None, :])
         if not self.multimer:
             rel_pos = F.one_hot(
                 (offset + MAX_RELATIVE_FEATURE).clamp(0, 2 * MAX_RELATIVE_FEATURE),
