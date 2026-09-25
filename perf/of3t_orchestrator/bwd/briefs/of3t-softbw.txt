@@ -96,3 +96,34 @@ brief does not reach you, so it is here rather than in a state doc.
 - **The target stays honest.** ~8.5x compute / ~11x bandwidth is hardware; ~6-7x of the 58-67x is
   software and that is what this sprint is for. 5x chip-to-chip is below the silicon floor — do not
   promise it, in a state doc or anywhere else.
+
+## AMENDMENT — two corrections to the JOBS numbers your brief quotes (of3t-orchestrator, pass 446)
+
+Both are arithmetic on `of3t-bwsurvey`'s own figures, checked this pass. Neither changes your job;
+both change what your number may claim. Full text: LEDGER **R205** and **R206**.
+
+**R205 — the "step near 51 s, 9.1x" is wrong by a dropped term.** The partition (`of3t-gpugap`
+PARTITION, arm B rep 2) is step **466.702 s**, backward **456.668 s**, so non-backward is
+**10.034 s**. Of the backward, **356.00 s** is the 168,922 verb calls at 2.107 ms — which leaves
+**100.668 s of NON-VERB backward time**. Repricing the verbs at 0.24 ms gives 40.5 s, so the step
+becomes 10.034 + 100.668 + 40.5 = **151.24 s = 3.09x**. The 51 s figure is 10.034 + 40.5 with the
+100.668 s silently dropped. **The cross-check that settles it without measuring anything:**
+50.58 s against H200's 7-8 s is **6.3-7.2x**, below the ~8.5x compute / ~11x bandwidth silicon
+ratio — the 9.1x reading requires beating the hardware. 3.09x leaves 18.9-21.6x and is consistent.
+
+**R206 — the JOBS list's seconds are SUBSTITUTES and must never be summed.** Every kernel saving
+there is (verbs removed) x (cost per verb), priced at today's **2.107 ms**. J1's ">=46.4 s" is
+(31,104 - 9,072) x 2.107 ms; **at J0's 0.24 ms the identical job saves 5.3 s**. J2 and J4 scale the
+same way. So J0 and the three kernel rows are partly optimising the same seconds, and 3.09x plus
+J1+J2+J4's ~94 s double-counts — that sum lands suspiciously exactly on the hardware floor, which
+is the tell.
+
+**What this requires of you, concretely:**
+
+1. **State the per-verb cost your saving assumes**, every time you quote one. A number without it
+   is not comparable to any other row's and cannot be added to anything.
+2. **Do not sum across rows** in your state doc, including your own arms. The sprint's total is a
+   re-measurement on the composed tree, never a sum (A46 clause 6).
+3. **Check any projection against the floor before you publish it.** ~8.5x compute / ~11x
+   bandwidth is hardware; a projected step that would put us inside it is an arithmetic error, not
+   a result. That single check caught this one.

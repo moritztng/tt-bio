@@ -1,0 +1,140 @@
+# Workstream: of3t-intensity
+#DISPATCH: host=any card=- repo=tt-bio maxit=18 tier=opus5
+
+## !! YOU ARE ON whglx, CARD 6, WITH SIX OTHER ROWS. PIN EVERY DEVICE OPEN. !!
+(orchestrator, 2026-09-25 14:4xZ — you were moved here after qb1 went down under your last pass;
+see the ORCHESTRATOR NOTE at the end of this brief.)
+
+whglx is a 32-chip WH Galaxy with ONE host CPU and it **co-hosts the live ai& app**. Seven card
+rows share it right now: `of3t-bwattrib` 0, `of3t-lnbw` 2, `of3t-softbw` 3, `of3t-wheelbw` 5,
+`of3t-intensity` 6 (you), `bcx-tapedfwd` 7, `bcx-intensity` 8. Cards 1/24/25/26/27 are cardblocked.
+
+1. **Pin every device open to card 6.** An unpinned all-chip open takes down every co-tenant
+   including the live app (`whglx-unpinned-all-chip-open-breaks-every-cotenant`), and the lease
+   card number is not the device node (`whglx-galaxy-lease-card-number-vs-device-node-mismatch`).
+2. **This box is loud.** Your firing/shape/byte-count/selection questions are load-insensitive and
+   answerable here (`a-firing-question-is-load-insensitive-so-a-loud-box-does-not-block-it`).
+   Any wall-clock or achieved-bandwidth number is not: sample the AICLK during, state the
+   co-tenancy in the same sentence, and mark it provisional pending a quiet-box re-measure.
+
+DONE_CHECK: python3 /home/moritz/.coworker/workstreams/_of3t_donecheck.py of3t-intensity
+
+**READ FIRST: /home/moritz/.coworker/state/of3t/BACKWARD.md** — the shared findings. Do not re-derive them.
+
+OF3T row `of3t-intensity`: **which roof binds each of the six step parts**, so the sprint's kernel
+work goes where there is headroom and not where there is none.
+
+This campaign has burned this exact mistake twice: 18 passes on a phantom 4.4x headroom because a
+bandwidth-bound op was compared to a compute roof measured on a dense cube, and three wrong
+conclusions in a row from a "% of peak" quoted against a roof nobody had established.
+
+1. AI: measured FLOP and measured bytes per step part — not catalogue, not inferred.
+2. BINDS: each part against the part's own measured machine balance (247-338 FLOP/byte). A part
+   below balance cannot reach the compute roof, and its %-of-peak is meaningless.
+3. HEADROOM: per part, the gap to the roof that ACTUALLY binds it, with the arithmetic — and say
+   plainly where there is none. "No headroom here" is a valuable finding.
+4. ORDER: levers ranked by achievable seconds off the 466.70 s step.
+
+Reference points already measured, do not re-measure: compute roof 115.685 TFLOP/s on a dense 4096
+cube; the 16-head pair matmuls carry AI ~101 against balance 247 and are capped near 43 TFLOP/s.
+Batch the gates. State doc `state/of3t-intensity.md`: AI:, BINDS:, HEADROOM:, ORDER:, VERDICT:.
+
+## HOUSE RULES for the backward sprint — of3t-orchestrator, 2026-09-25 16:2x CEST
+
+Added after dispatch because the four briefs went out without them. A decision that is not in your
+brief does not reach you, so it is here rather than in a state doc.
+
+- **ARTIFACTS: `perf/of3t_<your-slug>/`, and nowhere else.** Yours alone. Four rows writing into one
+  perf tree is how a merge comes out textually clean and semantically broken
+  (`sibling-perf-campaigns-need-namespaced-output-paths`).
+- **SCRATCH: `/tmp/of3t/<your-slug>/`.** Never a shared generic name. Two of3t rows collided on
+  `/tmp/of3t/state.md` and one row's state doc silently became a verbatim copy of another's —
+  another row's branch, instruments and VERDICT, installed under the wrong slug. Nothing errored
+  (LEDGER K18).
+- **BRANCH: `wk/<your-slug>`, pushed every pass.** I compose the sprint onto `wk/of3t-bwd`; do not
+  merge to main and do not compose each other. `wk/of3t` is finished history: verified this pass,
+  it is fully contained in `origin/main` (`git merge-base --is-ancestor` clean), so do not branch
+  from it or treat it as the campaign's tip. Branch from `origin/main`.
+- **`tt_bio/autograd.py` and `tt_bio/taped_ttnn.py` are CONTESTED and moving right now.** BCX is
+  rewriting the head-verb backwards in both: `wk/bcx-heads` at `237f53064`, with `wk/bcx-bwdplan`
+  building on it this pass. If your fix lands in either file, keep the diff minimal, say so in your
+  state doc under its own heading, and expect to re-run BCX's bar rather than trusting a clean
+  textual merge — these are exactly the two files where `land-d264` showed a merge error is
+  invisible to inference and visible only to a taped arm.
+- **Say the AXIS on every number** (chip-to-chip, box-to-box, phase-matched, step-to-step), and the
+  clock: a DURING-sampled AICLK and the board class. qb1 p150a and qb2 p300c run the same 512 aa
+  fold 17.39 s against 14.59 s at the same 1350 MHz, so a board class is part of a measurement.
+- **The target stays honest.** ~8.5x compute / ~11x bandwidth is hardware; ~6-7x of the 58-67x is
+  software and that is what this sprint is for. 5x chip-to-chip is below the silicon floor — do not
+  promise it, in a state doc or anywhere else.
+
+**YOU OWN** `perf/of3t_intensity/` and your measurement scripts there. Read-only on engine code:
+if a lever needs an engine edit to measure, name it and hand it to me rather than landing it.
+Your ORDER: is crossed with `of3t-bwsurvey`'s JOBS: before any kernel row is dispatched — JOBS says
+what can be built, ORDER says where the seconds are, and a kernel briefed from one without the
+other is how a sprint authors something that saves nothing.
+
+## AMENDMENT, of3t-orchestrator pass 445 — the roofline may not be your answer, and J0 is not yours
+
+`of3t-bwsurvey` concluded while you were in pass 1 and found something that reframes your question.
+**Read `state/of3t-bwsurvey.md`'s JOBS section before your next measurement.** Its finding:
+
+> at the forward's own measured warm rate the backward's 168,922 verb calls would cost **8.03 s**;
+> they cost **356.00 s** ... **~348 s — 97.7 % of the backward — is not the model's arithmetic**
+
+A backward verb costs **44.3x a forward verb on operands of the same shape**, warm, JIT burned off.
+**A 44.3x per-call overhead is not a roofline story at all** — it is not compute-bound, not
+bandwidth-bound, and a %-of-peak against either roof would be as meaningless as the phantom 4.4x
+your brief already warns you about. So before you price headroom on the backward parts, establish
+whether the part is doing arithmetic at all or paying per-call overhead, and say which. That
+distinction is now the most useful thing your row can publish.
+
+**J0 — attributing the 2.107 ms per backward verb — has been dispatched as `of3t-bwattrib`, not to
+you.** The survey named it as *"of3t-intensity's or a new row's work"*; I gave it a new row because
+it is worth ~315 s, more than every kernel job combined times four, and it deserves a full row's
+iterations rather than a slice of yours. **Do not build a per-verb timing histogram** — that is
+`of3t-bwattrib`'s deliverable and duplicating it wastes a card. Coordinate through your state doc:
+if your AI measurements bear on its four named suspects (`Tensor.evict` over PCIe, `add_grad`'s
+typecast to fp32, `to_layout` at fan-in, allocation churn), say so plainly and it will read you.
+
+**Your FORWARD-side roofline work is unaffected and still wanted.** The forward is where arithmetic
+intensity is the right instrument, and ORDER across the six step parts is still what ranks the
+sprint's non-J0 work. If your conclusion ends up being "the backward parts have no roofline
+headroom because they are not roofline-bound", that is a valuable finding and your brief already
+says so: "no headroom here" is a result.
+
+ORCHESTRATOR NOTE 2026-09-25 14:4xZ — your previous pass did not fail on its own merits. It was
+placed on qb1 card 3 at 16:12:39 CEST, and qb1 became unreachable ~20 minutes later; the open on
+card 3 is the leading suspect (it was the last unblocked card on a box whose other three are all
+blocked for wedge/kill/reset reasons). I killed that pass and its engine, released the qb1-card3
+lease, and wrote state/qb1-offline + state/cardblock-qb1-3. Nothing you produced is lost that was
+pushed to wk/of3t-intensity; anything only in the qb1 worktree is gone with the box. Do NOT try to
+reach qb1 or card 3 this pass, and do not count that pass against your own progress.
+
+## AMENDMENT 2 — YOUR FIRST PASS IS GONE. You are not resuming; you are starting. (pass 446)
+
+Read this before you go looking for prior progress, because your brief's RESUMING clause is
+actively misleading for you right now.
+
+You ran **16:15:03 to 16:37:59 on qb1 card 3**, 23 minutes. Then **qb1 went unreachable**
+(`ssh tt-quietbox` times out; `state/qb1-offline` is set), the fleet relocated you to **whglx card
+6**, and your worker log records what that means: *"fresh worktree
+/home/moritz/.coworker/wt/of3t-intensity from origin/main"*. So:
+
+- Your pass-1 commits live in `/home/ttuser/.coworker/wt/of3t-intensity` **on qb1**, unpushed.
+  `origin/wk/of3t-intensity` **does not exist** — verified against origin this pass, not inferred.
+- Your pass-1 state doc is on qb1 too; `~/.coworker/state/of3t-intensity.md` on pc is absent.
+- Your current worktree was created fresh from `origin/main` at `f0db89ef5` and has none of it.
+
+**Nothing is recoverable until qb1 comes back, and you should not wait for it.** Redo the work.
+It is safe to redo — a measurement repeated is a measurement, not a corruption — and 23 minutes is
+cheaper than blocking.
+
+**So the rule, and it is the whole lesson: commit AND `git push origin wk/of3t-intensity` at the
+end of every pass, not at the end of the row.** Your branch is the only thing that survives a host
+going away, and on this fleet a host going away is not rare. A row cannot tell a first pass from a
+silently-reset restart, so pushing is the only signal that distinguishes them for your successor.
+
+Everything in AMENDMENT 1 still stands: the 44.3x per-verb overhead means a backward part may not
+be roofline-bound at all, J0's histogram is `of3t-bwattrib`'s and not yours, and your forward-side
+roofline work is unaffected and still wanted.

@@ -42,7 +42,7 @@ author and cite what you took; gates are batched and a stack is approved whole. 
 speedup that does less of the model's own work. A1-A45 are the correctness protocol and are
 unchanged. History: `state/of3t/PASSLOG.md`.
 
-LEDGER: `~/.coworker/state/of3t/LEDGER.md`, **R1-R204 and K1-K20**. **R203, filed this pass, is
+LEDGER: `~/.coworker/state/of3t/LEDGER.md`, **R1-R206 and K1-K21**. **R203, filed this pass, is
 the sprint's first finding and it reordered the job list: an engine-wide fused-kernel bypass hid
 behind a per-module comment. A per-site comment that correctly explains one decline is the best
 camouflage a policy can have, because every reader who checks one site leaves satisfied. Count the
@@ -81,7 +81,7 @@ and the contested-file warning; the four sprint briefs went out without them and
 | `of3t-bwsurvey` | **GO** — the JOBS list, J0-J7 | `state/of3t/BWJOBS.md` | `perf/of3t_bwsurvey/` |
 | `of3t-throughput` | **GO** — box-to-box is the honest axis | arithmetic only | `perf/of3t_throughput/` |
 | `of3t-tapedfwd` | live, pc card 0 | fused-kernel selection and decline sites | `perf/of3t_tapedfwd/` |
-| `of3t-intensity` | live, qb1 card 3 | measurement scripts, read-only on engine | `perf/of3t_intensity/` |
+| `of3t-intensity` | **live, whglx card 6** (relocated; pass 1 lost with qb1) | measurement scripts, read-only on engine | `perf/of3t_intensity/` |
 | `of3t-bwattrib` | **live, whglx card 0** — J0 | the 2.107 ms attribution, wiring fixes | `perf/of3t_bwattrib/` |
 | `of3t-lnbw` | **live, whglx card 2** — J1 | the LayerNorm backward | `perf/of3t_lnbw/` |
 | `of3t-softbw` | **live, whglx card 3** — J2 | the softmax backward | `perf/of3t_softbw/` |
@@ -129,6 +129,27 @@ nine kernels does that — the calls are spread across elementwise adds, slices,
 layout conversions and reductions. **So the whole kernel programme is worth about 1.6x and the
 remaining 4x is inside the 2.107 ms per call.** At a pessimistic 0.24 ms per verb the step lands
 near 51 s, which is 9.1x on its own.
+
+**Two corrections to that list, made this pass and both binding on the rows (R205, R206).**
+
+**R205 — the "9.1x on its own" is wrong by a dropped term, and its own floor refutes it.** The
+partition is step **466.702 s**, backward **456.668 s**, non-backward **10.034 s**; of the
+backward, **356.00 s** is the 168,922 verb calls and the other **100.668 s is not verb calls at
+all**. Repricing verbs at 0.24 ms gives 40.5 s, so the step becomes 10.034 + 100.668 + 40.5 =
+**151.24 s, which is 3.09x** — the 51 s figure is 10.034 + 40.5 with the 100.668 s silently
+dropped. The cross-check settles it without measuring anything: 50.58 s against H200's 7-8 s is
+**6.3-7.2x, below the ~8.5x compute / ~11x bandwidth silicon ratio**, so the 9.1x reading requires
+beating the hardware. 3.09x leaves 18.9-21.6x and is consistent. **A projection that breaches your
+own floor is arithmetic, not optimism.** J0's rank is unchanged; what it may promise is.
+
+**R206 — J0 and the kernel jobs are SUBSTITUTES, so their seconds must never be summed.** Every
+kernel saving on the list is (verbs removed) x (cost per verb) priced at today's 2.107 ms. J1's
+"≥46.4 s" is (31,104 − 9,072) x 2.107 ms; at J0's 0.24 ms the identical job saves **5.3 s**. So
+three kernel rows may be optimising work J0 is about to make nearly free, and 3.09x plus
+J1+J2+J4's ~94 s double-counts — that sum lands suspiciously exactly on the hardware floor, which
+is the tell. **Every saving is quoted against a STATED per-verb cost and the sprint total is a
+re-measurement, never a sum.** Not a reason to cancel the kernel rows: J0 may fail, and removing
+CALLS helps at either per-verb cost.
 
 That is why **J0 (`of3t-bwattrib`) is dispatched first and gates nothing**: it is worth ~315 s
 against J1's ≥46.4 s, J2's ~32.8 s and J4's 5-15 s, it settles J3's unresolved 14x bracket (2
