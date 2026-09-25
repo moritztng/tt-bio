@@ -29,6 +29,12 @@ Predictions and designs per hour per server, and throughput per dollar of purcha
 
 Create a Python virtual environment with Python 3.10 or 3.12, install with the Tenstorrent extra, then install the matching Tenstorrent system dependencies.
 
+We test on Ubuntu 24.04 (glibc 2.39, Python 3.12). The `ttnn` wheel is tagged
+`manylinux_2_34` and imports `GLIBC_2.34` symbols, so glibc 2.34 or newer is required:
+RHEL 8 and its rebuilds ship glibc 2.28 and cannot install it. See
+[Troubleshooting](#troubleshooting) for the CPU frequency driver check, which matters more
+than anything else about the host.
+
 ```bash
 python3.10 -m venv env
 source env/bin/activate
@@ -65,6 +71,27 @@ tt-bio msa --help
 ```
 
 ### Troubleshooting
+
+**Check the CPU frequency driver first.** On an AMD host:
+
+```bash
+cat /sys/devices/system/cpu/cpu0/cpufreq/scaling_driver   # want: amd-pstate-epp
+```
+
+If it reads `acpi-cpufreq`, every ttnn op pays a fixed extra host cost, measured at roughly
+5 to 12 microseconds, and throughput drops across every model. The symptom is distinctive:
+per-op device time is unchanged and the loss tracks a model's op count rather than its
+size, so a fold that issues 25k ops loses far more than an embedding that issues 1k. One
+user measured Boltz-2 at 1.29 structures/s under a 5.4 kernel with `acpi-cpufreq` and
+2.14 structures/s on the same box, same binaries, after booting a kernel that gives
+`amd-pstate-epp`.
+
+`amd-pstate-epp` needs Linux 6.3 or newer. A kernel configured with
+`CONFIG_X86_AMD_PSTATE_DEFAULT_MODE=3` selects it with no boot flag; Ubuntu 24.04 does
+this. On an older kernel that has the driver but does not default to it, add
+`amd_pstate=active` to the kernel command line. Kernels before 6.3 (RHEL 8, Oracle UEK 6,
+anything 4.18 or 5.4) have no amd-pstate at all.
+
 Single-host prediction needs no MPI setup of yours. tt-metal ships the OpenMPI it wants, and a
 system OpenMPI on the environment breaks that build instead of replacing it: with `OMPI_MCA_*` or
 `OPAL_PREFIX` set, or a foreign `libmpi` on `LD_LIBRARY_PATH`, `MPI_Init` aborts before the fold
