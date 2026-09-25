@@ -240,11 +240,17 @@ def _v_softmax(shipped, args, kwargs):
     return out
 
 
-def _unary(fn, reads_output=False):
+def _unary(fn=None, reads_output=False, fused=None):
     """Register a unary eltwise verb whose backward is `fn(x_value, out_value) -> dy/dx`.
 
     An `output_tensor=` argument is dropped, which is the in-place case: the shipped verb
-    writes its result over its input and the tape needs the input to still be there.
+    writes its result over its input and the tape needs the input to still be there. That
+    drop is also why a `fused` rule may read the input: under the tape the shipped verb
+    allocates, so `x.value` is never the output's buffer.
+
+    `fused(g, x_value, out_value) -> dx` replaces the whole `multiply(g, fn(...))` chain
+    where the wheel already ships the backward as one kernel. Same expression, fewer verbs,
+    and no intermediate derivative is materialised at all.
     """
     def impl(shipped, args, kwargs):
         x = _wrap(args[0])
@@ -256,7 +262,8 @@ def _unary(fn, reads_output=False):
             def bw(g):
                 # Through the Tensor for the input and through the box for the output:
                 # `free` may have evicted either to DRAM.
-                x.add_grad(ttnn.multiply(g, fn(x.value, box[0])))
+                x.add_grad(fused(g, x.value, box[0]) if fused is not None
+                           else ttnn.multiply(g, fn(x.value, box[0])))
             return bw
 
         out = _tape(out_v, [x], make)
@@ -276,13 +283,17 @@ def _unary(fn, reads_output=False):
     return impl
 
 
-_VERBS["silu"] = _unary(
-    # sigma * (1 + x * (1 - sigma)). The output is not invertible, so the input is read.
-    lambda xv, y: (lambda s: ttnn.multiply(
-        s, ttnn.add(ttnn.multiply(xv, ttnn.rsub(s, 1.0)), 1.0)))(ttnn.sigmoid(xv)))
-_VERBS["sigmoid"] = _unary(lambda xv, y: ttnn.multiply(y, ttnn.rsub(y, 1.0)),
-                           reads_output=True)
-_VERBS["relu"] = _unary(lambda xv, y: ttnn.gtz(xv))
+# The three eltwise activations the wheel already backpropagates in one kernel. What they
+# replaced, so the expression is on the page rather than only in the history:
+#   silu     sigma * (1 + x * (1 - sigma)), then multiply by g -- six verbs
+#   sigmoid  y * (1 - y), then multiply by g              -- three verbs
+#   relu     (x > 0), then multiply by g                  -- two verbs
+# `sigmoid_bw` takes the input and recomputes the sigmoid where the composed form read the
+# retained output; `relu_bw` takes the input, which is what `gtz` read. Neither changes which
+# tensors the node keeps alive, because `_tape` pins the input regardless.
+_VERBS["silu"] = _unary(fused=lambda g, xv, y: ttnn.silu_bw(g, xv)[0])
+_VERBS["sigmoid"] = _unary(fused=lambda g, xv, y: ttnn.sigmoid_bw(g, xv)[0])
+_VERBS["relu"] = _unary(fused=lambda g, xv, y: ttnn.relu_bw(g, xv)[0])
 _VERBS["exp"] = _unary(lambda xv, y: y, reads_output=True)
 # of3t-trunkceiling, NOT SHIPPED -- stays on wk/of3t-trunkceiling. Without it the 5-op
 # `_accurate_softmax` chain cannot be taped at all: its -60 floor is a `ttnn.clamp` and the tape

@@ -18,40 +18,13 @@ import pathlib
 import statistics
 import subprocess
 import sys
-import threading
 import time
 
 import numpy as np
 import ttnn
 
-TT_SMI = os.path.expanduser("~/.local/bin/tt-smi")
-
-
-class ClockSampler(threading.Thread):
-    """AICLK sampled DURING the timed region. Right-aligned string in the json, so int()."""
-
-    def __init__(self, card):
-        super().__init__(daemon=True)
-        self.card, self.samples, self._done = card, [], threading.Event()
-
-    def run(self):
-        while not self._done.is_set():
-            try:
-                out = subprocess.run([TT_SMI, "-s"], capture_output=True, text=True,
-                                     timeout=20).stdout
-                devs = json.loads(out).get("device_info") or []
-                i = min(int(self.card), len(devs) - 1)
-                self.samples.append(int(str(devs[i]["telemetry"]["aiclk"]).strip()))
-            except Exception:
-                pass
-            self._done.wait(0.5)
-
-    def stop(self):
-        self._done.set()
-        self.join(timeout=10)
-        s = self.samples
-        return {"n": len(s), "min": min(s) if s else None,
-                "median": statistics.median(s) if s else None, "max": max(s) if s else None}
+sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[2]))
+from perf.clocksample import TT_SMI, during                           # noqa: E402
 
 
 def _t(v, dt, dev, layout=ttnn.TILE_LAYOUT):
@@ -141,8 +114,8 @@ def main() -> int:
     dt = {"float32": ttnn.float32, "bfloat16": ttnn.bfloat16}[a.dtype]
 
     dev = ttnn.open_device(device_id=0)
-    clk = ClockSampler(a.card)
-    clk.start()
+    clk = during(period=1.0)
+    clk.__enter__()
     out = {"host": os.uname().nodename, "card": a.card, "board": None,
            "dtype": a.dtype, "shape": shape, "reps": a.reps, "iters": a.iters, "ops": {}}
     try:
@@ -196,9 +169,11 @@ def main() -> int:
                   f"delta {(m_a-m_b)*1e3:8.3f} ms  A/A floor "
                   f"{out['ops'][op]['aa_floor_rel']*100:.2f} %", flush=True)
     finally:
-        out["aiclk_during"] = clk.stop()
+        clk.__exit__()
+        out["aiclk_during"] = clk.summary()
+        out["aiclk_line"] = clk.line()
         ttnn.close_device(dev)
-    print("AICLK during:", out["aiclk_during"], flush=True)
+    print(out["aiclk_line"], flush=True)
     p = pathlib.Path(a.out); p.parent.mkdir(parents=True, exist_ok=True)
     p.write_text(json.dumps(out, indent=1))
     print("wrote", p)

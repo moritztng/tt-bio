@@ -62,6 +62,8 @@ def _sig(x):
 
 
 REF = {
+    "relu_in": (lambda x: np.maximum(x, 0.0),
+                lambda g, x: (g * (x > 0.0),)),
     "mul":     (lambda a, b: a * b,
                 lambda g, a, b: (g * b, g * a)),
     "scale":   (lambda x, f: x * f,
@@ -146,6 +148,18 @@ def arms(name, dev, dt, rng):
         return (a, b), g, {"composed": composed, "wheel": wheel}, [
             "tt_bio.autograd.add.grad_a", "tt_bio.autograd.add.grad_b"]
 
+    if name == "relu_in":
+        # `_VERBS["relu"]` in taped_ttnn reads the INPUT (`gtz(xv)`), so its substitution is
+        # relu_bw on the input. Same function, different retained tensor, own reading.
+        x = rng.standard_normal((2, 256, 128))
+        x.ravel()[:64] = 0.0
+        g = rng.standard_normal((2, 256, 128))
+        tx, tg = D(x), D(g)
+        composed = [_np(ttnn.multiply(tg, ttnn.gtz(tx)))]
+        wheel = [_np(ttnn.relu_bw(tg, tx)[0])]
+        return (x,), g, {"composed": composed, "wheel": wheel}, [
+            "tt_bio.taped_ttnn.relu.grad_x"]
+
     if name == "relu":
         x = rng.standard_normal((2, 256, 128))
         x.ravel()[:64] = 0.0                          # the kink, on purpose
@@ -158,6 +172,8 @@ def arms(name, dev, dt, rng):
             "tt_bio.autograd.relu.grad_x"]
 
     if name == "sigmoid":
+        # Both sites end up here: `autograd.sigmoid` composed off the retained output and
+        # `_VERBS["sigmoid"]` composed off the same, and both now call sigmoid_bw on the input.
         x = rng.standard_normal((2, 256, 128)) * 4.0  # saturating tails, where y*(1-y) is small
         g = rng.standard_normal((2, 256, 128))
         tx, tg = D(x), D(g)
@@ -243,7 +259,8 @@ def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--dtype", default="float32", choices=["float32", "bfloat16"])
     ap.add_argument("--out", default="/tmp/of3t/of3t-wheelbw/vjp.json")
-    ap.add_argument("--ops", default="mul,scale,add,relu,sigmoid,silu,reshape,narrow,concat")
+    ap.add_argument("--ops",
+                    default="mul,scale,add,relu,relu_in,sigmoid,silu,reshape,narrow,concat")
     a = ap.parse_args()
     dt = {"float32": ttnn.float32, "bfloat16": ttnn.bfloat16}[a.dtype]
 
