@@ -1,0 +1,44 @@
+{
+ "exact_softmax": false,
+ "installed_inside_the_scope": false,
+ "installed_from": null,
+ "counters": {
+  "verb": 0,
+  "raw": 0,
+  "raw_elements": 0
+ },
+ "why_counters": "`verb` is the taped verb (exact forward and Jacobian); `raw` is the module-wide ttnn.softmax, the only reach into triangle_attention._scores. Both 0 on the control arm is the check that the control ran without the lever.",
+ "argv": [
+  "--census-out",
+  "/home/ttuser/.coworker/wt/of3t-modelever/perf/of3t_modelever/CENSUS_SHIP_A.json",
+  "--lever",
+  "none",
+  "--",
+  "--boundary",
+  "/home/ttuser/of3t_modelframe/boundary_model_n384.pt",
+  "--cap-last",
+  "/home/ttuser/of3t_recut/cot_external.pt",
+  "--out",
+  "/home/ttuser/of3t_modelever/dev_SHIP_A.pt",
+  "--report",
+  "/home/ttuser/.coworker/wt/of3t-modelever/perf/of3t_modelever/DEV_SHIP_A.json",
+  "--arm",
+  "flipped",
+  "--crop",
+  "0"
+ ],
+ "environment": {
+  "host": "tt-quietbox2",
+  "card": 1,
+  "board_class": "p300c",
+  "aiclk_mhz_sampled_DURING": {
+   "n": 40,
+   "min": 800,
+   "median": 1350,
+   "max": 1350
+  },
+  "host_quiet": "device fd holder pid 262469 BUSY (200 ticks/2s, owner of3t-cropwall): /home/ttuser/tt-bio-dev/env/bin/python3 -u perf/of3t_crop640/split_trace.py --tokens 576 -\nloadavg1 1.85 (ceiling 2.00)\nHOST NOT QUIET -- your timing read is contaminated even with an idle sibling and a forced clock. Wait it out or DEFER. Do not measure and explain it afterwards.",
+  "git_commit": "28ba681c41c46cf3f21af90b8675a195e724230f",
+  "stamped_after_the_run": "copied from DEV_SHIP_A.json provenance, written by the same runner"
+ }
+}

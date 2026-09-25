@@ -1,0 +1,196 @@
+{
+ "doc": "Price D56's lever at the op, where host load cannot reach it.",
+ "argv": [
+  "--tokens",
+  "384",
+  "--iters",
+  "40",
+  "--blocks",
+  "4",
+  "--out",
+  "perf/of3t_stepfloor/out/renorm_micro_384.json"
+ ],
+ "env": {
+  "tt_visible_devices": "3",
+  "loadavg_start": [
+   9.93603515625,
+   9.6943359375,
+   9.12060546875
+  ],
+  "calls_per_step": 4251,
+  "arch": "Arch.BLACKHOLE",
+  "loadavg_end": [
+   11.14794921875,
+   9.9296875,
+   9.2099609375
+  ],
+  "aiclk_during": {
+   "0": {
+    "min": 800,
+    "max": 1350,
+    "median": 1350,
+    "n": 10
+   }
+  },
+  "aiclk_line": "CLOCK: dev0 min 800 / median 1350 / max 1350 MHz over 10 samples, polled DURING the work"
+ },
+ "config": {
+  "crop": 384,
+  "iters": 40,
+  "blocks": 4
+ },
+ "build_fold_s": 3.67,
+ "prep_to_sampler_s": 8.15,
+ "capture": {
+  "trunk_inputs_snapshotted": true,
+  "trunk_inputs_dead_at_capture": 0,
+  "trunk_forward_s": 4.809,
+  "trunk_forward_note": "the shipped call, progress_fn INCLUDED and cold; the timed arms below drop it",
+  "trunk_cycles": 4,
+  "reached_sampler": true
+ },
+ "shape_capture_s": 3.242,
+ "shapes_seen": [
+  {
+   "shape": [
+    36,
+    4,
+    384,
+    384
+   ],
+   "count": 1080
+  },
+  {
+   "shape": [
+    24,
+    4,
+    384,
+    384
+   ],
+   "count": 108
+  },
+  {
+   "shape": [
+    1,
+    16,
+    384,
+    384
+   ],
+   "count": 48
+  },
+  {
+   "shape": [
+    8,
+    384,
+    384
+   ],
+   "count": 3
+  }
+ ],
+ "per_shape": [
+  {
+   "shape": [
+    36,
+    4,
+    384,
+    384
+   ],
+   "count_in_forward": 1080,
+   "on_ms": [
+    0.6,
+    0.5997,
+    0.5966,
+    0.596
+   ],
+   "off_ms": [
+    0.4472,
+    0.4254,
+    0.4241,
+    0.4357
+   ],
+   "on_median_ms": 0.5982,
+   "off_median_ms": 0.4305,
+   "delta_ms": 0.1677,
+   "step_s_if_every_call_this_shape": 0.713
+  },
+  {
+   "shape": [
+    24,
+    4,
+    384,
+    384
+   ],
+   "count_in_forward": 108,
+   "on_ms": [
+    0.3788,
+    0.4026,
+    0.4025,
+    0.4203
+   ],
+   "off_ms": [
+    0.2998,
+    0.2999,
+    0.2883,
+    0.2995
+   ],
+   "on_median_ms": 0.4026,
+   "off_median_ms": 0.2997,
+   "delta_ms": 0.1029,
+   "step_s_if_every_call_this_shape": 0.437
+  },
+  {
+   "shape": [
+    1,
+    16,
+    384,
+    384
+   ],
+   "count_in_forward": 48,
+   "on_ms": [
+    0.1,
+    0.0768,
+    0.0769,
+    0.0766
+   ],
+   "off_ms": [
+    0.075,
+    0.0525,
+    0.053,
+    0.0664
+   ],
+   "on_median_ms": 0.0769,
+   "off_median_ms": 0.0597,
+   "delta_ms": 0.0172,
+   "step_s_if_every_call_this_shape": 0.073
+  },
+  {
+   "shape": [
+    8,
+    384,
+    384
+   ],
+   "count_in_forward": 3,
+   "on_ms": [
+    0.046,
+    0.0523,
+    0.0498,
+    0.0484
+   ],
+   "off_ms": [
+    0.0289,
+    0.0306,
+    0.0742,
+    0.0314
+   ],
+   "on_median_ms": 0.0491,
+   "off_median_ms": 0.031,
+   "delta_ms": 0.0181,
+   "step_s_if_every_call_this_shape": 0.077
+  }
+ ],
+ "step_cost_bound_s": {
+  "min": 0.073,
+  "max": 0.713,
+  "note": "the lever's step cost lies between these, because every one of the 4251 calls takes one of the shapes measured"
+ }
+}

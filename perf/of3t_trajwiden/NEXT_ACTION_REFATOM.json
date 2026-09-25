@@ -1,0 +1,43 @@
+{
+ "what": "the next pass's action, specified and de-risked: route the trajectory's diffusion atom encoder through the device ref-atom embedder so 0.75304 points of coupled scope become reachable. Written because the obvious version of this change does not work, and finding that out after a run is what the check below avoids.",
+ "the_prize": {
+  "coupled_scope_today": 88.08194359237523,
+  "points_added": 0.75304,
+  "coupled_scope_after": 88.83498359237522,
+  "of_a_span_of": 89.2106,
+  "share_of_the_remaining_headroom": 66.72,
+  "single_heaviest_tensor": {
+   "name": "diffusion_module.atom_attn_enc.ref_atom_feature_embedder.linear_ref_pos",
+   "pct_of_model_mass": 0.6734034330383528
+  }
+ },
+ "the_cost_is_HALF_what_this_row_first_said": {
+  "first_estimate": "1.9 h, both sides re-run at 16 threads",
+  "corrected": "the device side ALONE, 3335.86 s as paid on qb2 card 1 at OMP_NUM_THREADS=3, about 0.93 h",
+  "why": "the reference side never needs re-running. Verified, not assumed: /home/ttuser/of3t_runs/trajwide/w/theirs/k20.npz holds 761 tensors and ALL EIGHT ref_atom_feature_embedder entries, at every one of the 20 rungs. The same file for the `shipped` arm holds 573 tensors and ZERO of them. So upstream's trajectory for these weights is already banked and only our side is missing.",
+  "check_that_established_it": "np.load(w/<arm>/k20.npz).keys() filtered on 'ref_atom_feature_embedder'"
+ },
+ "why_the_one_line_version_FAILS": {
+  "the_tempting_change": "in perf/of3t_trajwide/trajwide.py:559, swap HP.ref_atom_embed(...) for HP.ref_atom_embed_device(...) and pass cl0_d/plm0_d into build_dm_device_aux instead of cl0/plm0.",
+  "why_it_does_not_work": "tt_bio/openfold3_host_prep.py:262 ref_atom_embed_device constructs `rafe = RefAtomFeatureEmbedder(w, compute_kernel_config)` INSIDE the function, calls it once, and returns tensors. The module is transient. Two consequences, and each alone is fatal: (a) weights_for(fwd, None, model=composed) discovers by walk_device_weights(composed), and a module that no attribute of `composed` holds is not reachable by a walk of attributes, lists and dicts -- the 8 weights would simply be absent from the parameter set, silently; (b) the call sits OUTSIDE the taped per-step fwd(), so even if they were discovered no cotangent would reach them on any step and the optimizer would step 8 weights whose gradient is always None.",
+  "the_standing_lesson_this_is": "memory `device-computed-weight-invisible-to-training`: the parameter set comes from a walk and the walk runs the forward, so host-side, fused and lazily-materialised weights all look identical in a reach table. Also `eligibility-firing-condition-is-not-a-code-fact`: TT_BIO_OF3_DEVICE_REFATOM is wired at worker.py:1561 on the shipped fold path, and the trajectory does not run that path.",
+  "RefAtomFeatureEmbedder_is_walkable": "tt_bio/openfold3.py:121 -- it IS a Module subclass, so it is discoverable once something holds it. The blocker is ownership and call placement, not the class."
+ },
+ "the_change_that_does_work": [
+  "1. Build RefAtomFeatureEmbedder ONCE from _sub(_sub(dmsd, 'atom_attn_enc'), 'ref_atom_feature_embedder') and HOLD it as an attribute of the same `composed` object trajwide.py:663 passes to weights_for(model=...), beside dc and dm. Do not call ref_atom_embed_device, which owns its module and throws it away.",
+  "2. Precompute only the INPUTS once (ref_atom_device_inputs(dev, feats, atom_mask, n_pad)) -- they are features, not weights, and they do not change across steps.",
+  "3. Call the held embedder INSIDE the taped fwd(), before the diffusion module, and feed its cl0_d/plm0_d straight in where trajwide.py:652 currently passes T(aux['cl0_d']) and T(aux['plm0_d']). That is what puts the 8 weights on the tape every step.",
+  "4. Drop the HP.ref_atom_embed host call at line 559 and pass cl0=None, plm0=None to build_dm_device_aux, keeping the rest of aux (the windowing and broadcasts) as is."
+ ],
+ "the_cheap_check_to_run_BEFORE_the_093_h": {
+  "what": "build the composed object, run the discovery walk, and assert the 8 names are in the parameter set and that each resolves a gradient after ONE taped backward.",
+  "why": "it is seconds on the card against 0.93 h, and it fails for either of the two reasons above without producing a trajectory to misread. A 20-step run whose 8 new weights silently carry no gradient would score 581 tensors with 8 of them frozen, and the scope percentage would go UP while the trajectory got less honest.",
+  "assertions": [
+   "len([p for p in params if 'ref_atom_feature_embedder' in p]) == 8",
+   "every one of the 8 has grad is not None after one backward seeded by the captured cotangent",
+   "tape_resolves_after_step counts 8 more than the 980 trajwide recorded",
+   "the forward is unchanged where it should be: cl0_d/plm0_d from the held embedder must match HP.ref_atom_embed's host output to the device/host precision floor, or the change moved the function instead of moving where it runs"
+  ]
+ },
+ "what_it_does_NOT_buy": "nothing about the other 0.3756 points of coupled headroom (FUSED_NOT_SPLIT's 96 diffusion_transformer tensors at 0.2715 % and the atom_transformer blocks), nothing about the union scope, and nothing about cross-section coupling. And it does not move any shipped default: the trajectory harness routing its own atom encoder on device is a measurement choice. TT_BIO_OF3_DEVICE_REFATOM stays default-off for inference, where the bit-identity constraint applies."
+}

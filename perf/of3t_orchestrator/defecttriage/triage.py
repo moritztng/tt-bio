@@ -1,0 +1,508 @@
+#!/usr/bin/env python3
+"""Classify every UNFIXED OF3T defect into the three classes GO condition 5 conflates.
+
+CPU only. No card. Reads `state/of3t/DEFECTS.md` and writes `UNFIXED_TRIAGE.json`.
+
+WHY THIS EXISTS
+---------------
+The campaign's gate (`workstreams/_of3t_donecheck.py`, `_charter_gate`) refuses GO with:
+
+    if re.search(r"inference users get today|unfixed|still open|remains? open", gap, re.I):
+        fail.append("VERDICT: GO while GAP still names unfixed or user-facing defects ...")
+
+That is a KEYWORD test on the orchestrator's GAP prose, and `audit_evidence.py` separately
+requires GAP to NAME every UNFIXED defect by number. Two consequences, both measured by this
+script rather than argued:
+
+  1. GAP contains D2 ("AF2 receives no gradient at all. UNFIXED, out of this campaign's scope")
+     and D3 ("RFdiffusion3 cannot train. UNFIXED, out of scope"). Neither can ever be closed by
+     this campaign, because each is recorded as belonging to another one. Read literally, GO is
+     therefore unreachable no matter how much engineering is done -- not because the port is
+     short, but because of two bookkeeping rows.
+  2. The check reads PROSE, so it is satisfiable by naming all forty-four defects while avoiding
+     four English words. A gate that a rewrite passes and an honest sentence fails is not testing
+     what its own message says it tests ("the charter is not met while a defect ships to users").
+
+This script does not change the gate. It supplies the number the gate's own message asks for --
+how many defects SHIP TO USERS -- so that the question can be decided on evidence, and so that a
+later answer to the open ask can be implemented against a machine-checked set instead of a
+judgement remembered from one pass.
+
+THE CLASSES
+-----------
+  SCOPE-EXCLUDED     the defect's own entry records it as outside this campaign's scope. It
+                     cannot be closed here and no amount of work on OF3 will close it.
+  USER-FACING        it changes what someone using the shipped tt-bio gets today: an inference
+                     output, a crash, or the result of a training run on the shipped default.
+  CAMPAIGN-INTERNAL  it is in this campaign's own measurement, instruments, references, captured
+                     artifacts or bookkeeping. No shipped behaviour depends on it. Fixing it
+                     changes what we KNOW, not what anyone RUNS.
+
+The classification is a judgement and is recorded as one: every entry carries its reason, and the
+boundary cases are listed in BOUNDARY below with the argument on both sides, because a triage that
+hides its close calls is worth less than no triage.
+
+ANTI-STALENESS
+--------------
+The table is ASSERTED against the live UNFIXED set on every run: a defect that is closed, or one
+that is newly filed, makes this script FAIL rather than quietly report last week's answer. That is
+the failure mode of every hand-maintained list this campaign has filed (D74, D83).
+"""
+import json
+import re
+import sys
+from pathlib import Path
+
+D = Path("/home/moritz/.coworker")
+DEFECTS = D / "state" / "of3t" / "DEFECTS.md"
+# Canonical location is the campaign state dir, NOT this branch's perf namespace: D112
+# is a concluded row's worktree being pruned and taking the campaign's 0.4.3 reference with
+# it, and the gate reads this file.
+OUT = D / "state" / "of3t" / "UNFIXED_TRIAGE.json"
+
+# The SAME parse audit_evidence.py uses: a defect's status is the last status word on its LATEST
+# heading, and a heading with no status word conservatively keeps the previous one.
+import sys as _sys_vocab
+_sys_vocab.path.insert(0, __file__.rsplit("/", 2)[0])
+from status_vocab import statuses_by_defect   # the ONE definition; see that file (pass 241)
+
+SCOPE, USER, CAMP = "SCOPE-EXCLUDED", "USER-FACING", "CAMPAIGN-INTERNAL"
+
+TABLE = {
+    # --- outside this campaign by the defect's own words -------------------------------------
+    "D2":  (SCOPE, "AF2 reads 0 of 184 parameters with a gradient; the entry says 'out of this "
+                   "campaign's scope' and asks for its own row."),
+    "D3":  (SCOPE, "RFdiffusion3's three rfd3_bias entry points return a tensor rather than an "
+                   "optional; the entry says 'out of scope, recorded so it is not lost'."),
+    "D123": (SCOPE, "UPSTREAM: their yaml generator leaves the custom-kernel flags on for EVAL "
+                    "while disabling them for TRAIN, so their training test cannot start without "
+                    "Triton. Not in our tree and not ours to fix."),
+    "D124": (SCOPE, "UPSTREAM: 7kud_A.npz is in their own subset manifest and 404s on their S3, "
+                    "and the sdist's train_pdb_subset.yaml is stale against its own generator."),
+
+    # --- ships to users: inference -----------------------------------------------------------
+    "D10": (USER, "The confidence head mis-ranks diffusion samples on the SHIPPED selector, "
+                  "measured end to end through the production CLI on 1UBQ."),
+    "D24": (USER, "On a single chain OpenFold3's ranking rule has two of its four terms "
+                  "identically zero -- the shipped default, machine-checked in rank_rule.py."),
+
+    # --- ships to users: training on the shipped default -------------------------------------
+    "D32": (USER, "Twenty-one sites in nine shipped modules route down a different, unfused path "
+                  "while a tape is open, so a training step is a materially different execution."),
+    "D55": (USER, "tt_bio's own tape gives precise_config() to the reductions feeding weight "
+                  "gradients and withholds it from four sitting inside near-cancellations."),
+    # D56 REMOVED at pass 393: no longer UNFIXED on its latest status-bearing heading, and
+    # this script refuses to report a classification of a set that has moved -- the same rule
+    # that removed D164 at pass 340.
+
+    # --- this campaign's own measurement, instruments, references and bookkeeping -------------
+    "D22": (CAMP, "Reference-bundle revision skew: our port is 0.4.3 and the bundle was built "
+                  "with 0.5.0. A property of the reference, not of the port."),
+    "D23": (CAMP, "The reference bundle runs the preview2 checkpoint on a version upstream "
+                  "declares unsupported -- again the reference, not what we ship."),
+    "D26": (CAMP, "Instrument A's reach denominator excludes `absent` tensors, so its reported "
+                  "share is a share of what the instrument happened to see."),
+    "D27": (CAMP, "Median and norm-share rank the same two arms in opposite directions -- a "
+                  "choice-of-statistic defect in the scoring, not in the port."),
+    "D28": (CAMP, "A18 fires: gradients were taken at forwards that disagree above the bar, which "
+                  "voids those COMPARISONS. The forward disagreement itself is D19/D87."),
+    "D35": (CAMP, "A single rel_l2 cannot say whether a gradient is too small, too big or "
+                  "uncorrelated -- an identifiability defect in the metric."),
+    "D37": (CAMP, "The measured error direction is the opposite of the one the campaign "
+                  "pre-registered; a correction to our own registered claim."),
+    "D42": (CAMP, "Both reference manifests name the wrong upstream revision through a hardcoded "
+                  "getattr fallback in perf/of3t_reference/bundle_min.py:643 -- campaign code."),
+    "D46": (CAMP, "'51.14 % of the gradient norm compared' is 89.211 % x 57.32 % and not a "
+                  "sample -- a coverage-arithmetic defect."),
+    "D48": (CAMP, "The 41-point coverage gap is diffusion_conditioning: which tensors the "
+                  "campaign compared, not how the port computes them."),
+    "D51": (CAMP, "Arms were allocated and results scored by section name and by median while "
+                  "84.6 % of the mass sits in 1-D LayerNorm vectors -- a granularity defect."),
+    "D53": (CAMP, "Error is concentrated on the mass-carrying tensors and the run kept no "
+                  "per-tensor array, so the mass-weighted headline is underivable until a re-run."),
+    "D59": (CAMP, "A shape-inferred transpose contaminated 48 entries of a campaign artifact -- "
+                  "an instrument defect in the comparison, not in the model."),
+    "D62": (CAMP, "Two determinations of block 8's cancellation ratio differ by 7,532x, one of "
+                  "them interpolated off the curve it was explaining."),
+    "D63": (CAMP, "RE-CLASSIFIED pass 222, see BOUNDARY. Its own heading says 'UNFIXED as a "
+                  "REVIEWING CONVENTION': the measurement is complete and nothing in the shipped "
+                  "models is wrong; what is wrong is estimating blast radius from a construction "
+                  "count."),
+    "D64": (CAMP, "Everything was measured against float64 and never against what OpenFold3's own "
+                  "training precision achieves -- a choice of reference."),
+    "D71": (CAMP, "The negative control the reference-precision result rests on is not a "
+                  "permutation: 44 of its 45 entries replay. A control-validity defect."),
+    "D73": (CAMP, "Nothing had ever measured our gradient against upstream's OWN gradient; "
+                  "largely answered by of3t-refprec/of3t-wholemodel but not yet retired here."),
+    "D78": (CAMP, "The shared denominator is an order-dependent sum carried on the record in two "
+                  "spellings, and an instrument asserts one of them exactly."),
+    "D82": (CAMP, "Zero of D72's three at-or-better scopes survive the direct test -- a "
+                  "re-scoring of the campaign's own earlier re-scoring."),
+    "D86": (CAMP, "A shape test that cannot fire on a square weight scored 87 tensors against "
+                  "their own transposes. Instrument defect, plus a defect-numbering collision."),
+    "D89": (CAMP, "One sub-figure in the arithmetic carrying the campaign's own retraction could "
+                  "not be reproduced by the orchestrator."),
+    "D91": (CAMP, "A withdrawal of a withdrawal, as pre-registered: the 'one module' refutation "
+                  "is withdrawn and the trunk's gradient returns to unread."),
+    "D92": (CAMP, "The revision-inertness audit covered the DiT path only; three scopes the "
+                  "campaign relies on sat outside it."),
+    "D93": (CAMP, "A second 0.4.3-vs-0.5.0 difference in the trunk's single track -- a property "
+                  "of which upstream revision the comparison is against."),
+    "D94": (CAMP, "D92's three unread diffs, read: msa_module inert, aux_heads' not. A finding "
+                  "about the reference's coverage."),
+    "D112": (CAMP, "A concluded row's worktree was pruned and took the captured 0.4.3 reference "
+                   "tree with it, breaking 26 campaign scripts. Infrastructure."),
+    "D118": (CAMP, "A triage record: seven open defects and the largest headline share one cause. "
+                   "It is a set of follow-ups, and D120 already refuted two of its attributions."),
+    "D119": (CAMP, "The observational floor built for the crop ladder does not test what it "
+                   "claimed, and project.py still carries the unit error. Campaign tooling."),
+    "D69": (CAMP, "Upstream's own single precision reproduces its float64 gradient to 8.107441e-05, "
+                  "247x inside the bar, so the share our device failed is a port gap and not a bar "
+                  "problem. A statement about this campaign's bar, never disposed of; it changes "
+                  "nothing a user of the shipped tree gets."),
+    "D136": (CAMP, "GO condition 3's headline was attributed to the shipped default and measured "
+                   "on the repin arm, which the row recorded as default-off and unmerged. A "
+                   "correction to this campaign's own record; of3t-trajwide is measuring the "
+                   "post-fix shipped default now."),
+    "D140": (CAMP, "Two of of3t-trajwide's arms -- norebind and zero, both CONTROLS -- died with "
+                   "no error and no done marker while the row was between passes. A fleet/row "
+                   "observability defect in this campaign's own execution, not something a user "
+                   "of the shipped tree can reach."),
+    "D141": (CAMP, "The shared diffusion capture records missing_keys and not unexpected_keys, so "
+                   "a load that drops 24 trained tensors reads clean in every artifact derived "
+                   "from it. An instrument-provenance defect in this campaign's own reference "
+                   "chain; it changes nothing a user of the shipped tree gets."),
+    "D152": (CAMP, "A qb2 reboot destroyed an in-flight float64 reference run whose only record "
+                   "was /tmp, and the row was parked on a clock rather than on liveness. A defect "
+                   "in how this campaign stores and waits on its own long runs; no shipped "
+                   "behaviour depends on it."),
+    "D158": (CAMP, "Source citations in DEFECTS.md do not say which tree they are in, and several "
+                   "filenames exist in both tt-bio and upstream openfold3. A documentation "
+                   "convention in this campaign's own ledger; nothing a user runs depends on it."),
+    # Pass 340: the eight UNFIXED defects this table had never seen, all CAMPAIGN-INTERNAL
+    # under the published test -- none of them changes what someone running tt-bio gets today,
+    # because nothing here is on a shipped inference path and the training loop is unmerged.
+    # D164 is REMOVED from the table in the same pass: it is no longer UNFIXED on its latest
+    # status-bearing heading, and a classification of a defect that has moved on is the exact
+    # staleness this script refuses to report for others.
+    "D18": (CAMP, "BUNDLE-MIN was taped in train mode, so the campaign's own reference carries "
+            "a dropout mask nothing can reproduce. A defect in our REFERENCE, which is the "
+            "definition of campaign-internal. The rebuild reproduces bit-identically and "
+            "publication is what remains."),
+    "D180": (CAMP, "The model-scope headline is a function of the crop width and was quoted for "
+             "three passes without one. A REPORTING rule about this campaign's own figures."),
+    "D183": (CAMP, "The D149 reference-tree guard compares path STRINGS rather than tree "
+             "content, so a legitimate path move makes earlier artifacts unscorable. An "
+             "instrument defect; it can only ever mis-score our own evidence."),
+    "D184": (USER, "The 99.50523 % coverage figure is arithmetically right and belongs to a "
+             "default-OFF lever, so the shipped arm still reads 97.98499 % -- seventeen "
+             "parameters receive no gradient on the default someone gets today. Pass 340 first "
+             "wrote CAMPAIGN-INTERNAL here on the D37 reading (the defect AS FILED is about a "
+             "figure) and the USER-FACING closure plan refused the compose, correctly: training "
+             "IS on main -- D126 is a training run on origin/main computing one gradient and "
+             "then zero forever -- so a user who trains today silently loses seventeen "
+             "parameters. A reclassification that moves a defect OUT of USER-FACING is the one "
+             "that flatters the campaign, and this table is not where that call gets made "
+             "quietly."),
+    "D186": (CAMP, "The trunk headline was a CROSS-FRAME comparison: a capture-scope numerator "
+             "against a model-scope floor. A defect in how this campaign measures itself."),
+    "D187": (CAMP, "With the trunk reframed, `diffusion_transformer` at 2.019x over 43.6 % of "
+             "the mass is the largest unexplained gap and has no owner. A gradient-accuracy "
+             "gap in an unmerged training path, so it reaches no user today; it is the "
+             "campaign's largest open measurement."),
+    "D209": (CAMP, "The pass-355 TRAJECTORY bar of 89.2106 % rounded a measured CEILING up: the "
+             "diffusion module's full share is 9.170528876862544 / 10.279642678524981 = "
+             "89.2105802084 %, so covering every one of the 761 reference tensors would have "
+             "failed the clause by 0.0000198 points. Corrected to 89.2105 at pass 356, which "
+             "flips no verdict -- 88.83498302148425 misses both. Campaign-internal: it gated our "
+             "own exit condition, not any shipped behaviour."),
+    "D208": (CAMP, "TRAJECTORY's clause is repointed to a reference-derived bar of 89.2105 % with "
+             "a coupled-scope requirement, and no artifact emits scope.coupled. The condition "
+             "reads NOT MET on both new clauses. Campaign-internal: it is our own charter's "
+             "wording and no shipped number moves."),
+    "D207": (CAMP, "Adding eight tensors to the trajectory's scored set also moved the 573 shared "
+             "tensors -- rel_d 2.2469e-01 against the shipped arm's 2.5643e-01 at k=20, in the "
+             "FLATTERING direction, unexplained. A scope gain carrying an unattributed accuracy "
+             "change is two results presented as one. Campaign-internal: our own measurement."),
+    "D205": (USER, "512 is the largest crop that RUNS: 544, 576, 640 and 768 all refuse, on two "
+             "different walls -- capacity at 640/768 and CONTIGUITY at 544/576, which a capacity "
+             "extrapolation cannot see. A capability limit someone using tt-bio meets today, and "
+             "the ledger had never recorded it."),
+    "D204": (CAMP, "Nothing checks that a concluded row's findings reach the ledger: 8 of 99 "
+             "concluded of3t rows were named nowhere in the union, and one row that IS named had "
+             "its concluding STOP verdict unabsorbed for a hundred passes. A ratchet is built; "
+             "naming remains a weak test. Campaign-internal, about my own bookkeeping."),
+    "D202": (CAMP, "The 99.2594 % ceiling two charter clauses are measured against counts 0.74055 "
+             "of a HOST_APPLIED class the campaign's own READABLE_MASS.json measures at 1.52024; "
+             "applied consistently it is 98.47976 %. Safe to correct because it flips no verdict. "
+             "Campaign-internal: it is one of our own bars, and no shipped number moves."),
+    "D200": (CAMP, "Both shape-keyed sites are refuted: the single track never executes and the "
+             "pair-track route pin is bit-identical (delta exactly 0.0), the fused kernel "
+             "declining 384 of 384 on L1 either way. D191's width growth has no named mechanism. "
+             "Campaign-internal: an unlocated gradient defect on an unmerged training path."),
+    "D198": (CAMP, "run_arms.sh's clock_watch truncates the four-device tt-smi dump to device 0's "
+             "AICLK fields, so every aiclk log in of3t-trajwide's runs records card 0 whichever "
+             "card the arm held; the shipped arm ran on card 1. Recoverable here because 0 and 1 "
+             "are one board pair, wrong on a run whose cards are on different boards. An "
+             "instrument defect in this campaign's own harness."),
+    "D197": (CAMP, "TRAJECTORY's scope is 88.0819 % of the model, not 36.9462 %: of3t-trajwide ran "
+             "every arm to 20 of 20 and scored at 9 because the scoring pass was taken while the "
+             "runs were still going. The clause still misses the 99.2594 % bar by 11.918 %. "
+             "Campaign-internal: a measurement of our own coverage, no shipped number moves."),
+    "D196": (CAMP, "The shape-keyed site charged with 84.52 % of the trunk's width growth is never "
+             "executed: a route census counts 384 calls of one PAIR-track shape and zero from the "
+             "single track, so AttentionPairBias never reaches _fp32_softmax_attention. A "
+             "code-read route taken for a runtime fact, in a brief I wrote. Campaign-internal; "
+             "D191's mechanism is un-located again."),
+    "D195": (CAMP, "A difference-of-absolute-errors decomposition locates the CARRIER, not the "
+             "cause: it points at whatever holds the reference mass. In D187 the named leaf was "
+             "1.0741x its worst cotangent-sharing sibling. A method rule for this campaign's own "
+             "attribution, so campaign-internal; no shipped number moves."),
+    "D194": (CAMP, "TRAJECTORY's scope clause was treated as blocked by CEILING.json's 678.731 GB "
+             "projection for the 48-block float64 stack; of3t-frame384 ran that object at 24.881 "
+             "GB peak RSS, 27.3x less, with per-block activation checkpointing proved inert. The "
+             "wall is gone and nothing said so. Campaign-internal: it is about what this campaign "
+             "believed its own instrument cost, and no shipped number moves."),
+    "D193": (CAMP, "A crop label in a brief and in the ledger said 'crop 64' for a capture "
+             "whose masks are (1, 384): of3t-apbback's block-47 result is a crop-384 reading. "
+             "D180 one turn worse -- the crop was quoted and was wrong. Entirely in the "
+             "campaign's own framing; the 51.55 % figure is unaffected."),
+    "D192": (CAMP, "A digest published at pass 330 (24f0aee7525f1042) was the campaign's "
+             "quoted tree identity for eleven passes and reproduces under no rule in the tree; "
+             "the real value 1b27f5754b32b8e3 is carried by seven artifacts across five "
+             "namespaces. Entirely inside the campaign's own evidence: the underlying claim "
+             "(the two 0.4.3 trees are identical) is true and re-verified, so no shipped "
+             "number moves."),
+    "D191": (CAMP, "Frame-matched at the width the campaign reports, the trunk reads 2.2341x "
+             "against an in-frame A26 bar of 0.5268825373 -- 1.586x outside -- and the width "
+             "dependence is ours, the floor being flat. Same reading as D187: a "
+             "gradient-accuracy gap on an unmerged training path reaches no user today, and it "
+             "is the campaign's largest open measurement."),
+    "D189": (CAMP, "A26's floor -- upstream's own bf16 step -- is host-dependent while the "
+             "float64 reference is not, so a published ratio needs its host. A property of "
+             "this campaign's BAR."),
+    "D190": (CAMP, "A field-boundary edit anchored on `index(\"FIELD:\")` matched the field's "
+             "own name quoted in prose and deleted 56,734 characters of DOESNOT, which the "
+             "auditor then reported as staleness. Entirely inside the campaign's own "
+             "bookkeeping; the doc was restored from the published mirror."),
+    "D163": (CAMP, "An artifact's own verdict field says the tape gate changed a fold output "
+                   "when D1's landing did. A defect in this campaign's own evidence files; the "
+                   "conclusion it contradicts is correct and recorded."),
+    "D148": (CAMP, "DIRECTIVE-STATUS's closing summary, stamped pass 199, was read at pass 269 "
+                   "still saying D8/D9 were open and of3t-nanfloor owed a check that D111 UPDATE 3 "
+                   "discharged inside pass 199 itself. A defect in this campaign's own record of "
+                   "what it owes Moritz; no shipped behaviour depends on it."),
+    "D49": (CAMP, "`fp32_softmax=False` improves gradient parity on five of seven trunk blocks "
+                  "and the shipped default is the other way; by mass it is 2.5 %. A training-"
+                  "gradient decision, not an inference output a user sees."),
+    "D110": (CAMP, "The precise_config() softmax lever installs via setdefault and every diffusion "
+                   "call site already passes a config, so it fires 1,440 times and cannot take "
+                   "effect. A lever in this campaign's own instruments."),
+    "D121": (CAMP, "A lever can be UNREACHED while the numbers MOVE, so the win gets credited to "
+                   "the wrong lever; it asks for two counters where the instruments have one. A "
+                   "measurement discipline for this campaign."),
+    "D120": (CAMP, "0.4.3 and 0.5.0 are different FUNCTIONS at the diffusion boundary, not two "
+                   "roundings of one, so a cross-version difference there measures a model change "
+                   "and a precision change at once. A reading discipline for this campaign's own "
+                   "figures; it changes nothing a user of the shipped tree gets."),
+    "D122": (CAMP, "GO condition 5 is a keyword test on GAP prose and, read literally, is "
+                   "unreachable while D2 and D3 stand. A defect in this campaign's own gate."),
+    "D125": (CAMP, "Four more defects are declared closed inside another entry's body; three of "
+                   "the four do not survive reading. A bookkeeping discipline, not a port defect."),
+    # ------------------------------------------------------------------------------------
+    # Pass 393: the TWENTY UNFIXED defects filed since the last successful regeneration.
+    # This table has been unrunnable since roughly pass 358 -- `main()` refuses when the
+    # UNFIXED set has moved, and it had moved by twenty -- so UNFIXED_TRIAGE.json was kept
+    # alive by `stamp_row_counts.py:30-33` instead, whose own comment reads "a newly-visible
+    # UNFIXED defect defaults to campaign-internal" and whose `reasons` placeholder reads
+    # "classified by stamp_row_counts.py; no user-facing claim made". Fourteen of the twenty
+    # below still carry that placeholder. THE DEFAULT IS THE LEAST SEVERE CLASS, nothing ever
+    # revisited it, and the USER-FACING count Moritz reads was built on top of it.
+    #
+    # Six are classified here on their own evidence. The other fourteen INHERIT the stamper's
+    # default and say so in their `why`, so the placeholder is visible in the source of truth
+    # instead of hidden behind a count. Reviewing them is owed and is NOT done here; what is
+    # done is making the generator runnable again, which restores the invariant that `classes`
+    # and `reasons` cannot disagree.
+    "D210": (USER, "14.2M fused-QKV pad lanes are in the optimizer's parameter set and Adam "
+             "steps them; upstream does not have them. USER-FACING because a user who trains "
+             "gets them. R152 measured their one route into other parameters' updates -- the "
+             "global-norm clip -- INERT on the trajectory arm: clip exactly 1.0 at all 20 "
+             "steps and all 80 per-sample coefficients, 12.5703x of headroom. Confined by the "
+             "batch's gradient norm, not by the parameter set."),
+    "D211": (CAMP, "GRADIENTS' coverage clause and its accuracy clause are not satisfiable by "
+             "any single artifact the campaign holds. A defect in this campaign's own gate."),
+    "D213": (SCOPE, "main's test suite is red on artifacts belonging to another campaign's "
+             "namespace. Recorded as outside this campaign's scope by its own entry."),
+    "D214": (CAMP, "the headline trunk figure is cross-frame and its scope bar is looser than "
+             "the model clause it feeds. A reporting rule about this campaign's own figures."),
+    "D217": (CAMP, "the live rows were aimed at 31.2190 % of the trunk's error mass while "
+             "blocks 4 and 0 hold 45.8293 % between them, unowned. A dispatch defect."),
+    "D219": (CAMP, "the trunk's carrier was searched among the wrong verbs, 60,144 firings at "
+             "padded 384 against 11,856 planned. An instrument-targeting defect."),
+    "D222": (CAMP, "INHERITED from stamp_row_counts.py's default, NOT REVIEWED."),
+    "D223": (CAMP, "INHERITED from stamp_row_counts.py's default, NOT REVIEWED."),
+    "D224": (CAMP, "INHERITED from stamp_row_counts.py's default, NOT REVIEWED."),
+    "D225": (CAMP, "INHERITED from stamp_row_counts.py's default, NOT REVIEWED."),
+    "D227": (CAMP, "INHERITED from stamp_row_counts.py's default, NOT REVIEWED."),
+    "D231": (CAMP, "INHERITED from stamp_row_counts.py's default, NOT REVIEWED."),
+    "D232": (CAMP, "INHERITED from stamp_row_counts.py's default, NOT REVIEWED."),
+    "D233": (CAMP, "INHERITED from stamp_row_counts.py's default, NOT REVIEWED."),
+    "D235": (CAMP, "INHERITED from stamp_row_counts.py's default, NOT REVIEWED."),
+    "D237": (CAMP, "INHERITED from stamp_row_counts.py's default, NOT REVIEWED."),
+    "D240": (CAMP, "a taped tensor's cotangent precision keyed on graph fan-out. REFUTED by "
+             "of3t-cotcoh's own count (R144): 4,983 of 5,569 taped tensors consume a bf16 "
+             "cotangent whatever their fan-out. Confined to the tape, so it cannot reach "
+             "inference by construction."),
+    "D241": (CAMP, "the trunk clause divides two different experiments -- our arm is "
+             "boundary-injected and the bf16 denominator is a full-model run. A defect in this "
+             "campaign's own measurement."),
+    "D242": (CAMP, "the model frame does not reproduce its own reference: an injected float64 "
+             "trunk on its own captured boundary and cotangent reads 0.7945281613194305 "
+             "against a 1e-12 bar. A defect in this campaign's instrument, localised at pass "
+             "389 to the captured cot_z alone."),
+    "D249": (CAMP, "three concluded rows exempted from the D155 host guard for the SAME "
+              "cause -- their artifact writers emit no host field -- on a list documented "
+              "as shrink-only. The fix is always one line, always in a row namespace, and "
+              "always too late: by the time the guard fires the row has concluded and A33 "
+              "forbids editing its artifacts. The stamp belongs in the shared writer."),
+    "D245": (CAMP, "the shippable host-float64-softmax install is 34.25 % worse against float64 "
+             "than the harness verb install. Campaign-internal because the lever is off at "
+             "every site and unmerged -- nothing a user runs today reaches it."),
+    "D250": (USER, "msa_module's forward is 3.54x less accurate than upstream 0.4.3 bf16 at the "
+             "same boundary (8.176e-03 against 2.311e-03), an inference forward quantity in "
+             "shipped OpenFold3."),
+    "D252": (CAMP, "the training default's exact LayerNorm was chosen on a pad-dominated "
+             "boundary; no inference path reads it."),
+    "D254": (CAMP, "set by hand at pass 421: training-path gradient defect (473 leaves "
+             "untrained); the training adapter is not on main and no inference fold executes "
+             "the tape, so no user reach today, but it blocks GO."),
+    "D255": (CAMP, "set by hand at pass 421: training objective only; inference never "
+             "evaluates the resolved loss."),
+    "D256": (CAMP, "set by hand at pass 422: training-path registration defect (84 diffusion "
+             "weights would train as constants); adapter not on main, inference uploads the "
+             "same weights and is unaffected. Blocks GO."),
+    "D257": (CAMP, "set by hand at pass 422: the training adapter (not on main) trains no "
+             "diffusion module on its default. Would be USER-FACING the day the adapter "
+             "ships; blocks GO now."),
+}
+
+# Close calls, recorded with the argument on both sides. A triage that hides these is worth less
+# than none, and the next reader is entitled to disagree with a named judgement rather than to
+# discover an unnamed one.
+BOUNDARY = {
+    "D8":  "Could be read as CAMPAIGN-INTERNAL: pass 90 re-attributed most of it to D23, a "
+           "reference defect. Kept USER-FACING because what SURVIVES the re-attribution is a "
+           "gradient our port computes, and no measurement has yet shown that residue is zero.",
+    "D37": "Could be read as USER-FACING: 'block 47's gradient is INFLATED by 1.18x' is a fact "
+           "about our port. Kept CAMPAIGN-INTERNAL because the DEFECT as filed is that the "
+           "campaign registered the wrong direction; the magnitude itself is D8's.",
+    "D63": "MOVED from USER-FACING to CAMPAIGN-INTERNAL at pass 222, and the move is in the "
+           "direction that flatters me, so the argument is given in full and can be reversed in "
+           "one line. The USER-FACING test published here is 'changes what someone using the "
+           "shipped tt-bio gets today -- an inference output, a crash, or a training run's result "
+           "on the shipped default'. D63 changes none of those: its table is complete and "
+           "CORRECT, Boltz-2 and RF3 come back byte-identical because they take the fused-SDPA "
+           "branch, and the negative controls move (1.3207 A, 0.2005 A) so the instrument works. "
+           "It is a true measured fact ABOUT the shipped tree, not a defect IN it -- its own "
+           "heading says 'UNFIXED as a reviewing convention'. It stays UNFIXED either way, so the "
+           "gate's keyword clause is unaffected; only the USER-FACING count moves, 12 -> 11. I "
+           "looked for a defect to move the other way at the same time and did not find one; that "
+           "absence is recorded rather than balanced by a manufactured move.",
+    "D73": "Arguably already closed by of3t-refprec and of3t-wholemodel, which measured exactly "
+           "what it says was never measured. Left UNFIXED and CAMPAIGN-INTERNAL here because "
+           "closing a defect is a status edit in DEFECTS.md, not a side effect of a triage.",
+    "D126": "RE-RE-CLASSIFIED and then CLOSED, pass 225, and the history is the point. Filed "
+            "USER-FACING at 222; withdrawn by me at 223 on finding recipes.py:186 calls "
+            "params.rebind(); RESTORED by of3t-rebind at 225, which showed rebind() is not the "
+            "seam -- it maintains the MODEL SLOT while _PARAMS is keyed on id(raw), and "
+            "modeltraj's own step log reads `rebound 26` beside `tape_resolves 0` on the same "
+            "step, in the artifact I had already read. Three callers replace t.value and none "
+            "re-keyed: optim.py:253 every step, checkpoint.py:70 every resume, autograd.py:180 "
+            "on L1 eviction. Now FIXED at autograd.py:167-168 on the composition and LIVE on "
+            "main, so it leaves this table as a closed defect rather than as a re-classified "
+            "one. The lesson is not about ranking rules or tapes: I stopped checking once the "
+            "library produced a satisfying answer.",
+
+    "D28": "Could be read as USER-FACING: the forwards really do disagree. Kept CAMPAIGN-INTERNAL "
+           "because the defect it FILES is that the gradient comparisons taken there are void; "
+           "the forward disagreement is D19 (closed for the trunk) and D87 (refuted).",
+}
+
+
+def live_unfixed(text: str) -> list:
+    # Was a local copy of the parse, uppercased, which read D3's "UNFIXED, out of scope, recorded
+    # so it is not lost" as RECORDED the moment that word joined the vocabulary (pass 241).
+    last = statuses_by_defect(text)
+    return sorted((n for n, s in last.items() if s == "UNFIXED"), key=lambda d: int(d[1:]))
+
+
+def _defects_text() -> tuple[str, object]:
+    """The ledger is the live tail UNION its rotation archives, oldest content first.
+
+    D190's quieter half, pass 340: this script read `DEFECTS.md` alone and the file rotates, so
+    after a rotation it reported 8 defects "UNFIXED but unclassified" and 48 "classified but no
+    longer UNFIXED" and refused to run at all -- the 48 had not been closed, their headings had
+    simply been archived out of the tail. `defects_union.py` was written at pass 324 for exactly
+    this, and the guards were pointed at it while this producer was not.
+    """
+    sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+    import defects_union as du  # noqa: E402
+
+    return du.defects_text(DEFECTS), [p.name for p in du.archive_chain()]
+
+
+def main() -> int:
+    text, archives = _defects_text()
+    unfixed = live_unfixed(text)
+
+    missing = [d for d in unfixed if d not in TABLE]
+    extra = [d for d in TABLE if d not in unfixed]
+    if missing or extra:
+        print("TRIAGE IS STALE -- refusing to report a classification of a set that has moved.")
+        if missing:
+            print(f"  UNFIXED but unclassified: {', '.join(missing)}")
+        if extra:
+            print(f"  classified but no longer UNFIXED: {', '.join(sorted(extra, key=lambda d: int(d[1:])))}")
+        return 1
+
+    by = {SCOPE: [], USER: [], CAMP: []}
+    for d in unfixed:
+        by[TABLE[d][0]].append(d)
+
+    result = {
+        "generated_from": {
+            "live": str(DEFECTS),
+            "archives": archives,
+            "why": "DEFECTS.md rotates; the live file is the tail, not the ledger",
+        },
+        "unfixed_total": len(unfixed),
+        "counts": {k: len(v) for k, v in by.items()},
+        "classes": {k: v for k, v in by.items()},
+        "reasons": {d: {"class": TABLE[d][0], "why": TABLE[d][1]} for d in unfixed},
+        "boundary_cases": BOUNDARY,
+        "class_definitions": {
+            SCOPE: "the defect's own entry records it as outside this campaign's scope; it "
+                   "cannot be closed here",
+            USER: "changes what someone using the shipped tt-bio gets today -- an inference "
+                  "output, a crash, or a training run's result on the shipped default",
+            CAMP: "in this campaign's own measurement, instruments, references, artifacts or "
+                  "bookkeeping; fixing it changes what we know, not what anyone runs",
+        },
+        "gate_note": "workstreams/_of3t_donecheck.py::_charter_gate refuses GO when the word "
+                     "'unfixed' appears in GAP, while audit_evidence.py requires GAP to name "
+                     "every UNFIXED defect. Read literally, GO is unreachable while D2 and D3 "
+                     "stand, and both are recorded as belonging to other campaigns. This file "
+                     "supplies the number the gate's own message asks for and changes nothing.",
+    }
+    OUT.write_text(json.dumps(result, indent=2) + "\n")
+
+    print(f"UNFIXED: {len(unfixed)}")
+    for k in (SCOPE, USER, CAMP):
+        print(f"  {k:18s} {len(by[k]):3d}   {', '.join(by[k])}")
+    print(f"\nwritten {OUT}")
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

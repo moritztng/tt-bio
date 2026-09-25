@@ -1,0 +1,29 @@
+{
+ "what": "A/A floor: two identical device capture arms on qb1 card 0 p150a, 11 minutes apart, the masked cotangent and its operand at all 96 sites",
+ "host": "tt-quietbox",
+ "card": 0,
+ "board_class": "p150a",
+ "tensors": 192,
+ "moved": 0,
+ "worst_relative_move": 0.0,
+ "worst_at": null,
+ "AA_input_grads": {
+  "ds_A": 0.007717814414357276,
+  "ds_B": 0.007717814414357276,
+  "dz_A": 0.0013816688768226956,
+  "dz_B": 0.0013816688768226956,
+  "bit_identical": true
+ },
+ "INSTRUMENT_CONTROL_vs_banked_frame_matched_arm": {
+  "banked": "perf/of3t_modelframe/DEV_RENORM_MODEL_n384_nocaptures.json, qb2 card 2 p300c",
+  "ds_in_norm_ours": 0.007717814414357276,
+  "ds_in_norm_banked": 0.007717814414357276,
+  "dz_in_norm_ours": 0.0013816688768226956,
+  "dz_in_norm_banked": 0.0013816688768226956,
+  "bit_identical": true,
+  "derived_placements_bit_identical": 240,
+  "placed": 2736,
+  "absent": 0
+ },
+ "verdict": "bit-identical"
+}

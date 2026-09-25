@@ -1,0 +1,44 @@
+{
+ "doc": "The `nlp_create_qkv_heads` gradient, against float64, with the bytes each slot costs.",
+ "argv": [
+  "--tokens",
+  "256",
+  "--out",
+  "perf/of3t_cropwall/out/qkv_ab_pre.json"
+ ],
+ "env": {
+  "host": "tt-quietbox2",
+  "tt_visible_devices": "2",
+  "commit": "9de66106efdec39d2ef6f345d777051e2461f8f5",
+  "branch": "wk/of3t-cropwall",
+  "started_utc": "2026-09-23T00:22:07Z",
+  "arch": "Arch.BLACKHOLE"
+ },
+ "shape": {
+  "B": 256,
+  "L": 256,
+  "H": 4,
+  "dh": 32,
+  "wide": 384
+ },
+ "backward_s": 1.666,
+ "backward_dram_peak_b": 1619214336,
+ "backward_dram_peak_at_verb": "add",
+ "backward_largest_buffer_b": 536870912,
+ "dram_after_backward_b": 293814272,
+ "dram_before_b": 50348032,
+ "vs_float64": {
+  "max_abs": 0.0,
+  "max_rel": 0.0,
+  "mean_abs": 0.0,
+  "bit_exact": true,
+  "ref_absmax": 1.0,
+  "nonzero_share": 0.9999998410542806
+ },
+ "grad_digest": "68b639dc693788dc",
+ "grad_stats": {
+  "absmax": 1.0,
+  "sum": -463.45937633514404
+ },
+ "ok": true
+}

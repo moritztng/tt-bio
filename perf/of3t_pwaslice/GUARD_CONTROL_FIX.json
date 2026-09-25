@@ -1,0 +1,70 @@
+{
+ "batch": "/home/ttuser/of3t_fullstep64/batch_step003_t64.pt",
+ "denoise": true,
+ "commit": "f89f871ce09b134cb9fb3b6f1f76fd7c436d383e",
+ "fired": false,
+ "raw_param_slices": 72,
+ "by_weight_and_site": [
+  {
+   "weight": "trunk.msa_module.blocks.0.pwa.g_weight",
+   "site": "tt_bio/tenstorrent.py:10992",
+   "calls": 8
+  },
+  {
+   "weight": "trunk.msa_module.blocks.0.pwa.m_weight",
+   "site": "tt_bio/tenstorrent.py:10976",
+   "calls": 8
+  },
+  {
+   "weight": "trunk.msa_module.blocks.0.pwa.o_weight",
+   "site": "tt_bio/tenstorrent.py:11005",
+   "calls": 8
+  },
+  {
+   "weight": "trunk.msa_module.blocks.1.pwa.g_weight",
+   "site": "tt_bio/tenstorrent.py:10992",
+   "calls": 8
+  },
+  {
+   "weight": "trunk.msa_module.blocks.1.pwa.m_weight",
+   "site": "tt_bio/tenstorrent.py:10976",
+   "calls": 8
+  },
+  {
+   "weight": "trunk.msa_module.blocks.1.pwa.o_weight",
+   "site": "tt_bio/tenstorrent.py:11005",
+   "calls": 8
+  },
+  {
+   "weight": "trunk.msa_module.blocks.2.pwa.g_weight",
+   "site": "tt_bio/tenstorrent.py:10992",
+   "calls": 8
+  },
+  {
+   "weight": "trunk.msa_module.blocks.2.pwa.m_weight",
+   "site": "tt_bio/tenstorrent.py:10976",
+   "calls": 8
+  },
+  {
+   "weight": "trunk.msa_module.blocks.2.pwa.o_weight",
+   "site": "tt_bio/tenstorrent.py:11005",
+   "calls": 8
+  }
+ ],
+ "weights": [
+  "trunk.msa_module.blocks.0.pwa.g_weight",
+  "trunk.msa_module.blocks.0.pwa.m_weight",
+  "trunk.msa_module.blocks.0.pwa.o_weight",
+  "trunk.msa_module.blocks.1.pwa.g_weight",
+  "trunk.msa_module.blocks.1.pwa.m_weight",
+  "trunk.msa_module.blocks.1.pwa.o_weight",
+  "trunk.msa_module.blocks.2.pwa.g_weight",
+  "trunk.msa_module.blocks.2.pwa.m_weight",
+  "trunk.msa_module.blocks.2.pwa.o_weight"
+ ],
+ "sites": [
+  "tt_bio/tenstorrent.py:10976",
+  "tt_bio/tenstorrent.py:10992",
+  "tt_bio/tenstorrent.py:11005"
+ ]
+}

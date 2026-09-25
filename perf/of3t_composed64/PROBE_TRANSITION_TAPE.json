@@ -1,0 +1,22 @@
+{
+ "add_to_input returns its input wrapper": true,
+ "max|u|": 3.21875,
+ "max|y - x|": 0.0,
+ "max|y - (x + u)|": 3.21875,
+ "weight grad norms, t(x)": {
+  "norm_weight": 4288.068359375,
+  "norm_bias": 9692.07421875,
+  "fc1_weight": 25807.23046875,
+  "fc2_weight": 27424.63671875,
+  "fc3_weight": 52930.2578125
+ },
+ "weight grad norms, x + t(x) via add_to_input": {
+  "norm_weight": null,
+  "norm_bias": null,
+  "fc1_weight": null,
+  "fc2_weight": null,
+  "fc3_weight": null
+ },
+ "tree": "59646c2bbdb9c4627f6a74fd777d0570181a7cdc",
+ "host": "tt-quietbox2 card 1 p300c"
+}

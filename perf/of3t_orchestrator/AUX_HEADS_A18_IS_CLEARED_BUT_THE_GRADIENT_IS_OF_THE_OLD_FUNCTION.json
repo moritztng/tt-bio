@@ -1,0 +1,22 @@
+{
+ "as_of": "2026-09-20, orchestrator pass 177",
+ "headline": "aux_heads' A18 failure is FIXED: passing the reference's masks takes it from 4 of 5 heads over the bar at 5.174368e-01 to 0 of 5 at 3.865648e-03 -- 12.9x inside the 5.0e-02 per-tensor bar and 18.3x inside A26's reachable bar, every norm ratio within 0.25 % of 1 and every cosine at 0.99999 or better. But the scope is NOT yet measured, because the 2.2996e-03 gradient on record was taken on the UNFIXED path: A18's clearance is about the repaired forward, and the gradient we hold is the gradient of the defective function.",
+
+ "the_fix": "pass the reference's masks -- pair_mask into both triangle multiplications and onto the pair transition's output, the additive -1e9 companion into both triangle attentions, and single_mask into the host s-path's attention scores and its transition output, reproducing upstream's `inf * (mask - 1)` score bias and its `x = x * mask` transition. One argument per entry point. Committed with token_mask defaulting to None, and an A/A control shows the default path stays BIT-IDENTICAL on 7 of 7 tensors, so no shipped default moves.",
+
+ "the_alternative_was_refuted_not_skipped": "the pre-registration named 'the heads are simply imprecise and there is no defect to find' as a legitimate outcome. The Q1 arm measured it rather than waving it away: the unmasked port matched the unmasked float64 function at 3.4e-03 to 8.3e-03, so the imprecision was REAL, measured, and 60x too small to be the story.",
+
+ "why_the_scope_is_still_not_measured": {
+  "what_A18_does": "A18 says a disagreeing forward INVALIDATES the gradient. An agreeing forward stops invalidating it; it does not bound the gradient error (A18 addendum, D9).",
+  "the_mismatch": "the 2.2996e-03 headline over the 2.843136 % of squared gradient norm aux_heads holds is carried in from of3t-auxheads and was measured on the taped forward_device path, which this row did not touch. So it is the gradient of the UNMASKED function -- the one now known to be wrong. The repaired forward and the measured gradient are of different functions.",
+  "what_closes_it": "re-take the gradient with the fix ON, against the same 0.4.3 reference, and score it against the bars. Until then 2.8431 % of the model is neither void nor passing: it is UNMEASURED, and that is a third state the scoreboard has to carry honestly."
+ },
+
+ "the_product_exposure_is_REAL_BUT_UNMEASURED_and_that_is_deliberate": "the row states plainly that the shipped `_confidence` call site at openfold3_fold.py:260 passes no token_mask, and that whether a user-facing fold's token axis ever carries a padded position is a property of the feature pipeline it READ FROM SOURCE rather than measured on a real target. So: a change that would alter pLDDT, PAE, PTM/IPTM and the ranking score for any padded fold is identified, and its magnitude on a real fold is UNKNOWN. This campaign escalated exactly this shape once before on a reading and had to withdraw it (D90). The response is a measurement, not an alarm.",
+
+ "release_gating": "correctly NOT merged. It changes confidence outputs, so it is release-gated and stays on wk/of3t-auxfind, flagged, for Moritz and the orchestrator to land.",
+
+ "a_process_note_worth_keeping": "wk/of3t had moved 989 commits since the branch was cut and had REWRITTEN the file this row patches, so the row's first result was sitting on a file that no longer existed in that shape. The row re-cut rather than cherry-picked -- following AMENDMENT 1 -- and re-verified by running the merge rather than reading it. The one textual conflict was the same forward() signature collision the orchestrator had already resolved in compose (s_path/dtype versus token_mask/single_mask); both sides kept, independently, by both parties.",
+
+ "provenance": "of3t-auxfind, VERDICT GO, concluded. origin/wk/of3t-auxfind at 2796f6e01; the fix at 0d81d4e75; merge at 8dfb22045. Numbers read from state/of3t-auxfind.md and its artifacts; none is mine."
+}

@@ -1,0 +1,24 @@
+{
+ "as_of": "2026-09-20, orchestrator pass 177",
+ "headline": "The trunk's entire remaining forward disagreement is a WRONG FUNCTION, not bf16, and flipping it is a decision the campaign has already taken AGAINST on product grounds. With the pair bias pre-scaled by sqrt(head_dim), the single track goes from 1.065338e-01 to 1.655263e-02 -- under the 5.0e-02 bar -- and the per-block update reproduces upstream 0.4.3's float64 to 4.2e-16. The pair track is bit-identical either way. Nothing ships: the flip is D1, held by of3t-confhead's own measurement that it costs 0.463 A on the structure a user receives.",
+
+ "the_mechanism": {
+  "it_is_not_precision": "fed the same float64 state, the block-45 AttentionPairBias update is 78.0 % wrong (norm ratio 0.684, cos 0.628) against upstream 0.4.3 float64, while upstream's own bf16 recipe reads 9.1e-03. Against a float64 recomputation of tt-bio's OWN formula the same device output reads 1.5e-02 -- so the op is faithful to what we asked it to compute, and what we asked for is a different function.",
+  "what_differs": "AttentionPairBias FOLDS the bias inside its own score scale, so a reference that adds the bias UNSCALED needs it pre-baked by sqrt(head_dim). Pre-scaled, the single-track update reproduces upstream 0.4.3 float64 to 7.9e-17 at block 8, 3.0e-16 at 44, 4.2e-16 at 45, 8.6e-16 at 46.",
+  "why_it_looked_like_a_cliff": "the error is not depth-dependent at all. It hides until the last blocks because that is where q.k COLLAPSES and the bias stops being negligible: |bias|/|q.k| is 0.0039 at block 8, 0.0131 at 44, 0.0302 at 45. A constant relative defect in an addend becomes visible when the thing it is added to shrinks -- which is why a depth ladder read it as a cliff and why fitting a growth exponent to it would have been meaningless."
+ },
+
+ "the_A18_table_masked_against_upstream_0_4_3_float64": {
+  "SHIPPED":         {"crop64_s": 1.065338e-01, "crop64_z": 4.947045e-02, "N384_s": 1.061989e-01, "N384_z": 4.853716e-02},
+  "bias_pre_scaled": {"crop64_s": 1.655263e-02, "crop64_z": 4.947045e-02, "N384_s": 1.855062e-02, "N384_z": 4.853716e-02},
+  "reading": "with the bias pre-scaled BOTH tracks are under the 5.0e-02 per-tensor bar at both crops, so the trunk's forward would clear A18 outright. The pair track is bit-identical either way, which is itself the control: the change touches only the single track's bias path."
+ },
+
+ "and_this_is_the_uncomfortable_part": "the trunk's parity gap is therefore not a porting defect anyone still needs to find -- it is a DELIBERATELY HELD DEFAULT. `of3t-pairbias` measured the corrected bias end to end and `of3t-confhead` concluded against shipping it: over nine seeds on 1UBQ the flip buys 0.050 A of best-of-5 and COSTS 0.463 A on the structure a user actually receives, against that target's own 0.324 A seed floor, because the confidence head then prefers the looser of two sample modes (D10). So the campaign is holding a change that would close a parity gap because it makes served structures worse. Both facts are measured and they point opposite ways; that tension is the finding, and it belongs in the answer rather than being resolved by preference.",
+
+ "what_this_does_NOT_license": "flipping anything. `compose_verify.sh` still asserts `scale_pair_bias=False` and the row shipped no default change -- it recorded the cost at the activation level in the construction-site comment. Closing this needs D1 and D10 to ship TOGETHER (a selector fix beside the bias fix), which `of3t-confhead` owns, or an explicit decision from Moritz that training parity outranks 0.463 A at rank 0.",
+
+ "what_is_still_unmeasured": "the trunk's GRADIENT, under either convention. This is a forward result, and A18's clearance stops invalidating a gradient rather than bounding it (A18 addendum, D9). The same gap now stands open for aux_heads.",
+
+ "provenance": "of3t-trunkcliff on qb2, origin/wk/of3t-trunkcliff at f4933feef, building on of3t-trunk043ref's 0.4.3 rebuild. The dispatch brief hypothesised a dynamic-range bf16 loss and instructed the row to TEST rather than assume it; the row tested it and refuted it. No number here is mine."
+}

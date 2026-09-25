@@ -1,0 +1,62 @@
+{
+ "host": "tt-quietbox",
+ "card": "1",
+ "blocks": {
+  "0": {
+   "shipped": 0.006030374112624499,
+   "welford": 0.006421814799786654,
+   "legacy_reduction+rsqrt": 0.06430221124004193,
+   "host_centred_input": 0.006100159800100353,
+   "fp32_input": 0.0050892105066146906,
+   "fp32_input_welford": 0.005668193903867771,
+   "fp32_weights": 0.00497234709168116,
+   "fp32_weights_fp32_input": 0.0037705066967695716,
+   "bf16_floor": 0.0016607115251593117,
+   "f64_ln_with_device_bf16_weights_vs_ref": 0.003615899226314756,
+   "mean_over_std_rms": 0.037305176622186444,
+   "bf16_input_rounding_alone": 0.00479277714187507
+  },
+  "1": {
+   "shipped": 0.004607430950031254,
+   "welford": 0.005004084152750088,
+   "legacy_reduction+rsqrt": 0.027391286136650917,
+   "host_centred_input": 0.004611646910312957,
+   "fp32_input": 0.0035969924900492926,
+   "fp32_input_welford": 0.004124531397370341,
+   "fp32_weights": 0.0037683775116095063,
+   "fp32_weights_fp32_input": 0.002495238300738452,
+   "bf16_floor": 0.001652880091388834,
+   "f64_ln_with_device_bf16_weights_vs_ref": 0.0025012146889552113,
+   "mean_over_std_rms": 0.04416858781166732,
+   "bf16_input_rounding_alone": 0.0035812597878155062
+  },
+  "2": {
+   "shipped": 0.004830293427990262,
+   "welford": 0.005253759908679016,
+   "legacy_reduction+rsqrt": 0.04261220937983231,
+   "host_centred_input": 0.004829237253988998,
+   "fp32_input": 0.0039096648751377645,
+   "fp32_input_welford": 0.004473805280557136,
+   "fp32_weights": 0.004056384175781027,
+   "fp32_weights_fp32_input": 0.0029868390479278794,
+   "bf16_floor": 0.0016586134859790747,
+   "f64_ln_with_device_bf16_weights_vs_ref": 0.002707097912207902,
+   "mean_over_std_rms": 0.04212290607530268,
+   "bf16_input_rounding_alone": 0.003711258771397152
+  },
+  "3": {
+   "shipped": 0.006114687952526319,
+   "welford": 0.0069645474680640465,
+   "legacy_reduction+rsqrt": 0.10280819894483452,
+   "host_centred_input": 0.006043127409530278,
+   "fp32_input": 0.005514746227752618,
+   "fp32_input_welford": 0.006566413212637178,
+   "fp32_weights": 0.004546278070801541,
+   "fp32_weights_fp32_input": 0.003454527184629499,
+   "bf16_floor": 0.0016492618136208174,
+   "f64_ln_with_device_bf16_weights_vs_ref": 0.003118931257221535,
+   "mean_over_std_rms": 0.04260510022537091,
+   "bf16_input_rounding_alone": 0.00432085762793568
+  }
+ }
+}

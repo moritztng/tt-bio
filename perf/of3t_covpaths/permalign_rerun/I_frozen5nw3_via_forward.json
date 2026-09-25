@@ -1,0 +1,89 @@
+{
+ "instrument": "D117: the alignment as the real forward reaches it",
+ "tag": "I_frozen5nw3_via_forward",
+ "provenance": {
+  "source": "frozen batch",
+  "path": "/home/ttuser/of3t_cov/perm_S/batch_step003.pt",
+  "collated_by": "upstream's own collator"
+ },
+ "ref_spaces": {
+  "present": true,
+  "type": "list",
+  "batch_axis_len": 1,
+  "n_ref_spaces_sample0": 56,
+  "example_uid": 0,
+  "example_perm_shape": [
+   1,
+   8
+  ],
+  "max_uid": 55,
+  "n_ref_spaces_with_alternatives": 8,
+  "max_permutations_in_one_ref_space": 2
+ },
+ "call": {
+  "via_forward": true,
+  "checkpoint": "/home/ttuser/of3-weights/of3-p2-155k.pt",
+  "pred_shape": [
+   1,
+   1,
+   422,
+   3
+  ],
+  "seed": 20260921,
+  "collate": "fixed",
+  "drop_key": false,
+  "forward_twice": false
+ },
+ "verdict": {
+  "n_alignment_calls": 1,
+  "n_completed": 1,
+  "naive_fallback_invoked": false,
+  "fell_back_by_wrapper": false,
+  "fell_back_by_log": false,
+  "detectors_agree": true,
+  "completed": true,
+  "errors": [],
+  "log_records": []
+ },
+ "verdict_per_pass": [
+  {
+   "n_alignment_calls": 1,
+   "n_completed": 1,
+   "naive_fallback_invoked": false,
+   "fell_back_by_wrapper": false,
+   "fell_back_by_log": false,
+   "detectors_agree": true,
+   "completed": true,
+   "errors": [],
+   "log_records": []
+  }
+ ],
+ "effect": {
+  "gt_atoms_moved": 8,
+  "gt_shape_before": [
+   1,
+   422,
+   3
+  ],
+  "gt_shape_after": [
+   1,
+   1,
+   422,
+   3
+  ],
+  "all_losses_zeroed": false
+ },
+ "dropout": {
+  "disabled": true,
+  "n_of3_dropout_modules": 61,
+  "n_nn_dropout_modules": 61,
+  "rates_before": [
+   0.15,
+   0.25
+  ],
+  "why": "r = 0 reference: the mask is not reproducible across devices, so the published gradient would be one draw. See disable_dropout() in bundle_min.py."
+ },
+ "openfold3": "/home/ttuser/of3t_cov/perm_S/of3pkg043/openfold3/__init__.py",
+ "torch": "2.11.0+cpu",
+ "total_s": 1201.9542672634125
+}

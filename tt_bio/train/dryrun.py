@@ -22,7 +22,8 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Optional
 
-__all__ = ["plan", "Plan", "UNMEASURED", "CARD_DRAM_BYTES", "MEASURED"]
+__all__ = ["plan", "Plan", "UNMEASURED", "CARD_DRAM_BYTES", "MEASURED",
+           "FORWARD_OOM_BY_MODEL"]
 
 
 UNMEASURED = "UNMEASURED"
@@ -47,14 +48,55 @@ MEASURED = {
                               "bandwidth"),
 }
 
-# The crop sizes whose forward is measured to OOM, with the allocation that was refused.
-# train-r5 measured both; PLAN.md P2 corrected r5's causal attribution (production's trimul
-# chunking is built and the training path simply does not get it) and scheduled A2 to
-# re-measure on the shipped forward. The OOM itself stands, so plan() refuses on it -- and
-# refuses by naming the measurement rather than by extrapolating a slope through it.
-FORWARD_OOM = {
-    384: (4.14, 75_497_472),
-    512: (7.15, 536_870_912),
+# The crop sizes measured to refuse, PER MODEL, with the allocation that was refused.
+#
+# Keyed by model, and that is the whole point. This table used to be one flat dict applied to
+# whatever `tt-bio finetune --model X` was given, and its two entries were Protenix-v2's. A
+# memory wall is a property of a model's activation shapes, not of a token count, so a flat
+# table answers a question it was never asked: `--model openfold3 --tokens 512` was REFUSED on
+# Protenix-v2's number for a crop OpenFold3 is measured to RUN, and 544/576/640/768 came back
+# UNMEASURED for OpenFold3 when all four are measured to refuse. Wrong in both directions, on a
+# documented command.
+#
+# A model with no entry here gets no refusal from this table. That is deliberate: borrowing a
+# neighbour's wall is what produced the defect, and UNMEASURED is a first-class answer.
+FORWARD_OOM_BY_MODEL = {
+    # train-r5 measured both; PLAN.md P2 corrected r5's causal attribution (production's trimul
+    # chunking is built and the training path simply does not get it) and scheduled A2 to
+    # re-measure on the shipped forward. The OOM itself stands, so plan() refuses on it -- and
+    # refuses by naming the measurement rather than by extrapolating a slope through it.
+    "protenix-v2": {
+        384: (4.14, 75_497_472, "train-r5-distributed-tt REPLICA-FITS -- measured"),
+        512: (7.15, 536_870_912, "train-r5-distributed-tt REPLICA-FITS -- measured"),
+    },
+    # of3t-crop768, concluded 2026-09-21, on Blackhole at a median 1350 MHz polled DURING every
+    # rung. Forward AND backward peaks on the taped training path, cards 0 and 1 of qb1 (p150a)
+    # for 544/576/640/768 and qb2 (p300c) for the 512 baseline; both boards present the same
+    # 8 x 4,278,190,016 B = 34,225,520,128 B per-chip DRAM read off the allocator's own refusal
+    # lines. 512 RUNS and is the largest that does. The three refusals above it are not one
+    # wall: 640 and 768 die with the card full, 576 dies with 6,671,522,304 B still free,
+    # refused for CONTIGUITY inside `ttnn::concat`, short by 77,930,560 B per bank. A capacity
+    # extrapolation cannot locate that frontier -- the row's own 2.08 fit said 576 would clear
+    # with 14 % of margin, and it did not -- which is exactly why these are table entries and
+    # not a slope.
+    "openfold3": {
+        544: (None, None, "of3t-crop768 -- measured to refuse, qb1 p150a, 1350 MHz during"),
+        576: (None, 77_930_560, "of3t-crop768 -- CONTIGUITY inside ttnn::concat with "
+                                "6,671,522,304 B still free, short by this much per bank; "
+                                "reproduces byte for byte on cards 0 and 1"),
+        640: (None, None, "of3t-crop768 -- card full, 23,710,208 B free device-wide"),
+        768: (None, None, "of3t-crop768 -- card full, 6,231,552 B free device-wide; the "
+                          "levered fit puts 768 at 1.558x the card and the fit UNDER-predicts, "
+                          "so that is a floor on the overshoot"),
+    },
+}
+
+# The largest crop a model's forward+backward is measured to COMPLETE, per model. This is a
+# weaker fact than a training replica -- it says the memory fits, not how long a step takes --
+# and the two are kept apart because conflating them is how a fit becomes a projected step time.
+LARGEST_MEASURED_TO_FIT = {
+    "openfold3": (512, "of3t-crop768 -- 512 is the largest crop measured to run; 544 is the "
+                       "first that refuses"),
 }
 
 # The largest crop with a measured training replica. Nothing above this has one.
@@ -96,8 +138,9 @@ class Plan:
         return f"{head}\n  {self.why}" + "".join(f"\n  - {s}" for s in self.sources)
 
 
-def plan(*, tokens: int, chips: int = 1, global_batch: Optional[int] = None,
-         frozen_trunk: bool = True, optimizer_resident: bool = False,
+def plan(*, tokens: int, model: Optional[str] = None, chips: int = 1,
+         global_batch: Optional[int] = None, frozen_trunk: bool = True,
+         optimizer_resident: bool = False,
          seconds_per_step_1chip: Optional[float] = None) -> Plan:
     """Will a run of this shape fit, and how long is a step.
 
@@ -117,19 +160,25 @@ def plan(*, tokens: int, chips: int = 1, global_batch: Optional[int] = None,
     if global_batch is not None and global_batch < 1:
         raise ValueError(f"global_batch must be at least 1, got {global_batch}")
 
-    if tokens in FORWARD_OOM:
-        allocated, refused = FORWARD_OOM[tokens]
+    # Only this model's own table. A model we have not measured gets UNMEASURED, never a
+    # neighbour's wall -- see FORWARD_OOM_BY_MODEL.
+    oom = FORWARD_OOM_BY_MODEL.get(model, {})
+    if tokens in oom:
+        allocated, refused, source = oom[tokens]
+        detail = []
+        if allocated is not None:
+            detail.append(f"{allocated:.2f} GB allocated")
+        if refused is not None:
+            detail.append(f"{refused:,} B refused")
+        measured = f": {' and '.join(detail)}" if detail else ""
         return Plan(
             verdict="refused", tokens=tokens, chips=chips, global_batch=global_batch,
             fits=False,
-            why=f"the forward OOMs at {tokens} aa today: {allocated:.2f} GB allocated and "
-                f"{refused:,} B refused, measured under per-block checkpointing where the "
-                f"forward is untaped, so what fails is one block's working set. Distribution "
-                f"does not fix it -- 8 chips each OOM at {tokens} aa exactly as one does. "
-                f"Under re-measure by the A2 crop row on the shipped forward; until that "
-                f"lands this is a refusal, not an estimate.",
-            sources=["train-r5-distributed-tt REPLICA-FITS -- measured",
-                     "state/train/PLAN.md P2 -- r5's attribution corrected, the OOM stands"])
+            why=f"{model} is measured to run out of memory at {tokens} aa{measured}. "
+                f"Distribution does not fix it -- each chip OOMs at {tokens} aa exactly as one "
+                f"does. This is a refusal, not an estimate, and it is {model}'s own "
+                f"measurement: no other model's wall is applied here.",
+            sources=[source])
 
     if not frozen_trunk:
         return Plan(
@@ -141,16 +190,28 @@ def plan(*, tokens: int, chips: int = 1, global_batch: Optional[int] = None,
                 "adapter on a frozen trunk.",
             sources=["perf/hall_grad/DECISION.md:38,107 -- projection, not measurement"])
 
+    # A measured memory fit is not a measured step time, but it is not nothing either: saying
+    # "no measurement" when we have watched this exact crop complete would throw away the one
+    # fact the user needs to decide whether to try it.
+    fit_note, fit_src = "", []
+    largest_fit, fit_source = LARGEST_MEASURED_TO_FIT.get(model, (None, None))
+    if largest_fit is not None and tokens <= largest_fit:
+        fit_note = (f" What IS measured for {model}: the memory fits up to {largest_fit} aa, "
+                    f"so this crop is expected to run -- there is no step time for it, which "
+                    f"is what UNMEASURED means here.")
+        fit_src = [fit_source]
+
     if tokens > MEASURED_CROP:
         return Plan(
             verdict=UNMEASURED, tokens=tokens, chips=chips, global_batch=global_batch,
             why=f"{tokens} tokens is above the largest crop with a measured training replica "
-                f"({MEASURED_CROP} aa) and is not one of the two sizes whose forward OOM was "
-                f"measured ({', '.join(str(k) for k in sorted(FORWARD_OOM))} aa). Activation "
+                f"({MEASURED_CROP} aa) and is not a size "
+                f"{model or 'this model'}'s own forward OOM was measured at "
+                f"({', '.join(str(k) for k in sorted(oom)) or 'none recorded'}). Activation "
                 f"volume is neither linear nor quadratic in tokens across the triangle ops' "
                 f"chunking thresholds, so interpolating between 256 and 384 would be a guess "
-                f"with a plausible shape. Measure it.",
-            sources=[f"MEASURED replica exists only at {MEASURED_CROP} aa"])
+                f"with a plausible shape. Measure it." + fit_note,
+            sources=[f"MEASURED replica exists only at {MEASURED_CROP} aa"] + fit_src)
 
     replica_gb, replica_src = MEASURED[
         "replica_256aa_opt_resident_gb" if optimizer_resident else "replica_256aa_gb"]

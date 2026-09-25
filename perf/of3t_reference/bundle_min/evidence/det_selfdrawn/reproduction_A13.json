@@ -1,0 +1,18 @@
+{
+  "a": "out_A/grads_f64.pt",
+  "b": "out_B/grads_f64.pt",
+  "bar": 0.05,
+  "n_compared": 4147,
+  "n_bit_identical": 4147,
+  "n_both_absent": 0,
+  "n_over_bar": 0,
+  "worst_rel_l2": 0.0,
+  "worst_tensor": "aux_heads.distogram.linear.weight",
+  "median_rel_l2": 0.0,
+  "presence_mismatch": [],
+  "only_in_a": [],
+  "only_in_b": [],
+  "n_only_in_a": 0,
+  "n_only_in_b": 0,
+  "over_bar_sample": []
+}

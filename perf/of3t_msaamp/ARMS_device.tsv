@@ -1,0 +1,8 @@
+ours 0 24 q0/q0 "n=12 min=800 med=800 max=800 mean=800.0"
+ours_AA 0 23 q0/q1 "n=12 min=800 med=800 max=800 mean=800.0"
+crop64_ours 0 32 q0/q1 "n=17 min=800 med=800 max=800 mean=800.0"
+ours_legacy 0 23 q0/q0 "n=12 min=800 med=800 max=800 mean=800.0"
+ours_fixed 0 23 q0/q0 "n=12 min=800 med=800 max=800 mean=800.0"
+ours_fixed_AA 0 23 q0/q1 "n=12 min=800 med=800 max=800 mean=800.0"
+crop64_ours_fixed 1 10 q0/q0 "n=5 min=800 med=800 max=800 mean=800.0"
+crop64_ours_fixed 0 12 q0/q0 "n=6 min=800 med=800 max=800 mean=800.0"

@@ -1,0 +1,67 @@
+{
+ "instrument": "perf/of3t_orchestrator/lnladder/what_a_bit_buys.py",
+ "host": "pc",
+ "artifact": "perf/of3t_modelframe/MODEL_FRAMEMATCHED_composed3660_n384.json",
+ "composition_control_rel_difference": 0.0,
+ "bar": 0.15210099830945006,
+ "clause_now": 0.27095922968432157,
+ "multiple_now": 1.7814428090278143,
+ "trunk_now": 0.9969599833682794,
+ "trunk_admissible": 0.44608901561034203,
+ "trunk_must_fall_by": 2.2348902315028583,
+ "bits_required": 1.1602039739788568,
+ "clause_with_a_PERFECT_trunk": 0.1026990533692057,
+ "perfect_trunk_multiple_of_bar": 0.6752030197741641,
+ "rungs": [
+  {
+   "bits_recovered": 0.5,
+   "factor": 1.4142135623730951,
+   "trunk_after": 0.704957164811338,
+   "clause_after": 0.20489753501939925,
+   "multiple_of_bar": 1.3471149913331564,
+   "clears": false
+  },
+  {
+   "bits_recovered": 1.0,
+   "factor": 2.0,
+   "trunk_after": 0.4984799916841397,
+   "clause_after": 0.16206494904814692,
+   "multiple_of_bar": 1.0655087793600484,
+   "clears": false
+  },
+  {
+   "bits_recovered": 1.5,
+   "factor": 2.8284271247461903,
+   "trunk_after": 0.352478582405669,
+   "clause_after": 0.13566897816544024,
+   "multiple_of_bar": 0.8919663886059523,
+   "clears": true
+  },
+  {
+   "bits_recovered": 2.0,
+   "factor": 4.0,
+   "trunk_after": 0.24923999584206985,
+   "clause_after": 0.12031867519089809,
+   "multiple_of_bar": 0.7910446119893919,
+   "clears": true
+  },
+  {
+   "bits_recovered": 2.5,
+   "factor": 5.656854249492381,
+   "trunk_after": 0.1762392912028345,
+   "clause_after": 0.11185633456050623,
+   "multiple_of_bar": 0.7354082866236952,
+   "clears": true
+  },
+  {
+   "bits_recovered": 3.0,
+   "factor": 8.0,
+   "trunk_after": 0.12461999792103493,
+   "clause_after": 0.10737535830963,
+   "multiple_of_bar": 0.7059477551302749,
+   "clears": true
+  }
+ ],
+ "smallest_rung_tested_that_clears_bits": 1.5,
+ "verdict": "The trunk must fall 2.2349x, which is 1.16 mantissa bits. The measured deficit is ~2 bits (3.928 for a 2-bit accumulator against a predicted 4.000, LADDER_SHAPE.json), so closing it in full buys 4x against the 2.2349x needed and the clause clears at 0.7910x the bar. A PERFECT trunk reads 0.6752x the bar, so the clause is satisfiable and the margin is real rather than marginal: even a 1.5-bit recovery clears it."
+}

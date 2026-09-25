@@ -1,0 +1,111 @@
+{
+ "what": "the DiT leg's capture-frame float64 against the model-scope float64 the 2.019x divides by",
+ "padded_width": 384,
+ "real_tokens": 56,
+ "host": "tt-quietbox2 (qb2), CPU only, no card",
+ "capture": "/home/ttuser/of3t_softgrad/diffcap043/diffusion_boundary.pt",
+ "model_reference": "/home/ttuser/of3t_refprec/bundle_ref/grads_f64_043.pt",
+ "n_tensors": 552,
+ "n_missing": 0,
+ "missing": [],
+ "instrument_floor_upstream_f32_vs_float64": 7.4177415630308e-05,
+ "mass_weighted_rel_l2_f64_vs_f64": 0.0,
+ "ratio_to_instrument_floor": 0.0,
+ "median_rel_l2": 0.0,
+ "worst_rel_l2": [
+  0.0,
+  "diffusion_module.diffusion_transformer.blocks.9.conditioned_transition.swiglu.linear_b.weight"
+ ],
+ "top10_by_absolute_difference": [
+  {
+   "param": "diffusion_module.diffusion_transformer.blocks.0.attention_pair_bias.layer_norm_a.layer_norm_s.weight",
+   "ref_norm": 0.13653080024038078,
+   "arm_norm": 0.13653080024038078,
+   "diff_norm": 0.0,
+   "rel_l2": 0.0,
+   "norm_ratio": 1.0,
+   "cos": 0.9999999999999997
+  },
+  {
+   "param": "diffusion_module.diffusion_transformer.blocks.0.attention_pair_bias.layer_norm_a.linear_g.weight",
+   "ref_norm": 0.003693852528230101,
+   "arm_norm": 0.003693852528230101,
+   "diff_norm": 0.0,
+   "rel_l2": 0.0,
+   "norm_ratio": 1.0,
+   "cos": 1.0000000000000098
+  },
+  {
+   "param": "diffusion_module.diffusion_transformer.blocks.0.attention_pair_bias.layer_norm_a.linear_g.bias",
+   "ref_norm": 0.009570920378727423,
+   "arm_norm": 0.009570920378727423,
+   "diff_norm": 0.0,
+   "rel_l2": 0.0,
+   "norm_ratio": 1.0,
+   "cos": 0.9999999999999997
+  },
+  {
+   "param": "diffusion_module.diffusion_transformer.blocks.0.attention_pair_bias.layer_norm_a.linear_s.weight",
+   "ref_norm": 0.025709546613740586,
+   "arm_norm": 0.025709546613740586,
+   "diff_norm": 0.0,
+   "rel_l2": 0.0,
+   "norm_ratio": 1.0,
+   "cos": 1.000000000000017
+  },
+  {
+   "param": "diffusion_module.diffusion_transformer.blocks.0.attention_pair_bias.linear_ada_out.weight",
+   "ref_norm": 0.03483969053339023,
+   "arm_norm": 0.03483969053339023,
+   "diff_norm": 0.0,
+   "rel_l2": 0.0,
+   "norm_ratio": 1.0,
+   "cos": 1.0000000000000568
+  },
+  {
+   "param": "diffusion_module.diffusion_transformer.blocks.0.attention_pair_bias.linear_ada_out.bias",
+   "ref_norm": 0.001834730371191785,
+   "arm_norm": 0.001834730371191785,
+   "diff_norm": 0.0,
+   "rel_l2": 0.0,
+   "norm_ratio": 1.0,
+   "cos": 0.9999999999999999
+  },
+  {
+   "param": "diffusion_module.diffusion_transformer.blocks.0.attention_pair_bias.layer_norm_z.weight",
+   "ref_norm": 0.004459363678790344,
+   "arm_norm": 0.004459363678790344,
+   "diff_norm": 0.0,
+   "rel_l2": 0.0,
+   "norm_ratio": 1.0,
+   "cos": 1.0000000000000004
+  },
+  {
+   "param": "diffusion_module.diffusion_transformer.blocks.0.attention_pair_bias.linear_z.weight",
+   "ref_norm": 0.00767418082601513,
+   "arm_norm": 0.00767418082601513,
+   "diff_norm": 0.0,
+   "rel_l2": 0.0,
+   "norm_ratio": 1.0,
+   "cos": 1.0000000000000007
+  },
+  {
+   "param": "diffusion_module.diffusion_transformer.blocks.0.attention_pair_bias.mha.linear_q.weight",
+   "ref_norm": 0.002369084554089209,
+   "arm_norm": 0.002369084554089209,
+   "diff_norm": 0.0,
+   "rel_l2": 0.0,
+   "norm_ratio": 1.0,
+   "cos": 1.0000000000000073
+  },
+  {
+   "param": "diffusion_module.diffusion_transformer.blocks.0.attention_pair_bias.mha.linear_q.bias",
+   "ref_norm": 0.0014202226399401394,
+   "arm_norm": 0.0014202226399401394,
+   "diff_norm": 0.0,
+   "rel_l2": 0.0,
+   "norm_ratio": 1.0,
+   "cos": 0.9999999999999996
+  }
+ ]
+}

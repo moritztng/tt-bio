@@ -1,0 +1,249 @@
+{
+ "AA_floor_seconds": 4.55,
+ "AA_floor_seconds_per_arm": {
+  "base": 1.93,
+  "off": 4.55,
+  "on": 3.24
+ },
+ "AB_seconds": {
+  "off_minus_base": 1.84,
+  "on_minus_off": -0.3
+ },
+ "arms": {
+  "base": [
+   {
+    "cifs": {
+     "cdk2x2_128.cif": "39bce7750297a920c7cac53da931ae774012f9581a31fdfc759d0445b6ca4710"
+    },
+    "clock": {
+     "max": 1350,
+     "median": 1350,
+     "min": 800,
+     "n": 12
+    },
+    "clock_line": "CLOCK: dev0 min 800 / median 1350 / max 1350 MHz over 12 samples, polled DURING the work",
+    "rc": 0,
+    "seconds": 26.78,
+    "softmax_census": {},
+    "tail": ""
+   },
+   {
+    "cifs": {
+     "cdk2x2_128.cif": "39bce7750297a920c7cac53da931ae774012f9581a31fdfc759d0445b6ca4710"
+    },
+    "clock": {
+     "max": 1350,
+     "median": 1350,
+     "min": 800,
+     "n": 12
+    },
+    "clock_line": "CLOCK: dev0 min 800 / median 1350 / max 1350 MHz over 12 samples, polled DURING the work",
+    "rc": 0,
+    "seconds": 28.71,
+    "softmax_census": {},
+    "tail": ""
+   }
+  ],
+  "off": [
+   {
+    "cifs": {
+     "cdk2x2_128.cif": "39bce7750297a920c7cac53da931ae774012f9581a31fdfc759d0445b6ca4710"
+    },
+    "clock": {
+     "max": 1350,
+     "median": 1350,
+     "min": 800,
+     "n": 12
+    },
+    "clock_line": "CLOCK: dev0 min 800 / median 1350 / max 1350 MHz over 12 samples, polled DURING the work",
+    "rc": 0,
+    "seconds": 27.32,
+    "softmax_census": {
+     "declined": 0,
+     "elements": 0,
+     "refused": 0,
+     "served": 0
+    },
+    "tail": ""
+   },
+   {
+    "cifs": {
+     "cdk2x2_128.cif": "39bce7750297a920c7cac53da931ae774012f9581a31fdfc759d0445b6ca4710"
+    },
+    "clock": {
+     "max": 1350,
+     "median": 1350,
+     "min": 800,
+     "n": 13
+    },
+    "clock_line": "CLOCK: dev0 min 800 / median 1350 / max 1350 MHz over 13 samples, polled DURING the work",
+    "rc": 0,
+    "seconds": 31.87,
+    "softmax_census": {
+     "declined": 0,
+     "elements": 0,
+     "refused": 0,
+     "served": 0
+    },
+    "tail": ""
+   }
+  ],
+  "on": [
+   {
+    "cifs": {
+     "cdk2x2_128.cif": "6b6e7c4e66a7252b68512ae469b4c9eda03ea9b16bc64781daf33c9db13c2ca0"
+    },
+    "clock": {
+     "max": 1350,
+     "median": 1350,
+     "min": 800,
+     "n": 12
+    },
+    "clock_line": "CLOCK: dev0 min 800 / median 1350 / max 1350 MHz over 12 samples, polled DURING the work",
+    "rc": 0,
+    "seconds": 27.67,
+    "softmax_census": {
+     "declined": 0,
+     "elements": 0,
+     "refused": 0,
+     "served": 0
+    },
+    "tail": ""
+   },
+   {
+    "cifs": {
+     "cdk2x2_128.cif": "6b6e7c4e66a7252b68512ae469b4c9eda03ea9b16bc64781daf33c9db13c2ca0"
+    },
+    "clock": {
+     "max": 1350,
+     "median": 1350,
+     "min": 800,
+     "n": 13
+    },
+    "clock_line": "CLOCK: dev0 min 800 / median 1350 / max 1350 MHz over 13 samples, polled DURING the work",
+    "rc": 0,
+    "seconds": 30.91,
+    "softmax_census": {
+     "declined": 0,
+     "elements": 0,
+     "refused": 0,
+     "served": 0
+    },
+    "tail": ""
+   }
+  ]
+ },
+ "arms_below_1200MHz": [],
+ "arms_slower_than_floor": [],
+ "base_equals_off": true,
+ "card": "0",
+ "clock": {
+  "base": [
+   {
+    "max": 1350,
+    "median": 1350,
+    "min": 800,
+    "n": 12
+   },
+   {
+    "max": 1350,
+    "median": 1350,
+    "min": 800,
+    "n": 12
+   }
+  ],
+  "off": [
+   {
+    "max": 1350,
+    "median": 1350,
+    "min": 800,
+    "n": 12
+   },
+   {
+    "max": 1350,
+    "median": 1350,
+    "min": 800,
+    "n": 13
+   }
+  ],
+  "on": [
+   {
+    "max": 1350,
+    "median": 1350,
+    "min": 800,
+    "n": 12
+   },
+   {
+    "max": 1350,
+    "median": 1350,
+    "min": 800,
+    "n": 13
+   }
+  ]
+ },
+ "digest_stable_within_arm": true,
+ "digests": {
+  "base": [
+   {
+    "cdk2x2_128.cif": "39bce7750297a920c7cac53da931ae774012f9581a31fdfc759d0445b6ca4710"
+   },
+   {
+    "cdk2x2_128.cif": "39bce7750297a920c7cac53da931ae774012f9581a31fdfc759d0445b6ca4710"
+   }
+  ],
+  "off": [
+   {
+    "cdk2x2_128.cif": "39bce7750297a920c7cac53da931ae774012f9581a31fdfc759d0445b6ca4710"
+   },
+   {
+    "cdk2x2_128.cif": "39bce7750297a920c7cac53da931ae774012f9581a31fdfc759d0445b6ca4710"
+   }
+  ],
+  "on": [
+   {
+    "cdk2x2_128.cif": "6b6e7c4e66a7252b68512ae469b4c9eda03ea9b16bc64781daf33c9db13c2ca0"
+   },
+   {
+    "cdk2x2_128.cif": "6b6e7c4e66a7252b68512ae469b4c9eda03ea9b16bc64781daf33c9db13c2ca0"
+   }
+  ]
+ },
+ "fixture": "/home/ttuser/.coworker/wt/of3t-fwdkcfg/perf/size512/fixtures/cdk2x2_128.yaml",
+ "host": "tt-quietbox2",
+ "host_card": "tt-quietbox2 card 0",
+ "lever_env": "TT_BIO_SOFTMAX_PRECISE_AB",
+ "lever_value": "protenix.token_dit",
+ "median_seconds": {
+  "base": 27.75,
+  "off": 29.59,
+  "on": 29.29
+ },
+ "model": "protenix-v2",
+ "off_equals_on": false,
+ "readable_above_the_floor": {
+  "off_minus_base": false,
+  "on_minus_off": false
+ },
+ "reps": 2,
+ "seconds": {
+  "base": [
+   26.78,
+   28.71
+  ],
+  "off": [
+   27.32,
+   31.87
+  ],
+  "on": [
+   27.67,
+   30.91
+  ]
+ },
+ "softmax_calls_per_fold": {
+  "off": 0,
+  "on": 0
+ },
+ "verdict": "LEVER: LEVER MOVES OUTPUT: off != on, so TT_BIO_SOFTMAX_PRECISE_AB=protenix.token_dit changes a user's fold; its -0.30 s cost is inside the 4.55 s A/A floor | TREE: TREE IDENTICAL: base == off byte for byte, and off-minus-base (1.84 s) is inside the 4.55 s A/A floor",
+ "verdict_lever": "LEVER MOVES OUTPUT: off != on, so TT_BIO_SOFTMAX_PRECISE_AB=protenix.token_dit changes a user's fold; its -0.30 s cost is inside the 4.55 s A/A floor",
+ "verdict_tree": "TREE IDENTICAL: base == off byte for byte, and off-minus-base (1.84 s) is inside the 4.55 s A/A floor"
+}

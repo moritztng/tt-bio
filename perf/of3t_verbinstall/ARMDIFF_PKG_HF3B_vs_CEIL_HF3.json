@@ -1,0 +1,12 @@
+{
+ "what": "per-parameter comparison of two arm artifacts. `all_bit_identical` is the reproduction claim; the aggregate score cannot make it, because a tensor with too little mass to move the aggregate still differs.",
+ "mine": "/tmp/of3t/of3t-verbinstall/dev_PKG_HF3B.pt",
+ "theirs": "/home/ttuser/of3t_trunkceiling/dev_CEIL_HF3.pt",
+ "compared": 2736,
+ "only_mine": [],
+ "only_theirs": [],
+ "bit_identical": 2736,
+ "differing": 0,
+ "all_bit_identical": true,
+ "worst": []
+}

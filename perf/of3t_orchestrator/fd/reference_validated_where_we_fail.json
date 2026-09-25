@@ -1,0 +1,56 @@
+{
+ "claim": "the float64 reference is validated by finite differences AT BOTH PLACES THE CAMPAIGN FAILS, so the remaining gap is on our side",
+ "source": "tt-quietbox2:~/of3t_rebase/run/fd043.log, norm-weighted sampler with a 1 % per-section floor",
+ "samples": [
+  {
+   "n": 1,
+   "param": "diffusion_module.diffusion_transformer.blocks.14.conditioned_transition.linear_out.weight",
+   "index": [
+    196,
+    1207
+   ],
+   "analytic": -2.203064e-06,
+   "fd": -2.203064e-06,
+   "fd_rel": 2.417e-07,
+   "section": "diffusion_module",
+   "section_share_of_gradient_mass": 0.892,
+   "device_comparison": {
+    "what": "section median over 547 tensors, all 48 structures",
+    "value": 0.16588485538135056,
+    "ratio_to_fd_rel": 686325.425657222
+   },
+   "note": "section median vs a single-entry FD -- an order-of-magnitude statement, not a paired one"
+  },
+  {
+   "n": 2,
+   "param": "pairformer_stack.blocks.47.pair_stack.pair_transition.layer_norm.weight",
+   "index": [
+    66
+   ],
+   "analytic": -0.0009013419,
+   "fd": -0.0008977458,
+   "fd_rel": 0.00399,
+   "section": "pairformer_stack, block 47",
+   "share_of_block47_gradient_mass": 0.7353,
+   "device_comparison": {
+    "what": "THE SAME TENSOR, device vs the same reference, shipped arm",
+    "value": 1.0575058949370537,
+    "ref_norm": 0.19841717075462537,
+    "ratio_to_fd_rel": 265.03907141279547
+   },
+   "device_all_arms": {
+    "spb_on_tb_shipped": 1.0575,
+    "spb_on_tb_off": 1.0222,
+    "spb_off_tb_shipped": 0.2707,
+    "spb_off_tb_off": 0.2735
+   },
+   "note": "PAIRED: the finite difference and the device disagreement are about the same tensor against the same reference, so the ratio is a like-for-like statement"
+  }
+ ],
+ "reading": "Sample 2 is the strong one. The reference gradient for block 47's largest-mass tensor -- 73.53 % of that block's gradient mass -- is right to 3.990e-03, and our device gradient for THAT SAME TENSOR is 1.0575 out: 265x the reference's own validation error, and still 68x under the best arm measured. Sample 1 says the same for the diffusion module, which holds 89.2 % of the model's gradient mass, at 2.417e-07. D22/D23 had already controlled the reference's REVISION; these two samples independently confirm its NUMERICAL correctness at both failure sites.",
+ "held_honestly": [
+  "two samples of eight; the section-coverage statement needs the full run",
+  "sample 1 compares a single FD entry against a section median, which is not paired",
+  "FD validates the reference, not our port -- it cannot tell us WHICH of our stages is wrong, only that the thing we are being measured against is right"
+ ]
+}

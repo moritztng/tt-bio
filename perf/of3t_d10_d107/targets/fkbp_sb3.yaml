@@ -1,0 +1,12 @@
+# FKBP12 (107 aa) with the SB3 ligand, MSA search disabled so the fold is deterministic and
+# needs no network. Chosen small: this target exists to exercise the ATOMIZED-token path the
+# frame mask is about, not to be a hard structure.
+version: 1
+sequences:
+  - protein:
+      id: A
+      sequence: GVQVETISPGDGRTFPKRGQTCVVHYTGMLEDGKKFDSSRDRNKPFKFMLGKQEVIRGWEEGVAQMSVGQRAKLTISPDYAYGATGHPGIIPPHATLVFDVELLKLE
+      msa: empty
+  - ligand:
+      id: B
+      ccd: SB3

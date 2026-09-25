@@ -1,0 +1,67 @@
+{
+ "what": "of3t-orchestrator pass 390: what the CERTIFYING trajectory arm actually exercises.",
+ "device_involved": false,
+ "why_no_aiclk": "CPU only; this reads committed artifacts and computes no timing",
+ "the_clause": {
+  "field": "TRAJECTORY",
+  "verdict_today": "MET",
+  "artifact": "perf/of3t_trajfull/traj_trajfull.json",
+  "steps": 20,
+  "scope_pct_of_model_sq_grad_norm": 89.2105,
+  "what_a_reader_infers": "that the update rule was exercised end to end",
+  "what_was_exercised": "one operating point, with five factors single-valued or inert"
+ },
+ "factors": {
+  "lr_schedule": {
+   "exercised_at": "a strictly linear ramp, 0.0 to 3.42e-05 at a constant 1.8e-06 per step over 20 steps",
+   "as_a_fraction_of_the_peak": 0.114,
+   "the_schedule_it_is_a_fraction_of": {
+    "peak_lr": 0.0003,
+    "warmup_steps": 1000,
+    "plateau_until": 50000
+   },
+   "never_reached": "the warmup knee at step 1000 and the decay after step 50000",
+   "covered_by": "PROTOCOL's factorisation -- a pure function verified EXACTLY over its whole domain in float64, which is why 20 steps is enough",
+   "provenance_is_clean": true
+  },
+  "gradient_clipping": {
+   "exercised_at": "coefficient exactly 1.0 at all 20 steps and all 80 per-sample coefficients",
+   "headroom": 12.57025242483755,
+   "never_reached": "any binding clip; the gradient norm peaks at 0.7955289728502993 against a threshold of 10.0",
+   "covered_by": "PROTOCOL -- clip_coef agrees with their compute_global_norm to 8.51e-08 across eight STRADDLING cases (optim.py:447-455)",
+   "provenance_is_clean": true,
+   "see": "R152 / CLIP_REACH.json"
+  },
+  "participation_divisor": {
+   "exercised_at": "participation_spread [(4,)] at every step -- one distinct value, so every parameter is divided by the same count",
+   "and_that_makes_it_inert": "optim.py:195-203 divides each parameter's accumulated gradient by ITS OWN count, and the comment beside it says a uniform per-tensor scaling is exactly what Adam DOES cancel. So in the certifying arm the divisor the campaign implemented because 'the counts genuinely differ' fires and is inert (up to Adam's eps).",
+   "covered_by": {
+    "count_zero": "of3t-d10_d107 -- zero_participation_steps [3], worst_rel_at_zero_participation 0.001102541604612053; and FIRES.json puts a zero-participation step at 9.587733739203432e-71 at shipped scale",
+    "non_uniform_non_zero": "spread (1, 4), which appears ONLY in perf/of3t_traj20/, perf/of3t_rebind/, perf/of3t_modeltraj/, perf/of3t_trajretake/"
+   },
+   "provenance_is_clean": false,
+   "why_not": "every arm carrying the non-uniform spread is SUPERSEDED -- TRAJECTORY was repointed to of3t-trajfull at pass 357 (A-D210) -- so the case is covered by the campaign's history and not by the artifact the clause reads. And it is upstream's NORMAL case, not a corner: R6 records that their runner disables confidence-head parameters on zero-confidence samples and initial_training.yml does so on 4 of its 5 datasets."
+  },
+  "disabled_parameters": {
+   "exercised_at": "n_disabled_last_sample [0] at every step of the reference side -- the path never fires in this arm",
+   "covered_by": "COVERAGE's own disabled_parameters item, which R148 records as upgraded by the gate firing on 5oid",
+   "provenance_is_clean": false,
+   "why_not": "a different datapoint from the one TRAJECTORY is graded on, so the two clauses are each satisfied and neither is satisfied on the other's data."
+  },
+  "weight_decay": {
+   "exercised_at": "weight_decay 0.0 -- identically inert",
+   "covered_by": "nothing, and nothing is owed: upstream's own shipped default is 0.0, so there is no behaviour to reproduce",
+   "provenance_is_clean": true
+  }
+ },
+ "THE_POSITIVE_READING": {
+  "claim": "this is the factorisation working, not a hole in it",
+  "why": "PROTOCOL drives the state-free factors with a controlled input precisely because a real batch never happens to hit the clip threshold, the warmup knee, a zero gradient or a disabled parameter. Five factors inert in a 20-step trajectory is the measurement that makes that a fact rather than a design preference -- and it is the strongest available answer to 'why not just run more steps'. More steps of THIS batch move none of the five."
+ },
+ "WHAT_IS_OWED": {
+  "not_a_new_measurement": "both gaps are provenance, not coverage. The non-uniform divisor and the disabled-parameter path are both exercised somewhere in the campaign; neither is exercised in the artifact its clause reads.",
+  "the_cheap_close": "state the operating point beside the TRAJECTORY verdict, the way R148 fixed COVERAGE -- describe where each factor's evidence lives instead of leaving a reader to infer it from '20 steps, coupled, 89.21 %'.",
+  "the_honest_headline": "TRAJECTORY MET means the COMPOSITION reproduces at one operating point over 89.21 % of the gradient mass. It does not mean the update rule's factors were swept, and the factorisation is what covers them."
+ },
+ "DOESNOT": "this moves no verdict and no bar. It states what the certifying arm exercises, names where each unexercised factor's coverage lives, and flags the two whose coverage is not in the artifact the clause is graded on."
+}

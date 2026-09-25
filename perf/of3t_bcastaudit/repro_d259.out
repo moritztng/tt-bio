@@ -1,0 +1,10 @@
+$ python3 repro_d259.py bf16xf32
+bf16xf32 wrong elements per rep: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+$ python3 repro_d259.py f32xbf16 bf16xf32
+f32xbf16 wrong elements per rep: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+bf16xf32 wrong elements per rep: [0, 9523, 84239, 0, 0, 7434, 0, 1519, 1472, 480]
+$ python3 repro_d259.py bf16xf32
+bf16xf32 wrong elements per rep: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+$ python3 repro_d259.py f32xbf16 bf16xf32
+f32xbf16 wrong elements per rep: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+bf16xf32 wrong elements per rep: [0, 8866, 83951, 0, 0, 7193, 0, 1391, 1790, 542]

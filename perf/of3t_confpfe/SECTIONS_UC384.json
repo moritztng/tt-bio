@@ -1,0 +1,133 @@
+{
+  "source": "/home/ttuser/.coworker/wt/of3t-confpfe/perf/of3t_confpfe/SCORE_CF384.json",
+  "arm": "CF384",
+  "limit": 3.0,
+  "sections": {
+    "aux_heads.distogram": {
+      "rel": 0.14783598064257358,
+      "bf16_rel": 0.10249423033594313,
+      "ratio": 1.442383441077754,
+      "within_3x": true
+    },
+    "aux_heads.experimentally_resolved": {
+      "rel": 0.1298421145250615,
+      "bf16_rel": 0.02304608591444249,
+      "ratio": 5.634020241315347,
+      "within_3x": false
+    },
+    "aux_heads.pae": {
+      "rel": 0.07796630430359304,
+      "bf16_rel": 0.012845890522010751,
+      "ratio": 6.069357680575116,
+      "within_3x": false
+    },
+    "aux_heads.pairformer_embedding": {
+      "rel": 0.4502508100344505,
+      "bf16_rel": 0.33817924059737153,
+      "ratio": 1.331396951625747,
+      "within_3x": true
+    },
+    "aux_heads.pde": {
+      "rel": 0.04486649891633939,
+      "bf16_rel": 0.017120011633940217,
+      "ratio": 2.620704931496197,
+      "within_3x": true
+    },
+    "diffusion_module.atom_attn_dec": {
+      "rel": 0.1866616177113592,
+      "bf16_rel": 0.7932807157067949,
+      "ratio": 0.23530335985168627,
+      "within_3x": true
+    },
+    "diffusion_module.atom_attn_enc": {
+      "rel": 0.189909267524091,
+      "bf16_rel": 0.6466057745752984,
+      "ratio": 0.2937017808862388,
+      "within_3x": true
+    },
+    "diffusion_module.diffusion_conditioning": {
+      "rel": 0.10569117532436642,
+      "bf16_rel": 0.37178131398190084,
+      "ratio": 0.28428318301524885,
+      "within_3x": true
+    },
+    "diffusion_module.diffusion_transformer": {
+      "rel": 0.16419786120531918,
+      "bf16_rel": 1.1749153866469508,
+      "ratio": 0.13975292439902212,
+      "within_3x": true
+    },
+    "diffusion_module.layer_norm_a": {
+      "rel": 0.21977149284846056,
+      "bf16_rel": 0.6438609628694278,
+      "ratio": 0.34133377471593856,
+      "within_3x": true
+    },
+    "diffusion_module.layer_norm_s": {
+      "rel": 0.04112795152284109,
+      "bf16_rel": 0.31806809235282935,
+      "ratio": 0.12930549310560305,
+      "within_3x": true
+    },
+    "diffusion_module.linear_s": {
+      "rel": 0.15933764761327937,
+      "bf16_rel": 0.531931208572832,
+      "ratio": 0.29954558981561025,
+      "within_3x": true
+    },
+    "input_embedder": {
+      "rel": 0.8226984772362137,
+      "bf16_rel": 1.1458190012872498,
+      "ratio": 0.7180003790406407,
+      "within_3x": true
+    },
+    "layer_norm_s": {
+      "rel": 0.25318344385720065,
+      "bf16_rel": 0.293062270345665,
+      "ratio": 0.8639237099971022,
+      "within_3x": true
+    },
+    "layer_norm_z": {
+      "rel": 0.1791870995426912,
+      "bf16_rel": 0.48063984565917883,
+      "ratio": 0.3728094979244658,
+      "within_3x": true
+    },
+    "linear_s": {
+      "rel": 0.15805025387947014,
+      "bf16_rel": 0.27783292513605334,
+      "ratio": 0.568867976328125,
+      "within_3x": true
+    },
+    "linear_z": {
+      "rel": 0.16940734481822475,
+      "bf16_rel": 0.4703883164188218,
+      "ratio": 0.3601436066864143,
+      "within_3x": true
+    },
+    "msa_module": {
+      "rel": 0.2686875345511857,
+      "bf16_rel": 0.6131333658472679,
+      "ratio": 0.43822037670368125,
+      "within_3x": true
+    },
+    "msa_module_embedder": {
+      "rel": 0.29083691864385747,
+      "bf16_rel": 0.6226614994952598,
+      "ratio": 0.4670867218859925,
+      "within_3x": true
+    },
+    "pairformer_stack": {
+      "rel": 0.21010262957043258,
+      "bf16_rel": 0.37966940637975893,
+      "ratio": 0.5533830907626,
+      "within_3x": true
+    },
+    "template_embedder": {
+      "rel": 0.2049421810118085,
+      "bf16_rel": 0.5206882166295718,
+      "ratio": 0.3935986536019665,
+      "within_3x": true
+    }
+  }
+}

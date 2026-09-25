@@ -961,6 +961,17 @@ registers its own with `tt_bio.train.catalogue.register`. `--train weights` also
 `UNMEASURED` from the dry run: we have measured a frozen trunk's memory and not a trained one's,
 and it will not print a projection shaped like a measurement.
 
+`finetune` follows OpenFold3's optimizer setup rather than Adam's library defaults, which
+differ in three places that no loss curve shows: `betas=(0.9, 0.95)`, no weight decay, and the
+AlphaFold 2 learning-rate schedule. Each is an argument, and the loop clips every sample
+separately, so a batch of 8 is 8 forwards per step. See
+[`docs/training.md`](docs/training.md) for what each one costs if you get it wrong.
+
+A training step runs softmax and layer norm in float64 on the host, which is what brings the
+OpenFold3 gradient inside its accuracy bar against upstream. It makes a step slower;
+`--device-ops` puts them back on the device kernels. Inference is unaffected. See
+[`docs/training.md`](docs/training.md#softmax-and-layer-norm-run-in-float64-during-training-by-default).
+
 Four things the API enforces rather than documents, because each is a bug we hit:
 
 - `plan()` answers from measured numbers or returns `UNMEASURED`. It refuses a crop size whose

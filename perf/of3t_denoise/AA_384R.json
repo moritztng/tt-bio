@@ -1,0 +1,33 @@
+{
+ "arms": [
+  "DN384R",
+  "DN384RB"
+ ],
+ "host": "tt-quietbox2",
+ "cards": [
+  1,
+  3
+ ],
+ "cross_card": true,
+ "n_named": 3449,
+ "keysets_equal": true,
+ "bit_identical": 3449,
+ "provenance": {
+  "DN384R": {
+   "host": "tt-quietbox2",
+   "card": 1,
+   "board_class": "p300c",
+   "commit": "fe5b69d86c941a2322c6d9f7f687540b1c9f2198",
+   "aiclk_during": "CLOCK: dev0 min 800 / median 1350 / max 1350 MHz over 1575 samples, polled DURING the work"
+  },
+  "DN384RB": {
+   "host": "tt-quietbox2",
+   "card": 3,
+   "board_class": "p300c",
+   "commit": "9e6de9d0ab2114bf413c8751e604f728c9b89bb7",
+   "aiclk_during": "CLOCK: dev0 min 800 / median 1350 / max 1350 MHz over 1374 samples, polled DURING the work"
+  }
+ },
+ "source": "score_inproj.py aa block, SCORE_INPROJ_DN384R.json",
+ "note": "DN384R's commit stamp is HEAD at launch (fe5b69d86); b770aee71 was in its working tree (launched 18:43:50Z, committed 18:44:48Z). DN384RB ran on 9e6de9d0a; the two are bit-identical on every tensor and the loss."
+}

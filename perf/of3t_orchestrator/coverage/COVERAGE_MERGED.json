@@ -1,0 +1,750 @@
+{
+  "instrument": "perf/of3t_orchestrator/coverage/merge_coverage.py",
+  "what": "COVERAGE's two halves in one artifact, in the census's schema. A composition of two measurements, not a third measurement.",
+  "owner": "of3t-orchestrator (D179)",
+  "sources": [
+    {
+      "path": "perf/of3t_gradients/coverage_census.json",
+      "sha256": "d51094740d3cb9b6b6a35d42fcba94eb47d18cb11f2a9f197ebcb902dc9c500b",
+      "provides": "union, the 8 loss terms"
+    },
+    {
+      "path": "perf/of3t_covpaths/COVERAGE_UNION.json",
+      "sha256": "2864196a95d073d51aa41293db0ae6e9f28ef852d6051c3a4245816cc5f2fd2d",
+      "provides": "conditional_paths, nine of the 11 paths"
+    },
+    {
+      "path": "perf/of3t_trainfwd/COVERAGE_TRAINFWD.json",
+      "sha256": "0fd2c866bb8eb1e9033550c57f86bd41b61d07f1c17e16df33339d9e7dd06e2b",
+      "provides": "model_forward and diffusion_rollout, from an OF3 training adapter; upgrade-only"
+    }
+  ],
+  "rule": "a path is covered when a parameter gradient MOVES against an arm with the path off, not when a config key is set",
+  "union": {
+    "bond": {
+      "covered": true,
+      "carried_by": [
+        "finetune_1/weighted-pdb"
+      ],
+      "n_pairs_firing": 1,
+      "source": "perf/of3t_covpaths/COVERAGE_UNION.json",
+      "upgraded_by": "of3t-orchestrator, pass 328 (D179)",
+      "upgraded_why": "the census read this false on 5nw3, which has no inter-token bond; perf/of3t_covpaths/COVERAGE_UNION.json carries a firing pair on a different target",
+      "evidence": {
+        "owner": "of3t-bondcov, cited not re-run",
+        "stage": "finetune_1",
+        "dataset": "weighted-pdb",
+        "target": "4g5j",
+        "datapoint": "1",
+        "crop": 256,
+        "dtype": "float32",
+        "bond_mask_nnz": 1,
+        "loss_weight_bond": 4.0,
+        "bond_loss": 0.0012424831511452794,
+        "squared_norm_of_difference": 0.2137645687351699,
+        "share_of_squared_gradient_norm": 0.1469017168959787,
+        "n_params_moved": 3924,
+        "n_params": 4170
+      }
+    },
+    "distogram": {
+      "covered": true,
+      "carried_by": [
+        "initial_training/RNA-monomer-distillation",
+        "initial_training/disordered-pdb",
+        "initial_training/long-monomer-distillation"
+      ],
+      "n_pairs_firing": 15,
+      "source": "perf/of3t_gradients/coverage_census.json"
+    },
+    "mse": {
+      "covered": true,
+      "carried_by": [
+        "initial_training/RNA-monomer-distillation",
+        "initial_training/disordered-pdb",
+        "initial_training/long-monomer-distillation"
+      ],
+      "n_pairs_firing": 15,
+      "source": "perf/of3t_gradients/coverage_census.json"
+    },
+    "pae": {
+      "covered": true,
+      "carried_by": [
+        "initial_training/weighted-pdb",
+        "finetune_1/weighted-pdb",
+        "finetune_2/weighted-pdb"
+      ],
+      "n_pairs_firing": 4,
+      "source": "perf/of3t_gradients/coverage_census.json"
+    },
+    "pde": {
+      "covered": true,
+      "carried_by": [
+        "initial_training/weighted-pdb",
+        "finetune_1/weighted-pdb",
+        "finetune_2/weighted-pdb"
+      ],
+      "n_pairs_firing": 4,
+      "source": "perf/of3t_gradients/coverage_census.json"
+    },
+    "plddt": {
+      "covered": true,
+      "carried_by": [
+        "initial_training/weighted-pdb",
+        "finetune_1/weighted-pdb",
+        "finetune_2/weighted-pdb"
+      ],
+      "n_pairs_firing": 4,
+      "source": "perf/of3t_gradients/coverage_census.json"
+    },
+    "resolved": {
+      "covered": true,
+      "carried_by": [
+        "initial_training/weighted-pdb",
+        "finetune_1/weighted-pdb",
+        "finetune_2/weighted-pdb"
+      ],
+      "n_pairs_firing": 4,
+      "source": "perf/of3t_gradients/coverage_census.json"
+    },
+    "smooth_lddt": {
+      "covered": true,
+      "carried_by": [
+        "initial_training/RNA-monomer-distillation",
+        "initial_training/disordered-pdb",
+        "initial_training/long-monomer-distillation"
+      ],
+      "n_pairs_firing": 5,
+      "source": "perf/of3t_gradients/coverage_census.json"
+    }
+  },
+  "conditional_paths": {
+    "msa": {
+      "covered": true,
+      "census_said": true,
+      "this_row": "CONFIRMS",
+      "evidence": "msa (1, 2, 384, 32), mask sum 112.0",
+      "reason": "not re-measured here; this row owns the five that did not fire",
+      "source": "perf/of3t_covpaths/COVERAGE_UNION.json",
+      "census_entry": {
+        "covered": true,
+        "evidence": "msa (1, 2, 384, 32), mask sum 112.0",
+        "note": "2 MSA rows on this batch, so the path carries a tensor but not depth"
+      }
+    },
+    "ligand": {
+      "covered": true,
+      "census_said": true,
+      "this_row": "CONFIRMS",
+      "evidence": "2 ligand tokens",
+      "reason": "not re-measured here; this row owns the five that did not fire",
+      "source": "perf/of3t_covpaths/COVERAGE_UNION.json",
+      "census_entry": {
+        "covered": true,
+        "evidence": "2 ligand tokens"
+      }
+    },
+    "confidence_heads": {
+      "covered": true,
+      "census_said": true,
+      "this_row": "CONFIRMS",
+      "evidence": "plddt, pde, pae and resolved all fire on initial_training/weighted-pdb",
+      "reason": "not re-measured here; this row owns the five that did not fire",
+      "source": "perf/of3t_covpaths/COVERAGE_UNION.json",
+      "census_entry": {
+        "covered": true,
+        "evidence": "plddt, pde, pae and resolved all fire on initial_training/weighted-pdb"
+      }
+    },
+    "routed_call_census": {
+      "covered": true,
+      "census_said": true,
+      "this_row": "CONFIRMS",
+      "evidence": "trunk, 1 cycle, 48 blocks: 30107 calls taped, 221 untaped, 14 nested",
+      "reason": "not re-measured here; this row owns the five that did not fire",
+      "source": "perf/of3t_covpaths/COVERAGE_UNION.json",
+      "census_entry": {
+        "covered": true,
+        "source": "perf/of3t_tape/coverage_trunk_c1_b48_strict_bw.json",
+        "evidence": "trunk, 1 cycle, 48 blocks: 30107 calls taped, 221 untaped, 14 nested"
+      }
+    },
+    "templates": {
+      "covered": true,
+      "census_said": false,
+      "this_row": "EXTENDS",
+      "evidence": {
+        "mask": {
+          "instrument": "perf/of3t_covpaths/presence_n4.json",
+          "n_datapoints_with_nonzero_template_mask": 33,
+          "n_datapoints_walked": 34,
+          "examples": [
+            {
+              "pdb_id": "1kvu",
+              "datapoint": "1",
+              "template_pseudo_beta_mask_nnz": 913
+            },
+            {
+              "pdb_id": "1kvu",
+              "datapoint": "11",
+              "template_pseudo_beta_mask_nnz": 1140
+            },
+            {
+              "pdb_id": "1kvu",
+              "datapoint": "12",
+              "template_pseudo_beta_mask_nnz": 637
+            },
+            {
+              "pdb_id": "1kvu",
+              "datapoint": "13",
+              "template_pseudo_beta_mask_nnz": 602
+            },
+            {
+              "pdb_id": "1kvu",
+              "datapoint": "14",
+              "template_pseudo_beta_mask_nnz": 376
+            },
+            {
+              "pdb_id": "1kvu",
+              "datapoint": "15",
+              "template_pseudo_beta_mask_nnz": 351
+            }
+          ]
+        },
+        "gradient": {
+          "stage": "initial_training",
+          "dataset": "weighted-pdb",
+          "target": "1kvu",
+          "datapoint": "['10', '2']",
+          "crop": 384,
+          "dtype": "float32",
+          "seed": 20260921,
+          "arms": [
+            "templates_off",
+            "templates_on"
+          ],
+          "squared_norm_of_difference": 0.02670021486522216,
+          "share_of_squared_gradient_norm": 0.04708549925410784,
+          "n_params_moved": 4168,
+          "n_params_with_gradient_on": 4170
+        },
+        "template_embedder": {
+          "template_embedder": {
+            "n": 96,
+            "sq": 0.0006838094427079382,
+            "delta_sq": 0.004505754749978564,
+            "share_of_own": 6.589196446506248
+          }
+        },
+        "mask_on_the_run_batch": 178,
+        "null_control": {
+          "target": "5oid",
+          "edit": "templates",
+          "molecule_type_tokens": {
+            "is_protein": 374,
+            "is_dna": 0,
+            "is_rna": 0,
+            "is_ligand": 0
+          },
+          "template_pseudo_beta_mask_nnz": 0,
+          "tensors_compared": 424,
+          "n_tensors_moved": 0,
+          "verdict": "NO-OP"
+        }
+      },
+      "reason": "the census's zero is correct FOR 5nw3, whose four template slots are mask-zero, and is not a statement about the path: `initial_training` / `weighted-pdb` configures n_templates 4, and a target whose cache entry carries template_ids fills them",
+      "source": "perf/of3t_covpaths/COVERAGE_UNION.json",
+      "census_entry": {
+        "covered": false,
+        "evidence": "template_pseudo_beta_mask sum 0.0 over (1, 4, 384, 32)",
+        "reason_if_not": "the four template slots are all mask-zero on 5nw3, so the template path cannot fire on this batch whatever the stage"
+      }
+    },
+    "bond": {
+      "covered": true,
+      "census_said": false,
+      "this_row": "CONTRADICTS",
+      "evidence": {
+        "owner": "of3t-bondcov, cited not re-run",
+        "stage": "finetune_1",
+        "dataset": "weighted-pdb",
+        "target": "4g5j",
+        "datapoint": "1",
+        "crop": 256,
+        "dtype": "float32",
+        "bond_mask_nnz": 1,
+        "loss_weight_bond": 4.0,
+        "bond_loss": 0.0012424831511452794,
+        "squared_norm_of_difference": 0.2137645687351699,
+        "share_of_squared_gradient_norm": 0.1469017168959787,
+        "n_params_moved": 3924,
+        "n_params": 4170
+      },
+      "reason": "the census reads covered false with the reason 'no inter-token bond on 5nw3', which is true of 5nw3; a gradient reading on 4g5j at finetune_1/weighted-pdb existed before this row started and the census does not carry it",
+      "source": "perf/of3t_covpaths/COVERAGE_UNION.json",
+      "census_entry": {
+        "covered": false,
+        "evidence": "token_bonds sum 0",
+        "reason_if_not": "no inter-token bond on 5nw3, so `bond` has an empty mask even in finetune_1/2 where its weight is 4.0"
+      }
+    },
+    "nucleotide": {
+      "covered": true,
+      "census_said": false,
+      "this_row": "EXTENDS",
+      "evidence": {
+        "mask": {
+          "instrument": "perf/of3t_covpaths/presence_n4.json",
+          "n_datapoints_with_nucleotide_tokens": 6,
+          "examples": [
+            {
+              "pdb_id": "4hj5",
+              "datapoint": "1",
+              "is_dna": 9,
+              "is_rna": 0
+            },
+            {
+              "pdb_id": "4hj5",
+              "datapoint": "2",
+              "is_dna": 9,
+              "is_rna": 0
+            },
+            {
+              "pdb_id": "4hj5",
+              "datapoint": "['1', '2']",
+              "is_dna": 9,
+              "is_rna": 0
+            },
+            {
+              "pdb_id": "5kla",
+              "datapoint": "1",
+              "is_dna": 0,
+              "is_rna": 8
+            },
+            {
+              "pdb_id": "5kla",
+              "datapoint": "2",
+              "is_dna": 0,
+              "is_rna": 8
+            },
+            {
+              "pdb_id": "5kla",
+              "datapoint": "['1', '2']",
+              "is_dna": 0,
+              "is_rna": 8
+            }
+          ]
+        },
+        "gradient": {
+          "dna": {
+            "stage": "initial_training",
+            "dataset": "weighted-pdb",
+            "target": "4hj5",
+            "datapoint": "1",
+            "crop": 384,
+            "dtype": "float32",
+            "seed": 20260921,
+            "arms": [
+              "nucleotide_off",
+              "nucleotide_on"
+            ],
+            "squared_norm_of_difference": 0.24930580177750666,
+            "share_of_squared_gradient_norm": 0.2784921856597881,
+            "n_params_moved": 4164,
+            "n_params_with_gradient_on": 4170
+          }
+        },
+        "null_control": {
+          "target": "1kvu",
+          "edit": "nucleotide",
+          "molecule_type_tokens": {
+            "is_protein": 279,
+            "is_dna": 0,
+            "is_rna": 0,
+            "is_ligand": 105
+          },
+          "template_pseudo_beta_mask_nnz": 178,
+          "tensors_compared": 350,
+          "n_tensors_moved": 0,
+          "verdict": "NO-OP"
+        }
+      },
+      "reason": "the census's zero is correct FOR 5nw3, one protein chain plus Fe and Na. Upstream's own training cache carries 19,572 DNA and 16,000 RNA chains over 13,196 structures, all reachable by the same WeightedPDBDataset",
+      "source": "perf/of3t_covpaths/COVERAGE_UNION.json",
+      "census_entry": {
+        "covered": false,
+        "evidence": "0 nucleotide tokens",
+        "reason_if_not": "5nw3 is one protein chain plus Fe and Na, so the DNA and RNA weightings in `mse` and the nucleotide lddt radius are never selected"
+      }
+    },
+    "disabled_parameters": {
+      "covered": true,
+      "census_said": false,
+      "this_row": "CONTRADICTS",
+      "evidence": {
+        "gate": {
+          "instrument": "perf/of3t_covpaths/presence_n4.json",
+          "n_datapoints_where_the_gate_fires": 1,
+          "fired_on": [
+            {
+              "pdb_id": "5oid",
+              "datapoint": "1",
+              "summed_confidence_weight": 0.0
+            }
+          ],
+          "control_datapoints": 33,
+          "control_summed_confidence_weight": [
+            0.00039999998989515007
+          ]
+        },
+        "source": {
+          "zeroing": "core/data/pipelines/featurization/loss_weights.py:44-49",
+          "bounds": "projects/of3_all_atom/config/dataset_config_components.py:174-175, min_resolution 0.1, max_resolution 4.0",
+          "disable": "projects/of3_all_atom/runner.py:364-386, _get_sample_disabled_param_names",
+          "param_set": "projects/of3_all_atom/runner.py:141-161, _identify_confidence_params"
+        },
+        "gradient": {
+          "stage": "initial_training",
+          "dataset": "weighted-pdb",
+          "target": "5oid",
+          "datapoint": "1",
+          "crop": 384,
+          "dtype": "float32",
+          "seed": 20260921,
+          "arms": [
+            "disabled_off",
+            "disabled_on"
+          ],
+          "squared_norm_of_difference": 9.217698894395271e-08,
+          "share_of_squared_gradient_norm": 5.738757833439208e-07,
+          "n_params_moved": 243,
+          "n_params_with_gradient_on": 4170
+        },
+        "confidence_head": {
+          "n_params": 243,
+          "n_grad_none_on": 0,
+          "n_grad_none_off": 0,
+          "n_grad_zero_on": 243,
+          "n_grad_zero_off": 0
+        },
+        "prediction_falsified": {
+          "predicted": "those parameters hold `grad is None` rather than a zero gradient",
+          "measured": "all 243 hold an EXACTLY ZERO gradient and none holds None; autograd still builds the confidence terms and weights them by zero. The None in LEDGER R6 is the runner's own disabled-NAMES list, used for cross-rank gradient counting and for dropping them from the clip norm, not what autograd produces",
+          "consequence": "because their gradient is exactly zero on the batch that trips the gate, dropping them from grad_manager._clip_grads' params_enabled changes that norm by nothing on a real zero-confidence-weight batch",
+          "registered_in": "perf/of3t_covpaths/PREDICTION.md, section 4"
+        }
+      },
+      "reason": "the census attributes the gap to the DATASET, 'the frozen batch is weighted-pdb, the one dataset that does NOT zero them'. The dataset default is half the gate: set_loss_weights zeroes every confidence loss when the target's resolution is None or outside [0.1, 4.0], so the gate is per TARGET and fires inside weighted-pdb",
+      "source": "perf/of3t_covpaths/COVERAGE_UNION.json",
+      "census_entry": {
+        "covered": false,
+        "reason": "R6: their runner disables the confidence-head parameters when a sample's summed confidence weight is zero, which initial_training does on its four distillation datasets. The frozen batch is weighted-pdb, the one dataset that does NOT zero them, so the disabled path has no batch here. of3t-reference reports the same gap from its own side."
+      }
+    },
+    "multichain_permutation": {
+      "covered": true,
+      "census_said": false,
+      "this_row": "CONTRADICTS",
+      "evidence": {
+        "rerun_on_qb1": {
+          "A_frozen5nw3_s1": {
+            "completed": true,
+            "naive_fallback_invoked": false,
+            "detectors_agree": true,
+            "gt_atoms_moved": 0,
+            "atoms_differing_from_naive": 0,
+            "max_abs_coord_diff_A": 0.0,
+            "n_ref_spaces": 56,
+            "n_ref_spaces_with_alternatives": 8,
+            "errors": []
+          },
+          "B_frozen_dropkey_CONTROL": {
+            "completed": false,
+            "naive_fallback_invoked": true,
+            "detectors_agree": true,
+            "gt_atoms_moved": 0,
+            "atoms_differing_from_naive": 0,
+            "max_abs_coord_diff_A": 0.0,
+            "n_ref_spaces": 56,
+            "n_ref_spaces_with_alternatives": 8,
+            "errors": [
+              {
+                "error": "KeyError: 'ref_space_uid_to_perm'",
+                "traceback": "Traceback (most recent call last):\n  File \"/home/ttuser/.coworker/wt/of3t-covpaths/perf/of3t_permalign/permalign_guard.py\", line 63, in wrapped\n    out = orig(*a, **kw)\n  File \"/home/ttuser/of3t_cov/perm_S/of3pkg043/openfold3/core/utils/permutation_alignment.py\", line 1547, in multi_chain_permutation_alignment\n    gt_atom_index = single_batch_multi_chain_permutation_alignment(\n  File \"/home/ttuser/of3t_cov/perm_S/of3pkg043/openfold3/core/utils/permutation_alignment.py\", line 1412, in single_batch_multi_chain_permutation_alignment\n    pred_ref_space_uid_to_perm = single_batch[\"ref_space_uid_to_perm\"]\nKeyError: 'ref_space_uid_to_perm'\n"
+              }
+            ]
+          },
+          "C_frozen_nosampledim": {
+            "completed": true,
+            "naive_fallback_invoked": false,
+            "detectors_agree": true,
+            "gt_atoms_moved": 0,
+            "atoms_differing_from_naive": 0,
+            "max_abs_coord_diff_A": 0.0,
+            "n_ref_spaces": 56,
+            "n_ref_spaces_with_alternatives": 8,
+            "errors": []
+          },
+          "D_frozen5nw3_flip": {
+            "completed": true,
+            "naive_fallback_invoked": false,
+            "detectors_agree": true,
+            "gt_atoms_moved": 24,
+            "atoms_differing_from_naive": 24,
+            "max_abs_coord_diff_A": 2.3559999465942383,
+            "n_ref_spaces": 56,
+            "n_ref_spaces_with_alternatives": 8,
+            "errors": []
+          },
+          "E_4g5j_fixed": {
+            "completed": true,
+            "naive_fallback_invoked": false,
+            "detectors_agree": true,
+            "gt_atoms_moved": 2,
+            "atoms_differing_from_naive": 2,
+            "max_abs_coord_diff_A": 2.105998992919922,
+            "n_ref_spaces": 197,
+            "n_ref_spaces_with_alternatives": 58,
+            "errors": []
+          },
+          "F_4g5j_recurse_CONTROL": {
+            "completed": false,
+            "naive_fallback_invoked": true,
+            "detectors_agree": true,
+            "gt_atoms_moved": 0,
+            "atoms_differing_from_naive": 0,
+            "max_abs_coord_diff_A": 0.0,
+            "n_ref_spaces": null,
+            "n_ref_spaces_with_alternatives": null,
+            "errors": [
+              {
+                "error": "IndexError: index 1 is out of bounds for dimension 0 with size 1",
+                "traceback": "Traceback (most recent call last):\n  File \"/home/ttuser/.coworker/wt/of3t-covpaths/perf/of3t_permalign/permalign_guard.py\", line 63, in wrapped\n    out = orig(*a, **kw)\n  File \"/home/ttuser/of3t_cov/perm_S/of3pkg043/openfold3/core/utils/permutation_alignment.py\", line 1547, in multi_chain_permutation_alignment\n    gt_atom_index = single_batch_multi_chain_permutation_alignment(\n  File \"/home/ttuser/of3t_cov/perm_S/of3pkg043/openfold3/core/utils/permutation_alignment.py\", line 1497, in single_batch_multi_chain_permutation_alignment\n    gt_atom_index = get_final_atom_permutation_index(\n  File \"/home/ttuser/of3t_cov/perm_S/of3pkg043/openfold3/core/utils/permutation_alignment.py\", line 1175, in get_final_atom_permutation_index\n    permutations = pred_ref_space_uid_to_perm[ref_space_uid.item()]\nIndexError: index 1 is out of bounds for dimension 0 with size 1\n"
+              }
+            ]
+          },
+          "G_4g5j_fixed_flip": {
+            "completed": true,
+            "naive_fallback_invoked": false,
+            "detectors_agree": true,
+            "gt_atoms_moved": 146,
+            "atoms_differing_from_naive": 146,
+            "max_abs_coord_diff_A": 2.385997772216797,
+            "n_ref_spaces": 197,
+            "n_ref_spaces_with_alternatives": 58,
+            "errors": []
+          },
+          "H_4g5j_via_forward": {
+            "completed": true,
+            "naive_fallback_invoked": false,
+            "detectors_agree": true,
+            "gt_atoms_moved": 74,
+            "atoms_differing_from_naive": null,
+            "max_abs_coord_diff_A": null,
+            "n_ref_spaces": 197,
+            "n_ref_spaces_with_alternatives": 58,
+            "errors": []
+          },
+          "I_frozen5nw3_via_forward": {
+            "completed": true,
+            "naive_fallback_invoked": false,
+            "detectors_agree": true,
+            "gt_atoms_moved": 8,
+            "atoms_differing_from_naive": null,
+            "max_abs_coord_diff_A": null,
+            "n_ref_spaces": 56,
+            "n_ref_spaces_with_alternatives": 8,
+            "errors": []
+          },
+          "J_frozen5nw3_forward_twice_CONTROL": {
+            "completed": false,
+            "naive_fallback_invoked": true,
+            "detectors_agree": true,
+            "gt_atoms_moved": 0,
+            "atoms_differing_from_naive": null,
+            "max_abs_coord_diff_A": null,
+            "n_ref_spaces": 56,
+            "n_ref_spaces_with_alternatives": 8,
+            "errors": [
+              {
+                "error": "KeyError: 'ref_space_uid_to_perm'",
+                "traceback": "Traceback (most recent call last):\n  File \"/home/ttuser/.coworker/wt/of3t-covpaths/perf/of3t_permalign/permalign_guard.py\", line 63, in wrapped\n    out = orig(*a, **kw)\n  File \"/home/ttuser/of3t_cov/perm_S/of3pkg043/openfold3/core/utils/permutation_alignment.py\", line 1547, in multi_chain_permutation_alignment\n    gt_atom_index = single_batch_multi_chain_permutation_alignment(\n  File \"/home/ttuser/of3t_cov/perm_S/of3pkg043/openfold3/core/utils/permutation_alignment.py\", line 1412, in single_batch_multi_chain_permutation_alignment\n    pred_ref_space_uid_to_perm = single_batch[\"ref_space_uid_to_perm\"]\nKeyError: 'ref_space_uid_to_perm'\n"
+              }
+            ]
+          }
+        },
+        "arms_completed": [
+          "A_frozen5nw3_s1",
+          "C_frozen_nosampledim",
+          "D_frozen5nw3_flip",
+          "E_4g5j_fixed",
+          "G_4g5j_fixed_flip",
+          "H_4g5j_via_forward",
+          "I_frozen5nw3_via_forward"
+        ],
+        "arms_fell_back": [
+          "B_frozen_dropkey_CONTROL",
+          "F_4g5j_recurse_CONTROL",
+          "J_frozen5nw3_forward_twice_CONTROL"
+        ],
+        "prior_row": "of3t-permalign D117, perf/of3t_permalign/census_correction.json",
+        "key_written_at": "core/data/pipelines/featurization/conformer.py:181, output_features['ref_space_uid_to_perm'] = ref_space_uid_to_perm, guarded by add_ref_space_uid_to_perm which defaults True (conformer.py:37) and is set False only on the inference dataset (core/data/framework/single_datasets/inference.py:216)",
+        "selftest": "perf/of3t_permalign/permalign_selftest.py over these ten arms: 0 of 10 disagree with their configuration, the canary reaches both catch tiers and zeroes every loss weight, and the positive arm completes on batch_step003.pt. Exit 0.",
+        "raised_at": "core/utils/permutation_alignment.py:1412, pred_ref_space_uid_to_perm = single_batch['ref_space_uid_to_perm']"
+      },
+      "reason": "the census reports a KeyError its own instrument never ran: the census has no model forward, as its own model_forward entry states, so it never called safe_multi_chain_permutation_alignment. The alignment completes on the frozen batch; the exception is reproducible only by removing the key, which is what a second forward over one batch dict does (model.py:670 pops it off the caller's dict)",
+      "source": "perf/of3t_covpaths/COVERAGE_UNION.json",
+      "census_entry": {
+        "covered": false,
+        "reason": "upstream raises KeyError 'ref_space_uid_to_perm' and falls back to naive alignment"
+      }
+    },
+    "diffusion_rollout": {
+      "covered": true,
+      "census_said": false,
+      "this_row": "CONTRADICTS",
+      "evidence": {
+        "arm_on": "ARM_full_n384.json -- the shipped sampler, 20 rollout steps",
+        "arm_off": "ARM_norollout_n384.json -- the confidence heads fed the ground truth structure instead, every other tensor identical",
+        "loss_on": 0.1342802552371707,
+        "loss_off": 0.13428052993402045,
+        "rollout_steps": 20,
+        "contribution": {
+          "tensors_compared": 2498,
+          "only_in_on": [],
+          "only_in_off": [],
+          "squared_norm_arm_on": 9.785634443843438,
+          "squared_norm_of_difference": 0.013916589517109269,
+          "share_of_squared_gradient_norm": 0.0014221448386379067,
+          "n_params_moved": 2488,
+          "by_section": {
+            "confidence_head": {
+              "n": 179,
+              "sq": 2.950966993344492,
+              "delta_sq": 3.964392252602549e-08,
+              "share_of_own": 1.3434214145884046e-08
+            },
+            "input_glue": {
+              "n": 5,
+              "sq": 0.0586938328215179,
+              "delta_sq": 5.393889858394889e-05,
+              "share_of_own": 0.0009189874981920454
+            },
+            "trunk": {
+              "n": 2314,
+              "sq": 6.775973617677422,
+              "delta_sq": 0.013862610974602792,
+              "share_of_own": 0.002045847837783411
+            }
+          }
+        },
+        "lazily_minted_by_the_rollout": 0,
+        "host": "tt-quietbox2",
+        "card": "1",
+        "commit": "524deccaefe4359ee9b568fffe25e97c709481e4",
+        "padded_width": 384,
+        "real_tokens": 56,
+        "target": "5nw3",
+        "aiclk_during": {
+          "0": {
+            "min": 800,
+            "max": 1350,
+            "median": 1350,
+            "n": 134
+          }
+        }
+      },
+      "reason": "the census's reason -- `the rollout is a differentiated path through the diffusion module` -- does not hold: upstream runs it under torch.no_grad() (of3pkg043/openfold3/projects/of3_all_atom/model.py:381) and in training it is the MINI rollout. Its reach into a parameter gradient is the structure it hands the confidence heads, and that is what these two arms separate. See ADDENDUM_upstream_rollout_is_no_grad.md.",
+      "source": "perf/of3t_trainfwd/COVERAGE_TRAINFWD.json",
+      "census_entry": {
+        "covered": false,
+        "reason": "the rollout is a differentiated path through the diffusion module and needs a model forward, which this census does not have"
+      },
+      "superseded": {
+        "was": false,
+        "by_source": "perf/of3t_covpaths/COVERAGE_UNION.json"
+      }
+    },
+    "model_forward": {
+      "covered": true,
+      "census_said": false,
+      "this_row": "CONTRADICTS",
+      "evidence": {
+        "adapter": "tt_bio.train.catalogue.register('openfold3', tt_bio.train.openfold3.adapter)",
+        "arm_on": "ARM_full_n384.json",
+        "arm_off": "ARM_zeroseed_n384.json -- the same forward, every objective seed replaced by zeros",
+        "loss": 0.1342802552371707,
+        "seeded_outputs": [
+          "distogram_logits",
+          "resolved_logits"
+        ],
+        "params_reachable": 3952,
+        "n_params_nonzero_grad_on": 2489,
+        "n_params_nonzero_grad_off": 0,
+        "squared_gradient_norm_on": 9.785634443843449,
+        "squared_gradient_norm_off": 0.0,
+        "by_section_on": {
+          "input_glue": {
+            "n": 5,
+            "sq": 0.0586938328215179
+          },
+          "trunk": {
+            "n": 2314,
+            "sq": 6.775973617677438
+          },
+          "confidence_head": {
+            "n": 179,
+            "sq": 2.9509669933444918
+          }
+        },
+        "terms_that_fired": [
+          "distogram",
+          "resolved"
+        ],
+        "terms_skipped": {
+          "bond": "weight is zero in this stage",
+          "smooth_lddt": "missing ['pred_dist']",
+          "mse": "missing ['pred_xyz']",
+          "plddt": "missing ['per_atom_lddt', 'per_atom_weight']",
+          "pae": "missing ['pred_xyz']",
+          "pde": "missing ['pred_xyz']"
+        },
+        "host": "tt-quietbox2",
+        "card": "1",
+        "commit": "524deccaefe4359ee9b568fffe25e97c709481e4",
+        "padded_width": 384,
+        "real_tokens": 56,
+        "target": "5nw3",
+        "aiclk_during": {
+          "0": {
+            "min": 800,
+            "max": 1350,
+            "median": 1350,
+            "n": 134
+          }
+        }
+      },
+      "reason": "the census reads covered false because `tt-bio wires no OF3 training forward: nothing in tt_bio/train/ produces the eight outputs from an OF3 batch, so no term's gradient was carried into a parameter`. One is registered now and the gradient is carried: the af3 objective's seeds reach the model's own parameters through one backward.",
+      "source": "perf/of3t_trainfwd/COVERAGE_TRAINFWD.json",
+      "census_entry": {
+        "covered": false,
+        "reason": "tt-bio wires no OF3 training forward: nothing in tt_bio/train/ produces the eight outputs from an OF3 batch, so no term's gradient was carried into a parameter here. The routed-call census of a real taped forward is of3t-tape's, cited rather than rebuilt."
+      },
+      "superseded": {
+        "was": false,
+        "by_source": "perf/of3t_covpaths/COVERAGE_UNION.json"
+      }
+    }
+  },
+  "summary": {
+    "loss_terms_covered": 8,
+    "loss_terms": 8,
+    "paths_covered": 11,
+    "paths": 11,
+    "paths_uncovered": []
+  },
+  "superseded": {
+    "census_paths_covered": 4,
+    "census_paths_total": 11
+  }
+}

@@ -1,0 +1,63 @@
+{
+ "as_of": "2026-09-20, orchestrator pass 175, off of3t-trajectory's measurement",
+ "headline": "NO on the shipped path: 7.426742 mass-weighted over 51.1358 % of the model, 126.9x upstream's own distance from the float64 ideal. But the cause is one mechanism and it is known: computing every softmax in float64 collapses that to 1.172914e-01, a factor of 63.3, landing 2.04x from a defensible reproduction claim on this scope.",
+ "honest_limits": "one batch (batch_step003, 5nw3, 56 real tokens, crop 384), one r = 0 step, 48 structures. Nothing here establishes that section shares or this factor are stable at another batch or with recycling. The break control saturates: permuting the cotangent LOWERS the shipped headline to 3.7061 because our own error already exceeds what destroying the sample pairing does, so on the shipped arm the discriminating statistic is the cosine (+0.4109 to -0.2252), not rel_l2. On a healthy arm the same control moves 6.9x.",
+ "provenance": "of3t-trajectory on qb2-card0, scored by perf/of3t_trajectory/agreement.py, which reproduces 5.852018e-02, 3.117006e-05 and 7.5692 to every published digit, asserts the float64 file's model squared gradient norm against the campaign's published value so no share sits in a different denominator than D72's, and verifies diffcap043's grad_f64 is bit-identical to the bundle's float64 gradient over all 547 tensors (max abs diff 0.0). No file under tt_bio/ changed, so inference is byte-identical by construction. No timing figure taken: qb2's AICLK was CLAMPED-UNDER-LOAD at 800 during this window.",
+ "the_bound_is_not_a_lever": "the float64 softmax is a host-side computation installed on the tape verb. It is a BOUND -- everything the softmax could contribute is removed -- not a candidate to ship. of3t-softmax separately returned NO-GO on the shipped precision levers: 0.3237 A against a 0.6250 A seed floor at +46 % per op, and no shipped softmax lever reaches the parity bar. So this artifact says where the error IS, not that a fix is in hand.",
+ "the_measurement": {
+  "reference": "upstream OpenFold3 0.4.3, bf16 autocast with fp32 parameters -- the dtype an AF3-style training step actually runs. Pinned by sha256 ff78d7bc0bf7a4355014a470fbe931592bd4896fe06a8b400c161c08b5607ccb per A24.",
+  "rows": [
+   {
+    "cos": 0.4109,
+    "pair": "our device gradient vs upstream bf16",
+    "r": 7.7814,
+    "rel": 7.426742
+   },
+   {
+    "cos": 0.9932,
+    "pair": "float64-softmax BOUND vs upstream bf16",
+    "r": 0.9787,
+    "rel": 0.1172914
+   },
+   {
+    "note": "5.852018e-02 / 1.0175750163717907 -- normalised by ||bf16||, not ||float64||",
+    "pair": "perfect fix would read",
+    "rel": 0.05750945
+   },
+   {
+    "cos": 0.9985,
+    "pair": "upstream bf16 vs float64 (their own floor)",
+    "rel": 0.05852018
+   },
+   {
+    "pair": "upstream fp32 vs float64 (the bar is achievable)",
+    "rel": 3.117006e-05
+   },
+   {
+    "note": "the shipped arm is 7.4x ABOVE a deleted model; the bound is 8.5x below it",
+    "pair": "zero model vs upstream bf16 (A16, measured)",
+    "rel": 1.0
+   }
+  ],
+  "scope": "547 checkpoint-named diffusion parameters, 51.1358 % of the model's squared gradient norm"
+ },
+ "the_mechanism_is_confirmed_at_model_scope": {
+  "claim": "the campaign's localisation rested entirely on PER-BLOCK arms. At model scope it holds: 1,440 softmax calls intercepted across all 24 DiT blocks and both atom transformers, with a zero count a hard failure in the instrument.",
+  "diffusion_transformer": {
+   "bound": 0.1125,
+   "bound_over_floor": 1.95,
+   "factor": 71.3,
+   "floor": 0.057809,
+   "mass_pct": 43.6221,
+   "shipped": 8.025
+  },
+  "the_counter_case": "atom_attn_dec, 1.2843 % of the model, went 2.8139e-01 to 2.8235e-01 -- UNMOVED, very slightly worse. The softmax explains NONE of its 5.65x. That section plus the DiT's remaining 1.95x IS the residual, and it is no longer a gap of unknown cause: it is 2.04x in a named place.",
+  "worst_tensor_moves_house": "from an attention layer_norm_s to atom_attn_enc.atom_transformer.blocks.0.conditioned_transition.layer_norm.linear_g.weight at 1.4374 -- a transition layer norm, not attention, which is where the residual should be looked for"
+ },
+ "what": "the campaign's answer to 'have we reproduced OpenFold3 training on Tenstorrent', measured against upstream's OWN bf16 training gradient rather than against a float64 construction upstream never runs.",
+ "what_this_does_not_cover": {
+  "detail": "five scopes hold 47.6582 % of it -- diffusion_conditioning at 36.9462 %, pairformer_stack, aux_heads, msa_module, input_embedder -- and three carry D72's 'AT OR BETTER' readings. They are all still distances from float64, i.e. shared-subtrahend readings, and layer_norm_s is the measured proof that such a reading can invert: AT OR BETTER at 2.3809e-02 against float64 and 5.2797e-02 against upstream's actual gradient. Row of3t-direct is dispatched for exactly this, conditioning first.",
+  "pct_of_model_with_no_direct_column": 48.8642,
+  "structural_ceiling": "coverage can never reach 100 %: 0.74055 % of the model's mass is on a weight the shipped path applies on the host, so no device gradient for it exists. See COVERAGE_CEILING_IS_NOT_100.json."
+ }
+}

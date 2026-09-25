@@ -1,0 +1,49 @@
+{
+ "batch": "/home/ttuser/of3t_fullstep64/batch_step003_t64.pt",
+ "n_atom": 422,
+ "n_real_atom": 422,
+ "sigma": 0.30395649892572174,
+ "rms_A": {
+  "noisy_input_vs_truth": 0.5229136562953385,
+  "taped_vs_truth": 0.1784133827770849,
+  "untaped_vs_truth": 0.17934373686920288,
+  "taped_vs_untaped": 0.02720347993868902,
+  "untaped_AA": 0.0,
+  "untaped_si_zij_fp32_vs_truth": 0.17934373686920288,
+  "untaped_fp32_inputs_vs_truth": 0.17934372446528515,
+  "centred_noisy_input_vs_centred_truth": 0.5229136562953384,
+  "untaped_centred_vs_centred_truth": 0.17529807071914613
+ },
+ "centroid_A": [
+  12.722108999487913,
+  1.989284356823191,
+  4.597154015613393
+ ],
+ "dtypes": {
+  "taped_out": "DataType.FLOAT32",
+  "untaped_out": "DataType.FLOAT32",
+  "args": [
+   "DataType.FLOAT32",
+   "DataType.FLOAT32",
+   "DataType.FLOAT32",
+   "DataType.FLOAT32",
+   "DataType.FLOAT32",
+   "DataType.FLOAT32",
+   "DataType.FLOAT32",
+   "DataType.FLOAT32",
+   "DataType.FLOAT32",
+   "DataType.UINT32",
+   "DataType.UINT32",
+   "DataType.FLOAT32",
+   "DataType.UINT32",
+   "DataType.BFLOAT16",
+   "DataType.FLOAT32",
+   "DataType.FLOAT32",
+   "DataType.FLOAT32",
+   "DataType.FLOAT32",
+   "DataType.FLOAT32",
+   "int"
+  ]
+ },
+ "pred_xyz_host_rms_vs_true_xyz": 0.14713532482732128
+}
