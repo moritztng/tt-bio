@@ -70,17 +70,22 @@ def design_seconds(timing):
     return None
 
 
-def mutate_is_degenerate(arm, design):
-    """True when the mutate stage reported i_pTM exactly 1.0 on every round it ran.
+def stage_is_degenerate(arm, design, stage):
+    """True when `stage` reported i_pTM pinned at exactly 1.0 on every round it ran.
 
-    A probability-like metric does not land on exactly 1.000 fifteen times running. BindCraft 2's
-    own JAX reads 0.65-0.87 at this stage, so an all-1.0 column is the instrument, not the binder.
+    A probability-like metric does not land on exactly 1.000 round after round. BindCraft 2's own
+    JAX reads 0.65-0.87 where we read 1.0, so an all-1.0 column is the instrument, not the binder.
+
+    Not mutate-specific, though mutate is where it was first seen: profile_s1's
+    l151_3c946b4d257ac696 was rejected at SCREEN on i_pTM 1.0 with pLDDT 0.33. Keying this on the
+    stage name would have classified that trajectory as a design rejection and quietly put a
+    broken reading into the acceptance denominator.
     """
     path = os.path.join(arm, "1_Trajectories", design, design + "_losses.csv")
     if not os.path.exists(path):
         return None
     with open(path) as handle:
-        rows = [r for r in csv.DictReader(handle) if r.get("phase") == "mutate"]
+        rows = [r for r in csv.DictReader(handle) if r.get("phase") == stage]
     if not rows:
         return None
     key = next((k for k in rows[0] if k.endswith(".iptm")), None)
@@ -142,10 +147,10 @@ def classify(arm, row, fix_present):
     if trunc:
         detail = ", ".join("%s %d/%d" % (s, n, b) for s, (n, b) in trunc.items())
         return "INVALID stage truncated (%s)" % detail
-    if terminated == "mutate":
-        degenerate = mutate_is_degenerate(arm, design)
+    if terminated:
+        degenerate = stage_is_degenerate(arm, design, terminated)
         if degenerate and degenerate[0]:
-            return "INVALID degenerate mutate (i_pTM==1.0 x%d)" % degenerate[1]
+            return "INVALID saturated %s (i_pTM==1.0 x%d)" % (terminated, degenerate[1])
     if not terminated:
         return "VALID completed, reached the filters"
     return "VALID design rejection at %s" % terminated
