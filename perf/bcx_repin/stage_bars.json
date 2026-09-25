@@ -1,0 +1,34 @@
+{
+ "settings_file": "/home/ttuser/bcx_repin/bc2/examples/pdl1_vhh.json",
+ "bc2": "/home/ttuser/bcx_repin/bc2",
+ "max_trajectories_setting": 10,
+ "max_trajectories_resolved": 10,
+ "number_of_final_designs": 5,
+ "stage_bars": {
+  "screen": {
+   "min_plddt": 0.6,
+   "min_iptm": null
+  },
+  "refine": {
+   "min_plddt": 0.65,
+   "min_iptm": null
+  },
+  "anneal": {
+   "min_plddt": 0.65,
+   "min_iptm": 0.5
+  },
+  "harden": {
+   "min_plddt": 0.65,
+   "min_iptm": 0.5
+  },
+  "mutate": {
+   "min_plddt": 0.65,
+   "min_iptm": 0.5
+  },
+  "final": {
+   "min_plddt": 0.7,
+   "min_iptm": 0.6
+  }
+ },
+ "min_monomer_plddt_final": 0.7
+}
