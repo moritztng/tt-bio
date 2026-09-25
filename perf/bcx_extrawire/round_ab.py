@@ -338,7 +338,12 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--selftest", action="store_true",
                     help="check `analyse` on synthetic rounds and exit; opens no device")
-    ap.add_argument("--rounds", type=int, default=12)
+    ap.add_argument("--rounds", type=int, default=16,
+                    help="16 makes BOTH tests informative (unpaired floor 0.00058, drift-immune "
+                         "paired floor 0.0156). 12 leaves the paired floor at 0.0625, so a run "
+                         "whose drift diagnostic comes back non-flat answers nothing and needs "
+                         "the card a second time -- which on this fleet costs days, against the "
+                         "~2 min of card the four extra rounds cost")
     ap.add_argument("--seed", type=int, default=100)
     ap.add_argument("--params", default="/home/ttuser/bcx_e2e/af2_params")
     ap.add_argument("--card", default=None, help="pinned card; must be set before ttnn imports")
@@ -362,7 +367,8 @@ def main():
     import bindcraft.campaign as campaign
     import bindcraft.trajectory as trajectory
     import bindcraft.sequence_optimization as seqopt
-    from bindcraft.settings import parse_setting_overrides, read_settings
+    from bindcraft.settings import (DESIGN_STAGE_NAMES, design_stage_rounds,
+                                    parse_setting_overrides, read_settings)
     from bindcraft.preflight import cleaned_campaign_settings
     from bindcraft.af.alphafold.model import layer_stack as LS
 
@@ -379,6 +385,19 @@ def main():
         read_settings(os.path.join(BC2, "examples", "pdl1.json"),
                       parse_setting_overrides(overrides)))
     campaign.MULTIMER_POOL = MONOMER
+
+    # Every round has to be the same piece of work, or the arms are not exchangeable and both
+    # tests below are measuring the design schedule instead of the swap. A trajectory walks
+    # screen -> refine -> anneal -> harden and each stage runs a different sequence optimizer
+    # (`bindcraft/trajectory.py:216-219`), so a run long enough to leave the first stage puts a
+    # step change in the middle of the series. Read the budget off BindCraft 2's own settings
+    # rather than hardcoding it, because it is a setting a caller can override.
+    try:
+        screen_steps = design_stage_rounds(settings)[DESIGN_STAGE_NAMES[0]]
+    except Exception as exc:                                        # pragma: no cover - defensive
+        screen_steps = None
+        print(f"NOTE: could not read the first stage's step budget ({type(exc).__name__}: {exc})",
+              flush=True)
 
     try:
         M.CLOCK = M.Clock(1.0)
@@ -412,13 +431,20 @@ def main():
     stamp["min_attainable_p"] = round(2 / _c, 5) if _c else None
     stamp["design_is_informative"] = bool(_c) and (2 / _c) <= 0.05
     # The paired test spends resolution to buy drift-immunity: one adjacent OFF/ON pair per two
-    # timed rounds, 2**pairs sign assignments. At the default 12 rounds that floor is 0.0625, so
-    # the paired test cannot clear 0.05 and the unpaired one carries the verdict unless the drift
-    # diagnostic says the box moved. 16 rounds puts the paired floor at 0.0156.
+    # timed rounds, 2**pairs sign assignments. 12 rounds puts that floor at 0.0625, which cannot
+    # clear 0.05, so a run whose box drifts answers nothing and has to have the card a second
+    # time. The default is 16 (floor 0.0156): the four extra rounds cost about 2 minutes of card
+    # at bcx-extramsa's measured medians, and a second card window on this fleet costs days.
     _pairs = _timed // 2
     _pc = 2 ** _pairs if _pairs else 0
     stamp["paired_min_attainable_p"] = round(2 / _pc, 5) if _pc else None
     stamp["paired_design_is_informative"] = bool(_pc) and (2 / _pc) <= 0.05
+    stamp["first_stage_steps"] = screen_steps
+    stamp["rounds_stay_in_one_stage"] = (screen_steps is None or args.rounds <= screen_steps)
+    if not stamp["rounds_stay_in_one_stage"]:
+        print(f"WARNING: --rounds {args.rounds} is past the first stage's {screen_steps} steps, "
+              f"so the later rounds run a different sequence optimizer. The arms stop being "
+              f"exchangeable and the ratio picks up the design schedule.", flush=True)
     if not stamp["design_is_informative"]:
         print(f"WARNING: --rounds {args.rounds} leaves {_off} vs {_timed - _off} timed rounds, "
               f"smallest attainable p {stamp['min_attainable_p']}. This design cannot return a "
@@ -534,6 +560,10 @@ def main():
         if not stamp.get("design_is_informative"):
             bad.append(f"the design cannot return a significant result: smallest attainable p is "
                        f"{stamp.get('min_attainable_p')}, needs --rounds 10 or more")
+        if not stamp.get("rounds_stay_in_one_stage"):
+            bad.append(f"the run left the first design stage after "
+                       f"{stamp.get('first_stage_steps')} rounds, so the later rounds are a "
+                       f"different piece of work and the arms are not exchangeable")
         if not summary.get("arm_fires"):
             bad.append(f"the ON arm never reached the card: traces {traced}, "
                        f"calls {dict(extra.calls)}")
