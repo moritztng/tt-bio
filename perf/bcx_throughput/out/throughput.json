@@ -1,0 +1,329 @@
+{
+  "boxgap": {
+    "cycle_axis_box": [
+      262.84900672749234,
+      383.48871973113495
+    ],
+    "cycle_axis_box_both_levers": [
+      37.02301102342134,
+      69.4175842843018
+    ],
+    "cycle_axis_box_post_fix": [
+      62.762362746931046,
+      101.13510802101379
+    ],
+    "cycle_axis_chip": [
+      70.11754229741763,
+      83.01780943900268
+    ],
+    "phase_axis_box": [
+      154.19089774885992,
+      231.57509604244157
+    ],
+    "phase_axis_chip": [
+      73.62615367508062,
+      89.73534971644611
+    ]
+  },
+  "fix": {
+    "both_levers_cycle_s": [
+      1109.102891542837,
+      1687.59382799539
+    ],
+    "both_levers_tt_box_cycle_per_h": [
+      6.612965640705393,
+      12.399210303085622
+    ],
+    "end_to_end_gain": [
+      3.7918456531578917,
+      4.188003689206954
+    ],
+    "post_fix_chip_floor": [
+      8.5,
+      11.0
+    ],
+    "post_fix_cycle_s": [
+      1880.1798146197598,
+      2458.670751072313
+    ],
+    "post_fix_tail_share": [
+      0.5096249668458139,
+      0.6664256207076672
+    ],
+    "post_fix_tt_box_cycle_per_h": [
+      4.539038012768781,
+      7.314194043074093
+    ],
+    "software_factor": [
+      6.693286697734601,
+      10.557099966640719
+    ],
+    "tail_oncard_gain_post_fix": [
+      1.4569090679792587,
+      1.695225780183751
+    ],
+    "tail_oncard_gain_today": [
+      1.0901652099372425,
+      1.1085546336064527
+    ],
+    "tail_oncard_s_projected": 481.9230769230769
+  },
+  "inputs": {
+    "gpu_box_gpus": {
+      "source": "DGX H200, 8x H200 SXM",
+      "value": 8
+    },
+    "gpu_box_kw": {
+      "source": "knowledge/marketing/claims.md:236 -- DGX H200 10.2 kW system max",
+      "value": 10.2
+    },
+    "gpu_box_usd": {
+      "source": "knowledge/marketing/claims.md:236 -- DGX H200 $410,000 list. Quotes range $410k-$450k+; the lowest is used, which flatters the GPU",
+      "value": 410000
+    },
+    "gpu_pack_gain": {
+      "source": "state/bcx/GPUDOC.md:102 -- BC2's own measured packing gain on a GH200, 3620 s at 1 worker against 2020 s at 7, whole cycles. It fills ProteinMPNN and validation gaps rather than multiplying gradient design, so it is 1.00x on the gradient-phase axis",
+      "value": 1.79
+    },
+    "gpu_pack_workers": {
+      "source": "state/bcx/GPUDOC.md:100 -- BC2 packs up to 7 design workers per card, `max_workers_per_gpu` default 8",
+      "value": 7
+    },
+    "h200_accepted": {
+      "source": "state/bcx-gpuref.md -- 4 accepted designs from 14 trajectories, all four validated as real two-chain complexes at the requested lengths",
+      "value": 4
+    },
+    "h200_cycle_s": {
+      "source": "state/bcx-gpuref.md -- whole cycle p50, n=6 (gradient + mutate + ProteinMPNN redesign + validation)",
+      "value": 112.3
+    },
+    "h200_phase_s": {
+      "source": "state/bcx-gpuref.md -- gradient phase p50 over the 13 trajectories that ran all 125 steps, binder 146, H200 at 1980 MHz",
+      "value": 89.93
+    },
+    "h200_step_s": {
+      "source": "state/bcx-gpuref.md -- warm gradient step p50, n=1698, sd/mean 1.41 %",
+      "value": 0.6958
+    },
+    "h200_trajectories": {
+      "source": "same run",
+      "value": 14
+    },
+    "hw_ratio_hi": {
+      "source": "state/of3t/BACKWARD.md -- ~440 GB/s against 4.8 TB/s: ~11x on bandwidth, which is the side this workload sits on",
+      "value": 11.0
+    },
+    "hw_ratio_lo": {
+      "source": "state/of3t/BACKWARD.md -- Blackhole 115.685 TFLOP/s measured against H200 ~989 TFLOP/s BF16 dense: ~8.5x on compute",
+      "value": 8.5
+    },
+    "tco_h_per_year": {
+      "source": "hours per year",
+      "value": 8766
+    },
+    "tco_years": {
+      "source": "straight-line over 4 years",
+      "value": 4
+    },
+    "tt_arm_threads": {
+      "source": "state/bcx-concurrent.md -- an arm draws 1.78-1.9 of qb2's 16 threads",
+      "value": 1.9
+    },
+    "tt_box_chips": {
+      "source": "TT-QuietBox 2, 4x Blackhole",
+      "value": 4
+    },
+    "tt_box_kw": {
+      "source": "docs.tenstorrent.com/systems/quietbox/quietbox-bh-2/setup.html -- up to 1300 W under high-load models; the PSU is rated 1600 W",
+      "value": 1.3
+    },
+    "tt_box_usd": {
+      "source": "knowledge/reference/tenstorrent-company.md:40 and tenstorrent.com/hardware/tt-quietbox",
+      "value": 9999
+    },
+    "tt_pack2_idle": {
+      "source": "state/bcx-concurrent.md run B -- 2 arms on 2 chips of one QuietBox, 4.6 % cost per arm, AICLK 1350 median on every card",
+      "value": 1.91
+    },
+    "tt_pack2_loaded": {
+      "source": "state/bcx-concurrent.md run A -- same 2 arms with ~10 threads of other work on the host, 28.9 % cost per arm",
+      "value": 1.55
+    },
+    "tt_phase_s_clean": {
+      "source": "state/bcx/ACCEPT.md:116 -- the checkpoint-clean arm in flight at 58 s/step over its first 61 steps, x125. Corroboration that the band is not an artifact of the two chimera-trunk arms",
+      "value": 7250.0
+    },
+    "tt_phase_s_fast": {
+      "source": "state/bcx/ACCEPT.md:116 -- arm `step288` draw 9f676a43, 6621.2 s / 125 = 53.0 s/step, qb2 p300c, AICLK 1350 during",
+      "value": 6621.2
+    },
+    "tt_phase_s_slow": {
+      "source": "state/bcx/NUMBERS.md:38 and bcx-gpuref -- arm `pool_full` draw 3150367d, 8069.9 s / 125 = 64.6 s/step, qb2 p300c, AICLK 1350 during. This is the end `bcx-gpuref` phase-matched 89.7x on",
+      "value": 8069.9
+    },
+    "tt_tail_s": {
+      "source": "state/bcx-shipped.md:77 -- BindCraft 2's own JAX, pc, seed 0, trajectory 1 at binder 146: 1,253 s for 5 candidates scored, ~250 s each, candidate lines 07:28:06Z to 07:44:35Z. Host CPU wall, not chip time, and measured on pc rather than on qb2's Ryzen",
+      "value": 1253.0
+    },
+    "usd_per_kwh": {
+      "source": "US EIA industrial average, May 2026",
+      "value": 0.0871
+    }
+  },
+  "packing": {
+    "gpu_cost_per_worker": 3.910614525139665,
+    "gpu_pack_gain_phase_axis": 1.0,
+    "tt_arm_threads_at_4": 7.6,
+    "tt_pack4": [
+      3.1,
+      3.82
+    ],
+    "tt_pack4_efficiency": [
+      0.775,
+      0.955
+    ]
+  },
+  "perdollar": {
+    "gpu_tco_usd_per_h": 12.581324403376682,
+    "post_fix": {
+      "gpu_advantage_per_1k_usd": [
+        1.5306362563574722,
+        2.4664632807368703
+      ],
+      "gpu_advantage_per_kw": [
+        7.999124663824546,
+        12.889768669344896
+      ],
+      "gpu_advantage_per_tco_usd": [
+        1.9874033093888317,
+        3.202496521471192
+      ],
+      "gpu_cycles_per_h_per_1k_usd": 1.1196490237386791,
+      "gpu_cycles_per_h_per_kw": 45.005499973809656,
+      "gpu_cycles_per_tco_usd": 36.48710461751174,
+      "tt_cycles_per_h_per_1k_usd": [
+        0.45394919619649776,
+        0.7314925535627655
+      ],
+      "tt_cycles_per_h_per_kw": [
+        3.4915677021298315,
+        5.626303110056995
+      ],
+      "tt_cycles_per_tco_usd": [
+        11.393331537718568,
+        18.359184794118256
+      ]
+    },
+    "post_fix_and_tail": {
+      "gpu_advantage_per_1k_usd": [
+        0.9029099688370488,
+        1.692942500631058
+      ],
+      "gpu_advantage_per_kw": [
+        4.718619052004681,
+        8.847339173489447
+      ],
+      "gpu_advantage_per_tco_usd": [
+        1.1723531653544172,
+        2.198144408499751
+      ],
+      "gpu_cycles_per_h_per_1k_usd": 1.1196490237386791,
+      "gpu_cycles_per_h_per_kw": 45.005499973809656,
+      "gpu_cycles_per_tco_usd": 36.48710461751174,
+      "tt_cycles_per_h_per_1k_usd": [
+        0.6613627003405733,
+        1.2400450348120433
+      ],
+      "tt_cycles_per_h_per_kw": [
+        5.086896646696456,
+        9.537854079296633
+      ],
+      "tt_cycles_per_tco_usd": [
+        16.599048031796258,
+        31.122963366146774
+      ]
+    },
+    "tco_ratio": 31.58008364504122,
+    "today": {
+      "gpu_advantage_per_1k_usd": [
+        6.410310288459014,
+        9.352448069735654
+      ],
+      "gpu_advantage_per_kw": [
+        33.500363602523535,
+        48.87601329906622
+      ],
+      "gpu_advantage_per_tco_usd": [
+        8.323252391662537,
+        12.143372514193807
+      ],
+      "gpu_cycles_per_h_per_1k_usd": 1.1196490237386791,
+      "gpu_cycles_per_h_per_kw": 45.005499973809656,
+      "gpu_cycles_per_tco_usd": 36.48710461751174,
+      "tt_cycles_per_h_per_1k_usd": [
+        0.11971721365252401,
+        0.17466377965423474
+      ],
+      "tt_cycles_per_h_per_kw": [
+        0.9208095533166059,
+        1.3434331790482255
+      ],
+      "tt_cycles_per_tco_usd": [
+        3.004692854053823,
+        4.383755640290464
+      ]
+    },
+    "tt_tco_usd_per_h": 0.3983942710472279
+  },
+  "rate": {
+    "accept_rate_h200": 0.2857142857142857,
+    "chip_ratio_cycle": [
+      70.11754229741763,
+      83.01780943900268
+    ],
+    "chip_ratio_phase": [
+      73.62615367508062,
+      89.73534971644611
+    ],
+    "chip_ratio_step": [
+      76.12762288013798,
+      92.78413337165853
+    ],
+    "gpu_box_accepted_per_h": 131.15888563795954,
+    "gpu_box_cycle_per_h": 459.05609973285846,
+    "gpu_box_phase_per_h": 320.2490826198154,
+    "h200_cycle_per_h": 32.05699020480855,
+    "h200_phase_per_h": 40.031135327476925,
+    "h200_tail_s": 22.36999999999999,
+    "h200_tail_share": 0.19919857524487972,
+    "tail_ratio": 56.0125167635226,
+    "tt_box_accepted_per_h": [
+      0.3420149769461679,
+      0.4989894665036266
+    ],
+    "tt_box_cycle_per_h": [
+      1.1970524193115877,
+      1.7464631327626932
+    ],
+    "tt_box_phase_per_h": [
+      1.382916764767841,
+      2.0769649006222437
+    ],
+    "tt_chip_cycle_per_h": [
+      0.3861459417134154,
+      0.45718930177033856
+    ],
+    "tt_chip_phase_per_h": [
+      0.44610218218317454,
+      0.5437080891681266
+    ],
+    "tt_cycle_s": [
+      7874.2,
+      9322.9
+    ],
+    "tt_tail_share_today": [
+      0.13440024026858596,
+      0.15912727642173174
+    ]
+  }
+}
