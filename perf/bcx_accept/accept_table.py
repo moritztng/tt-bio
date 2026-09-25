@@ -40,6 +40,23 @@ import time
 # template stack, structure module and heads around it.
 FIX = "1127f9ea8"
 
+# The validation route, `ttbio_predictor._route`. Without it a trajectory that passes every design
+# stage dies in `predict_validation_ensemble` asking the resident pool for `model_1_ptm`, so a
+# no-route arm KEEPS its design rejections and DISCARDS its successes. Its rows are a rejection
+# profile, not an acceptance ratio: pooling them into accepted/attempted biases the rate toward
+# zero by construction. Checked by CONTENT, not ancestry -- the same change landed twice, as
+# c014a2a7d on wk/bcx-armtree and 2bf8a136b on wk/bcx-mutate, and an ancestry test against either
+# sha reports the other lineage as unfixed.
+#
+# What the route does is also what the accepted count MEANS. BindCraft 2 holds validation out of
+# design, and on the shipped pdl1.json all five multimer checkpoints are design models, so
+# validation runs on the monomer pair. Those are not card-resident, so the validation folds run on
+# BindCraft 2's own JAX on the host. A device arm's accepted count is therefore a device design
+# loop judged by the reference's own validation folds -- which makes the filter identical on both
+# arms and the comparison clean, and means the count does not certify a device validation fold.
+ROUTE_FILE = "perf/bcx_predictor/ttbio_predictor.py"
+ROUTE_MARK = "def _route"
+
 STAGE_BUDGET = {"screen": 50, "refine": 25, "anneal": 45, "harden": 5, "mutate": 15}
 
 
@@ -203,6 +220,24 @@ def carries_fix(commit):
     return True if done.returncode == 0 else (False if done.returncode == 1 else None)
 
 
+def carries_route(commit):
+    """True/False when git can read the tree, None when the commit is unknown or unreachable.
+
+    Reads the file out of the commit instead of testing ancestry, because the route landed twice
+    as two cherry-picks of one change and neither sha is an ancestor of the other.
+    """
+    if not commit:
+        return None
+    try:
+        done = subprocess.run(["git", "show", "%s:%s" % (commit, ROUTE_FILE)],
+                              capture_output=True)
+    except OSError:
+        return None
+    if done.returncode != 0:
+        return None
+    return ROUTE_MARK in done.stdout.decode("utf-8", "replace")
+
+
 def candidates(arm, design):
     """The MPNN candidate rows this trajectory was scored on, from `2_Refolded/!_Refolded.csv`.
 
@@ -256,6 +291,7 @@ def report(argument):
     st, cs, rows = stamp(arm), campaign(arm), ledger(arm)
     commit = arm_commit(arm, explicit)
     fix_present = carries_fix(commit)
+    route_present = carries_route(commit)
     print("=" * 100)
     print(arm)
     print("  seed %-4s pool %-6s levers %-6s predictor %s"
@@ -263,6 +299,10 @@ def report(argument):
     print("  tree %s, carries %s: %s"
           % (commit or "UNRECORDED", FIX,
              {True: "yes", False: "NO, chimera trunk", None: "unknown"}[fix_present]))
+    print("  validation route: %s"
+          % {True: "present, so this arm could reach the filters",
+             False: "ABSENT, rejection profile only -- its successes crash unrecorded",
+             None: "unknown"}[route_present])
     rej = cs.get("rejections", {}) or {}
     print("  campaign_state: accepted=%s trajectories=%s candidates_scored=%s failed_filters=%s"
           % (cs.get("accepted"), cs.get("trajectories"), rej.get("candidates_scored"),
@@ -296,7 +336,8 @@ def report(argument):
                  (row.get("terminated") or "completed"), verdict))
         out.append({"arm": arm, "design": row["design"], "seconds": secs,
                     "terminated": row.get("terminated") or "completed",
-                    "validity": verdict, "commit": commit or "UNRECORDED"})
+                    "validity": verdict, "commit": commit or "UNRECORDED",
+                    "route": route_present})
     return out
 
 
@@ -312,15 +353,38 @@ def main(argv):
     unverified = [r for r in allrows if r["validity"].startswith("UNVERIFIED")]
     invalid = [r for r in allrows if not r["validity"].startswith(("VALID", "UNVERIFIED"))]
     scored = [r for r in valid if r["validity"].startswith("VALID scored")]
+    eligible = [r for r in valid if r["route"] is True]
+    profile_only = [r for r in valid if r["route"] is not True]
     print("trajectories in ledgers            : %d" % len(allrows))
     print("  valid as acceptance evidence     : %d" % len(valid))
     print("  not a verdict on a binder        : %d" % len(invalid))
     print("  tree unverified, provenance missing: %d" % len(unverified))
     print("  reached the acceptance filters   : %d" % len(scored))
+    print("  of the valid, ACCEPTANCE-ELIGIBLE : %d  (tree carries the validation route)"
+          % len(eligible))
+    print("  of the valid, rejection profile   : %d  (no route: keeps its failures, drops its"
+          % len(profile_only))
+    print("                                        successes, so it cannot carry a ratio)")
     chip = sum(r["seconds"] for r in valid if r["seconds"])
     print("chip-seconds over valid trajectories: %.0f  (%.2f h, one chip)"
           % (chip, chip / 3600.0))
-    if not scored:
+    accepted = 0
+    for row in scored:
+        head, _, _ = row["validity"].partition(" of ")
+        accepted += int(head.rsplit(" ", 1)[-1])
+    if scored:
+        print()
+        print("ACCEPTANCE: %d accepted over %d acceptance-eligible trajectories."
+              % (accepted, len(eligible)))
+        print("DECISION-RULE B reads a 0 only at 6 or more completed eligible trajectories;")
+        print("this stands at %d." % len(eligible))
+        chip_eligible = sum(r["seconds"] for r in eligible if r["seconds"])
+        if accepted:
+            print("chip-seconds per accepted design: %.0f over %d eligible trajectories"
+                  % (chip_eligible / accepted, len(eligible)))
+            print("  design-loop chip time only. The validation ensemble runs on the host, so it")
+            print("  is wall clock and not chip time; see ROUTE_FILE above.")
+    else:
         print()
         print("No trajectory reached the acceptance filters, so chip-seconds per accepted design")
         print("has no denominator. The honest form is a LOWER BOUND: > %.0f chip-s, resting on"

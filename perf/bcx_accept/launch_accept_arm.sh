@@ -8,7 +8,7 @@
 # only records what this arm finished; .campaign_state.json is not.
 set -u
 ART=/home/ttuser/bcx_accept_art
-TREE=$ART/armtree
+TREE=${TREE:-$ART/armtree}
 SEED=${SEED:-3}
 CARD=${CARD:-1}
 TRAJ=${TRAJ:-6}
