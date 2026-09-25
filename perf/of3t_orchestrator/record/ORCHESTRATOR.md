@@ -326,7 +326,21 @@ Superseded, pass 445 — ** ~16:5x CEST.** What the sprint has not done, specifi
    the 3x section bar); the six user-facing defects D32, D55, D184, D205, D210, D250, owned
    outside this campaign under ask 10455; crop 640 as a single-card capacity wall.
 
-VERDICT: PARTIAL, pass 448. **The sprint's rate limit is now hardware, not agents.** One usable
+VERDICT: PARTIAL, pass 449. **Two decisions this pass, both from arithmetic rather than
+opinion.** **J3 RETIRED (R208):** `of3t-bwattrib` resolved its 14x bracket from source to 2 score
+blocks per call, corroborated by 247 live buffers of exactly 1,179,648 B, so the largest and
+riskiest authoring job on the page is worth **1.0235x** today and **1.0026x** after J0 — 4.34x
+less than J1 — and may not apply to OF3 at all because `fp32_softmax=True` routes the forward
+around the taped verb. Holding it rather than dispatching it is what made that callable, and the
+reopen condition is falsifiable and cheap. **The sprint's CEILING is 3.32x, 34 % of the target**,
+and most of the shortfall is the **100.668 s of non-verb backward** — 21.6 % of the step, larger
+than J1+J2+J4 combined, attacked by no job on the list, now assigned to `of3t-bwattrib` as a
+subtraction rather than a fifth row competing for the one card. The card queue is working as
+ordered: J0 took pc card 0 at 17:03 when `of3t-tapedfwd` released it, and `of3t-wheelbw` is
+producing on the board-insensitive half. No J-row has a final verdict; `of3t-lnbw` reads BLOCKED
+on the card, `of3t-intensity` and `of3t-bwattrib` read PARTIAL.
+
+Superseded, pass 448 — **The sprint's rate limit is now hardware, not agents.** One usable
 Blackhole card on the whole fleet (pc card 0) against four rows that each need one, so "full
 speed with multiple agents" is capped at one by silicon — my dispatch error (K22, `card=-` sent
 them to a Wormhole galaxy), now corrected: queue ordered by value J0 → J1 → J2 → J4, the back two
