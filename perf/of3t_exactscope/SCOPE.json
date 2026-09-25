@@ -1,0 +1,514 @@
+{
+ "what": "of3t-exactscope: the narrowed scope read against of3t-stackexact's ladder, per tensor.",
+ "row": "of3t-exactscope",
+ "device_involved": false,
+ "why_no_aiclk": "the READ is CPU only; it reads arms stackexact took on qb2 p300c card 1, whose own DURING AICLK is stamped in each STACK_EXACT_*.json",
+ "bar": 0.15210099830945006,
+ "per_tensor_bar": 0.05,
+ "pass_rule": "clause / bar <= 1.0, pre-registered at 0425448d4 2026-09-23T02:26:30Z, before the first rung ran at c17c34f02 02:30:29Z. Not moved here.",
+ "reference_validation_A13": "the float64 reference is validated by float64 central finite differences, worst 1.1678e-03, 43x inside the 0.05 per-tensor bar (of3t-reference, concluded)",
+ "scope_control_S": {
+  "opened": [
+   "softmax"
+  ],
+  "installed_inside_the_scope": {
+   "softmax_installed_inside_the_scope": true
+  },
+  "counters": {
+   "softmax": {
+    "verb": 5901,
+    "raw": 1742,
+    "raw_elements": 21856518144
+   },
+   "layer_norm": {
+    "verb": 0,
+    "raw": 0,
+    "elements": 0,
+    "bw": 0
+   }
+  },
+  "reading": "softmax served 5901 taped + 1742 raw calls over 21,856,518,144 elements; layer_norm reads 0 on verb, raw, elements AND bw. The arm is softmax-only from the mechanism, not from the argument passed.",
+  "complement": "dev_cot's own shipped-LN backward counter reads 1296 on SHIP and S, 0 on L and SL -- the shipped layer norm ran on S, so nothing was left half-installed (of3t-stackexact LADDER)"
+ },
+ "ladder": [
+  {
+   "arm": "SHIP_A",
+   "scope": "none (ship)",
+   "clause": 0.22072451195864032,
+   "x_bar": 1.4511706984958472,
+   "clears": false,
+   "excess_closed_frac": 0.0
+  },
+  {
+   "arm": "S",
+   "scope": "softmax only",
+   "clause": 0.1983072658753951,
+   "x_bar": 1.3037867474869442,
+   "clears": false,
+   "excess_closed_frac": 0.3267
+  },
+  {
+   "arm": "L",
+   "scope": "layer_norm only",
+   "clause": 0.19527710571784584,
+   "x_bar": 1.2838647207334815,
+   "clears": false,
+   "excess_closed_frac": 0.3708
+  },
+  {
+   "arm": "SL",
+   "scope": "softmax + layer_norm (exact_training ON)",
+   "clause": 0.14940227528507738,
+   "x_bar": 0.9822570327981535,
+   "clears": true,
+   "excess_closed_frac": 1.0393
+  }
+ ],
+ "per_tensor": {
+  "FLOAT64": [
+   {
+    "arm": "SHIP_A",
+    "scope": "none (ship)",
+    "mass_weighted_rel_l2": 0.16728815595276803,
+    "median_rel_l2_over_tensors": 0.37752045556543457,
+    "n_over_per_tensor_bar": 3312,
+    "n_rel_measurable": 3605,
+    "worst_rel_l2": 215.01041438278418,
+    "worst_tensor": "pairformer_stack.blocks.4.attn_pair_bias.layer_norm_a.bias"
+   },
+   {
+    "arm": "S",
+    "scope": "softmax only",
+    "mass_weighted_rel_l2": 0.18141611630324336,
+    "median_rel_l2_over_tensors": 0.5744492052783865,
+    "n_over_per_tensor_bar": 3312,
+    "n_rel_measurable": 3605,
+    "worst_rel_l2": 23.592152265395665,
+    "worst_tensor": "pairformer_stack.blocks.23.single_transition.layer_norm.weight"
+   },
+   {
+    "arm": "L",
+    "scope": "layer_norm only",
+    "mass_weighted_rel_l2": 0.15857878191936345,
+    "median_rel_l2_over_tensors": 0.42506091715863786,
+    "n_over_per_tensor_bar": 3312,
+    "n_rel_measurable": 3605,
+    "worst_rel_l2": 200.1118211032977,
+    "worst_tensor": "pairformer_stack.blocks.26.attn_pair_bias.mha.linear_q.weight"
+   },
+   {
+    "arm": "SL",
+    "scope": "softmax + layer_norm (exact_training ON)",
+    "mass_weighted_rel_l2": 0.11146776963104914,
+    "median_rel_l2_over_tensors": 0.3304003968895454,
+    "n_over_per_tensor_bar": 3310,
+    "n_rel_measurable": 3605,
+    "worst_rel_l2": 26.70274623045778,
+    "worst_tensor": "pairformer_stack.blocks.38.attn_pair_bias.mha.linear_k.weight"
+   }
+  ],
+  "UPSTREAM_BF16": [
+   {
+    "arm": "SHIP_A",
+    "scope": "none (ship)",
+    "mass_weighted_rel_l2": 0.22072451195864032,
+    "median_rel_l2_over_tensors": 0.3808833066236462,
+    "n_over_per_tensor_bar": 3549,
+    "n_rel_measurable": 3605,
+    "worst_rel_l2": 41.941477304953885,
+    "worst_tensor": "pairformer_stack.blocks.15.attn_pair_bias.layer_norm_a.weight"
+   },
+   {
+    "arm": "S",
+    "scope": "softmax only",
+    "mass_weighted_rel_l2": 0.1983072658753951,
+    "median_rel_l2_over_tensors": 0.5687304120792124,
+    "n_over_per_tensor_bar": 3549,
+    "n_rel_measurable": 3605,
+    "worst_rel_l2": 58.059571599874715,
+    "worst_tensor": "pairformer_stack.blocks.22.single_transition.layer_norm.weight"
+   },
+   {
+    "arm": "L",
+    "scope": "layer_norm only",
+    "mass_weighted_rel_l2": 0.19527710571784584,
+    "median_rel_l2_over_tensors": 0.4223224361664895,
+    "n_over_per_tensor_bar": 3549,
+    "n_rel_measurable": 3605,
+    "worst_rel_l2": 56.146756097986874,
+    "worst_tensor": "pairformer_stack.blocks.3.attn_pair_bias.mha.linear_q.bias"
+   },
+   {
+    "arm": "SL",
+    "scope": "softmax + layer_norm (exact_training ON)",
+    "mass_weighted_rel_l2": 0.14940227528507738,
+    "median_rel_l2_over_tensors": 0.35499892429208535,
+    "n_over_per_tensor_bar": 3549,
+    "n_rel_measurable": 3605,
+    "worst_rel_l2": 38.43437645085665,
+    "worst_tensor": "pairformer_stack.blocks.22.single_transition.layer_norm.weight"
+   }
+  ]
+ },
+ "per_section": {
+  "UPSTREAM_BF16": [
+   {
+    "section": "diffusion_module.diffusion_transformer",
+    "pct_of_model_mass": 43.622,
+    "SHIP_A": 0.112302,
+    "SHIP_A_median": 0.114,
+    "S": 0.112302,
+    "S_median": 0.114,
+    "L": 0.112302,
+    "L_median": 0.114,
+    "SL": 0.112302,
+    "SL_median": 0.114,
+    "S_over_SL": 1.0
+   },
+   {
+    "section": "diffusion_module.diffusion_conditioning",
+    "pct_of_model_mass": 36.946,
+    "SHIP_A": 0.064638,
+    "SHIP_A_median": 0.0695,
+    "S": 0.064638,
+    "S_median": 0.0695,
+    "L": 0.064638,
+    "L_median": 0.0695,
+    "SL": 0.064638,
+    "SL_median": 0.0695,
+    "S_over_SL": 1.0
+   },
+   {
+    "section": "pairformer_stack",
+    "pct_of_model_mass": 5.828,
+    "SHIP_A": 0.776825,
+    "SHIP_A_median": 0.3986,
+    "S": 0.674505,
+    "S_median": 0.6057,
+    "L": 0.660381,
+    "L_median": 0.4515,
+    "SL": 0.43143,
+    "SL_median": 0.3759,
+    "S_over_SL": 1.563
+   },
+   {
+    "section": "diffusion_module.atom_attn_enc",
+    "pct_of_model_mass": 5.488,
+    "SHIP_A": 0.101847,
+    "SHIP_A_median": 0.1213,
+    "S": 0.101847,
+    "S_median": 0.1213,
+    "L": 0.101847,
+    "L_median": 0.1213,
+    "SL": 0.101847,
+    "SL_median": 0.1213,
+    "S_over_SL": 1.0
+   },
+   {
+    "section": "aux_heads",
+    "pct_of_model_mass": 2.843,
+    "SHIP_A": 0.236014,
+    "SHIP_A_median": 1.4312,
+    "S": 0.236014,
+    "S_median": 1.4312,
+    "L": 0.236014,
+    "L_median": 1.4312,
+    "SL": 0.236014,
+    "SL_median": 1.4312,
+    "S_over_SL": 1.0
+   },
+   {
+    "section": "diffusion_module.atom_attn_dec",
+    "pct_of_model_mass": 1.284,
+    "SHIP_A": 0.046941,
+    "SHIP_A_median": 0.0737,
+    "S": 0.046941,
+    "S_median": 0.0737,
+    "L": 0.046941,
+    "L_median": 0.0737,
+    "SL": 0.046941,
+    "SL_median": 0.0737,
+    "S_over_SL": 1.0
+   },
+   {
+    "section": "msa_module",
+    "pct_of_model_mass": 1.232,
+    "SHIP_A": 0.188678,
+    "SHIP_A_median": 0.2009,
+    "S": 0.188678,
+    "S_median": 0.2009,
+    "L": 0.188678,
+    "L_median": 0.2009,
+    "SL": 0.188678,
+    "SL_median": 0.2009,
+    "S_over_SL": 1.0
+   },
+   {
+    "section": "diffusion_module.layer_norm_s",
+    "pct_of_model_mass": 0.983,
+    "SHIP_A": 0.062742,
+    "SHIP_A_median": 0.0627,
+    "S": 0.062742,
+    "S_median": 0.0627,
+    "L": 0.062742,
+    "L_median": 0.0627,
+    "SL": 0.062742,
+    "SL_median": 0.0627,
+    "S_over_SL": 1.0
+   },
+   {
+    "section": "input_embedder",
+    "pct_of_model_mass": 0.767,
+    "SHIP_A": 0.296919,
+    "SHIP_A_median": 0.5783,
+    "S": 0.296919,
+    "S_median": 0.5783,
+    "L": 0.296919,
+    "L_median": 0.5783,
+    "SL": 0.296919,
+    "SL_median": 0.5783,
+    "S_over_SL": 1.0
+   },
+   {
+    "section": "diffusion_module.layer_norm_a",
+    "pct_of_model_mass": 0.267,
+    "SHIP_A": 0.035022,
+    "SHIP_A_median": 0.035,
+    "S": 0.035022,
+    "S_median": 0.035,
+    "L": 0.035022,
+    "L_median": 0.035,
+    "SL": 0.035022,
+    "SL_median": 0.035,
+    "S_over_SL": 1.0
+   },
+   {
+    "section": "diffusion_module.linear_s",
+    "pct_of_model_mass": 0.244,
+    "SHIP_A": 0.109791,
+    "SHIP_A_median": 0.1098,
+    "S": 0.109791,
+    "S_median": 0.1098,
+    "L": 0.109791,
+    "L_median": 0.1098,
+    "SL": 0.109791,
+    "SL_median": 0.1098,
+    "S_over_SL": 1.0
+   }
+  ],
+  "FLOAT64": [
+   {
+    "section": "diffusion_module.diffusion_transformer",
+    "pct_of_model_mass": 43.622,
+    "SHIP_A": 0.105381,
+    "SHIP_A_median": 0.0951,
+    "S": 0.105381,
+    "S_median": 0.0951,
+    "L": 0.105381,
+    "L_median": 0.0951,
+    "SL": 0.105381,
+    "SL_median": 0.0951,
+    "S_over_SL": 1.0
+   },
+   {
+    "section": "diffusion_module.diffusion_conditioning",
+    "pct_of_model_mass": 36.946,
+    "SHIP_A": 0.007865,
+    "SHIP_A_median": 0.0074,
+    "S": 0.007865,
+    "S_median": 0.0074,
+    "L": 0.007865,
+    "L_median": 0.0074,
+    "SL": 0.007865,
+    "SL_median": 0.0074,
+    "S_over_SL": 1.0
+   },
+   {
+    "section": "pairformer_stack",
+    "pct_of_model_mass": 5.828,
+    "SHIP_A": 0.622149,
+    "SHIP_A_median": 0.3974,
+    "S": 0.686425,
+    "S_median": 0.6184,
+    "L": 0.581905,
+    "L_median": 0.457,
+    "SL": 0.348434,
+    "SL_median": 0.3544,
+    "S_over_SL": 1.97
+   },
+   {
+    "section": "diffusion_module.atom_attn_enc",
+    "pct_of_model_mass": 5.488,
+    "SHIP_A": 0.072603,
+    "SHIP_A_median": 0.0852,
+    "S": 0.072603,
+    "S_median": 0.0852,
+    "L": 0.072603,
+    "L_median": 0.0852,
+    "SL": 0.072603,
+    "SL_median": 0.0852,
+    "S_over_SL": 1.0
+   },
+   {
+    "section": "aux_heads",
+    "pct_of_model_mass": 2.843,
+    "SHIP_A": 0.002299,
+    "SHIP_A_median": 1.0419,
+    "S": 0.002299,
+    "S_median": 1.0419,
+    "L": 0.002299,
+    "L_median": 1.0419,
+    "SL": 0.002299,
+    "SL_median": 1.0419,
+    "S_over_SL": 1.0
+   },
+   {
+    "section": "diffusion_module.atom_attn_dec",
+    "pct_of_model_mass": 1.284,
+    "SHIP_A": 0.019556,
+    "SHIP_A_median": 0.0317,
+    "S": 0.019556,
+    "S_median": 0.0317,
+    "L": 0.019556,
+    "L_median": 0.0317,
+    "SL": 0.019556,
+    "SL_median": 0.0317,
+    "S_over_SL": 1.0
+   },
+   {
+    "section": "msa_module",
+    "pct_of_model_mass": 1.232,
+    "SHIP_A": 0.089154,
+    "SHIP_A_median": 0.0271,
+    "S": 0.089154,
+    "S_median": 0.0271,
+    "L": 0.089154,
+    "L_median": 0.0271,
+    "SL": 0.089154,
+    "SL_median": 0.0271,
+    "S_over_SL": 1.0
+   },
+   {
+    "section": "diffusion_module.layer_norm_s",
+    "pct_of_model_mass": 0.983,
+    "SHIP_A": 0.033759,
+    "SHIP_A_median": 0.0338,
+    "S": 0.033759,
+    "S_median": 0.0338,
+    "L": 0.033759,
+    "L_median": 0.0338,
+    "SL": 0.033759,
+    "SL_median": 0.0338,
+    "S_over_SL": 1.0
+   },
+   {
+    "section": "input_embedder",
+    "pct_of_model_mass": 0.767,
+    "SHIP_A": 0.001718,
+    "SHIP_A_median": 0.0014,
+    "S": 0.001718,
+    "S_median": 0.0014,
+    "L": 0.001718,
+    "L_median": 0.0014,
+    "SL": 0.001718,
+    "SL_median": 0.0014,
+    "S_over_SL": 1.0
+   },
+   {
+    "section": "diffusion_module.layer_norm_a",
+    "pct_of_model_mass": 0.267,
+    "SHIP_A": 0.010248,
+    "SHIP_A_median": 0.0102,
+    "S": 0.010248,
+    "S_median": 0.0102,
+    "L": 0.010248,
+    "L_median": 0.0102,
+    "SL": 0.010248,
+    "SL_median": 0.0102,
+    "S_over_SL": 1.0
+   },
+   {
+    "section": "diffusion_module.linear_s",
+    "pct_of_model_mass": 0.244,
+    "SHIP_A": 0.083143,
+    "SHIP_A_median": 0.0831,
+    "S": 0.083143,
+    "S_median": 0.0831,
+    "L": 0.083143,
+    "L_median": 0.0831,
+    "SL": 0.083143,
+    "SL_median": 0.0831,
+    "S_over_SL": 1.0
+   }
+  ]
+ },
+ "what_moves": {
+  "note": "the four arms are the same six composed scopes with one file swapped; five are byte-identical banked arms and only pairformer_stack is re-run per rung. So the ladder measures the exact scopes ON THE TRUNK, and every other section reads identically on all four arms by construction.",
+  "scopes_identical_across_arms": [
+   "pairformer_stack"
+  ],
+  "pairformer_pct_of_model_mass": 5.8281714991342914
+ },
+ "model_squared_gradient_error": {
+  "FLOAT64": [
+   {
+    "arm": "SHIP_A",
+    "scope": "none (ship)",
+    "model_squared_gradient_error": 0.2862558173285452,
+    "vs_ship": 1.0,
+    "pairformer_share_of_error_pct": 81.01
+   },
+   {
+    "arm": "S",
+    "scope": "softmax only",
+    "model_squared_gradient_error": 0.33664770986289166,
+    "vs_ship": 1.176,
+    "pairformer_share_of_error_pct": 83.85
+   },
+   {
+    "arm": "L",
+    "scope": "layer_norm only",
+    "model_squared_gradient_error": 0.257225540629735,
+    "vs_ship": 0.8986,
+    "pairformer_share_of_error_pct": 78.87
+   },
+   {
+    "arm": "SL",
+    "scope": "softmax + layer_norm (exact_training ON)",
+    "model_squared_gradient_error": 0.12709327068802265,
+    "vs_ship": 0.444,
+    "pairformer_share_of_error_pct": 57.23
+   }
+  ],
+  "UPSTREAM_BF16": [
+   {
+    "arm": "SHIP_A",
+    "scope": "none (ship)",
+    "model_squared_gradient_error": 0.5153831749584781,
+    "vs_ship": 1.0,
+    "pairformer_share_of_error_pct": 78.35
+   },
+   {
+    "arm": "S",
+    "scope": "softmax only",
+    "model_squared_gradient_error": 0.41601248049870804,
+    "vs_ship": 0.8072,
+    "pairformer_share_of_error_pct": 73.18
+   },
+   {
+    "arm": "L",
+    "scope": "layer_norm only",
+    "model_squared_gradient_error": 0.40339616517720644,
+    "vs_ship": 0.7827,
+    "pairformer_share_of_error_pct": 72.34
+   },
+   {
+    "arm": "SL",
+    "scope": "softmax + layer_norm (exact_training ON)",
+    "model_squared_gradient_error": 0.23612584721027102,
+    "vs_ship": 0.4582,
+    "pairformer_share_of_error_pct": 52.75
+   }
+  ]
+ }
+}

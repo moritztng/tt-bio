@@ -1,0 +1,56 @@
+{
+  "probe_shape": [
+    32,
+    32
+  ],
+  "probe_reps": 20000,
+  "probe_device_ops": 20000,
+  "enqueue_wall_us_per_op": 15.415,
+  "enqueue_cpu_us_per_op": 15.154,
+  "enqueue_plus_drain_us_per_op": 15.425,
+  "enqueue_host_share_of_total": 0.9994,
+  "probe_only": true,
+  "machine_id": "tt-quietbox2",
+  "card_type": "p300c",
+  "tt_bio_version": "0.9.0",
+  "inspector_env": "1",
+  "visible_devices": "1",
+  "loadavg_before": [
+    19.5517578125,
+    18.28515625,
+    18.64697265625
+  ],
+  "loadavg_after": [
+    18.62646484375,
+    18.1142578125,
+    18.58935546875
+  ],
+  "nproc": 16,
+  "aiclk_during": {
+    "0": {
+      "min": 800,
+      "median": 800,
+      "max": 800,
+      "n": 5
+    },
+    "2": {
+      "min": 1337,
+      "median": 1350,
+      "max": 1350,
+      "n": 5
+    },
+    "1": {
+      "min": 800,
+      "median": 1350,
+      "max": 1350,
+      "n": 5
+    },
+    "3": {
+      "min": 1350,
+      "median": 1350,
+      "max": 1350,
+      "n": 5
+    }
+  },
+  "utc": "2026-09-25T16:35:01Z"
+}

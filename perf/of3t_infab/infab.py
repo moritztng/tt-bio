@@ -195,6 +195,13 @@ def _snap():
         time.sleep(1)
 threading.Thread(target=_snap, daemon=True).start()
 atexit.register(_flush)
+if os.environ.get("INFAB_SEED") is not None:
+    # Same fixed draws in both arms, for a model whose own CLI takes no seed (boltzgen).
+    _S = int(os.environ["INFAB_SEED"])
+    import random as _random, numpy as _np, torch as _torch
+    _random.seed(_S); _np.random.seed(_S); _torch.manual_seed(_S)
+    _rng = _np.random.default_rng
+    _np.random.default_rng = lambda seed=None, *a, **k: _rng(_S if seed is None else seed, *a, **k)
 '''
 
 
@@ -241,7 +248,7 @@ MODELS = {
                              "/home/ttuser/.boltz/af2/params/params_model_1_ptm.npz"]},
     "boltzgen":    {"key": "tt_bio.boltzgen", "argv": ["design", "tests/fixtures/boltzgen/bg400.yaml",
                                                        "--model", "boltzgen", "--num_designs", "1",
-                                                       "--steps", "design"]},
+                                                       "--steps", "design"], "env": {"INFAB_SEED": "0"}},
     "openbind":    {"key": "tt_bio.openfold3", "argv": ["predict", FX, "--model", "openbind", *PRED]},
     "protenix-v1": {"key": "tt_bio.protenix", "argv": ["predict", FX, "--model", "protenix-v1", *PRED]},
     "opendde":     {"key": "tt_bio.opendde", "argv": ["predict", FX, "--model", "opendde", *PRED]},
@@ -256,7 +263,7 @@ MODELS = {
     "rfd3":        {"key": "tt_bio.rfd3", "argv": ["design",
                                                   "scripts/rfd3_port/parity_artifacts/iai_protein/iai_inputs.yaml",
                                                   "--model", "rfd3", "--num_designs", "1", "--seed", "0",
-                                                  "--num_timesteps", "20"]},
+                                                  "--num_timesteps", "20", "--from_pdb"]},
     "pxdesign":    {"key": "tt_bio.pxdesign", "argv": ["design", "tests/fixtures/pxdesign/PDL1.yaml",
                                                       "--model", "pxdesign", "--num_designs", "1", "--seed", "0",
                                                       "--n_step", "50"]},
@@ -296,7 +303,7 @@ def fold(py, tree: Path, inputs: Path, name: str, out: Path, card: str, holder: 
                 "TT_BIO_LEASE_HOLDER": holder, "OMP_NUM_THREADS": "8",
                 "PYTHONPATH": str(sc) + os.pathsep + str(tree),
                 "INFAB_CENSUS_DIR": str(sc / "census"), "INFAB_TRACE_DIR": str(sc / "trace"),
-                "INFAB_TREE": str(tree)})
+                "INFAB_TREE": str(tree), **spec.get("env", {})})
     # Inputs are read from ONE tree (--inputs) so both arms fold the same bytes.
     argv = [str(inputs / a) if (inputs / a).is_file() and not a.startswith("/") else a
             for a in spec["argv"]]
