@@ -1,0 +1,184 @@
+{
+ "host": "pc",
+ "pci": "0000:01:00.0",
+ "visible": "0",
+ "utc": "2026-09-25T15:22:40Z",
+ "commit": "352c983cadba483521c77ca330b258b0983acdb7",
+ "eps": 1e-05,
+ "reps": 60,
+ "cotenants": [
+  "213509                     USER        PID ACCESS COMMAND",
+  "/dev/tenstorrent/0:  moritz    F...m python3"
+ ],
+ "cells": [
+  {
+   "name": "pair_384",
+   "shape": [
+    1,
+    384,
+    384,
+    128
+   ],
+   "C": 128,
+   "fd_check": {
+    "skipped": "validated on fd_small, same expression"
+   },
+   "arms": {
+    "composed/bfloat16": {
+     "rel_dx": 0.00456625537354863,
+     "rel_dgamma": 0.0047349683205168145,
+     "rel_dbeta": 0.0022878622899563028,
+     "verbs": 22,
+     "verbs_by": {
+      "add": 1,
+      "mean": 4,
+      "multiply": 7,
+      "reshape": 4,
+      "rsqrt": 1,
+      "subtract": 3,
+      "sum": 2
+     },
+     "min_ms": 7.215934019768611,
+     "median_ms": 7.26355699589476,
+     "aiclk": {
+      "n": 5,
+      "min": 1350,
+      "median": 1350,
+      "max": 1350
+     },
+     "load1": 1.8818359375
+    },
+    "moreh_dx/bfloat16": {
+     "rel_dx": 2741655.0612980393,
+     "rel_dgamma": 0.0047349683205168145,
+     "rel_dbeta": 0.0022878622899563028,
+     "verbs": 16,
+     "verbs_by": {
+      "add": 1,
+      "empty": 1,
+      "mean": 2,
+      "moreh_layer_norm_backward": 1,
+      "multiply": 3,
+      "reshape": 4,
+      "rsqrt": 1,
+      "subtract": 1,
+      "sum": 2
+     },
+     "min_ms": 6.00138001027517,
+     "median_ms": 6.041178508894518,
+     "aiclk": {
+      "n": 5,
+      "min": 1350,
+      "median": 1350,
+      "max": 1350
+     },
+     "load1": 1.8818359375
+    },
+    "moreh_all/bfloat16": {
+     "rel_dx": 2741655.0612980393,
+     "rel_dgamma": 525.830651178356,
+     "rel_dbeta": 1.7778775285714459,
+     "verbs": 10,
+     "verbs_by": {
+      "add": 1,
+      "empty": 3,
+      "mean": 2,
+      "moreh_layer_norm_backward": 1,
+      "multiply": 1,
+      "rsqrt": 1,
+      "subtract": 1
+     },
+     "min_ms": 15.677059011068195,
+     "median_ms": 15.734766508103348,
+     "aiclk": {
+      "n": 10,
+      "min": 1350,
+      "median": 1350,
+      "max": 1350
+     },
+     "load1": 1.8818359375
+    },
+    "composed/float32": {
+     "rel_dx": 0.00014801580889615602,
+     "rel_dgamma": 0.00014954413522490963,
+     "rel_dbeta": 1.0940115429809655e-07,
+     "verbs": 206,
+     "verbs_by": {
+      "add": 1,
+      "add_": 36,
+      "deallocate": 72,
+      "mean": 4,
+      "multiply": 7,
+      "reshape": 8,
+      "rsqrt": 1,
+      "slice": 70,
+      "subtract": 3,
+      "to_layout": 4
+     },
+     "min_ms": 10.319073015125468,
+     "median_ms": 10.37303899647668,
+     "aiclk": {
+      "n": 7,
+      "min": 1350,
+      "median": 1350,
+      "max": 1350
+     },
+     "load1": 1.8818359375
+    },
+    "moreh_dx/float32": {
+     "rel_dx": 0.18452454979685484,
+     "rel_dgamma": 0.00014954413522490963,
+     "rel_dbeta": 1.0940115429809655e-07,
+     "verbs": 200,
+     "verbs_by": {
+      "add": 1,
+      "add_": 36,
+      "deallocate": 72,
+      "empty": 1,
+      "mean": 2,
+      "moreh_layer_norm_backward": 1,
+      "multiply": 3,
+      "reshape": 8,
+      "rsqrt": 1,
+      "slice": 70,
+      "subtract": 1,
+      "to_layout": 4
+     },
+     "min_ms": 6.646656984230503,
+     "median_ms": 6.67005599825643,
+     "aiclk": {
+      "n": 6,
+      "min": 1343,
+      "median": 1350,
+      "max": 1350
+     },
+     "load1": 1.8818359375
+    },
+    "moreh_all/float32": {
+     "rel_dx": 0.18452454979685484,
+     "rel_dgamma": 1.0073188505317048,
+     "rel_dbeta": 0.012204126894053468,
+     "verbs": 10,
+     "verbs_by": {
+      "add": 1,
+      "empty": 3,
+      "mean": 2,
+      "moreh_layer_norm_backward": 1,
+      "multiply": 1,
+      "rsqrt": 1,
+      "subtract": 1
+     },
+     "min_ms": 17.21955300308764,
+     "median_ms": 17.298489008680917,
+     "aiclk": {
+      "n": 10,
+      "min": 1350,
+      "median": 1350,
+      "max": 1350
+     },
+     "load1": 1.9716796875
+    }
+   }
+  }
+ ]
+}
