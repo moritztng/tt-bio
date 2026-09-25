@@ -1,0 +1,535 @@
+{
+ "stamp": {
+  "t": 1790237380.1219077,
+  "pci": "0000:01:00.0"
+ },
+ "cases": {
+  "col dq=gs@kt^T": {
+   "shipped": {
+    "us": 6583.134013214332,
+    "n": 6,
+    "R": 38,
+    "rel_l2_vs_f64": 0.0016590428713089069,
+    "bitexact_vs_shipped": true,
+    "aiclk": {
+     "n": 1,
+     "min": 1350,
+     "median": 1350,
+     "max": 1350
+    }
+   },
+   "bmm": {
+    "us": 63.43828469942254,
+    "n": 6,
+    "R": 3941,
+    "rel_l2_vs_f64": 0.0016590428713089069,
+    "bitexact_vs_shipped": true,
+    "aiclk": {
+     "n": 4,
+     "min": 1350,
+     "median": 1350,
+     "max": 1350
+    }
+   },
+   "xpose": {
+    "us": 86.19754975918683,
+    "n": 7,
+    "R": 2894,
+    "rel_l2_vs_f64": 0.0016590428713089069,
+    "bitexact_vs_shipped": true,
+    "aiclk": {
+     "n": 5,
+     "min": 1350,
+     "median": 1350,
+     "max": 1350
+    }
+   }
+  },
+  "col dkt=q^T@gs": {
+   "shipped": {
+    "us": 6541.449552682217,
+    "n": 7,
+    "R": 38,
+    "rel_l2_vs_f64": 0.0016519971884934612,
+    "bitexact_vs_shipped": true,
+    "aiclk": {
+     "n": 0
+    }
+   },
+   "bmm": {
+    "us": 63.25395751223997,
+    "n": 6,
+    "R": 3954,
+    "rel_l2_vs_f64": 0.0016519971884934612,
+    "bitexact_vs_shipped": true,
+    "aiclk": {
+     "n": 5,
+     "min": 1350,
+     "median": 1350,
+     "max": 1350
+    }
+   },
+   "xpose": {
+    "us": 86.1932435420039,
+    "n": 6,
+    "R": 2903,
+    "rel_l2_vs_f64": 0.0016519971884934612,
+    "bitexact_vs_shipped": true,
+    "aiclk": {
+     "n": 5,
+     "min": 1350,
+     "median": 1350,
+     "max": 1350
+    }
+   }
+  },
+  "col dp=go@v^T": {
+   "shipped": {
+    "us": 1965.7872834377629,
+    "n": 7,
+    "R": 127,
+    "rel_l2_vs_f64": 0.0016828596629671077,
+    "bitexact_vs_shipped": true,
+    "aiclk": {
+     "n": 0
+    }
+   },
+   "bmm": {
+    "us": 30.732604118015246,
+    "n": 6,
+    "R": 8135,
+    "rel_l2_vs_f64": 0.0016828596629671077,
+    "bitexact_vs_shipped": true,
+    "aiclk": {
+     "n": 6,
+     "min": 1350,
+     "median": 1350,
+     "max": 1350
+    }
+   },
+   "xpose": {
+    "us": 53.45989482629061,
+    "n": 6,
+    "R": 4678,
+    "rel_l2_vs_f64": 0.0016828596629671077,
+    "bitexact_vs_shipped": true,
+    "aiclk": {
+     "n": 5,
+     "min": 1350,
+     "median": 1350,
+     "max": 1350
+    }
+   }
+  },
+  "col dv=p^T@go": {
+   "shipped": {
+    "us": 6538.997473590394,
+    "n": 7,
+    "R": 38,
+    "rel_l2_vs_f64": 0.0016556970881693312,
+    "bitexact_vs_shipped": true,
+    "aiclk": {
+     "n": 0
+    }
+   },
+   "bmm": {
+    "us": 63.25067518331496,
+    "n": 6,
+    "R": 3953,
+    "rel_l2_vs_f64": 0.0016556970881693312,
+    "bitexact_vs_shipped": true,
+    "aiclk": {
+     "n": 5,
+     "min": 1350,
+     "median": 1350,
+     "max": 1350
+    }
+   },
+   "xpose": {
+    "us": 86.1863680678342,
+    "n": 6,
+    "R": 2903,
+    "rel_l2_vs_f64": 0.0016556970881693312,
+    "bitexact_vs_shipped": true,
+    "aiclk": {
+     "n": 5,
+     "min": 1350,
+     "median": 1350,
+     "max": 1350
+    }
+   }
+  },
+  "tri81 dq=gs@kt^T": {
+   "shipped": {
+    "us": 1132.2123800998036,
+    "n": 6,
+    "R": 221,
+    "rel_l2_vs_f64": 0.001722147458513039,
+    "bitexact_vs_shipped": true,
+    "aiclk": {
+     "n": 0
+    }
+   },
+   "bmm": {
+    "us": 122.08093456855806,
+    "n": 6,
+    "R": 2048,
+    "rel_l2_vs_f64": 0.0016909712070560243,
+    "bitexact_vs_shipped": false,
+    "aiclk": {
+     "n": 3,
+     "min": 1350,
+     "median": 1350,
+     "max": 1350
+    }
+   },
+   "xpose": {
+    "us": 155.5659527370135,
+    "n": 6,
+    "R": 1608,
+    "rel_l2_vs_f64": 0.0016909712070560243,
+    "bitexact_vs_shipped": false,
+    "aiclk": {
+     "n": 5,
+     "min": 1343,
+     "median": 1350,
+     "max": 1350
+    }
+   }
+  },
+  "tri81 dkt=q^T@gs": {
+   "shipped": {
+    "us": 981.074123510374,
+    "n": 6,
+    "R": 255,
+    "rel_l2_vs_f64": 0.0017226142506560117,
+    "bitexact_vs_shipped": true,
+    "aiclk": {
+     "n": 0
+    }
+   },
+   "bmm": {
+    "us": 182.5251604665713,
+    "n": 6,
+    "R": 1371,
+    "rel_l2_vs_f64": 0.0016915966297563862,
+    "bitexact_vs_shipped": false,
+    "aiclk": {
+     "n": 3,
+     "min": 1350,
+     "median": 1350,
+     "max": 1350
+    }
+   },
+   "xpose": {
+    "us": 216.19615125155534,
+    "n": 6,
+    "R": 1157,
+    "rel_l2_vs_f64": 0.0016915966297563862,
+    "bitexact_vs_shipped": false,
+    "aiclk": {
+     "n": 4,
+     "min": 1350,
+     "median": 1350,
+     "max": 1350
+    }
+   }
+  },
+  "tri81 dp=go@v^T": {
+   "shipped": {
+    "us": 432.4814437753718,
+    "n": 6,
+    "R": 578,
+    "rel_l2_vs_f64": 0.001686985033999165,
+    "bitexact_vs_shipped": true,
+    "aiclk": {
+     "n": 1,
+     "min": 1350,
+     "median": 1350,
+     "max": 1350
+    }
+   },
+   "bmm": {
+    "us": 166.27205352361148,
+    "n": 6,
+    "R": 1504,
+    "rel_l2_vs_f64": 0.001686985033999165,
+    "bitexact_vs_shipped": true,
+    "aiclk": {
+     "n": 3,
+     "min": 1350,
+     "median": 1350,
+     "max": 1350
+    }
+   },
+   "xpose": {
+    "us": 199.98636861028538,
+    "n": 6,
+    "R": 1252,
+    "rel_l2_vs_f64": 0.001686985033999165,
+    "bitexact_vs_shipped": true,
+    "aiclk": {
+     "n": 4,
+     "min": 1350,
+     "median": 1350,
+     "max": 1350
+    }
+   }
+  },
+  "tri81 dv=p^T@go": {
+   "shipped": {
+    "us": 1125.107626140963,
+    "n": 7,
+    "R": 222,
+    "rel_l2_vs_f64": 0.001721062859940296,
+    "bitexact_vs_shipped": true,
+    "aiclk": {
+     "n": 1,
+     "min": 1350,
+     "median": 1350,
+     "max": 1350
+    }
+   },
+   "bmm": {
+    "us": 142.50996153666688,
+    "n": 6,
+    "R": 1755,
+    "rel_l2_vs_f64": 0.001690025500937373,
+    "bitexact_vs_shipped": false,
+    "aiclk": {
+     "n": 3,
+     "min": 1350,
+     "median": 1350,
+     "max": 1350
+    }
+   },
+   "xpose": {
+    "us": 343.06693758428435,
+    "n": 6,
+    "R": 729,
+    "rel_l2_vs_f64": 0.001690025500937373,
+    "bitexact_vs_shipped": false,
+    "aiclk": {
+     "n": 3,
+     "min": 1350,
+     "median": 1350,
+     "max": 1350
+    }
+   }
+  },
+  "tri13 dq=gs@kt^T": {
+   "shipped": {
+    "us": 182.53050255716647,
+    "n": 6,
+    "R": 1370,
+    "rel_l2_vs_f64": 0.001723193484818411,
+    "bitexact_vs_shipped": true,
+    "aiclk": {
+     "n": 1,
+     "min": 1350,
+     "median": 1350,
+     "max": 1350
+    }
+   },
+   "bmm": {
+    "us": 27.485005426199194,
+    "n": 7,
+    "R": 9030,
+    "rel_l2_vs_f64": 0.0016920395200195587,
+    "bitexact_vs_shipped": false,
+    "aiclk": {
+     "n": 6,
+     "min": 1350,
+     "median": 1350,
+     "max": 1350
+    }
+   },
+   "xpose": {
+    "us": 41.811375692693005,
+    "n": 8,
+    "R": 5052,
+    "rel_l2_vs_f64": 0.0016920395200195587,
+    "bitexact_vs_shipped": false,
+    "aiclk": {
+     "n": 6,
+     "min": 1350,
+     "median": 1350,
+     "max": 1350
+    }
+   }
+  },
+  "tri13 dkt=q^T@gs": {
+   "shipped": {
+    "us": 157.58941556255814,
+    "n": 6,
+    "R": 1587,
+    "rel_l2_vs_f64": 0.0017240758180480866,
+    "bitexact_vs_shipped": true,
+    "aiclk": {
+     "n": 3,
+     "min": 1350,
+     "median": 1350,
+     "max": 1350
+    }
+   },
+   "bmm": {
+    "us": 34.3379955367771,
+    "n": 6,
+    "R": 7282,
+    "rel_l2_vs_f64": 0.0016930101642975304,
+    "bitexact_vs_shipped": false,
+    "aiclk": {
+     "n": 6,
+     "min": 1343,
+     "median": 1350,
+     "max": 1350
+    }
+   },
+   "xpose": {
+    "us": 41.713691343366094,
+    "n": 7,
+    "R": 5903,
+    "rel_l2_vs_f64": 0.0016930101642975304,
+    "bitexact_vs_shipped": false,
+    "aiclk": {
+     "n": 6,
+     "min": 1350,
+     "median": 1350,
+     "max": 1350
+    }
+   }
+  },
+  "tri13 dp=go@v^T": {
+   "shipped": {
+    "us": 71.48240777719947,
+    "n": 6,
+    "R": 3497,
+    "rel_l2_vs_f64": 0.0016866841634239735,
+    "bitexact_vs_shipped": true,
+    "aiclk": {
+     "n": 4,
+     "min": 1350,
+     "median": 1350,
+     "max": 1350
+    }
+   },
+   "bmm": {
+    "us": 33.681448740247866,
+    "n": 6,
+    "R": 7423,
+    "rel_l2_vs_f64": 0.0016866841634239735,
+    "bitexact_vs_shipped": true,
+    "aiclk": {
+     "n": 4,
+     "min": 1343,
+     "median": 1350,
+     "max": 1350
+    }
+   },
+   "xpose": {
+    "us": 41.28828960954939,
+    "n": 7,
+    "R": 5245,
+    "rel_l2_vs_f64": 0.0016866841634239735,
+    "bitexact_vs_shipped": true,
+    "aiclk": {
+     "n": 6,
+     "min": 1350,
+     "median": 1350,
+     "max": 1350
+    }
+   }
+  },
+  "tri13 dv=p^T@go": {
+   "shipped": {
+    "us": 181.4143197974445,
+    "n": 6,
+    "R": 1379,
+    "rel_l2_vs_f64": 0.0017191195250818188,
+    "bitexact_vs_shipped": true,
+    "aiclk": {
+     "n": 3,
+     "min": 1350,
+     "median": 1350,
+     "max": 1350
+    }
+   },
+   "bmm": {
+    "us": 34.30041106663889,
+    "n": 6,
+    "R": 7292,
+    "rel_l2_vs_f64": 0.0016892220836092404,
+    "bitexact_vs_shipped": false,
+    "aiclk": {
+     "n": 5,
+     "min": 1350,
+     "median": 1350,
+     "max": 1350
+    }
+   },
+   "xpose": {
+    "us": 63.965521600106165,
+    "n": 6,
+    "R": 3912,
+    "rel_l2_vs_f64": 0.0016892220836092404,
+    "bitexact_vs_shipped": false,
+    "aiclk": {
+     "n": 5,
+     "min": 1350,
+     "median": 1350,
+     "max": 1350
+    }
+   }
+  },
+  "lin dx=g@W^T (768)": {
+   "shipped": {
+    "us": 2279.944247683647,
+    "n": 7,
+    "R": 109,
+    "rel_l2_vs_f64": 0.0017247251365098656,
+    "bitexact_vs_shipped": true,
+    "aiclk": {
+     "n": 0
+    }
+   },
+   "flat": {
+    "us": 104.34034130915568,
+    "n": 7,
+    "R": 2382,
+    "rel_l2_vs_f64": 0.0017253391963213277,
+    "bitexact_vs_shipped": false,
+    "aiclk": {
+     "n": 7,
+     "min": 1350,
+     "median": 1350,
+     "max": 1350
+    }
+   }
+  },
+  "lin dx=g@W^T (256)": {
+   "shipped": {
+    "us": 766.67174845209,
+    "n": 6,
+    "R": 326,
+    "rel_l2_vs_f64": 0.0017257543342164578,
+    "bitexact_vs_shipped": true,
+    "aiclk": {
+     "n": 0
+    }
+   },
+   "flat": {
+    "us": 56.386523008922474,
+    "n": 7,
+    "R": 4042,
+    "rel_l2_vs_f64": 0.001729615306885237,
+    "bitexact_vs_shipped": false,
+    "aiclk": {
+     "n": 6,
+     "min": 1350,
+     "median": 1350,
+     "max": 1350
+    }
+   }
+  }
+ }
+}

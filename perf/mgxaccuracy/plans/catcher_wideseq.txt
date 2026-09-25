@@ -1,0 +1,39 @@
+# CATCHER for wk/mgx-wide-seq, owed to the orchestrator note of 2026-09-24 11:4xZ.
+#
+# Run on the TRIAL tree, before the merge lands: origin/wk/mgx-orchestrator 428670d60 =
+# origin/main b2587bfb9 + wide-seq 992938bab. The merge is tt_bio/page_copy.py plus 209 lines
+# of tenstorrent.py -- `_pair_inplace` in the TriangleAttention / Transition /
+# TriangleMultiplication tails and a `_gated_rowblocked` trimul in-projection. Those are
+# shared boltz2-module and Protenix pair paths, so it reaches boltzgen AND pxdesign.
+#
+# HOW THE TREE IS BUILT, and why not by merging. Every previous catcher ran from
+# ~/wt-mgx-catcher checked out at origin/main merged INTO this branch, because the harness
+# (perf/mgxaccuracy) does not exist on main. Merging a trial branch into this one would put
+# wide-seq in this row's merge story for a measurement that is not this row's change. So the
+# catcher tree is built the other way round:
+#
+#   git checkout --detach 428670d60
+#   git checkout origin/wk/mgx-design-accuracy -- perf/mgxaccuracy
+#
+# The engine is 428670d60 byte-for-byte; the only files from this branch are under
+# perf/mgxaccuracy, which contains no tt_bio, scripts or tests path (checked: this branch's
+# whole non-perf diff against main is docs/design-throughput.md and one test file).
+#
+# Same two cases as every row of the CATCHER table, so each is a before/after on one banked
+# number rather than an exit code:
+#
+#   pxdesign 1224 tokens   fit_rmsd 0.1446 / 0.158 / 0.158 / 0.158 -- unchanged to four
+#                          decimals across 720b43a5d, 1f338604e, 811ac1316 and 6ea518246, so
+#                          a move here is a real finding and n=2 reads it directly
+#   boltzgen  512 + 80     n=2 on this case is pure sampling (consecutive catchers drew
+#                          12.117/13.912, then 2.131/0.552, then 8.786/7.735 from one
+#                          distribution), so it reports rc, wall, DURING AICLK and the two
+#                          values against the banked n=8 band 0.693-12.925. Only the exit code
+#                          and an excursion outside that band are readable.
+#
+# The third owed entry, the rfd3 eager digest 7ab5705258251e10, is not expressible in job.py:
+# it needs `--seed 0 --num_timesteps 20` on examples/rfd3_binder.json and the check is a file
+# hash, not a metric. It runs separately via perf/mgx_trace_region/chain.py with
+# plans/rfd3_digest_catcher.txt, exactly as it did for 6ea518246.
+--model pxdesign --target perf/mgxaccuracy/targets/gpb_dimer_1646.cif --target-res 1024 --binder 200 --designs 2 --steps 400 --host-threads 2 --timeout 10800 --tag ws_catcher
+--model boltzgen --target perf/mgxaccuracy/targets/gpb_dimer_1646.cif --target-res 512 --designs 2 --budget 2 --score-dsg --host-threads 2 --timeout 14400 --tag ws_catcher

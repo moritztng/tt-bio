@@ -1,0 +1,45 @@
+# CATCHER for origin/main 802f5910f, owed and written before the jobs are launched.
+#
+# main moved 3f7abff7d -> 802f5910f. The engine diff is 14 files, and two groups of them are
+# on the catcher rule's trigger list:
+#
+#   tt_bio/boltzgen/{cli/boltzgen.py, data/featurizer.py, task/analyze/analyze_utils.py,
+#                    task/predict/data_from_generated.py, task/predict/data_from_yaml.py}
+#       BoltzGen's own CLI, featurizer and analysis. Reached by every boltzgen design; the
+#       analyze_utils hunk is upstream of the `designfolding-bb_rmsd` column this whole row
+#       is measured in, so a move there moves every number the row publishes.
+#   tt_bio/{taped_ttnn.py, autograd.py, weights.py, runtime.py, main.py}
+#       shared engine infrastructure, not model code. `tenstorrent.py` and `protenix.py` are
+#       NOT touched, so pxdesign has no model-path change -- but this row's standing rule is
+#       to treat a pair model as reached until a digest says otherwise, and taped_ttnn.py
+#       carries 106 changed lines under both designers. pxdesign runs.
+#
+# `tt_bio/interface_scores.py` (+292) is new and `tt_bio/af2.py`, `tt_bio/rf3/featurize.py`
+# reach neither designer.
+#
+# EXPECTED RESULT: no change on either. The autograd/tape hunks are inference-inert for the
+# same reason as at d8f17563c -- a design carries no tape -- and the boltzgen package hunks
+# are upstream-vendored. That expectation is why the jobs run rather than why they do not.
+#
+# TREE: `~/wt-mgx-catcher`, checked out --detach at 802f5910f with this branch's
+# `perf/mgxaccuracy perf/mgxscale perf/bhdesign perf/mgx_trace_region` on top and
+# `git diff --name-only HEAD` showing no `tt_bio|scripts|tests` path (verified before launch).
+# Launch with MGX_REMOTE_TREE=$HOME/wt-mgx-catcher. No behind-main override: the tree IS main.
+#
+# Same two cases as every row of the CATCHER table, so each is a before/after on one banked
+# number rather than an exit code:
+#
+#   pxdesign 1224 tokens   fit_rmsd 0.1446 / 0.158 x5 -- unchanged to four decimals across six
+#                          consecutive merge points, so a move here is a real finding and n=2
+#                          reads it directly.
+#   boltzgen  512 + 80     n=2 on this case is pure sampling; consecutive catchers drew
+#                          12.117/13.912, 2.131/0.552, 8.786/7.735, 9.632/7.270 and
+#                          7.120/9.723 from one distribution. Report rc, wall, DURING AICLK
+#                          and the two values against the banked n=8 band 0.693-12.925. Only
+#                          the exit code and an excursion outside that band are readable.
+#
+# The rfd3 eager digest 7ab5705258251e10 is not owed: the trace path and `rfd3/design.py` are
+# untouched by this merge, and `rf3/featurize.py` is RoseTTAFold3, not rfd3.
+
+--model pxdesign --target perf/mgxaccuracy/targets/gpb_dimer_1646.cif --target-res 1024 --binder 200 --designs 2 --steps 400 --host-threads 2 --timeout 10800 --tag m802_catcher
+--model boltzgen --target perf/mgxaccuracy/targets/gpb_dimer_1646.cif --target-res 512 --designs 2 --budget 2 --score-dsg --host-threads 2 --timeout 14400 --tag m802_catcher

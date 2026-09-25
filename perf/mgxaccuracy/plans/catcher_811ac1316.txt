@@ -1,0 +1,26 @@
+# CATCHER for the three merges in 811ac1316, owed to the orchestrator note of 2026-09-24 01:3xZ.
+#
+#   a239d22da  msa-depth   -> tt_bio/protenix.py      reaches pxdesign
+#   94e7a002c  sdpa-mask   -> tt_bio/tenstorrent.py   reaches every model, boltzgen included
+#   811ac1316  msa: empty  -> worker/main/cache
+#
+# One pair covers all three; if either moves, bisect across them. Same two cases as the
+# 1f338604e pair, so each entry is a before/after on one banked number rather than an exit code:
+#
+#   pxdesign 1224 tokens   fit_rmsd 0.1446/0.158/0.158 on 1f338604e AND on 720b43a5d
+#                          (identical to four decimals across that merge)
+#   boltzgen  512 + 80     scRMSD 12.117/13.912 on 1f338604e, n=2; the n=8 after-fix cell on
+#                          the same fixture is median 4.749, range 0.693-12.925
+#
+# pxdesign's fit_rmsd is tight enough at n=2 to read directly. boltzgen's is not: n=2 against
+# n=8 resolves no shift (results/power.txt), so it reports ok/fail, wall, DURING AICLK and the
+# two values, and the band they have to fall inside is 0.693-12.925. Note the 1f338604e pair
+# already drew 12.117/13.912, both high in that band, and that was shown to be sampling rather
+# than the merge (the narrowing path never fired; see the CATCHER section of the state doc).
+#
+# --max-concurrent 1: this row is holding cards 3 and 23 for the 2x2's two 1536 cells, so only
+# one of its three chips is free. The two entries run one after the other, not beside each other.
+#
+# Runs from ~/wt-mgx-catcher at this branch's head, which contains origin/main 811ac1316.
+--model pxdesign --target perf/mgxaccuracy/targets/gpb_dimer_1646.cif --target-res 1024 --binder 200 --designs 2 --steps 400 --host-threads 2 --timeout 10800 --tag mc_catcher
+--model boltzgen --target perf/mgxaccuracy/targets/gpb_dimer_1646.cif --target-res 512 --designs 2 --budget 2 --score-dsg --host-threads 2 --timeout 14400 --tag mc_catcher

@@ -1,0 +1,67 @@
+{
+ "instrument": "of3t-hostleg ie_arm.py -- the input-embedder atom-encoder leg on the card, seeded with upstream 0.4.3's cotangent at its own two boundaries",
+ "host": "qb1 (tt-quietbox) card 1, Blackhole p150a",
+ "boundary": "/home/ttuser/of3t_hostleg/ie_boundary_FAKE.pt",
+ "boundary_loss": 0.0,
+ "break_cot": false,
+ "act": "fp32",
+ "n_atom": 422,
+ "n_token": 384,
+ "forward_rel_at_the_boundary": {
+  "cl": 1.806548519890496,
+  "plm": 1.0545377918146899,
+  "ai": 1.1014783188641357
+ },
+ "n_gradients": 9,
+ "n_measurable": 0,
+ "n_over_5e-2": 0,
+ "worst_rel_l2": null,
+ "worst_tensor": null,
+ "per_tensor": [
+  {
+   "param": "input_embedder.atom_attn_enc.linear_q.0.weight",
+   "rel_l2": null,
+   "why": "absent from the boundary reference"
+  },
+  {
+   "param": "input_embedder.atom_attn_enc.ref_atom_feature_embedder.linear_inv_sq_dists.weight",
+   "rel_l2": null,
+   "why": "absent from the boundary reference"
+  },
+  {
+   "param": "input_embedder.atom_attn_enc.ref_atom_feature_embedder.linear_ref_atom_chars.weight",
+   "rel_l2": null,
+   "why": "absent from the boundary reference"
+  },
+  {
+   "param": "input_embedder.atom_attn_enc.ref_atom_feature_embedder.linear_ref_charge.weight",
+   "rel_l2": null,
+   "why": "absent from the boundary reference"
+  },
+  {
+   "param": "input_embedder.atom_attn_enc.ref_atom_feature_embedder.linear_ref_element.weight",
+   "rel_l2": null,
+   "why": "absent from the boundary reference"
+  },
+  {
+   "param": "input_embedder.atom_attn_enc.ref_atom_feature_embedder.linear_ref_mask.weight",
+   "rel_l2": null,
+   "why": "absent from the boundary reference"
+  },
+  {
+   "param": "input_embedder.atom_attn_enc.ref_atom_feature_embedder.linear_ref_offset.weight",
+   "rel_l2": null,
+   "why": "absent from the boundary reference"
+  },
+  {
+   "param": "input_embedder.atom_attn_enc.ref_atom_feature_embedder.linear_ref_pos.weight",
+   "rel_l2": null,
+   "why": "absent from the boundary reference"
+  },
+  {
+   "param": "input_embedder.atom_attn_enc.ref_atom_feature_embedder.linear_valid_mask.weight",
+   "rel_l2": null,
+   "why": "absent from the boundary reference"
+  }
+ ]
+}

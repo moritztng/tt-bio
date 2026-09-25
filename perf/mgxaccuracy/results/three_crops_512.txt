@@ -1,0 +1,31 @@
+# THREE 512-RESIDUE CROPS OF ONE CHAIN. A GOOD SURFACE IS THE EXCEPTION, NOT A BAD ONE.
+#
+# All three are single-chain crops of chain A of the gpb dimer (823 residues), n=8 designs
+# each, same engine, same binder length, same metric, same device refolder. The only thing
+# that changes is where along the sequence the 512-residue window starts.
+#
+#   crop            n    min     median     max    designable <=4A
+#   offset   0      8   0.823     4.631   13.493        50%
+#   offset 100      8  13.024    16.021   17.236         0%
+#   offset 200      8  13.283    17.300   20.361         0%
+#
+#   spread across crops   12.67 A   (4.631 to 17.300)
+#   offset 0 vs 100       11.39 A   MW rejects
+#   offset 0 vs 200       12.67 A   MW rejects
+#   offset 100 vs 200      1.28 A   -- the two hard crops agree with each other
+#
+# READ IT THIS WAY ROUND. With two crops the natural reading was "offset 100 is a hard one".
+# With three it is the opposite: TWO of three sit at 16-17 A with ZERO designs under the 4 A
+# permissive bar, and offset 0 at 4.6 A with 50% is the outlier. The typical 512-residue window
+# of this protein does not design well; offset 0 happens to be a good surface.
+#
+# So the advice to a user is not "retry if you were unlucky" but "expect to search": a good
+# crop is the exception, and the cheap move is to try several windows rather than more designs
+# against one. Eight designs against a bad crop returned zero usable binders twice over.
+#
+# WHAT THIS DOES NOT SAY. Three crops of ONE protein is not a statement about proteins in
+# general, and all three share large parts of their sequence (offset 0 and 100 share 412
+# residues, 0 and 200 share 312). A fourth crop is cheap if the distribution matters more
+# than the headline. It also does not touch the SIZE question: these are all 512.
+#
+# Reproduce: plans/floor512_onetree.txt (offsets 0 and 100) and plans/floor512_offset200.txt.

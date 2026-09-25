@@ -1,0 +1,13 @@
+# python3 perf/mgxaccuracy/contact.py --complex out_boltzgen_512_d8_s400_gpb/intermediate_designs/*.cif
+# whglx, the 8 designs whose scRMSD median is 8.455 A. Docking and designability are
+# different axes: every design touches the target, and the scRMSD is self-consistency.
+
+design             binder  chain    min d  median d  contacts   verdict
+bg512_1.cif           555      A     1.70      5.36      1199   IN CONTACT
+bg512_2.cif           543      A     1.62      5.80      1053   IN CONTACT
+bg512_3.cif           543      A     1.84      5.95       989   IN CONTACT
+bg512_4.cif           614      A     1.39      8.23       523   IN CONTACT
+bg512_5.cif           526      A     1.29      6.61       894   IN CONTACT
+bg512_6.cif           598      A     1.49      5.81      1046   IN CONTACT
+bg512_7.cif           619      A     2.41      8.08       500   IN CONTACT
+bg512.cif             460      A     1.85      6.94       478   IN CONTACT

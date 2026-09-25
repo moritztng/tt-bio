@@ -1,0 +1,23 @@
+{
+ "batch": {
+  "file": "batch_qb2_t64.pt",
+  "sha256": "b88fcf517a530cb5a06cfe26feab4c6cbdc65cf9dad06230a9ce4345415d12ee"
+ },
+ "checkpoint": {
+  "file": "of3-p2-155k.pt",
+  "sha256": "af09eac4f29cef856633af07558cb143226fe95ebbef2c20921769d4a5f4bee4",
+  "n_loaded": 4935,
+  "n_missing": 1,
+  "n_unexpected": 0
+ },
+ "n_real": 56,
+ "device": {
+  "s_input_rel": 0.0036974030771325006,
+  "ai_rel": 0.003725453269002663
+ },
+ "host": {
+  "s_input_rel": 0.0005043735955250055,
+  "ai_rel": 0.0005082000044486689
+ },
+ "device_vs_host_ai_rel": 0.0037530928384512663
+}

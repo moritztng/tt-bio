@@ -1,0 +1,314 @@
+{
+ "instrument": "PROTOCOL SS6: the OF3 training forward through tt_bio.train.catalogue",
+ "arm": "full",
+ "batch": "/home/ttuser/of3t_fullstep64/batch_step003_t64.pt",
+ "checkpoint": "/home/ttuser/of3-weights/of3-p2-155k.pt",
+ "rollout": 20,
+ "cycles": 1,
+ "seed": 20260922,
+ "host": "tt-quietbox2",
+ "card": "2",
+ "commit": "ba624378a8daa40f4a62ad8b1b292fe8c1f71296",
+ "padded_width": 64,
+ "real_tokens": 56,
+ "pdb_id": "5nw3",
+ "denoise": true,
+ "params_reachable": 3952,
+ "loss": 14.269404971193326,
+ "weights": {
+  "bond": 0.0,
+  "smooth_lddt": 4.0,
+  "mse": 4.0,
+  "distogram": 0.03,
+  "resolved": 0.0001,
+  "plddt": 0.0001,
+  "pae": 0.0001,
+  "pde": 0.0001
+ },
+ "breakdown": {
+  "bond": {
+   "value": null,
+   "weight": 0.0,
+   "contribution": 0.0,
+   "skipped": "weight is zero in this stage"
+  },
+  "smooth_lddt": {
+   "value": 0.2847602237105661,
+   "weight": 4.0,
+   "contribution": 1.1390408948422643
+  },
+  "mse": {
+   "value": 3.247832294152219,
+   "weight": 4.0,
+   "contribution": 12.991329176608875
+  },
+  "distogram": {
+   "value": 4.609880858208184,
+   "weight": 0.03,
+   "contribution": 0.1382964257462455
+  },
+  "resolved": {
+   "value": 2.789791275884524,
+   "weight": 0.0001,
+   "contribution": 0.0002789791275884524
+  },
+  "plddt": {
+   "value": null,
+   "weight": 0.0001,
+   "contribution": 0.0,
+   "skipped": "missing ['per_atom_lddt', 'per_atom_weight']"
+  },
+  "pae": {
+   "value": 3.133268977064819,
+   "weight": 0.0001,
+   "contribution": 0.0003133268977064819
+  },
+  "pde": {
+   "value": 1.4616797064550087,
+   "weight": 0.0001,
+   "contribution": 0.00014616797064550088
+  }
+ },
+ "seeded_outputs": [
+  "distogram_logits",
+  "pae_logits",
+  "pde_logits",
+  "pred_dist",
+  "pred_xyz",
+  "resolved_logits"
+ ],
+ "forward_s": 65.07915406000393,
+ "backward_s": 246.12723063099838,
+ "step_s": 311.2063846910023,
+ "params_with_grad": 3632,
+ "params_nonzero_grad": 3623,
+ "squared_gradient_norm": Infinity,
+ "by_section": {
+  "input_glue": {
+   "n": 5,
+   "sq": 8771.560526560685
+  },
+  "trunk": {
+   "n": 2530,
+   "sq": 888368.3178031198
+  },
+  "confidence_head": {
+   "n": 201,
+   "sq": 2.020606035659269
+  },
+  "sampler": {
+   "n": 896,
+   "sq": Infinity
+  }
+ },
+ "grad_dump": "/home/ttuser/of3t_denoise/grad_DN64PRE.pt",
+ "ok": true,
+ "aiclk_during": {
+  "0": {
+   "min": 800,
+   "max": 1350,
+   "median": 1350,
+   "n": 101
+  }
+ },
+ "aiclk_line": "CLOCK: dev0 min 800 / median 1350 / max 1350 MHz over 101 samples, polled DURING the work",
+ "total_s": 329.8983099540055,
+ "fullstep64": {
+  "exact": "on",
+  "exact_training_ops": [
+   "softmax",
+   "layer_norm"
+  ],
+  "pad_perturb": {
+   "k": 0.0,
+   "features": {}
+  },
+  "counters": {
+   "softmax": {
+    "verb": 537,
+    "raw": 0,
+    "raw_elements": 0
+   },
+   "layer_norm": {
+    "verb": 1881,
+    "raw": 0,
+    "elements": 742089024,
+    "bw": 1119
+   }
+  },
+  "draws": {
+   "file": "/home/ttuser/of3t_fullstep64/draws.pt",
+   "n_recorded": 61,
+   "rollout_calls": 1,
+   "n_consumed": 61,
+   "mismatch_count": 0,
+   "mismatch": []
+  }
+ },
+ "of3t_denoise": {
+  "denoise": true,
+  "unregistered_after_forward": {
+   "n": 84,
+   "paths": [
+    "sampler.dm.enc_at._wc.('blocks.0.attention_pair_bias.linear_z.weight', True)",
+    "sampler.dm.enc_at._wc.('blocks.1.attention_pair_bias.linear_z.weight', True)",
+    "sampler.dm.enc_at._wc.('blocks.2.attention_pair_bias.linear_z.weight', True)",
+    "sampler.dm.enc_at._wc.('blocks.0.attention_pair_bias.linear_ada_out.weight', True)",
+    "sampler.dm.enc_at._wc.('blocks.0.attention_pair_bias.linear_ada_out.bias', False)",
+    "sampler.dm.enc_at._wc.('blocks.1.attention_pair_bias.linear_ada_out.weight', True)",
+    "sampler.dm.enc_at._wc.('blocks.1.attention_pair_bias.linear_ada_out.bias', False)",
+    "sampler.dm.enc_at._wc.('blocks.2.attention_pair_bias.linear_ada_out.weight', True)",
+    "sampler.dm.enc_at._wc.('blocks.2.attention_pair_bias.linear_ada_out.bias', False)",
+    "sampler.dm.enc_at._wc.('blocks.0.conditioned_transition.linear_g.weight', True)",
+    "sampler.dm.enc_at._wc.('blocks.0.conditioned_transition.linear_g.bias', False)",
+    "sampler.dm.enc_at._wc.('blocks.1.conditioned_transition.linear_g.weight', True)",
+    "sampler.dm.enc_at._wc.('blocks.1.conditioned_transition.linear_g.bias', False)",
+    "sampler.dm.enc_at._wc.('blocks.2.conditioned_transition.linear_g.weight', True)",
+    "sampler.dm.enc_at._wc.('blocks.2.conditioned_transition.linear_g.bias', False)",
+    "sampler.dm.enc_at._wc.('blocks.0.attention_pair_bias.mha.linear_q.weight', True)",
+    "sampler.dm.enc_at._wc.('blocks.0.attention_pair_bias.mha.linear_q.bias', False)",
+    "sampler.dm.enc_at._wc.('blocks.0.attention_pair_bias.mha.linear_k.weight', True)",
+    "sampler.dm.enc_at._wc.('blocks.0.attention_pair_bias.mha.linear_v.weight', True)",
+    "sampler.dm.enc_at._wc.('blocks.0.attention_pair_bias.mha.linear_g.weight', True)",
+    "sampler.dm.enc_at._wc.('blocks.0.attention_pair_bias.mha.linear_o.weight', True)",
+    "sampler.dm.enc_at._wc.('blocks.0.conditioned_transition.swiglu.linear_a.weight', True)",
+    "sampler.dm.enc_at._wc.('blocks.0.conditioned_transition.swiglu.linear_b.weight', True)",
+    "sampler.dm.enc_at._wc.('blocks.0.conditioned_transition.linear_out.weight', True)",
+    "sampler.dm.enc_at._wc.('blocks.1.attention_pair_bias.mha.linear_q.weight', True)",
+    "sampler.dm.enc_at._wc.('blocks.1.attention_pair_bias.mha.linear_q.bias', False)",
+    "sampler.dm.enc_at._wc.('blocks.1.attention_pair_bias.mha.linear_k.weight', True)",
+    "sampler.dm.enc_at._wc.('blocks.1.attention_pair_bias.mha.linear_v.weight', True)",
+    "sampler.dm.enc_at._wc.('blocks.1.attention_pair_bias.mha.linear_g.weight', True)",
+    "sampler.dm.enc_at._wc.('blocks.1.attention_pair_bias.mha.linear_o.weight', True)",
+    "sampler.dm.enc_at._wc.('blocks.1.conditioned_transition.swiglu.linear_a.weight', True)",
+    "sampler.dm.enc_at._wc.('blocks.1.conditioned_transition.swiglu.linear_b.weight', True)",
+    "sampler.dm.enc_at._wc.('blocks.1.conditioned_transition.linear_out.weight', True)",
+    "sampler.dm.enc_at._wc.('blocks.2.attention_pair_bias.mha.linear_q.weight', True)",
+    "sampler.dm.enc_at._wc.('blocks.2.attention_pair_bias.mha.linear_q.bias', False)",
+    "sampler.dm.enc_at._wc.('blocks.2.attention_pair_bias.mha.linear_k.weight', True)",
+    "sampler.dm.enc_at._wc.('blocks.2.attention_pair_bias.mha.linear_v.weight', True)",
+    "sampler.dm.enc_at._wc.('blocks.2.attention_pair_bias.mha.linear_g.weight', True)",
+    "sampler.dm.enc_at._wc.('blocks.2.attention_pair_bias.mha.linear_o.weight', True)",
+    "sampler.dm.enc_at._wc.('blocks.2.conditioned_transition.swiglu.linear_a.weight', True)",
+    "sampler.dm.enc_at._wc.('blocks.2.conditioned_transition.swiglu.linear_b.weight', True)",
+    "sampler.dm.enc_at._wc.('blocks.2.conditioned_transition.linear_out.weight', True)",
+    "sampler.dm.dec.at._wc.('blocks.0.attention_pair_bias.linear_z.weight', True)",
+    "sampler.dm.dec.at._wc.('blocks.1.attention_pair_bias.linear_z.weight', True)",
+    "sampler.dm.dec.at._wc.('blocks.2.attention_pair_bias.linear_z.weight', True)",
+    "sampler.dm.dec.at._wc.('blocks.0.attention_pair_bias.linear_ada_out.weight', True)",
+    "sampler.dm.dec.at._wc.('blocks.0.attention_pair_bias.linear_ada_out.bias', False)",
+    "sampler.dm.dec.at._wc.('blocks.1.attention_pair_bias.linear_ada_out.weight', True)",
+    "sampler.dm.dec.at._wc.('blocks.1.attention_pair_bias.linear_ada_out.bias', False)",
+    "sampler.dm.dec.at._wc.('blocks.2.attention_pair_bias.linear_ada_out.weight', True)",
+    "sampler.dm.dec.at._wc.('blocks.2.attention_pair_bias.linear_ada_out.bias', False)",
+    "sampler.dm.dec.at._wc.('blocks.0.conditioned_transition.linear_g.weight', True)",
+    "sampler.dm.dec.at._wc.('blocks.0.conditioned_transition.linear_g.bias', False)",
+    "sampler.dm.dec.at._wc.('blocks.1.conditioned_transition.linear_g.weight', True)",
+    "sampler.dm.dec.at._wc.('blocks.1.conditioned_transition.linear_g.bias', False)",
+    "sampler.dm.dec.at._wc.('blocks.2.conditioned_transition.linear_g.weight', True)",
+    "sampler.dm.dec.at._wc.('blocks.2.conditioned_transition.linear_g.bias', False)",
+    "sampler.dm.dec.at._wc.('blocks.0.attention_pair_bias.mha.linear_q.weight', True)",
+    "sampler.dm.dec.at._wc.('blocks.0.attention_pair_bias.mha.linear_q.bias', False)",
+    "sampler.dm.dec.at._wc.('blocks.0.attention_pair_bias.mha.linear_k.weight', True)",
+    "sampler.dm.dec.at._wc.('blocks.0.attention_pair_bias.mha.linear_v.weight', True)",
+    "sampler.dm.dec.at._wc.('blocks.0.attention_pair_bias.mha.linear_g.weight', True)",
+    "sampler.dm.dec.at._wc.('blocks.0.attention_pair_bias.mha.linear_o.weight', True)",
+    "sampler.dm.dec.at._wc.('blocks.0.conditioned_transition.swiglu.linear_a.weight', True)",
+    "sampler.dm.dec.at._wc.('blocks.0.conditioned_transition.swiglu.linear_b.weight', True)",
+    "sampler.dm.dec.at._wc.('blocks.0.conditioned_transition.linear_out.weight', True)",
+    "sampler.dm.dec.at._wc.('blocks.1.attention_pair_bias.mha.linear_q.weight', True)",
+    "sampler.dm.dec.at._wc.('blocks.1.attention_pair_bias.mha.linear_q.bias', False)",
+    "sampler.dm.dec.at._wc.('blocks.1.attention_pair_bias.mha.linear_k.weight', True)",
+    "sampler.dm.dec.at._wc.('blocks.1.attention_pair_bias.mha.linear_v.weight', True)",
+    "sampler.dm.dec.at._wc.('blocks.1.attention_pair_bias.mha.linear_g.weight', True)",
+    "sampler.dm.dec.at._wc.('blocks.1.attention_pair_bias.mha.linear_o.weight', True)",
+    "sampler.dm.dec.at._wc.('blocks.1.conditioned_transition.swiglu.linear_a.weight', True)",
+    "sampler.dm.dec.at._wc.('blocks.1.conditioned_transition.swiglu.linear_b.weight', True)",
+    "sampler.dm.dec.at._wc.('blocks.1.conditioned_transition.linear_out.weight', True)",
+    "sampler.dm.dec.at._wc.('blocks.2.attention_pair_bias.mha.linear_q.weight', True)",
+    "sampler.dm.dec.at._wc.('blocks.2.attention_pair_bias.mha.linear_q.bias', False)",
+    "sampler.dm.dec.at._wc.('blocks.2.attention_pair_bias.mha.linear_k.weight', True)",
+    "sampler.dm.dec.at._wc.('blocks.2.attention_pair_bias.mha.linear_v.weight', True)",
+    "sampler.dm.dec.at._wc.('blocks.2.attention_pair_bias.mha.linear_g.weight', True)",
+    "sampler.dm.dec.at._wc.('blocks.2.attention_pair_bias.mha.linear_o.weight', True)",
+    "sampler.dm.dec.at._wc.('blocks.2.conditioned_transition.swiglu.linear_a.weight', True)",
+    "sampler.dm.dec.at._wc.('blocks.2.conditioned_transition.swiglu.linear_b.weight', True)",
+    "sampler.dm.dec.at._wc.('blocks.2.conditioned_transition.linear_out.weight', True)"
+   ]
+  },
+  "denoise_sigma": 0.30395649892572174,
+  "by_module": {
+   "input_glue": {
+    "n": 5,
+    "nonfinite_tensors": 0,
+    "max_abs": 16.88685417175293,
+    "sq": 8771.560526560683
+   },
+   "trunk.glue": {
+    "n": 6,
+    "nonfinite_tensors": 0,
+    "max_abs": 10.0625,
+    "sq": 2494.6932653405756
+   },
+   "trunk.pairformer": {
+    "n": 2256,
+    "nonfinite_tensors": 0,
+    "max_abs": 329.0,
+    "sq": 826549.2780208809
+   },
+   "trunk.template": {
+    "n": 80,
+    "nonfinite_tensors": 0,
+    "max_abs": 3.140625,
+    "sq": 349.99181099240616
+   },
+   "trunk.msa_embedder": {
+    "n": 2,
+    "nonfinite_tensors": 0,
+    "max_abs": 22.403030395507812,
+    "sq": 4337.391543141565
+   },
+   "trunk.msa_module": {
+    "n": 186,
+    "nonfinite_tensors": 0,
+    "max_abs": 36.0625,
+    "sq": 54636.96316276355
+   },
+   "confidence_head": {
+    "n": 201,
+    "nonfinite_tensors": 0,
+    "max_abs": 0.77490234375,
+    "sq": 2.020606035659269
+   },
+   "sampler.dc": {
+    "n": 26,
+    "nonfinite_tensors": 2,
+    "max_abs": 3.4028234663852886e+38,
+    "sq": 3.931324961098662e+81,
+    "nonfinite_names": [
+     "sampler.dc.w_lin_s",
+     "sampler.dc.w_lin_n"
+    ]
+   },
+   "sampler.dm": {
+    "n": 870,
+    "nonfinite_tensors": 0,
+    "max_abs": 6944.0,
+    "sq": 199978066.28127155
+   }
+  },
+  "nonfinite_total": 2
+ },
+ "provenance": {
+  "host": "tt-quietbox2",
+  "row": "of3t-denoise",
+  "card": 2,
+  "board_class": "p300c",
+  "host_quiet_before": "device fd holder pid 1266035 BUSY (569 ticks/2s, owner of3t-inproj): python3 perf/of3t_fullstep64/devstep.py --exact on --draws /home/ttuser/of3t_fullstep64/dr\nloadavg1 18.95 over ceiling 2.00\nHOST NOT QUIET -- your timing read is contaminated even with an idle sibling and a forced clock. Wait it out or DEFER. Do not measure and explain it afterwards.",
+  "host_quiet_after": "device fd holder pid 1266035 BUSY (541 ticks/2s, owner of3t-inproj): python3 perf/of3t_fullstep64/devstep.py --exact on --draws /home/ttuser/of3t_fullstep64/dr\nloadavg1 22.50 over ceiling 2.00\nHOST NOT QUIET -- your timing read is contaminated even with an idle sibling and a forced clock. Wait it out or DEFER. Do not measure and explain it afterwards.",
+  "git_commit": "ba624378a8daa40f4a62ad8b1b292fe8c1f71296",
+  "git_dirty": "",
+  "exit": 0,
+  "grad_dump_sha256": "9949c283e5b5f64a1e649f8da9dbfd6721cea81cd004fbefe9d0c07444ce0c7d"
+ }
+}

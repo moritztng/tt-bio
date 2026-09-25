@@ -1,0 +1,26 @@
+2026-09-23 02:19:54.916 | DEBUG    | ttnn:<module>:77 - Initial ttnn.CONFIG:
+Config{cache_path=/home/ttuser/.cache/ttnn,model_cache_path=/home/ttuser/.cache/ttnn/models,tmp_dir=/tmp/ttnn,enable_model_cache=false,enable_fast_runtime_mode=true,throw_exception_on_fallback=false,enable_logging=false,enable_graph_report=false,enable_detailed_buffer_report=false,enable_detailed_tensor_report=false,enable_comparison_mode=false,comparison_mode_should_raise_exception=false,comparison_mode_pcc=0.9999,root_report_path=generated/ttnn/reports,report_name=std::nullopt,std::nullopt}
+2026-09-23 02:20:04.049 | critical |          Always | TT_THROW: Statically allocated circular buffers on core range [(x=0,y=0) - (x=10,y=9)] grow to 2288128 B which is beyond max L1 size of 1572864 B (assert.hpp:104)
+2026-09-23 02:20:04.051 | critical |          Always | TT_THROW: Statically allocated circular buffers on core range [(x=0,y=0) - (x=10,y=9)] grow to 2206208 B which is beyond max L1 size of 1572864 B (assert.hpp:104)
+[weights] declared 2531 tensors, 165.2M elements, 2256 in the pairformer stack, walk depth 9
+2026-09-23 02:20:18.248 | critical |          Always | TT_FATAL: Out of Memory: Not enough space to allocate 39321600 B L1 buffer across 96 banks, where each bank needs to store 409600 B, but bank size is 1461760 B (allocated: 1228800 B, free: 232960 B, largest free block: 204800 B) (assert.hpp:104)
+2026-09-23 02:20:41.783 | critical |          Always | TT_FATAL: Out of Memory: Not enough space to allocate 32768000 B L1 buffer across 100 banks, where each bank needs to store 327680 B, but bank size is 1461760 B (allocated: 983040 B, free: 478720 B, largest free block: 314880 B) (assert.hpp:104)
+2026-09-23 02:39:57.075 | critical |          Always | TT_FATAL: Out of Memory: Not enough space to allocate 26214400 B DRAM buffer across 8 banks, where each bank needs to store 3276800 B, but bank size is 4278190016 B (allocated: 4275641984 B, free: 2548032 B, largest free block: 2224064 B) (assert.hpp:104)
+2026-09-23 02:39:57.076 | critical |          Always | TT_FATAL: Out of Memory: Not enough space to allocate 26214400 B DRAM buffer across 8 banks, where each bank needs to store 3276800 B, but bank size is 4278190016 B (allocated: 4275641984 B, free: 2548032 B, largest free block: 2224064 B) (assert.hpp:104)
+tokens 640  fwd PASS 10.205 GB   bwd FAIL 31.868 GB / 6842 allocs  grads 0/2531  walks 250
+  after forward, before backward     dram 9.225 GB
+    boundaries       5.209 GB  56.46 %    106 buffers
+    weights          0.334 GB   3.62 %   2531 buffers
+    tape             2.132 GB  23.12 %     48 buffers
+    unattributed     1.549 GB  16.79 %   1590 buffers
+  backward high-water                dram 31.853 GB
+    boundaries       5.209 GB  16.35 %    106 buffers
+    weights          0.334 GB   1.05 %   2531 buffers
+    tape             2.132 GB   6.69 %     48 buffers
+    cotangents       0.098 GB   0.31 %      1 buffers
+    recompute       22.518 GB  70.69 %   2559 buffers
+    other_leaf       0.000 GB   0.00 %      2 buffers
+    unattributed     1.561 GB   4.90 %   1590 buffers
+  walk taken 0.015 GB below the peak (0.048 %)
+CLOCK: dev0 min 800 / median 1350 / max 1350 MHz over 490 samples, polled DURING the work
+wrote /home/ttuser/.coworker/wt/of3t-cropwall/perf/of3t_cropwall/out/split_640_post_card3.json

@@ -1,0 +1,60 @@
+# HOW LONG THE UPSTREAM 1536 PAIR STILL HAS, MEASURED 2026-09-24 16:11-16:18Z ON qb2.
+# Supersedes the 12:47Z table in the state doc, which ran ~1.5x fast for the reason in §1.
+
+## 1. `ps -o pcpu` IS A LIFETIME AVERAGE. IT IS THE WRONG INSTRUMENT ON A BOX WHOSE LOAD MOVED.
+
+`pcpu` is times/etime over the whole run, so it reports the cores the draws USED TO get. qb2 was
+at 26.9 when these draws started and is at 60.7 now, so the two differ by half a core and a half:
+
+    draw a   pcpu 3.389 cores (lifetime)   differenced 2.25-2.29 cores (now)
+    draw b   pcpu 3.116 cores (lifetime)   differenced 2.26-2.27 cores (now)
+
+Measured twice, by means that do not share a bug:
+
+  (a) /proc/<pid>/stat fields 14+15 (utime+stime), summed over the process TREE, two reads 300 s
+      apart, HZ=100:  A 18176221 -> 18243723 ticks = 2.250 cores;  B 11414849 -> 11482939 = 2.269.
+  (b) `ps -o times` on the main pid alone, two reads 423 s apart:
+      A 181412 -> 182379 s = 2.286 cores;  B 113814 -> 114770 s = 2.260.
+
+They agree, and (a) vs (b) also settles the accounting question: the tree total exceeds the main
+pid by 58 CPU-s in 182,437, so the `--num_workers 2` dataloader children are 0.03 % of the job.
+The main pid is the job, and `ps -o times` on it is sufficient for the next pass.
+
+## 2. THE BAND, AND THE SINGLE UNRECORDED INPUT THAT SETS IT.
+
+The 512 valid draw's design step ran 5126.3 s at OMP_NUM_THREADS=6. Its average core occupancy c
+was never recorded and is NOT recoverable: the process is gone, `run_valid.sh` wraps nothing in
+/usr/bin/time, no accounting is enabled, and the tqdm log carries no per-step CPU. c is the only
+unknown and it sets the whole band.
+
+At (1616/592)^2 = 7.45x the token ratio, a 1536 draw costs 38,198 x c CPU-s.
+
+  UPPER: c <= 6.0, the thread ceiling            ->  229,187 CPU-s
+  LOWER: draw a is STILL RUNNING at 182,437      ->  c > 4.775
+
+That lower bound is an observation, not an assumption, and it kills the 4.0-core hypothesis the
+12:47Z table carried (which is why that table said draw a could already be done). Job cost is
+therefore in (182k, 229k] CPU-s, a 1.26x band rather than the 1.5x one it replaces.
+
+    draw    spent CPU-s   rate (cores)   remaining        lands
+    a           182,437       2.25       [0.0,  5.7] h    by ~22:00Z
+    b           114,829       2.27       [8.3, 14.1] h    00:35Z - 06:25Z
+
+Draw b's upper end is pessimistic: it inherits draw a's cores when a ends. Against that, chain2.sh
+slot-B starts out512_valid_b at the same moment and takes some back, so do not narrow it by hand.
+
+## 3. THERE IS NO PROGRESS SIGNAL INSIDE A DRAW, AND THAT IS STRUCTURAL.
+
+Checked rather than assumed. The output dirs hold only bg1536.cif, config/, steps.yaml and an
+empty intermediate_designs/; refold_design_cif/ is empty in both. The log's last line is
+
+    [Step 1/4] design - Predicting DataLoader 0: :   0%|          | 0/1 [00:00<?, ?it/s]
+
+one Lightning batch, so the progress bar has exactly one tick and cannot move until the step ends.
+The file has not grown since the run started. (The OLD disqualified 1536 run's log does carry a
+later marker, `[Step 3/6] folding ... [1:08:26]`, which is why per-step elapsed looked available;
+that run reached step 3 and these have not left step 1.) Completion is the appearance of a cif
+under refold_design_cif/, which is exactly what ref/harvest_upstream_1536.sh polls for.
+
+A long slip here is load, not a wedge: the WORKER child (boltzgen/resources/main.py) is what must
+show CPU, and it does. The `boltzgen run` launcher sits at 0.0 % and looks like a wedge.

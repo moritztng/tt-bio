@@ -1,0 +1,17 @@
+{
+ "pw64f": "/home/ttuser/of3t_pwaslice/grad_PW64F.pt (f89f871ce, card 2)",
+ "cm64f": "/home/ttuser/of3t_ieatom/grad_CM64F.pt (d3bc374a1, card 3)",
+ "wc_aliases_excluded": true,
+ "n_pw64f": 3374,
+ "n_cm64f": 3374,
+ "common": 3374,
+ "only_pw64f": [],
+ "only_cm64f": [],
+ "bit_identical": 3374,
+ "differ_count": 0,
+ "first_differing": null,
+ "differ": [],
+ "loss_pw64f": 1.7933790552496434,
+ "loss_cm64f": 1.7933790552496434,
+ "loss_bit_identical": true
+}

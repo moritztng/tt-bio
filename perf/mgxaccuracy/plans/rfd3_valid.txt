@@ -1,0 +1,17 @@
+# rfd3 at 512 and 1536 on a target whose chains touch.
+#
+# Why rfd3 needs re-measuring at 1536 but not at 512. Its 512 arm in state/mgx-design-scale.md
+# used A1-432 of big_1831 chain A -- ONE chain, conditioning graph 1 component, so that rung is
+# valid as measured (clash_frac 0.0132-0.0265, n=4). Its 1536 arm used A1-1008,B1-428,100 on the
+# same file, whose two bodies sit 246.9 A apart, so it is the invalid-fixture case.
+#
+# rfd3 is less compromised by that than pxdesign was: it conditions on real coordinates rather
+# than a 22 A-clamped distogram, so a two-body input is odd but not information-free. The clash
+# FRACTION it reported (0.00025-0.00116, 19x lower than at 512) is a global count and stands on
+# its own. What does not stand is the per-CHAIN geometry, and that is an instrument artifact
+# rather than the fixture: the trailing designed length lands in the LAST NAMED chain, so the
+# checker scores the target fragment and the binder as one broken chain. state/mgx-design-
+# ceiling.md root-caused that and measured per-body Rg by hand. It will recur here with
+# A1-823,B1-633,80, so read the clash fraction and expect the chain flags.
+--model rfd3 --target perf/mgxaccuracy/targets/gpb_dimer_1646.cif --target-res 512  --contig A1-432,80 --designs 4 --steps 100 --host-threads 2 --timeout 14400 --tag gpb
+--model rfd3 --target perf/mgxaccuracy/targets/gpb_dimer_1646.cif --target-res 1536 --contig A1-823,B1-633,80 --designs 2 --steps 100 --host-threads 2 --timeout 32400 --tag gpb

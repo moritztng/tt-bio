@@ -1,0 +1,22 @@
+# IMPOSSIBLE ON THIS TARGET. Kept as the record of why, not as a runnable plan.
+#
+# The intent was a third 1536 crop, to test whether the 1536 row really reorders relative to
+# the 512 row (results/twobytwo_result.txt) rather than 1536/offset-100 being one odd cell.
+#
+# It cannot exist. gpb_dimer_1646.cif carries 1646 residues, so a 1536-residue crop can only
+# start at offsets 0 through 110. Offset 200 leaves 1446 residues and crop_cif refuses it:
+#
+#   crop_cif: perf/mgxaccuracy/targets/gpb_dimer_1646.cif carries 1646 residues,
+#             cannot take 1536 starting at 200
+#
+# That refusal is crop_cif's own guard for exactly this case -- at a nonzero offset a short
+# crop would be a silent relabelling of a different rung -- and it fired before the device was
+# opened, costing about a minute of chip time. It should have been arithmetic done before the
+# launch rather than caught by the harness; this row checks its FIXTURES before spending chip
+# time and did not check this one's FEASIBILITY.
+#
+# CONSEQUENCE FOR THE ROW'S HEADLINE. The interaction rests on two 1536 cells and cannot be
+# given a third on this protein: offset 110 is the only other legal offset and it shares 1426
+# of its 1536 residues with offset 100, so it is the same crop for this purpose. Strengthening
+# the 1536 row needs a LONGER target, which is a different fixture and outside this brief.
+# The four simple effects all reject at n=8 as measured; that is what the claim rests on.

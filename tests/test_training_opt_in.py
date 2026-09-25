@@ -8,11 +8,13 @@ second is the rule Moritz put above the others -- the training path calls the SA
 inference path calls, because a forked forward trains a model we do not serve and the drift is
 invisible until it matters.
 
-The fork check is deliberately a census, not a pass/fail on zero: `perf/ptxft/tape_block.py`
-re-implements four shipped modules today and de-forking it is scheduled build work, not a bug
-to fail CI on. What this test pins is that the fork does not GROW and does not move into
-`tt_bio/`. Shipping a taped copy of a production module under `tt_bio/` is the failure this
-catches.
+The fork check is deliberately a census, not a pass/fail on zero: when
+`perf/ptxft/tape_block.py` existed it re-implemented four shipped modules, and de-forking it
+was scheduled build work rather than a bug to fail CI on. **That file is gone**, so the census
+now skips with "the fork is gone, which is the goal" -- corrected 2026-09-22, when this
+paragraph still described it in the present tense. What the test pins either way is that the
+fork does not GROW and does not move into `tt_bio/`. Shipping a taped copy of a production
+module under `tt_bio/` is the failure this catches, and that half runs unconditionally.
 
 Host-only: pure AST, no ttnn import, no device.
 """
@@ -32,7 +34,11 @@ PKG = REPO_ROOT / "tt_bio"
 # TIGHTENS this test -- an inference module importing it is now an offender too.
 TRAINING = {"autograd", "finetune", "train", "taped_ttnn"}
 # The only modules allowed to import them: the training stack itself.
-ALLOWED = {"autograd.py", "finetune.py", "taped_ttnn.py"}
+# `bindcraft2.py` joins them: BindCraft 2 designs binders by DIFFERENTIATING AlphaFold 2, so a
+# gradient stack is what it is for, not a leak into an inference path. It imports both inside
+# `_Trunk.__init__`, so importing the module pulls neither, and nothing under `tt_bio/` imports
+# `bindcraft2` at all -- the inference path cannot reach it by any route.
+ALLOWED = {"autograd.py", "bindcraft2.py", "finetune.py", "taped_ttnn.py"}
 
 
 def _imports(path: Path) -> set[str]:
@@ -184,3 +190,30 @@ def test_the_training_package_defines_no_forward():
         f"The training path calls the shipped forward; it does not carry its own. If this is a "
         f"genuine unrelated name clash, rename it -- the ambiguity is the problem."
     )
+
+
+def test_the_training_only_levers_stay_inside_the_training_stack():
+    """`autograd.install(exact_softmax=True)` replaces `ttnn.softmax` process-wide while it is
+    installed, so what keeps it off an inference fold is that nothing on that path can ask for
+    it. The import census above says the modules cannot reach `tt_bio.autograd`; this says the
+    lever did not grow a second door -- a helper re-exported somewhere an inference module does
+    import, or a construction-site selector like the one it exists to replace.
+
+    Kept here rather than beside the lever because it is the same invariant this file already
+    holds: the training stack is opt-in, and a lever is only as opt-in as its narrowest caller.
+    """
+    NAMES = ("exact_softmax", "_install_exact_softmax", "_uninstall_exact_softmax",
+             "_exact_softmax_raw", "_v_exact_softmax", "EXACT_SOFTMAX_STATS",
+             "forget_shim_bindings")
+    offenders = {}
+    for path in sorted(PKG.rglob("*.py")):
+        if "_vendor" in path.parts or path.relative_to(PKG).name in ALLOWED:
+            continue
+        if path.relative_to(PKG).parts[0] == "train":
+            continue
+        text = path.read_text(errors="replace")
+        hits = sorted({n for n in NAMES if n in text})
+        if hits:
+            offenders[str(path.relative_to(PKG))] = hits
+    assert not offenders, (
+        f"training-only softmax levers are named outside the training stack: {offenders}")

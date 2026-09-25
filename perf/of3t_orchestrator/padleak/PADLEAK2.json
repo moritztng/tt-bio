@@ -1,0 +1,34 @@
+{
+  "width_sweep": [
+    {
+      "blocks": 16,
+      "pad_out_norm": 289.22024555583755,
+      "s_real_rel": 5.011473913783262e-07,
+      "z_real_rel": 3.98709842347571e-07
+    },
+    {
+      "blocks": 48,
+      "pad_out_norm": 464.7040369992973,
+      "s_real_rel": 9.08806196245186e-07,
+      "z_real_rel": 6.316005901636129e-07
+    }
+  ],
+  "pad_value_control": [
+    {
+      "blocks": 8,
+      "pad_output_moved_between_arms": 778.6198306404791,
+      "s_real_absdiff": 0.0,
+      "s_bit_identical": true,
+      "z_real_absdiff": 0.0,
+      "z_bit_identical": true
+    },
+    {
+      "blocks": 48,
+      "pad_output_moved_between_arms": 778.6203268984349,
+      "s_real_absdiff": 0.0,
+      "s_bit_identical": true,
+      "z_real_absdiff": 0.0,
+      "z_bit_identical": true
+    }
+  ]
+}

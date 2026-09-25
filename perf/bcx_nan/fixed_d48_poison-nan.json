@@ -1,0 +1,74 @@
+{
+ "mode": "poison-nan",
+ "depth": 48,
+ "first": 0,
+ "nomask": false,
+ "reps": [
+  {
+   "rep": 1,
+   "digest": "e111b0d7167f4af3",
+   "clean": true,
+   "d_msa_nonfinite": 0,
+   "d_pair_nonfinite": 0,
+   "d_msa_absmax": 0.2893524169921875,
+   "d_pair_absmax": 0.007665276527404785,
+   "fwd_digest": "876e3effeb64713e",
+   "changed_attrs": null,
+   "wrapped_after_bwd": 3888,
+   "progcache": 271,
+   "s": 51.6
+  },
+  {
+   "rep": 2,
+   "digest": "e111b0d7167f4af3",
+   "clean": true,
+   "d_msa_nonfinite": 0,
+   "d_pair_nonfinite": 0,
+   "d_msa_absmax": 0.2893524169921875,
+   "d_pair_absmax": 0.007665276527404785,
+   "fwd_digest": "876e3effeb64713e",
+   "changed_attrs": {
+    "n": 0,
+    "keys": []
+   },
+   "wrapped_after_bwd": 3888,
+   "progcache": 271,
+   "s": 46.9
+  },
+  {
+   "rep": 3,
+   "digest": "e111b0d7167f4af3",
+   "clean": true,
+   "d_msa_nonfinite": 0,
+   "d_pair_nonfinite": 0,
+   "d_msa_absmax": 0.2893524169921875,
+   "d_pair_absmax": 0.007665276527404785,
+   "fwd_digest": "876e3effeb64713e",
+   "changed_attrs": {
+    "n": 0,
+    "keys": []
+   },
+   "wrapped_after_bwd": 3888,
+   "progcache": 271,
+   "s": 45.4
+  }
+ ],
+ "clean": 3,
+ "distinct_digests": [
+  "e111b0d7167f4af3"
+ ],
+ "stamp": {
+  "host": "tt-quietbox2",
+  "card": 2,
+  "subsystem_device": "0x0046",
+  "commit": "e5cf747905950b7372971d0f692f72579273efbc",
+  "tt_bio_dirty": false,
+  "torch_threads": 4,
+  "loadavg": [
+   54.19287109375,
+   53.5361328125,
+   55.12109375
+  ],
+  "utc": "2026-09-24T17:04:25Z"
+ }
+}

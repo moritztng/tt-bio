@@ -1,0 +1,68 @@
+# THE FOURTH RUNG, AND THE ONE THE DOC'S NUMBER ACTUALLY COMES FROM.
+#
+# After the 1024 cells (results/groel_1024_result.txt) the ladder reads 512 usable (median
+# 0.852 A, 5 of 8 under the strict 2 A bar), 1024 not usable (8.718 / 14.457 A, 0 of 8 under
+# 4 A at both crops) and 1536 not usable. So the ceiling a competition entrant needs is
+# somewhere in [512, 1024) and the doc still says "crop to about 512" because 512 is the only
+# size measured to work. That sentence is costing users half the interval: a 700-residue target
+# gets cropped to 512 on no evidence that 512 was necessary.
+#
+# 768 halves the bracket. Everything else is identical to the 2x2 and the 1024 rung — same
+# target file, same 80-residue binder, same designfolding-bb_rmsd on N/CA/C/O, same fan, n=8,
+# offsets 0 and 560, same tree.
+#
+# ONE TREE, AND IT IS THE 2x2's TREE, ff5435cba, for the reason plans/groel_1024.txt gives at
+# length: a size ladder is a within-tree comparison or it is nothing, and the five cells this
+# rung is read against were measured there. Same deliberate MGX_ALLOW_BEHIND_MAIN override,
+# carrying this file's path. These are not catchers; catchers run from ~/wt-mgx-catcher against
+# main. The main-vs-branch engine delta is separately measured as inert on this row's own cells
+# (results/engine_delta_is_inert.txt).
+#
+# CROP: both, same as every rung. 768 at offset 560 spans [560,1328) inside 2096, legal, and
+# shares [560,768) = 208 of 768 = 27% with offset 0 — less overlap than either previous rung.
+
+--model boltzgen --target perf/mgxaccuracy/targets/groel_ring4_2096.cif --target-res 768 --crop-offset 0 --designs 8 --budget 8 --score-dsg --host-threads 2 --timeout 21600 --tag groel768o0
+--model boltzgen --target perf/mgxaccuracy/targets/groel_ring4_2096.cif --target-res 768 --crop-offset 560 --designs 8 --budget 8 --score-dsg --host-threads 2 --timeout 21600 --tag groel768o560
+
+# COST, pre-registered so a slow cell is read as load and not as a finding. The exact quadratic
+# through the three banked GroEL walls (592 tok -> 1842 s, 1104 -> 5416, 1616 -> 11842) puts
+# 848 tokens at 3272 s = 0.91 h per cell, two cells in parallel on two cards.
+#
+# PRE-REGISTERED READING, written before the cells launch. Exact two-sided Mann-Whitney by
+# enumeration, n=8 against n=8, against the banked GroEL cells at the SAME offset: 512/o0 0.852,
+# 512/o560 1.739, 1024/o0 8.718, 1024/o560 14.457. Both crops are read and the rung's verdict is
+# the one both agree on; if they disagree the verdict is INTERMEDIATE whatever each says alone.
+#
+#   USABLE AT 768    — median <= 4.0 A AND >= 4 of 8 under 4.0 A. Then the ceiling is in
+#                      [768, 1024), the doc's instruction becomes "crop to about 768" and it
+#                      carries the 768 median.
+#
+#   COLLAPSED BY 768 — median > 4.0 A AND <= 1 of 8 under 4.0 A AND 512-vs-768 rejects at 0.05.
+#                      Then the ceiling is in [512, 768), "crop to about 512" stands and is now
+#                      bracketed within 256 residues instead of 512.
+#
+#   INTERMEDIATE     — anything else: a median between the bars, 2 or 3 of 8 under 4.0 A, a
+#                      collapse the rank test cannot separate from 512, or the two crops
+#                      disagreeing. Reported with both medians, both fractions and all four p's;
+#                      the doc keeps "about 512" and names the 768 median beside it.
+#
+# ONE DEFECT IN plans/groel_1024.txt IS DELIBERATELY NOT REPEATED HERE. That plan's INTERMEDIATE
+# clause carried a parenthetical, "both contrasts rejecting (a continuous decay with no cliff)",
+# which at offset 0 was satisfied at the same time as the COLLAPSED clause body — the two
+# overlapped and the plan did not say which wins. The clause bodies above are disjoint by
+# construction and nothing outside them decides. The cost of that defect is recorded honestly in
+# results/groel_1024_result.txt rather than papered over: where the ceiling is, both readings
+# agree; whether the fall is a cliff or continuous, they do not, and this rung does not settle
+# that either. It is a ceiling measurement, not a shape measurement.
+#
+# The 4.0 A bar is BoltzGen's own permissive designability bar, used unchanged everywhere in
+# this row; the 2 A strict bar is reported beside it and decides nothing.
+#
+# REPEATABILITY. An n=8 median on this row repeats to 0.1-1.8 A over four measured cells. The
+# contrast this rung must resolve is 512->1024 = +7.87 A at offset 0 and +12.72 A at 560, so
+# either half of it is well outside that band unless 768 lands on top of one neighbour, which
+# is itself the answer and is read by the rank test rather than by the median.
+#
+# WHAT THIS RUNG DOES NOT DO. It says nothing about upstream. Where quality falls on the service
+# is a device question answered by device cells; whether the device is WORSE than upstream at a
+# given size is the qb2 fp32 pair's question, and neither borrows the other's evidence.

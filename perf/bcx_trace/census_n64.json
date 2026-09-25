@@ -1,0 +1,50 @@
+{
+ "stamp": {
+  "host": "tt-quietbox",
+  "card": "0",
+  "subsystem_device": "0x0040",
+  "commit": "ac864188af9ec1bfff1a04e4256e645bebb1867d",
+  "tt_bio_dirty": false,
+  "torch_threads": 16,
+  "loadavg": [
+   84.765625,
+   84.46826171875,
+   75.0986328125
+  ],
+  "utc": "2026-09-24T17:34:23Z",
+  "pci": "0000:01:00.0",
+  "aiclk_node": null,
+  "trace_region_mb": 512,
+  "argv": [
+   "perf/bcx_trace/trace.py",
+   "census",
+   "--n",
+   "64",
+   "--out",
+   "census_n64.json"
+  ]
+ },
+ "n": 64,
+ "units": {
+  "evo.fwd": [],
+  "evo.taped": [
+   {
+    "verb": "zeros",
+    "site": "tt_bio/taped_ttnn.py:792",
+    "kw": "device",
+    "calls": 12,
+    "wall_s": 0.001998335967073217
+   }
+  ],
+  "extra.fwd": [],
+  "extra.taped": [
+   {
+    "verb": "zeros",
+    "site": "tt_bio/taped_ttnn.py:792",
+    "kw": "device",
+    "calls": 6,
+    "wall_s": 0.0025336289836559445
+   }
+  ]
+ }
+}

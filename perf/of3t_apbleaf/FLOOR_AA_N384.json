@@ -1,0 +1,13 @@
+{
+  "what": "of3t-apbleaf: tensor-by-tensor identity between two gradient files.",
+  "label": "A/A determinism floor: two identical capture arms on qb1 card 1, crop 384",
+  "a": "/tmp/of3t/of3t-apbleaf/dev_CAPA_n384.pt",
+  "b": "/tmp/of3t/of3t-apbleaf/dev_CAPB_n384.pt",
+  "tensors_compared": 2736,
+  "only_in_a": 0,
+  "only_in_b": 0,
+  "tensors_that_moved": 0,
+  "bit_identical": true,
+  "worst_relative_move": 0.0,
+  "worst_tensor": null
+}

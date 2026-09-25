@@ -4,9 +4,11 @@ THE HOLE THIS CLOSES. The platform's coverage matrix sizes each cell at the mode
 ceiling. While the ceilings were 576/576/627 it folded 576 and correctly passed. Raising every
 ceiling to 1024 on 2026-09-03 moved the gate's own target to 1024 and nothing re-ran it, so three
 models broke in real traffic at 40-50%. The published ceilings live in the serving platform, which
-tt-bio does not import, but the engine's own copy is tt_bio.size_limits.CEILINGS -- so that table
-is fingerprinted here, and moving any row fails this test until the gate has been re-run at the
-new size and docs/capacity_gate_baseline.json re-recorded.
+tt-bio does not import, but the engine's own copy is tt_bio.size_limits.CEILINGS -- so the row
+behind each recorded cell is fingerprinted here, and moving that row fails this test until the
+gate has been re-run at the new size and docs/capacity_gate_baseline.json re-recorded. The row,
+not the table: there is no arch fallback and the bar is a constant, so a Wormhole cap cannot
+change what a Blackhole cell measured.
 """
 
 from __future__ import annotations
@@ -167,6 +169,38 @@ def test_a_moved_ceiling_re_runs_the_capacity_gate():
         f"three models broke in traffic.")
 
 
+def test_only_the_cells_own_row_can_make_it_stale(tmp_path, monkeypatch):
+    """The pin is the row the card reads, not the table.
+
+    `size_limits.ceiling` has no arch fallback -- a model with no row for the arch gets `_NO_ROW`
+    and refuses nothing -- and TOKEN_BAR is a constant, so a Wormhole cap moving changes neither
+    what a Blackhole cell measured nor what a Blackhole card admits. Hashing the whole table said
+    otherwise: the MGX ceiling campaign raised nine Wormhole caps and marked all 35 recorded cells
+    stale, which is hours of card time to re-measure the same tokens against the same rows.
+    """
+    import dataclasses
+    model = "opendde"        # carries a row on both arches, so both halves below are real
+    rows = dict(sl.CEILINGS[model])
+    assert cg.BAR_ARCH in rows and "wormhole_b0" in rows, f"{model} no longer spans two arches"
+    path = tmp_path / "baseline.json"
+    path.write_text(json.dumps({"bar_tokens": cg.TOKEN_BAR, "cards": {"p300c": {"cells": {
+        model: {"verdict": "PASS", "tokens_requested": cg.TOKEN_BAR, "tree": "t",
+                "ceilings_fingerprint": cg.ceilings_fingerprint(model)}}}}}))
+    monkeypatch.setattr(cg, "BASELINE", path)
+    assert cg.baseline_stale() == []
+
+    def moved(arch):
+        c = rows[arch]
+        return {**rows, arch: dataclasses.replace(c, residues=(c.residues or 0) + 32)}
+
+    monkeypatch.setitem(sl.CEILINGS, model, moved("wormhole_b0"))
+    assert cg.baseline_stale() == [], (
+        "a Wormhole cap moving marked a Blackhole cell stale; that is the whole-table hash back")
+    monkeypatch.setitem(sl.CEILINGS, model, moved(cg.BAR_ARCH))
+    assert cg.baseline_stale() == [f"p300c/{model}"], (
+        "the cell's OWN row moved and the pin did not notice, which is the hole this file closes")
+
+
 def _record_into_tmp(report, *, prior_cells, partial):
     """`record_baseline` against a throwaway file, so the committed baseline is not touched."""
     import tempfile
@@ -196,7 +230,7 @@ def test_one_models_record_cannot_certify_another_models_cell():
     cells = written["cards"]["p150a"]["cells"]
     assert cells["esmc-6b"]["ceilings_fingerprint"] == "0000000000000000", \
         "a one-model record re-certified a cell it never measured"
-    assert cells["esmc-300m"]["ceilings_fingerprint"] == ceilings_fingerprint()
+    assert cells["esmc-300m"]["ceilings_fingerprint"] == ceilings_fingerprint("esmc-300m")
     assert "ceilings_fingerprint" not in written, \
         "a file-level fingerprint is back; it is the thing that made the false green possible"
     assert "ceilings_fingerprint" not in written["cards"]["p150a"], \

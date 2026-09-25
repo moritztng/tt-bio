@@ -1,0 +1,44 @@
+{
+ "exact_softmax": true,
+ "installed_inside_the_scope": true,
+ "installed_from": "tt_bio.autograd.exact_softmax()",
+ "counters": {
+  "verb": 5901,
+  "raw": 1742,
+  "raw_elements": 21856518144
+ },
+ "why_counters": "`verb` is the taped verb (exact forward and Jacobian); `raw` is the module-wide ttnn.softmax, the only reach into triangle_attention._scores. Both 0 on the control arm is the check that the control ran without the lever.",
+ "argv": [
+  "--census-out",
+  "/home/ttuser/.coworker/wt/of3t-modelever/perf/of3t_modelever/CENSUS_EXACT.json",
+  "--lever",
+  "none",
+  "--",
+  "--boundary",
+  "/home/ttuser/of3t_modelframe/boundary_model_n384.pt",
+  "--cap-last",
+  "/home/ttuser/of3t_recut/cot_external.pt",
+  "--out",
+  "/home/ttuser/of3t_modelever/dev_EXACT.pt",
+  "--report",
+  "/home/ttuser/.coworker/wt/of3t-modelever/perf/of3t_modelever/DEV_EXACT.json",
+  "--arm",
+  "flipped",
+  "--crop",
+  "0"
+ ],
+ "environment": {
+  "host": "tt-quietbox2",
+  "card": 1,
+  "board_class": "p300c",
+  "aiclk_mhz_sampled_DURING": {
+   "n": 276,
+   "min": 800,
+   "median": 1350,
+   "max": 1350
+  },
+  "host_quiet": "device fd holder pid 350039 BUSY (1954 ticks/2s, owner land-standing): /home/ttuser/tt-bio-dev/env/bin/python3 -c from multiprocessing.spawn import spawn_main; s\nloadavg1 9.66 over ceiling 2.00\nHOST NOT QUIET -- your timing read is contaminated even with an idle sibling and a forced clock. Wait it out or DEFER. Do not measure and explain it afterwards.",
+  "git_commit": "459efdf260806325a456391f464fe38c4a0f80e8",
+  "stamped_after_the_run": "copied from DEV_EXACT.json provenance, written by the same runner"
+ }
+}

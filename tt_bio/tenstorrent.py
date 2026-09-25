@@ -9,7 +9,7 @@ from torch import nn
 from typing import Callable, Mapping
 from math import pi, prod
 from functools import lru_cache, partial
-from types import MappingProxyType
+from types import BuiltinFunctionType, FunctionType, MappingProxyType, MethodType, ModuleType
 
 from . import ops
 from . import reblock_permute as _reblock
@@ -17,6 +17,7 @@ from . import triatt_qkv as _triatt_qkv
 from . import triatt_sdpa as _triatt_sdpa
 from . import trimul_tail as _trimul_tail
 from . import mm_generic as _mm_generic
+from . import page_copy as _page_copy
 from .envflags import env_flag, env_int
 from .device_lease import device_init_lock
 from .eltwise_fusion import scale_add
@@ -1060,6 +1061,26 @@ def pad_dim(x: ttnn.Tensor, dtype, n: int, n_pad: int, *, dims: int = 1) -> ttnn
     out = _no_host_pad(x, dtype, n, n_pad)
     if out is not None:
         return out
+    if not isinstance(x, ttnn.Tensor):
+        # A TAPED tensor, and the host route cannot carry one: `ttnn.to_torch` hands the
+        # tape a torch tensor and the gradient of everything upstream stops there, which
+        # was the last gap in the OF3 diffusion path's tape coverage. `ttnn.pad` is the
+        # same operation with a tape entry already written, and the pad here is always at
+        # the back, which is the direction `ttnn.pad` supports.
+        #
+        # Inference keeps the host route below, unchanged, because the two are NOT
+        # byte-identical: the same fold on the same card writes a different `ubq.cif`
+        # through each, so making the device path unconditional would have moved a
+        # shipped output to buy a training-path fix. `isinstance(x, ttnn.Tensor)` is the
+        # tape's own discriminator -- `autograd.Tensor` deliberately fails it (see its
+        # class docstring) -- so no flag is needed and no inference call site changes.
+        y = ttnn.to_layout(x, ttnn.TILE_LAYOUT) if x.layout != ttnn.TILE_LAYOUT else x
+        if n_pad > n:
+            spec = [(0, 0)] * len(y.shape)
+            for d in range(1, dims + 1):
+                spec[-1 - d] = (0, n_pad - n)
+            y = ttnn.pad(y, spec, 0.0)
+        return y if y.dtype == dtype else ttnn.typecast(y, dtype)
     th = ttnn.to_torch(x).float()
     if n_pad > n:
         th = torch.nn.functional.pad(th, (0, 0) + (0, n_pad - n) * dims)
@@ -1136,7 +1157,15 @@ def _trimul_tail_memory_config(batch: int, chunk_c: int, H: int, elem_bytes: int
 
 
 def _triangle_mul_memory_config(seq_len: int) -> ttnn.MemoryConfig:
-    if seq_len in _TRIMUL_DRAM_SHAPES:
+    # The trimul's whole chunk loop inherits this one config, so it is the second place the
+    # L1-residency lever is decided and `_l1_fits` never sees it. Under a tape it must be
+    # DRAM for `_l1_fits`'s reason: a tape keeps what the forward frees, so every chunk's
+    # split, both channel moves, the input projection and the chunk matmul stay resident
+    # and the next program cannot lay out its circular buffers. Measured on openfold3's MSA
+    # module at 76 tokens, 214 MB of L1 held across six sites in this module, and the
+    # fourth block's attention QKV projection then refuses.
+    from . import ops
+    if seq_len in _TRIMUL_DRAM_SHAPES or ops.taping():
         return ttnn.DRAM_MEMORY_CONFIG
     return ttnn.L1_MEMORY_CONFIG if seq_len <= _trimul_l1_max_seq() else ttnn.DRAM_MEMORY_CONFIG
 
@@ -2363,6 +2392,16 @@ _TRIATT_FUSED_HIFI = env_flag("TT_BIO_TRIATT_FUSED_HIFI", False)
 # triatt_sdpa.py). Fields are `(fidelity, math_approx, fp32_dest_acc, dst_full_sync)`.
 _TRIATT_FUSED_HIFI_CKC = (ttnn.MathFidelity.HiFi4, False, True, False)
 
+#: HiFi4, math_approx off, fp32 destination accumulation -- ``ComputeKernelConfig::precise()``.
+#: What ``ttnn.softmax`` needs to make its denominator match its own numerators; see
+#: ``softmax_precise_site``.
+_SOFTMAX_PRECISE_CKC = ttnn.WormholeComputeKernelConfig(
+    math_fidelity=ttnn.MathFidelity.HiFi4,
+    math_approx_mode=False,
+    fp32_dest_acc_en=True,
+    packer_l1_acc=True,
+)
+
 # Configs whose program the device refused, keyed on the FULL config -- (q_len, k_len, q_chunk,
 # k_chunk, kv_buffer_factor) -- not on q_chunk alone. Deliberately not `_SDPA_Q_CHUNK_OVER_L1`:
 # writing a refusal into the shared memo would retire a q_chunk the stock ladder runs perfectly
@@ -2581,12 +2620,19 @@ def _tri_att_sdpa_hifi_inner(q, k, v, bias, scale: float, one_k_chunk: bool = Fa
                                           kv_buffer_factor=kv_bf)
                 except Exception as exc:  # noqa: BLE001 -- an L1 refusal retires this config only
                     absorb_l1_refusal("tri_att_sdpa/fused_hifi", exc)
-                    o = None
+                    _TRIATT_HIFI_OVER_L1.add(cfg)
+                    continue
                 if o is not None:
                     TRIATT_FUSED_HIFI_STATS["served"] += 1
                     TRIATT_FUSED_HIFI_PICKS[(q_len, k_len)] = [q_chunk, k_chunk, kv_bf]
                     return o
-                _TRIATT_HIFI_OVER_L1.add(cfg)
+                # Under a tape None is the kernel declining THIS call (generic_op has no
+                # backward), not the config failing. Retiring it there let one taped forward
+                # switch the route off for every untaped forward after it in the process, which is
+                # BindCraft 2's whole loop (perf/bcx_forward/latch_*.json). Untaped, a decline
+                # retires the config exactly as before.
+                if not ops.taping():
+                    _TRIATT_HIFI_OVER_L1.add(cfg)
     TRIATT_FUSED_HIFI_STATS["declined"] += 1
     return None
 
@@ -3224,7 +3270,18 @@ if os.environ.get("TT_BIO_CAPACITY_CENSUS"):
         with open(os.path.join(d, f"capacity_{os.getpid()}.json"), "w") as fh:
             _json.dump({"opm_row": OPM_ROW_STATS, "pwa_depth": PWA_DEPTH_STATS,
                         "fp32_softmax": FP32_SOFTMAX_STATS,
-                        "opm_small_depth": OPM_SMALL_DEPTH_STATS}, fh)
+                        "opm_small_depth": OPM_SMALL_DEPTH_STATS,
+                        # The host float64 softmax's reach, taken in the process that FOLDED.
+                        # Every INFERENCE_AB artifact this campaign has written reads 0 calls,
+                        # on every row and both arms, because that census is an atexit hook in
+                        # the launcher and these counters live wherever the model ran. A
+                        # per-pid dump is the census that cannot miss it, and this instrument
+                        # already had the shape.
+                        "host_f64_softmax": HOST_F64_SOFTMAX_STATS,
+                        "host_f64_softmax_sites": dict(
+                            _SITE_FLAG_SEEN.get("TT_BIO_HOST_F64_SOFTMAX_AB", {})),
+                        "host_f64_softmax_selected_per_site": dict(HOST_F64_SOFTMAX_SITES),
+                        "host_f64_softmax_reach": host_f64_softmax_reach()}, fh)
 
     _atexit_cap.register(_capacity_census_dump)
 
@@ -3644,6 +3701,228 @@ def triatt_sdpa_hifi_site(token: str, default: bool = False) -> bool:
     return _site_flag("TT_BIO_TRIATT_SDPA_HIFI_AB", token, default)
 
 
+def softmax_precise_site(token: str, default: bool = False) -> bool:
+    """Whether construction site ``token`` passes a compute kernel config to ``ttnn.softmax``.
+
+    Called with no config the op runs the kernel's default (HiFi2, math_approx on, no fp32
+    destination accumulation) and its row sums miss 1 by a percent or two. Measured on this
+    card at [1,16,384,384] fp32, rel_rms against a float64 softmax on the same values
+    (perf/of3t_softmax/softmax_cost_qb2c0.json):
+
+        no config                 2.029e-02      0.0543 ms
+        this config               1.646e-03      0.0789 ms     12.3x better, 1.46x the cost
+        _accurate_softmax         5.156e-04      0.2556 ms     39.4x better, 4.71x the cost
+
+    So the config is most of the accuracy of the 5-op chain for a third of its cost -- but
+    only where the softmax runs in fp32. On a bf16 input the same three arms read 2.480e-02
+    / 1.266e-02 / 1.266e-02: bf16 storage is then the floor and neither lever goes under it.
+    Check the dtype at a site before expecting this to do anything there.
+
+    Per site and overridable in both directions by ``TT_BIO_SOFTMAX_PRECISE_AB`` with the
+    grammar ``accurate_softmax_site`` uses, for the same reason: this changes the forward on
+    every model that reaches the site, so it stays A/B-able without a checkout.
+    """
+    return _site_flag("TT_BIO_SOFTMAX_PRECISE_AB", token, default)
+
+
+def softmax_ckc(token: str, default: bool = False):
+    """``softmax_precise_site``'s answer as the argument the call site actually passes.
+
+    ``None`` is the op's own default, so a site reads the same either way and the lever is one
+    argument at the call rather than a branch around it.
+    """
+    return _SOFTMAX_PRECISE_CKC if softmax_precise_site(token, default) else None
+
+
+# Calls served by the host float64 softmax, so an arm cannot silently decline. `declined` counts
+# calls that reached `site_softmax` with the site off and `refused` those that reached it with
+# the site on and no tape open to serve them, which is what makes "the flag fired and nothing
+# happened" readable instead of invisible. `served` and `elements` are bumped by
+# `autograd.host_f64_softmax`, which is where the round trip is.
+# `selected` is the one that is NOT a call: it is bumped by `host_f64_softmax_site` at
+# CONSTRUCTION, and it exists because the other four cannot tell an unreached selector from an
+# unused one. D225 is what that costs -- eight construction sites selected this lever and
+# `_fp32_softmax_attention` never consulted it, so the census read 0 served / 0 declined /
+# 0 refused, which is exactly what a model nobody ran reads. `host_f64_softmax_reach()` compares
+# the two halves and says which of the two happened.
+HOST_F64_SOFTMAX_STATS = {"served": 0, "declined": 0, "refused": 0, "elements": 0,
+                          "selected": 0, "tail": 0, "served_taped": 0, "served_raw": 0}
+
+#: Construction sites that selected the host float64 softmax, COUNTED per token. `_SITE_FLAG_SEEN`
+#: records the last answer per token and `selected` records the total, and neither can say which
+#: site the total came from -- three different models each read `selected 195`, which is not a
+#: number any of them should share. A per-token count is what makes the reach census a statement
+#: about the eight sites rather than about their sum.
+HOST_F64_SOFTMAX_SITES: dict = {}
+
+
+def host_f64_softmax_reach() -> str:
+    """Whether the host float64 softmax a construction site SELECTED ever reached a call.
+
+    `served`, `declined` and `refused` all require the call to arrive. A selector wired to a
+    branch that never consults it therefore reads zero in all three, which is indistinguishable
+    from a process that never built the model -- the reporting gap D225 hid in for the whole
+    campaign. `selected` counts construction sites, so the pair separates the cases.
+
+    `served_taped` and `served_raw` split `served` by whether the call created a tape node.
+    Both get the float64 forward; only the taped one gets the float64 JACOBIAN, because a raw
+    ttnn tensor has no node to hang a backward on. Two arms can serve the same number of calls
+    and differ entirely in how much of the gradient they moved, and this is the only counter
+    that sees it.
+
+    `tail` counts arrivals through `_fp32_softmax_attention`'s own reduction, the route that
+    did not exist before D225 was fixed; `declined + refused + served - tail` is what
+    `site_softmax` carries. Both are arrivals. Keeping them apart is what lets a census say
+    WHICH route a model took rather than only that it took one.
+
+    REACHED means `served or refused`: a call that arrived with the site ON. `declined` is not
+    the same claim -- it counts a call that arrived with the site OFF, which says the route
+    exists but not that this selector is on it -- so it is reported beside the verdict rather
+    than folded into it. Read `declined` when the verdict says NEVER REACHED: a large number
+    there means the route works and the selector named a site the model did not build, and a
+    zero means nothing arrived at all.
+
+    One impurity, stated rather than hidden: `selected` is bumped wherever the site flag
+    resolves True, and a census that probes `host_f64_softmax_site(token, True)` to record what
+    a site WOULD answer bumps it without constructing anything. `perf/of3t_f64route/arm.py`
+    does exactly that and reads `selected 3` on an arm with the variable unset.
+    """
+    s = HOST_F64_SOFTMAX_STATS
+    if not s["selected"]:
+        return "host f64 softmax: not selected at any construction site"
+    if s["served"] or s["refused"]:
+        return ("host f64 softmax: reached -- %d sites selected, %d served, %d refused, "
+                "%d declined" % (s["selected"], s["served"], s["refused"], s["declined"]))
+    return ("host f64 softmax NEVER REACHED: %d construction sites selected it and no call "
+            "arrived at the gate WITH A SITE ON (%d arrived with one off). The selector is "
+            "answering True for a site whose softmax does not consult it."
+            % (s["selected"], s["declined"]))
+
+
+def _warn_if_host_f64_never_reached() -> None:
+    s = HOST_F64_SOFTMAX_STATS
+    if s["selected"] and not (s["served"] or s["refused"]):
+        print(host_f64_softmax_reach(), file=sys.stderr)
+
+
+_HOST_F64_REACH_ARMED = [False]
+
+
+def _arm_host_f64_reach_warning() -> None:
+    """Report an unreached selector at exit, once, and only in a process that selected one.
+
+    A counter nobody reads closes nothing, and the census that would have caught D225 is run
+    by instruments rather than by the fold. Off unless a site actually turned the lever on, so
+    a shipped inference process registers nothing and prints nothing.
+    """
+    if _HOST_F64_REACH_ARMED[0]:
+        return
+    _HOST_F64_REACH_ARMED[0] = True
+    import atexit
+    atexit.register(_warn_if_host_f64_never_reached)
+
+
+def host_f64_softmax_site(token: str, default: bool = False) -> bool:
+    """Whether construction site ``token`` computes its softmax on the host in float64.
+
+    Tenstorrent's fp32 is a few mantissa bits short of IEEE fp32, and a softmax is where that
+    shows. Measured on this card at [1,16,384,384] fp32 against a float64 softmax on the same
+    values (`perf/of3t_softmax/softmax_cost_qb2c0.json`): the op's own default reads 2.029e-02,
+    `precise_config()` 1.646e-03, and the 5-op `_accurate_softmax` chain 5.156e-04. A true fp32
+    softmax reads ~1e-7. Nothing on the card is within four orders of magnitude of that, so the
+    gap is the silicon's and no configuration closes it.
+
+    This site flag is the route that does: the scores go to the host, softmax runs there in
+    float64, and the result comes back in the tensor's own dtype, layout and memory config. The
+    round trip is the softmax and nothing else -- every op before and after it stays on the card.
+
+    It buys GRADIENT fidelity and it is a training-path lever. On the OF3 diffusion module's
+    gradient over 547 tensors at full scope it takes the mass-weighted rel_l2 against upstream's
+    own bf16 training step from 7.426217e+00 to 7.777580e-02, and against a float64 reference to
+    5.930664e-02, which is 1.013x what upstream's own bf16 step reaches against the same
+    reference. It costs 166.8x on the softmax alone and 1.47x on the whole gradient arm
+    (`perf/of3t_f64softmax/`). Inference does not want it and does not get it: OFF at every site,
+    and a fold with the path present and off is byte-identical to one without it, measured by
+    digest on OpenFold3, Protenix-v2 and OpenDDE.
+
+    Reach for ``TT_BIO_SOFTMAX_BW_RENORM`` before this. Two ops in the softmax backward get
+    1.057023e-01 on the same gradient for 1.049x, which is 99.6 % of what the round trip buys at
+    a tenth of the cost; what this path still has over it is the FORWARD, which no backward fix
+    can reach. The two compose, and on this path the renormalisation is exactly a no-op because a
+    float64 softmax already sums to one.
+
+    Overridable per site in both directions by ``TT_BIO_HOST_F64_SOFTMAX_AB``, with the grammar
+    ``accurate_softmax_site`` uses, for the same reason: it changes the forward at every site it
+    reaches, so it stays A/B-able without a checkout. Selecting a site is not enough to open the
+    path: the gate also needs a tape open, so the variable cannot move an inference fold whatever
+    it is set to.
+
+    WHERE IT REACHES. Two routes, one gate (`host_softmax_or_none`). `site_softmax` is the route
+    for a site whose softmax is `ttnn.softmax`, and `_fp32_softmax_attention`'s tail is the route
+    for every site that sets ``fp32_softmax`` -- the whole OpenFold3 triangle path, AF2's, RF3's
+    atom stacks. The second route did not exist until `of3t-f64route`: eight construction sites
+    selected this lever and the tail never consulted it, so the census read 0 served / 0 declined
+    / 0 refused, which is what an unused lever reads too (D225). `host_f64_softmax_reach()` is
+    the counter that tells those apart now.
+    """
+    on = _site_flag("TT_BIO_HOST_F64_SOFTMAX_AB", token, default)
+    if on:
+        HOST_F64_SOFTMAX_STATS["selected"] += 1
+        HOST_F64_SOFTMAX_SITES[token] = HOST_F64_SOFTMAX_SITES.get(token, 0) + 1
+        _arm_host_f64_reach_warning()
+    return on
+
+
+def site_softmax(x, dim: int = -1, *, host_f64: bool = False, **kw):
+    """The softmax a construction site runs: ``ttnn.softmax``, or the host float64 one.
+
+    With ``host_f64`` False this IS ``ttnn.softmax(x, dim=dim, **kw)`` and nothing else, which is
+    what makes the path bit-identical when off. With it True the kernel arguments -- a compute
+    kernel config, ``numeric_stable`` -- describe a kernel that does not run, so they are
+    dropped: the host computes the softmax exactly and has no use for either.
+
+    The site selector does not on its own open the path. ``TT_BIO_HOST_F64_SOFTMAX_AB`` is an
+    environment variable, these call sites are shared with every model's inference, and the path
+    costs a host round trip per softmax for gradient fidelity inference has no use for. So the
+    implementation lives in `tt_bio.autograd` and the call goes through the hook
+    `autograd.install` fills: with no tape open `ops.host_softmax_hook()` is None, this is
+    `ttnn.softmax` exactly as if the selector were unset, and the refusal is counted rather than
+    silent. `tests/test_host_f64_softmax_defaults.py` holds both directions.
+
+    Off, the selector costs nothing but the argument test it already was: nothing is imported
+    and no hook is read.
+    """
+    host = host_softmax_or_none(host_f64)
+    if host is not None:
+        return host(x, dim)
+    return ttnn.softmax(x, dim=dim, **kw)
+
+
+def host_softmax_or_none(host_f64: bool, tail: bool = False):
+    """`site_softmax`'s gate on its own: the host float64 softmax, or None for the device.
+
+    `site_softmax` is the form for a site whose device implementation is `ttnn.softmax`. The
+    fp32-softmax attention tail runs `ttnn.softmax_in_place` or the 5-op `_accurate_softmax`
+    chain, and both CONSUME their input where the host route returns a new tensor and leaves
+    the input alive. A site that has to own that difference asks the gate directly instead of
+    passing its implementation in, and the census is the same counters either way, so one
+    reading covers every site.
+
+    ``tail`` says the call came through `_fp32_softmax_attention` rather than `site_softmax`,
+    so a census can tell the two routes apart. It changes no behaviour.
+    """
+    HOST_F64_SOFTMAX_STATS["tail"] += tail
+    if host_f64:
+        from . import ops
+        host = ops.host_softmax_hook()
+        if host is not None:
+            return host
+        HOST_F64_SOFTMAX_STATS["refused"] += 1
+    else:
+        HOST_F64_SOFTMAX_STATS["declined"] += 1
+    return None
+
+
 def sdpa_ragged_pad_site(token: str, default: bool = False) -> bool:
     """Whether construction site ``token`` masks the fused SDPA's ragged tile tail.
 
@@ -3688,8 +3967,11 @@ def _accurate_softmax(x, compute_kernel_config=None, fp32: bool = True):
     0.027317 against a fp64 softmax, at every logit range tested (within-row spread 1
     through 135). max/subtract/exp/sum/divide on the same input scores 0.000446, and the
     residual 6x of that is the fused kernel's approximate SFPU exp, since `ttnn.exp`
-    defaults to the accurate one. `numeric_stable` and a compute kernel config change
-    nothing (perf/rf3/results/sm_variants_53b.json).
+    defaults to the accurate one. `numeric_stable` is not the term -- but a compute kernel
+    config is, and an earlier version of this docstring said it changed nothing. It does. On
+    [1,16,384,384] fp32 on a p300c, `precise_config()` turns 2.029e-02 into 1.646e-03 for
+    1.46x the fused kernel's cost, where this chain buys 5.156e-04 for 4.71x
+    (perf/of3t_softmax/softmax_cost_qb2c0.json). Reach for the config first.
 
     Why it matters more than 2.4% looks: a uniform row deficit is a multiplicative error
     on every weight in the row, so unlike the fused kernel's argmax jitter it does not
@@ -3705,6 +3987,33 @@ def _accurate_softmax(x, compute_kernel_config=None, fp32: bool = True):
     ttnn.deallocate(m)
     if xf is not x:
         ttnn.deallocate(xf)
+    # `ttnn.max` TRUNCATES its result to bf16 (round toward zero), so on a negative row it
+    # comes back ABOVE the true maximum and `d` is negative everywhere -- including at the
+    # element that IS the maximum. On a fully-masked row at -1e9 the overshoot is exactly
+    # 1_755_648 (-1e9 truncates to -998_244_352), every exponent underflows, the sum is 0 and
+    # the divide is 0/0. Measured: 114_688 non-finite entries on OpenFold3's atom-encoder
+    # block-sparse attention, exactly the masked rows, where the fused kernel is finite on the
+    # same input (perf/of3t_softgrad/FULLY_MASKED_ROW_OVERFLOW.json).
+    #
+    # -60 and not -88: exp(-88) is subnormal in fp32 and flushes to zero, so a clamp there
+    # leaves the 0/0 in place -- measured, both thresholds, same file. The floor turns a
+    # fully-masked row into the uniform distribution, which is what softmax of a constant row
+    # is, and it perturbs a live row by at most exp(-60) = 8.8e-27 per weight on entries whose
+    # weight was already below that.
+    #
+    # Written as the returning form, not `output_tensor=d`: `ttnn.clamp` is reached exactly once
+    # in this tree (protenix.py, the distogram floor) and only ever that way, so the in-place
+    # kwarg is unverified here and a TypeError inside a shipped softmax is a worse failure than
+    # the transient second buffer this costs.
+    #
+    # Only an fp32 input needs it. Truncating a value already on the bf16 grid returns that
+    # value, so a bf16 input gets an exact maximum, `d` is 0 at it and the sum cannot vanish.
+    # Every site shipping this chain feeds bf16, and there the clamp was one inference op per
+    # call that changed nothing (484 per protenix-v2 fold, perf/of3t_infab/PRICE.json).
+    if src_dtype == ttnn.float32:
+        dc = ttnn.clamp(d, -60.0, None)
+        ttnn.deallocate(d)
+        d = dc
     ttnn.exp(d, output_tensor=d)
     s = ttnn.sum(d, dim=-1, keepdim=True, compute_kernel_config=compute_kernel_config)
     p = ttnn.divide(d, s)
@@ -3727,6 +4036,7 @@ def _fp32_softmax_attention(
     out_dtype: ttnn.DataType = ttnn.bfloat16,
     bias_scale_inv: float | None = None,
     accurate_softmax: bool = False,
+    host_f64: bool = False,
     l1_padded_plan: bool | None = None,
 ) -> ttnn.Tensor:
     """Manual attention with an fp32 softmax reduction, bf16 operands/storage.
@@ -3787,7 +4097,11 @@ def _fp32_softmax_attention(
         # census rather than being inferred from a speedup.
         FP32_SOFTMAX_STATS["l1_free_walked"] += 1
     free = l1_cores != tuned_cores
-    if l1_rows:
+    # Under a tape `shard_for` refuses every shard, so an L1-sized block would buy no residency and
+    # pay a slice per operand, a concat, and in the backward a zero-padded gradient per slice. AF2
+    # at 256 tokens took three 81-row blocks and a 13-row tail per call for nothing. The byte
+    # budget above still bounds the block, and `_with_dram_narrowing` still narrows it on an OOM.
+    if l1_rows and not ops.taping():
         blk = min(blk, l1_rows)
         FP32_SOFTMAX_STATS["l1"] += 1
         FP32_SOFTMAX_STATS["l1_cores"] = l1_cores
@@ -3802,7 +4116,11 @@ def _fp32_softmax_attention(
         # remaining blocks of THIS call go interleaved and the next call re-derives a smaller block.
         caps = _FP32_SOFTMAX_L1_FREE_ROW_CAP if free else _FP32_SOFTMAX_L1_ROW_CAP
         cap = caps.get(l1_key)
-        if not l1_rows or (cap is not None and n > cap):
+        # No shard under a tape (`_l1_fits` says why). The softmax closure holds its output, which
+        # here is the shard itself, so it stays in L1 until the backward, whose multiply against it
+        # is then refused: AF2 at 256 tokens died that way on the fifth step, once the refusals
+        # had narrowed the shard far enough to fit. The interleaved tail is the same bits.
+        if not l1_rows or ops.taping() or (cap is not None and n > cap):
             return None
         return _fp32_softmax_shard(n, height_per_row, k_len, l1_cores)
 
@@ -3812,7 +4130,8 @@ def _fp32_softmax_attention(
             FP32_SOFTMAX_STATS["l1_blocks"] += sh is not None
             return _fp32_softmax_attention_block(q, k, v, bias, scale_inv, compute_kernel_config,
                                                  out_dtype, bias_scale_inv, sh, l1_key, free=free,
-                                                 accurate_softmax=accurate_softmax)
+                                                 accurate_softmax=accurate_softmax,
+                                                 host_f64=host_f64)
         FP32_SOFTMAX_STATS["blocked"] += 1
         parts = []
         # the bias is the same tensor in every block, so its fp32 copy is made once per call
@@ -3828,7 +4147,8 @@ def _fp32_softmax_attention(
                                                            compute_kernel_config, out_dtype,
                                                            bias_scale_inv, sh, l1_key, bias_f,
                                                            free=free,
-                                                           accurate_softmax=accurate_softmax))
+                                                           accurate_softmax=accurate_softmax,
+                                                           host_f64=host_f64))
                 for t in (qs, ks, vs):
                     ttnn.deallocate(t)
         except Exception:
@@ -3860,7 +4180,8 @@ def _fp32_softmax_bias(bias, scale_inv, bias_scale_inv):
 
 def _fp32_softmax_attention_block(q, k, v, bias, scale_inv, compute_kernel_config,
                                   out_dtype, bias_scale_inv, shard=None, l1_key=None,
-                                  bias_f=None, free=False, accurate_softmax=False):
+                                  bias_f=None, free=False, accurate_softmax=False,
+                                  host_f64=False):
     """One row block of `_fp32_softmax_attention`. The whole tensor is one block below the budget.
 
     ``shard`` height-shards the block so the four steps between the two matmuls stay in L1. Both
@@ -3875,7 +4196,7 @@ def _fp32_softmax_attention_block(q, k, v, bias, scale_inv, compute_kernel_confi
         try:
             attn_bf = _fp32_softmax_tail(sc, bias, scale_inv, bias_scale_inv, shard,
                                          bias_f, accurate_softmax,
-                                         compute_kernel_config)
+                                         compute_kernel_config, host_f64)
         except RuntimeError:
             # The shard allocated but the sharded softmax could not fit its circular buffers
             # around it. Take one row off this geometry and fall back to the interleaved tail for
@@ -3886,7 +4207,7 @@ def _fp32_softmax_attention_block(q, k, v, bias, scale_inv, compute_kernel_confi
             attn_bf = None
     if attn_bf is None:
         attn_bf = _fp32_softmax_tail(sc, bias, scale_inv, bias_scale_inv, None, bias_f,
-                                     accurate_softmax, compute_kernel_config)
+                                     accurate_softmax, compute_kernel_config, host_f64)
     ttnn.deallocate(sc)
     o = batched_matmul(attn_bf, v, compute_kernel_config=compute_kernel_config, dtype=out_dtype)
     ttnn.deallocate(attn_bf)
@@ -3894,7 +4215,7 @@ def _fp32_softmax_attention_block(q, k, v, bias, scale_inv, compute_kernel_confi
 
 
 def _fp32_softmax_tail(sc0, bias, scale_inv, bias_scale_inv, shard, bias_f=None,
-                       accurate_softmax=False, compute_kernel_config=None):
+                       accurate_softmax=False, compute_kernel_config=None, host_f64=False):
     """bf16 scores -> bf16 attention weights, both interleaved. ``shard`` keeps the middle in L1.
 
     ``sc0`` is left allocated either way, so a caller can retry interleaved after a refusal.
@@ -3935,8 +4256,16 @@ def _fp32_softmax_tail(sc0, bias, scale_inv, bias_scale_inv, shard, bias_f=None,
         if own:
             ttnn.deallocate(bias_f)
         try:
-            if accurate_softmax:
-                acc = _accurate_softmax(attn)
+            host = host_softmax_or_none(host_f64, tail=True)
+            if host is not None:
+                # The host route is the only one here that does not consume its input, so this
+                # is the one place the tail owns the free. Both device implementations below
+                # write over `attn` or deallocate it themselves.
+                exact = host(attn, -1)
+                ttnn.deallocate(attn)
+                attn = exact
+            elif accurate_softmax:
+                acc = _accurate_softmax(attn, sm_ckc)
                 ttnn.deallocate(attn)
                 attn = acc
             else:
@@ -3950,9 +4279,17 @@ def _fp32_softmax_tail(sc0, bias, scale_inv, bias_scale_inv, shard, bias_f=None,
         sc = ttnn.add(sc, bias_f)
         if own:
             ttnn.deallocate(bias_f)
-        attn = (_accurate_softmax(sc) if accurate_softmax
-                else ttnn.softmax(sc, dim=-1,
-                                  compute_kernel_config=sm_ckc))  # fp32 reduction
+        if accurate_softmax:
+            host = host_softmax_or_none(host_f64, tail=True)
+            attn = host(sc, -1) if host is not None else _accurate_softmax(sc, sm_ckc)
+        else:
+            # `ttnn.softmax` IS this branch's device implementation, so it is `site_softmax`
+            # verbatim: host_f64 off, the call below is byte for byte the one that ships.
+            # `tail` is counted here instead of inside, because `site_softmax` is reached from
+            # both routes and only this arrival is the tail's.
+            HOST_F64_SOFTMAX_STATS["tail"] += 1
+            attn = site_softmax(sc, dim=-1, host_f64=host_f64,
+                                compute_kernel_config=sm_ckc)  # fp32 reduction
         ttnn.deallocate(sc)
     attn_bf = ttnn.typecast(attn, ttnn.bfloat16, memory_config=attn.memory_config())
     ttnn.deallocate(attn)
@@ -4787,7 +5124,11 @@ def _pair_proj_linear(x, w, ckc, dtype, l1_out: bool = False,
     where a separate elementwise add rounds twice and measures 1.4x further from torch
     (state/pxdesign-af2ig-port.md, pass 8).
     """
-    if l1_out and _PAIR_PROJ_L1_OUT:
+    # `l1_out` hands the result to its consumer in L1, and under a tape there is no such
+    # handoff: the tape holds the projection as well, so the place is never released. Third
+    # of the three L1 gates, with `_l1_fits` and `_triangle_mul_memory_config`.
+    from . import ops as _ops_l1
+    if l1_out and _PAIR_PROJ_L1_OUT and not _ops_l1.taping():
         key = (tuple(x.padded_shape), tuple(w.shape), str(dtype), l1_bw, l1_block_w)
         # The ladder narrows the drain block THIS GATE chose. A caller that names its own block
         # instead -- the row-blocked pair FFN fc1 is the only one, at _PAIR_FFN_FC1_BLOCK_W --
@@ -5611,7 +5952,45 @@ def _close_device_locked(dev):
         _release_ownership_fn()()
 
 
-def _assert_local_dispatch(dev):
+# How long the bring-up probe may take before it is called a wedge. A healthy open plus
+# dispatch on a qb1 p150a is 1.6 s, so this is a ~75x margin and needs no tuning.
+_DISPATCH_PROBE_TIMEOUT_S = 120.0
+
+
+class _DispatchProbeTimeout(Exception):
+    """The bring-up probe did not come back. Raised into the same path a throw takes."""
+
+
+@contextlib.contextmanager
+def _probe_deadline(seconds):
+    """Turn a hang in the probe into an exception, when this thread can carry a signal.
+
+    SIGALRM only fires on the main thread, and it can only be delivered between bytecodes or
+    when a blocking call returns EINTR -- so a C call that blocks with the GIL released and
+    retries internally is NOT interruptible this way. That case is the residual, and it is
+    named rather than papered over: what this closes is every wedge that surfaces to Python,
+    which is what the 2026-09-22 incident was.
+    """
+    import signal
+    import threading
+    if seconds is None or seconds <= 0 or threading.current_thread() is not threading.main_thread():
+        yield
+        return
+
+    def _fire(signum, frame):
+        raise _DispatchProbeTimeout(
+            f"no result from the bring-up dispatch within {seconds:.0f}s")
+
+    prev = signal.signal(signal.SIGALRM, _fire)
+    prev_timer = signal.setitimer(signal.ITIMER_REAL, seconds)
+    try:
+        yield
+    finally:
+        signal.setitimer(signal.ITIMER_REAL, *prev_timer)
+        signal.signal(signal.SIGALRM, prev)
+
+
+def _assert_local_dispatch(dev, timeout_s=None):
     """Verify a freshly-opened chip can actually dispatch a program.
 
     A chip that came up "remote-only" from a raced bring-up opens fine but throws on
@@ -5620,13 +5999,27 @@ def _assert_local_dispatch(dev):
     HERE, at startup, and gets respawned with a serialized clean reopen — instead of
     silently accepting jobs it will fail. Runs unlocked: it's an ordinary compute
     dispatch on an already-open chip, not the UMD init path, so it needn't serialize
-    (the tiny kernel is cached after the first compile)."""
+    (the tiny kernel is cached after the first compile).
+
+    BOUNDED, because for two years this guarded the chip that throws and not the chip that
+    wedges. `ttnn.synchronize_device` blocks with no timeout of its own, and on 2026-09-22 two
+    arms sat in this function for 115 minutes each holding a card, computing nothing, while
+    every cheap liveness signal read healthy: 100 % CPU with CPU-time tracking elapsed to the
+    second, AICLK pinned at 1350 MHz against 800 on the idle cards, and 9 W over idle power
+    draw. A fail-fast probe that can hang is worse than no probe -- it converts a loud,
+    respawnable failure into a card held by something nothing will call dead.
+
+    A timeout now expires into the SAME `RuntimeError` path a throw takes, closing the device
+    on the way, so a wedge and a throw are one outcome for every caller."""
     import torch
+    if timeout_s is None:
+        timeout_s = _DISPATCH_PROBE_TIMEOUT_S
     try:
-        t = ttnn.from_torch(torch.zeros((32, 32), dtype=torch.bfloat16),
-                            layout=ttnn.TILE_LAYOUT, device=dev)
-        ttnn.add(t, t)
-        ttnn.synchronize_device(dev)
+        with _probe_deadline(timeout_s):
+            t = ttnn.from_torch(torch.zeros((32, 32), dtype=torch.bfloat16),
+                                layout=ttnn.TILE_LAYOUT, device=dev)
+            ttnn.add(t, t)
+            ttnn.synchronize_device(dev)
     except Exception as e:
         try:
             _close_device_locked(dev)
@@ -6131,16 +6524,87 @@ def _chunk_l1_per_core(t: ttnn.Tensor) -> int:
 def _add_input(x: ttnn.Tensor, u: ttnn.Tensor) -> ttnn.Tensor:
     """`x + u`, consuming `x`: the end of every pair op's `add_to_input` path.
 
-    A row-blocked op whose blocks go to the host adds each block's own rows of `x` before the
-    block leaves, and its join frees `x` before the one upload, so the pair and its update are
-    never on the chip together (6.95 GB each for OpenDDE's refiner at 1536 residues). Then `u`
-    already is the sum and `x` is gone. Every other path returns the bare update and gets the
-    caller's in-place add here, the same op the Pairformer layer ran itself."""
-    if not x.is_allocated():
+    A row-blocked op past `concat_host_bytes()` writes each block's `x + update` back into `x`
+    (`_pair_inplace`), so it returns `x` itself and there is nothing left to add. One whose blocks
+    went to the host instead frees `x` before its upload, so `u` already is the sum and `x` is
+    gone. Every other path returns the bare update and gets the caller's in-place add here, the
+    same op the Pairformer layer ran itself."""
+    if u is x or not x.is_allocated():
         return u
     x = ttnn.add_(x, u)
     ttnn.deallocate(u)
     return x
+
+
+# Row-blocked pair updates written back into the pair they update. ON.
+#
+# Past `concat_host_bytes()` the pair ops used to join their row blocks on the host: each block's
+# `z + update` went down, the join came back up, because the result is a second pair tensor and a
+# 12 GiB chip cannot hold two of OpenDDE's 6.95 GB structural pairs at 1536 residues. But every
+# one of these tails computes block I from z's own block I -- the triangle attentions once their
+# bias is built from the whole pair, the transition, the triangle multiplication's output tail
+# once its hidden exists -- so z[I] is dead as soon as block I is done, and the block can take its
+# place. `tt_bio/page_copy.py` does the write on the device: the same bytes, in the same place a
+# join would have put them, so it is bit-exact by construction.
+#
+# MEASURED on whglx (8x9 Wormhole) at the 1536-residue refiner, width 3008, before: 452 GB down
+# and 454 GB up over four Pairformer blocks, ~950 s of an 1201 s seam (`perf/mgx_wide_seq/`).
+# With TT_BIO_TRIMUL_INPROJ_ROWBLOCK_NORM the whole 1536-residue fold goes from 4221 s to 2826 s.
+# `TT_BIO_PAIR_INPLACE=0` restores the host join.
+PAIR_INPLACE = True
+_PAIR_INPLACE = env_flag("TT_BIO_PAIR_INPLACE", PAIR_INPLACE)
+# (pair ops served in place, blocks written)
+PAIR_INPLACE_STATS = [0, 0]
+
+
+def _pair_inplace(z: ttnn.Tensor, add_to_input: bool) -> bool:
+    """Whether a row-blocked `z + update` should be written back into `z` block by block.
+
+    From the size where the join may go to the host (`host_acc_after_refusal`), so every smaller
+    pair keeps its device concat and its numbers. Above it the device join is still tried first
+    and often fits (Nesso-1 at 3072 tokens never left the card); there the write replaces a device
+    concat, which is why `page_copy` has to move bytes at least as fast as ttnn.concat does. Not
+    under a tape: the write mutates a tensor the tape may still hold."""
+    return (add_to_input and _PAIR_INPLACE and not ops.taping()
+            and z.dtype == ttnn.bfloat16 and _dtype() == ttnn.bfloat16
+            and z.logical_volume() * 2 > concat_host_bytes() and _page_copy.ok(z, z))
+
+
+def _write_rows(z: ttnn.Tensor, blk: ttnn.Tensor, start: int) -> None:
+    """`z[:, start:start + R] = blk`, freeing `blk` (see `_pair_inplace`)."""
+    _page_copy.write_rows(z, blk, start)
+    ttnn.deallocate(blk)
+    PAIR_INPLACE_STATS[1] += 1
+
+
+def _write_cols(z: ttnn.Tensor, blk: ttnn.Tensor, start: int) -> None:
+    """`z[:, :, start:start + R] = blk`, freeing `blk` (see `_pair_inplace`)."""
+    _page_copy.write_cols(z, blk, start)
+    ttnn.deallocate(blk)
+    PAIR_INPLACE_STATS[1] += 1
+
+
+def _inplace_guarded(what: str, run):
+    """`run()`, where a refusal after `run` has written into its input is no longer retryable.
+
+    Every refusal-retry wrapper around these ops (`row_block_after_refusal`,
+    `host_acc_after_refusal`) re-runs the op on its input. Once a block has been written that input
+    is half updated, and re-running would add the update to those rows twice -- the retry defect
+    `ttnn-inplace-op-on-caller-tensor-breaks-restaging` records. So such a refusal is re-raised as
+    a plain error none of them retries; one before the first write is still an ordinary refusal.
+    """
+    n0 = PAIR_INPLACE_STATS[1]
+    try:
+        out = run()
+    except Exception as exc:
+        from tt_bio.size_limits import is_alloc_refusal
+        if PAIR_INPLACE_STATS[1] != n0 and is_alloc_refusal(exc):
+            raise RuntimeError(
+                f"{what}: the device refused a block after {PAIR_INPLACE_STATS[1] - n0} were "
+                f"written into the input in place, so the op cannot be re-run on it") from exc
+        raise
+    PAIR_INPLACE_STATS[0] += PAIR_INPLACE_STATS[1] != n0
+    return out
 
 
 def _acc_append(acc: list, t: ttnn.Tensor, host: bool) -> None:
@@ -6389,6 +6853,14 @@ class Module:
             os.replace(tmp, path)  # atomic publish
         return ttnn.to_device(host, self.device)
 
+    def device_weights(self) -> dict:
+        """`{path: tensor}` for every device tensor this module reaches.
+
+        Call it after the forward that materialises the lazily fused weights, never straight
+        after `__init__` -- see the notes above `walk_device_weights`.
+        """
+        return device_weights(self)
+
     def _lin(self, x, w, bias=None, dtype=None, **kw):
         """Shared linear projection on this module's kernel config and core grid."""
         return ops.linear(x, w, bias=bias, compute_kernel_config=self.compute_kernel_config,
@@ -6411,6 +6883,99 @@ class Module:
         return ttnn.squeeze(
             ttnn.experimental.nlp_concat_heads(ctx, memory_config=ttnn.DRAM_MEMORY_CONFIG), 1
         )
+
+
+# ------------------------------------------------------------------- weight discovery
+#
+# Hooking `Module.torch_to_tt` finds what the LOADER produced and nothing a module derived for
+# itself. `TriangleMultiplication` cuts its in-projection out of host torch and pushes the
+# pieces with `ttnn.from_torch` (`_gp_in_chunks`), so the tensor its forward multiplies never
+# passes through the loader, and a tape handed the loader's set sees a constant there. Measured
+# on OpenFold3's trunk: 2119 tensors from the loader against 2531 reachable from the built
+# model, and 0 of one triangle multiplication's 8 weights was an autograd leaf while the
+# backward completed without a word. So discovery walks the built model instead.
+#
+# It lives here rather than in the training package because `Module.__init__` is Protenix's,
+# Boltz-2's, BoltzGen's, AF2's and OpenFold3's alike, and nothing below knows which model it
+# is walking.
+#
+# WALK AFTER A FORWARD, NEVER BEFORE. `_gp_cache`, `_gp_bias_cache` and `_gp_gout_cache` are
+# filled on the first call at a given chunk width, so a walk of a freshly built model misses
+# exactly the fused in-projections that motivate the walk. One untaped forward materialises
+# them, and that is the same one inference a call-site census already spends.
+
+#: Values a walk must not descend into. A module object's `vars()` is its whole namespace, so
+#: one `self.np = numpy` attribute would walk the caller's dependency tree.
+_WALK_OPAQUE = (type, ModuleType, FunctionType, MethodType, BuiltinFunctionType,
+                str, bytes, torch.Tensor)
+
+
+def train_in_projections(obj) -> int:
+    """`TriangleMultiplication.train_in_proj` on every trimul reachable from `obj`; the count.
+
+    Run it on a built model before the walk that registers its parameters. The walk then finds
+    each in-projection as two leaves, and no forward has to run first.
+    """
+    seen, n, stack = set(), 0, [obj]
+    while stack:
+        o = stack.pop()
+        if id(o) in seen or isinstance(o, _WALK_OPAQUE + (ttnn.Tensor,)):
+            continue
+        seen.add(id(o))
+        if isinstance(o, TriangleMultiplication):
+            o.train_in_proj()
+            n += 1
+        elif isinstance(o, dict):
+            stack += o.values()
+        elif isinstance(o, (list, tuple)):
+            stack += o
+        elif hasattr(o, "__dict__"):
+            stack += vars(o).values()
+    return n
+
+
+def walk_device_weights(obj, prefix: str = "", _seen=None, _depth: int = 0):
+    """`(path, owner, key, tensor)` for every device tensor reachable from `obj`.
+
+    `owner` and `key` come back with the tensor because a parameter the optimizer moves has to
+    be written back where it was found: `AdamW.step` replaces the leaf's value with a fresh
+    device tensor, and a model still holding the old handle reads the checkpoint's weights for
+    the rest of the run, with real gradients and a loss curve that falls.
+
+    Depth 12, not the four `perf/ptx_integrate/step.py` walks: a trunk nests trunk ->
+    pairformer -> blocks -> block -> submodule -> cache -> tensor, and a depth that stops short
+    reports a denominator too small in the one place the answer matters.
+    """
+    _seen = set() if _seen is None else _seen
+    if _depth > 12 or id(obj) in _seen:
+        return
+    _seen.add(id(obj))
+    if isinstance(obj, dict):
+        items = list(obj.items())
+    elif isinstance(obj, (list, tuple)):
+        items = list(enumerate(obj))
+    elif hasattr(obj, "__dict__"):
+        items = list(vars(obj).items())
+    else:
+        return
+    for key, value in items:
+        path = f"{prefix}{key}"
+        if isinstance(value, ttnn.Tensor):
+            yield path, obj, key, value
+        elif isinstance(value, _WALK_OPAQUE):
+            continue
+        elif isinstance(value, (list, tuple, dict)) or hasattr(value, "__dict__"):
+            yield from walk_device_weights(value, path + ".", _seen, _depth + 1)
+
+
+def device_weights(model) -> dict:
+    """`{path: tensor}` for every device tensor reachable from `model`. The DENOMINATOR.
+
+    A leaf count with no denominator cannot show a shortfall: 2119 looks like a healthy number
+    and 2119 of 2531 is a gap you can act on. Every claim about what a tape reaches is reported
+    against this.
+    """
+    return {path: t for path, _, _, t in walk_device_weights(model)}
 
 
 def _in_proj_matmul(x, w, ckc, memory_config, bias=None, split=None):
@@ -6610,6 +7175,11 @@ TRIMUL_INPROJ_ROWBLOCK = False
 _TRIMUL_INPROJ_ROWBLOCK = os.environ.get(
     "TT_BIO_TRIMUL_INPROJ_ROWBLOCK", "1" if TRIMUL_INPROJ_ROWBLOCK else "0") == "1"
 _TRIMUL_INPROJ_ROWBLOCK_R = int(os.environ.get("TT_BIO_TRIMUL_INPROJ_ROWBLOCK_R", "128"))
+# The same route where the LN'd pair was too big to exist: each block norms its own rows (see
+# `_gated_rowblocked`). Independent of the flag above, whose loss was measured at 512 aa where
+# the alternative is a DRAM round trip; here the alternative is `_in_proj_rows`, joined on the
+# host past `concat_host_bytes()`. ON; "0" sends those shapes back to it.
+_TRIMUL_INPROJ_ROWBLOCK_NORM = env_flag("TT_BIO_TRIMUL_INPROJ_ROWBLOCK_NORM", True)
 
 
 def set_trimul_inproj_rowblock(on: bool, r: int | None = None) -> tuple[bool, int]:
@@ -6750,12 +7320,35 @@ class TriangleMultiplication(Module):
         # Same four weights again with `g_out`'s columns on the end, built only if the fused-gate
         # lever ever takes a call at this width.
         self._gp_gout_cache: dict[tuple[int, int], ttnn.Tensor] = {}
+        # The in-projection as device leaves, set only by `train_in_proj`. Inference never
+        # sets them and reads the caches above.
+        self.g_in_weight = self.p_in_weight = None
         self.g_out_weight = self.torch_to_tt("g_out.weight")
         self.out_p_weight = self.torch_to_tt("p_out.weight")
         self.p_out_bias = (self.torch_to_tt("p_out.bias")
                            if "p_out.bias" in scope else None)
         self.g_out_bias = (self.torch_to_tt("g_out.bias")
                            if "g_out.bias" in scope else None)
+
+    def train_in_proj(self) -> None:
+        """Hold the fused in-projection's two sources as device tensors a training walk can register.
+
+        The caches are filled from host torch on first use, so the walk that registers a model's
+        parameters before its forward never sees them, and the taped forward then multiplies an
+        untracked constant: every OpenFold3 in-projection came back from backward with no
+        gradient. Once this has run, every fused chunk is cut from these two tensors per call
+        through `ttnn`, so the tape sums each chunk's gradient into the leaf it came from, and an
+        optimizer write-back to these attributes leaves no stale copy behind. Nothing is cached.
+        """
+        if self._g_in_b is not None:
+            raise NotImplementedError(
+                "train_in_proj covers the in-projection weights only; this checkpoint's "
+                "g_in/p_in biases would still be cached constants")
+        up = lambda t: ttnn.from_torch(  # noqa: E731
+            t, layout=ttnn.TILE_LAYOUT, device=self.device, dtype=ttnn.bfloat16)
+        self.g_in_weight, self.p_in_weight = up(self._g_in_t), up(self._p_in_t)
+        self._gp_cache.clear()
+        self._gp_gout_cache.clear()
 
     def _gp_in_chunks(self, C: int, group: int = 1) -> list[ttnn.Tensor]:
         """Fused [g_a | g_b | p_a | p_b] input weights, `group` consecutive chunks per weight.
@@ -6766,6 +7359,8 @@ class TriangleMultiplication(Module):
         an index move, or a per-channel matmul, so a wider group is a different partition of the
         same sum and stays bit-exact. At group = 1 the order is the narrow path's.
         """
+        if self.g_in_weight is not None:
+            return self._gp_fused_order((self.g_in_weight, self.p_in_weight), C, group)
         key = (C, group, gp_roles())
         cached = self._gp_cache.get(key)
         if cached is not None:
@@ -6786,6 +7381,10 @@ class TriangleMultiplication(Module):
         exactly the projection the channel loop already consumes and the rest is the tail's gate.
         Only ever asked for when the channel loop is a single iteration.
         """
+        if self.g_in_weight is not None:
+            parts = self._gp_in_chunks(C, group)
+            assert len(parts) == 1, ("the fused gate needs a one-iteration channel loop", len(parts))
+            return ttnn.concat([parts[0], self.g_out_weight], dim=-1)
         key = (C, group, gp_roles())
         cached = self._gp_gout_cache.get(key)
         if cached is None:
@@ -6804,6 +7403,10 @@ class TriangleMultiplication(Module):
             TRIMUL_GOUT_REJECTS[reason] = TRIMUL_GOUT_REJECTS.get(reason, 0) + 1
             TRIMUL_GOUT_STATS[1] += 1
             return False
+        if ops.taping():
+            # `_in_proj_matmul` cannot split under the tape, so the fused call would decline
+            # after its weight had been built for nothing.
+            return no("taped")
         if row_norm or x_norm_in is None:
             return no("row_blocked_input_norm")
         if H > SEQ_LEN_MORE_CHUNKING:
@@ -6829,21 +7432,25 @@ class TriangleMultiplication(Module):
 
         The weights and the biases share this so their column orders cannot drift apart: a bias
         laid out against a different order is a silent per-channel permutation, which nothing
-        downstream can see.
+        downstream can see. Device tensors (`train_in_proj`'s leaves) are cut with `ttnn`, which
+        is what puts the cut on a tape.
         """
         g, p = tensors
-        n_pairs = g.shape[-1] // C // 2
+        n_pairs = int(g.shape[-1]) // C // 2
         assert n_pairs % group == 0, f"group {group} does not divide {n_pairs} pairs"
         src = {"g_a": (g, 0), "g_b": (g, n_pairs), "p_a": (p, 0), "p_b": (p, n_pairs)}
+        if isinstance(g, torch.Tensor):
+            cut, cat = (lambda t, a, b: t[..., a:b]), (lambda xs: torch.cat(xs, dim=-1))
+        else:
+            lead = [int(d) for d in g.shape][:-1]
+            cut = lambda t, a, b: ttnn.slice(t, [0] * len(lead) + [a], lead + [b])  # noqa: E731
+            cat = lambda xs: ttnn.concat(xs, dim=-1)  # noqa: E731
         return [
-            torch.cat(
-                [
-                    t[..., (j + off) * C : (j + off + 1) * C]
-                    for t, off in (src[r] for r in gp_roles())
-                    for j in range(i * group, (i + 1) * group)
-                ],
-                dim=-1,
-            )
+            cat([
+                cut(t, (j + off) * C, (j + off + 1) * C)
+                for t, off in (src[r] for r in gp_roles())
+                for j in range(i * group, (i + 1) * group)
+            ])
             for i in range(n_pairs // group)
         ]
 
@@ -6979,7 +7586,7 @@ class TriangleMultiplication(Module):
         return _acc_concat(blocks, 1, host)
 
     def _gated_rowblocked(self, x_norm_in, w, bias, H, slice_c, perm_a, perm_b, memory_config,
-                          defer_transpose=False):
+                          defer_transpose=False, x_in=None):
         """`LN(z) @ w` in row blocks in L1, gated and moved straight into the full destination.
 
         The whole-tensor path writes the fused projection to DRAM and the gated move reads it
@@ -6994,19 +7601,40 @@ class TriangleMultiplication(Module):
         that is `torch.equal` at 24 shapes; an L1 source changes the TensorAccessor, not the
         arithmetic.
 
+        With `x_norm_in=None` and `x_in` given, the LN'd pair was too big to exist
+        (`TRIMUL_IN_NORM_ROWBLOCK_BYTES`), so each block norms its own rows of `x_in` -- the same
+        row-local norm `_in_proj_rows` computes -- and the block and its projection live in DRAM,
+        since at that size one row block of the pair is already more than the grid's L1. The
+        alternative is `_in_proj_rows`, which builds each channel group's whole projection and,
+        past `concat_host_bytes()`, joins it on the host: at OpenDDE's 1536-residue refiner that
+        was four 6.95 GB round trips per trimul. R is then the widest tile multiple up to
+        `_TRIMUL_INPROJ_ROWBLOCK_R` that divides H, so 3008 (= 64 * 47) blocks at 64.
+
         Returns `(None, None)` if the block shape is not eligible, so the caller falls back to the
         whole-tensor projection with nothing spent but the gate.
         """
-        R = _TRIMUL_INPROJ_ROWBLOCK_R
-        if R % _reblock.TILE_H or H % R:
+        if x_norm_in is None:
+            R = next((r for r in range(_TRIMUL_INPROJ_ROWBLOCK_R, 0, -_reblock.TILE_H)
+                      if H % r == 0), 0)
+            l1 = ttnn.DRAM_MEMORY_CONFIG
+        else:
+            R = _TRIMUL_INPROJ_ROWBLOCK_R
+            l1 = ttnn.L1_MEMORY_CONFIG
+        if not R or R % _reblock.TILE_H or H % R:
             return None, None
-        l1 = ttnn.L1_MEMORY_CONFIG
-        cw = int(x_norm_in.shape[-1])
+        cw = int((x_in if x_norm_in is None else x_norm_in).shape[-1])
         a = b = None
         try:
             for s_off in range(0, H, R):
-                rows = ttnn.slice(x_norm_in, [0, s_off, 0, 0], [1, s_off + R, H, cw],
-                                  memory_config=l1)
+                if x_norm_in is None:
+                    raw = x_in[:, s_off:s_off + R]
+                    rows = ttnn.layer_norm(
+                        raw, weight=self.in_norm_weight, bias=self.in_norm_bias, epsilon=1e-5,
+                        compute_kernel_config=self.compute_kernel_config, memory_config=l1)
+                    ttnn.deallocate(raw)
+                else:
+                    rows = ttnn.slice(x_norm_in, [0, s_off, 0, 0], [1, s_off + R, H, cw],
+                                      memory_config=l1)
                 blk = ttnn.experimental.minimal_matmul(
                     rows, w, bias_tensor=bias, memory_config=l1, dtype=_dtype(),
                     compute_kernel_config=self.compute_kernel_config)
@@ -7073,8 +7701,9 @@ class TriangleMultiplication(Module):
     def __call__(self, x: ttnn.Tensor, mask: ttnn.Tensor | None = None,
                  add_to_input: bool = False) -> ttnn.Tensor:
         """The update, or `x + update` consuming `x` with `add_to_input` (see `_add_input`)."""
-        u = host_acc_after_refusal(("trimul", tuple(x.padded_shape), self.ending), x,
-                                   lambda: self._multiply(x, mask, add_to_input))
+        u = host_acc_after_refusal(
+            ("trimul", tuple(x.padded_shape), self.ending), x, lambda: _inplace_guarded(
+                "triangle multiplication", lambda: self._multiply(x, mask, add_to_input)))
         return _add_input(x, u) if add_to_input else u
 
     def _multiply(self, x: ttnn.Tensor, mask: ttnn.Tensor | None,
@@ -7224,14 +7853,16 @@ class TriangleMultiplication(Module):
                     defer_a = defer_b = False
                     branch = "?"
                     defer = _mm_transpose_deferred(program_config)
-                    if (_TRIMUL_INPROJ_ROWBLOCK and not row_norm and not _FAST_MODE
+                    if ((_TRIMUL_INPROJ_ROWBLOCK and not row_norm
+                         or _TRIMUL_INPROJ_ROWBLOCK_NORM and row_norm and len(shp) == 4)
+                            and not _FAST_MODE
                             and not _TRIMUL_RAW_CHANNEL_MOVES
                             and (mask is None or mask_moved_ok)
                             and memory_config.buffer_type == ttnn.BufferType.DRAM):
                         a_chunk, b_chunk = self._gated_rowblocked(
                             x_norm_in, gp_in_chunks[i], bias_i, H,
                             int(gp_in_chunks[i].shape[-1]) // 4, perm_a, perm_b, memory_config,
-                            defer_transpose=defer)
+                            defer_transpose=defer, x_in=x_in)
                         branch = "rowblock" if a_chunk is not None else "rowblock-declined"
                         if a_chunk is not None and defer:
                             defer_a = perm_a == (0, 3, 2, 1)
@@ -7599,12 +8230,16 @@ class TriangleMultiplication(Module):
         join frees `x_in` before its upload (`_add_input`).
         """
         on_host = isinstance(x, list)
-        residual = add_to_input and host_acc
+        # Block s reads only rows s:e of `x_in`, so past `concat_host_bytes()` it overwrites them
+        # (`_pair_inplace`) instead of joining the blocks on the host.
+        inplace = _pair_inplace(x_in, add_to_input)
+        residual = add_to_input and (host_acc or inplace)
         blocks = []
         for s in range(0, H, PAIR_ROW_BLOCK):
             e = min(s + PAIR_ROW_BLOCK, H)
+            r = x_in[:, s:e]                # the norm's input, and the residual's
             z_rows = ttnn.layer_norm(
-                x_in[:, s:e],
+                r,
                 weight=self.in_norm_weight,
                 bias=self.in_norm_bias,
                 epsilon=1e-5,
@@ -7620,6 +8255,8 @@ class TriangleMultiplication(Module):
                 core_grid=CORE_GRID_MAIN,
             )
             ttnn.deallocate(z_rows)
+            if not residual and e - s < H:  # a whole-axis slice is x_in itself
+                ttnn.deallocate(r)
             x_blk = (ttnn.from_torch(torch.cat([c[:, s:e] for c in x], dim=-1),
                                      layout=ttnn.TILE_LAYOUT, device=get_device(),
                                      dtype=ttnn.bfloat16)
@@ -7647,16 +8284,20 @@ class TriangleMultiplication(Module):
                 p_block, g_block, input_tensor_b_activations=[ttnn.UnaryOpType.SIGMOID])
             ttnn.deallocate(g_block)
             if residual:
-                r = x_in[:, s:e]
                 y_add = ttnn.add(r, y)
                 ttnn.deallocate(y)
                 if e - s < H:               # a whole-axis slice is x_in itself
                     ttnn.deallocate(r)
                 y = y_add
-            _acc_append(blocks, y, host_acc)
+            if inplace:
+                _write_rows(x_in, y, s)
+            else:
+                _acc_append(blocks, y, host_acc)
         if not on_host:
             ttnn.deallocate(x)
         dram_peak(f"trimul({'end' if self.ending else 'start'}) tail blocks done [z={'x'.join(str(d) for d in x_in.shape)}]")
+        if inplace:
+            return x_in
         return _acc_concat(blocks, 1, host_acc, consume=x_in if residual else None)
 
 
@@ -7933,11 +8574,17 @@ class TriangleAttention(Module):
         bias_in_matmul: str | None = None,
         l1_padded_plan: bool | None = None,
         sdpa_ragged_pad: bool = False,
+        softmax_site: str = "default",
     ):
         super().__init__(state_dict, compute_kernel_config)
         self.head_dim = head_dim
         self.n_heads = n_heads
         self.ending = ending
+        # The construction site this attention answers to for the host float64 softmax, read
+        # the same way `AttentionPairBias` reads it. Triangle attention is the biggest softmax
+        # in the stack and it takes `_fp32_softmax_attention` at every site that sets
+        # `fp32_softmax`, so without this the lever is selected and never called (D225).
+        self._softmax_f64 = host_f64_softmax_site(softmax_site)
         # Bytes per core to keep free when the ending variant's pair transpose asks for L1,
         # instead of the multiplicative headroom. 0 keeps the headroom rule. See
         # TRANSPOSE_L1_RESERVE_PER_CORE: it is what makes the 768 aa transpose L1-resident.
@@ -8135,7 +8782,8 @@ class TriangleAttention(Module):
         def blocked(rows):
             return host_acc_after_refusal(
                 ("tri_att", tuple(x.padded_shape), self.ending), x,
-                lambda: self._attend_pair(x, attn_mask, rows, add_to_input))
+                lambda: _inplace_guarded("triangle attention", lambda: self._attend_pair(
+                    x, attn_mask, rows, add_to_input)))
 
         key = (tuple(x.padded_shape), self.ending)
         if S > SEQ_LEN_MORE_CHUNKING and (self.affinity or not _FAST_MODE or _IS_SMALL_GRID):
@@ -8298,6 +8946,7 @@ class TriangleAttention(Module):
                         out_dtype=_dtype(),
                         bias_scale_inv=1.0 / self._bias_scale,
                         accurate_softmax=self.accurate_softmax,
+                        host_f64=self._softmax_f64,
                         l1_padded_plan=self.l1_padded_plan,
                     )
             else:
@@ -8401,8 +9050,11 @@ class TriangleAttention(Module):
             # Assemble the row blocks on the host when the full result is large enough
             # that the concat's full-size allocation would risk a fragmented-DRAM
             # refusal (concat_host_bytes()); the loop then holds one block on device.
-            host_acc = _host_concat(x)
-            residual = add_to_input and host_acc
+            # In place (`_pair_inplace`) once the bias exists: block s reads only its own rows (its
+            # own column strip for the ending variant) of the input, so it can overwrite them.
+            inplace = _pair_inplace(x_in, add_to_input) and (not self.ending or chunk % 32 == 0)
+            host_acc = not inplace and _host_concat(x)
+            residual = add_to_input and (host_acc or inplace)
             parts = []
             for s in range(0, S, chunk):
                 end = min(s + chunk, S)
@@ -8508,18 +9160,34 @@ class TriangleAttention(Module):
                     out_dram = ttnn.to_memory_config(out_chunk, ttnn.DRAM_MEMORY_CONFIG)
                     ttnn.deallocate(out_chunk)
                     out_chunk = out_dram
+                # In place, the ending block goes back to the pair's own layout first, so its
+                # residual is a plain column strip of x: one transpose per block, not two.
+                back = inplace and self.ending
+                if back:
+                    strip = _pair_transpose(out_chunk, ttnn.DRAM_MEMORY_CONFIG)
+                    ttnn.deallocate(out_chunk)
+                    out_chunk = strip
                 if residual:
-                    r = (_pair_transpose(x[:, s:end, :], ttnn.DRAM_MEMORY_CONFIG)
-                         if self.ending else x[s:end, :, :])
+                    r = x[:, s:end, :] if self.ending else x[s:end, :, :]
+                    if self.ending and not back:
+                        r = _pair_transpose(r, ttnn.DRAM_MEMORY_CONFIG)
                     r_add = ttnn.add(r, out_chunk)
                     ttnn.deallocate(out_chunk)
-                    ttnn.deallocate(r)
+                    if end - s < S or (self.ending and not back):  # a whole-axis slice is x
+                        ttnn.deallocate(r)
                     out_chunk = r_add
-                _acc_append(parts, out_chunk, host_acc)
+                if back:
+                    _write_cols(x_in, ttnn.reshape(out_chunk, (1, *out_chunk.shape)), s)
+                elif inplace:
+                    _write_rows(x_in, ttnn.reshape(out_chunk, (1, *out_chunk.shape)), s)
+                else:
+                    _acc_append(parts, out_chunk, host_acc)
             dram_peak(f"tri_att({'end' if self.ending else 'start'}) row loop done [z={'x'.join(str(d) for d in x.shape)}]")
             # x here is the reshaped (unpermuted) input -- for the starting variant it can
             # alias the caller's pair tensor, so it must NOT be deallocated.
             ttnn.deallocate(triangle_bias)
+            if inplace:
+                return x_in
             if host_acc:
                 h = torch.cat(parts, dim=0)
                 # The ending variant's back-transpose rides the host assembly (pure
@@ -8680,10 +9348,21 @@ class AttentionPairBias(Module):
         scale_pair_bias: bool = True,
         fp32_softmax: bool = False,
         accurate_softmax: bool = False,
+        softmax_site: str = "default",
     ):
         super().__init__(state_dict, compute_kernel_config)
         self.fp32_softmax = fp32_softmax
         self.accurate_softmax = accurate_softmax
+        # OFF, and `of3t-softmax` decided that: the config moves protenix-v2's delivered
+        # structure 2.2151 A, inside its own 4.1346 A seed floor but 6.8x OpenFold3's move under
+        # the same lever, so it is two decisions rather than one. The only reader here is the
+        # `fp32_raw_matmul_attention` branch of `__call__`, where the scores are fp32 because
+        # ttnn's SDPA refuses fp32 inputs; every other instance sets this and never reads it.
+        # On that branch the config is worth 12.50x accuracy against float64 for 1.55x cost at
+        # [1,16,128,128] and 0.91 ms of a 32 s fold (perf/of3t_fwdkcfg/), so what holds it off
+        # is the Angstrom move on a shipped model, not the price.
+        self._softmax_ckc = softmax_ckc(softmax_site)
+        self._softmax_f64 = host_f64_softmax_site(softmax_site)
         self.head_dim = head_dim
         self.dtype = dtype if dtype is not None else _dtype(ttnn.bfloat16)
         self.fp32_raw_matmul_attention = fp32_raw_matmul_attention
@@ -8819,6 +9498,7 @@ class AttentionPairBias(Module):
                 out_dtype=_dtype(),
                 bias_scale_inv=1.0 / self._bias_scale,
                 accurate_softmax=self.accurate_softmax,
+                host_f64=self._softmax_f64,
             )
         if self.dtype != ttnn.float32:
             return _sdpa_masked(
@@ -9054,7 +9734,8 @@ class AttentionPairBias(Module):
                                     compute_kernel_config=self.compute_kernel_config)
                 ttnn.deallocate(kt)
                 sc = scale_add(sc, self.head_dim ** -0.5, z)
-                attn = ttnn.softmax(sc, dim=-1)
+                attn = site_softmax(sc, dim=-1, compute_kernel_config=self._softmax_ckc,
+                                    host_f64=self._softmax_f64)
                 o = batched_matmul(attn, v,
                                    compute_kernel_config=self.compute_kernel_config)
                 ttnn.deallocate(attn)
@@ -9188,6 +9869,36 @@ class AttentionPairBias(Module):
         return x
 
 
+# D174. Upstream OpenFold3 zeroes the output of EVERY transition on padded positions:
+# `core/model/layers/transition.py` ends `_transition` with `x = self.linear_out(x) * mask`, and
+# `projects/of3_all_atom/model.py` passes `_mask_trans=True` at seven call sites, hard-coded, so
+# it is not a knob the reference could have been run without. Our port passes no mask to any
+# transition and had no parameter to pass one through.
+#
+# On a padded row the pair representation is zero, so the transition's LayerNorm emits its
+# normalised part as zero and the MLP passes its own biases through: a nonzero update,
+# independent of the pad's contents, added into the residual and compounded over 48 blocks.
+# `of3t-modelboundary` measured both halves of that signature on the trunk -- bit-exact
+# invariance to pad VALUES (`--pad-scale 0`, 0 of 2,736 tensors moved) and a gradient norm that
+# tracks pad EXTENT (12.3912543630 at 8 pad rows against 43.2103398400 at 328, 3.487164x).
+#
+# OFF by default. This changes inference numerics on a path five models execute, so it is
+# release-gated and carries an inference fold A/B before it can ship. Set TT_BIO_MASK_TRANS=1
+# for the masked arm.
+_MASK_TRANS = env_flag("TT_BIO_MASK_TRANS", False)
+
+# The negative control for the lever above, and the reason it is a flag rather than a harness
+# edit: an all-ones mask is the ONE input that must leave every number bit-identical to the
+# unmasked arm. If it does not, the lever is not the mask and nothing measured with it means
+# what it says. Only read when _MASK_TRANS is on.
+_MASK_TRANS_ONES = env_flag("TT_BIO_MASK_TRANS_ONES", False)
+
+# Reached only from the masked branch, and counted so "the lever fired" is a reading rather
+# than an argument -- `a-lever-can-fire-and-be-inert` has both halves. A harness reads this out
+# of the loaded module after the run.
+MASK_TRANS_STATS = {"stacks": 0, "blocks": 0, "ones": 0, "declined_rank": 0, "declined_off": 0}
+
+
 class Transition(Module):
     def __init__(
         self,
@@ -9205,9 +9916,33 @@ class Transition(Module):
         self.fc3_weight = self.torch_to_tt("fc3.weight", dtype=weight_dtype)
 
     def __call__(self, x: ttnn.Tensor, memory_config: ttnn.MemoryConfig | None = None,
-                 add_to_input: bool = False) -> ttnn.Tensor:
-        return host_acc_after_refusal(("transition", tuple(x.padded_shape)), x,
-                                      lambda: self._transition(x, memory_config, add_to_input))
+                 add_to_input: bool = False,
+                 mask: ttnn.Tensor | None = None) -> ttnn.Tensor:
+        """`mask` zeroes the output on padded positions, the way upstream's `_mask_trans` does.
+
+        It broadcasts against `x`, so it carries x's rank with 1 in the channel axis: [1,S,S,1]
+        on the pair track, [1,S,1] on the single track. None reproduces today's output byte for
+        byte, which is what every caller outside the OpenFold3 path passes.
+
+        Applied once to the assembled result rather than inside `swiglu`. The multiply is
+        elementwise and every chunking path below is row- or column-local, so masking the chunks
+        and masking the assembly write the same bytes; masking here leaves the chunk arithmetic
+        and its L1 budgets untouched.
+        """
+        if mask is not None and add_to_input:
+            raise ValueError("Transition: mask with add_to_input would mask the residual "
+                             "on padded positions; upstream masks t(x) only")
+        out = host_acc_after_refusal(
+            ("transition", tuple(x.padded_shape)), x, lambda: _inplace_guarded(
+                "transition", lambda: self._transition(x, memory_config, add_to_input)))
+        if mask is None:
+            return out
+        masked = ttnn.multiply(out, mask)
+        if not ops.taping():
+            # Under a tape the multiply's backward reads its operands (freeing `out` was a
+            # storage.cpp:60 TT_THROW); inference keeps the free, 48 MB at 384 aa.
+            ttnn.deallocate(out)
+        return masked
 
     def _transition(self, x: ttnn.Tensor, memory_config: ttnn.MemoryConfig | None,
                     add_to_input: bool) -> ttnn.Tensor:
@@ -9502,7 +10237,10 @@ class Transition(Module):
             # Host-assemble the row blocks when the full result is large enough that
             # the concat's full-size allocation would risk a fragmented-DRAM refusal
             # (concat_host_bytes()). Guarded on the swiglu output dtype being bf16.
-            host_acc = _host_concat(x) and (self.dtype or _dtype()) == ttnn.bfloat16
+            inplace = (_pair_inplace(x, add_to_input) and transition_h_chunk_size < H
+                       and (self.dtype or _dtype()) == ttnn.bfloat16)
+            host_acc = (not inplace and _host_concat(x)
+                        and (self.dtype or _dtype()) == ttnn.bfloat16)
             parts = []
             # A ttnn slice over a whole axis is its input, buffer and all, so freeing it would
             # free x (or c); only a real sub-range is ours to free.
@@ -9514,9 +10252,12 @@ class Transition(Module):
                         y_add = ttnn.add(c, y)
                         ttnn.deallocate(y)
                         y = y_add
-                    _acc_append(parts, y, host_acc)
                     if c is not x:
                         ttnn.deallocate(c)
+                    if inplace:
+                        _write_rows(x, y, s)
+                    else:
+                        _acc_append(parts, y, host_acc)
                 else:
                     w_parts = []
                     for w in range(0, W, w_chunk):
@@ -9535,8 +10276,13 @@ class Transition(Module):
                         y = y_add
                     if c is not x:
                         ttnn.deallocate(c)
-                    _acc_append(parts, y, host_acc)
+                    if inplace:
+                        _write_rows(x, y, s)
+                    else:
+                        _acc_append(parts, y, host_acc)
             dram_peak(f"transition4d loop done (lazy, h={transition_h_chunk_size}) [z={'x'.join(str(d) for d in x.shape)}]")
+            if inplace:
+                return x
             return _acc_concat(parts, 1, host_acc, memory_config,
                                consume=x if add_to_input else None)
         chunks = ttnn.chunk(x, -(-H // transition_h_chunk_size), dim=1)
@@ -9548,6 +10294,27 @@ class Transition(Module):
             ttnn.concat([swiglu(c[:, :, w:min(w + w_chunk, W), :]) for w in range(0, W, w_chunk)], dim=2)
             for c in chunks
         ], 1, memory_config)
+
+
+def _z_compute(z: ttnn.Tensor, wide: bool) -> ttnn.Tensor:
+    """The pair track as its consumers want it: `z` itself, or a bf16 copy of an fp32 residual."""
+    if not wide or z.dtype == ttnn.bfloat16:
+        return z
+    return ttnn.typecast(z, ttnn.bfloat16)
+
+
+def _z_residual(z: ttnn.Tensor, zc: ttnn.Tensor, update: ttnn.Tensor, wide: bool) -> ttnn.Tensor:
+    """`z + update`: the shipped in-place bf16 add, or an fp32 sum when `wide`."""
+    if not wide:
+        z = ttnn.add_(z, update)
+        ttnn.deallocate(update)
+        return z
+    f32 = lambda t: t if t.dtype == ttnn.float32 else ttnn.typecast(t, ttnn.float32)
+    out = ttnn.add(f32(z), f32(update))
+    ttnn.deallocate(update)
+    if zc is not z:
+        ttnn.deallocate(zc)
+    return out
 
 
 class PairformerLayer(Module):
@@ -9568,16 +10335,47 @@ class PairformerLayer(Module):
         transpose_l1_reserve: int = 0,
         accurate_softmax: bool = False,
         tri_att_accurate_softmax: bool | None = None,
+        tri_att_scale_pair_bias: bool | None = None,
         tri_att_sdpa_hifi: bool = False,
         tri_att_sdpa_ragged_pad: bool = False,
+        s_fp32_residual: bool = False,
+        z_fp32_residual: bool = False,
     ):
         super().__init__(state_dict, compute_kernel_config)
         self.transform_s = transform_s
+        # Keep the single track's residual in fp32 while its updates are computed in bf16.
+        # It costs one [B, L, c_s] fp32 tensor and it is the difference between carrying an
+        # update and losing it: a track whose residual is much larger than its per-block
+        # update quantises that update away, because bf16's resolution is relative to what
+        # the accumulator already holds. Measured on OF3's confidence Pairformer, which is
+        # the case this exists for -- it is handed the trunk's raw si_trunk at absmax 2.28e5
+        # with per-block updates of 1.2-6.3 % of it, where bf16's resolution at that
+        # magnitude is ~1024. Fed identical inputs, each of the four blocks then computes
+        # its own update with 3.1e-02 to 2.6e-01 relative error, and pLDDT, which reads the
+        # small channels of LN(s), comes out 2.42e-01 off. Off by default: a track whose
+        # residual and update are the same order of magnitude gains nothing.
+        self.s_fp32_residual = s_fp32_residual
+        # The same trade for the pair track, and TRAINING ONLY: it fires only while a tape is
+        # open, so inference runs the bf16 `add_` below whatever a caller passes. Upstream keeps
+        # z in fp32 between ops; holding it in bf16 is what carries our msa_module forward gap
+        # (8.38e-03 against upstream bf16's 2.31e-03 at the 64-token crop, 3.26e-03 with the
+        # residual in fp32; perf/of3t_msafwd). Every op still receives a bf16 copy.
+        self.z_fp32_residual = z_fp32_residual
         # Triangle attention is the biggest softmax site in the stack, and the accurate-softmax
         # chain only reaches it on the fp32_softmax route. `None` keeps whatever the layer's
         # `accurate_softmax` says, so no existing caller changes; a caller that measured the
         # chain at AttentionPairBias and not here pins this False.
         tri_acc = accurate_softmax if tri_att_accurate_softmax is None else tri_att_accurate_softmax
+        # `scale_pair_bias` names what the KERNEL does with the pair bias, and this layer holds
+        # two kernels that do different things with it, so one value cannot serve both.
+        # `AttentionPairBias` adds the bias INSIDE its score scale -- (q@k^T + z) * d**-0.5 -- so
+        # a reference that adds z unscaled to an already-scaled q needs z to arrive pre-baked by
+        # sqrt(d), which is what scale_pair_bias=True does. `TriangleAttention` scales q@k^T alone
+        # and divides the bake back out before its add, so the same reference convention wants
+        # False there. OpenFold3 is the model that needs both, and one shared False left its token
+        # pair bias at 1/sqrt(24) = 0.204 of the reference value in all 48 trunk blocks. `None`
+        # follows `scale_pair_bias`, so every caller that does not name it is unchanged.
+        tri_scale = scale_pair_bias if tri_att_scale_pair_bias is None else tri_att_scale_pair_bias
         self.triangle_multiplication_start = TriangleMultiplication(
             False, self.scope("tri_mul_out"), compute_kernel_config, gated_move=gated_move
         )
@@ -9591,7 +10389,7 @@ class PairformerLayer(Module):
             self.scope("tri_att_start", "mha."),
             compute_kernel_config,
             affinity=affinity,
-            scale_pair_bias=scale_pair_bias,
+            scale_pair_bias=tri_scale,
             fp32_softmax=fp32_softmax,
             accurate_softmax=tri_acc,
             # One per-site decision, forwarded to BOTH attributes because `_attend_heads`
@@ -9617,6 +10415,10 @@ class PairformerLayer(Module):
             # only combination that has cleared an accuracy standard.
             tri_att_one_k_chunk=tri_att_sdpa_hifi,
             sdpa_ragged_pad=tri_att_sdpa_ragged_pad,
+            # The same token this layer already gives its `AttentionPairBias`. One site name
+            # covers both tracks of a Pairformer block, which is what the lever wants: it is
+            # the block's softmax precision, not two independent decisions.
+            softmax_site="pairformer",
         )
         self.triangle_attention_end = TriangleAttention(
             tri_att_head_dim,
@@ -9625,7 +10427,7 @@ class PairformerLayer(Module):
             self.scope("tri_att_end", "mha."),
             compute_kernel_config,
             affinity=affinity,
-            scale_pair_bias=scale_pair_bias,
+            scale_pair_bias=tri_scale,
             fp32_softmax=fp32_softmax,
             transpose_bias=transpose_bias,
             transpose_l1_reserve=transpose_l1_reserve,
@@ -9653,6 +10455,10 @@ class PairformerLayer(Module):
             # only combination that has cleared an accuracy standard.
             tri_att_one_k_chunk=tri_att_sdpa_hifi,
             sdpa_ragged_pad=tri_att_sdpa_ragged_pad,
+            # The same token this layer already gives its `AttentionPairBias`. One site name
+            # covers both tracks of a Pairformer block, which is what the lever wants: it is
+            # the block's softmax precision, not two independent decisions.
+            softmax_site="pairformer",
         )
         self.transition_z = Transition(
             self.scope("transition_z"), compute_kernel_config
@@ -9670,6 +10476,7 @@ class PairformerLayer(Module):
                 scale_pair_bias=scale_pair_bias,
                 fp32_softmax=fp32_softmax,
                 accurate_softmax=accurate_softmax,
+                softmax_site="pairformer",
             )
             self.transition_s = Transition(
                 self.scope("transition_s"), compute_kernel_config
@@ -9679,22 +10486,52 @@ class PairformerLayer(Module):
         self, s: ttnn.Tensor | None, z: ttnn.Tensor, mask: ttnn.Tensor | None = None,
         attn_mask_start: ttnn.Tensor | None = None, attn_mask_end: ttnn.Tensor | None = None,
         extra_attn_bias: ttnn.Tensor | None = None,
+        trans_mask_z: ttnn.Tensor | None = None, trans_mask_s: ttnn.Tensor | None = None,
     ) -> tuple[ttnn.Tensor | None, ttnn.Tensor]:
-        # Each op returns z + its update. Where its blocks join on the host they carry their own
-        # rows of z and z is freed before the upload, so a pair too big to sit beside its update
-        # still runs (`_add_input`); everywhere else it is the in-place add this layer always ran.
-        z = self.triangle_multiplication_start(z, mask, add_to_input=True)
-        z = self.triangle_multiplication_end(z, mask, add_to_input=True)
-        z = self.triangle_attention_start(z, attn_mask_start, add_to_input=True)
-        z = self.triangle_attention_end(z, attn_mask_end, add_to_input=True)
-        # Same lever as the starting triangle attention: the residual reads this update back
-        # immediately, so assembling the row blocks into L1 removes the write and the read.
-        z = self.transition_z(
-            z, memory_config=_residual_update_memory_config(z.shape, z.dtype)
-            if _RESIDUAL_L1 else None, add_to_input=True)
+        """`trans_mask_z` / `trans_mask_s` are upstream's `pair_trans_mask` / `single_trans_mask`
+        (D174), already shaped to broadcast. `Pairformer` builds them once per stack call rather
+        than once per block; a caller that passes neither computes exactly what it does today."""
+        wide = self.z_fp32_residual and ops.taping()
+        if not ops.taping() and trans_mask_z is None:
+            # Each op returns z + its update. Where its blocks join on the host they carry their own
+            # rows of z and z is freed before the upload, so a pair too big to sit beside its update
+            # still runs (`_add_input`); everywhere else it is the in-place add this layer always ran.
+            z = self.triangle_multiplication_start(z, mask, add_to_input=True)
+            z = self.triangle_multiplication_end(z, mask, add_to_input=True)
+            z = self.triangle_attention_start(z, attn_mask_start, add_to_input=True)
+            z = self.triangle_attention_end(z, attn_mask_end, add_to_input=True)
+            # Same lever as the starting triangle attention: the residual reads this update back
+            # immediately, so assembling the row blocks into L1 removes the write and the read.
+            z = self.transition_z(
+                z, memory_config=_residual_update_memory_config(z.shape, z.dtype)
+                if _RESIDUAL_L1 else None, add_to_input=True)
+        else:
+            zc = _z_compute(z, wide)
+            z_update = self.triangle_multiplication_start(zc, mask)
+            z = _z_residual(z, zc, z_update, wide)
+
+            zc = _z_compute(z, wide)
+            z_update = self.triangle_multiplication_end(zc, mask)
+            z = _z_residual(z, zc, z_update, wide)
+
+            zc = _z_compute(z, wide)
+            z_update = self.triangle_attention_start(zc, attn_mask_start)
+            z = _z_residual(z, zc, z_update, wide)
+
+            zc = _z_compute(z, wide)
+            z_update = self.triangle_attention_end(zc, attn_mask_end)
+            z = _z_residual(z, zc, z_update, wide)
+
+            # Same lever as the starting triangle attention: the residual reads this update back
+            # immediately, so assembling the row blocks into L1 removes the write and the read.
+            zc = _z_compute(z, wide)
+            z_update = self.transition_z(
+                zc, memory_config=_residual_update_memory_config(zc.shape, zc.dtype)
+                if _RESIDUAL_L1 else None, mask=trans_mask_z)
+            z = _z_residual(z, zc, z_update, wide)
         if self.transform_s:
             s_norm = ttnn.layer_norm(
-                s,
+                self._s_compute(s),
                 weight=self.pre_norm_s_weight,
                 bias=self.pre_norm_s_bias,
                 epsilon=1e-5,
@@ -9702,17 +10539,36 @@ class PairformerLayer(Module):
             )
             s_update = self.attention_pair_bias(
                 s_norm,
-                z,
+                _z_compute(z, wide),
                 seq_mask=extra_attn_bias if extra_attn_bias is not None else attn_mask_start,
             )
             ttnn.deallocate(s_norm)
-            s = ttnn.add_(s, s_update)
-            ttnn.deallocate(s_update)
+            s = self._s_residual(s, s_update)
 
-            s_update = self.transition_s(s)
-            s = ttnn.add_(s, s_update)
-            ttnn.deallocate(s_update)
+            s_update = self.transition_s(self._s_compute(s), mask=trans_mask_s)
+            s = self._s_residual(s, s_update)
         return s, z
+
+    def _s_compute(self, s: ttnn.Tensor) -> ttnn.Tensor:
+        """The single track as its CONSUMERS want it. Identity unless the residual is fp32.
+
+        Both consumers open with a LayerNorm, so handing them the bf16 copy costs only that
+        norm's own rounding -- measured at 2.4e-03 on LN(s), against the 9.4e-03 the
+        residual quantisation costs -- and keeps every tuned kernel below on its bf16 path.
+        """
+        if not self.s_fp32_residual or s.dtype == ttnn.bfloat16:
+            return s
+        return ttnn.typecast(s, ttnn.bfloat16)
+
+    def _s_residual(self, s: ttnn.Tensor, update: ttnn.Tensor) -> ttnn.Tensor:
+        if not self.s_fp32_residual:
+            s = ttnn.add_(s, update)
+            ttnn.deallocate(update)
+            return s
+        out = ttnn.add(s, update if update.dtype == ttnn.float32
+                       else ttnn.typecast(update, ttnn.float32))
+        ttnn.deallocate(update)
+        return out
 
 
 class Pairformer(Module):
@@ -9734,8 +10590,11 @@ class Pairformer(Module):
         transpose_l1_reserve: int = 0,
         accurate_softmax: bool = False,
         tri_att_accurate_softmax: bool | None = None,
+        tri_att_scale_pair_bias: bool | None = None,
         tri_att_sdpa_hifi: bool = False,
         tri_att_sdpa_ragged_pad: bool = False,
+        s_fp32_residual: bool = False,
+        z_fp32_residual: bool = False,
     ):
         super().__init__(state_dict, compute_kernel_config)
         self.blocks = [
@@ -9755,8 +10614,11 @@ class Pairformer(Module):
                 transpose_l1_reserve=transpose_l1_reserve,
                 accurate_softmax=accurate_softmax,
                 tri_att_accurate_softmax=tri_att_accurate_softmax,
+                tri_att_scale_pair_bias=tri_att_scale_pair_bias,
                 tri_att_sdpa_hifi=tri_att_sdpa_hifi,
                 tri_att_sdpa_ragged_pad=tri_att_sdpa_ragged_pad,
+                s_fp32_residual=s_fp32_residual,
+                z_fp32_residual=z_fp32_residual,
             )
             for i in range(n_blocks)
         ]
@@ -9770,6 +10632,30 @@ class Pairformer(Module):
         # the MSA trunk's peak is floor + k*m_feat + pair_copies*z, and only a measurement
         # separates the two. No-op unless TT_BIO_DRAM_PEAK is set.
         dram_peak(f"pairformer enter [z={'x'.join(str(d) for d in z.shape)}]")
+        # D174, once per stack call rather than once per block: 48 blocks would otherwise pay
+        # for the same two tensors 48 times, and `ttnn.unsqueeze` on a [1,S,S] pair mask is not
+        # a view -- it pads the last axis from 1 to 32 and writes a real tensor.
+        #
+        # The single-track mask is derived rather than passed, because a pair mask in this model
+        # family is always the outer product m[:,:,None] * m[:,None,:] (the same fact
+        # `PairformerModule` relies on when it recovers the 1-D mask from the diagonal), and
+        # then max_j m_i m_j = m_i exactly. Reducing with `max` keeps it a device op with no
+        # host round trip. The 3-D guard excludes the affinity pair mask, which is a cross-chain
+        # mask and NOT an outer product; that path is Boltz-2's and is not what D174 is about.
+        trans_mask_z = trans_mask_s = None
+        if not _MASK_TRANS:
+            MASK_TRANS_STATS["declined_off"] += 1
+        elif mask is None or len(mask.shape) != 3:
+            MASK_TRANS_STATS["declined_rank"] += 1
+        else:
+            trans_mask_z = ttnn.unsqueeze(mask, -1)
+            trans_mask_s = ttnn.max(mask, dim=-1, keepdim=True)
+            if _MASK_TRANS_ONES:
+                trans_mask_z = ttnn.ones_like(trans_mask_z)
+                trans_mask_s = ttnn.ones_like(trans_mask_s)
+                MASK_TRANS_STATS["ones"] += 1
+            MASK_TRANS_STATS["stacks"] += 1
+            MASK_TRANS_STATS["blocks"] += len(self.blocks)
         for i, block in enumerate(self.blocks):
             # Through the seam, so a tape can checkpoint the block and inference cannot tell.
             # A 48-block trunk is the case per-block checkpointing exists for: the tape keeps
@@ -9777,9 +10663,14 @@ class Pairformer(Module):
             # card, while recomputing one block at a time is 7.762 GB (`ptx-crop`).
             s, z = ops.checkpoint_segment(
                 lambda s_, z_, b=block: b(s_, z_, mask, attn_mask_start, attn_mask_end,
-                                          extra_attn_bias),
+                                          extra_attn_bias, trans_mask_z, trans_mask_s),
                 s, z)
             dram_peak(f"pairformer block {i} done")
+        if trans_mask_z is not None and not ops.taping():
+            # Same reason as in `Transition.__call__`: the tape's backward still reads both
+            # masks after this call returns, so only the inference path may free them.
+            ttnn.deallocate(trans_mask_z)
+            ttnn.deallocate(trans_mask_s)
         return s, z
 
 
@@ -10378,6 +11269,7 @@ class MiniformerLayer(Module):
             False,
             self.scope("attention"),
             compute_kernel_config,
+            softmax_site="miniformer",
         )
         self.transition_s = Transition(self.scope("transition_s"), compute_kernel_config)
 
@@ -10672,6 +11564,7 @@ class DiffusionTransformerLayer(Module):
             state_dict=self.scope("pair_bias_attn"),
             compute_kernel_config=compute_kernel_config,
             fp32_softmax=fp32_softmax,
+            softmax_site="diffusion_transformer.atom" if atom_level else "diffusion_transformer.token",
         )
         self.attn_pair_bias.token_dit = not atom_level
         self.output_projection_weight = self.torch_to_tt(

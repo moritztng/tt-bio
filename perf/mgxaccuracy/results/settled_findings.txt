@@ -1,0 +1,114 @@
+SETTLED FINDINGS, moved out of the state doc because they are argued and closed
+==============================================================================
+
+The state doc is re-read every pass, so material that no longer drives a decision
+belongs here with a one-line pointer there. Nothing below has changed since it was
+measured; each block names the results file with the underlying numbers.
+
+**1GPB, the opening target, is one protein's personality and is not the row's answer.** Its 2x2
+(`results/twobytwo_result.txt`): 4.748 / 17.785 / 19.398 / 13.273 A, four significant simple
+effects that all cancel, interaction -19.16 A about 4x either main effect. Never quote its
+POOLED test — pooling makes each group bimodal and MW rejects neither factor. Supporting cells
+in `results/gpb_supporting.txt`: three 512 windows of one chain 100 residues apart read
+4.631 / 16.021 / 17.300 A, and the size half is +3.33 A for 823 residues of ONE chain
+(4.631 -> 7.962, 25% still under 4 A, not rejected) against +14.77 A for adding chain B at the
+same crop (rejected, 0 under 4 A).
+
+**NO CELL IN THIS ROW IS AN ENGINE ARTIFACT, at either size**
+(`results/engine_delta_is_inert.txt`, `results/onetree_1536_result.txt`): the same crop on trees
+422 and 525 insertions apart reads 4.748 vs 4.631 at 512 and 13.273 vs 12.950 at 1536/off100,
+U=28/64 and U=32.0/64 (p=1.0000, the no-difference centre). One caveat carried forward:
+`plans/onetree_1536.txt` pre-registered a 7.2 A threshold its own contrast misses by 0.2 A, and
+that 7.2 was a four-median budget transcribed onto a two-median contrast whose budget is 3.6 A.
+Stated, not applied — a threshold re-derived after seeing its number is worth nothing.
+
+**The other two designers.** pxdesign `fit_rmsd`, n=8: 0.1128 A at 592 tokens against 0.1747 at
+1616 with the binder held at 80, both ~86x under its own 15 A gate; the 1224-token production
+case reads 0.1423 on a 200-residue binder, a different configuration and NOT a third rung
+(`results/pxdesign_size_ladder.txt`). rfd3 has no designability metric at all — it leaves the
+sequence to an inverse-folding step the design command never runs — but completes at both rungs
+(rc 0, 387.8 s and 1478.0 s, AICLK 1000) and labels sizes by TOTAL residues, so it never shares
+a column with boltzgen (`results/rfd3_has_no_designability.txt`).
+
+
+THE FULL CATCHER LEDGER, moved out of the state doc
+====================================================
+
+## CATCHER
+
+**THE d8f17563c CATCHER IS DISCHARGED AND BOTH LEGS PASS**
+(`results/catcher_owed_d8f17563c.txt`), run 21:19-21:31Z from `~/wt-mgx-catcher` on the card
+the FAS 768 rung released:
+
+    d8f17563c    pxdesign    0    0    225.9   1000  fit_rmsd 0.1446 / 0.158
+    d8f17563c    boltzgen    0    0    490.7   1000  scRMSD   7.120 / 9.723
+
+pxdesign unmoved to four decimals for the SIXTH consecutive merge point; boltzgen inside the
+banked n=8 band 0.693-12.925. So the six autograd/tape commits are inert for both designers,
+as the `ops.taping()` gating predicted — a prediction written down in
+`plans/catcher_d8f17563c.txt` BEFORE the jobs ran, which is why the jobs ran anyway. rfd3 was
+not owed: the commits touch neither its design path nor the trace code.
+
+Every catcher handed to this row BEFORE that one is discharged and every one PASSES
+(`results/catcher_ws.jsonl`):
+
+    merge        model     card  rc   wall_s  AICLK  metric
+    cc908c377    boltzgen   21    0    632.6   1000  scRMSD   2.37 / 11.35 A
+    720b43a5d    boltzgen    5    0   2082.7   1000  scRMSD   median 4.749, n=8
+    1f338604e    boltzgen   31    0    576.5   1000  scRMSD   12.117 / 13.912
+    811ac1316    boltzgen    2    0    543.0   1000  scRMSD   2.131 / 0.552
+    6ea518246    boltzgen    5    0    492.0   1000  scRMSD   8.786 / 7.735
+    6ea518246    rfd3       29    0     45.1   1000  digest   7ab5705258251e10 MATCHES
+    428670d60    pxdesign    0    0    222.4   1000  fit_rmsd 0.1446 / 0.158
+    428670d60    boltzgen    2    0    486.0   1000  scRMSD   9.632 / 7.270
+    428670d60    rfd3        3    0     16.2    500  digest   7ab5705258251e10 MATCHES
+
+Two reading rules that keep applying. rfd3's AICLK median 500 over n=3 is a 16.2 s run failing
+to fill a sampling window, fine for a hash check and not for a timing claim, which is why this
+row reads its digest and not its wall. And boltzgen n=2 is pure sampling — consecutive catchers
+drew 12.117/13.912, 2.131/0.552, 8.786/7.735, 9.632/7.270 from one distribution — so only the
+exit code and an excursion outside the banked band 0.693-12.925 are readable.
+
+Nothing between 428670d60 and f374c883e owed one: that stretch was af2ig rows plus a
+`tt_bio.distributed` -> `tt_bio.host_controller` rename, with every trigger-list file untouched
+(`results/catcher_not_owed_f374c883e.txt`).
+
+
+SETTLED REFERENCE NOTES, moved out of the state doc
+====================================================
+
+**The 3.87 A "run-to-run spread" is the REFOLD instrument, not design variation.** Upstream's
+7.16724 and 11.04058 on the OLD 512 crop are the SAME DESIGN scored twice; its design-to-design
+spread is unmeasured at both sizes and the `_b` draws give the first reading. That old-crop
+reference stands on its own crop, 7.17 / 11.04 A against the device's 10.56 A n=9.
+
+**Why the GroEL reference exists at all.** The reference half sat entirely on 1GPB until
+17:5xZ — the row refuted a target and then used that same target as its only upstream
+comparison. The stated blocker, "another ~10-14 h of a qb2 already at load 54", was true of qb2
+and false of the fleet: whglx has ~45 idle cores and serves its live app off cards, not CPUs.
+Both rungs launched there against a reference whose package pin, HF revision, weight hashes and
+fixtures were checked against qb2's first (`results/upstream_groel_whglx.txt`). Corroboration,
+not the deciding test: `plans/closing_rule.txt` §4 stays pre-registered on the qb2 1GPB pair.
+
+
+WHAT "SIZE" MEANS IN THIS ROW, moved out of the state doc header
+=================================================================
+
+TARGET residues at a FIXED 80-residue binder. Every boltzgen cell in this row holds the binder
+at 80, so the binder's share of the token axis falls from 13.5% at 512 tokens to 5.0% at 1536
+as the target grows. Those two move together in every cell and the row has never separated
+them.
+
+It scopes the claim rather than weakening any comparison:
+
+  - The METRIC is unaffected. `designfolding-bb_rmsd` is an 80-residue backbone RMSD at every
+    rung, so it is not measuring a bigger object at a bigger size.
+  - The FAS CONTROL is unaffected. It holds the binder at 80 exactly as GroEL and 1GPB did, so
+    the chain-vs-residues comparison is not confounded by it.
+
+The only place a different binder appears anywhere in the row is pxdesign's 1224-token
+production case, which uses 200 residues and is already flagged in
+`results/pxdesign_size_ladder.txt` as a different configuration and NOT a rung.
+
+`docs/design-throughput.md` states the 80-residue binder to the user, so nobody reads the crop
+advice as covering a longer one.

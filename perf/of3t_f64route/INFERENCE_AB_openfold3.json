@@ -1,0 +1,257 @@
+{
+ "AA_floor_seconds": 0.45,
+ "AA_floor_seconds_per_arm": {
+  "base": 0.45,
+  "off": 0.28,
+  "on": 0.31
+ },
+ "AB_seconds": {
+  "off_minus_base": 0.32,
+  "on_minus_off": -0.04
+ },
+ "arms": {
+  "base": [
+   {
+    "cifs": {
+     "cdk2x2_128.cif": "b2f94fa1b430518c6431fd749605bb1a75043219c93955ca1a528430915665b8"
+    },
+    "clock": {
+     "max": 1350,
+     "median": 1350,
+     "min": 800,
+     "n": 14
+    },
+    "clock_line": "CLOCK: dev0 min 800 / median 1350 / max 1350 MHz over 14 samples, polled DURING the work",
+    "rc": 0,
+    "seconds": 40.57,
+    "softmax_census": {},
+    "tail": ""
+   },
+   {
+    "cifs": {
+     "cdk2x2_128.cif": "b2f94fa1b430518c6431fd749605bb1a75043219c93955ca1a528430915665b8"
+    },
+    "clock": {
+     "max": 1350,
+     "median": 1350,
+     "min": 800,
+     "n": 14
+    },
+    "clock_line": "CLOCK: dev0 min 800 / median 1350 / max 1350 MHz over 14 samples, polled DURING the work",
+    "rc": 0,
+    "seconds": 40.12,
+    "softmax_census": {},
+    "tail": ""
+   }
+  ],
+  "off": [
+   {
+    "cifs": {
+     "cdk2x2_128.cif": "b2f94fa1b430518c6431fd749605bb1a75043219c93955ca1a528430915665b8"
+    },
+    "clock": {
+     "max": 1350,
+     "median": 1350,
+     "min": 800,
+     "n": 14
+    },
+    "clock_line": "CLOCK: dev0 min 800 / median 1350 / max 1350 MHz over 14 samples, polled DURING the work",
+    "rc": 0,
+    "seconds": 40.52,
+    "softmax_census": {
+     "declined": 0,
+     "elements": 0,
+     "refused": 0,
+     "selected": 0,
+     "served": 0,
+     "tail": 0
+    },
+    "tail": ""
+   },
+   {
+    "cifs": {
+     "cdk2x2_128.cif": "b2f94fa1b430518c6431fd749605bb1a75043219c93955ca1a528430915665b8"
+    },
+    "clock": {
+     "max": 1350,
+     "median": 1350,
+     "min": 800,
+     "n": 14
+    },
+    "clock_line": "CLOCK: dev0 min 800 / median 1350 / max 1350 MHz over 14 samples, polled DURING the work",
+    "rc": 0,
+    "seconds": 40.8,
+    "softmax_census": {
+     "declined": 0,
+     "elements": 0,
+     "refused": 0,
+     "selected": 0,
+     "served": 0,
+     "tail": 0
+    },
+    "tail": ""
+   }
+  ],
+  "on": [
+   {
+    "cifs": {
+     "cdk2x2_128.cif": "b2f94fa1b430518c6431fd749605bb1a75043219c93955ca1a528430915665b8"
+    },
+    "clock": {
+     "max": 1350,
+     "median": 1350,
+     "min": 800,
+     "n": 14
+    },
+    "clock_line": "CLOCK: dev0 min 800 / median 1350 / max 1350 MHz over 14 samples, polled DURING the work",
+    "rc": 0,
+    "seconds": 40.46,
+    "softmax_census": {
+     "declined": 0,
+     "elements": 0,
+     "refused": 0,
+     "selected": 0,
+     "served": 0,
+     "tail": 0
+    },
+    "tail": ""
+   },
+   {
+    "cifs": {
+     "cdk2x2_128.cif": "b2f94fa1b430518c6431fd749605bb1a75043219c93955ca1a528430915665b8"
+    },
+    "clock": {
+     "max": 1350,
+     "median": 1350,
+     "min": 800,
+     "n": 14
+    },
+    "clock_line": "CLOCK: dev0 min 800 / median 1350 / max 1350 MHz over 14 samples, polled DURING the work",
+    "rc": 0,
+    "seconds": 40.77,
+    "softmax_census": {
+     "declined": 0,
+     "elements": 0,
+     "refused": 0,
+     "selected": 0,
+     "served": 0,
+     "tail": 0
+    },
+    "tail": ""
+   }
+  ]
+ },
+ "arms_below_1200MHz": [],
+ "arms_slower_than_floor": [],
+ "base_equals_off": true,
+ "card": "3",
+ "clock": {
+  "base": [
+   {
+    "max": 1350,
+    "median": 1350,
+    "min": 800,
+    "n": 14
+   },
+   {
+    "max": 1350,
+    "median": 1350,
+    "min": 800,
+    "n": 14
+   }
+  ],
+  "off": [
+   {
+    "max": 1350,
+    "median": 1350,
+    "min": 800,
+    "n": 14
+   },
+   {
+    "max": 1350,
+    "median": 1350,
+    "min": 800,
+    "n": 14
+   }
+  ],
+  "on": [
+   {
+    "max": 1350,
+    "median": 1350,
+    "min": 800,
+    "n": 14
+   },
+   {
+    "max": 1350,
+    "median": 1350,
+    "min": 800,
+    "n": 14
+   }
+  ]
+ },
+ "digest_stable_within_arm": true,
+ "digests": {
+  "base": [
+   {
+    "cdk2x2_128.cif": "b2f94fa1b430518c6431fd749605bb1a75043219c93955ca1a528430915665b8"
+   },
+   {
+    "cdk2x2_128.cif": "b2f94fa1b430518c6431fd749605bb1a75043219c93955ca1a528430915665b8"
+   }
+  ],
+  "off": [
+   {
+    "cdk2x2_128.cif": "b2f94fa1b430518c6431fd749605bb1a75043219c93955ca1a528430915665b8"
+   },
+   {
+    "cdk2x2_128.cif": "b2f94fa1b430518c6431fd749605bb1a75043219c93955ca1a528430915665b8"
+   }
+  ],
+  "on": [
+   {
+    "cdk2x2_128.cif": "b2f94fa1b430518c6431fd749605bb1a75043219c93955ca1a528430915665b8"
+   },
+   {
+    "cdk2x2_128.cif": "b2f94fa1b430518c6431fd749605bb1a75043219c93955ca1a528430915665b8"
+   }
+  ]
+ },
+ "fixture": "/home/ttuser/.coworker/wt/of3t-f64route/perf/size512/fixtures/cdk2x2_128.yaml",
+ "host": "tt-quietbox",
+ "host_card": "tt-quietbox card 3",
+ "lever_env": "TT_BIO_HOST_F64_SOFTMAX_AB",
+ "lever_value": "all",
+ "median_seconds": {
+  "base": 40.34,
+  "off": 40.66,
+  "on": 40.62
+ },
+ "model": "openfold3",
+ "off_equals_on": true,
+ "readable_above_the_floor": {
+  "off_minus_base": false,
+  "on_minus_off": false
+ },
+ "reps": 2,
+ "seconds": {
+  "base": [
+   40.57,
+   40.12
+  ],
+  "off": [
+   40.52,
+   40.8
+  ],
+  "on": [
+   40.46,
+   40.77
+  ]
+ },
+ "softmax_calls_per_fold": {
+  "off": 0,
+  "on": 0
+ },
+ "verdict": "LEVER: LEVER FREE: off == on byte for byte, and on-minus-off (-0.04 s) is inside the 0.45 s A/A floor | TREE: TREE IDENTICAL: base == off byte for byte, and off-minus-base (0.32 s) is inside the 0.45 s A/A floor",
+ "verdict_lever": "LEVER FREE: off == on byte for byte, and on-minus-off (-0.04 s) is inside the 0.45 s A/A floor",
+ "verdict_tree": "TREE IDENTICAL: base == off byte for byte, and off-minus-base (0.32 s) is inside the 0.45 s A/A floor"
+}

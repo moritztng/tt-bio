@@ -1,0 +1,933 @@
+{
+ "census": "perf/of3t_intensity/out/census_256_noexact.counts.json",
+ "rules": {
+  "matmul_flop": "2 * out_volume * K, exact from the shapes",
+  "softmax_per_element": 5.0,
+  "norm_per_element": 8.0,
+  "eltwise_per_element": 1.0,
+  "bytes": "operands in + results out at PADDED volume, split by buffer type; the program's MINIMUM traffic, so the AI below is an upper bound",
+  "zero_flop": "permute/slice/concat/to_layout/typecast/deallocate and friends compute nothing by construction, so they have no compute roof to be a fraction of",
+  "meta": "deallocate, is_tensor_storage_on_device and friends move NO bytes; they are counted as calls and as zero traffic"
+ },
+ "parts": {
+  "backward": {
+   "calls": 102636,
+   "calls_zero_flop": 52454,
+   "zero_flop_call_share": 0.5111,
+   "gflop": 12818.171,
+   "gflop_matmul_only": 12565.441,
+   "dram_gb": 2523.422,
+   "l1_gb": 0.0,
+   "pcie_gb": 0.0,
+   "ai_flop_per_dram_byte": 5.08,
+   "ai_matmul_only": 4.98,
+   "by_kind": {
+    "move": {
+     "calls": 36160,
+     "gflop": 0.0,
+     "dram_gb": 956.176
+    },
+    "eltwise": {
+     "calls": 32748,
+     "gflop": 150.353,
+     "dram_gb": 1101.7
+    },
+    "meta": {
+     "calls": 16294,
+     "gflop": 0.0,
+     "dram_gb": 0.0
+    },
+    "matmul": {
+     "calls": 9669,
+     "gflop": 12565.441,
+     "dram_gb": 271.397
+    },
+    "reduce": {
+     "calls": 6690,
+     "gflop": 37.436,
+     "dram_gb": 121.72
+    },
+    "norm": {
+     "calls": 916,
+     "gflop": 28.443,
+     "dram_gb": 14.239
+    },
+    "softmax": {
+     "calls": 159,
+     "gflop": 36.498,
+     "dram_gb": 58.19
+    }
+   },
+   "top_verbs_by_calls": [
+    {
+     "verb": "reshape",
+     "calls": 18564,
+     "flop": 0.0,
+     "dram_b": 277.486
+    },
+    {
+     "verb": "deallocate",
+     "calls": 16077,
+     "flop": 0.0,
+     "dram_b": 0.0
+    },
+    {
+     "verb": "multiply",
+     "calls": 15200,
+     "flop": 79.882,
+     "dram_b": 558.421
+    },
+    {
+     "verb": "matmul",
+     "calls": 7176,
+     "flop": 8574.133,
+     "dram_b": 223.036
+    },
+    {
+     "verb": "slice",
+     "calls": 6185,
+     "flop": 0.0,
+     "dram_b": 191.873
+    },
+    {
+     "verb": "add",
+     "calls": 6131,
+     "flop": 23.197,
+     "dram_b": 225.03
+    },
+    {
+     "verb": "typecast",
+     "calls": 6123,
+     "flop": 0.0,
+     "dram_b": 335.531
+    },
+    {
+     "verb": "mean",
+     "calls": 4354,
+     "flop": 15.436,
+     "dram_b": 41.238
+    },
+    {
+     "verb": "subtract",
+     "calls": 3453,
+     "flop": 18.904,
+     "dram_b": 123.755
+    },
+    {
+     "verb": "add_",
+     "calls": 2804,
+     "flop": 7.485,
+     "dram_b": 91.8
+    },
+    {
+     "verb": "sum",
+     "calls": 2336,
+     "flop": 22.0,
+     "dram_b": 80.481
+    },
+    {
+     "verb": "linear",
+     "calls": 2169,
+     "flop": 2180.979,
+     "dram_b": 28.671
+    },
+    {
+     "verb": "sigmoid",
+     "calls": 1666,
+     "flop": 7.223,
+     "dram_b": 29.147
+    },
+    {
+     "verb": "permute",
+     "calls": 1426,
+     "flop": 0.0,
+     "dram_b": 26.445
+    },
+    {
+     "verb": "rsub",
+     "calls": 1180,
+     "flop": 5.435,
+     "dram_b": 21.997
+    },
+    {
+     "verb": "to_layout",
+     "calls": 1118,
+     "flop": 0.0,
+     "dram_b": 20.631
+    },
+    {
+     "verb": "rsqrt",
+     "calls": 1090,
+     "flop": 0.031,
+     "dram_b": 4.192
+    },
+    {
+     "verb": "layer_norm",
+     "calls": 916,
+     "flop": 28.443,
+     "dram_b": 14.239
+    }
+   ],
+   "top_verbs_by_dram": [
+    {
+     "verb": "multiply",
+     "calls": 15200,
+     "dram_gb": 558.421,
+     "gflop": 79.882
+    },
+    {
+     "verb": "typecast",
+     "calls": 6123,
+     "dram_gb": 335.531,
+     "gflop": 0.0
+    },
+    {
+     "verb": "reshape",
+     "calls": 18564,
+     "dram_gb": 277.486,
+     "gflop": 0.0
+    },
+    {
+     "verb": "add",
+     "calls": 6131,
+     "dram_gb": 225.03,
+     "gflop": 23.197
+    },
+    {
+     "verb": "matmul",
+     "calls": 7176,
+     "dram_gb": 223.036,
+     "gflop": 8574.133
+    },
+    {
+     "verb": "slice",
+     "calls": 6185,
+     "dram_gb": 191.873,
+     "gflop": 0.0
+    },
+    {
+     "verb": "subtract",
+     "calls": 3453,
+     "dram_gb": 123.755,
+     "gflop": 18.904
+    },
+    {
+     "verb": "add_",
+     "calls": 2804,
+     "dram_gb": 91.8,
+     "gflop": 7.485
+    },
+    {
+     "verb": "sum",
+     "calls": 2336,
+     "dram_gb": 80.481,
+     "gflop": 22.0
+    },
+    {
+     "verb": "softmax",
+     "calls": 159,
+     "dram_gb": 58.19,
+     "gflop": 36.498
+    },
+    {
+     "verb": "concat",
+     "calls": 853,
+     "dram_gb": 45.856,
+     "gflop": 0.0
+    },
+    {
+     "verb": "mean",
+     "calls": 4354,
+     "dram_gb": 41.238,
+     "gflop": 15.436
+    },
+    {
+     "verb": "sigmoid",
+     "calls": 1666,
+     "dram_gb": 29.147,
+     "gflop": 7.223
+    },
+    {
+     "verb": "linear",
+     "calls": 2169,
+     "dram_gb": 28.671,
+     "gflop": 2180.979
+    },
+    {
+     "verb": "permute",
+     "calls": 1426,
+     "dram_gb": 26.445,
+     "gflop": 0.0
+    },
+    {
+     "verb": "rsub",
+     "calls": 1180,
+     "dram_gb": 21.997,
+     "gflop": 5.435
+    },
+    {
+     "verb": "transpose",
+     "calls": 736,
+     "dram_gb": 21.257,
+     "gflop": 0.0
+    },
+    {
+     "verb": "to_layout",
+     "calls": 1118,
+     "dram_gb": 20.631,
+     "gflop": 0.0
+    }
+   ]
+  },
+  "diffusion": {
+   "calls": 2171,
+   "calls_zero_flop": 900,
+   "zero_flop_call_share": 0.4146,
+   "gflop": 171.657,
+   "gflop_matmul_only": 168.784,
+   "dram_gb": 12.712,
+   "l1_gb": 0.0,
+   "pcie_gb": 0.005,
+   "ai_flop_per_dram_byte": 13.503,
+   "ai_matmul_only": 13.277,
+   "by_kind": {
+    "move": {
+     "calls": 663,
+     "gflop": 0.0,
+     "dram_gb": 2.923
+    },
+    "eltwise": {
+     "calls": 569,
+     "gflop": 0.42,
+     "dram_gb": 3.616
+    },
+    "matmul": {
+     "calls": 502,
+     "gflop": 168.784,
+     "dram_gb": 3.789
+    },
+    "meta": {
+     "calls": 237,
+     "gflop": 0.0,
+     "dram_gb": 0.0
+    },
+    "norm": {
+     "calls": 170,
+     "gflop": 2.295,
+     "dram_gb": 2.145
+    },
+    "softmax": {
+     "calls": 30,
+     "gflop": 0.158,
+     "dram_gb": 0.24
+    }
+   },
+   "top_verbs_by_calls": [
+    {
+     "verb": "linear",
+     "calls": 441,
+     "flop": 160.714,
+     "dram_b": 3.383
+    },
+    {
+     "verb": "multiply",
+     "calls": 305,
+     "flop": 0.209,
+     "dram_b": 1.857
+    },
+    {
+     "verb": "add",
+     "calls": 200,
+     "flop": 0.13,
+     "dram_b": 1.259
+    },
+    {
+     "verb": "to_layout",
+     "calls": 194,
+     "flop": 0.0,
+     "dram_b": 1.163
+    },
+    {
+     "verb": "deallocate",
+     "calls": 170,
+     "flop": 0.0,
+     "dram_b": 0.0
+    },
+    {
+     "verb": "layer_norm",
+     "calls": 170,
+     "flop": 2.295,
+     "dram_b": 2.145
+    },
+    {
+     "verb": "permute",
+     "calls": 132,
+     "flop": 0.0,
+     "dram_b": 0.538
+    },
+    {
+     "verb": "reshape",
+     "calls": 99,
+     "flop": 0.0,
+     "dram_b": 0.295
+    },
+    {
+     "verb": "from_torch",
+     "calls": 88,
+     "flop": 0.0,
+     "dram_b": 0.006
+    },
+    {
+     "verb": "typecast",
+     "calls": 76,
+     "flop": 0.0,
+     "dram_b": 0.592
+    },
+    {
+     "verb": "to_memory_config",
+     "calls": 66,
+     "flop": 0.0,
+     "dram_b": 0.0
+    },
+    {
+     "verb": "matmul",
+     "calls": 61,
+     "flop": 8.07,
+     "dram_b": 0.406
+    },
+    {
+     "verb": "sigmoid",
+     "calls": 34,
+     "flop": 0.047,
+     "dram_b": 0.23
+    },
+    {
+     "verb": "softmax",
+     "calls": 30,
+     "flop": 0.158,
+     "dram_b": 0.24
+    },
+    {
+     "verb": "slice",
+     "calls": 28,
+     "flop": 0.0,
+     "dram_b": 0.055
+    },
+    {
+     "verb": "unsqueeze",
+     "calls": 26,
+     "flop": 0.0,
+     "dram_b": 0.158
+    },
+    {
+     "verb": "experimental.nlp_create_qkv_heads",
+     "calls": 24,
+     "flop": 0.019,
+     "dram_b": 0.151
+    },
+    {
+     "verb": "embedding",
+     "calls": 12,
+     "flop": 0.0,
+     "dram_b": 0.037
+    }
+   ],
+   "top_verbs_by_dram": [
+    {
+     "verb": "linear",
+     "calls": 441,
+     "dram_gb": 3.383,
+     "gflop": 160.714
+    },
+    {
+     "verb": "layer_norm",
+     "calls": 170,
+     "dram_gb": 2.145,
+     "gflop": 2.295
+    },
+    {
+     "verb": "multiply",
+     "calls": 305,
+     "dram_gb": 1.857,
+     "gflop": 0.209
+    },
+    {
+     "verb": "add",
+     "calls": 200,
+     "dram_gb": 1.259,
+     "gflop": 0.13
+    },
+    {
+     "verb": "to_layout",
+     "calls": 194,
+     "dram_gb": 1.163,
+     "gflop": 0.0
+    },
+    {
+     "verb": "typecast",
+     "calls": 76,
+     "dram_gb": 0.592,
+     "gflop": 0.0
+    },
+    {
+     "verb": "permute",
+     "calls": 132,
+     "dram_gb": 0.538,
+     "gflop": 0.0
+    },
+    {
+     "verb": "matmul",
+     "calls": 61,
+     "dram_gb": 0.406,
+     "gflop": 8.07
+    },
+    {
+     "verb": "reshape",
+     "calls": 99,
+     "dram_gb": 0.295,
+     "gflop": 0.0
+    },
+    {
+     "verb": "softmax",
+     "calls": 30,
+     "dram_gb": 0.24,
+     "gflop": 0.158
+    },
+    {
+     "verb": "sigmoid",
+     "calls": 34,
+     "dram_gb": 0.23,
+     "gflop": 0.047
+    },
+    {
+     "verb": "unsqueeze",
+     "calls": 26,
+     "dram_gb": 0.158,
+     "gflop": 0.0
+    },
+    {
+     "verb": "experimental.nlp_create_qkv_heads",
+     "calls": 24,
+     "dram_gb": 0.151,
+     "gflop": 0.019
+    },
+    {
+     "verb": "relu",
+     "calls": 6,
+     "dram_gb": 0.118,
+     "gflop": 0.016
+    },
+    {
+     "verb": "concat",
+     "calls": 2,
+     "dram_gb": 0.076,
+     "gflop": 0.0
+    },
+    {
+     "verb": "slice",
+     "calls": 28,
+     "dram_gb": 0.055,
+     "gflop": 0.0
+    },
+    {
+     "verb": "embedding",
+     "calls": 12,
+     "dram_gb": 0.037,
+     "gflop": 0.0
+    },
+    {
+     "verb": "from_torch",
+     "calls": 88,
+     "dram_gb": 0.006,
+     "gflop": 0.0
+    }
+   ]
+  },
+  "loss_heads": {
+   "calls": 1,
+   "calls_zero_flop": 1,
+   "zero_flop_call_share": 1.0,
+   "gflop": 0.0,
+   "gflop_matmul_only": 0.0,
+   "dram_gb": 0.0,
+   "l1_gb": 0.0,
+   "pcie_gb": 0.0,
+   "ai_flop_per_dram_byte": 0.0,
+   "ai_matmul_only": 0.0,
+   "by_kind": {
+    "move": {
+     "calls": 1,
+     "gflop": 0.0,
+     "dram_gb": 0.0
+    }
+   },
+   "top_verbs_by_calls": [
+    {
+     "verb": "to_torch",
+     "calls": 1,
+     "flop": 0.0,
+     "dram_b": 0.0
+    }
+   ],
+   "top_verbs_by_dram": [
+    {
+     "verb": "to_torch",
+     "calls": 1,
+     "dram_gb": 0.0,
+     "gflop": 0.0
+    }
+   ]
+  },
+  "optimizer": {
+   "calls": 15344,
+   "calls_zero_flop": 15344,
+   "zero_flop_call_share": 1.0,
+   "gflop": 0.0,
+   "gflop_matmul_only": 0.0,
+   "dram_gb": 6.537,
+   "l1_gb": 0.0,
+   "pcie_gb": 6.736,
+   "ai_flop_per_dram_byte": 0.0,
+   "ai_matmul_only": 0.0,
+   "by_kind": {
+    "move": {
+     "calls": 15344,
+     "gflop": 0.0,
+     "dram_gb": 6.537
+    }
+   },
+   "top_verbs_by_calls": [
+    {
+     "verb": "to_torch",
+     "calls": 12192,
+     "flop": 0.0,
+     "dram_b": 5.364
+    },
+    {
+     "verb": "from_torch",
+     "calls": 3152,
+     "flop": 0.0,
+     "dram_b": 1.173
+    }
+   ],
+   "top_verbs_by_dram": [
+    {
+     "verb": "to_torch",
+     "calls": 12192,
+     "dram_gb": 5.364,
+     "gflop": 0.0
+    },
+    {
+     "verb": "from_torch",
+     "calls": 3152,
+     "dram_gb": 1.173,
+     "gflop": 0.0
+    }
+   ]
+  },
+  "seed_upload": {
+   "calls": 1,
+   "calls_zero_flop": 1,
+   "zero_flop_call_share": 1.0,
+   "gflop": 0.0,
+   "gflop_matmul_only": 0.0,
+   "dram_gb": 0.0,
+   "l1_gb": 0.0,
+   "pcie_gb": 0.0,
+   "ai_flop_per_dram_byte": 0.0,
+   "ai_matmul_only": 0.0,
+   "by_kind": {
+    "move": {
+     "calls": 1,
+     "gflop": 0.0,
+     "dram_gb": 0.0
+    }
+   },
+   "top_verbs_by_calls": [
+    {
+     "verb": "from_torch",
+     "calls": 1,
+     "flop": 0.0,
+     "dram_b": 0.0
+    }
+   ],
+   "top_verbs_by_dram": [
+    {
+     "verb": "from_torch",
+     "calls": 1,
+     "dram_gb": 0.0,
+     "gflop": 0.0
+    }
+   ]
+  },
+  "trunk_taped_cycle": {
+   "calls": 17610,
+   "calls_zero_flop": 10508,
+   "zero_flop_call_share": 0.5967,
+   "gflop": 5494.77,
+   "gflop_matmul_only": 5406.295,
+   "dram_gb": 473.019,
+   "l1_gb": 0.0,
+   "pcie_gb": 0.074,
+   "ai_flop_per_dram_byte": 11.616,
+   "ai_matmul_only": 11.429,
+   "by_kind": {
+    "meta": {
+     "calls": 7749,
+     "gflop": 0.0,
+     "dram_gb": 0.0
+    },
+    "eltwise": {
+     "calls": 3064,
+     "gflop": 23.097,
+     "dram_gb": 145.005
+    },
+    "matmul": {
+     "calls": 2955,
+     "gflop": 5406.295,
+     "dram_gb": 90.956
+    },
+    "move": {
+     "calls": 2759,
+     "gflop": 0.0,
+     "dram_gb": 163.471
+    },
+    "norm": {
+     "calls": 920,
+     "gflop": 28.611,
+     "dram_gb": 14.323
+    },
+    "softmax": {
+     "calls": 159,
+     "gflop": 36.498,
+     "dram_gb": 58.19
+    },
+    "reduce": {
+     "calls": 4,
+     "gflop": 0.268,
+     "dram_gb": 1.074
+    }
+   },
+   "top_verbs_by_calls": [
+    {
+     "verb": "deallocate",
+     "calls": 7748,
+     "flop": 0.0,
+     "dram_b": 0.0
+    },
+    {
+     "verb": "linear",
+     "calls": 2183,
+     "flop": 2186.311,
+     "dram_b": 28.863
+    },
+    {
+     "verb": "multiply",
+     "calls": 1741,
+     "flop": 7.516,
+     "dram_b": 45.563
+    },
+    {
+     "verb": "layer_norm",
+     "calls": 920,
+     "flop": 28.611,
+     "dram_b": 14.323
+    },
+    {
+     "verb": "permute",
+     "calls": 755,
+     "flop": 0.0,
+     "dram_b": 16.51
+    },
+    {
+     "verb": "add",
+     "calls": 570,
+     "flop": 9.778,
+     "dram_b": 74.08
+    },
+    {
+     "verb": "sigmoid",
+     "calls": 486,
+     "flop": 1.788,
+     "dram_b": 7.15
+    },
+    {
+     "verb": "matmul",
+     "calls": 448,
+     "flop": 1409.655,
+     "dram_b": 42.402
+    },
+    {
+     "verb": "typecast",
+     "calls": 324,
+     "flop": 0.0,
+     "dram_b": 87.143
+    },
+    {
+     "verb": "experimental.minimal_matmul",
+     "calls": 324,
+     "flop": 1810.329,
+     "dram_b": 19.691
+    },
+    {
+     "verb": "reshape",
+     "calls": 311,
+     "flop": 0.0,
+     "dram_b": 9.804
+    },
+    {
+     "verb": "unsqueeze",
+     "calls": 265,
+     "flop": 0.0,
+     "dram_b": 11.853
+    },
+    {
+     "verb": "transpose",
+     "calls": 264,
+     "flop": 0.0,
+     "dram_b": 7.139
+    },
+    {
+     "verb": "to_layout",
+     "calls": 232,
+     "flop": 0.0,
+     "dram_b": 9.274
+    },
+    {
+     "verb": "chunk",
+     "calls": 165,
+     "flop": 0.0,
+     "dram_b": 16.013
+    },
+    {
+     "verb": "softmax",
+     "calls": 159,
+     "flop": 36.498,
+     "dram_b": 58.19
+    },
+    {
+     "verb": "experimental.nlp_create_qkv_heads",
+     "calls": 156,
+     "flop": 2.737,
+     "dram_b": 10.947
+    },
+    {
+     "verb": "slice",
+     "calls": 153,
+     "flop": 0.0,
+     "dram_b": 0.272
+    }
+   ],
+   "top_verbs_by_dram": [
+    {
+     "verb": "typecast",
+     "calls": 324,
+     "dram_gb": 87.143,
+     "gflop": 0.0
+    },
+    {
+     "verb": "add",
+     "calls": 570,
+     "dram_gb": 74.08,
+     "gflop": 9.778
+    },
+    {
+     "verb": "softmax",
+     "calls": 159,
+     "dram_gb": 58.19,
+     "gflop": 36.498
+    },
+    {
+     "verb": "multiply",
+     "calls": 1741,
+     "dram_gb": 45.563,
+     "gflop": 7.516
+    },
+    {
+     "verb": "matmul",
+     "calls": 448,
+     "dram_gb": 42.402,
+     "gflop": 1409.655
+    },
+    {
+     "verb": "linear",
+     "calls": 2183,
+     "dram_gb": 28.863,
+     "gflop": 2186.311
+    },
+    {
+     "verb": "experimental.minimal_matmul",
+     "calls": 324,
+     "dram_gb": 19.691,
+     "gflop": 1810.329
+    },
+    {
+     "verb": "permute",
+     "calls": 755,
+     "dram_gb": 16.51,
+     "gflop": 0.0
+    },
+    {
+     "verb": "chunk",
+     "calls": 165,
+     "dram_gb": 16.013,
+     "gflop": 0.0
+    },
+    {
+     "verb": "layer_norm",
+     "calls": 920,
+     "dram_gb": 14.323,
+     "gflop": 28.611
+    },
+    {
+     "verb": "unsqueeze",
+     "calls": 265,
+     "dram_gb": 11.853,
+     "gflop": 0.0
+    },
+    {
+     "verb": "experimental.nlp_create_qkv_heads",
+     "calls": 156,
+     "dram_gb": 10.947,
+     "gflop": 2.737
+    },
+    {
+     "verb": "reshape",
+     "calls": 311,
+     "dram_gb": 9.804,
+     "gflop": 0.0
+    },
+    {
+     "verb": "to_layout",
+     "calls": 232,
+     "dram_gb": 9.274,
+     "gflop": 0.0
+    },
+    {
+     "verb": "sigmoid",
+     "calls": 486,
+     "dram_gb": 7.15,
+     "gflop": 1.788
+    },
+    {
+     "verb": "transpose",
+     "calls": 264,
+     "dram_gb": 7.139,
+     "gflop": 0.0
+    },
+    {
+     "verb": "experimental.nlp_concat_heads",
+     "calls": 104,
+     "dram_gb": 3.49,
+     "gflop": 0.872
+    },
+    {
+     "verb": "squeeze",
+     "calls": 104,
+     "dram_gb": 3.49,
+     "gflop": 0.0
+    }
+   ]
+  }
+ }
+}

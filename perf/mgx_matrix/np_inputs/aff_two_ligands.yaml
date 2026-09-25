@@ -1,0 +1,15 @@
+version: 1
+sequences:
+  - protein:
+      id: A
+      sequence: MQIFVKTLTGKTITLEVEPSDTIENVKAKIQDKEGIPPDQQRLIFAGKQLEDGRTLSDYNIQKESTLHLVLRLRGG
+      msa: empty
+  - ligand:
+      id: L
+      ccd: ATP
+  - ligand:
+      id: M
+      smiles: 'CCO'
+properties:
+  - affinity:
+      binder: M

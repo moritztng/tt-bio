@@ -1,0 +1,90 @@
+{
+ "what": "of3t-recut job 2, crop 64: what the three arms of `c64_controls.sh` prove.",
+ "host": "tt-quietbox2",
+ "device_involved": false,
+ "why_no_aiclk": "CPU only, no Tenstorrent device is opened",
+ "banked": {
+  "pt": "/home/ttuser/of3t_trunkg043/ref_f64_c64.pt",
+  "report": "perf/of3t_trunkg043/REF_F64_c64.json",
+  "loss": -0.3073181442478619,
+  "squared_gradient_norm": 1.8714981803225081,
+  "injection_convention": "predates the stamp: legacy-total-cotangent"
+ },
+ "LEGACY_REPRODUCES_THE_BANKED_ARM": {
+  "stamp": "legacy-total-cotangent",
+  "loss": {
+   "banked": -0.3073181442478619,
+   "legacy": -0.3073181442478611,
+   "bit_identical": false
+  },
+  "squared_gradient_norm": {
+   "banked": 1.8714981803225081,
+   "legacy": 1.871498180322509,
+   "bit_identical": false
+  },
+  "tensors": {
+   "compared": 2736,
+   "bit_identical": 0,
+   "all_bit_identical": false,
+   "absent": [],
+   "mass_weighted_rel_l2": 9.138060687514453e-14,
+   "worst_rel_l2": 10.46446217583241,
+   "worst_tensor": "pairformer_stack.blocks.24.attn_pair_bias.layer_norm_z.bias"
+  },
+  "verdict": "the flag does NOT reproduce the banked arm"
+ },
+ "DEFAULT_MOVES": {
+  "stamp": "graph-cut-external",
+  "graph_cut": {
+   "is_cut": false,
+   "ancestor_descendant_pairs": [
+    [
+     "z_out",
+     "s_out"
+    ]
+   ],
+   "checked_by": "walk of the grad_fn DAG over the injected outputs"
+  },
+  "cot_z_norm_hooked": 0.0005430220033757261,
+  "cot_z_norm_injected": 0.0004525357226265418,
+  "correction_norm": 0.0005355497738277162,
+  "duplicate_share_of_the_hooked_cot_z": 0.9862395455404046,
+  "true_external_cotangent_is_smaller_by": 1.1999538958471545,
+  "loss": {
+   "banked": -0.3073181442478619,
+   "corrected": -0.30731814363233223
+  },
+  "squared_gradient_norm": {
+   "banked": 1.8714981803225081,
+   "corrected": 1.7581148388741772
+  },
+  "tensors_vs_the_banked_arm": {
+   "compared": 2736,
+   "bit_identical": 0,
+   "all_bit_identical": false,
+   "absent": [],
+   "mass_weighted_rel_l2": 0.3259127708223661,
+   "worst_rel_l2": 10.46446217583241,
+   "worst_tensor": "pairformer_stack.blocks.24.attn_pair_bias.layer_norm_z.bias"
+  },
+  "verdict": "the default is a different injection from the banked one, and z_out is an ancestor of s_out at this boundary too"
+ },
+ "CHECKPOINT_IS_INERT": {
+  "plain_loss": -0.30731814363233223,
+  "checkpointed_loss": -0.30731814363233223,
+  "loss_bit_identical": true,
+  "correction_norm_plain": 0.0005355497738277162,
+  "correction_norm_checkpointed": 0.0005355497738277162,
+  "tensors": {
+   "compared": 2736,
+   "bit_identical": 2736,
+   "all_bit_identical": true,
+   "absent": [],
+   "mass_weighted_rel_l2": 0.0,
+   "worst_rel_l2": 0.0,
+   "worst_tensor": null
+  },
+  "what": "--checkpoint now leaves the last block eager, so this is the control that says the flag is still bit-neutral and the crop-384 arm may use it",
+  "verdict": "inert"
+ }
+}

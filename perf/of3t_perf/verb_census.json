@@ -1,0 +1,239 @@
+{
+ "glob": "tt_bio/openfold3*.py",
+ "files": {
+  "openfold3.py": {
+   "calls": 18,
+   "verbs": 5,
+   "module_level_ttnn": true,
+   "local_import_lines": []
+  },
+  "openfold3_atom_transformer.py": {
+   "calls": 59,
+   "verbs": 12,
+   "module_level_ttnn": true,
+   "local_import_lines": []
+  },
+  "openfold3_confidence.py": {
+   "calls": 12,
+   "verbs": 4,
+   "module_level_ttnn": false,
+   "local_import_lines": [
+    163
+   ]
+  },
+  "openfold3_data.py": {
+   "calls": 0,
+   "verbs": 0,
+   "module_level_ttnn": false,
+   "local_import_lines": []
+  },
+  "openfold3_diffusion.py": {
+   "calls": 19,
+   "verbs": 5,
+   "module_level_ttnn": true,
+   "local_import_lines": []
+  },
+  "openfold3_diffusion_decoder.py": {
+   "calls": 22,
+   "verbs": 10,
+   "module_level_ttnn": true,
+   "local_import_lines": []
+  },
+  "openfold3_diffusion_module.py": {
+   "calls": 94,
+   "verbs": 15,
+   "module_level_ttnn": true,
+   "local_import_lines": []
+  },
+  "openfold3_diffusion_transformer.py": {
+   "calls": 52,
+   "verbs": 15,
+   "module_level_ttnn": true,
+   "local_import_lines": []
+  },
+  "openfold3_fold.py": {
+   "calls": 13,
+   "verbs": 4,
+   "module_level_ttnn": true,
+   "local_import_lines": []
+  },
+  "openfold3_host_prep.py": {
+   "calls": 4,
+   "verbs": 3,
+   "module_level_ttnn": false,
+   "local_import_lines": [
+    219
+   ]
+  },
+  "openfold3_msa_embedder.py": {
+   "calls": 13,
+   "verbs": 7,
+   "module_level_ttnn": true,
+   "local_import_lines": []
+  },
+  "openfold3_sample_diffusion.py": {
+   "calls": 13,
+   "verbs": 4,
+   "module_level_ttnn": true,
+   "local_import_lines": []
+  },
+  "openfold3_template.py": {
+   "calls": 15,
+   "verbs": 6,
+   "module_level_ttnn": true,
+   "local_import_lines": []
+  },
+  "openfold3_trunk.py": {
+   "calls": 12,
+   "verbs": 4,
+   "module_level_ttnn": true,
+   "local_import_lines": []
+  },
+  "openfold3_weights.py": {
+   "calls": 0,
+   "verbs": 0,
+   "module_level_ttnn": false,
+   "local_import_lines": []
+  }
+ },
+ "taped_verbs_registered": [
+  "add",
+  "add_",
+  "chunk",
+  "clone",
+  "concat",
+  "deallocate",
+  "divide",
+  "exp",
+  "experimental.minimal_matmul",
+  "experimental.nlp_concat_heads",
+  "experimental.nlp_create_qkv_heads",
+  "layer_norm",
+  "linear",
+  "matmul",
+  "max",
+  "multiply",
+  "multiply_",
+  "pad",
+  "permute",
+  "reallocate",
+  "relu",
+  "reshape",
+  "sigmoid",
+  "silu",
+  "slice",
+  "softmax",
+  "softmax_in_place",
+  "squeeze",
+  "subtract",
+  "sum",
+  "to_layout",
+  "to_memory_config",
+  "transformer.scaled_dot_product_attention",
+  "transpose",
+  "typecast",
+  "unsqueeze"
+ ],
+ "ttnn_call_sites": 346,
+ "ttnn_verbs_used": 23,
+ "covered_call_sites": 310,
+ "covered_verbs": {
+  "deallocate": 105,
+  "to_layout": 42,
+  "add": 35,
+  "multiply": 21,
+  "reshape": 21,
+  "layer_norm": 16,
+  "typecast": 13,
+  "add_": 10,
+  "permute": 8,
+  "slice": 8,
+  "unsqueeze": 6,
+  "clone": 6,
+  "relu": 6,
+  "linear": 5,
+  "concat": 3,
+  "softmax": 2,
+  "matmul": 1,
+  "experimental.nlp_create_qkv_heads": 1,
+  "reallocate": 1
+ },
+ "uncovered_verbs": {
+  "from_torch": {
+   "calls": 18,
+   "kind": "leaf",
+   "sites": [
+    "openfold3_atom_transformer.py:82",
+    "openfold3_confidence.py:178",
+    "openfold3_diffusion_module.py:241",
+    "openfold3_diffusion_transformer.py:92",
+    "openfold3_diffusion_transformer.py:102",
+    "openfold3_diffusion_transformer.py:131",
+    "openfold3_diffusion_transformer.py:137",
+    "openfold3_diffusion_transformer.py:307",
+    "openfold3_diffusion_transformer.py:156",
+    "openfold3_diffusion_transformer.py:266",
+    "openfold3_diffusion_transformer.py:302",
+    "openfold3_fold.py:139",
+    "openfold3_fold.py:142",
+    "openfold3_fold.py:145",
+    "openfold3_fold.py:222",
+    "openfold3_host_prep.py:253",
+    "openfold3_host_prep.py:244",
+    "openfold3_sample_diffusion.py:95"
+   ]
+  },
+  "to_torch": {
+   "calls": 11,
+   "kind": "seam",
+   "sites": [
+    "openfold3_confidence.py:189",
+    "openfold3_diffusion_transformer.py:90",
+    "openfold3_diffusion_transformer.py:100",
+    "openfold3_diffusion_transformer.py:291",
+    "openfold3_fold.py:404",
+    "openfold3_fold.py:415",
+    "openfold3_fold.py:416",
+    "openfold3_host_prep.py:257",
+    "openfold3_sample_diffusion.py:124",
+    "openfold3_sample_diffusion.py:125",
+    "openfold3_sample_diffusion.py:171"
+   ]
+  },
+  "embedding": {
+   "calls": 5,
+   "kind": "gap",
+   "sites": [
+    "openfold3_atom_transformer.py:107",
+    "openfold3_diffusion_decoder.py:76",
+    "openfold3_diffusion_module.py:105",
+    "openfold3_diffusion_module.py:128",
+    "openfold3_diffusion_module.py:327"
+   ]
+  },
+  "zeros": {
+   "calls": 2,
+   "kind": "constant",
+   "sites": [
+    "openfold3.py:78",
+    "openfold3_trunk.py:155"
+   ]
+  }
+ },
+ "aliased_calls_not_scanned": {},
+ "rebind_blind_files": {
+  "openfold3_confidence.py": {
+   "calls": 12,
+   "local_import_lines": [
+    163
+   ]
+  },
+  "openfold3_host_prep.py": {
+   "calls": 4,
+   "local_import_lines": [
+    219
+   ]
+  }
+ },
+ "rebind_blind_call_sites": 16
+}

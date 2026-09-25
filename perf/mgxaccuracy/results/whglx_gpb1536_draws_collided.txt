@@ -1,0 +1,44 @@
+# TWO CONCURRENT UPSTREAM DRAWS WERE LAUNCHED INTO ONE OUTPUT DIRECTORY. BOTH ARE DISCARDED.
+# 2026-09-25 10:2xZ. A record-keeping defect in this row's own launch, found on harvest.
+
+`ref/run_gpb1536_whglx.sh` takes a tag as $1 and writes to `outgpb1536_${tag}`. The two draws
+launched 2026-09-24 00:23Z were logged as `gpb1536_wa.log` and `gpb1536_wb.log`, but BOTH were
+invoked with tag `1536`, so both wrote `$HOME/bgref-work/outgpb1536_1536`. The log lines say so
+in plain text and nobody read them until the runs ended:
+
+    GPB1536_WHGLX_DONE tag=1536 rc=1 wall_s=33872     (the "wa" log)
+    GPB1536_WHGLX_DONE tag=1536 rc=1 wall_s=33522     (the "wb" log)
+
+`outgpb1536_wa` and `outgpb1536_wb` do not exist. BoltzGen names its per-step artefacts after
+the fixture, not the run, so the two processes overwrote each other's
+`intermediate_designs/bg1536.cif` and `intermediate_designs_inverse_folded/refold_design_cif/
+bg1536.cif` on a schedule nothing recorded. One refold file survives, timestamped 09:48Z.
+
+It is probably the later run's, and probably internally consistent. Neither "probably" is a
+measurement. A reference draw whose provenance is reconstructed from mtimes after the fact is
+exactly the kind of number this row has withdrawn before, so both draws are discarded and
+neither appears in `results/upstream_1536_pair_result.txt`. They cost 9 h 24 m of whglx CPU
+each and bought nothing.
+
+## THE LESSON, WHICH IS NOT "PASS THE RIGHT TAG"
+
+The script takes an output-dir tag as an argument and then does not check it. Two runs sharing
+one output dir is not a bad value, it is a state collision, and the place to catch it is where
+the dir is created:
+
+    out="$HOME/bgref-work/outgpb1536_${tag}"
+    mkdir "$out" || { echo "REFUSED: $out exists -- another draw owns it"; exit 1; }
+
+`mkdir` without -p is the whole guard, because it fails when the directory is already there.
+The log filename carried the distinct tag and the output dir did not, so the two disagreed from
+the first second and the logs looked correct for 9 h. **A run's identity has to live where its
+OUTPUT goes, not only in what you named its log.** Applied here on the next launch of this
+script; nothing else in the row launches two jobs into one dir, because the whglx fan derives
+every out_dir from the plan's own tag.
+
+## IT COST NOTHING IN THE END
+
+The deciding pair is qb2's, which was always the pre-registered pair; these were additional
+draws taken because qb2 looked stalled. qb2 finished both at 00:38Z and 06:27Z. So the host
+move recorded in `results/upstream_gate_moved_to_whglx.txt` was unnecessary as well as
+mis-launched: draw a was 14 minutes from finishing when the whglx pair started.

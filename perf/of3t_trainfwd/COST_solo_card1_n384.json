@@ -1,0 +1,114 @@
+{
+ "instrument": "PROTOCOL SS6: the OF3 training forward through tt_bio.train.catalogue",
+ "arm": "full",
+ "batch": "/home/ttuser/of3t/bundle_min/batch_step003.pt",
+ "checkpoint": "/home/ttuser/of3-weights/of3-p2-155k.pt",
+ "rollout": 20,
+ "cycles": 1,
+ "seed": 20260922,
+ "host": "tt-quietbox2",
+ "card": "1",
+ "commit": "248c2605e29b6e0943c085f0b189464bae8206be",
+ "padded_width": 384,
+ "real_tokens": 56,
+ "pdb_id": "5nw3",
+ "params_reachable": 3952,
+ "loss": 2.779947488084061,
+ "weights": {
+  "bond": 0.0,
+  "smooth_lddt": 4.0,
+  "mse": 4.0,
+  "distogram": 0.03,
+  "resolved": 0.0001,
+  "plddt": 0.0001,
+  "pae": 0.0001,
+  "pde": 0.0001
+ },
+ "breakdown": {
+  "bond": {
+   "value": null,
+   "weight": 0.0,
+   "contribution": 0.0,
+   "skipped": "weight is zero in this stage"
+  },
+  "smooth_lddt": {
+   "value": 0.28993375775285946,
+   "weight": 4.0,
+   "contribution": 1.1597350310114378
+  },
+  "mse": {
+   "value": 0.37131210459910946,
+   "weight": 4.0,
+   "contribution": 1.4852484183964378
+  },
+  "distogram": {
+   "value": 4.451829139528296,
+   "weight": 0.03,
+   "contribution": 0.13355487418584885
+  },
+  "resolved": {
+   "value": 7.253810513218386,
+   "weight": 0.0001,
+   "contribution": 0.0007253810513218386
+  },
+  "plddt": {
+   "value": null,
+   "weight": 0.0001,
+   "contribution": 0.0,
+   "skipped": "missing ['per_atom_lddt', 'per_atom_weight']"
+  },
+  "pae": {
+   "value": 4.334918245036975,
+   "weight": 0.0001,
+   "contribution": 0.0004334918245036975
+  },
+  "pde": {
+   "value": 2.50291614511142,
+   "weight": 0.0001,
+   "contribution": 0.00025029161451114204
+  }
+ },
+ "seeded_outputs": [
+  "distogram_logits",
+  "pae_logits",
+  "pde_logits",
+  "pred_dist",
+  "pred_xyz",
+  "resolved_logits"
+ ],
+ "forward_s": 16.438980834000176,
+ "backward_s": 458.2100691810001,
+ "step_s": 474.6490500150003,
+ "params_with_grad": 3400,
+ "params_nonzero_grad": 3391,
+ "squared_gradient_norm": 370300205816.984,
+ "by_section": {
+  "input_glue": {
+   "n": 5,
+   "sq": 3203895713.7333584
+  },
+  "trunk": {
+   "n": 2314,
+   "sq": 366968575005.90265
+  },
+  "confidence_head": {
+   "n": 185,
+   "sq": 2.9509674049759576
+  },
+  "sampler": {
+   "n": 896,
+   "sq": 127735094.3972384
+  }
+ },
+ "ok": true,
+ "aiclk_during": {
+  "0": {
+   "min": 800,
+   "max": 1350,
+   "median": 1350,
+   "n": 158
+  }
+ },
+ "aiclk_line": "CLOCK: dev0 min 800 / median 1350 / max 1350 MHz over 158 samples, polled DURING the work",
+ "total_s": 478.3901943560004
+}

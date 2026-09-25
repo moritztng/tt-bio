@@ -95,6 +95,7 @@ from tt_bio.data.mol import load_canonicals
 from tt_bio.boltzgen.data.parse.schema import YamlDesignParser
 from tt_bio.boltzgen.data.write_mmcif import to_mmcif
 from tt_bio.boltzgen.task.task import Task
+from tt_bio.runtime import seed_everything
 from importlib.metadata import PackageNotFoundError, version as pkg_version
 
 ### Paths and constants ####
@@ -419,10 +420,9 @@ def add_device_arguments(p: argparse.ArgumentParser) -> None:
         type=str,
         default=None,
         metavar="URL",
-        help="Distribute this run across a fleet: dispatch design shards to the "
-        "controller at URL (e.g. http://HOST:8765) whose workers run them on "
-        "their own cards, then merge + filter here. Mirrors `tt-bio predict "
-        "--controller`. Other machines join with `tt-bio worker --connect URL`.",
+        help="Dispatch design shards to the running `tt-bio controller` at URL "
+        "(e.g. http://127.0.0.1:8765), whose workers run them on their own "
+        "cards, then merge + filter here. Mirrors `tt-bio predict --controller`.",
     )
     p.add_argument(
         "--run-id", dest="run_id", type=str, default=None, metavar="ID",
@@ -452,6 +452,14 @@ def add_execute_core_arguments(p: argparse.ArgumentParser) -> None:
         "--log",
         action="store_true",
         help="With --debug: print per-stage progress lines",
+    )
+    p.add_argument(
+        "--seed",
+        type=int,
+        default=None,
+        help="Seed every random draw of the pipeline so the same inputs and seed give "
+        "the same designs. Multi-card runs give shard i seed+i. Default: a fresh draw "
+        "per run.",
     )
 
 
@@ -789,12 +797,12 @@ def _run_distributed(args: argparse.Namespace, devices: list[int]) -> None:
     )
 
     workers = []
-    for d in devices:
+    for i, d in enumerate(devices):
         shard = args.output / "shards" / f"device_{d}"
         shard.mkdir(parents=True, exist_ok=True)
-        argv = _rewrite_run_argv(sys.argv[1:], {"--output", "--num_designs", "--device_ids"},
+        argv = _rewrite_run_argv(sys.argv[1:], {"--output", "--num_designs", "--device_ids", "--seed"},
                                  ["--output", str(shard), "--num_designs", str(counts[d]),
-                                  "--device_ids", str(d)])
+                                  "--device_ids", str(d), *_shard_seed_argv(args, i)])
         env = {**os.environ, "TT_VISIBLE_DEVICES": str(d)}
         if d in p300_devices and p300_mgd:
             env.setdefault("TT_MESH_GRAPH_DESC_PATH", p300_mgd)
@@ -841,6 +849,13 @@ def _run_distributed(args: argparse.Namespace, devices: list[int]) -> None:
     _merge_and_filter(args, [w["dir"] for w in workers], debug=debug)
 
 
+def _shard_seed_argv(args: argparse.Namespace, shard: int) -> list[str]:
+    """``--seed`` for one shard: seed+shard, so shards of a seeded run draw different
+    designs and the run still reproduces. Nothing when the run is unseeded."""
+    seed = getattr(args, "seed", None)
+    return [] if seed is None else ["--seed", str(seed + shard)]
+
+
 def _merge_and_filter(args: argparse.Namespace, shard_dirs: list[Path], *, debug: bool) -> None:
     """Global reduce shared by every distributed path: combine all shard
     directories, then filter once over the union so the kept set is ranked
@@ -859,18 +874,18 @@ def _merge_and_filter(args: argparse.Namespace, shard_dirs: list[Path], *, debug
 
 
 def _run_via_controller(args: argparse.Namespace, controller_url: str) -> None:
-    """Fan design shards across a fleet via the shared controller, then merge +
-    filter here — the multi-host twin of ``_run_distributed``.
+    """Fan design shards across a persistent controller's workers, then merge +
+    filter here — the controller twin of ``_run_distributed``.
 
     Each shard is a job carrying a slice of num_designs; any connected worker
-    (this machine and/or remote galaxies) leases one, runs a single-device
+    leases one, runs a single-device
     ``gen run`` on it, and ships its output dir back. We collect those into
     ``shards/`` and reuse the same global reduce as the local path.
     """
     import base64
     import json as _json
 
-    from tt_bio.distributed import connect_controller
+    from tt_bio.host_controller import connect_controller
     from tt_bio.main import _write_job_outputs
 
     debug = getattr(args, "debug", False)
@@ -903,8 +918,11 @@ def _run_via_controller(args: argparse.Namespace, controller_url: str) -> None:
         config["steps"] = list(args.steps)
     if getattr(args, "moldir", None):
         config["moldir"] = str(args.moldir)
+    seed = getattr(args, "seed", None)
     jobs = [{"id": f"shard_{i}", "name": f"shard_{i}",
-             "input_b64": base64.b64encode(_json.dumps({"num_designs": c}).encode()).decode()}
+             "input_b64": base64.b64encode(_json.dumps(
+                 {"num_designs": c, **({"seed": seed + i} if seed is not None else {})}
+             ).encode()).decode()}
             for i, c in enumerate(counts)]
     run_payload = {"data": str(args.design_spec[0]), "out_dir": str(args.output),
                    "result_dir": str(args.output), "jobs": jobs, "config": config,
@@ -1219,6 +1237,10 @@ def execute_command(args: argparse.Namespace, *, headless: bool = False) -> None
             reporter.stage_start(step_name, index, total_steps)
             ok = True
             try:
+                # Each step reseeds, so a step's draws do not depend on which steps ran
+                # before it in this process (--steps, --reuse).
+                if getattr(args, "seed", None) is not None:
+                    seed_everything(args.seed)
                 config = _resolve_interpolations(_load_yaml(config_path))
                 task = _instantiate(config)
                 if not isinstance(task, Task):
@@ -1636,6 +1658,9 @@ class BinderDesignPipeline:
 
 ### Misc utiltiies ###
 def check_design_specs(args: argparse.Namespace, moldir: Path, mols: Dict[str, Any]):
+    # The preview structure each check writes draws its binder lengths.
+    if getattr(args, "seed", None) is not None:
+        seed_everything(args.seed)
     last_banner = ""
     for design_spec in args.design_spec:
         banner = f"************** Checking design spec: {design_spec} **************"

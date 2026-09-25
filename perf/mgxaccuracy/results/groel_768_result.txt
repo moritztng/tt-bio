@@ -1,0 +1,100 @@
+GroEL size ladder, fourth rung: 768 at both crops — THE CEILING IS [512, 768)
+==============================================================================
+
+Read 2026-09-24 19:5xZ against plans/groel_768.txt (committed 19:0xZ, before launch) with
+ladder_read.py, whose 768 branch was committed 19:1xZ and exercised on synthetic cells before
+any FAS or 768 number existed. Cells launched 19:01:21Z, landed 19:51Z and 19:52Z on whglx
+cards 0 and 2, tree ff5435cba (the same tree as all six earlier GroEL cells), rc 0 both, n=8
+each, AICLK median 1000 sampled DURING the folds (n=1262 and n=1274 samples). Walls 3023.8 s
+and 3053.1 s against the 3272 s pre-registered from the quadratic, 8% under.
+
+Fixtures verified distinct before launch: bgt768.cif sha256 7d3159e30404976f, bgt768o560.cif
+99fff54cdba2805b, 768 CA each. Chain composition A 524 + B 244 and B 488 + C 280.
+
+SELFCHECK PASS: the reader still reproduces all four published 2x2 contrasts to the digit.
+
+target groel_ring4_2096   engine groel-onetree-ff5435cba   metric designfolding-bb_rmsd
+
+  size  offset   n   median     range              <=2A    <=4A
+   512       0   8    0.852    0.585- 9.694     62.5%   62.5%
+   512     560   8    1.739    1.263-17.459     62.5%   87.5%
+   768       0   8   15.226   10.826-18.007      0.0%    0.0%
+   768     560   8   12.984   10.308-15.749      0.0%    0.0%
+  1024       0   8    8.718    5.462-11.865      0.0%    0.0%
+  1024     560   8   14.457    9.909-23.068      0.0%    0.0%
+  1536       0   8   15.606   11.313-17.064      0.0%    0.0%
+  1536     560   8   14.387    8.398-15.974      0.0%    0.0%
+
+OFFSET 0   rung 768
+  768 -> 1024              -6.509 A   U =  61.0 of 64   exact p = 0.0011  rejects
+   512 -> 768             +14.374 A   U =   0.0 of 64   exact p = 0.0002  rejects
+  median 15.226 A, 0 of 8 under 4.0 A  ->  COLLAPSED BY 768
+
+OFFSET 560   rung 768
+  768 -> 1024              +1.473 A   U =  25.0 of 64   exact p = 0.5054  does not reject
+   512 -> 768             +11.245 A   U =   8.0 of 64   exact p = 0.0104  rejects
+  median 12.984 A, 0 of 8 under 4.0 A  ->  COLLAPSED BY 768
+
+RUNG 768 VERDICT: COLLAPSED BY 768
+
+OFFSET 0   rung 1024
+  1024 -> 1536             +6.888 A   U =   1.0 of 64   exact p = 0.0003  rejects
+   512 -> 1024             +7.866 A   U =   7.0 of 64   exact p = 0.0070  rejects
+  median 8.718 A, 0 of 8 under 4.0 A  ->  COLLAPSED BY 1024
+
+OFFSET 560   rung 1024
+  1024 -> 1536             -0.070 A   U =  39.0 of 64   exact p = 0.5054  does not reject
+   512 -> 1024            +12.718 A   U =   5.0 of 64   exact p = 0.0030  rejects
+  median 14.457 A, 0 of 8 under 4.0 A  ->  COLLAPSED BY 1024
+
+RUNG 1024 VERDICT: COLLAPSED BY 1024
+
+WHAT THIS SETTLES
+-----------------
+
+768 IS ALREADY COLLAPSED, on both crops, and the pre-registered clause fires cleanly this time:
+median 15.226 and 12.984 A against the 4.0 A bar, 0 of 8 under it in both cells, and 512->768
+rejects at both crops. At offset 0 the separation is PERFECT, U = 0.0 of 64, p = 0.0002 — not a
+single one of the eight 768 designs is as good as the worst of the eight at 512.
+
+The clause bodies in plans/groel_768.txt are disjoint by construction, so unlike the 1024 rung
+there is one verdict and not two. COLLAPSED BY 768, both crops, RUNG VERDICT COLLAPSED BY 768.
+
+**The usable ceiling is therefore [512, 768), not [512, 1024).** Two passes ago it was an
+interpolation across 1024 residues; it is now bracketed within 256.
+
+THE LADDER ABOVE THE CEILING IS NOT MONOTONE, AND IT IS REPORTED
+------------------------------------------------------------------
+
+At offset 0, 768 -> 1024 is -6.509 A and REJECTS (U = 61.0 of 64, p = 0.0011). 1024 reads
+significantly BETTER than 768 there, while 1536 reads worse again:
+
+    offset 0    512  0.852  ->  768  15.226  ->  1024  8.718  ->  1536  15.606
+    offset 560  512  1.739  ->  768  12.984  ->  1024 14.457  ->  1536  14.387
+
+Offset 560 is monotone-ish and rejects nothing above 768. Offset 0 is not, and the dip at 1024
+is large enough that the rank test separates it. Two things to say about that, and neither
+rescues a size rule above the ceiling:
+
+  - Every cell at 768, 1024 and 1536 returns 0 of 8 under 4 A, on both crops. Above the ceiling
+    the metric is measuring HOW BADLY a design fails to refold, not whether a user gets
+    something. 8.7 A and 15.2 A are both "returns nothing usable", and ordering two failures is
+    not the same as ordering two outcomes.
+  - It is not chain count: 768/off0 is A 524 + B 244 and 1024/off0 is A 524 + B 500, both two
+    chains (`results/chain_count_confound.txt`). The 768 cell's second chain is a 244-residue
+    fragment and the 1024 cell's is nearly complete, which is a candidate and is not tested.
+
+So the row does NOT claim a monotone size curve. It claims a ceiling, measured at both crops
+with the rank test, and says that above it the designs do not refold whatever the exact number
+reads.
+
+WHAT THIS RUNG DOES NOT DO. It does not separate residue count from chain count: both 768 crops
+carry a second chain, exactly as plans/groel_768.txt said in advance. That control is
+plans/chain_vs_residues.txt on targets/fas_chainA_1962.cif, built this pass and unrun. And it
+says nothing about upstream, which is the qb2 pair's question.
+
+A PREDICTION THAT FAILED, RECORDED. results/groel_1024_result.txt predicted the two 768 crops
+would DISAGREE, on the grounds that the crop contrast rejects at 1024 (+5.739 A, p=0.0019) and
+768 sits in the same middle region. They agree: both COLLAPSED BY 768, and the crop contrast at
+768 is 12.984 - 15.226 = -2.242 A. The prediction was written down before the cells landed and
+is wrong; the middle-region argument does not survive it.

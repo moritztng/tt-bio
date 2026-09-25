@@ -1,0 +1,682 @@
+{
+ "reference": {
+  "file": "/home/ttuser/of3t_paedraws/ref_s5/f64/grads_f64.pt",
+  "n_nonzero": 4158,
+  "squared_norm": 142.488050927623,
+  "by_head_squared_norm": {
+   "confidence": 2.1655397091659657e-06,
+   "diffusion": 139.65383272025178,
+   "distogram": 1.7524822062947747,
+   "trunk": 1.0817338355367043
+  }
+ },
+ "scored": {
+  "n": 4158,
+  "unread_n": 0,
+  "unread_mass_fraction": 0.0,
+  "unread_by_head_mass_fraction": {
+   "confidence": 0.0,
+   "diffusion": 0.0,
+   "distogram": 0.0,
+   "trunk": 0.0
+  },
+  "unread_worst": []
+ },
+ "aliases_dropped": {
+  "/home/ttuser/of3t_paedraws/grad_PD384_s5.pt": 271
+ },
+ "arms": {
+  "PD384_s5": {
+   "global": {
+    "rel": 0.1086818231634668,
+    "r": 0.9567987973492011,
+    "cos": 0.9948027762977887,
+    "identity_residual": 1.4276774207289122e-15,
+    "ref_sq": 142.4880509276229,
+    "arm_sq": 130.44267230690403
+   },
+   "by_head": {
+    "confidence": {
+     "rel": 0.4242944441509654,
+     "r": 0.9295623701880644,
+     "cos": 0.9058350890384931,
+     "identity_residual": 5.273559366969494e-16,
+     "ref_sq": 2.1655397091659683e-06,
+     "arm_sq": 1.8712129783931614e-06
+    },
+    "diffusion": {
+     "rel": 0.10674331868601934,
+     "r": 0.9553324574992302,
+     "cos": 0.995080797968671,
+     "identity_residual": 2.5777990853015353e-15,
+     "ref_sq": 139.65383272025187,
+     "arm_sq": 127.45648154355457
+    },
+    "distogram": {
+     "rel": 0.14783598064257356,
+     "r": 1.067246426611567,
+     "cos": 0.9918793847192543,
+     "identity_residual": 1.7694179454963432e-16,
+     "ref_sq": 1.7524822062947747,
+     "arm_sq": 1.9961034064933139
+    },
+    "trunk": {
+     "rel": 0.2223805973212216,
+     "r": 0.9567008060299419,
+     "cos": 0.9751341748817348,
+     "identity_residual": 1.2559397966072083e-15,
+     "ref_sq": 1.0817338355367048,
+     "arm_sq": 0.9900854856431656
+    }
+   },
+   "by_section": {
+    "aux_heads.distogram": {
+     "rel": 0.14783598064257356,
+     "r": 1.067246426611567,
+     "cos": 0.9918793847192543,
+     "identity_residual": 1.7694179454963432e-16,
+     "ref_sq": 1.7524822062947747,
+     "arm_sq": 1.9961034064933139
+    },
+    "aux_heads.experimentally_resolved": {
+     "rel": 0.02389818089555985,
+     "r": 0.9992234832157819,
+     "cos": 0.9997145182827545,
+     "identity_residual": 1.820375447603162e-16,
+     "ref_sq": 8.821905670159985e-08,
+     "arm_sq": 8.808210273934476e-08
+    },
+    "aux_heads.pae": {
+     "rel": 0.07325248969115557,
+     "r": 0.9323766920983149,
+     "cos": 0.9995747343959221,
+     "identity_residual": 1.0234868508263162e-16,
+     "ref_sq": 7.252073279294975e-08,
+     "arm_sq": 6.304418001979427e-08
+    },
+    "aux_heads.pairformer_embedding": {
+     "rel": 0.45238249415690646,
+     "r": 0.9239542906113603,
+     "cos": 0.8923826789247247,
+     "identity_residual": 2.7755575615628914e-17,
+     "ref_sq": 1.9016672018782494e-06,
+     "arm_sq": 1.6234371852885302e-06
+    },
+    "aux_heads.pde": {
+     "rel": 0.04797775428339979,
+     "r": 0.9680584891626738,
+     "cos": 0.9993380540505276,
+     "identity_residual": 8.716985466783456e-17,
+     "ref_sq": 1.0313271779316775e-07,
+     "arm_sq": 9.664951034549267e-08
+    },
+    "diffusion_module.atom_attn_dec": {
+     "rel": 0.10234685940154128,
+     "r": 1.036720951297923,
+     "cos": 0.9955984050704731,
+     "identity_residual": 3.0184188481996443e-16,
+     "ref_sq": 1.7268454895537897,
+     "arm_sq": 1.8559968350617382
+    },
+    "diffusion_module.atom_attn_enc": {
+     "rel": 0.09982715175890809,
+     "r": 0.975689189222473,
+     "cos": 0.9951959882249464,
+     "identity_residual": 8.135853102331225e-16,
+     "ref_sq": 3.4132761051614815,
+     "arm_sq": 3.2493343852678622
+    },
+    "diffusion_module.diffusion_conditioning": {
+     "rel": 0.08969383344786375,
+     "r": 0.9700994306552425,
+     "cos": 0.9963143264053861,
+     "identity_residual": 5.776629175002768e-16,
+     "ref_sq": 24.986050151845618,
+     "arm_sq": 23.514194530811736
+    },
+    "diffusion_module.diffusion_transformer": {
+     "rel": 0.11046286140277362,
+     "r": 0.9495810384817605,
+     "cos": 0.9949135609930909,
+     "identity_residual": 8.014422459012849e-16,
+     "ref_sq": 109.06121477630337,
+     "arm_sq": 98.34094981995783
+    },
+    "diffusion_module.layer_norm_a": {
+     "rel": 0.17715259420468857,
+     "r": 0.9849523376060074,
+     "cos": 0.984183696865142,
+     "identity_residual": 1.3877787807814457e-17,
+     "ref_sq": 0.03322483607269776,
+     "arm_sq": 0.03223244701091251
+    },
+    "diffusion_module.layer_norm_s": {
+     "rel": 0.21188134356884208,
+     "r": 1.211473247341341,
+     "cos": 0.9999286944999302,
+     "identity_residual": 4.85722573273506e-17,
+     "ref_sq": 0.08723586406068522,
+     "arm_sq": 0.12803323632461333
+    },
+    "diffusion_module.linear_s": {
+     "rel": 0.08311823521873876,
+     "r": 0.9850829054854133,
+     "cos": 0.9966063154279254,
+     "identity_residual": 4.163336342344337e-17,
+     "ref_sq": 0.34598549725411354,
+     "arm_sq": 0.33574028911976495
+    },
+    "input_embedder": {
+     "rel": 0.9683456288718759,
+     "r": 1.1674316959106044,
+     "cos": 0.6104012391704735,
+     "identity_residual": 1.1102230246251565e-16,
+     "ref_sq": 0.004954125056751366,
+     "arm_sq": 0.0067519610113530104
+    },
+    "layer_norm_s": {
+     "rel": 0.2633471402518023,
+     "r": 0.9677054625859131,
+     "cos": 0.964705800590669,
+     "identity_residual": 4.3021142204224816e-16,
+     "ref_sq": 0.0009310553977927996,
+     "arm_sq": 0.0008718904232956626
+    },
+    "layer_norm_z": {
+     "rel": 0.41201708583851704,
+     "r": 1.0264588905511514,
+     "cos": 0.9176498894939223,
+     "identity_residual": 4.163336342344337e-16,
+     "ref_sq": 0.0001746173599399972,
+     "arm_sq": 0.00018397996804964123
+    },
+    "linear_s": {
+     "rel": 0.17029356022471365,
+     "r": 0.9639840364816664,
+     "cos": 0.985631117333144,
+     "identity_residual": 4.198030811863873e-16,
+     "ref_sq": 0.00011204341848102358,
+     "arm_sq": 0.00010411805221467949
+    },
+    "linear_z": {
+     "rel": 0.430835845022733,
+     "r": 0.9399188433186445,
+     "cos": 0.903177927933838,
+     "identity_residual": 1.6653345369377348e-16,
+     "ref_sq": 1.8123774646482447e-05,
+     "arm_sq": 1.6011402170043032e-05
+    },
+    "msa_module": {
+     "rel": 0.3855172445327216,
+     "r": 0.9886053238293987,
+     "cos": 0.9248973763301854,
+     "identity_residual": 3.608224830031759e-16,
+     "ref_sq": 0.05452310744758299,
+     "arm_sq": 0.053287640347616745
+    },
+    "msa_module_embedder": {
+     "rel": 0.3773014418231132,
+     "r": 0.9307644799359983,
+     "cos": 0.9261022397563309,
+     "identity_residual": 1.6653345369377348e-16,
+     "ref_sq": 0.002599499364119725,
+     "arm_sq": 0.002252004832351421
+    },
+    "pairformer_stack": {
+     "rel": 0.19875689623517304,
+     "r": 0.9538467792738713,
+     "cos": 0.9804087067075394,
+     "identity_residual": 2.0747292772682613e-15,
+     "ref_sq": 1.0179990461158843,
+     "arm_sq": 0.9261996366747429
+    },
+    "template_embedder": {
+     "rel": 0.3770697530599033,
+     "r": 0.995281972383966,
+     "cos": 0.9285833849941225,
+     "identity_residual": 1.3322676295501878e-15,
+     "ref_sq": 0.00042221760150611365,
+     "arm_sq": 0.0004182429313712085
+    }
+   },
+   "mass_at_or_better_than_bf16": 0.6906138923800389,
+   "worst": [
+    {
+     "tensor": "pairformer_stack.blocks.47.attn_pair_bias.layer_norm_z.bias",
+     "rel": 8333368633444.544,
+     "mass_fraction": 2.57111857916469e-36
+    },
+    {
+     "tensor": "pairformer_stack.blocks.46.attn_pair_bias.layer_norm_z.bias",
+     "rel": 7372740470699.837,
+     "mass_fraction": 2.3941374240921655e-36
+    },
+    {
+     "tensor": "aux_heads.pairformer_embedding.pairformer_stack.blocks.1.attn_pair_bias.layer_norm_z.bias",
+     "rel": 6488432165109.918,
+     "mass_fraction": 1.653551731941074e-45
+    },
+    {
+     "tensor": "pairformer_stack.blocks.45.attn_pair_bias.layer_norm_z.bias",
+     "rel": 5108197764143.557,
+     "mass_fraction": 4.385161885247895e-36
+    },
+    {
+     "tensor": "pairformer_stack.blocks.33.attn_pair_bias.layer_norm_z.bias",
+     "rel": 4666320404613.03,
+     "mass_fraction": 1.0291946461170529e-39
+    },
+    {
+     "tensor": "aux_heads.pairformer_embedding.pairformer_stack.blocks.3.attn_pair_bias.layer_norm_z.bias",
+     "rel": 4427574891297.665,
+     "mass_fraction": 1.1575947792483192e-44
+    },
+    {
+     "tensor": "pairformer_stack.blocks.25.attn_pair_bias.layer_norm_z.bias",
+     "rel": 4260603506622.3286,
+     "mass_fraction": 8.626182609276972e-40
+    },
+    {
+     "tensor": "aux_heads.pairformer_embedding.pairformer_stack.blocks.0.attn_pair_bias.layer_norm_z.bias",
+     "rel": 3579422973658.164,
+     "mass_fraction": 1.9699021954790539e-47
+    },
+    {
+     "tensor": "msa_module.blocks.1.msa_att_row.layer_norm_z.bias",
+     "rel": 2729262992962.474,
+     "mass_fraction": 6.59107922081508e-38
+    },
+    {
+     "tensor": "aux_heads.pairformer_embedding.pairformer_stack.blocks.2.attn_pair_bias.layer_norm_z.bias",
+     "rel": 2628421857255.972,
+     "mass_fraction": 6.174759620284727e-44
+    }
+   ],
+   "worst_by_error_mass": [
+    {
+     "tensor": "diffusion_module.diffusion_transformer.blocks.5.attention_pair_bias.layer_norm_a.layer_norm_s.weight",
+     "rel": 0.10132407575896944,
+     "error_sq_share": 0.4342883739508764
+    },
+    {
+     "tensor": "diffusion_module.diffusion_transformer.blocks.10.attention_pair_bias.layer_norm_a.layer_norm_s.weight",
+     "rel": 0.130032634744005,
+     "error_sq_share": 0.2720188222105055
+    },
+    {
+     "tensor": "diffusion_module.diffusion_transformer.blocks.8.attention_pair_bias.layer_norm_a.layer_norm_s.weight",
+     "rel": 0.182804287652219,
+     "error_sq_share": 0.11250249688198383
+    },
+    {
+     "tensor": "diffusion_module.diffusion_conditioning.transition_s.1.layer_norm.bias",
+     "rel": 0.0845573128570433,
+     "error_sq_share": 0.1048502693297075
+    },
+    {
+     "tensor": "diffusion_module.diffusion_transformer.blocks.7.attention_pair_bias.layer_norm_a.layer_norm_s.weight",
+     "rel": 0.2883337256190859,
+     "error_sq_share": 0.08668365500212939
+    },
+    {
+     "tensor": "diffusion_module.diffusion_conditioning.transition_s.0.layer_norm.bias",
+     "rel": 0.09812042904263212,
+     "error_sq_share": 0.059432024257977216
+    },
+    {
+     "tensor": "diffusion_module.diffusion_transformer.blocks.6.attention_pair_bias.layer_norm_a.layer_norm_s.weight",
+     "rel": 0.08041184880370741,
+     "error_sq_share": 0.04681636621381823
+    },
+    {
+     "tensor": "aux_heads.distogram.linear.weight",
+     "rel": 0.14783598064257356,
+     "error_sq_share": 0.038301334854977935
+    },
+    {
+     "tensor": "diffusion_module.diffusion_transformer.blocks.9.conditioned_transition.layer_norm.layer_norm_s.weight",
+     "rel": 0.14441131405779353,
+     "error_sq_share": 0.03758702987570929
+    },
+    {
+     "tensor": "diffusion_module.diffusion_transformer.blocks.14.attention_pair_bias.layer_norm_a.layer_norm_s.weight",
+     "rel": 0.15331802971217381,
+     "error_sq_share": 0.029857742232097778
+    }
+   ],
+   "multi_placed": 0,
+   "placed_but_carried_nothing": {
+    "n": 0,
+    "mass_fraction": 0.0,
+    "sample": []
+   }
+  },
+  "BF16": {
+   "global": {
+    "rel": 0.49825766564334656,
+    "r": 1.1171885190872788,
+    "cos": 0.8950367156663553,
+    "identity_residual": 4.3576253716537394e-15,
+    "ref_sq": 142.4880509276229,
+    "arm_sq": 177.84078791424963
+   },
+   "by_head": {
+    "confidence": {
+     "rel": 0.31867819570497863,
+     "r": 0.9467521138453319,
+     "cos": 0.9478636204798755,
+     "identity_residual": 5.689893001203927e-16,
+     "ref_sq": 2.1655397091659683e-06,
+     "arm_sq": 1.9410589210569468e-06
+    },
+    "diffusion": {
+     "rel": 0.5010781741665378,
+     "r": 1.1177061879468575,
+     "cos": 0.8938788241027575,
+     "identity_residual": 7.771561172376096e-16,
+     "ref_sq": 139.65383272025187,
+     "arm_sq": 174.464941758957
+    },
+    "distogram": {
+     "rel": 0.10249423033594313,
+     "r": 0.9974132701949798,
+     "cos": 0.9947371985140017,
+     "identity_residual": 2.42861286636753e-16,
+     "ref_sq": 1.7524822062947747,
+     "arm_sq": 1.7434275365414584
+    },
+    "trunk": {
+     "rel": 0.5191822849715075,
+     "r": 1.2284438330848357,
+     "cos": 0.9115288569572176,
+     "identity_residual": 1.3322676295501878e-15,
+     "ref_sq": 1.0817338355367048,
+     "arm_sq": 1.6324166776916835
+    }
+   },
+   "by_section": {
+    "aux_heads.distogram": {
+     "rel": 0.10249423033594313,
+     "r": 0.9974132701949798,
+     "cos": 0.9947371985140017,
+     "identity_residual": 2.42861286636753e-16,
+     "ref_sq": 1.7524822062947747,
+     "arm_sq": 1.7434275365414584
+    },
+    "aux_heads.experimentally_resolved": {
+     "rel": 0.02304608591444249,
+     "r": 1.0048376875415341,
+     "cos": 0.9997473627524519,
+     "identity_residual": 1.8919327909872052e-16,
+     "ref_sq": 8.821905670159985e-08,
+     "arm_sq": 8.907467377472059e-08
+    },
+    "aux_heads.pae": {
+     "rel": 0.060536948662978186,
+     "r": 0.959439270919491,
+     "cos": 0.9989475366127413,
+     "identity_residual": 4.479923376710104e-16,
+     "ref_sq": 7.252073279294975e-08,
+     "arm_sq": 6.675705433481279e-08
+    },
+    "aux_heads.pairformer_embedding": {
+     "rel": 0.33980839688609177,
+     "r": 0.9403624333852101,
+     "cos": 0.9404946947743933,
+     "identity_residual": 9.71445146547012e-17,
+     "ref_sq": 1.9016672018782494e-06,
+     "arm_sq": 1.68160913742e-06
+    },
+    "aux_heads.pde": {
+     "rel": 0.015708230621302118,
+     "r": 1.002350214801183,
+     "cos": 0.9998796703008199,
+     "identity_residual": 3.5382937899064437e-16,
+     "ref_sq": 1.0313271779316775e-07,
+     "arm_sq": 1.0361805552741323e-07
+    },
+    "diffusion_module.atom_attn_dec": {
+     "rel": 0.2851477786631802,
+     "r": 0.9311107930116144,
+     "cos": 0.9588859170081049,
+     "identity_residual": 2.3592239273284576e-16,
+     "ref_sq": 1.7268454895537897,
+     "arm_sq": 1.4971185869001706
+    },
+    "diffusion_module.atom_attn_enc": {
+     "rel": 0.374447433239993,
+     "r": 1.155723204416337,
+     "cos": 0.9498317748474695,
+     "identity_residual": 6.661338147750939e-16,
+     "ref_sq": 3.4132761051614815,
+     "arm_sq": 4.5590996679919344
+    },
+    "diffusion_module.diffusion_conditioning": {
+     "rel": 0.39682624017853513,
+     "r": 1.1316628190825737,
+     "cos": 0.9380840456174621,
+     "identity_residual": 1.1102230246251565e-16,
+     "ref_sq": 24.986050151845618,
+     "arm_sq": 31.998653379542162
+    },
+    "diffusion_module.diffusion_transformer": {
+     "rel": 0.5282539746426487,
+     "r": 1.1164646006443537,
+     "cos": 0.8811031454247251,
+     "identity_residual": 6.106226635438361e-16,
+     "ref_sq": 109.06121477630337,
+     "arm_sq": 135.9440630922999
+    },
+    "diffusion_module.layer_norm_a": {
+     "rel": 0.5159324594762432,
+     "r": 1.2214824494039014,
+     "cos": 0.9111195468042884,
+     "identity_residual": 5.551115123125783e-16,
+     "ref_sq": 0.03322483607269776,
+     "arm_sq": 0.04957209912514239
+    },
+    "diffusion_module.layer_norm_s": {
+     "rel": 0.5617639764319493,
+     "r": 0.45523437043572745,
+     "cos": 0.9793412192887871,
+     "identity_residual": 5.551115123125783e-17,
+     "ref_sq": 0.08723586406068522,
+     "arm_sq": 0.018078614960784428
+    },
+    "diffusion_module.linear_s": {
+     "rel": 0.34201902705349935,
+     "r": 1.073017753169121,
+     "cos": 0.9479759667260795,
+     "identity_residual": 2.7755575615628914e-16,
+     "ref_sq": 0.34598549725411354,
+     "arm_sq": 0.39835631813672034
+    },
+    "input_embedder": {
+     "rel": 1.514846639427068,
+     "r": 2.2466771529041765,
+     "cos": 0.8351885101842658,
+     "identity_residual": 8.881784197001252e-16,
+     "ref_sq": 0.004954125056751366,
+     "arm_sq": 0.02500623469959102
+    },
+    "layer_norm_s": {
+     "rel": 0.5480346977545504,
+     "r": 1.2612374574623741,
+     "cos": 0.9079883730901485,
+     "identity_residual": 2.220446049250313e-16,
+     "ref_sq": 0.0009310553977927996,
+     "arm_sq": 0.0014810483717155876
+    },
+    "layer_norm_z": {
+     "rel": 1.1021529953698355,
+     "r": 1.378068072583311,
+     "cos": 0.6111201692356728,
+     "identity_residual": 4.440892098500626e-16,
+     "ref_sq": 0.0001746173599399972,
+     "arm_sq": 0.00033161087134203626
+    },
+    "linear_s": {
+     "rel": 0.6614170853877859,
+     "r": 1.3532533958421615,
+     "cos": 0.8844693092477836,
+     "identity_residual": 5.551115123125783e-17,
+     "ref_sq": 0.00011204341848102358,
+     "arm_sq": 0.00020518452441263156
+    },
+    "linear_z": {
+     "rel": 1.0661037574478993,
+     "r": 1.4510756988189426,
+     "cos": 0.678477168234915,
+     "identity_residual": 2.220446049250313e-16,
+     "ref_sq": 1.8123774646482447e-05,
+     "arm_sq": 3.816179476240334e-05
+    },
+    "msa_module": {
+     "rel": 0.9694621215611461,
+     "r": 1.4331691184984168,
+     "cos": 0.7375671474454902,
+     "identity_residual": 4.440892098500626e-16,
+     "ref_sq": 0.05452310744758299,
+     "arm_sq": 0.11198902995097831
+    },
+    "msa_module_embedder": {
+     "rel": 1.0647665616790296,
+     "r": 1.5697388587976533,
+     "cos": 0.7422738632254149,
+     "identity_residual": 4.440892098500626e-16,
+     "ref_sq": 0.002599499364119725,
+     "arm_sq": 0.006405374613628001
+    },
+    "pairformer_stack": {
+     "rel": 0.4701635710756331,
+     "r": 1.2082411862199434,
+     "cos": 0.9264677475181029,
+     "identity_residual": 5.273559366969494e-16,
+     "ref_sq": 1.0179990461158843,
+     "arm_sq": 1.4861226133069434
+    },
+    "template_embedder": {
+     "rel": 1.0069967777517257,
+     "r": 1.4083266018740737,
+     "cos": 0.6991777704558004,
+     "identity_residual": 0.0,
+     "ref_sq": 0.00042221760150611365,
+     "arm_sq": 0.0008374195583103856
+    }
+   },
+   "mass_at_or_better_than_bf16": 1.0,
+   "worst": [
+    {
+     "tensor": "pairformer_stack.blocks.30.attn_pair_bias.layer_norm_z.bias",
+     "rel": 57748966950553.664,
+     "mass_fraction": 2.897937205507101e-40
+    },
+    {
+     "tensor": "pairformer_stack.blocks.29.attn_pair_bias.layer_norm_z.bias",
+     "rel": 49946360750616.42,
+     "mass_fraction": 3.725297147971248e-40
+    },
+    {
+     "tensor": "pairformer_stack.blocks.26.attn_pair_bias.layer_norm_z.bias",
+     "rel": 43632542254403.78,
+     "mass_fraction": 3.9145292047129395e-39
+    },
+    {
+     "tensor": "pairformer_stack.blocks.1.attn_pair_bias.layer_norm_z.bias",
+     "rel": 37750918419685.15,
+     "mass_fraction": 1.1338737131431592e-37
+    },
+    {
+     "tensor": "pairformer_stack.blocks.28.attn_pair_bias.layer_norm_z.bias",
+     "rel": 37226542680561.11,
+     "mass_fraction": 8.698302292573477e-39
+    },
+    {
+     "tensor": "pairformer_stack.blocks.40.attn_pair_bias.layer_norm_z.bias",
+     "rel": 33659952846758.93,
+     "mass_fraction": 5.939609072083154e-39
+    },
+    {
+     "tensor": "pairformer_stack.blocks.12.attn_pair_bias.layer_norm_z.bias",
+     "rel": 31153053976282.137,
+     "mass_fraction": 1.5546810310919251e-38
+    },
+    {
+     "tensor": "pairformer_stack.blocks.46.attn_pair_bias.layer_norm_z.bias",
+     "rel": 29860573439730.33,
+     "mass_fraction": 2.3941374240921655e-36
+    },
+    {
+     "tensor": "pairformer_stack.blocks.20.attn_pair_bias.layer_norm_z.bias",
+     "rel": 28342343474768.94,
+     "mass_fraction": 8.956384571953577e-40
+    },
+    {
+     "tensor": "pairformer_stack.blocks.42.attn_pair_bias.layer_norm_z.bias",
+     "rel": 27416310619647.7,
+     "mass_fraction": 7.502627797725743e-37
+    }
+   ],
+   "worst_by_error_mass": [
+    {
+     "tensor": "diffusion_module.diffusion_transformer.blocks.8.attention_pair_bias.layer_norm_a.layer_norm_s.weight",
+     "rel": 2.1359212286311826,
+     "error_sq_share": 15.358891411949386
+    },
+    {
+     "tensor": "diffusion_module.diffusion_transformer.blocks.2.attention_pair_bias.layer_norm_a.layer_norm_s.weight",
+     "rel": 1.5408058562630942,
+     "error_sq_share": 3.3462762144011764
+    },
+    {
+     "tensor": "diffusion_module.diffusion_transformer.blocks.10.attention_pair_bias.layer_norm_a.layer_norm_s.weight",
+     "rel": 0.4374781811762503,
+     "error_sq_share": 3.078981126734261
+    },
+    {
+     "tensor": "diffusion_module.diffusion_conditioning.transition_s.1.layer_norm.bias",
+     "rel": 0.3609991232325302,
+     "error_sq_share": 1.9110827764047844
+    },
+    {
+     "tensor": "diffusion_module.diffusion_transformer.blocks.6.conditioned_transition.layer_norm.layer_norm_s.weight",
+     "rel": 1.0442944856278307,
+     "error_sq_share": 1.8451838473501814
+    },
+    {
+     "tensor": "diffusion_module.diffusion_conditioning.transition_s.0.layer_norm.bias",
+     "rel": 0.3972291771635687,
+     "error_sq_share": 0.9740560022358037
+    },
+    {
+     "tensor": "diffusion_module.diffusion_transformer.blocks.5.conditioned_transition.layer_norm.layer_norm_s.weight",
+     "rel": 0.9410215568400818,
+     "error_sq_share": 0.7276026918142928
+    },
+    {
+     "tensor": "diffusion_module.diffusion_transformer.blocks.16.attention_pair_bias.layer_norm_a.layer_norm_s.weight",
+     "rel": 1.3549540453831517,
+     "error_sq_share": 0.6364843356041953
+    },
+    {
+     "tensor": "diffusion_module.diffusion_conditioning.transition_s.1.layer_norm.weight",
+     "rel": 0.5665806960210615,
+     "error_sq_share": 0.4521897961018948
+    },
+    {
+     "tensor": "diffusion_module.diffusion_transformer.blocks.4.conditioned_transition.layer_norm.layer_norm_s.weight",
+     "rel": 0.656757452957783,
+     "error_sq_share": 0.4399632640025334
+    }
+   ],
+   "global_all_reference": {
+    "rel": 0.49825766564334656,
+    "r": 1.1171885190872788,
+    "cos": 0.8950367156663553,
+    "identity_residual": 4.3576253716537394e-15,
+    "ref_sq": 142.4880509276229,
+    "arm_sq": 177.84078791424963
+   }
+  }
+ }
+}

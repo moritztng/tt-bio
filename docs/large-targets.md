@@ -118,19 +118,20 @@ the models reach, so Blackhole never changes path.
 
 ## What stops each model above 1024 on a Galaxy chip
 
-Walked on one j10glx02 chip with an 8192-row alignment (OpenFold3 at 14190) up to 2048, every
-first failure above 1536 is a single pair-sized allocation that no free block on the chip can
-hold:
+Walked on one j10glx02 chip up to 2048 with the alignment depth each model reads (16384 rows;
+Boltz-2 at its 8192 default, RF3 drawing 1024 per recycle), every first failure above 1536 is a
+single pair-sized allocation that no free block on the chip can hold:
 
 - `boltz2` folds 1920 and fails at 2048 in the diffusion cache, one 3.0 GiB tensor with 55 % of
   the chip free but no block large enough.
 - `protenix-v1` folds 2048, the top of the ladder, since the diffusion transformer's pair bias
   waits on the host. Before that it failed at 2048 on that bias, with enough memory free but no
   block large enough.
-- `protenix-v2` folds 1792 since the pair path row-blocks an allocation the chip refuses, and
-  fails at 1920 in the MSA module's outer product mean, with 97 % of the chip in use and the
-  largest free block 1280 bytes per bank too small. Before the row blocking it failed at 1792 in
-  the diffusion pair conditioning.
+- `protenix-v2` folds 2048, the top of the ladder, since the pair path row-blocks an allocation
+  the chip refuses and a refused outer product mean re-runs in alignment-depth chunks. Above 1792
+  the trunk joins its pair blocks on the host, so a fold takes 65 to 120 minutes. Before the depth
+  chunks it failed at 1920 in the outer product mean, and before the row blocking at 1792 in the
+  diffusion pair conditioning.
 - `rf3` folds 1600 and fails at 1664 in the diffusion atom encoder's pair permute, with enough
   memory free but no block large enough.
 - `opendde` and `opendde-abag` fold 1536. At 1664 the residue pair no longer fits as one

@@ -1,0 +1,185 @@
+{
+ "what": "of3t-stackship: inference before/after the training default, from firing and digest.",
+ "host": "tt-quietbox2",
+ "card": 2,
+ "commits": {
+  "before": "9e6de9d0ab2114bf413c8751e604f728c9b89bb7",
+  "after": "f89f871ce09b134cb9fb3b6f1f76fd7c436d383e"
+ },
+ "host_quiet": "HOST NOT QUIET -- your timing read is contaminated even with an idle sibling and a forced clock. Wait it out or DEFER. Do not measure and explain it afterwards.",
+ "models": {
+  "openfold3": {
+   "fixture": "perf/size512/fixtures/cdk2x2_128.yaml",
+   "all_folds_succeeded": true,
+   "AA_before_identical": true,
+   "AA_after_identical": true,
+   "AB_identical": true,
+   "digests": {
+    "cdk2x2_128.cif": "b70e195d9b41a2008ea5ea5870435a7110859d99327b9c7d886e6a034b560727"
+   },
+   "autograd_imported_any": false,
+   "exact_counters_all_zero": true,
+   "raw_ops_at_exit": [
+    "{\"softmax\": \"FastOperation(python_fully_qualified_name='ttnn.softmax', function=<ttnn._ttnn.operations.normalization.softmax_t object at 0x6fffe8f10330>, preprocess_golden_function_inputs=<function default_preprocess_golden_function_inputs at 0x6fffe865d760>, golden_function=<function _golden_function at 0x6fffe8500040>, postprocess_golden_function_outputs=<function default_postprocess_golden_function_outputs at 0x6fffe865d800>, is_cpp_operation=True, is_experimental=False)\", \"layer_norm\": \"FastOperation(python_fully_qualified_name='ttnn.layer_norm', function=<ttnn._ttnn.operations.normalization.layer_norm_t object at 0x6fffe8f105d0>, preprocess_golden_function_inputs=<function default_preprocess_golden_function_inputs at 0x6fffe865d760>, golden_function=<function _golden_function at 0x6fffe869f060>, postprocess_golden_function_outputs=<function default_postprocess_golden_function_outputs at 0x6fffe865d800>, is_cpp_operation=True, is_experimental=False)\"}",
+    "{\"softmax\": \"FastOperation(python_fully_qualified_name='ttnn.softmax', function=<ttnn._ttnn.operations.normalization.softmax_t object at 0x71270ebb4330>, preprocess_golden_function_inputs=<function default_preprocess_golden_function_inputs at 0x71270e101580>, golden_function=<function _golden_function at 0x71270e18fe20>, postprocess_golden_function_outputs=<function default_postprocess_golden_function_outputs at 0x71270e101620>, is_cpp_operation=True, is_experimental=False)\", \"layer_norm\": \"FastOperation(python_fully_qualified_name='ttnn.layer_norm', function=<ttnn._ttnn.operations.normalization.layer_norm_t object at 0x71270ebb45d0>, preprocess_golden_function_inputs=<function default_preprocess_golden_function_inputs at 0x71270e101580>, golden_function=<function _golden_function at 0x71270e13ee80>, postprocess_golden_function_outputs=<function default_postprocess_golden_function_outputs at 0x71270e101620>, is_cpp_operation=True, is_experimental=False)\"}",
+    "{\"softmax\": \"FastOperation(python_fully_qualified_name='ttnn.softmax', function=<ttnn._ttnn.operations.normalization.softmax_t object at 0x776e7ada4330>, preprocess_golden_function_inputs=<function default_preprocess_golden_function_inputs at 0x776e7a4f1580>, golden_function=<function _golden_function at 0x776e7a37fe20>, postprocess_golden_function_outputs=<function default_postprocess_golden_function_outputs at 0x776e7a4f1620>, is_cpp_operation=True, is_experimental=False)\", \"layer_norm\": \"FastOperation(python_fully_qualified_name='ttnn.layer_norm', function=<ttnn._ttnn.operations.normalization.layer_norm_t object at 0x776e7ada45d0>, preprocess_golden_function_inputs=<function default_preprocess_golden_function_inputs at 0x776e7a4f1580>, golden_function=<function _golden_function at 0x776e7a32ee80>, postprocess_golden_function_outputs=<function default_postprocess_golden_function_outputs at 0x776e7a4f1620>, is_cpp_operation=True, is_experimental=False)\"}",
+    "{\"softmax\": \"FastOperation(python_fully_qualified_name='ttnn.softmax', function=<ttnn._ttnn.operations.normalization.softmax_t object at 0x7959a03b8330>, preprocess_golden_function_inputs=<function default_preprocess_golden_function_inputs at 0x79599f005760>, golden_function=<function _golden_function at 0x79599f0a8040>, postprocess_golden_function_outputs=<function default_postprocess_golden_function_outputs at 0x79599f005800>, is_cpp_operation=True, is_experimental=False)\", \"layer_norm\": \"FastOperation(python_fully_qualified_name='ttnn.layer_norm', function=<ttnn._ttnn.operations.normalization.layer_norm_t object at 0x7959a03b85d0>, preprocess_golden_function_inputs=<function default_preprocess_golden_function_inputs at 0x79599f005760>, golden_function=<function _golden_function at 0x79599f047060>, postprocess_golden_function_outputs=<function default_postprocess_golden_function_outputs at 0x79599f005800>, is_cpp_operation=True, is_experimental=False)\"}"
+   ],
+   "taped_ttnn_imported_any": false,
+   "tensor_getitem_at_exit": [
+    "<lambda>"
+   ],
+   "census_processes": 4,
+   "seconds": {
+    "before0": 40.46,
+    "after1": 42.38,
+    "before2": 46.23,
+    "after3": 39.58
+   },
+   "aiclk": {
+    "before0": {
+     "n": 11,
+     "min": 800,
+     "median": 1350,
+     "max": 1350
+    },
+    "after1": {
+     "n": 12,
+     "min": 800,
+     "median": 1350,
+     "max": 1350
+    },
+    "before2": {
+     "n": 12,
+     "min": 800,
+     "median": 1350,
+     "max": 1350
+    },
+    "after3": {
+     "n": 11,
+     "min": 800,
+     "median": 1350,
+     "max": 1350
+    }
+   },
+   "runs": [
+    {
+     "rc": 0,
+     "seconds": 40.46,
+     "digests": {
+      "cdk2x2_128.cif": "b70e195d9b41a2008ea5ea5870435a7110859d99327b9c7d886e6a034b560727"
+     },
+     "census": [
+      {
+       "pid": 1686338,
+       "autograd_imported": false,
+       "EXACT_SOFTMAX_STATS": null,
+       "EXACT_LAYER_NORM_STATS": null,
+       "raw_ops": {
+        "softmax": "FastOperation(python_fully_qualified_name='ttnn.softmax', function=<ttnn._ttnn.operations.normalization.softmax_t object at 0x776e7ada4330>, preprocess_golden_function_inputs=<function default_preprocess_golden_function_inputs at 0x776e7a4f1580>, golden_function=<function _golden_function at 0x776e7a37fe20>, postprocess_golden_function_outputs=<function default_postprocess_golden_function_outputs at 0x776e7a4f1620>, is_cpp_operation=True, is_experimental=False)",
+        "layer_norm": "FastOperation(python_fully_qualified_name='ttnn.layer_norm', function=<ttnn._ttnn.operations.normalization.layer_norm_t object at 0x776e7ada45d0>, preprocess_golden_function_inputs=<function default_preprocess_golden_function_inputs at 0x776e7a4f1580>, golden_function=<function _golden_function at 0x776e7a32ee80>, postprocess_golden_function_outputs=<function default_postprocess_golden_function_outputs at 0x776e7a4f1620>, is_cpp_operation=True, is_experimental=False)"
+       },
+       "taped_ttnn_imported": false,
+       "tensor_getitem": "<lambda>"
+      }
+     ],
+     "aiclk_mhz_sampled_DURING": {
+      "n": 11,
+      "min": 800,
+      "median": 1350,
+      "max": 1350
+     },
+     "tail": "",
+     "side": "before"
+    },
+    {
+     "rc": 0,
+     "seconds": 42.38,
+     "digests": {
+      "cdk2x2_128.cif": "b70e195d9b41a2008ea5ea5870435a7110859d99327b9c7d886e6a034b560727"
+     },
+     "census": [
+      {
+       "pid": 1687053,
+       "autograd_imported": false,
+       "EXACT_SOFTMAX_STATS": null,
+       "EXACT_LAYER_NORM_STATS": null,
+       "raw_ops": {
+        "softmax": "FastOperation(python_fully_qualified_name='ttnn.softmax', function=<ttnn._ttnn.operations.normalization.softmax_t object at 0x7959a03b8330>, preprocess_golden_function_inputs=<function default_preprocess_golden_function_inputs at 0x79599f005760>, golden_function=<function _golden_function at 0x79599f0a8040>, postprocess_golden_function_outputs=<function default_postprocess_golden_function_outputs at 0x79599f005800>, is_cpp_operation=True, is_experimental=False)",
+        "layer_norm": "FastOperation(python_fully_qualified_name='ttnn.layer_norm', function=<ttnn._ttnn.operations.normalization.layer_norm_t object at 0x7959a03b85d0>, preprocess_golden_function_inputs=<function default_preprocess_golden_function_inputs at 0x79599f005760>, golden_function=<function _golden_function at 0x79599f047060>, postprocess_golden_function_outputs=<function default_postprocess_golden_function_outputs at 0x79599f005800>, is_cpp_operation=True, is_experimental=False)"
+       },
+       "taped_ttnn_imported": false,
+       "tensor_getitem": "<lambda>"
+      }
+     ],
+     "aiclk_mhz_sampled_DURING": {
+      "n": 12,
+      "min": 800,
+      "median": 1350,
+      "max": 1350
+     },
+     "tail": "",
+     "side": "after"
+    },
+    {
+     "rc": 0,
+     "seconds": 46.23,
+     "digests": {
+      "cdk2x2_128.cif": "b70e195d9b41a2008ea5ea5870435a7110859d99327b9c7d886e6a034b560727"
+     },
+     "census": [
+      {
+       "pid": 1687844,
+       "autograd_imported": false,
+       "EXACT_SOFTMAX_STATS": null,
+       "EXACT_LAYER_NORM_STATS": null,
+       "raw_ops": {
+        "softmax": "FastOperation(python_fully_qualified_name='ttnn.softmax', function=<ttnn._ttnn.operations.normalization.softmax_t object at 0x71270ebb4330>, preprocess_golden_function_inputs=<function default_preprocess_golden_function_inputs at 0x71270e101580>, golden_function=<function _golden_function at 0x71270e18fe20>, postprocess_golden_function_outputs=<function default_postprocess_golden_function_outputs at 0x71270e101620>, is_cpp_operation=True, is_experimental=False)",
+        "layer_norm": "FastOperation(python_fully_qualified_name='ttnn.layer_norm', function=<ttnn._ttnn.operations.normalization.layer_norm_t object at 0x71270ebb45d0>, preprocess_golden_function_inputs=<function default_preprocess_golden_function_inputs at 0x71270e101580>, golden_function=<function _golden_function at 0x71270e13ee80>, postprocess_golden_function_outputs=<function default_postprocess_golden_function_outputs at 0x71270e101620>, is_cpp_operation=True, is_experimental=False)"
+       },
+       "taped_ttnn_imported": false,
+       "tensor_getitem": "<lambda>"
+      }
+     ],
+     "aiclk_mhz_sampled_DURING": {
+      "n": 12,
+      "min": 800,
+      "median": 1350,
+      "max": 1350
+     },
+     "tail": "",
+     "side": "before"
+    },
+    {
+     "rc": 0,
+     "seconds": 39.58,
+     "digests": {
+      "cdk2x2_128.cif": "b70e195d9b41a2008ea5ea5870435a7110859d99327b9c7d886e6a034b560727"
+     },
+     "census": [
+      {
+       "pid": 1688570,
+       "autograd_imported": false,
+       "EXACT_SOFTMAX_STATS": null,
+       "EXACT_LAYER_NORM_STATS": null,
+       "raw_ops": {
+        "softmax": "FastOperation(python_fully_qualified_name='ttnn.softmax', function=<ttnn._ttnn.operations.normalization.softmax_t object at 0x6fffe8f10330>, preprocess_golden_function_inputs=<function default_preprocess_golden_function_inputs at 0x6fffe865d760>, golden_function=<function _golden_function at 0x6fffe8500040>, postprocess_golden_function_outputs=<function default_postprocess_golden_function_outputs at 0x6fffe865d800>, is_cpp_operation=True, is_experimental=False)",
+        "layer_norm": "FastOperation(python_fully_qualified_name='ttnn.layer_norm', function=<ttnn._ttnn.operations.normalization.layer_norm_t object at 0x6fffe8f105d0>, preprocess_golden_function_inputs=<function default_preprocess_golden_function_inputs at 0x6fffe865d760>, golden_function=<function _golden_function at 0x6fffe869f060>, postprocess_golden_function_outputs=<function default_postprocess_golden_function_outputs at 0x6fffe865d800>, is_cpp_operation=True, is_experimental=False)"
+       },
+       "taped_ttnn_imported": false,
+       "tensor_getitem": "<lambda>"
+      }
+     ],
+     "aiclk_mhz_sampled_DURING": {
+      "n": 11,
+      "min": 800,
+      "median": 1350,
+      "max": 1350
+     },
+     "tail": "",
+     "side": "after"
+    }
+   ]
+  }
+ }
+}

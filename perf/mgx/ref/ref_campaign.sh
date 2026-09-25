@@ -31,9 +31,11 @@ if [ 1 -ge "$first" ]; then
 fi
 if [ 2 -ge "$first" ]; then
   echo "phase 2 $(date -u +%FT%TZ)"
-  for ((g=0; g<NG; g++)); do f=$(slice $g "${big[@]}"); [ -n "$f" ] || continue
-    CUDA_VISIBLE_DEVICES=$g bash $B "$W1 $W3" "$f" "0 1" > /root/results/p2_g${g}_w1.log 2>&1 &
-    CUDA_VISIBLE_DEVICES=$g bash $B "$W2" "$f" "0 1" > /root/results/p2_g${g}_w2.log 2>&1 &
+  # Split models, not fixtures, over the 2*NG workers: ref_batch loops fixtures outermost, so every
+  # worker folds 3abq_1536 (the real complex) before the tiled cdk2x2_1536.
+  NW=$((2 * NG))
+  for ((w=0; w<NW; w++)); do m=(); for ((k=w; k<${#all_models[@]}; k+=NW)); do m+=("${all_models[k]}"); done
+    CUDA_VISIBLE_DEVICES=$((w % NG)) bash $B "${m[*]}" "${big[*]}" "0 1" > /root/results/p2_w${w}.log 2>&1 &
   done; wait
 fi
 if [ 3 -ge "$first" ]; then

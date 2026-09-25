@@ -1,0 +1,33 @@
+# UPSTREAM fp32 CPU AT 1536 ON GroEL, THE TARGET THE VERDICT RESTS ON. Corroboration, not the
+# gate. 2026-09-25 10:2xZ, harvested by ref/harvest_groel_upstream.sh on whglx.
+
+    rung   upstream m=1   device n=8 median   device range (off0)      device 0-4 A
+     512      5.437             0.852          0.585 -  9.694            5 of 8 <=2 A
+    1536     12.842            15.606         11.313 - 17.064            0 of 8
+
+The 1536 draw ran 51,483 s (14 h 18 m) on whglx with 16 threads, rc 0, all six steps, against
+the same byte-identical offset-0 fixture the device's eight designs used. Its 512 half
+(5.437 A) is unchanged from the 2026-09-24 harvest and is re-printed here only so the two rungs
+sit together.
+
+## THE RANKS, WHICH ARE THE POINT
+
+At 512 upstream is WORSE than seven of the device's eight, beating only the 9.694 outlier.
+At 1536 upstream is BETTER than seven of eight, beaten only by the 11.313 minimum.
+Exact one-sided p at m=1 against n=8 is (U+1)/9, so 0.222 in each direction: **neither rung
+orders the two sides, and a single draw cannot.** That floor is why the 1GPB gate needed two
+(results/upstream_draw_count.txt).
+
+The direction flip is worth naming rather than smoothing over, because it is the unflattering
+reading and it is the first thing in this row that has pointed at the port at all: relative to
+one upstream draw the device goes from clearly better at 512 to slightly worse at 1536. Two
+single draws with p=0.222 each cannot support that, and the deciding 1GPB pair -- m=2, the
+pre-registered test, three device cells -- reads U = 5 / 4 / 11 of 16 and finds no ordering
+either (results/upstream_1536_pair_result.txt). So the flip is recorded and not claimed.
+
+## WHAT IT DOES SETTLE, WITHOUT ANY TEST
+
+Upstream at 1536 returns 12.842 A against a 4 A permissive bar. Upstream fails here too, on its
+own defaults at fp32 on CPU, on the target whose 512 cell this row's best designs came from. A
+size at which the reference itself stops producing a refoldable binder is a property of
+BoltzGen, and that is the sentence the brief's clause 4 asks for.

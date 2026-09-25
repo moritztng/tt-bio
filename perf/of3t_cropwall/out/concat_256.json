@@ -1,0 +1,2701 @@
+{
+ "doc": "Every `ttnn.concat` on the OF3 trunk's forward and backward, with what its output costs.",
+ "argv": [
+  "--tokens",
+  "256",
+  "--out",
+  "perf/of3t_cropwall/out/concat_256.json",
+  "--stack-above-mb",
+  "8"
+ ],
+ "env": {
+  "host": "tt-quietbox2",
+  "tt_visible_devices": "2",
+  "tt_bio_lease_cards": "2",
+  "commit": "9de66106efdec39d2ef6f345d777051e2461f8f5",
+  "branch": "wk/of3t-cropwall",
+  "started_utc": "2026-09-23T00:06:52Z",
+  "loadavg": [
+   9.392578125,
+   7.14990234375,
+   5.5400390625
+  ],
+  "drop_dead_values": true,
+  "arch": "Arch.BLACKHOLE",
+  "aiclk_during": {
+   "0": {
+    "min": 800,
+    "max": 1350,
+    "median": 1350,
+    "n": 53
+   }
+  },
+  "aiclk_line": "CLOCK: dev0 min 800 / median 1350 / max 1350 MHz over 53 samples, polled DURING the work"
+ },
+ "concat": {
+  "distinct": 43,
+  "calls": 2906,
+  "bytes_x_calls_total": 237886373888,
+  "rows": [
+   {
+    "phase": "backward",
+    "axis": 2,
+    "first_seen": 24,
+    "operands": [
+     {
+      "shape": [
+       256,
+       256,
+       1,
+       128
+      ],
+      "dtype": "BFLOAT16",
+      "layout": "TILE"
+     },
+     {
+      "shape": [
+       256,
+       256,
+       1,
+       128
+      ],
+      "dtype": "BFLOAT16",
+      "layout": "TILE"
+     },
+     {
+      "shape": [
+       256,
+       256,
+       1,
+       128
+      ],
+      "dtype": "BFLOAT16",
+      "layout": "TILE"
+     }
+    ],
+    "n_operands": 3,
+    "out_shape": [
+     256,
+     256,
+     3,
+     128
+    ],
+    "out_dtype": "BFLOAT16",
+    "tile_padded_shape": [
+     256,
+     256,
+     32,
+     128
+    ],
+    "tile_padded_b": 536870912,
+    "calls": 324,
+    "site": [
+     "taped_ttnn.py:922:bw",
+     "autograd.py:414:backward",
+     "autograd.py:359:backward",
+     "autograd.py:1638:_recompute",
+     "autograd.py:1672:<lambda>",
+     "autograd.py:414:backward",
+     "concat_census.py:227:main",
+     "concat_census.py:268:<module>"
+    ]
+   },
+   {
+    "phase": "backward",
+    "axis": 3,
+    "first_seen": 25,
+    "operands": [
+     {
+      "shape": [
+       1,
+       256,
+       256,
+       128
+      ],
+      "dtype": "BFLOAT16",
+      "layout": "TILE"
+     },
+     {
+      "shape": [
+       1,
+       256,
+       256,
+       384
+      ],
+      "dtype": "BFLOAT16",
+      "layout": "TILE"
+     }
+    ],
+    "n_operands": 2,
+    "out_shape": [
+     1,
+     256,
+     256,
+     512
+    ],
+    "out_dtype": "BFLOAT16",
+    "tile_padded_shape": [
+     1,
+     256,
+     256,
+     512
+    ],
+    "tile_padded_b": 67108864,
+    "calls": 104,
+    "site": [
+     "taped_ttnn.py:718:bw",
+     "autograd.py:414:backward",
+     "autograd.py:359:backward",
+     "autograd.py:1638:_recompute",
+     "autograd.py:1672:<lambda>",
+     "autograd.py:414:backward",
+     "concat_census.py:227:main",
+     "concat_census.py:268:<module>"
+    ]
+   },
+   {
+    "phase": "backward",
+    "axis": 3,
+    "first_seen": 26,
+    "operands": [
+     {
+      "shape": [
+       1,
+       256,
+       256,
+       128
+      ],
+      "dtype": "BFLOAT16",
+      "layout": "TILE"
+     },
+     {
+      "shape": [
+       1,
+       256,
+       256,
+       128
+      ],
+      "dtype": "BFLOAT16",
+      "layout": "TILE"
+     },
+     {
+      "shape": [
+       1,
+       256,
+       256,
+       256
+      ],
+      "dtype": "BFLOAT16",
+      "layout": "TILE"
+     }
+    ],
+    "n_operands": 3,
+    "out_shape": [
+     1,
+     256,
+     256,
+     512
+    ],
+    "out_dtype": "BFLOAT16",
+    "tile_padded_shape": [
+     1,
+     256,
+     256,
+     512
+    ],
+    "tile_padded_b": 67108864,
+    "calls": 104,
+    "site": [
+     "taped_ttnn.py:718:bw",
+     "autograd.py:414:backward",
+     "autograd.py:359:backward",
+     "autograd.py:1638:_recompute",
+     "autograd.py:1672:<lambda>",
+     "autograd.py:414:backward",
+     "concat_census.py:227:main",
+     "concat_census.py:268:<module>"
+    ]
+   },
+   {
+    "phase": "backward",
+    "axis": 3,
+    "first_seen": 27,
+    "operands": [
+     {
+      "shape": [
+       1,
+       256,
+       256,
+       256
+      ],
+      "dtype": "BFLOAT16",
+      "layout": "TILE"
+     },
+     {
+      "shape": [
+       1,
+       256,
+       256,
+       128
+      ],
+      "dtype": "BFLOAT16",
+      "layout": "TILE"
+     },
+     {
+      "shape": [
+       1,
+       256,
+       256,
+       128
+      ],
+      "dtype": "BFLOAT16",
+      "layout": "TILE"
+     }
+    ],
+    "n_operands": 3,
+    "out_shape": [
+     1,
+     256,
+     256,
+     512
+    ],
+    "out_dtype": "BFLOAT16",
+    "tile_padded_shape": [
+     1,
+     256,
+     256,
+     512
+    ],
+    "tile_padded_b": 67108864,
+    "calls": 104,
+    "site": [
+     "taped_ttnn.py:718:bw",
+     "autograd.py:414:backward",
+     "autograd.py:359:backward",
+     "autograd.py:1638:_recompute",
+     "autograd.py:1672:<lambda>",
+     "autograd.py:414:backward",
+     "concat_census.py:227:main",
+     "concat_census.py:268:<module>"
+    ]
+   },
+   {
+    "phase": "backward",
+    "axis": 3,
+    "first_seen": 28,
+    "operands": [
+     {
+      "shape": [
+       1,
+       256,
+       256,
+       384
+      ],
+      "dtype": "BFLOAT16",
+      "layout": "TILE"
+     },
+     {
+      "shape": [
+       1,
+       256,
+       256,
+       128
+      ],
+      "dtype": "BFLOAT16",
+      "layout": "TILE"
+     }
+    ],
+    "n_operands": 2,
+    "out_shape": [
+     1,
+     256,
+     256,
+     512
+    ],
+    "out_dtype": "BFLOAT16",
+    "tile_padded_shape": [
+     1,
+     256,
+     256,
+     512
+    ],
+    "tile_padded_b": 67108864,
+    "calls": 104,
+    "site": [
+     "taped_ttnn.py:718:bw",
+     "autograd.py:414:backward",
+     "autograd.py:359:backward",
+     "autograd.py:1638:_recompute",
+     "autograd.py:1672:<lambda>",
+     "autograd.py:414:backward",
+     "concat_census.py:227:main",
+     "concat_census.py:268:<module>"
+    ]
+   },
+   {
+    "phase": "backward",
+    "axis": 3,
+    "first_seen": 40,
+    "operands": [
+     {
+      "shape": [
+       1,
+       256,
+       256,
+       64
+      ],
+      "dtype": "BFLOAT16",
+      "layout": "TILE"
+     },
+     {
+      "shape": [
+       1,
+       256,
+       256,
+       192
+      ],
+      "dtype": "BFLOAT16",
+      "layout": "TILE"
+     }
+    ],
+    "n_operands": 2,
+    "out_shape": [
+     1,
+     256,
+     256,
+     256
+    ],
+    "out_dtype": "BFLOAT16",
+    "tile_padded_shape": [
+     1,
+     256,
+     256,
+     256
+    ],
+    "tile_padded_b": 33554432,
+    "calls": 4,
+    "site": [
+     "taped_ttnn.py:718:bw",
+     "autograd.py:414:backward",
+     "autograd.py:359:backward",
+     "autograd.py:1638:_recompute",
+     "autograd.py:1654:<lambda>",
+     "autograd.py:414:backward",
+     "concat_census.py:227:main",
+     "concat_census.py:268:<module>"
+    ]
+   },
+   {
+    "phase": "backward",
+    "axis": 3,
+    "first_seen": 41,
+    "operands": [
+     {
+      "shape": [
+       1,
+       256,
+       256,
+       64
+      ],
+      "dtype": "BFLOAT16",
+      "layout": "TILE"
+     },
+     {
+      "shape": [
+       1,
+       256,
+       256,
+       64
+      ],
+      "dtype": "BFLOAT16",
+      "layout": "TILE"
+     },
+     {
+      "shape": [
+       1,
+       256,
+       256,
+       128
+      ],
+      "dtype": "BFLOAT16",
+      "layout": "TILE"
+     }
+    ],
+    "n_operands": 3,
+    "out_shape": [
+     1,
+     256,
+     256,
+     256
+    ],
+    "out_dtype": "BFLOAT16",
+    "tile_padded_shape": [
+     1,
+     256,
+     256,
+     256
+    ],
+    "tile_padded_b": 33554432,
+    "calls": 4,
+    "site": [
+     "taped_ttnn.py:718:bw",
+     "autograd.py:414:backward",
+     "autograd.py:359:backward",
+     "autograd.py:1638:_recompute",
+     "autograd.py:1654:<lambda>",
+     "autograd.py:414:backward",
+     "concat_census.py:227:main",
+     "concat_census.py:268:<module>"
+    ]
+   },
+   {
+    "phase": "backward",
+    "axis": 3,
+    "first_seen": 42,
+    "operands": [
+     {
+      "shape": [
+       1,
+       256,
+       256,
+       128
+      ],
+      "dtype": "BFLOAT16",
+      "layout": "TILE"
+     },
+     {
+      "shape": [
+       1,
+       256,
+       256,
+       64
+      ],
+      "dtype": "BFLOAT16",
+      "layout": "TILE"
+     },
+     {
+      "shape": [
+       1,
+       256,
+       256,
+       64
+      ],
+      "dtype": "BFLOAT16",
+      "layout": "TILE"
+     }
+    ],
+    "n_operands": 3,
+    "out_shape": [
+     1,
+     256,
+     256,
+     256
+    ],
+    "out_dtype": "BFLOAT16",
+    "tile_padded_shape": [
+     1,
+     256,
+     256,
+     256
+    ],
+    "tile_padded_b": 33554432,
+    "calls": 4,
+    "site": [
+     "taped_ttnn.py:718:bw",
+     "autograd.py:414:backward",
+     "autograd.py:359:backward",
+     "autograd.py:1638:_recompute",
+     "autograd.py:1654:<lambda>",
+     "autograd.py:414:backward",
+     "concat_census.py:227:main",
+     "concat_census.py:268:<module>"
+    ]
+   },
+   {
+    "phase": "backward",
+    "axis": 3,
+    "first_seen": 43,
+    "operands": [
+     {
+      "shape": [
+       1,
+       256,
+       256,
+       192
+      ],
+      "dtype": "BFLOAT16",
+      "layout": "TILE"
+     },
+     {
+      "shape": [
+       1,
+       256,
+       256,
+       64
+      ],
+      "dtype": "BFLOAT16",
+      "layout": "TILE"
+     }
+    ],
+    "n_operands": 2,
+    "out_shape": [
+     1,
+     256,
+     256,
+     256
+    ],
+    "out_dtype": "BFLOAT16",
+    "tile_padded_shape": [
+     1,
+     256,
+     256,
+     256
+    ],
+    "tile_padded_b": 33554432,
+    "calls": 4,
+    "site": [
+     "taped_ttnn.py:718:bw",
+     "autograd.py:414:backward",
+     "autograd.py:359:backward",
+     "autograd.py:1638:_recompute",
+     "autograd.py:1654:<lambda>",
+     "autograd.py:414:backward",
+     "concat_census.py:227:main",
+     "concat_census.py:268:<module>"
+    ]
+   },
+   {
+    "phase": "forward",
+    "axis": 0,
+    "first_seen": 1,
+    "operands": [
+     {
+      "shape": [
+       81,
+       4,
+       256,
+       32
+      ],
+      "dtype": "BFLOAT16",
+      "layout": "TILE"
+     },
+     {
+      "shape": [
+       81,
+       4,
+       256,
+       32
+      ],
+      "dtype": "BFLOAT16",
+      "layout": "TILE"
+     },
+     {
+      "shape": [
+       81,
+       4,
+       256,
+       32
+      ],
+      "dtype": "BFLOAT16",
+      "layout": "TILE"
+     },
+     {
+      "shape": [
+       13,
+       4,
+       256,
+       32
+      ],
+      "dtype": "BFLOAT16",
+      "layout": "TILE"
+     }
+    ],
+    "n_operands": 4,
+    "out_shape": [
+     256,
+     4,
+     256,
+     32
+    ],
+    "out_dtype": "BFLOAT16",
+    "tile_padded_shape": [
+     256,
+     4,
+     256,
+     32
+    ],
+    "tile_padded_b": 16777216,
+    "calls": 1,
+    "site": [
+     "taped_ttnn.py:671:_v_concat",
+     "taped_ttnn.py:1068:call",
+     "tenstorrent.py:4034:run",
+     "tenstorrent.py:3064:_with_dram_narrowing",
+     "tenstorrent.py:4039:_fp32_softmax_attention",
+     "tenstorrent.py:8097:_attend_heads",
+     "tenstorrent.py:8074:attend",
+     "tenstorrent.py:8402:__call__",
+     "tenstorrent.py:9514:__call__",
+     "openfold3_template.py:135:<lambda>",
+     "autograd.py:1619:checkpoint",
+     "autograd.py:2107:_checkpoint_segment",
+     "ops.py:135:checkpoint_segment",
+     "openfold3_template.py:134:__call__"
+    ]
+   },
+   {
+    "phase": "forward",
+    "axis": 0,
+    "first_seen": 2,
+    "operands": [
+     {
+      "shape": [
+       78,
+       4,
+       256,
+       32
+      ],
+      "dtype": "BFLOAT16",
+      "layout": "TILE"
+     },
+     {
+      "shape": [
+       78,
+       4,
+       256,
+       32
+      ],
+      "dtype": "BFLOAT16",
+      "layout": "TILE"
+     },
+     {
+      "shape": [
+       78,
+       4,
+       256,
+       32
+      ],
+      "dtype": "BFLOAT16",
+      "layout": "TILE"
+     },
+     {
+      "shape": [
+       22,
+       4,
+       256,
+       32
+      ],
+      "dtype": "BFLOAT16",
+      "layout": "TILE"
+     }
+    ],
+    "n_operands": 4,
+    "out_shape": [
+     256,
+     4,
+     256,
+     32
+    ],
+    "out_dtype": "BFLOAT16",
+    "tile_padded_shape": [
+     256,
+     4,
+     256,
+     32
+    ],
+    "tile_padded_b": 16777216,
+    "calls": 1,
+    "site": [
+     "taped_ttnn.py:671:_v_concat",
+     "taped_ttnn.py:1068:call",
+     "tenstorrent.py:4034:run",
+     "tenstorrent.py:3064:_with_dram_narrowing",
+     "tenstorrent.py:4039:_fp32_softmax_attention",
+     "tenstorrent.py:8097:_attend_heads",
+     "tenstorrent.py:8074:attend",
+     "tenstorrent.py:8402:__call__",
+     "tenstorrent.py:9518:__call__",
+     "openfold3_template.py:135:<lambda>",
+     "autograd.py:1619:checkpoint",
+     "autograd.py:2107:_checkpoint_segment",
+     "ops.py:135:checkpoint_segment",
+     "openfold3_template.py:134:__call__"
+    ]
+   },
+   {
+    "phase": "forward",
+    "axis": 0,
+    "first_seen": 4,
+    "operands": [
+     {
+      "shape": [
+       75,
+       4,
+       256,
+       32
+      ],
+      "dtype": "BFLOAT16",
+      "layout": "TILE"
+     },
+     {
+      "shape": [
+       75,
+       4,
+       256,
+       32
+      ],
+      "dtype": "BFLOAT16",
+      "layout": "TILE"
+     },
+     {
+      "shape": [
+       75,
+       4,
+       256,
+       32
+      ],
+      "dtype": "BFLOAT16",
+      "layout": "TILE"
+     },
+     {
+      "shape": [
+       31,
+       4,
+       256,
+       32
+      ],
+      "dtype": "BFLOAT16",
+      "layout": "TILE"
+     }
+    ],
+    "n_operands": 4,
+    "out_shape": [
+     256,
+     4,
+     256,
+     32
+    ],
+    "out_dtype": "BFLOAT16",
+    "tile_padded_shape": [
+     256,
+     4,
+     256,
+     32
+    ],
+    "tile_padded_b": 16777216,
+    "calls": 1,
+    "site": [
+     "taped_ttnn.py:671:_v_concat",
+     "taped_ttnn.py:1068:call",
+     "tenstorrent.py:4034:run",
+     "tenstorrent.py:3064:_with_dram_narrowing",
+     "tenstorrent.py:4039:_fp32_softmax_attention",
+     "tenstorrent.py:8097:_attend_heads",
+     "tenstorrent.py:8074:attend",
+     "tenstorrent.py:8402:__call__",
+     "tenstorrent.py:9514:__call__",
+     "openfold3_template.py:135:<lambda>",
+     "autograd.py:1619:checkpoint",
+     "autograd.py:2107:_checkpoint_segment",
+     "ops.py:135:checkpoint_segment",
+     "openfold3_template.py:134:__call__"
+    ]
+   },
+   {
+    "phase": "forward",
+    "axis": 0,
+    "first_seen": 5,
+    "operands": [
+     {
+      "shape": [
+       72,
+       4,
+       256,
+       32
+      ],
+      "dtype": "BFLOAT16",
+      "layout": "TILE"
+     },
+     {
+      "shape": [
+       72,
+       4,
+       256,
+       32
+      ],
+      "dtype": "BFLOAT16",
+      "layout": "TILE"
+     },
+     {
+      "shape": [
+       72,
+       4,
+       256,
+       32
+      ],
+      "dtype": "BFLOAT16",
+      "layout": "TILE"
+     },
+     {
+      "shape": [
+       40,
+       4,
+       256,
+       32
+      ],
+      "dtype": "BFLOAT16",
+      "layout": "TILE"
+     }
+    ],
+    "n_operands": 4,
+    "out_shape": [
+     256,
+     4,
+     256,
+     32
+    ],
+    "out_dtype": "BFLOAT16",
+    "tile_padded_shape": [
+     256,
+     4,
+     256,
+     32
+    ],
+    "tile_padded_b": 16777216,
+    "calls": 1,
+    "site": [
+     "taped_ttnn.py:671:_v_concat",
+     "taped_ttnn.py:1068:call",
+     "tenstorrent.py:4034:run",
+     "tenstorrent.py:3064:_with_dram_narrowing",
+     "tenstorrent.py:4039:_fp32_softmax_attention",
+     "tenstorrent.py:8097:_attend_heads",
+     "tenstorrent.py:8074:attend",
+     "tenstorrent.py:8402:__call__",
+     "tenstorrent.py:9518:__call__",
+     "openfold3_template.py:135:<lambda>",
+     "autograd.py:1619:checkpoint",
+     "autograd.py:2107:_checkpoint_segment",
+     "ops.py:135:checkpoint_segment",
+     "openfold3_template.py:134:__call__"
+    ]
+   },
+   {
+    "phase": "forward",
+    "axis": 0,
+    "first_seen": 7,
+    "operands": [
+     {
+      "shape": [
+       69,
+       4,
+       256,
+       32
+      ],
+      "dtype": "BFLOAT16",
+      "layout": "TILE"
+     },
+     {
+      "shape": [
+       69,
+       4,
+       256,
+       32
+      ],
+      "dtype": "BFLOAT16",
+      "layout": "TILE"
+     },
+     {
+      "shape": [
+       69,
+       4,
+       256,
+       32
+      ],
+      "dtype": "BFLOAT16",
+      "layout": "TILE"
+     },
+     {
+      "shape": [
+       49,
+       4,
+       256,
+       32
+      ],
+      "dtype": "BFLOAT16",
+      "layout": "TILE"
+     }
+    ],
+    "n_operands": 4,
+    "out_shape": [
+     256,
+     4,
+     256,
+     32
+    ],
+    "out_dtype": "BFLOAT16",
+    "tile_padded_shape": [
+     256,
+     4,
+     256,
+     32
+    ],
+    "tile_padded_b": 16777216,
+    "calls": 1,
+    "site": [
+     "taped_ttnn.py:671:_v_concat",
+     "taped_ttnn.py:1068:call",
+     "tenstorrent.py:4034:run",
+     "tenstorrent.py:3064:_with_dram_narrowing",
+     "tenstorrent.py:4039:_fp32_softmax_attention",
+     "tenstorrent.py:8097:_attend_heads",
+     "tenstorrent.py:8074:attend",
+     "tenstorrent.py:8402:__call__",
+     "tenstorrent.py:9514:__call__",
+     "openfold3_msa_embedder.py:130:__call__",
+     "openfold3_msa_embedder.py:162:<lambda>",
+     "autograd.py:1619:checkpoint",
+     "autograd.py:2107:_checkpoint_segment",
+     "ops.py:135:checkpoint_segment"
+    ]
+   },
+   {
+    "phase": "forward",
+    "axis": 0,
+    "first_seen": 8,
+    "operands": [
+     {
+      "shape": [
+       66,
+       4,
+       256,
+       32
+      ],
+      "dtype": "BFLOAT16",
+      "layout": "TILE"
+     },
+     {
+      "shape": [
+       66,
+       4,
+       256,
+       32
+      ],
+      "dtype": "BFLOAT16",
+      "layout": "TILE"
+     },
+     {
+      "shape": [
+       66,
+       4,
+       256,
+       32
+      ],
+      "dtype": "BFLOAT16",
+      "layout": "TILE"
+     },
+     {
+      "shape": [
+       58,
+       4,
+       256,
+       32
+      ],
+      "dtype": "BFLOAT16",
+      "layout": "TILE"
+     }
+    ],
+    "n_operands": 4,
+    "out_shape": [
+     256,
+     4,
+     256,
+     32
+    ],
+    "out_dtype": "BFLOAT16",
+    "tile_padded_shape": [
+     256,
+     4,
+     256,
+     32
+    ],
+    "tile_padded_b": 16777216,
+    "calls": 1,
+    "site": [
+     "taped_ttnn.py:671:_v_concat",
+     "taped_ttnn.py:1068:call",
+     "tenstorrent.py:4034:run",
+     "tenstorrent.py:3064:_with_dram_narrowing",
+     "tenstorrent.py:4039:_fp32_softmax_attention",
+     "tenstorrent.py:8097:_attend_heads",
+     "tenstorrent.py:8074:attend",
+     "tenstorrent.py:8402:__call__",
+     "tenstorrent.py:9518:__call__",
+     "openfold3_msa_embedder.py:130:__call__",
+     "openfold3_msa_embedder.py:162:<lambda>",
+     "autograd.py:1619:checkpoint",
+     "autograd.py:2107:_checkpoint_segment",
+     "ops.py:135:checkpoint_segment"
+    ]
+   },
+   {
+    "phase": "forward",
+    "axis": 1,
+    "first_seen": 9,
+    "operands": [
+     {
+      "shape": [
+       1,
+       86,
+       256,
+       128
+      ],
+      "dtype": "BFLOAT16",
+      "layout": "TILE"
+     },
+     {
+      "shape": [
+       1,
+       86,
+       256,
+       128
+      ],
+      "dtype": "BFLOAT16",
+      "layout": "TILE"
+     },
+     {
+      "shape": [
+       1,
+       84,
+       256,
+       128
+      ],
+      "dtype": "BFLOAT16",
+      "layout": "TILE"
+     }
+    ],
+    "n_operands": 3,
+    "out_shape": [
+     1,
+     256,
+     256,
+     128
+    ],
+    "out_dtype": "BFLOAT16",
+    "tile_padded_shape": [
+     1,
+     256,
+     256,
+     128
+    ],
+    "tile_padded_b": 16777216,
+    "calls": 52,
+    "site": [
+     "taped_ttnn.py:671:_v_concat",
+     "taped_ttnn.py:1068:call",
+     "tenstorrent.py:5928:_concat_to",
+     "tenstorrent.py:9331:_swiglu_all",
+     "tenstorrent.py:9012:__call__",
+     "tenstorrent.py:9524:__call__",
+     "openfold3_msa_embedder.py:130:__call__",
+     "openfold3_msa_embedder.py:162:<lambda>",
+     "autograd.py:1619:checkpoint",
+     "autograd.py:2107:_checkpoint_segment",
+     "ops.py:135:checkpoint_segment",
+     "openfold3_msa_embedder.py:161:__call__",
+     "openfold3_trunk.py:247:__call__",
+     "concat_census.py:210:main"
+    ]
+   },
+   {
+    "phase": "forward",
+    "axis": 0,
+    "first_seen": 10,
+    "operands": [
+     {
+      "shape": [
+       65,
+       4,
+       256,
+       32
+      ],
+      "dtype": "BFLOAT16",
+      "layout": "TILE"
+     },
+     {
+      "shape": [
+       65,
+       4,
+       256,
+       32
+      ],
+      "dtype": "BFLOAT16",
+      "layout": "TILE"
+     },
+     {
+      "shape": [
+       65,
+       4,
+       256,
+       32
+      ],
+      "dtype": "BFLOAT16",
+      "layout": "TILE"
+     },
+     {
+      "shape": [
+       61,
+       4,
+       256,
+       32
+      ],
+      "dtype": "BFLOAT16",
+      "layout": "TILE"
+     }
+    ],
+    "n_operands": 4,
+    "out_shape": [
+     256,
+     4,
+     256,
+     32
+    ],
+    "out_dtype": "BFLOAT16",
+    "tile_padded_shape": [
+     256,
+     4,
+     256,
+     32
+    ],
+    "tile_padded_b": 16777216,
+    "calls": 1,
+    "site": [
+     "taped_ttnn.py:671:_v_concat",
+     "taped_ttnn.py:1068:call",
+     "tenstorrent.py:4034:run",
+     "tenstorrent.py:3064:_with_dram_narrowing",
+     "tenstorrent.py:4039:_fp32_softmax_attention",
+     "tenstorrent.py:8097:_attend_heads",
+     "tenstorrent.py:8074:attend",
+     "tenstorrent.py:8402:__call__",
+     "tenstorrent.py:9514:__call__",
+     "openfold3_msa_embedder.py:130:__call__",
+     "openfold3_msa_embedder.py:162:<lambda>",
+     "autograd.py:1619:checkpoint",
+     "autograd.py:2107:_checkpoint_segment",
+     "ops.py:135:checkpoint_segment"
+    ]
+   },
+   {
+    "phase": "forward",
+    "axis": 0,
+    "first_seen": 11,
+    "operands": [
+     {
+      "shape": [
+       63,
+       4,
+       256,
+       32
+      ],
+      "dtype": "BFLOAT16",
+      "layout": "TILE"
+     },
+     {
+      "shape": [
+       63,
+       4,
+       256,
+       32
+      ],
+      "dtype": "BFLOAT16",
+      "layout": "TILE"
+     },
+     {
+      "shape": [
+       63,
+       4,
+       256,
+       32
+      ],
+      "dtype": "BFLOAT16",
+      "layout": "TILE"
+     },
+     {
+      "shape": [
+       63,
+       4,
+       256,
+       32
+      ],
+      "dtype": "BFLOAT16",
+      "layout": "TILE"
+     }
+    ],
+    "n_operands": 5,
+    "out_shape": [
+     256,
+     4,
+     256,
+     32
+    ],
+    "out_dtype": "BFLOAT16",
+    "tile_padded_shape": [
+     256,
+     4,
+     256,
+     32
+    ],
+    "tile_padded_b": 16777216,
+    "calls": 1,
+    "site": [
+     "taped_ttnn.py:671:_v_concat",
+     "taped_ttnn.py:1068:call",
+     "tenstorrent.py:4034:run",
+     "tenstorrent.py:3064:_with_dram_narrowing",
+     "tenstorrent.py:4039:_fp32_softmax_attention",
+     "tenstorrent.py:8097:_attend_heads",
+     "tenstorrent.py:8074:attend",
+     "tenstorrent.py:8402:__call__",
+     "tenstorrent.py:9518:__call__",
+     "openfold3_msa_embedder.py:130:__call__",
+     "openfold3_msa_embedder.py:162:<lambda>",
+     "autograd.py:1619:checkpoint",
+     "autograd.py:2107:_checkpoint_segment",
+     "ops.py:135:checkpoint_segment"
+    ]
+   },
+   {
+    "phase": "forward",
+    "axis": 0,
+    "first_seen": 12,
+    "operands": [
+     {
+      "shape": [
+       60,
+       4,
+       256,
+       32
+      ],
+      "dtype": "BFLOAT16",
+      "layout": "TILE"
+     },
+     {
+      "shape": [
+       60,
+       4,
+       256,
+       32
+      ],
+      "dtype": "BFLOAT16",
+      "layout": "TILE"
+     },
+     {
+      "shape": [
+       60,
+       4,
+       256,
+       32
+      ],
+      "dtype": "BFLOAT16",
+      "layout": "TILE"
+     },
+     {
+      "shape": [
+       60,
+       4,
+       256,
+       32
+      ],
+      "dtype": "BFLOAT16",
+      "layout": "TILE"
+     }
+    ],
+    "n_operands": 5,
+    "out_shape": [
+     256,
+     4,
+     256,
+     32
+    ],
+    "out_dtype": "BFLOAT16",
+    "tile_padded_shape": [
+     256,
+     4,
+     256,
+     32
+    ],
+    "tile_padded_b": 16777216,
+    "calls": 1,
+    "site": [
+     "taped_ttnn.py:671:_v_concat",
+     "taped_ttnn.py:1068:call",
+     "tenstorrent.py:4034:run",
+     "tenstorrent.py:3064:_with_dram_narrowing",
+     "tenstorrent.py:4039:_fp32_softmax_attention",
+     "tenstorrent.py:8097:_attend_heads",
+     "tenstorrent.py:8074:attend",
+     "tenstorrent.py:8402:__call__",
+     "tenstorrent.py:9514:__call__",
+     "openfold3_msa_embedder.py:130:__call__",
+     "openfold3_msa_embedder.py:162:<lambda>",
+     "autograd.py:1619:checkpoint",
+     "autograd.py:2107:_checkpoint_segment",
+     "ops.py:135:checkpoint_segment"
+    ]
+   },
+   {
+    "phase": "forward",
+    "axis": 0,
+    "first_seen": 13,
+    "operands": [
+     {
+      "shape": [
+       57,
+       4,
+       256,
+       32
+      ],
+      "dtype": "BFLOAT16",
+      "layout": "TILE"
+     },
+     {
+      "shape": [
+       57,
+       4,
+       256,
+       32
+      ],
+      "dtype": "BFLOAT16",
+      "layout": "TILE"
+     },
+     {
+      "shape": [
+       57,
+       4,
+       256,
+       32
+      ],
+      "dtype": "BFLOAT16",
+      "layout": "TILE"
+     },
+     {
+      "shape": [
+       57,
+       4,
+       256,
+       32
+      ],
+      "dtype": "BFLOAT16",
+      "layout": "TILE"
+     }
+    ],
+    "n_operands": 5,
+    "out_shape": [
+     256,
+     4,
+     256,
+     32
+    ],
+    "out_dtype": "BFLOAT16",
+    "tile_padded_shape": [
+     256,
+     4,
+     256,
+     32
+    ],
+    "tile_padded_b": 16777216,
+    "calls": 1,
+    "site": [
+     "taped_ttnn.py:671:_v_concat",
+     "taped_ttnn.py:1068:call",
+     "tenstorrent.py:4034:run",
+     "tenstorrent.py:3064:_with_dram_narrowing",
+     "tenstorrent.py:4039:_fp32_softmax_attention",
+     "tenstorrent.py:8097:_attend_heads",
+     "tenstorrent.py:8074:attend",
+     "tenstorrent.py:8402:__call__",
+     "tenstorrent.py:9518:__call__",
+     "openfold3_msa_embedder.py:130:__call__",
+     "openfold3_msa_embedder.py:162:<lambda>",
+     "autograd.py:1619:checkpoint",
+     "autograd.py:2107:_checkpoint_segment",
+     "ops.py:135:checkpoint_segment"
+    ]
+   },
+   {
+    "phase": "forward",
+    "axis": 0,
+    "first_seen": 14,
+    "operands": [
+     {
+      "shape": [
+       55,
+       4,
+       256,
+       32
+      ],
+      "dtype": "BFLOAT16",
+      "layout": "TILE"
+     },
+     {
+      "shape": [
+       55,
+       4,
+       256,
+       32
+      ],
+      "dtype": "BFLOAT16",
+      "layout": "TILE"
+     },
+     {
+      "shape": [
+       55,
+       4,
+       256,
+       32
+      ],
+      "dtype": "BFLOAT16",
+      "layout": "TILE"
+     },
+     {
+      "shape": [
+       55,
+       4,
+       256,
+       32
+      ],
+      "dtype": "BFLOAT16",
+      "layout": "TILE"
+     }
+    ],
+    "n_operands": 5,
+    "out_shape": [
+     256,
+     4,
+     256,
+     32
+    ],
+    "out_dtype": "BFLOAT16",
+    "tile_padded_shape": [
+     256,
+     4,
+     256,
+     32
+    ],
+    "tile_padded_b": 16777216,
+    "calls": 98,
+    "site": [
+     "taped_ttnn.py:671:_v_concat",
+     "taped_ttnn.py:1068:call",
+     "tenstorrent.py:4034:run",
+     "tenstorrent.py:3064:_with_dram_narrowing",
+     "tenstorrent.py:4039:_fp32_softmax_attention",
+     "tenstorrent.py:8097:_attend_heads",
+     "tenstorrent.py:8074:attend",
+     "tenstorrent.py:8402:__call__",
+     "tenstorrent.py:9514:__call__",
+     "openfold3_msa_embedder.py:130:__call__",
+     "openfold3_msa_embedder.py:162:<lambda>",
+     "autograd.py:1619:checkpoint",
+     "autograd.py:2107:_checkpoint_segment",
+     "ops.py:135:checkpoint_segment"
+    ]
+   },
+   {
+    "phase": "backward",
+    "axis": 0,
+    "first_seen": 15,
+    "operands": [
+     {
+      "shape": [
+       55,
+       4,
+       256,
+       32
+      ],
+      "dtype": "BFLOAT16",
+      "layout": "TILE"
+     },
+     {
+      "shape": [
+       55,
+       4,
+       256,
+       32
+      ],
+      "dtype": "BFLOAT16",
+      "layout": "TILE"
+     },
+     {
+      "shape": [
+       55,
+       4,
+       256,
+       32
+      ],
+      "dtype": "BFLOAT16",
+      "layout": "TILE"
+     },
+     {
+      "shape": [
+       55,
+       4,
+       256,
+       32
+      ],
+      "dtype": "BFLOAT16",
+      "layout": "TILE"
+     }
+    ],
+    "n_operands": 5,
+    "out_shape": [
+     256,
+     4,
+     256,
+     32
+    ],
+    "out_dtype": "BFLOAT16",
+    "tile_padded_shape": [
+     256,
+     4,
+     256,
+     32
+    ],
+    "tile_padded_b": 16777216,
+    "calls": 114,
+    "site": [
+     "taped_ttnn.py:671:_v_concat",
+     "taped_ttnn.py:1068:call",
+     "tenstorrent.py:4034:run",
+     "tenstorrent.py:3064:_with_dram_narrowing",
+     "tenstorrent.py:4039:_fp32_softmax_attention",
+     "tenstorrent.py:8097:_attend_heads",
+     "tenstorrent.py:8074:attend",
+     "tenstorrent.py:8402:__call__",
+     "tenstorrent.py:9514:__call__",
+     "tenstorrent.py:9660:<lambda>",
+     "autograd.py:1633:_recompute",
+     "autograd.py:1672:<lambda>",
+     "autograd.py:414:backward",
+     "concat_census.py:227:main"
+    ]
+   },
+   {
+    "phase": "backward",
+    "axis": 1,
+    "first_seen": 16,
+    "operands": [
+     {
+      "shape": [
+       1,
+       86,
+       256,
+       128
+      ],
+      "dtype": "BFLOAT16",
+      "layout": "TILE"
+     },
+     {
+      "shape": [
+       1,
+       86,
+       256,
+       128
+      ],
+      "dtype": "BFLOAT16",
+      "layout": "TILE"
+     },
+     {
+      "shape": [
+       1,
+       84,
+       256,
+       128
+      ],
+      "dtype": "BFLOAT16",
+      "layout": "TILE"
+     }
+    ],
+    "n_operands": 3,
+    "out_shape": [
+     1,
+     256,
+     256,
+     128
+    ],
+    "out_dtype": "BFLOAT16",
+    "tile_padded_shape": [
+     1,
+     256,
+     256,
+     128
+    ],
+    "tile_padded_b": 16777216,
+    "calls": 107,
+    "site": [
+     "taped_ttnn.py:671:_v_concat",
+     "taped_ttnn.py:1068:call",
+     "tenstorrent.py:5928:_concat_to",
+     "tenstorrent.py:9331:_swiglu_all",
+     "tenstorrent.py:9012:__call__",
+     "tenstorrent.py:9524:__call__",
+     "tenstorrent.py:9660:<lambda>",
+     "autograd.py:1633:_recompute",
+     "autograd.py:1672:<lambda>",
+     "autograd.py:414:backward",
+     "concat_census.py:227:main",
+     "concat_census.py:268:<module>"
+    ]
+   },
+   {
+    "phase": "backward",
+    "axis": 1,
+    "first_seen": 17,
+    "operands": [
+     {
+      "shape": [
+       1,
+       86,
+       256,
+       128
+      ],
+      "dtype": "BFLOAT16",
+      "layout": "TILE"
+     },
+     {
+      "shape": [
+       1,
+       170,
+       256,
+       128
+      ],
+      "dtype": "BFLOAT16",
+      "layout": "TILE"
+     }
+    ],
+    "n_operands": 2,
+    "out_shape": [
+     1,
+     256,
+     256,
+     128
+    ],
+    "out_dtype": "BFLOAT16",
+    "tile_padded_shape": [
+     1,
+     256,
+     256,
+     128
+    ],
+    "tile_padded_b": 16777216,
+    "calls": 52,
+    "site": [
+     "taped_ttnn.py:718:bw",
+     "autograd.py:414:backward",
+     "autograd.py:359:backward",
+     "autograd.py:1638:_recompute",
+     "autograd.py:1672:<lambda>",
+     "autograd.py:414:backward",
+     "concat_census.py:227:main",
+     "concat_census.py:268:<module>"
+    ]
+   },
+   {
+    "phase": "backward",
+    "axis": 1,
+    "first_seen": 18,
+    "operands": [
+     {
+      "shape": [
+       1,
+       172,
+       256,
+       128
+      ],
+      "dtype": "BFLOAT16",
+      "layout": "TILE"
+     },
+     {
+      "shape": [
+       1,
+       84,
+       256,
+       128
+      ],
+      "dtype": "BFLOAT16",
+      "layout": "TILE"
+     }
+    ],
+    "n_operands": 2,
+    "out_shape": [
+     1,
+     256,
+     256,
+     128
+    ],
+    "out_dtype": "BFLOAT16",
+    "tile_padded_shape": [
+     1,
+     256,
+     256,
+     128
+    ],
+    "tile_padded_b": 16777216,
+    "calls": 52,
+    "site": [
+     "taped_ttnn.py:718:bw",
+     "autograd.py:414:backward",
+     "autograd.py:359:backward",
+     "autograd.py:1638:_recompute",
+     "autograd.py:1672:<lambda>",
+     "autograd.py:414:backward",
+     "concat_census.py:227:main",
+     "concat_census.py:268:<module>"
+    ]
+   },
+   {
+    "phase": "backward",
+    "axis": 0,
+    "first_seen": 19,
+    "operands": [
+     {
+      "shape": [
+       55,
+       4,
+       256,
+       32
+      ],
+      "dtype": "BFLOAT16",
+      "layout": "TILE"
+     },
+     {
+      "shape": [
+       201,
+       4,
+       256,
+       32
+      ],
+      "dtype": "BFLOAT16",
+      "layout": "TILE"
+     }
+    ],
+    "n_operands": 2,
+    "out_shape": [
+     256,
+     4,
+     256,
+     32
+    ],
+    "out_dtype": "BFLOAT16",
+    "tile_padded_shape": [
+     256,
+     4,
+     256,
+     32
+    ],
+    "tile_padded_b": 16777216,
+    "calls": 324,
+    "site": [
+     "taped_ttnn.py:718:bw",
+     "autograd.py:414:backward",
+     "autograd.py:359:backward",
+     "autograd.py:1638:_recompute",
+     "autograd.py:1672:<lambda>",
+     "autograd.py:414:backward",
+     "concat_census.py:227:main",
+     "concat_census.py:268:<module>"
+    ]
+   },
+   {
+    "phase": "backward",
+    "axis": 0,
+    "first_seen": 20,
+    "operands": [
+     {
+      "shape": [
+       55,
+       4,
+       256,
+       32
+      ],
+      "dtype": "BFLOAT16",
+      "layout": "TILE"
+     },
+     {
+      "shape": [
+       55,
+       4,
+       256,
+       32
+      ],
+      "dtype": "BFLOAT16",
+      "layout": "TILE"
+     },
+     {
+      "shape": [
+       146,
+       4,
+       256,
+       32
+      ],
+      "dtype": "BFLOAT16",
+      "layout": "TILE"
+     }
+    ],
+    "n_operands": 3,
+    "out_shape": [
+     256,
+     4,
+     256,
+     32
+    ],
+    "out_dtype": "BFLOAT16",
+    "tile_padded_shape": [
+     256,
+     4,
+     256,
+     32
+    ],
+    "tile_padded_b": 16777216,
+    "calls": 324,
+    "site": [
+     "taped_ttnn.py:718:bw",
+     "autograd.py:414:backward",
+     "autograd.py:359:backward",
+     "autograd.py:1638:_recompute",
+     "autograd.py:1672:<lambda>",
+     "autograd.py:414:backward",
+     "concat_census.py:227:main",
+     "concat_census.py:268:<module>"
+    ]
+   },
+   {
+    "phase": "backward",
+    "axis": 0,
+    "first_seen": 21,
+    "operands": [
+     {
+      "shape": [
+       110,
+       4,
+       256,
+       32
+      ],
+      "dtype": "BFLOAT16",
+      "layout": "TILE"
+     },
+     {
+      "shape": [
+       55,
+       4,
+       256,
+       32
+      ],
+      "dtype": "BFLOAT16",
+      "layout": "TILE"
+     },
+     {
+      "shape": [
+       91,
+       4,
+       256,
+       32
+      ],
+      "dtype": "BFLOAT16",
+      "layout": "TILE"
+     }
+    ],
+    "n_operands": 3,
+    "out_shape": [
+     256,
+     4,
+     256,
+     32
+    ],
+    "out_dtype": "BFLOAT16",
+    "tile_padded_shape": [
+     256,
+     4,
+     256,
+     32
+    ],
+    "tile_padded_b": 16777216,
+    "calls": 324,
+    "site": [
+     "taped_ttnn.py:718:bw",
+     "autograd.py:414:backward",
+     "autograd.py:359:backward",
+     "autograd.py:1638:_recompute",
+     "autograd.py:1672:<lambda>",
+     "autograd.py:414:backward",
+     "concat_census.py:227:main",
+     "concat_census.py:268:<module>"
+    ]
+   },
+   {
+    "phase": "backward",
+    "axis": 0,
+    "first_seen": 22,
+    "operands": [
+     {
+      "shape": [
+       165,
+       4,
+       256,
+       32
+      ],
+      "dtype": "BFLOAT16",
+      "layout": "TILE"
+     },
+     {
+      "shape": [
+       55,
+       4,
+       256,
+       32
+      ],
+      "dtype": "BFLOAT16",
+      "layout": "TILE"
+     },
+     {
+      "shape": [
+       36,
+       4,
+       256,
+       32
+      ],
+      "dtype": "BFLOAT16",
+      "layout": "TILE"
+     }
+    ],
+    "n_operands": 3,
+    "out_shape": [
+     256,
+     4,
+     256,
+     32
+    ],
+    "out_dtype": "BFLOAT16",
+    "tile_padded_shape": [
+     256,
+     4,
+     256,
+     32
+    ],
+    "tile_padded_b": 16777216,
+    "calls": 324,
+    "site": [
+     "taped_ttnn.py:718:bw",
+     "autograd.py:414:backward",
+     "autograd.py:359:backward",
+     "autograd.py:1638:_recompute",
+     "autograd.py:1672:<lambda>",
+     "autograd.py:414:backward",
+     "concat_census.py:227:main",
+     "concat_census.py:268:<module>"
+    ]
+   },
+   {
+    "phase": "backward",
+    "axis": 0,
+    "first_seen": 23,
+    "operands": [
+     {
+      "shape": [
+       220,
+       4,
+       256,
+       32
+      ],
+      "dtype": "BFLOAT16",
+      "layout": "TILE"
+     },
+     {
+      "shape": [
+       36,
+       4,
+       256,
+       32
+      ],
+      "dtype": "BFLOAT16",
+      "layout": "TILE"
+     }
+    ],
+    "n_operands": 2,
+    "out_shape": [
+     256,
+     4,
+     256,
+     32
+    ],
+    "out_dtype": "BFLOAT16",
+    "tile_padded_shape": [
+     256,
+     4,
+     256,
+     32
+    ],
+    "tile_padded_b": 16777216,
+    "calls": 324,
+    "site": [
+     "taped_ttnn.py:718:bw",
+     "autograd.py:414:backward",
+     "autograd.py:359:backward",
+     "autograd.py:1638:_recompute",
+     "autograd.py:1672:<lambda>",
+     "autograd.py:414:backward",
+     "concat_census.py:227:main",
+     "concat_census.py:268:<module>"
+    ]
+   },
+   {
+    "phase": "backward",
+    "axis": 3,
+    "first_seen": 39,
+    "operands": [
+     {
+      "shape": [
+       256,
+       4,
+       256,
+       16
+      ],
+      "dtype": "BFLOAT16",
+      "layout": "TILE"
+     },
+     {
+      "shape": [
+       256,
+       4,
+       256,
+       16
+      ],
+      "dtype": "BFLOAT16",
+      "layout": "TILE"
+     }
+    ],
+    "n_operands": 2,
+    "out_shape": [
+     256,
+     4,
+     256,
+     32
+    ],
+    "out_dtype": "BFLOAT16",
+    "tile_padded_shape": [
+     256,
+     4,
+     256,
+     32
+    ],
+    "tile_padded_b": 16777216,
+    "calls": 4,
+    "site": [
+     "taped_ttnn.py:718:bw",
+     "autograd.py:414:backward",
+     "autograd.py:359:backward",
+     "autograd.py:1638:_recompute",
+     "autograd.py:1654:<lambda>",
+     "autograd.py:414:backward",
+     "concat_census.py:227:main",
+     "concat_census.py:268:<module>"
+    ]
+   },
+   {
+    "phase": "forward",
+    "axis": 1,
+    "first_seen": 3,
+    "operands": [
+     {
+      "shape": [
+       1,
+       128,
+       256,
+       64
+      ],
+      "dtype": "BFLOAT16",
+      "layout": "TILE"
+     },
+     {
+      "shape": [
+       1,
+       128,
+       256,
+       64
+      ],
+      "dtype": "BFLOAT16",
+      "layout": "TILE"
+     }
+    ],
+    "n_operands": 2,
+    "out_shape": [
+     1,
+     256,
+     256,
+     64
+    ],
+    "out_dtype": "BFLOAT16",
+    "tile_padded_shape": [
+     1,
+     256,
+     256,
+     64
+    ],
+    "tile_padded_b": 8388608,
+    "calls": 2,
+    "site": [
+     "taped_ttnn.py:671:_v_concat",
+     "taped_ttnn.py:1068:call",
+     "tenstorrent.py:5928:_concat_to",
+     "tenstorrent.py:9331:_swiglu_all",
+     "tenstorrent.py:9012:__call__",
+     "tenstorrent.py:9524:__call__",
+     "openfold3_template.py:135:<lambda>",
+     "autograd.py:1619:checkpoint",
+     "autograd.py:2107:_checkpoint_segment",
+     "ops.py:135:checkpoint_segment",
+     "openfold3_template.py:134:__call__",
+     "openfold3_template.py:172:__call__",
+     "openfold3_trunk.py:243:__call__",
+     "concat_census.py:210:main"
+    ]
+   },
+   {
+    "phase": "backward",
+    "axis": 1,
+    "first_seen": 38,
+    "operands": [
+     {
+      "shape": [
+       1,
+       128,
+       256,
+       64
+      ],
+      "dtype": "BFLOAT16",
+      "layout": "TILE"
+     },
+     {
+      "shape": [
+       1,
+       128,
+       256,
+       64
+      ],
+      "dtype": "BFLOAT16",
+      "layout": "TILE"
+     }
+    ],
+    "n_operands": 2,
+    "out_shape": [
+     1,
+     256,
+     256,
+     64
+    ],
+    "out_dtype": "BFLOAT16",
+    "tile_padded_shape": [
+     1,
+     256,
+     256,
+     64
+    ],
+    "tile_padded_b": 8388608,
+    "calls": 6,
+    "site": [
+     "taped_ttnn.py:671:_v_concat",
+     "taped_ttnn.py:1068:call",
+     "tenstorrent.py:5928:_concat_to",
+     "tenstorrent.py:9331:_swiglu_all",
+     "tenstorrent.py:9012:__call__",
+     "tenstorrent.py:9524:__call__",
+     "openfold3_template.py:135:<lambda>",
+     "autograd.py:1633:_recompute",
+     "autograd.py:1654:<lambda>",
+     "autograd.py:414:backward",
+     "concat_census.py:227:main",
+     "concat_census.py:268:<module>"
+    ]
+   },
+   {
+    "phase": "forward",
+    "axis": 1,
+    "first_seen": 6,
+    "operands": [
+     {
+      "shape": [
+       1,
+       36,
+       256,
+       64
+      ],
+      "dtype": "BFLOAT16",
+      "layout": "TILE"
+     }
+    ],
+    "n_operands": 1,
+    "out_shape": [
+     1,
+     36,
+     256,
+     64
+    ],
+    "out_dtype": "BFLOAT16",
+    "tile_padded_shape": [
+     1,
+     36,
+     256,
+     64
+    ],
+    "tile_padded_b": 1179648,
+    "calls": 3,
+    "site": null
+   },
+   {
+    "phase": "backward",
+    "axis": 1,
+    "first_seen": 29,
+    "operands": [
+     {
+      "shape": [
+       1,
+       36,
+       256,
+       64
+      ],
+      "dtype": "BFLOAT16",
+      "layout": "TILE"
+     }
+    ],
+    "n_operands": 1,
+    "out_shape": [
+     1,
+     36,
+     256,
+     64
+    ],
+    "out_dtype": "BFLOAT16",
+    "tile_padded_shape": [
+     1,
+     36,
+     256,
+     64
+    ],
+    "tile_padded_b": 1179648,
+    "calls": 6,
+    "site": null
+   },
+   {
+    "phase": "backward",
+    "axis": 0,
+    "first_seen": 30,
+    "operands": [
+     {
+      "shape": [
+       1,
+       256,
+       256
+      ],
+      "dtype": "BFLOAT16",
+      "layout": "TILE"
+     },
+     {
+      "shape": [
+       7,
+       256,
+       256
+      ],
+      "dtype": "BFLOAT16",
+      "layout": "TILE"
+     }
+    ],
+    "n_operands": 2,
+    "out_shape": [
+     8,
+     256,
+     256
+    ],
+    "out_dtype": "BFLOAT16",
+    "tile_padded_shape": [
+     8,
+     256,
+     256
+    ],
+    "tile_padded_b": 1048576,
+    "calls": 3,
+    "site": null
+   },
+   {
+    "phase": "backward",
+    "axis": 0,
+    "first_seen": 31,
+    "operands": [
+     {
+      "shape": [
+       1,
+       256,
+       256
+      ],
+      "dtype": "BFLOAT16",
+      "layout": "TILE"
+     },
+     {
+      "shape": [
+       1,
+       256,
+       256
+      ],
+      "dtype": "BFLOAT16",
+      "layout": "TILE"
+     },
+     {
+      "shape": [
+       6,
+       256,
+       256
+      ],
+      "dtype": "BFLOAT16",
+      "layout": "TILE"
+     }
+    ],
+    "n_operands": 3,
+    "out_shape": [
+     8,
+     256,
+     256
+    ],
+    "out_dtype": "BFLOAT16",
+    "tile_padded_shape": [
+     8,
+     256,
+     256
+    ],
+    "tile_padded_b": 1048576,
+    "calls": 3,
+    "site": null
+   },
+   {
+    "phase": "backward",
+    "axis": 0,
+    "first_seen": 32,
+    "operands": [
+     {
+      "shape": [
+       2,
+       256,
+       256
+      ],
+      "dtype": "BFLOAT16",
+      "layout": "TILE"
+     },
+     {
+      "shape": [
+       1,
+       256,
+       256
+      ],
+      "dtype": "BFLOAT16",
+      "layout": "TILE"
+     },
+     {
+      "shape": [
+       5,
+       256,
+       256
+      ],
+      "dtype": "BFLOAT16",
+      "layout": "TILE"
+     }
+    ],
+    "n_operands": 3,
+    "out_shape": [
+     8,
+     256,
+     256
+    ],
+    "out_dtype": "BFLOAT16",
+    "tile_padded_shape": [
+     8,
+     256,
+     256
+    ],
+    "tile_padded_b": 1048576,
+    "calls": 3,
+    "site": null
+   },
+   {
+    "phase": "backward",
+    "axis": 0,
+    "first_seen": 33,
+    "operands": [
+     {
+      "shape": [
+       3,
+       256,
+       256
+      ],
+      "dtype": "BFLOAT16",
+      "layout": "TILE"
+     },
+     {
+      "shape": [
+       1,
+       256,
+       256
+      ],
+      "dtype": "BFLOAT16",
+      "layout": "TILE"
+     },
+     {
+      "shape": [
+       4,
+       256,
+       256
+      ],
+      "dtype": "BFLOAT16",
+      "layout": "TILE"
+     }
+    ],
+    "n_operands": 3,
+    "out_shape": [
+     8,
+     256,
+     256
+    ],
+    "out_dtype": "BFLOAT16",
+    "tile_padded_shape": [
+     8,
+     256,
+     256
+    ],
+    "tile_padded_b": 1048576,
+    "calls": 3,
+    "site": null
+   },
+   {
+    "phase": "backward",
+    "axis": 0,
+    "first_seen": 34,
+    "operands": [
+     {
+      "shape": [
+       4,
+       256,
+       256
+      ],
+      "dtype": "BFLOAT16",
+      "layout": "TILE"
+     },
+     {
+      "shape": [
+       1,
+       256,
+       256
+      ],
+      "dtype": "BFLOAT16",
+      "layout": "TILE"
+     },
+     {
+      "shape": [
+       3,
+       256,
+       256
+      ],
+      "dtype": "BFLOAT16",
+      "layout": "TILE"
+     }
+    ],
+    "n_operands": 3,
+    "out_shape": [
+     8,
+     256,
+     256
+    ],
+    "out_dtype": "BFLOAT16",
+    "tile_padded_shape": [
+     8,
+     256,
+     256
+    ],
+    "tile_padded_b": 1048576,
+    "calls": 3,
+    "site": null
+   },
+   {
+    "phase": "backward",
+    "axis": 0,
+    "first_seen": 35,
+    "operands": [
+     {
+      "shape": [
+       5,
+       256,
+       256
+      ],
+      "dtype": "BFLOAT16",
+      "layout": "TILE"
+     },
+     {
+      "shape": [
+       1,
+       256,
+       256
+      ],
+      "dtype": "BFLOAT16",
+      "layout": "TILE"
+     },
+     {
+      "shape": [
+       2,
+       256,
+       256
+      ],
+      "dtype": "BFLOAT16",
+      "layout": "TILE"
+     }
+    ],
+    "n_operands": 3,
+    "out_shape": [
+     8,
+     256,
+     256
+    ],
+    "out_dtype": "BFLOAT16",
+    "tile_padded_shape": [
+     8,
+     256,
+     256
+    ],
+    "tile_padded_b": 1048576,
+    "calls": 3,
+    "site": null
+   },
+   {
+    "phase": "backward",
+    "axis": 0,
+    "first_seen": 36,
+    "operands": [
+     {
+      "shape": [
+       6,
+       256,
+       256
+      ],
+      "dtype": "BFLOAT16",
+      "layout": "TILE"
+     },
+     {
+      "shape": [
+       1,
+       256,
+       256
+      ],
+      "dtype": "BFLOAT16",
+      "layout": "TILE"
+     },
+     {
+      "shape": [
+       1,
+       256,
+       256
+      ],
+      "dtype": "BFLOAT16",
+      "layout": "TILE"
+     }
+    ],
+    "n_operands": 3,
+    "out_shape": [
+     8,
+     256,
+     256
+    ],
+    "out_dtype": "BFLOAT16",
+    "tile_padded_shape": [
+     8,
+     256,
+     256
+    ],
+    "tile_padded_b": 1048576,
+    "calls": 3,
+    "site": null
+   },
+   {
+    "phase": "backward",
+    "axis": 0,
+    "first_seen": 37,
+    "operands": [
+     {
+      "shape": [
+       7,
+       256,
+       256
+      ],
+      "dtype": "BFLOAT16",
+      "layout": "TILE"
+     },
+     {
+      "shape": [
+       1,
+       256,
+       256
+      ],
+      "dtype": "BFLOAT16",
+      "layout": "TILE"
+     }
+    ],
+    "n_operands": 2,
+    "out_shape": [
+     8,
+     256,
+     256
+    ],
+    "out_dtype": "BFLOAT16",
+    "tile_padded_shape": [
+     8,
+     256,
+     256
+    ],
+    "tile_padded_b": 1048576,
+    "calls": 3,
+    "site": null
+   }
+  ],
+  "failed": null,
+  "bookkeeping_error": null
+ },
+ "build_fold_s": 2.85,
+ "prep_to_sampler_s": 6.81,
+ "capture": {
+  "trunk_inputs_snapshotted": true,
+  "trunk_inputs_dead_at_capture": 0,
+  "trunk_forward_s": 2.971,
+  "trunk_forward_note": "the shipped call, progress_fn INCLUDED and cold; the timed arms below drop it",
+  "trunk_cycles": 4,
+  "reached_sampler": true
+ },
+ "params": {
+  "declared": 2531,
+  "elements": 165180992,
+  "by_rank": {
+   "1": 1130,
+   "2": 1401
+  },
+  "walk_depth_reached": 9,
+  "walk_truncated_at_limit": 8,
+  "cache_attrs_skipped": 324,
+  "pairformer_weights": 2256,
+  "deepest_name": "trunk.msa_module.blocks.0.pair_stack.transition_z.fc1_weight"
+ },
+ "forward": {
+  "cycles": 1,
+  "ok": true,
+  "s": 10.23
+ },
+ "backward": {
+  "ok": true,
+  "s": 143.89,
+  "params_with_grad": 1639,
+  "params_declared": 2531
+ }
+}

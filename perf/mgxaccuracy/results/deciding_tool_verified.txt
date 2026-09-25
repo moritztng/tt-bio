@@ -1,0 +1,33 @@
+The deciding instrument, exercised at its boundaries before either draw's value exists
+=======================================================================================
+
+2026-09-24 19:1xZ, with qb2's draw a at 204,393 CPU-s and no structure written, draw b at
+136,793. Nothing below uses a real value; every input here is synthetic and chosen to sit on a
+boundary the amendment names.
+
+`ref/read_upstream_pair.py` is what `plans/closing_rule.txt` §3-4 and
+`plans/upstream_pair_amendment.txt` will be read through when draw a lands. The amendment's §1
+is arithmetic ON that tool rather than in it, so it is worth knowing the two agree BEFORE a
+value makes the answer interesting. Three probes, `draw_b = -1e9` meaning the best draw b that
+could possibly exist:
+
+  draw a    draw b   PRIMARY            U     p        verdict
+  18.739    -1e9     bar 18.740         15/16  0.0444  clause 3, upstream better
+  20.141    -1e9     bar 18.740         11/16  0.2667  clause 4, same level
+  20.141    -1e9     pre-fix bar 20.140 14/16  0.0889  clause 4, same level
+   6.0       6.4     bar 18.740         16/16  0.0222  clause 3, upstream better
+
+So the amendment holds against the code it describes, to the thousandth of an Angstrom:
+
+  - A draw a of 20.141 forecloses ALL THREE cells even against an impossible draw b, which is
+    the amendment's "draw a > 20.140 forecloses all three" exactly.
+  - A draw a of 18.739 does NOT foreclose PRIMARY: U=15 is the one crossing the test allows and
+    p=0.0444 still rejects. The bar is the SECOND-smallest device design, not the minimum, and
+    the 6.650 outlier in PRIMARY costs one crossing rather than the verdict.
+  - The §3 label fix is already in the tool: it prints U and the crossing count, so no reading
+    shows "separation: no" beside a rejection.
+
+WHAT THIS DOES NOT DO. It says nothing about which way the pair will go, because no value from
+either draw exists yet. It removes one failure mode: reading the deciding gate through an
+instrument nobody had exercised, at the moment the number finally arrives and the temptation to
+interpret it is highest.

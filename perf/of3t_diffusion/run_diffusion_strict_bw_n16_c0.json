@@ -1,0 +1,168 @@
+{
+ "function_local_ttnn_imports": [],
+ "weights_loaded": 272,
+ "weights_reachable": 870,
+ "weights_derived_in_init": 598,
+ "derived_names": [
+  "_wc.136107621219088",
+  "_wc.136108309405904",
+  "_wc.136108309406144",
+  "_wc.136108309406384",
+  "_wc.136108309406624",
+  "_wc.136108309406864",
+  "_wc.136108309491664",
+  "_wc.136108309491984",
+  "_wc.136108309492304",
+  "dec.at._wc.('layer_norm_z.weight', False)",
+  "dec.at.ln_z_w",
+  "dit.blocks.0._wc.('attention_pair_bias.layer_norm_z.weight', False)",
+  "dit.blocks.0._wc.('attention_pair_bias.linear_ada_out.bias', False)",
+  "dit.blocks.0._wc.('attention_pair_bias.linear_ada_out.weight', True)",
+  "dit.blocks.0._wc.('attention_pair_bias.linear_z.weight', True)",
+  "dit.blocks.0._wc.('attention_pair_bias.mha.linear_g.weight', True)",
+  "dit.blocks.0._wc.('attention_pair_bias.mha.linear_o.weight', True)",
+  "dit.blocks.0._wc.('conditioned_transition.linear_g.bias', False)",
+  "dit.blocks.0._wc.('conditioned_transition.linear_g.weight', True)",
+  "dit.blocks.0._wc.('conditioned_transition.linear_out.weight', True)",
+  "dit.blocks.0._wc.('conditioned_transition.swiglu.linear_a.weight', True)",
+  "dit.blocks.0._wc.('conditioned_transition.swiglu.linear_b.weight', True)",
+  "dit.blocks.0.b_ada_out",
+  "dit.blocks.0.b_lg",
+  "dit.blocks.0.ln_z_w",
+  "dit.blocks.0.qkv_b",
+  "dit.blocks.0.qkv_w",
+  "dit.blocks.0.w_ada_out",
+  "dit.blocks.0.w_g",
+  "dit.blocks.0.w_la",
+  "dit.blocks.0.w_lb",
+  "dit.blocks.0.w_lg",
+  "dit.blocks.0.w_lin_z",
+  "dit.blocks.0.w_lout",
+  "dit.blocks.0.w_o",
+  "dit.blocks.1._wc.('attention_pair_bias.layer_norm_z.weight', False)",
+  "dit.blocks.1._wc.('attention_pair_bias.linear_ada_out.bias', False)",
+  "dit.blocks.1._wc.('attention_pair_bias.linear_ada_out.weight', True)",
+  "dit.blocks.1._wc.('attention_pair_bias.linear_z.weight', True)",
+  "dit.blocks.1._wc.('attention_pair_bias.mha.linear_g.weight', True)"
+ ],
+ "ladder": {
+  "before": {
+   "dram_bytes": 856177664,
+   "dram_GB": 0.856,
+   "live_allocs": 615
+  },
+  "forward_n1": {
+   "dram_bytes": 2108535808,
+   "dram_GB": 2.109,
+   "live_allocs": 2590
+  },
+  "forward_n2": {
+   "dram_bytes": 2811929600,
+   "dram_GB": 2.812,
+   "live_allocs": 4035
+  },
+  "forward_n3": {
+   "dram_bytes": 3515323392,
+   "dram_GB": 3.515,
+   "live_allocs": 5480
+  },
+  "forward_n4": {
+   "dram_bytes": 4218717184,
+   "dram_GB": 4.219,
+   "live_allocs": 6925
+  },
+  "forward_n5": {
+   "dram_bytes": 4922110976,
+   "dram_GB": 4.922,
+   "live_allocs": 8370
+  },
+  "forward_n6": {
+   "dram_bytes": 5625504768,
+   "dram_GB": 5.626,
+   "live_allocs": 9815
+  },
+  "forward_n7": {
+   "dram_bytes": 6328898560,
+   "dram_GB": 6.329,
+   "live_allocs": 11260
+  },
+  "forward_n8": {
+   "dram_bytes": 7032292352,
+   "dram_GB": 7.032,
+   "live_allocs": 12705
+  },
+  "forward_n9": {
+   "dram_bytes": 7735686144,
+   "dram_GB": 7.736,
+   "live_allocs": 14150
+  },
+  "forward_n10": {
+   "dram_bytes": 8439079936,
+   "dram_GB": 8.439,
+   "live_allocs": 15595
+  },
+  "forward_n11": {
+   "dram_bytes": 9142473728,
+   "dram_GB": 9.142,
+   "live_allocs": 17040
+  },
+  "forward_n12": {
+   "dram_bytes": 9845867520,
+   "dram_GB": 9.846,
+   "live_allocs": 18485
+  },
+  "forward_n13": {
+   "dram_bytes": 10549261312,
+   "dram_GB": 10.549,
+   "live_allocs": 19930
+  },
+  "forward_n14": {
+   "dram_bytes": 11252655104,
+   "dram_GB": 11.253,
+   "live_allocs": 21375
+  },
+  "forward_n15": {
+   "dram_bytes": 11956048896,
+   "dram_GB": 11.956,
+   "live_allocs": 22820
+  },
+  "forward_n16": {
+   "dram_bytes": 12659442688,
+   "dram_GB": 12.659,
+   "live_allocs": 24265
+  },
+  "forward": {
+   "dram_bytes": 12659442688,
+   "dram_GB": 12.659,
+   "live_allocs": 24265
+  },
+  "backward": {
+   "dram_bytes": 2825860096,
+   "dram_GB": 2.826,
+   "live_allocs": 3603
+  },
+  "peak": {
+   "dram_bytes": 12659442688,
+   "dram_GB": 12.659,
+   "live_allocs": 24265
+  }
+ },
+ "weights_touched": 870,
+ "weights_with_grad": 870,
+ "weights_without_grad": 0,
+ "nograd_names": [],
+ "totals": {
+  "taped": 32659,
+  "nested": 3919,
+  "none": 101,
+  "raw": 16
+ },
+ "params": 272,
+ "survey": false,
+ "backward": true,
+ "act_dtype": "DataType.FLOAT32",
+ "tokens": 76,
+ "atoms": 601,
+ "n_struct": 16,
+ "error": null
+}

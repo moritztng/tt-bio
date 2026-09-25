@@ -1,0 +1,42 @@
+# THE SAME 2x2 ON A SECOND PROTEIN. The row's headline -- that size and crop interact, and
+# that neither has a consistent direction -- rests entirely on 1GPB. Four significant simple
+# effects on one target can still be one target's personality, and the row cannot tell the
+# difference from inside its own fixture.
+#
+# GroEL (1OEL biological assembly, 14 chains x 524 residues) fixes two things at once:
+#
+#   - It is a different protein, so the interaction either reproduces or it does not.
+#   - It is long enough to CROP. plans/size1536_offset200.txt records that gpb_dimer_1646
+#     cannot give a third 1536 window: at 1646 residues the legal offsets are 0-110 and
+#     offset 110 shares 1426 of 1536 residues with offset 100. Four chains of one GroEL ring
+#     are 2096 residues, so 1536 is legal at offsets 0-560, and 0 against 560 share 976 of
+#     1536 (64%) against 1GPB's 93%. Still not independent -- no 1536 pair is, inside 2096 --
+#     but it is the most separated pair this size admits.
+#
+# The target was built by make_contact_target.py, which refuses a target whose chains do not
+# touch, and it passed on its own terms: adjacent chains at 2.33-2.67 A, ONE connected sub-22 A
+# component over all 2096 residues, 19678 inter-chain edges, Rg 46.6 A against the gpb dimer's
+# 38.4 A. So it is a real interface at a comparable scale, not a translated-chain token count.
+#
+# Both sizes take the SAME crop starts, 0 and 560, so the 2x2 is square: each size effect is
+# read at a fixed window and each crop effect at a fixed extent, which is what made the 1GPB
+# cells readable when the pooled test was not.
+#
+# The two 1536 cells are first because they are the long ones (about 3.4 h each against 35 min
+# at 512), so with the fan at cap 2 they start together and the 512 pair fills in behind them.
+# n=8 per cell, this row's standard: an n=8 median repeats to 0.1-1.8 A against simple effects
+# of 4.5-14.7 A on 1GPB.
+--model boltzgen --target perf/mgxaccuracy/targets/groel_ring4_2096.cif --target-res 1536 --crop-offset 0 --designs 8 --budget 8 --score-dsg --host-threads 2 --timeout 32400 --tag groel1536o0
+--model boltzgen --target perf/mgxaccuracy/targets/groel_ring4_2096.cif --target-res 1536 --crop-offset 560 --designs 8 --budget 8 --score-dsg --host-threads 2 --timeout 32400 --tag groel1536o560
+--model boltzgen --target perf/mgxaccuracy/targets/groel_ring4_2096.cif --target-res 512 --crop-offset 0 --designs 8 --budget 8 --score-dsg --host-threads 2 --timeout 14400 --tag groel512o0
+--model boltzgen --target perf/mgxaccuracy/targets/groel_ring4_2096.cif --target-res 512 --crop-offset 560 --designs 8 --budget 8 --score-dsg --host-threads 2 --timeout 14400 --tag groel512o560
+
+# VERIFIED ON DISK 2026-09-24 07:1xZ, while the two 1536 cells were running. The row has
+# already withdrawn one 1536 claim for having been designed against a fixture that was not the
+# one it named, so the fixtures get checked rather than assumed:
+#
+#   fx_.../bgt1536.cif      sha256 236b1340...  1536 residues
+#   fx_.../bgt1536o560.cif  sha256 f1574e30...  1536 residues
+#
+# Different hashes, both exactly the asked-for extent. Overlap is arithmetic: [0,1536) against
+# [560,2096) share [560,1536) = 976 residues, 64%, as the header predicted.

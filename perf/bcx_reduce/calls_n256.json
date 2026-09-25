@@ -1,0 +1,341 @@
+{
+ "stamp": {
+  "host": "tt-quietbox",
+  "card": 0,
+  "subsystem_device": "0x0040",
+  "commit": "cb344f1212624af695cf8e9094e214fd3f57f183",
+  "tt_bio_dirty": false,
+  "torch_threads": 16,
+  "loadavg": [
+   60.927734375,
+   65.49951171875,
+   67.35400390625
+  ],
+  "utc": "2026-09-24T15:29:50Z",
+  "pci": "0000:01:00.0",
+  "aiclk_node": null
+ },
+ "lever_arm": "bwd",
+ "points": [
+  {
+   "n": 256,
+   "stack": "evo",
+   "arm": "base",
+   "calls": [
+    {
+     "call": "permute_back",
+     "shape": "[1, 256, 256, 64]",
+     "arg": "[0, 3, 1, 2]",
+     "calls": 4,
+     "bit_identical_all": true
+    },
+    {
+     "call": "permute_back",
+     "shape": "[1, 256, 256]",
+     "arg": "[1, 0, 2]",
+     "calls": 1,
+     "bit_identical_all": true
+    },
+    {
+     "call": "permute_back",
+     "shape": "[1, 4, 256, 256]",
+     "arg": "[0, 2, 3, 1]",
+     "calls": 2,
+     "bit_identical_all": true
+    },
+    {
+     "call": "permute_back",
+     "shape": "[1, 64, 256, 256]",
+     "arg": "[0, 2, 3, 1]",
+     "calls": 8,
+     "bit_identical_all": true
+    },
+    {
+     "call": "permute_back",
+     "shape": "[1, 8, 256, 256]",
+     "arg": "[0, 2, 3, 1]",
+     "calls": 1,
+     "bit_identical_all": true
+    },
+    {
+     "call": "permute_back",
+     "shape": "[1, 8, 32, 256]",
+     "arg": "[0, 1, 3, 2]",
+     "calls": 1,
+     "bit_identical_all": true
+    },
+    {
+     "call": "permute_back",
+     "shape": "[256, 1, 256]",
+     "arg": "[1, 0, 2]",
+     "calls": 1,
+     "bit_identical_all": true
+    },
+    {
+     "call": "permute_back",
+     "shape": "[256, 256, 1024]",
+     "arg": "[0, 2, 1]",
+     "calls": 1,
+     "bit_identical_all": true
+    },
+    {
+     "call": "permute_back",
+     "shape": "[256, 256, 128]",
+     "arg": "[1, 0, 2]",
+     "calls": 2,
+     "bit_identical_all": true
+    },
+    {
+     "call": "permute_back",
+     "shape": "[256, 32, 1]",
+     "arg": "[2, 0, 1]",
+     "calls": 1,
+     "bit_identical_all": true
+    },
+    {
+     "call": "permute_back",
+     "shape": "[256, 4, 32, 256]",
+     "arg": "[0, 1, 3, 2]",
+     "calls": 2,
+     "bit_identical_all": true
+    },
+    {
+     "call": "permute_back",
+     "shape": "[256, 8, 32, 1]",
+     "arg": "[0, 1, 3, 2]",
+     "calls": 1,
+     "bit_identical_all": true
+    },
+    {
+     "call": "permute_back",
+     "shape": "[32, 256, 1]",
+     "arg": "[2, 1, 0]",
+     "calls": 1,
+     "bit_identical_all": true
+    },
+    {
+     "call": "reduce_to",
+     "shape": "[256, 4, 256, 256]",
+     "arg": "[0]",
+     "calls": 2,
+     "rel_l2_vs_f64_max": 0.0008423135945936493,
+     "rel_l2_vs_f64_min": 0.0008008838853123573,
+     "torch_f32_max": 1.064096461322268e-07
+    }
+   ]
+  },
+  {
+   "n": 256,
+   "stack": "evo",
+   "arm": "reduce+perm",
+   "calls": [
+    {
+     "call": "permute_back",
+     "shape": "[1, 256, 256, 64]",
+     "arg": "[0, 3, 1, 2]",
+     "calls": 4,
+     "bit_identical_all": true
+    },
+    {
+     "call": "permute_back",
+     "shape": "[1, 256, 256]",
+     "arg": "[1, 0, 2]",
+     "calls": 1,
+     "bit_identical_all": true
+    },
+    {
+     "call": "permute_back",
+     "shape": "[1, 4, 256, 256]",
+     "arg": "[0, 2, 3, 1]",
+     "calls": 2,
+     "bit_identical_all": true
+    },
+    {
+     "call": "permute_back",
+     "shape": "[1, 64, 256, 256]",
+     "arg": "[0, 2, 3, 1]",
+     "calls": 8,
+     "bit_identical_all": true
+    },
+    {
+     "call": "permute_back",
+     "shape": "[1, 8, 256, 256]",
+     "arg": "[0, 2, 3, 1]",
+     "calls": 1,
+     "bit_identical_all": true
+    },
+    {
+     "call": "permute_back",
+     "shape": "[1, 8, 32, 256]",
+     "arg": "[0, 1, 3, 2]",
+     "calls": 1,
+     "bit_identical_all": true
+    },
+    {
+     "call": "permute_back",
+     "shape": "[256, 1, 256]",
+     "arg": "[1, 0, 2]",
+     "calls": 1,
+     "bit_identical_all": true
+    },
+    {
+     "call": "permute_back",
+     "shape": "[256, 256, 1024]",
+     "arg": "[0, 2, 1]",
+     "calls": 1,
+     "bit_identical_all": true
+    },
+    {
+     "call": "permute_back",
+     "shape": "[256, 256, 128]",
+     "arg": "[1, 0, 2]",
+     "calls": 2,
+     "bit_identical_all": true
+    },
+    {
+     "call": "permute_back",
+     "shape": "[256, 32, 1]",
+     "arg": "[2, 0, 1]",
+     "calls": 1,
+     "bit_identical_all": true
+    },
+    {
+     "call": "permute_back",
+     "shape": "[256, 4, 32, 256]",
+     "arg": "[0, 1, 3, 2]",
+     "calls": 2,
+     "bit_identical_all": true
+    },
+    {
+     "call": "permute_back",
+     "shape": "[256, 8, 32, 1]",
+     "arg": "[0, 1, 3, 2]",
+     "calls": 1,
+     "bit_identical_all": true
+    },
+    {
+     "call": "permute_back",
+     "shape": "[32, 256, 1]",
+     "arg": "[2, 1, 0]",
+     "calls": 1,
+     "bit_identical_all": true
+    },
+    {
+     "call": "reduce_to",
+     "shape": "[256, 4, 256, 256]",
+     "arg": "[0]",
+     "calls": 2,
+     "rel_l2_vs_f64_max": 7.592940267282755e-08,
+     "rel_l2_vs_f64_min": 6.486515838183762e-08,
+     "torch_f32_max": 1.064096461322268e-07
+    }
+   ]
+  },
+  {
+   "n": 256,
+   "stack": "extra",
+   "arm": "base",
+   "calls": [
+    {
+     "call": "permute_back",
+     "shape": "[1, 256, 256, 64]",
+     "arg": "[0, 3, 1, 2]",
+     "calls": 4,
+     "bit_identical_all": true
+    },
+    {
+     "call": "permute_back",
+     "shape": "[1, 4, 256, 256]",
+     "arg": "[0, 2, 3, 1]",
+     "calls": 2,
+     "bit_identical_all": true
+    },
+    {
+     "call": "permute_back",
+     "shape": "[1, 64, 256, 256]",
+     "arg": "[0, 2, 3, 1]",
+     "calls": 8,
+     "bit_identical_all": true
+    },
+    {
+     "call": "permute_back",
+     "shape": "[256, 256, 128]",
+     "arg": "[1, 0, 2]",
+     "calls": 2,
+     "bit_identical_all": true
+    },
+    {
+     "call": "permute_back",
+     "shape": "[256, 4, 32, 256]",
+     "arg": "[0, 1, 3, 2]",
+     "calls": 2,
+     "bit_identical_all": true
+    },
+    {
+     "call": "reduce_to",
+     "shape": "[256, 4, 256, 256]",
+     "arg": "[0]",
+     "calls": 2,
+     "rel_l2_vs_f64_max": 0.0009101041492655681,
+     "rel_l2_vs_f64_min": 0.0008346483795895561,
+     "torch_f32_max": 1.0622256669642771e-07
+    }
+   ]
+  },
+  {
+   "n": 256,
+   "stack": "extra",
+   "arm": "reduce+perm",
+   "calls": [
+    {
+     "call": "permute_back",
+     "shape": "[1, 256, 256, 64]",
+     "arg": "[0, 3, 1, 2]",
+     "calls": 4,
+     "bit_identical_all": true
+    },
+    {
+     "call": "permute_back",
+     "shape": "[1, 4, 256, 256]",
+     "arg": "[0, 2, 3, 1]",
+     "calls": 2,
+     "bit_identical_all": true
+    },
+    {
+     "call": "permute_back",
+     "shape": "[1, 64, 256, 256]",
+     "arg": "[0, 2, 3, 1]",
+     "calls": 8,
+     "bit_identical_all": true
+    },
+    {
+     "call": "permute_back",
+     "shape": "[256, 256, 128]",
+     "arg": "[1, 0, 2]",
+     "calls": 2,
+     "bit_identical_all": true
+    },
+    {
+     "call": "permute_back",
+     "shape": "[256, 4, 32, 256]",
+     "arg": "[0, 1, 3, 2]",
+     "calls": 2,
+     "bit_identical_all": true
+    },
+    {
+     "call": "reduce_to",
+     "shape": "[256, 4, 256, 256]",
+     "arg": "[0]",
+     "calls": 2,
+     "rel_l2_vs_f64_max": 7.555620378098993e-08,
+     "rel_l2_vs_f64_min": 7.281934725799831e-08,
+     "torch_f32_max": 1.0577590546782084e-07
+    }
+   ]
+  }
+ ],
+ "served": {
+  "reblock fwd+back (cumulative)": 12,
+  "tree [256, 4, 256, 256] ax=0": 4
+ }
+}

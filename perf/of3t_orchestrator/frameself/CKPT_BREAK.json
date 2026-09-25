@@ -1,0 +1,77 @@
+{
+ "what": "Does `checkpoint_blocks` change the gradient? The break control for R141.",
+ "host": "tt-quietbox2",
+ "device_involved": false,
+ "torch": "2.8.0+cpu",
+ "tree": "/home/ttuser/of3t_trunk043ref/of3pkg043",
+ "openfold3_file": "/home/ttuser/of3t_trunk043ref/of3pkg043/openfold3/__init__.py",
+ "shape": {
+  "blocks": 8,
+  "tokens": 24,
+  "real_tokens": 12,
+  "c_s": 16,
+  "c_z": 12,
+  "dtype": "float64"
+ },
+ "checkpoint_blocks_is_upstreams_own": true,
+ "baseline_bare_loop": {
+  "loss": 0.00021174671515504148,
+  "s_out_norm": 28.851314325666902,
+  "z_out_norm": 145.9530485502414,
+  "n_grad_tensors": 80
+ },
+ "arms_against_the_bare_loop": {
+  "use_reentrant=None": {
+   "forward_bit_identical": true,
+   "loss_bit_identical": true,
+   "gradient": {
+    "compared": 80,
+    "n_bit_identical": 80,
+    "missing_on_one_side": [],
+    "mass_weighted_rel_l2": 0.0,
+    "worst_rel_l2": 0.0,
+    "worst_tensor": null
+   },
+   "ds_in_rel_l2": 0.0,
+   "dz_in_rel_l2": 0.0,
+   "warnings": [
+    "torch.utils.checkpoint: the use_reentrant parameter should be passed explicitly. In version 2.5 we will raise an exception if use_reentrant is not passed. use_r"
+   ]
+  },
+  "use_reentrant=True": {
+   "forward_bit_identical": true,
+   "loss_bit_identical": true,
+   "gradient": {
+    "compared": 80,
+    "n_bit_identical": 80,
+    "missing_on_one_side": [],
+    "mass_weighted_rel_l2": 0.0,
+    "worst_rel_l2": 0.0,
+    "worst_tensor": null
+   },
+   "ds_in_rel_l2": 0.0,
+   "dz_in_rel_l2": 0.0,
+   "warnings": []
+  },
+  "use_reentrant=False": {
+   "forward_bit_identical": true,
+   "loss_bit_identical": true,
+   "gradient": {
+    "compared": 80,
+    "n_bit_identical": 80,
+    "missing_on_one_side": [],
+    "mass_weighted_rel_l2": 0.0,
+    "worst_rel_l2": 0.0,
+    "worst_tensor": null
+   },
+   "ds_in_rel_l2": 0.0,
+   "dz_in_rel_l2": 0.0,
+   "warnings": []
+  }
+ },
+ "scorer_break_control": {
+  "what": "one weight moved by 1e-9 in the bare arm, re-scored against the baseline",
+  "mass_weighted_rel_l2": 2.3332597179550936e-10,
+  "fires": true
+ }
+}

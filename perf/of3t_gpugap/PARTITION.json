@@ -1,0 +1,139 @@
+{
+ "doc": "of3t-gpugap: the OF3 training step partitioned into ported and unported",
+ "reps": [
+  {
+   "arm": "A0",
+   "cold": true,
+   "step_s": 609.3,
+   "backward_share": 98.06433612342032,
+   "unported_s": 6.355,
+   "unported_share": 1.043000164122764,
+   "amdahl_ceiling_x": 95.87726199842642,
+   "host_loss_per_root_s": 0.82675,
+   "host_loss_at_48_s": 39.684,
+   "nograd_prefix_s": 0.0
+  },
+  {
+   "arm": "A1",
+   "cold": false,
+   "step_s": 507.016,
+   "backward_share": 97.33105069662496,
+   "unported_s": 9.859,
+   "unported_share": 1.9445145715322592,
+   "amdahl_ceiling_x": 51.42671670554823,
+   "host_loss_per_root_s": 0.465,
+   "host_loss_at_48_s": 22.32,
+   "nograd_prefix_s": 0.0
+  },
+  {
+   "arm": "A2",
+   "cold": false,
+   "step_s": 768.444,
+   "backward_share": 97.94298608616893,
+   "unported_s": 11.946,
+   "unported_share": 1.5545700142105345,
+   "amdahl_ceiling_x": 64.3264691109995,
+   "host_loss_per_root_s": 1.2255,
+   "host_loss_at_48_s": 58.824,
+   "nograd_prefix_s": 0.0
+  },
+  {
+   "arm": "A3",
+   "cold": false,
+   "step_s": 607.596,
+   "backward_share": 98.2964008979651,
+   "unported_s": 6.498,
+   "unported_share": 1.0694606284439003,
+   "amdahl_ceiling_x": 93.5050784856879,
+   "host_loss_per_root_s": 0.8735,
+   "host_loss_at_48_s": 41.928000000000004,
+   "nograd_prefix_s": 0.0
+  },
+  {
+   "arm": "B0",
+   "cold": true,
+   "step_s": 449.409,
+   "backward_share": 98.0176186947747,
+   "unported_s": 4.812,
+   "unported_share": 1.0707395713036454,
+   "amdahl_ceiling_x": 93.39339152119702,
+   "host_loss_per_root_s": 0.45475,
+   "host_loss_at_48_s": 21.828,
+   "nograd_prefix_s": 0.0
+  },
+  {
+   "arm": "B1",
+   "cold": false,
+   "step_s": 468.922,
+   "backward_share": 97.95253794874202,
+   "unported_s": 5.924,
+   "unported_share": 1.263323111306358,
+   "amdahl_ceiling_x": 79.15631330182309,
+   "host_loss_per_root_s": 0.46225,
+   "host_loss_at_48_s": 22.188,
+   "nograd_prefix_s": 0.0
+  },
+  {
+   "arm": "B2",
+   "cold": false,
+   "step_s": 466.702,
+   "backward_share": 97.85001992706268,
+   "unported_s": 6.329,
+   "unported_share": 1.3561116086924847,
+   "amdahl_ceiling_x": 73.74024332437985,
+   "host_loss_per_root_s": 0.782,
+   "host_loss_at_48_s": 37.536,
+   "nograd_prefix_s": 0.0
+  },
+  {
+   "arm": "B3",
+   "cold": false,
+   "step_s": 553.332,
+   "backward_share": 97.7483680683568,
+   "unported_s": 8.79,
+   "unported_share": 1.58855804471818,
+   "amdahl_ceiling_x": 62.950170648464166,
+   "host_loss_per_root_s": 0.55325,
+   "host_loss_at_48_s": 26.556,
+   "nograd_prefix_s": 0.0
+  }
+ ],
+ "headline": {
+  "tt_step_s": 466.702,
+  "gpu_step_s": [
+   7.0,
+   8.0
+  ],
+  "ratio_x": [
+   58.33775,
+   66.67171428571429
+  ],
+  "crop": 384,
+  "scope": "whole step",
+  "tt_diffusion_samples": 4,
+  "their_diffusion_samples": 48,
+  "floor": true
+ },
+ "backward_verb_rate": {
+  "forward_s": 4.04,
+  "forward_calls": 84996,
+  "backward_s": 356.0,
+  "backward_calls": 168922,
+  "fwd_ms_per_call": 0.04753164854816697,
+  "bwd_ms_per_call": 2.107481559536354,
+  "ratio_x": 44.33849075107721,
+  "predicted_at_fwd_rate_s": 8.029141136053461
+ },
+ "cpu_calibration": {
+  "upstream_cpu_step_s": 394.61,
+  "tt_over_cpu_x": 1.1826917716226146,
+  "note": "same crop/batch/precision and 48 samples vs our 4; the CPU figure is their first step, so it carries warmup"
+ },
+ "ceiling": {
+  "at_4_samples_x": 73.74024332437985,
+  "at_48_samples_unported_s": [
+   24.817,
+   40.730000000000004
+  ]
+ }
+}

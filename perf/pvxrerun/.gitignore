@@ -1,0 +1,15 @@
+run1/
+msa/
+msa_d*/
+out_d*/
+in_d*/
+depth_aiclk.jsonl
+depth_clk.pid
+run2/
+run3/
+old354/
+new56/
+armOLD/
+armNEW/
+runq/
+runq2/

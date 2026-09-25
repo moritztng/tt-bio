@@ -1,0 +1,25 @@
+# THE 1GPB SUPPORTING READINGS, moved out of the state doc 2026-09-24 when GroEL demoted the
+# 1GPB 2x2 from the row's headline to one target's personality. Each still stands on 1GPB and
+# each has its own derivation file, named inline. Verbatim from the doc:
+#
+# **That 2x2 was the row's answer until GroEL refused to replicate it** (below). It still stands as
+# a measurement of 1GPB, and it still shows that a single 512-vs-1536 contrast at one crop measures
+# the corner it was taken in. **Never quote its POOLED test**: pooling two cells per side makes
+# each group bimodal, MW then rejects NEITHER factor (n=16 vs 16), and a reader running only the
+# pooled test concludes there is no size and no crop effect where there are four significant ones
+# that cancel. `twobytwo.py` prints simple effects first.
+#
+# **ON 1GPB A GOOD CROP IS THE EXCEPTION.** Three 512-residue windows of one chain, 100 residues
+# apart, same engine, n=8 each (`results/three_crops_512.txt`): 4.631 A (50% under 4 A), 16.021
+# (0%), 17.300 (0%). Two of three sit at 16-17 A and agree to 1.28 A; the good one is the outlier,
+# spread 12.67 A. With two crops the reading was "offset 100 is a hard one" and it was wrong.
+#
+# **THE SIZE HALF DECOMPOSES: residue count is nearly free, the second chain is not.** 823 residues
+# (all of chain A, single-chain, nesting the 512 crop) reads median **7.962 A** against 4.631, so
+# +3.33 A over 311 extra residues and MW does NOT reject, while the 512->1536 move at the same crop
+# is +14.77 A, does reject, and also adds chain B. The chain-count-free part is ~23% of the move
+# and is not demonstrable at n=8 (`results/size_within_one_chain.txt`); the 823-to-1536 remainder
+# is undecomposed, because both counts change there and 1GPB has no chain long enough to isolate
+# it. Chain count is not the CROP effect either: both crop contrasts hold it fixed (1v1 at 512, 2v2
+# at 1536) and still move 13.04 and -6.13 A (`results/chain_count_ledger.txt`).
+#

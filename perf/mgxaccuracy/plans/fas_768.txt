@@ -1,0 +1,54 @@
+# FAS 768, A SINGLE-CHAIN CELL AT THE EXACT SIZE WHERE GroEL'S CEILING SITS.
+#
+# Written 2026-09-24 20:2xZ, with the FAS 512 rung in (3.782 A, 4 of 8 under 4 A) and the 1024
+# and 1536 rungs still computing. Nothing about 768 has been measured on this target.
+#
+# This is an ADDITION and it changes nothing in plans/chain_vs_residues.txt. That plan's three
+# clauses read 512 -> 1536 with 1024 beside it, and they stay exactly as written; this rung is
+# not part of any of them and cannot flip any of them. It is added because card 0 came free
+# when the FAS 512 job finished and the row's 3-chip cap has room for one more.
+#
+# WHY 768 SPECIFICALLY. results/groel_768_result.txt puts the GroEL ceiling at [512, 768): at
+# 768 residues GroEL returned 0 of 8 under 4 A on both crops, with PERFECT separation from its
+# own 512 cell at offset 0 (U = 0.0 of 64, p = 0.0002). Both GroEL 768 crops carry a second
+# chain (A 524 + B 244, B 488 + C 280) because GroEL's chains are ~524 residues and no crop of
+# it above ~524 can avoid one. FAS chain A is 1962 residues, so a 768-residue single-chain cell
+# exists there and nowhere else in this row. It is the most directly comparable cell the
+# confound has: same residue count as the cell that collapsed, one chain instead of two.
+#
+# ONE TREE, ff5435cba, the tree every other cell in this row was measured on and the tree the
+# other three FAS rungs are running on right now. Same deliberate MGX_ALLOW_BEHIND_MAIN
+# override and the same reason as plans/chain_vs_residues.txt.
+
+--model boltzgen --target perf/mgxaccuracy/targets/fas_chainA_1962.cif --target-res 768 --crop-offset 0 --designs 8 --budget 8 --score-dsg --host-threads 2 --timeout 21600 --tag fas768o0
+
+# The 768 crop of this target was already checked for the row's validity criterion when the
+# target was built: 1 connected component under the 2-22 A graph, Rg 35.5 A, max radius 60.3 A
+# (plans/chain_vs_residues.txt). The fixture job.py builds must read 768 CA, chain A only, and
+# that is checked on disk before the numbers are read, the way every other fixture here was.
+#
+# COST: ~3.2 ks from the quadratic that fit GroEL's walls and has now also fit FAS 512 to
+# within 7 s (1848.6 against 1842.0). One card, so ~53 min.
+#
+# PRE-REGISTERED READING, written before the cell exists. Exact two-sided Mann-Whitney by
+# enumeration, n=8 vs n=8, against the FAS 512 cell — WITHIN this target, never against GroEL:
+#
+#   SURVIVES AT 768   — median <= 4.0 A AND >= 4 of 8 under 4.0 A. A single chain of 768
+#                       residues still designs, at the exact size where two chains of 768 gave
+#                       0 of 8 on both GroEL crops. Chain count is doing work that residue
+#                       count is not.
+#
+#   COLLAPSED AT 768  — median > 4.0 A AND <= 1 of 8 under 4.0 A AND 512 -> 768 rejects at
+#                       0.05. A single chain collapses at the same size two chains do, so 768
+#                       residues is a residue-count ceiling and the chain hypothesis loses its
+#                       most comparable cell.
+#
+#   INTERMEDIATE      — anything else: 2 or 3 of 8 under 4.0 A, or a median past the bar that
+#                       the rank test cannot separate from 512. Report the median, the fraction
+#                       and the contrast, and claim neither.
+#
+# ONE HONEST LIMIT. FAS 512 reads 3.782 A with 4 of 8 under the bar, against GroEL 512's 0.852
+# with 5 of 8 under the STRICT 2 A bar. FAS starts closer to the 4 A line than GroEL did, so
+# this rung has less room to fall before it crosses, and an INTERMEDIATE here is a likelier
+# outcome than it was for the GroEL 768 rung. That is stated now rather than offered afterwards
+# as a reason the result was inconclusive.

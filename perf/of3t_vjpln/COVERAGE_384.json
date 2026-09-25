@@ -1,0 +1,28 @@
+{
+ "width": 384,
+ "backward_firings_total": 60144,
+ "distinct_nodes": 70,
+ "allref_reach": 12432,
+ "allref_pct": 20.670391061452513,
+ "allref2_reach": 16560,
+ "allref2_pct": 27.53391859537111,
+ "residue": 43584,
+ "residue_pct": 72.4660814046289,
+ "by_caller": {
+  "_identity_grad": 15936,
+  "_sliced": 12912,
+  "_taped_layer_norm": 1296,
+  "_taped_linear": 2832,
+  "_v_concat": 288,
+  "_v_concat_heads": 192,
+  "_v_create_qkv_heads": 720,
+  "_v_matmul": 8544,
+  "_v_permute": 4752,
+  "_v_reshape": 1056,
+  "_v_softmax": 3888,
+  "_v_transpose": 432,
+  "checkpoint": 96,
+  "impl": 6576,
+  "silu": 624
+ }
+}

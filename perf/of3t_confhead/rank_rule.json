@@ -1,0 +1,45 @@
+{
+ "n_tokens": 76,
+ "no_bins": 64,
+ "iptm": {
+  "one_chain": {
+   "ours_ptm": 0.150017,
+   "ours_iptm": 0.0,
+   "upstream_ptm": 0.15001704363360852,
+   "upstream_iptm": 0.0
+  },
+  "two_chains": {
+   "ours_ptm": 0.150017,
+   "ours_iptm": 0.154491,
+   "upstream_ptm": 0.15001704363360852,
+   "upstream_iptm": 0.1544910163752255
+  }
+ },
+ "reduced_rule": "0.2*ptm + 0.5*disorder",
+ "disorder_over_ptm_weight": 2.5,
+ "ptm_spread_to_overcome": {
+  "d_disorder=0.01": 0.025,
+  "d_disorder=0.02": 0.05,
+  "d_disorder=0.05": 0.125,
+  "d_disorder=0.1": 0.25
+ },
+ "monomer_fallback": {
+  "openfold3/openbind": {
+   "file": "tt_bio/openfold3_fold.py",
+   "matched": true
+  },
+  "boltz-2/boltzgen": {
+   "file": "tt_bio/boltz2.py",
+   "matched": true
+  },
+  "protenix-v2/opendde": {
+   "file": "tt_bio/worker.py",
+   "matched": true
+  },
+  "rf3": {
+   "file": "tt_bio/rf3/confidence.py",
+   "matched": true
+  }
+ },
+ "openfold3_is_the_outlier": true
+}

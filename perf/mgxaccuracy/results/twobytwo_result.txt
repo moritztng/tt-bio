@@ -1,0 +1,50 @@
+# NEITHER SIZE NOR CROP HAS A CONSISTENT DIRECTION. THE INTERACTION IS 4x EITHER MAIN EFFECT.
+#
+# The complete 2x2: {crop offset 0, offset 100} x {512, 1536} residues of the gpb dimer, all
+# after-fix, n=8 designs per cell, same designer, binder length, metric and device refolder.
+# Computed by perf/mgxaccuracy/twobytwo.py.
+#
+#   size  offset   n   median     range
+#    512       0   8    4.748   0.693-12.925
+#    512     100   8   17.785  12.249-28.623
+#   1536       0   8   19.398   6.650-22.924
+#   1536     100   8   13.273   7.951-15.153
+#
+#   SIMPLE effects (the other factor held fixed, n=8 vs n=8, all four reject at 0.05):
+#     size   at offset   0     +14.65 A     512 -> 1536 makes it much WORSE
+#     size   at offset 100      -4.51 A     512 -> 1536 makes it BETTER
+#     target at  512          +13.04 A      offset 0 -> 100 makes it much WORSE
+#     target at 1536           -6.13 A      offset 0 -> 100 makes it BETTER
+#
+#   MAIN effects (means of the simple effects)   SIZE +5.07 A   TARGET +3.46 A
+#   INTERACTION                                  -19.16 A
+#
+# READ THE SIGNS. Every simple effect is significant and the two in each pair point in
+# OPPOSITE directions, so the main effects are small only because they are averages of large
+# opposing numbers. "1536 is worse than 512" is TRUE at offset 0 (+14.65 A) and FALSE at
+# offset 100 (-4.51 A). The row opened on a single 512-vs-1536 contrast at one crop; that
+# contrast measures the corner it was taken in, not a property of size.
+#
+# So what determines whether a BoltzGen design refolds is the specific (size, crop) pair --
+# which surface, cropped to which extent -- and not either axis on its own.
+#
+# THE POOLED TEST WOULD HAVE SAID THE OPPOSITE, AND IT IS WRONG. Pooling the two cells per
+# side makes each group bimodal, and Mann-Whitney then rejects NEITHER size nor target
+# (n=16 vs 16 both ways). A reader who only ran the pooled test would conclude there is no
+# size effect and no crop effect, when in fact there are four significant ones that cancel.
+# twobytwo.py prints the simple effects first and labels the pooled tests reference-only for
+# exactly this reason; the hedge was written before these two cells landed.
+#
+# CAVEATS THAT STAND.
+#   * The SIZE axis also changes chain count: chain A is 823 residues, so both 512 cells are
+#     single-chain and both 1536 cells are two-chain contacting dimers (fixtures verified,
+#     results/across_target_floor_512.txt). A clean single-chain size axis is the 823 cell.
+#   * Cells span engine trees. The engine delta was measured on one crop at 0.117 A, MW not
+#     rejecting (results/engine_delta_is_inert.txt), far below every effect here.
+#   * n=8 per cell. An n=8 median repeats to 0.1-1.8 A, so the 4.5-14.7 A simple effects are
+#     well clear of that; the main effects at 3.5-5.1 A are the least trustworthy numbers in
+#     the table and should not be quoted without their simple effects.
+#   * One protein. Three of the four cells share large parts of one chain's sequence.
+#
+# Reproduce:
+#   python3 perf/mgxaccuracy/twobytwo.py perf/mgxaccuracy/results/size_1536.jsonl

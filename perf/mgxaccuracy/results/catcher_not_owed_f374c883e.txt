@@ -1,0 +1,29 @@
+# WHY MAIN'S MOVE FROM 428670d60 TO f374c883e OWES THIS ROW NO CATCHER. 2026-09-24 16:2xZ.
+# Established by reading the diff, not by assuming a merge title is accurate.
+
+428670d60, the wide-seq trial tree this row already catchered (pxdesign 0.1446/0.158, boltzgen
+9.632/7.270, rfd3 digest 7ab5705258251e10 MATCHES), landed on main as a merge commit. So that
+pair discharges wide-seq itself. What follows is about everything after it.
+
+`git diff --name-only 428670d60..f374c883e` touches 5 files under tt_bio/ that the three
+designers reach. Each one, read:
+
+  tt_bio/boltzgen/cli/boltzgen.py   15 lines: --controller help text reworded, one docstring,
+                                    `from tt_bio.distributed` -> `from tt_bio.host_controller`.
+  tt_bio/pxdesign/design.py          6 lines: docstring wording + the same import rename.
+  tt_bio/rfd3/design.py              9 lines: docstring wording + the same import rename.
+  tt_bio/main.py                   170 lines: af2ig registration and its argument validation.
+  tt_bio/worker.py                  84 lines: af2ig dispatch + the host_controller rename.
+
+Plus tt_bio/af2ig.py and af2ig_input.py (new), capabilities.py, size_limits.py and token_axis.py,
+all of which only ADD an af2ig row. tt_bio/distributed.py -> host_controller.py is a file rename
+with lease/endpoint changes inside it; nothing in a single-host design run reaches it, and the
+three designer call sites that import it do so inside `run_design_via_controller`, which a local
+`--num_designs N` run never enters.
+
+The catcher rule's own trigger list is tenstorrent.py, protenix.py and boltz2.py. **All three are
+untouched in this range, as are sample_chunks.py and page_copy.py.** No numerical path belonging
+to boltzgen, pxdesign or rfd3 changes, so there is nothing for a catcher to detect.
+
+Recorded so the next pass does not spend a card re-establishing it. The next catcher this row owes
+comes with mgx-wh-matmul, which the orchestrator flagged as reaching both designers.

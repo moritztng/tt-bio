@@ -1,0 +1,85 @@
+{
+ "boundary": "/home/ttuser/of3t_auxheads/cap043/boundary_aux_heads.pt",
+ "probe": "/home/ttuser/of3t_confpfe/probe_b/none/conf_bf16_tape.pt",
+ "resolved": {
+  "mine_vs_upstream": {
+   "rel": 0.0,
+   "cos": 1.0,
+   "norm_ratio": 1.0
+  },
+  "device_vs_upstream": {
+   "rel": 0.2845521043723411,
+   "cos": 0.9938232307530934,
+   "norm_ratio": 0.7318031664693772
+  },
+  "device_vs_mine": {
+   "rel": 0.2845521043723411,
+   "cos": 0.9938232307530934,
+   "norm_ratio": 0.7318031664693772
+  }
+ },
+ "plddt": {
+  "mine_vs_upstream": {
+   "rel": 0.0,
+   "cos": 0.9999999999999987,
+   "norm_ratio": 1.0
+  },
+  "device_vs_upstream": {
+   "rel": 0.2229249066013344,
+   "cos": 0.9826741596062232,
+   "norm_ratio": 0.858803186650433
+  },
+  "device_vs_mine": {
+   "rel": 0.2229249066013344,
+   "cos": 0.9826741596062232,
+   "norm_ratio": 0.858803186650433
+  }
+ },
+ "pae": {
+  "mine_vs_upstream": {
+   "rel": 0.0,
+   "cos": 1.0000000000000007,
+   "norm_ratio": 1.0
+  },
+  "device_vs_upstream": {
+   "rel": 0.0036570577138412344,
+   "cos": 0.9999935495587678,
+   "norm_ratio": 0.999305632219982
+  }
+ },
+ "upstream_output_shapes": {
+  "distogram_logits": [
+   1,
+   1,
+   384,
+   384,
+   64
+  ],
+  "plddt_logits": [
+   1,
+   1,
+   422,
+   50
+  ],
+  "experimentally_resolved_logits": [
+   1,
+   1,
+   422,
+   2
+  ],
+  "pae_logits": [
+   1,
+   1,
+   384,
+   384,
+   64
+  ],
+  "pde_logits": [
+   1,
+   1,
+   384,
+   384,
+   64
+  ]
+ }
+}

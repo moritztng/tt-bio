@@ -1,0 +1,65 @@
+{
+ "what": "whether a UNION of separately-driven section trajectories is the same thing as a COUPLED trajectory at the summed scope. It is not, and the difference decides what the TRAJECTORY clause can honestly ask for.",
+ "why_this_was_tested": "this row's own plan was to drive aux_heads and msa_module as separate trajectories and report 88.0819 + 2.8431 + 1.2317 = 92.1567 % as the scope reached. That addition is only sound if the three runs compose into one trajectory at 92.1567 %. They do not, and nothing in the campaign's record said so, because until this row only one section had ever been driven as a trajectory and a sum of one term is a coupled scope by accident.",
+ "the_mechanism": {
+  "each_capture_is_frozen": "every boundary is a capture of upstream's own r = 0 step. A section driven from it reads THOSE inputs at every one of the 20 steps.",
+  "the_inputs_are_other_sections_outputs": "boundary_aux_heads.pt's kwargs are batch, si_input and output.{si_trunk, zij_trunk, atom_positions_predicted}. si_trunk and zij_trunk are the TRUNK's outputs and atom_positions_predicted is the DIFFUSION module's. So at step k an aux_heads trajectory reads upstream's step-0 trunk and diffusion outputs, not our step-k ones.",
+  "what_that_omits": "in a real training step the sections are in series: an error in the trunk's update moves the diffusion module's inputs, which moves aux_heads' inputs. A union of frozen-boundary trajectories tests each section's update rule in isolation and tests NONE of that coupling. It is strictly weaker than a coupled trajectory at the same scope, and the two are indistinguishable in a `pct_of_model_sq_grad_norm` field.",
+  "the_diffusion_rung_is_NOT_affected": "88.0819 % is a single COUPLED trajectory. Its scope is one boundary and, on our side, OF3DiffusionConditioning feeding OF3DiffusionModule -- two classes composed in one taped forward, so conditioning's step-k weights are what the transformer's step-k forward reads. The coupling inside the scope is included; only coupling ACROSS captures is not."
+ },
+ "capture_inventory": [
+  {
+   "capture": "/home/ttuser/of3t_cond_cap/cond_boundary.pt",
+   "spans": "diffusion_module.diffusion_conditioning",
+   "pct_of_model_spanned": 36.9462,
+   "driven_as_a_trajectory": "yes -- perf/of3t_trajretake/traj_retake_shipped.json, 20 steps"
+  },
+  {
+   "capture": "/home/ttuser/of3t_softgrad/diffcap043/diffusion_boundary.pt",
+   "spans": "diffusion_module (all seven sub-sections)",
+   "pct_of_model_spanned": 89.2106,
+   "driven_as_a_trajectory": "yes -- perf/of3t_trajwiden/traj_widen_shipped.json, 20 steps, 88.0819 % reached of the 89.2106 % spanned"
+  },
+  {
+   "capture": "/home/ttuser/of3t_frame384/boundary_n384.pt",
+   "spans": "pairformer_stack",
+   "pct_of_model_spanned": 5.8282,
+   "driven_as_a_trajectory": "no -- single-step gradient arms only"
+  },
+  {
+   "capture": "/home/ttuser/of3t_auxheads/cap043/boundary_aux_heads.pt",
+   "spans": "aux_heads",
+   "pct_of_model_spanned": 2.8431,
+   "driven_as_a_trajectory": "no -- single-step gradient arms only"
+  },
+  {
+   "capture": "/home/ttuser/of3t_auxheads/cap043b/boundary_msa_module.pt",
+   "spans": "msa_module",
+   "pct_of_model_spanned": 1.24,
+   "driven_as_a_trajectory": "no -- single-step gradient arms only"
+  },
+  {
+   "capture": "/home/ttuser/of3t_auxheads/cap043b/boundary_input_embedder.pt",
+   "spans": "input_embedder",
+   "pct_of_model_spanned": 0.8007,
+   "driven_as_a_trajectory": "no; and 0.74055 of its 0.8007 is host-applied, so no device gradient exists for it at all"
+  }
+ ],
+ "the_bound_this_puts_on_a_coupled_trajectory": {
+  "largest_single_capture_span_pct_of_model": 89.2106,
+  "which": "the 0.4.3 diffusion boundary",
+  "reached_of_it": 88.08194359237523,
+  "share_of_its_own_span_reached": 98.7348404700509,
+  "so": "88.0819 % is not merely this row's result. It is within 1.13 points of the MAXIMUM coupled trajectory scope available from any capture the campaign holds, because the diffusion boundary is the widest-spanning one and we already reach 98.74 % of what it spans. Every route past it needs a capture that spans more than one section."
+ },
+ "the_whole_model_route": {
+  "reference_side": "DRIVABLE, and this contradicts SCOPE_LADDER.json's note that 'a taped whole-model forward needs a full featurised batch and this row's capture is a diffusion boundary, not a batch'. True of that row's capture; the BUNDLE has the batch. of3t-campaign-refs/bundle_min_043 holds batch_step003.pt (100,822,382 B, sha256 3c32597a20f09bf5..., 5nw3, 56 tokens), w0_043.pt (4,573,746,297 B) and draws_recycles0.pt (525,598 B), all digest-pinned in MANIFEST.json. Upstream's OF3AllAtom in float64 over that batch with the replayed draws is a whole-model reference step.",
+  "device_side": "NOT AVAILABLE. There is no taped whole-model forward+backward on our side. perf/of3t_gradients/instrument_full_model.py builds the shipped model on a card and PLACES upstream's tensors onto ours by exact bf16 value; its own docstring says what it 'deliberately does NOT do: compare a gradient MAGNITUDE'. It is a mapping instrument, not a gradient one. The campaign's 92.1568 % model-scope reading (MODEL_d56_retake.json) is assembled as a UNION of four separately-driven arms for exactly this reason.",
+  "so_the_blocker_is_named": "reaching a coupled trajectory scope above 89.2106 % requires building a taped whole-model device forward+backward. That is porting work with a known cost shape, not a measurement, and it is a different thing from the 1.2744 % that has no device gradient at any scope."
+ },
+ "what_this_does_to_the_proposed_clause": {
+  "the_problem": "PROPOSED_CLAUSE.md proposes `scope.pct_of_model_sq_grad_norm >= 97.9849`. That number was built by ADDING section shares whose device gradient arms exist. A union of frozen-boundary trajectories can satisfy it while testing no cross-section coupling at all, which is the D181 failure mode in a new place: the clause reads a scope, and the instrument that reaches it is a union of decoupled runs.",
+  "the_repair": "the clause must say which KIND of scope it reads. Two numbers, not one: a COUPLED scope, which is bounded at 89.2106 % by the widest capture and sits at 88.0819 % today, and a UNION scope, which is bounded at 92.1568 % by the device arms that exist. Reporting one number for both is what lets a weaker instrument pass.",
+  "recommendation": "TRAJECTORY should read the COUPLED scope, because the thing it exists to prove -- that the gradient the model produced reached the optimizer and that step k+1's forward read the weights step k wrote -- is a statement about a composed forward. A union tests it once per section and never across them."
+ }
+}

@@ -1,0 +1,74 @@
+{
+ "mode": "pad",
+ "depth": 8,
+ "first": 0,
+ "nomask": false,
+ "reps": [
+  {
+   "rep": 1,
+   "digest": "74bb79bd9331fbf4",
+   "clean": true,
+   "d_msa_nonfinite": 0,
+   "d_pair_nonfinite": 0,
+   "d_msa_absmax": 1.861572265625,
+   "d_pair_absmax": 0.043474674224853516,
+   "fwd_digest": "0f1bfd4898cd81e8",
+   "changed_attrs": null,
+   "wrapped_after_bwd": 648,
+   "progcache": 271,
+   "s": 11.5
+  },
+  {
+   "rep": 2,
+   "digest": "74bb79bd9331fbf4",
+   "clean": true,
+   "d_msa_nonfinite": 0,
+   "d_pair_nonfinite": 0,
+   "d_msa_absmax": 1.861572265625,
+   "d_pair_absmax": 0.043474674224853516,
+   "fwd_digest": "0f1bfd4898cd81e8",
+   "changed_attrs": {
+    "n": 0,
+    "keys": []
+   },
+   "wrapped_after_bwd": 648,
+   "progcache": 271,
+   "s": 8.6
+  },
+  {
+   "rep": 3,
+   "digest": "74bb79bd9331fbf4",
+   "clean": true,
+   "d_msa_nonfinite": 0,
+   "d_pair_nonfinite": 0,
+   "d_msa_absmax": 1.861572265625,
+   "d_pair_absmax": 0.043474674224853516,
+   "fwd_digest": "0f1bfd4898cd81e8",
+   "changed_attrs": {
+    "n": 0,
+    "keys": []
+   },
+   "wrapped_after_bwd": 648,
+   "progcache": 271,
+   "s": 9.3
+  }
+ ],
+ "clean": 3,
+ "distinct_digests": [
+  "74bb79bd9331fbf4"
+ ],
+ "stamp": {
+  "host": "tt-quietbox2",
+  "card": 2,
+  "subsystem_device": "0x0046",
+  "commit": "e5cf747905950b7372971d0f692f72579273efbc",
+  "tt_bio_dirty": false,
+  "torch_threads": 4,
+  "loadavg": [
+   50.15380859375,
+   53.05859375,
+   55.50439453125
+  ],
+  "utc": "2026-09-24T17:00:20Z"
+ }
+}

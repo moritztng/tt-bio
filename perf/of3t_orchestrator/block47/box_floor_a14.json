@@ -1,0 +1,179 @@
+{
+ "instrument": "the reference's own box-to-box floor, with and without PROTOCOL A14",
+ "floor_source": "perf/of3t_gradients/replay_vs_r0.json",
+ "floor_is": "upstream CPU replay against the upstream A100 tape: same revision, same batch, same replayed draws. What moves is the box.",
+ "reference_sha256": "89457d8977327699c84fc90741a013bc369f835dea6008676492c786fb87f113",
+ "a14_floor_on_reference_norm": 1e-12,
+ "ref_norm_source": [
+  "perf/of3t_gradients/instrument_a_bundle_block0_r0_crop64_tboff.json",
+  "perf/of3t_gradients/instrument_a_bundle_block23_r0_crop64_tboff.json",
+  "perf/of3t_gradients/instrument_a_bundle_block47_r0_crop64_tboff.json"
+ ],
+ "by_block": {
+  "0": {
+   "all_tensors": {
+    "n": 57,
+    "median": 0.05707306624910642,
+    "over_bar_5e-2": 50,
+    "worst": 2.2438915669387507,
+    "worst_tensor": "pairformer_stack.blocks.0.attn_pair_bias.layer_norm_z.bias"
+   },
+   "a14_applied": {
+    "n": 56,
+    "median": 0.0569839508312718,
+    "over_bar_5e-2": 49,
+    "worst": 0.1744371895427164,
+    "worst_tensor": "pairformer_stack.blocks.0.attn_pair_bias.mha.linear_v.weight"
+   }
+  },
+  "23": {
+   "all_tensors": {
+    "n": 57,
+    "median": 0.061984569134296404,
+    "over_bar_5e-2": 52,
+    "worst": 1.0804257966280177,
+    "worst_tensor": "pairformer_stack.blocks.23.attn_pair_bias.layer_norm_z.bias"
+   },
+   "a14_applied": {
+    "n": 56,
+    "median": 0.06190352617553879,
+    "over_bar_5e-2": 51,
+    "worst": 0.09422338972991409,
+    "worst_tensor": "pairformer_stack.blocks.23.pair_stack.tri_att_end.layer_norm.weight"
+   }
+  },
+  "47": {
+   "all_tensors": {
+    "n": 57,
+    "median": 0.07379401721918537,
+    "over_bar_5e-2": 49,
+    "worst": 0.8149554211400686,
+    "worst_tensor": "pairformer_stack.blocks.47.attn_pair_bias.layer_norm_z.bias"
+   },
+   "a14_applied": {
+    "n": 56,
+    "median": 0.07322788096403654,
+    "over_bar_5e-2": 48,
+    "worst": 0.7474253351700073,
+    "worst_tensor": "pairformer_stack.blocks.47.pair_stack.pair_transition.layer_norm.weight"
+   }
+  }
+ },
+ "excluded_by_a14": [
+  {
+   "tensor": "pairformer_stack.blocks.0.attn_pair_bias.layer_norm_z.bias",
+   "ref_norm": 1.0893559508969787e-19,
+   "rel_l2_in_floor": 2.2438915669387507
+  },
+  {
+   "tensor": "pairformer_stack.blocks.23.attn_pair_bias.layer_norm_z.bias",
+   "ref_norm": 4.1808097526797e-19,
+   "rel_l2_in_floor": 1.0804257966280177
+  },
+  {
+   "tensor": "pairformer_stack.blocks.47.attn_pair_bias.layer_norm_z.bias",
+   "ref_norm": 1.9315054270405874e-17,
+   "rel_l2_in_floor": 0.8149554211400686
+  }
+ ],
+ "set_matched": {
+  "0": {
+   "arm_file": "instrument_a_bundle_block0_r0_crop64_tboff.json",
+   "n_arm": 52,
+   "n_floor_on_arm_set": 52,
+   "arm_tensors_absent_from_floor": [],
+   "floor_tensors_absent_from_arm": [
+    "pairformer_stack.blocks.0.attn_pair_bias.layer_norm_z.bias",
+    "pairformer_stack.blocks.0.attn_pair_bias.mha.linear_k.weight",
+    "pairformer_stack.blocks.0.attn_pair_bias.mha.linear_q.bias",
+    "pairformer_stack.blocks.0.attn_pair_bias.mha.linear_q.weight",
+    "pairformer_stack.blocks.0.attn_pair_bias.mha.linear_v.weight"
+   ],
+   "floor_on_arm_set": {
+    "n": 52,
+    "median": 0.0566495899376471,
+    "over_bar_5e-2": 45,
+    "worst": 0.13150214215888265,
+    "worst_tensor": "pairformer_stack.blocks.0.attn_pair_bias.layer_norm_a.weight"
+   },
+   "arm": {
+    "n": 52,
+    "median": 0.011475015405310745,
+    "over_bar_5e-2": 7,
+    "worst": 0.7917975607637584,
+    "worst_tensor": "pairformer_stack.blocks.0.attn_pair_bias.linear_z.weight"
+   }
+  },
+  "23": {
+   "arm_file": "instrument_a_bundle_block23_r0_crop64_tboff.json",
+   "n_arm": 52,
+   "n_floor_on_arm_set": 52,
+   "arm_tensors_absent_from_floor": [],
+   "floor_tensors_absent_from_arm": [
+    "pairformer_stack.blocks.23.attn_pair_bias.layer_norm_z.bias",
+    "pairformer_stack.blocks.23.attn_pair_bias.mha.linear_k.weight",
+    "pairformer_stack.blocks.23.attn_pair_bias.mha.linear_q.bias",
+    "pairformer_stack.blocks.23.attn_pair_bias.mha.linear_q.weight",
+    "pairformer_stack.blocks.23.attn_pair_bias.mha.linear_v.weight"
+   ],
+   "floor_on_arm_set": {
+    "n": 52,
+    "median": 0.06181837759699017,
+    "over_bar_5e-2": 47,
+    "worst": 0.09422338972991409,
+    "worst_tensor": "pairformer_stack.blocks.23.pair_stack.tri_att_end.layer_norm.weight"
+   },
+   "arm": {
+    "n": 52,
+    "median": 0.01743431268710607,
+    "over_bar_5e-2": 12,
+    "worst": 11.119852728873756,
+    "worst_tensor": "pairformer_stack.blocks.23.attn_pair_bias.layer_norm_a.weight"
+   }
+  },
+  "47": {
+   "arm_file": "instrument_a_bundle_block47_r0_crop64_tboff.json",
+   "n_arm": 52,
+   "n_floor_on_arm_set": 52,
+   "arm_tensors_absent_from_floor": [],
+   "floor_tensors_absent_from_arm": [
+    "pairformer_stack.blocks.47.attn_pair_bias.layer_norm_z.bias",
+    "pairformer_stack.blocks.47.attn_pair_bias.mha.linear_k.weight",
+    "pairformer_stack.blocks.47.attn_pair_bias.mha.linear_q.bias",
+    "pairformer_stack.blocks.47.attn_pair_bias.mha.linear_q.weight",
+    "pairformer_stack.blocks.47.attn_pair_bias.mha.linear_v.weight"
+   ],
+   "floor_on_arm_set": {
+    "n": 52,
+    "median": 0.07322788096403654,
+    "over_bar_5e-2": 44,
+    "worst": 0.7474253351700073,
+    "worst_tensor": "pairformer_stack.blocks.47.pair_stack.pair_transition.layer_norm.weight"
+   },
+   "arm": {
+    "n": 52,
+    "median": 0.40038596445025953,
+    "over_bar_5e-2": 52,
+    "worst": 1.4067543323995533,
+    "worst_tensor": "pairformer_stack.blocks.47.attn_pair_bias.layer_norm_a.weight"
+   }
+  }
+ },
+ "reading": "With the sets identical the arm is TIGHTER than the floor at blocks 0 and 23, which a floor cannot be. The two contrasts are not independent: the floor is (upstream on CPU - reference on A100) and the arm is (ours on CPU - reference on A100), and both carry the same CPU-side displacement, so they share a term and partially cancel. The published box figure is therefore NOT a floor for these arms. The floor an arm actually sits on is (ours - upstream) with the box held fixed, which is what a bundle rebuilt on the same host as the capture gives for free.",
+ "overall": {
+  "all_tensors": {
+   "n": 171,
+   "median": 0.06224449292026792,
+   "over_bar_5e-2": 151,
+   "worst": 2.2438915669387507,
+   "worst_tensor": "pairformer_stack.blocks.0.attn_pair_bias.layer_norm_z.bias"
+  },
+  "a14_applied": {
+   "n": 168,
+   "median": 0.06214714242549154,
+   "over_bar_5e-2": 148,
+   "worst": 0.7474253351700073,
+   "worst_tensor": "pairformer_stack.blocks.47.pair_stack.pair_transition.layer_norm.weight"
+  }
+ }
+}

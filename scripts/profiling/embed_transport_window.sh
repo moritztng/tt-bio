@@ -120,7 +120,7 @@ say "start a private controller + $NW workers from $SRC"
 export PYTHONPATH=$SRC HF_HUB_CACHE=/home/cust-team/mthuening/models TT_METAL_LOGGER_LEVEL=FATAL
 export OMP_NUM_THREADS=4 MKL_NUM_THREADS=4
 cd "$SRC" || exit 1
-setsid nohup $ENVBIN/python -m tt_bio.main controller --listen 127.0.0.1:8899 \
+setsid nohup $ENVBIN/python -m tt_bio.main controller --port 8899 \
   >> "$B/controller.log" 2>&1 < /dev/null &
 sleep 8
 for i in $(seq 0 $((NW - 1))); do
@@ -152,7 +152,7 @@ for p in $(ps -eo pid,args | grep "[t]t_bio.main worker --connect http://127.0.0
   kill -TERM "$p"
 done
 sleep 30
-for p in $(ps -eo pid,args | grep "[t]t_bio.main controller --listen 127.0.0.1:8899" | awk '{print $1}'); do
+for p in $(ps -eo pid,args | grep "[t]t_bio.main controller --port 8899" | awk '{print $1}'); do
   kill -TERM "$p"
 done
 sleep 10
