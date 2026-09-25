@@ -1089,6 +1089,21 @@ state doc nor its `CLAUSE_EXACT.json` names the version anywhere.
 
 **R200** (pass 423) The `of3t-denoise` A40 floor was attributed to mse's Kabsch stop-gradient and FD3 froze it. FD3 at h=1e-4 reads 15.897746748793073 against FD2's 15.897749718841725 (1.9e-7 relative) and both read 2.847e-05 at h=1e-5: the freeze is inert, as the envelope theorem predicts when the alignment minimises the loss it feeds. FD2's ladder 2.498e-04 / 7.634e-05 / 2.847e-05 falls ~h^0.5 without a plateau, which a missing gradient path (constant bias) cannot produce. h=1e-6 then read 6.972e-10 and h=1e-7 4.303e-09: a V with one kink crossing between 1e-6 and 1e-5, so A40 PASSES. Separately, `of3t-denoise` found D259 (`ttnn.multiply(bf16, fp32 [...,1])` nondeterministic, up to 16,061 wrong elements) and D258 (mixed-dtype `transpose_a` matmul); both are fixed on the training path only, and `of3t-bcastaudit` measures whether inference reaches them.
 
+- **R207** (pass 446) **R203 is CORRECT and worth 1.00508x, and I should have priced it before
+  reordering a sprint around it.** `of3t-tapedfwd` (GO) measured what R203 located: untaped with
+  every lever 1.2054 s, forced onto the taped route set 3.9032 s -- **3.2381x on the forward**,
+  medians of 3 at 0.21 %/0.24 % spread, pc card 0, 1350 MHz sampled DURING. Those routes sit in
+  **3.415 s of a 466.702 s step**, so the tape gives up **2.3604 s**; the whole taped forward
+  including its diffusion is 3.702 s, so a forward costing NOTHING would be **1.0080x**. The
+  mechanism was even bigger than I described -- **zero** fused forwards run under a tape, thirteen
+  call sites asking 1,528 times per cycle, of which only five are `generic_op` -- and the answer is
+  still half a percent. **A big ratio on a small slice.** Worse for the original hope: the guards
+  cannot touch the backward at all, because every `with ag.tape():` closes before `backward()` is
+  called, so the backward always ran with the full lever set. **The lesson is mine, not the row's:
+  a located mechanism is not a win until it is priced, and thirteen honest comments are no more
+  evidence of size than one was.** R203's finding stands; its billing does not. BACKWARD.md §4
+  rewritten to lead with the price.
+
 - **R205** (pass 446) **`of3t-bwsurvey`'s headline "the step near 51 s, and that alone is 9.1x"
   omits a 100.668 s term, and the omission is REFUTED by this campaign's own hardware floor.**
   Its own partition (`of3t-gpugap` PARTITION, arm B rep 2) is step **466.702 s**, backward

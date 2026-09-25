@@ -1,5 +1,9 @@
 # The backward pass gets the same treatment the forward got
 
+**ENGINE-LEVEL, not OF3T's.** It lives under `state/of3t/` for historical reasons; the kernels it
+describes serve Boltz-2, OF3T, BC2 and RFD3. `bcx-orchestrator` is briefed on it as of 2026-09-25
+16:2x. For BC2 it matters MORE, not less: the gradient phase is 79.8 % of a BC2 cycle.
+
 Established with Moritz in conversation 2026-09-25 14:00-16:00 CEST. Every row below reads this
 before it starts. Moritz: *"doing the same great job we did for forward also for backward ... using
 what already exists in the tenstorrent repositories. adapting. taking inspiration from gpu
@@ -64,72 +68,43 @@ from the forward, which is the right design. Two things stop it being a drop-in,
 
 `ring_sdpa_bw` is a multi-chip ring-attention backward — that is the data-parallel story, prebuilt.
 
-## 4. The forward is NOT at full perf on the taped path, and it is ONE cause
+## 4. The forward gives up a lot proportionally and almost nothing absolutely: 1.00508x
 
-**Established by `of3t-orchestrator` at pass 445, 2026-09-25, by reading the tree. Do not
-re-derive it; do price it.** This section previously said "one taped call switched fused triangle
-attention off for the whole process", a cached state-dependent refusal. That framing is wrong and
-it understates the problem by an order of magnitude.
+**PRICED AND CLOSED by `of3t-tapedfwd`, GO, 2026-09-25. Section rewritten rather than appended to,
+because the earlier version led with a mechanism that turned out to be worth half a percent.**
 
-**`ttnn.generic_op` has no backward.** Every one of tt-bio's fused kernels is driven through
-`ttnn.generic_op` — a Python program descriptor over raw `.cpp` kernel sources, which is why
-`tt_bio/kernels/` holds `.cpp` files and no build system. So every one of them declines under
-taping, by design, with the comment saying so in each case. Thirteen sites in eight modules:
+**The mechanism is real and bigger than first described.** `ttnn.generic_op` has no tape entry
+(`tt_bio/ops.py:72`), so every fused kernel declines under taping by design. Counted at runtime,
+not read: **zero fused forwards execute under a tape**, and ten counters that are busy without one
+go to exactly zero with one. Thirteen distinct call sites ask the gate **1,528 times per taped
+trunk cycle**; only five are `generic_op` kernels, the other eight are L1 residency, an in-place
+pair add and a deallocation the tape's backward forbids
+(`perf/of3t_tapedfwd/fires.py`, which stubs `tt_bio.ops.taping` to record its caller's frame, so
+it sees every gate and not only the ones keeping a counter).
 
-    tt_bio/triatt_qkv.py       74, 179, 276, 390   -> "the three composed ops run instead"
-    tt_bio/reblock_permute.py  373, 597, 877       -> "every caller falls back to the unfused
-                                                       transpose/permute, which the tape follows"
-    tt_bio/triatt_sdpa.py      340, 486            -> "the stock fused SDPA verb is taped"
-    tt_bio/softmax_generic.py  369, 514            -> "the composed path runs instead"
-    tt_bio/swiglu_fused.py     96                  -> returns the string "taping"
-    tt_bio/trimul_tail.py      232
-    tt_bio/mm_dualnoc.py       87                  -> falls back to `minimal_matmul`, a taped verb
-    tt_bio/eltwise_fusion.py   80, 104, 115        -> FUSE_MASK_ADD and FUSE_NORM_RESIDUAL both off
+**And it is worth 1.00508x.** Untaped with every lever, 1.2054 s; forced onto the taped route set,
+3.9032 s — **3.2381x on the forward**, medians of 3 at 0.21 %/0.24 % spread, pc card 0, 1350 MHz
+sampled DURING. But those routes sit in **3.415 s of a 466.702 s step**, so the tape gives up
+**2.3604 s**. The ceiling needs no card to compute: the whole taped forward including the
+diffusion in the same tape is **3.702 s**, so a forward that cost *nothing* would be **1.0080x**.
+**A big ratio on a small slice.**
 
-Residency degrades under taping too, separately from fusion: `tenstorrent.py:9016` selects
-`DRAM_MEMORY_CONFIG` where an untaped run gets `L1_MEMORY_CONFIG`, and `tenstorrent.py:4943` drops
-the pair-projection L1 output. On a workload already established as DRAM-bound that is its own
-cost line, and it is not a kernel-authoring problem.
+**Two consequences that bind the rest of the sprint:**
 
-**So a taped training step runs a decomposed, DRAM-resident model, not the shipped one.** A slice
-of the 6-7x software gap is kernels we already have, switched off — before a single backward
-kernel is written. The counter-example in the same tree tells you the shape of the fix:
-`triatt_sdpa`'s decline comment says *"the stock fused SDPA verb is taped"*, and PTX's shared SDPA
-backward pairs that production fused forward with `autograd.triangle_attention`'s chunked
-recompute. **A fused kernel survives taping when it is a taped ttnn VERB with a registered
-backward, and not when it is a tt-bio `generic_op`.** That is the architectural question this
-sprint actually has to answer, and it reframes the job list: for each of the eight modules, either
-register a backward for the `generic_op` pair, or re-drive tt-train's backward source through
-`generic_op` and register the pair, or establish that the composed fallback is already at parity
-and the guard costs nothing there.
+1. **Kernel authoring does not wait behind this.** The taped forward plus its diffusion is
+   **0.79 %** of the step; the backward is **97.85 %**.
+2. **The taping guards never touch the backward at all.** Every `with ag.tape():` closes before
+   `backward()` is called, so the backward already runs with the full lever set. Any hope that
+   fused forwards were silently costing the backward seconds is dead.
 
-**And the plumbing is NOT the blocker — established pass 445 by reading `tt_bio/autograd.py`.**
-The tape is not a verb registry. `autograd._tape(out_value, parents, make_fn, reads=None)` wraps
-any forward value with any hand-written VJP closure, so a `generic_op` result can carry a backward
-today with no new infrastructure, no nanobind and no C++ build. The pattern is already in
-production and its own docstring says so: `autograd.triangle_attention` takes a `value=` argument
-that *"hands in a forward that has already been computed, and it is what lets the shipped fused
-SDPA share this backward instead of getting a second copy of it... which is how the production
-forward and this backward end up in one node."* So the fused kernel runs, the authored backward is
-taped beside it, and `generic_op`'s own lack of a backward never comes up.
+`of3t-tapedfwd` landed one free fix on its branch (`ae7bb5b68`): the fused-HiFi arm was walking
+`_sdpa_masked`'s ragged device pad and then the whole config ladder only to reach a `None` that
+`triatt_sdpa.sdpa` returns on its first line under a tape. It declines at the arm now. Bit-exact,
+no inference call moves.
 
-**But it is a ONE-OFF, and that is the real infrastructure job.** `value=` exists on exactly one
-autograd op and is used at exactly one call site (`taped_ttnn.py:862`). Generalising that seam —
-a precomputed-forward argument on the autograd ops the other seven modules would need, several of
-which have no autograd counterpart at all today — is a small Python job inside `autograd.py`, not
-a bridge to `ttml::metal`. Size it as such.
-
-Consequence for the job list: **each of the eight modules is "author or adapt the backward maths,
-then wire the fused forward through the `value=` seam", not "expose a C++ op to Python".**
-`reblock_permute`'s backward is an inverse permutation and may be nearly free; `swiglu_fused` has
-tt-train's `swiglu_elemwise_bw` to adapt; `triatt_qkv` and `softmax_generic` are where the maths
-is real. That ordering is `of3t-bwsurvey`'s to establish, with `of3t-tapedfwd`'s seconds as the
-weights.
-
-**What is still owed, and it is a measurement, not a code read:** the seconds. `of3t-tapedfwd`
-counts which of these fire at runtime in a real crop-384 taped step and prices the decline per
-family inside the 466.70 s. A code read says the guard exists; only the run says what it costs,
-and the order of the whole sprint depends on that number.
+**The lesson, and it is the one worth carrying: a located mechanism is not a win until it is
+priced.** This section previously led with the mechanism and reordered a sprint around it. The
+mechanism was correct, the count was larger than claimed, and the answer is half a percent.
 
 ## 5. Throughput, not latency — and the metric we have never computed
 
