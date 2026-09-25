@@ -1,0 +1,53 @@
+# perf/bcx_pr/upstream_latency.py — PacesaLab/BindCraft2 read live from the GitHub API on
+# 2026-09-25 ~19:5xZ from pc. No card, no device.
+
+  # kind  opener         outside opened (UTC)         first lab action           h
+  1 PR    rclune         YES     2026-09-21 18:15     review_requested by LeonardoTredese    12.8
+  2 PR    cytokineking   YES     2026-09-21 18:54     closed by martinpacesa    1.21
+  3 PR    ErikMaeots     no      2026-09-21 20:41     closed by ErikMaeots    0.07
+  4 issue rakeshr10      YES     2026-09-21 21:17     mentioned by martinpacesa     0.0
+  5 issue bifxcore       YES     2026-09-21 22:51     comment by martinpacesa    6.38
+  6 PR    ErikMaeots     no      2026-09-22 06:48     head_ref_deleted by ErikMaeots    1.67
+  7 PR    sbonner0       YES     2026-09-22 09:55     assigned by ErikMaeots    0.29
+  8 PR    ErikMaeots     no      2026-09-22 10:43     closed by ErikMaeots    2.79
+  9 issue SamFreemanFox  YES     2026-09-22 16:19     comment by LeonardoTredese   16.32
+ 10 PR    prihoda        YES     2026-09-22 19:34     comment by LeonardoTredese   12.19
+ 11 issue prihoda        YES     2026-09-22 19:48     -                          -
+ 12 issue prihoda        YES     2026-09-23 06:21     -                          -
+ 13 issue batch2k        YES     2026-09-23 07:53     assigned by LeonardoTredese    0.89
+ 14 PR    zyzllik        YES     2026-09-23 11:45     review by LeonardoTredese    0.27
+ 15 PR    zyzllik        YES     2026-09-23 11:53     review by LeonardoTredese    0.02
+ 16 PR    prihoda        YES     2026-09-23 15:52     -                          -
+ 17 PR    ErikMaeots     no      2026-09-24 06:12     assigned by LeonardoTredese    0.01
+ 18 issue andreply       YES     2026-09-24 11:50     comment by LeonardoTredese    1.52
+ 19 PR    moritztng      YES     2026-09-24 20:43     closed by martinpacesa    2.23
+ 20 issue moritztng      YES     2026-09-24 22:57     closed by martinpacesa    0.28
+ 21 PR    LeonardoTredese no      2026-09-25 12:29     review_requested by LeonardoTredese    0.05
+
+outside items with a lab action: n=13
+  hours to first lab action: min 0.00  median 1.21  max 16.32
+
+lab actions total: n=62, UTC hour-of-day:
+  05 06 06 06 06 07 07 07 07 07 07 08 08 08 08 08 08 08 08 08 09 09 09 09 10 10 10 11 11 11 12 12 12 12 12 12 12 13 13 13 13 13 14 14 15 16 16 17 17 17 17 18 20 20 20 20 21 21 21 21 22 23
+  inside 07:00-18:00Z: 46/62 = 74%
+  earliest 05:xx   latest 23:xx
+  by weekday: {'Fri': 8, 'Thu': 13, 'Wed': 17, 'Tue': 16, 'Mon': 8}
+
+=== PR outcomes, lab vs outside (same pass) ===
+1    rclune           OUTSIDE  MERGED
+2    cytokineking     OUTSIDE  closed unmerged
+3    ErikMaeots       lab      MERGED
+6    ErikMaeots       lab      MERGED
+7    sbonner0         OUTSIDE  closed unmerged
+8    ErikMaeots       lab      MERGED
+10   prihoda          OUTSIDE  open
+14   zyzllik          OUTSIDE  MERGED
+15   zyzllik          OUTSIDE  MERGED
+16   prihoda          OUTSIDE  open
+17   ErikMaeots       lab      MERGED
+19   moritztng        OUTSIDE  open
+21   LeonardoTredese  lab      open
+
+8 outside PRs, 5 lab. Of the 5 outside PRs in a terminal state, 3 merged (#1, #14, #15) and
+2 closed unmerged (#2, #7). 3 outside PRs are open (#10, #16, #19). The "0 of 5 outside PRs
+merged" arithmetic behind this row's withdrawn NO-GO is wrong by an independent count.
