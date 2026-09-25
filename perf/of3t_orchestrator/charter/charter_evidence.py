@@ -172,6 +172,28 @@ def code_staleness(root: Path, artifact: str, code_paths=("tt_bio",)) -> dict:
     # negative one ("at or after the newest code commit") that proves little.
     a = ts("--", artifact)
     c = ts("--", *code_paths)
+
+    # A COMPOSED artifact must be dated by its EVIDENCE, not by its composition. D179's
+    # COVERAGE_MERGED.json measures nothing: it merges three sha-pinned sources. Dating it by its
+    # own commit read 17.8 h behind on 2026-09-25 while its oldest source, `coverage_census.json`,
+    # was committed 2026-09-19 -- the clause was reporting a six-day-old measurement as a
+    # seventeen-hour-old one, an 8.4x understatement, in the direction that flatters. A merge is
+    # not a measurement. So when an artifact declares `sources`, the governing date is the OLDEST
+    # of its own commit and every source's, and the reading says which one governed.
+    governed_by, oldest = artifact, a
+    try:
+        doc = json.loads((root / artifact).read_text())
+        for src in (doc.get("sources") or []):
+            sp = src.get("path") if isinstance(src, dict) else None
+            if not sp:
+                continue
+            st = ts("--", sp)
+            if st is not None and (oldest is None or st < oldest):
+                governed_by, oldest = sp, st
+    except Exception:                                        # noqa: BLE001
+        pass                                                 # not JSON, unreadable, or no sources
+    a = oldest
+
     if a is None and (root / artifact).is_file():
         # Generated at compose time from sources pinned by digest (D179's COVERAGE_MERGED.json is
         # the first). It exists but has no commit, and that is the point: it cannot be older than
@@ -182,14 +204,19 @@ def code_staleness(root: Path, artifact: str, code_paths=("tt_bio",)) -> dict:
         return {"comparable": False,
                 "why": "the artifact or the code path has no commit in this tree"}
     return {"comparable": True, "artifact_commit_unixtime": a, "code_commit_unixtime": c,
+            "dated_by": governed_by,
+            "dated_by_a_source": governed_by != artifact,
             "artifact_is_older_than_code": a < c,
             "seconds_behind": max(0, c - a),
             "note": ("this artifact predates the newest commit under "
                      + "/".join(code_paths)
                      + ", so its numbers describe an earlier tree. A clause reading it is "
                        "reporting history, and a re-take may change the verdict. "
-                       "`seconds_behind` is a LOWER BOUND: this dates the artifact's COMMIT, "
-                       "and it was measured before it was committed"
+                       "`seconds_behind` is a LOWER BOUND: this dates a COMMIT, and the work "
+                       "was done before it was committed"
+                     + (f". Dated by its oldest source {governed_by}, not by the artifact "
+                        "itself, because a merge is not a measurement"
+                        if governed_by != artifact else "")
                      if a < c else "the artifact is at or after the newest code commit")}
 
 
