@@ -176,7 +176,8 @@ Ask for more than a model's limit and tt-bio refuses before it opens a device, n
 model, the limit and any model that does take the input. `nesso1` and `af2ig` have no measured
 limit and are never refused: nothing above the top of either ladder has been run, so there is no
 failing size to refuse on. AF2-IG's top rung is 1024 tokens (944 target residues plus an
-80-residue binder) in 488 s on one Wormhole chip. What sets each wall is in
+80-residue binder) in 488 s on one Wormhole chip, and 1536 tokens (1008 plus a 528-residue
+binder) in 665 s on a Blackhole p150a. What sets each wall is in
 [docs/large-targets.md](docs/large-targets.md#what-stops-each-model-above-1024-on-a-galaxy-chip).
 
 `boltzgen` is the one model sized on atoms rather than residues, because its wall follows the

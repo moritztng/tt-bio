@@ -883,7 +883,22 @@ CEILINGS: dict[str, dict[str, Ceiling]] = {
                      "free, residency again. AICLK median 1000 MHz during both. "
                      "Re-passed on origin/main 6ea518246 (after sdpa-mask 94e7a002c), j10glx02, "
                      "2026-09-24, guard off, --host_threads 2, AICLK median 1000 MHz sampled during "
-                     "the fold: 1664 PASS in 1095.2 s (card 20, pLDDT 0.891, no CA-CA break)",
+                     "the fold: 1664 PASS in 1095.2 s (card 20, pLDDT 0.891, no CA-CA break). "
+                     "Re-walked on origin/main cdd2c2f38 (ws:cov-stale-esmfold2fast-whgalaxy), "
+                     "GWH02, 2026-09-25, single-sequence apo CDK2 tiled, through the shipped "
+                     "`tt-bio predict --model esmfold2-fast` at the flags jobs.py sends a served "
+                     "job, AICLK median 1000 MHz sampled during every fold: 1024 PASS in 276.8 s "
+                     "(UMD 0, pLDDT 0.834, 0 breaks, 3 contacts under 2.0 A in 8239 atoms) and "
+                     "again on UMD 3 in 278.6 s, sha256-identical; 1664 PASS in 894.8 s (UMD 1, "
+                     "pLDDT 0.8905, 0 breaks and 0 contacts under 2.0 A in 13384 atoms). 1792 "
+                     "fails in 200 s with the guard off on the SAME request as every earlier "
+                     "tree, to the byte: 1644167168 B DRAM across 12 banks, 137015296 B per bank "
+                     "against a 1073741792 B bank, and after the row-blocked retry the chip is "
+                     "99.0 percent full with 10.5 MiB free, residency again. Both 1024 legs "
+                     "absorb exactly one 16777216 B L1 refusal in trunk loop 0 and fold on -- "
+                     "this checkpoint has NO MSA encoder (config msa_encoder.enabled false, so "
+                     "esmfold2_runtime._spec never builds one), so that request comes from the "
+                     "shared trunk and not from the MSA path the esmfold2 entry names",
         ),
     },
     "protenix-v1": {
@@ -927,8 +942,19 @@ CEILINGS: dict[str, dict[str, Ceiling]] = {
         # the binder, and the trunk is O(N^3) in it, so the ceiling is a real question -- it is
         # unanswered, not absent.
         "blackhole": _unmeasured(
-            "no ladder. AF2-IG folds are on record at 208-848 tokens on qb1 p150a and nothing "
-            "above 848 has been tried, so the first failing rung is unknown"),
+            "no ladder, but no longer a blank: 1536 tokens (1008 target + a 528-residue binder) "
+            "folded on pc's p150a, card 0, in 665.0 s on 2026-09-25, AICLK median 1350 MHz over "
+            "133 samples taken during the fold, pLDDT 0.725, zero backbone breaks in either "
+            "chain and every residue delivered (ws:cov-below-bar-af2ig-bhp150a, "
+            "perf/af2igcov/results). The 848 control on the same card reads 202.7 s, so the "
+            "exponent between consecutive rungs is 2.00 and on the warm trunk pass alone 2.62 -- "
+            "under the trunk's O(N^3), so nothing fast falls off. The older qb1 ladder reads "
+            "5.7 s at 208, 17.8 s at 336, 76.4 s at 592 and 160-194 s at 848. 1792 folds too, "
+            "in 1216.3 s at the same clock with 0 breaks, so 1536 is the bar and not the wall -- "
+            "but the warm trunk pass steps from 152 s to 288 s across that gap, an exponent of "
+            "4.15 against 2.62 below it, which is a fast path falling off and is open. Nothing "
+            "above 1792 has been tried, so there is still no failing size to refuse on and this "
+            "row refuses nothing"),
         "wormhole_b0": _unmeasured(
             "no ladder, but no longer a blank: 1024 tokens (944 target + 80 binder, the sum the "
             "platform fences on) folded on a Galaxy chip in 487.9 s on 2026-09-25, GWH02 UMD 0, "
