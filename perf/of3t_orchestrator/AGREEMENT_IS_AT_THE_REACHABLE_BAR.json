@@ -1,0 +1,88 @@
+{
+ "as_of": "2026-09-20, orchestrator pass 175, off of3t-residual",
+ "demonstrated_not_argued": {
+  "agreement_bought_pct": 0.57,
+  "cost": "13 s per structure against 2.5 s -- a bound, not a lever",
+  "err_cos_after": -0.2938,
+  "ours_vs_float64_after": 0.03815464,
+  "ours_vs_float64_before": 0.05930664,
+  "per_tensor_over_5e-02_bar_after": "43 of 547",
+  "per_tensor_over_5e-02_bar_before": "295 of 547",
+  "reading": "getting MORE ACCURATE THAN THE REFERENCE does not get you closer to it. Our bounded gradient ends 1.53x closer to float64 than upstream's own bf16 training step, and agreement improved 0.6 %. The error cosine flips to -0.2938, so the extra accuracy is partly spent pointing away from them -- A25's anti-alignment case appearing inside our own arm.",
+  "removed_of_our_own_error_pct": 35,
+  "what": "of3t-residual bounded the transition path on top of the softmax -- 29,808 intercepts across layer_norm/multiply/multiply_/add/add_ over 48 structures, none zero"
+ },
+ "headline": "with every softmax computed in float64, our diffusion-scope gradient agrees with upstream OpenFold3's own bf16 training step at 7.777580e-02 -- 0.9563x the 8.133064e-02 that two independent bf16 implementations of equal accuracy would read, so we agree with their step AS WELL AS an independent reimplementation can. Our accuracy is 1.0134x theirs. The residual is geometry, not a defect: it is predicted to 1.26e-05 relative from the three measured quantities.",
+ "provenance": "of3t-residual on qb2-card0. Its softmax-bound arm's gradient dump is BYTE-IDENTICAL to of3t-trajectory's (sha256 d631c39e...), so the arm is reproduced before the residual was measured on it. Inputs digest-verified per A24 against the pass-175 pin ff78d7bc.... The pre-D86 row is trajectory's published figure, retained for continuity. Orchestrator verified the A26 arithmetic independently: predicted 7.77768e-02 against measured 7.777580e-02.",
+ "the_bar_a_bf16_port_can_actually_be_held_to": {
+  "derivation": "sqrt(2) x threshold, from ||e-t||^2 = ||e||^2 + ||t||^2 - 2<e,t> at ||e||=||t||, <e,t>=0",
+  "equals_float64_threshold": 0.05750945,
+  "fraction_of_that_bar": 0.9563,
+  "independent_same_accuracy_bar": 0.08133064,
+  "verdict": "PASS on the reachable bar; 1.3524x the unreachable one",
+  "we_read": 0.0777758,
+  "why_it_is_unreachable": "a bf16 port cannot equal float64; nothing can read this"
+ },
+ "the_corrected_arm": {
+  "rows": [
+   {
+    "arm": "shipped",
+    "cos_vs_them": 0.411379,
+    "err_cos": 0.2071,
+    "ours_vs_float64": 7.568637,
+    "ours_vs_their_step": 7.426217,
+    "r": 7.7814,
+    "x_threshold": 129.13
+   },
+   {
+    "arm": "float64-softmax bound",
+    "cos_vs_them": 0.997141,
+    "err_cos": 0.0977,
+    "ours_vs_float64": 0.05930664,
+    "ours_vs_their_step": 0.0777758,
+    "r": 0.9787,
+    "x_threshold": 1.35
+   },
+   {
+    "arm": "the same bound BEFORE the D86 orientation fix",
+    "cos_vs_them": 0.993203,
+    "err_cos": 0.0449,
+    "note": "the figure this campaign published; contaminated",
+    "ours_vs_float64": 0.106681,
+    "ours_vs_their_step": 0.1172914,
+    "r": 0.9787,
+    "x_threshold": 2.04
+   },
+   {
+    "arm": "permuted cotangent (break control)",
+    "err_cos": -0.1871,
+    "ours_vs_their_step": 3.705872,
+    "x_threshold": 64.44
+   },
+   {
+    "arm": "bound + permuted",
+    "err_cos": -0.13,
+    "ours_vs_their_step": 1.554075,
+    "x_threshold": 27.02
+   }
+  ],
+  "scope": "547 tensors, 51.1358 % of the model's squared gradient norm, against pinned arm4"
+ },
+ "the_residual_is_geometry": {
+  "cos_between_the_error_vectors": 0.0977,
+  "measured_agreement": 0.0777758,
+  "our_error_vs_float64": 0.05930664,
+  "predicted_agreement": 0.0777768,
+  "prediction_error_relative": 1.26e-05,
+  "ratio": 1.0134,
+  "so": "the distance surviving an accurate softmax is the consequence of subtracting two near-orthogonal bf16 error vectors of the same size. No work on our side removes it.",
+  "their_bf16_error_vs_float64": 0.05852018
+ },
+ "what": "the campaign's result on the corrected arm. of3t-residual found that the published figures were measured on an arm contaminated by a shape-inferred transpose (D86), re-measured on the fixed arm, and showed that what survives an accurate softmax is not a defect but the arithmetic of two independent bf16 error vectors subtracting (A26).",
+ "what_this_does_NOT_say": {
+  "one_batch": "batch_step003, 5nw3, 56 real tokens, crop 384, one r = 0 step, 48 structures",
+  "scope": "51.1358 % of the model. diffusion_conditioning (36.9462 %) reads 1.0414x on its own scope and is 7.95x MORE accurate than upstream's step, failing by anti-alignment. pairformer_stack (5.8282 %) is unmeasured -- of3t-pairformer is live on it.",
+  "the_float64_softmax_is_not_shippable": "it is a host computation installed on a tape verb. of3t-softmax returned NO-GO on every shipped precision lever: 0.3237 A against a 0.6250 A seed floor at +46 % per op, and no shipped lever reaches the parity bar.",
+  "the_shipped_path_still_fails": "on the corrected arm the shipped reading is 7.426217 -- 129.13x the threshold, essentially unchanged from the contaminated 7.426742, because the softmax error swamps the transpose contribution. D86 mattered only AFTER the dominant error was removed, where it was 56.22 % of what remained."
+ }
+}

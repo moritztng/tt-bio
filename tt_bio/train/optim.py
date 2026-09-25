@@ -57,20 +57,40 @@ DISPLACEMENT_BAND = (0.9, 1.1)
 
 
 def af3_lr(step: int, lr: float, *, warmup_steps: int = 1000,
-           decay_every_n_steps: int = 50000, decay_factor: float = 0.95) -> float:
-    """Protenix's `AlphaFold3LRScheduler`, `protenix/utils/lr_scheduler.py:85-91`.
+           decay_every_n_steps: int = 50000, decay_factor: float = 0.95,
+           base_lr: float = 0.0, plateau_until: int | None = None) -> float:
+    """The AlphaFold-family learning rate, in the two closed forms upstreams actually use.
 
-    Linear warmup to `lr` over `warmup_steps`, then a step decay of `decay_factor` every
-    `decay_every_n_steps`. Upstream's defaults are lr 1.8e-3 with warmup 1000
-    (`configs/configs_base.py:74-76`, and `train_demo.sh` runs lr 1e-3 warmup 2000).
-    The warmup is not decoration on a randomly initialised network: Adam's first update
-    has magnitude ~lr per element whatever the gradient is, so without it the first pass
-    over the data moves every weight the full step size before the second moment has any
-    history.
+    Both are a linear warmup to `lr` over `warmup_steps`, offset by `base_lr`, followed by a
+    decay of `decay_factor` every `decay_every_n_steps`. They differ in what sits between,
+    and `plateau_until` is the whole of the difference.
+
+    `plateau_until=None` is Protenix's `AlphaFold3LRScheduler`,
+    `protenix/utils/lr_scheduler.py:85-91`. No plateau, and the decay exponent counts from
+    step zero, so the first decay lands at `decay_every_n_steps`. Upstream's defaults are lr
+    1.8e-3 with warmup 1000 (`configs/configs_base.py:74-76`, and `train_demo.sh` runs lr
+    1e-3 warmup 2000).
+
+    `plateau_until=S` is the AlphaFold 2 supplement schedule, which is what OpenFold3 ships
+    as `AlphaFoldLRScheduler` (`openfold3/core/utils/lr_schedulers.py`; defaults base_lr 0.0,
+    max_lr 1e-3, warmup_no_steps 1000, start_decay_after_n_steps 50000, decay_every_n_steps
+    50000, decay_factor 0.95). The rate holds flat at `lr` until step `S`, and the decay
+    exponent counts from `S` and starts at 1, so the first decay lands immediately after the
+    plateau instead of a whole period later. Passing `plateau_until` is not a per-model
+    branch: it is the one parameter the two schedules disagree on, and naming it is what lets
+    a single function carry both.
+
+    The warmup is not decoration on a randomly initialised network: Adam's first update has
+    magnitude ~lr per element whatever the gradient is, so without it the first pass over the
+    data moves every weight the full step size before the second moment has any history.
     """
     if step <= warmup_steps:
-        return step / warmup_steps * lr
-    return lr * (decay_factor ** (step // decay_every_n_steps))
+        return base_lr + step / warmup_steps * lr
+    if plateau_until is None:
+        return lr * (decay_factor ** (step // decay_every_n_steps))
+    if step <= plateau_until:
+        return lr
+    return lr * (decay_factor ** ((step - plateau_until) // decay_every_n_steps + 1))
 
 # --------------------------------------------------------------------- optimizer
 
@@ -94,6 +114,41 @@ def _require_fp32_master(dtype) -> None:
         f"having a master -- and it is written by casting the master down each step")
 
 
+class _Moments(dict):
+    """``exp_avg`` / ``exp_avg_sq``: a name -> array map whose entries appear at first use.
+
+    A missing moment is a zero moment, and a zero moment is ``np.zeros_like(master[name])``,
+    so building it on the first read gives the same array the eager construction gave --
+    later, and only for a parameter something actually asked about. ``step()`` mutates what
+    it gets in place (``m *= beta1``), so the entry is cached on materialisation and the same
+    array comes back every step.
+
+    A dict subclass rather than a lazy property because the readers are spread across the
+    package and all of them want a plain mapping: ``save_adapter`` reads by name
+    (``tt_bio/train/checkpoint.py::save_adapter``) and materialises what it is about to write,
+    ``load_adapter`` assigns by name (``tt_bio/train/checkpoint.py::load_adapter``), and a checkpoint resume replaces the
+    attribute outright. None of them needs to know this class exists.
+
+    Why it is worth having at all: ``np.zeros_like`` is ``empty_like`` followed by
+    ``copyto(0)``, so it WRITES every page and an eagerly built moment is fully resident, not
+    a cheap untouched mapping. Measured at the crop-384 training census -- 3152 parameters,
+    381,302,188 elements -- the pair cost **2.82 GiB** standing through a forward and a
+    backward that never read them (``perf/of3t_optorder/``).
+    """
+
+    __slots__ = ("_master",)
+
+    def __init__(self, master):
+        super().__init__()
+        self._master = master
+
+    def __missing__(self, name):
+        import numpy as np
+        v = np.zeros_like(self._master[name])
+        self[name] = v
+        return v
+
+
 class AdamW:
     """AdamW with fp32 master weights, after ``adamw_full_precision.cpp``.
 
@@ -103,6 +158,12 @@ class AdamW:
     device dtype. For an adapter that is a few hundred KB of PCIe against a multi-second
     step, and it keeps the accumulation 24 mantissa bits above the bf16 weight the forward
     reads.
+
+    **Construction allocates the master and one copy of the initial weights, and nothing
+    else.** The moments are built by the first ``step()``, which runs after the backward, so
+    they are absent from the forward and the backward rather than resident and unread. At
+    full-model scale that is the difference between 7.04 GiB and 2.82 GiB of host memory
+    standing under the tape; see ``_Moments`` and ``perf/of3t_optorder/``.
 
     Decoupled weight decay, i.e. ``theta -= lr * (mhat / (sqrt(vhat) + eps) + wd * theta)``,
     which is AdamW's whole point and what tt-train's kernel implements.
@@ -138,17 +199,37 @@ class AdamW:
         # SUPPOSED to round to 0 or to a whole spacing, so the per-step ratio scatters far
         # from 1 while the run is working perfectly. What has to hold is that the device
         # weight has travelled as far as the master has, over the run.
-        self.init_master = {n: v.copy() for n, v in self.master.items()}
-        self.init_device = {n: to_host(t.value).astype(np.float32).reshape(
-            self.master[n].shape) for n, t in params.items()}
-        self.exp_avg = {n: np.zeros_like(v) for n, v in self.master.items()}
-        self.exp_avg_sq = {n: np.zeros_like(v) for n, v in self.master.items()}
+        # ONE copy, where there were two. `init_master` and `init_device` were built from the
+        # same `t.value`, three lines apart, with nothing between them that writes a
+        # parameter -- `to_host(v).astype(float32)` twice over unchanged bfloat16 is the same
+        # bytes, and the `.reshape(master[n].shape)` the second one carried is reshaping an
+        # array to its own shape. So they were a duplicate, and at the crop-384 census (3152
+        # tensors, 381,302,188 elements) the duplicate was **1.40 GiB** measured, standing
+        # for the whole run (`perf/of3t_optorder/out/`).
+        self.init = {n: v.copy() for n, v in self.master.items()}
+        # `exp_avg` and `exp_avg_sq` are built at the FIRST STEP, not here. Only `step()`
+        # reads or writes them, and `step()` runs after the backward, so eager construction
+        # put 2.82 GiB of zeros under the forward and the backward for nothing. Eager is not
+        # free the way an untouched allocation would be: `np.zeros_like` is `empty_like`
+        # followed by `copyto(0)`, which writes every page, so the moments were fully
+        # resident from construction rather than faulted in on demand.
+        self.exp_avg = _Moments(self.master)
+        self.exp_avg_sq = _Moments(self.master)
+        # The per-sample clipping accumulator. Empty means the caller clips the batch once;
+        # non-empty means `clip_and_accumulate` ran per sample and `step()` uses what it
+        # summed rather than clipping a second time. `recipes.py`'s loop fills it, which is
+        # upstream's shape. `participation` is their per-parameter active count
+        # (`parameter_participation_counts`) and `step()` divides by it, because a parameter
+        # absent from most samples must not be averaged by the batch size.
+        self.accum: Dict[str, "np.ndarray"] = {}
+        self.participation: Dict[str, int] = {}
+        self.accum_count = 0
 
     def zero_grad(self) -> None:
         for t in self.params.values():
             t.grad = None
 
-    def step(self, *, replicas=None) -> dict:
+    def step(self, *, replicas=None, disabled=()) -> dict:
         """One update. Returns the per-parameter update magnitudes, for the control.
 
         ``replicas`` is the per-chip gradient for each parameter,
@@ -159,24 +240,83 @@ class AdamW:
         """
         import numpy as np
         self._reduce(replicas)
+        disabled = set(disabled)
+        per_sample = bool(self.accum)
+        if per_sample:
+            # Upstream's `_sync_and_average_grads` divides each parameter's accumulated
+            # gradient by ITS OWN participation count (`grad_manager.py:225-232`), not by the
+            # batch size. The counts genuinely differ: their runner disables the confidence
+            # head on any sample whose confidence weight is zero, which `initial_training.yml`
+            # does on 4 of its 5 datasets, so a parameter absent from most samples would
+            # otherwise be averaged by a divisor it never contributed to. Adam does not cancel
+            # it -- a uniform per-tensor scaling it does cancel, and this is not uniform.
+            for name, count in self.participation.items():
+                if count > 1:
+                    self.accum[name] = self.accum[name] / np.float32(count)
+        # The schedule is read BEFORE the counter moves, and the order is the whole of it.
+        # Upstream steps the optimizer and THEN the scheduler (`runner.py:464-465`), and
+        # `AlphaFoldLRScheduler` is built with `last_epoch=-1`, so `_LRScheduler.__init__`
+        # steps it once to 0 before training starts. Their k-th update therefore runs at
+        # `lr(k-1)` and their first runs at `lr(0)`, which the AF3 warmup makes exactly 0.
+        # `self.steps` counts COMPLETED steps, so reading here is that same order. Reading
+        # after the increment put every step of ours one rung further along the warmup than
+        # theirs and made our first update non-zero where theirs is identically zero.
+        lr = self.lr if self.schedule is None else float(self.schedule(self.steps))
         self.steps += 1
         self.beta1_pow *= self.beta1
         self.beta2_pow *= self.beta2
         bc1 = 1.0 - self.beta1_pow
         bc2 = 1.0 - self.beta2_pow
-        lr = self.lr if self.schedule is None else float(self.schedule(self.steps))
         # Global-norm clipping, computed once over every gradient before any of them is
         # applied. Per-parameter clipping would be a different algorithm: it changes the
         # DIRECTION of the update, not just its length.
-        gnorm = self.grad_norm()
-        clip = (min(1.0, self.clip_norm / gnorm)
-                if (self.clip_norm > 0 and gnorm > 0) else 1.0)
+        # Under per-sample clipping every sample was already clipped as it arrived, so the
+        # norm here is the accumulated one and is reported rather than applied -- clipping the
+        # sum again would be a third algorithm, neither theirs nor ours.
+        gnorm = (math.sqrt(sum(float(v.ravel() @ v.ravel()) for v in self.accum.values()))
+                 if per_sample else self.grad_norm(disabled))
+        clip = 1.0 if per_sample else self.clip_coef(gnorm)
         report = {}
         for name, t in self.params.items():
-            if t.grad is None:
-                continue
-            g = to_host(t.grad).astype(np.float32).reshape(self.master[name].shape)
-            if clip != 1.0:
+            # EVERY parameter takes a step, including one no sample of this step activated.
+            # That is upstream's behaviour and it is not incidental: `sync_and_average_grads`
+            # assigns `param.grad = self.grad_accumulator[name].clone()` for every parameter
+            # it manages (`grad_manager.py:296-297`), the accumulator was zeroed by
+            # `reset_accumulator`, and `_sync_and_average_grads` explicitly `zero_()`s a
+            # parameter whose global participation count is 0 (`grad_manager.py:237-239`)
+            # rather than leaving it out. Their `torch.optim.Adam` (`configure_optimizers`,
+            # `runner.py:845-850`) then
+            # steps it on a zero gradient, so `m` and `v` DECAY by beta1/beta2 and the weight
+            # moves on momentum alone. Skipping it left the moments frozen and the weight
+            # where it was -- measured at 1.10e-03 relative against their own optimizer,
+            # permanent for the rest of the run, where the arm with no such step reads
+            # 2.07e-08 (`perf/of3t_optsem/`).
+            #
+            # A zero gradient is NOT the same as no update, and it is also not always a
+            # different one. With `m` and `v` still zero the update is `0 / (0 + eps)`, so a
+            # parameter that has never received a gradient does not move under either
+            # optimizer -- measured bit-identical over 20 steps. The divergence needs prior
+            # momentum, which is exactly the confidence head's case: it trains on the
+            # confidence-weighted dataset and then meets a batch drawn wholly from the four
+            # that zero those weights.
+            #
+            # Nothing else in the step changes. The zeros are synthesised HERE rather than
+            # written into `self.accum`, so the reported gradient norm is computed over the
+            # same set it always was; adding zeros to a sum of squares would not move it
+            # either, but not touching it keeps that true by construction rather than by
+            # arithmetic. Clipping is per-sample under `per_sample` and a no-op on zeros in
+            # any case. Weight decay is the one term that is not a no-op on a zero gradient,
+            # and upstream builds a plain `torch.optim.Adam` with no decay at all, which is
+            # why `train_loop` ships `weight_decay=0.0`; at a non-zero decay ours applies it
+            # decoupled, as `torch.optim.AdamW` does and `torch.optim.Adam(weight_decay=...)`
+            # does not.
+            g = None if name in disabled else (
+                self.accum.get(name) if per_sample else (
+                    None if t.grad is None else
+                    to_host(t.grad).astype(np.float32).reshape(self.master[name].shape)))
+            if g is None:
+                g = np.zeros_like(self.master[name])
+            elif clip != 1.0:
                 g = g * clip
             m = self.exp_avg[name]
             v = self.exp_avg_sq[name]
@@ -201,7 +341,9 @@ class AdamW:
                             "kept": (kept / want) if want > 0 else float("nan"),
                             "grad_norm": float(np.linalg.norm(g))}
         self.last_lr, self.last_clip, self.last_grad_norm = lr, clip, gnorm
+        self.last_per_sample = per_sample
         self.last_report = report
+        self.accum, self.participation, self.accum_count = {}, {}, 0
         return report
 
     def _reduce(self, replicas) -> None:
@@ -211,12 +353,41 @@ class AdamW:
         dividing by chip count here is exactly the substitution ``accelerate`` makes at
         ``data_loader.py:347-348`` that turns one recipe into a different one per box.
         """
+        import numpy as np
         width = 1 if self.data_parallel is None else self.data_parallel.width
         if width == 1:
             if replicas:
                 raise ValueError(
                     "per-chip gradients were passed but the optimizer has no data-parallel "
                     "axis wider than one chip. Hand it data_parallel=mesh.axis('dp')")
+            return
+        if self.accum:
+            # Under per-sample clipping the step's gradient is the ACCUMULATOR, not the tape:
+            # the tape holds whichever sample ran last. So the axis sums the accumulator, and
+            # the per-parameter participation counts with it, because upstream divides by the
+            # GLOBAL count. Averaging each rank's own samples first and summing the averages
+            # is a different number the moment the counts differ across ranks, which is the
+            # only case the count exists for.
+            if replicas:
+                raise ValueError(
+                    "per-chip gradients were passed alongside a per-sample accumulator. The "
+                    "tape holds the last sample, not the step, so step() reduces the "
+                    "accumulator itself and replicas must be empty. Call zero_grad() after "
+                    "the last clip_and_accumulate()")
+            # Every parameter, not only the ones this rank accumulated: the axis flattens in
+            # name order, so two ranks with different key sets would exchange vectors of
+            # different lengths and sum the wrong bytes into each other's gradients. Upstream
+            # keeps a zeros_like entry for every parameter for the same reason.
+            summed = self.data_parallel.reduce_all(
+                {n: [self.accum[n] if n in self.accum else np.zeros_like(self.master[n])]
+                 for n in self.master})
+            counts = self.data_parallel.reduce_all(
+                {n: [np.float32([self.participation.get(n, 0)])] for n in self.master})
+            self.participation = {n: int(v.ravel()[0]) for n, v in counts.items()}
+            # A parameter no rank activated is dropped rather than stepped on a zero
+            # gradient. Upstream zeroes its grad and lets Adam step it from momentum alone;
+            # ours skips it, and that difference is recorded rather than papered over.
+            self.accum = {n: summed[n] for n in self.master if self.participation.get(n, 0)}
             return
         if not replicas:
             raise UnreducedGradients(
@@ -247,6 +418,7 @@ class AdamW:
         Call it after enough steps to have moved: on step 0 there is no displacement and the
         ratio is nan, which is reported rather than passed.
         """
+        import numpy as np  # noqa: F401  (displacement() needs it)
         d = self.displacement()
         lo, hi = band
         r = d["ratio"]
@@ -258,6 +430,17 @@ class AdamW:
                 f"{d['master']:.3e}), so nothing was learned. Check that the loss reached "
                 f"the parameters: a frozen tensor accumulates no gradient and a pruned "
                 f"branch produces none")
+        # A correct short run can sit below the band and this is not a defect: if the master
+        # has moved less than the device dtype can represent, every update rounds away by
+        # design and the fp32 master is doing its job. Measured on a 20-step OF3 warmup, where
+        # lr ~ k * 1.8e-06 puts every step under bf16 spacing and the arm read 0.810 against a
+        # (0.9, 1.1) band -- a guard raising on correct behaviour gets disabled by the next
+        # caller, which is worse than no guard. Reported, never silently passed.
+        if d["master"] < d["resolution"] and r < lo:
+            return {**d, "below_resolution": True,
+                    "note": (f"master displacement {d['master']:.3e} is under the device's own "
+                             f"resolution {d['resolution']:.3e}, so ratio {r:.4f} measures the "
+                             f"dtype rather than the optimizer; band not asserted")}
         if not (lo < r < hi):
             raise AssertionError(
                 f"cumulative displacement ratio {r:.4f} is outside {band}: the master moved "
@@ -277,21 +460,82 @@ class AdamW:
         import numpy as np
         m = d = 0.0
         for n, t in self.params.items():
-            m += float(np.sum((self.master[n] - self.init_master[n]) ** 2))
+            m += float(np.sum((self.master[n] - self.init[n]) ** 2))
             cur = to_host(t.value).astype(np.float32).reshape(self.master[n].shape)
-            d += float(np.sum((cur - self.init_device[n]) ** 2))
+            d += float(np.sum((cur - self.init[n]) ** 2))
         m, d = math.sqrt(m), math.sqrt(d)
-        return {"master": m, "device": d, "ratio": (d / m) if m > 0 else float("nan")}
+        # The displacement the device copy CANNOT show. A change smaller than half an ulp of
+        # the weight it is applied to rounds away entirely, so below this the ratio is
+        # measuring the dtype and not the optimizer. bfloat16 keeps 7 explicit mantissa bits,
+        # so its unit roundoff -- half an ulp under round-to-nearest -- is 2**-8.
+        res = 0.0
+        for n, t in self.params.items():
+            u = 2.0 ** -8 if "bfloat16" in str(t.value.dtype) else 2.0 ** -24
+            res += float(np.sum((u * np.abs(self.init[n])) ** 2))
+        return {"master": m, "device": d, "ratio": (d / m) if m > 0 else float("nan"),
+                "resolution": math.sqrt(res)}
 
-    def grad_norm(self) -> float:
-        """Global L2 norm of the gradients, for clipping and for the trajectory log."""
+    def grad_norm(self, disabled=()) -> float:
+        """Global L2 norm of the gradients, for clipping and for the trajectory log.
+
+        ``disabled`` is the set of parameter names this sample does not activate, and it is
+        excluded from the norm. Theirs does the same and it is not a detail: `_clip_grads`
+        builds `params_enabled` by dropping `disabled_params` BEFORE computing the norm
+        (`grad_manager.py:147-153`), and their runner disables the confidence head whenever a
+        sample's summed confidence weight is zero, which `initial_training.yml` does on 4 of its
+        5 datasets. Norming over a set they excluded gives a different clip coefficient for
+        every gradient in the step -- measured at 8.368e-01 relative on one small enabled tensor
+        beside one large disabled one, which is not a corner case but most of initial training.
+        """
         import numpy as np
+        disabled = set(disabled)
         tot = 0.0
-        for t in self.params.values():
-            if t.grad is not None:
+        for name, t in self.params.items():
+            if t.grad is not None and name not in disabled:
                 gg = to_host(t.grad).astype(np.float32)
                 tot += float(gg.ravel() @ gg.ravel())
         return math.sqrt(tot)
+
+    def clip_coef(self, gnorm: float) -> float:
+        """``min(1, clip_norm/gnorm)``, their `max_norm / maximum(gnorm, max_norm)`.
+
+        The same rule written two ways, agreeing to 8.51e-08 across eight straddling cases
+        against their real `compute_global_norm` -- inside the float32 floor both stacks share.
+        Factored out so the per-sample path and the per-batch path cannot drift apart.
+        """
+        return (min(1.0, self.clip_norm / gnorm)
+                if (self.clip_norm > 0 and gnorm > 0) else 1.0)
+
+    def clip_and_accumulate(self, disabled=()) -> dict:
+        """Clip THIS SAMPLE's gradients and add them to the accumulator. Their algorithm.
+
+        Per-sample clipping is a different algorithm from per-batch clipping, not a different
+        constant: it changes the DIRECTION of the accumulated update, which is the same reason
+        this file already refuses per-parameter clipping. Measured at 1.948e-01 relative over 3
+        samples with one 200x outlier. `per_sample_clipping: True` at `clip_val 10.0` is their
+        shipped default (`clip_and_accumulate`, `grad_manager.py:242`).
+
+        Call it after each sample's backward, then `zero_grad()` before the next sample's. The
+        caller owns the per-sample loop because only the caller knows what a sample is; `step()`
+        consumes the accumulator when there is one and clips the batch once when there is not.
+        `train_loop` is that caller, and it clears the tape after the last sample so the
+        gradient the data-parallel axis reduces is the accumulator rather than one sample.
+        """
+        import numpy as np
+        disabled = set(disabled)
+        gnorm = self.grad_norm(disabled)
+        clip = self.clip_coef(gnorm)
+        for name, t in self.params.items():
+            if t.grad is None or name in disabled:
+                continue
+            g = to_host(t.grad).astype(np.float32).reshape(self.master[name].shape)
+            if clip != 1.0:
+                g = g * clip
+            acc = self.accum.get(name)
+            self.accum[name] = g if acc is None else acc + g
+            self.participation[name] = self.participation.get(name, 0) + 1
+        self.accum_count += 1
+        return {"grad_norm": gnorm, "clip": clip, "samples": self.accum_count}
 
     def state_dict(self) -> dict:
         return {"steps": self.steps, "lr": self.lr, "beta1": self.beta1,

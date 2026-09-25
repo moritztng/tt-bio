@@ -1,0 +1,69 @@
+# AMENDMENT TO THE UPSTREAM-PAIR READING, WRITTEN BEFORE EITHER DRAW'S VALUE IS KNOWN.
+# 2026-09-24 16:2xZ. Draw a is 14h50m in at 181,412 CPU-s and has written no structure; draw b
+# is 10h07m in at 113,814. Neither output dir holds a refold. Nothing below has been seen.
+#
+# This amends nothing in `plans/closing_rule.txt` §3-4 and `results/upstream_draw_count.txt`;
+# it makes explicit two things those already imply but never state, both of which decide how
+# the next pass reads the pair. Written now so neither is chosen after seeing a value.
+
+## 1. DRAW A CAN FORECLOSE CLAUSE 3 ON ITS OWN. THE BAR IS THE SECOND-SMALLEST DEVICE VALUE.
+
+The correction in `results/upstream_pair_rule_correction.txt` says clause 3 opens on more than
+perfect separation: at m=2 against n=8 the exact one-sided p is 1/45 = 0.0222 when both upstream
+draws sit below all eight device designs (U=16), and 2/45 = 0.0444 when exactly one device design
+slips below the larger draw (U=15). Both are <= 0.05. U=14 gives 3/45 = 0.0889 and does not.
+
+So clause 3 needs U >= 15, and U >= 15 tolerates exactly ONE device value below an upstream draw.
+If draw a alone already exceeds TWO of a cell's eight, then draw a contributes at most 6 to U, draw
+b at most 8, and U <= 14 whatever draw b turns out to be. The cell is foreclosed on draw a alone.
+
+The threshold is therefore the cell's SECOND-SMALLEST design, not its minimum. Verified by feeding
+`read_upstream_pair.exact_p_less` a draw b of -1e9, i.e. the best draw b that could possibly exist:
+
+    cell                          min      2nd-smallest    draw a > 2nd-smallest => best-case p
+    PRIMARY   after cc908c377     6.650      18.740        U=14, p=0.0889, FORECLOSED
+    onetree   72ad980ee          17.843      18.808        U=14, p=0.0889, FORECLOSED
+    pre-fix   d8_s400_gpb        19.311      20.140        U=14, p=0.0889, FORECLOSED
+
+  If draw a > 20.140 A, all three cells are foreclosed and the pair's verdict is clause 4 —
+  upstream is at the same level — before draw b lands.
+
+This is arithmetic on the pre-registered test, not a new test. It does NOT let the row close early:
+`closing_rule.txt` §4(a) requires the PAIR to have landed and been read, and that still governs.
+What it licenses is the opposite of haste — the next pass may state the scientific verdict once
+draw a is in, and must still wait for draw b before flipping the row, so the wait costs nothing
+and the claim is not held hostage to a draw that is 6-10 h behind. If draw a lands under 20.140
+on any cell, nothing is foreclosed there and draw b decides it; say so and wait.
+
+## 2. WHICH CELL DECIDES, AND WHAT A DISAGREEMENT MEANS.
+
+`read_upstream_pair.py` names PRIMARY the deciding cell because the row's published 1536 number
+rests on it, and prints the other two because "which tree a device cell came from" is the confound
+this row already controlled once. Its docstring flags that the three minima disagree — 6.650 /
+17.843 / 19.311, a spread of 12.66 A — and PRIMARY's 6.650 is a lone outlier against its own other
+seven (18.740 to 22.924). Taken at face value that is an alarming way to decide a verdict: one
+lucky device design out of 24 would set the bar that protects the port from a clause-3 finding,
+which is the flattering direction and exactly the kind of reading this row has withdrawn before.
+
+It is not what happens, because §1 above is the operative test and the second-smallest values are
+18.740 / 18.808 / 20.140 — a spread of 1.40 A, not 12.66. The outlier costs PRIMARY one crossing
+and the test already grants one. The three cells agree about where the decision sits.
+
+Pre-registered anyway, since the 1.40 A gap is not zero and a draw can land inside it:
+
+  ALL THREE AGREE      read the verdict off PRIMARY as the script already does.
+
+  THEY DISAGREE        i.e. draw a (or the pair) falls between 18.740 and 20.140, so PRIMARY
+  (report clause 3)    and/or onetree foreclose while pre-fix does not, or the reverse.
+                       Then the row does NOT close on PRIMARY alone. Report the disagreement with
+                       all three p-values and treat clause 3 as OPEN — the conservative reading,
+                       and the unflattering one. A verdict that depends on which of three
+                       byte-identical-fixture cells you pick is not a verdict; it is a reason to
+                       go locate the defect, which is what clause 3 asks for.
+
+## 3. ONE LABEL FIX IN THE TOOL, NO BEHAVIOUR CHANGE.
+
+`read_upstream_pair.py` prints `separation: PERFECT/no` from `up[1] < min(dev)`, which is the U=16
+test, while its verdict line correctly uses p <= 0.05, which also fires at U=15. A reader can
+therefore see "separation: no" beside "upstream BETTER at 0.05" and think the tool contradicts
+itself. Print U and the crossing count instead. The decision is unchanged; only the label moves.

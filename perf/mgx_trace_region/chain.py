@@ -26,7 +26,10 @@ HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(ROOT / "perf"))
 from clocksample import during  # noqa: E402
 
-ME = "worker:mgx-trace-region"
+# The holder identity this chain takes leases under. Overridable so another row can reuse the
+# tool without impersonating mgx-trace-region in the lease dir, which is what the fleet
+# dispatcher reads to decide whose task is still running.
+ME = os.environ.get("MGX_CHAIN_HOLDER", "worker:mgx-trace-region")
 LEASES = Path.home() / "leases"
 NEVER = {"1", "4", "10", "11", "15", "17", "22", "24", "25", "26", "27"}
 RUNS = HERE / "runs.jsonl"

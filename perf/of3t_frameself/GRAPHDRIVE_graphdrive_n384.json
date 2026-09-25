@@ -1,0 +1,138 @@
+{
+ "what": "the ORIGINAL graph driven by the captured cotangent, not a replay of it",
+ "host": "tt-quietbox2",
+ "row": "of3t-frameself",
+ "defect": "D242",
+ "device_involved": false,
+ "why_no_aiclk": "CPU only, no Tenstorrent device is opened",
+ "drive": "grad_outputs=(cot_s, cot_z) on (s_out, z_out) of the taped call",
+ "graph": "the original one built by the capture's own forward; nothing is re-run",
+ "cotangent_provenance": "torch.autograd.grad(loss, [s_out, z_out]) in this process, 110.5 s; no backward has run, so the value hooks never fired",
+ "cotangent_vs_the_published_capture": {
+  "published": "/home/ttuser/of3t_modelframe/cot_model_n384.pt",
+  "sha256": "4e66d1ef45da2eec18fdff9489d68e980df928dc43d10fd4af82d14ec67141ac",
+  "s": {
+   "name": "cot_s",
+   "present": true,
+   "shape": [
+    1,
+    384,
+    384
+   ],
+   "bit_identical": true,
+   "norm_mine": 5.599999708545341e-05,
+   "norm_theirs": 5.599999708545341e-05,
+   "rel_l2": 0.0
+  },
+  "z": {
+   "name": "cot_z",
+   "present": true,
+   "shape": [
+    1,
+    384,
+    384,
+    128
+   ],
+   "bit_identical": true,
+   "norm_mine": 0.0007601379094210722,
+   "norm_theirs": 0.0007601379094210722,
+   "rel_l2": 0.0
+  }
+ },
+ "prereg_falsifier": {
+  "quantity": "norm of dL/dz_in from this call",
+  "exact_means": 0.000848887340907281,
+  "overcounts_means": 0.0014907294032500784,
+  "both_banked_before_this_ran": true
+ },
+ "pruned_to_blocks": {
+  "blocks": [
+   47
+  ],
+  "seconds": 13.237183570861816,
+  "vs_grads_f64_043": {
+   "n_tensors": 57,
+   "n_absent_from_arm": 0,
+   "n_bit_identical": 0,
+   "rel_l2_as_is": 0.7849281738435908,
+   "norm_ratio_arm_over_ref": 1.6790846854374895,
+   "cos": 0.9538569348402678,
+   "best_scalar_a_star": 0.5680814929187077,
+   "residual_after_best_scalar_frac_of_ref": 0.3002614658212563,
+   "ref_squared_norm": 0.10960555905607547,
+   "arm_squared_norm": 0.30901373453131736,
+   "worst_rel_l2": 1.272982515280693,
+   "worst_tensor": "pairformer_stack.blocks.47.pair_stack.tri_att_end.layer_norm.weight"
+  },
+  "vs_the_injected_replay": {
+   "n_tensors": 57,
+   "n_absent_from_arm": 0,
+   "n_bit_identical": 57,
+   "rel_l2_as_is": 0.0,
+   "norm_ratio_arm_over_ref": 1.0,
+   "cos": 1.0,
+   "best_scalar_a_star": 1.0,
+   "residual_after_best_scalar_frac_of_ref": 0.0,
+   "ref_squared_norm": 0.30901373453131736,
+   "arm_squared_norm": 0.30901373453131736,
+   "worst_rel_l2": 0.0,
+   "worst_tensor": "pairformer_stack.blocks.47.pair_stack.tri_mul_out.linear_g.weight"
+  }
+ },
+ "seconds_full": 647.0365536212921,
+ "input_cotangent_on_the_original_graph": {
+  "ds_in_norm": 0.009204973933437452,
+  "dz_in_norm": 0.0014907294032500784,
+  "ds_in_vs_the_real_backwards_own_hook": {
+   "name": "ds_in",
+   "present": false
+  },
+  "dz_in_vs_the_real_backwards_own_hook": {
+   "name": "dz_in",
+   "present": false
+  }
+ },
+ "vs_grads_f64_043": {
+  "n_tensors": 2736,
+  "n_absent_from_arm": 0,
+  "n_bit_identical": 0,
+  "rel_l2_as_is": 0.7945281613194313,
+  "norm_ratio_arm_over_ref": 1.7584185703064412,
+  "cos": 0.9840549138041124,
+  "best_scalar_a_star": 0.5596249552986807,
+  "residual_after_best_scalar_frac_of_ref": 0.17786491114882938,
+  "ref_squared_norm": 0.5991152048026374,
+  "arm_squared_norm": 1.8524857025526973,
+  "worst_rel_l2": 3.861200506210858,
+  "worst_tensor": "pairformer_stack.blocks.17.attn_pair_bias.layer_norm_z.bias"
+ },
+ "vs_the_injected_replay": {
+  "n_tensors": 2736,
+  "n_absent_from_arm": 0,
+  "n_bit_identical": 2736,
+  "rel_l2_as_is": 0.0,
+  "norm_ratio_arm_over_ref": 1.0,
+  "cos": 1.0,
+  "best_scalar_a_star": 1.0,
+  "residual_after_best_scalar_frac_of_ref": 0.0,
+  "ref_squared_norm": 1.8524857025526973,
+  "arm_squared_norm": 1.8524857025526973,
+  "worst_rel_l2": 0.0,
+  "worst_tensor": "pairformer_stack.blocks.0.pair_stack.tri_mul_out.linear_g.weight"
+ },
+ "vs_the_banked_z_only_arm": {
+  "n_tensors": 2736,
+  "n_absent_from_arm": 0,
+  "n_bit_identical": 0,
+  "rel_l2_as_is": 1.1778041707862015,
+  "norm_ratio_arm_over_ref": 2.1331035923414357,
+  "cos": 0.9757867095355349,
+  "best_scalar_a_star": 0.457449283306699,
+  "residual_after_best_scalar_frac_of_ref": 0.21872424989884828,
+  "ref_squared_norm": 0.4071279988965895,
+  "arm_squared_norm": 1.8524857025526973,
+  "worst_rel_l2": Infinity,
+  "worst_tensor": "pairformer_stack.blocks.0.attn_pair_bias.layer_norm_a.weight"
+ },
+ "verdict": "OVERCOUNTS on the original graph too: the injection is not a replay artefact"
+}

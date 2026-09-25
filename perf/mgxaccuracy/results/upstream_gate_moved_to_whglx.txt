@@ -1,0 +1,69 @@
+# THE DECIDING GATE WAS WAITING ON THE WRONG HOST. 2026-09-25 00:2xZ.
+
+Clause 3 of `plans/closing_rule.txt` — the one branch that keeps this row open — needs the
+upstream 1536 pair. That pair has been running on qb2 since 2026-09-24 01:21Z (draw a) and
+06:04Z (draw b). At 00:21Z on 09-25 draw a is 23h00m in and draw b 18h17m, and NEITHER HAS
+WRITTEN A SINGLE DESIGN: `out1536_valid/intermediate_designs/` holds only the two empty
+lightning_logs and molecules_out_dir subdirs created at launch. Step 1 of 4 writes nothing
+until it finishes, so there is no progress signal inside it and no ETA is quotable — the row
+has said exactly that for three passes.
+
+## THE CAUSE IS THE HOST, AND IT IS MEASURABLE
+
+    host    cores   load avg (1m)   oversubscription   %CPU each draw gets
+    qb2      16       40.15              2.5x                308, 287
+    whglx    64       22.80              0.36x               ~800 (measured on GroEL)
+
+qb2 is oversubscribed 2.5x by twenty logged-in users and other rows' work. Each draw holds
+about 3 of its 16 cores. whglx ran the SAME STEP at the same size — 1536-residue target plus an
+80-residue binder, 1616 tokens, upstream fp32 CPU, budget 1 — on the GroEL fixture and finished
+it in **5:56:06 with 0 failed examples** (`~/bgref-work/logs/groel1536.log`, step 1/6). qb2 is
+at 4x that wall and still inside the step.
+
+DO NOT READ THE CPU-SECONDS AS PROGRESS. Draw a shows 255,750 CPU-s against roughly 171,000 for
+whglx's completed step of the same size, which looks like "past 100% and nearly there". It is
+not evidence of anything: under 2.5x oversubscription the OMP threads spin-wait, and spinning
+burns CPU-s while doing no work. Wall clock is the honest instrument here and CPU-s is not,
+which is the same shape of error as `results/upstream_pair_ceiling_refuted.txt` — that one
+failed on its exponent, this one on its units.
+
+## WHAT WAS DONE, AND WHAT IT DOES NOT CHANGE
+
+Two additional draws launched on whglx at 00:23Z, `ref/run_gpb1536_whglx.sh`, tags wa and wb,
+8 threads each, logs `~/bgref-work/logs/gpb1536_{wa,wb}.log`, output
+`~/bgref-work/outgpb1536_{wa,wb}`. Load goes 22.8 -> ~39 of 64, so whglx keeps 25 spare cores
+and the live app is not squeezed.
+
+FIXTURE CLEARED BEFORE LAUNCH, not after. `~/bgref-work/fx_gpb1536/bgt1536.cif` is copied from
+`~/mgxacc-work/fx_boltzgen_1536_d8_s400_gpb/` and hashes
+
+    sha256 ffa258bb599f182ce49b9f78ab089653ca35d464471d41b1e490d535421e9caf
+
+which is the value `results/upstream_1536_fixture_precleared.txt` recorded for qb2's
+`fx_valid/bgt1536.cif` and all three whglx device fixtures. The spec is the same 80-residue
+chain-Z text, character for character. The first 1536 reference was withdrawn for using a
+different file of the same name, so this is checked in advance every time now.
+
+Same step set as `ref/run_valid_b.sh`: design, inverse_folding, design_folding, analysis.
+`folding` is omitted there and here — design_folding reads design_dir, not folding's output, and
+scRMSD comes from design_folding, so nothing the comparison reads is skipped. Same three
+deviations toward a more exact reference (cpu, precision 32, matmul highest) and every knob the
+design itself depends on left at upstream's default: sampling_steps 500, recycling_steps 3,
+diffusion_samples 1. No cheat.
+
+THE qb2 DRAWS ARE LEFT RUNNING. These are additional draws, not replacements. If qb2's pair
+lands the row reads m=4 rather than m=2, which can only sharpen the test.
+
+## THE READING RULE IS UNCHANGED
+
+Nothing here amends `plans/closing_rule.txt` §3-4, `plans/upstream_pair_amendment.txt` or
+`results/upstream_draw_count.txt`. Whichever draw lands first is read by the same arithmetic:
+clause 3 needs U >= 15, so the bar is each cell's SECOND-SMALLEST design —
+
+    PRIMARY   after cc908c377    18.740 A
+    onetree   72ad980ee          18.808 A
+    pre-fix   d8_s400_gpb        20.140 A
+
+and a single draw above 20.140 forecloses all three on its own. A single draw BELOW any of them
+forecloses nothing and the second draw decides it. m=1 still orders nothing in upstream's
+favour: the smallest one-sided p at m=1 against n=8 is 0.111.

@@ -1,0 +1,60 @@
+{
+ "label": "SHIP2_vs_STACKEXACT_SL",
+ "a": "/home/ttuser/of3t_stackship/dev_SHIP2.pt",
+ "b": "/home/ttuser/of3t_stackexact/dev_SL.pt",
+ "compared": 2736,
+ "only_a": 0,
+ "only_b": 0,
+ "bit_identical": 2736,
+ "differing": 0,
+ "all_bit_identical": true,
+ "concatenated_rel_a_vs_b": 0.0,
+ "norm_ratio_a_over_b": 1.0,
+ "cos": 1.0,
+ "arms": {
+  "a": {
+   "pt": "/home/ttuser/of3t_stackship/dev_SHIP2.pt",
+   "sha256": "65537a8b253e7ca5db8574fd8a0d6f817d6fafc1516438f6ce25693764f2ed4e",
+   "report": "perf/of3t_stackship/DEV_SHIP2.json",
+   "sha256_matches_report": true,
+   "host": "tt-quietbox2",
+   "board": "p300c",
+   "card": 1,
+   "aiclk_mhz_sampled_DURING": {
+    "n": 356,
+    "min": 800,
+    "median": 1350,
+    "max": 1350
+   },
+   "host_quiet": [
+    "host quiet -- timing read admissible"
+   ]
+  },
+  "b": {
+   "pt": "/home/ttuser/of3t_stackexact/dev_SL.pt",
+   "sha256": "6f67a86615021ed2b87db469ce1aaa5bb7d3ed22d0d5fecb19998cb8b85b5313",
+   "report": "perf/of3t_stackexact/DEV_SL.json",
+   "sha256_matches_report": true,
+   "host": "tt-quietbox2",
+   "board": "p300c",
+   "card": 1,
+   "aiclk_mhz_sampled_DURING": {
+    "n": 402,
+    "min": 800,
+    "median": 1350,
+    "max": 1350
+   },
+   "host_quiet": [
+    "HOST NOT QUIET -- your timing read is contaminated even with an idle sibling and a forced clock. Wait it out or DEFER. Do not measure and explain it afterwards."
+   ]
+  }
+ },
+ "device_involved": false,
+ "why_no_aiclk": "the COMPARISON is CPU only. The arms it compares ran on a card, and their host, board, card and DURING-sampled AICLK are under `arms`",
+ "comparison_environment": {
+  "host": "tt-quietbox2",
+  "board": null,
+  "card": null,
+  "git_commit": "3c99675594ed8b60fd9719803f40043f6d473ec0"
+ }
+}

@@ -911,15 +911,9 @@ class _WorkerState:
         # affinity floor catches as a GAP. Seed once here (before the structure
         # forward) and do NOT re-seed before ``predict_affinity`` so the device
         # matches the reference's single-seed structure->affinity RNG stream.
-        _seed = cfg.get("seed")
-        if _seed is not None:
-            import random as _random
-            import numpy as _np
-            _random.seed(_seed)
-            _np.random.seed(_seed)
-            torch.manual_seed(_seed)
-            if torch.cuda.is_available():
-                torch.cuda.manual_seed_all(_seed)
+        if cfg.get("seed") is not None:
+            from tt_bio.runtime import seed_everything
+            seed_everything(cfg["seed"])
 
         feats, input_struct = self.prepare(path, method=cfg.get("method"), progress=self.pfn)
         batch = to_batch(feats, self.torch_device)
@@ -1650,9 +1644,11 @@ class _WorkerState:
         )
         from tt_bio.openfold3_data import (
             build_openfold3_features, make_openfold3_msa_features)
+        from tt_bio.envflags import env_flag
         from tt_bio.openfold3_host_prep import (
-            dedup_template_slots, derive_block_aux, derive_relpos,
-            derive_template_feat, ref_atom_embed, run_input_atom_encoder)
+            DEVICE_REF_ATOM, dedup_template_slots, derive_block_aux, derive_relpos,
+            derive_template_feat, ref_atom_embed, ref_atom_embed_device,
+            run_input_atom_encoder)
         from tt_bio.openfold3_weights import _sub
 
         with tempfile.NamedTemporaryFile("w", suffix=".json", delete=False) as fh:
@@ -1753,11 +1749,17 @@ class _WorkerState:
         s_input = _torch.cat(
             [ai, features["restype"], features["profile"],
              features["deletion_mean"].unsqueeze(-1)], dim=-1)
-        cl0, plm0 = ref_atom_embed(
-            _sub(model.sd,
-                 "diffusion_module.atom_attn_enc.ref_atom_feature_embedder"), features)
+        rafe_sd = _sub(
+            model.sd, "diffusion_module.atom_attn_enc.ref_atom_feature_embedder")
+        if env_flag(DEVICE_REF_ATOM, False):
+            cl0, plm0 = None, None
+            cl0_d, plm0_d = ref_atom_embed_device(
+                model.ckc, rafe_sd, features, aux["atom_mask"], n_pad=aux["NP"])
+        else:
+            cl0_d, plm0_d = None, None
+            cl0, plm0 = ref_atom_embed(rafe_sd, features)
         dm_aux_host = dict(
-            cl0=cl0, plm0=plm0, atom_mask=aux["atom_mask"],
+            cl0=cl0, plm0=plm0, cl0_d=cl0_d, plm0_d=plm0_d, atom_mask=aux["atom_mask"],
             atom_to_token_index=aux["atom_to_token_index"],
             npe_q_indices=aux["npe_q_indices"], npe_k_indices=aux["npe_k_indices"],
             zij_mask=aux["zij_mask"], key_block_idxs=aux["key_block_idxs"],
@@ -2368,6 +2370,8 @@ def _execute_design_job_inprocess(
             argv.append("--fast")
         if cfg.get("moldir"):
             argv += ["--moldir", str(cfg["moldir"])]
+        if data.get("seed") is not None:
+            argv += ["--seed", str(data["seed"])]
 
         from tt_bio.boltzgen.cli.boltzgen import build_parser, run_command
         run_command(build_parser().parse_args(argv))  # reuses get_device(); no cold-open

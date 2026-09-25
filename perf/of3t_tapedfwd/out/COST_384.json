@@ -1,0 +1,116 @@
+{
+ "doc": "of3t-tapedfwd: the tape-gated routes, priced against the banked 384 step",
+ "fires_source": "perf/of3t_tapedfwd/out/fires_384.json",
+ "fires_host": "pc",
+ "fires_clock": "CLOCK: dev0 min 800 / median 1350 / max 1350 MHz over 308 samples, polled DURING the work",
+ "arms": {
+  "A": {
+   "median_s": 1.2054,
+   "n": 3,
+   "min_s": 1.2032,
+   "max_s": 1.2057,
+   "spread_pct": 0.21
+  },
+  "B": {
+   "median_s": 3.9032,
+   "n": 3,
+   "min_s": 3.9016,
+   "max_s": 3.9108,
+   "spread_pct": 0.24
+  },
+  "C": {
+   "median_s": 228.8142,
+   "n": 3,
+   "min_s": 225.3657,
+   "max_s": 229.4539,
+   "spread_pct": 1.79
+  }
+ },
+ "step_source": "origin/wk/of3t-stepfloor:perf/of3t_stepfloor/out/step_rekey_b_384.json rep 2",
+ "step": {
+  "trunk_taped_cycle_s": 3.415,
+  "diffusion_s": 0.287,
+  "losses_s": 3.135,
+  "seed_upload_s": 0.003,
+  "backward_s": 456.668,
+  "optimizer_s": 3.194,
+  "step_s": 466.702
+ },
+ "forward_share_pct": 0.732,
+ "backward_share_pct": 97.85,
+ "ceiling_if_forward_were_free_x": 1.0074,
+ "lever_cost_s_on_this_card": 2.6978,
+ "lever_cost_ratio": 3.2381,
+ "forward_seconds_recoverable_at_384": 2.3604,
+ "step_speedup_if_every_lever_came_back_x": 1.00508,
+ "tape_recording_overhead_s": 224.911,
+ "tape_recording_share_of_taped_forward_pct": 98.29,
+ "routes_lost_under_tape": {
+  "tt_bio.mm_dualnoc.STATS": {
+   "untaped_served": 324,
+   "taped_served": 0
+  },
+  "tt_bio.tenstorrent.FP32_SOFTMAX_STATS": {
+   "untaped_served": 36,
+   "taped_served": 0
+  },
+  "tt_bio.reblock_permute.STATS_BACK": {
+   "untaped_served": 324,
+   "taped_served": 0
+  },
+  "tt_bio.reblock_permute.STATS_GATED": {
+   "untaped_served": 648,
+   "taped_served": 0
+  },
+  "tt_bio.triatt_sdpa.STATS": {
+   "untaped_served": 288,
+   "taped_served": 0
+  },
+  "tt_bio.triatt_qkv.STATS": {
+   "untaped_served": 312,
+   "taped_served": 0
+  },
+  "tt_bio.triatt_qkv.TAIL_STATS": {
+   "untaped_served": 312,
+   "taped_served": 0
+  },
+  "tt_bio.tenstorrent.TRIATT_FUSED_HIFI_STATS": {
+   "untaped_served": 288,
+   "taped_served": 0
+  },
+  "tt_bio.triatt_qkv.QKVG_STATS": {
+   "untaped_served": 312,
+   "taped_served": 0
+  },
+  "tt_bio.triatt_qkv.QKVGB_STATS": {
+   "untaped_served": 312,
+   "taped_served": 0
+  }
+ },
+ "routes_served_untaped_but_zero": [
+  "tt_bio.tenstorrent.APB_CONCAT_HEADS_STATS"
+ ],
+ "taping_sites_per_forward": {
+  "tenstorrent.py:4653": 265,
+  "triatt_qkv.py:59": 212,
+  "tenstorrent.py:4123": 132,
+  "tenstorrent.py:5131": 112,
+  "tenstorrent.py:1168": 108,
+  "tenstorrent.py:7406": 108,
+  "mm_dualnoc.py:87": 108,
+  "reblock_permute.py:877": 108,
+  "reblock_permute.py:597": 108,
+  "tenstorrent.py:9976": 105,
+  "triatt_sdpa.py:340": 96,
+  "tenstorrent.py:10495": 54,
+  "tenstorrent.py:4104": 12
+ },
+ "taping_gates_per_forward_total": 1528,
+ "latch_growth": {},
+ "arm_A_total_served_per_rep": [
+  1097,
+  1097,
+  1097
+ ],
+ "arm_A_served_is_constant_across_reps": true
+}

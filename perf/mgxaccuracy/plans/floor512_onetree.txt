@@ -1,0 +1,25 @@
+# The 512 across-target pair, both cells on ONE tree.
+#
+# The 13.04 A target effect (4.749 A at offset 0 against 17.785 A at offset 100) is this row's
+# headline user-facing number and it is now in docs/design-throughput.md. Its two cells were
+# NOT measured on the same engine:
+#
+#   512 offset   0   720b43a5d        (via ~/wt-mgx-design-accuracy)
+#   512 offset 100   d1133c67e        (via ~/wt-mgx-catcher, = 1f338604e merged)
+#
+# and `git diff 07bd40614 d0c4f33e4 -- tt_bio/` is 422 insertions across 14 files including
+# 128 changed lines of tenstorrent.py, which every model rides. Nothing suggests those merges
+# move boltzgen -- pxdesign reads bit-identical across all of them and sample_chunks' narrowing
+# path never fires at these widths -- but "nothing suggests" is not "measured", and a 13 A
+# claim in a user-facing doc should not rest on a cross-tree comparison when one chip and about
+# 70 minutes removes the question.
+#
+# So: both cells again, same plan, same fixtures, same n, on whatever tree ~/wt-mgx-catcher is
+# at when this runs. Read the pair against each other, not against the numbers above; if the
+# gap reproduces, the docs sentence stands as written and the cross-tree pair becomes a
+# consistency check rather than the evidence.
+#
+# --max-concurrent 1: this row holds cards 3 and 23 for the 2x2's two 1536 cells, so one chip
+# is free and the entries run one after the other.
+--model boltzgen --target perf/mgxaccuracy/targets/gpb_dimer_1646.cif --target-res 512 --crop-offset 0 --designs 8 --budget 8 --score-dsg --host-threads 2 --timeout 14400 --tag onetree
+--model boltzgen --target perf/mgxaccuracy/targets/gpb_dimer_1646.cif --target-res 512 --crop-offset 100 --designs 8 --budget 8 --score-dsg --host-threads 2 --timeout 14400 --tag onetree

@@ -1,0 +1,62 @@
+# THE GROEL 2x2 — READ 2026-09-24 09:3xZ AGAINST plans/closing_rule.txt, WRITTEN 07:1xZ
+#
+# VERDICT BY THE PRE-REGISTERED RULE: REFUTED. The 1GPB interaction does not replicate. On a
+# second protein the ORIGINAL premise holds instead: 1536 is worse than 512, at both crops,
+# by 12.6-14.8 A, and the crop makes almost no difference.
+
+TARGET  perf/mgxaccuracy/targets/groel_ring4_2096.cif (1OEL assembly, four chains of one ring,
+        2096 residues). Crops 0 and 560 — the most separated legal 1536 pair the size admits,
+        sharing 976 of 1536 = 64%. All four cells on ONE tree, ff5435cba, tt_bio clean, one fan
+        process. n=8 per cell, 80-residue binder, designfolding-bb_rmsd, N/CA/C/O backbone.
+
+  size  offset   n   median     range           <=2A    <=4A   card  wall_s   AICLK
+   512       0   8    0.852   0.585- 9.694     62.5%   62.5%     3   1842.0    1000
+   512     560   8    1.739   1.263-17.459     62.5%   87.5%     6   1837.9    1000
+  1536       0   8   15.606  11.313-17.064      0%      0%       9  11842.0    1000
+  1536     560   8   14.387   8.398-15.974      0%      0%      13  11793.3    1000
+
+SIMPLE EFFECTS, the other factor held fixed, exact two-sided Mann-Whitney by enumeration
+(C(16,8) = 12870 splits; pc has no scipy, so the p is counted, not approximated):
+
+  size at offset   0    +14.754 A   U =  0.0 of 64   p = 0.0002   PERFECT separation
+  size at offset 560    +12.647 A   U =  8.0 of 64   p = 0.0104   rejects
+  crop at  512           +0.887 A   U = 21.0 of 64   p = 0.2786   does not reject
+  crop at 1536           -1.220 A   U = 47.0 of 64   p = 0.1304   does not reject
+
+  SIZE main  +13.700 A     CROP main  -0.167 A     interaction  -2.107 A
+
+WHY THIS IS THE REFUTED BRANCH AND NOT THE INCONCLUSIVE ONE. closing_rule.txt gives two
+independent ways to refute. The magnitude clause does not fire: |interaction| = 2.11 A is under
+the conservative 7.2 A band, which on its own would only be INCONCLUSIVE. The second clause
+does fire, and it is the clause that was written for exactly this: "both size simple effects
+share a sign with both outside the repeatability band". +14.75 and +12.65 share a sign and are
+both ~7x the 1.8 A worst-case repeat. So the structure under test — each factor's two simple
+effects pointing OPPOSITE ways — is absent, and absent in the direction that says something
+rather than in the direction of a null.
+
+WHAT REPLACES IT. On 1GPB size was +14.65 at one crop and -4.51 at the other, and crop was
++13.04 at one size and -6.13 at the other: four significant effects, all cancelling. On GroEL
+size is the whole story (+13.70 main, both simple effects reject) and crop is nothing (-0.17
+main, neither rejects). Two proteins, two different structures, and the only thing they agree
+on is that 1536 does not refold: 1GPB 19.398/13.273, GroEL 15.606/14.387, 0 of 8 under 4 A in
+all four of those cells.
+
+AND GROEL AT 512 IS THE BEST CELL THIS ROW HAS MEASURED. Medians 0.852 and 1.739 A with 5 of 8
+designs under the STRICT 2 A bar at both crops, against 1GPB's best 512 cell at 4.631 A with 3
+of 8 under 4 A. So the 512-vs-1536 collapse is not the device failing to design: it designs
+sub-1 A binders against this target at 512 and nothing usable at 1536, on one tree, same
+binder length, same metric, same refolder, same clock.
+
+WHAT THIS DOES AND DOES NOT SETTLE. It settles that the 1GPB four-cell table is one target's
+personality, so the doc cannot publish "there is no size rule to apply" in general form. It
+does NOT settle whether the 1536 collapse is the port or BoltzGen: both proteins are device
+numbers and the upstream fp32 1536 pair on qb2 is what answers that. GroEL makes the question
+sharper rather than answering it — a consistent, 12-15 A, perfectly-separating size effect is
+a much better thing to hold a reference against than 1GPB's cancelling cells were.
+
+ONE CAVEAT, STATED BECAUSE IT IS NOT CONTROLLED. GroEL's crops are 0 and 560 against 1GPB's 0
+and 100, so cell-by-cell comparison across the two proteins was never available and is not
+attempted above; only the STRUCTURE is compared, which is what closing_rule.txt pre-registered.
+The size axis also adds chain count at both crops, as it did on 1GPB
+(results/chain_count_ledger.txt); this 2x2 does not decompose that and does not need to, since
+the question it was built for is replication of a structure, not attribution of the size half.

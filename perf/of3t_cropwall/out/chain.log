@@ -1,0 +1,82 @@
+=== rung 576 start 2026-09-23T00:24:02Z ===
+2026-09-23 00:25:00.104 | critical |          Always | TT_THROW: Statically allocated circular buffers on core range [(x=0,y=0) - (x=10,y=9)] grow to 1923584 B which is beyond max L1 size of 1572864 B (assert.hpp:104)
+2026-09-23 00:25:00.107 | critical |          Always | TT_THROW: Statically allocated circular buffers on core range [(x=0,y=0) - (x=10,y=9)] grow to 1849856 B which is beyond max L1 size of 1572864 B (assert.hpp:104)
+[weights] declared 2531 tensors, 165.2M elements, 2256 in the pairformer stack, walk depth 9
+2026-09-23 00:25:14.878 | critical |          Always | TT_FATAL: Out of Memory: Not enough space to allocate 69009408 B L1 buffer across 104 banks, where each bank needs to store 663552 B, but bank size is 1461760 B (allocated: 663552 B, free: 798208 B, largest free block: 466432 B) (assert.hpp:104)
+2026-09-23 00:25:18.585 | critical |          Always | TT_FATAL: Out of Memory: Not enough space to allocate 63700992 B L1 buffer across 108 banks, where each bank needs to store 589824 B, but bank size is 1461760 B (allocated: 589824 B, free: 871936 B, largest free block: 577024 B) (assert.hpp:104)
+2026-09-23 00:25:24.532 | critical |          Always | TT_FATAL: Out of Memory: Not enough space to allocate 58392576 B L1 buffer across 99 banks, where each bank needs to store 589824 B, but bank size is 1461760 B (allocated: 589824 B, free: 871936 B, largest free block: 577024 B) (assert.hpp:104)
+2026-09-23 00:25:27.494 | critical |          Always | TT_FATAL: Out of Memory: Not enough space to allocate 53084160 B L1 buffer across 90 banks, where each bank needs to store 589824 B, but bank size is 1461760 B (allocated: 589824 B, free: 871936 B, largest free block: 577024 B) (assert.hpp:104)
+2026-09-23 00:25:38.226 | critical |          Always | TT_FATAL: Out of Memory: Not enough space to allocate 47775744 B L1 buffer across 108 banks, where each bank needs to store 442368 B, but bank size is 1461760 B (allocated: 884736 B, free: 577024 B, largest free block: 355840 B) (assert.hpp:104)
+tokens 576  fwd PASS 8.501 GB   bwd PASS 28.233 GB / 5800 allocs  grads 1639/2531  walks 201
+  after forward, before backward     dram 7.707 GB
+    boundaries       4.222 GB  54.78 %    106 buffers
+    weights          0.334 GB   4.34 %   2531 buffers
+    tape             1.728 GB  22.42 %     48 buffers
+    unattributed     1.422 GB  18.46 %   1579 buffers
+  backward high-water                dram 28.233 GB
+    boundaries       4.222 GB  14.95 %    106 buffers
+    weights          0.334 GB   1.18 %   2531 buffers
+    weight_grads     0.003 GB   0.01 %     34 buffers
+    tape             1.728 GB   6.12 %     48 buffers
+    cotangents       0.079 GB   0.28 %      1 buffers
+    recompute       19.736 GB  69.90 %   1331 buffers
+    other_leaf       0.000 GB   0.00 %      4 buffers
+    unattributed     2.131 GB   7.55 %   1745 buffers
+  walk taken 0.000 GB below the peak (0.000 %)
+CLOCK: dev0 min 800 / median 1350 / max 1350 MHz over 1125 samples, polled DURING the work
+wrote perf/of3t_cropwall/out/split_576_post.json
+=== rung 576 end 2026-09-23T01:10:44Z ===
+=== rung 512 start 2026-09-23T01:10:44Z ===
+2026-09-23 01:11:30.925 | critical |          Always | TT_THROW: Statically allocated circular buffers on core range [(x=0,y=0) - (x=10,y=9)] grow to 1591808 B which is beyond max L1 size of 1572864 B (assert.hpp:104)
+[weights] declared 2531 tensors, 165.2M elements, 2256 in the pairformer stack, walk depth 9
+2026-09-23 01:11:39.972 | critical |          Always | TT_FATAL: Out of Memory: Not enough space to allocate 54525952 B L1 buffer across 104 banks, where each bank needs to store 524288 B, but bank size is 1461760 B (allocated: 1048576 B, free: 413184 B, largest free block: 262144 B) (assert.hpp:104)
+2026-09-23 01:11:42.027 | critical |          Always | TT_THROW: Statically allocated circular buffers in program 595 clash with L1 buffers on core range [(x=0,y=0) - (x=10,y=9)]. L1 buffer allocated at 262144 and static circular buffer region ends at 352768 (assert.hpp:104)
+2026-09-23 01:11:44.490 | critical |          Always | TT_FATAL: Out of Memory: Not enough space to allocate 50331648 B L1 buffer across 64 banks, where each bank needs to store 786432 B, but bank size is 1461760 B (allocated: 786432 B, free: 675328 B, largest free block: 393216 B) (assert.hpp:104)
+2026-09-23 01:11:46.071 | critical |          Always | TT_THROW: Statically allocated circular buffers in program 731 clash with L1 buffers on core range [(x=0,y=0) - (x=10,y=9)]. L1 buffer allocated at 262144 and static circular buffer region ends at 352768 (assert.hpp:104)
+2026-09-23 01:11:51.732 | critical |          Always | TT_FATAL: Out of Memory: Not enough space to allocate 29360128 B L1 buffer across 64 banks, where each bank needs to store 458752 B, but bank size is 1461760 B (allocated: 917504 B, free: 544256 B, largest free block: 314880 B) (assert.hpp:104)
+tokens 512  fwd PASS 6.973 GB   bwd PASS 21.543 GB / 5930 allocs  grads 1639/2531  walks 62
+  after forward, before backward     dram 6.345 GB
+    boundaries       3.339 GB  52.62 %    106 buffers
+    weights          0.334 GB   5.27 %   2531 buffers
+    tape             1.366 GB  21.53 %     48 buffers
+    unattributed     1.306 GB  20.58 %   1487 buffers
+  backward high-water                dram 21.543 GB
+    boundaries       3.339 GB  15.50 %    106 buffers
+    weights          0.334 GB   1.55 %   2531 buffers
+    weight_grads     0.003 GB   0.01 %     34 buffers
+    tape             1.366 GB   6.34 %     48 buffers
+    cotangents       0.062 GB   0.29 %      1 buffers
+    recompute       14.573 GB  67.64 %   1531 buffers
+    other_leaf       0.000 GB   0.00 %      4 buffers
+    unattributed     1.865 GB   8.66 %   1675 buffers
+  walk taken 0.000 GB below the peak (0.000 %)
+CLOCK: dev0 min 800 / median 1350 / max 1350 MHz over 1146 samples, polled DURING the work
+wrote perf/of3t_cropwall/out/split_512_post.json
+=== rung 512 end 2026-09-23T01:57:41Z ===
+=== rung 640 start 2026-09-23T01:57:41Z ===
+2026-09-23 01:58:10.691 | critical |          Always | TT_THROW: Statically allocated circular buffers on core range [(x=0,y=0) - (x=10,y=9)] grow to 2288128 B which is beyond max L1 size of 1572864 B (assert.hpp:104)
+2026-09-23 01:58:10.694 | critical |          Always | TT_THROW: Statically allocated circular buffers on core range [(x=0,y=0) - (x=10,y=9)] grow to 2206208 B which is beyond max L1 size of 1572864 B (assert.hpp:104)
+[weights] declared 2531 tensors, 165.2M elements, 2256 in the pairformer stack, walk depth 9
+2026-09-23 01:58:25.548 | critical |          Always | TT_FATAL: Out of Memory: Not enough space to allocate 39321600 B L1 buffer across 96 banks, where each bank needs to store 409600 B, but bank size is 1461760 B (allocated: 1228800 B, free: 232960 B, largest free block: 204800 B) (assert.hpp:104)
+2026-09-23 01:58:48.838 | critical |          Always | TT_FATAL: Out of Memory: Not enough space to allocate 32768000 B L1 buffer across 100 banks, where each bank needs to store 327680 B, but bank size is 1461760 B (allocated: 983040 B, free: 478720 B, largest free block: 314880 B) (assert.hpp:104)
+2026-09-23 02:15:51.392 | critical |          Always | TT_FATAL: Out of Memory: Not enough space to allocate 26214400 B DRAM buffer across 8 banks, where each bank needs to store 3276800 B, but bank size is 4278190016 B (allocated: 4275641984 B, free: 2548032 B, largest free block: 2224064 B) (assert.hpp:104)
+2026-09-23 02:15:51.393 | critical |          Always | TT_FATAL: Out of Memory: Not enough space to allocate 26214400 B DRAM buffer across 8 banks, where each bank needs to store 3276800 B, but bank size is 4278190016 B (allocated: 4275641984 B, free: 2548032 B, largest free block: 2224064 B) (assert.hpp:104)
+tokens 640  fwd PASS 10.205 GB   bwd FAIL 31.868 GB / 6842 allocs  grads 0/2531  walks 250
+  after forward, before backward     dram 9.225 GB
+    boundaries       5.209 GB  56.46 %    106 buffers
+    weights          0.334 GB   3.62 %   2531 buffers
+    tape             2.132 GB  23.12 %     48 buffers
+    unattributed     1.549 GB  16.79 %   1590 buffers
+  backward high-water                dram 31.853 GB
+    boundaries       5.209 GB  16.35 %    106 buffers
+    weights          0.334 GB   1.05 %   2531 buffers
+    tape             2.132 GB   6.69 %     48 buffers
+    cotangents       0.098 GB   0.31 %      1 buffers
+    recompute       22.518 GB  70.69 %   2559 buffers
+    other_leaf       0.000 GB   0.00 %      2 buffers
+    unattributed     1.561 GB   4.90 %   1590 buffers
+  walk taken 0.015 GB below the peak (0.048 %)
+CLOCK: dev0 min 800 / median 1350 / max 1350 MHz over 467 samples, polled DURING the work
+wrote perf/of3t_cropwall/out/split_640_post.json
+=== rung 640 end 2026-09-23T02:15:53Z ===
+=== chain done 2026-09-23T02:15:53Z ===

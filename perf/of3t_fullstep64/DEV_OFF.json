@@ -1,0 +1,148 @@
+{
+ "instrument": "PROTOCOL SS6: the OF3 training forward through tt_bio.train.catalogue",
+ "arm": "full",
+ "batch": "/home/ttuser/of3t/bundle_min/batch_step003.pt",
+ "checkpoint": "/home/ttuser/of3-weights/of3-p2-155k.pt",
+ "rollout": 20,
+ "cycles": 1,
+ "seed": 20260922,
+ "host": "tt-quietbox2",
+ "card": "1",
+ "commit": "af3aa2673b6ee007c92f409575e4828ead0bc6b3",
+ "padded_width": 384,
+ "real_tokens": 56,
+ "pdb_id": "5nw3",
+ "denoise": false,
+ "params_reachable": 3952,
+ "loss": 0.13427883600069235,
+ "weights": {
+  "bond": 0.0,
+  "smooth_lddt": 4.0,
+  "mse": 4.0,
+  "distogram": 0.03,
+  "resolved": 0.0001,
+  "plddt": 0.0001,
+  "pae": 0.0001,
+  "pde": 0.0001
+ },
+ "breakdown": {
+  "bond": {
+   "value": null,
+   "weight": 0.0,
+   "contribution": 0.0,
+   "skipped": "weight is zero in this stage"
+  },
+  "smooth_lddt": {
+   "value": null,
+   "weight": 4.0,
+   "contribution": 0.0,
+   "skipped": "missing ['pred_dist']"
+  },
+  "mse": {
+   "value": null,
+   "weight": 4.0,
+   "contribution": 0.0,
+   "skipped": "missing ['pred_xyz']"
+  },
+  "distogram": {
+   "value": 4.451829139528296,
+   "weight": 0.03,
+   "contribution": 0.13355487418584885
+  },
+  "resolved": {
+   "value": 7.239618148434879,
+   "weight": 0.0001,
+   "contribution": 0.0007239618148434879
+  },
+  "plddt": {
+   "value": null,
+   "weight": 0.0001,
+   "contribution": 0.0,
+   "skipped": "missing ['per_atom_lddt', 'per_atom_weight']"
+  },
+  "pae": {
+   "value": null,
+   "weight": 0.0001,
+   "contribution": 0.0,
+   "skipped": "missing ['pred_xyz']"
+  },
+  "pde": {
+   "value": null,
+   "weight": 0.0001,
+   "contribution": 0.0,
+   "skipped": "missing ['pred_xyz']"
+  }
+ },
+ "seeded_outputs": [
+  "distogram_logits",
+  "resolved_logits"
+ ],
+ "forward_s": 14.509321610006737,
+ "backward_s": 240.7192680310036,
+ "step_s": 255.22858964101033,
+ "params_with_grad": 2498,
+ "params_nonzero_grad": 2489,
+ "squared_gradient_norm": 10.00055785034266,
+ "by_section": {
+  "input_glue": {
+   "n": 5,
+   "sq": 0.060627957775534674
+  },
+  "trunk": {
+   "n": 2314,
+   "sq": 6.988962910367282
+  },
+  "confidence_head": {
+   "n": 179,
+   "sq": 2.9509669821998425
+  }
+ },
+ "grad_dump": "/home/ttuser/of3t_fullstep64/grad_OFF.pt",
+ "ok": true,
+ "aiclk_during": {
+  "0": {
+   "min": 800,
+   "max": 1350,
+   "median": 1350,
+   "n": 94
+  }
+ },
+ "aiclk_line": "CLOCK: dev0 min 800 / median 1350 / max 1350 MHz over 94 samples, polled DURING the work",
+ "total_s": 257.56774810999923,
+ "fullstep64": {
+  "exact": "off",
+  "exact_training_ops": [],
+  "counters": {
+   "softmax": {
+    "verb": 0,
+    "raw": 0,
+    "raw_elements": 0
+   },
+   "layer_norm": {
+    "verb": 0,
+    "raw": 0,
+    "elements": 0,
+    "bw": 0
+   }
+  },
+  "draws": {
+   "file": "/home/ttuser/of3t_fullstep64/draws.pt",
+   "n_recorded": 61,
+   "rollout_calls": 1,
+   "n_consumed": 61,
+   "mismatch_count": 0,
+   "mismatch": []
+  }
+ },
+ "provenance": {
+  "host": "tt-quietbox2",
+  "row": "of3t-fullstep64",
+  "card": 1,
+  "board_class": "p300c",
+  "host_quiet_before": "device fd holder pid 942290 BUSY (215 ticks/2s, owner land-standing): /home/ttuser/tt-bio-dev/env/bin/python3 -c from multiprocessing.spawn import spawn_main; s\nloadavg1 30.63 over ceiling 2.00\nHOST NOT QUIET -- your timing read is contaminated even with an idle sibling and a forced clock. Wait it out or DEFER. Do not measure and explain it afterwards.",
+  "host_quiet_after": "device fd holder pid 944197 BUSY (201 ticks/2s, owner land-standing): /home/ttuser/tt-bio-dev/env/bin/python3 -c from multiprocessing.spawn import spawn_main; s\nloadavg1 28.43 over ceiling 2.00\nHOST NOT QUIET -- your timing read is contaminated even with an idle sibling and a forced clock. Wait it out or DEFER. Do not measure and explain it afterwards.",
+  "git_commit": "af3aa2673b6ee007c92f409575e4828ead0bc6b3",
+  "exit": 0,
+  "grad_dump_sha256": "b25b1d9acc482ad65bf7401f5c0b017aa1b22effc2d29d5a11c5490d178cc1a1"
+ }
+}

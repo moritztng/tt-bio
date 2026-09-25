@@ -1,0 +1,102 @@
+{
+ "a": "/tmp/of3t/auxheads043/out/a1_043_f64.pt",
+ "b": "/tmp/of3t/auxheads043/out/a2_050_tboff.pt",
+ "label_a": "0.4.3 native f64",
+ "label_b": "0.5.0 transpose_bias forced off, f64",
+ "real_tokens": 56,
+ "heads": {
+  "distogram_logits": {
+   "padded": {
+    "rel_l2": 0.0,
+    "norm_ratio_r": 1.0,
+    "cosine": 1.0000000000025604,
+    "max_abs_diff": 0.0,
+    "norm_a": 7928700.559880996,
+    "norm_b": 7928700.559880996,
+    "bit_identical": true,
+    "n_elem": 9437184
+   },
+   "real_block": {
+    "rel_l2": 0.0,
+    "norm_ratio_r": 1.0,
+    "cosine": 1.0000000000000024,
+    "max_abs_diff": 0.0,
+    "norm_a": 40409.16297008335,
+    "norm_b": 40409.16297008335,
+    "bit_identical": true,
+    "n_elem": 200704
+   }
+  },
+  "experimentally_resolved_logits": {
+   "padded": {
+    "rel_l2": 0.0,
+    "norm_ratio_r": 1.0,
+    "cosine": 1.0,
+    "max_abs_diff": 0.0,
+    "norm_a": 102.30470922717292,
+    "norm_b": 102.30470922717292,
+    "bit_identical": true,
+    "n_elem": 844
+   }
+  },
+  "pae_logits": {
+   "padded": {
+    "rel_l2": 0.0,
+    "norm_ratio_r": 1.0,
+    "cosine": 0.9999999999943867,
+    "max_abs_diff": 0.0,
+    "norm_a": 4801.859055459928,
+    "norm_b": 4801.859055459928,
+    "bit_identical": true,
+    "n_elem": 9437184
+   },
+   "real_block": {
+    "rel_l2": 0.0,
+    "norm_ratio_r": 1.0,
+    "cosine": 1.0000000000000009,
+    "max_abs_diff": 0.0,
+    "norm_a": 1618.8245439992772,
+    "norm_b": 1618.8245439992772,
+    "bit_identical": true,
+    "n_elem": 200704
+   }
+  },
+  "pde_logits": {
+   "padded": {
+    "rel_l2": 0.0,
+    "norm_ratio_r": 1.0,
+    "cosine": 1.0000000000073634,
+    "max_abs_diff": 0.0,
+    "norm_a": 14311.013980342595,
+    "norm_b": 14311.013980342595,
+    "bit_identical": true,
+    "n_elem": 9437184
+   },
+   "real_block": {
+    "rel_l2": 0.0,
+    "norm_ratio_r": 1.0,
+    "cosine": 1.0000000000000004,
+    "max_abs_diff": 0.0,
+    "norm_a": 3930.8446098366344,
+    "norm_b": 3930.8446098366344,
+    "bit_identical": true,
+    "n_elem": 200704
+   }
+  },
+  "plddt_logits": {
+   "padded": {
+    "rel_l2": 0.0,
+    "norm_ratio_r": 1.0,
+    "cosine": 0.999999999999999,
+    "max_abs_diff": 0.0,
+    "norm_a": 587.0393362550751,
+    "norm_b": 587.0393362550751,
+    "bit_identical": true,
+    "n_elem": 21100
+   }
+  }
+ },
+ "worst_padded_rel_l2": 0.0,
+ "n_bit_identical": 5,
+ "n_heads": 5
+}

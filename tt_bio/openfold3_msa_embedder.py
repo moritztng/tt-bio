@@ -20,10 +20,11 @@ from __future__ import annotations
 import torch
 import ttnn
 
+from . import ops
 from .tenstorrent import (
     Module, OuterProductMean, PairWeightedAveraging, Transition, PairformerLayer,
     accurate_softmax_site, msa_depth_chunks, msa_update_chunks, pwa_single_shot_bytes,
-    triatt_sdpa_hifi_site,
+    triatt_sdpa_hifi_site, _z_residual,
 )
 from .openfold3_weights import remap_msa_module
 
@@ -72,8 +73,10 @@ class MSAModuleBlock:
     single source of truth for the OF3 block ordering.
     """
 
-    def __init__(self, block_remap, compute_kernel_config, transpose_bias: bool = True):
+    def __init__(self, block_remap, compute_kernel_config, transpose_bias: bool = True,
+                 z_fp32_residual: bool = False):
         ckc = compute_kernel_config
+        self.z_fp32_residual = z_fp32_residual
         self.opm = OuterProductMean(block_remap["outer_product_mean"], ckc,
                                   scale_bias=True)
         self.has_msa_update = "pair_weighted_averaging" in block_remap
@@ -88,9 +91,10 @@ class MSAModuleBlock:
             *_MSA_TRI_DIMS, None, None, False, block_remap["pair_stack"], ckc,
             scale_pair_bias=False, fp32_softmax=True, transpose_bias=transpose_bias,
             accurate_softmax=accurate_softmax_site("openfold3.msa"),
-            tri_att_sdpa_hifi=triatt_sdpa_hifi_site("openfold3.msa"))
+            tri_att_sdpa_hifi=triatt_sdpa_hifi_site("openfold3.msa"),
+            z_fp32_residual=z_fp32_residual)
 
-    def __call__(self, m, z, pair_mask=None, attn_mask=None, own_m: bool = False):
+    def __call__(self, m, z, pair_mask=None, attn_mask=None):
         # OuterProductMean is deliberately left unmasked: it reduces over MSA DEPTH, so a padded
         # token can only reach a padded pair through it. PairWeightedAveraging is not -- its
         # softmax runs over the token axis, so a padded key would take real weight without the
@@ -101,11 +105,15 @@ class MSAModuleBlock:
         # 14189-row alignment and 1 976 016 896 B at the 1088 tokens a ligand pushes OpenBind-0
         # to; both are buffers a fold is refused on a 12 GiB Wormhole part.
         #
-        # `own_m` is False for the first block that updates `m`: the trunk keeps the embedder's
-        # `m` and hands the SAME tensor back on every recycle (openfold3_trunk.py), so writing
-        # into it would corrupt the next cycle. The sum lands in the UPDATE's buffer instead,
-        # which nothing else holds. bf16 addition is commutative, so this is the same number as
-        # `add(m, upd)` bit for bit. The `z` residual needs no such care: it lands in the OPM
+        # The `m` residual lands in the UPDATE's buffer, never in the caller's `m`. Two
+        # callers need that. The trunk keeps the embedder's `m` and hands the SAME tensor back
+        # on every recycle (openfold3_trunk.py), so writing into it would corrupt the next
+        # cycle; and a checkpointed segment recomputes itself from its input VALUES in the
+        # backward, so a block that overwrote its input would recompute from the sum and
+        # differentiate the wrong function. Both want the same thing, which is why this is not
+        # a flag: the block is a pure function of what it was handed. bf16 addition is
+        # commutative, so it is `add(m, upd)` bit for bit, and the peak is unchanged -- two
+        # copies live either way. The `z` residual needs no such care: it lands in the OPM
         # update's buffer and never writes `z` itself.
         #
         # A deep alignment arrives as a host tensor (the trunk's `msa_embed`) or as the
@@ -116,16 +124,18 @@ class MSAModuleBlock:
         if torch.is_tensor(m):
             m = list(msa_depth_chunks(m, park=True))
         upd = self.opm(m, None, None)
-        z = ttnn.add_(upd, z)
+        # Training only (PairformerLayer's z_fp32_residual): the pair residual held in fp32.
+        wide = self.z_fp32_residual and ops.taping()
+        z = _z_residual(z, z, upd, True) if wide else ttnn.add_(upd, z)
         if self.has_msa_update and isinstance(m, list):
-            m = msa_update_chunks(m, z, self.pwa, self.msa_transition, attn_mask, park=True)
+            zb = ttnn.typecast(z, ttnn.bfloat16) if z.dtype == ttnn.float32 else z
+            m = msa_update_chunks(m, zb, self.pwa, self.msa_transition, attn_mask, park=True)
+            if zb is not z:
+                ttnn.deallocate(zb)
         elif self.has_msa_update:
-            upd = ttnn.reshape(self.pwa(m, ttnn.clone(z), attn_mask), tuple(m.shape))
-            if own_m:
-                m = ttnn.add_(m, upd)
-                ttnn.deallocate(upd)
-            else:
-                m = ttnn.add_(upd, m)
+            zc = ttnn.typecast(z, ttnn.bfloat16) if z.dtype == ttnn.float32 else ttnn.clone(z)
+            upd = ttnn.reshape(self.pwa(m, zc, attn_mask), tuple(m.shape))
+            m = ttnn.add_(upd, m)
             # Each residual leaves the previous `m` buffer free somewhere in the middle of the
             # heap, and the next one needs its whole width contiguous: at 960 tokens x 14191 rows
             # the transition's 1 743 790 080 B was refused with 4.4 GB free and 1.35 GB as the
@@ -156,17 +166,22 @@ class MSAModule:
     s_trunk/z_trunk rather than chasing it further.
     """
 
-    def __init__(self, state_dict, compute_kernel_config, transpose_bias: bool = True):
+    def __init__(self, state_dict, compute_kernel_config, transpose_bias: bool = True,
+                 z_fp32_residual: bool = False):
+        # z_fp32_residual fires only under a tape, and then `z` comes back fp32.
         self.blocks = [
-            MSAModuleBlock(b, compute_kernel_config, transpose_bias=transpose_bias)
+            MSAModuleBlock(b, compute_kernel_config, transpose_bias=transpose_bias,
+                           z_fp32_residual=z_fp32_residual)
             for b in remap_msa_module(state_dict, prefix="msa_module")
         ]
 
     def __call__(self, m, z, pair_mask=None, attn_mask=None):
-        # `own_m` turns on after the first block that returns an `m` of its own making, so no
-        # block ever writes into the tensor the trunk reuses across recycles.
-        own_m = False
+        # Through the seam, for the same reason the 48-block pairformer goes through it: under
+        # a tape these four blocks retain every intermediate they produce, and four MSA blocks
+        # at crop 384 exhaust all 34.217 GB of a p300c on their own, before the template stack
+        # or the trunk has run (perf/of3t_l1/out/base_384.json). Inference pays one `is None`
+        # test per block.
         for block in self.blocks:
-            m, z = block(m, z, pair_mask, attn_mask, own_m=own_m)
-            own_m = own_m or block.has_msa_update
+            m, z = ops.checkpoint_segment(
+                lambda m_, z_, b=block: b(m_, z_, pair_mask, attn_mask), m, z)
         return m, z

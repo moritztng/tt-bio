@@ -189,6 +189,12 @@ _UNDECLARED_OK = {
     # seeing an undeclared `import torch`. That is the exact failure this check was built for.
     "patch_trimul_tail": "tt_bio/kernels/trimul_tail/patch_trimul_tail.py, a committed sibling of "
                          "the swiglu_fused patch script, not a distribution",
+    # OpenFold3 0.4.3's training data framework, re-vendored whole (fbdbd52da) so a training
+    # batch is upstream's batch. Nothing outside tt_bio/_vendor imports it, and importing
+    # tt_bio.main or tt_bio.train loads none of these (checked 2026-09-25).
+    "lightning_fabric": "vendored OpenFold3 training DataModule, not reached by tt_bio.main or tt_bio.train",
+    "pytorch_lightning": "vendored OpenFold3 training DataModule, not reached by tt_bio.main or tt_bio.train",
+    "pydantic_core": "provided by pydantic; vendored OpenFold3 colabfold MSA client only",
 }
 
 

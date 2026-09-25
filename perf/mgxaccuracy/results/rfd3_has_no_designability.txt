@@ -1,0 +1,47 @@
+# WHY rfd3 HAS NO DESIGNABILITY NUMBER IN THIS ROW, AND WHY ITS SIZE LABELS ARE NOT BOLTZGEN'S.
+#
+# The brief asks for each designer's own designability metric at 512 and 1536. boltzgen and
+# pxdesign have one; rfd3 does not, and this row had been asserting that rather than showing
+# it. Both points below are read off the runs already banked (rfd3_valid.jsonl), host-only.
+#
+# 1. rfd3 EMITS A BACKBONE, NOT A SEQUENCE, so designability cannot be computed from it.
+#
+#    Designability = refold the designed binder's SEQUENCE alone and align it to the backbone
+#    it was drawn for. That needs a sequence. Splitting the 512 output into its target part
+#    and its designed part:
+#
+#      target part    432 residues   LEU 46, ALA 35, VAL 32, ARG 32   (a real sequence)
+#      designed part   80 residues   GLY 32, ALA 26, SER 5, LEU 5
+#      designed atoms  N 80, CA 80, C 80, O 80, CB 48
+#
+#    48 CB atoms across 80 residues: the designed segment is mostly glycine (no CB) and
+#    alanine (CB only). That is a placeholder, not a designed sequence. RFdiffusion-style
+#    models generate coordinates and leave the sequence to a separate inverse-folding step
+#    (ProteinMPNN or equivalent), which the `design --model rfd3` command does not run.
+#
+#    The output directory confirms it: four .cif files and nothing else. No metrics CSV, no
+#    confidence column, no refold.
+#
+#    So an rfd3 designability number is not "missing", it is not defined by this pipeline.
+#    Producing one would mean bolting an inverse-folding + refolding stage onto rfd3 and
+#    would measure that stage as much as rfd3. Out of scope for this row, and worth naming
+#    because "rfd3 at 512 and 1536" otherwise reads as a gap someone should close cheaply.
+#
+# 2. rfd3's SIZE LABELS MEAN TOTAL TOKENS; boltzgen's mean TARGET residues.
+#
+#    Read straight out of the fixtures this row ran:
+#
+#      rfd3   "512"   contig "A1-432,80"            -> 432 target + 80 designed = 512 total
+#      rfd3  "1536"   contig "A1-823,B1-633,80"     -> 1456 target + 80 designed = 1536 total
+#      boltzgen "512"  512 target residues + 80 binder = 592 tokens
+#      boltzgen "1536" 1536 target residues + 80 binder = 1616 tokens
+#
+#    So at the same label the two designers are given targets differing by the binder length:
+#    rfd3's 512 rung has an 432-residue target, boltzgen's has 512. The rfd3 entries in
+#    results/rfd3_valid.jsonl are correct runs and correctly labelled for rfd3's own
+#    convention; they are simply not the same size question as the boltzgen cells and must
+#    not be put in one column with them.
+#
+# What the rfd3 runs DO establish, and it is all they establish: rfd3 completes at both rungs
+# on a valid target, rc 0, 4 designs at 512 in 387.8 s and 2 at 1536 in 1478.0 s, AICLK median
+# 1000 (results/rfd3_valid.jsonl).

@@ -1,0 +1,142 @@
+{
+ "argv": [
+  "--repo",
+  "/home/ttuser/of3t_rebase/wt",
+  "--out",
+  "run/identity_ours-perturbed.json",
+  "--perturb"
+ ],
+ "repo": "/home/ttuser/of3t_rebase/wt",
+ "env": {
+  "host": "tt-quietbox2",
+  "tt_visible_devices": "0",
+  "head": "cd870be5b3b5a460eff41cb01cea4765b6477a74",
+  "branch": "HEAD",
+  "started_utc": "2026-09-20T01:17:48Z",
+  "tt_bio_file": "/home/ttuser/of3t_rebase/wt/tt_bio/__init__.py",
+  "arch": "Arch.BLACKHOLE"
+ },
+ "control": "PRESENT (--perturb)",
+ "checkpoints": {
+  "p2-155k": {
+   "file": "of3-p2-155k.pt",
+   "is_openbind": false,
+   "tri_att_end_bias_follows_pair": true,
+   "binding_source": "openfold3_trunk.py:133, openfold3_diffusion_transformer.py:265",
+   "perturbed_keys": [
+    "pairformer_stack.blocks.0.pair_stack.tri_mul_out.linear_g.weight",
+    "diffusion_module.diffusion_transformer.blocks.0.attention_pair_bias.layer_norm_a.layer_norm_s.weight"
+   ],
+   "dit_has_shared_layer_norm_z": false,
+   "dit_per_block_layer_norm_z": true,
+   "pairformer_kwargs": {
+    "passed": {
+     "scale_pair_bias": true,
+     "tri_att_scale_pair_bias": false,
+     "fp32_softmax": true,
+     "transpose_bias": true
+    },
+    "dropped_this_tree_has_no_such_kwarg": []
+   },
+   "pairformer": {
+    "s_sha256": "38195a926065ca20bbcaceee81f1cd715df6e1ab0457e2102c7dc73bcac5da61",
+    "z_sha256": "3ec30cf30fb9178407b19c883f72633895c28030a6a72dbb16003e33bb0fb1d9",
+    "shapes": {
+     "s": [
+      1,
+      128,
+      384
+     ],
+     "z": [
+      1,
+      128,
+      128,
+      128
+     ]
+    }
+   },
+   "diffusion_transformer": {
+    "sha256": "583a918e44dc1a253f1972a7aea0791efb24a4554e23534d4009dace90fd1213",
+    "shapes": {
+     "a": [
+      1,
+      128,
+      768
+     ],
+     "s": [
+      1,
+      128,
+      384
+     ],
+     "z": [
+      1,
+      128,
+      128,
+      128
+     ]
+    }
+   }
+  },
+  "openbind-174k": {
+   "file": "of3-ob-2025-06-30-174k.pt",
+   "is_openbind": true,
+   "tri_att_end_bias_follows_pair": false,
+   "binding_source": "openfold3_trunk.py:133, openfold3_diffusion_transformer.py:265",
+   "perturbed_keys": [
+    "pairformer_stack.blocks.0.pair_stack.tri_mul_out.linear_g.weight",
+    "diffusion_module.diffusion_transformer.blocks.0.attention_pair_bias.layer_norm_a.layer_norm_s.weight"
+   ],
+   "dit_has_shared_layer_norm_z": true,
+   "dit_per_block_layer_norm_z": false,
+   "pairformer_kwargs": {
+    "passed": {
+     "scale_pair_bias": true,
+     "tri_att_scale_pair_bias": false,
+     "fp32_softmax": true,
+     "transpose_bias": false
+    },
+    "dropped_this_tree_has_no_such_kwarg": []
+   },
+   "pairformer": {
+    "s_sha256": "c313996e2dc28e9a2f1fea6af80e8d2e752a9d5bdd031949763057f5beac0652",
+    "z_sha256": "d692b76ddf73faab7727e4bddde682c14b3c570e64b536195735a886b6fe2ca7",
+    "shapes": {
+     "s": [
+      1,
+      128,
+      384
+     ],
+     "z": [
+      1,
+      128,
+      128,
+      128
+     ]
+    }
+   },
+   "diffusion_transformer": {
+    "sha256": "989c26dba0e80460a18d068c5a01cf14b8969a0f66235f658cd5e7c475382226",
+    "shapes": {
+     "a": [
+      1,
+      128,
+      768
+     ],
+     "s": [
+      1,
+      128,
+      384
+     ],
+     "z": [
+      1,
+      128,
+      128,
+      128
+     ]
+    }
+   }
+  }
+ },
+ "bindings_differ_between_checkpoints": true,
+ "ok": true
+}

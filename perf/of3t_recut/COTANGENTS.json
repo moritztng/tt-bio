@@ -1,0 +1,36 @@
+{
+ "what": "of3t-recut job 3: the two cotangent files the device arms are driven from.",
+ "host": "tt-quietbox2",
+ "row": "of3t-recut",
+ "defect": "D242",
+ "device_involved": false,
+ "why_no_aiclk": "CPU only, no Tenstorrent device is opened",
+ "capture": {
+  "path": "/home/ttuser/of3t_modelframe/cot_model_n384.pt",
+  "sha256": "4e66d1ef45da2eec18fdff9489d68e980df928dc43d10fd4af82d14ec67141ac"
+ },
+ "correction_from": {
+  "path": "/home/ttuser/of3t_recut/ref_f64_model_n384_corrected.pt",
+  "convention": "graph-cut-external"
+ },
+ "norms": {
+  "cot_s": 5.599999708545341e-05,
+  "cot_z_hooked": 0.0007601379094210722,
+  "delta": 0.0007575746327655109,
+  "cot_z_external": 6.47087024696404e-05,
+  "duplicate_share_of_the_hooked_cot_z": 0.9966278794626707,
+  "hooked_over_external": 11.747073892846307
+ },
+ "out": {
+  "cot_external.pt": {
+   "path": "/home/ttuser/of3t_recut/cot_external.pt",
+   "sha256": "1d15a8dc6db2a14b678e5ed5d92558af99d369599226391fa59f36ed84192ef4",
+   "bytes": 152176717
+  },
+  "cot_delta_only.pt": {
+   "path": "/home/ttuser/of3t_recut/cot_delta_only.pt",
+   "sha256": "33be05b1f1f34e42aae9c2e3cd2248aa6603b7455a7584b9b35b299a354a0a16",
+   "bytes": 152176797
+  }
+ }
+}

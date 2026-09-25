@@ -1,0 +1,47 @@
+# CATCHER for origin/main d8f17563c, owed and written before a card is free for it.
+#
+# `results/catcher_owed_d8f17563c.txt` has the full reasoning. In short: main moved
+# f374c883e -> d8f17563c across six autograd/tape commits and `tt_bio/tenstorrent.py` is among
+# the files changed, which is the catcher rule's own trigger list, so boltzgen and pxdesign each
+# owe one job.
+#
+# EXPECTED RESULT: no change, on both. Every `tenstorrent.py` hunk is gated on `ops.taping()`
+# and a design is inference with no tape, so both changed expressions reduce to the originals:
+#
+#   _tri_att_sdpa_hifi_inner  an L1 refusal retires the config and continues, which the old
+#                             `o = None` fallthrough already did; a DECLINE retires it only
+#                             `if not ops.taping()`. Untaped, both are the old behaviour.
+#   _fp32_softmax_attention   `if l1_rows` -> `if l1_rows and not ops.taping()`, and
+#                             `if not l1_rows or (cap...)` -> `... or ops.taping() or (cap...)`.
+#                             With taping() False both are the original expressions.
+#
+# That expectation is why the jobs run rather than why they do not. This row has twice watched
+# a lever that read inert fire anyway, and the triatt latch in particular is the subject of
+# `a-state-dependent-decline-must-not-be-cached-as-a-permanent-refusal`.
+#
+# TREE: `~/wt-mgx-catcher`, already standing at d8f17563c with the branch's
+# `perf/mgxaccuracy perf/mgxscale perf/bhdesign perf/mgx_trace_region` checked out on top and
+# `git diff --name-only HEAD` showing no `tt_bio|scripts|tests` path. A catcher must be
+# attributable to MAIN, which is the opposite of the ladder rungs' requirement, so it does NOT
+# run from `~/wt-mgx-design-accuracy` (held at ff5435cba) and needs no behind-main override.
+# Launch with MGX_REMOTE_TREE=\$HOME/wt-mgx-catcher.
+#
+# Same two cases as every row of the CATCHER table, so each is a before/after on one banked
+# number rather than an exit code:
+#
+#   pxdesign 1224 tokens   fit_rmsd 0.1446 / 0.158 / 0.158 / 0.158 / 0.158 -- unchanged to four
+#                          decimals across five consecutive merge points, so a move here is a
+#                          real finding and n=2 reads it directly.
+#   boltzgen  512 + 80     n=2 on this case is pure sampling; consecutive catchers drew
+#                          12.117/13.912, 2.131/0.552, 8.786/7.735 and 9.632/7.270 from one
+#                          distribution. Report rc, wall, DURING AICLK and the two values
+#                          against the banked n=8 band 0.693-12.925. Only the exit code and an
+#                          excursion outside that band are readable.
+#
+# The rfd3 eager digest 7ab5705258251e10 is NOT owed here: `rfd3/design.py` and the trace path
+# are untouched by these six commits, and rfd3 does not reach `_tri_att_sdpa_hifi_inner` or
+# `_fp32_softmax_attention` through boltz2's modules. If a later merge touches the trace code
+# it comes back, run via perf/mgx_trace_region/chain.py with plans/rfd3_digest_catcher.txt.
+
+--model pxdesign --target perf/mgxaccuracy/targets/gpb_dimer_1646.cif --target-res 1024 --binder 200 --designs 2 --steps 400 --host-threads 2 --timeout 10800 --tag d8f_catcher
+--model boltzgen --target perf/mgxaccuracy/targets/gpb_dimer_1646.cif --target-res 512 --designs 2 --budget 2 --score-dsg --host-threads 2 --timeout 14400 --tag d8f_catcher

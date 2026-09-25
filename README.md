@@ -29,6 +29,12 @@ Predictions and designs per hour per server, and throughput per dollar of purcha
 
 Create a Python virtual environment with Python 3.10 or 3.12, install with the Tenstorrent extra, then install the matching Tenstorrent system dependencies.
 
+We test on Ubuntu 24.04 (glibc 2.39, Python 3.12). The `ttnn` wheel is tagged
+`manylinux_2_34` and imports `GLIBC_2.34` symbols, so glibc 2.34 or newer is required:
+RHEL 8 and its rebuilds ship glibc 2.28 and cannot install it. See
+[Troubleshooting](#troubleshooting) for the CPU frequency driver check, which matters more
+than anything else about the host.
+
 ```bash
 python3.10 -m venv env
 source env/bin/activate
@@ -65,6 +71,27 @@ tt-bio msa --help
 ```
 
 ### Troubleshooting
+
+**Check the CPU frequency driver first.** On an AMD host:
+
+```bash
+cat /sys/devices/system/cpu/cpu0/cpufreq/scaling_driver   # want: amd-pstate-epp
+```
+
+If it reads `acpi-cpufreq`, every ttnn op pays a fixed extra host cost, measured at roughly
+5 to 12 microseconds, and throughput drops across every model. The symptom is distinctive:
+per-op device time is unchanged and the loss tracks a model's op count rather than its
+size, so a fold that issues 25k ops loses far more than an embedding that issues 1k. One
+user measured Boltz-2 at 1.29 structures/s under a 5.4 kernel with `acpi-cpufreq` and
+2.14 structures/s on the same box, same binaries, after booting a kernel that gives
+`amd-pstate-epp`.
+
+`amd-pstate-epp` needs Linux 6.3 or newer. A kernel configured with
+`CONFIG_X86_AMD_PSTATE_DEFAULT_MODE=3` selects it with no boot flag; Ubuntu 24.04 does
+this. On an older kernel that has the driver but does not default to it, add
+`amd_pstate=active` to the kernel command line. Kernels before 6.3 (RHEL 8, Oracle UEK 6,
+anything 4.18 or 5.4) have no amd-pstate at all.
+
 Single-host prediction needs no MPI setup of yours. tt-metal ships the OpenMPI it wants, and a
 system OpenMPI on the environment breaks that build instead of replacing it: with `OMPI_MCA_*` or
 `OPAL_PREFIX` set, or a foreign `libmpi` on `LD_LIBRARY_PATH`, `MPI_Init` aborts before the fold
@@ -146,8 +173,10 @@ For every model here that reads an alignment, the limit was measured with 16384 
 the most any of them reads, so a deeper a3m does not lower it.
 
 Ask for more than a model's limit and tt-bio refuses before it opens a device, naming the
-model, the limit and any model that does take the input. `nesso1` has no measured
-limit and is never refused. What sets each wall is in
+model, the limit and any model that does take the input. `nesso1` and `af2ig` have no measured
+limit and are never refused: nothing above the top of either ladder has been run, so there is no
+failing size to refuse on. AF2-IG's top rung is 1024 tokens (944 target residues plus an
+80-residue binder) in 488 s on one Wormhole chip. What sets each wall is in
 [docs/large-targets.md](docs/large-targets.md#what-stops-each-model-above-1024-on-a-galaxy-chip).
 
 `boltzgen` is the one model sized on atoms rather than residues, because its wall follows the
@@ -549,6 +578,7 @@ properties:
 ├── power_profile.csv                 # (optional, --report-energy)
 ├── power_profile.png                 # (optional, --report-energy)
 ├── prot_pae.npz                      # (optional, --write_pae)
+├── prot_plddt.npz                    # (optional, --write_pae, Boltz-2)
 ├── prot_pde.npz                      # (optional, --write_pde)
 └── prot_embeddings.npz               # (optional, --write_embeddings)
 ```
@@ -585,6 +615,25 @@ Each target entry in `results.json` contains confidence metrics. The fields belo
 - `complex_plddt`, `plddt`: Mean confidence (0-1), the same value under both names. It is the mean of the B-factor column of the structure file the same fold wrote, so averaging that column reproduces it. Boltz-2 writes one pLDDT per residue, so average over one atom per residue (CA); Protenix-v2, OpenFold3, OpenBind-0 and OpenDDE write one per atom, so average over all of them
 - `chains_ptm`: Per-chain TM-scores (0-1)
 - `pair_chains_iptm`: Per-chain-pair interface TM-scores (0-1), with each chain's own `chains_ptm` on the diagonal. Read `pair_chains_iptm[binder][target]` to score one named interface of a complex; the global `iptm` is the whole-interface number and on a two-chain target the two agree. Like every other confidence value, these are comparable between targets of the same model, not between models
+
+### Interface Scores
+
+With `--write_pae`, a multi-chain Boltz-2 entry also carries `interface_scores`: ipSAE (both
+directions, their max and their min), ipTM, interface pAE, pDockQ, pDockQ2 and LIS for every chain
+pair. The definitions match the script Adaptyv scored its Nipah binder competition with, at the
+same 15 A cutoffs. `interface_score_distribution` gives the same scores for every diffusion
+sample, with mean, standard deviation and range, so `--diffusion_samples 5` shows how stable a
+design's score is as well as its value. To score a fold you already have, from tt-bio or from
+upstream Boltz, without a device:
+
+```bash
+tt-bio score prot_model_0.cif pae_prot_model_0.npz --plddt plddt_prot_model_0.npz
+```
+
+Tenstorrent arithmetic differs from a GPU's, so the same inputs fold to slightly different
+numbers than they do on CUDA. See [docs/interface-scores.md](docs/interface-scores.md) for the
+definitions, the choices made where the reference is ambiguous, and how this relates to the ipSAE
+BoltzGen reports while designing.
 
 ### Affinity Predictions
 
@@ -899,7 +948,7 @@ tt-bio design specs.json --model rfd3 --from_pdb --out_dir designs/
 | `rfd3` | all-atom structures: binders, motif scaffolding, nucleic-acid binders | JSON spec with contig strings |
 | `pxdesign` | binder backbones against a target structure | target YAML: structure file, chains to condition on, binder length |
 
-**[BoltzGen](https://github.com/HannesStark/boltzgen)** designs binders against a target structure. The pipeline runs design → inverse folding → folding → analysis → filtering and writes the top-ranked binders to `<out_dir>/final_ranked_designs/`. Input grammar, protocols, pipeline subsets, and options: [`docs/boltzgen-design.md`](docs/boltzgen-design.md). Designability (scRMSD) QA: [`docs/boltzgen-designability.md`](docs/boltzgen-designability.md).
+**[BoltzGen](https://github.com/HannesStark/boltzgen)** designs binders against a target structure. The pipeline runs design → inverse folding → folding → analysis → filtering and writes the top-ranked binders to `<out_dir>/final_ranked_designs/`. Pass `--seed N` to make a design reproducible; without it every run draws fresh. Input grammar, protocols, pipeline subsets, and options: [`docs/boltzgen-design.md`](docs/boltzgen-design.md). Designability (scRMSD) QA: [`docs/boltzgen-designability.md`](docs/boltzgen-designability.md).
 
 **[RFdiffusion3](https://www.biorxiv.org/content/10.1101/2025.09.18.676967)** (RFD3) is an all-atom generative model that designs new protein structures and sequences from a specification, rather than folding an existing one. Design modes, the contig-string input grammar, and which conditioning fields a spec can and cannot ask for: [`docs/rfd3-design.md`](docs/rfd3-design.md).
 
@@ -908,6 +957,8 @@ tt-bio design specs.json --model rfd3 --from_pdb --out_dir designs/
 Each model downloads its weights automatically on first use. BoltzGen and RFdiffusion3 fan out across every available card (`--devices 0,2` restricts); PXDesign runs on one card locally, or one design per card across a host's controller with `--controller http://127.0.0.1:8765`. `tt-bio gen` still works as a deprecated alias for `tt-bio design --model boltzgen`.
 
 How many designs a card returns per hour, how `--num_designs` and `--devices` move it, and how to size a campaign: [`docs/design-throughput.md`](docs/design-throughput.md).
+
+**[BindCraft 2](https://github.com/PacesaLab/BindCraft2)** is not a tt-bio model and has no CLI entry; it is a third-party design loop you install yourself, and `tt_bio.bindcraft2` gives it an AlphaFold 2 Evoformer that runs on a card. Its gradient loop runs on card, with the validation ensemble on BindCraft 2's own trunk so it stays the reference's; design acceptance is still being qualified. What you need, how to point a campaign at a chip, and what is not settled: [`docs/bindcraft2.md`](docs/bindcraft2.md).
 
 ## Training
 
@@ -960,6 +1011,17 @@ at the point it would read your data. Featurisation is per model on purpose, and
 registers its own with `tt_bio.train.catalogue.register`. `--train weights` also comes back
 `UNMEASURED` from the dry run: we have measured a frozen trunk's memory and not a trained one's,
 and it will not print a projection shaped like a measurement.
+
+`finetune` follows OpenFold3's optimizer setup rather than Adam's library defaults, which
+differ in three places that no loss curve shows: `betas=(0.9, 0.95)`, no weight decay, and the
+AlphaFold 2 learning-rate schedule. Each is an argument, and the loop clips every sample
+separately, so a batch of 8 is 8 forwards per step. See
+[`docs/training.md`](docs/training.md) for what each one costs if you get it wrong.
+
+A training step runs softmax and layer norm in float64 on the host, which is what brings the
+OpenFold3 gradient inside its accuracy bar against upstream. It makes a step slower;
+`--device-ops` puts them back on the device kernels. Inference is unaffected. See
+[`docs/training.md`](docs/training.md#softmax-and-layer-norm-run-in-float64-during-training-by-default).
 
 Four things the API enforces rather than documents, because each is a bug we hit:
 

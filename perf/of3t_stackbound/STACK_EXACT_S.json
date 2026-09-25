@@ -1,0 +1,55 @@
+{
+ "exact": [
+  "softmax"
+ ],
+ "installed": {
+  "softmax_installed_inside_the_scope": true
+ },
+ "counters": {
+  "softmax": {
+   "verb": 5901,
+   "raw": 1742,
+   "raw_elements": 21856518144
+  },
+  "layer_norm": {
+   "verb": 0,
+   "raw": 0,
+   "elements": 0,
+   "bw": 0
+  }
+ },
+ "why_counters": "softmax: `verb` taped exact forward+Jacobian, `raw` the module-wide ttnn.softmax. layer_norm: `verb` taped exact forward, `bw` exact backwards taken, `raw` untaped forwards. All zero on a rung that does not open the scope is the check that it ran without it.",
+ "argv": [
+  "--census-out",
+  "/home/ttuser/.coworker/wt/of3t-stackbound/perf/of3t_stackbound/CENSUS_S.json",
+  "--lever",
+  "none",
+  "--",
+  "--boundary",
+  "/home/ttuser/of3t_stackbound/boundary_model_sb.pt",
+  "--cap-last",
+  "/home/ttuser/of3t_stackbound/cot_external_sb.pt",
+  "--out",
+  "/home/ttuser/of3t_stackbound/dev_S.pt",
+  "--report",
+  "/home/ttuser/.coworker/wt/of3t-stackbound/perf/of3t_stackbound/DEV_S.json",
+  "--arm",
+  "flipped",
+  "--crop",
+  "0"
+ ],
+ "environment": {
+  "host": "tt-quietbox2",
+  "card": 3,
+  "board_class": "p300c",
+  "aiclk_mhz_sampled_DURING": {
+   "n": 242,
+   "min": 800,
+   "median": 1350,
+   "max": 1350
+  },
+  "host_quiet": "loadavg1 4.33 over ceiling 2.00\nHOST NOT QUIET -- your timing read is contaminated even with an idle sibling and a forced clock. Wait it out or DEFER. Do not measure and explain it afterwards.",
+  "git_commit": "0718331295801e994f804cbd6779a4125aeb3178",
+  "boundary_version": "upstream OpenFold3 0.4.3 (4hhb boundary captured from of3pkg043, 384 real tokens; graded reference 0.4.3 bf16 autocast, contrast 0.4.3 float64)"
+ }
+}

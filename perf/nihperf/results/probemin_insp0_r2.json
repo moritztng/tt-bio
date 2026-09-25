@@ -1,0 +1,61 @@
+{
+  "chunk_size": 100,
+  "n_chunks": 400,
+  "enqueue_us_per_op_min_chunk": 8.048,
+  "enqueue_us_per_op_p10_chunk": 8.24,
+  "enqueue_us_per_op_median_chunk": 13.753,
+  "probe_shape": [
+    32,
+    32
+  ],
+  "probe_reps": 40000,
+  "probe_device_ops": 40000,
+  "enqueue_wall_us_per_op": 21.173,
+  "enqueue_cpu_us_per_op": 20.465,
+  "enqueue_plus_drain_us_per_op": 21.188,
+  "enqueue_host_share_of_total": 0.9993,
+  "probe_only": true,
+  "machine_id": "tt-quietbox2",
+  "card_type": "p300c",
+  "tt_bio_version": "0.9.0",
+  "inspector_env": "0",
+  "visible_devices": "1",
+  "loadavg_before": [
+    20.81640625,
+    18.83203125,
+    18.79931640625
+  ],
+  "loadavg_after": [
+    21.71240234375,
+    19.05078125,
+    18.87060546875
+  ],
+  "nproc": 16,
+  "aiclk_during": {
+    "1": {
+      "min": 800,
+      "median": 1350,
+      "max": 1350,
+      "n": 14
+    },
+    "0": {
+      "min": 800,
+      "median": 800,
+      "max": 800,
+      "n": 14
+    },
+    "3": {
+      "min": 1350,
+      "median": 1350,
+      "max": 1350,
+      "n": 14
+    },
+    "2": {
+      "min": 1350,
+      "median": 1350,
+      "max": 1350,
+      "n": 14
+    }
+  },
+  "utc": "2026-09-25T16:36:18Z"
+}

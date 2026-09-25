@@ -1,0 +1,15 @@
+{
+ "host": "qb1",
+ "hostname": "tt-quietbox",
+ "board": "p150a Blackhole",
+ "card": "qb1 (tt-quietbox) card qb1 (tt-quietbox) card 0, p150a Blackhole -- base B64K after tt-smi -r 0 vs card qb1 (tt-quietbox) card 0, p150a Blackhole -- nocast N64K after tt-smi -r 0, p150a Blackhole",
+ "a_ran_on": "qb1 card qb1 (tt-quietbox) card 0, p150a Blackhole -- base B64K after tt-smi -r 0, p150a Blackhole",
+ "b_ran_on": "qb1 card qb1 (tt-quietbox) card 0, p150a Blackhole -- nocast N64K after tt-smi -r 0, p150a Blackhole",
+ "a": "/home/ttuser/of3t_readverbs/cot_B64K.pt",
+ "b": "/home/ttuser/of3t_readverbs/cot_N64K.pt",
+ "tensors": 98,
+ "bit_identical": 98,
+ "differing": [],
+ "a_content_sha256_12": "7ecaa69ed0fe",
+ "verdict": "BIT-IDENTICAL"
+}

@@ -1,0 +1,162 @@
+{
+ "boltz2": {
+  "residues": null,
+  "pass_at": null,
+  "fail_at": null,
+  "binds": "unmeasured",
+  "mechanism": "unknown",
+  "counts": "residues"
+ },
+ "boltzgen": {
+  "residues": 14786,
+  "pass_at": 14786,
+  "fail_at": null,
+  "binds": "ladder_top",
+  "mechanism": "none",
+  "counts": "target_atoms"
+ },
+ "esmc-300m": {
+  "residues": 69632,
+  "pass_at": 69632,
+  "fail_at": 73728,
+  "binds": "memory",
+  "mechanism": "dram",
+  "counts": "max_sequence"
+ },
+ "esmc-600m": {
+  "residues": 69632,
+  "pass_at": 69632,
+  "fail_at": 73728,
+  "binds": "memory",
+  "mechanism": "dram",
+  "counts": "max_sequence"
+ },
+ "esmc-6b": {
+  "residues": 1968,
+  "pass_at": 1968,
+  "fail_at": 1984,
+  "binds": "memory",
+  "mechanism": "dram",
+  "counts": "max_sequence"
+ },
+ "esmfold2": {
+  "residues": 1024,
+  "pass_at": 1024,
+  "fail_at": 1056,
+  "binds": "memory",
+  "mechanism": "dram",
+  "counts": "residues"
+ },
+ "esmfold2-fast": {
+  "residues": 1152,
+  "pass_at": 1152,
+  "fail_at": 1248,
+  "binds": "memory",
+  "mechanism": "dram",
+  "counts": "residues"
+ },
+ "nesso1": {
+  "residues": null,
+  "pass_at": null,
+  "fail_at": null,
+  "binds": "unmeasured",
+  "mechanism": "unknown",
+  "counts": "residues"
+ },
+ "openbind": {
+  "residues": 960,
+  "pass_at": 960,
+  "fail_at": 1024,
+  "binds": "memory",
+  "mechanism": "dram_msa",
+  "counts": "residues"
+ },
+ "opendde": {
+  "residues": 1024,
+  "pass_at": 1024,
+  "fail_at": 1088,
+  "binds": "memory",
+  "mechanism": "fragmentation",
+  "counts": "residues"
+ },
+ "opendde-abag": {
+  "residues": 1024,
+  "pass_at": 1024,
+  "fail_at": 1088,
+  "binds": "memory",
+  "mechanism": "fragmentation",
+  "counts": "residues"
+ },
+ "openfold3": {
+  "residues": 1024,
+  "pass_at": 1024,
+  "fail_at": null,
+  "binds": "ladder_top",
+  "mechanism": "none",
+  "counts": "residues"
+ },
+ "protenix-v1": {
+  "residues": null,
+  "pass_at": null,
+  "fail_at": null,
+  "binds": "unmeasured",
+  "mechanism": "unknown",
+  "counts": "residues"
+ },
+ "protenix-v2": {
+  "residues": 1024,
+  "pass_at": 1024,
+  "fail_at": 1095,
+  "binds": "memory",
+  "mechanism": "dram",
+  "counts": "residues"
+ },
+ "pxdesign": {
+  "residues": 960,
+  "pass_at": 960,
+  "fail_at": null,
+  "binds": "ladder_top",
+  "mechanism": "none",
+  "counts": "design_target"
+ },
+ "rf3": {
+  "residues": 1095,
+  "pass_at": 1095,
+  "fail_at": null,
+  "binds": "ladder_top",
+  "mechanism": "none",
+  "counts": "residues"
+ },
+ "rfd3": {
+  "residues": 1024,
+  "pass_at": 1024,
+  "fail_at": null,
+  "binds": "ladder_top",
+  "mechanism": "none",
+  "counts": "design_total"
+ },
+ "saprot-1.3b": {
+  "residues": 57344,
+  "pass_at": 57344,
+  "fail_at": 65537,
+  "binds": "memory",
+  "mechanism": "dram",
+  "counts": "max_sequence"
+ },
+ "saprot-35m": {
+  "residues": 73728,
+  "pass_at": 73728,
+  "fail_at": 77824,
+  "binds": "memory",
+  "mechanism": "dram",
+  "counts": "max_sequence"
+ },
+ "saprot-650m": {
+  "residues": 65537,
+  "pass_at": 65537,
+  "fail_at": 73728,
+  "binds": "memory",
+  "mechanism": "dram",
+  "counts": "max_sequence"
+ }
+}

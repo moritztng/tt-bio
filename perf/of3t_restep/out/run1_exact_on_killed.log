@@ -1,0 +1,19 @@
+2026-09-25 19:04:34.574 | DEBUG    | ttnn:<module>:77 - Initial ttnn.CONFIG:
+Config{cache_path=/home/moritz/.cache/ttnn,model_cache_path=/home/moritz/.cache/ttnn/models,tmp_dir=/tmp/ttnn,enable_model_cache=false,enable_fast_runtime_mode=true,throw_exception_on_fallback=false,enable_logging=false,enable_graph_report=false,enable_detailed_buffer_report=false,enable_detailed_tensor_report=false,enable_comparison_mode=false,comparison_mode_should_raise_exception=false,comparison_mode_pcc=0.9999,root_report_path=generated/ttnn/reports,report_name=std::nullopt,std::nullopt}
+[host_quiet exact_on/pre] rc=0 loadavg=[1.48388671875, 2.31005859375, 3.1826171875]
+[weights] 3152 tensors (2256 pairformer, 621 diffusion), 381.3M elements
+  [diffusion] sample 0 sigma   42.421   11.579s
+  [diffusion] sample 1 sigma 3306.969    0.495s
+  [diffusion] sample 2 sigma  881.749    0.570s
+  [diffusion] sample 3 sigma    3.083    0.496s
+  [tape] leaving the tape context
+  [tape] left the tape context
+  [losses] 4 roots, token scope n=384
+  [losses] root 0 downloaded 3092 atoms -> 384 tokens in 0.00s
+  [losses] root 0 af3_loss done, 7 terms
+  [losses] root 1 downloaded 3092 atoms -> 384 tokens in 0.00s
+  [losses] root 1 af3_loss done, 7 terms
+  [losses] root 2 downloaded 3092 atoms -> 384 tokens in 0.00s
+  [losses] root 2 af3_loss done, 7 terms
+  [losses] root 3 downloaded 3092 atoms -> 384 tokens in 0.00s
+  [losses] root 3 af3_loss done, 7 terms

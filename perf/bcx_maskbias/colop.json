@@ -1,0 +1,58 @@
+{
+ "1": {
+  "fp32_softmax_attention": {
+   "rel_l2": 0.02752489117697123,
+   "max_abs": 0.125
+  },
+  "fp32_softmax_attention@nofill": {
+   "rel_l2": 0.02752489117697123,
+   "max_abs": 0.125
+  },
+  "column_ckc_softmax": {
+   "rel_l2": 0.0,
+   "max_abs": 0.0
+  }
+ },
+ "2": {
+  "fp32_softmax_attention": {
+   "rel_l2": 0.014770271518518127,
+   "max_abs": 0.12489519262332527
+  },
+  "fp32_softmax_attention@nofill": {
+   "rel_l2": 0.014770271518518127,
+   "max_abs": 0.12489519262332527
+  },
+  "column_ckc_softmax": {
+   "rel_l2": 0.002484388886597,
+   "max_abs": 0.01860323598117508
+  }
+ },
+ "4": {
+  "fp32_softmax_attention": {
+   "rel_l2": 0.01975383571738112,
+   "max_abs": 0.10428117029339123
+  },
+  "fp32_softmax_attention@nofill": {
+   "rel_l2": 0.01975383571738112,
+   "max_abs": 0.10428117029339123
+  },
+  "column_ckc_softmax": {
+   "rel_l2": 0.002830368672653178,
+   "max_abs": 0.01811049750303495
+  }
+ },
+ "32": {
+  "fp32_softmax_attention": {
+   "rel_l2": 0.02438995309890582,
+   "max_abs": 0.09064214592989539
+  },
+  "fp32_softmax_attention@nofill": {
+   "rel_l2": 0.02438995309890582,
+   "max_abs": 0.09064214592989539
+  },
+  "column_ckc_softmax": {
+   "rel_l2": 0.004514490242570045,
+   "max_abs": 0.022502106126780053
+  }
+ }
+}

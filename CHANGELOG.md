@@ -68,6 +68,11 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
 
 ### Fixed
 
+- **`tt-bio design --model boltzgen --seed` did nothing.** The flag was dropped, and the design
+  and refold loaders featurized from OS entropy. It now reaches every draw, so the same spec and seed
+  give byte-identical designs; without `--seed` each run still draws fresh. Metrics CSV columns no
+  longer change order between runs.
+
 - **A completion lost on the wire no longer strands its job forever.** `/complete` was never
   retried, and the job stayed leased to a worker whose heartbeats kept renewing it, so the run
   never ended. A result settles only from the lease holder and a replay matches nothing, so the
@@ -161,6 +166,16 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
   the same input gives the same coordinates, pLDDT, pTM and ipTM as before. Opened as #15 by
   @ssiddhantsharma; the diagonal (each chain's own pTM) and the device confidence path
   (`TT_PROTENIX_CONF_DEVICE=1`) were added on top of it.
+
+### The release gate itself
+
+- **The AF2-IG device-trunk floor is re-recorded at the OuterProductMean output-stage layout.**
+  That layout (638187138) is on for every model and makes a 512-residue fold 1.0111x faster. On
+  AF2-IG it moves the final structure 0.150 -> 0.210 A CA RMSD from JAX, inside the 0.60 A bar,
+  and the gate had read that move as a FAIL since the layout landed. The new record names the
+  layout as its cause. It was measured on qb1 at the p150a's 11x10 grid and reproduced in a second
+  process. The `--template-host` arm and both `--mutate` controls still FAIL against it, and the
+  template-host arm is now a test.
 
 ## [0.9.0] - 2026-09-18
 

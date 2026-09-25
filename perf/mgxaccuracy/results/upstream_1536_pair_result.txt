@@ -1,0 +1,49 @@
+# THE DECIDING GATE. Both upstream fp32 CPU draws of the 1GPB 1536 cell landed on qb2.
+# 2026-09-25 10:2xZ. Read with the tool and the rule that were written before either value
+# existed: plans/closing_rule.txt §3-4, plans/upstream_pair_amendment.txt, and
+# ref/read_upstream_pair.py exercised at both boundaries on synthetic inputs.
+
+    draw a   20.175333755021  A     started 2026-09-24 01:21:17Z, design done 00:29:51Z,
+                                    refold 2026-09-25 00:38:53Z  (23 h 18 m)
+    draw b   21.222726138799  A     started 2026-09-24 06:04:22Z, design done 06:21:15Z,
+                                    refold 2026-09-25 06:27:37Z  (24 h 23 m)
+
+Independent output dirs (out1536_valid, out1536_valid_b), independent processes, one fixture:
+`fx_valid/bgt1536.cif` hashes ffa258bb599f182ce49b9f78ab089653ca35d464471d41b1e490d535421e9caf,
+the precleared hash of every 1536 fixture in play on both hosts
+(results/upstream_1536_fixture_precleared.txt). Both finished BEFORE qb2 rebooted at ~09:06Z;
+the reboot took the logs and the processes, not the outputs. Scored on pc by
+ref/harvest_upstream_1536.sh, whose transfer filter and scoring call reproduce the banked
+11.375 A on the finished out512_valid.
+
+## THE READING, off the pre-registered tool
+
+  cell                          device n=8            2nd-smallest   U of 16   exact p
+  PRIMARY  after cc908c377   median 19.398  min  6.650    18.740        5.0     0.8000
+  onetree  72ad980ee         median 19.950  min 17.843    18.808        4.0     0.8667
+  pre-fix  d8_s400_gpb       median 21.516  min 19.311    20.140       11.0     0.2667
+
+Clause 3 needs U >= 15 (p <= 0.0444). The observed U is 5, 4 and 11. **ALL THREE CELLS AGREE:
+no ordering is readable, upstream is at the same level, clause 4.** The amendment's
+disagreement branch does not fire -- draw a at 20.175 is above all three second-smallest
+values, which by §1 forecloses every cell on its own, and draw b at 21.223 is higher still.
+
+Bar crossings: 0 of 2 at 4 A and 0 of 2 at 2 A. Upstream fp32 on CPU, at full upstream defaults
+(sampling_steps 500, recycling_steps 3, diffusion_samples 1, matmul_precision highest), returns
+a binder that does not refold at 1536 either.
+
+## WHAT THIS CLOSES
+
+`plans/closing_rule.txt` §4: both (a) the upstream 1536 pair and (b) the GroEL 2x2 have landed
+and been read, and the pair does not separate in upstream's favour. So the brief's clause 4
+applies -- the size where quality falls is a BoltzGen property, not a port defect -- it goes in
+docs/design-throughput.md with the numbers, and the row closes GO.
+
+Nothing here says the device is as good as upstream, and nothing says it is better. m=2 against
+n=8 can only reject on near-perfect separation; what this pair rules out is the direction the
+row was opened on. The honest statement is the one the tool prints: no ordering is readable.
+
+## THE TWO whglx DRAWS OF THE SAME CELL ARE DISCARDED
+
+See results/whglx_gpb1536_draws_collided.txt. They are not in the pair above and were never
+needed: qb2's two are the pre-registered pair.

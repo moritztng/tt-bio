@@ -1,0 +1,25 @@
+# Is the 1536 design less designable than the 512 one? PARTIAL, 4 of 8, pre-fix engine.
+#
+# Same target (gpb_dimer_1646), same binder length, same spec. scRMSD, N,CA,C,O backbone.
+#
+# cell                                           n   median         range
+# 512, device design, DEVICE refold              8    8.455    0.86-12.90
+# 512, device design, UPSTREAM refold            2    7.712    1.74-13.69
+# 1536, device design, UPSTREAM refold           4   18.856   16.45-22.21
+#
+# The two ranges do not overlap at all: the worst 512 design (12.90) is better than the best
+# 1536 one (16.45). Mann-Whitney against the n=8 512 cell gives U=0, z=2.72, separated.
+# The 1536 median is 2.23x the 512 median and sits 8.30 A ABOVE THE TOP of the 512
+# across-target band (8.46-10.56), which is the floor the pre-registered rule requires it
+# to clear. It clears it.
+#
+# THREE THINGS KEEP THIS FROM BEING THE ANSWER:
+#  1. The refolder differs between the cells -- device at 512, upstream at 1536. The two
+#     were measured equivalent within their own noise (refolder_pair_512.txt), and the
+#     refolder-matched pair also shows zero overlap, but at n=2 that cannot separate
+#     (U=0, z=1.85). Refolding the other six 512 designs upstream closes this.
+#  2. These designs were made on the PRE-FIX engine, before cc908c377 corrected
+#     TokenDistanceRecycle -- the module that injects the target's token distances, whose
+#     error would plausibly grow with token count. It is the prime suspect for this very
+#     effect, and the test is a 1536 arm on the fixed engine.
+#  3. One target per size, so a size effect and a target effect are still the same number.

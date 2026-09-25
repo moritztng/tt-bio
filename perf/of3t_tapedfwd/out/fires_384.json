@@ -1,0 +1,699 @@
+{
+ "doc": "Which tape-gated routes a taped OF3 forward gives up, counted at runtime.",
+ "argv": [
+  "--tokens",
+  "384",
+  "--cycles",
+  "1",
+  "--reps",
+  "3",
+  "--out",
+  "perf/of3t_tapedfwd/out/fires_384.json"
+ ],
+ "arms": {
+  "A": "untaped, taping()->False -- the inference forward",
+  "B": "untaped, taping()->True  -- the taped forward's route set, no tape cost",
+  "C": "taped -- the real thing"
+ },
+ "env": {
+  "host": "pc",
+  "tt_visible_devices": "0",
+  "commit": "59b3c2221eff539f3e51604fdaab036c987f7a43",
+  "started_utc": "2026-09-25T14:20:47Z",
+  "loadavg": [
+   3.1298828125,
+   2.21923828125,
+   1.86669921875
+  ]
+ },
+ "build_fold_s": 4.03,
+ "prep_to_sampler_s": 58.79,
+ "capture": {
+  "trunk_inputs_snapshotted": true,
+  "trunk_inputs_dead_at_capture": 0,
+  "trunk_forward_s": 43.309,
+  "trunk_forward_note": "the shipped call, progress_fn INCLUDED and cold; the timed arms below drop it",
+  "trunk_cycles": 4,
+  "reached_sampler": true
+ },
+ "counters_watched": 36,
+ "reps": [
+  {
+   "rep": 0,
+   "arm": "A",
+   "s": 1.2032,
+   "counters": {
+    "tt_bio.mm_dualnoc.STATS": [
+     108,
+     0
+    ],
+    "tt_bio.tenstorrent.FP32_SOFTMAX_STATS": {
+     "calls": 12,
+     "blocked": 12,
+     "blocks": 132,
+     "fused": 132,
+     "l1": 12,
+     "l1_blocks": 120
+    },
+    "tt_bio.reblock_permute.STATS_BACK": [
+     108,
+     0
+    ],
+    "tt_bio.reblock_permute.STATS_GATED": [
+     216,
+     0
+    ],
+    "tt_bio.triatt_sdpa.STATS": [
+     96,
+     0
+    ],
+    "tt_bio.triatt_qkv.STATS": [
+     104,
+     4
+    ],
+    "tt_bio.triatt_qkv.TAIL_STATS": [
+     104,
+     0
+    ],
+    "tt_bio.tenstorrent.APB_CONCAT_HEADS_STATS": [
+     0,
+     48
+    ],
+    "tt_bio.tenstorrent.TRANSITION_H_CHUNK_STATS": [
+     57,
+     0
+    ],
+    "tt_bio.tenstorrent.TRIATT_FUSED_HIFI_STATS": {
+     "served": 96
+    },
+    "tt_bio.triatt_qkv.QKVG_STATS": [
+     104,
+     0
+    ],
+    "tt_bio.triatt_qkv.QKVGB_STATS": [
+     104,
+     0
+    ],
+    "tt_bio.tenstorrent.PWA_DEPTH_STATS": {
+     "whole": 3
+    },
+    "tt_bio.tenstorrent.OPM_ROW_STATS": {
+     "whole": 4
+    }
+   },
+   "taping_sites": {
+    "tenstorrent.py:10495": 54,
+    "tenstorrent.py:1168": 108,
+    "tenstorrent.py:7406": 108,
+    "mm_dualnoc.py:87": 108,
+    "reblock_permute.py:877": 108,
+    "reblock_permute.py:597": 108,
+    "tenstorrent.py:5131": 112,
+    "triatt_qkv.py:59": 212,
+    "tenstorrent.py:4104": 12,
+    "tenstorrent.py:4123": 132,
+    "tenstorrent.py:4653": 265,
+    "tenstorrent.py:9976": 105,
+    "triatt_sdpa.py:340": 96
+   },
+   "digest": [
+    {
+     "n": 147456,
+     "mean": 117.61536986629169,
+     "absmax": 168960.0,
+     "l2": 5483684.774976529
+    },
+    {
+     "n": 18874368,
+     "mean": 1.458284076070413,
+     "absmax": 4864.0,
+     "l2": 272739.6582432452
+    }
+   ]
+  },
+  {
+   "rep": 0,
+   "arm": "B",
+   "s": 3.9032,
+   "counters": {
+    "tt_bio.tenstorrent.FP32_SOFTMAX_STATS": {
+     "calls": 108,
+     "fused": 108
+    },
+    "tt_bio.tenstorrent.APB_CONCAT_HEADS_STATS": [
+     0,
+     48
+    ],
+    "tt_bio.tenstorrent.TRANSITION_H_CHUNK_STATS": [
+     57,
+     0
+    ],
+    "tt_bio.tenstorrent.TRIATT_FUSED_HIFI_STATS": {
+     "declined": 96
+    },
+    "tt_bio.tenstorrent.PWA_DEPTH_STATS": {
+     "whole": 3
+    },
+    "tt_bio.tenstorrent.OPM_ROW_STATS": {
+     "whole": 4
+    }
+   },
+   "taping_sites": {
+    "tenstorrent.py:10495": 54,
+    "tenstorrent.py:1168": 108,
+    "tenstorrent.py:7406": 108,
+    "mm_dualnoc.py:87": 108,
+    "reblock_permute.py:877": 108,
+    "reblock_permute.py:373": 216,
+    "reblock_permute.py:597": 108,
+    "tenstorrent.py:4653": 321,
+    "trimul_tail.py:232": 108,
+    "tenstorrent.py:5131": 324,
+    "triatt_qkv.py:59": 316,
+    "tenstorrent.py:4104": 108,
+    "tenstorrent.py:4123": 108,
+    "tenstorrent.py:9976": 105,
+    "triatt_sdpa.py:340": 1440,
+    "tenstorrent.py:2634": 1440
+   },
+   "digest": [
+    {
+     "n": 147456,
+     "mean": 117.85720486111111,
+     "absmax": 167936.0,
+     "l2": 5481921.62477766
+    },
+    {
+     "n": 18874368,
+     "mean": 1.4569710860151746,
+     "absmax": 4768.0,
+     "l2": 271994.29245061823
+    }
+   ]
+  },
+  {
+   "rep": 0,
+   "arm": "C",
+   "s": 225.3657,
+   "counters": {
+    "tt_bio.tenstorrent.FP32_SOFTMAX_STATS": {
+     "calls": 108,
+     "fused": 108
+    },
+    "tt_bio.tenstorrent.APB_CONCAT_HEADS_STATS": [
+     0,
+     48
+    ],
+    "tt_bio.tenstorrent.TRANSITION_H_CHUNK_STATS": [
+     57,
+     0
+    ],
+    "tt_bio.tenstorrent.TRIATT_FUSED_HIFI_STATS": {
+     "declined": 96
+    },
+    "tt_bio.tenstorrent.PWA_DEPTH_STATS": {
+     "whole": 3
+    },
+    "tt_bio.tenstorrent.OPM_ROW_STATS": {
+     "whole": 4
+    }
+   },
+   "taping_sites": {
+    "tenstorrent.py:10495": 54,
+    "tenstorrent.py:1168": 108,
+    "tenstorrent.py:7406": 108,
+    "mm_dualnoc.py:87": 108,
+    "reblock_permute.py:877": 108,
+    "reblock_permute.py:373": 216,
+    "reblock_permute.py:597": 108,
+    "tenstorrent.py:4653": 321,
+    "trimul_tail.py:232": 108,
+    "tenstorrent.py:5131": 324,
+    "triatt_qkv.py:59": 316,
+    "tenstorrent.py:4104": 108,
+    "tenstorrent.py:4123": 108,
+    "tenstorrent.py:9976": 105,
+    "triatt_sdpa.py:340": 1440,
+    "tenstorrent.py:2634": 1440
+   },
+   "digest": [
+    {
+     "n": 147456,
+     "mean": 117.6288440492418,
+     "absmax": 171008.0,
+     "l2": 5519294.892400255
+    },
+    {
+     "n": 18874368,
+     "mean": 1.4429952868570883,
+     "absmax": 4832.0,
+     "l2": 272543.542847075
+    }
+   ]
+  },
+  {
+   "rep": 1,
+   "arm": "A",
+   "s": 1.2057,
+   "counters": {
+    "tt_bio.mm_dualnoc.STATS": [
+     108,
+     0
+    ],
+    "tt_bio.tenstorrent.FP32_SOFTMAX_STATS": {
+     "calls": 12,
+     "blocked": 12,
+     "blocks": 132,
+     "fused": 132,
+     "l1": 12,
+     "l1_blocks": 120
+    },
+    "tt_bio.reblock_permute.STATS_BACK": [
+     108,
+     0
+    ],
+    "tt_bio.reblock_permute.STATS_GATED": [
+     216,
+     0
+    ],
+    "tt_bio.triatt_sdpa.STATS": [
+     96,
+     0
+    ],
+    "tt_bio.triatt_qkv.STATS": [
+     104,
+     4
+    ],
+    "tt_bio.triatt_qkv.TAIL_STATS": [
+     104,
+     0
+    ],
+    "tt_bio.tenstorrent.APB_CONCAT_HEADS_STATS": [
+     0,
+     48
+    ],
+    "tt_bio.tenstorrent.TRANSITION_H_CHUNK_STATS": [
+     57,
+     0
+    ],
+    "tt_bio.tenstorrent.TRIATT_FUSED_HIFI_STATS": {
+     "served": 96
+    },
+    "tt_bio.triatt_qkv.QKVG_STATS": [
+     104,
+     0
+    ],
+    "tt_bio.triatt_qkv.QKVGB_STATS": [
+     104,
+     0
+    ],
+    "tt_bio.tenstorrent.PWA_DEPTH_STATS": {
+     "whole": 3
+    },
+    "tt_bio.tenstorrent.OPM_ROW_STATS": {
+     "whole": 4
+    }
+   },
+   "taping_sites": {
+    "tenstorrent.py:10495": 54,
+    "tenstorrent.py:1168": 108,
+    "tenstorrent.py:7406": 108,
+    "mm_dualnoc.py:87": 108,
+    "reblock_permute.py:877": 108,
+    "reblock_permute.py:597": 108,
+    "tenstorrent.py:5131": 112,
+    "triatt_qkv.py:59": 212,
+    "tenstorrent.py:4104": 12,
+    "tenstorrent.py:4123": 132,
+    "tenstorrent.py:4653": 265,
+    "tenstorrent.py:9976": 105,
+    "triatt_sdpa.py:340": 96
+   },
+   "digest": [
+    {
+     "n": 147456,
+     "mean": 117.61536986629169,
+     "absmax": 168960.0,
+     "l2": 5483684.774976529
+    },
+    {
+     "n": 18874368,
+     "mean": 1.458284076070413,
+     "absmax": 4864.0,
+     "l2": 272739.6582432452
+    }
+   ]
+  },
+  {
+   "rep": 1,
+   "arm": "B",
+   "s": 3.9108,
+   "counters": {
+    "tt_bio.tenstorrent.FP32_SOFTMAX_STATS": {
+     "calls": 108,
+     "fused": 108
+    },
+    "tt_bio.tenstorrent.APB_CONCAT_HEADS_STATS": [
+     0,
+     48
+    ],
+    "tt_bio.tenstorrent.TRANSITION_H_CHUNK_STATS": [
+     57,
+     0
+    ],
+    "tt_bio.tenstorrent.TRIATT_FUSED_HIFI_STATS": {
+     "declined": 96
+    },
+    "tt_bio.tenstorrent.PWA_DEPTH_STATS": {
+     "whole": 3
+    },
+    "tt_bio.tenstorrent.OPM_ROW_STATS": {
+     "whole": 4
+    }
+   },
+   "taping_sites": {
+    "tenstorrent.py:10495": 54,
+    "tenstorrent.py:1168": 108,
+    "tenstorrent.py:7406": 108,
+    "mm_dualnoc.py:87": 108,
+    "reblock_permute.py:877": 108,
+    "reblock_permute.py:373": 216,
+    "reblock_permute.py:597": 108,
+    "tenstorrent.py:4653": 321,
+    "trimul_tail.py:232": 108,
+    "tenstorrent.py:5131": 324,
+    "triatt_qkv.py:59": 316,
+    "tenstorrent.py:4104": 108,
+    "tenstorrent.py:4123": 108,
+    "tenstorrent.py:9976": 105,
+    "triatt_sdpa.py:340": 1440,
+    "tenstorrent.py:2634": 1440
+   },
+   "digest": [
+    {
+     "n": 147456,
+     "mean": 117.85720486111111,
+     "absmax": 167936.0,
+     "l2": 5481921.62477766
+    },
+    {
+     "n": 18874368,
+     "mean": 1.4569710860151746,
+     "absmax": 4768.0,
+     "l2": 271994.29245061823
+    }
+   ]
+  },
+  {
+   "rep": 1,
+   "arm": "C",
+   "s": 229.4539,
+   "counters": {
+    "tt_bio.tenstorrent.FP32_SOFTMAX_STATS": {
+     "calls": 108,
+     "fused": 108
+    },
+    "tt_bio.tenstorrent.APB_CONCAT_HEADS_STATS": [
+     0,
+     48
+    ],
+    "tt_bio.tenstorrent.TRANSITION_H_CHUNK_STATS": [
+     57,
+     0
+    ],
+    "tt_bio.tenstorrent.TRIATT_FUSED_HIFI_STATS": {
+     "declined": 96
+    },
+    "tt_bio.tenstorrent.PWA_DEPTH_STATS": {
+     "whole": 3
+    },
+    "tt_bio.tenstorrent.OPM_ROW_STATS": {
+     "whole": 4
+    }
+   },
+   "taping_sites": {
+    "tenstorrent.py:10495": 54,
+    "tenstorrent.py:1168": 108,
+    "tenstorrent.py:7406": 108,
+    "mm_dualnoc.py:87": 108,
+    "reblock_permute.py:877": 108,
+    "reblock_permute.py:373": 216,
+    "reblock_permute.py:597": 108,
+    "tenstorrent.py:4653": 321,
+    "trimul_tail.py:232": 108,
+    "tenstorrent.py:5131": 324,
+    "triatt_qkv.py:59": 316,
+    "tenstorrent.py:4104": 108,
+    "tenstorrent.py:4123": 108,
+    "tenstorrent.py:9976": 105,
+    "triatt_sdpa.py:340": 1440,
+    "tenstorrent.py:2634": 1440
+   },
+   "digest": [
+    {
+     "n": 147456,
+     "mean": 117.6288440492418,
+     "absmax": 171008.0,
+     "l2": 5519294.892400255
+    },
+    {
+     "n": 18874368,
+     "mean": 1.4429952868570883,
+     "absmax": 4832.0,
+     "l2": 272543.542847075
+    }
+   ]
+  },
+  {
+   "rep": 2,
+   "arm": "A",
+   "s": 1.2054,
+   "counters": {
+    "tt_bio.mm_dualnoc.STATS": [
+     108,
+     0
+    ],
+    "tt_bio.tenstorrent.FP32_SOFTMAX_STATS": {
+     "calls": 12,
+     "blocked": 12,
+     "blocks": 132,
+     "fused": 132,
+     "l1": 12,
+     "l1_blocks": 120
+    },
+    "tt_bio.reblock_permute.STATS_BACK": [
+     108,
+     0
+    ],
+    "tt_bio.reblock_permute.STATS_GATED": [
+     216,
+     0
+    ],
+    "tt_bio.triatt_sdpa.STATS": [
+     96,
+     0
+    ],
+    "tt_bio.triatt_qkv.STATS": [
+     104,
+     4
+    ],
+    "tt_bio.triatt_qkv.TAIL_STATS": [
+     104,
+     0
+    ],
+    "tt_bio.tenstorrent.APB_CONCAT_HEADS_STATS": [
+     0,
+     48
+    ],
+    "tt_bio.tenstorrent.TRANSITION_H_CHUNK_STATS": [
+     57,
+     0
+    ],
+    "tt_bio.tenstorrent.TRIATT_FUSED_HIFI_STATS": {
+     "served": 96
+    },
+    "tt_bio.triatt_qkv.QKVG_STATS": [
+     104,
+     0
+    ],
+    "tt_bio.triatt_qkv.QKVGB_STATS": [
+     104,
+     0
+    ],
+    "tt_bio.tenstorrent.PWA_DEPTH_STATS": {
+     "whole": 3
+    },
+    "tt_bio.tenstorrent.OPM_ROW_STATS": {
+     "whole": 4
+    }
+   },
+   "taping_sites": {
+    "tenstorrent.py:10495": 54,
+    "tenstorrent.py:1168": 108,
+    "tenstorrent.py:7406": 108,
+    "mm_dualnoc.py:87": 108,
+    "reblock_permute.py:877": 108,
+    "reblock_permute.py:597": 108,
+    "tenstorrent.py:5131": 112,
+    "triatt_qkv.py:59": 212,
+    "tenstorrent.py:4104": 12,
+    "tenstorrent.py:4123": 132,
+    "tenstorrent.py:4653": 265,
+    "tenstorrent.py:9976": 105,
+    "triatt_sdpa.py:340": 96
+   },
+   "digest": [
+    {
+     "n": 147456,
+     "mean": 117.61536986629169,
+     "absmax": 168960.0,
+     "l2": 5483684.774976529
+    },
+    {
+     "n": 18874368,
+     "mean": 1.458284076070413,
+     "absmax": 4864.0,
+     "l2": 272739.6582432452
+    }
+   ]
+  },
+  {
+   "rep": 2,
+   "arm": "B",
+   "s": 3.9016,
+   "counters": {
+    "tt_bio.tenstorrent.FP32_SOFTMAX_STATS": {
+     "calls": 108,
+     "fused": 108
+    },
+    "tt_bio.tenstorrent.APB_CONCAT_HEADS_STATS": [
+     0,
+     48
+    ],
+    "tt_bio.tenstorrent.TRANSITION_H_CHUNK_STATS": [
+     57,
+     0
+    ],
+    "tt_bio.tenstorrent.TRIATT_FUSED_HIFI_STATS": {
+     "declined": 96
+    },
+    "tt_bio.tenstorrent.PWA_DEPTH_STATS": {
+     "whole": 3
+    },
+    "tt_bio.tenstorrent.OPM_ROW_STATS": {
+     "whole": 4
+    }
+   },
+   "taping_sites": {
+    "tenstorrent.py:10495": 54,
+    "tenstorrent.py:1168": 108,
+    "tenstorrent.py:7406": 108,
+    "mm_dualnoc.py:87": 108,
+    "reblock_permute.py:877": 108,
+    "reblock_permute.py:373": 216,
+    "reblock_permute.py:597": 108,
+    "tenstorrent.py:4653": 321,
+    "trimul_tail.py:232": 108,
+    "tenstorrent.py:5131": 324,
+    "triatt_qkv.py:59": 316,
+    "tenstorrent.py:4104": 108,
+    "tenstorrent.py:4123": 108,
+    "tenstorrent.py:9976": 105,
+    "triatt_sdpa.py:340": 1440,
+    "tenstorrent.py:2634": 1440
+   },
+   "digest": [
+    {
+     "n": 147456,
+     "mean": 117.85720486111111,
+     "absmax": 167936.0,
+     "l2": 5481921.62477766
+    },
+    {
+     "n": 18874368,
+     "mean": 1.4569710860151746,
+     "absmax": 4768.0,
+     "l2": 271994.29245061823
+    }
+   ]
+  },
+  {
+   "rep": 2,
+   "arm": "C",
+   "s": 228.8142,
+   "counters": {
+    "tt_bio.tenstorrent.FP32_SOFTMAX_STATS": {
+     "calls": 108,
+     "fused": 108
+    },
+    "tt_bio.tenstorrent.APB_CONCAT_HEADS_STATS": [
+     0,
+     48
+    ],
+    "tt_bio.tenstorrent.TRANSITION_H_CHUNK_STATS": [
+     57,
+     0
+    ],
+    "tt_bio.tenstorrent.TRIATT_FUSED_HIFI_STATS": {
+     "declined": 96
+    },
+    "tt_bio.tenstorrent.PWA_DEPTH_STATS": {
+     "whole": 3
+    },
+    "tt_bio.tenstorrent.OPM_ROW_STATS": {
+     "whole": 4
+    }
+   },
+   "taping_sites": {
+    "tenstorrent.py:10495": 54,
+    "tenstorrent.py:1168": 108,
+    "tenstorrent.py:7406": 108,
+    "mm_dualnoc.py:87": 108,
+    "reblock_permute.py:877": 108,
+    "reblock_permute.py:373": 216,
+    "reblock_permute.py:597": 108,
+    "tenstorrent.py:4653": 321,
+    "trimul_tail.py:232": 108,
+    "tenstorrent.py:5131": 324,
+    "triatt_qkv.py:59": 316,
+    "tenstorrent.py:4104": 108,
+    "tenstorrent.py:4123": 108,
+    "tenstorrent.py:9976": 105,
+    "triatt_sdpa.py:340": 1440,
+    "tenstorrent.py:2634": 1440
+   },
+   "digest": [
+    {
+     "n": 147456,
+     "mean": 117.6288440492418,
+     "absmax": 171008.0,
+     "l2": 5519294.892400255
+    },
+    {
+     "n": 18874368,
+     "mean": 1.4429952868570883,
+     "absmax": 4832.0,
+     "l2": 272543.542847075
+    }
+   ]
+  }
+ ],
+ "median_s": {
+  "A": 1.2054,
+  "B": 3.9032,
+  "C": 228.8142
+ },
+ "lever_cost_s": 2.6978,
+ "lever_cost_x": 3.2381,
+ "tape_overhead_s": 224.911,
+ "cycles": 1,
+ "clock": {
+  "0": {
+   "min": 800,
+   "max": 1350,
+   "median": 1350,
+   "n": 308
+  }
+ },
+ "clock_line": "CLOCK: dev0 min 800 / median 1350 / max 1350 MHz over 308 samples, polled DURING the work"
+}

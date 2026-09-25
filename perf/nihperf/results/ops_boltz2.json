@@ -1,0 +1,85 @@
+{
+  "model": "boltz2",
+  "kind": "fold",
+  "unit": "structures/s",
+  "hardware": "blackhole",
+  "card_type": "p300c",
+  "machine_id": "tt-quietbox2",
+  "tt_bio_version": "0.9.0",
+  "inspector_env": "(unset: tt-metal default ON)",
+  "visible_devices": "1",
+  "throughput": 0.359848,
+  "latency_ms": 2778.95,
+  "median_s": 2.7789,
+  "times_s": [
+    1.7823,
+    1.8741,
+    2.7789,
+    2.9585,
+    3.2874
+  ],
+  "cpu_s": [
+    3.5892,
+    4.3558,
+    5.3364,
+    5.891,
+    5.9831
+  ],
+  "cpu_median_s": 5.3364,
+  "cpu_fraction_of_wall": 1.9203,
+  "device_ops_per_call": [
+    25542,
+    25542,
+    25542,
+    25542,
+    25542
+  ],
+  "device_ops_median": 25542,
+  "wall_us_per_op": 108.799,
+  "cpu_us_per_op": 208.928,
+  "load_s": 14.9,
+  "warmup": 2,
+  "repeat": 5,
+  "loadavg_before": [
+    24.671875,
+    20.25537109375,
+    19.4296875
+  ],
+  "loadavg_after": [
+    26.78564453125,
+    20.8427734375,
+    19.62939453125
+  ],
+  "nproc": 16,
+  "aiclk_during": {
+    "0": {
+      "min": 800,
+      "median": 800,
+      "max": 800,
+      "n": 179
+    },
+    "3": {
+      "min": 1343,
+      "median": 1350,
+      "max": 1350,
+      "n": 179
+    },
+    "2": {
+      "min": 1350,
+      "median": 1350,
+      "max": 1350,
+      "n": 179
+    },
+    "1": {
+      "min": 1350,
+      "median": 1350,
+      "max": 1350,
+      "n": 179
+    }
+  },
+  "sampling_steps": 10,
+  "diffusion_samples": 1,
+  "recycling_steps": 1,
+  "input": "trpcage (20 aa, single-seq)",
+  "utc": "2026-09-25T16:59:59Z"
+}

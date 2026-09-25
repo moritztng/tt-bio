@@ -1,0 +1,18 @@
+{
+ "instrument": "D31: the tape's forward value against the function its backward differentiates, both against a float64 reference",
+ "shape": {
+  "B": 64,
+  "heads": 4,
+  "n": 64,
+  "dim": 32,
+  "scale": 0.1767766952966369,
+  "bias_scale": 0.5
+ },
+ "dtype_device": "bfloat16 in, fused kernel default out",
+ "object_under_test": "ttnn.transformer.scaled_dot_product_attention, the stock fused SDPA taped_ttnn._v_sdpa wraps -- NOT triatt_sdpa, which declines while ops.taping() is true",
+ "fused_vs_float64": 0.03231144679526201,
+ "recompute_vs_float64": 0.006554733989318313,
+ "fused_vs_recompute": 0.03305549669574115,
+ "verdict": "the tape differentiates the MORE accurate of the two",
+ "ratio_fused_over_recompute": 4.929482546189853
+}

@@ -1,0 +1,370 @@
+{
+ "doc": "The VJP, per-parameter worst case, with the machine's own run-to-run floor beside it.",
+ "argv": [],
+ "arms": {
+  "A1": {
+   "forward_s": 4.32,
+   "backward_s": 21.92,
+   "tape_nodes": 2482,
+   "params_with_grad": 1648,
+   "zeros": "host",
+   "device_zeros": false
+  },
+  "A2": {
+   "forward_s": 3.97,
+   "backward_s": 20.59,
+   "tape_nodes": 2482,
+   "params_with_grad": 1648,
+   "zeros": "host",
+   "device_zeros": false
+  },
+  "B1": {
+   "forward_s": 3.97,
+   "backward_s": 19.71,
+   "tape_nodes": 2482,
+   "params_with_grad": 1648,
+   "zeros": "device",
+   "device_zeros": true
+  },
+  "B2": {
+   "forward_s": 3.98,
+   "backward_s": 19.71,
+   "tape_nodes": 2482,
+   "params_with_grad": 1648,
+   "zeros": "device",
+   "device_zeros": true
+  }
+ },
+ "env": {
+  "host": "pc",
+  "tt_visible_devices": "0",
+  "commit": "e6848e3a65e821686222ab78252ad871f91d440b",
+  "started_utc": "2026-09-25T16:12:15Z",
+  "loadavg": [
+   1.69677734375,
+   1.98583984375,
+   2.38671875
+  ],
+  "board": "pc card 0 -- Blackhole p150a, custom 130-core firmware",
+  "arch": "Arch.BLACKHOLE",
+  "exact_training_ops": [],
+  "aiclk_during": {
+   "0": {
+    "min": 800,
+    "max": 1350,
+    "median": 1350,
+    "n": 38
+   }
+  },
+  "aiclk_line": "CLOCK: dev0 min 800 / median 1350 / max 1350 MHz over 38 samples, polled DURING the work"
+ },
+ "config": {
+  "crop": 384,
+  "cycles": 1,
+  "arms": [
+   {
+    "tag": "A1",
+    "zeros": "host"
+   },
+   {
+    "tag": "A2",
+    "zeros": "host"
+   },
+   {
+    "tag": "B1",
+    "zeros": "device"
+   },
+   {
+    "tag": "B2",
+    "zeros": "device"
+   }
+  ]
+ },
+ "build_fold_s": 4.17,
+ "prep_to_sampler_s": 7.27,
+ "capture": {
+  "trunk_inputs_snapshotted": true,
+  "trunk_inputs_dead_at_capture": 0,
+  "trunk_forward_s": 5.095,
+  "trunk_forward_note": "the shipped call, progress_fn INCLUDED and cold; the timed arms below drop it",
+  "trunk_cycles": 4,
+  "reached_sampler": true
+ },
+ "params": {
+  "declared": 2531,
+  "elements": 165180992,
+  "by_rank": {
+   "1": 1130,
+   "2": 1401
+  },
+  "walk_depth_reached": 9,
+  "walk_truncated_at_limit": 8,
+  "cache_attrs_skipped": 324,
+  "pairformer_weights": 2256,
+  "deepest_name": "trunk.msa_module.blocks.0.pair_stack.transition_z.fc1_weight"
+ },
+ "A1_vs_A2": {
+  "n_compared": 1648,
+  "missing_in_other": [],
+  "shape_mismatch": [],
+  "worst_rel_l2": 1.321427248,
+  "worst_rel_l2_param": "trunk.msa_module.blocks.0.pwa.z_norm_bias",
+  "min_cosine": 0.01114519,
+  "min_cosine_param": "trunk.msa_module.blocks.0.pwa.z_norm_bias",
+  "rel_l2_p50": 0.0,
+  "rel_l2_p90": 0.001986631,
+  "rel_l2_p99": 0.010509202,
+  "n_over_1e-2": 19,
+  "worst_rel_l2_excl_pwa_z_norm_bias": 0.129943754,
+  "worst_param_excl_pwa_z_norm_bias": "trunk.msa_module.blocks.0.pwa.z_norm_weight",
+  "min_cosine_excl_pwa_z_norm_bias": 0.991597527,
+  "top10_by_rel_l2": [
+   {
+    "param": "trunk.msa_module.blocks.0.pwa.z_norm_bias",
+    "rel_l2": 1.321427248,
+    "cosine": 0.01114519,
+    "ref_l2": 27771.679908
+   },
+   {
+    "param": "trunk.msa_module.blocks.2.pwa.z_norm_bias",
+    "rel_l2": 0.914931318,
+    "cosine": 0.664396348,
+    "ref_l2": 36097.69318
+   },
+   {
+    "param": "trunk.msa_module.blocks.1.pwa.z_norm_bias",
+    "rel_l2": 0.602574966,
+    "cosine": 0.805412168,
+    "ref_l2": 67689.829436
+   },
+   {
+    "param": "trunk.msa_module.blocks.0.pwa.z_norm_weight",
+    "rel_l2": 0.129943754,
+    "cosine": 0.991597527,
+    "ref_l2": 550562.078069
+   },
+   {
+    "param": "trunk.msa_module.blocks.0.pwa.z_weight",
+    "rel_l2": 0.129788263,
+    "cosine": 0.991632502,
+    "ref_l2": 1708075.82931
+   },
+   {
+    "param": "trunk.msa_module.blocks.1.pwa.z_weight",
+    "rel_l2": 0.057443544,
+    "cosine": 0.998351649,
+    "ref_l2": 2606623.926076
+   },
+   {
+    "param": "trunk.msa_module.blocks.1.pwa.z_norm_weight",
+    "rel_l2": 0.034418078,
+    "cosine": 0.999440966,
+    "ref_l2": 2551762.166325
+   },
+   {
+    "param": "trunk.msa_module.blocks.2.pwa.z_weight",
+    "rel_l2": 0.02542294,
+    "cosine": 0.999677072,
+    "ref_l2": 3128054.234468
+   },
+   {
+    "param": "trunk.msa_module.blocks.2.pwa.z_norm_weight",
+    "rel_l2": 0.014811114,
+    "cosine": 0.99989121,
+    "ref_l2": 3311685.619265
+   },
+   {
+    "param": "trunk.msa_module.blocks.0.opm.norm_bias",
+    "rel_l2": 0.013434308,
+    "cosine": 0.999926983,
+    "ref_l2": 33128723.165029
+   }
+  ],
+  "n_bit_identical": 1337,
+  "label": "A/A FLOOR"
+ },
+ "A1_vs_B1": {
+  "n_compared": 1648,
+  "missing_in_other": [],
+  "shape_mismatch": [],
+  "worst_rel_l2": 1.548040327,
+  "worst_rel_l2_param": "trunk.msa_module.blocks.0.pwa.z_norm_bias",
+  "min_cosine": 0.428039514,
+  "min_cosine_param": "trunk.msa_module.blocks.0.pwa.z_norm_bias",
+  "rel_l2_p50": 0.001681032,
+  "rel_l2_p90": 0.006142847,
+  "rel_l2_p99": 0.01700461,
+  "n_over_1e-2": 73,
+  "worst_rel_l2_excl_pwa_z_norm_bias": 0.358187633,
+  "worst_param_excl_pwa_z_norm_bias": "trunk.msa_module.blocks.0.pwa.z_norm_weight",
+  "min_cosine_excl_pwa_z_norm_bias": 0.935093701,
+  "top10_by_rel_l2": [
+   {
+    "param": "trunk.msa_module.blocks.0.pwa.z_norm_bias",
+    "rel_l2": 1.548040327,
+    "cosine": 0.428039514,
+    "ref_l2": 27771.679908
+   },
+   {
+    "param": "trunk.msa_module.blocks.2.pwa.z_norm_bias",
+    "rel_l2": 1.060792614,
+    "cosine": 0.722865281,
+    "ref_l2": 36097.69318
+   },
+   {
+    "param": "trunk.msa_module.blocks.1.pwa.z_norm_bias",
+    "rel_l2": 0.770240562,
+    "cosine": 0.638635372,
+    "ref_l2": 67689.829436
+   },
+   {
+    "param": "trunk.msa_module.blocks.0.pwa.z_norm_weight",
+    "rel_l2": 0.358187633,
+    "cosine": 0.935093701,
+    "ref_l2": 550562.078069
+   },
+   {
+    "param": "trunk.msa_module.blocks.0.pwa.z_weight",
+    "rel_l2": 0.113956157,
+    "cosine": 0.993507114,
+    "ref_l2": 1708075.82931
+   },
+   {
+    "param": "trunk.msa_module.blocks.1.pwa.z_weight",
+    "rel_l2": 0.080048728,
+    "cosine": 0.996852084,
+    "ref_l2": 2606623.926076
+   },
+   {
+    "param": "trunk.msa_module.blocks.1.pwa.z_norm_weight",
+    "rel_l2": 0.035187544,
+    "cosine": 0.99938092,
+    "ref_l2": 2551762.166325
+   },
+   {
+    "param": "trunk.msa_module.blocks.2.pwa.z_weight",
+    "rel_l2": 0.032306544,
+    "cosine": 0.999489874,
+    "ref_l2": 3128054.234468
+   },
+   {
+    "param": "trunk.msa_module.blocks.2.pair_stack.triangle_attention_end.layer_norm_weight",
+    "rel_l2": 0.027328987,
+    "cosine": 0.999884078,
+    "ref_l2": 2567890.445476
+   },
+   {
+    "param": "trunk.template.ps.blocks.0.triangle_multiplication_start.in_norm_weight",
+    "rel_l2": 0.021986193,
+    "cosine": 0.999812989,
+    "ref_l2": 174871.925385
+   }
+  ],
+  "n_bit_identical": 198,
+  "label": "A/B FIX"
+ },
+ "B1_vs_B2": {
+  "n_compared": 1648,
+  "missing_in_other": [],
+  "shape_mismatch": [],
+  "worst_rel_l2": 1.025953021,
+  "worst_rel_l2_param": "trunk.msa_module.blocks.2.pwa.z_norm_bias",
+  "min_cosine": 0.169169675,
+  "min_cosine_param": "trunk.msa_module.blocks.2.pwa.z_norm_bias",
+  "rel_l2_p50": 0.001810345,
+  "rel_l2_p90": 0.006068947,
+  "rel_l2_p99": 0.013656002,
+  "n_over_1e-2": 43,
+  "worst_rel_l2_excl_pwa_z_norm_bias": 0.217604909,
+  "worst_param_excl_pwa_z_norm_bias": "trunk.msa_module.blocks.0.pwa.z_norm_weight",
+  "min_cosine_excl_pwa_z_norm_bias": 0.976194555,
+  "top10_by_rel_l2": [
+   {
+    "param": "trunk.msa_module.blocks.2.pwa.z_norm_bias",
+    "rel_l2": 1.025953021,
+    "cosine": 0.169169675,
+    "ref_l2": 55147.70747
+   },
+   {
+    "param": "trunk.msa_module.blocks.1.pwa.z_norm_bias",
+    "rel_l2": 0.819238283,
+    "cosine": 0.62763445,
+    "ref_l2": 45500.172393
+   },
+   {
+    "param": "trunk.msa_module.blocks.0.pwa.z_norm_bias",
+    "rel_l2": 0.73219531,
+    "cosine": 0.682340452,
+    "ref_l2": 46791.933355
+   },
+   {
+    "param": "trunk.msa_module.blocks.0.pwa.z_norm_weight",
+    "rel_l2": 0.217604909,
+    "cosine": 0.976194555,
+    "ref_l2": 543427.817161
+   },
+   {
+    "param": "trunk.msa_module.blocks.0.pwa.z_weight",
+    "rel_l2": 0.106946021,
+    "cosine": 0.994284217,
+    "ref_l2": 1708106.637788
+   },
+   {
+    "param": "trunk.msa_module.blocks.1.pwa.z_weight",
+    "rel_l2": 0.057363874,
+    "cosine": 0.998356236,
+    "ref_l2": 2569641.93842
+   },
+   {
+    "param": "trunk.msa_module.blocks.2.pwa.z_weight",
+    "rel_l2": 0.051353673,
+    "cosine": 0.998680548,
+    "ref_l2": 3141693.673769
+   },
+   {
+    "param": "trunk.template.ps.blocks.1.triangle_multiplication_end.out_norm_weight",
+    "rel_l2": 0.026548196,
+    "cosine": 0.99979876,
+    "ref_l2": 60004.637263
+   },
+   {
+    "param": "trunk.msa_module.blocks.3.pair_stack.triangle_attention_start.layer_norm_weight",
+    "rel_l2": 0.022497483,
+    "cosine": 0.999811972,
+    "ref_l2": 8213119.012795
+   },
+   {
+    "param": "trunk.template.ps.blocks.0.triangle_attention_start.bias_weight",
+    "rel_l2": 0.021901293,
+    "cosine": 0.999804728,
+    "ref_l2": 24789.608411
+   }
+  ],
+  "n_bit_identical": 115,
+  "label": "B/B FLOOR"
+ },
+ "verdict": {
+  "aa_floor_worst_rel_l2": 1.321427248,
+  "bb_floor_worst_rel_l2": 1.025953021,
+  "ab_fix_worst_rel_l2": 1.548040327,
+  "floor_used": 1.321427248,
+  "ab_over_floor": 1.1715,
+  "inside_the_floor": false,
+  "bit_identical": {
+   "A1_vs_A2": 1337,
+   "B1_vs_B2": 115,
+   "A1_vs_B1": 198
+  },
+  "worst_excl_pwa_z_norm_bias": {
+   "A1_vs_A2": 0.129943754,
+   "B1_vs_B2": 0.217604909,
+   "A1_vs_B1": 0.358187633
+  },
+  "rel_l2_p90": {
+   "A1_vs_A2": 0.001986631,
+   "B1_vs_B2": 0.006068947,
+   "A1_vs_B1": 0.006142847
+  },
+  "note": "A/A and B/B are each the same arm twice, so between them they are the machine's own run-to-run spread on this backward. The fix is inside that or it is not; there is no threshold to move here. Read the bit-identical counts together: if B/B leaves as few bit-identical as A/B does, the arms differ in WHICH tensors the nondeterminism lands on, not in how far the fix moves them."
+ }
+}

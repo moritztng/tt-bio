@@ -1,0 +1,73 @@
+{
+ "source": "capture_trunk_boundary_043_ladder.json -- 7 boundaries (0, 8, 16, 23, 32, 40, 47) captured from BUNDLE-MIN-043's own r = 0 step. forward 684.6 s at loss rel 2.915e-05, backward 1652.1 s, 45/45 draws replayed, 0 replay mismatches, and capture_vs_bundle worst_rel 0.0 at EVERY boundary -- the capture reproduces the bundle bit-exactly.",
+ "reference_cotangent_profile": {
+  "0": {
+   "cot_s": 3.534929780069599e-05,
+   "cot_z": 0.000783014240630463,
+   "cot_s_over_block47": 0.6312374935797688,
+   "cot_z_over_block47": 1.0300949747747918,
+   "capture_worst_rel_vs_bundle": 0.0
+  },
+  "8": {
+   "cot_s": 2.1639759618229084e-05,
+   "cot_z": 0.0005644599851992892,
+   "cot_s_over_block47": 0.38642429900858377,
+   "cot_z_over_block47": 0.7425757592187272,
+   "capture_worst_rel_vs_bundle": 0.0
+  },
+  "16": {
+   "cot_s": 2.1640007771002005e-05,
+   "cot_z": 0.0005592626361820211,
+   "cot_s_over_block47": 0.38642873030833086,
+   "cot_z_over_block47": 0.7357383827994581,
+   "capture_worst_rel_vs_bundle": 0.0
+  },
+  "23": {
+   "cot_s": 2.141670516458086e-05,
+   "cot_z": 0.0004856499179133589,
+   "cot_s_over_block47": 0.38244118355756235,
+   "cot_z_over_block47": 0.6388971157657877,
+   "capture_worst_rel_vs_bundle": 0.0
+  },
+  "32": {
+   "cot_s": 2.1467169182691016e-05,
+   "cot_z": 0.0004294596926806223,
+   "cot_s_over_block47": 0.38334232678500124,
+   "cot_z_over_block47": 0.5649760225847732,
+   "capture_worst_rel_vs_bundle": 0.0
+  },
+  "40": {
+   "cot_s": 1.9432948509814328e-05,
+   "cot_z": 0.0003046207125208093,
+   "cot_s_over_block47": 0.34701695573591784,
+   "cot_z_over_block47": 0.40074400808770466,
+   "capture_worst_rel_vs_bundle": 0.0
+  },
+  "47": {
+   "cot_s": 5.599999708545345e-05,
+   "cot_z": 0.0007601379094210728,
+   "cot_s_over_block47": 1.0,
+   "cot_z_over_block47": 1.0,
+   "capture_worst_rel_vs_bundle": 0.0
+  }
+ },
+ "device_factors_measured_so_far": {
+  "0": [
+   0.993,
+   1.0
+  ],
+  "23": [
+   0.995,
+   0.999
+  ],
+  "47": [
+   0.887,
+   1.183
+  ]
+ },
+ "finding_1": "BLOCK 47 SITS AT THE TOP OF A SHARP STEP. Going 47 -> 40 the cotangent falls 2.88x on the single track (5.60000e-05 -> 1.94329e-05) and 2.50x on the pair track (7.60138e-04 -> 3.04621e-04). Nowhere else in the stack does it move more than 1.41x over a comparable span. Block 47 is the only block whose cotangent arrives DIRECTLY from the heads; every other block receives what has propagated back through at least one pairformer block.",
+ "finding_2_which_is_an_ELIMINATION": "COTANGENT MAGNITUDE DOES NOT ORDER THE FACTORS EITHER. Block 0's single-track cotangent is 3.53493e-05, which is 0.63x block 47's -- only 1.58x smaller -- and block 0 reads 0.993/1.000, clean. Block 40's is 0.35x block 47's, the SMALLEST in the stack. So a 1.58x difference in cotangent magnitude separates \"clean\" from \"factored\" while a 2.9x difference does not produce a factor at all. Magnitude is not the ordering variable. That closes the last candidate pass 131 left standing in the form it was left standing in.",
+ "what_is_left": "what is unique to block 47 is not a magnitude but a POSITION: it is the last block, the only one whose cotangent comes from the heads rather than through a pairformer block. The defect should be sought in what happens at the trunk's OUTPUT boundary, which is one block's worth of code, not in a magnitude regime spread over the stack.",
+ "the_decisive_arm": "run the A16 device arm at BLOCK 46. It sits one block below the step, in the same magnitude regime as 40 and 32, and it is the first block whose cotangent has passed through a pairformer block. If 46 is clean and 47 is not, the defect is at the output boundary and is localised to one block. If 46 also carries factors, the step is not the boundary and the search widens to the whole 47..40 span. The ladder has already captured 40 and 32, so the two neighbours cost one arm each.",
+ "caveat": "the factors are measured at three blocks (0, 23, 47) and the cotangent profile at seven. The elimination in finding 2 uses only measured points; the position claim in \"what_is_left\" is an inference from n = 3 and the block-46 arm is what tests it."
+}

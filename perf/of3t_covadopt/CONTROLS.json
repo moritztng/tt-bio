@@ -1,0 +1,309 @@
+{
+ "artifact": "/tmp/of3t/of3t-covadopt/MODEL_withtrunk_composed3660_n384.A.json",
+ "artifact_sha256": "15487d253868598f3dd37c8732edf088d0275bfc3dd5b2f816eff8e8f51ce901",
+ "C4_AA": {
+  "artifact_identical": true,
+  "sidecars": {
+   "UPSTREAM_BF16_vs_FLOAT64.json": true,
+   "UPSTREAM_F32_vs_FLOAT64.json": true,
+   "ZERO_MODEL_vs_FLOAT64.json": true,
+   "ZERO_MODEL_vs_UPSTREAM_BF16.json": true,
+   "renorm_vs_FLOAT64.json": true,
+   "renorm_vs_UPSTREAM_BF16.json": true
+  },
+  "pass": true
+ },
+ "C3_reference_and_denominator": {
+  "digests_read_back_in_process": {
+   "float64": "1d4ea9225f854afe06a8adedcb5f8aa1c53656fbf8cefdaa3a451d0327895cc4",
+   "upstream_bf16": "ff78d7bc0bf7a4355014a470fbe931592bd4896fe06a8b400c161c08b5607ccb",
+   "upstream_f32": "09f1217c8ea254d04f1bfdae73585f058cb2aec51557699bfae3a8090dadd548"
+  },
+  "all_match_their_pin": true,
+  "float64_pin": "1d4ea9225f854afe06a8adedcb5f8aa1c53656fbf8cefdaa3a451d0327895cc4",
+  "denominator_measured": 10.279642678524981,
+  "denominator_published": 10.279642678524981,
+  "relative_drift": 0.0,
+  "pass": true
+ },
+ "C2_coverage": {
+  "measured": 99.50523155277438,
+  "refcov": 99.50523155277378,
+  "difference": 5.968558980384842e-13,
+  "within_1e_9": true,
+  "bar": 99.2594,
+  "over_the_bar_by": 0.2458315527743764,
+  "n_compared": 3660,
+  "n_reference_tensors": 4170,
+  "union_n_tensors": 3660,
+  "absent_from_reference": 0,
+  "pass": true
+ },
+ "C1_restricted_to_the_original_3643": {
+  "renorm_vs_FLOAT64": {
+   "restricted_to_3643": {
+    "n": 3643,
+    "mass_weighted_rel_l2": 0.5317397054265057,
+    "mass_weighted_norm_ratio": 1.1018170933915628,
+    "mass_weighted_cos": 0.8763949137048096,
+    "n_rel_measurable": 3588,
+    "n_over_per_tensor_bar": 3308
+   },
+   "published": {
+    "mass_weighted_rel_l2": 0.5327948845677762,
+    "mass_weighted_norm_ratio": 1.1075159062174973,
+    "mass_weighted_cos": 0.8770623891706244,
+    "n_rel_measurable": 3588,
+    "n_over_per_tensor_bar": 3311
+   },
+   "n_rows_bit_identical_to_published": 3096,
+   "n_rows_that_moved": 547,
+   "drift_over_the_rows_that_moved": {
+    "n": 547,
+    "n_rows_bit_identical": 0,
+    "worst_rel_diff": 0.740350719969133,
+    "worst_tensor": "diffusion_module.diffusion_transformer.blocks.3.attention_pair_bias.layer_norm_a.layer_norm_s.weight",
+    "mass_weighted_rel_diff": 0.13949978615214453
+   },
+   "entering": {
+    "n": 17,
+    "mass_weighted_rel_l2": 0.050136807690354904,
+    "mass_weighted_norm_ratio": 1.0072481270131253,
+    "mass_weighted_cos": 0.9987782731612126,
+    "n_rel_measurable": 17,
+    "n_over_per_tensor_bar": 6
+   },
+   "full_3660": {
+    "mass_weighted_rel_l2": 0.5276985077644326,
+    "mass_weighted_norm_ratio": 1.100433406767634,
+    "mass_weighted_cos": 0.8780576615307508,
+    "n_rel_measurable": 3605,
+    "n_over_per_tensor_bar": 3314,
+    "worst_rel_l2": 642.7051680533705,
+    "worst_tensor": "pairformer_stack.blocks.26.attn_pair_bias.mha.linear_q.weight"
+   },
+   "restricted_minus_published": -0.0010551791412705125
+  },
+  "renorm_vs_UPSTREAM_BF16": {
+   "restricted_to_3643": {
+    "n": 3643,
+    "mass_weighted_rel_l2": 0.5204464927817068,
+    "mass_weighted_norm_ratio": 1.0838578871298525,
+    "mass_weighted_cos": 0.878290129292897,
+    "n_rel_measurable": 3588,
+    "n_over_per_tensor_bar": 3534
+   },
+   "published": {
+    "mass_weighted_rel_l2": 0.5201243840984896,
+    "mass_weighted_norm_ratio": 1.0894638114395336,
+    "mass_weighted_cos": 0.8795161442628995,
+    "n_rel_measurable": 3588,
+    "n_over_per_tensor_bar": 3532
+   },
+   "n_rows_bit_identical_to_published": 3096,
+   "n_rows_that_moved": 547,
+   "drift_over_the_rows_that_moved": {
+    "n": 547,
+    "n_rows_bit_identical": 0,
+    "worst_rel_diff": 0.9834166391943188,
+    "worst_tensor": "diffusion_module.diffusion_transformer.blocks.10.attention_pair_bias.layer_norm_a.layer_norm_s.weight",
+    "mass_weighted_rel_diff": 0.12770472054806511
+   },
+   "entering": {
+    "n": 17,
+    "mass_weighted_rel_l2": 0.2351724236467216,
+    "mass_weighted_norm_ratio": 0.9670059041983785,
+    "mass_weighted_cos": 0.9719663249982684,
+    "n_rel_measurable": 17,
+    "n_over_per_tensor_bar": 15
+   },
+   "full_3660": {
+    "mass_weighted_rel_l2": 0.5171166332757559,
+    "mass_weighted_norm_ratio": 1.0820845091058944,
+    "mass_weighted_cos": 0.8795511147319329,
+    "n_rel_measurable": 3605,
+    "n_over_per_tensor_bar": 3549,
+    "worst_rel_l2": 349.21903945963203,
+    "worst_tensor": "pairformer_stack.blocks.15.attn_pair_bias.layer_norm_a.weight"
+   },
+   "restricted_minus_published": 0.00032210868321724817
+  },
+  "UPSTREAM_BF16_vs_FLOAT64": {
+   "restricted_to_3643": {
+    "n": 3643,
+    "mass_weighted_rel_l2": 0.10592054683439786,
+    "mass_weighted_norm_ratio": 1.0165697057473722,
+    "mass_weighted_cos": 0.9946168929532005,
+    "n_rel_measurable": 3588,
+    "n_over_per_tensor_bar": 3478
+   },
+   "published": {
+    "mass_weighted_rel_l2": 0.10592054683439786,
+    "mass_weighted_norm_ratio": 1.0165697057473722,
+    "mass_weighted_cos": 0.9946168929532005,
+    "n_rel_measurable": 3588,
+    "n_over_per_tensor_bar": 3478
+   },
+   "n_rows_bit_identical_to_published": 3643,
+   "n_rows_that_moved": 0,
+   "drift_over_the_rows_that_moved": null,
+   "entering": {
+    "n": 17,
+    "mass_weighted_rel_l2": 0.24475428160735271,
+    "mass_weighted_norm_ratio": 1.0416152813959358,
+    "mass_weighted_cos": 0.9720756656711551,
+    "n_rel_measurable": 17,
+    "n_over_per_tensor_bar": 16
+   },
+   "full_3660": {
+    "mass_weighted_rel_l2": 0.10937539968339202,
+    "mass_weighted_norm_ratio": 1.0169569913507965,
+    "mass_weighted_cos": 0.9942596203184944,
+    "n_rel_measurable": 3605,
+    "n_over_per_tensor_bar": 3494,
+    "worst_rel_l2": 138.2874207239949,
+    "worst_tensor": "pairformer_stack.blocks.26.attn_pair_bias.mha.linear_q.bias"
+   },
+   "restricted_minus_published": 0.0
+  },
+  "UPSTREAM_F32_vs_FLOAT64": {
+   "restricted_to_3643": {
+    "n": 3643,
+    "mass_weighted_rel_l2": 7.4177415630308e-05,
+    "mass_weighted_norm_ratio": 0.9999992649136311,
+    "mass_weighted_cos": 0.9999999972491239,
+    "n_rel_measurable": 3588,
+    "n_over_per_tensor_bar": 175
+   },
+   "published": {
+    "mass_weighted_rel_l2": 7.4177415630308e-05,
+    "mass_weighted_norm_ratio": 0.9999992649136311,
+    "mass_weighted_cos": 0.9999999972491239,
+    "n_rel_measurable": 3588,
+    "n_over_per_tensor_bar": 175
+   },
+   "n_rows_bit_identical_to_published": 3643,
+   "n_rows_that_moved": 0,
+   "drift_over_the_rows_that_moved": null,
+   "entering": {
+    "n": 17,
+    "mass_weighted_rel_l2": 4.4104604739862865e-05,
+    "mass_weighted_norm_ratio": 0.9999975803221857,
+    "mass_weighted_cos": 0.999999999030317,
+    "n_rel_measurable": 17,
+    "n_over_per_tensor_bar": 0
+   },
+   "full_3660": {
+    "mass_weighted_rel_l2": 7.381018979951686e-05,
+    "mass_weighted_norm_ratio": 0.9999992391765058,
+    "mass_weighted_cos": 0.9999999972763155,
+    "n_rel_measurable": 3605,
+    "n_over_per_tensor_bar": 175,
+    "worst_rel_l2": 1.6186220077270521,
+    "worst_tensor": "aux_heads.pde.layer_norm.weight"
+   },
+   "restricted_minus_published": 0.0
+  },
+  "predicted_vs_measured": {
+   "vs_FLOAT64_restricted": {
+    "predicted": 0.5317397054265057,
+    "measured": 0.5317397054265057,
+    "relative_difference": 0.0
+   },
+   "vs_UPSTREAM_BF16_restricted": {
+    "predicted_point_estimate": 0.5191070833786806,
+    "measured": 0.5204464927817068,
+    "relative_difference": 0.0025802179278859093
+   },
+   "n_bit_identical": {
+    "predicted": 3096,
+    "measured": 3096,
+    "relative_difference": 0.0
+   },
+   "n_moved": {
+    "predicted": 547,
+    "measured": 547,
+    "relative_difference": 0.0
+   },
+   "worst_per_tensor_rel_diff": {
+    "predicted": 0.740350719969133,
+    "measured": 0.740350719969133,
+    "predicted_tensor": "diffusion_module.diffusion_transformer.blocks.3.attention_pair_bias.layer_norm_a.layer_norm_s.weight",
+    "measured_tensor": "diffusion_module.diffusion_transformer.blocks.3.attention_pair_bias.layer_norm_a.layer_norm_s.weight",
+    "relative_difference": 0.0
+   },
+   "mass_weighted_per_tensor_rel_diff": {
+    "predicted": 0.13949978615214453,
+    "measured": 0.13949978615214453,
+    "relative_difference": 0.0
+   }
+  }
+ },
+ "predicted_vs_measured": {
+  "coverage": {
+   "predicted": 99.50523155277378,
+   "measured": 99.50523155277438,
+   "relative_difference": 5.9982363612905576e-15
+  },
+  "renorm_vs_FLOAT64": {
+   "predicted": 0.5276985077644326,
+   "measured": 0.5276985077644326,
+   "relative_difference": 0.0
+  },
+  "renorm_vs_FLOAT64_n_over_per_tensor_bar": {
+   "predicted": 3314,
+   "measured": 3314,
+   "relative_difference": 0.0
+  },
+  "UPSTREAM_BF16_vs_FLOAT64": {
+   "predicted": 0.10937539968339202,
+   "measured": 0.10937539968339202,
+   "relative_difference": 0.0
+  },
+  "UPSTREAM_BF16_vs_FLOAT64_n_over_per_tensor_bar": {
+   "predicted": 3494,
+   "measured": 3494,
+   "relative_difference": 0.0
+  },
+  "UPSTREAM_F32_vs_FLOAT64": {
+   "predicted": 7.381018979951686e-05,
+   "measured": 7.381018979951686e-05,
+   "relative_difference": 0.0
+  },
+  "A26_reachable_bar_vs_their_bf16": {
+   "predicted": 0.15210099830945006,
+   "measured": 0.15210099830945006,
+   "relative_difference": 0.0
+  },
+  "renorm_vs_UPSTREAM_BF16": {
+   "predicted_point_estimate": 0.5152430230050384,
+   "rigorous_interval": [
+    0.4113478855437074,
+    0.6264511802034187
+   ],
+   "measured": 0.5171166332757559,
+   "relative_difference": 0.0036363622350284535,
+   "inside_the_rigorous_interval": true,
+   "within_5pct_of_the_point_estimate": true
+  }
+ },
+ "the_two_clauses_at_one_scope": {
+  "scope": "the composed 3,660, both clauses read from this one artifact",
+  "coverage_clause": {
+   "value": 99.50523155277438,
+   "bar": 99.2594,
+   "passes": true
+  },
+  "A26_clause": {
+   "value": 0.5171166332757559,
+   "bar": 0.15210099830945006,
+   "x_bar": 3.399824057851876,
+   "passes": false
+  },
+  "per_tensor_clause_D176": {
+   "ours": 3314,
+   "upstream_bf16": 3494,
+   "passes": true
+  }
+ }
+}

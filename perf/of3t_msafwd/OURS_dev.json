@@ -1,0 +1,437 @@
+{
+ "mode": "dev",
+ "resid": "fp32",
+ "tracks": "zm",
+ "boundary": "/home/ttuser/of3t_msaamp/crop64.pt",
+ "trace": "/home/ttuser/of3t_msafwd/trace_f64_crop64.pt",
+ "host": "tt-quietbox",
+ "card": "1",
+ "board": "p150a",
+ "compute_kernel_config": "HiFi4 fp32_dest_acc packer_l1_acc (msa_instrument.py's)",
+ "residual_l1": true,
+ "n_tokens": 64,
+ "n_real": 56,
+ "sites": {
+  "b0.opm": {
+   "track": "z",
+   "upd_ref_norm": 3252.0809509395913,
+   "upd_err_norm": 15.931912189546036,
+   "upd_rel": 0.004898990040497912,
+   "upd_err_over_zout": 0.0002477988417752921,
+   "upd_err_over_m_state": null,
+   "dtypes": {
+    "update": "DataType.BFLOAT16",
+    "state": "DataType.BFLOAT16"
+   },
+   "z_in_rel": 0.001587914520385395,
+   "m_in_rel": 0.0017247756924620714
+  },
+  "b0.pwa": {
+   "track": "m",
+   "upd_ref_norm": 180.7927515377195,
+   "upd_err_norm": 4.980077219019557,
+   "upd_rel": 0.027545779223236963,
+   "upd_err_over_zout": null,
+   "upd_err_over_m_state": 0.003781067444793196,
+   "dtypes": {
+    "update": "DataType.BFLOAT16",
+    "state": "DataType.BFLOAT16"
+   },
+   "z_in_rel": 0.0022675588296269963,
+   "m_in_rel": 0.0017247756924620714
+  },
+  "b0.msa_transition": {
+   "track": "m",
+   "upd_ref_norm": 1795.1287169930504,
+   "upd_err_norm": 13.098510793662241,
+   "upd_rel": 0.007296697261688868,
+   "upd_err_over_zout": null,
+   "upd_err_over_m_state": 0.009160838529135967,
+   "dtypes": {
+    "update": "DataType.BFLOAT16",
+    "state": "DataType.BFLOAT16"
+   },
+   "z_in_rel": 0.0022675588296269963,
+   "m_in_rel": 0.00410892648831422
+  },
+  "b0.tri_mul_out": {
+   "track": "z",
+   "upd_ref_norm": 875.8958921709992,
+   "upd_err_norm": 6.1200278843719484,
+   "upd_rel": 0.006987163587675724,
+   "upd_err_over_zout": 9.518856263687907e-05,
+   "upd_err_over_m_state": null,
+   "dtypes": {
+    "update": "DataType.BFLOAT16",
+    "state": "DataType.BFLOAT16"
+   },
+   "z_in_rel": 0.0022675588296269963,
+   "m_in_rel": 0.0048697262639017655
+  },
+  "b0.tri_mul_in": {
+   "track": "z",
+   "upd_ref_norm": 420.6091822771655,
+   "upd_err_norm": 2.744703153239745,
+   "upd_rel": 0.006525542638845886,
+   "upd_err_over_zout": 4.2690058437309306e-05,
+   "upd_err_over_m_state": null,
+   "dtypes": {
+    "update": "DataType.BFLOAT16",
+    "state": "DataType.BFLOAT16"
+   },
+   "z_in_rel": 0.002801446775389726,
+   "m_in_rel": 0.0048697262639017655
+  },
+  "b0.tri_att_start": {
+   "track": "z",
+   "upd_ref_norm": 748.2738803196531,
+   "upd_err_norm": 15.34468412812332,
+   "upd_rel": 0.02050677503478842,
+   "upd_err_over_zout": 0.000238665322098101,
+   "upd_err_over_m_state": null,
+   "dtypes": {
+    "update": "DataType.BFLOAT16",
+    "state": "DataType.BFLOAT16"
+   },
+   "z_in_rel": 0.003098388408742047,
+   "m_in_rel": 0.0048697262639017655
+  },
+  "b0.tri_att_end": {
+   "track": "z",
+   "upd_ref_norm": 412.25659635095053,
+   "upd_err_norm": 10.778193991946436,
+   "upd_rel": 0.026144382133235902,
+   "upd_err_over_zout": 0.0001676398887878782,
+   "upd_err_over_m_state": null,
+   "dtypes": {
+    "update": "DataType.BFLOAT16",
+    "state": "DataType.BFLOAT16"
+   },
+   "z_in_rel": 0.0035167290530589523,
+   "m_in_rel": 0.0048697262639017655
+  },
+  "b0.pair_transition": {
+   "track": "z",
+   "upd_ref_norm": 16371.038378688389,
+   "upd_err_norm": 122.78778800979194,
+   "upd_rel": 0.007500305427762941,
+   "upd_err_over_zout": 0.001909794084412633,
+   "upd_err_over_m_state": null,
+   "dtypes": {
+    "update": "DataType.BFLOAT16",
+    "state": "DataType.BFLOAT16"
+   },
+   "z_in_rel": 0.003899773331606495,
+   "m_in_rel": 0.0048697262639017655
+  },
+  "b1.opm": {
+   "track": "z",
+   "upd_ref_norm": 4370.35672530847,
+   "upd_err_norm": 104.44242517756204,
+   "upd_rel": 0.023897917662588572,
+   "upd_err_over_zout": 0.001624457358494889,
+   "upd_err_over_m_state": null,
+   "dtypes": {
+    "update": "DataType.BFLOAT16",
+    "state": "DataType.BFLOAT16"
+   },
+   "z_in_rel": 0.003705718095693565,
+   "m_in_rel": 0.0048697262639017655
+  },
+  "b1.pwa": {
+   "track": "m",
+   "upd_ref_norm": 295.6498111271659,
+   "upd_err_norm": 6.6819133700989015,
+   "upd_rel": 0.022600769960325985,
+   "upd_err_over_zout": null,
+   "upd_err_over_m_state": 0.002183498421569344,
+   "dtypes": {
+    "update": "DataType.BFLOAT16",
+    "state": "DataType.BFLOAT16"
+   },
+   "z_in_rel": 0.004635938208698901,
+   "m_in_rel": 0.0048697262639017655
+  },
+  "b1.msa_transition": {
+   "track": "m",
+   "upd_ref_norm": 2241.659320821671,
+   "upd_err_norm": 26.886470787199364,
+   "upd_rel": 0.011994003967268425,
+   "upd_err_over_zout": null,
+   "upd_err_over_m_state": 0.00860078636561262,
+   "dtypes": {
+    "update": "DataType.BFLOAT16",
+    "state": "DataType.BFLOAT16"
+   },
+   "z_in_rel": 0.004635938208698901,
+   "m_in_rel": 0.004975934051334966
+  },
+  "b1.tri_mul_out": {
+   "track": "z",
+   "upd_ref_norm": 1329.332070928259,
+   "upd_err_norm": 18.520275294107744,
+   "upd_rel": 0.013932015708592078,
+   "upd_err_over_zout": 0.00028805724715522823,
+   "upd_err_over_m_state": null,
+   "dtypes": {
+    "update": "DataType.BFLOAT16",
+    "state": "DataType.BFLOAT16"
+   },
+   "z_in_rel": 0.004635938208698901,
+   "m_in_rel": 0.005307855861511871
+  },
+  "b1.tri_mul_in": {
+   "track": "z",
+   "upd_ref_norm": 3271.9666806580462,
+   "upd_err_norm": 32.89821835954571,
+   "upd_rel": 0.010054570101224056,
+   "upd_err_over_zout": 0.000511686250148631,
+   "upd_err_over_m_state": null,
+   "dtypes": {
+    "update": "DataType.BFLOAT16",
+    "state": "DataType.BFLOAT16"
+   },
+   "z_in_rel": 0.005045236120281941,
+   "m_in_rel": 0.005307855861511871
+  },
+  "b1.tri_att_start": {
+   "track": "z",
+   "upd_ref_norm": 822.9105905591829,
+   "upd_err_norm": 17.783863456329705,
+   "upd_rel": 0.021610930349365468,
+   "upd_err_over_zout": 0.00027660338033121004,
+   "upd_err_over_m_state": null,
+   "dtypes": {
+    "update": "DataType.BFLOAT16",
+    "state": "DataType.BFLOAT16"
+   },
+   "z_in_rel": 0.0053447876671444015,
+   "m_in_rel": 0.005307855861511871
+  },
+  "b1.tri_att_end": {
+   "track": "z",
+   "upd_ref_norm": 1061.0330164660395,
+   "upd_err_norm": 27.90839689297385,
+   "upd_rel": 0.02630304284585579,
+   "upd_err_over_zout": 0.0004340764839528742,
+   "upd_err_over_m_state": null,
+   "dtypes": {
+    "update": "DataType.BFLOAT16",
+    "state": "DataType.BFLOAT16"
+   },
+   "z_in_rel": 0.00580720029522862,
+   "m_in_rel": 0.005307855861511871
+  },
+  "b1.pair_transition": {
+   "track": "z",
+   "upd_ref_norm": 5076.351759334188,
+   "upd_err_norm": 56.36628897864163,
+   "upd_rel": 0.011103700383843102,
+   "upd_err_over_zout": 0.0008766996050382322,
+   "upd_err_over_m_state": null,
+   "dtypes": {
+    "update": "DataType.BFLOAT16",
+    "state": "DataType.BFLOAT16"
+   },
+   "z_in_rel": 0.006179346301085493,
+   "m_in_rel": 0.005307855861511871
+  },
+  "b2.opm": {
+   "track": "z",
+   "upd_ref_norm": 2649.061068729414,
+   "upd_err_norm": 68.45095444128376,
+   "upd_rel": 0.02583970420663625,
+   "upd_err_over_zout": 0.0010646598491857943,
+   "upd_err_over_m_state": null,
+   "dtypes": {
+    "update": "DataType.BFLOAT16",
+    "state": "DataType.BFLOAT16"
+   },
+   "z_in_rel": 0.005848717468583276,
+   "m_in_rel": 0.005307855861511871
+  },
+  "b2.pwa": {
+   "track": "m",
+   "upd_ref_norm": 621.8189993162898,
+   "upd_err_norm": 9.720962890243639,
+   "upd_rel": 0.01563310690238181,
+   "upd_err_over_zout": null,
+   "upd_err_over_m_state": 0.0018778847613951275,
+   "dtypes": {
+    "update": "DataType.BFLOAT16",
+    "state": "DataType.BFLOAT16"
+   },
+   "z_in_rel": 0.006329534967864119,
+   "m_in_rel": 0.005307855861511871
+  },
+  "b2.msa_transition": {
+   "track": "m",
+   "upd_ref_norm": 141136.55981542516,
+   "upd_err_norm": 1057.9911771039692,
+   "upd_rel": 0.00749622336329852,
+   "upd_err_over_zout": null,
+   "upd_err_over_m_state": 0.21614595773765344,
+   "dtypes": {
+    "update": "DataType.BFLOAT16",
+    "state": "DataType.BFLOAT16"
+   },
+   "z_in_rel": 0.006329534967864119,
+   "m_in_rel": 0.005746975832697771
+  },
+  "b2.tri_mul_out": {
+   "track": "z",
+   "upd_ref_norm": 1790.55589710076,
+   "upd_err_norm": 17.96668416443887,
+   "upd_rel": 0.010034137551098095,
+   "upd_err_over_zout": 0.0002794469033925357,
+   "upd_err_over_m_state": null,
+   "dtypes": {
+    "update": "DataType.BFLOAT16",
+    "state": "DataType.BFLOAT16"
+   },
+   "z_in_rel": 0.006329534967864119,
+   "m_in_rel": 0.007711073712944351
+  },
+  "b2.tri_mul_in": {
+   "track": "z",
+   "upd_ref_norm": 2789.115507012358,
+   "upd_err_norm": 34.72673912326968,
+   "upd_rel": 0.01245080708775243,
+   "upd_err_over_zout": 0.0005401263596610462,
+   "upd_err_over_m_state": null,
+   "dtypes": {
+    "update": "DataType.BFLOAT16",
+    "state": "DataType.BFLOAT16"
+   },
+   "z_in_rel": 0.006549325340355964,
+   "m_in_rel": 0.007711073712944351
+  },
+  "b2.tri_att_start": {
+   "track": "z",
+   "upd_ref_norm": 1028.8617432090423,
+   "upd_err_norm": 26.318621660464412,
+   "upd_rel": 0.025580328780012807,
+   "upd_err_over_zout": 0.00040934973071622395,
+   "upd_err_over_m_state": null,
+   "dtypes": {
+    "update": "DataType.BFLOAT16",
+    "state": "DataType.BFLOAT16"
+   },
+   "z_in_rel": 0.006835053223022883,
+   "m_in_rel": 0.007711073712944351
+  },
+  "b2.tri_att_end": {
+   "track": "z",
+   "upd_ref_norm": 1348.0522216843453,
+   "upd_err_norm": 40.24856583237044,
+   "upd_rel": 0.029856829865300936,
+   "upd_err_over_zout": 0.0006260107310233785,
+   "upd_err_over_m_state": null,
+   "dtypes": {
+    "update": "DataType.BFLOAT16",
+    "state": "DataType.BFLOAT16"
+   },
+   "z_in_rel": 0.007145910714819214,
+   "m_in_rel": 0.007711073712944351
+  },
+  "b2.pair_transition": {
+   "track": "z",
+   "upd_ref_norm": 5799.441302680336,
+   "upd_err_norm": 53.9582500793476,
+   "upd_rel": 0.009304042797089719,
+   "upd_err_over_zout": 0.0008392458930734845,
+   "upd_err_over_m_state": null,
+   "dtypes": {
+    "update": "DataType.BFLOAT16",
+    "state": "DataType.BFLOAT16"
+   },
+   "z_in_rel": 0.007345229528721175,
+   "m_in_rel": 0.007711073712944351
+  },
+  "b3.opm": {
+   "track": "z",
+   "upd_ref_norm": 1430.675942499995,
+   "upd_err_norm": 48.387089924501566,
+   "upd_rel": 0.03382113900646773,
+   "upd_err_over_zout": 0.000752594208248021,
+   "upd_err_over_m_state": null,
+   "dtypes": {
+    "update": "DataType.BFLOAT16",
+    "state": "DataType.BFLOAT16"
+   },
+   "z_in_rel": 0.006886756962301622,
+   "m_in_rel": 0.007711073712944351
+  },
+  "b3.tri_mul_out": {
+   "track": "z",
+   "upd_ref_norm": 2021.3254879917024,
+   "upd_err_norm": 25.438053585933375,
+   "upd_rel": 0.012584837888334092,
+   "upd_err_over_zout": 0.0003956537131649681,
+   "upd_err_over_m_state": null,
+   "dtypes": {
+    "update": "DataType.BFLOAT16",
+    "state": "DataType.BFLOAT16"
+   },
+   "z_in_rel": 0.007268406714871706,
+   "m_in_rel": 0.007711073712944351
+  },
+  "b3.tri_mul_in": {
+   "track": "z",
+   "upd_ref_norm": 2598.3014949914086,
+   "upd_err_norm": 34.25999601510376,
+   "upd_rel": 0.013185535274156874,
+   "upd_err_over_zout": 0.0005328668166611792,
+   "upd_err_over_m_state": null,
+   "dtypes": {
+    "update": "DataType.BFLOAT16",
+    "state": "DataType.BFLOAT16"
+   },
+   "z_in_rel": 0.007566914607635165,
+   "m_in_rel": 0.007711073712944351
+  },
+  "b3.tri_att_start": {
+   "track": "z",
+   "upd_ref_norm": 1447.3944199402338,
+   "upd_err_norm": 39.453228104109094,
+   "upd_rel": 0.027258104329114526,
+   "upd_err_over_zout": 0.0006136403535358178,
+   "upd_err_over_m_state": null,
+   "dtypes": {
+    "update": "DataType.BFLOAT16",
+    "state": "DataType.BFLOAT16"
+   },
+   "z_in_rel": 0.007817960618766672,
+   "m_in_rel": 0.007711073712944351
+  },
+  "b3.tri_att_end": {
+   "track": "z",
+   "upd_ref_norm": 777.593987177446,
+   "upd_err_norm": 22.677288622284784,
+   "upd_rel": 0.029163405319786576,
+   "upd_err_over_zout": 0.0003527138354988823,
+   "upd_err_over_m_state": null,
+   "dtypes": {
+    "update": "DataType.BFLOAT16",
+    "state": "DataType.BFLOAT16"
+   },
+   "z_in_rel": 0.008236577887776108,
+   "m_in_rel": 0.007711073712944351
+  },
+  "b3.pair_transition": {
+   "track": "z",
+   "upd_ref_norm": 3477.6701318035375,
+   "upd_err_norm": 58.822776105867085,
+   "upd_rel": 0.016914420826727835,
+   "upd_err_over_zout": 0.0009149068621283008,
+   "upd_err_over_m_state": null,
+   "dtypes": {
+    "update": "DataType.BFLOAT16",
+    "state": "DataType.BFLOAT16"
+   },
+   "z_in_rel": 0.008432414012090376,
+   "m_in_rel": 0.007711073712944351
+  }
+ },
+ "z_out_vs_capture_rel": 0.00837948930198465
+}

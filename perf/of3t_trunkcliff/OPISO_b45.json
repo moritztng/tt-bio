@@ -1,0 +1,21 @@
+{
+  "block": 45,
+  "config": {
+    "scale_pair_bias": false,
+    "tri_att_scale_pair_bias": false,
+    "fp32_softmax": true,
+    "transpose_bias": true,
+    "accurate_softmax": false
+  },
+  "overrides": [],
+  "fed_norms": {
+    "sn": 30.662868518168725,
+    "z5": 1298020.542436097,
+    "s1": 1694504.2235653314
+  },
+  "u1_norm": 42250.75019683315,
+  "u2_norm": 992691.1662114538,
+  "attn_norms": {},
+  "attn_shapes": {},
+  "seconds": 1.9780165829997713
+}

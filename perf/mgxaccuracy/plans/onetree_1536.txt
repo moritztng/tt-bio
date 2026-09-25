@@ -1,0 +1,52 @@
+# THE 1536 CROP CONTRAST HAS NO ONE-TREE CONTROL, AND THE INTERACTION'S SIGN DEPENDS ON IT.
+# Written 2026-09-24 07:2xZ, before the card-2 repeat lands.
+#
+# WHAT WENT WRONG. The 2x2's four cells were collected over 14 hours, and the engine moved
+# underneath them. Start times, from each cell's own ts minus its wall_s:
+#
+#   512 /off0     4.749                started 09-23 23:15
+#   1536/off0    19.398                started 09-23 23:19
+#   512 /off100  17.784                started 09-24 01:00
+#   1536/off100  13.273                started 09-24 01:00
+#
+# Between the off0 pair and the off100 pair, 1c2847f66 landed at 00:52Z: "Revert 'trimul: the
+# triangle product runs HiFi3 on Wormhole'", 34 deleted lines of tt_bio/tenstorrent.py. That is
+# a PRECISION change in the triangle product, which boltzgen's pairformer rides on every step.
+# 94e7a002c (sdpa-mask, tenstorrent.py +58) landed at 01:34Z, inside the off100 cells' run.
+#
+# So BOTH crop contrasts span an engine change. At 512 that does not matter, because the row
+# already re-ran both 512 cells on ONE tree (onetree512.jsonl, 02:03Z and 02:34Z): 4.631 and
+# 16.021, an 11.39 A within-tree crop effect against the 13.04 A cross-tree one. Same sign,
+# same order. The 512 crop effect is real.
+#
+# At 1536 there is no such control. 19.398 was measured on the pre-revert engine and 13.273 on
+# the post-revert one, and the -6.13 A between them is what gives the interaction its sign.
+# Nothing so far separates that -6.13 A from the trimul revert.
+#
+# WHY THE CARD-2 REPEAT DOES NOT FIX IT. It re-runs 1536/off100 on tree 72ad980ee, which is a
+# THIRD engine: 20 tt_bio files and 525 insertions against the cells' original engine,
+# tenstorrent.py +145 and boltzgen's own model/models/boltz.py among them. It therefore tests
+# whether 1536/off100 is stable across engines, which is worth knowing, but it leaves 1536/off0
+# measured on the old engine and the contrast still cross-tree.
+#
+# WHAT THIS JOB IS. 1536/off0, n=8, on 72ad980ee -- the SAME tree as the card-2 repeat. With
+# both 1536 cells on one engine the crop contrast at 1536 becomes within-tree, exactly as the
+# 512 one already is, and the interaction can be recomputed without the confound.
+#
+# It runs on wt-mgx-catcher, which is pinned at 72ad980ee and must NOT be checked out again:
+# BoltzGen imports fresh code in every step subprocess, so updating the tree would change the
+# engine under the job and give a fourth one. This plan file is delivered there untracked for
+# the same reason; it touches no tt_bio file.
+#
+# HOW TO READ IT, PRE-REGISTERED. Call the result X and the repeat's 1536/off100 result Y.
+#   within-tree 1536 crop effect = Y - X, against the cross-tree -6.125 A.
+#   - Y - X negative and >= 7.2 A in magnitude  -> the 1536 crop effect survives on one tree
+#     and the interaction stands on its own numbers.
+#   - Y - X near zero, or positive             -> the -6.13 A was the engine, not the crop, and
+#     the interaction as published is an artifact of when each cell was run. That would
+#     withdraw the row's headline, and GroEL's within-tree 2x2 becomes the only 2x2 it has.
+#   Threshold and its arithmetic: plans/closing_rule.txt section 2.
+#
+# Cost: ~3.4 h on one chip, taken only when the card-2 repeat frees card 2, so the row stays
+# at its 3-chip cap and no chip sits idle to pay for it.
+--model boltzgen --target perf/mgxaccuracy/targets/gpb_dimer_1646.cif --target-res 1536 --crop-offset 0 --designs 8 --budget 8 --score-dsg --host-threads 2 --timeout 32400 --tag onetree1536o0

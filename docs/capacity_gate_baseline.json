@@ -48,7 +48,7 @@
      "alloc_ceiling_tokens": null,
      "alloc_ceiling_note": null,
      "reason": null,
-     "ceilings_fingerprint": "4b2918fe1ccfb70b",
+     "ceilings_fingerprint": "c7c08e2bf9e28767",
      "tree": "7f0e6c77abc68261b4189730fdcb97aab62b2698",
      "board_type": "p150a",
      "measured_on": "qb1:0"
@@ -68,7 +68,7 @@
      "alloc_ceiling_tokens": null,
      "alloc_ceiling_note": null,
      "reason": null,
-     "ceilings_fingerprint": "4b2918fe1ccfb70b",
+     "ceilings_fingerprint": "a9364fccac87a475",
      "tree": "7f0e6c77abc68261b4189730fdcb97aab62b2698",
      "board_type": "p150a",
      "measured_on": "qb1:1"
@@ -88,7 +88,7 @@
      "alloc_ceiling_tokens": null,
      "alloc_ceiling_note": null,
      "reason": null,
-     "ceilings_fingerprint": "4b2918fe1ccfb70b",
+     "ceilings_fingerprint": "5b9251be637e85d5",
      "tree": "7f0e6c77abc68261b4189730fdcb97aab62b2698",
      "board_type": "p150a",
      "measured_on": "qb1:3"
@@ -108,7 +108,7 @@
      "alloc_ceiling_tokens": null,
      "alloc_ceiling_note": null,
      "reason": null,
-     "ceilings_fingerprint": "4b2918fe1ccfb70b",
+     "ceilings_fingerprint": "861fa9f05bc9632b",
      "tree": "7f0e6c77abc68261b4189730fdcb97aab62b2698",
      "board_type": "p150a",
      "measured_on": "qb1:0"
@@ -128,7 +128,7 @@
      "alloc_ceiling_tokens": null,
      "alloc_ceiling_note": null,
      "reason": null,
-     "ceilings_fingerprint": "4b2918fe1ccfb70b",
+     "ceilings_fingerprint": "a9a10a84102f4604",
      "tree": "7f0e6c77abc68261b4189730fdcb97aab62b2698",
      "board_type": "p150a",
      "measured_on": "qb1:1"
@@ -148,7 +148,7 @@
      "alloc_ceiling_tokens": null,
      "alloc_ceiling_note": null,
      "reason": null,
-     "ceilings_fingerprint": "4b2918fe1ccfb70b",
+     "ceilings_fingerprint": "ff77a2617d03da5b",
      "tree": "7f0e6c77abc68261b4189730fdcb97aab62b2698",
      "board_type": "p150a",
      "measured_on": "qb1:3"
@@ -168,7 +168,7 @@
      "alloc_ceiling_tokens": null,
      "alloc_ceiling_note": null,
      "reason": null,
-     "ceilings_fingerprint": "4b2918fe1ccfb70b",
+     "ceilings_fingerprint": "71869f8003493d94",
      "tree": "7f0e6c77abc68261b4189730fdcb97aab62b2698",
      "board_type": "p150a",
      "measured_on": "qb1:1"
@@ -188,7 +188,7 @@
      "alloc_ceiling_tokens": null,
      "alloc_ceiling_note": null,
      "reason": null,
-     "ceilings_fingerprint": "4b2918fe1ccfb70b",
+     "ceilings_fingerprint": "e9cc351f7eab4444",
      "tree": "7f0e6c77abc68261b4189730fdcb97aab62b2698",
      "board_type": "p150a",
      "measured_on": "qb1:3"
@@ -208,7 +208,7 @@
      "alloc_ceiling_tokens": null,
      "alloc_ceiling_note": null,
      "reason": null,
-     "ceilings_fingerprint": "4b2918fe1ccfb70b",
+     "ceilings_fingerprint": "25e3019cd77b99b3",
      "tree": "7f0e6c77abc68261b4189730fdcb97aab62b2698",
      "board_type": "p150a",
      "measured_on": "qb1:1"
@@ -228,7 +228,7 @@
      "alloc_ceiling_tokens": null,
      "alloc_ceiling_note": null,
      "reason": null,
-     "ceilings_fingerprint": "4b2918fe1ccfb70b",
+     "ceilings_fingerprint": "ed00850d32388f0e",
      "tree": "7f0e6c77abc68261b4189730fdcb97aab62b2698",
      "board_type": "p150a",
      "measured_on": "qb1:3"
@@ -248,7 +248,7 @@
      "alloc_ceiling_tokens": null,
      "alloc_ceiling_note": null,
      "reason": null,
-     "ceilings_fingerprint": "4b2918fe1ccfb70b",
+     "ceilings_fingerprint": "5da6904f74dcc53b",
      "tree": "7f0e6c77abc68261b4189730fdcb97aab62b2698",
      "board_type": "p150a",
      "measured_on": "qb1:1"
@@ -268,7 +268,7 @@
      "alloc_ceiling_tokens": null,
      "alloc_ceiling_note": null,
      "reason": null,
-     "ceilings_fingerprint": "4b2918fe1ccfb70b",
+     "ceilings_fingerprint": "ad0e6aa5e829640a",
      "tree": "7f0e6c77abc68261b4189730fdcb97aab62b2698",
      "board_type": "p150a",
      "measured_on": "qb1:0"
@@ -288,7 +288,7 @@
      "alloc_ceiling_tokens": null,
      "alloc_ceiling_note": null,
      "reason": null,
-     "ceilings_fingerprint": "4b2918fe1ccfb70b",
+     "ceilings_fingerprint": "4fe0f2ed1720bd47",
      "tree": "7f0e6c77abc68261b4189730fdcb97aab62b2698",
      "board_type": "p150a",
      "measured_on": "qb1:0"
@@ -308,7 +308,7 @@
      "alloc_ceiling_tokens": 1024,
      "alloc_ceiling_note": "1024 is the largest bucket-aligned size whose shapes ALLOCATE (screen); 1056 is the smallest that does not. A clean screen cannot rule out a Class B failure, so this is an upper bound on the completing ceiling, not a pass.",
      "reason": null,
-     "ceilings_fingerprint": "4b2918fe1ccfb70b",
+     "ceilings_fingerprint": "033a8a7aad19149f",
      "tree": "7f0e6c77abc68261b4189730fdcb97aab62b2698",
      "board_type": "p150a",
      "measured_on": "qb1:0"
@@ -328,7 +328,7 @@
      "alloc_ceiling_tokens": 1024,
      "alloc_ceiling_note": "1024 is the largest bucket-aligned size whose shapes ALLOCATE (screen); 1056 is the smallest that does not. A clean screen cannot rule out a Class B failure, so this is an upper bound on the completing ceiling, not a pass.",
      "reason": null,
-     "ceilings_fingerprint": "4b2918fe1ccfb70b",
+     "ceilings_fingerprint": "25b2f1acf6a07ac6",
      "tree": "7f0e6c77abc68261b4189730fdcb97aab62b2698",
      "board_type": "p150a",
      "measured_on": "qb1:3"
@@ -381,7 +381,7 @@
      "alloc_ceiling_tokens": null,
      "alloc_ceiling_note": null,
      "reason": null,
-     "ceilings_fingerprint": "8b70027f5ec5254a",
+     "ceilings_fingerprint": "4fe0f2ed1720bd47",
      "tree": "218c096a2989a1e0f64dfd38979fd1b3ed5b8fe0",
      "measured_on": "tt-quietbox2:0"
     },
@@ -400,7 +400,7 @@
      "alloc_ceiling_tokens": null,
      "alloc_ceiling_note": null,
      "reason": "design, not a fold: its input is a target plus a binder spec, so this gate's polymer sequence fixture is not a valid input for it at any bar. Its cap is atom-denominated as well (TARGET_ATOMS, 14786 atoms on a Wormhole Galaxy chip), which a token bar cannot express. Needs an atom-denominated cell of its own.",
-     "ceilings_fingerprint": "8b70027f5ec5254a",
+     "ceilings_fingerprint": "088fd553f3d80aa8",
      "tree": "c8fdc1b8aa5f097aafbe0b46b7ffb38698074721",
      "measured_on": "tt-quietbox2:0"
     },
@@ -419,7 +419,7 @@
      "alloc_ceiling_tokens": null,
      "alloc_ceiling_note": null,
      "reason": null,
-     "ceilings_fingerprint": "8b70027f5ec5254a",
+     "ceilings_fingerprint": "a9364fccac87a475",
      "tree": "c8fdc1b8aa5f097aafbe0b46b7ffb38698074721",
      "measured_on": "tt-quietbox2:0"
     },
@@ -438,7 +438,7 @@
      "alloc_ceiling_tokens": null,
      "alloc_ceiling_note": null,
      "reason": null,
-     "ceilings_fingerprint": "8b70027f5ec5254a",
+     "ceilings_fingerprint": "5b9251be637e85d5",
      "tree": "c8fdc1b8aa5f097aafbe0b46b7ffb38698074721",
      "measured_on": "tt-quietbox2:0"
     },
@@ -457,7 +457,7 @@
      "alloc_ceiling_tokens": null,
      "alloc_ceiling_note": null,
      "reason": null,
-     "ceilings_fingerprint": "8b70027f5ec5254a",
+     "ceilings_fingerprint": "a9a10a84102f4604",
      "tree": "c8fdc1b8aa5f097aafbe0b46b7ffb38698074721",
      "measured_on": "tt-quietbox2:0"
     },
@@ -476,7 +476,7 @@
      "alloc_ceiling_tokens": null,
      "alloc_ceiling_note": null,
      "reason": null,
-     "ceilings_fingerprint": "8b70027f5ec5254a",
+     "ceilings_fingerprint": "ff77a2617d03da5b",
      "tree": "3c5c4b95306d78a1fc136dcac246975c322558ce",
      "measured_on": "tt-quietbox2:0"
     },
@@ -495,7 +495,7 @@
      "alloc_ceiling_tokens": null,
      "alloc_ceiling_note": null,
      "reason": null,
-     "ceilings_fingerprint": "8b70027f5ec5254a",
+     "ceilings_fingerprint": "71869f8003493d94",
      "tree": "3c5c4b95306d78a1fc136dcac246975c322558ce",
      "measured_on": "tt-quietbox2:0"
     },
@@ -514,7 +514,7 @@
      "alloc_ceiling_tokens": null,
      "alloc_ceiling_note": null,
      "reason": "affinity, and the roster's only such model: it is handed a protein AND a ligand, and this gate's fixture is polymer-only by construction, so its batch builder refuses the input outright with 'No protein or ligand tokens found in the batch'. Measured, not assumed: the weights load (539 tensors) and the un-truncated residency leg still gets no valid input, so no size was tested at any bar. Needs a ligand-bearing cell, which is a fixture change. p1 recorded NO_WEIGHTS here and blamed the checkpoint; that was the gate's own depth cut, not the artifact.",
-     "ceilings_fingerprint": "8b70027f5ec5254a",
+     "ceilings_fingerprint": "d0d3e393833bfcf3",
      "tree": "c8fdc1b8aa5f097aafbe0b46b7ffb38698074721",
      "measured_on": "tt-quietbox2:0"
     },
@@ -533,7 +533,7 @@
      "alloc_ceiling_tokens": null,
      "alloc_ceiling_note": null,
      "reason": null,
-     "ceilings_fingerprint": "8b70027f5ec5254a",
+     "ceilings_fingerprint": "25e3019cd77b99b3",
      "tree": "218c096a2989a1e0f64dfd38979fd1b3ed5b8fe0",
      "measured_on": "tt-quietbox2:0"
     },
@@ -552,7 +552,7 @@
      "alloc_ceiling_tokens": null,
      "alloc_ceiling_note": null,
      "reason": null,
-     "ceilings_fingerprint": "8b70027f5ec5254a",
+     "ceilings_fingerprint": "ad0e6aa5e829640a",
      "tree": "218c096a2989a1e0f64dfd38979fd1b3ed5b8fe0",
      "measured_on": "tt-quietbox2:0"
     },
@@ -571,7 +571,7 @@
      "alloc_ceiling_tokens": null,
      "alloc_ceiling_note": null,
      "reason": null,
-     "ceilings_fingerprint": "8b70027f5ec5254a",
+     "ceilings_fingerprint": "5da6904f74dcc53b",
      "tree": "218c096a2989a1e0f64dfd38979fd1b3ed5b8fe0",
      "measured_on": "tt-quietbox2:0"
     },
@@ -590,7 +590,7 @@
      "alloc_ceiling_tokens": null,
      "alloc_ceiling_note": null,
      "reason": "design, not a fold: sized on DESIGN_TARGET from a target STRUCTURE, so it needs a 1536-residue PDB rather than a sequence. The shipped ladder's own fixture source (1DP0 chain A, 1011 residues) cannot reach the bar either.",
-     "ceilings_fingerprint": "8b70027f5ec5254a",
+     "ceilings_fingerprint": "b8a149364819cf12",
      "tree": "c8fdc1b8aa5f097aafbe0b46b7ffb38698074721",
      "measured_on": "tt-quietbox2:0"
     },
@@ -609,7 +609,7 @@
      "alloc_ceiling_tokens": null,
      "alloc_ceiling_note": null,
      "reason": null,
-     "ceilings_fingerprint": "8b70027f5ec5254a",
+     "ceilings_fingerprint": "e9cc351f7eab4444",
      "tree": "3c5c4b95306d78a1fc136dcac246975c322558ce",
      "measured_on": "tt-quietbox2:0"
     },
@@ -628,7 +628,7 @@
      "alloc_ceiling_tokens": null,
      "alloc_ceiling_note": null,
      "reason": "design, not a fold: sized on DESIGN_TOTAL (motif plus designed) from a contig spec, so the 1536-token fixture here is not a valid input. Its wall is fragmentation rather than capacity and wants its own cell.",
-     "ceilings_fingerprint": "8b70027f5ec5254a",
+     "ceilings_fingerprint": "59ab00876650def4",
      "tree": "c8fdc1b8aa5f097aafbe0b46b7ffb38698074721",
      "measured_on": "tt-quietbox2:0"
     },
@@ -647,7 +647,7 @@
      "alloc_ceiling_tokens": null,
      "alloc_ceiling_note": null,
      "reason": "structure-aware embeddings, and the checkpoint is not in the local weights cache on this host. saprot-35m and saprot-650m carry the same code path at the bar; this one is a weights gap, not a code gap.",
-     "ceilings_fingerprint": "8b70027f5ec5254a",
+     "ceilings_fingerprint": "7c638e44639b6a4f",
      "tree": "c8fdc1b8aa5f097aafbe0b46b7ffb38698074721",
      "measured_on": "tt-quietbox2:0"
     },
@@ -666,7 +666,7 @@
      "alloc_ceiling_tokens": null,
      "alloc_ceiling_note": null,
      "reason": null,
-     "ceilings_fingerprint": "8b70027f5ec5254a",
+     "ceilings_fingerprint": "c7c08e2bf9e28767",
      "tree": "c8fdc1b8aa5f097aafbe0b46b7ffb38698074721",
      "measured_on": "tt-quietbox2:0"
     },
@@ -685,7 +685,7 @@
      "alloc_ceiling_tokens": null,
      "alloc_ceiling_note": null,
      "reason": null,
-     "ceilings_fingerprint": "8b70027f5ec5254a",
+     "ceilings_fingerprint": "861fa9f05bc9632b",
      "tree": "c8fdc1b8aa5f097aafbe0b46b7ffb38698074721",
      "measured_on": "tt-quietbox2:0"
     },
@@ -704,7 +704,7 @@
      "alloc_ceiling_tokens": null,
      "alloc_ceiling_note": null,
      "reason": null,
-     "ceilings_fingerprint": "8b70027f5ec5254a",
+     "ceilings_fingerprint": "ed00850d32388f0e",
      "tree": "3c5c4b95306d78a1fc136dcac246975c322558ce",
      "measured_on": "tt-quietbox2:0"
     },
@@ -723,7 +723,7 @@
      "alloc_ceiling_tokens": 1024,
      "alloc_ceiling_note": "1024 is the largest bucket-aligned size whose shapes ALLOCATE (screen); 1056 is the smallest that does not. A clean screen cannot rule out a Class B failure, so this is an upper bound on the completing ceiling, not a pass.",
      "reason": null,
-     "ceilings_fingerprint": "8b70027f5ec5254a",
+     "ceilings_fingerprint": "033a8a7aad19149f",
      "tree": "c23ac2d4399a340c2f5942e6741537f05a0d9776",
      "measured_on": "tt-quietbox2:1"
     },
@@ -742,7 +742,7 @@
      "alloc_ceiling_tokens": 1024,
      "alloc_ceiling_note": "1024 is the largest bucket-aligned size whose shapes ALLOCATE (screen); 1056 is the smallest that does not. A clean screen cannot rule out a Class B failure, so this is an upper bound on the completing ceiling, not a pass.",
      "reason": null,
-     "ceilings_fingerprint": "8b70027f5ec5254a",
+     "ceilings_fingerprint": "25b2f1acf6a07ac6",
      "tree": "c23ac2d4399a340c2f5942e6741537f05a0d9776",
      "measured_on": "tt-quietbox2:1"
     }

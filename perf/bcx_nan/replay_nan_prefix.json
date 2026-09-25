@@ -1,0 +1,75 @@
+{
+ "npz": "perf/bcx_predictor/nancap/nan_backward_inputs.npz",
+ "n": 261,
+ "k_evo": 48,
+ "forward_finite": {
+  "msa": true,
+  "pair": true,
+  "msa_absmax": 376.0,
+  "pair_absmax": 11584.0
+ },
+ "cotangent_finite": {
+  "msa": true,
+  "pair": true,
+  "msa_absmax": 0.07177734375,
+  "pair_absmax": 0.04649725928902626
+ },
+ "backward": [
+  {
+   "tag": "d_msa",
+   "nan": 16514,
+   "inf": 130212,
+   "size": 147456,
+   "absmax_finite": 3.39617752923046e+38
+  },
+  {
+   "tag": "d_pair",
+   "nan": 1060921,
+   "inf": 9552153,
+   "size": 10616832,
+   "absmax_finite": 3.3598314512207163e+38
+  }
+ ],
+ "reproduced": true,
+ "depth_sweep": [
+  {
+   "k_evo": 48,
+   "forward_finite": true,
+   "d_msa_nonfinite": 0,
+   "d_pair_nonfinite": 0,
+   "d_msa_absmax": 0.363677978515625,
+   "d_pair_absmax": 0.005441427230834961
+  },
+  {
+   "k_evo": 48,
+   "forward_finite": true,
+   "d_msa_nonfinite": 146726,
+   "d_pair_nonfinite": 10613074,
+   "d_msa_absmax": 3.39617752923046e+38,
+   "d_pair_absmax": 3.3598314512207163e+38
+  },
+  {
+   "k_evo": 48,
+   "forward_finite": true,
+   "d_msa_nonfinite": 0,
+   "d_pair_nonfinite": 0,
+   "d_msa_absmax": 0.363677978515625,
+   "d_pair_absmax": 0.005441427230834961
+  }
+ ],
+ "first_bad_depth": 48,
+ "stamp": {
+  "host": "tt-quietbox2",
+  "card": 2,
+  "subsystem_device": "0x0046",
+  "commit": "4ef68dbaaa3ef07f8010d55e3472d169b2a8ec81",
+  "tt_bio_dirty": false,
+  "torch_threads": 4,
+  "loadavg": [
+   54.81396484375,
+   54.630859375,
+   55.2802734375
+  ],
+  "utc": "2026-09-24T14:43:08Z"
+ }
+}

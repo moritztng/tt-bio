@@ -1,0 +1,38 @@
+# ADDING 311 RESIDUES WITHIN ONE CHAIN DOES NOT MEASURABLY HURT. ADDING A SECOND CHAIN DOES.
+#
+# The 2x2's size axis is confounded: chain A of the gpb dimer is 823 residues, so its 512
+# cells are single-chain crops and its 1536 cells are two-chain contacting dimers. The size
+# effect it reports therefore mixes residue count with chain count. This is the decomposition.
+#
+# Both crops below start at residue 1 of chain A and are SINGLE-CHAIN. 823 is all of chain A
+# (fixture checked before the run: chains {'A': 823}, 6691 atoms, coord_sha 7020d95a). n=8,
+# same engine, binder length, metric and refolder.
+#
+#   crop                        n     min    median     max    <=2A  <=4A
+#   512 residues (1-512)        8   0.823     4.631  13.493     ~     50%
+#   823 residues (1-823)        8   1.051     7.962  14.308    12.5%  25%
+#
+#   effect  +3.33 A over 311 extra residues.  Mann-Whitney does NOT reject.
+#   (+3.21 A against the other banked 512 offset-0 cell; MW does not reject either.)
+#
+# SET THAT AGAINST THE 2x2's SIZE AXIS AT THE SAME CROP:
+#
+#   512 -> 1536   +14.77 A   single chain -> two-chain dimer   MW rejects
+#   512 ->  823    +3.33 A   single chain -> single chain      MW does NOT reject
+#
+# So the part of the 512->1536 move that is chain-count-free is about 23% of it, and that part
+# is not even a demonstrable effect at n=8. Growing a target within one chain is close to
+# free; what costs is the arrival of a second chain and the two-chain interface that comes
+# with it.
+#
+# WHAT THIS DOES NOT DECOMPOSE. 823 is not 1536, so the remaining 77% is not attributed
+# cleanly: between the 823 and 1536 cells BOTH residue count and chain count change, and this
+# pair cannot separate them. The honest claim is the one above -- residue count alone, over
+# the range measured, does not produce the effect; the two-chain case does. Isolating the
+# interface would need a >=1536-residue single chain, which this protein does not have.
+#
+# It also does not soften what a user sees. Someone who brings a 1536-residue target brings
+# its chains with it, so the 2x2 remains the number describing the service at that size.
+#
+# Reproduce: perf/mgxaccuracy/plans/size823_onechain.txt, against the offset-0 512 cells in
+# results/size_1536.jsonl.

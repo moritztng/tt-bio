@@ -1,0 +1,7 @@
+# sha256 of grads_f64.pt from the first (manifest-crashed) launch of each arm, 2026-09-20T08:40Z.
+# The relaunch after the D43 fix must reproduce these byte for byte; that is the determinism
+# control for the arms themselves.
+09f1217c8ea254d04f1bfdae73585f058cb2aec51557699bfae3a8090dadd548  arm2_f32_upstream
+09f1217c8ea254d04f1bfdae73585f058cb2aec51557699bfae3a8090dadd548  arm3_f32_removed
+ff78d7bc0bf7a4355014a470fbe931592bd4896fe06a8b400c161c08b5607ccb  arm4_bf16_autocast
+a5cbbf40819f0c24e6adca2f545b45a0c7aed23d0de95308636fec0a499f43a0  negctl_f32_permuted

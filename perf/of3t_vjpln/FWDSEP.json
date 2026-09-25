@@ -1,0 +1,294 @@
+{
+ "device_bf16_disagreement": 0.0034985898389263037,
+ "rows": [
+  {
+   "op": "layer_norm",
+   "shape": [
+    1,
+    64,
+    64,
+    128
+   ],
+   "variant": "E[x^2]-E[x]^2",
+   "rel_l2": 8.030305700633998e-17
+  },
+  {
+   "op": "layer_norm",
+   "shape": [
+    1,
+    64,
+    64,
+    128
+   ],
+   "variant": "unbiased var (N-1)",
+   "rel_l2": 0.002915297944363803
+  },
+  {
+   "op": "layer_norm",
+   "shape": [
+    1,
+    64,
+    64,
+    128
+   ],
+   "variant": "eps outside the sqrt",
+   "rel_l2": 2.0875757855128656e-06
+  },
+  {
+   "op": "layer_norm",
+   "shape": [
+    1,
+    64,
+    64,
+    128
+   ],
+   "variant": "eps dropped",
+   "rel_l2": 4.277013310908794e-07
+  },
+  {
+   "op": "layer_norm",
+   "shape": [
+    1,
+    64,
+    64,
+    128
+   ],
+   "variant": "gamma before normalising",
+   "rel_l2": 0.208041292316898
+  },
+  {
+   "op": "layer_norm",
+   "shape": [
+    1,
+    64,
+    64,
+    128
+   ],
+   "variant": "mean not subtracted (RMS)",
+   "rel_l2": 0.18059933533312195
+  },
+  {
+   "op": "layer_norm",
+   "shape": [
+    1,
+    64,
+    64,
+    128
+   ],
+   "variant": "normalised over axis -2",
+   "rel_l2": 0.1377749682558488
+  },
+  {
+   "op": "layer_norm",
+   "shape": [
+    64,
+    64,
+    128
+   ],
+   "variant": "E[x^2]-E[x]^2",
+   "rel_l2": 7.575450463764414e-17
+  },
+  {
+   "op": "layer_norm",
+   "shape": [
+    64,
+    64,
+    128
+   ],
+   "variant": "unbiased var (N-1)",
+   "rel_l2": 0.0027175298523839497
+  },
+  {
+   "op": "layer_norm",
+   "shape": [
+    64,
+    64,
+    128
+   ],
+   "variant": "eps outside the sqrt",
+   "rel_l2": 1.9449806049258743e-06
+  },
+  {
+   "op": "layer_norm",
+   "shape": [
+    64,
+    64,
+    128
+   ],
+   "variant": "eps dropped",
+   "rel_l2": 3.983298965823205e-07
+  },
+  {
+   "op": "layer_norm",
+   "shape": [
+    64,
+    64,
+    128
+   ],
+   "variant": "gamma before normalising",
+   "rel_l2": 0.18477357356090443
+  },
+  {
+   "op": "layer_norm",
+   "shape": [
+    64,
+    64,
+    128
+   ],
+   "variant": "mean not subtracted (RMS)",
+   "rel_l2": 0.1684563901646549
+  },
+  {
+   "op": "layer_norm",
+   "shape": [
+    64,
+    64,
+    128
+   ],
+   "variant": "normalised over axis -2",
+   "rel_l2": 0.12971395864550292
+  },
+  {
+   "op": "layer_norm",
+   "shape": [
+    1,
+    64,
+    384
+   ],
+   "variant": "E[x^2]-E[x]^2",
+   "rel_l2": 9.098594668718993e-17
+  },
+  {
+   "op": "layer_norm",
+   "shape": [
+    1,
+    64,
+    384
+   ],
+   "variant": "unbiased var (N-1)",
+   "rel_l2": 0.0009306298328256085
+  },
+  {
+   "op": "layer_norm",
+   "shape": [
+    1,
+    64,
+    384
+   ],
+   "variant": "eps outside the sqrt",
+   "rel_l2": 1.9790796384727467e-06
+  },
+  {
+   "op": "layer_norm",
+   "shape": [
+    1,
+    64,
+    384
+   ],
+   "variant": "eps dropped",
+   "rel_l2": 3.959286123861005e-07
+  },
+  {
+   "op": "layer_norm",
+   "shape": [
+    1,
+    64,
+    384
+   ],
+   "variant": "gamma before normalising",
+   "rel_l2": 0.1770830376040088
+  },
+  {
+   "op": "layer_norm",
+   "shape": [
+    1,
+    64,
+    384
+   ],
+   "variant": "mean not subtracted (RMS)",
+   "rel_l2": 0.1692081085509336
+  },
+  {
+   "op": "layer_norm",
+   "shape": [
+    1,
+    64,
+    384
+   ],
+   "variant": "normalised over axis -2",
+   "rel_l2": 0.12557312411885738
+  },
+  {
+   "op": "linear",
+   "shape": [
+    1,
+    64,
+    64,
+    128
+   ],
+   "variant": "bias dropped",
+   "rel_l2": 0.10327503524576054
+  },
+  {
+   "op": "linear",
+   "shape": [
+    1,
+    64,
+    64,
+    128
+   ],
+   "variant": "w transposed",
+   "rel_l2": 1.3867529511189631
+  },
+  {
+   "op": "linear",
+   "shape": [
+    1,
+    64,
+    64,
+    128
+   ],
+   "variant": "silu fused into the node",
+   "rel_l2": 0.5948073532838767
+  },
+  {
+   "op": "linear",
+   "shape": [
+    64,
+    64,
+    128
+   ],
+   "variant": "bias dropped",
+   "rel_l2": 0.09866234350808802
+  },
+  {
+   "op": "linear",
+   "shape": [
+    64,
+    64,
+    128
+   ],
+   "variant": "w transposed",
+   "rel_l2": 1.4051387242002684
+  },
+  {
+   "op": "linear",
+   "shape": [
+    64,
+    64,
+    128
+   ],
+   "variant": "silu fused into the node",
+   "rel_l2": 0.6043230552095054
+  }
+ ],
+ "excluded": 15,
+ "not_excluded": 12,
+ "worst_not_excluded": 0.002915297944363803,
+ "not_excluded_variants": [
+  "E[x^2]-E[x]^2",
+  "eps dropped",
+  "eps outside the sqrt",
+  "unbiased var (N-1)"
+ ]
+}

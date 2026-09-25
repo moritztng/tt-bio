@@ -23,7 +23,8 @@ def code(v):
         if v.get("warned"):
             return "warn"
         return "clash" if c.get("present") and c.get("clash") else "DROP"
-    return {"refused": "ref", "failed": "ERR", "in_flight": "fly", "not_run": "-"}[o]
+    return {"refused": "ref", "failed": "ERR", "in_flight": "fly", "awaiting_control": "fly",
+            "not_run": "-"}[o]
 
 
 models = list(d)

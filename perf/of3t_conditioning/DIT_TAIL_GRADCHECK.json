@@ -1,0 +1,109 @@
+{
+ "act": "fp32",
+ "bar": 0.05,
+ "head_dim": 48,
+ "n_heads": 16,
+ "over_bar": [],
+ "padded_head_dim": 64,
+ "results": {
+  "composed_tail": {
+   "backward_cos": 0.999999975840934,
+   "backward_norm_ratio": 0.9996479430424697,
+   "backward_rel": 0.00041502430703627927,
+   "dev_grad_norm": 542.4271636782946,
+   "forward_rel": 0.000414891980655598,
+   "out_shape": [
+    1,
+    384,
+    768
+   ],
+   "ref_grad_norm": 542.6181961895456,
+   "shape": [
+    1,
+    16,
+    384,
+    64
+   ]
+  },
+  "permute_0132": {
+   "backward_cos": 0.9999999759767962,
+   "backward_norm_ratio": 0.9996476815614695,
+   "backward_rel": 0.0004149189203106215,
+   "dev_grad_norm": 543.1020828320259,
+   "forward_rel": 0.0004143197077802415,
+   "out_shape": [
+    1,
+    16,
+    48,
+    384
+   ],
+   "ref_grad_norm": 543.2934951479001,
+   "shape": [
+    1,
+    16,
+    384,
+    48
+   ]
+  },
+  "permute_021": {
+   "backward_cos": 0.9999999760490756,
+   "backward_norm_ratio": 0.9996468798365786,
+   "backward_rel": 0.0004154259715376654,
+   "dev_grad_norm": 543.4920650184395,
+   "forward_rel": 0.0004154080238607769,
+   "out_shape": [
+    1,
+    384,
+    768
+   ],
+   "ref_grad_norm": 543.6840508193144,
+   "shape": [
+    1,
+    768,
+    384
+   ]
+  },
+  "reshape_merge_heads": {
+   "backward_cos": 0.9999999999999509,
+   "backward_norm_ratio": 1.0,
+   "backward_rel": 0.0,
+   "dev_grad_norm": 544.5206183934833,
+   "forward_rel": 0.0,
+   "out_shape": [
+    1,
+    768,
+    384
+   ],
+   "ref_grad_norm": 544.5206183934833,
+   "shape": [
+    1,
+    16,
+    48,
+    384
+   ]
+  },
+  "slice_64_to_48": {
+   "backward_cos": 0.9999999999999514,
+   "backward_norm_ratio": 1.0,
+   "backward_rel": 0.0,
+   "dev_grad_norm": 542.4060593168848,
+   "forward_rel": 0.0,
+   "out_shape": [
+    1,
+    16,
+    384,
+    48
+   ],
+   "ref_grad_norm": 542.4060593168848,
+   "shape": [
+    1,
+    16,
+    384,
+    64
+   ]
+  }
+ },
+ "seed": 20260920,
+ "tokens": 384,
+ "what": "unit gradcheck of the DiT attention tail against a float64 host reference, per op and composed. These ops are pure data movement, so the forward is expected bit-exact and any non-zero backward is a defect, not precision."
+}

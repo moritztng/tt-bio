@@ -26,11 +26,12 @@ Two facts that bite if you touch this:
 from __future__ import annotations
 
 import os
-import random
 from typing import Any
 
 import numpy as np
 import torch
+
+from tt_bio.runtime import seed_everything
 
 # Resolved from `cfg.datasets.val.af3_validation.dataset.transform` merged with
 # RF3InferenceEngine's transform_overrides, checkpoint rf3_foundry_01_24_latest_remapped.
@@ -62,17 +63,6 @@ PIPELINE_CONFIG: dict[str, Any] = {
 
 #: Engine-level knobs, exposed so the CLI can set them.
 DEFAULTS = {"n_recycles": 10, "diffusion_batch_size": 5, "seed": 42}
-
-
-def seed_everything(seed: int) -> None:
-    """Seed every RNG the pipeline draws from.
-
-    RDKit conformer embedding uses the python and numpy RNGs, not torch's, so
-    seeding torch alone leaves the reference conformer non-reproducible.
-    """
-    random.seed(seed)
-    np.random.seed(seed)
-    torch.manual_seed(seed)
 
 
 def build_pipeline(

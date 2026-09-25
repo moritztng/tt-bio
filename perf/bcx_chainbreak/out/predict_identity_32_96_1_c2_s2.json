@@ -1,0 +1,19 @@
+{
+  "ptm": 0.24912449717521667,
+  "plddt": 0.35243646753951907,
+  "binder_plddt": 0.36934727244079113,
+  "iptm": 0.33454346656799316,
+  "leg": "predict_identity",
+  "binder": 32,
+  "target": 96,
+  "target_start": 1,
+  "chains": 2,
+  "recycle": 1,
+  "seed": 2,
+  "seconds": 94.92,
+  "host": "tt-quietbox",
+  "commit": "7a2dfdb",
+  "jax": "0.11.2",
+  "loadavg": 67.4208984375,
+  "threads": "--xla_gpu_enable_triton_gemm=false"
+}

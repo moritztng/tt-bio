@@ -1,0 +1,17 @@
+# The rfd3 half of the wide-seq catcher (428670d60): reproduce the eager digest exactly.
+# Identical to plans/rfd3_digest_catcher.txt except for the tag, which chain.py uses as its
+# resume key: a tag already in runs.jsonl is SKIPPED, so reusing rfd3_eager_catcher would
+# have printed a pass without opening a card.
+#
+# wk/mgx-wide-seq changes tt_bio/page_copy.py and the pair-path tails of tenstorrent.py. rfd3
+# is not supposed to be reached by either, and this digest is what says so.
+#
+# mgx-trace-region's census recorded 7ab57052 in
+# 3 of 3 runs (perf/mgx_trace_region/CENSUS.md), and the runs.jsonl rows give the exact
+# invocation, which is reproduced verbatim below -- same input, same seed, same timesteps.
+# Anything else is a different measurement wearing the same name.
+#
+# Expected: outputs["o/gate-binder.cif"] == 7ab5705258251e10, which is
+# sha256(file bytes).hexdigest()[:16] (chain.py line ~139). A moved digest is a finding and
+# means wide-seq reaches rfd3 after all.
+rfd3_ws_catcher design examples/rfd3_binder.json --model rfd3 --from_pdb --num_designs 1 --seed 0 --num_timesteps 20 --out_dir {out}/o

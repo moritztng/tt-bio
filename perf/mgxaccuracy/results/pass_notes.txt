@@ -1,0 +1,225 @@
+# PROCESS NOTES — the parts of this row's method a successor needs and that are not numbers.
+# Moved out of state/mgx-design-accuracy.md 2026-09-24 17:1xZ, which is re-read every pass.
+
+## MEASURING A LONG CPU JOB'S REMAINING TIME: USE A DIFFERENCED RATE, NEVER `ps -o pcpu`.
+
+`pcpu` is times/etime over the whole run, a LIFETIME AVERAGE. On a box whose load has climbed it
+reports what the job USED TO get, and it ran one ETA on this row ~1.5x fast. Difference two
+readings instead, either `ps -o times` or utime+stime from /proc/<pid>/stat (fields 14-17, in
+clock ticks at 100 Hz, so divide by 100). The two agree: over 423 s they gave 2.286/2.260 cores
+where /proc summed over the whole process tree gave 2.250/2.269, against lifetime averages of
+3.39/3.12. Summing the tree rather than the main pid changes the answer by 58 CPU-s in 182,437,
+so for these draws the `num_workers 2` dataloader children are 0.03 % and the main pid is the job.
+
+The band on a boltzgen CPU draw comes from one unrecorded input. The 512 valid draw's design step
+ran 5126.3 s at OMP_NUM_THREADS=6 but its core occupancy c was never recorded and is
+unrecoverable (`run_valid.sh` wraps nothing in /usr/bin/time). At (1616/592)^2 = 7.45x, a 1536
+draw costs 38,198 x c CPU-s, and c is bounded below by whatever the running draw has already
+spent and above by the 6-thread ceiling. So the band tightens by itself as the draw runs: c > 4.775
+at 182,437 CPU-s, c > 4.963 at 189,600. Re-derive from two readings taken THIS pass, never from a
+clock time written in an earlier one.
+
+The WORKER child (`boltzgen/resources/main.py`) is what must show CPU. The `boltzgen run` launcher
+sits at 0.0 % and is not evidence of a stall. qb2 at load 51-61 on 16 cores is carrying other
+rows; a long slip there is load, not a wedge.
+
+## BUILDING A TREE FOR A CATCHER ON AN UNLANDED BRANCH
+
+Check the harness ONTO the trial commit; do not merge the trial branch into this one:
+
+    git checkout --detach <trial>
+    git checkout origin/wk/mgx-design-accuracy -- perf/mgxaccuracy perf/mgxscale perf/bhdesign perf/mgx_trace_region
+
+All four are needed: `job.py` calls `perf/bhdesign/ladder.py:pxdesign_fixture`, and the first
+attempt died on `TypeError: takes from 3 to 4 positional arguments but 5 were given` with only two
+checked out. Confirm with `git diff --name-only HEAD | grep -E '^(tt_bio|scripts|tests)/'`
+returning nothing.
+
+## RUNNING A LADDER RUNG ON A TREE THAT IS BEHIND MAIN
+
+A catcher must be attributable to main. A ladder rung has the opposite requirement: it is
+comparable only with the rungs it is read against, which were measured on an older tree.
+`launch_if_clear.sh` takes `MGX_ALLOW_BEHIND_MAIN=<plan path>` for that case — a bare =1 is
+refused, because an override with no written reason is how a catcher ends up on a stale tree. The
+plan file's header must name the banked cells the run shares a tree with.
+
+The launcher prints "launched" and the fan can still die one second later; it did, twice. Once on
+`FileNotFoundError` for a plan committed after the remote tree was last checked out, once on
+`fan.py: error: unrecognized arguments: --row-cap 3` because the remote tree predated that flag.
+ALWAYS read `~/mgxacc-work/fan_*.log` after launching. Bringing the scheduler forward without
+moving the tree is `git checkout FETCH_HEAD -- perf/mgxscale/fan.py perf/mgxscale/job.py`; between
+ff5435cba and 793c43d16 those two differ only by `BLOCKED` gaining card 4 and a `holder_cards()`
+helper for row-cap accounting, so the design and scoring path is byte-identical and the rung stays
+comparable.
+
+## CHIPS
+
+Pick at acquire time, never from a census: the fan resolves the lease dir when it acquires, which
+is the only non-stale reading. Count the row's own chips by `released is None` AND pid alive, never
+by grepping the lease dir for this row's name — a released lease still records who held it last, so
+several files name it. `BLOCKED = {1, 4, 24, 25, 26, 27}` in `job.py` is the brief's exclusion list;
+card 4's hung holder only reads busy for as long as that holder's process lives, which is why it is
+in the constant and not left to the four signals. A per-process concurrency flag is not a per-row
+grant: on 2026-09-24 at 07:17Z a third fan with cap 1 took the row to four chips
+(`results/incident_4chip_20260924.txt`); `fan.py --row-cap` counts from the lease dir, the only
+state the fans share.
+
+## READING UPSTREAM's rc
+
+`rc=1` on `run_valid.sh` references is EXPECTED and the run is still good. The script skips the
+whole-complex `folding` step, so upstream's analysis step finds no `fold_out_npz/*.npz`, skips its
+only sample and asserts (`analyze.py:275`). The aggregate CSV is unwritable BY CONSTRUCTION on a
+4-step run, while designability is already fixed at step 4 (`refold_design_cif/`), which is what
+`scrmsd.py` reads and what `scrmsd.py --check` reproduced against the pipeline's own column. Score
+from disk; never read rc=1 here as a dead run. The `6` in `run_valid.sh <size> 6` is the THREAD
+count: the script passes `--num_designs 1 --budget 1`.
+
+## `refold_cif` IS A DECOY NEXT TO `refold_design_cif`
+
+`intermediate_designs_inverse_folded/` holds BOTH `refold_cif/` and `refold_design_cif/`, and
+only the second one is the designability output. The first is created early and stays empty:
+whglx's outgroel512 had `refold_cif/` on disk holding 0 cif while still mid-refold, and qb2's
+FINISHED out512_valid has `refold_cif/` holding 0 and `refold_design_cif/` holding 1. So a
+completion test written against `refold_cif` would read 0 forever on a finished run and look
+exactly like a job that never got there. `ref/harvest_upstream_1536.sh` and
+`ref/harvest_groel_upstream.sh` both test `refold_design_cif`, which is correct; checked against
+the finished qb2 run rather than assumed.
+
+## THE LAUNCHER SURVIVES ITS OWN SIGTERM, THE FAN DOES NOT REPORT IT
+
+`launch_if_clear.sh` does four ssh round trips plus `sleep 8`, so a local `timeout 180` can
+SIGTERM it mid-print: exit 143, no "launched" line, nothing in the local output. That kills the
+LOCAL script only — the fan is `setsid nohup`'d on whglx and keeps running. Happened at 19:01Z on
+the 768 rung; the fan (2654682) and both jobs (2654684, 2654692) were verified alive afterwards
+and the cells ran normally. The lesson is the verification, not the timeout: the launcher's own
+output is not the evidence that a fan started. `~/mgxacc-work/fan_*.log` plus live job pids is.
+
+## A HARVEST SCRIPT COMMITTED ON THE BRANCH IS ABSENT FROM THE WHGLX TREE THAT MUST RUN IT
+
+`launch_if_clear.sh` already refuses a PLAN that is missing on whglx, because the launcher
+fetches and never checks out and the design tree is deliberately held behind main so the size
+ladder stays within-tree. Nothing applies that guard to `ref/` scripts. At 19:1xZ both
+`ref/harvest_groel_upstream.sh` and `ref/harvest_upstream_1536.sh` were absent from BOTH whglx
+checkouts (`~/wt-mgx-design-accuracy` at ff5435cba and `~/wt-mgx-catcher` at 428670d60) while
+the state doc instructed the next pass to run the first of them there. `bash ... :
+No such file or directory` at the moment a 2 h reference finally lands is the worst time to
+discover it.
+
+Both are now copied in, and the GroEL one dry-run in its NOT-READY path: it prints
+"groel512: NOT READY (refold_design_cif holds 0 cif)" for both rungs and the reading note. Its
+two dependencies were already there and byte-identical to the branch — `scrmsd.py`
+sha256 71a9384b50bd8952, `targets/groel_ring4_2096.cif` 50321c894b9eadb7 — so nothing had to be
+overwritten under the running 768 rung.
+
+The general rule: anything the next pass is told to run ON whglx has to be checked present ON
+whglx in the pass that writes the instruction, not in the pass that follows it.
+
+## TWO mmCIF COLUMN LAYOUTS IN THIS ROW, AND THE CENSUS READS THE RIGHT ONE
+
+The fixtures the jobs use and the targets `make_contact_target.py` writes do NOT share an
+`_atom_site` column order, so one hardcoded index set silently reads the wrong field on the
+other family. Checked by parsing each file's own loop header rather than assuming:
+
+  job fixture (`fx_*/bgt*.cif`)   0 group_PDB 1 id 2 type_symbol 3 label_atom_id ...
+                                  6 label_asym_id ... 10/11/12 Cartn_x/y/z
+  make_contact_target output      0 group_PDB 1 type_symbol 2 label_atom_id 3 label_alt_id ...
+                                  5 label_asym_id ... 13/14/15 Cartn_x/y/z
+
+The chain census in `results/chain_count_confound.txt` used field 3 == "CA" and field 6 as the
+chain, which is correct for the FIRST layout and is the one it ran on. On the second layout
+field 3 is `label_alt_id` and would have matched nothing, giving an empty counter rather than a
+wrong one -- so the failure mode here is a silent zero, not a silent wrong number. Verified
+after publishing the census, because the census is what the chain-count finding rests on.
+
+## AN UPSTREAM TARGET CAN BE FETCHED FROM pc
+
+`curl https://files.rcsb.org/download/<ID>.cif.gz` works from pc; 2VZ8 came down in seconds.
+So building a new control target is host-only work that needs no card and no quiet window, and
+`make_contact_target.py` prints the 2-22 A component count and Rg itself, which is the whole
+validity check. There is no reason for "the control needs a new target" to sit as a blocker for
+more than one pass.
+
+## `ladder_read.py` IS HARDCODED TO GroEL AND WILL READ ZERO FAS CELLS SILENTLY
+
+`TARGET = "groel_ring4_2096"` at module scope and `load()` skips any row whose `target` does
+not contain it. On the FAS ladder that is not an error, it is an empty table: every cell prints
+MISSING and the rung says "not readable". Harvesting `fas_ladder.jsonl` therefore needs a
+`--target` argument or a sibling reader, ADDED beside the GroEL path and not repointing it,
+because the GroEL verdicts are published and this script has to keep reproducing them --
+`--selfcheck` is the check that it still does.
+
+## A DRY-RUN OF THE REFUSAL BRANCH IS NOT A DRY-RUN OF THE SCRIPT
+
+`ref/harvest_groel_upstream.sh` was dry-run at 19:0xZ and printed "groel512: NOT READY" for
+both rungs, which was recorded as "verified end to end in its NOT-READY path". It was not
+verified in any other path, and the scoring line it had never reached called bare `python3` --
+no numpy on whglx -- so the moment the 512 draw actually landed the harvest died on import.
+Fixed to `${PY:-$HOME/env/bin/python}` and re-run, reproducing 5.437 A.
+
+The general form: a guard that refuses early makes every downstream line unexecuted, so
+exercising the guard tells you nothing about them. If a script cannot be run against real
+inputs yet, say which BRANCH was exercised rather than that the script was checked.
+
+## A READER'S OWN SIZES TUPLE MAKES EVERY CELL OUTSIDE IT INVISIBLE, AND IT LOOKS LIKE NO DATA
+
+Hit three times on 2026-09-24, each time on a cell that had just been measured:
+
+  ladder_read.py  SIZES = (512, 1024, 1536)   blind to the 768 rung until 768 was added
+  ladder_read.py  TARGET = "groel_ring4_2096" blind to every FAS cell, prints an empty table
+  fas_read.py     RUNGS = (512, 1024, 1536)   blind to the FAS 768 addition until SHOW was added
+
+Every one of these fails by printing MISSING or nothing at all, never by raising, so a harvest
+that ran correctly and a harvest that silently dropped its cell look identical in the output.
+The rule this row now follows: when a new rung or a new target is launched, check the reader's
+constants in the SAME pass, before the cells land, and add rather than repoint -- the existing
+constants are load-bearing for verdicts that are already published, which is what `--selfcheck`
+exists to prove after every such edit.
+
+## TWO JOBS HALVING TO THE SAME RATE IS A PHASE, NOT CONTENTION
+
+2026-09-24 20:32Z. The two qb2 upstream draws both fell from ~2.25 cores to 1.154 and 1.149
+cores over the same 3h34m window, while qb2's own load FELL from 55-62 to 32.5 on 16 cores.
+Contention cannot produce that: less load would give MORE share, not half. Two independent
+jobs 5 h apart in their pipelines converging on ~one core each reads as a single-threaded
+phase of `boltzgen run`.
+
+The diagnostic worth reusing: when a job slows, difference its CPU time AND read the host's
+load over the SAME window. Load up and share down is contention. Load down and share down is
+the job's own phase. Share landing on ~1.0 cores exactly is a serial section. None of the
+three is a wedge, and only one of them is anybody else's fault.
+
+Consequence for an ETA: a rate measured once is not a rate. This row quoted ~22:02Z off the
+2.25-core reading and missed it. Re-difference before quoting, which is what the DEFER rule
+already says and what this is a concrete instance of.
+
+## `pgrep -cf <tree>` COUNTS ITS OWN SHELL, SO AN EMPTY TREE READS AS BUSY
+
+Before rebuilding `~/wt-mgx-catcher` onto d8f17563c, `pgrep -cf "wt-mgx-catcher"` returned 1,
+which reads as "a job is running out of this tree, do not touch it". `pgrep -af` showed the
+single match was the `bash -c` wrapper of the query itself. Filtered, the count is 0 and the
+rebuild was safe.
+
+Use `pgrep -af <pattern> | grep -v "pgrep\|bash -c" | wc -l`, never the bare `-c`. The bare
+form is wrong in the DANGEROUS direction here: it says busy when the tree is free, which costs
+a pass; but the same self-match in a wait loop says alive when the job is gone, which is
+`wait-loop-pgrep-pattern-self-matches-its-own-wrapper` and costs hours.
+
+## A COST MODEL FITTED ON THE DEVICE DOES NOT TRANSFER TO THE CPU REFERENCE
+
+The row's wall-clock predictions for its own device cells have been excellent all day: the
+quadratic through the GroEL walls put FAS 512 at ~1.8 ks against 1848.6 s measured, FAS 1024 at
+~5.4 ks against 5406.3 s, GroEL 768 at 3272 s against 3023.8 s. That success is what made it
+feel safe to predict the qb2 CPU reference the same way, and the same exponent is wrong there:
+
+    device, GroEL boltzgen walls   592 -> 1104 tokens   exponent 1.731
+                                   592 -> 1616 tokens   exponent 1.853
+    upstream CPU, draw a           592 -> 1616 tokens   exponent >= 2.012, probably >= 2.7
+
+Sub-quadratic on the card, super-quadratic on the CPU. The card's cost is dominated by work
+that parallelises across its grid and by fixed per-step overheads that amortise as the problem
+grows; the CPU reference has neither, so the same algorithm reads a different exponent.
+
+The general rule, which this row already holds for QUALITY and had not applied to TIME: the
+reference is part of the measurement's identity. A number fitted on one machine predicts that
+machine. Carrying it to the other one produces a band with a measured floor and an imaginary
+ceiling, which then survives because every pass tightens the floor and nobody looks up.

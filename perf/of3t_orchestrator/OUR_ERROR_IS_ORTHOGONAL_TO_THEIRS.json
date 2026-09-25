@@ -1,0 +1,25 @@
+{
+ "as_of": "2026-09-20, orchestrator pass 175, off of3t-trajectory's AGREEMENT table",
+ "derivation": {
+  "cos_e_t": 0.2038,
+  "identity": "with e = device - f64 and t = bf16 - f64, ||e-t||^2 = ||e||^2 + ||t||^2 - 2<e,t>. Every term is available from the published table once rel(device,bf16) is re-based from ||bf16|| onto ||float64|| by the published norm ratio.",
+  "sensitivity": "the norm ratio is published to 4 dp; sweeping it across 1.01755-1.01765 moves cos over 0.1975-0.2102, so the third digit is not resolved and the claim is 'cos is about 0.20', not a 4-dp value.",
+  "what_it_does_not_establish": "this is algebra on three published scalars over one scope, not a new measurement. It inherits that scope exactly: 547 tensors, 51.1358 % of the model, one batch, one r = 0 step. It says nothing about the 48.8642 % with no direct reading."
+ },
+ "headline": "our error is essentially orthogonal to upstream's: cos(e,t) = 0.204, so cos^2 = 0.0415 -- about 4 % of shared variance -- and our error is 129x larger in magnitude. That is WHY moving the reference from float64 to their actual training step moved the headline only 1.9 %. The substance of the third pre-registered branch holds, and D72's optimistic reading is refuted.",
+ "my_third_branch_was_unreachable": {
+  "attainable_range_of_the_measured_quantity": {
+   "maximum_cos_minus_1": 7.4958,
+   "measured": 7.426742,
+   "minimum_cos_plus_1": 7.3807,
+   "orthogonal_cos_0": 7.4385
+  },
+  "how_i_got_it_wrong": "I set the threshold by comparing two rel figures with DIFFERENT denominators as though they shared one. The same normalisation-scope mistake the campaign already recorded when a 1-of-N gradient was compared against an N-accumulated one and read ~1.0 by construction.",
+  "the_correct_threshold": "orthogonality predicts 7.4385, not 7.5692. The measured 7.426742 is 0.16 % BELOW that, so the two errors are weakly ALIGNED rather than exactly perpendicular -- which is a finer statement than either of my branches could make.",
+  "what_i_pre_registered": "'at or above 7.5692' (our own rel against float64) -> our error is roughly orthogonal to theirs, and D72's optimistic reading is refuted.",
+  "why": "rel(device, bf16) is normalised by ||bf16||, not by ||float64||, and the published norm ratio says ||bf16|| = 1.0176 ||float64||. So the triangle inequality caps the measurable value at (rel_e + rel_t)/1.0176 = 7.4958. My threshold of 7.5692 is ABOVE that cap: no gradient whatsoever, on any hardware, with any error geometry, could have produced a reading at or above it. The branch was vacuous."
+ },
+ "provenance": "of3t-orchestrator pass 175 on pc, CPU only, no device opened. Inputs are three scalars from of3t-trajectory's NOTES.md table at wk/of3t-trajectory 7c8d9de5f: rel(device,f64) 7.569163, rel(bf16,f64) 5.852018e-02, rel(device,bf16) 7.426742, norm ratio 1.0176. Per A24 the row's own artifact is the reference.",
+ "what": "the angle between OUR gradient error and UPSTREAM's own bf16 rounding error, derived from of3t-trajectory's published table; and the reason my pre-registered third branch could never have fired.",
+ "what_stands_from_the_row": "of3t-trajectory's own numbers are the result and are unchanged by this: 7.426742 device vs upstream bf16, 126.9x their own distance from the ideal; layer_norm_a survives the direct test at 3.4968e-02 against a 3.6970e-02 floor; layer_norm_s does not, at 5.2797e-02 against 3.1012e-02, which is the shared-subtrahend failure mode measured rather than argued."
+}

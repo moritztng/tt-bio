@@ -1,0 +1,84 @@
+# THE 1536 CROP EFFECT IS NOT THE ENGINE CHANGE. Read 2026-09-24 11:4xZ against the
+# pre-registration in plans/onetree_1536.txt, written 07:2xZ before the cell existed.
+#
+# THE JOB. 1GPB, gpb_dimer_1646.cif, target_res 1536, crop offset 0, n=8, boltzgen, budget 8,
+# on tree 72ad980ee -- the SAME tree as the 1536/offset-100 repeat (tag o100r2). It ran on
+# card 2 from 08:04Z to 11:19Z, rc 0, wall 11736.9 s, AICLK median 1000 over n=4958 samples
+# taken DURING the design. Fan record ~/mgxacc-work/onetree1536b.jsonl, tag onetree1536o0,
+# harvested into results/size_1536.jsonl as engine "onetree-72ad980ee".
+#
+# WHY IT WAS RUN. Both 1536 cells of the 2x2 were measured on different engines: 19.398 on the
+# pre-revert tree and 13.273 after 1c2847f66 (the trimul HiFi3 revert, a precision change
+# boltzgen's pairformer rides every step) landed at 00:52Z. So the -6.125 A between them, which
+# gives the row's published interaction its sign, was confounded with that revert. The 512 crop
+# contrast already had its one-tree control (11.39 A within-tree against 13.04 cross-tree);
+# this is the missing one at 1536.
+#
+# THE RESULT, both cells on 72ad980ee, n=8 each:
+#
+#   cell                              median    range            <=4A
+#   1536 offset   0   (X, this job)   19.950   17.843-22.675      0/8
+#   1536 offset 100   (Y, o100r2)     12.950    9.101-16.733      0/8
+#
+#   Y - X = -7.000 A        against the cross-tree -6.125 A published in the 2x2
+#   Mann-Whitney U = 0.0 of 64, exact two-sided p = 0.0002 -- PERFECT separation: every
+#   offset-100 design refolds closer than every offset-0 design.
+#   (Exact by enumeration of all C(16,8) = 12870 splits; scipy is not installed on pc, and
+#   for perfect separation the two-sided p is 2/12870 = 0.00016, which rounds to 0.0002 the
+#   same way GroEL's size-at-offset-0 reading does.)
+#
+# SO: the sign, the order and the approximate size of the 1536 crop effect all survive on one
+# tree. The engine change is not what produced it. That closes the last confound the 1GPB 2x2
+# carried, and the answer is the unflattering-for-the-confound one: the effect is real.
+#
+# WHERE THE PRE-REGISTRATION DOES NOT REACH, SAID PLAINLY RATHER THAN PATCHED. The plan named
+# two branches: "Y - X negative and >= 7.2 A in magnitude" (effect survives) and "Y - X near
+# zero, or positive" (it was the engine). -7.000 A is in neither. It is negative and 0.2 A
+# short of the magnitude bar.
+#
+# The honest reading is that the 7.2 A number does not belong on this contrast at all. It comes
+# from plans/closing_rule.txt section 2, where it is 4 x 1.8 A, the worst case of FOUR n=8
+# medians each repeating to <=1.8 A -- the error budget of an INTERACTION. Y - X is a
+# difference of TWO medians, whose matching conservative budget is 2 x 1.8 = 3.6 A. Carrying
+# 7.2 into plans/onetree_1536.txt was a transcription, not a derivation, and it made the bar
+# twice as hard as the quantity it was guarding.
+#
+# That correction is stated, not applied: a threshold re-derived after seeing the number it
+# judges is worth nothing, and this row has eight withdrawn claims from reading data the
+# convenient way. What the verdict rests on instead is the rank test, which was pre-registered
+# in the closing rule for every cell this row runs and is not a threshold anyone chose here:
+# U = 0.0 of 64 at p = 0.0002 is perfect separation, the strongest an n=8 vs n=8 comparison can
+# be. A -7.000 A shift with no overlap between the two cells is not a null.
+#
+#   the verdict recorded: the 1536 crop effect SURVIVES on one tree, on the rank test, with
+#   the magnitude clause of plans/onetree_1536.txt missed by 0.2 A and the reason it was the
+#   wrong clause written down above.
+#
+# A FOURTH REPEAT OF AN n=8 MEDIAN, which the closing rule's threshold depends on. X is also a
+# re-run of the original after-fix 1536/offset-0 cell (19.398, pre-revert engine) on a tree 525
+# insertions and 20 tt_bio files away:
+#
+#   1536 offset 0, pre-revert tree   19.398   range  6.650-22.924
+#   1536 offset 0, 72ad980ee (X)     19.950   range 17.843-22.675
+#                                    shift     0.552 A
+#
+# The row's four median repeats are now 0.117, 0.323, 0.552 and 1.8 A. The worst case is
+# unmoved, so the closing rule keeps 4 x 1.8 = 7.2 A for the GroEL interaction exactly as
+# written; nothing is recomputed. Note also that the pre-revert cell's 6.650 A minimum -- the
+# single design that results/token_distance_fix_refuted.txt found was the ONLY thing
+# cc908c377 moved -- does not reappear here. Its range is 17.8-22.7 with no low outlier, which
+# is one more reading against that design having meant anything.
+#
+# WHAT THIS DOES NOT DO. It does not make the 1GPB 2x2 one-tree. The 512 pair is on the
+# "after-fix-current-tree" engine (02:34Z and 03:05Z) and the 1536 pair is on 72ad980ee, so
+# each CROP contrast is now internally within-tree while the two SIZE contrasts still span
+# trees. That ordering is deliberate: the crop contrasts are the ones the interaction's sign
+# hangs on, and engine_delta_is_inert.txt already measured the tree delta at 0.117 A (512) and
+# 0.323 A (1536) against effects of 7-13 A.
+#
+# And it does not resurrect the 1GPB interaction as a general claim. GroEL refuted that on a
+# second protein (results/groel_2x2_result.txt) by the second clause of the closing rule. What
+# this cell establishes is narrower and still worth having: on 1GPB the four-cell table is a
+# real measurement of that target, not an artifact of when each cell happened to run.
+#
+# Reproduce: perf/mgxaccuracy/plans/onetree_1536.txt, entry 1, on tree 72ad980ee.

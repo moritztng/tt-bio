@@ -1,0 +1,160 @@
+{
+ "what": "of3t-recutfin job 1, control: the composer's injection stamp, exercised in both directions.",
+ "host": "tt-quietbox2",
+ "row": "of3t-recutfin",
+ "device_involved": false,
+ "why_no_aiclk": "CPU only; this reads no gradient and opens no device",
+ "why": "the mixed-pool refusal passes on every real invocation of this composition whether or not it works, because only one scope is injected. A check that cannot fire in one direction reports that direction forever.",
+ "n_cases": 8,
+ "n_failed": 0,
+ "cases": [
+  {
+   "case": "accepted: the shape of the real pool -- one injected scope, five not",
+   "injection": [
+    "renorm:cond=not_injected",
+    "renorm:pairformer_stack=graph-cut-external"
+   ],
+   "correction": [
+    "renorm:pairformer_stack=/x/cot.pt"
+   ],
+   "expected": "accepted",
+   "outcome": "accepted",
+   "detail": {
+    "convention": "graph-cut-external",
+    "what_the_single_value_means": "the convention every INJECTED scope was driven by. It is one string only because disagreeing injected scopes are refused; read by_scope for which scope carries it.",
+    "n_scopes": 2,
+    "n_injected": 1,
+    "key_form": "ARM:SCOPE, the same identifier --arm uses",
+    "by_scope": {
+     "renorm:cond": {
+      "convention": "not_injected"
+     },
+     "renorm:pairformer_stack": {
+      "convention": "graph-cut-external",
+      "correction": {
+       "path": "/x/cot.pt",
+       "sha256": "stub-digest-of-cot.pt"
+      }
+     }
+    }
+   },
+   "passed": true
+  },
+  {
+   "case": "accepted with nothing declared: the artifact is exactly what it was before this option",
+   "injection": [],
+   "correction": [],
+   "expected": "accepted",
+   "outcome": "accepted",
+   "detail": null,
+   "passed": true
+  },
+  {
+   "case": "REFUSED: the injected scopes disagree -- the one this exists for, and the one no real invocation can fire today",
+   "injection": [
+    "renorm:cond=legacy-total-cotangent",
+    "renorm:pairformer_stack=graph-cut-external"
+   ],
+   "correction": [
+    "renorm:cond=/x/legacy.pt",
+    "renorm:pairformer_stack=/x/cot.pt"
+   ],
+   "expected": "refused",
+   "outcome": "refused",
+   "detail": "STOP: the injected scopes disagree on convention -- renorm:cond is 'legacy-total-cotangent'; renorm:pairformer_stack is 'graph-cut-external'. A composed reading built from two functionals is meaningless and nothing in the artifact would say so. Compose one convention at a time.",
+   "refusal_names": "disagree on convention",
+   "passed": true
+  },
+  {
+   "case": "REFUSED: a scope left unnamed would take the least alarming value by default",
+   "injection": [
+    "renorm:pairformer_stack=graph-cut-external"
+   ],
+   "correction": [
+    "renorm:pairformer_stack=/x/cot.pt"
+   ],
+   "expected": "refused",
+   "outcome": "refused",
+   "detail": "STOP: --injection was given but 1 of 2 parts are unnamed (renorm:cond). Every scope must say which functional produced it; an unnamed one would take the least alarming value by default, which is the ambiguity this stamp exists to remove.",
+   "refusal_names": "are unnamed",
+   "passed": true
+  },
+  {
+   "case": "REFUSED: an injected scope with no correction file cannot be reproduced",
+   "injection": [
+    "renorm:cond=not_injected",
+    "renorm:pairformer_stack=graph-cut-external"
+   ],
+   "correction": [],
+   "expected": "refused",
+   "outcome": "refused",
+   "detail": "STOP: renorm:pairformer_stack declares 'graph-cut-external' but no --injection-correction. An injected scope without the correction it was driven by cannot be reproduced.",
+   "refusal_names": "no --injection-correction",
+   "passed": true
+  },
+  {
+   "case": "REFUSED: a not_injected scope carrying a correction",
+   "injection": [
+    "renorm:cond=not_injected",
+    "renorm:pairformer_stack=not_injected"
+   ],
+   "correction": [
+    "renorm:cond=/x/cot.pt"
+   ],
+   "expected": "refused",
+   "outcome": "refused",
+   "detail": "STOP: renorm:cond is not_injected but carries a correction file '/x/cot.pt'. A scope with no injection has no correction.",
+   "refusal_names": "has no correction",
+   "passed": true
+  },
+  {
+   "case": "REFUSED: a convention outside the three the contract names",
+   "injection": [
+    "renorm:cond=not_injected",
+    "renorm:pairformer_stack=graph_cut_correct"
+   ],
+   "correction": [
+    "renorm:pairformer_stack=/x/cot.pt"
+   ],
+   "expected": "refused",
+   "outcome": "refused",
+   "detail": "STOP: renorm:pairformer_stack declares convention 'graph_cut_correct'; it must be one of graph-cut-external, legacy-total-cotangent, not_injected.",
+   "refusal_names": "must be one of",
+   "passed": true
+  },
+  {
+   "case": "REFUSED: a scope that is not one of the --arm parts",
+   "injection": [
+    "renorm:cond=not_injected",
+    "renorm:pairformer_stack=not_injected",
+    "renorm:msa=not_injected"
+   ],
+   "correction": [],
+   "expected": "refused",
+   "outcome": "refused",
+   "detail": "STOP: --injection names 'renorm:msa', which is not one of the --arm parts (renorm:cond, renorm:pairformer_stack).",
+   "refusal_names": "not one of the --arm parts",
+   "passed": true
+  }
+ ],
+ "the_accepted_pool_reads": {
+  "convention": "graph-cut-external",
+  "what_the_single_value_means": "the convention every INJECTED scope was driven by. It is one string only because disagreeing injected scopes are refused; read by_scope for which scope carries it.",
+  "n_scopes": 2,
+  "n_injected": 1,
+  "key_form": "ARM:SCOPE, the same identifier --arm uses",
+  "by_scope": {
+   "renorm:cond": {
+    "convention": "not_injected"
+   },
+   "renorm:pairformer_stack": {
+    "convention": "graph-cut-external",
+    "correction": {
+     "path": "/x/cot.pt",
+     "sha256": "stub-digest-of-cot.pt"
+    }
+   }
+  }
+ },
+ "verdict": "every case behaves as pre-registered"
+}

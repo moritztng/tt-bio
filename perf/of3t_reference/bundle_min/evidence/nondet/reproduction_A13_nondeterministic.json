@@ -1,0 +1,83 @@
+{
+  "a": "out_A/grads_f64.pt",
+  "b": "out_B/grads_f64.pt",
+  "bar": 0.05,
+  "n_compared": 4147,
+  "n_bit_identical": 9,
+  "n_both_absent": 0,
+  "n_over_bar": 55,
+  "worst_rel_l2": 1.9847362932332853,
+  "worst_tensor": "pairformer_stack.blocks.26.attn_pair_bias.layer_norm_z.bias",
+  "median_rel_l2": 2.631926941163572e-14,
+  "presence_mismatch": [],
+  "only_in_a": [],
+  "only_in_b": [],
+  "n_only_in_a": 0,
+  "n_only_in_b": 0,
+  "over_bar_sample": [
+    {
+      "param": "aux_heads.pairformer_embedding.pairformer_stack.blocks.0.attn_pair_bias.layer_norm_z.bias",
+      "rel_l2": 0.6778149014408076
+    },
+    {
+      "param": "aux_heads.pairformer_embedding.pairformer_stack.blocks.1.attn_pair_bias.layer_norm_z.bias",
+      "rel_l2": 1.2059270780436264
+    },
+    {
+      "param": "aux_heads.pairformer_embedding.pairformer_stack.blocks.2.attn_pair_bias.layer_norm_z.bias",
+      "rel_l2": 1.0358178876306174
+    },
+    {
+      "param": "aux_heads.pairformer_embedding.pairformer_stack.blocks.3.attn_pair_bias.layer_norm_z.bias",
+      "rel_l2": 1.3701767851139743
+    },
+    {
+      "param": "msa_module.blocks.0.msa_att_row.layer_norm_z.bias",
+      "rel_l2": 1.0885937620872135
+    },
+    {
+      "param": "msa_module.blocks.1.msa_att_row.layer_norm_z.bias",
+      "rel_l2": 1.1921600288660654
+    },
+    {
+      "param": "msa_module.blocks.2.msa_att_row.layer_norm_z.bias",
+      "rel_l2": 1.0419242883297148
+    },
+    {
+      "param": "pairformer_stack.blocks.0.attn_pair_bias.layer_norm_z.bias",
+      "rel_l2": 1.2720924899367907
+    },
+    {
+      "param": "pairformer_stack.blocks.1.attn_pair_bias.layer_norm_z.bias",
+      "rel_l2": 0.2870845650184048
+    },
+    {
+      "param": "pairformer_stack.blocks.10.attn_pair_bias.layer_norm_z.bias",
+      "rel_l2": 0.8019308863457418
+    },
+    {
+      "param": "pairformer_stack.blocks.11.attn_pair_bias.layer_norm_z.bias",
+      "rel_l2": 0.6422700934047041
+    },
+    {
+      "param": "pairformer_stack.blocks.12.attn_pair_bias.layer_norm_z.bias",
+      "rel_l2": 0.44223345314306456
+    },
+    {
+      "param": "pairformer_stack.blocks.13.attn_pair_bias.layer_norm_z.bias",
+      "rel_l2": 1.039581220879339
+    },
+    {
+      "param": "pairformer_stack.blocks.14.attn_pair_bias.layer_norm_z.bias",
+      "rel_l2": 0.9903064734844617
+    },
+    {
+      "param": "pairformer_stack.blocks.15.attn_pair_bias.layer_norm_z.bias",
+      "rel_l2": 1.1343680828671476
+    },
+    {
+      "param": "pairformer_stack.blocks.16.attn_pair_bias.layer_norm_z.bias",
+      "rel_l2": 1.056501904128521
+    }
+  ]
+}

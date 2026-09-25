@@ -1,0 +1,42 @@
+# The 1536 upstream reference's fixture and spec are cleared BEFORE the draws land.
+# Checked 2026-09-24 12:5xZ, while both draws are still in their design step.
+
+The first 1536 reference was withdrawn because two files called `bgt1536.cif` on two hosts
+held different targets (`upstream_reference_wrong_fixture.txt`). That check is now done in
+advance for the pair now running, so the harvest cannot inherit the same defect.
+
+FIXTURE, plain sha256 of the bytes:
+
+  qb2    ~/bgref-work/fx_valid/bgt1536.cif                             844087 B
+  whglx  ~/mgxacc-work/fx_boltzgen_1536_d8_s400_gpb/bgt1536.cif
+  whglx  ~/mgxacc-work/fx_boltzgen_1536_d8_bgall_fixed/bgt1536.cif
+  whglx  ~/mgxacc-work/fx_boltzgen_1536_d8_bgall_onetree1536o0/bgt1536.cif
+
+  sha256 ffa258bb599f182ce49b9f78ab089653ca35d464471d41b1e490d535421e9caf   ALL FOUR
+
+So the upstream pair is drawn against the byte-identical target the device's three 1536
+offset-0 cells used: the 2x2's 1536/off0 cell, its engine-delta repeat and the onetree cell.
+Same filename on both hosts, so the byte hash is comparable here and the gemmi data-block
+confound `fixture_id.py` exists for does not arise.
+
+Not this file, and correctly so: the GroEL 1536 target (236b1340...), the o100/o200/o560
+crops, and the old `fx_boltzgen_1536_d8_s400_q` target (308455e3...).
+
+SPEC, character for character on both hosts:
+
+  entities:
+    - protein: {id: Z, sequence: 80}
+    - file: {path: bgt1536.cif, include: [chain A, chain B]}
+
+  qb2    ~/bgref-work/fx_valid/bg1536.yaml
+  whglx  ~/mgxacc-work/fx_boltzgen_1536_d8_s400_gpb/bg1536.yaml
+
+The hydra config draw a is actually running resolves that yaml, `trainer.accelerator: cpu`,
+`trainer.precision: 32`, `diffusion_samples` from the CLI, checkpoint
+`boltzgen1_diverse.ckpt` (snapshot c1be29e1f) -- the same checkpoint snapshot the device
+side loads. So "upstream torch fp32 on CPU, same spec, same target" is verified at the
+config level, not assumed from the launcher's arguments.
+
+WHAT IS STILL UNVERIFIED and must be re-checked at harvest: nothing about the inputs. Only
+the outputs remain -- the design cifs, `refold_design_cif/`, and the m=2 rank test in
+`upstream_draw_count.txt`.

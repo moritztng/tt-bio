@@ -26,7 +26,7 @@ import time
 ROOT = pathlib.Path(__file__).resolve().parents[2]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
-from perf.mgxscale.job import free_cards  # noqa: E402
+from perf.mgxscale.job import free_cards, holder_cards  # noqa: E402
 
 PY = os.environ.get("LADDER_PY") or sys.executable
 
@@ -37,6 +37,9 @@ def main():
     ap.add_argument("--out", required=True)
     ap.add_argument("--holder", default="worker:mgx-design-scale")
     ap.add_argument("--max-concurrent", type=int, default=8)
+    ap.add_argument("--row-cap", type=int, default=0,
+                    help="max chips this HOLDER may hold across all its fans "
+                         "(0 = unlimited); --max-concurrent only caps this fan")
     ap.add_argument("--work", default=str(pathlib.Path.home() / "mgxscale-work"))
     ap.add_argument("--wait-s", type=int, default=120, help="poll period when no chip is free")
     ap.add_argument("--retries", type=int, default=6, help="requeues allowed per job on contention")
@@ -44,10 +47,21 @@ def main():
                     help="wait until N chips are free, then launch N jobs together. A "
                          "data-parallelism arm measured by starting four jobs as chips "
                          "happen to free is four staggered solo runs, not a fan.")
+    ap.add_argument("--lines", default="", metavar="N[,N...]",
+                    help="run only these 1-based plan entries (comments not counted). A fan "
+                         "parked on whglx cannot see the pc-side quiet-window gate, so a pass "
+                         "that must not straddle the window launches one entry and lets the "
+                         "fan exit, rather than leaving it queued on the rest.")
     args = ap.parse_args()
 
     jobs = [l.strip() for l in pathlib.Path(args.plan).read_text().splitlines()
             if l.strip() and not l.strip().startswith("#")]
+    if args.lines:
+        want = [int(x) for x in args.lines.split(",") if x.strip()]
+        bad = [n for n in want if not 1 <= n <= len(jobs)]
+        if bad:
+            sys.exit(f"--lines {bad} outside 1..{len(jobs)} for {args.plan}")
+        jobs = [jobs[n - 1] for n in want]
     out = pathlib.Path(args.out)
     out.parent.mkdir(parents=True, exist_ok=True)
     t0 = time.time()
@@ -71,6 +85,17 @@ def main():
 
     while queue or live:
         while queue and len(live) < args.max_concurrent:
+            # The row's chip grant is not per fan. --max-concurrent caps THIS fan; --row-cap
+            # caps the row across every fan it has running, counted from the shared lease dir.
+            # Without it three fans at 1, 2 and 1 take four chips against a 3-chip grant and
+            # none of them can see the other two (done 2026-09-24: a third fan launched while
+            # two held three chips went straight to a fourth).
+            if args.row_cap:
+                held = holder_cards(args.holder)
+                if len(held) >= args.row_cap:
+                    print(f"[fan] row-cap {args.row_cap} reached, holding "
+                          f"{sorted(held)} -- waiting", flush=True)
+                    break
             free = [c for c in free_cards() if c not in mine]
             if not free:
                 break
@@ -107,7 +132,12 @@ def main():
                     continue
                 print(f"[fan] -card{card} rc={p.returncode}: {spec}", flush=True)
 
-    rows = [json.loads(l) for l in out.read_text().splitlines() if l.strip()]
+    # A job can exit non-zero before writing its first row -- a fixture that cannot be built,
+    # say -- and then the out file does not exist at all. Reading it unconditionally turned
+    # that into a FileNotFoundError traceback that buried the job's own error message
+    # (measured 2026-09-24: a 1536 crop requested at offset 200 on a 1646-residue target).
+    rows = ([json.loads(l) for l in out.read_text().splitlines() if l.strip()]
+            if out.exists() else [])
     n = sum(r.get("n_designs", 0) for r in rows)
     span = time.time() - t0
     print(f"[fan] done: {n} design(s) from {len(rows)} job(s) in {span / 3600:.2f} h "

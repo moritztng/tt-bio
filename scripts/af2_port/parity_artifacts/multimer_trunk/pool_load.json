@@ -1,0 +1,55 @@
+{
+ "dir": "/home/ttuser/bcx_e2e/af2_params",
+ "models": [
+  {
+   "model": 1,
+   "bytes": 373043148,
+   "sha256": "611da8fc7478928f68de12e8b226260ef1f4ce62bcc29b008572e52f4f212959",
+   "tensors": 4578,
+   "params": 91177010,
+   "same_keys_as_model_1": true,
+   "same_shapes_as_model_1": true,
+   "values_sha256": "56b47fac538adff7ee9ec48470ecdb5e9dd8f51b18a5945a78156c33c69afa9f"
+  },
+  {
+   "model": 2,
+   "bytes": 373043148,
+   "sha256": "51362b0844382ae0f5720c59b81dd13a43eea40fbf9995dd2573bdab88865378",
+   "tensors": 4578,
+   "params": 91177010,
+   "same_keys_as_model_1": true,
+   "same_shapes_as_model_1": true,
+   "values_sha256": "6537c1aed33c9f2e0a699813cccf1c90c0ab3b6ae77f150bc1935bafb6f53d6c"
+  },
+  {
+   "model": 3,
+   "bytes": 373043148,
+   "sha256": "46d9bcad288edc7ad5a6362ee8e5f84307a69712e00e6c36b1ef9daf96ebc9ce",
+   "tensors": 4578,
+   "params": 91177010,
+   "same_keys_as_model_1": true,
+   "same_shapes_as_model_1": true,
+   "values_sha256": "70dbab8026fc7ff42479b88629e4e173fa86a22653e216ac37eb34526e05d8df"
+  },
+  {
+   "model": 4,
+   "bytes": 373043148,
+   "sha256": "59bdabd2d69c07fe26b37882d544acbd1b9f89f196828f4220da49e0610b572c",
+   "tensors": 4578,
+   "params": 91177010,
+   "same_keys_as_model_1": true,
+   "same_shapes_as_model_1": true,
+   "values_sha256": "1116f7aaf3fc7b78fc06fbca43193ab044db1bff863b115bd99ffcf2a921f22b"
+  },
+  {
+   "model": 5,
+   "bytes": 373043148,
+   "sha256": "917742be5a105d6b80f13f1f13f20459f27ec3fdcd34ea088b359f4502d6177f",
+   "tensors": 4578,
+   "params": 91177010,
+   "same_keys_as_model_1": true,
+   "same_shapes_as_model_1": true,
+   "values_sha256": "3e2b137398941e851f0acb642698cccce4f6cd11e3167b95e4f0c4fbe15518a0"
+  }
+ ]
+}

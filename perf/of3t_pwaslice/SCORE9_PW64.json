@@ -1,0 +1,88 @@
+{
+ "f64": "/home/ttuser/of3t_denoise/ref384/grads_f64.pt",
+ "bf16": "/home/ttuser/of3t_denoise/ref384/grads_bf16.pt",
+ "n": 9,
+ "tensors": {
+  "msa_module.blocks.0.msa_att_row.linear_g.weight": {
+   "device": [
+    "trunk.msa_module.blocks.0.pwa.g_weight"
+   ],
+   "f64_norm": 0.003935728515441874,
+   "bf16": 0.4881377157186386,
+   "PW64F": 0.3064576748446025,
+   "PW64B": null
+  },
+  "msa_module.blocks.0.msa_att_row.linear_o.weight": {
+   "device": [
+    "trunk.msa_module.blocks.0.pwa.o_weight"
+   ],
+   "f64_norm": 0.009411159601716452,
+   "bf16": 0.5069904027423943,
+   "PW64F": 0.2919129996131813,
+   "PW64B": null
+  },
+  "msa_module.blocks.0.msa_att_row.linear_v.weight": {
+   "device": [
+    "trunk.msa_module.blocks.0.pwa.m_weight"
+   ],
+   "f64_norm": 0.007281358905140718,
+   "bf16": 0.4601968902664335,
+   "PW64F": 0.2881368763352908,
+   "PW64B": null
+  },
+  "msa_module.blocks.1.msa_att_row.linear_g.weight": {
+   "device": [
+    "trunk.msa_module.blocks.1.pwa.g_weight"
+   ],
+   "f64_norm": 0.0034037077204484584,
+   "bf16": 0.4604342865133934,
+   "PW64F": 0.26176143406352287,
+   "PW64B": null
+  },
+  "msa_module.blocks.1.msa_att_row.linear_o.weight": {
+   "device": [
+    "trunk.msa_module.blocks.1.pwa.o_weight"
+   ],
+   "f64_norm": 0.004459166330852352,
+   "bf16": 0.5278713181517088,
+   "PW64F": 0.24921193940770114,
+   "PW64B": null
+  },
+  "msa_module.blocks.1.msa_att_row.linear_v.weight": {
+   "device": [
+    "trunk.msa_module.blocks.1.pwa.m_weight"
+   ],
+   "f64_norm": 0.0031110177478298456,
+   "bf16": 0.6344100148130104,
+   "PW64F": 0.32366704467569857,
+   "PW64B": null
+  },
+  "msa_module.blocks.2.msa_att_row.linear_g.weight": {
+   "device": [
+    "trunk.msa_module.blocks.2.pwa.g_weight"
+   ],
+   "f64_norm": 0.00162449067446777,
+   "bf16": 0.7071751749454839,
+   "PW64F": 0.2512614996637732,
+   "PW64B": null
+  },
+  "msa_module.blocks.2.msa_att_row.linear_o.weight": {
+   "device": [
+    "trunk.msa_module.blocks.2.pwa.o_weight"
+   ],
+   "f64_norm": 0.001598337391298586,
+   "bf16": 0.7510456440312063,
+   "PW64F": 0.27808936219052904,
+   "PW64B": null
+  },
+  "msa_module.blocks.2.msa_att_row.linear_v.weight": {
+   "device": [
+    "trunk.msa_module.blocks.2.pwa.m_weight"
+   ],
+   "f64_norm": 0.0016451063815111407,
+   "bf16": 0.7939685702925529,
+   "PW64F": 0.26979834787742557,
+   "PW64B": null
+  }
+ }
+}

@@ -1,0 +1,650 @@
+{
+ "what": "of3t-angle: the softmax ladder on the REPAIRED injection, decomposed into magnitude and angle.",
+ "environment": {
+  "host": "tt-quietbox",
+  "board": null,
+  "device_involved": false,
+  "QUIET": false,
+  "co_tenant": "of3t-verbinstall device arms on qb1; this row A42 f64 reference also running",
+  "loadavg": {
+   "sampled_DURING": false,
+   "why": "no sampler ran; the co-tenant field is what is known"
+  },
+  "why_no_board_and_no_aiclk": "CPU only; the device arms are read as banked tensors. Each arm own DEV_*.json carries the AICLK sampled DURING its run, its card and its board class.",
+  "NO_TIMING_CLAIM_FROM_THIS_HOST": "Amendment 1: this row is a co-tenant on qb1 and takes no wall-clock or perf claim there. rel, r, cos and the angle are load-insensitive, so the reading stands and no duration is quoted."
+ },
+ "row": "of3t-angle",
+ "defect": "D242",
+ "frame": "of3t-frame384: boundary_n384.pt (8cb3a586...) / block47_boundary.pt (a55ef1c4...), padded 384, 56 real tokens",
+ "n_tensors": 2736,
+ "INJECTION": {
+  "convention": "graph-cut-external (D242 repaired)",
+  "correction": {
+   "path": "/home/ttuser/of3t_angle/cot_external_n384.pt",
+   "sha256": "90ae5c4b55aef4849b7557231f6f66c1cc1b602a8a7d1a4a1edab623d1e1b162",
+   "norm": 0.0005355497738277162,
+   "duplicate_share_of_the_hooked_cot_z": 0.9862395455404046
+  },
+  "A42": "one correction, computed once on the f64 arm that defines this boundary, passed to the bf16 reference through --cot-correction and to every device arm as the pre-subtracted cotangent. No arm computes its own.",
+  "NOT_the_model_frame_correction": {
+   "model_frame_cot_external_sha256": "1d15a8dc6db2a14b678e5ed5d92558af99d369599226391fa59f36ed84192ef4",
+   "why_it_cannot_be_used_here": "it is d<cot_s,s_out>/dz_out on boundary_model_n384.pt with cot_model_n384.pt. This row scores the softmax ladder on the frame384 frame, a different boundary and a different capture, so the correction has to be recomputed here. A correction is a property of its frame."
+  },
+  "references": {
+   "f64": {
+    "path": "ref_f64_n384_corrected.pt",
+    "stamp": "graph-cut-external"
+   },
+   "bf16": {
+    "path": "ref_bf16auto_n384_corrected.pt",
+    "stamp": "graph-cut-external"
+   }
+  }
+ },
+ "DEFINITIONS": {
+  "concatenated": "three norms of one vector pair over the 2,736 tensors. rel^2 = 1 + r^2 - 2 r cos is an identity. Every split is here.",
+  "mass_weighted": "of3t-trunkg043/score.py (A23). rel is a quadratic mean, r and cos are arithmetic means, so the identity does NOT hold and no angle is read off it. R149 table is in this definition, so the ladder comparison is too."
+ },
+ "CONTROLS": {
+  "AA_the_f64_reference_against_itself": {
+   "rel_l2": 0.0,
+   "exactly_zero": true
+  },
+  "A16_zero_gradient_baseline": {
+   "rel_l2": 1.0,
+   "exactly_one": true
+  },
+  "CHECKPOINT_IS_INERT_on_the_repaired_producer": {
+   "source": "perf/of3t_recut/C64_CONTROLS.json CHECKPOINT_IS_INERT",
+   "tensors_bit_identical": 2736,
+   "verdict": "cited, not re-derived"
+  },
+  "THE_CORRECTION_REPRODUCES_THE_c64_CONTROL": {
+   "what": "this frame correction at crop 384 against of3t-recut own crop-64 control on the same capture. The capture has 56 real tokens, so cropping to 64 loses nothing and the two must agree.",
+   "crop64_banked": {
+    "cot_z_norm_hooked": 0.0005430220033757261,
+    "correction_norm": 0.0005355497738277162,
+    "cot_z_norm_injected": 0.0004525357226265418,
+    "duplicate_share": 0.9862395455404046,
+    "source": "perf/of3t_recut/C64_CONTROLS.json DEFAULT_MOVES"
+   },
+   "crop384_here": {
+    "cot_z_norm_hooked": 0.0005430220033757261,
+    "correction_norm": 0.0005355497738277162,
+    "cot_z_norm_injected": 0.0004525357226265418,
+    "duplicate_share": 0.9862395455404046
+   },
+   "agree_bit_for_bit": true
+  },
+  "AA_FLOOR_two_runs_of_the_shipped_arm": {
+   "tensors": 2736,
+   "bit_identical": 2736,
+   "all_bit_identical": true,
+   "rel_l2_between_them": 0.0,
+   "reading_delta_vs_upstream_bf16": 0.0,
+   "cos_delta_vs_upstream_bf16": 0.0,
+   "what": "two runs of the same lever on the same card in the same session. Any arm-to-arm difference below this is not a lever."
+  }
+ },
+ "ARMS": {
+  "SHIP_A": {
+   "artifact": {
+    "path": "dev_SHIP_A.pt",
+    "sha256": "4402f5e841d4ec13badfd183db7cc93c1570a9c9311f5cd8519035ef749f141a"
+   },
+   "GRADED_SPACE_vs_upstream_bf16": {
+    "concatenated": {
+     "n": 2736,
+     "rel_l2": 1.5603301979820212,
+     "norm_ratio": 1.5522929620978418,
+     "cos": 0.3140461038122087,
+     "arm_sq_norm": 4.672486795851871,
+     "ref_sq_norm": 1.9391022302339735,
+     "error_sq_norm": 4.720997096366356,
+     "dot": 0.9452959648597451
+    },
+    "split": {
+     "space": "vs-upstream-bf16 -- THE SPACE THE CLAUSE IS GRADED IN",
+     "what": "SHIP_A against upstream own bf16 step, both repaired",
+     "measured_rel_l2": 1.5603301979820212,
+     "norm_ratio": 1.5522929620978418,
+     "cos": 0.3140461038122087,
+     "angle_degrees": 71.6967624380402,
+     "IDENTITY": {
+      "reconstructed_from_r_and_cos": 1.5603301979820208,
+      "rel_difference": 2.8461232784214794e-16,
+      "why": "rel^2 = 1 + r^2 - 2 r cos holds exactly for these three aggregates because they are three norms of one vector pair. A residual here would mean the split is modelled rather than exact, and nothing below could be read."
+     },
+     "magnitude_alone_cos_set_to_1": 0.5522929620978418,
+     "direction_alone_r_set_to_1": 1.1712846760611113,
+     "residual_after_the_best_possible_rescaling": 0.9494077336320637,
+     "shares_of_the_measured_error": {
+      "magnitude": 0.3539590291927463,
+      "direction": 0.7506646205886014,
+      "note": "these do not sum to 1 and are not meant to. Each is what the reading would be with the OTHER axis made perfect, divided by what it is; they add up to more or less than the whole exactly as the two errors reinforce or cancel."
+     }
+    },
+    "mass_weighted": {
+     "n": 2736,
+     "rel_l2": 1.5603301979820194,
+     "norm_ratio": 1.1883267387410403,
+     "cos": 0.7645288396838975,
+     "median_rel_l2_over_tensors": 1.0694625929508152,
+     "identity_residual_rel": 0.5055998709476363,
+     "why_the_residual_is_reported": "a quadratic mean and two arithmetic means, so the identity does not hold on these three. The residual is how far off it is, and it is why no angle is read here."
+    }
+   },
+   "CONTRAST_vs_float64": {
+    "concatenated": {
+     "n": 2736,
+     "rel_l2": 1.378494925739893,
+     "norm_ratio": 1.6302357835582857,
+     "cos": 0.53900805865866,
+     "arm_sq_norm": 4.672486795851871,
+     "ref_sq_norm": 1.7581148388741799,
+     "error_sq_norm": 3.340854663961807,
+     "dot": 1.5448734853821195
+    },
+    "split": {
+     "space": "vs-float64 -- CONTRAST ONLY, not carried across (R174)",
+     "what": "SHIP_A against the float64 reference, both repaired",
+     "measured_rel_l2": 1.378494925739893,
+     "norm_ratio": 1.6302357835582857,
+     "cos": 0.53900805865866,
+     "angle_degrees": 57.38386139841901,
+     "IDENTITY": {
+      "reconstructed_from_r_and_cos": 1.378494925739894,
+      "rel_difference": 6.443102568719319e-16,
+      "why": "rel^2 = 1 + r^2 - 2 r cos holds exactly for these three aggregates because they are three norms of one vector pair. A residual here would mean the split is modelled rather than exact, and nothing below could be read."
+     },
+     "magnitude_alone_cos_set_to_1": 0.6302357835582857,
+     "direction_alone_r_set_to_1": 0.9601999180809588,
+     "residual_after_the_best_possible_rescaling": 0.8423006070881242,
+     "shares_of_the_measured_error": {
+      "magnitude": 0.457191224857076,
+      "direction": 0.6965567302074626,
+      "note": "these do not sum to 1 and are not meant to. Each is what the reading would be with the OTHER axis made perfect, divided by what it is; they add up to more or less than the whole exactly as the two errors reinforce or cancel."
+     }
+    },
+    "mass_weighted": {
+     "n": 2736,
+     "rel_l2": 1.378494925739893,
+     "norm_ratio": 1.0458901483518617,
+     "cos": 0.9192636440989258,
+     "median_rel_l2_over_tensors": 0.866241497966288,
+     "identity_residual_rel": 0.7000295758469957,
+     "why_the_residual_is_reported": "a quadratic mean and two arithmetic means, so the identity does not hold on these three. The residual is how far off it is, and it is why no angle is read here."
+    }
+   },
+   "x_A26_bar_mass_weighted": 2.929170757633412,
+   "the_two_spaces_disagree_on_the_magnitude_share_by": 1.2916501265690703
+  },
+  "SHIP_B": {
+   "artifact": {
+    "path": "dev_SHIP_B.pt",
+    "sha256": "acf6f6e26b2a56a1dd6e2db579da22c37b0ab34beefb5efb4186dbdf5ca99aff"
+   },
+   "GRADED_SPACE_vs_upstream_bf16": {
+    "concatenated": {
+     "n": 2736,
+     "rel_l2": 1.5603301979820212,
+     "norm_ratio": 1.5522929620978418,
+     "cos": 0.3140461038122087,
+     "arm_sq_norm": 4.672486795851871,
+     "ref_sq_norm": 1.9391022302339735,
+     "error_sq_norm": 4.720997096366356,
+     "dot": 0.9452959648597451
+    },
+    "split": {
+     "space": "vs-upstream-bf16 -- THE SPACE THE CLAUSE IS GRADED IN",
+     "what": "SHIP_B against upstream own bf16 step, both repaired",
+     "measured_rel_l2": 1.5603301979820212,
+     "norm_ratio": 1.5522929620978418,
+     "cos": 0.3140461038122087,
+     "angle_degrees": 71.6967624380402,
+     "IDENTITY": {
+      "reconstructed_from_r_and_cos": 1.5603301979820208,
+      "rel_difference": 2.8461232784214794e-16,
+      "why": "rel^2 = 1 + r^2 - 2 r cos holds exactly for these three aggregates because they are three norms of one vector pair. A residual here would mean the split is modelled rather than exact, and nothing below could be read."
+     },
+     "magnitude_alone_cos_set_to_1": 0.5522929620978418,
+     "direction_alone_r_set_to_1": 1.1712846760611113,
+     "residual_after_the_best_possible_rescaling": 0.9494077336320637,
+     "shares_of_the_measured_error": {
+      "magnitude": 0.3539590291927463,
+      "direction": 0.7506646205886014,
+      "note": "these do not sum to 1 and are not meant to. Each is what the reading would be with the OTHER axis made perfect, divided by what it is; they add up to more or less than the whole exactly as the two errors reinforce or cancel."
+     }
+    },
+    "mass_weighted": {
+     "n": 2736,
+     "rel_l2": 1.5603301979820194,
+     "norm_ratio": 1.1883267387410403,
+     "cos": 0.7645288396838975,
+     "median_rel_l2_over_tensors": 1.0694625929508152,
+     "identity_residual_rel": 0.5055998709476363,
+     "why_the_residual_is_reported": "a quadratic mean and two arithmetic means, so the identity does not hold on these three. The residual is how far off it is, and it is why no angle is read here."
+    }
+   },
+   "CONTRAST_vs_float64": {
+    "concatenated": {
+     "n": 2736,
+     "rel_l2": 1.378494925739893,
+     "norm_ratio": 1.6302357835582857,
+     "cos": 0.53900805865866,
+     "arm_sq_norm": 4.672486795851871,
+     "ref_sq_norm": 1.7581148388741799,
+     "error_sq_norm": 3.340854663961807,
+     "dot": 1.5448734853821195
+    },
+    "split": {
+     "space": "vs-float64 -- CONTRAST ONLY, not carried across (R174)",
+     "what": "SHIP_B against the float64 reference, both repaired",
+     "measured_rel_l2": 1.378494925739893,
+     "norm_ratio": 1.6302357835582857,
+     "cos": 0.53900805865866,
+     "angle_degrees": 57.38386139841901,
+     "IDENTITY": {
+      "reconstructed_from_r_and_cos": 1.378494925739894,
+      "rel_difference": 6.443102568719319e-16,
+      "why": "rel^2 = 1 + r^2 - 2 r cos holds exactly for these three aggregates because they are three norms of one vector pair. A residual here would mean the split is modelled rather than exact, and nothing below could be read."
+     },
+     "magnitude_alone_cos_set_to_1": 0.6302357835582857,
+     "direction_alone_r_set_to_1": 0.9601999180809588,
+     "residual_after_the_best_possible_rescaling": 0.8423006070881242,
+     "shares_of_the_measured_error": {
+      "magnitude": 0.457191224857076,
+      "direction": 0.6965567302074626,
+      "note": "these do not sum to 1 and are not meant to. Each is what the reading would be with the OTHER axis made perfect, divided by what it is; they add up to more or less than the whole exactly as the two errors reinforce or cancel."
+     }
+    },
+    "mass_weighted": {
+     "n": 2736,
+     "rel_l2": 1.378494925739893,
+     "norm_ratio": 1.0458901483518617,
+     "cos": 0.9192636440989258,
+     "median_rel_l2_over_tensors": 0.866241497966288,
+     "identity_residual_rel": 0.7000295758469957,
+     "why_the_residual_is_reported": "a quadratic mean and two arithmetic means, so the identity does not hold on these three. The residual is how far off it is, and it is why no angle is read here."
+    }
+   },
+   "x_A26_bar_mass_weighted": 2.929170757633412,
+   "the_two_spaces_disagree_on_the_magnitude_share_by": 1.2916501265690703
+  },
+  "VERB": {
+   "artifact": {
+    "path": "dev_VERB.pt",
+    "sha256": "f8ed4ea3e5be469e6304039eedbc5e7ebbaae73c9a21ef3bd4b2cb7c0ac0ba17"
+   },
+   "GRADED_SPACE_vs_upstream_bf16": {
+    "concatenated": {
+     "n": 2736,
+     "rel_l2": 0.6514724768869966,
+     "norm_ratio": 1.0960341273017198,
+     "cos": 0.8105926520934058,
+     "arm_sq_norm": 2.329425685359666,
+     "ref_sq_norm": 1.9391022302339735,
+     "error_sq_norm": 0.8229867647926005,
+     "dot": 1.7227705754005205
+    },
+    "split": {
+     "space": "vs-upstream-bf16 -- THE SPACE THE CLAUSE IS GRADED IN",
+     "what": "VERB against upstream own bf16 step, both repaired",
+     "measured_rel_l2": 0.6514724768869966,
+     "norm_ratio": 1.0960341273017198,
+     "cos": 0.8105926520934058,
+     "angle_degrees": 35.84612439629859,
+     "IDENTITY": {
+      "reconstructed_from_r_and_cos": 0.6514724768869956,
+      "rel_difference": 1.533757384405912e-15,
+      "why": "rel^2 = 1 + r^2 - 2 r cos holds exactly for these three aggregates because they are three norms of one vector pair. A residual here would mean the split is modelled rather than exact, and nothing below could be read."
+     },
+     "magnitude_alone_cos_set_to_1": 0.09603412730171978,
+     "direction_alone_r_set_to_1": 0.6154792407654286,
+     "residual_after_the_best_possible_rescaling": 0.5856104100613126,
+     "shares_of_the_measured_error": {
+      "magnitude": 0.1474108741486829,
+      "direction": 0.9447509489678543,
+      "note": "these do not sum to 1 and are not meant to. Each is what the reading would be with the OTHER axis made perfect, divided by what it is; they add up to more or less than the whole exactly as the two errors reinforce or cancel."
+     }
+    },
+    "mass_weighted": {
+     "n": 2736,
+     "rel_l2": 0.6514724768869962,
+     "norm_ratio": 1.0144224008952027,
+     "cos": 0.8539681828894801,
+     "median_rel_l2_over_tensors": 0.9862753895407177,
+     "identity_residual_rel": 0.16419592568848038,
+     "why_the_residual_is_reported": "a quadratic mean and two arithmetic means, so the identity does not hold on these three. The residual is how far off it is, and it is why no angle is read here."
+    }
+   },
+   "CONTRAST_vs_float64": {
+    "concatenated": {
+     "n": 2736,
+     "rel_l2": 0.7886326591338574,
+     "norm_ratio": 1.1510675484307957,
+     "cos": 0.7397546009874032,
+     "arm_sq_norm": 2.329425685359666,
+     "ref_sq_norm": 1.7581148388741799,
+     "error_sq_norm": 1.093444529168705,
+     "dot": 1.4970479975325706
+    },
+    "split": {
+     "space": "vs-float64 -- CONTRAST ONLY, not carried across (R174)",
+     "what": "VERB against the float64 reference, both repaired",
+     "measured_rel_l2": 0.7886326591338574,
+     "norm_ratio": 1.1510675484307957,
+     "cos": 0.7397546009874032,
+     "angle_degrees": 42.28948446475835,
+     "IDENTITY": {
+      "reconstructed_from_r_and_cos": 0.7886326591338574,
+      "rel_difference": 0.0,
+      "why": "rel^2 = 1 + r^2 - 2 r cos holds exactly for these three aggregates because they are three norms of one vector pair. A residual here would mean the split is modelled rather than exact, and nothing below could be read."
+     },
+     "magnitude_alone_cos_set_to_1": 0.15106754843079573,
+     "direction_alone_r_set_to_1": 0.721450482032685,
+     "residual_after_the_best_possible_rescaling": 0.6728767571539144,
+     "shares_of_the_measured_error": {
+      "magnitude": 0.19155629263022253,
+      "direction": 0.9148118248425604,
+      "note": "these do not sum to 1 and are not meant to. Each is what the reading would be with the OTHER axis made perfect, divided by what it is; they add up to more or less than the whole exactly as the two errors reinforce or cancel."
+     }
+    },
+    "mass_weighted": {
+     "n": 2736,
+     "rel_l2": 0.788632659133857,
+     "norm_ratio": 1.0177581254167858,
+     "cos": 0.8777280541824865,
+     "median_rel_l2_over_tensors": 1.1827889811839314,
+     "identity_residual_rel": 0.36700409251271626,
+     "why_the_residual_is_reported": "a quadratic mean and two arithmetic means, so the identity does not hold on these three. The residual is how far off it is, and it is why no angle is read here."
+    }
+   },
+   "x_A26_bar_mass_weighted": 1.2229937811678424,
+   "the_two_spaces_disagree_on_the_magnitude_share_by": 1.2994719265894406
+  }
+ },
+ "LADDER_vs_R149": {
+  "SHIP_A": {
+   "R149_arm": "CTRL_B",
+   "R149_lever": "--lever all",
+   "definition": "mass_weighted, which is the definition R149 numbers are in",
+   "vs_upstream_bf16": {
+    "double_counted": 0.9153623104186986,
+    "repaired": 1.5603301979820194,
+    "moved": 0.6449678875633208,
+    "repaired_over_double_counted": 1.704603936848027
+   },
+   "vs_float64": {
+    "double_counted": 0.702981502944001,
+    "repaired": 1.378494925739893,
+    "moved": 0.6755134227958921,
+    "repaired_over_double_counted": 1.9609263116695448
+   },
+   "x_A26_bar": {
+    "double_counted": 1.737317609996219,
+    "repaired": 2.929170757633412,
+    "note": "the repaired multiple is against the bar recomputed on the corrected floor, not against the bar R149 read"
+   }
+  },
+  "SHIP_B": {
+   "R149_arm": "CTRL_B",
+   "R149_lever": "--lever all",
+   "definition": "mass_weighted, which is the definition R149 numbers are in",
+   "vs_upstream_bf16": {
+    "double_counted": 0.9153623104186986,
+    "repaired": 1.5603301979820194,
+    "moved": 0.6449678875633208,
+    "repaired_over_double_counted": 1.704603936848027
+   },
+   "vs_float64": {
+    "double_counted": 0.702981502944001,
+    "repaired": 1.378494925739893,
+    "moved": 0.6755134227958921,
+    "repaired_over_double_counted": 1.9609263116695448
+   },
+   "x_A26_bar": {
+    "double_counted": 1.737317609996219,
+    "repaired": 2.929170757633412,
+    "note": "the repaired multiple is against the bar recomputed on the corrected floor, not against the bar R149 read"
+   }
+  },
+  "VERB": {
+   "R149_arm": "VERB_HF",
+   "R149_lever": "--lever ceiling_hf",
+   "definition": "mass_weighted, which is the definition R149 numbers are in",
+   "vs_upstream_bf16": {
+    "double_counted": 0.5547455957585244,
+    "repaired": 0.6514724768869962,
+    "moved": 0.09672688112847172,
+    "repaired_over_double_counted": 1.1743625940756022
+   },
+   "vs_float64": {
+    "double_counted": 0.4179981990834974,
+    "repaired": 0.788632659133857,
+    "moved": 0.37063446005035966,
+    "repaired_over_double_counted": 1.8866891313479641
+   },
+   "x_A26_bar": {
+    "double_counted": 1.0528828657346485,
+    "repaired": 1.2229937811678424,
+    "note": "the repaired multiple is against the bar recomputed on the corrected floor, not against the bar R149 read"
+   }
+  }
+ },
+ "THE_LEVER_DECOMPOSED": {
+  "SHIP_A_to_VERB": {
+   "GRADED_SPACE_vs_upstream_bf16": {
+    "what": "the exact softmax (VERB) against the shipped device softmax, in vs-upstream-bf16, on the REPAIRED functional",
+    "base": {
+     "rel": 1.5603301979820208,
+     "norm_ratio": 1.5522929620978418,
+     "cos": 0.3140461038122087,
+     "angle_degrees": 71.6967624380402
+    },
+    "lever": {
+     "rel": 0.6514724768869956,
+     "norm_ratio": 1.0960341273017198,
+     "cos": 0.8105926520934058,
+     "angle_degrees": 35.84612439629859
+    },
+    "total_move_in_rel": -0.9088577210950252,
+    "magnitude_only": {
+     "what": "the lever norm ratio at the base arm direction",
+     "rel": 1.2299919973566509,
+     "move": -0.3303382006253699,
+     "share_of_the_total_move": 0.36346525199496166
+    },
+    "direction_only": {
+     "what": "the lever direction at the base arm norm ratio",
+     "rel": 0.9450179375191008,
+     "move": -0.61531226046292,
+     "share_of_the_total_move": 0.6770171460078143
+    },
+    "angle": {
+     "degrees_closed": 35.850638041741604,
+     "fraction_of_the_base_angle_closed": 0.5000314773309807,
+     "cos_moved": 0.4965465482811971
+    },
+    "magnitude": {
+     "norm_ratio_moved": -0.45625883479612206,
+     "distance_from_1_before": 0.5522929620978418,
+     "distance_from_1_after": 0.09603412730171978,
+     "got_closer_to_1": true
+    }
+   },
+   "CONTRAST_vs_float64": {
+    "what": "the same pair against float64 -- contrast only, not carried",
+    "base": {
+     "rel": 1.378494925739894,
+     "norm_ratio": 1.6302357835582857,
+     "cos": 0.53900805865866,
+     "angle_degrees": 57.38386139841901
+    },
+    "lever": {
+     "rel": 0.7886326591338574,
+     "norm_ratio": 1.1510675484307957,
+     "cos": 0.7397546009874032,
+     "angle_degrees": 42.28948446475835
+    },
+    "total_move_in_rel": -0.5898622666060366,
+    "magnitude_only": {
+     "what": "the lever norm ratio at the base arm direction",
+     "rel": 1.0411950497966986,
+     "move": -0.3372998759431953,
+     "share_of_the_total_move": 0.5718281962397075
+    },
+    "direction_only": {
+     "what": "the lever direction at the base arm norm ratio",
+     "rel": 1.1161182136453132,
+     "move": -0.2623767120945808,
+     "share_of_the_total_move": 0.44481013102304395
+    },
+    "angle": {
+     "degrees_closed": 15.094376933660655,
+     "fraction_of_the_base_angle_closed": 0.2630421962868557,
+     "cos_moved": 0.20074654232874323
+    },
+    "magnitude": {
+     "norm_ratio_moved": -0.47916823512748996,
+     "distance_from_1_before": 0.6302357835582857,
+     "distance_from_1_after": 0.15106754843079573,
+     "got_closer_to_1": true
+    }
+   }
+  }
+ },
+ "FLOOR_AND_BAR_ON_THE_CORRECTED_REFERENCES": {
+  "floor_concatenated": {
+   "n": 2736,
+   "rel_l2": 0.3853832410700492,
+   "norm_ratio": 1.0502114119973256,
+   "cos": 0.9304906350592648,
+   "arm_sq_norm": 1.9391022302339735,
+   "ref_sq_norm": 1.7581148388741799,
+   "error_sq_norm": 0.26111564220831995,
+   "dot": 1.7180507134499137
+  },
+  "floor_mass_weighted": {
+   "n": 2736,
+   "rel_l2": 0.3853832410700487,
+   "norm_ratio": 1.0231422025004,
+   "cos": 0.967803667039234,
+   "median_rel_l2_over_tensors": 0.427777792112013,
+   "identity_residual_rel": 0.33126903888663506,
+   "why_the_residual_is_reported": "a quadratic mean and two arithmetic means, so the identity does not hold on these three. The residual is how far off it is, and it is why no angle is read here."
+  },
+  "A26_style_reachable_bar_for_this_scope": 0.5326866635943988,
+  "A26_bar_arithmetic": "sqrt(2) * floor / mass_weighted_norm_ratio(floor), the same arithmetic of3t-frame384 uses. Recomputed on the corrected floor, not borrowed.",
+  "the_bar_R149_read_against": 0.5268825372815341,
+  "the_floor_R149_read_against": 0.37393839211303687,
+  "their_own_split_on_the_repaired_functional": {
+   "space": "vs-float64 -- the reference own error, for scale",
+   "what": "upstream own bf16 step against the float64 reference, both repaired",
+   "measured_rel_l2": 0.3853832410700492,
+   "norm_ratio": 1.0502114119973256,
+   "cos": 0.9304906350592648,
+   "angle_degrees": 21.488574403538344,
+   "IDENTITY": {
+    "reconstructed_from_r_and_cos": 0.3853832410700536,
+    "rel_difference": 1.1523314003406359e-14,
+    "why": "rel^2 = 1 + r^2 - 2 r cos holds exactly for these three aggregates because they are three norms of one vector pair. A residual here would mean the split is modelled rather than exact, and nothing below could be read."
+   },
+   "magnitude_alone_cos_set_to_1": 0.050211411997325595,
+   "direction_alone_r_set_to_1": 0.3728521555274563,
+   "residual_after_the_best_possible_rescaling": 0.366315680891504,
+   "shares_of_the_measured_error": {
+    "magnitude": 0.13028955763076092,
+    "direction": 0.9674840932164065,
+    "note": "these do not sum to 1 and are not meant to. Each is what the reading would be with the OTHER axis made perfect, divided by what it is; they add up to more or less than the whole exactly as the two errors reinforce or cancel."
+   }
+  }
+ },
+ "IDENTITY_HOLDS_IN_EVERY_SPLIT": {
+  "worst_rel_difference": 1.533757384405912e-15,
+  "bar": 1e-12,
+  "failed": [],
+  "verdict": "every split is exact rather than modelled"
+ },
+ "provenance": {
+  "git_commit": "",
+  "inputs": {
+   "ref_f64": "b336d89b43fd0590f32547e815326c95e25f5c69a68fc514354ed4d9777e5a1b",
+   "ref_bf16": "2863c555dc0823b1b40d5d4947f921b09a99bf9304df9c048db1f8b5e1576fcd",
+   "SHIP_A": "4402f5e841d4ec13badfd183db7cc93c1570a9c9311f5cd8519035ef749f141a",
+   "SHIP_B": "acf6f6e26b2a56a1dd6e2db579da22c37b0ab34beefb5efb4186dbdf5ca99aff",
+   "VERB": "f8ed4ea3e5be469e6304039eedbc5e7ebbaae73c9a21ef3bd4b2cb7c0ac0ba17"
+  }
+ },
+ "WHAT_THIS_IS": "the same scoring against ref_f64_n384_corrected.pt, the f64 arm that computed its OWN correction, instead of ref_f64_n384_a42.pt which took the cited file. A42 wants one correction for every arm; this is the control that the swap moved nothing. SHIP_B and MODW are absent because it ran before those arms landed.",
+ "AGREEMENT_WITH_THE_A42_ARM": {
+  "SHIP_A/GRADED_SPACE_vs_upstream_bf16": {
+   "rel_l2": {
+    "a42": 1.5603301979820212,
+    "self": 1.5603301979820212,
+    "delta": 0.0
+   },
+   "norm_ratio": {
+    "a42": 1.5522929620978418,
+    "self": 1.5522929620978418,
+    "delta": 0.0
+   },
+   "cos": {
+    "a42": 0.3140461038122087,
+    "self": 0.3140461038122087,
+    "delta": 0.0
+   }
+  },
+  "SHIP_A/CONTRAST_vs_float64": {
+   "rel_l2": {
+    "a42": 1.3784949257398944,
+    "self": 1.378494925739893,
+    "delta": 1.3322676295501878e-15
+   },
+   "norm_ratio": {
+    "a42": 1.6302357835582868,
+    "self": 1.6302357835582857,
+    "delta": 1.1102230246251565e-15
+   },
+   "cos": {
+    "a42": 0.5390080586586596,
+    "self": 0.53900805865866,
+    "delta": -3.3306690738754696e-16
+   }
+  },
+  "VERB/GRADED_SPACE_vs_upstream_bf16": {
+   "rel_l2": {
+    "a42": 0.6514724768869966,
+    "self": 0.6514724768869966,
+    "delta": 0.0
+   },
+   "norm_ratio": {
+    "a42": 1.0960341273017198,
+    "self": 1.0960341273017198,
+    "delta": 0.0
+   },
+   "cos": {
+    "a42": 0.8105926520934058,
+    "self": 0.8105926520934058,
+    "delta": 0.0
+   }
+  },
+  "VERB/CONTRAST_vs_float64": {
+   "rel_l2": {
+    "a42": 0.7886326591338582,
+    "self": 0.7886326591338574,
+    "delta": 7.771561172376096e-16
+   },
+   "norm_ratio": {
+    "a42": 1.1510675484307966,
+    "self": 1.1510675484307957,
+    "delta": 8.881784197001252e-16
+   },
+   "cos": {
+    "a42": 0.739754600987403,
+    "self": 0.7397546009874032,
+    "delta": -2.220446049250313e-16
+   }
+  }
+ }
+}

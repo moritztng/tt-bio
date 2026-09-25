@@ -1,0 +1,42 @@
+{
+ "fully_masked_bf16_shipped": {
+  "finite": true,
+  "max_is_exact": true,
+  "note": "every element is already a bf16 grid point, so the truncation is the identity",
+  "sum": 128.0,
+  "uniform": true
+ },
+ "fully_masked_fp32_clamp60": {
+  "agrees_with_device": true,
+  "finite": true,
+  "softgrad_device_measurement": "finite, 0 non-finite entries",
+  "sum": 1.1208343803443888e-24,
+  "uniform": true
+ },
+ "fully_masked_fp32_clamp88": {
+  "agrees_with_device": true,
+  "finite": false,
+  "softgrad_device_measurement": "not finite, 114688 non-finite entries",
+  "why": "exp(-88) = 6.055e-39 is below fp32's smallest normal 1.18e-38 and flushes to zero"
+ },
+ "fully_masked_fp32_shipped": {
+  "finite": false,
+  "max_used": -998244352.0,
+  "sum": 0.0
+ },
+ "live_row_cost_of_the_floor": {
+  "bound_exp_minus_60": 8.75651076269652e-27,
+  "largest_weight": 0.7555200457572937,
+  "relative_to_the_largest_weight": 8.756510986911759e-27,
+  "within_bound": true,
+  "worst_absolute_change_in_a_weight": 6.615719581505817e-27
+ },
+ "truncation": {
+  "bf16_truncated_max": -998244352.0,
+  "fp32_mask_value": -1000000000.0,
+  "overshoot_above_true_max": 1755648.0,
+  "relative": 0.001755648,
+  "reproduces_exactly": true,
+  "softgrad_device_measurement": 1755648.0
+ }
+}
