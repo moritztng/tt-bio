@@ -6,6 +6,20 @@ import os as _os, sys as _sys
 if "--debug" not in _sys.argv:
     _os.environ.setdefault("LOGURU_LEVEL", "WARNING")
     _os.environ.setdefault("TT_METAL_LOGGER_LEVEL", "FATAL")
+    # tt-metal's Inspector (the tt-triage data source) defaults to ENABLED
+    # upstream (rtoptions.hpp: InspectorSettings::enabled = true). It is a
+    # debug facility, and it is not free on an inference path: ttnn calls it
+    # once per device-op enqueue (device_operation.hpp::enqueue_mesh_workload),
+    # where it builds the op name, copies a TensorSpec per tensor argument
+    # (capture_tensor_specs also defaults on) and takes a mutex. It also opens
+    # a log directory under the cwd and flushes a YAML line per program and
+    # per mesh-workload create/destroy. A 20-aa esmfold2-fast fold issues
+    # 13,234 device ops, so that is 13,234 visits per fold. Measured on qb2
+    # (p300c, ttnn 0.68.0) the bare enqueue path costs 8.29 us/op with it on
+    # and 8.05 us/op with it off. Turn it off by default and let --debug (which
+    # skips this whole block) put it back for triage; setdefault so an explicit
+    # TT_METAL_INSPECTOR=1 always wins. Must run before ttnn is imported.
+    _os.environ.setdefault("TT_METAL_INSPECTOR", "0")
 
 # torch+MKL can hit a threading-layer load race on large inputs, aborting the
 # process at import with "Intel oneMKL FATAL ERROR: Cannot load libtorch_cpu.so"
