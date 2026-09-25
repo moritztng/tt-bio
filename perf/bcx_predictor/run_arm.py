@@ -10,10 +10,11 @@ trajectory and accepts or rejects on its own thresholds.
 Two deviations from BindCraft 2's defaults, both deliberate and both named in
 state/bcx-predictor.md:
 
-  * the model pool is pinned to the MONOMER checkpoints. tt-bio's AF2 trunk on main is
-    monomer `model_1_ptm`; BindCraft 2 samples design models from the multimer_v3 pool.
-    Pinning both arms to monomer is what makes the comparison like-for-like, and the
-    variant gap belongs to `bcx-multimer`.
+  * the model pool defaults to the MONOMER checkpoints, because pinning both arms to one
+    checkpoint is what makes them comparable to each other. It is a default and not a
+    limit: `tt_bio/af2.py` serves `model_1_ptm` and AF2-multimer_v3 from one set of
+    classes, so `--shipped` leaves BindCraft 2's own five-model multimer_v3 pool alone on
+    any arm, including `--arm device`.
   * `max_trajectories` bounds the run. `examples/pdl1.json` sets `number_of_final_designs`
     with no attempt cap, so an unbounded campaign runs until it has ten accepted designs.
     A trajectory BUDGET is not a change to the model's own work; every trajectory that runs
@@ -66,21 +67,34 @@ def main():
                          "so the default arm here is levers on and uncounted; this flag is the "
                          "control every BCX speed ratio divides by. Inert on the reference arm, "
                          "which never enters tt_bio.")
-    ap.add_argument("--shipped", action="store_true",
-                    help="leave BindCraft 2's own five-model multimer_v3 pool alone. The "
-                         "monomer pin makes the arms comparable to each other and makes none "
-                         "of them comparable to the lab's own figure, which is the only "
-                         "question this flag exists to ask. Reference-only: tt-bio's AF2 trunk "
-                         "is monomer model_1_ptm. Off by default, and off is byte-identical to "
-                         "every arm this campaign has measured.")
+    ap.add_argument("--shipped", "--multimer-pool", dest="shipped", action="store_true",
+                    help="leave BindCraft 2's own five-model multimer_v3 pool alone. The monomer "
+                         "pin makes the arms comparable to each other and makes none of them "
+                         "comparable to the lab's own figure, which is the only question this "
+                         "flag exists to ask. Valid on every arm: the device trunk folds "
+                         "multimer_v3. Off by default, and off is byte-identical to every arm "
+                         "this campaign has measured. `--multimer-pool` is the same flag under "
+                         "its earlier spelling, so an invocation written against wk/bcx-armtree "
+                         "runs here unchanged.")
+    ap.add_argument("--pool-resident", type=int, default=0,
+                    help="cap how many trunks stay on card at once, least-recently-used evicted; "
+                         "0 keeps them all. TrunkPool's own docstring is the reason to use it: "
+                         "five AF2 trunks is about 910 MB and holding all five brought a "
+                         "backward allocator refusal forward at n=288 that resident=1 ran past.")
     ap.add_argument("--bucket", type=int, default=1,
                     help="length_bucket_size override; 0 leaves BindCraft 2's own "
                          "default of 32. It used to have to be 1 because the trunk "
                          "refused a masked fold; all three mask sites are in af2.py "
                          "now, so 32 runs and is the lab's configuration.")
     args = ap.parse_args()
-    if args.shipped and args.arm != "reference":
-        ap.error("--shipped is reference-only; tt-bio's AF2 trunk is monomer model_1_ptm")
+    # No reference-only guard. It used to refuse `--arm device --shipped` on the grounds that
+    # "tt-bio's AF2 trunk is monomer model_1_ptm", which is false on this tree: af2.py serves
+    # model_1_ptm and AF2-multimer_v3 from one set of classes, af2_weights.py is byte-identical
+    # to the tree bcx-accept has had all five model_N_multimer_v3 checkpoints on card from, and
+    # the guard was refusing the campaign's own GO-condition arm. A checkpoint the pool cannot
+    # supply is not fatal either: TrunkPool.require records it in `absent` and it folds on
+    # BindCraft 2's JAX trunk, which the stamp's device_checkpoints / host_checkpoints /
+    # host_folds make visible rather than silent.
 
     project = args.out or str(HERE / "runs" / f"{args.arm}_seed{args.seed}")
     pathlib.Path(project).mkdir(parents=True, exist_ok=True)
@@ -119,6 +133,7 @@ def main():
              "binder_lengths": settings.get("binder_lengths"),
              "levers": "off" if args.no_levers else "shipped",
              "shipped_model_pool": bool(args.shipped),
+             "pool_resident": args.pool_resident or None,
              "predictor": "AlphaFoldDesignModel" if args.arm == "reference"
                           else "TenstorrentAlphaFoldDesignModel",
              "host": os.uname().nodename, "started_utc": time.strftime("%FT%TZ", time.gmtime()),
@@ -160,7 +175,8 @@ def main():
             _levers.bwd = set()
         with bindcraft2.campaign_predictor(
                 trunk="jax" if args.arm == "control" else "device",
-                validation="device", checkpoints=args.params) as build:
+                validation="device", checkpoints=args.params,
+                resident=args.pool_resident or None) as build:
             if build.evoformer is not None:
                 stamp["device_card"] = int(os.environ.get("TT_VISIBLE_DEVICES", "-1"))
             count = run()

@@ -1,0 +1,46 @@
+{
+ "params": "/home/ttuser/bcx_e2e/af2_params",
+ "asked_shipped": [
+  "model_1_multimer_v3",
+  "model_2_multimer_v3",
+  "model_3_multimer_v3",
+  "model_4_multimer_v3",
+  "model_5_multimer_v3"
+ ],
+ "asked_monomer": [
+  "model_1_ptm",
+  "model_2_ptm"
+ ],
+ "resident": 1,
+ "after_shipped": {
+  "on_card": [
+   "model_1_multimer_v3",
+   "model_2_multimer_v3",
+   "model_3_multimer_v3",
+   "model_4_multimer_v3",
+   "model_5_multimer_v3"
+  ],
+  "absent": []
+ },
+ "after_both": {
+  "on_card": [
+   "model_1_multimer_v3",
+   "model_1_ptm",
+   "model_2_multimer_v3",
+   "model_2_ptm",
+   "model_3_multimer_v3",
+   "model_4_multimer_v3",
+   "model_5_multimer_v3"
+  ],
+  "absent": []
+ },
+ "evoformer_built": true,
+ "device_card": "3",
+ "stamp": {
+  "host": "tt-quietbox2",
+  "card": 3,
+  "board": "p300c",
+  "utc": "2026-09-25T21:5xZ",
+  "tree": "wk/land-standing"
+ }
+}
