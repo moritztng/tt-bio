@@ -54,12 +54,18 @@ EVOFORMER = PREFIX + "evoformer/"
 TEMPLATE = EVOFORMER + "template_embedding/"
 SINGLE_TEMPLATE = TEMPLATE + "single_template_embedding/"
 TEMPLATE_STACK = SINGLE_TEMPLATE + "template_pair_stack/__layer_stack_no_state/"
+# multimer_v3's template stack is not wrapped in a haiku layer_stack: it is two blocks under
+# `template_embedding_iteration`, stacked in dim 0 the same way.
+TEMPLATE_ITERATION = SINGLE_TEMPLATE + "template_embedding_iteration/"
+RELATIVE_ENCODING = EVOFORMER + "~_relative_encoding/"
 STRUCTURE = PREFIX + "structure_module/"
 FOLD = STRUCTURE + "fold_iteration/"
 
 NUM_EVOFORMER_BLOCKS = 48
 NUM_EXTRA_MSA_BLOCKS = 4
 NUM_TEMPLATE_BLOCKS = 2
+#: multimer_v3 embeds nine template features separately and sums them; see `_template_multimer`.
+NUM_TEMPLATE_PAIR_EMBEDDINGS = 9
 
 # Heads present in the checkpoint that PXDesign never reads.
 UNUSED_SCOPES = (
@@ -67,6 +73,13 @@ UNUSED_SCOPES = (
     PREFIX + "masked_msa_head/",
     PREFIX + "experimentally_resolved_head/",
 )
+
+#: Left unconsumed on the multimer path on top of `UNUSED_SCOPES`. multimer_v3's structure module
+#: is `folding_multimer`, a different module from the monomer's: its IPA splits the q/k/v point
+#: projections into their own scopes and its backbone update is `quat_rigid` rather than
+#: `affine_update`. This file remaps the trunk, and the trunk is what runs on card; the multimer
+#: structure module is a torch module nobody has written yet.
+MULTIMER_UNUSED_SCOPES = (STRUCTURE,)
 
 
 class _Params:
@@ -152,20 +165,40 @@ def _relu_transition(p: _Params, scope: str, block: int | None = None) -> dict[s
 
 
 def _triangle_multiplication(
-    p: _Params, scope: str, block: int | None, *, ending: bool
+    p: _Params, scope: str, block: int | None, *, ending: bool, fused: bool = False
 ) -> dict[str, torch.Tensor]:
     """AF2's triangle multiplication in tt-bio's `TriangleMultiplication` layout.
 
     `p_in`/`g_in` are `[2 * hidden, c]` with slot `a` first. For the outgoing block `a` is AF2's
     left and `b` its right; for the incoming block they are swapped (see the module docstring).
+
+    `fused` is the multimer_v3 checkpoint, which stores as two already-concatenated arrays
+    (`projection`, `gate`) what the 2021 monomer release stores as four (`left_projection`,
+    `right_projection`, `left_gate`, `right_gate`), and renames both LayerNorms
+    (`layer_norm_input` -> `left_norm_input`, `center_layer_norm` -> `center_norm`). The
+    arithmetic is the same fused form either way -- `fuse_projection_weights` is True at every
+    config site in both releases -- so this is a key layout difference, not a new op. The
+    incoming swap still applies; here it halves one array instead of reordering two.
     """
     order = ("right", "left") if ending else ("left", "right")
-    out = _prefixed(_norm(p, scope + "layer_norm_input", block), "norm_in")
-    out |= _prefixed(_norm(p, scope + "center_layer_norm", block), "norm_out")
-    for tt_name, af2_suffix in (("p_in", "projection"), ("g_in", "gate")):
-        halves = [_linear(p, f"{scope}{side}_{af2_suffix}", block) for side in order]
-        out[f"{tt_name}.weight"] = torch.cat([h["weight"] for h in halves], dim=0)
-        out[f"{tt_name}.bias"] = torch.cat([h["bias"] for h in halves], dim=0)
+    if fused:
+        out = _prefixed(_norm(p, scope + "left_norm_input", block), "norm_in")
+        out |= _prefixed(_norm(p, scope + "center_norm", block), "norm_out")
+        for tt_name, af2_name in (("p_in", "projection"), ("g_in", "gate")):
+            fat = _linear(p, scope + af2_name, block)
+            hidden = fat["weight"].shape[0] // 2
+            half = {"left": slice(0, hidden), "right": slice(hidden, 2 * hidden)}
+            out[f"{tt_name}.weight"] = torch.cat(
+                [fat["weight"][half[side]] for side in order], dim=0).contiguous()
+            out[f"{tt_name}.bias"] = torch.cat(
+                [fat["bias"][half[side]] for side in order], dim=0).contiguous()
+    else:
+        out = _prefixed(_norm(p, scope + "layer_norm_input", block), "norm_in")
+        out |= _prefixed(_norm(p, scope + "center_layer_norm", block), "norm_out")
+        for tt_name, af2_suffix in (("p_in", "projection"), ("g_in", "gate")):
+            halves = [_linear(p, f"{scope}{side}_{af2_suffix}", block) for side in order]
+            out[f"{tt_name}.weight"] = torch.cat([h["weight"] for h in halves], dim=0)
+            out[f"{tt_name}.bias"] = torch.cat([h["bias"] for h in halves], dim=0)
     out |= _prefixed(_linear(p, scope + "output_projection", block), "p_out")
     out |= _prefixed(_linear(p, scope + "gating_linear", block), "g_out")
     return out
@@ -219,14 +252,17 @@ def _msa_column_attention(
     return out
 
 
-def _pair_block(p: _Params, scope: str, block: int | None) -> dict[str, torch.Tensor]:
+def _pair_block(p: _Params, scope: str, block: int | None,
+                *, fused_trimul: bool = False) -> dict[str, torch.Tensor]:
     """The pair track shared by the Evoformer, extra-MSA and template stacks."""
     out = _prefixed(
-        _triangle_multiplication(p, scope + "triangle_multiplication_outgoing/", block, ending=False),
+        _triangle_multiplication(p, scope + "triangle_multiplication_outgoing/", block,
+                                 ending=False, fused=fused_trimul),
         "tri_mul_out",
     )
     out |= _prefixed(
-        _triangle_multiplication(p, scope + "triangle_multiplication_incoming/", block, ending=True),
+        _triangle_multiplication(p, scope + "triangle_multiplication_incoming/", block,
+                                 ending=True, fused=fused_trimul),
         "tri_mul_in",
     )
     out |= _prefixed(
@@ -240,7 +276,7 @@ def _pair_block(p: _Params, scope: str, block: int | None) -> dict[str, torch.Te
 
 
 def _evoformer_block(
-    p: _Params, scope: str, block: int, *, extra_msa: bool
+    p: _Params, scope: str, block: int, *, extra_msa: bool, fused_trimul: bool = False
 ) -> dict[str, torch.Tensor]:
     out = _prefixed(
         _msa_row_attention(p, scope + "msa_row_attention_with_pair_bias/", block), "msa_row_attn"
@@ -251,7 +287,7 @@ def _evoformer_block(
     )
     out |= _prefixed(_relu_transition(p, scope + "msa_transition/", block), "msa_transition")
     out |= _prefixed(_outer_product_mean(p, scope + "outer_product_mean/", block), "opm")
-    out |= _pair_block(p, scope, block)
+    out |= _pair_block(p, scope, block, fused_trimul=fused_trimul)
     return out
 
 
@@ -264,6 +300,42 @@ def _template(p: _Params) -> dict[str, torch.Tensor]:
     # Pointwise attention over templates: q from the pair rep at c_z, k/v from the template
     # stack at c=64, and no gating (the checkpoint has no gating_w/gating_b here).
     out |= _prefixed(_attention(p, TEMPLATE + "attention", gating=False), "attn")
+    out |= _prefixed(_linear(p, EVOFORMER + "template_single_embedding"), "single_embedding")
+    out |= _prefixed(_linear(p, EVOFORMER + "template_projection"), "single_projection")
+    return out
+
+
+def _template_multimer(p: _Params) -> dict[str, torch.Tensor]:
+    """multimer_v3's template embedder, which is a different module from the monomer's.
+
+    Three differences, all of them structural rather than a rename:
+
+    * The monomer builds one 88-channel feature tensor and embeds it with a single
+      `embedding2d`. The multimer embeds nine features separately and sums the results
+      (`template_pair_embedding_0..8`), and the ninth is the LayerNormed query pair
+      representation itself, so the template stack sees the trunk's pair. Five of the nine take
+      a scalar input, stored as a bare `[c]` array; they are kept here as `[c, 1]` so one
+      `Linear` serves all nine.
+    * Its pair stack runs the Evoformer order (multiplications before attentions), where the
+      monomer's template stack runs the attentions first.
+    * There is no cross-attention over templates. The monomer attends over the template axis with
+      the pair as the query; the multimer sums the per-template embeddings, divides by the
+      template count, takes a ReLU and projects with `output_linear`.
+    """
+    out: dict[str, torch.Tensor] = {}
+    for i in range(NUM_TEMPLATE_PAIR_EMBEDDINGS):
+        entry = _linear(p, f"{SINGLE_TEMPLATE}template_pair_embedding_{i}")
+        if entry["weight"].shape[0] != entry["bias"].shape[0]:
+            # A scalar-input embedding: haiku stores it as a bare [c] array, which `_linear`
+            # transposes to [1, c]. torch wants [c, 1].
+            entry["weight"] = entry["weight"].reshape(-1, 1).contiguous()
+        out |= _prefixed(entry, f"pair_embedding.{i}")
+    out |= _prefixed(_norm(p, SINGLE_TEMPLATE + "query_embedding_norm"), "query_norm")
+    for i in range(NUM_TEMPLATE_BLOCKS):
+        out |= _prefixed(_pair_block(p, TEMPLATE_ITERATION, i, fused_trimul=True),
+                         f"pair_stack.{i}")
+    out |= _prefixed(_norm(p, SINGLE_TEMPLATE + "output_layer_norm"), "output_norm")
+    out |= _prefixed(_linear(p, TEMPLATE + "output_linear"), "output_linear")
     out |= _prefixed(_linear(p, EVOFORMER + "template_single_embedding"), "single_embedding")
     out |= _prefixed(_linear(p, EVOFORMER + "template_projection"), "single_projection")
     return out
@@ -308,58 +380,76 @@ def _heads(p: _Params) -> dict[str, torch.Tensor]:
     return out
 
 
-def remap_af2_params(source: Mapping[str, np.ndarray]) -> dict[str, torch.Tensor]:
-    """Remap an already-loaded `params_model_1_ptm` mapping. See `load_af2_state_dict`."""
+def remap_af2_params(source: Mapping[str, np.ndarray], *,
+                     multimer: bool = False) -> dict[str, torch.Tensor]:
+    """Remap an already-loaded AF2 parameter mapping. See `load_af2_state_dict`.
+
+    `multimer=True` reads `params_model_1..5_multimer_v3.npz`, whose trunk is the same Evoformer
+    at the same widths with a different relative-position encoding, a different template embedder
+    and the fused triangle-multiplication key layout. The structure module is left unconsumed;
+    see `MULTIMER_UNUSED_SCOPES`.
+    """
     p = _Params(source)
     out: dict[str, torch.Tensor] = {}
 
-    for name, scope in (
+    embeddings = [
         ("preprocess_1d", "preprocess_1d"),
         ("preprocess_msa", "preprocess_msa"),
         ("left_single", "left_single"),
         ("right_single", "right_single"),
-        # The checkpoint's own spelling of "pair_activations".
-        ("pair_activations", "pair_activiations"),
         ("extra_msa_activations", "extra_msa_activations"),
-    ):
+    ]
+    if not multimer:
+        # The checkpoint's own spelling of "pair_activations".
+        embeddings.append(("pair_activations", "pair_activiations"))
+    for name, scope in embeddings:
         out |= _prefixed(_linear(p, EVOFORMER + scope), f"embed.{name}")
+    if multimer:
+        # The relative encoding is its own haiku method, so its Linear sits one scope deeper.
+        out |= _prefixed(_linear(p, RELATIVE_ENCODING + "position_activations"),
+                         "embed.position_activations")
 
     out |= _prefixed(_linear(p, EVOFORMER + "prev_pos_linear"), "recycle.prev_pos_linear")
     out |= _prefixed(_norm(p, EVOFORMER + "prev_msa_first_row_norm"), "recycle.prev_msa_norm")
     out |= _prefixed(_norm(p, EVOFORMER + "prev_pair_norm"), "recycle.prev_pair_norm")
 
-    out |= _prefixed(_template(p), "template")
+    out |= _prefixed(_template_multimer(p) if multimer else _template(p), "template")
 
     for i in range(NUM_EXTRA_MSA_BLOCKS):
         out |= _prefixed(
-            _evoformer_block(p, EVOFORMER + "extra_msa_stack/", i, extra_msa=True),
+            _evoformer_block(p, EVOFORMER + "extra_msa_stack/", i, extra_msa=True,
+                             fused_trimul=multimer),
             f"extra_msa.{i}",
         )
     for i in range(NUM_EVOFORMER_BLOCKS):
         out |= _prefixed(
-            _evoformer_block(p, EVOFORMER + "evoformer_iteration/", i, extra_msa=False),
+            _evoformer_block(p, EVOFORMER + "evoformer_iteration/", i, extra_msa=False,
+                             fused_trimul=multimer),
             f"evoformer.{i}",
         )
 
     out |= _prefixed(_linear(p, EVOFORMER + "single_activations"), "single_activations")
-    out |= _prefixed(_structure_module(p), "structure")
+    if not multimer:
+        out |= _prefixed(_structure_module(p), "structure")
     out |= _prefixed(_heads(p), "heads")
 
+    unused = UNUSED_SCOPES + (MULTIMER_UNUSED_SCOPES if multimer else ())
     unconsumed = p.unconsumed()
-    unexpected = [k for k in unconsumed if not k.startswith(UNUSED_SCOPES)]
+    unexpected = [k for k in unconsumed if not k.startswith(unused)]
     if unexpected:
         raise AssertionError(
             f"{len(unexpected)} checkpoint arrays were not consumed by the remap and are not one "
-            f"of the deliberately unused heads {UNUSED_SCOPES}: {unexpected[:12]}"
+            f"of the deliberately unused scopes {unused}: {unexpected[:12]}"
         )
     return out
 
 
-def load_af2_state_dict(path: str) -> dict[str, torch.Tensor]:
-    """Load `params_model_1_ptm.npz` as a flat torch state dict in tt-bio module layout.
+def load_af2_state_dict(path: str, *, multimer: bool = False) -> dict[str, torch.Tensor]:
+    """Load an AF2 npz as a flat torch state dict in tt-bio module layout.
 
-    Raises if any array other than the distogram / masked-MSA / experimentally-resolved heads is
-    left unconsumed, so a dropped block cannot pass as a successful load.
+    Raises if any array other than the distogram / masked-MSA / experimentally-resolved heads
+    (and, on the multimer path, the structure module) is left unconsumed, so a dropped block
+    cannot pass as a successful load.
     """
     with np.load(path, allow_pickle=False) as npz:
-        return remap_af2_params({k: npz[k] for k in npz.files})
+        return remap_af2_params({k: npz[k] for k in npz.files}, multimer=multimer)
