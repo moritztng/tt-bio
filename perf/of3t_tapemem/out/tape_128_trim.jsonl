@@ -1,0 +1,1412 @@
+{"header": true, "tag": "128_trim", "argv": ["--tokens", "128", "--cycles", "1", "--samples", "1", "--arm", "trim", "--floor-gib", "3.0", "--tag", "128_trim", "--grad-dump", "perf/of3t_tapemem/out/grads_128_trim.json"], "arm": "trim", "tokens": 128, "cycles": 1, "samples": 1, "exact": "on", "floor_gib": 3.0, "period_s": 0.2, "node_stride": 10, "census_stride": 6, "page_bytes": 4096, "mem_total_gib": 30.502, "avail_at_start_gib": 13.68, "mallinfo_at_start": {"arena_gib": 0.0021, "hblkhd_gib": 0.0003, "uordblks_gib": 0.002, "fordblks_gib": 0.0001, "keepcost_gib": 0.0001, "hblks": 1}, "glibc": "2.36", "python": "3.10.19", "mmap_threshold_bytes": null, "loadavg_at_start": ["9.34", "7.36", "5.87"], "host": "pc", "visible_devices": "0", "started_utc": "2026-09-25T20:13:09Z", "pid": 2019334}
+{"ev": "s", "t": 0.005, "phase": "import_engine", "rss_gib": 0.0156, "avail_gib": 13.6849, "n_retire": 0, "n_recompute": 0}
+{"ev": "s", "t": 0.205, "phase": "import_engine", "rss_gib": 0.0231, "avail_gib": 13.6785, "n_retire": 0, "n_recompute": 0}
+{"ev": "s", "t": 0.483, "phase": "import_engine", "rss_gib": 0.0543, "avail_gib": 13.6803, "n_retire": 0, "n_recompute": 0}
+{"ev": "s", "t": 0.74, "phase": "import_engine", "rss_gib": 0.0623, "avail_gib": 13.6508, "n_retire": 0, "n_recompute": 0}
+{"ev": "s", "t": 0.947, "phase": "import_engine", "rss_gib": 0.074, "avail_gib": 13.6189, "n_retire": 0, "n_recompute": 0}
+{"ev": "s", "t": 2.109, "phase": "import_engine", "rss_gib": 0.1703, "avail_gib": 14.1332, "n_retire": 0, "n_recompute": 0}
+{"ev": "s", "t": 2.356, "phase": "import_engine", "rss_gib": 0.1748, "avail_gib": 14.1277, "n_retire": 0, "n_recompute": 0}
+{"ev": "s", "t": 2.572, "phase": "import_engine", "rss_gib": 0.1789, "avail_gib": 14.1247, "n_retire": 0, "n_recompute": 0}
+{"ev": "s", "t": 2.772, "phase": "import_engine", "rss_gib": 0.1811, "avail_gib": 14.1225, "n_retire": 0, "n_recompute": 0}
+{"ev": "s", "t": 3.001, "phase": "import_engine", "rss_gib": 0.1837, "avail_gib": 14.1213, "n_retire": 0, "n_recompute": 0}
+{"ev": "s", "t": 3.277, "phase": "import_engine", "rss_gib": 0.1918, "avail_gib": 14.1149, "n_retire": 0, "n_recompute": 0}
+{"ev": "s", "t": 3.478, "phase": "import_engine", "rss_gib": 0.1959, "avail_gib": 14.1094, "n_retire": 0, "n_recompute": 0}
+{"ev": "s", "t": 3.678, "phase": "import_engine", "rss_gib": 0.1991, "avail_gib": 14.0972, "n_retire": 0, "n_recompute": 0}
+{"ev": "s", "t": 3.879, "phase": "import_engine", "rss_gib": 0.2015, "avail_gib": 14.0948, "n_retire": 0, "n_recompute": 0}
+{"ev": "s", "t": 4.079, "phase": "import_engine", "rss_gib": 0.2033, "avail_gib": 14.0925, "n_retire": 0, "n_recompute": 0}
+{"ev": "s", "t": 4.284, "phase": "import_engine", "rss_gib": 0.2052, "avail_gib": 14.0922, "n_retire": 0, "n_recompute": 0}
+{"ev": "s", "t": 4.485, "phase": "import_engine", "rss_gib": 0.2078, "avail_gib": 14.0929, "n_retire": 0, "n_recompute": 0}
+{"ev": "s", "t": 4.685, "phase": "import_engine", "rss_gib": 0.209, "avail_gib": 14.0902, "n_retire": 0, "n_recompute": 0}
+{"ev": "s", "t": 4.886, "phase": "import_engine", "rss_gib": 0.2098, "avail_gib": 14.0873, "n_retire": 0, "n_recompute": 0}
+{"ev": "s", "t": 5.086, "phase": "import_engine", "rss_gib": 0.2118, "avail_gib": 14.0573, "n_retire": 0, "n_recompute": 0}
+{"ev": "s", "t": 5.287, "phase": "import_engine", "rss_gib": 0.2125, "avail_gib": 14.0538, "n_retire": 0, "n_recompute": 0}
+{"ev": "s", "t": 5.487, "phase": "import_engine", "rss_gib": 0.2154, "avail_gib": 14.0509, "n_retire": 0, "n_recompute": 0}
+{"ev": "s", "t": 5.688, "phase": "import_engine", "rss_gib": 0.2192, "avail_gib": 14.0496, "n_retire": 0, "n_recompute": 0}
+{"ev": "s", "t": 5.888, "phase": "import_engine", "rss_gib": 0.22, "avail_gib": 14.0524, "n_retire": 0, "n_recompute": 0}
+{"ev": "s", "t": 6.088, "phase": "import_engine", "rss_gib": 0.2207, "avail_gib": 14.0517, "n_retire": 0, "n_recompute": 0}
+{"ev": "s", "t": 6.289, "phase": "import_engine", "rss_gib": 0.2268, "avail_gib": 14.0458, "n_retire": 0, "n_recompute": 0}
+{"ev": "s", "t": 6.496, "phase": "import_engine", "rss_gib": 0.2402, "avail_gib": 14.0195, "n_retire": 0, "n_recompute": 0}
+{"ev": "s", "t": 6.942, "phase": "import", "rss_gib": 0.2537, "avail_gib": 13.9753, "n_retire": 0, "n_recompute": 0}
+{"ev": "s", "t": 7.385, "phase": "import", "rss_gib": 0.2713, "avail_gib": 13.9369, "n_retire": 0, "n_recompute": 0}
+{"ev": "s", "t": 7.586, "phase": "import", "rss_gib": 0.2813, "avail_gib": 13.8378, "n_retire": 0, "n_recompute": 0}
+{"ev": "s", "t": 7.786, "phase": "import", "rss_gib": 0.2934, "avail_gib": 13.8099, "n_retire": 0, "n_recompute": 0}
+{"ev": "s", "t": 8.054, "phase": "import", "rss_gib": 0.3222, "avail_gib": 13.7195, "n_retire": 0, "n_recompute": 0}
+{"ev": "s", "t": 8.28, "phase": "import", "rss_gib": 0.3451, "avail_gib": 13.6597, "n_retire": 0, "n_recompute": 0}
+{"ev": "s", "t": 8.481, "phase": "import", "rss_gib": 0.3654, "avail_gib": 13.5913, "n_retire": 0, "n_recompute": 0}
+{"ev": "s", "t": 8.682, "phase": "import", "rss_gib": 0.3909, "avail_gib": 13.4832, "n_retire": 0, "n_recompute": 0}
+{"ev": "s", "t": 8.883, "phase": "import", "rss_gib": 0.4082, "avail_gib": 13.4045, "n_retire": 0, "n_recompute": 0}
+{"ev": "s", "t": 9.089, "phase": "import", "rss_gib": 0.4202, "avail_gib": 13.3867, "n_retire": 0, "n_recompute": 0}
+{"ev": "s", "t": 9.289, "phase": "import", "rss_gib": 0.4289, "avail_gib": 13.3501, "n_retire": 0, "n_recompute": 0}
+{"ev": "s", "t": 9.49, "phase": "import", "rss_gib": 0.438, "avail_gib": 13.3427, "n_retire": 0, "n_recompute": 0}
+{"ev": "s", "t": 9.69, "phase": "import", "rss_gib": 0.4454, "avail_gib": 13.3113, "n_retire": 0, "n_recompute": 0}
+{"ev": "s", "t": 10.14, "phase": "capture_build_fold", "rss_gib": 0.463, "avail_gib": 13.7708, "n_retire": 0, "n_recompute": 0}
+{"ev": "s", "t": 10.341, "phase": "capture_build_fold", "rss_gib": 0.5326, "avail_gib": 13.704, "n_retire": 0, "n_recompute": 0}
+{"ev": "s", "t": 10.541, "phase": "capture_build_fold", "rss_gib": 0.6113, "avail_gib": 13.6248, "n_retire": 0, "n_recompute": 0}
+{"ev": "s", "t": 10.742, "phase": "capture_build_fold", "rss_gib": 0.6733, "avail_gib": 13.6023, "n_retire": 0, "n_recompute": 0}
+{"ev": "s", "t": 10.942, "phase": "capture_build_fold", "rss_gib": 0.742, "avail_gib": 13.5324, "n_retire": 0, "n_recompute": 0}
+{"ev": "s", "t": 11.143, "phase": "capture_build_fold", "rss_gib": 0.8202, "avail_gib": 13.4484, "n_retire": 0, "n_recompute": 0}
+{"ev": "s", "t": 11.344, "phase": "capture_build_fold", "rss_gib": 0.9004, "avail_gib": 13.3541, "n_retire": 0, "n_recompute": 0}
+{"ev": "s", "t": 11.544, "phase": "capture_build_fold", "rss_gib": 0.9471, "avail_gib": 13.2982, "n_retire": 0, "n_recompute": 0}
+{"ev": "s", "t": 11.744, "phase": "capture_build_fold", "rss_gib": 1.015, "avail_gib": 13.2315, "n_retire": 0, "n_recompute": 0}
+{"ev": "s", "t": 11.945, "phase": "capture_build_fold", "rss_gib": 1.0903, "avail_gib": 13.157, "n_retire": 0, "n_recompute": 0}
+{"ev": "s", "t": 12.145, "phase": "capture_build_fold", "rss_gib": 1.1668, "avail_gib": 13.0776, "n_retire": 0, "n_recompute": 0}
+{"ev": "s", "t": 12.346, "phase": "capture_build_fold", "rss_gib": 1.245, "avail_gib": 12.9996, "n_retire": 0, "n_recompute": 0}
+{"ev": "s", "t": 12.546, "phase": "capture_build_fold", "rss_gib": 1.3232, "avail_gib": 12.9328, "n_retire": 0, "n_recompute": 0}
+{"ev": "s", "t": 12.746, "phase": "capture_build_fold", "rss_gib": 1.4001, "avail_gib": 12.8227, "n_retire": 0, "n_recompute": 0}
+{"ev": "s", "t": 12.947, "phase": "capture_build_fold", "rss_gib": 1.4796, "avail_gib": 12.7331, "n_retire": 0, "n_recompute": 0}
+{"ev": "s", "t": 13.147, "phase": "capture_build_fold", "rss_gib": 1.5383, "avail_gib": 12.6786, "n_retire": 0, "n_recompute": 0}
+{"ev": "s", "t": 13.348, "phase": "capture_build_fold", "rss_gib": 1.6019, "avail_gib": 12.609, "n_retire": 0, "n_recompute": 0}
+{"ev": "s", "t": 13.548, "phase": "capture_build_fold", "rss_gib": 1.6703, "avail_gib": 12.5819, "n_retire": 0, "n_recompute": 0}
+{"ev": "s", "t": 13.749, "phase": "capture_build_fold", "rss_gib": 1.7387, "avail_gib": 12.5126, "n_retire": 0, "n_recompute": 0}
+{"ev": "s", "t": 13.949, "phase": "capture_build_fold", "rss_gib": 1.8134, "avail_gib": 12.4372, "n_retire": 0, "n_recompute": 0}
+{"ev": "s", "t": 14.15, "phase": "capture_build_fold", "rss_gib": 1.8791, "avail_gib": 12.3718, "n_retire": 0, "n_recompute": 0}
+{"ev": "s", "t": 14.35, "phase": "capture_build_fold", "rss_gib": 1.9573, "avail_gib": 12.289, "n_retire": 0, "n_recompute": 0}
+{"ev": "s", "t": 14.55, "phase": "capture_build_fold", "rss_gib": 2.0354, "avail_gib": 12.2043, "n_retire": 0, "n_recompute": 0}
+{"ev": "s", "t": 14.751, "phase": "capture_build_fold", "rss_gib": 2.1052, "avail_gib": 12.3457, "n_retire": 0, "n_recompute": 0}
+{"ev": "s", "t": 14.951, "phase": "capture_build_fold", "rss_gib": 2.1802, "avail_gib": 12.2461, "n_retire": 0, "n_recompute": 0}
+{"ev": "s", "t": 15.152, "phase": "capture_build_fold", "rss_gib": 2.255, "avail_gib": 12.1023, "n_retire": 0, "n_recompute": 0}
+{"ev": "s", "t": 15.352, "phase": "capture_build_fold", "rss_gib": 2.3315, "avail_gib": 11.9014, "n_retire": 0, "n_recompute": 0}
+{"ev": "s", "t": 15.553, "phase": "capture_build_fold", "rss_gib": 2.4044, "avail_gib": 11.7505, "n_retire": 0, "n_recompute": 0}
+{"ev": "s", "t": 15.753, "phase": "capture_build_fold", "rss_gib": 2.441, "avail_gib": 11.6532, "n_retire": 0, "n_recompute": 0}
+{"ev": "s", "t": 15.953, "phase": "capture_build_fold", "rss_gib": 2.518, "avail_gib": 11.5237, "n_retire": 0, "n_recompute": 0}
+{"ev": "s", "t": 16.157, "phase": "capture_build_fold", "rss_gib": 2.5543, "avail_gib": 11.3337, "n_retire": 0, "n_recompute": 0}
+{"ev": "s", "t": 16.368, "phase": "capture_build_fold", "rss_gib": 2.6287, "avail_gib": 11.1401, "n_retire": 0, "n_recompute": 0}
+{"ev": "s", "t": 16.568, "phase": "capture_build_fold", "rss_gib": 2.7533, "avail_gib": 10.9962, "n_retire": 0, "n_recompute": 0}
+{"ev": "s", "t": 16.769, "phase": "capture_build_fold", "rss_gib": 2.9105, "avail_gib": 10.8231, "n_retire": 0, "n_recompute": 0}
+{"ev": "s", "t": 16.97, "phase": "capture_build_fold", "rss_gib": 3.0654, "avail_gib": 10.6683, "n_retire": 0, "n_recompute": 0}
+{"ev": "s", "t": 17.17, "phase": "capture_build_fold", "rss_gib": 3.2099, "avail_gib": 10.5128, "n_retire": 0, "n_recompute": 0}
+{"ev": "s", "t": 17.371, "phase": "capture_build_fold", "rss_gib": 3.4428, "avail_gib": 10.2663, "n_retire": 0, "n_recompute": 0}
+{"ev": "s", "t": 17.572, "phase": "capture_build_fold", "rss_gib": 3.6802, "avail_gib": 10.0656, "n_retire": 0, "n_recompute": 0}
+{"ev": "s", "t": 17.773, "phase": "capture_build_fold", "rss_gib": 3.6802, "avail_gib": 10.5692, "n_retire": 0, "n_recompute": 0}
+{"ev": "s", "t": 17.973, "phase": "capture_build_fold", "rss_gib": 3.6802, "avail_gib": 10.5637, "n_retire": 0, "n_recompute": 0}
+{"ev": "s", "t": 18.174, "phase": "capture_build_fold", "rss_gib": 3.6802, "avail_gib": 10.5612, "n_retire": 0, "n_recompute": 0}
+{"ev": "s", "t": 18.374, "phase": "capture_build_fold", "rss_gib": 3.6802, "avail_gib": 10.5601, "n_retire": 0, "n_recompute": 0}
+{"ev": "s", "t": 18.575, "phase": "capture_build_fold", "rss_gib": 3.6804, "avail_gib": 10.5425, "n_retire": 0, "n_recompute": 0}
+{"ev": "s", "t": 18.775, "phase": "capture_build_fold", "rss_gib": 3.6804, "avail_gib": 10.5319, "n_retire": 0, "n_recompute": 0}
+{"ev": "s", "t": 18.976, "phase": "capture_build_fold", "rss_gib": 3.6804, "avail_gib": 10.5258, "n_retire": 0, "n_recompute": 0}
+{"ev": "s", "t": 19.176, "phase": "capture_build_fold", "rss_gib": 3.6804, "avail_gib": 10.5327, "n_retire": 0, "n_recompute": 0}
+{"ev": "s", "t": 19.377, "phase": "capture_prep", "rss_gib": 3.683, "avail_gib": 10.6402, "n_retire": 0, "n_recompute": 0}
+{"ev": "s", "t": 19.582, "phase": "capture_prep", "rss_gib": 3.6999, "avail_gib": 10.624, "n_retire": 0, "n_recompute": 0}
+{"ev": "s", "t": 19.782, "phase": "capture_prep", "rss_gib": 3.7414, "avail_gib": 10.5786, "n_retire": 0, "n_recompute": 0}
+{"ev": "s", "t": 19.983, "phase": "capture_prep", "rss_gib": 3.9647, "avail_gib": 10.3451, "n_retire": 0, "n_recompute": 0}
+{"ev": "s", "t": 20.184, "phase": "capture_prep", "rss_gib": 4.2718, "avail_gib": 10.042, "n_retire": 0, "n_recompute": 0}
+{"ev": "s", "t": 20.384, "phase": "capture_prep", "rss_gib": 4.2718, "avail_gib": 10.0289, "n_retire": 0, "n_recompute": 0}
+{"ev": "s", "t": 20.593, "phase": "capture_prep", "rss_gib": 4.2953, "avail_gib": 10.0106, "n_retire": 0, "n_recompute": 0}
+{"ev": "s", "t": 20.822, "phase": "capture_prep", "rss_gib": 4.3822, "avail_gib": 9.882, "n_retire": 0, "n_recompute": 0}
+{"ev": "s", "t": 21.183, "phase": "capture_prep", "rss_gib": 4.3823, "avail_gib": 9.8756, "n_retire": 0, "n_recompute": 0}
+{"ev": "s", "t": 21.527, "phase": "capture_prep", "rss_gib": 4.3823, "avail_gib": 9.8418, "n_retire": 0, "n_recompute": 0}
+{"ev": "s", "t": 21.789, "phase": "capture_prep", "rss_gib": 4.3824, "avail_gib": 9.8335, "n_retire": 0, "n_recompute": 0}
+{"ev": "s", "t": 22.109, "phase": "capture_prep", "rss_gib": 4.3682, "avail_gib": 9.8509, "n_retire": 0, "n_recompute": 0}
+{"ev": "s", "t": 22.408, "phase": "capture_prep", "rss_gib": 4.3682, "avail_gib": 9.8934, "n_retire": 0, "n_recompute": 0}
+{"ev": "s", "t": 22.687, "phase": "capture_prep", "rss_gib": 4.3682, "avail_gib": 9.894, "n_retire": 0, "n_recompute": 0}
+{"ev": "s", "t": 22.98, "phase": "capture_prep", "rss_gib": 4.3682, "avail_gib": 9.8616, "n_retire": 0, "n_recompute": 0}
+{"ev": "s", "t": 23.256, "phase": "capture_prep", "rss_gib": 4.3682, "avail_gib": 9.7327, "n_retire": 0, "n_recompute": 0}
+{"ev": "s", "t": 23.46, "phase": "capture_prep", "rss_gib": 4.3682, "avail_gib": 9.6532, "n_retire": 0, "n_recompute": 0}
+{"ev": "s", "t": 23.681, "phase": "capture_prep", "rss_gib": 4.3682, "avail_gib": 9.6266, "n_retire": 0, "n_recompute": 0}
+{"ev": "s", "t": 23.934, "phase": "capture_prep", "rss_gib": 4.3682, "avail_gib": 9.5561, "n_retire": 0, "n_recompute": 0}
+{"ev": "s", "t": 24.205, "phase": "capture_prep", "rss_gib": 4.3682, "avail_gib": 9.4326, "n_retire": 0, "n_recompute": 0}
+{"ev": "s", "t": 24.437, "phase": "trunk_taped", "rss_gib": 4.4444, "avail_gib": 9.3537, "n_retire": 0, "n_recompute": 0}
+{"ev": "s", "t": 24.83, "phase": "trunk_taped", "rss_gib": 4.4682, "avail_gib": 9.2989, "n_retire": 0, "n_recompute": 0}
+{"ev": "s", "t": 25.139, "phase": "trunk_taped", "rss_gib": 4.4522, "avail_gib": 9.2567, "n_retire": 0, "n_recompute": 0}
+{"ev": "s", "t": 25.364, "phase": "trunk_taped", "rss_gib": 4.4527, "avail_gib": 9.269, "n_retire": 0, "n_recompute": 0}
+{"ev": "s", "t": 25.572, "phase": "trunk_taped", "rss_gib": 4.6869, "avail_gib": 9.6164, "n_retire": 0, "n_recompute": 0}
+{"ev": "s", "t": 25.788, "phase": "trunk_taped", "rss_gib": 4.6556, "avail_gib": 9.6519, "n_retire": 0, "n_recompute": 0}
+{"ev": "s", "t": 25.989, "phase": "trunk_taped", "rss_gib": 4.7333, "avail_gib": 9.58, "n_retire": 0, "n_recompute": 0}
+{"ev": "s", "t": 26.189, "phase": "trunk_taped", "rss_gib": 4.7841, "avail_gib": 9.5321, "n_retire": 0, "n_recompute": 0}
+{"ev": "s", "t": 26.39, "phase": "trunk_taped", "rss_gib": 4.6967, "avail_gib": 9.6147, "n_retire": 0, "n_recompute": 0}
+{"ev": "s", "t": 26.59, "phase": "trunk_taped", "rss_gib": 4.7718, "avail_gib": 9.5464, "n_retire": 0, "n_recompute": 0}
+{"ev": "s", "t": 26.793, "phase": "trunk_taped", "rss_gib": 4.7337, "avail_gib": 9.5822, "n_retire": 0, "n_recompute": 0}
+{"ev": "s", "t": 26.994, "phase": "trunk_taped", "rss_gib": 4.7181, "avail_gib": 9.5982, "n_retire": 0, "n_recompute": 0}
+{"ev": "s", "t": 27.195, "phase": "trunk_taped", "rss_gib": 4.7646, "avail_gib": 9.5573, "n_retire": 0, "n_recompute": 0}
+{"ev": "s", "t": 27.396, "phase": "trunk_taped", "rss_gib": 4.7496, "avail_gib": 9.5609, "n_retire": 0, "n_recompute": 0}
+{"ev": "s", "t": 27.597, "phase": "trunk_taped", "rss_gib": 4.7182, "avail_gib": 9.5456, "n_retire": 0, "n_recompute": 0}
+{"ev": "s", "t": 27.798, "phase": "trunk_taped", "rss_gib": 4.8218, "avail_gib": 9.4564, "n_retire": 0, "n_recompute": 0}
+{"ev": "s", "t": 27.998, "phase": "trunk_taped", "rss_gib": 4.887, "avail_gib": 9.4374, "n_retire": 0, "n_recompute": 0}
+{"ev": "s", "t": 28.199, "phase": "trunk_taped", "rss_gib": 4.7806, "avail_gib": 9.4183, "n_retire": 0, "n_recompute": 0}
+{"ev": "s", "t": 28.4, "phase": "trunk_taped", "rss_gib": 4.8117, "avail_gib": 9.3912, "n_retire": 0, "n_recompute": 0}
+{"ev": "s", "t": 28.607, "phase": "trunk_taped", "rss_gib": 4.8119, "avail_gib": 9.4308, "n_retire": 0, "n_recompute": 0}
+{"ev": "s", "t": 28.807, "phase": "trunk_taped", "rss_gib": 4.8273, "avail_gib": 9.4118, "n_retire": 0, "n_recompute": 0}
+{"ev": "s", "t": 29.011, "phase": "trunk_taped", "rss_gib": 4.8272, "avail_gib": 9.4439, "n_retire": 0, "n_recompute": 0}
+{"ev": "s", "t": 29.218, "phase": "trunk_taped", "rss_gib": 4.8841, "avail_gib": 9.4209, "n_retire": 0, "n_recompute": 0}
+{"ev": "s", "t": 29.422, "phase": "trunk_taped", "rss_gib": 4.8981, "avail_gib": 9.409, "n_retire": 0, "n_recompute": 0}
+{"ev": "s", "t": 29.635, "phase": "trunk_taped", "rss_gib": 4.844, "avail_gib": 9.4759, "n_retire": 0, "n_recompute": 0}
+{"ev": "s", "t": 29.835, "phase": "trunk_taped", "rss_gib": 4.9156, "avail_gib": 9.3727, "n_retire": 0, "n_recompute": 0}
+{"ev": "s", "t": 30.049, "phase": "trunk_taped", "rss_gib": 4.7971, "avail_gib": 9.529, "n_retire": 0, "n_recompute": 0}
+{"ev": "s", "t": 30.263, "phase": "trunk_taped", "rss_gib": 4.859, "avail_gib": 9.4665, "n_retire": 0, "n_recompute": 0}
+{"ev": "s", "t": 30.464, "phase": "trunk_taped", "rss_gib": 4.8433, "avail_gib": 9.4772, "n_retire": 0, "n_recompute": 0}
+{"ev": "s", "t": 30.67, "phase": "trunk_taped", "rss_gib": 4.8277, "avail_gib": 9.48, "n_retire": 0, "n_recompute": 0}
+{"ev": "s", "t": 30.878, "phase": "trunk_taped", "rss_gib": 4.7967, "avail_gib": 9.4398, "n_retire": 0, "n_recompute": 0}
+{"ev": "s", "t": 31.084, "phase": "trunk_taped", "rss_gib": 4.8431, "avail_gib": 9.4332, "n_retire": 0, "n_recompute": 0}
+{"ev": "s", "t": 31.299, "phase": "trunk_taped", "rss_gib": 4.8751, "avail_gib": 9.4069, "n_retire": 0, "n_recompute": 0}
+{"ev": "s", "t": 31.5, "phase": "trunk_taped", "rss_gib": 4.8121, "avail_gib": 9.5314, "n_retire": 0, "n_recompute": 0}
+{"ev": "s", "t": 31.711, "phase": "trunk_taped", "rss_gib": 4.8747, "avail_gib": 9.4646, "n_retire": 0, "n_recompute": 0}
+{"ev": "s", "t": 31.915, "phase": "trunk_taped", "rss_gib": 4.9393, "avail_gib": 9.4077, "n_retire": 0, "n_recompute": 0}
+{"ev": "s", "t": 32.134, "phase": "trunk_taped", "rss_gib": 4.8914, "avail_gib": 9.4012, "n_retire": 0, "n_recompute": 0}
+{"ev": "s", "t": 32.334, "phase": "trunk_taped", "rss_gib": 4.9211, "avail_gib": 9.3694, "n_retire": 0, "n_recompute": 0}
+{"ev": "s", "t": 32.535, "phase": "trunk_taped", "rss_gib": 4.8882, "avail_gib": 9.349, "n_retire": 0, "n_recompute": 0}
+{"ev": "s", "t": 32.738, "phase": "trunk_taped", "rss_gib": 4.89, "avail_gib": 9.3392, "n_retire": 0, "n_recompute": 0}
+{"ev": "s", "t": 32.943, "phase": "trunk_taped", "rss_gib": 4.8899, "avail_gib": 9.3313, "n_retire": 0, "n_recompute": 0}
+{"ev": "s", "t": 33.148, "phase": "trunk_taped", "rss_gib": 4.8899, "avail_gib": 9.334, "n_retire": 0, "n_recompute": 0}
+{"ev": "s", "t": 33.349, "phase": "trunk_taped", "rss_gib": 4.8901, "avail_gib": 9.4196, "n_retire": 0, "n_recompute": 0}
+{"ev": "s", "t": 33.551, "phase": "trunk_taped", "rss_gib": 4.9784, "avail_gib": 9.2763, "n_retire": 0, "n_recompute": 0}
+{"ev": "s", "t": 33.751, "phase": "trunk_taped", "rss_gib": 5.0132, "avail_gib": 9.071, "n_retire": 0, "n_recompute": 0}
+{"ev": "s", "t": 33.952, "phase": "trunk_taped", "rss_gib": 4.9578, "avail_gib": 9.2186, "n_retire": 0, "n_recompute": 0}
+{"ev": "s", "t": 34.152, "phase": "trunk_taped", "rss_gib": 4.8769, "avail_gib": 9.4769, "n_retire": 0, "n_recompute": 0}
+{"ev": "s", "t": 34.353, "phase": "trunk_taped", "rss_gib": 4.9059, "avail_gib": 9.3854, "n_retire": 0, "n_recompute": 0}
+{"ev": "s", "t": 34.561, "phase": "trunk_taped", "rss_gib": 4.8899, "avail_gib": 9.3962, "n_retire": 0, "n_recompute": 0}
+{"ev": "s", "t": 34.763, "phase": "trunk_taped", "rss_gib": 4.8745, "avail_gib": 9.4618, "n_retire": 0, "n_recompute": 0}
+{"ev": "s", "t": 34.964, "phase": "trunk_taped", "rss_gib": 4.89, "avail_gib": 9.314, "n_retire": 0, "n_recompute": 0}
+{"ev": "s", "t": 35.165, "phase": "trunk_taped", "rss_gib": 4.9059, "avail_gib": 9.325, "n_retire": 0, "n_recompute": 0}
+{"ev": "s", "t": 35.367, "phase": "trunk_taped", "rss_gib": 4.9792, "avail_gib": 9.1906, "n_retire": 0, "n_recompute": 0}
+{"ev": "s", "t": 35.57, "phase": "trunk_taped", "rss_gib": 4.8746, "avail_gib": 9.2183, "n_retire": 0, "n_recompute": 0}
+{"ev": "s", "t": 35.771, "phase": "trunk_taped", "rss_gib": 4.9907, "avail_gib": 9.0223, "n_retire": 0, "n_recompute": 0}
+{"ev": "s", "t": 35.994, "phase": "trunk_taped", "rss_gib": 4.9226, "avail_gib": 9.055, "n_retire": 0, "n_recompute": 0}
+{"ev": "s", "t": 36.195, "phase": "trunk_taped", "rss_gib": 4.8746, "avail_gib": 9.1275, "n_retire": 0, "n_recompute": 0}
+{"ev": "s", "t": 36.396, "phase": "trunk_taped", "rss_gib": 4.9053, "avail_gib": 9.032, "n_retire": 0, "n_recompute": 0}
+{"ev": "s", "t": 36.608, "phase": "trunk_taped", "rss_gib": 4.9225, "avail_gib": 9.0416, "n_retire": 0, "n_recompute": 0}
+{"ev": "s", "t": 36.816, "phase": "trunk_taped", "rss_gib": 4.9386, "avail_gib": 8.9897, "n_retire": 0, "n_recompute": 0}
+{"ev": "s", "t": 37.017, "phase": "trunk_taped", "rss_gib": 4.9059, "avail_gib": 9.0817, "n_retire": 0, "n_recompute": 0}
+{"ev": "s", "t": 37.218, "phase": "trunk_taped", "rss_gib": 4.9665, "avail_gib": 9.0062, "n_retire": 0, "n_recompute": 0}
+{"ev": "s", "t": 37.419, "phase": "trunk_taped", "rss_gib": 4.9369, "avail_gib": 8.9801, "n_retire": 0, "n_recompute": 0}
+{"ev": "s", "t": 37.64, "phase": "trunk_taped", "rss_gib": 4.9379, "avail_gib": 8.9218, "n_retire": 0, "n_recompute": 0}
+{"ev": "s", "t": 37.846, "phase": "diffusion", "rss_gib": 4.9525, "avail_gib": 9.5051, "n_retire": 0, "n_recompute": 0}
+{"ev": "s", "t": 38.047, "phase": "diffusion", "rss_gib": 4.9525, "avail_gib": 9.4976, "n_retire": 0, "n_recompute": 0}
+{"ev": "s", "t": 38.86, "phase": "diffusion", "rss_gib": 4.9525, "avail_gib": 9.4896, "n_retire": 0, "n_recompute": 0}
+{"ev": "s", "t": 39.115, "phase": "diffusion", "rss_gib": 4.9372, "avail_gib": 9.5043, "n_retire": 0, "n_recompute": 0}
+{"ev": "s", "t": 39.316, "phase": "diffusion", "rss_gib": 4.9372, "avail_gib": 9.5143, "n_retire": 0, "n_recompute": 0}
+{"ev": "s", "t": 39.626, "phase": "diffusion", "rss_gib": 4.9372, "avail_gib": 9.5356, "n_retire": 0, "n_recompute": 0}
+{"ev": "s", "t": 39.84, "phase": "diffusion", "rss_gib": 4.9372, "avail_gib": 9.5189, "n_retire": 0, "n_recompute": 0}
+{"ev": "s", "t": 40.118, "phase": "diffusion", "rss_gib": 4.9686, "avail_gib": 9.5942, "n_retire": 0, "n_recompute": 0}
+{"ev": "s", "t": 40.32, "phase": "diffusion", "rss_gib": 5.1558, "avail_gib": 12.0646, "n_retire": 0, "n_recompute": 0}
+{"ev": "s", "t": 40.52, "phase": "diffusion", "rss_gib": 5.7348, "avail_gib": 11.5419, "n_retire": 0, "n_recompute": 0}
+{"ev": "s", "t": 40.724, "phase": "diffusion", "rss_gib": 6.0833, "avail_gib": 11.2331, "n_retire": 0, "n_recompute": 0}
+{"ev": "s", "t": 40.934, "phase": "diffusion", "rss_gib": 6.0807, "avail_gib": 11.2797, "n_retire": 0, "n_recompute": 0}
+{"ev": "bw_enter", "d": 0, "rc": 0, "i": 0, "pins": 106, "t": 41.089, "rss_gib": 6.0819}
+{"ev": "s", "t": 41.14, "phase": "backward", "rss_gib": 6.0819, "avail_gib": 11.2936, "n_retire": 6, "n_recompute": 0}
+{"ev": "node", "i": 10, "d": 1, "rc": 0, "t": 41.154, "rss_gib": 6.0819}
+{"ev": "node", "i": 20, "d": 1, "rc": 0, "t": 41.233, "rss_gib": 6.0819}
+{"ev": "node", "i": 30, "d": 1, "rc": 0, "t": 41.243, "rss_gib": 6.0819}
+{"ev": "node", "i": 40, "d": 1, "rc": 0, "t": 41.287, "rss_gib": 6.0819}
+{"ev": "node", "i": 50, "d": 1, "rc": 0, "t": 41.312, "rss_gib": 6.0819}
+{"ev": "s", "t": 41.357, "phase": "backward", "rss_gib": 6.082, "avail_gib": 11.2918, "n_retire": 60, "n_recompute": 0}
+{"ev": "node", "i": 60, "d": 1, "rc": 0, "t": 41.365, "rss_gib": 6.082}
+{"ev": "node", "i": 70, "d": 1, "rc": 0, "t": 41.378, "rss_gib": 6.082}
+{"ev": "node", "i": 80, "d": 1, "rc": 0, "t": 41.427, "rss_gib": 6.082}
+{"ev": "node", "i": 90, "d": 1, "rc": 0, "t": 41.428, "rss_gib": 6.082}
+{"ev": "node", "i": 100, "d": 1, "rc": 0, "t": 41.429, "rss_gib": 6.082}
+{"ev": "node", "i": 110, "d": 1, "rc": 0, "t": 41.431, "rss_gib": 6.082}
+{"ev": "node", "i": 120, "d": 1, "rc": 0, "t": 41.435, "rss_gib": 6.082}
+{"ev": "node", "i": 130, "d": 1, "rc": 0, "t": 41.436, "rss_gib": 6.082}
+{"ev": "node", "i": 140, "d": 1, "rc": 0, "t": 41.436, "rss_gib": 6.082}
+{"ev": "node", "i": 150, "d": 1, "rc": 0, "t": 41.441, "rss_gib": 6.082}
+{"ev": "node", "i": 160, "d": 1, "rc": 0, "t": 41.447, "rss_gib": 6.082}
+{"ev": "node", "i": 170, "d": 1, "rc": 0, "t": 41.449, "rss_gib": 6.082}
+{"ev": "node", "i": 180, "d": 1, "rc": 0, "t": 41.451, "rss_gib": 6.082}
+{"ev": "node", "i": 190, "d": 1, "rc": 0, "t": 41.451, "rss_gib": 6.082}
+{"ev": "node", "i": 200, "d": 1, "rc": 0, "t": 41.454, "rss_gib": 6.082}
+{"ev": "node", "i": 210, "d": 1, "rc": 0, "t": 41.454, "rss_gib": 6.082}
+{"ev": "node", "i": 220, "d": 1, "rc": 0, "t": 41.503, "rss_gib": 6.1784}
+{"ev": "node", "i": 230, "d": 1, "rc": 0, "t": 41.507, "rss_gib": 6.0979}
+{"ev": "node", "i": 240, "d": 1, "rc": 0, "t": 41.513, "rss_gib": 6.0979}
+{"ev": "node", "i": 250, "d": 1, "rc": 0, "t": 41.513, "rss_gib": 6.0979}
+{"ev": "node", "i": 260, "d": 1, "rc": 0, "t": 41.515, "rss_gib": 6.0979}
+{"ev": "node", "i": 270, "d": 1, "rc": 0, "t": 41.548, "rss_gib": 6.0979}
+{"ev": "s", "t": 41.707, "phase": "backward", "rss_gib": 6.0979, "avail_gib": 11.2761, "n_retire": 278, "n_recompute": 0}
+{"ev": "node", "i": 280, "d": 1, "rc": 0, "t": 41.709, "rss_gib": 6.0979}
+{"ev": "node", "i": 290, "d": 1, "rc": 0, "t": 41.778, "rss_gib": 6.0979}
+{"ev": "node", "i": 300, "d": 1, "rc": 0, "t": 41.823, "rss_gib": 6.0979}
+{"ev": "node", "i": 310, "d": 1, "rc": 0, "t": 41.926, "rss_gib": 6.1134}
+{"ev": "s", "t": 41.926, "phase": "backward", "rss_gib": 6.1134, "avail_gib": 11.2503, "n_retire": 310, "n_recompute": 0}
+{"ev": "node", "i": 320, "d": 1, "rc": 0, "t": 41.928, "rss_gib": 6.1134}
+{"ev": "node", "i": 330, "d": 1, "rc": 0, "t": 41.929, "rss_gib": 6.1134}
+{"ev": "node", "i": 340, "d": 1, "rc": 0, "t": 41.931, "rss_gib": 6.1134}
+{"ev": "node", "i": 350, "d": 1, "rc": 0, "t": 41.954, "rss_gib": 6.1134}
+{"ev": "node", "i": 360, "d": 1, "rc": 0, "t": 41.956, "rss_gib": 6.1134}
+{"ev": "node", "i": 370, "d": 1, "rc": 0, "t": 41.958, "rss_gib": 6.1134}
+{"ev": "node", "i": 380, "d": 1, "rc": 0, "t": 41.959, "rss_gib": 6.1134}
+{"ev": "node", "i": 390, "d": 1, "rc": 0, "t": 41.96, "rss_gib": 6.1134}
+{"ev": "node", "i": 400, "d": 1, "rc": 0, "t": 41.984, "rss_gib": 6.129}
+{"ev": "node", "i": 410, "d": 1, "rc": 0, "t": 41.985, "rss_gib": 6.129}
+{"ev": "node", "i": 420, "d": 1, "rc": 0, "t": 41.986, "rss_gib": 6.129}
+{"ev": "node", "i": 430, "d": 1, "rc": 0, "t": 41.988, "rss_gib": 6.129}
+{"ev": "node", "i": 440, "d": 1, "rc": 0, "t": 42.012, "rss_gib": 6.1446}
+{"ev": "node", "i": 450, "d": 1, "rc": 0, "t": 42.013, "rss_gib": 6.1446}
+{"ev": "node", "i": 460, "d": 1, "rc": 0, "t": 42.014, "rss_gib": 6.1446}
+{"ev": "node", "i": 470, "d": 1, "rc": 0, "t": 42.016, "rss_gib": 6.1446}
+{"ev": "node", "i": 480, "d": 1, "rc": 0, "t": 42.039, "rss_gib": 6.1603}
+{"ev": "node", "i": 490, "d": 1, "rc": 0, "t": 42.041, "rss_gib": 6.1603}
+{"ev": "node", "i": 500, "d": 1, "rc": 0, "t": 42.043, "rss_gib": 6.1603}
+{"ev": "node", "i": 510, "d": 1, "rc": 0, "t": 42.044, "rss_gib": 6.1603}
+{"ev": "node", "i": 520, "d": 1, "rc": 0, "t": 42.045, "rss_gib": 6.1603}
+{"ev": "node", "i": 530, "d": 1, "rc": 0, "t": 42.069, "rss_gib": 6.1598}
+{"ev": "node", "i": 540, "d": 1, "rc": 0, "t": 42.071, "rss_gib": 6.1598}
+{"ev": "node", "i": 550, "d": 1, "rc": 0, "t": 42.072, "rss_gib": 6.1598}
+{"ev": "node", "i": 560, "d": 1, "rc": 0, "t": 42.073, "rss_gib": 6.1598}
+{"ev": "node", "i": 570, "d": 1, "rc": 0, "t": 42.096, "rss_gib": 6.1601}
+{"ev": "node", "i": 580, "d": 1, "rc": 0, "t": 42.098, "rss_gib": 6.1601}
+{"ev": "node", "i": 590, "d": 1, "rc": 0, "t": 42.099, "rss_gib": 6.1601}
+{"ev": "node", "i": 600, "d": 1, "rc": 0, "t": 42.101, "rss_gib": 6.1601}
+{"ev": "node", "i": 610, "d": 1, "rc": 0, "t": 42.101, "rss_gib": 6.1601}
+{"ev": "node", "i": 620, "d": 1, "rc": 0, "t": 42.125, "rss_gib": 6.1447}
+{"ev": "node", "i": 630, "d": 1, "rc": 0, "t": 42.126, "rss_gib": 6.1447}
+{"ev": "node", "i": 640, "d": 1, "rc": 0, "t": 42.128, "rss_gib": 6.1447}
+{"ev": "s", "t": 42.128, "phase": "backward", "rss_gib": 6.1447, "avail_gib": 11.2294, "n_retire": 641, "n_recompute": 0}
+{"ev": "node", "i": 650, "d": 1, "rc": 0, "t": 42.129, "rss_gib": 6.1447}
+{"ev": "node", "i": 660, "d": 1, "rc": 0, "t": 42.153, "rss_gib": 6.1446}
+{"ev": "node", "i": 670, "d": 1, "rc": 0, "t": 42.155, "rss_gib": 6.1446}
+{"ev": "node", "i": 680, "d": 1, "rc": 0, "t": 42.156, "rss_gib": 6.1446}
+{"ev": "node", "i": 690, "d": 1, "rc": 0, "t": 42.158, "rss_gib": 6.1446}
+{"ev": "node", "i": 700, "d": 1, "rc": 0, "t": 42.182, "rss_gib": 6.16}
+{"ev": "node", "i": 710, "d": 1, "rc": 0, "t": 42.184, "rss_gib": 6.16}
+{"ev": "node", "i": 720, "d": 1, "rc": 0, "t": 42.185, "rss_gib": 6.16}
+{"ev": "node", "i": 730, "d": 1, "rc": 0, "t": 42.186, "rss_gib": 6.16}
+{"ev": "node", "i": 740, "d": 1, "rc": 0, "t": 42.187, "rss_gib": 6.16}
+{"ev": "node", "i": 750, "d": 1, "rc": 0, "t": 42.211, "rss_gib": 6.1603}
+{"ev": "node", "i": 760, "d": 1, "rc": 0, "t": 42.212, "rss_gib": 6.1603}
+{"ev": "node", "i": 770, "d": 1, "rc": 0, "t": 42.214, "rss_gib": 6.1603}
+{"ev": "node", "i": 780, "d": 1, "rc": 0, "t": 42.215, "rss_gib": 6.1603}
+{"ev": "node", "i": 790, "d": 1, "rc": 0, "t": 42.24, "rss_gib": 6.1601}
+{"ev": "node", "i": 800, "d": 1, "rc": 0, "t": 42.241, "rss_gib": 6.1601}
+{"ev": "node", "i": 810, "d": 1, "rc": 0, "t": 42.243, "rss_gib": 6.1601}
+{"ev": "node", "i": 820, "d": 1, "rc": 0, "t": 42.244, "rss_gib": 6.1601}
+{"ev": "node", "i": 830, "d": 1, "rc": 0, "t": 42.245, "rss_gib": 6.1601}
+{"ev": "node", "i": 840, "d": 1, "rc": 0, "t": 42.272, "rss_gib": 6.1756}
+{"ev": "node", "i": 850, "d": 1, "rc": 0, "t": 42.273, "rss_gib": 6.1756}
+{"ev": "node", "i": 860, "d": 1, "rc": 0, "t": 42.274, "rss_gib": 6.1756}
+{"ev": "node", "i": 870, "d": 1, "rc": 0, "t": 42.275, "rss_gib": 6.1756}
+{"ev": "node", "i": 880, "d": 1, "rc": 0, "t": 42.298, "rss_gib": 6.1604}
+{"ev": "node", "i": 890, "d": 1, "rc": 0, "t": 42.3, "rss_gib": 6.1604}
+{"ev": "node", "i": 900, "d": 1, "rc": 0, "t": 42.301, "rss_gib": 6.1604}
+{"ev": "node", "i": 910, "d": 1, "rc": 0, "t": 42.303, "rss_gib": 6.1604}
+{"ev": "node", "i": 920, "d": 1, "rc": 0, "t": 42.327, "rss_gib": 6.176}
+{"ev": "s", "t": 42.329, "phase": "backward", "rss_gib": 6.176, "avail_gib": 11.1938, "n_retire": 926, "n_recompute": 0}
+{"ev": "node", "i": 930, "d": 1, "rc": 0, "t": 42.329, "rss_gib": 6.176}
+{"ev": "node", "i": 940, "d": 1, "rc": 0, "t": 42.331, "rss_gib": 6.176}
+{"ev": "node", "i": 950, "d": 1, "rc": 0, "t": 42.332, "rss_gib": 6.176}
+{"ev": "node", "i": 960, "d": 1, "rc": 0, "t": 42.333, "rss_gib": 6.176}
+{"ev": "node", "i": 970, "d": 1, "rc": 0, "t": 42.357, "rss_gib": 6.1759}
+{"ev": "node", "i": 980, "d": 1, "rc": 0, "t": 42.359, "rss_gib": 6.1759}
+{"ev": "node", "i": 990, "d": 1, "rc": 0, "t": 42.36, "rss_gib": 6.1759}
+{"ev": "node", "i": 1000, "d": 1, "rc": 0, "t": 42.361, "rss_gib": 6.1759}
+{"ev": "node", "i": 1010, "d": 1, "rc": 0, "t": 42.384, "rss_gib": 6.1599}
+{"ev": "node", "i": 1020, "d": 1, "rc": 0, "t": 42.386, "rss_gib": 6.1599}
+{"ev": "node", "i": 1030, "d": 1, "rc": 0, "t": 42.387, "rss_gib": 6.1599}
+{"ev": "node", "i": 1040, "d": 1, "rc": 0, "t": 42.388, "rss_gib": 6.1599}
+{"ev": "node", "i": 1050, "d": 1, "rc": 0, "t": 42.389, "rss_gib": 6.1599}
+{"ev": "node", "i": 1060, "d": 1, "rc": 0, "t": 42.415, "rss_gib": 6.1756}
+{"ev": "node", "i": 1070, "d": 1, "rc": 0, "t": 42.416, "rss_gib": 6.1756}
+{"ev": "node", "i": 1080, "d": 1, "rc": 0, "t": 42.417, "rss_gib": 6.1756}
+{"ev": "node", "i": 1090, "d": 1, "rc": 0, "t": 42.419, "rss_gib": 6.1756}
+{"ev": "node", "i": 1100, "d": 1, "rc": 0, "t": 42.443, "rss_gib": 6.1913}
+{"ev": "node", "i": 1110, "d": 1, "rc": 0, "t": 42.445, "rss_gib": 6.1913}
+{"ev": "node", "i": 1120, "d": 1, "rc": 0, "t": 42.446, "rss_gib": 6.1913}
+{"ev": "node", "i": 1130, "d": 1, "rc": 0, "t": 42.448, "rss_gib": 6.1913}
+{"ev": "node", "i": 1140, "d": 1, "rc": 0, "t": 42.472, "rss_gib": 6.1913}
+{"ev": "node", "i": 1150, "d": 1, "rc": 0, "t": 42.474, "rss_gib": 6.1913}
+{"ev": "node", "i": 1160, "d": 1, "rc": 0, "t": 42.475, "rss_gib": 6.1913}
+{"ev": "node", "i": 1170, "d": 1, "rc": 0, "t": 42.477, "rss_gib": 6.1913}
+{"ev": "node", "i": 1180, "d": 1, "rc": 0, "t": 42.477, "rss_gib": 6.1913}
+{"ev": "node", "i": 1190, "d": 1, "rc": 0, "t": 42.504, "rss_gib": 6.1912}
+{"ev": "node", "i": 1200, "d": 1, "rc": 0, "t": 42.505, "rss_gib": 6.1912}
+{"ev": "node", "i": 1210, "d": 1, "rc": 0, "t": 42.507, "rss_gib": 6.1912}
+{"ev": "node", "i": 1220, "d": 1, "rc": 0, "t": 42.508, "rss_gib": 6.1912}
+{"ev": "s", "t": 42.529, "phase": "backward", "rss_gib": 6.2224, "avail_gib": 11.1462, "n_retire": 1226, "n_recompute": 0}
+{"ev": "node", "i": 1230, "d": 1, "rc": 0, "t": 42.532, "rss_gib": 6.1914}
+{"ev": "node", "i": 1240, "d": 1, "rc": 0, "t": 42.534, "rss_gib": 6.1914}
+{"ev": "node", "i": 1250, "d": 1, "rc": 0, "t": 42.535, "rss_gib": 6.1914}
+{"ev": "node", "i": 1260, "d": 1, "rc": 0, "t": 42.537, "rss_gib": 6.1914}
+{"ev": "node", "i": 1270, "d": 1, "rc": 0, "t": 42.537, "rss_gib": 6.1914}
+{"ev": "node", "i": 1280, "d": 1, "rc": 0, "t": 42.565, "rss_gib": 6.2069}
+{"ev": "node", "i": 1290, "d": 1, "rc": 0, "t": 42.566, "rss_gib": 6.2069}
+{"ev": "node", "i": 1300, "d": 1, "rc": 0, "t": 42.568, "rss_gib": 6.2069}
+{"ev": "node", "i": 1310, "d": 1, "rc": 0, "t": 42.569, "rss_gib": 6.2069}
+{"ev": "node", "i": 1320, "d": 1, "rc": 0, "t": 42.593, "rss_gib": 6.2226}
+{"ev": "node", "i": 1330, "d": 1, "rc": 0, "t": 42.65, "rss_gib": 6.2226}
+{"ev": "node", "i": 1340, "d": 1, "rc": 0, "t": 42.683, "rss_gib": 6.2226}
+{"ev": "node", "i": 1350, "d": 1, "rc": 0, "t": 42.695, "rss_gib": 6.2226}
+{"ev": "node", "i": 1360, "d": 1, "rc": 0, "t": 42.723, "rss_gib": 6.2226}
+{"ev": "s", "t": 42.749, "phase": "backward", "rss_gib": 6.2226, "avail_gib": 11.1616, "n_retire": 1370, "n_recompute": 0}
+{"ev": "node", "i": 1370, "d": 1, "rc": 0, "t": 42.749, "rss_gib": 6.2226}
+{"ev": "node", "i": 1380, "d": 1, "rc": 0, "t": 42.749, "rss_gib": 6.2226}
+{"ev": "node", "i": 1390, "d": 1, "rc": 0, "t": 42.754, "rss_gib": 6.2226}
+{"ev": "node", "i": 1400, "d": 1, "rc": 0, "t": 42.759, "rss_gib": 6.2226}
+{"ev": "node", "i": 1410, "d": 1, "rc": 0, "t": 42.761, "rss_gib": 6.2226}
+{"ev": "node", "i": 1420, "d": 1, "rc": 0, "t": 42.762, "rss_gib": 6.2226}
+{"ev": "node", "i": 1430, "d": 1, "rc": 0, "t": 42.765, "rss_gib": 6.2226}
+{"ev": "node", "i": 1440, "d": 1, "rc": 0, "t": 42.768, "rss_gib": 6.2226}
+{"ev": "node", "i": 1450, "d": 1, "rc": 0, "t": 42.769, "rss_gib": 6.2226}
+{"ev": "node", "i": 1460, "d": 1, "rc": 0, "t": 42.769, "rss_gib": 6.2226}
+{"ev": "node", "i": 1470, "d": 1, "rc": 0, "t": 42.774, "rss_gib": 6.2226}
+{"ev": "node", "i": 1480, "d": 1, "rc": 0, "t": 42.779, "rss_gib": 6.2226}
+{"ev": "node", "i": 1490, "d": 1, "rc": 0, "t": 42.781, "rss_gib": 6.2226}
+{"ev": "node", "i": 1500, "d": 1, "rc": 0, "t": 42.783, "rss_gib": 6.2226}
+{"ev": "node", "i": 1510, "d": 1, "rc": 0, "t": 42.784, "rss_gib": 6.2226}
+{"ev": "node", "i": 1520, "d": 1, "rc": 0, "t": 42.787, "rss_gib": 6.2226}
+{"ev": "node", "i": 1530, "d": 1, "rc": 0, "t": 42.788, "rss_gib": 6.2226}
+{"ev": "node", "i": 1540, "d": 1, "rc": 0, "t": 42.845, "rss_gib": 6.2392}
+{"ev": "node", "i": 1550, "d": 1, "rc": 0, "t": 42.855, "rss_gib": 6.2392}
+{"ev": "node", "i": 1560, "d": 1, "rc": 0, "t": 42.939, "rss_gib": 6.2543}
+{"ev": "s", "t": 42.958, "phase": "backward", "rss_gib": 6.2543, "avail_gib": 11.0891, "n_retire": 1563, "n_recompute": 0}
+{"ev": "node", "i": 1570, "d": 1, "rc": 0, "t": 42.99, "rss_gib": 6.2384}
+{"ev": "node", "i": 1580, "d": 1, "rc": 0, "t": 43.199, "rss_gib": 6.2701}
+{"ev": "s", "t": 43.199, "phase": "backward", "rss_gib": 6.2701, "avail_gib": 11.0664, "n_retire": 1580, "n_recompute": 0}
+{"ev": "node", "i": 1590, "d": 1, "rc": 0, "t": 43.254, "rss_gib": 6.2701}
+{"ev": "node", "i": 1600, "d": 1, "rc": 0, "t": 43.254, "rss_gib": 6.2701}
+{"ev": "node", "i": 1610, "d": 1, "rc": 0, "t": 43.264, "rss_gib": 6.2701}
+{"ev": "node", "i": 1620, "d": 1, "rc": 0, "t": 43.27, "rss_gib": 6.2701}
+{"ev": "node", "i": 1630, "d": 1, "rc": 0, "t": 43.271, "rss_gib": 6.2701}
+{"ev": "node", "i": 1640, "d": 1, "rc": 0, "t": 43.309, "rss_gib": 6.2701}
+{"ev": "node", "i": 1650, "d": 1, "rc": 0, "t": 43.314, "rss_gib": 6.2701}
+{"ev": "node", "i": 1660, "d": 1, "rc": 0, "t": 43.318, "rss_gib": 6.2701}
+{"ev": "node", "i": 1670, "d": 1, "rc": 0, "t": 43.37, "rss_gib": 6.2701}
+{"ev": "node", "i": 1680, "d": 1, "rc": 0, "t": 43.376, "rss_gib": 6.2701}
+{"ev": "node", "i": 1690, "d": 1, "rc": 0, "t": 43.38, "rss_gib": 6.2701}
+{"ev": "node", "i": 1700, "d": 1, "rc": 0, "t": 43.384, "rss_gib": 6.2701}
+{"ev": "node", "i": 1710, "d": 1, "rc": 0, "t": 43.388, "rss_gib": 6.2701}
+{"ev": "node", "i": 1720, "d": 1, "rc": 0, "t": 43.393, "rss_gib": 6.2701}
+{"ev": "node", "i": 1730, "d": 1, "rc": 0, "t": 43.398, "rss_gib": 6.2701}
+{"ev": "node", "i": 1740, "d": 1, "rc": 0, "t": 43.403, "rss_gib": 6.2701}
+{"ev": "node", "i": 1750, "d": 1, "rc": 0, "t": 43.408, "rss_gib": 6.2701}
+{"ev": "node", "i": 1760, "d": 1, "rc": 0, "t": 43.415, "rss_gib": 6.2701}
+{"ev": "node", "i": 1770, "d": 1, "rc": 0, "t": 43.421, "rss_gib": 6.2701}
+{"ev": "node", "i": 1780, "d": 1, "rc": 0, "t": 43.428, "rss_gib": 6.2701}
+{"ev": "node", "i": 1790, "d": 1, "rc": 0, "t": 43.434, "rss_gib": 6.2701}
+{"ev": "node", "i": 1800, "d": 1, "rc": 0, "t": 43.44, "rss_gib": 6.2701}
+{"ev": "s", "t": 43.44, "phase": "backward", "rss_gib": 6.2701, "avail_gib": 10.9563, "n_retire": 1800, "n_recompute": 0}
+{"ev": "node", "i": 1810, "d": 1, "rc": 0, "t": 43.446, "rss_gib": 6.2701}
+{"ev": "node", "i": 1820, "d": 1, "rc": 0, "t": 43.453, "rss_gib": 6.2701}
+{"ev": "node", "i": 1830, "d": 1, "rc": 0, "t": 43.458, "rss_gib": 6.2701}
+{"ev": "node", "i": 1840, "d": 1, "rc": 0, "t": 43.465, "rss_gib": 6.2701}
+{"ev": "node", "i": 1850, "d": 1, "rc": 0, "t": 43.471, "rss_gib": 6.2701}
+{"ev": "node", "i": 1860, "d": 1, "rc": 0, "t": 43.478, "rss_gib": 6.2701}
+{"ev": "node", "i": 1870, "d": 1, "rc": 0, "t": 43.537, "rss_gib": 6.2701}
+{"ev": "node", "i": 1880, "d": 1, "rc": 0, "t": 43.565, "rss_gib": 6.2701}
+{"ev": "s", "t": 43.697, "phase": "backward", "rss_gib": 6.2701, "avail_gib": 10.9078, "n_retire": 1882, "n_recompute": 0}
+{"ev": "node", "i": 1890, "d": 1, "rc": 0, "t": 43.703, "rss_gib": 6.2701}
+{"ev": "node", "i": 1900, "d": 1, "rc": 0, "t": 43.709, "rss_gib": 6.2701}
+{"ev": "node", "i": 1910, "d": 1, "rc": 0, "t": 43.713, "rss_gib": 6.2701}
+{"ev": "node", "i": 1920, "d": 1, "rc": 0, "t": 43.733, "rss_gib": 6.2701}
+{"ev": "s", "t": 43.898, "phase": "backward", "rss_gib": 6.4206, "avail_gib": 10.6938, "n_retire": 1921, "n_recompute": 0}
+{"ev": "s", "t": 44.1, "phase": "backward", "rss_gib": 6.4432, "avail_gib": 10.6683, "n_retire": 1921, "n_recompute": 0}
+{"ev": "bw_enter", "d": 1, "rc": 1, "i": 1921, "pins": 106, "t": 44.184, "rss_gib": 6.598}
+{"ev": "node", "i": 1930, "d": 2, "rc": 1, "t": 44.25, "rss_gib": 6.598}
+{"ev": "s", "t": 44.303, "phase": "recompute", "rss_gib": 6.598, "avail_gib": 10.4841, "n_retire": 1935, "n_recompute": 1}
+{"ev": "node", "i": 1940, "d": 2, "rc": 1, "t": 44.34, "rss_gib": 6.598}
+{"ev": "node", "i": 1950, "d": 2, "rc": 1, "t": 44.435, "rss_gib": 6.5982}
+{"ev": "node", "i": 1960, "d": 2, "rc": 1, "t": 44.478, "rss_gib": 6.6298}
+{"ev": "s", "t": 44.517, "phase": "recompute", "rss_gib": 6.6306, "avail_gib": 10.3645, "n_retire": 1964, "n_recompute": 1}
+{"ev": "node", "i": 1970, "d": 2, "rc": 1, "t": 44.589, "rss_gib": 6.6297}
+{"ev": "node", "i": 1980, "d": 2, "rc": 1, "t": 44.659, "rss_gib": 6.6297}
+{"ev": "node", "i": 1990, "d": 2, "rc": 1, "t": 44.688, "rss_gib": 6.6299}
+{"ev": "s", "t": 44.718, "phase": "recompute", "rss_gib": 6.7476, "avail_gib": 10.1794, "n_retire": 1993, "n_recompute": 1}
+{"ev": "node", "i": 2000, "d": 2, "rc": 1, "t": 44.765, "rss_gib": 6.6298}
+{"ev": "node", "i": 2010, "d": 2, "rc": 1, "t": 44.797, "rss_gib": 6.6766}
+{"ev": "node", "i": 2020, "d": 2, "rc": 1, "t": 44.86, "rss_gib": 6.6297}
+{"ev": "node", "i": 2030, "d": 2, "rc": 1, "t": 44.903, "rss_gib": 6.6297}
+{"ev": "s", "t": 44.918, "phase": "recompute", "rss_gib": 6.6445, "avail_gib": 10.2531, "n_retire": 2032, "n_recompute": 1}
+{"ev": "node", "i": 2040, "d": 2, "rc": 1, "t": 44.942, "rss_gib": 6.6453}
+{"ev": "node", "i": 2050, "d": 2, "rc": 1, "t": 44.979, "rss_gib": 6.6453}
+{"ev": "s", "t": 45.119, "phase": "backward", "rss_gib": 3.941, "avail_gib": 12.7027, "n_retire": 2052, "n_recompute": 1}
+{"ev": "bw_exit", "d": 1, "rc": 1, "i": 2052, "pins": 106, "sm_bwd": 3, "mi_before": {"arena_gib": 4.9768, "hblkhd_gib": 1.2675, "uordblks_gib": 1.9869, "fordblks_gib": 2.9899, "keepcost_gib": 0.0001, "hblks": 166}, "trim_gib": 2.9873, "mi_after": {"arena_gib": 4.9767, "hblkhd_gib": 1.2675, "uordblks_gib": 1.9869, "fordblks_gib": 2.9898, "keepcost_gib": 0.0, "hblks": 166}, "t": 45.134, "rss_gib": 3.658}
+{"ev": "s", "t": 45.321, "phase": "backward", "rss_gib": 3.9175, "avail_gib": 12.714, "n_retire": 2054, "n_recompute": 1}
+{"ev": "bw_enter", "d": 1, "rc": 2, "i": 2054, "pins": 106, "t": 45.357, "rss_gib": 3.9288}
+{"ev": "node", "i": 2060, "d": 2, "rc": 2, "t": 45.36, "rss_gib": 3.9323}
+{"ev": "node", "i": 2070, "d": 2, "rc": 2, "t": 45.363, "rss_gib": 3.9362}
+{"ev": "node", "i": 2080, "d": 2, "rc": 2, "t": 45.391, "rss_gib": 3.9524}
+{"ev": "node", "i": 2090, "d": 2, "rc": 2, "t": 45.422, "rss_gib": 3.9527}
+{"ev": "node", "i": 2100, "d": 2, "rc": 2, "t": 45.474, "rss_gib": 3.9535}
+{"ev": "node", "i": 2110, "d": 2, "rc": 2, "t": 45.475, "rss_gib": 3.9535}
+{"ev": "node", "i": 2120, "d": 2, "rc": 2, "t": 45.507, "rss_gib": 3.9382}
+{"ev": "s", "t": 45.522, "phase": "recompute", "rss_gib": 3.9943, "avail_gib": 12.6302, "n_retire": 2126, "n_recompute": 2}
+{"ev": "node", "i": 2130, "d": 2, "rc": 2, "t": 45.559, "rss_gib": 3.9384}
+{"ev": "node", "i": 2140, "d": 2, "rc": 2, "t": 45.56, "rss_gib": 3.9384}
+{"ev": "node", "i": 2150, "d": 2, "rc": 2, "t": 45.613, "rss_gib": 3.9541}
+{"ev": "node", "i": 2160, "d": 2, "rc": 2, "t": 45.614, "rss_gib": 3.9541}
+{"ev": "node", "i": 2170, "d": 2, "rc": 2, "t": 45.669, "rss_gib": 3.9856}
+{"ev": "node", "i": 2180, "d": 2, "rc": 2, "t": 45.699, "rss_gib": 3.986}
+{"ev": "s", "t": 45.723, "phase": "backward", "rss_gib": 3.7374, "avail_gib": 12.8725, "n_retire": 2185, "n_recompute": 2}
+{"ev": "bw_exit", "d": 1, "rc": 2, "i": 2185, "pins": 106, "sm_bwd": 6, "mi_before": {"arena_gib": 5.0237, "hblkhd_gib": 1.205, "uordblks_gib": 2.0495, "fordblks_gib": 2.9742, "keepcost_gib": 0.0001, "hblks": 165}, "trim_gib": 0.3298, "mi_after": {"arena_gib": 5.0236, "hblkhd_gib": 1.205, "uordblks_gib": 2.0495, "fordblks_gib": 2.9741, "keepcost_gib": 0.0, "hblks": 165}, "t": 45.731, "rss_gib": 3.6589}
+{"ev": "s", "t": 45.923, "phase": "backward", "rss_gib": 3.9593, "avail_gib": 12.6053, "n_retire": 2187, "n_recompute": 2}
+{"ev": "bw_enter", "d": 1, "rc": 3, "i": 2187, "pins": 106, "t": 45.939, "rss_gib": 3.9801}
+{"ev": "node", "i": 2190, "d": 2, "rc": 3, "t": 45.94, "rss_gib": 3.9801}
+{"ev": "node", "i": 2200, "d": 2, "rc": 3, "t": 45.942, "rss_gib": 3.9826}
+{"ev": "node", "i": 2210, "d": 2, "rc": 3, "t": 45.948, "rss_gib": 3.9886}
+{"ev": "node", "i": 2220, "d": 2, "rc": 3, "t": 46.007, "rss_gib": 3.9893}
+{"ev": "node", "i": 2230, "d": 2, "rc": 3, "t": 46.008, "rss_gib": 3.9893}
+{"ev": "node", "i": 2240, "d": 2, "rc": 3, "t": 46.055, "rss_gib": 3.9901}
+{"ev": "node", "i": 2250, "d": 2, "rc": 3, "t": 46.092, "rss_gib": 4.0218}
+{"ev": "s", "t": 46.125, "phase": "recompute", "rss_gib": 4.127, "avail_gib": 12.4139, "n_retire": 2259, "n_recompute": 3}
+{"ev": "node", "i": 2260, "d": 2, "rc": 3, "t": 46.147, "rss_gib": 4.0218}
+{"ev": "node", "i": 2270, "d": 2, "rc": 3, "t": 46.148, "rss_gib": 4.0218}
+{"ev": "node", "i": 2280, "d": 2, "rc": 3, "t": 46.177, "rss_gib": 4.0219}
+{"ev": "node", "i": 2290, "d": 2, "rc": 3, "t": 46.207, "rss_gib": 4.0373}
+{"ev": "node", "i": 2300, "d": 2, "rc": 3, "t": 46.261, "rss_gib": 4.038}
+{"ev": "node", "i": 2310, "d": 2, "rc": 3, "t": 46.262, "rss_gib": 4.038}
+{"ev": "bw_exit", "d": 1, "rc": 3, "i": 2318, "pins": 106, "sm_bwd": 9, "mi_before": {"arena_gib": 5.0862, "hblkhd_gib": 1.2675, "uordblks_gib": 1.9871, "fordblks_gib": 3.0991, "keepcost_gib": 0.0157, "hblks": 166}, "trim_gib": 0.3977, "mi_after": {"arena_gib": 5.0705, "hblkhd_gib": 1.2675, "uordblks_gib": 1.9871, "fordblks_gib": 3.0833, "keepcost_gib": 0.0, "hblks": 166}, "t": 46.322, "rss_gib": 3.6591}
+{"ev": "node", "i": 2320, "d": 1, "rc": 3, "t": 46.323, "rss_gib": 3.5341}
+{"ev": "s", "t": 46.329, "phase": "backward", "rss_gib": 3.5426, "avail_gib": 12.9855, "n_retire": 2320, "n_recompute": 3}
+{"ev": "bw_enter", "d": 1, "rc": 4, "i": 2320, "pins": 106, "t": 46.525, "rss_gib": 3.9342}
+{"ev": "node", "i": 2330, "d": 2, "rc": 4, "t": 46.528, "rss_gib": 3.9378}
+{"ev": "s", "t": 46.529, "phase": "recompute", "rss_gib": 3.9413, "avail_gib": 12.9962, "n_retire": 2334, "n_recompute": 4}
+{"ev": "node", "i": 2340, "d": 2, "rc": 4, "t": 46.53, "rss_gib": 3.9418}
+{"ev": "node", "i": 2350, "d": 2, "rc": 4, "t": 46.555, "rss_gib": 3.989}
+{"ev": "node", "i": 2360, "d": 2, "rc": 4, "t": 46.58, "rss_gib": 3.9898}
+{"ev": "node", "i": 2370, "d": 2, "rc": 4, "t": 46.63, "rss_gib": 3.9903}
+{"ev": "node", "i": 2380, "d": 2, "rc": 4, "t": 46.656, "rss_gib": 4.0062}
+{"ev": "node", "i": 2390, "d": 2, "rc": 4, "t": 46.656, "rss_gib": 4.0062}
+{"ev": "node", "i": 2400, "d": 2, "rc": 4, "t": 46.703, "rss_gib": 4.0069}
+{"ev": "node", "i": 2410, "d": 2, "rc": 4, "t": 46.728, "rss_gib": 4.0074}
+{"ev": "s", "t": 46.73, "phase": "recompute", "rss_gib": 4.0074, "avail_gib": 13.082, "n_retire": 2413, "n_recompute": 4}
+{"ev": "node", "i": 2420, "d": 2, "rc": 4, "t": 46.752, "rss_gib": 4.0074}
+{"ev": "node", "i": 2430, "d": 2, "rc": 4, "t": 46.776, "rss_gib": 4.0079}
+{"ev": "node", "i": 2440, "d": 2, "rc": 4, "t": 46.798, "rss_gib": 4.0079}
+{"ev": "node", "i": 2450, "d": 2, "rc": 4, "t": 46.824, "rss_gib": 4.0241}
+{"ev": "bw_exit", "d": 1, "rc": 4, "i": 2451, "pins": 106, "sm_bwd": 12, "mi_before": {"arena_gib": 5.0862, "hblkhd_gib": 1.2675, "uordblks_gib": 1.9873, "fordblks_gib": 3.099, "keepcost_gib": 0.0157, "hblks": 166}, "trim_gib": 0.3682, "mi_after": {"arena_gib": 5.0705, "hblkhd_gib": 1.2675, "uordblks_gib": 1.9873, "fordblks_gib": 3.0832, "keepcost_gib": 0.0, "hblks": 166}, "t": 46.847, "rss_gib": 3.6591}
+{"ev": "s", "t": 46.944, "phase": "backward", "rss_gib": 3.7151, "avail_gib": 13.3778, "n_retire": 2453, "n_recompute": 4}
+{"ev": "bw_enter", "d": 1, "rc": 5, "i": 2453, "pins": 106, "t": 47.046, "rss_gib": 3.9343}
+{"ev": "node", "i": 2460, "d": 2, "rc": 5, "t": 47.049, "rss_gib": 3.9381}
+{"ev": "node", "i": 2470, "d": 2, "rc": 5, "t": 47.051, "rss_gib": 3.9416}
+{"ev": "node", "i": 2480, "d": 2, "rc": 5, "t": 47.077, "rss_gib": 3.9578}
+{"ev": "node", "i": 2490, "d": 2, "rc": 5, "t": 47.105, "rss_gib": 3.9742}
+{"ev": "s", "t": 47.145, "phase": "recompute", "rss_gib": 4.1001, "avail_gib": 13.0282, "n_retire": 2496, "n_recompute": 5}
+{"ev": "node", "i": 2500, "d": 2, "rc": 5, "t": 47.153, "rss_gib": 3.9751}
+{"ev": "node", "i": 2510, "d": 2, "rc": 5, "t": 47.154, "rss_gib": 3.9751}
+{"ev": "node", "i": 2520, "d": 2, "rc": 5, "t": 47.182, "rss_gib": 3.9751}
+{"ev": "node", "i": 2530, "d": 2, "rc": 5, "t": 47.235, "rss_gib": 3.9755}
+{"ev": "node", "i": 2540, "d": 2, "rc": 5, "t": 47.236, "rss_gib": 3.9755}
+{"ev": "node", "i": 2550, "d": 2, "rc": 5, "t": 47.289, "rss_gib": 4.0065}
+{"ev": "node", "i": 2560, "d": 2, "rc": 5, "t": 47.29, "rss_gib": 4.0065}
+{"ev": "node", "i": 2570, "d": 2, "rc": 5, "t": 47.344, "rss_gib": 3.9763}
+{"ev": "s", "t": 47.353, "phase": "recompute", "rss_gib": 3.9763, "avail_gib": 13.1536, "n_retire": 2578, "n_recompute": 5}
+{"ev": "node", "i": 2580, "d": 2, "rc": 5, "t": 47.375, "rss_gib": 3.977}
+{"ev": "bw_exit", "d": 1, "rc": 5, "i": 2584, "pins": 106, "sm_bwd": 15, "mi_before": {"arena_gib": 5.1018, "hblkhd_gib": 1.2675, "uordblks_gib": 1.9874, "fordblks_gib": 3.1145, "keepcost_gib": 0.0001, "hblks": 166}, "trim_gib": 0.321, "mi_after": {"arena_gib": 5.1017, "hblkhd_gib": 1.2675, "uordblks_gib": 1.9874, "fordblks_gib": 3.1144, "keepcost_gib": 0.0, "hblks": 166}, "t": 47.396, "rss_gib": 3.6595}
+{"ev": "s", "t": 47.556, "phase": "backward", "rss_gib": 3.8245, "avail_gib": 13.3018, "n_retire": 2586, "n_recompute": 5}
+{"ev": "bw_enter", "d": 1, "rc": 6, "i": 2586, "pins": 106, "t": 47.589, "rss_gib": 3.8474}
+{"ev": "node", "i": 2590, "d": 2, "rc": 6, "t": 47.589, "rss_gib": 3.8474}
+{"ev": "node", "i": 2600, "d": 2, "rc": 6, "t": 47.592, "rss_gib": 3.8505}
+{"ev": "node", "i": 2610, "d": 2, "rc": 6, "t": 47.619, "rss_gib": 3.8802}
+{"ev": "node", "i": 2620, "d": 2, "rc": 6, "t": 47.645, "rss_gib": 3.9119}
+{"ev": "node", "i": 2630, "d": 2, "rc": 6, "t": 47.694, "rss_gib": 3.9128}
+{"ev": "node", "i": 2640, "d": 2, "rc": 6, "t": 47.695, "rss_gib": 3.9128}
+{"ev": "node", "i": 2650, "d": 2, "rc": 6, "t": 47.723, "rss_gib": 3.944}
+{"ev": "s", "t": 47.758, "phase": "recompute", "rss_gib": 4.1314, "avail_gib": 12.9974, "n_retire": 2658, "n_recompute": 6}
+{"ev": "node", "i": 2660, "d": 2, "rc": 6, "t": 47.769, "rss_gib": 3.9442}
+{"ev": "node", "i": 2670, "d": 2, "rc": 6, "t": 47.771, "rss_gib": 3.9442}
+{"ev": "node", "i": 2680, "d": 2, "rc": 6, "t": 47.827, "rss_gib": 3.9446}
+{"ev": "node", "i": 2690, "d": 2, "rc": 6, "t": 47.828, "rss_gib": 3.9446}
+{"ev": "node", "i": 2700, "d": 2, "rc": 6, "t": 47.882, "rss_gib": 3.9448}
+{"ev": "node", "i": 2710, "d": 2, "rc": 6, "t": 47.883, "rss_gib": 3.9448}
+{"ev": "bw_exit", "d": 1, "rc": 6, "i": 2717, "pins": 106, "sm_bwd": 18, "mi_before": {"arena_gib": 5.1956, "hblkhd_gib": 1.2675, "uordblks_gib": 1.9875, "fordblks_gib": 3.2081, "keepcost_gib": 0.0157, "hblks": 166}, "trim_gib": 0.3034, "mi_after": {"arena_gib": 5.1799, "hblkhd_gib": 1.2675, "uordblks_gib": 1.9875, "fordblks_gib": 3.1924, "keepcost_gib": 0.0, "hblks": 166}, "census": {"host_gib": 2.3664, "host_f64_gib": 0.198, "storages": 5799, "torch_objs": 6217, "tape_tensors": 5482, "tape_nodes": 2200, "census_s": 0.106}, "t": 48.031, "rss_gib": 3.6728}
+{"ev": "s", "t": 47.989, "phase": "backward", "rss_gib": 3.6728, "avail_gib": 13.4457, "n_retire": 2717, "n_recompute": 6}
+{"ev": "bw_enter", "d": 1, "rc": 7, "i": 2719, "pins": 106, "t": 48.221, "rss_gib": 3.8549}
+{"ev": "node", "i": 2720, "d": 2, "rc": 7, "t": 48.222, "rss_gib": 3.8549}
+{"ev": "node", "i": 2730, "d": 2, "rc": 7, "t": 48.224, "rss_gib": 3.8579}
+{"ev": "node", "i": 2740, "d": 2, "rc": 7, "t": 48.226, "rss_gib": 3.8622}
+{"ev": "s", "t": 48.232, "phase": "recompute", "rss_gib": 3.8622, "avail_gib": 13.2652, "n_retire": 2742, "n_recompute": 7}
+{"ev": "node", "i": 2750, "d": 2, "rc": 7, "t": 48.281, "rss_gib": 3.9249}
+{"ev": "node", "i": 2760, "d": 2, "rc": 7, "t": 48.282, "rss_gib": 3.9249}
+{"ev": "node", "i": 2770, "d": 2, "rc": 7, "t": 48.327, "rss_gib": 3.9256}
+{"ev": "node", "i": 2780, "d": 2, "rc": 7, "t": 48.357, "rss_gib": 3.9414}
+{"ev": "node", "i": 2790, "d": 2, "rc": 7, "t": 48.358, "rss_gib": 3.9414}
+{"ev": "node", "i": 2800, "d": 2, "rc": 7, "t": 48.408, "rss_gib": 3.9418}
+{"ev": "s", "t": 48.433, "phase": "recompute", "rss_gib": 3.9724, "avail_gib": 13.147, "n_retire": 2807, "n_recompute": 7}
+{"ev": "node", "i": 2810, "d": 2, "rc": 7, "t": 48.441, "rss_gib": 3.9419}
+{"ev": "node", "i": 2820, "d": 2, "rc": 7, "t": 48.468, "rss_gib": 3.9731}
+{"ev": "node", "i": 2830, "d": 2, "rc": 7, "t": 48.495, "rss_gib": 3.9734}
+{"ev": "node", "i": 2840, "d": 2, "rc": 7, "t": 48.521, "rss_gib": 3.9734}
+{"ev": "node", "i": 2850, "d": 2, "rc": 7, "t": 48.551, "rss_gib": 3.9912}
+{"ev": "bw_exit", "d": 1, "rc": 7, "i": 2850, "pins": 106, "sm_bwd": 21, "mi_before": {"arena_gib": 5.3206, "hblkhd_gib": 1.2675, "uordblks_gib": 1.9876, "fordblks_gib": 3.333, "keepcost_gib": 0.0158, "hblks": 166}, "trim_gib": 0.3308, "mi_after": {"arena_gib": 5.3049, "hblkhd_gib": 1.2675, "uordblks_gib": 1.9876, "fordblks_gib": 3.3173, "keepcost_gib": 0.0, "hblks": 166}, "t": 48.563, "rss_gib": 3.6604}
+{"ev": "s", "t": 48.633, "phase": "backward", "rss_gib": 3.6527, "avail_gib": 13.4709, "n_retire": 2852, "n_recompute": 7}
+{"ev": "bw_enter", "d": 1, "rc": 8, "i": 2852, "pins": 106, "t": 48.752, "rss_gib": 3.8635}
+{"ev": "node", "i": 2860, "d": 2, "rc": 8, "t": 48.754, "rss_gib": 3.8668}
+{"ev": "node", "i": 2870, "d": 2, "rc": 8, "t": 48.756, "rss_gib": 3.871}
+{"ev": "node", "i": 2880, "d": 2, "rc": 8, "t": 48.784, "rss_gib": 3.8716}
+{"ev": "node", "i": 2890, "d": 2, "rc": 8, "t": 48.823, "rss_gib": 3.8879}
+{"ev": "s", "t": 48.835, "phase": "recompute", "rss_gib": 3.9321, "avail_gib": 13.1351, "n_retire": 2895, "n_recompute": 8}
+{"ev": "node", "i": 2900, "d": 2, "rc": 8, "t": 48.876, "rss_gib": 3.8883}
+{"ev": "node", "i": 2910, "d": 2, "rc": 8, "t": 48.877, "rss_gib": 3.8883}
+{"ev": "node", "i": 2920, "d": 2, "rc": 8, "t": 48.906, "rss_gib": 3.9047}
+{"ev": "node", "i": 2930, "d": 2, "rc": 8, "t": 48.956, "rss_gib": 3.905}
+{"ev": "node", "i": 2940, "d": 2, "rc": 8, "t": 48.957, "rss_gib": 3.905}
+{"ev": "node", "i": 2950, "d": 2, "rc": 8, "t": 49.012, "rss_gib": 3.9369}
+{"ev": "s", "t": 49.036, "phase": "recompute", "rss_gib": 4.0309, "avail_gib": 13.0216, "n_retire": 2959, "n_recompute": 8}
+{"ev": "node", "i": 2960, "d": 2, "rc": 8, "t": 49.042, "rss_gib": 3.9686}
+{"ev": "node", "i": 2970, "d": 2, "rc": 8, "t": 49.071, "rss_gib": 3.9686}
+{"ev": "node", "i": 2980, "d": 2, "rc": 8, "t": 49.102, "rss_gib": 4.0006}
+{"ev": "bw_exit", "d": 1, "rc": 8, "i": 2983, "pins": 106, "sm_bwd": 24, "mi_before": {"arena_gib": 5.4456, "hblkhd_gib": 1.2675, "uordblks_gib": 1.9877, "fordblks_gib": 3.4579, "keepcost_gib": 0.0314, "hblks": 166}, "trim_gib": 0.3427, "mi_after": {"arena_gib": 5.4142, "hblkhd_gib": 1.2675, "uordblks_gib": 1.9877, "fordblks_gib": 3.4265, "keepcost_gib": 0.0, "hblks": 166}, "t": 49.116, "rss_gib": 3.6604}
+{"ev": "s", "t": 49.259, "phase": "backward", "rss_gib": 3.782, "avail_gib": 13.241, "n_retire": 2985, "n_recompute": 8}
+{"ev": "bw_enter", "d": 1, "rc": 9, "i": 2985, "pins": 106, "t": 49.317, "rss_gib": 3.8786}
+{"ev": "node", "i": 2990, "d": 2, "rc": 9, "t": 49.318, "rss_gib": 3.8786}
+{"ev": "node", "i": 3000, "d": 2, "rc": 9, "t": 49.323, "rss_gib": 3.8866}
+{"ev": "node", "i": 3010, "d": 2, "rc": 9, "t": 49.351, "rss_gib": 3.9491}
+{"ev": "node", "i": 3020, "d": 2, "rc": 9, "t": 49.379, "rss_gib": 3.9341}
+{"ev": "node", "i": 3030, "d": 2, "rc": 9, "t": 49.429, "rss_gib": 3.9342}
+{"ev": "node", "i": 3040, "d": 2, "rc": 9, "t": 49.43, "rss_gib": 3.9342}
+{"ev": "s", "t": 49.461, "phase": "recompute", "rss_gib": 3.966, "avail_gib": 12.9874, "n_retire": 3044, "n_recompute": 9}
+{"ev": "node", "i": 3050, "d": 2, "rc": 9, "t": 49.461, "rss_gib": 3.9502}
+{"ev": "node", "i": 3060, "d": 2, "rc": 9, "t": 49.512, "rss_gib": 3.9505}
+{"ev": "node", "i": 3070, "d": 2, "rc": 9, "t": 49.514, "rss_gib": 3.9505}
+{"ev": "node", "i": 3080, "d": 2, "rc": 9, "t": 49.567, "rss_gib": 3.9355}
+{"ev": "node", "i": 3090, "d": 2, "rc": 9, "t": 49.568, "rss_gib": 3.9355}
+{"ev": "node", "i": 3100, "d": 2, "rc": 9, "t": 49.619, "rss_gib": 3.9667}
+{"ev": "node", "i": 3110, "d": 2, "rc": 9, "t": 49.62, "rss_gib": 3.9667}
+{"ev": "bw_exit", "d": 1, "rc": 9, "i": 3116, "pins": 106, "sm_bwd": 27, "mi_before": {"arena_gib": 5.4456, "hblkhd_gib": 1.2675, "uordblks_gib": 1.9878, "fordblks_gib": 3.4578, "keepcost_gib": 0.0001, "hblks": 166}, "trim_gib": 0.293, "mi_after": {"arena_gib": 5.4455, "hblkhd_gib": 1.2675, "uordblks_gib": 1.9878, "fordblks_gib": 3.4576, "keepcost_gib": 0.0, "hblks": 166}, "t": 49.658, "rss_gib": 3.6606}
+{"ev": "s", "t": 49.663, "phase": "backward", "rss_gib": 3.5435, "avail_gib": 13.4323, "n_retire": 3118, "n_recompute": 9}
+{"ev": "bw_enter", "d": 1, "rc": 10, "i": 3118, "pins": 106, "t": 49.852, "rss_gib": 3.8628}
+{"ev": "node", "i": 3120, "d": 2, "rc": 10, "t": 49.853, "rss_gib": 3.8628}
+{"ev": "node", "i": 3130, "d": 2, "rc": 10, "t": 49.855, "rss_gib": 3.8665}
+{"ev": "node", "i": 3140, "d": 2, "rc": 10, "t": 49.857, "rss_gib": 3.8708}
+{"ev": "s", "t": 49.864, "phase": "recompute", "rss_gib": 3.8708, "avail_gib": 13.1937, "n_retire": 3141, "n_recompute": 10}
+{"ev": "node", "i": 3150, "d": 2, "rc": 10, "t": 49.911, "rss_gib": 3.9496}
+{"ev": "node", "i": 3160, "d": 2, "rc": 10, "t": 49.912, "rss_gib": 3.9496}
+{"ev": "node", "i": 3170, "d": 2, "rc": 10, "t": 49.961, "rss_gib": 3.9657}
+{"ev": "node", "i": 3180, "d": 2, "rc": 10, "t": 49.989, "rss_gib": 4.0128}
+{"ev": "node", "i": 3190, "d": 2, "rc": 10, "t": 49.99, "rss_gib": 4.0128}
+{"ev": "node", "i": 3200, "d": 2, "rc": 10, "t": 50.04, "rss_gib": 4.0125}
+{"ev": "s", "t": 50.064, "phase": "recompute", "rss_gib": 4.0588, "avail_gib": 13.0158, "n_retire": 3206, "n_recompute": 10}
+{"ev": "node", "i": 3210, "d": 2, "rc": 10, "t": 50.075, "rss_gib": 4.0439}
+{"ev": "node", "i": 3220, "d": 2, "rc": 10, "t": 50.099, "rss_gib": 4.0596}
+{"ev": "node", "i": 3230, "d": 2, "rc": 10, "t": 50.151, "rss_gib": 4.0909}
+{"ev": "node", "i": 3240, "d": 2, "rc": 10, "t": 50.152, "rss_gib": 4.0909}
+{"ev": "bw_exit", "d": 1, "rc": 10, "i": 3249, "pins": 106, "sm_bwd": 30, "mi_before": {"arena_gib": 5.6487, "hblkhd_gib": 1.2675, "uordblks_gib": 1.988, "fordblks_gib": 3.6608, "keepcost_gib": 0.0157, "hblks": 166}, "trim_gib": 0.448, "mi_after": {"arena_gib": 5.633, "hblkhd_gib": 1.2675, "uordblks_gib": 1.988, "fordblks_gib": 3.645, "keepcost_gib": 0.0, "hblks": 166}, "t": 50.197, "rss_gib": 3.6608}
+{"ev": "node", "i": 3250, "d": 1, "rc": 10, "t": 50.197, "rss_gib": 3.5358}
+{"ev": "s", "t": 50.267, "phase": "backward", "rss_gib": 3.684, "avail_gib": 13.4116, "n_retire": 3251, "n_recompute": 10}
+{"ev": "bw_enter", "d": 1, "rc": 11, "i": 3251, "pins": 106, "t": 50.446, "rss_gib": 3.8631}
+{"ev": "node", "i": 3260, "d": 2, "rc": 11, "t": 50.448, "rss_gib": 3.8664}
+{"ev": "node", "i": 3270, "d": 2, "rc": 11, "t": 50.45, "rss_gib": 3.8706}
+{"ev": "s", "t": 50.467, "phase": "recompute", "rss_gib": 3.902, "avail_gib": 13.201, "n_retire": 3274, "n_recompute": 11}
+{"ev": "node", "i": 3280, "d": 2, "rc": 11, "t": 50.478, "rss_gib": 3.8867}
+{"ev": "node", "i": 3290, "d": 2, "rc": 11, "t": 50.506, "rss_gib": 3.9184}
+{"ev": "node", "i": 3300, "d": 2, "rc": 11, "t": 50.553, "rss_gib": 3.9188}
+{"ev": "node", "i": 3310, "d": 2, "rc": 11, "t": 50.554, "rss_gib": 3.9188}
+{"ev": "node", "i": 3320, "d": 2, "rc": 11, "t": 50.582, "rss_gib": 3.9346}
+{"ev": "node", "i": 3330, "d": 2, "rc": 11, "t": 50.629, "rss_gib": 3.9503}
+{"ev": "node", "i": 3340, "d": 2, "rc": 11, "t": 50.658, "rss_gib": 3.9814}
+{"ev": "s", "t": 50.668, "phase": "recompute", "rss_gib": 3.9814, "avail_gib": 13.1615, "n_retire": 3344, "n_recompute": 11}
+{"ev": "node", "i": 3350, "d": 2, "rc": 11, "t": 50.685, "rss_gib": 3.9815}
+{"ev": "node", "i": 3360, "d": 2, "rc": 11, "t": 50.711, "rss_gib": 3.9817}
+{"ev": "node", "i": 3370, "d": 2, "rc": 11, "t": 50.738, "rss_gib": 4.0446}
+{"ev": "node", "i": 3380, "d": 2, "rc": 11, "t": 50.763, "rss_gib": 4.0601}
+{"ev": "bw_exit", "d": 1, "rc": 11, "i": 3382, "pins": 106, "sm_bwd": 33, "mi_before": {"arena_gib": 5.7894, "hblkhd_gib": 1.2675, "uordblks_gib": 1.9881, "fordblks_gib": 3.8013, "keepcost_gib": 0.0001, "hblks": 166}, "trim_gib": 0.4017, "mi_after": {"arena_gib": 5.7892, "hblkhd_gib": 1.2675, "uordblks_gib": 1.9881, "fordblks_gib": 3.8012, "keepcost_gib": 0.0, "hblks": 166}, "t": 50.775, "rss_gib": 3.6608}
+{"ev": "s", "t": 50.869, "phase": "backward", "rss_gib": 3.8268, "avail_gib": 13.3332, "n_retire": 3384, "n_recompute": 11}
+{"ev": "bw_enter", "d": 1, "rc": 12, "i": 3384, "pins": 106, "t": 50.961, "rss_gib": 3.864}
+{"ev": "node", "i": 3390, "d": 2, "rc": 12, "t": 50.963, "rss_gib": 3.8678}
+{"ev": "node", "i": 3400, "d": 2, "rc": 12, "t": 50.965, "rss_gib": 3.8737}
+{"ev": "node", "i": 3410, "d": 2, "rc": 12, "t": 50.991, "rss_gib": 3.9053}
+{"ev": "node", "i": 3420, "d": 2, "rc": 12, "t": 51.019, "rss_gib": 3.9526}
+{"ev": "node", "i": 3430, "d": 2, "rc": 12, "t": 51.063, "rss_gib": 3.9533}
+{"ev": "node", "i": 3440, "d": 2, "rc": 12, "t": 51.064, "rss_gib": 3.9533}
+{"ev": "s", "t": 51.07, "phase": "recompute", "rss_gib": 3.9533, "avail_gib": 13.2018, "n_retire": 3443, "n_recompute": 12}
+{"ev": "node", "i": 3450, "d": 2, "rc": 12, "t": 51.092, "rss_gib": 3.969}
+{"ev": "node", "i": 3460, "d": 2, "rc": 12, "t": 51.137, "rss_gib": 3.969}
+{"ev": "node", "i": 3470, "d": 2, "rc": 12, "t": 51.137, "rss_gib": 3.969}
+{"ev": "node", "i": 3480, "d": 2, "rc": 12, "t": 51.196, "rss_gib": 4.0313}
+{"ev": "node", "i": 3490, "d": 2, "rc": 12, "t": 51.197, "rss_gib": 4.0313}
+{"ev": "node", "i": 3500, "d": 2, "rc": 12, "t": 51.255, "rss_gib": 4.0472}
+{"ev": "s", "t": 51.271, "phase": "recompute", "rss_gib": 4.0472, "avail_gib": 13.1077, "n_retire": 3509, "n_recompute": 12}
+{"ev": "node", "i": 3510, "d": 2, "rc": 12, "t": 51.283, "rss_gib": 4.055}
+{"ev": "bw_exit", "d": 1, "rc": 12, "i": 3515, "pins": 106, "sm_bwd": 36, "mi_before": {"arena_gib": 5.9144, "hblkhd_gib": 1.2675, "uordblks_gib": 1.9882, "fordblks_gib": 3.9262, "keepcost_gib": 0.0001, "hblks": 166}, "trim_gib": 0.3952, "mi_after": {"arena_gib": 5.9142, "hblkhd_gib": 1.2675, "uordblks_gib": 1.9882, "fordblks_gib": 3.9261, "keepcost_gib": 0.0, "hblks": 166}, "census": {"host_gib": 2.3664, "host_f64_gib": 0.198, "storages": 5799, "torch_objs": 6217, "tape_tensors": 5494, "tape_nodes": 2200, "census_s": 0.095}, "t": 51.392, "rss_gib": 3.6736}
+{"ev": "s", "t": 51.487, "phase": "backward", "rss_gib": 3.7349, "avail_gib": 13.4183, "n_retire": 3517, "n_recompute": 12}
+{"ev": "bw_enter", "d": 1, "rc": 13, "i": 3517, "pins": 106, "t": 51.594, "rss_gib": 3.9269}
+{"ev": "node", "i": 3520, "d": 2, "rc": 13, "t": 51.595, "rss_gib": 3.9269}
+{"ev": "node", "i": 3530, "d": 2, "rc": 13, "t": 51.597, "rss_gib": 3.9302}
+{"ev": "node", "i": 3540, "d": 2, "rc": 13, "t": 51.605, "rss_gib": 3.9339}
+{"ev": "node", "i": 3550, "d": 2, "rc": 13, "t": 51.662, "rss_gib": 3.95}
+{"ev": "node", "i": 3560, "d": 2, "rc": 13, "t": 51.663, "rss_gib": 3.95}
+{"ev": "s", "t": 51.687, "phase": "recompute", "rss_gib": 4.0675, "avail_gib": 13.0272, "n_retire": 3560, "n_recompute": 13}
+{"ev": "node", "i": 3570, "d": 2, "rc": 13, "t": 51.716, "rss_gib": 3.9511}
+{"ev": "node", "i": 3580, "d": 2, "rc": 13, "t": 51.748, "rss_gib": 3.9513}
+{"ev": "node", "i": 3590, "d": 2, "rc": 13, "t": 51.801, "rss_gib": 3.967}
+{"ev": "node", "i": 3600, "d": 2, "rc": 13, "t": 51.802, "rss_gib": 3.967}
+{"ev": "node", "i": 3610, "d": 2, "rc": 13, "t": 51.832, "rss_gib": 3.9515}
+{"ev": "node", "i": 3620, "d": 2, "rc": 13, "t": 51.868, "rss_gib": 3.9827}
+{"ev": "s", "t": 51.888, "phase": "recompute", "rss_gib": 4.0136, "avail_gib": 13.0691, "n_retire": 3624, "n_recompute": 13}
+{"ev": "node", "i": 3630, "d": 2, "rc": 13, "t": 51.928, "rss_gib": 4.0145}
+{"ev": "node", "i": 3640, "d": 2, "rc": 13, "t": 51.929, "rss_gib": 4.0145}
+{"ev": "bw_exit", "d": 1, "rc": 13, "i": 3648, "pins": 106, "sm_bwd": 39, "mi_before": {"arena_gib": 5.9925, "hblkhd_gib": 1.2675, "uordblks_gib": 1.9883, "fordblks_gib": 4.0042, "keepcost_gib": 0.0001, "hblks": 166}, "trim_gib": 0.3693, "mi_after": {"arena_gib": 5.9924, "hblkhd_gib": 1.2675, "uordblks_gib": 1.9883, "fordblks_gib": 4.0041, "keepcost_gib": 0.0, "hblks": 166}, "t": 51.968, "rss_gib": 3.6613}
+{"ev": "node", "i": 3650, "d": 1, "rc": 13, "t": 51.969, "rss_gib": 3.5363}
+{"ev": "s", "t": 52.089, "phase": "backward", "rss_gib": 3.7633, "avail_gib": 13.2917, "n_retire": 3650, "n_recompute": 13}
+{"ev": "bw_enter", "d": 1, "rc": 14, "i": 3650, "pins": 106, "t": 52.164, "rss_gib": 3.8488}
+{"ev": "node", "i": 3660, "d": 2, "rc": 14, "t": 52.168, "rss_gib": 3.8526}
+{"ev": "node", "i": 3670, "d": 2, "rc": 14, "t": 52.17, "rss_gib": 3.8571}
+{"ev": "node", "i": 3680, "d": 2, "rc": 14, "t": 52.196, "rss_gib": 3.9044}
+{"ev": "node", "i": 3690, "d": 2, "rc": 14, "t": 52.228, "rss_gib": 3.9202}
+{"ev": "node", "i": 3700, "d": 2, "rc": 14, "t": 52.284, "rss_gib": 3.9208}
+{"ev": "s", "t": 52.29, "phase": "recompute", "rss_gib": 3.9208, "avail_gib": 13.0537, "n_retire": 3709, "n_recompute": 14}
+{"ev": "node", "i": 3710, "d": 2, "rc": 14, "t": 52.316, "rss_gib": 3.9524}
+{"ev": "node", "i": 3720, "d": 2, "rc": 14, "t": 52.317, "rss_gib": 3.9524}
+{"ev": "node", "i": 3730, "d": 2, "rc": 14, "t": 52.371, "rss_gib": 3.9524}
+{"ev": "node", "i": 3740, "d": 2, "rc": 14, "t": 52.4, "rss_gib": 3.9526}
+{"ev": "node", "i": 3750, "d": 2, "rc": 14, "t": 52.429, "rss_gib": 3.9685}
+{"ev": "node", "i": 3760, "d": 2, "rc": 14, "t": 52.46, "rss_gib": 3.9687}
+{"ev": "s", "t": 52.491, "phase": "recompute", "rss_gib": 4.0153, "avail_gib": 12.8623, "n_retire": 3761, "n_recompute": 14}
+{"ev": "node", "i": 3770, "d": 2, "rc": 14, "t": 52.499, "rss_gib": 3.9844}
+{"ev": "node", "i": 3780, "d": 2, "rc": 14, "t": 52.533, "rss_gib": 3.9847}
+{"ev": "bw_exit", "d": 1, "rc": 14, "i": 3781, "pins": 106, "sm_bwd": 42, "mi_before": {"arena_gib": 6.0862, "hblkhd_gib": 1.2675, "uordblks_gib": 1.9884, "fordblks_gib": 4.0978, "keepcost_gib": 0.0001, "hblks": 166}, "trim_gib": 0.3237, "mi_after": {"arena_gib": 6.0861, "hblkhd_gib": 1.2675, "uordblks_gib": 1.9884, "fordblks_gib": 4.0977, "keepcost_gib": 0.0, "hblks": 166}, "t": 52.555, "rss_gib": 3.6615}
+{"ev": "s", "t": 52.7, "phase": "backward", "rss_gib": 3.7949, "avail_gib": 13.0608, "n_retire": 3783, "n_recompute": 14}
+{"ev": "bw_enter", "d": 1, "rc": 15, "i": 3783, "pins": 106, "t": 52.782, "rss_gib": 3.8952}
+{"ev": "node", "i": 3790, "d": 2, "rc": 15, "t": 52.784, "rss_gib": 3.8985}
+{"ev": "node", "i": 3800, "d": 2, "rc": 15, "t": 52.787, "rss_gib": 3.9025}
+{"ev": "node", "i": 3810, "d": 2, "rc": 15, "t": 52.815, "rss_gib": 3.9652}
+{"ev": "node", "i": 3820, "d": 2, "rc": 15, "t": 52.847, "rss_gib": 3.997}
+{"ev": "node", "i": 3830, "d": 2, "rc": 15, "t": 52.9, "rss_gib": 4.0136}
+{"ev": "node", "i": 3840, "d": 2, "rc": 15, "t": 52.901, "rss_gib": 4.0136}
+{"ev": "s", "t": 52.904, "phase": "recompute", "rss_gib": 4.0136, "avail_gib": 12.8559, "n_retire": 3842, "n_recompute": 15}
+{"ev": "node", "i": 3850, "d": 2, "rc": 15, "t": 52.933, "rss_gib": 4.0291}
+{"ev": "node", "i": 3860, "d": 2, "rc": 15, "t": 52.99, "rss_gib": 4.0291}
+{"ev": "node", "i": 3870, "d": 2, "rc": 15, "t": 52.991, "rss_gib": 4.0291}
+{"ev": "node", "i": 3880, "d": 2, "rc": 15, "t": 53.055, "rss_gib": 4.0606}
+{"ev": "node", "i": 3890, "d": 2, "rc": 15, "t": 53.056, "rss_gib": 4.0606}
+{"ev": "s", "t": 53.105, "phase": "recompute", "rss_gib": 4.0917, "avail_gib": 12.6532, "n_retire": 3894, "n_recompute": 15}
+{"ev": "node", "i": 3900, "d": 2, "rc": 15, "t": 53.134, "rss_gib": 4.0917}
+{"ev": "node", "i": 3910, "d": 2, "rc": 15, "t": 53.166, "rss_gib": 4.0918}
+{"ev": "bw_exit", "d": 1, "rc": 15, "i": 3914, "pins": 106, "sm_bwd": 45, "mi_before": {"arena_gib": 6.1331, "hblkhd_gib": 1.2675, "uordblks_gib": 1.9886, "fordblks_gib": 4.1445, "keepcost_gib": 0.0001, "hblks": 166}, "trim_gib": 0.4316, "mi_after": {"arena_gib": 6.133, "hblkhd_gib": 1.2675, "uordblks_gib": 1.9886, "fordblks_gib": 4.1444, "keepcost_gib": 0.0, "hblks": 166}, "t": 53.183, "rss_gib": 3.6615}
+{"ev": "s", "t": 53.309, "phase": "backward", "rss_gib": 3.8043, "avail_gib": 12.9176, "n_retire": 3916, "n_recompute": 15}
+{"ev": "bw_enter", "d": 1, "rc": 16, "i": 3916, "pins": 106, "t": 53.412, "rss_gib": 3.8889}
+{"ev": "node", "i": 3920, "d": 2, "rc": 16, "t": 53.413, "rss_gib": 3.8889}
+{"ev": "node", "i": 3930, "d": 2, "rc": 16, "t": 53.417, "rss_gib": 3.8919}
+{"ev": "node", "i": 3940, "d": 2, "rc": 16, "t": 53.449, "rss_gib": 3.8812}
+{"ev": "node", "i": 3950, "d": 2, "rc": 16, "t": 53.488, "rss_gib": 3.9128}
+{"ev": "s", "t": 53.51, "phase": "recompute", "rss_gib": 4.0296, "avail_gib": 12.6769, "n_retire": 3959, "n_recompute": 16}
+{"ev": "node", "i": 3960, "d": 2, "rc": 16, "t": 53.539, "rss_gib": 3.913}
+{"ev": "node", "i": 3970, "d": 2, "rc": 16, "t": 53.541, "rss_gib": 3.913}
+{"ev": "node", "i": 3980, "d": 2, "rc": 16, "t": 53.573, "rss_gib": 3.9132}
+{"ev": "node", "i": 3990, "d": 2, "rc": 16, "t": 53.627, "rss_gib": 3.9134}
+{"ev": "node", "i": 4000, "d": 2, "rc": 16, "t": 53.628, "rss_gib": 3.9134}
+{"ev": "node", "i": 4010, "d": 2, "rc": 16, "t": 53.692, "rss_gib": 3.9136}
+{"ev": "node", "i": 4020, "d": 2, "rc": 16, "t": 53.693, "rss_gib": 3.9136}
+{"ev": "s", "t": 53.711, "phase": "recompute", "rss_gib": 3.929, "avail_gib": 12.6841, "n_retire": 4023, "n_recompute": 16}
+{"ev": "node", "i": 4030, "d": 2, "rc": 16, "t": 53.76, "rss_gib": 3.9607}
+{"ev": "node", "i": 4040, "d": 2, "rc": 16, "t": 53.761, "rss_gib": 3.9607}
+{"ev": "bw_exit", "d": 1, "rc": 16, "i": 4047, "pins": 106, "sm_bwd": 48, "mi_before": {"arena_gib": 6.2425, "hblkhd_gib": 1.2675, "uordblks_gib": 1.9887, "fordblks_gib": 4.2538, "keepcost_gib": 0.0001, "hblks": 166}, "trim_gib": 0.3158, "mi_after": {"arena_gib": 6.2424, "hblkhd_gib": 1.2675, "uordblks_gib": 1.9887, "fordblks_gib": 4.2536, "keepcost_gib": 0.0, "hblks": 166}, "t": 53.807, "rss_gib": 3.6617}
+{"ev": "s", "t": 53.924, "phase": "backward", "rss_gib": 3.7324, "avail_gib": 12.839, "n_retire": 4049, "n_recompute": 16}
+{"ev": "bw_enter", "d": 1, "rc": 17, "i": 4049, "pins": 106, "t": 54.053, "rss_gib": 3.9266}
+{"ev": "node", "i": 4050, "d": 2, "rc": 17, "t": 54.053, "rss_gib": 3.9266}
+{"ev": "node", "i": 4060, "d": 2, "rc": 17, "t": 54.056, "rss_gib": 3.9301}
+{"ev": "node", "i": 4070, "d": 2, "rc": 17, "t": 54.059, "rss_gib": 3.9339}
+{"ev": "node", "i": 4080, "d": 2, "rc": 17, "t": 54.12, "rss_gib": 3.9505}
+{"ev": "node", "i": 4090, "d": 2, "rc": 17, "t": 54.121, "rss_gib": 3.9505}
+{"ev": "s", "t": 54.13, "phase": "recompute", "rss_gib": 3.9508, "avail_gib": 12.5317, "n_retire": 4092, "n_recompute": 17}
+{"ev": "node", "i": 4100, "d": 2, "rc": 17, "t": 54.174, "rss_gib": 3.9513}
+{"ev": "node", "i": 4110, "d": 2, "rc": 17, "t": 54.205, "rss_gib": 3.9204}
+{"ev": "node", "i": 4120, "d": 2, "rc": 17, "t": 54.206, "rss_gib": 3.9204}
+{"ev": "node", "i": 4130, "d": 2, "rc": 17, "t": 54.262, "rss_gib": 3.9204}
+{"ev": "node", "i": 4140, "d": 2, "rc": 17, "t": 54.292, "rss_gib": 3.9207}
+{"ev": "node", "i": 4150, "d": 2, "rc": 17, "t": 54.319, "rss_gib": 3.952}
+{"ev": "s", "t": 54.33, "phase": "recompute", "rss_gib": 3.952, "avail_gib": 12.4927, "n_retire": 4156, "n_recompute": 17}
+{"ev": "node", "i": 4160, "d": 2, "rc": 17, "t": 54.348, "rss_gib": 3.9524}
+{"ev": "node", "i": 4170, "d": 2, "rc": 17, "t": 54.376, "rss_gib": 3.9681}
+{"ev": "node", "i": 4180, "d": 2, "rc": 17, "t": 54.415, "rss_gib": 3.9843}
+{"ev": "bw_exit", "d": 1, "rc": 17, "i": 4180, "pins": 106, "sm_bwd": 51, "mi_before": {"arena_gib": 6.3206, "hblkhd_gib": 1.2675, "uordblks_gib": 1.9888, "fordblks_gib": 4.3318, "keepcost_gib": 0.0314, "hblks": 166}, "trim_gib": 0.3226, "mi_after": {"arena_gib": 6.2892, "hblkhd_gib": 1.2675, "uordblks_gib": 1.9888, "fordblks_gib": 4.3004, "keepcost_gib": 0.0, "hblks": 166}, "t": 54.426, "rss_gib": 3.6617}
+{"ev": "s", "t": 54.531, "phase": "backward", "rss_gib": 3.8003, "avail_gib": 12.6029, "n_retire": 4182, "n_recompute": 17}
+{"ev": "bw_enter", "d": 1, "rc": 18, "i": 4182, "pins": 106, "t": 54.644, "rss_gib": 3.8651}
+{"ev": "node", "i": 4190, "d": 2, "rc": 18, "t": 54.646, "rss_gib": 3.8681}
+{"ev": "node", "i": 4200, "d": 2, "rc": 18, "t": 54.649, "rss_gib": 3.8719}
+{"ev": "node", "i": 4210, "d": 2, "rc": 18, "t": 54.682, "rss_gib": 3.9189}
+{"ev": "node", "i": 4220, "d": 2, "rc": 18, "t": 54.713, "rss_gib": 3.9507}
+{"ev": "s", "t": 54.732, "phase": "recompute", "rss_gib": 4.0501, "avail_gib": 12.2961, "n_retire": 4225, "n_recompute": 18}
+{"ev": "node", "i": 4230, "d": 2, "rc": 18, "t": 54.764, "rss_gib": 3.9512}
+{"ev": "node", "i": 4240, "d": 2, "rc": 18, "t": 54.764, "rss_gib": 3.9512}
+{"ev": "node", "i": 4250, "d": 2, "rc": 18, "t": 54.827, "rss_gib": 3.9514}
+{"ev": "node", "i": 4260, "d": 2, "rc": 18, "t": 54.875, "rss_gib": 3.9518}
+{"ev": "node", "i": 4270, "d": 2, "rc": 18, "t": 54.875, "rss_gib": 3.9518}
+{"ev": "s", "t": 54.933, "phase": "recompute", "rss_gib": 3.9835, "avail_gib": 12.3646, "n_retire": 4275, "n_recompute": 18}
+{"ev": "node", "i": 4280, "d": 2, "rc": 18, "t": 54.943, "rss_gib": 3.9989}
+{"ev": "node", "i": 4290, "d": 2, "rc": 18, "t": 54.975, "rss_gib": 3.9835}
+{"ev": "node", "i": 4300, "d": 2, "rc": 18, "t": 55.003, "rss_gib": 3.9683}
+{"ev": "node", "i": 4310, "d": 2, "rc": 18, "t": 55.033, "rss_gib": 4.0154}
+{"ev": "bw_exit", "d": 1, "rc": 18, "i": 4313, "pins": 106, "sm_bwd": 54, "mi_before": {"arena_gib": 6.3987, "hblkhd_gib": 1.2675, "uordblks_gib": 1.989, "fordblks_gib": 4.4098, "keepcost_gib": 0.0314, "hblks": 166}, "trim_gib": 0.3534, "mi_after": {"arena_gib": 6.3674, "hblkhd_gib": 1.2675, "uordblks_gib": 1.989, "fordblks_gib": 4.3784, "keepcost_gib": 0.0, "hblks": 166}, "census": {"host_gib": 2.3664, "host_f64_gib": 0.198, "storages": 5799, "torch_objs": 6217, "tape_tensors": 5506, "tape_nodes": 2200, "census_s": 0.116}, "t": 55.163, "rss_gib": 3.675}
+{"ev": "s", "t": 55.163, "phase": "backward", "rss_gib": 3.675, "avail_gib": 12.6162, "n_retire": 4313, "n_recompute": 18}
+{"ev": "bw_enter", "d": 1, "rc": 19, "i": 4315, "pins": 106, "t": 55.367, "rss_gib": 3.8963}
+{"ev": "s", "t": 55.367, "phase": "recompute", "rss_gib": 3.8963, "avail_gib": 12.4051, "n_retire": 4315, "n_recompute": 19}
+{"ev": "node", "i": 4320, "d": 2, "rc": 19, "t": 55.368, "rss_gib": 3.8963}
+{"ev": "node", "i": 4330, "d": 2, "rc": 19, "t": 55.372, "rss_gib": 3.9008}
+{"ev": "node", "i": 4340, "d": 2, "rc": 19, "t": 55.407, "rss_gib": 3.8855}
+{"ev": "node", "i": 4350, "d": 2, "rc": 19, "t": 55.451, "rss_gib": 3.9011}
+{"ev": "node", "i": 4360, "d": 2, "rc": 19, "t": 55.504, "rss_gib": 3.9018}
+{"ev": "node", "i": 4370, "d": 2, "rc": 19, "t": 55.505, "rss_gib": 3.9018}
+{"ev": "node", "i": 4380, "d": 2, "rc": 19, "t": 55.546, "rss_gib": 3.9488}
+{"ev": "s", "t": 55.569, "phase": "recompute", "rss_gib": 3.9656, "avail_gib": 12.2801, "n_retire": 4387, "n_recompute": 19}
+{"ev": "node", "i": 4390, "d": 2, "rc": 19, "t": 55.609, "rss_gib": 3.8864}
+{"ev": "node", "i": 4400, "d": 2, "rc": 19, "t": 55.61, "rss_gib": 3.8864}
+{"ev": "node", "i": 4410, "d": 2, "rc": 19, "t": 55.691, "rss_gib": 3.9334}
+{"ev": "node", "i": 4420, "d": 2, "rc": 19, "t": 55.692, "rss_gib": 3.9334}
+{"ev": "node", "i": 4430, "d": 2, "rc": 19, "t": 55.769, "rss_gib": 3.9335}
+{"ev": "node", "i": 4440, "d": 2, "rc": 19, "t": 55.77, "rss_gib": 3.9335}
+{"ev": "s", "t": 55.77, "phase": "recompute", "rss_gib": 3.9335, "avail_gib": 12.2754, "n_retire": 4440, "n_recompute": 19}
+{"ev": "bw_exit", "d": 1, "rc": 19, "i": 4446, "pins": 106, "sm_bwd": 57, "mi_before": {"arena_gib": 6.43, "hblkhd_gib": 1.2675, "uordblks_gib": 1.9891, "fordblks_gib": 4.4409, "keepcost_gib": 0.0158, "hblks": 166}, "trim_gib": 0.2875, "mi_after": {"arena_gib": 6.4142, "hblkhd_gib": 1.2675, "uordblks_gib": 1.9891, "fordblks_gib": 4.4252, "keepcost_gib": 0.0, "hblks": 166}, "t": 55.823, "rss_gib": 3.6622}
+{"ev": "s", "t": 55.988, "phase": "backward", "rss_gib": 3.8111, "avail_gib": 12.3747, "n_retire": 4448, "n_recompute": 19}
+{"ev": "bw_enter", "d": 1, "rc": 20, "i": 4448, "pins": 106, "t": 56.05, "rss_gib": 3.8805}
+{"ev": "node", "i": 4450, "d": 2, "rc": 20, "t": 56.051, "rss_gib": 3.8805}
+{"ev": "node", "i": 4460, "d": 2, "rc": 20, "t": 56.053, "rss_gib": 3.883}
+{"ev": "node", "i": 4470, "d": 2, "rc": 20, "t": 56.056, "rss_gib": 3.8869}
+{"ev": "node", "i": 4480, "d": 2, "rc": 20, "t": 56.117, "rss_gib": 3.919}
+{"ev": "node", "i": 4490, "d": 2, "rc": 20, "t": 56.119, "rss_gib": 3.919}
+{"ev": "node", "i": 4500, "d": 2, "rc": 20, "t": 56.177, "rss_gib": 3.9192}
+{"ev": "s", "t": 56.19, "phase": "recompute", "rss_gib": 3.9192, "avail_gib": 12.2286, "n_retire": 4507, "n_recompute": 20}
+{"ev": "node", "i": 4510, "d": 2, "rc": 20, "t": 56.214, "rss_gib": 3.9349}
+{"ev": "node", "i": 4520, "d": 2, "rc": 20, "t": 56.215, "rss_gib": 3.9349}
+{"ev": "node", "i": 4530, "d": 2, "rc": 20, "t": 56.27, "rss_gib": 3.9355}
+{"ev": "node", "i": 4540, "d": 2, "rc": 20, "t": 56.301, "rss_gib": 3.9671}
+{"ev": "node", "i": 4550, "d": 2, "rc": 20, "t": 56.34, "rss_gib": 3.9674}
+{"ev": "s", "t": 56.39, "phase": "recompute", "rss_gib": 3.9837, "avail_gib": 12.1606, "n_retire": 4559, "n_recompute": 20}
+{"ev": "node", "i": 4560, "d": 2, "rc": 20, "t": 56.401, "rss_gib": 3.9682}
+{"ev": "node", "i": 4570, "d": 2, "rc": 20, "t": 56.402, "rss_gib": 3.9682}
+{"ev": "bw_exit", "d": 1, "rc": 20, "i": 4579, "pins": 106, "sm_bwd": 60, "mi_before": {"arena_gib": 6.4456, "hblkhd_gib": 1.2675, "uordblks_gib": 1.9896, "fordblks_gib": 4.4561, "keepcost_gib": 0.0001, "hblks": 166}, "trim_gib": 0.3067, "mi_after": {"arena_gib": 6.4455, "hblkhd_gib": 1.2675, "uordblks_gib": 1.9896, "fordblks_gib": 4.4559, "keepcost_gib": 0.0, "hblks": 166}, "t": 56.447, "rss_gib": 3.6628}
+{"ev": "node", "i": 4580, "d": 1, "rc": 20, "t": 56.447, "rss_gib": 3.5378}
+{"ev": "s", "t": 56.592, "phase": "backward", "rss_gib": 3.8127, "avail_gib": 12.2997, "n_retire": 4581, "n_recompute": 20}
+{"ev": "bw_enter", "d": 1, "rc": 21, "i": 4581, "pins": 106, "t": 56.664, "rss_gib": 3.8825}
+{"ev": "node", "i": 4590, "d": 2, "rc": 21, "t": 56.666, "rss_gib": 3.8855}
+{"ev": "node", "i": 4600, "d": 2, "rc": 21, "t": 56.669, "rss_gib": 3.8897}
+{"ev": "node", "i": 4610, "d": 2, "rc": 21, "t": 56.698, "rss_gib": 3.89}
+{"ev": "node", "i": 4620, "d": 2, "rc": 21, "t": 56.728, "rss_gib": 3.937}
+{"ev": "node", "i": 4630, "d": 2, "rc": 21, "t": 56.776, "rss_gib": 3.938}
+{"ev": "node", "i": 4640, "d": 2, "rc": 21, "t": 56.777, "rss_gib": 3.938}
+{"ev": "s", "t": 56.793, "phase": "recompute", "rss_gib": 3.9661, "avail_gib": 12.7483, "n_retire": 4640, "n_recompute": 21}
+{"ev": "node", "i": 4650, "d": 2, "rc": 21, "t": 56.805, "rss_gib": 3.9694}
+{"ev": "node", "i": 4660, "d": 2, "rc": 21, "t": 56.852, "rss_gib": 3.9696}
+{"ev": "node", "i": 4670, "d": 2, "rc": 21, "t": 56.882, "rss_gib": 3.9851}
+{"ev": "node", "i": 4680, "d": 2, "rc": 21, "t": 56.909, "rss_gib": 3.9695}
+{"ev": "node", "i": 4690, "d": 2, "rc": 21, "t": 56.939, "rss_gib": 4.0008}
+{"ev": "node", "i": 4700, "d": 2, "rc": 21, "t": 56.97, "rss_gib": 4.0321}
+{"ev": "s", "t": 56.998, "phase": "recompute", "rss_gib": 4.0949, "avail_gib": 12.5932, "n_retire": 4706, "n_recompute": 21}
+{"ev": "node", "i": 4710, "d": 2, "rc": 21, "t": 56.998, "rss_gib": 4.0478}
+{"ev": "bw_exit", "d": 1, "rc": 21, "i": 4712, "pins": 106, "sm_bwd": 63, "mi_before": {"arena_gib": 6.6019, "hblkhd_gib": 1.2675, "uordblks_gib": 1.9897, "fordblks_gib": 4.6122, "keepcost_gib": 0.0157, "hblks": 166}, "trim_gib": 0.3847, "mi_after": {"arena_gib": 6.5861, "hblkhd_gib": 1.2675, "uordblks_gib": 1.9897, "fordblks_gib": 4.5965, "keepcost_gib": 0.0, "hblks": 166}, "t": 57.01, "rss_gib": 3.6631}
+{"ev": "s", "t": 57.198, "phase": "backward", "rss_gib": 3.8578, "avail_gib": 12.8393, "n_retire": 4714, "n_recompute": 21}
+{"ev": "bw_enter", "d": 1, "rc": 22, "i": 4714, "pins": 106, "t": 57.199, "rss_gib": 3.8585}
+{"ev": "node", "i": 4720, "d": 2, "rc": 22, "t": 57.202, "rss_gib": 3.8611}
+{"ev": "node", "i": 4730, "d": 2, "rc": 22, "t": 57.204, "rss_gib": 3.8648}
+{"ev": "node", "i": 4740, "d": 2, "rc": 22, "t": 57.234, "rss_gib": 3.928}
+{"ev": "node", "i": 4750, "d": 2, "rc": 22, "t": 57.262, "rss_gib": 3.9436}
+{"ev": "node", "i": 4760, "d": 2, "rc": 22, "t": 57.312, "rss_gib": 3.9446}
+{"ev": "node", "i": 4770, "d": 2, "rc": 22, "t": 57.313, "rss_gib": 3.9446}
+{"ev": "node", "i": 4780, "d": 2, "rc": 22, "t": 57.339, "rss_gib": 3.9446}
+{"ev": "node", "i": 4790, "d": 2, "rc": 22, "t": 57.389, "rss_gib": 3.9447}
+{"ev": "node", "i": 4800, "d": 2, "rc": 22, "t": 57.39, "rss_gib": 3.9447}
+{"ev": "s", "t": 57.399, "phase": "recompute", "rss_gib": 3.9447, "avail_gib": 12.7477, "n_retire": 4802, "n_recompute": 22}
+{"ev": "node", "i": 4810, "d": 2, "rc": 22, "t": 57.445, "rss_gib": 3.9762}
+{"ev": "node", "i": 4820, "d": 2, "rc": 22, "t": 57.446, "rss_gib": 3.9762}
+{"ev": "node", "i": 4830, "d": 2, "rc": 22, "t": 57.503, "rss_gib": 3.9765}
+{"ev": "node", "i": 4840, "d": 2, "rc": 22, "t": 57.533, "rss_gib": 3.9769}
+{"ev": "bw_exit", "d": 1, "rc": 22, "i": 4845, "pins": 106, "sm_bwd": 66, "mi_before": {"arena_gib": 6.6331, "hblkhd_gib": 1.2675, "uordblks_gib": 1.9898, "fordblks_gib": 4.6433, "keepcost_gib": 0.0001, "hblks": 166}, "trim_gib": 0.3146, "mi_after": {"arena_gib": 6.633, "hblkhd_gib": 1.2675, "uordblks_gib": 1.9898, "fordblks_gib": 4.6432, "keepcost_gib": 0.0, "hblks": 166}, "t": 57.543, "rss_gib": 3.663}
+{"ev": "s", "t": 57.6, "phase": "backward", "rss_gib": 3.6866, "avail_gib": 13.0118, "n_retire": 4847, "n_recompute": 22}
+{"ev": "bw_enter", "d": 1, "rc": 23, "i": 4847, "pins": 106, "t": 57.752, "rss_gib": 3.8815}
+{"ev": "node", "i": 4850, "d": 2, "rc": 23, "t": 57.752, "rss_gib": 3.8815}
+{"ev": "node", "i": 4860, "d": 2, "rc": 23, "t": 57.755, "rss_gib": 3.8848}
+{"ev": "node", "i": 4870, "d": 2, "rc": 23, "t": 57.758, "rss_gib": 3.8895}
+{"ev": "s", "t": 57.8, "phase": "recompute", "rss_gib": 3.9052, "avail_gib": 12.7837, "n_retire": 4877, "n_recompute": 23}
+{"ev": "node", "i": 4880, "d": 2, "rc": 23, "t": 57.812, "rss_gib": 3.8899}
+{"ev": "node", "i": 4890, "d": 2, "rc": 23, "t": 57.812, "rss_gib": 3.8899}
+{"ev": "node", "i": 4900, "d": 2, "rc": 23, "t": 57.859, "rss_gib": 3.8901}
+{"ev": "node", "i": 4910, "d": 2, "rc": 23, "t": 57.89, "rss_gib": 3.9057}
+{"ev": "node", "i": 4920, "d": 2, "rc": 23, "t": 57.943, "rss_gib": 3.9062}
+{"ev": "node", "i": 4930, "d": 2, "rc": 23, "t": 57.944, "rss_gib": 3.9062}
+{"ev": "node", "i": 4940, "d": 2, "rc": 23, "t": 57.973, "rss_gib": 3.9218}
+{"ev": "node", "i": 4950, "d": 2, "rc": 23, "t": 58.0, "rss_gib": 3.9376}
+{"ev": "s", "t": 58.004, "phase": "recompute", "rss_gib": 3.9376, "avail_gib": 12.7454, "n_retire": 4954, "n_recompute": 23}
+{"ev": "node", "i": 4960, "d": 2, "rc": 23, "t": 58.06, "rss_gib": 3.9691}
+{"ev": "node", "i": 4970, "d": 2, "rc": 23, "t": 58.061, "rss_gib": 3.9691}
+{"ev": "bw_exit", "d": 1, "rc": 23, "i": 4978, "pins": 106, "sm_bwd": 69, "mi_before": {"arena_gib": 6.7425, "hblkhd_gib": 1.2675, "uordblks_gib": 1.9899, "fordblks_gib": 4.7526, "keepcost_gib": 0.0314, "hblks": 166}, "trim_gib": 0.3369, "mi_after": {"arena_gib": 6.7111, "hblkhd_gib": 1.2675, "uordblks_gib": 1.9899, "fordblks_gib": 4.7212, "keepcost_gib": 0.0, "hblks": 166}, "t": 58.105, "rss_gib": 3.6635}
+{"ev": "node", "i": 4980, "d": 1, "rc": 23, "t": 58.106, "rss_gib": 3.5385}
+{"ev": "s", "t": 58.206, "phase": "backward", "rss_gib": 3.7189, "avail_gib": 12.9432, "n_retire": 4980, "n_recompute": 23}
+{"ev": "bw_enter", "d": 1, "rc": 24, "i": 4980, "pins": 106, "t": 58.324, "rss_gib": 3.883}
+{"ev": "node", "i": 4990, "d": 2, "rc": 24, "t": 58.328, "rss_gib": 3.886}
+{"ev": "node", "i": 5000, "d": 2, "rc": 24, "t": 58.331, "rss_gib": 3.89}
+{"ev": "node", "i": 5010, "d": 2, "rc": 24, "t": 58.36, "rss_gib": 3.9065}
+{"ev": "node", "i": 5020, "d": 2, "rc": 24, "t": 58.392, "rss_gib": 3.9381}
+{"ev": "s", "t": 58.407, "phase": "recompute", "rss_gib": 4.0177, "avail_gib": 12.6331, "n_retire": 5023, "n_recompute": 24}
+{"ev": "node", "i": 5030, "d": 2, "rc": 24, "t": 58.446, "rss_gib": 3.9386}
+{"ev": "node", "i": 5040, "d": 2, "rc": 24, "t": 58.478, "rss_gib": 4.0011}
+{"ev": "node", "i": 5050, "d": 2, "rc": 24, "t": 58.479, "rss_gib": 4.0011}
+{"ev": "node", "i": 5060, "d": 2, "rc": 24, "t": 58.536, "rss_gib": 4.001}
+{"ev": "node", "i": 5070, "d": 2, "rc": 24, "t": 58.565, "rss_gib": 4.0012}
+{"ev": "node", "i": 5080, "d": 2, "rc": 24, "t": 58.594, "rss_gib": 3.9859}
+{"ev": "s", "t": 58.608, "phase": "recompute", "rss_gib": 4.0172, "avail_gib": 12.6311, "n_retire": 5087, "n_recompute": 24}
+{"ev": "node", "i": 5090, "d": 2, "rc": 24, "t": 58.624, "rss_gib": 4.0176}
+{"ev": "node", "i": 5100, "d": 2, "rc": 24, "t": 58.653, "rss_gib": 4.018}
+{"ev": "node", "i": 5110, "d": 2, "rc": 24, "t": 58.686, "rss_gib": 4.0649}
+{"ev": "s", "t": 58.819, "phase": "backward", "rss_gib": 3.6761, "avail_gib": 12.9427, "n_retire": 5111, "n_recompute": 24}
+{"ev": "bw_exit", "d": 1, "rc": 24, "i": 5111, "pins": 106, "sm_bwd": 72, "mi_before": {"arena_gib": 6.8675, "hblkhd_gib": 1.2675, "uordblks_gib": 1.99, "fordblks_gib": 4.8775, "keepcost_gib": 0.0001, "hblks": 166}, "trim_gib": 0.4015, "mi_after": {"arena_gib": 6.8674, "hblkhd_gib": 1.2675, "uordblks_gib": 1.99, "fordblks_gib": 4.8774, "keepcost_gib": 0.0, "hblks": 166}, "census": {"host_gib": 2.3664, "host_f64_gib": 0.198, "storages": 5799, "torch_objs": 6217, "tape_tensors": 5518, "tape_nodes": 2200, "census_s": 0.12}, "t": 58.82, "rss_gib": 3.6761}
+{"ev": "s", "t": 59.021, "phase": "backward", "rss_gib": 3.8078, "avail_gib": 12.7794, "n_retire": 5113, "n_recompute": 24}
+{"ev": "bw_enter", "d": 1, "rc": 25, "i": 5113, "pins": 106, "t": 59.076, "rss_gib": 3.8747}
+{"ev": "node", "i": 5120, "d": 2, "rc": 25, "t": 59.079, "rss_gib": 3.8772}
+{"ev": "node", "i": 5130, "d": 2, "rc": 25, "t": 59.081, "rss_gib": 3.8794}
+{"ev": "node", "i": 5140, "d": 2, "rc": 25, "t": 59.105, "rss_gib": 3.8954}
+{"ev": "node", "i": 5150, "d": 2, "rc": 25, "t": 59.131, "rss_gib": 3.9267}
+{"ev": "node", "i": 5160, "d": 2, "rc": 25, "t": 59.177, "rss_gib": 3.9272}
+{"ev": "node", "i": 5170, "d": 2, "rc": 25, "t": 59.177, "rss_gib": 3.9272}
+{"ev": "node", "i": 5180, "d": 2, "rc": 25, "t": 59.207, "rss_gib": 3.9272}
+{"ev": "s", "t": 59.221, "phase": "recompute", "rss_gib": 3.9742, "avail_gib": 12.6466, "n_retire": 5185, "n_recompute": 25}
+{"ev": "node", "i": 5190, "d": 2, "rc": 25, "t": 59.259, "rss_gib": 3.9276}
+{"ev": "node", "i": 5200, "d": 2, "rc": 25, "t": 59.26, "rss_gib": 3.9276}
+{"ev": "node", "i": 5210, "d": 2, "rc": 25, "t": 59.309, "rss_gib": 3.9279}
+{"ev": "node", "i": 5220, "d": 2, "rc": 25, "t": 59.31, "rss_gib": 3.9279}
+{"ev": "node", "i": 5230, "d": 2, "rc": 25, "t": 59.359, "rss_gib": 3.9438}
+{"ev": "node", "i": 5240, "d": 2, "rc": 25, "t": 59.385, "rss_gib": 3.9285}
+{"ev": "bw_exit", "d": 1, "rc": 25, "i": 5244, "pins": 106, "sm_bwd": 75, "mi_before": {"arena_gib": 6.8675, "hblkhd_gib": 1.2675, "uordblks_gib": 1.9901, "fordblks_gib": 4.8774, "keepcost_gib": 0.0001, "hblks": 166}, "trim_gib": 0.2651, "mi_after": {"arena_gib": 6.8674, "hblkhd_gib": 1.2675, "uordblks_gib": 1.9901, "fordblks_gib": 4.8772, "keepcost_gib": 0.0, "hblks": 166}, "t": 59.395, "rss_gib": 3.6636}
+{"ev": "s", "t": 59.422, "phase": "backward", "rss_gib": 3.6729, "avail_gib": 13.1159, "n_retire": 5246, "n_recompute": 25}
+{"ev": "bw_enter", "d": 1, "rc": 26, "i": 5246, "pins": 106, "t": 59.592, "rss_gib": 3.8679}
+{"ev": "node", "i": 5250, "d": 2, "rc": 26, "t": 59.593, "rss_gib": 3.8679}
+{"ev": "node", "i": 5260, "d": 2, "rc": 26, "t": 59.595, "rss_gib": 3.8697}
+{"ev": "s", "t": 59.625, "phase": "recompute", "rss_gib": 3.953, "avail_gib": 12.8176, "n_retire": 5269, "n_recompute": 26}
+{"ev": "node", "i": 5270, "d": 2, "rc": 26, "t": 59.626, "rss_gib": 3.9059}
+{"ev": "node", "i": 5280, "d": 2, "rc": 26, "t": 59.654, "rss_gib": 3.9062}
+{"ev": "node", "i": 5290, "d": 2, "rc": 26, "t": 59.701, "rss_gib": 3.9063}
+{"ev": "node", "i": 5300, "d": 2, "rc": 26, "t": 59.702, "rss_gib": 3.9063}
+{"ev": "node", "i": 5310, "d": 2, "rc": 26, "t": 59.739, "rss_gib": 3.9067}
+{"ev": "node", "i": 5320, "d": 2, "rc": 26, "t": 59.791, "rss_gib": 3.907}
+{"ev": "node", "i": 5330, "d": 2, "rc": 26, "t": 59.792, "rss_gib": 3.907}
+{"ev": "s", "t": 59.826, "phase": "recompute", "rss_gib": 3.9385, "avail_gib": 12.859, "n_retire": 5339, "n_recompute": 26}
+{"ev": "node", "i": 5340, "d": 2, "rc": 26, "t": 59.847, "rss_gib": 3.9231}
+{"ev": "node", "i": 5350, "d": 2, "rc": 26, "t": 59.849, "rss_gib": 3.9231}
+{"ev": "node", "i": 5360, "d": 2, "rc": 26, "t": 59.907, "rss_gib": 3.9547}
+{"ev": "node", "i": 5370, "d": 2, "rc": 26, "t": 59.907, "rss_gib": 3.9547}
+{"ev": "bw_exit", "d": 1, "rc": 26, "i": 5377, "pins": 106, "sm_bwd": 78, "mi_before": {"arena_gib": 6.93, "hblkhd_gib": 1.2675, "uordblks_gib": 1.9902, "fordblks_gib": 4.9398, "keepcost_gib": 0.0158, "hblks": 166}, "trim_gib": 0.3077, "mi_after": {"arena_gib": 6.9143, "hblkhd_gib": 1.2675, "uordblks_gib": 1.9902, "fordblks_gib": 4.924, "keepcost_gib": 0.0, "hblks": 166}, "t": 59.946, "rss_gib": 3.6638}
+{"ev": "s", "t": 60.039, "phase": "backward", "rss_gib": 3.7053, "avail_gib": 13.1177, "n_retire": 5379, "n_recompute": 26}
+{"ev": "bw_enter", "d": 1, "rc": 27, "i": 5379, "pins": 106, "t": 60.146, "rss_gib": 3.8684}
+{"ev": "node", "i": 5380, "d": 2, "rc": 27, "t": 60.146, "rss_gib": 3.8684}
+{"ev": "node", "i": 5390, "d": 2, "rc": 27, "t": 60.148, "rss_gib": 3.8704}
+{"ev": "node", "i": 5400, "d": 2, "rc": 27, "t": 60.151, "rss_gib": 3.8748}
+{"ev": "node", "i": 5410, "d": 2, "rc": 27, "t": 60.21, "rss_gib": 3.946}
+{"ev": "node", "i": 5420, "d": 2, "rc": 27, "t": 60.211, "rss_gib": 3.946}
+{"ev": "s", "t": 60.24, "phase": "recompute", "rss_gib": 4.0335, "avail_gib": 12.8152, "n_retire": 5422, "n_recompute": 27}
+{"ev": "node", "i": 5430, "d": 2, "rc": 27, "t": 60.264, "rss_gib": 3.9464}
+{"ev": "node", "i": 5440, "d": 2, "rc": 27, "t": 60.292, "rss_gib": 3.9463}
+{"ev": "node", "i": 5450, "d": 2, "rc": 27, "t": 60.293, "rss_gib": 3.9463}
+{"ev": "node", "i": 5460, "d": 2, "rc": 27, "t": 60.347, "rss_gib": 3.9465}
+{"ev": "node", "i": 5470, "d": 2, "rc": 27, "t": 60.376, "rss_gib": 3.9623}
+{"ev": "node", "i": 5480, "d": 2, "rc": 27, "t": 60.403, "rss_gib": 3.9784}
+{"ev": "node", "i": 5490, "d": 2, "rc": 27, "t": 60.431, "rss_gib": 3.9788}
+{"ev": "s", "t": 60.441, "phase": "recompute", "rss_gib": 3.9788, "avail_gib": 12.8649, "n_retire": 5490, "n_recompute": 27}
+{"ev": "node", "i": 5500, "d": 2, "rc": 27, "t": 60.457, "rss_gib": 3.9945}
+{"ev": "node", "i": 5510, "d": 2, "rc": 27, "t": 60.489, "rss_gib": 4.0417}
+{"ev": "bw_exit", "d": 1, "rc": 27, "i": 5510, "pins": 106, "sm_bwd": 81, "mi_before": {"arena_gib": 7.0706, "hblkhd_gib": 1.2675, "uordblks_gib": 1.9904, "fordblks_gib": 5.0803, "keepcost_gib": 0.0001, "hblks": 166}, "trim_gib": 0.3776, "mi_after": {"arena_gib": 7.0705, "hblkhd_gib": 1.2675, "uordblks_gib": 1.9904, "fordblks_gib": 5.0801, "keepcost_gib": 0.0, "hblks": 166}, "t": 60.499, "rss_gib": 3.6641}
+{"ev": "s", "t": 60.641, "phase": "backward", "rss_gib": 3.8048, "avail_gib": 13.008, "n_retire": 5512, "n_recompute": 27}
+{"ev": "bw_enter", "d": 1, "rc": 28, "i": 5512, "pins": 106, "t": 60.697, "rss_gib": 3.8509}
+{"ev": "node", "i": 5520, "d": 2, "rc": 28, "t": 60.699, "rss_gib": 3.8534}
+{"ev": "node", "i": 5530, "d": 2, "rc": 28, "t": 60.702, "rss_gib": 3.8572}
+{"ev": "node", "i": 5540, "d": 2, "rc": 28, "t": 60.73, "rss_gib": 3.8888}
+{"ev": "node", "i": 5550, "d": 2, "rc": 28, "t": 60.759, "rss_gib": 3.9052}
+{"ev": "node", "i": 5560, "d": 2, "rc": 28, "t": 60.806, "rss_gib": 3.9063}
+{"ev": "node", "i": 5570, "d": 2, "rc": 28, "t": 60.807, "rss_gib": 3.9063}
+{"ev": "node", "i": 5580, "d": 2, "rc": 28, "t": 60.837, "rss_gib": 3.9221}
+{"ev": "s", "t": 60.848, "phase": "recompute", "rss_gib": 3.9533, "avail_gib": 12.8596, "n_retire": 5584, "n_recompute": 28}
+{"ev": "node", "i": 5590, "d": 2, "rc": 28, "t": 60.888, "rss_gib": 3.9219}
+{"ev": "node", "i": 5600, "d": 2, "rc": 28, "t": 60.889, "rss_gib": 3.9219}
+{"ev": "node", "i": 5610, "d": 2, "rc": 28, "t": 60.942, "rss_gib": 3.9224}
+{"ev": "node", "i": 5620, "d": 2, "rc": 28, "t": 60.971, "rss_gib": 3.9851}
+{"ev": "node", "i": 5630, "d": 2, "rc": 28, "t": 60.995, "rss_gib": 4.0008}
+{"ev": "node", "i": 5640, "d": 2, "rc": 28, "t": 61.024, "rss_gib": 4.0167}
+{"ev": "bw_exit", "d": 1, "rc": 28, "i": 5643, "pins": 106, "sm_bwd": 84, "mi_before": {"arena_gib": 7.2425, "hblkhd_gib": 1.2675, "uordblks_gib": 1.9907, "fordblks_gib": 5.2518, "keepcost_gib": 0.0157, "hblks": 166}, "trim_gib": 0.3523, "mi_after": {"arena_gib": 7.2268, "hblkhd_gib": 1.2675, "uordblks_gib": 1.9907, "fordblks_gib": 5.2361, "keepcost_gib": 0.0, "hblks": 166}, "t": 61.033, "rss_gib": 3.6644}
+{"ev": "s", "t": 61.049, "phase": "backward", "rss_gib": 3.6225, "avail_gib": 13.2012, "n_retire": 5645, "n_recompute": 28}
+{"ev": "bw_enter", "d": 1, "rc": 29, "i": 5645, "pins": 106, "t": 61.216, "rss_gib": 3.9215}
+{"ev": "node", "i": 5650, "d": 2, "rc": 29, "t": 61.217, "rss_gib": 3.9215}
+{"ev": "node", "i": 5660, "d": 2, "rc": 29, "t": 61.22, "rss_gib": 3.928}
+{"ev": "node", "i": 5670, "d": 2, "rc": 29, "t": 61.243, "rss_gib": 3.9437}
+{"ev": "s", "t": 61.25, "phase": "recompute", "rss_gib": 3.9437, "avail_gib": 12.8829, "n_retire": 5675, "n_recompute": 29}
+{"ev": "node", "i": 5680, "d": 2, "rc": 29, "t": 61.27, "rss_gib": 3.9282}
+{"ev": "node", "i": 5690, "d": 2, "rc": 29, "t": 61.314, "rss_gib": 3.9291}
+{"ev": "node", "i": 5700, "d": 2, "rc": 29, "t": 61.315, "rss_gib": 3.9291}
+{"ev": "node", "i": 5710, "d": 2, "rc": 29, "t": 61.341, "rss_gib": 3.9604}
+{"ev": "node", "i": 5720, "d": 2, "rc": 29, "t": 61.385, "rss_gib": 3.9604}
+{"ev": "node", "i": 5730, "d": 2, "rc": 29, "t": 61.386, "rss_gib": 3.9604}
+{"ev": "node", "i": 5740, "d": 2, "rc": 29, "t": 61.436, "rss_gib": 3.9605}
+{"ev": "node", "i": 5750, "d": 2, "rc": 29, "t": 61.437, "rss_gib": 3.9605}
+{"ev": "s", "t": 61.451, "phase": "recompute", "rss_gib": 3.9867, "avail_gib": 12.827, "n_retire": 5752, "n_recompute": 29}
+{"ev": "node", "i": 5760, "d": 2, "rc": 29, "t": 61.49, "rss_gib": 4.0075}
+{"ev": "node", "i": 5770, "d": 2, "rc": 29, "t": 61.491, "rss_gib": 4.0075}
+{"ev": "bw_exit", "d": 1, "rc": 29, "i": 5776, "pins": 106, "sm_bwd": 87, "mi_before": {"arena_gib": 7.3363, "hblkhd_gib": 1.2675, "uordblks_gib": 1.9908, "fordblks_gib": 5.3455, "keepcost_gib": 0.0001, "hblks": 166}, "trim_gib": 0.3743, "mi_after": {"arena_gib": 7.3361, "hblkhd_gib": 1.2675, "uordblks_gib": 1.9908, "fordblks_gib": 5.3454, "keepcost_gib": 0.0, "hblks": 166}, "t": 61.529, "rss_gib": 3.6645}
+{"ev": "s", "t": 61.661, "phase": "backward", "rss_gib": 3.7941, "avail_gib": 13.0246, "n_retire": 5778, "n_recompute": 29}
+{"ev": "bw_enter", "d": 1, "rc": 30, "i": 5778, "pins": 106, "t": 61.711, "rss_gib": 3.8588}
+{"ev": "node", "i": 5780, "d": 2, "rc": 30, "t": 61.712, "rss_gib": 3.8588}
+{"ev": "node", "i": 5790, "d": 2, "rc": 30, "t": 61.714, "rss_gib": 3.8619}
+{"ev": "node", "i": 5800, "d": 2, "rc": 30, "t": 61.716, "rss_gib": 3.8666}
+{"ev": "node", "i": 5810, "d": 2, "rc": 30, "t": 61.765, "rss_gib": 3.9295}
+{"ev": "node", "i": 5820, "d": 2, "rc": 30, "t": 61.765, "rss_gib": 3.9295}
+{"ev": "node", "i": 5830, "d": 2, "rc": 30, "t": 61.812, "rss_gib": 3.9303}
+{"ev": "node", "i": 5840, "d": 2, "rc": 30, "t": 61.843, "rss_gib": 3.9462}
+{"ev": "node", "i": 5850, "d": 2, "rc": 30, "t": 61.844, "rss_gib": 3.9462}
+{"ev": "s", "t": 61.862, "phase": "recompute", "rss_gib": 4.061, "avail_gib": 12.769, "n_retire": 5850, "n_recompute": 30}
+{"ev": "node", "i": 5860, "d": 2, "rc": 30, "t": 61.89, "rss_gib": 3.946}
+{"ev": "node", "i": 5870, "d": 2, "rc": 30, "t": 61.925, "rss_gib": 3.9619}
+{"ev": "node", "i": 5880, "d": 2, "rc": 30, "t": 61.952, "rss_gib": 3.9621}
+{"ev": "node", "i": 5890, "d": 2, "rc": 30, "t": 62.015, "rss_gib": 4.0404}
+{"ev": "node", "i": 5900, "d": 2, "rc": 30, "t": 62.016, "rss_gib": 4.0404}
+{"ev": "s", "t": 62.062, "phase": "backward", "rss_gib": 3.6646, "avail_gib": 13.1196, "n_retire": 5909, "n_recompute": 30}
+{"ev": "bw_exit", "d": 1, "rc": 30, "i": 5909, "pins": 106, "sm_bwd": 90, "mi_before": {"arena_gib": 7.4613, "hblkhd_gib": 1.2675, "uordblks_gib": 1.9909, "fordblks_gib": 5.4704, "keepcost_gib": 0.0158, "hblks": 166}, "trim_gib": 0.3765, "mi_after": {"arena_gib": 7.4455, "hblkhd_gib": 1.2675, "uordblks_gib": 1.9909, "fordblks_gib": 5.4546, "keepcost_gib": 0.0, "hblks": 166}, "census": {"host_gib": 2.3664, "host_f64_gib": 0.198, "storages": 5799, "torch_objs": 6217, "tape_tensors": 5530, "tape_nodes": 2200, "census_s": 0.104}, "t": 62.167, "rss_gib": 3.6771}
+{"ev": "node", "i": 5910, "d": 1, "rc": 30, "t": 62.168, "rss_gib": 3.5522}
+{"ev": "s", "t": 62.274, "phase": "backward", "rss_gib": 3.7301, "avail_gib": 12.9895, "n_retire": 5911, "n_recompute": 30}
+{"ev": "bw_enter", "d": 1, "rc": 31, "i": 5911, "pins": 106, "t": 62.413, "rss_gib": 3.9229}
+{"ev": "node", "i": 5920, "d": 2, "rc": 31, "t": 62.417, "rss_gib": 3.9247}
+{"ev": "node", "i": 5930, "d": 2, "rc": 31, "t": 62.42, "rss_gib": 3.9269}
+{"ev": "node", "i": 5940, "d": 2, "rc": 31, "t": 62.449, "rss_gib": 3.9742}
+{"ev": "s", "t": 62.475, "phase": "recompute", "rss_gib": 4.031, "avail_gib": 12.6435, "n_retire": 5941, "n_recompute": 31}
+{"ev": "node", "i": 5950, "d": 2, "rc": 31, "t": 62.484, "rss_gib": 3.99}
+{"ev": "node", "i": 5960, "d": 2, "rc": 31, "t": 62.546, "rss_gib": 3.9902}
+{"ev": "node", "i": 5970, "d": 2, "rc": 31, "t": 62.546, "rss_gib": 3.9902}
+{"ev": "node", "i": 5980, "d": 2, "rc": 31, "t": 62.579, "rss_gib": 3.9746}
+{"ev": "node", "i": 5990, "d": 2, "rc": 31, "t": 62.635, "rss_gib": 3.9748}
+{"ev": "node", "i": 6000, "d": 2, "rc": 31, "t": 62.668, "rss_gib": 3.9748}
+{"ev": "s", "t": 62.676, "phase": "recompute", "rss_gib": 3.9748, "avail_gib": 12.6131, "n_retire": 6004, "n_recompute": 31}
+{"ev": "node", "i": 6010, "d": 2, "rc": 31, "t": 62.7, "rss_gib": 3.975}
+{"ev": "node", "i": 6020, "d": 2, "rc": 31, "t": 62.735, "rss_gib": 4.0219}
+{"ev": "node", "i": 6030, "d": 2, "rc": 31, "t": 62.764, "rss_gib": 4.0222}
+{"ev": "node", "i": 6040, "d": 2, "rc": 31, "t": 62.802, "rss_gib": 4.0534}
+{"ev": "bw_exit", "d": 1, "rc": 31, "i": 6042, "pins": 106, "sm_bwd": 93, "mi_before": {"arena_gib": 7.5394, "hblkhd_gib": 1.2675, "uordblks_gib": 1.991, "fordblks_gib": 5.5484, "keepcost_gib": 0.0001, "hblks": 166}, "trim_gib": 0.3886, "mi_after": {"arena_gib": 7.5393, "hblkhd_gib": 1.2675, "uordblks_gib": 1.991, "fordblks_gib": 5.5482, "keepcost_gib": 0.0, "hblks": 166}, "t": 62.815, "rss_gib": 3.6649}
+{"ev": "s", "t": 62.877, "phase": "backward", "rss_gib": 3.665, "avail_gib": 12.8832, "n_retire": 6044, "n_recompute": 31}
+{"ev": "bw_enter", "d": 1, "rc": 32, "i": 6044, "pins": 106, "t": 63.039, "rss_gib": 3.8902}
+{"ev": "node", "i": 6050, "d": 2, "rc": 32, "t": 63.042, "rss_gib": 3.8935}
+{"ev": "node", "i": 6060, "d": 2, "rc": 32, "t": 63.044, "rss_gib": 3.8975}
+{"ev": "node", "i": 6070, "d": 2, "rc": 32, "t": 63.077, "rss_gib": 3.9389}
+{"ev": "s", "t": 63.081, "phase": "recompute", "rss_gib": 3.9389, "avail_gib": 12.6272, "n_retire": 6074, "n_recompute": 32}
+{"ev": "node", "i": 6080, "d": 2, "rc": 32, "t": 63.109, "rss_gib": 3.9703}
+{"ev": "node", "i": 6090, "d": 2, "rc": 32, "t": 63.16, "rss_gib": 3.9706}
+{"ev": "node", "i": 6100, "d": 2, "rc": 32, "t": 63.161, "rss_gib": 3.9706}
+{"ev": "node", "i": 6110, "d": 2, "rc": 32, "t": 63.192, "rss_gib": 3.9707}
+{"ev": "node", "i": 6120, "d": 2, "rc": 32, "t": 63.255, "rss_gib": 3.9708}
+{"ev": "node", "i": 6130, "d": 2, "rc": 32, "t": 63.256, "rss_gib": 3.9708}
+{"ev": "s", "t": 63.286, "phase": "recompute", "rss_gib": 3.9868, "avail_gib": 12.4917, "n_retire": 6132, "n_recompute": 32}
+{"ev": "node", "i": 6140, "d": 2, "rc": 32, "t": 63.316, "rss_gib": 4.0024}
+{"ev": "node", "i": 6150, "d": 2, "rc": 32, "t": 63.317, "rss_gib": 4.0024}
+{"ev": "node", "i": 6160, "d": 2, "rc": 32, "t": 63.376, "rss_gib": 4.0494}
+{"ev": "node", "i": 6170, "d": 2, "rc": 32, "t": 63.406, "rss_gib": 4.0963}
+{"ev": "bw_exit", "d": 1, "rc": 32, "i": 6175, "pins": 106, "sm_bwd": 96, "mi_before": {"arena_gib": 7.68, "hblkhd_gib": 1.2675, "uordblks_gib": 1.9911, "fordblks_gib": 5.6889, "keepcost_gib": 0.0001, "hblks": 166}, "trim_gib": 0.4313, "mi_after": {"arena_gib": 7.6799, "hblkhd_gib": 1.2675, "uordblks_gib": 1.9911, "fordblks_gib": 5.6888, "keepcost_gib": 0.0, "hblks": 166}, "t": 63.423, "rss_gib": 3.6651}
+{"ev": "s", "t": 63.487, "phase": "backward", "rss_gib": 3.6589, "avail_gib": 12.814, "n_retire": 6177, "n_recompute": 32}
+{"ev": "bw_enter", "d": 1, "rc": 33, "i": 6177, "pins": 106, "t": 63.634, "rss_gib": 3.9352}
+{"ev": "node", "i": 6180, "d": 2, "rc": 33, "t": 63.635, "rss_gib": 3.9352}
+{"ev": "node", "i": 6190, "d": 2, "rc": 33, "t": 63.637, "rss_gib": 3.9379}
+{"ev": "node", "i": 6200, "d": 2, "rc": 33, "t": 63.639, "rss_gib": 3.9417}
+{"ev": "s", "t": 63.692, "phase": "recompute", "rss_gib": 3.9889, "avail_gib": 12.4963, "n_retire": 6210, "n_recompute": 33}
+{"ev": "node", "i": 6210, "d": 2, "rc": 33, "t": 63.692, "rss_gib": 3.9889}
+{"ev": "node", "i": 6220, "d": 2, "rc": 33, "t": 63.693, "rss_gib": 3.9889}
+{"ev": "node", "i": 6230, "d": 2, "rc": 33, "t": 63.746, "rss_gib": 3.9895}
+{"ev": "node", "i": 6240, "d": 2, "rc": 33, "t": 63.774, "rss_gib": 3.9742}
+{"ev": "node", "i": 6250, "d": 2, "rc": 33, "t": 63.823, "rss_gib": 3.975}
+{"ev": "node", "i": 6260, "d": 2, "rc": 33, "t": 63.825, "rss_gib": 3.975}
+{"ev": "node", "i": 6270, "d": 2, "rc": 33, "t": 63.853, "rss_gib": 3.9907}
+{"ev": "node", "i": 6280, "d": 2, "rc": 33, "t": 63.88, "rss_gib": 4.0063}
+{"ev": "s", "t": 63.893, "phase": "recompute", "rss_gib": 4.0215, "avail_gib": 12.4352, "n_retire": 6284, "n_recompute": 33}
+{"ev": "node", "i": 6290, "d": 2, "rc": 33, "t": 63.933, "rss_gib": 4.069}
+{"ev": "node", "i": 6300, "d": 2, "rc": 33, "t": 63.934, "rss_gib": 4.069}
+{"ev": "bw_exit", "d": 1, "rc": 33, "i": 6308, "pins": 106, "sm_bwd": 99, "mi_before": {"arena_gib": 7.7738, "hblkhd_gib": 1.2675, "uordblks_gib": 1.9912, "fordblks_gib": 5.7825, "keepcost_gib": 0.0157, "hblks": 166}, "trim_gib": 0.4041, "mi_after": {"arena_gib": 7.758, "hblkhd_gib": 1.2675, "uordblks_gib": 1.9912, "fordblks_gib": 5.7668, "keepcost_gib": 0.0, "hblks": 166}, "t": 63.974, "rss_gib": 3.6651}
+{"ev": "node", "i": 6310, "d": 1, "rc": 33, "t": 63.975, "rss_gib": 3.5401}
+{"ev": "s", "t": 64.102, "phase": "backward", "rss_gib": 3.8058, "avail_gib": 12.6086, "n_retire": 6310, "n_recompute": 33}
+{"ev": "bw_enter", "d": 1, "rc": 34, "i": 6310, "pins": 106, "t": 64.194, "rss_gib": 3.8754}
+{"ev": "node", "i": 6320, "d": 2, "rc": 34, "t": 64.198, "rss_gib": 3.8771}
+{"ev": "node", "i": 6330, "d": 2, "rc": 34, "t": 64.201, "rss_gib": 3.8811}
+{"ev": "node", "i": 6340, "d": 2, "rc": 34, "t": 64.229, "rss_gib": 3.9379}
+{"ev": "node", "i": 6350, "d": 2, "rc": 34, "t": 64.261, "rss_gib": 3.9854}
+{"ev": "s", "t": 64.306, "phase": "recompute", "rss_gib": 4.0484, "avail_gib": 12.25, "n_retire": 6353, "n_recompute": 34}
+{"ev": "node", "i": 6360, "d": 2, "rc": 34, "t": 64.307, "rss_gib": 3.9859}
+{"ev": "node", "i": 6370, "d": 2, "rc": 34, "t": 64.334, "rss_gib": 4.0324}
+{"ev": "node", "i": 6380, "d": 2, "rc": 34, "t": 64.335, "rss_gib": 4.0324}
+{"ev": "node", "i": 6390, "d": 2, "rc": 34, "t": 64.385, "rss_gib": 3.9864}
+{"ev": "node", "i": 6400, "d": 2, "rc": 34, "t": 64.414, "rss_gib": 4.0643}
+{"ev": "node", "i": 6410, "d": 2, "rc": 34, "t": 64.439, "rss_gib": 4.0489}
+{"ev": "node", "i": 6420, "d": 2, "rc": 34, "t": 64.468, "rss_gib": 4.1112}
+{"ev": "node", "i": 6430, "d": 2, "rc": 34, "t": 64.495, "rss_gib": 4.1425}
+{"ev": "s", "t": 64.507, "phase": "recompute", "rss_gib": 4.1425, "avail_gib": 12.1841, "n_retire": 6435, "n_recompute": 34}
+{"ev": "node", "i": 6440, "d": 2, "rc": 34, "t": 64.522, "rss_gib": 4.1582}
+{"ev": "bw_exit", "d": 1, "rc": 34, "i": 6441, "pins": 106, "sm_bwd": 102, "mi_before": {"arena_gib": 7.9925, "hblkhd_gib": 1.2675, "uordblks_gib": 1.9914, "fordblks_gib": 6.0012, "keepcost_gib": 0.047, "hblks": 166}, "trim_gib": 0.4934, "mi_after": {"arena_gib": 7.9455, "hblkhd_gib": 1.2675, "uordblks_gib": 1.9914, "fordblks_gib": 5.9542, "keepcost_gib": 0.0, "hblks": 166}, "t": 64.533, "rss_gib": 3.6652}
+{"ev": "s", "t": 64.708, "phase": "backward", "rss_gib": 3.8847, "avail_gib": 12.4035, "n_retire": 6443, "n_recompute": 34}
+{"ev": "bw_enter", "d": 1, "rc": 35, "i": 6443, "pins": 106, "t": 64.726, "rss_gib": 3.8908}
+{"ev": "node", "i": 6450, "d": 2, "rc": 35, "t": 64.729, "rss_gib": 3.8938}
+{"ev": "node", "i": 6460, "d": 2, "rc": 35, "t": 64.731, "rss_gib": 3.898}
+{"ev": "node", "i": 6470, "d": 2, "rc": 35, "t": 64.759, "rss_gib": 3.9139}
+{"ev": "node", "i": 6480, "d": 2, "rc": 35, "t": 64.788, "rss_gib": 4.0077}
+{"ev": "node", "i": 6490, "d": 2, "rc": 35, "t": 64.841, "rss_gib": 3.9614}
+{"ev": "node", "i": 6500, "d": 2, "rc": 35, "t": 64.842, "rss_gib": 3.9614}
+{"ev": "node", "i": 6510, "d": 2, "rc": 35, "t": 64.87, "rss_gib": 3.9614}
+{"ev": "s", "t": 64.909, "phase": "recompute", "rss_gib": 4.0868, "avail_gib": 12.1836, "n_retire": 6515, "n_recompute": 35}
+{"ev": "node", "i": 6520, "d": 2, "rc": 35, "t": 64.918, "rss_gib": 3.9618}
+{"ev": "node", "i": 6530, "d": 2, "rc": 35, "t": 64.919, "rss_gib": 3.9618}
+{"ev": "node", "i": 6540, "d": 2, "rc": 35, "t": 64.974, "rss_gib": 4.0399}
+{"ev": "node", "i": 6550, "d": 2, "rc": 35, "t": 64.975, "rss_gib": 4.0399}
+{"ev": "node", "i": 6560, "d": 2, "rc": 35, "t": 65.06, "rss_gib": 4.0711}
+{"ev": "node", "i": 6570, "d": 2, "rc": 35, "t": 65.088, "rss_gib": 4.0868}
+{"ev": "bw_exit", "d": 1, "rc": 35, "i": 6574, "pins": 106, "sm_bwd": 105, "mi_before": {"arena_gib": 8.055, "hblkhd_gib": 1.2675, "uordblks_gib": 1.9915, "fordblks_gib": 6.0635, "keepcost_gib": 0.0157, "hblks": 166}, "trim_gib": 0.3745, "mi_after": {"arena_gib": 8.0393, "hblkhd_gib": 1.2675, "uordblks_gib": 1.9915, "fordblks_gib": 6.0478, "keepcost_gib": 0.0, "hblks": 166}, "t": 65.103, "rss_gib": 3.6655}
+{"ev": "s", "t": 65.111, "phase": "backward", "rss_gib": 3.559, "avail_gib": 12.6774, "n_retire": 6576, "n_recompute": 35}
+{"ev": "s", "t": 65.312, "phase": "backward", "rss_gib": 3.9103, "avail_gib": 12.3176, "n_retire": 6576, "n_recompute": 35}
+{"ev": "bw_enter", "d": 1, "rc": 36, "i": 6576, "pins": 106, "t": 65.325, "rss_gib": 3.9149}
+{"ev": "node", "i": 6580, "d": 2, "rc": 36, "t": 65.326, "rss_gib": 3.9149}
+{"ev": "node", "i": 6590, "d": 2, "rc": 36, "t": 65.328, "rss_gib": 3.9174}
+{"ev": "node", "i": 6600, "d": 2, "rc": 36, "t": 65.357, "rss_gib": 3.9684}
+{"ev": "node", "i": 6610, "d": 2, "rc": 36, "t": 65.389, "rss_gib": 3.9841}
+{"ev": "node", "i": 6620, "d": 2, "rc": 36, "t": 65.443, "rss_gib": 4.0001}
+{"ev": "node", "i": 6630, "d": 2, "rc": 36, "t": 65.444, "rss_gib": 4.0001}
+{"ev": "node", "i": 6640, "d": 2, "rc": 36, "t": 65.471, "rss_gib": 4.0001}
+{"ev": "s", "t": 65.513, "phase": "recompute", "rss_gib": 4.1729, "avail_gib": 12.0004, "n_retire": 6648, "n_recompute": 36}
+{"ev": "node", "i": 6650, "d": 2, "rc": 36, "t": 65.53, "rss_gib": 4.0161}
+{"ev": "node", "i": 6660, "d": 2, "rc": 36, "t": 65.531, "rss_gib": 4.0161}
+{"ev": "node", "i": 6670, "d": 2, "rc": 36, "t": 65.586, "rss_gib": 4.0475}
+{"ev": "node", "i": 6680, "d": 2, "rc": 36, "t": 65.587, "rss_gib": 4.0475}
+{"ev": "node", "i": 6690, "d": 2, "rc": 36, "t": 65.64, "rss_gib": 4.1258}
+{"ev": "node", "i": 6700, "d": 2, "rc": 36, "t": 65.64, "rss_gib": 4.1258}
+{"ev": "s", "t": 65.751, "phase": "backward", "rss_gib": 3.6779, "avail_gib": 12.513, "n_retire": 6707, "n_recompute": 36}
+{"ev": "bw_exit", "d": 1, "rc": 36, "i": 6707, "pins": 106, "sm_bwd": 108, "mi_before": {"arena_gib": 8.1644, "hblkhd_gib": 1.2675, "uordblks_gib": 1.9916, "fordblks_gib": 6.1728, "keepcost_gib": 0.0001, "hblks": 166}, "trim_gib": 0.4604, "mi_after": {"arena_gib": 8.1643, "hblkhd_gib": 1.2675, "uordblks_gib": 1.9916, "fordblks_gib": 6.1727, "keepcost_gib": 0.0, "hblks": 166}, "census": {"host_gib": 2.3664, "host_f64_gib": 0.198, "storages": 5799, "torch_objs": 6217, "tape_tensors": 5542, "tape_nodes": 2200, "census_s": 0.099}, "t": 65.779, "rss_gib": 3.6779}
+{"ev": "s", "t": 65.982, "phase": "backward", "rss_gib": 3.9115, "avail_gib": 12.2604, "n_retire": 6709, "n_recompute": 36}
+{"ev": "bw_enter", "d": 1, "rc": 37, "i": 6709, "pins": 106, "t": 65.984, "rss_gib": 3.9135}
+{"ev": "node", "i": 6710, "d": 2, "rc": 37, "t": 65.985, "rss_gib": 3.9135}
+{"ev": "node", "i": 6720, "d": 2, "rc": 37, "t": 65.987, "rss_gib": 3.9158}
+{"ev": "node", "i": 6730, "d": 2, "rc": 37, "t": 65.989, "rss_gib": 3.918}
+{"ev": "node", "i": 6740, "d": 2, "rc": 37, "t": 66.04, "rss_gib": 3.9746}
+{"ev": "node", "i": 6750, "d": 2, "rc": 37, "t": 66.04, "rss_gib": 3.9746}
+{"ev": "node", "i": 6760, "d": 2, "rc": 37, "t": 66.092, "rss_gib": 3.9753}
+{"ev": "node", "i": 6770, "d": 2, "rc": 37, "t": 66.121, "rss_gib": 4.0065}
+{"ev": "node", "i": 6780, "d": 2, "rc": 37, "t": 66.122, "rss_gib": 4.0065}
+{"ev": "node", "i": 6790, "d": 2, "rc": 37, "t": 66.177, "rss_gib": 4.0063}
+{"ev": "s", "t": 66.183, "phase": "recompute", "rss_gib": 3.9595, "avail_gib": 12.2236, "n_retire": 6797, "n_recompute": 37}
+{"ev": "node", "i": 6800, "d": 2, "rc": 37, "t": 66.206, "rss_gib": 4.0063}
+{"ev": "node", "i": 6810, "d": 2, "rc": 37, "t": 66.233, "rss_gib": 4.022}
+{"ev": "node", "i": 6820, "d": 2, "rc": 37, "t": 66.262, "rss_gib": 4.0532}
+{"ev": "node", "i": 6830, "d": 2, "rc": 37, "t": 66.289, "rss_gib": 4.069}
+{"ev": "node", "i": 6840, "d": 2, "rc": 37, "t": 66.323, "rss_gib": 4.0693}
+{"ev": "bw_exit", "d": 1, "rc": 37, "i": 6840, "pins": 106, "sm_bwd": 111, "mi_before": {"arena_gib": 8.2738, "hblkhd_gib": 1.2675, "uordblks_gib": 1.9917, "fordblks_gib": 6.2821, "keepcost_gib": 0.0001, "hblks": 166}, "trim_gib": 0.4037, "mi_after": {"arena_gib": 8.2736, "hblkhd_gib": 1.2675, "uordblks_gib": 1.9917, "fordblks_gib": 6.2819, "keepcost_gib": 0.0, "hblks": 166}, "t": 66.333, "rss_gib": 3.6656}
+{"ev": "s", "t": 66.387, "phase": "backward", "rss_gib": 3.666, "avail_gib": 12.5609, "n_retire": 6842, "n_recompute": 37}
+{"ev": "bw_enter", "d": 1, "rc": 38, "i": 6842, "pins": 106, "t": 66.537, "rss_gib": 3.9067}
+{"ev": "node", "i": 6850, "d": 2, "rc": 38, "t": 66.539, "rss_gib": 3.9085}
+{"ev": "node", "i": 6860, "d": 2, "rc": 38, "t": 66.542, "rss_gib": 3.9127}
+{"ev": "node", "i": 6870, "d": 2, "rc": 38, "t": 66.573, "rss_gib": 3.913}
+{"ev": "s", "t": 66.588, "phase": "recompute", "rss_gib": 3.9598, "avail_gib": 12.2365, "n_retire": 6872, "n_recompute": 38}
+{"ev": "node", "i": 6880, "d": 2, "rc": 38, "t": 66.604, "rss_gib": 3.9914}
+{"ev": "node", "i": 6890, "d": 2, "rc": 38, "t": 66.658, "rss_gib": 3.9916}
+{"ev": "node", "i": 6900, "d": 2, "rc": 38, "t": 66.659, "rss_gib": 3.9916}
+{"ev": "node", "i": 6910, "d": 2, "rc": 38, "t": 66.689, "rss_gib": 4.0695}
+{"ev": "node", "i": 6920, "d": 2, "rc": 38, "t": 66.74, "rss_gib": 4.0225}
+{"ev": "node", "i": 6930, "d": 2, "rc": 38, "t": 66.741, "rss_gib": 4.0225}
+{"ev": "s", "t": 66.788, "phase": "recompute", "rss_gib": 4.069, "avail_gib": 12.2746, "n_retire": 6935, "n_recompute": 38}
+{"ev": "node", "i": 6940, "d": 2, "rc": 38, "t": 66.796, "rss_gib": 4.0847}
+{"ev": "node", "i": 6950, "d": 2, "rc": 38, "t": 66.822, "rss_gib": 4.0847}
+{"ev": "node", "i": 6960, "d": 2, "rc": 38, "t": 66.848, "rss_gib": 4.0852}
+{"ev": "node", "i": 6970, "d": 2, "rc": 38, "t": 66.873, "rss_gib": 4.1317}
+{"ev": "bw_exit", "d": 1, "rc": 38, "i": 6973, "pins": 106, "sm_bwd": 114, "mi_before": {"arena_gib": 8.4925, "hblkhd_gib": 1.2675, "uordblks_gib": 1.9918, "fordblks_gib": 6.5007, "keepcost_gib": 0.0314, "hblks": 166}, "trim_gib": 0.4671, "mi_after": {"arena_gib": 8.4611, "hblkhd_gib": 1.2675, "uordblks_gib": 1.9918, "fordblks_gib": 6.4693, "keepcost_gib": 0.0, "hblks": 166}, "t": 66.885, "rss_gib": 3.6654}
+{"ev": "s", "t": 66.989, "phase": "backward", "rss_gib": 3.8537, "avail_gib": 12.9338, "n_retire": 6975, "n_recompute": 38}
+{"ev": "bw_enter", "d": 1, "rc": 39, "i": 6975, "pins": 106, "t": 67.084, "rss_gib": 3.9013}
+{"ev": "node", "i": 6980, "d": 2, "rc": 39, "t": 67.085, "rss_gib": 3.9013}
+{"ev": "node", "i": 6990, "d": 2, "rc": 39, "t": 67.089, "rss_gib": 3.9073}
+{"ev": "node", "i": 7000, "d": 2, "rc": 39, "t": 67.118, "rss_gib": 3.9389}
+{"ev": "node", "i": 7010, "d": 2, "rc": 39, "t": 67.147, "rss_gib": 3.9704}
+{"ev": "s", "t": 67.189, "phase": "recompute", "rss_gib": 4.1269, "avail_gib": 12.6147, "n_retire": 7018, "n_recompute": 39}
+{"ev": "node", "i": 7020, "d": 2, "rc": 39, "t": 67.2, "rss_gib": 4.0019}
+{"ev": "node", "i": 7030, "d": 2, "rc": 39, "t": 67.2, "rss_gib": 4.0019}
+{"ev": "node", "i": 7040, "d": 2, "rc": 39, "t": 67.229, "rss_gib": 4.0019}
+{"ev": "node", "i": 7050, "d": 2, "rc": 39, "t": 67.279, "rss_gib": 4.0026}
+{"ev": "node", "i": 7060, "d": 2, "rc": 39, "t": 67.279, "rss_gib": 4.0026}
+{"ev": "node", "i": 7070, "d": 2, "rc": 39, "t": 67.335, "rss_gib": 4.0963}
+{"ev": "node", "i": 7080, "d": 2, "rc": 39, "t": 67.336, "rss_gib": 4.0963}
+{"ev": "node", "i": 7090, "d": 2, "rc": 39, "t": 67.388, "rss_gib": 4.0654}
+{"ev": "node", "i": 7100, "d": 2, "rc": 39, "t": 67.389, "rss_gib": 4.0654}
+{"ev": "s", "t": 67.392, "phase": "recompute", "rss_gib": 4.0654, "avail_gib": 12.7128, "n_retire": 7100, "n_recompute": 39}
+{"ev": "bw_exit", "d": 1, "rc": 39, "i": 7106, "pins": 106, "sm_bwd": 117, "mi_before": {"arena_gib": 8.5863, "hblkhd_gib": 1.2675, "uordblks_gib": 1.9919, "fordblks_gib": 6.5943, "keepcost_gib": 0.0157, "hblks": 166}, "trim_gib": 0.4465, "mi_after": {"arena_gib": 8.5705, "hblkhd_gib": 1.2675, "uordblks_gib": 1.9919, "fordblks_gib": 6.5786, "keepcost_gib": 0.0, "hblks": 166}, "t": 67.432, "rss_gib": 3.6661}
+{"ev": "s", "t": 67.598, "phase": "backward", "rss_gib": 3.9011, "avail_gib": 12.8795, "n_retire": 7108, "n_recompute": 39}
+{"ev": "bw_enter", "d": 1, "rc": 40, "i": 7108, "pins": 106, "t": 67.629, "rss_gib": 3.9236}
+{"ev": "node", "i": 7110, "d": 2, "rc": 40, "t": 67.629, "rss_gib": 3.9236}
+{"ev": "node", "i": 7120, "d": 2, "rc": 40, "t": 67.631, "rss_gib": 3.9248}
+{"ev": "node", "i": 7130, "d": 2, "rc": 40, "t": 67.634, "rss_gib": 3.9288}
+{"ev": "node", "i": 7140, "d": 2, "rc": 40, "t": 67.688, "rss_gib": 3.9855}
+{"ev": "node", "i": 7150, "d": 2, "rc": 40, "t": 67.689, "rss_gib": 3.9855}
+{"ev": "node", "i": 7160, "d": 2, "rc": 40, "t": 67.737, "rss_gib": 4.0018}
+{"ev": "node", "i": 7170, "d": 2, "rc": 40, "t": 67.766, "rss_gib": 4.0022}
+{"ev": "node", "i": 7180, "d": 2, "rc": 40, "t": 67.766, "rss_gib": 4.0022}
+{"ev": "s", "t": 67.799, "phase": "recompute", "rss_gib": 4.1757, "avail_gib": 12.6116, "n_retire": 7180, "n_recompute": 40}
+{"ev": "node", "i": 7190, "d": 2, "rc": 40, "t": 67.811, "rss_gib": 4.0024}
+{"ev": "node", "i": 7200, "d": 2, "rc": 40, "t": 67.838, "rss_gib": 4.0489}
+{"ev": "node", "i": 7210, "d": 2, "rc": 40, "t": 67.865, "rss_gib": 4.0649}
+{"ev": "node", "i": 7220, "d": 2, "rc": 40, "t": 67.913, "rss_gib": 4.096}
+{"ev": "node", "i": 7230, "d": 2, "rc": 40, "t": 67.914, "rss_gib": 4.096}
+{"ev": "bw_exit", "d": 1, "rc": 40, "i": 7239, "pins": 106, "sm_bwd": 120, "mi_before": {"arena_gib": 8.6644, "hblkhd_gib": 1.2675, "uordblks_gib": 1.992, "fordblks_gib": 6.6723, "keepcost_gib": 0.0314, "hblks": 166}, "trim_gib": 0.4457, "mi_after": {"arena_gib": 8.633, "hblkhd_gib": 1.2675, "uordblks_gib": 1.992, "fordblks_gib": 6.641, "keepcost_gib": 0.0, "hblks": 166}, "t": 67.951, "rss_gib": 3.6661}
+{"ev": "node", "i": 7240, "d": 1, "rc": 40, "t": 67.952, "rss_gib": 3.5411}
+{"ev": "s", "t": 68.001, "phase": "backward", "rss_gib": 3.6503, "avail_gib": 13.1487, "n_retire": 7241, "n_recompute": 40}
+{"ev": "bw_enter", "d": 1, "rc": 41, "i": 7241, "pins": 106, "t": 68.137, "rss_gib": 3.9895}
+{"ev": "node", "i": 7250, "d": 2, "rc": 41, "t": 68.14, "rss_gib": 3.9903}
+{"ev": "node", "i": 7260, "d": 2, "rc": 41, "t": 68.142, "rss_gib": 3.994}
+{"ev": "node", "i": 7270, "d": 2, "rc": 41, "t": 68.165, "rss_gib": 4.0021}
+{"ev": "node", "i": 7280, "d": 2, "rc": 41, "t": 68.192, "rss_gib": 4.0646}
+{"ev": "s", "t": 68.202, "phase": "recompute", "rss_gib": 4.0181, "avail_gib": 12.7386, "n_retire": 7284, "n_recompute": 41}
+{"ev": "node", "i": 7290, "d": 2, "rc": 41, "t": 68.239, "rss_gib": 4.0181}
+{"ev": "node", "i": 7300, "d": 2, "rc": 41, "t": 68.24, "rss_gib": 4.0181}
+{"ev": "node", "i": 7310, "d": 2, "rc": 41, "t": 68.267, "rss_gib": 4.0339}
+{"ev": "node", "i": 7320, "d": 2, "rc": 41, "t": 68.317, "rss_gib": 4.0493}
+{"ev": "node", "i": 7330, "d": 2, "rc": 41, "t": 68.342, "rss_gib": 4.0648}
+{"ev": "node", "i": 7340, "d": 2, "rc": 41, "t": 68.368, "rss_gib": 4.0652}
+{"ev": "node", "i": 7350, "d": 2, "rc": 41, "t": 68.394, "rss_gib": 4.0967}
+{"ev": "s", "t": 68.403, "phase": "recompute", "rss_gib": 4.0967, "avail_gib": 12.665, "n_retire": 7352, "n_recompute": 41}
+{"ev": "node", "i": 7360, "d": 2, "rc": 41, "t": 68.419, "rss_gib": 4.0969}
+{"ev": "node", "i": 7370, "d": 2, "rc": 41, "t": 68.446, "rss_gib": 4.1125}
+{"ev": "bw_exit", "d": 1, "rc": 41, "i": 7372, "pins": 106, "sm_bwd": 123, "mi_before": {"arena_gib": 8.7269, "hblkhd_gib": 1.2675, "uordblks_gib": 1.9922, "fordblks_gib": 6.7347, "keepcost_gib": 0.0001, "hblks": 166}, "trim_gib": 0.4473, "mi_after": {"arena_gib": 8.7268, "hblkhd_gib": 1.2675, "uordblks_gib": 1.9922, "fordblks_gib": 6.7346, "keepcost_gib": 0.0, "hblks": 166}, "t": 68.459, "rss_gib": 3.6661}
+{"ev": "s", "t": 68.614, "phase": "backward", "rss_gib": 3.8388, "avail_gib": 12.953, "n_retire": 7374, "n_recompute": 41}
+{"ev": "bw_enter", "d": 1, "rc": 42, "i": 7374, "pins": 106, "t": 68.667, "rss_gib": 3.9159}
+{"ev": "node", "i": 7380, "d": 2, "rc": 42, "t": 68.669, "rss_gib": 3.9174}
+{"ev": "node", "i": 7390, "d": 2, "rc": 42, "t": 68.671, "rss_gib": 3.9218}
+{"ev": "node", "i": 7400, "d": 2, "rc": 42, "t": 68.697, "rss_gib": 3.9919}
+{"ev": "node", "i": 7410, "d": 2, "rc": 42, "t": 68.722, "rss_gib": 3.9919}
+{"ev": "node", "i": 7420, "d": 2, "rc": 42, "t": 68.772, "rss_gib": 4.0085}
+{"ev": "node", "i": 7430, "d": 2, "rc": 42, "t": 68.772, "rss_gib": 4.0085}
+{"ev": "node", "i": 7440, "d": 2, "rc": 42, "t": 68.799, "rss_gib": 3.993}
+{"ev": "s", "t": 68.816, "phase": "recompute", "rss_gib": 4.0941, "avail_gib": 12.7006, "n_retire": 7446, "n_recompute": 42}
+{"ev": "node", "i": 7450, "d": 2, "rc": 42, "t": 68.843, "rss_gib": 3.993}
+{"ev": "node", "i": 7460, "d": 2, "rc": 42, "t": 68.844, "rss_gib": 3.993}
+{"ev": "node", "i": 7470, "d": 2, "rc": 42, "t": 68.896, "rss_gib": 4.0401}
+{"ev": "node", "i": 7480, "d": 2, "rc": 42, "t": 68.897, "rss_gib": 4.0401}
+{"ev": "node", "i": 7490, "d": 2, "rc": 42, "t": 68.948, "rss_gib": 4.118}
+{"ev": "node", "i": 7500, "d": 2, "rc": 42, "t": 68.974, "rss_gib": 4.087}
+{"ev": "s", "t": 69.052, "phase": "backward", "rss_gib": 3.6785, "avail_gib": 13.1101, "n_retire": 7505, "n_recompute": 42}
+{"ev": "bw_exit", "d": 1, "rc": 42, "i": 7505, "pins": 106, "sm_bwd": 126, "mi_before": {"arena_gib": 8.8206, "hblkhd_gib": 1.2675, "uordblks_gib": 1.9923, "fordblks_gib": 6.8284, "keepcost_gib": 0.0157, "hblks": 166}, "trim_gib": 0.421, "mi_after": {"arena_gib": 8.8049, "hblkhd_gib": 1.2675, "uordblks_gib": 1.9923, "fordblks_gib": 6.8126, "keepcost_gib": 0.0, "hblks": 166}, "census": {"host_gib": 2.3664, "host_f64_gib": 0.198, "storages": 5799, "torch_objs": 6217, "tape_tensors": 5554, "tape_nodes": 2200, "census_s": 0.099}, "t": 69.084, "rss_gib": 3.6785}
+{"ev": "bw_enter", "d": 1, "rc": 43, "i": 7507, "pins": 106, "t": 69.275, "rss_gib": 3.9325}
+{"ev": "node", "i": 7510, "d": 2, "rc": 43, "t": 69.275, "rss_gib": 3.9325}
+{"ev": "node", "i": 7520, "d": 2, "rc": 43, "t": 69.277, "rss_gib": 3.9335}
+{"ev": "node", "i": 7530, "d": 2, "rc": 43, "t": 69.28, "rss_gib": 3.9357}
+{"ev": "s", "t": 69.284, "phase": "recompute", "rss_gib": 3.9357, "avail_gib": 12.8603, "n_retire": 7530, "n_recompute": 43}
+{"ev": "node", "i": 7540, "d": 2, "rc": 43, "t": 69.336, "rss_gib": 3.983}
+{"ev": "node", "i": 7550, "d": 2, "rc": 43, "t": 69.337, "rss_gib": 3.983}
+{"ev": "node", "i": 7560, "d": 2, "rc": 43, "t": 69.388, "rss_gib": 3.9998}
+{"ev": "node", "i": 7570, "d": 2, "rc": 43, "t": 69.418, "rss_gib": 3.9998}
+{"ev": "node", "i": 7580, "d": 2, "rc": 43, "t": 69.466, "rss_gib": 3.9998}
+{"ev": "node", "i": 7590, "d": 2, "rc": 43, "t": 69.468, "rss_gib": 3.9998}
+{"ev": "s", "t": 69.485, "phase": "recompute", "rss_gib": 4.0079, "avail_gib": 12.8402, "n_retire": 7595, "n_recompute": 43}
+{"ev": "node", "i": 7600, "d": 2, "rc": 43, "t": 69.496, "rss_gib": 3.9998}
+{"ev": "node", "i": 7610, "d": 2, "rc": 43, "t": 69.524, "rss_gib": 4.0311}
+{"ev": "node", "i": 7620, "d": 2, "rc": 43, "t": 69.578, "rss_gib": 4.0621}
+{"ev": "node", "i": 7630, "d": 2, "rc": 43, "t": 69.579, "rss_gib": 4.0621}
+{"ev": "bw_exit", "d": 1, "rc": 43, "i": 7638, "pins": 106, "sm_bwd": 129, "mi_before": {"arena_gib": 8.8988, "hblkhd_gib": 1.2675, "uordblks_gib": 1.9924, "fordblks_gib": 6.9064, "keepcost_gib": 0.0157, "hblks": 166}, "trim_gib": 0.3962, "mi_after": {"arena_gib": 8.883, "hblkhd_gib": 1.2675, "uordblks_gib": 1.9924, "fordblks_gib": 6.8906, "keepcost_gib": 0.0, "hblks": 166}, "t": 69.618, "rss_gib": 3.6664}
+{"ev": "node", "i": 7640, "d": 1, "rc": 43, "t": 69.619, "rss_gib": 3.5414}
+{"ev": "s", "t": 69.691, "phase": "backward", "rss_gib": 3.6686, "avail_gib": 13.1432, "n_retire": 7640, "n_recompute": 43}
+{"ev": "bw_enter", "d": 1, "rc": 44, "i": 7640, "pins": 106, "t": 69.82, "rss_gib": 3.9099}
+{"ev": "node", "i": 7650, "d": 2, "rc": 44, "t": 69.822, "rss_gib": 3.9112}
+{"ev": "node", "i": 7660, "d": 2, "rc": 44, "t": 69.825, "rss_gib": 3.9152}
+{"ev": "node", "i": 7670, "d": 2, "rc": 44, "t": 69.852, "rss_gib": 3.9779}
+{"ev": "node", "i": 7680, "d": 2, "rc": 44, "t": 69.881, "rss_gib": 3.9938}
+{"ev": "s", "t": 69.893, "phase": "recompute", "rss_gib": 4.0505, "avail_gib": 12.8009, "n_retire": 7683, "n_recompute": 44}
+{"ev": "node", "i": 7690, "d": 2, "rc": 44, "t": 69.929, "rss_gib": 3.9944}
+{"ev": "node", "i": 7700, "d": 2, "rc": 44, "t": 69.956, "rss_gib": 3.9944}
+{"ev": "node", "i": 7710, "d": 2, "rc": 44, "t": 69.957, "rss_gib": 3.9944}
+{"ev": "node", "i": 7720, "d": 2, "rc": 44, "t": 70.006, "rss_gib": 4.0104}
+{"ev": "node", "i": 7730, "d": 2, "rc": 44, "t": 70.035, "rss_gib": 4.0104}
+{"ev": "node", "i": 7740, "d": 2, "rc": 44, "t": 70.062, "rss_gib": 4.0262}
+{"ev": "node", "i": 7750, "d": 2, "rc": 44, "t": 70.088, "rss_gib": 4.0263}
+{"ev": "s", "t": 70.094, "phase": "recompute", "rss_gib": 4.0263, "avail_gib": 12.8062, "n_retire": 7751, "n_recompute": 44}
+{"ev": "node", "i": 7760, "d": 2, "rc": 44, "t": 70.117, "rss_gib": 4.0732}
+{"ev": "node", "i": 7770, "d": 2, "rc": 44, "t": 70.146, "rss_gib": 4.0733}
+{"ev": "bw_exit", "d": 1, "rc": 44, "i": 7771, "pins": 106, "sm_bwd": 132, "mi_before": {"arena_gib": 8.9456, "hblkhd_gib": 1.2675, "uordblks_gib": 1.9925, "fordblks_gib": 6.9531, "keepcost_gib": 0.0158, "hblks": 166}, "trim_gib": 0.4072, "mi_after": {"arena_gib": 8.9299, "hblkhd_gib": 1.2675, "uordblks_gib": 1.9925, "fordblks_gib": 6.9374, "keepcost_gib": 0.0, "hblks": 166}, "t": 70.158, "rss_gib": 3.6667}
+{"ev": "s", "t": 70.295, "phase": "backward", "rss_gib": 3.8518, "avail_gib": 12.9678, "n_retire": 7773, "n_recompute": 44}
+{"ev": "bw_enter", "d": 1, "rc": 45, "i": 7773, "pins": 106, "t": 70.348, "rss_gib": 3.916}
+{"ev": "node", "i": 7780, "d": 2, "rc": 45, "t": 70.35, "rss_gib": 3.9182}
+{"ev": "node", "i": 7790, "d": 2, "rc": 45, "t": 70.352, "rss_gib": 3.9227}
+{"ev": "node", "i": 7800, "d": 2, "rc": 45, "t": 70.38, "rss_gib": 3.9481}
+{"ev": "node", "i": 7810, "d": 2, "rc": 45, "t": 70.407, "rss_gib": 3.9637}
+{"ev": "node", "i": 7820, "d": 2, "rc": 45, "t": 70.451, "rss_gib": 3.9639}
+{"ev": "node", "i": 7830, "d": 2, "rc": 45, "t": 70.451, "rss_gib": 3.9639}
+{"ev": "node", "i": 7840, "d": 2, "rc": 45, "t": 70.478, "rss_gib": 4.0262}
+{"ev": "s", "t": 70.497, "phase": "recompute", "rss_gib": 4.0888, "avail_gib": 12.7415, "n_retire": 7845, "n_recompute": 45}
+{"ev": "node", "i": 7850, "d": 2, "rc": 45, "t": 70.526, "rss_gib": 3.9805}
+{"ev": "node", "i": 7860, "d": 2, "rc": 45, "t": 70.527, "rss_gib": 3.9805}
+{"ev": "node", "i": 7870, "d": 2, "rc": 45, "t": 70.579, "rss_gib": 4.0274}
+{"ev": "node", "i": 7880, "d": 2, "rc": 45, "t": 70.579, "rss_gib": 4.0274}
+{"ev": "node", "i": 7890, "d": 2, "rc": 45, "t": 70.629, "rss_gib": 4.0431}
+{"ev": "node", "i": 7900, "d": 2, "rc": 45, "t": 70.655, "rss_gib": 4.1053}
+{"ev": "bw_exit", "d": 1, "rc": 45, "i": 7904, "pins": 106, "sm_bwd": 135, "mi_before": {"arena_gib": 9.0394, "hblkhd_gib": 1.2675, "uordblks_gib": 1.9926, "fordblks_gib": 7.0468, "keepcost_gib": 0.0001, "hblks": 166}, "trim_gib": 0.3764, "mi_after": {"arena_gib": 9.0393, "hblkhd_gib": 1.2675, "uordblks_gib": 1.9926, "fordblks_gib": 7.0467, "keepcost_gib": 0.0, "hblks": 166}, "t": 70.667, "rss_gib": 3.6667}
+{"ev": "s", "t": 70.702, "phase": "backward", "rss_gib": 3.6512, "avail_gib": 13.1772, "n_retire": 7906, "n_recompute": 45}
+{"ev": "bw_enter", "d": 1, "rc": 46, "i": 7906, "pins": 106, "t": 70.855, "rss_gib": 3.9256}
+{"ev": "node", "i": 7910, "d": 2, "rc": 46, "t": 70.856, "rss_gib": 3.9256}
+{"ev": "node", "i": 7920, "d": 2, "rc": 46, "t": 70.858, "rss_gib": 3.9281}
+{"ev": "node", "i": 7930, "d": 2, "rc": 46, "t": 70.886, "rss_gib": 3.9948}
+{"ev": "s", "t": 70.903, "phase": "recompute", "rss_gib": 4.0107, "avail_gib": 12.8297, "n_retire": 7936, "n_recompute": 46}
+{"ev": "node", "i": 7940, "d": 2, "rc": 46, "t": 70.914, "rss_gib": 4.0107}
+{"ev": "node", "i": 7950, "d": 2, "rc": 46, "t": 70.962, "rss_gib": 4.0263}
+{"ev": "node", "i": 7960, "d": 2, "rc": 46, "t": 70.963, "rss_gib": 4.0263}
+{"ev": "node", "i": 7970, "d": 2, "rc": 46, "t": 70.991, "rss_gib": 4.0574}
+{"ev": "node", "i": 7980, "d": 2, "rc": 46, "t": 71.043, "rss_gib": 4.0265}
+{"ev": "node", "i": 7990, "d": 2, "rc": 46, "t": 71.044, "rss_gib": 4.0265}
+{"ev": "node", "i": 8000, "d": 2, "rc": 46, "t": 71.095, "rss_gib": 4.0736}
+{"ev": "node", "i": 8010, "d": 2, "rc": 46, "t": 71.095, "rss_gib": 4.0736}
+{"ev": "s", "t": 71.105, "phase": "recompute", "rss_gib": 4.0267, "avail_gib": 12.803, "n_retire": 8013, "n_recompute": 46}
+{"ev": "node", "i": 8020, "d": 2, "rc": 46, "t": 71.147, "rss_gib": 4.0739}
+{"ev": "node", "i": 8030, "d": 2, "rc": 46, "t": 71.148, "rss_gib": 4.0739}
+{"ev": "bw_exit", "d": 1, "rc": 46, "i": 8037, "pins": 106, "sm_bwd": 138, "mi_before": {"arena_gib": 9.0863, "hblkhd_gib": 1.2675, "uordblks_gib": 1.9927, "fordblks_gib": 7.0935, "keepcost_gib": 0.0314, "hblks": 166}, "trim_gib": 0.407, "mi_after": {"arena_gib": 9.0549, "hblkhd_gib": 1.2675, "uordblks_gib": 1.9927, "fordblks_gib": 7.0622, "keepcost_gib": 0.0, "hblks": 166}, "t": 71.187, "rss_gib": 3.6671}
+{"ev": "s", "t": 71.306, "phase": "backward", "rss_gib": 3.8097, "avail_gib": 13.0375, "n_retire": 8039, "n_recompute": 46}
+{"ev": "bw_enter", "d": 1, "rc": 47, "i": 8039, "pins": 106, "t": 71.379, "rss_gib": 3.9254}
+{"ev": "node", "i": 8040, "d": 2, "rc": 47, "t": 71.379, "rss_gib": 3.9254}
+{"ev": "node", "i": 8050, "d": 2, "rc": 47, "t": 71.382, "rss_gib": 3.9277}
+{"ev": "node", "i": 8060, "d": 2, "rc": 47, "t": 71.384, "rss_gib": 3.9317}
+{"ev": "node", "i": 8070, "d": 2, "rc": 47, "t": 71.437, "rss_gib": 3.9633}
+{"ev": "node", "i": 8080, "d": 2, "rc": 47, "t": 71.437, "rss_gib": 3.9633}
+{"ev": "node", "i": 8090, "d": 2, "rc": 47, "t": 71.486, "rss_gib": 3.9793}
+{"ev": "s", "t": 71.508, "phase": "recompute", "rss_gib": 4.0251, "avail_gib": 12.8, "n_retire": 8098, "n_recompute": 47}
+{"ev": "node", "i": 8100, "d": 2, "rc": 47, "t": 71.516, "rss_gib": 3.9952}
+{"ev": "node", "i": 8110, "d": 2, "rc": 47, "t": 71.517, "rss_gib": 3.9952}
+{"ev": "node", "i": 8120, "d": 2, "rc": 47, "t": 71.567, "rss_gib": 3.9953}
+{"ev": "node", "i": 8130, "d": 2, "rc": 47, "t": 71.598, "rss_gib": 4.0109}
+{"ev": "node", "i": 8140, "d": 2, "rc": 47, "t": 71.627, "rss_gib": 4.0577}
+{"ev": "node", "i": 8150, "d": 2, "rc": 47, "t": 71.656, "rss_gib": 4.058}
+{"ev": "node", "i": 8160, "d": 2, "rc": 47, "t": 71.684, "rss_gib": 4.0892}
+{"ev": "s", "t": 71.711, "phase": "recompute", "rss_gib": 4.1514, "avail_gib": 12.6668, "n_retire": 8169, "n_recompute": 47}
+{"ev": "node", "i": 8170, "d": 2, "rc": 47, "t": 71.712, "rss_gib": 4.1516}
+{"ev": "bw_exit", "d": 1, "rc": 47, "i": 8170, "pins": 106, "sm_bwd": 141, "mi_before": {"arena_gib": 9.2581, "hblkhd_gib": 1.2675, "uordblks_gib": 1.9929, "fordblks_gib": 7.2653, "keepcost_gib": 0.0314, "hblks": 166}, "trim_gib": 0.4844, "mi_after": {"arena_gib": 9.2268, "hblkhd_gib": 1.2675, "uordblks_gib": 1.9929, "fordblks_gib": 7.2339, "keepcost_gib": 0.0, "hblks": 166}, "t": 71.722, "rss_gib": 3.6672}
+{"ev": "s", "t": 71.917, "phase": "backward", "rss_gib": 3.9228, "avail_gib": 12.8592, "n_retire": 8172, "n_recompute": 47}
+{"ev": "bw_enter", "d": 1, "rc": 48, "i": 8172, "pins": 106, "t": 71.92, "rss_gib": 3.9253}
+{"ev": "node", "i": 8180, "d": 2, "rc": 48, "t": 71.923, "rss_gib": 3.9278}
+{"ev": "node", "i": 8190, "d": 2, "rc": 48, "t": 71.925, "rss_gib": 3.9323}
+{"ev": "node", "i": 8200, "d": 2, "rc": 48, "t": 71.955, "rss_gib": 3.9737}
+{"ev": "node", "i": 8210, "d": 2, "rc": 48, "t": 71.989, "rss_gib": 4.0048}
+{"ev": "node", "i": 8220, "d": 2, "rc": 48, "t": 72.042, "rss_gib": 4.0205}
+{"ev": "node", "i": 8230, "d": 2, "rc": 48, "t": 72.042, "rss_gib": 4.0205}
+{"ev": "node", "i": 8240, "d": 2, "rc": 48, "t": 72.072, "rss_gib": 4.0206}
+{"ev": "s", "t": 72.123, "phase": "recompute", "rss_gib": 4.0986, "avail_gib": 12.606, "n_retire": 8244, "n_recompute": 48}
+{"ev": "node", "i": 8250, "d": 2, "rc": 48, "t": 72.126, "rss_gib": 4.0361}
+{"ev": "node", "i": 8260, "d": 2, "rc": 48, "t": 72.127, "rss_gib": 4.0361}
+{"ev": "node", "i": 8270, "d": 2, "rc": 48, "t": 72.184, "rss_gib": 4.0673}
+{"ev": "node", "i": 8280, "d": 2, "rc": 48, "t": 72.212, "rss_gib": 4.0675}
+{"ev": "node", "i": 8290, "d": 2, "rc": 48, "t": 72.239, "rss_gib": 4.1301}
+{"ev": "node", "i": 8300, "d": 2, "rc": 48, "t": 72.266, "rss_gib": 4.0991}
+{"ev": "bw_exit", "d": 1, "rc": 48, "i": 8303, "pins": 106, "sm_bwd": 144, "mi_before": {"arena_gib": 9.3206, "hblkhd_gib": 1.2675, "uordblks_gib": 1.993, "fordblks_gib": 7.3277, "keepcost_gib": 0.0001, "hblks": 166}, "trim_gib": 0.4318, "mi_after": {"arena_gib": 9.3205, "hblkhd_gib": 1.2675, "uordblks_gib": 1.993, "fordblks_gib": 7.3275, "keepcost_gib": 0.0, "hblks": 166}, "census": {"host_gib": 2.3664, "host_f64_gib": 0.198, "storages": 5799, "torch_objs": 6217, "tape_tensors": 5566, "tape_nodes": 2200, "census_s": 0.1}, "t": 72.378, "rss_gib": 3.6798}
+{"ev": "s", "t": 72.371, "phase": "backward", "rss_gib": 3.6798, "avail_gib": 13.0622, "n_retire": 8303, "n_recompute": 48}
+{"ev": "bw_enter", "d": 1, "rc": 49, "i": 8307, "pins": 106, "t": 72.571, "rss_gib": 4.0233}
+{"ev": "node", "i": 8310, "d": 2, "rc": 49, "t": 72.572, "rss_gib": 4.0233}
+{"ev": "s", "t": 72.579, "phase": "recompute", "rss_gib": 4.0233, "avail_gib": 12.6564, "n_retire": 8313, "n_recompute": 49}
+{"ev": "node", "i": 8320, "d": 2, "rc": 49, "t": 72.599, "rss_gib": 4.0485}
+{"ev": "node", "i": 8330, "d": 2, "rc": 49, "t": 72.641, "rss_gib": 4.0489}
+{"ev": "node", "i": 8340, "d": 2, "rc": 49, "t": 72.642, "rss_gib": 4.0489}
+{"ev": "node", "i": 8350, "d": 2, "rc": 49, "t": 72.668, "rss_gib": 4.0489}
+{"ev": "node", "i": 8360, "d": 2, "rc": 49, "t": 72.712, "rss_gib": 4.0489}
+{"ev": "node", "i": 8370, "d": 2, "rc": 49, "t": 72.713, "rss_gib": 4.0489}
+{"ev": "node", "i": 8380, "d": 2, "rc": 49, "t": 72.781, "rss_gib": 4.0489}
+{"ev": "s", "t": 72.781, "phase": "recompute", "rss_gib": 4.0489, "avail_gib": 12.592, "n_retire": 8380, "n_recompute": 49}
+{"ev": "node", "i": 8390, "d": 2, "rc": 49, "t": 72.782, "rss_gib": 4.0489}
+{"ev": "node", "i": 8400, "d": 2, "rc": 49, "t": 72.834, "rss_gib": 4.0493}
+{"ev": "node", "i": 8410, "d": 2, "rc": 49, "t": 72.861, "rss_gib": 4.0805}
+{"ev": "node", "i": 8420, "d": 2, "rc": 49, "t": 72.942, "rss_gib": 4.0809}
+{"ev": "s", "t": 72.99, "phase": "recompute", "rss_gib": 4.0818, "avail_gib": 12.5311, "n_retire": 8428, "n_recompute": 49}
+{"ev": "node", "i": 8430, "d": 2, "rc": 49, "t": 72.995, "rss_gib": 4.0957}
+{"ev": "bw_exit", "d": 1, "rc": 49, "i": 8431, "pins": 106, "sm_bwd": 146, "mi_before": {"arena_gib": 9.3519, "hblkhd_gib": 1.2675, "uordblks_gib": 1.9935, "fordblks_gib": 7.3584, "keepcost_gib": 0.0001, "hblks": 166}, "trim_gib": 0.4287, "mi_after": {"arena_gib": 9.3518, "hblkhd_gib": 1.2675, "uordblks_gib": 1.9935, "fordblks_gib": 7.3583, "keepcost_gib": 0.0, "hblks": 166}, "t": 73.007, "rss_gib": 3.667}
+{"ev": "s", "t": 73.194, "phase": "backward", "rss_gib": 3.936, "avail_gib": 12.6081, "n_retire": 8433, "n_recompute": 49}
+{"ev": "bw_enter", "d": 1, "rc": 50, "i": 8433, "pins": 106, "t": 73.233, "rss_gib": 4.0299}
+{"ev": "node", "i": 8440, "d": 2, "rc": 50, "t": 73.264, "rss_gib": 4.0775}
+{"ev": "node", "i": 8450, "d": 2, "rc": 50, "t": 73.265, "rss_gib": 4.0775}
+{"ev": "node", "i": 8460, "d": 2, "rc": 50, "t": 73.319, "rss_gib": 4.0768}
+{"ev": "node", "i": 8470, "d": 2, "rc": 50, "t": 73.353, "rss_gib": 4.0772}
+{"ev": "node", "i": 8480, "d": 2, "rc": 50, "t": 73.354, "rss_gib": 4.0772}
+{"ev": "s", "t": 73.401, "phase": "recompute", "rss_gib": 4.1394, "avail_gib": 12.3454, "n_retire": 8481, "n_recompute": 50}
+{"ev": "node", "i": 8490, "d": 2, "rc": 50, "t": 73.408, "rss_gib": 4.0769}
+{"ev": "node", "i": 8500, "d": 2, "rc": 50, "t": 73.437, "rss_gib": 4.0772}
+{"ev": "node", "i": 8510, "d": 2, "rc": 50, "t": 73.467, "rss_gib": 4.0616}
+{"ev": "node", "i": 8520, "d": 2, "rc": 50, "t": 73.497, "rss_gib": 4.078}
+{"ev": "node", "i": 8530, "d": 2, "rc": 50, "t": 73.527, "rss_gib": 4.1248}
+{"ev": "node", "i": 8540, "d": 2, "rc": 50, "t": 73.572, "rss_gib": 4.094}
+{"ev": "node", "i": 8550, "d": 2, "rc": 50, "t": 73.591, "rss_gib": 4.1058}
+{"ev": "s", "t": 73.669, "phase": "recompute", "rss_gib": 4.1064, "avail_gib": 12.4163, "n_retire": 8560, "n_recompute": 50}
+{"ev": "node", "i": 8560, "d": 2, "rc": 50, "t": 73.671, "rss_gib": 4.1064}
+{"ev": "node", "i": 8570, "d": 2, "rc": 50, "t": 73.672, "rss_gib": 4.1064}
+{"ev": "node", "i": 8580, "d": 2, "rc": 50, "t": 73.673, "rss_gib": 4.1064}
+{"ev": "node", "i": 8590, "d": 2, "rc": 50, "t": 73.674, "rss_gib": 4.1064}
+{"ev": "node", "i": 8600, "d": 2, "rc": 50, "t": 73.675, "rss_gib": 4.1064}
+{"ev": "node", "i": 8610, "d": 2, "rc": 50, "t": 73.675, "rss_gib": 4.1064}
+{"ev": "node", "i": 8620, "d": 2, "rc": 50, "t": 73.676, "rss_gib": 4.1064}
+{"ev": "node", "i": 8630, "d": 2, "rc": 50, "t": 73.677, "rss_gib": 4.1064}
+{"ev": "node", "i": 8640, "d": 2, "rc": 50, "t": 73.684, "rss_gib": 4.1093}
+{"ev": "node", "i": 8650, "d": 2, "rc": 50, "t": 73.725, "rss_gib": 4.1415}
+{"ev": "node", "i": 8660, "d": 2, "rc": 50, "t": 73.726, "rss_gib": 4.1415}
+{"ev": "node", "i": 8670, "d": 2, "rc": 50, "t": 73.742, "rss_gib": 4.097}
+{"ev": "bw_exit", "d": 1, "rc": 50, "i": 8672, "pins": 106, "sm_bwd": 149, "mi_before": {"arena_gib": 9.4613, "hblkhd_gib": 1.2675, "uordblks_gib": 1.9966, "fordblks_gib": 7.4647, "keepcost_gib": 0.0001, "hblks": 166}, "trim_gib": 0.4267, "mi_after": {"arena_gib": 9.4612, "hblkhd_gib": 1.2675, "uordblks_gib": 1.9966, "fordblks_gib": 7.4646, "keepcost_gib": 0.0, "hblks": 166}, "t": 73.755, "rss_gib": 3.6703}
+{"ev": "s", "t": 73.871, "phase": "backward", "rss_gib": 3.7218, "avail_gib": 12.7177, "n_retire": 8674, "n_recompute": 50}
+{"ev": "bw_enter", "d": 1, "rc": 51, "i": 8674, "pins": 106, "t": 73.994, "rss_gib": 4.0422}
+{"ev": "node", "i": 8680, "d": 2, "rc": 51, "t": 73.995, "rss_gib": 4.0422}
+{"ev": "node", "i": 8690, "d": 2, "rc": 51, "t": 74.021, "rss_gib": 4.0424}
+{"ev": "s", "t": 74.077, "phase": "recompute", "rss_gib": 4.1049, "avail_gib": 12.1695, "n_retire": 8693, "n_recompute": 51}
+{"ev": "node", "i": 8700, "d": 2, "rc": 51, "t": 74.081, "rss_gib": 4.0423}
+{"ev": "node", "i": 8710, "d": 2, "rc": 51, "t": 74.108, "rss_gib": 4.0578}
+{"ev": "node", "i": 8720, "d": 2, "rc": 51, "t": 74.108, "rss_gib": 4.0578}
+{"ev": "node", "i": 8730, "d": 2, "rc": 51, "t": 74.166, "rss_gib": 4.058}
+{"ev": "node", "i": 8740, "d": 2, "rc": 51, "t": 74.194, "rss_gib": 4.0425}
+{"ev": "node", "i": 8750, "d": 2, "rc": 51, "t": 74.223, "rss_gib": 4.0736}
+{"ev": "node", "i": 8760, "d": 2, "rc": 51, "t": 74.253, "rss_gib": 4.0895}
+{"ev": "s", "t": 74.279, "phase": "recompute", "rss_gib": 4.1055, "avail_gib": 12.1913, "n_retire": 8761, "n_recompute": 51}
+{"ev": "node", "i": 8770, "d": 2, "rc": 51, "t": 74.28, "rss_gib": 4.0897}
+{"ev": "node", "i": 8780, "d": 2, "rc": 51, "t": 74.308, "rss_gib": 4.1211}
+{"ev": "node", "i": 8790, "d": 2, "rc": 51, "t": 74.312, "rss_gib": 4.1318}
+{"ev": "node", "i": 8800, "d": 2, "rc": 51, "t": 74.313, "rss_gib": 4.1318}
+{"ev": "node", "i": 8810, "d": 2, "rc": 51, "t": 74.314, "rss_gib": 4.1318}
+{"ev": "node", "i": 8820, "d": 2, "rc": 51, "t": 74.315, "rss_gib": 4.1318}
+{"ev": "node", "i": 8830, "d": 2, "rc": 51, "t": 74.316, "rss_gib": 4.1318}
+{"ev": "node", "i": 8840, "d": 2, "rc": 51, "t": 74.316, "rss_gib": 4.1318}
+{"ev": "node", "i": 8850, "d": 2, "rc": 51, "t": 74.317, "rss_gib": 4.1318}
+{"ev": "node", "i": 8860, "d": 2, "rc": 51, "t": 74.318, "rss_gib": 4.1318}
+{"ev": "node", "i": 8870, "d": 2, "rc": 51, "t": 74.318, "rss_gib": 4.1318}
+{"ev": "node", "i": 8880, "d": 2, "rc": 51, "t": 74.319, "rss_gib": 4.1318}
+{"ev": "node", "i": 8890, "d": 2, "rc": 51, "t": 74.352, "rss_gib": 4.1501}
+{"ev": "node", "i": 8900, "d": 2, "rc": 51, "t": 74.352, "rss_gib": 4.1501}
+{"ev": "node", "i": 8910, "d": 2, "rc": 51, "t": 74.363, "rss_gib": 4.1638}
+{"ev": "bw_exit", "d": 1, "rc": 51, "i": 8913, "pins": 106, "sm_bwd": 152, "mi_before": {"arena_gib": 9.5551, "hblkhd_gib": 1.2675, "uordblks_gib": 1.9968, "fordblks_gib": 7.5583, "keepcost_gib": 0.0158, "hblks": 166}, "trim_gib": 0.4933, "mi_after": {"arena_gib": 9.5394, "hblkhd_gib": 1.2675, "uordblks_gib": 1.9968, "fordblks_gib": 7.5425, "keepcost_gib": 0.0, "hblks": 166}, "t": 74.375, "rss_gib": 3.6705}
+{"ev": "s", "t": 74.484, "phase": "backward", "rss_gib": 3.7335, "avail_gib": 12.5664, "n_retire": 8915, "n_recompute": 51}
+{"ev": "bw_enter", "d": 1, "rc": 52, "i": 8915, "pins": 106, "t": 74.598, "rss_gib": 4.0072}
+{"ev": "node", "i": 8920, "d": 2, "rc": 52, "t": 74.599, "rss_gib": 4.0072}
+{"ev": "node", "i": 8930, "d": 2, "rc": 52, "t": 74.628, "rss_gib": 4.0703}
+{"ev": "s", "t": 74.685, "phase": "recompute", "rss_gib": 4.1748, "avail_gib": 12.1069, "n_retire": 8934, "n_recompute": 52}
+{"ev": "node", "i": 8940, "d": 2, "rc": 52, "t": 74.713, "rss_gib": 4.0696}
+{"ev": "node", "i": 8950, "d": 2, "rc": 52, "t": 74.713, "rss_gib": 4.0696}
+{"ev": "node", "i": 8960, "d": 2, "rc": 52, "t": 74.742, "rss_gib": 4.0702}
+{"ev": "node", "i": 8970, "d": 2, "rc": 52, "t": 74.794, "rss_gib": 4.0699}
+{"ev": "node", "i": 8980, "d": 2, "rc": 52, "t": 74.823, "rss_gib": 4.0701}
+{"ev": "node", "i": 8990, "d": 2, "rc": 52, "t": 74.852, "rss_gib": 4.086}
+{"ev": "node", "i": 9000, "d": 2, "rc": 52, "t": 74.879, "rss_gib": 4.1019}
+{"ev": "s", "t": 74.886, "phase": "recompute", "rss_gib": 4.1019, "avail_gib": 12.1295, "n_retire": 9002, "n_recompute": 52}
+{"ev": "node", "i": 9010, "d": 2, "rc": 52, "t": 74.907, "rss_gib": 4.1488}
+{"ev": "node", "i": 9020, "d": 2, "rc": 52, "t": 74.935, "rss_gib": 4.1488}
+{"ev": "node", "i": 9030, "d": 2, "rc": 52, "t": 74.946, "rss_gib": 4.163}
+{"ev": "node", "i": 9040, "d": 2, "rc": 52, "t": 74.946, "rss_gib": 4.163}
+{"ev": "node", "i": 9050, "d": 2, "rc": 52, "t": 74.947, "rss_gib": 4.163}
+{"ev": "node", "i": 9060, "d": 2, "rc": 52, "t": 74.948, "rss_gib": 4.163}
+{"ev": "node", "i": 9070, "d": 2, "rc": 52, "t": 74.948, "rss_gib": 4.163}
+{"ev": "node", "i": 9080, "d": 2, "rc": 52, "t": 74.949, "rss_gib": 4.163}
+{"ev": "node", "i": 9090, "d": 2, "rc": 52, "t": 74.949, "rss_gib": 4.163}
+{"ev": "node", "i": 9100, "d": 2, "rc": 52, "t": 74.95, "rss_gib": 4.163}
+{"ev": "node", "i": 9110, "d": 2, "rc": 52, "t": 74.95, "rss_gib": 4.163}
+{"ev": "node", "i": 9120, "d": 2, "rc": 52, "t": 74.951, "rss_gib": 4.163}
+{"ev": "node", "i": 9130, "d": 2, "rc": 52, "t": 74.984, "rss_gib": 4.1817}
+{"ev": "node", "i": 9140, "d": 2, "rc": 52, "t": 74.985, "rss_gib": 4.1817}
+{"ev": "node", "i": 9150, "d": 2, "rc": 52, "t": 74.99, "rss_gib": 4.189}
+{"ev": "bw_exit", "d": 1, "rc": 52, "i": 9154, "pins": 106, "sm_bwd": 155, "mi_before": {"arena_gib": 9.7582, "hblkhd_gib": 1.2675, "uordblks_gib": 1.997, "fordblks_gib": 7.7612, "keepcost_gib": 0.0157, "hblks": 166}, "trim_gib": 0.5182, "mi_after": {"arena_gib": 9.7425, "hblkhd_gib": 1.2675, "uordblks_gib": 1.997, "fordblks_gib": 7.7454, "keepcost_gib": 0.0, "hblks": 166}, "t": 75.005, "rss_gib": 3.6707}
+{"ev": "node", "i": 9160, "d": 1, "rc": 52, "t": 75.025, "rss_gib": 3.5458}
+{"ev": "node", "i": 9170, "d": 1, "rc": 52, "t": 75.048, "rss_gib": 3.5459}
+{"ev": "s", "t": 75.092, "phase": "backward", "rss_gib": 3.6256, "avail_gib": 12.5766, "n_retire": 9171, "n_recompute": 52}
+{"ev": "bw_enter", "d": 1, "rc": 53, "i": 9171, "pins": 106, "t": 75.212, "rss_gib": 4.0434}
+{"ev": "node", "i": 9180, "d": 2, "rc": 53, "t": 75.247, "rss_gib": 4.0923}
+{"ev": "node", "i": 9190, "d": 2, "rc": 53, "t": 75.291, "rss_gib": 4.0949}
+{"ev": "s", "t": 75.335, "phase": "recompute", "rss_gib": 4.096, "avail_gib": 12.1045, "n_retire": 9192, "n_recompute": 53}
+{"ev": "node", "i": 9200, "d": 2, "rc": 53, "t": 75.383, "rss_gib": 4.1283}
+{"ev": "node", "i": 9210, "d": 2, "rc": 53, "t": 75.451, "rss_gib": 4.1577}
+{"ev": "node", "i": 9220, "d": 2, "rc": 53, "t": 75.452, "rss_gib": 4.1577}
+{"ev": "node", "i": 9230, "d": 2, "rc": 53, "t": 75.509, "rss_gib": 4.1584}
+{"ev": "node", "i": 9240, "d": 2, "rc": 53, "t": 75.524, "rss_gib": 4.1773}
+{"ev": "node", "i": 9250, "d": 2, "rc": 53, "t": 75.595, "rss_gib": 4.1776}
+{"ev": "s", "t": 75.595, "phase": "recompute", "rss_gib": 4.1779, "avail_gib": 11.9987, "n_retire": 9258, "n_recompute": 53}
+{"ev": "node", "i": 9260, "d": 2, "rc": 53, "t": 75.621, "rss_gib": 4.1973}
+{"ev": "node", "i": 9270, "d": 2, "rc": 53, "t": 75.633, "rss_gib": 4.1973}
+{"ev": "bw_exit", "d": 1, "rc": 53, "i": 9277, "pins": 106, "sm_bwd": 157, "mi_before": {"arena_gib": 9.7425, "hblkhd_gib": 1.2675, "uordblks_gib": 2.0005, "fordblks_gib": 7.742, "keepcost_gib": 0.0, "hblks": 166}, "trim_gib": 0.5234, "mi_after": {"arena_gib": 9.7425, "hblkhd_gib": 1.2675, "uordblks_gib": 2.0005, "fordblks_gib": 7.742, "keepcost_gib": 0.0, "hblks": 166}, "t": 75.657, "rss_gib": 3.6739}
+{"ev": "bw_enter", "d": 1, "rc": 54, "i": 9278, "pins": 106, "t": 75.796, "rss_gib": 4.0624}
+{"ev": "node", "i": 9280, "d": 2, "rc": 54, "t": 75.796, "rss_gib": 4.0624}
+{"ev": "node", "i": 9290, "d": 2, "rc": 54, "t": 75.812, "rss_gib": 4.1196}
+{"ev": "s", "t": 75.812, "phase": "recompute", "rss_gib": 4.1196, "avail_gib": 12.0351, "n_retire": 9290, "n_recompute": 54}
+{"ev": "node", "i": 9300, "d": 2, "rc": 54, "t": 75.875, "rss_gib": 4.1525}
+{"ev": "node", "i": 9310, "d": 2, "rc": 54, "t": 75.876, "rss_gib": 4.1525}
+{"ev": "node", "i": 9320, "d": 2, "rc": 54, "t": 75.89, "rss_gib": 4.1525}
+{"ev": "node", "i": 9330, "d": 2, "rc": 54, "t": 75.891, "rss_gib": 4.1525}
+{"ev": "node", "i": 9340, "d": 2, "rc": 54, "t": 75.949, "rss_gib": 4.1525}
+{"ev": "node", "i": 9350, "d": 2, "rc": 54, "t": 75.963, "rss_gib": 4.1525}
+{"ev": "node", "i": 9360, "d": 2, "rc": 54, "t": 75.976, "rss_gib": 4.1621}
+{"ev": "node", "i": 9370, "d": 2, "rc": 54, "t": 76.002, "rss_gib": 4.1714}
+{"ev": "node", "i": 9380, "d": 2, "rc": 54, "t": 76.003, "rss_gib": 4.1714}
+{"ev": "s", "t": 76.023, "phase": "backward", "rss_gib": 4.1061, "avail_gib": 12.0763, "n_retire": 9384, "n_recompute": 54}
+{"ev": "bw_exit", "d": 1, "rc": 54, "i": 9384, "pins": 106, "sm_bwd": 159, "mi_before": {"arena_gib": 9.7425, "hblkhd_gib": 1.2675, "uordblks_gib": 2.0006, "fordblks_gib": 7.742, "keepcost_gib": 0.0, "hblks": 166}, "trim_gib": 0.5356, "mi_after": {"arena_gib": 9.7425, "hblkhd_gib": 1.2675, "uordblks_gib": 2.0006, "fordblks_gib": 7.742, "keepcost_gib": 0.0, "hblks": 166}, "census": {"host_gib": 2.3644, "host_f64_gib": 0.196, "storages": 5798, "torch_objs": 6216, "tape_tensors": 5551, "tape_nodes": 2174, "census_s": 0.097}, "t": 76.129, "rss_gib": 3.6881}
+{"ev": "node", "i": 9390, "d": 1, "rc": 54, "t": 76.13, "rss_gib": 3.5632}
+{"ev": "node", "i": 9400, "d": 1, "rc": 54, "t": 76.138, "rss_gib": 3.5632}
+{"ev": "bw_exit", "d": 0, "rc": 0, "i": 9407, "pins": 106, "sm_bwd": 159, "t": 76.203, "rss_gib": 3.7552}
+{"ev": "s", "t": 76.234, "phase": "setup", "rss_gib": 3.7618, "avail_gib": 12.9812, "n_retire": 9407, "n_recompute": 54}
+{"ev": "s", "t": 76.435, "phase": "setup", "rss_gib": 3.7996, "avail_gib": 12.9245, "n_retire": 9407, "n_recompute": 54}
+{"ev": "s", "t": 76.635, "phase": "setup", "rss_gib": 3.7998, "avail_gib": 12.9097, "n_retire": 9407, "n_recompute": 54}
+{"ev": "s", "t": 76.838, "phase": "setup", "rss_gib": 3.7998, "avail_gib": 12.8864, "n_retire": 9407, "n_recompute": 54}
+{"ev": "s", "t": 77.039, "phase": "setup", "rss_gib": 3.8023, "avail_gib": 12.879, "n_retire": 9407, "n_recompute": 54}
+{"ev": "s", "t": 77.24, "phase": "setup", "rss_gib": 3.8026, "avail_gib": 12.8855, "n_retire": 9407, "n_recompute": 54}
+{"ev": "s", "t": 77.44, "phase": "setup", "rss_gib": 3.8076, "avail_gib": 12.8645, "n_retire": 9407, "n_recompute": 54}
+{"ev": "s", "t": 77.641, "phase": "setup", "rss_gib": 3.8076, "avail_gib": 12.8786, "n_retire": 9407, "n_recompute": 54}
+{"ev": "s", "t": 77.841, "phase": "setup", "rss_gib": 3.8076, "avail_gib": 12.8467, "n_retire": 9407, "n_recompute": 54}
+{"footer": true, "rc": 0, "wall_s": 68.179, "vmhwm_gib": 6.8171, "avail_at_end_gib": 13.485, "counts": {"retire": 9407, "bw_depth": 0, "recompute": 54, "sm_fwd": 189, "sm_bwd": 159, "gc_freed": 0, "gc_gib": 0.0, "trim_gib": 23.733047485351562}, "mallinfo_at_end": {"arena_gib": 9.7425, "hblkhd_gib": 0.5091, "uordblks_gib": 0.3876, "fordblks_gib": 9.355, "keepcost_gib": 0.0156, "hblks": 20}, "exact_training_ops": ["softmax", "layer_norm"], "ended_utc": "2026-09-25T20:14:27Z"}

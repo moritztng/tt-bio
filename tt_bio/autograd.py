@@ -219,6 +219,48 @@ class _Node:
 # this campaign is measuring.
 DROP_DEAD_VALUES = True
 
+#: Hand the pages a taped backward has finished with back to the OPERATING SYSTEM, not just
+#: back to glibc. On by default; off is the control arm.
+#:
+#: A checkpointed backward frees its inner tape correctly -- measured, `gc.collect()` at every
+#: one of 54 recompute boundaries reclaimed **0 objects and 0 bytes** -- and host RSS climbs
+#: anyway, because `free()` returns a block to the arena and the arena only shrinks from its
+#: TOP. `mallinfo2` at the end of a crop-128 step says it plainly: arena 8.547 GiB, of which
+#: `uordblks` (asked for and not returned) is **0.387 GiB** and `fordblks` (free, still held)
+#: is **8.159 GiB**, with `keepcost` **0** -- the free space is not at the top, so the automatic
+#: trim can never fire and no `M_TRIM_THRESHOLD` setting would change that.
+#:
+#: Measured at crop 128, 1 cycle, 1 sample, exactness ON, pc card 0, AICLK 1350 MHz DURING
+#: (`perf/of3t_tapemem/out/`): host high-water **10.820 -> 6.817 GiB, -4.00 GiB**, with the
+#: backward's own RSS delta going **+4.19 GiB to -1.95 GiB**, at the same wall clock and with
+#: all 3,152 declared weight gradients bit-identical. The alternative --
+#: `mallopt(M_MMAP_THRESHOLD)`, so the blocks never enter the arena -- takes the high-water to
+#: 4.066 GiB but costs **1.50x on the backward** (63.11 s against 42.01 s), so it is not the
+#: default and is reachable from the harness rather than from here.
+TRIM_HOST_HEAP = True
+
+_TRIM = None
+
+
+def _trim_host_heap() -> bool:
+    """`malloc_trim(0)`, resolved once and never raising. False when there is nothing to call.
+
+    Nothing outside glibc has this, so a musl or macOS host caches the miss and no-ops for the
+    rest of the process rather than paying a failed `CDLL` per recompute.
+    """
+    global _TRIM
+    if _TRIM is None:
+        import ctypes
+        try:
+            fn = ctypes.CDLL("libc.so.6", use_errno=True).malloc_trim
+            fn.argtypes, fn.restype = [ctypes.c_size_t], ctypes.c_int
+            _TRIM = fn
+        except (OSError, AttributeError):                    # not glibc
+            _TRIM = False
+    if not _TRIM:
+        return False
+    return bool(_TRIM(0))
+
 
 class Tensor:
     """A ttnn tensor plus its place on the tape. The value stays on device throughout.
@@ -2270,7 +2312,15 @@ def checkpoint(fn, *inputs: Tensor, params: Sequence[Tensor] = ()) -> Tensor:
         # names below frees it here, at the refcount. It once took a `gc.collect()` per
         # recompute, 0.16 s each in a process holding AF2, and then a walk that cleared the
         # groups it could reach from the roots -- which missed every group off that path.
+        # That claim has now been TESTED rather than trusted: a `gc.collect()` here reclaims
+        # 0 objects and 0 bytes, 54 times out of 54, so the refcount really does do it.
         del y, inner, roots
+        # ...and the process keeps the pages regardless, because `free()` gives a block back to
+        # glibc, not to the kernel. This is the one point in a backward where a large, known
+        # quantity of host memory has just died -- a whole segment's recomputed tape -- so it
+        # is where the arena is worth trimming. See `TRIM_HOST_HEAP`.
+        if TRIM_HOST_HEAP:
+            _trim_host_heap()
 
     if not isinstance(produced, (tuple, list)):
         return _tape(produced.value if isinstance(produced, Tensor) else produced, parents,
