@@ -18,6 +18,29 @@ to pair tensors in DRAM, and throws inside that fallback:
         python3 perf/bcx_predictor/repro_trimul_288.py --seq 288
 
 `--seq 224` is the control and passes; the campaign's published device trajectories ran there.
+
+LEADS, so the next pass does not start from the traceback.
+
+This clash has a root-caused precedent in the same file. `tenstorrent.py:305-313` records
+OpenDDE (c_z=384) throwing the same `program.cpp:1052` on every seed -- "circular buffers in
+program 378 clash with L1 buffers on core range [(x=0,y=0) - (x=9,y=9)]" -- and names the
+mechanism: the clash lands on a 10x10 core range while `_l1_rows_at` divides the per-core budget
+by `COMPUTE_GRID_MAIN` = 11x10, "a 10% underestimate of the per-core bytes". A budget divided by
+a core count the kernel does not actually use is a standing defect class, not a one-off. Ours
+lands on an 11x10 range with the static CB region ending at 1176064 and an L1 buffer at 1132544,
+so the overlap is 43520 bytes.
+
+Knobs to try before writing any code, both already in the engine:
+  TT_BIO_TRIMUL_CHUNK_CAP   cap the chunk below where the ladder bottoms out (32)
+  TT_BIO_FORCE_GRID="x,y"   pin the main grid, which is how issue #9 separated grid-path
+                            defects from hardware
+
+What NOT to do. The throw reaches Python through `host_acc_after_refusal`
+(`tenstorrent.py:6017`), which re-raises anything `size_limits.is_alloc_refusal` does not
+recognise. Widening that predicate to swallow a CB clash is the obvious one-line fix and it is
+wrong: the docstring at `size_limits.py:1998` says it excludes exactly this on purpose, "so a
+circular-buffer throw or a shape error is never quietly re-run through a fallback meant for an
+out-of-memory", and several retry paths share it.
 """
 import argparse
 import os
