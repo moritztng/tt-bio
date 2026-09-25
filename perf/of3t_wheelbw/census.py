@@ -61,6 +61,11 @@ VERBS = {
 # and friends are only called by code that names them, which the OF3T modules do not.
 TAPED_VERBS = {"silu": (6, 1), "sigmoid": (3, 1), "relu": (2, 1)}
 
+# `multiply` is counted separately because only the nodes that meet `_binary`'s `both`
+# condition shorten: same-shape operands, no fused unary, both sides wanting a gradient.
+# A broadcast multiply still needs `_reduce_to` and a fused one still needs its correction.
+MUL_FASTPATH = (2, 1)
+
 
 def classify(t):
     """`_reverse_topo` hands back TENSORS, so the op is on `t.node.fn`; a leaf has no node."""
@@ -91,11 +96,41 @@ def instrument(ag, tw, calls, taped, shapes, branch):
         except Exception:
             shapes[key]["<unreadable>"] += 1
 
+    import ttnn as _ttnn
+
+    def mul_fastpath(args, kwargs):
+        """The condition `_binary`'s `both` branch tests, evaluated at forward time.
+
+        `mul_bw` replaces the two multiplies only when no fused unary sits on either operand,
+        both operands are tensors, and no operand broadcasts -- everything else still needs
+        `_reduce_to` or an activation correction. requires_grad is known here too, so the
+        forward-time answer is the backward-time answer.
+        """
+        if len(args) < 2:
+            return False
+        if kwargs.get("input_tensor_a_activations") or kwargs.get(
+                "input_tensor_b_activations"):
+            return False
+        a, b = args[0], args[1]
+        if not isinstance(b, (ag.Tensor, _ttnn.Tensor)):
+            return False
+        try:
+            sa = tuple(int(d) for d in (a.value if isinstance(a, ag.Tensor) else a).shape)
+            sb = tuple(int(d) for d in (b.value if isinstance(b, ag.Tensor) else b).shape)
+        except Exception:
+            return False
+        return sa == sb
+
     for name, impl in list(tw._VERBS.items()):
         def w(shipped, args, kwargs, _n=name, _i=impl):
             out = _i(shipped, args, kwargs)
-            note(f"taped_ttnn:{_n}", out,
-                 [a for a in args if isinstance(a, ag.Tensor)])
+            key = f"taped_ttnn:{_n}"
+            note(key, out, [a for a in args if isinstance(a, ag.Tensor)])
+            if _n in ("multiply", "multiply_") and getattr(out, "node", None) is not None \
+                    and mul_fastpath(args, kwargs):
+                parents = [a for a in args if isinstance(a, ag.Tensor)]
+                if sum(1 for p in parents if p.requires_grad) >= 2:
+                    calls["taped_ttnn:multiply|fastpath"] += 1
             return out
         tw._VERBS[name] = w
 
@@ -192,6 +227,9 @@ def main() -> int:
             saved[f"autograd:{op}"] = tot
         for op, (before, after) in TAPED_VERBS.items():
             saved[f"taped_ttnn:{op}"] = taped.get(f"taped_ttnn:{op}", 0) * (before - after)
+        b4, aft = MUL_FASTPATH
+        saved["taped_ttnn:multiply(fastpath)"] = \
+            calls.get("taped_ttnn:multiply|fastpath", 0) * (b4 - aft)
         out["verbs_deleted_by_op"] = {k: v for k, v in
                                       sorted(saved.items(), key=lambda kv: -kv[1])}
         out["verbs_deleted_total"] = sum(saved.values())

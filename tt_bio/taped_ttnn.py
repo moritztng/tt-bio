@@ -483,7 +483,7 @@ def _activation(kwargs, key, probe=None):
         f"read 4.88x high.")
 
 
-def _binary(grad_a, grad_b, scalar, out_of_place=None, needs=(True, True)):
+def _binary(grad_a, grad_b, scalar, out_of_place=None, needs=(True, True), both=None):
     """Register a binary eltwise verb. The second operand may be a python scalar, which the
     shipped chain does often enough (`ttnn.multiply(s, 1 / sqrt(d))`) that treating it as a
     tensor would be wrong rather than merely slow.
@@ -498,6 +498,12 @@ def _binary(grad_a, grad_b, scalar, out_of_place=None, needs=(True, True)):
     answer for anything that has not said. A fused unary adds its own read, unless its
     derivative is a constant -- which `MUL_UNARY_SFPU`, the score scale OpenFold3's
     fp32-softmax tail rides on the add, is.
+
+    ``both(g, a_value, b_value) -> (da, db)`` is the wheel's own two-sided backward, taken
+    only where it is exactly `grad_a` and `grad_b`: no fused unary on either operand, both
+    operands wanting a gradient, and no broadcast for `_reduce_to` to undo. Outside that it
+    composes as before, because `mul_bw` carries neither a fused-activation correction nor a
+    reducing output.
     """
     def impl(shipped, args, kwargs):
         a = _wrap(args[0])
@@ -550,6 +556,13 @@ def _binary(grad_a, grad_b, scalar, out_of_place=None, needs=(True, True)):
                 # rule reads is not recomputed either -- `add_(x, y, MUL_UNARY(c))` used to
                 # pay a full-sized multiply in the backward to build an `ea` that `_ADD`
                 # then ignored.
+                if (both is not None and fa is None and fb is None
+                        and a.requires_grad and b.requires_grad
+                        and tuple(av.shape) == tuple(bv.shape) == tuple(g.shape)):
+                    da, db = both(g, av, bv)
+                    a.add_grad(da)
+                    b.add_grad(db)
+                    return
                 ea = (fa[0](av) if fa else av) if reads_a else None
                 eb = (fb[0](bv) if fb else bv) if reads_b else None
                 if a.requires_grad:
@@ -604,8 +617,9 @@ _VERBS["add_"] = _binary(*_ADD, out_of_place=ttnn.add, needs=(False, False))
 _VERBS["subtract"] = _binary(
     lambda g, av, bv: g, lambda g, av, bv: ttnn.multiply(g, -1.0), lambda g, f: g,
     needs=(False, False))
-_VERBS["multiply"] = _binary(*_MUL)
-_VERBS["multiply_"] = _binary(*_MUL, out_of_place=ttnn.multiply)
+_MUL_BOTH = lambda g, av, bv: ttnn.mul_bw(g, av, bv)
+_VERBS["multiply"] = _binary(*_MUL, both=_MUL_BOTH)
+_VERBS["multiply_"] = _binary(*_MUL, out_of_place=ttnn.multiply, both=_MUL_BOTH)
 _VERBS["divide"] = _binary(
     lambda g, av, bv: ttnn.divide(g, bv),
     lambda g, av, bv: ttnn.multiply(ttnn.divide(g, ttnn.multiply(bv, bv)),
