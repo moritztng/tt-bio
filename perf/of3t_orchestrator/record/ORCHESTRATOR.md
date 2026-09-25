@@ -42,7 +42,11 @@ author and cite what you took; gates are batched and a stack is approved whole. 
 speedup that does less of the model's own work. A1-A45 are the correctness protocol and are
 unchanged. History: `state/of3t/PASSLOG.md`.
 
-LEDGER: `~/.coworker/state/of3t/LEDGER.md`, **R1-R202 and K1-K19**. An INDEX, not a copy: every
+LEDGER: `~/.coworker/state/of3t/LEDGER.md`, **R1-R203 and K1-K19**. **R203, filed this pass, is
+the sprint's first finding and it reordered the job list: an engine-wide fused-kernel bypass hid
+behind a per-module comment. A per-site comment that correctly explains one decline is the best
+camouflage a policy can have, because every reader who checks one site leaves satisfied. Count the
+sites before believing the anecdote — the grep took ten seconds.** An INDEX, not a copy: every
 entry's text, evidence and artifact path is in that file while it is in the tail and in
 `state/archive/` once rotated (newest `of3t-LEDGER.*.md` there by mtime). The four that bind the
 sprint, rather than the forty this field used to transcribe:
@@ -88,11 +92,17 @@ passes on a phantom 4.4x headroom, and three consecutive wrong conclusions from 
 against a roof nobody had established. So: **no kernel row is dispatched this pass, and that is
 the correct state, not a stall.** The four rows are 30 minutes old.
 
-`of3t-tapedfwd` is the one that can change the plan rather than feed it. If a taped call still
-switches fused triangle attention off for the whole process, then part of the 6-7x is kernels we
-already have being bypassed, and that is a wiring fix ahead of any authoring. Its COST number
-decides the sprint's order, so I read it before I size anything. It gates nothing formally; it can
-shrink what the kernel rows are for.
+**`of3t-tapedfwd` has been promoted: it now feeds the other two rather than running beside them,
+because I answered its code half this pass and what is left is the number the sprint is ordered
+by.** BACKWARD.md §4 was replaced and both its brief and `of3t-bwsurvey`'s were amended (R203):
+`ttnn.generic_op` has no backward, so all eleven fused kernels decline under taping by design at
+thirteen located sites in eight modules, and `tenstorrent.py:9016` takes DRAM where an untaped run
+takes L1. A taped training step therefore runs a decomposed, DRAM-resident model. The shared
+record had this as *"one taped call switched fused triangle attention off for the whole process"*,
+a cached refusal in one op; it is not cached, not one op and not a bug. What remains is
+measurement: which of the thirteen guards a real crop-384 step actually reaches, and the seconds
+each costs inside the 466.70 s. Nothing else in the sprint produces that number, and JOBS shares
+should be read off it rather than estimated.
 
 `of3t-throughput` runs alongside and gates nothing. Its output is the axis correction: chip-to-chip
 58-67x is the wrong headline for a box anyone would buy, and samples/sec per box, per dollar and
@@ -162,8 +172,12 @@ is expected: the four rows were dispatched 30 minutes ago and none has reported.
    is a learned pair projection and its gradient is how signal reaches the pair track at all. It
    may be nearly free from the softmax intermediates the kernel already saves, or it may be the
    sprint's largest single job. `of3t-bwsurvey` sizes it either way.
-4. **The taped forward's fused-kernel coverage is unmeasured at runtime.** A code read does not
-   answer it; the whole suspicion is that the code says one thing and the taped run does another.
+4. **The taped forward's fused-kernel bypass is LOCATED but unpriced.** The code half closed this
+   pass (R203, thirteen sites, eight modules, plus the DRAM-for-L1 residency downgrade). The
+   seconds are owed by `of3t-tapedfwd` and until they exist the sprint has no defensible order.
+   A related question its brief now carries, and the one the whole job list hangs on: a fused
+   kernel survives taping when it is a taped ttnn VERB with a registered backward and not when it
+   is a tt-bio `generic_op`. If that generalises, every job is a verb-registration job.
 5. **Nothing has landed, so `wk/of3t-bwd` does not exist.** Two artifact-only branches wait for the
    first batch (BRANCH).
 6. Carried from the correctness campaign and NOT this sprint's: D270 (`aux_heads.distogram.linear

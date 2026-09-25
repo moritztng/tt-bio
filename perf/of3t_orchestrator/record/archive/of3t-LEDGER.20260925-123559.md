@@ -499,16 +499,400 @@ Two caveats the row raised itself and which are the
 
 ---
 
-## ROTATED 2026-09-25T10:35:59Z
+## ROTATED 2026-09-23T01:00:04Z
 
-This doc reached 109105 bytes over its campaign and was costing
+This doc reached 107017 bytes over its campaign and was costing
 more to re-read each pass than the passes were worth. The middle is archived verbatim at
-`state/archive/of3t-LEDGER.20260925-123559.md` -- nothing was deleted, and a human can still read it. What follows is the most recent
+`state/archive/of3t-LEDGER.20260923-030004.md` -- nothing was deleted, and a human can still read it. What follows is the most recent
 work, which is what the next pass needs.
 
 ---
 
-self-heal,
+ettles it.** Both arms bank a
+`cotangent_on_device` block — a field added for exactly this question, whose own note reads *"a
+ratio away from 1 would mean the harness rescales a track on the way in"*:
+
+    banked hooked arm   ref 0.0007601379094210722  dev 0.0007601401183388326  rel 2.9059e-06
+    delta arm           ref 0.0007575746327655109  dev 0.0007575817533478665  rel 9.3992e-06
+    worst-case combined absolute 9.3295e-09
+    as a share of the external cotangent (6.4709e-05)      0.01442 %
+
+**So the shortcut is safe on the device to 0.014 %, not unsafe by 9.18 % — the nominal-epsilon
+bound overstated it by 637x.** The harness does not round-trip the injected cotangent at bf16
+precision, and it says so in a field it records on every arm.
+
+**The lesson, and it is one this campaign already has in another costume.** I was about to
+escalate a precision risk derived from a **dtype's name** rather than from a measurement —
+`roofline-roof-must-be-measured-not-asserted` applied to precision instead of bandwidth, and
+`your-own-worktree-already-holds-the-answer-grep-it-before-spending-device-time` applied to a
+risk instead of a result. **A quantisation bound taken from a dtype's epsilon is an upper bound
+on a harness nobody has measured; once the harness is instrumented, the epsilon is the wrong
+number to reason from.**
+
+R161's end-to-end control still stands and should still be run — this bounds the shortcut, it
+does not replace its control. But the row should not read a sub-0.1 % disagreement between the
+subtraction and a direct `cot_external.pt` run as a defect: **0.014 % is the expected size.**
+
+---
+
+### R173. D242's two-sided falsifier has now fired on BOTH branches, bit for bit, and the repair moved it from one to the other (pass 407, zero card)
+
+Pass 387 pre-registered a one-scalar falsifier for D242 with both values banked before any arm
+ran: `||dL/dz_in||` at **0.000848887340907281** means the injection is exact on the original
+graph; at **0.0014907294032500784** it overcounts.
+
+    pass 395  --graphdrive, the double-counting injection    0.0014907294032500784   OVERCOUNTS
+    pass 407  the repaired graph-cut-external injection      0.000848887340907281    EXACT
+
+**Both bit-identical to the banked values.** `REF_F64_MODEL_N384_CORRECTED.json` reads
+`dz_in_norm` 0.000848887340907281 and `ds_in_norm` 0.009204973933437452 — the real backward's
+own two numbers. **A two-sided falsifier that fires on one branch, is then acted on, and fires
+on the other branch after the repair is the strongest form this evidence takes**: the values
+were fixed before the mechanism was known, so neither branch could be fitted to the answer.
+
+**And it is independent of the parameter-gradient confirmation.** R170 established the repair
+on the 2,736 trunk tensors at **1.6952505222168708e-14** — the capture's own witness value.
+This is a different quantity, `dL/dz_in`, checked against a different reference, and it lands
+exactly. Two independent pre-registered confirmations of one repair.
+
+**The A42 chain is verifiable by digest at every hop**, checked this pass:
+`REF_F64_MODEL_N384_CORRECTED` computes the correction from **its own graph** —
+`correction_source: "this arm's own graph"`, which A42 permits only for the arm that defines
+the boundary — banks it as `cot_external.pt` (`1d15a8dc…`) and `cot_delta_only.pt`
+(`33be05b1…`), and both device arms cite those digests: `DEV_..._EXTERNAL` carries
+`1d15a8dc…` with `cot_z_norm` 6.47087024696404e-05, `DEV_..._DELTA` carries `33be05b1…` with
+`cot_s_norm` exactly 0.0. **One correction, one source, three consumers, digest-checkable.**
+
+**One consequence of the repair worth stating before it surprises anyone.** The corrected
+injection is 11.7471x smaller than the hooked one, so any FIXED-ABSOLUTE error in the device
+path becomes 11.7471x more significant in relative terms. Measured: the harness's cotangent
+round-trip is ~2-7e-9 absolute regardless of the cotangent's size, so on the external cotangent
+it reads **3.38e-5 relative** against 2.9e-6 on the hooked one. That is still four orders below
+the clause's scale, and **there is no other fixed-absolute floor to amplify** — the device arms'
+A/A is exactly 0.0 across two cards, so they are bit-reproducible. Checked, and a non-issue.
+
+---
+
+### R174. The corrected clause reads 1.4512x the bar — still FAILING, improved 18.54 % — and two of my own numbers are wrong (pass 408, zero card)
+
+`of3t-recut` delivered the re-score. Verified against `LADDER_READ.json` and
+`CLAUSE_RECUT.json`, not the commit message.
+
+**THE CAMPAIGN'S ANSWER, on the repaired injection:**
+
+    trunk vs float64                 0.6221485227575493    was 0.9349175217825587
+    trunk vs upstream's own bf16     0.7768254196709333    was 0.9969599833682794
+    multiple of upstream's own bf16  1.976518918492322     was 2.970162431380236
+    cos vs float64                   0.8178953379770566
+    CLAUSE                           0.22072451195864032   bar 0.15210099830945006
+    x_bar                            1.4511706984958472    was 1.7814428090278143   FAILS
+    x_allowance                      1.7414134679108282
+    trunk's share of the model's error mass   0.7835130357121737   was 0.9605582781117755
+
+**The repair was necessary and is not sufficient** — R130's sentence about the earlier frame fix,
+now true of this one. The clause improves **18.54 %** and still misses by 45 %.
+
+**The ladder was NOT re-derived**: `LADDER_APPLIES_UNCHANGED` re-computes all five
+pre-registered levels on the rescored artifact's own section table and reports
+`worst_rel_difference_over_the_five_levels` **0.0**, and `RECOMPOSITION_CONTROL` reproduces the
+headline at rel_difference **0.0**. No bar moved, which was the whole point of fixing the ladder
+before the number existed.
+
+**MY FIRST ERROR, and it is the class I have been catching in others. R159's "our trunk may be
+up to 1.4172x upstream's own bf16" is a CROSS-SPACE quotient and is retracted.** I divided the
+trunk allowance **0.44608901561034203**, which lives in vs-upstream-bf16 space, by upstream's
+own floor **0.3147698293887927**, which lives in vs-float64 space. The artifact's own two
+quotients are each in ONE space and are the correct ones:
+`multiple_of_upstreams_own_bf16` = 0.6221485227575493 / 0.3147698293887927 = **1.976518918492322**
+(float64 space), and `x_allowance` = 0.7768254196709333 / 0.44608901561034203 =
+**1.7414134679108282** (bf16 space). **The honest target statement is: the trunk must fall by
+1.7414x for the clause to clear.** R159's framing was also ill-formed, not merely mis-scaled —
+"the allowance as a multiple of upstream's own bf16" has no meaning, because upstream against
+itself is zero.
+
+**MY SECOND ERROR: R172's bound on the linearity shortcut was wrong, and its own two-sided
+statement fired on the withdrawal branch.** I predicted the device subtraction would differ from
+a direct run by **0.014 %** and wrote that a percent-scale result would be real and would
+withdraw the shortcut. Measured: **2.208239e-02**, i.e. 2.21 %. **The shortcut is withdrawn on
+device arms and the end-to-end arm is the reading; the repair is untouched.** Why I was wrong:
+I bounded the error in the cotangent *injection* — the round-trip, which really is ~1e-5 — and
+ignored the error in the *taped backward's own bf16 arithmetic*. The subtraction cancels
+gradient norms **1.3279** and **0.5947** into **0.8149**, so each arm's own ~**0.9359 %** bf16
+gradient error survives undiminished against a smaller difference. **A linearity shortcut needs
+the ARITHMETIC to be linear, not just the mathematics**, and on a bf16 device it is not, to
+better than bf16 epsilon. The float64 reference's own sum identity of 6.435383259300361e-15 is
+what made the shortcut look safe, and float64 is exactly where it IS safe.
+
+**R161's control is what caught it**, which is the part of the design that worked: the shortcut
+was proposed with a mandatory end-to-end control and an instruction to withdraw the shortcut
+rather than the repair if it failed. It failed and that is what happened.
+
+**Repoint condition 4, handled without waving it through.** I wrote "the linearity shortcut's
+end-to-end control passes on one arm". It did not pass. But the condition's PURPOSE is that the
+reading must not rest on an unvalidated shortcut, and the row eliminated the shortcut entirely
+and read the direct arm — which satisfies that purpose **more strongly** than a passing control
+would, because the reading now contains no shortcut at all. Condition 4 is recorded as satisfied
+BY ELIMINATION, with the failure and its magnitude in the record beside it.
+
+---
+
+### R175. With the double count removed, the trunk's remaining error is 97 % DIRECTION — the magnitude is within 5.5 % — and the repoint is blocked on one missing key (pass 409, zero card)
+
+**The repoint is BLOCKED, by my own pre-registration.** `MODEL_RECUT_composed3660_n384.json`
+carries six of the seven contract keys, with the corrected
+`stats.renorm_vs_UPSTREAM_BF16.mass_weighted_rel_l2` = **0.22072451195864032** — but
+`injection.convention` is still absent. R164 fixed the rule before the number existed: *any of
+the four failing means no repoint.* The name and the namespace say "recut" and the value differs
+from the legacy one, so a reader could work it out — **and that is precisely the reasoning that
+makes a stamp optional and then rots.** R168's point stands: the stamp must travel as far as
+the number does. One key, asked of the row.
+
+**And the corrected reading has a structure nobody has named.** From the artifact's own two
+scalars, `cos_vs_float64` **0.8178953379770566** and `norm_ratio_vs_float64`
+**1.054584096168068**, the observed `rel_l2` **0.6221485227575493** reconstructs to 1.1e-15 —
+so the decomposition is exact, not a model:
+
+    magnitude alone   (cos = 1, same norm ratio)    0.054584     8.8 % of the observed
+    direction alone   (norm ratio = 1, same cos)    0.603498    97.0 % of the observed
+    the angle                                       35.13 degrees
+    perpendicular share of our vector               0.5754
+
+**The campaign's picture is inverted.** On the double-counted functional the trunk read as a
+near-constant SCALE of 1.7460 at cos 0.9841 — a magnitude story with a ten-degree angle. That
+is what the duplicate was doing: it added a large, nearly-parallel component, which inflated
+the magnitude AND flattered the cosine. **With it removed the magnitude is within 5.5 % and the
+angle is 35 degrees.** Everything the campaign chased from D227 through D233 as a magnitude
+deficit was reading the duplicate; **what is actually left is a direction error.**
+
+**What this does NOT license, and the restraint is the point.** The decomposition is in
+**vs-float64** space, because those are the two scalars the artifact banks. The clause is graded
+in **vs-upstream-bf16** space. Carrying the decomposition across is exactly the cross-space
+error I retracted one pass ago in R159, so **no statement is made here about what the clause
+needs** — only about where the error is, in the space it is measured in.
+
+**The one-line ask that closes that gap**: bank `cos` and `norm_ratio` against upstream's own
+bf16 alongside the float64 pair. The scorer already computes both comparisons; it reports the
+decomposition for only one of them. With both, the same exact decomposition can be done in the
+space the clause lives in, and the campaign can say for the first time whether the remaining
+1.7414x is reachable by magnitude, by direction, or by neither.
+
+---
+
+### R176. The PACKAGE install fires only half of itself: `verb` reads 0, and the arm is bit-identical to the no-lever baseline (pass 410, zero card)
+
+`of3t-verbinstall`'s package arm landed. `FRAME_PKG_HF3.json`, the tape-gated install of the
+consistent softmax arm, reads
+
+    ours vs float64          0.702981502944001       identical to CTRL_B, the SHIPPED device softmax
+    ours vs upstream bf16    0.9153623104186986      identical to CTRL_B
+    floor                    0.37393839211303687
+
+**Bit-identical to the arm with no exact softmax at all**, to sixteen digits. And the row's own
+`EXACT_SOFTMAX_PKG_HF3.json` — a counter it banked because D225 taught this campaign that a
+lever can read zero — says which half is missing:
+
+    verb   0            the taped verb: exact forward AND exact Jacobian
+    raw    1742         the module-wide ttnn.softmax, 21,856,518,144 elements
+
+**The verb half never fired.** That is where essentially all of the win lives: `CEIL_HF`
+(verb only) reads 0.5547455957585244 and `CEIL_HF3` (verb + module-wide) reads
+0.5545352626143085, so the module-wide half is worth **0.0002** and the verb half is worth the
+other 0.36. A package install that delivers only `raw` therefore delivers nothing measurable,
+which is exactly what the score shows.
+
+**What this does to D245.** D245 was *"the shippable site-selector install is 34.25 % worse
+against float64 than the harness verb install."* It is now worse than that: **the tape-gated
+package install, which R161 argued was both the more accurate and the structurally safer answer
+to Moritz's inference hard stop, is INERT on the half that matters.** The campaign's best trunk
+number — 1.0525x, `CEIL_HF3` — still has no shippable path, and now there are two failed
+attempts at one rather than one.
+
+**Not yet diagnosed, and the two candidates are different problems.** Either
+`tt_bio.autograd.exact_softmax()` patches only `ttnn.softmax` module-wide and never installs at
+the taped verb — a design gap, one line — or it installs and the verb is never reached at
+runtime — D225's reach family, and a harder question. `installed_from` records
+`install(exact_softmax=True)`, and the counter separates the two by construction, so the row
+can settle it without a new instrument. **It is the row's to diagnose; the campaign's status
+must not meanwhile claim a shippable lever.**
+
+**And the row lost 230 minutes of card time to an infrastructure defect worth filing beyond
+this campaign.** Its state doc: *"two arms, 115 minutes each, nothing computed —
+`tenstorrent._assert_local_dispatch` hangs instead of failing, and every cheap liveness signal
+says the job is healthy. It probes a freshly-opened chip with one trivial 32x32 add so that a
+bad bring-up 'fails HERE, at startup' — its own docstring. It has no timeout."* **A startup
+probe whose purpose is to fail fast, and which instead hangs forever while every liveness check
+reads green, is a fleet-wide defect** — the `chip-holder-at-100pct-cpu-can-be-a-corpse` family,
+and it will cost every card row that meets it. The row added a bounded pre-flight for itself
+(`b77e89f27`); **the underlying probe still has no timeout.**
+
+---
+
+### R177. `VERDICT` and `GAP` were three passes and one closed defect behind — the same rot I named at R157, committed by me within three passes of naming it (pass 411, zero card)
+
+Checked the two fields Moritz actually reads against the numbers the campaign now holds. Both
+carried **1.7814** (withdrawn) and **0.7945** (D242's unrepaired control) and **neither carried
+1.4511, 0.2207 or 1.7414** — the corrected clause, its value, and the distance to go. They said
+the campaign was blocked on a frame defect that has since been root-caused, repaired,
+controlled three ways, and re-scored.
+
+**That is exactly R157's pattern** — *"a clause's CHECKS stay live because a script recomputes
+them; the PROSE beside them is written once and then rots"* — and **I wrote it three passes
+before committing it myself, on the campaign's headline.** Naming a failure mode does not
+inoculate you against it; the only thing that catches it is re-reading the field against the
+artifacts, which is a task and not an intention.
+
+**VERDICT rewritten** on the corrected numbers and kept under its 4,000 cap at 3,967 by deleting
+two paragraphs D242's closure superseded — the pass-383 hypothesis-space narrowing, and *"the
+defect is two components: a scale near 1.7493 plus a residual of 0.1779"*, **which was no longer
+merely stale but WRONG**: the defect was a double count, and the corrected error is 97 %
+direction, not a scale plus a residual.
+
+**GAP rewritten and it shrank 9,322 → 5,583 chars.** Its `control` block described D242 as open
+at twelve orders over; it now records the closure with the mechanism and the three
+confirmations. Its `next` block still had `of3t-frameself` "parked on an evidence-backed DEFER
+until 22:15 CEST" — two concluded rows ago — and now names the one key blocking the repoint and
+the two live rows. `retracted` becomes `rescored`: 1.7814428090278143x is **superseded**, not
+merely withdrawn, by 1.4511706984958472x. And two sentences calling the frame "broken" and the
+ladder levels "provisional in the broken frame" are corrected: the frame was repaired at pass
+408 and those levels are no longer provisional.
+
+**The general form, and it is the sharper version of R157.** A field that records a BLOCKER is
+the one most likely to rot, because it is written at the moment of maximum certainty and its
+whole content is a claim about something that is expected to change. **The closure of a defect
+should trigger a re-read of every field that named it** — the defect's own entry (done at R163),
+the clause's `why` (R157), and the summary fields (here). Three places, and the campaign has now
+found the same rot in all three.
+
+**Addendum to R177, same pass.** The rewrite's own collateral damage was caught by the compose,
+which is the system working. `audit_evidence.py:1831` reads only **`_vt[:2000]`** — VERDICT's
+first two thousand characters — when checking that the three distance-to-go shares are stated.
+My longer header pushed 49.8019 % and 2.0150 % past that window while 48.1831 % survived, which
+is why exactly two of three drifted. **The numbers were present and correct; the audit's window
+had moved relative to them.** The 2,000-char limit encodes a real editorial intent — these
+shares belong where a reader meets them — so the prose moved rather than the check: the
+distance-to-go paragraph now sits directly under the header, ahead of the counts. **Widening
+the window to fit my preamble would have been moving a check to accommodate writing**, which is
+the same act as moving a bar to accommodate a number.
+
+---
+
+### R178. The repoint is EXECUTED — the charter's failing clause now grades a defensible number — and the remaining excess is an ANGLE that no rescaling can reach (pass 412, zero card)
+
+**THE REPOINT IS DONE.** The GRADIENTS clause's artifact moves from
+`perf/of3t_modelframe/MODEL_FRAMEMATCHED_composed3660_n384.json` to
+`perf/of3t_recut/MODEL_RECUT_composed3660_n384.json`, verified in the COMPOSED tree — not in my
+worktree, where `perf/of3t_recut/` does not exist and the generator reported "artifact absent"
+for the new clause AND for COVERAGE, which is what caught me checking in the wrong tree.
+
+    artifact   perf/of3t_recut/MODEL_RECUT_composed3660_n384.json
+    clause     0.220725 against bars.A26_reachable_bar_vs_their_bf16   FAIL
+    the other three checks                                             PASS
+    n_met      2 of 3
+
+**All four pre-registered conditions were met before it was executed**, and the fourth by
+elimination: the artifact carries every contract key with `injection.convention`
+**graph-cut-external** (`n_scopes` 6, `n_injected` 1, disagreeing injected scopes refused) and a
+restamp control reading **`n_leaves_differing: 0`** with `keys_added: ["injection"]`; the
+repaired injection reproduces frameself's break control at 3.0392623414001244e-15 against
+3.0392623414001263e-15; the legacy flag reaches the cross-host floor; and the linearity shortcut
+was withdrawn rather than validated, so no shortcut remains in the reading. **No bar moved** —
+99.2594, the A26 bar and the keyed inequality are unchanged, and all five of `CLAUSE.json`'s
+levels re-derive at rel_difference 0.0.
+
+**And the campaign now knows what the remaining gap IS, in the space it is graded in.**
+`of3t-recutfin` re-took the split in vs-upstream-bf16 rather than carrying the float64 one
+across — which was the right call and it matters:
+
+    space              rel        r          cos        angle     magnitude share
+    vs-upstream-bf16   0.7768254  0.9978645  0.6976277  45.763    0.2749 %
+    vs-float64         0.6221485  1.0545841  0.8178953  35.125    8.773 %
+
+**A factor of 31.92 between the two magnitude shares on the same arm and the same 2,736
+tensors**, both splits exact (`rel^2 = 1 + r^2 - 2 r cos` reconstructs every reading to 7.1e-16).
+They describe two different differences. **R175's refusal to carry the float64 split into the
+graded space is vindicated by a factor of thirty-two** — carrying it would have reported 8.8 %
+magnitude where the graded space says 0.27 %.
+
+**The answer, and I re-derived all four legs before recording them.** The trunk must fall
+**1.7414134679108282x**:
+
+- **By magnitude: NO, and not marginally.** At `r = 1` the reading is 0.7776533, **1.7432692x**
+  the allowance — *worse* than today, because at cos 0.6976 the optimal scale is below one, not
+  above. The best ANY rescaling can achieve is `sin(angle)` = **0.7164605**, still
+  **1.6060930x**. **No scalar exists that reaches the allowance.**
+- **By direction: YES, and it need not be perfect.** cos **0.6976277 -> 0.9002917** at today's
+  norm ratio suffices, closing the angle from 45.763 to 25.804 degrees — **43.61 % of it**. A
+  perfect direction would read 0.0021355, **0.004787x** the allowance.
+
+**The magnitude is already right to 0.21 %. The whole of the remaining excess is an angle** —
+and the campaign has spent most of its life chasing a magnitude that the double count was
+manufacturing.
+
+---
+
+### R179. The double count was a MAGNITUDE error; removing it OPENED the angle by ten degrees, and my own "cos 0.9841" was from the wrong reading (pass 413, zero card)
+
+`of3t-recutfin` concluded GO at 01:17 and its last measurement corrects the story — including a
+sentence of mine. Both rows of this table are vs-upstream-bf16 over the same 2,736 tensors on
+the same frame, differing only in the injected functional, **so the comparison crosses
+nothing**:
+
+    functional        rel         r           cos        angle     magnitude share
+    double-counted    0.9969600   1.6232598   0.8134998  35.561    62.52 %
+    repaired          0.7768254   0.9978645   0.6976277  45.763    0.2749 %
+
+**The double count was a MAGNITUDE error — r 1.6233 -> 0.9979, magnitude share 62.52 % ->
+0.27 % — and the repair removed nearly all of it. The angle did not follow. It OPENED by ten
+degrees**, because a large nearly-parallel duplicate inflates the magnitude and flatters the
+cosine at the same time. What is left is the part the repair never addressed.
+
+**My correction.** R175, R178 and `of3t-angle`'s brief all said the pre-repair trunk read as "a
+near-constant scale of **1.7460** at cos **0.9841**". Those are the *model-frame float64
+control's* per-block statistics, not the graded-space reading, and I carried them into sentences
+about the graded space. In vs-upstream-bf16 the pre-repair arm reads cos **0.8134998** at
+**35.561 degrees**. **The qualitative claim survives — it WAS a magnitude story and the repair
+removed it — but the two numbers I attached to it were from a different measurement**, which is
+`a-reference-is-part-of-the-measurements-identity` in its quietest form: not a wrong reference
+for a ratio, but the right ratio quoted with another reading's scalars.
+
+**`of3t-angle` dispatched**, qb2, one card, onto the question this leaves. The campaign's best
+trunk result is the exact softmax at 1.0525x against the shipped 1.7373x — **and every one of
+those readings was taken on the double-counted functional, where 62.52 % of the error was
+magnitude.** A lever that closes a magnitude error is worth nothing on a functional that is
+0.27 % magnitude and 99.7 % angle. **So: does the exact softmax close the ANGLE, or did it only
+ever close the magnitude?** If the latter, the campaign's best result evaporates on the repaired
+functional and D245's two failed shippable installs stop mattering; if the former, it is the
+only lever known to move what is left. The brief carries A42, the no-shortcut-on-device rule,
+and the requirement to report both spaces because their magnitude shares differ **31.92x**.
+
+### R180. R176 is root-caused: `uninstall()` is not the lever's private teardown, and an unrelated bracket that closed first spent all 1,742 exact softmaxes in a discarded forward (pass 414, zero card)
+
+`of3t-verbinstall` landed `27d24c6b3`. **The inert package install of R176 was never an
+arithmetic or a shim defect — the lever was installed, fired 1,742 times, and was torn down by
+a caller that had never heard of it.** `train/lora.py:608-615` brackets the DISCOVERY forward in
+a conditional `install()`/`uninstall()` pair and `train/recipes.py:211` does the same around the
+fit. The discovery pair closes first, so the lever died at its `finally`; `reachprobe.py` puts
+every one of the 1,742 calls at `tenstorrent.py:4117 _fp32_softmax_tail`, inside a forward whose
+output is discarded, and **the step that was actually scored ran entirely on the device
+softmax**. That is why PKG_HF3 returned 0.702981502944001 — CTRL_B, the device-softmax control,
+to sixteen digits.
+
+**The lesson is the shape, not the lever.** Every cheap check read consistent with success: the
+install call returned, the lever was genuinely installed, the counters were non-zero, and the
+score was a plausible number in the plausible range. What distinguished "reverted" from "never
+dispatched" was **`verb` 0 against `raw` 1742** — a split no score can show, because a score is
+one number and the question is *which code served the call*. `reachprobe.py` is kept for exactly
+this: it snapshots the four bindings after install and at exit and counts every call **by call
+site**, so the two failure modes are *distinguishable instead of argued*. A lever owned by one
+file, torn down by a global verb in another, is invisible in both directions — "neither of those
+callers can see this lever, and the lever's own file cannot see them."
+
+**The fix, and why its scoping is right.** `_EXACT_SOFTMAX_OWNER` records who turned the lever on
+and only the matching teardown takes it out. I checked whether the repair was too narrow, since
+`install()` arms *five* things (recycle hook, checkpoint hook, host-softmax hook, grad hook, and
+optionally the exact softmax) and only one of them got an owner. **It is not too narrow**:
+`taped_ttnn.tape()` calls `ag.install()` on every entry, so the other four are re-armed at each
+tape block and self-heal; the exact softmax is the only passenger that does *not* self-heal,
 because `tape()` never passes `exact_softmax=True`. **And the measured failure is genuinely
 repaired**: `pkgarm.py:45` turns the lever on with `with ag.exact_softmax():`, owner
 `"exact_softmax"`, which no longer matches the `"install"` an unrelated `uninstall()` passes.
@@ -1088,24 +1472,6 @@ state doc nor its `CLAUSE_EXACT.json` names the version anywhere.
 `of3t-trainfwd` defaulted the one-step denoise arm off because 3 of 3400 gradients were non-finite and recorded it as "an unowned object". It got no D-number, so no triage, GAP line or DONE_CHECK ever saw it, and every full-step reading since (`of3t-fullstep64`, `of3t-inproj`) differentiated no part of the diffusion module. The GAP line said the diffusion reading "stands from earlier rows", which was true of a separate harness and false of the shipped step. Filed as D257, with D256 (84 lazily uploaded atom-transformer weights registered too late) behind it; `of3t-denoise` dispatched. The overflow was measured before D253's pad fix, and its signature (a dW over all padded pairs, MSA max|g| 1.7e+05) is D253's, so the row measures before it root-causes.
 
 **R200** (pass 423) The `of3t-denoise` A40 floor was attributed to mse's Kabsch stop-gradient and FD3 froze it. FD3 at h=1e-4 reads 15.897746748793073 against FD2's 15.897749718841725 (1.9e-7 relative) and both read 2.847e-05 at h=1e-5: the freeze is inert, as the envelope theorem predicts when the alignment minimises the loss it feeds. FD2's ladder 2.498e-04 / 7.634e-05 / 2.847e-05 falls ~h^0.5 without a plateau, which a missing gradient path (constant bias) cannot produce. h=1e-6 then read 6.972e-10 and h=1e-7 4.303e-09: a V with one kink crossing between 1e-6 and 1e-5, so A40 PASSES. Separately, `of3t-denoise` found D259 (`ttnn.multiply(bf16, fp32 [...,1])` nondeterministic, up to 16,061 wrong elements) and D258 (mixed-dtype `transpose_a` matmul); both are fixed on the training path only, and `of3t-bcastaudit` measures whether inference reaches them.
-
-- **R203** (pass 445, backward sprint) **an engine-wide fused-kernel bypass hid behind a
-  per-module comment.** `ttnn.generic_op` has no backward, so every one of tt-bio's eleven fused
-  kernels declines under taping BY DESIGN: thirteen guard sites in eight modules (`triatt_qkv` 4,
-  `reblock_permute` 3, `triatt_sdpa` 2, `softmax_generic` 2, `swiglu_fused`, `trimul_tail`,
-  `mm_dualnoc`, `eltwise_fusion` 3), each with a correct comment saying so, and none of them wrong
-  in isolation. The campaign's shared finding set carried this as *"one taped call switched fused
-  triangle attention off for the whole process"* -- a cached state-dependent refusal, one op, a
-  bug. It is neither cached nor one op nor a bug; it is the architecture, and a taped training
-  step therefore runs a DECOMPOSED, DRAM-RESIDENT model (`tenstorrent.py:9016` takes DRAM where an
-  untaped run takes L1). **The general lesson: a per-site comment that correctly explains one
-  decline is the best possible camouflage for a policy, because every reader who checks one site
-  leaves satisfied.** Count the sites before believing the anecdote -- the grep took ten seconds
-  and moved the sprint's whole job list. The shape of the fix is in the same tree:
-  `triatt_sdpa`'s comment says *"the stock fused SDPA verb is taped"*, so a fused kernel survives
-  taping when it is a taped ttnn VERB with a registered backward and not when it is a tt-bio
-  `generic_op`. Seconds owed by `of3t-tapedfwd`; a code read says the guard exists, only the run
-  says what it costs.
 
 - **R202** (pass 426) a resolver's routing premise ('the plain block is inference only') was a claim about a DEFAULT, and the default made it false: `z_fp32_residual` is off, so every taped step took main's block, whose `add_` discard is invisible untaped. Only a composed-tree training arm could see it, which is why composed64 existed. Evidence: perf/of3t_composed64/PROBE_TRANSITION_TAPE.json on wk/of3t-composed64. D264.
 - **R201** (pass 425) `upstream_unplaced` with no fused twin in `device_unmatched` = a leaf the step does not have, i.e. trains as a constant; D263 (93 input-embedder atom-encoder tensors) found this way from SCORE_DN384R.json. 12 template tri-att q/k/v had a fused twin: scorer gap only. Evidence: perf/of3t_denoise/BIJECTION_DN.json on wk/of3t-denoise.
