@@ -69,7 +69,7 @@ FD_MAX_VOLUME = 1 << 20
 
 VERBS = ("mean", "subtract", "multiply", "add", "rsqrt", "sum", "reshape", "to_layout",
          "slice", "add_", "deallocate", "moreh_layer_norm_backward", "typecast",
-         "to_memory_config", "zeros", "empty")
+         "to_memory_config", "zeros", "empty", "rsub", "neg")
 
 
 class Count:
@@ -174,6 +174,8 @@ def main():
     ap.add_argument("--out", default=str(OUT / "probe.json"))
     ap.add_argument("--reps", type=int, default=9)
     ap.add_argument("--dtypes", default="bfloat16,float32")
+    ap.add_argument("--only", default="", help="comma-separated cell names; default all")
+    ap.add_argument("--arms", default="", help="comma-separated arm names; default all")
     args = ap.parse_args()
 
     import ttnn
@@ -216,19 +218,25 @@ def main():
     def moreh(xv, g, gamma_v, beta_shape, cfg, *, gb):
         """moreh for dx, and for dgamma/dbeta when ``gb``.
 
-        `input_grad` is left to the op to allocate; the gamma/beta pair is not optional --
-        `moreh_layer_norm_backward.cpp:64` only computes a term whose output tensor was handed
-        in, so those two are preallocated here and that allocation is part of the arm's cost.
+        ALL THREE outputs are preallocated, `input_grad` included.
+        `moreh_layer_norm_backward.cpp:64-72` only computes a term whose output tensor was handed
+        in and pushes `std::nullopt` otherwise -- it does not allocate for you, and the
+        `compute_output_specs` fallback that looks like it does is only reached once the prim has
+        already been invoked. Left at None the op returns `[None, ...]` and the next verb throws
+        `'NoneType' object has no attribute 'storage_type'`, which is how this read on the first
+        device run. `ttnn.empty` and not `ttnn.zeros`: these are outputs, the kernel writes every
+        element, and a zero-fill of the dx buffer is a second full-size write per node.
         """
         mean, centered, rstd = stats(xv, g, eps, cfg)
+        dxo = ttnn.empty(list(xv.shape), dtype=g.dtype, layout=ttnn.TILE_LAYOUT, device=dev)
         gg = bg = None
         if gb:
-            gg = ttnn.zeros(list(gamma_v.shape), dtype=ttnn.float32,
+            gg = ttnn.empty(list(gamma_v.shape), dtype=ttnn.float32,
                             layout=ttnn.TILE_LAYOUT, device=dev)
-            bg = ttnn.zeros(list(beta_shape), dtype=ttnn.float32,
+            bg = ttnn.empty(list(beta_shape), dtype=ttnn.float32,
                             layout=ttnn.TILE_LAYOUT, device=dev)
         r = ttnn.moreh_layer_norm_backward(g, xv, mean, rstd, 1, gamma=gamma_v,
-                                           input_grad=None, gamma_grad=gg, beta_grad=bg,
+                                           input_grad=dxo, gamma_grad=gg, beta_grad=bg,
                                            compute_kernel_config=cfg)
         dx = r[0]
         if gb:
@@ -250,7 +258,11 @@ def main():
             "eps": eps, "reps": args.reps, "cotenants": _cotenants(), "cells": []}
     gen = torch.Generator().manual_seed(20260925)
 
+    only = [x for x in args.only.split(",") if x]
+    keep = [x for x in args.arms.split(",") if x]
     for name, shape in SHAPES:
+        if only and name not in only:
+            continue
         C = shape[-1]
         x = torch.randn(shape, generator=gen)
         g = torch.randn(shape, generator=gen) * 1e-2
@@ -269,6 +281,8 @@ def main():
             bshape = [1, 1, 1, C]
             cfg = ag.precise_config()
             for arm, fn in ARMS.items():
+                if keep and arm not in keep:
+                    continue
                 key = f"{arm}/{dtname}"
                 try:
                     with Count(ttnn) as c:

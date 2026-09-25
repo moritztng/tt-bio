@@ -1200,9 +1200,20 @@ def linear(x: Tensor, w: Tensor, b: Optional[Tensor] = None, *, dtype=None, core
 #: backward recomputes both anyway, for the reason `_ln_stats` gives, so they are handed in and
 #: the objection does not survive.
 #:
-#: Off until `perf/of3t_lnbw` grades it on a card. It cannot be reached from an inference fold
-#: (nothing outside a tape calls a backward) so A46.4's A/B does not apply, but a lever whose
-#: accuracy has not been read is not a default.
+#: PERMANENTLY OFF, and kept as the record of a measured NO-GO rather than deleted.
+#: The op MISCOMPUTES on Blackhole. `perf/of3t_lnbw/probe.json`, p150a at a during-sampled
+#: 1350 MHz: `dx` reads 2.741e+06 relative L2 from a float64 reference at bf16 and 1.837e-01 at
+#: fp32, on the pair track's [1, 384, 384, 128], where the composed closure it would replace
+#: reads 4.607e-03 and 1.480e-04 on the same inputs. That is wrong, not imprecise, so §3's
+#: accuracy bar does not apply to it -- a transform that is WRONG is a hard stop whatever it
+#: measures.
+#: It is not a wiring mistake at this end. tt-metal skips its OWN tests for this op on Blackhole:
+#: `tests/ttnn/nightly/unit_tests/operations/moreh/test_moreh_layer_norm.py:481,515`
+#: decorate `test_moreh_layer_norm_backward` and
+#: `test_moreh_layer_norm_backward_with_gamma_or_beta` with
+#: `@skip_for_blackhole("Mismatching on BH, see #12349")`. This row reproduced #12349
+#: independently before finding the skip.
+#: Turning it on needs #12349 fixed upstream AND a re-grade, not a flag flip.
 MOREH_LAYERNORM_BW = False
 
 #: Whether that op also returns dgamma and dbeta, rather than `_sum_leading` doing it.
@@ -1212,7 +1223,12 @@ MOREH_LAYERNORM_BW = False
 #: row-tile per core, so dx uses the whole grid; `..._gamma_beta_grad_program_factory.cpp:87`
 #: splits over `num_inner`, one WIDTH-tile per core, so the pair track's c_z = 128 runs its whole
 #: leading-axis reduction on FOUR cores and the single track's c_s = 384 on twelve. Fewer verbs,
-#: less of the grid: which way that lands is a measurement, and it is measured apart from dx.
+#: less of the grid: which way that lands was a prediction off the factory sources, and it is
+#: now measured. At the pair track's c_z = 128 the affine half is **2.17x SLOWER** than the
+#: 22-verb composed closure it replaces -- 15.753 ms against 7.256 ms per node, with 10 verbs
+#: against 22 -- and at the single track's c_s = 384 it is faster, 0.221 ms against 0.284 ms.
+#: C is the discriminator, exactly as `num_inner` says. So even with #12349 fixed this half
+#: would need a width gate rather than a switch.
 MOREH_LAYERNORM_BW_AFFINE = False
 
 
@@ -1241,6 +1257,17 @@ def _rows(shape):
     return n, dims[-1]
 
 
+def _view(t, shape):
+    """``t`` reshaped to ``shape``, or ``t`` itself when it is already that shape.
+
+    A `ttnn.reshape` that changes nothing still costs a dispatch, and this backward asks for
+    four of them per node on tensors that usually already fit -- gamma and beta are [1, 1, 1, C]
+    at every trunk site, so the two affine reshapes are pure overhead there.
+    """
+    return t if tuple(int(d) for d in t.shape) == tuple(int(d) for d in shape) else \
+        ttnn.reshape(t, [int(d) for d in shape])
+
+
 def _as4(t, n, c):
     """``t`` viewed as ``[1, 1, n, c]``.
 
@@ -1251,7 +1278,7 @@ def _as4(t, n, c):
     `split_work_to_cores(grid, num_outer)` from a split over the BATCH into a split over every
     row-tile in the tensor.
     """
-    return t if tuple(int(d) for d in t.shape) == (1, 1, n, c) else ttnn.reshape(t, [1, 1, n, c])
+    return _view(t, [1, 1, n, c])
 
 
 def _moreh_ln_bw_declines(xv, g, gamma, beta):
@@ -1304,24 +1331,31 @@ def _layer_norm_backward(x, gamma, beta, g, eps, cfg):
               and beta is not None and beta.requires_grad)
 
     if reason is None:
-        gv = _as4(gamma.value, 1, c)
+        gv = _view(gamma.value, [1, 1, 1, c])
+        # EVERY output is preallocated, dx included. `moreh_layer_norm_backward.cpp:64-72`
+        # computes a term only if its output tensor was handed in and pushes `std::nullopt`
+        # otherwise; it does not allocate for you, and the `compute_output_specs` fallback that
+        # reads as though it does is only reached once the prim has been invoked. Left at None
+        # the op returns `[None, None, None]` and the throw lands one verb later as
+        # `'NoneType' object has no attribute 'storage_type'`.
+        # `ttnn.empty` and not `ttnn.zeros`: the kernel writes every element of all three, so a
+        # zero-fill is a second full-size write per node for nothing.
+        dev = xv.device()
+        dxo = ttnn.empty([1, 1, n, c], dtype=gf.dtype, layout=ttnn.TILE_LAYOUT, device=dev)
         gg = bg = None
         if affine:
-            # The op computes a term only if its output tensor was handed in
-            # (`moreh_layer_norm_backward.cpp:64`), so these two allocations are part of the
-            # arm's cost and are counted as such.
-            gg = ttnn.zeros([1, 1, 1, c], dtype=ttnn.float32, layout=ttnn.TILE_LAYOUT,
-                            device=xv.device())
-            bg = ttnn.zeros([1, 1, 1, c], dtype=ttnn.float32, layout=ttnn.TILE_LAYOUT,
-                            device=xv.device())
+            gg = ttnn.empty([1, 1, 1, c], dtype=ttnn.float32, layout=ttnn.TILE_LAYOUT,
+                            device=dev)
+            bg = ttnn.empty([1, 1, 1, c], dtype=ttnn.float32, layout=ttnn.TILE_LAYOUT,
+                            device=dev)
         out = ttnn.moreh_layer_norm_backward(gf, xf, mean, rstd, 1, gamma=gv,
-                                             gamma_grad=gg, beta_grad=bg,
+                                             input_grad=dxo, gamma_grad=gg, beta_grad=bg,
                                              compute_kernel_config=cfg)
         if x.requires_grad:
-            x.add_grad(ttnn.reshape(out[0], want))
+            x.add_grad(_view(out[0], want))
         if affine:
-            gamma.add_grad(ttnn.reshape(out[1], [int(d) for d in gamma.value.shape]))
-            beta.add_grad(ttnn.reshape(out[2], [int(d) for d in beta.value.shape]))
+            gamma.add_grad(_view(out[1], gamma.value.shape))
+            beta.add_grad(_view(out[2], beta.value.shape))
             return
         # dgamma/dbeta the composed way, on the flattened view so `_sum_leading`'s own
         # `_flat2d` is a no-op rather than a second reshape.
