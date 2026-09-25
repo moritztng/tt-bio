@@ -760,7 +760,9 @@ def _v_concat_heads(shipped, args, kwargs):
 
     def make():
         def bw(g):
-            x.add_grad(ttnn.permute(ttnn.reshape(g, [B, L, H, dh]), [0, 2, 1, 3]))
+            # `ag.split_heads`'s tile-aligned slices rather than reshape to [B, L, H, dh] +
+            # permute, which pads H to a tile row: 275 us against 2576 us at [256, 256, 128].
+            x.add_grad(ag._split_heads_v(ttnn.reshape(g, [B, L, H * dh]), H))
         return bw
 
     return _tape(out_v, [x], make)
@@ -788,17 +790,20 @@ def _v_create_qkv_heads(shipped, args, kwargs):
     def slot(s):
         def make():
             def bw(g):
-                # [B, H, L, dh] -> [B, L, 1, H*dh], then into slot s of the packed axis.
-                rows = ttnn.reshape(ttnn.permute(g, [0, 2, 1, 3]), [B, L, 1, H * dh])
+                # [B, H, L, dh] -> [B, 1, L, H*dh] on `nlp_concat_heads`, then into slot s of the
+                # packed LAST axis. Permuting to [B, L, H, dh] and concatenating on a unit axis
+                # pads H and the slot axis to a tile row each; this moves every tile once and is
+                # the same rearrangement (`perf/bcx_triatt/heads_verbs.py`).
+                rows = ttnn.reshape(ag._merge_heads_v(g), [B, 1, L, H * dh])
                 # One zero tensor for both empty slots, then one concat. `ttnn.pad` would be
                 # the single-allocation form and cannot be used: it refuses front padding
                 # (`pad.cpp:278 front_padding_is_zero`), so slots 1 and 2 have no pad
                 # expression. The packed width is 2,415,919,104 B at a 384-token pair track,
                 # which is why this op is where the backward runs out of card.
-                zero = ttnn.zeros([B, L, 1, H * dh], dtype=rows.dtype,
+                zero = ttnn.zeros([B, 1, L, H * dh], dtype=rows.dtype,
                                   layout=ttnn.TILE_LAYOUT, device=rows.device())
                 parts = [rows if i == s else zero for i in range(3)]
-                x.add_grad(ttnn.reshape(ttnn.concat(parts, dim=2), [B, 1, L, 3 * H * dh]))
+                x.add_grad(ttnn.concat(parts, dim=-1))
             return bw
         return make
 
