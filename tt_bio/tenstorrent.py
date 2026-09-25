@@ -3965,9 +3965,15 @@ def _accurate_softmax(x, compute_kernel_config=None, fp32: bool = True):
     # in this tree (protenix.py, the distogram floor) and only ever that way, so the in-place
     # kwarg is unverified here and a TypeError inside a shipped softmax is a worse failure than
     # the transient second buffer this costs.
-    dc = ttnn.clamp(d, -60.0, None)
-    ttnn.deallocate(d)
-    d = dc
+    #
+    # Only an fp32 input needs it. Truncating a value already on the bf16 grid returns that
+    # value, so a bf16 input gets an exact maximum, `d` is 0 at it and the sum cannot vanish.
+    # Every site shipping this chain feeds bf16, and there the clamp was one inference op per
+    # call that changed nothing (484 per protenix-v2 fold, perf/of3t_infab/PRICE.json).
+    if src_dtype == ttnn.float32:
+        dc = ttnn.clamp(d, -60.0, None)
+        ttnn.deallocate(d)
+        d = dc
     ttnn.exp(d, output_tensor=d)
     s = ttnn.sum(d, dim=-1, keepdim=True, compute_kernel_config=compute_kernel_config)
     p = ttnn.divide(d, s)
