@@ -218,6 +218,25 @@ def main():
               row["fused_vs_fallback"] = (rmsd(fused_out, fb_t)
                                           if fused_out is not None else None)
               row["fallback_rms"] = float(torch.sqrt(torch.mean(fb_t ** 2)))
+              # The grade is only a grade if the reference computes the same function, and here
+              # it does not. `_fp32_softmax_attention` is the SHIPPED route -- it is what a
+              # decline falls through to and it is graded elsewhere at pair rel_l2 ~0.02 -- so a
+              # large gap between its rms and the reference's indicts the reference. On
+              # 2026-09-25 at n=288 on Blackhole: 6.32x against the MORE favourable convention
+              # (0.9317 vs scale_before_bias 0.1474) and 9.50x against scale_after_bias
+              # (0.0981), with the two device paths themselves 56.6 % apart. The banked whglx
+              # Wormhole run reads the same, so this is the harness and not a board class.
+              # Both convention guesses are wrong, not one of them. Say so in the artifact
+              # rather than emitting an rmsd column that reads as a measurement. The ratio is
+              # taken against the larger reference so the guard errs towards staying quiet.
+              ratio = row["fallback_rms"] / max(row["ref_rms"].values())
+              row["reference_usable"] = 0.5 <= ratio <= 2.0
+              row["reference_rms_ratio"] = ratio
+              if not row["reference_usable"]:
+                  print(f"n={n} REFERENCE NOT USABLE: the shipped fall-back route sits "
+                        f"{ratio:.2f}x the reference's own rms, so every rmsd_vs_f64 in this row "
+                        f"grades against a different function. Firing (--no-grade) is unaffected.",
+                        flush=True)
               print(f"n={n} fall-back rmsd={row['fallback_rmsd_vs_f64']} "
                     f"fused_vs_fallback={row['fused_vs_fallback']} "
                     f"fb_rms={row['fallback_rms']:.5f}", flush=True)

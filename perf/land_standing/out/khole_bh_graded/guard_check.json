@@ -1,0 +1,64 @@
+{
+ "heads": 4,
+ "head_dim": 32,
+ "card": "3",
+ "batch": 32,
+ "graded": true,
+ "rows": [
+  {
+   "n": 288,
+   "padded": 288,
+   "batch": 32,
+   "graded": true,
+   "ref_rms": {
+    "scale_after_bias": 0.09811174149235455,
+    "scale_before_bias": 0.14736962912753682
+   },
+   "shipped_k": 64,
+   "dividing_k": [
+    288,
+    96,
+    64
+   ],
+   "q_ladder": [
+    288,
+    96,
+    32,
+    64
+   ],
+   "arms": {
+    "dividing": {
+     "served": true,
+     "rmsd_vs_f64": {
+      "scale_after_bias": 0.9115337816259503,
+      "scale_before_bias": 0.9066955271489728
+     },
+     "stats": {
+      "served": 1,
+      "declined": 0,
+      "too_short": 0,
+      "taped": 0
+     },
+     "rejects": {},
+     "rungs": [
+      {
+       "q_chunk": 288,
+       "k_chunk": 288,
+       "kv_bf": 2,
+       "k_divides": true,
+       "served": true
+      }
+     ]
+    }
+   },
+   "fallback_rmsd_vs_f64": {
+    "scale_after_bias": 0.8937460613666903,
+    "scale_before_bias": 0.9006078271983188
+   },
+   "fused_vs_fallback": 0.5277020590105846,
+   "fallback_rms": 0.9316824758576622,
+   "reference_usable": false,
+   "reference_rms_ratio": 6.322079259976723
+  }
+ ]
+}
