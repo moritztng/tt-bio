@@ -35,9 +35,25 @@ import time
 
 RECORD = threading.local()
 
+# One counter for the whole process, because the phase wrappers below read it to say how many
+# gradient steps a stage contained. A counter private to `wrap` could not answer that.
+STEPS = {'n': 0}
+STEPS_LOCK = threading.Lock()
+
 
 def _current():
     return getattr(RECORD, 'record', None)
+
+
+def next_step_number():
+    with STEPS_LOCK:
+        STEPS['n'] += 1
+        return STEPS['n']
+
+
+def steps_so_far():
+    with STEPS_LOCK:
+        return STEPS['n']
 
 
 class TimedCompiled:
@@ -98,8 +114,6 @@ def wrap(model_class, block_until_ready, handle):
     Kept apart from `install` so the plumbing can be exercised against a stub on a machine with
     neither jax nor a card, which is where this harness gets written.
     """
-    lock = threading.Lock()
-    counter = {'n': 0}
     compiled_inner = model_class._compiled_sequence_gradients
     gradients_inner = model_class.sequence_gradients
 
@@ -115,9 +129,7 @@ def wrap(model_class, block_until_ready, handle):
         finally:
             RECORD.record = None
         record['call_s'] = time.perf_counter() - started
-        with lock:
-            counter['n'] += 1
-            record['step'] = counter['n']
+        record['step'] = next_step_number()
         record['compile_only'] = bool(keywords.get('compile_only'))
         record['background'] = threading.current_thread() is not threading.main_thread()
         record['model'] = keywords.get('model') or getattr(self, 'models', ('?',))[0]
@@ -127,6 +139,7 @@ def wrap(model_class, block_until_ready, handle):
             record['padded_residues'] = padded_step_length(self, protein_states)
         except Exception as failure:  # a shape this helper cannot pad must not end the campaign
             record['padded_residues'] = f'unavailable: {failure}'
+        record['record'] = 'step'
         record['t_unix'] = time.time()
         handle.write(json.dumps(record) + '\n')
         return result
@@ -135,12 +148,102 @@ def wrap(model_class, block_until_ready, handle):
     model_class.sequence_gradients = sequence_gradients
 
 
+
+
+# The four phases a BindCraft 2 trajectory is made of, and where each one is called from. All four
+# names are module attributes at their call site, so rebinding them here is enough: `run_trajectory`
+# and `redesign_and_validate_binders` are imported into `bindcraft.campaign` (campaign.py:21 and
+# :10) and called there, and the two stage functions are called inside `bindcraft.trajectory`.
+#
+# This split is the whole point of the phase arm. `8,069.9 chip-s` on our side is the 125-step
+# GRADIENT PHASE; BindCraft 2's published 90.5 s/trajectory on a GH200 is the WHOLE CYCLE, gradient
+# design plus ProteinMPNN redesign plus validation. Comparing the two compares our part to their
+# whole, so both have to be timed here on the same card in the same run.
+PHASES = (
+    ('bindcraft.trajectory', 'run_gradient_design_stage', 'gradient_stage'),
+    ('bindcraft.trajectory', 'run_sequence_mutation_stage', 'mutate'),
+    ('bindcraft.campaign', 'run_trajectory', 'design'),
+    ('bindcraft.campaign', 'redesign_and_validate_binders', 'mpnn_validation'),
+)
+
+DEPTH = threading.local()
+
+
+def settle(value, is_array, depth=6):
+    """Wait for every device array reachable from `value`, so a phase wall has no async tail.
+
+    `jax.block_until_ready` walks pytrees, and BindCraft 2's `Protein` and `StructurePrediction`
+    are plain classes rather than registered nodes, so the arrays inside them are invisible to it.
+    A phase that returned without settling would charge its own tail to whichever later line first
+    read the array, which is exactly the accounting error this harness exists to avoid.
+    """
+    if depth < 0:
+        return
+    if is_array(value):
+        try:
+            value.block_until_ready()
+        except Exception:  # a deleted or committed array is already settled
+            pass
+        return
+    if isinstance(value, dict):
+        children = value.values()
+    elif isinstance(value, (list, tuple, set, frozenset)):
+        children = value
+    else:
+        contents = getattr(value, '__dict__', None)
+        children = contents.values() if isinstance(contents, dict) else ()
+    for child in children:
+        settle(child, is_array, depth - 1)
+
+
+def wrap_phases(namespaces, handle, is_array, phases=PHASES):
+    """Time each phase, in place. `namespaces` maps a module name to the module object.
+
+    Nesting is recorded rather than unwound: `design` encloses the four `gradient_stage` calls and
+    `mutate`, so a reader that summed every phase would count the same seconds twice. `depth` is
+    what lets the analysis add up only the phases at one level.
+    """
+    for module_name, attribute, phase in phases:
+        module = namespaces.get(module_name)
+        if module is None or not hasattr(module, attribute):
+            continue
+        inner = getattr(module, attribute)
+
+        def timed(*arguments, _inner=inner, _phase=phase, **keywords):
+            depth = getattr(DEPTH, 'n', 0)
+            DEPTH.n = depth + 1
+            first_step, started = steps_so_far() + 1, time.perf_counter()
+            try:
+                result = _inner(*arguments, **keywords)
+                settle(result, is_array)
+                return result
+            finally:
+                DEPTH.n = depth
+                last_step = steps_so_far()
+                handle.write(json.dumps({'record': 'phase',
+                                         'phase': _phase,
+                                         'wall_s': time.perf_counter() - started,
+                                         'depth': depth,
+                                         'gradient_steps': max(0, last_step - first_step + 1),
+                                         'first_step': first_step,
+                                         'last_step': last_step,
+                                         'background': threading.current_thread() is not threading.main_thread(),
+                                         't_unix': time.time()}) + '\n')
+
+        setattr(module, attribute, timed)
+
+
 def install(jsonl_path):
     import jax
+    import bindcraft.campaign
+    import bindcraft.trajectory
     from bindcraft.af2 import AlphaFoldDesignModel
 
     handle = open(jsonl_path, 'a', buffering=1)
     wrap(AlphaFoldDesignModel, jax.block_until_ready, handle)
+    wrap_phases({'bindcraft.campaign': bindcraft.campaign,
+                 'bindcraft.trajectory': bindcraft.trajectory},
+                handle, lambda value: isinstance(value, jax.Array))
     return handle
 
 

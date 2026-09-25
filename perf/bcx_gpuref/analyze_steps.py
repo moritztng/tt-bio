@@ -17,6 +17,13 @@ up 40 % a restatement of itself:
 
 A step is `cold` when its own measured `compile_s` is a material share of its wall, so the split
 comes from the clock rather than from an assumption about which call index compiles.
+
+The same log carries the PHASE records, and they answer a different question. `8,069.9 chip-s` on
+the Tenstorrent side is the 125-step gradient phase; BindCraft 2's published 90.5 s/trajectory on a
+GH200 is the whole cycle, gradient design plus ProteinMPNN redesign plus validation. `trajectories`
+reports both on the same card in the same run: `gradient_phase_s` against `design_s` against
+`whole_cycle_s`, per trajectory, so the ratio the campaign quotes can be phase-matched instead of
+comparing our part to their whole.
 """
 import argparse
 import json
@@ -29,6 +36,54 @@ COLD_COMPILE_SHARE = 0.10
 def load(path):
     with open(path) as handle:
         return [json.loads(line) for line in handle if line.strip()]
+
+
+def split(records):
+    """Step records and phase records share one file, written in one pass, in order."""
+    steps = [r for r in records if r.get('record', 'step') == 'step']
+    phases = [r for r in records if r.get('record') == 'phase']
+    return steps, phases
+
+
+def trajectories(phases):
+    """One row per trajectory: the gradient phase, the design wall and the whole cycle.
+
+    A phase record is written when its call RETURNS, so the four `gradient_stage` records and the
+    `mutate` record arrive before the `design` record that encloses them, and `mpnn_validation`
+    arrives after it. Children are claimed by step range rather than by position, so a background
+    pre-compile landing in the middle cannot be mistaken for a stage of this trajectory.
+    """
+    rows, pending = [], []
+    for record in phases:
+        if record.get('background'):
+            continue
+        name = record['phase']
+        if name in ('gradient_stage', 'mutate'):
+            pending.append(record)
+            continue
+        if name == 'design':
+            low, high = record['first_step'], record['last_step']
+            mine = [p for p in pending if low <= p['first_step'] and p['last_step'] <= high]
+            pending = [p for p in pending if p not in mine]
+            gradient = [p for p in mine if p['phase'] == 'gradient_stage']
+            mutate = [p for p in mine if p['phase'] == 'mutate']
+            rows.append({'design_s': record['wall_s'],
+                         'gradient_phase_s': sum(p['wall_s'] for p in gradient),
+                         'gradient_steps': sum(p['gradient_steps'] for p in gradient),
+                         'gradient_stages': [round(p['wall_s'], 3) for p in gradient],
+                         'mutate_s': sum(p['wall_s'] for p in mutate),
+                         'mpnn_validation_s': None,
+                         'whole_cycle_s': None,
+                         'first_step': low,
+                         'last_step': high})
+            continue
+        if name == 'mpnn_validation' and rows and rows[-1]['mpnn_validation_s'] is None:
+            rows[-1]['mpnn_validation_s'] = record['wall_s']
+    for row in rows:
+        mpnn = row['mpnn_validation_s']
+        row['whole_cycle_s'] = row['design_s'] + (mpnn or 0.0)
+        row['reached_mpnn'] = mpnn is not None
+    return rows
 
 
 def bucket_of(record):
@@ -62,7 +117,8 @@ def distribution(values):
             'total': sum(ordered)}
 
 
-def report(records):
+def report(all_records):
+    records, phases = split(all_records)
     populations = {}
     for record in records:
         populations.setdefault(classify(record), []).append(record)
@@ -77,6 +133,24 @@ def report(records):
     for record in warm:
         by_bucket.setdefault(bucket_of(record), []).append(record['call_s'])
     summary['warm_by_padded_residues'] = {str(k): distribution(v) for k, v in sorted(by_bucket.items(), key=lambda kv: (kv[0] is None, kv[0]))}
+
+    rows = trajectories(phases)
+    summary['trajectories'] = rows
+    complete = [r for r in rows if r['reached_mpnn']]
+    summary['phase_split'] = {
+        'trajectories_logged': len(rows),
+        'trajectories_through_mpnn': len(complete),
+        'gradient_phase_s': distribution([r['gradient_phase_s'] for r in rows]),
+        'gradient_steps': distribution([r['gradient_steps'] for r in rows]),
+        'mutate_s': distribution([r['mutate_s'] for r in rows]),
+        'design_s': distribution([r['design_s'] for r in rows]),
+        'mpnn_validation_s': distribution([r['mpnn_validation_s'] for r in complete]),
+        'whole_cycle_s': distribution([r['whole_cycle_s'] for r in complete]),
+        # The share is what decides whether 'our gradient phase vs their whole cycle' flatters us,
+        # and by how much. Only trajectories that ran the whole cycle can answer it.
+        'gradient_share_of_cycle': distribution([r['gradient_phase_s'] / r['whole_cycle_s']
+                                                 for r in complete if r['whole_cycle_s'] > 0]),
+    }
     return summary
 
 

@@ -6,7 +6,7 @@ It needs neither jax, nor BindCraft 2, nor a card, so the measurement code is kn
 an hour of GPU is spent finding out. What it cannot check is that the stub's shape matches
 BindCraft 2's: `sequence_gradients` calling `_compiled_sequence_gradients(...)` and then
 `.lower(...).compile()` before invoking it is asserted here and read from `bindcraft/af2.py:400-406`
-at commit 5342aefa18dedad653f7a5f6dbee1e566ca24d8f.
+at commit 7a2dfdb8a285232a6f881899fe135c6dc48679f1, the commit the device arms run.
 """
 import io
 import json
@@ -116,6 +116,10 @@ class TimingHarness(unittest.TestCase):
     def setUp(self):
         install_stub_bindcraft()
         self.handle = io.StringIO()
+        # The step counter is process-wide, because the phase wrappers read it to say how many
+        # gradient steps a stage contained. One campaign per process, so one counter -- but a test
+        # file runs many, and each starts at step 1.
+        bc2_step_timing.STEPS['n'] = 0
         self.model_class = type('Stub', (StubModel,), {})
         bc2_step_timing.wrap(self.model_class, lambda outputs: None, self.handle)
         self.model = self.model_class()
@@ -261,6 +265,140 @@ class DesignValidation(unittest.TestCase):
         poly = '\n'.join(f'ATOM {i} CA ALA B {i} B {i} {i}.0 11.0 11.0' for i in range(1, 9))
         text = CIF.replace('ATOM 4 CA GLY B 1 B 1 13.0 11.0 11.0\nATOM 5 CA SER B 2 B 2 14.0 11.0 11.0\nATOM 6 CA LEU B 3 B 3 15.0 11.0 11.0', poly)
         self.assertTrue(validate_designs.check(self.write('e.cif', text), binder_length=8, max_run=8)['ok'])
+
+
+class StubArray:
+    """Stands in for a jax.Array: it knows whether anything waited on it."""
+
+    def __init__(self):
+        self.blocked = 0
+
+    def block_until_ready(self):
+        self.blocked += 1
+        return self
+
+
+class StubProteinHolder:
+    """A plain object holding an array, which is what `jax.block_until_ready` walks straight past."""
+
+    def __init__(self, array):
+        self.coordinates = array
+
+
+class PhaseTimingTest(unittest.TestCase):
+    """The phase arm: whole cycle against gradient phase, on the same run.
+
+    Our 8,069.9 chip-s is the 125-step gradient phase and BindCraft 2's published 90.5 s is a whole
+    cycle, so a phase-matched ratio needs both timed here. These tests fix the shape of that
+    accounting against a stub of BindCraft 2's own call nesting.
+    """
+
+    def setUp(self):
+        import types
+        self.handle = io.StringIO()
+        bc2_step_timing.STEPS['n'] = 0
+        self.trajectory = types.ModuleType('t')
+        self.campaign = types.ModuleType('c')
+
+        def gradient_stage(steps):
+            for _ in range(steps):
+                bc2_step_timing.next_step_number()
+            return ('states', 'predictions')
+
+        def mutation_stage():
+            return ('states', 'predictions')
+
+        def run_trajectory(rounds=(50, 25, 45, 5), mutate=True):
+            for count in rounds:
+                self.trajectory.run_gradient_design_stage(count)
+            if mutate:
+                self.trajectory.run_sequence_mutation_stage()
+            return 'trajectory'
+
+        self.trajectory.run_gradient_design_stage = gradient_stage
+        self.trajectory.run_sequence_mutation_stage = mutation_stage
+        self.campaign.run_trajectory = run_trajectory
+        self.campaign.redesign_and_validate_binders = lambda: ['binder']
+        bc2_step_timing.wrap_phases({'bindcraft.trajectory': self.trajectory,
+                                     'bindcraft.campaign': self.campaign},
+                                    self.handle, lambda value: isinstance(value, StubArray))
+
+    def records(self):
+        return [json.loads(line) for line in self.handle.getvalue().splitlines() if line.strip()]
+
+    def test_the_gradient_phase_is_the_four_stages_and_not_the_mutate_stage(self):
+        self.campaign.run_trajectory()
+        self.campaign.redesign_and_validate_binders()
+        rows = analyze_steps.trajectories([r for r in self.records() if r.get('record') == 'phase'])
+        self.assertEqual(len(rows), 1)
+        self.assertEqual(rows[0]['gradient_steps'], 125)
+        self.assertEqual(len(rows[0]['gradient_stages']), 4)
+        self.assertTrue(rows[0]['reached_mpnn'])
+
+    def test_the_whole_cycle_exceeds_the_design_wall_by_the_mpnn_stage(self):
+        self.campaign.run_trajectory()
+        self.campaign.redesign_and_validate_binders()
+        row = analyze_steps.trajectories([r for r in self.records() if r.get('record') == 'phase'])[0]
+        self.assertAlmostEqual(row['whole_cycle_s'], row['design_s'] + row['mpnn_validation_s'], places=9)
+        self.assertGreater(row['whole_cycle_s'], row['design_s'])
+
+    def test_the_gradient_phase_does_not_double_count_inside_the_design_wall(self):
+        """`design` encloses the stages, so `depth` is what keeps a reader from adding both."""
+        self.campaign.run_trajectory()
+        phases = [r for r in self.records() if r.get('record') == 'phase']
+        depths = {r['phase']: r['depth'] for r in phases}
+        self.assertEqual(depths['design'], 0)
+        self.assertEqual(depths['gradient_stage'], 1)
+        self.assertEqual(depths['mutate'], 1)
+
+    def test_a_trajectory_rejected_before_mpnn_reports_no_whole_cycle(self):
+        self.campaign.run_trajectory(rounds=(50, 25), mutate=False)
+        row = analyze_steps.trajectories([r for r in self.records() if r.get('record') == 'phase'])[0]
+        self.assertEqual(row['gradient_steps'], 75)
+        self.assertFalse(row['reached_mpnn'])
+        self.assertEqual(row['mutate_s'], 0.0)
+        summary = analyze_steps.report(self.records())
+        self.assertEqual(summary['phase_split']['trajectories_through_mpnn'], 0)
+        self.assertEqual(summary['phase_split']['whole_cycle_s'], {'n': 0})
+
+    def test_two_trajectories_are_two_rows(self):
+        for _ in range(2):
+            self.campaign.run_trajectory()
+            self.campaign.redesign_and_validate_binders()
+        rows = analyze_steps.trajectories([r for r in self.records() if r.get('record') == 'phase'])
+        self.assertEqual([r['gradient_steps'] for r in rows], [125, 125])
+        self.assertEqual(rows[1]['first_step'], 126)
+
+    def test_a_phase_settles_arrays_a_pytree_walk_would_miss(self):
+        """BindCraft 2's `Protein` is not a registered pytree node, so its arrays are invisible to
+        `jax.block_until_ready`; an unsettled phase would charge its tail to a later line."""
+        array = StubArray()
+        self.campaign.redesign_and_validate_binders = lambda: {'a': [StubProteinHolder(array)]}
+        bc2_step_timing.wrap_phases({'bindcraft.campaign': self.campaign}, self.handle,
+                                    lambda value: isinstance(value, StubArray),
+                                    phases=(('bindcraft.campaign', 'redesign_and_validate_binders', 'mpnn_validation'),))
+        self.campaign.redesign_and_validate_binders()
+        self.assertEqual(array.blocked, 1)
+
+    def test_settle_is_bounded_so_a_cycle_cannot_hang_it(self):
+        array = StubArray()
+        holder = StubProteinHolder(array)
+        holder.self_reference = holder
+        bc2_step_timing.settle(holder, lambda value: isinstance(value, StubArray))
+        self.assertGreaterEqual(array.blocked, 1)
+
+    def test_a_missing_attribute_is_skipped_rather_than_raising(self):
+        """A BindCraft 2 that renames a phase function must not end the campaign in the wrapper."""
+        import types
+        empty = types.ModuleType('empty')
+        bc2_step_timing.wrap_phases({'bindcraft.campaign': empty}, self.handle,
+                                    lambda value: False)
+        self.assertEqual(self.records(), [])
+
+    def test_a_background_precompile_is_not_a_trajectory(self):
+        phases = [{'record': 'phase', 'phase': 'design', 'wall_s': 1.0, 'depth': 0,
+                   'gradient_steps': 5, 'first_step': 1, 'last_step': 5, 'background': True}]
+        self.assertEqual(analyze_steps.trajectories(phases), [])
 
 
 if __name__ == '__main__':

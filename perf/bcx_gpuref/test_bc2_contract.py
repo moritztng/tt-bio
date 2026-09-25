@@ -17,13 +17,36 @@ import os
 import sys
 import unittest
 
-PINNED = '5342aefa18dedad653f7a5f6dbee1e566ca24d8f'
+# The commit the campaign's DEVICE arms run on qb1 and qb2 (`state/bcx/UPSTREAM.md`). A GPU
+# reference measured against a different BC2 than the arm it is the denominator for would
+# repeat this row's founding mistake one level up.
+PINNED = '7a2dfdb8a285232a6f881899fe135c6dc48679f1'
 SOURCE = os.environ.get('BC2_SRC')
 
 
-def module(name):
+def text(name):
     with open(os.path.join(SOURCE, 'bindcraft', name)) as handle:
-        return ast.parse(handle.read())
+        return handle.read()
+
+
+def module(name):
+    return ast.parse(text(name))
+
+
+def imported_from(tree):
+    """`{name: module}` for every module-level `from X import name`.
+
+    This is what makes the phase timing possible at all: a name imported into a module and called
+    there is an attribute of that module, so rebinding the attribute reaches the call site. A BC2
+    that switched to `import bindcraft.trajectory` and called `trajectory.run_trajectory(...)`
+    would leave the wrapper installed and measuring nothing.
+    """
+    names = {}
+    for node in tree.body:
+        if isinstance(node, ast.ImportFrom):
+            for alias in node.names:
+                names[alias.asname or alias.name] = node.module
+    return names
 
 
 def function(tree, name, inside=None):
@@ -199,6 +222,67 @@ class StepAccounting(unittest.TestCase):
         self.assertEqual(self.benchmark['campaign_seed'], 0)
         self.assertIs(self.benchmark['autotune'], False)
         self.assertIs(self.benchmark['desperation'], False)
+
+
+@unittest.skipUnless(SOURCE, 'set BC2_SRC to a BindCraft 2 clone')
+class PhaseContract(unittest.TestCase):
+    """What `bc2_step_timing.wrap_phases` patches, and why patching there reaches the call site.
+
+    The phase arm exists because `8,069.9 chip-s` on our side is the 125-step gradient phase while
+    BindCraft 2's published 90.5 s/trajectory is the whole cycle. If any of these four hooks moves,
+    the harness logs a whole cycle with no gradient phase inside it, or no phases at all, and the
+    ratio silently goes back to comparing our part against their whole.
+    """
+
+    @classmethod
+    def setUpClass(cls):
+        cls.trajectory, cls.campaign = module('trajectory.py'), module('campaign.py')
+        cls.workers_text = text('design_workers.py')
+
+    def test_the_four_phase_functions_exist_where_the_harness_looks(self):
+        self.assertIsNotNone(function(self.trajectory, 'run_gradient_design_stage'))
+        self.assertIsNotNone(function(self.trajectory, 'run_sequence_mutation_stage'))
+        self.assertIsNotNone(function(self.trajectory, 'run_trajectory'))
+
+    def test_the_campaign_imports_both_phase_names_it_calls(self):
+        imports = imported_from(self.campaign)
+        self.assertEqual(imports.get('run_trajectory'), 'bindcraft.trajectory')
+        self.assertEqual(imports.get('redesign_and_validate_binders'), 'bindcraft.MPNN_stage')
+
+    def test_the_campaign_calls_them_by_bare_name(self):
+        """A dotted call would read through to the defining module and miss the rebinding."""
+        called = calls(function(self.campaign, 'run_campaign_arm'))
+        self.assertIn('run_trajectory', called)
+        self.assertIn('redesign_and_validate_binders', called)
+
+    def test_the_gradient_stage_and_the_mutate_stage_are_called_by_bare_name_too(self):
+        self.assertIn('run_gradient_design_stage', calls(function(self.trajectory, 'run_trajectory')))
+        self.assertIn('run_mutation_polish', calls(function(self.trajectory, 'run_trajectory')))
+        self.assertIn('run_sequence_mutation_stage', calls(function(self.trajectory, 'run_mutation_polish')))
+
+    def test_the_mutate_stage_is_still_outside_the_gradient_phase(self):
+        """Forward-only: `run_sequence_mutation_stage` never reaches `sequence_gradients`, so its
+        15 rounds belong to the cycle and not to the 125-step gradient phase."""
+        called = calls(function(self.trajectory, 'run_sequence_mutation_stage'))
+        self.assertNotIn('sequence_gradients', [name.rsplit('.', 1)[-1] for name in called])
+
+    def test_bc2_times_its_own_design_wall_without_the_mpnn_stage(self):
+        """`design_started` is set immediately before `run_trajectory`, and `timing_stamp` reads the
+        clock right after it, so BC2's own `Timing` column corroborates our `design` phase rather
+        than measuring something else. The MPNN stage runs after that line."""
+        assignments = [node for node in ast.walk(function(self.campaign, 'run_campaign_arm'))
+                       if isinstance(node, ast.Assign)
+                       and any(isinstance(t, ast.Name) and t.id == 'design_started' for t in node.targets)]
+        self.assertEqual(len(assignments), 1)
+        self.assertIn('time.time', calls(assignments[0]))
+
+    def test_one_process_is_reachable_by_turning_auto_multi_gpu_off(self):
+        """The wrapper only instruments the process it lives in, so the measured run must not fan
+        out into subprocess workers. `auto_multi_gpu=false` is the documented way back."""
+        dispatch = self.workers_text[self.workers_text.index('def dispatch_design_workers'):]
+        guard = dispatch[:dispatch.index('plan = ')]
+        self.assertIn('auto_multi_gpu', guard)
+        self.assertIn('return None', guard)
 
 
 if __name__ == '__main__':
