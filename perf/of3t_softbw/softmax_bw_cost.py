@@ -55,6 +55,11 @@ def f64_softmax_bw(y64: torch.Tensor, g64: torch.Tensor) -> torch.Tensor:
 
 # --- the four arms, each returning ds ------------------------------------------------------
 
+# The op takes `dim` as a uint32_t (`moreh_softmax_backward.hpp`), so -1 does not name the
+# last axis to it. Every shape this harness runs is rank 4.
+_AX = 3
+
+
 def _composed(y, g, cfg, renorm):
     inner = ttnn.sum(ttnn.multiply(g, y), dim=-1, keepdim=True)
     if renorm:
@@ -70,13 +75,13 @@ def _moreh_renorm(y, g, cfg):
     expression exactly. Four verbs where the composed path spends six.
     """
     s = ttnn.sum(y, dim=-1, keepdim=True, compute_kernel_config=cfg)
-    return ttnn.multiply(ttnn.moreh_softmax_backward(ttnn.divide(y, s), g, dim=-1), s)
+    return ttnn.multiply(ttnn.moreh_softmax_backward(ttnn.divide(y, s), g, _AX), s)
 
 
 ARMS = {
     "composed_renorm": lambda y, g, cfg: _composed(y, g, cfg, True),
     "composed_plain": lambda y, g, cfg: _composed(y, g, cfg, False),
-    "moreh": lambda y, g, cfg: ttnn.moreh_softmax_backward(y, g, dim=-1),
+    "moreh": lambda y, g, cfg: ttnn.moreh_softmax_backward(y, g, _AX),
     "moreh_renorm": _moreh_renorm,
 }
 VERBS = {"composed_renorm": 6, "composed_plain": 4, "moreh": 1, "moreh_renorm": 4}
@@ -119,15 +124,25 @@ def run_shape(device, shape, dtype, iters, rounds, spread, exact_fwd, seed=0):
 
     acc_expr, acc_true, per_call = {}, {}, {a: [] for a in ARMS}
 
-    for name, fn in ARMS.items():                    # warm, and score, before any timing
-        ds = fn(y, g, cfg)
-        ttnn.synchronize_device(device)
+    # Warm and score before any timing. An arm the op REFUSES at this dtype is recorded and
+    # dropped rather than crashing the rung: `moreh_softmax_backward` takes bfloat16 and
+    # bfloat8_b only (`moreh_softmax_backward_device_operation.cpp:80`), and "which arms are
+    # even available at which dtype" is a result, not an error.
+    refused = {}
+    for name, fn in list(ARMS.items()):
+        try:
+            ds = fn(y, g, cfg)
+            ttnn.synchronize_device(device)
+        except RuntimeError as e:
+            refused[name] = str(e).split("info:")[-1].strip().split("\n")[0]
+            continue
         got = ttnn.to_torch(ds).float().numpy()
         acc_expr[name] = rel_l2(got, ref_expr)
         acc_true[name] = rel_l2(got, ref_true)
         ttnn.deallocate(ds)
 
-    order = list(ARMS)
+    order = [a for a in ARMS if a not in refused]
+    per_call = {a: [] for a in order}
     for r in range(rounds):
         for name in (order if r % 2 == 0 else order[::-1]):
             fn = ARMS[name]
@@ -141,8 +156,9 @@ def run_shape(device, shape, dtype, iters, rounds, spread, exact_fwd, seed=0):
 
     for t in (x, g, y):
         ttnn.deallocate(t)
-    med = {k: 1e3 * statistics.median(v) for k, v in per_call.items()}
+    med = {k: 1e3 * statistics.median(v) for k, v in per_call.items() if v}
     return {
+        "refused_at_this_dtype": refused,
         "shape": list(shape), "dtype": dtype, "spread": spread,
         "forward": "host_f64_rounded" if exact_fwd else "ttnn.softmax",
         "iters": iters, "rounds": rounds, "verbs": VERBS,
@@ -150,8 +166,8 @@ def run_shape(device, shape, dtype, iters, rounds, spread, exact_fwd, seed=0):
         "rel_l2_vs_expr_f64": acc_expr,
         "rel_l2_vs_true_f64": acc_true,
         "ms_per_call_median": med,
-        "ms_per_call_min": {k: 1e3 * min(v) for k, v in per_call.items()},
-        "ms_per_call_rounds": {k: [1e3 * t for t in v] for k, v in per_call.items()},
+        "ms_per_call_min": {k: 1e3 * min(v) for k, v in per_call.items() if v},
+        "ms_per_call_rounds": {k: [1e3 * t for t in v] for k, v in per_call.items() if v},
         "speedup_vs_composed_renorm": {k: med["composed_renorm"] / v for k, v in med.items()},
     }
 

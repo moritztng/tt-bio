@@ -160,14 +160,19 @@ def softmax_bw_inner(y, g, dim=-1, config=None):
 SOFTMAX_BW_FUSED = env_flag("TT_BIO_SOFTMAX_BW_FUSED", False)
 
 
-def _is_last_dim(y, dim: int) -> bool:
-    """`ttnn.moreh_softmax_backward` reduces the last axis only, so a caller on any other
-    axis keeps the composed path. Every concrete softmax site in the engine passes -1 and the
-    six that pass `dim=dim` are forwarders, but the check is here rather than in a comment:
-    the helper is exported and a caller that does not qualify should get the right answer
-    slowly, not the wrong one quickly."""
+def _last_axis(y, dim: int):
+    """The positive last-axis index if `dim` names it, else None.
+
+    Two jobs in one, because they have the same answer. `ttnn.moreh_softmax_backward`
+    reduces the last axis only, so a caller on any other axis keeps the composed path --
+    every concrete softmax site in the engine passes -1 and the six that pass `dim=dim` are
+    forwarders, but the check is here rather than in a comment, because the helper is
+    exported and a caller that does not qualify should get the right answer slowly rather
+    than the wrong one quickly. And the index has to be POSITIVE: the op takes `dim` as a
+    `uint32_t` (`moreh_softmax_backward.hpp`), so -1 does not mean the last axis to it.
+    """
     rank = len(y.shape)
-    return dim in (-1, rank - 1)
+    return rank - 1 if dim in (-1, rank - 1) else None
 
 
 def softmax_bw(y, g, dim=-1, config=None):
@@ -183,13 +188,14 @@ def softmax_bw(y, g, dim=-1, config=None):
     `moreh(y/s, g) = (y/s)(g - sum(g y)/s)`. Four verbs against the composed six, and with
     the renorm off, one.
     """
-    if SOFTMAX_BW_FUSED and _is_last_dim(y, dim):
+    ax = _last_axis(y, dim) if SOFTMAX_BW_FUSED else None
+    if ax is not None:
         SOFTMAX_BW_RENORM_STATS["applied" if SOFTMAX_BW_RENORM else "declined"] += 1
         if not SOFTMAX_BW_RENORM:
-            return ttnn.moreh_softmax_backward(y, g, dim=-1)
+            return ttnn.moreh_softmax_backward(y, g, ax)
         s = ttnn.sum(y, dim=-1, keepdim=True,
                      compute_kernel_config=config or precise_config())
-        return ttnn.multiply(ttnn.moreh_softmax_backward(ttnn.divide(y, s), g, dim=-1), s)
+        return ttnn.multiply(ttnn.moreh_softmax_backward(ttnn.divide(y, s), g, ax), s)
     return ttnn.multiply(y, ttnn.subtract(g, softmax_bw_inner(y, g, dim=dim, config=config)))
 
 
