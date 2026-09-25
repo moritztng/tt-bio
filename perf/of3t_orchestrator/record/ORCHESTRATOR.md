@@ -184,8 +184,9 @@ for a structural reason — the DGX ships 8 accelerators and the QuietBox 4 — 
 number was the wrong headline: it credits us with a box we do not sell. Every sprint number states
 its axis.
 
-BRANCH: **`wk/of3t-bwd` EXISTS and carries its first lever: `origin/wk/of3t-bwd` at
-`8ad5af448`.** Created from `origin/main` this pass and composed with `of3t-tapedfwd` (GO) by a
+BRANCH: **`wk/of3t-bwd` at `2cb645756`**, carrying all of `of3t-tapedfwd` (GO) including the
+three commits behind R209's evidence — artifacts only, no engine file among them, merge-tree
+clean before and after. Created from `origin/main` this pass and composed with `of3t-tapedfwd` (GO) by a
 no-ff merge, conflict-free (`git merge-tree` clean before the merge, verified after). The whole
 engine change on the branch is **15 lines in `tt_bio/tenstorrent.py`** plus
 `tests/test_triatt_hifi_tape_latch.py` — an early `if ops.taping(): return None` in
