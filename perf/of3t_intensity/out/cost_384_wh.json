@@ -1,0 +1,791 @@
+{
+ "census": "perf/of3t_intensity/out/census_384_wh.counts.json",
+ "rules": {
+  "matmul_flop": "2 * out_volume * K, exact from the shapes",
+  "softmax_per_element": 5.0,
+  "norm_per_element": 8.0,
+  "eltwise_per_element": 1.0,
+  "bytes": "operands in + results out at PADDED volume, split by buffer type; the program's MINIMUM traffic, so the AI below is an upper bound",
+  "zero_flop": "permute/slice/concat/to_layout/typecast/deallocate and friends compute nothing by construction, so they have no compute roof to be a fraction of",
+  "meta": "deallocate, is_tensor_storage_on_device and friends move NO bytes; they are counted as calls and as zero traffic"
+ },
+ "parts": {
+  "diffusion": {
+   "calls": 2265,
+   "calls_zero_flop": 1256,
+   "zero_flop_call_share": 0.5545,
+   "gflop": 283.118,
+   "gflop_matmul_only": 282.362,
+   "dram_gb": 22.296,
+   "l1_gb": 0.0,
+   "pcie_gb": 5.168,
+   "ai_flop_per_dram_byte": 12.698,
+   "ai_matmul_only": 12.664,
+   "by_kind": {
+    "move": {
+     "calls": 1067,
+     "gflop": 0.0,
+     "dram_gb": 9.887
+    },
+    "eltwise": {
+     "calls": 528,
+     "gflop": 0.756,
+     "dram_gb": 6.099
+    },
+    "matmul": {
+     "calls": 481,
+     "gflop": 282.362,
+     "dram_gb": 6.31
+    },
+    "meta": {
+     "calls": 189,
+     "gflop": 0.0,
+     "dram_gb": 0.0
+    }
+   },
+   "top_verbs_by_calls": [
+    {
+     "verb": "linear",
+     "calls": 424,
+     "flop": 265.229,
+     "dram_b": 5.608
+    },
+    {
+     "verb": "to_torch",
+     "calls": 302,
+     "flop": 0.0,
+     "dram_b": 2.515
+    },
+    {
+     "verb": "multiply",
+     "calls": 281,
+     "flop": 0.379,
+     "dram_b": 3.058
+    },
+    {
+     "verb": "from_torch",
+     "calls": 261,
+     "flop": 0.0,
+     "dram_b": 2.515
+    },
+    {
+     "verb": "add",
+     "calls": 185,
+     "flop": 0.232,
+     "dram_b": 2.205
+    },
+    {
+     "verb": "to_layout",
+     "calls": 158,
+     "flop": 0.0,
+     "dram_b": 1.868
+    },
+    {
+     "verb": "deallocate",
+     "calls": 129,
+     "flop": 0.0,
+     "dram_b": 0.0
+    },
+    {
+     "verb": "permute",
+     "calls": 122,
+     "flop": 0.0,
+     "dram_b": 0.867
+    },
+    {
+     "verb": "reshape",
+     "calls": 84,
+     "flop": 0.0,
+     "dram_b": 0.356
+    },
+    {
+     "verb": "typecast",
+     "calls": 74,
+     "flop": 0.0,
+     "dram_b": 1.225
+    },
+    {
+     "verb": "to_memory_config",
+     "calls": 60,
+     "flop": 0.0,
+     "dram_b": 0.0
+    },
+    {
+     "verb": "matmul",
+     "calls": 57,
+     "flop": 17.133,
+     "dram_b": 0.702
+    },
+    {
+     "verb": "sigmoid",
+     "calls": 32,
+     "flop": 0.093,
+     "dram_b": 0.433
+    },
+    {
+     "verb": "unsqueeze",
+     "calls": 26,
+     "flop": 0.0,
+     "dram_b": 0.236
+    },
+    {
+     "verb": "slice",
+     "calls": 26,
+     "flop": 0.0,
+     "dram_b": 0.079
+    },
+    {
+     "verb": "experimental.nlp_create_qkv_heads",
+     "calls": 24,
+     "flop": 0.028,
+     "dram_b": 0.226
+    },
+    {
+     "verb": "embedding",
+     "calls": 11,
+     "flop": 0.0,
+     "dram_b": 0.053
+    },
+    {
+     "verb": "relu",
+     "calls": 6,
+     "flop": 0.023,
+     "dram_b": 0.176
+    }
+   ],
+   "top_verbs_by_dram": [
+    {
+     "verb": "linear",
+     "calls": 424,
+     "dram_gb": 5.608,
+     "gflop": 265.229
+    },
+    {
+     "verb": "multiply",
+     "calls": 281,
+     "dram_gb": 3.058,
+     "gflop": 0.379
+    },
+    {
+     "verb": "from_torch",
+     "calls": 261,
+     "dram_gb": 2.515,
+     "gflop": 0.0
+    },
+    {
+     "verb": "to_torch",
+     "calls": 302,
+     "dram_gb": 2.515,
+     "gflop": 0.0
+    },
+    {
+     "verb": "add",
+     "calls": 185,
+     "dram_gb": 2.205,
+     "gflop": 0.232
+    },
+    {
+     "verb": "to_layout",
+     "calls": 158,
+     "dram_gb": 1.868,
+     "gflop": 0.0
+    },
+    {
+     "verb": "typecast",
+     "calls": 74,
+     "dram_gb": 1.225,
+     "gflop": 0.0
+    },
+    {
+     "verb": "permute",
+     "calls": 122,
+     "dram_gb": 0.867,
+     "gflop": 0.0
+    },
+    {
+     "verb": "matmul",
+     "calls": 57,
+     "dram_gb": 0.702,
+     "gflop": 17.133
+    },
+    {
+     "verb": "sigmoid",
+     "calls": 32,
+     "dram_gb": 0.433,
+     "gflop": 0.093
+    },
+    {
+     "verb": "reshape",
+     "calls": 84,
+     "dram_gb": 0.356,
+     "gflop": 0.0
+    },
+    {
+     "verb": "unsqueeze",
+     "calls": 26,
+     "dram_gb": 0.236,
+     "gflop": 0.0
+    },
+    {
+     "verb": "experimental.nlp_create_qkv_heads",
+     "calls": 24,
+     "dram_gb": 0.226,
+     "gflop": 0.028
+    },
+    {
+     "verb": "relu",
+     "calls": 6,
+     "dram_gb": 0.176,
+     "gflop": 0.023
+    },
+    {
+     "verb": "concat",
+     "calls": 2,
+     "dram_gb": 0.171,
+     "gflop": 0.0
+    },
+    {
+     "verb": "slice",
+     "calls": 26,
+     "dram_gb": 0.079,
+     "gflop": 0.0
+    },
+    {
+     "verb": "embedding",
+     "calls": 11,
+     "dram_gb": 0.053,
+     "gflop": 0.0
+    },
+    {
+     "verb": "pad",
+     "calls": 1,
+     "dram_gb": 0.002,
+     "gflop": 0.0
+    }
+   ]
+  },
+  "trunk_nograd_prefix": {
+   "calls": 59420,
+   "calls_zero_flop": 38114,
+   "zero_flop_call_share": 0.6414,
+   "gflop": 17776.495,
+   "gflop_matmul_only": 17456.079,
+   "dram_gb": 900.855,
+   "l1_gb": 532.807,
+   "pcie_gb": 0.104,
+   "ai_flop_per_dram_byte": 19.733,
+   "ai_matmul_only": 19.377,
+   "by_kind": {
+    "meta": {
+     "calls": 30863,
+     "gflop": 0.0,
+     "dram_gb": 0.0
+    },
+    "matmul": {
+     "calls": 9397,
+     "gflop": 17456.079,
+     "dram_gb": 107.548
+    },
+    "eltwise": {
+     "calls": 7772,
+     "gflop": 85.048,
+     "dram_gb": 527.634
+    },
+    "move": {
+     "calls": 7251,
+     "gflop": 0.0,
+     "dram_gb": 185.663
+    },
+    "norm": {
+     "calls": 3408,
+     "gflop": 192.848,
+     "dram_gb": 78.65
+    },
+    "softmax": {
+     "calls": 729,
+     "gflop": 42.52,
+     "dram_gb": 1.359
+    }
+   },
+   "top_verbs_by_calls": [
+    {
+     "verb": "deallocate",
+     "calls": 20185,
+     "flop": 0.0,
+     "dram_b": 0.0
+    },
+    {
+     "verb": "linear",
+     "calls": 7525,
+     "flop": 11521.298,
+     "dram_b": 26.072
+    },
+    {
+     "verb": "allocate_tensor_on_device",
+     "calls": 3780,
+     "flop": 0.0,
+     "dram_b": 0.0
+    },
+    {
+     "verb": "layer_norm",
+     "calls": 3408,
+     "flop": 192.848,
+     "dram_b": 78.65
+    },
+    {
+     "verb": "multiply_",
+     "calls": 2982,
+     "flop": 24.365,
+     "dram_b": 49.604
+    },
+    {
+     "verb": "generic_op",
+     "calls": 2208,
+     "flop": 35.517,
+     "dram_b": 407.225
+    },
+    {
+     "verb": "graph.is_graph_capture_active",
+     "calls": 2187,
+     "flop": 0.0,
+     "dram_b": 0.0
+    },
+    {
+     "verb": "is_tensor_storage_on_device",
+     "calls": 2187,
+     "flop": 0.0,
+     "dram_b": 0.0
+    },
+    {
+     "verb": "slice",
+     "calls": 2187,
+     "flop": 0.0,
+     "dram_b": 70.895
+    },
+    {
+     "verb": "add_",
+     "calls": 1911,
+     "flop": 23.839,
+     "dram_b": 64.782
+    },
+    {
+     "verb": "permute",
+     "calls": 1869,
+     "flop": 0.0,
+     "dram_b": 27.167
+    },
+    {
+     "verb": "matmul",
+     "calls": 1848,
+     "flop": 5833.312,
+     "dram_b": 79.437
+    },
+    {
+     "verb": "typecast",
+     "calls": 1188,
+     "flop": 0.0,
+     "dram_b": 0.127
+    },
+    {
+     "verb": "to_memory_config",
+     "calls": 1152,
+     "flop": 0.0,
+     "dram_b": 0.0
+    },
+    {
+     "verb": "reshape",
+     "calls": 933,
+     "flop": 0.0,
+     "dram_b": 42.003
+    },
+    {
+     "verb": "get_max_worker_l1_unreserved_size",
+     "calls": 795,
+     "flop": 0.0,
+     "dram_b": 0.0
+    },
+    {
+     "verb": "create_sharded_memory_config",
+     "calls": 576,
+     "flop": 0.0,
+     "dram_b": 0.0
+    },
+    {
+     "verb": "softmax_in_place",
+     "calls": 576,
+     "flop": 40.769,
+     "dram_b": 0.0
+    }
+   ],
+   "top_verbs_by_dram": [
+    {
+     "verb": "generic_op",
+     "calls": 2208,
+     "dram_gb": 407.225,
+     "gflop": 35.517
+    },
+    {
+     "verb": "matmul",
+     "calls": 1848,
+     "dram_gb": 79.437,
+     "gflop": 5833.312
+    },
+    {
+     "verb": "layer_norm",
+     "calls": 3408,
+     "dram_gb": 78.65,
+     "gflop": 192.848
+    },
+    {
+     "verb": "slice",
+     "calls": 2187,
+     "dram_gb": 70.895,
+     "gflop": 0.0
+    },
+    {
+     "verb": "add_",
+     "calls": 1911,
+     "dram_gb": 64.782,
+     "gflop": 23.839
+    },
+    {
+     "verb": "multiply_",
+     "calls": 2982,
+     "dram_gb": 49.604,
+     "gflop": 24.365
+    },
+    {
+     "verb": "reshape",
+     "calls": 933,
+     "dram_gb": 42.003,
+     "gflop": 0.0
+    },
+    {
+     "verb": "permute",
+     "calls": 1869,
+     "dram_gb": 27.167,
+     "gflop": 0.0
+    },
+    {
+     "verb": "linear",
+     "calls": 7525,
+     "dram_gb": 26.072,
+     "gflop": 11521.298
+    },
+    {
+     "verb": "to_layout",
+     "calls": 48,
+     "dram_gb": 14.554,
+     "gflop": 0.0
+    },
+    {
+     "verb": "chunk",
+     "calls": 171,
+     "dram_gb": 12.036,
+     "gflop": 0.0
+    },
+    {
+     "verb": "unsqueeze",
+     "calls": 481,
+     "dram_gb": 9.173,
+     "gflop": 0.0
+    },
+    {
+     "verb": "concat",
+     "calls": 207,
+     "dram_gb": 8.752,
+     "gflop": 0.0
+    },
+    {
+     "verb": "experimental.nlp_create_qkv_heads",
+     "calls": 156,
+     "dram_gb": 3.058,
+     "gflop": 0.764
+    },
+    {
+     "verb": "experimental.minimal_matmul",
+     "calls": 24,
+     "dram_gb": 2.039,
+     "gflop": 101.469
+    },
+    {
+     "verb": "add",
+     "calls": 29,
+     "dram_gb": 1.762,
+     "gflop": 0.294
+    },
+    {
+     "verb": "softmax",
+     "calls": 153,
+     "dram_gb": 1.359,
+     "gflop": 1.752
+    },
+    {
+     "verb": "multiply",
+     "calls": 483,
+     "dram_gb": 1.09,
+     "gflop": 0.241
+    }
+   ]
+  },
+  "trunk_taped_cycle": {
+   "calls": 23553,
+   "calls_zero_flop": 16234,
+   "zero_flop_call_share": 0.6893,
+   "gflop": 13730.057,
+   "gflop_matmul_only": 13668.22,
+   "dram_gb": 1333.094,
+   "l1_gb": 0.0,
+   "pcie_gb": 244.707,
+   "ai_flop_per_dram_byte": 10.299,
+   "ai_matmul_only": 10.253,
+   "by_kind": {
+    "meta": {
+     "calls": 8721,
+     "gflop": 0.0,
+     "dram_gb": 0.0
+    },
+    "move": {
+     "calls": 7513,
+     "gflop": 0.0,
+     "dram_gb": 693.685
+    },
+    "eltwise": {
+     "calls": 3712,
+     "gflop": 60.931,
+     "dram_gb": 399.403
+    },
+    "matmul": {
+     "calls": 3603,
+     "gflop": 13668.22,
+     "dram_gb": 236.383
+    },
+    "reduce": {
+     "calls": 4,
+     "gflop": 0.906,
+     "dram_gb": 3.624
+    }
+   },
+   "top_verbs_by_calls": [
+    {
+     "verb": "deallocate",
+     "calls": 8720,
+     "flop": 0.0,
+     "dram_b": 0.0
+    },
+    {
+     "verb": "to_torch",
+     "calls": 3571,
+     "flop": 0.0,
+     "dram_b": 114.17
+    },
+    {
+     "verb": "linear",
+     "calls": 2831,
+     "flop": 4867.404,
+     "dram_b": 64.159
+    },
+    {
+     "verb": "multiply",
+     "calls": 2173,
+     "flop": 17.168,
+     "dram_b": 104.64
+    },
+    {
+     "verb": "from_torch",
+     "calls": 1307,
+     "flop": 0.0,
+     "dram_b": 114.274
+    },
+    {
+     "verb": "permute",
+     "calls": 755,
+     "flop": 0.0,
+     "dram_b": 37.063
+    },
+    {
+     "verb": "sigmoid",
+     "calls": 702,
+     "flop": 4.003,
+     "dram_b": 16.01
+    },
+    {
+     "verb": "add",
+     "calls": 570,
+     "flop": 30.285,
+     "dram_b": 233.605
+    },
+    {
+     "verb": "matmul",
+     "calls": 448,
+     "flop": 4727.576,
+     "dram_b": 127.955
+    },
+    {
+     "verb": "typecast",
+     "calls": 324,
+     "flop": 0.0,
+     "dram_b": 293.916
+    },
+    {
+     "verb": "experimental.minimal_matmul",
+     "calls": 324,
+     "flop": 4073.24,
+     "dram_b": 44.269
+    },
+    {
+     "verb": "reshape",
+     "calls": 311,
+     "flop": 0.0,
+     "dram_b": 22.004
+    },
+    {
+     "verb": "unsqueeze",
+     "calls": 265,
+     "flop": 0.0,
+     "dram_b": 26.613
+    },
+    {
+     "verb": "transpose",
+     "calls": 264,
+     "flop": 0.0,
+     "dram_b": 16.043
+    },
+    {
+     "verb": "to_layout",
+     "calls": 232,
+     "flop": 0.0,
+     "dram_b": 20.857
+    },
+    {
+     "verb": "chunk",
+     "calls": 165,
+     "flop": 0.0,
+     "dram_b": 36.023
+    },
+    {
+     "verb": "experimental.nlp_create_qkv_heads",
+     "calls": 156,
+     "flop": 6.144,
+     "dram_b": 24.574
+    },
+    {
+     "verb": "slice",
+     "calls": 153,
+     "flop": 0.0,
+     "dram_b": 0.593
+    }
+   ],
+   "top_verbs_by_dram": [
+    {
+     "verb": "typecast",
+     "calls": 324,
+     "dram_gb": 293.916,
+     "gflop": 0.0
+    },
+    {
+     "verb": "add",
+     "calls": 570,
+     "dram_gb": 233.605,
+     "gflop": 30.285
+    },
+    {
+     "verb": "matmul",
+     "calls": 448,
+     "dram_gb": 127.955,
+     "gflop": 4727.576
+    },
+    {
+     "verb": "from_torch",
+     "calls": 1307,
+     "dram_gb": 114.274,
+     "gflop": 0.0
+    },
+    {
+     "verb": "to_torch",
+     "calls": 3571,
+     "dram_gb": 114.17,
+     "gflop": 0.0
+    },
+    {
+     "verb": "multiply",
+     "calls": 2173,
+     "dram_gb": 104.64,
+     "gflop": 17.168
+    },
+    {
+     "verb": "linear",
+     "calls": 2831,
+     "dram_gb": 64.159,
+     "gflop": 4867.404
+    },
+    {
+     "verb": "experimental.minimal_matmul",
+     "calls": 324,
+     "dram_gb": 44.269,
+     "gflop": 4073.24
+    },
+    {
+     "verb": "permute",
+     "calls": 755,
+     "dram_gb": 37.063,
+     "gflop": 0.0
+    },
+    {
+     "verb": "chunk",
+     "calls": 165,
+     "dram_gb": 36.023,
+     "gflop": 0.0
+    },
+    {
+     "verb": "unsqueeze",
+     "calls": 265,
+     "dram_gb": 26.613,
+     "gflop": 0.0
+    },
+    {
+     "verb": "experimental.nlp_create_qkv_heads",
+     "calls": 156,
+     "dram_gb": 24.574,
+     "gflop": 6.144
+    },
+    {
+     "verb": "reshape",
+     "calls": 311,
+     "dram_gb": 22.004,
+     "gflop": 0.0
+    },
+    {
+     "verb": "to_layout",
+     "calls": 232,
+     "dram_gb": 20.857,
+     "gflop": 0.0
+    },
+    {
+     "verb": "transpose",
+     "calls": 264,
+     "dram_gb": 16.043,
+     "gflop": 0.0
+    },
+    {
+     "verb": "sigmoid",
+     "calls": 702,
+     "dram_gb": 16.01,
+     "gflop": 4.003
+    },
+    {
+     "verb": "experimental.nlp_concat_heads",
+     "calls": 104,
+     "dram_gb": 7.852,
+     "gflop": 1.963
+    },
+    {
+     "verb": "squeeze",
+     "calls": 104,
+     "dram_gb": 7.852,
+     "gflop": 0.0
+    }
+   ]
+  }
+ }
+}
