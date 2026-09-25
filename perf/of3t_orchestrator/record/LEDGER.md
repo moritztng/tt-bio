@@ -1113,6 +1113,20 @@ state doc nor its `CLAUSE_EXACT.json` names the version anywhere.
   survey sizes jobs by multiplying a count by a global mean, it has assumed the mean is uniform
   — check one site's marginal cost against the mean before ranking anything by count.**
 
+- **K25** (pass 452) **PINNING A ROW TO THE CARD ITS OWN DETACHED CHAIN HOLDS CAGES IT
+  PERMANENTLY — and that is the obvious fix to K24, so check `card_free()` before applying it.**
+  Having found `of3t-wheelbw`'s chain looping on pc card 0 while its agent was parked elsewhere,
+  the natural repair is "pin the row to pc card 0 so it lands where its mess is". **That would
+  have caged it.** `fleet.sh`'s `card_free()` resolves the lease holder, calls
+  `chain_alive "$hslug"` and returns not-free if the chain lives — **with no special case for the
+  requester BEING that holder**. So the row would defer every tick forever, never wake, and never
+  kill the chain that was blocking it; `of3t-infab` did exactly this 128 times
+  (`a-hard-pinned-row-can-be-blocked-by-its-own-detached-chains-cardblock`). The correct pin is
+  **`host=pc card=cpu`**: it lands the row on the host where its detached work lives *without*
+  requiring the resource that work is holding. **General rule: when a row must clean up its own
+  detached device job, pin it to the HOST and deny it the CARD — needing the thing you must
+  release is a deadlock, and the dispatcher will not notice it is one.**
+
 - **K24** (pass 452) **A RETRY WRAPPER THAT READS ANY NON-ZERO RC AS CONTENTION WILL RETRY A CODE
   BUG FOREVER — WHILE HOLDING THE SCARCEST LEASE ON THE FLEET.** `of3t-wheelbw`'s `chain3.sh`
   wraps each device step in "retry until the card is genuinely this row's", classifying failure by

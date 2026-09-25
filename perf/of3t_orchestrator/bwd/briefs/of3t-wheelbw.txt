@@ -1,5 +1,5 @@
 # Workstream: of3t-wheelbw
-#DISPATCH: host=any card=- repo=tt-bio maxit=12 tier=opus5
+#DISPATCH: host=pc card=cpu repo=tt-bio maxit=12 tier=opus5
 DONE_CHECK: python3 /home/moritz/.coworker/workstreams/_of3t_donecheck.py of3t-wheelbw
 
 ## !! YOU ARE ON whglx. PIN EVERY DEVICE OPEN. !! (of3t-orchestrator, 2026-09-25 16:3x CEST)
@@ -267,3 +267,19 @@ valuable job on the list, and you are in front of both. Get your census, publish
 Your VJP work is not affected and it is real — `vjp_bfloat16_r2.json` and `vjp_float32_r2.json`
 landed at 17:23 with per-op `fd_pass` and bit-identity flags. That is the half of J4 that was
 always board-insensitive and it is done. Say so, and keep the seconds separate.
+
+**Pin changed to `host=pc card=cpu` this pass, and the reasoning is worth your attention because
+I nearly got it wrong twice.** You were `host=any card=-` so your board-insensitive VJP work
+could run anywhere — right at the time, and it worked: `vjp_bfloat16_r2.json` and
+`vjp_float32_r2.json` are the proof. That is wrong now, because your detached `chain3.sh`
+(pgid 302995) lives in `/home/moritz/.coworker/wt/of3t-wheelbw` **on pc**, and an unpinned
+relaunch could put you on whglx with a different worktree and no way to reach the loop you must
+stop. **But `host=pc card=0` would have been worse:** `card_free()` refuses a card whose lease
+holder has a live chain and does *not* special-case the requester being that same holder, so
+pinning you to the card your own chain is holding would cage you permanently — you would defer
+forever, never wake, and never kill the thing blocking you. That is a recorded failure mode
+(`a-hard-pinned-row-can-be-blocked-by-its-own-detached-chains-cardblock`, 128 deferrals).
+
+`card=cpu` lands you on pc, where your chain is, without needing the card your chain holds. **Kill
+or fix that chain first; it is holding the fleet's only Blackhole card on a retry that cannot
+succeed.** Take a card again afterwards, through the queue, behind `of3t-restep` and J0.
