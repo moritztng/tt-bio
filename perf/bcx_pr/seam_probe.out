@@ -1,0 +1,7 @@
+constructions of AlphaFoldDesignModel: 2 -> bindcraft/campaign.py:262, bindcraft/campaign.py:265
+  campaign.py:262 in run_campaign() -> LOAD_GLOBAL
+  campaign.py:265 in <lambda>() -> LOAD_GLOBAL
+DifferentiableProteinPredictor(ProteinPredictor, Protocol) declares ['sequence_gradients']
+trajectory.py signatures typed against the Protocol: 7
+
+SUBSTITUTABLE WITHOUT AN UPSTREAM CHANGE: yes

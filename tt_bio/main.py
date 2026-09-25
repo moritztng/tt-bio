@@ -4200,7 +4200,8 @@ def _run_pxdesign_cli(inputs: Path, out_dir, cache, num_designs, n_step, seed) -
               help="rfd3 only. Diffusion denoising timesteps (low for a fast smoke; "
                    "upstream default 200).")
 @click.option("--seed", default=42, show_default=True,
-              help="rfd3 and pxdesign. Noise seed for the diffusion sampler.")
+              help="Random seed. The same inputs and seed give the same designs. "
+                   "boltzgen draws fresh each run unless --seed is given.")
 @click.option("--partial_t", default=None, type=float,
               help="rfd3 only. Partial-diffusion noise in Angstroms (per-spec partial_t "
                    "overrides this).")
@@ -4331,7 +4332,7 @@ def design_cmd(inputs, model, out_dir, cache, num_designs, devices,
 
     if model == "boltzgen":
         for flag, name in (("--checkpoint", "checkpoint"), ("--golden_dir", "golden_dir"),
-                           ("--num_timesteps", "num_timesteps"), ("--seed", "seed"),
+                           ("--num_timesteps", "num_timesteps"),
                            ("--partial_t", "partial_t"), ("--fp32_residual", "fp32_residual"),
                            ("--spec", "spec_subset"), ("--from_pdb", "from_pdb"),
                            ("--batch_size", "batch_size"), ("--host_threads", "host_threads"),
@@ -4353,6 +4354,10 @@ def design_cmd(inputs, model, out_dir, cache, num_designs, devices,
             argv += ["--config", step, kv]
         if budget is not None:
             argv += ["--budget", str(budget)]
+        # Only an explicit --seed: its default belongs to rfd3/pxdesign, and an
+        # unseeded boltzgen run stays a fresh draw.
+        if _explicit("seed"):
+            argv += ["--seed", str(seed)]
         if _explicit("cache"):
             argv += ["--cache", cache]
         for flag, on in (("--reuse", reuse), ("--fast", fast),

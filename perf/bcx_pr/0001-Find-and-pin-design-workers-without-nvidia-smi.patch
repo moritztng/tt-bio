@@ -1,23 +1,23 @@
-From 9544ad95c2a0f03b00310bbd3b078d275a7f7e35 Mon Sep 17 00:00:00 2001
+From 403ddcf8881c2208b21e8b589716dbea1ecb8767 Mon Sep 17 00:00:00 2001
 From: moritztng <moritz.thuening@gmail.com>
-Date: Thu, 24 Sep 2026 15:10:39 +0200
+Date: Thu, 24 Sep 2026 22:42:21 +0200
 Subject: [PATCH] Find and pin design workers without nvidia-smi
 
 A campaign enumerated its accelerators with nvidia-smi and pinned each worker
-with CUDA_VISIBLE_DEVICES, so on a machine installed with the rocm or oneapi
-extra visible_design_gpus() returned nothing, plan_design_workers() built an
-empty plan, and the campaign ran one process on one device however many the
-node held. Device memory was unreadable there too, which held even a single
-card to one worker.
+with CUDA_VISIBLE_DEVICES, so on a machine installed with the rocm extra
+visible_design_gpus() returned nothing, plan_design_workers() built an empty
+plan, and the campaign ran one process on one device however many the node
+held. Device memory was unreadable there too, which held even a single card to
+one worker.
 
-Enumeration now reads CUDA_VISIBLE_DEVICES, HIP_VISIBLE_DEVICES or
-ZE_AFFINITY_MASK, then nvidia-smi, and falls back to jax.devices() with the
-host CPU left out. Memory falls back to a device's PJRT memory_stats(). Each
-worker is pinned with the variable its own runtime reads, chosen from the
-device platform, resolving JAX's shared "gpu" name by which plugin is
-installed. JAX's own jax_cuda_visible_devices and jax_rocm_visible_devices are
-absl flags rather than environment states, so they do not reach a worker
-process and are not used.
+Enumeration now reads CUDA_VISIBLE_DEVICES or HIP_VISIBLE_DEVICES, then
+nvidia-smi, and falls back to jax.devices() with the host CPU left out. Memory
+falls back to a device's PJRT memory_stats(). Each worker is pinned with the
+variable its own runtime reads, chosen from the device platform, resolving
+JAX's shared "gpu" name by which plugin is installed. JAX's own
+jax_cuda_visible_devices and jax_rocm_visible_devices are absl flags rather
+than environment states, so they do not reach a worker process and are not
+used.
 
 Both nvidia-smi calls are tried first and unchanged, so on an NVIDIA machine
 the devices found, their order, their memory and the variable each worker is
@@ -31,13 +31,13 @@ tests describe behaviour this commit preserves and pass at either revision.
 ---
  bindcraft/design_workers.py  |  71 +++++++++++-
  containers/README.md         |  13 ++-
- docs/installation.md         |   6 +-
- tests/test_design_workers.py | 217 +++++++++++++++++++++++++++++++++++
- 4 files changed, 292 insertions(+), 15 deletions(-)
+ docs/source/installation.md  |   6 +-
+ tests/test_design_workers.py | 215 +++++++++++++++++++++++++++++++++++
+ 4 files changed, 290 insertions(+), 15 deletions(-)
  create mode 100644 tests/test_design_workers.py
 
 diff --git a/bindcraft/design_workers.py b/bindcraft/design_workers.py
-index 70fbfa3..6158e4c 100644
+index 70fbfa3..ac8f02a 100644
 --- a/bindcraft/design_workers.py
 +++ b/bindcraft/design_workers.py
 @@ -21,16 +21,56 @@ TRAJECTORY_ONLY_WORKERS_PER_GPU = 1
@@ -52,7 +52,7 @@ index 70fbfa3..6158e4c 100644
 +#worker be given one device. JAX's own jax_cuda_visible_devices/jax_rocm_visible_devices are absl
 +#flags rather than environment states, so they do not cross into a worker process and cannot be
 +#used here.
-+DEVICE_VISIBILITY_VARIABLES = {'cuda': 'CUDA_VISIBLE_DEVICES', 'rocm': 'HIP_VISIBLE_DEVICES', 'oneapi': 'ZE_AFFINITY_MASK', 'xpu': 'ZE_AFFINITY_MASK'}
++DEVICE_VISIBILITY_VARIABLES = {'cuda': 'CUDA_VISIBLE_DEVICES', 'rocm': 'HIP_VISIBLE_DEVICES'}
 +DEVICE_VISIBILITY_ORDER = tuple(dict.fromkeys(DEVICE_VISIBILITY_VARIABLES.values()))
 +
 +def design_devices() -> list:
@@ -186,20 +186,20 @@ index 1432db3..a039959 100644
  
  ```bash
  srun --environment=/path/to/bindcraft.toml python3 -c "import jax; print(jax.devices())"
-diff --git a/docs/installation.md b/docs/installation.md
-index c92c986..409f14e 100644
---- a/docs/installation.md
-+++ b/docs/installation.md
-@@ -150,7 +150,7 @@ A campaign uses **every GPU it can see, without being asked**, and packs several
+diff --git a/docs/source/installation.md b/docs/source/installation.md
+index 7d828e6..7926b5f 100644
+--- a/docs/source/installation.md
++++ b/docs/source/installation.md
+@@ -153,7 +153,7 @@ A campaign uses **every GPU it can see, without being asked**, and packs several
  
  ### How a campaign fills a card
  
--Visible cards are read from `CUDA_VISIBLE_DEVICES`, and from `nvidia-smi` when that is unset. A whole-cycle campaign runs up to **seven workers per card**, as many as its free memory holds, because the design stage leaves the card idle through ProteinMPNN redesign and validation and the extra workers fill that gap. On a GH200 a forty-trajectory campaign took 3620 s at one worker and 2021 s at seven. A campaign with `trajectory_only` set, or a card whose memory cannot be read, runs **one worker per card**, because gradient design alone keeps the card busy.
-+Visible cards are read from `CUDA_VISIBLE_DEVICES`, `HIP_VISIBLE_DEVICES` or `ZE_AFFINITY_MASK`, then from `nvidia-smi`, and from `jax.devices()` when none of those answer. Each worker is pinned with the variable its own accelerator runtime reads, so a campaign fills every card on ROCm and oneAPI machines as well as CUDA ones. A whole-cycle campaign runs up to **seven workers per card**, as many as its free memory holds, because the design stage leaves the card idle through ProteinMPNN redesign and validation and the extra workers fill that gap. On a GH200 a forty-trajectory campaign took 3620 s at one worker and 2021 s at seven. A campaign with `trajectory_only` set, or a card whose memory cannot be read, runs **one worker per card**, because gradient design alone keeps the card busy.
+-Visible cards are read from `CUDA_VISIBLE_DEVICES`, and from `nvidia-smi` when that is unset. A whole-cycle campaign runs up to **seven workers per card**, as many as its free memory holds. On a GH200 a forty-trajectory campaign took 3620 s at one worker and 2021 s at seven.
++Visible cards are read from `CUDA_VISIBLE_DEVICES` or `HIP_VISIBLE_DEVICES`, then from `nvidia-smi`, and from `jax.devices()` when none of those answer. Each worker is pinned with the variable its own runtime reads, so a ROCm machine fills every card the way a CUDA one does. A whole-cycle campaign runs up to **seven workers per card**, as many as its free memory holds. On a GH200 a forty-trajectory campaign took 3620 s at one worker and 2021 s at seven.
  
- Each worker is budgeted at `2.0 × (3.4 GB + 38 kB × N²)` for a padded complex of N residues, with 4 GB of the card left as headroom, and each is given its own share of card memory rather than JAX's default. The node's own memory caps the plan too, at 4 GB per worker, since every worker holds its own copy of the parameters. So does the campaign's trajectory budget: workers cannot share a trajectory, so a `max_trajectories` below what the node would pack sizes the fan-out down and the campaign prints that it did. A sweep divides its budget between arms and runs them one at a time, so an arm's share is what bounds its fan-out.
+ If `trajectory_only` is set in a campaign, or a card whose memory cannot be read, BindCraft2 runs **one worker per card**.
  
-@@ -253,10 +253,10 @@ srun --environment=/path/to/bindcraft.toml bindcraft design settings.json
+@@ -263,10 +263,10 @@ srun --environment=/path/to/bindcraft.toml bindcraft design settings.json
  
  Two things have to line up, and JAX says neither out loud: it warns once and then runs on the CPU.
  
@@ -214,10 +214,10 @@ index c92c986..409f14e 100644
  srun --environment=/path/to/bindcraft.toml python3 -c "import jax; print(jax.devices())"
 diff --git a/tests/test_design_workers.py b/tests/test_design_workers.py
 new file mode 100644
-index 0000000..aca2cb1
+index 0000000..ed5f299
 --- /dev/null
 +++ b/tests/test_design_workers.py
-@@ -0,0 +1,217 @@
+@@ -0,0 +1,215 @@
 +"""Device enumeration and worker pinning, on an accelerator nobody here has.
 +
 +Every test runs on a machine with no accelerator at all: the accelerators are stubs standing in
@@ -230,7 +230,7 @@ index 0000000..aca2cb1
 +import pytest
 +from bindcraft import design_workers
 +
-+VISIBILITY_VARIABLES = ('CUDA_VISIBLE_DEVICES', 'HIP_VISIBLE_DEVICES', 'ZE_AFFINITY_MASK')
++VISIBILITY_VARIABLES = ('CUDA_VISIBLE_DEVICES', 'HIP_VISIBLE_DEVICES')
 +
 +
 +class StubDevice:
@@ -300,7 +300,7 @@ index 0000000..aca2cb1
 +
 +
 +def test_jax_enumerates_when_there_is_no_nvidia_smi(monkeypatch):
-+    """Fails before this change: a ROCm or oneAPI machine enumerated to nothing."""
++    """Fails before this change: a ROCm machine enumerated to nothing."""
 +    monkeypatch.setattr(design_workers, 'design_devices',
 +                        lambda: [StubDevice(0, 'rocm'), StubDevice(1, 'rocm')], raising=False)
 +    assert design_workers.visible_design_gpus() == ['0', '1']
@@ -336,9 +336,7 @@ index 0000000..aca2cb1
 +# --- which variable pins a worker ----------------------------------------------------------
 +
 +@pytest.mark.parametrize('platform, expected', [('cuda', 'CUDA_VISIBLE_DEVICES'),
-+                                                ('rocm', 'HIP_VISIBLE_DEVICES'),
-+                                                ('oneapi', 'ZE_AFFINITY_MASK'),
-+                                                ('xpu', 'ZE_AFFINITY_MASK')])
++                                                ('rocm', 'HIP_VISIBLE_DEVICES')])
 +def test_each_platform_is_pinned_by_its_own_runtime_variable(monkeypatch, platform, expected):
 +    monkeypatch.setattr(design_workers, 'design_devices', lambda: [StubDevice(0, platform)], raising=False)
 +    assert design_workers.design_visibility_variable() == expected
@@ -351,7 +349,7 @@ index 0000000..aca2cb1
 +
 +
 +def test_jaxs_shared_gpu_name_is_resolved_by_the_installed_plugin(monkeypatch):
-+    """JAX calls CUDA, ROCm and oneAPI devices 'gpu' in some builds; the plugin says which it is."""
++    """JAX calls both CUDA and ROCm devices 'gpu' in some builds; the plugin says which it is."""
 +    monkeypatch.setattr(design_workers, 'design_devices', lambda: [StubDevice(0, 'gpu')], raising=False)
 +    monkeypatch.setattr(design_workers, 'installed_accelerator_platforms', lambda: {'rocm'}, raising=False)
 +    assert design_workers.design_visibility_variable() == 'HIP_VISIBLE_DEVICES'
@@ -359,8 +357,8 @@ index 0000000..aca2cb1
 +
 +def test_an_inherited_pinning_variable_is_the_one_reused(monkeypatch):
 +    refuse_jax(monkeypatch)
-+    monkeypatch.setenv('ZE_AFFINITY_MASK', '1')
-+    assert design_workers.design_visibility_variable() == 'ZE_AFFINITY_MASK'
++    monkeypatch.setenv('HIP_VISIBLE_DEVICES', '1')
++    assert design_workers.design_visibility_variable() == 'HIP_VISIBLE_DEVICES'
 +
 +
 +# --- the worker processes ------------------------------------------------------------------
