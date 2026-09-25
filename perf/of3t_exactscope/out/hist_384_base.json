@@ -1,0 +1,756 @@
+{
+ "doc": "J0: where the 2.107 ms of a backward verb call actually goes.",
+ "argv": [
+  "--tokens",
+  "384",
+  "--arm",
+  "base",
+  "--out",
+  "perf/of3t_exactscope/out/hist_384_base.json"
+ ],
+ "env": {
+  "host": "pc",
+  "tt_visible_devices": "0",
+  "commit": "37a0a33d15b67409199a7bfb7d3c61837ab47705",
+  "branch": "wk/of3t-exactscope",
+  "started_utc": "2026-09-25T16:41:31Z",
+  "loadavg": [
+   4.10888671875,
+   3.619140625,
+   2.82958984375
+  ],
+  "arch": "Arch.BLACKHOLE",
+  "exact_training_ops": [
+   "softmax",
+   "layer_norm"
+  ],
+  "fanin_mixed": false,
+  "installed_inside_the_tape": {
+   "softmax": true,
+   "layer_norm": true
+  }
+ },
+ "arm": "base",
+ "config": {
+  "crop": 384,
+  "cycles": 1
+ },
+ "build_fold_s": 5.66,
+ "prep_to_sampler_s": 10.82,
+ "capture": {
+  "trunk_inputs_snapshotted": true,
+  "trunk_inputs_dead_at_capture": 0,
+  "trunk_forward_s": 6.988,
+  "trunk_forward_note": "the shipped call, progress_fn INCLUDED and cold; the timed arms below drop it",
+  "trunk_cycles": 4,
+  "reached_sampler": true
+ },
+ "params": {
+  "declared": 2531,
+  "elements": 165180992,
+  "by_rank": {
+   "1": 1130,
+   "2": 1401
+  },
+  "walk_depth_reached": 9,
+  "walk_truncated_at_limit": 8,
+  "cache_attrs_skipped": 324,
+  "pairformer_weights": 2256,
+  "deepest_name": "trunk.msa_module.blocks.0.pair_stack.transition_z.fc1_weight"
+ },
+ "forward": {
+  "s": 268.27,
+  "ok": true,
+  "cycles": 1,
+  "verb_calls": 24928,
+  "outer_verb_calls": 13585,
+  "verb_self_s": 267.92,
+  "verb_incl_s_DOUBLECOUNTED": 422.25,
+  "verb_share_of_forward": 0.9987,
+  "us_per_call": 10747.6,
+  "host_roundtrips": {
+   "ops_active": [
+    "softmax",
+    "layer_norm"
+   ],
+   "softmax": {
+    "verb": 159,
+    "raw": 0,
+    "raw_elements": 0
+   },
+   "layer_norm": {
+    "verb": 803,
+    "raw": 0,
+    "elements": 8035319808,
+    "bw": 0
+   }
+  },
+  "sdpa_taped_calls": 0,
+  "sdpa_score_blocks_total": 0
+ },
+ "forward_by_verb": [
+  {
+   "verb": "to_torch",
+   "n": 2572,
+   "self_s": 80.138,
+   "incl_s": 80.138,
+   "us_per_call": 31157.7,
+   "gb": 179.38,
+   "gb_s": 2.24
+  },
+  {
+   "verb": "from_torch",
+   "n": 971,
+   "self_s": 73.988,
+   "incl_s": 73.988,
+   "us_per_call": 76197.8,
+   "gb": 195.78,
+   "gb_s": 2.65
+  },
+  {
+   "verb": "softmax_in_place",
+   "n": 108,
+   "self_s": 69.744,
+   "incl_s": 191.689,
+   "us_per_call": 645779.6,
+   "gb": 97.84,
+   "gb_s": 1.4
+  },
+  {
+   "verb": "layer_norm",
+   "n": 803,
+   "self_s": 42.599,
+   "incl_s": 74.307,
+   "us_per_call": 53049.6,
+   "gb": 32.14,
+   "gb_s": 0.75
+  },
+  {
+   "verb": "linear",
+   "n": 1832,
+   "self_s": 0.323,
+   "incl_s": 0.444,
+   "us_per_call": 176.1,
+   "gb": 62.79,
+   "gb_s": 194.59
+  },
+  {
+   "verb": "softmax",
+   "n": 51,
+   "self_s": 0.168,
+   "incl_s": 0.497,
+   "us_per_call": 3298.0,
+   "gb": 0.47,
+   "gb_s": 2.78
+  },
+  {
+   "verb": "max",
+   "n": 4,
+   "self_s": 0.126,
+   "incl_s": 0.126,
+   "us_per_call": 31609.3,
+   "gb": 1.81,
+   "gb_s": 14.33
+  },
+  {
+   "verb": "experimental.minimal_matmul",
+   "n": 324,
+   "self_s": 0.124,
+   "incl_s": 0.124,
+   "us_per_call": 384.2,
+   "gb": 36.25,
+   "gb_s": 291.24
+  },
+  {
+   "verb": "sigmoid",
+   "n": 369,
+   "self_s": 0.101,
+   "incl_s": 0.101,
+   "us_per_call": 273.9,
+   "gb": 16.01,
+   "gb_s": 158.43
+  },
+  {
+   "verb": "deallocate",
+   "n": 12467,
+   "self_s": 0.081,
+   "incl_s": 0.094,
+   "us_per_call": 6.5,
+   "gb": 1400.39,
+   "gb_s": 17289.55
+  },
+  {
+   "verb": "permute",
+   "n": 755,
+   "self_s": 0.077,
+   "incl_s": 0.077,
+   "us_per_call": 102.0,
+   "gb": 35.69,
+   "gb_s": 463.54
+  },
+  {
+   "verb": "matmul",
+   "n": 448,
+   "self_s": 0.077,
+   "incl_s": 0.077,
+   "us_per_call": 172.6,
+   "gb": 127.92,
+   "gb_s": 1654.33
+  },
+  {
+   "verb": "typecast",
+   "n": 324,
+   "self_s": 0.065,
+   "incl_s": 0.065,
+   "us_per_call": 199.3,
+   "gb": 195.94,
+   "gb_s": 3034.11
+  },
+  {
+   "verb": "multiply_",
+   "n": 877,
+   "self_s": 0.06,
+   "incl_s": 0.062,
+   "us_per_call": 68.5,
+   "gb": 72.51,
+   "gb_s": 1207.47
+  },
+  {
+   "verb": "add_",
+   "n": 553,
+   "self_s": 0.041,
+   "incl_s": 0.252,
+   "us_per_call": 74.0,
+   "gb": 129.34,
+   "gb_s": 3160.24
+  },
+  {
+   "verb": "multiply",
+   "n": 630,
+   "self_s": 0.033,
+   "incl_s": 0.033,
+   "us_per_call": 53.0,
+   "gb": 28.2,
+   "gb_s": 844.63
+  },
+  {
+   "verb": "transpose",
+   "n": 264,
+   "self_s": 0.025,
+   "incl_s": 0.025,
+   "us_per_call": 96.1,
+   "gb": 16.04,
+   "gb_s": 632.04
+  },
+  {
+   "verb": "chunk",
+   "n": 165,
+   "self_s": 0.024,
+   "incl_s": 0.024,
+   "us_per_call": 146.6,
+   "gb": 36.02,
+   "gb_s": 1489.08
+  },
+  {
+   "verb": "to_layout",
+   "n": 232,
+   "self_s": 0.024,
+   "incl_s": 0.024,
+   "us_per_call": 102.7,
+   "gb": 20.85,
+   "gb_s": 875.17
+  },
+  {
+   "verb": "abs",
+   "n": 4,
+   "self_s": 0.02,
+   "incl_s": 0.02,
+   "us_per_call": 5121.6,
+   "gb": 3.62,
+   "gb_s": 176.89
+  },
+  {
+   "verb": "subtract",
+   "n": 2,
+   "self_s": 0.017,
+   "incl_s": 0.017,
+   "us_per_call": 8368.3,
+   "gb": 2.72,
+   "gb_s": 162.39
+  },
+  {
+   "verb": "slice",
+   "n": 153,
+   "self_s": 0.016,
+   "incl_s": 0.016,
+   "us_per_call": 102.6,
+   "gb": 0.51,
+   "gb_s": 32.67
+  },
+  {
+   "verb": "experimental.nlp_concat_heads",
+   "n": 104,
+   "self_s": 0.01,
+   "incl_s": 0.01,
+   "us_per_call": 99.4,
+   "gb": 7.85,
+   "gb_s": 759.31
+  },
+  {
+   "verb": "experimental.nlp_create_qkv_heads",
+   "n": 156,
+   "self_s": 0.009,
+   "incl_s": 0.009,
+   "us_per_call": 54.6,
+   "gb": 24.57,
+   "gb_s": 2883.31
+  },
+  {
+   "verb": "reshape",
+   "n": 311,
+   "self_s": 0.007,
+   "incl_s": 0.007,
+   "us_per_call": 22.9,
+   "gb": 21.92,
+   "gb_s": 3072.05
+  }
+ ],
+ "forward_by_shape_class": [
+  {
+   "verb": "to_torch",
+   "shape": [
+    384,
+    4,
+    384,
+    384
+   ],
+   "dtype": "torch.float32",
+   "layout": "torch.strided",
+   "n": 108,
+   "self_s": 74.17,
+   "incl_s": 74.17,
+   "us_per_call": 686759.4,
+   "max_us": 854382.8,
+   "gb": 146.767,
+   "gb_s": 1.98
+  },
+  {
+   "verb": "softmax_in_place",
+   "shape": [
+    384,
+    4,
+    384,
+    384
+   ],
+   "dtype": "FLOAT32",
+   "layout": "TILE",
+   "n": 108,
+   "self_s": 69.7442,
+   "incl_s": 191.6891,
+   "us_per_call": 645779.6,
+   "max_us": 2058823.7,
+   "gb": 97.845,
+   "gb_s": 1.4
+  },
+  {
+   "verb": "from_torch",
+   "shape": [
+    384,
+    4,
+    384,
+    384
+   ],
+   "dtype": "FLOAT32",
+   "layout": "TILE",
+   "n": 108,
+   "self_s": 47.7748,
+   "incl_s": 47.7748,
+   "us_per_call": 442359.6,
+   "max_us": 535769.7,
+   "gb": 146.767,
+   "gb_s": 3.07
+  },
+  {
+   "verb": "layer_norm",
+   "shape": [
+    1,
+    384,
+    384,
+    128
+   ],
+   "dtype": "BFLOAT16",
+   "layout": "TILE",
+   "n": 258,
+   "self_s": 26.8006,
+   "incl_s": 46.6197,
+   "us_per_call": 103878.3,
+   "max_us": 256790.6,
+   "gb": 19.478,
+   "gb_s": 0.73
+  },
+  {
+   "verb": "from_torch",
+   "shape": [
+    1,
+    384,
+    384,
+    128
+   ],
+   "dtype": "BFLOAT16",
+   "layout": "TILE",
+   "n": 258,
+   "self_s": 16.5487,
+   "incl_s": 16.5487,
+   "us_per_call": 64142.3,
+   "max_us": 77269.0,
+   "gb": 29.218,
+   "gb_s": 1.77
+  },
+  {
+   "verb": "layer_norm",
+   "shape": [
+    384,
+    384,
+    128
+   ],
+   "dtype": "BFLOAT16",
+   "layout": "TILE",
+   "n": 107,
+   "self_s": 11.114,
+   "incl_s": 19.4377,
+   "us_per_call": 103868.9,
+   "max_us": 222560.1,
+   "gb": 8.078,
+   "gb_s": 0.73
+  },
+  {
+   "verb": "from_torch",
+   "shape": [
+    384,
+    384,
+    128
+   ],
+   "dtype": "BFLOAT16",
+   "layout": "TILE",
+   "n": 107,
+   "self_s": 6.9066,
+   "incl_s": 6.9066,
+   "us_per_call": 64547.7,
+   "max_us": 84105.2,
+   "gb": 12.117,
+   "gb_s": 1.75
+  },
+  {
+   "verb": "layer_norm",
+   "shape": [
+    1,
+    64,
+    384,
+    128
+   ],
+   "dtype": "BFLOAT16",
+   "layout": "TILE",
+   "n": 312,
+   "self_s": 3.981,
+   "incl_s": 7.048,
+   "us_per_call": 12759.6,
+   "max_us": 32168.0,
+   "gb": 3.926,
+   "gb_s": 0.99
+  },
+  {
+   "verb": "to_torch",
+   "shape": [
+    1,
+    384,
+    384,
+    128
+   ],
+   "dtype": "torch.bfloat16",
+   "layout": "torch.strided",
+   "n": 258,
+   "self_s": 3.1855,
+   "incl_s": 3.1855,
+   "us_per_call": 12346.7,
+   "max_us": 17943.1,
+   "gb": 19.478,
+   "gb_s": 6.11
+  },
+  {
+   "verb": "from_torch",
+   "shape": [
+    1,
+    64,
+    384,
+    128
+   ],
+   "dtype": "BFLOAT16",
+   "layout": "TILE",
+   "n": 312,
+   "self_s": 2.0802,
+   "incl_s": 2.0802,
+   "us_per_call": 6667.4,
+   "max_us": 8364.8,
+   "gb": 5.889,
+   "gb_s": 2.83
+  },
+  {
+   "verb": "to_torch",
+   "shape": [
+    384,
+    384,
+    128
+   ],
+   "dtype": "torch.bfloat16",
+   "layout": "torch.strided",
+   "n": 107,
+   "self_s": 1.3871,
+   "incl_s": 1.3871,
+   "us_per_call": 12963.8,
+   "max_us": 20845.2,
+   "gb": 8.078,
+   "gb_s": 5.82
+  },
+  {
+   "verb": "to_torch",
+   "shape": [
+    1,
+    64,
+    384,
+    128
+   ],
+   "dtype": "torch.bfloat16",
+   "layout": "torch.strided",
+   "n": 312,
+   "self_s": 0.8998,
+   "incl_s": 0.8998,
+   "us_per_call": 2884.1,
+   "max_us": 7117.5,
+   "gb": 3.926,
+   "gb_s": 4.36
+  },
+  {
+   "verb": "layer_norm",
+   "shape": [
+    1,
+    384,
+    384,
+    64
+   ],
+   "dtype": "BFLOAT16",
+   "layout": "TILE",
+   "n": 9,
+   "self_s": 0.3723,
+   "incl_s": 0.5866,
+   "us_per_call": 41361.3,
+   "max_us": 74523.5,
+   "gb": 0.34,
+   "gb_s": 0.91
+  },
+  {
+   "verb": "from_torch",
+   "shape": [
+    1,
+    16,
+    384,
+    384
+   ],
+   "dtype": "BFLOAT16",
+   "layout": "TILE",
+   "n": 48,
+   "self_s": 0.2438,
+   "incl_s": 0.2438,
+   "us_per_call": 5078.6,
+   "max_us": 6007.2,
+   "gb": 0.679,
+   "gb_s": 2.79
+  },
+  {
+   "verb": "to_torch",
+   "shape": [
+    128
+   ],
+   "dtype": "torch.bfloat16",
+   "layout": "torch.strided",
+   "n": 1354,
+   "self_s": 0.2018,
+   "incl_s": 0.2018,
+   "us_per_call": 149.0,
+   "max_us": 6573.7,
+   "gb": 0.001,
+   "gb_s": 0.0
+  },
+  {
+   "verb": "from_torch",
+   "shape": [
+    1,
+    384,
+    384,
+    64
+   ],
+   "dtype": "BFLOAT16",
+   "layout": "TILE",
+   "n": 9,
+   "self_s": 0.1671,
+   "incl_s": 0.1671,
+   "us_per_call": 18567.4,
+   "max_us": 20895.6,
+   "gb": 0.51,
+   "gb_s": 3.05
+  },
+  {
+   "verb": "softmax",
+   "shape": [
+    1,
+    16,
+    384,
+    384
+   ],
+   "dtype": "BFLOAT16",
+   "layout": "TILE",
+   "n": 48,
+   "self_s": 0.1595,
+   "incl_s": 0.478,
+   "us_per_call": 3323.9,
+   "max_us": 23051.1,
+   "gb": 0.453,
+   "gb_s": 2.84
+  },
+  {
+   "verb": "layer_norm",
+   "shape": [
+    384,
+    384,
+    64
+   ],
+   "dtype": "BFLOAT16",
+   "layout": "TILE",
+   "n": 4,
+   "self_s": 0.1582,
+   "incl_s": 0.2531,
+   "us_per_call": 39555.2,
+   "max_us": 67562.7,
+   "gb": 0.151,
+   "gb_s": 0.95
+  },
+  {
+   "verb": "max",
+   "shape": [],
+   "dtype": "FLOAT32",
+   "layout": "TILE",
+   "n": 4,
+   "self_s": 0.1264,
+   "incl_s": 0.1264,
+   "us_per_call": 31609.3,
+   "max_us": 126062.8,
+   "gb": 1.812,
+   "gb_s": 14.33
+  },
+  {
+   "verb": "linear",
+   "shape": [
+    1,
+    64,
+    384,
+    512
+   ],
+   "dtype": "BFLOAT16",
+   "layout": "TILE",
+   "n": 624,
+   "self_s": 0.1076,
+   "incl_s": 0.1544,
+   "us_per_call": 172.5,
+   "max_us": 29755.8,
+   "gb": 19.711,
+   "gb_s": 183.12
+  },
+  {
+   "verb": "layer_norm",
+   "shape": [
+    1,
+    128,
+    384,
+    64
+   ],
+   "dtype": "BFLOAT16",
+   "layout": "TILE",
+   "n": 6,
+   "self_s": 0.0818,
+   "incl_s": 0.1392,
+   "us_per_call": 13631.0,
+   "max_us": 26639.8,
+   "gb": 0.075,
+   "gb_s": 0.92
+  },
+  {
+   "verb": "to_torch",
+   "shape": [
+    1,
+    16,
+    384,
+    384
+   ],
+   "dtype": "torch.bfloat16",
+   "layout": "torch.strided",
+   "n": 48,
+   "self_s": 0.0747,
+   "incl_s": 0.0747,
+   "us_per_call": 1556.1,
+   "max_us": 2290.0,
+   "gb": 0.453,
+   "gb_s": 6.06
+  },
+  {
+   "verb": "from_torch",
+   "shape": [
+    384,
+    384,
+    64
+   ],
+   "dtype": "BFLOAT16",
+   "layout": "TILE",
+   "n": 4,
+   "self_s": 0.0728,
+   "incl_s": 0.0728,
+   "us_per_call": 18200.5,
+   "max_us": 18584.2,
+   "gb": 0.226,
+   "gb_s": 3.11
+  },
+  {
+   "verb": "layer_norm",
+   "shape": [
+    1,
+    384,
+    384
+   ],
+   "dtype": "BFLOAT16",
+   "layout": "TILE",
+   "n": 97,
+   "self_s": 0.0673,
+   "incl_s": 0.1705,
+   "us_per_call": 694.3,
+   "max_us": 10705.2,
+   "gb": 0.057,
+   "gb_s": 0.85
+  },
+  {
+   "verb": "to_torch",
+   "shape": [
+    1,
+    384,
+    384
+   ],
+   "dtype": "torch.bfloat16",
+   "layout": "torch.strided",
+   "n": 97,
+   "self_s": 0.0611,
+   "incl_s": 0.0611,
+   "us_per_call": 630.1,
+   "max_us": 2139.1,
+   "gb": 0.057,
+   "gb_s": 0.94
+  }
+ ],
+ "sdpa_shapes": []
+}
