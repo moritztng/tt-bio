@@ -26,6 +26,9 @@ def cmd_vjp(args):
     # stack.py's parser has no --msa-mask; the stack path always hands one through
     # (`bcx-afgrad`), so both arms are graded with the all-ones mask.
     args.msa_mask = True
+    # afgrad.cmd_vjp names its artifact from args.tag; stack.py parser has no such flag, so the
+    # 04:55Z b8 leg graded all three blocks, printed them, then died writing the file.
+    args.tag = "b8" if B8 else "bf16"
     return _cmd_vjp(args)
 S.cmd_vjp = cmd_vjp
 sys.argv = ["stack.py", "vjp", "--arm", "stack"] + sys.argv[1:]
