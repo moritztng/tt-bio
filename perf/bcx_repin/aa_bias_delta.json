@@ -1,0 +1,96 @@
+{
+ "heads": {
+  "pinned": "7a2dfdb",
+  "repin": "301efdd"
+ },
+ "examples": {
+  "pinned": {
+   "pdl1.json": {
+    "resolved_amino_acid_bias": {},
+    "omitted_amino_acids": "C",
+    "min_monomer_plddt_final": 0.7,
+    "mutate_positions": null,
+    "design_models": null,
+    "validation_model": null
+   },
+   "pdl1_vhh.json": {
+    "resolved_amino_acid_bias": {
+     "F": -0.223144,
+     "W": -1.203973,
+     "Y": -0.105361
+    },
+    "omitted_amino_acids": "C",
+    "min_monomer_plddt_final": 0.7,
+    "mutate_positions": "A26-32,A33*,A35*,A37*,A45*,A46*,A47*,A49*,A50*,A52-57(5-7),A59,A97-99*,A100-114(5-12),A115,A116",
+    "design_models": null,
+    "validation_model": null
+   }
+  },
+  "repin": {
+   "pdl1.json": {
+    "resolved_amino_acid_bias": {},
+    "omitted_amino_acids": "C",
+    "min_monomer_plddt_final": 0.7,
+    "mutate_positions": null,
+    "design_models": null,
+    "validation_model": null
+   },
+   "pdl1_vhh.json": {
+    "resolved_amino_acid_bias": {},
+    "omitted_amino_acids": "",
+    "min_monomer_plddt_final": 0.7,
+    "mutate_positions": "A26-32,A33*,A35*,A37*,A45*,A46*,A47*,A49*,A50*,A52-57(5-7),A59,A97-99*,A100-114(10-22),A115,A116",
+    "design_models": null,
+    "validation_model": null
+   }
+  }
+ },
+ "bias_sites": {
+  "pinned": {
+   "bindcraft/protein_preparation.py": [
+    "146: for amino_acid, bias in design_settings.binder.amino_acid_bias.items():"
+   ],
+   "bindcraft/sequence_optimization.py": [],
+   "bindcraft/af2.py": [],
+   "bindcraft/proteinmpnn.py": [
+    "35: redesigned_sequence_bias = 0.0 if redesigned_amino_acid_bias is None else sequence_to_mpnn_alphabet(redesigned_amino_acid_bias)",
+    "74: amino_acid_bias = amino_acid_bias or {}",
+    "75: self.redesigned_amino_acid_bias = jnp.asarray([OMITTED_AMINO_ACID_LOGIT if amino_acid in omitted_amino_acids else amino_acid_bias.get(amino_acid, 0.0) for amino_acid in AMINO_ACIDS], dtype=jnp.float32)",
+    "95: mpnn_inputs = proteinmpnn_input_features(atoms, resolved_ca_mask, residue_index, chain_indices, fixed_residue_mask, sequence, temperature, key, grouped_residues, self.redesigned_amino_acid_bias)"
+   ]
+  },
+  "repin": {
+   "bindcraft/protein_preparation.py": [],
+   "bindcraft/sequence_optimization.py": [
+    "49: sequence_probabilities = jax.nn.softmax(scaled_logits if amino_acid_bias is None else scaled_logits + amino_acid_bias)"
+   ],
+   "bindcraft/af2.py": [
+    "42: sequence_features = jnp.where(designed_residue_mask, sequence_features_from_logits(sequence, softmax_weight, one_hot_weight, temperature, logit_scale, amino_acid_bias), sequence)",
+    "44: sequence_profile = jnp.where(designed_residue_mask, sequence_features_from_logits(sequence, softmax_weight, one_hot_weight_value, temperature, logit_scale, amino_acid_bias), sequence)",
+    "222: self.amino_acid_bias = None if not amino_acid_bias else jnp.asarray([amino_acid_bias.get(amino_acid, 0.0) for amino_acid in AMINO_ACIDS], dtype=jnp.float32)",
+    "280: sequence_features, sequence_profile = prepare_design_sequence_features(sequence, flags, softmax_weight, one_hot_weight, temperature, logit_scale, self.amino_acid_bias)",
+    "342: sequence_features, sequence_profile = prepare_design_sequence_features(sequence, flags, softmax_weight, one_hot_weight, temperature, logit_scale, self.amino_acid_bias)"
+   ],
+   "bindcraft/proteinmpnn.py": [
+    "37: redesigned_sequence_bias = 0.0 if redesigned_amino_acid_bias is None else sequence_to_mpnn_alphabet(redesigned_amino_acid_bias) * temperature",
+    "76: amino_acid_bias = amino_acid_bias or {}",
+    "77: self.redesigned_amino_acid_bias = jnp.asarray([OMITTED_AMINO_ACID_LOGIT if amino_acid in omitted_amino_acids else amino_acid_bias.get(amino_acid, 0.0) for amino_acid in AMINO_ACIDS], dtype=jnp.float32)",
+    "97: mpnn_inputs = proteinmpnn_input_features(atoms, resolved_ca_mask, residue_index, chain_indices, fixed_residue_mask, sequence, temperature, key, grouped_residues, self.redesigned_amino_acid_bias)"
+   ]
+  }
+ },
+ "verdict": {
+  "pdl1.json": {
+   "bias_empty_on_both": true,
+   "bias_changed": false,
+   "acceptance_filter_changed": false,
+   "mutate_positions_changed": false
+  },
+  "pdl1_vhh.json": {
+   "bias_empty_on_both": false,
+   "bias_changed": true,
+   "acceptance_filter_changed": false,
+   "mutate_positions_changed": true
+  }
+ }
+}
