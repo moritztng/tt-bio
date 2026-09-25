@@ -1,0 +1,3 @@
+device fd holder pid 4042385 BUSY (784 ticks/2s, owner bcx-extramsa): /home/ttuser/bcx_e2e_venv/bin/python -X faulthandler /home/ttuser/.coworker/wt/bcx-extrams
+loadavg1 24.85 over ceiling 2.00
+HOST NOT QUIET -- your timing read is contaminated even with an idle sibling and a forced clock. Wait it out or DEFER. Do not measure and explain it afterwards.
