@@ -131,7 +131,7 @@ they are building from source at all.
 | RHEL 8 / Rocky 8 / Alma 8 | 4.18 | no | 2.28 | 3.6/3.9 | below the wheel floor, and no amd-pstate |
 | RHEL 9.x / Rocky 9 / Alma 9 | 5.14 + backports | driver backported, active mode not guaranteed default | 2.34 | 3.9 default, 3.12 in AppStream since 9.4 | works, expect to set `amd_pstate=active` |
 | RHEL 10 / Rocky 10 / Alma 10 | 6.12 | yes, past the 6.10 auto-load change | 2.39 | 3.12 default | best RHEL-family fit |
-| Ubuntu 24.04 LTS | 6.8 / 6.14 / 7.0 HWE | yes, no boot flag | 2.39 | 3.12 default | what we test on |
+| Ubuntu 24.04 LTS | 6.8 GA, 7.0.0-34 on ours | yes, no boot flag | 2.39 | 3.12 default | what we test on |
 
 **Recommendation: RHEL 10 (or Rocky 10 / Alma 10) if the shop is RHEL-family, Ubuntu 24.04 if the
 distro is not fixed.** RHEL 10 is kernel 6.12, glibc 2.39 and Python 3.12, which clears both
@@ -266,7 +266,7 @@ Against those:
 |---|---|---|---|---|
 | RHEL 9 / Rocky 9 / Alma 9 | 5.14 + backports | driver is there, active mode probably not default | 2.34 | 3.12 in AppStream from 9.4 |
 | RHEL 10 / Rocky 10 / Alma 10 | 6.12 | yes, no boot flag | 2.39 | 3.12 default |
-| Ubuntu 24.04 LTS | 6.8 or newer | yes, no boot flag | 2.39 | 3.12 default |
+| Ubuntu 24.04 LTS | 6.8 GA or newer | yes, no boot flag | 2.39 | 3.12 default |
 
 If the shop is RHEL-family, I would go to RHEL 10 or its Rocky/Alma rebuild. Kernel 6.12 is past
 the point where the driver comes up on its own, glibc 2.39 and Python 3.12 clear the wheel, and
