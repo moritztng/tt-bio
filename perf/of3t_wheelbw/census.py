@@ -37,6 +37,13 @@ SEED = 20260921
 # The nine J4 ops, and the verbs their backward closure issues per node BEFORE and AFTER
 # this row. "both" is the two-parents-want-a-gradient branch. Counted from the closure
 # source, which is why the census below also reports the branch each node would take.
+# The nine J4 ops and the verbs their backward closure issues per taped node, BEFORE and
+# AFTER this row. Counted from the closure source. "both" is the two-parents-want-a-gradient
+# branch, which is the only one `mul` and `concat` shorten.
+#
+# `narrow` is the conservative figure: the composed form is one `ttnn.zeros` per padded side
+# plus a `concat`, so two verbs when the slice touches an end of the axis and three when it
+# does not. 2 -> 1 is the floor, and the floor is what gets quoted.
 VERBS = {
     "mul":     {"both": (2, 1), "one": (1, 1)},
     "scale":   {"one": (1, 1)},
@@ -45,9 +52,14 @@ VERBS = {
     "sigmoid": {"one": (3, 1)},
     "silu":    {"one": (6, 1)},
     "reshape": {"one": (1, 1)},
-    "narrow":  {"one": (3, 1)},       # two zero blocks + concat -> one pad
-    "concat":  {"both": (2, 1), "one": (None, None)},   # N-way falls through to the slices
+    "narrow":  {"one": (2, 1)},
+    "concat":  {"both": (2, 1), "one": (None, None)},
 }
+
+# The same three activations again, in the copy a SHIPPED module's tape actually reaches.
+# `taped_ttnn._VERBS` intercepts `ttnn.silu`/`sigmoid`/`relu` calls; `tt_bio.autograd.silu`
+# and friends are only called by code that names them, which the OF3T modules do not.
+TAPED_VERBS = {"silu": (6, 1), "sigmoid": (3, 1), "relu": (2, 1)}
 
 
 def classify(t):
@@ -57,6 +69,47 @@ def classify(t):
         return "<leaf>"
     q = getattr(n.fn, "__qualname__", "") or ""
     return q.split(".")[0] if q else "<unknown>"
+
+
+def instrument(ag, tw, calls, taped, shapes, branch):
+    """Count INVOCATIONS, not tape nodes.
+
+    A tape walk cannot separate `silu` from `relu`: both are `_unary`, so both closures carry
+    the qualname `_unary.<locals>.impl.<locals>.make.<locals>.bw`. Wrapping the two dispatch
+    tables gives the op by name, the output shape, and -- for `mul` and `concat`, the only two
+    whose saving depends on it -- whether both parents wanted a gradient.
+    """
+    def note(key, out, parents):
+        calls[key] += 1
+        if getattr(out, "node", None) is None:
+            return
+        taped[key] += 1
+        want = sum(1 for p in parents if getattr(p, "requires_grad", False))
+        branch[f"{key}|{'both' if want >= 2 else 'one'}|{len(parents)}p"] += 1
+        try:
+            shapes[key][str([int(d) for d in out.value.shape])] += 1
+        except Exception:
+            shapes[key]["<unreadable>"] += 1
+
+    for name, impl in list(tw._VERBS.items()):
+        def w(shipped, args, kwargs, _n=name, _i=impl):
+            out = _i(shipped, args, kwargs)
+            note(f"taped_ttnn:{_n}", out,
+                 [a for a in args if isinstance(a, ag.Tensor)])
+            return out
+        tw._VERBS[name] = w
+
+    for name in ("mul", "scale", "add", "relu", "sigmoid", "silu", "reshape",
+                 "narrow", "concat"):
+        orig = getattr(ag, name)
+        def w2(*args, _n=name, _o=orig, **kw):
+            out = _o(*args, **kw)
+            first = args[0] if args else None
+            parents = list(first) if _n == "concat" and isinstance(first, (list, tuple)) \
+                else [a for a in args if isinstance(a, ag.Tensor)]
+            note(f"autograd:{_n}", out, parents)
+            return out
+        setattr(ag, name, w2)
 
 
 def main() -> int:
@@ -87,6 +140,12 @@ def main() -> int:
         from tt_bio.tenstorrent import get_device
         from tt_bio.train.losses import of3_loss_weights
 
+        calls = collections.Counter(); taped = collections.Counter()
+        branch = collections.Counter()
+        shapes = collections.defaultdict(collections.Counter)
+        import tt_bio.taped_ttnn as tw
+        instrument(ag, tw, calls, taped, shapes, branch)
+
         held, _meta = S.capture(a.tokens, out)
         trunk = held["trunk"][0]
         sampler, sargs, _skw = held["sampler"]
@@ -106,23 +165,12 @@ def main() -> int:
 
         nodes = ag._reverse_topo(list(roots))
         out["tape_nodes"] = len(nodes)
-        per = collections.Counter()
-        branch = collections.Counter()
-        shapes = collections.defaultdict(collections.Counter)
-        for t in nodes:
-            op = classify(t)
-            per[op] += 1
-            if op in VERBS:
-                parents = t.node.parents
-                k = "both" if sum(1 for p in parents if p.requires_grad) >= 2 else "one"
-                branch[f"{op}|{k}|{len(parents)}p"] += 1
-                try:
-                    shapes[op][str([int(d) for d in t.value.shape])] += 1
-                except Exception:
-                    shapes[op]["<freed>"] += 1
-        out["nodes_by_op"] = dict(per.most_common())
-        out["j4_branch"] = dict(sorted(branch.items()))
-        out["j4_parent_shapes"] = {k: dict(v.most_common(8)) for k, v in shapes.items()}
+        out["nodes_by_closure"] = dict(collections.Counter(
+            classify(t) for t in nodes).most_common())
+        out["calls"] = dict(calls.most_common())
+        out["taped_calls"] = dict(taped.most_common())
+        out["branch"] = dict(sorted(branch.items()))
+        out["shapes"] = {k: dict(v.most_common(8)) for k, v in shapes.items()}
 
         saved = {}
         for op, spec in VERBS.items():
@@ -130,15 +178,17 @@ def main() -> int:
             for key, (before, after) in spec.items():
                 if before is None:
                     continue
-                n = sum(v for k, v in branch.items()
-                        if k.startswith(f"{op}|{key}|"))
-                tot += n * (before - after)
-            saved[op] = tot
-        out["verbs_deleted_by_op"] = saved
+                tot += sum(v for k, v in branch.items()
+                           if k.startswith(f"autograd:{op}|{key}|")) * (before - after)
+            saved[f"autograd:{op}"] = tot
+        for op, (before, after) in TAPED_VERBS.items():
+            saved[f"taped_ttnn:{op}"] = taped.get(f"taped_ttnn:{op}", 0) * (before - after)
+        out["verbs_deleted_by_op"] = {k: v for k, v in
+                                      sorted(saved.items(), key=lambda kv: -kv[1])}
         out["verbs_deleted_total"] = sum(saved.values())
         print(json.dumps({"tape_nodes": out["tape_nodes"],
                           "verbs_deleted_total": out["verbs_deleted_total"],
-                          "by_op": saved}, indent=1), flush=True)
+                          "by_op": out["verbs_deleted_by_op"]}, indent=1), flush=True)
     out["aiclk_during"] = clk.summary()
     out["aiclk_line"] = clk.line()
     print(out["aiclk_line"], flush=True)
