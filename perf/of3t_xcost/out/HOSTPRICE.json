@@ -1,0 +1,248 @@
+{
+ "doc": "What the exact host float64 softmax costs as a function of its WORKING SET, no card.\n\n`of3t-bwattrib`'s per-shape-class table prices one tensor class -- the triangle attention\nscore block `[384,4,384,384]` FLOAT32 -- at 437.99 s of a 705.78 s backward:\n\n    softmax_in_place  108 calls  186.918 s self   the HOST float64 arithmetic\n    to_torch          216 calls  153.854 s        1.91 GB/s\n    from_torch        216 calls   97.214 s        3.02 GB/s\n\n`perf/of3t_tapedfwd/exactprice.py` put the CPU arithmetic floor at 1.9813 ns/element, which\nover 226,492,416 elements is 0.4488 s. Production reads 1.7307 s per call. The gap is 3.86x and\nit is not the arithmetic: exactprice CHUNKED the tensor on its leading axis (its own docstring\nsays why -- \"pc has 30 GB and one such tensor is 1.81 GB in float64\") and\n`autograd._exact_softmax_raw` does not. It hands the whole [384,4,384,384] to `.double()` and\nthen to `torch.softmax`, which allocates two 1.81 GB float64 temporaries on a box with 6 GB\nfree and a full 976 MB swap.\n\nSo this sweeps the chunk size over the SAME total work and reads the per-element rate off it.\nOne knob, one tensor, one process. Chunking a softmax on its leading axis is arithmetically a\nno-op -- the reduction is over the last axis and every row is independent -- so the arms are\nchecked BIT-IDENTICAL against the monolithic one rather than assumed to be.\n\nBoard-insensitive by construction: no device is opened, `import ttnn` never happens. The\nnumbers are a property of this host's memory system (AMD Ryzen 5 8600G, 6 cores / 12 threads,\n16 MiB L3), which is the host every figure above was measured on.\n\n    hostprice.py --out perf/of3t_xcost/out/HOSTPRICE.json",
+ "argv": {
+  "tokens": 384,
+  "heads": 4,
+  "reps": 3,
+  "chunks": "8,16,32,48,96,192,384",
+  "headroom": 0.7,
+  "out": "perf/of3t_xcost/out/HOSTPRICE.json"
+ },
+ "env": {
+  "host": "pc",
+  "torch": "2.8.0+cpu",
+  "threads": 6,
+  "cpus": 12,
+  "mem_available_gb_start": 5.41,
+  "loadavg_start": [
+   5.23,
+   4.94,
+   4.06
+  ],
+  "board_insensitive": "yes -- CPU arithmetic only, no device is opened",
+  "axis": "self wall-clock seconds of the host float64 arithmetic ONLY; no to_torch/from_torch is in any number here",
+  "loadavg_end": [
+   7.91,
+   5.73,
+   4.38
+  ],
+  "mem_available_gb_end": 14.34,
+  "resident_base_gb": 1.81
+ },
+ "shape": [
+  384,
+  4,
+  384,
+  384
+ ],
+ "elements": 226492416,
+ "banked_for_comparison": {
+  "production_softmax_in_place_self_s_per_call": 1.7307192,
+  "production_source": "perf/of3t_bwattrib/out/hist_384_base.json by_shape_class, 108 calls / 186.9177 s, arm base, pc card 0, AICLK 1350 median sampled DURING (env.aiclk_during)",
+  "exactprice_floor_ns_per_element": 1.9813,
+  "exactprice_floor_s_at_this_shape": 0.4487494238208
+ },
+ "arms": {
+  "fwd_rows8": {
+   "rows": 8,
+   "predicted_peak_temporaries_gb": 0.075,
+   "mem_available_gb": 8.98,
+   "bit_identical_to": "reference (smallest chunk run)",
+   "s": [
+    0.7920061299810186,
+    0.8081212120014243,
+    0.835509175027255
+   ],
+   "median_s": 0.8081212120014243,
+   "ns_per_element": 3.567983539022447
+  },
+  "fwd_rows16": {
+   "rows": 16,
+   "predicted_peak_temporaries_gb": 0.151,
+   "mem_available_gb": 10.15,
+   "bit_identical": true,
+   "max_abs_diff": 0.0,
+   "s": [
+    1.3116770460037515,
+    0.8006706250016578,
+    0.953702686005272
+   ],
+   "median_s": 0.953702686005272,
+   "ns_per_element": 4.210748875605937
+  },
+  "fwd_rows32": {
+   "rows": 32,
+   "predicted_peak_temporaries_gb": 0.302,
+   "mem_available_gb": 7.77,
+   "bit_identical": true,
+   "max_abs_diff": 0.0,
+   "s": [
+    0.8557617449841928,
+    0.7819591689913068,
+    0.819832701003179
+   ],
+   "median_s": 0.819832701003179,
+   "ns_per_element": 3.619691623595816
+  },
+  "fwd_rows48": {
+   "rows": 48,
+   "predicted_peak_temporaries_gb": 0.453,
+   "mem_available_gb": 7.71,
+   "bit_identical": true,
+   "max_abs_diff": 0.0,
+   "s": [
+    1.00070572597906,
+    0.7085700790048577,
+    1.7103667109913658
+   ],
+   "median_s": 1.00070572597906,
+   "ns_per_element": 4.418274764568982
+  },
+  "fwd_rows96": {
+   "rows": 96,
+   "predicted_peak_temporaries_gb": 0.906,
+   "mem_available_gb": 3.11,
+   "bit_identical": true,
+   "max_abs_diff": 0.0,
+   "s": [
+    1.019061127997702,
+    0.8302388679876458,
+    1.0413167820079252
+   ],
+   "median_s": 1.019061127997702,
+   "ns_per_element": 4.4993167806453265
+  },
+  "fwd_rows192": {
+   "rows": 192,
+   "predicted_peak_temporaries_gb": 1.812,
+   "mem_available_gb": 4.38,
+   "bit_identical": true,
+   "max_abs_diff": 0.0,
+   "s": [
+    0.7551241870096419,
+    0.9607940499845427,
+    0.9850235439953394
+   ],
+   "median_s": 0.9607940499845427,
+   "ns_per_element": 4.242058374195376
+  },
+  "fwd_rows384": {
+   "rows": 384,
+   "predicted_peak_temporaries_gb": 3.624,
+   "mem_available_gb": 6.94,
+   "bit_identical": true,
+   "max_abs_diff": 0.0,
+   "s": [
+    0.8611859760130756,
+    0.8705034399754368,
+    0.9314585569954943
+   ],
+   "median_s": 0.8705034399754368,
+   "ns_per_element": 3.8434109863327026
+  },
+  "bw_rows8": {
+   "rows": 8,
+   "predicted_peak_temporaries_gb": 0.113,
+   "mem_available_gb": 7.77,
+   "retained_y64_gb": 1.812,
+   "bit_identical_to": "reference (smallest chunk run)",
+   "s": [
+    1.4230974029924255,
+    1.5706731289974414,
+    1.6296618200140074
+   ],
+   "median_s": 1.5706731289974414,
+   "ns_per_element": 6.934771400899541
+  },
+  "bw_rows16": {
+   "rows": 16,
+   "predicted_peak_temporaries_gb": 0.226,
+   "mem_available_gb": 4.81,
+   "retained_y64_gb": 1.812,
+   "bit_identical": true,
+   "max_abs_diff": 0.0,
+   "s": [
+    2.3179630039958283,
+    0.9106621679966338,
+    0.887158500001533
+   ],
+   "median_s": 0.9106621679966338,
+   "ns_per_element": 4.020718150653812
+  },
+  "bw_rows32": {
+   "rows": 32,
+   "predicted_peak_temporaries_gb": 0.453,
+   "mem_available_gb": 14.14,
+   "retained_y64_gb": 1.812,
+   "bit_identical": true,
+   "max_abs_diff": 0.0,
+   "s": [
+    0.8205995390017051,
+    0.8172771560202818,
+    0.8069274189765565
+   ],
+   "median_s": 0.8172771560202818,
+   "ns_per_element": 3.608408486491141
+  },
+  "bw_rows48": {
+   "rows": 48,
+   "predicted_peak_temporaries_gb": 0.679,
+   "mem_available_gb": 13.96,
+   "retained_y64_gb": 1.812,
+   "bit_identical": true,
+   "max_abs_diff": 0.0,
+   "s": [
+    0.8687015059986152,
+    0.8478934490121901,
+    0.8843362990010064
+   ],
+   "median_s": 0.8687015059986152,
+   "ns_per_element": 3.835455161547728
+  },
+  "bw_rows96": {
+   "rows": 96,
+   "predicted_peak_temporaries_gb": 1.359,
+   "mem_available_gb": 13.89,
+   "retained_y64_gb": 1.812,
+   "bit_identical": true,
+   "max_abs_diff": 0.0,
+   "s": [
+    0.8643911830149591,
+    0.787681962014176,
+    0.7894151869986672
+   ],
+   "median_s": 0.7894151869986672,
+   "ns_per_element": 3.485393466766972
+  },
+  "bw_rows192": {
+   "rows": 192,
+   "predicted_peak_temporaries_gb": 2.718,
+   "mem_available_gb": 13.93,
+   "retained_y64_gb": 1.812,
+   "bit_identical": true,
+   "max_abs_diff": 0.0,
+   "s": [
+    0.8122174339951016,
+    0.7788660709920805,
+    0.7699571950070094
+   ],
+   "median_s": 0.7788660709920805,
+   "ns_per_element": 3.4388174436360837
+  },
+  "bw_rows384": {
+   "rows": 384,
+   "predicted_peak_temporaries_gb": 5.436,
+   "mem_available_gb": 14.4,
+   "retained_y64_gb": 1.812,
+   "bit_identical": true,
+   "max_abs_diff": 0.0,
+   "s": [
+    0.9584445589862298,
+    0.9559955669974443,
+    0.9333178310189396
+   ],
+   "median_s": 0.9559955669974443,
+   "ns_per_element": 4.220872309461542
+  }
+ }
+}
