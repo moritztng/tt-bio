@@ -1,0 +1,104 @@
+# Workstream: of3t-triattbw
+#DISPATCH: host=any card=- repo=tt-bio maxit=26 tier=opus5
+DONE_CHECK: python3 /home/moritz/.coworker/workstreams/_of3t_donecheck.py of3t-triattbw
+
+**HELD, NOT LIVE until `of3t-bwattrib` resolves the block count.** This brief is written and ready
+so the dispatch is one line when it does. Do not launch it before that: J3's size is a 14x bracket
+(2 SDPA blocks per call = 10.7 s, or 40 = 153.7 s) and it is the largest authoring effort on the
+JOBS list. Briefing the biggest job against a 14x uncertainty is the mistake this campaign has
+already paid for twice.
+
+**READ FIRST**: `/home/moritz/.coworker/state/of3t/BACKWARD.md`, **§A46 of
+`state/of3t/PROTOCOL.md`**, and **`state/of3t-bwsurvey.md`'s GRADBIAS and JOBS (J3) sections**,
+which did the hard thinking already. Do not re-derive any of it.
+
+**J3 — fuse the triangle-attention backward, adapted from `ttml::metal::sdpa_bw`.**
+
+**Start from the honest frame, because the campaign's own shorthand gets it wrong: we are not
+missing a bias gradient.** `autograd.triangle_attention`'s backward emits `dbias` today
+(`autograd.py:1975-2010`), as `ttnn.sum(ds, dim=0, keepdim=True)` on the broadcast path and
+`ttnn.clone(ds)` per trunk otherwise — the two cases distinguished because the atom transformer's
+local windows carry a different bias per trunk and summing there would average the windows
+together. It is correct and it is gradient-checked (`perf/hallgrad/gradcheck.py --cases
+triatt_chunked`, which differences two chunkings rather than trusting one). **What it is not is
+fused.** The job is to fuse a term we already compute, not to add one.
+
+**What the survey settled, and you inherit rather than rediscover:**
+
+1. **`grad_bias` is one `pack_tile` from a register the kernel already holds.** The forward's
+   composite is `S = scale·QK^T + bias`, so `dL/dbias = dL/dS = P ⊙ (dP - u)` — which is
+   `grad_reg` in `compute_grad_scores` (`sdpa_bw/device/kernels/compute/sdpa_bw_compute_utils.hpp`)
+   **one instruction before** its final `mul_unary_tile(grad_reg, scaler_bits)`, and `dL/d(QK^T)`
+   is the same register after it, which is what dK already uses. Cost in the compute kernel: one
+   extra `pack_tile` into a new CB. That is the whole of the maths.
+2. **The job is the REDUCTION, not the gradient.** Triangle attention's bias is `[1, H, N, N]`
+   broadcast over B, and B is the pair tensor's own first index — at crop 384, 384 independent
+   attention problems sharing one bias. So `grad_bias[h,j,k] = Σ_i dS[i,h,j,k]`, and dS at full
+   extent is **452.98 MB per call** against 1.18 MB for the reduced answer. Writing dS out and
+   reducing it in ttnn is ~0.9 GB of round trip per call = **2.1 s at the 440 GB/s roof**, against
+   a whole-op arithmetic cost of 72.5 GFLOP ≈ **1.7 ms** at the 43 TFLOP/s DRAM-bound cap.
+   **Materialising dS is three orders of magnitude the wrong answer** — if you find yourself doing
+   it, stop.
+3. **So: accumulate grad_bias in L1 across i inside the kernel and write it once.** The current KV
+   work split assigns contiguous `global_row_idx` and rows are i-major (`row = i·Ht + k_tile`), so
+   one core sees one i and many k tiles — precisely the wrong axis. **Strided assignment** (a core
+   owns one k tile and strides by `Ht` across i) puts the whole i sum inside one core. The L1
+   accumulator is `Ht` tiles per head: at crop 384, 12 tiles × 2 KB = **24 KB** against 1.5 MB per
+   core. dK and dV stay correct under the re-split because both are per-i anyway; only the loop
+   order changes.
+4. **Their mask is binary, ours is an additive learned bias.** `apply_mask_on_reg` turns a 1/0 mask
+   into 0/−inf. A fourth `AttentionMaskType::AdditiveBias` that skips the transform and just adds
+   is a few lines, **needed symmetrically in `sdpa_fw` and `sdpa_bw`**.
+5. **Their forward is not our forward.** `sdpa_bw` needs `intermediates` — the per-row logsumexp
+   tile, fp32, from ttml's `sdpa_fw`. Our production forward is the stock ttnn SDPA transcription
+   and returns the output only. Flash attention computes the running max and sum internally, so
+   emitting them is a writer change to `tt_bio/kernels/triatt_sdpa/`, not new arithmetic.
+
+**THE TRAP, already root-caused, and it has already cost this campaign one verification pass.**
+The shipped fused kernel computes `softmax((q·kᵀ + mask)·scale)·v` — **mask BEFORE scale** — and
+production compensates at `tenstorrent.py:7205` (see `taped_ttnn.py:866-880`). **ttml's kernel is
+mask AFTER scale.** Getting this backwards produces a wrong gradient that the FORWARD AGREES WITH,
+and it is measured: error flat at 3.3e-02 under the right reading, growing 3.3e-02 → 8.3e-01 with
+mask magnitude under the wrong one. **Write the mask-magnitude sweep as your first control, before
+any speed number.** A reference written the conventional way agrees with the wrong gradient.
+
+**Release-gated end to end.** The forward change touches the kernel serving **560 of 560**
+triangle-attention calls on the Boltz-2 512 aa fold
+(`perf/sizegate/baseline/census_boltz2_512_p300c.json`). Moritz's inference constraint is a hard
+stop, not a bar: A/B against an A/A floor on every model that executes the site, floor reported
+FIRST, byte-identical digests, before any default flips. If speed can only be had through
+something inference would feel, say so and stop.
+
+**UNIFIED, NOT PER-MODEL** (standing): this backward serves Boltz-2, OF3T, BC2 and RFD3. There is
+no `of3t_sdpa_bw`; a row writing one has taken a wrong turn.
+
+State doc `state/of3t-triattbw.md`: ADAPTED:, VJP:, SPEED:, UNIFIED:, FIX:, VERDICT:.
+
+## HOUSE RULES for the backward sprint — of3t-orchestrator, 2026-09-25 16:2x CEST
+
+Added after dispatch because the four briefs went out without them. A decision that is not in your
+brief does not reach you, so it is here rather than in a state doc.
+
+- **ARTIFACTS: `perf/of3t_<your-slug>/`, and nowhere else.** Yours alone. Four rows writing into one
+  perf tree is how a merge comes out textually clean and semantically broken
+  (`sibling-perf-campaigns-need-namespaced-output-paths`).
+- **SCRATCH: `/tmp/of3t/<your-slug>/`.** Never a shared generic name. Two of3t rows collided on
+  `/tmp/of3t/state.md` and one row's state doc silently became a verbatim copy of another's —
+  another row's branch, instruments and VERDICT, installed under the wrong slug. Nothing errored
+  (LEDGER K18).
+- **BRANCH: `wk/<your-slug>`, pushed every pass.** I compose the sprint onto `wk/of3t-bwd`; do not
+  merge to main and do not compose each other. `wk/of3t` is finished history: verified this pass,
+  it is fully contained in `origin/main` (`git merge-base --is-ancestor` clean), so do not branch
+  from it or treat it as the campaign's tip. Branch from `origin/main`.
+- **`tt_bio/autograd.py` and `tt_bio/taped_ttnn.py` are CONTESTED and moving right now.** BCX is
+  rewriting the head-verb backwards in both: `wk/bcx-heads` at `237f53064`, with `wk/bcx-bwdplan`
+  building on it this pass. If your fix lands in either file, keep the diff minimal, say so in your
+  state doc under its own heading, and expect to re-run BCX's bar rather than trusting a clean
+  textual merge — these are exactly the two files where `land-d264` showed a merge error is
+  invisible to inference and visible only to a taped arm.
+- **Say the AXIS on every number** (chip-to-chip, box-to-box, phase-matched, step-to-step), and the
+  clock: a DURING-sampled AICLK and the board class. qb1 p150a and qb2 p300c run the same 512 aa
+  fold 17.39 s against 14.59 s at the same 1350 MHz, so a board class is part of a measurement.
+- **The target stays honest.** ~8.5x compute / ~11x bandwidth is hardware; ~6-7x of the 58-67x is
+  software and that is what this sprint is for. 5x chip-to-chip is below the silicon floor — do not
+  promise it, in a state doc or anywhere else.

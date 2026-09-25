@@ -2,6 +2,39 @@
 #DISPATCH: host=any card=- repo=tt-bio maxit=20 tier=opus5
 DONE_CHECK: python3 /home/moritz/.coworker/workstreams/_of3t_donecheck.py of3t-lnbw
 
+## !! YOU ARE ON whglx. PIN EVERY DEVICE OPEN. !! (of3t-orchestrator, 2026-09-25 16:3x CEST)
+
+The fleet placed this row on the **whglx WH Galaxy**, which co-hosts the **live ai& app** and is
+running **four sprint rows at once** (`of3t-bwattrib` card 0, `of3t-lnbw` card 2, `of3t-softbw`
+card 3, `of3t-wheelbw` card 5). On this box that combination has a specific, non-recoverable
+failure mode, so this is a hard constraint and not advice:
+
+- **A "free" chip on a WH Galaxy is not independent.** Single-chip opens share ethernet-core
+  firmware state with co-tenants, so **an unpinned all-chip open breaks init for rows nowhere near
+  the chips you meant to use.** On 2026-09-12 several concurrent unpinned probes took whglx to
+  **loadavg 256** and cost a sibling row three separate attempts, the first dying with
+  `TT_FATAL: Read unexpected run_mailbox value from core (x=18,y=17)`.
+- **The documented recovery does not exist on this box.** Its CPLD is below 1.16, so `tt-smi -r`
+  **exits 0 having done nothing**. A corrupted chip stays corrupted until a full power cycle of a
+  box that is also serving users.
+
+**So: pin every device open with `TT_VISIBLE_DEVICES` to the card this row actually holds.** Never
+open the mesh. `lsof /dev/tenstorrent/<n>` cannot tell you whether you are about to do this — the
+visible-devices value is a UMD logical id, not a device node. If your measurement genuinely needs
+more than your own card, **do not take it**: say so in your state doc and ask me for a coordinated
+quiet window, which I will grant rather than let two rows corrupt each other by accident.
+
+Nothing in your brief requires a multi-chip open. J0's histogram, J1's and J2's kernel arms and
+J4's PCC checks are all single-card work.
+
+**Checked before writing this, so you need not re-verify it:** `worker.sh` already injects the
+pin into your CARD rule, and tt-bio ENFORCES it at the device open — an unpinned open is
+refused, precisely because a process that can see four cards brings up all four (UMD starts
+every visible chip, not only the one it computes on). So this is belt-and-braces, not an open
+hole. What it adds is the reason the rule is absolute on THIS box, and the escape hatch: if you
+need more than your own card, ask for a quiet window instead of widening the grant yourself.
+
+
 **READ FIRST**: `/home/moritz/.coworker/state/of3t/BACKWARD.md`, **§A46 of
 `state/of3t/PROTOCOL.md`**, and **`state/of3t-bwsurvey.md`'s JOBS section, job J1**, which
 specified this row. Do not re-derive them.

@@ -82,10 +82,24 @@ and the contested-file warning; the four sprint briefs went out without them and
 | `of3t-throughput` | **GO** — box-to-box is the honest axis | arithmetic only | `perf/of3t_throughput/` |
 | `of3t-tapedfwd` | live, pc card 0 | fused-kernel selection and decline sites | `perf/of3t_tapedfwd/` |
 | `of3t-intensity` | live, qb1 card 3 | measurement scripts, read-only on engine | `perf/of3t_intensity/` |
-| `of3t-bwattrib` | **dispatched, J0** | the 2.107 ms attribution, wiring fixes | `perf/of3t_bwattrib/` |
-| `of3t-lnbw` | **dispatched, J1** | the LayerNorm backward | `perf/of3t_lnbw/` |
-| `of3t-softbw` | **dispatched, J2** | the softmax backward | `perf/of3t_softbw/` |
-| `of3t-wheelbw` | **dispatched, J4** | nine `*_bw` substitutions in `autograd.py` | `perf/of3t_wheelbw/` |
+| `of3t-bwattrib` | **live, whglx card 0** — J0 | the 2.107 ms attribution, wiring fixes | `perf/of3t_bwattrib/` |
+| `of3t-lnbw` | **live, whglx card 2** — J1 | the LayerNorm backward | `perf/of3t_lnbw/` |
+| `of3t-softbw` | **live, whglx card 3** — J2 | the softmax backward | `perf/of3t_softbw/` |
+| `of3t-wheelbw` | **live, whglx card 5** — J4 | nine `*_bw` substitutions in `autograd.py` | `perf/of3t_wheelbw/` |
+
+**J3 (`of3t-triattbw`) is written, gated and HELD** — brief and `EXTRA` entry both in place, no
+ws-tag in `TASKS.md`, so it dispatches in one line the moment `of3t-bwattrib` reports a block
+count. Held because its size is a 14x bracket and it is the largest authoring effort on the list.
+
+All four J-rows landed on **whglx**, which co-hosts the live ai& app, four at once. That is the
+configuration that took the box to loadavg 256 on 2026-09-12 and cost a sibling row three
+attempts, and whglx's CPLD is below 1.16 so `tt-smi -r` exits 0 having done nothing — a corrupted
+chip stays corrupted until a full power cycle of a box serving users. **Checked rather than
+assumed: the hole is already closed.** `worker.sh` injects `TT_VISIBLE_DEVICES`/
+`TT_BIO_LEASE_CARDS` into every card-pinned row and tt-bio refuses an unpinned open at the device
+open, because a process that can see four cards brings up all four. All four briefs carry the
+reason and the escape hatch (ask for a coordinated quiet window, do not widen the grant yourself)
+as belt-and-braces, not as a fix.
 
 Each new row's DONE_CHECK `EXTRA` entry and `_STAGE_HINTS` path landed in the same pass as its
 brief (R193), and the gate's own staging assertion caught the missing hints before any row could
