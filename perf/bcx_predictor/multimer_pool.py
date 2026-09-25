@@ -13,8 +13,15 @@ is behind it. `ttbio_predictor.TTBioAlphaFoldDesignModel` resolves BindCraft 2's
 name and calls `use()` before handing the call to BindCraft 2.
 
 Weights are loaded lazily and kept, so the first gradient step that reaches a given model pays
-for it once. Five trunks is 5 x 91,177,010 parameters; `--pool-resident` caps how many stay on
-card if that does not fit, evicting least-recently-used.
+for it once. Five trunks is 5 x 91,177,010 parameters and all five fit on one p150a, measured:
+8.9, 5.4, 4.6, 6.1, 6.2 s to load, 31.2 s in total, and a trajectory then runs against them.
+
+`resident` caps how many are held and evicts least-recently-used. What that cap is worth has NOT
+been measured: eviction drops the only Python reference to the trunk and relies on ttnn freeing
+each weight tensor's device buffer when it is collected. tt_bio has no model-level deallocate to
+call instead. A `resident=1` run did not run out of memory, which is consistent with the buffers
+being freed and is not a measurement of it. Since all five fit, the cap has not been needed;
+anyone who does need it should measure the device allocator across an eviction first.
 """
 from __future__ import annotations
 
