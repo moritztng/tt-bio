@@ -650,6 +650,16 @@ _TRIMUL_TAIL_L1_LIVE = 3
 # 1.105x at 512, 1.182x at 640, 1.067x at 768, each above its own A/A floor
 # (perf/ttx_deadends/b1_prod_ab.json). Catalogue row B1 asked for a HEIGHT-SHARDED L1 result
 # instead, and that one is worth nothing: 0.984-1.005x inside one program config.
+#
+# AND THE OP WIN DOES NOT REACH THE FOLD, which is why this stays off. Interleaved A,B,A2, three
+# reps, one discarded cold fold PER ARM, qb1 p150a card 1, one device open, 200 sampling steps:
+# 0.9884x at 384 aa, 0.9918x at 512, 0.9958x at 640, against A/A floors of -1.77 %, +1.18 % and
+# +0.40 %. Every fold delta is inside its own floor, so the 1.033-1.182x above is an op-level
+# screen that did not transfer -- the same failure mode the four levers in `perf/` catalogued.
+# Byte-identical ON vs OFF across 35 folds, as a memory-config change should be. 768 aa was never
+# measured: the host lost power mid-run, which also took the harness JSON, so
+# `perf/ttx_deadends/b1_fold_ab_qb1.md` is a transcription and says to re-run (~25 min) rather
+# than trust it if the number matters.
 _TRIMUL_OUT_L1 = env_flag("TT_BIO_TRIMUL_OUT_L1", False)
 
 
