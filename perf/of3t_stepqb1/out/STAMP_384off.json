@@ -1,0 +1,13 @@
+{
+ "row": "of3t-stepqb1",
+ "trim_host_heap": true,
+ "autograd_sha256": "0727f9d62c703eb31991a58a8e4137865195d6ebbe99125152beb1401bdc8995",
+ "tree": "4f953dc68815b1d6444f70ce9a8d9e8a203416df",
+ "tree_note": "origin/main + of3t-tapemem 33e5f1eb0's autograd.py hunk, cherry-picked, uncommitted (measurement row lands no engine file)",
+ "wall_s": 177.497,
+ "meminfo_at_end": {
+  "MemTotal": "31984056 kB",
+  "MemAvailable": "8268300 kB",
+  "Hugetlb": "3145728 kB"
+ }
+}

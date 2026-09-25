@@ -1,0 +1,1191 @@
+{"header": true, "argv": ["--tokens", "384", "--cycles", "4", "--samples", "4", "--reps-on", "1", "--arms", "on", "--tag", "384trimoff"], "floor_gib": 2.0, "period_s": 0.2, "page_bytes": 4096, "mem_total_gib": 30.502, "avail_at_start_gib": 17.799, "started_utc": "2026-09-25T21:16:34Z", "pid": 3472736, "tag": "384trimoff", "row": "of3t-stepqb2", "host_facts": {"card": "0", "board": "p150a", "serial": "000004033191410F", "fw_bundle": "19.8.1.0", "aiclk_idle_mhz": "800", "pci": {"addr": "0000:01:00.0", "current_link_speed": "16.0 GT/s PCIe", "current_link_width": "8", "max_link_speed": "32.0 GT/s PCIe", "max_link_width": "16"}}}
+{"aiclk_mhz": 800, "phase": "import", "load1": 2.48, "t_utc": "2026-09-25T21:16:34Z"}
+{"t": 0.001, "phase": "import", "rss_gib": 0.2495, "avail_gib": 17.7986, "sm_inflight": 0, "sm_calls": 0}
+{"t": 0.219, "phase": "import", "rss_gib": 0.3005, "avail_gib": 17.7708, "sm_inflight": 0, "sm_calls": 0}
+{"t": 0.421, "phase": "import", "rss_gib": 0.3575, "avail_gib": 17.7143, "sm_inflight": 0, "sm_calls": 0}
+{"t": 0.622, "phase": "import", "rss_gib": 0.3961, "avail_gib": 17.6847, "sm_inflight": 0, "sm_calls": 0}
+{"t": 0.836, "phase": "import", "rss_gib": 0.4226, "avail_gib": 17.6672, "sm_inflight": 0, "sm_calls": 0}
+{"aiclk_mhz": 800, "phase": "import", "load1": 2.48, "t_utc": "2026-09-25T21:16:35Z"}
+{"t": 1.037, "phase": "import", "rss_gib": 0.4506, "avail_gib": 17.6403, "sm_inflight": 0, "sm_calls": 0}
+{"t": 1.483, "phase": "get_device", "rss_gib": 0.4651, "avail_gib": 17.5236, "sm_inflight": 0, "sm_calls": 0}
+{"t": 1.683, "phase": "capture_build_fold", "rss_gib": 0.5441, "avail_gib": 17.4472, "sm_inflight": 0, "sm_calls": 0}
+{"t": 1.884, "phase": "capture_build_fold", "rss_gib": 0.6322, "avail_gib": 17.3585, "sm_inflight": 0, "sm_calls": 0}
+{"aiclk_mhz": 1350, "phase": "capture_build_fold", "load1": 2.48, "t_utc": "2026-09-25T21:16:36Z"}
+{"t": 2.084, "phase": "capture_build_fold", "rss_gib": 0.7302, "avail_gib": 17.302, "sm_inflight": 0, "sm_calls": 0}
+{"t": 2.285, "phase": "capture_build_fold", "rss_gib": 0.8212, "avail_gib": 17.2127, "sm_inflight": 0, "sm_calls": 0}
+{"t": 2.485, "phase": "capture_build_fold", "rss_gib": 0.9233, "avail_gib": 17.111, "sm_inflight": 0, "sm_calls": 0}
+{"t": 2.686, "phase": "capture_build_fold", "rss_gib": 1.0141, "avail_gib": 17.0198, "sm_inflight": 0, "sm_calls": 0}
+{"t": 2.886, "phase": "capture_build_fold", "rss_gib": 1.1028, "avail_gib": 16.826, "sm_inflight": 0, "sm_calls": 0}
+{"aiclk_mhz": 1350, "phase": "capture_build_fold", "load1": 2.48, "t_utc": "2026-09-25T21:16:37Z"}
+{"t": 3.087, "phase": "capture_build_fold", "rss_gib": 1.1947, "avail_gib": 16.6467, "sm_inflight": 0, "sm_calls": 0}
+{"t": 3.287, "phase": "capture_build_fold", "rss_gib": 1.2929, "avail_gib": 16.4752, "sm_inflight": 0, "sm_calls": 0}
+{"t": 3.488, "phase": "capture_build_fold", "rss_gib": 1.3799, "avail_gib": 16.3231, "sm_inflight": 0, "sm_calls": 0}
+{"t": 3.688, "phase": "capture_build_fold", "rss_gib": 1.4698, "avail_gib": 16.2139, "sm_inflight": 0, "sm_calls": 0}
+{"t": 3.888, "phase": "capture_build_fold", "rss_gib": 1.566, "avail_gib": 16.0238, "sm_inflight": 0, "sm_calls": 0}
+{"aiclk_mhz": 1350, "phase": "capture_build_fold", "load1": 2.48, "t_utc": "2026-09-25T21:16:38Z"}
+{"t": 4.089, "phase": "capture_build_fold", "rss_gib": 1.664, "avail_gib": 15.8105, "sm_inflight": 0, "sm_calls": 0}
+{"t": 4.289, "phase": "capture_build_fold", "rss_gib": 1.7799, "avail_gib": 15.6442, "sm_inflight": 0, "sm_calls": 0}
+{"t": 4.49, "phase": "capture_build_fold", "rss_gib": 1.8849, "avail_gib": 15.5104, "sm_inflight": 0, "sm_calls": 0}
+{"t": 4.69, "phase": "capture_build_fold", "rss_gib": 1.9689, "avail_gib": 15.4486, "sm_inflight": 0, "sm_calls": 0}
+{"t": 4.891, "phase": "capture_build_fold", "rss_gib": 2.0631, "avail_gib": 15.3755, "sm_inflight": 0, "sm_calls": 0}
+{"aiclk_mhz": 1350, "phase": "capture_build_fold", "load1": 2.44, "t_utc": "2026-09-25T21:16:39Z"}
+{"t": 5.091, "phase": "capture_build_fold", "rss_gib": 2.1832, "avail_gib": 15.2722, "sm_inflight": 0, "sm_calls": 0}
+{"t": 5.292, "phase": "capture_build_fold", "rss_gib": 2.2762, "avail_gib": 15.7561, "sm_inflight": 0, "sm_calls": 0}
+{"t": 5.492, "phase": "capture_build_fold", "rss_gib": 2.372, "avail_gib": 15.6681, "sm_inflight": 0, "sm_calls": 0}
+{"t": 5.693, "phase": "capture_build_fold", "rss_gib": 2.4758, "avail_gib": 15.5664, "sm_inflight": 0, "sm_calls": 0}
+{"t": 5.893, "phase": "capture_build_fold", "rss_gib": 2.6489, "avail_gib": 15.4182, "sm_inflight": 0, "sm_calls": 0}
+{"aiclk_mhz": 1350, "phase": "capture_build_fold", "load1": 2.44, "t_utc": "2026-09-25T21:16:40Z"}
+{"t": 6.094, "phase": "capture_build_fold", "rss_gib": 2.8057, "avail_gib": 15.2492, "sm_inflight": 0, "sm_calls": 0}
+{"t": 6.295, "phase": "capture_build_fold", "rss_gib": 2.9604, "avail_gib": 15.0961, "sm_inflight": 0, "sm_calls": 0}
+{"t": 6.496, "phase": "capture_build_fold", "rss_gib": 3.1179, "avail_gib": 14.9099, "sm_inflight": 0, "sm_calls": 0}
+{"t": 6.696, "phase": "capture_build_fold", "rss_gib": 3.3248, "avail_gib": 14.707, "sm_inflight": 0, "sm_calls": 0}
+{"t": 6.897, "phase": "capture_build_fold", "rss_gib": 3.5769, "avail_gib": 14.4585, "sm_inflight": 0, "sm_calls": 0}
+{"aiclk_mhz": 1350, "phase": "capture_build_fold", "load1": 2.44, "t_utc": "2026-09-25T21:16:41Z"}
+{"t": 7.097, "phase": "capture_build_fold", "rss_gib": 3.6942, "avail_gib": 14.2851, "sm_inflight": 0, "sm_calls": 0}
+{"t": 7.298, "phase": "capture_build_fold", "rss_gib": 3.6942, "avail_gib": 14.2607, "sm_inflight": 0, "sm_calls": 0}
+{"t": 7.498, "phase": "capture_build_fold", "rss_gib": 3.6942, "avail_gib": 14.2605, "sm_inflight": 0, "sm_calls": 0}
+{"t": 7.698, "phase": "capture_build_fold", "rss_gib": 3.6942, "avail_gib": 14.2688, "sm_inflight": 0, "sm_calls": 0}
+{"t": 7.899, "phase": "capture_build_fold", "rss_gib": 3.6942, "avail_gib": 14.3354, "sm_inflight": 0, "sm_calls": 0}
+{"aiclk_mhz": 1350, "phase": "capture_build_fold", "load1": 2.44, "t_utc": "2026-09-25T21:16:42Z"}
+{"t": 8.099, "phase": "capture_build_fold", "rss_gib": 3.6942, "avail_gib": 14.3015, "sm_inflight": 0, "sm_calls": 0}
+{"t": 8.299, "phase": "capture_build_fold", "rss_gib": 3.6942, "avail_gib": 14.3004, "sm_inflight": 0, "sm_calls": 0}
+{"t": 8.5, "phase": "capture_build_fold", "rss_gib": 3.6942, "avail_gib": 14.2965, "sm_inflight": 0, "sm_calls": 0}
+{"t": 8.7, "phase": "capture_build_fold", "rss_gib": 3.6942, "avail_gib": 14.3019, "sm_inflight": 0, "sm_calls": 0}
+{"t": 8.905, "phase": "capture_prep", "rss_gib": 3.7975, "avail_gib": 14.2521, "sm_inflight": 0, "sm_calls": 0}
+{"aiclk_mhz": 1350, "phase": "capture_prep", "load1": 2.44, "t_utc": "2026-09-25T21:16:43Z"}
+{"t": 9.125, "phase": "capture_prep", "rss_gib": 4.1746, "avail_gib": 13.8726, "sm_inflight": 0, "sm_calls": 0}
+{"t": 9.325, "phase": "capture_prep", "rss_gib": 4.2849, "avail_gib": 13.742, "sm_inflight": 0, "sm_calls": 0}
+{"t": 9.547, "phase": "capture_prep", "rss_gib": 4.2939, "avail_gib": 13.7272, "sm_inflight": 0, "sm_calls": 0}
+{"t": 9.762, "phase": "capture_prep", "rss_gib": 4.3115, "avail_gib": 13.7173, "sm_inflight": 0, "sm_calls": 0}
+{"t": 9.976, "phase": "capture_prep", "rss_gib": 4.6001, "avail_gib": 13.3941, "sm_inflight": 0, "sm_calls": 0}
+{"aiclk_mhz": 1350, "phase": "capture_prep", "load1": 2.89, "t_utc": "2026-09-25T21:16:44Z"}
+{"t": 10.178, "phase": "capture_prep", "rss_gib": 4.7014, "avail_gib": 13.2885, "sm_inflight": 0, "sm_calls": 0}
+{"t": 10.383, "phase": "capture_prep", "rss_gib": 4.7014, "avail_gib": 13.2729, "sm_inflight": 0, "sm_calls": 0}
+{"t": 10.623, "phase": "capture_prep", "rss_gib": 4.6671, "avail_gib": 13.2581, "sm_inflight": 0, "sm_calls": 0}
+{"t": 10.887, "phase": "capture_prep", "rss_gib": 4.6671, "avail_gib": 13.1894, "sm_inflight": 0, "sm_calls": 0}
+{"aiclk_mhz": 1350, "phase": "capture_prep", "load1": 2.89, "t_utc": "2026-09-25T21:16:45Z"}
+{"t": 11.127, "phase": "capture_prep", "rss_gib": 4.6671, "avail_gib": 13.1229, "sm_inflight": 0, "sm_calls": 0}
+{"t": 11.334, "phase": "capture_prep", "rss_gib": 4.6671, "avail_gib": 13.0965, "sm_inflight": 0, "sm_calls": 0}
+{"t": 11.566, "phase": "capture_prep", "rss_gib": 4.6671, "avail_gib": 12.9865, "sm_inflight": 0, "sm_calls": 0}
+{"t": 11.774, "phase": "capture_prep", "rss_gib": 4.6671, "avail_gib": 12.9159, "sm_inflight": 0, "sm_calls": 0}
+{"t": 11.976, "phase": "capture_prep", "rss_gib": 4.6671, "avail_gib": 12.8614, "sm_inflight": 0, "sm_calls": 0}
+{"aiclk_mhz": 1350, "phase": "capture_prep", "load1": 2.89, "t_utc": "2026-09-25T21:16:46Z"}
+{"t": 12.203, "phase": "capture_prep", "rss_gib": 4.6671, "avail_gib": 12.8343, "sm_inflight": 0, "sm_calls": 0}
+{"t": 12.458, "phase": "capture_prep", "rss_gib": 4.6671, "avail_gib": 12.8374, "sm_inflight": 0, "sm_calls": 0}
+{"t": 12.73, "phase": "capture_prep", "rss_gib": 4.6671, "avail_gib": 12.8239, "sm_inflight": 0, "sm_calls": 0}
+{"t": 12.98, "phase": "capture_prep", "rss_gib": 4.6671, "avail_gib": 13.3634, "sm_inflight": 0, "sm_calls": 0}
+{"aiclk_mhz": 1350, "phase": "capture_prep", "load1": 2.89, "t_utc": "2026-09-25T21:16:47Z"}
+{"t": 13.228, "phase": "capture_prep", "rss_gib": 4.6671, "avail_gib": 13.3391, "sm_inflight": 0, "sm_calls": 0}
+{"t": 13.483, "phase": "capture_prep", "rss_gib": 4.6671, "avail_gib": 13.3393, "sm_inflight": 0, "sm_calls": 0}
+{"t": 13.765, "phase": "capture_prep", "rss_gib": 4.6671, "avail_gib": 13.2932, "sm_inflight": 0, "sm_calls": 0}
+{"t": 14.008, "phase": "capture_prep", "rss_gib": 4.6671, "avail_gib": 13.2393, "sm_inflight": 0, "sm_calls": 0}
+{"aiclk_mhz": 1350, "phase": "capture_prep", "load1": 2.89, "t_utc": "2026-09-25T21:16:48Z"}
+{"t": 14.261, "phase": "capture_prep", "rss_gib": 4.6671, "avail_gib": 13.1705, "sm_inflight": 0, "sm_calls": 0}
+{"t": 14.51, "phase": "capture_prep", "rss_gib": 4.6671, "avail_gib": 13.094, "sm_inflight": 0, "sm_calls": 0}
+{"t": 14.764, "phase": "capture_prep", "rss_gib": 4.6671, "avail_gib": 13.0903, "sm_inflight": 0, "sm_calls": 0}
+{"t": 15.026, "phase": "capture_prep", "rss_gib": 4.6671, "avail_gib": 13.0848, "sm_inflight": 0, "sm_calls": 0}
+{"aiclk_mhz": 1350, "phase": "capture_prep", "load1": 2.97, "t_utc": "2026-09-25T21:16:49Z"}
+{"t": 15.285, "phase": "capture_prep", "rss_gib": 4.6671, "avail_gib": 13.052, "sm_inflight": 0, "sm_calls": 0}
+{"t": 15.551, "phase": "capture_prep", "rss_gib": 4.6674, "avail_gib": 13.0681, "sm_inflight": 0, "sm_calls": 0}
+{"t": 15.752, "phase": "optimizer_init", "rss_gib": 4.4794, "avail_gib": 13.2775, "sm_inflight": 0, "sm_calls": 0}
+{"t": 15.958, "phase": "optimizer_init", "rss_gib": 4.7124, "avail_gib": 13.0023, "sm_inflight": 0, "sm_calls": 0}
+{"t": 16.159, "phase": "optimizer_init", "rss_gib": 4.891, "avail_gib": 12.8159, "sm_inflight": 0, "sm_calls": 0}
+{"aiclk_mhz": 1350, "phase": "optimizer_init", "load1": 2.97, "t_utc": "2026-09-25T21:16:50Z"}
+{"t": 16.359, "phase": "optimizer_init", "rss_gib": 5.7842, "avail_gib": 11.9236, "sm_inflight": 0, "sm_calls": 0}
+{"t": 16.597, "phase": "trunk_nograd", "rss_gib": 6.3806, "avail_gib": 11.3223, "sm_inflight": 0, "sm_calls": 0}
+{"t": 16.879, "phase": "trunk_nograd", "rss_gib": 6.3806, "avail_gib": 11.368, "sm_inflight": 0, "sm_calls": 0}
+{"t": 17.135, "phase": "trunk_nograd", "rss_gib": 6.3806, "avail_gib": 11.3678, "sm_inflight": 0, "sm_calls": 0}
+{"aiclk_mhz": 1350, "phase": "trunk_nograd", "load1": 2.97, "t_utc": "2026-09-25T21:16:51Z"}
+{"t": 17.401, "phase": "trunk_nograd", "rss_gib": 6.3808, "avail_gib": 11.3642, "sm_inflight": 0, "sm_calls": 0}
+{"t": 17.686, "phase": "trunk_nograd", "rss_gib": 6.3808, "avail_gib": 11.3654, "sm_inflight": 0, "sm_calls": 0}
+{"t": 17.961, "phase": "trunk_nograd", "rss_gib": 6.3808, "avail_gib": 11.3652, "sm_inflight": 0, "sm_calls": 0}
+{"t": 18.231, "phase": "trunk_nograd", "rss_gib": 6.3808, "avail_gib": 11.3121, "sm_inflight": 0, "sm_calls": 0}
+{"aiclk_mhz": 1350, "phase": "trunk_nograd", "load1": 2.97, "t_utc": "2026-09-25T21:16:52Z"}
+{"t": 18.508, "phase": "trunk_nograd", "rss_gib": 6.3808, "avail_gib": 11.1545, "sm_inflight": 0, "sm_calls": 0}
+{"t": 18.754, "phase": "trunk_nograd", "rss_gib": 6.3808, "avail_gib": 11.0928, "sm_inflight": 0, "sm_calls": 0}
+{"t": 19.012, "phase": "trunk_nograd", "rss_gib": 6.3808, "avail_gib": 10.9941, "sm_inflight": 0, "sm_calls": 0}
+{"t": 19.29, "phase": "trunk_nograd", "rss_gib": 6.3808, "avail_gib": 10.8478, "sm_inflight": 0, "sm_calls": 0}
+{"aiclk_mhz": 1343, "phase": "trunk_nograd", "load1": 2.97, "t_utc": "2026-09-25T21:16:53Z"}
+{"t": 19.581, "phase": "trunk_nograd", "rss_gib": 6.3808, "avail_gib": 10.8045, "sm_inflight": 0, "sm_calls": 0}
+{"verb": "trunk_forward", "s": 3.174, "rss_gib": 6.3808, "avail_gib": 10.8178, "sm_calls": 0, "t_utc": "2026-09-25T21:16:53Z"}
+{"t": 19.945, "phase": "import", "rss_gib": 6.3808, "avail_gib": 10.814, "sm_inflight": 0, "sm_calls": 0}
+{"t": 20.146, "phase": "trunk_taped", "rss_gib": 6.8726, "avail_gib": 10.3275, "sm_inflight": 0, "sm_calls": 0}
+{"aiclk_mhz": 1350, "phase": "trunk_taped", "load1": 2.9, "t_utc": "2026-09-25T21:16:54Z"}
+{"t": 20.346, "phase": "trunk_taped", "rss_gib": 6.5297, "avail_gib": 10.653, "sm_inflight": 0, "sm_calls": 0}
+{"t": 20.553, "phase": "trunk_taped", "rss_gib": 6.5476, "avail_gib": 10.5418, "sm_inflight": 0, "sm_calls": 0}
+{"t": 21.083, "phase": "trunk_taped", "rss_gib": 7.2508, "avail_gib": 11.3323, "sm_inflight": 1, "sm_calls": 1}
+{"t": 21.284, "phase": "trunk_taped", "rss_gib": 8.9966, "avail_gib": 8.7373, "sm_inflight": 1, "sm_calls": 1}
+{"aiclk_mhz": 1350, "phase": "trunk_taped", "load1": 2.9, "t_utc": "2026-09-25T21:16:55Z"}
+{"t": 21.486, "phase": "trunk_taped", "rss_gib": 8.4194, "avail_gib": 9.2984, "sm_inflight": 1, "sm_calls": 1}
+{"t": 22.039, "phase": "trunk_taped", "rss_gib": 8.0947, "avail_gib": 8.7928, "sm_inflight": 1, "sm_calls": 1}
+{"aiclk_mhz": 1350, "phase": "trunk_taped", "load1": 2.9, "t_utc": "2026-09-25T21:16:56Z"}
+{"t": 22.532, "phase": "trunk_taped", "rss_gib": 7.2611, "avail_gib": 10.4274, "sm_inflight": 1, "sm_calls": 2}
+{"t": 22.733, "phase": "trunk_taped", "rss_gib": 9.2307, "avail_gib": 8.4614, "sm_inflight": 1, "sm_calls": 2}
+{"t": 23.364, "phase": "trunk_taped", "rss_gib": 8.0945, "avail_gib": 8.785, "sm_inflight": 1, "sm_calls": 2}
+{"aiclk_mhz": 1350, "phase": "trunk_taped", "load1": 2.9, "t_utc": "2026-09-25T21:16:57Z"}
+{"t": 23.564, "phase": "trunk_taped", "rss_gib": 6.4952, "avail_gib": 11.168, "sm_inflight": 0, "sm_calls": 2}
+{"t": 23.769, "phase": "trunk_taped", "rss_gib": 6.4952, "avail_gib": 11.2385, "sm_inflight": 0, "sm_calls": 2}
+{"t": 24.174, "phase": "trunk_taped", "rss_gib": 7.3472, "avail_gib": 10.3772, "sm_inflight": 1, "sm_calls": 3}
+{"t": 24.375, "phase": "trunk_taped", "rss_gib": 9.3841, "avail_gib": 8.3358, "sm_inflight": 1, "sm_calls": 3}
+{"aiclk_mhz": 1350, "phase": "trunk_taped", "load1": 2.9, "t_utc": "2026-09-25T21:16:58Z"}
+{"t": 24.976, "phase": "trunk_taped", "rss_gib": 8.4025, "avail_gib": 8.6883, "sm_inflight": 1, "sm_calls": 3}
+{"t": 25.45, "phase": "trunk_taped", "rss_gib": 7.349, "avail_gib": 10.3799, "sm_inflight": 1, "sm_calls": 4}
+{"aiclk_mhz": 1350, "phase": "trunk_taped", "load1": 2.74, "t_utc": "2026-09-25T21:16:59Z"}
+{"t": 25.653, "phase": "trunk_taped", "rss_gib": 9.0917, "avail_gib": 8.6118, "sm_inflight": 1, "sm_calls": 4}
+{"t": 25.854, "phase": "trunk_taped", "rss_gib": 8.6891, "avail_gib": 8.9721, "sm_inflight": 1, "sm_calls": 4}
+{"t": 26.342, "phase": "trunk_taped", "rss_gib": 8.4437, "avail_gib": 8.4596, "sm_inflight": 1, "sm_calls": 4}
+{"aiclk_mhz": 1350, "phase": "trunk_taped", "load1": 2.74, "t_utc": "2026-09-25T21:17:00Z"}
+{"t": 26.555, "phase": "trunk_taped", "rss_gib": 6.5483, "avail_gib": 10.966, "sm_inflight": 0, "sm_calls": 4}
+{"t": 26.756, "phase": "trunk_taped", "rss_gib": 6.648, "avail_gib": 10.8092, "sm_inflight": 0, "sm_calls": 5}
+{"t": 26.956, "phase": "trunk_taped", "rss_gib": 7.0366, "avail_gib": 10.4055, "sm_inflight": 0, "sm_calls": 5}
+{"t": 27.168, "phase": "trunk_taped", "rss_gib": 6.9286, "avail_gib": 10.4186, "sm_inflight": 0, "sm_calls": 5}
+{"t": 27.369, "phase": "trunk_taped", "rss_gib": 6.9286, "avail_gib": 10.4443, "sm_inflight": 0, "sm_calls": 5}
+{"t": 27.889, "phase": "trunk_taped", "rss_gib": 7.3551, "avail_gib": 9.0195, "sm_inflight": 1, "sm_calls": 6}
+{"aiclk_mhz": 1350, "phase": "trunk_taped", "load1": 2.74, "t_utc": "2026-09-25T21:17:02Z"}
+{"t": 28.094, "phase": "trunk_taped", "rss_gib": 9.1155, "avail_gib": 8.0884, "sm_inflight": 1, "sm_calls": 6}
+{"t": 28.295, "phase": "trunk_taped", "rss_gib": 8.6814, "avail_gib": 8.4951, "sm_inflight": 1, "sm_calls": 6}
+{"t": 28.783, "phase": "trunk_taped", "rss_gib": 8.2773, "avail_gib": 8.1343, "sm_inflight": 1, "sm_calls": 6}
+{"aiclk_mhz": 1350, "phase": "trunk_taped", "load1": 2.74, "t_utc": "2026-09-25T21:17:03Z"}
+{"t": 28.992, "phase": "trunk_taped", "rss_gib": 6.9287, "avail_gib": 10.101, "sm_inflight": 0, "sm_calls": 6}
+{"t": 29.357, "phase": "trunk_taped", "rss_gib": 7.3508, "avail_gib": 10.3172, "sm_inflight": 1, "sm_calls": 7}
+{"t": 29.558, "phase": "trunk_taped", "rss_gib": 9.2922, "avail_gib": 8.3864, "sm_inflight": 1, "sm_calls": 7}
+{"aiclk_mhz": 1350, "phase": "trunk_taped", "load1": 2.6, "t_utc": "2026-09-25T21:17:04Z"}
+{"t": 30.181, "phase": "trunk_taped", "rss_gib": 8.1943, "avail_gib": 8.6671, "sm_inflight": 1, "sm_calls": 7}
+{"t": 30.383, "phase": "trunk_taped", "rss_gib": 6.6239, "avail_gib": 11.0871, "sm_inflight": 0, "sm_calls": 7}
+{"t": 30.584, "phase": "trunk_taped", "rss_gib": 7.021, "avail_gib": 10.693, "sm_inflight": 0, "sm_calls": 8}
+{"t": 30.809, "phase": "trunk_taped", "rss_gib": 7.0456, "avail_gib": 10.5892, "sm_inflight": 0, "sm_calls": 8}
+{"t": 31.01, "phase": "trunk_taped", "rss_gib": 6.9545, "avail_gib": 10.6835, "sm_inflight": 0, "sm_calls": 8}
+{"aiclk_mhz": 1350, "phase": "trunk_taped", "load1": 2.6, "t_utc": "2026-09-25T21:17:05Z"}
+{"t": 31.22, "phase": "trunk_taped", "rss_gib": 7.0457, "avail_gib": 10.5175, "sm_inflight": 0, "sm_calls": 8}
+{"t": 31.614, "phase": "trunk_taped", "rss_gib": 7.4678, "avail_gib": 10.1529, "sm_inflight": 1, "sm_calls": 9}
+{"t": 31.815, "phase": "trunk_taped", "rss_gib": 9.0306, "avail_gib": 8.6141, "sm_inflight": 1, "sm_calls": 9}
+{"t": 32.016, "phase": "trunk_taped", "rss_gib": 8.8941, "avail_gib": 8.7464, "sm_inflight": 1, "sm_calls": 9}
+{"t": 32.474, "phase": "trunk_taped", "rss_gib": 8.7773, "avail_gib": 8.4817, "sm_inflight": 1, "sm_calls": 9}
+{"aiclk_mhz": 1350, "phase": "trunk_taped", "load1": 2.6, "t_utc": "2026-09-25T21:17:06Z"}
+{"t": 33.05, "phase": "trunk_taped", "rss_gib": 7.468, "avail_gib": 9.3303, "sm_inflight": 1, "sm_calls": 10}
+{"t": 33.251, "phase": "trunk_taped", "rss_gib": 9.3449, "avail_gib": 8.3084, "sm_inflight": 1, "sm_calls": 10}
+{"t": 33.876, "phase": "trunk_taped", "rss_gib": 9.1386, "avail_gib": 8.5374, "sm_inflight": 1, "sm_calls": 10}
+{"aiclk_mhz": 1350, "phase": "trunk_taped", "load1": 2.6, "t_utc": "2026-09-25T21:17:08Z"}
+{"t": 34.086, "phase": "trunk_taped", "rss_gib": 6.5912, "avail_gib": 11.1217, "sm_inflight": 0, "sm_calls": 10}
+{"t": 34.287, "phase": "trunk_taped", "rss_gib": 7.1395, "avail_gib": 10.5626, "sm_inflight": 0, "sm_calls": 11}
+{"t": 34.489, "phase": "trunk_taped", "rss_gib": 7.0108, "avail_gib": 10.5824, "sm_inflight": 0, "sm_calls": 11}
+{"t": 34.69, "phase": "trunk_taped", "rss_gib": 7.0678, "avail_gib": 10.5648, "sm_inflight": 0, "sm_calls": 11}
+{"aiclk_mhz": 1350, "phase": "trunk_taped", "load1": 2.6, "t_utc": "2026-09-25T21:17:09Z"}
+{"t": 34.892, "phase": "trunk_taped", "rss_gib": 6.9164, "avail_gib": 10.5404, "sm_inflight": 0, "sm_calls": 11}
+{"t": 35.287, "phase": "trunk_taped", "rss_gib": 7.4329, "avail_gib": 10.0129, "sm_inflight": 1, "sm_calls": 12}
+{"t": 35.488, "phase": "trunk_taped", "rss_gib": 9.0848, "avail_gib": 8.3561, "sm_inflight": 1, "sm_calls": 12}
+{"t": 35.689, "phase": "trunk_taped", "rss_gib": 8.6421, "avail_gib": 8.7561, "sm_inflight": 1, "sm_calls": 12}
+{"aiclk_mhz": 1350, "phase": "trunk_taped", "load1": 2.72, "t_utc": "2026-09-25T21:17:10Z"}
+{"t": 36.186, "phase": "trunk_taped", "rss_gib": 8.2763, "avail_gib": 8.0722, "sm_inflight": 1, "sm_calls": 12}
+{"t": 36.773, "phase": "trunk_taped", "rss_gib": 7.4326, "avail_gib": 8.8464, "sm_inflight": 1, "sm_calls": 13}
+{"t": 36.974, "phase": "trunk_taped", "rss_gib": 8.952, "avail_gib": 8.168, "sm_inflight": 1, "sm_calls": 13}
+{"t": 37.175, "phase": "trunk_taped", "rss_gib": 8.5521, "avail_gib": 8.5539, "sm_inflight": 1, "sm_calls": 13}
+{"aiclk_mhz": 1350, "phase": "trunk_taped", "load1": 2.72, "t_utc": "2026-09-25T21:17:11Z"}
+{"t": 37.675, "phase": "trunk_taped", "rss_gib": 8.2762, "avail_gib": 8.5479, "sm_inflight": 1, "sm_calls": 13}
+{"t": 37.884, "phase": "trunk_taped", "rss_gib": 6.6942, "avail_gib": 10.9651, "sm_inflight": 0, "sm_calls": 13}
+{"t": 38.084, "phase": "trunk_taped", "rss_gib": 7.2448, "avail_gib": 10.4217, "sm_inflight": 0, "sm_calls": 13}
+{"aiclk_mhz": 1350, "phase": "trunk_taped", "load1": 2.72, "t_utc": "2026-09-25T21:17:12Z"}
+{"t": 38.285, "phase": "trunk_taped", "rss_gib": 6.8064, "avail_gib": 10.8611, "sm_inflight": 0, "sm_calls": 13}
+{"t": 38.522, "phase": "trunk_taped", "rss_gib": 6.9753, "avail_gib": 10.5538, "sm_inflight": 0, "sm_calls": 13}
+{"t": 38.915, "phase": "trunk_taped", "rss_gib": 7.5481, "avail_gib": 10.1054, "sm_inflight": 1, "sm_calls": 14}
+{"t": 39.116, "phase": "trunk_taped", "rss_gib": 9.431, "avail_gib": 8.2365, "sm_inflight": 1, "sm_calls": 14}
+{"aiclk_mhz": 1350, "phase": "trunk_taped", "load1": 2.72, "t_utc": "2026-09-25T21:17:13Z"}
+{"t": 39.731, "phase": "trunk_taped", "rss_gib": 8.3816, "avail_gib": 8.4446, "sm_inflight": 1, "sm_calls": 14}
+{"aiclk_mhz": 1350, "phase": "trunk_taped", "load1": 2.9, "t_utc": "2026-09-25T21:17:14Z"}
+{"t": 40.35, "phase": "trunk_taped", "rss_gib": 7.5678, "avail_gib": 9.2311, "sm_inflight": 1, "sm_calls": 15}
+{"t": 40.551, "phase": "trunk_taped", "rss_gib": 9.3065, "avail_gib": 8.3166, "sm_inflight": 1, "sm_calls": 15}
+{"t": 41.185, "phase": "trunk_taped", "rss_gib": 8.6678, "avail_gib": 8.4299, "sm_inflight": 1, "sm_calls": 15}
+{"aiclk_mhz": 1350, "phase": "trunk_taped", "load1": 2.9, "t_utc": "2026-09-25T21:17:15Z"}
+{"t": 41.386, "phase": "trunk_taped", "rss_gib": 6.7982, "avail_gib": 10.8562, "sm_inflight": 0, "sm_calls": 15}
+{"t": 41.587, "phase": "trunk_taped", "rss_gib": 7.1975, "avail_gib": 10.4609, "sm_inflight": 0, "sm_calls": 15}
+{"t": 41.788, "phase": "trunk_taped", "rss_gib": 6.978, "avail_gib": 10.6847, "sm_inflight": 0, "sm_calls": 15}
+{"t": 42.009, "phase": "trunk_taped", "rss_gib": 6.9871, "avail_gib": 10.528, "sm_inflight": 0, "sm_calls": 15}
+{"t": 42.402, "phase": "trunk_taped", "rss_gib": 7.5498, "avail_gib": 9.266, "sm_inflight": 1, "sm_calls": 16}
+{"aiclk_mhz": 1350, "phase": "trunk_taped", "load1": 2.9, "t_utc": "2026-09-25T21:17:16Z"}
+{"t": 42.605, "phase": "trunk_taped", "rss_gib": 9.1095, "avail_gib": 8.5464, "sm_inflight": 1, "sm_calls": 16}
+{"t": 42.806, "phase": "trunk_taped", "rss_gib": 8.898, "avail_gib": 8.7671, "sm_inflight": 1, "sm_calls": 16}
+{"t": 43.269, "phase": "trunk_taped", "rss_gib": 8.3933, "avail_gib": 8.2399, "sm_inflight": 1, "sm_calls": 16}
+{"aiclk_mhz": 1350, "phase": "trunk_taped", "load1": 2.9, "t_utc": "2026-09-25T21:17:17Z"}
+{"t": 43.472, "phase": "trunk_taped", "rss_gib": 7.1278, "avail_gib": 10.2189, "sm_inflight": 0, "sm_calls": 16}
+{"t": 43.889, "phase": "trunk_taped", "rss_gib": 7.5502, "avail_gib": 9.7776, "sm_inflight": 1, "sm_calls": 17}
+{"t": 44.09, "phase": "trunk_taped", "rss_gib": 9.0336, "avail_gib": 8.2704, "sm_inflight": 1, "sm_calls": 17}
+{"t": 44.291, "phase": "trunk_taped", "rss_gib": 8.6321, "avail_gib": 8.6444, "sm_inflight": 1, "sm_calls": 17}
+{"aiclk_mhz": 1350, "phase": "trunk_taped", "load1": 2.9, "t_utc": "2026-09-25T21:17:19Z"}
+{"t": 44.792, "phase": "trunk_taped", "rss_gib": 8.6212, "avail_gib": 7.9187, "sm_inflight": 1, "sm_calls": 17}
+{"t": 44.993, "phase": "trunk_taped", "rss_gib": 6.7591, "avail_gib": 10.3655, "sm_inflight": 0, "sm_calls": 17}
+{"t": 45.194, "phase": "trunk_taped", "rss_gib": 6.9875, "avail_gib": 10.1311, "sm_inflight": 0, "sm_calls": 18}
+{"t": 45.414, "phase": "trunk_taped", "rss_gib": 7.1278, "avail_gib": 9.9349, "sm_inflight": 0, "sm_calls": 18}
+{"t": 45.615, "phase": "trunk_taped", "rss_gib": 7.146, "avail_gib": 9.9845, "sm_inflight": 0, "sm_calls": 18}
+{"aiclk_mhz": 1350, "phase": "trunk_taped", "load1": 3.47, "t_utc": "2026-09-25T21:17:20Z"}
+{"t": 45.819, "phase": "trunk_taped", "rss_gib": 7.1278, "avail_gib": 9.9111, "sm_inflight": 0, "sm_calls": 18}
+{"t": 46.221, "phase": "trunk_taped", "rss_gib": 7.5499, "avail_gib": 10.122, "sm_inflight": 1, "sm_calls": 19}
+{"t": 46.422, "phase": "trunk_taped", "rss_gib": 9.1332, "avail_gib": 8.5259, "sm_inflight": 1, "sm_calls": 19}
+{"t": 46.623, "phase": "trunk_taped", "rss_gib": 8.7476, "avail_gib": 8.8834, "sm_inflight": 1, "sm_calls": 19}
+{"aiclk_mhz": 1350, "phase": "trunk_taped", "load1": 3.47, "t_utc": "2026-09-25T21:17:21Z"}
+{"t": 47.092, "phase": "trunk_taped", "rss_gib": 8.6643, "avail_gib": 8.3893, "sm_inflight": 1, "sm_calls": 19}
+{"t": 47.679, "phase": "trunk_taped", "rss_gib": 7.5498, "avail_gib": 9.2769, "sm_inflight": 1, "sm_calls": 20}
+{"t": 47.88, "phase": "trunk_taped", "rss_gib": 9.453, "avail_gib": 8.2249, "sm_inflight": 1, "sm_calls": 20}
+{"aiclk_mhz": 1350, "phase": "trunk_taped", "load1": 3.47, "t_utc": "2026-09-25T21:17:22Z"}
+{"t": 48.483, "phase": "trunk_taped", "rss_gib": 8.3933, "avail_gib": 8.4323, "sm_inflight": 1, "sm_calls": 20}
+{"t": 48.684, "phase": "trunk_taped", "rss_gib": 6.8462, "avail_gib": 10.823, "sm_inflight": 0, "sm_calls": 20}
+{"t": 48.885, "phase": "trunk_taped", "rss_gib": 7.1712, "avail_gib": 10.5003, "sm_inflight": 0, "sm_calls": 21}
+{"t": 49.087, "phase": "trunk_taped", "rss_gib": 6.9036, "avail_gib": 10.7734, "sm_inflight": 0, "sm_calls": 21}
+{"t": 49.323, "phase": "trunk_taped", "rss_gib": 6.9871, "avail_gib": 10.5451, "sm_inflight": 0, "sm_calls": 21}
+{"aiclk_mhz": 1350, "phase": "trunk_taped", "load1": 3.47, "t_utc": "2026-09-25T21:17:24Z"}
+{"t": 49.844, "phase": "trunk_taped", "rss_gib": 7.5521, "avail_gib": 10.1095, "sm_inflight": 1, "sm_calls": 22}
+{"t": 50.045, "phase": "trunk_taped", "rss_gib": 9.1952, "avail_gib": 8.4548, "sm_inflight": 1, "sm_calls": 22}
+{"t": 50.246, "phase": "trunk_taped", "rss_gib": 8.8842, "avail_gib": 8.7538, "sm_inflight": 1, "sm_calls": 22}
+{"t": 50.706, "phase": "trunk_taped", "rss_gib": 8.8827, "avail_gib": 8.4441, "sm_inflight": 1, "sm_calls": 22}
+{"aiclk_mhz": 1350, "phase": "trunk_taped", "load1": 3.67, "t_utc": "2026-09-25T21:17:25Z"}
+{"t": 50.922, "phase": "trunk_taped", "rss_gib": 7.1278, "avail_gib": 10.4896, "sm_inflight": 0, "sm_calls": 22}
+{"t": 51.337, "phase": "trunk_taped", "rss_gib": 7.5521, "avail_gib": 10.0921, "sm_inflight": 1, "sm_calls": 23}
+{"t": 51.538, "phase": "trunk_taped", "rss_gib": 9.1227, "avail_gib": 8.5085, "sm_inflight": 1, "sm_calls": 23}
+{"t": 51.739, "phase": "trunk_taped", "rss_gib": 8.5111, "avail_gib": 9.0072, "sm_inflight": 1, "sm_calls": 23}
+{"aiclk_mhz": 1350, "phase": "trunk_taped", "load1": 3.67, "t_utc": "2026-09-25T21:17:26Z"}
+{"t": 52.322, "phase": "trunk_taped", "rss_gib": 8.9629, "avail_gib": 8.1555, "sm_inflight": 1, "sm_calls": 23}
+{"t": 52.523, "phase": "trunk_taped", "rss_gib": 6.6949, "avail_gib": 10.6766, "sm_inflight": 0, "sm_calls": 23}
+{"t": 52.724, "phase": "trunk_taped", "rss_gib": 7.1421, "avail_gib": 10.1692, "sm_inflight": 0, "sm_calls": 24}
+{"t": 52.937, "phase": "trunk_taped", "rss_gib": 7.0809, "avail_gib": 10.0811, "sm_inflight": 0, "sm_calls": 24}
+{"t": 53.138, "phase": "trunk_taped", "rss_gib": 7.0406, "avail_gib": 10.1212, "sm_inflight": 0, "sm_calls": 24}
+{"aiclk_mhz": 1350, "phase": "trunk_taped", "load1": 3.67, "t_utc": "2026-09-25T21:17:27Z"}
+{"t": 53.352, "phase": "trunk_taped", "rss_gib": 6.9768, "avail_gib": 10.0533, "sm_inflight": 0, "sm_calls": 24}
+{"t": 53.761, "phase": "trunk_taped", "rss_gib": 7.5031, "avail_gib": 9.585, "sm_inflight": 1, "sm_calls": 25}
+{"t": 53.962, "phase": "trunk_taped", "rss_gib": 9.0458, "avail_gib": 8.0928, "sm_inflight": 1, "sm_calls": 25}
+{"t": 54.163, "phase": "trunk_taped", "rss_gib": 8.6774, "avail_gib": 8.4528, "sm_inflight": 1, "sm_calls": 25}
+{"aiclk_mhz": 1350, "phase": "trunk_taped", "load1": 3.67, "t_utc": "2026-09-25T21:17:28Z"}
+{"t": 54.65, "phase": "trunk_taped", "rss_gib": 8.4222, "avail_gib": 8.4804, "sm_inflight": 1, "sm_calls": 25}
+{"t": 55.233, "phase": "trunk_taped", "rss_gib": 7.5031, "avail_gib": 10.163, "sm_inflight": 1, "sm_calls": 26}
+{"t": 55.433, "phase": "trunk_taped", "rss_gib": 9.2078, "avail_gib": 8.4564, "sm_inflight": 1, "sm_calls": 26}
+{"aiclk_mhz": 1350, "phase": "trunk_taped", "load1": 3.46, "t_utc": "2026-09-25T21:17:30Z"}
+{"t": 56.05, "phase": "trunk_taped", "rss_gib": 8.3467, "avail_gib": 8.4728, "sm_inflight": 1, "sm_calls": 26}
+{"t": 56.251, "phase": "trunk_taped", "rss_gib": 6.7845, "avail_gib": 10.8623, "sm_inflight": 0, "sm_calls": 26}
+{"t": 56.453, "phase": "trunk_taped", "rss_gib": 7.1713, "avail_gib": 10.4531, "sm_inflight": 0, "sm_calls": 27}
+{"t": 56.654, "phase": "trunk_taped", "rss_gib": 6.7084, "avail_gib": 10.9136, "sm_inflight": 0, "sm_calls": 27}
+{"t": 56.856, "phase": "trunk_taped", "rss_gib": 7.1264, "avail_gib": 10.4928, "sm_inflight": 0, "sm_calls": 27}
+{"t": 57.436, "phase": "trunk_taped", "rss_gib": 7.5366, "avail_gib": 10.1304, "sm_inflight": 1, "sm_calls": 28}
+{"aiclk_mhz": 1350, "phase": "trunk_taped", "load1": 3.46, "t_utc": "2026-09-25T21:17:31Z"}
+{"t": 57.638, "phase": "trunk_taped", "rss_gib": 9.4532, "avail_gib": 8.2217, "sm_inflight": 1, "sm_calls": 28}
+{"t": 58.232, "phase": "trunk_taped", "rss_gib": 8.7619, "avail_gib": 8.4468, "sm_inflight": 1, "sm_calls": 28}
+{"aiclk_mhz": 1350, "phase": "trunk_taped", "load1": 3.46, "t_utc": "2026-09-25T21:17:33Z"}
+{"t": 58.541, "phase": "trunk_taped", "rss_gib": 8.37, "avail_gib": 10.1352, "sm_inflight": 1, "sm_calls": 29}
+{"t": 59.021, "phase": "trunk_taped", "rss_gib": 9.1885, "avail_gib": 8.4221, "sm_inflight": 1, "sm_calls": 29}
+{"t": 59.222, "phase": "trunk_taped", "rss_gib": 8.8414, "avail_gib": 8.7621, "sm_inflight": 1, "sm_calls": 29}
+{"t": 59.677, "phase": "trunk_taped", "rss_gib": 8.4706, "avail_gib": 8.3941, "sm_inflight": 1, "sm_calls": 29}
+{"aiclk_mhz": 1350, "phase": "trunk_taped", "load1": 3.46, "t_utc": "2026-09-25T21:17:34Z"}
+{"t": 59.879, "phase": "trunk_taped", "rss_gib": 6.6825, "avail_gib": 10.8674, "sm_inflight": 0, "sm_calls": 29}
+{"t": 60.08, "phase": "trunk_taped", "rss_gib": 7.1987, "avail_gib": 10.3227, "sm_inflight": 0, "sm_calls": 30}
+{"t": 60.282, "phase": "trunk_taped", "rss_gib": 7.1044, "avail_gib": 10.3237, "sm_inflight": 0, "sm_calls": 30}
+{"t": 60.483, "phase": "trunk_taped", "rss_gib": 7.146, "avail_gib": 10.2832, "sm_inflight": 0, "sm_calls": 30}
+{"t": 60.685, "phase": "trunk_taped", "rss_gib": 7.1044, "avail_gib": 10.2031, "sm_inflight": 0, "sm_calls": 30}
+{"t": 61.095, "phase": "trunk_taped", "rss_gib": 7.601, "avail_gib": 9.765, "sm_inflight": 1, "sm_calls": 31}
+{"aiclk_mhz": 1350, "phase": "trunk_taped", "load1": 3.58, "t_utc": "2026-09-25T21:17:35Z"}
+{"t": 61.296, "phase": "trunk_taped", "rss_gib": 9.1761, "avail_gib": 8.1797, "sm_inflight": 1, "sm_calls": 31}
+{"t": 61.497, "phase": "trunk_taped", "rss_gib": 8.8, "avail_gib": 8.4969, "sm_inflight": 1, "sm_calls": 31}
+{"t": 61.969, "phase": "trunk_taped", "rss_gib": 8.9375, "avail_gib": 7.942, "sm_inflight": 1, "sm_calls": 31}
+{"aiclk_mhz": 1350, "phase": "trunk_taped", "load1": 3.58, "t_utc": "2026-09-25T21:17:36Z"}
+{"t": 62.169, "phase": "trunk_taped", "rss_gib": 6.8232, "avail_gib": 10.2004, "sm_inflight": 0, "sm_calls": 31}
+{"t": 62.586, "phase": "trunk_taped", "rss_gib": 7.5268, "avail_gib": 9.6006, "sm_inflight": 1, "sm_calls": 32}
+{"t": 62.787, "phase": "trunk_taped", "rss_gib": 9.2467, "avail_gib": 7.8855, "sm_inflight": 1, "sm_calls": 32}
+{"t": 62.988, "phase": "trunk_taped", "rss_gib": 9.0368, "avail_gib": 8.0902, "sm_inflight": 1, "sm_calls": 32}
+{"aiclk_mhz": 1350, "phase": "trunk_taped", "load1": 3.58, "t_utc": "2026-09-25T21:17:37Z"}
+{"t": 63.44, "phase": "trunk_taped", "rss_gib": 8.3699, "avail_gib": 8.7944, "sm_inflight": 1, "sm_calls": 32}
+{"t": 63.641, "phase": "trunk_taped", "rss_gib": 6.7886, "avail_gib": 10.8561, "sm_inflight": 0, "sm_calls": 32}
+{"t": 63.843, "phase": "trunk_taped", "rss_gib": 7.2439, "avail_gib": 10.3879, "sm_inflight": 0, "sm_calls": 33}
+{"t": 64.044, "phase": "trunk_taped", "rss_gib": 6.8079, "avail_gib": 10.826, "sm_inflight": 0, "sm_calls": 33}
+{"t": 64.246, "phase": "trunk_taped", "rss_gib": 7.1614, "avail_gib": 10.4707, "sm_inflight": 0, "sm_calls": 33}
+{"aiclk_mhz": 1350, "phase": "trunk_taped", "load1": 3.58, "t_utc": "2026-09-25T21:17:39Z"}
+{"t": 64.819, "phase": "trunk_taped", "rss_gib": 7.5462, "avail_gib": 10.1396, "sm_inflight": 1, "sm_calls": 34}
+{"t": 65.02, "phase": "trunk_taped", "rss_gib": 9.4394, "avail_gib": 8.2306, "sm_inflight": 1, "sm_calls": 34}
+{"t": 65.615, "phase": "trunk_taped", "rss_gib": 8.7481, "avail_gib": 8.4584, "sm_inflight": 1, "sm_calls": 34}
+{"aiclk_mhz": 1350, "phase": "trunk_taped", "load1": 3.77, "t_utc": "2026-09-25T21:17:40Z"}
+{"t": 66.201, "phase": "trunk_taped", "rss_gib": 7.5265, "avail_gib": 10.1514, "sm_inflight": 1, "sm_calls": 35}
+{"t": 66.403, "phase": "trunk_taped", "rss_gib": 9.2665, "avail_gib": 8.406, "sm_inflight": 1, "sm_calls": 35}
+{"t": 66.604, "phase": "trunk_taped", "rss_gib": 9.211, "avail_gib": 8.4601, "sm_inflight": 1, "sm_calls": 35}
+{"t": 67.02, "phase": "trunk_taped", "rss_gib": 8.6578, "avail_gib": 8.4557, "sm_inflight": 1, "sm_calls": 35}
+{"aiclk_mhz": 1350, "phase": "trunk_taped", "load1": 3.77, "t_utc": "2026-09-25T21:17:41Z"}
+{"t": 67.221, "phase": "trunk_taped", "rss_gib": 6.8166, "avail_gib": 10.8283, "sm_inflight": 0, "sm_calls": 35}
+{"t": 67.422, "phase": "trunk_taped", "rss_gib": 7.2044, "avail_gib": 10.4327, "sm_inflight": 0, "sm_calls": 36}
+{"t": 67.623, "phase": "trunk_taped", "rss_gib": 6.7904, "avail_gib": 10.8474, "sm_inflight": 0, "sm_calls": 36}
+{"t": 67.825, "phase": "trunk_taped", "rss_gib": 7.1695, "avail_gib": 10.4652, "sm_inflight": 0, "sm_calls": 36}
+{"t": 68.388, "phase": "trunk_taped", "rss_gib": 7.5306, "avail_gib": 10.1504, "sm_inflight": 1, "sm_calls": 37}
+{"aiclk_mhz": 1350, "phase": "trunk_taped", "load1": 3.77, "t_utc": "2026-09-25T21:17:42Z"}
+{"t": 68.589, "phase": "trunk_taped", "rss_gib": 9.4064, "avail_gib": 8.2578, "sm_inflight": 1, "sm_calls": 37}
+{"t": 68.79, "phase": "trunk_taped", "rss_gib": 9.1637, "avail_gib": 8.4716, "sm_inflight": 1, "sm_calls": 37}
+{"t": 69.233, "phase": "trunk_taped", "rss_gib": 8.7948, "avail_gib": 8.268, "sm_inflight": 1, "sm_calls": 37}
+{"aiclk_mhz": 1350, "phase": "trunk_taped", "load1": 3.77, "t_utc": "2026-09-25T21:17:43Z"}
+{"t": 69.435, "phase": "trunk_taped", "rss_gib": 7.1044, "avail_gib": 10.2718, "sm_inflight": 0, "sm_calls": 37}
+{"t": 69.836, "phase": "trunk_taped", "rss_gib": 7.5265, "avail_gib": 9.8306, "sm_inflight": 1, "sm_calls": 38}
+{"t": 70.037, "phase": "trunk_taped", "rss_gib": 9.0472, "avail_gib": 8.2369, "sm_inflight": 1, "sm_calls": 38}
+{"t": 70.238, "phase": "trunk_taped", "rss_gib": 8.6535, "avail_gib": 8.5455, "sm_inflight": 1, "sm_calls": 38}
+{"t": 70.73, "phase": "trunk_taped", "rss_gib": 9.0762, "avail_gib": 7.9271, "sm_inflight": 1, "sm_calls": 38}
+{"aiclk_mhz": 1350, "phase": "trunk_taped", "load1": 3.63, "t_utc": "2026-09-25T21:17:44Z"}
+{"t": 70.936, "phase": "trunk_taped", "rss_gib": 6.6826, "avail_gib": 10.4301, "sm_inflight": 0, "sm_calls": 38}
+{"t": 71.136, "phase": "trunk_taped", "rss_gib": 7.1674, "avail_gib": 9.9278, "sm_inflight": 0, "sm_calls": 39}
+{"t": 71.349, "phase": "trunk_taped", "rss_gib": 7.1043, "avail_gib": 9.9213, "sm_inflight": 0, "sm_calls": 39}
+{"t": 71.549, "phase": "trunk_taped", "rss_gib": 7.1011, "avail_gib": 9.9802, "sm_inflight": 0, "sm_calls": 39}
+{"t": 71.759, "phase": "trunk_taped", "rss_gib": 7.1747, "avail_gib": 9.8877, "sm_inflight": 0, "sm_calls": 39}
+{"aiclk_mhz": 1350, "phase": "trunk_taped", "load1": 3.63, "t_utc": "2026-09-25T21:17:45Z"}
+{"t": 72.163, "phase": "trunk_taped", "rss_gib": 7.6517, "avail_gib": 9.9841, "sm_inflight": 1, "sm_calls": 40}
+{"t": 72.364, "phase": "trunk_taped", "rss_gib": 9.2182, "avail_gib": 8.4342, "sm_inflight": 1, "sm_calls": 40}
+{"t": 72.565, "phase": "trunk_taped", "rss_gib": 8.8822, "avail_gib": 8.7787, "sm_inflight": 1, "sm_calls": 40}
+{"aiclk_mhz": 1350, "phase": "trunk_taped", "load1": 3.63, "t_utc": "2026-09-25T21:17:47Z"}
+{"t": 73.024, "phase": "trunk_taped", "rss_gib": 8.7987, "avail_gib": 8.4365, "sm_inflight": 1, "sm_calls": 40}
+{"t": 73.629, "phase": "trunk_taped", "rss_gib": 7.5264, "avail_gib": 10.112, "sm_inflight": 1, "sm_calls": 41}
+{"t": 73.83, "phase": "trunk_taped", "rss_gib": 9.0581, "avail_gib": 8.5759, "sm_inflight": 1, "sm_calls": 41}
+{"aiclk_mhz": 1350, "phase": "trunk_taped", "load1": 3.63, "t_utc": "2026-09-25T21:17:48Z"}
+{"t": 74.031, "phase": "trunk_taped", "rss_gib": 8.634, "avail_gib": 8.9943, "sm_inflight": 1, "sm_calls": 41}
+{"t": 74.519, "phase": "trunk_taped", "rss_gib": 8.5136, "avail_gib": 8.3954, "sm_inflight": 1, "sm_calls": 41}
+{"t": 74.725, "phase": "trunk_taped", "rss_gib": 6.7104, "avail_gib": 10.8594, "sm_inflight": 0, "sm_calls": 41}
+{"t": 74.926, "phase": "trunk_taped", "rss_gib": 7.1791, "avail_gib": 10.3739, "sm_inflight": 0, "sm_calls": 42}
+{"aiclk_mhz": 1350, "phase": "trunk_taped", "load1": 3.5, "t_utc": "2026-09-25T21:17:49Z"}
+{"t": 75.133, "phase": "trunk_taped", "rss_gib": 7.1277, "avail_gib": 10.3935, "sm_inflight": 0, "sm_calls": 42}
+{"t": 75.334, "phase": "trunk_taped", "rss_gib": 7.2006, "avail_gib": 10.3792, "sm_inflight": 0, "sm_calls": 42}
+{"t": 75.935, "phase": "trunk_taped", "rss_gib": 7.5518, "avail_gib": 10.0804, "sm_inflight": 1, "sm_calls": 43}
+{"aiclk_mhz": 1350, "phase": "trunk_taped", "load1": 3.5, "t_utc": "2026-09-25T21:17:50Z"}
+{"t": 76.136, "phase": "trunk_taped", "rss_gib": 9.134, "avail_gib": 8.4993, "sm_inflight": 1, "sm_calls": 43}
+{"t": 76.337, "phase": "trunk_taped", "rss_gib": 8.9527, "avail_gib": 8.6737, "sm_inflight": 1, "sm_calls": 43}
+{"t": 76.792, "phase": "trunk_taped", "rss_gib": 8.826, "avail_gib": 8.3725, "sm_inflight": 1, "sm_calls": 43}
+{"aiclk_mhz": 1350, "phase": "trunk_taped", "load1": 3.5, "t_utc": "2026-09-25T21:17:51Z"}
+{"t": 77.427, "phase": "trunk_taped", "rss_gib": 7.5521, "avail_gib": 9.8968, "sm_inflight": 1, "sm_calls": 44}
+{"t": 77.628, "phase": "trunk_taped", "rss_gib": 9.0184, "avail_gib": 8.3989, "sm_inflight": 1, "sm_calls": 44}
+{"t": 77.828, "phase": "trunk_taped", "rss_gib": 8.6733, "avail_gib": 8.6926, "sm_inflight": 1, "sm_calls": 44}
+{"t": 78.332, "phase": "trunk_taped", "rss_gib": 8.3945, "avail_gib": 8.0101, "sm_inflight": 1, "sm_calls": 44}
+{"aiclk_mhz": 1350, "phase": "trunk_taped", "load1": 3.5, "t_utc": "2026-09-25T21:17:52Z"}
+{"t": 78.533, "phase": "trunk_taped", "rss_gib": 6.7057, "avail_gib": 10.4422, "sm_inflight": 0, "sm_calls": 44}
+{"t": 78.734, "phase": "trunk_taped", "rss_gib": 7.0757, "avail_gib": 10.0181, "sm_inflight": 0, "sm_calls": 45}
+{"t": 78.973, "phase": "trunk_taped", "rss_gib": 7.1278, "avail_gib": 9.8488, "sm_inflight": 0, "sm_calls": 45}
+{"t": 79.173, "phase": "trunk_taped", "rss_gib": 7.1362, "avail_gib": 9.8999, "sm_inflight": 0, "sm_calls": 45}
+{"t": 79.412, "phase": "trunk_taped", "rss_gib": 7.1278, "avail_gib": 9.8495, "sm_inflight": 0, "sm_calls": 45}
+{"aiclk_mhz": 1350, "phase": "trunk_taped", "load1": 3.5, "t_utc": "2026-09-25T21:17:54Z"}
+{"t": 79.843, "phase": "trunk_taped", "rss_gib": 7.5499, "avail_gib": 8.6771, "sm_inflight": 1, "sm_calls": 46}
+{"t": 80.043, "phase": "trunk_taped", "rss_gib": 9.0852, "avail_gib": 8.0104, "sm_inflight": 1, "sm_calls": 46}
+{"t": 80.244, "phase": "trunk_taped", "rss_gib": 8.6884, "avail_gib": 8.3802, "sm_inflight": 1, "sm_calls": 46}
+{"t": 80.733, "phase": "trunk_taped", "rss_gib": 8.9474, "avail_gib": 8.3701, "sm_inflight": 1, "sm_calls": 46}
+{"aiclk_mhz": 1350, "phase": "trunk_taped", "load1": 3.46, "t_utc": "2026-09-25T21:17:55Z"}
+{"t": 81.339, "phase": "trunk_taped", "rss_gib": 7.55, "avail_gib": 9.9903, "sm_inflight": 1, "sm_calls": 47}
+{"t": 81.54, "phase": "trunk_taped", "rss_gib": 9.1111, "avail_gib": 8.4962, "sm_inflight": 1, "sm_calls": 47}
+{"t": 81.741, "phase": "trunk_taped", "rss_gib": 8.7457, "avail_gib": 8.8863, "sm_inflight": 1, "sm_calls": 47}
+{"t": 82.215, "phase": "trunk_taped", "rss_gib": 8.428, "avail_gib": 8.3834, "sm_inflight": 1, "sm_calls": 47}
+{"aiclk_mhz": 1350, "phase": "trunk_taped", "load1": 3.46, "t_utc": "2026-09-25T21:17:56Z"}
+{"t": 82.416, "phase": "trunk_taped", "rss_gib": 6.7062, "avail_gib": 10.8811, "sm_inflight": 0, "sm_calls": 47}
+{"t": 82.617, "phase": "trunk_taped", "rss_gib": 7.2278, "avail_gib": 10.3516, "sm_inflight": 0, "sm_calls": 48}
+{"t": 82.817, "phase": "trunk_taped", "rss_gib": 6.9873, "avail_gib": 10.4708, "sm_inflight": 0, "sm_calls": 48}
+{"t": 83.018, "phase": "trunk_taped", "rss_gib": 7.183, "avail_gib": 10.3958, "sm_inflight": 0, "sm_calls": 48}
+{"aiclk_mhz": 1350, "phase": "trunk_taped", "load1": 3.46, "t_utc": "2026-09-25T21:17:57Z"}
+{"t": 83.223, "phase": "trunk_taped", "rss_gib": 6.9871, "avail_gib": 10.3846, "sm_inflight": 0, "sm_calls": 48}
+{"t": 83.627, "phase": "trunk_taped", "rss_gib": 7.5559, "avail_gib": 10.0597, "sm_inflight": 1, "sm_calls": 49}
+{"t": 83.828, "phase": "trunk_taped", "rss_gib": 9.0709, "avail_gib": 8.5608, "sm_inflight": 1, "sm_calls": 49}
+{"t": 84.029, "phase": "trunk_taped", "rss_gib": 8.7044, "avail_gib": 8.9178, "sm_inflight": 1, "sm_calls": 49}
+{"aiclk_mhz": 1350, "phase": "trunk_taped", "load1": 3.46, "t_utc": "2026-09-25T21:17:58Z"}
+{"t": 84.531, "phase": "trunk_taped", "rss_gib": 8.4434, "avail_gib": 8.3787, "sm_inflight": 1, "sm_calls": 49}
+{"t": 84.734, "phase": "trunk_taped", "rss_gib": 7.1278, "avail_gib": 10.4231, "sm_inflight": 0, "sm_calls": 49}
+{"t": 85.143, "phase": "trunk_taped", "rss_gib": 7.5521, "avail_gib": 10.0614, "sm_inflight": 1, "sm_calls": 50}
+{"t": 85.344, "phase": "trunk_taped", "rss_gib": 9.1475, "avail_gib": 8.4804, "sm_inflight": 1, "sm_calls": 50}
+{"aiclk_mhz": 1350, "phase": "trunk_taped", "load1": 3.34, "t_utc": "2026-09-25T21:17:59Z"}
+{"t": 85.545, "phase": "trunk_taped", "rss_gib": 8.7123, "avail_gib": 8.8984, "sm_inflight": 1, "sm_calls": 50}
+{"t": 86.039, "phase": "trunk_taped", "rss_gib": 8.3933, "avail_gib": 8.294, "sm_inflight": 1, "sm_calls": 50}
+{"t": 86.243, "phase": "trunk_taped", "rss_gib": 6.7277, "avail_gib": 10.6931, "sm_inflight": 0, "sm_calls": 50}
+{"t": 86.444, "phase": "trunk_taped", "rss_gib": 7.1277, "avail_gib": 10.2388, "sm_inflight": 0, "sm_calls": 51}
+{"aiclk_mhz": 1350, "phase": "trunk_taped", "load1": 3.34, "t_utc": "2026-09-25T21:18:00Z"}
+{"t": 86.658, "phase": "trunk_taped", "rss_gib": 7.1279, "avail_gib": 10.1582, "sm_inflight": 0, "sm_calls": 51}
+{"t": 86.859, "phase": "trunk_taped", "rss_gib": 7.0931, "avail_gib": 10.2365, "sm_inflight": 0, "sm_calls": 51}
+{"t": 87.1, "phase": "trunk_taped", "rss_gib": 7.1277, "avail_gib": 10.0428, "sm_inflight": 0, "sm_calls": 51}
+{"t": 87.524, "phase": "trunk_taped", "rss_gib": 8.3931, "avail_gib": 8.7547, "sm_inflight": 1, "sm_calls": 52}
+{"aiclk_mhz": 1350, "phase": "trunk_taped", "load1": 3.34, "t_utc": "2026-09-25T21:18:01Z"}
+{"t": 87.726, "phase": "trunk_taped", "rss_gib": 8.9303, "avail_gib": 8.1525, "sm_inflight": 1, "sm_calls": 52}
+{"t": 87.926, "phase": "trunk_taped", "rss_gib": 8.3928, "avail_gib": 8.6217, "sm_inflight": 1, "sm_calls": 52}
+{"t": 88.456, "phase": "trunk_taped", "rss_gib": 8.8069, "avail_gib": 7.7236, "sm_inflight": 1, "sm_calls": 52}
+{"aiclk_mhz": 1350, "phase": "trunk_taped", "load1": 3.34, "t_utc": "2026-09-25T21:18:02Z"}
+{"t": 88.677, "phase": "trunk_taped", "rss_gib": 7.1278, "avail_gib": 9.7692, "sm_inflight": 0, "sm_calls": 52}
+{"t": 89.121, "phase": "trunk_taped", "rss_gib": 7.5496, "avail_gib": 9.4398, "sm_inflight": 1, "sm_calls": 53}
+{"t": 89.322, "phase": "trunk_taped", "rss_gib": 8.9838, "avail_gib": 8.0219, "sm_inflight": 1, "sm_calls": 53}
+{"t": 89.523, "phase": "trunk_taped", "rss_gib": 8.5577, "avail_gib": 9.0104, "sm_inflight": 1, "sm_calls": 53}
+{"aiclk_mhz": 1350, "phase": "trunk_taped", "load1": 3.34, "t_utc": "2026-09-25T21:18:03Z"}
+{"t": 90.03, "phase": "trunk_taped", "rss_gib": 8.9299, "avail_gib": 8.3271, "sm_inflight": 1, "sm_calls": 53}
+{"t": 90.234, "phase": "trunk_taped", "rss_gib": 6.706, "avail_gib": 10.858, "sm_inflight": 0, "sm_calls": 53}
+{"t": 90.435, "phase": "trunk_taped", "rss_gib": 7.1257, "avail_gib": 10.4303, "sm_inflight": 0, "sm_calls": 54}
+{"aiclk_mhz": 1350, "phase": "trunk_taped", "load1": 3.56, "t_utc": "2026-09-25T21:18:04Z"}
+{"t": 90.673, "phase": "trunk_taped", "rss_gib": 7.1289, "avail_gib": 10.396, "sm_inflight": 0, "sm_calls": 54}
+{"t": 90.874, "phase": "trunk_taped", "rss_gib": 7.0463, "avail_gib": 10.5461, "sm_inflight": 0, "sm_calls": 54}
+{"t": 91.105, "phase": "trunk_taped", "rss_gib": 7.1277, "avail_gib": 10.3863, "sm_inflight": 0, "sm_calls": 54}
+{"t": 91.545, "phase": "trunk_taped", "rss_gib": 7.5498, "avail_gib": 10.0403, "sm_inflight": 1, "sm_calls": 55}
+{"aiclk_mhz": 1350, "phase": "trunk_taped", "load1": 3.56, "t_utc": "2026-09-25T21:18:05Z"}
+{"t": 91.748, "phase": "trunk_taped", "rss_gib": 9.0315, "avail_gib": 8.5621, "sm_inflight": 1, "sm_calls": 55}
+{"t": 91.949, "phase": "trunk_taped", "rss_gib": 8.6183, "avail_gib": 8.9605, "sm_inflight": 1, "sm_calls": 55}
+{"t": 92.447, "phase": "trunk_taped", "rss_gib": 8.9589, "avail_gib": 8.3311, "sm_inflight": 1, "sm_calls": 55}
+{"aiclk_mhz": 1350, "phase": "trunk_taped", "load1": 3.56, "t_utc": "2026-09-25T21:18:06Z"}
+{"t": 92.652, "phase": "trunk_taped", "rss_gib": 7.1279, "avail_gib": 10.3787, "sm_inflight": 0, "sm_calls": 55}
+{"t": 93.055, "phase": "trunk_taped", "rss_gib": 7.5835, "avail_gib": 10.0158, "sm_inflight": 1, "sm_calls": 56}
+{"t": 93.258, "phase": "trunk_taped", "rss_gib": 9.099, "avail_gib": 8.4642, "sm_inflight": 1, "sm_calls": 56}
+{"t": 93.459, "phase": "trunk_taped", "rss_gib": 8.6831, "avail_gib": 8.8515, "sm_inflight": 1, "sm_calls": 56}
+{"aiclk_mhz": 1350, "phase": "trunk_taped", "load1": 3.56, "t_utc": "2026-09-25T21:18:08Z"}
+{"t": 93.937, "phase": "trunk_taped", "rss_gib": 9.0683, "avail_gib": 8.2845, "sm_inflight": 1, "sm_calls": 56}
+{"t": 94.142, "phase": "trunk_taped", "rss_gib": 6.7098, "avail_gib": 10.8129, "sm_inflight": 0, "sm_calls": 56}
+{"t": 94.344, "phase": "trunk_taped", "rss_gib": 7.2377, "avail_gib": 10.3496, "sm_inflight": 0, "sm_calls": 57}
+{"t": 94.547, "phase": "trunk_taped", "rss_gib": 7.1278, "avail_gib": 10.3644, "sm_inflight": 0, "sm_calls": 57}
+{"t": 94.748, "phase": "trunk_taped", "rss_gib": 7.0483, "avail_gib": 10.4924, "sm_inflight": 0, "sm_calls": 57}
+{"aiclk_mhz": 1350, "phase": "trunk_taped", "load1": 3.56, "t_utc": "2026-09-25T21:18:09Z"}
+{"t": 94.973, "phase": "trunk_taped", "rss_gib": 7.1278, "avail_gib": 10.3166, "sm_inflight": 0, "sm_calls": 57}
+{"t": 95.406, "phase": "trunk_taped", "rss_gib": 7.5499, "avail_gib": 9.7899, "sm_inflight": 1, "sm_calls": 58}
+{"t": 95.607, "phase": "trunk_taped", "rss_gib": 9.1151, "avail_gib": 8.1963, "sm_inflight": 1, "sm_calls": 58}
+{"t": 95.808, "phase": "trunk_taped", "rss_gib": 8.646, "avail_gib": 8.6327, "sm_inflight": 1, "sm_calls": 58}
+{"aiclk_mhz": 1350, "phase": "trunk_taped", "load1": 3.83, "t_utc": "2026-09-25T21:18:10Z"}
+{"t": 96.335, "phase": "trunk_taped", "rss_gib": 8.7224, "avail_gib": 7.887, "sm_inflight": 1, "sm_calls": 58}
+{"t": 96.54, "phase": "trunk_taped", "rss_gib": 7.1279, "avail_gib": 9.8916, "sm_inflight": 0, "sm_calls": 58}
+{"t": 96.968, "phase": "trunk_taped", "rss_gib": 7.55, "avail_gib": 9.4981, "sm_inflight": 1, "sm_calls": 59}
+{"t": 97.168, "phase": "trunk_taped", "rss_gib": 9.0243, "avail_gib": 8.0375, "sm_inflight": 1, "sm_calls": 59}
+{"aiclk_mhz": 1350, "phase": "trunk_taped", "load1": 3.83, "t_utc": "2026-09-25T21:18:11Z"}
+{"t": 97.369, "phase": "trunk_taped", "rss_gib": 8.7084, "avail_gib": 8.3311, "sm_inflight": 1, "sm_calls": 59}
+{"t": 97.864, "phase": "trunk_taped", "rss_gib": 9.1035, "avail_gib": 8.2677, "sm_inflight": 1, "sm_calls": 59}
+{"t": 98.067, "phase": "trunk_taped", "rss_gib": 6.6826, "avail_gib": 10.8898, "sm_inflight": 0, "sm_calls": 59}
+{"t": 98.268, "phase": "trunk_taped", "rss_gib": 7.1056, "avail_gib": 10.3456, "sm_inflight": 0, "sm_calls": 60}
+{"aiclk_mhz": 1350, "phase": "trunk_taped", "load1": 3.83, "t_utc": "2026-09-25T21:18:12Z"}
+{"t": 98.474, "phase": "trunk_taped", "rss_gib": 6.6888, "avail_gib": 10.8678, "sm_inflight": 0, "sm_calls": 60}
+{"t": 98.675, "phase": "trunk_taped", "rss_gib": 7.2369, "avail_gib": 10.3451, "sm_inflight": 0, "sm_calls": 60}
+{"t": 99.248, "phase": "trunk_taped", "rss_gib": 7.5262, "avail_gib": 9.212, "sm_inflight": 1, "sm_calls": 61}
+{"aiclk_mhz": 1350, "phase": "trunk_taped", "load1": 3.83, "t_utc": "2026-09-25T21:18:13Z"}
+{"t": 99.449, "phase": "trunk_taped", "rss_gib": 9.047, "avail_gib": 8.5483, "sm_inflight": 1, "sm_calls": 61}
+{"t": 99.65, "phase": "trunk_taped", "rss_gib": 8.7121, "avail_gib": 8.8745, "sm_inflight": 1, "sm_calls": 61}
+{"t": 100.124, "phase": "trunk_taped", "rss_gib": 8.84, "avail_gib": 8.3753, "sm_inflight": 1, "sm_calls": 61}
+{"aiclk_mhz": 1350, "phase": "trunk_taped", "load1": 3.69, "t_utc": "2026-09-25T21:18:14Z"}
+{"t": 100.72, "phase": "trunk_taped", "rss_gib": 7.5366, "avail_gib": 9.1546, "sm_inflight": 1, "sm_calls": 62}
+{"t": 100.922, "phase": "trunk_taped", "rss_gib": 9.1186, "avail_gib": 8.4251, "sm_inflight": 1, "sm_calls": 62}
+{"t": 101.122, "phase": "trunk_taped", "rss_gib": 8.7575, "avail_gib": 8.8287, "sm_inflight": 1, "sm_calls": 62}
+{"t": 101.591, "phase": "trunk_taped", "rss_gib": 9.0764, "avail_gib": 8.3642, "sm_inflight": 1, "sm_calls": 62}
+{"aiclk_mhz": 1350, "phase": "trunk_taped", "load1": 3.69, "t_utc": "2026-09-25T21:18:15Z"}
+{"t": 101.792, "phase": "trunk_taped", "rss_gib": 6.6713, "avail_gib": 10.8857, "sm_inflight": 0, "sm_calls": 62}
+{"t": 101.992, "phase": "trunk_taped", "rss_gib": 7.2066, "avail_gib": 10.3747, "sm_inflight": 0, "sm_calls": 63}
+{"t": 102.193, "phase": "trunk_taped", "rss_gib": 6.6591, "avail_gib": 10.926, "sm_inflight": 0, "sm_calls": 63}
+{"t": 102.403, "phase": "trunk_taped", "rss_gib": 7.1265, "avail_gib": 10.4472, "sm_inflight": 0, "sm_calls": 63}
+{"aiclk_mhz": 1350, "phase": "trunk_taped", "load1": 3.69, "t_utc": "2026-09-25T21:18:17Z"}
+{"t": 102.983, "phase": "trunk_taped", "rss_gib": 7.509, "avail_gib": 10.061, "sm_inflight": 1, "sm_calls": 64}
+{"t": 103.184, "phase": "trunk_taped", "rss_gib": 9.0605, "avail_gib": 8.4753, "sm_inflight": 1, "sm_calls": 64}
+{"t": 103.385, "phase": "trunk_taped", "rss_gib": 8.634, "avail_gib": 8.8319, "sm_inflight": 1, "sm_calls": 64}
+{"t": 103.889, "phase": "trunk_taped", "rss_gib": 9.0568, "avail_gib": 8.0924, "sm_inflight": 1, "sm_calls": 64}
+{"aiclk_mhz": 1350, "phase": "trunk_taped", "load1": 3.69, "t_utc": "2026-09-25T21:18:18Z"}
+{"t": 104.091, "phase": "trunk_taped", "rss_gib": 7.0822, "avail_gib": 10.1401, "sm_inflight": 0, "sm_calls": 64}
+{"t": 104.508, "phase": "trunk_taped", "rss_gib": 7.5131, "avail_gib": 9.6676, "sm_inflight": 1, "sm_calls": 65}
+{"t": 104.709, "phase": "trunk_taped", "rss_gib": 9.0966, "avail_gib": 8.0355, "sm_inflight": 1, "sm_calls": 65}
+{"t": 104.91, "phase": "trunk_taped", "rss_gib": 8.7986, "avail_gib": 8.2853, "sm_inflight": 1, "sm_calls": 65}
+{"aiclk_mhz": 1350, "phase": "trunk_taped", "load1": 3.71, "t_utc": "2026-09-25T21:18:19Z"}
+{"t": 105.465, "phase": "trunk_taped", "rss_gib": 8.496, "avail_gib": 7.8362, "sm_inflight": 1, "sm_calls": 65}
+{"t": 105.676, "phase": "trunk_taped", "rss_gib": 6.6825, "avail_gib": 10.3472, "sm_inflight": 0, "sm_calls": 65}
+{"t": 105.877, "phase": "trunk_taped", "rss_gib": 7.0503, "avail_gib": 9.9765, "sm_inflight": 0, "sm_calls": 66}
+{"t": 106.115, "phase": "trunk_taped", "rss_gib": 7.1045, "avail_gib": 9.8506, "sm_inflight": 0, "sm_calls": 66}
+{"t": 106.315, "phase": "trunk_taped", "rss_gib": 7.1017, "avail_gib": 9.8765, "sm_inflight": 0, "sm_calls": 66}
+{"aiclk_mhz": 1350, "phase": "trunk_taped", "load1": 3.71, "t_utc": "2026-09-25T21:18:20Z"}
+{"t": 106.526, "phase": "trunk_taped", "rss_gib": 7.0918, "avail_gib": 9.9449, "sm_inflight": 0, "sm_calls": 66}
+{"t": 106.932, "phase": "trunk_taped", "rss_gib": 7.5261, "avail_gib": 10.0309, "sm_inflight": 1, "sm_calls": 67}
+{"t": 107.133, "phase": "trunk_taped", "rss_gib": 9.1388, "avail_gib": 8.4121, "sm_inflight": 1, "sm_calls": 67}
+{"t": 107.334, "phase": "trunk_taped", "rss_gib": 8.8061, "avail_gib": 8.7457, "sm_inflight": 1, "sm_calls": 67}
+{"aiclk_mhz": 1350, "phase": "trunk_taped", "load1": 3.71, "t_utc": "2026-09-25T21:18:22Z"}
+{"t": 107.802, "phase": "trunk_taped", "rss_gib": 8.37, "avail_gib": 8.3639, "sm_inflight": 1, "sm_calls": 67}
+{"t": 108.006, "phase": "trunk_taped", "rss_gib": 7.1045, "avail_gib": 10.4227, "sm_inflight": 0, "sm_calls": 67}
+{"t": 108.417, "phase": "trunk_taped", "rss_gib": 7.5327, "avail_gib": 10.0303, "sm_inflight": 1, "sm_calls": 68}
+{"t": 108.618, "phase": "trunk_taped", "rss_gib": 9.3794, "avail_gib": 8.1974, "sm_inflight": 1, "sm_calls": 68}
+{"aiclk_mhz": 1350, "phase": "trunk_taped", "load1": 3.71, "t_utc": "2026-09-25T21:18:23Z"}
+{"t": 108.819, "phase": "trunk_taped", "rss_gib": 8.9508, "avail_gib": 8.6116, "sm_inflight": 1, "sm_calls": 68}
+{"t": 109.27, "phase": "trunk_taped", "rss_gib": 9.0781, "avail_gib": 8.3519, "sm_inflight": 1, "sm_calls": 68}
+{"t": 109.471, "phase": "trunk_taped", "rss_gib": 6.7668, "avail_gib": 10.7986, "sm_inflight": 0, "sm_calls": 68}
+{"t": 109.673, "phase": "trunk_taped", "rss_gib": 7.2045, "avail_gib": 10.3483, "sm_inflight": 0, "sm_calls": 69}
+{"aiclk_mhz": 1350, "phase": "trunk_taped", "load1": 3.71, "t_utc": "2026-09-25T21:18:24Z"}
+{"t": 109.874, "phase": "trunk_taped", "rss_gib": 6.6827, "avail_gib": 10.8815, "sm_inflight": 0, "sm_calls": 69}
+{"t": 110.075, "phase": "trunk_taped", "rss_gib": 7.1596, "avail_gib": 10.3792, "sm_inflight": 0, "sm_calls": 69}
+{"t": 110.661, "phase": "trunk_taped", "rss_gib": 7.5285, "avail_gib": 9.9812, "sm_inflight": 1, "sm_calls": 70}
+{"aiclk_mhz": 1350, "phase": "trunk_taped", "load1": 3.65, "t_utc": "2026-09-25T21:18:25Z"}
+{"t": 110.862, "phase": "trunk_taped", "rss_gib": 9.1651, "avail_gib": 8.373, "sm_inflight": 1, "sm_calls": 70}
+{"t": 111.063, "phase": "trunk_taped", "rss_gib": 8.7534, "avail_gib": 8.8281, "sm_inflight": 1, "sm_calls": 70}
+{"t": 111.53, "phase": "trunk_taped", "rss_gib": 8.7423, "avail_gib": 8.3681, "sm_inflight": 1, "sm_calls": 70}
+{"aiclk_mhz": 1350, "phase": "trunk_taped", "load1": 3.65, "t_utc": "2026-09-25T21:18:26Z"}
+{"t": 112.131, "phase": "trunk_taped", "rss_gib": 7.56, "avail_gib": 9.878, "sm_inflight": 1, "sm_calls": 71}
+{"t": 112.331, "phase": "trunk_taped", "rss_gib": 9.0799, "avail_gib": 8.3039, "sm_inflight": 1, "sm_calls": 71}
+{"t": 112.532, "phase": "trunk_taped", "rss_gib": 8.689, "avail_gib": 8.6509, "sm_inflight": 1, "sm_calls": 71}
+{"t": 113.022, "phase": "trunk_taped", "rss_gib": 8.3708, "avail_gib": 8.0259, "sm_inflight": 1, "sm_calls": 71}
+{"aiclk_mhz": 1350, "phase": "trunk_taped", "load1": 3.65, "t_utc": "2026-09-25T21:18:27Z"}
+{"t": 113.229, "phase": "trunk_taped", "rss_gib": 6.7055, "avail_gib": 10.4235, "sm_inflight": 0, "sm_calls": 71}
+{"t": 113.43, "phase": "trunk_taped", "rss_gib": 7.1088, "avail_gib": 9.9674, "sm_inflight": 0, "sm_calls": 72}
+{"t": 113.645, "phase": "trunk_taped", "rss_gib": 7.1277, "avail_gib": 9.8309, "sm_inflight": 0, "sm_calls": 72}
+{"t": 113.846, "phase": "trunk_taped", "rss_gib": 7.1654, "avail_gib": 9.8431, "sm_inflight": 0, "sm_calls": 72}
+{"t": 114.07, "phase": "trunk_taped", "rss_gib": 7.1277, "avail_gib": 9.8101, "sm_inflight": 0, "sm_calls": 72}
+{"aiclk_mhz": 1350, "phase": "trunk_taped", "load1": 3.65, "t_utc": "2026-09-25T21:18:28Z"}
+{"t": 114.527, "phase": "trunk_taped", "rss_gib": 7.5716, "avail_gib": 9.4212, "sm_inflight": 1, "sm_calls": 73}
+{"t": 114.728, "phase": "trunk_taped", "rss_gib": 9.0521, "avail_gib": 7.96, "sm_inflight": 1, "sm_calls": 73}
+{"t": 114.928, "phase": "trunk_taped", "rss_gib": 8.6674, "avail_gib": 8.3431, "sm_inflight": 1, "sm_calls": 73}
+{"t": 115.435, "phase": "trunk_taped", "rss_gib": 8.9649, "avail_gib": 8.2613, "sm_inflight": 1, "sm_calls": 73}
+{"aiclk_mhz": 1350, "phase": "trunk_taped", "load1": 3.68, "t_utc": "2026-09-25T21:18:29Z"}
+{"t": 115.635, "phase": "trunk_taped", "rss_gib": 7.5495, "avail_gib": 10.7795, "sm_inflight": 1, "sm_calls": 74}
+{"t": 116.245, "phase": "trunk_taped", "rss_gib": 9.0235, "avail_gib": 8.4914, "sm_inflight": 1, "sm_calls": 74}
+{"t": 116.447, "phase": "trunk_taped", "rss_gib": 8.5869, "avail_gib": 8.9221, "sm_inflight": 1, "sm_calls": 74}
+{"aiclk_mhz": 1350, "phase": "trunk_taped", "load1": 3.68, "t_utc": "2026-09-25T21:18:31Z"}
+{"t": 116.926, "phase": "trunk_taped", "rss_gib": 8.3932, "avail_gib": 8.2781, "sm_inflight": 1, "sm_calls": 74}
+{"t": 117.127, "phase": "trunk_taped", "rss_gib": 6.765, "avail_gib": 10.7461, "sm_inflight": 0, "sm_calls": 74}
+{"t": 117.329, "phase": "trunk_taped", "rss_gib": 7.2552, "avail_gib": 10.2515, "sm_inflight": 0, "sm_calls": 75}
+{"t": 117.54, "phase": "trunk_taped", "rss_gib": 6.7058, "avail_gib": 10.8051, "sm_inflight": 0, "sm_calls": 75}
+{"t": 117.74, "phase": "trunk_taped", "rss_gib": 7.2064, "avail_gib": 10.286, "sm_inflight": 0, "sm_calls": 75}
+{"aiclk_mhz": 1350, "phase": "trunk_taped", "load1": 3.68, "t_utc": "2026-09-25T21:18:32Z"}
+{"t": 118.339, "phase": "trunk_taped", "rss_gib": 7.5496, "avail_gib": 9.1534, "sm_inflight": 1, "sm_calls": 76}
+{"t": 118.541, "phase": "trunk_taped", "rss_gib": 9.0927, "avail_gib": 8.4564, "sm_inflight": 1, "sm_calls": 76}
+{"t": 118.742, "phase": "trunk_taped", "rss_gib": 8.6732, "avail_gib": 8.8655, "sm_inflight": 1, "sm_calls": 76}
+{"aiclk_mhz": 1350, "phase": "trunk_taped", "load1": 3.68, "t_utc": "2026-09-25T21:18:33Z"}
+{"t": 119.233, "phase": "trunk_taped", "rss_gib": 8.9081, "avail_gib": 8.2873, "sm_inflight": 1, "sm_calls": 76}
+{"t": 119.838, "phase": "trunk_taped", "rss_gib": 7.5497, "avail_gib": 9.13, "sm_inflight": 1, "sm_calls": 77}
+{"t": 120.038, "phase": "trunk_taped", "rss_gib": 9.1175, "avail_gib": 8.4108, "sm_inflight": 1, "sm_calls": 77}
+{"aiclk_mhz": 1350, "phase": "trunk_taped", "load1": 3.95, "t_utc": "2026-09-25T21:18:34Z"}
+{"t": 120.239, "phase": "trunk_taped", "rss_gib": 8.7122, "avail_gib": 8.7997, "sm_inflight": 1, "sm_calls": 77}
+{"t": 120.734, "phase": "trunk_taped", "rss_gib": 8.3935, "avail_gib": 8.2367, "sm_inflight": 1, "sm_calls": 77}
+{"t": 120.944, "phase": "trunk_taped", "rss_gib": 6.7063, "avail_gib": 10.6588, "sm_inflight": 0, "sm_calls": 77}
+{"t": 121.145, "phase": "trunk_taped", "rss_gib": 7.1271, "avail_gib": 10.1822, "sm_inflight": 0, "sm_calls": 78}
+{"aiclk_mhz": 1350, "phase": "trunk_taped", "load1": 3.95, "t_utc": "2026-09-25T21:18:35Z"}
+{"t": 121.371, "phase": "trunk_taped", "rss_gib": 7.1277, "avail_gib": 10.0837, "sm_inflight": 0, "sm_calls": 78}
+{"t": 121.572, "phase": "trunk_taped", "rss_gib": 7.1108, "avail_gib": 10.1693, "sm_inflight": 0, "sm_calls": 78}
+{"t": 121.796, "phase": "trunk_taped", "rss_gib": 7.1277, "avail_gib": 10.0343, "sm_inflight": 0, "sm_calls": 78}
+{"t": 122.222, "phase": "trunk_taped", "rss_gib": 7.5618, "avail_gib": 9.5861, "sm_inflight": 1, "sm_calls": 79}
+{"aiclk_mhz": 1350, "phase": "trunk_taped", "load1": 3.95, "t_utc": "2026-09-25T21:18:36Z"}
+{"t": 122.423, "phase": "trunk_taped", "rss_gib": 9.0737, "avail_gib": 8.0557, "sm_inflight": 1, "sm_calls": 79}
+{"t": 122.624, "phase": "trunk_taped", "rss_gib": 8.7006, "avail_gib": 8.3605, "sm_inflight": 1, "sm_calls": 79}
+{"t": 123.106, "phase": "trunk_taped", "rss_gib": 8.7424, "avail_gib": 7.7504, "sm_inflight": 1, "sm_calls": 79}
+{"aiclk_mhz": 1350, "phase": "trunk_taped", "load1": 3.95, "t_utc": "2026-09-25T21:18:37Z"}
+{"t": 123.307, "phase": "trunk_taped", "rss_gib": 6.987, "avail_gib": 9.9564, "sm_inflight": 0, "sm_calls": 79}
+{"t": 123.743, "phase": "trunk_taped", "rss_gib": 7.5579, "avail_gib": 9.3891, "sm_inflight": 1, "sm_calls": 80}
+{"t": 123.944, "phase": "trunk_taped", "rss_gib": 9.2043, "avail_gib": 7.7337, "sm_inflight": 1, "sm_calls": 80}
+{"t": 124.145, "phase": "trunk_taped", "rss_gib": 9.0679, "avail_gib": 8.3275, "sm_inflight": 1, "sm_calls": 80}
+{"t": 124.596, "phase": "trunk_taped", "rss_gib": 8.3935, "avail_gib": 8.5077, "sm_inflight": 1, "sm_calls": 80}
+{"aiclk_mhz": 1350, "phase": "trunk_taped", "load1": 3.95, "t_utc": "2026-09-25T21:18:38Z"}
+{"t": 124.798, "phase": "trunk_taped", "rss_gib": 6.73, "avail_gib": 10.9848, "sm_inflight": 0, "sm_calls": 80}
+{"t": 124.999, "phase": "trunk_taped", "rss_gib": 7.179, "avail_gib": 10.5546, "sm_inflight": 0, "sm_calls": 81}
+{"t": 125.203, "phase": "trunk_taped", "rss_gib": 6.6946, "avail_gib": 11.0128, "sm_inflight": 0, "sm_calls": 81}
+{"t": 125.404, "phase": "trunk_taped", "rss_gib": 7.2083, "avail_gib": 10.5077, "sm_inflight": 0, "sm_calls": 81}
+{"aiclk_mhz": 1350, "phase": "trunk_taped", "load1": 3.79, "t_utc": "2026-09-25T21:18:40Z"}
+{"t": 126.009, "phase": "trunk_taped", "rss_gib": 7.554, "avail_gib": 10.2001, "sm_inflight": 1, "sm_calls": 82}
+{"t": 126.21, "phase": "trunk_taped", "rss_gib": 9.2794, "avail_gib": 8.4841, "sm_inflight": 1, "sm_calls": 82}
+{"t": 126.411, "phase": "trunk_taped", "rss_gib": 9.1208, "avail_gib": 8.6439, "sm_inflight": 1, "sm_calls": 82}
+{"t": 126.854, "phase": "trunk_taped", "rss_gib": 8.6622, "avail_gib": 8.5493, "sm_inflight": 1, "sm_calls": 82}
+{"aiclk_mhz": 1350, "phase": "trunk_taped", "load1": 3.79, "t_utc": "2026-09-25T21:18:41Z"}
+{"t": 127.462, "phase": "trunk_taped", "rss_gib": 7.5265, "avail_gib": 10.2228, "sm_inflight": 1, "sm_calls": 83}
+{"t": 127.662, "phase": "trunk_taped", "rss_gib": 8.9853, "avail_gib": 8.7943, "sm_inflight": 1, "sm_calls": 83}
+{"t": 127.863, "phase": "trunk_taped", "rss_gib": 8.6615, "avail_gib": 9.1215, "sm_inflight": 1, "sm_calls": 83}
+{"t": 128.348, "phase": "trunk_taped", "rss_gib": 8.3699, "avail_gib": 8.7344, "sm_inflight": 1, "sm_calls": 83}
+{"aiclk_mhz": 1350, "phase": "trunk_taped", "load1": 3.79, "t_utc": "2026-09-25T21:18:42Z"}
+{"t": 128.55, "phase": "trunk_taped", "rss_gib": 6.6888, "avail_gib": 11.0432, "sm_inflight": 0, "sm_calls": 83}
+{"t": 128.751, "phase": "trunk_taped", "rss_gib": 7.1967, "avail_gib": 10.5363, "sm_inflight": 0, "sm_calls": 84}
+{"t": 128.953, "phase": "trunk_taped", "rss_gib": 7.1043, "avail_gib": 10.553, "sm_inflight": 0, "sm_calls": 84}
+{"t": 129.154, "phase": "trunk_taped", "rss_gib": 7.1518, "avail_gib": 10.5613, "sm_inflight": 0, "sm_calls": 84}
+{"aiclk_mhz": 1350, "phase": "trunk_taped", "load1": 3.79, "t_utc": "2026-09-25T21:18:43Z"}
+{"t": 129.36, "phase": "trunk_taped", "rss_gib": 7.1043, "avail_gib": 10.5182, "sm_inflight": 0, "sm_calls": 84}
+{"t": 129.784, "phase": "trunk_taped", "rss_gib": 7.5326, "avail_gib": 10.0482, "sm_inflight": 1, "sm_calls": 85}
+{"t": 129.985, "phase": "trunk_taped", "rss_gib": 9.032, "avail_gib": 8.5208, "sm_inflight": 1, "sm_calls": 85}
+{"t": 130.187, "phase": "trunk_taped", "rss_gib": 8.6674, "avail_gib": 8.8499, "sm_inflight": 1, "sm_calls": 85}
+{"aiclk_mhz": 1350, "phase": "trunk_taped", "load1": 4.05, "t_utc": "2026-09-25T21:18:44Z"}
+{"t": 130.676, "phase": "trunk_taped", "rss_gib": 8.3713, "avail_gib": 8.1779, "sm_inflight": 1, "sm_calls": 85}
+{"t": 131.279, "phase": "trunk_taped", "rss_gib": 7.5266, "avail_gib": 9.7215, "sm_inflight": 1, "sm_calls": 86}
+{"t": 131.48, "phase": "trunk_taped", "rss_gib": 9.1489, "avail_gib": 8.0996, "sm_inflight": 1, "sm_calls": 86}
+{"aiclk_mhz": 1350, "phase": "trunk_taped", "load1": 4.05, "t_utc": "2026-09-25T21:18:45Z"}
+{"t": 131.681, "phase": "trunk_taped", "rss_gib": 8.7905, "avail_gib": 8.4494, "sm_inflight": 1, "sm_calls": 86}
+{"t": 132.167, "phase": "trunk_taped", "rss_gib": 8.4161, "avail_gib": 7.9976, "sm_inflight": 1, "sm_calls": 86}
+{"t": 132.368, "phase": "trunk_taped", "rss_gib": 6.6595, "avail_gib": 10.5082, "sm_inflight": 0, "sm_calls": 86}
+{"t": 132.569, "phase": "trunk_taped", "rss_gib": 7.1911, "avail_gib": 10.5479, "sm_inflight": 0, "sm_calls": 87}
+{"aiclk_mhz": 1350, "phase": "trunk_taped", "load1": 4.05, "t_utc": "2026-09-25T21:18:46Z"}
+{"t": 132.77, "phase": "trunk_taped", "rss_gib": 7.0811, "avail_gib": 10.5676, "sm_inflight": 0, "sm_calls": 87}
+{"t": 132.971, "phase": "trunk_taped", "rss_gib": 7.0971, "avail_gib": 10.6117, "sm_inflight": 0, "sm_calls": 87}
+{"t": 133.183, "phase": "trunk_taped", "rss_gib": 7.0824, "avail_gib": 10.5848, "sm_inflight": 0, "sm_calls": 87}
+{"t": 133.583, "phase": "trunk_taped", "rss_gib": 7.5133, "avail_gib": 9.4305, "sm_inflight": 1, "sm_calls": 88}
+{"aiclk_mhz": 1350, "phase": "trunk_taped", "load1": 4.05, "t_utc": "2026-09-25T21:18:47Z"}
+{"t": 133.784, "phase": "trunk_taped", "rss_gib": 9.0613, "avail_gib": 8.7213, "sm_inflight": 1, "sm_calls": 88}
+{"t": 133.985, "phase": "trunk_taped", "rss_gib": 8.9059, "avail_gib": 8.8711, "sm_inflight": 1, "sm_calls": 88}
+{"t": 134.433, "phase": "trunk_taped", "rss_gib": 8.7989, "avail_gib": 8.582, "sm_inflight": 1, "sm_calls": 88}
+{"t": 135.01, "phase": "trunk_taped", "rss_gib": 8.3463, "avail_gib": 9.4372, "sm_inflight": 1, "sm_calls": 89}
+{"aiclk_mhz": 1350, "phase": "trunk_taped", "load1": 4.05, "t_utc": "2026-09-25T21:18:49Z"}
+{"t": 135.212, "phase": "trunk_taped", "rss_gib": 9.3244, "avail_gib": 8.4541, "sm_inflight": 1, "sm_calls": 89}
+{"t": 135.823, "phase": "trunk_taped", "rss_gib": 8.3615, "avail_gib": 8.59, "sm_inflight": 1, "sm_calls": 89}
+{"aiclk_mhz": 1350, "phase": "trunk_taped", "load1": 4.29, "t_utc": "2026-09-25T21:18:50Z"}
+{"t": 136.024, "phase": "trunk_taped", "rss_gib": 6.7357, "avail_gib": 11.0147, "sm_inflight": 0, "sm_calls": 89}
+{"t": 136.225, "phase": "trunk_taped", "rss_gib": 7.1967, "avail_gib": 10.5444, "sm_inflight": 0, "sm_calls": 90}
+{"t": 136.426, "phase": "trunk_taped", "rss_gib": 6.7944, "avail_gib": 10.9429, "sm_inflight": 0, "sm_calls": 90}
+{"t": 136.627, "phase": "trunk_taped", "rss_gib": 7.1752, "avail_gib": 10.559, "sm_inflight": 0, "sm_calls": 90}
+{"aiclk_mhz": 1350, "phase": "trunk_taped", "load1": 4.29, "t_utc": "2026-09-25T21:18:51Z"}
+{"t": 137.202, "phase": "trunk_taped", "rss_gib": 7.5737, "avail_gib": 10.2078, "sm_inflight": 1, "sm_calls": 91}
+{"t": 137.403, "phase": "trunk_taped", "rss_gib": 9.1098, "avail_gib": 8.6735, "sm_inflight": 1, "sm_calls": 91}
+{"t": 137.604, "phase": "trunk_taped", "rss_gib": 8.7123, "avail_gib": 9.0643, "sm_inflight": 1, "sm_calls": 91}
+{"t": 138.084, "phase": "trunk_taped", "rss_gib": 9.2368, "avail_gib": 8.429, "sm_inflight": 1, "sm_calls": 91}
+{"aiclk_mhz": 1350, "phase": "trunk_taped", "load1": 4.29, "t_utc": "2026-09-25T21:18:52Z"}
+{"t": 138.285, "phase": "trunk_taped", "rss_gib": 7.1279, "avail_gib": 10.3866, "sm_inflight": 0, "sm_calls": 91}
+{"t": 138.702, "phase": "trunk_taped", "rss_gib": 7.55, "avail_gib": 9.9286, "sm_inflight": 1, "sm_calls": 92}
+{"t": 138.902, "phase": "trunk_taped", "rss_gib": 9.1255, "avail_gib": 8.3676, "sm_inflight": 1, "sm_calls": 92}
+{"t": 139.103, "phase": "trunk_taped", "rss_gib": 8.7748, "avail_gib": 8.6799, "sm_inflight": 1, "sm_calls": 92}
+{"aiclk_mhz": 1350, "phase": "trunk_taped", "load1": 4.29, "t_utc": "2026-09-25T21:18:53Z"}
+{"t": 139.6, "phase": "trunk_taped", "rss_gib": 8.3934, "avail_gib": 8.246, "sm_inflight": 1, "sm_calls": 92}
+{"t": 139.807, "phase": "trunk_taped", "rss_gib": 6.7528, "avail_gib": 10.4821, "sm_inflight": 0, "sm_calls": 92}
+{"t": 140.008, "phase": "trunk_taped", "rss_gib": 7.0249, "avail_gib": 10.1668, "sm_inflight": 0, "sm_calls": 93}
+{"t": 140.23, "phase": "trunk_taped", "rss_gib": 7.0809, "avail_gib": 10.0346, "sm_inflight": 0, "sm_calls": 93}
+{"t": 140.431, "phase": "trunk_taped", "rss_gib": 7.0809, "avail_gib": 10.1068, "sm_inflight": 0, "sm_calls": 93}
+{"aiclk_mhz": 1350, "phase": "trunk_taped", "load1": 4.58, "t_utc": "2026-09-25T21:18:54Z"}
+{"t": 140.641, "phase": "trunk_taped", "rss_gib": 7.081, "avail_gib": 10.0557, "sm_inflight": 0, "sm_calls": 93}
+{"t": 141.048, "phase": "trunk_taped", "rss_gib": 7.5092, "avail_gib": 10.273, "sm_inflight": 1, "sm_calls": 94}
+{"t": 141.25, "phase": "trunk_taped", "rss_gib": 9.2131, "avail_gib": 8.5773, "sm_inflight": 1, "sm_calls": 94}
+{"t": 141.873, "phase": "trunk_taped", "rss_gib": 8.5295, "avail_gib": 8.5967, "sm_inflight": 1, "sm_calls": 94}
+{"aiclk_mhz": 1350, "phase": "trunk_taped", "load1": 4.58, "t_utc": "2026-09-25T21:18:56Z"}
+{"t": 142.457, "phase": "trunk_taped", "rss_gib": 7.5032, "avail_gib": 10.2869, "sm_inflight": 1, "sm_calls": 95}
+{"t": 142.658, "phase": "trunk_taped", "rss_gib": 8.947, "avail_gib": 8.846, "sm_inflight": 1, "sm_calls": 95}
+{"t": 142.858, "phase": "trunk_taped", "rss_gib": 8.7266, "avail_gib": 8.8578, "sm_inflight": 1, "sm_calls": 95}
+{"aiclk_mhz": 1350, "phase": "trunk_taped", "load1": 4.58, "t_utc": "2026-09-25T21:18:57Z"}
+{"t": 143.413, "phase": "trunk_taped", "rss_gib": 8.6367, "avail_gib": 8.5346, "sm_inflight": 1, "sm_calls": 95}
+{"t": 143.623, "phase": "trunk_taped", "rss_gib": 6.7059, "avail_gib": 10.9916, "sm_inflight": 0, "sm_calls": 95}
+{"t": 143.823, "phase": "trunk_taped", "rss_gib": 7.2378, "avail_gib": 10.4367, "sm_inflight": 0, "sm_calls": 96}
+{"aiclk_mhz": 1350, "phase": "trunk_taped", "load1": 4.58, "t_utc": "2026-09-25T21:18:58Z"}
+{"t": 144.024, "phase": "trunk_taped", "rss_gib": 7.1279, "avail_gib": 10.4868, "sm_inflight": 0, "sm_calls": 96}
+{"t": 144.225, "phase": "trunk_taped", "rss_gib": 7.2084, "avail_gib": 10.4697, "sm_inflight": 0, "sm_calls": 96}
+{"t": 144.838, "phase": "trunk_taped", "rss_gib": 7.5676, "avail_gib": 10.1797, "sm_inflight": 1, "sm_calls": 97}
+{"aiclk_mhz": 1350, "phase": "trunk_taped", "load1": 4.58, "t_utc": "2026-09-25T21:18:59Z"}
+{"t": 145.038, "phase": "trunk_taped", "rss_gib": 9.1063, "avail_gib": 8.6752, "sm_inflight": 1, "sm_calls": 97}
+{"t": 145.24, "phase": "trunk_taped", "rss_gib": 9.1384, "avail_gib": 8.6305, "sm_inflight": 1, "sm_calls": 97}
+{"t": 145.672, "phase": "trunk_taped", "rss_gib": 8.7737, "avail_gib": 8.5397, "sm_inflight": 1, "sm_calls": 97}
+{"aiclk_mhz": 1350, "phase": "trunk_taped", "load1": 4.7, "t_utc": "2026-09-25T21:19:00Z"}
+{"t": 146.27, "phase": "trunk_taped", "rss_gib": 7.5501, "avail_gib": 10.2451, "sm_inflight": 1, "sm_calls": 98}
+{"t": 146.472, "phase": "trunk_taped", "rss_gib": 9.2206, "avail_gib": 8.5457, "sm_inflight": 1, "sm_calls": 98}
+{"t": 146.673, "phase": "trunk_taped", "rss_gib": 8.8023, "avail_gib": 8.9213, "sm_inflight": 1, "sm_calls": 98}
+{"t": 147.152, "phase": "trunk_taped", "rss_gib": 8.3932, "avail_gib": 8.318, "sm_inflight": 1, "sm_calls": 98}
+{"aiclk_mhz": 1350, "phase": "trunk_taped", "load1": 4.7, "t_utc": "2026-09-25T21:19:01Z"}
+{"t": 147.359, "phase": "trunk_taped", "rss_gib": 6.6593, "avail_gib": 10.8317, "sm_inflight": 0, "sm_calls": 98}
+{"t": 147.56, "phase": "trunk_taped", "rss_gib": 7.1441, "avail_gib": 10.325, "sm_inflight": 0, "sm_calls": 99}
+{"t": 147.78, "phase": "trunk_taped", "rss_gib": 7.081, "avail_gib": 10.2633, "sm_inflight": 0, "sm_calls": 99}
+{"t": 147.982, "phase": "trunk_taped", "rss_gib": 7.0231, "avail_gib": 10.3342, "sm_inflight": 0, "sm_calls": 99}
+{"t": 148.201, "phase": "trunk_taped", "rss_gib": 7.081, "avail_gib": 10.1566, "sm_inflight": 0, "sm_calls": 99}
+{"aiclk_mhz": 1350, "phase": "trunk_taped", "load1": 4.7, "t_utc": "2026-09-25T21:19:02Z"}
+{"t": 148.601, "phase": "trunk_taped", "rss_gib": 7.519, "avail_gib": 9.753, "sm_inflight": 1, "sm_calls": 100}
+{"t": 148.802, "phase": "trunk_taped", "rss_gib": 9.0511, "avail_gib": 8.2087, "sm_inflight": 1, "sm_calls": 100}
+{"t": 149.003, "phase": "trunk_taped", "rss_gib": 8.7222, "avail_gib": 8.5271, "sm_inflight": 1, "sm_calls": 100}
+{"t": 149.493, "phase": "trunk_taped", "rss_gib": 9.1903, "avail_gib": 8.0286, "sm_inflight": 1, "sm_calls": 100}
+{"aiclk_mhz": 1350, "phase": "trunk_taped", "load1": 4.7, "t_utc": "2026-09-25T21:19:03Z"}
+{"t": 149.694, "phase": "trunk_taped", "rss_gib": 7.081, "avail_gib": 10.25, "sm_inflight": 0, "sm_calls": 100}
+{"t": 150.09, "phase": "trunk_taped", "rss_gib": 7.505, "avail_gib": 10.2793, "sm_inflight": 1, "sm_calls": 101}
+{"t": 150.29, "phase": "trunk_taped", "rss_gib": 9.1335, "avail_gib": 8.6507, "sm_inflight": 1, "sm_calls": 101}
+{"t": 150.492, "phase": "trunk_taped", "rss_gib": 9.1287, "avail_gib": 8.656, "sm_inflight": 1, "sm_calls": 101}
+{"aiclk_mhz": 1350, "phase": "trunk_taped", "load1": 4.4, "t_utc": "2026-09-25T21:19:05Z"}
+{"t": 150.926, "phase": "trunk_taped", "rss_gib": 8.3464, "avail_gib": 8.5838, "sm_inflight": 1, "sm_calls": 101}
+{"t": 151.133, "phase": "trunk_taped", "rss_gib": 6.7289, "avail_gib": 11.0191, "sm_inflight": 0, "sm_calls": 101}
+{"t": 151.335, "phase": "trunk_taped", "rss_gib": 6.9059, "avail_gib": 10.8255, "sm_inflight": 0, "sm_calls": 102}
+{"t": 151.57, "phase": "trunk_taped", "rss_gib": 7.0809, "avail_gib": 10.5796, "sm_inflight": 0, "sm_calls": 102}
+{"t": 151.77, "phase": "trunk_taped", "rss_gib": 7.2212, "avail_gib": 10.5142, "sm_inflight": 0, "sm_calls": 102}
+{"aiclk_mhz": 1350, "phase": "trunk_taped", "load1": 4.4, "t_utc": "2026-09-25T21:19:06Z"}
+{"t": 152.352, "phase": "trunk_taped", "rss_gib": 7.5131, "avail_gib": 9.4271, "sm_inflight": 1, "sm_calls": 103}
+{"t": 152.553, "phase": "trunk_taped", "rss_gib": 9.0093, "avail_gib": 8.7747, "sm_inflight": 1, "sm_calls": 103}
+{"t": 152.754, "phase": "trunk_taped", "rss_gib": 8.646, "avail_gib": 9.1352, "sm_inflight": 1, "sm_calls": 103}
+{"aiclk_mhz": 1350, "phase": "trunk_taped", "load1": 4.4, "t_utc": "2026-09-25T21:19:07Z"}
+{"t": 153.228, "phase": "trunk_taped", "rss_gib": 8.3466, "avail_gib": 8.5862, "sm_inflight": 1, "sm_calls": 103}
+{"t": 153.821, "phase": "trunk_taped", "rss_gib": 7.5132, "avail_gib": 9.4258, "sm_inflight": 1, "sm_calls": 104}
+{"t": 154.022, "phase": "trunk_taped", "rss_gib": 9.0642, "avail_gib": 8.7191, "sm_inflight": 1, "sm_calls": 104}
+{"t": 154.223, "phase": "trunk_taped", "rss_gib": 8.7886, "avail_gib": 8.9926, "sm_inflight": 1, "sm_calls": 104}
+{"aiclk_mhz": 1350, "phase": "trunk_taped", "load1": 4.4, "t_utc": "2026-09-25T21:19:08Z"}
+{"t": 154.685, "phase": "trunk_taped", "rss_gib": 9.1903, "avail_gib": 8.5951, "sm_inflight": 1, "sm_calls": 104}
+{"t": 154.89, "phase": "trunk_taped", "rss_gib": 6.7355, "avail_gib": 11.0203, "sm_inflight": 0, "sm_calls": 104}
+{"t": 155.091, "phase": "trunk_taped", "rss_gib": 7.282, "avail_gib": 10.4571, "sm_inflight": 0, "sm_calls": 105}
+{"aiclk_mhz": 1350, "phase": "trunk_taped", "load1": 4.69, "t_utc": "2026-09-25T21:19:09Z"}
+{"t": 155.302, "phase": "trunk_taped", "rss_gib": 6.7296, "avail_gib": 10.9821, "sm_inflight": 0, "sm_calls": 105}
+{"t": 155.503, "phase": "trunk_taped", "rss_gib": 7.1791, "avail_gib": 10.493, "sm_inflight": 0, "sm_calls": 105}
+{"t": 156.132, "phase": "trunk_taped", "rss_gib": 7.5834, "avail_gib": 9.9208, "sm_inflight": 1, "sm_calls": 106}
+{"aiclk_mhz": 1350, "phase": "trunk_taped", "load1": 4.69, "t_utc": "2026-09-25T21:19:10Z"}
+{"t": 156.333, "phase": "trunk_taped", "rss_gib": 9.1001, "avail_gib": 8.4025, "sm_inflight": 1, "sm_calls": 106}
+{"t": 156.534, "phase": "trunk_taped", "rss_gib": 8.7104, "avail_gib": 8.7317, "sm_inflight": 1, "sm_calls": 106}
+{"t": 157.022, "phase": "trunk_taped", "rss_gib": 8.7128, "avail_gib": 8.0056, "sm_inflight": 1, "sm_calls": 106}
+{"t": 157.228, "phase": "trunk_taped", "rss_gib": 7.1513, "avail_gib": 10.0444, "sm_inflight": 0, "sm_calls": 106}
+{"aiclk_mhz": 1350, "phase": "trunk_taped", "load1": 4.69, "t_utc": "2026-09-25T21:19:11Z"}
+{"t": 157.651, "phase": "trunk_taped", "rss_gib": 7.5834, "avail_gib": 9.6479, "sm_inflight": 1, "sm_calls": 107}
+{"t": 157.852, "phase": "trunk_taped", "rss_gib": 9.0433, "avail_gib": 8.1956, "sm_inflight": 1, "sm_calls": 107}
+{"t": 158.053, "phase": "trunk_taped", "rss_gib": 8.7046, "avail_gib": 8.5188, "sm_inflight": 1, "sm_calls": 107}
+{"t": 158.547, "phase": "trunk_taped", "rss_gib": 8.4165, "avail_gib": 8.5219, "sm_inflight": 1, "sm_calls": 107}
+{"aiclk_mhz": 1350, "phase": "trunk_taped", "load1": 4.69, "t_utc": "2026-09-25T21:19:12Z"}
+{"t": 158.753, "phase": "trunk_taped", "rss_gib": 6.7293, "avail_gib": 11.0197, "sm_inflight": 0, "sm_calls": 107}
+{"t": 158.954, "phase": "trunk_taped", "rss_gib": 7.2631, "avail_gib": 10.4692, "sm_inflight": 0, "sm_calls": 108}
+{"t": 159.164, "phase": "trunk_taped", "rss_gib": 6.7293, "avail_gib": 11.0157, "sm_inflight": 0, "sm_calls": 108}
+{"t": 159.366, "phase": "trunk_taped", "rss_gib": 7.2884, "avail_gib": 10.4558, "sm_inflight": 0, "sm_calls": 108}
+{"aiclk_mhz": 1350, "phase": "trunk_taped", "load1": 4.69, "t_utc": "2026-09-25T21:19:14Z"}
+{"t": 159.953, "phase": "trunk_taped", "rss_gib": 7.5731, "avail_gib": 10.2087, "sm_inflight": 1, "sm_calls": 109}
+{"t": 160.155, "phase": "trunk_taped", "rss_gib": 9.2467, "avail_gib": 8.5306, "sm_inflight": 1, "sm_calls": 109}
+{"t": 160.356, "phase": "trunk_taped", "rss_gib": 9.1833, "avail_gib": 8.5899, "sm_inflight": 1, "sm_calls": 109}
+{"t": 160.798, "phase": "trunk_taped", "rss_gib": 9.2607, "avail_gib": 8.5096, "sm_inflight": 1, "sm_calls": 109}
+{"aiclk_mhz": 1350, "phase": "trunk_taped", "load1": 4.79, "t_utc": "2026-09-25T21:19:15Z"}
+{"t": 160.999, "phase": "trunk_taped", "rss_gib": 7.1512, "avail_gib": 10.5512, "sm_inflight": 0, "sm_calls": 109}
+{"t": 161.426, "phase": "trunk_taped", "rss_gib": 7.5733, "avail_gib": 10.2048, "sm_inflight": 1, "sm_calls": 110}
+{"t": 161.627, "phase": "trunk_taped", "rss_gib": 9.0151, "avail_gib": 8.7721, "sm_inflight": 1, "sm_calls": 110}
+{"t": 161.828, "phase": "trunk_taped", "rss_gib": 8.6223, "avail_gib": 9.1495, "sm_inflight": 1, "sm_calls": 110}
+{"aiclk_mhz": 1350, "phase": "trunk_taped", "load1": 4.79, "t_utc": "2026-09-25T21:19:16Z"}
+{"t": 162.323, "phase": "trunk_taped", "rss_gib": 8.4178, "avail_gib": 8.5117, "sm_inflight": 1, "sm_calls": 110}
+{"t": 162.525, "phase": "trunk_taped", "rss_gib": 6.7295, "avail_gib": 11.0113, "sm_inflight": 0, "sm_calls": 110}
+{"t": 162.726, "phase": "trunk_taped", "rss_gib": 7.2553, "avail_gib": 10.4828, "sm_inflight": 0, "sm_calls": 111}
+{"t": 162.93, "phase": "trunk_taped", "rss_gib": 7.1512, "avail_gib": 10.5138, "sm_inflight": 0, "sm_calls": 111}
+{"t": 163.131, "phase": "trunk_taped", "rss_gib": 7.1343, "avail_gib": 10.6016, "sm_inflight": 0, "sm_calls": 111}
+{"aiclk_mhz": 1350, "phase": "trunk_taped", "load1": 4.79, "t_utc": "2026-09-25T21:19:17Z"}
+{"t": 163.343, "phase": "trunk_taped", "rss_gib": 7.1512, "avail_gib": 10.5182, "sm_inflight": 0, "sm_calls": 111}
+{"t": 163.774, "phase": "trunk_taped", "rss_gib": 7.5814, "avail_gib": 10.1184, "sm_inflight": 1, "sm_calls": 112}
+{"t": 163.975, "phase": "trunk_taped", "rss_gib": 8.9353, "avail_gib": 8.7049, "sm_inflight": 1, "sm_calls": 112}
+{"t": 164.177, "phase": "trunk_taped", "rss_gib": 8.4735, "avail_gib": 9.0973, "sm_inflight": 1, "sm_calls": 112}
+{"t": 164.689, "phase": "trunk_taped", "rss_gib": 8.9647, "avail_gib": 8.2228, "sm_inflight": 1, "sm_calls": 112}
+{"aiclk_mhz": 1350, "phase": "trunk_taped", "load1": 4.79, "t_utc": "2026-09-25T21:19:18Z"}
+{"t": 164.904, "phase": "trunk_taped", "rss_gib": 7.1513, "avail_gib": 10.1768, "sm_inflight": 0, "sm_calls": 112}
+{"t": 165.323, "phase": "trunk_taped", "rss_gib": 7.5812, "avail_gib": 9.6866, "sm_inflight": 1, "sm_calls": 113}
+{"t": 165.523, "phase": "trunk_taped", "rss_gib": 9.1636, "avail_gib": 8.1121, "sm_inflight": 1, "sm_calls": 113}
+{"aiclk_mhz": 1350, "phase": "trunk_taped", "load1": 4.57, "t_utc": "2026-09-25T21:19:19Z"}
+{"t": 165.724, "phase": "trunk_taped", "rss_gib": 8.7398, "avail_gib": 8.4992, "sm_inflight": 1, "sm_calls": 113}
+{"t": 166.22, "phase": "trunk_taped", "rss_gib": 8.8438, "avail_gib": 7.9648, "sm_inflight": 1, "sm_calls": 113}
+{"t": 166.425, "phase": "trunk_taped", "rss_gib": 6.7297, "avail_gib": 10.4357, "sm_inflight": 0, "sm_calls": 113}
+{"t": 166.626, "phase": "trunk_taped", "rss_gib": 7.2378, "avail_gib": 9.9279, "sm_inflight": 0, "sm_calls": 114}
+{"aiclk_mhz": 1350, "phase": "trunk_taped", "load1": 4.57, "t_utc": "2026-09-25T21:19:20Z"}
+{"t": 166.842, "phase": "trunk_taped", "rss_gib": 7.1512, "avail_gib": 10.5814, "sm_inflight": 0, "sm_calls": 114}
+{"t": 167.042, "phase": "trunk_taped", "rss_gib": 7.2222, "avail_gib": 10.5741, "sm_inflight": 0, "sm_calls": 114}
+{"t": 167.662, "phase": "trunk_taped", "rss_gib": 8.4169, "avail_gib": 9.3746, "sm_inflight": 1, "sm_calls": 115}
+{"aiclk_mhz": 1350, "phase": "trunk_taped", "load1": 4.57, "t_utc": "2026-09-25T21:19:21Z"}
+{"t": 167.862, "phase": "trunk_taped", "rss_gib": 9.1426, "avail_gib": 8.6416, "sm_inflight": 1, "sm_calls": 115}
+{"t": 168.063, "phase": "trunk_taped", "rss_gib": 8.855, "avail_gib": 8.9277, "sm_inflight": 1, "sm_calls": 115}
+{"t": 168.519, "phase": "trunk_taped", "rss_gib": 8.9177, "avail_gib": 8.5236, "sm_inflight": 1, "sm_calls": 115}
+{"aiclk_mhz": 1350, "phase": "trunk_taped", "load1": 4.57, "t_utc": "2026-09-25T21:19:22Z"}
+{"t": 169.117, "phase": "trunk_taped", "rss_gib": 7.6029, "avail_gib": 10.2152, "sm_inflight": 1, "sm_calls": 116}
+{"t": 169.318, "phase": "trunk_taped", "rss_gib": 9.0889, "avail_gib": 8.6765, "sm_inflight": 1, "sm_calls": 116}
+{"t": 169.519, "phase": "trunk_taped", "rss_gib": 8.6969, "avail_gib": 9.0711, "sm_inflight": 1, "sm_calls": 116}
+{"aiclk_mhz": 1350, "phase": "trunk_taped", "load1": 4.57, "t_utc": "2026-09-25T21:19:24Z"}
+{"t": 170.002, "phase": "trunk_taped", "rss_gib": 8.9883, "avail_gib": 8.4796, "sm_inflight": 1, "sm_calls": 116}
+{"t": 170.212, "phase": "trunk_taped", "rss_gib": 6.7292, "avail_gib": 11.0475, "sm_inflight": 0, "sm_calls": 116}
+{"t": 170.413, "phase": "trunk_taped", "rss_gib": 7.2729, "avail_gib": 10.5155, "sm_inflight": 0, "sm_calls": 117}
+{"t": 170.62, "phase": "trunk_taped", "rss_gib": 7.1525, "avail_gib": 10.56, "sm_inflight": 0, "sm_calls": 117}
+{"t": 170.821, "phase": "trunk_taped", "rss_gib": 7.095, "avail_gib": 10.6762, "sm_inflight": 0, "sm_calls": 117}
+{"aiclk_mhz": 1350, "phase": "trunk_taped", "load1": 4.6, "t_utc": "2026-09-25T21:19:25Z"}
+{"t": 171.036, "phase": "trunk_taped", "rss_gib": 7.1513, "avail_gib": 10.5116, "sm_inflight": 0, "sm_calls": 117}
+{"t": 171.469, "phase": "trunk_taped", "rss_gib": 7.5734, "avail_gib": 10.1333, "sm_inflight": 1, "sm_calls": 118}
+{"t": 171.669, "phase": "trunk_taped", "rss_gib": 9.2015, "avail_gib": 8.5271, "sm_inflight": 1, "sm_calls": 118}
+{"t": 171.871, "phase": "trunk_taped", "rss_gib": 8.9058, "avail_gib": 8.79, "sm_inflight": 1, "sm_calls": 118}
+{"aiclk_mhz": 1350, "phase": "trunk_taped", "load1": 4.6, "t_utc": "2026-09-25T21:19:26Z"}
+{"t": 172.363, "phase": "trunk_taped", "rss_gib": 8.5644, "avail_gib": 8.2622, "sm_inflight": 1, "sm_calls": 118}
+{"t": 172.574, "phase": "trunk_taped", "rss_gib": 7.1513, "avail_gib": 10.2721, "sm_inflight": 0, "sm_calls": 118}
+{"t": 173.011, "phase": "trunk_taped", "rss_gib": 7.5753, "avail_gib": 9.7984, "sm_inflight": 1, "sm_calls": 119}
+{"t": 173.212, "phase": "trunk_taped", "rss_gib": 9.0421, "avail_gib": 8.3256, "sm_inflight": 1, "sm_calls": 119}
+{"aiclk_mhz": 1350, "phase": "trunk_taped", "load1": 4.6, "t_utc": "2026-09-25T21:19:27Z"}
+{"t": 173.413, "phase": "trunk_taped", "rss_gib": 8.7005, "avail_gib": 8.6227, "sm_inflight": 1, "sm_calls": 119}
+{"t": 173.93, "phase": "trunk_taped", "rss_gib": 8.799, "avail_gib": 7.9746, "sm_inflight": 1, "sm_calls": 119}
+{"t": 174.134, "phase": "trunk_taped", "rss_gib": 6.7552, "avail_gib": 10.4775, "sm_inflight": 0, "sm_calls": 119}
+{"t": 174.335, "phase": "trunk_taped", "rss_gib": 7.2025, "avail_gib": 10.0228, "sm_inflight": 0, "sm_calls": 120}
+{"aiclk_mhz": 1350, "phase": "trunk_taped", "load1": 4.6, "t_utc": "2026-09-25T21:19:28Z"}
+{"t": 174.55, "phase": "trunk_taped", "rss_gib": 7.1746, "avail_gib": 10.0025, "sm_inflight": 0, "sm_calls": 120}
+{"t": 174.75, "phase": "trunk_taped", "rss_gib": 7.174, "avail_gib": 10.0691, "sm_inflight": 0, "sm_calls": 120}
+{"t": 174.965, "phase": "trunk_taped", "rss_gib": 7.1746, "avail_gib": 9.9867, "sm_inflight": 0, "sm_calls": 120}
+{"aiclk_mhz": 1350, "phase": "trunk_taped", "load1": 4.48, "t_utc": "2026-09-25T21:19:29Z"}
+{"t": 175.384, "phase": "trunk_taped", "rss_gib": 7.5965, "avail_gib": 10.1564, "sm_inflight": 1, "sm_calls": 121}
+{"t": 175.584, "phase": "trunk_taped", "rss_gib": 8.9955, "avail_gib": 8.747, "sm_inflight": 1, "sm_calls": 121}
+{"t": 175.785, "phase": "trunk_taped", "rss_gib": 8.7162, "avail_gib": 9.0202, "sm_inflight": 1, "sm_calls": 121}
+{"t": 176.275, "phase": "trunk_taped", "rss_gib": 8.922, "avail_gib": 8.4388, "sm_inflight": 1, "sm_calls": 121}
+{"aiclk_mhz": 1350, "phase": "trunk_taped", "load1": 4.48, "t_utc": "2026-09-25T21:19:30Z"}
+{"t": 176.491, "phase": "trunk_taped", "rss_gib": 7.1747, "avail_gib": 10.5226, "sm_inflight": 0, "sm_calls": 121}
+{"t": 176.903, "phase": "trunk_taped", "rss_gib": 7.5968, "avail_gib": 10.1549, "sm_inflight": 1, "sm_calls": 122}
+{"t": 177.104, "phase": "trunk_taped", "rss_gib": 8.8062, "avail_gib": 8.9306, "sm_inflight": 1, "sm_calls": 122}
+{"t": 177.305, "phase": "trunk_taped", "rss_gib": 8.7751, "avail_gib": 8.9332, "sm_inflight": 1, "sm_calls": 122}
+{"aiclk_mhz": 1350, "phase": "trunk_taped", "load1": 4.48, "t_utc": "2026-09-25T21:19:31Z"}
+{"t": 177.857, "phase": "trunk_taped", "rss_gib": 9.0076, "avail_gib": 8.4717, "sm_inflight": 1, "sm_calls": 122}
+{"t": 178.06, "phase": "trunk_taped", "rss_gib": 6.7529, "avail_gib": 10.9895, "sm_inflight": 0, "sm_calls": 122}
+{"t": 178.261, "phase": "trunk_taped", "rss_gib": 7.2948, "avail_gib": 10.4617, "sm_inflight": 0, "sm_calls": 123}
+{"aiclk_mhz": 1350, "phase": "trunk_taped", "load1": 4.48, "t_utc": "2026-09-25T21:19:32Z"}
+{"t": 178.462, "phase": "trunk_taped", "rss_gib": 7.1746, "avail_gib": 10.5067, "sm_inflight": 0, "sm_calls": 123}
+{"t": 178.663, "phase": "trunk_taped", "rss_gib": 7.2729, "avail_gib": 10.4571, "sm_inflight": 0, "sm_calls": 123}
+{"t": 179.274, "phase": "trunk_taped", "rss_gib": 7.5968, "avail_gib": 10.1184, "sm_inflight": 1, "sm_calls": 124}
+{"aiclk_mhz": 1350, "phase": "trunk_taped", "load1": 4.48, "t_utc": "2026-09-25T21:19:33Z"}
+{"t": 179.475, "phase": "trunk_taped", "rss_gib": 9.154, "avail_gib": 8.5711, "sm_inflight": 1, "sm_calls": 124}
+{"t": 179.676, "phase": "trunk_taped", "rss_gib": 8.765, "avail_gib": 8.9999, "sm_inflight": 1, "sm_calls": 124}
+{"t": 180.145, "phase": "trunk_taped", "rss_gib": 9.2841, "avail_gib": 8.4777, "sm_inflight": 1, "sm_calls": 124}
+{"t": 180.345, "phase": "trunk_taped", "rss_gib": 6.7527, "avail_gib": 10.9532, "sm_inflight": 0, "sm_calls": 124}
+{"aiclk_mhz": 1350, "phase": "trunk_taped", "load1": 4.28, "t_utc": "2026-09-25T21:19:35Z"}
+{"t": 180.769, "phase": "trunk_taped", "rss_gib": 7.6048, "avail_gib": 10.0794, "sm_inflight": 1, "sm_calls": 125}
+{"t": 180.97, "phase": "trunk_taped", "rss_gib": 9.0721, "avail_gib": 8.5365, "sm_inflight": 1, "sm_calls": 125}
+{"t": 181.17, "phase": "trunk_taped", "rss_gib": 8.6417, "avail_gib": 8.8961, "sm_inflight": 1, "sm_calls": 125}
+{"t": 181.687, "phase": "trunk_taped", "rss_gib": 8.4401, "avail_gib": 8.458, "sm_inflight": 1, "sm_calls": 125}
+{"aiclk_mhz": 1350, "phase": "trunk_taped", "load1": 4.28, "t_utc": "2026-09-25T21:19:36Z"}
+{"t": 181.889, "phase": "trunk_taped", "rss_gib": 6.7526, "avail_gib": 10.9668, "sm_inflight": 0, "sm_calls": 125}
+{"t": 182.09, "phase": "trunk_taped", "rss_gib": 7.0836, "avail_gib": 10.5638, "sm_inflight": 0, "sm_calls": 126}
+{"t": 182.329, "phase": "trunk_taped", "rss_gib": 7.1746, "avail_gib": 10.3689, "sm_inflight": 0, "sm_calls": 126}
+{"t": 182.53, "phase": "trunk_taped", "rss_gib": 7.2417, "avail_gib": 10.3491, "sm_inflight": 0, "sm_calls": 126}
+{"t": 182.74, "phase": "trunk_taped", "rss_gib": 7.1747, "avail_gib": 10.3288, "sm_inflight": 0, "sm_calls": 126}
+{"t": 183.173, "phase": "trunk_taped", "rss_gib": 7.5965, "avail_gib": 9.1298, "sm_inflight": 1, "sm_calls": 127}
+{"aiclk_mhz": 1350, "phase": "trunk_taped", "load1": 4.28, "t_utc": "2026-09-25T21:19:37Z"}
+{"t": 183.376, "phase": "trunk_taped", "rss_gib": 9.116, "avail_gib": 8.4665, "sm_inflight": 1, "sm_calls": 127}
+{"t": 183.577, "phase": "trunk_taped", "rss_gib": 8.6652, "avail_gib": 8.9015, "sm_inflight": 1, "sm_calls": 127}
+{"t": 184.084, "phase": "trunk_taped", "rss_gib": 9.008, "avail_gib": 8.8598, "sm_inflight": 1, "sm_calls": 127}
+{"aiclk_mhz": 1350, "phase": "trunk_taped", "load1": 4.28, "t_utc": "2026-09-25T21:19:38Z"}
+{"t": 184.69, "phase": "trunk_taped", "rss_gib": 7.597, "avail_gib": 10.5537, "sm_inflight": 1, "sm_calls": 128}
+{"t": 184.891, "phase": "trunk_taped", "rss_gib": 9.407, "avail_gib": 8.7516, "sm_inflight": 1, "sm_calls": 128}
+{"t": 185.503, "phase": "trunk_taped", "rss_gib": 8.7242, "avail_gib": 8.8548, "sm_inflight": 1, "sm_calls": 128}
+{"aiclk_mhz": 1350, "phase": "trunk_taped", "load1": 4.42, "t_utc": "2026-09-25T21:19:39Z"}
+{"t": 185.704, "phase": "trunk_taped", "rss_gib": 6.782, "avail_gib": 11.3343, "sm_inflight": 0, "sm_calls": 128}
+{"t": 185.906, "phase": "trunk_taped", "rss_gib": 7.2495, "avail_gib": 10.8486, "sm_inflight": 0, "sm_calls": 129}
+{"t": 186.106, "phase": "trunk_taped", "rss_gib": 6.8061, "avail_gib": 11.2954, "sm_inflight": 0, "sm_calls": 129}
+{"t": 186.307, "phase": "trunk_taped", "rss_gib": 7.3074, "avail_gib": 10.8127, "sm_inflight": 0, "sm_calls": 129}
+{"aiclk_mhz": 1350, "phase": "trunk_taped", "load1": 4.42, "t_utc": "2026-09-25T21:19:41Z"}
+{"t": 186.905, "phase": "trunk_taped", "rss_gib": 7.6069, "avail_gib": 10.5635, "sm_inflight": 1, "sm_calls": 130}
+{"t": 187.106, "phase": "trunk_taped", "rss_gib": 9.2432, "avail_gib": 8.9219, "sm_inflight": 1, "sm_calls": 130}
+{"t": 187.307, "phase": "trunk_taped", "rss_gib": 9.2614, "avail_gib": 8.9015, "sm_inflight": 1, "sm_calls": 130}
+{"t": 187.73, "phase": "trunk_taped", "rss_gib": 8.6936, "avail_gib": 8.8722, "sm_inflight": 1, "sm_calls": 130}
+{"aiclk_mhz": 1350, "phase": "trunk_taped", "load1": 4.42, "t_utc": "2026-09-25T21:19:42Z"}
+{"t": 188.34, "phase": "trunk_taped", "rss_gib": 7.6068, "avail_gib": 10.5622, "sm_inflight": 1, "sm_calls": 131}
+{"t": 188.541, "phase": "trunk_taped", "rss_gib": 9.4176, "avail_gib": 8.7445, "sm_inflight": 1, "sm_calls": 131}
+{"aiclk_mhz": 1350, "phase": "trunk_taped", "load1": 4.42, "t_utc": "2026-09-25T21:19:43Z"}
+{"t": 189.158, "phase": "trunk_taped", "rss_gib": 8.4403, "avail_gib": 9.0049, "sm_inflight": 1, "sm_calls": 131}
+{"t": 189.363, "phase": "trunk_taped", "rss_gib": 6.7592, "avail_gib": 11.276, "sm_inflight": 0, "sm_calls": 131}
+{"t": 189.564, "phase": "trunk_taped", "rss_gib": 7.2378, "avail_gib": 10.7128, "sm_inflight": 0, "sm_calls": 132}
+{"t": 189.772, "phase": "trunk_taped", "rss_gib": 7.176, "avail_gib": 10.6793, "sm_inflight": 0, "sm_calls": 132}
+{"t": 189.972, "phase": "trunk_taped", "rss_gib": 7.1888, "avail_gib": 10.7025, "sm_inflight": 0, "sm_calls": 132}
+{"t": 190.192, "phase": "trunk_taped", "rss_gib": 7.1175, "avail_gib": 10.6151, "sm_inflight": 0, "sm_calls": 132}
+{"aiclk_mhz": 1350, "phase": "trunk_taped", "load1": 4.7, "t_utc": "2026-09-25T21:19:44Z"}
+{"t": 190.63, "phase": "trunk_taped", "rss_gib": 7.6147, "avail_gib": 10.1372, "sm_inflight": 1, "sm_calls": 133}
+{"t": 190.831, "phase": "trunk_taped", "rss_gib": 9.0462, "avail_gib": 8.6379, "sm_inflight": 1, "sm_calls": 133}
+{"t": 191.032, "phase": "trunk_taped", "rss_gib": 8.638, "avail_gib": 9.0122, "sm_inflight": 1, "sm_calls": 133}
+{"aiclk_mhz": 1350, "phase": "trunk_taped", "load1": 4.7, "t_utc": "2026-09-25T21:19:45Z"}
+{"t": 191.53, "phase": "trunk_taped", "rss_gib": 9.1467, "avail_gib": 8.3155, "sm_inflight": 1, "sm_calls": 133}
+{"t": 191.733, "phase": "trunk_taped", "rss_gib": 7.0342, "avail_gib": 10.4537, "sm_inflight": 0, "sm_calls": 133}
+{"t": 192.151, "phase": "trunk_taped", "rss_gib": 7.6008, "avail_gib": 9.971, "sm_inflight": 1, "sm_calls": 134}
+{"t": 192.352, "phase": "trunk_taped", "rss_gib": 8.9743, "avail_gib": 9.1695, "sm_inflight": 1, "sm_calls": 134}
+{"aiclk_mhz": 1350, "phase": "trunk_taped", "load1": 4.7, "t_utc": "2026-09-25T21:19:46Z"}
+{"t": 192.553, "phase": "trunk_taped", "rss_gib": 8.6163, "avail_gib": 9.5308, "sm_inflight": 1, "sm_calls": 134}
+{"t": 193.049, "phase": "trunk_taped", "rss_gib": 8.4416, "avail_gib": 8.8686, "sm_inflight": 1, "sm_calls": 134}
+{"t": 193.25, "phase": "trunk_taped", "rss_gib": 6.7846, "avail_gib": 11.3297, "sm_inflight": 0, "sm_calls": 134}
+{"t": 193.452, "phase": "trunk_taped", "rss_gib": 7.269, "avail_gib": 10.8435, "sm_inflight": 0, "sm_calls": 135}
+{"aiclk_mhz": 1350, "phase": "trunk_taped", "load1": 4.7, "t_utc": "2026-09-25T21:19:47Z"}
+{"t": 193.653, "phase": "trunk_taped", "rss_gib": 6.8569, "avail_gib": 11.2558, "sm_inflight": 0, "sm_calls": 135}
+{"t": 193.854, "phase": "trunk_taped", "rss_gib": 7.1928, "avail_gib": 10.9142, "sm_inflight": 0, "sm_calls": 135}
+{"t": 194.441, "phase": "trunk_taped", "rss_gib": 7.5969, "avail_gib": 9.7118, "sm_inflight": 1, "sm_calls": 136}
+{"aiclk_mhz": 1350, "phase": "trunk_taped", "load1": 4.7, "t_utc": "2026-09-25T21:19:48Z"}
+{"t": 194.644, "phase": "trunk_taped", "rss_gib": 9.2318, "avail_gib": 8.9162, "sm_inflight": 1, "sm_calls": 136}
+{"t": 194.845, "phase": "trunk_taped", "rss_gib": 9.2614, "avail_gib": 8.8734, "sm_inflight": 1, "sm_calls": 136}
+{"t": 195.27, "phase": "trunk_taped", "rss_gib": 9.0077, "avail_gib": 8.887, "sm_inflight": 1, "sm_calls": 136}
+{"aiclk_mhz": 1350, "phase": "trunk_taped", "load1": 4.41, "t_utc": "2026-09-25T21:19:50Z"}
+{"t": 195.875, "phase": "trunk_taped", "rss_gib": 7.6029, "avail_gib": 10.5804, "sm_inflight": 1, "sm_calls": 137}
+{"t": 196.075, "phase": "trunk_taped", "rss_gib": 9.2515, "avail_gib": 8.9171, "sm_inflight": 1, "sm_calls": 137}
+{"t": 196.276, "phase": "trunk_taped", "rss_gib": 9.2575, "avail_gib": 8.9003, "sm_inflight": 1, "sm_calls": 137}
+{"t": 196.702, "phase": "trunk_taped", "rss_gib": 8.44, "avail_gib": 8.8725, "sm_inflight": 1, "sm_calls": 137}
+{"aiclk_mhz": 1350, "phase": "trunk_taped", "load1": 4.41, "t_utc": "2026-09-25T21:19:51Z"}
+{"t": 196.903, "phase": "trunk_taped", "rss_gib": 6.7764, "avail_gib": 11.335, "sm_inflight": 0, "sm_calls": 137}
+{"t": 197.104, "phase": "trunk_taped", "rss_gib": 7.3112, "avail_gib": 10.7829, "sm_inflight": 0, "sm_calls": 138}
+{"t": 197.309, "phase": "trunk_taped", "rss_gib": 6.7528, "avail_gib": 11.346, "sm_inflight": 0, "sm_calls": 138}
+{"t": 197.51, "phase": "trunk_taped", "rss_gib": 7.2963, "avail_gib": 10.8107, "sm_inflight": 0, "sm_calls": 138}
+{"aiclk_mhz": 1350, "phase": "trunk_taped", "load1": 4.41, "t_utc": "2026-09-25T21:19:52Z"}
+{"t": 198.134, "phase": "trunk_taped", "rss_gib": 7.601, "avail_gib": 10.5043, "sm_inflight": 1, "sm_calls": 139}
+{"t": 198.336, "phase": "trunk_taped", "rss_gib": 9.1177, "avail_gib": 8.8278, "sm_inflight": 1, "sm_calls": 139}
+{"t": 198.538, "phase": "trunk_taped", "rss_gib": 8.7357, "avail_gib": 9.1446, "sm_inflight": 1, "sm_calls": 139}
+{"t": 199.029, "phase": "trunk_taped", "rss_gib": 8.8478, "avail_gib": 8.4471, "sm_inflight": 1, "sm_calls": 139}
+{"aiclk_mhz": 1350, "phase": "trunk_taped", "load1": 4.41, "t_utc": "2026-09-25T21:19:53Z"}
+{"t": 199.245, "phase": "trunk_taped", "rss_gib": 7.1748, "avail_gib": 10.3696, "sm_inflight": 0, "sm_calls": 139}
+{"t": 199.669, "phase": "trunk_taped", "rss_gib": 7.5969, "avail_gib": 9.9723, "sm_inflight": 1, "sm_calls": 140}
+{"t": 199.869, "phase": "trunk_taped", "rss_gib": 9.0423, "avail_gib": 8.5251, "sm_inflight": 1, "sm_calls": 140}
+{"t": 200.07, "phase": "trunk_taped", "rss_gib": 8.6849, "avail_gib": 8.8741, "sm_inflight": 1, "sm_calls": 140}
+{"aiclk_mhz": 1350, "phase": "trunk_taped", "load1": 4.61, "t_utc": "2026-09-25T21:19:54Z"}
+{"t": 200.565, "phase": "trunk_taped", "rss_gib": 8.4401, "avail_gib": 8.2305, "sm_inflight": 1, "sm_calls": 140}
+{"t": 200.767, "phase": "trunk_taped", "rss_gib": 6.753, "avail_gib": 11.2987, "sm_inflight": 0, "sm_calls": 140}
+{"t": 200.968, "phase": "trunk_taped", "rss_gib": 7.2416, "avail_gib": 10.8279, "sm_inflight": 0, "sm_calls": 141}
+{"t": 201.169, "phase": "trunk_taped", "rss_gib": 6.7709, "avail_gib": 11.3171, "sm_inflight": 0, "sm_calls": 141}
+{"t": 201.371, "phase": "trunk_taped", "rss_gib": 7.2885, "avail_gib": 10.8019, "sm_inflight": 0, "sm_calls": 141}
+{"aiclk_mhz": 1350, "phase": "trunk_taped", "load1": 4.61, "t_utc": "2026-09-25T21:19:56Z"}
+{"t": 201.67, "phase": "trunk_taped", "rss_gib": 7.5969, "avail_gib": 10.5355, "sm_inflight": 1, "sm_calls": 142}
+{"t": 202.178, "phase": "trunk_taped", "rss_gib": 9.1056, "avail_gib": 9.0341, "sm_inflight": 1, "sm_calls": 142}
+{"t": 202.379, "phase": "trunk_taped", "rss_gib": 9.1169, "avail_gib": 9.0373, "sm_inflight": 1, "sm_calls": 142}
+{"t": 202.815, "phase": "trunk_taped", "rss_gib": 8.6974, "avail_gib": 8.8649, "sm_inflight": 1, "sm_calls": 142}
+{"aiclk_mhz": 1350, "phase": "trunk_taped", "load1": 4.61, "t_utc": "2026-09-25T21:19:57Z"}
+{"t": 203.428, "phase": "trunk_taped", "rss_gib": 7.5971, "avail_gib": 10.559, "sm_inflight": 1, "sm_calls": 143}
+{"t": 203.629, "phase": "trunk_taped", "rss_gib": 9.1497, "avail_gib": 9.0139, "sm_inflight": 1, "sm_calls": 143}
+{"t": 203.83, "phase": "trunk_taped", "rss_gib": 8.9664, "avail_gib": 9.1644, "sm_inflight": 1, "sm_calls": 143}
+{"aiclk_mhz": 1350, "phase": "trunk_taped", "load1": 4.61, "t_utc": "2026-09-25T21:19:58Z"}
+{"t": 204.287, "phase": "trunk_taped", "rss_gib": 8.922, "avail_gib": 8.8474, "sm_inflight": 1, "sm_calls": 143}
+{"t": 204.487, "phase": "trunk_taped", "rss_gib": 6.7884, "avail_gib": 11.3359, "sm_inflight": 0, "sm_calls": 143}
+{"t": 204.689, "phase": "trunk_taped", "rss_gib": 7.2045, "avail_gib": 10.9141, "sm_inflight": 0, "sm_calls": 144}
+{"t": 204.893, "phase": "trunk_taped", "rss_gib": 6.7528, "avail_gib": 11.4128, "sm_inflight": 0, "sm_calls": 144}
+{"t": 205.094, "phase": "trunk_taped", "rss_gib": 7.2182, "avail_gib": 10.9395, "sm_inflight": 0, "sm_calls": 144}
+{"aiclk_mhz": 1350, "phase": "trunk_taped", "load1": 4.81, "t_utc": "2026-09-25T21:19:59Z"}
+{"t": 205.303, "phase": "trunk_taped", "rss_gib": 7.1747, "avail_gib": 10.9065, "sm_inflight": 0, "sm_calls": 144}
+{"t": 205.707, "phase": "trunk_taped", "rss_gib": 7.5966, "avail_gib": 10.5742, "sm_inflight": 1, "sm_calls": 145}
+{"t": 205.91, "phase": "trunk_taped", "rss_gib": 9.1089, "avail_gib": 9.0117, "sm_inflight": 1, "sm_calls": 145}
+{"t": 206.111, "phase": "trunk_taped", "rss_gib": 8.44, "avail_gib": 9.6258, "sm_inflight": 1, "sm_calls": 145}
+{"aiclk_mhz": 1343, "phase": "trunk_taped", "load1": 4.81, "t_utc": "2026-09-25T21:20:00Z"}
+{"t": 206.724, "phase": "trunk_taped", "rss_gib": 9.1487, "avail_gib": 8.5891, "sm_inflight": 1, "sm_calls": 145}
+{"t": 206.925, "phase": "trunk_taped", "rss_gib": 7.034, "avail_gib": 10.7271, "sm_inflight": 0, "sm_calls": 145}
+{"t": 207.575, "phase": "trunk_taped", "rss_gib": 7.5965, "avail_gib": 8.9106, "sm_inflight": 1, "sm_calls": 146}
+{"aiclk_mhz": 1350, "phase": "trunk_taped", "load1": 4.81, "t_utc": "2026-09-25T21:20:01Z"}
+{"t": 207.775, "phase": "trunk_taped", "rss_gib": 8.9626, "avail_gib": 8.3543, "sm_inflight": 1, "sm_calls": 146}
+{"t": 207.976, "phase": "trunk_taped", "rss_gib": 8.6047, "avail_gib": 8.7374, "sm_inflight": 1, "sm_calls": 146}
+{"t": 208.493, "phase": "trunk_taped", "rss_gib": 8.8653, "avail_gib": 8.063, "sm_inflight": 1, "sm_calls": 146}
+{"t": 208.699, "phase": "trunk_taped", "rss_gib": 6.7526, "avail_gib": 10.5875, "sm_inflight": 0, "sm_calls": 146}
+{"aiclk_mhz": 1350, "phase": "trunk_taped", "load1": 4.81, "t_utc": "2026-09-25T21:20:02Z"}
+{"t": 208.899, "phase": "trunk_taped", "rss_gib": 7.1616, "avail_gib": 10.1668, "sm_inflight": 0, "sm_calls": 147}
+{"t": 209.138, "phase": "trunk_taped", "rss_gib": 7.1748, "avail_gib": 10.0963, "sm_inflight": 0, "sm_calls": 147}
+{"t": 209.338, "phase": "trunk_taped", "rss_gib": 7.1303, "avail_gib": 10.7618, "sm_inflight": 0, "sm_calls": 147}
+{"t": 209.56, "phase": "trunk_taped", "rss_gib": 7.1746, "avail_gib": 10.6247, "sm_inflight": 0, "sm_calls": 147}
+{"aiclk_mhz": 1350, "phase": "trunk_taped", "load1": 4.81, "t_utc": "2026-09-25T21:20:04Z"}
+{"t": 209.984, "phase": "trunk_taped", "rss_gib": 7.6204, "avail_gib": 10.2218, "sm_inflight": 1, "sm_calls": 148}
+{"t": 210.186, "phase": "trunk_taped", "rss_gib": 9.0958, "avail_gib": 8.7618, "sm_inflight": 1, "sm_calls": 148}
+{"t": 210.387, "phase": "trunk_taped", "rss_gib": 8.7338, "avail_gib": 9.1062, "sm_inflight": 1, "sm_calls": 148}
+{"t": 210.895, "phase": "trunk_taped", "rss_gib": 9.1484, "avail_gib": 8.5724, "sm_inflight": 1, "sm_calls": 148}
+{"aiclk_mhz": 1350, "phase": "trunk_taped", "load1": 4.9, "t_utc": "2026-09-25T21:20:05Z"}
+{"t": 211.118, "phase": "trunk_taped", "rss_gib": 7.1747, "avail_gib": 10.6448, "sm_inflight": 0, "sm_calls": 148}
+{"t": 211.535, "phase": "trunk_taped", "rss_gib": 7.5968, "avail_gib": 10.2865, "sm_inflight": 1, "sm_calls": 149}
+{"t": 211.736, "phase": "trunk_taped", "rss_gib": 9.0586, "avail_gib": 8.842, "sm_inflight": 1, "sm_calls": 149}
+{"t": 211.937, "phase": "trunk_taped", "rss_gib": 8.5596, "avail_gib": 9.3742, "sm_inflight": 1, "sm_calls": 149}
+{"aiclk_mhz": 1350, "phase": "trunk_taped", "load1": 4.9, "t_utc": "2026-09-25T21:20:06Z"}
+{"t": 212.441, "phase": "trunk_taped", "rss_gib": 9.0137, "avail_gib": 8.6463, "sm_inflight": 1, "sm_calls": 149}
+{"t": 212.642, "phase": "trunk_taped", "rss_gib": 6.8156, "avail_gib": 11.1094, "sm_inflight": 0, "sm_calls": 149}
+{"t": 212.843, "phase": "trunk_taped", "rss_gib": 7.3021, "avail_gib": 10.6266, "sm_inflight": 0, "sm_calls": 150}
+{"aiclk_mhz": 1350, "phase": "trunk_taped", "load1": 4.9, "t_utc": "2026-09-25T21:20:07Z"}
+{"t": 213.045, "phase": "trunk_taped", "rss_gib": 6.8849, "avail_gib": 11.0575, "sm_inflight": 0, "sm_calls": 150}
+{"t": 213.246, "phase": "trunk_taped", "rss_gib": 7.2259, "avail_gib": 10.7093, "sm_inflight": 0, "sm_calls": 150}
+{"t": 213.838, "phase": "trunk_taped", "rss_gib": 7.5966, "avail_gib": 9.4637, "sm_inflight": 1, "sm_calls": 151}
+{"aiclk_mhz": 1350, "phase": "trunk_taped", "load1": 4.9, "t_utc": "2026-09-25T21:20:08Z"}
+{"t": 214.039, "phase": "trunk_taped", "rss_gib": 9.3521, "avail_gib": 8.5752, "sm_inflight": 1, "sm_calls": 151}
+{"t": 214.24, "phase": "trunk_taped", "rss_gib": 9.2302, "avail_gib": 8.6912, "sm_inflight": 1, "sm_calls": 151}
+{"t": 214.676, "phase": "trunk_taped", "rss_gib": 8.4534, "avail_gib": 8.6372, "sm_inflight": 1, "sm_calls": 151}
+{"t": 214.88, "phase": "trunk_taped", "rss_gib": 7.1746, "avail_gib": 10.6413, "sm_inflight": 0, "sm_calls": 151}
+{"aiclk_mhz": 1350, "phase": "trunk_taped", "load1": 5.07, "t_utc": "2026-09-25T21:20:09Z"}
+{"t": 215.305, "phase": "trunk_taped", "rss_gib": 7.6009, "avail_gib": 9.3036, "sm_inflight": 1, "sm_calls": 152}
+{"t": 215.506, "phase": "trunk_taped", "rss_gib": 9.1619, "avail_gib": 8.5173, "sm_inflight": 1, "sm_calls": 152}
+{"t": 215.707, "phase": "trunk_taped", "rss_gib": 8.904, "avail_gib": 8.778, "sm_inflight": 1, "sm_calls": 152}
+{"t": 216.178, "phase": "trunk_taped", "rss_gib": 8.8283, "avail_gib": 8.2053, "sm_inflight": 1, "sm_calls": 152}
+{"aiclk_mhz": 1350, "phase": "trunk_taped", "load1": 5.07, "t_utc": "2026-09-25T21:20:10Z"}
+{"t": 216.384, "phase": "trunk_taped", "rss_gib": 6.7528, "avail_gib": 10.722, "sm_inflight": 0, "sm_calls": 152}
+{"t": 216.585, "phase": "trunk_taped", "rss_gib": 7.0913, "avail_gib": 10.352, "sm_inflight": 0, "sm_calls": 153}
+{"t": 216.808, "phase": "trunk_taped", "rss_gib": 7.1747, "avail_gib": 10.1599, "sm_inflight": 0, "sm_calls": 153}
+{"t": 217.008, "phase": "trunk_taped", "rss_gib": 7.1519, "avail_gib": 10.2426, "sm_inflight": 0, "sm_calls": 153}
+{"t": 217.221, "phase": "trunk_taped", "rss_gib": 7.1747, "avail_gib": 10.14, "sm_inflight": 0, "sm_calls": 153}
+{"aiclk_mhz": 1350, "phase": "trunk_taped", "load1": 5.07, "t_utc": "2026-09-25T21:20:11Z"}
+{"t": 217.663, "phase": "trunk_taped", "rss_gib": 7.6225, "avail_gib": 9.7261, "sm_inflight": 1, "sm_calls": 154}
+{"t": 217.864, "phase": "trunk_taped", "rss_gib": 9.1296, "avail_gib": 8.1727, "sm_inflight": 1, "sm_calls": 154}
+{"t": 218.065, "phase": "trunk_taped", "rss_gib": 8.6984, "avail_gib": 9.2254, "sm_inflight": 1, "sm_calls": 154}
+{"t": 218.546, "phase": "trunk_taped", "rss_gib": 8.9649, "avail_gib": 8.6578, "sm_inflight": 1, "sm_calls": 154}
+{"aiclk_mhz": 1350, "phase": "trunk_taped", "load1": 5.07, "t_utc": "2026-09-25T21:20:12Z"}
+{"t": 218.756, "phase": "trunk_taped", "rss_gib": 7.1747, "avail_gib": 10.8182, "sm_inflight": 0, "sm_calls": 154}
+{"t": 219.196, "phase": "trunk_taped", "rss_gib": 7.5965, "avail_gib": 10.3482, "sm_inflight": 1, "sm_calls": 155}
+{"t": 219.397, "phase": "trunk_taped", "rss_gib": 9.2215, "avail_gib": 8.7261, "sm_inflight": 1, "sm_calls": 155}
+{"t": 219.598, "phase": "trunk_taped", "rss_gib": 8.8903, "avail_gib": 9.0505, "sm_inflight": 1, "sm_calls": 155}
+{"aiclk_mhz": 1350, "phase": "trunk_taped", "load1": 5.07, "t_utc": "2026-09-25T21:20:14Z"}
+{"t": 220.065, "phase": "trunk_taped", "rss_gib": 8.4403, "avail_gib": 8.6674, "sm_inflight": 1, "sm_calls": 155}
+{"t": 220.267, "phase": "trunk_taped", "rss_gib": 6.753, "avail_gib": 11.1644, "sm_inflight": 0, "sm_calls": 155}
+{"t": 220.468, "phase": "trunk_taped", "rss_gib": 7.2457, "avail_gib": 10.677, "sm_inflight": 0, "sm_calls": 156}
+{"t": 220.673, "phase": "trunk_taped", "rss_gib": 7.1748, "avail_gib": 10.674, "sm_inflight": 0, "sm_calls": 156}
+{"t": 220.874, "phase": "trunk_taped", "rss_gib": 7.2689, "avail_gib": 10.6548, "sm_inflight": 0, "sm_calls": 156}
+{"aiclk_mhz": 1350, "phase": "trunk_taped", "load1": 4.9, "t_utc": "2026-09-25T21:20:15Z"}
+{"t": 221.478, "phase": "trunk_taped", "rss_gib": 7.6128, "avail_gib": 10.3284, "sm_inflight": 1, "sm_calls": 157}
+{"t": 221.679, "phase": "trunk_taped", "rss_gib": 9.1789, "avail_gib": 8.7772, "sm_inflight": 1, "sm_calls": 157}
+{"t": 221.88, "phase": "trunk_taped", "rss_gib": 8.7786, "avail_gib": 9.1594, "sm_inflight": 1, "sm_calls": 157}
+{"t": 222.353, "phase": "trunk_taped", "rss_gib": 9.2839, "avail_gib": 8.6688, "sm_inflight": 1, "sm_calls": 157}
+{"aiclk_mhz": 1350, "phase": "trunk_taped", "load1": 4.9, "t_utc": "2026-09-25T21:20:16Z"}
+{"t": 222.554, "phase": "trunk_taped", "rss_gib": 7.1748, "avail_gib": 10.6885, "sm_inflight": 0, "sm_calls": 157}
+{"t": 222.968, "phase": "trunk_taped", "rss_gib": 7.5969, "avail_gib": 10.3481, "sm_inflight": 1, "sm_calls": 158}
+{"t": 223.168, "phase": "trunk_taped", "rss_gib": 9.132, "avail_gib": 8.7822, "sm_inflight": 1, "sm_calls": 158}
+{"aiclk_mhz": 1350, "phase": "trunk_taped", "load1": 4.9, "t_utc": "2026-09-25T21:20:17Z"}
+{"t": 223.369, "phase": "trunk_taped", "rss_gib": 8.7239, "avail_gib": 9.1456, "sm_inflight": 1, "sm_calls": 158}
+{"t": 223.864, "phase": "trunk_taped", "rss_gib": 8.4403, "avail_gib": 8.4138, "sm_inflight": 1, "sm_calls": 158}
+{"t": 224.07, "phase": "trunk_taped", "rss_gib": 6.7528, "avail_gib": 10.8725, "sm_inflight": 0, "sm_calls": 158}
+{"verb": "trunk_forward", "s": 204.259, "rss_gib": 6.7529, "avail_gib": 10.8704, "sm_calls": 159, "t_utc": "2026-09-25T21:20:18Z"}
+{"t": 224.304, "phase": "diffusion", "rss_gib": 6.8262, "avail_gib": 10.7775, "sm_inflight": 0, "sm_calls": 159}
+{"aiclk_mhz": 1350, "phase": "diffusion", "load1": 4.9, "t_utc": "2026-09-25T21:20:18Z"}
+{"t": 224.573, "phase": "diffusion", "rss_gib": 7.6328, "avail_gib": 9.7662, "sm_inflight": 0, "sm_calls": 159}
+{"t": 224.773, "phase": "diffusion", "rss_gib": 6.8776, "avail_gib": 10.6181, "sm_inflight": 0, "sm_calls": 159}
+{"t": 225.014, "phase": "diffusion", "rss_gib": 6.7529, "avail_gib": 10.6954, "sm_inflight": 0, "sm_calls": 159}
+{"t": 225.254, "phase": "diffusion", "rss_gib": 6.753, "avail_gib": 10.692, "sm_inflight": 0, "sm_calls": 159}
+{"aiclk_mhz": 1350, "phase": "diffusion", "load1": 4.83, "t_utc": "2026-09-25T21:20:19Z"}
+{"t": 225.522, "phase": "diffusion", "rss_gib": 6.7531, "avail_gib": 10.6634, "sm_inflight": 0, "sm_calls": 159}
+{"t": 225.748, "phase": "diffusion", "rss_gib": 6.828, "avail_gib": 10.5707, "sm_inflight": 0, "sm_calls": 162}
+{"t": 225.949, "phase": "diffusion", "rss_gib": 6.7532, "avail_gib": 10.6488, "sm_inflight": 1, "sm_calls": 163}
+{"t": 226.158, "phase": "diffusion", "rss_gib": 7.175, "avail_gib": 10.1675, "sm_inflight": 0, "sm_calls": 163}
+{"t": 226.359, "phase": "diffusion", "rss_gib": 7.1112, "avail_gib": 10.2585, "sm_inflight": 0, "sm_calls": 165}
+{"aiclk_mhz": 1350, "phase": "diffusion", "load1": 4.83, "t_utc": "2026-09-25T21:20:20Z"}
+{"t": 226.578, "phase": "diffusion", "rss_gib": 6.8239, "avail_gib": 11.0399, "sm_inflight": 0, "sm_calls": 167}
+{"t": 226.785, "phase": "diffusion", "rss_gib": 7.2456, "avail_gib": 10.7046, "sm_inflight": 0, "sm_calls": 168}
+{"t": 226.986, "phase": "diffusion", "rss_gib": 7.1564, "avail_gib": 10.7754, "sm_inflight": 0, "sm_calls": 169}
+{"t": 227.205, "phase": "diffusion", "rss_gib": 6.832, "avail_gib": 10.9945, "sm_inflight": 0, "sm_calls": 171}
+{"aiclk_mhz": 1350, "phase": "diffusion", "load1": 4.83, "t_utc": "2026-09-25T21:20:21Z"}
+{"t": 227.412, "phase": "diffusion", "rss_gib": 7.1988, "avail_gib": 10.5603, "sm_inflight": 0, "sm_calls": 172}
+{"t": 227.613, "phase": "diffusion", "rss_gib": 7.2339, "avail_gib": 10.5882, "sm_inflight": 0, "sm_calls": 174}
+{"t": 227.824, "phase": "diffusion", "rss_gib": 6.9177, "avail_gib": 10.9019, "sm_inflight": 0, "sm_calls": 176}
+{"t": 228.029, "phase": "diffusion", "rss_gib": 7.2704, "avail_gib": 10.5055, "sm_inflight": 0, "sm_calls": 177}
+{"t": 228.23, "phase": "diffusion", "rss_gib": 7.3043, "avail_gib": 10.5832, "sm_inflight": 0, "sm_calls": 179}
+{"aiclk_mhz": 1350, "phase": "diffusion", "load1": 4.83, "t_utc": "2026-09-25T21:20:22Z"}
+{"t": 228.437, "phase": "diffusion", "rss_gib": 6.9882, "avail_gib": 10.8891, "sm_inflight": 0, "sm_calls": 181}
+{"t": 228.643, "phase": "diffusion", "rss_gib": 7.3571, "avail_gib": 10.4559, "sm_inflight": 0, "sm_calls": 182}
+{"t": 228.843, "phase": "diffusion", "rss_gib": 7.4116, "avail_gib": 10.458, "sm_inflight": 0, "sm_calls": 184}
+{"t": 229.091, "phase": "diffusion", "rss_gib": 7.1232, "avail_gib": 10.7729, "sm_inflight": 0, "sm_calls": 186}
+{"t": 229.303, "phase": "diffusion", "rss_gib": 7.1352, "avail_gib": 10.7868, "sm_inflight": 0, "sm_calls": 187}
+{"aiclk_mhz": 1343, "phase": "diffusion", "load1": 4.83, "t_utc": "2026-09-25T21:20:23Z"}
+{"t": 229.525, "phase": "diffusion", "rss_gib": 7.4668, "avail_gib": 10.4564, "sm_inflight": 0, "sm_calls": 193}
+{"t": 229.726, "phase": "diffusion", "rss_gib": 8.026, "avail_gib": 9.8909, "sm_inflight": 1, "sm_calls": 209}
+{"t": 229.926, "phase": "diffusion", "rss_gib": 8.3479, "avail_gib": 9.5872, "sm_inflight": 1, "sm_calls": 222}
+{"t": 230.128, "phase": "diffusion", "rss_gib": 8.8878, "avail_gib": 9.0727, "sm_inflight": 1, "sm_calls": 238}
+{"t": 230.329, "phase": "diffusion", "rss_gib": 9.2267, "avail_gib": 8.7013, "sm_inflight": 0, "sm_calls": 250}
+{"aiclk_mhz": 1350, "phase": "diffusion", "load1": 5.0, "t_utc": "2026-09-25T21:20:24Z"}
+{"t": 230.529, "phase": "diffusion", "rss_gib": 9.7325, "avail_gib": 8.1823, "sm_inflight": 0, "sm_calls": 264}
+{"t": 230.73, "phase": "diffusion", "rss_gib": 10.1548, "avail_gib": 7.7792, "sm_inflight": 0, "sm_calls": 278}
+{"verb": "diffusion", "s": 6.541, "rss_gib": 10.1548, "avail_gib": 7.7759, "sm_calls": 279, "t_utc": "2026-09-25T21:20:24Z"}
+{"t": 230.93, "phase": "losses", "rss_gib": 10.1924, "avail_gib": 7.758, "sm_inflight": 0, "sm_calls": 279}
+{"t": 231.131, "phase": "losses", "rss_gib": 10.3114, "avail_gib": 7.6433, "sm_inflight": 0, "sm_calls": 279}
+{"t": 231.331, "phase": "losses", "rss_gib": 10.3693, "avail_gib": 7.6269, "sm_inflight": 0, "sm_calls": 279}
+{"aiclk_mhz": 1350, "phase": "losses", "load1": 5.0, "t_utc": "2026-09-25T21:20:25Z"}
+{"t": 231.532, "phase": "losses", "rss_gib": 10.545, "avail_gib": 7.422, "sm_inflight": 0, "sm_calls": 279}
+{"t": 231.732, "phase": "losses", "rss_gib": 10.4371, "avail_gib": 7.5603, "sm_inflight": 0, "sm_calls": 279}
+{"t": 231.933, "phase": "losses", "rss_gib": 10.5776, "avail_gib": 7.3643, "sm_inflight": 0, "sm_calls": 279}
+{"t": 232.133, "phase": "losses", "rss_gib": 10.5673, "avail_gib": 7.2808, "sm_inflight": 0, "sm_calls": 279}
+{"t": 232.334, "phase": "losses", "rss_gib": 10.6544, "avail_gib": 7.1401, "sm_inflight": 0, "sm_calls": 279}
+{"aiclk_mhz": 1350, "phase": "losses", "load1": 5.0, "t_utc": "2026-09-25T21:20:26Z"}
+{"t": 232.534, "phase": "losses", "rss_gib": 10.5953, "avail_gib": 7.1282, "sm_inflight": 0, "sm_calls": 279}
+{"t": 232.735, "phase": "losses", "rss_gib": 10.693, "avail_gib": 7.0102, "sm_inflight": 0, "sm_calls": 279}
+{"t": 232.935, "phase": "losses", "rss_gib": 10.5777, "avail_gib": 7.0247, "sm_inflight": 0, "sm_calls": 279}
+{"t": 233.136, "phase": "losses", "rss_gib": 10.7182, "avail_gib": 6.8031, "sm_inflight": 0, "sm_calls": 279}
+{"t": 233.336, "phase": "losses", "rss_gib": 10.7009, "avail_gib": 6.7778, "sm_inflight": 0, "sm_calls": 279}
+{"aiclk_mhz": 1350, "phase": "losses", "load1": 5.0, "t_utc": "2026-09-25T21:20:27Z"}
+{"t": 233.537, "phase": "losses", "rss_gib": 10.8303, "avail_gib": 6.5973, "sm_inflight": 0, "sm_calls": 279}
+{"t": 233.737, "phase": "losses", "rss_gib": 10.7327, "avail_gib": 6.6915, "sm_inflight": 0, "sm_calls": 279}
+{"t": 233.938, "phase": "losses", "rss_gib": 10.7501, "avail_gib": 6.6669, "sm_inflight": 0, "sm_calls": 279}
+{"t": 234.138, "phase": "losses", "rss_gib": 10.8058, "avail_gib": 6.5933, "sm_inflight": 0, "sm_calls": 279}
+{"t": 234.339, "phase": "losses", "rss_gib": 10.5938, "avail_gib": 7.2826, "sm_inflight": 0, "sm_calls": 279}
+{"aiclk_mhz": 1350, "phase": "losses", "load1": 5.0, "t_utc": "2026-09-25T21:20:28Z"}
+{"t": 234.539, "phase": "losses", "rss_gib": 10.682, "avail_gib": 7.3176, "sm_inflight": 0, "sm_calls": 279}
+{"t": 234.74, "phase": "losses", "rss_gib": 10.7698, "avail_gib": 7.2282, "sm_inflight": 0, "sm_calls": 279}
+{"t": 234.94, "phase": "losses", "rss_gib": 10.6487, "avail_gib": 7.3421, "sm_inflight": 0, "sm_calls": 279}
+{"t": 235.141, "phase": "losses", "rss_gib": 10.708, "avail_gib": 7.2937, "sm_inflight": 0, "sm_calls": 279}
+{"t": 235.341, "phase": "losses", "rss_gib": 10.7905, "avail_gib": 7.2087, "sm_inflight": 0, "sm_calls": 279}
+{"aiclk_mhz": 1350, "phase": "losses", "load1": 4.76, "t_utc": "2026-09-25T21:20:29Z"}
+{"t": 235.542, "phase": "losses", "rss_gib": 10.7816, "avail_gib": 7.2131, "sm_inflight": 0, "sm_calls": 279}
+{"t": 235.742, "phase": "losses", "rss_gib": 10.8888, "avail_gib": 7.0992, "sm_inflight": 0, "sm_calls": 279}
+{"t": 235.95, "phase": "losses", "rss_gib": 10.5777, "avail_gib": 7.4105, "sm_inflight": 0, "sm_calls": 279}
+{"t": 236.151, "phase": "losses", "rss_gib": 10.617, "avail_gib": 7.3712, "sm_inflight": 0, "sm_calls": 279}
+{"t": 236.351, "phase": "losses", "rss_gib": 10.7157, "avail_gib": 7.2356, "sm_inflight": 0, "sm_calls": 279}
+{"aiclk_mhz": 1350, "phase": "losses", "load1": 4.76, "t_utc": "2026-09-25T21:20:30Z"}
+{"t": 236.551, "phase": "losses", "rss_gib": 10.6135, "avail_gib": 7.3324, "sm_inflight": 0, "sm_calls": 279}
+{"t": 236.752, "phase": "losses", "rss_gib": 10.7013, "avail_gib": 7.2366, "sm_inflight": 0, "sm_calls": 279}
+{"t": 236.953, "phase": "losses", "rss_gib": 10.648, "avail_gib": 7.2817, "sm_inflight": 0, "sm_calls": 279}
+{"t": 237.153, "phase": "losses", "rss_gib": 10.8009, "avail_gib": 7.1775, "sm_inflight": 0, "sm_calls": 279}
+{"t": 237.354, "phase": "losses", "rss_gib": 10.7229, "avail_gib": 7.2481, "sm_inflight": 0, "sm_calls": 279}
+{"aiclk_mhz": 1350, "phase": "losses", "load1": 4.76, "t_utc": "2026-09-25T21:20:31Z"}
+{"t": 237.554, "phase": "losses", "rss_gib": 10.9178, "avail_gib": 7.0529, "sm_inflight": 0, "sm_calls": 279}
+{"verb": "losses", "s": 6.953, "rss_gib": 10.1558, "avail_gib": 7.813, "sm_calls": 279, "t_utc": "2026-09-25T21:20:31Z"}
+{"t": 237.797, "phase": "backward", "rss_gib": 10.1562, "avail_gib": 7.8119, "sm_inflight": 0, "sm_calls": 279}
+{"t": 238.025, "phase": "backward", "rss_gib": 10.1563, "avail_gib": 7.7943, "sm_inflight": 0, "sm_calls": 279}
+{"t": 238.226, "phase": "backward", "rss_gib": 10.1982, "avail_gib": 7.7523, "sm_inflight": 0, "sm_calls": 279}
+{"aiclk_mhz": 1350, "phase": "backward", "load1": 4.76, "t_utc": "2026-09-25T21:20:32Z"}
+{"t": 238.426, "phase": "backward", "rss_gib": 10.2444, "avail_gib": 7.7041, "sm_inflight": 0, "sm_calls": 279}
+{"t": 238.627, "phase": "backward", "rss_gib": 10.2267, "avail_gib": 7.7421, "sm_inflight": 0, "sm_calls": 279}
+{"t": 238.828, "phase": "backward", "rss_gib": 10.1745, "avail_gib": 7.7703, "sm_inflight": 0, "sm_calls": 279}
+{"t": 239.03, "phase": "backward", "rss_gib": 10.1862, "avail_gib": 7.8691, "sm_inflight": 0, "sm_calls": 279}
+{"t": 239.23, "phase": "backward", "rss_gib": 10.1862, "avail_gib": 7.7846, "sm_inflight": 0, "sm_calls": 279}
+{"aiclk_mhz": 1350, "phase": "backward", "load1": 4.76, "t_utc": "2026-09-25T21:20:33Z"}
+{"t": 239.431, "phase": "backward", "rss_gib": 10.1746, "avail_gib": 7.7511, "sm_inflight": 0, "sm_calls": 279}
+{"t": 239.631, "phase": "backward", "rss_gib": 10.1929, "avail_gib": 7.6822, "sm_inflight": 0, "sm_calls": 279}
+{"t": 239.832, "phase": "backward", "rss_gib": 10.1758, "avail_gib": 7.669, "sm_inflight": 0, "sm_calls": 279}
+{"t": 240.034, "phase": "backward", "rss_gib": 10.1864, "avail_gib": 7.5983, "sm_inflight": 0, "sm_calls": 279}
+{"t": 240.236, "phase": "backward", "rss_gib": 10.1864, "avail_gib": 7.5965, "sm_inflight": 0, "sm_calls": 279}
+{"aiclk_mhz": 1350, "phase": "backward", "load1": 5.1, "t_utc": "2026-09-25T21:20:34Z"}
+{"t": 240.438, "phase": "backward", "rss_gib": 10.1747, "avail_gib": 7.5939, "sm_inflight": 0, "sm_calls": 279}
+{"t": 240.647, "phase": "backward", "rss_gib": 10.1747, "avail_gib": 7.4626, "sm_inflight": 0, "sm_calls": 279}
+{"t": 240.847, "phase": "backward", "rss_gib": 10.1898, "avail_gib": 7.4957, "sm_inflight": 0, "sm_calls": 279}
+{"t": 241.052, "phase": "backward", "rss_gib": 10.1862, "avail_gib": 7.4396, "sm_inflight": 0, "sm_calls": 279}
+{"t": 241.254, "phase": "backward", "rss_gib": 10.1862, "avail_gib": 7.3759, "sm_inflight": 0, "sm_calls": 279}
+{"aiclk_mhz": 1350, "phase": "backward", "load1": 5.1, "t_utc": "2026-09-25T21:20:35Z"}
+{"t": 241.457, "phase": "backward", "rss_gib": 10.3171, "avail_gib": 7.1785, "sm_inflight": 0, "sm_calls": 279}
+{"t": 241.697, "phase": "backward", "rss_gib": 10.2628, "avail_gib": 7.2855, "sm_inflight": 0, "sm_calls": 279}
+{"t": 241.961, "phase": "backward", "rss_gib": 11.1398, "avail_gib": 6.268, "sm_inflight": 0, "sm_calls": 279}
+{"t": 242.198, "phase": "backward", "rss_gib": 10.3245, "avail_gib": 7.1233, "sm_inflight": 0, "sm_calls": 279}
+{"t": 242.399, "phase": "backward", "rss_gib": 11.2294, "avail_gib": 6.1821, "sm_inflight": 0, "sm_calls": 279}
+{"aiclk_mhz": 1350, "phase": "backward", "load1": 5.1, "t_utc": "2026-09-25T21:20:36Z"}
+{"t": 242.642, "phase": "backward", "rss_gib": 10.3154, "avail_gib": 6.9905, "sm_inflight": 0, "sm_calls": 279}
+{"t": 242.843, "phase": "backward", "rss_gib": 11.1846, "avail_gib": 6.6618, "sm_inflight": 0, "sm_calls": 279}
+{"t": 243.043, "phase": "backward", "rss_gib": 10.2183, "avail_gib": 7.706, "sm_inflight": 0, "sm_calls": 279}
+{"t": 243.244, "phase": "backward", "rss_gib": 10.7799, "avail_gib": 7.1885, "sm_inflight": 0, "sm_calls": 279}
+{"aiclk_mhz": 1350, "phase": "backward", "load1": 5.1, "t_utc": "2026-09-25T21:20:37Z"}
+{"t": 243.444, "phase": "backward", "rss_gib": 10.7313, "avail_gib": 7.2228, "sm_inflight": 0, "sm_calls": 279}
+{"t": 243.645, "phase": "backward", "rss_gib": 10.5106, "avail_gib": 7.457, "sm_inflight": 0, "sm_calls": 279}
+{"t": 243.861, "phase": "backward", "rss_gib": 11.1546, "avail_gib": 6.7976, "sm_inflight": 0, "sm_calls": 279}
+{"t": 244.061, "phase": "backward", "rss_gib": 10.773, "avail_gib": 7.1915, "sm_inflight": 0, "sm_calls": 279}
+{"t": 244.262, "phase": "backward", "rss_gib": 10.7508, "avail_gib": 7.2044, "sm_inflight": 0, "sm_calls": 279}
+{"aiclk_mhz": 1350, "phase": "backward", "load1": 5.1, "t_utc": "2026-09-25T21:20:38Z"}
+{"t": 244.463, "phase": "backward", "rss_gib": 10.4979, "avail_gib": 7.4199, "sm_inflight": 0, "sm_calls": 279}
+{"t": 244.674, "phase": "backward", "rss_gib": 11.1021, "avail_gib": 6.7499, "sm_inflight": 0, "sm_calls": 279}
+{"t": 244.901, "phase": "backward", "rss_gib": 10.5437, "avail_gib": 7.2834, "sm_inflight": 0, "sm_calls": 279}
+{"t": 245.101, "phase": "backward", "rss_gib": 11.1802, "avail_gib": 6.5863, "sm_inflight": 0, "sm_calls": 279}
+{"t": 245.302, "phase": "backward", "rss_gib": 10.4729, "avail_gib": 7.2728, "sm_inflight": 0, "sm_calls": 279}
+{"aiclk_mhz": 1350, "phase": "backward", "load1": 5.42, "t_utc": "2026-09-25T21:20:39Z"}
+{"t": 245.502, "phase": "backward", "rss_gib": 11.1876, "avail_gib": 6.5695, "sm_inflight": 0, "sm_calls": 279}
+{"t": 245.749, "phase": "backward", "rss_gib": 10.3162, "avail_gib": 7.4331, "sm_inflight": 0, "sm_calls": 279}
+{"t": 245.95, "phase": "backward", "rss_gib": 11.2291, "avail_gib": 6.5232, "sm_inflight": 0, "sm_calls": 279}
+{"t": 246.151, "phase": "backward", "rss_gib": 10.2397, "avail_gib": 7.5144, "sm_inflight": 0, "sm_calls": 279}
+{"t": 246.352, "phase": "backward", "rss_gib": 10.7355, "avail_gib": 7.0154, "sm_inflight": 0, "sm_calls": 279}
+{"aiclk_mhz": 1350, "phase": "backward", "load1": 5.42, "t_utc": "2026-09-25T21:20:40Z"}
+{"t": 246.552, "phase": "backward", "rss_gib": 10.8395, "avail_gib": 6.9114, "sm_inflight": 0, "sm_calls": 279}
+{"t": 246.753, "phase": "backward", "rss_gib": 10.5014, "avail_gib": 7.2951, "sm_inflight": 0, "sm_calls": 279}
+{"t": 246.956, "phase": "backward", "rss_gib": 11.098, "avail_gib": 6.6923, "sm_inflight": 0, "sm_calls": 279}
+{"t": 247.156, "phase": "backward", "rss_gib": 10.819, "avail_gib": 6.9858, "sm_inflight": 0, "sm_calls": 279}
+{"t": 247.357, "phase": "backward", "rss_gib": 10.7144, "avail_gib": 7.0728, "sm_inflight": 0, "sm_calls": 279}
+{"aiclk_mhz": 1350, "phase": "backward", "load1": 5.42, "t_utc": "2026-09-25T21:20:41Z"}
+{"t": 247.557, "phase": "backward", "rss_gib": 10.8582, "avail_gib": 6.9466, "sm_inflight": 0, "sm_calls": 279}
+{"t": 247.757, "phase": "backward", "rss_gib": 10.2955, "avail_gib": 7.4726, "sm_inflight": 0, "sm_calls": 279}
+{"t": 247.958, "phase": "backward", "rss_gib": 10.9658, "avail_gib": 6.8398, "sm_inflight": 0, "sm_calls": 279}
+{"t": 248.164, "phase": "backward", "rss_gib": 10.1926, "avail_gib": 7.5852, "sm_inflight": 0, "sm_calls": 279}
+{"t": 248.364, "phase": "backward", "rss_gib": 10.8921, "avail_gib": 6.8325, "sm_inflight": 0, "sm_calls": 279}
+{"aiclk_mhz": 1350, "phase": "backward", "load1": 5.42, "t_utc": "2026-09-25T21:20:42Z"}
+{"t": 248.565, "phase": "backward", "rss_gib": 10.2627, "avail_gib": 7.3336, "sm_inflight": 0, "sm_calls": 279}
+{"t": 248.765, "phase": "backward", "rss_gib": 10.5649, "avail_gib": 7.0179, "sm_inflight": 0, "sm_calls": 279}
+{"t": 248.987, "phase": "backward", "rss_gib": 11.1019, "avail_gib": 6.4091, "sm_inflight": 0, "sm_calls": 279}
+{"t": 249.221, "phase": "backward", "rss_gib": 10.4568, "avail_gib": 7.0237, "sm_inflight": 0, "sm_calls": 279}
+{"t": 249.421, "phase": "backward", "rss_gib": 11.0661, "avail_gib": 6.3939, "sm_inflight": 0, "sm_calls": 279}
+{"aiclk_mhz": 1350, "phase": "backward", "load1": 5.42, "t_utc": "2026-09-25T21:20:43Z"}
+{"t": 249.641, "phase": "backward", "rss_gib": 10.3344, "avail_gib": 7.0653, "sm_inflight": 0, "sm_calls": 279}
+{"t": 249.842, "phase": "backward", "rss_gib": 11.0538, "avail_gib": 6.2868, "sm_inflight": 0, "sm_calls": 279}
+{"t": 250.067, "phase": "backward", "rss_gib": 10.3341, "avail_gib": 6.9585, "sm_inflight": 0, "sm_calls": 279}
+{"t": 250.268, "phase": "backward", "rss_gib": 11.2113, "avail_gib": 6.0734, "sm_inflight": 0, "sm_calls": 279}
+{"aiclk_mhz": 1350, "phase": "backward", "load1": 5.38, "t_utc": "2026-09-25T21:20:44Z"}
+{"t": 250.476, "phase": "backward", "rss_gib": 10.335, "avail_gib": 6.9296, "sm_inflight": 0, "sm_calls": 279}
+{"t": 250.676, "phase": "backward", "rss_gib": 11.1936, "avail_gib": 6.0735, "sm_inflight": 0, "sm_calls": 279}
+{"t": 250.914, "phase": "backward", "rss_gib": 10.3335, "avail_gib": 6.9167, "sm_inflight": 0, "sm_calls": 279}
+{"t": 251.115, "phase": "backward", "rss_gib": 11.1405, "avail_gib": 6.0917, "sm_inflight": 0, "sm_calls": 279}
+{"t": 251.347, "phase": "backward", "rss_gib": 10.3343, "avail_gib": 7.4662, "sm_inflight": 0, "sm_calls": 279}
+{"aiclk_mhz": 1350, "phase": "backward", "load1": 5.38, "t_utc": "2026-09-25T21:20:45Z"}
+{"t": 251.548, "phase": "backward", "rss_gib": 11.1022, "avail_gib": 6.6717, "sm_inflight": 0, "sm_calls": 279}
+{"t": 251.756, "phase": "backward", "rss_gib": 10.3328, "avail_gib": 7.4438, "sm_inflight": 0, "sm_calls": 279}
+{"t": 251.957, "phase": "backward", "rss_gib": 11.2448, "avail_gib": 6.5257, "sm_inflight": 0, "sm_calls": 279}
+{"t": 252.157, "phase": "backward", "rss_gib": 10.2504, "avail_gib": 7.5098, "sm_inflight": 0, "sm_calls": 279}
+{"t": 252.358, "phase": "backward", "rss_gib": 10.5145, "avail_gib": 7.2834, "sm_inflight": 0, "sm_calls": 279}
+{"aiclk_mhz": 1350, "phase": "backward", "load1": 5.38, "t_utc": "2026-09-25T21:20:46Z"}
+{"t": 252.589, "phase": "backward", "rss_gib": 10.3101, "avail_gib": 7.4856, "sm_inflight": 0, "sm_calls": 279}
+{"t": 252.79, "phase": "backward", "rss_gib": 11.2056, "avail_gib": 6.5806, "sm_inflight": 0, "sm_calls": 279}
+{"t": 253.028, "phase": "backward", "rss_gib": 10.3101, "avail_gib": 7.5459, "sm_inflight": 0, "sm_calls": 279}
+{"t": 253.246, "phase": "backward", "rss_gib": 11.1872, "avail_gib": 6.5885, "sm_inflight": 0, "sm_calls": 279}
+{"t": 253.477, "phase": "backward", "rss_gib": 10.4173, "avail_gib": 7.3624, "sm_inflight": 0, "sm_calls": 279}
+{"aiclk_mhz": 1350, "phase": "backward", "load1": 5.38, "t_utc": "2026-09-25T21:20:47Z"}
+{"t": 253.678, "phase": "backward", "rss_gib": 11.1454, "avail_gib": 6.8116, "sm_inflight": 0, "sm_calls": 279}
+{"t": 253.95, "phase": "backward", "rss_gib": 10.3133, "avail_gib": 7.641, "sm_inflight": 0, "sm_calls": 279}
+{"t": 254.15, "phase": "backward", "rss_gib": 11.3394, "avail_gib": 6.5893, "sm_inflight": 0, "sm_calls": 279}
+{"t": 254.35, "phase": "backward", "rss_gib": 12.4999, "avail_gib": 5.448, "sm_inflight": 0, "sm_calls": 279}
+{"t": 254.673, "phase": "backward", "rss_gib": 12.1465, "avail_gib": 5.7725, "sm_inflight": 0, "sm_calls": 279}
+{"aiclk_mhz": 1350, "phase": "backward", "load1": 5.38, "t_utc": "2026-09-25T21:20:48Z"}
+{"t": 254.88, "phase": "backward", "rss_gib": 10.2398, "avail_gib": 7.6824, "sm_inflight": 0, "sm_calls": 279}
+{"t": 255.083, "phase": "backward", "rss_gib": 10.2156, "avail_gib": 7.6625, "sm_inflight": 0, "sm_calls": 279}
+{"t": 255.283, "phase": "backward", "rss_gib": 10.6384, "avail_gib": 7.2033, "sm_inflight": 0, "sm_calls": 279}
+{"t": 255.484, "phase": "backward", "rss_gib": 10.5953, "avail_gib": 7.3117, "sm_inflight": 0, "sm_calls": 279}
+{"aiclk_mhz": 1350, "phase": "backward", "load1": 6.07, "t_utc": "2026-09-25T21:20:49Z"}
+{"t": 255.684, "phase": "backward", "rss_gib": 10.3996, "avail_gib": 7.5157, "sm_inflight": 0, "sm_calls": 279}
+{"t": 255.904, "phase": "backward", "rss_gib": 10.2547, "avail_gib": 7.6538, "sm_inflight": 0, "sm_calls": 279}
+{"t": 256.104, "phase": "backward", "rss_gib": 10.2802, "avail_gib": 7.6279, "sm_inflight": 0, "sm_calls": 279}
+{"t": 256.317, "phase": "backward", "rss_gib": 10.7041, "avail_gib": 7.2001, "sm_inflight": 0, "sm_calls": 279}
+{"aiclk_mhz": 1350, "phase": "backward", "load1": 6.07, "t_utc": "2026-09-25T21:20:51Z"}
+{"t": 257.137, "phase": "backward", "rss_gib": 11.0672, "avail_gib": 6.6422, "sm_inflight": 1, "sm_calls": 280}
+{"t": 257.337, "phase": "backward", "rss_gib": 12.3197, "avail_gib": 5.3506, "sm_inflight": 1, "sm_calls": 280}
+{"t": 257.538, "phase": "backward", "rss_gib": 12.8515, "avail_gib": 4.5864, "sm_inflight": 1, "sm_calls": 280}
+{"t": 258.134, "phase": "backward", "rss_gib": 12.745, "avail_gib": 4.5022, "sm_inflight": 1, "sm_calls": 280}
+{"aiclk_mhz": 1350, "phase": "backward", "load1": 6.07, "t_utc": "2026-09-25T21:20:52Z"}
+{"t": 258.335, "phase": "backward", "rss_gib": 12.3572, "avail_gib": 4.9357, "sm_inflight": 0, "sm_calls": 280}
+{"aiclk_mhz": 1350, "phase": "backward", "load1": 6.07, "t_utc": "2026-09-25T21:20:53Z"}
+{"t": 259.245, "phase": "backward", "rss_gib": 12.7477, "avail_gib": 3.6733, "sm_inflight": 1, "sm_calls": 281}
+{"t": 259.498, "phase": "backward", "rss_gib": 13.7569, "avail_gib": 4.0101, "sm_inflight": 1, "sm_calls": 281}
+{"t": 259.698, "phase": "backward", "rss_gib": 15.0733, "avail_gib": 2.5551, "sm_inflight": 1, "sm_calls": 281}
+{"t": 259.899, "phase": "backward", "rss_gib": 13.891, "avail_gib": 3.9038, "sm_inflight": 1, "sm_calls": 281}
+{"aiclk_mhz": 1350, "phase": "backward", "load1": 5.67, "t_utc": "2026-09-25T21:20:54Z"}
+{"t": 260.378, "phase": "backward", "rss_gib": 14.3555, "avail_gib": 3.4191, "sm_inflight": 1, "sm_calls": 281}
+{"t": 260.578, "phase": "backward", "rss_gib": 13.8376, "avail_gib": 3.9422, "sm_inflight": 0, "sm_calls": 281}
+{"t": 260.779, "phase": "backward", "rss_gib": 13.7966, "avail_gib": 3.9597, "sm_inflight": 1, "sm_calls": 282}
+{"t": 261.017, "phase": "backward", "rss_gib": 13.7967, "avail_gib": 4.0922, "sm_inflight": 0, "sm_calls": 282}
+{"t": 261.218, "phase": "backward", "rss_gib": 14.4327, "avail_gib": 3.448, "sm_inflight": 0, "sm_calls": 282}
+{"aiclk_mhz": 1350, "phase": "backward", "load1": 5.67, "t_utc": "2026-09-25T21:20:55Z"}
+{"t": 261.419, "phase": "backward", "rss_gib": 14.6405, "avail_gib": 3.2018, "sm_inflight": 0, "sm_calls": 282}
+{"t": 261.619, "phase": "backward", "rss_gib": 13.9149, "avail_gib": 3.9664, "sm_inflight": 0, "sm_calls": 282}
+{"t": 261.822, "phase": "backward", "rss_gib": 13.9141, "avail_gib": 4.0088, "sm_inflight": 0, "sm_calls": 282}
+{"aiclk_mhz": 1350, "phase": "backward", "load1": 5.67, "t_utc": "2026-09-25T21:20:56Z"}
+{"t": 262.693, "phase": "backward", "rss_gib": 14.7582, "avail_gib": 2.3188, "sm_inflight": 0, "sm_calls": 282}
+{"t": 262.921, "phase": "backward", "rss_gib": 15.6021, "avail_gib": 2.2555, "sm_inflight": 0, "sm_calls": 282}
+{"t": 263.127, "phase": "backward", "rss_gib": 17.023, "avail_gib": 0.5943, "sm_inflight": 0, "sm_calls": 282, "BREACH": "MemAvailable 0.5943 GiB under the 2.0 GiB floor. Exiting before the kernel OOM-killer picks a victim by score. Every peak in this profile is a LOWER BOUND."}

@@ -1,0 +1,86 @@
+{
+ "doc": "A FULL OpenFold3 training step on the card, timed by part.",
+ "argv": [
+  "--tokens",
+  "384",
+  "--cycles",
+  "4",
+  "--samples",
+  "4",
+  "--reps",
+  "1",
+  "--out",
+  "/home/moritz/.coworker/wt/of3t-stepqb1/perf/of3t_stepqb1/out/step_exact_on_384trimon.json"
+ ],
+ "env": {
+  "host": "pc",
+  "tt_visible_devices": "0",
+  "renorm": null,
+  "commit": "4f953dc68815b1d6444f70ce9a8d9e8a203416df",
+  "branch": "wk/of3t-stepqb1",
+  "started_utc": "2026-09-25T21:07:30Z",
+  "loadavg_start": [
+   2.46826171875,
+   2.74072265625,
+   3.08837890625
+  ],
+  "arch": "Arch.BLACKHOLE"
+ },
+ "config": {
+  "crop": 384,
+  "batch": 1,
+  "cards": 1,
+  "cycles_pinned": 4,
+  "diffusion_samples": 4,
+  "stage": "initial_training",
+  "taped": true
+ },
+ "build_fold_s": 7.79,
+ "prep_to_sampler_s": 12.3,
+ "capture": {
+  "trunk_inputs_snapshotted": true,
+  "trunk_inputs_dead_at_capture": 0,
+  "trunk_forward_s": 9.347,
+  "trunk_forward_note": "the shipped call, progress_fn INCLUDED and cold; the timed arms below drop it",
+  "trunk_cycles": 4,
+  "reached_sampler": true
+ },
+ "capture_reused_from_arm": null,
+ "params": {
+  "declared": 3152,
+  "slots": 3152,
+  "slots_unwritable": 0,
+  "elements": 381302188,
+  "per_root": {
+   "trunk": {
+    "found": 2531,
+    "walk_depth": 9,
+    "truncated": 8
+   },
+   "diffusion": {
+    "found": 891,
+    "walk_depth": 6,
+    "truncated": 0
+   }
+  },
+  "duplicate_handles_dropped": 270,
+  "pairformer_weights": 2256,
+  "diffusion_weights": 621
+ },
+ "loss_weights": {
+  "bond": 0.0,
+  "smooth_lddt": 4.0,
+  "mse": 4.0,
+  "distogram": 0.03,
+  "resolved": 0.0001,
+  "plddt": 0.0001,
+  "pae": 0.0001,
+  "pde": 0.0001
+ },
+ "optimizer": {
+  "class": "tt_bio.train.optim.AdamW",
+  "lr": 0.0003,
+  "clip_norm": 10.0,
+  "params": 3152
+ }
+}
