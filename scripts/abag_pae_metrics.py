@@ -16,6 +16,14 @@ Formulas verified against primary sources this pass (see
     (default 10A), d0 from calc_d0(L) using the AF/TM-score d0 formula.
   - AntiConf (Briefings in Bioinformatics 27(2):bbag137, 2026): 0.7*pTM + 0.3*pDockQ2.
 
+The `ipsae` this script reports is NOT the published ipSAE and must not be compared with one. It
+averages over the whole interchain block with d0 from the chain-pair length (the reference's
+`ipSAE_d0chn` shape, not its per-residue d0 and max over residues), at a 10 A cutoff, and then
+takes the mean of the two directions. Its pDockQ2 also measures CA-CA distances with af-analysis's
+unrounded constants, while the reference uses CB-CB distances and rounded constants. Both are kept
+as they are because they label the finished flagship-abag campaign. The one definition that
+matches Adaptyv's competition pipeline is `tt_bio.interface_scores`.
+
 Assumes CIF chain order == yaml chain declaration order (antigen first, then
 antibody heavy [, light]) -- true for every yaml this campaign uses, since
 build_complex_features/_read_bio_chains preserve declaration order and the CIF

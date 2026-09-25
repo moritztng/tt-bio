@@ -914,7 +914,37 @@ def write_result(pred, batch, input_struct, out_dir, fmt,
 
     # Optional large outputs
     if write_pae and "pae" in pred:
-        np.savez_compressed(out_dir / f"{record.id}_pae.npz", pae=pred["pae"][best_idx].cpu().numpy())
+        # Real tokens only: a bucketed batch pads the token axis, and a padded PAE no longer lines
+        # up with the structure file it is meant to be read with.
+        n_tok = pred["pae"].shape[-1]
+        real = (batch["token_pad_mask"][0].bool().cpu().numpy() if "token_pad_mask" in batch
+                else np.ones(n_tok, dtype=bool))
+
+        def _arrays(idx):
+            pae = pred["pae"][idx].cpu().numpy()[np.ix_(real, real)]
+            return pae, (pred["plddt"][idx].cpu().numpy()[real] if "plddt" in pred else None)
+
+        pae, plddt = _arrays(best_idx)
+        np.savez_compressed(out_dir / f"{record.id}_pae.npz", pae=pae)
+        if plddt is not None:
+            np.savez_compressed(out_dir / f"{record.id}_plddt.npz", plddt=plddt)
+        if fmt == "cif" and len(struct.chains) > 1:
+            from tt_bio import interface_scores
+            name = {int(c["asym_id"]): str(c["name"]) for c in struct.chains}
+            pci = pred.get("pair_chains_iptm") or {}
+
+            def _score(idx):
+                iptm = {name[int(i)]: {name[int(j)]: round(pci[i][j][idx].item(), 6)
+                                       for j in pci[i] if int(j) != int(i)} for i in pci} or None
+                r = rank[idx]
+                cif = out_dir / (f"{record.id}.cif" if r == 0 else f"{record.id}_model_{r}.cif")
+                return interface_scores.score_files(cif, *_arrays(idx), pair_iptm=iptm)
+
+            # The top-ranked sample is the point value; every sample, in rank order, is the
+            # distribution it is drawn from.
+            samples = [_score(i) for i in sorted(rank, key=rank.get)]
+            metrics["interface_scores"] = samples[0]
+            metrics["interface_score_distribution"] = interface_scores.distribution(samples)
     if write_pde and "pde" in pred:
         np.savez_compressed(out_dir / f"{record.id}_pde.npz", pde=pred["pde"][best_idx].cpu().numpy())
     if write_embeddings and "s" in pred and "z" in pred:
@@ -1839,6 +1869,29 @@ def gen(args):
         "pipeline; `gen run X --output out` becomes `design X --model boltzgen "
         "--out_dir out`).", fg="yellow", err=True)
     _run_boltzgen_cli("tt-bio gen", args)
+
+
+@cli.command("score")
+@click.argument("structure", type=click.Path(exists=True, dir_okay=False))
+@click.argument("pae", type=click.Path(exists=True, dir_okay=False))
+@click.option("--plddt", type=click.Path(exists=True, dir_okay=False), default=None,
+              help="pLDDT .npz (key plddt, 0-1). Without it pDockQ and pDockQ2 sit at their floor, "
+                   "as in the reference script.")
+@click.option("--confidence", type=click.Path(exists=True, dir_okay=False), default=None,
+              help="Confidence JSON with pair_chains_iptm, for the model's own chain-pair ipTM.")
+@click.option("--pae_cutoff", default=None, type=float, help="Default: 15, the Nipah competition's.")
+@click.option("--dist_cutoff", default=None, type=float, help="Default: 15, the Nipah competition's.")
+def score(structure, pae, plddt, confidence, pae_cutoff, dist_cutoff):
+    """Interface scores of an existing fold: ipSAE, ipTM, pDockQ2, interface pAE.
+
+    Reads an mmCIF and its PAE .npz from tt-bio or from upstream Boltz, needs no device, and
+    prints JSON. The definitions are those of Adaptyv's Nipah competition pipeline; see
+    docs/interface-scores.md."""
+    from tt_bio import interface_scores as isc
+    out = isc.score_files(structure, pae, plddt, confidence,
+                          isc.PAE_CUTOFF if pae_cutoff is None else pae_cutoff,
+                          isc.DIST_CUTOFF if dist_cutoff is None else dist_cutoff)
+    click.echo(json.dumps(out, indent=2))
 
 
 @cli.command("install-deps")
