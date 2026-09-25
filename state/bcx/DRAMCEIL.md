@@ -83,13 +83,24 @@ tree the weak storage group is load-bearing at both 288 and 320, not a tidy-up. 
 failing draw on the actual in-flight trees (`1127f9ea8` and the `bcx-mutate` tip) needs one probe
 per tree and is the obvious next chunk.
 
-## Peak allocation
+## Peak allocation: 19.19 GB of 34.226
 
-The two seam reads bracket the forward and the backward, so **1.4668 GB is a lower bound** on the
-instantaneous peak, not the peak: a transient inside a block is invisible to them. `bcx-large`
-measured the instantaneous figure with per-node sampling and got 16.698 GB at n=352 of 34.226 GB,
-so the real in-step peak at 320 is nearer that order than to 1.47. A node-sampled run at this
-configuration is in flight; its artifact is `perf/bcx_armtree/ceil_fixed_L180_nodepeak.json`.
+The two seam reads bracket the forward and the backward, so a transient inside a block is
+invisible to them and 1.4668 GB is only a lower bound. Sampling DRAM at every tape node and after
+every backward node (`--node-peak`, 60,000 samples in one step) gives the instantaneous figure:
+
+**19.1946 GB peak at L=180 / 320 tokens, in the backward, 12.68 GB still free.**
+
+That is 13x what the seam read suggested and 56 % of the card. AICLK median 1350 (min 1300, 808
+samples); the step took 226.2 s, which is not a timing — each sample drains the pipeline.
+`bcx-large` measured 16.698 GB for a single step at n=352 with the same method, so the two
+agree on the order.
+
+This number is also the reason the strong-group control dies in step 1 rather than step 4: with
+19.19 GB of legitimate in-step transient at the top draw, there is 15 GB of headroom, and a tape
+that retains a step's worth of activations spends it immediately.
+
+Artifact: `perf/bcx_armtree/ceil_fixed_L180_nodepeak.json`.
 
 ## What fraction of the draw range we lose
 
@@ -102,5 +113,5 @@ top two buckets go, 52 of 121 draws (43 %) at minimum, and on the merged tree al
 The capability claim that reads "~954 padded residues off BindCraft 2's own memory formula" has
 never been checked against silicon and this row does not confirm it. What silicon says is narrower
 and stronger: **at the sizes BindCraft 2 actually asks for, every one of them fits on a single
-Blackhole card, measured, six steps deep, at 1350 MHz.** The largest padded size the campaign can
-produce is 320 tokens, not 954.
+Blackhole card, measured, six steps deep, at 1350 MHz, peaking at 19.19 GB of 34.226.** The
+largest padded size the campaign can produce is 320 tokens, not 954.
