@@ -31,6 +31,8 @@ import functools
 import json
 import os
 import pathlib
+import itertools
+import math
 import statistics as st
 import subprocess
 import sys
@@ -116,6 +118,38 @@ class ABMeter(M.Meter):
             os.fsync(self.live.fileno())
 
 
+def permutation_test(off, on):
+    """Exact two-sided permutation test on the difference of medians.
+
+    `separated` (every ON round faster than every OFF round) is a range criterion, and a range
+    criterion is not calibrated: a real 1.3x with one overlapping pair reads False and understates
+    the lever, while at tiny n the same shape of test can reject two identical programs
+    (`a-range-containment-criterion-rejects-identical-programs`, where containment at n=2 flagged
+    identical arms two thirds of the time).
+
+    So this reports a p-value and, next to it, the smallest p the design could possibly return.
+    `min_attainable_p` is the honest resolution: at 3 vs 3 it is 2/20 = 0.1, so "not significant"
+    there says nothing about the lever and everything about the rep count.
+    """
+    n_off, n_on = len(off), len(on)
+    if n_off == 0 or n_on == 0:
+        return {}
+    pool = list(off) + list(on)
+    observed = abs(st.median(off) - st.median(on))
+    total = hit = 0
+    for idx in itertools.combinations(range(len(pool)), n_off):
+        a = [pool[i] for i in idx]
+        b = [pool[i] for i in range(len(pool)) if i not in set(idx)]
+        total += 1
+        if abs(st.median(a) - st.median(b)) >= observed - 1e-12:
+            hit += 1
+    return {"perm_p_two_sided": round(hit / total, 5),
+            "perm_assignments": total,
+            "min_attainable_p": round(2 / total, 5),
+            "perm_is_informative": (2 / total) <= 0.05,
+            "observed_median_gap_s": round(observed, 3)}
+
+
 def analyse(events, clock_samples, extra_calls_end):
     starts = [e for e in events if e["kind"] == "round_start"]
     stop = [e["t0"] for e in events if e["kind"] == "round_stop"]
@@ -176,6 +210,9 @@ def analyse(events, clock_samples, extra_calls_end):
         summary["ratio_round_off_over_on"] = round(
             summary["off"]["round_wall_median"] / summary["on"]["round_wall_median"], 3)
         summary["separated"] = summary["on"]["sg_max"] < summary["off"]["sg_min"]
+        summary.update(permutation_test(
+            [x["sequence_gradients_s"] for x in timed if x["extra_msa_on_device"] is False],
+            [x["sequence_gradients_s"] for x in timed if x["extra_msa_on_device"] is True]))
         # The control. An OFF round that runs the card's extra-MSA stack is not a control, and an
         # ON round that does not is not an arm.
         summary["control_clean"] = summary["off"]["extra_backward_calls"] == 0
@@ -219,6 +256,18 @@ def selftest():
     assert all(r["extra_calls_delta"]["backward"] == (1 if r["extra_msa_on_device"] else 0)
                for r in rows), rows
     assert summary["on"]["aiclk_med_median"] == 1350, summary
+    # 2 vs 2 has C(4,2)=6 assignments, so the smallest p this design can return is 2/6 = 0.333.
+    # A separated pair of arms still cannot clear 0.05 here, and the summary must say so rather
+    # than let a reader read "separated: true" as significance.
+    assert summary["perm_assignments"] == 6, summary
+    assert summary["min_attainable_p"] == 0.33333, summary
+    assert summary["perm_is_informative"] is False, summary
+    assert summary["perm_p_two_sided"] == summary["min_attainable_p"], summary
+    # and the test does separate a real gap as far as the design allows
+    assert summary["observed_median_gap_s"] == 15.0, summary
+    ident = permutation_test([10.0, 10.0, 10.0], [10.0, 10.0, 10.0])
+    assert ident["perm_p_two_sided"] == 1.0, ident      # identical arms are never rejected
+    assert ident["min_attainable_p"] == 0.1, ident      # 3 vs 3 cannot go below 0.1
     print("selftest ok:", json.dumps({k: summary[k] for k in (
         "ratio_sg_off_over_on", "separated", "control_clean", "arm_fires")}))
 
@@ -291,6 +340,19 @@ def main():
         "omp": os.environ.get("OMP_NUM_THREADS"),
         "started_utc": time.strftime("%FT%TZ", time.gmtime()),
         "loadavg_start": os.getloadavg(), "nproc": os.cpu_count(), "project": project}
+    # Resolution before the run, not after: rounds 1-2 compile and the rest alternate, so
+    # --rounds 8 leaves 3 vs 3 and a smallest attainable p of 0.1. A run like that can never
+    # return a significant result however large the lever is, and trimming rounds to save card
+    # time is exactly how someone would reach for it.
+    _timed = max(args.rounds - 2, 0)
+    _off = _timed // 2
+    _c = math.comb(_timed, _off) if _timed else 0
+    stamp["min_attainable_p"] = round(2 / _c, 5) if _c else None
+    stamp["design_is_informative"] = bool(_c) and (2 / _c) <= 0.05
+    if not stamp["design_is_informative"]:
+        print(f"WARNING: --rounds {args.rounds} leaves {_off} vs {_timed - _off} timed rounds, "
+              f"smallest attainable p {stamp['min_attainable_p']}. This design cannot return a "
+              f"significant result. Use --rounds 10 or more.", flush=True)
     print(json.dumps(stamp, indent=1), flush=True)
 
     # BindCraft 2's own layer_stack, captured BEFORE the predictor patches it. The OFF arm's
@@ -392,6 +454,9 @@ def main():
 
     if args.assert_fires:
         bad = []
+        if not stamp.get("design_is_informative"):
+            bad.append(f"the design cannot return a significant result: smallest attainable p is "
+                       f"{stamp.get('min_attainable_p')}, needs --rounds 10 or more")
         if not summary.get("arm_fires"):
             bad.append(f"the ON arm never reached the card: traces {traced}, "
                        f"calls {dict(extra.calls)}")
