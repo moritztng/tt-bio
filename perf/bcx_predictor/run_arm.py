@@ -114,6 +114,11 @@ def main():
             T.TTBioAlphaFoldDesignModel, trunk="jax" if args.arm == "control" else "device",
             pool=pool)
 
+    from bindcraft.af2 import MONOMER_POOL as _MONO_POOL
+    from bindcraft.campaign import select_design_and_validation_models as _select
+    # Asked AFTER the MULTIMER_POOL rebind above, so it reports what this arm really runs.
+    _resolved = _select(settings, campaign.MULTIMER_POOL, _MONO_POOL)
+
     mpnn = os.path.join(B.BC2, "bindcraft", "weights", "proteinmpnn", "weights_neutral")
     stamp = {"arm": args.arm, "seed": args.seed, "trajectories": args.trajectories,
              # The EFFECTIVE bucket, read back off the settings the campaign gets.
@@ -125,7 +130,13 @@ def main():
              "length_bucket_flag": args.bucket,
              "multimer_pool": bool(args.multimer_pool),
              "levers": not args.no_levers,
-             "design_models": list(getattr(settings, "design_models", []) or []),
+             # The RESOLVED pool, not the settings field. `design_models` in settings is
+             # empty whenever the pool is the default one, because BindCraft 2 resolves it
+             # later in `select_design_and_validation_models` -- so stamping the field
+             # wrote `design_models: []` on the first shipped-pool run and left the
+             # artifact unable to say which five checkpoints produced it.
+             "design_models": list(_resolved.design_models),
+             "validation_models": list(_resolved.validation_models),
              "predictor": "AlphaFoldDesignModel" if args.arm == "reference"
                           else "TTBioAlphaFoldDesignModel",
              "host": os.uname().nodename, "started_utc": time.strftime("%FT%TZ", time.gmtime()),
