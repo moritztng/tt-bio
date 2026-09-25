@@ -39,15 +39,27 @@ own 0.950, so the guard would have waved it through. Counting the tail is `bcx-p
 to land with its own test; `bcx-mono` left the function alone and recorded the undercount
 (`state/bcx-mono.md`).
 """
+import json
+import time
+
 import numpy as np
 
 from bindcraft.af2 import (AlphaFoldDesignModel, padded_prediction_complex,
                            padded_prediction_length, pad_design_chains,
                            concatenate_chain_arrays)
 from bindcraft.prediction import DifferentiableProteinPredictor
-from bindcraft.protein import real_residue_weights
+from bindcraft.protein import AMINO_ACIDS, real_residue_weights
 
 DEVICE_TOKEN_BUCKET = 32
+
+
+def sequence_letters(protein) -> str:
+    """The sequence a filter would read off this chain.
+
+    BindCraft 2 carries a design chain as (L, 20) logits and takes its argmax wherever it
+    needs letters (`bindcraft/filters.py:229`), so this is that same reading.
+    """
+    return "".join(AMINO_ACIDS[i] for i in np.asarray(protein.sequence).argmax(-1))
 
 
 def masked_residue_count(protein_states, length_bucket_size: int, target_pad_length: int = 0,
@@ -112,7 +124,7 @@ class TTBioAlphaFoldDesignModel(AlphaFoldDesignModel):
     provides_distogram = True
 
     def __init__(self, *args, trunk: str = "jax", card: int | None = None,
-                 pool=None, **kwargs):
+                 pool=None, seqlog: str | None = None, **kwargs):
         if trunk not in ("jax", "device"):
             raise ValueError(f"trunk must be 'jax' or 'device', not {trunk!r}")
         super().__init__(*args, **kwargs)
@@ -122,6 +134,14 @@ class TTBioAlphaFoldDesignModel(AlphaFoldDesignModel):
         #: samples one design model per gradient step, so with a pool the device trunk has to
         #: follow that choice rather than hold one checkpoint for the campaign.
         self.pool = pool
+        #: Where to append one JSON line per `predict`, or None. The first shipped-pool
+        #: trajectory was rejected on a mutate stage reporting ptm = iptm = 1.0, and the
+        #: sequence that produced it is in no artifact BindCraft 2 writes for a REJECTED
+        #: trajectory -- the losses CSV carries metrics and no sequence, and the PDB is
+        #: only written on acceptance. So asking whether that degeneracy was in the
+        #: sequence or in us needed the whole 2.25 h trajectory over again. One line per
+        #: call is cheaper than one trajectory.
+        self.seqlog = seqlog
         self._device = None
 
     # -------------------------------------------------------------- the Protocol surface
@@ -150,11 +170,23 @@ class TTBioAlphaFoldDesignModel(AlphaFoldDesignModel):
         if self.pool is not None:
             self.pool.use(model)
 
+    def _record(self, model, protein_states):
+        """Append the state this call is about to fold, with the checkpoint folding it."""
+        if not self.seqlog:
+            return
+        row = {"t": round(time.time(), 1), "trunk": self.trunk, "model": model,
+               "states": {state: {chain: sequence_letters(protein)
+                                  for chain, protein in complex_.items()}
+                          for state, complex_ in protein_states.items()}}
+        with open(self.seqlog, "a") as handle:
+            handle.write(json.dumps(row) + "\n")
+
     def predict(self, protein_states, model=None, *args, **kwargs):
         if self.trunk == "device":
             self._open_device()
             model = self._resolved(model)
             self._select(model)
+        self._record(model, protein_states)
         return super().predict(protein_states, model, *args, **kwargs)
 
     def sequence_gradients(self, protein_states, losses, model=None, *args, **kwargs):

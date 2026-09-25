@@ -113,7 +113,7 @@ def main():
         import functools
         campaign.AlphaFoldDesignModel = functools.partial(
             T.TTBioAlphaFoldDesignModel, trunk="jax" if args.arm == "control" else "device",
-            pool=pool)
+            pool=pool, seqlog=os.path.join(project, "sequences.jsonl"))
 
     from bindcraft.af2 import MONOMER_POOL as _MONO_POOL
     from bindcraft.campaign import select_design_and_validation_models as _select
