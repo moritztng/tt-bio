@@ -1,0 +1,38 @@
+{
+ "doc": "J0: where the 2.107 ms of a backward verb call actually goes.",
+ "argv": [
+  "--tokens",
+  "384",
+  "--arm",
+  "noexact",
+  "--out",
+  "perf/of3t_bwattrib/out/hist_384_noexact.json"
+ ],
+ "env": {
+  "host": "pc",
+  "tt_visible_devices": "0",
+  "commit": "c0fe9a1155afbe7d71f8d7a5adf36e958c223a96",
+  "branch": "wk/of3t-bwattrib",
+  "started_utc": "2026-09-25T15:30:35Z",
+  "loadavg": [
+   4.900390625,
+   4.24560546875,
+   4.34033203125
+  ],
+  "aiclk_during": {
+   "0": {
+    "min": 1350,
+    "max": 1350,
+    "median": 1350,
+    "n": 41
+   }
+  },
+  "aiclk_line": "CLOCK: dev0 min 1350 / median 1350 / max 1350 MHz over 41 samples, polled DURING the work"
+ },
+ "arm": "noexact",
+ "config": {
+  "crop": 384,
+  "cycles": 1
+ },
+ "error": "Traceback (most recent call last):\n  File \"/home/moritz/.coworker/wt/of3t-bwattrib/tt_bio/device_lease.py\", line 362, in acquire\n    fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)\nBlockingIOError: [Errno 11] Resource temporarily unavailable\n\nDuring handling of the above exception, another exception occurred:\n\nTraceback (most recent call last):\n  File \"/home/moritz/.coworker/wt/of3t-bwattrib/perf/of3t_bwattrib/bwprof.py\", line 439, in main\n    held, _meta = S.capture(a.tokens, out)\n  File \"/home/moritz/.coworker/wt/of3t-bwattrib/perf/of3t_perf/step.py\", line 191, in capture\n    one_fold, meta = B.build_fold(\"openfold3\", REPO / f\".msa_of3t_{tokens}\", tgt, a3m)[:2]\n  File \"/home/moritz/.coworker/wt/of3t-bwattrib/scripts/gpu_vs_tt/tt_baseline.py\", line 361, in build_fold\n    get_device(trace=\"protenix\" if trace else None)  # open the chip once (lease enforced here)\n  File \"/home/moritz/.coworker/wt/of3t-bwattrib/tt_bio/tenstorrent.py\", line 6094, in get_device\n    _device_lease = CardSetLease().acquire()\n  File \"/home/moritz/.coworker/wt/of3t-bwattrib/tt_bio/device_lease.py\", line 468, in acquire\n    timeout=max(0.0, deadline - time.time())).acquire())\n  File \"/home/moritz/.coworker/wt/of3t-bwattrib/tt_bio/device_lease.py\", line 381, in acquire\n    raise DeviceInUseError(\ntt_bio.device_lease.DeviceInUseError: physical card 0 on pc is in use by worker:of3t-wheelbw (pid 494425); waited 120s. Refusing to open it concurrently (would collide at the fd level).\n"
+}
