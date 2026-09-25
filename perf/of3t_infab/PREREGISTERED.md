@@ -113,3 +113,35 @@ commit accounts for as intended, or an added device op with a cost. PARTIAL = a 
 unreadable (A/A fails, fold fails), named.
 
 Budget: one pass of this matrix. No models or repetitions beyond this file.
+
+## Addendum, 2026-09-25, AFTER2 (written and pushed before its first fold)
+
+The first matrix (INFAB.json, trees above) found two inference ops that wk/of3t added: finding 2,
+16 `from_torch` per openfold3/openbind fold (0802a53f0), and finding 4, 484 `ttnn.clamp` per
+protenix-v2 fold (f84e232af). Both were removed in 83da296bc, now in AFTER2 = `f01fa0813`.
+`git diff 589504144 f01fa0813 -- tt_bio` is `openfold3_confidence.py` and `tenstorrent.py`
+(`_accurate_softmax` only) and nothing else.
+
+Folded B, A2, B, A2 with the same infab.py into `INFAB2.json` (workdir `work2/`):
+
+- openfold3, openbind (both carried finding 2), protenix-v2 (the only folding process in the first
+  matrix whose trace reached `_accurate_softmax`), opendde, rf3 (both import tenstorrent.py).
+- rfd3 again, now with `--from_pdb`. Its first-matrix folds failed in both arms before any device
+  work: the default featurization path needs a golden bridge that is a dev fixture. A harness
+  fix, not a new model.
+
+Bars on AFTER2:
+
+- protenix-v2, opendde, rf3, rfd3: digest identical 4/4. Trace B vs A2 identical after removing an
+  explicit `compute_kernel_config:None` kwarg (finding 5, the signature default).
+- openfold3, openbind: digest A2 equal to the first matrix's AFTER digest (D1 alone moved it off
+  BEFORE). Trace B vs A2 differs only by the D1 `multiply_` scalar (finding 1), 8 fewer
+  `deallocate` (finding 3) and finding 5; `from_torch` count delta 0.
+- autograd, taped_ttnn and train.* absent from every process, exact counters zero, as before.
+
+Training side, `walkcheck.py`, card 1: build `OpenFold3Forward(...).model` in the AFTER and the
+AFTER2 tree. The walked device tensor count must be equal, the 16 confidence-head weights must be in
+the AFTER2 walk, and `confidence_head.late_device_weights()` must be empty. 3948 was the D127 tree;
+later commits added walk tensors, so the reference is AFTER, not that number.
+
+Card 1's board-pair sibling dev0 may be co-tenanted; walls are recorded and are no timing claim.

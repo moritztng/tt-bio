@@ -256,7 +256,7 @@ MODELS = {
     "rfd3":        {"key": "tt_bio.rfd3", "argv": ["design",
                                                   "scripts/rfd3_port/parity_artifacts/iai_protein/iai_inputs.yaml",
                                                   "--model", "rfd3", "--num_designs", "1", "--seed", "0",
-                                                  "--num_timesteps", "20"]},
+                                                  "--num_timesteps", "20", "--from_pdb"]},
     "pxdesign":    {"key": "tt_bio.pxdesign", "argv": ["design", "tests/fixtures/pxdesign/PDL1.yaml",
                                                       "--model", "pxdesign", "--num_designs", "1", "--seed", "0",
                                                       "--n_step", "50"]},
