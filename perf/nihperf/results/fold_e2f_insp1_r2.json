@@ -1,0 +1,118 @@
+{
+  "model": "esmfold2-fast",
+  "kind": "fold",
+  "unit": "structures/s",
+  "hardware": "blackhole",
+  "card_type": "p300c",
+  "machine_id": "tt-quietbox2",
+  "tt_bio_version": "0.9.0",
+  "inspector_env": "1",
+  "visible_devices": "1",
+  "throughput": 0.704269,
+  "latency_ms": 1419.91,
+  "median_s": 1.4199,
+  "times_s": [
+    1.0177,
+    1.1138,
+    1.1287,
+    1.1676,
+    1.2951,
+    1.4199,
+    1.6172,
+    1.7016,
+    1.7181,
+    2.0443,
+    2.6612
+  ],
+  "cpu_s": [
+    3.8799,
+    4.1317,
+    4.4145,
+    4.6361,
+    4.9161,
+    5.0105,
+    5.3105,
+    5.6957,
+    5.8173,
+    6.5155,
+    8.1835
+  ],
+  "cpu_median_s": 5.0105,
+  "cpu_fraction_of_wall": 3.5287,
+  "device_ops_per_call": [
+    13234,
+    13234,
+    13234,
+    13234,
+    13234,
+    13234,
+    13234,
+    13234,
+    13234,
+    13234,
+    13234
+  ],
+  "device_ops_median": 13234,
+  "wall_us_per_op": 107.293,
+  "cpu_us_per_op": 378.607,
+  "load_s": 48.1,
+  "warmup": 2,
+  "repeat": 11,
+  "loadavg_before": [
+    20.947265625,
+    19.802734375,
+    19.10400390625
+  ],
+  "loadavg_after": [
+    24.69287109375,
+    20.693359375,
+    19.4072265625
+  ],
+  "nproc": 16,
+  "aiclk_during": {
+    "0": {
+      "min": 800,
+      "median": 800,
+      "max": 800,
+      "n": 294
+    },
+    "1": {
+      "min": 1337,
+      "median": 1350,
+      "max": 1350,
+      "n": 294
+    },
+    "2": {
+      "min": 1325,
+      "median": 1350,
+      "max": 1350,
+      "n": 294
+    },
+    "3": {
+      "min": 1337,
+      "median": 1350,
+      "max": 1350,
+      "n": 294
+    }
+  },
+  "sampling_steps": 10,
+  "diffusion_samples": 1,
+  "recycling_steps": 1,
+  "input": "trpcage (20 aa, single-seq)",
+  "utc": "2026-09-25T16:44:19Z",
+  "chunk_size": 100,
+  "n_chunks": 400,
+  "enqueue_us_per_op_min_chunk": 9.437,
+  "enqueue_us_per_op_p10_chunk": 10.76,
+  "enqueue_us_per_op_median_chunk": 14.198,
+  "probe_shape": [
+    32,
+    32
+  ],
+  "probe_reps": 40000,
+  "probe_device_ops": 40000,
+  "enqueue_wall_us_per_op": 17.88,
+  "enqueue_cpu_us_per_op": 17.86,
+  "enqueue_plus_drain_us_per_op": 17.888,
+  "enqueue_host_share_of_total": 0.9996
+}

@@ -1,0 +1,97 @@
+{
+  "model": "esmfold2-fast",
+  "kind": "fold",
+  "unit": "structures/s",
+  "hardware": "blackhole",
+  "card_type": "p300c",
+  "machine_id": "tt-quietbox2",
+  "tt_bio_version": "0.9.0",
+  "inspector_env": "(unset: tt-metal default ON)",
+  "visible_devices": "1",
+  "throughput": 1.531898,
+  "latency_ms": 652.79,
+  "median_s": 0.6528,
+  "times_s": [
+    0.3976,
+    0.4877,
+    0.5722,
+    0.5904,
+    0.6528,
+    0.6727,
+    0.7249,
+    0.8492,
+    1.0951
+  ],
+  "cpu_s": [
+    1.8625,
+    2.0195,
+    2.241,
+    2.456,
+    2.48,
+    2.7959,
+    3.1774,
+    3.2676,
+    3.9602
+  ],
+  "cpu_median_s": 2.48,
+  "cpu_fraction_of_wall": 3.7991,
+  "device_ops_per_call": [
+    13234,
+    13234,
+    13234,
+    13234,
+    13234,
+    13234,
+    13234,
+    13234,
+    13234
+  ],
+  "device_ops_median": 13234,
+  "wall_us_per_op": 49.326,
+  "cpu_us_per_op": 187.394,
+  "load_s": 34.6,
+  "warmup": 2,
+  "repeat": 9,
+  "loadavg_before": [
+    16.48388671875,
+    19.15673828125,
+    19.38427734375
+  ],
+  "loadavg_after": [
+    16.74560546875,
+    19.1328125,
+    19.37451171875
+  ],
+  "nproc": 16,
+  "aiclk_during": {
+    "2": {
+      "min": 1337,
+      "median": 1350,
+      "max": 1350,
+      "n": 101
+    },
+    "1": {
+      "min": 1337,
+      "median": 1350,
+      "max": 1350,
+      "n": 101
+    },
+    "3": {
+      "min": 1350,
+      "median": 1350,
+      "max": 1350,
+      "n": 101
+    },
+    "0": {
+      "min": 800,
+      "median": 800,
+      "max": 800,
+      "n": 101
+    }
+  },
+  "sampling_steps": 10,
+  "diffusion_samples": 1,
+  "recycling_steps": 1,
+  "input": "trpcage (20 aa, single-seq)",
+  "utc": "2026-09-25T16:53:16Z"
+}
