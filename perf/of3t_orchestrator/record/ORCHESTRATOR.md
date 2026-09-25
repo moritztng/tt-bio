@@ -303,7 +303,18 @@ Superseded, pass 445 — ** ~16:5x CEST.** What the sprint has not done, specifi
    the 3x section bar); the six user-facing defects D32, D55, D184, D205, D210, D250, owned
    outside this campaign under ask 10455; crop 640 as a single-card capacity wall.
 
-VERDICT: PARTIAL, pass 446. Six rows live, two GO, the reviewable branch exists with its first
+VERDICT: PARTIAL, pass 448. **The sprint's rate limit is now hardware, not agents.** One usable
+Blackhole card on the whole fleet (pc card 0) against four rows that each need one, so "full
+speed with multiple agents" is capped at one by silicon — my dispatch error (K22, `card=-` sent
+them to a Wormhole galaxy), now corrected: queue ordered by value J0 → J1 → J2 → J4, the back two
+parked so they stop burning passes, the three timing rows pinned to the right card, and every
+brief split so a queued row still finishes its instrument, its float64 reference and its
+finite-difference validation while it waits. Moritz informed; nothing waits on him, and I am not
+asking him to preempt BCX, which has the nearer deadline. No J-row has reached a verdict yet:
+`of3t-lnbw` reads BLOCKED on the card and diagnosed the cause before I did. The batch gate that
+will grade them is written and its own two load-bearing properties are checked.
+
+Superseded, pass 446 — Six rows live, two GO, the reviewable branch exists with its first
 lever, and the sprint's own headline has been corrected twice — both times downward, both times
 by arithmetic on the rows' own numbers. **`of3t-tapedfwd` GO: the fused-kernel bypass I
 root-caused is worth 1.00508x, not the reordering I gave it (R207).** **R205: bwsurvey's
