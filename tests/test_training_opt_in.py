@@ -34,7 +34,11 @@ PKG = REPO_ROOT / "tt_bio"
 # TIGHTENS this test -- an inference module importing it is now an offender too.
 TRAINING = {"autograd", "finetune", "train", "taped_ttnn"}
 # The only modules allowed to import them: the training stack itself.
-ALLOWED = {"autograd.py", "finetune.py", "taped_ttnn.py"}
+# `bindcraft2.py` joins them: BindCraft 2 designs binders by DIFFERENTIATING AlphaFold 2, so a
+# gradient stack is what it is for, not a leak into an inference path. It imports both inside
+# `_Trunk.__init__`, so importing the module pulls neither, and nothing under `tt_bio/` imports
+# `bindcraft2` at all -- the inference path cannot reach it by any route.
+ALLOWED = {"autograd.py", "bindcraft2.py", "finetune.py", "taped_ttnn.py"}
 
 
 def _imports(path: Path) -> set[str]:
