@@ -24,5 +24,19 @@
   "mutate_steps": 15
  },
  "threads": "--xla_gpu_enable_triton_gemm=false",
- "project": "/home/ttuser/.coworker/wt/bcx-seeds/perf/bcx_seeds/runs/device_qb1_seed400"
+ "project": "/home/ttuser/.coworker/wt/bcx-seeds/perf/bcx_seeds/runs/device_qb1_seed400",
+ "device_card": 3,
+ "device_calls": {
+  "primal": 0,
+  "taped": 150,
+  "backward": 75
+ },
+ "trajectories_run": 1,
+ "wall_seconds": 8310.2,
+ "finished_utc": "2026-09-25T02:35:24Z",
+ "loadavg_end": [
+  41.29833984375,
+  39.658203125,
+  40.33935546875
+ ]
 }

@@ -1,0 +1,8 @@
+{
+ "samples": 1658,
+ "aiclk_median": 1350.0,
+ "aiclk_min": 800,
+ "aiclk_max": 1350,
+ "load_median": 47.33,
+ "span_s": 8324
+}
