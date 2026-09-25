@@ -13,13 +13,6 @@ inside ONE process. Nothing in a lever is changed: the switches sit around it.
          `1f338604e` backwards (permute + reshape), copied verbatim below
 
 Arms: base (all off), mm2d, triatt (bmm + heads), stack (all on); `bmm` and `heads` alone too.
-`bcx-bwdplan` adds its three levers on top of `stack`: `bwd` (all three) or any of `bwd1` (the
-batched plan for the backward's batched products and the one-row fold in `_via2d`), `bwd2`
-(slice gradients joined once instead of padded with host-built zeros), `bwd4` (a gradient
-arrives in its parent's own layout, so a reshape the forward made in ROW_MAJOR is undone in
-ROW_MAJOR), combined as e.g. `bwd12`. Off means the code this row replaced, reproduced here: no
-program config, the one-row operand left rank-3, the per-slice `_pad_slice`, and an `add_grad`
-that keeps the layout the gradient came in.
 
 Subcommands, each one device open on the card TT_VISIBLE_DEVICES names:
 
@@ -212,8 +205,6 @@ class Levers:
         self.ttnn, self.ag, self.T = ttnn, ag, T
         self._new_checkpoint = ag.checkpoint
         self.mm2d = self.bmm = self.heads = True
-        self.bwd = set("124")
-        self.mask = False
         self.phase = "fwd"
         self.counts = collections.Counter()
         self.shapes = collections.defaultdict(collections.Counter)
@@ -226,7 +217,7 @@ class Levers:
             mc = (kw or {}).get("memory_config")
             if len(s) <= 2:
                 why = "declined:rank<=2"
-            elif s[-2] % ttnn.TILE_SIZE and s[-2] != 1:
+            elif s[-2] % ttnn.TILE_SIZE:
                 why = "declined:rows-not-tile"
             elif x.layout != ttnn.TILE_LAYOUT:
                 why = "declined:layout"
@@ -238,14 +229,10 @@ class Levers:
                 why = "declined:sharded-memory_config"
             else:
                 why = "collapsed"
-            if why == "collapsed" and s[-2] % ttnn.TILE_SIZE:
-                why = "collapsed:one-row"
             site = _site()
             count("via2d", why, site)
             self.shapes[("via2d", why, site)][str(s)] += 1
             if why == "collapsed" and not self.mm2d:
-                return fn(x)
-            if why == "collapsed:one-row" and "1" not in self.bwd:
                 return fn(x)
             return via2d(x, fn, kw)
 
@@ -254,9 +241,7 @@ class Levers:
         bmm = ag.bmm_program_config
 
         def _bmm(a, b, transpose_a=False, transpose_b=False):
-            # AF2 never reaches `autograd.triangle_attention` (`reach_n256.json`), so every call
-            # here is a VJP product through `autograd.bmm`, which had no config before bwd1.
-            pc = bmm(a, b, transpose_a, transpose_b) if "1" in self.bwd else None
+            pc = bmm(a, b, transpose_a, transpose_b)
             sa, sb = _shape(a), _shape(b)
             if pc is not None:
                 why = "config"
@@ -273,40 +258,6 @@ class Levers:
 
         ag.bmm_program_config = _bmm
 
-        join = ag.Tensor.add_grad_slice
-
-        def add_grad_slice(t, g, starts, ends):
-            count("slice_grad", "join" if "2" in self.bwd else "pad")
-            if "2" in self.bwd:
-                return join(t, g, starts, ends)
-            return t.add_grad(ag._pad_slice(g, starts, ends, [int(d) for d in t.value.shape]))
-
-        ag.Tensor.add_grad_slice = add_grad_slice
-
-        add_grad = ag.Tensor.add_grad
-
-        def _old_add_grad(t, grad):
-            """`237f53064` `Tensor.add_grad`: the gradient kept whatever layout it came in."""
-            if not t.requires_grad:
-                return
-            want, got = tuple(t.value.shape), tuple(grad.shape)
-            if want != got:
-                raise ValueError(f"gradient shape {got} does not match value shape {want}")
-            if t._grad is None:
-                t._grad = grad
-                return
-            if t._grad.dtype != ttnn.float32:
-                t._grad = ttnn.typecast(t._grad, ttnn.float32)
-            t._grad = ttnn.add(t._grad, grad if grad.dtype == ttnn.float32
-                               else ttnn.typecast(grad, ttnn.float32))
-
-        def add_grad_(t, grad):
-            if t.requires_grad and grad.layout != t.value.layout:
-                count("add_grad_relayout", str(grad.layout), _site())
-            return (add_grad if "4" in self.bwd else _old_add_grad)(t, grad)
-
-        ag.Tensor.add_grad = add_grad_
-
         tri = ag.triangle_attention
 
         def _tri(*a, **k):
@@ -315,7 +266,7 @@ class Levers:
 
         ag.triangle_attention = _tri
 
-        for name in ("split_heads_value", "merge_heads_value"):
+        for name in ("_split_heads_v", "_merge_heads_v"):
             real = getattr(ag, name)
 
             def wrapped(*a, _real=real, _name=name, **k):
@@ -367,20 +318,12 @@ class Levers:
         self.counts[(self.phase,) + key] += 1
 
     def arm(self, name):
-        """`<lever arm>[+mask][@old|@new]`: `@` picks `autograd.checkpoint`, default new, and
-        `+mask` hands the Evoformer an MSA mask, which runs `bcx-predictor`'s masked sites."""
+        """`<lever arm>[@old|@new]`: the suffix picks `autograd.checkpoint`, default new."""
         name, _, impl = name.partition("@")
-        name, plus, _ = name.partition("+mask")
-        self.mask = bool(plus)
         self.ag.checkpoint = _old_checkpoint if impl == "old" else self._new_checkpoint
-        if name.startswith("bwd"):
-            self.bwd = set(name[3:] or "124")
-            self.mm2d, self.bmm, self.heads = ARMS["stack"]
-        else:
-            self.bwd = set()
-            self.mm2d, self.bmm, self.heads = ARMS[name]
+        self.mm2d, self.bmm, self.heads = ARMS[name]
         self.ag.TRIATT_BMM_CONFIG = self.bmm
-        self.name = name + plus + ("@" + impl if impl else "")
+        self.name = name + ("@" + impl if impl else "")
 
     def take(self):
         c, s = self.counts, self.shapes
@@ -401,9 +344,8 @@ def block_step(dev, lv, m0, z0, wm, wz, stack_name, k=1, ckpt=False):
     dev.sync()
     lv.phase = "fwd"
     t0 = time.time()
-    mask = dev.up(torch.ones(1, m0.shape[-2])) if lv.mask else None
     with dev.tt.tape():
-        mo, zo = dev.stack(ml, zl, ke, kv, ckpt=ckpt, msa_mask=mask)
+        mo, zo = dev.stack(ml, zl, ke, kv, ckpt=ckpt)
     dev.sync()
     t1 = time.time()
     roots = [zo] if stack_name == "extra" else [mo, zo]
@@ -551,7 +493,7 @@ def cmd_vjp(args):
 
 def cmd_bits(args):
     """One block's input gradients per arm against the base arm, on identical inputs and seeds:
-    bit-identical or not, and the relative L2 between them (the first arm is the base). The head entries are pure
+    bit-identical or not, and the relative L2 between them. The head entries are pure
     rearrangements, so an arm that differs from base only in them must be bit-identical."""
     lv, dev, ref = open_all(args)
     arms = args.arms.split(",")
@@ -568,7 +510,7 @@ def cmd_bits(args):
         for arm in arms:
             names = ("dz",) if stack_name == "extra" else ("dm", "dz")
             pick = (lambda gs: gs[1:]) if stack_name == "extra" else (lambda gs: gs)
-            a, b, a2 = pick(g[arm][0]), pick(g[arms[0]][0]), pick(g[arm][1])
+            a, b, a2 = pick(g[arm][0]), pick(g["base"][0]), pick(g[arm][1])
             rec[arm] = {nm: {"bit_identical_to_base": bool(torch.equal(x, y)),
                              "vs_base": A.cmp(x, y), "norm": float(x.norm()),
                              "repeat_bit_identical": bool(torch.equal(x, x2))}
@@ -592,9 +534,6 @@ def cmd_whole(args):
     logits = torch.randn(n, 20) * 2.0
     wm = torch.randn(1, n, 256, dtype=torch.float64) / (n * 256) ** 0.5
     wz = torch.randn(n, n, 128, dtype=torch.float64) / (n * n * 128) ** 0.5
-    # All ones, so a `+mask` arm computes the float64 chain's function through the masked
-    # program and its distance to float64 stays a correctness check. Its cost is the ops.
-    mask = dev.up(torch.ones(1, n))
 
     def device_grad():
         gc.collect()
@@ -605,7 +544,7 @@ def cmd_whole(args):
         lv.phase = "fwd"
         t0 = time.time()
         with dev.tt.tape():
-            mo, zo = dev.stack(ml, zl, ke, kv, ckpt=True, msa_mask=mask if lv.mask else None)
+            mo, zo = dev.stack(ml, zl, ke, kv, ckpt=True)
         dev.sync()
         t1 = time.time()
         seeds = [dev.seed(wm, mo), dev.seed(wz, zo)]
@@ -630,10 +569,9 @@ def cmd_whole(args):
     blob = {"stamp": stamp(args, clock), "n": n, "k_extra": ke, "k_evo": kv, "ckpt": True,
             "seed": args.seed, "arms": arms, "reps": args.reps, "per_arm": {}}
     grads, runs = {a: [] for a in arms}, {a: [] for a in arms}
-    for arm in arms:                               # warm every arm: each compiles its own
-        lv.arm(arm)                                # programs, and an unwarmed `+mask` arm read
-        device_grad()                              # 34.8 s against 15.0 s on its next rep
-        lv.take()
+    lv.arm(arms[0])
+    device_grad()                                  # warm: JIT + program cache, discarded
+    lv.take()
     for rep in range(args.reps):
         for arm in (arms if rep % 2 == 0 else arms[::-1]):
             lv.arm(arm)

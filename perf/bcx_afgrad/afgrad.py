@@ -71,19 +71,28 @@ def _float64_layernorm():
     R.LayerNorm.forward = forward
 
 
-def load_models(params, device_arm=True):
-    """(device model or None, float64 reference, fp32 reference, bf16 reference)."""
+def load_models(params, device_arm=True, multimer=False, refs=True):
+    """(device model or None, float64 reference, fp32 reference, bf16 reference).
+
+    `multimer=False` is every caller this file had when the flag was added and is exactly the
+    monomer behaviour; `multimer=True` reads a `params_model_N_multimer_v3.npz` and gives the
+    Evoformer blocks `outer_product_mean.first`, which is the whole of the multimer delta that
+    reaches the card. `refs=False` skips the three torch reference arms, which cost three more
+    copies of the weights and are dead weight when only the device stack is wanted.
+    """
     from tt_bio.af2_reference import load_af2_model
     from tt_bio.af2_weights import load_af2_state_dict
     _float64_layernorm()
-    state = load_af2_state_dict(params)
+    state = load_af2_state_dict(params, multimer=multimer)
     dm = None
     if device_arm:
         from tt_bio.af2 import load_af2_device_model
-        dm = load_af2_device_model(state, template=False, trunk_dtype=torch.bfloat16)
+        dm = load_af2_device_model(state, template=False, multimer=multimer,
+                                   trunk_dtype=torch.bfloat16)
     ref = {}
-    for name, dt in (("f64", torch.float64), ("f32", torch.float32), ("bf16", torch.bfloat16)):
-        m = load_af2_model(state, template=False, trunk_dtype=dt)
+    for name, dt in ((("f64", torch.float64), ("f32", torch.float32),
+                      ("bf16", torch.bfloat16)) if refs else ()):
+        m = load_af2_model(state, template=False, multimer=multimer, trunk_dtype=dt)
         # Parameters stay float32 in the bf16/fp32 arms, which is AF2's own convention (the
         # Linear casts the weight to the activation dtype per call). float64 promotes them.
         ref[name] = m.double() if dt == torch.float64 else m
@@ -100,12 +109,14 @@ def embed(model, logits, residue_index):
     target_feat is the same 20 columns), one MSA row, first recycle (prev all zero), no
     template. Differentiable in `logits` by torch autograd: this is the seam's host side.
     """
-    from tt_bio.af2_reference import (MAX_RELATIVE_FEATURE, RECYCLE_DGRAM,
-                                      dgram_from_positions, pseudo_beta)
+    from tt_bio.af2_reference import RECYCLE_DGRAM, dgram_from_positions, pseudo_beta
     dtype = model.trunk_dtype
     n = logits.shape[0]
     p = torch.softmax(logits.to(torch.float64 if dtype == torch.float64 else torch.float32), -1)
-    target_feat = F.pad(p, (1, 1)).to(dtype)
+    # 22 for the monomer, 21 for multimer_v3, which pads target_feat on the RIGHT only. Read off
+    # the model's own layer rather than branched on a flag, so the two variants cannot disagree.
+    want = model.embed["preprocess_1d"].weight.shape[1]
+    target_feat = F.pad(p, (1, 1) if want == p.shape[-1] + 2 else (0, want - p.shape[-1])).to(dtype)
     z5, z4 = p.new_zeros(n, 5), p.new_zeros(n, 4)
     msa_feat = torch.cat([p, z5, p, z4], dim=-1).to(dtype)[None]
     e = model.embed
@@ -117,10 +128,15 @@ def embed(model, logits, residue_index):
     pair = pair + model.recycle["prev_pos_linear"](dgram)
     msa = msa + model.recycle["prev_msa_norm"](torch.zeros(n, 256)).to(dtype)[None]
     pair = pair + model.recycle["prev_pair_norm"](torch.zeros(n, n, 128)).to(dtype)
-    off = residue_index[:, None] - residue_index[None, :]
-    rel = F.one_hot((off + MAX_RELATIVE_FEATURE).clamp(0, 2 * MAX_RELATIVE_FEATURE),
-                    2 * MAX_RELATIVE_FEATURE + 1).to(dtype)
-    pair = pair + e["pair_activations"](rel)
+    # The model's own relative encoding, which is where the two variants part company: the
+    # monomer one-hots the residue offset, multimer_v3 adds the chain and entity channels and
+    # reads `batch["offset"]` when it is given one. Calling it here instead of rebuilding the
+    # monomer's keeps this function honest for both. One chain, so the asym/entity/sym ids are
+    # constant -- enough for a precision-vs-size reading, not for a two-chain parity claim.
+    ones = torch.ones_like(residue_index)
+    pair = pair + model.relative_encoding(
+        {"residue_index": residue_index, "asym_id": ones, "entity_id": ones, "sym_id": ones},
+        dtype)
     return msa, pair
 
 
