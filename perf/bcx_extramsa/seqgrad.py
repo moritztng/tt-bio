@@ -48,6 +48,9 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--seed", type=int, default=100)
     ap.add_argument("--out", required=True)
+    ap.add_argument("--arms", default="jax,evo,evo+extra",
+                    help="comma list, repeats allowed; a repeat is graded as <arm>#<k>")
+    ap.add_argument("--ref-npz", help="reuse the jax arm's gradient from an earlier grads.npz")
     args = ap.parse_args()
     out = pathlib.Path(args.out)
     out.mkdir(parents=True, exist_ok=True)
@@ -70,14 +73,21 @@ def main():
 
     rep = {"seed": args.seed, "bucket": bucket, "loadavg_start": os.getloadavg(), "arms": {}}
     grads = {}
-    for arm in ("jax", "evo", "evo+extra"):
-        ctx = (contextlib.nullcontext() if arm == "jax" else
-               evoformer_on_device(evo, extra_msa=extra if arm == "evo+extra" else None))
+    if args.ref_npz:
+        grads["jax"] = np.load(args.ref_npz)["jax"]
+        rep["arms"]["jax"] = {"reused_from": args.ref_npz,
+                              "g_l2": float(np.linalg.norm(grads["jax"]))}
+    seen = {}
+    for name in args.arms.split(","):
+        seen[name] = seen.get(name, 0) + 1
+        arm = name if seen[name] == 1 else f"{name}#{seen[name]}"
+        ctx = (contextlib.nullcontext() if name == "jax" else
+               evoformer_on_device(evo, extra_msa=extra if name == "evo+extra" else None))
         m = TTBioAlphaFoldDesignModel(presets=("model_1_ptm",), data_dir=PARAMS,
                                       models=("model_1_ptm",), num_recycle=1,
                                       key=jax.random.PRNGKey(0), length_bucket_size=bucket,
                                       max_cache_size=2, dropout=False,
-                                      trunk="jax" if arm == "jax" else "device")
+                                      trunk="jax" if name == "jax" else "device")
         t0 = time.time()
         with ctx:
             _, g, loss = m.sequence_gradients(states, losses, softmax_weight=1.0,
@@ -88,24 +98,24 @@ def main():
         grads[arm] = np.concatenate([np.asarray(g[k], np.float64).ravel() for k in sorted(g)])
         rep["arms"][arm] = {"loss": float(loss), "seconds_incl_compile": round(t1 - t0, 1),
                             "g_l2": float(np.linalg.norm(grads[arm])),
-                            "aiclk_during": clock.window(t0, t1) if arm != "jax" else None}
+                            "aiclk_during": clock.window(t0, t1) if name != "jax" else None}
         print(arm, json.dumps(rep["arms"][arm], default=str), flush=True)
     clock.stop()
     rep["extra_calls"] = dict(extra.calls)
     rep["extra_mask_seen"] = {**extra.mask_seen,
                               "shapes": sorted(map(list, extra.mask_seen["shapes"]))}
-    rep["graded"] = {"evo_vs_jax": cmp(grads["jax"], grads["evo"]),
-                     "evo+extra_vs_jax": cmp(grads["jax"], grads["evo+extra"]),
-                     "evo+extra_vs_evo": cmp(grads["evo"], grads["evo+extra"])}
-    rep["graded"]["ratio_evo+extra_over_evo"] = (rep["graded"]["evo+extra_vs_jax"]["rel_l2"]
-                                                 / rep["graded"]["evo_vs_jax"]["rel_l2"])
-    rep["loss_delta"] = {"evo": rep["arms"]["evo"]["loss"] - rep["arms"]["jax"]["loss"],
-                         "evo+extra": rep["arms"]["evo+extra"]["loss"] - rep["arms"]["jax"]["loss"]}
+    dev_arms = [a for a in grads if a != "jax"]
+    rep["graded"] = {f"{a}_vs_jax": cmp(grads["jax"], grads[a]) for a in dev_arms}
+    rep["graded"].update({f"{b}_vs_{a}": cmp(grads[a], grads[b])
+                          for i, a in enumerate(dev_arms) for b in dev_arms[i + 1:]})
+    if "loss" in rep["arms"]["jax"]:
+        rep["loss_delta"] = {a: rep["arms"][a]["loss"] - rep["arms"]["jax"]["loss"]
+                             for a in dev_arms}
     rep["stamp"] = A.stamp(int(os.environ.get("TT_VISIBLE_DEVICES", "3").split(",")[0]))
     rep["loadavg_end"] = os.getloadavg()
     np.savez_compressed(out / "grads.npz", **{k.replace("+", "_"): v for k, v in grads.items()})
     (out / "seqgrad.json").write_text(json.dumps(rep, indent=1, default=str))
-    print(json.dumps(rep["graded"], indent=1), json.dumps(rep["loss_delta"]), flush=True)
+    print(json.dumps(rep["graded"], indent=1), flush=True)
 
 
 if __name__ == "__main__":

@@ -1,0 +1,97 @@
+{
+ "seed": 100,
+ "bucket": 32,
+ "loadavg_start": [
+  19.89892578125,
+  24.275390625,
+  26.15185546875
+ ],
+ "arms": {
+  "jax": {
+   "loss": 8.465317726135254,
+   "seconds_incl_compile": 523.7,
+   "g_l2": 0.29185047553040244,
+   "aiclk_during": null
+  },
+  "evo": {
+   "loss": 8.371460914611816,
+   "seconds_incl_compile": 118.0,
+   "g_l2": 2.561507268074482,
+   "aiclk_during": {
+    "n": 111,
+    "aiclk_min": 1343,
+    "aiclk_med": 1350,
+    "aiclk_max": 1350,
+    "load1": 29.9
+   }
+  },
+  "evo+extra": {
+   "loss": 8.467227935791016,
+   "seconds_incl_compile": 54.6,
+   "g_l2": 0.3472538095546527,
+   "aiclk_during": {
+    "n": 53,
+    "aiclk_min": 1343,
+    "aiclk_med": 1350,
+    "aiclk_max": 1350,
+    "load1": 27.6
+   }
+  }
+ },
+ "extra_calls": {
+  "primal": 0,
+  "taped": 2,
+  "backward": 1
+ },
+ "extra_mask_seen": {
+  "calls": 2,
+  "abs_max": 0.0,
+  "shapes": [
+   [
+    1,
+    275
+   ]
+  ]
+ },
+ "graded": {
+  "evo_vs_jax": {
+   "rel_l2": 8.613276557536212,
+   "cos": 0.21894848680056608,
+   "norm_ratio": 8.776779491002221
+  },
+  "evo+extra_vs_jax": {
+   "rel_l2": 1.0852026674212005,
+   "cos": 0.5202578653418257,
+   "norm_ratio": 1.1898346539390128
+  },
+  "evo+extra_vs_evo": {
+   "rel_l2": 1.0013549810320659,
+   "cos": 0.05778135229813826,
+   "norm_ratio": 0.13556620115143683
+  },
+  "ratio_evo+extra_over_evo": 0.12599185224950188
+ },
+ "loss_delta": {
+  "evo": -0.0938568115234375,
+  "evo+extra": 0.0019102096557617188
+ },
+ "stamp": {
+  "host": "tt-quietbox2",
+  "card": 3,
+  "subsystem_device": "0x0046",
+  "commit": "afddfccdd1cdc4274f2be0dc66a6ce1e35dfff72",
+  "tt_bio_dirty": false,
+  "torch_threads": 6,
+  "loadavg": [
+   28.9453125,
+   27.56201171875,
+   26.72802734375
+  ],
+  "utc": "2026-09-25T01:10:01Z"
+ },
+ "loadavg_end": [
+  28.9453125,
+  27.56201171875,
+  26.72802734375
+ ]
+}
