@@ -2,7 +2,7 @@
   "instrument": "perf/of3t_orchestrator/charter/charter_evidence.py",
   "spec_lifted_from": "/home/moritz/.coworker/workstreams/_of3t_donecheck.py",
   "spec_sha256": "b8874583f28bcfcb1faed1137be04829b2ae87ceae2f08e42067dd3954ff01be",
-  "tree": "/home/moritz/.coworker/wt/of3t-orchestrator",
+  "tree": "/home/moritz/.coworker/wt/of3t-stepqb2",
   "break_control": "every condition can report MET on a synthetic artifact, and every requirement reports NOT MET on one built to violate it",
   "n_met": 5,
   "n_conditions": 5,
@@ -68,9 +68,9 @@
       "code_staleness": {
         "comparable": true,
         "artifact_commit_unixtime": 1790250607,
-        "code_commit_unixtime": 1790298791,
+        "code_commit_unixtime": 1790362947,
         "artifact_is_older_than_code": true,
-        "seconds_behind": 48184,
+        "seconds_behind": 112340,
         "note": "this artifact predates the newest commit under tt_bio, so its numbers describe an earlier tree. A clause reading it is reporting history, and a re-take may change the verdict"
       }
     },
@@ -119,10 +119,10 @@
       "code_staleness": {
         "comparable": true,
         "artifact_commit_unixtime": 1790298896,
-        "code_commit_unixtime": 1790298791,
-        "artifact_is_older_than_code": false,
-        "seconds_behind": 0,
-        "note": "the artifact is at or after the newest code commit"
+        "code_commit_unixtime": 1790362947,
+        "artifact_is_older_than_code": true,
+        "seconds_behind": 64051,
+        "note": "this artifact predates the newest commit under tt_bio, so its numbers describe an earlier tree. A clause reading it is reporting history, and a re-take may change the verdict"
       }
     },
     {
@@ -162,9 +162,9 @@
       "code_staleness": {
         "comparable": true,
         "artifact_commit_unixtime": 1790297651,
-        "code_commit_unixtime": 1790298791,
+        "code_commit_unixtime": 1790362947,
         "artifact_is_older_than_code": true,
-        "seconds_behind": 1140,
+        "seconds_behind": 65296,
         "note": "this artifact predates the newest commit under tt_bio, so its numbers describe an earlier tree. A clause reading it is reporting history, and a re-take may change the verdict"
       }
     },
@@ -216,9 +216,9 @@
       "code_staleness": {
         "comparable": true,
         "artifact_commit_unixtime": 1790058785,
-        "code_commit_unixtime": 1790298791,
+        "code_commit_unixtime": 1790362947,
         "artifact_is_older_than_code": true,
-        "seconds_behind": 240006,
+        "seconds_behind": 304162,
         "note": "this artifact predates the newest commit under tt_bio, so its numbers describe an earlier tree. A clause reading it is reporting history, and a re-take may change the verdict"
       }
     },
@@ -249,9 +249,12 @@
         }
       ],
       "code_staleness": {
-        "comparable": false,
-        "generated_not_committed": true,
-        "why": "composed at compose time from digest-pinned sources, so it cannot be stale"
+        "comparable": true,
+        "artifact_commit_unixtime": 1790298922,
+        "code_commit_unixtime": 1790362947,
+        "artifact_is_older_than_code": true,
+        "seconds_behind": 64025,
+        "note": "this artifact predates the newest commit under tt_bio, so its numbers describe an earlier tree. A clause reading it is reporting history, and a re-take may change the verdict"
       }
     }
   ]

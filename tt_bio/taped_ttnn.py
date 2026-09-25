@@ -222,9 +222,9 @@ def _v_softmax(shipped, args, kwargs):
         def bw(g):
             y = box[0]                      # through the box, so `free` may evict y to DRAM
             # The same expression as `autograd.softmax` and `triangle_attention`; the helper
-            # carries the TT_BIO_SOFTMAX_BW_RENORM branch all three used to inline.
-            inner = ag.softmax_bw_inner(y, g, dim=dim)
-            x.add_grad(ttnn.multiply(y, ttnn.subtract(g, inner)))
+            # carries the TT_BIO_SOFTMAX_BW_RENORM branch all three used to inline, and the
+            # fused `moreh_softmax_backward` route all three now share.
+            x.add_grad(ag.softmax_bw(y, g, dim=dim))
         return bw
 
     # The backward reads y and only y, so x is not pinned. Under `softmax_in_place` the
@@ -240,11 +240,17 @@ def _v_softmax(shipped, args, kwargs):
     return out
 
 
-def _unary(fn, reads_output=False):
+def _unary(fn=None, reads_output=False, fused=None):
     """Register a unary eltwise verb whose backward is `fn(x_value, out_value) -> dy/dx`.
 
     An `output_tensor=` argument is dropped, which is the in-place case: the shipped verb
-    writes its result over its input and the tape needs the input to still be there.
+    writes its result over its input and the tape needs the input to still be there. That
+    drop is also why a `fused` rule may read the input: under the tape the shipped verb
+    allocates, so `x.value` is never the output's buffer.
+
+    `fused(g, x_value, out_value) -> dx` replaces the whole `multiply(g, fn(...))` chain
+    where the wheel already ships the backward as one kernel. Same expression, fewer verbs,
+    and no intermediate derivative is materialised at all.
     """
     def impl(shipped, args, kwargs):
         x = _wrap(args[0])
@@ -256,7 +262,8 @@ def _unary(fn, reads_output=False):
             def bw(g):
                 # Through the Tensor for the input and through the box for the output:
                 # `free` may have evicted either to DRAM.
-                x.add_grad(ttnn.multiply(g, fn(x.value, box[0])))
+                x.add_grad(fused(g, x.value, box[0]) if fused is not None
+                           else ttnn.multiply(g, fn(x.value, box[0])))
             return bw
 
         out = _tape(out_v, [x], make)
@@ -276,13 +283,17 @@ def _unary(fn, reads_output=False):
     return impl
 
 
-_VERBS["silu"] = _unary(
-    # sigma * (1 + x * (1 - sigma)). The output is not invertible, so the input is read.
-    lambda xv, y: (lambda s: ttnn.multiply(
-        s, ttnn.add(ttnn.multiply(xv, ttnn.rsub(s, 1.0)), 1.0)))(ttnn.sigmoid(xv)))
-_VERBS["sigmoid"] = _unary(lambda xv, y: ttnn.multiply(y, ttnn.rsub(y, 1.0)),
-                           reads_output=True)
-_VERBS["relu"] = _unary(lambda xv, y: ttnn.gtz(xv))
+# The three eltwise activations the wheel already backpropagates in one kernel. What they
+# replaced, so the expression is on the page rather than only in the history:
+#   silu     sigma * (1 + x * (1 - sigma)), then multiply by g -- six verbs
+#   sigmoid  y * (1 - y), then multiply by g              -- three verbs
+#   relu     (x > 0), then multiply by g                  -- two verbs
+# `sigmoid_bw` takes the input and recomputes the sigmoid where the composed form read the
+# retained output; `relu_bw` takes the input, which is what `gtz` read. Neither changes which
+# tensors the node keeps alive, because `_tape` pins the input regardless.
+_VERBS["silu"] = _unary(fused=lambda g, xv, y: ttnn.silu_bw(g, xv)[0])
+_VERBS["sigmoid"] = _unary(fused=lambda g, xv, y: ttnn.sigmoid_bw(g, xv)[0])
+_VERBS["relu"] = _unary(fused=lambda g, xv, y: ttnn.relu_bw(g, xv)[0])
 _VERBS["exp"] = _unary(lambda xv, y: y, reads_output=True)
 # of3t-trunkceiling, NOT SHIPPED -- stays on wk/of3t-trunkceiling. Without it the 5-op
 # `_accurate_softmax` chain cannot be taped at all: its -60 floor is a `ttnn.clamp` and the tape
@@ -330,6 +341,19 @@ def _act_const(kwargs, key) -> bool:
     return getattr(acts[0], "op_type", None) in _FUSED_UNARY_CONST
 
 
+def _chain_fused(pair, d, xv, ev):
+    """Carry the binary rule's output `d` through the fused activation's derivative.
+
+    `pair[2]` is the wheel's own backward for that activation and does the whole thing in one
+    kernel; without it the derivative is materialised and multiplied in, which is 2 verbs for
+    relu, 3 for sigmoid and 6 for silu. `xv` is the PRE-activation operand and `ev` the
+    activated one, so a wheel op that wants the input gets `xv` -- the same argument the
+    plain-verb substitution takes, and graded on the same reading.
+    """
+    bw = pair[2] if len(pair) > 2 else None
+    return bw(d, xv, ev) if bw is not None else ttnn.multiply(d, pair[1](xv, ev))
+
+
 def _register_fused_unary():
     u = getattr(ttnn, "UnaryOpType", None)
     if u is None:                                                  # pragma: no cover
@@ -344,16 +368,27 @@ def _register_fused_unary():
         _FUSED_UNARY_PARAM[u.MUL_UNARY_SFPU] = lambda c: (
             lambda x: ttnn.multiply(x, c), lambda x, y: c)
         _FUSED_UNARY_CONST.add(u.MUL_UNARY_SFPU)
+    # The third element, where present, is the wheel's own backward for that activation:
+    # `bw(d, x, y) -> d * dy/dx` as one kernel, replacing the `multiply(d, derivative)` chain
+    # beside it. Same three ops the plain `_VERBS` entries take through `_unary(fused=...)`,
+    # reached here instead when the activation rides another verb -- `multiply(o, g,
+    # input_tensor_b_activations=[SIGMOID])` is how every OpenFold3 gate is written, so this
+    # copy of the derivative is on the training tape whether or not `ttnn.sigmoid` is.
+    # The composed form stays as the expression of record and as the control the wheel op
+    # was graded against.
     if hasattr(u, "SIGMOID"):
         _FUSED_UNARY[u.SIGMOID] = (
-            ttnn.sigmoid, lambda x, y: ttnn.multiply(y, ttnn.rsub(y, 1.0)))
+            ttnn.sigmoid, lambda x, y: ttnn.multiply(y, ttnn.rsub(y, 1.0)),
+            lambda d, x, y: ttnn.sigmoid_bw(d, x)[0])
     if hasattr(u, "RELU"):
-        _FUSED_UNARY[u.RELU] = (ttnn.relu, lambda x, y: ttnn.gtz(x))
+        _FUSED_UNARY[u.RELU] = (ttnn.relu, lambda x, y: ttnn.gtz(x),
+                                lambda d, x, y: ttnn.relu_bw(d, x)[0])
     if hasattr(u, "SILU"):
         _FUSED_UNARY[u.SILU] = (
             ttnn.silu,
             lambda x, y: (lambda sg: ttnn.multiply(
-                sg, ttnn.add(ttnn.multiply(x, ttnn.rsub(sg, 1.0)), 1.0)))(ttnn.sigmoid(x)))
+                sg, ttnn.add(ttnn.multiply(x, ttnn.rsub(sg, 1.0)), 1.0)))(ttnn.sigmoid(x)),
+            lambda d, x, y: ttnn.silu_bw(d, x)[0])
 
 
 _register_fused_unary()
@@ -472,7 +507,7 @@ def _activation(kwargs, key, probe=None):
         f"read 4.88x high.")
 
 
-def _binary(grad_a, grad_b, scalar, out_of_place=None, needs=(True, True)):
+def _binary(grad_a, grad_b, scalar, out_of_place=None, needs=(True, True), both=None):
     """Register a binary eltwise verb. The second operand may be a python scalar, which the
     shipped chain does often enough (`ttnn.multiply(s, 1 / sqrt(d))`) that treating it as a
     tensor would be wrong rather than merely slow.
@@ -487,6 +522,12 @@ def _binary(grad_a, grad_b, scalar, out_of_place=None, needs=(True, True)):
     answer for anything that has not said. A fused unary adds its own read, unless its
     derivative is a constant -- which `MUL_UNARY_SFPU`, the score scale OpenFold3's
     fp32-softmax tail rides on the add, is.
+
+    ``both(g, a_value, b_value) -> (da, db)`` is the wheel's own two-sided backward, taken
+    only where it is exactly `grad_a` and `grad_b`: no fused unary on either operand, both
+    operands wanting a gradient, and no broadcast for `_reduce_to` to undo. Outside that it
+    composes as before, because `mul_bw` carries neither a fused-activation correction nor a
+    reducing output.
     """
     def impl(shipped, args, kwargs):
         a = _wrap(args[0])
@@ -539,15 +580,22 @@ def _binary(grad_a, grad_b, scalar, out_of_place=None, needs=(True, True)):
                 # rule reads is not recomputed either -- `add_(x, y, MUL_UNARY(c))` used to
                 # pay a full-sized multiply in the backward to build an `ea` that `_ADD`
                 # then ignored.
+                if (both is not None and fa is None and fb is None
+                        and a.requires_grad and b.requires_grad
+                        and tuple(av.shape) == tuple(bv.shape) == tuple(g.shape)):
+                    da, db = both(g, av, bv)
+                    a.add_grad(da)
+                    b.add_grad(db)
+                    return
                 ea = (fa[0](av) if fa else av) if reads_a else None
                 eb = (fb[0](bv) if fb else bv) if reads_b else None
                 if a.requires_grad:
                     da = grad_a(g, ea, eb)
-                    da = ttnn.multiply(da, fa[1](av, ea)) if fa else da
+                    da = _chain_fused(fa, da, av, ea) if fa else da
                     a.add_grad(_reduce_to(da, av.shape))
                 if b.requires_grad:
                     db = grad_b(g, ea, eb)
-                    db = ttnn.multiply(db, fb[1](bv, eb)) if fb else db
+                    db = _chain_fused(fb, db, bv, eb) if fb else db
                     b.add_grad(_reduce_to(db, bv.shape))
             return bw
 
@@ -593,8 +641,9 @@ _VERBS["add_"] = _binary(*_ADD, out_of_place=ttnn.add, needs=(False, False))
 _VERBS["subtract"] = _binary(
     lambda g, av, bv: g, lambda g, av, bv: ttnn.multiply(g, -1.0), lambda g, f: g,
     needs=(False, False))
-_VERBS["multiply"] = _binary(*_MUL)
-_VERBS["multiply_"] = _binary(*_MUL, out_of_place=ttnn.multiply)
+_MUL_BOTH = lambda g, av, bv: ttnn.mul_bw(g, av, bv)
+_VERBS["multiply"] = _binary(*_MUL, both=_MUL_BOTH)
+_VERBS["multiply_"] = _binary(*_MUL, out_of_place=ttnn.multiply, both=_MUL_BOTH)
 _VERBS["divide"] = _binary(
     lambda g, av, bv: ttnn.divide(g, bv),
     lambda g, av, bv: ttnn.multiply(ttnn.divide(g, ttnn.multiply(bv, bv)),

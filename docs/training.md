@@ -191,11 +191,16 @@ these are per model and `plan()` applies only the one you asked for:
   536,870,912 B refused. Both in the forward under per-block checkpointing where the forward is
   untaped, so what fails is one block's working set. Distribution does not help: 8 chips each
   run out at 384 aa exactly as one does.
-- **OpenFold3 — 512 aa runs and is the largest that does. 544, 576, 640 and 768 refuse.** The
-  three refusals are not one wall: 640 and 768 die with the card full, 23,710,208 B and
-  6,231,552 B free; 576 dies with 6,671,522,304 B still free, refused for contiguity inside
-  `ttnn::concat`, short by 77,930,560 B per bank. A capacity extrapolation cannot find that
-  frontier, which is why these are measurements and not a slope.
+- **OpenFold3 — 576 aa runs and is the largest measured to. 640 and 768 refuse.** The backward
+  peaks at 30,230,471,680 B of the card's 34,225,520,128 B at 576 aa, 88.3 % full, with the
+  clock at a median 1350 MHz polled during. 640 and 768 die with the card full, 23,710,208 B
+  and 6,231,552 B free. **This frontier moved on 2026-09-23 and the reason is worth reading**:
+  576 used to refuse with 6,671,522,304 B still free, short by 77,930,560 B per bank, beaten by
+  contiguity inside `ttnn::concat` rather than by capacity — and splitting the concat-heads
+  gradient on `dh` instead of a dim of extent `H` removed exactly that allocation. So one of the
+  two walls was never a capacity wall at all, which is also why a capacity extrapolation cannot
+  find this frontier and why these are measurements and not a slope. 544 sits below a crop that
+  runs and has not been re-measured since the fix, so it is not claimed in either direction.
 
 **These two do not transfer to each other**, and a model with no entry gets no refusal from this
 table. Asking for a 512 aa OpenFold3 crop used to be refused on Protenix-v2's number for a crop
@@ -546,7 +551,10 @@ falls at the same time (0.167 to 0.112 whole-model), so this is fidelity, not a 
 upstream's own rounding. The measurement is `perf/of3t_stackexact/LADDER.json`.
 
 It is not free. Each softmax and layer norm is a host round trip, and on the OpenFold3 trunk
-step at crop 384 that is COST_SENTENCE If you want speed over fidelity, turn it off:
+step at crop 384 it costs about 25x. A trunk step that runs in 25.24 s on the device kernels
+takes 637.33 s with the exact softmax alone, measured on an idle p150a with the clock sampled at
+1350 MHz throughout (`perf/of3t_exactscope/PRICE.json`). Almost all of that is host time, not
+card time. If you want speed over fidelity, turn it off:
 
 ```bash
 tt-bio finetune ... --device-ops

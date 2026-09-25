@@ -1,0 +1,522 @@
+{
+ "dtype": "bfloat16",
+ "floor": 0.001,
+ "fd_h": 1e-05,
+ "fd_tol": 1e-06,
+ "ops": {
+  "mul": {
+   "fd": {
+    "worst_rel": 2.8984962185495936e-08,
+    "tol": 1e-06,
+    "pass": true,
+    "probes": 16,
+    "op": "mul"
+   },
+   "paths": [
+    "tt_bio.autograd.mul.grad_a",
+    "tt_bio.autograd.mul.grad_b"
+   ],
+   "shape": [
+    [
+     2,
+     256,
+     128
+    ],
+    [
+     2,
+     256,
+     128
+    ]
+   ],
+   "arms": {
+    "composed": {
+     "per_output": [
+      {
+       "worst_rel": 0.009803118060858323,
+       "worst_index": 22052,
+       "worst_ref": -1.1598072271758415,
+       "worst_got": -1.1484375,
+       "rel_l2": 0.0028477750581287166,
+       "path": "tt_bio.autograd.mul.grad_a"
+      },
+      {
+       "worst_rel": 0.010002831962107587,
+       "worst_index": 14351,
+       "worst_ref": 0.07102293043863411,
+       "worst_got": 0.0703125,
+       "rel_l2": 0.0028977785266241125,
+       "path": "tt_bio.autograd.mul.grad_b"
+      }
+     ],
+     "worst_rel": 0.010002831962107587,
+     "worst_path": "tt_bio.autograd.mul.grad_b",
+     "worst_rel_l2": 0.0028977785266241125
+    },
+    "wheel": {
+     "per_output": [
+      {
+       "worst_rel": 0.009803118060858323,
+       "worst_index": 22052,
+       "worst_ref": -1.1598072271758415,
+       "worst_got": -1.1484375,
+       "rel_l2": 0.0028477750581287166,
+       "path": "tt_bio.autograd.mul.grad_a"
+      },
+      {
+       "worst_rel": 0.010002831962107587,
+       "worst_index": 14351,
+       "worst_ref": 0.07102293043863411,
+       "worst_got": 0.0703125,
+       "rel_l2": 0.0028977785266241125,
+       "path": "tt_bio.autograd.mul.grad_b"
+      }
+     ],
+     "worst_rel": 0.010002831962107587,
+     "worst_path": "tt_bio.autograd.mul.grad_b",
+     "worst_rel_l2": 0.0028977785266241125
+    }
+   },
+   "identical": true
+  },
+  "scale": {
+   "fd": {
+    "worst_rel": 1.0068854677371979e-07,
+    "tol": 1e-06,
+    "pass": true,
+    "probes": 8,
+    "op": "scale"
+   },
+   "paths": [
+    "tt_bio.autograd.scale.grad_x"
+   ],
+   "shape": [
+    [
+     2,
+     256,
+     128
+    ]
+   ],
+   "arms": {
+    "composed": {
+     "per_output": [
+      {
+       "worst_rel": 0.006367642347568791,
+       "worst_index": 52785,
+       "worst_ref": 0.37150624389098647,
+       "worst_got": 0.369140625,
+       "rel_l2": 0.0023526849049131963,
+       "path": "tt_bio.autograd.scale.grad_x"
+      }
+     ],
+     "worst_rel": 0.006367642347568791,
+     "worst_path": "tt_bio.autograd.scale.grad_x",
+     "worst_rel_l2": 0.0023526849049131963
+    },
+    "wheel": {
+     "per_output": [
+      {
+       "worst_rel": 0.006367642347568791,
+       "worst_index": 52785,
+       "worst_ref": 0.37150624389098647,
+       "worst_got": 0.369140625,
+       "rel_l2": 0.0023526849049131963,
+       "path": "tt_bio.autograd.scale.grad_x"
+      }
+     ],
+     "worst_rel": 0.006367642347568791,
+     "worst_path": "tt_bio.autograd.scale.grad_x",
+     "worst_rel_l2": 0.0023526849049131963
+    }
+   },
+   "identical": true
+  },
+  "add": {
+   "fd": {
+    "worst_rel": 7.525811776228348e-09,
+    "tol": 1e-06,
+    "pass": true,
+    "probes": 16,
+    "op": "add"
+   },
+   "paths": [
+    "tt_bio.autograd.add.grad_a",
+    "tt_bio.autograd.add.grad_b"
+   ],
+   "shape": [
+    [
+     2,
+     256,
+     128
+    ],
+    [
+     2,
+     256,
+     128
+    ]
+   ],
+   "arms": {
+    "composed": {
+     "per_output": [
+      {
+       "worst_rel": 0.0038890081407357262,
+       "worst_index": 39762,
+       "worst_ref": -0.06274426827987506,
+       "worst_got": -0.06298828125,
+       "rel_l2": 0.0016630068146527978,
+       "path": "tt_bio.autograd.add.grad_a"
+      },
+      {
+       "worst_rel": 0.0038890081407357262,
+       "worst_index": 39762,
+       "worst_ref": -0.06274426827987506,
+       "worst_got": -0.06298828125,
+       "rel_l2": 0.0016630068146527978,
+       "path": "tt_bio.autograd.add.grad_b"
+      }
+     ],
+     "worst_rel": 0.0038890081407357262,
+     "worst_path": "tt_bio.autograd.add.grad_a",
+     "worst_rel_l2": 0.0016630068146527978
+    },
+    "wheel": {
+     "per_output": [
+      {
+       "worst_rel": 0.0038890081407357262,
+       "worst_index": 39762,
+       "worst_ref": -0.06274426827987506,
+       "worst_got": -0.06298828125,
+       "rel_l2": 0.0016630068146527978,
+       "path": "tt_bio.autograd.add.grad_a"
+      },
+      {
+       "worst_rel": 0.0038890081407357262,
+       "worst_index": 39762,
+       "worst_ref": -0.06274426827987506,
+       "worst_got": -0.06298828125,
+       "rel_l2": 0.0016630068146527978,
+       "path": "tt_bio.autograd.add.grad_b"
+      }
+     ],
+     "worst_rel": 0.0038890081407357262,
+     "worst_path": "tt_bio.autograd.add.grad_a",
+     "worst_rel_l2": 0.0016630068146527978
+    }
+   },
+   "identical": true
+  },
+  "relu": {
+   "fd": {
+    "worst_rel": 0.058192719410493705,
+    "tol": 1e-06,
+    "pass": false,
+    "probes": 8,
+    "op": "relu"
+   },
+   "paths": [
+    "tt_bio.autograd.relu.grad_x"
+   ],
+   "shape": [
+    [
+     2,
+     256,
+     128
+    ]
+   ],
+   "arms": {
+    "composed": {
+     "per_output": [
+      {
+       "worst_rel": 0.003882827477734047,
+       "worst_index": 53422,
+       "worst_ref": -1.0038979625940012,
+       "worst_got": -1.0,
+       "rel_l2": 0.0016649033624287041,
+       "path": "tt_bio.autograd.relu.grad_x"
+      }
+     ],
+     "worst_rel": 0.003882827477734047,
+     "worst_path": "tt_bio.autograd.relu.grad_x",
+     "worst_rel_l2": 0.0016649033624287041
+    },
+    "wheel": {
+     "per_output": [
+      {
+       "worst_rel": 0.003882827477734047,
+       "worst_index": 53422,
+       "worst_ref": -1.0038979625940012,
+       "worst_got": -1.0,
+       "rel_l2": 0.0016649033624287041,
+       "path": "tt_bio.autograd.relu.grad_x"
+      }
+     ],
+     "worst_rel": 0.003882827477734047,
+     "worst_path": "tt_bio.autograd.relu.grad_x",
+     "worst_rel_l2": 0.0016649033624287041
+    }
+   },
+   "identical": true
+  },
+  "relu_in": {
+   "fd": {
+    "worst_rel": 0.051991831084248104,
+    "tol": 1e-06,
+    "pass": false,
+    "probes": 8,
+    "op": "relu_in"
+   },
+   "paths": [
+    "tt_bio.taped_ttnn.relu.grad_x"
+   ],
+   "shape": [
+    [
+     2,
+     256,
+     128
+    ]
+   ],
+   "arms": {
+    "composed": {
+     "per_output": [
+      {
+       "worst_rel": 0.0038857409152181473,
+       "worst_index": 28856,
+       "worst_ref": 0.5019557798884572,
+       "worst_got": 0.50390625,
+       "rel_l2": 0.001657943737716009,
+       "path": "tt_bio.taped_ttnn.relu.grad_x"
+      }
+     ],
+     "worst_rel": 0.0038857409152181473,
+     "worst_path": "tt_bio.taped_ttnn.relu.grad_x",
+     "worst_rel_l2": 0.001657943737716009
+    },
+    "wheel": {
+     "per_output": [
+      {
+       "worst_rel": 0.0038857409152181473,
+       "worst_index": 28856,
+       "worst_ref": 0.5019557798884572,
+       "worst_got": 0.50390625,
+       "rel_l2": 0.001657943737716009,
+       "path": "tt_bio.taped_ttnn.relu.grad_x"
+      }
+     ],
+     "worst_rel": 0.0038857409152181473,
+     "worst_path": "tt_bio.taped_ttnn.relu.grad_x",
+     "worst_rel_l2": 0.001657943737716009
+    }
+   },
+   "identical": true
+  },
+  "sigmoid": {
+   "fd": {
+    "worst_rel": 2.124372745975833e-08,
+    "tol": 1e-06,
+    "pass": true,
+    "probes": 8,
+    "op": "sigmoid"
+   },
+   "paths": [
+    "tt_bio.autograd.sigmoid.grad_x"
+   ],
+   "shape": [
+    [
+     2,
+     256,
+     128
+    ]
+   ],
+   "arms": {
+    "composed": {
+     "per_output": [
+      {
+       "worst_rel": 1.0,
+       "worst_index": 3,
+       "worst_ref": 0.001337647923427538,
+       "worst_got": 0.0,
+       "rel_l2": 0.005948679206143019,
+       "path": "tt_bio.autograd.sigmoid.grad_x"
+      }
+     ],
+     "worst_rel": 1.0,
+     "worst_path": "tt_bio.autograd.sigmoid.grad_x",
+     "worst_rel_l2": 0.005948679206143019
+    },
+    "wheel": {
+     "per_output": [
+      {
+       "worst_rel": 1.0,
+       "worst_index": 3,
+       "worst_ref": 0.001337647923427538,
+       "worst_got": 0.0,
+       "rel_l2": 0.005948679206143019,
+       "path": "tt_bio.autograd.sigmoid.grad_x"
+      }
+     ],
+     "worst_rel": 1.0,
+     "worst_path": "tt_bio.autograd.sigmoid.grad_x",
+     "worst_rel_l2": 0.005948679206143019
+    }
+   },
+   "identical": true
+  },
+  "silu": {
+   "fd": {
+    "worst_rel": 3.2022351978055023e-07,
+    "tol": 1e-06,
+    "pass": true,
+    "probes": 8,
+    "op": "silu"
+   },
+   "paths": [
+    "tt_bio.autograd.silu.grad_x"
+   ],
+   "shape": [
+    [
+     2,
+     256,
+     128
+    ]
+   ],
+   "arms": {
+    "composed": {
+     "per_output": [
+      {
+       "worst_rel": 3.4414914444168616,
+       "worst_index": 5739,
+       "worst_ref": -0.0003121706649581387,
+       "worst_got": -0.003753662109375,
+       "rel_l2": 0.004201272741856548,
+       "path": "tt_bio.autograd.silu.grad_x"
+      }
+     ],
+     "worst_rel": 3.4414914444168616,
+     "worst_path": "tt_bio.autograd.silu.grad_x",
+     "worst_rel_l2": 0.004201272741856548
+    },
+    "wheel": {
+     "per_output": [
+      {
+       "worst_rel": 3.4414914444168616,
+       "worst_index": 5739,
+       "worst_ref": -0.0003121706649581387,
+       "worst_got": -0.003753662109375,
+       "rel_l2": 0.004144857482621647,
+       "path": "tt_bio.autograd.silu.grad_x"
+      }
+     ],
+     "worst_rel": 3.4414914444168616,
+     "worst_path": "tt_bio.autograd.silu.grad_x",
+     "worst_rel_l2": 0.004144857482621647
+    }
+   },
+   "identical": false
+  },
+  "reshape": {
+   "fd": {
+    "worst_rel": 3.347280203097453e-08,
+    "tol": 1e-06,
+    "pass": true,
+    "probes": 8,
+    "op": "reshape"
+   },
+   "paths": [
+    "tt_bio.autograd.reshape.grad_x"
+   ],
+   "shape": [
+    [
+     2,
+     256,
+     128
+    ]
+   ],
+   "arms": {
+    "composed": {
+     "per_output": [
+      {
+       "worst_rel": 0.003880880566694298,
+       "worst_index": 38604,
+       "worst_ref": -1.0039164202739734,
+       "worst_got": -1.0078125,
+       "rel_l2": 0.0016667900352997555,
+       "path": "tt_bio.autograd.reshape.grad_x"
+      }
+     ],
+     "worst_rel": 0.003880880566694298,
+     "worst_path": "tt_bio.autograd.reshape.grad_x",
+     "worst_rel_l2": 0.0016667900352997555
+    },
+    "wheel": {
+     "per_output": [
+      {
+       "worst_rel": 0.003880880566694298,
+       "worst_index": 38604,
+       "worst_ref": -1.0039164202739734,
+       "worst_got": -1.0078125,
+       "rel_l2": 0.0016667900352997555,
+       "path": "tt_bio.autograd.reshape.grad_x"
+      }
+     ],
+     "worst_rel": 0.003880880566694298,
+     "worst_path": "tt_bio.autograd.reshape.grad_x",
+     "worst_rel_l2": 0.0016667900352997555
+    }
+   },
+   "identical": true
+  },
+  "narrow": {
+   "fd": {
+    "worst_rel": 3.478202765579875e-07,
+    "tol": 1e-06,
+    "pass": true,
+    "probes": 8,
+    "op": "narrow"
+   },
+   "paths": [
+    "tt_bio.autograd.narrow.grad_x"
+   ],
+   "shape": [
+    [
+     256,
+     128
+    ]
+   ],
+   "arms": {
+    "composed": {
+     "per_output": [
+      {
+       "worst_rel": 0.0038772539407931493,
+       "worst_index": 12019,
+       "worst_ref": 0.5019600235206838,
+       "worst_got": 0.50390625,
+       "rel_l2": 0.0016614430725103112,
+       "path": "tt_bio.autograd.narrow.grad_x"
+      }
+     ],
+     "worst_rel": 0.0038772539407931493,
+     "worst_path": "tt_bio.autograd.narrow.grad_x",
+     "worst_rel_l2": 0.0016614430725103112
+    },
+    "wheel": {
+     "per_output": [
+      {
+       "worst_rel": NaN,
+       "worst_index": 0,
+       "worst_ref": 0.0,
+       "worst_got": NaN,
+       "rel_l2": NaN,
+       "path": "tt_bio.autograd.narrow.grad_x"
+      }
+     ],
+     "worst_rel": NaN,
+     "worst_path": "tt_bio.autograd.narrow.grad_x",
+     "worst_rel_l2": NaN
+    }
+   },
+   "identical": false
+  },
+  "concat": {
+   "arm_error": "RuntimeError: TT_THROW @ /project/tt_metal/common/shape_base.cpp:16: tt::exception\ninfo:\nShapeBase[] index out of range. 2 not in [-4, 2)\nbacktrace:\n --- /home/moritz/tt-bio/env/lib/python3.10/site-packages/ttnn/build/lib/_ttnncpp.so(+0x8e4d3b) [0x7ff3a1ee4d3b]\n --- /home/moritz/tt-bio/env/lib/python3.10/site-packages/ttnn/build/lib/libtt_metal.so(+0x7fcea6) [0x7ff3a0bfcea6]\n --- ttnn::concat_bw(t"
+  }
+ }
+}

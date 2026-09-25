@@ -116,45 +116,58 @@ def _counted_softmax(fn):
     return wrapper
 
 
-def main() -> int:
+def start(jsonl_path, *, floor_gib=2.0, period=0.2, header=None):
+    """Open the JSONL, write its header and start the 5 Hz sampler. Returns the path.
+
+    `of3t-stepqb2` runs TWO arms in one process and so cannot use `main()`, but the guard
+    and the phase tags are the instrument, not this row's: forking them would let the two
+    rows' profiles drift apart. So the wiring lives in functions and `main()` is one caller.
+    """
     global _JSONL, _FLOOR
-    import argparse
-    ap = argparse.ArgumentParser()
-    ap.add_argument("--tokens", type=int, default=384)
-    ap.add_argument("--cycles", type=int, default=4)
-    ap.add_argument("--samples", type=int, default=4)
-    ap.add_argument("--reps", type=int, default=1)
-    ap.add_argument("--exact", default="on", choices=("on", "off"))
-    ap.add_argument("--floor-gib", type=float, default=2.0)
-    ap.add_argument("--period", type=float, default=0.2)
-    ap.add_argument("--tag", default="")
-    a = ap.parse_args()
-    _FLOOR = a.floor_gib
+    _FLOOR = floor_gib
+    jsonl_path = Path(jsonl_path)
+    jsonl_path.parent.mkdir(parents=True, exist_ok=True)
+    _JSONL = open(jsonl_path, "w", buffering=1)
+    rec = {"header": True, "argv": sys.argv[1:], "floor_gib": _FLOOR, "period_s": period,
+           "page_bytes": PAGE,
+           "mem_total_gib": round(os.sysconf("SC_PHYS_PAGES") * PAGE / GIB, 3),
+           "avail_at_start_gib": round(_mem_available_bytes() / GIB, 3),
+           "started_utc": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+           "pid": os.getpid()}
+    rec.update(header or {})
+    _JSONL.write(json.dumps(rec) + "\n")
+    threading.Thread(target=_sampler, args=(period,), daemon=True).start()
+    return jsonl_path
 
-    out_dir = REPO / "perf" / "of3t_restep" / "out"
-    out_dir.mkdir(parents=True, exist_ok=True)
-    tag = a.tag or f"{a.tokens}_{a.exact}"
-    jsonl = out_dir / f"rss_{tag}.jsonl"
-    step_json = out_dir / f"step_{tag}.json"
-    _JSONL = open(jsonl, "w", buffering=1)
-    _JSONL.write(json.dumps({"header": True, "tag": tag, "argv": sys.argv[1:],
-                             "floor_gib": _FLOOR, "period_s": a.period,
-                             "page_bytes": PAGE,
-                             "mem_total_gib": round(os.sysconf("SC_PHYS_PAGES") * PAGE / GIB, 3),
-                             "avail_at_start_gib": round(_mem_available_bytes() / GIB, 3),
-                             "started_utc": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
-                             "pid": os.getpid()}) + "\n")
 
-    threading.Thread(target=_sampler, args=(a.period,), daemon=True).start()
+def finish(rc, wall, ag, period=0.2, **extra):
+    """Stop the sampler and write the footer. `vmhwm` is the process high-water mark, which
+    is the one peak a self-exit cannot have understated."""
+    _STOP.set()
+    time.sleep(period * 2)
+    rec = {"footer": True, "rc": rc, "wall_s": wall,
+           "vmhwm_gib": round(_vmhwm_bytes() / GIB, 4),
+           "softmax": dict(_SOFTMAX),
+           "exact_training_ops": list(ag.exact_training_ops()),
+           "ended_utc": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())}
+    rec.update(extra)
+    _JSONL.write(json.dumps(rec) + "\n")
+    _JSONL.close()
+    return rec
 
+
+def wire_phases():
+    """Tag `fullstep.py`'s phases onto the RSS samples. Returns `(ag, F)`.
+
+    The trunk is called twice per rep with different meaning -- the untaped no_grad prefix
+    and the one taped cycle -- and they retain completely different amounts, so one tag for
+    both would hide the whole question. The `taped` argument is what tells them apart.
+    """
     _PHASE.append("import_engine")
     from tt_bio import autograd as ag
     from perf.of3t_stepfloor import fullstep as F
     _PHASE.pop()
 
-    # The trunk is called twice per rep with different meaning -- the untaped no_grad prefix
-    # and the one taped cycle -- and they retain completely different amounts, so one tag for
-    # both would hide the whole question. The `taped` argument is what tells them apart.
     _real_trunk = F.trunk_forward
 
     def trunk_tagged(trunk, held, cycles, taped):
@@ -182,8 +195,9 @@ def main() -> int:
 
     # The first profile put 6.05 GiB between the end of capture and the first trunk call,
     # inside a span that held three unrelated things. Tag them apart: opening the device,
-    # walking 3,152 weight tensors, and building AdamW's two moment buffers over 381.3 M
-    # elements, which is 3.05 GiB by itself if they are host fp32.
+    # walking 3,152 weight tensors, and building AdamW's moment buffers over 381.3 M
+    # elements. Since `of3t-optorder` the moments appear at the first `step()`, not here, so
+    # this tag now reads ~0 and the optimizer's memory shows up under `optimizer_step`.
     import tt_bio.tenstorrent as TT
     from tt_bio.train import optim as OPT
     TT.get_device = _phased(TT.get_device, "get_device")
@@ -198,6 +212,41 @@ def main() -> int:
             _PHASE.pop()
 
     OPT.AdamW.__init__ = adamw_init
+    OPT.AdamW.step = _phased(OPT.AdamW.step, "optimizer_step")
+    return ag, F
+
+
+def phase(name):
+    """Push a phase tag for a `with` block, for a caller that owns spans `fullstep` has no
+    name for -- an arm boundary, say."""
+    class _P:
+        def __enter__(self):
+            _PHASE.append(name)
+
+        def __exit__(self, *exc):
+            _PHASE.pop()
+    return _P()
+
+
+def main() -> int:
+    import argparse
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--tokens", type=int, default=384)
+    ap.add_argument("--cycles", type=int, default=4)
+    ap.add_argument("--samples", type=int, default=4)
+    ap.add_argument("--reps", type=int, default=1)
+    ap.add_argument("--exact", default="on", choices=("on", "off"))
+    ap.add_argument("--floor-gib", type=float, default=2.0)
+    ap.add_argument("--period", type=float, default=0.2)
+    ap.add_argument("--tag", default="")
+    a = ap.parse_args()
+
+    out_dir = REPO / "perf" / "of3t_restep" / "out"
+    tag = a.tag or f"{a.tokens}_{a.exact}"
+    jsonl = start(out_dir / f"rss_{tag}.jsonl", floor_gib=a.floor_gib, period=a.period,
+                  header={"tag": tag})
+    step_json = out_dir / f"step_{tag}.json"
+    ag, F = wire_phases()
 
     sys.argv = ["fullstep.py", "--tokens", str(a.tokens), "--cycles", str(a.cycles),
                 "--samples", str(a.samples), "--reps", str(a.reps),
@@ -211,15 +260,8 @@ def main() -> int:
             rc = F.main()
     wall = round(time.perf_counter() - t0, 3)
     _PHASE.pop()
-    _STOP.set()
-    time.sleep(a.period * 2)
-    _JSONL.write(json.dumps({"footer": True, "rc": rc, "wall_s": wall,
-                             "vmhwm_gib": round(_vmhwm_bytes() / GIB, 4),
-                             "softmax": dict(_SOFTMAX),
-                             "exact_training_ops": list(ag.exact_training_ops()),
-                             "ended_utc": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())}) + "\n")
-    _JSONL.close()
-    print(f"[rssprofile] rc={rc} wall={wall}s vmhwm={_vmhwm_bytes()/GIB:.3f} GiB -> {jsonl}",
+    foot = finish(rc, wall, ag, period=a.period)
+    print(f"[rssprofile] rc={rc} wall={wall}s vmhwm={foot['vmhwm_gib']:.3f} GiB -> {jsonl}",
           flush=True)
     return rc
 
