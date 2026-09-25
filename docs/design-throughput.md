@@ -101,12 +101,11 @@ On each, the upstream draw is worse than seven of the device's eight. One draw c
 two sides either way and we do not claim it does, but across three targets nothing measured so
 far says the card is the weaker one.
 
-**At 1536 residues upstream fails the same way, and that is the important part of this
-section.** Two upstream CPU draws on the 1GPB window read 20.2 and 21.2 A against the device's
-19.4 A median over eight designs, and one draw on GroEL reads 12.8 A against 15.6 A. Not one of
-the three is under 4 A. The size at which BoltzGen stops returning a binder that refolds is the
-model's, not the card's, so cropping the target is the fix and running the same job on other
-hardware will not raise the ceiling.
+**At 1536 residues upstream fails the same way.** Two upstream CPU draws on the 1GPB window
+read 20.2 and 21.2 A against the device's 19.4 A median over eight designs, and one draw on
+GroEL reads 12.8 A against 15.6 A. Not one of the three is under 4 A. The size at which
+BoltzGen stops returning a binder that refolds is the model's, not the card's: crop the target,
+because running the same job on other hardware will not raise the ceiling.
 
 So the number to act on is the target, not the card: crop to the surface you actually want
 bound. A 120-residue target is a different problem from a

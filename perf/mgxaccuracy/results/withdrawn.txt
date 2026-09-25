@@ -17,3 +17,8 @@
 #   single-chain ladder reads 3.782/9.050/10.665 A at 512/768/1024 with 4/2/0 of 8 under the
 #   bar. A single chain of 1024 residues returns nothing usable. The doc now carries the FAS
 #   table and says cropping to one chain does not buy back the size.
+# - the two whglx upstream draws of the 1GPB 1536 cell, "wa" and "wb" — withdrawn before either
+#   was ever quoted. Both were launched with tag `1536` while their logs carried the distinct
+#   names, so both wrote outgpb1536_1536 and overwrote each other's per-step artefacts. One
+#   refold survives and is probably the later run's; "probably" is not a provenance.
+#   results/whglx_gpb1536_draws_collided.txt, and the mkdir guard that now prevents it.
