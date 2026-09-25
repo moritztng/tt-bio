@@ -61,3 +61,26 @@ def test_untaped_decline_still_retires_the_config(ladder):
     ladder["declines_untaped"] = False
     assert _call() is None, "a retired config is not retried"
     assert ladder["calls"] == calls
+
+
+def test_a_taped_call_never_reaches_the_ladder_or_the_ragged_pad(ladder, monkeypatch):
+    """The outer arm declines before `_sdpa_masked`, so a taped call costs nothing.
+
+    The latch fix above made a taped decline harmless; this makes it free. `_sdpa_masked` pads
+    q, k, v and bias on the DEVICE when the axis is ragged and then drops the padded copies
+    unread once `fn` returns None, and the ladder walks its config grid to reach the same None.
+    Neither can happen now, which also means a taped call can no longer touch
+    `_TRIATT_HIFI_OVER_L1` by any route at all.
+    """
+    reached = []
+    monkeypatch.setattr(T, "_sdpa_masked",
+                        lambda *a, **kw: reached.append(kw.get("site")) or "served")
+    ladder["taping"] = True
+    assert T._tri_att_sdpa_hifi(_Q(), _Q(), _Q(), None, 1.0) is None
+    assert reached == [], "a taped call reached _sdpa_masked"
+    assert ladder["calls"] == 0, "a taped call walked the config ladder"
+    assert T.TRIATT_FUSED_HIFI_STATS["taped"] > 0, "the decline is not counted"
+
+    ladder["taping"] = False
+    assert T._tri_att_sdpa_hifi(_Q(), _Q(), _Q(), None, 1.0) == "served"
+    assert reached == ["tri_att_hifi"], "an untaped call must still take the whole path"
