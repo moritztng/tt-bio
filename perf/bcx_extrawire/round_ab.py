@@ -35,6 +35,7 @@ import statistics as st
 import subprocess
 import sys
 import time
+import traceback
 
 HERE = pathlib.Path(__file__).resolve().parent
 _ROOT = HERE.parents[1]
@@ -88,18 +89,31 @@ def per_arm_cache(cls, extra):
 
 
 class ABMeter(M.Meter):
-    """`meter.Meter`, plus the arm flip and the counter snapshot at each round boundary."""
+    """`meter.Meter`, plus the arm flip and the counter snapshot at each round boundary.
 
-    def __init__(self, rounds, extra):
+    The snapshot is also appended to a flushed JSONL as it happens. The full JSON is written at
+    the end, and `finally` covers an exception, but neither survives a SIGKILL or an OOM kill --
+    and this run costs a card nobody else can have while it holds one. The line on disk is the
+    part that survives anything.
+    """
+
+    def __init__(self, rounds, extra, live_path=None):
         super().__init__(rounds)
         self.extra = extra
+        self.live = open(live_path, "a", buffering=1) if live_path else None
 
     def on_sequence_gradients_enter(self):
         super().on_sequence_gradients_enter()
         ARM["on"] = arm_of(self.entries)
-        M.EVENTS.append({"kind": "arm", "phase": "round", "t0": time.time(),
-                         "round": self.entries, "extra_msa_on_device": ARM["on"],
-                         "extra_calls_at_entry": dict(self.extra.calls)})
+        ev = {"kind": "arm", "phase": "round", "t0": time.time(),
+              "round": self.entries, "extra_msa_on_device": ARM["on"],
+              "extra_calls_at_entry": dict(self.extra.calls)}
+        M.EVENTS.append(ev)
+        if self.live:
+            self.live.write(json.dumps({**ev, "utc": time.strftime("%FT%TZ", time.gmtime()),
+                                        "load1": os.getloadavg()[0]}) + "\n")
+            self.live.flush()
+            os.fsync(self.live.fileno())
 
 
 def analyse(events, clock_samples, extra_calls_end):
@@ -272,7 +286,7 @@ def main():
         assert extra is not None, "predictor(extra_msa=True) built no ExtraMsaOnDevice"
         spliced = LS.layer_stack
 
-        mt = ABMeter(args.rounds, extra)
+        mt = ABMeter(args.rounds, extra, live_path=os.path.join(project, "rounds.jsonl"))
         M.install(mt, bc2, bc2.design_model_class(), trajectory, seqopt)
         # meter.install tags Evoformer calls with bare names; retag them, and tag the extra
         # stack, so a round's device seconds split by which stack spent them.
@@ -316,7 +330,7 @@ def main():
             return choose
         LS.layer_stack = by_arm
         t0 = time.time()
-        stopped = None
+        stopped, failure = None, None
         try:
             campaign.run_campaign(settings, project, af2_weights=args.params,
                                   mpnn_weights=os.path.join(BC2, "bindcraft", "weights",
@@ -324,12 +338,18 @@ def main():
                                   max_trajectories=1)
         except M.StopAfterRounds as stop:
             stopped = str(stop)
+        except BaseException as exc:
+            # Nine rounds that completed are worth more than a clean traceback. Bank them, then
+            # re-raise below so the failure is still a failure.
+            failure = f"{type(exc).__name__}: {exc}"
+            traceback.print_exc()
         finally:
             LS.layer_stack = spliced
             M.CLOCK.stop()
 
     rows, summary = analyse(M.EVENTS, M.CLOCK.samples, dict(extra.calls))
     stamp.update({"wall_seconds": round(time.time() - t0, 2), "stopped": stopped,
+                  "failure": failure, "rounds_completed": len(rows),
                   "evo_calls": dict(evo.calls), "extra_calls": dict(extra.calls),
                   "extra_swapped": list(extra.swapped), "extra_traces": traced,
                   "extra_mask_seen": dict(extra.mask_seen),
@@ -341,6 +361,10 @@ def main():
     for r in rows:
         print(json.dumps(r), flush=True)
     print(json.dumps(summary, indent=1), flush=True)
+
+    if failure is not None:
+        raise SystemExit(f"the campaign raised after {len(rows)} rounds; results for those "
+                         f"rounds are banked in {project}. {failure}")
 
     if args.assert_fires:
         bad = []
