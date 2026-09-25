@@ -8,9 +8,12 @@ which is `bcx-round`'s definition, so the two rows' denominators are the same qu
 
 Two modes:
 
-  --interleave  the trace arm is switched on and off per round, alternating order, inside one
-                trajectory in one process. Legal because the two arms are bit-identical: the
-                trajectory sees one program.
+  --interleave  three arms rotate per round in palindromic order, inside one trajectory in one
+                process: `eager` is the shipped program, `zeros` is eager with
+                `autograd.DEVICE_ZEROS` on, `trace` replays the capture. Legal because all three
+                are bit-identical: the trajectory sees one program. `zeros` separates the two
+                changes the trace arm makes, since TraceWire turns DEVICE_ZEROS on for the process
+                and an eager arm that inherits it is not the shipped program.
   --arm A       one arm for the whole run, logging a digest of every callback output. Two
                 processes, one per arm, compared offline: that is the bit-identity claim on the
                 loop's own path.
@@ -44,6 +47,9 @@ from bindcraft.preflight import cleaned_campaign_settings              # noqa: E
 
 OUT = ROOT / "perf" / "bcx_tracewire"
 MONOMER = ("model_1_ptm", "model_2_ptm")
+ARMS = ("trace", "eager", "zeros")
+# Palindromic, so a linear drift in host load lands on every arm equally.
+ORDER = ("trace", "eager", "zeros", "zeros", "eager", "trace")
 
 
 class _Enough(BaseException):
@@ -80,7 +86,7 @@ def main():
     ap.add_argument("--region-mb", type=int, default=768)
     ap.add_argument("--card", type=int, default=int(os.environ.get("TT_VISIBLE_DEVICES", "0")))
     ap.add_argument("--interleave", action="store_true")
-    ap.add_argument("--arm", choices=["trace", "eager"], default=None,
+    ap.add_argument("--arm", choices=ARMS, default=None,
                     help="fixed arm; with --digest this is the bit-identity leg")
     ap.add_argument("--digest", action="store_true", help="log a digest of every callback output")
     ap.add_argument("--out", default=None)
@@ -113,11 +119,15 @@ def main():
     lv.arm("stack")
     clock = S.Clock(dt=0.25)
     evo = EvoformerOnDevice(dev, k_evo=48, trace=True)
-    evo.trace_on = (args.arm != "eager")
-    if args.arm == "eager":
-        # The eager leg of the bit-identity pair is the shipped program: the wire exists only
-        # so both legs open the device the same way, and its zeros flag goes back off.
-        dev.ag.DEVICE_ZEROS = False
+
+    def set_arm(arm):
+        # The wire exists in every arm only so all of them open the device the same way. The
+        # eager arm is the shipped program, so the zeros flag TraceWire set goes back off for it.
+        evo.trace_on = arm == "trace"
+        dev.ag.DEVICE_ZEROS = arm != "eager"
+
+    arm_now = args.arm or ORDER[0]
+    set_arm(arm_now)
 
     # Both callbacks return host arrays, so each wall time below is the trunk step's full cost to
     # the loop: enqueue, device and readout.
@@ -169,11 +179,11 @@ def main():
         close(now)
         if len(rounds) >= args.rounds:
             raise _Enough()
+        nonlocal arm_now
         if args.interleave:
-            # ABBA: the arm alternates and the pairs swap order, so a drift in host load
-            # cannot land on one arm.
-            evo.trace_on = [True, False, False, True][len(marks) % 4]
-        marks.append((now, "trace" if evo.trace_on else "eager", round(os.getloadavg()[0], 1)))
+            arm_now = ORDER[len(marks) % len(ORDER)]
+            set_arm(arm_now)
+        marks.append((now, arm_now, round(os.getloadavg()[0], 1)))
         return real_sg(self, *a, **kw)
 
     T.TTBioAlphaFoldDesignModel.sequence_gradients = sequence_gradients
@@ -208,7 +218,7 @@ def main():
     # A round that captured carries a one-time cost the other 124 rounds of a trajectory do not.
     body = [r for r in rounds if r["i"] >= 2 and not captured(rounds, r["i"])]
     per = {}
-    for arm in ("trace", "eager"):
+    for arm in ARMS:
         rs = [r for r in body if r["arm"] == arm]
         if rs:
             per[arm] = S.dist([r["s"] for r in rs]) | {
@@ -217,14 +227,20 @@ def main():
                 "aiclk": clock.window([r["span"] for r in rs]),
                 "load1": [r["load1"] for r in rs]}
     blob["per_arm"] = per
-    if "trace" in per and "eager" in per:
-        blob["round_x"] = per["eager"]["median"] / per["trace"]["median"]
-        blob["round_removed_s"] = per["eager"]["median"] - per["trace"]["median"]
+    # Each arm against the traced one, on the round and on the trunk step inside it.
+    for arm in ("eager", "zeros"):
+        if "trace" in per and arm in per:
+            a, t = per[arm], per["trace"]
+            blob[f"{arm}_vs_trace"] = {
+                "round_x": a["median"] / t["median"],
+                "round_removed_s": a["median"] - t["median"],
+                "trunk_x": a["trunk_s"]["median"] / t["trunk_s"]["median"],
+                "trunk_removed_s": a["trunk_s"]["median"] - t["trunk_s"]["median"]}
     clock.stop()
     OUT.mkdir(parents=True, exist_ok=True)
     path = OUT / (args.out or f"round_{blob['mode']}_seed{args.seed}.json")
     path.write_text(json.dumps(blob, indent=1, default=str))
-    print(json.dumps({k: blob.get(k) for k in ("round_x", "round_removed_s", "wall_s",
+    print(json.dumps({k: blob.get(k) for k in ("eager_vs_trace", "zeros_vs_trace", "wall_s",
                                                "calls")}, default=str), flush=True)
     print("wrote", path, flush=True)
 
