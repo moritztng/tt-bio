@@ -84,7 +84,8 @@ flat. Peak allocation at the top draw is 19.19 GB of the card's 34.226 GB, in th
 step.
 
 The token axis buckets to 32 and rounding up is faster, not slower: the PD-L1 complex at 211
-tokens costs 4.504 s on the trunk forward and the same design padded to 224 costs 1.369 s.
+tokens costs 4.504 s on the trunk forward and the same design padded to 224 costs 1.369 s,
+same card and same AICLK 1350 median.
 
 ## What one step costs
 
@@ -103,6 +104,9 @@ card and JAX's compile of the whole design program, both of which a campaign pay
 amortises over hundreds of steps. A steady-state per-step cost has not been measured on this tree,
 so this page does not quote one. Plan a campaign on the assumption that the first trajectory is
 much slower than the ones after it, and measure your own steady state before sizing a run.
+[`docs/gradient-step-cost.md`](gradient-step-cost.md) prices one gradient step through the
+same taped pair track at AlphaFold 2's dimensions, which is the closest thing to a per-step
+budget anyone has measured here.
 
 ## What is not settled
 
