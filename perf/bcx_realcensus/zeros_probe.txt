@@ -1,0 +1,4 @@
+[81, 4, 256, 32] zeros host-return 0.748 ms synced 0.756 ms; zeros_like host-return 112.057 ms synced 112.071 ms; 5.3 MB
+[175, 4, 256, 32] zeros host-return 1.646 ms synced 1.655 ms; zeros_like host-return 91.823 ms synced 91.864 ms; 11.5 MB
+[13, 4, 256, 32] zeros host-return 0.085 ms synced 0.087 ms; zeros_like host-return 102.332 ms synced 102.341 ms; 0.9 MB
+[1, 256, 256, 64] zeros host-return 1.132 ms synced 1.138 ms; zeros_like host-return 91.273 ms synced 91.303 ms; 8.4 MB

@@ -888,7 +888,7 @@ def _via2d(x, fn, kw=None):
     ``fn`` is a matmul against a 2-D weight. At a rank-3 left operand ttnn picks a program
     that runs several times slower than the same product on the (prod(leading), K) view:
     [256,256,128] @ [128,128] takes 792 us, the view 118 us, HiFi4 on a p300c at 1350 MHz
-    (``perf/bcx_mm2d/probe.json``). Collapsing moves no data when the second-last dim fills
+    (``perf/bcx_mm2d/probe_n256.json``). Collapsing moves no data when the second-last dim fills
     whole tiles, because the tiles already sit in that order; any other reshape here is a
     relayout (the heads split [N,N,128] -> [N,N,4,32] costs 2 ms), so such a shape, a
     sharded operand, or a caller-chosen program config is left as it came. The exception is
@@ -1828,7 +1828,7 @@ def split_heads_value(x, heads):
     becomes a tile row, and it is three ops whatever the head count. Against H tile-aligned
     slices and a concat it is 178 us to 277 us at [256, 256, 4x32], 882 to 1382 us at
     [576, 576, 4x32] and 694 to 1658 us at 16 heads, bit-exact at every shape including d=16,
-    where the slice form had to fall back to a permute (`perf/bcx_heads/heads_ab.json`, qb1
+    where the slice form had to fall back to a permute (`perf/bcx_heads/heads_ab_run1.json`, qb1
     p150a, 1350 MHz).
     """
     B, S, C = int(x.shape[0]), int(x.shape[-2]), int(x.shape[-1])
@@ -1840,7 +1840,7 @@ def merge_heads_value(x):
     """``[B, H, S, d] -> [B, S, H*d]`` on a raw ttnn tensor, untaped. See `merge_heads`.
 
     ``nlp_concat_heads`` keeps the pad lanes of a head width that is not whole tiles, and at
-    d=16 it is not the permutation (`perf/bcx_heads/heads_ab.json`), so such a width takes
+    d=16 it is not the permutation (`perf/bcx_heads/heads_ab_run1.json`), so such a width takes
     ``permute`` + ``reshape``. The DRAM pin costs nothing measurable at nine shapes.
     """
     B, H, S, d = (int(e) for e in x.shape)

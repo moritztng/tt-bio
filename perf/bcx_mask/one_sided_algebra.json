@@ -1,0 +1,20 @@
+{
+ "n": 48,
+ "n_masked": 8,
+ "dtype": "float64",
+ "mask_is_outer_product": true,
+ "directions": {
+  "outgoing": {
+   "one_sided_vs_af2_real_block_max_abs": 0.0,
+   "one_sided_vs_af2_whole_tensor_max_abs": 10.631157273584263,
+   "unmasked_vs_af2_real_block_max_abs": 3.9528505790578947,
+   "af2_real_block_max_abs": 24.68268867239101
+  },
+  "ending": {
+   "one_sided_vs_af2_real_block_max_abs": 0.0,
+   "one_sided_vs_af2_whole_tensor_max_abs": 18.900651468084185,
+   "unmasked_vs_af2_real_block_max_abs": 12.764611677005133,
+   "af2_real_block_max_abs": 27.72097743615727
+  }
+ }
+}

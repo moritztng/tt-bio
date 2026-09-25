@@ -1,0 +1,369 @@
+{
+ "report": "/dev/shm/bcx-rd-prof/reports/2026_09_24_15_55_30/ops_perf_results_2026_09_24_15_55_30.csv",
+ "points": {
+  "base evo n=256": {
+   "ms": [
+    132.217,
+    132.179
+   ],
+   "ops": [
+    851,
+    851
+   ],
+   "median_ms": 132.19794799999988,
+   "by_class_ms": {
+    "eltwise": 45.06,
+    "layernorm": 0.893,
+    "layout": 58.902,
+    "matmul": 18.284,
+    "other": 0.115,
+    "reduction": 6.1,
+    "softmax": 2.845
+   }
+  },
+  "base extra n=256": {
+   "ms": [
+    116.159,
+    116.209
+   ],
+   "ops": [
+    563,
+    563
+   ],
+   "median_ms": 116.18412150000002,
+   "by_class_ms": {
+    "eltwise": 42.987,
+    "layernorm": 0.732,
+    "layout": 50.295,
+    "matmul": 13.582,
+    "other": 0.115,
+    "reduction": 5.688,
+    "softmax": 2.785
+   }
+  },
+  "perm evo n=256": {
+   "ms": [
+    126.307,
+    126.198
+   ],
+   "ops": [
+    851,
+    851
+   ],
+   "median_ms": 126.25247149999998,
+   "by_class_ms": {
+    "eltwise": 45.077,
+    "layernorm": 0.898,
+    "layout": 51.596,
+    "matmul": 18.262,
+    "other": 1.451,
+    "reduction": 6.115,
+    "softmax": 2.854
+   },
+   "moved_vs_base": [
+    [
+     6.488,
+     "PermuteDeviceOperation [1, 64, 256, 256] cores=110"
+    ],
+    [
+     -0.867,
+     "GenericOpDeviceOperation [1, 64, 256, 256] cores=110"
+    ],
+    [
+     0.795,
+     "PermuteDeviceOperation [1, 256, 256, 64] cores=110"
+    ],
+    [
+     -0.468,
+     "GenericOpDeviceOperation [1, 256, 256, 64] cores=64"
+    ],
+    [
+     0.054,
+     "PermuteDeviceOperation [256, 4, 256, 256] cores=110"
+    ],
+    [
+     -0.041,
+     "MatmulDeviceOperation [1, 256, 256, 512] cores=108"
+    ],
+    [
+     0.041,
+     "MatmulDeviceOperation [1, 1, 65536, 384] cores=108"
+    ],
+    [
+     0.039,
+     "MatmulDeviceOperation [1, 1, 65536, 1024] cores=108"
+    ]
+   ]
+  },
+  "perm extra n=256": {
+   "ms": [
+    110.281,
+    110.271
+   ],
+   "ops": [
+    563,
+    563
+   ],
+   "median_ms": 110.27599950000003,
+   "by_class_ms": {
+    "eltwise": 43.006,
+    "layernorm": 0.733,
+    "layout": 43.062,
+    "matmul": 13.554,
+    "other": 1.452,
+    "reduction": 5.694,
+    "softmax": 2.775
+   },
+   "moved_vs_base": [
+    [
+     6.429,
+     "PermuteDeviceOperation [1, 64, 256, 256] cores=110"
+    ],
+    [
+     -0.868,
+     "GenericOpDeviceOperation [1, 64, 256, 256] cores=110"
+    ],
+    [
+     0.804,
+     "PermuteDeviceOperation [1, 256, 256, 64] cores=110"
+    ],
+    [
+     -0.468,
+     "GenericOpDeviceOperation [1, 256, 256, 64] cores=64"
+    ],
+    [
+     0.049,
+     "MatmulDeviceOperation [1, 1, 65536, 512] cores=108"
+    ],
+    [
+     0.048,
+     "PermuteDeviceOperation [256, 4, 256, 256] cores=110"
+    ],
+    [
+     -0.041,
+     "UnaryDeviceOperation [1, 256, 256, 64] cores=110"
+    ],
+    [
+     -0.029,
+     "TypecastDeviceOperation [256, 4, 256, 256] cores=110"
+    ]
+   ]
+  },
+  "reduce evo n=256": {
+   "ms": [
+    127.049,
+    127.133
+   ],
+   "ops": [
+    893,
+    893
+   ],
+   "median_ms": 127.09090950000001,
+   "by_class_ms": {
+    "eltwise": 48.708,
+    "layernorm": 0.908,
+    "layout": 51.544,
+    "matmul": 18.225,
+    "other": 0.116,
+    "reduction": 4.739,
+    "softmax": 2.851
+   },
+   "moved_vs_base": [
+    [
+     12.375,
+     "PermuteDeviceOperation [256, 4, 256, 256] cores=110"
+    ],
+    [
+     -2.629,
+     "SliceDeviceOperation [256, 4, 256, 256] cores=110"
+    ],
+    [
+     -1.794,
+     "BinaryNgDeviceOperation [128, 4, 256, 256] cores=110"
+    ],
+    [
+     1.36,
+     "ReduceDeviceOperation [256, 4, 256, 256] cores=110"
+    ],
+    [
+     -1.309,
+     "SliceDeviceOperation [128, 4, 256, 256] cores=110"
+    ],
+    [
+     -0.891,
+     "BinaryNgDeviceOperation [64, 4, 256, 256] cores=110"
+    ],
+    [
+     -0.665,
+     "SliceDeviceOperation [64, 4, 256, 256] cores=110"
+    ],
+    [
+     -0.452,
+     "BinaryNgDeviceOperation [32, 4, 256, 256] cores=110"
+    ]
+   ]
+  },
+  "reduce extra n=256": {
+   "ms": [
+    111.011,
+    111.037
+   ],
+   "ops": [
+    605,
+    605
+   ],
+   "median_ms": 111.02404900000002,
+   "by_class_ms": {
+    "eltwise": 46.547,
+    "layernorm": 0.736,
+    "layout": 42.927,
+    "matmul": 13.568,
+    "other": 0.115,
+    "reduction": 4.333,
+    "softmax": 2.799
+   },
+   "moved_vs_base": [
+    [
+     12.378,
+     "PermuteDeviceOperation [256, 4, 256, 256] cores=110"
+    ],
+    [
+     -2.622,
+     "SliceDeviceOperation [256, 4, 256, 256] cores=110"
+    ],
+    [
+     -1.788,
+     "BinaryNgDeviceOperation [128, 4, 256, 256] cores=110"
+    ],
+    [
+     1.36,
+     "ReduceDeviceOperation [256, 4, 256, 256] cores=110"
+    ],
+    [
+     -1.317,
+     "SliceDeviceOperation [128, 4, 256, 256] cores=110"
+    ],
+    [
+     -0.889,
+     "BinaryNgDeviceOperation [64, 4, 256, 256] cores=110"
+    ],
+    [
+     -0.662,
+     "SliceDeviceOperation [64, 4, 256, 256] cores=110"
+    ],
+    [
+     -0.45,
+     "BinaryNgDeviceOperation [32, 4, 256, 256] cores=110"
+    ]
+   ]
+  },
+  "reduce+perm evo n=256": {
+   "ms": [
+    121.229,
+    121.228
+   ],
+   "ops": [
+    893,
+    893
+   ],
+   "median_ms": 121.22848850000003,
+   "by_class_ms": {
+    "eltwise": 48.669,
+    "layernorm": 0.916,
+    "layout": 44.365,
+    "matmul": 18.236,
+    "other": 1.45,
+    "reduction": 4.729,
+    "softmax": 2.863
+   },
+   "moved_vs_base": [
+    [
+     12.375,
+     "PermuteDeviceOperation [256, 4, 256, 256] cores=110"
+    ],
+    [
+     6.492,
+     "PermuteDeviceOperation [1, 64, 256, 256] cores=110"
+    ],
+    [
+     -2.621,
+     "SliceDeviceOperation [256, 4, 256, 256] cores=110"
+    ],
+    [
+     -1.79,
+     "BinaryNgDeviceOperation [128, 4, 256, 256] cores=110"
+    ],
+    [
+     1.371,
+     "ReduceDeviceOperation [256, 4, 256, 256] cores=110"
+    ],
+    [
+     -1.318,
+     "SliceDeviceOperation [128, 4, 256, 256] cores=110"
+    ],
+    [
+     -0.894,
+     "BinaryNgDeviceOperation [64, 4, 256, 256] cores=110"
+    ],
+    [
+     -0.868,
+     "GenericOpDeviceOperation [1, 64, 256, 256] cores=110"
+    ]
+   ]
+  },
+  "reduce+perm extra n=256": {
+   "ms": [
+    105.279,
+    105.203
+   ],
+   "ops": [
+    605,
+    605
+   ],
+   "median_ms": 105.241273,
+   "by_class_ms": {
+    "eltwise": 46.558,
+    "layernorm": 0.729,
+    "layout": 35.819,
+    "matmul": 13.566,
+    "other": 1.45,
+    "reduction": 4.33,
+    "softmax": 2.789
+   },
+   "moved_vs_base": [
+    [
+     12.378,
+     "PermuteDeviceOperation [256, 4, 256, 256] cores=110"
+    ],
+    [
+     6.429,
+     "PermuteDeviceOperation [1, 64, 256, 256] cores=110"
+    ],
+    [
+     -2.632,
+     "SliceDeviceOperation [256, 4, 256, 256] cores=110"
+    ],
+    [
+     -1.782,
+     "BinaryNgDeviceOperation [128, 4, 256, 256] cores=110"
+    ],
+    [
+     1.383,
+     "ReduceDeviceOperation [256, 4, 256, 256] cores=110"
+    ],
+    [
+     -1.32,
+     "SliceDeviceOperation [128, 4, 256, 256] cores=110"
+    ],
+    [
+     -0.889,
+     "BinaryNgDeviceOperation [64, 4, 256, 256] cores=110"
+    ],
+    [
+     -0.867,
+     "GenericOpDeviceOperation [1, 64, 256, 256] cores=110"
+    ]
+   ]
+  }
+ }
+}
