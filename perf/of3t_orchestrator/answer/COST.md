@@ -94,6 +94,12 @@ The fidelity is fixed; only its price is variable. Both scopes are load-bearing.
 - `of3t-zerosfill`: **1.0518x**, on main. A write-only fill running 424x off its roof — and its
   briefed share of 35.1 % was an async-dispatch artifact worth **1.04 s**.
 - `of3t-tapedfwd`: **1.00508x**. The eleven fused forward kernels decline under taping by design.
+- `of3t-xsplit`: **1.048x** — **32.55 s off the backward, 4.61 %**, bit-identical. Moving the
+  TILE/ROW_MAJOR conversion from host to device. **Not a bandwidth saving**: both routes move the
+  same 0.906 GB over PCIe, and the crossing stays host-DMA-bound at 1.19-2.25 GB/s either way. It
+  relocates the conversion from a host untilize at **12.8 GB/s** to a device `to_layout` at
+  **202.7 GB/s** — the same bytes on a machine 15.8x faster for them, because the card's DRAM roof
+  sits far above the PCIe roof that binds the crossing.
 - **Refuted, and worth as much**: the fused-backward-kernel programme the sprint was premised on.
   J1 NO-GO at a 9.40 s ceiling against a 46.4 s brief, J2 NO-GO on its free route, J3 dead at
   `sdpa_taped_calls = 0`, J4 small. The job list had been ranked by tape-node **count**, and count
