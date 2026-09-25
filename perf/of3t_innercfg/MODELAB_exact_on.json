@@ -1,0 +1,299 @@
+{
+ "doc": "D55 at model scale: the OF3 trunk's per-parameter gradients, ship vs fix, with an A/A floor.",
+ "argv": [
+  "--tokens",
+  "128",
+  "--cycles",
+  "1",
+  "--exact",
+  "on",
+  "--out",
+  "perf/of3t_innercfg/MODELAB_exact_on.json"
+ ],
+ "arms": {
+  "A1": {
+   "forward_s": 9.83,
+   "backward_s": 23.91,
+   "tape_nodes": 2482,
+   "params_with_grad": 1648,
+   "softmax_bw_inner_fires": 0,
+   "exact_softmax_stats": {
+    "verb": 318,
+    "raw": 0,
+    "raw_elements": 0
+   },
+   "exact_layer_norm_stats": {
+    "verb": 1074,
+    "raw": 0,
+    "elements": 1790623744,
+    "bw": 394
+   },
+   "renorm_stats": {
+    "applied": 111,
+    "declined": 0
+   },
+   "sdpa_taped_calls": null,
+   "impl": "ship",
+   "wall_s": 34.04
+  },
+  "A2": {
+   "forward_s": 8.3,
+   "backward_s": 21.42,
+   "tape_nodes": 2482,
+   "params_with_grad": 1648,
+   "softmax_bw_inner_fires": 0,
+   "exact_softmax_stats": {
+    "verb": 636,
+    "raw": 0,
+    "raw_elements": 0
+   },
+   "exact_layer_norm_stats": {
+    "verb": 2148,
+    "raw": 0,
+    "elements": 3581247488,
+    "bw": 788
+   },
+   "renorm_stats": {
+    "applied": 222,
+    "declined": 0
+   },
+   "sdpa_taped_calls": null,
+   "impl": "ship",
+   "wall_s": 30.01
+  },
+  "B1": {
+   "forward_s": 8.3,
+   "backward_s": 21.21,
+   "tape_nodes": 2482,
+   "params_with_grad": 1648,
+   "softmax_bw_inner_fires": 0,
+   "exact_softmax_stats": {
+    "verb": 954,
+    "raw": 0,
+    "raw_elements": 0
+   },
+   "exact_layer_norm_stats": {
+    "verb": 3222,
+    "raw": 0,
+    "elements": 5371871232,
+    "bw": 1182
+   },
+   "renorm_stats": {
+    "applied": 333,
+    "declined": 0
+   },
+   "sdpa_taped_calls": null,
+   "impl": "fix",
+   "wall_s": 29.8
+  }
+ },
+ "env": {
+  "host": "pc",
+  "tt_visible_devices": "0",
+  "commit": "91532cc9b10e12f01f2357d6641dcd32eb3a4216",
+  "started_utc": "2026-09-25T22:39:58Z",
+  "board": "pc card 0 -- Blackhole p150a",
+  "arch": "Arch.BLACKHOLE",
+  "exact_training_ops": [
+   "softmax",
+   "layer_norm"
+  ],
+  "aiclk_during": {
+   "0": {
+    "min": 800,
+    "max": 1350,
+    "median": 1350,
+    "n": 33
+   }
+  },
+  "aiclk_line": "CLOCK: dev0 min 800 / median 1350 / max 1350 MHz over 33 samples, polled DURING the work"
+ },
+ "config": {
+  "crop": 128,
+  "cycles": 1,
+  "exact_training": "on"
+ },
+ "build_fold_s": 4.11,
+ "prep_to_sampler_s": 2.91,
+ "capture": {
+  "trunk_inputs_snapshotted": true,
+  "trunk_inputs_dead_at_capture": 0,
+  "trunk_forward_s": 1.486,
+  "trunk_forward_note": "the shipped call, progress_fn INCLUDED and cold; the timed arms below drop it",
+  "trunk_cycles": 4,
+  "reached_sampler": true
+ },
+ "params": {
+  "declared": 2531,
+  "elements": 165180992,
+  "by_rank": {
+   "1": 1130,
+   "2": 1401
+  },
+  "walk_depth_reached": 9,
+  "walk_truncated_at_limit": 8,
+  "cache_attrs_skipped": 324,
+  "pairformer_weights": 2256,
+  "deepest_name": "trunk.msa_module.blocks.0.pair_stack.transition_z.fc1_weight"
+ },
+ "comparisons": {
+  "A/A FLOOR (A1 vs A2)": {
+   "n_compared": 1648,
+   "missing_in_other": [],
+   "shape_mismatch": [],
+   "worst_rel_l2": 0.0,
+   "worst_rel_l2_param": "trunk.glue.ln_z_b",
+   "min_cosine": 1.0,
+   "min_cosine_param": "trunk.msa_module.blocks.0.opm.o_weight",
+   "rel_l2_p50": 0.0,
+   "rel_l2_p90": 0.0,
+   "rel_l2_p99": 0.0,
+   "n_over_1e-2": 0,
+   "worst_rel_l2_excl_pwa_z_norm_bias": 0.0,
+   "worst_param_excl_pwa_z_norm_bias": "trunk.glue.ln_z_b",
+   "min_cosine_excl_pwa_z_norm_bias": 1.0,
+   "top10_by_rel_l2": [
+    {
+     "param": "trunk.glue.ln_z_b",
+     "rel_l2": 0.0,
+     "cosine": 1.0,
+     "ref_l2": 1860730.743354
+    },
+    {
+     "param": "trunk.glue.ln_z_w",
+     "rel_l2": 0.0,
+     "cosine": 1.0,
+     "ref_l2": 0.0
+    },
+    {
+     "param": "trunk.glue.w_linz",
+     "rel_l2": 0.0,
+     "cosine": 1.0,
+     "ref_l2": 502583.44759
+    },
+    {
+     "param": "trunk.msa_embedder.w_m",
+     "rel_l2": 0.0,
+     "cosine": 1.0,
+     "ref_l2": 367442.263134
+    },
+    {
+     "param": "trunk.msa_embedder.w_s",
+     "rel_l2": 0.0,
+     "cosine": 1.0,
+     "ref_l2": 4134285.950484
+    },
+    {
+     "param": "trunk.msa_module.blocks.0.msa_transition.fc1_weight",
+     "rel_l2": 0.0,
+     "cosine": 1.0,
+     "ref_l2": 373665.03257
+    },
+    {
+     "param": "trunk.msa_module.blocks.0.msa_transition.fc2_weight",
+     "rel_l2": 0.0,
+     "cosine": 1.0,
+     "ref_l2": 359105.270014
+    },
+    {
+     "param": "trunk.msa_module.blocks.0.msa_transition.fc3_weight",
+     "rel_l2": 0.0,
+     "cosine": 1.0,
+     "ref_l2": 735536.753333
+    },
+    {
+     "param": "trunk.msa_module.blocks.0.msa_transition.norm_bias",
+     "rel_l2": 0.0,
+     "cosine": 1.0,
+     "ref_l2": 3982468.396259
+    },
+    {
+     "param": "trunk.msa_module.blocks.0.msa_transition.norm_weight",
+     "rel_l2": 0.0,
+     "cosine": 1.0,
+     "ref_l2": 1031522.86445
+    }
+   ],
+   "n_bit_identical": 1648
+  },
+  "A/B FIX  (A1 vs B1)": {
+   "n_compared": 1648,
+   "missing_in_other": [],
+   "shape_mismatch": [],
+   "worst_rel_l2": 0.0,
+   "worst_rel_l2_param": "trunk.glue.ln_z_b",
+   "min_cosine": 1.0,
+   "min_cosine_param": "trunk.msa_module.blocks.0.opm.o_weight",
+   "rel_l2_p50": 0.0,
+   "rel_l2_p90": 0.0,
+   "rel_l2_p99": 0.0,
+   "n_over_1e-2": 0,
+   "worst_rel_l2_excl_pwa_z_norm_bias": 0.0,
+   "worst_param_excl_pwa_z_norm_bias": "trunk.glue.ln_z_b",
+   "min_cosine_excl_pwa_z_norm_bias": 1.0,
+   "top10_by_rel_l2": [
+    {
+     "param": "trunk.glue.ln_z_b",
+     "rel_l2": 0.0,
+     "cosine": 1.0,
+     "ref_l2": 1860730.743354
+    },
+    {
+     "param": "trunk.glue.ln_z_w",
+     "rel_l2": 0.0,
+     "cosine": 1.0,
+     "ref_l2": 0.0
+    },
+    {
+     "param": "trunk.glue.w_linz",
+     "rel_l2": 0.0,
+     "cosine": 1.0,
+     "ref_l2": 502583.44759
+    },
+    {
+     "param": "trunk.msa_embedder.w_m",
+     "rel_l2": 0.0,
+     "cosine": 1.0,
+     "ref_l2": 367442.263134
+    },
+    {
+     "param": "trunk.msa_embedder.w_s",
+     "rel_l2": 0.0,
+     "cosine": 1.0,
+     "ref_l2": 4134285.950484
+    },
+    {
+     "param": "trunk.msa_module.blocks.0.msa_transition.fc1_weight",
+     "rel_l2": 0.0,
+     "cosine": 1.0,
+     "ref_l2": 373665.03257
+    },
+    {
+     "param": "trunk.msa_module.blocks.0.msa_transition.fc2_weight",
+     "rel_l2": 0.0,
+     "cosine": 1.0,
+     "ref_l2": 359105.270014
+    },
+    {
+     "param": "trunk.msa_module.blocks.0.msa_transition.fc3_weight",
+     "rel_l2": 0.0,
+     "cosine": 1.0,
+     "ref_l2": 735536.753333
+    },
+    {
+     "param": "trunk.msa_module.blocks.0.msa_transition.norm_bias",
+     "rel_l2": 0.0,
+     "cosine": 1.0,
+     "ref_l2": 3982468.396259
+    },
+    {
+     "param": "trunk.msa_module.blocks.0.msa_transition.norm_weight",
+     "rel_l2": 0.0,
+     "cosine": 1.0,
+     "ref_l2": 1031522.86445
+    }
+   ],
+   "n_bit_identical": 1648
+  }
+ }
+}

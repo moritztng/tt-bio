@@ -1,0 +1,204 @@
+{
+ "doc": "D55 at model scale: the OF3 trunk's per-parameter gradients, ship vs fix, with an A/A floor.",
+ "argv": [
+  "--tokens",
+  "256",
+  "--cycles",
+  "1",
+  "--exact",
+  "off",
+  "--arms",
+  "ship,fix",
+  "--out",
+  "perf/of3t_innercfg/MODELAB_route_crop256.json"
+ ],
+ "arms": {
+  "1S": {
+   "forward_s": 1.87,
+   "backward_s": 13.6,
+   "tape_nodes": 2482,
+   "params_with_grad": 1648,
+   "softmax_bw_inner_fires": 111,
+   "route": {
+    "triangle_attention": 0,
+    "v_sdpa": 0,
+    "host_f64_softmax": 0
+   },
+   "exact_softmax_stats": {
+    "verb": 0,
+    "raw": 0,
+    "raw_elements": 0
+   },
+   "exact_layer_norm_stats": {
+    "verb": 0,
+    "raw": 0,
+    "elements": 0,
+    "bw": 0
+   },
+   "renorm_stats": {
+    "applied": 111,
+    "declined": 0
+   },
+   "sdpa_taped_calls": null,
+   "impl": "ship",
+   "wall_s": 15.84
+  },
+  "2F": {
+   "forward_s": 1.61,
+   "backward_s": 8.19,
+   "tape_nodes": 2482,
+   "params_with_grad": 1648,
+   "softmax_bw_inner_fires": 111,
+   "route": {
+    "triangle_attention": 0,
+    "v_sdpa": 0,
+    "host_f64_softmax": 0
+   },
+   "exact_softmax_stats": {
+    "verb": 0,
+    "raw": 0,
+    "raw_elements": 0
+   },
+   "exact_layer_norm_stats": {
+    "verb": 0,
+    "raw": 0,
+    "elements": 0,
+    "bw": 0
+   },
+   "renorm_stats": {
+    "applied": 111,
+    "declined": 0
+   },
+   "sdpa_taped_calls": null,
+   "impl": "fix",
+   "wall_s": 10.12
+  }
+ },
+ "env": {
+  "host": "pc",
+  "tt_visible_devices": "0",
+  "commit": "91532cc9b10e12f01f2357d6641dcd32eb3a4216",
+  "started_utc": "2026-09-25T22:47:45Z",
+  "board": "pc card 0 -- Blackhole p150a",
+  "arch": "Arch.BLACKHOLE",
+  "exact_training_ops": [],
+  "aiclk_during": {
+   "0": {
+    "min": 800,
+    "max": 1350,
+    "median": 1350,
+    "n": 13
+   }
+  },
+  "aiclk_line": "CLOCK: dev0 min 800 / median 1350 / max 1350 MHz over 13 samples, polled DURING the work"
+ },
+ "config": {
+  "crop": 256,
+  "cycles": 1,
+  "exact_training": "off"
+ },
+ "build_fold_s": 3.99,
+ "prep_to_sampler_s": 6.94,
+ "capture": {
+  "trunk_inputs_snapshotted": true,
+  "trunk_inputs_dead_at_capture": 0,
+  "trunk_forward_s": 5.232,
+  "trunk_forward_note": "the shipped call, progress_fn INCLUDED and cold; the timed arms below drop it",
+  "trunk_cycles": 4,
+  "reached_sampler": true
+ },
+ "params": {
+  "declared": 2531,
+  "elements": 165180992,
+  "by_rank": {
+   "1": 1130,
+   "2": 1401
+  },
+  "walk_depth_reached": 9,
+  "walk_truncated_at_limit": 8,
+  "cache_attrs_skipped": 324,
+  "pairformer_weights": 2256,
+  "deepest_name": "trunk.msa_module.blocks.0.pair_stack.transition_z.fc1_weight"
+ },
+ "comparisons": {
+  "1S(ship) vs 2F(fix)": {
+   "n_compared": 1648,
+   "missing_in_other": [],
+   "shape_mismatch": [],
+   "worst_rel_l2": 1.237672529,
+   "worst_rel_l2_param": "trunk.msa_module.blocks.1.pwa.z_norm_bias",
+   "min_cosine": 0.02220915,
+   "min_cosine_param": "trunk.msa_module.blocks.0.pwa.z_norm_bias",
+   "rel_l2_p50": 0.0,
+   "rel_l2_p90": 0.000211594,
+   "rel_l2_p99": 0.005484989,
+   "n_over_1e-2": 9,
+   "worst_rel_l2_excl_pwa_z_norm_bias": 0.156959078,
+   "worst_param_excl_pwa_z_norm_bias": "trunk.msa_module.blocks.0.pwa.z_norm_weight",
+   "min_cosine_excl_pwa_z_norm_bias": 0.988487806,
+   "top10_by_rel_l2": [
+    {
+     "param": "trunk.msa_module.blocks.1.pwa.z_norm_bias",
+     "rel_l2": 1.237672529,
+     "cosine": 0.442077852,
+     "ref_l2": 10222.271858
+    },
+    {
+     "param": "trunk.msa_module.blocks.0.pwa.z_norm_bias",
+     "rel_l2": 1.159873326,
+     "cosine": 0.02220915,
+     "ref_l2": 15666.839716
+    },
+    {
+     "param": "trunk.msa_module.blocks.0.pwa.z_norm_weight",
+     "rel_l2": 0.156959078,
+     "cosine": 0.988569602,
+     "ref_l2": 219899.687152
+    },
+    {
+     "param": "trunk.msa_module.blocks.0.pwa.z_weight",
+     "rel_l2": 0.15214595,
+     "cosine": 0.988487806,
+     "ref_l2": 644765.614464
+    },
+    {
+     "param": "trunk.msa_module.blocks.2.pwa.z_norm_bias",
+     "rel_l2": 0.102998147,
+     "cosine": 0.995408865,
+     "ref_l2": 12103.841404
+    },
+    {
+     "param": "trunk.msa_module.blocks.1.pwa.z_weight",
+     "rel_l2": 0.043219962,
+     "cosine": 0.999068102,
+     "ref_l2": 1025959.146882
+    },
+    {
+     "param": "trunk.msa_module.blocks.1.pwa.z_norm_weight",
+     "rel_l2": 0.035193913,
+     "cosine": 0.999380512,
+     "ref_l2": 994274.155512
+    },
+    {
+     "param": "trunk.msa_module.blocks.0.pwa.m_norm_weight",
+     "rel_l2": 0.013418142,
+     "cosine": 0.999980643,
+     "ref_l2": 1324685.956774
+    },
+    {
+     "param": "trunk.msa_module.blocks.0.pair_stack.triangle_attention_end.layer_norm_weight",
+     "rel_l2": 0.01259837,
+     "cosine": 0.999921206,
+     "ref_l2": 957740.655631
+    },
+    {
+     "param": "trunk.template.ps.blocks.0.triangle_attention_start.layer_norm_weight",
+     "rel_l2": 0.008409846,
+     "cosine": 0.999970406,
+     "ref_l2": 469012.695231
+    }
+   ],
+   "n_bit_identical": 1459
+  }
+ }
+}

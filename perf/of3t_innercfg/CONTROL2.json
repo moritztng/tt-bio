@@ -1,0 +1,63 @@
+{
+ "generated": "2026-09-25T22:29:38Z",
+ "host": "pc",
+ "commit": "91532cc9b10e12f01f2357d6641dcd32eb3a4216",
+ "numerator_sum_dim_-1_shape_8x4x384x384": {
+  "none": {
+   "rel_l2_vs_f64": 0.0023961357410323967,
+   "bitwise_equal_to_none": true
+  },
+  "precise (HiFi4+fp32dest+packerl1)": {
+   "rel_l2_vs_f64": 0.0023961357410323967,
+   "bitwise_equal_to_none": true
+  },
+  "HiFi4, fp32_dest_acc OFF": {
+   "rel_l2_vs_f64": 0.007287232884106897,
+   "bitwise_equal_to_none": false
+  },
+  "LoFi, fp32_dest_acc OFF, approx ON": {
+   "rel_l2_vs_f64": 0.006873340866245541,
+   "bitwise_equal_to_none": false
+  },
+  "HiFi2, fp32_dest_acc OFF": {
+   "rel_l2_vs_f64": 0.006873340866245541,
+   "bitwise_equal_to_none": false
+  }
+ },
+ "BREAK_CONTROL_matmul_same_sweep": {
+  "none": {
+   "rel_l2_vs_f64": 0.007200309359476319,
+   "bitwise_equal_to_none": true
+  },
+  "precise (HiFi4+fp32dest+packerl1)": {
+   "rel_l2_vs_f64": 0.0017369212472909908,
+   "bitwise_equal_to_none": false
+  },
+  "HiFi4, fp32_dest_acc OFF": {
+   "rel_l2_vs_f64": 0.014440327449442073,
+   "bitwise_equal_to_none": false
+  },
+  "LoFi, fp32_dest_acc OFF, approx ON": {
+   "rel_l2_vs_f64": 0.02296913784452609,
+   "bitwise_equal_to_none": false
+  },
+  "HiFi2, fp32_dest_acc OFF": {
+   "rel_l2_vs_f64": 0.013756060465150379,
+   "bitwise_equal_to_none": false
+  }
+ },
+ "axis_sweep_precise_vs_none": {
+  "dim=-1": {
+   "bitwise_equal": true,
+   "max_abs_diff": 0.0
+  },
+  "dim=-2": {
+   "bitwise_equal": true,
+   "max_abs_diff": 0.0
+  },
+  "dim=0": {
+   "bitwise_equal": true,
+   "max_abs_diff": 0.0
+  }
+ }
+}

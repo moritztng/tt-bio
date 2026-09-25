@@ -1,0 +1,48 @@
+{
+ "generated": "2026-09-25T22:28:37Z",
+ "host": "pc",
+ "commit": "91532cc9b10e12f01f2357d6641dcd32eb3a4216",
+ "ttnn_sum_doc_has_ckc": true,
+ "cases": {
+  "A_ones_4096": {
+   "exact": 4096.0,
+   "off": 4096.0,
+   "on": 4096.0,
+   "bitwise_equal": true,
+   "max_abs_off_minus_on": 0.0
+  },
+  "B_ones_384": {
+   "exact": 384.0,
+   "off": 384.0,
+   "on": 384.0,
+   "bitwise_equal": true,
+   "max_abs_off_minus_on": 0.0
+  },
+  "A2_one_big_many_small": {
+   "exact": 63.49081325531006,
+   "off": 63.5,
+   "on": 63.5,
+   "bitwise_equal": true,
+   "off_rel_err": 0.004132789648991995,
+   "on_rel_err": 0.004132789648991995
+  },
+  "C_matmul_break_control": {
+   "bitwise_equal": false,
+   "off_rel_l2": 0.007200309359476319,
+   "on_rel_l2": 0.0017369212472909908
+  },
+  "D_shipped_denominator": {
+   "bitwise_equal": true,
+   "off_rel_l2": 0.0007173961327405976,
+   "on_rel_l2": 0.0007173961327405976,
+   "off_mean": 0.9999545415242513,
+   "on_mean": 0.9999545415242513
+  },
+  "E_product_dtype_vs_config": {
+   "product_bf16/no_cfg": 0.002002584883467482,
+   "product_bf16/precise": 0.002002584883467482,
+   "product_fp32/no_cfg": 0.0003462349015625541,
+   "product_fp32/precise": 0.0003462349015625541
+  }
+ }
+}

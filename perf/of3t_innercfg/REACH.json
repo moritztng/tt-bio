@@ -1,0 +1,97 @@
+{
+ "generated": "2026-09-25T22:31:11Z",
+ "host": "pc",
+ "commit": "91532cc9b10e12f01f2357d6641dcd32eb3a4216",
+ "shipped_default_ops": [
+  "softmax",
+  "layer_norm"
+ ],
+ "renorm": true,
+ "fused": false,
+ "rows": [
+  {
+   "caller": "verb_softmax",
+   "exact_training": true,
+   "exact_softmax_installed": true,
+   "exact_training_ops": [
+    "softmax",
+    "layer_norm"
+   ],
+   "softmax_bw_inner_fires": 0,
+   "exact_softmax_verb_calls": 1,
+   "exact_softmax_raw_calls": 0
+  },
+  {
+   "caller": "verb_softmax",
+   "exact_training": false,
+   "exact_softmax_installed": false,
+   "exact_training_ops": [],
+   "softmax_bw_inner_fires": 1,
+   "exact_softmax_verb_calls": 0,
+   "exact_softmax_raw_calls": 0
+  },
+  {
+   "caller": "ag_softmax",
+   "exact_training": true,
+   "exact_softmax_installed": true,
+   "exact_training_ops": [
+    "softmax",
+    "layer_norm"
+   ],
+   "softmax_bw_inner_fires": 1,
+   "exact_softmax_verb_calls": 0,
+   "exact_softmax_raw_calls": 1
+  },
+  {
+   "caller": "ag_softmax",
+   "exact_training": false,
+   "exact_softmax_installed": false,
+   "exact_training_ops": [],
+   "softmax_bw_inner_fires": 1,
+   "exact_softmax_verb_calls": 0,
+   "exact_softmax_raw_calls": 0
+  },
+  {
+   "caller": "sdpa_verb",
+   "exact_training": true,
+   "exact_softmax_installed": true,
+   "exact_training_ops": [
+    "softmax",
+    "layer_norm"
+   ],
+   "softmax_bw_inner_fires": 1,
+   "exact_softmax_verb_calls": 0,
+   "exact_softmax_raw_calls": 1
+  },
+  {
+   "caller": "sdpa_verb",
+   "exact_training": false,
+   "exact_softmax_installed": false,
+   "exact_training_ops": [],
+   "softmax_bw_inner_fires": 1,
+   "exact_softmax_verb_calls": 0,
+   "exact_softmax_raw_calls": 0
+  },
+  {
+   "caller": "triangle_attention",
+   "exact_training": true,
+   "exact_softmax_installed": true,
+   "exact_training_ops": [
+    "softmax",
+    "layer_norm"
+   ],
+   "softmax_bw_inner_fires": 1,
+   "exact_softmax_verb_calls": 0,
+   "exact_softmax_raw_calls": 2
+  },
+  {
+   "caller": "triangle_attention",
+   "exact_training": false,
+   "exact_softmax_installed": false,
+   "exact_training_ops": [],
+   "softmax_bw_inner_fires": 1,
+   "exact_softmax_verb_calls": 0,
+   "exact_softmax_raw_calls": 0
+  }
+ ]
+}

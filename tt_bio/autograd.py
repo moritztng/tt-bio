@@ -163,6 +163,15 @@ def softmax_bw_inner(y, g, dim=-1, config=None):
     first repair of this expression enumerated two callers and routed two, and the one it missed
     was `softmax` itself, which `__all__` exports.
     """
+    # No `compute_kernel_config` on this reduction, and that is measured rather than an
+    # oversight -- D55 was filed against it twice. `ttnn.sum` already accumulates in fp32:
+    # `precise_config()` here is BIT-IDENTICAL to leaving it off, on every shape tried and out
+    # to a 6.35-digit cancellation where `dx` is itself 115x wrong. The config is read, not
+    # dropped -- the same object moves a matmul 4.1x, and handing this reduction a config with
+    # `fp32_dest_acc_en=False` moves it 3.0x. What does move it is the dtype of the product
+    # above, which no config sets (fp32 product: 5.8x on `inner`, and no better on `dx`,
+    # because the bf16 subtract below dominates). The denominator carries `config` so a CALLER
+    # may pass one, not because the default falls short. `perf/of3t_innercfg/`.
     inner = ttnn.sum(ttnn.multiply(g, y), dim=dim, keepdim=True)
     SOFTMAX_BW_RENORM_STATS["applied" if SOFTMAX_BW_RENORM else "declined"] += 1
     if not SOFTMAX_BW_RENORM:
