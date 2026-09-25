@@ -1934,21 +1934,6 @@ def forget_parameters() -> None:
     _PARAMS.clear()
 
 
-def parameter_for(raw):
-    """The leaf `parameter()` registered over this raw handle, or `None`.
-
-    The public form of the one question every coverage check asks: is the tensor the MODEL
-    holds a thing the tape can hand a gradient to? `perf/of3t_tape` had to read `_PARAMS`
-    directly to ask it, and a check that reaches into a private dict is a check that stops
-    agreeing with the tape the first time the tape changes.
-
-    A pure query: unlike `_param` it does not record the handle as touched, so asking cannot
-    change what `checkpoint` decides to recompute.
-    """
-    t = _PARAMS.get(id(raw))
-    return t if t is not None and t.value is raw else None
-
-
 # True only at the OUTERMOST taped call. A taped verb computes its value by calling the
 # SHIPPED verb, and the shipped verb is sometimes itself a tt-bio function whose body calls
 # `ttnn` -- `ops.linear`'s fallback is literally `ttnn.linear`, and inside `tt_bio.ops` that
