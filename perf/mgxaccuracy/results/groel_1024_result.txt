@@ -1,0 +1,105 @@
+GroEL size ladder, third rung: 1024 at both crops
+=================================================
+
+Read 2026-09-24 18:5xZ against plans/groel_1024.txt (committed 17:04:28Z) with
+perf/mgxaccuracy/ladder_read.py (committed 17:13:09Z). The cells launched 17:06Z and landed
+18:36Z, so both the plan and the reader predate every number below. Raw fan records harvested
+with `harvest.py --engine groel-onetree-ff5435cba` into results/groel1024.jsonl; rc 0 on both,
+n=8 each, AICLK median 1000 over n=2286 and n=2291 samples taken DURING the folds, whglx cards
+0 and 2, 5416.0 s and 5426.0 s, host load median 14.9 of 64.
+
+Fixtures verified distinct on disk before launch: bgt1024.cif sha256 d51aa6b66622f388,
+bgt1024o560.cif febec13204002a85, 1024 CA atoms each.
+
+SELFCHECK first: the reader reproduces all four published 2x2 contrasts, U and p to the digit
+(+14.754/0.0/0.0002, +12.648/8.0/0.0104, +0.887/21.0/0.2786, -1.219/47.0/0.1304). SELFCHECK PASS.
+
+target groel_ring4_2096   engine groel-onetree-ff5435cba   metric designfolding-bb_rmsd
+
+  size  offset   n   median     range              <=2A    <=4A
+   512       0   8    0.852    0.585- 9.694     62.5%   62.5%
+   512     560   8    1.739    1.263-17.459     62.5%   87.5%
+  1024       0   8    8.718    5.462-11.865      0.0%    0.0%
+  1024     560   8   14.457    9.909-23.068      0.0%    0.0%
+  1536       0   8   15.606   11.313-17.064      0.0%    0.0%
+  1536     560   8   14.387    8.398-15.974      0.0%    0.0%
+
+OFFSET 0
+  1024 -> 1536             +6.888 A   U =   1.0 of 64   exact p = 0.0003  rejects
+   512 -> 1024             +7.866 A   U =   7.0 of 64   exact p = 0.0070  rejects
+  median 8.718 A, 0 of 8 under 4.0 A  ->  COLLAPSED BY 1024
+
+OFFSET 560
+  1024 -> 1536             -0.070 A   U =  39.0 of 64   exact p = 0.5054  does not reject
+   512 -> 1024            +12.718 A   U =   5.0 of 64   exact p = 0.0030  rejects
+  median 14.457 A, 0 of 8 under 4.0 A  ->  COLLAPSED BY 1024
+
+RUNG VERDICT: COLLAPSED BY 1024
+
+WHAT THE ROW TAKES FROM THIS, AND WHAT IT DOES NOT
+--------------------------------------------------
+
+TAKES: 1024 IS NOT USABLE, on both crops, and this is not a reading that depends on which
+clause you apply. Medians 8.718 and 14.457 A against a 4.0 A bar, 0 of 8 under it in both
+cells, and 512->1024 rejects at both crops (p=0.0070 at offset 0, p=0.0030 at 560). The
+ceiling the doc ships is therefore in [512, 1024) and "crop to about 512" stands, now with a
+measured rung under it instead of an interpolation across 1024 residues.
+
+DOES NOT TAKE: the SHAPE of the fall. The two crops disagree about it and the plan's clauses
+overlap on exactly that point, so neither the data nor the pre-registration settles it.
+
+  - At offset 0 both steps reject: +7.866 A for 512->1024 and +6.888 A for 1024->1536, about
+    half the total +14.754 A each. That is a continuous decay with no cliff.
+  - At offset 560 only the first step rejects: +12.718 A for 512->1024, then -0.070 A for
+    1024->1536 (U=39/64, p=0.5054). 1024 is already at the 1536 level. That is a cliff at or
+    below 1024.
+
+THE PRE-REGISTRATION HAS A DEFECT AND IT IS REPORTED, NOT RESOLVED AFTER THE FACT.
+plans/groel_1024.txt states COLLAPSED BY 1024 as "median > 4.0 A AND <= 1 of 8 under 4.0 A AND
+512-vs-1024 rejects at 0.05", which both cells satisfy, and ladder_read.py — committed 83
+minutes before the cells landed — applies exactly that and prints COLLAPSED BY 1024 for both
+crops and for the rung. But the same plan's INTERMEDIATE clause lists "both contrasts rejecting
+(a continuous decay with no cliff)" among the things it covers, and at offset 0 both contrasts
+do reject. The two clauses overlap and the plan does not say which wins.
+
+So the rung's verdict is stated twice, deliberately:
+
+  by the clause bodies, which is what the committed reader applies   COLLAPSED BY 1024
+  by the INTERMEDIATE prose at offset 0, which the reader does not   INTERMEDIATE
+
+Both give the doc the same sentence, because both say 1024 is not usable and neither moves the
+ceiling out of [512, 1024). Choosing between them after seeing the numbers would be worth
+nothing, so it is not done. plans/groel_768.txt, written before its own cells exist, does not
+repeat the overlap: its clause bodies are disjoint and nothing outside them decides.
+
+WHERE THIS GOES NEXT. The bracket [512, 1024) is 512 residues wide and the doc's number sits at
+its bottom end, which costs a user with a 700-residue target a crop they may not need. 768 at
+both crops halves it. Launched this pass on the same tree.
+
+WHAT THIS RUNG DOES NOT SPEAK TO. Upstream. Every cell here is a device cell and the question
+of whether the device is WORSE than upstream at a given size is the qb2 fp32 pair's, still
+computing.
+
+POST-HOC, NOT PRE-REGISTERED: CROP IS NOTHING AT 512 AND 1536 AND REAL AT 1024
+------------------------------------------------------------------------------
+
+Computed after the verdict above and reported as post-hoc, because `plans/groel_1024.txt`
+pre-registered the two SIZE contrasts and said nothing about a crop contrast at the new rung.
+It changes no verdict: both 1024 cells are 0 of 8 under 4 A whichever window they used.
+
+  crop 560-vs-0 at  512:   +0.887 A   U = 21.0/64   p = 0.2786   does not reject
+  crop 560-vs-0 at 1024:   +5.739 A   U =  4.0/64   p = 0.0019   REJECTS
+  crop 560-vs-0 at 1536:   -1.219 A   U = 47.0/64   p = 0.1304   does not reject
+
+Three tests at 0.05; a crude Bonferroni bar is 0.0167 and 0.0019 clears it, so this is unlikely
+to be the multiplicity. Taken at face value the crop factor is absent at both ends of the ladder
+and worth 5.7 A in the middle, which is where the two windows are falling at different rates —
+offset 0 is midway down (8.718) while offset 560 has already arrived at the 1536 level (14.457).
+That is the same disagreement the shape reading found, seen from the other axis.
+
+WHAT IT MEANS FOR THE 768 RUNG. `plans/groel_768.txt` requires its two crops to agree or the
+verdict is INTERMEDIATE. On the evidence here that clause is likely to bite rather than be a
+formality: 768 sits in the same middle region where the two windows have just been shown to
+separate. The clause stands unchanged — it was written before this contrast was computed and
+before the 768 cells exist — but a next pass reading INTERMEDIATE there should not treat it as
+a surprise or as a reason to go looking for a different test.

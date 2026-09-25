@@ -1,0 +1,53 @@
+FAS single-chain ladder — four of six cells in, no verdict yet
+===============================================================
+
+The control for `results/chain_count_confound.txt`: a size ladder that holds chain count at
+ONE, which neither GroEL (~524-residue chains) nor 1GPB (823, all of chain A) can provide.
+Target `targets/fas_chainA_1962.cif` (chain A of pig FAS, 2VZ8, 1962 residues in one chain),
+plans `chain_vs_residues.txt` / `fas_768.txt` / `fas_offset900.txt`, reader
+`perf/mgxaccuracy/fas_read.py` — every one of them written before the cells they read.
+
+whglx, tree ff5435cba, n=8 per cell, 80-residue binder, same `designfolding-bb_rmsd` as every
+other cell in this row, AICLK median 1000 sampled DURING every fold. Each fixture checked on
+disk as SINGLE CHAIN before its numbers were read.
+
+    size  offset   n   median     range              <=4A   wall_s   status
+     512       0   8    3.782    1.363-11.155     4 of 8   1848.6   in
+     768       0   8    9.050    1.435-17.952     2 of 8   2984.5   in, INTERMEDIATE
+    1024       0   8   10.665    4.774-13.576     0 of 8   5406.3   in
+    1536       0   -                                                running, ~23:12Z
+     512     900   8    3.029    1.649-13.215     5 of 8   1872.9   in
+    1024     900   -                                                running, ~23:07Z
+
+    offset 0     512 ->  768  +5.268 A  U=16.0/64  p=0.1049  does not reject
+                 512 -> 1024  +6.883 A  U= 8.0/64  p=0.0104  REJECTS
+                 768 -> 1024  +1.616 A  U=31.0/64  p=0.9591  does not reject
+
+NO VERDICT, and the reader refuses to print one. `plans/chain_vs_residues.txt` reads
+512 -> 1536 with 1024 beside it, and the 1536 cell is still computing. Run
+`fas_read.py results/fas_ladder.jsonl` once it lands; it applies the three clauses itself and
+prints the 768 addition separately.
+
+WHAT THE FOUR LANDED CELLS ALREADY SAY, within this target
+-----------------------------------------------------------
+
+A single chain of 1024 residues returns NOTHING under the 4 A bar, the same count every
+multi-chain cell at 1024 and above has returned on both other targets, and the fall from its
+own 512 cell rejects. The decay is gradual rather than a cliff — 4 of 8, then 2 of 8, then
+0 of 8 — with neither adjacent step separating and only the two-step contrast doing so.
+
+That WEAKENS the chain hypothesis this control was built to test. If chain count were the whole
+story, one chain should have kept designing where two stopped; at 1024 it does not. The 768
+rung points the other way (2 of 8 against GroEL's 0 of 8 at the same residue count) and is
+INTERMEDIATE, so the two rungs disagree in direction and neither is decisive. Details and the
+cross-target caveat in `results/fas_768_result.txt` and `results/fas_1024_result.txt`.
+
+The bottom rung REPLICATES across windows: offset 900 shares ZERO residues with offset 0 at 512
+and reads 3.029 A / 5 of 8 against 3.782 A / 4 of 8. The cell that decides whether the 1024
+finding replicates is 1024/off900, and `plans/fas_offset900.txt` pre-registers three clauses
+for it, one of which obliges the row to WITHDRAW `results/fas_1024_result.txt`'s sentence in
+the words it was published in. Read it with `fas_read.py --replication`.
+
+READ WITHIN TARGET ONLY. FAS is a third protein. Its 512 cell at 3.782 A sits between GroEL's
+0.852 and 1GPB's worst 512 window at 17.785, and that spread is the between-target variation
+this row published long before FAS existed — not evidence about size or chains.

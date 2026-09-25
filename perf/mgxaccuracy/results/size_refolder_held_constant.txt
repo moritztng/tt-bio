@@ -1,0 +1,63 @@
+# REFRAMED 2026-09-24 01:3xZ: this is an INSTRUMENT result, not a size result. It rules the
+# refolder out as the cause of the offset-0 512-vs-1536 gap. It does NOT show the cause is
+# size, because the across-target spread at a FIXED 512 residues was then measured at 13.04 A
+# -- larger than the 12.34 A gap below (results/across_target_floor_512.txt). Every number
+# here stands exactly as measured; only the word "size" in the title is wrong.
+#
+# The size claim with the SCORING FOLD held constant, n=8 per size, one valid target.
+#
+# Both rows below are the DEVICE's own designs. The only thing that folds them is upstream
+# BoltzGen, torch fp32 on qb2 CPU, same checkpoint, same protocol, no card opened. So a
+# difference between the rows cannot be the refolder: it is the designs.
+#
+#   scRMSD = designfolding-bb_rmsd, N,CA,C,O backbone, recomputed from refold_design_cif on
+#   disk (scrmsd.py --check agrees with the pipeline's own column to 5 dp on the 512 run).
+#
+# side = upstream-refold-of-device-design, target gpb_dimer_1646 A1-<res> + 80-residue binder
+#
+#   res    n   min     median   max     strict  permissive   out_dir
+#   512    8   0.976    7.012   12.321   0.125    0.375      out_devrefold512_all8
+#  1536    8  16.446   19.347   22.209   0.000    0.000      out_dev1536
+#
+# ZERO OVERLAP: the best 1536 design (16.446) is worse than the worst 512 design (12.321).
+#   Mann-Whitney U = 0 of 64, the maximal separation the test can report.
+#   Exact two-sided p = 2/C(16,8) = 1.554e-4.
+#
+# That is the whole size question with every shared-instrument objection removed at once:
+# same target, same crop, same binder length, same designer, same checkpoint, same refolder,
+# same metric, same backbone atom set, n=8 on each side. The device refolder reads the same
+# way on the identical designs (21.52 A at 1536, 8.46 A at 512 pre-fix), so two independent
+# refolders agree and neither is the cause.
+#
+# BOTH SIDES ARE PRE-FIX, checked rather than assumed. A 512 side taken from the after-fix
+# run would have confounded the token-distance fix with size, since only 512 has an after-fix
+# cell so far. The designs staged into out_devrefold512_all8 are timestamped 09-23 23:21Z and
+# the after-fix 512 run did not finish until 23:49:50Z, so they cannot be its output; they are
+# the pre-fix eight-design cell whose device-refolder median is 8.455 A.
+#
+# The two refolders track each other at both sizes, same direction, same order of magnitude:
+#   res    device refolder   upstream refolder   upstream - device
+#   512        8.455              7.012              -1.44
+#  1536       21.516             19.347              -2.17
+# Against the measured upstream refold repeat spread of 0.9-1.9 A on one design
+# (results/refolder_pair_512.txt) neither residual is a signal, which is the point: the
+# instrument reads the same on both sides, so the 12.33 A it reports between them is not it.
+#
+# What this does NOT establish, and neither does anything else in this row:
+#   * that TT is worse than upstream AT 1536. That needs upstream's own 1536 DESIGN on THIS
+#     target. The out1536 run this line used to point at was on the disconnected fixture, so
+#     it answered nothing and was killed 2026-09-24 01:1xZ to free cores
+#     (results/upstream_reference_wrong_fixture.txt). Its replacement, out1536_valid, is in
+#     its design step on qb2 against a fixture whose coord_sha matches the device's.
+#   * that the size effect is not a target effect. SETTLED, AND IT WENT THE OTHER WAY: the
+#     second target ran on 2026-09-24 and the across-target spread at a fixed 512 residues is
+#     13.04 A (4.749 vs 17.785, n=8 each, U=2 of 64), which EXCEEDS the 12.34 A gap below. The
+#     2.10 A figure this line used to quote was two targets that happened to be close, not a
+#     floor. So the gap below is between two particular crops and is not attributable to size.
+#   * that the four cells share an engine. They do not: they ran on 720b43a5d, d1133c67e,
+#     07bd40614 and d0c4f33e4. plans/floor512_onetree.txt re-measures the 512 pair on one tree.
+#
+# Reproduce:
+#   ssh qb2 'cd ~/mgxacc-tools && ~/bgref-env/bin/python3 scrmsd.py ~/bgref-work/<out> \
+#            --json --model boltzgen --target gpb_dimer_1646 --target-res <res> \
+#            --side upstream-refold-of-device-design'

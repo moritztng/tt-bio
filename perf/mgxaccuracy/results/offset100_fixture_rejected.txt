@@ -1,0 +1,55 @@
+# RESOLVED 2026-09-24 01:0xZ by 1f6e813dc. crop_cif now rebases label_seq per chain to 1..n;
+# auth_seq_id is left alone so a crop still records which parent residues it took. Verified
+# host-only against BoltzGen's own parser: pre-fix, 512/off0 and 1536/off0 parse while both
+# off100 crops raise AssertionError; post-fix all four parse. Offset 0 output is BYTE-IDENTICAL
+# pre vs post at both sizes, so nothing this row has shipped moves.
+# tests/test_crop_cif_offset_seq_numbering.py pins the invariant with no artifact needed --
+# 6 passed on qb2, and with the fix reverted exactly the two off100 cases fail.
+# plans/bg_floor_1536.txt relaunched 01:0xZ on cards 13 and 23 and is past the failure point.
+#
+# The record of the defect follows, unchanged.
+#
+# The second-target floor is BLOCKED, and the blocker is this row's own crop writer.
+#
+# plans/bg_floor_1536.txt was launched 01:12Z on the after-fix tree (d1133c67e). Its first
+# entry -- boltzgen, gpb dimer, 512 residues at crop offset 100 -- failed in 7.5 s on card 20,
+# rc=1, 0 designs, before opening the device:
+#
+#   File ".../tt_bio/boltzgen/data/parse/mmcif.py", line 695, in parse_polymer
+#     assert polymer[i].name == res_name
+#   AssertionError
+#
+# ROOT CAUSE, read out of perf/bhdesign/ladder.py crop_cif (lines 221-261). The crop keeps the
+# rows it selects verbatim and renumbers only the atom serial:
+#
+#     r[idx] = str(i)      # 'id' column, atom serial
+#
+# `label_seq_id` is NOT rebased. At offset 0 the kept residues already start at 1, the
+# positional index and the residue number agree, and the file parses -- which is why every
+# number this row has ever measured is fine. At offset 100 the kept residues start at
+# seq_id 101 while BoltzGen's reader builds entity_poly_seq and indexes polymer[i]
+# POSITIONALLY, so position 0 is compared against the residue named at seq_id 1 and the
+# assertion fires on the first residue.
+#
+# So the offset axis has never actually run, on any row that shares this harness
+# (perf/bgsdpa/rung.py, perf/bgsdpa/hang_probe.py, perf/mgxaccuracy/rigidity.py,
+# perf/mgxscale/job.py all import it). Everything shipped so far is offset 0 and unaffected.
+#
+# WHY THE PRE-CHECK MISSED IT, which is the generalizable part. The plan's header says the
+# offset-100 crop was CHECKED before queueing: conditioning_graph read 1 component and 5951
+# inter-chain edges. That check is real and it still stands -- but it was run with THIS ROW'S
+# numpy reader, which takes coordinates and ignores residue numbering entirely. The parser
+# that would actually consume the fixture was never asked. A fixture pre-check validates the
+# property you measured with the instrument you used; it says nothing about a different
+# consumer's invariants.
+#
+# THE FIX, not applied here on purpose. Rebase the kept residues' label_seq_id (and
+# auth_seq_id where present) to 1..n in crop_cif, the same way the atom serial is already
+# rebased. It is a small change in a SHARED harness, and applying it in the last minutes of a
+# pass without running the parser against the result is how a row ships a defect. It needs no
+# chip to verify: build the offset-100 fixture and hand it straight to BoltzGen's parser on a
+# host. Do that first, then re-launch plans/bg_floor_1536.txt.
+#
+# The fan was stopped by explicit pid (1356706, 1356468) rather than left polling for a chip
+# to run the 1536 entry, which would have failed the same way. The deciding after-fix 1536 arm
+# on card 3 was untouched.

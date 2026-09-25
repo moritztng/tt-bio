@@ -1,0 +1,23 @@
+# A SIZE comparison with the chain count held fixed, which the 2x2 cannot give.
+#
+# The 2x2's size axis is confounded and this row pre-registered that before its cells landed:
+# chain A of the gpb dimer is 823 residues, so a 512 crop in file order never reaches chain B.
+# Both 512 cells are single-chain and both 1536 cells are two-chain, which makes the size main
+# effect "512 single-chain vs 1536 two-chain" rather than a statement about residue count
+# (results/across_target_floor_512.txt).
+#
+# 823 removes the confound without needing a different protein. It is ALL of chain A, so the
+# fixture includes chain A only -- checked host-side before launching: 823 residues, 6691
+# atoms, `include: chain A` and nothing else. Against the offset-0 512 cell it is a nested,
+# single-chain, same-protein size comparison:
+#
+#   512 residues (1-512 of chain A), single chain   median 4.631 A, n=8, banked
+#   823 residues (1-823 of chain A), single chain   this plan
+#
+# Anything it shows is about SIZE within one chain. It does not replace the 1536 cells -- a
+# user who brings a 1536-residue target brings the chain count with it, so the 2x2 remains the
+# number that describes what the service actually does at that size. This is the clean
+# mechanism question sitting underneath it.
+#
+# One entry, one chip, ~45 min at 903 tokens (823 + 80 binder).
+--model boltzgen --target perf/mgxaccuracy/targets/gpb_dimer_1646.cif --target-res 823 --crop-offset 0 --designs 8 --budget 8 --score-dsg --host-threads 2 --timeout 14400 --tag size823

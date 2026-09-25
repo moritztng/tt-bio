@@ -1,0 +1,78 @@
+THE UPSTREAM 1536 PAIR'S ASSUMED COST CEILING IS REFUTED BY OBSERVATION
+=========================================================================
+
+2026-09-24 21:38Z. `ps -o time` on the two qb2 draws, differenced against the 20:32Z reading:
+
+    draw a  pid 2095799   219,214 -> 231,908 CPU-s over 3,960 s   =  3.205 cores
+    draw b  pid 2767286   151,553 -> 164,061 CPU-s over 3,960 s   =  3.159 cores
+
+Neither has written a refold cif. qb2's load is unchanged at 32.6 on 16 cores against 32.5 an
+hour ago.
+
+TWO THINGS FOLLOW, ONE OF THEM UNCOMFORTABLE.
+
+1. THE PHASE DIAGNOSIS IS CONFIRMED. At 20:32Z both draws had halved from ~2.25 cores to ~1.15
+   while qb2's load FELL, and `results/pass_notes.txt` called that a single-threaded phase
+   rather than contention. They have now both recovered to ~3.2 cores, together, with the load
+   flat. Contention does not do that either. Two independent jobs moving in lockstep through
+   1.15 -> 3.2 cores while the host stays still is the jobs' own pipeline, and the diagnostic
+   in pass_notes stands.
+
+2. THE COST CEILING IS GONE. The row has been carrying a band of (204.4k, 229.2k] CPU-s for a
+   draw, raising the floor by observation each pass and leaving the ceiling where an early
+   estimate put it. **Draw a is now at 231,908 CPU-s and still running**, which is past 229.2k.
+   The ceiling was never measured — it was an extrapolation — and it is now falsified. There is
+   no evidence-backed upper bound on this draw's cost, so there is no honest ETA to quote for
+   it, and every ETA this row has published for the qb2 pair (~22:00Z, then ~22:02Z, then
+   ~22:57Z) came off that ceiling and was wrong.
+
+WHAT TO SAY INSTEAD. Draw a has cost > 231.9k CPU-s and is running at 3.2 cores; draw b has
+cost > 164.1k and is running at 3.2 cores, about 68k CPU-s behind a. The only defensible
+statement about when they land is that a leads b by roughly 5.9 h of CPU at the current rate.
+Report the floor and the rate, not a finish time, until one of them writes a refold cif — which
+is the completion test either way (`ref/harvest_upstream_1536.sh`).
+
+THE GENERAL SHAPE. A band with a measured floor and an estimated ceiling reads like a
+measurement and is half of one. Every pass tightened the floor and none of them ever tested the
+ceiling, so the ceiling survived on nobody having looked at it — the same structure as
+`a-stale-ceiling-justifies-not-looking`. Raising a floor is not narrowing a band unless the
+ceiling is measured too.
+
+WHY IT FAILED: THE EXPONENT, NOT THE THREAD CAP
+================================================
+
+Corrected after checking the ceiling's own derivation instead of calling it "an extrapolation"
+and leaving it there. `results/upstream_pair_eta.txt` builds it from three things:
+
+    the 512 valid draw's design step ran 5126.3 s at OMP_NUM_THREADS=6
+    its average core occupancy c was never recorded and is not recoverable
+    a 1536 draw costs 5126.3 x c x (1616/592)^2 = 38,198 x c CPU-s
+    UPPER: c <= 6.0, the thread ceiling  ->  229,187 CPU-s
+
+Two assumptions, not one. The thread cap c <= 6 is sound and is not what broke: both draws have
+been observed at 1.15, 2.25 and 3.2 cores, never near 6. What broke is the **exponent of 2**.
+Draw a has now spent 231,908 CPU-s and is still running, so:
+
+    if the 512 draw ran at   observed ratio is at least   implied exponent at least
+        c = 6.000 cores                7.54x                      2.012
+        c = 4.775 (the banked floor)   9.47x                      2.239
+        c = 3.000                     15.08x                      2.702
+        c = 2.250                     20.11x                      2.988
+
+Even at the most generous c the exponent is already past 2, and at the occupancies actually
+observed on these draws it is past 2.7. Upstream's CPU cost grows FASTER than the square of the
+token count, and the ceiling assumed exactly the square.
+
+THE DEVICE GOES THE OTHER WAY, which is why the row never caught this from its own numbers. The
+same boltzgen harness on GroEL: 1842.0 s at 592 tokens, 5416.0 at 1104, 11842.0 at 1616, so
+
+    592 -> 1104 tokens   2.940x   exponent 1.731
+    592 -> 1616 tokens   6.429x   exponent 1.853
+
+sub-quadratic at both steps. A cost model fitted on the device and carried across to a CPU
+reference is a cost model fitted on the wrong machine; the row has a memory for exactly this
+shape (`a-reference-is-part-of-the-measurements-identity`) and did not apply it to a WALL-CLOCK
+prediction, only to quality numbers.
+
+WHAT THIS DOES NOT CHANGE. No quality number, and not the pre-registered reading of the pair.
+It changes only what can be said about when they finish: nothing, until a refold cif appears.

@@ -1,0 +1,29 @@
+# python3 perf/mgxaccuracy/contact.py --complex <out>/intermediate_designs/*.cif
+# All 16 boltzgen 1536 designs, both targets. Run on pc, not whglx: the same measurement
+# took 0.45 s per file here and had not finished 8 files in 11 min on whglx at load 64
+# with 477 of 566 GB in use — a numpy-only reading does not belong on the device host.
+
+== gpb  (gpb = gpb_dimer_1646 1536 crop, 1 component, 8316 inter-chain edges)
+
+design             binder  chain    min d  median d  contacts   verdict
+bg1536_1.cif          649      A     1.65      4.27      2494   IN CONTACT
+bg1536_2.cif          647      A     1.91      4.35      2255   IN CONTACT
+bg1536_3.cif          649      A     2.09      4.27      2420   IN CONTACT
+bg1536_4.cif          667      A     1.15      4.33      2491   IN CONTACT
+bg1536_5.cif          672      A     1.78      4.33      2467   IN CONTACT
+bg1536_6.cif          664      A     2.05      4.29      2444   IN CONTACT
+bg1536_7.cif          658      A     1.82      4.23      2443   IN CONTACT
+bg1536.cif            658      A     1.36      4.26      2560   IN CONTACT
+
+== q  (gpb = gpb_dimer_1646 1536 crop, 1 component, 8316 inter-chain edges)
+== q   = big_1831 1536 crop, 2 components, ZERO inter-chain edges — the disqualified fixture
+
+design             binder  chain    min d  median d  contacts   verdict
+bg1536_1.cif          569      A     0.96      4.98      1547   IN CONTACT
+bg1536_2.cif          552      A     1.19      4.96      1353   IN CONTACT
+bg1536_3.cif          531      A     1.85      5.71       916   IN CONTACT
+bg1536_4.cif          554      A     1.01      5.35      1125   IN CONTACT
+bg1536_5.cif          554      A     1.24      5.32      1146   IN CONTACT
+bg1536_6.cif          569      A     1.33      5.07      1442   IN CONTACT
+bg1536_7.cif          597      A     1.45      5.02      1433   IN CONTACT
+bg1536.cif            560      A     0.75      4.66      1679   IN CONTACT

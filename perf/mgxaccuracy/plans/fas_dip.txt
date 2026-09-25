@@ -1,0 +1,78 @@
+# THE VERDICT CELL IS A SINGLE WINDOW, AND THE 1024 DIP IS UNEXPLAINED. BOTH GET A CELL.
+#
+# Written 2026-09-24 23:1xZ, with the FAS ladder complete at offset 0 and the verdict CHAIN
+# COUNT IS THE CARRIER recorded in `results/fas_ladder_verdict.txt`. Three cards are free.
+#
+#     512 / off0    3.782 A   4 of 8        1024 / off0    10.665 A   0 of 8
+#     768 / off0    9.050 A   2 of 8        1536 / off0     3.274 A   4 of 8
+#     512 / off900  3.029 A   5 of 8        1024 / off900  21.003 A   0 of 8
+#
+# TWO THINGS ARE WRONG WITH LEANING ON THAT AS IT STANDS.
+#
+# 1. The cell the VERDICT rests on, 1536/off0, is ONE WINDOW. One pass ago this row judged
+#    exactly that insufficient for the 1024 cell and ran a second window for it, which is how
+#    `results/fas_1024_replication.txt` exists. Applying a weaker standard to the cell that
+#    decides the verdict than to the cell that did not would be the flattering direction.
+#
+# 2. The 1024 dip is real on two windows and has no explanation. The 1536 crop CONTAINS the
+#    1024 crop as a prefix, so the same residues go from 0 of 8 to 4 of 8 when more of the same
+#    chain is added. Either the recovery is gradual across 1024-1536 or 1024 is an isolated
+#    trough, and those are different stories about the model.
+#
+# AN HONEST LIMIT, STATED BEFORE THE RUN. Chain A is 1962 residues, so two 1536 windows MUST
+# share at least 1110 of them. Offset 426 is the largest separation available and still overlaps
+# 72%. That is a much weaker replication than the 1024 pair's 12%, and it cannot be improved on
+# this target. It is worth running anyway — a second window that agrees at 72% overlap does not
+# prove much, but a second window that DISAGREES at 72% overlap would be decisive against the
+# verdict, and that asymmetry is the whole value.
+#
+# ONE TREE, ff5435cba, the tree every cell in this row was measured on, including the five FAS
+# cells these are read beside. Same deliberate MGX_ALLOW_BEHIND_MAIN override as
+# plans/chain_vs_residues.txt, plans/fas_768.txt and plans/fas_offset900.txt.
+#
+# CROPS CHECKED BEFORE LAUNCH, same 2-22 A criterion as every other cell here, all SINGLE CHAIN:
+#    1536 off426   1 component [1536]   Rg 47.6 A   72% overlap with 1536/off0
+#    1280 off  0   1 component [1280]   Rg 42.8 A   contains 1024/off0 as a prefix
+#    1280 off682   1 component [1280]   Rg 42.5 A   47% overlap with 1280/off0
+
+--model boltzgen --target perf/mgxaccuracy/targets/fas_chainA_1962.cif --target-res 1536 --crop-offset 426 --designs 8 --budget 8 --score-dsg --host-threads 2 --timeout 21600 --tag fas1536o426
+--model boltzgen --target perf/mgxaccuracy/targets/fas_chainA_1962.cif --target-res 1280 --crop-offset 0 --designs 8 --budget 8 --score-dsg --host-threads 2 --timeout 21600 --tag fas1280o0
+--model boltzgen --target perf/mgxaccuracy/targets/fas_chainA_1962.cif --target-res 1280 --crop-offset 682 --designs 8 --budget 8 --score-dsg --host-threads 2 --timeout 21600 --tag fas1280o682
+
+# COST from the power-law fit in `results/device_cost_scaling.txt` (tokens^1.7-1.9, seven cells,
+# residuals inside 11%): 1616 tokens ~11.9 ks, 1360 tokens ~8.2 ks. Three cards in parallel, so
+# the set lands ~02:40Z with the 1280s ~01:30Z.
+#
+# PRE-REGISTERED READING, written before any of the three cells exists. Exact two-sided
+# Mann-Whitney by enumeration, n=8 vs n=8, WITHIN this target.
+#
+# A. THE VERDICT'S SECOND WINDOW, 1536/off426, read against 1536/off0 and against 512/off0:
+#
+#    VERDICT HOLDS       — 1536/off426 has >= 4 of 8 under 4.0 A. Both 1536 windows return
+#                          usable designs where every multi-chain 1536 cell returned none, and
+#                          CHAIN COUNT IS THE CARRIER stands on two windows.
+#    VERDICT SHAKEN      — 1536/off426 has <= 1 of 8 under 4.0 A. The two 1536 windows disagree
+#                          despite sharing 72% of their residues, which no window effect should
+#                          survive. Then `results/fas_ladder_verdict.txt` must say so in its
+#                          headline and the clause is reported as resting on one window.
+#    INTERMEDIATE        — 2 or 3 of 8. Report both windows and claim neither.
+#
+# B. THE DIP, from the two 1280 cells read against 1024 (0 of 8 on both its windows) and 1536
+#    (4 of 8):
+#
+#    TROUGH AT 1024      — both 1280 cells have >= 4 of 8 under 4.0 A. The recovery is complete
+#                          by 1280 and 1024 is an isolated trough, not a slope.
+#    GRADUAL RECOVERY    — both 1280 cells have 2 or 3 of 8. Quality climbs back across
+#                          1024 -> 1536 rather than stepping.
+#    STILL DOWN AT 1280  — both 1280 cells have <= 1 of 8. The dip is wide and the recovery
+#                          happens between 1280 and 1536.
+#    NO CALL             — the two 1280 windows disagree by more than one clause. Report both
+#                          and say the window dominates the size at this extent, which is
+#                          itself the answer to "is the dip a window artefact".
+#
+# WHAT THIS DOES NOT DO. It does not re-open the pre-registered verdict of
+# plans/chain_vs_residues.txt, which is decided and recorded. Clause A can only add a second
+# window to it or flag that it rests on one; it cannot retract it, because a verdict is not
+# retracted by a cell run after it under a rule written after it. If A comes back SHAKEN the
+# honest report is "the clause fired and its cell does not replicate", not "the clause did not
+# fire".

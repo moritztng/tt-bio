@@ -1,0 +1,14 @@
+# BoltzGen designability at 512 and 1536, n=8 per target, full pipeline.
+#
+# Two targets per size, not one. The ceiling row's 4.05 A at 512 against 11.48 A at 1536 is
+# n=1 on two DIFFERENT crops of big_1831 (A1-512 against A1-1008+B1-528), so it confounds
+# size with target identity. Three 512 crops and two 1536 crops give the fixed-size,
+# different-target spread that a size effect has to beat.
+#
+# --budget 8 keeps every generated design in the final set; the scRMSD column comes from the
+# analysis step, which runs before filtering either way.
+--model boltzgen --target-res 1536 --crop-offset 0    --designs 8 --budget 8 --score-dsg --host-threads 2 --timeout 32400 --tag q
+--model boltzgen --target-res 1536 --crop-offset 295  --designs 8 --budget 8 --score-dsg --host-threads 2 --timeout 32400 --tag q
+--model boltzgen --target-res 512  --crop-offset 0    --designs 8 --budget 8 --score-dsg --host-threads 2 --timeout 14400 --tag q
+--model boltzgen --target-res 512  --crop-offset 496  --designs 8 --budget 8 --score-dsg --host-threads 2 --timeout 14400 --tag q
+--model boltzgen --target-res 512  --crop-offset 1319 --designs 8 --budget 8 --score-dsg --host-threads 2 --timeout 14400 --tag q

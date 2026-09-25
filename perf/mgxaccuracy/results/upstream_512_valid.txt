@@ -1,0 +1,63 @@
+# Upstream fp32 CPU, one design at 512 on the VALID contacting-dimer target.
+# Harvested 2026-09-24 06:2xZ from qb2 ~/bgref-work/out512_valid. m=1.
+
+THE NUMBER. designfolding-bb_rmsd (N,CA,C,O, the same metric and the same atom set as every
+device cell in this row) = 11.375 A on the single design. 0 of 1 under 4 A, 0 under 2 A.
+Binder chain identified by residue count: 80 residues, chain A of the refold.
+Other atom sets on the same design: N,CA,C 11.190; CA 11.265. The choice does not move it.
+
+THE FIXTURE IS THE DEVICE'S, BYTE FOR BYTE -- not "coord_sha matched", identical bytes:
+
+  qb2    ~/bgref-work/fx_valid/bgt512.cif                          281240 B
+  whglx  mgxacc-work/fx_boltzgen_512_d8_s400_gpb/bgt512.cif        281240 B
+  sha256 32ef2d958033df62e71b12a3bba31170791027ce1b3f021ec58c8890e312753d  BOTH
+
+and the two design specs are the same text as well (80-residue chain Z + chain A of
+bgt512.cif). Same filename on both hosts, so the plain byte hash is comparable here; the
+gemmi data-block confound that `fixture_id.py` exists for does not arise.
+
+WHERE IT SITS AGAINST THE DEVICE at the same cell (512, crop offset 0, n=8):
+
+  device after-fix          0.693 0.805 1.190 4.527 4.970 6.946 9.115 12.925   median 4.749
+  device after-fix current  0.823 1.419 1.959 2.679 6.583 6.760 11.330 13.493  median 4.631
+  upstream fp32 CPU, m=1                                11.375
+
+Upstream's one draw beats 1 of the 8 device designs on either tree and is worse than 7. It
+lands inside the device's own range both times. Per `upstream_draw_count.txt`, m=1 cannot
+reject at 0.05 in either direction (min one-sided p = 1/C(9,1) = 0.111), so this does not
+establish an ordering. What it does do is remove the direction the row was worried about:
+at 512 on the valid target there is no sign of the device being worse than upstream, and
+upstream's own pipeline returns an 11 A binder here on its one draw.
+
+WHY rc=1 AT THE ANALYSIS STEP IS EXPECTED, NOT A BROKEN REFERENCE.
+
+  REF_VALID_DONE size=512 rc=1 wall_s=5345
+
+The run is `--steps design inverse_folding design_folding analysis`, which deliberately skips
+the whole-complex `folding` step (that is where the CPU hours go and it feeds no metric this
+row reads). Re-running the failed step by hand prints the cause:
+
+  Folded path does not exist. Skipping: .../intermediate_designs_inverse_folded/fold_out_npz/bg512.npz
+  Computed metrics successfully for 0 out of 1.
+  analyze.py:275 in aggregate_metrics -> assert len(sample_ids) > 0  -> AssertionError
+
+So the aggregate CSV is unwritable BY CONSTRUCTION on a 4-step run: analysis wants the
+complex-fold npz we chose not to compute, skips the only sample, then asserts on an empty
+list. The designability number is already fixed at step 4 (`refold_design_cif/`), which is
+what `scrmsd.py` reads and what `scrmsd.py --check` reproduced against the pipeline's own
+column on a run that did reach analysis. Both 1536 references and both `_b` twins will end
+rc=1 the same way. Score them from disk; do not read rc=1 as a failed reference.
+
+STEP TIMINGS (16-core box, load 26.9 with the 1536 draw and other rows on it):
+
+  design            5126.3 s   = 1.42 h     <- all of it
+  inverse_folding      9.3 s
+  design_folding     189.1 s
+  analysis           (asserts, see above)
+  wall              5345   s   = 1.48 h
+
+The doc's earlier "the 512 one took 4.81 h" was the OLD-crop six-step run and is not this
+run's cost. Scaling 1.42 h by the token ratio squared, (1616/592)^2 = 7.5x, predicts ~10.7 h
+for a 1536 design, which agrees with the 10.4 h the old 1536 fixture measured -- so the 1536
+draw now 5 h in is still on track for ~11:20-11:50Z, and the 512 `_b` twin behind it is ~1.5 h
+once it starts.

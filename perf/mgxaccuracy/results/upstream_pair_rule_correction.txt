@@ -1,0 +1,40 @@
+# The pre-registered reading of the upstream 1536 pair is wrong on ONE arrangement.
+# Found and corrected 2026-09-24 12:5xZ, with both draws still computing and no value seen.
+
+WHAT THE RULE SAYS. `results/upstream_draw_count.txt` and `plans/closing_rule.txt` §3:
+
+  - both upstream draws below all 8 device designs -> p = 0.022, upstream is better
+  - anything less than perfect separation          -> p > 0.05, no ordering is readable
+
+The second line is false. 1/C(10,2) = 0.0222 is the FLOOR on p, correctly derived, but the
+next arrangement up is not above 0.05: with m=2 against n=8 the second-most-extreme outcome
+(one device design below one upstream draw, the other seven above both) is 2/45 = 0.0444,
+which still rejects at 0.05. Only the third arrangement, 4/45 = 0.0889, fails.
+
+  arrangement                          U (upstream-below-device)   exact one-sided p
+  both upstream below all 8                    16 of 16                0.0222
+  one device design below one draw             15 of 16                0.0444   <- REJECTS
+  two device designs below                     14 of 16                0.0889
+
+Checked two ways, neither of them the enumeration that produced the error:
+
+  scipy exact (qb2 ~/tt-bio-dev/env), up=[11.4, 20.0] vs the pre-fix cell
+      MannwhitneyuResult(statistic=1.0, pvalue=0.044444444444444446)
+  scipy exact, perfect separation, same cell
+      MannwhitneyuResult(statistic=0.0, pvalue=0.022222222222222223)
+  ref/read_upstream_pair.py's own enumeration over all 45 interleavings agrees on both.
+
+THE CORRECTED RULE, fixed before any number is visible, which is the only moment fixing it
+is legitimate: read the pair by the EXACT one-sided p at the 0.05 level that was
+pre-registered all along, not by the "perfect separation" shorthand. `read_upstream_pair.py`
+computes it and prints the clause each cell lands in.
+
+This moves the boundary in the direction that OPENS an investigation rather than closing the
+row: one extra arrangement now counts as "upstream is better at 1536", which is
+closing_rule clause 3, a port defect to locate. The conservative direction for a port claim
+is the one that makes the port look worse, so taking it costs the row nothing but a possible
+extra pass.
+
+WHAT DOES NOT CHANGE. m=2 is still the minimum useful draw count (m=1 floors at 0.1111), the
+device comparator is still the n=8 cell at 1536/offset 0 on the byte-identical fixture, and
+the "same level" branch still closes the row into `docs/design-throughput.md`.

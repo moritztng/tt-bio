@@ -50,17 +50,145 @@ PY = os.environ.get("LADDER_PY") or sys.executable
 LEASES = pathlib.Path(os.environ.get("TT_BIO_LEASE_DIR", "/tmp/tt-bio-device-leases"))
 HOST = os.uname().nodename
 # app.japanfold.com (24-27) and the tri_mech co-tenant (1), as in perf/mgxdesign/walk.py.
-BLOCKED = {1, 24, 25, 26, 27}
+# 1, 24, 25, 26 and 27 carry the live app.japanfold.com product and a co-tenant. 4 has a hung
+# holder every MGX brief forbids taking; it was absent here, and the other three signals only
+# hide it for as long as that holder's process stays alive -- once it dies the chip reads free.
+BLOCKED = {1, 4, 24, 25, 26, 27}
 CONTENTION = re.compile(r"device contention, nothing ran|is in use by worker:")
 
 
+def pinned_cards() -> set[int]:
+    """Cards a LIVE process on this host has in its TT_VISIBLE_DEVICES.
+
+    The flock is not sufficient on its own. A job whose driver takes the lock and then hands
+    the chip to a `multiprocessing` spawn child leaves the lock free while the child computes:
+    measured 2026-09-23, card 0 read takeable while `worker:mgx-combos` pid 43821 was Running
+    on it with two `tt_bio.main predict` processes pinned to it. Handing that chip out is how
+    two rows land on one chip.
+
+    Reads only what it can; another user's /proc entry is not readable and is not counted, so
+    this narrows the free set and never widens it."""
+    busy: set[int] = set()
+    for pid in os.listdir("/proc"):
+        if not pid.isdigit():
+            continue
+        try:
+            env = pathlib.Path(f"/proc/{pid}/environ").read_bytes()
+        except OSError:
+            continue
+        for kv in env.split(b"\0"):
+            if kv.startswith(b"TT_VISIBLE_DEVICES="):
+                for part in kv.split(b"=", 1)[1].decode(errors="replace").split(","):
+                    part = part.strip()
+                    if part.isdigit():
+                        busy.add(int(part))
+                break
+    return busy
+
+
+def node_of(logical: int) -> int:
+    """j10glx02's logical->device-node map, which is NOT the identity.
+
+    From `state/mgx/CHARTER.md`: logical 0..15 -> nodes 16..31, logical 16..23 -> nodes 8..15,
+    logical 24..31 -> nodes 0..7. Verified on the live box 2026-09-23: the process holding
+    /dev/tenstorrent/7 carries TT_VISIBLE_DEVICES=31."""
+    if logical < 16:
+        return logical + 16
+    if logical < 24:
+        return logical - 8
+    return logical - 24
+
+
+_NODE_TO_LOGICAL = {node_of(c): c for c in range(32)}
+
+
+def open_cards() -> set[int]:
+    """Cards some process holds a device fd on. The only ground truth for "busy right now".
+
+    The lease file is unreliable in BOTH directions and in its holder identity. Measured on
+    j10glx02 2026-09-23: card 31's lease read `"released"` and named `worker:mgx-msa-depth`
+    while `worker:mgx-bigalloc` pid 999269 held /dev/tenstorrent/7 (= logical 31) open; cards
+    14 and 18 read stale while two fds were open on each. Anything deciding occupancy from the
+    lease alone lands on top of whoever is actually computing."""
+    busy: set[int] = set()
+    for pid in os.listdir("/proc"):
+        if not pid.isdigit():
+            continue
+        fdd = f"/proc/{pid}/fd"
+        try:
+            names = os.listdir(fdd)
+        except OSError:
+            continue
+        for f in names:
+            try:
+                tgt = os.readlink(os.path.join(fdd, f))
+            except OSError:
+                continue
+            if tgt.startswith("/dev/tenstorrent/"):
+                n = tgt.rsplit("/", 1)[1]
+                if n.isdigit() and int(n) in _NODE_TO_LOGICAL:
+                    busy.add(_NODE_TO_LOGICAL[int(n)])
+    return busy
+
+
+def _live(pid) -> bool:
+    try:
+        return pathlib.Path(f"/proc/{int(pid)}").is_dir()
+    except (TypeError, ValueError):
+        return False
+
+
+def held_cards() -> set[int]:
+    """Cards whose lease names a holder whose pid is still alive.
+
+    The JSON alone over-reports -- a SIGKILLed holder leaves `"released": null` forever
+    (`perf/mgxdesign/walk.py`) -- so the pid is checked, not just the field."""
+    busy: set[int] = set()
+    for c in range(32):
+        try:
+            rec = json.loads((LEASES / f"{HOST}-card{c}.json").read_text())
+        except Exception:
+            continue
+        if rec.get("released") is None and _live(rec.get("pid")):
+            busy.add(c)
+    return busy
+
+
+def holder_cards(holder: str) -> set[int]:
+    """Chips THIS row is holding right now, across every fan it is running.
+
+    `--max-concurrent` caps one fan. A row's chip budget is not per fan: three fans at 1, 2 and
+    1 sum to 4 against a 3-chip grant, and none of them can see the other two. Counted from the
+    lease dir, which is the only place the fans share state. Same pid check as `held_cards` --
+    a SIGKILLed holder leaves `"released": null` forever and would inflate the count."""
+    held: set[int] = set()
+    for c in range(32):
+        try:
+            rec = json.loads((LEASES / f"{HOST}-card{c}.json").read_text())
+        except Exception:
+            continue
+        if rec.get("holder") == holder and rec.get("released") is None and _live(rec.get("pid")):
+            held.add(c)
+    return held
+
+
 def free_cards() -> list[int]:
-    """Chips whose lease flock can be taken right now. The flock IS the lease; the JSON beside
-    it says `"released": null` forever for a holder that took a SIGKILL."""
+    """Chips no other row is on. Four signals, every one of which is wrong on its own:
+
+      * an open device fd (`open_cards`) -- ground truth for "busy right now", and the only
+        one that catches a chip whose lease was released by one row and taken by another;
+      * a lease naming a live holder (`held_cards`) -- catches a chip legitimately reserved
+        BETWEEN folds, which has no fd open at the moment you look;
+      * a live process with the card pinned (`pinned_cards`) -- catches a holder whose device
+        is closed and whose lease never got written;
+      * the lease flock -- catches a holder that has taken the lock and not yet opened.
+
+    Busy is their union, so the free set is narrowed by each and widened by none."""
     import fcntl
+    busy = open_cards() | pinned_cards() | held_cards()
     out = []
     for c in range(32):
-        if c in BLOCKED:
+        if c in BLOCKED or c in busy:
             continue
         try:
             fd = os.open(str(LEASES / f"{HOST}-card{c}.json"), os.O_RDWR | os.O_CREAT, 0o664)
@@ -112,6 +240,69 @@ class loadwatch:
                 "max": round(s[-1], 1), "n": len(s), "nproc": os.cpu_count()}
 
 
+def preflight(py: str) -> None:
+    """Refuse before taking a chip if `py` cannot import the engine.
+
+    `PY` is whatever interpreter launched this harness, so a fan started with the system
+    python3 hands the engine a python3 with no numpy. Measured 2026-09-23: three jobs took
+    three chips, died 5 s in on `ModuleNotFoundError: No module named 'numpy'`, and were
+    written as FAIL with mechanism `unknown` -- a wasted chip AND a row that reads like a
+    model failure. Checked here rather than in the launcher, because every entry point into
+    this file goes through it."""
+    probe = subprocess.run([py, "-c", "import numpy, torch; import tt_bio.size_limits"],
+                           cwd=str(ROOT), capture_output=True, text=True)
+    if probe.returncode != 0:
+        tail = (probe.stderr or probe.stdout).strip().splitlines()
+        raise SystemExit(
+            f"PREFLIGHT: {py} cannot import the engine, so a job would take a chip and die "
+            f"seconds later as an unclassified FAIL. Set LADDER_PY to the engine's python "
+            f"(on whglx: $HOME/env/bin/python) or run this harness with it.\n  "
+            + ("\n  ".join(tail[-3:]) if tail else "no output"))
+
+
+def job_tag(args) -> str:
+    """The identity of a job's fixture and output directory, in one place.
+
+    The crop offset belongs in it: two 512-residue jobs cut from different places in the same
+    structure are different targets, and sharing an out_dir would make the second read the
+    first's designs."""
+    off = f"_o{args.crop_offset}" if getattr(args, "crop_offset", 0) else ""
+    # `--steps` reaches rfd3 (--num_timesteps) and pxdesign (--n_step) and NOT boltzgen, whose
+    # sampling count is the checkpoint's own 500. Stamping s400 on a boltzgen directory named
+    # a setting that run never had, and the whole point of these numbers is that the device
+    # does the same work as upstream -- `out_boltzgen_512_d8_s400_gpb` reads like 400 sampling
+    # steps against the reference's 500. It was not: both configs say sampling_steps 500,
+    # checked on disk. Boltzgen is labelled by the pipeline steps it was actually given.
+    if args.model == "boltzgen":
+        step = f"_bg{getattr(args, 'bg_steps', '') or 'all'}"
+    else:
+        step = f"_s{args.steps}"
+    return f"{args.model}_{args.target_res}{off}_d{args.designs}{step}{args.tag}"
+
+
+def designability(out_dir: pathlib.Path) -> dict | None:
+    """scRMSD for every design in a finished boltzgen run, from the pipeline's own analysis
+    table. `scripts/boltzgen_designability.py` owns the harvest and the bars; this calls it."""
+    sys.path.insert(0, str(ROOT / "scripts"))
+    try:
+        from boltzgen_designability import score  # noqa: E402
+    except Exception as e:
+        return {"error": f"import: {e}"}
+    try:
+        res = score(out_dir, 2.0)
+    except SystemExit as e:
+        return {"error": str(e)}
+    except Exception as e:
+        return {"error": f"{type(e).__name__}: {e}"}
+    # pandas hands back numpy scalars, and json.dumps refuses an int64. A row that cannot be
+    # serialised takes the whole job's result with it, hours after the device work finished.
+    return {k: float(res[k]) if isinstance(res[k], float) else int(res[k])
+            for k in ("n", "min", "median", "max", "pass_strict", "pass_permissive")
+            } | {"column": res["column"],
+                 "scrmsd": [round(float(r["scrmsd"]), 3) for r in res["rows"]],
+                 "len": [int(r["len"]) if r["len"] is not None else None for r in res["rows"]]}
+
+
 def count_designs(model: str, out_dir: pathlib.Path) -> tuple[int, list[dict]]:
     """Designs actually on disk, and their per-design metrics. Counted, never assumed."""
     if not out_dir.is_dir():
@@ -145,7 +336,7 @@ def count_designs(model: str, out_dir: pathlib.Path) -> tuple[int, list[dict]]:
 def run_job(args) -> dict:
     work = pathlib.Path(args.work).expanduser()
     work.mkdir(parents=True, exist_ok=True)
-    tag = f"{args.model}_{args.target_res}_d{args.designs}_s{args.steps}{args.tag}"
+    tag = job_tag(args)
     out_dir = work / f"out_{tag}"
     subprocess.run(["rm", "-rf", str(out_dir)], check=False)
     # Fixtures go in a per-job directory, not the shared work root. Four identical jobs
@@ -175,11 +366,12 @@ def run_job(args) -> dict:
                       "--out_dir", str(out_dir), "--num_timesteps", str(args.steps),
                       "--num_designs", str(args.designs), "--batch_size", str(args.batch_size)]
     elif args.model == "pxdesign":
-        fx = pxdesign_fixture(fxdir, args.target_res, target, args.binder)
+        fx = pxdesign_fixture(fxdir, args.target_res, target, args.binder, args.crop_offset)
         cmd = base + ["design", str(fx), "--model", "pxdesign", "--out_dir", str(out_dir),
                       "--n_step", str(args.steps), "--num_designs", str(args.designs)]
     elif args.model == "boltzgen":
-        fx, atoms, tres = boltzgen_fixture(fxdir, args.target_res, target, args.binder)
+        fx, atoms, tres = boltzgen_fixture(fxdir, args.target_res, target, args.binder,
+                                           args.crop_offset)
         cmd = base + ["design", str(fx), "--model", "boltzgen", "--out_dir", str(out_dir),
                       "--num_designs", str(args.designs), "--debug"]
         if args.bg_steps:
@@ -232,11 +424,27 @@ def run_job(args) -> dict:
            "aiclk": clk.summary().get(0), "load": ld.summary(),
            "host_threads": args.host_threads, "batch_size": args.batch_size,
            "cmd": " ".join(cmd[3:]), "tag": args.tag.lstrip("_") or None,
+           "crop_offset": args.crop_offset,
+           # The SOURCE target, not the generated fixture. Two rows at the same size and offset
+           # from different structures are different binding problems, and a report that keys
+           # only on (size, offset) pools them -- which is the exact confound this row exists to
+           # separate. cmd carries the fixture YAML, which does not name the structure.
+           "target": str(target),
            "ts": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()), **extra}
 
     rts = [r["runtime_s"] for r in rows if isinstance(r.get("runtime_s"), (int, float))]
     if rts:
         rec["runtime_s"] = round(max(rts), 1)
+    # pxdesign's own end-to-end correctness signal, and the one scripts/release_gate.py gates
+    # at 15 A. A throughput harness that records seconds and not this reads a job that returned
+    # eight undocked binders as a clean eight-design row (measured: 95.18 A at a 1536-residue
+    # two-body target, 0.0765 A at 512).
+    fits = sorted(r["fit_rmsd"] for r in rows
+                  if isinstance(r.get("fit_rmsd"), (int, float)))
+    if fits:
+        rec["fit_rmsd"] = {"n": len(fits), "min": round(fits[0], 4),
+                           "median": round(fits[len(fits) // 2], 4),
+                           "max": round(fits[-1], 4)}
     if rows and "ranked" in rows[0]:
         rec["ranked"] = rows[0]["ranked"]
 
@@ -252,6 +460,8 @@ def run_job(args) -> dict:
         rec["verdict"] = "FAIL"
         rec["mechanism"] = "timeout" if ended == "TIMEOUT" else classify(blob)
         rec.update(dram_numbers(blob))
+    if args.score_dsg:
+        rec["dsg"] = designability(out_dir)
     if rec["verdict"] != "PASS":
         rec["diag"] = diagnosis(blob)
     if n_written:
@@ -284,6 +494,12 @@ def main():
     ap.add_argument("--timeout", type=int, default=10800)
     ap.add_argument("--host-threads", type=int, default=0)
     ap.add_argument("--tag", default="")
+    ap.add_argument("--crop-offset", type=int, default=0,
+                    help="residues to skip before the crop starts, so two jobs at one "
+                         "size run against two different targets")
+    ap.add_argument("--score-dsg", action="store_true",
+                    help="boltzgen: harvest per-design scRMSD from the run's own "
+                         "analysis table into the row")
     ap.add_argument("--rescore", action="store_true",
                     help="re-derive the row from artifacts on disk; no device")
     ap.add_argument("--rescore-wall", type=float, default=0.0,
@@ -299,7 +515,7 @@ def main():
         # denominator was not. A row whose count changes has to be re-emitted from the
         # artifacts rather than edited in place.
         work = pathlib.Path(args.work).expanduser()
-        tag = f"{args.model}_{args.target_res}_d{args.designs}_s{args.steps}{args.tag}"
+        tag = job_tag(args)
         out_dir = work / f"out_{tag}"
         n, rows = count_designs(args.model, out_dir)
         rec = {"model": args.model, "target_res": args.target_res, "asked": args.designs,
@@ -320,6 +536,7 @@ def main():
         print(json.dumps(rec, indent=2))
         return
 
+    preflight(PY)
     if args.card == "auto":
         free = free_cards()
         if not free:

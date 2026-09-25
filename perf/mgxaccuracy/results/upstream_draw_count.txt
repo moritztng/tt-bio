@@ -1,0 +1,51 @@
+# How many upstream draws the open question needs, and why one is not enough.
+# 2026-09-24 05:3xZ. Arithmetic from perf/mgxaccuracy/min_p.py, cross-checked against
+# scipy's exact Mann-Whitney.
+
+THE MISREADING THIS CORRECTS. Both upstream references were launched as `run_valid.sh <size> 6`
+and this row's own notes read the 6 as a design count. It is the THREAD count: the script
+passes `--num_designs 1 --budget 1`. Each reference is ONE design. Two of them are not a size
+trend, and `WHAT THE NEXT PASS DOES` step 3 asked for exactly that.
+
+WHAT ONE DRAW CAN DECIDE. The device cells in this row are n=8. Under the null that upstream
+and the device draw from one distribution, every interleaving of the m+n values is equally
+likely, so the most extreme outcome -- all m upstream designs better than all 8 device designs
+-- carries probability 1/C(m+n, m). No effect size, however large, gives a smaller p. This is
+a property of the sample sizes alone, so it is computable before the data lands:
+
+      m   C(m+8,m)   min one-sided p   rejects at 0.05?
+      1          9            0.1111   NO
+      2         45            0.0222   YES
+      3        165            0.0061   YES
+      4        495            0.0020   YES
+
+  scipy exact, m=1, perfect separation: U=0 p=0.1111
+  scipy exact, m=2, perfect separation: U=0 p=0.0222
+
+So the 1536 reference now running CANNOT, on its own, reject "same distribution" at 0.05 even
+if it comes back perfectly designable. m=2 is the minimum that can, and it is the minimum this
+row can afford: one 1536 draw costs 10.4 h of a 16-core box that is already at load 15.7.
+
+WHAT THE 3.87 A "SPREAD" ACTUALLY MEASURES. `results/reference_512.txt` records upstream's two
+512 readings, 7.16724 and 11.04058, as a run-to-run spread. They are the SAME DESIGN refolded
+twice (the six-step run's own analysis column, and a step-4-only re-run over that design). So
+3.87 A bounds the REFOLD instrument, not upstream's design-to-design variation, which is still
+unmeasured at either size. The m=2 pairs queued below give the first reading of it.
+
+WHAT IS QUEUED. `ref/chain2.sh`, armed 05:35:49Z on qb2, detached. Each second draw starts only
+when its predecessor frees its cores, so qb2's load stays where it is rather than growing:
+
+  slot-A  waits on pid 2686315 (out512_valid)  -> out1536_valid_b   second draw at 1536
+  slot-B  waits on pid 2095333 (out1536_valid) -> out512_valid_b    second draw at 512
+
+`ref/run_valid_b.sh` differs from `run_valid.sh` in two lines, both the output path. Nothing
+sets a seed, and this pipeline is not reproducible run to run, so the pairs are independent
+draws. These are qb2 jobs; the whglx quiet window does not reach them.
+
+HOW TO READ THE RESULT, WRITTEN BEFORE IT LANDS. With m=2 per size against the device's n=8:
+  - both upstream draws below all 8 device designs  -> p=0.022, upstream is better at that
+    size, and at 1536 that is a port defect to locate.
+  - anything less than perfect separation           -> p>0.05, no ordering is readable, and
+    the honest line is that upstream is at the same level, as it already is at 512.
+  - either upstream draw at or under the 4 A bar while the device is 0-for-8 there is worth
+    reporting as a bar crossing, but it is the same 1/9 = 0.111 by Fisher and rejects nothing.

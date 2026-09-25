@@ -1,0 +1,171 @@
+CHAIN COUNT CO-VARIES WITH SIZE IN EVERY GroEL CELL THIS ROW HAS MEASURED
+==========================================================================
+
+2026-09-24 19:1xZ. Found by reading the CA chain composition of the six banked GroEL fixtures
+and the two 768 fixtures now running, on whglx, off the files the jobs actually used. Nothing
+here is a new fold; it is a census of inputs that were already on disk.
+
+  cell            chains in the crop (CA count)        full chains   scRMSD median   <=4 A
+  512 / off   0   A 512                                    1            0.852        62.5%
+  512 / off 560   B 488, C 24                              1 + stub     1.739        87.5%
+  768 / off   0   A 524, B 244                             1 + 244      running
+  768 / off 560   B 488, C 280                             1 + 280      running
+ 1024 / off   0   A 524, B 500                             2            8.718         0%
+ 1024 / off 560   B 488, C 524, D 12                       2 + stub    14.457         0%
+ 1536 / off   0   A 524, B 524, C 488                      3           15.606         0%
+ 1536 / off 560   B 488, C 524, D 524                      3           14.387         0%
+
+GroEL's chains are ~524 residues, so ANY crop of this target above ~524 residues necessarily
+adds a second chain. The size ladder and the chain count are therefore not separable on this
+target, and the separation is perfect: the only two cells without a genuine second chain are
+the only two cells that refold.
+
+THE ROW HAS ALREADY SEPARATED THEM ONCE, ON THE OTHER TARGET, AND THE CARRIER WAS THE CHAIN
+-------------------------------------------------------------------------------------------
+
+`results/gpb_supporting.txt`, banked before this pass: 1GPB's chains are ~1008 residues, long
+enough to hold a big single-chain crop, and the 512 -> 1536 size effect decomposes into
+
+    +3.33 A   for 823 residues of ONE chain          does not reject
+   +14.77 A   for adding chain B at the same crop    rejects
+
+So on the target where the two CAN be separated, adding a chain carried the effect and stretching
+one chain to 823 residues did not. That is one target and one decomposition, and "does not
+reject" at n=8 is not "is zero" — but it points the opposite way from a residue-count rule.
+
+WHAT THIS CHANGES AND WHAT IT DOES NOT
+---------------------------------------
+
+DOES NOT CHANGE: every number in QUALITY. The cells are what they are and the ladder still says
+a user who crops GroEL to 512 gets designs that refold and one who crops to 1024 or 1536 does
+not. The practical instruction is unaffected for anyone cropping GroEL.
+
+DOES CHANGE what the instruction is ABOUT. "Crop to about 512 residues" is a residue-count rule
+read off a ladder that cannot distinguish residue count from chain count, and the one experiment
+that did distinguish them chose the chain. A user with a 700-residue SINGLE-CHAIN target is told
+by the residue rule to crop away 200 residues, on no evidence that applies to their case, while
+a user with two 300-residue chains is told they are fine when the chain rule would warn them.
+
+WHAT THE 768 RUNG DOES AND DOES NOT SETTLE. Both 768 crops carry a second partial chain (244 and
+280 residues), so 768 adds residues AND chain content over 512 and cannot separate them either.
+It remains a valid CEILING measurement, which is what `plans/groel_768.txt` claims for it, and
+it is not a test of this confound. Do not read it as one.
+
+THE CONTROL THAT WOULD SETTLE IT CANNOT BE BUILT ON EITHER TARGET THIS ROW HAS.
+
+Corrected within this pass, after writing the paragraph above and then checking the noun rather
+than the number. The obvious control -- a bigger single-chain rung on 1GPB -- does not exist:
+`results/size_within_one_chain.txt` states that chain A of the 1GPB dimer IS 823 residues, so
+the 823 cell is already ALL of it and there is no 1000-residue single-chain 1GPB crop to run.
+GroEL's chains are ~524. Neither target has a chain long enough to put a single-chain cell at
+1024 or 1536, which is why `size_within_one_chain.txt` says in its own words that isolating the
+interface "would need a >=1536-residue single chain, which this protein does not have".
+
+So the control needs a THIRD target: one protein with a single chain of 1024-1536 residues,
+cropped at 512 / 1024 / 1536 with the same 80-residue binder and the same n=8, which holds chain
+count at one across the whole ladder. That is a new target with its own fixture work, not
+another rung on an existing one. Not launched this pass, and not something the 768 rung or the
+qb2 reference pair can substitute for.
+
+WHAT WAS ALREADY KNOWN AND WHAT IS NEW. `results/size_within_one_chain.txt` identified this
+confound on 1GPB and measured the decomposition; its first line is "ADDING 311 RESIDUES WITHIN
+ONE CHAIN DOES NOT MEASURABLY HURT. ADDING A SECOND CHAIN DOES." What is new here is that the
+same confound is perfect on GROEL, the target the row's verdict rests on and whose fixtures
+nobody had censused, and that the row's user-facing instruction and VERDICT were still worded
+as a residue rule while the only decomposition available pointed at the chain.
+
+
+THE SAME CENSUS ON 1GPB: THE CONFOUND IS COMPLETE ON BOTH TARGETS
+------------------------------------------------------------------
+
+Run after the GroEL census, on every 1GPB fixture on whglx, for the same reason: the row had
+been reasoning about 1GPB's chain structure from one results file's prose rather than from the
+files the jobs used.
+
+  512-residue cells (all of them, including every catcher)   A 512                  1 chain
+  1536 / offset   0  (fixed, onetree, s400_gpb)              A 823, B 713           2 chains
+  1536 / offset 100  (gpbo100, o100r2)                       A 723, B 813           2 chains
+  1536 / s400_q  (the WITHDRAWN disconnected fixture)        A 1008, B 528          2 chains
+
+So on 1GPB too, every 512 cell is a single chain and every 1536 cell is two. Put beside the
+GroEL table above, this is the row's whole size axis:
+
+  EVERY cell measured at 512 is one chain, or one chain plus a stub of 24 residues.
+  EVERY cell measured at 1024 or 1536 has a genuine second chain, and some have a third.
+  EVERY cell in the first group refolds. NO cell in the second group has produced a single
+  design under the 4 A bar, on either target.
+
+The one point anywhere in the row that separates residue count from chain count is the
+823-residue single-chain 1GPB cell, and it moved the median 4.631 -> 7.962 A without rejecting
+at n=8 while the chain move at the same crop cost 14.77 A and did reject. One point is one
+point. But the row does not have a second, and the size axis it has published is, on the
+evidence of the fixtures themselves, a chain-count axis.
+
+
+THE GROUPING, AND WHY IT IS NOT EXTRA EVIDENCE
+-----------------------------------------------
+
+Counting only chain fragments of >= 100 residues (so GroEL's 24- and 12-residue stubs do not
+count as chains), the six banked GroEL medians group without overlap:
+
+    1 chain    0.852   1.739     <- 5 of 8 and 7 of 8 under 4 A
+    2 chains   8.718  14.457     <- 0 of 8
+    3 chains  15.606  14.387     <- 0 of 8
+
+and the 1 -> 2 step is far larger than the 2 -> 3 step. That is a tidy picture and it is NOT
+additional evidence for anything. Size and chain count are perfectly confounded in these six
+cells, so every monotone function of size orders them exactly the same way; this table is the
+same numbers already in `results/groel_2x2_result.txt` and `results/groel_1024_result.txt`,
+re-sorted. It is written down because it makes the prediction the FAS control has to beat
+concrete -- if chain count is the carrier, FAS at 1536 on one chain should sit with the top row
+and not the bottom one -- and for no other reason.
+
+THE CONTROL'S VALIDITY CONDITION, CHECKED ON THE FIXTURES THE JOBS ARE ACTUALLY USING
+--------------------------------------------------------------------------------------
+
+2026-09-24 20:0xZ, eleven minutes into the FAS run. The point of this control is that chain
+count is held at ONE across the whole ladder, and that is a property of the three fixtures
+`job.py` built, not of the source target. Censused the same way every other fixture in this
+row was:
+
+    fx_boltzgen_512_d8_bgall_fas512o0/bgt512.cif      512 CA   {'A': 512}
+    fx_boltzgen_1024_d8_bgall_fas1024o0/bgt1024.cif  1024 CA   {'A': 1024}
+    fx_boltzgen_768_d8_bgall_fas768o0/bgt768.cif      768 CA   {'A': 768}
+    fx_boltzgen_1536_d8_bgall_fas1536o0/bgt1536.cif  1536 CA   {'A': 1536}
+
+One chain at every rung, including 768 and 1536, which are the cells no other target in this
+row can produce. The 768 one is the confound's most directly comparable cell: GroEL collapsed
+at exactly that residue count with a second chain in the crop. Every GroEL and 1GPB cell at 1024 or 1536 has two or three chains; these have one.
+So whatever the FAS ladder reads, the residue axis is the only thing moving along it.
+
+THE WITHIN-TARGET CHAIN TEST IS NOT BUILDABLE WITH A CONTIGUOUS CROP, AND WAS NOT LAUNCHED
+---------------------------------------------------------------------------------------------
+
+2026-09-24 21:3xZ, with two cards free and 15 minutes of pass left, the obvious next experiment
+was a TWO-chain 768 crop of the SAME protein: FAS single-chain 768 against FAS two-chain 768
+holds target, size and binder fixed and moves only chain count, which is the clean test this
+whole file is about. It was built, checked, and NOT launched, because it does not pass the
+row's own validity criterion.
+
+`fas_dimer_3966.cif` (chains A+B of 2VZ8) is a real complex: min inter-chain atom distance
+2.31 A, 25,539 inter-chain edges under 22 A, ONE connected component over all 3966 residues,
+Rg 61.6 A. The whole assembly is fine. The 768-residue CROPS are not:
+
+    offset 1500   A 462, B 306    2 components [462, 306]    Rg 48.2 A
+    offset 1600   A 362, B 406    2 components [406, 362]    Rg 48.3 A
+    offset 1700   A 262, B 506    2 components [506, 262]    Rg 49.7 A
+
+Every contiguous window across the sequence boundary is DISCONNECTED under the 2-22 A graph.
+The A/B interface of this dimer is not at the sequence boundary, so a contiguous crop that
+contains residues from both chains does not contain the contact between them. A disconnected
+conditioning graph is what disqualified `perf/bhdesign/targets/big_1831.cif` and what got this
+row's first 1536 reference answer WITHDRAWN
+(`results/upstream_reference_wrong_fixture.txt`); running one here would have manufactured
+exactly the artefact the row already paid for once.
+
+WHAT WOULD BE NEEDED: a crop selected by interface proximity rather than by a contiguous
+`--crop-offset` window, which is a fixture construction neither `job.py` nor
+`make_contact_target.py` currently does. That is a real piece of work, not a rung, and it
+should be scoped rather than improvised. Until it exists, the chain-vs-residues question is
+answered only by the single-chain FAS ladder, where a 1536 cell is still the pre-registered
+decision.

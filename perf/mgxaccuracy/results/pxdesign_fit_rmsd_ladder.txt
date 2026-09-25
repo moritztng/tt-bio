@@ -1,0 +1,17 @@
+out_dir                                        cond_tok n_token    n        min     median        max
+out_pxdesign_256_d16_s400_batch256             [256]    [336]     16     0.1188     0.1561     0.2006
+out_pxdesign_256_d1_s400_batch256              [256]    [336]      1     0.1250     0.1250     0.1250
+out_pxdesign_256_d2_s20_smoke                  [256]    [336]      2    24.9938    31.2652    37.5366
+out_pxdesign_256_d8_s400_batch256              [256]    [336]      8     0.1325     0.1603     0.2006
+out_pxdesign_512_d16_s400_batch                [512]    [592]     16     0.0674     0.0753     0.0847
+out_pxdesign_512_d1_s400_prod                  [512]    [592]      1     0.0753     0.0753     0.0753
+out_pxdesign_512_d32_s400_batch                [512]    [592]     32     0.0668     0.0755     0.0870
+out_pxdesign_512_d4_s400_batch                 [512]    [592]      4     0.0681     0.0758     0.0769
+out_pxdesign_512_d8_s400_fan4a                 [512]    [592]      8     0.0681     0.0765     0.0821
+out_pxdesign_512_d8_s400_fan4b                 [512]    [592]      8     0.0681     0.0765     0.0821
+out_pxdesign_512_d8_s400_fan4c                 [512]    [592]      8     0.0681     0.0765     0.0821
+out_pxdesign_512_d8_s400_fan4d                 [512]    [592]      8     0.0681     0.0765     0.0821
+out_pxdesign_512_d8_s400_prod                  [512]    [592]      8     0.0681     0.0765     0.0821
+out_pxdesign_824_d8_s400_platformmax           [824]    [1024]     8     0.3196     0.4517     0.5463
+out_pxdesign_960_d4_s200_platform              [960]    [1024]     4     0.1136     0.1251     0.1340
+out_pxdesign_1536_d8_s400_ceilscale            [1536]   [1616]     8    93.0611    95.1829    96.4947

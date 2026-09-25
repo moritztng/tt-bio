@@ -1,0 +1,26 @@
+# CATCHER for 6ea518246, owed to the orchestrator note of 2026-09-24 03:0xZ.
+#
+#   wk/mgx-trace-region    trace regions from one table; touches boltz2.py, boltzgen boltz.py,
+#                          protenix.py, tenstorrent.py, and deletes rfd3 trace code
+#   wk/mgx-affinity-scale  trimul K block narrows only from Kt 80 on WH, nesso1 1D-mask, parse.py salts
+#   6ea518246              size_limits caps only, on top of 5c71b6833
+#
+# Both merges should be inert below 2560 tokens with no trace flag. The two entries here are
+# the same cases as every previous catcher, so each is a before/after on one banked number:
+#
+#   pxdesign 1224 tokens   fit_rmsd 0.1446/0.158/0.158 -- unchanged to 4 dp across 720b43a5d,
+#                          1f338604e and 811ac1316, so a move here is a real finding
+#   boltzgen  512 + 80     n=2 is sampling on this case (the last two catchers drew
+#                          12.117/13.912 and 2.131/0.552 from one distribution), so it reports
+#                          rc, wall, DURING AICLK and the values against the banked n=8 band
+#                          0.693-12.925; only the exit code and a wild excursion are readable
+#
+# The third owed entry, the rfd3 eager digest, is NOT here: job.py cannot express it. It needs
+# `--seed 0 --num_timesteps 20` on examples/rfd3_binder.json, and the check is a file hash
+# rather than a metric. It runs via perf/mgx_trace_region/chain.py, which already does lease
+# acquisition and sha256[:16] of the outputs, with plans/rfd3_digest_catcher.txt.
+#
+# --max-concurrent 1: this row holds cards 23 and 3 for the last 2x2 cell and the third 512
+# crop, so one chip is free and the entries run one after the other.
+--model pxdesign --target perf/mgxaccuracy/targets/gpb_dimer_1646.cif --target-res 1024 --binder 200 --designs 2 --steps 400 --host-threads 2 --timeout 10800 --tag tr_catcher
+--model boltzgen --target perf/mgxaccuracy/targets/gpb_dimer_1646.cif --target-res 512 --designs 2 --budget 2 --score-dsg --host-threads 2 --timeout 14400 --tag tr_catcher

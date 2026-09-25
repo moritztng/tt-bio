@@ -1,0 +1,32 @@
+# pxdesign's SIZE LADDER, and the one point in it that is a different configuration.
+#
+# All three rungs are on the VALID target (gpb_dimer_1646), device, n=8, pxdesign's own
+# fit_rmsd. Checked against results/valid_target.jsonl rather than quoted from memory.
+#
+#   target res   binder   tokens   n   min      median    max
+#         512       80      592    8   0.1069   0.1128   0.1456
+#        1024      200     1224    8   0.1313   0.1423   0.1668
+#        1536       80     1616    8   0.1589   0.1747   0.1939
+#
+# THE CLEAN SIZE COMPARISON IS THE FIRST AND LAST ROW: binder held at 80, target 512 -> 1536,
+# fit_rmsd 0.1128 -> 0.1747 = **1.55x**. Both still ~86x under pxdesign's own 15 A gate.
+#
+# THE MIDDLE ROW IS NOT A RUNG OF THAT LADDER. It uses a 200-residue binder, not 80, because
+# it is the 1224-token PRODUCTION case the catchers track (1024 target + 200 binder, chains
+# A1-823 + B1-201, verified in the fixture). A longer binder is a harder design independently
+# of target size, so putting all three in one column and calling the result a size trend mixes
+# two variables. It sits between the other two numerically; that is a coincidence of this
+# dataset, not evidence about size.
+#
+# An earlier version of the state doc wrote all three as "a resolved 1.55x trend". The 1.55x
+# is right and comes from the first and last rows alone; the three-point framing was wrong.
+#
+# CONVENTION CHECK. pxdesign labels sizes by TARGET residues, like boltzgen and unlike rfd3
+# (which labels by TOTAL tokens -- results/rfd3_has_no_designability.txt). Read off the
+# fixture: `crop A1-823 + B1-201` with `binder_length: 200` for the rung called 1024. So
+# pxdesign rungs may be compared with boltzgen rungs of the same name; rfd3 rungs may not.
+#
+# NOT on the valid target: results/pxdesign_fit_rmsd_ladder.txt is the older ladder on other
+# fixtures, including 95.18 A at 1616 tokens on the DISCONNECTED rung. That 95 A number is
+# real and is what a disqualified fixture does to a distogram-conditioned designer; it is not
+# a valid-target measurement and must not be set beside the rows above.

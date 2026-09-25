@@ -1,0 +1,38 @@
+# THE TOKEN-DISTANCE FIX IS NOT THE 1536 QUALITY LOSS. It moved the median 2.12 A and the
+# two cells are not distinguishable.
+#
+# cc908c377 corrects TokenDistanceRecycle, which injects the TARGET's token distances into the
+# pair representation: the old code returned twice the pairformer's output where the reference
+# takes its input plus the update. Both shipped checkpoints carry use_token_distances=True.
+# That is an error whose size plausibly grows with token count, which is why this row named it
+# as the first candidate for a 1536-specific loss and ran the same fixture on both engines.
+#
+#   1536 offset 0, gpb dimer + 80 binder, n=8 per side, identical fixture
+#
+#   engine      n    min     median     max    <=2A  <=4A
+#   PRE-fix     8  19.311   21.516   22.478    0%    0%
+#   AFTER-fix   8   6.650   19.398   22.924    0%    0%
+#                           shift -2.12 A
+#
+#   Mann-Whitney does NOT reject: U = 44 of 64 (32 is no difference).
+#
+# So the fix helps by about 2 A at this size and does not rescue it. Zero of eight designs
+# clear the 4 A permissive bar either way, and the row's headline is unchanged: a 1536-residue
+# BoltzGen design returned today still does not refold to its own backbone.
+#
+# READ THE MIN COLUMN, IT IS THE ONE THING THAT MOVED. The after-fix cell contains a 6.65 A
+# design where the pre-fix cell's best was 19.31 A. One design out of eight is not a result at
+# this spread -- the n=8 median moves 0.117 A run to run but a single draw spans 0.7 to 13.5 A
+# on the 512 cell (results/engine_delta_is_inert.txt) -- but it is the only hint that the fix
+# does anything at 1536, and a second after-fix cell would say whether it is real.
+#
+# WHAT THIS LEAVES. The brief's step 3 named the token-distance path first and it is now
+# refuted as the explanation. The remaining suspects, in the brief's own order, each testable
+# on this same fixture: the row-blocked and refused-upload paths (row_block_after_refusal,
+# bigalloc), narrow-q (92980e0a1), any bf16 accumulation over the token axis. But note that
+# the across-target floor makes "the 1536 loss" the wrong noun to hunt: at a FIXED 512
+# residues two crops differ by 13.04 A, so what needs explaining may be crop difficulty rather
+# than anything size-specific in the port.
+#
+# Reproduce: plans/postmerge_720b43a5d.txt entry 3, against the pre-fix cell in
+# results/size_1536.jsonl (side device, target gpb_dimer_1646, no engine key = pre-fix).

@@ -1,0 +1,12 @@
+# The rfd3 half of the 6ea518246 catcher: reproduce the eager digest exactly.
+#
+# wk/mgx-trace-region deleted rfd3's trace code, so the orchestrator asked for one rfd3 design
+# whose output equals the eager digest that row measured. Its own census recorded 7ab57052 in
+# 3 of 3 runs (perf/mgx_trace_region/CENSUS.md), and the runs.jsonl rows give the exact
+# invocation, which is reproduced verbatim below -- same input, same seed, same timesteps.
+# Anything else is a different measurement wearing the same name.
+#
+# Expected: outputs["o/gate-binder.cif"] == 7ab5705258251e10, which is
+# sha256(file bytes).hexdigest()[:16] (chain.py line ~139). A moved digest is a finding and
+# bisects across trace-region and affinity-scale.
+rfd3_eager_catcher design examples/rfd3_binder.json --model rfd3 --from_pdb --num_designs 1 --seed 0 --num_timesteps 20 --out_dir {out}/o

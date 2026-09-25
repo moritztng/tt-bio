@@ -170,8 +170,13 @@ def rfd3_fixture(work: pathlib.Path, total: int, binder: int, target: pathlib.Pa
 
 
 def pxdesign_fixture(work: pathlib.Path, target_res: int, target: pathlib.Path,
-                     binder: int = 80) -> pathlib.Path:
+                     binder: int = 80, offset: int = 0) -> pathlib.Path:
     """Condition on `target_res` residues of `target`, spilling into later chains as needed.
+
+    `offset` shifts the crop within the first chain, which also moves the hotspots, so two
+    rungs at one size condition on two different epitopes. Without it the hotspot sits at the
+    midpoint of whatever the crop happens to be, and a size ladder silently walks the epitope
+    along with the size.
 
     Cropping chain A alone caps the axis at chain A's length, and pxdesign does not complain:
     a `crop: ["1-1831"]` against a 1008-residue chain A conditions on 1008 and writes a
@@ -180,52 +185,95 @@ def pxdesign_fixture(work: pathlib.Path, target_res: int, target: pathlib.Path,
     """
     chains = cif_chains(target)
     total = sum(chains.values())
-    if target_res > total:
+    if target_res + offset > total:
         raise SystemExit(f"pxdesign_fixture: {target} carries {total} residues, "
-                         f"cannot condition on {target_res}")
-    take, left = {}, target_res
+                         f"cannot condition on {target_res} from offset {offset}")
+    take, left, skip = {}, target_res, offset
     for cid in sorted(chains):
         if left <= 0:
             break
-        take[cid] = min(chains[cid], left)
-        left -= take[cid]
+        avail = chains[cid]
+        start = 1
+        if skip:
+            drop = min(skip, avail)
+            skip -= drop
+            avail -= drop
+            start += drop
+            if not avail:
+                continue
+        n = min(avail, left)
+        take[cid] = (start, start + n - 1)
+        left -= n
     hot_chain = next(iter(take))
-    h = take[hot_chain] // 2
+    lo, hi = take[hot_chain]
+    h = lo - 1 + (hi - lo + 1) // 2      # the crop's midpoint, as before offset existed
     lines = ["target:", f'  file: "{target}"', "  chains:"]
-    for cid, n in take.items():
-        lines += [f"    {cid}:", f'      crop: ["1-{n}"]']
+    for cid, (lo_, hi_) in take.items():
+        lines += [f"    {cid}:", f'      crop: ["{lo_}-{hi_}"]']
         if cid == hot_chain:
             lines.append(f"      hotspots: [{h}, {h + 1}, {h + 2}]")
     lines.append(f"binder_length: {binder}")
-    p = work / f"px{target_res}.yaml"
+    p = work / ("px" + f"{target_res}" + (f"o{offset}" if offset else "") + ".yaml")
     p.write_text("\n".join(lines) + "\n")
     return p
 
 
-def crop_cif(src: pathlib.Path, n_res: int, dst: pathlib.Path) -> tuple[int, int]:
-    """Write the first `n_res` residues of `src` to `dst`. Returns (residues, atoms).
+def crop_cif(src: pathlib.Path, n_res: int, dst: pathlib.Path,
+             offset: int = 0) -> tuple[int, int]:
+    """Write `n_res` residues of `src` to `dst`, starting `offset` residues in.
 
     The atom axis is walked by cropping a REAL structure, never by generating one: a synthetic
     backbone carries ~4 atoms per residue where a deposited one carries ~8, so a ladder built on
     a generated target would report an atom ceiling about twice the one the model really reaches.
+
+    `offset` exists because a SIZE ladder built on one target confounds size with target
+    identity: the first 512 residues of a structure and its first 1536 are two different
+    binding problems, not one problem at two sizes. Cropping the same size at several offsets
+    gives the fixed-size, different-target spread a size effect has to beat.
     """
     cols, rows = cif_atoms(src)
     ch = _col(cols, "label_asym_id", "auth_asym_id")
     sq = _col(cols, "label_seq_id", "auth_seq_id")
-    keep, seen = [], {}
+    keep, seen, skipped = [], {}, {}
     for r in rows:
         key = (r[ch], r[sq])
-        if key not in seen:
-            if len(seen) >= n_res:
+        if key not in seen and key not in skipped:
+            if len(skipped) < offset:
+                skipped[key] = True
+            elif len(seen) >= n_res:
                 break
-            seen[key] = True
-        keep.append(r)
+            else:
+                seen[key] = True
+        if key in seen:
+            keep.append(r)
+    # At offset 0 a short crop is the ladder's own way of walking past the target's length
+    # (3662 on an 1831-residue file returns 1831). Past an offset it is a silent relabelling
+    # of a different rung, so it raises.
+    if offset and len(seen) < n_res:
+        raise SystemExit(f"crop_cif: {src} carries {len(skipped) + len(seen)} residues, "
+                         f"cannot take {n_res} starting at {offset}")
+    # BoltzGen's parse_polymer walks entity_poly_seq POSITIONALLY -- it matches on
+    # `j == polymer[i].label_seq`, where j is the 1-based index into full_sequence -- so a
+    # chain whose label_seq does not start at 1 makes position and number disagree, and the
+    # parser asserts on the first residue it believes it matched. At offset 0 the two agree by
+    # luck, which is exactly why the offset axis had never run on any row sharing this ladder
+    # (measured 2026-09-24: offset 100 died in 7.5 s on an AssertionError, offset 0 unaffected).
+    # Rebase label_seq per chain. auth_seq_id is deliberately left alone, so the crop still
+    # records which residues of the parent it took.
+    reseq, n_by_chain = {}, {}
+    for r in keep:
+        key = (r[ch], r[sq])
+        if key not in reseq:
+            n_by_chain[r[ch]] = n_by_chain.get(r[ch], 0) + 1
+            reseq[key] = str(n_by_chain[r[ch]])
     idx = cols.index("id") if "id" in cols else None
     out = [f"data_{dst.stem}", "#", "loop_"] + [f"_atom_site.{c} " for c in cols]
     for i, r in enumerate(keep, 1):
+        key = (r[ch], r[sq])
         r = list(r)
         if idx is not None:
             r[idx] = str(i)      # renumber, or the crop carries the parent's atom serials
+        r[sq] = reseq[key]
         out.append(" ".join(r))
     raw = dst.with_suffix(".raw.cif")
     raw.write_text("\n".join(out) + "\n#\n")
@@ -259,23 +307,24 @@ _BINDER_CHAIN = "Z"   # never collides with the crop, whose chains are labelled 
 
 
 def boltzgen_fixture(work: pathlib.Path, target_res: int, target: pathlib.Path,
-                     binder: int = 80) -> tuple[pathlib.Path, int, int]:
-    """A BoltzGen design spec against the first `target_res` residues of `target`.
+                     binder: int = 80, offset: int = 0) -> tuple[pathlib.Path, int, int]:
+    """A BoltzGen design spec against `target_res` residues of `target` from `offset`.
 
     Returns the YAML and the target's ATOM count -- the axis this model is sized on. BoltzGen
     takes the `entities:` grammar (a designed chain given as a length, plus a structure file to
     include a chain from), NOT the `sequences:` schema `tt-bio predict` takes; the two are
     different parsers and the predict spelling is silently a different model's input.
     """
-    cif = work / f"bgt{target_res}.cif"
-    res, atoms = crop_cif(target, target_res, cif)
+    sfx = f"{target_res}" + (f"o{offset}" if offset else "")
+    cif = work / f"bgt{sfx}.cif"
+    res, atoms = crop_cif(target, target_res, cif, offset)
     # Include EVERY chain the crop produced. Naming one chain caps the axis at that chain's
     # length and BoltzGen does not complain: a 3662-residue crop whose chain A is 1008 conditions
     # on 1008 and still designs a perfectly good 80-residue binder, so the rung reads PASS at a
     # size that never ran. Same cause as the pxdesign fixture, same fix.
     chains = cif_chains(cif)
     include = "".join(f"        - chain:\n            id: {cid}\n" for cid in sorted(chains))
-    p = work / f"bg{target_res}.yaml"
+    p = work / f"bg{sfx}.yaml"
     p.write_text(
         "entities:\n"
         "  - protein:\n"

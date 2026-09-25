@@ -1,0 +1,22 @@
+# CATCHER for wk/mgx-sample-width (dde3d5120), owed to the orchestrator note of 2026-09-24 00:5x.
+#
+# sample_chunks.py makes a refused sample chunk narrow instead of crash, and it touches
+# boltz2.py, protenix.py, tenstorrent.py and main.py. boltzgen rides boltz2's AtomDiffusion
+# and DiffusionModule; pxdesign rides protenix's edm_sample. So both owe a run, and the
+# sdpa-mask merge waits on them.
+#
+# Both entries are deliberately the SAME two cases whose post-merge value is already banked,
+# so the catcher reads as a before/after on one number rather than as an exit code:
+#
+#   pxdesign 1224 tokens   fit_rmsd median 0.158 A on 720b43a5d   (results/postmerge_catcher.jsonl)
+#   boltzgen  512 + 80     scRMSD   median 4.749 A on 720b43a5d, n=8  (same file)
+#
+# n=2 for boltzgen cannot resolve a shift against that n=8 median (results/power.txt) --
+# it reports ok/fail, wall, DURING AICLK and the two scRMSD values, and the band they have to
+# fall inside is the banked 0.69-12.93. pxdesign's fit_rmsd is tight enough at n=2 to be read
+# directly: the same case moved only 0.016 A across the last two merges.
+#
+# Runs from ~/wt-mgx-catcher at fa09dfc36 (= origin/main 1f338604e merged into this branch),
+# so the 1536 after-fix arm still running out of ~/wt-mgx-design-accuracy keeps its tree.
+--model pxdesign --target perf/mgxaccuracy/targets/gpb_dimer_1646.cif --target-res 1024 --binder 200 --designs 2 --steps 400 --host-threads 2 --timeout 10800 --tag sw_catcher
+--model boltzgen --target perf/mgxaccuracy/targets/gpb_dimer_1646.cif --target-res 512 --designs 2 --budget 2 --score-dsg --host-threads 2 --timeout 14400 --tag sw_catcher

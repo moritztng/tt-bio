@@ -1,0 +1,60 @@
+# THE FAS LADDER'S SECOND CROP, BECAUSE ITS LOAD-BEARING CELL IS CURRENTLY n=1 WINDOW.
+#
+# Written 2026-09-24 21:3xZ. FAS at offset 0 reads 3.782 / 9.050 / 10.665 A at 512 / 768 / 1024
+# with 4, 2 and 0 of 8 under the 4 A bar, and `results/fas_1024_result.txt` draws a real
+# conclusion from the 1024 cell: a SINGLE chain of 1024 residues returns nothing usable, which
+# is what weakens the chain hypothesis this control was built to test.
+#
+# That conclusion rests on ONE window. This row has already published how much one window can
+# carry on its own: three 512-residue windows of 1GPB's chain A, 100 residues apart, read
+# 4.631 / 16.021 / 17.300 A (`results/gpb_supporting.txt`), a spread of 12.67 A at a FIXED size
+# on a FIXED chain. The GroEL ladder used two crops at every rung for exactly this reason. The
+# FAS ladder used one to stay inside the 3-chip cap, and the cap is no longer binding: the 768
+# rung and the d8f17563c catcher have both finished and cards 0 and 2 are free while only the
+# 1536 cell is still running.
+#
+# So: 512 and 1024 at offset 900, n=8 each, everything else identical to the offset-0 rungs.
+# BOTH are needed, not just 1024 — the contrast that matters is 512 -> 1024 WITHIN this crop,
+# and a 1024 cell alone cannot supply it.
+#
+# CROPS CHECKED BEFORE LAUNCH, same 2-22 A criterion as every other cell here:
+#     512 off900   1 component [512]    Rg 34.6 A    zero overlap with the offset-0 512 cell
+#    1024 off900   1 component [1024]   Rg 35.9 A    124 of 1024 = 12% overlap with offset-0
+# Chain A is 1962 residues, so both crops are SINGLE CHAIN, which is the whole point of this
+# target. The fixtures job.py builds must read 512 and 1024 CA with chain A only, checked on
+# disk before any number is read.
+#
+# ONE TREE, ff5435cba, the tree every cell in this row was measured on, including the three
+# offset-0 FAS rungs these are read against. Same deliberate MGX_ALLOW_BEHIND_MAIN override and
+# the same reason as plans/chain_vs_residues.txt and plans/fas_768.txt.
+
+--model boltzgen --target perf/mgxaccuracy/targets/fas_chainA_1962.cif --target-res 512 --crop-offset 900 --designs 8 --budget 8 --score-dsg --host-threads 2 --timeout 21600 --tag fas512o900
+--model boltzgen --target perf/mgxaccuracy/targets/fas_chainA_1962.cif --target-res 1024 --crop-offset 900 --designs 8 --budget 8 --score-dsg --host-threads 2 --timeout 21600 --tag fas1024o900
+
+# COST from the quadratic that has now fit four FAS walls to within 10 s of their GroEL twins:
+# ~1.8 ks and ~5.4 ks, run in parallel on two cards, so the pair lands ~23:10Z.
+#
+# PRE-REGISTERED READING, written before either cell exists. Exact two-sided Mann-Whitney by
+# enumeration, n=8 vs n=8, WITHIN this crop and WITHIN this target:
+#
+#   REPLICATES        — the 1024/off900 cell is <= 1 of 8 under 4.0 A. The offset-0 finding
+#                       stands: a single chain of 1024 residues returns nothing usable, on two
+#                       windows that share 12% of their residues, and the chain hypothesis is
+#                       weakened by two cells rather than one.
+#
+#   DOES NOT REPLICATE — the 1024/off900 cell is >= 4 of 8 under 4.0 A. Then the offset-0 1024
+#                       cell was a window effect, the sentence in results/fas_1024_result.txt
+#                       must be withdrawn in the same words it was published in, and the
+#                       chain question is reopened on this target.
+#
+#   INTERMEDIATE      — 2 or 3 of 8 under the bar. Report both crops' counts and medians and
+#                       claim neither; one window is then not enough and a third is the
+#                       follow-up, not a footnote.
+#
+# The 512/off900 cell is read only as this crop's own baseline, for the 512 -> 1024 contrast.
+# It is NOT a fourth opinion on 512, and a low value there does not rescue a bad 1024 cell.
+#
+# WHAT THIS DOES NOT DO. It does not touch the pre-registered verdict of
+# plans/chain_vs_residues.txt, which reads 512 -> 1536 at offset 0 and is decided by the 1536
+# cell still running on card 3. If that cell and these two ever disagree, the offset-0 ladder
+# is the pre-registered one and these are the replication check on one of its rungs.

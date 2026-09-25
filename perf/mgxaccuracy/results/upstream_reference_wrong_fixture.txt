@@ -1,0 +1,101 @@
+# WITHDRAWN 2026-09-24 01:1xZ: the upstream 1536 reference was designed against the fixture
+# this row itself disqualified, so "upstream does not degrade at 1536" does not stand.
+#
+# What was claimed last pass (results/upstream_1536.txt, and the REFERENCE/ATTRIBUTION/VERDICT
+# headlines): upstream's own 1536 design reads 7.91 A (repeat 6.67 A) against the device's
+# 19.35 A on the same refolder, so upstream holds its quality with size and the device does
+# not, therefore the 1536 loss is the port's. **The comparison is between two different
+# targets and the claim is withdrawn.**
+#
+# HOW IT WAS CAUGHT. The upstream design spec and the device's use the same grammar -- binder
+# chain Z of 80, `include` every chain of a file called bgt1536.cif -- so the two looked like
+# the same job. They are not the same FILE. Hashing both, then comparing content rather than
+# bytes:
+#
+#   fixture                                  chains          atoms   built
+#   qb2   ~/bgref-work/fx/bgt1536.cif        A=1008 B=528    12405   Sep 23 12:38
+#   whglx fx_boltzgen_1536_.../bgt1536.cif   A=823  B=713    12464   (from the committed target)
+#
+# The committed target perf/mgxaccuracy/targets/gpb_dimer_1646.cif carries A=823 B=823, so a
+# 1536 crop in file order gives A=823 B=713. That is the device's fixture. A=1008 cannot come
+# from it at all.
+#
+# AND THE UPSTREAM ONE IS THE DISCONNECTED FIXTURE, measured not inferred:
+#
+#   fixture                  min inter-chain heavy atom   centroid separation   chains
+#   qb2   (upstream design)            162.40 A                  250.81 A        A=1008 B=528
+#   whglx (device designs)               1.88 A                   51.17 A        A=823  B=713
+#
+# 1.88 A is a contacting dimer -- chains that touch, so the binder is designed into a real
+# two-chain interface. 162.40 A is two proteins that never come near each other, 86x further
+# apart at their CLOSEST approach than the device's are at their closest contact.
+#
+# which is the ladder's old 1536 rung -- "two proteins 246.9 A apart whose sub-22 A
+# conditioning graph has zero edges between them" -- that this row disqualified for the size
+# question and wrote a standing rule about (brief boundary 6). Designing an 80-residue binder
+# against that is a different and easier problem: chain B is 162 A away and conditions nothing,
+# so the binder is effectively designed against a single complete 1008-residue protein.
+#
+# THE TIMELINE EXPLAINS IT AND NOBODY LIED TO ANYBODY. The qb2 fixtures are stamped 12:38 on
+# Sep 23; gpb_dimer_1646.cif was committed at 15:08 the same day, when this row worked out the
+# old rung was invalid. The upstream CPU reference had already been started against the old
+# fixture and was never rebuilt, because it takes ~12 h per design and nothing pointed at it.
+# The 512 pair has the same split: qb2's bgt512 is 4121 atoms, the device's is 4178.
+#
+# WHAT SURVIVES, AND IT IS THE LOAD-BEARING RESULT:
+#
+#   * Joint 1 is untouched. out_devrefold512_all8 and out_dev1536 refold the DEVICE's OWN
+#     designs, both made on the VALID target, and no upstream fixture enters. 7.01 A at 512
+#     against 19.35 A at 1536, n=8 each, zero overlap, U=0 of 64, p=1.554e-4. The device's
+#     size effect on a valid connected target is measured and stands.
+#   * The 512 reference conclusion stands, because there the two sides WERE the same target:
+#     upstream 7.17/11.04 A against the device's 10.56 A n=9, both on the old 512 crop (the
+#     "first 512 residues of a 1008-residue chain" row in docs/design-throughput.md). Same
+#     level, no ordering readable off one draw. That was the original REFERENCE finding and it
+#     was correct.
+#
+# WHAT FALLS:
+#
+#   * "upstream does not degrade from 512 to 1536" -- its 1536 draw is on the easier
+#     disconnected fixture.
+#   * "the 1536 loss is the port's, not BoltzGen's" -- it rested entirely on that.
+#   * the four-row REFERENCE table that put upstream 11.04 (old 512 target) beside device 7.01
+#     (valid target). Those two cells are different targets and must not be read as a column.
+#
+# SO JOINT 2 IS OPEN, not closed: this row has NO upstream design reference on the valid
+# target at EITHER size. The brief's test -- a worse device number at 1536 is a defect only if
+# upstream does better at 1536 -- is unanswered for the target the size claim is measured on.
+# Closing it needs an upstream BoltzGen design against gpb_dimer_1646.cif at 1536, ~12 h of
+# design step per design on 16 cores, or the GPU in ask 9957.
+#
+# THE GENERALISABLE PART. Two jobs that print the same spec are not the same job: the spec
+# named `bgt1536.cif` on both sides and the file behind that name differed. A reference is
+# part of the measurement's identity, and the identity includes the bytes of its input, not
+# the name of its input. Hash the fixture, and when the hashes differ compare CONTENT before
+# concluding either "same" or "different" -- the byte hash alone also lies, because the mmCIF
+# data block name is derived from the filename.
+#
+# Reproduce:
+#   ssh qb2   '~/tt-bio-dev/env/bin/python /tmp/cmpcif.py ~/bgref-work/fx/bgt1536.cif'
+#   ssh whglx '~/env/bin/python /tmp/cmpcif.py <device fixture>/bgt1536.cif'
+#   ssh qb2   '~/tt-bio-dev/env/bin/python /tmp/interchain.py ~/bgref-work/fx/bgt1536.cif'
+#
+# THE REPLACEMENT IS RUNNING, and the check that was missing the first time was done first.
+# 2026-09-24 01:2xZ, qb2:~/bgref-work/run_valid.sh 1536 6 -> out1536_valid, ~12 h.
+#
+#   fixture_id.py on the newly built ~/bgref-work/fx_valid/
+#     bgt1536.cif  A=823 B=713  12464 atoms  coord_sha 34d0b6f4a...  1.88 A  CONTACTING
+#     bgt512.cif   A=512        4178 atoms   coord_sha 7c38b3080...
+#   device fixtures on whglx: 34d0b6f4a... and 7c38b3080...  -> IDENTICAL content
+#
+# --steps design inverse_folding design_folding analysis omits `folding`; the log prints
+# [Step 1/4] rather than 1/6, so the omission is confirmed by the run and not just by the flag.
+# The design itself is at upstream defaults (sampling_steps 500, recycling_steps 3), so no part
+# of the model's own work is skipped -- only a complex-prediction metric nothing here reads.
+#
+# Cores came from killing the old reference, which was folding the disqualified fixture at
+# 561% with zero structures written in 68 minutes: pids 1235144, 1235147, 1925298, 1925664,
+# 1925666, all confirmed gone, no orphans.
+#
+# STILL OWED: the 512 counterpart on the valid target. The withdrawn claim was about a TREND
+# (upstream flat from 512 to 1536), and one point cannot restore it.

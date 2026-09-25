@@ -1,0 +1,86 @@
+THE 100-RESIDUE DIAL CANNOT BE DERIVED FROM CONTACT, AND THE DERIVED DIAL RUNS BACKWARDS
+==========================================================================================
+
+2026-09-24 23:5xZ. No new folds -- banked design outputs and the fixtures they were designed
+against, read on whglx with `perf/mgxaccuracy/contact.py --per-chain`, written this pass.
+
+WHY THIS WAS ATTEMPTED
+
+`results/chain_census_all_cells.txt` carries the row's chain-count headline and names its own
+load-bearing caveat: the headline holds only because GroEL 512/off560's 24-residue C fragment
+is called not-a-chain, by a 100-residue threshold "not derived from anything". Counted as two
+chains it is a multi-chain cell at 87.5 % and the sentence is false.
+
+A chain the binder never comes near is arguably not part of the design problem whatever its
+length, so the threshold looked replaceable by a geometric dial: how many target chains the
+delivered binder actually TOUCHES, a property of the structure rather than of a hand-picked
+number. That was the hypothesis. It is refuted.
+
+THE MEASUREMENT
+
+Contact = any atom pair within 5.0 A. n_touched = target chains with at least one contact.
+Binder = the chain with 80 residues, the rule `scrmsd.py:designed_chain` uses (see DEFECTS).
+Chain boundaries are the FIXTURE's, imposed in file order via `--target-chains` (see DEFECTS).
+
+    cell                fixture target chains   interface chains         % <= 4 A
+    GroEL  512/off560   488 + 24                1:3/8   2:5/8              87.5
+    GroEL  768/off0     524 + 244                       2:8/8               0
+    GroEL  768/off560   488 + 280                       2:8/8               0
+    GroEL 1024/off0     524 + 500               1:6/8   2:2/8               0
+    GroEL 1024/off560   488 + 524 + 12                  2:8/8               0
+    GroEL 1536/off0     524 + 524 + 488         1:8/8                       0
+    GroEL 1536/off560   488 + 524 + 524         1:5/8   2:2/8   3:1/8       0
+    gpb   1536/off0     823 + 713                       2:8/8               0
+    gpb   1536/off100   723 + 813                       2:8/8               0
+
+REFUTED, AND IT RUNS THE WRONG WAY AT BOTH ENDS
+
+  * The cell whose binders are MOST confined to a single chain is GroEL 1536/off0 -- 8 of 8
+    binders touch exactly one of its three chains -- and it returns 0 of 8 under the bar.
+  * The cell whose binders MOST often span two chains is GroEL 512/off560, 5 of 8, and it is
+    the best cell in the row at 87.5 %.
+
+Neither cell carries a merge artefact: both fixtures are unmerged and their output chain
+labels match the fixture exactly, so the two observations the refutation rests on need no
+correction. Interface chain count does not order the outcomes and does not replace the
+threshold. The census keeps its caveat, and the caveat is now known to be irreducible by this
+route rather than merely unexamined.
+
+WHAT SURVIVES, STATED NARROWLY
+
+The census's correlation is over FIXTURE chain count and is untouched by this: every
+multi-chain fixture crop except the disputed 512/off560 still returns 0 %. What is gone is the
+obvious MECHANISM for it -- "the binder must be designed against a seam between two chains" --
+because at GroEL 1536/off0 every binder is designed against one chain's surface and nothing
+refolds anyway. That is independent of, and agrees with, FAS 1024/off0: a single-chain target,
+0 of 8. Do not upgrade this into "extent is the carrier"; FAS 1536 single chain reads 50 %,
+so extent does not order the cells either.
+
+Docking is not the failure mode and the 0 % cells are not undocked. All eight FAS 1024/off0
+binders are IN CONTACT at min d 0.75-1.73 A with 1316-1885 contacts each -- MORE contact than
+FAS 1536/off0, the 50 % cell, at 337-1383. Consistent with the note already in
+`results/contact_512_gpb.txt`: docking and designability are different axes.
+
+TWO DEFECTS IN THE RECORD, BOTH FOUND BY THIS PASS
+----------------------------------------------------
+
+1. `contact.py` IDENTIFIED THE WRONG CHAIN AS THE BINDER whenever a target fragment is shorter
+   than the binder. It took the chain with the FEWEST residues, so on GroEL 512/off560
+   (binder 80, B 488, C 24) it took the 24-residue target fragment and measured the target
+   against itself, reporting 3 of 8 designs as touching nothing. Fixed: `--binder-res 80`
+   selects by exact residue count, the same rule `scrmsd.py:designed_chain` uses, and refuses
+   rather than guesses when the count is not unique. Every quality number in this row comes
+   through `scrmsd.py` and is unaffected; the banked `results/contact_512_gpb.txt` is also
+   unaffected, being a single-chain target where smallest and binder coincide.
+
+2. THE CENSUS MISSED A CHAIN. GroEL 1024/off560 is 488 + 524 + 12, THREE target chains, not
+   the "B 488 + C 524" the census records -- its own numbers sum to 1012, not 1024. The
+   12-residue D fragment fell under the same 100-residue threshold. The cell stays multi-chain
+   and stays at 0 %, so no headline moves, but it is a second fragment the dial silently ate.
+
+3. Not a defect, but a trap worth the line: BOLTZGEN'S DESIGN WRITER MERGES ADJACENT TARGET
+   CHAINS. The GroEL 1536/off0 fixture is 524 + 524 + 488 and the design is written as
+   1048 + 488, so chain counts read off a design output undercount. The fixture is
+   authoritative. `--target-chains` imposes the fixture's sizes in file order and checks the
+   total; as a control it reproduces GroEL 1024/off0 (unmerged) exactly, 1:6/8 2:2/8, and it
+   left GroEL 1536/off0 at 8/8 on one chain, so the merge never affected that reading either.

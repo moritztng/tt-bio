@@ -1,0 +1,66 @@
+# How many CHAINS each cell's crop carries, computed from crop_cif itself, and what that
+# already settles. Written 2026-09-24 06:4xZ, BEFORE the GroEL cells land (~09:05Z), so the
+# reading below is a prediction and not a retrodiction.
+
+WHY THIS EXISTS. `results/size_within_one_chain.txt` found that residue count is nearly free
+and the second chain is not: 823 residues of one chain reads 7.962 A against 4.631 at 512
+(+3.33 A over 311 extra residues, MW does NOT reject), while the 512->1536 move at the same
+crop is +14.77 A and does reject -- and that move also adds chain B. So chain count became the
+live mechanism candidate. It is cheap to check what each cell actually carries.
+
+THE LEDGER. `crop_cif` walks residues in file order across chains, so a window can span
+chains. Composition of every cell this row has measured or queued:
+
+  1GPB (gpb_dimer_1646: A=823, B=823)
+    cell        chains  per-chain                     median
+    512/0          1    A 512                          4.748 / 4.631
+    512/100        1    A 512                         17.785 / 16.021
+    512/200        1    A 512                         17.300
+    823/0          1    A 823                          7.962
+    1536/0         2    A 823 + B 713                 19.398
+    1536/100       2    A 723 + B 813                 13.273
+
+  GroEL (groel_ring4_2096: A,B,C,D = 524 each)
+    cell        chains  per-chain                     median
+    512/0          1    A 512                          queued
+    512/560        2    B 488 + C 24                   queued
+    1536/0         3    A 524 + B 524 + C 488          on device, card 9
+    1536/560       3    B 488 + C 524 + D 524          on device, card 13
+
+WHAT THIS ALREADY SETTLES ON 1GPB: **the crop effect is not a chain-count effect.** Both crop
+contrasts hold chain count FIXED -- 512/0 against 512/100 is 1 chain against 1 chain and moves
+13.04 A, and 1536/0 against 1536/100 is 2 against 2 and moves -6.13 A. So whatever the window
+is doing, it is not adding or removing an interface partner. Chain count survives only as a
+candidate for the SIZE effect, where 512->1536 goes 1 -> 2.
+
+AND IT IS NOT SUFFICIENT THERE EITHER. The size effect adds exactly one chain at both crops,
++1 at offset 0 and +1 at offset 100, yet it reads +14.65 A at one and -4.51 A at the other.
+One added chain cannot produce opposite signs, so chain count cannot be the whole size story
+however the GroEL cells read.
+
+WHAT GROEL TESTS, PRE-REGISTERED. Its crop axis is confounded with chain count at 512 (1 -> 2)
+and NOT at 1536 (3 -> 3), and its size axis adds two chains at offset 0 and one at offset 560:
+
+    contrast                 delta chains   1GPB read
+    size at low offset          +2          +14.65 A  (1GPB added +1 here)
+    size at high offset         +1           -4.51 A  (1GPB added +1 here too)
+    crop at 512                 +1          +13.04 A  (1GPB added 0 here)
+    crop at 1536                 0           -6.13 A  (1GPB added 0 here)
+
+  - If the interaction is a property of the TASK, the four GroEL simple effects keep the signs
+    in that last column: size positive at the low offset and negative at the high one, crop
+    positive at 512 and negative at 1536.
+  - If chain count carries the size axis, GroEL's size effect at offset 0 (+2 chains) exceeds
+    its size effect at offset 560 (+1). That is a comparison WITHIN GroEL and does not need
+    1GPB.
+  - The GroEL crop effect at 1536 is the cleanest cell in either protein: 3 chains against 3
+    chains, 976 of 1536 residues shared, so a large effect there is the window alone with
+    nothing else moving.
+  - A NULL result on GroEL -- four effects that do not reject -- makes the 1GPB interaction one
+    target's personality, and `docs/design-throughput.md` has to say the advice was measured on
+    one protein.
+
+Read it with `twobytwo.py --target groel_ring4_2096 --offsets 0,560`, which is why that script
+now takes its offsets as an argument: the legal crop starts belong to the target (1646
+residues admit 0 and 100, 2096 admit 0 and 560), and the old hardcoded 100 would have reported
+four MISSING cells on GroEL rather than failing loudly.
