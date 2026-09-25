@@ -266,7 +266,7 @@ class Levers:
 
         ag.triangle_attention = _tri
 
-        for name in ("_split_heads_v", "_merge_heads_v"):
+        for name in ("split_heads_value", "merge_heads_value"):
             real = getattr(ag, name)
 
             def wrapped(*a, _real=real, _name=name, **k):
