@@ -1,0 +1,40 @@
+{
+ "runs": {
+  "on:s0": "/tmp/of3_832on_904986/openfold3_results_cdk2apo_832/structures/cdk2apo_832.cif",
+  "on:s1": "/tmp/of3_832on_s1_907888/openfold3_results_cdk2apo_832/structures/cdk2apo_832.cif",
+  "on:s2": "/tmp/of3_832on_s2_912969/openfold3_results_cdk2apo_832/structures/cdk2apo_832.cif",
+  "off:s0": "/tmp/of3_832off_887916/openfold3_results_cdk2apo_832/structures/cdk2apo_832.cif",
+  "off:s1": "/tmp/of3_832off_s1_914886/openfold3_results_cdk2apo_832/structures/cdk2apo_832.cif"
+ },
+ "pairs": {
+  "off:s0|off:s1": 19.657174351254902,
+  "off:s0|on:s0": 13.972228308897526,
+  "off:s0|on:s1": 20.031704570403296,
+  "off:s0|on:s2": 21.635795473777623,
+  "off:s1|on:s0": 19.315974798450362,
+  "off:s1|on:s1": 5.3902069492179825,
+  "off:s1|on:s2": 16.510788080756303,
+  "on:s0|on:s1": 19.84419815039395,
+  "on:s0|on:s2": 21.416785122614666,
+  "on:s1|on:s2": 17.376671178413588
+ },
+ "within_mean": 19.573707200669276,
+ "across_mean": 16.142783030250516,
+ "within": [
+  19.657174351254902,
+  19.84419815039395,
+  21.416785122614666,
+  17.376671178413588
+ ],
+ "across": [
+  13.972228308897526,
+  20.031704570403296,
+  21.635795473777623,
+  19.315974798450362,
+  5.3902069492179825,
+  16.510788080756303
+ ],
+ "separation_A": -3.430924170418759,
+ "perm_p": 0.3,
+ "perm_n": 10
+}
