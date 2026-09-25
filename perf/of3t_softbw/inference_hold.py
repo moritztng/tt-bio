@@ -79,6 +79,10 @@ def main():
     ap.add_argument("--card", default="0")
     ap.add_argument("--steps", type=int, default=6)
     ap.add_argument("--out", default="")
+    ap.add_argument("--only", default="",
+                    help="comma-separated arms to (re)run; the rest are carried over from "
+                         "--out. An arm is an independent fold at a fixed seed, so a starved "
+                         "arm can be re-taken without re-taking the ones that landed.")
     a = ap.parse_args()
 
     wd = Path(a.workdir)
@@ -90,7 +94,13 @@ def main():
         "control": (Path(a.base_tree), {"TT_BIO_ACCURATE_SOFTMAX_AB": "all"}),
     }
     res = {}
+    if a.only and a.out and Path(a.out).exists():
+        res = json.load(open(a.out)).get("arms", {})
+    want = [x for x in a.only.split(",") if x] or list(arms)
     for name, (tree, env) in arms.items():
+        if name not in want and name in res:
+            print("[%s] carried over %s" % (name, list(res[name]["cifs"])), flush=True)
+            continue
         out = wd / ("out_%s_%s" % (a.model, name))
         res[name] = fold(a.py, tree, a.model, Path(a.fixture), out, env, a.card, a.steps)
         print("[%s] rc=%d %.1fs %s" % (name, res[name]["rc"], res[name]["seconds"],
