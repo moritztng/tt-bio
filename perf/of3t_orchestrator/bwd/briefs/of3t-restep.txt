@@ -1,0 +1,80 @@
+# Workstream: of3t-restep
+#DISPATCH: host=pc card=0 repo=tt-bio maxit=10 tier=opus5
+DONE_CHECK: python3 /home/moritz/.coworker/workstreams/_of3t_donecheck.py of3t-restep
+
+**READ FIRST**: the **STALE BASELINE banner** at the top of `state/of3t/BACKWARD.md`, and
+`state/of3t-tapedfwd.md`'s **STOP THE PRESSES** section, which is why this row exists. Do not
+re-derive either.
+
+**Re-take the crop-384 training step on main. That is the whole job, and it unblocks the sprint.**
+
+`of3t-tapedfwd` established that the campaign's 466.702 s step was banked at `451ed56f4`
+(2026-09-21 18:07:08Z) and that `502ed112e` (2026-09-23 03:59:45Z, *"training tape: exact softmax
+and layer norm on by default"*) then put a **HOST float64** softmax and layer norm inside every
+`tape()` — and inside `autograd.backward`, which opens `with _training_exact("backward")` for
+itself because the tape block has closed by then. A taped forward now reads **251.66 s** against
+the **3.415 s** banked. **So every share this campaign quotes is void**, including the 58-67x GPU
+gap, the 98.6/1.4 partition, the 456.668 s backward, the 2.107 ms per verb and the 44.3x.
+
+Five rows are currently ranked against numbers nobody can reproduce. Your run replaces them.
+
+1. **STEP:** one `fullstep.py` crop-384 run on **`origin/main`**, unmodified and uninstrumented —
+   an instrumented wall clock is not a baseline. Median of at least 3, interleaved if you are
+   comparing anything. AICLK sampled DURING, board class named (pc card 0 is a Blackhole p150a
+   running custom 130-core firmware, so say so), `host_quiet.py` green.
+2. **PARTITION:** the same six-part split the old artifact carried, summing to the recorded step
+   exactly, with `ttnn.synchronize_device` between parts. Forward, backward, and inside the
+   backward the split that now matters: **verb-call time against host-float64-exact time against
+   everything else.** The old partition had no third column because the feature did not exist.
+3. **EXACTPRICE:** what `_training_exact` costs, as its own line, forward and backward separately.
+   `of3t-tapedfwd` bounded the forward's at 247.8 s of 251.66 s without a card
+   (`perf/of3t_tapedfwd/exactprice.py`, host arithmetic at 1.9813 ns/element over 21,743,271,936
+   elements per trunk cycle). Confirm or correct it on device, and do the backward, which nobody
+   has bounded at all.
+4. **STAMP:** write `env.commit` into every artifact you produce and then **run
+   `perf/of3t_orchestrator/bwd/baseline_expiry.py` against your own output** before you conclude.
+   That guard exists because of this incident: provenance says where a number came from, not
+   whether it has expired. An artifact that cannot be dated must not become the next stale
+   baseline.
+
+**Do not change any engine file.** You are taking a measurement of main as it stands. If the run
+reveals a defect, name it and hand it to me; a fix on this branch would make your own baseline
+unreproducible.
+
+**Do not treat the host float64 path as a bug.** It is a fidelity feature Moritz approved
+personally, training-only, and it is why this campaign's gradients are correct. Your job is to
+price it exactly, not to judge it. What to do about the price is his call and it goes to him with
+a number.
+
+`of3t-stepfloor` owns `fullstep.py`; you RUN it, you do not edit it.
+
+State doc `state/of3t-restep.md`: STEP:, PARTITION:, EXACTPRICE:, STAMP:, VERDICT:.
+
+## HOUSE RULES for the backward sprint — of3t-orchestrator, 2026-09-25 16:2x CEST
+
+Added after dispatch because the four briefs went out without them. A decision that is not in your
+brief does not reach you, so it is here rather than in a state doc.
+
+- **ARTIFACTS: `perf/of3t_<your-slug>/`, and nowhere else.** Yours alone. Four rows writing into one
+  perf tree is how a merge comes out textually clean and semantically broken
+  (`sibling-perf-campaigns-need-namespaced-output-paths`).
+- **SCRATCH: `/tmp/of3t/<your-slug>/`.** Never a shared generic name. Two of3t rows collided on
+  `/tmp/of3t/state.md` and one row's state doc silently became a verbatim copy of another's —
+  another row's branch, instruments and VERDICT, installed under the wrong slug. Nothing errored
+  (LEDGER K18).
+- **BRANCH: `wk/<your-slug>`, pushed every pass.** I compose the sprint onto `wk/of3t-bwd`; do not
+  merge to main and do not compose each other. `wk/of3t` is finished history: verified this pass,
+  it is fully contained in `origin/main` (`git merge-base --is-ancestor` clean), so do not branch
+  from it or treat it as the campaign's tip. Branch from `origin/main`.
+- **`tt_bio/autograd.py` and `tt_bio/taped_ttnn.py` are CONTESTED and moving right now.** BCX is
+  rewriting the head-verb backwards in both: `wk/bcx-heads` at `237f53064`, with `wk/bcx-bwdplan`
+  building on it this pass. If your fix lands in either file, keep the diff minimal, say so in your
+  state doc under its own heading, and expect to re-run BCX's bar rather than trusting a clean
+  textual merge — these are exactly the two files where `land-d264` showed a merge error is
+  invisible to inference and visible only to a taped arm.
+- **Say the AXIS on every number** (chip-to-chip, box-to-box, phase-matched, step-to-step), and the
+  clock: a DURING-sampled AICLK and the board class. qb1 p150a and qb2 p300c run the same 512 aa
+  fold 17.39 s against 14.59 s at the same 1350 MHz, so a board class is part of a measurement.
+- **The target stays honest.** ~8.5x compute / ~11x bandwidth is hardware; ~6-7x of the 58-67x is
+  software and that is what this sprint is for. 5x chip-to-chip is below the silicon floor — do not
+  promise it, in a state doc or anywhere else.

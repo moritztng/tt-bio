@@ -42,7 +42,7 @@ author and cite what you took; gates are batched and a stack is approved whole. 
 speedup that does less of the model's own work. A1-A45 are the correctness protocol and are
 unchanged. History: `state/of3t/PASSLOG.md`.
 
-LEDGER: `~/.coworker/state/of3t/LEDGER.md`, **R1-R208 and K1-K22**. **R203, filed this pass, is
+LEDGER: `~/.coworker/state/of3t/LEDGER.md`, **R1-R209 and K1-K22**. **R203, filed this pass, is
 the sprint's first finding and it reordered the job list: an engine-wide fused-kernel bypass hid
 behind a per-module comment. A per-site comment that correctly explains one decline is the best
 camouflage a policy can have, because every reader who checks one site leaves satisfied. Count the
@@ -260,7 +260,34 @@ sibling case where 79.2 % of a round was host work the port never covered, cappi
 lever at 1.25x. Stack perturbations are strongly sub-additive, so the sprint's levers are approved
 as a stack or not at all, never by summing individual readings.
 
-GAP: **Pass 449, 2026-09-25 ~17:1x CEST.**
+GAP: **Pass 450, 2026-09-25 ~17:2x CEST.**
+
+000. **THE BASELINE WAS STALE BY ~65x AND MOST OF THIS CAMPAIGN'S SHARES ARE VOID (R209).**
+   `of3t-tapedfwd` concluded GO and found it. The 466.702 s step was banked at `451ed56f4`
+   (2026-09-21 18:07Z, from the artifact's own `env.commit`); `502ed112e` (2026-09-23 03:59Z,
+   *"training tape: exact softmax and layer norm on by default"*) then put a **HOST float64**
+   softmax and layer norm inside every `tape()` — and inside `autograd.backward`, which opens
+   `with _training_exact("backward")` for itself once the tape block has closed.
+   `merge-base --is-ancestor 502ed112e 451ed56f4` is **false**. A taped forward reads **251.66 s**
+   today against **3.415 s** banked, reproduced independently at 228.814 s, and **247.8 s of it is
+   the exactness** (identical routes at identical counts read 3.8884 s against 251.6566 s;
+   teardown 0.0000 s; a `--declare` arm ruled out leaf registration at 270.162 s).
+   **Void until re-taken:** 58-67x, 98.6/1.4, 466.702 and 456.668, 356.00 s / 168,922 calls /
+   2.107 ms / 44.3x, the 97.7 %, the 100.668 s residual, every JOBS share, my own **R205** and
+   **R206**, and the **3.32x ceiling**. **Survives:** R207 (both its arms are untaped, so neither
+   installs the exact ops, and its conclusion holds on both trees), R208 (a smaller share of a
+   larger step is a smaller share) and K22 (a board fact). `BACKWARD.md` carries a STALE BASELINE
+   banner above §1 because every row reads it first; `step_partition.py` and `sprint_ceiling.py`
+   carry stale-input banners saying the arithmetic is still right and the outputs are not.
+   **`of3t-restep` is dispatched to re-take it** — one uninstrumented `fullstep.py` on main with
+   the third column the old partition could not have (verb time against host-float64-exact time
+   against the rest), `_training_exact` priced forward and backward separately. And
+   `baseline_expiry.py` now exists so this cannot recur silently: it asserts an artifact's
+   `env.commit` is an ancestor of HEAD **and** that nothing since touched the measured paths.
+   Controlled both ways — STALE on the real artifact naming 39 commits, LIVE at that artifact's
+   own commit.
+
+Superseded, pass 449 —
 
 00. **THE SPRINT'S CEILING IS 3.32x AND THAT IS 34 % OF THE TARGET.** Computed after J3's
    retirement, `perf/of3t_orchestrator/bwd/sprint_ceiling.py`, and it is a ceiling rather than a
@@ -326,7 +353,23 @@ Superseded, pass 445 — ** ~16:5x CEST.** What the sprint has not done, specifi
    the 3x section bar); the six user-facing defects D32, D55, D184, D205, D210, D250, owned
    outside this campaign under ask 10455; crop 640 as a single-card capacity wall.
 
-VERDICT: PARTIAL, pass 449. **Two decisions this pass, both from arithmetic rather than
+VERDICT: PARTIAL, pass 450. **`of3t-tapedfwd` went GO and took most of the campaign's numbers
+with it (R209): the 466.702 s baseline predates the commit that put a host float64 softmax and
+layer norm inside every `tape()`, a taped forward is 251.66 s against 3.415 s banked, and 247.8 s
+of that is the exactness.** So five rows were ranked against numbers nobody can reproduce, two of
+my own ledger entries are void, and the 3.32x ceiling I published one pass ago is withdrawn. What
+I did rather than re-summarise it: bannered BACKWARD.md above §1 and both of my arithmetic
+scripts, separated what survives (R207, R208, K22) from what does not, dispatched `of3t-restep`
+for the re-take with the third column the old partition could not have, told `of3t-bwattrib` its
+residual is now the campaign's central question with the cause NAMED
+(`autograd.backward` opens the same exact scope), and built `baseline_expiry.py` so a banked
+number carries an expiry rather than only a provenance — controlled both ways. **The one thing I
+am NOT doing is treating the host float64 path as a defect**: it is the fidelity feature Moritz
+approved personally, training-only, and it is why this campaign's gradients are correct. It gets
+priced exactly and the price goes to him, because he ruled on this trade once at 1.441x and the
+number has moved.
+
+Superseded, pass 449 — **Two decisions this pass, both from arithmetic rather than
 opinion.** **J3 RETIRED (R208):** `of3t-bwattrib` resolved its 14x bracket from source to 2 score
 blocks per call, corroborated by 247 live buffers of exactly 1,179,648 B, so the largest and
 riskiest authoring job on the page is worth **1.0235x** today and **1.0026x** after J0 — 4.34x
