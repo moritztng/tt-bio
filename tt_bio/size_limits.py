@@ -518,7 +518,16 @@ CEILINGS: dict[str, dict[str, Ceiling]] = {
                      "route and that wall. "
                      "Re-passed on origin/main 6ea518246 (after sdpa-mask 94e7a002c), j10glx02, "
                      "2026-09-24, guard off, --host_threads 2, AICLK median 1000 MHz sampled during "
-                     "the fold: 1600 PASS in 1057.3 s (card 3, pLDDT 0.771, no CA-CA break)",
+                     "the fold: 1600 PASS in 1057.3 s (card 3, pLDDT 0.771, no CA-CA break). "
+                     "Re-walked whole on origin/main 0e319329a, GWH02, 2026-09-25 "
+                     "(ws:cov-stale-rf3-whgalaxy, perf/rf3cov/results/wh_galaxy), this time at the "
+                     "SHIPPED GUARD rather than with it off: 1600 PASS on UMD 0 in 1069.0 s, AICLK "
+                     "median 1000 MHz over 108 in-fold samples, pLDDT 0.770, 0 backbone breaks, no "
+                     "refusal absorbed anywhere in the run; 1024 PASS on UMD 1 in 378.2 s. 1664 "
+                     "re-fails on UMD 3 after 987 s at the SAME request and the same site to the "
+                     "byte -- 1427898368 B, 118992896 B per bank, 155415968 B free, 82092064 B "
+                     "largest block, diffusion_atom_encoder.py:79 in _trunk_pair -- so three trees "
+                     "spanning two days put the wall in exactly one place",
         ),
     },
     "protenix-v2": {
