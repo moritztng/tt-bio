@@ -35,6 +35,13 @@ ARMS, and each is a break control that must MOVE the number or the suspect is no
   base        production
   fanin       `ag.FANIN_MIXED = True` -- kills add_grad's typecast-to-fp32 pair on every
               second contribution. If the typecast is the cost, this moves it.
+  noexact     `ag.exact_training(False)` -- the decisive break control. `EXACT_TRAINING_OPS`
+              = ("softmax", "layer_norm") is default-ON under a tape and its own docstring
+              says what it costs: "a host round trip per softmax and per layer norm, in the
+              forward and in the backward's recompute". It is an ACCURACY instrument, not the
+              model, and this arm prices it. It is not a shippable lever on its own --
+              of3t-stackexact reads 0.9823x the bar with it on and 1.4512x with it off -- so
+              what this arm buys is the correct DENOMINATOR for every other lever.
   sync        `ttnn.synchronize_device` after every verb. ttnn dispatch is asynchronous, so
               a bare wall clock per call is host time that may or may not be hiding device
               time behind it. This arm drains the queue per call: if the total barely moves,
@@ -95,12 +102,22 @@ class Rec:
     """Aggregate as we go. 168,922 per-call rows would be 40 MB of JSON and no more answer."""
 
     def __init__(self):
-        self.verb = {}          # (name, shape, dtype, layout) -> [n, ns, max_ns, bytes]
+        # [n, incl_ns, max_ns, bytes, self_ns]. INCLUSIVE is what a bare stopwatch around the
+        # call gives you and it is wrong to sum: `tt_bio.taped_ttnn` is itself a rebound
+        # tt_bio module, so a model-level verb call re-enters the wrapper on its way to the
+        # raw op and the outer row already contains the inner one. Summing the base run's
+        # inclusive column gave a forward verb total of 432.02 s inside a forward that took
+        # 274.95 s -- 157 s of a 275 s leg counted twice. SELF time subtracts the children,
+        # so the column sums to the leg and a share is a share.
+        self.verb = {}
         self.node = {}          # closure __qualname__ -> [n_fired, ns, verbs]
         self.cur = None
         self.calls = 0
-        self.ns = 0
-        self.slowest = []       # (ns, name, shape, dtype, layout, closure)
+        self.outer_calls = 0    # calls entered at depth 0; the population a ratio may use
+        self.ns = 0             # inclusive, kept only to show the double-count
+        self.self_ns = 0        # exclusive; THIS is the leg's verb time
+        self.depth = 0
+        self.slowest = []
         self.on = False
 
     def bump(self, name, out, args):
@@ -122,17 +139,21 @@ class Rec:
                 nb += da[3]
         return (name, shp, dt, lay), nb
 
-    def add(self, key, nb, ns):
+    def add(self, key, nb, ns, sns=None):
+        if sns is None:
+            sns = ns
         r = self.verb.get(key)
         if r is None:
-            self.verb[key] = [1, ns, ns, nb]
+            self.verb[key] = [1, ns, ns, nb, sns]
         else:
             r[0] += 1
             r[1] += ns
             r[3] += nb
+            r[4] += sns
             if ns > r[2]:
                 r[2] = ns
         self.ns += ns
+        self.self_ns += sns
         if self.cur is not None:
             n = self.node.get(self.cur)
             if n is not None:
@@ -143,6 +164,7 @@ class Rec:
 
 
 REC = Rec()
+CH: list = []   # per-frame child-nanosecond accumulator; see Rec.__init__
 
 
 def _use(rec):
@@ -155,9 +177,12 @@ def _use(rec):
 
 
 class _W:
-    """`alloc_profile._Watch` with a stopwatch. Same rebinding, same nested-namespace walk."""
+    """`alloc_profile._Watch` with a stopwatch. Same rebinding, same nested-namespace walk.
 
-    __slots__ = ("_real", "_prefix")
+    NO `__slots__`. The wrapper caches each resolved verb in its own instance dict so a hot
+    call site pays one attribute load instead of a rebuild per call, and `__slots__` turns
+    that cache write into an AttributeError on the first verb the walk had not seen.
+    """
 
     def __init__(self, real, prefix=""):
         object.__setattr__(self, "_real", real)
@@ -176,15 +201,29 @@ class _W:
                 rec = REC
                 if not rec.on:
                     return _f(*a, **k)
+                if rec.depth == 0:
+                    rec.outer_calls += 1
+                rec.depth += 1
+                CH.append(0)
                 t0 = NS()
-                r = _f(*a, **k)
-                ns = NS() - t0
+                try:
+                    r = _f(*a, **k)
+                finally:
+                    ns = NS() - t0
+                    kids = CH.pop()
+                    rec.depth -= 1
+                    if CH:
+                        CH[-1] += ns
+                sns = ns - kids
+                if sns < 0:
+                    sns = 0
                 try:
                     key, nb = rec.bump(_q, r, a)
-                    rec.add(key, nb, ns)
+                    rec.add(key, nb, ns, sns)
                 except Exception:                                        # noqa: BLE001
                     rec.calls += 1
                     rec.ns += ns
+                    rec.self_ns += sns
                 return r
             out = call
         else:
@@ -303,31 +342,60 @@ def instrument(ag, sync_dev=None):
 SDPA_SHAPES = Counter()
 
 
+def hostrt(ag):
+    """The exact-training host round trips, READ off the counters `tt_bio.autograd` already
+    keeps rather than wrapped. `exact_training` is default-ON under a tape and its own
+    docstring prices it: "a host round trip per softmax and per layer norm, in the forward and
+    in the backward's recompute", softmax at "166.8x the op". That is the largest single named
+    cost on the taped path and nothing in the record had counted it against a step. The
+    `noexact` arm turns it off, which is the break control that makes the count attributable.
+
+    Read (not wrapped) because the exact verbs are reached through the module-level `_EXACT`
+    dispatch dict, which captured the function objects at import; rebinding the module
+    attribute would not be seen by the dict and would silently count zero."""
+    import copy
+    return {"softmax": copy.deepcopy(getattr(ag, "EXACT_SOFTMAX_STATS", {})),
+            "layer_norm": copy.deepcopy(getattr(ag, "EXACT_LAYER_NORM_STATS", {})),
+            "ops_active": list(ag.exact_training_ops())}
+
+
+def hostrt_delta(before, after):
+    d = {"ops_active": after.get("ops_active")}
+    for op in ("softmax", "layer_norm"):
+        b, a2 = before.get(op, {}), after.get(op, {})
+        d[op] = {k: a2.get(k, 0) - b.get(k, 0) for k in a2}
+    return d
+
+
+
 def _rows(rec, top=60):
     rows = []
-    for (name, shp, dt, lay), (n, ns, mx, nb) in rec.verb.items():
+    for (name, shp, dt, lay), (n, ns, mx, nb, sns) in rec.verb.items():
         rows.append({"verb": name, "shape": list(shp), "dtype": dt.replace("DataType.", ""),
                      "layout": lay.replace("Layout.", ""), "n": n,
-                     "total_s": round(ns / 1e9, 4), "us_per_call": round(ns / n / 1e3, 1),
+                     "self_s": round(sns / 1e9, 4), "incl_s": round(ns / 1e9, 4),
+                     "us_per_call": round(sns / n / 1e3, 1),
                      "max_us": round(mx / 1e3, 1), "gb": round(nb / 1e9, 3),
-                     "gb_s": round(nb / ns, 2) if ns else None})
-    rows.sort(key=lambda r: -r["total_s"])
+                     "gb_s": round(nb / sns, 2) if sns else None})
+    rows.sort(key=lambda r: -r["self_s"])
     return rows[:top], len(rows)
 
 
 def _byverb(rec):
     agg = {}
-    for (name, _s, _d, _l), (n, ns, _m, nb) in rec.verb.items():
-        a = agg.setdefault(name, [0, 0, 0])
+    for (name, _s, _d, _l), (n, ns, _m, nb, sns) in rec.verb.items():
+        a = agg.setdefault(name, [0, 0, 0, 0])
         a[0] += n
         a[1] += ns
         a[2] += nb
-    out = [{"verb": k, "n": v[0], "total_s": round(v[1] / 1e9, 3),
-            "us_per_call": round(v[1] / v[0] / 1e3, 1),
+        a[3] += sns
+    out = [{"verb": k, "n": v[0], "self_s": round(v[3] / 1e9, 3),
+            "incl_s": round(v[1] / 1e9, 3),
+            "us_per_call": round(v[3] / v[0] / 1e3, 1),
             "gb": round(v[2] / 1e9, 2),
-            "gb_s": round(v[2] / v[1], 2) if v[1] else None}
+            "gb_s": round(v[2] / v[3], 2) if v[3] else None}
            for k, v in agg.items()]
-    out.sort(key=lambda r: -r["total_s"])
+    out.sort(key=lambda r: -r["self_s"])
     return out
 
 
@@ -344,7 +412,7 @@ def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--tokens", type=int, default=384)
     ap.add_argument("--cycles", type=int, default=1)
-    ap.add_argument("--arm", default="base", choices=("base", "fanin", "sync"))
+    ap.add_argument("--arm", default="base", choices=("base", "fanin", "sync", "noexact"))
     ap.add_argument("--top", type=int, default=60)
     ap.add_argument("--out", type=Path, required=True)
     a = ap.parse_args()
@@ -374,6 +442,11 @@ def main() -> int:
             out["env"]["arch"] = str(dev.arch())
             params = S.declare_weights(trunk, out)
 
+            exact_ctx = None
+            if a.arm == "noexact":
+                exact_ctx = ag.exact_training(False)
+                exact_ctx.__enter__()
+            out["env"]["exact_training_ops"] = list(ag.exact_training_ops())
             if a.arm == "fanin":
                 ag.FANIN_MIXED = True
             out["env"]["fanin_mixed"] = bool(ag.FANIN_MIXED)
@@ -404,6 +477,7 @@ def main() -> int:
 
             saved: list = []
             z = None
+            hrt0 = hostrt(ag)
             fwd = Rec()
             _use(fwd)
             t0 = time.perf_counter()
@@ -418,9 +492,14 @@ def main() -> int:
             out["forward"] = {"s": round(fwall, 2),
                               "ok": True, "cycles": a.cycles,
                               "verb_calls": fwd.calls,
-                              "verb_wall_s": round(fwd.ns / 1e9, 2),
-                              "us_per_call": round(fwd.ns / fwd.calls / 1e3, 1)
+                              "outer_verb_calls": fwd.outer_calls,
+                              "verb_self_s": round(fwd.self_ns / 1e9, 2),
+                              "verb_incl_s_DOUBLECOUNTED": round(fwd.ns / 1e9, 2),
+                              "verb_share_of_forward":
+                                  round(fwd.self_ns / 1e9 / fwall, 4) if fwall else None,
+                              "us_per_call": round(fwd.self_ns / fwd.calls / 1e3, 1)
                               if fwd.calls else None,
+                              "host_roundtrips": hostrt_delta(hrt0, hostrt(ag)),
                               "sdpa_taped_calls": SUS["sdpa_taped_calls"],
                               "sdpa_score_blocks_total": SUS["sdpa_score_blocks_total"]}
             out["forward_by_verb"] = _byverb(fwd)[:25]
@@ -439,6 +518,7 @@ def main() -> int:
                                    layout=ttnn.TILE_LAYOUT, device=dev, dtype=zr.dtype)
             out["backward"] = {"tape_nodes": len(ag._reverse_topo([z]))}
             SUS.clear()
+            hrt1 = hostrt(ag)
             bwd = Rec()
             _use(bwd)
             rs = TT.recompute_scope()
@@ -463,9 +543,12 @@ def main() -> int:
             out["backward"].update({
                 "s": round(wall, 2),
                 "verb_calls": bwd.calls,
-                "verb_wall_s": round(bwd.ns / 1e9, 2),
-                "verb_share_of_backward": round(bwd.ns / 1e9 / wall, 4) if wall else None,
-                "us_per_call": round(bwd.ns / bwd.calls / 1e3, 1) if bwd.calls else None,
+                "outer_verb_calls": bwd.outer_calls,
+                "verb_self_s": round(bwd.self_ns / 1e9, 2),
+                "verb_incl_s_DOUBLECOUNTED": round(bwd.ns / 1e9, 2),
+                "verb_share_of_backward": round(bwd.self_ns / 1e9 / wall, 4) if wall else None,
+                "us_per_call": round(bwd.self_ns / bwd.calls / 1e3, 1) if bwd.calls else None,
+                "host_roundtrips": hostrt_delta(hrt1, hostrt(ag)),
                 "distinct_shape_classes": distinct,
                 "suspects": dict(SUS),
                 "params_with_grad": sum(1 for t in params.values()
@@ -488,6 +571,8 @@ def main() -> int:
                             "of3t-gpugap's 44.3x came from a counter whose forward and "
                             "backward populations were never shown to be the same."}
             ag.release_pins()
+            if exact_ctx is not None:
+                exact_ctx.__exit__(None, None, None)
         except Exception:                                                # noqa: BLE001
             out["error"] = traceback.format_exc()[-6000:]
     out["env"]["aiclk_during"] = clk.summary()
