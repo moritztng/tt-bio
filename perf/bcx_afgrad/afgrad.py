@@ -71,19 +71,28 @@ def _float64_layernorm():
     R.LayerNorm.forward = forward
 
 
-def load_models(params, device_arm=True):
-    """(device model or None, float64 reference, fp32 reference, bf16 reference)."""
+def load_models(params, device_arm=True, multimer=False, refs=True):
+    """(device model or None, float64 reference, fp32 reference, bf16 reference).
+
+    `multimer=False` is every caller this file had when the flag was added and is exactly the
+    monomer behaviour; `multimer=True` reads a `params_model_N_multimer_v3.npz` and gives the
+    Evoformer blocks `outer_product_mean.first`, which is the whole of the multimer delta that
+    reaches the card. `refs=False` skips the three torch reference arms, which cost three more
+    copies of the weights and are dead weight when only the device stack is wanted.
+    """
     from tt_bio.af2_reference import load_af2_model
     from tt_bio.af2_weights import load_af2_state_dict
     _float64_layernorm()
-    state = load_af2_state_dict(params)
+    state = load_af2_state_dict(params, multimer=multimer)
     dm = None
     if device_arm:
         from tt_bio.af2 import load_af2_device_model
-        dm = load_af2_device_model(state, template=False, trunk_dtype=torch.bfloat16)
+        dm = load_af2_device_model(state, template=False, multimer=multimer,
+                                   trunk_dtype=torch.bfloat16)
     ref = {}
-    for name, dt in (("f64", torch.float64), ("f32", torch.float32), ("bf16", torch.bfloat16)):
-        m = load_af2_model(state, template=False, trunk_dtype=dt)
+    for name, dt in ((("f64", torch.float64), ("f32", torch.float32),
+                      ("bf16", torch.bfloat16)) if refs else ()):
+        m = load_af2_model(state, template=False, multimer=multimer, trunk_dtype=dt)
         # Parameters stay float32 in the bf16/fp32 arms, which is AF2's own convention (the
         # Linear casts the weight to the activation dtype per call). float64 promotes them.
         ref[name] = m.double() if dt == torch.float64 else m
