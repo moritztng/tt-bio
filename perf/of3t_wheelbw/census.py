@@ -66,6 +66,16 @@ TAPED_VERBS = {"silu": (6, 1), "sigmoid": (3, 1), "relu": (2, 1)}
 # A broadcast multiply still needs `_reduce_to` and a fused one still needs its correction.
 MUL_FASTPATH = (2, 1)
 
+# THE THIRD TABLE, and the reason this script missed the gate copy for two passes: it counted
+# `autograd` and `_VERBS` and stopped. `taped_ttnn._FUSED_UNARY` holds the same three
+# derivatives once more, for an activation that RIDES another verb --
+# `multiply(o, g, input_tensor_b_activations=[SIGMOID])`, which is how every OpenFold3 gate is
+# written. A gate never reaches `_VERBS["sigmoid"]` at all, so the two tables above cannot see
+# it. Counted per ACTIVATED OPERAND THAT WANTS A GRADIENT, because that is the condition under
+# which `_chain_fused` runs at all.
+FUSED_UNARY_VERBS = {"SIGMOID": (3, 1), "SILU": (6, 1), "RELU": (2, 1)}
+_ACT_KEYS = (("input_tensor_a_activations", 0), ("input_tensor_b_activations", 1))
+
 
 def classify(t):
     """`_reverse_topo` hands back TENSORS, so the op is on `t.node.fn`; a leaf has no node."""
@@ -131,6 +141,22 @@ def instrument(ag, tw, calls, taped, shapes, branch):
                 parents = [a for a in args if isinstance(a, ag.Tensor)]
                 if sum(1 for p in parents if p.requires_grad) >= 2:
                     calls["taped_ttnn:multiply|fastpath"] += 1
+            if getattr(out, "node", None) is not None:
+                for _k, _idx in _ACT_KEYS:
+                    acts = list(kwargs.get(_k) or ())
+                    if len(acts) != 1 or _idx >= len(args):
+                        continue
+                    operand = args[_idx]
+                    if not isinstance(operand, ag.Tensor) or not operand.requires_grad:
+                        continue
+                    # A bare UnaryOpType only; a parameterised one carries `op_type` and its
+                    # derivative is the constant, which has no wheel backward to take.
+                    act = acts[0]
+                    if hasattr(act, "op_type"):
+                        continue
+                    nm = getattr(act, "name", None) or str(act).rsplit(".", 1)[-1]
+                    if nm in FUSED_UNARY_VERBS:
+                        calls[f"fused_unary:{nm}"] += 1
             return out
         tw._VERBS[name] = w
 
@@ -237,6 +263,9 @@ def main() -> int:
         b4, aft = MUL_FASTPATH
         saved["taped_ttnn:multiply(fastpath)"] = \
             calls.get("taped_ttnn:multiply|fastpath", 0) * (b4 - aft)
+        for nm, (before, after) in FUSED_UNARY_VERBS.items():
+            saved[f"fused_unary:{nm}"] = \
+                calls.get(f"fused_unary:{nm}", 0) * (before - after)
         out["verbs_deleted_by_op"] = {k: v for k, v in
                                       sorted(saved.items(), key=lambda kv: -kv[1])}
         out["verbs_deleted_total"] = sum(saved.values())
