@@ -64,16 +64,18 @@ def main():
                          "per shape and replay them (perf/bcx_predictor/trace_wire.py). OFF "
                          "by default -- it is a program change, so it is switched at a "
                          "trajectory boundary and never inside a matched-seed set.")
-    ap.add_argument("--device-zeros", action="store_true",
+    ap.add_argument("--device-zeros", action=argparse.BooleanOptionalAction, default=True,
                     help="device arm only: build every zero the backward pads a gradient with "
                          "on the card instead of uploading it from the host "
-                         "(autograd.grad_zeros). OFF by default, switched only at a trajectory "
-                         "boundary. --trace implies it.")
+                         "(autograd.DEVICE_ZEROS). ON by default: bit-identical to the host "
+                         "zeros and 1.21x on the trunk step (perf/bcx_devzeros). --trace needs it.")
     ap.add_argument("--region-mb", type=int, default=None,
                     help="trace region reserved at device open, MiB (default 768)")
     args = ap.parse_args()
-    if (args.trace or args.device_zeros) and args.arm != "device":
-        ap.error("--trace and --device-zeros only mean anything on --arm device")
+    if args.trace and args.arm != "device":
+        ap.error("--trace only means anything on --arm device")
+    if args.trace and not args.device_zeros:
+        ap.error("--trace needs --device-zeros: a capture refuses host writes")
 
     project = args.out or str(HERE / "runs" / f"{args.arm}_seed{args.seed}")
     pathlib.Path(project).mkdir(parents=True, exist_ok=True)
@@ -113,7 +115,7 @@ def main():
              "host": os.uname().nodename, "started_utc": time.strftime("%FT%TZ", time.gmtime()),
              "loadavg_start": os.getloadavg(), "stage_plan": B.stage_plan(settings),
              "threads": os.environ.get("XLA_FLAGS", ""), "project": project,
-             "trace": bool(args.trace), "device_zeros": bool(args.trace or args.device_zeros)}
+             "trace": bool(args.trace), "device_zeros": args.arm == "device" and args.device_zeros}
     (pathlib.Path(project) / "arm_stamp.json").write_text(json.dumps(stamp, indent=1))
     print(json.dumps(stamp, indent=1), flush=True)
 
@@ -133,9 +135,9 @@ def main():
             stamp["trace_region_mb"] = args.region_mb or trace_wire.REGION_MB
         _dm, _ = _A.load_models(_A.DEFAULT_PARAMS)
         _dev = _A.Dev(_dm.to_device())
-        _dev.ag.DEVICE_ZEROS = bool(args.device_zeros)
         _lv.arm("stack")
-        evo = EvoformerOnDevice(_dev, k_evo=48, trace=args.trace)
+        evo = EvoformerOnDevice(_dev, k_evo=48, trace=args.trace,
+                                device_zeros=args.device_zeros)
         stamp["device_card"] = int(os.environ.get("TT_VISIBLE_DEVICES", "-1"))
         with evoformer_on_device(evo):
             count = campaign.run_campaign(settings, project, af2_weights=args.params,

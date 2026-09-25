@@ -98,7 +98,8 @@ _NEXT = [0]
 class EvoformerOnDevice:
     """tt-bio's 48 Evoformer blocks as `(msa, pair) -> (msa, pair)`, differentiable."""
 
-    def __init__(self, dev, k_evo: int = 48, checkpoint: bool = True, trace: bool = False):
+    def __init__(self, dev, k_evo: int = 48, checkpoint: bool = True, trace: bool = False,
+                 device_zeros: bool = True):
         """`msa_mask` is BindCraft 2's `[rows, n]` Evoformer MSA mask, as a host array.
 
         It is passed in rather than read off the traced activations because the stack
@@ -120,6 +121,13 @@ class EvoformerOnDevice:
         #: process on the same trajectory. A backward follows the arm its own forward took,
         #: read off the token, never off this flag.
         self.trace_on = bool(trace)
+        # `device_zeros` builds the zero slots of the head backward on the card instead of
+        # uploading them from the host (`autograd.DEVICE_ZEROS`). Bit-identical to the host
+        # zeros on the loop's path and 1.21x on the trunk step (`perf/bcx_devzeros`), so ON.
+        # The flag is process-wide, so it is set here, before any trajectory runs.
+        if trace and not device_zeros:
+            raise ValueError("trace=True needs device_zeros: a capture refuses host writes")
+        dev.ag.DEVICE_ZEROS = bool(device_zeros)
         if trace:
             from trace_wire import TraceWire
             self.wire = TraceWire(dev)
