@@ -1,0 +1,10 @@
+{
+ "row_sum_max_abs_dev_from_one": 0.12990451762437383,
+ "fused_renorm_vs_shipped_rel_l2": 5.72936463666846e-16,
+ "dropping_the_renorm_vs_shipped_rel_l2": 0.09896038076327181,
+ "d_logits_row_sum_max_abs": {
+  "shipped": 1.5021621099786664e-15,
+  "fused_renorm": 1.0302089042957263e-15,
+  "plain_moreh": 0.21128677015247171
+ }
+}
