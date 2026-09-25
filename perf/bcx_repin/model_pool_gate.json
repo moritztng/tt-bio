@@ -1,0 +1,106 @@
+{
+ "multimer_pool": [
+  "model_1_multimer_v3",
+  "model_2_multimer_v3",
+  "model_3_multimer_v3",
+  "model_4_multimer_v3",
+  "model_5_multimer_v3"
+ ],
+ "monomer_pool": [
+  "model_1_ptm",
+  "model_2_ptm"
+ ],
+ "configs": {
+  "shipped": {
+   "overrides": [],
+   "campaign_multimer_pool": [
+    "model_1_multimer_v3",
+    "model_2_multimer_v3",
+    "model_3_multimer_v3",
+    "model_4_multimer_v3",
+    "model_5_multimer_v3"
+   ],
+   "declared_design_models": null,
+   "declared_validation_model": null,
+   "validates_on_multimer": true,
+   "selected_design_models": [
+    "model_1_multimer_v3",
+    "model_4_multimer_v3",
+    "model_5_multimer_v3"
+   ],
+   "selected_validation_models": [
+    "model_2_multimer_v3",
+    "model_3_multimer_v3"
+   ],
+   "validation_pool_exhausted": false,
+   "selection_error": null,
+   "preflight": {
+    "raised": false,
+    "messages": [
+     "/home/ttuser/bcx_e2e/af2_params/params_model_1_multimer_v3.npz",
+     "/home/ttuser/bcx_e2e/af2_params/params_model_4_multimer_v3.npz",
+     "/home/ttuser/bcx_e2e/af2_params/params_model_5_multimer_v3.npz",
+     "/home/ttuser/bcx_e2e/af2_params/params_model_2_multimer_v3.npz",
+     "/home/ttuser/bcx_e2e/af2_params/params_model_3_multimer_v3.npz",
+     "/home/ttuser/bcx_repin/bc2/bindcraft/weights/proteinmpnn/weights_negative/v_48_020.npz"
+    ]
+   }
+  },
+  "monomer_pin": {
+   "overrides": [
+    "validation_model=monomer",
+    "design_models=[\"model_1_ptm\"]",
+    "validation_models=[\"model_2_ptm\"]"
+   ],
+   "campaign_multimer_pool": [
+    "model_1_ptm",
+    "model_2_ptm"
+   ],
+   "declared_design_models": [
+    "model_1_ptm"
+   ],
+   "declared_validation_model": "monomer",
+   "validates_on_multimer": false,
+   "selected_design_models": [
+    "model_1_ptm"
+   ],
+   "selected_validation_models": [
+    "model_2_ptm"
+   ],
+   "validation_pool_exhausted": false,
+   "selection_error": null,
+   "preflight": {
+    "raised": true,
+    "messages": [
+     "settings did not resolve: Requested models ('model_1_ptm',) outside the pool ('model_1_multimer_v3', 'model_2_multimer_v3', 'model_3_multimer_v3', 'model_4_multimer_v3', 'model_5_multimer_v3')"
+    ]
+   }
+  },
+  "overrides_only": {
+   "overrides": [
+    "validation_model=monomer",
+    "design_models=[\"model_1_ptm\"]",
+    "validation_models=[\"model_2_ptm\"]"
+   ],
+   "campaign_multimer_pool": [
+    "model_1_multimer_v3",
+    "model_2_multimer_v3",
+    "model_3_multimer_v3",
+    "model_4_multimer_v3",
+    "model_5_multimer_v3"
+   ],
+   "declared_design_models": [
+    "model_1_ptm"
+   ],
+   "declared_validation_model": "monomer",
+   "validates_on_multimer": false,
+   "selected_design_models": null,
+   "selected_validation_models": null,
+   "validation_pool_exhausted": null,
+   "selection_error": "ValueError: Requested models ('model_1_ptm',) outside the pool ('model_1_multimer_v3', 'model_2_multimer_v3', 'model_3_multimer_v3', 'model_4_multimer_v3', 'model_5_multimer_v3')",
+   "preflight": null
+  }
+ },
+ "tree": "/home/ttuser/bcx_repin/bc2",
+ "tree_head": "301efdd"
+}
