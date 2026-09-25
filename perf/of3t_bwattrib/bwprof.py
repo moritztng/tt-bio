@@ -42,6 +42,12 @@ ARMS, and each is a break control that must MOVE the number or the suspect is no
               model, and this arm prices it. It is not a shippable lever on its own --
               of3t-stackexact reads 0.9823x the bar with it on and 1.4512x with it off -- so
               what this arm buys is the correct DENOMINATOR for every other lever.
+  softmax     `EXACT_TRAINING_OPS = ("softmax",)` -- of3t-exactscope's narrowed scope. The
+              exact softmax stays, the exact layer norm goes back to the device op. Between
+              `base` and `noexact` on the same ladder, so the three arms price the layer norm
+              separately from the softmax. The scope is asserted from the mechanism, not from
+              the argument: `host_roundtrips` must read layer_norm all-zero and softmax
+              non-zero on BOTH legs.
   sync        `ttnn.synchronize_device` after every verb. ttnn dispatch is asynchronous, so
               a bare wall clock per call is host time that may or may not be hiding device
               time behind it. This arm drains the queue per call: if the total barely moves,
@@ -412,7 +418,7 @@ def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--tokens", type=int, default=384)
     ap.add_argument("--cycles", type=int, default=1)
-    ap.add_argument("--arm", default="base", choices=("base", "fanin", "sync", "noexact"))
+    ap.add_argument("--arm", default="base", choices=("base", "fanin", "sync", "noexact", "softmax"))
     ap.add_argument("--top", type=int, default=60)
     ap.add_argument("--out", type=Path, required=True)
     a = ap.parse_args()
@@ -446,6 +452,11 @@ def main() -> int:
             if a.arm == "noexact":
                 exact_ctx = ag.exact_training(False)
                 exact_ctx.__enter__()
+            elif a.arm == "softmax":
+                # of3t-exactscope's narrowed scope. `exact_training_ops()` reads this module
+                # global live, so setting it here is the same one-argument change a ship would
+                # make -- not a private context the training entry points cannot see.
+                ag.EXACT_TRAINING_OPS = ("softmax",)
             out["env"]["exact_training_ops"] = list(ag.exact_training_ops())
             if a.arm == "fanin":
                 ag.FANIN_MIXED = True
@@ -485,6 +496,9 @@ def main() -> int:
                 _swap(True, saved)
                 try:
                     _s, z = trunk(*args_, **kwargs_)
+                    out["env"]["installed_inside_the_tape"] = {
+                        "softmax": ag.exact_softmax_installed(),
+                        "layer_norm": ag.exact_layer_norm_installed()}
                     ttnn.synchronize_device(dev)
                 finally:
                     _swap(False, saved)
