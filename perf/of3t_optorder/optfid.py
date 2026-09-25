@@ -103,17 +103,22 @@ class HostTensor:
         self.grad = None
 
 
-def load_before(rev: str, work: Path):
+def load_before(rev: str, work: Path, path_override: str | None = None):
     """Import `tt_bio/train/optim.py` as it stands at `rev`, as a sibling module.
 
     Named inside the real package so its `from .mesh import ...` resolves against the
     installed one: the comparison is of this file's change, not of the package around it.
     """
-    src = subprocess.run(["git", "-C", str(REPO), "show", f"{rev}:tt_bio/train/optim.py"],
-                         capture_output=True, text=True, check=True).stdout
     work.mkdir(parents=True, exist_ok=True)
-    path = work / "optim_before.py"
-    path.write_text(src)
+    if path_override:
+        # A box with the sources but no git checkout: qb2 runs this off an rsynced tree and the
+        # before-arm's optim.py travels with it.
+        path = Path(path_override)
+    else:
+        src = subprocess.run(["git", "-C", str(REPO), "show", f"{rev}:tt_bio/train/optim.py"],
+                             capture_output=True, text=True, check=True).stdout
+        path = work / "optim_before.py"
+        path.write_text(src)
     name = "tt_bio.train._optim_before"
     spec = importlib.util.spec_from_file_location(name, path)
     mod = importlib.util.module_from_spec(spec)
@@ -232,14 +237,18 @@ def _guarded(fn):
 
 def main() -> int:
     ap = argparse.ArgumentParser()
-    ap.add_argument("--before-rev", default="HEAD")
+    # Pinned, not HEAD: once the change lands, HEAD carries it and the comparison compares
+    # a tree with itself. 975b6a172 is `of3t-restep`'s tip, the last commit before this row.
+    ap.add_argument("--before-rev", default="975b6a172")
     ap.add_argument("--steps", type=int, default=6)
     ap.add_argument("--seed", type=int, default=7)
+    ap.add_argument("--before-file", default=None,
+                    help="path to the before-arm's optim.py; for a box with no git tree")
     ap.add_argument("--work", default="/tmp/of3t/of3t-optorder")
     ap.add_argument("--out", default=str(Path(__file__).resolve().parent / "out" / "optfid.json"))
     a = ap.parse_args()
 
-    before, before_path = load_before(a.before_rev, Path(a.work))
+    before, before_path = load_before(a.before_rev, Path(a.work), a.before_file)
     import tt_bio.train.optim as after
 
     for mod in (before, after):
@@ -249,9 +258,9 @@ def main() -> int:
     out = {"doc": __doc__.split("\n\n")[0], "argv": sys.argv[1:], "env": {
         "host": socket.gethostname(),
         "before_rev": a.before_rev,
-        "before_sha": subprocess.run(
+        "before_sha": (f"file:{a.before_file}" if a.before_file else subprocess.run(
             ["git", "-C", str(REPO), "rev-parse", a.before_rev],
-            capture_output=True, text=True, check=True).stdout.strip(),
+            capture_output=True, text=True, check=True).stdout.strip()),
         "after_commit": os.popen(f"git -C {REPO} rev-parse HEAD").read().strip(),
         "after_dirty": bool(os.popen(
             f"git -C {REPO} status --porcelain tt_bio/train/optim.py").read().strip()),
@@ -297,15 +306,56 @@ def main() -> int:
     order["moments_len_after_one_step"] = [len(opt.exp_avg), len(opt.exp_avg_sq)]
     out["ordering"] = order
 
-    # `init` really is what BOTH of the old copies were, on the old code's own arrays.
-    ob2 = before.AdamW(make_params(a.seed), lr=3e-4)
+    # `init` really is what BOTH of the old copies were, on the old code's own arrays. Over a
+    # wide shape sweep rather than the five above, because the claim is that the SECOND copy's
+    # `.reshape(master[n].shape)` is a no-op and a reshape is exactly where a shape could
+    # matter: 1-D, trailing ones, a singleton, and a rank-4 pair tensor are all in here.
+    rng = np.random.default_rng(a.seed + 1)
+    wide = {f"p{i}": HostTensor(DevArray(_bf16_round(
+        rng.standard_normal(sh, dtype=np.float32))))
+        for i, sh in enumerate(
+            [(1,), (7,), (1, 1), (3, 1), (1, 5), (2, 3, 4), (2, 1, 3, 1), (16, 16),
+             (4, 4, 4, 4), (33,), (1, 64), (64, 1)] * 20)}
+    ob2 = before.AdamW(wide, lr=3e-4)
     dup = [n for n in ob2.master
-           if not np.array_equal(ob2.init_master[n], ob2.init_device[n].reshape(
-               ob2.init_master[n].shape))]
+           if not (ob2.init_master[n].shape == ob2.init_device[n].shape
+                   and np.array_equal(ob2.init_master[n], ob2.init_device[n]))]
+    same_as_after = [n for n in ob2.master
+                     if not np.array_equal(ob2.init_master[n], after.AdamW(wide).init[n])]
     out["duplicate_check"] = {
         "params": len(ob2.master),
+        "distinct_shapes": len({tuple(v.shape) for v in ob2.master.values()}),
         "init_master_differs_from_init_device_on": dup,
-        "identical": not dup}
+        "new_init_differs_from_old_init_master_on": same_as_after,
+        "identical": not dup and not same_as_after}
+
+    # The one behaviour a lazily built moment could break: a checkpoint written before the
+    # first step. `save_adapter` reads `opt.exp_avg[name]` by name, which materialises it.
+    try:
+        import safetensors  # noqa: F401
+        from tt_bio.train import checkpoint as ck
+        ck.to_device = _to_device
+        ckres = {}
+        for label, mod in (("before", before), ("after", after)):
+            pr = make_params(a.seed)
+            o = mod.AdamW(pr, lr=3e-4)
+            path = Path(a.work) / f"adapter_{label}.safetensors"
+            ck.save_adapter(path, o)
+            pr2 = make_params(a.seed + 99)
+            o2 = mod.AdamW(pr2, lr=3e-4)
+            ck.load_adapter(path, pr2, "host", opt=o2)
+            ckres[label] = {
+                "master": {n: v.copy() for n, v in o2.master.items()},
+                "exp_avg": {n: np.asarray(o2.exp_avg[n]).copy() for n in o2.master},
+                "exp_avg_sq": {n: np.asarray(o2.exp_avg_sq[n]).copy() for n in o2.master},
+                "device": {n: np.asarray(t.value.a).copy() for n, t in pr2.items()},
+                "scalars": {}, "displacement": o2.displacement()}
+            path.unlink(missing_ok=True)
+        compare(ckres["before"], ckres["after"], "checkpoint/save-before-any-step", diffs)
+        out["checkpoint_roundtrip"] = "save before any step, then load: compared"
+    except ImportError:
+        out["checkpoint_roundtrip"] = ("safetensors absent on this interpreter; run this script "
+                                       "on qb2's bcx_e2e_venv for the checkpoint arm")
 
     out["arms"] = arms
     out["differences"] = diffs
@@ -313,7 +363,8 @@ def main() -> int:
     out["env"]["ttnn_imported_after"] = "ttnn" in sys.modules
     Path(a.out).parent.mkdir(parents=True, exist_ok=True)
     Path(a.out).write_text(json.dumps(out, indent=1, default=str))
-    before_path.unlink(missing_ok=True)
+    if not a.before_file:
+        before_path.unlink(missing_ok=True)
     print(json.dumps({k: out[k] for k in ("VERDICT", "arms", "ordering", "duplicate_check")},
                      indent=1, default=str))
     if diffs:

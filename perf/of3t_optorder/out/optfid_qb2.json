@@ -1,16 +1,21 @@
 {
  "doc": "Is the re-ordered AdamW the same optimizer? Bit-identical or it is not.",
- "argv": [],
+ "argv": [
+  "--before-file",
+  "/tmp/of3t/of3t-optorder/optim_before_975b6a172.py",
+  "--out",
+  "/tmp/of3t/of3t-optorder/optfid_qb2.json"
+ ],
  "env": {
-  "host": "pc",
+  "host": "tt-quietbox2",
   "before_rev": "975b6a172",
-  "before_sha": "975b6a172dbf2de41d51684eee83700275c71883",
-  "after_commit": "0819197a0b3859b4618f00e548391643745544ee",
+  "before_sha": "file:/tmp/of3t/of3t-optorder/optim_before_975b6a172.py",
+  "after_commit": "",
   "after_dirty": false,
-  "branch": "wk/of3t-optorder",
-  "python": "3.11.2",
-  "numpy": "2.4.6",
-  "started_utc": "2026-09-25T18:50:27Z",
+  "branch": "",
+  "python": "3.12.3",
+  "numpy": "2.5.2",
+  "started_utc": "2026-09-25T18:50:49Z",
   "card_opened": false,
   "ttnn_imported": false,
   "ttnn_imported_after": false
@@ -35,7 +40,7 @@
   "new_init_differs_from_old_init_master_on": [],
   "identical": true
  },
- "checkpoint_roundtrip": "safetensors absent on this interpreter; run this script on qb2's bcx_e2e_venv for the checkpoint arm",
+ "checkpoint_roundtrip": "save before any step, then load: compared",
  "arms": [
   {
    "arm": "batch/sched=False",
