@@ -186,12 +186,13 @@ def _campaign_factory_trunks(monkeypatch, **kwargs):
         return object()
 
     design.trunk, design.pool, design.evoformer = "device", object(), object()
+    design.extra_msa = None
 
     @contextlib.contextmanager
     def fake_predictor(**_):
         yield design
 
-    def fake_factory(*, trunk, pool, evoformer=None):
+    def fake_factory(*, trunk, pool, evoformer=None, extra_msa=None):
         def build(*args, **kw):
             built.append(trunk)
             return object()
@@ -216,6 +217,43 @@ def test_the_validation_ensemble_folds_on_the_host_trunk_by_default(monkeypatch)
 
 def test_validation_can_be_put_on_card_explicitly(monkeypatch):
     assert _campaign_factory_trunks(monkeypatch, validation="device") == ["device"] * 3
+
+
+def test_the_extra_msa_stack_stays_in_jax_unless_it_is_asked_for():
+    """The second swap is off by default, so an Evoformer-only comparison keeps its program.
+
+    `bcx-seeds` grades matched pairs on the Evoformer swap alone. A second default moving
+    underneath that set would void it.
+    """
+    _bindcraft_root()
+    params = _af2_params()
+    with bindcraft2.predictor(trunk="device", checkpoints=str(params)) as build:
+        assert build.extra_msa is None
+
+
+def test_asking_for_the_extra_msa_swap_builds_one_on_the_evoformers_pool():
+    """`predictor(extra_msa=True)` reaches the constructor and hands the caller its counters.
+
+    The lever went in inert -- `ExtraMsaOnDevice` was defined and constructed nowhere, so the
+    merge that landed it moved no shipped path. This is the guard against that recurring: a
+    wired-and-inert lever is this fleet's most repeated failure. It checks construction only;
+    that the card actually runs the stack is a counter read on a real round.
+    """
+    _bindcraft_root()
+    from bindcraft.af.alphafold.model import layer_stack
+
+    params = _af2_params()
+    before = layer_stack.layer_stack
+    with bindcraft2.predictor(trunk="device", checkpoints=str(params),
+                              extra_msa=True) as build:
+        extra = build.extra_msa
+        assert isinstance(extra, bindcraft2.ExtraMsaOnDevice)
+        # One pool across both swaps, or the two stacks fold on different trunks.
+        assert extra.pool is build.pool
+        assert extra.calls == {"primal": 0, "taped": 0, "backward": 0}
+        assert extra.swapped == []
+        assert layer_stack.layer_stack is not before
+    assert layer_stack.layer_stack is before
 
 
 def test_an_unknown_validation_trunk_is_refused():
