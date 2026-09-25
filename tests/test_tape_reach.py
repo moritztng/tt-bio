@@ -49,6 +49,14 @@ ALLOWED = {
     "train/openfold3.py",
     # A kernel-source patcher, not a model path.
     "kernels/trimul_tail/patch_trimul_tail.py",
+    # `bindcraft2.py` defers the import because `pin_card()` has to set TT_VISIBLE_DEVICES
+    # BEFORE ttnn is first imported, and it raises if ttnn is already loaded. A module-scope
+    # import would put ttnn in sys.modules the moment a user writes `from tt_bio import
+    # bindcraft2`, so `predictor(card=N)` could never be honoured. What it reaches ttnn for is
+    # the host boundary either side of the tape: `from_torch` to upload leaves and cotangents,
+    # `to_torch` to bring results and gradients back, and `synchronize_device`. The taped work
+    # itself is `tt_bio/af2.py`'s device Evoformer blocks, which import ttnn at module scope.
+    "bindcraft2.py",
 }
 
 
