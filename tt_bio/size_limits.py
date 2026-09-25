@@ -927,8 +927,16 @@ CEILINGS: dict[str, dict[str, Ceiling]] = {
         # the binder, and the trunk is O(N^3) in it, so the ceiling is a real question -- it is
         # unanswered, not absent.
         "blackhole": _unmeasured(
-            "no ladder. AF2-IG folds are on record at 208-848 tokens on qb1 p150a and nothing "
-            "above 848 has been tried, so the first failing rung is unknown"),
+            "no ladder, but no longer a blank: 1536 tokens (1008 target + a 528-residue binder) "
+            "folded on pc's p150a, card 0, in 665.0 s on 2026-09-25, AICLK median 1350 MHz over "
+            "133 samples taken during the fold, pLDDT 0.725, zero backbone breaks in either "
+            "chain and every residue delivered (ws:cov-below-bar-af2ig-bhp150a, "
+            "perf/af2igcov/results). The 848 control on the same card reads 202.7 s, so the "
+            "exponent between consecutive rungs is 2.00 and on the warm trunk pass alone 2.62 -- "
+            "under the trunk's O(N^3), so nothing fast falls off. The older qb1 ladder reads "
+            "5.7 s at 208, 17.8 s at 336, 76.4 s at 592 and 160-194 s at 848. Nothing above "
+            "1536 has been tried, so there is still no failing size to refuse on and this row "
+            "refuses nothing"),
         "wormhole_b0": _unmeasured(
             "no ladder, but no longer a blank: 1024 tokens (944 target + 80 binder, the sum the "
             "platform fences on) folded on a Galaxy chip in 487.9 s on 2026-09-25, GWH02 UMD 0, "
