@@ -22,7 +22,12 @@ STAMP = re.compile(r"^(\d{4}-\d\d-\d\dT\d\d:\d\d:\d\dZ) (.*)$")
 TRAJ = re.compile(r"^=== trajectory (\d+) \| (\S+) \| accepted (\d+)/(\d+) ===")
 LEN = re.compile(r"_l(\d+)_")
 OUTCOME = re.compile(r"^  (passed|rejected at|trajectory rejected|binder hallucination successful|"
-                     r"binder optimization|induced fit)(.*)$")
+                     r"binder optimization|induced fit|\d+ of \d+ redesigns)(.*)$")
+# The MPNN candidates are indented one space deeper than the stage lines and carry the only
+# per-candidate `failed [...]` list the campaign prints. Matching them is not cosmetic: the
+# stage lines say a trajectory reached the final filters, these say which ones fired.
+CANDIDATE = re.compile(r"^   (\d+)/(\d+)  (ACCEPTED|rejected)\s+(.*)$")
+FAILED = re.compile(r"failed \[(.*)\]")
 
 
 def parse_log(path):
@@ -45,11 +50,31 @@ def parse_log(path):
             trajectories.append(current)
             prev_t = t
             continue
-        if current is None or not OUTCOME.match(text):
+        if current is None or not (OUTCOME.match(text) or CANDIDATE.match(text)):
             continue
         current["lines"].append((t, (t - prev_t).total_seconds(), text.strip()))
         prev_t = t
     return trajectories
+
+
+def campaign_count(project, ranked):
+    """The accepted count, off the campaign's own state file, cross-checked against 3_Ranked.
+
+    BindCraft 2 never writes `accepted.csv`; it keeps the running count in
+    `.campaign_state.json` and rewrites `3_Ranked/!_Ranked.csv` as each design is accepted.
+    Reading a file the campaign does not write reports 0 accepted for every campaign, which
+    is the one number this row exists to get right, so the two sources are compared and a
+    disagreement is printed rather than silently resolved.
+    """
+    path = os.path.join(project, ".campaign_state.json")
+    state = json.load(open(path)) if os.path.exists(path) else {}
+    count = state.get("accepted")
+    note = ""
+    if count is None:
+        count, note = len(ranked), "  (no .campaign_state.json; counted 3_Ranked rows)"
+    elif count != len(ranked):
+        note = f"  MISMATCH: .campaign_state.json {count} vs {len(ranked)} ranked rows"
+    return count, note, state.get("rejections", {})
 
 
 def rows(path):
@@ -98,12 +123,12 @@ def main():
     log = os.path.join(P, "run.stamped.log")
     trajectories = parse_log(log) if os.path.exists(log) else []
 
-    accepted = rows(os.path.join(P, "accepted.csv"))
     ranked = rows(os.path.join(P, "3_Ranked", "!_Ranked.csv"))
     refolded = rows(os.path.join(P, "2_Refolded", "!_Refolded.csv"))
     traj_csv = rows(os.path.join(P, "1_Trajectories", "!_Trajectories.csv"))
 
     pool = stamp.get("resolved_design_models") or resolved_pool(stamp, P)
+    accepted, count_note, rejections = campaign_count(P, ranked)
     out = {
         "project": P, "bc2": stamp.get("bc2"), "settings_file": stamp.get("settings_file"),
         "shipped_model_pool": stamp.get("shipped_model_pool"),
@@ -111,7 +136,7 @@ def main():
         "host": stamp.get("host"), "started_utc": stamp.get("started_utc"),
         "stage_plan": stamp.get("stage_plan"),
         "design_models": pool, "validation_models": stamp.get("resolved_validation_models"),
-        "ACCEPTED": len(accepted), "ranked_rows": len(ranked),
+        "ACCEPTED": accepted, "ranked_rows": len(ranked), "rejections": rejections,
         "refolded_rows": len(refolded), "trajectory_rows": len(traj_csv),
         "trajectories": [],
     }
@@ -137,7 +162,11 @@ def main():
     print(f"validation_models  {out['validation_models']}")
     print(f"ACCEPTED           {out['ACCEPTED']}   "
           f"(trajectory rows {out['trajectory_rows']}, refolded {out['refolded_rows']}, "
-          f"ranked {out['ranked_rows']})")
+          f"ranked {out['ranked_rows']}){count_note}")
+    if rejections:
+        print(f"candidates         scored {rejections.get('candidates_scored')}, "
+              f"rejected {rejections.get('candidates_rejected')}, "
+              f"failed filters {rejections.get('failed_filters')}")
     for t in out["trajectories"]:
         print(f"\ntrajectory {t['n']}  binder {t['binder_length']}aa  start {t['start_utc']}  "
               f"elapsed {t['elapsed_s']}s")
