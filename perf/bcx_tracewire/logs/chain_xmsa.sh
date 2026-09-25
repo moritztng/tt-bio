@@ -9,13 +9,13 @@ L=perf/bcx_tracewire/logs
 S=$L/chain_xmsa.status
 : > $S
 timeout 3000 $PY -X faulthandler perf/bcx_tracewire/round_ab.py --interleave --extra-msa --rounds 26 \
-  --seed 100 --card 3 --project perf/bcx_tracewire/runs/interleave3_xmsa_seed100 \
-  --out round_interleave3_xmsa_seed100.json > $L/interleave3_xmsa_s100.log 2>&1 < /dev/null
+  --seed 100 --card 3 --project perf/bcx_tracewire/runs/interleave3_xmsa_fenced_seed100 \
+  --out round_interleave3_xmsa_fenced_seed100.json > $L/interleave3_xmsa_fenced_s100.log 2>&1 < /dev/null
 echo "interleave exit $? $(date -u +%FT%TZ)" >> $S
 for arm in trace eager; do
   timeout 1800 $PY -X faulthandler perf/bcx_tracewire/round_ab.py --arm $arm --digest --extra-msa \
-    --rounds 7 --seed 100 --card 3 --project perf/bcx_tracewire/runs/digest_xmsa_${arm}_seed100 \
-    --out round_digest_xmsa_${arm}_seed100.json > $L/digest_xmsa_${arm}_s100.log 2>&1 < /dev/null
+    --rounds 7 --seed 100 --card 3 --project perf/bcx_tracewire/runs/digest_xmsa_fenced_${arm}_seed100 \
+    --out round_digest_xmsa_fenced_${arm}_seed100.json > $L/digest_xmsa_fenced_${arm}_s100.log 2>&1 < /dev/null
   echo "$arm exit $? $(date -u +%FT%TZ)" >> $S
 done
 echo "chain done $(date -u +%FT%TZ)" >> $S
