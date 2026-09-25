@@ -1,0 +1,73 @@
+{
+ "model": "openfold3",
+ "host": "tt-quietbox2",
+ "card": 3,
+ "board": "p300c",
+ "pad_multiple": 64,
+ "presentable_changed_lengths": [
+  704,
+  832,
+  1088,
+  1216,
+  1472
+ ],
+ "measured": {
+  "704": {
+   "off": {
+    "served": 384,
+    "declined": 0,
+    "pick": "(704,704) q352 k704"
+   },
+   "on": {
+    "served": 384,
+    "declined": 0,
+    "pick": "(704,704) q352 k704"
+   },
+   "verdict": "INERT - identical pick, byte-identical CIF"
+  },
+  "832": {
+   "off": {
+    "served": 0,
+    "declined": 384,
+    "pick": null
+   },
+   "on": {
+    "served": 384,
+    "declined": 0,
+    "pick": "(832,832) q416 k416"
+   },
+   "verdict": "LIVE - off falls through to _fp32_softmax_attention for every call"
+  },
+  "1088": {
+   "off": {
+    "served": 384,
+    "declined": 0,
+    "pick": "(1088,1088) q64 k1088"
+   },
+   "on": null,
+   "verdict": "INERT - shipped arm already serves, on-arm not needed"
+  }
+ },
+ "untested": [
+  1216,
+  1472
+ ],
+ "note": "reach on the only model with the site on by default. 1 of 3 measured lengths is live.",
+ "raw_1088_off": {
+  "pid": 918389,
+  "flag": "0",
+  "stats": {
+   "served": 384,
+   "declined": 0,
+   "too_short": 0,
+   "taped": 0
+  },
+  "picks": {
+   "(1088, 1088)": [
+    64,
+    1088,
+    2
+   ]
+  }
+ }
+}
