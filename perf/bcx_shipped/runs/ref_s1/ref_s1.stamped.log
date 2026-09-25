@@ -50,3 +50,7 @@
 2026-09-25T14:15:18Z === trajectory 1 | pdl1_denovo_l111_74f2afaeef24065e | accepted 0/10 ===
 2026-09-25T16:34:29Z   passed screen design stage  i_pTM=0.82    pLDDT=0.93  
 2026-09-25T18:12:50Z   passed refine design stage  i_pTM=0.79    pLDDT=0.88  
+2026-09-25T20:45:16Z   passed anneal design stage  i_pTM=0.83    pLDDT=0.9   
+2026-09-25T20:57:51Z   rejected at harden design stage  i_pTM=0.13    pLDDT=0.38   due to [i_pTM, pLDDT]
+2026-09-25T20:57:51Z 
+2026-09-25T20:57:51Z === trajectory 2 | pdl1_denovo_l142_d47236314bff52ac | accepted 0/10 ===
