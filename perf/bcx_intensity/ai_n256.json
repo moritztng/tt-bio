@@ -1,0 +1,6497 @@
+{
+ "stamp": {
+  "host": "j10glx02",
+  "card": 8,
+  "pci": "0000:41:00.0",
+  "sysfs": "/sys/class/tenstorrent/tenstorrent!24",
+  "commit": "",
+  "loadavg": [
+   21.34716796875,
+   15.52685546875,
+   12.39208984375
+  ],
+  "nproc": 64,
+  "argv": [
+   "perf/bcx_intensity/intensity.py",
+   "ai",
+   "--n",
+   "256",
+   "--warm",
+   "1",
+   "--stacks",
+   "evo,extra"
+  ],
+  "utc": "2026-09-25T14:53:12Z",
+  "aiclk_now": 1000,
+  "roofs": {
+   "compute_flops": 115685000000000.0,
+   "balance": [
+    247.0,
+    338.0
+   ],
+   "bw_gbs": [
+    342.26331360946745,
+    468.36032388663966
+   ]
+  }
+ },
+ "n": 256,
+ "blocks": {
+  "evo": {
+   "wall": {
+    "fwd": 2.964448928833008,
+    "bwd": 7.268751621246338,
+    "spans": [
+     [
+      1790348005.3845127,
+      1790348008.3489616
+     ],
+     [
+      1790348008.3620198,
+      1790348015.6307714
+     ]
+    ]
+   },
+   "aiclk": {
+    "n": 29,
+    "min": 1000,
+    "median": 1000,
+    "max": 1000
+   },
+   "loadavg": [
+    20.3857421875,
+    15.7861328125,
+    12.56201171875
+   ],
+   "table": [
+    {
+     "component": "residual",
+     "phase": "fwd",
+     "family": "typecast",
+     "op": "typecast",
+     "n": 54,
+     "flop": 0.0,
+     "bytes": 1819017216.0,
+     "lbytes": 1819017216.0,
+     "ai": 0.0
+    },
+    {
+     "component": "tri_att_end",
+     "phase": "fwd",
+     "family": "typecast",
+     "op": "typecast",
+     "n": 6,
+     "flop": 0.0,
+     "bytes": 1613758464.0,
+     "lbytes": 1613758464.0,
+     "ai": 0.0
+    },
+    {
+     "component": "tri_att_start",
+     "phase": "fwd",
+     "family": "typecast",
+     "op": "typecast",
+     "n": 6,
+     "flop": 0.0,
+     "bytes": 1613758464.0,
+     "lbytes": 1613758464.0,
+     "ai": 0.0
+    },
+    {
+     "component": "tri_att_end",
+     "phase": "bwd",
+     "family": "layout",
+     "op": "slice",
+     "n": 16,
+     "flop": 0.0,
+     "bytes": 1604321280.0,
+     "lbytes": 1604321280.0,
+     "ai": 0.0
+    },
+    {
+     "component": "tri_att_start",
+     "phase": "bwd",
+     "family": "layout",
+     "op": "slice",
+     "n": 16,
+     "flop": 0.0,
+     "bytes": 1604321280.0,
+     "lbytes": 1604321280.0,
+     "ai": 0.0
+    },
+    {
+     "component": "tri_att_end",
+     "phase": "bwd",
+     "family": "typecast",
+     "op": "typecast",
+     "n": 11,
+     "flop": 0.0,
+     "bytes": 1511522304.0,
+     "lbytes": 1511522304.0,
+     "ai": 0.0
+    },
+    {
+     "component": "tri_att_start",
+     "phase": "bwd",
+     "family": "typecast",
+     "op": "typecast",
+     "n": 11,
+     "flop": 0.0,
+     "bytes": 1511522304.0,
+     "lbytes": 1511522304.0,
+     "ai": 0.0
+    },
+    {
+     "component": "residual",
+     "phase": "fwd",
+     "family": "eltwise",
+     "op": "add",
+     "n": 18,
+     "flop": 101056512.0,
+     "bytes": 1212678144.0,
+     "lbytes": 1212678144.0,
+     "ai": 0.08333333333333333
+    },
+    {
+     "component": "tri_att_end",
+     "phase": "fwd",
+     "family": "eltwise",
+     "op": "add",
+     "n": 4,
+     "flop": 150994944.0,
+     "bytes": 1142948352.0,
+     "lbytes": 1142948352.0,
+     "ai": 0.13211003256252124
+    },
+    {
+     "component": "tri_att_start",
+     "phase": "fwd",
+     "family": "eltwise",
+     "op": "add",
+     "n": 4,
+     "flop": 150994944.0,
+     "bytes": 1142948352.0,
+     "lbytes": 1142948352.0,
+     "ai": 0.13211003256252124
+    },
+    {
+     "component": "opm",
+     "phase": "fwd",
+     "family": "layout",
+     "op": "to_layout",
+     "n": 8,
+     "flop": 0.0,
+     "bytes": 1075904512.0,
+     "lbytes": 1073872896.0,
+     "ai": 0.0
+    },
+    {
+     "component": "residual",
+     "phase": "bwd",
+     "family": "typecast",
+     "op": "typecast",
+     "n": 27,
+     "flop": 0.0,
+     "bytes": 909508608.0,
+     "lbytes": 909508608.0,
+     "ai": 0.0
+    },
+    {
+     "component": "tri_att_end",
+     "phase": "bwd",
+     "family": "eltwise",
+     "op": "add",
+     "n": 5,
+     "flop": 75497472.0,
+     "bytes": 905969664.0,
+     "lbytes": 905969664.0,
+     "ai": 0.08333333333333333
+    },
+    {
+     "component": "tri_att_start",
+     "phase": "bwd",
+     "family": "eltwise",
+     "op": "add",
+     "n": 5,
+     "flop": 75497472.0,
+     "bytes": 905969664.0,
+     "lbytes": 905969664.0,
+     "ai": 0.08333333333333333
+    },
+    {
+     "component": "tri_att_end",
+     "phase": "bwd",
+     "family": "matmul",
+     "op": "matmul",
+     "n": 8,
+     "flop": 27984396288.0,
+     "bytes": 826449920.0,
+     "lbytes": 822772736.0,
+     "ai": 33.860970411855085
+    },
+    {
+     "component": "tri_att_start",
+     "phase": "bwd",
+     "family": "matmul",
+     "op": "matmul",
+     "n": 8,
+     "flop": 27984396288.0,
+     "bytes": 826449920.0,
+     "lbytes": 822772736.0,
+     "ai": 33.860970411855085
+    },
+    {
+     "component": "?",
+     "phase": "fwd",
+     "family": "typecast",
+     "op": "typecast",
+     "n": 19,
+     "flop": 0.0,
+     "bytes": 808452096.0,
+     "lbytes": 759693312.0,
+     "ai": 0.0
+    },
+    {
+     "component": "tri_att_end",
+     "phase": "bwd",
+     "family": "eltwise",
+     "op": "multiply",
+     "n": 6,
+     "flop": 100925440.0,
+     "bytes": 740294656.0,
+     "lbytes": 740294656.0,
+     "ai": 0.1363314447592068
+    },
+    {
+     "component": "tri_att_start",
+     "phase": "bwd",
+     "family": "eltwise",
+     "op": "multiply",
+     "n": 6,
+     "flop": 100925440.0,
+     "bytes": 740294656.0,
+     "lbytes": 740294656.0,
+     "ai": 0.1363314447592068
+    },
+    {
+     "component": "tri_att_end",
+     "phase": "fwd",
+     "family": "matmul",
+     "op": "matmul",
+     "n": 4,
+     "flop": 17179869184.0,
+     "bytes": 671088640.0,
+     "lbytes": 671088640.0,
+     "ai": 25.6
+    },
+    {
+     "component": "tri_att_start",
+     "phase": "fwd",
+     "family": "matmul",
+     "op": "matmul",
+     "n": 4,
+     "flop": 17179869184.0,
+     "bytes": 671088640.0,
+     "lbytes": 671088640.0,
+     "ai": 25.6
+    },
+    {
+     "component": "tri_mul_in",
+     "phase": "bwd",
+     "family": "eltwise",
+     "op": "multiply",
+     "n": 12,
+     "flop": 100663296.0,
+     "bytes": 603979776.0,
+     "lbytes": 603979776.0,
+     "ai": 0.16666666666666666
+    },
+    {
+     "component": "tri_mul_out",
+     "phase": "bwd",
+     "family": "eltwise",
+     "op": "multiply",
+     "n": 12,
+     "flop": 100663296.0,
+     "bytes": 603979776.0,
+     "lbytes": 603979776.0,
+     "ai": 0.16666666666666666
+    },
+    {
+     "component": "opm",
+     "phase": "fwd",
+     "family": "layout",
+     "op": "permute",
+     "n": 6,
+     "flop": 0.0,
+     "bytes": 539033600.0,
+     "lbytes": 537001984.0,
+     "ai": 0.0
+    },
+    {
+     "component": "opm",
+     "phase": "bwd",
+     "family": "layout",
+     "op": "to_layout",
+     "n": 4,
+     "flop": 0.0,
+     "bytes": 537952256.0,
+     "lbytes": 536936448.0,
+     "ai": 0.0
+    },
+    {
+     "component": "opm",
+     "phase": "fwd",
+     "family": "layout",
+     "op": "reshape",
+     "n": 2,
+     "flop": 0.0,
+     "bytes": 536870912.0,
+     "lbytes": 536870912.0,
+     "ai": 0.0
+    },
+    {
+     "component": "opm",
+     "phase": "bwd",
+     "family": "matmul",
+     "op": "matmul",
+     "n": 5,
+     "flop": 17456693248.0,
+     "bytes": 422117376.0,
+     "lbytes": 420085760.0,
+     "ai": 41.35506908865083
+    },
+    {
+     "component": "pair_transition",
+     "phase": "fwd",
+     "family": "matmul",
+     "op": "linear",
+     "n": 4,
+     "flop": 34443624448.0,
+     "bytes": 336071168.0,
+     "lbytes": 336071168.0,
+     "ai": 102.48907888462482
+    },
+    {
+     "component": "opm",
+     "phase": "fwd",
+     "family": "matmul",
+     "op": "linear",
+     "n": 6,
+     "flop": 34393325568.0,
+     "bytes": 303170304.0,
+     "lbytes": 303170304.0,
+     "ai": 113.44556216165552
+    },
+    {
+     "component": "tri_mul_in",
+     "phase": "fwd",
+     "family": "eltwise",
+     "op": "multiply",
+     "n": 6,
+     "flop": 50331648.0,
+     "bytes": 301989888.0,
+     "lbytes": 301989888.0,
+     "ai": 0.16666666666666666
+    },
+    {
+     "component": "tri_mul_out",
+     "phase": "fwd",
+     "family": "eltwise",
+     "op": "multiply",
+     "n": 6,
+     "flop": 50331648.0,
+     "bytes": 301989888.0,
+     "lbytes": 301989888.0,
+     "ai": 0.16666666666666666
+    },
+    {
+     "component": "opm",
+     "phase": "fwd",
+     "family": "matmul",
+     "op": "matmul",
+     "n": 2,
+     "flop": 268435456.0,
+     "bytes": 270532608.0,
+     "lbytes": 268500992.0,
+     "ai": 0.9922480620155039
+    },
+    {
+     "component": "opm",
+     "phase": "bwd",
+     "family": "layout",
+     "op": "permute",
+     "n": 3,
+     "flop": 0.0,
+     "bytes": 269516800.0,
+     "lbytes": 268500992.0,
+     "ai": 0.0
+    },
+    {
+     "component": "opm",
+     "phase": "bwd",
+     "family": "layout",
+     "op": "reshape",
+     "n": 1,
+     "flop": 0.0,
+     "bytes": 268435456.0,
+     "lbytes": 268435456.0,
+     "ai": 0.0
+    },
+    {
+     "component": "tri_att_end",
+     "phase": "fwd",
+     "family": "layout",
+     "op": "to_layout",
+     "n": 8,
+     "flop": 0.0,
+     "bytes": 268435456.0,
+     "lbytes": 268435456.0,
+     "ai": 0.0
+    },
+    {
+     "component": "tri_mul_in",
+     "phase": "fwd",
+     "family": "layout",
+     "op": "chunk",
+     "n": 2,
+     "flop": 0.0,
+     "bytes": 268435456.0,
+     "lbytes": 268435456.0,
+     "ai": 0.0
+    },
+    {
+     "component": "tri_mul_out",
+     "phase": "fwd",
+     "family": "layout",
+     "op": "chunk",
+     "n": 2,
+     "flop": 0.0,
+     "bytes": 268435456.0,
+     "lbytes": 268435456.0,
+     "ai": 0.0
+    },
+    {
+     "component": "tri_mul_in",
+     "phase": "bwd",
+     "family": "matmul",
+     "op": "matmul",
+     "n": 5,
+     "flop": 21474836480.0,
+     "bytes": 251854848.0,
+     "lbytes": 251854848.0,
+     "ai": 85.26671870934166
+    },
+    {
+     "component": "tri_mul_out",
+     "phase": "bwd",
+     "family": "matmul",
+     "op": "matmul",
+     "n": 5,
+     "flop": 21474836480.0,
+     "bytes": 251854848.0,
+     "lbytes": 251854848.0,
+     "ai": 85.26671870934166
+    },
+    {
+     "component": "tri_att_end",
+     "phase": "fwd",
+     "family": "layout",
+     "op": "permute",
+     "n": 8,
+     "flop": 0.0,
+     "bytes": 210763776.0,
+     "lbytes": 203423744.0,
+     "ai": 0.0
+    },
+    {
+     "component": "tri_att_end",
+     "phase": "fwd",
+     "family": "eltwise",
+     "op": "experimental.minimal_matmul",
+     "n": 4,
+     "flop": 67108864.0,
+     "bytes": 201588736.0,
+     "lbytes": 201588736.0,
+     "ai": 0.3328998699609883
+    },
+    {
+     "component": "tri_att_start",
+     "phase": "fwd",
+     "family": "eltwise",
+     "op": "experimental.minimal_matmul",
+     "n": 4,
+     "flop": 67108864.0,
+     "bytes": 201588736.0,
+     "lbytes": 201588736.0,
+     "ai": 0.3328998699609883
+    },
+    {
+     "component": "pair_transition",
+     "phase": "bwd",
+     "family": "eltwise",
+     "op": "multiply",
+     "n": 1,
+     "flop": 33554432.0,
+     "bytes": 201326592.0,
+     "lbytes": 201326592.0,
+     "ai": 0.16666666666666666
+    },
+    {
+     "component": "tri_att_end",
+     "phase": "fwd",
+     "family": "layout",
+     "op": "experimental.nlp_create_qkv_heads",
+     "n": 2,
+     "flop": 0.0,
+     "bytes": 201326592.0,
+     "lbytes": 201326592.0,
+     "ai": 0.0
+    },
+    {
+     "component": "tri_att_start",
+     "phase": "fwd",
+     "family": "layout",
+     "op": "experimental.nlp_create_qkv_heads",
+     "n": 2,
+     "flop": 0.0,
+     "bytes": 201326592.0,
+     "lbytes": 201326592.0,
+     "ai": 0.0
+    },
+    {
+     "component": "tri_mul_in",
+     "phase": "bwd",
+     "family": "eltwise",
+     "op": "add",
+     "n": 2,
+     "flop": 16777216.0,
+     "bytes": 201326592.0,
+     "lbytes": 201326592.0,
+     "ai": 0.08333333333333333
+    },
+    {
+     "component": "tri_mul_in",
+     "phase": "bwd",
+     "family": "typecast",
+     "op": "typecast",
+     "n": 4,
+     "flop": 0.0,
+     "bytes": 201326592.0,
+     "lbytes": 201326592.0,
+     "ai": 0.0
+    },
+    {
+     "component": "tri_mul_out",
+     "phase": "bwd",
+     "family": "eltwise",
+     "op": "add",
+     "n": 2,
+     "flop": 16777216.0,
+     "bytes": 201326592.0,
+     "lbytes": 201326592.0,
+     "ai": 0.08333333333333333
+    },
+    {
+     "component": "tri_mul_out",
+     "phase": "bwd",
+     "family": "typecast",
+     "op": "typecast",
+     "n": 4,
+     "flop": 0.0,
+     "bytes": 201326592.0,
+     "lbytes": 201326592.0,
+     "ai": 0.0
+    },
+    {
+     "component": "msa_col_attn",
+     "phase": "bwd",
+     "family": "eltwise",
+     "op": "add",
+     "n": 4,
+     "flop": 14745600.0,
+     "bytes": 176947200.0,
+     "lbytes": 6291456.0,
+     "ai": 0.08333333333333333
+    },
+    {
+     "component": "tri_mul_in",
+     "phase": "fwd",
+     "family": "eltwise",
+     "op": "experimental.minimal_matmul",
+     "n": 2,
+     "flop": 67108864.0,
+     "bytes": 168036352.0,
+     "lbytes": 168036352.0,
+     "ai": 0.39937110750892757
+    },
+    {
+     "component": "tri_mul_out",
+     "phase": "fwd",
+     "family": "eltwise",
+     "op": "experimental.minimal_matmul",
+     "n": 2,
+     "flop": 67108864.0,
+     "bytes": 168036352.0,
+     "lbytes": 168036352.0,
+     "ai": 0.39937110750892757
+    },
+    {
+     "component": "pair_transition",
+     "phase": "bwd",
+     "family": "matmul",
+     "op": "matmul",
+     "n": 2,
+     "flop": 17179869184.0,
+     "bytes": 168034304.0,
+     "lbytes": 168034304.0,
+     "ai": 102.2402496099844
+    },
+    {
+     "component": "tri_att_end",
+     "phase": "bwd",
+     "family": "layout",
+     "op": "concat",
+     "n": 3,
+     "flop": 0.0,
+     "bytes": 150994944.0,
+     "lbytes": 150994944.0,
+     "ai": 0.0
+    },
+    {
+     "component": "tri_att_start",
+     "phase": "bwd",
+     "family": "layout",
+     "op": "concat",
+     "n": 3,
+     "flop": 0.0,
+     "bytes": 150994944.0,
+     "lbytes": 150994944.0,
+     "ai": 0.0
+    },
+    {
+     "component": "msa_col_attn",
+     "phase": "bwd",
+     "family": "typecast",
+     "op": "typecast",
+     "n": 7,
+     "flop": 0.0,
+     "bytes": 139198464.0,
+     "lbytes": 5111808.0,
+     "ai": 0.0
+    },
+    {
+     "component": "tri_mul_in",
+     "phase": "fwd",
+     "family": "matmul",
+     "op": "linear",
+     "n": 4,
+     "flop": 8623489024.0,
+     "bytes": 134349824.0,
+     "lbytes": 134349824.0,
+     "ai": 64.18682784429997
+    },
+    {
+     "component": "tri_mul_out",
+     "phase": "fwd",
+     "family": "matmul",
+     "op": "linear",
+     "n": 4,
+     "flop": 8623489024.0,
+     "bytes": 134349824.0,
+     "lbytes": 134349824.0,
+     "ai": 64.18682784429997
+    },
+    {
+     "component": "?",
+     "phase": "fwd",
+     "family": "layout",
+     "op": "concat",
+     "n": 2,
+     "flop": 0.0,
+     "bytes": 134217728.0,
+     "lbytes": 134217728.0,
+     "ai": 0.0
+    },
+    {
+     "component": "pair_transition",
+     "phase": "bwd",
+     "family": "eltwise",
+     "op": "gtz",
+     "n": 1,
+     "flop": 33554432.0,
+     "bytes": 134217728.0,
+     "lbytes": 134217728.0,
+     "ai": 0.25
+    },
+    {
+     "component": "pair_transition",
+     "phase": "fwd",
+     "family": "eltwise",
+     "op": "relu",
+     "n": 1,
+     "flop": 33554432.0,
+     "bytes": 134217728.0,
+     "lbytes": 134217728.0,
+     "ai": 0.25
+    },
+    {
+     "component": "tri_att_end",
+     "phase": "bwd",
+     "family": "layout",
+     "op": "to_layout",
+     "n": 4,
+     "flop": 0.0,
+     "bytes": 134217728.0,
+     "lbytes": 134217728.0,
+     "ai": 0.0
+    },
+    {
+     "component": "tri_mul_in",
+     "phase": "fwd",
+     "family": "layout",
+     "op": "permute",
+     "n": 4,
+     "flop": 0.0,
+     "bytes": 134217728.0,
+     "lbytes": 134217728.0,
+     "ai": 0.0
+    },
+    {
+     "component": "tri_mul_in",
+     "phase": "fwd",
+     "family": "layout",
+     "op": "transpose",
+     "n": 4,
+     "flop": 0.0,
+     "bytes": 134217728.0,
+     "lbytes": 134217728.0,
+     "ai": 0.0
+    },
+    {
+     "component": "tri_mul_out",
+     "phase": "fwd",
+     "family": "layout",
+     "op": "permute",
+     "n": 4,
+     "flop": 0.0,
+     "bytes": 134217728.0,
+     "lbytes": 134217728.0,
+     "ai": 0.0
+    },
+    {
+     "component": "tri_mul_out",
+     "phase": "fwd",
+     "family": "layout",
+     "op": "transpose",
+     "n": 4,
+     "flop": 0.0,
+     "bytes": 134217728.0,
+     "lbytes": 134217728.0,
+     "ai": 0.0
+    },
+    {
+     "component": "msa_row_attn",
+     "phase": "bwd",
+     "family": "typecast",
+     "op": "typecast",
+     "n": 12,
+     "flop": 0.0,
+     "bytes": 115212288.0,
+     "lbytes": 115212288.0,
+     "ai": 0.0
+    },
+    {
+     "component": "tri_att_end",
+     "phase": "fwd",
+     "family": "matmul",
+     "op": "linear",
+     "n": 4,
+     "flop": 4450156544.0,
+     "bytes": 109134336.0,
+     "lbytes": 101779968.0,
+     "ai": 40.77686919724329
+    },
+    {
+     "component": "tri_att_start",
+     "phase": "fwd",
+     "family": "matmul",
+     "op": "linear",
+     "n": 4,
+     "flop": 4450156544.0,
+     "bytes": 109134336.0,
+     "lbytes": 101779968.0,
+     "ai": 40.77686919724329
+    },
+    {
+     "component": "msa_row_attn",
+     "phase": "bwd",
+     "family": "eltwise",
+     "op": "add",
+     "n": 5,
+     "flop": 8912896.0,
+     "bytes": 106954752.0,
+     "lbytes": 106954752.0,
+     "ai": 0.08333333333333333
+    },
+    {
+     "component": "tri_att_end",
+     "phase": "bwd",
+     "family": "layout",
+     "op": "permute",
+     "n": 4,
+     "flop": 0.0,
+     "bytes": 105381888.0,
+     "lbytes": 101711872.0,
+     "ai": 0.0
+    },
+    {
+     "component": "tri_att_end",
+     "phase": "fwd",
+     "family": "eltwise",
+     "op": "multiply",
+     "n": 4,
+     "flop": 17301504.0,
+     "bytes": 104857600.0,
+     "lbytes": 104857600.0,
+     "ai": 0.165
+    },
+    {
+     "component": "tri_att_start",
+     "phase": "fwd",
+     "family": "eltwise",
+     "op": "multiply",
+     "n": 4,
+     "flop": 17301504.0,
+     "bytes": 104857600.0,
+     "lbytes": 104857600.0,
+     "ai": 0.165
+    },
+    {
+     "component": "pair_transition",
+     "phase": "bwd",
+     "family": "eltwise",
+     "op": "add",
+     "n": 1,
+     "flop": 8388608.0,
+     "bytes": 100663296.0,
+     "lbytes": 100663296.0,
+     "ai": 0.08333333333333333
+    },
+    {
+     "component": "pair_transition",
+     "phase": "bwd",
+     "family": "typecast",
+     "op": "typecast",
+     "n": 2,
+     "flop": 0.0,
+     "bytes": 100663296.0,
+     "lbytes": 100663296.0,
+     "ai": 0.0
+    },
+    {
+     "component": "tri_att_end",
+     "phase": "bwd",
+     "family": "layout",
+     "op": "experimental.nlp_concat_heads",
+     "n": 3,
+     "flop": 0.0,
+     "bytes": 100663296.0,
+     "lbytes": 100663296.0,
+     "ai": 0.0
+    },
+    {
+     "component": "tri_att_start",
+     "phase": "bwd",
+     "family": "layout",
+     "op": "experimental.nlp_concat_heads",
+     "n": 3,
+     "flop": 0.0,
+     "bytes": 100663296.0,
+     "lbytes": 100663296.0,
+     "ai": 0.0
+    },
+    {
+     "component": "tri_mul_in",
+     "phase": "bwd",
+     "family": "eltwise",
+     "op": "rsub",
+     "n": 3,
+     "flop": 25165824.0,
+     "bytes": 100663296.0,
+     "lbytes": 100663296.0,
+     "ai": 0.25
+    },
+    {
+     "component": "tri_mul_in",
+     "phase": "bwd",
+     "family": "eltwise",
+     "op": "sigmoid",
+     "n": 3,
+     "flop": 100663296.0,
+     "bytes": 100663296.0,
+     "lbytes": 100663296.0,
+     "ai": 1.0
+    },
+    {
+     "component": "tri_mul_in",
+     "phase": "fwd",
+     "family": "matmul",
+     "op": "matmul",
+     "n": 2,
+     "flop": 8589934592.0,
+     "bytes": 100663296.0,
+     "lbytes": 100663296.0,
+     "ai": 85.33333333333333
+    },
+    {
+     "component": "tri_mul_out",
+     "phase": "bwd",
+     "family": "eltwise",
+     "op": "rsub",
+     "n": 3,
+     "flop": 25165824.0,
+     "bytes": 100663296.0,
+     "lbytes": 100663296.0,
+     "ai": 0.25
+    },
+    {
+     "component": "tri_mul_out",
+     "phase": "bwd",
+     "family": "eltwise",
+     "op": "sigmoid",
+     "n": 3,
+     "flop": 100663296.0,
+     "bytes": 100663296.0,
+     "lbytes": 100663296.0,
+     "ai": 1.0
+    },
+    {
+     "component": "tri_mul_out",
+     "phase": "fwd",
+     "family": "matmul",
+     "op": "matmul",
+     "n": 2,
+     "flop": 8589934592.0,
+     "bytes": 100663296.0,
+     "lbytes": 100663296.0,
+     "ai": 85.33333333333333
+    },
+    {
+     "component": "tri_att_start",
+     "phase": "fwd",
+     "family": "layout",
+     "op": "permute",
+     "n": 4,
+     "flop": 0.0,
+     "bytes": 76546048.0,
+     "lbytes": 69206016.0,
+     "ai": 0.0
+    },
+    {
+     "component": "msa_col_attn",
+     "phase": "fwd",
+     "family": "matmul",
+     "op": "linear",
+     "n": 6,
+     "flop": 356515840.0,
+     "bytes": 68421632.0,
+     "lbytes": 3409920.0,
+     "ai": 5.210572001556467
+    },
+    {
+     "component": "tri_att_end",
+     "phase": "bwd",
+     "family": "layout",
+     "op": "transpose",
+     "n": 2,
+     "flop": 0.0,
+     "bytes": 67108864.0,
+     "lbytes": 67108864.0,
+     "ai": 0.0
+    },
+    {
+     "component": "tri_att_end",
+     "phase": "fwd",
+     "family": "layout",
+     "op": "experimental.nlp_concat_heads",
+     "n": 2,
+     "flop": 0.0,
+     "bytes": 67108864.0,
+     "lbytes": 67108864.0,
+     "ai": 0.0
+    },
+    {
+     "component": "tri_att_start",
+     "phase": "bwd",
+     "family": "layout",
+     "op": "transpose",
+     "n": 2,
+     "flop": 0.0,
+     "bytes": 67108864.0,
+     "lbytes": 67108864.0,
+     "ai": 0.0
+    },
+    {
+     "component": "tri_att_start",
+     "phase": "fwd",
+     "family": "layout",
+     "op": "experimental.nlp_concat_heads",
+     "n": 2,
+     "flop": 0.0,
+     "bytes": 67108864.0,
+     "lbytes": 67108864.0,
+     "ai": 0.0
+    },
+    {
+     "component": "tri_mul_in",
+     "phase": "bwd",
+     "family": "layout",
+     "op": "transpose",
+     "n": 2,
+     "flop": 0.0,
+     "bytes": 67108864.0,
+     "lbytes": 67108864.0,
+     "ai": 0.0
+    },
+    {
+     "component": "tri_mul_out",
+     "phase": "bwd",
+     "family": "layout",
+     "op": "transpose",
+     "n": 2,
+     "flop": 0.0,
+     "bytes": 67108864.0,
+     "lbytes": 67108864.0,
+     "ai": 0.0
+    },
+    {
+     "component": "msa_col_attn",
+     "phase": "bwd",
+     "family": "eltwise",
+     "op": "multiply",
+     "n": 5,
+     "flop": 10485760.0,
+     "bytes": 58720256.0,
+     "lbytes": 1581056.0,
+     "ai": 0.17857142857142858
+    },
+    {
+     "component": "msa_col_attn",
+     "phase": "bwd",
+     "family": "matmul",
+     "op": "matmul",
+     "n": 7,
+     "flop": 168296448.0,
+     "bytes": 52035584.0,
+     "lbytes": 2768896.0,
+     "ai": 3.234256926952141
+    },
+    {
+     "component": "msa_col_attn",
+     "phase": "fwd",
+     "family": "layout",
+     "op": "experimental.nlp_create_qkv_heads",
+     "n": 2,
+     "flop": 0.0,
+     "bytes": 50331648.0,
+     "lbytes": 1572864.0,
+     "ai": 0.0
+    },
+    {
+     "component": "msa_col_attn",
+     "phase": "fwd",
+     "family": "matmul",
+     "op": "matmul",
+     "n": 4,
+     "flop": 524288.0,
+     "bytes": 50331648.0,
+     "lbytes": 1064960.0,
+     "ai": 0.010416666666666666
+    },
+    {
+     "component": "msa_row_attn",
+     "phase": "fwd",
+     "family": "matmul",
+     "op": "linear",
+     "n": 8,
+     "flop": 608829440.0,
+     "bytes": 45369344.0,
+     "lbytes": 39065600.0,
+     "ai": 13.419401435471494
+    },
+    {
+     "component": "msa_col_attn",
+     "phase": "fwd",
+     "family": "eltwise",
+     "op": "multiply",
+     "n": 4,
+     "flop": 8388608.0,
+     "bytes": 41943040.0,
+     "lbytes": 802816.0,
+     "ai": 0.2
+    },
+    {
+     "component": "tri_att_start",
+     "phase": "bwd",
+     "family": "layout",
+     "op": "permute",
+     "n": 2,
+     "flop": 0.0,
+     "bytes": 38273024.0,
+     "lbytes": 34603008.0,
+     "ai": 0.0
+    },
+    {
+     "component": "msa_col_attn",
+     "phase": "bwd",
+     "family": "layout",
+     "op": "concat",
+     "n": 3,
+     "flop": 0.0,
+     "bytes": 37748736.0,
+     "lbytes": 1179648.0,
+     "ai": 0.0
+    },
+    {
+     "component": "msa_col_attn",
+     "phase": "bwd",
+     "family": "layout",
+     "op": "reshape",
+     "n": 6,
+     "flop": 0.0,
+     "bytes": 34603008.0,
+     "lbytes": 2097152.0,
+     "ai": 0.0
+    },
+    {
+     "component": "msa_col_attn",
+     "phase": "fwd",
+     "family": "layout",
+     "op": "permute",
+     "n": 6,
+     "flop": 0.0,
+     "bytes": 34078720.0,
+     "lbytes": 1572864.0,
+     "ai": 0.0
+    },
+    {
+     "component": "tri_att_end",
+     "phase": "bwd",
+     "family": "eltwise",
+     "op": "rsub",
+     "n": 1,
+     "flop": 8388608.0,
+     "bytes": 33554432.0,
+     "lbytes": 33554432.0,
+     "ai": 0.25
+    },
+    {
+     "component": "tri_att_end",
+     "phase": "bwd",
+     "family": "eltwise",
+     "op": "sigmoid",
+     "n": 1,
+     "flop": 33554432.0,
+     "bytes": 33554432.0,
+     "lbytes": 33554432.0,
+     "ai": 1.0
+    },
+    {
+     "component": "tri_att_start",
+     "phase": "bwd",
+     "family": "eltwise",
+     "op": "rsub",
+     "n": 1,
+     "flop": 8388608.0,
+     "bytes": 33554432.0,
+     "lbytes": 33554432.0,
+     "ai": 0.25
+    },
+    {
+     "component": "tri_att_start",
+     "phase": "bwd",
+     "family": "eltwise",
+     "op": "sigmoid",
+     "n": 1,
+     "flop": 33554432.0,
+     "bytes": 33554432.0,
+     "lbytes": 33554432.0,
+     "ai": 1.0
+    },
+    {
+     "component": "tri_mul_in",
+     "phase": "bwd",
+     "family": "eltwise",
+     "op": "generic_op",
+     "n": 2,
+     "flop": 16777216.0,
+     "bytes": 33554432.0,
+     "lbytes": 33554432.0,
+     "ai": 0.5
+    },
+    {
+     "component": "tri_mul_out",
+     "phase": "bwd",
+     "family": "eltwise",
+     "op": "generic_op",
+     "n": 2,
+     "flop": 16777216.0,
+     "bytes": 33554432.0,
+     "lbytes": 33554432.0,
+     "ai": 0.5
+    },
+    {
+     "component": "msa_row_attn",
+     "phase": "bwd",
+     "family": "matmul",
+     "op": "matmul",
+     "n": 8,
+     "flop": 436207616.0,
+     "bytes": 27926528.0,
+     "lbytes": 24774656.0,
+     "ai": 15.619829862129658
+    },
+    {
+     "component": "msa_col_attn",
+     "phase": "bwd",
+     "family": "layout",
+     "op": "experimental.nlp_concat_heads",
+     "n": 3,
+     "flop": 0.0,
+     "bytes": 25165824.0,
+     "lbytes": 786432.0,
+     "ai": 0.0
+    },
+    {
+     "component": "msa_row_attn",
+     "phase": "fwd",
+     "family": "typecast",
+     "op": "typecast",
+     "n": 6,
+     "flop": 0.0,
+     "bytes": 18874368.0,
+     "lbytes": 18874368.0,
+     "ai": 0.0
+    },
+    {
+     "component": "msa_col_attn",
+     "phase": "bwd",
+     "family": "layout",
+     "op": "permute",
+     "n": 3,
+     "flop": 0.0,
+     "bytes": 17039360.0,
+     "lbytes": 786432.0,
+     "ai": 0.0
+    },
+    {
+     "component": "msa_col_attn",
+     "phase": "bwd",
+     "family": "layout",
+     "op": "transpose",
+     "n": 2,
+     "flop": 0.0,
+     "bytes": 16777216.0,
+     "lbytes": 524288.0,
+     "ai": 0.0
+    },
+    {
+     "component": "msa_col_attn",
+     "phase": "fwd",
+     "family": "layout",
+     "op": "experimental.nlp_concat_heads",
+     "n": 2,
+     "flop": 0.0,
+     "bytes": 16777216.0,
+     "lbytes": 524288.0,
+     "ai": 0.0
+    },
+    {
+     "component": "msa_row_attn",
+     "phase": "fwd",
+     "family": "eltwise",
+     "op": "add",
+     "n": 2,
+     "flop": 1048576.0,
+     "bytes": 12582912.0,
+     "lbytes": 12582912.0,
+     "ai": 0.08333333333333333
+    },
+    {
+     "component": "msa_row_attn",
+     "phase": "fwd",
+     "family": "layout",
+     "op": "permute",
+     "n": 4,
+     "flop": 0.0,
+     "bytes": 11010048.0,
+     "lbytes": 4718592.0,
+     "ai": 0.0
+    },
+    {
+     "component": "msa_row_attn",
+     "phase": "bwd",
+     "family": "eltwise",
+     "op": "multiply",
+     "n": 6,
+     "flop": 1310720.0,
+     "bytes": 9961472.0,
+     "lbytes": 9961472.0,
+     "ai": 0.13157894736842105
+    },
+    {
+     "component": "msa_row_attn",
+     "phase": "fwd",
+     "family": "eltwise",
+     "op": "multiply",
+     "n": 4,
+     "flop": 1179648.0,
+     "bytes": 9175040.0,
+     "lbytes": 9175040.0,
+     "ai": 0.12857142857142856
+    },
+    {
+     "component": "msa_col_attn",
+     "phase": "bwd",
+     "family": "eltwise",
+     "op": "rsub",
+     "n": 1,
+     "flop": 2097152.0,
+     "bytes": 8388608.0,
+     "lbytes": 262144.0,
+     "ai": 0.25
+    },
+    {
+     "component": "msa_col_attn",
+     "phase": "bwd",
+     "family": "eltwise",
+     "op": "sigmoid",
+     "n": 1,
+     "flop": 8388608.0,
+     "bytes": 8388608.0,
+     "lbytes": 262144.0,
+     "ai": 1.0
+    },
+    {
+     "component": "msa_row_attn",
+     "phase": "bwd",
+     "family": "layout",
+     "op": "permute",
+     "n": 2,
+     "flop": 0.0,
+     "bytes": 5505024.0,
+     "lbytes": 2359296.0,
+     "ai": 0.0
+    },
+    {
+     "component": "msa_row_attn",
+     "phase": "fwd",
+     "family": "matmul",
+     "op": "matmul",
+     "n": 4,
+     "flop": 134217728.0,
+     "bytes": 5242880.0,
+     "lbytes": 5242880.0,
+     "ai": 25.6
+    },
+    {
+     "component": "msa_transition",
+     "phase": "fwd",
+     "family": "matmul",
+     "op": "linear",
+     "n": 4,
+     "flop": 537526272.0,
+     "bytes": 4723712.0,
+     "lbytes": 4723712.0,
+     "ai": 113.79319314979406
+    },
+    {
+     "component": "msa_transition",
+     "phase": "bwd",
+     "family": "matmul",
+     "op": "matmul",
+     "n": 2,
+     "flop": 268435456.0,
+     "bytes": 2359296.0,
+     "lbytes": 2359296.0,
+     "ai": 113.77777777777777
+    },
+    {
+     "component": "opm",
+     "phase": "fwd",
+     "family": "eltwise",
+     "op": "multiply",
+     "n": 4,
+     "flop": 524544.0,
+     "bytes": 2098176.0,
+     "lbytes": 66560.0,
+     "ai": 0.25
+    },
+    {
+     "component": "msa_row_attn",
+     "phase": "fwd",
+     "family": "layout",
+     "op": "experimental.nlp_create_qkv_heads",
+     "n": 2,
+     "flop": 0.0,
+     "bytes": 1572864.0,
+     "lbytes": 1572864.0,
+     "ai": 0.0
+    },
+    {
+     "component": "msa_transition",
+     "phase": "bwd",
+     "family": "eltwise",
+     "op": "multiply",
+     "n": 1,
+     "flop": 262144.0,
+     "bytes": 1572864.0,
+     "lbytes": 1572864.0,
+     "ai": 0.16666666666666666
+    },
+    {
+     "component": "opm",
+     "phase": "bwd",
+     "family": "eltwise",
+     "op": "add",
+     "n": 2,
+     "flop": 131072.0,
+     "bytes": 1572864.0,
+     "lbytes": 1572864.0,
+     "ai": 0.08333333333333333
+    },
+    {
+     "component": "opm",
+     "phase": "bwd",
+     "family": "typecast",
+     "op": "typecast",
+     "n": 4,
+     "flop": 0.0,
+     "bytes": 1572864.0,
+     "lbytes": 1572864.0,
+     "ai": 0.0
+    },
+    {
+     "component": "msa_row_attn",
+     "phase": "bwd",
+     "family": "layout",
+     "op": "concat",
+     "n": 3,
+     "flop": 0.0,
+     "bytes": 1179648.0,
+     "lbytes": 1179648.0,
+     "ai": 0.0
+    },
+    {
+     "component": "msa_transition",
+     "phase": "bwd",
+     "family": "eltwise",
+     "op": "gtz",
+     "n": 1,
+     "flop": 262144.0,
+     "bytes": 1048576.0,
+     "lbytes": 1048576.0,
+     "ai": 0.25
+    },
+    {
+     "component": "msa_transition",
+     "phase": "fwd",
+     "family": "eltwise",
+     "op": "relu",
+     "n": 1,
+     "flop": 262144.0,
+     "bytes": 1048576.0,
+     "lbytes": 1048576.0,
+     "ai": 0.25
+    },
+    {
+     "component": "opm",
+     "phase": "bwd",
+     "family": "eltwise",
+     "op": "multiply",
+     "n": 1,
+     "flop": 262144.0,
+     "bytes": 1048576.0,
+     "lbytes": 32768.0,
+     "ai": 0.25
+    },
+    {
+     "component": "msa_row_attn",
+     "phase": "bwd",
+     "family": "layout",
+     "op": "experimental.nlp_concat_heads",
+     "n": 3,
+     "flop": 0.0,
+     "bytes": 786432.0,
+     "lbytes": 786432.0,
+     "ai": 0.0
+    },
+    {
+     "component": "msa_transition",
+     "phase": "bwd",
+     "family": "eltwise",
+     "op": "add",
+     "n": 1,
+     "flop": 65536.0,
+     "bytes": 786432.0,
+     "lbytes": 786432.0,
+     "ai": 0.08333333333333333
+    },
+    {
+     "component": "msa_transition",
+     "phase": "bwd",
+     "family": "typecast",
+     "op": "typecast",
+     "n": 2,
+     "flop": 0.0,
+     "bytes": 786432.0,
+     "lbytes": 786432.0,
+     "ai": 0.0
+    },
+    {
+     "component": "msa_row_attn",
+     "phase": "bwd",
+     "family": "layout",
+     "op": "transpose",
+     "n": 2,
+     "flop": 0.0,
+     "bytes": 524288.0,
+     "lbytes": 524288.0,
+     "ai": 0.0
+    },
+    {
+     "component": "msa_row_attn",
+     "phase": "fwd",
+     "family": "layout",
+     "op": "experimental.nlp_concat_heads",
+     "n": 2,
+     "flop": 0.0,
+     "bytes": 524288.0,
+     "lbytes": 524288.0,
+     "ai": 0.0
+    },
+    {
+     "component": "msa_row_attn",
+     "phase": "bwd",
+     "family": "eltwise",
+     "op": "rsub",
+     "n": 1,
+     "flop": 65536.0,
+     "bytes": 262144.0,
+     "lbytes": 262144.0,
+     "ai": 0.25
+    },
+    {
+     "component": "msa_row_attn",
+     "phase": "bwd",
+     "family": "eltwise",
+     "op": "sigmoid",
+     "n": 1,
+     "flop": 262144.0,
+     "bytes": 262144.0,
+     "lbytes": 262144.0,
+     "ai": 1.0
+    },
+    {
+     "component": "msa_col_attn",
+     "phase": "bwd",
+     "family": "view",
+     "op": "reshape",
+     "n": 10,
+     "flop": 0.0,
+     "bytes": 0.0,
+     "lbytes": 0.0,
+     "ai": 0.0
+    },
+    {
+     "component": "msa_col_attn",
+     "phase": "fwd",
+     "family": "view",
+     "op": "reshape",
+     "n": 2,
+     "flop": 0.0,
+     "bytes": 0.0,
+     "lbytes": 0.0,
+     "ai": 0.0
+    },
+    {
+     "component": "msa_col_attn",
+     "phase": "fwd",
+     "family": "view",
+     "op": "squeeze",
+     "n": 2,
+     "flop": 0.0,
+     "bytes": 0.0,
+     "lbytes": 0.0,
+     "ai": 0.0
+    },
+    {
+     "component": "msa_col_attn",
+     "phase": "fwd",
+     "family": "view",
+     "op": "unsqueeze",
+     "n": 2,
+     "flop": 0.0,
+     "bytes": 0.0,
+     "lbytes": 0.0,
+     "ai": 0.0
+    },
+    {
+     "component": "msa_row_attn",
+     "phase": "bwd",
+     "family": "view",
+     "op": "reshape",
+     "n": 20,
+     "flop": 0.0,
+     "bytes": 0.0,
+     "lbytes": 0.0,
+     "ai": 0.0
+    },
+    {
+     "component": "msa_row_attn",
+     "phase": "fwd",
+     "family": "view",
+     "op": "reshape",
+     "n": 4,
+     "flop": 0.0,
+     "bytes": 0.0,
+     "lbytes": 0.0,
+     "ai": 0.0
+    },
+    {
+     "component": "msa_row_attn",
+     "phase": "fwd",
+     "family": "view",
+     "op": "squeeze",
+     "n": 2,
+     "flop": 0.0,
+     "bytes": 0.0,
+     "lbytes": 0.0,
+     "ai": 0.0
+    },
+    {
+     "component": "msa_row_attn",
+     "phase": "fwd",
+     "family": "view",
+     "op": "unsqueeze",
+     "n": 4,
+     "flop": 0.0,
+     "bytes": 0.0,
+     "lbytes": 0.0,
+     "ai": 0.0
+    },
+    {
+     "component": "msa_transition",
+     "phase": "bwd",
+     "family": "view",
+     "op": "reshape",
+     "n": 4,
+     "flop": 0.0,
+     "bytes": 0.0,
+     "lbytes": 0.0,
+     "ai": 0.0
+    },
+    {
+     "component": "opm",
+     "phase": "bwd",
+     "family": "view",
+     "op": "reshape",
+     "n": 10,
+     "flop": 0.0,
+     "bytes": 0.0,
+     "lbytes": 0.0,
+     "ai": 0.0
+    },
+    {
+     "component": "opm",
+     "phase": "fwd",
+     "family": "view",
+     "op": "reshape",
+     "n": 12,
+     "flop": 0.0,
+     "bytes": 0.0,
+     "lbytes": 0.0,
+     "ai": 0.0
+    },
+    {
+     "component": "pair_transition",
+     "phase": "bwd",
+     "family": "view",
+     "op": "reshape",
+     "n": 4,
+     "flop": 0.0,
+     "bytes": 0.0,
+     "lbytes": 0.0,
+     "ai": 0.0
+    },
+    {
+     "component": "residual",
+     "phase": "bwd",
+     "family": "view",
+     "op": "reshape",
+     "n": 2,
+     "flop": 0.0,
+     "bytes": 0.0,
+     "lbytes": 0.0,
+     "ai": 0.0
+    },
+    {
+     "component": "tri_att_end",
+     "phase": "bwd",
+     "family": "view",
+     "op": "add_",
+     "n": 8,
+     "flop": 0.0,
+     "bytes": 0.0,
+     "lbytes": 0.0,
+     "ai": 0.0
+    },
+    {
+     "component": "tri_att_end",
+     "phase": "bwd",
+     "family": "view",
+     "op": "reshape",
+     "n": 21,
+     "flop": 0.0,
+     "bytes": 0.0,
+     "lbytes": 0.0,
+     "ai": 0.0
+    },
+    {
+     "component": "tri_att_end",
+     "phase": "fwd",
+     "family": "view",
+     "op": "reshape",
+     "n": 4,
+     "flop": 0.0,
+     "bytes": 0.0,
+     "lbytes": 0.0,
+     "ai": 0.0
+    },
+    {
+     "component": "tri_att_end",
+     "phase": "fwd",
+     "family": "view",
+     "op": "squeeze",
+     "n": 2,
+     "flop": 0.0,
+     "bytes": 0.0,
+     "lbytes": 0.0,
+     "ai": 0.0
+    },
+    {
+     "component": "tri_att_end",
+     "phase": "fwd",
+     "family": "view",
+     "op": "unsqueeze",
+     "n": 4,
+     "flop": 0.0,
+     "bytes": 0.0,
+     "lbytes": 0.0,
+     "ai": 0.0
+    },
+    {
+     "component": "tri_att_start",
+     "phase": "bwd",
+     "family": "view",
+     "op": "add_",
+     "n": 8,
+     "flop": 0.0,
+     "bytes": 0.0,
+     "lbytes": 0.0,
+     "ai": 0.0
+    },
+    {
+     "component": "tri_att_start",
+     "phase": "bwd",
+     "family": "view",
+     "op": "reshape",
+     "n": 21,
+     "flop": 0.0,
+     "bytes": 0.0,
+     "lbytes": 0.0,
+     "ai": 0.0
+    },
+    {
+     "component": "tri_att_start",
+     "phase": "fwd",
+     "family": "view",
+     "op": "reshape",
+     "n": 4,
+     "flop": 0.0,
+     "bytes": 0.0,
+     "lbytes": 0.0,
+     "ai": 0.0
+    },
+    {
+     "component": "tri_att_start",
+     "phase": "fwd",
+     "family": "view",
+     "op": "squeeze",
+     "n": 2,
+     "flop": 0.0,
+     "bytes": 0.0,
+     "lbytes": 0.0,
+     "ai": 0.0
+    },
+    {
+     "component": "tri_att_start",
+     "phase": "fwd",
+     "family": "view",
+     "op": "unsqueeze",
+     "n": 4,
+     "flop": 0.0,
+     "bytes": 0.0,
+     "lbytes": 0.0,
+     "ai": 0.0
+    },
+    {
+     "component": "tri_mul_in",
+     "phase": "bwd",
+     "family": "view",
+     "op": "reshape",
+     "n": 6,
+     "flop": 0.0,
+     "bytes": 0.0,
+     "lbytes": 0.0,
+     "ai": 0.0
+    },
+    {
+     "component": "tri_mul_out",
+     "phase": "bwd",
+     "family": "view",
+     "op": "reshape",
+     "n": 6,
+     "flop": 0.0,
+     "bytes": 0.0,
+     "lbytes": 0.0,
+     "ai": 0.0
+    }
+   ],
+   "top_sigs": [
+    {
+     "op": "typecast",
+     "in": [
+      [
+       256,
+       4,
+       256,
+       256
+      ]
+     ],
+     "dtypes": [
+      "bfloat16"
+     ],
+     "out": [
+      [
+       256,
+       4,
+       256,
+       256
+      ]
+     ],
+     "n": 6,
+     "flop": 0.0,
+     "bytes": 2415919104.0
+    },
+    {
+     "op": "typecast",
+     "in": [
+      [
+       256,
+       4,
+       256,
+       256
+      ]
+     ],
+     "dtypes": [
+      "float32"
+     ],
+     "out": [
+      [
+       256,
+       4,
+       256,
+       256
+      ]
+     ],
+     "n": 6,
+     "flop": 0.0,
+     "bytes": 2415919104.0
+    },
+    {
+     "op": "typecast",
+     "in": [
+      [
+       1,
+       256,
+       256,
+       128
+      ]
+     ],
+     "dtypes": [
+      "bfloat16"
+     ],
+     "out": [
+      [
+       1,
+       256,
+       256,
+       128
+      ]
+     ],
+     "n": 46,
+     "flop": 0.0,
+     "bytes": 2315255808.0
+    },
+    {
+     "op": "add",
+     "in": [
+      [
+       256,
+       4,
+       256,
+       256
+      ],
+      [
+       1,
+       4,
+       256,
+       256
+      ]
+     ],
+     "dtypes": [
+      "float32",
+      "float32"
+     ],
+     "out": [
+      [
+       256,
+       4,
+       256,
+       256
+      ]
+     ],
+     "n": 4,
+     "flop": 268435456.0,
+     "bytes": 2151677952.0
+    },
+    {
+     "op": "add",
+     "in": [
+      [
+       1,
+       256,
+       256,
+       128
+      ],
+      [
+       1,
+       256,
+       256,
+       128
+      ]
+     ],
+     "dtypes": [
+      "float32",
+      "float32"
+     ],
+     "out": [
+      [
+       1,
+       256,
+       256,
+       128
+      ]
+     ],
+     "n": 20,
+     "flop": 167772160.0,
+     "bytes": 2013265920.0
+    },
+    {
+     "op": "multiply",
+     "in": [
+      [
+       1,
+       256,
+       256,
+       128
+      ],
+      [
+       1,
+       256,
+       256,
+       128
+      ]
+     ],
+     "dtypes": [
+      "bfloat16",
+      "bfloat16"
+     ],
+     "out": [
+      [
+       1,
+       256,
+       256,
+       128
+      ]
+     ],
+     "n": 36,
+     "flop": 301989888.0,
+     "bytes": 1811939328.0
+    },
+    {
+     "op": "slice",
+     "in": [
+      [
+       256,
+       4,
+       256,
+       256
+      ]
+     ],
+     "dtypes": [
+      "float32"
+     ],
+     "out": [
+      [
+       128,
+       4,
+       256,
+       256
+      ]
+     ],
+     "n": 4,
+     "flop": 0.0,
+     "bytes": 1610612736.0
+    },
+    {
+     "op": "typecast",
+     "in": [
+      [
+       1,
+       256,
+       256,
+       128
+      ]
+     ],
+     "dtypes": [
+      "float32"
+     ],
+     "out": [
+      [
+       1,
+       256,
+       256,
+       128
+      ]
+     ],
+     "n": 31,
+     "flop": 0.0,
+     "bytes": 1560281088.0
+    },
+    {
+     "op": "add",
+     "in": [
+      [
+       256,
+       1,
+       256,
+       384
+      ],
+      [
+       256,
+       1,
+       256,
+       384
+      ]
+     ],
+     "dtypes": [
+      "float32",
+      "float32"
+     ],
+     "out": [
+      [
+       256,
+       1,
+       256,
+       384
+      ]
+     ],
+     "n": 4,
+     "flop": 100663296.0,
+     "bytes": 1207959552.0
+    },
+    {
+     "op": "multiply",
+     "in": [
+      [
+       256,
+       4,
+       256,
+       256
+      ]
+     ],
+     "dtypes": [
+      "float32"
+     ],
+     "out": [
+      [
+       256,
+       4,
+       256,
+       256
+      ]
+     ],
+     "n": 2,
+     "flop": 134217728.0,
+     "bytes": 1073741824.0
+    },
+    {
+     "op": "matmul",
+     "in": [
+      [
+       256,
+       4,
+       256,
+       256
+      ],
+      [
+       256,
+       4,
+       256,
+       32
+      ]
+     ],
+     "dtypes": [
+      "bfloat16",
+      "bfloat16"
+     ],
+     "out": [
+      [
+       256,
+       4,
+       256,
+       32
+      ]
+     ],
+     "n": 6,
+     "flop": 25769803776.0,
+     "bytes": 1006632960.0
+    },
+    {
+     "op": "typecast",
+     "in": [
+      [
+       256,
+       1,
+       256,
+       384
+      ]
+     ],
+     "dtypes": [
+      "bfloat16"
+     ],
+     "out": [
+      [
+       256,
+       1,
+       256,
+       384
+      ]
+     ],
+     "n": 6,
+     "flop": 0.0,
+     "bytes": 905969664.0
+    },
+    {
+     "op": "to_layout",
+     "in": [
+      [
+       8192,
+       8192
+      ]
+     ],
+     "dtypes": [
+      "bfloat16"
+     ],
+     "out": [
+      [
+       8192,
+       8192
+      ]
+     ],
+     "n": 3,
+     "flop": 0.0,
+     "bytes": 805306368.0
+    },
+    {
+     "op": "to_layout",
+     "in": [
+      [
+       256,
+       1024,
+       256
+      ]
+     ],
+     "dtypes": [
+      "bfloat16"
+     ],
+     "out": [
+      [
+       256,
+       1024,
+       256
+      ]
+     ],
+     "n": 3,
+     "flop": 0.0,
+     "bytes": 805306368.0
+    },
+    {
+     "op": "slice",
+     "in": [
+      [
+       128,
+       4,
+       256,
+       256
+      ]
+     ],
+     "dtypes": [
+      "float32"
+     ],
+     "out": [
+      [
+       64,
+       4,
+       256,
+       256
+      ]
+     ],
+     "n": 4,
+     "flop": 0.0,
+     "bytes": 805306368.0
+    },
+    {
+     "op": "matmul",
+     "in": [
+      [
+       256,
+       4,
+       256,
+       32
+      ],
+      [
+       256,
+       4,
+       32,
+       256
+      ]
+     ],
+     "dtypes": [
+      "bfloat16",
+      "bfloat16"
+     ],
+     "out": [
+      [
+       256,
+       4,
+       256,
+       256
+      ]
+     ],
+     "n": 4,
+     "flop": 17179869184.0,
+     "bytes": 671088640.0
+    },
+    {
+     "op": "multiply",
+     "in": [
+      [
+       256,
+       256,
+       128
+      ],
+      [
+       256,
+       256,
+       128
+      ]
+     ],
+     "dtypes": [
+      "bfloat16",
+      "bfloat16"
+     ],
+     "out": [
+      [
+       256,
+       256,
+       128
+      ]
+     ],
+     "n": 12,
+     "flop": 100663296.0,
+     "bytes": 603979776.0
+    },
+    {
+     "op": "reshape",
+     "in": [
+      [
+       8192,
+       8192
+      ]
+     ],
+     "dtypes": [
+      "bfloat16"
+     ],
+     "out": [
+      [
+       256,
+       1024,
+       256
+      ]
+     ],
+     "n": 2,
+     "flop": 0.0,
+     "bytes": 536870912.0
+    },
+    {
+     "op": "permute",
+     "in": [
+      [
+       256,
+       1024,
+       256
+      ]
+     ],
+     "dtypes": [
+      "bfloat16"
+     ],
+     "out": [
+      [
+       256,
+       256,
+       1024
+      ]
+     ],
+     "n": 2,
+     "flop": 0.0,
+     "bytes": 536870912.0
+    },
+    {
+     "op": "chunk",
+     "in": [
+      [
+       1,
+       256,
+       256,
+       512
+      ]
+     ],
+     "dtypes": [
+      "bfloat16"
+     ],
+     "out": [
+      [
+       1,
+       256,
+       256,
+       128
+      ],
+      [
+       1,
+       256,
+       256,
+       128
+      ],
+      [
+       1,
+       256,
+       256,
+       128
+      ],
+      [
+       1,
+       256,
+       256,
+       128
+      ]
+     ],
+     "n": 4,
+     "flop": 0.0,
+     "bytes": 536870912.0
+    },
+    {
+     "op": "matmul",
+     "in": [
+      [
+       1,
+       128,
+       256,
+       256
+      ],
+      [
+       1,
+       128,
+       256,
+       256
+      ]
+     ],
+     "dtypes": [
+      "bfloat16",
+      "bfloat16"
+     ],
+     "out": [
+      [
+       1,
+       128,
+       256,
+       256
+      ]
+     ],
+     "n": 8,
+     "flop": 34359738368.0,
+     "bytes": 402653184.0
+    },
+    {
+     "op": "experimental.nlp_create_qkv_heads",
+     "in": [
+      [
+       256,
+       1,
+       256,
+       384
+      ]
+     ],
+     "dtypes": [
+      "bfloat16"
+     ],
+     "out": [
+      [
+       256,
+       4,
+       256,
+       32
+      ],
+      [
+       256,
+       4,
+       256,
+       32
+      ],
+      [
+       256,
+       4,
+       256,
+       32
+      ]
+     ],
+     "n": 4,
+     "flop": 0.0,
+     "bytes": 402653184.0
+    },
+    {
+     "op": "to_layout",
+     "in": [
+      [
+       256,
+       256,
+       128
+      ]
+     ],
+     "dtypes": [
+      "bfloat16"
+     ],
+     "out": [
+      [
+       256,
+       256,
+       128
+      ]
+     ],
+     "n": 12,
+     "flop": 0.0,
+     "bytes": 402653184.0
+    },
+    {
+     "op": "slice",
+     "in": [
+      [
+       64,
+       4,
+       256,
+       256
+      ]
+     ],
+     "dtypes": [
+      "float32"
+     ],
+     "out": [
+      [
+       32,
+       4,
+       256,
+       256
+      ]
+     ],
+     "n": 4,
+     "flop": 0.0,
+     "bytes": 402653184.0
+    },
+    {
+     "op": "add",
+     "in": [
+      [
+       256,
+       256,
+       128
+      ],
+      [
+       256,
+       256,
+       128
+      ]
+     ],
+     "dtypes": [
+      "float32",
+      "float32"
+     ],
+     "out": [
+      [
+       256,
+       256,
+       128
+      ]
+     ],
+     "n": 4,
+     "flop": 33554432.0,
+     "bytes": 402653184.0
+    },
+    {
+     "op": "experimental.minimal_matmul",
+     "in": [
+      [
+       1,
+       256,
+       256,
+       128
+      ],
+      [
+       128,
+       512
+      ],
+      [
+       512
+      ]
+     ],
+     "dtypes": [
+      "bfloat16",
+      "bfloat16",
+      "bfloat16"
+     ],
+     "out": [
+      [
+       1,
+       256,
+       256,
+       512
+      ]
+     ],
+     "n": 4,
+     "flop": 134217728.0,
+     "bytes": 336072704.0
+    },
+    {
+     "op": "experimental.nlp_concat_heads",
+     "in": [
+      [
+       256,
+       4,
+       256,
+       32
+      ]
+     ],
+     "dtypes": [
+      "bfloat16"
+     ],
+     "out": [
+      [
+       256,
+       1,
+       256,
+       128
+      ]
+     ],
+     "n": 10,
+     "flop": 0.0,
+     "bytes": 335544320.0
+    },
+    {
+     "op": "matmul",
+     "in": [
+      [
+       256,
+       4,
+       256,
+       32
+      ],
+      [
+       256,
+       4,
+       256,
+       32
+      ]
+     ],
+     "dtypes": [
+      "bfloat16",
+      "bfloat16"
+     ],
+     "out": [
+      [
+       256,
+       4,
+       256,
+       256
+      ]
+     ],
+     "n": 2,
+     "flop": 8589934592.0,
+     "bytes": 335544320.0
+    },
+    {
+     "op": "matmul",
+     "in": [
+      [
+       256,
+       4,
+       256,
+       256
+      ],
+      [
+       256,
+       4,
+       32,
+       256
+      ]
+     ],
+     "dtypes": [
+      "bfloat16",
+      "bfloat16"
+     ],
+     "out": [
+      [
+       256,
+       4,
+       256,
+       32
+      ]
+     ],
+     "n": 2,
+     "flop": 8589934592.0,
+     "bytes": 335544320.0
+    },
+    {
+     "op": "matmul",
+     "in": [
+      [
+       256,
+       4,
+       256,
+       32
+      ],
+      [
+       256,
+       4,
+       256,
+       256
+      ]
+     ],
+     "dtypes": [
+      "bfloat16",
+      "bfloat16"
+     ],
+     "out": [
+      [
+       256,
+       4,
+       32,
+       256
+      ]
+     ],
+     "n": 2,
+     "flop": 8589934592.0,
+     "bytes": 335544320.0
+    },
+    {
+     "op": "linear",
+     "in": [
+      [
+       65536,
+       1024
+      ],
+      [
+       1024,
+       128
+      ],
+      [
+       128
+      ]
+     ],
+     "dtypes": [
+      "bfloat16",
+      "bfloat16",
+      "bfloat16"
+     ],
+     "out": [
+      [
+       65536,
+       128
+      ]
+     ],
+     "n": 2,
+     "flop": 34376515584.0,
+     "bytes": 302514688.0
+    },
+    {
+     "op": "concat",
+     "in": [],
+     "dtypes": [],
+     "out": [
+      [
+       256,
+       1,
+       256,
+       384
+      ]
+     ],
+     "n": 6,
+     "flop": 0.0,
+     "bytes": 301989888.0
+    },
+    {
+     "op": "typecast",
+     "in": [
+      [
+       256,
+       1,
+       256,
+       384
+      ]
+     ],
+     "dtypes": [
+      "float32"
+     ],
+     "out": [
+      [
+       256,
+       1,
+       256,
+       384
+      ]
+     ],
+     "n": 2,
+     "flop": 0.0,
+     "bytes": 301989888.0
+    },
+    {
+     "op": "typecast",
+     "in": [
+      [
+       256,
+       256,
+       128
+      ]
+     ],
+     "dtypes": [
+      "bfloat16"
+     ],
+     "out": [
+      [
+       256,
+       256,
+       128
+      ]
+     ],
+     "n": 6,
+     "flop": 0.0,
+     "bytes": 301989888.0
+    },
+    {
+     "op": "matmul",
+     "in": [
+      [
+       8192,
+       1
+      ],
+      [
+       8192,
+       1
+      ]
+     ],
+     "dtypes": [
+      "bfloat16",
+      "bfloat16"
+     ],
+     "out": [
+      [
+       8192,
+       8192
+      ]
+     ],
+     "n": 2,
+     "flop": 268435456.0,
+     "bytes": 270532608.0
+    },
+    {
+     "op": "matmul",
+     "in": [
+      [
+       8192,
+       8192
+      ],
+      [
+       8192,
+       1
+      ]
+     ],
+     "dtypes": [
+      "bfloat16",
+      "bfloat16"
+     ],
+     "out": [
+      [
+       8192,
+       1
+      ]
+     ],
+     "n": 2,
+     "flop": 268435456.0,
+     "bytes": 270532608.0
+    },
+    {
+     "op": "experimental.minimal_matmul",
+     "in": [
+      [
+       256,
+       256,
+       128
+      ],
+      [
+       128,
+       384
+      ]
+     ],
+     "dtypes": [
+      "bfloat16",
+      "bfloat16"
+     ],
+     "out": [
+      [
+       256,
+       256,
+       384
+      ]
+     ],
+     "n": 4,
+     "flop": 100663296.0,
+     "bytes": 268828672.0
+    },
+    {
+     "op": "linear",
+     "in": [
+      [
+       1,
+       256,
+       256,
+       128
+      ],
+      [
+       128,
+       128
+      ],
+      [
+       128
+      ]
+     ],
+     "dtypes": [
+      "bfloat16",
+      "bfloat16",
+      "bfloat16"
+     ],
+     "out": [
+      [
+       1,
+       256,
+       256,
+       128
+      ]
+     ],
+     "n": 8,
+     "flop": 17246978048.0,
+     "bytes": 268699648.0
+    },
+    {
+     "op": "matmul",
+     "in": [
+      [
+       65536,
+       128
+      ],
+      [
+       128,
+       128
+      ]
+     ],
+     "dtypes": [
+      "bfloat16",
+      "bfloat16"
+     ],
+     "out": [
+      [
+       65536,
+       128
+      ]
+     ],
+     "n": 8,
+     "flop": 17179869184.0,
+     "bytes": 268697600.0
+    },
+    {
+     "op": "permute",
+     "in": [
+      [
+       1,
+       256,
+       256,
+       128
+      ]
+     ],
+     "dtypes": [
+      "bfloat16"
+     ],
+     "out": [
+      [
+       1,
+       128,
+       256,
+       256
+      ]
+     ],
+     "n": 8,
+     "flop": 0.0,
+     "bytes": 268435456.0
+    },
+    {
+     "op": "permute",
+     "in": [
+      [
+       256,
+       256,
+       1024
+      ]
+     ],
+     "dtypes": [
+      "bfloat16"
+     ],
+     "out": [
+      [
+       256,
+       1024,
+       256
+      ]
+     ],
+     "n": 1,
+     "flop": 0.0,
+     "bytes": 268435456.0
+    },
+    {
+     "op": "reshape",
+     "in": [
+      [
+       256,
+       1024,
+       256
+      ]
+     ],
+     "dtypes": [
+      "bfloat16"
+     ],
+     "out": [
+      [
+       8192,
+       8192
+      ]
+     ],
+     "n": 1,
+     "flop": 0.0,
+     "bytes": 268435456.0
+    },
+    {
+     "op": "matmul",
+     "in": [
+      [
+       65536,
+       512
+      ],
+      [
+       128,
+       512
+      ]
+     ],
+     "dtypes": [
+      "bfloat16",
+      "bfloat16"
+     ],
+     "out": [
+      [
+       65536,
+       128
+      ]
+     ],
+     "n": 3,
+     "flop": 25769803776.0,
+     "bytes": 252051456.0
+    },
+    {
+     "op": "permute",
+     "in": [
+      [
+       256,
+       256,
+       128
+      ]
+     ],
+     "dtypes": [
+      "bfloat16"
+     ],
+     "out": [
+      [
+       256,
+       256,
+       128
+      ]
+     ],
+     "n": 6,
+     "flop": 0.0,
+     "bytes": 201326592.0
+    },
+    {
+     "op": "multiply",
+     "in": [
+      [
+       1,
+       256,
+       256,
+       512
+      ],
+      [
+       1,
+       256,
+       256,
+       512
+      ]
+     ],
+     "dtypes": [
+      "bfloat16",
+      "bfloat16"
+     ],
+     "out": [
+      [
+       1,
+       256,
+       256,
+       512
+      ]
+     ],
+     "n": 1,
+     "flop": 33554432.0,
+     "bytes": 201326592.0
+    },
+    {
+     "op": "slice",
+     "in": [
+      [
+       32,
+       4,
+       256,
+       256
+      ]
+     ],
+     "dtypes": [
+      "float32"
+     ],
+     "out": [
+      [
+       16,
+       4,
+       256,
+       256
+      ]
+     ],
+     "n": 4,
+     "flop": 0.0,
+     "bytes": 201326592.0
+    },
+    {
+     "op": "sigmoid",
+     "in": [
+      [
+       1,
+       256,
+       256,
+       128
+      ]
+     ],
+     "dtypes": [
+      "bfloat16"
+     ],
+     "out": [
+      [
+       1,
+       256,
+       256,
+       128
+      ]
+     ],
+     "n": 6,
+     "flop": 201326592.0,
+     "bytes": 201326592.0
+    },
+    {
+     "op": "rsub",
+     "in": [
+      [
+       1,
+       256,
+       256,
+       128
+      ]
+     ],
+     "dtypes": [
+      "bfloat16"
+     ],
+     "out": [
+      [
+       1,
+       256,
+       256,
+       128
+      ]
+     ],
+     "n": 6,
+     "flop": 50331648.0,
+     "bytes": 201326592.0
+    },
+    {
+     "op": "linear",
+     "in": [
+      [
+       1,
+       256,
+       256,
+       128
+      ],
+      [
+       128,
+       512
+      ],
+      [
+       512
+      ]
+     ],
+     "dtypes": [
+      "bfloat16",
+      "bfloat16",
+      "bfloat16"
+     ],
+     "out": [
+      [
+       1,
+       256,
+       256,
+       512
+      ]
+     ],
+     "n": 2,
+     "flop": 17246978048.0,
+     "bytes": 168036352.0
+    },
+    {
+     "op": "linear",
+     "in": [
+      [
+       1,
+       256,
+       256,
+       512
+      ],
+      [
+       512,
+       128
+      ],
+      [
+       128
+      ]
+     ],
+     "dtypes": [
+      "bfloat16",
+      "bfloat16",
+      "bfloat16"
+     ],
+     "out": [
+      [
+       1,
+       256,
+       256,
+       128
+      ]
+     ],
+     "n": 2,
+     "flop": 17196646400.0,
+     "bytes": 168034816.0
+    },
+    {
+     "op": "matmul",
+     "in": [
+      [
+       65536,
+       128
+      ],
+      [
+       1024,
+       128
+      ]
+     ],
+     "dtypes": [
+      "bfloat16",
+      "bfloat16"
+     ],
+     "out": [
+      [
+       65536,
+       1024
+      ]
+     ],
+     "n": 1,
+     "flop": 17179869184.0,
+     "bytes": 151257088.0
+    },
+    {
+     "op": "add",
+     "in": [
+      [
+       256,
+       1,
+       1,
+       768
+      ],
+      [
+       256,
+       1,
+       1,
+       768
+      ]
+     ],
+     "dtypes": [
+      "float32",
+      "float32"
+     ],
+     "out": [
+      [
+       256,
+       1,
+       1,
+       768
+      ]
+     ],
+     "n": 2,
+     "flop": 12582912.0,
+     "bytes": 150994944.0
+    },
+    {
+     "op": "matmul",
+     "in": [
+      [
+       65536,
+       384
+      ],
+      [
+       128,
+       384
+      ]
+     ],
+     "dtypes": [
+      "bfloat16",
+      "bfloat16"
+     ],
+     "out": [
+      [
+       65536,
+       128
+      ]
+     ],
+     "n": 2,
+     "flop": 12884901888.0,
+     "bytes": 134414336.0
+    },
+    {
+     "op": "linear",
+     "in": [
+      [
+       256,
+       256,
+       128
+      ],
+      [
+       128,
+       128
+      ],
+      [
+       128
+      ]
+     ],
+     "dtypes": [
+      "bfloat16",
+      "bfloat16",
+      "bfloat16"
+     ],
+     "out": [
+      [
+       256,
+       256,
+       128
+      ]
+     ],
+     "n": 4,
+     "flop": 8623489024.0,
+     "bytes": 134349824.0
+    },
+    {
+     "op": "experimental.minimal_matmul",
+     "in": [
+      [
+       256,
+       256,
+       128
+      ],
+      [
+       128,
+       128
+      ]
+     ],
+     "dtypes": [
+      "bfloat16",
+      "bfloat16"
+     ],
+     "out": [
+      [
+       256,
+       256,
+       128
+      ]
+     ],
+     "n": 4,
+     "flop": 33554432.0,
+     "bytes": 134348800.0
+    },
+    {
+     "op": "add",
+     "in": [
+      [
+       256,
+       256,
+       128
+      ],
+      [
+       128
+      ]
+     ],
+     "dtypes": [
+      "bfloat16",
+      "bfloat16"
+     ],
+     "out": [
+      [
+       256,
+       256,
+       128
+      ]
+     ],
+     "n": 4,
+     "flop": 33554432.0,
+     "bytes": 134218752.0
+    },
+    {
+     "op": "transpose",
+     "in": [
+      [
+       1,
+       128,
+       256,
+       256
+      ]
+     ],
+     "dtypes": [
+      "bfloat16"
+     ],
+     "out": [
+      [
+       1,
+       256,
+       128,
+       256
+      ]
+     ],
+     "n": 4,
+     "flop": 0.0,
+     "bytes": 134217728.0
+    },
+    {
+     "op": "transpose",
+     "in": [
+      [
+       1,
+       256,
+       128,
+       256
+      ]
+     ],
+     "dtypes": [
+      "bfloat16"
+     ],
+     "out": [
+      [
+       1,
+       256,
+       256,
+       128
+      ]
+     ],
+     "n": 4,
+     "flop": 0.0,
+     "bytes": 134217728.0
+    },
+    {
+     "op": "permute",
+     "in": [
+      [
+       256,
+       4,
+       256,
+       32
+      ]
+     ],
+     "dtypes": [
+      "bfloat16"
+     ],
+     "out": [
+      [
+       256,
+       4,
+       32,
+       256
+      ]
+     ],
+     "n": 4,
+     "flop": 0.0,
+     "bytes": 134217728.0
+    },
+    {
+     "op": "relu",
+     "in": [
+      [
+       1,
+       256,
+       256,
+       512
+      ]
+     ],
+     "dtypes": [
+      "bfloat16"
+     ],
+     "out": [
+      [
+       1,
+       256,
+       256,
+       512
+      ]
+     ],
+     "n": 1,
+     "flop": 33554432.0,
+     "bytes": 134217728.0
+    }
+   ]
+  },
+  "extra": {
+   "wall": {
+    "fwd": 2.8432278633117676,
+    "bwd": 6.5196967124938965,
+    "spans": [
+     [
+      1790348025.6578126,
+      1790348028.5010405
+     ],
+     [
+      1790348028.515867,
+      1790348035.0355637
+     ]
+    ]
+   },
+   "aiclk": {
+    "n": 26,
+    "min": 1000,
+    "median": 1000,
+    "max": 1000
+   },
+   "loadavg": [
+    20.7705078125,
+    16.0654296875,
+    12.703125
+   ],
+   "table": [
+    {
+     "component": "tri_att_end",
+     "phase": "bwd",
+     "family": "typecast",
+     "op": "typecast",
+     "n": 14,
+     "flop": 0.0,
+     "bytes": 2318401536.0,
+     "lbytes": 2318401536.0,
+     "ai": 0.0
+    },
+    {
+     "component": "tri_att_start",
+     "phase": "bwd",
+     "family": "typecast",
+     "op": "typecast",
+     "n": 14,
+     "flop": 0.0,
+     "bytes": 2318401536.0,
+     "lbytes": 2318401536.0,
+     "ai": 0.0
+    },
+    {
+     "component": "residual",
+     "phase": "bwd",
+     "family": "typecast",
+     "op": "typecast",
+     "n": 35,
+     "flop": 0.0,
+     "bytes": 1711300608.0,
+     "lbytes": 1711276800.0,
+     "ai": 0.0
+    },
+    {
+     "component": "tri_att_end",
+     "phase": "bwd",
+     "family": "layout",
+     "op": "slice",
+     "n": 16,
+     "flop": 0.0,
+     "bytes": 1604321280.0,
+     "lbytes": 1604321280.0,
+     "ai": 0.0
+    },
+    {
+     "component": "tri_att_start",
+     "phase": "bwd",
+     "family": "layout",
+     "op": "slice",
+     "n": 16,
+     "flop": 0.0,
+     "bytes": 1604321280.0,
+     "lbytes": 1604321280.0,
+     "ai": 0.0
+    },
+    {
+     "component": "tri_att_end",
+     "phase": "bwd",
+     "family": "eltwise",
+     "op": "add",
+     "n": 7,
+     "flop": 150994944.0,
+     "bytes": 1477443840.0,
+     "lbytes": 1477443840.0,
+     "ai": 0.10220012423619432
+    },
+    {
+     "component": "tri_att_start",
+     "phase": "bwd",
+     "family": "eltwise",
+     "op": "add",
+     "n": 7,
+     "flop": 150994944.0,
+     "bytes": 1477443840.0,
+     "lbytes": 1477443840.0,
+     "ai": 0.10220012423619432
+    },
+    {
+     "component": "tri_att_end",
+     "phase": "bwd",
+     "family": "matmul",
+     "op": "matmul",
+     "n": 10,
+     "flop": 36574330880.0,
+     "bytes": 1161994240.0,
+     "lbytes": 1158317056.0,
+     "ai": 31.47548380274243
+    },
+    {
+     "component": "tri_att_start",
+     "phase": "bwd",
+     "family": "matmul",
+     "op": "matmul",
+     "n": 10,
+     "flop": 36574330880.0,
+     "bytes": 1161994240.0,
+     "lbytes": 1158317056.0,
+     "ai": 31.47548380274243
+    },
+    {
+     "component": "residual",
+     "phase": "fwd",
+     "family": "typecast",
+     "op": "typecast",
+     "n": 18,
+     "flop": 0.0,
+     "bytes": 855662592.0,
+     "lbytes": 855638784.0,
+     "ai": 0.0
+    },
+    {
+     "component": "tri_att_end",
+     "phase": "fwd",
+     "family": "typecast",
+     "op": "typecast",
+     "n": 3,
+     "flop": 0.0,
+     "bytes": 806879232.0,
+     "lbytes": 806879232.0,
+     "ai": 0.0
+    },
+    {
+     "component": "tri_att_start",
+     "phase": "fwd",
+     "family": "typecast",
+     "op": "typecast",
+     "n": 3,
+     "flop": 0.0,
+     "bytes": 806879232.0,
+     "lbytes": 806879232.0,
+     "ai": 0.0
+    },
+    {
+     "component": "tri_att_end",
+     "phase": "bwd",
+     "family": "eltwise",
+     "op": "multiply",
+     "n": 8,
+     "flop": 109576192.0,
+     "bytes": 792723456.0,
+     "lbytes": 792723456.0,
+     "ai": 0.13822751322751323
+    },
+    {
+     "component": "tri_att_start",
+     "phase": "bwd",
+     "family": "eltwise",
+     "op": "multiply",
+     "n": 8,
+     "flop": 109576192.0,
+     "bytes": 792723456.0,
+     "lbytes": 792723456.0,
+     "ai": 0.13822751322751323
+    },
+    {
+     "component": "?",
+     "phase": "bwd",
+     "family": "typecast",
+     "op": "typecast",
+     "n": 11,
+     "flop": 0.0,
+     "bytes": 754974720.0,
+     "lbytes": 754974720.0,
+     "ai": 0.0
+    },
+    {
+     "component": "tri_mul_in",
+     "phase": "bwd",
+     "family": "eltwise",
+     "op": "multiply",
+     "n": 15,
+     "flop": 125829120.0,
+     "bytes": 754974720.0,
+     "lbytes": 754974720.0,
+     "ai": 0.16666666666666666
+    },
+    {
+     "component": "tri_mul_out",
+     "phase": "bwd",
+     "family": "eltwise",
+     "op": "multiply",
+     "n": 15,
+     "flop": 125829120.0,
+     "bytes": 754974720.0,
+     "lbytes": 754974720.0,
+     "ai": 0.16666666666666666
+    },
+    {
+     "component": "tri_att_end",
+     "phase": "fwd",
+     "family": "eltwise",
+     "op": "add",
+     "n": 2,
+     "flop": 75497472.0,
+     "bytes": 571474176.0,
+     "lbytes": 571474176.0,
+     "ai": 0.13211003256252124
+    },
+    {
+     "component": "tri_att_start",
+     "phase": "fwd",
+     "family": "eltwise",
+     "op": "add",
+     "n": 2,
+     "flop": 75497472.0,
+     "bytes": 571474176.0,
+     "lbytes": 571474176.0,
+     "ai": 0.13211003256252124
+    },
+    {
+     "component": "residual",
+     "phase": "bwd",
+     "family": "eltwise",
+     "op": "add",
+     "n": 6,
+     "flop": 50331648.0,
+     "bytes": 570441728.0,
+     "lbytes": 570425856.0,
+     "ai": 0.08823275985868972
+    },
+    {
+     "component": "residual",
+     "phase": "fwd",
+     "family": "eltwise",
+     "op": "add",
+     "n": 6,
+     "flop": 50331648.0,
+     "bytes": 570441728.0,
+     "lbytes": 570425856.0,
+     "ai": 0.08823275985868972
+    },
+    {
+     "component": "tri_att_end",
+     "phase": "fwd",
+     "family": "matmul",
+     "op": "matmul",
+     "n": 2,
+     "flop": 8589934592.0,
+     "bytes": 335544320.0,
+     "lbytes": 335544320.0,
+     "ai": 25.6
+    },
+    {
+     "component": "tri_att_start",
+     "phase": "fwd",
+     "family": "matmul",
+     "op": "matmul",
+     "n": 2,
+     "flop": 8589934592.0,
+     "bytes": 335544320.0,
+     "lbytes": 335544320.0,
+     "ai": 25.6
+    },
+    {
+     "component": "tri_mul_in",
+     "phase": "bwd",
+     "family": "matmul",
+     "op": "matmul",
+     "n": 6,
+     "flop": 25769803776.0,
+     "bytes": 302186496.0,
+     "lbytes": 302186496.0,
+     "ai": 85.27781392322707
+    },
+    {
+     "component": "tri_mul_out",
+     "phase": "bwd",
+     "family": "matmul",
+     "op": "matmul",
+     "n": 6,
+     "flop": 25769803776.0,
+     "bytes": 302186496.0,
+     "lbytes": 302186496.0,
+     "ai": 85.27781392322707
+    },
+    {
+     "component": "tri_att_end",
+     "phase": "bwd",
+     "family": "layout",
+     "op": "to_layout",
+     "n": 8,
+     "flop": 0.0,
+     "bytes": 268435456.0,
+     "lbytes": 268435456.0,
+     "ai": 0.0
+    },
+    {
+     "component": "tri_att_end",
+     "phase": "bwd",
+     "family": "layout",
+     "op": "permute",
+     "n": 8,
+     "flop": 0.0,
+     "bytes": 210763776.0,
+     "lbytes": 203423744.0,
+     "ai": 0.0
+    },
+    {
+     "component": "pair_transition",
+     "phase": "bwd",
+     "family": "eltwise",
+     "op": "multiply",
+     "n": 1,
+     "flop": 33554432.0,
+     "bytes": 201326592.0,
+     "lbytes": 201326592.0,
+     "ai": 0.16666666666666666
+    },
+    {
+     "component": "tri_mul_in",
+     "phase": "bwd",
+     "family": "eltwise",
+     "op": "add",
+     "n": 2,
+     "flop": 16777216.0,
+     "bytes": 201326592.0,
+     "lbytes": 201326592.0,
+     "ai": 0.08333333333333333
+    },
+    {
+     "component": "tri_mul_in",
+     "phase": "bwd",
+     "family": "typecast",
+     "op": "typecast",
+     "n": 4,
+     "flop": 0.0,
+     "bytes": 201326592.0,
+     "lbytes": 201326592.0,
+     "ai": 0.0
+    },
+    {
+     "component": "tri_mul_out",
+     "phase": "bwd",
+     "family": "eltwise",
+     "op": "add",
+     "n": 2,
+     "flop": 16777216.0,
+     "bytes": 201326592.0,
+     "lbytes": 201326592.0,
+     "ai": 0.08333333333333333
+    },
+    {
+     "component": "tri_mul_out",
+     "phase": "bwd",
+     "family": "typecast",
+     "op": "typecast",
+     "n": 4,
+     "flop": 0.0,
+     "bytes": 201326592.0,
+     "lbytes": 201326592.0,
+     "ai": 0.0
+    },
+    {
+     "component": "pair_transition",
+     "phase": "bwd",
+     "family": "matmul",
+     "op": "linear",
+     "n": 2,
+     "flop": 17221812224.0,
+     "bytes": 168035584.0,
+     "lbytes": 168035584.0,
+     "ai": 102.48907888462482
+    },
+    {
+     "component": "pair_transition",
+     "phase": "fwd",
+     "family": "matmul",
+     "op": "linear",
+     "n": 2,
+     "flop": 17221812224.0,
+     "bytes": 168035584.0,
+     "lbytes": 168035584.0,
+     "ai": 102.48907888462482
+    },
+    {
+     "component": "pair_transition",
+     "phase": "bwd",
+     "family": "matmul",
+     "op": "matmul",
+     "n": 2,
+     "flop": 17179869184.0,
+     "bytes": 168034304.0,
+     "lbytes": 168034304.0,
+     "ai": 102.2402496099844
+    },
+    {
+     "component": "tri_att_end",
+     "phase": "bwd",
+     "family": "layout",
+     "op": "concat",
+     "n": 3,
+     "flop": 0.0,
+     "bytes": 150994944.0,
+     "lbytes": 150994944.0,
+     "ai": 0.0
+    },
+    {
+     "component": "tri_att_start",
+     "phase": "bwd",
+     "family": "layout",
+     "op": "concat",
+     "n": 3,
+     "flop": 0.0,
+     "bytes": 150994944.0,
+     "lbytes": 150994944.0,
+     "ai": 0.0
+    },
+    {
+     "component": "tri_mul_in",
+     "phase": "fwd",
+     "family": "eltwise",
+     "op": "multiply",
+     "n": 3,
+     "flop": 25165824.0,
+     "bytes": 150994944.0,
+     "lbytes": 150994944.0,
+     "ai": 0.16666666666666666
+    },
+    {
+     "component": "tri_mul_out",
+     "phase": "fwd",
+     "family": "eltwise",
+     "op": "multiply",
+     "n": 3,
+     "flop": 25165824.0,
+     "bytes": 150994944.0,
+     "lbytes": 150994944.0,
+     "ai": 0.16666666666666666
+    },
+    {
+     "component": "?",
+     "phase": "bwd",
+     "family": "layout",
+     "op": "concat",
+     "n": 2,
+     "flop": 0.0,
+     "bytes": 134217728.0,
+     "lbytes": 134217728.0,
+     "ai": 0.0
+    },
+    {
+     "component": "pair_transition",
+     "phase": "bwd",
+     "family": "eltwise",
+     "op": "gtz",
+     "n": 1,
+     "flop": 33554432.0,
+     "bytes": 134217728.0,
+     "lbytes": 134217728.0,
+     "ai": 0.25
+    },
+    {
+     "component": "pair_transition",
+     "phase": "bwd",
+     "family": "eltwise",
+     "op": "relu",
+     "n": 1,
+     "flop": 33554432.0,
+     "bytes": 134217728.0,
+     "lbytes": 134217728.0,
+     "ai": 0.25
+    },
+    {
+     "component": "tri_att_end",
+     "phase": "bwd",
+     "family": "layout",
+     "op": "experimental.nlp_concat_heads",
+     "n": 4,
+     "flop": 0.0,
+     "bytes": 134217728.0,
+     "lbytes": 134217728.0,
+     "ai": 0.0
+    },
+    {
+     "component": "tri_att_end",
+     "phase": "fwd",
+     "family": "layout",
+     "op": "to_layout",
+     "n": 4,
+     "flop": 0.0,
+     "bytes": 134217728.0,
+     "lbytes": 134217728.0,
+     "ai": 0.0
+    },
+    {
+     "component": "tri_att_start",
+     "phase": "bwd",
+     "family": "layout",
+     "op": "experimental.nlp_concat_heads",
+     "n": 4,
+     "flop": 0.0,
+     "bytes": 134217728.0,
+     "lbytes": 134217728.0,
+     "ai": 0.0
+    },
+    {
+     "component": "tri_mul_in",
+     "phase": "bwd",
+     "family": "layout",
+     "op": "chunk",
+     "n": 1,
+     "flop": 0.0,
+     "bytes": 134217728.0,
+     "lbytes": 134217728.0,
+     "ai": 0.0
+    },
+    {
+     "component": "tri_mul_in",
+     "phase": "bwd",
+     "family": "layout",
+     "op": "transpose",
+     "n": 4,
+     "flop": 0.0,
+     "bytes": 134217728.0,
+     "lbytes": 134217728.0,
+     "ai": 0.0
+    },
+    {
+     "component": "tri_mul_in",
+     "phase": "fwd",
+     "family": "layout",
+     "op": "chunk",
+     "n": 1,
+     "flop": 0.0,
+     "bytes": 134217728.0,
+     "lbytes": 134217728.0,
+     "ai": 0.0
+    },
+    {
+     "component": "tri_mul_out",
+     "phase": "bwd",
+     "family": "layout",
+     "op": "chunk",
+     "n": 1,
+     "flop": 0.0,
+     "bytes": 134217728.0,
+     "lbytes": 134217728.0,
+     "ai": 0.0
+    },
+    {
+     "component": "tri_mul_out",
+     "phase": "bwd",
+     "family": "layout",
+     "op": "transpose",
+     "n": 4,
+     "flop": 0.0,
+     "bytes": 134217728.0,
+     "lbytes": 134217728.0,
+     "ai": 0.0
+    },
+    {
+     "component": "tri_mul_out",
+     "phase": "fwd",
+     "family": "layout",
+     "op": "chunk",
+     "n": 1,
+     "flop": 0.0,
+     "bytes": 134217728.0,
+     "lbytes": 134217728.0,
+     "ai": 0.0
+    },
+    {
+     "component": "tri_att_end",
+     "phase": "fwd",
+     "family": "layout",
+     "op": "permute",
+     "n": 4,
+     "flop": 0.0,
+     "bytes": 105381888.0,
+     "lbytes": 101711872.0,
+     "ai": 0.0
+    },
+    {
+     "component": "tri_att_end",
+     "phase": "bwd",
+     "family": "eltwise",
+     "op": "experimental.minimal_matmul",
+     "n": 2,
+     "flop": 33554432.0,
+     "bytes": 100794368.0,
+     "lbytes": 100794368.0,
+     "ai": 0.3328998699609883
+    },
+    {
+     "component": "tri_att_end",
+     "phase": "fwd",
+     "family": "eltwise",
+     "op": "experimental.minimal_matmul",
+     "n": 2,
+     "flop": 33554432.0,
+     "bytes": 100794368.0,
+     "lbytes": 100794368.0,
+     "ai": 0.3328998699609883
+    },
+    {
+     "component": "tri_att_start",
+     "phase": "bwd",
+     "family": "eltwise",
+     "op": "experimental.minimal_matmul",
+     "n": 2,
+     "flop": 33554432.0,
+     "bytes": 100794368.0,
+     "lbytes": 100794368.0,
+     "ai": 0.3328998699609883
+    },
+    {
+     "component": "tri_att_start",
+     "phase": "fwd",
+     "family": "eltwise",
+     "op": "experimental.minimal_matmul",
+     "n": 2,
+     "flop": 33554432.0,
+     "bytes": 100794368.0,
+     "lbytes": 100794368.0,
+     "ai": 0.3328998699609883
+    },
+    {
+     "component": "pair_transition",
+     "phase": "bwd",
+     "family": "eltwise",
+     "op": "add",
+     "n": 1,
+     "flop": 8388608.0,
+     "bytes": 100663296.0,
+     "lbytes": 100663296.0,
+     "ai": 0.08333333333333333
+    },
+    {
+     "component": "pair_transition",
+     "phase": "bwd",
+     "family": "typecast",
+     "op": "typecast",
+     "n": 2,
+     "flop": 0.0,
+     "bytes": 100663296.0,
+     "lbytes": 100663296.0,
+     "ai": 0.0
+    },
+    {
+     "component": "tri_att_end",
+     "phase": "bwd",
+     "family": "layout",
+     "op": "experimental.nlp_create_qkv_heads",
+     "n": 1,
+     "flop": 0.0,
+     "bytes": 100663296.0,
+     "lbytes": 100663296.0,
+     "ai": 0.0
+    },
+    {
+     "component": "tri_att_end",
+     "phase": "fwd",
+     "family": "layout",
+     "op": "experimental.nlp_create_qkv_heads",
+     "n": 1,
+     "flop": 0.0,
+     "bytes": 100663296.0,
+     "lbytes": 100663296.0,
+     "ai": 0.0
+    },
+    {
+     "component": "tri_att_start",
+     "phase": "bwd",
+     "family": "layout",
+     "op": "experimental.nlp_create_qkv_heads",
+     "n": 1,
+     "flop": 0.0,
+     "bytes": 100663296.0,
+     "lbytes": 100663296.0,
+     "ai": 0.0
+    },
+    {
+     "component": "tri_att_start",
+     "phase": "fwd",
+     "family": "layout",
+     "op": "experimental.nlp_create_qkv_heads",
+     "n": 1,
+     "flop": 0.0,
+     "bytes": 100663296.0,
+     "lbytes": 100663296.0,
+     "ai": 0.0
+    },
+    {
+     "component": "tri_mul_in",
+     "phase": "bwd",
+     "family": "eltwise",
+     "op": "rsub",
+     "n": 3,
+     "flop": 25165824.0,
+     "bytes": 100663296.0,
+     "lbytes": 100663296.0,
+     "ai": 0.25
+    },
+    {
+     "component": "tri_mul_in",
+     "phase": "bwd",
+     "family": "eltwise",
+     "op": "sigmoid",
+     "n": 3,
+     "flop": 100663296.0,
+     "bytes": 100663296.0,
+     "lbytes": 100663296.0,
+     "ai": 1.0
+    },
+    {
+     "component": "tri_mul_out",
+     "phase": "bwd",
+     "family": "eltwise",
+     "op": "rsub",
+     "n": 3,
+     "flop": 25165824.0,
+     "bytes": 100663296.0,
+     "lbytes": 100663296.0,
+     "ai": 0.25
+    },
+    {
+     "component": "tri_mul_out",
+     "phase": "bwd",
+     "family": "eltwise",
+     "op": "sigmoid",
+     "n": 3,
+     "flop": 100663296.0,
+     "bytes": 100663296.0,
+     "lbytes": 100663296.0,
+     "ai": 1.0
+    },
+    {
+     "component": "tri_mul_in",
+     "phase": "bwd",
+     "family": "eltwise",
+     "op": "experimental.minimal_matmul",
+     "n": 1,
+     "flop": 33554432.0,
+     "bytes": 84018176.0,
+     "lbytes": 84018176.0,
+     "ai": 0.39937110750892757
+    },
+    {
+     "component": "tri_mul_in",
+     "phase": "fwd",
+     "family": "eltwise",
+     "op": "experimental.minimal_matmul",
+     "n": 1,
+     "flop": 33554432.0,
+     "bytes": 84018176.0,
+     "lbytes": 84018176.0,
+     "ai": 0.39937110750892757
+    },
+    {
+     "component": "tri_mul_out",
+     "phase": "bwd",
+     "family": "eltwise",
+     "op": "experimental.minimal_matmul",
+     "n": 1,
+     "flop": 33554432.0,
+     "bytes": 84018176.0,
+     "lbytes": 84018176.0,
+     "ai": 0.39937110750892757
+    },
+    {
+     "component": "tri_mul_out",
+     "phase": "fwd",
+     "family": "eltwise",
+     "op": "experimental.minimal_matmul",
+     "n": 1,
+     "flop": 33554432.0,
+     "bytes": 84018176.0,
+     "lbytes": 84018176.0,
+     "ai": 0.39937110750892757
+    },
+    {
+     "component": "tri_att_start",
+     "phase": "bwd",
+     "family": "layout",
+     "op": "permute",
+     "n": 4,
+     "flop": 0.0,
+     "bytes": 76546048.0,
+     "lbytes": 69206016.0,
+     "ai": 0.0
+    },
+    {
+     "component": "tri_mul_in",
+     "phase": "bwd",
+     "family": "matmul",
+     "op": "linear",
+     "n": 2,
+     "flop": 4311744512.0,
+     "bytes": 67174912.0,
+     "lbytes": 67174912.0,
+     "ai": 64.18682784429997
+    },
+    {
+     "component": "tri_mul_in",
+     "phase": "fwd",
+     "family": "matmul",
+     "op": "linear",
+     "n": 2,
+     "flop": 4311744512.0,
+     "bytes": 67174912.0,
+     "lbytes": 67174912.0,
+     "ai": 64.18682784429997
+    },
+    {
+     "component": "tri_mul_out",
+     "phase": "bwd",
+     "family": "matmul",
+     "op": "linear",
+     "n": 2,
+     "flop": 4311744512.0,
+     "bytes": 67174912.0,
+     "lbytes": 67174912.0,
+     "ai": 64.18682784429997
+    },
+    {
+     "component": "tri_mul_out",
+     "phase": "fwd",
+     "family": "matmul",
+     "op": "linear",
+     "n": 2,
+     "flop": 4311744512.0,
+     "bytes": 67174912.0,
+     "lbytes": 67174912.0,
+     "ai": 64.18682784429997
+    },
+    {
+     "component": "tri_att_end",
+     "phase": "bwd",
+     "family": "layout",
+     "op": "transpose",
+     "n": 2,
+     "flop": 0.0,
+     "bytes": 67108864.0,
+     "lbytes": 67108864.0,
+     "ai": 0.0
+    },
+    {
+     "component": "tri_att_start",
+     "phase": "bwd",
+     "family": "layout",
+     "op": "transpose",
+     "n": 2,
+     "flop": 0.0,
+     "bytes": 67108864.0,
+     "lbytes": 67108864.0,
+     "ai": 0.0
+    },
+    {
+     "component": "tri_mul_in",
+     "phase": "bwd",
+     "family": "layout",
+     "op": "permute",
+     "n": 2,
+     "flop": 0.0,
+     "bytes": 67108864.0,
+     "lbytes": 67108864.0,
+     "ai": 0.0
+    },
+    {
+     "component": "tri_mul_in",
+     "phase": "fwd",
+     "family": "layout",
+     "op": "permute",
+     "n": 2,
+     "flop": 0.0,
+     "bytes": 67108864.0,
+     "lbytes": 67108864.0,
+     "ai": 0.0
+    },
+    {
+     "component": "tri_mul_in",
+     "phase": "fwd",
+     "family": "layout",
+     "op": "transpose",
+     "n": 2,
+     "flop": 0.0,
+     "bytes": 67108864.0,
+     "lbytes": 67108864.0,
+     "ai": 0.0
+    },
+    {
+     "component": "tri_mul_out",
+     "phase": "bwd",
+     "family": "layout",
+     "op": "permute",
+     "n": 2,
+     "flop": 0.0,
+     "bytes": 67108864.0,
+     "lbytes": 67108864.0,
+     "ai": 0.0
+    },
+    {
+     "component": "tri_mul_out",
+     "phase": "fwd",
+     "family": "layout",
+     "op": "permute",
+     "n": 2,
+     "flop": 0.0,
+     "bytes": 67108864.0,
+     "lbytes": 67108864.0,
+     "ai": 0.0
+    },
+    {
+     "component": "tri_mul_out",
+     "phase": "fwd",
+     "family": "layout",
+     "op": "transpose",
+     "n": 2,
+     "flop": 0.0,
+     "bytes": 67108864.0,
+     "lbytes": 67108864.0,
+     "ai": 0.0
+    },
+    {
+     "component": "tri_att_end",
+     "phase": "bwd",
+     "family": "matmul",
+     "op": "linear",
+     "n": 2,
+     "flop": 2225078272.0,
+     "bytes": 54567168.0,
+     "lbytes": 50889984.0,
+     "ai": 40.77686919724329
+    },
+    {
+     "component": "tri_att_end",
+     "phase": "fwd",
+     "family": "matmul",
+     "op": "linear",
+     "n": 2,
+     "flop": 2225078272.0,
+     "bytes": 54567168.0,
+     "lbytes": 50889984.0,
+     "ai": 40.77686919724329
+    },
+    {
+     "component": "tri_att_start",
+     "phase": "bwd",
+     "family": "matmul",
+     "op": "linear",
+     "n": 2,
+     "flop": 2225078272.0,
+     "bytes": 54567168.0,
+     "lbytes": 50889984.0,
+     "ai": 40.77686919724329
+    },
+    {
+     "component": "tri_att_start",
+     "phase": "fwd",
+     "family": "matmul",
+     "op": "linear",
+     "n": 2,
+     "flop": 2225078272.0,
+     "bytes": 54567168.0,
+     "lbytes": 50889984.0,
+     "ai": 40.77686919724329
+    },
+    {
+     "component": "tri_att_end",
+     "phase": "fwd",
+     "family": "eltwise",
+     "op": "multiply",
+     "n": 2,
+     "flop": 8650752.0,
+     "bytes": 52428800.0,
+     "lbytes": 52428800.0,
+     "ai": 0.165
+    },
+    {
+     "component": "tri_att_start",
+     "phase": "fwd",
+     "family": "eltwise",
+     "op": "multiply",
+     "n": 2,
+     "flop": 8650752.0,
+     "bytes": 52428800.0,
+     "lbytes": 52428800.0,
+     "ai": 0.165
+    },
+    {
+     "component": "tri_mul_in",
+     "phase": "fwd",
+     "family": "matmul",
+     "op": "matmul",
+     "n": 1,
+     "flop": 4294967296.0,
+     "bytes": 50331648.0,
+     "lbytes": 50331648.0,
+     "ai": 85.33333333333333
+    },
+    {
+     "component": "tri_mul_out",
+     "phase": "fwd",
+     "family": "matmul",
+     "op": "matmul",
+     "n": 1,
+     "flop": 4294967296.0,
+     "bytes": 50331648.0,
+     "lbytes": 50331648.0,
+     "ai": 85.33333333333333
+    },
+    {
+     "component": "tri_att_start",
+     "phase": "fwd",
+     "family": "layout",
+     "op": "permute",
+     "n": 2,
+     "flop": 0.0,
+     "bytes": 38273024.0,
+     "lbytes": 34603008.0,
+     "ai": 0.0
+    },
+    {
+     "component": "tri_att_end",
+     "phase": "bwd",
+     "family": "eltwise",
+     "op": "rsub",
+     "n": 1,
+     "flop": 8388608.0,
+     "bytes": 33554432.0,
+     "lbytes": 33554432.0,
+     "ai": 0.25
+    },
+    {
+     "component": "tri_att_end",
+     "phase": "bwd",
+     "family": "eltwise",
+     "op": "sigmoid",
+     "n": 1,
+     "flop": 33554432.0,
+     "bytes": 33554432.0,
+     "lbytes": 33554432.0,
+     "ai": 1.0
+    },
+    {
+     "component": "tri_att_end",
+     "phase": "fwd",
+     "family": "layout",
+     "op": "experimental.nlp_concat_heads",
+     "n": 1,
+     "flop": 0.0,
+     "bytes": 33554432.0,
+     "lbytes": 33554432.0,
+     "ai": 0.0
+    },
+    {
+     "component": "tri_att_start",
+     "phase": "bwd",
+     "family": "eltwise",
+     "op": "rsub",
+     "n": 1,
+     "flop": 8388608.0,
+     "bytes": 33554432.0,
+     "lbytes": 33554432.0,
+     "ai": 0.25
+    },
+    {
+     "component": "tri_att_start",
+     "phase": "bwd",
+     "family": "eltwise",
+     "op": "sigmoid",
+     "n": 1,
+     "flop": 33554432.0,
+     "bytes": 33554432.0,
+     "lbytes": 33554432.0,
+     "ai": 1.0
+    },
+    {
+     "component": "tri_att_start",
+     "phase": "fwd",
+     "family": "layout",
+     "op": "experimental.nlp_concat_heads",
+     "n": 1,
+     "flop": 0.0,
+     "bytes": 33554432.0,
+     "lbytes": 33554432.0,
+     "ai": 0.0
+    },
+    {
+     "component": "tri_mul_in",
+     "phase": "bwd",
+     "family": "eltwise",
+     "op": "generic_op",
+     "n": 2,
+     "flop": 16777216.0,
+     "bytes": 33554432.0,
+     "lbytes": 33554432.0,
+     "ai": 0.5
+    },
+    {
+     "component": "tri_mul_out",
+     "phase": "bwd",
+     "family": "eltwise",
+     "op": "generic_op",
+     "n": 2,
+     "flop": 16777216.0,
+     "bytes": 33554432.0,
+     "lbytes": 33554432.0,
+     "ai": 0.5
+    },
+    {
+     "component": "pair_transition",
+     "phase": "bwd",
+     "family": "view",
+     "op": "reshape",
+     "n": 4,
+     "flop": 0.0,
+     "bytes": 0.0,
+     "lbytes": 0.0,
+     "ai": 0.0
+    },
+    {
+     "component": "tri_att_end",
+     "phase": "bwd",
+     "family": "view",
+     "op": "add_",
+     "n": 8,
+     "flop": 0.0,
+     "bytes": 0.0,
+     "lbytes": 0.0,
+     "ai": 0.0
+    },
+    {
+     "component": "tri_att_end",
+     "phase": "bwd",
+     "family": "view",
+     "op": "reshape",
+     "n": 23,
+     "flop": 0.0,
+     "bytes": 0.0,
+     "lbytes": 0.0,
+     "ai": 0.0
+    },
+    {
+     "component": "tri_att_end",
+     "phase": "bwd",
+     "family": "view",
+     "op": "squeeze",
+     "n": 1,
+     "flop": 0.0,
+     "bytes": 0.0,
+     "lbytes": 0.0,
+     "ai": 0.0
+    },
+    {
+     "component": "tri_att_end",
+     "phase": "bwd",
+     "family": "view",
+     "op": "unsqueeze",
+     "n": 2,
+     "flop": 0.0,
+     "bytes": 0.0,
+     "lbytes": 0.0,
+     "ai": 0.0
+    },
+    {
+     "component": "tri_att_end",
+     "phase": "fwd",
+     "family": "view",
+     "op": "reshape",
+     "n": 2,
+     "flop": 0.0,
+     "bytes": 0.0,
+     "lbytes": 0.0,
+     "ai": 0.0
+    },
+    {
+     "component": "tri_att_end",
+     "phase": "fwd",
+     "family": "view",
+     "op": "squeeze",
+     "n": 1,
+     "flop": 0.0,
+     "bytes": 0.0,
+     "lbytes": 0.0,
+     "ai": 0.0
+    },
+    {
+     "component": "tri_att_end",
+     "phase": "fwd",
+     "family": "view",
+     "op": "unsqueeze",
+     "n": 2,
+     "flop": 0.0,
+     "bytes": 0.0,
+     "lbytes": 0.0,
+     "ai": 0.0
+    },
+    {
+     "component": "tri_att_start",
+     "phase": "bwd",
+     "family": "view",
+     "op": "add_",
+     "n": 8,
+     "flop": 0.0,
+     "bytes": 0.0,
+     "lbytes": 0.0,
+     "ai": 0.0
+    },
+    {
+     "component": "tri_att_start",
+     "phase": "bwd",
+     "family": "view",
+     "op": "reshape",
+     "n": 23,
+     "flop": 0.0,
+     "bytes": 0.0,
+     "lbytes": 0.0,
+     "ai": 0.0
+    },
+    {
+     "component": "tri_att_start",
+     "phase": "bwd",
+     "family": "view",
+     "op": "squeeze",
+     "n": 1,
+     "flop": 0.0,
+     "bytes": 0.0,
+     "lbytes": 0.0,
+     "ai": 0.0
+    },
+    {
+     "component": "tri_att_start",
+     "phase": "bwd",
+     "family": "view",
+     "op": "unsqueeze",
+     "n": 2,
+     "flop": 0.0,
+     "bytes": 0.0,
+     "lbytes": 0.0,
+     "ai": 0.0
+    },
+    {
+     "component": "tri_att_start",
+     "phase": "fwd",
+     "family": "view",
+     "op": "reshape",
+     "n": 2,
+     "flop": 0.0,
+     "bytes": 0.0,
+     "lbytes": 0.0,
+     "ai": 0.0
+    },
+    {
+     "component": "tri_att_start",
+     "phase": "fwd",
+     "family": "view",
+     "op": "squeeze",
+     "n": 1,
+     "flop": 0.0,
+     "bytes": 0.0,
+     "lbytes": 0.0,
+     "ai": 0.0
+    },
+    {
+     "component": "tri_att_start",
+     "phase": "fwd",
+     "family": "view",
+     "op": "unsqueeze",
+     "n": 2,
+     "flop": 0.0,
+     "bytes": 0.0,
+     "lbytes": 0.0,
+     "ai": 0.0
+    },
+    {
+     "component": "tri_mul_in",
+     "phase": "bwd",
+     "family": "view",
+     "op": "reshape",
+     "n": 6,
+     "flop": 0.0,
+     "bytes": 0.0,
+     "lbytes": 0.0,
+     "ai": 0.0
+    },
+    {
+     "component": "tri_mul_out",
+     "phase": "bwd",
+     "family": "view",
+     "op": "reshape",
+     "n": 6,
+     "flop": 0.0,
+     "bytes": 0.0,
+     "lbytes": 0.0,
+     "ai": 0.0
+    }
+   ],
+   "top_sigs": [
+    {
+     "op": "typecast",
+     "in": [
+      [
+       256,
+       4,
+       256,
+       256
+      ]
+     ],
+     "dtypes": [
+      "bfloat16"
+     ],
+     "out": [
+      [
+       256,
+       4,
+       256,
+       256
+      ]
+     ],
+     "n": 6,
+     "flop": 0.0,
+     "bytes": 2415919104.0
+    },
+    {
+     "op": "typecast",
+     "in": [
+      [
+       256,
+       4,
+       256,
+       256
+      ]
+     ],
+     "dtypes": [
+      "float32"
+     ],
+     "out": [
+      [
+       256,
+       4,
+       256,
+       256
+      ]
+     ],
+     "n": 6,
+     "flop": 0.0,
+     "bytes": 2415919104.0
+    },
+    {
+     "op": "add",
+     "in": [
+      [
+       256,
+       4,
+       256,
+       256
+      ],
+      [
+       1,
+       4,
+       256,
+       256
+      ]
+     ],
+     "dtypes": [
+      "float32",
+      "float32"
+     ],
+     "out": [
+      [
+       256,
+       4,
+       256,
+       256
+      ]
+     ],
+     "n": 4,
+     "flop": 268435456.0,
+     "bytes": 2151677952.0
+    },
+    {
+     "op": "typecast",
+     "in": [
+      [
+       1,
+       256,
+       256,
+       128
+      ]
+     ],
+     "dtypes": [
+      "bfloat16"
+     ],
+     "out": [
+      [
+       1,
+       256,
+       256,
+       128
+      ]
+     ],
+     "n": 42,
+     "flop": 0.0,
+     "bytes": 2113929216.0
+    },
+    {
+     "op": "multiply",
+     "in": [
+      [
+       1,
+       256,
+       256,
+       128
+      ],
+      [
+       1,
+       256,
+       256,
+       128
+      ]
+     ],
+     "dtypes": [
+      "bfloat16",
+      "bfloat16"
+     ],
+     "out": [
+      [
+       1,
+       256,
+       256,
+       128
+      ]
+     ],
+     "n": 36,
+     "flop": 301989888.0,
+     "bytes": 1811939328.0
+    },
+    {
+     "op": "add",
+     "in": [
+      [
+       1,
+       256,
+       256,
+       128
+      ],
+      [
+       1,
+       256,
+       256,
+       128
+      ]
+     ],
+     "dtypes": [
+      "float32",
+      "float32"
+     ],
+     "out": [
+      [
+       1,
+       256,
+       256,
+       128
+      ]
+     ],
+     "n": 17,
+     "flop": 142606336.0,
+     "bytes": 1711276032.0
+    },
+    {
+     "op": "slice",
+     "in": [
+      [
+       256,
+       4,
+       256,
+       256
+      ]
+     ],
+     "dtypes": [
+      "float32"
+     ],
+     "out": [
+      [
+       128,
+       4,
+       256,
+       256
+      ]
+     ],
+     "n": 4,
+     "flop": 0.0,
+     "bytes": 1610612736.0
+    },
+    {
+     "op": "typecast",
+     "in": [
+      [
+       1,
+       256,
+       256,
+       128
+      ]
+     ],
+     "dtypes": [
+      "float32"
+     ],
+     "out": [
+      [
+       1,
+       256,
+       256,
+       128
+      ]
+     ],
+     "n": 30,
+     "flop": 0.0,
+     "bytes": 1509949440.0
+    },
+    {
+     "op": "add",
+     "in": [
+      [
+       256,
+       1,
+       256,
+       384
+      ],
+      [
+       256,
+       1,
+       256,
+       384
+      ]
+     ],
+     "dtypes": [
+      "float32",
+      "float32"
+     ],
+     "out": [
+      [
+       256,
+       1,
+       256,
+       384
+      ]
+     ],
+     "n": 4,
+     "flop": 100663296.0,
+     "bytes": 1207959552.0
+    },
+    {
+     "op": "multiply",
+     "in": [
+      [
+       256,
+       4,
+       256,
+       256
+      ]
+     ],
+     "dtypes": [
+      "float32"
+     ],
+     "out": [
+      [
+       256,
+       4,
+       256,
+       256
+      ]
+     ],
+     "n": 2,
+     "flop": 134217728.0,
+     "bytes": 1073741824.0
+    },
+    {
+     "op": "matmul",
+     "in": [
+      [
+       256,
+       4,
+       256,
+       256
+      ],
+      [
+       256,
+       4,
+       256,
+       32
+      ]
+     ],
+     "dtypes": [
+      "bfloat16",
+      "bfloat16"
+     ],
+     "out": [
+      [
+       256,
+       4,
+       256,
+       32
+      ]
+     ],
+     "n": 6,
+     "flop": 25769803776.0,
+     "bytes": 1006632960.0
+    },
+    {
+     "op": "typecast",
+     "in": [
+      [
+       256,
+       1,
+       256,
+       384
+      ]
+     ],
+     "dtypes": [
+      "bfloat16"
+     ],
+     "out": [
+      [
+       256,
+       1,
+       256,
+       384
+      ]
+     ],
+     "n": 6,
+     "flop": 0.0,
+     "bytes": 905969664.0
+    },
+    {
+     "op": "slice",
+     "in": [
+      [
+       128,
+       4,
+       256,
+       256
+      ]
+     ],
+     "dtypes": [
+      "float32"
+     ],
+     "out": [
+      [
+       64,
+       4,
+       256,
+       256
+      ]
+     ],
+     "n": 4,
+     "flop": 0.0,
+     "bytes": 805306368.0
+    },
+    {
+     "op": "matmul",
+     "in": [
+      [
+       256,
+       4,
+       256,
+       32
+      ],
+      [
+       256,
+       4,
+       32,
+       256
+      ]
+     ],
+     "dtypes": [
+      "bfloat16",
+      "bfloat16"
+     ],
+     "out": [
+      [
+       256,
+       4,
+       256,
+       256
+      ]
+     ],
+     "n": 4,
+     "flop": 17179869184.0,
+     "bytes": 671088640.0
+    },
+    {
+     "op": "multiply",
+     "in": [
+      [
+       256,
+       256,
+       128
+      ],
+      [
+       256,
+       256,
+       128
+      ]
+     ],
+     "dtypes": [
+      "bfloat16",
+      "bfloat16"
+     ],
+     "out": [
+      [
+       256,
+       256,
+       128
+      ]
+     ],
+     "n": 12,
+     "flop": 100663296.0,
+     "bytes": 603979776.0
+    },
+    {
+     "op": "chunk",
+     "in": [
+      [
+       1,
+       256,
+       256,
+       512
+      ]
+     ],
+     "dtypes": [
+      "bfloat16"
+     ],
+     "out": [
+      [
+       1,
+       256,
+       256,
+       128
+      ],
+      [
+       1,
+       256,
+       256,
+       128
+      ],
+      [
+       1,
+       256,
+       256,
+       128
+      ],
+      [
+       1,
+       256,
+       256,
+       128
+      ]
+     ],
+     "n": 4,
+     "flop": 0.0,
+     "bytes": 536870912.0
+    },
+    {
+     "op": "matmul",
+     "in": [
+      [
+       1,
+       128,
+       256,
+       256
+      ],
+      [
+       1,
+       128,
+       256,
+       256
+      ]
+     ],
+     "dtypes": [
+      "bfloat16",
+      "bfloat16"
+     ],
+     "out": [
+      [
+       1,
+       128,
+       256,
+       256
+      ]
+     ],
+     "n": 8,
+     "flop": 34359738368.0,
+     "bytes": 402653184.0
+    },
+    {
+     "op": "experimental.nlp_create_qkv_heads",
+     "in": [
+      [
+       256,
+       1,
+       256,
+       384
+      ]
+     ],
+     "dtypes": [
+      "bfloat16"
+     ],
+     "out": [
+      [
+       256,
+       4,
+       256,
+       32
+      ],
+      [
+       256,
+       4,
+       256,
+       32
+      ],
+      [
+       256,
+       4,
+       256,
+       32
+      ]
+     ],
+     "n": 4,
+     "flop": 0.0,
+     "bytes": 402653184.0
+    },
+    {
+     "op": "to_layout",
+     "in": [
+      [
+       256,
+       256,
+       128
+      ]
+     ],
+     "dtypes": [
+      "bfloat16"
+     ],
+     "out": [
+      [
+       256,
+       256,
+       128
+      ]
+     ],
+     "n": 12,
+     "flop": 0.0,
+     "bytes": 402653184.0
+    },
+    {
+     "op": "slice",
+     "in": [
+      [
+       64,
+       4,
+       256,
+       256
+      ]
+     ],
+     "dtypes": [
+      "float32"
+     ],
+     "out": [
+      [
+       32,
+       4,
+       256,
+       256
+      ]
+     ],
+     "n": 4,
+     "flop": 0.0,
+     "bytes": 402653184.0
+    },
+    {
+     "op": "add",
+     "in": [
+      [
+       256,
+       256,
+       128
+      ],
+      [
+       256,
+       256,
+       128
+      ]
+     ],
+     "dtypes": [
+      "float32",
+      "float32"
+     ],
+     "out": [
+      [
+       256,
+       256,
+       128
+      ]
+     ],
+     "n": 4,
+     "flop": 33554432.0,
+     "bytes": 402653184.0
+    },
+    {
+     "op": "experimental.minimal_matmul",
+     "in": [
+      [
+       1,
+       256,
+       256,
+       128
+      ],
+      [
+       128,
+       512
+      ],
+      [
+       512
+      ]
+     ],
+     "dtypes": [
+      "bfloat16",
+      "bfloat16",
+      "bfloat16"
+     ],
+     "out": [
+      [
+       1,
+       256,
+       256,
+       512
+      ]
+     ],
+     "n": 4,
+     "flop": 134217728.0,
+     "bytes": 336072704.0
+    },
+    {
+     "op": "experimental.nlp_concat_heads",
+     "in": [
+      [
+       256,
+       4,
+       256,
+       32
+      ]
+     ],
+     "dtypes": [
+      "bfloat16"
+     ],
+     "out": [
+      [
+       256,
+       1,
+       256,
+       128
+      ]
+     ],
+     "n": 10,
+     "flop": 0.0,
+     "bytes": 335544320.0
+    },
+    {
+     "op": "matmul",
+     "in": [
+      [
+       256,
+       4,
+       256,
+       32
+      ],
+      [
+       256,
+       4,
+       256,
+       32
+      ]
+     ],
+     "dtypes": [
+      "bfloat16",
+      "bfloat16"
+     ],
+     "out": [
+      [
+       256,
+       4,
+       256,
+       256
+      ]
+     ],
+     "n": 2,
+     "flop": 8589934592.0,
+     "bytes": 335544320.0
+    },
+    {
+     "op": "matmul",
+     "in": [
+      [
+       256,
+       4,
+       256,
+       256
+      ],
+      [
+       256,
+       4,
+       32,
+       256
+      ]
+     ],
+     "dtypes": [
+      "bfloat16",
+      "bfloat16"
+     ],
+     "out": [
+      [
+       256,
+       4,
+       256,
+       32
+      ]
+     ],
+     "n": 2,
+     "flop": 8589934592.0,
+     "bytes": 335544320.0
+    },
+    {
+     "op": "matmul",
+     "in": [
+      [
+       256,
+       4,
+       256,
+       32
+      ],
+      [
+       256,
+       4,
+       256,
+       256
+      ]
+     ],
+     "dtypes": [
+      "bfloat16",
+      "bfloat16"
+     ],
+     "out": [
+      [
+       256,
+       4,
+       32,
+       256
+      ]
+     ],
+     "n": 2,
+     "flop": 8589934592.0,
+     "bytes": 335544320.0
+    },
+    {
+     "op": "concat",
+     "in": [],
+     "dtypes": [],
+     "out": [
+      [
+       256,
+       1,
+       256,
+       384
+      ]
+     ],
+     "n": 6,
+     "flop": 0.0,
+     "bytes": 301989888.0
+    },
+    {
+     "op": "typecast",
+     "in": [
+      [
+       256,
+       1,
+       256,
+       384
+      ]
+     ],
+     "dtypes": [
+      "float32"
+     ],
+     "out": [
+      [
+       256,
+       1,
+       256,
+       384
+      ]
+     ],
+     "n": 2,
+     "flop": 0.0,
+     "bytes": 301989888.0
+    },
+    {
+     "op": "typecast",
+     "in": [
+      [
+       256,
+       256,
+       128
+      ]
+     ],
+     "dtypes": [
+      "bfloat16"
+     ],
+     "out": [
+      [
+       256,
+       256,
+       128
+      ]
+     ],
+     "n": 6,
+     "flop": 0.0,
+     "bytes": 301989888.0
+    },
+    {
+     "op": "experimental.minimal_matmul",
+     "in": [
+      [
+       256,
+       256,
+       128
+      ],
+      [
+       128,
+       384
+      ]
+     ],
+     "dtypes": [
+      "bfloat16",
+      "bfloat16"
+     ],
+     "out": [
+      [
+       256,
+       256,
+       384
+      ]
+     ],
+     "n": 4,
+     "flop": 100663296.0,
+     "bytes": 268828672.0
+    },
+    {
+     "op": "linear",
+     "in": [
+      [
+       1,
+       256,
+       256,
+       128
+      ],
+      [
+       128,
+       128
+      ],
+      [
+       128
+      ]
+     ],
+     "dtypes": [
+      "bfloat16",
+      "bfloat16",
+      "bfloat16"
+     ],
+     "out": [
+      [
+       1,
+       256,
+       256,
+       128
+      ]
+     ],
+     "n": 8,
+     "flop": 17246978048.0,
+     "bytes": 268699648.0
+    },
+    {
+     "op": "matmul",
+     "in": [
+      [
+       65536,
+       128
+      ],
+      [
+       128,
+       128
+      ]
+     ],
+     "dtypes": [
+      "bfloat16",
+      "bfloat16"
+     ],
+     "out": [
+      [
+       65536,
+       128
+      ]
+     ],
+     "n": 8,
+     "flop": 17179869184.0,
+     "bytes": 268697600.0
+    },
+    {
+     "op": "permute",
+     "in": [
+      [
+       1,
+       256,
+       256,
+       128
+      ]
+     ],
+     "dtypes": [
+      "bfloat16"
+     ],
+     "out": [
+      [
+       1,
+       128,
+       256,
+       256
+      ]
+     ],
+     "n": 8,
+     "flop": 0.0,
+     "bytes": 268435456.0
+    },
+    {
+     "op": "matmul",
+     "in": [
+      [
+       65536,
+       512
+      ],
+      [
+       128,
+       512
+      ]
+     ],
+     "dtypes": [
+      "bfloat16",
+      "bfloat16"
+     ],
+     "out": [
+      [
+       65536,
+       128
+      ]
+     ],
+     "n": 3,
+     "flop": 25769803776.0,
+     "bytes": 252051456.0
+    },
+    {
+     "op": "permute",
+     "in": [
+      [
+       256,
+       256,
+       128
+      ]
+     ],
+     "dtypes": [
+      "bfloat16"
+     ],
+     "out": [
+      [
+       256,
+       256,
+       128
+      ]
+     ],
+     "n": 6,
+     "flop": 0.0,
+     "bytes": 201326592.0
+    },
+    {
+     "op": "multiply",
+     "in": [
+      [
+       1,
+       256,
+       256,
+       512
+      ],
+      [
+       1,
+       256,
+       256,
+       512
+      ]
+     ],
+     "dtypes": [
+      "bfloat16",
+      "bfloat16"
+     ],
+     "out": [
+      [
+       1,
+       256,
+       256,
+       512
+      ]
+     ],
+     "n": 1,
+     "flop": 33554432.0,
+     "bytes": 201326592.0
+    },
+    {
+     "op": "slice",
+     "in": [
+      [
+       32,
+       4,
+       256,
+       256
+      ]
+     ],
+     "dtypes": [
+      "float32"
+     ],
+     "out": [
+      [
+       16,
+       4,
+       256,
+       256
+      ]
+     ],
+     "n": 4,
+     "flop": 0.0,
+     "bytes": 201326592.0
+    },
+    {
+     "op": "sigmoid",
+     "in": [
+      [
+       1,
+       256,
+       256,
+       128
+      ]
+     ],
+     "dtypes": [
+      "bfloat16"
+     ],
+     "out": [
+      [
+       1,
+       256,
+       256,
+       128
+      ]
+     ],
+     "n": 6,
+     "flop": 201326592.0,
+     "bytes": 201326592.0
+    },
+    {
+     "op": "rsub",
+     "in": [
+      [
+       1,
+       256,
+       256,
+       128
+      ]
+     ],
+     "dtypes": [
+      "bfloat16"
+     ],
+     "out": [
+      [
+       1,
+       256,
+       256,
+       128
+      ]
+     ],
+     "n": 6,
+     "flop": 50331648.0,
+     "bytes": 201326592.0
+    },
+    {
+     "op": "linear",
+     "in": [
+      [
+       1,
+       256,
+       256,
+       128
+      ],
+      [
+       128,
+       512
+      ],
+      [
+       512
+      ]
+     ],
+     "dtypes": [
+      "bfloat16",
+      "bfloat16",
+      "bfloat16"
+     ],
+     "out": [
+      [
+       1,
+       256,
+       256,
+       512
+      ]
+     ],
+     "n": 2,
+     "flop": 17246978048.0,
+     "bytes": 168036352.0
+    },
+    {
+     "op": "linear",
+     "in": [
+      [
+       1,
+       256,
+       256,
+       512
+      ],
+      [
+       512,
+       128
+      ],
+      [
+       128
+      ]
+     ],
+     "dtypes": [
+      "bfloat16",
+      "bfloat16",
+      "bfloat16"
+     ],
+     "out": [
+      [
+       1,
+       256,
+       256,
+       128
+      ]
+     ],
+     "n": 2,
+     "flop": 17196646400.0,
+     "bytes": 168034816.0
+    },
+    {
+     "op": "matmul",
+     "in": [
+      [
+       65536,
+       384
+      ],
+      [
+       128,
+       384
+      ]
+     ],
+     "dtypes": [
+      "bfloat16",
+      "bfloat16"
+     ],
+     "out": [
+      [
+       65536,
+       128
+      ]
+     ],
+     "n": 2,
+     "flop": 12884901888.0,
+     "bytes": 134414336.0
+    },
+    {
+     "op": "linear",
+     "in": [
+      [
+       256,
+       256,
+       128
+      ],
+      [
+       128,
+       128
+      ],
+      [
+       128
+      ]
+     ],
+     "dtypes": [
+      "bfloat16",
+      "bfloat16",
+      "bfloat16"
+     ],
+     "out": [
+      [
+       256,
+       256,
+       128
+      ]
+     ],
+     "n": 4,
+     "flop": 8623489024.0,
+     "bytes": 134349824.0
+    },
+    {
+     "op": "experimental.minimal_matmul",
+     "in": [
+      [
+       256,
+       256,
+       128
+      ],
+      [
+       128,
+       128
+      ]
+     ],
+     "dtypes": [
+      "bfloat16",
+      "bfloat16"
+     ],
+     "out": [
+      [
+       256,
+       256,
+       128
+      ]
+     ],
+     "n": 4,
+     "flop": 33554432.0,
+     "bytes": 134348800.0
+    },
+    {
+     "op": "add",
+     "in": [
+      [
+       1,
+       256,
+       256,
+       128
+      ],
+      [
+       1,
+       1,
+       1,
+       128
+      ]
+     ],
+     "dtypes": [
+      "float32",
+      "float32"
+     ],
+     "out": [
+      [
+       1,
+       256,
+       256,
+       128
+      ]
+     ],
+     "n": 2,
+     "flop": 16777216.0,
+     "bytes": 134250496.0
+    },
+    {
+     "op": "add",
+     "in": [
+      [
+       256,
+       256,
+       128
+      ],
+      [
+       128
+      ]
+     ],
+     "dtypes": [
+      "bfloat16",
+      "bfloat16"
+     ],
+     "out": [
+      [
+       256,
+       256,
+       128
+      ]
+     ],
+     "n": 4,
+     "flop": 33554432.0,
+     "bytes": 134218752.0
+    },
+    {
+     "op": "transpose",
+     "in": [
+      [
+       1,
+       128,
+       256,
+       256
+      ]
+     ],
+     "dtypes": [
+      "bfloat16"
+     ],
+     "out": [
+      [
+       1,
+       256,
+       128,
+       256
+      ]
+     ],
+     "n": 4,
+     "flop": 0.0,
+     "bytes": 134217728.0
+    },
+    {
+     "op": "transpose",
+     "in": [
+      [
+       1,
+       256,
+       128,
+       256
+      ]
+     ],
+     "dtypes": [
+      "bfloat16"
+     ],
+     "out": [
+      [
+       1,
+       256,
+       256,
+       128
+      ]
+     ],
+     "n": 4,
+     "flop": 0.0,
+     "bytes": 134217728.0
+    },
+    {
+     "op": "permute",
+     "in": [
+      [
+       256,
+       4,
+       256,
+       32
+      ]
+     ],
+     "dtypes": [
+      "bfloat16"
+     ],
+     "out": [
+      [
+       256,
+       4,
+       32,
+       256
+      ]
+     ],
+     "n": 4,
+     "flop": 0.0,
+     "bytes": 134217728.0
+    },
+    {
+     "op": "relu",
+     "in": [
+      [
+       1,
+       256,
+       256,
+       512
+      ]
+     ],
+     "dtypes": [
+      "bfloat16"
+     ],
+     "out": [
+      [
+       1,
+       256,
+       256,
+       512
+      ]
+     ],
+     "n": 1,
+     "flop": 33554432.0,
+     "bytes": 134217728.0
+    },
+    {
+     "op": "gtz",
+     "in": [
+      [
+       1,
+       256,
+       256,
+       512
+      ]
+     ],
+     "dtypes": [
+      "bfloat16"
+     ],
+     "out": [
+      [
+       1,
+       256,
+       256,
+       512
+      ]
+     ],
+     "n": 1,
+     "flop": 33554432.0,
+     "bytes": 134217728.0
+    },
+    {
+     "op": "concat",
+     "in": [],
+     "dtypes": [],
+     "out": [
+      [
+       1,
+       256,
+       256,
+       512
+      ]
+     ],
+     "n": 2,
+     "flop": 0.0,
+     "bytes": 134217728.0
+    },
+    {
+     "op": "slice",
+     "in": [
+      [
+       16,
+       4,
+       256,
+       256
+      ]
+     ],
+     "dtypes": [
+      "float32"
+     ],
+     "out": [
+      [
+       8,
+       4,
+       256,
+       256
+      ]
+     ],
+     "n": 4,
+     "flop": 0.0,
+     "bytes": 100663296.0
+    },
+    {
+     "op": "typecast",
+     "in": [
+      [
+       256,
+       256,
+       128
+      ]
+     ],
+     "dtypes": [
+      "float32"
+     ],
+     "out": [
+      [
+       256,
+       256,
+       128
+      ]
+     ],
+     "n": 2,
+     "flop": 0.0,
+     "bytes": 100663296.0
+    },
+    {
+     "op": "matmul",
+     "in": [
+      [
+       65536,
+       128
+      ],
+      [
+       512,
+       128
+      ]
+     ],
+     "dtypes": [
+      "bfloat16",
+      "bfloat16"
+     ],
+     "out": [
+      [
+       65536,
+       512
+      ]
+     ],
+     "n": 1,
+     "flop": 8589934592.0,
+     "bytes": 84017152.0
+    },
+    {
+     "op": "linear",
+     "in": [
+      [
+       256,
+       256,
+       128
+      ],
+      [
+       128,
+       4
+      ]
+     ],
+     "dtypes": [
+      "bfloat16",
+      "bfloat16"
+     ],
+     "out": [
+      [
+       256,
+       256,
+       4
+      ]
+     ],
+     "n": 4,
+     "flop": 276824064.0,
+     "bytes": 83918848.0
+    },
+    {
+     "op": "sigmoid",
+     "in": [
+      [
+       256,
+       256,
+       128
+      ]
+     ],
+     "dtypes": [
+      "bfloat16"
+     ],
+     "out": [
+      [
+       256,
+       256,
+       128
+      ]
+     ],
+     "n": 2,
+     "flop": 67108864.0,
+     "bytes": 67108864.0
+    },
+    {
+     "op": "rsub",
+     "in": [
+      [
+       256,
+       256,
+       128
+      ]
+     ],
+     "dtypes": [
+      "bfloat16"
+     ],
+     "out": [
+      [
+       256,
+       256,
+       128
+      ]
+     ],
+     "n": 2,
+     "flop": 16777216.0,
+     "bytes": 67108864.0
+    },
+    {
+     "op": "transpose",
+     "in": [
+      [
+       256,
+       1,
+       256,
+       128
+      ]
+     ],
+     "dtypes": [
+      "bfloat16"
+     ],
+     "out": [
+      [
+       256,
+       1,
+       128,
+       256
+      ]
+     ],
+     "n": 2,
+     "flop": 0.0,
+     "bytes": 67108864.0
+    },
+    {
+     "op": "transpose",
+     "in": [
+      [
+       256,
+       4,
+       32,
+       256
+      ]
+     ],
+     "dtypes": [
+      "bfloat16"
+     ],
+     "out": [
+      [
+       256,
+       4,
+       256,
+       32
+      ]
+     ],
+     "n": 2,
+     "flop": 0.0,
+     "bytes": 67108864.0
+    }
+   ]
+  }
+ }
+}
