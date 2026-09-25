@@ -883,7 +883,22 @@ CEILINGS: dict[str, dict[str, Ceiling]] = {
                      "free, residency again. AICLK median 1000 MHz during both. "
                      "Re-passed on origin/main 6ea518246 (after sdpa-mask 94e7a002c), j10glx02, "
                      "2026-09-24, guard off, --host_threads 2, AICLK median 1000 MHz sampled during "
-                     "the fold: 1664 PASS in 1095.2 s (card 20, pLDDT 0.891, no CA-CA break)",
+                     "the fold: 1664 PASS in 1095.2 s (card 20, pLDDT 0.891, no CA-CA break). "
+                     "Re-walked on origin/main cdd2c2f38 (ws:cov-stale-esmfold2fast-whgalaxy), "
+                     "GWH02, 2026-09-25, single-sequence apo CDK2 tiled, through the shipped "
+                     "`tt-bio predict --model esmfold2-fast` at the flags jobs.py sends a served "
+                     "job, AICLK median 1000 MHz sampled during every fold: 1024 PASS in 276.8 s "
+                     "(UMD 0, pLDDT 0.834, 0 breaks, 3 contacts under 2.0 A in 8239 atoms) and "
+                     "again on UMD 3 in 278.6 s, sha256-identical; 1664 PASS in 894.8 s (UMD 1, "
+                     "pLDDT 0.8905, 0 breaks and 0 contacts under 2.0 A in 13384 atoms). 1792 "
+                     "fails in 200 s with the guard off on the SAME request as every earlier "
+                     "tree, to the byte: 1644167168 B DRAM across 12 banks, 137015296 B per bank "
+                     "against a 1073741792 B bank, and after the row-blocked retry the chip is "
+                     "99.0 percent full with 10.5 MiB free, residency again. Both 1024 legs "
+                     "absorb exactly one 16777216 B L1 refusal in trunk loop 0 and fold on -- "
+                     "this checkpoint has NO MSA encoder (config msa_encoder.enabled false, so "
+                     "esmfold2_runtime._spec never builds one), so that request comes from the "
+                     "shared trunk and not from the MSA path the esmfold2 entry names",
         ),
     },
     "protenix-v1": {
