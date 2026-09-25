@@ -1,0 +1,41 @@
+{
+ "arm": "reference",
+ "seed": 1,
+ "trajectories": 10,
+ "length_bucket_size": 32,
+ "length_bucket_flag": 0,
+ "multimer_pool": true,
+ "levers": true,
+ "design_models": [
+  "model_1_multimer_v3",
+  "model_2_multimer_v3",
+  "model_3_multimer_v3",
+  "model_4_multimer_v3",
+  "model_5_multimer_v3"
+ ],
+ "validation_models": [
+  "model_1_ptm",
+  "model_2_ptm"
+ ],
+ "predictor": "AlphaFoldDesignModel",
+ "host": "tt-quietbox2",
+ "started_utc": "2026-09-25T13:34:10Z",
+ "loadavg_start": [
+  3.2099609375,
+  3.892578125,
+  6.6923828125
+ ],
+ "stage_plan": {
+  "per_stage": {
+   "screen": 50,
+   "refine": 25,
+   "anneal": 45,
+   "harden": 5,
+   "mutate": 15
+  },
+  "gradient_steps": 125,
+  "mutate_steps": 15
+ },
+ "threads": "--xla_gpu_enable_triton_gemm=false",
+ "project": "/home/ttuser/bcx_accept_art/ref_s1"
+}
