@@ -1,123 +1,70 @@
 # BindCraft 2 PR 1 — vendor-neutral design-worker enumeration and pinning
 
-Patch: `0001-Find-and-pin-design-workers-without-nvidia-smi.patch`, one commit against
-`PacesaLab/BindCraft2` at pin `7a2dfdb8a285232a6f881899fe135c6dc48679f1`.
+**Posted: https://github.com/PacesaLab/BindCraft2/pull/19**, opened 2026-09-24 as
+`moritztng:vendor-neutral-design-workers`, one commit `403ddcf8881c2208b21e8b589716dbea1ecb8767`
+against upstream `main` at `301efdd1937fb963cc40a5b0ecc1bc2f9b2b2d15` (2026-09-24T17:16:08Z).
 
-Nothing here has been posted. Opening the PR is Moritz's to do (ask 10569).
+`0001-Find-and-pin-design-workers-without-nvidia-smi.patch` is that commit; `PR_BODY.md` is the
+body as posted. There is no Tenstorrent code, no `tt_bio` import and no `tenstorrent` extra in the
+diff. It fixes the `rocm` extra the lab already ships.
 
-There is no Tenstorrent code, no `tt_bio` import and no `tenstorrent` extra in the diff. It is a
-fix for the `rocm` and `oneapi` extras the lab already ships.
+## What changed between the pin and HEAD
 
----
+Built first at pin `7a2dfdb8a2`, rebased onto `301efdd` for the PR. Three differences mattered.
 
-## PR title
+- **oneAPI is gone.** `52df4e591d` ("removed intelgpu support (currently experimental for jax)")
+  dropped the `oneapi` extra from `pyproject.toml` and `oneapi` from `install.sh`. The patch's
+  `ZE_AFFINITY_MASK` handling and its two `oneapi`/`xpu` test rows came out, because a PR that
+  re-adds support the maintainers just withdrew argues with them for nothing. 22 tests became 20.
+  `selfcheck.py:6 ACCELERATOR_MODULES` still lists `oneapi`, which is harmless here: the plugin
+  lookup intersects with the platforms we pin and that set no longer contains it.
+- **`docs/installation.md` moved to `docs/source/installation.md`** in the Sphinx move (`843009829e`,
+  PR #1) and the paragraph the patch edits was rewritten there. Resolved by hand against the new
+  text rather than by `git am --3way`, which left a conflict.
+- **`design_workers.py` itself is untouched since the pin**, so the code the patch changes is the
+  code upstream is running.
 
-    Find and pin design workers without nvidia-smi
+## Measured at HEAD
 
-## PR body
+| what | number |
+| --- | --- |
+| Tests passing, patched, fresh clone at `301efdd` | `20 passed in 2.15s` |
+| Same tests with `design_workers.py` reverted to `301efdd` | `11 failed, 9 passed in 1.04s` |
+| Diff | 290 insertions, 15 deletions, 4 files |
+| Environment | jax 0.11.2, python 3.12.12, CPU backend, `[CpuDevice(id=0)]`, pc |
 
-> `pyproject.toml` ships `rocm` and `oneapi` extras, but a campaign on either of them designs on one
-> device however many the node holds, because worker fan-out is the one part of the tree that still
-> speaks CUDA.
->
-> `visible_design_gpus()` reads `CUDA_VISIBLE_DEVICES` and otherwise shells out to `nvidia-smi`, so
-> on a ROCm box it returns `[]`. `plan_design_workers()` then builds an empty plan,
-> `dispatch_design_workers()` sees fewer than two workers and returns `None`, and the campaign runs
-> a single process. `design_gpu_memory_gb()` returns `{}` for the same reason, which sends
-> `design_workers_per_gpu()` down its `trajectory_only` branch and holds even one card to one
-> worker. On a ROCm machine with four cards:
->
-> ```
-> $ python -c "import jax; print(len(jax.devices()))"
-> 4
-> $ python -c "from bindcraft.design_workers import visible_design_gpus; print(visible_design_gpus())"
-> []
-> ```
->
-> **What the diff changes.** Enumeration reads `CUDA_VISIBLE_DEVICES`, `HIP_VISIBLE_DEVICES` or
-> `ZE_AFFINITY_MASK`, then `nvidia-smi`, and falls back to `jax.devices()` with the host CPU left
-> out. Device memory falls back to the device's PJRT `memory_stats()`. Each worker is pinned with
-> the variable its own runtime reads, chosen from the device platform, with JAX's shared `gpu`
-> platform name resolved by which `jax_plugins.*` module is installed.
->
-> I used the runtime variables rather than JAX's own `jax_cuda_visible_devices` /
-> `jax_rocm_visible_devices`, because those are `config.string_flag`s rather than environment
-> states: `JAX_ROCM_VISIBLE_DEVICES=3` leaves the flag at `all`, so it cannot pin a worker
-> subprocess. `jax.local_devices()[i]` with explicit placement was the other option and it would
-> mean touching every `jit` in `af2.py`, where one process per device needs nothing but the right
-> environment.
->
-> **What it does not change.** Both `nvidia-smi` calls are tried first and are untouched, so on an
-> NVIDIA machine the devices found, their order, their memory and the variable each worker is
-> pinned with are exactly what they were, and no JAX backend is initialised any earlier than before
-> (that last one matters: `bindcraft.py` prints its GPU note before `cli.design()` sets
-> `JAX_COMPILATION_CACHE_DIR`, so reaching for JAX there would have cost the per-card compile
-> cache). Nine of the tests describe behaviour the commit preserves and pass at either revision.
->
-> Where a platform offers no way to pin a worker, the campaign says so and designs on one device
-> rather than fanning out onto a device every worker would then share.
->
-> `tests/test_design_workers.py` is new; the repo had no tests directory, and `setuptools`
-> `packages.find` is already scoped to `bindcraft*` so it is not packaged.
+The 9 that pass at both revisions are the ones holding the CUDA path fixed.
 
----
+The ROCm reproduction in the body was run here, on a box with no accelerator, because
+`HIP_VISIBLE_DEVICES` is read before any device is opened: at `301efdd`,
+`HIP_VISIBLE_DEVICES=0,1,2,3` gives `visible_design_gpus() == []` and a plan of 0 workers; with the
+commit it gives `['0','1','2','3']` and a plan of 4. The earlier draft of this body carried a
+console transcript from a 4-card ROCm machine we do not have. It was replaced with the run above.
 
-## Reproducing the tests
+Re-verified at HEAD rather than carried over: `JAX_ROCM_VISIBLE_DEVICES=3` leaves
+`jax_rocm_visible_devices` at `all` on jax 0.11.2 while `JAX_ENABLE_X64=1` takes in the same
+interpreter, which is why a worker subprocess is pinned with the runtime's own variable.
 
-No accelerator is needed. The tests use stub devices, and the two that describe an NVIDIA machine
-drive the real `nvidia-smi` parsing through a fake `nvidia-smi` on `PATH`.
+## Reproducing
 
 ```bash
 git clone https://github.com/PacesaLab/BindCraft2.git && cd BindCraft2
-git checkout 7a2dfdb8a285232a6f881899fe135c6dc48679f1
+git checkout 301efdd1937fb963cc40a5b0ecc1bc2f9b2b2d15
 git am --3way /path/to/0001-Find-and-pin-design-workers-without-nvidia-smi.patch
-
-uv venv --python 3.12 .venv
-uv pip install --python .venv/bin/python -e . pytest
-.venv/bin/python -m pytest tests/test_design_workers.py -q
+uv venv --python 3.12 .venv && uv pip install --python .venv/bin/python -e . pytest
+.venv/bin/python -m pytest tests/test_design_workers.py -q          # 20 passed
+git checkout 301efdd -- bindcraft/design_workers.py
+.venv/bin/python -m pytest tests/test_design_workers.py -q          # 11 failed, 9 passed
 ```
-
-Expected: `22 passed`. Installing the base package with no extra gives CPU-only JAX, which is the
-point: the suite runs on a machine with no accelerator at all.
-
-### Showing the tests are red before the change
-
-```bash
-git checkout 7a2dfdb8a285232a6f881899fe135c6dc48679f1 -- bindcraft/design_workers.py
-.venv/bin/python -m pytest tests/test_design_workers.py -q    # 13 failed, 9 passed
-```
-
-The 9 that still pass are the ones pinning behaviour the commit preserves:
-
-| Test | What it holds fixed |
-| --- | --- |
-| `test_a_machine_with_no_accelerator_finds_no_device` | The host CPU is never mistaken for a device to design on |
-| `test_the_host_cpu_is_never_a_design_device` | Same, against the real CPU-only JAX installed here |
-| `test_cuda_visible_devices_is_taken_verbatim_and_jax_is_not_consulted` | `CUDA_VISIBLE_DEVICES=2,3` still gives `['2','3']` |
-| `test_an_empty_cuda_visible_devices_still_finds_nothing` | Slurm's empty variable still means no card |
-| `test_nvidia_smi_answers_before_jax_is_asked` | An NVIDIA box is enumerated by the same call as before |
-| `test_nvidia_smi_memory_is_preferred_and_parsed_as_before` | Same MiB parsing, same GiB result |
-| `test_a_plugin_that_reports_no_memory_is_left_unsized` | An unsized card still falls back to one worker |
-| `test_a_cuda_worker_is_still_pinned_with_cuda_visible_devices` | A CUDA worker still gets `CUDA_VISIBLE_DEVICES` |
-| `test_a_worker_still_carries_its_index_and_count` | `BINDCRAFT_WORKER_ID` / `_COUNT` unchanged |
-
-## How far the CUDA evidence goes
-
-We have no NVIDIA card. What is proved is that the `nvidia-smi` code path is tried first and is
-byte-identical to the pin, that a fake `nvidia-smi` on `PATH` is parsed into the same indices and
-the same GiB figures, and that a CUDA-platform worker is still handed `CUDA_VISIBLE_DEVICES`. What
-is not proved is a real multi-GPU campaign, and the PR body should not claim otherwise.
 
 ## Deliberately excluded
 
-- **A Tenstorrent backend.** That is a separate PR and it needs this one first.
+- **A Tenstorrent backend**, and the predictor-factory seam it needs. Those wait for a maintainer
+  response on this PR; see `state/bcx/UPSTREAM.md` for the three-seam analysis.
 - **`cli.py:155 design_card_name()`**, which names the compile cache from `nvidia-smi`. A JAX
   equivalent would initialise the backend before `use_campaign_compile_cache()` sets
   `JAX_COMPILATION_CACHE_DIR`, losing the persistent cache. Non-NVIDIA machines already fall back
   to `${TMPDIR}/bindcraft_xla_cache`, so this costs them a cache name, not a campaign.
-- **An `--accelerator` installer flag.** `install.sh:16` already takes `cuda13|cuda12|rocm|oneapi`
-  positionally and installs the matching extra. The brief for this row expected that to be missing;
-  it is present at this pin. The one CUDA-specific piece left is auto-detection falling back to
-  `cuda13` when there is no driver, which is a deliberate documented choice for login nodes.
-  Detecting ROCm or oneAPI ahead of that fallback would be a reasonable follow-up, and we left it
-  out because we cannot test the detection on either machine.
+- **Installer auto-detection.** `install.sh:16` takes `cuda13|cuda12|rocm` positionally already.
+  The one CUDA-specific piece left is the `cuda13` fallback when no driver answers, which their own
+  comment defends as the login-node case, and we cannot exercise the detection on either machine.

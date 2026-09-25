@@ -1,0 +1,11 @@
+  pass  absent setting -> AlphaFoldDesignModel
+  pass  unrelated settings -> AlphaFoldDesignModel
+  pass  design_model=None -> AlphaFoldDesignModel
+  pass  design_model='alphafold2' -> AlphaFoldDesignModel
+  pass  registered name -> that factory
+  pass  unknown name -> ValueError naming it and the registry
+  pass  design site uses the resolved callable
+  pass  validation lambda closes over the SAME callable
+  pass  no construction bypasses the resolver
+
+9 passed, 0 failed
