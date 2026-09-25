@@ -1,6 +1,6 @@
 """Turn the leg JSONs in out/ into the tables this row reports.
 
-Every number quoted in state/bcx-chainbreak.md and in the upstream issue comes from here, so a
+Every number quoted in TABLES.md and in the upstream issue comes from here, so a
 transcription error has nowhere to hide.
 """
 import collections, glob, json, os, statistics, sys
