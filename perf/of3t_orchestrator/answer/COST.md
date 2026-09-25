@@ -56,8 +56,8 @@ compute / ~11x bandwidth silicon floor is a scope mismatch every time.
 | of which host tilize/untilize + buffer copy | **82.56 s** | host-only, no DMA in the number |
 | **real transfer, and 86 s of it is recoverable** | **165.99 s → 80.2 s** | RESOLVED by `of3t-xroof` (GO). **The 1.70x/1.38x rate disagreement that made me withdraw xsplit's roof was an INSTRUMENT BUG, not a disagreement** — three runs read the same crossing at 0.712/0.716/0.722 s (`to_torch`) and 0.450/0.448/0.460 s (`from_torch`), within 2.2 %. `bwprof.py`'s `gb` column is wrong two ways (`Rec.bump:135-141` bills both ends of a crossing; `_itemsize:84` undersizes `DataType.FLOAT32` by 2x), so **every banked `gb_s` figure is void and every seconds column stands**. **The roof is real but it is not the link**: `to_device` runs 14.20 GB/s = 90.2 % of Gen4 x8's raw 15.75, while the host tile-shuffle binds at untilize **4.13** / tilize **6.59 GB/s** against a warm `copy_` at 36.9. And the limiter is **the step's own resident set, not noisy neighbours**: with loadavg flat 2.10→2.37 a 4 GiB balloon took the crossing 0.348 → 0.765 s. **Headroom 86 s**, cross-checked two ways (85.8 / 85.4). Do NOT add it to xsplit's 32.55 s layout candidate — same term, alternatives not addends — and it is bought by **shrinking the step's host memory**, which makes `of3t-tapemem` and `of3t-optorder` the same campaign as this one |
 | forward half, exactness ON | **375.908 s** against 25.563 s → **14.705x** | a BOUND from two durable clock stamps, not a timed run; matched one-taped-cycle axis, crop 384 (`of3t-restep`). Supersedes a ~299 s / ~54x derivation that row withdrew as unreproducible |
-| full step, exactness ON | **[OWED]** | **`of3t-stepqb1`, launched on qb1 card 3 at 22:32:50** — the campaign's one missing number. `of3t-stepqb2` died twice taking it on pc at 15.014 GiB; qb1 has 482 GiB and full Gen5 x16 |
-| full step, exactness OFF, current tree | **39.886 s** steady, 77.532 s cold | `of3t-stepqb2`, n=3, spread 0.865 s, AICLK 1350 MHz DURING. **Disagrees with the carried 466.702 s by 11.7x**, which staleness does not explain — both are no-exactness arms. Scope / cold-vs-steady / a real gain are all open; the row is bounding it |
+| full step, exactness ON | **REFUSED WITH THE NUMBER, not owed** | `of3t-stepqb1` (concluded): forward half **248.507 s complete**, backward **>= 27.308 s**, step **>= 275.815 s**, AICLK median 1350 DURING (n=261), `host_quiet` RED so upper bounds. **pc cannot produce the complete step and no fix on the table changes that**: the crop-384 memory pair measured `of3t-tapemem`'s trim at **>=17.3185 GiB on / >=17.0230 off**, 1.7 % apart with the *unfixed* leg lower, the fix verified present at `autograd.py:288/293/2387`. What kills 384 is the **in-flight float64 working set of one exact-softmax backward** — three fires add ~4.8 GiB and hold it with ~108 ahead. Left to a kernel/autograd row: bound that working set |
+| full step, exactness OFF, current tree | **39.054 s** steady (n=3), and **39.886 s** from a different tree — **2.1 % apart, which is the control that licenses reading the ON move below as a landed win rather than two incomparable runs**. Cold 38.279 / 77.532 | `of3t-stepqb2`, n=3, spread 0.865 s, AICLK 1350 MHz DURING. **Disagrees with the carried 466.702 s by 11.7x**, which staleness does not explain — both are no-exactness arms. Scope / cold-vs-steady / a real gain are all open; the row is bounding it |
 | GPU gap | **58-67x** step-to-step against an H200 at matched crop 384 — **DO NOT RE-PUBLISH UNTIL RE-DERIVED** | Two separate problems, and the second is newer and larger. **(a)** it prices the pre-exactness tree, a configuration whose gradients do not clear the bar and which we do not ship. **(b)** its numerator is **466.702 s**, off `451ed56f4` (*"a steady training step is 507.02 s"*), and the current tree's no-exactness step is **39.886 s** — so the numerator is a figure nothing on today's tree reproduces, and the error runs in the direction that flatters us. The accuracy caveat this row used to carry described (a) only and so read as if the seconds were sound |
 
 **And when the shipped number arrives it will not be a chip-to-chip comparison.** The 58-67x above
@@ -234,3 +234,32 @@ It does not say what a full exactness-ON step costs — **[OWED]**, and it is th
 this campaign and a defensible headline. It does not say the 6-7x software target is in reach; the
 job list as it stands refutes that. And no speed number here may be quoted without the exactness
 state, the scope and the board class beside it.
+
+## Tree movement, 2026-09-25 — why every ON figure above is the SECOND one
+
+`of3t-stepqb1` transplanted `of3t-tapemem`'s hunk onto **main** rather than run on a branch 40
+commits behind, and the exactness-ON side moved a long way:
+
+| quantity | earlier tree | on main | |
+|---|---|---|---|
+| ON forward half | 375.908 s | **248.507 s** | |
+| ON diffusion | 65.415 s | **6.564 s** | **10.0x** |
+| backward | 663.3 s | **536.74 s** | |
+| forward, `bwprof` scope | 307.53 s | **181.57 s** | |
+| **OFF step** | 39.886 s | **39.054 s** | **−2.1 %, the control** |
+
+**The OFF leg holding within 2 % across two trees is what makes the ON move readable at all.**
+Without it these are two incomparable runs and none of the ON numbers may be compared. Error bar
+stated by the row rather than implied: **two ON legs an hour apart spread 12.5 %.**
+
+**Consequence for anything quoting the backward's decomposition:** the 663.3 s total is superseded,
+so shares derived from it — including this campaign's own **231.15 s / 34.85 %** non-verb region —
+are withdrawn pending a re-derivation of the verb/non-verb split on the current tree. The *method*
+stands: a subtraction inherits the provenance of both its terms.
+
+**And the link question is answered from an unexpected direction.** `to_torch` moves **382.89 GB at
+3.00 GB/s** against a banked **382.9 GB at 2.15**; `from_torch` **384.76 GB at 3.14** against
+**384.8 at 2.77**. Same host, same card, same Gen4 x8, **byte counts equal to four significant
+figures, 40 commits apart**. Bytes fixed and rate moved, so **the limiter is software, not the
+link** — agreeing with `of3t-xroof`'s finding that `to_device` runs at 90.2 % of the raw link while
+the **host tile-shuffle** binds at untilize 4.13 / tilize 6.59 GB/s.
