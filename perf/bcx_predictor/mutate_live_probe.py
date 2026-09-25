@@ -47,6 +47,12 @@ ap.add_argument('--no-levers', action='store_true')
 ap.add_argument('--shadow-budget', type=int, default=3,
                 help='how many saturated predicts to re-fold on JAX; each is ~110 s at n=288')
 ap.add_argument('--saturated-at', type=float, default=0.99)
+ap.add_argument('--relax-filters', action='store_true',
+                help='drop min_iptm_/min_plddt_ to 0 on every gradient stage. The shipped '
+                     'thresholds reject a short run at screen before it ever reaches mutate, '
+                     'and the mutate predict is the whole point of the run.')
+ap.add_argument('--override', action='append', default=[],
+                help='any further BindCraft 2 setting override, repeatable')
 args = ap.parse_args()
 
 project = args.out
@@ -55,9 +61,14 @@ ROWS = pathlib.Path(project) / 'live_predicts.jsonl'
 
 overrides = ['campaign_seed=0', 'max_trajectories=1', f'length_bucket_size={args.bucket}',
              f'binder_lengths=[{args.binder_length}]']
+STAGES = ('screen', 'refine', 'anneal', 'harden', 'mutate')
 for item in args.stage_steps.split(','):
     stage, rounds = item.split('=')
     overrides.append(f'{stage}_steps={rounds}')
+if args.relax_filters:
+    overrides += [f'min_iptm_{stage}=0.0' for stage in STAGES]
+    overrides += [f'min_plddt_{stage}=0.0' for stage in STAGES]
+overrides += list(args.override)
 settings = cleaned_campaign_settings(
     read_settings(os.path.join(B.BC2, 'examples', 'pdl1.json'),
                   parse_setting_overrides(overrides)))
@@ -198,7 +209,7 @@ if _lv is not None:
 evo = EvoformerOnDevice(pool, k_evo=48)
 
 mpnn = os.path.join(B.BC2, 'bindcraft', 'weights', 'proteinmpnn', 'weights_neutral')
-stamp = {'stage_steps': args.stage_steps, 'binder_length': args.binder_length,
+stamp = {'stage_steps': args.stage_steps, 'overrides': overrides, 'binder_length': args.binder_length,
          'bucket': args.bucket, 'pool_resident': args.pool_resident,
          'levers': not args.no_levers, 'started_utc': time.strftime('%FT%TZ', time.gmtime())}
 t0 = time.time()

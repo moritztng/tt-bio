@@ -1,0 +1,82 @@
+{
+ "stage_steps": "screen=2,refine=1,anneal=1,harden=1,mutate=3",
+ "overrides": [
+  "campaign_seed=0",
+  "max_trajectories=1",
+  "length_bucket_size=32",
+  "binder_lengths=[146]",
+  "screen_steps=2",
+  "refine_steps=1",
+  "anneal_steps=1",
+  "harden_steps=1",
+  "mutate_steps=3",
+  "min_iptm_screen=0.0",
+  "min_iptm_refine=0.0",
+  "min_iptm_anneal=0.0",
+  "min_iptm_harden=0.0",
+  "min_iptm_mutate=0.0",
+  "min_plddt_screen=0.0",
+  "min_plddt_refine=0.0",
+  "min_plddt_anneal=0.0",
+  "min_plddt_harden=0.0",
+  "min_plddt_mutate=0.0"
+ ],
+ "binder_length": 146,
+ "bucket": 32,
+ "pool_resident": 1,
+ "levers": true,
+ "started_utc": "2026-09-25T12:55:23Z",
+ "trajectories_run": 1,
+ "wall_seconds": 619.3,
+ "device_calls": {
+  "primal": 14,
+  "taped": 10,
+  "backward": 5
+ },
+ "predicts": 7,
+ "taped": 5,
+ "shadow_used": 3,
+ "mask_shape_collisions": "n/a",
+ "pool": {
+  "models": [
+   "model_1_multimer_v3",
+   "model_2_multimer_v3",
+   "model_3_multimer_v3",
+   "model_4_multimer_v3",
+   "model_5_multimer_v3"
+  ],
+  "resident": 1,
+  "log_path": "/home/ttuser/bcx_multimer_art/mutate_live2/pool_selections.jsonl",
+  "selections": {
+   "model_1_multimer_v3": 5,
+   "model_3_multimer_v3": 1,
+   "model_4_multimer_v3": 2,
+   "model_2_multimer_v3": 1,
+   "model_5_multimer_v3": 1
+  },
+  "load_seconds": {
+   "model_1_multimer_v3": 6.9,
+   "model_3_multimer_v3": 3.5,
+   "model_4_multimer_v3": 3.8,
+   "model_2_multimer_v3": 3.0,
+   "model_5_multimer_v3": 5.2
+  },
+  "on_card": [
+   "model_5_multimer_v3"
+  ]
+ },
+ "stamp": {
+  "host": "tt-quietbox2",
+  "card": 2,
+  "subsystem_device": "0x0046",
+  "commit": "1127f9ea82ccf35067888bde0025ffe9e9d1f6d7",
+  "tt_bio_dirty": true,
+  "torch_threads": 6,
+  "loadavg": [
+   28.5888671875,
+   23.11474609375,
+   19.27783203125
+  ],
+  "utc": "2026-09-25T13:05:42Z"
+ }
+}
