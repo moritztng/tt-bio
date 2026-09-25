@@ -499,22 +499,12 @@ def _v_reshape(shipped, args, kwargs):
     the backward of all three is the source shape, read here rather than inferred there."""
     x = _wrap(args[0])
     src = [int(d) for d in x.value.shape]
-    row_major = x.value.layout == ttnn.ROW_MAJOR_LAYOUT
     ra, rk = _raw(args, kwargs)
     out_v = shipped(*ra, **rk)
 
     def make():
         def bw(g):
-            # A caller that untilizes to reshape does so because the reshape is not a tile view,
-            # and the gradient's reshape is not one either. Taken in TILE it is a ReshapeView
-            # kernel: the outer-product mean's [256,1024,256] -> [8192,8192] ran 11.95 ms at
-            # 5.5 % of the copy roof (`perf/bcx_realcensus`). Untilize, view, tilize instead.
-            if row_major and g.layout == ttnn.TILE_LAYOUT:
-                g = ttnn.to_layout(ttnn.reshape(ttnn.to_layout(g, ttnn.ROW_MAJOR_LAYOUT), src),
-                                   ttnn.TILE_LAYOUT)
-            else:
-                g = ttnn.reshape(g, src)
-            x.add_grad(g)
+            x.add_grad(ttnn.reshape(g, src))
         return bw
 
     return _tape(out_v, [x], make)
