@@ -1,0 +1,88 @@
+{
+ "bc2": "/home/ttuser/bcx_repin/bc2",
+ "MULTIMER_POOL": [
+  "model_1_multimer_v3",
+  "model_2_multimer_v3",
+  "model_3_multimer_v3",
+  "model_4_multimer_v3",
+  "model_5_multimer_v3"
+ ],
+ "MONOMER_POOL": [
+  "model_1_ptm",
+  "model_2_ptm"
+ ],
+ "examples/pdl1.json": {
+  "design_models": [
+   "model_1_multimer_v3",
+   "model_2_multimer_v3",
+   "model_3_multimer_v3",
+   "model_4_multimer_v3",
+   "model_5_multimer_v3"
+  ],
+  "validation_models": [
+   "model_1_ptm",
+   "model_2_ptm"
+  ],
+  "validates_on_multimer": false,
+  "design_models_key_in_settings": "<absent>",
+  "binder_scaffold": false
+ },
+ "examples/pdl1_vhh.json": {
+  "design_models": [
+   "model_1_multimer_v3",
+   "model_4_multimer_v3",
+   "model_5_multimer_v3"
+  ],
+  "validation_models": [
+   "model_2_multimer_v3",
+   "model_3_multimer_v3"
+  ],
+  "validates_on_multimer": true,
+  "design_models_key_in_settings": "<absent>",
+  "binder_scaffold": true
+ }
+}
+{
+ "bc2": "/home/ttuser/bcx_e2e/bc2",
+ "MULTIMER_POOL": [
+  "model_1_multimer_v3",
+  "model_2_multimer_v3",
+  "model_3_multimer_v3",
+  "model_4_multimer_v3",
+  "model_5_multimer_v3"
+ ],
+ "MONOMER_POOL": [
+  "model_1_ptm",
+  "model_2_ptm"
+ ],
+ "examples/pdl1.json": {
+  "design_models": [
+   "model_1_multimer_v3",
+   "model_2_multimer_v3",
+   "model_3_multimer_v3",
+   "model_4_multimer_v3",
+   "model_5_multimer_v3"
+  ],
+  "validation_models": [
+   "model_1_ptm",
+   "model_2_ptm"
+  ],
+  "validates_on_multimer": false,
+  "design_models_key_in_settings": "<absent>",
+  "binder_scaffold": false
+ },
+ "examples/pdl1_vhh.json": {
+  "design_models": [
+   "model_1_multimer_v3",
+   "model_4_multimer_v3",
+   "model_5_multimer_v3"
+  ],
+  "validation_models": [
+   "model_2_multimer_v3",
+   "model_3_multimer_v3"
+  ],
+  "validates_on_multimer": true,
+  "design_models_key_in_settings": "<absent>",
+  "binder_scaffold": true
+ }
+}
