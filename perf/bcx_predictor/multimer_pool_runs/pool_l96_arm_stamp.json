@@ -1,0 +1,31 @@
+{
+ "arm": "device",
+ "seed": 0,
+ "trajectories": 1,
+ "length_bucket_size": 32,
+ "length_bucket_flag": 32,
+ "multimer_pool": true,
+ "levers": false,
+ "design_models": [],
+ "predictor": "TTBioAlphaFoldDesignModel",
+ "host": "tt-quietbox2",
+ "started_utc": "2026-09-25T02:34:03Z",
+ "loadavg_start": [
+  27.7548828125,
+  27.5146484375,
+  26.5654296875
+ ],
+ "stage_plan": {
+  "per_stage": {
+   "screen": 50,
+   "refine": 25,
+   "anneal": 45,
+   "harden": 5,
+   "mutate": 15
+  },
+  "gradient_steps": 125,
+  "mutate_steps": 15
+ },
+ "threads": "--xla_gpu_enable_triton_gemm=false",
+ "project": "/home/ttuser/bcx_multimer_art/pool_l96"
+}
