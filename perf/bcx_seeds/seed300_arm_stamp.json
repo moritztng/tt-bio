@@ -1,0 +1,42 @@
+{
+ "arm": "device",
+ "seed": 300,
+ "trajectories": 1,
+ "length_bucket_size": 32,
+ "length_bucket_flag": 32,
+ "predictor": "TTBioAlphaFoldDesignModel",
+ "host": "tt-quietbox",
+ "started_utc": "2026-09-25T05:09:49Z",
+ "loadavg_start": [
+  46.1884765625,
+  49.72265625,
+  50.18603515625
+ ],
+ "stage_plan": {
+  "per_stage": {
+   "screen": 50,
+   "refine": 25,
+   "anneal": 45,
+   "harden": 5,
+   "mutate": 15
+  },
+  "gradient_steps": 125,
+  "mutate_steps": 15
+ },
+ "threads": "--xla_gpu_enable_triton_gemm=false",
+ "project": "/home/ttuser/.coworker/wt/bcx-seeds/perf/bcx_seeds/runs/device_qb1_seed300",
+ "device_card": 3,
+ "device_calls": {
+  "primal": 32,
+  "taped": 250,
+  "backward": 125
+ },
+ "trajectories_run": 1,
+ "wall_seconds": 13328.8,
+ "finished_utc": "2026-09-25T08:51:58Z",
+ "loadavg_end": [
+  53.42041015625,
+  50.87744140625,
+  48.6396484375
+ ]
+}
