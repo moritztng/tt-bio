@@ -540,7 +540,10 @@ falls at the same time (0.167 to 0.112 whole-model), so this is fidelity, not a 
 upstream's own rounding. The measurement is `perf/of3t_stackexact/LADDER.json`.
 
 It is not free. Each softmax and layer norm is a host round trip, and on the OpenFold3 trunk
-step at crop 384 that is COST_SENTENCE If you want speed over fidelity, turn it off:
+step at crop 384 it costs about 25x. A trunk step that runs in 25.24 s on the device kernels
+takes 637.33 s with the exact softmax alone, measured on an idle p150a with the clock sampled at
+1350 MHz throughout (`perf/of3t_exactscope/PRICE.json`). Almost all of that is host time, not
+card time. If you want speed over fidelity, turn it off:
 
 ```bash
 tt-bio finetune ... --device-ops
