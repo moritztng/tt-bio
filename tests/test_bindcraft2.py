@@ -12,6 +12,7 @@ import sys
 import textwrap
 import types
 
+import numpy as np
 import pytest
 import torch
 
@@ -269,6 +270,42 @@ def test_the_campaign_path_can_ask_for_the_extra_msa_swap_too():
         assert build.extra_msa.pool is build.pool
     with bindcraft2.campaign_predictor(checkpoints=str(params)) as build:
         assert build.extra_msa is None
+
+
+def test_the_extra_msa_swap_pads_bindcraft_2s_real_shapes_to_a_tile():
+    """`_pad` and `_check_mask` on the shapes a real PD-L1 round hands the swap.
+
+    Both are pure torch and numpy, so they are testable without a card, and both are the first
+    thing the device path touches. n=275 is what `perf/bcx_extrawire/runs/grade_host` captured off
+    a real `sequence_gradients`, and 275 buckets to 288.
+    """
+    extra = bindcraft2.ExtraMsaOnDevice(pool=None)
+
+    pair = torch.arange(275 * 275 * 4, dtype=torch.float32).reshape(275, 275, 4)
+    pair_mask = torch.ones(275, 275)
+    padded, padded_mask, n = extra._pad(pair, pair_mask)
+    assert n == 275
+    assert padded.shape == (288, 288, 4), padded.shape
+    assert padded_mask.shape == (288, 288), padded_mask.shape
+    # the real region survives and the tile padding is zero, both of which the card relies on
+    assert torch.equal(padded[:275, :275], pair)
+    assert torch.equal(padded_mask[:275, :275], pair_mask)
+    assert padded[275:].abs().sum() == 0 and padded[:, 275:].abs().sum() == 0
+    assert padded_mask[275:].abs().sum() == 0 and padded_mask[:, 275:].abs().sum() == 0
+
+    # a length already on a tile boundary is handed back untouched
+    on_tile = torch.zeros(288, 288, 4)
+    same, same_mask, n2 = extra._pad(on_tile, torch.zeros(288, 288))
+    assert n2 == 288 and same is on_tile
+
+    # BindCraft 2's real extra-MSA mask is all zero, which is the case this swap is correct for
+    extra._check_mask(np.zeros((1, 275), dtype=np.float32))
+    assert extra.mask_seen == {"calls": 1, "abs_max": 0.0}
+    # and anything else is refused rather than folded against the wrong constant
+    nonzero = np.zeros((1, 275), dtype=np.float32)
+    nonzero[0, 7] = 1.0
+    with pytest.raises(ValueError, match="nonzero"):
+        extra._check_mask(nonzero)
 
 
 def test_an_unknown_validation_trunk_is_refused():
