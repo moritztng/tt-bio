@@ -86,6 +86,24 @@ step.
 The token axis buckets to 32 and rounding up is faster, not slower: the PD-L1 complex at 211
 tokens costs 4.504 s on the trunk forward and the same design padded to 224 costs 1.369 s.
 
+## What one step costs
+
+One gradient step through this entry point on a real card, at the small end of the draw range:
+
+| | |
+|---|---|
+| complex | 115-residue PD-L1 target + 60-residue binder = 175 tokens, padded to 192 |
+| trunk calls | 2 device forwards under the tape, 1 device backward, 0 tapes left on card |
+| first call, end to end | 1304.6 s |
+| card | p150a, AICLK median 1350 MHz over 354 samples polled during the step |
+| host | 4 cores of a box at load/core 1.39 |
+
+**That 1304.6 s is a first call, not a step time.** It carries the AlphaFold 2 weights onto the
+card and JAX's compile of the whole design program, both of which a campaign pays once and then
+amortises over hundreds of steps. A steady-state per-step cost has not been measured on this tree,
+so this page does not quote one. Plan a campaign on the assumption that the first trajectory is
+much slower than the ones after it, and measure your own steady state before sizing a run.
+
 ## What is not settled
 
 The gradient loop runs on card and the design loop completes trajectories. **Design acceptance is
@@ -95,8 +113,13 @@ has since been fixed, and the first clean trajectory after the fix was rejected 
 stage on a defect still under investigation. BindCraft 2's own JAX reference accepted 1 design in
 1 completed trajectory on the same settings.
 
-So this page says the loop runs at these sizes and these speeds. It does not say the designs are
+So this page says the loop runs, at these sizes and this cost. It does not say the designs are
 good, and you should qualify that yourself before trusting a run.
+
+One rough edge: closing the card at the end of a process that has also run JAX can abort in the
+driver, with `pthread_mutex_unlock failed for mutex CHIP_IN_USE_0_PCIe`. It happens after the work
+is finished, the chip is left healthy, and the results already written are valid, but the process
+exit status is a crash. Write your outputs out as you go rather than at exit.
 
 ## Licence
 
