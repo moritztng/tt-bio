@@ -1,0 +1,131 @@
+{
+ "main": {
+  "sha": "301efdd1937fb963cc40a5b0ecc1bc2f9b2b2d15",
+  "date": "2026-09-24T17:16:08Z"
+ },
+ "merged_with_zero_comments": 6,
+ "merged_count": 7,
+ "median_additions_merged": 6,
+ "prs": [
+  {
+   "number": 19,
+   "merged": false,
+   "comments": 0,
+   "additions": 290,
+   "deletions": 15,
+   "files": 4,
+   "user": "moritztng",
+   "title": "Find and pin design workers without nvidia-smi"
+  },
+  {
+   "number": 17,
+   "merged": true,
+   "comments": 0,
+   "additions": 47,
+   "deletions": 51,
+   "files": 12,
+   "user": "ErikMaeots",
+   "title": "Fixing aa_bias feature"
+  },
+  {
+   "number": 16,
+   "merged": false,
+   "comments": 0,
+   "additions": 272,
+   "deletions": 10,
+   "files": 17,
+   "user": "prihoda",
+   "title": "Enable seeding with custom sequences and running mpnn redesign and validation alone"
+  },
+  {
+   "number": 15,
+   "merged": true,
+   "comments": 0,
+   "additions": 1,
+   "deletions": 1,
+   "files": 1,
+   "user": "zyzllik",
+   "title": "fixed binder residue numbering (one-based)"
+  },
+  {
+   "number": 14,
+   "merged": true,
+   "comments": 0,
+   "additions": 6,
+   "deletions": 11,
+   "files": 2,
+   "user": "zyzllik",
+   "title": "Clarified docs for the humanize feature"
+  },
+  {
+   "number": 10,
+   "merged": false,
+   "comments": 1,
+   "additions": 113,
+   "deletions": 24,
+   "files": 1,
+   "user": "prihoda",
+   "title": "Add support for Mol* viewer in colab notebook"
+  },
+  {
+   "number": 8,
+   "merged": true,
+   "comments": 0,
+   "additions": 5,
+   "deletions": 5,
+   "files": 2,
+   "user": "ErikMaeots",
+   "title": "Fixing some spelling mistakes in the installation guide"
+  },
+  {
+   "number": 7,
+   "merged": false,
+   "comments": 1,
+   "additions": 1,
+   "deletions": 1,
+   "files": 1,
+   "user": "sbonner0",
+   "title": "Update repository URL in installation instructions"
+  },
+  {
+   "number": 6,
+   "merged": true,
+   "comments": 0,
+   "additions": 4,
+   "deletions": 1,
+   "files": 1,
+   "user": "ErikMaeots",
+   "title": "fireproof installer against nvidia-smi convention"
+  },
+  {
+   "number": 3,
+   "merged": true,
+   "comments": 0,
+   "additions": 25,
+   "deletions": 13,
+   "files": 5,
+   "user": "ErikMaeots",
+   "title": "Fix/preserve receptor chain breaks"
+  },
+  {
+   "number": 2,
+   "merged": false,
+   "comments": 0,
+   "additions": 80,
+   "deletions": 7,
+   "files": 2,
+   "user": "cytokineking",
+   "title": "Preserve internal receptor chain breaks during monomer validation"
+  },
+  {
+   "number": 1,
+   "merged": true,
+   "comments": 2,
+   "additions": 1282,
+   "deletions": 600,
+   "files": 31,
+   "user": "rclune",
+   "title": "Create external documentation site"
+  }
+ ]
+}
