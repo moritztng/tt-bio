@@ -1,0 +1,2 @@
+=== trajectory 1 | pdl1_denovo_l180_4c3643dbdced5ecd | accepted 0/10 ===
+  passed screen design stage  i_pTM=0.81    pLDDT=0.68  
