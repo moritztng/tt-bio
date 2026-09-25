@@ -96,21 +96,28 @@ class TraceWire:
                 return held
             held.append(self._hold(want, int(mv.num_banks)))
 
-    def _peak(self, run) -> int:
-        """DRAM allocated per bank at its highest during ``run``, sampled after every ttnn op.
+    def _peak(self, run, stride: int = 32) -> int:
+        """DRAM allocated per bank at its highest during ``run``, sampled after every
+        ``stride``-th ttnn op.
 
-        An allocation only ever happens inside an op, so the peak is exact. Sampling before each
-        `ttnn.deallocate` instead read low: much of a tape is released by dropping the last
-        reference, which calls no deallocate, and the fence it sized was 8 MB short of the
-        capture."""
+        An allocation only happens inside an op, so sampling after ops finds the peak.
+        Sampling before each `ttnn.deallocate` instead read low: much of a tape is released by
+        dropping the last reference, which calls no deallocate, and the fence it sized was
+        8 MB short of the capture. Every op would be exact and costs 480 s at n=224 (the
+        memory view builds a block table per call); a stride misses at most the ops between
+        two samples, which the fence's margin covers, and an undersized fence fails at
+        capture as an out-of-memory, never as a wrong replay."""
         from ttnn import decorators as D
         peak = [int(self._mem().total_bytes_allocated_per_bank)]
         real = {c: c.__call__ for c in (D.FastOperation, D.Operation)}
+        n = [0]
 
         def sampled(real_call):
             def call(op, *a, **k):
                 out = real_call(op, *a, **k)
-                peak[0] = max(peak[0], int(self._mem().total_bytes_allocated_per_bank))
+                n[0] += 1
+                if n[0] % stride == 0:
+                    peak[0] = max(peak[0], int(self._mem().total_bytes_allocated_per_bank))
                 return out
             return call
 
