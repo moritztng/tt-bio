@@ -512,6 +512,22 @@ def _free_variable(fn, want, accept, depth=0, seen=None):
     return None
 
 
+def find_template_pair_mask(fn):
+    """`mask_2d` from the closure of `TemplatePairStack`'s block (`modules.py:182`).
+
+    The block reads it under the name its own signature gives it, `pair_mask`, and it is the
+    only two-dimensional array the block closes over. Same walk as the other two stacks, for
+    the same reason: replacing the whole `layer_stack` means never seeing the argument.
+    """
+    return _free_variable(fn, "pair_mask", lambda v: getattr(v, "ndim", None) == 2)
+
+
+def find_template_dropout(fn):
+    """`use_dropout` from the same closure: what BindCraft 2 asked the stack for, which the
+    device blocks do not have. Recorded so a grade names it instead of assuming it."""
+    return _free_variable(fn, "use_dropout", lambda v: v is not None)
+
+
 def find_extra_msa_masks(fn):
     """`extra_msa_stack_fn` builds its masks inline (`modules.py:1522`), so there is no dict to
     recover: its free variables are `batch` and `mask_2d`, and the two masks are read off them."""
@@ -556,14 +572,12 @@ def evoformer_on_device(evo: EvoformerOnDevice | None, expect_blocks: int = 48,
                 if int(num_layers) != template.k_template:
                     raise ValueError(f"an anonymous `block` layer_stack has {num_layers} "
                                      f"blocks, tt-bio's template holds {template.k_template}")
-                pair_mask = _free_variable(fn, "pair_mask",
-                                           lambda v: getattr(v, "ndim", None) == 2)
+                pair_mask = find_template_pair_mask(fn)
                 if pair_mask is None:
                     raise RuntimeError("pair_mask not found in the template block's closure; "
                                        "tt-bio's blocks refuse an unmasked pair stack and "
                                        "guessing a mask is worse than stopping")
-                use_dropout = _free_variable(fn, "use_dropout", lambda v: v is not None)
-                template.dropout_seen.add(str(use_dropout))
+                template.dropout_seen.add(str(find_template_dropout(fn)))
                 template.swapped += 1
 
                 def template_on_device(x):

@@ -1,0 +1,159 @@
+{
+ "seed": 100,
+ "overrides": [
+  "campaign_seed=100",
+  "max_trajectories=1",
+  "validation_model=monomer",
+  "design_models=[\"model_1_ptm\"]",
+  "validation_models=[\"model_2_ptm\"]",
+  "project_folder=/home/ttuser/.coworker/wt/bcx-template/perf/bcx_template/runs/grade/project"
+ ],
+ "loadavg_start": [
+  27.79248046875,
+  25.4404296875,
+  25.60546875
+ ],
+ "capture": {
+  "loss": 8.465317726135254,
+  "seconds": 538.8,
+  "bucket": 32,
+  "g_sequences_l2": 0.29185047553040244,
+  "dropout": false,
+  "act_in_shape": [
+   275,
+   275,
+   64
+  ],
+  "act_out_shape": [
+   275,
+   275,
+   64
+  ],
+  "pair_mask_shape": [
+   275,
+   275
+  ],
+  "pair_mask_zero_fraction": 0.08536859504132231
+ },
+ "template_channels": 64,
+ "device_stack": {
+  "forward_s": 12.301,
+  "aiclk_during": {
+   "n": 6,
+   "aiclk_min": 1350,
+   "aiclk_med": 1350,
+   "aiclk_max": 1350,
+   "load1": 22.2
+  },
+  "note": "first call on a fresh process, includes program compile"
+ },
+ "stack": {
+  "device": {
+   "rel_l2": 0.058760743524120806,
+   "cos": 0.9983264978146128,
+   "max_abs": 122.05500793457031,
+   "norm_ref": 128129.63474536841,
+   "norm_ratio": 1.0087486481833883
+  },
+  "bc2_jax": {
+   "rel_l2": 0.0018492332166826797,
+   "cos": 0.9999982911515273,
+   "max_abs": 2.234130859375,
+   "norm_ref": 128129.63474536841,
+   "norm_ratio": 1.000042670747464
+  },
+  "host_bf16": {
+   "rel_l2": 0.0025070295320415584,
+   "cos": 0.9999968958385131,
+   "max_abs": 1.9910888671875,
+   "norm_ref": 128129.63474536841,
+   "norm_ratio": 1.0002741751350857
+  },
+  "device_vs_bc2_jax": {
+   "rel_l2": 0.05879214077929596,
+   "cos": 0.9983242245198791,
+   "max_abs": 122.5,
+   "norm_ref": 128135.10213265529,
+   "norm_ratio": 1.0087056059612107
+  },
+  "device_over_bc2_jax": 31.775734393053515
+ },
+ "arms": {
+  "jax": {
+   "loss": 8.465317726135254,
+   "g_l2": 0.29185047553040244,
+   "seconds": 509.4,
+   "calls": null,
+   "aiclk_during": null
+  },
+  "f64": {
+   "loss": 8.422942161560059,
+   "g_l2": 0.778775630768834,
+   "seconds": 488.8,
+   "calls": {
+    "forward": 2
+   },
+   "aiclk_during": null
+  },
+  "device": {
+   "loss": 8.387916564941406,
+   "g_l2": 0.5966658034693958,
+   "seconds": 445.8,
+   "calls": {
+    "forward": 2
+   },
+   "aiclk_during": {
+    "n": 444,
+    "aiclk_min": 1337,
+    "aiclk_med": 1350,
+    "aiclk_max": 1350,
+    "load1": 35.2
+   }
+  }
+ },
+ "loop": {
+  "jax_vs_f64": {
+   "rel_l2": 1.004580069073591,
+   "cos": 0.17512829328635746,
+   "max_abs": 0.144744873046875,
+   "norm_ref": 0.778775630768834,
+   "norm_ratio": 0.37475553163146313
+  },
+  "device_vs_f64": {
+   "rel_l2": 1.5134371019655242,
+   "cos": -0.4591036169592817,
+   "max_abs": 0.183837890625,
+   "norm_ref": 0.778775630768834,
+   "norm_ratio": 0.7661588009377577
+  },
+  "device_vs_jax": {
+   "rel_l2": 1.7786991290204994,
+   "cos": 0.493022868863962,
+   "max_abs": 0.0830535888671875,
+   "norm_ref": 0.29185047553040244,
+   "norm_ratio": 2.044422927134276
+  },
+  "device_over_jax": 1.506537058177148,
+  "loss_shift_device_minus_jax": -0.07740116119384766,
+  "loss_shift_f64_minus_jax": -0.04237556457519531
+ },
+ "stamp": {
+  "host": "tt-quietbox2",
+  "card": 0,
+  "subsystem_device": "0x0046",
+  "commit": "fd90fecbb41cfe47ba3297e3c8a28f8578da5bd2",
+  "tt_bio_dirty": false,
+  "torch_threads": 6,
+  "loadavg": [
+   39.732421875,
+   37.04931640625,
+   33.83935546875
+  ],
+  "utc": "2026-09-25T05:13:10Z"
+ },
+ "loadavg_end": [
+  39.732421875,
+  37.04931640625,
+  33.83935546875
+ ]
+}

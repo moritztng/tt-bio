@@ -42,8 +42,8 @@ import bc2_state as B                                                  # noqa: E
 from bindcraft.af2 import campaign_length_bucket                       # noqa: E402
 from bindcraft.af.alphafold.model import layer_stack as LS, modules    # noqa: E402
 from ttbio_predictor import TTBioAlphaFoldDesignModel                  # noqa: E402
-from splice import (TemplatePairStackOnDevice, _free_variable,         # noqa: E402
-                    evoformer_on_device)
+from splice import (TemplatePairStackOnDevice, evoformer_on_device,    # noqa: E402
+                    find_template_pair_mask)
 
 PARAMS = "/home/ttuser/bcx_e2e/af2_params"
 TEMPLATE_BLOCKS = 2
@@ -97,8 +97,7 @@ def capture(settings, dropout):
                     and int(num_layers) == TEMPLATE_BLOCKS):
                 return made(fn)
             inner = made(fn)
-            pair_mask = _free_variable(fn, "pair_mask",
-                                       lambda v: getattr(v, "ndim", None) == 2)
+            pair_mask = find_template_pair_mask(fn)
             assert pair_mask is not None, "pair_mask not in the template block's closure"
 
             def spy(x):
