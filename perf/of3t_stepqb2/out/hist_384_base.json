@@ -1,0 +1,30 @@
+{
+ "doc": "J0: where the 2.107 ms of a backward verb call actually goes.",
+ "argv": [
+  "--tokens",
+  "384",
+  "--cycles",
+  "1",
+  "--arm",
+  "base",
+  "--out",
+  "perf/of3t_stepqb2/out/hist_384_base.json"
+ ],
+ "env": {
+  "host": "pc",
+  "tt_visible_devices": "0",
+  "commit": "bc0a862a13af2543fbf39fc524b69190fc60a057",
+  "branch": "wk/of3t-stepqb2",
+  "started_utc": "2026-09-25T19:35:05Z",
+  "loadavg": [
+   2.587890625,
+   2.78759765625,
+   2.99755859375
+  ]
+ },
+ "arm": "base",
+ "config": {
+  "crop": 384,
+  "cycles": 1
+ }
+}

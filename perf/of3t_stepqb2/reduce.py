@@ -91,6 +91,54 @@ def phases(jsonl: Path):
     return seen
 
 
+def retention(jsonl: Path) -> dict:
+    """Separate what the tape RETAINS from what the exact softmax borrows and gives back.
+
+    R216 and the of3t-stepqb2 brief both carry the premise that the tape's host memory is never
+    released -- `_retire` frees the device buffer and leaves the node, so every exact softmax's
+    float64 `y64` would stand from the forward through `opt.step()`. That premise is testable
+    off a 5 Hz profile without running anything: within one phase the sawtooth FLOOR is what is
+    retained and the TEETH are what is transient, so a retained `y64` makes the floor climb by
+    one tensor per call and a borrowed one leaves it flat.
+
+    Reported per phase as the floor at the start, the floor at the end, the drift between them,
+    the median tooth, and -- where the phase issues exact softmaxes -- the drift PER CALL, which
+    is the number the premise stands or falls on.
+    """
+    rows = [json.loads(l) for l in jsonl.read_text().splitlines()
+            if '"rss_gib"' in l and '"phase"' in l]
+    rows = [r for r in rows if "verb" not in r]
+    out = {}
+    for ph in dict.fromkeys(r["phase"] for r in rows):
+        v = [r for r in rows if r["phase"] == ph]
+        if len(v) < 20:
+            continue
+        w = max(8, len(v) // 25)
+        f0, f1 = min(x["rss_gib"] for x in v[:w]), min(x["rss_gib"] for x in v[-w:])
+        lo = min(x["rss_gib"] for x in v)
+        hi = sorted(x["rss_gib"] for x in v)[int(len(v) * 0.98)]
+        calls = max(x["sm_calls"] for x in v) - min(x["sm_calls"] for x in v)
+        e = {"samples": len(v), "span_s": round(v[-1]["t"] - v[0]["t"], 1),
+             "floor_start_gib": round(f0, 3), "floor_end_gib": round(f1, 3),
+             "floor_drift_gib": round(f1 - f0, 3), "tooth_gib": round(hi - lo, 3),
+             "exact_softmax_calls": calls}
+        # A per-call figure needs enough calls to be a rate rather than an accident. The
+        # backward drifts +3.48 GiB while issuing THREE exact softmaxes, and dividing one by
+        # the other reads as "1.19 GiB retained per exact softmax" -- which would blame the
+        # softmax for growth that is demonstrably not its. Below the floor the drift is
+        # published WITHOUT a denominator, and the field says why.
+        MIN_CALLS = 20
+        if calls >= MIN_CALLS:
+            e["retained_mib_per_exact_softmax"] = round((f1 - f0) * 1024 / calls, 2)
+            e["transient_gib_per_exact_softmax"] = round(hi - lo, 3)
+        elif calls:
+            e["per_call_withheld"] = (f"{calls} exact softmax calls is under the {MIN_CALLS} "
+                                      f"this divides by; the drift in this phase is not the "
+                                      f"softmax's and a per-call rate here would say it was")
+        out[ph] = e
+    return out
+
+
 def header(jsonl: Path) -> dict:
     for line in jsonl.read_text().splitlines():
         if '"header"' in line:
@@ -163,7 +211,8 @@ def main() -> int:
                     "off the sysfs class node throughout",
         }
         ans["PARTITION"] = {"seconds": ans["STEP"]["parts_s"],
-                            "memory_phases": phases(jsonl), "verbs": vs}
+                            "memory_phases": phases(jsonl),
+                            "retention_vs_transient": retention(jsonl), "verbs": vs}
         if off.get("reps"):
             r_off, basis_off = rep(off)
             cold = off["reps"][0]
@@ -246,7 +295,7 @@ def main() -> int:
             }
 
     ans["PARTITION"] = {"seconds": ans["STEP"]["parts_s"], "memory_phases": phases(jsonl),
-                        "verbs": verbs(jsonl)}
+                        "retention_vs_transient": retention(jsonl), "verbs": verbs(jsonl)}
     p = OUT / f"ANSWER_{tag}.json"
     p.write_text(json.dumps(ans, indent=1, default=str))
     print(json.dumps({k: ans[k] for k in ("STEP", "OFFSTEP", "EXACTPRICE") if k in ans},

@@ -178,6 +178,67 @@
     "dwell_s": 95.27
    }
   },
+  "retention_vs_transient": {
+   "capture_build_fold": {
+    "samples": 42,
+    "span_s": 8.2,
+    "floor_start_gib": 0.53,
+    "floor_end_gib": 3.635,
+    "floor_drift_gib": 3.105,
+    "tooth_gib": 3.105,
+    "exact_softmax_calls": 0
+   },
+   "capture_prep": {
+    "samples": 34,
+    "span_s": 11.9,
+    "floor_start_gib": 3.648,
+    "floor_end_gib": 4.572,
+    "floor_drift_gib": 0.925,
+    "tooth_gib": 0.935,
+    "exact_softmax_calls": 0
+   },
+   "trunk_taped": {
+    "samples": 910,
+    "span_s": 300.7,
+    "floor_start_gib": 6.361,
+    "floor_end_gib": 6.508,
+    "floor_drift_gib": 0.147,
+    "tooth_gib": 2.731,
+    "exact_softmax_calls": 158,
+    "retained_mib_per_exact_softmax": 0.95,
+    "transient_gib_per_exact_softmax": 2.731
+   },
+   "diffusion": {
+    "samples": 65,
+    "span_s": 62.9,
+    "floor_start_gib": 6.508,
+    "floor_end_gib": 7.356,
+    "floor_drift_gib": 0.848,
+    "tooth_gib": 3.012,
+    "exact_softmax_calls": 116,
+    "retained_mib_per_exact_softmax": 7.49,
+    "transient_gib_per_exact_softmax": 3.012
+   },
+   "losses": {
+    "samples": 30,
+    "span_s": 5.8,
+    "floor_start_gib": 10.187,
+    "floor_end_gib": 10.618,
+    "floor_drift_gib": 0.431,
+    "tooth_gib": 0.735,
+    "exact_softmax_calls": 0
+   },
+   "backward": {
+    "samples": 132,
+    "span_s": 95.3,
+    "floor_start_gib": 10.149,
+    "floor_end_gib": 13.631,
+    "floor_drift_gib": 3.482,
+    "tooth_gib": 4.325,
+    "exact_softmax_calls": 3,
+    "per_call_withheld": "3 exact softmax calls is under the 20 this divides by; the drift in this phase is not the softmax's and a per-call rate here would say it was"
+   }
+  },
   "verbs": [
    {
     "verb": "trunk_forward",
