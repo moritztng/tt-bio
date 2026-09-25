@@ -75,6 +75,15 @@ not fit on a 30 GB box: it was OOM-killed holding **81.4 %** of all resident mem
 comfortably on a 249 GB host. **Training OpenFold3 here is specified by host memory and host CPU as
 much as by the accelerator**, which follows directly from the fidelity mechanism being host work.
 
+## The host requirement is worse than a ceiling: it is not repeatable
+
+pc is a 30.5 GiB box, and **its available memory at run start swings from ~16.5 GiB to ~26 GiB**
+with the resident agent population — 4.33 GiB of co-tenants at the 19:11:36 OOM, ~14 GiB at both
+of the later attempts. So a run that fits at one hour does not at another, independently of the
+ceiling. **pc is not a repeatable host for this step**, and a timing taken there is conditioned on
+a number nobody controls. `of3t-restep`'s profile records `avail_at_start` per run for exactly this
+reason; every figure quoted from that box owes it.
+
 ## What this does NOT say
 
 It does not say what a full exactness-ON step costs — that is **[OWED]** and is the one number
