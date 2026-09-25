@@ -1,0 +1,19 @@
+# Output of maintainer_revision_repro.py against PR #19 head 68b853ddec, and of the
+# same two probes against upstream base 301efdd. pc, jax 0.11.2, python 3.12, CPU
+# backend, [CpuDevice(id=0)], no accelerator. Run 2026-09-25 ~16:15Z.
+
+=== PR head 68b853ddec ===
+A) two devices on a platform that is neither cuda nor rocm
+   plan_design_workers raised ValueError: Device of kind tpu is currently not supported
+
+B) cuda, process given a subset of the box: CUDA_VISIBLE_DEVICES=2,3
+   selected_design_gpus() -> ['0', '1']
+   worker 0 launched with CUDA_VISIBLE_DEVICES=0
+   worker 1 launched with CUDA_VISIBLE_DEVICES=1
+
+=== upstream base 301efdd, same CUDA_VISIBLE_DEVICES=2,3 ===
+   visible_design_gpus()  -> ['2', '3']
+   selected_design_gpus() -> ['2', '3']
+
+=== jax ids are a dense enumeration of what the process can see ===
+    [('cpu:0', 0), ('cpu:1', 1), ('cpu:2', 2), ('cpu:3', 3)]

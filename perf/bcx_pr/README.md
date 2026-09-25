@@ -1,12 +1,52 @@
 # BindCraft 2 PR 1 — vendor-neutral design-worker enumeration and pinning
 
 **Posted: https://github.com/PacesaLab/BindCraft2/pull/19**, opened 2026-09-24 as
-`moritztng:vendor-neutral-design-workers`, one commit `403ddcf8881c2208b21e8b589716dbea1ecb8767`
-against upstream `main` at `301efdd1937fb963cc40a5b0ecc1bc2f9b2b2d15` (2026-09-24T17:16:08Z).
+`moritztng:vendor-neutral-design-workers` against upstream `main` at
+`301efdd1937fb963cc40a5b0ecc1bc2f9b2b2d15` (2026-09-24T17:16:08Z).
 
-`0001-Find-and-pin-design-workers-without-nvidia-smi.patch` is that commit; `PR_BODY.md` is the
-body as posted. There is no Tenstorrent code, no `tt_bio` import and no `tenstorrent` extra in the
-diff. It fixes the `rocm` extra the lab already ships.
+## The PR is no longer the commit we posted
+
+`martinpacesa` closed it unmerged at 2026-09-24T22:57:24Z. `LeonardoTredese` reopened it at
+2026-09-25T09:02:47Z, **pushed two commits of his own onto our branch**, and requested review
+from `ErikMaeots` at 2026-09-25T15:04:09Z.
+
+    403ddcf888  2026-09-24T20:42:21Z  moritztng         Find and pin design workers without nvidia-smi
+    44a0dd34b3  2026-09-25T12:12:37Z  LeonardoTredese   unified gpu determination mechanism
+    68b853ddec  2026-09-25T15:00:48Z  LeonardoTredese   Updated docs, removed stale tests, fixed bindcraft.py imports
+
+So the PR is now +49/-23 across 4 files, not the +290/-15 we opened, and the 215-line
+`tests/test_design_workers.py` we added came out in `68b853d`. The rewrite replaces our env-var
+enumeration with `jax.devices()` and derives the visibility variable from the device kind.
+Everything under "Measured at HEAD" below was measured on `403ddcf8`, our commit, and does not
+describe what is on the PR today.
+
+`0001-Find-and-pin-design-workers-without-nvidia-smi.patch` is our commit. `PR_BODY.md` is the body
+as posted. There is no Tenstorrent code, no `tt_bio` import and no `tenstorrent` extra in any of it.
+
+## Two defects in the rewrite, reported 2026-09-25T16:18:46Z
+
+`PR19_COMMENT_2026-09-25.md` is the comment as posted
+(https://github.com/PacesaLab/BindCraft2/pull/19#issuecomment-5835685486).
+`maintainer_revision_repro.py` and `.out` are the reproductions, pc, jax 0.11.2, python 3.12, CPU
+backend, no accelerator.
+
+1. **`design_visibility_variable()` has no `None` return path**, so the `is None` guard at
+   `design_workers.py:144` and the `or 'CUDA_VISIBLE_DEVICES'` fallback at `:225` are both dead. On
+   a platform that is neither cuda nor rocm the campaign raises where the guard's own comment says
+   it should fall back to one worker.
+2. **Device ids are renumbered under a partial visibility variable.** At `CUDA_VISIBLE_DEVICES=2,3`
+   the base returns `['2','3']` and the PR head returns `['0','1']`, and `launch_design_workers`
+   writes those back, so the workers are pinned to two cards the job was not given.
+   `design_gpu_memory_gb()` prefers `nvidia_smi_memory_gb()`, whose keys are physical, and looks
+   them up by jax id, so packing reads the wrong card's free memory.
+
+The id half is argued, not measured on NVIDIA hardware: what was measured here is that jax ids are
+a dense enumeration of the devices a process can see. The comment says so and gives the one-line
+check.
+
+A fix for both was tested here before it was suggested: keep the variable's own values when it is
+set, fall back to `jax.devices()` only when it is unset. That restores `['2','3']` under a subset
+and still enumerates all four cards on a rocm box with no variable set.
 
 ## What changed between the pin and HEAD
 
