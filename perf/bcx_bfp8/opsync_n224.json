@@ -1,0 +1,242 @@
+{
+ "stack": {
+  "typecast[BFLOAT->FLOAT3]": [
+   62,
+   0.009720312024001032
+  ],
+  "typecast[FLOAT3->BFLOAT]": [
+   43,
+   0.005708817014237866
+  ],
+  "reshape[BFLOAT->BFLOAT]": [
+   111,
+   0.003060735994949937
+  ],
+  "matmul[BFLOAT,BFLOAT->BFLOAT]": [
+   56,
+   0.013073121837805957
+  ],
+  "gtz[BFLOAT->BFLOAT]": [
+   2,
+   0.00039722799556329846
+  ],
+  "multiply[BFLOAT,BFLOAT->BFLOAT]": [
+   132,
+   0.015694607194745913
+  ],
+  "mean[BFLOAT->BFLOAT]": [
+   48,
+   0.0038613390061073005
+  ],
+  "subtract[BFLOAT,BFLOAT->BFLOAT]": [
+   37,
+   0.004537199798505753
+  ],
+  "add[BFLOAT->BFLOAT]": [
+   12,
+   0.0008618250431027263
+  ],
+  "rsqrt[BFLOAT->BFLOAT]": [
+   12,
+   0.000830115022836253
+  ],
+  "add[FLOAT3,FLOAT3->FLOAT3]": [
+   29,
+   0.006968209956539795
+  ],
+  "to_layout[BFLOAT->BFLOAT]": [
+   8,
+   0.0019387689826544374
+  ],
+  "permute[BFLOAT->BFLOAT]": [
+   26,
+   0.008655958052258939
+  ],
+  "sigmoid[BFLOAT->BFLOAT]": [
+   14,
+   0.0013767170603387058
+  ],
+  "rsub[BFLOAT->BFLOAT]": [
+   14,
+   0.00124715207493864
+  ],
+  "transpose[BFLOAT->BFLOAT]": [
+   8,
+   0.0006815719534642994
+  ],
+  "multiply[FLOAT3,FLOAT3->FLOAT3]": [
+   6,
+   0.005208059068536386
+  ],
+  "sum[FLOAT3->FLOAT3]": [
+   8,
+   0.00756350698065944
+  ],
+  "div[FLOAT3,FLOAT3->FLOAT3]": [
+   3,
+   0.0005480059480760247
+  ],
+  "subtract[FLOAT3,FLOAT3->FLOAT3]": [
+   3,
+   0.002275510982144624
+  ],
+  "multiply[FLOAT3->FLOAT3]": [
+   9,
+   0.004397663986310363
+  ],
+  "reshape[FLOAT3->FLOAT3]": [
+   4,
+   0.00011973900836892426
+  ],
+  "experimental.nlp_concat_heads[BFLOAT->BFLOAT]": [
+   12,
+   0.00112904206616804
+  ],
+  "zeros[->BFLOAT]": [
+   12,
+   0.02298042192705907
+  ],
+  "concat[->BFLOAT]": [
+   16,
+   0.0038407510437536985
+  ],
+  "slice[BFLOAT->BFLOAT]": [
+   4,
+   0.000434779969509691
+  ],
+  "multiply[BFLOAT->BFLOAT]": [
+   2,
+   0.00016665802104398608
+  ],
+  "sum[BFLOAT->BFLOAT]": [
+   2,
+   0.0003154219884891063
+  ],
+  "div[BFLOAT,BFLOAT->BFLOAT]": [
+   1,
+   9.678499191068113e-05
+  ]
+ },
+ "stack+b8": {
+  "typecast[BFLOAT->FLOAT3]": [
+   62,
+   0.011217599065275863
+  ],
+  "typecast[FLOAT3->BFLOAT]": [
+   43,
+   0.008601251931395382
+  ],
+  "reshape[BFLOAT->BFLOAT]": [
+   111,
+   0.0064122528419829905
+  ],
+  "matmul[BFLOAT,BFLOAT->BFLOAT]": [
+   56,
+   0.01232637112843804
+  ],
+  "gtz[BFLOAT->BFLOAT]": [
+   2,
+   0.00047317202552221715
+  ],
+  "multiply[BFLOAT,BFLOAT->BFLOAT]": [
+   132,
+   0.017001886997604743
+  ],
+  "mean[BFLOAT->BFLOAT]": [
+   48,
+   0.005096729000797495
+  ],
+  "subtract[BFLOAT,BFLOAT->BFLOAT]": [
+   37,
+   0.006979590834816918
+  ],
+  "add[BFLOAT->BFLOAT]": [
+   12,
+   0.0010896810272242874
+  ],
+  "rsqrt[BFLOAT->BFLOAT]": [
+   12,
+   0.0009180939814541489
+  ],
+  "add[FLOAT3,FLOAT3->FLOAT3]": [
+   29,
+   0.0076176480506546795
+  ],
+  "permute[BFLOAT->BFLOAT]": [
+   26,
+   0.008822428033454344
+  ],
+  "sigmoid[BFLOAT->BFLOAT]": [
+   14,
+   0.001424489018972963
+  ],
+  "rsub[BFLOAT->BFLOAT]": [
+   14,
+   0.002301634958712384
+  ],
+  "transpose[BFLOAT->BFLOAT]": [
+   8,
+   0.0005937019304838032
+  ],
+  "typecast[BFLOAT->BFLOAT]": [
+   26,
+   0.003123309026705101
+  ],
+  "multiply[FLOAT3,FLOAT3->FLOAT3]": [
+   6,
+   0.005617932009045035
+  ],
+  "sum[FLOAT3->FLOAT3]": [
+   8,
+   0.008548526064259931
+  ],
+  "div[FLOAT3,FLOAT3->FLOAT3]": [
+   3,
+   0.0007016689924057573
+  ],
+  "subtract[FLOAT3,FLOAT3->FLOAT3]": [
+   3,
+   0.002400821977062151
+  ],
+  "multiply[FLOAT3->FLOAT3]": [
+   9,
+   0.004912143049295992
+  ],
+  "reshape[FLOAT3->FLOAT3]": [
+   4,
+   0.0001977569772861898
+  ],
+  "experimental.nlp_concat_heads[BFLOAT->BFLOAT]": [
+   12,
+   0.0013129469589330256
+  ],
+  "zeros[->BFLOAT]": [
+   12,
+   0.373251459968742
+  ],
+  "concat[->BFLOAT]": [
+   16,
+   0.0031898289162199944
+  ],
+  "to_layout[BFLOAT->BFLOAT]": [
+   6,
+   0.0017196329426951706
+  ],
+  "slice[BFLOAT->BFLOAT]": [
+   4,
+   0.0004793749831151217
+  ],
+  "multiply[BFLOAT->BFLOAT]": [
+   2,
+   0.00021932899835519493
+  ],
+  "sum[BFLOAT->BFLOAT]": [
+   2,
+   0.00030532199889421463
+  ],
+  "div[BFLOAT,BFLOAT->BFLOAT]": [
+   1,
+   0.00011266500223428011
+  ]
+ }
+}

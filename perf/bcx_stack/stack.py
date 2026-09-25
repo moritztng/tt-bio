@@ -318,12 +318,17 @@ class Levers:
         self.counts[(self.phase,) + key] += 1
 
     def arm(self, name):
-        """`<lever arm>[@old|@new]`: the suffix picks `autograd.checkpoint`, default new."""
+        """`<lever arm>[+b8][@old|@new]`: `@` picks `autograd.checkpoint`, default new. `+b8`
+        runs the arm under `tenstorrent.set_fast_mode`, read per op, so weights built before it
+        stay bf16 and what moves to bfloat8_b is the activations the shared modules emit."""
+        from tt_bio import tenstorrent as tn
         name, _, impl = name.partition("@")
+        name, b8 = name.removesuffix("+b8"), name.endswith("+b8")
+        tn.set_fast_mode(b8)
         self.ag.checkpoint = _old_checkpoint if impl == "old" else self._new_checkpoint
         self.mm2d, self.bmm, self.heads = ARMS[name]
         self.ag.TRIATT_BMM_CONFIG = self.bmm
-        self.name = name + ("@" + impl if impl else "")
+        self.name = name + ("+b8" if b8 else "") + ("@" + impl if impl else "")
 
     def take(self):
         c, s = self.counts, self.shapes
@@ -381,7 +386,11 @@ def dist(xs):
 def open_all(args):
     lv = Levers()
     dm, ref = A.load_models(args.params)
-    return lv, A.Dev(dm), ref
+    dev = A.Dev(dm)
+    # Without it every `+b8` backward packs its zero gradients to bfloat8_b on the host: 12 calls
+    # cost 373 ms a block at n=224 (`perf/bcx_bfp8/opsync_n224_devz0.json`).
+    dev.ag.DEVICE_ZEROS = getattr(args, "device_zeros", False)
+    return lv, dev, ref
 
 
 def stamp(args, clock=None):
@@ -925,6 +934,8 @@ def main():
     ap.add_argument("--seed", type=int, default=0)
     ap.add_argument("--out", default=None)
     ap.add_argument("--threads", type=int, default=8)
+    ap.add_argument("--device-zeros", action="store_true",
+                    help="autograd.DEVICE_ZEROS for every arm (bcx-tracewire's zeros lever)")
     args = ap.parse_args()
     torch.set_num_threads(args.threads)
     {"reach": cmd_reach, "time": cmd_time, "bits": cmd_bits, "vjp": cmd_vjp, "whole": cmd_whole, "fit": cmd_fit, "ckprof": cmd_ckprof, "gcdiag": cmd_gcdiag, "ckbits": cmd_ckbits}[args.cmd](args)

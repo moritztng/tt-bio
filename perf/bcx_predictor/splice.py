@@ -90,6 +90,12 @@ def _nan(a):
                 np.abs(a[np.isfinite(a)]).max()) if np.isfinite(a).any() else None}
 
 
+def _fast_mode() -> bool:
+    """Part of a capture's key: a trace recorded in one dtype mode must never replay in the other."""
+    from tt_bio import tenstorrent as tn
+    return bool(tn._FAST_MODE)
+
+
 _CAPTURED: list = []
 _LIVE: dict[int, dict] = {}
 _NEXT = [0]
@@ -226,7 +232,7 @@ class EvoformerOnDevice:
         dev = self.dev
         msa_mask, pair_masks = self._mask(mk.numpy()), self._pair_mask(pmk)
         key = (tuple(m.shape), tuple(z.shape), self._mask_key(mk.numpy()),
-               self._pair_mask_key(pmk), self.k_evo, self.checkpoint)
+               self._pair_mask_key(pmk), self.k_evo, self.checkpoint, _fast_mode())
 
         def body(ml, zl):
             return dev.stack(ml, zl, 0, self.k_evo, ckpt=self.checkpoint,

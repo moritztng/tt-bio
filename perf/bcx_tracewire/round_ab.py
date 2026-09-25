@@ -98,6 +98,12 @@ def main():
     ap.add_argument("--extra-msa", action="store_true",
                     help="swap the extra-MSA stack onto the card too (bcx-extramsa's switch), in "
                          "every arm; it is not captured, so its host work stays in the floor")
+    ap.add_argument("--finite", action="store_true",
+                    help="record the design loss BindCraft 2 sees each round, and whether it is "
+                         "finite: its gradient stage breaks silently on a non-finite one")
+    ap.add_argument("--b8", action="store_true",
+                    help="bcx-bfp8's arm: tenstorrent.set_fast_mode(True) after the weights are "
+                         "built, so the weights stay bf16 and the activations go bfloat8_b")
     args = ap.parse_args()
     if not args.interleave and args.arm is None:
         ap.error("pick --interleave or --arm")
@@ -126,6 +132,9 @@ def main():
     lv.arm("stack")
     clock = S.Clock(dt=0.25)
     evo = EvoformerOnDevice(dev, k_evo=48, trace=True)
+    if args.b8:
+        from tt_bio import tenstorrent as tn
+        tn.set_fast_mode(True)
     extra = ExtraMsaOnDevice(dev, k_extra=4) if args.extra_msa else None
 
     def set_arm(arm):
@@ -196,10 +205,26 @@ def main():
             if len(rounds) >= 3 and rounds[-1]["calls"]["backward"] == rounds[-2]["calls"]["backward"]:
                 raise RuntimeError("a timed round ran no device backward: the trunk is not the card's")
 
+    finite, finite_log, out_box = args.finite, [], []
     real_sg = T.TTBioAlphaFoldDesignModel.sequence_gradients
+    if finite:
+        _sg0 = real_sg
+
+        def real_sg(self, *a, **kw):                                   # noqa: F811
+            import math as _m
+            r = _sg0(self, *a, **kw)
+            loss = float(r[2])
+            out_box.append({"round": len(finite_log), "loss": loss,
+                            "finite": bool(_m.isfinite(loss))})
+            return r
 
     def sequence_gradients(self, *a, **kw):
         now = time.time()
+        if finite and out_box:
+            # BindCraft 2 BREAKS its gradient stage on a non-finite loss rather than raising
+            # (`bindcraft/trajectory.py:136`), so a trajectory that ends after two rounds looks
+            # like a schedule that completed. This records the loss it actually saw.
+            finite_log.append(out_box.pop())
         close(now)
         if len(rounds) >= args.rounds:
             raise _Enough()
@@ -221,7 +246,8 @@ def main():
                                            "region_mb": args.region_mb,
                                            "length_bucket_size": campaign_length_bucket(settings),
                                            "seed": args.seed,
-                                           "extra_msa_on_device": bool(extra)},
+                                           "extra_msa_on_device": bool(extra),
+                                           "b8": bool(args.b8)},
             "mode": "interleave" if args.interleave else args.arm}
     t0 = time.time()
     try:
@@ -238,7 +264,10 @@ def main():
     blob["extra_calls"] = dict(extra.calls) if extra else None
     if extra is not None and not extra.swapped:
         raise RuntimeError("--extra-msa was asked for and the extra-MSA stack was never swapped")
-    blob["wire"] = evo.wire.stats()
+    blob["wire"] = evo.wire.stats() if evo.wire is not None else None
+    if finite:
+        blob["losses"] = finite_log + out_box
+        print("losses", json.dumps(blob["losses"]), flush=True)
     if args.digest:
         blob["digests"] = digests
     # Round 1 carries the jit compile and round 0 is BindCraft 2 re-entering from its own

@@ -1,0 +1,178 @@
+{
+ "stamp": {
+  "host": "tt-quietbox2",
+  "card": 3,
+  "subsystem_device": "0x0046",
+  "commit": "d799e72245a4d9d0ae058c244164cd7b427f879b",
+  "tt_bio_dirty": false,
+  "torch_threads": 6,
+  "loadavg": [
+   21.966796875,
+   26.1025390625,
+   26.3427734375
+  ],
+  "utc": "2026-09-25T04:48:36Z",
+  "pci": "0000:04:00.0",
+  "argv": [
+   "perf/bcx_tracewire/round_ab.py",
+   "--arm",
+   "trace",
+   "--b8",
+   "--finite",
+   "--extra-msa",
+   "--rounds",
+   "12",
+   "--seed",
+   "100",
+   "--card",
+   "3",
+   "--project",
+   "perf/bcx_bfp8/runs/finite_b8",
+   "--out",
+   "../bcx_bfp8/round_finite_b8_seed100.json"
+  ],
+  "aiclk_node": "/sys/class/tenstorrent/tenstorrent!3/tt_aiclk",
+  "region_mb": 768,
+  "length_bucket_size": 32,
+  "seed": 100,
+  "extra_msa_on_device": true,
+  "b8": true
+ },
+ "mode": "trace",
+ "wall_s": 135.9,
+ "rounds": [
+  {
+   "i": 0,
+   "arm": "trace",
+   "s": 0.008916854858398438,
+   "aiclk": {
+    "n": 0
+   },
+   "load1": 22.4,
+   "span": [
+    1790311725.4841442,
+    1790311725.493061
+   ],
+   "calls": {
+    "primal": 0,
+    "taped": 0,
+    "backward": 0
+   },
+   "trunk": {
+    "taped": 0.0,
+    "backward": 0.0,
+    "cpu": 0.0,
+    "extra": 0.0,
+    "extra_cpu": 0.0
+   },
+   "seg": {
+    "write": 0.0,
+    "enqueue": 0.0,
+    "wait": 0.0,
+    "read": 0.0
+   },
+   "captures": 0,
+   "extra_calls": {
+    "primal": 0,
+    "taped": 0,
+    "backward": 0
+   }
+  },
+  {
+   "i": 1,
+   "arm": "trace",
+   "s": 97.22016406059265,
+   "aiclk": {
+    "n": 314,
+    "min": 1318,
+    "median": 1350,
+    "max": 1350
+   },
+   "load1": 22.4,
+   "span": [
+    1790311725.493061,
+    1790311822.7132251
+   ],
+   "calls": {
+    "primal": 0,
+    "taped": 2,
+    "backward": 1
+   },
+   "trunk": {
+    "taped": 47.12735556997359,
+    "backward": 4.90194809899549,
+    "cpu": 42.118073218000006,
+    "extra": 1.8866593680286314,
+    "extra_cpu": 0.6655229
+   },
+   "seg": {
+    "write": 0.09220444099628367,
+    "enqueue": 0.00016760098515078425,
+    "wait": 6.069422693020897,
+    "read": 0.1989880640176125
+   },
+   "captures": 1,
+   "extra_calls": {
+    "primal": 0,
+    "taped": 2,
+    "backward": 1
+   }
+  }
+ ],
+ "calls": {
+  "primal": 0,
+  "taped": 4,
+  "backward": 2
+ },
+ "extra_calls": {
+  "primal": 0,
+  "taped": 4,
+  "backward": 2
+ },
+ "wire": {
+  "captures": [
+   {
+    "key": "((2, 224, 256), (224, 224, 128), (2, 224), ((224, 224), 34596.0), 48, True, True)",
+    "capture_s": 44.14,
+    "fence_mb_per_bank": {
+     "warm_rise": 925,
+     "filled_after_capture": 1050,
+     "free_after": 1966,
+     "wrappers_held": 3985
+    }
+   }
+  ],
+  "replays": {
+   "((2, 224, 256), (224, 224, 128), (2, 224), ((224, 224), 34596.0), 48, True, True)": [
+    4,
+    2
+   ]
+  },
+  "capture_s_total": 44.14,
+  "seg_s": {
+   "write": 0.1853,
+   "enqueue": 0.0003,
+   "wait": 13.512,
+   "read": 0.2952
+  },
+  "l1_foreign": []
+ },
+ "losses": [
+  {
+   "round": 0,
+   "loss": 10.232580184936523,
+   "finite": true
+  },
+  {
+   "round": 0,
+   "loss": 0.0,
+   "finite": true
+  },
+  {
+   "round": 1,
+   "loss": NaN,
+   "finite": false
+  }
+ ],
+ "per_arm": {}
+}
