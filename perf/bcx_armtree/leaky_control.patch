@@ -1,0 +1,35 @@
+diff --git a/tt_bio/autograd.py b/tt_bio/autograd.py
+index 57f55788c..090192bc1 100644
+--- a/tt_bio/autograd.py
++++ b/tt_bio/autograd.py
+@@ -638,19 +638,21 @@ def _share(a: Tensor, b: Tensor) -> None:
+     node's closure -- already holds it strongly. A member nothing holds is gone, and so is every
+     reader of it.
+     """
+-    group = a.shares if a.shares is not None else [weakref.ref(a)]
+-    have = _members(group)
+-    for t in _members(b.shares) if b.shares is not None else [b]:
+-        if not any(t is m for m in have):
+-            group.append(weakref.ref(t))
+-            have.append(t)
+-    for t in have:
++    # LEAKY CONTROL (bcx-armtree). The storage group holds its members STRONGLY, which is
++    # what every tree before 5a98e7b11 did and what the arms in flight still do. Nothing else
++    # in this file differs from a1797d5dd, so a ceiling measured here is the tape lifetime and
++    # not some other delta.
++    group = a.shares if a.shares is not None else [a]
++    for t in (b.shares if b.shares is not None else [b]):
++        if not any(t is m for m in group):
++            group.append(t)
++    for t in group:
+         t.shares = group
+ 
+ 
+ def _members(group) -> list:
+-    """The live tensors of a storage group."""
+-    return [t for t in (r() for r in group) if t is not None]
++    """The live tensors of a storage group. Strong members under the leaky control."""
++    return list(group)
+ 
+ 
+ def _evict_read_parents(parents: Sequence[Tensor]) -> None:
