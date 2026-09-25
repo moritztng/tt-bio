@@ -82,6 +82,31 @@ REJECT_DICTS = ["tt_bio.triatt_sdpa.REJECTS", "tt_bio.triatt_sdpa.GATE_REJECTS",
                 "tt_bio.mm_dualnoc.REJECTS"]
 
 
+class Ladder:
+    """Wraps `triatt_sdpa.sdpa` to record the config ladder, which `REJECTS` cannot show.
+
+    `REJECTS` keys on (reason, shape), so at one shape every rung collapses into one counter and
+    the question "which (q_chunk, k_chunk) did the ladder actually reach before it gave up" has
+    no answer in the artifact. `bcx-forward`'s `serves.json` shows eight `fill_preconditions`
+    rejects at 288 with an EMPTY `l1_refusals` list, while the host replay
+    (`preconditions.py`) finds six dividing configs there that pass every precondition on every
+    grid. Exactly one of those two is wrong about what the ladder tried, and only this tells you.
+    """
+
+    def __init__(self, real):
+        self.real = real
+        self.rungs = Counter()
+        self.on = False
+
+    def __call__(self, q, k, v, bias, scale, q_chunk, k_chunk, *a, **kw):
+        out = self.real(q, k, v, bias, scale, q_chunk, k_chunk, *a, **kw)
+        if self.on:
+            self.rungs[f"S{int(q.shape[2])} q{q_chunk} k{k_chunk} "
+                       f"kvbf{kw.get('kv_buffer_factor', 2)} -> "
+                       f"{'SERVED' if out is not None else 'declined'}"] += 1
+        return out
+
+
 def _get(attr):
     mod, _, name = attr.rpartition(".")
     m = sys.modules.get(mod)
@@ -156,7 +181,7 @@ class Gate:
         return ans
 
 
-def arm_once(dev, lv, gate, m0, z0, ke, kv, arm):
+def arm_once(dev, lv, gate, ladder, m0, z0, ke, kv, arm):
     """One forward under one arm. Returns (span, gate sites, counter deltas, rejects).
 
     Arm C is the real tape, so the gate must tell the truth there and `force` stays None.
@@ -165,8 +190,9 @@ def arm_once(dev, lv, gate, m0, z0, ke, kv, arm):
     """
     gate.force = {"A": False, "B": True, "C": None}[arm]
     gate.sites.clear()
+    ladder.rungs.clear()
     c0, r0 = read_counters(), read_rejects()
-    gate.on = True
+    gate.on = ladder.on = True
     try:
         if arm == "C":
             span = F.taped_step(dev, lv, m0, z0, None, None, ke, kv,
@@ -174,10 +200,10 @@ def arm_once(dev, lv, gate, m0, z0, ke, kv, arm):
         else:
             span = F.untaped_fwd(dev, m0, z0, ke, kv)
     finally:
-        gate.on = False
+        gate.on = ladder.on = False
         gate.force = None
     return (span, dict(gate.sites), _delta(read_counters(), c0),
-            _delta(read_rejects(), r0))
+            _delta(read_rejects(), r0), dict(ladder.rungs))
 
 
 def main():
@@ -196,8 +222,11 @@ def main():
     args = ap.parse_args()
 
     import tt_bio.ops as ops
+    from tt_bio import triatt_sdpa as ts
     gate = Gate(ops.taping)
     ops.taping = gate
+    ladder = Ladder(ts.sdpa)
+    ts.sdpa = ladder
 
     lv, dev, ref = F.open_all(args, "stack")
     dev.dm.set_triatt_fused(frozenset(["extra_msa", "evoformer"]))
@@ -212,11 +241,12 @@ def main():
         spans = {a: [] for a in args.arms}
         for _ in range(args.reps):
             for a in args.arms:                                # interleaved, so drift hits all
-                span, sites, counters, rejects = arm_once(
-                    dev, lv, gate, m0, z0, args.ke, args.kv, a)
+                span, sites, counters, rejects, rungs = arm_once(
+                    dev, lv, gate, ladder, m0, z0, args.ke, args.kv, a)
                 per[a].append(span[1] - span[0])
                 spans[a].append(span)
-                last[a] = {"sites": sites, "counters": counters, "rejects": rejects}
+                last[a] = {"sites": sites, "counters": counters, "rejects": rejects,
+                           "ladder": rungs}
                 print(f"n={n} arm {a}: {span[1] - span[0]:.4f} s", flush=True)
         for a in args.arms:                    # the clock INSIDE each arm's own windows
             last[a]["aiclk"] = clock.window(spans[a])
