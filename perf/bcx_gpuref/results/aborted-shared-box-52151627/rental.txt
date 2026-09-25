@@ -1,0 +1,15 @@
+11:51:15 instance 52151627: 2 GPU(s) at $11.4468/hr, reads 'running'; credit $98.5; ceiling 2.2h = about $25.18
+11:51:15 DRY_RUN: nothing started
+11:51:15 exit status 0; results in /home/moritz/.coworker/wt/bcx-gpuref/perf/bcx_gpuref/results/warm
+11:52:33 instance 52151627: 2 GPU(s) at $11.4468/hr, reads 'running'; credit $98.26; ceiling 1.3h = about $14.88
+label for 52151627 set to bcx-gpuref.
+starting instance 52151627.
+11:52:40 ssh up at ssh5.vast.ai:31626 after 10s
+11:52:56 harness copied
+11:53:02 run started on the box
+11:54:29 NOT stopping instance 52151627: a foreign compute process still holds a card -- 2532404, [Not Found]
+2533412, [Not Found]
+11:54:29 exit status 0; results in /home/moritz/.coworker/wt/bcx-gpuref/perf/bcx_gpuref/results/warm
+11:56:10 offer 50416321 at $4.2832/hr; $15 ceiling is 3.5h
+11:56:10 DRY_RUN: nothing created
+11:56:10 exit status 0; results in /home/moritz/.coworker/wt/bcx-gpuref/perf/bcx_gpuref/results/warm

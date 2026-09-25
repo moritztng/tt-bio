@@ -1,0 +1,9 @@
+date_utc=2026-09-25T12:26:34Z
+host=2f1f4e9fafd7
+bc2_commit=7a2dfdb8a285232a6f881899fe135c6dc48679f1
+arm=warm
+binder_length=146 target_length=115 core=benchmark
+max_trajectories=14 number_of_final_designs=6
+cuda_visible_devices=0
+index, name, driver_version, memory.total [MiB], clocks.max.sm [MHz], compute_cap
+0, NVIDIA H200, 615.71.09, 143771 MiB, 1980 MHz, 9.0

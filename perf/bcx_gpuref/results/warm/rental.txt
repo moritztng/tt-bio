@@ -1,0 +1,16 @@
+11:56:21 offer 50416321 at $4.2832/hr; $9 ceiling is 2.1h
+{
+  "instance_api_key": "<redacted, never committed>",
+ "new_contract": 52585411,
+ "success": true
+}
+11:56:23 declared 52585411 for 1.5h in /home/moritz/.coworker/state/vast-budget
+11:56:23 instance 52585411 created
+11:57:15 ssh up at ssh6.vast.ai:25410 after 60s
+11:57:21 harness copied
+12:30:57 watching continuation on 52585411 (14 trajectories); hard stop in 35 min
+13:06:48 35-min watch ceiling reached; stopping with what is measured
+13:06:48 final pull before teardown
+Are you sure you want to destroy instance 52585411? This is irreversible and will delete all data. [y/N] 
+Aborted.
+13:07:05 STILL PRESENT after destroy: 52585411 -- destroy by hand

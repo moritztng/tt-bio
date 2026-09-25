@@ -42,7 +42,10 @@ teardown() {
     log "destroying instance $INSTANCE"
     # Tried until it takes: an instance left up because one API call lost a race bills all night.
     for attempt in 1 2 3 4 5; do
-      if "$VAST" destroy instance "$INSTANCE" 2>&1 | tee -a "$LEDGER" | grep -qi 'destroy\|success'; then break; fi
+      # -y is not optional: the CLI prompts on stdin and aborts without it, and the old success
+      # grep for 'destroy' matched the word inside that very prompt, so the retry loop broke on
+      # the failure. 52585411 survived five attempts that way on 2026-09-25.
+      if "$VAST" destroy instance "$INSTANCE" -y 2>&1 | tee -a "$LEDGER" | grep -qi 'destroying\|success'; then break; fi
       sleep 10
     done
     sleep 5

@@ -25,7 +25,7 @@ teardown() {
   pull
   "${SSH[@]}" 'nvidia-smi --query-compute-apps=pid,used_memory --format=csv' > "$RESULTS/box_after.txt" 2>&1
   for a in 1 2 3 4 5; do
-    "$VAST" destroy instance "$INSTANCE" 2>&1 | tee -a "$LEDGER" | grep -qi 'destroy\|success' && break
+    "$VAST" destroy instance "$INSTANCE" -y 2>&1 | tee -a "$LEDGER" | grep -qi 'destroying\|success' && break
     sleep 10
   done
   sleep 8

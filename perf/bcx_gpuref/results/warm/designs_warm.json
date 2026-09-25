@@ -1,0 +1,51 @@
+{
+  "checked": 4,
+  "designs": [
+    {
+      "binder_chain": "B",
+      "binder_longest_residue_run": 3,
+      "chains": {
+        "A": 115,
+        "B": 146
+      },
+      "ok": true,
+      "path": "/root/bcx_out/pdl1_warm/3_Ranked/pdl1_denovo_l146_3102443bc04e3d4d_seq0.cif",
+      "problems": []
+    },
+    {
+      "binder_chain": "B",
+      "binder_longest_residue_run": 2,
+      "chains": {
+        "A": 115,
+        "B": 146
+      },
+      "ok": true,
+      "path": "/root/bcx_out/pdl1_warm/3_Ranked/pdl1_denovo_l146_369dd59ae5b91be3_seq0.cif",
+      "problems": []
+    },
+    {
+      "binder_chain": "B",
+      "binder_longest_residue_run": 3,
+      "chains": {
+        "A": 115,
+        "B": 146
+      },
+      "ok": true,
+      "path": "/root/bcx_out/pdl1_warm/3_Ranked/pdl1_denovo_l146_8787cf59d7b4a9e2_seq0.cif",
+      "problems": []
+    },
+    {
+      "binder_chain": "B",
+      "binder_longest_residue_run": 2,
+      "chains": {
+        "A": 115,
+        "B": 146
+      },
+      "ok": true,
+      "path": "/root/bcx_out/pdl1_warm/3_Ranked/pdl1_denovo_l146_b24254fa2ce4d10b_seq0.cif",
+      "problems": []
+    }
+  ],
+  "failing": [],
+  "passing": 4
+}
