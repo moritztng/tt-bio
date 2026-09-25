@@ -50,6 +50,9 @@ def profile(project: pathlib.Path) -> dict:
         "seed": stamp.get("seed"),
         "arm": stamp.get("arm"),
         "started_utc": stamp.get("started_utc"),
+        # The arm's own terminal status. A wrapper that echoes an exit code can echo the wrong
+        # one; the arm writing its own is what makes "this trajectory completed" readable.
+        "status": stamp.get("status"),
         "claimed": claimed,
         "attempted": attempted,
         "verdicts": verdicts,

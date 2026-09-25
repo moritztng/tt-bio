@@ -161,54 +161,71 @@ def main():
              "host": os.uname().nodename, "started_utc": time.strftime("%FT%TZ", time.gmtime()),
              "loadavg_start": os.getloadavg(), "stage_plan": B.stage_plan(settings),
              "threads": os.environ.get("XLA_FLAGS", ""), "project": project}
+    # A row deciding whether a trajectory completed reads this file, so it has to say so on
+    # BOTH exits. `accept_s3` died in predict_validation_ensemble and its wrapper stamped
+    # `arm exit 0` over the crash, because the shell read the status of a `kill -0` probe
+    # rather than the arm. The wrapper is fixed; this is the half that does not depend on
+    # which wrapper, or none, launched the arm.
+    stamp["status"] = "running"
     (pathlib.Path(project) / "arm_stamp.json").write_text(json.dumps(stamp, indent=1))
     print(json.dumps(stamp, indent=1), flush=True)
 
     t0 = time.time()
-    if args.arm == "device":
-        # The Evoformer runs on card for the WHOLE campaign: every trajectory, every
-        # gradient step, every validation refold. The mask travels with each call, so a
-        # new binder length per trajectory needs nothing from us.
-        import afgrad as _A
-        from splice import EvoformerOnDevice, evoformer_on_device
-        _lv = None
-        if not args.no_levers:
-            import stack as _S
-            _lv = _S.Levers()
-        if pool is not None:
-            # The pool IS the Dev the splice holds: it forwards up/down/sync/stack to whichever
-            # of the five trunks BindCraft 2 picked for this step, so splice.py is unchanged.
-            pool.use(pool.models[0])
-            _dev = pool
-            _held = ()          # the pool answers for itself
+    try:
+        if args.arm == "device":
+            # The Evoformer runs on card for the WHOLE campaign: every trajectory, every
+            # gradient step, every validation refold. The mask travels with each call, so a
+            # new binder length per trajectory needs nothing from us.
+            import afgrad as _A
+            from splice import EvoformerOnDevice, evoformer_on_device
+            _lv = None
+            if not args.no_levers:
+                import stack as _S
+                _lv = _S.Levers()
+            if pool is not None:
+                # The pool IS the Dev the splice holds: it forwards up/down/sync/stack to whichever
+                # of the five trunks BindCraft 2 picked for this step, so splice.py is unchanged.
+                pool.use(pool.models[0])
+                _dev = pool
+                _held = ()          # the pool answers for itself
+            else:
+                _dm, _ = _A.load_models(_A.DEFAULT_PARAMS)
+                _dev = _A.Dev(_dm.to_device())
+                _held = (checkpoint_name(_A.DEFAULT_PARAMS),)
+            if _lv is not None:
+                _lv.arm("stack")
+            evo = EvoformerOnDevice(_dev, k_evo=48, checkpoints=_held)
+            stamp["device_checkpoints"] = list(evo.checkpoints)
+            stamp["device_card"] = int(os.environ.get("TT_VISIBLE_DEVICES", "-1"))
+            with evoformer_on_device(evo):
+                count = campaign.run_campaign(settings, project, af2_weights=args.params,
+                                              mpnn_weights=mpnn,
+                                              max_trajectories=args.trajectories)
+            stamp["device_calls"] = dict(evo.calls)
+            # Folds BindCraft 2 asked for on a checkpoint the card does not hold, which run on
+            # its own JAX trunk. On the shipped pool that is the whole validation ensemble.
+            stamp["host_trunk_folds"] = dict(evo.host_folds)
+            if pool is not None:
+                stamp["pool"] = pool.stamp()
         else:
-            _dm, _ = _A.load_models(_A.DEFAULT_PARAMS)
-            _dev = _A.Dev(_dm.to_device())
-            _held = (checkpoint_name(_A.DEFAULT_PARAMS),)
-        if _lv is not None:
-            _lv.arm("stack")
-        evo = EvoformerOnDevice(_dev, k_evo=48, checkpoints=_held)
-        stamp["device_checkpoints"] = list(evo.checkpoints)
-        stamp["device_card"] = int(os.environ.get("TT_VISIBLE_DEVICES", "-1"))
-        with evoformer_on_device(evo):
             count = campaign.run_campaign(settings, project, af2_weights=args.params,
                                           mpnn_weights=mpnn,
                                           max_trajectories=args.trajectories)
-        stamp["device_calls"] = dict(evo.calls)
-        # Folds BindCraft 2 asked for on a checkpoint the card does not hold, which run on
-        # its own JAX trunk. On the shipped pool that is the whole validation ensemble.
-        stamp["host_trunk_folds"] = dict(evo.host_folds)
-        if pool is not None:
-            stamp["pool"] = pool.stamp()
-    else:
-        count = campaign.run_campaign(settings, project, af2_weights=args.params,
-                                      mpnn_weights=mpnn,
-                                      max_trajectories=args.trajectories)
-    stamp.update({"trajectories_run": count, "wall_seconds": round(time.time() - t0, 1),
-                  "finished_utc": time.strftime("%FT%TZ", time.gmtime()),
-                  "loadavg_end": os.getloadavg()})
-    (pathlib.Path(project) / "arm_stamp.json").write_text(json.dumps(stamp, indent=1))
-    print(json.dumps(stamp, indent=1), flush=True)
+        stamp.update({"trajectories_run": count, "status": "completed"})
+    except BaseException as exc:
+        # BaseException, not Exception: a SIGINT to a detached arm is how this fleet stops one,
+        # and a stamp that stays "running" forever after an interrupt is the same false signal
+        # pointing the other way.
+        stamp.update({"status": "crashed", "error": f"{type(exc).__name__}: {exc}"})
+        raise
+    finally:
+        # `ended_utc`, not `finished_utc`: this is written on both exits, and a field whose
+        # name says the campaign finished would be the false-clean signal again in a new place.
+        stamp.update({"wall_seconds": round(time.time() - t0, 1),
+                      "ended_utc": time.strftime("%FT%TZ", time.gmtime()),
+                      "loadavg_end": os.getloadavg()})
+        (pathlib.Path(project) / "arm_stamp.json").write_text(json.dumps(stamp, indent=1))
+        print(json.dumps(stamp, indent=1), flush=True)
 
 
 if __name__ == "__main__":
