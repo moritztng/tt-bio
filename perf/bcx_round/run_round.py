@@ -8,7 +8,6 @@ timestamps the seams. `--rounds` stops collection after N rounds have run in ful
 not shorten a round, reduce recycles or skip a stage.
 """
 import argparse
-import functools
 import json
 import os
 import pathlib
@@ -20,9 +19,8 @@ HERE = pathlib.Path(__file__).resolve().parent
 _ROOT = HERE.parents[1]
 sys.path.insert(0, str(HERE))
 sys.path.insert(0, str(_ROOT / "perf" / "bcx_predictor"))
-for _p in (str(_ROOT), str(_ROOT / "perf" / "bcx_afgrad"), str(_ROOT / "perf" / "bcx_stack")):
-    if _p not in sys.path:
-        sys.path.insert(0, _p)
+if str(_ROOT) not in sys.path:
+    sys.path.insert(0, str(_ROOT))
 
 import meter as M                                                      # noqa: E402
 import bc2_state as B                                                  # noqa: E402
@@ -32,6 +30,7 @@ import bindcraft.sequence_optimization as seqopt                       # noqa: E
 from bindcraft.af2 import campaign_length_bucket                       # noqa: E402
 from bindcraft.settings import parse_setting_overrides, read_settings   # noqa: E402
 from bindcraft.preflight import cleaned_campaign_settings              # noqa: E402
+from tt_bio import bindcraft2                                          # noqa: E402
 
 MONOMER = ("model_1_ptm", "model_2_ptm")
 
@@ -64,10 +63,6 @@ def main():
                       parse_setting_overrides(overrides)))
     campaign.MULTIMER_POOL = MONOMER
 
-    import ttbio_predictor as T
-    campaign.AlphaFoldDesignModel = functools.partial(
-        T.TTBioAlphaFoldDesignModel, trunk="device")
-
     node = None
     M.CLOCK = M.Clock(1.0)
     node = M.CLOCK.path
@@ -83,25 +78,26 @@ def main():
              "project": project}
     print(json.dumps(stamp, indent=1), flush=True)
 
-    import afgrad as _A
-    from splice import EvoformerOnDevice, evoformer_on_device
+    # `meter.install` patches EvoformerOnDevice's three seams and the predictor's two entry
+    # points, so it takes the module and the class rather than instances. Both now come from
+    # tt_bio's shipped surface.
     mt = M.Meter(args.rounds)
-    M.install(mt, sys.modules["splice"], T.TTBioAlphaFoldDesignModel, trajectory, seqopt)
+    M.install(mt, bindcraft2, bindcraft2.design_model_class(), trajectory, seqopt)
 
-    # No stack.Levers here, unlike run_arm.py. Its three lever arms are all ON in this
-    # tree already (autograd.TRIATT_BMM_CONFIG is True and ARMS["stack"] is (1, 1, 1)),
-    # so arming changes no kernel, and its per-op counting wrappers are Python on the
-    # host path this row is trying to measure.
-    t_load = time.time()
-    _dm, _ = _A.load_models(_A.DEFAULT_PARAMS)
-    _dev = _A.Dev(_dm.to_device())
-    evo = EvoformerOnDevice(_dev, k_evo=48)
-    M.ev("setup", "load_models", t_load, time.time())
-
+    # No stack.Levers here, unlike run_arm.py once did. Its three lever arms are all ON in
+    # this tree already (autograd.TRIATT_BMM_CONFIG is True and ARMS["stack"] is (1, 1, 1)),
+    # so arming changes no kernel, and its per-op counting wrappers are Python on the host
+    # path this row is trying to measure.
+    #
+    # The trunks load lazily, on the first fold that reaches one, so there is no load_models
+    # seam to time here any more. `meter` sees that cost inside the first device call.
     t0 = time.time()
     stopped = None
+    evo = None
     try:
-        with evoformer_on_device(evo):
+        with bindcraft2.campaign_predictor(trunk="device", validation="device",
+                                           checkpoints=args.params) as build:
+            evo = build.evoformer
             campaign.run_campaign(settings, project, af2_weights=args.params,
                                   mpnn_weights=os.path.join(B.BC2, "bindcraft", "weights",
                                                             "proteinmpnn", "weights_neutral"),
@@ -111,7 +107,8 @@ def main():
     finally:
         M.CLOCK.stop()
         stamp.update({"wall_seconds": round(time.time() - t0, 2), "stopped": stopped,
-                      "device_calls": dict(evo.calls),
+                      "device_calls": dict(evo.calls) if evo else None,
+                      "host_folds": dict(evo.host_folds) if evo else None,
                       "loadavg_end": os.getloadavg(),
                       "finished_utc": time.strftime("%FT%TZ", time.gmtime())})
         out = pathlib.Path(project) / "round_events.json"
