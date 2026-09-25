@@ -150,6 +150,12 @@ def softmax_bw_inner(y, g, dim=-1, config=None):
 
 _GRAD_ENABLED = True
 
+# Fan-in without the widening casts: `Tensor.add_grad` hands `ttnn.add` its two gradients as they
+# come, with an fp32 output, instead of typecasting each to fp32 first. Off: the mixed add lands
+# 8.2e-5 relative L2 from float64 at two contributions and 5.5e-4 at sixteen, against 1e-10 and
+# 1e-9 widened (`perf/bcx_reduce/probe.json`). Graded as a stack in `perf/bcx_reduce`.
+FANIN_MIXED = False
+
 
 def is_grad_enabled() -> bool:
     """Whether taping is on. ``no_grad`` is the only thing that turns it off, and a caller
@@ -381,6 +387,9 @@ class Tensor:
             grad = ttnn.to_layout(grad, self.value.layout)
         if self._grad is None:
             self._grad = grad
+            return
+        if FANIN_MIXED:
+            self._grad = ttnn.add(self._grad, grad, dtype=ttnn.float32)
             return
         if self._grad.dtype != ttnn.float32:
             self._grad = ttnn.typecast(self._grad, ttnn.float32)
@@ -832,8 +841,53 @@ def _reduce_to(g, shape):
     out = g
     for ax in range(len(gs)):
         if pad[ax] == 1 and gs[ax] != 1:
-            out = ttnn.sum(out, dim=ax, keepdim=True, compute_kernel_config=precise_config())
+            if TREE_REDUCE and out.dtype == ttnn.float32 and ax < len(gs) - 2:
+                prev, out = out, _tree_sum(out, ax)
+                if prev is not g:
+                    ttnn.deallocate(prev)
+            else:
+                out = ttnn.sum(out, dim=ax, keepdim=True, compute_kernel_config=precise_config())
     return ttnn.reshape(out, ws)
+
+
+# Whether `_reduce_to` sums an fp32 gradient over a leading axis with `_tree_sum` instead of
+# `ttnn.sum`. A module switch so an A/B can flip it in one process.
+TREE_REDUCE = True
+
+
+def _tree_sum(t, ax):
+    """``t`` summed over axis ``ax`` (kept as size 1), as a pairwise tree of fp32 adds.
+
+    `ttnn.sum` on an fp32 tensor is 8.3e-4 relative L2 from float64 at `precise_config()` on the
+    0.68 wheel, at 13 rows and at 256 alike, so the loss is in how it reads its input and not in
+    how it accumulates. An fp32 `ttnn.add` keeps its operands, and a halving tree of them lands
+    7.7e-8 from float64, under torch fp32's own 1.1e-7. For an axis outside the last two,
+    `ttnn.sum` also permutes the whole tensor to bring the axis into the tile, at 85 GB/s on the
+    triangle-attention bias gradient [256, 4, 256, 256]; the tree only slices it
+    (`perf/bcx_reduce`).
+    """
+    shape = [int(d) for d in t.shape]
+
+    def rows(x, lo, hi):
+        s, e = [0] * len(shape), [int(d) for d in x.shape]
+        s[ax], e[ax] = lo, hi
+        return ttnn.slice(x, s, e)
+
+    cur, left, r = t, [], shape[ax]
+    while r > 1:
+        h = r // 2
+        if r % 2:
+            left.append(rows(cur, 2 * h, r))
+        a, b = rows(cur, 0, h), rows(cur, h, 2 * h)
+        nxt = ttnn.add_(a, b)
+        ttnn.deallocate(b)
+        if cur is not t:
+            ttnn.deallocate(cur)
+        cur, r = nxt, h
+    for x in left:
+        cur = ttnn.add_(cur, x)
+        ttnn.deallocate(x)
+    return cur
 
 
 def _sum_leading(t, out_shape):
@@ -843,10 +897,25 @@ def _sum_leading(t, out_shape):
     once -- 4096 of them on a 64x64 pair block, 262144 at 512 aa -- and bf16 carries 8
     mantissa bits, so the default fidelity returns a direction rather than a gradient.
     Measured at the 64x64 block before the kernel config was passed: cosine 0.379 against
-    the float64 reference, 0.999995 after.
+    the float64 reference, 0.999995 after. That config still leaves `ttnn.sum` 7.7e-4 from
+    float64 on an fp32 input (`_tree_sum`), so fp32 goes through the add tree.
     """
     flat = _flat2d(t)
-    summed = ttnn.sum(flat, dim=0, keepdim=True, compute_kernel_config=precise_config())
+    n, c = (int(d) for d in flat.shape)
+    T = ttnn.TILE_SIZE
+    if TREE_REDUCE and flat.dtype == ttnn.float32 and n % T == 0:
+        # Whole tiles of rows are a view as [n/32, 32, c], so `_tree_sum` takes them down to one
+        # tile's 32 rows. Those sit inside the tile, where only `ttnn.sum` reaches them, so they
+        # are laid out one row per tile first: 32 x c elements, a few kB.
+        rows = _tree_sum(ttnn.reshape(flat, [n // T, T, c]), 0) if n > T else flat
+        rm = ttnn.to_layout(rows, ttnn.ROW_MAJOR_LAYOUT)
+        tiles = ttnn.to_layout(ttnn.reshape(rm, [T, 1, c]), ttnn.TILE_LAYOUT)
+        summed = _tree_sum(tiles, 0)
+        for x in (rows, rm, tiles):
+            if x is not flat:
+                ttnn.deallocate(x)
+    else:
+        summed = ttnn.sum(flat, dim=0, keepdim=True, compute_kernel_config=precise_config())
     return ttnn.reshape(summed, [int(d) for d in out_shape])
 
 
