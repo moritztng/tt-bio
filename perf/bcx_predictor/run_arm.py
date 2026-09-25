@@ -54,6 +54,11 @@ def main():
     ap.add_argument("--params", default="/home/ttuser/bcx_e2e/af2_params")
     ap.add_argument("--out", default=None)
     ap.add_argument("--settings", default=None)
+    ap.add_argument("--no-levers", action="store_true",
+                    help="skip perf/bcx_stack's lever arming. The levers are PERF levers and "
+                         "the pool arm asks a correctness question; they also need "
+                         "autograd._via2d, which is bcx-mm2d's and never landed on main, so "
+                         "on a main-based branch Levers() cannot construct at all.")
     ap.add_argument("--multimer-pool", action="store_true",
                     help="run the SHIPPED configuration: examples/pdl1.json's five "
                          "model_1..5_multimer_v3 design models, sampled one per gradient step, "
@@ -115,6 +120,7 @@ def main():
              "length_bucket_size": campaign_length_bucket(settings),
              "length_bucket_flag": args.bucket,
              "multimer_pool": bool(args.multimer_pool),
+             "levers": not args.no_levers,
              "design_models": list(getattr(settings, "design_models", []) or []),
              "predictor": "AlphaFoldDesignModel" if args.arm == "reference"
                           else "TTBioAlphaFoldDesignModel",
@@ -129,9 +135,12 @@ def main():
         # The Evoformer runs on card for the WHOLE campaign: every trajectory, every
         # gradient step, every validation refold. The mask travels with each call, so a
         # new binder length per trajectory needs nothing from us.
-        import afgrad as _A, stack as _S
+        import afgrad as _A
         from splice import EvoformerOnDevice, evoformer_on_device
-        _lv = _S.Levers()
+        _lv = None
+        if not args.no_levers:
+            import stack as _S
+            _lv = _S.Levers()
         if pool is not None:
             # The pool IS the Dev the splice holds: it forwards up/down/sync/stack to whichever
             # of the five trunks BindCraft 2 picked for this step, so splice.py is unchanged.
@@ -140,7 +149,8 @@ def main():
         else:
             _dm, _ = _A.load_models(_A.DEFAULT_PARAMS)
             _dev = _A.Dev(_dm.to_device())
-        _lv.arm("stack")
+        if _lv is not None:
+            _lv.arm("stack")
         evo = EvoformerOnDevice(_dev, k_evo=48)
         stamp["device_card"] = int(os.environ.get("TT_VISIBLE_DEVICES", "-1"))
         with evoformer_on_device(evo):
