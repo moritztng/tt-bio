@@ -1143,6 +1143,18 @@ state doc nor its `CLAUSE_EXACT.json` names the version anywhere.
   survey sizes jobs by multiplying a count by a global mean, it has assumed the mean is uniform
   — check one site's marginal cost against the mean before ranking anything by count.**
 
+- **K27** (pass 454) **A PRIORITY WRITTEN IN A STATE DOC DOES NOT REACH THE DISPATCHER; QUEUE
+  ORDER IS `TASKS.md` INSERTION ORDER.** I published the card queue as exactscope (128.73 s) ->
+  restep -> zerosfill (11.80 s) in SEQUENCE, then inserted the two new TASKS.md rows in the order
+  I happened to write them — zerosfill first. `reconcile_tasks.sh` emits `queue.tsv` in
+  `open_order` (first-seen order in TASKS.md) and `fleet.sh` walks it top-down, so the moment the
+  card freed it went to **zerosfill, the job I had ranked third**. No harm here: both are wanted,
+  zerosfill was already running before I noticed, and the next in line is exactscope, which is
+  where I wanted it. **But the general form is the same as K20 and worth the entry: the state doc
+  is documentation, not control plane.** If the order matters, it has to be expressed where the
+  mechanism reads it — TASKS.md insertion order — and a successor should not assume SEQUENCE's
+  ranking is what will actually run next. Read `queue.tsv` top-down to know the real order.
+
 - **K26** (pass 454) **A DETACHED RETRY CHAIN DEADLOCKS ITS OWN ROW, AND THE SAFE EXIT IS TO KILL
   THE WRAPPER, NOT THE DEVICE HOLDER.** `of3t-wheelbw`'s `chain3.sh` looped on the K24 bug for
   **38 minutes and 5 of its 40 permitted tries, 5 failures and 0 successes**, holding pc card 0 —

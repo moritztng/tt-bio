@@ -42,7 +42,7 @@ author and cite what you took; gates are batched and a stack is approved whole. 
 speedup that does less of the model's own work. A1-A45 are the correctness protocol and are
 unchanged. History: `state/of3t/PASSLOG.md`.
 
-LEDGER: `~/.coworker/state/of3t/LEDGER.md`, **R1-R212 and K1-K26**. **R203, filed this pass, is
+LEDGER: `~/.coworker/state/of3t/LEDGER.md`, **R1-R212 and K1-K27**. **R203, filed this pass, is
 the sprint's first finding and it reordered the job list: an engine-wide fused-kernel bypass hid
 behind a per-module comment. A per-site comment that correctly explains one decline is the best
 camouflage a policy can have, because every reader who checks one site leaves satisfied. Count the
@@ -128,6 +128,10 @@ SEQUENCE: **R212 ended the sprint's original sequencing question, so this is the
 JOBS list is spent: J1 NO-GO, J2's free route NO-GO, J3 dead at zero, J4 down to its seconds, the
 taped bypass 1.005x. What is left is three rows on one Blackhole card, ordered by seconds off the
 SHIPPED (exact-on) step, which is the only denominator a product decision can use:
+
+**The ACTUAL run order is `queue.tsv` top-down, not this ranking (K27)** — `zerosfill` took the
+card at 17:50:36 because I inserted it into `TASKS.md` first, and insertion order is what the
+dispatcher reads. `exactscope` is next, which is where I wanted it. Ranked by value:
 
 1. **`of3t-exactscope`** — does exact softmax alone carry the accuracy, so the exact layer norm
    can go? **128.73 s**, and it costs no fidelity if the answer is yes. Largest remaining number
