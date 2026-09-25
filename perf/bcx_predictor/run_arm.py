@@ -59,14 +59,23 @@ def main():
                          "default of 32. It used to have to be 1 because the trunk "
                          "refused a masked fold; all three mask sites are in af2.py "
                          "now, so 32 runs and is the lab's configuration.")
+    ap.add_argument("--shipped", action="store_true",
+                    help="leave BindCraft 2's own model pool alone. The monomer pin below "
+                         "makes the two arms comparable to each other; it also makes neither "
+                         "comparable to the lab's own figure, which is the question leg 2 of "
+                         "bcx-repin asks. Reference-only: tt-bio's trunk is monomer model_1_ptm.")
     args = ap.parse_args()
+    if args.shipped and args.arm != "reference":
+        ap.error("--shipped is reference-only; tt-bio's AF2 trunk is monomer model_1_ptm")
 
     project = args.out or str(HERE / "runs" / f"{args.arm}_seed{args.seed}")
     pathlib.Path(project).mkdir(parents=True, exist_ok=True)
 
     overrides = [f"campaign_seed={args.seed}", f"max_trajectories={args.trajectories}",
-                 "validation_model=monomer", 'design_models=["model_1_ptm"]',
-                 'validation_models=["model_2_ptm"]', f"project_folder={project}"]
+                 f"project_folder={project}"]
+    if not args.shipped:
+        overrides[2:2] = ["validation_model=monomer", 'design_models=["model_1_ptm"]',
+                          'validation_models=["model_2_ptm"]']
     if args.bucket:
         overrides.append(f"length_bucket_size={args.bucket}")
     settings = cleaned_campaign_settings(
@@ -74,7 +83,8 @@ def main():
                       parse_setting_overrides(overrides)))
 
     # Both arms on the monomer checkpoints -- see the module docstring.
-    campaign.MULTIMER_POOL = MONOMER
+    if not args.shipped:
+        campaign.MULTIMER_POOL = MONOMER
 
     if args.arm != "reference":
         # campaign.py:262 is the only construction of a predictor in the repository, so an
@@ -94,6 +104,9 @@ def main():
              # overrides list entirely and every run used BindCraft 2's default 32.
              "length_bucket_size": campaign_length_bucket(settings),
              "length_bucket_flag": args.bucket,
+             "shipped_model_pool": bool(args.shipped),
+             "settings_file": args.settings or os.path.join(B.BC2, "examples", "pdl1.json"),
+             "bc2": B.BC2,
              "predictor": "AlphaFoldDesignModel" if args.arm == "reference"
                           else "TTBioAlphaFoldDesignModel",
              "host": os.uname().nodename, "started_utc": time.strftime("%FT%TZ", time.gmtime()),
