@@ -1,0 +1,116 @@
+{
+ "runs": [
+  "perf/bcx_template/runs/round_ab",
+  "perf/bcx_template/runs/round_ab30"
+ ],
+ "stall_threshold_s": 25.0,
+ "per_run": {
+  "round_ab": {
+   "label": "round_ab",
+   "n_on": 6,
+   "n_off": 6,
+   "off_median": 14.878,
+   "on_median": 13.11,
+   "ratio_off_over_on": 1.135,
+   "seconds_saved_arm_medians": 1.768,
+   "paired_n": 6,
+   "paired_median_s": 1.264,
+   "paired_mean_s": -3.042,
+   "paired_faster_on_card": 4,
+   "device_template_median_s": 0.0635,
+   "on_quartiles": [
+    12.136,
+    13.557,
+    15.62
+   ],
+   "off_quartiles": [
+    14.45,
+    15.142,
+    15.616
+   ],
+   "fraction_of_cross_pairs_on_is_faster": 0.667
+  },
+  "round_ab30": {
+   "label": "round_ab30",
+   "n_on": 14,
+   "n_off": 14,
+   "off_median": 16.681,
+   "on_median": 15.346,
+   "ratio_off_over_on": 1.087,
+   "seconds_saved_arm_medians": 1.335,
+   "paired_n": 14,
+   "paired_median_s": 0.727,
+   "paired_mean_s": 1.616,
+   "paired_faster_on_card": 11,
+   "device_template_median_s": 0.0655,
+   "on_quartiles": [
+    14.655,
+    15.488,
+    16.555
+   ],
+   "off_quartiles": [
+    15.161,
+    16.763,
+    18.505
+   ],
+   "fraction_of_cross_pairs_on_is_faster": 0.648
+  }
+ },
+ "all": {
+  "label": "every round",
+  "n_on": 20,
+  "n_off": 20,
+  "off_median": 15.759,
+  "on_median": 15.17,
+  "ratio_off_over_on": 1.039,
+  "seconds_saved_arm_medians": 0.589,
+  "paired_n": 20,
+  "paired_median_s": 0.897,
+  "paired_mean_s": 0.219,
+  "paired_faster_on_card": 15,
+  "device_template_median_s": 0.0645,
+  "on_quartiles": [
+   13.557,
+   15.205,
+   16.555
+  ],
+  "off_quartiles": [
+   15.142,
+   15.902,
+   17.466
+  ],
+  "fraction_of_cross_pairs_on_is_faster": 0.623
+ },
+ "stalls_cut": {
+  "label": "rounds under 25.0 s",
+  "n_on": 17,
+  "n_off": 18,
+  "off_median": 15.497,
+  "on_median": 14.925,
+  "ratio_off_over_on": 1.038,
+  "seconds_saved_arm_medians": 0.572,
+  "paired_n": 17,
+  "paired_median_s": 1.467,
+  "paired_mean_s": 1.402,
+  "paired_faster_on_card": 15,
+  "device_template_median_s": 0.063,
+  "on_quartiles": [
+   13.208,
+   14.925,
+   15.578
+  ],
+  "off_quartiles": [
+   14.615,
+   15.616,
+   16.763
+  ],
+  "fraction_of_cross_pairs_on_is_faster": 0.69
+ },
+ "stalls": [
+  30.18,
+  39.12,
+  40.97,
+  41.48,
+  42.87
+ ]
+}

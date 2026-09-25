@@ -1,0 +1,893 @@
+{
+ "instrument": "jax.profiler thunk events + optimised HLO op_name",
+ "hlo": "perf/bcx_template/runs/confirm_prof/hlo/module_0402.jit_sequence_design_loss.cpu_after_optimizations.txt",
+ "programs": {
+  "jit__threefry_split#18": 40,
+  "jit_unstack#20": 8,
+  "jit__randint#22": 112,
+  "jit_bitwise_and#316": 8,
+  "jit_not_equal#318": 8,
+  "jit__reduce_any#354": 8,
+  "jit__pad#358": 4,
+  "jit__pad#362": 4,
+  "jit__pad#366": 4,
+  "jit__pad#368": 4,
+  "jit_dynamic_slice#376": 4,
+  "jit_squeeze#382": 4,
+  "jit_add#386": 4,
+  "jit_iota#388": 4,
+  "jit_add#390": 4,
+  "jit_concatenate#392": 4,
+  "jit_bitwise_and#356": 4,
+  "jit_not_equal#360": 4,
+  "jit__reduce_any#364": 8,
+  "jit_concatenate#394": 4,
+  "jit_concatenate#396": 4,
+  "jit_concatenate#398": 4,
+  "jit_concatenate#400": 4,
+  "jit_convert_element_type#380": 32,
+  "jit_stage#384": 4,
+  "jit_sequence_design_loss#402": 116460,
+  "jit_dynamic_slice#406": 4,
+  "jit_dynamic_slice#408": 4,
+  "jit_dynamic_slice#410": 4,
+  "jit_dynamic_slice#412": 4,
+  "jit_dynamic_slice#414": 4,
+  "jit_dynamic_slice#416": 4,
+  "jit_iota#300": 4,
+  "jit_convert_element_type#38": 4,
+  "jit_iota#418": 4,
+  "jit_add#420": 4,
+  "jit_concatenate#422": 4,
+  "jit_broadcast_in_dim#424": 20,
+  "jit_broadcast_in_dim#426": 8,
+  "jit_less#428": 8,
+  "jit_add#430": 8,
+  "jit_select_n#432": 8,
+  "jit_less#434": 8,
+  "jit_add#436": 8,
+  "jit_select_n#438": 8,
+  "jit__broadcast_arrays#440": 16,
+  "jit_broadcast_in_dim#442": 16,
+  "jit_concatenate#444": 8,
+  "jit_gather#446": 4,
+  "jit_broadcast_in_dim#448": 4,
+  "jit_less#450": 12,
+  "jit_add#452": 12,
+  "jit_select_n#454": 12,
+  "jit__broadcast_arrays#456": 12,
+  "jit_gather#458": 12,
+  "jit_broadcast_in_dim#460": 12,
+  "jit_gather#462": 4,
+  "jit_broadcast_in_dim#464": 4,
+  "jit_dynamic_slice#466": 4,
+  "jit_greater#516": 8,
+  "jit_stack#468": 4,
+  "jit__reduce_sum#470": 4,
+  "jit_stack#472": 4,
+  "jit__reduce_sum#474": 4,
+  "jit_stage#52": 36,
+  "jit_broadcast_in_dim#320": 4,
+  "jit_add#494": 4,
+  "jit_greater#484": 4,
+  "jit__reduce_sum#486": 12,
+  "jit_sqrt#488": 4,
+  "jit_subtract#498": 4,
+  "jit_multiply#500": 4,
+  "jit_add#502": 4,
+  "jit_add#510": 4,
+  "jit__where#512": 4,
+  "jit_convert_element_type#514": 4,
+  "jit_convert_element_type#476": 8,
+  "jit__where#478": 4,
+  "jit_square#480": 4,
+  "jit__reduce_sum#482": 4,
+  "jit_norm#492": 12,
+  "jit_true_divide#496": 8,
+  "jit_multiply#504": 4,
+  "jit_multiply#506": 4,
+  "jit_multiply#490": 4,
+  "jit_less_equal#508": 4
+ },
+ "offset_spread_ms": 5.53,
+ "offset_votes": {
+  "agreeing": 4,
+  "meter_device_events": 18,
+  "callback_thunks": 24
+ },
+ "rounds": [
+  {
+   "round": 3,
+   "sequence_gradients_s": 15.727,
+   "lower_compile_s": 0.009,
+   "outside_xla_s": 0.794,
+   "outside_xla_before_first_thunk_s": 0.031,
+   "outside_xla_after_last_thunk_s": 0.081,
+   "outside_xla_gaps_inside_execution_s": 0.682,
+   "charged_by_enclosing_computation_s": 1.333,
+   "unmapped_by_opcode_s": {},
+   "rows": [
+    {
+     "module": "device: trunk callback",
+     "wall_s": 9.432,
+     "cpu_s": 9.432,
+     "share_of_sg": 0.5997
+    },
+    {
+     "module": "template embedding [fwd]",
+     "wall_s": 1.754,
+     "cpu_s": 1.927,
+     "share_of_sg": 0.1115
+    },
+    {
+     "module": "template embedding [bwd]",
+     "wall_s": 1.575,
+     "cpu_s": 1.577,
+     "share_of_sg": 0.1002
+    },
+    {
+     "module": "structure module [fwd]",
+     "wall_s": 1.017,
+     "cpu_s": 1.802,
+     "share_of_sg": 0.0647
+    },
+    {
+     "module": "structure module [bwd]",
+     "wall_s": 0.884,
+     "cpu_s": 2.238,
+     "share_of_sg": 0.0562
+    },
+    {
+     "module": "loss [fwd]",
+     "wall_s": 0.132,
+     "cpu_s": 0.232,
+     "share_of_sg": 0.0084
+    },
+    {
+     "module": "loss [bwd]",
+     "wall_s": 0.046,
+     "cpu_s": 0.058,
+     "share_of_sg": 0.0029
+    },
+    {
+     "module": "evoformer (JAX side) [fwd]",
+     "wall_s": 0.039,
+     "cpu_s": 0.043,
+     "share_of_sg": 0.0025
+    },
+    {
+     "module": "evoformer (JAX side) [bwd]",
+     "wall_s": 0.013,
+     "cpu_s": 0.013,
+     "share_of_sg": 0.0008
+    },
+    {
+     "module": "embedder: recycling [fwd]",
+     "wall_s": 0.009,
+     "cpu_s": 0.011,
+     "share_of_sg": 0.0006
+    },
+    {
+     "module": "heads: PAE/pTM [fwd]",
+     "wall_s": 0.007,
+     "cpu_s": 0.022,
+     "share_of_sg": 0.0004
+    },
+    {
+     "module": "embedder: relpos [fwd]",
+     "wall_s": 0.006,
+     "cpu_s": 0.006,
+     "share_of_sg": 0.0004
+    },
+    {
+     "module": "heads: distogram [fwd]",
+     "wall_s": 0.006,
+     "cpu_s": 0.015,
+     "share_of_sg": 0.0004
+    },
+    {
+     "module": "heads: distogram [bwd]",
+     "wall_s": 0.004,
+     "cpu_s": 0.004,
+     "share_of_sg": 0.0003
+    },
+    {
+     "module": "single_activations [fwd]",
+     "wall_s": 0.003,
+     "cpu_s": 0.006,
+     "share_of_sg": 0.0002
+    },
+    {
+     "module": "template single/torsion [fwd]",
+     "wall_s": 0.003,
+     "cpu_s": 0.005,
+     "share_of_sg": 0.0002
+    },
+    {
+     "module": "heads: pLDDT [fwd]",
+     "wall_s": 0.001,
+     "cpu_s": 0.001,
+     "share_of_sg": 0.0001
+    },
+    {
+     "module": "heads: pLDDT [bwd]",
+     "wall_s": 0.001,
+     "cpu_s": 0.003,
+     "share_of_sg": 0.0001
+    },
+    {
+     "module": "embedder: MSA/target [fwd]",
+     "wall_s": 0.001,
+     "cpu_s": 0.001,
+     "share_of_sg": 0.0
+    },
+    {
+     "module": "embedder: MSA/target [bwd]",
+     "wall_s": 0.0,
+     "cpu_s": 0.0,
+     "share_of_sg": 0.0
+    },
+    {
+     "module": "heads: exp. resolved [fwd]",
+     "wall_s": 0.0,
+     "cpu_s": 0.0,
+     "share_of_sg": 0.0
+    },
+    {
+     "module": "single_activations [bwd]",
+     "wall_s": 0.0,
+     "cpu_s": 0.0,
+     "share_of_sg": 0.0
+    }
+   ],
+   "detail": {
+    "device: trunk callback [bwd] other": 6.725,
+    "device: trunk callback [fwd] other": 2.706,
+    "template embedding [bwd] other": 1.575,
+    "template embedding [fwd] template_pair_stack (remat)": 1.486,
+    "structure module [bwd] invariant_point_attention": 0.791,
+    "structure module [fwd] invariant_point_attention": 0.783,
+    "template embedding [fwd] template_pair_stack/transition (remat)": 0.185,
+    "structure module [fwd] other": 0.154,
+    "loss [fwd] other": 0.126,
+    "template embedding [fwd] other": 0.083,
+    "structure module [fwd] transition": 0.053
+   },
+   "by_phase": {
+    "host: before trunk #1": {
+     "template embedding": 1.717,
+     "loss": 0.069,
+     "evoformer (JAX side)": 0.015,
+     "embedder: relpos": 0.006,
+     "embedder: recycling": 0.003,
+     "structure module": 0.003,
+     "template single/torsion": 0.003,
+     "embedder: MSA/target": 0.001,
+     "heads: PAE/pTM": 0.0,
+     "heads: pLDDT": 0.0,
+     "single_activations": 0.0
+    },
+    "host: between trunk calls": {
+     "structure module": 0.564,
+     "template embedding": 0.038,
+     "embedder: recycling": 0.006,
+     "evoformer (JAX side)": 0.006,
+     "loss": 0.006,
+     "single_activations": 0.002
+    },
+    "host: fwd tail + bwd entry": {
+     "structure module": 1.335,
+     "loss": 0.063,
+     "evoformer (JAX side)": 0.018,
+     "heads: distogram": 0.01,
+     "heads: PAE/pTM": 0.007,
+     "heads: pLDDT": 0.002,
+     "single_activations": 0.001,
+     "heads: exp. resolved": 0.0
+    },
+    "host: JAX backward tail": {
+     "template embedding": 1.575,
+     "loss": 0.041,
+     "evoformer (JAX side)": 0.013,
+     "embedder: MSA/target": 0.0
+    }
+   },
+   "unmapped_ops": []
+  },
+  {
+   "round": 4,
+   "sequence_gradients_s": 16.099,
+   "lower_compile_s": 0.015,
+   "outside_xla_s": 0.791,
+   "outside_xla_before_first_thunk_s": 0.035,
+   "outside_xla_after_last_thunk_s": 0.071,
+   "outside_xla_gaps_inside_execution_s": 0.685,
+   "charged_by_enclosing_computation_s": 1.578,
+   "unmapped_by_opcode_s": {},
+   "rows": [
+    {
+     "module": "device: trunk callback",
+     "wall_s": 10.109,
+     "cpu_s": 10.109,
+     "share_of_sg": 0.628
+    },
+    {
+     "module": "template embedding [bwd]",
+     "wall_s": 2.124,
+     "cpu_s": 2.126,
+     "share_of_sg": 0.1319
+    },
+    {
+     "module": "structure module [fwd]",
+     "wall_s": 1.111,
+     "cpu_s": 2.039,
+     "share_of_sg": 0.069
+    },
+    {
+     "module": "template embedding [fwd]",
+     "wall_s": 1.108,
+     "cpu_s": 1.289,
+     "share_of_sg": 0.0688
+    },
+    {
+     "module": "structure module [bwd]",
+     "wall_s": 0.586,
+     "cpu_s": 1.426,
+     "share_of_sg": 0.0364
+    },
+    {
+     "module": "loss [fwd]",
+     "wall_s": 0.133,
+     "cpu_s": 0.274,
+     "share_of_sg": 0.0082
+    },
+    {
+     "module": "loss [bwd]",
+     "wall_s": 0.059,
+     "cpu_s": 0.072,
+     "share_of_sg": 0.0037
+    },
+    {
+     "module": "evoformer (JAX side) [fwd]",
+     "wall_s": 0.04,
+     "cpu_s": 0.043,
+     "share_of_sg": 0.0025
+    },
+    {
+     "module": "embedder: recycling [fwd]",
+     "wall_s": 0.011,
+     "cpu_s": 0.014,
+     "share_of_sg": 0.0007
+    },
+    {
+     "module": "heads: PAE/pTM [fwd]",
+     "wall_s": 0.007,
+     "cpu_s": 0.017,
+     "share_of_sg": 0.0004
+    },
+    {
+     "module": "evoformer (JAX side) [bwd]",
+     "wall_s": 0.005,
+     "cpu_s": 0.005,
+     "share_of_sg": 0.0003
+    },
+    {
+     "module": "embedder: relpos [fwd]",
+     "wall_s": 0.004,
+     "cpu_s": 0.004,
+     "share_of_sg": 0.0002
+    },
+    {
+     "module": "heads: distogram [fwd]",
+     "wall_s": 0.003,
+     "cpu_s": 0.008,
+     "share_of_sg": 0.0002
+    },
+    {
+     "module": "single_activations [fwd]",
+     "wall_s": 0.003,
+     "cpu_s": 0.006,
+     "share_of_sg": 0.0002
+    },
+    {
+     "module": "heads: distogram [bwd]",
+     "wall_s": 0.002,
+     "cpu_s": 0.005,
+     "share_of_sg": 0.0001
+    },
+    {
+     "module": "template single/torsion [fwd]",
+     "wall_s": 0.001,
+     "cpu_s": 0.001,
+     "share_of_sg": 0.0
+    },
+    {
+     "module": "heads: pLDDT [bwd]",
+     "wall_s": 0.001,
+     "cpu_s": 0.004,
+     "share_of_sg": 0.0001
+    },
+    {
+     "module": "embedder: MSA/target [fwd]",
+     "wall_s": 0.0,
+     "cpu_s": 0.0,
+     "share_of_sg": 0.0
+    },
+    {
+     "module": "heads: pLDDT [fwd]",
+     "wall_s": 0.0,
+     "cpu_s": 0.001,
+     "share_of_sg": 0.0
+    },
+    {
+     "module": "heads: exp. resolved [fwd]",
+     "wall_s": 0.0,
+     "cpu_s": 0.0,
+     "share_of_sg": 0.0
+    },
+    {
+     "module": "embedder: MSA/target [bwd]",
+     "wall_s": 0.0,
+     "cpu_s": 0.0,
+     "share_of_sg": 0.0
+    },
+    {
+     "module": "single_activations [bwd]",
+     "wall_s": 0.0,
+     "cpu_s": 0.0,
+     "share_of_sg": 0.0
+    }
+   ],
+   "detail": {
+    "device: trunk callback [bwd] other": 7.054,
+    "device: trunk callback [fwd] other": 3.056,
+    "template embedding [bwd] other": 2.124,
+    "template embedding [fwd] template_pair_stack (remat)": 0.937,
+    "structure module [fwd] invariant_point_attention": 0.877,
+    "structure module [bwd] invariant_point_attention": 0.544,
+    "structure module [fwd] other": 0.166,
+    "loss [fwd] other": 0.123,
+    "template embedding [fwd] template_pair_stack/transition (remat)": 0.094,
+    "template embedding [fwd] other": 0.076,
+    "loss [bwd] other": 0.059
+   },
+   "by_phase": {
+    "host: before trunk #1": {
+     "template embedding": 1.071,
+     "loss": 0.071,
+     "structure module": 0.006,
+     "evoformer (JAX side)": 0.006,
+     "embedder: recycling": 0.005,
+     "embedder: relpos": 0.004,
+     "template single/torsion": 0.001,
+     "heads: PAE/pTM": 0.001,
+     "embedder: MSA/target": 0.0,
+     "heads: pLDDT": 0.0,
+     "single_activations": 0.0
+    },
+    "host: between trunk calls": {
+     "structure module": 0.693,
+     "template embedding": 0.037,
+     "evoformer (JAX side)": 0.021,
+     "loss": 0.011,
+     "embedder: recycling": 0.007,
+     "single_activations": 0.002
+    },
+    "host: fwd tail + bwd entry": {
+     "structure module": 0.999,
+     "loss": 0.07,
+     "evoformer (JAX side)": 0.013,
+     "heads: PAE/pTM": 0.006,
+     "heads: distogram": 0.005,
+     "heads: pLDDT": 0.002,
+     "single_activations": 0.001,
+     "heads: exp. resolved": 0.0
+    },
+    "host: JAX backward tail": {
+     "template embedding": 2.124,
+     "loss": 0.039,
+     "evoformer (JAX side)": 0.005,
+     "embedder: MSA/target": 0.0
+    }
+   },
+   "unmapped_ops": []
+  },
+  {
+   "round": 5,
+   "sequence_gradients_s": 16.793,
+   "lower_compile_s": 0.007,
+   "outside_xla_s": 0.882,
+   "outside_xla_before_first_thunk_s": 0.027,
+   "outside_xla_after_last_thunk_s": 0.104,
+   "outside_xla_gaps_inside_execution_s": 0.751,
+   "charged_by_enclosing_computation_s": 1.374,
+   "unmapped_by_opcode_s": {},
+   "rows": [
+    {
+     "module": "device: trunk callback",
+     "wall_s": 9.879,
+     "cpu_s": 9.879,
+     "share_of_sg": 0.5883
+    },
+    {
+     "module": "template embedding [bwd]",
+     "wall_s": 1.835,
+     "cpu_s": 1.837,
+     "share_of_sg": 0.1093
+    },
+    {
+     "module": "template embedding [fwd]",
+     "wall_s": 1.621,
+     "cpu_s": 1.796,
+     "share_of_sg": 0.0966
+    },
+    {
+     "module": "structure module [fwd]",
+     "wall_s": 1.375,
+     "cpu_s": 2.563,
+     "share_of_sg": 0.0819
+    },
+    {
+     "module": "structure module [bwd]",
+     "wall_s": 0.854,
+     "cpu_s": 2.025,
+     "share_of_sg": 0.0509
+    },
+    {
+     "module": "loss [fwd]",
+     "wall_s": 0.164,
+     "cpu_s": 0.34,
+     "share_of_sg": 0.0098
+    },
+    {
+     "module": "loss [bwd]",
+     "wall_s": 0.073,
+     "cpu_s": 0.081,
+     "share_of_sg": 0.0043
+    },
+    {
+     "module": "evoformer (JAX side) [fwd]",
+     "wall_s": 0.037,
+     "cpu_s": 0.046,
+     "share_of_sg": 0.0022
+    },
+    {
+     "module": "embedder: recycling [fwd]",
+     "wall_s": 0.018,
+     "cpu_s": 0.02,
+     "share_of_sg": 0.0011
+    },
+    {
+     "module": "evoformer (JAX side) [bwd]",
+     "wall_s": 0.017,
+     "cpu_s": 0.017,
+     "share_of_sg": 0.001
+    },
+    {
+     "module": "embedder: relpos [fwd]",
+     "wall_s": 0.012,
+     "cpu_s": 0.019,
+     "share_of_sg": 0.0007
+    },
+    {
+     "module": "heads: PAE/pTM [fwd]",
+     "wall_s": 0.01,
+     "cpu_s": 0.034,
+     "share_of_sg": 0.0006
+    },
+    {
+     "module": "heads: distogram [fwd]",
+     "wall_s": 0.005,
+     "cpu_s": 0.014,
+     "share_of_sg": 0.0003
+    },
+    {
+     "module": "heads: distogram [bwd]",
+     "wall_s": 0.003,
+     "cpu_s": 0.003,
+     "share_of_sg": 0.0002
+    },
+    {
+     "module": "template single/torsion [fwd]",
+     "wall_s": 0.002,
+     "cpu_s": 0.005,
+     "share_of_sg": 0.0001
+    },
+    {
+     "module": "single_activations [fwd]",
+     "wall_s": 0.002,
+     "cpu_s": 0.004,
+     "share_of_sg": 0.0001
+    },
+    {
+     "module": "embedder: MSA/target [bwd]",
+     "wall_s": 0.001,
+     "cpu_s": 0.001,
+     "share_of_sg": 0.0
+    },
+    {
+     "module": "heads: pLDDT [bwd]",
+     "wall_s": 0.001,
+     "cpu_s": 0.001,
+     "share_of_sg": 0.0
+    },
+    {
+     "module": "heads: pLDDT [fwd]",
+     "wall_s": 0.001,
+     "cpu_s": 0.001,
+     "share_of_sg": 0.0001
+    },
+    {
+     "module": "single_activations [bwd]",
+     "wall_s": 0.001,
+     "cpu_s": 0.002,
+     "share_of_sg": 0.0001
+    },
+    {
+     "module": "embedder: MSA/target [fwd]",
+     "wall_s": 0.0,
+     "cpu_s": 0.0,
+     "share_of_sg": 0.0
+    },
+    {
+     "module": "heads: exp. resolved [fwd]",
+     "wall_s": 0.0,
+     "cpu_s": 0.0,
+     "share_of_sg": 0.0
+    }
+   ],
+   "detail": {
+    "device: trunk callback [bwd] other": 6.934,
+    "device: trunk callback [fwd] other": 2.945,
+    "template embedding [bwd] other": 1.835,
+    "template embedding [fwd] template_pair_stack (remat)": 1.32,
+    "structure module [fwd] invariant_point_attention": 1.16,
+    "structure module [bwd] invariant_point_attention": 0.77,
+    "template embedding [fwd] other": 0.175,
+    "loss [fwd] other": 0.153,
+    "structure module [fwd] other": 0.143,
+    "template embedding [fwd] template_pair_stack/transition (remat)": 0.124,
+    "loss [bwd] other": 0.073
+   },
+   "by_phase": {
+    "host: before trunk #1": {
+     "template embedding": 1.562,
+     "loss": 0.07,
+     "evoformer (JAX side)": 0.012,
+     "embedder: relpos": 0.012,
+     "embedder: recycling": 0.006,
+     "structure module": 0.003,
+     "template single/torsion": 0.002,
+     "heads: PAE/pTM": 0.001,
+     "embedder: MSA/target": 0.0,
+     "heads: pLDDT": 0.0,
+     "single_activations": 0.0
+    },
+    "host: between trunk calls": {
+     "structure module": 0.654,
+     "template embedding": 0.059,
+     "embedder: recycling": 0.013,
+     "evoformer (JAX side)": 0.011,
+     "loss": 0.009,
+     "single_activations": 0.001
+    },
+    "host: fwd tail + bwd entry": {
+     "structure module": 1.571,
+     "loss": 0.125,
+     "evoformer (JAX side)": 0.014,
+     "heads: PAE/pTM": 0.009,
+     "heads: distogram": 0.008,
+     "single_activations": 0.002,
+     "heads: pLDDT": 0.001,
+     "heads: exp. resolved": 0.0
+    },
+    "host: JAX backward tail": {
+     "template embedding": 1.835,
+     "loss": 0.033,
+     "evoformer (JAX side)": 0.017,
+     "embedder: MSA/target": 0.001
+    }
+   },
+   "unmapped_ops": []
+  },
+  {
+   "round": 6,
+   "sequence_gradients_s": 15.626,
+   "lower_compile_s": 0.01,
+   "outside_xla_s": 0.743,
+   "outside_xla_before_first_thunk_s": 0.03,
+   "outside_xla_after_last_thunk_s": 0.078,
+   "outside_xla_gaps_inside_execution_s": 0.635,
+   "charged_by_enclosing_computation_s": 1.54,
+   "unmapped_by_opcode_s": {},
+   "rows": [
+    {
+     "module": "device: trunk callback",
+     "wall_s": 9.772,
+     "cpu_s": 9.772,
+     "share_of_sg": 0.6254
+    },
+    {
+     "module": "template embedding [bwd]",
+     "wall_s": 2.118,
+     "cpu_s": 2.121,
+     "share_of_sg": 0.1355
+    },
+    {
+     "module": "template embedding [fwd]",
+     "wall_s": 1.201,
+     "cpu_s": 1.379,
+     "share_of_sg": 0.0769
+    },
+    {
+     "module": "structure module [fwd]",
+     "wall_s": 0.903,
+     "cpu_s": 1.728,
+     "share_of_sg": 0.0578
+    },
+    {
+     "module": "structure module [bwd]",
+     "wall_s": 0.654,
+     "cpu_s": 1.538,
+     "share_of_sg": 0.0419
+    },
+    {
+     "module": "loss [fwd]",
+     "wall_s": 0.103,
+     "cpu_s": 0.2,
+     "share_of_sg": 0.0066
+    },
+    {
+     "module": "loss [bwd]",
+     "wall_s": 0.053,
+     "cpu_s": 0.058,
+     "share_of_sg": 0.0034
+    },
+    {
+     "module": "evoformer (JAX side) [fwd]",
+     "wall_s": 0.023,
+     "cpu_s": 0.028,
+     "share_of_sg": 0.0015
+    },
+    {
+     "module": "embedder: recycling [fwd]",
+     "wall_s": 0.02,
+     "cpu_s": 0.022,
+     "share_of_sg": 0.0013
+    },
+    {
+     "module": "evoformer (JAX side) [bwd]",
+     "wall_s": 0.009,
+     "cpu_s": 0.009,
+     "share_of_sg": 0.0006
+    },
+    {
+     "module": "heads: PAE/pTM [fwd]",
+     "wall_s": 0.008,
+     "cpu_s": 0.019,
+     "share_of_sg": 0.0005
+    },
+    {
+     "module": "embedder: relpos [fwd]",
+     "wall_s": 0.005,
+     "cpu_s": 0.015,
+     "share_of_sg": 0.0003
+    },
+    {
+     "module": "single_activations [fwd]",
+     "wall_s": 0.005,
+     "cpu_s": 0.012,
+     "share_of_sg": 0.0003
+    },
+    {
+     "module": "heads: distogram [bwd]",
+     "wall_s": 0.004,
+     "cpu_s": 0.004,
+     "share_of_sg": 0.0003
+    },
+    {
+     "module": "template single/torsion [fwd]",
+     "wall_s": 0.001,
+     "cpu_s": 0.002,
+     "share_of_sg": 0.0001
+    },
+    {
+     "module": "heads: distogram [fwd]",
+     "wall_s": 0.001,
+     "cpu_s": 0.004,
+     "share_of_sg": 0.0001
+    },
+    {
+     "module": "heads: pLDDT [fwd]",
+     "wall_s": 0.0,
+     "cpu_s": 0.001,
+     "share_of_sg": 0.0
+    },
+    {
+     "module": "embedder: MSA/target [bwd]",
+     "wall_s": 0.0,
+     "cpu_s": 0.0,
+     "share_of_sg": 0.0
+    },
+    {
+     "module": "embedder: MSA/target [fwd]",
+     "wall_s": 0.0,
+     "cpu_s": 0.0,
+     "share_of_sg": 0.0
+    },
+    {
+     "module": "heads: pLDDT [bwd]",
+     "wall_s": 0.0,
+     "cpu_s": 0.001,
+     "share_of_sg": 0.0
+    },
+    {
+     "module": "heads: exp. resolved [fwd]",
+     "wall_s": 0.0,
+     "cpu_s": 0.0,
+     "share_of_sg": 0.0
+    },
+    {
+     "module": "single_activations [bwd]",
+     "wall_s": 0.0,
+     "cpu_s": 0.0,
+     "share_of_sg": 0.0
+    }
+   ],
+   "detail": {
+    "device: trunk callback [bwd] other": 6.999,
+    "device: trunk callback [fwd] other": 2.774,
+    "template embedding [bwd] other": 2.118,
+    "template embedding [fwd] template_pair_stack (remat)": 1.037,
+    "structure module [fwd] invariant_point_attention": 0.713,
+    "structure module [bwd] invariant_point_attention": 0.603,
+    "structure module [fwd] other": 0.137,
+    "loss [fwd] other": 0.095,
+    "template embedding [fwd] template_pair_stack/transition (remat)": 0.091,
+    "template embedding [fwd] other": 0.074,
+    "loss [bwd] other": 0.053
+   },
+   "by_phase": {
+    "host: before trunk #1": {
+     "template embedding": 1.16,
+     "loss": 0.046,
+     "structure module": 0.009,
+     "evoformer (JAX side)": 0.007,
+     "embedder: recycling": 0.005,
+     "embedder: relpos": 0.005,
+     "template single/torsion": 0.001,
+     "heads: PAE/pTM": 0.001,
+     "single_activations": 0.001,
+     "embedder: MSA/target": 0.0,
+     "heads: pLDDT": 0.0
+    },
+    "host: between trunk calls": {
+     "structure module": 0.461,
+     "template embedding": 0.041,
+     "embedder: recycling": 0.014,
+     "evoformer (JAX side)": 0.011,
+     "loss": 0.006,
+     "single_activations": 0.003
+    },
+    "host: fwd tail + bwd entry": {
+     "structure module": 1.087,
+     "loss": 0.076,
+     "heads: PAE/pTM": 0.007,
+     "heads: distogram": 0.006,
+     "evoformer (JAX side)": 0.006,
+     "single_activations": 0.001,
+     "heads: pLDDT": 0.001,
+     "heads: exp. resolved": 0.0
+    },
+    "host: JAX backward tail": {
+     "template embedding": 2.118,
+     "loss": 0.027,
+     "evoformer (JAX side)": 0.009,
+     "embedder: MSA/target": 0.0
+    }
+   },
+   "unmapped_ops": []
+  }
+ ],
+ "rounds_without_thunks": []
+}
