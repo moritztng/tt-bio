@@ -19,8 +19,11 @@ OCCUPIED_CHIP_S = 6591.0
 MEASURED_ROUND_S = 39.08
 ROUNDS_PER_TRAJECTORY = 125  # BindCraft 2's own settings.py:604 stage plan
 
-# PROJECTION, not a measurement: bcx-seam's extra-MSA swap, 39.08 -> ~18 s.
-PROJECTED_ROUND_S = 18.0
+# MEASURED 2026-09-25 by bcx-extramsa: the extra-MSA swap, 12 interleaved rounds on qb2
+# card 3 at AICLK median 1350 in all 12, seed 100, n=211. OFF 36.369 s median, ON 16.870 s,
+# 2.156x, arms fully separated. This replaces the ~18 s projection this file used to carry.
+SWAPPED_ROUND_S = 16.870
+UNSWAPPED_ROUND_S = 36.369  # that row's OWN control, not bcx-round's 39.08 s at a different n
 
 # qb1 UMD 1 is hardware-dead, qb1 UMD 0 is cardblocked on wedge-at-OPEN history.
 USABLE_BLACKHOLE = 6
@@ -36,8 +39,12 @@ def table(chip_s, label):
 
 
 def main():
-    table(OCCUPIED_CHIP_S, "MEASURED")
-    table(PROJECTED_ROUND_S * ROUNDS_PER_TRAJECTORY, "PROJECTED post-seam (NOT a measurement)")
+    table(OCCUPIED_CHIP_S, "MEASURED, pre-swap program")
+    # SCALED, not measured: applies the round ratio to a trajectory occupancy measured on the
+    # pre-swap program. It ASSUMES the whole trajectory scales like a gradient round, and it does
+    # not -- mutate's 15 rounds are forward-only (settings.py gradient_stage_rounds drops mutate),
+    # so they do not carry the backward the swap speeds up. Treat as an upper bound on the gain.
+    table(OCCUPIED_CHIP_S / (UNSWAPPED_ROUND_S / SWAPPED_ROUND_S), "SCALED post-swap (NOT measured)")
     compute = MEASURED_ROUND_S * 0.201 * ROUNDS_PER_TRAJECTORY
     print(f"\nagainst BoltzGen's {BOLTZGEN_CHIP_S_PER_DESIGN} chip-s/design:")
     print(f"  occupancy {OCCUPIED_CHIP_S / BOLTZGEN_CHIP_S_PER_DESIGN:5.1f}x"
