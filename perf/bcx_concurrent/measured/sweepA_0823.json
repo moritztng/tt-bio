@@ -1,0 +1,212 @@
+{
+ "stamp": {
+  "host": "tt-quietbox2",
+  "commit": "4f3d2c212",
+  "argv": [
+   "perf/bcx_concurrent/sweep.py",
+   "--cards",
+   "3,2",
+   "--n",
+   "1,2",
+   "--rounds",
+   "14",
+   "--out",
+   "perf/bcx_concurrent/runs/A_0823Z"
+  ],
+  "nproc": 16,
+  "omp": 6,
+  "extra_msa_on_device": true,
+  "arm": "round_ab.py --arm eager --extra-msa"
+ },
+ "levels": [
+  {
+   "n": 1,
+   "cards": [
+    3
+   ],
+   "window": [
+    1790324646.5771484,
+    1790324777.7855186
+   ],
+   "pre": {
+    "holders": "USER        PID ACCESS COMMAND\n/dev/tenstorrent/0:  ttuser    383575 F...m python3\n/dev/tenstorrent/1:  ttuser    457907 F...m python",
+    "top": [
+     "2837200  1-01:37:37  264 /home/ttuser/bcx_e2e_venv/bin/python /home/ttuser/.coworker/wt/bcx-predictor/perf/bcx_predictor/run_arm.py --arm reference --trajectories 10 --seed 0 --bucket 1 --out /home/tt",
+     " 383575    01:25:04  257 /home/ttuser/bcx_e2e_venv/bin/python3 run_arm.py --arm device --multimer-pool --trajectories 1 --bucket 32 --binder-length 146 --settings /home/ttuser/bcx_e2e/bc2/examples/pdl",
+     " 457907       02:24  210 /home/ttuser/tt-bio-dev/env/bin/python -c from multiprocessing.spawn import spawn_main; spawn_main(tracker_fd=9, pipe_handle=11) --multiprocessing-fork",
+     " 461337       00:00  100 ps -eo pid,etime,pcpu,args --sort=-pcpu",
+     " 461277       00:00 95.8 /usr/bin/python3 /home/ttuser/.local/bin/tt-smi -s",
+     " 461327       00:00 30.7 /home/ttuser/bcx_e2e_venv/bin/python perf/bcx_concurrent/sweep.py --cards 3,2 --n 1,2 --rounds 14 --out perf/bcx_concurrent/runs/A_0823Z",
+     "   2790  2-11:34:40 11.5 /usr/bin/python3 /home/ttuser/qbcard-bisect/stallwatch.py",
+     "   1101  2-11:34:50  5.1 /usr/libexec/bluetooth/bluetoothd"
+    ],
+    "load": [
+     14.81591796875,
+     18.12109375,
+     19.8388671875
+    ],
+    "utc": "2026-09-25T08:23:06Z"
+   },
+   "post": {
+    "holders": "USER        PID ACCESS COMMAND\n/dev/tenstorrent/0:  ttuser    383575 F...m python3\n/dev/tenstorrent/1:  ttuser    463594 F...m python",
+    "top": [
+     " 463594       00:23  574 /home/ttuser/tt-bio-dev/env/bin/python -c from multiprocessing.spawn import spawn_main; spawn_main(tracker_fd=9, pipe_handle=11) --multiprocessing-fork",
+     "2837200  1-01:40:54  265 /home/ttuser/bcx_e2e_venv/bin/python /home/ttuser/.coworker/wt/bcx-predictor/perf/bcx_predictor/run_arm.py --arm reference --trajectories 10 --seed 0 --bucket 1 --out /home/tt",
+     " 383575    01:28:20  257 /home/ttuser/bcx_e2e_venv/bin/python3 run_arm.py --arm device --multimer-pool --trajectories 1 --bucket 32 --binder-length 146 --settings /home/ttuser/bcx_e2e/bc2/examples/pdl",
+     " 464082       00:00  100 ps -eo pid,etime,pcpu,args --sort=-pcpu",
+     " 463545       00:27 19.6 /home/ttuser/tt-bio-dev/env/bin/python -m tt_bio.main predict /home/ttuser/scratch/land-of3t-wt/perf/size512/fixtures/cdk2x2_896.yaml --model protenix-v2 --single_sequence --s",
+     "   2790  2-11:37:56 11.5 /usr/bin/python3 /home/ttuser/qbcard-bisect/stallwatch.py",
+     "   1101  2-11:38:06  5.1 /usr/libexec/bluetooth/bluetoothd",
+     " 463720       00:19  0.9 /home/ttuser/tt-bio-dev/env/bin/python -c from multiprocessing.spawn import spawn_main; spawn_main(tracker_fd=9, pipe_handle=11) --multiprocessing-fork"
+    ],
+    "load": [
+     15.1943359375,
+     17.455078125,
+     19.32421875
+    ]
+   },
+   "per_arm": {
+    "3": {
+     "rounds_in_window": 12,
+     "round_s": {
+      "median": 10.628,
+      "min": 9.633,
+      "max": 12.808
+     },
+     "all_body_median": 10.628,
+     "trunk_cpu_s_median": 6.994,
+     "wall_s": 181.0
+    }
+   },
+   "box": {
+    "seconds": 130.2,
+    "n_samples": 131,
+    "load1": {
+     "min": 13.7705078125,
+     "median": 16.34228515625,
+     "max": 22.2109375
+    },
+    "box_busy_threads": 11.91,
+    "arm_cores": {
+     "3": 1.78
+    },
+    "aiclk": {
+     "3": {
+      "min": 1325,
+      "median": 1350,
+      "max": 1350,
+      "n": 131
+     }
+    }
+   },
+   "round_s_median_across_arms": 10.628,
+   "rounds_per_hour_box": 338.7,
+   "per_arm_slowdown_vs_n1": 1.0,
+   "box_speedup_vs_n1": 1.0
+  },
+  {
+   "n": 2,
+   "cards": [
+    3,
+    2
+   ],
+   "window": [
+    1790324859.4511762,
+    1790325002.1508129
+   ],
+   "pre": {
+    "holders": "USER        PID ACCESS COMMAND\n/dev/tenstorrent/0:  ttuser    383575 F...m python3\n/dev/tenstorrent/1:  ttuser    463594 F...m python",
+    "top": [
+     " 463594       00:23  573 /home/ttuser/tt-bio-dev/env/bin/python -c from multiprocessing.spawn import spawn_main; spawn_main(tracker_fd=9, pipe_handle=11) --multiprocessing-fork",
+     " 464085       00:00  300 ps -eo pid,etime,pcpu,args --sort=-pcpu",
+     "2837200  1-01:40:54  265 /home/ttuser/bcx_e2e_venv/bin/python /home/ttuser/.coworker/wt/bcx-predictor/perf/bcx_predictor/run_arm.py --arm reference --trajectories 10 --seed 0 --bucket 1 --out /home/tt",
+     " 383575    01:28:20  257 /home/ttuser/bcx_e2e_venv/bin/python3 run_arm.py --arm device --multimer-pool --trajectories 1 --bucket 32 --binder-length 146 --settings /home/ttuser/bcx_e2e/bc2/examples/pdl",
+     " 463545       00:27 19.6 /home/ttuser/tt-bio-dev/env/bin/python -m tt_bio.main predict /home/ttuser/scratch/land-of3t-wt/perf/size512/fixtures/cdk2x2_896.yaml --model protenix-v2 --single_sequence --s",
+     "   2790  2-11:37:57 11.5 /usr/bin/python3 /home/ttuser/qbcard-bisect/stallwatch.py",
+     "   1101  2-11:38:06  5.1 /usr/libexec/bluetooth/bluetoothd",
+     " 463720       00:20  0.9 /home/ttuser/tt-bio-dev/env/bin/python -c from multiprocessing.spawn import spawn_main; spawn_main(tracker_fd=9, pipe_handle=11) --multiprocessing-fork"
+    ],
+    "load": [
+     15.1943359375,
+     17.455078125,
+     19.32421875
+    ],
+    "utc": "2026-09-25T08:26:23Z"
+   },
+   "post": {
+    "holders": "USER        PID ACCESS COMMAND\n/dev/tenstorrent/0:  ttuser    383575 F...m python3\n/dev/tenstorrent/1:  ttuser    466860 F...m python",
+    "top": [
+     " 466860       01:01  301 /home/ttuser/tt-bio-dev/env/bin/python -c from multiprocessing.spawn import spawn_main; spawn_main(tracker_fd=9, pipe_handle=11) --multiprocessing-fork",
+     " 469325       00:00  300 /home/ttuser/bcx_e2e_venv/bin/python3 perf/bcx_predictor/test_pool_checkpoint_match.py",
+     "2837200  1-01:44:54  266 /home/ttuser/bcx_e2e_venv/bin/python /home/ttuser/.coworker/wt/bcx-predictor/perf/bcx_predictor/run_arm.py --arm reference --trajectories 10 --seed 0 --bucket 1 --out /home/tt",
+     " 383575    01:32:21  257 /home/ttuser/bcx_e2e_venv/bin/python3 run_arm.py --arm device --multimer-pool --trajectories 1 --bucket 32 --binder-length 146 --settings /home/ttuser/bcx_e2e/bc2/examples/pdl",
+     " 469324       00:00  100 /usr/bin/python3 /home/ttuser/.local/bin/tt-smi -s",
+     "   2790  2-11:41:57 11.5 /usr/bin/python3 /home/ttuser/qbcard-bisect/stallwatch.py",
+     " 466809       01:06  9.5 /home/ttuser/tt-bio-dev/env/bin/python -m tt_bio.main predict /home/ttuser/scratch/land-of3t-wt/perf/size512/fixtures/cdk2x2_896.yaml --model protenix-v2 --single_sequence --s",
+     "   1101  2-11:42:07  5.1 /usr/libexec/bluetooth/bluetoothd"
+    ],
+    "load": [
+     19.89892578125,
+     18.70849609375,
+     19.34814453125
+    ]
+   },
+   "per_arm": {
+    "3": {
+     "rounds_in_window": 10,
+     "round_s": {
+      "median": 13.895,
+      "min": 11.765,
+      "max": 14.629
+     },
+     "all_body_median": 13.278,
+     "trunk_cpu_s_median": 7.602,
+     "wall_s": 222.5
+    },
+    "2": {
+     "rounds_in_window": 10,
+     "round_s": {
+      "median": 13.509,
+      "min": 11.873,
+      "max": 15.704
+     },
+     "all_body_median": 13.509,
+     "trunk_cpu_s_median": 7.819,
+     "wall_s": 205.8
+    }
+   },
+   "box": {
+    "seconds": 141.2,
+    "n_samples": 142,
+    "load1": {
+     "min": 15.40966796875,
+     "median": 18.594482421875,
+     "max": 24.3515625
+    },
+    "box_busy_threads": 13.68,
+    "arm_cores": {
+     "3": 1.78,
+     "2": 1.71
+    },
+    "aiclk": {
+     "3": {
+      "min": 1325,
+      "median": 1350,
+      "max": 1350,
+      "n": 142
+     },
+     "2": {
+      "min": 1331,
+      "median": 1350,
+      "max": 1350,
+      "n": 142
+     }
+    }
+   },
+   "round_s_median_across_arms": 13.702,
+   "rounds_per_hour_box": 525.6,
+   "per_arm_slowdown_vs_n1": 1.289,
+   "box_speedup_vs_n1": 1.552
+  }
+ ]
+}
