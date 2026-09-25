@@ -68,6 +68,14 @@ for k in "${KS[@]}"; do
       log "dev $T exit $rc"
       [ "$rc" = 0 ] && break
       kill -KILL -- -$D 2>/dev/null; sleep 5
+      # A lease refusal means another worker holds the card and this step never opened it:
+      # resetting then hits their run (2026-09-24: this line reset card 0 at 21:40Z while
+      # bcx-round held it; bcx-round's card 0 run died with a bus error and it restarted on
+      # card 3 at 21:41Z). Wait for the holder instead.
+      if grep -q DeviceInUseError $OUT 2>/dev/null; then
+        log "dev $T refused by the lease, card $CARD not opened, no reset; retrying in 1800 s"
+        sleep 1800; continue
+      fi
       log "dev $T reset card $CARD: $(timeout 180 "$SMI" -r $CARD 2>&1 | tail -1)"
     done
     kill $M

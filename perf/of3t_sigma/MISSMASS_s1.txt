@@ -1,0 +1,20 @@
+k=1 total lost 0.0039
+aux_heads.distogram                           sec_mass 0.0035 lost 0.0035 n    1  mass-wtd rel ours 0.148 bf16 0.102
+pairformer_stack                              sec_mass 0.0080 lost 0.0003 n  148  mass-wtd rel ours 0.301 bf16 0.156
+diffusion_module.diffusion_transformer        sec_mass 0.8194 lost 0.0001 n    5  mass-wtd rel ours 0.271 bf16 0.137
+diffusion_module.atom_attn_dec                sec_mass 0.0049 lost 0.0000 n    5  mass-wtd rel ours 0.516 bf16 0.383
+msa_module                                    sec_mass 0.0010 lost 0.0000 n    7  mass-wtd rel ours 0.401 bf16 0.371
+template_embedder                             sec_mass 0.0000 lost 0.0000 n    2  mass-wtd rel ours 0.233 bf16 0.216
+input_embedder                                sec_mass 0.0001 lost 0.0000 n   16  mass-wtd rel ours 1.308 bf16 0.365
+aux_heads.pairformer_embedding                sec_mass 0.0000 lost 0.0000 n  210  mass-wtd rel ours 0.436 bf16 0.316
+aux_heads.experimentally_resolved             sec_mass 0.0000 lost 0.0000 n    2  mass-wtd rel ours 0.017 bf16 0.015
+aux_heads.pae                                 sec_mass 0.0000 lost 0.0000 n    3  mass-wtd rel ours 0.085 bf16 0.080
+aux_heads.pde                                 sec_mass 0.0000 lost 0.0000 n    2  mass-wtd rel ours 0.055 bf16 0.033
+  0.0035 aux_heads.distogram.linear.weight                                      ours 0.148 bf16 0.102
+  0.0001 pairformer_stack.blocks.40.pair_stack.pair_transition.layer_norm.weight ours 0.304 bf16 0.114
+  0.0001 diffusion_module.diffusion_transformer.blocks.18.attention_pair_bias.layer_norm_a.layer_norm_s.weight ours 0.270 bf16 0.136
+  0.0000 pairformer_stack.blocks.43.pair_stack.tri_mul_out.layer_norm_in.weight ours 0.114 bf16 0.072
+  0.0000 pairformer_stack.blocks.5.pair_stack.tri_att_end.layer_norm.weight     ours 0.340 bf16 0.217
+  0.0000 pairformer_stack.blocks.31.pair_stack.tri_att_start.layer_norm.weight  ours 0.506 bf16 0.496
+  0.0000 pairformer_stack.blocks.39.pair_stack.tri_att_start.layer_norm.weight  ours 0.360 bf16 0.225
+  0.0000 diffusion_module.atom_attn_dec.atom_transformer.blocks.0.conditioned_transition.layer_norm.layer_norm_s.weight ours 0.553 bf16 0.443

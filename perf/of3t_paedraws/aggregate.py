@@ -3,8 +3,8 @@
 
     aggregate.py            -> SCORE_PD384.json, DRAWS_PD384.json, and SECTIONS_PD384.json once six draws exist
 
-A draw counts only if its device step ran at its seed, drew the same sigma as its float64
-reference, and every side replayed the rollout with 0 mismatches. Per-draw sections come from
+A draw counts only if its device step ran at its seed, drew its bf16 reference's sigma exactly and its float64
+reference's to 1e-14 with the same noise, and every side replayed the rollout with 0 mismatches. Per-draw sections come from
 perf/of3t_orchestrator/sections/section_ratio.py, run unedited through runpy; the mean is taken
 over draws on each side, then divided.
 """
@@ -18,6 +18,9 @@ from pathlib import Path
 W = Path(__file__).resolve().parents[2]
 P, S = W / "perf/of3t_paedraws", Path("/home/ttuser/of3t_paedraws")
 SEEDS = {0: 20260922, 1: 1, 2: 2, 3: 3, 4: 4, 5: 5}
+# float64 draw 5 ran on qb1, whose libm rounds sigma one ulp away from qb2's (1.5e-16 rel); the
+# noise hashes still match. 1e-14 sits under the float64 reference's own floor, 9.14e-14 (R166).
+SIGMA_REL = 1e-14
 SECTION_RATIO = W / "perf/of3t_orchestrator/sections/section_ratio.py"
 
 
@@ -54,10 +57,14 @@ def main():
             continue
         d, dv = json.load(open(score)), json.load(open(dev))
         rf = {m: json.load(open(ref / m / f"REF_{m.upper()}.json")) for m in ("f64", "bf16")}
+        sig = dv["of3t_denoise"]["denoise_sigma"]
         checks = {
             "device_seed": dv["seed"] == seed,
             "ref_seed": all(r["draw_seed"] == seed for r in rf.values()),
-            "sigma_matches_f64": dv["of3t_denoise"]["denoise_sigma"] == rf["f64"]["denoise"]["sigma"],
+            "sigma_matches_bf16": sig == rf["bf16"]["denoise"]["sigma"],
+            "sigma_matches_f64": abs(sig / rf["f64"]["denoise"]["sigma"] - 1) <= SIGMA_REL,
+            "noise_matches": all(rf["f64"]["denoise"][h] == rf["bf16"]["denoise"][h]
+                                 for h in ("noise_sha256_f32", "noise_sha256_f64")),
             "device_replay_mismatch_0": dv["fullstep64"]["draws"]["mismatch_count"] == 0,
             "ref_replay_mismatch_0": all(r["draws"]["mismatch_count"] == 0 for r in rf.values()),
             "tt_bio_clean": dv["provenance"]["git_dirty"] == "",
@@ -78,7 +85,8 @@ def main():
         secs, limit = sections_of(score, arm)
         per_sections.append(secs)
         aiclk = dv.get("aiclk_during", {})
-        draws.append({"k": k, "seed": seed, "sigma": dv["of3t_denoise"]["denoise_sigma"],
+        draws.append({"k": k, "seed": seed, "sigma": sig,
+                      "sigma_f64_rel_gap": sig / rf["f64"]["denoise"]["sigma"] - 1,
                       "score": str(score.relative_to(W)), "arm": arm, "checks": checks,
                       "five": five, "reference_loss_f64": rf["f64"]["loss"], "device_loss": dv["loss"],
                       "rel": {n: {"ours": secs[n]["rel"], "bf16": secs[n]["bf16_rel"]}

@@ -1,0 +1,238 @@
+{
+ "instrument": "PROTOCOL SS6: the OF3 training forward through tt_bio.train.catalogue",
+ "arm": "full",
+ "batch": "/home/ttuser/of3t/bundle_min/batch_step003.pt",
+ "checkpoint": "/home/ttuser/of3-weights/of3-p2-155k.pt",
+ "rollout": 20,
+ "cycles": 1,
+ "seed": 4,
+ "host": "tt-quietbox2",
+ "card": "1",
+ "commit": "d9049e2a3f59af728f5ed957d2cbea259d439140",
+ "padded_width": 384,
+ "real_tokens": 56,
+ "pdb_id": "5nw3",
+ "denoise": true,
+ "params_reachable": 4049,
+ "loss": 1.3754665538495012,
+ "weights": {
+  "bond": 0.0,
+  "smooth_lddt": 4.0,
+  "mse": 4.0,
+  "distogram": 0.03,
+  "resolved": 0.0001,
+  "plddt": 0.0001,
+  "pae": 0.0001,
+  "pde": 0.0001
+ },
+ "breakdown": {
+  "bond": {
+   "value": null,
+   "weight": 0.0,
+   "contribution": 0.0,
+   "skipped": "weight is zero in this stage"
+  },
+  "smooth_lddt": {
+   "value": 0.22225304244890243,
+   "weight": 4.0,
+   "contribution": 0.8890121697956097
+  },
+  "mse": {
+   "value": 0.08692017386857909,
+   "weight": 4.0,
+   "contribution": 0.34768069547431635
+  },
+  "distogram": {
+   "value": 4.601124636135277,
+   "weight": 0.03,
+   "contribution": 0.1380337390840583
+  },
+  "resolved": {
+   "value": 2.7225073195365654,
+   "weight": 0.0001,
+   "contribution": 0.00027225073195365657
+  },
+  "plddt": {
+   "value": null,
+   "weight": 0.0001,
+   "contribution": 0.0,
+   "skipped": "missing ['per_atom_lddt', 'per_atom_weight']"
+  },
+  "pae": {
+   "value": 3.293093434216995,
+   "weight": 0.0001,
+   "contribution": 0.0003293093434216995
+  },
+  "pde": {
+   "value": 1.3838942014148052,
+   "weight": 0.0001,
+   "contribution": 0.00013838942014148052
+  }
+ },
+ "seeded_outputs": [
+  "distogram_logits",
+  "pae_logits",
+  "pde_logits",
+  "pred_dist",
+  "pred_xyz",
+  "resolved_logits"
+ ],
+ "forward_s": 2001.784196801018,
+ "backward_s": 10064.444961183995,
+ "step_s": 12066.229157985013,
+ "params_with_grad": 3822,
+ "params_nonzero_grad": 3813,
+ "squared_gradient_norm": 249.77205977187316,
+ "by_section": {
+  "input_glue": {
+   "n": 5,
+   "sq": 0.005055843725607916
+  },
+  "trunk": {
+   "n": 2539,
+   "sq": 1.8434476450753183
+  },
+  "confidence_head": {
+   "n": 201,
+   "sq": 1.996105419071552
+  },
+  "sampler": {
+   "n": 983,
+   "sq": 245.92190949340593
+  },
+  "input_atom_enc": {
+   "n": 94,
+   "sq": 0.0055413705947833574
+  }
+ },
+ "grad_dump": "/home/ttuser/of3t_paedraws/grad_PD384_s4.pt",
+ "ok": true,
+ "aiclk_during": {
+  "0": {
+   "min": 800,
+   "max": 1350,
+   "median": 1350,
+   "n": 3115
+  }
+ },
+ "aiclk_line": "CLOCK: dev0 min 800 / median 1350 / max 1350 MHz over 3115 samples, polled DURING the work",
+ "total_s": 12114.138898342004,
+ "fullstep64": {
+  "exact": "on",
+  "exact_training_ops": [
+   "softmax",
+   "layer_norm"
+  ],
+  "pad_perturb": {
+   "k": 0.0,
+   "features": {}
+  },
+  "counters": {
+   "softmax": {
+    "verb": 6311,
+    "raw": 0,
+    "raw_elements": 0
+   },
+   "layer_norm": {
+    "verb": 2743,
+    "raw": 0,
+    "elements": 26155876992,
+    "bw": 1682
+   }
+  },
+  "draws": {
+   "file": "/home/ttuser/of3t_fullstep64/draws.pt",
+   "n_recorded": 61,
+   "rollout_calls": 1,
+   "n_consumed": 61,
+   "mismatch_count": 0,
+   "mismatch": []
+  },
+  "weights_dump": {
+   "file": "/home/ttuser/of3t_paedraws/weights_walked_PD384_s4.pt",
+   "n": 4049
+  }
+ },
+ "of3t_denoise": {
+  "denoise": true,
+  "unregistered_after_forward": {
+   "n": 0,
+   "paths": []
+  },
+  "denoise_sigma": 1.812853264527654,
+  "by_module": {
+   "input_glue": {
+    "n": 5,
+    "nonfinite_tensors": 0,
+    "max_abs": 0.01038360595703125,
+    "sq": 0.005055843725607916
+   },
+   "trunk.glue": {
+    "n": 6,
+    "nonfinite_tensors": 0,
+    "max_abs": 0.006195068359375,
+    "sq": 0.001889052126831827
+   },
+   "trunk.pairformer": {
+    "n": 2256,
+    "nonfinite_tensors": 0,
+    "max_abs": 0.596282958984375,
+    "sq": 1.6743990440932501
+   },
+   "trunk.template": {
+    "n": 80,
+    "nonfinite_tensors": 0,
+    "max_abs": 0.00457763671875,
+    "sq": 0.0011012157430147435
+   },
+   "trunk.msa_embedder": {
+    "n": 2,
+    "nonfinite_tensors": 0,
+    "max_abs": 0.036834716796875,
+    "sq": 0.010248665991484503
+   },
+   "trunk.msa_module": {
+    "n": 195,
+    "nonfinite_tensors": 0,
+    "max_abs": 0.091796875,
+    "sq": 0.15580966712073632
+   },
+   "confidence_head": {
+    "n": 201,
+    "nonfinite_tensors": 0,
+    "max_abs": 0.767578125,
+    "sq": 1.996105419071552
+   },
+   "sampler.dc": {
+    "n": 26,
+    "nonfinite_tensors": 0,
+    "max_abs": 1.31597900390625,
+    "sq": 51.88790131028356
+   },
+   "sampler.dm": {
+    "n": 957,
+    "nonfinite_tensors": 0,
+    "max_abs": 4.375,
+    "sq": 194.03400818312238
+   },
+   "input_atom_enc": {
+    "n": 94,
+    "nonfinite_tensors": 0,
+    "max_abs": 0.023644011467695236,
+    "sq": 0.005541370594783357
+   }
+  },
+  "mixed_transpose_a_promoted": 3,
+  "nonfinite_total": 0
+ },
+ "provenance": {
+  "host": "tt-quietbox2",
+  "row": "of3t-paedraws",
+  "card": 1,
+  "board_class": "p300c",
+  "git_commit": "d9049e2a3f59af728f5ed957d2cbea259d439140",
+  "git_dirty": "",
+  "exit": 0,
+  "grad_dump_sha256": "d4bfc05b3258d50b4c6fb0d073118efcd30c014342fb1ad2f2399cccc55430de"
+ }
+}

@@ -1,62 +1,171 @@
 {
   "instrument": "perf/of3t_orchestrator/charter/charter_evidence.py",
   "spec_lifted_from": "/home/moritz/.coworker/workstreams/_of3t_donecheck.py",
-  "spec_sha256": "9f5a4b40568d1b60f5c10912c72054e231032f2ec48e0d68e20a3f82e79aa18a",
+  "spec_sha256": "b8874583f28bcfcb1faed1137be04829b2ae87ceae2f08e42067dd3954ff01be",
   "tree": "/home/moritz/.coworker/wt/of3t-orchestrator",
   "break_control": "every condition can report MET on a synthetic artifact, and every requirement reports NOT MET on one built to violate it",
-  "n_met": 1,
-  "n_conditions": 3,
+  "n_met": 5,
+  "n_conditions": 5,
   "conditions": [
     {
       "field": "GRADIENTS",
-      "artifact": "perf/of3t_recut/MODEL_RECUT_composed3660_n384.json",
-      "why": "per-parameter gradient equivalence at MODEL scope, against a float64 reference rather than against another device arm. REPOINTED at pass 412 from perf/of3t_modelframe/MODEL_FRAMEMATCHED_composed3660_n384.json, under the four-part condition fixed at R164 BEFORE the corrected number existed, all four now met: the artifact carries every contract key with injection.convention 'graph-cut-external' (n_scopes 6, n_injected 1, disagreeing injected scopes refused) and a restamp control showing n_leaves_differing 0 against the pre-stamp copy; the repaired injection reproduces of3t-frameself's break control at 3.0392623414001244e-15 against 3.0392623414001263e-15, rel 6.489e-16, 329x under its 1e-12 bar; --legacy-total-cotangent reproduces the banked arm to the cross-host float64 floor 9.13806068751445e-14; and the linearity shortcut is SATISFIED BY ELIMINATION -- it failed its own control at 2.21 % on device, so of3t-recut withdrew it and read the direct end-to-end arm, leaving no shortcut in the reading at all. The old frame's defect (D242) was a DOUBLE COUNT: z_out is an ancestor of s_out, so (s_out, z_out) was never a graph cut and the hooked cot_z -- a correct TOTAL derivative -- already carried the s_out<-z_out route, which the surrogate replayed. Repaired, the injection reads 1.6952505222168708e-14 over all 2,736 trunk tensors, the capture's own witness value. NO BAR MOVED in this repoint: 99.2594, bars.A26_reachable_bar_vs_their_bf16 and the keyed inequality are byte-identical to what they were, and all five of CLAUSE.json's pre-registered levels re-derive on the rescored artifact at rel_difference 0.0. The clause STILL FAILS -- 0.22072451195864032 against 0.15210099830945006 is 1.4511706984958472x, down from the superseded 1.7814428090278143x, an 18.54 % improvement -- and the trunk must fall 1.7414134679108282x. Contract and condition: perf/of3t_orchestrator/clausestatus/REPOINT_CONTRACT.json.",
-      "artifact_exists": false,
-      "artifact_sha256": null,
-      "met": false,
-      "misses": [
-        "inputs.float64.sha256 present None -- artifact has artifact absent (scored against a float64 reference, pinned by digest)",
-        "stats.renorm_vs_UPSTREAM_BF16.mass_weighted_rel_l2 <=key 'bars.A26_reachable_bar_vs_their_bf16' -- artifact has artifact absent (our arm against upstream's OWN bf16 step, inside the A26 reachable bar the artifact computes from that reference -- both sides measured, neither chosen here)",
-        "stats.renorm_vs_FLOAT64.n_over_per_tensor_bar <=key 'stats.UPSTREAM_BF16_vs_FLOAT64.n_over_per_tensor_bar' -- artifact has artifact absent (and no WORSE per-tensor than upstream's own bf16 step on the same set -- this keeps the per-tensor guard that mass weighting would hide, against a floor that is measured rather than asserted)",
-        "coverage_total.pct_of_model_compared >= 99.2594 -- artifact has artifact absent (the bar COVERAGE_CEILING_IS_NOT_100.json set at pass 175, kept as the bar with its REASON withdrawn: `of3t-readable-mass` showed the excluded mass is BLOCKED rather than unreadable. The host-applied share is 1.52024 %, not 0.74055 %, and 0.74055 % is one tensor of the seventeen inside it -- quoting it as a ceiling called a wiring gap a limit. Five remedies, the three largest instrument or wiring work on code that already exists)"
-      ],
+      "artifact": "perf/of3t_paedraws/SCORE_PD384.json",
+      "why": "per-parameter gradient correctness over the WHOLE training step (trunk, diffusion, distogram, confidence heads, 4152 tensors), one 384-wide denoise step on the composed wk/of3t engine, scored by perf/of3t_fullstep64/score.py against the A40-validated float64 reference with upstream 0.4.3's own bf16 step as the bar. Pre-registered at pass 426 on GO384, repointed to CF384 at pass 427 and to PZ384 at pass 429, each before its arm ran.",
+      "artifact_exists": true,
+      "artifact_sha256": "97a6f0b6dde609620358bbc7b09c7b900f2ec5768a27216a87393d5908b2e9d1",
+      "met": true,
+      "misses": [],
       "checks": [
         {
-          "key": "inputs.float64.sha256",
+          "key": "reference.file",
           "op": "present",
           "bar": null,
-          "actual": "artifact absent",
-          "passed": false,
-          "why": "scored against a float64 reference, pinned by digest"
+          "actual": "present",
+          "passed": true,
+          "why": "scored against the float64 reference, named"
         },
         {
-          "key": "stats.renorm_vs_UPSTREAM_BF16.mass_weighted_rel_l2",
+          "key": "scored.unread_n",
+          "op": "is",
+          "bar": 0,
+          "actual": "0",
+          "passed": true,
+          "why": "every reference tensor with gradient is placed and read"
+        },
+        {
+          "key": "arms.PD384.placed_but_carried_nothing.n",
+          "op": "is",
+          "bar": 0,
+          "actual": "0",
+          "passed": true,
+          "why": "no placed tensor carries a zero gradient (D264's signature)"
+        },
+        {
+          "key": "arms.PD384.multi_placed",
+          "op": "is",
+          "bar": 0,
+          "actual": "0",
+          "passed": true,
+          "why": "no reference tensor is read twice"
+        },
+        {
+          "key": "arms.PD384.global.rel",
           "op": "<=key",
-          "bar": "bars.A26_reachable_bar_vs_their_bf16",
-          "actual": "artifact absent",
-          "passed": false,
-          "why": "our arm against upstream's OWN bf16 step, inside the A26 reachable bar the artifact computes from that reference -- both sides measured, neither chosen here"
+          "bar": "arms.BF16.global.rel",
+          "actual": "0.155834 against arms.BF16.global.rel = 0.948232",
+          "passed": true,
+          "why": "the whole step at least as close to float64 as upstream's own bf16 step, both measured in this artifact"
         },
         {
-          "key": "stats.renorm_vs_FLOAT64.n_over_per_tensor_bar",
-          "op": "<=key",
-          "bar": "stats.UPSTREAM_BF16_vs_FLOAT64.n_over_per_tensor_bar",
-          "actual": "artifact absent",
-          "passed": false,
-          "why": "and no WORSE per-tensor than upstream's own bf16 step on the same set -- this keeps the per-tensor guard that mass weighting would hide, against a floor that is measured rather than asserted"
-        },
-        {
-          "key": "coverage_total.pct_of_model_compared",
+          "key": "arms.PD384.mass_at_or_better_than_bf16",
           "op": ">=",
-          "bar": 99.2594,
-          "actual": "artifact absent",
-          "passed": false,
-          "why": "the bar COVERAGE_CEILING_IS_NOT_100.json set at pass 175, kept as the bar with its REASON withdrawn: `of3t-readable-mass` showed the excluded mass is BLOCKED rather than unreadable. The host-applied share is 1.52024 %, not 0.74055 %, and 0.74055 % is one tensor of the seventeen inside it -- quoting it as a ceiling called a wiring gap a limit. Five remedies, the three largest instrument or wiring work on code that already exists"
+          "bar": 0.95,
+          "actual": "0.980714",
+          "passed": true,
+          "why": "and per tensor: 95 % of the float64 mass sits in tensors at or better than upstream's bf16, so a good global mean cannot hide a regressed module"
         }
       ],
       "code_staleness": {
-        "comparable": false,
-        "why": "the artifact or the code path has no commit in this tree"
+        "comparable": true,
+        "artifact_commit_unixtime": 1790250607,
+        "code_commit_unixtime": 1790298791,
+        "artifact_is_older_than_code": true,
+        "seconds_behind": 48184,
+        "note": "this artifact predates the newest commit under tt_bio, so its numbers describe an earlier tree. A clause reading it is reporting history, and a re-take may change the verdict"
+      }
+    },
+    {
+      "field": "GRADIENTS-DRAWS",
+      "artifact": "perf/of3t_orchestrator/a45/DRAWS_A45.json",
+      "why": "on all six pre-registered denoise draws the four state-free GRADIENTS fields hold on every draw, and 95 % of the float64 mass sits in tensors at or better than bf16 on their six-draw mean (A45).",
+      "artifact_exists": true,
+      "artifact_sha256": "8acc484ff69e4407a160a6bba2b33bdcf2eac98f26ab669f82c92d56f282d431",
+      "met": true,
+      "misses": [],
+      "checks": [
+        {
+          "key": "draws",
+          "op": ">=",
+          "bar": 6,
+          "actual": "6",
+          "passed": true,
+          "why": "the six draws A44 fixed before any existed"
+        },
+        {
+          "key": "four_hold_every_draw",
+          "op": "is",
+          "bar": true,
+          "actual": "True",
+          "passed": true,
+          "why": "no draw fails unread, carried-nothing, multi-placed or global rel"
+        },
+        {
+          "key": "mean_mass_at_or_better_than_bf16",
+          "op": ">=",
+          "bar": 0.95,
+          "actual": "0.9913",
+          "passed": true,
+          "why": "per tensor on the six-draw mean, 95 % of the mass at or better than bf16"
+        },
+        {
+          "key": "standing_losers_mass",
+          "op": "<=",
+          "bar": 0.05,
+          "actual": "0.00857",
+          "passed": true,
+          "why": "tensors worse than bf16 on 5 or 6 of 6 draws hold under 5 % of the mass"
+        }
+      ],
+      "code_staleness": {
+        "comparable": true,
+        "artifact_commit_unixtime": 1790298896,
+        "code_commit_unixtime": 1790298791,
+        "artifact_is_older_than_code": false,
+        "seconds_behind": 0,
+        "note": "the artifact is at or after the newest code commit"
+      }
+    },
+    {
+      "field": "GRADIENTS-SECTIONS",
+      "artifact": "perf/of3t_paedraws/SECTIONS_PD384.json",
+      "why": "no section of the whole step is past 3x upstream bf16's own rel for that section, rel averaged over the six A44 draws on each side, section grouping from perf/of3t_orchestrator/sections/section_ratio.py unedited.",
+      "artifact_exists": true,
+      "artifact_sha256": "4cec03b4a985d562dd05f3f5652e3289b388fdb5218aebb604a2112c49008457",
+      "met": true,
+      "misses": [],
+      "checks": [
+        {
+          "key": "arm",
+          "op": "is",
+          "bar": "PD384",
+          "actual": "'PD384'",
+          "passed": true,
+          "why": "the arm the GRADIENTS field reads"
+        },
+        {
+          "key": "draws",
+          "op": ">=",
+          "bar": 6,
+          "actual": "6",
+          "passed": true,
+          "why": "the six draws A44 fixed before any existed"
+        },
+        {
+          "key": "sections.*.within_3x",
+          "op": "all",
+          "bar": true,
+          "actual": "21 of 21",
+          "passed": true,
+          "why": "every section within 3x its own bf16, so a small-mass module cannot hide under a good global figure"
+        }
+      ],
+      "code_staleness": {
+        "comparable": true,
+        "artifact_commit_unixtime": 1790297651,
+        "code_commit_unixtime": 1790298791,
+        "artifact_is_older_than_code": true,
+        "seconds_behind": 1140,
+        "note": "this artifact predates the newest commit under tt_bio, so its numbers describe an earlier tree. A clause reading it is reporting history, and a re-take may change the verdict"
       }
     },
     {
@@ -107,9 +216,9 @@
       "code_staleness": {
         "comparable": true,
         "artifact_commit_unixtime": 1790058785,
-        "code_commit_unixtime": 1790102756,
+        "code_commit_unixtime": 1790298791,
         "artifact_is_older_than_code": true,
-        "seconds_behind": 43971,
+        "seconds_behind": 240006,
         "note": "this artifact predates the newest commit under tt_bio, so its numbers describe an earlier tree. A clause reading it is reporting history, and a re-take may change the verdict"
       }
     },
@@ -117,34 +226,32 @@
       "field": "COVERAGE",
       "artifact": "perf/of3t_orchestrator/coverage/COVERAGE_MERGED.json",
       "why": "every loss term and every conditional path demonstrated to FIRE, on the batch, at runtime -- not enumerated in prose.",
-      "artifact_exists": false,
-      "artifact_sha256": null,
-      "met": false,
-      "misses": [
-        "union.*.covered all True -- artifact has artifact absent (all 8 of upstream's LossWeights terms fire, each carrying its own `carried_by` stage and dataset and its `n_pairs_firing` in the artifact. Do not restate the count here: this string said '7 do; `bond` has an empty mask on 5nw3' for fifty passes after `bond` was upgraded with evidence, so the clause and its own prose disagreed in the published CHARTER_EVIDENCE. The artifact is the count)",
-        "conditional_paths.*.covered all True -- artifact has artifact absent (all 11 conditional paths fire, each carrying `census_said`, this row's verdict (CONFIRMS / EXTENDS / CONTRADICTS) and the instrument or arm that settled it. Six were false in the original census and were upgraded by measurement, not by argument: `templates` and `nucleotide` by mask presence over 34 datapoints, `bond` by a firing datapoint (4g5j, finetune_1/weighted-pdb, crop 256), `disabled_parameters` by the gate firing on 5oid, and `diffusion_rollout` and `model_forward` by two-armed on/off tests (ARM_full against ARM_norollout, and ARM_full against ARM_zeroseed). Do not restate the count here -- the same rot that hit the loss-term clause above)"
-      ],
+      "artifact_exists": true,
+      "artifact_sha256": "c5b65aac3a11e9adc01d9dc074d6a3bdd826678f1de1151760f55ffb0e55607b",
+      "met": true,
+      "misses": [],
       "checks": [
         {
           "key": "union.*.covered",
           "op": "all",
           "bar": true,
-          "actual": "artifact absent",
-          "passed": false,
+          "actual": "8 of 8",
+          "passed": true,
           "why": "all 8 of upstream's LossWeights terms fire, each carrying its own `carried_by` stage and dataset and its `n_pairs_firing` in the artifact. Do not restate the count here: this string said '7 do; `bond` has an empty mask on 5nw3' for fifty passes after `bond` was upgraded with evidence, so the clause and its own prose disagreed in the published CHARTER_EVIDENCE. The artifact is the count"
         },
         {
           "key": "conditional_paths.*.covered",
           "op": "all",
           "bar": true,
-          "actual": "artifact absent",
-          "passed": false,
+          "actual": "11 of 11",
+          "passed": true,
           "why": "all 11 conditional paths fire, each carrying `census_said`, this row's verdict (CONFIRMS / EXTENDS / CONTRADICTS) and the instrument or arm that settled it. Six were false in the original census and were upgraded by measurement, not by argument: `templates` and `nucleotide` by mask presence over 34 datapoints, `bond` by a firing datapoint (4g5j, finetune_1/weighted-pdb, crop 256), `disabled_parameters` by the gate firing on 5oid, and `diffusion_rollout` and `model_forward` by two-armed on/off tests (ARM_full against ARM_norollout, and ARM_full against ARM_zeroseed). Do not restate the count here -- the same rot that hit the loss-term clause above"
         }
       ],
       "code_staleness": {
         "comparable": false,
-        "why": "the artifact or the code path has no commit in this tree"
+        "generated_not_committed": true,
+        "why": "composed at compose time from digest-pinned sources, so it cannot be stale"
       }
     }
   ]

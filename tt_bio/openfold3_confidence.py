@@ -136,7 +136,9 @@ class OF3ConfidenceHead:
         bins = torch.linspace(_MIN_BIN, _MAX_BIN, _NO_BIN, dtype=torch.float32)
         self._squared_bins = bins ** 2
         self._upper = torch.cat([self._squared_bins[1:], self._squared_bins.new_tensor([_INF])])
-        self.materialize_device_weights()
+        # No `materialize_device_weights()` here: inference takes the host s-path and never
+        # reads them, so uploading in `__init__` was 16 `from_torch` per fold for nothing. The
+        # training adapter materialises them before its walk (`train/openfold3.py`).
 
     # The host path reads every weight through these three, so setting `_dtype` to
     # torch.float64 runs it in float64 WITHOUT a second implementation. PROTOCOL SS3c
