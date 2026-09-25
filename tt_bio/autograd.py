@@ -292,18 +292,21 @@ class Tensor:
         three such pairs, and the second block's triangle multiplication could not lay out its
         circular buffers at any chunk width (`perf/bcx_afgrad/l1diag.py`).
 
-        So the group moves together. Every member gets its own DRAM copy read through its own
-        shape, and the shared L1 buffer is released once. It is refused if any member is a leaf
-        (its placement is the module's tuning, as in `_evict_read_parents`) or holds its buffer
-        for another reason (`evictable` False: a closure that reads its output by raw handle).
-        With nothing pinned the buffer is released, which is what the shipped deallocate of any
-        one view does in inference.
+        So the group moves together. With nothing pinned the buffer is released, which is what
+        the shipped deallocate of any one view does in inference; that is also every group in a
+        checkpointed segment's untaped forward, where no tensor has a node. Otherwise every
+        member gets its own DRAM copy read through its own shape and the shared L1 buffer is
+        released once, refused if a member is a leaf (its placement is the module's tuning, as in
+        `_evict_read_parents`). Either way a member that holds its buffer for the other reason,
+        `evictable` False for a closure that reads its output by raw handle, refuses both.
         """
         group = self.shares
-        if any(not t.evictable or t.node is None for t in group):
+        if any(not t.evictable for t in group):
             return
         if not any(t.pinned or t.requires_grad for t in group):
             ttnn.deallocate(self.value)
+            return
+        if any(t.node is None for t in group):
             return
         if self.value.memory_config().buffer_type != ttnn.BufferType.L1:
             return
