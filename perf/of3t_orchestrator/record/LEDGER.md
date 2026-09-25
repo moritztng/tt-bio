@@ -1089,6 +1089,40 @@ state doc nor its `CLAUSE_EXACT.json` names the version anywhere.
 
 **R200** (pass 423) The `of3t-denoise` A40 floor was attributed to mse's Kabsch stop-gradient and FD3 froze it. FD3 at h=1e-4 reads 15.897746748793073 against FD2's 15.897749718841725 (1.9e-7 relative) and both read 2.847e-05 at h=1e-5: the freeze is inert, as the envelope theorem predicts when the alignment minimises the loss it feeds. FD2's ladder 2.498e-04 / 7.634e-05 / 2.847e-05 falls ~h^0.5 without a plateau, which a missing gradient path (constant bias) cannot produce. h=1e-6 then read 6.972e-10 and h=1e-7 4.303e-09: a V with one kink crossing between 1e-6 and 1e-5, so A40 PASSES. Separately, `of3t-denoise` found D259 (`ttnn.multiply(bf16, fp32 [...,1])` nondeterministic, up to 16,061 wrong elements) and D258 (mixed-dtype `transpose_a` matmul); both are fixed on the training path only, and `of3t-bcastaudit` measures whether inference reaches them.
 
+- **R211** (pass 451) **NODE COUNT IS NOT A COST PROXY, AND THE JOBS LIST WAS ORDERED BY IT — so
+  J1 and J2 are both NO-GO and the kernel programme has largely collapsed.** `of3t-lnbw`, NO-GO
+  with three independent reasons: the LayerNorm-backward site's whole ceiling is **9.40 s**
+  (13.43 s if every node took the fp32 tree) of the step, not the briefed 46.4 s floor with a
+  150 s upside — **that figure was an artifact of pricing this site's verbs at the backward's
+  GLOBAL 2.107 ms mean, while the measured marginal verb here is 16.9 us**, 125x smaller; the
+  wheel op that would have collected it **miscomputes on Blackhole** and upstream knows
+  (**#12349**, its own tests skipped); and the site is **DRAM-bound at ~43 % of the roof**, which
+  `moreh_all` demonstrated by running **2.17x slower on 12 fewer verbs**. Its general finding is
+  the one that matters: **LayerNorm backward is 52.4 % of the tape's NODES and 2.6 % of the
+  backward's SECONDS.** `of3t-bwsurvey`'s whole job list is ranked by node and verb counts, so
+  its ordering does not track seconds and every share on it inherits the same error.
+  `of3t-softbw` lands the same way: Route A (`ttnn.moreh_softmax_backward`, the zero-build route)
+  is refused by the op's own dtype guard against operands measured **FLOAT32 at 543 calls** — not
+  a tuning problem and no flag for it — and Route B (`ttml::metal::softmax_backward`) needs a
+  nanobind binding and a tt-train build, a dispatch of its own. **So J1 is dead, J2's free route
+  is dead, J3 was retired at 1.0235x (R208), and what is left of the kernel programme is J4 and a
+  build.** The corollary, which `of3t-lnbw` states and which is now the sprint's whole thesis:
+  **a 16.9 us marginal verb next to a 2.107 ms global mean is direct evidence that the 2.107 ms
+  is not a per-verb property of the engine but a CONCENTRATION somewhere specific, and finding
+  where is worth more than every kernel on the list.** That is J0. **The general lesson: when a
+  survey sizes jobs by multiplying a count by a global mean, it has assumed the mean is uniform
+  — check one site's marginal cost against the mean before ranking anything by count.**
+
+- **K23** (pass 451) **a gate that requires `^VERDICT:` cannot be satisfied by a row that writes
+  `## VERDICT:`, and the row cannot tell.** `of3t-bwattrib` wrote `## VERDICT: PARTIAL` as a
+  markdown heading; every verdict pattern in `_of3t_donecheck.py` anchored on `^VERDICT:`, so the
+  gate reported **"no VERDICT: line at all"** against a document that plainly had one. Same
+  family as the constructed-path staging trap: a refusal the row's own correct work can never
+  clear. Fixed by accepting an optional heading prefix (`^#{0,6} *VERDICT:`) in all 70 patterns;
+  the semantic requirement is unchanged and the row now fails on a genuinely missing field
+  instead. **Where a document's format is a matter of style, the gate reads the style too — so
+  either fix the format or widen the pattern, but never leave a row failing on punctuation.**
+
 - **R210** (pass 450) **THE KERNEL PROGRAMME OPTIMISES A PATH THE SHIPPED TRAINING CONFIG
   BYPASSES, and that is the sprint's real structural problem — bigger than any job on the list.**
   `of3t-intensity` (GO) found it while ranking: J1 and J2 are both briefed against

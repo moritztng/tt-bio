@@ -42,7 +42,7 @@ author and cite what you took; gates are batched and a stack is approved whole. 
 speedup that does less of the model's own work. A1-A45 are the correctness protocol and are
 unchanged. History: `state/of3t/PASSLOG.md`.
 
-LEDGER: `~/.coworker/state/of3t/LEDGER.md`, **R1-R210 and K1-K22**. **R203, filed this pass, is
+LEDGER: `~/.coworker/state/of3t/LEDGER.md`, **R1-R211 and K1-K23**. **R203, filed this pass, is
 the sprint's first finding and it reordered the job list: an engine-wide fused-kernel bypass hid
 behind a per-module comment. A per-site comment that correctly explains one decline is the best
 camouflage a policy can have, because every reader who checks one site leaves satisfied. Count the
@@ -83,8 +83,8 @@ and the contested-file warning; the four sprint briefs went out without them and
 | `of3t-tapedfwd` | **GO** — 1.00508x, and it invalidated the baseline (R209) | fused-kernel selection and decline sites | `perf/of3t_tapedfwd/` |
 | `of3t-intensity` | **live, whglx card 6** (relocated; pass 1 lost with qb1) | measurement scripts, read-only on engine | `perf/of3t_intensity/` |
 | `of3t-bwattrib` | live, queued for pc card 0 — J0 | the 2.107 ms attribution, wiring fixes | `perf/of3t_bwattrib/` |
-| `of3t-lnbw` | **BLOCKED on the card** — J1 | the LayerNorm backward | `perf/of3t_lnbw/` |
-| `of3t-softbw` | **parked 3rd in the card queue** — J2 | the softmax backward | `perf/of3t_softbw/` |
+| `of3t-lnbw` | **NO-GO** — J1's ceiling is 9.40 s, not 46.4 s (R211) | the LayerNorm backward | `perf/of3t_lnbw/` |
+| `of3t-softbw` | **NO-GO on Route A**, Route B needs a build — J2 | the softmax backward | `perf/of3t_softbw/` |
 | `of3t-wheelbw` | **parked 4th in the card queue** — J4 | nine `*_bw` substitutions in `autograd.py` | `perf/of3t_wheelbw/` |
 
 **J3 (`of3t-triattbw`) is RETIRED (R208), and holding it is what made that callable** — `of3t-bwattrib` resolved its 14x bracket
@@ -261,7 +261,27 @@ sibling case where 79.2 % of a round was host work the port never covered, cappi
 lever at 1.25x. Stack perturbations are strongly sub-additive, so the sprint's levers are approved
 as a stack or not at all, never by summing individual readings.
 
-GAP: **Pass 450, 2026-09-25 ~17:3x CEST.**
+GAP: **Pass 451, 2026-09-25 ~17:3x CEST.**
+
+00000. **THE KERNEL PROGRAMME HAS LARGELY COLLAPSED, AND THE JOBS LIST'S ORDERING PRINCIPLE IS
+   THE REASON (R211).** `of3t-lnbw` **NO-GO**: the LayerNorm-backward site's whole ceiling is
+   **9.40 s**, not the briefed 46.4 s — that figure priced the site's verbs at the backward's
+   **global** 2.107 ms mean while the measured marginal verb there is **16.9 us**, 125x smaller.
+   The wheel op that would have collected it **miscomputes on Blackhole** (upstream #12349, its
+   own tests skipped), and the site is DRAM-bound at ~43 % of the roof — `moreh_all` ran **2.17x
+   slower on 12 fewer verbs**. Its general finding: **LayerNorm backward is 52.4 % of the tape's
+   NODES and 2.6 % of its SECONDS, and `of3t-bwsurvey`'s job list is ordered by node count.**
+   Every share on that list inherits the error. `of3t-softbw` **NO-GO on Route A** (the
+   zero-build `ttnn.moreh_softmax_backward` is refused by its own dtype guard against operands
+   measured FLOAT32 at 543 calls); Route B needs a nanobind binding and a tt-train build.
+   **So J1 is dead, J2's free route is dead, J3 was retired at 1.0235x, and the kernel programme
+   is down to J4 and a build.** The corollary is now the sprint's whole thesis: **a 16.9 us
+   marginal verb beside a 2.107 ms global mean says the 2.107 ms is a CONCENTRATION somewhere
+   specific, not a per-verb property** — which is J0, and worth more than every kernel on the
+   list. **K23** also fixed this pass: `of3t-bwattrib` wrote `## VERDICT:` as a heading and all
+   70 gate patterns anchored on `^VERDICT:`, so it was failing on punctuation it could not fix.
+
+Superseded, pass 450 —
 
 0000. **THE KERNEL PROGRAMME OPTIMISES A PATH THE SHIPPED CONFIG BYPASSES (R210).**
    `of3t-intensity` GO: J1 and J2 are briefed against `autograd.py`'s composed closure and **on
