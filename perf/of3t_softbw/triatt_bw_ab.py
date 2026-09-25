@@ -116,6 +116,25 @@ def one_backward(dev, chunk, q_chunk, scale, grade=False):
     return [ttnn.to_torch(t.grad).float().numpy() for t in ts]
 
 
+def fused_refusal(dev, chunk, q_chunk, scale):
+    """Whether the fused route can execute here at all, and the guard text if it cannot.
+
+    Route A is refused by `moreh_softmax_backward`'s own dtype guard on FLOAT32, which is
+    this row's ADAPTED finding. That was measured at micro scope on one tensor; running the
+    arm here re-takes it at NODE scope, inside a real triangle-attention backward with the
+    real chunk policy. A refusal is a RESULT, so it is recorded rather than allowed to end
+    the run -- the composed arm beside it is the shipped path and is what this harness owes.
+    """
+    ag.SOFTMAX_BW_FUSED = True
+    try:
+        one_backward(dev, chunk, q_chunk, scale)
+        return None
+    except Exception as e:                                    # noqa: BLE001 - guard text is the datum
+        return str(e).strip().splitlines()[0][:400] or type(e).__name__
+    finally:
+        ag.SOFTMAX_BW_FUSED = False
+
+
 def run(device, args, exact_on, clk):
     """Grade on a short leading axis, time on the real one.
 
@@ -146,7 +165,10 @@ def run(device, args, exact_on, clk):
         # exact_training FIRST: `tape()` reads `exact_training_ops()` when it is entered,
         # so wrapping it the other way round would leave the exact ops installed either way.
         with ag.exact_training(exact_on), ag.tape():
-            for fused in (False, True):
+            refusal = fused_refusal(gdev, gchunk, gq, scale)
+            out["fused_refused"] = refusal
+            arms = [False] if refusal else [False, True]
+            for fused in arms:
                 ag.SOFTMAX_BW_FUSED = fused
                 g = one_backward(gdev, gchunk, gq, scale, grade=True)
                 ttnn.synchronize_device(device)
@@ -162,7 +184,7 @@ def run(device, args, exact_on, clk):
     _, dev = build(device, B, H, N, d, dtype)
     with ag.exact_training(exact_on), ag.tape():
         cen = {}
-        for fused in (False, True):
+        for fused in ([False] if out.get("fused_refused") else [False, True]):
             ag.SOFTMAX_BW_FUSED = fused
             with census() as c:
                 one_backward(dev, chunk, q_chunk, scale)
@@ -170,9 +192,10 @@ def run(device, args, exact_on, clk):
             cen["fused" if fused else "composed"] = c.summary()
         out["census"] = cen
 
-        per = {"composed": [], "fused": []}
+        arm_names = ["composed"] if out.get("fused_refused") else ["composed", "fused"]
+        per = {n: [] for n in arm_names}
         for r in range(args.rounds):
-            order = ["composed", "fused"] if r % 2 == 0 else ["fused", "composed"]
+            order = arm_names if r % 2 == 0 else arm_names[::-1]
             for name in order:
                 ag.SOFTMAX_BW_FUSED = (name == "fused")
                 ttnn.synchronize_device(device)
@@ -186,8 +209,13 @@ def run(device, args, exact_on, clk):
     med = {k: statistics.median(v) for k, v in per.items()}
     out["s_per_fwd_bwd_median"] = med
     out["s_per_fwd_bwd_rounds"] = per
-    out["speedup_fused_over_composed"] = med["composed"] / med["fused"]
-    out["seconds_saved_per_call"] = med["composed"] - med["fused"]
+    if "fused" in med:
+        out["speedup_fused_over_composed"] = med["composed"] / med["fused"]
+        out["seconds_saved_per_call"] = med["composed"] - med["fused"]
+    else:
+        # A refused arm has no time, and inventing one would dress a refusal as a reading.
+        out["speedup_fused_over_composed"] = None
+        out["seconds_saved_per_call"] = 0.0
     out["clock"] = clk.summary()
     for t in dev:
         ttnn.deallocate(t)
@@ -228,7 +256,8 @@ def main():
                   r["census"]["composed"]["by_shape"][:2],
                   "s/fwd+bwd", json.dumps({k: round(v, 4)
                                            for k, v in r["s_per_fwd_bwd_median"].items()}),
-                  "x=%.3f" % r["speedup_fused_over_composed"],
+                  "x=%s" % ("refused" if r["speedup_fused_over_composed"] is None
+                            else "%.3f" % r["speedup_fused_over_composed"]),
                   json.dumps(r["rel_l2_vs_float64"]), flush=True)
     out = {"host": args.host, "board": args.board, "card": args.card,
            "clock_aiclk_during": clk.summary(), "clock_line": clk.line(0),
