@@ -42,6 +42,24 @@ from bindcraft.preflight import cleaned_campaign_settings              # noqa: E
 MONOMER = ("model_1_ptm", "model_2_ptm")
 
 
+def checkpoint_name(params_path: str) -> str:
+    """`params_model_1_ptm.npz` -> `model_1_ptm`.
+
+    The card's trunk IS one named checkpoint, and which folds may run on it is decided by
+    that name (`splice.EvoformerOnDevice.holds`). The name therefore comes off the file
+    that was loaded and not from a constant beside it, which can drift from the file.
+
+    This arm needs it because the monomer pin designs on `model_1_ptm` and validates on
+    `model_2_ptm`, two different sets of Evoformer weights, while the card holds the first
+    only. Before the route existed the validation fold ran `model_2_ptm`'s embedder,
+    templates, structure module and heads around `model_1_ptm`'s 48 blocks on card and
+    nothing downstream could see it -- the same defect `1127f9ea8` fixed for the pool arm,
+    left standing on the arm that is on by default.
+    """
+    stem = pathlib.Path(params_path).stem
+    return stem[len("params_"):] if stem.startswith("params_") else stem
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--arm", choices=["reference", "control", "device"], default="reference",
@@ -162,18 +180,24 @@ def main():
             # of the five trunks BindCraft 2 picked for this step, so splice.py is unchanged.
             pool.use(pool.models[0])
             _dev = pool
+            _held = ()          # the pool answers for itself
         else:
             _dm, _ = _A.load_models(_A.DEFAULT_PARAMS)
             _dev = _A.Dev(_dm.to_device())
+            _held = (checkpoint_name(_A.DEFAULT_PARAMS),)
         if _lv is not None:
             _lv.arm("stack")
-        evo = EvoformerOnDevice(_dev, k_evo=48)
+        evo = EvoformerOnDevice(_dev, k_evo=48, checkpoints=_held)
+        stamp["device_checkpoints"] = list(evo.checkpoints)
         stamp["device_card"] = int(os.environ.get("TT_VISIBLE_DEVICES", "-1"))
         with evoformer_on_device(evo):
             count = campaign.run_campaign(settings, project, af2_weights=args.params,
                                           mpnn_weights=mpnn,
                                           max_trajectories=args.trajectories)
         stamp["device_calls"] = dict(evo.calls)
+        # Folds BindCraft 2 asked for on a checkpoint the card does not hold, which run on
+        # its own JAX trunk. On the shipped pool that is the whole validation ensemble.
+        stamp["host_trunk_folds"] = dict(evo.host_folds)
         if pool is not None:
             stamp["pool"] = pool.stamp()
     else:

@@ -68,6 +68,15 @@ class MultimerPool:
 
     # ------------------------------------------------------------------ selection
 
+    def holds(self, name: str) -> bool:
+        """Whether this pool has `name`'s weights on hand.
+
+        A question, not a request. `use` raises on an unknown name and stays that way,
+        because its caller has already decided the card runs the fold; a caller that has
+        NOT decided which side a fold belongs on asks this first.
+        """
+        return name in self.models
+
     def use(self, name: str) -> None:
         """Make `name` the trunk the splice runs. Unknown names are an error, not a default:
         silently folding a design on the wrong checkpoint is the failure this exists to stop."""
