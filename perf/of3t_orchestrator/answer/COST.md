@@ -84,6 +84,19 @@ ceiling. **pc is not a repeatable host for this step**, and a timing taken there
 a number nobody controls. `of3t-restep`'s profile records `avail_at_start` per run for exactly this
 reason; every figure quoted from that box owes it.
 
+## The accuracy evidence behind every number here
+
+The gradient gate this campaign wrote *before* the levers it grades came back **green** on the tree
+carrying the landed engine change: **16 of 16 cases** at `rel_l2 <= 1.0e-02` and `cos >= 0.9999`,
+against a float64 reference itself validated by central finite differences to **3.02e-10 - 3.63e-10**,
+with the bf16 quantisation floor measured at **2.76e-03** against the 2.8e-3 predicted from the
+mantissa before any run. All three controls fired: the float32 arm collapses the error (so the
+formula is imprecise rather than wrong), LoRA's frozen base receives no gradient, and the
+deliberately broken arm was **refused by measuring** rather than by raising before it measured.
+
+That last property is why the gate is evidence rather than decoration, and it is the one such
+harnesses usually lack.
+
 ## What this does NOT say
 
 It does not say what a full exactness-ON step costs — that is **[OWED]** and is the one number
