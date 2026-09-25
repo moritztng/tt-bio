@@ -1,0 +1,8 @@
+{"phase": "build_params", "delta_gib": 0.0783, "rss_gib": 0.1098, "avail_gib": 16.2841}
+{"phase": "AdamW.__init__", "delta_gib": 0.3578, "rss_gib": 0.468, "avail_gib": 15.8893}
+{"phase": "first_step_moments", "delta_gib": 0.0, "rss_gib": 0.4681, "avail_gib": 15.8883}
+{"phase": "drop:exp_avg_sq", "freed_gib": 0.0698, "rss_gib": 0.3983}
+{"phase": "drop:exp_avg", "freed_gib": 0.0698, "rss_gib": 0.3285}
+{"phase": "drop:init_device", "freed_gib": 0.07, "rss_gib": 0.2585}
+{"phase": "drop:init_master", "freed_gib": 0.0705, "rss_gib": 0.188}
+{"phase": "drop:master", "freed_gib": 0.0711, "rss_gib": 0.1169}
