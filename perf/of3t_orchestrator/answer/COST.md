@@ -46,7 +46,7 @@ compute / ~11x bandwidth silicon floor is a scope mismatch every time.
 
 | quantity | value | scope, and where it comes from |
 |---|---|---|
-| exact softmax **alone**, whole step | **612.09 s**, 25.25x the noexact step | crop 384, 1 trunk cycle, taped, pc card 0 p150a, AICLK 1350 DURING, quiet box (`of3t-exactscope`) |
+| exact softmax **alone**, whole step | **637.33 s**, 25.25x the noexact step | crop 384, 1 trunk cycle, taped, pc card 0 p150a, AICLK 1350 DURING, quiet box (`of3t-exactscope`) |
 | noexact step, quiet | **25.24 s** | same arm, same box, sole tenant |
 | noexact step, loaded | **39.11 s** | same arm at loadavg 4.58 — a **1.55x** contention penalty bounding every contended figure on that box |
 | `exact_training`'s share of the backward | **95.2 %** | trunk-cycle A/B (`of3t-bwattrib`) |
