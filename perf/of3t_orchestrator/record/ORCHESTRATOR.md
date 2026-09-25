@@ -274,218 +274,65 @@ sibling case where 79.2 % of a round was host work the port never covered, cappi
 lever at 1.25x. Stack perturbations are strongly sub-additive, so the sprint's levers are approved
 as a stack or not at all, never by summing individual readings.
 
-GAP: **Pass 452, 2026-09-25 ~17:3x CEST.**
+GAP: **Pass 452, 2026-09-25 ~17:3x CEST. Rewritten as current state — it had six layers of
+"Superseded, pass N" beneath it, several contradicting today's tree, which is the accretion I
+have been telling other rows not to do.**
 
-000000. **THE CRITICAL PATH WAS STARVED BY A RETRY LOOP ON THE LEAST VALUABLE ROW (K24).**
-   `of3t-wheelbw` (J4, 5-15 s) held **pc card 0 — the only reachable Blackhole card** — for
-   ~25 minutes retrying a deterministically-failing script, while `of3t-restep` (which unblocks
-   every share after R209) deferred **five times** and J0 queued behind it. Its `chain3.sh`
-   classifies failure by exit status, so a `TypeError` read as card contention; the real fault is
-   local to that row (`census.py:208` passes `0` where `host_losses` needs an index array). **I
-   verified `fullstep.py` on main is NOT broken before touching anything** — its own caller passes
-   a proper `rep` — which matters because `of3t-restep`'s whole job is to run that file. The row
-   could not notice: it had parked to 18:45 believing it was *waiting* for the card, on a reading
-   already stale when written. **Park cleared (dot first), and its brief now names the bug, the
-   fix to the retry classification, and its place in the queue.** Owed by it: release the card.
+**1. The sprint's premise is largely refuted, and that is its main result so far.** The fused
+backward-kernel programme is not where the time is:
 
-Superseded, pass 451 —
+| job | outcome |
+|---|---|
+| J1 `of3t-lnbw` LayerNorm bw | **NO-GO** — site ceiling **9.40 s**, not the briefed 46.4 s; the wheel op miscomputes on Blackhole (upstream #12349); DRAM-bound at ~43 % of roof |
+| J2 `of3t-softbw` softmax bw | **NO-GO on Route A** (dtype guard, operands FLOAT32 at 543 calls); Route B needs nanobind + a tt-train build |
+| J3 `of3t-triattbw` triatt bw | **RETIRED** at 1.0235x, 1.0026x after J0 (R208) |
+| J4 `of3t-wheelbw` wheel `*_bw` | 5-15 s; VJP half landed, seconds still owed |
+| fused forwards bypassed under taping | **1.00508x** (R203/R207) |
 
-00000. **THE KERNEL PROGRAMME HAS LARGELY COLLAPSED, AND THE JOBS LIST'S ORDERING PRINCIPLE IS
-   THE REASON (R211).** `of3t-lnbw` **NO-GO**: the LayerNorm-backward site's whole ceiling is
-   **9.40 s**, not the briefed 46.4 s — that figure priced the site's verbs at the backward's
-   **global** 2.107 ms mean while the measured marginal verb there is **16.9 us**, 125x smaller.
-   The wheel op that would have collected it **miscomputes on Blackhole** (upstream #12349, its
-   own tests skipped), and the site is DRAM-bound at ~43 % of the roof — `moreh_all` ran **2.17x
-   slower on 12 fewer verbs**. Its general finding: **LayerNorm backward is 52.4 % of the tape's
-   NODES and 2.6 % of its SECONDS, and `of3t-bwsurvey`'s job list is ordered by node count.**
-   Every share on that list inherits the error. `of3t-softbw` **NO-GO on Route A** (the
-   zero-build `ttnn.moreh_softmax_backward` is refused by its own dtype guard against operands
-   measured FLOAT32 at 543 calls); Route B needs a nanobind binding and a tt-train build.
-   **So J1 is dead, J2's free route is dead, J3 was retired at 1.0235x, and the kernel programme
-   is down to J4 and a build.** The corollary is now the sprint's whole thesis: **a 16.9 us
-   marginal verb beside a 2.107 ms global mean says the 2.107 ms is a CONCENTRATION somewhere
-   specific, not a per-verb property** — which is J0, and worth more than every kernel on the
-   list. **K23** also fixed this pass: `of3t-bwattrib` wrote `## VERDICT:` as a heading and all
-   70 gate patterns anchored on `^VERDICT:`, so it was failing on punctuation it could not fix.
+The cause is one error repeated: **`of3t-bwsurvey`'s job list is ordered by NODE and VERB COUNT,
+and count does not track seconds** (R211). LayerNorm backward is 52.4 % of tape nodes and 2.6 %
+of backward seconds; its marginal verb is 16.9 us against a global mean of 2.107 ms.
 
-Superseded, pass 450 —
+**2. Where the time actually is, and neither part is a fused kernel.** The host float64 exactness
+`502ed112e` put inside every `tape()` costs **247.8 s of a 251.66 s taped forward**, and it
+reaches the backward too. And the 2.107 ms global mean is a **concentration somewhere specific**,
+not a per-verb property — that is J0's to name and it is worth more than every kernel on the list.
 
-0000. **THE KERNEL PROGRAMME OPTIMISES A PATH THE SHIPPED CONFIG BYPASSES (R210).**
-   `of3t-intensity` GO: J1 and J2 are briefed against `autograd.py`'s composed closure and **on
-   main that closure does not run** — `_v_exact_layer_norm` and `_v_exact_softmax` replace it the
-   moment a tape is entered. So a fused LayerNorm or softmax backward speeds up code that does not
-   execute in shipped training today. Same fact from the cost side: **every kernel row branching
-   from main runs an 8.4x step**, so an uncontrolled A/B is 8.4x contaminated by a host term.
-   **Decided and pushed into every brief: kernel rows grade with `exact_training(False)`, stated
-   in every arm; the shipped baseline is `of3t-restep`'s one clean measurement.** With the host
-   term in the denominator a 46 s win and a 33 s win are indistinguishable. **No row may report a
-   clean speedup and omit that the path is bypassed as shipped.** The work stays worth doing
-   because the exactness default is a product decision on a price that has moved, because the
-   kernels are engine-level and live for Boltz-2/BC2/RFD3 today, and because the decision cannot
-   be made until someone measures what the fast path is worth.
+**3. Two rows own everything that is left.** `of3t-bwattrib` (J0) — the histogram, the CAUSE with
+its commit named, and the RESIDUAL. `of3t-restep` — the re-take, because **every share this
+campaign has published is void until it lands** (R209). Both are queued on pc card 0.
 
-Superseded, pass 450 earlier —
+**4. The card is the throughput ceiling and it has been actively starved.** One reachable
+Blackhole card on the fleet; `of3t-wheelbw` held it ~25 min retrying a deterministically-failing
+script while `of3t-restep` deferred five times (K24). Park cleared, bug and retry-classification
+named in its brief. Expect this to recur: the queue is four deep on one card.
 
-000. **THE BASELINE WAS STALE BY ~65x AND MOST OF THIS CAMPAIGN'S SHARES ARE VOID (R209).**
-   `of3t-tapedfwd` concluded GO and found it. The 466.702 s step was banked at `451ed56f4`
-   (2026-09-21 18:07Z, from the artifact's own `env.commit`); `502ed112e` (2026-09-23 03:59Z,
-   *"training tape: exact softmax and layer norm on by default"*) then put a **HOST float64**
-   softmax and layer norm inside every `tape()` — and inside `autograd.backward`, which opens
-   `with _training_exact("backward")` for itself once the tape block has closed.
-   `merge-base --is-ancestor 502ed112e 451ed56f4` is **false**. A taped forward reads **251.66 s**
-   today against **3.415 s** banked, reproduced independently at 228.814 s, and **247.8 s of it is
-   the exactness** (identical routes at identical counts read 3.8884 s against 251.6566 s;
-   teardown 0.0000 s; a `--declare` arm ruled out leaf registration at 270.162 s).
-   **Void until re-taken:** 58-67x, 98.6/1.4, 466.702 and 456.668, 356.00 s / 168,922 calls /
-   2.107 ms / 44.3x, the 97.7 %, the 100.668 s residual, every JOBS share, my own **R205** and
-   **R206**, and the **3.32x ceiling**. **Survives:** R207 (both its arms are untaped, so neither
-   installs the exact ops, and its conclusion holds on both trees), R208 (a smaller share of a
-   larger step is a smaller share) and K22 (a board fact). `BACKWARD.md` carries a STALE BASELINE
-   banner above §1 because every row reads it first; `step_partition.py` and `sprint_ceiling.py`
-   carry stale-input banners saying the arithmetic is still right and the outputs are not.
-   **`of3t-restep` is dispatched to re-take it** — one uninstrumented `fullstep.py` on main with
-   the third column the old partition could not have (verb time against host-float64-exact time
-   against the rest), `_training_exact` priced forward and backward separately. And
-   `baseline_expiry.py` now exists so this cannot recur silently: it asserts an artifact's
-   `env.commit` is an ancestor of HEAD **and** that nothing since touched the measured paths.
-   Controlled both ways — STALE on the real artifact naming 39 commits, LIVE at that artifact's
-   own commit.
+**5. Not composed, deliberately.** `of3t-lnbw` and `of3t-softbw` land in `tt_bio/autograd.py`
+(BCX-contested) from NO-GO rows, and softbw's wiring has never run on a card. Owed before either
+lands: a stated purpose, `batch_gate.sh` over the batch, BCX's bar re-run.
 
-Superseded, pass 449 —
+**6. Unanswered and nobody's:** whether `_v_sdpa` fires in OF3's trunk at all
+(`fp32_softmax=True` at all four sites, `tenstorrent.py:10395`) — it is J3's reopen condition and
+J0 emits the counter; and what the 100.668 s non-verb backward actually is, whose stale value is
+void but whose question is not.
 
-00. **THE SPRINT'S CEILING IS 3.32x AND THAT IS 34 % OF THE TARGET.** Computed after J3's
-   retirement, `perf/of3t_orchestrator/bwd/sprint_ceiling.py`, and it is a ceiling rather than a
-   projection — every job credited its best published number, J0 credited a FULL solve. Kernels
-   alone if J0 fails: 1.25x. J0 alone: 3.09x. J0 plus kernels repriced per R206: **3.32x**, or
-   17.6-20.1x against an H200. Reaching the silicon floor needs a step of 60-88 s, a 5.3-7.8x
-   software win. **Most of the shortfall is one unowned item: the 100.668 s of NON-VERB backward
-   time, 21.6 % of the step and larger than J1+J2+J4 combined (94.2 s).** Every job on the list
-   attacks the 356.00 s of verb calls; nothing attacks this. Assigned to `of3t-bwattrib` as a
-   subtraction from the histogram it is already collecting rather than as a new row, because
-   there is one Blackhole card and it holds it. **No number this sprint publishes may imply 6-7x
-   is in reach from the job list as it stands.**
+**7. Carried from the correctness campaign, not this sprint's:** D270 (0.86 % of mass, inside the
+3x bar); the six user-facing defects under ask 10455; crop 640's single-card capacity wall.
 
-Superseded, pass 448 —
-
-0. **THE BINDING CONSTRAINT, and it is my dispatch error (K22).** I dispatched four device rows
-   `host=any card=-`. `card=-` resolves to whatever is free, what was free was whglx, and
-   **whglx is a Wormhole galaxy** (`tt-smi -ls`, verified this pass). This sprint's baseline is
-   **Blackhole** — 466.70 s, 115.685 TFLOP/s, the 1350 MHz rule — so those cards cannot produce a
-   comparable number. **The only reachable Blackhole card is pc card 0**: qb1 does not answer ssh
-   with all four cards blocked; qb2 card 0 reads 800 MHz so a timing is an artifact and it has no
-   reset path while card 1 holds a live arm; qb2 1/2/3 are held by BCX rows with a 28 September
-   deadline I am not going to preempt. So the three kernel rows serialise on one card.
-   `of3t-lnbw` went BLOCKED and diagnosed it before I did. Order is now explicit —
-   **J0 → J1 → J2 → J4** by value — with J2 and J4 parked behind it so they stop burning passes,
-   and every brief carries the split that keeps a queued row productive: **a formula-level check
-   and a negative control are board-insensitive; the graded VJP and every timing are
-   Blackhole-only.** This is a throughput ceiling on the sprint, not a correctness one.
-
-Superseded, pass 445 — ** ~16:5x CEST.** What the sprint has not done, specifically.
-
-1. **The 44.3x is unexplained and it is ~97.7 % of the backward.** `of3t-bwattrib` is dispatched
-   against it and nothing else in the sprint produces the number. Until it exists, every kernel
-   saving is priced inside a step whose dominant cost is unaccounted for.
-2. **J3's size is a 14x bracket** — 10.7 s or 153.7 s for the fused triangle-attention backward,
-   depending on whether the SDPA block count per call is 2 (`SDPA_SCORE_BUDGET = 256 MiB`) or 40
-   (the runtime census). The largest authoring job on the page cannot be ranked until J0 resolves
-   it, and it is deliberately not dispatched.
-3. **`grad_bias` is answered in survey but unbuilt.** `sdpa_bw` returns `[grad_Q, grad_K, grad_V]`
-   and treats `attn_mask` as a constant, while triangle attention's bias is a learned pair
-   projection whose gradient is how signal reaches the pair track at all. It is part of J3.
-4. **The taped forward's bypass is located but unpriced.** R203: thirteen `ops.taping()` guards in
-   eight modules, plus the DRAM-for-L1 residency downgrade at `tenstorrent.py:9016`. The seconds
-   are `of3t-tapedfwd`'s and it is still live.
-5. **The precomputed-forward seam is a one-off** (R204): `value=` exists on one autograd op and is
-   used at one call site. Generalising it is shared work between J1, J2 and J3; whichever row
-   needs it first carries it, which is a coordination risk I am holding rather than one I have
-   solved.
-6. **Nothing has landed, so `wk/of3t-bwd` does not exist.** Two artifact-only branches and one
-   live row's branch wait for the first batch (BRANCH).
-7. **The four J-rows were dispatched twice before they took, and the first attempt was silently
-   reverted** (K20). `queue.tsv` is regenerated from `TASKS.md` ws-tags, so a hand-append never
-   survives; and `reconcile_tasks.sh` read-modify-writes `TASKS.md` unlocked under a two-minute
-   cron, so the correct edit was lost too. Both are now applied and READ BACK: four tags in
-   `TASKS.md`, four rows in `queue.tsv`, briefs and gate entries already in place from pass 445.
-   The re-apply is one idempotent command
-   (`perf/of3t_orchestrator/bwd/apply_tasks_rows.py`) if a future reconcile eats it again. **I am
-   not fixing the race in `reconcile_tasks.sh`**: a lock there only helps if every writer takes
-   it, which is a fleet-wide convention change, and the script runs every two minutes so a bug in
-   it stops the whole fleet. It is reported, not patched.
-8. Carried from the correctness campaign and NOT this sprint's: D270
-   (`aux_heads.distogram.linear.weight` at 1.44x its bf16 on every draw, 0.86 % of mass, inside
-   the 3x section bar); the six user-facing defects D32, D55, D184, D205, D210, D250, owned
-   outside this campaign under ask 10455; crop 640 as a single-card capacity wall.
-
-VERDICT: PARTIAL, pass 450. **`of3t-tapedfwd` went GO and took most of the campaign's numbers
-with it (R209): the 466.702 s baseline predates the commit that put a host float64 softmax and
-layer norm inside every `tape()`, a taped forward is 251.66 s against 3.415 s banked, and 247.8 s
-of that is the exactness.** So five rows were ranked against numbers nobody can reproduce, two of
-my own ledger entries are void, and the 3.32x ceiling I published one pass ago is withdrawn. What
-I did rather than re-summarise it: bannered BACKWARD.md above §1 and both of my arithmetic
-scripts, separated what survives (R207, R208, K22) from what does not, dispatched `of3t-restep`
-for the re-take with the third column the old partition could not have, told `of3t-bwattrib` its
-residual is now the campaign's central question with the cause NAMED
-(`autograd.backward` opens the same exact scope), and built `baseline_expiry.py` so a banked
-number carries an expiry rather than only a provenance — controlled both ways. **The one thing I
-am NOT doing is treating the host float64 path as a defect**: it is the fidelity feature Moritz
-approved personally, training-only, and it is why this campaign's gradients are correct. It gets
-priced exactly and the price goes to him, because he ruled on this trade once at 1.441x and the
-number has moved.
-
-Superseded, pass 449 — **Two decisions this pass, both from arithmetic rather than
-opinion.** **J3 RETIRED (R208):** `of3t-bwattrib` resolved its 14x bracket from source to 2 score
-blocks per call, corroborated by 247 live buffers of exactly 1,179,648 B, so the largest and
-riskiest authoring job on the page is worth **1.0235x** today and **1.0026x** after J0 — 4.34x
-less than J1 — and may not apply to OF3 at all because `fp32_softmax=True` routes the forward
-around the taped verb. Holding it rather than dispatching it is what made that callable, and the
-reopen condition is falsifiable and cheap. **The sprint's CEILING is 3.32x, 34 % of the target**,
-and most of the shortfall is the **100.668 s of non-verb backward** — 21.6 % of the step, larger
-than J1+J2+J4 combined, attacked by no job on the list, now assigned to `of3t-bwattrib` as a
-subtraction rather than a fifth row competing for the one card. The card queue is working as
-ordered: J0 took pc card 0 at 17:03 when `of3t-tapedfwd` released it, and `of3t-wheelbw` is
-producing on the board-insensitive half. No J-row has a final verdict; `of3t-lnbw` reads BLOCKED
-on the card, `of3t-intensity` and `of3t-bwattrib` read PARTIAL.
-
-Superseded, pass 448 — **The sprint's rate limit is now hardware, not agents.** One usable
-Blackhole card on the whole fleet (pc card 0) against four rows that each need one, so "full
-speed with multiple agents" is capped at one by silicon — my dispatch error (K22, `card=-` sent
-them to a Wormhole galaxy), now corrected: queue ordered by value J0 → J1 → J2 → J4, the back two
-parked so they stop burning passes, the three timing rows pinned to the right card, and every
-brief split so a queued row still finishes its instrument, its float64 reference and its
-finite-difference validation while it waits. Moritz informed; nothing waits on him, and I am not
-asking him to preempt BCX, which has the nearer deadline. No J-row has reached a verdict yet:
-`of3t-lnbw` reads BLOCKED on the card and diagnosed the cause before I did. The batch gate that
-will grade them is written and its own two load-bearing properties are checked.
-
-Superseded, pass 446 — Six rows live, two GO, the reviewable branch exists with its first
-lever, and the sprint's own headline has been corrected twice — both times downward, both times
-by arithmetic on the rows' own numbers. **`of3t-tapedfwd` GO: the fused-kernel bypass I
-root-caused is worth 1.00508x, not the reordering I gave it (R207).** **R205: bwsurvey's
-"9.1x on its own" drops a 100.668 s term; the honest figure is 3.09x, and the 9.1x reading is
-refuted by our own silicon floor because it would put us at 6.3-7.2x against an 8.5-11x hardware
-ratio.** **R206: J0 and the kernel jobs are substitutes — J1's 46.4 s becomes 5.3 s if J0 lands —
-so the JOBS list's seconds must never be summed.** All five kernel briefs carry both corrections.
-What else this pass did: re-dispatched the four J-rows after discovering the pass-445 dispatch had
-been silently reverted (K20 — `queue.tsv` is generated from `TASKS.md` ws-tags, and
-`reconcile_tasks.sh` read-modify-writes `TASKS.md` unlocked under a two-minute cron, so even the
-correct edit was lost), with an idempotent re-apply script; wrote and gated J3 without dispatching
-it; and found `of3t-intensity`'s first pass stranded on an unreachable qb1 with its brief now
-saying so (K21).
-
-Superseded, kept for the record — pass 445. The sprint's subject is speed and it is one pass old with two rows
-already GO. What this pass did: wrote **A46** before any sprint number existed, which is the
-protocol duty when the subject changes; gave all four launched rows the artifact namespaces,
-slug-scoped scratch paths, branch discipline and contested-file warning their briefs went out
-without; found and filed **R203** (`generic_op` has no backward, so all eleven fused kernels are
-off under taping — thirteen guards in eight modules, a policy hiding behind thirteen honest
-comments) and **R204** (the seam that routes around it shipped months ago and was never
-generalised); verified against git that `wk/of3t` is inside `origin/main` and that the only two
-of3t branches still ahead are artifact-only; and, when `of3t-bwsurvey` returned GO mid-pass,
-**dispatched four rows from its JOBS list with their gate entries, stage hints and two
-negative-controlled new checks in the same pass.** J0 leads because 97.7 % of the backward is not
-the model's arithmetic. J3 is held because its size is a 14x bracket that J0 settles.
+VERDICT: PARTIAL, pass 452. **The sprint's premise is largely refuted and that is its result so
+far: the fused backward-kernel programme is not where the time is.** J1 NO-GO at a 9.40 s ceiling
+against a 46.4 s brief, J2's free route NO-GO on a dtype guard, J3 retired at 1.0235x, the taped
+fused-forward bypass worth 1.005x — and one error behind all of it, `of3t-bwsurvey` ranking jobs
+by node and verb COUNT when count does not track seconds (R211: 52.4 % of nodes, 2.6 % of
+seconds, a 16.9 us marginal verb against a 2.107 ms mean). What the time IS: the host float64
+exactness at **247.8 s of a 251.66 s taped forward**, and a concentration behind the 2.107 ms
+mean that J0 is chasing. **And every share the campaign has published is void until `of3t-restep`
+re-takes the step** (R209) — the 466.702 s baseline predates the commit that put that exactness
+inside every `tape()`. Two rows own the remainder and both are queued on the fleet's one
+Blackhole card, which `of3t-wheelbw` starved for 25 minutes this pass on a retry loop that could
+not tell a `TypeError` from a busy card (K24, park cleared, bug named). Not concluding: the
+charter is reachable, the two rows that would settle it are live, and a NO-GO would need
+arithmetic I do not have. GAP is rewritten as current state this pass rather than prepended to.
 
 PASSLOG: the per-pass narrative lives in `state/of3t/PASSLOG.md`. This doc carries current state
-only, and as of this pass it carries the SPRINT's current state — the correctness campaign's is in
-`state/archive/of3t-orchestrator.pre-bwd-sprint-20260925.md`.
+only.
