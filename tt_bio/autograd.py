@@ -1191,6 +1191,161 @@ def linear(x: Tensor, w: Tensor, b: Optional[Tensor] = None, *, dtype=None, core
     return _tape(out_v, parents, make)
 
 
+#: Whether the LayerNorm backward runs `ttnn.moreh_layer_norm_backward` in place of the
+#: composed closure. A module switch so an A/B can flip it in one process, like TREE_REDUCE.
+#:
+#: The op is in the 0.68 wheel and bound to Python
+#: (`moreh_layer_norm_backward_nanobind.cpp:20`). It was ruled out of `layer_norm`'s forward
+#: rewrite for needing a `mean` and an `rstd` that `ttnn.layer_norm` does not return -- but this
+#: backward recomputes both anyway, for the reason `_ln_stats` gives, so they are handed in and
+#: the objection does not survive.
+#:
+#: Off until `perf/of3t_lnbw` grades it on a card. It cannot be reached from an inference fold
+#: (nothing outside a tape calls a backward) so A46.4's A/B does not apply, but a lever whose
+#: accuracy has not been read is not a default.
+MOREH_LAYERNORM_BW = False
+
+#: Whether that op also returns dgamma and dbeta, rather than `_sum_leading` doing it.
+#:
+#: A separate switch because the op's two halves are parallelised on DIFFERENT axes and only one
+#: of them is a safe bet. `..._input_grad_program_factory.cpp:85` splits over `num_outer`, one
+#: row-tile per core, so dx uses the whole grid; `..._gamma_beta_grad_program_factory.cpp:87`
+#: splits over `num_inner`, one WIDTH-tile per core, so the pair track's c_z = 128 runs its whole
+#: leading-axis reduction on FOUR cores and the single track's c_s = 384 on twelve. Fewer verbs,
+#: less of the grid: which way that lands is a measurement, and it is measured apart from dx.
+MOREH_LAYERNORM_BW_AFFINE = False
+
+
+def _ln_stats(xv, eps, cfg):
+    """``mean``, ``x - mean`` and ``rstd`` over the last dim.
+
+    Recomputed rather than retained from the forward: two reductions, and it is what buys the
+    production `ttnn.layer_norm` kernel in the forward instead of a composite that returns its
+    own statistics. Two-pass ``E[(x - mean)^2]`` rather than tt-train's ``E[x^2] - E[x]^2``
+    (`ops/layernorm_op.cpp:144`), which cancels catastrophically once the mean dominates the
+    spread.
+    """
+    mean = ttnn.mean(xv, dim=-1, keepdim=True)
+    centered = ttnn.subtract(xv, mean)
+    var = ttnn.mean(ttnn.multiply(centered, centered), dim=-1, keepdim=True,
+                    compute_kernel_config=cfg)
+    return mean, centered, ttnn.rsqrt(ttnn.add(var, eps))
+
+
+def _rows(shape):
+    """(leading coordinates, width) of a last-dim normalisation over ``shape``."""
+    dims = [int(d) for d in shape]
+    n = 1
+    for d in dims[:-1]:
+        n *= d
+    return n, dims[-1]
+
+
+def _as4(t, n, c):
+    """``t`` viewed as ``[1, 1, n, c]``.
+
+    A view and not a copy: in TILE layout the last two dims are tiled and the leading ones are
+    a plain batch, so collapsing them leaves the tile order untouched as long as the
+    second-to-last dim is a multiple of 32 -- which `_moreh_ln_bw_declines` checks. Worth doing
+    rather than passing the rank through: it is what turns the dx half's
+    `split_work_to_cores(grid, num_outer)` from a split over the BATCH into a split over every
+    row-tile in the tensor.
+    """
+    return t if tuple(int(d) for d in t.shape) == (1, 1, n, c) else ttnn.reshape(t, [1, 1, n, c])
+
+
+def _moreh_ln_bw_declines(xv, g, gamma, beta):
+    """Why `ttnn.moreh_layer_norm_backward` does not cover this call, or None when it does.
+
+    Every clause is a real assumption, so a decline names which one. Both device operations
+    have an EMPTY `validate_inputs` -- neither checks a dtype, a rank or an alignment -- so a
+    call outside these bounds does not throw, it returns wrong numbers or hangs.
+    """
+    if not MOREH_LAYERNORM_BW:
+        return "off"
+    if gamma is None:
+        return "no_gamma"                # gamma is the op's only affine argument
+    n, c = _rows(xv.shape)
+    if c % ttnn.TILE_SIZE:
+        return f"width={c}"              # `do_mask_w` is untested here; decline rather than mask
+    if n % ttnn.TILE_SIZE:
+        return f"rows={n}"               # `_as4` would stop being a view
+    if xv.dtype != g.dtype:
+        return f"dtype_pair={xv.dtype}/{g.dtype}"
+    return None
+
+
+def _layer_norm_backward(x, gamma, beta, g, eps, cfg):
+    """Accumulate dx, dgamma and dbeta for one layer norm over the last dim.
+
+    ONE copy. `layer_norm` and `_taped_layer_norm` carried the same closure written out twice,
+    down to the comments; they differ only in where their epsilon comes from, which is the call
+    site's business and not the closure's.
+
+    The composed branch is 22 ttnn verbs -- 16 of norm maths and two `_sum_leading` calls -- and
+    LayerNorm backward is 1,296 of the backward's 2,473 tape nodes, so those verbs are 52.4 %
+    of the tape's nodes' worth of dispatch. `ttnn.moreh_layer_norm_backward` is one op for the
+    lot, and unlike `ttml::metal::layernorm_bw` -- which gives its dgamma/dbeta partials the
+    INPUT's shape (`layernorm_bw_device_operation.cpp:91-109`) and then reduces them host-side
+    with the same `ttnn::sum` (`layernorm_bw.cpp:29`) -- it reduces over every leading
+    coordinate inside its own kernel and returns gamma's shape.
+    """
+    xv = x.value            # not a captured handle: `Tensor.free` may have evicted it to DRAM
+                            # since the forward, and the captured handle would be freed storage
+    reason = _moreh_ln_bw_declines(xv, g, gamma, beta)
+    n, c = _rows(xv.shape)
+    want = [int(d) for d in xv.shape]
+    xf = xv if reason else _as4(xv, n, c)
+    gf = g if reason else _as4(g, n, c)
+    mean, centered, rstd = _ln_stats(xf, eps, cfg)
+
+    affine = (reason is None and MOREH_LAYERNORM_BW_AFFINE
+              and gamma is not None and gamma.requires_grad
+              and beta is not None and beta.requires_grad)
+
+    if reason is None:
+        gv = _as4(gamma.value, 1, c)
+        gg = bg = None
+        if affine:
+            # The op computes a term only if its output tensor was handed in
+            # (`moreh_layer_norm_backward.cpp:64`), so these two allocations are part of the
+            # arm's cost and are counted as such.
+            gg = ttnn.zeros([1, 1, 1, c], dtype=ttnn.float32, layout=ttnn.TILE_LAYOUT,
+                            device=xv.device())
+            bg = ttnn.zeros([1, 1, 1, c], dtype=ttnn.float32, layout=ttnn.TILE_LAYOUT,
+                            device=xv.device())
+        out = ttnn.moreh_layer_norm_backward(gf, xf, mean, rstd, 1, gamma=gv,
+                                             gamma_grad=gg, beta_grad=bg,
+                                             compute_kernel_config=cfg)
+        if x.requires_grad:
+            x.add_grad(ttnn.reshape(out[0], want))
+        if affine:
+            gamma.add_grad(ttnn.reshape(out[1], [int(d) for d in gamma.value.shape]))
+            beta.add_grad(ttnn.reshape(out[2], [int(d) for d in beta.value.shape]))
+            return
+        # dgamma/dbeta the composed way, on the flattened view so `_sum_leading`'s own
+        # `_flat2d` is a no-op rather than a second reshape.
+        norm = ttnn.multiply(centered, rstd)
+        if gamma.requires_grad:
+            gamma.add_grad(_sum_leading(ttnn.multiply(gf, norm), gamma.value.shape))
+        if beta is not None and beta.requires_grad:
+            beta.add_grad(_sum_leading(gf, beta.value.shape))
+        return
+
+    norm = ttnn.multiply(centered, rstd)
+    if gamma is not None and gamma.requires_grad:
+        gamma.add_grad(_sum_leading(ttnn.multiply(g, norm), gamma.value.shape))
+    if beta is not None and beta.requires_grad:
+        beta.add_grad(_sum_leading(g, beta.value.shape))
+    if x.requires_grad:
+        dnorm = ttnn.multiply(g, gamma.value) if gamma is not None else g
+        # dx = (dnorm - mean(dnorm) - norm * mean(dnorm * norm)) * rstd
+        dn_mean = ttnn.mean(dnorm, dim=-1, keepdim=True)
+        dn_norm_mean = ttnn.mean(ttnn.multiply(dnorm, norm), dim=-1, keepdim=True)
+        dx = ttnn.subtract(ttnn.subtract(dnorm, dn_mean), ttnn.multiply(norm, dn_norm_mean))
+        x.add_grad(ttnn.multiply(dx, rstd))
+
+
 def layer_norm(x: Tensor, gamma: Optional[Tensor] = None, beta: Optional[Tensor] = None,
                *, eps: float = 1e-6, config=None, backward_config=None,
                memory_config=None) -> Tensor:
@@ -1229,31 +1384,7 @@ def layer_norm(x: Tensor, gamma: Optional[Tensor] = None, beta: Optional[Tensor]
 
     def make():
         def bw(g):
-            # Recomputed here, not retained from the forward: two reductions, and it is what
-            # buys the production kernel above. The two-pass E[(x - mean)^2] rather than
-            # tt-train's E[x^2] - E[x]^2 (ops/layernorm_op.cpp:144), which cancels
-            # catastrophically once the mean dominates the spread.
-            # `x.value`, not a captured handle: `Tensor.free` may have evicted this to
-            # DRAM since the forward, and the captured handle would be freed storage.
-            xv = x.value
-            mean = ttnn.mean(xv, dim=-1, keepdim=True)
-            centered = ttnn.subtract(xv, mean)
-            var = ttnn.mean(ttnn.multiply(centered, centered), dim=-1, keepdim=True,
-                            compute_kernel_config=bwcfg)
-            rstd = ttnn.rsqrt(ttnn.add(var, eps))
-            norm = ttnn.multiply(centered, rstd)
-            if gamma is not None and gamma.requires_grad:
-                gamma.add_grad(_sum_leading(ttnn.multiply(g, norm), gamma.value.shape))
-            if beta is not None and beta.requires_grad:
-                beta.add_grad(_sum_leading(g, beta.value.shape))
-            if x.requires_grad:
-                dnorm = ttnn.multiply(g, gamma.value) if gamma is not None else g
-                # dx = (dnorm - mean(dnorm) - norm * mean(dnorm * norm)) * rstd
-                dn_mean = ttnn.mean(dnorm, dim=-1, keepdim=True)
-                dn_norm_mean = ttnn.mean(ttnn.multiply(dnorm, norm), dim=-1, keepdim=True)
-                dx = ttnn.subtract(ttnn.subtract(dnorm, dn_mean),
-                                   ttnn.multiply(norm, dn_norm_mean))
-                x.add_grad(ttnn.multiply(dx, rstd))
+            _layer_norm_backward(x, gamma, beta, g, eps, bwcfg)
         return bw
 
     return _tape(out_v, parents, make)
@@ -2640,31 +2771,7 @@ def _taped_layer_norm(shipped, args, kwargs):
 
     def make():
         def bw(g):
-            # Recomputed here, not retained: two reductions, and it is what buys the
-            # production kernel above. Two-pass E[(x - mean)^2] rather than tt-train's
-            # E[x^2] - E[x]^2 (ops/layernorm_op.cpp:144), which cancels catastrophically
-            # once the mean dominates the spread.
-            # `x.value`, not a captured handle: `Tensor.free` may have evicted this to
-            # DRAM since the forward, and the captured handle would be freed storage.
-            xv = x.value
-            mean = ttnn.mean(xv, dim=-1, keepdim=True)
-            centered = ttnn.subtract(xv, mean)
-            var = ttnn.mean(ttnn.multiply(centered, centered), dim=-1, keepdim=True,
-                            compute_kernel_config=bwcfg)
-            rstd = ttnn.rsqrt(ttnn.add(var, eps))
-            norm = ttnn.multiply(centered, rstd)
-            if gamma is not None and gamma.requires_grad:
-                gamma.add_grad(_sum_leading(ttnn.multiply(g, norm), gamma.value.shape))
-            if beta is not None and beta.requires_grad:
-                beta.add_grad(_sum_leading(g, beta.value.shape))
-            if x.requires_grad:
-                dnorm = ttnn.multiply(g, gamma.value) if gamma is not None else g
-                # dx = (dnorm - mean(dnorm) - norm * mean(dnorm * norm)) * rstd
-                dn_mean = ttnn.mean(dnorm, dim=-1, keepdim=True)
-                dn_norm_mean = ttnn.mean(ttnn.multiply(dnorm, norm), dim=-1, keepdim=True)
-                dx = ttnn.subtract(ttnn.subtract(dnorm, dn_mean),
-                                   ttnn.multiply(norm, dn_norm_mean))
-                x.add_grad(ttnn.multiply(dx, rstd))
+            _layer_norm_backward(x, gamma, beta, g, eps, bwcfg)
         return bw
 
     return _tape(out_v, parents, make)
