@@ -1,0 +1,42 @@
+{
+ "arms": {
+  "base": {
+   "cifs": {
+    "prot.cif": "755e0c5dccee0405da2f343af364e6427f4cdf428c1e19be74e0aa56093679b7"
+   },
+   "rc": 0,
+   "seconds": 117.0,
+   "tail": "\nDone: 1 ok, 0 failed \u2014 /tmp/of3t/of3t-softbw/hold/out_openfold3_base/openfold3_results_prot/results.json\n17:34:52  [pc:tt0] loading model\u2026\n17:34:55  [pc:tt0] prot\n17:34:55  [pc:tt0]   prep\n17:35:11  [pc:tt0]   trunk 0/4\n17:35:18  [pc:tt0]   trunk 1/4\n17:35:19  [pc:tt0]   trunk 2/4\n17:35:19  [pc:tt0]   trunk 3/4\n17:35:28  [pc:tt0]   diffusion 0/6\n17:36:18  [pc:tt0]   diffusion 1/6\n17:36:18  [pc:tt0]   diffusion 2/6\n17:36:19  [pc:tt0]   diffusion 3/6\n17:36:19  [pc:tt0]   diffusion 4/6\n17:36:19  [pc:tt0]   diffusion 5/6\n17:36:19  [pc:tt0]   confidence\n17:36:30  [pc:tt0]   saving\n17:36:31  [pc:tt0] \u2713 prot \u2014 96.3s\n"
+  },
+  "control": {
+   "cifs": {
+    "prot.cif": "44470c218c5d4fbd60b50b5cf8f7583ec486e5645ba1716a779782aaea7e8b37"
+   },
+   "rc": 0,
+   "seconds": 145.7,
+   "tail": "\nDone: 1 ok, 0 failed \u2014 /tmp/of3t/of3t-softbw/hold/out_openfold3_control/openfold3_results_prot/results.json\n17:42:30  [pc:tt0] loading model\u2026\n17:42:36  [pc:tt0] prot\n17:42:36  [pc:tt0]   prep\n17:42:40  [pc:tt0]   trunk 0/4\n17:42:45  [pc:tt0]   trunk 1/4\n17:42:45  [pc:tt0]   trunk 2/4\n17:42:45  [pc:tt0]   trunk 3/4\n17:42:46  [pc:tt0]   diffusion 0/6\n17:42:47  [pc:tt0]   diffusion 1/6\n17:42:47  [pc:tt0]   diffusion 2/6\n17:42:47  [pc:tt0]   diffusion 3/6\n17:42:47  [pc:tt0]   diffusion 4/6\n17:42:47  [pc:tt0]   diffusion 5/6\n17:42:47  [pc:tt0]   confidence\n17:42:51  [pc:tt0]   saving\n17:42:51  [pc:tt0] \u2713 prot \u2014 15.3s\n"
+  },
+  "off": {
+   "cifs": {
+    "prot.cif": "755e0c5dccee0405da2f343af364e6427f4cdf428c1e19be74e0aa56093679b7"
+   },
+   "rc": 0,
+   "seconds": 108.3,
+   "tail": "\nDone: 1 ok, 0 failed \u2014 /tmp/of3t/of3t-softbw/hold/out_openfold3_off/openfold3_results_prot/results.json\n17:37:49  [pc:tt0] loading model\u2026\n17:37:54  [pc:tt0] prot\n17:37:54  [pc:tt0]   prep\n17:37:58  [pc:tt0]   trunk 0/4\n17:38:03  [pc:tt0]   trunk 1/4\n17:38:04  [pc:tt0]   trunk 2/4\n17:38:04  [pc:tt0]   trunk 3/4\n17:38:05  [pc:tt0]   diffusion 0/6\n17:38:15  [pc:tt0]   diffusion 1/6\n17:38:15  [pc:tt0]   diffusion 2/6\n17:38:15  [pc:tt0]   diffusion 3/6\n17:38:16  [pc:tt0]   diffusion 4/6\n17:38:16  [pc:tt0]   diffusion 5/6\n17:38:16  [pc:tt0]   confidence\n17:38:19  [pc:tt0]   saving\n17:38:19  [pc:tt0] \u2713 prot \u2014 24.8s\n"
+  },
+  "on": {
+   "cifs": {
+    "prot.cif": "755e0c5dccee0405da2f343af364e6427f4cdf428c1e19be74e0aa56093679b7"
+   },
+   "rc": 0,
+   "seconds": 117.5,
+   "tail": "\nDone: 1 ok, 0 failed \u2014 /tmp/of3t/of3t-softbw/hold/out_openfold3_on/openfold3_results_prot/results.json\n17:47:26  [pc:tt0] loading model\u2026\n17:47:29  [pc:tt0] prot\n17:47:29  [pc:tt0]   prep\n17:47:30  [pc:tt0]   trunk 0/4\n17:47:31  [pc:tt0]   trunk 1/4\n17:47:31  [pc:tt0]   trunk 2/4\n17:47:32  [pc:tt0]   trunk 3/4\n17:47:32  [pc:tt0]   diffusion 0/6\n17:47:33  [pc:tt0]   diffusion 1/6\n17:47:33  [pc:tt0]   diffusion 2/6\n17:47:33  [pc:tt0]   diffusion 3/6\n17:47:33  [pc:tt0]   diffusion 4/6\n17:47:33  [pc:tt0]   diffusion 5/6\n17:47:34  [pc:tt0]   confidence\n17:47:35  [pc:tt0]   saving\n17:47:35  [pc:tt0] \u2713 prot \u2014 6.8s\n"
+  }
+ },
+ "both_arms_byte_identical_to_base": true,
+ "card": "0",
+ "control_moves_the_digest": true,
+ "fixture": "examples/prot.yaml",
+ "model": "openfold3",
+ "verdict": "PASS"
+}
