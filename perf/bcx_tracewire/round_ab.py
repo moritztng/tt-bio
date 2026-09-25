@@ -55,6 +55,19 @@ def digest(a) -> str:
                           .tobytes()).hexdigest()[:16]
 
 
+def captured(rounds, i) -> bool:
+    return i > 0 and rounds[i]["captures"] > rounds[i - 1]["captures"]
+
+
+def trunk_s(rounds, i) -> float:
+    """The device trunk's seconds inside round i: both callbacks, host side included."""
+    return sum(rounds[i]["trunk"][k] - rounds[i - 1]["trunk"][k] for k in ("taped", "backward"))
+
+
+def trunk_cpu(rounds, i) -> float:
+    return rounds[i]["trunk"]["cpu"] - rounds[i - 1]["trunk"]["cpu"]
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--seed", type=int, default=100)
@@ -106,21 +119,33 @@ def main():
         # so both legs open the device the same way, and its zeros flag goes back off.
         dev.ag.DEVICE_ZEROS = False
 
+    # Both callbacks return host arrays, so each wall time below is the trunk step's full cost to
+    # the loop: enqueue, device and readout.
     digests: list = []
-    if args.digest:
-        _taped, _backward = evo._taped, evo._backward
+    # `cpu` is the calling thread's own CPU inside both callbacks: the host enqueue work, which is
+    # the floor a dtype change cannot move.
+    trunk = {"taped": 0.0, "backward": 0.0, "cpu": 0.0}
+    _taped, _backward = evo._taped, evo._backward
 
-        def taped(*a):
-            out = _taped(*a)
+    def taped(*a):
+        t, c = time.perf_counter(), time.thread_time()
+        out = _taped(*a)
+        trunk["taped"] += time.perf_counter() - t
+        trunk["cpu"] += time.thread_time() - c
+        if args.digest:
             digests.append({"op": "taped", "d": [digest(out[0]), digest(out[1])]})
-            return out
+        return out
 
-        def backward(*a):
-            out = _backward(*a)
+    def backward(*a):
+        t, c = time.perf_counter(), time.thread_time()
+        out = _backward(*a)
+        trunk["backward"] += time.perf_counter() - t
+        trunk["cpu"] += time.thread_time() - c
+        if args.digest:
             digests.append({"op": "backward", "d": [digest(out[0]), digest(out[1])]})
-            return out
+        return out
 
-        evo._taped, evo._backward = taped, backward
+    evo._taped, evo._backward = taped, backward
 
     rounds: list = []
     marks: list = []
@@ -131,7 +156,8 @@ def main():
             rounds.append({"i": len(rounds), "arm": arm, "s": t_now - t0,
                            "aiclk": clock.window([(t0, t_now)]), "load1": load0,
                            "span": (t0, t_now), "calls": dict(evo.calls),
-                           "seg": dict(evo.wire.seg)})
+                           "trunk": dict(trunk), "seg": dict(evo.wire.seg),
+                           "captures": len(evo.wire.captures)})
             print(json.dumps(rounds[-1]), flush=True)
             if len(rounds) >= 3 and rounds[-1]["calls"]["backward"] == rounds[-2]["calls"]["backward"]:
                 raise RuntimeError("a timed round ran no device backward: the trunk is not the card's")
@@ -179,12 +205,15 @@ def main():
         blob["digests"] = digests
     # Round 1 carries the jit compile and round 0 is BindCraft 2 re-entering from its own
     # compile path (bcx-round), so the distribution is taken over what is left.
-    body = [r for r in rounds if r["i"] >= 2]
+    # A round that captured carries a one-time cost the other 124 rounds of a trajectory do not.
+    body = [r for r in rounds if r["i"] >= 2 and not captured(rounds, r["i"])]
     per = {}
     for arm in ("trace", "eager"):
         rs = [r for r in body if r["arm"] == arm]
         if rs:
             per[arm] = S.dist([r["s"] for r in rs]) | {
+                "trunk_s": S.dist([trunk_s(rounds, r["i"]) for r in rs]),
+                "trunk_cpu_s": S.dist([trunk_cpu(rounds, r["i"]) for r in rs]),
                 "aiclk": clock.window([r["span"] for r in rs]),
                 "load1": [r["load1"] for r in rs]}
     blob["per_arm"] = per
