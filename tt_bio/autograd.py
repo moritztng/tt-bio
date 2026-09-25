@@ -559,6 +559,30 @@ def _flat2d(t):
     return ttnn.reshape(t, [int(math.prod(s[:-1])), s[-1]])
 
 
+def _via2d(x, fn, kw=None):
+    """``fn(x)`` on ``x`` with its leading dims collapsed, when collapsing them is a view.
+
+    ``fn`` is a matmul against a 2-D weight. At a rank-3 left operand ttnn picks a program
+    that runs several times slower than the same product on the (prod(leading), K) view:
+    [256,256,128] @ [128,128] takes 792 us, the view 118 us, HiFi4 on a p300c at 1350 MHz
+    (``perf/bcx_mm2d/probe.json``). Collapsing moves no data when the second-last dim fills
+    whole tiles, because the tiles already sit in that order; any other reshape here is a
+    relayout (the heads split [N,N,128] -> [N,N,4,32] costs 2 ms), so such a shape, a
+    sharded operand, or a caller-chosen program config is left as it came.
+
+    Same operands, same reduction, not always the same bits: where they differ, the 2-D
+    result is the one closer to float64.
+    """
+    s = [int(d) for d in x.shape]
+    mc = (kw or {}).get("memory_config")
+    if (len(s) <= 2 or s[-2] % ttnn.TILE_SIZE or x.layout != ttnn.TILE_LAYOUT
+            or x.is_sharded() or (kw or {}).get("program_config") is not None
+            or (mc is not None and mc.is_sharded())):
+        return fn(x)
+    y = fn(ttnn.reshape(x, [int(math.prod(s[:-1])), s[-1]]))
+    return ttnn.reshape(y, s[:-1] + [int(y.shape[-1])])
+
+
 def _reduce_to(g, shape):
     """A broadcast operand's gradient: the output's, summed over the axes it was spread along.
 
@@ -616,16 +640,20 @@ def matmul(a: Tensor, b: Tensor, *, transpose_a: bool = False, transpose_b: bool
     it when both dims are equal, which for a pair tensor they always are.
     """
     cfg = config or precise_config()
-    out_v = ttnn.matmul(a.value, b.value, transpose_a=transpose_a, transpose_b=transpose_b,
-                        compute_kernel_config=cfg)
+    # Against a 2-D weight the leading dims are a batch of rows, and `_via2d` runs them as one.
+    rows = _via2d if not transpose_a and len(b.value.shape) == 2 else (lambda t, fn: fn(t))
+    out_v = rows(a.value, lambda v: ttnn.matmul(v, b.value, transpose_a=transpose_a,
+                                                transpose_b=transpose_b,
+                                                compute_kernel_config=cfg))
 
     def make():
         def bw(g):
             if a.requires_grad:
                 if not transpose_a:
                     # dA = g @ op(b)^T
-                    a.add_grad(ttnn.matmul(g, b.value, transpose_b=not transpose_b,
-                                           compute_kernel_config=cfg))
+                    a.add_grad(rows(g, lambda v: ttnn.matmul(v, b.value,
+                                                             transpose_b=not transpose_b,
+                                                             compute_kernel_config=cfg)))
                 else:
                     # A entered as A^T, so dA = (dA_eff)^T = op(b) @ g^T
                     a.add_grad(ttnn.matmul(b.value, g, transpose_a=transpose_b,
@@ -672,16 +700,17 @@ def linear(x: Tensor, w: Tensor, b: Optional[Tensor] = None, *, dtype=None, core
     """
     cfg = config or precise_config()
     bwcfg = backward_config or cfg
-    out_v = ttnn.linear(x.value, w.value,
-                        bias=(b.value if b is not None else None),
-                        dtype=dtype, core_grid=core_grid,
-                        compute_kernel_config=cfg, **kw)
+    out_v = _via2d(x.value, lambda v: ttnn.linear(v, w.value,
+                                                  bias=(b.value if b is not None else None),
+                                                  dtype=dtype, core_grid=core_grid,
+                                                  compute_kernel_config=cfg, **kw), kw)
     parents = [p for p in (x, w, b) if p is not None]
 
     def make():
         def bw(g):
             if x.requires_grad:
-                x.add_grad(ttnn.matmul(g, w.value, transpose_b=True, compute_kernel_config=bwcfg))
+                x.add_grad(_via2d(g, lambda v: ttnn.matmul(v, w.value, transpose_b=True,
+                                                           compute_kernel_config=bwcfg)))
             if w.requires_grad:
                 # dW = X^T @ dY, summed over every leading dim, so flatten both first:
                 # a batched matmul would give one dW per batch instead of their sum.
@@ -1562,8 +1591,9 @@ def _taped_linear(shipped, args, kwargs):
                 # `_reduce_to` because a matmul normalises rank: an x of (1, N, N, c)
                 # comes back as (N, N, c) and `add_grad` refuses a gradient that is not
                 # its value's shape, correctly.
-                x.add_grad(_reduce_to(ttnn.matmul(g, w.value, transpose_b=True,
-                                                  compute_kernel_config=bwcfg),
+                x.add_grad(_reduce_to(_via2d(g, lambda v: ttnn.matmul(
+                                          v, w.value, transpose_b=True,
+                                          compute_kernel_config=bwcfg)),
                                       x.value.shape))
             if w.requires_grad:
                 # dW reduces over every token at once: 4096 terms on a 64x64 pair block,
