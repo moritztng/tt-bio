@@ -4,39 +4,48 @@
 # Every device acceptance reading this campaign holds was produced before 1127f9ea8, where the
 # card ran a different checkpoint from the JAX around it on 19 of 20 draws
 # (perf/bcx_mutate/ckpt_mismatch_by_tree.py). So the profile -- which stage, which filter, how
-# often -- has to be measured again. bcx-multimer's in-flight arm is seed 0, one trajectory;
-# this is seed 1 and runs until it is stopped, so the two are independent draws of the same
-# program on the same tree.
+# often -- has to be measured again.
 #
-# Rooted in this worktree on purpose: a detached job rooted in another slug's worktree gets its
-# files deleted under it when that slug concludes.
+# WT selects the tree the arm executes. cwd wins over the venv: with `cd $WT`, `import tt_bio`
+# resolves to $WT/tt_bio and not to the _ttbio.pth entry, verified before the first armtree
+# launch. That is the whole reason a second tree can be run without touching this worktree's
+# files under a live arm.
+#
+# TAG separates one tree's artifacts from another's, because a rejection is only readable next
+# to the tree that produced it and a shared .campaign_state.json would pool two trees into one
+# profile.
 set -u
 
-WT=/home/ttuser/.coworker/wt/bcx-mutate
+WT=${WT:-/home/ttuser/.coworker/wt/bcx-mutate}
 ART=/home/ttuser/bcx_mutate_art
 CARD=${CARD:-0}
 SEED=${SEED:-1}
 TRAJ=${TRAJ:-6}
+TAG=${TAG:-}
 VENV=/home/ttuser/bcx_e2e_venv/bin/python3
 
 mkdir -p "$ART"
 cd "$WT" || exit 1
 
+NAME=profile_s${SEED}${TAG}
 STAMP=$(date -u +%Y%m%dT%H%M%SZ)
-OUT=$ART/profile_s${SEED}
-LOG=$ART/profile_s${SEED}.log
-CLK=$ART/profile_s${SEED}_clock.txt
+OUT=$ART/$NAME
+LOG=$ART/$NAME.log
+CLK=$ART/${NAME}_clock.txt
 
 {
   echo "launched   $STAMP"
+  echo "tree       $WT"
   echo "commit     $(git rev-parse HEAD)"
   echo "card       $CARD"
   echo "seed       $SEED"
   echo "traj       $TRAJ"
   echo "loadavg    $(cut -d' ' -f1-3 /proc/loadavg)"
-} > "$ART/profile_s${SEED}_stamp.txt"
+} > "$ART/${NAME}_stamp.txt"
 
 # AICLK sampled DURING the run, not before: a clock is part of any timing this produces.
+# tt-smi honours TT_VISIBLE_DEVICES, so `head -1` is this card and not card 0 -- checked by
+# reading 800 on an idle card 3 while card 0 read 1350 in the same minute.
 nohup setsid bash -c "
   while :; do
     printf '%s ' \"\$(date -u +%H:%M:%SZ)\"
@@ -46,7 +55,7 @@ nohup setsid bash -c "
     sleep 60
   done
 " < /dev/null >> "$CLK" 2>&1 &
-echo "clockwatch pid $!" >> "$ART/profile_s${SEED}_stamp.txt"
+echo "clockwatch pid $!" >> "$ART/${NAME}_stamp.txt"
 
 nohup setsid env \
   TT_VISIBLE_DEVICES=$CARD \
@@ -61,5 +70,5 @@ nohup setsid env \
   < /dev/null > "$LOG" 2>&1 &
 
 ARM=$!
-echo "arm pid $ARM" >> "$ART/profile_s${SEED}_stamp.txt"
-echo "arm pid $ARM  log $LOG  out $OUT"
+echo "arm pid $ARM" >> "$ART/${NAME}_stamp.txt"
+echo "arm pid $ARM  log $LOG  out $OUT  tree $WT"
