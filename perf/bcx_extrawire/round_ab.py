@@ -150,6 +150,48 @@ def permutation_test(off, on):
             "observed_median_gap_s": round(observed, 3)}
 
 
+def _slope(xs):
+    """Least-squares slope of a series against its own index, in seconds per round."""
+    n = len(xs)
+    if n < 2:
+        return None
+    mx = (n - 1) / 2
+    my = sum(xs) / n
+    den = sum((i - mx) ** 2 for i in range(n))
+    return round(sum((i - mx) * (x - my) for i, x in enumerate(xs)) / den, 3) if den else None
+
+
+def paired_test(pairs):
+    """Exact sign-flip test on adjacent OFF/ON differences, which drift cannot fake.
+
+    The unpaired permutation test assumes the rounds are exchangeable between arms. They are not
+    quite: the arms alternate in time, so a box that drifts monotonically through the run puts a
+    systematic difference between them that has nothing to do with the swap. Pairing each OFF
+    round with the ON round beside it cancels any drift slower than one round, and permuting the
+    SIGN of each pair's difference is then exact.
+
+    It buys robustness with resolution: 5 pairs is 2**5 = 32 sign assignments and a floor of
+    0.0625, which cannot clear 0.05. So this is reported next to the unpaired p, not instead of
+    it, and `off_trend_s_per_round` says whether the drift it guards against is even present.
+    """
+    diffs = [off - on for off, on in pairs]
+    n = len(diffs)
+    if n == 0:
+        return {}
+    observed = abs(sum(diffs) / n)
+    total = hit = 0
+    for bits in itertools.product((1, -1), repeat=n):
+        total += 1
+        if abs(sum(b * d for b, d in zip(bits, diffs)) / n) >= observed - 1e-12:
+            hit += 1
+    return {"paired_n": n,
+            "paired_mean_off_minus_on_s": round(sum(diffs) / n, 3),
+            "paired_p_two_sided": round(hit / total, 5),
+            "paired_min_attainable_p": round(2 / total, 5),
+            "paired_is_informative": (2 / total) <= 0.05,
+            "paired_all_same_sign": all(d > 0 for d in diffs) or all(d < 0 for d in diffs)}
+
+
 def analyse(events, clock_samples, extra_calls_end):
     starts = [e for e in events if e["kind"] == "round_start"]
     stop = [e["t0"] for e in events if e["kind"] == "round_stop"]
@@ -210,9 +252,18 @@ def analyse(events, clock_samples, extra_calls_end):
         summary["ratio_round_off_over_on"] = round(
             summary["off"]["round_wall_median"] / summary["on"]["round_wall_median"], 3)
         summary["separated"] = summary["on"]["sg_max"] < summary["off"]["sg_min"]
-        summary.update(permutation_test(
-            [x["sequence_gradients_s"] for x in timed if x["extra_msa_on_device"] is False],
-            [x["sequence_gradients_s"] for x in timed if x["extra_msa_on_device"] is True]))
+        off_s = [x["sequence_gradients_s"] for x in timed if x["extra_msa_on_device"] is False]
+        on_s = [x["sequence_gradients_s"] for x in timed if x["extra_msa_on_device"] is True]
+        summary.update(permutation_test(off_s, on_s))
+        # Drift is what would make the unpaired test lie. Each arm's own trend says whether it is
+        # there at all, and the paired test below is immune to it either way.
+        summary["off_trend_s_per_round"] = _slope(off_s)
+        summary["on_trend_s_per_round"] = _slope(on_s)
+        ordered = sorted(timed, key=lambda x: x["round"])
+        pairs = [(a["sequence_gradients_s"], b["sequence_gradients_s"])
+                 for a, b in zip(ordered, ordered[1:])
+                 if a["extra_msa_on_device"] is False and b["extra_msa_on_device"] is True]
+        summary.update(paired_test(pairs))
         # The control. An OFF round that runs the card's extra-MSA stack is not a control, and an
         # ON round that does not is not an arm.
         summary["control_clean"] = summary["off"]["extra_backward_calls"] == 0
@@ -265,6 +316,17 @@ def selftest():
     assert summary["perm_p_two_sided"] == summary["min_attainable_p"], summary
     # and the test does separate a real gap as far as the design allows
     assert summary["observed_median_gap_s"] == 15.0, summary
+    # the paired arm: 2 adjacent OFF/ON pairs in the synthetic run, every difference +15 s
+    assert summary["paired_n"] == 2, summary
+    assert summary["paired_mean_off_minus_on_s"] == 15.0, summary
+    assert summary["paired_all_same_sign"] is True, summary
+    assert summary["paired_min_attainable_p"] == 0.5, summary       # 2**2 = 4 sign assignments
+    assert summary["paired_is_informative"] is False, summary
+    assert summary["off_trend_s_per_round"] == 0.0, summary         # synthetic run does not drift
+    assert summary["on_trend_s_per_round"] == 0.0, summary
+    flat = paired_test([(10.0, 10.0), (10.0, 10.0), (10.0, 10.0)])
+    assert flat["paired_p_two_sided"] == 1.0, flat                  # no difference, never rejected
+    assert _slope([1.0, 2.0, 3.0]) == 1.0, "slope"
     ident = permutation_test([10.0, 10.0, 10.0], [10.0, 10.0, 10.0])
     assert ident["perm_p_two_sided"] == 1.0, ident      # identical arms are never rejected
     assert ident["min_attainable_p"] == 0.1, ident      # 3 vs 3 cannot go below 0.1
@@ -349,10 +411,25 @@ def main():
     _c = math.comb(_timed, _off) if _timed else 0
     stamp["min_attainable_p"] = round(2 / _c, 5) if _c else None
     stamp["design_is_informative"] = bool(_c) and (2 / _c) <= 0.05
+    # The paired test spends resolution to buy drift-immunity: one adjacent OFF/ON pair per two
+    # timed rounds, 2**pairs sign assignments. At the default 12 rounds that floor is 0.0625, so
+    # the paired test cannot clear 0.05 and the unpaired one carries the verdict unless the drift
+    # diagnostic says the box moved. 16 rounds puts the paired floor at 0.0156.
+    _pairs = _timed // 2
+    _pc = 2 ** _pairs if _pairs else 0
+    stamp["paired_min_attainable_p"] = round(2 / _pc, 5) if _pc else None
+    stamp["paired_design_is_informative"] = bool(_pc) and (2 / _pc) <= 0.05
     if not stamp["design_is_informative"]:
         print(f"WARNING: --rounds {args.rounds} leaves {_off} vs {_timed - _off} timed rounds, "
               f"smallest attainable p {stamp['min_attainable_p']}. This design cannot return a "
               f"significant result. Use --rounds 10 or more.", flush=True)
+    if not stamp["paired_design_is_informative"]:
+        _need = 6  # smallest k with 2 / 2**k <= 0.05
+        print(f"NOTE: the drift-immune paired test has {_pairs} pairs "
+              f"({stamp['paired_min_attainable_p']} floor) and needs {_need} to beat 0.05, so "
+              f"--rounds {2 * _need + 2} would. The unpaired p carries the verdict here; if "
+              f"off_trend_s_per_round comes back non-flat, the box drifted and you want the "
+              f"paired test instead.", flush=True)
     print(json.dumps(stamp, indent=1), flush=True)
 
     # BindCraft 2's own layer_stack, captured BEFORE the predictor patches it. The OFF arm's
