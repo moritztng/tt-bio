@@ -33,6 +33,9 @@ Run it alone on the box. Every fold here is the measurement.
 import argparse, json, os, shutil, signal, statistics as st, subprocess, sys, time
 from pathlib import Path
 
+sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "scripts"))
+import card_recovery  # noqa: E402  (hand a wedged card back before the next open)
+
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT))
 
@@ -88,7 +91,15 @@ def one_fold(model: str, rung: int, arm: str, workdir: Path, rep: int,
             except ProcessLookupError:
                 pass
             proc.wait()
-            return {"error": f"fold WEDGED: no exit in {timeout_s:.0f}s, process group killed"}
+            # Killing the group is half the recovery; the card is left un-reinitialisable and the
+            # NEXT cell's device open is what hard-resets the host. This harness used to do the
+            # other half -- narrowq_retake.sh ran `tt-smi -r` between attempts -- and a rewrite
+            # that dropped the retry loop dropped the reset with it. qb2 died 62 s later, at
+            # 2026-09-22 20:45:36Z. See perf/land_standing/wedge_kill_hard_resets_the_host.md.
+            verdict = card_recovery.reset_after_kill(card_recovery.visible_card())
+            return {"error": f"fold WEDGED: no exit in {timeout_s:.0f}s, process group killed; "
+                             f"card reset {verdict}",
+                    "card_reset": verdict}
     wall = time.monotonic() - t0
     if rc != 0:
         tail = "".join(log.read_text(errors="replace").splitlines(True)[-3:]).strip()
@@ -114,7 +125,7 @@ def one_fold(model: str, rung: int, arm: str, workdir: Path, rep: int,
 
 def cell(model: str, rung: int, reps: int, workdir: Path,
          flag: str = "TT_BIO_ACCURATE_SOFTMAX_AB", off_value: str = "-all",
-         timeout_s: float = 0.0) -> dict:
+         timeout_s: float = 0.0, first_arm: str = "off") -> dict:
     print("\n=== %s @ %d aa ===" % (model, rung), flush=True)
     warm = one_fold(model, rung, "on", workdir, rep=0, flag=flag, off_value=off_value,
                     timeout_s=timeout_s)
@@ -132,7 +143,13 @@ def cell(model: str, rung: int, reps: int, workdir: Path,
         # lever-enabled arm first in both pairs. The same cell had reproduced +9.50 s on two
         # cards in two processes, which is what a position effect does: reproducing is not
         # the same as being real. Alternating cancels it instead of confirming it.
-        order = (("off", off), ("on", on)) if rep % 2 else (("on", on), ("off", off))
+        # --first-arm shifts the alternation's phase so a cell taken in SEPARATE processes can
+        # still be order-balanced. Banking one pair per quiet window otherwise puts every pair at
+        # rep 1 and so every pair on the same order, which is exactly the fixed order the 768 aa
+        # control above shows reads as a lever. Default "off" reproduces the previous phase byte
+        # for byte.
+        par = rep if first_arm == "off" else rep + 1
+        order = (("off", off), ("on", on)) if par % 2 else (("on", on), ("off", off))
         for slot, (arm, acc) in enumerate(order):
             r = one_fold(model, rung, arm, workdir, rep, flag=flag, off_value=off_value,
                          timeout_s=timeout_s)
@@ -155,7 +172,8 @@ def cell(model: str, rung: int, reps: int, workdir: Path,
     ab = 100.0 * (st.median(on) - st.median(off)) / st.median(off)
     verdict = "INSIDE THE FLOOR" if abs(ab) <= aa else "outside the floor"
     print("  A/A floor %+.3f%%   A/B %+.3f%%   %s" % (aa, ab, verdict), flush=True)
-    return {"model": model, "rung": rung, "off": off, "on": on, "folds": folds,
+    return {"model": model, "rung": rung, "first_arm": first_arm,
+            "off": off, "on": on, "folds": folds,
             "off_median": st.median(off), "on_median": st.median(on),
             "aa_spread_pct": aa, "aa_spread_off_pct": aa_off, "aa_spread_on_pct": aa_on,
             "ab_median_pct": ab, "inside_aa": abs(ab) <= aa}
@@ -174,6 +192,10 @@ def main() -> int:
                     help="kill a fold that has not exited in this many seconds, and "
                          "report it as WEDGED. 0 disables. Size it well above the "
                          "slowest honest fold in the cell.")
+    ap.add_argument("--first-arm", choices=("off", "on"), default="off",
+                    help="which arm rep 1 runs FIRST. Alternation still applies within a run; "
+                         "this only sets its phase, so pairs banked across separate quiet "
+                         "windows can be order-balanced instead of all off-first.")
     ap.add_argument("--workdir", default="/tmp/xmflip")
     ap.add_argument("--out", default=str(ROOT / "perf/xmsoftmax/results/fold_ab_flip.json"))
     a = ap.parse_args()
@@ -183,7 +205,7 @@ def main() -> int:
     for rung in [int(r) for r in a.rungs.split(",")]:
         for model in a.models.split(","):
             cells.append(cell(model, rung, a.reps, workdir, a.flag, a.off_value,
-                              a.fold_timeout_s))
+                              a.fold_timeout_s, a.first_arm))
             Path(a.out).parent.mkdir(parents=True, exist_ok=True)
             Path(a.out).write_text(json.dumps(
                 {"what": "cost of the shipped accurate-softmax default, per model per rung",

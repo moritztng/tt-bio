@@ -201,6 +201,7 @@ from pathlib import Path
 REPO_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(REPO_ROOT / "scripts"))
 import gate_guard  # noqa: E402  (host-load guard, shared with full_parity_gate.py)
+import card_recovery  # noqa: E402  (hand a wedged card back before the next open)
 import gate_journal  # noqa: E402  (per-arm verdict journal, so a killed run keeps its arms)
 # Resolved like every other tt_bio import in this file: through the installed dist, NOT by
 # prepending REPO_ROOT. A gate that silently switched to scoring the checkout instead of the
@@ -1655,6 +1656,18 @@ def _run_fold(cmd: list, timeout: float, **popen_kw) -> tuple:
         rc = proc.wait(timeout=timeout)
     except subprocess.TimeoutExpired:
         _kill_group(proc)
+        # The kill is only half the recovery. A killed fold leaves the card un-reinitialisable,
+        # and it is the NEXT leg's device open that kills the HOST, not this leg: qb2 died that
+        # way at 17:20:15Z and 20:45:36Z on 2026-09-22, both times logging "Failed to set initial
+        # power state: -5" against the killed fold's own card. Exit rather than run on if the card
+        # cannot be handed back -- a stopped gate is recoverable and a dead host is not, and it
+        # takes every co-tenant's job with it.
+        verdict = card_recovery.reset_after_kill(card_recovery.visible_card())
+        if verdict != card_recovery.OK:
+            raise SystemExit(
+                f"release gate stopping: a fold timed out and its card could not be reset "
+                f"({verdict}). Opening it again is what hard-resets this host. Free the board "
+                f"pair's sibling, run `tt-smi -r`, and resume with --resume.")
         return None, True
     if rc == CONTENDED_EXIT_CODE:
         # Label it by what was run: "-m tt_bio.main predict ..." -> "tt-bio predict", a bare

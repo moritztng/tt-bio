@@ -1,0 +1,75 @@
+[release-gate] granted card(s) [2]
+[release-gate] scoring tt_bio from /home/ttuser/.coworker/wt/land-standing/tt_bio (commit 4cbada0e8)
+
+======================================================================
+[size-ladder] checking for card p300c: opendde, nesso1, openbind at rungs 256,512,640,768,896,1024
+[size-ladder] predict folds: 6 steps, 1 sample, seed 0, single-sequence
+[size-ladder] nesso1: tt-bio affinity, bf16 trunk, 5 recycles, 256-token crop
+======================================================================
+
+##############################################################################
+RELEASE GATE — size-ladder (rungs 256,512,640,768,896,1024, 6 steps / 1 sample, seed 0, single-sequence, card p300c)
+##############################################################################
+model              256aa    512aa    640aa    768aa    896aa   1024aa  k256->512  k512->768     wall  result
+opendde            26.0s    78.0s   123.8s   181.7s   241.5s   319.5s       1.58       2.09    3354s  FAIL (opendde/256 PAIR_PROJ_MINIMAL_MATMUL: decline clause ['k_tiles=12:(12,1)', 'k_tiles=12:(12,12)'] -> ['k_tiles=12:(12,12)']; opendde/256 QKV_MM_CONFIG: decline clause ['no_mm_block:(12,48)', 'no_mm_block:(12,49)'] -> []; opendde/256 SDPA_WIDE_K: resolved 'False' -> 'True' (default or threshold constant changed); opendde/256 TRIATT_SDPA_HIFI: new lever not in the baseline (re-record with --size-ladder-record); opendde/512 PAIR_PROJ_MINIMAL_MATMUL: decline clause ['k_tiles=12:(12,1)', 'k_tiles=12:(12,12)'] -> ['k_tiles=12:(12,12)']; opendde/512 QKV_MM_CONFIG: decline clause ['no_mm_block:(12,48)', 'no_mm_block:(12,49)'] -> []; opendde/512 SDPA_WIDE_K: resolved 'False' -> 'True' (default or threshold constant changed); opendde/512 TRIATT_SDPA_HIFI: new lever not in the baseline (re-record with --size-ladder-record); opendde/640 PAIR_PROJ_MINIMAL_MATMUL: decline clause ['k_tiles=12:(12,1)', 'k_tiles=12:(12,12)'] -> ['k_tiles=12:(12,12)']; opendde/640 QKV_MM_CONFIG: decline clause ['no_mm_block:(12,48)', 'no_mm_block:(12,49)'] -> []; opendde/640 SDPA_WIDE_K: resolved 'False' -> 'True' (default or threshold constant changed); opendde/640 TRIATT_SDPA_HIFI: new lever not in the baseline (re-record with --size-ladder-record); opendde/768 PAIR_PROJ_MINIMAL_MATMUL: decline clause ['k_tiles=12:(12,1)', 'k_tiles=12:(12,12)'] -> ['k_tiles=12:(12,12)']; opendde/768 QKV_MM_CONFIG: decline clause ['no_mm_block:(12,48)', 'no_mm_block:(12,49)'] -> []; opendde/768 SDPA_WIDE_K: resolved 'False' -> 'True' (default or threshold constant changed); opendde/768 TRIATT_SDPA_HIFI: new lever not in the baseline (re-record with --size-ladder-record); opendde/896 QKV_MM_CONFIG: decline clause ['no_mm_block:(12,48)', 'no_mm_block:(12,49)'] -> []; opendde/896 SDPA_WIDE_K: resolved 'False' -> 'True' (default or threshold constant changed); opendde/896 TRIATT_SDPA_HIFI: new lever not in the baseline (re-record with --size-ladder-record); opendde/1024 QKV_MM_CONFIG: decline clause ['no_mm_block:(12,48)', 'no_mm_block:(12,49)'] -> []; opendde/1024 SDPA_WIDE_K: resolved 'False' -> 'True' (default or threshold constant changed); opendde/1024 TRIATT_SDPA_HIFI: new lever not in the baseline (re-record with --size-ladder-record))
+    FAIL opendde/256 PAIR_PROJ_MINIMAL_MATMUL: decline clause ['k_tiles=12:(12,1)', 'k_tiles=12:(12,12)'] -> ['k_tiles=12:(12,12)']
+    FAIL opendde/256 QKV_MM_CONFIG: decline clause ['no_mm_block:(12,48)', 'no_mm_block:(12,49)'] -> []
+    FAIL opendde/256 SDPA_WIDE_K: resolved 'False' -> 'True' (default or threshold constant changed)
+    FAIL opendde/256 TRIATT_SDPA_HIFI: new lever not in the baseline (re-record with --size-ladder-record)
+    FAIL opendde/512 PAIR_PROJ_MINIMAL_MATMUL: decline clause ['k_tiles=12:(12,1)', 'k_tiles=12:(12,12)'] -> ['k_tiles=12:(12,12)']
+    FAIL opendde/512 QKV_MM_CONFIG: decline clause ['no_mm_block:(12,48)', 'no_mm_block:(12,49)'] -> []
+    FAIL opendde/512 SDPA_WIDE_K: resolved 'False' -> 'True' (default or threshold constant changed)
+    FAIL opendde/512 TRIATT_SDPA_HIFI: new lever not in the baseline (re-record with --size-ladder-record)
+    FAIL opendde/640 PAIR_PROJ_MINIMAL_MATMUL: decline clause ['k_tiles=12:(12,1)', 'k_tiles=12:(12,12)'] -> ['k_tiles=12:(12,12)']
+    FAIL opendde/640 QKV_MM_CONFIG: decline clause ['no_mm_block:(12,48)', 'no_mm_block:(12,49)'] -> []
+    FAIL opendde/640 SDPA_WIDE_K: resolved 'False' -> 'True' (default or threshold constant changed)
+    FAIL opendde/640 TRIATT_SDPA_HIFI: new lever not in the baseline (re-record with --size-ladder-record)
+    FAIL opendde/768 PAIR_PROJ_MINIMAL_MATMUL: decline clause ['k_tiles=12:(12,1)', 'k_tiles=12:(12,12)'] -> ['k_tiles=12:(12,12)']
+    FAIL opendde/768 QKV_MM_CONFIG: decline clause ['no_mm_block:(12,48)', 'no_mm_block:(12,49)'] -> []
+    FAIL opendde/768 SDPA_WIDE_K: resolved 'False' -> 'True' (default or threshold constant changed)
+    FAIL opendde/768 TRIATT_SDPA_HIFI: new lever not in the baseline (re-record with --size-ladder-record)
+    FAIL opendde/896 QKV_MM_CONFIG: decline clause ['no_mm_block:(12,48)', 'no_mm_block:(12,49)'] -> []
+    FAIL opendde/896 SDPA_WIDE_K: resolved 'False' -> 'True' (default or threshold constant changed)
+    FAIL opendde/896 TRIATT_SDPA_HIFI: new lever not in the baseline (re-record with --size-ladder-record)
+    FAIL opendde/1024 QKV_MM_CONFIG: decline clause ['no_mm_block:(12,48)', 'no_mm_block:(12,49)'] -> []
+    FAIL opendde/1024 SDPA_WIDE_K: resolved 'False' -> 'True' (default or threshold constant changed)
+    FAIL opendde/1024 TRIATT_SDPA_HIFI: new lever not in the baseline (re-record with --size-ladder-record)
+nesso1              5.0s     8.1s    10.4s    13.6s    18.7s    23.9s       0.69       1.27    3354s  FAIL (nesso1/256 SDPA_WIDE_K: resolved 'False' -> 'True' (default or threshold constant changed); nesso1/256 TRIATT_SDPA_HIFI: new lever not in the baseline (re-record with --size-ladder-record); nesso1/512 SDPA_WIDE_K: resolved 'False' -> 'True' (default or threshold constant changed); nesso1/512 TRIATT_SDPA_HIFI: new lever not in the baseline (re-record with --size-ladder-record); nesso1/640 SDPA_WIDE_K: resolved 'False' -> 'True' (default or threshold constant changed); nesso1/640 TRIATT_SDPA_HIFI: new lever not in the baseline (re-record with --size-ladder-record); nesso1/768 SDPA_WIDE_K: resolved 'False' -> 'True' (default or threshold constant changed); nesso1/768 TRIATT_SDPA_HIFI: new lever not in the baseline (re-record with --size-ladder-record); nesso1/896 SDPA_WIDE_K: resolved 'False' -> 'True' (default or threshold constant changed); nesso1/896 TRIATT_SDPA_HIFI: new lever not in the baseline (re-record with --size-ladder-record); nesso1/1024 SDPA_WIDE_K: resolved 'False' -> 'True' (default or threshold constant changed); nesso1/1024 SDPA_Q_CHUNK_FITS: overflow-set size 1 -> 0; nesso1/1024 TRIATT_SDPA_HIFI: new lever not in the baseline (re-record with --size-ladder-record))
+    FAIL nesso1/256 SDPA_WIDE_K: resolved 'False' -> 'True' (default or threshold constant changed)
+    FAIL nesso1/256 TRIATT_SDPA_HIFI: new lever not in the baseline (re-record with --size-ladder-record)
+    FAIL nesso1/512 SDPA_WIDE_K: resolved 'False' -> 'True' (default or threshold constant changed)
+    FAIL nesso1/512 TRIATT_SDPA_HIFI: new lever not in the baseline (re-record with --size-ladder-record)
+    FAIL nesso1/640 SDPA_WIDE_K: resolved 'False' -> 'True' (default or threshold constant changed)
+    FAIL nesso1/640 TRIATT_SDPA_HIFI: new lever not in the baseline (re-record with --size-ladder-record)
+    FAIL nesso1/768 SDPA_WIDE_K: resolved 'False' -> 'True' (default or threshold constant changed)
+    FAIL nesso1/768 TRIATT_SDPA_HIFI: new lever not in the baseline (re-record with --size-ladder-record)
+    FAIL nesso1/896 SDPA_WIDE_K: resolved 'False' -> 'True' (default or threshold constant changed)
+    FAIL nesso1/896 TRIATT_SDPA_HIFI: new lever not in the baseline (re-record with --size-ladder-record)
+    FAIL nesso1/1024 SDPA_WIDE_K: resolved 'False' -> 'True' (default or threshold constant changed)
+    FAIL nesso1/1024 SDPA_Q_CHUNK_FITS: overflow-set size 1 -> 0
+    FAIL nesso1/1024 TRIATT_SDPA_HIFI: new lever not in the baseline (re-record with --size-ladder-record)
+openbind            9.3s    13.4s    21.1s    31.5s    45.9s    60.7s       0.53       2.11    3354s  FAIL (openbind/256 REBLOCK_PERMUTE: decline clause ['window_BufferType.L1'] -> ['back_l1_src_narrow', 'gated_window_BufferType.L1', 'window_BufferType.L1']; openbind/256 TRIATT_PERSISTENT_MASK: frac 0.000 -> 1.000 (started firing); openbind/256 SDPA_WIDE_K: resolved 'False' -> 'True' (default or threshold constant changed); openbind/256 TRIATT_SDPA_HIFI: new lever not in the baseline (re-record with --size-ladder-record); openbind/512 TRIATT_PERSISTENT_MASK: frac 0.000 -> 0.997 (started firing); openbind/512 SDPA_WIDE_K: resolved 'False' -> 'True' (default or threshold constant changed); openbind/512 TRIATT_SDPA_HIFI: new lever not in the baseline (re-record with --size-ladder-record); openbind/640 TRIATT_PERSISTENT_MASK: frac 0.000 -> 0.995 (started firing); openbind/640 SDPA_WIDE_K: resolved 'False' -> 'True' (default or threshold constant changed); openbind/640 TRIATT_SDPA_HIFI: new lever not in the baseline (re-record with --size-ladder-record); openbind/768 TRIATT_PERSISTENT_MASK: frac 0.000 -> 0.990 (started firing); openbind/768 SDPA_WIDE_K: resolved 'False' -> 'True' (default or threshold constant changed); openbind/768 TRIATT_SDPA_HIFI: new lever not in the baseline (re-record with --size-ladder-record); openbind/896 TRIATT_PERSISTENT_MASK: frac 0.000 -> 0.990 (started firing); openbind/896 SDPA_WIDE_K: resolved 'False' -> 'True' (default or threshold constant changed); openbind/896 TRIATT_SDPA_HIFI: new lever not in the baseline (re-record with --size-ladder-record); openbind/1024 TRIATT_PERSISTENT_MASK: frac 0.000 -> 0.987 (started firing); openbind/1024 SDPA_WIDE_K: resolved 'False' -> 'True' (default or threshold constant changed); openbind/1024 TRIATT_SDPA_HIFI: new lever not in the baseline (re-record with --size-ladder-record); openbind 256->512: exponent 1.97 -> 0.53 outside ±0.50; openbind 512->768: exponent 2.61 -> 2.11 outside ±0.50; openbind per-rung base->run: 256 6.5->9.3 1.43x, 512 25.5->13.4 0.53x, 640 46.2->21.1 0.46x, 768 73.6->31.5 0.43x, 896 116.5->45.9 0.39x, 1024 161.7->60.7 0.38x -- every rung moved; this is a whole-ladder shift, not one rung)
+    FAIL openbind/256 REBLOCK_PERMUTE: decline clause ['window_BufferType.L1'] -> ['back_l1_src_narrow', 'gated_window_BufferType.L1', 'window_BufferType.L1']
+    FAIL openbind/256 TRIATT_PERSISTENT_MASK: frac 0.000 -> 1.000 (started firing)
+    FAIL openbind/256 SDPA_WIDE_K: resolved 'False' -> 'True' (default or threshold constant changed)
+    FAIL openbind/256 TRIATT_SDPA_HIFI: new lever not in the baseline (re-record with --size-ladder-record)
+    FAIL openbind/512 TRIATT_PERSISTENT_MASK: frac 0.000 -> 0.997 (started firing)
+    FAIL openbind/512 SDPA_WIDE_K: resolved 'False' -> 'True' (default or threshold constant changed)
+    FAIL openbind/512 TRIATT_SDPA_HIFI: new lever not in the baseline (re-record with --size-ladder-record)
+    FAIL openbind/640 TRIATT_PERSISTENT_MASK: frac 0.000 -> 0.995 (started firing)
+    FAIL openbind/640 SDPA_WIDE_K: resolved 'False' -> 'True' (default or threshold constant changed)
+    FAIL openbind/640 TRIATT_SDPA_HIFI: new lever not in the baseline (re-record with --size-ladder-record)
+    FAIL openbind/768 TRIATT_PERSISTENT_MASK: frac 0.000 -> 0.990 (started firing)
+    FAIL openbind/768 SDPA_WIDE_K: resolved 'False' -> 'True' (default or threshold constant changed)
+    FAIL openbind/768 TRIATT_SDPA_HIFI: new lever not in the baseline (re-record with --size-ladder-record)
+    FAIL openbind/896 TRIATT_PERSISTENT_MASK: frac 0.000 -> 0.990 (started firing)
+    FAIL openbind/896 SDPA_WIDE_K: resolved 'False' -> 'True' (default or threshold constant changed)
+    FAIL openbind/896 TRIATT_SDPA_HIFI: new lever not in the baseline (re-record with --size-ladder-record)
+    FAIL openbind/1024 TRIATT_PERSISTENT_MASK: frac 0.000 -> 0.987 (started firing)
+    FAIL openbind/1024 SDPA_WIDE_K: resolved 'False' -> 'True' (default or threshold constant changed)
+    FAIL openbind/1024 TRIATT_SDPA_HIFI: new lever not in the baseline (re-record with --size-ladder-record)
+    FAIL openbind 256->512: exponent 1.97 -> 0.53 outside ±0.50
+    FAIL openbind 512->768: exponent 2.61 -> 2.11 outside ±0.50
+    FAIL openbind per-rung base->run: 256 6.5->9.3 1.43x, 512 25.5->13.4 0.53x, 640 46.2->21.1 0.46x, 768 73.6->31.5 0.43x, 896 116.5->45.9 0.39x, 1024 161.7->60.7 0.38x -- every rung moved; this is a whole-ladder shift, not one rung
+##############################################################################
+GATE FAIL — size-ladder drift vs the recorded baseline (see above); if this change is intentional, re-record with --size-ladder-record

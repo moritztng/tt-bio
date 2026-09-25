@@ -1,0 +1,6 @@
+######## slice rf3 tip 4cbada0e8 2026-09-23T04:49:32Z load 4.48 4.44 4.33 ########
+slice rf3 rc=1 2026-09-23T05:15:40Z
+######## slice opendde,nesso1,openbind tip 4cbada0e8 2026-09-23T05:15:40Z load 5.56 5.81 5.60 ########
+slice opendde,nesso1,openbind rc=1 2026-09-23T06:11:38Z
+######## slice boltz2,esmfold2,protenix-v1,protenix-v2,openfold3 tip 243f30bb2 2026-09-23T06:11:38Z load 2.69 3.07 4.87 ########
+slice boltz2,esmfold2,protenix-v1,protenix-v2,openfold3 rc=1 2026-09-23T08:09:25Z

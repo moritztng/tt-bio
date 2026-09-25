@@ -1,0 +1,30 @@
+{
+  "what": "sources the narrow-q rf3 896 aa banked cell is assembled from",
+  "why": "the 4-rep single-session cell needs ~19 min under the ceiling and this box hands out ~6. Each source contributes whatever complete interleaved pairs survive the ceiling and clock bars; narrowq_bank.py applies both per leg.",
+  "sources": [
+    {
+      "artifact": "perf/land_standing/out/narrowq_rf3_retake1s_896.json",
+      "trace": "perf/land_standing/out/narrowq_rf3_retake1s_contention.jsonl",
+      "first_arm": "off",
+      "note": "2026-09-22 22:05Z 4-rep run. Refused as a cell on its own A/A floor (+32.135 % against +11.149 % A/B) after of3t took the box at 22:11:40Z. Its rep 1 pair was taken at loadavg 1.07-1.33 with both legs clock-clean, and is the only part of it that survives."
+    },
+    {
+      "artifact": "perf/land_standing/out/narrowq_bank/pair_20260922T230350Z_on_c0.json",
+      "trace": "perf/land_standing/out/narrowq_bank/pair_20260922T230350Z_on_c0_contention.jsonl",
+      "first_arm": "on",
+      "note": "2026-09-22 23:03:50Z single ON-FIRST pair, card 0, board-pair sibling card 1 verified holding no fd. Pre-flight loadavg 1.52. Taken to balance the bank: the retake pair is off-first and narrowq_bank.py refuses a single-order bank."
+    },
+    {
+      "artifact": "perf/land_standing/out/narrowq_bank/pair_20260922T231740Z_r1088_off_c0.json",
+      "trace": "perf/land_standing/out/narrowq_bank/pair_20260922T231740Z_r1088_off_c0_contention.jsonl",
+      "first_arm": "off",
+      "note": "2026-09-22 23:17Z single off-FIRST pair at 1088 aa, card 0, board-pair sibling card 1 verified holding no fd. 1088 is the falsifier rung: the policy fires there (it is not a multiple of 256) and L1 refuses more configs, so if a narrower q_chunk ever costs more than it saves this is where it shows."
+    },
+    {
+      "artifact": "perf/land_standing/out/narrowq_bank/pair_20260922T232625Z_r1088_on_c0.json",
+      "trace": "perf/land_standing/out/narrowq_bank/pair_20260922T232625Z_r1088_on_c0_contention.jsonl",
+      "first_arm": "on",
+      "note": "2026-09-22 23:26Z single on-FIRST pair at 1088 aa, card 0, board-pair sibling card 1 verified holding no fd. 1088 is the falsifier rung: the policy fires there (it is not a multiple of 256) and L1 refuses more configs, so if a narrower q_chunk ever costs more than it saves this is where it shows."
+    }
+  ]
+}

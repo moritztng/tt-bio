@@ -1,0 +1,27 @@
+narrow-q rf3 896 aa, banked cell. contention bar 200 % foreign cpu, clock contract at or above 1200 MHz.
+
+  narrowq_rf3_retake1s_896.json      off rep1    94.2s  KEEP foreign 96 %, loadavg1 max 1.21, 95s at or above 1200 MHz
+  narrowq_rf3_retake1s_896.json      on  rep1   103.9s  KEEP foreign 100 %, loadavg1 max 1.33, 105s at or above 1200 MHz
+  narrowq_rf3_retake1s_896.json      on  rep2   105.7s  CUT  foreign cpu peaked 484 % over the 200 % bar (python@484%)
+  narrowq_rf3_retake1s_896.json      off rep2    97.9s  CUT  foreign cpu peaked 1150 % over the 200 % bar (python@1150%)
+  narrowq_rf3_retake1s_896.json      off rep3   104.8s  CUT  foreign cpu peaked 1325 % over the 200 % bar (python@1325%)
+  narrowq_rf3_retake1s_896.json      on  rep3   119.6s  CUT  foreign cpu peaked 1846 % over the 200 % bar (python@1201%, python@645%)
+  narrowq_rf3_retake1s_896.json      on  rep4   140.1s  CUT  foreign cpu peaked 1226 % over the 200 % bar (python@1026%, ps@200%)
+  narrowq_rf3_retake1s_896.json      off rep4   124.5s  CUT  foreign cpu peaked 1368 % over the 200 % bar (python@1065%, python@203%, ps@100%)
+  pair_20260922T230350Z_on_c0.json   on  rep1   104.1s  KEEP foreign 75 %, loadavg1 max 2.65, 107s at or above 1200 MHz
+  pair_20260922T230350Z_on_c0.json   off rep1    94.8s  KEEP foreign 100 %, loadavg1 max 3.68, 98s at or above 1200 MHz
+
+complete pairs surviving both bars: 2
+  narrowq_rf3_retake1s_896.json      rep1  off-first  lever-on 94.2  shipped 103.9  delta +9.70 s
+  pair_20260922T230350Z_on_c0.json   rep1  on-first  lever-on 94.8  shipped 104.1  delta +9.30 s
+
+  lever ON  (TT_BIO_TRIATT_NARROW_Q_FALLBACK=1): [94.2, 94.8]  median 94.50 s
+  shipped   (flag off on main)                 : [103.9, 104.1]  median 104.00 s
+  A/A floor +0.635 %  (worst arm; lever-on +0.635 %, shipped +0.192 %)
+  A/B       +10.053 %   speedup 1.1005x   delta +9.5000 s
+  effect / floor  15.83x
+  off-first pairs (n=1): delta median +9.700 s
+  on-first pairs (n=1): delta median +9.300 s
+  separation: max lever-on 94.8 vs min shipped 103.9 -> NO OVERLAP
+
+VERDICT: PASS -- outside its own A/A floor, arms do not overlap, both orders present. Reportable.

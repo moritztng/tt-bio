@@ -34,6 +34,7 @@ import contextlib
 import os
 import pathlib
 import sys
+import threading
 from collections.abc import Mapping
 from typing import Callable, Iterator
 
@@ -183,6 +184,12 @@ class TrunkPool:
         self.selections: dict[str, int] = {}
         self._trunks: dict[str, _Trunk] = {}
         self._order: list[str] = []
+        # BindCraft 2 drives this pool from TWO threads: `campaign.py:182` starts
+        # `compile_next_length_bucket`, a daemon thread that calls `sequence_gradients(...,
+        # compile_only=True)` on the same model while `run_trajectory` folds on the main thread.
+        # So the trunk cache and the selection are shared state and move under a lock, and the
+        # load is deferred to the thread that folds.
+        self._lock = threading.RLock()
         self._current: str | None = None
         if isinstance(source, Mapping):
             self.require(source)
@@ -252,23 +259,32 @@ class TrunkPool:
 
         An unknown name is an error, not a default. Folding a design on a checkpoint BindCraft 2
         did not pick is invisible downstream, because the shapes agree and the loss still falls.
+
+        Selecting does NOT bring the trunk on card. The load is deferred to `current`, i.e. to the
+        thread that actually folds, because BindCraft 2 selects from its compile thread too and
+        that call never executes: `bindcraft/af2.py:404` returns after `lower().compile()`, before
+        the `pure_callback` runs. Loading here put `_Trunk` construction, and with it a device
+        bring-up and the first `tt_bio` import, on a thread racing the main fold -- which aborted
+        the process on `context_id ... is out of range` from
+        `Device::init_command_queue_device_with_topology`.
         """
         if name not in self.paths:
             raise KeyError(f"{name!r} is not in the trunk pool {self.names}")
-        self._current = name
-        self.selections[name] = self.selections.get(name, 0) + 1
-        self._load(name)
+        with self._lock:
+            self._current = name
+            self.selections[name] = self.selections.get(name, 0) + 1
 
     def _load(self, name: str) -> _Trunk:
-        trunk = self._trunks.get(name)
-        if trunk is None:
-            trunk = self._trunks[name] = _Trunk(self.paths[name])
-        if name in self._order:
-            self._order.remove(name)
-        self._order.append(name)
-        while len(self._order) > (self.resident or len(self.paths)):
-            self._trunks.pop(self._order.pop(0), None)
-        return trunk
+        with self._lock:
+            trunk = self._trunks.get(name)
+            if trunk is None:
+                trunk = self._trunks[name] = _Trunk(self.paths[name])
+            if name in self._order:
+                self._order.remove(name)
+            self._order.append(name)
+            while len(self._order) > (self.resident or len(self.paths)):
+                self._trunks.pop(self._order.pop(0), None)
+            return trunk
 
     @property
     def current(self) -> _Trunk:

@@ -63,11 +63,17 @@ FIX = REPO / "perf" / "size512" / "fixtures"
 
 # flag -> the tenstorrent module global it sets, asserted in the worker so a typo cannot
 # silently produce two identical arms. Both are settable in the environment before import.
+#: flag -> (module attribute, SHIPPED default). The default is RECORDED, not assumed off.
+#: TT_BIO_SDPA_BAND_DIV_K shipped on for Blackhole on 2026-09-22 (origin/main 300a0bbb0), and the
+#: clean-arms assertion below used to read "no other flag is set", which from that commit onwards
+#: would have failed every run of this harness -- a measurement tool broken by a lever it helped
+#: land. A shipped default is the thing to compare against; False is only sometimes that thing.
 FLAGS = {
-    "TT_BIO_APB_CONCAT_HEADS": "_APB_CONCAT_HEADS",
-    "TT_BIO_SDPA_BAND_DIV_K": "_SDPA_BAND_DIV_K",
-    "TT_BIO_TRIATT_BIAS_B8": "_TRIATT_BIAS_B8",
-    "TT_BIO_TRIATT_B8": "_TRIATT_B8",
+    "TT_BIO_APB_CONCAT_HEADS": ("_APB_CONCAT_HEADS", False),
+    "TT_BIO_SDPA_BAND_DIV_K": ("_SDPA_BAND_DIV_K", True),
+    "TT_BIO_TRIATT_BIAS_B8": ("_TRIATT_BIAS_B8", False),
+    "TT_BIO_TRIATT_B8": ("_TRIATT_B8", False),
+    "TT_BIO_TRIATT_NARROW_Q_FALLBACK": ("_SDPA_NARROW_Q_FALLBACK", False),
 }
 
 
@@ -250,14 +256,21 @@ def worker(args) -> int:
         f"imported tt_bio from {_TB.__file__}, not this worktree "
         "(memory parity-gate-scores-installed-package-not-checkout)")
 
-    attr = FLAGS[args.flag]
+    attr, shipped = FLAGS[args.flag]
+    assert not shipped, (
+        f"{args.flag} already ships on, so 'base' and 'on' would be the same arm. Price a "
+        f"shipped-on flag by turning it OFF on the base arm with its own AB grammar instead.")
     want = args.arm == "on"
     got = bool(getattr(TT, attr, False))
-    # The base arm must be the SHIPPED state, so no sibling bfp8 flag may be set either: the
-    # region composes with TT_BIO_TRIATT_BIAS_B8 and a stray one would price a stack as a single.
-    for other in FLAGS:
+    # The base arm must be the SHIPPED state, so every OTHER flag must sit at its own shipped
+    # default -- not at False. The region composes with TT_BIO_TRIATT_BIAS_B8, so a stray sibling
+    # would price a stack as a single; equally, forcing an already-shipped lever off would price
+    # this one against a base that no user runs.
+    for other, (oattr, odefault) in FLAGS.items():
         if other != args.flag:
-            assert not bool(getattr(TT, FLAGS[other], False)), f"{other} is set; arms are not clean"
+            assert bool(getattr(TT, oattr, False)) == odefault, (
+                f"{other} is {bool(getattr(TT, oattr, False))}, shipped default is {odefault}; "
+                f"arms are not clean")
     assert got == want, (
         f"arm={args.arm} wants {attr}={want} but the module imported {got}. The flag must be set "
         "in the ENVIRONMENT before import. For APB in particular a post-load flip would run "
