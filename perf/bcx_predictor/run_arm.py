@@ -66,19 +66,32 @@ def main():
                          "so the default arm here is levers on and uncounted; this flag is the "
                          "control every BCX speed ratio divides by. Inert on the reference arm, "
                          "which never enters tt_bio.")
+    ap.add_argument("--shipped", action="store_true",
+                    help="leave BindCraft 2's own five-model multimer_v3 pool alone. The "
+                         "monomer pin makes the arms comparable to each other and makes none "
+                         "of them comparable to the lab's own figure, which is the only "
+                         "question this flag exists to ask. Reference-only: tt-bio's AF2 trunk "
+                         "is monomer model_1_ptm. Off by default, and off is byte-identical to "
+                         "every arm this campaign has measured.")
     ap.add_argument("--bucket", type=int, default=1,
                     help="length_bucket_size override; 0 leaves BindCraft 2's own "
                          "default of 32. It used to have to be 1 because the trunk "
                          "refused a masked fold; all three mask sites are in af2.py "
                          "now, so 32 runs and is the lab's configuration.")
     args = ap.parse_args()
+    if args.shipped and args.arm != "reference":
+        ap.error("--shipped is reference-only; tt-bio's AF2 trunk is monomer model_1_ptm")
 
     project = args.out or str(HERE / "runs" / f"{args.arm}_seed{args.seed}")
     pathlib.Path(project).mkdir(parents=True, exist_ok=True)
 
     overrides = [f"campaign_seed={args.seed}", f"max_trajectories={args.trajectories}",
-                 "validation_model=monomer", 'design_models=["model_1_ptm"]',
-                 'validation_models=["model_2_ptm"]', f"project_folder={project}"]
+                 f"project_folder={project}"]
+    if not args.shipped:
+        # The monomer pin, unchanged and still the default. Every number this campaign has
+        # published was measured with these three lines in place.
+        overrides[2:2] = ["validation_model=monomer", 'design_models=["model_1_ptm"]',
+                          'validation_models=["model_2_ptm"]']
     if args.binder_length:
         overrides.append(f"binder_lengths=[{args.binder_length}]")
     if args.bucket:
@@ -88,7 +101,8 @@ def main():
                       parse_setting_overrides(overrides)))
 
     # Both arms on the monomer checkpoints -- see the module docstring.
-    campaign.MULTIMER_POOL = MONOMER
+    if not args.shipped:
+        campaign.MULTIMER_POOL = MONOMER
 
     mpnn = os.path.join(B.BC2, "bindcraft", "weights", "proteinmpnn", "weights_neutral")
     stamp = {"arm": args.arm, "seed": args.seed, "trajectories": args.trajectories,
@@ -104,6 +118,7 @@ def main():
              # pdl1.json, when the flag is 0, and as the single pinned length when it is not.
              "binder_lengths": settings.get("binder_lengths"),
              "levers": "off" if args.no_levers else "shipped",
+             "shipped_model_pool": bool(args.shipped),
              "predictor": "AlphaFoldDesignModel" if args.arm == "reference"
                           else "TenstorrentAlphaFoldDesignModel",
              "host": os.uname().nodename, "started_utc": time.strftime("%FT%TZ", time.gmtime()),
