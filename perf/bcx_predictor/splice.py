@@ -18,6 +18,7 @@ under an all-zero `extra_msa_mask` (`bindcraft/af2.py:134`), which is exactly wh
 extra-MSA blocks bake into `opm_constant`, so it is a legal swap -- just not made yet.
 """
 import contextlib
+import hashlib
 import os
 import pathlib
 
@@ -92,8 +93,9 @@ class EvoformerOnDevice:
         It is passed in rather than read off the traced activations because the stack
         replacement never sees the `masks` dict -- `evoformer_fn` closes over it and this
         swaps out the whole `layer_stack`. The mask is fixed for a given target and binder
-        length, so capturing it once per shape is exact; a predictor class that reads it
-        from BindCraft 2's own batch is the general form and this is the harness's.
+        length, but the padded SHAPE is not: one bucket holds many binder lengths, so the
+        cache below keys on content. A predictor class that reads the mask from BindCraft
+        2's own batch is the general form and this is the harness's.
         """
         self.dev, self.k_evo, self.checkpoint = dev, k_evo, checkpoint
         self.calls = {"primal": 0, "taped": 0, "backward": 0}
@@ -101,12 +103,24 @@ class EvoformerOnDevice:
         self._pair_mask_dev = {}
 
     def _mask(self, mask_np):
-        """Upload per call and cache by shape: the binder length changes per trajectory."""
-        key = tuple(np.asarray(mask_np).shape)
+        """Upload per call, cached on the mask's CONTENT.
+
+        Keying on `tuple(mask.shape)` alone is wrong and it cost a trajectory. The shape
+        here is the token axis after `_pad_inputs` rounds it up to 32, so every binder
+        length in one bucket shares it: with the 115-residue PD-L1 target, binders 142,
+        144 and 151 all land on `(1, 288)` while their masks carry 257, 259 and 266 real
+        residues. The first draw in a bucket populated the entry and every later draw was
+        served its mask, marking the difference masked -- 9 real residues for binder 151.
+        `EvoformerOnDevice` is built once for the whole campaign (`run_arm.py`), so the
+        entry outlives the trajectory that made it.
+
+        `perf/bcx_mutate/mask_cache_collision.py` has the draw order and the arithmetic.
+        """
+        mask_np = np.ascontiguousarray(np.asarray(mask_np, dtype=np.float32))
+        key = (mask_np.shape, hashlib.blake2b(mask_np.tobytes(), digest_size=16).digest())
         got = self._mask_dev.get(key)
         if got is None:
-            got = self.dev.up(torch.from_numpy(
-                np.asarray(mask_np, dtype=np.float32).copy()).float())
+            got = self.dev.up(torch.from_numpy(mask_np.copy()).float())
             self._mask_dev[key] = got
         return got
 
@@ -121,7 +135,10 @@ class EvoformerOnDevice:
         (`perf/bcx_mono/masked_fold.json`).
         """
         from tt_bio.af2 import af2_pair_masks
-        key = (tuple(pm.shape), float(pm.sum()))
+        # `float(pm.sum())` discriminates two draws of different length but not two masks
+        # of equal weight and different placement, so this keys on content like `_mask`.
+        pm_np = np.ascontiguousarray(np.asarray(pm, dtype=np.float32))
+        key = (pm_np.shape, hashlib.blake2b(pm_np.tobytes(), digest_size=16).digest())
         got = self._pair_mask_dev.get(key)
         if got is None:
             got = af2_pair_masks(pm, self.dev.device)
