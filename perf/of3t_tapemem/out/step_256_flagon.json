@@ -1,0 +1,213 @@
+{
+ "doc": "A FULL OpenFold3 training step on the card, timed by part.",
+ "argv": [
+  "--tokens",
+  "256",
+  "--cycles",
+  "1",
+  "--samples",
+  "1",
+  "--reps",
+  "1",
+  "--out",
+  "/home/moritz/.coworker/wt/of3t-tapemem/perf/of3t_tapemem/out/step_256_flagon.json",
+  "--no-optimizer"
+ ],
+ "env": {
+  "host": "pc",
+  "tt_visible_devices": "0",
+  "renorm": null,
+  "commit": "b10cd9504deff14382ff9ab6dd71ff54a4154339",
+  "branch": "wk/of3t-tapemem",
+  "started_utc": "2026-09-25T20:23:16Z",
+  "loadavg_start": [
+   4.3349609375,
+   6.115234375,
+   6.0927734375
+  ],
+  "arch": "Arch.BLACKHOLE",
+  "aiclk_during": {
+   "0": {
+    "min": 1343,
+    "max": 1350,
+    "median": 1350,
+    "n": 130
+   }
+  },
+  "aiclk_line": "CLOCK: dev0 min 1343 / median 1350 / max 1350 MHz over 130 samples, polled DURING the work",
+  "loadavg_end": [
+   9.482421875,
+   8.19775390625,
+   7.1015625
+  ]
+ },
+ "config": {
+  "crop": 256,
+  "batch": 1,
+  "cards": 1,
+  "cycles_pinned": 1,
+  "diffusion_samples": 1,
+  "stage": "initial_training",
+  "taped": true
+ },
+ "build_fold_s": 4.14,
+ "prep_to_sampler_s": 51.78,
+ "capture": {
+  "trunk_inputs_snapshotted": true,
+  "trunk_inputs_dead_at_capture": 0,
+  "trunk_forward_s": 38.8,
+  "trunk_forward_note": "the shipped call, progress_fn INCLUDED and cold; the timed arms below drop it",
+  "trunk_cycles": 4,
+  "reached_sampler": true
+ },
+ "params": {
+  "declared": 3152,
+  "slots": 3152,
+  "slots_unwritable": 0,
+  "elements": 381302188,
+  "per_root": {
+   "trunk": {
+    "found": 2531,
+    "walk_depth": 9,
+    "truncated": 8
+   },
+   "diffusion": {
+    "found": 891,
+    "walk_depth": 6,
+    "truncated": 0
+   }
+  },
+  "duplicate_handles_dropped": 270,
+  "pairformer_weights": 2256,
+  "diffusion_weights": 621
+ },
+ "loss_weights": {
+  "bond": 0.0,
+  "smooth_lddt": 4.0,
+  "mse": 4.0,
+  "distogram": 0.03,
+  "resolved": 0.0001,
+  "plddt": 0.0001,
+  "pae": 0.0001,
+  "pde": 0.0001
+ },
+ "optimizer": {
+  "class": "tt_bio.train.optim.AdamW",
+  "lr": 0.0003,
+  "clip_norm": null,
+  "params": 0
+ },
+ "renorm": {
+  "flag": true,
+  "stats_before": {
+   "applied": 0,
+   "declined": 0
+  },
+  "per_rep_plan": null,
+  "stats_after": {
+   "applied": 189,
+   "declined": 0
+  },
+  "applied_during_reps": 189,
+  "declined_during_reps": 0
+ },
+ "reps": [
+  {
+   "rep": 0,
+   "cold": true,
+   "renorm_flag": true,
+   "trunk_nograd_prefix_s": 0.0,
+   "trunk_taped_cycle_s": 83.274,
+   "trunk_s": 83.274,
+   "dram_after_trunk": 2618708992,
+   "diffusion_s": 34.968,
+   "diffusion": {
+    "coupled_to_trunk": true,
+    "sigmas": [
+     3206.1709
+    ],
+    "distinct_sigmas": 1,
+    "n_samples": 1,
+    "per_sample_s": [
+     29.589
+    ],
+    "n_atom": 2059,
+    "n_token": 256,
+    "tokens_without_an_atom": 0,
+    "rep_atom_index": "first atom of each token, from atom_to_token_idx"
+   },
+   "dram_after_diffusion": 7434655744,
+   "losses_s": 0.245,
+   "losses": {
+    "terms": {
+     "bond": {
+      "weight": 0.0,
+      "skipped": "weight is zero in this stage",
+      "fired": false
+     },
+     "smooth_lddt": {
+      "weight": 4.0,
+      "skipped": null,
+      "fired": true
+     },
+     "mse": {
+      "weight": 4.0,
+      "skipped": null,
+      "fired": true
+     },
+     "distogram": {
+      "weight": 0.03,
+      "skipped": null,
+      "fired": true
+     },
+     "resolved": {
+      "weight": 0.0001,
+      "skipped": null,
+      "fired": true
+     },
+     "plddt": {
+      "weight": 0.0001,
+      "skipped": null,
+      "fired": true
+     },
+     "pae": {
+      "weight": 0.0001,
+      "skipped": null,
+      "fired": true
+     },
+     "pde": {
+      "weight": 0.0001,
+      "skipped": null,
+      "fired": true
+     }
+    },
+    "terms_fired": 7,
+    "scope": "token, one representative atom per token",
+    "download_s": 0.0,
+    "host_loss_s": 0.242,
+    "value_claimed": false
+   },
+   "roots_taped": 1,
+   "seed_upload_s": 0.0,
+   "tape_nodes": 5127,
+   "backward_s": 323.929,
+   "params_with_grad": "2944 of 3152",
+   "backward_valid": true,
+   "dram_after_backward": 3334548480,
+   "optimizer_s": 0.0,
+   "optimizer_note": "--no-optimizer",
+   "step_s": 442.416,
+   "renorm_applied": 189,
+   "renorm_declined": 0
+  }
+ ],
+ "cold_s": 442.416,
+ "steady": {
+  "n": 0,
+  "values_s": [],
+  "median_s": null,
+  "min_s": null,
+  "max_s": null,
+  "spread_s": null
+ }
+}

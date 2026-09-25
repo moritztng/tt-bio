@@ -1,0 +1,590 @@
+{
+ "ab": {
+  "NOTE": "avail_at_start is published per arm because pc's available memory swings and a peak read against a different amount of free memory is a different measurement, not a comparison.",
+  "avail_at_start_gib": [
+   16.925,
+   16.87
+  ],
+  "backward_delta_gib": [
+   3.0532,
+   -1.9325
+  ],
+  "backward_s": [
+   35.865,
+   33.417
+  ],
+  "blocks": 54,
+  "control": "128_flagoff",
+  "fixed": "128_flagon",
+  "mib_per_block": [
+   57.9,
+   -36.65
+  ],
+  "mib_per_node": [
+   0.3324,
+   -0.2104
+  ],
+  "peak_delta_gib": -3.0593,
+  "peak_gib": [
+   9.2723,
+   6.213
+  ],
+  "tokens": 128,
+  "trim_calls": 54,
+  "trim_cost_s": 0.7094
+ },
+ "rows": {
+  "128_flagoff": {
+   "aiclk_during": {
+    "0": {
+     "max": 1350,
+     "median": 1350,
+     "min": 1350,
+     "n": 28
+    }
+   },
+   "arm": "base",
+   "avail_at_start_gib": 16.925,
+   "backward": {
+    "blocks": 54,
+    "delta_gib": 3.0532,
+    "entry_rss_gib": 5.907,
+    "exit_rss_gib": 8.9602,
+    "mib_per_block": 57.9,
+    "mib_per_node": 0.3324,
+    "nodes": 9407,
+    "wall_s": 35.862
+   },
+   "breach": null,
+   "breached": false,
+   "census_f64_gib_drift": -0.002,
+   "census_first": {
+    "census_s": 0.091,
+    "host_f64_gib": 0.198,
+    "host_gib": 2.3664,
+    "storages": 5799,
+    "tape_nodes": 2200,
+    "tape_tensors": 5482,
+    "torch_objs": 6217
+   },
+   "census_host_gib_drift": -0.002,
+   "census_last": {
+    "census_s": 0.09,
+    "host_f64_gib": 0.196,
+    "host_gib": 2.3644,
+    "storages": 5798,
+    "tape_nodes": 2174,
+    "tape_tensors": 5551,
+    "torch_objs": 6216
+   },
+   "census_tape_node_drift": -26,
+   "commit": "b10cd9504deff14382ff9ab6dd71ff54a4154339",
+   "cycles": 1,
+   "exact": "on",
+   "gc_gib_reclaimed": 0.0,
+   "gc_objects_reclaimed": 0,
+   "glibc": "2.36",
+   "host": "pc",
+   "loadavg_at_start": [
+    "3.88",
+    "6.17",
+    "6.04"
+   ],
+   "mallinfo_at_end": {
+    "arena_gib": 7.4135,
+    "fordblks_gib": 7.0259,
+    "hblkhd_gib": 0.5091,
+    "hblks": 20,
+    "keepcost_gib": 0.0157,
+    "uordblks_gib": 0.3876
+   },
+   "malloc_trim_gib_reclaimed": 0.0,
+   "mem_total_gib": 30.502,
+   "params_with_grad": "2944 of 3152",
+   "parts_s": {
+    "backward_s": 35.865,
+    "diffusion_s": 2.292,
+    "losses_s": 0.06,
+    "optimizer_s": 0.0,
+    "seed_upload_s": 0.0,
+    "step_s": 48.291,
+    "trunk_s": 10.074
+   },
+   "samples": 1,
+   "softmax_calls": {
+    "backward": 159,
+    "forward": 189
+   },
+   "tag": "128_flagoff",
+   "tape_nodes": 5127,
+   "tokens": 128,
+   "trim_calls": 0,
+   "trim_effective": false,
+   "trim_flag": "off",
+   "trim_ms_per_call": null,
+   "trim_s": 0.0,
+   "vmhwm_gib": 9.2723,
+   "wall_s": 86.181
+  },
+  "128_flagon": {
+   "aiclk_during": {
+    "0": {
+     "max": 1350,
+     "median": 1350,
+     "min": 1350,
+     "n": 18
+    }
+   },
+   "arm": "base",
+   "avail_at_start_gib": 16.87,
+   "backward": {
+    "blocks": 54,
+    "delta_gib": -1.9325,
+    "entry_rss_gib": 5.6651,
+    "exit_rss_gib": 3.7326,
+    "mib_per_block": -36.65,
+    "mib_per_node": -0.2104,
+    "nodes": 9407,
+    "wall_s": 33.413
+   },
+   "breach": null,
+   "breached": false,
+   "census_f64_gib_drift": -0.002,
+   "census_first": {
+    "census_s": 0.095,
+    "host_f64_gib": 0.198,
+    "host_gib": 2.3664,
+    "storages": 5799,
+    "tape_nodes": 2200,
+    "tape_tensors": 5482,
+    "torch_objs": 6217
+   },
+   "census_host_gib_drift": -0.002,
+   "census_last": {
+    "census_s": 0.087,
+    "host_f64_gib": 0.196,
+    "host_gib": 2.3644,
+    "storages": 5798,
+    "tape_nodes": 2174,
+    "tape_tensors": 5551,
+    "torch_objs": 6216
+   },
+   "census_tape_node_drift": -26,
+   "commit": "b10cd9504deff14382ff9ab6dd71ff54a4154339",
+   "cycles": 1,
+   "exact": "on",
+   "gc_gib_reclaimed": 0.0,
+   "gc_objects_reclaimed": 0,
+   "glibc": "2.36",
+   "host": "pc",
+   "loadavg_at_start": [
+    "7.06",
+    "6.62",
+    "6.21"
+   ],
+   "mallinfo_at_end": {
+    "arena_gib": 9.0249,
+    "fordblks_gib": 8.6373,
+    "hblkhd_gib": 0.5091,
+    "hblks": 20,
+    "keepcost_gib": 0.0157,
+    "uordblks_gib": 0.3875
+   },
+   "malloc_trim_gib_reclaimed": 0.0,
+   "mem_total_gib": 30.502,
+   "params_with_grad": "2944 of 3152",
+   "parts_s": {
+    "backward_s": 33.417,
+    "diffusion_s": 1.462,
+    "losses_s": 0.064,
+    "optimizer_s": 0.0,
+    "seed_upload_s": 0.0,
+    "step_s": 45.704,
+    "trunk_s": 10.761
+   },
+   "samples": 1,
+   "softmax_calls": {
+    "backward": 159,
+    "forward": 189
+   },
+   "tag": "128_flagon",
+   "tape_nodes": 5127,
+   "tokens": 128,
+   "trim_calls": 54,
+   "trim_effective": true,
+   "trim_flag": "on",
+   "trim_ms_per_call": 13.14,
+   "trim_s": 0.7094,
+   "vmhwm_gib": 6.213,
+   "wall_s": 56.336
+  },
+  "128_mmap": {
+   "aiclk_during": {
+    "0": {
+     "max": 1350,
+     "median": 1350,
+     "min": 1350,
+     "n": 27
+    }
+   },
+   "arm": "mmap",
+   "avail_at_start_gib": 16.641,
+   "backward": {
+    "blocks": 54,
+    "delta_gib": 0.0249,
+    "entry_rss_gib": 3.7267,
+    "exit_rss_gib": 3.7516,
+    "mib_per_block": 0.47,
+    "mib_per_node": 0.0027,
+    "nodes": 9407,
+    "wall_s": 63.109
+   },
+   "breach": null,
+   "breached": false,
+   "census_f64_gib_drift": -0.002,
+   "census_first": {
+    "census_s": 0.103,
+    "host_f64_gib": 0.198,
+    "host_gib": 2.3664,
+    "storages": 5799,
+    "tape_nodes": 2200,
+    "tape_tensors": 5482,
+    "torch_objs": 6217
+   },
+   "census_host_gib_drift": -0.002,
+   "census_last": {
+    "census_s": 0.099,
+    "host_f64_gib": 0.196,
+    "host_gib": 2.3644,
+    "storages": 5798,
+    "tape_nodes": 2174,
+    "tape_tensors": 5551,
+    "torch_objs": 6216
+   },
+   "census_tape_node_drift": -26,
+   "commit": "b10cd9504deff14382ff9ab6dd71ff54a4154339",
+   "cycles": 1,
+   "exact": "on",
+   "gc_gib_reclaimed": 0.0,
+   "gc_objects_reclaimed": 0,
+   "glibc": "2.36",
+   "host": "pc",
+   "loadavg_at_start": [
+    "6.30",
+    "7.19",
+    "5.99"
+   ],
+   "mallinfo_at_end": {
+    "arena_gib": 1.1301,
+    "fordblks_gib": 0.8681,
+    "hblkhd_gib": 0.6347,
+    "hblks": 51,
+    "keepcost_gib": 0.0001,
+    "uordblks_gib": 0.262
+   },
+   "malloc_trim_gib_reclaimed": 0.0,
+   "mem_total_gib": 30.502,
+   "params_with_grad": "2944 of 3152",
+   "parts_s": {
+    "backward_s": 63.112,
+    "diffusion_s": 2.123,
+    "losses_s": 0.072,
+    "optimizer_s": 0.0,
+    "seed_upload_s": 0.0,
+    "step_s": 79.36,
+    "trunk_s": 14.053
+   },
+   "samples": 1,
+   "softmax_calls": {
+    "backward": 159,
+    "forward": 189
+   },
+   "tag": "128_mmap",
+   "tape_nodes": 5127,
+   "tokens": 128,
+   "trim_calls": 0,
+   "trim_effective": null,
+   "trim_flag": null,
+   "trim_ms_per_call": null,
+   "trim_s": 0.0,
+   "vmhwm_gib": 4.0658,
+   "wall_s": 93.973
+  },
+  "128_probe": {
+   "aiclk_during": {
+    "0": {
+     "max": 1350,
+     "median": 1350,
+     "min": 1350,
+     "n": 22
+    }
+   },
+   "arm": "probe",
+   "avail_at_start_gib": 17.837,
+   "backward": {
+    "blocks": 54,
+    "delta_gib": -1.9498,
+    "entry_rss_gib": 5.715,
+    "exit_rss_gib": 3.7652,
+    "mib_per_block": -36.97,
+    "mib_per_node": -0.2122,
+    "nodes": 9407,
+    "wall_s": 41.718
+   },
+   "breach": null,
+   "breached": false,
+   "census_f64_gib_drift": -0.002,
+   "census_first": {
+    "census_s": 0.097,
+    "host_f64_gib": 0.198,
+    "host_gib": 2.3664,
+    "storages": 5799,
+    "tape_nodes": 2200,
+    "tape_tensors": 5482,
+    "torch_objs": 6217
+   },
+   "census_host_gib_drift": -0.002,
+   "census_last": {
+    "census_s": 0.098,
+    "host_f64_gib": 0.196,
+    "host_gib": 2.3644,
+    "storages": 5798,
+    "tape_nodes": 2174,
+    "tape_tensors": 5551,
+    "torch_objs": 6216
+   },
+   "census_tape_node_drift": -26,
+   "commit": "b10cd9504deff14382ff9ab6dd71ff54a4154339",
+   "cycles": 1,
+   "exact": "on",
+   "gc_gib_reclaimed": -0.0002,
+   "gc_objects_reclaimed": 0,
+   "glibc": "2.36",
+   "host": "pc",
+   "loadavg_at_start": [
+    "6.30",
+    "6.16",
+    "5.12"
+   ],
+   "mallinfo_at_end": {
+    "arena_gib": 8.5467,
+    "fordblks_gib": 8.1594,
+    "hblkhd_gib": 0.5091,
+    "hblks": 20,
+    "keepcost_gib": 0.0,
+    "uordblks_gib": 0.3873
+   },
+   "malloc_trim_gib_reclaimed": 22.2021,
+   "mem_total_gib": 30.502,
+   "params_with_grad": "2944 of 3152",
+   "parts_s": {
+    "backward_s": 41.721,
+    "diffusion_s": 2.517,
+    "losses_s": 0.057,
+    "optimizer_s": 0.0,
+    "seed_upload_s": 0.0,
+    "step_s": 54.716,
+    "trunk_s": 10.421
+   },
+   "samples": 1,
+   "softmax_calls": {
+    "backward": 159,
+    "forward": 189
+   },
+   "tag": "128_probe",
+   "tape_nodes": 5127,
+   "tokens": 128,
+   "trim_calls": 0,
+   "trim_effective": null,
+   "trim_flag": null,
+   "trim_ms_per_call": null,
+   "trim_s": 0.0,
+   "vmhwm_gib": 6.2663,
+   "wall_s": 68.936
+  },
+  "256_flagoff": {
+   "aiclk_during": {
+    "0": {
+     "max": 1350,
+     "median": 1350,
+     "min": 1350,
+     "n": 87
+    }
+   },
+   "arm": "base",
+   "avail_at_start_gib": 15.076,
+   "backward": {
+    "blocks": 54,
+    "delta_gib": 0.849,
+    "entry_rss_gib": 4.4375,
+    "exit_rss_gib": 5.2865,
+    "mib_per_block": 16.1,
+    "mib_per_node": 0.0857,
+    "nodes": 10149,
+    "wall_s": 202.223
+   },
+   "breach": null,
+   "breached": false,
+   "census_f64_gib_drift": -0.0078,
+   "census_first": {
+    "census_s": 0.084,
+    "host_f64_gib": 1.2429,
+    "host_gib": 3.4459,
+    "storages": 5799,
+    "tape_nodes": 2214,
+    "tape_tensors": 5496,
+    "torch_objs": 6217
+   },
+   "census_host_gib_drift": -0.0078,
+   "census_last": {
+    "census_s": 0.093,
+    "host_f64_gib": 1.2351,
+    "host_gib": 3.4381,
+    "storages": 5798,
+    "tape_nodes": 2181,
+    "tape_tensors": 5558,
+    "torch_objs": 6216
+   },
+   "census_tape_node_drift": -33,
+   "commit": "b10cd9504deff14382ff9ab6dd71ff54a4154339",
+   "cycles": 1,
+   "exact": "on",
+   "gc_gib_reclaimed": 0.0,
+   "gc_objects_reclaimed": 0,
+   "glibc": "2.36",
+   "host": "pc",
+   "loadavg_at_start": [
+    "8.96",
+    "8.11",
+    "7.08"
+   ],
+   "mallinfo_at_end": {
+    "arena_gib": 3.726,
+    "fordblks_gib": 3.3255,
+    "hblkhd_gib": 0.5091,
+    "hblks": 20,
+    "keepcost_gib": 0.0211,
+    "uordblks_gib": 0.4005
+   },
+   "malloc_trim_gib_reclaimed": 0.0,
+   "mem_total_gib": 30.502,
+   "params_with_grad": "2944 of 3152",
+   "parts_s": {
+    "backward_s": 202.226,
+    "diffusion_s": 2.749,
+    "losses_s": 0.23,
+    "optimizer_s": 0.0,
+    "seed_upload_s": 0.0,
+    "step_s": 263.6,
+    "trunk_s": 58.395
+   },
+   "samples": 1,
+   "softmax_calls": {
+    "backward": 159,
+    "forward": 189
+   },
+   "tag": "256_flagoff",
+   "tape_nodes": 5127,
+   "tokens": 256,
+   "trim_calls": 0,
+   "trim_effective": false,
+   "trim_flag": "off",
+   "trim_ms_per_call": null,
+   "trim_s": 0.0,
+   "vmhwm_gib": 7.8071,
+   "wall_s": 274.73
+  },
+  "256_flagon": {
+   "aiclk_during": {
+    "0": {
+     "max": 1350,
+     "median": 1350,
+     "min": 1343,
+     "n": 130
+    }
+   },
+   "arm": "base",
+   "avail_at_start_gib": 17.88,
+   "backward": {
+    "blocks": 54,
+    "delta_gib": -0.7523,
+    "entry_rss_gib": 4.5821,
+    "exit_rss_gib": 3.8298,
+    "mib_per_block": -14.27,
+    "mib_per_node": -0.0759,
+    "nodes": 10149,
+    "wall_s": 323.926
+   },
+   "breach": null,
+   "breached": false,
+   "census_f64_gib_drift": -0.0078,
+   "census_first": {
+    "census_s": 0.094,
+    "host_f64_gib": 1.2429,
+    "host_gib": 3.4459,
+    "storages": 5799,
+    "tape_nodes": 2214,
+    "tape_tensors": 5496,
+    "torch_objs": 6217
+   },
+   "census_host_gib_drift": -0.0078,
+   "census_last": {
+    "census_s": 0.114,
+    "host_f64_gib": 1.2351,
+    "host_gib": 3.4381,
+    "storages": 5798,
+    "tape_nodes": 2181,
+    "tape_tensors": 5558,
+    "torch_objs": 6216
+   },
+   "census_tape_node_drift": -33,
+   "commit": "b10cd9504deff14382ff9ab6dd71ff54a4154339",
+   "cycles": 1,
+   "exact": "on",
+   "gc_gib_reclaimed": 0.0,
+   "gc_objects_reclaimed": 0,
+   "glibc": "2.36",
+   "host": "pc",
+   "loadavg_at_start": [
+    "4.33",
+    "6.12",
+    "6.09"
+   ],
+   "mallinfo_at_end": {
+    "arena_gib": 4.1345,
+    "fordblks_gib": 3.7341,
+    "hblkhd_gib": 0.5091,
+    "hblks": 20,
+    "keepcost_gib": 0.0,
+    "uordblks_gib": 0.4004
+   },
+   "malloc_trim_gib_reclaimed": 0.0,
+   "mem_total_gib": 30.502,
+   "params_with_grad": "2944 of 3152",
+   "parts_s": {
+    "backward_s": 323.929,
+    "diffusion_s": 34.968,
+    "losses_s": 0.245,
+    "optimizer_s": 0.0,
+    "seed_upload_s": 0.0,
+    "step_s": 442.416,
+    "trunk_s": 83.274
+   },
+   "samples": 1,
+   "softmax_calls": {
+    "backward": 159,
+    "forward": 189
+   },
+   "tag": "256_flagon",
+   "tape_nodes": 5127,
+   "tokens": 256,
+   "trim_calls": 54,
+   "trim_effective": true,
+   "trim_flag": "on",
+   "trim_ms_per_call": 11.39,
+   "trim_s": 0.6152,
+   "vmhwm_gib": 7.374,
+   "wall_s": 500.235
+  }
+ }
+}

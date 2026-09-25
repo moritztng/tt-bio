@@ -1,0 +1,27 @@
+{
+ "BIT_IDENTICAL": true,
+ "bytes_hashed_mib": 1398.8,
+ "control": "perf/of3t_tapemem/out/grads_256_flagoff.json",
+ "control_arm": "base",
+ "declared": [
+  3152,
+  3152
+ ],
+ "differing": [],
+ "digest_errors_control": 0,
+ "digest_errors_fixed": 0,
+ "fixed": "perf/of3t_tapemem/out/grads_256_flagon.json",
+ "fixed_arm": "base",
+ "id_named": 4,
+ "id_named_multiset_equal": true,
+ "identical": 3148,
+ "key_sets_equal": true,
+ "name_keyed": 3148,
+ "none_both": 208,
+ "none_one_sided": [],
+ "tokens": 256,
+ "with_grad": [
+  2944,
+  2944
+ ]
+}
