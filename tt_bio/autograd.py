@@ -24,6 +24,7 @@ import contextlib
 import math
 import os
 import sys
+import weakref
 from typing import Optional, Sequence
 
 import ttnn
@@ -33,7 +34,7 @@ from tt_bio.envflags import env_flag
 __all__ = [
     "Tensor", "precise_config", "bmm_program_config", "bmm", "softmax_bw_inner", "no_grad", "parameter",
     "forget_parameters", "parameter_for",
-    "release_pins", "drop_tape",
+    "release_pins",
     "linear", "matmul", "layer_norm", "softmax", "mul", "add", "scale", "sigmoid",
     "relu", "silu", "reshape", "split_heads", "merge_heads", "split_heads_value",
     "merge_heads_value",
@@ -173,7 +174,7 @@ class Tensor:
     """
 
     __slots__ = ("_value", "_grad", "_parts", "requires_grad", "node", "pinned", "evictable",
-                 "shares")
+                 "shares", "__weakref__")
 
     def __init__(self, value, requires_grad: bool = False):
         self._value = value
@@ -192,7 +193,8 @@ class Tensor:
         # CPython cannot collect). Storage sharing is `shares`, not this.
         self.evictable = True
         # The taped tensors over this one's buffer, itself included, or None if it owns its
-        # buffer alone. One list object shared by every member; see `_free_shared`.
+        # buffer alone. One list shared by every member, of WEAK references; `_share` says why
+        # and `_free_shared` reads it.
         self.shares = None
 
     @property
@@ -306,7 +308,7 @@ class Tensor:
         `_evict_read_parents`). Either way a member that holds its buffer for the other reason,
         `evictable` False for a closure that reads its output by raw handle, refuses both.
         """
-        group = self.shares
+        group = _members(self.shares)
         if any(not t.evictable for t in group):
             return
         if not any(t.pinned or t.requires_grad for t in group):
@@ -588,13 +590,34 @@ def _tape(out_value, parents: Sequence[Tensor], make_fn) -> Tensor:
 
 
 def _share(a: Tensor, b: Tensor) -> None:
-    """Put `a` and `b` in one storage group, merging any groups they already belong to."""
-    group = a.shares if a.shares is not None else [a]
-    for t in (b.shares if b.shares is not None else [b]):
-        if not any(t is m for m in group):
-            group.append(t)
-    for t in group:
+    """Put `a` and `b` in one storage group, merging any groups they already belong to.
+
+    The group holds its members WEAKLY. Every member points at the list, so a list of strong
+    references is a cycle -- a view and its source owning each other -- and a cycle is the one
+    thing refcounting cannot free. One of them per storage group was enough to keep a whole tape
+    alive until the cyclic collector ran, and that collector counts Python objects, not the
+    device bytes they hold: BindCraft 2's design loop at n=307 kept 4.746 GB per step and was
+    refused a buffer in step 4 (`perf/bcx_dram/memtrace_seed200t1.json`), and a `gc.collect()`
+    after step 2 released 9.492 GB (`perf/bcx_dram/holder_probe.json`).
+
+    Weak is also exactly the right strength. A member can only matter to a group decision while
+    something can still read its value, and whatever can -- a child node's `parents`, its own
+    node's closure -- already holds it strongly. A member nothing holds is gone, and so is every
+    reader of it.
+    """
+    group = a.shares if a.shares is not None else [weakref.ref(a)]
+    have = _members(group)
+    for t in _members(b.shares) if b.shares is not None else [b]:
+        if not any(t is m for m in have):
+            group.append(weakref.ref(t))
+            have.append(t)
+    for t in have:
         t.shares = group
+
+
+def _members(group) -> list:
+    """The live tensors of a storage group."""
+    return [t for t in (r() for r in group) if t is not None]
 
 
 def _evict_read_parents(parents: Sequence[Tensor]) -> None:
@@ -1468,30 +1491,6 @@ def release_pins() -> None:
     _CKPT_PINS.clear()
 
 
-def drop_tape(roots, also: Sequence = ()) -> None:
-    """Break the cycles in a tape nobody will read again, so refcounting can free it.
-
-    A view and the tensor it views list each other in one `shares` group, and the view's node
-    leads back to its source, so every storage group on a tape is a cycle holding everything
-    upstream of it. That is the only edge on a tape that is not a parent pointer (`_tape` keeps
-    closures off their own outputs), and `perf/bcx_stack/stack.py gcdiag` finds no other cycle
-    in a recomputed AF2 block. So a tape with a view in it does not die when its last reference
-    goes: it waits for the cyclic collector, which counts OBJECTS and cannot see the gigabytes
-    those objects hold on the card. Clearing the groups makes the tape a plain DAG, and dropping
-    the roots then releases every buffer at once.
-
-    Called on the tape a checkpointed segment recomputes, and on a FORWARD tape whose backward
-    will never run -- the stop-gradient recycles of a design step are exactly that. It is a
-    teardown, not a release: read whatever gradients you want off the leaves first.
-
-    `also` names tensors to clear that carry no node of their own, i.e. the leaves a caller
-    made for this tape.
-    """
-    for t in _reverse_topo(roots):
-        if t.node is not None or any(t is d for d in also):
-            t.shares = None
-
-
 # Sentinel: "whichever registered parameters this segment turns out to read", resolved by the
 # touch census around the untaped forward. A caller that names its own parameters still can.
 _ALL_PARAMS = object()
@@ -1560,9 +1559,10 @@ def checkpoint(fn, *inputs: Tensor, params: Sequence[Tensor] = ()) -> Tensor:
         for src, dup in zip(inputs, inner):
             if isinstance(src, Tensor) and isinstance(dup, Tensor) and dup.grad is not None:
                 src.add_grad(dup.grad)
-        # Drop the inner tape NOW, because refcounting alone will not. `drop_tape` says why;
-        # the duplicates are named as well because a leaf carries no node of its own.
-        drop_tape(roots, also=inner)
+        # The inner tape is a plain DAG (`_share` holds storage groups weakly), so dropping the
+        # names below frees it here, at the refcount. It once took a `gc.collect()` per
+        # recompute, 0.16 s each in a process holding AF2, and then a walk that cleared the
+        # groups it could reach from the roots -- which missed every group off that path.
         del y, inner, roots
 
     if not isinstance(produced, (tuple, list)):
