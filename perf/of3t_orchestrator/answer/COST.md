@@ -138,6 +138,24 @@ sprint's own gap notes said **640**. One size ladder on main settles it.
 than an absent one. Stated here so the gap is visible rather than inherited: upstream ships four
 stage configs and this campaign has only ever run the smallest of them end to end.
 
+## Why the headline number is missing, stated as capacity rather than as an unfinished task
+
+The full exactness-ON step time is **[OWED]** and the reason is fleet capacity, not engineering.
+Three hosts, three independent blocks:
+
+- **pc (30.5 GB, 1 card)** cannot reliably *dispatch* a card row — the scheduler reserves half the
+  box, 15,617 MB, against 15,710 MB available with the resident agent population, a 93 MB margin —
+  and cannot *hold* the step either, since the peak is above 19 GiB.
+- **qb2 (249 GB, 4 cards)** has one card free, and it is half a p300c board pair whose sibling
+  carries another campaign's live arm. While that sibling is in use a board-pair reset is
+  unavailable, so a failed device open has no recovery path — on a box that hard-hung on exactly
+  that failure earlier the same day. Taking it is a risk to three other campaigns' running work,
+  not just to this measurement.
+- **qb1** is unreachable (ssh timeout).
+
+**So the missing number is one card-hour away, not one fix away.** Everything it depends on is
+measured, gated and written down; what it waits for is a machine.
+
 ## What this does NOT say
 
 It does not say what a full exactness-ON step costs — that is **[OWED]** and is the one number
