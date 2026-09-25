@@ -1,0 +1,138 @@
+{
+ "doc": "SPLIT the 168.51 s: how much of the score-block crossing is queue DRAIN and how much is TRANSFER.",
+ "argv": [
+  "--tokens",
+  "384",
+  "--out",
+  "perf/of3t_xsplit/out/split_384.json"
+ ],
+ "env": {
+  "host": "pc",
+  "tt_visible_devices": "0",
+  "lease_holder": "worker:of3t-xsplit",
+  "commit": "b3140975044f59ea0e2461e680dd343203a38bba",
+  "branch": "wk/of3t-xsplit",
+  "started_utc": "2026-09-25T18:25:10Z",
+  "loadavg_start": [
+   1.99267578125,
+   2.14453125,
+   3.10107421875
+  ],
+  "arch": "Arch.BLACKHOLE",
+  "loadavg_before_fwd": [
+   2.66650390625,
+   2.29541015625,
+   3.099609375
+  ],
+  "installed_inside_the_tape": {
+   "softmax": true,
+   "layer_norm": true
+  }
+ },
+ "config": {
+  "crop": 384,
+  "cycles": 1,
+  "seed": 20260925
+ },
+ "layout": {
+  "shape": [
+   384,
+   4,
+   384,
+   384
+  ],
+  "reps": 3,
+  "host_bytes": 905969664,
+  "A_to_torch_from_TILE": {
+   "n": 3,
+   "min_s": 0.74872,
+   "median_s": 0.76305,
+   "mean_s": 0.77248,
+   "max_s": 0.80568,
+   "total_s": 2.317
+  },
+  "B_device_to_layout_ROW_MAJOR": {
+   "n": 3,
+   "min_s": 0.00447,
+   "median_s": 0.00447,
+   "mean_s": 0.6324,
+   "max_s": 1.88827,
+   "total_s": 1.897
+  },
+  "C_to_torch_from_ROW_MAJOR": {
+   "n": 3,
+   "min_s": 0.67421,
+   "median_s": 0.69212,
+   "mean_s": 0.68915,
+   "max_s": 0.70111,
+   "total_s": 2.067
+  },
+  "net_per_call_s": 0.06646,
+  "net_verdict": "device route is FASTER",
+  "best_crossing_s": 0.6965899999999999,
+  "host_dma_GB_s_TILE": 1.187,
+  "host_dma_GB_s_ROW_MAJOR_payload": 1.309,
+  "device_to_layout_GB_s": 202.678,
+  "bit_identity": {
+   "torch_equal": true,
+   "max_abs_diff": 0.0,
+   "checked": "to_torch(to_layout(t,ROW_MAJOR)) == to_torch(t), on card"
+  },
+  "D_from_torch_to_TILE": {
+   "n": 3,
+   "min_s": 0.45347,
+   "median_s": 0.4913,
+   "mean_s": 0.5001,
+   "max_s": 0.55554,
+   "total_s": 1.5
+  },
+  "E_from_torch_to_ROW_MAJOR": {
+   "n": 3,
+   "min_s": 0.39952,
+   "median_s": 0.40259,
+   "mean_s": 0.40193,
+   "max_s": 0.40367,
+   "total_s": 1.206
+  },
+  "F_device_to_layout_TILE": {
+   "n": 3,
+   "min_s": 0.00448,
+   "median_s": 0.00449,
+   "mean_s": 0.21501,
+   "max_s": 0.63605,
+   "total_s": 0.645
+  },
+  "net_return_leg_s": 0.08422,
+  "bit_identity_return": {
+   "torch_equal": true,
+   "max_abs_diff": 0.0
+  }
+ },
+ "build_fold_s": 10.05,
+ "prep_to_sampler_s": 15.79,
+ "capture": {
+  "trunk_inputs_snapshotted": true,
+  "trunk_inputs_dead_at_capture": 0,
+  "trunk_forward_s": 9.596,
+  "trunk_forward_note": "the shipped call, progress_fn INCLUDED and cold; the timed arms below drop it",
+  "trunk_cycles": 4,
+  "reached_sampler": true
+ },
+ "params": {
+  "declared": 2531,
+  "elements": 165180992,
+  "by_rank": {
+   "1": 1130,
+   "2": 1401
+  },
+  "walk_depth_reached": 9,
+  "walk_truncated_at_limit": 8,
+  "cache_attrs_skipped": 324,
+  "pairformer_weights": 2256,
+  "deepest_name": "trunk.msa_module.blocks.0.pair_stack.transition_z.fc1_weight"
+ },
+ "forward": {
+  "s": 341.61,
+  "crossings_so_far": 581
+ }
+}
