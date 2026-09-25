@@ -86,6 +86,26 @@ implementations ... full speed. with multiple agents."*
 > Arm S reproduces `of3t-modelever`'s banked arm 2736/2736 bit-identical, so this is a
 > reproduction and not a fresh reading. Seconds still running; the accuracy answer is final.
 >
+> **CONCLUDED NO-GO 18:58Z, and the seconds landed with it.** Three arms on pc card 0 p150a as the
+> box's **sole device tenant**, crop 384, 1 trunk cycle, taped, AICLK 1350 DURING
+> (`perf/of3t_exactscope/PRICE.json`):
+>
+>     noexact  fwd   4.24 s   bwd  21.00 s   step  25.24 s
+>     softmax  fwd 195.76 s   bwd 441.57 s   step 637.33 s
+>     base     fwd 268.27 s   backward never landed -- NOT quotable
+>
+> **The exact softmax ALONE is 612.09 s of the step, 25.25x the noexact step by itself**, so the
+> layer norm is the smaller half and the narrowing would have bought little even had it passed.
+> **The softmax path is very nearly the whole of the exactness cost** -- size work against it
+> first. And a clean device-work floor now exists for this scope: **25.24 s**, against
+> `of3t-bwattrib`'s 39.11 s for the same arm under load, a **1.55x contention penalty** that
+> bounds every contended number on this box.
+>
+> Each arm asserts its scope from the mechanism on BOTH legs -- `exact_softmax_installed()` and
+> `exact_layer_norm_installed()` read while the tape is open, plus the exact verbs' counters
+> differenced per leg. An arm that silently kept both ops would have read as "softmax alone is
+> nearly free", the most flattering possible wrong answer, and the check is what excludes it.
+>
 > **So do not plan a lever that turns either scope off, at any scope, and do not re-open this.**
 > `exact_training(False)` is 1.4512x the bar and is not available either. The exactness is
 > load-bearing in full, it is 95.2 % of the backward, and the only remaining question of that
