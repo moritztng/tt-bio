@@ -1,0 +1,12 @@
+[pool] model_1_multimer_v3 on card in 7.5s
+=== trajectory 1 | pdl1_denovo_l146_3150367da865d53b | accepted 0/10 ===
+[pool] model_3_multimer_v3 on card in 15.9s
+[pool] model_4_multimer_v3 on card in 4.3s
+[pool] model_2_multimer_v3 on card in 4.0s
+[pool] model_5_multimer_v3 on card in 6.0s
+[pool] model_1_multimer_v3 on card in 5.0s
+[pool] model_2_multimer_v3 on card in 4.8s
+[pool] model_1_multimer_v3 on card in 4.5s
+[pool] model_2_multimer_v3 on card in 3.7s
+[pool] model_5_multimer_v3 on card in 3.4s
+[pool] model_2_multimer_v3 on card in 3.8s
