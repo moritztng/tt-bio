@@ -1,0 +1,108 @@
+{
+ "openfold3": {
+  "n_ops": [
+   62035,
+   62027
+  ],
+  "B_vs_A2_identical_after_finding5": false,
+  "B_vs_A2_named": {
+   "finding1_D1_scalar": 52,
+   "finding3_deallocate_removed": 8,
+   "finding6_upload_reorder": 2
+  },
+  "B_vs_A2_unnamed": [],
+  "B_vs_A2_unnamed_n": 0,
+  "A_vs_A2_identical": false,
+  "A_minus_A2_op_counts": {
+   "ttnn.from_torch": 16
+  }
+ },
+ "openbind": {
+  "n_ops": [
+   62228,
+   62220
+  ],
+  "B_vs_A2_identical_after_finding5": false,
+  "B_vs_A2_named": {
+   "finding1_D1_scalar": 52,
+   "finding3_deallocate_removed": 8,
+   "finding6_upload_reorder": 2
+  },
+  "B_vs_A2_unnamed": [],
+  "B_vs_A2_unnamed_n": 0,
+  "A_vs_A2_identical": false,
+  "A_minus_A2_op_counts": {
+   "ttnn.from_torch": 16
+  }
+ },
+ "protenix-v2": {
+  "n_ops": [
+   133294,
+   133294
+  ],
+  "B_vs_A2_identical_after_finding5": true,
+  "B_vs_A2_named": {},
+  "B_vs_A2_unnamed": [],
+  "B_vs_A2_unnamed_n": 0,
+  "A_vs_A2_identical": false,
+  "A_minus_A2_op_counts": {
+   "ttnn.deallocate": 484,
+   "ttnn.clamp": 484
+  }
+ },
+ "opendde": {
+  "n_ops": [
+   209245,
+   209245
+  ],
+  "B_vs_A2_identical_after_finding5": true,
+  "B_vs_A2_named": {},
+  "B_vs_A2_unnamed": [],
+  "B_vs_A2_unnamed_n": 0,
+  "A_vs_A2_identical": false,
+  "A_minus_A2_op_counts": {
+   "ttnn.deallocate": 488,
+   "ttnn.clamp": 488
+  }
+ },
+ "rf3": {
+  "n_ops": [
+   122745,
+   122745
+  ],
+  "B_vs_A2_identical_after_finding5": true,
+  "B_vs_A2_named": {},
+  "B_vs_A2_unnamed": [],
+  "B_vs_A2_unnamed_n": 0,
+  "A_vs_A2_identical": false,
+  "A_minus_A2_op_counts": {
+   "ttnn.deallocate": 484,
+   "ttnn.clamp": 484
+  }
+ },
+ "rfd3": {
+  "n_ops": [
+   65679,
+   65679
+  ],
+  "B_vs_A2_identical_after_finding5": true,
+  "B_vs_A2_named": {},
+  "B_vs_A2_unnamed": [],
+  "B_vs_A2_unnamed_n": 0
+ },
+ "protenix-v1": {
+  "n_ops": [
+   55514,
+   55514
+  ],
+  "B_vs_A2_identical_after_finding5": true,
+  "B_vs_A2_named": {},
+  "B_vs_A2_unnamed": [],
+  "B_vs_A2_unnamed_n": 0,
+  "A_vs_A2_identical": false,
+  "A_minus_A2_op_counts": {
+   "ttnn.deallocate": 196,
+   "ttnn.clamp": 196
+  }
+ }
+}

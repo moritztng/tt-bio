@@ -1,0 +1,85 @@
+{
+  "model": "esmc-600m",
+  "kind": "embed",
+  "unit": "seq/s",
+  "hardware": "blackhole",
+  "card_type": "p300c",
+  "machine_id": "tt-quietbox2",
+  "tt_bio_version": "0.9.0",
+  "inspector_env": "(unset: tt-metal default ON)",
+  "visible_devices": "1",
+  "throughput": 62.413835,
+  "latency_ms": 128.18,
+  "median_s": 0.1282,
+  "times_s": [
+    0.1248,
+    0.1258,
+    0.1282,
+    0.1436,
+    0.1631
+  ],
+  "cpu_s": [
+    0.5311,
+    0.5443,
+    0.5949,
+    0.6347,
+    0.6502
+  ],
+  "cpu_median_s": 0.5949,
+  "cpu_fraction_of_wall": 4.6415,
+  "device_ops_per_call": [
+    979,
+    979,
+    979,
+    979,
+    979
+  ],
+  "device_ops_median": 979,
+  "wall_us_per_op": 130.926,
+  "cpu_us_per_op": 607.69,
+  "load_s": 7.8,
+  "warmup": 2,
+  "repeat": 5,
+  "loadavg_before": [
+    23.61328125,
+    20.71240234375,
+    19.62841796875
+  ],
+  "loadavg_after": [
+    23.61328125,
+    20.71240234375,
+    19.62841796875
+  ],
+  "nproc": 16,
+  "aiclk_during": {
+    "3": {
+      "min": 1343,
+      "median": 1350,
+      "max": 1350,
+      "n": 13
+    },
+    "1": {
+      "min": 1331,
+      "median": 1350,
+      "max": 1350,
+      "n": 13
+    },
+    "0": {
+      "min": 800,
+      "median": 800,
+      "max": 800,
+      "n": 13
+    },
+    "2": {
+      "min": 1350,
+      "median": 1350,
+      "max": 1350,
+      "n": 13
+    }
+  },
+  "sampling_steps": 10,
+  "diffusion_samples": 1,
+  "recycling_steps": 1,
+  "input": "8x ubiquitin (76 aa), batch 8",
+  "utc": "2026-09-25T17:00:29Z"
+}

@@ -910,9 +910,14 @@ CEILINGS: dict[str, dict[str, Ceiling]] = {
             "no ladder. AF2-IG folds are on record at 208-848 tokens on qb1 p150a and nothing "
             "above 848 has been tried, so the first failing rung is unknown"),
         "wormhole_b0": _unmeasured(
-            "no ladder, and nothing has folded af2ig on a Wormhole chip at all -- the port was "
-            "measured on Blackhole, and a Blackhole number says nothing about a 12-bank Wormhole "
-            "chip (japanfold/size_evidence.py carries the same warning for every other model)"),
+            "no ladder, but no longer a blank: 1024 tokens (944 target + 80 binder, the sum the "
+            "platform fences on) folded on a Galaxy chip in 487.9 s on 2026-09-25, GWH02 UMD 0, "
+            "AICLK 1000 MHz on all 49 samples taken during the fold, pLDDT 0.854, zero "
+            "backbone breaks (ws:cov-unproven-af2ig-whgalaxy, perf/af2ig/results/wh_galaxy). 848 "
+            "reads 334.0 s (UMD 1) and 207 reads 45.1 s on the same box: the exponent between "
+            "consecutive rungs rises 1.42 (207->848) then 2.01 (848->1024), smooth and under the "
+            "trunk's O(N^3), so nothing fast falls off between them. Nothing above 1024 has been "
+            "tried, so there is still no failing size to refuse on and this row refuses nothing"),
     },
     "nesso1": {
         "wormhole_b0": _unmeasured(
