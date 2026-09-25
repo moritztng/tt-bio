@@ -1,0 +1,86 @@
+{
+ "doc": "When each of AdamW's host buffers is first touched, and what each one costs resident.",
+ "argv": [
+  "--scale",
+  "0.05",
+  "--optim-rev",
+  "HEAD",
+  "--tag",
+  "pc_s005_before"
+ ],
+ "env": {
+  "host": "pc",
+  "commit": "975b6a172dbf2de41d51684eee83700275c71883",
+  "branch": "wk/of3t-optorder",
+  "optim_rev": "HEAD",
+  "optim_from": "975b6a172dbf2de41d51684eee83700275c71883",
+  "optim_dirty": true,
+  "python": "3.11.2",
+  "numpy": "2.4.6",
+  "started_utc": "2026-09-25T18:45:05Z",
+  "loadavg_start": [
+   5.4248046875,
+   6.07373046875,
+   5.61376953125
+  ],
+  "mem_total_gib": 30.502,
+  "avail_at_start_gib": 16.355,
+  "card_opened": false,
+  "ttnn_imported": false,
+  "ttnn_imported_after": false,
+  "avail_at_end_gib": 16.233
+ },
+ "run": {
+  "scale": 0.05,
+  "params": 3152,
+  "elements_requested": 19065109,
+  "optim_from": "975b6a172dbf2de41d51684eee83700275c71883",
+  "rss_baseline_gib": 0.0315,
+  "elements_built": 19065109,
+  "largest_param_elements": 251380,
+  "median_param_elements": 1735,
+  "params_bytes_gib": 0.071,
+  "build_params_gib": 0.0783,
+  "construct_s": 0.142,
+  "construct_gib": 0.3578,
+  "first_step_moments_gib": 0.0,
+  "buffers_present": [
+   "exp_avg_sq",
+   "exp_avg",
+   "init_device",
+   "init_master",
+   "master"
+  ],
+  "buffers_absent": [
+   "init"
+  ],
+  "drop_order": "newest allocation first",
+  "drop_gib": {
+   "exp_avg_sq": 0.0698,
+   "exp_avg": 0.0698,
+   "init_device": 0.07,
+   "init_master": 0.0705,
+   "master": 0.0711
+  },
+  "drop_total_gib": 0.3512,
+  "rss_after_drop_gib": 0.1169,
+  "bytes_per_element": {
+   "exp_avg_sq": 3.931,
+   "exp_avg": 3.931,
+   "init_device": 3.942,
+   "init_master": 3.971,
+   "master": 4.004
+  },
+  "full_census_gib": {
+   "exp_avg_sq": 1.396,
+   "exp_avg": 1.396,
+   "init_device": 1.4,
+   "init_master": 1.41,
+   "master": 1.422
+  },
+  "full_census_total_gib": 7.024,
+  "construct_full_census_gib": 7.156,
+  "first_step_moments_full_census_gib": 0.0,
+  "resident_after_first_step_full_census_gib": 7.156
+ }
+}
