@@ -1243,7 +1243,7 @@ class AF2Model(nn.Module):
 
 
 def _extra_msa_feature(feats: dict, multimer: bool = False) -> torch.Tensor:
-    """`create_extra_msa_feature`: a 23-wide one-hot plus the two deletion channels.
+    """`modules.py::create_extra_msa_feature`: a 23-wide one-hot plus the two deletion channels.
 
     Same 25 channels in both variants, from different inputs. The monomer featuriser hands the
     model `extra_has_deletion` and `extra_deletion_value` ready-made; multimer_v3 derives both
