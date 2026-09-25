@@ -193,7 +193,14 @@ def main():
     # ---- CLAUSE 2, as STAGE_REFERENCE.txt operationalised it before the run reported a stage:
     #      "the device's per-stage medians inside the reference's per-stage range, and no stage
     #      at which the device terminates and the reference never does".
-    for label, ref in (("narrow", refs_narrow), ("wide", refs_wide)):
+    # The JAX reference arm is in the wide sweep, and its l111 harden of 0.13 widens the
+    # harden range downward, which makes clause 2 easier to pass. The device-only variant
+    # removes that objection: same class of arm as the subject, nothing else.
+    refs_device = dedupe([t for p in reference_logs()
+                          if "ref_s1" not in p and "ref_run" not in p for t in parse(p)])
+    out["reference_device_only_trajectories"] = len(refs_device)
+    for label, ref in (("narrow", refs_narrow), ("wide", refs_wide),
+                       ("device_only", refs_device)):
         cells, inside = [], True
         for stage in STAGES:
             for metric in ("i_pTM", "pLDDT"):

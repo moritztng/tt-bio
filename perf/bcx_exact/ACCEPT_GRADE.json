@@ -178,8 +178,8 @@
      "subject_n": 1,
      "reference_lo": 0.68,
      "reference_hi": 0.88,
-     "reference_median": 0.81,
-     "reference_n": 5,
+     "reference_median": 0.78,
+     "reference_n": 6,
      "inside": true,
      "at_or_above_reference_median": true
     },
@@ -188,10 +188,10 @@
      "metric": "pLDDT",
      "subject_median": 0.91,
      "subject_n": 1,
-     "reference_lo": 0.89,
+     "reference_lo": 0.81,
      "reference_hi": 0.95,
-     "reference_median": 0.93,
-     "reference_n": 5,
+     "reference_median": 0.925,
+     "reference_n": 6,
      "inside": true,
      "at_or_above_reference_median": false
     },
@@ -321,7 +321,7 @@
      "reference_lo": 0.09,
      "reference_hi": 0.88,
      "reference_median": 0.81,
-     "reference_n": 14,
+     "reference_n": 15,
      "inside": true,
      "at_or_above_reference_median": true
     },
@@ -332,8 +332,8 @@
      "subject_n": 1,
      "reference_lo": 0.44,
      "reference_hi": 0.95,
-     "reference_median": 0.91,
-     "reference_n": 14,
+     "reference_median": 0.9,
+     "reference_n": 15,
      "inside": true,
      "at_or_above_reference_median": true
     },
@@ -404,6 +404,148 @@
    "novel_terminal_stages": [],
    "verdict": "PASS"
   },
+  "2_discriminator_device_only": {
+   "criterion": "per-stage medians inside the reference range, and no terminal stage the reference never reaches",
+   "cells": [
+    {
+     "stage": "screen",
+     "metric": "i_pTM",
+     "subject_median": 0.81,
+     "subject_n": 3,
+     "reference_lo": 0.1,
+     "reference_hi": 0.88,
+     "reference_median": 0.745,
+     "reference_n": 14,
+     "inside": true,
+     "at_or_above_reference_median": true
+    },
+    {
+     "stage": "screen",
+     "metric": "pLDDT",
+     "subject_median": 0.91,
+     "subject_n": 3,
+     "reference_lo": 0.32,
+     "reference_hi": 0.95,
+     "reference_median": 0.79,
+     "reference_n": 15,
+     "inside": true,
+     "at_or_above_reference_median": true
+    },
+    {
+     "stage": "refine",
+     "metric": "i_pTM",
+     "subject_median": 0.81,
+     "subject_n": 2,
+     "reference_lo": 0.09,
+     "reference_hi": 0.88,
+     "reference_median": 0.69,
+     "reference_n": 13,
+     "inside": true,
+     "at_or_above_reference_median": true
+    },
+    {
+     "stage": "refine",
+     "metric": "pLDDT",
+     "subject_median": 0.895,
+     "subject_n": 2,
+     "reference_lo": 0.34,
+     "reference_hi": 0.95,
+     "reference_median": 0.86,
+     "reference_n": 13,
+     "inside": true,
+     "at_or_above_reference_median": true
+    },
+    {
+     "stage": "anneal",
+     "metric": "i_pTM",
+     "subject_median": 0.82,
+     "subject_n": 1,
+     "reference_lo": 0.09,
+     "reference_hi": 0.88,
+     "reference_median": 0.78,
+     "reference_n": 13,
+     "inside": true,
+     "at_or_above_reference_median": true
+    },
+    {
+     "stage": "anneal",
+     "metric": "pLDDT",
+     "subject_median": 0.91,
+     "subject_n": 1,
+     "reference_lo": 0.44,
+     "reference_hi": 0.95,
+     "reference_median": 0.9,
+     "reference_n": 13,
+     "inside": true,
+     "at_or_above_reference_median": true
+    },
+    {
+     "stage": "harden",
+     "metric": "i_pTM",
+     "subject_median": 0.72,
+     "subject_n": 1,
+     "reference_lo": 0.09,
+     "reference_hi": 0.88,
+     "reference_median": 0.49,
+     "reference_n": 11,
+     "inside": true,
+     "at_or_above_reference_median": true
+    },
+    {
+     "stage": "harden",
+     "metric": "pLDDT",
+     "subject_median": 0.84,
+     "subject_n": 1,
+     "reference_lo": 0.37,
+     "reference_hi": 0.94,
+     "reference_median": 0.82,
+     "reference_n": 11,
+     "inside": true,
+     "at_or_above_reference_median": true
+    },
+    {
+     "stage": "mutate",
+     "metric": "i_pTM",
+     "subject_median": 0.76,
+     "subject_n": 1,
+     "reference_lo": 0.18,
+     "reference_hi": 0.88,
+     "reference_median": 0.695,
+     "reference_n": 4,
+     "inside": true,
+     "at_or_above_reference_median": true
+    },
+    {
+     "stage": "mutate",
+     "metric": "pLDDT",
+     "subject_median": 0.85,
+     "subject_n": 1,
+     "reference_lo": 0.28,
+     "reference_hi": 0.95,
+     "reference_median": 0.835,
+     "reference_n": 6,
+     "inside": true,
+     "at_or_above_reference_median": true
+    }
+   ],
+   "all_medians_inside": true,
+   "medians_at_or_above_reference": 10,
+   "medians_total": 10,
+   "subject_terminals": [
+    "accepted",
+    "screen"
+   ],
+   "reference_terminals": [
+    "accepted",
+    "anneal",
+    "final",
+    "harden",
+    "mutate",
+    "screen"
+   ],
+   "novel_terminal_stages": [],
+   "verdict": "PASS"
+  },
   "2_screen_termination_rate": {
    "subject": "1/2",
    "reference_wide": "4/18",
@@ -414,5 +556,6 @@
    "subject_seeds": 1,
    "no_go_available": false
   }
- }
+ },
+ "reference_device_only_trajectories": 23
 }
