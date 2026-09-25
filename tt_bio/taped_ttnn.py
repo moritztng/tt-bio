@@ -69,12 +69,6 @@ __all__ = ["tape", "recompute_scope", "VERBS", "taped_ttnn"]
 # tape cannot follow is loud, not a silently dropped gradient.
 # ---------------------------------------------------------------------------------------
 
-# `ttnn.zeros(..., device=)` builds its zeros on the host and uploads them, and a trace cannot
-# hold a host write: it is the one write left in a warm taped AF2 block (`perf/bcx_trace`). On,
-# the head backward takes its zero slot from `ttnn.zeros_like` of the same-shaped gradient, a
-# device fill with the same zeros. Default off; `perf/bcx_predictor` turns it on when it traces.
-DEVICE_ZEROS = False
-
 _VERBS: dict = {}
 VERBS = _VERBS
 
@@ -796,7 +790,7 @@ def _v_create_qkv_heads(shipped, args, kwargs):
                 # (`pad.cpp:278 front_padding_is_zero`), so slots 1 and 2 have no pad
                 # expression. The packed width is 2,415,919,104 B at a 384-token pair track,
                 # which is why this op is where the backward runs out of card.
-                zero = (ttnn.zeros_like(rows) if DEVICE_ZEROS else
+                zero = (ttnn.zeros_like(rows) if ag.DEVICE_ZEROS else
                         ttnn.zeros([B, 1, L, H * dh], dtype=rows.dtype,
                                    layout=ttnn.TILE_LAYOUT, device=rows.device()))
                 parts = [rows if i == s else zero for i in range(3)]
@@ -1045,8 +1039,7 @@ def _v_sum(shipped, args, kwargs):
                 kept = list(shape)
                 kept[ax] = 1
                 g = ttnn.reshape(g, kept)
-            x.add_grad(ttnn.add(ttnn.zeros(shape, dtype=g.dtype, layout=ttnn.TILE_LAYOUT,
-                                           device=g.device()), g))
+            x.add_grad(ttnn.add(ag.grad_zeros(shape, g.dtype, g.device()), g))
         return bw
 
     return _tape(out_v, [x], make)
