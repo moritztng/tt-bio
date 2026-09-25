@@ -105,12 +105,23 @@ def check(path, binder_length, target_length=None, max_run=DEFAULT_MAX_RUN):
     return result
 
 
-def find_structures(root):
+# Files under an accepted-design folder that are deliberately NOT two-chain complexes, and so are
+# not what the two-chain check is about: `_monomer` is the binder folded alone, written when
+# save_binder_monomers is on (campaign.py), and BindCraft 2's trajectory folders hold intermediate
+# and failed structures that were never accepted. Walking them would report failures that are not
+# failures, which is worse than no check at all -- it trains the reader to ignore the gate.
+NOT_A_COMPLEX = ('_monomer',)
+
+
+def find_structures(root, skip=NOT_A_COMPLEX):
     found = []
     for directory, _subdirectories, names in os.walk(root):
         for name in sorted(names):
-            if name.lower().endswith(('.cif', '.pdb')):
-                found.append(os.path.join(directory, name))
+            if not name.lower().endswith(('.cif', '.pdb')):
+                continue
+            if any(marker in name for marker in skip):
+                continue
+            found.append(os.path.join(directory, name))
     return sorted(found)
 
 

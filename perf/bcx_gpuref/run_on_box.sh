@@ -121,9 +121,12 @@ kill $CLOCK_WATCH 2>/dev/null || true
 cat "$OUT/campaign_wall_$ARM.txt"
 
 "$PY" "$HERE/analyze_steps.py" "$OUT/steps_$ARM.jsonl" --report "$OUT/denominator_$ARM.json" > /dev/null
-"$PY" "$HERE/validate_designs.py" "$PROJECT" --binder-length "$BINDER_LENGTH" \
+# Only the ACCEPTED designs. BC2 writes them to <project>/3_Ranked (campaign_output.py:30); the
+# trajectory folders under 1_Trajectories hold intermediate and rejected structures, and validating
+# those would report failures that are not failures.
+"$PY" "$HERE/validate_designs.py" "$PROJECT/3_Ranked" --binder-length "$BINDER_LENGTH" \
   --target-length "$TARGET_LENGTH" --report "$OUT/designs_$ARM.json" \
-  || echo "validation reported problems, see designs_$ARM.json"
+  || echo "validation reported problems (or no accepted design), see designs_$ARM.json"
 
 # BC2's own per-trajectory Timing column, for corroboration of the design wall we measured.
 find "$PROJECT" -maxdepth 2 -name '*.csv' -exec cp {} "$OUT/" \; 2>/dev/null || true
