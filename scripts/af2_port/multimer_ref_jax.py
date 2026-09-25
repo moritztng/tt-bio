@@ -32,6 +32,27 @@ from tt_bio._vendor.esm.utils import residue_constants as _rc
 OUT: dict = {}
 COUNTS: dict = {}
 
+#: Where AlphaFold's multimer code lives on this box. BindCraft 2 vendors colabdesign's tree, so
+#: the two packages hold the same files; qb1 has colabdesign installed and qb2 has BindCraft 2's
+#: copy. The vendored one is preferred because it is the code the design loop differentiates.
+AF_PACKAGES = ("bindcraft.af.alphafold.model", "colabdesign.af.alphafold.model")
+AF_PACKAGE = [None]
+
+
+def af_model(*names):
+    """Import `names` out of whichever AlphaFold tree is importable, and remember which."""
+    import importlib
+    for package in AF_PACKAGES:
+        try:
+            importlib.import_module(package)
+        except ModuleNotFoundError:
+            continue
+        AF_PACKAGE[0] = package
+        return tuple(importlib.import_module(f"{package}.{n}") for n in names)
+    raise ModuleNotFoundError(
+        f"none of {AF_PACKAGES} is importable; put BindCraft 2 on PYTHONPATH "
+        "(PYTHONPATH=.:~/bcx_e2e/bc2) or install colabdesign")
+
 
 #: float64 on the x64 arm, so the reference is not stored through a float32 round trip.
 STORE_DTYPE = [np.float32]
@@ -52,7 +73,8 @@ def _emit(jax, tag: str, payload: dict) -> None:
 
 
 def _install_taps(jax) -> None:
-    from colabdesign.af.alphafold.model import common_modules, modules, modules_multimer
+    common_modules, modules, modules_multimer = af_model(
+        "common_modules", "modules", "modules_multimer")
 
     def wrap(cls, tag_of):
         original = cls.__call__
@@ -120,7 +142,7 @@ class _Float64Numpy:
 
 
 def build_fixture(num_res: int, chain_lengths, num_templates: int, seed: int,
-                  translate: float = 0.0) -> dict:
+                  translate: float = 0.0, chi1_only: bool = False) -> dict:
     """A two-chain fixture with a helical backbone. Every array is what the trunk reads."""
     rng = np.random.default_rng(seed)
     assert sum(chain_lengths) == num_res
@@ -158,14 +180,15 @@ def build_fixture(num_res: int, chain_lengths, num_templates: int, seed: int,
         positions[:, index] = ca + rng.normal(0, 1.4, (num_res, 3))
         mask[:, index] = 1.0
 
-    # Alanine and glycine have no chi 1, so a template row of either makes multimer_v3's
-    # template MSA mask row zero there. The device stack asserts an unmasked MSA
-    # (`tt_bio.af2.AF2DeviceModel.evoformer_stack`), so drawing them would make the fixture
-    # untestable on card for a reason that has nothing to do with the multimer delta. The mask
-    # itself is a real build item and it is costed as one; this keeps it out of the fixture.
-    CHI1 = np.array([r for r in range(20) if r not in (_rc.restype_order["A"],
-                                                       _rc.restype_order["G"])])
-    aatype = CHI1[rng.integers(0, len(CHI1), num_res)].astype(np.int32)
+    # Alanine and glycine have no chi 1, so a template row of either puts a zero in multimer_v3's
+    # template MSA mask. `chi1_only` draws neither, which is how the ordering delta was measured
+    # before the mask was wired up; the default draws all twenty, so the MSA mask this fixture
+    # hands the trunk has real zeros in it and the masked path is the one under test.
+    restypes = np.arange(20)
+    if chi1_only:
+        restypes = np.array([r for r in restypes if r not in (_rc.restype_order["A"],
+                                                              _rc.restype_order["G"])])
+    aatype = restypes[rng.integers(0, len(restypes), num_res)].astype(np.int32)
     template_positions = np.repeat(positions[None], num_templates, 0)
     template_positions += rng.normal(0, 0.15, template_positions.shape).astype(np.float32)
 
@@ -217,6 +240,9 @@ def main() -> None:
     ap.add_argument("--seed", type=int, default=7)
     ap.add_argument("--translate", type=float, default=0.0,
                     help="rigidly translate every coordinate by this many Angstrom")
+    ap.add_argument("--chi1-only", action="store_true",
+                    help="draw no alanine and no glycine, so every template MSA row is "
+                         "unmasked; the fixture the ordering delta was first measured on")
     ap.add_argument("--float32", action="store_true",
                     help="run with global_config.bfloat16 off (the transform question)")
     ap.add_argument("--float64", action="store_true",
@@ -234,8 +260,8 @@ def main() -> None:
     import haiku as hk
     import jax
     import jax.numpy as jnp
-    from colabdesign.af.alphafold.model import config as af_config
-    from colabdesign.af.alphafold.model import modules_multimer, prng, utils
+    af_config, modules_multimer, prng, utils = af_model(
+        "config", "modules_multimer", "prng", "utils")
 
     if args.float64:
         STORE_DTYPE[0] = np.float64
@@ -260,7 +286,7 @@ def main() -> None:
             array, dtype=jnp.float64 if args.float64 else jnp.float32)
 
     batch = build_fixture(args.num_res, [int(x) for x in args.chains.split(",")],
-                          args.templates, args.seed, args.translate)
+                          args.templates, args.seed, args.translate, args.chi1_only)
 
     def forward(batch):
         return modules_multimer.EmbeddingsAndEvoformer(cfg, gc, name="evoformer")(
@@ -268,7 +294,8 @@ def main() -> None:
 
     model = hk.transform(forward)
     if args.float64:
-        from colabdesign.af.alphafold.model import common_modules, modules, modules_multimer
+        common_modules, modules, modules_multimer = af_model(
+            "common_modules", "modules", "modules_multimer")
         wide = _Float64Numpy(jnp)
         for module in (common_modules, modules, modules_multimer):
             module.jnp = wide
@@ -288,6 +315,7 @@ def main() -> None:
         "npz": Path(args.npz).name, "num_res": args.num_res, "chains": args.chains,
         "templates": args.templates, "blocks": args.blocks, "translate": args.translate,
         "extra_blocks": args.extra_blocks, "seed": args.seed,
+        "chi1_only": bool(args.chi1_only), "af_package": AF_PACKAGE[0],
         "bfloat16": bool(gc.bfloat16), "float64": bool(args.float64),
         "jax_version": jax.__version__,
         "counts": COUNTS,
