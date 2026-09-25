@@ -1060,7 +1060,12 @@ _recn=0
 # ORCHESTRATOR.md is the state doc, and it is here for the same reason as the rest: its
 # PROVES / DOESNOT / VERDICT fields are the campaign's headline and the audit checks them, so
 # a reviewer who cannot read them cannot run the checks that read them.
-for _f in PROTOCOL DEFECTS EVIDENCE LEDGER ORCHESTRATOR; do
+# BACKWARD and PASSLOG added at pass 481: both were absent from this list, so neither had ANY
+# backup path while the comment above correctly warned the sources are gitignored with none.
+# BACKWARD.md is the backward sprint's shared finding set -- the document every sprint row is
+# told to read first -- and PASSLOG.md is the campaign's narrative record. Found by comparing
+# record/ against the live docs rather than by assuming the publish list was complete.
+for _f in PROTOCOL DEFECTS EVIDENCE LEDGER ORCHESTRATOR BACKWARD PASSLOG; do
   _src="/home/moritz/.coworker/state/of3t/$_f.md"
   [ "$_f" = ORCHESTRATOR ] && _src="/home/moritz/.coworker/state/of3t-orchestrator.md"
   [ -f "$_src" ] || continue
