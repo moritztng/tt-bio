@@ -106,6 +106,34 @@ no inference call moves.
 priced.** This section previously led with the mechanism and reordered a sprint around it. The
 mechanism was correct, the count was larger than claimed, and the answer is half a percent.
 
+## 4b. THE MEASUREMENT CARD IS THE SPRINT'S SCARCEST RESOURCE, and there is one of it
+
+Established 2026-09-25 by `of3t-orchestrator` pass 448, after `of3t-lnbw` went BLOCKED and named
+it. Verified with `tt-smi -ls`, not assumed. Every row reads this before asking for a card.
+
+**This sprint's baseline is BLACKHOLE** — the 466.70 s crop-384 step, the 115.685 TFLOP/s roof and
+the 1350 MHz clock rule. A timing on another board class is not comparable to any of them.
+
+| host | board | usable for a sprint timing? |
+|---|---|---|
+| whglx | **Wormhole**, `tt-galaxy`, 32 chips | **No.** Board-insensitive work only |
+| pc card 0 | **Blackhole `p150a`**, custom 130-core firmware | **Yes, and it is the only one** |
+| qb1 | — | host does not answer ssh, `state/qb1-offline` set, all four cards blocked |
+| qb2 card 0 | Blackhole p300c | **No** — reads 800 MHz against 1350 on the others, so a timing is an artifact; no reset path while card 1 holds a live arm |
+| qb2 1/2/3 | Blackhole p300c | held by BCX rows, which have a 28 Sep deadline |
+
+**So the kernel rows serialise on one card**, in value order: `of3t-bwattrib` (J0) →
+`of3t-lnbw` (J1) → `of3t-softbw` (J2) → `of3t-wheelbw` (J4). The last two are parked behind it
+rather than left to burn passes on a card they cannot get.
+
+**The generalisable half, which is the part worth keeping:** a campaign whose baseline is one
+board class must dispatch its device rows PINNED to that class, never `card=-`. `card=-` resolves
+to whatever is free, and what is free is usually the big idle Galaxy that cannot produce a
+comparable number. Four rows went to Wormhole for exactly that reason. **And the split that keeps
+them productive meanwhile: a formula-level check and a negative control are board-insensitive, so
+they can run anywhere; the graded VJP number and every timing number are Blackhole-only.** Say
+which half you have.
+
 ## 5. Throughput, not latency — and the metric we have never computed
 
 Training time-to-model is samples/sec, not step latency. Splitting one step across chips to cut

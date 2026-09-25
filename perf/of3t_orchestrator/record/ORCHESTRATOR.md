@@ -42,7 +42,7 @@ author and cite what you took; gates are batched and a stack is approved whole. 
 speedup that does less of the model's own work. A1-A45 are the correctness protocol and are
 unchanged. History: `state/of3t/PASSLOG.md`.
 
-LEDGER: `~/.coworker/state/of3t/LEDGER.md`, **R1-R207 and K1-K21**. **R203, filed this pass, is
+LEDGER: `~/.coworker/state/of3t/LEDGER.md`, **R1-R207 and K1-K22**. **R203, filed this pass, is
 the sprint's first finding and it reordered the job list: an engine-wide fused-kernel bypass hid
 behind a per-module comment. A per-site comment that correctly explains one decline is the best
 camouflage a policy can have, because every reader who checks one site leaves satisfied. Count the
@@ -82,10 +82,10 @@ and the contested-file warning; the four sprint briefs went out without them and
 | `of3t-throughput` | **GO** — box-to-box is the honest axis | arithmetic only | `perf/of3t_throughput/` |
 | `of3t-tapedfwd` | **GO** — the bypass is worth 1.00508x | fused-kernel selection and decline sites | `perf/of3t_tapedfwd/` |
 | `of3t-intensity` | **live, whglx card 6** (relocated; pass 1 lost with qb1) | measurement scripts, read-only on engine | `perf/of3t_intensity/` |
-| `of3t-bwattrib` | **live, whglx card 0** — J0 | the 2.107 ms attribution, wiring fixes | `perf/of3t_bwattrib/` |
-| `of3t-lnbw` | **live, whglx card 2** — J1 | the LayerNorm backward | `perf/of3t_lnbw/` |
-| `of3t-softbw` | **live, whglx card 3** — J2 | the softmax backward | `perf/of3t_softbw/` |
-| `of3t-wheelbw` | **live, whglx card 5** — J4 | nine `*_bw` substitutions in `autograd.py` | `perf/of3t_wheelbw/` |
+| `of3t-bwattrib` | live, queued for pc card 0 — J0 | the 2.107 ms attribution, wiring fixes | `perf/of3t_bwattrib/` |
+| `of3t-lnbw` | **BLOCKED on the card** — J1 | the LayerNorm backward | `perf/of3t_lnbw/` |
+| `of3t-softbw` | **parked 3rd in the card queue** — J2 | the softmax backward | `perf/of3t_softbw/` |
+| `of3t-wheelbw` | **parked 4th in the card queue** — J4 | nine `*_bw` substitutions in `autograd.py` | `perf/of3t_wheelbw/` |
 
 **J3 (`of3t-triattbw`) is written, gated and HELD** — brief and `EXTRA` entry both in place, no
 ws-tag in `TASKS.md`, so it dispatches in one line the moment `of3t-bwattrib` reports a block
@@ -251,7 +251,23 @@ sibling case where 79.2 % of a round was host work the port never covered, cappi
 lever at 1.25x. Stack perturbations are strongly sub-additive, so the sprint's levers are approved
 as a stack or not at all, never by summing individual readings.
 
-GAP: **Pass 445, 2026-09-25 ~16:5x CEST.** What the sprint has not done, specifically.
+GAP: **Pass 448, 2026-09-25 ~17:0x CEST.**
+
+0. **THE BINDING CONSTRAINT, and it is my dispatch error (K22).** I dispatched four device rows
+   `host=any card=-`. `card=-` resolves to whatever is free, what was free was whglx, and
+   **whglx is a Wormhole galaxy** (`tt-smi -ls`, verified this pass). This sprint's baseline is
+   **Blackhole** — 466.70 s, 115.685 TFLOP/s, the 1350 MHz rule — so those cards cannot produce a
+   comparable number. **The only reachable Blackhole card is pc card 0**: qb1 does not answer ssh
+   with all four cards blocked; qb2 card 0 reads 800 MHz so a timing is an artifact and it has no
+   reset path while card 1 holds a live arm; qb2 1/2/3 are held by BCX rows with a 28 September
+   deadline I am not going to preempt. So the three kernel rows serialise on one card.
+   `of3t-lnbw` went BLOCKED and diagnosed it before I did. Order is now explicit —
+   **J0 → J1 → J2 → J4** by value — with J2 and J4 parked behind it so they stop burning passes,
+   and every brief carries the split that keeps a queued row productive: **a formula-level check
+   and a negative control are board-insensitive; the graded VJP and every timing are
+   Blackhole-only.** This is a throughput ceiling on the sprint, not a correctness one.
+
+Superseded, pass 445 — ** ~16:5x CEST.** What the sprint has not done, specifically.
 
 1. **The 44.3x is unexplained and it is ~97.7 % of the backward.** `of3t-bwattrib` is dispatched
    against it and nothing else in the sprint produces the number. Until it exists, every kernel

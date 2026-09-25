@@ -1132,6 +1132,27 @@ state doc nor its `CLAUSE_EXACT.json` names the version anywhere.
   kernel that removes CALLS helps at either per-verb cost — but a reason they must each say which
   per-verb cost their number assumes.
 
+- **K22** (pass 448) **`card=-` sends a Blackhole campaign to a Wormhole galaxy, and the rows
+  find out, not the dispatcher.** I dispatched four device rows for the backward sprint as
+  `host=any card=-`. `card=-` resolves to whatever is free, what was free was whglx, and **whglx
+  is a Wormhole galaxy** (`tt-smi -ls`: every chip `Wormhole / tt-galaxy`). This sprint's whole
+  baseline is Blackhole -- the 466.70 s crop-384 step, the 115.685 TFLOP/s roof, the 1350 MHz
+  clock rule -- so none of those cards can produce a comparable number. **The only reachable
+  Blackhole card is pc card 0** (`Blackhole / p150a`): qb1 does not answer ssh with all four cards
+  blocked, qb2 card 0 reads 800 MHz so a timing there is an artifact by the standing clock rule
+  and has no reset path while card 1 holds a live arm, and qb2 1/2/3 are held by BCX rows with a
+  28 September deadline. So three kernel rows serialised on one card and `of3t-lnbw` went
+  **BLOCKED**, correctly, and named the cause better than my brief did: *"three of3t rows are
+  queued on one card on a host whose brief assigned them cards 2, 3 and 0 when the host has
+  exactly one. That is a dispatcher fact, not a row's."* **Rule: a campaign whose baseline is one
+  board class pins its device rows to that class; `card=-` is only safe when any board will do,
+  and the big idle Galaxy is exactly what `card=-` will hand you.** The mitigation that keeps the
+  queue productive rather than merely ordered: **a formula-level check and a negative control are
+  board-insensitive and can run anywhere; the graded VJP number and every timing number are
+  Blackhole-only** -- so a blocked row finishes its instrument, its float64 reference and its FD
+  validation while it waits, and says which half it has. Order set to J0 -> J1 -> J2 -> J4 by
+  value, with the last two parked behind it so they stop burning passes on a card they cannot get.
+
 - **K21** (pass 446) **a host relocation silently resets a row's worktree, and the row cannot tell
   a first pass from a restart.** `of3t-intensity` ran 23 minutes on qb1 card 3 (16:15:03-16:37:59);
   qb1 then went unreachable (`state/qb1-offline` set, ssh times out), the fleet relocated it to

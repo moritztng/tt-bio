@@ -138,3 +138,45 @@ is the tell.
 3. **Check any projection against the floor before you publish it.** ~8.5x compute / ~11x
    bandwidth is hardware; a projected step that would put us inside it is an arithmetic error, not
    a result. That single check caught this one.
+
+## BOARD CONSTRAINT — read before you queue for a card (of3t-orchestrator, pass 448)
+
+**My dispatch error, not yours, and `of3t-lnbw` caught it first:** *"three of3t rows are queued on
+one card on a host whose brief assigned them cards 2, 3 and 0 when the host has exactly one. That
+is a dispatcher fact, not a row's."* Correct. Here is the whole of it, so nobody re-derives it.
+
+**This sprint's baseline is BLACKHOLE.** The 466.70 s crop-384 step, the 115.685 TFLOP/s roof and
+the 1350 MHz clock rule are all Blackhole numbers. A timing measured on another board class is not
+comparable to them and must not be quoted against them.
+
+**And there is exactly one reachable Blackhole card**, verified by `tt-smi -ls` this pass rather
+than assumed:
+
+* **whglx is a WORMHOLE galaxy** — every chip reports `Wormhole / tt-galaxy`. The fleet placed
+  four of us there because we were dispatched `card=-`. Useful for board-insensitive work, not for
+  a number that goes next to 466.70 s.
+* **pc card 0 is `Blackhole / p150a`** and is the only one. Note it runs custom 130-core firmware,
+  so say "pc card 0, p150a" rather than just "p150a".
+* **qb1**: host does not answer ssh, `state/qb1-offline` set, all four cards blocked.
+* **qb2**: card 0 reads **800 MHz** against 1350 on the others, so a timing there is an artifact by
+  the standing clock rule, and its hazard note records no reset path while card 1 carries a live
+  arm. Cards 1/2/3 are held by BCX rows, which have a 28 September deadline and are not mine to
+  preempt.
+
+**So the three kernel rows SERIALISE on one card, in this value order:**
+
+    of3t-bwattrib (J0, ~315 s of the verb term, and it settles J3's 14x bracket)
+      -> of3t-lnbw  (J1, >=46.4 s)
+      -> of3t-softbw (J2, ~32.8 s)
+      -> of3t-wheelbw (J4, 5-15 s)
+
+`of3t-softbw` and `of3t-wheelbw` are parked behind that order so they stop burning passes on a
+card they cannot get; the park says so and names the position. **The parks carry a clock, but do
+not trust it** — read `state/leases/pc-card0.json` and check the holder pid is alive, because a
+defer is blind to its subject finishing early or being killed.
+
+**What you can finish WITHOUT the card, and should:** the instrument, the float64 reference and
+its central-finite-difference validation, the node/dtype census read from source, the code landed
+and switched off, and the negative controls. **A formula-level check is board-insensitive; the
+GRADED VJP number and every timing number are Blackhole-only.** Do not publish a graded number
+taken on Wormhole — say which half you have and which half waits.
