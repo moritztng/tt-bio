@@ -1,0 +1,282 @@
+{
+ "doc": "Name the limiter: sweep HOST CONTENTION over the same crossing, one process, one card.",
+ "argv": [
+  "--reps",
+  "4",
+  "--levels",
+  "0",
+  "2",
+  "4",
+  "6",
+  "--out",
+  "perf/of3t_xroof/out/xload_384.json"
+ ],
+ "env": {
+  "host": "pc",
+  "commit": "4f953dc68815b1d6444f70ce9a8d9e8a203416df",
+  "branch": "wk/of3t-xroof",
+  "started_utc": "2026-09-25T20:52:49Z",
+  "nproc": 12,
+  "loadavg_start": [
+   1.74,
+   2.12,
+   3.77
+  ],
+  "loadavg_end": [
+   3.46,
+   2.57,
+   3.8
+  ],
+  "aiclk_during": {
+   "0": {
+    "min": 800,
+    "max": 1350,
+    "median": 1350,
+    "n": 21
+   }
+  },
+  "aiclk_line": "CLOCK: dev0 min 800 / median 1350 / max 1350 MHz over 21 samples, polled DURING the work"
+ },
+ "config": {
+  "reps": 4,
+  "levels": [
+   0,
+   2,
+   4,
+   6
+  ]
+ },
+ "progress": "rep 4/4 level 6 done",
+ "sweep": [
+  {
+   "contending_threads": 0,
+   "loadavg1_observed": [
+    1.92,
+    2.25,
+    2.94,
+    3.52
+   ],
+   "A_to_torch_from_TILE_s": 0.556049,
+   "A_to_torch_from_TILE_gb_s": 1.6293,
+   "A_to_torch_from_TILE_all_s": [
+    0.68257,
+    0.59962,
+    0.51248,
+    0.47525
+   ],
+   "D_from_torch_to_TILE_s": 0.210582,
+   "D_from_torch_to_TILE_gb_s": 4.3022,
+   "D_from_torch_to_TILE_all_s": [
+    0.30606,
+    0.21426,
+    0.2069,
+    0.20532
+   ],
+   "G_from_device_DMA_only_s": 0.121908,
+   "G_from_device_DMA_only_gb_s": 7.4316,
+   "G_from_device_DMA_only_all_s": [
+    0.19827,
+    0.12348,
+    0.11727,
+    0.12034
+   ],
+   "H_host_untilize_no_DMA_s": 0.215436,
+   "H_host_untilize_no_DMA_gb_s": 4.2053,
+   "H_host_untilize_no_DMA_all_s": [
+    0.31197,
+    0.20777,
+    0.21792,
+    0.21295
+   ],
+   "I_host_tilize_no_DMA_s": 0.137475,
+   "I_host_tilize_no_DMA_gb_s": 6.5901,
+   "I_host_tilize_no_DMA_all_s": [
+    0.2164,
+    0.13447,
+    0.13963,
+    0.13531
+   ],
+   "J_to_device_DMA_only_s": 0.063805,
+   "J_to_device_DMA_only_gb_s": 14.1991,
+   "J_to_device_DMA_only_all_s": [
+    0.06399,
+    0.06383,
+    0.06378,
+    0.06375
+   ]
+  },
+  {
+   "contending_threads": 2,
+   "loadavg1_observed": [
+    2.01,
+    2.37,
+    3.02,
+    3.72
+   ],
+   "A_to_torch_from_TILE_s": 0.783486,
+   "A_to_torch_from_TILE_gb_s": 1.1563,
+   "A_to_torch_from_TILE_all_s": [
+    0.78824,
+    0.78061,
+    0.78636,
+    0.73304
+   ],
+   "D_from_torch_to_TILE_s": 0.423942,
+   "D_from_torch_to_TILE_gb_s": 2.137,
+   "D_from_torch_to_TILE_all_s": [
+    0.41718,
+    0.47187,
+    0.4307,
+    0.38115
+   ],
+   "G_from_device_DMA_only_s": 0.313155,
+   "G_from_device_DMA_only_gb_s": 2.893,
+   "G_from_device_DMA_only_all_s": [
+    0.31413,
+    0.3304,
+    0.31217,
+    0.27434
+   ],
+   "H_host_untilize_no_DMA_s": 0.415334,
+   "H_host_untilize_no_DMA_gb_s": 2.1813,
+   "H_host_untilize_no_DMA_all_s": [
+    0.41377,
+    0.44087,
+    0.4169,
+    0.39028
+   ],
+   "I_host_tilize_no_DMA_s": 0.331305,
+   "I_host_tilize_no_DMA_gb_s": 2.7346,
+   "I_host_tilize_no_DMA_all_s": [
+    0.32934,
+    0.34491,
+    0.33327,
+    0.29889
+   ],
+   "J_to_device_DMA_only_s": 0.066068,
+   "J_to_device_DMA_only_gb_s": 13.7127,
+   "J_to_device_DMA_only_all_s": [
+    0.06377,
+    0.0691,
+    0.06375,
+    0.06836
+   ]
+  },
+  {
+   "contending_threads": 4,
+   "loadavg1_observed": [
+    2.0,
+    2.5,
+    3.18,
+    3.5
+   ],
+   "A_to_torch_from_TILE_s": 0.808218,
+   "A_to_torch_from_TILE_gb_s": 1.1209,
+   "A_to_torch_from_TILE_all_s": [
+    0.80991,
+    0.84391,
+    0.80653,
+    0.77276
+   ],
+   "D_from_torch_to_TILE_s": 0.437325,
+   "D_from_torch_to_TILE_gb_s": 2.0716,
+   "D_from_torch_to_TILE_all_s": [
+    0.43768,
+    0.44258,
+    0.4265,
+    0.43697
+   ],
+   "G_from_device_DMA_only_s": 0.320001,
+   "G_from_device_DMA_only_gb_s": 2.8311,
+   "G_from_device_DMA_only_all_s": [
+    0.32013,
+    0.33669,
+    0.31987,
+    0.31641
+   ],
+   "H_host_untilize_no_DMA_s": 0.430038,
+   "H_host_untilize_no_DMA_gb_s": 2.1067,
+   "H_host_untilize_no_DMA_all_s": [
+    0.42996,
+    0.45373,
+    0.42348,
+    0.43011
+   ],
+   "I_host_tilize_no_DMA_s": 0.35928,
+   "I_host_tilize_no_DMA_gb_s": 2.5216,
+   "I_host_tilize_no_DMA_all_s": [
+    0.34414,
+    0.40122,
+    0.34521,
+    0.37335
+   ],
+   "J_to_device_DMA_only_s": 0.06561,
+   "J_to_device_DMA_only_gb_s": 13.8085,
+   "J_to_device_DMA_only_all_s": [
+    0.06392,
+    0.0673,
+    0.06376,
+    0.08177
+   ]
+  },
+  {
+   "contending_threads": 6,
+   "loadavg1_observed": [
+    2.25,
+    2.94,
+    3.65,
+    3.46
+   ],
+   "A_to_torch_from_TILE_s": 0.920793,
+   "A_to_torch_from_TILE_gb_s": 0.9839,
+   "A_to_torch_from_TILE_all_s": [
+    0.85311,
+    0.98848,
+    0.85207,
+    1.04792
+   ],
+   "D_from_torch_to_TILE_s": 0.472372,
+   "D_from_torch_to_TILE_gb_s": 1.9179,
+   "D_from_torch_to_TILE_all_s": [
+    0.45286,
+    0.48049,
+    0.46425,
+    0.51757
+   ],
+   "G_from_device_DMA_only_s": 0.349737,
+   "G_from_device_DMA_only_gb_s": 2.5904,
+   "G_from_device_DMA_only_all_s": [
+    0.34893,
+    0.35054,
+    0.31554,
+    0.3659
+   ],
+   "H_host_untilize_no_DMA_s": 0.452746,
+   "H_host_untilize_no_DMA_gb_s": 2.0011,
+   "H_host_untilize_no_DMA_all_s": [
+    0.4462,
+    0.45929,
+    0.42442,
+    0.46672
+   ],
+   "I_host_tilize_no_DMA_s": 0.378616,
+   "I_host_tilize_no_DMA_gb_s": 2.3928,
+   "I_host_tilize_no_DMA_all_s": [
+    0.37849,
+    0.37874,
+    0.33516,
+    0.39087
+   ],
+   "J_to_device_DMA_only_s": 0.106094,
+   "J_to_device_DMA_only_gb_s": 8.5393,
+   "J_to_device_DMA_only_all_s": [
+    0.10444,
+    0.10538,
+    0.1068,
+    0.10932
+   ]
+  }
+ ],
+ "payload_gb": 0.90597,
+ "ok": true
+}

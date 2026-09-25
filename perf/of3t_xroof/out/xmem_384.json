@@ -1,0 +1,165 @@
+{
+ "doc": "Separate the two contention stories: other processes, or the subject's own resident set.",
+ "argv": [
+  "--reps",
+  "4",
+  "--balloons",
+  "0",
+  "4",
+  "8",
+  "--out",
+  "perf/of3t_xroof/out/xmem_384.json"
+ ],
+ "env": {
+  "host": "pc",
+  "commit": "4f953dc68815b1d6444f70ce9a8d9e8a203416df",
+  "branch": "wk/of3t-xroof",
+  "started_utc": "2026-09-25T20:56:35Z",
+  "mem_total_gib": 30.5,
+  "mem_available_gib_start": 17.93,
+  "loadavg_start": [
+   2.12,
+   2.41,
+   3.55
+  ],
+  "loadavg_end": [
+   2.37,
+   2.44,
+   3.52
+  ],
+  "mem_available_gib_end": 14.36,
+  "aiclk_during": {
+   "0": {
+    "min": 800,
+    "max": 1350,
+    "median": 1350,
+    "n": 9
+   }
+  },
+  "aiclk_line": "CLOCK: dev0 min 800 / median 1350 / max 1350 MHz over 9 samples, polled DURING the work"
+ },
+ "config": {
+  "reps": 4,
+  "balloons_gib": [
+   0.0,
+   4.0,
+   8.0
+  ],
+  "floor_gib": 6.0
+ },
+ "sweep": [
+  {
+   "balloon_gib_held": 0.0,
+   "mem_available_gib": 15.84,
+   "loadavg1": 2.1,
+   "A_to_torch_from_TILE_s": 0.347545,
+   "A_to_torch_from_TILE_gb_s": 2.6068,
+   "A_to_torch_from_TILE_all_s": [
+    0.33964,
+    0.37881,
+    0.35545,
+    0.3352
+   ],
+   "D_from_torch_to_TILE_s": 0.209861,
+   "D_from_torch_to_TILE_gb_s": 4.317,
+   "D_from_torch_to_TILE_all_s": [
+    0.20386,
+    0.2198,
+    0.21174,
+    0.20798
+   ],
+   "G_from_device_DMA_only_s": 0.118161,
+   "G_from_device_DMA_only_gb_s": 7.6673,
+   "G_from_device_DMA_only_all_s": [
+    0.11534,
+    0.1191,
+    0.12451,
+    0.11722
+   ],
+   "H_host_untilize_no_DMA_s": 0.219433,
+   "H_host_untilize_no_DMA_gb_s": 4.1287,
+   "H_host_untilize_no_DMA_all_s": [
+    0.21463,
+    0.22563,
+    0.222,
+    0.21686
+   ]
+  },
+  {
+   "balloon_gib_held": 4.0,
+   "mem_available_gib": 11.85,
+   "loadavg1": 2.16,
+   "A_to_torch_from_TILE_s": 0.765322,
+   "A_to_torch_from_TILE_gb_s": 1.1838,
+   "A_to_torch_from_TILE_all_s": [
+    0.75316,
+    0.76962,
+    0.76103,
+    0.85278
+   ],
+   "D_from_torch_to_TILE_s": 0.42533,
+   "D_from_torch_to_TILE_gb_s": 2.13,
+   "D_from_torch_to_TILE_all_s": [
+    0.41387,
+    0.51801,
+    0.42556,
+    0.4251
+   ],
+   "G_from_device_DMA_only_s": 0.308418,
+   "G_from_device_DMA_only_gb_s": 2.9375,
+   "G_from_device_DMA_only_all_s": [
+    0.30684,
+    0.30761,
+    0.31012,
+    0.30923
+   ],
+   "H_host_untilize_no_DMA_s": 0.412122,
+   "H_host_untilize_no_DMA_gb_s": 2.1983,
+   "H_host_untilize_no_DMA_all_s": [
+    0.40768,
+    0.4148,
+    0.44176,
+    0.40944
+   ]
+  },
+  {
+   "balloon_gib_held": 8.0,
+   "mem_available_gib": 7.54,
+   "loadavg1": 2.37,
+   "A_to_torch_from_TILE_s": 0.826653,
+   "A_to_torch_from_TILE_gb_s": 1.0959,
+   "A_to_torch_from_TILE_all_s": [
+    0.83226,
+    0.96422,
+    0.78042,
+    0.82105
+   ],
+   "D_from_torch_to_TILE_s": 0.450296,
+   "D_from_torch_to_TILE_gb_s": 2.0119,
+   "D_from_torch_to_TILE_all_s": [
+    0.48437,
+    0.45791,
+    0.44268,
+    0.43191
+   ],
+   "G_from_device_DMA_only_s": 0.326413,
+   "G_from_device_DMA_only_gb_s": 2.7755,
+   "G_from_device_DMA_only_all_s": [
+    0.32234,
+    0.33014,
+    0.3273,
+    0.32552
+   ],
+   "H_host_untilize_no_DMA_s": 0.431316,
+   "H_host_untilize_no_DMA_gb_s": 2.1005,
+   "H_host_untilize_no_DMA_all_s": [
+    0.43289,
+    0.43137,
+    0.43126,
+    0.42779
+   ]
+  }
+ ],
+ "payload_gb": 0.90597,
+ "ok": true
+}

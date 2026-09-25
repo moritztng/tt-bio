@@ -1,0 +1,109 @@
+{
+ "doc": "What the resident set actually costs: page supply, or memory bandwidth. NO DEVICE OPENED.",
+ "argv": [
+  "--reps",
+  "5",
+  "--balloons",
+  "0",
+  "4",
+  "8",
+  "--out",
+  "perf/of3t_xroof/out/xfault.json"
+ ],
+ "env": {
+  "host": "pc",
+  "no_device_opened": true,
+  "commit": "4f953dc68815b1d6444f70ce9a8d9e8a203416df",
+  "started_utc": "2026-09-25T20:57:47Z",
+  "thp_enabled": "[always] madvise never",
+  "loadavg_start": [
+   2.08,
+   2.35,
+   3.45
+  ],
+  "loadavg_end": [
+   2.39,
+   2.41,
+   3.46
+  ]
+ },
+ "payload_gb": 0.90597,
+ "sweep": [
+  {
+   "balloon_gib_held": 0.0,
+   "mem_available_gib": 15.98,
+   "loadavg1": 2.39,
+   "alloc_and_first_touch_906mb_s": 0.043935,
+   "alloc_and_first_touch_gb_s": 20.6205,
+   "warm_copy_906mb_s": 0.049158,
+   "warm_copy_traffic_gb_s": 36.8594,
+   "anon_hugepages_kb": 2256896,
+   "mem_free_kb": 11435672,
+   "fault_all_s": [
+    0.04303,
+    0.04483,
+    0.04461,
+    0.04354,
+    0.04394
+   ],
+   "copy_all_s": [
+    0.04975,
+    0.04916,
+    0.04923,
+    0.04906,
+    0.04893
+   ]
+  },
+  {
+   "balloon_gib_held": 4.0,
+   "mem_available_gib": 11.79,
+   "loadavg1": 2.39,
+   "alloc_and_first_touch_906mb_s": 0.053955,
+   "alloc_and_first_touch_gb_s": 16.7914,
+   "warm_copy_906mb_s": 0.050638,
+   "warm_copy_traffic_gb_s": 35.7822,
+   "anon_hugepages_kb": 4419584,
+   "mem_free_kb": 7044512,
+   "fault_all_s": [
+    0.05092,
+    0.05394,
+    0.05511,
+    0.06098,
+    0.05395
+   ],
+   "copy_all_s": [
+    0.0497,
+    0.05064,
+    0.05148,
+    0.04983,
+    0.05141
+   ]
+  },
+  {
+   "balloon_gib_held": 8.0,
+   "mem_available_gib": 7.49,
+   "loadavg1": 2.39,
+   "alloc_and_first_touch_906mb_s": 0.058581,
+   "alloc_and_first_touch_gb_s": 15.4652,
+   "warm_copy_906mb_s": 0.050107,
+   "warm_copy_traffic_gb_s": 36.161,
+   "anon_hugepages_kb": 4438016,
+   "mem_free_kb": 2537496,
+   "fault_all_s": [
+    0.05594,
+    0.05873,
+    0.05858,
+    0.05904,
+    0.05242
+   ],
+   "copy_all_s": [
+    0.05011,
+    0.05014,
+    0.0501,
+    0.05146,
+    0.04997
+   ]
+  }
+ ],
+ "ok": true
+}

@@ -1,0 +1,449 @@
+{
+ "doc": "Settle the crossing RATE: `of3t-xsplit`'s 1.265/2.013 GB/s against `of3t-stepqb2`'s 2.15/2.77.",
+ "argv": [
+  "--reps",
+  "5",
+  "--out",
+  "perf/of3t_xroof/out/xroof_384.json"
+ ],
+ "env": {
+  "host": "pc",
+  "tt_visible_devices": "0",
+  "lease_holder": "worker:of3t-xroof",
+  "commit": "4f953dc68815b1d6444f70ce9a8d9e8a203416df",
+  "branch": "wk/of3t-xroof",
+  "started_utc": "2026-09-25T20:50:11Z",
+  "loadavg_start": [
+   1.43,
+   2.12,
+   4.07
+  ],
+  "mem_available_gib_start": 17.43,
+  "nproc": 12,
+  "board": {
+   "board_type": "p150a",
+   "serial": "000004033191410F",
+   "aiclk_idle": "800",
+   "link_speed": "16.0 GT/s PCIe",
+   "link_width": "8",
+   "link_speed_max": "32.0 GT/s PCIe",
+   "link_width_max": "16"
+  },
+  "arch": "Arch.BLACKHOLE",
+  "loadavg_end": [
+   2.25,
+   2.26,
+   4.03
+  ],
+  "mem_available_gib_end": 15.58,
+  "aiclk_during": {
+   "0": {
+    "min": 800,
+    "max": 1350,
+    "median": 1350,
+    "n": 11
+   }
+  },
+  "aiclk_line": "CLOCK: dev0 min 800 / median 1350 / max 1350 MHz over 11 samples, polled DURING the work",
+  "loadavg_during": [
+   0.11881510416666667,
+   0.13602701822916666,
+   0.13850911458333334,
+   0.13850911458333334,
+   0.15413411458333334,
+   0.18851725260416666,
+   0.1800537109375,
+   0.19901529947916666,
+   0.19901529947916666,
+   0.18973795572916666,
+   0.1878662109375
+  ]
+ },
+ "config": {
+  "reps": 5,
+  "score_shape": [
+   384,
+   4,
+   384,
+   384
+  ]
+ },
+ "counter_b_source": {
+  "file": "perf/of3t_bwattrib/bwprof.py",
+  "bump": "Rec.bump:129-142 -- nb = output bytes + every ttnn argument's bytes",
+  "itemsize": "_itemsize:81-87 -- lowercase substring test",
+  "itemsize_on_this_build": {
+   "DataType.FLOAT32": 2,
+   "DataType.BFLOAT16": 2,
+   "DataType.BFLOAT8_B": 1,
+   "DataType.UINT32": 2,
+   "torch.float32": 4,
+   "torch.bfloat16": 2
+  },
+  "true_itemsize": {
+   "DataType.FLOAT32": 4,
+   "DataType.BFLOAT16": 2,
+   "DataType.BFLOAT8_B": 1.0625,
+   "DataType.UINT32": 4,
+   "torch.float32": 4,
+   "torch.bfloat16": 2
+  }
+ },
+ "convention": {
+  "A_to_torch_from_TILE": {
+   "s": [
+    0.331949,
+    0.479701,
+    0.452699,
+    0.440477,
+    0.441911
+   ],
+   "median_s": 0.441911,
+   "min_s": 0.331949,
+   "loadavg1": [
+    1.63,
+    1.63,
+    1.63,
+    1.63,
+    1.63
+   ],
+   "pcie_gb_per_call": 0.90597,
+   "pcie_gb_s": 2.0501,
+   "bwprof_gb_per_call": 1.358954,
+   "bwprof_gb_s": 3.0752,
+   "inflation_x": 1.5
+  },
+  "D_from_torch_to_TILE": {
+   "s": [
+    0.203414,
+    0.203835,
+    0.205133,
+    0.206958,
+    0.203545
+   ],
+   "median_s": 0.203835,
+   "min_s": 0.203414,
+   "loadavg1": [
+    1.63,
+    1.63,
+    1.66,
+    1.66,
+    1.66
+   ],
+   "pcie_gb_per_call": 0.90597,
+   "pcie_gb_s": 4.4446,
+   "bwprof_gb_per_call": 1.358954,
+   "bwprof_gb_s": 6.6669,
+   "inflation_x": 1.5
+  }
+ },
+ "split": {
+  "G_from_device_DMA_only": {
+   "s": [
+    0.117398,
+    0.115255,
+    0.117275,
+    0.13118,
+    0.127423
+   ],
+   "median_s": 0.117398,
+   "min_s": 0.115255,
+   "loadavg1": [
+    1.66,
+    1.66,
+    1.66,
+    1.66,
+    1.66
+   ],
+   "pcie_gb_per_call": 0.90597,
+   "gb_s_at_pcie_bytes": 7.7171
+  },
+  "H_host_untilize_no_DMA": {
+   "s": [
+    0.220055,
+    0.218197,
+    0.235663,
+    0.223714,
+    0.222985
+   ],
+   "median_s": 0.222985,
+   "min_s": 0.218197,
+   "loadavg1": [
+    1.66,
+    1.66,
+    1.66,
+    1.66,
+    1.66
+   ],
+   "pcie_gb_per_call": 0.0,
+   "gb_s_at_pcie_bytes": null
+  },
+  "I_host_tilize_no_DMA": {
+   "s": [
+    0.151327,
+    0.255924,
+    0.242642,
+    0.247652,
+    0.25838
+   ],
+   "median_s": 0.247652,
+   "min_s": 0.151327,
+   "loadavg1": [
+    1.66,
+    1.66,
+    1.66,
+    1.66,
+    1.85
+   ],
+   "pcie_gb_per_call": 0.0,
+   "gb_s_at_pcie_bytes": null
+  },
+  "J_to_device_DMA_only": {
+   "s": [
+    0.063809,
+    0.06372,
+    0.06374,
+    0.063812,
+    0.063879
+   ],
+   "median_s": 0.063809,
+   "min_s": 0.06372,
+   "loadavg1": [
+    1.85,
+    1.85,
+    1.85,
+    1.85,
+    1.85
+   ],
+   "pcie_gb_per_call": 0.90597,
+   "gb_s_at_pcie_bytes": 14.1981
+  },
+  "B_device_to_layout_ROW_MAJOR": {
+   "s": [
+    0.01765,
+    0.004451,
+    0.004467,
+    0.00442,
+    0.004437
+   ],
+   "median_s": 0.004451,
+   "min_s": 0.00442,
+   "loadavg1": [
+    1.85,
+    1.85,
+    1.85,
+    1.85,
+    1.85
+   ],
+   "pcie_gb_per_call": 0.0,
+   "gb_s_at_pcie_bytes": null
+  },
+  "C_to_torch_from_ROW_MAJOR": {
+   "s": [
+    0.53023,
+    0.526077,
+    0.532431,
+    0.535263,
+    0.536568
+   ],
+   "median_s": 0.532431,
+   "min_s": 0.526077,
+   "loadavg1": [
+    1.85,
+    1.85,
+    1.85,
+    1.85,
+    1.85
+   ],
+   "pcie_gb_per_call": 0.90597,
+   "gb_s_at_pcie_bytes": 1.7016
+  },
+  "E_from_torch_to_ROW_MAJOR": {
+   "s": [
+    0.262707,
+    0.263959,
+    0.270903,
+    0.261624,
+    0.265269
+   ],
+   "median_s": 0.263959,
+   "min_s": 0.261624,
+   "loadavg1": [
+    2.26,
+    2.26,
+    2.26,
+    2.26,
+    2.26
+   ],
+   "pcie_gb_per_call": 0.90597,
+   "gb_s_at_pcie_bytes": 3.4322
+  },
+  "residual": {
+   "out_leg_A_minus_G_plus_H_s": 0.101528,
+   "out_leg_residual_pct": 22.975,
+   "ret_leg_D_minus_I_plus_J_s": -0.107626,
+   "ret_leg_residual_pct": -52.801,
+   "note": "A and D are the shipped crossings; G/J are the DMA alone and H/I the host layout pass alone. A small residual is what says the split holds."
+  },
+  "link_roof_gb_s": {
+   "device_to_host_DMA_only": 7.7171,
+   "host_to_device_DMA_only": 14.1981
+  },
+  "host_layout_gb_s": {
+   "untilize": 4.0629,
+   "tilize": 3.6582
+  }
+ },
+ "roof": [
+  {
+   "shape_class": "[128] bf16",
+   "shape": [
+    128
+   ],
+   "pcie_gb": 0.0,
+   "to_torch_s": 0.000164,
+   "to_torch_gb_s": 0.0016,
+   "from_device_dma_s": 0.000181,
+   "from_device_dma_gb_s": 0.0014,
+   "from_torch_s": 0.000213,
+   "from_torch_gb_s": 0.0012,
+   "loadavg1": 2.26,
+   "from_torch_f32src_s": 0.000233,
+   "from_torch_f32src_gb_s": 0.0011
+  },
+  {
+   "shape_class": "[1,64,384,128] bf16",
+   "shape": [
+    1,
+    64,
+    384,
+    128
+   ],
+   "pcie_gb": 0.006291,
+   "to_torch_s": 0.003212,
+   "to_torch_gb_s": 1.9587,
+   "from_device_dma_s": 0.000726,
+   "from_device_dma_gb_s": 8.6659,
+   "from_torch_s": 0.001526,
+   "from_torch_gb_s": 4.1228,
+   "loadavg1": 2.26,
+   "from_torch_f32src_s": 0.006858,
+   "from_torch_f32src_gb_s": 0.9174
+  },
+  {
+   "shape_class": "[384,384,128] bf16",
+   "shape": [
+    384,
+    384,
+    128
+   ],
+   "pcie_gb": 0.037749,
+   "to_torch_s": 0.01311,
+   "to_torch_gb_s": 2.8794,
+   "from_device_dma_s": 0.00615,
+   "from_device_dma_gb_s": 6.138,
+   "from_torch_s": 0.009451,
+   "from_torch_gb_s": 3.9942,
+   "loadavg1": 2.16,
+   "from_torch_f32src_s": 0.045965,
+   "from_torch_f32src_gb_s": 0.8212
+  },
+  {
+   "shape_class": "[1,384,384,128] bf16",
+   "shape": [
+    1,
+    384,
+    384,
+    128
+   ],
+   "pcie_gb": 0.037749,
+   "to_torch_s": 0.013642,
+   "to_torch_gb_s": 2.7671,
+   "from_device_dma_s": 0.006223,
+   "from_device_dma_gb_s": 6.066,
+   "from_torch_s": 0.009654,
+   "from_torch_gb_s": 3.9102,
+   "loadavg1": 2.16,
+   "from_torch_f32src_s": 0.045934,
+   "from_torch_f32src_gb_s": 0.8218
+  },
+  {
+   "shape_class": "[1,16,384,384] bf16",
+   "shape": [
+    1,
+    16,
+    384,
+    384
+   ],
+   "pcie_gb": 0.004719,
+   "to_torch_s": 0.001491,
+   "to_torch_gb_s": 3.1647,
+   "from_device_dma_s": 0.000541,
+   "from_device_dma_gb_s": 8.722,
+   "from_torch_s": 0.001339,
+   "from_torch_gb_s": 3.524,
+   "loadavg1": 2.39,
+   "from_torch_f32src_s": 0.005404,
+   "from_torch_f32src_gb_s": 0.8732
+  },
+  {
+   "shape_class": "[96,4,384,384] f32",
+   "shape": [
+    96,
+    4,
+    384,
+    384
+   ],
+   "pcie_gb": 0.226492,
+   "to_torch_s": 0.084015,
+   "to_torch_gb_s": 2.6959,
+   "from_device_dma_s": 0.030567,
+   "from_device_dma_gb_s": 7.4097,
+   "from_torch_s": 0.052567,
+   "from_torch_gb_s": 4.3086,
+   "loadavg1": 2.39
+  },
+  {
+   "shape_class": "[384,4,384,384] f32",
+   "shape": [
+    384,
+    4,
+    384,
+    384
+   ],
+   "pcie_gb": 0.90597,
+   "to_torch_s": 0.438097,
+   "to_torch_gb_s": 2.068,
+   "from_device_dma_s": 0.115533,
+   "from_device_dma_gb_s": 7.8417,
+   "from_torch_s": 0.206661,
+   "from_torch_gb_s": 4.3838,
+   "loadavg1": 2.28
+  }
+ ],
+ "limiter": {
+  "to_torch_after_touching_two_same_sized_buffers": {
+   "s": [
+    0.445662,
+    0.446428,
+    0.436967,
+    0.454089,
+    0.446874
+   ],
+   "median_s": 0.446428,
+   "min_s": 0.436967,
+   "loadavg1": [
+    2.25,
+    2.25,
+    2.25,
+    2.25,
+    2.25
+   ]
+  },
+  "to_torch_after_touching_gb_s": 2.0294,
+  "fresh_906mb_alloc_and_first_touch_s": 0.050249,
+  "host_memcpy_906mb_s": 0.134675,
+  "host_memcpy_gb_s": 13.4542
+ },
+ "ok": true
+}
