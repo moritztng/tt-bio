@@ -1,0 +1,954 @@
+{
+ "evo": {
+  "csv_rows": 1047,
+  "csv_ms": 131.872506,
+  "matched": 1012,
+  "matched_ms": 127.45768999999999,
+  "ms": {
+   "typecast": 20.63970700000001,
+   "layout": 24.343885,
+   "padding": 4.492198190904774,
+   "fusible": 11.966456745098043,
+   "all": 127.45768999999999,
+   "cls:layernorm": 0.9149559999999999,
+   "site:af2.py:__call__": 0.670821,
+   "cls:matmul": 18.595474000000003,
+   "site:tenstorrent.py:_lin": 3.901442999999999,
+   "cls:layout": 25.820908000000003,
+   "site:tenstorrent.py:_split_heads": 1.1598060000000001,
+   "site:tenstorrent.py:_pair_bias_from_z": 1.648794,
+   "site:tenstorrent.py:_pair_proj_linear": 2.661172,
+   "site:tenstorrent.py:_fp32_softmax_attention_block": 0.422542,
+   "site:tenstorrent.py:batched_matmul": 6.317994000000001,
+   "cls:typecast": 20.63970700000001,
+   "why:forward island: _fp32_softmax_tail": 4.02063,
+   "site:tenstorrent.py:_fp32_softmax_tail": 41.79242900000003,
+   "why:forward island: _fp32_softmax_bias": 0.01996,
+   "site:tenstorrent.py:_fp32_softmax_bias": 0.095859,
+   "cls:eltwise": 44.801967000000026,
+   "cls:softmax": 2.864231,
+   "site:tenstorrent.py:_merge_heads": 0.079048,
+   "site:af2.py:sigmoid_gate": 0.221363,
+   "why:forward island: _residual": 2.3002969999999996,
+   "site:af2.py:_residual": 5.987149,
+   "site:af2.py:_attend": 0.33470099999999997,
+   "site:af2.py:_rows": 2.0572599999999994,
+   "site:tenstorrent.py:project_ab": 0.09788299999999998,
+   "site:tenstorrent.py:contiguous_ab": 0.173335,
+   "site:tenstorrent.py:__call__": 0.017741999999999997,
+   "site:tenstorrent.py:z_rows": 1.8527689999999999,
+   "site:tenstorrent.py:outer_product_mean": 6.912583,
+   "site:tenstorrent.py:_multiply": 15.320109999999994,
+   "site:tenstorrent.py:_in_proj_matmul": 2.77565,
+   "site:tenstorrent.py:_channel_move": 7.678618,
+   "site:tenstorrent.py:_transform_chunk": 0.36850299999999997,
+   "site:tenstorrent.py:_concat_to": 0.40402899999999997,
+   "site:tenstorrent.py:_attend_pair": 7.839892000000001,
+   "site:tenstorrent.py:attend": 7.928862999999999,
+   "site:tenstorrent.py:run": 1.04458,
+   "site:tenstorrent.py:_attend_heads": 0.5309539999999999,
+   "site:tenstorrent.py:gate_and_project": 1.5754789999999999,
+   "site:tenstorrent.py:_pair_transpose_impl": 2.0051659999999996,
+   "why:verb-bw: a forward typecast's gradient cast back to its source dtype": 6.2082489999999995,
+   "cls:reduction": 13.102484999999993,
+   "why:fan-in: add_grad widens both operands to fp32 for the sum": 6.250556,
+   "why:cast-back: backward() narrows an fp32 gradient to the value's dtype": 1.8400149999999997,
+   "site:tape:backward": 1.8400149999999997,
+   "cls:other": 0.717962,
+   "site:tape:_join_slices": 1.239021,
+   "site:af2.py:_bias": 0.5021169999999999
+  },
+  "top_nodes": [
+   [
+    646,
+    "sum",
+    "PermuteDeviceOperation",
+    1.219856,
+    "sum @ tenstorrent.py:3937:_fp32_softmax_tail <- autograd.py:788:_reduce_to"
+   ],
+   [
+    629,
+    "sum",
+    "PermuteDeviceOperation",
+    1.208631,
+    "sum @ tenstorrent.py:3937:_fp32_softmax_tail <- autograd.py:788:_reduce_to"
+   ],
+   [
+    505,
+    "sum",
+    "PermuteDeviceOperation",
+    1.202785,
+    "sum @ tenstorrent.py:3937:_fp32_softmax_tail <- autograd.py:788:_reduce_to"
+   ],
+   [
+    664,
+    "sum",
+    "PermuteDeviceOperation",
+    1.1981899999999999,
+    "sum @ tenstorrent.py:3937:_fp32_softmax_tail <- autograd.py:788:_reduce_to"
+   ],
+   [
+    487,
+    "sum",
+    "PermuteDeviceOperation",
+    1.197806,
+    "sum @ tenstorrent.py:3937:_fp32_softmax_tail <- autograd.py:788:_reduce_to"
+   ],
+   [
+    470,
+    "sum",
+    "PermuteDeviceOperation",
+    1.187181,
+    "sum @ tenstorrent.py:3937:_fp32_softmax_tail <- autograd.py:788:_reduce_to"
+   ],
+   [
+    956,
+    "matmul",
+    "MatmulDeviceOperation",
+    0.8853329999999999,
+    "matmul @ tenstorrent.py:11490:outer_product_mean <- autograd.py:1853:<lambda>"
+   ],
+   [
+    75,
+    "linear",
+    "MatmulDeviceOperation",
+    0.8847959999999999,
+    "linear @ tenstorrent.py:11490:outer_product_mean <- autograd.py:1839:_taped_linear"
+   ],
+   [
+    912,
+    "permute",
+    "PermuteDeviceOperation",
+    0.837873,
+    "permute @ tenstorrent.py:6685:_channel_move <- taped_ttnn.py:525:bw"
+   ],
+   [
+    792,
+    "permute",
+    "PermuteDeviceOperation",
+    0.8338409999999999,
+    "permute @ tenstorrent.py:6685:_channel_move <- taped_ttnn.py:525:bw"
+   ],
+   [
+    785,
+    "permute",
+    "PermuteDeviceOperation",
+    0.828969,
+    "permute @ tenstorrent.py:6685:_channel_move <- taped_ttnn.py:525:bw"
+   ],
+   [
+    884,
+    "permute",
+    "PermuteDeviceOperation",
+    0.82653,
+    "permute @ tenstorrent.py:6685:_channel_move <- taped_ttnn.py:525:bw"
+   ],
+   [
+    891,
+    "permute",
+    "PermuteDeviceOperation",
+    0.8107409999999999,
+    "permute @ tenstorrent.py:6685:_channel_move <- taped_ttnn.py:525:bw"
+   ],
+   [
+    70,
+    "reshape",
+    "ReshapeViewDeviceOperation",
+    0.795821,
+    "reshape @ tenstorrent.py:11472:outer_product_mean <- taped_ttnn.py:503:_v_reshape"
+   ],
+   [
+    905,
+    "permute",
+    "PermuteDeviceOperation",
+    0.794655,
+    "permute @ tenstorrent.py:6685:_channel_move <- taped_ttnn.py:525:bw"
+   ],
+   [
+    813,
+    "permute",
+    "PermuteDeviceOperation",
+    0.780442,
+    "permute @ tenstorrent.py:6685:_channel_move <- taped_ttnn.py:525:bw"
+   ],
+   [
+    806,
+    "permute",
+    "PermuteDeviceOperation",
+    0.7798809999999999,
+    "permute @ tenstorrent.py:6685:_channel_move <- taped_ttnn.py:525:bw"
+   ],
+   [
+    71,
+    "to_layout",
+    "TilizeDeviceOperation",
+    0.7787729999999999,
+    "to_layout @ tenstorrent.py:11473:outer_product_mean <- taped_ttnn.py:94:_identity_grad"
+   ],
+   [
+    961,
+    "to_layout",
+    "TilizeDeviceOperation",
+    0.7658699999999999,
+    "to_layout @ tenstorrent.py:11471:outer_product_mean <- autograd.py:355:add_grad"
+   ],
+   [
+    69,
+    "to_layout",
+    "UntilizeDeviceOperation",
+    0.7177739999999999,
+    "to_layout @ tenstorrent.py:11471:outer_product_mean <- taped_ttnn.py:94:_identity_grad"
+   ],
+   [
+    72,
+    "permute",
+    "TransposeDeviceOperation",
+    0.6987519999999999,
+    "permute @ tenstorrent.py:11474:outer_product_mean <- taped_ttnn.py:521:_v_permute"
+   ],
+   [
+    959,
+    "to_layout",
+    "UntilizeDeviceOperation",
+    0.698222,
+    "to_layout @ tenstorrent.py:11473:outer_product_mean <- autograd.py:355:add_grad"
+   ],
+   [
+    718,
+    "add",
+    "BinaryNgDeviceOperation",
+    0.6976359999999999,
+    "add @ tenstorrent.py:8245:attend <- autograd.py:361:add_grad"
+   ],
+   [
+    559,
+    "add",
+    "BinaryNgDeviceOperation",
+    0.696483,
+    "add @ tenstorrent.py:8245:attend <- autograd.py:361:add_grad"
+   ],
+   [
+    958,
+    "permute",
+    "TransposeDeviceOperation",
+    0.684481,
+    "permute @ tenstorrent.py:11474:outer_product_mean <- taped_ttnn.py:525:bw"
+   ],
+   [
+    544,
+    "add",
+    "BinaryNgDeviceOperation",
+    0.6826559999999999,
+    "add @ tenstorrent.py:8245:attend <- autograd.py:361:add_grad"
+   ],
+   [
+    703,
+    "add",
+    "BinaryNgDeviceOperation",
+    0.681237,
+    "add @ tenstorrent.py:8245:attend <- autograd.py:361:add_grad"
+   ],
+   [
+    962,
+    "matmul",
+    "MatmulDeviceOperation",
+    0.646973,
+    "matmul @ tenstorrent.py:11449:z_rows <- autograd.py:758:bmm"
+   ],
+   [
+    400,
+    "linear",
+    "MatmulDeviceOperation",
+    0.6418499999999999,
+    "linear @ tenstorrent.py:6373:_lin <- taped_ttnn.py:881:call"
+   ],
+   [
+    68,
+    "matmul",
+    "MatmulDeviceOperation",
+    0.608908,
+    "matmul @ tenstorrent.py:11449:z_rows <- taped_ttnn.py:130:_v_matmul"
+   ],
+   [
+    963,
+    "matmul",
+    "MatmulDeviceOperation",
+    0.596888,
+    "matmul @ tenstorrent.py:11449:z_rows <- autograd.py:758:bmm"
+   ],
+   [
+    638,
+    "multiply",
+    "BinaryNgDeviceOperation",
+    0.57465,
+    "multiply @ tenstorrent.py:3947:_fp32_softmax_tail <- autograd.py:118:softmax_bw_inner"
+   ],
+   [
+    358,
+    "add",
+    "BinaryNgDeviceOperation",
+    0.5690839999999999,
+    "add @ tenstorrent.py:3937:_fp32_softmax_tail <- taped_ttnn.py:420:impl"
+   ],
+   [
+    300,
+    "add",
+    "BinaryNgDeviceOperation",
+    0.568117,
+    "add @ tenstorrent.py:3937:_fp32_softmax_tail <- taped_ttnn.py:420:impl"
+   ],
+   [
+    368,
+    "add",
+    "BinaryNgDeviceOperation",
+    0.5678489999999999,
+    "add @ tenstorrent.py:3937:_fp32_softmax_tail <- taped_ttnn.py:420:impl"
+   ],
+   [
+    479,
+    "multiply",
+    "BinaryNgDeviceOperation",
+    0.56639,
+    "multiply @ tenstorrent.py:3947:_fp32_softmax_tail <- autograd.py:118:softmax_bw_inner"
+   ],
+   [
+    348,
+    "add",
+    "BinaryNgDeviceOperation",
+    0.565338,
+    "add @ tenstorrent.py:3937:_fp32_softmax_tail <- taped_ttnn.py:420:impl"
+   ],
+   [
+    280,
+    "add",
+    "BinaryNgDeviceOperation",
+    0.5652929999999999,
+    "add @ tenstorrent.py:3937:_fp32_softmax_tail <- taped_ttnn.py:420:impl"
+   ],
+   [
+    497,
+    "multiply",
+    "BinaryNgDeviceOperation",
+    0.5645359999999999,
+    "multiply @ tenstorrent.py:3947:_fp32_softmax_tail <- autograd.py:118:softmax_bw_inner"
+   ],
+   [
+    502,
+    "multiply",
+    "BinaryNgDeviceOperation",
+    0.56317,
+    "multiply @ tenstorrent.py:3947:_fp32_softmax_tail <- taped_ttnn.py:178:bw"
+   ],
+   [
+    467,
+    "multiply",
+    "BinaryNgDeviceOperation",
+    0.563067,
+    "multiply @ tenstorrent.py:3947:_fp32_softmax_tail <- taped_ttnn.py:178:bw"
+   ],
+   [
+    462,
+    "multiply",
+    "BinaryNgDeviceOperation",
+    0.562256,
+    "multiply @ tenstorrent.py:3947:_fp32_softmax_tail <- autograd.py:118:softmax_bw_inner"
+   ],
+   [
+    290,
+    "add",
+    "BinaryNgDeviceOperation",
+    0.561828,
+    "add @ tenstorrent.py:3937:_fp32_softmax_tail <- taped_ttnn.py:420:impl"
+   ],
+   [
+    484,
+    "multiply",
+    "BinaryNgDeviceOperation",
+    0.561759,
+    "multiply @ tenstorrent.py:3947:_fp32_softmax_tail <- taped_ttnn.py:178:bw"
+   ],
+   [
+    661,
+    "multiply",
+    "BinaryNgDeviceOperation",
+    0.5616909999999999,
+    "multiply @ tenstorrent.py:3947:_fp32_softmax_tail <- taped_ttnn.py:178:bw"
+   ],
+   [
+    626,
+    "multiply",
+    "BinaryNgDeviceOperation",
+    0.561546,
+    "multiply @ tenstorrent.py:3947:_fp32_softmax_tail <- taped_ttnn.py:178:bw"
+   ],
+   [
+    643,
+    "multiply",
+    "BinaryNgDeviceOperation",
+    0.560958,
+    "multiply @ tenstorrent.py:3947:_fp32_softmax_tail <- taped_ttnn.py:178:bw"
+   ],
+   [
+    621,
+    "multiply",
+    "BinaryNgDeviceOperation",
+    0.5589689999999999,
+    "multiply @ tenstorrent.py:3947:_fp32_softmax_tail <- autograd.py:118:softmax_bw_inner"
+   ],
+   [
+    656,
+    "multiply",
+    "BinaryNgDeviceOperation",
+    0.5587989999999999,
+    "multiply @ tenstorrent.py:3947:_fp32_softmax_tail <- autograd.py:118:softmax_bw_inner"
+   ],
+   [
+    398,
+    "linear",
+    "MatmulDeviceOperation",
+    0.525856,
+    "linear @ tenstorrent.py:6373:_lin <- taped_ttnn.py:881:call"
+   ],
+   [
+    483,
+    "subtract",
+    "BinaryNgDeviceOperation",
+    0.49016699999999996,
+    "subtract @ tenstorrent.py:3947:_fp32_softmax_tail <- taped_ttnn.py:178:bw"
+   ],
+   [
+    466,
+    "subtract",
+    "BinaryNgDeviceOperation",
+    0.488763,
+    "subtract @ tenstorrent.py:3947:_fp32_softmax_tail <- taped_ttnn.py:178:bw"
+   ],
+   [
+    642,
+    "subtract",
+    "BinaryNgDeviceOperation",
+    0.481991,
+    "subtract @ tenstorrent.py:3947:_fp32_softmax_tail <- taped_ttnn.py:178:bw"
+   ],
+   [
+    660,
+    "subtract",
+    "BinaryNgDeviceOperation",
+    0.480934,
+    "subtract @ tenstorrent.py:3947:_fp32_softmax_tail <- taped_ttnn.py:178:bw"
+   ],
+   [
+    501,
+    "subtract",
+    "BinaryNgDeviceOperation",
+    0.480705,
+    "subtract @ tenstorrent.py:3947:_fp32_softmax_tail <- taped_ttnn.py:178:bw"
+   ],
+   [
+    625,
+    "subtract",
+    "BinaryNgDeviceOperation",
+    0.47618699999999997,
+    "subtract @ tenstorrent.py:3947:_fp32_softmax_tail <- taped_ttnn.py:178:bw"
+   ],
+   [
+    412,
+    "multiply",
+    "BinaryNgDeviceOperation",
+    0.45327999999999996,
+    "multiply @ tenstorrent.py:6373:_lin <- autograd.py:1041:bw"
+   ],
+   [
+    409,
+    "matmul",
+    "MatmulDeviceOperation",
+    0.442436,
+    "matmul @ tenstorrent.py:6373:_lin <- autograd.py:1853:<lambda>"
+   ],
+   [
+    369,
+    "softmax",
+    "SoftmaxDeviceOperation",
+    0.440865,
+    "softmax @ tenstorrent.py:3947:_fp32_softmax_tail <- taped_ttnn.py:171:_v_softmax"
+   ],
+   [
+    349,
+    "softmax",
+    "SoftmaxDeviceOperation",
+    0.439347,
+    "softmax @ tenstorrent.py:3947:_fp32_softmax_tail <- taped_ttnn.py:171:_v_softmax"
+   ]
+  ]
+ },
+ "extra": {
+  "csv_rows": 759,
+  "csv_ms": 115.880544,
+  "matched": 731,
+  "matched_ms": 112.44314600000003,
+  "ms": {
+   "typecast": 19.508207000000013,
+   "layout": 18.042023999999998,
+   "padding": 2.280658771185224,
+   "fusible": 10.8525418627451,
+   "all": 112.44314600000003,
+   "cls:typecast": 19.508207000000013,
+   "why:forward island: _residual": 2.1693249999999997,
+   "site:af2.py:_residual": 6.339709999999998,
+   "cls:eltwise": 42.65204799999998,
+   "cls:layernorm": 0.715638,
+   "site:tenstorrent.py:_multiply": 15.289515999999995,
+   "cls:matmul": 13.939382999999998,
+   "site:tenstorrent.py:_in_proj_matmul": 2.77187,
+   "cls:layout": 19.520325,
+   "site:tenstorrent.py:_channel_move": 7.643642,
+   "site:tenstorrent.py:_transform_chunk": 0.370696,
+   "site:tenstorrent.py:_concat_to": 0.409792,
+   "site:tenstorrent.py:_pair_proj_linear": 2.433252,
+   "site:tenstorrent.py:_attend_pair": 7.801889000000001,
+   "site:tenstorrent.py:attend": 7.9079939999999995,
+   "why:forward island: _fp32_softmax_bias": 0.010419,
+   "site:tenstorrent.py:_fp32_softmax_bias": 0.052108999999999996,
+   "site:tenstorrent.py:run": 1.0523959999999999,
+   "site:tenstorrent.py:_fp32_softmax_attention_block": 0.41594499999999995,
+   "site:tenstorrent.py:batched_matmul": 5.909229000000001,
+   "why:forward island: _fp32_softmax_tail": 4.031432000000001,
+   "site:tenstorrent.py:_fp32_softmax_tail": 41.785758000000015,
+   "cls:softmax": 2.822466,
+   "site:tenstorrent.py:_attend_heads": 0.535174,
+   "site:tenstorrent.py:gate_and_project": 1.5689649999999995,
+   "site:tenstorrent.py:_pair_transpose_impl": 2.000547,
+   "site:af2.py:_rows": 1.9828090000000003,
+   "site:tenstorrent.py:_lin": 3.231087,
+   "why:verb-bw: a forward typecast's gradient cast back to its source dtype": 6.093794,
+   "cls:reduction": 12.593577000000003,
+   "why:fan-in: add_grad widens both operands to fp32 for the sum": 5.508899,
+   "why:cast-back: backward() narrows an fp32 gradient to the value's dtype": 1.6943379999999997,
+   "site:tape:backward": 1.6943379999999997,
+   "cls:other": 0.691502,
+   "site:tape:_join_slices": 1.2464279999999999
+  },
+  "top_nodes": [
+   [
+    570,
+    "sum",
+    "PermuteDeviceOperation",
+    1.216979,
+    "sum @ tenstorrent.py:3937:_fp32_softmax_tail <- autograd.py:788:_reduce_to"
+   ],
+   [
+    553,
+    "sum",
+    "PermuteDeviceOperation",
+    1.212343,
+    "sum @ tenstorrent.py:3937:_fp32_softmax_tail <- autograd.py:788:_reduce_to"
+   ],
+   [
+    429,
+    "sum",
+    "PermuteDeviceOperation",
+    1.211527,
+    "sum @ tenstorrent.py:3937:_fp32_softmax_tail <- autograd.py:788:_reduce_to"
+   ],
+   [
+    588,
+    "sum",
+    "PermuteDeviceOperation",
+    1.205536,
+    "sum @ tenstorrent.py:3937:_fp32_softmax_tail <- autograd.py:788:_reduce_to"
+   ],
+   [
+    394,
+    "sum",
+    "PermuteDeviceOperation",
+    1.191083,
+    "sum @ tenstorrent.py:3937:_fp32_softmax_tail <- autograd.py:788:_reduce_to"
+   ],
+   [
+    411,
+    "sum",
+    "PermuteDeviceOperation",
+    1.183254,
+    "sum @ tenstorrent.py:3937:_fp32_softmax_tail <- autograd.py:788:_reduce_to"
+   ],
+   [
+    709,
+    "permute",
+    "PermuteDeviceOperation",
+    0.8571789999999999,
+    "permute @ tenstorrent.py:6685:_channel_move <- taped_ttnn.py:525:bw"
+   ],
+   [
+    4,
+    "add",
+    "BinaryNgDeviceOperation",
+    0.8394189999999999,
+    "add @ af2.py:298:_residual <- taped_ttnn.py:420:impl"
+   ],
+   [
+    836,
+    "permute",
+    "PermuteDeviceOperation",
+    0.816206,
+    "permute @ tenstorrent.py:6685:_channel_move <- taped_ttnn.py:525:bw"
+   ],
+   [
+    716,
+    "permute",
+    "PermuteDeviceOperation",
+    0.8155129999999999,
+    "permute @ tenstorrent.py:6685:_channel_move <- taped_ttnn.py:525:bw"
+   ],
+   [
+    808,
+    "permute",
+    "PermuteDeviceOperation",
+    0.814597,
+    "permute @ tenstorrent.py:6685:_channel_move <- taped_ttnn.py:525:bw"
+   ],
+   [
+    737,
+    "permute",
+    "PermuteDeviceOperation",
+    0.792304,
+    "permute @ tenstorrent.py:6685:_channel_move <- taped_ttnn.py:525:bw"
+   ],
+   [
+    829,
+    "permute",
+    "PermuteDeviceOperation",
+    0.787899,
+    "permute @ tenstorrent.py:6685:_channel_move <- taped_ttnn.py:525:bw"
+   ],
+   [
+    730,
+    "permute",
+    "PermuteDeviceOperation",
+    0.78523,
+    "permute @ tenstorrent.py:6685:_channel_move <- taped_ttnn.py:525:bw"
+   ],
+   [
+    815,
+    "permute",
+    "PermuteDeviceOperation",
+    0.78255,
+    "permute @ tenstorrent.py:6685:_channel_move <- taped_ttnn.py:525:bw"
+   ],
+   [
+    642,
+    "add",
+    "BinaryNgDeviceOperation",
+    0.695923,
+    "add @ tenstorrent.py:8245:attend <- autograd.py:361:add_grad"
+   ],
+   [
+    627,
+    "add",
+    "BinaryNgDeviceOperation",
+    0.6947209999999999,
+    "add @ tenstorrent.py:8245:attend <- autograd.py:361:add_grad"
+   ],
+   [
+    483,
+    "add",
+    "BinaryNgDeviceOperation",
+    0.691044,
+    "add @ tenstorrent.py:8245:attend <- autograd.py:361:add_grad"
+   ],
+   [
+    468,
+    "add",
+    "BinaryNgDeviceOperation",
+    0.6897679999999999,
+    "add @ tenstorrent.py:8245:attend <- autograd.py:361:add_grad"
+   ],
+   [
+    324,
+    "linear",
+    "MatmulDeviceOperation",
+    0.65142,
+    "linear @ tenstorrent.py:6373:_lin <- taped_ttnn.py:881:call"
+   ],
+   [
+    391,
+    "multiply",
+    "BinaryNgDeviceOperation",
+    0.5711959999999999,
+    "multiply @ tenstorrent.py:3947:_fp32_softmax_tail <- taped_ttnn.py:178:bw"
+   ],
+   [
+    292,
+    "add",
+    "BinaryNgDeviceOperation",
+    0.566924,
+    "add @ tenstorrent.py:3937:_fp32_softmax_tail <- taped_ttnn.py:420:impl"
+   ],
+   [
+    282,
+    "add",
+    "BinaryNgDeviceOperation",
+    0.566221,
+    "add @ tenstorrent.py:3937:_fp32_softmax_tail <- taped_ttnn.py:420:impl"
+   ],
+   [
+    214,
+    "add",
+    "BinaryNgDeviceOperation",
+    0.565643,
+    "add @ tenstorrent.py:3937:_fp32_softmax_tail <- taped_ttnn.py:420:impl"
+   ],
+   [
+    272,
+    "add",
+    "BinaryNgDeviceOperation",
+    0.564753,
+    "add @ tenstorrent.py:3937:_fp32_softmax_tail <- taped_ttnn.py:420:impl"
+   ],
+   [
+    204,
+    "add",
+    "BinaryNgDeviceOperation",
+    0.564699,
+    "add @ tenstorrent.py:3937:_fp32_softmax_tail <- taped_ttnn.py:420:impl"
+   ],
+   [
+    562,
+    "multiply",
+    "BinaryNgDeviceOperation",
+    0.564529,
+    "multiply @ tenstorrent.py:3947:_fp32_softmax_tail <- autograd.py:118:softmax_bw_inner"
+   ],
+   [
+    426,
+    "multiply",
+    "BinaryNgDeviceOperation",
+    0.5637639999999999,
+    "multiply @ tenstorrent.py:3947:_fp32_softmax_tail <- taped_ttnn.py:178:bw"
+   ],
+   [
+    386,
+    "multiply",
+    "BinaryNgDeviceOperation",
+    0.563681,
+    "multiply @ tenstorrent.py:3947:_fp32_softmax_tail <- autograd.py:118:softmax_bw_inner"
+   ],
+   [
+    408,
+    "multiply",
+    "BinaryNgDeviceOperation",
+    0.563516,
+    "multiply @ tenstorrent.py:3947:_fp32_softmax_tail <- taped_ttnn.py:178:bw"
+   ],
+   [
+    545,
+    "multiply",
+    "BinaryNgDeviceOperation",
+    0.563368,
+    "multiply @ tenstorrent.py:3947:_fp32_softmax_tail <- autograd.py:118:softmax_bw_inner"
+   ],
+   [
+    567,
+    "multiply",
+    "BinaryNgDeviceOperation",
+    0.5630649999999999,
+    "multiply @ tenstorrent.py:3947:_fp32_softmax_tail <- taped_ttnn.py:178:bw"
+   ],
+   [
+    580,
+    "multiply",
+    "BinaryNgDeviceOperation",
+    0.562653,
+    "multiply @ tenstorrent.py:3947:_fp32_softmax_tail <- autograd.py:118:softmax_bw_inner"
+   ],
+   [
+    403,
+    "multiply",
+    "BinaryNgDeviceOperation",
+    0.562222,
+    "multiply @ tenstorrent.py:3947:_fp32_softmax_tail <- autograd.py:118:softmax_bw_inner"
+   ],
+   [
+    550,
+    "multiply",
+    "BinaryNgDeviceOperation",
+    0.5621999999999999,
+    "multiply @ tenstorrent.py:3947:_fp32_softmax_tail <- taped_ttnn.py:178:bw"
+   ],
+   [
+    224,
+    "add",
+    "BinaryNgDeviceOperation",
+    0.561632,
+    "add @ tenstorrent.py:3937:_fp32_softmax_tail <- taped_ttnn.py:420:impl"
+   ],
+   [
+    421,
+    "multiply",
+    "BinaryNgDeviceOperation",
+    0.561363,
+    "multiply @ tenstorrent.py:3947:_fp32_softmax_tail <- autograd.py:118:softmax_bw_inner"
+   ],
+   [
+    585,
+    "multiply",
+    "BinaryNgDeviceOperation",
+    0.561273,
+    "multiply @ tenstorrent.py:3947:_fp32_softmax_tail <- taped_ttnn.py:178:bw"
+   ],
+   [
+    322,
+    "linear",
+    "MatmulDeviceOperation",
+    0.524262,
+    "linear @ tenstorrent.py:6373:_lin <- taped_ttnn.py:881:call"
+   ],
+   [
+    407,
+    "subtract",
+    "BinaryNgDeviceOperation",
+    0.485027,
+    "subtract @ tenstorrent.py:3947:_fp32_softmax_tail <- taped_ttnn.py:178:bw"
+   ],
+   [
+    425,
+    "subtract",
+    "BinaryNgDeviceOperation",
+    0.484655,
+    "subtract @ tenstorrent.py:3947:_fp32_softmax_tail <- taped_ttnn.py:178:bw"
+   ],
+   [
+    566,
+    "subtract",
+    "BinaryNgDeviceOperation",
+    0.482956,
+    "subtract @ tenstorrent.py:3947:_fp32_softmax_tail <- taped_ttnn.py:178:bw"
+   ],
+   [
+    584,
+    "subtract",
+    "BinaryNgDeviceOperation",
+    0.480039,
+    "subtract @ tenstorrent.py:3947:_fp32_softmax_tail <- taped_ttnn.py:178:bw"
+   ],
+   [
+    390,
+    "subtract",
+    "BinaryNgDeviceOperation",
+    0.479307,
+    "subtract @ tenstorrent.py:3947:_fp32_softmax_tail <- taped_ttnn.py:178:bw"
+   ],
+   [
+    549,
+    "subtract",
+    "BinaryNgDeviceOperation",
+    0.478053,
+    "subtract @ tenstorrent.py:3947:_fp32_softmax_tail <- taped_ttnn.py:178:bw"
+   ],
+   [
+    338,
+    "matmul",
+    "MatmulDeviceOperation",
+    0.47524099999999997,
+    "matmul @ tenstorrent.py:6373:_lin <- autograd.py:1853:<lambda>"
+   ],
+   [
+    205,
+    "softmax",
+    "SoftmaxDeviceOperation",
+    0.44943299999999997,
+    "softmax @ tenstorrent.py:3947:_fp32_softmax_tail <- taped_ttnn.py:171:_v_softmax"
+   ],
+   [
+    293,
+    "softmax",
+    "SoftmaxDeviceOperation",
+    0.44642699999999996,
+    "softmax @ tenstorrent.py:3947:_fp32_softmax_tail <- taped_ttnn.py:171:_v_softmax"
+   ],
+   [
+    283,
+    "softmax",
+    "SoftmaxDeviceOperation",
+    0.446117,
+    "softmax @ tenstorrent.py:3947:_fp32_softmax_tail <- taped_ttnn.py:171:_v_softmax"
+   ],
+   [
+    336,
+    "multiply",
+    "BinaryNgDeviceOperation",
+    0.44520099999999996,
+    "multiply @ tenstorrent.py:6373:_lin <- autograd.py:1041:bw"
+   ],
+   [
+    273,
+    "softmax",
+    "SoftmaxDeviceOperation",
+    0.44431899999999996,
+    "softmax @ tenstorrent.py:3947:_fp32_softmax_tail <- taped_ttnn.py:171:_v_softmax"
+   ],
+   [
+    333,
+    "matmul",
+    "MatmulDeviceOperation",
+    0.443422,
+    "matmul @ tenstorrent.py:6373:_lin <- autograd.py:1853:<lambda>"
+   ],
+   [
+    215,
+    "softmax",
+    "SoftmaxDeviceOperation",
+    0.442641,
+    "softmax @ tenstorrent.py:3947:_fp32_softmax_tail <- taped_ttnn.py:171:_v_softmax"
+   ],
+   [
+    225,
+    "softmax",
+    "SoftmaxDeviceOperation",
+    0.439945,
+    "softmax @ tenstorrent.py:3947:_fp32_softmax_tail <- taped_ttnn.py:171:_v_softmax"
+   ],
+   [
+    410,
+    "multiply",
+    "BinaryNgDeviceOperation",
+    0.43352999999999997,
+    "multiply @ tenstorrent.py:3937:_fp32_softmax_tail <- taped_ttnn.py:434:bw"
+   ],
+   [
+    392,
+    "multiply",
+    "BinaryNgDeviceOperation",
+    0.430926,
+    "multiply @ tenstorrent.py:3937:_fp32_softmax_tail <- taped_ttnn.py:257:<lambda>"
+   ],
+   [
+    393,
+    "multiply",
+    "BinaryNgDeviceOperation",
+    0.42658599999999997,
+    "multiply @ tenstorrent.py:3937:_fp32_softmax_tail <- taped_ttnn.py:434:bw"
+   ],
+   [
+    569,
+    "multiply",
+    "BinaryNgDeviceOperation",
+    0.425153,
+    "multiply @ tenstorrent.py:3937:_fp32_softmax_tail <- taped_ttnn.py:434:bw"
+   ],
+   [
+    409,
+    "multiply",
+    "BinaryNgDeviceOperation",
+    0.42428899999999997,
+    "multiply @ tenstorrent.py:3937:_fp32_softmax_tail <- taped_ttnn.py:257:<lambda>"
+   ],
+   [
+    568,
+    "multiply",
+    "BinaryNgDeviceOperation",
+    0.42399,
+    "multiply @ tenstorrent.py:3937:_fp32_softmax_tail <- taped_ttnn.py:257:<lambda>"
+   ]
+  ]
+ }
+}

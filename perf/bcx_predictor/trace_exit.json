@@ -1,0 +1,172 @@
+{
+ "bucket": 32,
+ "rounds": [
+  {
+   "round": 1,
+   "input_logits_bad": {},
+   "input_logits_absmax": {
+    "binder": 10000.0,
+    "target_hPDL1": 1.0
+   },
+   "design_loss": 7.678012847900391,
+   "design_loss_finite": true,
+   "grad_bad": {},
+   "predictions_bad": {}
+  },
+  {
+   "round": 2,
+   "input_logits_bad": {},
+   "input_logits_absmax": {
+    "binder": 10000.0,
+    "target_hPDL1": 1.0
+   },
+   "design_loss": 6.997222423553467,
+   "design_loss_finite": true,
+   "grad_bad": {},
+   "predictions_bad": {}
+  },
+  {
+   "round": 3,
+   "input_logits_bad": {},
+   "input_logits_absmax": {
+    "binder": 10000.0,
+    "target_hPDL1": 1.0
+   },
+   "design_loss": 6.933119297027588,
+   "design_loss_finite": true,
+   "grad_bad": {},
+   "predictions_bad": {}
+  },
+  {
+   "round": 4,
+   "input_logits_bad": {},
+   "input_logits_absmax": {
+    "binder": 10000.0,
+    "target_hPDL1": 1.0
+   },
+   "design_loss": 6.628544330596924,
+   "design_loss_finite": true,
+   "grad_bad": {},
+   "predictions_bad": {}
+  },
+  {
+   "round": 5,
+   "input_logits_bad": {},
+   "input_logits_absmax": {
+    "binder": 10000.0,
+    "target_hPDL1": 1.0
+   },
+   "design_loss": 6.280557632446289,
+   "design_loss_finite": true,
+   "grad_bad": {
+    "binder": {
+     "nan": 2920,
+     "inf": 0
+    },
+    "target_hPDL1": {
+     "nan": 2300,
+     "inf": 0
+    }
+   },
+   "predictions_bad": {}
+  },
+  {
+   "round": 6,
+   "input_logits_bad": {
+    "binder": {
+     "nan": 2774,
+     "inf": 0
+    }
+   },
+   "input_logits_absmax": {
+    "binder": NaN,
+    "target_hPDL1": 1.0
+   },
+   "design_loss": NaN,
+   "design_loss_finite": false,
+   "grad_bad": {
+    "binder": {
+     "nan": 2920,
+     "inf": 0
+    },
+    "target_hPDL1": {
+     "nan": 2300,
+     "inf": 0
+    }
+   },
+   "predictions_bad": {
+    "hPDL1.metrics.binder_helicity": {
+     "nan": 1,
+     "inf": 0,
+     "size": 1
+    },
+    "hPDL1.metrics.binder_pae": {
+     "nan": 1,
+     "inf": 0,
+     "size": 1
+    },
+    "hPDL1.metrics.compactness": {
+     "nan": 1,
+     "inf": 0,
+     "size": 1
+    },
+    "hPDL1.metrics.distogram": {
+     "nan": 4359744,
+     "inf": 0,
+     "size": 4359744
+    },
+    "hPDL1.metrics.experimentally_resolved_ca": {
+     "nan": 261,
+     "inf": 0,
+     "size": 261
+    },
+    "hPDL1.metrics.interface_pae": {
+     "nan": 1,
+     "inf": 0,
+     "size": 1
+    },
+    "hPDL1.metrics.iptm": {
+     "nan": 1,
+     "inf": 0,
+     "size": 1
+    },
+    "hPDL1.metrics.iptm_loss": {
+     "nan": 1,
+     "inf": 0,
+     "size": 1
+    },
+    "hPDL1.metrics.iptm_per_residue": {
+     "nan": 261,
+     "inf": 0,
+     "size": 261
+    },
+    "hPDL1.metrics.pae": {
+     "nan": 68121,
+     "inf": 0,
+     "size": 68121
+    },
+    "hPDL1.metrics.ptm": {
+     "nan": 1,
+     "inf": 0,
+     "size": 1
+    },
+    "hPDL1.binder.atoms": {
+     "nan": 2190,
+     "inf": 0,
+     "size": 16206
+    },
+    "hPDL1.target_hPDL1.atoms": {
+     "nan": 2763,
+     "inf": 0,
+     "size": 12765
+    }
+   }
+  }
+ ],
+ "device_calls": {
+  "primal": 0,
+  "taped": 12,
+  "backward": 6
+ },
+ "first_bad_round": 5
+}

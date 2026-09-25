@@ -1,0 +1,77 @@
+{
+ "host": "tt-quietbox2",
+ "card": "0",
+ "pci": "0000:01:00.0",
+ "sysfs": "/sys/class/tenstorrent/tenstorrent!0/tt_aiclk",
+ "commit": "c0520f387766e08d5f37a752c1d51f3528f9fdc6",
+ "seed": 100,
+ "rounds_requested": 14,
+ "length_bucket_size": 32,
+ "stage_plan": {
+  "per_stage": {
+   "screen": 50,
+   "refine": 25,
+   "anneal": 45,
+   "harden": 5,
+   "mutate": 15
+  },
+  "gradient_steps": 125,
+  "mutate_steps": 15
+ },
+ "started_utc": "2026-09-24T21:30:05Z",
+ "loadavg_start": [
+  35.18212890625,
+  33.5771484375,
+  33.57421875
+ ],
+ "nproc": 16,
+ "project": "/home/ttuser/.coworker/wt/bcx-round/perf/bcx_round/runs/round_seed100"
+}
+2026-09-24 21:30:06.722 | DEBUG    | ttnn:<module>:77 - Initial ttnn.CONFIG:
+Config{cache_path=/home/ttuser/.cache/ttnn,model_cache_path=/home/ttuser/.cache/ttnn/models,tmp_dir=/tmp/ttnn,enable_model_cache=false,enable_fast_runtime_mode=true,throw_exception_on_fallback=false,enable_logging=false,enable_graph_report=false,enable_detailed_buffer_report=false,enable_detailed_tensor_report=false,enable_comparison_mode=false,comparison_mode_should_raise_exception=false,comparison_mode_pcc=0.9999,root_report_path=generated/ttnn/reports,report_name=std::nullopt,std::nullopt}
+/home/ttuser/.coworker/wt/bcx-round/tt_bio/main.py:48: RuntimeWarning: os.fork() was called. os.fork() is incompatible with multithreaded code, and JAX is multithreaded, so this will likely lead to a deadlock.
+  pid = _os.fork()
+BindCraft 2 (unreleased)
+campaign pdl1
+binder length 60 to 180, drawn per trajectory
+target hPDL1 (target) | 115 residues | hotspots 54,56,66,115
+losses binder_contacts=1.0 binder_helicity=-0.3 binder_pae=0.4 compactness=0.5 interface_contacts=1.0 interface_pae=0.1 iptm_loss=0.05 plddt_loss=0.1
+filters Backbone_Clashes <= 0, Binder_RMSD <= 3.5, Interface_Residues >= 7, Unbound_Binder_pLDDT >= 0.7, i_pAE <= 0.35, i_pTM >= 0.7, pTM >= 0.55
+results /home/ttuser/.coworker/wt/bcx-round/perf/bcx_round/runs/round_seed100 | 3_Ranked/!_Ranked.csv rewritten as each design is accepted | summary.csv written when the campaign ends
+
+=== trajectory 1 | pdl1_denovo_l71_c019673d64134f64 | accepted 0/10 ===
+[tt-quietbox2:3768088] *** Process received signal ***
+[tt-quietbox2:3768088] Signal: Bus error (7)
+[tt-quietbox2:3768088] Signal code: Non-existent physical address (2)
+[tt-quietbox2:3768088] Failing at address: 0x7e5522e13a0a
+[tt-quietbox2:3768088] [ 0] /lib/x86_64-linux-gnu/libc.so.6(+0x45330)[0x7e56c8445330]
+[tt-quietbox2:3768088] [ 1] /home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/ttnn/build/lib/libtt_metal.so(+0x61b363)[0x7e5595c1b363]
+[tt-quietbox2:3768088] [ 2] /home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/ttnn/build/lib/libtt_metal.so(_ZN2tt8tt_metal19SystemMemoryManager17fetch_queue_writeEjhb+0x7d)[0x7e5595c19d8d]
+[tt-quietbox2:3768088] [ 3] /home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/ttnn/build/lib/libtt_metal.so(_ZN2tt8tt_metal15buffer_dispatch38issue_buffer_dispatch_command_sequenceINS1_36InterleavedBufferWriteDispatchParamsEEEvPKvRNS0_6BufferERT_St4spanIKN4ttsl10StrongTypeIhNS0_14SubDeviceIdTagEEELm18446744073709551615EENS_8CoreTypeE+0x21d)[0x7e5595d8265d]
+[tt-quietbox2:3768088] [ 4] /home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/ttnn/build/lib/libtt_metal.so(_ZN2tt8tt_metal15buffer_dispatch34write_interleaved_buffer_to_deviceEPKvRNS1_36InterleavedBufferWriteDispatchParamsERNS0_6BufferERKNS1_23BufferDispatchConstantsESt4spanIKN4ttsl10StrongTypeIhNS0_14SubDeviceIdTagEEELm18446744073709551615EENS_8CoreTypeE+0x12e)[0x7e5595d7c1de]
+[tt-quietbox2:3768088] [ 5] /home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/ttnn/build/lib/libtt_metal.so(_ZN2tt8tt_metal15buffer_dispatch22write_to_device_bufferEPKvRNS0_6BufferEjSt4spanIKjLm18446744073709551615EENS_8CoreTypeES6_IKN4ttsl10StrongTypeIhNS0_14SubDeviceIdTagEEELm18446744073709551615EERKSt10shared_ptrINS0_12experimental12PinnedMemoryEE+0xdd6)[0x7e5595d7d2f6]
+[tt-quietbox2:3768088] [ 6] /home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/ttnn/build/lib/libtt_metal.so(_ZN2tt8tt_metal11distributed18FDMeshCommandQueue21write_shard_to_deviceERKNS1_10MeshBufferERKNS1_14MeshCoordinateEPKvRKSt8optionalINS0_12BufferRegionEESt4spanIKN4ttsl10StrongTypeIhNS0_14SubDeviceIdTagEEELm18446744073709551615EESt10shared_ptrINS0_12experimental12PinnedMemoryEE+0x170)[0x7e5595f06f70]
+[tt-quietbox2:3768088] [ 7] /home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/ttnn/build/lib/libtt_metal.so(+0x91adaf)[0x7e5595f1adaf]
+[tt-quietbox2:3768088] [ 8] /home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/ttnn/build/lib/libtt_metal.so(_ZN2tt8tt_metal11distributed20MeshCommandQueueBase27enqueue_write_shards_nolockERKSt10shared_ptrINS1_10MeshBufferEERKSt6vectorINS1_17ShardDataTransferESaIS9_EEb+0x19f)[0x7e5595efe9df]
+[tt-quietbox2:3768088] [ 9] /home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/ttnn/build/lib/libtt_metal.so(_ZN2tt8tt_metal11distributed20MeshCommandQueueBase13enqueue_writeERKSt10shared_ptrINS1_10MeshBufferEERKNS0_21DistributedHostBufferEb+0x6cb)[0x7e5595eff54b]
+[tt-quietbox2:3768088] [10] /home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/ttnn/build/lib/_ttnncpp.so(_ZN2tt8tt_metal11tensor_impl21to_device_mesh_bufferERKNS0_11HostStorageERKSt10shared_ptrINS0_11distributed10MeshBufferEERKNS0_10TensorSpecERKNS0_14TensorTopologyESt8optionalIN4ttsl10StrongTypeIhNS0_10QueueIdTagEEEE+0x347)[0x7e5596e4ef47]
+[tt-quietbox2:3768088] [11] /home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/ttnn/build/lib/_ttnncpp.so(_ZN2tt8tt_metal11tensor_impl9to_deviceERKNS0_6TensorEPNS0_11distributed10MeshDeviceEN4ttsl18optional_referenceIKNS0_12MemoryConfigEEESt8optionalINS8_10StrongTypeIhNS0_10QueueIdTagEEEE+0x3c6)[0x7e5596e4fda6]
+[tt-quietbox2:3768088] [12] /home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/ttnn/build/lib/_ttnncpp.so(_ZN2tt8tt_metal9to_deviceERKNS0_6TensorEPNS0_11distributed10MeshDeviceEN4ttsl18optional_referenceIKNS0_12MemoryConfigEEESt8optionalINS7_10StrongTypeIhNS0_10QueueIdTagEEEE+0xe4)[0x7e5596e42ff4]
+[tt-quietbox2:3768088] [13] /home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/ttnn/build/lib/_ttnncpp.so(_ZNK2tt8tt_metal6Tensor9to_deviceEPNS0_11distributed10MeshDeviceEN4ttsl18optional_referenceIKNS0_12MemoryConfigEEESt8optionalINS5_10StrongTypeIhNS0_10QueueIdTagEEEE+0x9)[0x7e5596e40289]
+[tt-quietbox2:3768088] [14] /home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/ttnn/build/lib/_ttnncpp.so(_ZN4ttnn15creation_detail9full_implI8bfloat16EEN2tt8tt_metal6TensorERKNS4_5ShapeET_NS4_6LayoutEPNS4_11distributed10MeshDeviceERKNS4_12MemoryConfigESt8optionalIS5_E+0x4bf)[0x7e5597078eef]
+[tt-quietbox2:3768088] [15] /home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/ttnn/build/lib/_ttnncpp.so(_ZN4ttnn9full_implIfEEN2tt8tt_metal6TensorERKNS2_5ShapeET_RKSt8optionalINS2_8DataTypeEERKS8_INS2_6LayoutEEPNS2_11distributed10MeshDeviceERKS8_INS2_12MemoryConfigEES8_IS3_E+0x517)[0x7e55970796a7]
+[tt-quietbox2:3768088] [16] /home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/ttnn/build/lib/_ttnncpp.so(_ZN4ttnn5zerosERKN2tt8tt_metal5ShapeERKSt8optionalINS1_8DataTypeEERKS5_INS1_6LayoutEES5_ISt17reference_wrapperINS1_11distributed10MeshDeviceEEERKS5_INS1_12MemoryConfigEE+0x34)[0x7e55970740d4]
+[tt-quietbox2:3768088] [17] /home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/ttnn/_ttnn.cpython-312-x86_64-linux-gnu.so(+0x62d10e)[0x7e559da2d10e]
+[tt-quietbox2:3768088] [18] /home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/ttnn/_ttnn.cpython-312-x86_64-linux-gnu.so(+0x62d5f7)[0x7e559da2d5f7]
+[tt-quietbox2:3768088] [19] /home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/ttnn/_ttnn.cpython-312-x86_64-linux-gnu.so(+0x26daa5)[0x7e559d66daa5]
+[tt-quietbox2:3768088] [20] /home/ttuser/bcx_e2e_venv/bin/python(_PyObject_Call_Prepend+0x3ab)[0x54aaeb]
+[tt-quietbox2:3768088] [21] /home/ttuser/bcx_e2e_venv/bin/python[0x5a3778]
+[tt-quietbox2:3768088] [22] /home/ttuser/bcx_e2e_venv/bin/python(PyObject_Call+0x6c)[0x54b12c]
+[tt-quietbox2:3768088] [23] /home/ttuser/bcx_e2e_venv/bin/python(_PyEval_EvalFrameDefault+0x4cbe)[0x5db2ee]
+[tt-quietbox2:3768088] [24] /home/ttuser/bcx_e2e_venv/bin/python(_PyObject_Call_Prepend+0x18a)[0x54a8ca]
+[tt-quietbox2:3768088] [25] /home/ttuser/bcx_e2e_venv/bin/python[0x5a3778]
+[tt-quietbox2:3768088] [26] /home/ttuser/bcx_e2e_venv/bin/python(_PyObject_MakeTpCall+0x13e)[0x54907e]
+[tt-quietbox2:3768088] [27] /home/ttuser/bcx_e2e_venv/bin/python(_PyEval_EvalFrameDefault+0xadf)[0x5d710f]
+[tt-quietbox2:3768088] [28] /home/ttuser/bcx_e2e_venv/bin/python[0x54caed]
+[tt-quietbox2:3768088] [29] /home/ttuser/bcx_e2e_venv/bin/python(_PyEval_EvalFrameDefault+0x4cbe)[0x5db2ee]
+[tt-quietbox2:3768088] *** End of error message ***

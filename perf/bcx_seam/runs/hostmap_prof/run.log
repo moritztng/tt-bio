@@ -1,0 +1,80 @@
+{
+ "host": "tt-quietbox2",
+ "card": "3",
+ "pci": "0000:04:00.0",
+ "sysfs": "/sys/class/tenstorrent/tenstorrent!3/tt_aiclk",
+ "commit": "7605a26012f4d63ae67ff4fd144eb94b396e5958",
+ "seed": 100,
+ "rounds_requested": 7,
+ "boost": -15,
+ "profile": [
+  4,
+  5
+ ],
+ "xla_flags": "--xla_gpu_enable_triton_gemm=false --xla_dump_to=/home/ttuser/.coworker/wt/bcx-seam/perf/bcx_seam/runs/hostmap_prof/hlo --xla_dump_hlo_as_text --xla_dump_hlo_module_re=.*sequence_design_loss.*",
+ "omp": "6",
+ "length_bucket_size": 32,
+ "started_utc": "2026-09-24T22:54:54Z",
+ "loadavg_start": [
+  41.775390625,
+  44.02880859375,
+  46.58984375
+ ],
+ "nproc": 16,
+ "project": "/home/ttuser/.coworker/wt/bcx-seam/perf/bcx_seam/runs/hostmap_prof"
+}
+2026-09-24 22:54:55.265 | DEBUG    | ttnn:<module>:77 - Initial ttnn.CONFIG:
+Config{cache_path=/home/ttuser/.cache/ttnn,model_cache_path=/home/ttuser/.cache/ttnn/models,tmp_dir=/tmp/ttnn,enable_model_cache=false,enable_fast_runtime_mode=true,throw_exception_on_fallback=false,enable_logging=false,enable_graph_report=false,enable_detailed_buffer_report=false,enable_detailed_tensor_report=false,enable_comparison_mode=false,comparison_mode_should_raise_exception=false,comparison_mode_pcc=0.9999,root_report_path=generated/ttnn/reports,report_name=std::nullopt,std::nullopt}
+/home/ttuser/.coworker/wt/bcx-seam/tt_bio/main.py:48: RuntimeWarning: os.fork() was called. os.fork() is incompatible with multithreaded code, and JAX is multithreaded, so this will likely lead to a deadlock.
+  pid = _os.fork()
+BindCraft 2 (unreleased)
+campaign pdl1
+binder length 60 to 180, drawn per trajectory
+target hPDL1 (target) | 115 residues | hotspots 54,56,66,115
+losses binder_contacts=1.0 binder_helicity=-0.3 binder_pae=0.4 compactness=0.5 interface_contacts=1.0 interface_pae=0.1 iptm_loss=0.05 plddt_loss=0.1
+filters Backbone_Clashes <= 0, Binder_RMSD <= 3.5, Interface_Residues >= 7, Unbound_Binder_pLDDT >= 0.7, i_pAE <= 0.35, i_pTM >= 0.7, pTM >= 0.55
+results /home/ttuser/.coworker/wt/bcx-seam/perf/bcx_seam/runs/hostmap_prof | 3_Ranked/!_Ranked.csv rewritten as each design is accepted | summary.csv written when the campaign ends
+
+=== trajectory 1 | pdl1_denovo_l71_c019673d64134f64 | accepted 0/10 ===
+{
+ "host": "tt-quietbox2",
+ "card": "3",
+ "pci": "0000:04:00.0",
+ "sysfs": "/sys/class/tenstorrent/tenstorrent!3/tt_aiclk",
+ "commit": "7605a26012f4d63ae67ff4fd144eb94b396e5958",
+ "seed": 100,
+ "rounds_requested": 7,
+ "boost": -15,
+ "profile": [
+  4,
+  5
+ ],
+ "xla_flags": "--xla_gpu_enable_triton_gemm=false --xla_dump_to=/home/ttuser/.coworker/wt/bcx-seam/perf/bcx_seam/runs/hostmap_prof/hlo --xla_dump_hlo_as_text --xla_dump_hlo_module_re=.*sequence_design_loss.*",
+ "omp": "6",
+ "length_bucket_size": 32,
+ "started_utc": "2026-09-24T22:54:54Z",
+ "loadavg_start": [
+  41.775390625,
+  44.02880859375,
+  46.58984375
+ ],
+ "nproc": 16,
+ "project": "/home/ttuser/.coworker/wt/bcx-seam/perf/bcx_seam/runs/hostmap_prof",
+ "wall_seconds": 312.21,
+ "stopped": "7 rounds collected",
+ "device_calls": {
+  "primal": 0,
+  "taped": 12,
+  "backward": 6
+ },
+ "loadavg_end": [
+  51.87451171875,
+  50.48193359375,
+  48.857421875
+ ],
+ "finished_utc": "2026-09-24T23:01:46Z",
+ "traces": [
+  "/home/ttuser/.coworker/wt/bcx-seam/perf/bcx_seam/runs/hostmap_prof/trace/plugins/profile/2026_09_24_23_00_25/tt-quietbox2.xplane.pb"
+ ]
+}
+events -> /home/ttuser/.coworker/wt/bcx-seam/perf/bcx_seam/runs/hostmap_prof/round_events.json

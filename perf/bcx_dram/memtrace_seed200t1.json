@@ -1,0 +1,116 @@
+{
+ "seed": 200,
+ "binder": 176,
+ "n_complex": 291,
+ "n_padded": 307,
+ "bucket": 32,
+ "steps_requested": 30,
+ "base_dram_bytes": 235208704,
+ "gc_probe": false,
+ "stage": "screen",
+ "stage_iterations": 50,
+ "error": "ValueError: INTERNAL: CpuCallback error calling callback: Traceback (most recent call last):\n  File \"/home/ttuser/bcx_e2e_venv/lib/python3.12/site-packages/jax/_src/callback.py\", line 816, in _wrapped_callback\n  File \"/home/ttuser/bcx_e2e_venv/lib/python3.12/site-packages/jax/_src/callback.py\", line 226, in _callback\n  File \"/home/ttuser/bcx_e2e_venv/lib/python3.12/site-packages/jax/_src/callback.py\", line 96, in pure_callback_impl\n  File \"/home/ttuser/bcx_e2e_venv/lib/python3.12/site-packages/jax/_src/callback.py\", line 71, in __call__\n  File \"/home/ttuser/.coworker/wt/bcx-dram/perf/bcx_dram/memtrace.py\", line 126, in backward\n  File \"/home/ttuser/.coworker/wt/bcx-dram/perf/bcx_predictor/splice.py\", line 195, in _backward\n  File \"/home/ttuser/.coworker/wt/bcx-dram/tt_bio/autograd.py\", line 408, in backward\n  File \"/home/ttuser/.coworker/wt/bcx-dram/tt_bio/autograd.py\", line 1458, in fire\n  File \"/home/ttuser/.coworker/wt/bcx-dram/tt_bio/autograd.py\", line 1419, in _recompute\n  File \"/home/ttuser/.coworker/wt/bcx-dram/tt_bio/autograd.py\", line 397, in backward\n  File \"/home/ttuser/.coworker/wt/bcx-dram/tt_bio/taped_ttnn.py\", line 438, in bw\n  File \"/home/ttuser/.coworker/wt/bcx-dram/tt_bio/autograd.py\", line 677, in _reduce_to\n  File \"/home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/ttnn/decorators.py\", line 483, in __call__\nRuntimeError: TT_FATAL @ /project/tt_metal/impl/allocator/bank_manager.cpp:439: false\ninfo:\nOut of Memory: Not enough space to allocate 524288000 B DRAM buffer across 8 banks, where each bank needs to store 65536000 B, but bank size is 4278190016 B (allocated: 4015427776 B, free: 262762240 B, largest free block: 56524800 B)\nbacktrace:\n --- /home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/ttnn/build/lib/libtt_metal.so(+0x6d2697) [0x726b318d2697]\n --- tt::tt_metal::BankManager::allocate_buffer(unsigned long, unsigned long, bool, tt::tt_metal::CoreRangeSet const&, std::optional<unsigned int>, ttsl::StrongType<unsigned int, tt::tt_metal::AllocatorIDTag>)\n --- tt::tt_metal::AllocatorImpl::allocate_buffer(tt::tt_metal::Buffer*)\n --- tt::tt_metal::Buffer::allocate_impl()\n --- tt::tt_metal::Buffer::create(tt::tt_metal::IDevice*, unsigned long, unsigned long, tt::tt_metal::BufferType, tt::tt_metal::BufferShardingArgs const&, std::optional<bool>, std::optional<ttsl::StrongType<unsigned char, tt::tt_metal::SubDeviceIdTag> >)\n --- tt::tt_metal::distributed::MeshBuffer::create(std::variant<tt::tt_metal::distributed::ReplicatedBufferConfig, tt::tt_metal::distributed::ShardedBufferConfig> const&, tt::tt_metal::distributed::DeviceLocalBufferConfig const&, tt::tt_metal::distributed::MeshDevice*, std::optional<unsigned long>)\n --- tt::tt_metal::tensor_impl::allocate_device_buffer(tt::tt_metal::distributed::MeshDevice*, tt::tt_metal::TensorSpec const&)\n --- tt::tt_metal::create_device_tensor(tt::tt_metal::TensorSpec const&, tt::tt_metal::IDevice*)\n --- ttnn::operations::data_movement::PermuteDeviceOperation::create_output_tensors(ttnn::operations::data_movement::PermuteDeviceOperation::operation_attributes_t const&, ttnn::operations::data_movement::PermuteDeviceOperation::tensor_args_t const&)\n --- /home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/ttnn/build/lib/_ttnncpp.so(_ZN4ttnn16device_operation6detail6launchITkNS0_22DeviceOperationConceptENS_10operations13data_movement22PermuteDeviceOperationEEENT_21tensor_return_value_tERKNS6_22operation_attributes_tERKNS6_13tensor_args_tE+0x146) [0x726b32df09a6]\n --- ttnn::prim::permute(tt::tt_metal::Tensor const&, ttsl::SmallVector<unsigned int, 8ul> const&, std::optional<tt::tt_metal::MemoryConfig> const&, std::optional<tt::tt_metal::Tensor>, float)\n --- /home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/ttnn/build/lib/_ttnncpp.so(+0x9bf7e8) [0x726b32dbf7e8]\n --- ttnn::operations::data_movement::detail::permute_impl(tt::tt_metal::Tensor const&, ttsl::SmallVector<unsigned int, 8ul> const&, std::optional<tt::tt_metal::MemoryConfig> const&, float)\n --- ttnn::permute(tt::tt_metal::Tensor const&, ttsl::SmallVector<long, 8ul> const&, std::optional<tt::tt_metal::MemoryConfig> const&, float)\n --- /home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/ttnn/build/lib/_ttnncpp.so(+0x8e487d) [0x726b32ce487d]\n --- ttnn::operations::data_movement::transpose::transpose_impl(tt::tt_metal::Tensor const&, long, long, std::optional<tt::tt_metal::MemoryConfig> const&, float)\n --- ttnn::transpose(tt::tt_metal::Tensor const&, long, long, std::optional<tt::tt_metal::MemoryConfig> const&, float)\n --- /home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/ttnn/build/lib/_ttnncpp.so(+0x113016e) [0x726b3353016e]\n --- tt::tt_metal::Tensor ttnn::operations::reduction::reduce<(reduction_common::ReduceType)0>(tt::tt_metal::Tensor const&, std::optional<std::variant<int, long, ttsl::SmallVector<int, 8ul> > > const&, bool, std::optional<tt::tt_metal::MemoryConfig> const&, std::optional<ttnn::ComputeKernelConfig> const&, float, bool, std::optional<tt::tt_metal::CoreRangeSet> const&)\n --- ttnn::sum(tt::tt_metal::Tensor const&, std::optional<std::variant<int, long, ttsl::SmallVector<int, 8ul> > > const&, bool, std::optional<tt::tt_metal::MemoryConfig> const&, std::optional<ttnn::ComputeKernelConfig> const&, float, bool, std::optional<tt::tt_metal::CoreRangeSet> const&)\n --- /home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/ttnn/_ttnn.cpython-312-x86_64-linux-gnu.so(+0x37ef36) [0x726b33f7ef36]\n --- /home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/ttnn/_ttnn.cpython-312-x86_64-linux-gnu.so(+0x26daa5) [0x726b33e6daa5]\n --- /home/ttuser/bcx_e2e_venv/bin/python(_PyObject_Call_Prepend+0x3ab) [0x54aaeb]\n --- /home/ttuser/bcx_e2e_venv/bin/python() [0x5a3778]\n --- /home/ttuser/bcx_e2e_venv/bin/python(PyObject_Call+0x6c) [0x54b12c]\n --- /home/ttuser/bcx_e2e_venv/bin/python(_PyEval_EvalFrameDefault+0x4cbe) [0x5db2ee]\n --- /home/ttuser/bcx_e2e_venv/bin/python(_PyObject_Call_Prepend+0x18a) [0x54a8ca]\n --- /home/ttuser/bcx_e2e_venv/bin/python() [0x5a3778]\n --- /home/ttuser/bcx_e2e_venv/bin/python(_PyObject_MakeTpCall+0x13e) [0x54907e]\n --- /home/ttuser/bcx_e2e_venv/bin/python(_PyEval_EvalFrameDefault+0xadf) [0x5d710f]\n --- /home/ttuser/bcx_e2e_venv/bin/python() [0x54caed]\n --- /home/ttuser/bcx_e2e_venv/bin/python(_PyEval_EvalFrameDefault+0x4cbe) [0x5db2ee]\n --- /home/ttuser/bcx_e2e_venv/bin/python(_PyObject_Call_Prepend+0xc2) [0x54a802]\n --- /home/ttuser/bcx_e2e_venv/bin/python() [0x5a3778]\n --- /home/ttuser/bcx_e2e_venv/bin/python(PyObject_Call+0x6c) [0x54b12c]\n --- /home/ttuser/bcx_e2e_venv/bin/python(_PyEval_EvalFrameDefault+0x4cbe) [0x5db2ee]\n --- /home/ttuser/bcx_e2e_venv/bin/python(PyObject_Vectorcall+0x35) [0x5499b5]\n --- /home/ttuser/bcx_e2e_venv/lib/python3.12/site-packages/jaxlib/libjax_common.so(+0x3aad4e1) [0x726b3a78d4e1]\n --- /home/ttuser/bcx_e2e_venv/lib/python3.12/site-packages/jaxlib/libjax_common.so(+0x3a68dc2) [0x726b3a748dc2]\n --- /home/ttuser/bcx_e2e_venv/lib/python3.12/site-packages/jaxlib/libjax_common.so(+0x3a70c68) [0x726b3a750c68]\n --- /home/ttuser/bcx_e2e_venv/lib/python3.12/site-packages/jaxlib/libjax_common.so(+0x3a6aae9) [0x726b3a74aae9]\n --- /home/ttuser/bcx_e2e_venv/lib/python3.12/site-packages/jaxlib/libjax_common.so(+0x3db6e3c) [0x726b3aa96e3c]\n --- /home/ttuser/bcx_e2e_venv/lib/python3.12/site-packages/jaxlib/libjax_common.so(+0x3db7021) [0x726b3aa97021]\n --- /home/ttuser/bcx_e2e_venv/lib/python3.12/site-packages/jaxlib/libjax_common.so(+0x8f2c3d3) [0x726b3fc0c3d3]\n --- /home/ttuser/bcx_e2e_venv/lib/python3.12/site-packages/jaxlib/libjax_common.so(+0x8f2ba3e) [0x726b3fc0ba3e]\n --- /home/ttuser/bcx_e2e_venv/lib/python3.12/site-packages/jaxlib/libjax_common.so(+0xde1e94b) [0x726b44afe94b]\n --- /home/ttuser/bcx_e2e_venv/lib/python3.12/site-packages/jaxlib/libjax_common.so(+0xde21f1f) [0x726b44b01f1f]\n --- /home/ttuser/bcx_e2e_venv/lib/python3.12/site-packages/jaxlib/libjax_common.so(+0xde23a06) [0x726b44b03a06]\n --- /home/ttuser/bcx_e2e_venv/lib/python3.12/site-packages/jaxlib/libjax_common.so(+0xde24873) [0x726b44b04873]\n --- /home/ttuser/bcx_e2e_venv/lib/python3.12/site-packages/jaxlib/libjax_common.so(+0x80d7d7a) [0x726b3edb7d7a]\n --- /home/ttuser/bcx_e2e_venv/lib/python3.12/site-packages/jaxlib/libjax_common.so(+0x95d959c) [0x726b402b959c]\n --- /home/ttuser/bcx_e2e_venv/lib/python3.12/site-packages/jaxlib/libjax_common.so(+0x95d9cf2) [0x726b402b9cf2]\n --- /home/ttuser/bcx_e2e_venv/lib/python3.12/site-packages/jaxlib/libjax_common.so(+0x78ce044) [0x726b3e5ae044]\n --- /home/ttuser/bcx_e2e_venv/lib/python3.12/site-packages/jaxlib/libjax_common.so(+0x78cded1) [0x726b3e5aded1]\n --- /home/ttuser/bcx_e2e_venv/lib/python3.12/site-packages/jaxlib/libjax_common.so(+0x78bd28f) [0x726b3e59d28f]\n --- /lib/x86_64-linux-gnu/libc.so.6(+0x9cb84) [0x726b7129cb84]\n --- /lib/x86_64-linux-gnu/libc.so.6(+0x129ecc) [0x726b71329ecc]\n",
+ "rows": [
+  {
+   "step": 1,
+   "seconds": 204.683,
+   "span": [
+    1790276833.9857666,
+    1790277038.668295
+   ],
+   "design_loss": 10.529776573181152,
+   "dram_before_gb": 0.2191,
+   "dram_peak_fwd_gb": 2.6561,
+   "dram_peak_bwd_gb": 5.3578,
+   "dram_after_gb": 5.3578,
+   "live_tapes": 0,
+   "ckpt_pins": 0,
+   "calls": {
+    "primal": 0,
+    "taped": 2,
+    "backward": 1
+   },
+   "rss_gb": 10.175,
+   "ag_tensor": 4761,
+   "ag_node": 0,
+   "ttnn_tensor": 0
+  },
+  {
+   "step": 2,
+   "seconds": 121.872,
+   "span": [
+    1790277041.0152519,
+    1790277162.8868985
+   ],
+   "design_loss": 9.190805435180664,
+   "dram_before_gb": 5.3578,
+   "dram_peak_fwd_gb": 7.4057,
+   "dram_peak_bwd_gb": 10.1039,
+   "dram_after_gb": 10.1039,
+   "live_tapes": 0,
+   "ckpt_pins": 0,
+   "calls": {
+    "primal": 0,
+    "taped": 4,
+    "backward": 2
+   },
+   "rss_gb": 10.3,
+   "ag_tensor": 5153,
+   "ag_node": 0,
+   "ttnn_tensor": 0
+  },
+  {
+   "step": 3,
+   "seconds": 121.256,
+   "span": [
+    1790277163.3592355,
+    1790277284.6149795
+   ],
+   "design_loss": 8.372480392456055,
+   "dram_before_gb": 10.1039,
+   "dram_peak_fwd_gb": 12.1518,
+   "dram_peak_bwd_gb": 14.8499,
+   "dram_after_gb": 14.8499,
+   "live_tapes": 0,
+   "ckpt_pins": 0,
+   "calls": {
+    "primal": 0,
+    "taped": 6,
+    "backward": 3
+   },
+   "rss_gb": 10.342,
+   "ag_tensor": 5549,
+   "ag_node": 0,
+   "ttnn_tensor": 0
+  }
+ ],
+ "device_calls": {
+  "primal": 0,
+  "taped": 8,
+  "backward": 3
+ },
+ "aiclk": {
+  "n": 1656,
+  "min": 1312,
+  "median": 1350,
+  "max": 1350
+ },
+ "stamp": {
+  "host": "tt-quietbox2",
+  "card": 2,
+  "subsystem_device": "0x0046",
+  "commit": "3015082e9ca1495ead353845838994099c9dc189",
+  "tt_bio_dirty": true,
+  "torch_threads": 8,
+  "loadavg": [
+   56.3544921875,
+   56.03466796875,
+   57.77978515625
+  ],
+  "utc": "2026-09-24T19:15:18Z"
+ },
+ "resident_first_gb": 5.3578,
+ "resident_last_gb": 14.8499,
+ "resident_rise_gb": 9.4921,
+ "peak_max_gb": 14.8499
+}

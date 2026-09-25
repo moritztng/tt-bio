@@ -788,9 +788,11 @@ def _v_create_qkv_heads(shipped, args, kwargs):
                 # One zero tensor for both empty slots, then one concat. `ttnn.pad` would be
                 # the single-allocation form and cannot be used: it refuses front padding
                 # (`pad.cpp:278 front_padding_is_zero`), so slots 1 and 2 have no pad
-                # expression.
-                zero = ttnn.zeros([B, 1, L, H * dh], dtype=rows.dtype,
-                                  layout=ttnn.TILE_LAYOUT, device=rows.device())
+                # expression. The packed width is 2,415,919,104 B at a 384-token pair track,
+                # which is why this op is where the backward runs out of card.
+                zero = (ttnn.zeros_like(rows) if ag.DEVICE_ZEROS else
+                        ttnn.zeros([B, 1, L, H * dh], dtype=rows.dtype,
+                                   layout=ttnn.TILE_LAYOUT, device=rows.device()))
                 parts = [rows if i == s else zero for i in range(3)]
                 x.add_grad(ttnn.concat(parts, dim=-1))
             return bw
@@ -1037,8 +1039,7 @@ def _v_sum(shipped, args, kwargs):
                 kept = list(shape)
                 kept[ax] = 1
                 g = ttnn.reshape(g, kept)
-            x.add_grad(ttnn.add(ttnn.zeros(shape, dtype=g.dtype, layout=ttnn.TILE_LAYOUT,
-                                           device=g.device()), g))
+            x.add_grad(ttnn.add(ag.grad_zeros(shape, g.dtype, g.device()), g))
         return bw
 
     return _tape(out_v, [x], make)

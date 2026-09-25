@@ -231,6 +231,12 @@ SAMPLING_STEPS_BY_MODEL = {"rf3": 50}
 # block-fp8 trunk path (bf8 weights + bf8 matmul output) that ships under --fast.
 # Defaults off: the standing floors below were calibrated for full precision.
 FAST = False
+# When set (via --host-threads), every fold's host thread pools are capped to this many threads
+# (tt_bio.runtime.host_thread_cap_env, the share `serve` hands each worker). None leaves each
+# fold its default of every core, which is right for one fold on an idle box and wrong on a
+# Galaxy running one fold per chip: whglx sat at 11x nproc with 200-320 threads per fold. A
+# fold's host-side work scales with the cap, so it is part of a timing's identity.
+HOST_THREADS = None
 # When set (via --diffusion_trace), fold boltz2 with the per-step DiT trace
 # replay on (lossless; reserves a trace region). boltz2 only — other fold
 # models do not wire diffusion_trace through. Defaults off.
@@ -689,13 +695,8 @@ CAPACITY_LEGS = [
 # pin the grid either, because harvesting means one board type presents several.
 # So each model's block records the grid its census ran on and the check REFUSES
 # a cross-grid comparison outright instead of reporting levers as newly dark.
-SIZE_LADDER_MODELS = ("boltz2", "esmfold2", "protenix-v1", "protenix-v2", "openfold3",
-                      "opendde", "rf3", "nesso1", "openbind")
-# Every foldable model is either on the ladder above or carries a written reason here.
-# The tuple used to be hand-typed with nothing checking it, so a newly registered model
-# was silently absent from the arm that exists to catch size-specific tuning -- the same
-# defect shape as perf_regression.py's SPECS coverage assert, which is why this mirrors it.
-# A reason is not a pass: it records what the arm does NOT cover, so the gap is readable.
+# Every foldable model is on the ladder unless it carries a written reason here. A reason is
+# not a pass: it records what the arm does NOT cover, so the gap is readable.
 SIZE_LADDER_EXEMPT = {
     "esmfold2-fast": "The lighter ESMFold2 checkpoint. esmfold2 is on the ladder and the "
                      "two share every size-dependent path; adding a second rung set costs "
@@ -705,6 +706,11 @@ SIZE_LADDER_EXEMPT = {
                      "and opendde-abag differs only in load_opendde_checkpoint's abag flag. "
                      "Its independent perf coverage is perf_regression.py's own SPECS cell, "
                      "added after a 60x regression shipped behind that same reasoning.",
+    "af2ig":         "Re-predicts a complex you already designed, so its input is a target "
+                     "structure plus the binder's backbone and sequence, and the arm's cdk2x2 "
+                     "chain list is refused by its reader at every rung. Its perf cell is "
+                     "perf_regression.py's own af2ig SPECS entry on the committed example; a "
+                     "ladder needs a designed complex walked up in size, a fixture of its own.",
 }
 # A model ON the ladder (SIZE_LADDER_MODELS, not SIZE_LADDER_EXEMPT) can still ship with no
 # recorded rungs on a given card because the hardware to record them was unavailable, not
@@ -733,6 +739,12 @@ SIZE_LADDER_EXEMPT.update({
         ("saprot-1.3b", "structure-aware embeddings, no fold path"),
     )
 })
+# The ladder is every predict and affinity model not exempted above, read off tt_bio.main's own
+# tuples. It used to be a hand-typed tuple checked after the fact by _size_ladder_coverage_gap,
+# so a model registered later reached the arm only once somebody retyped it; derived, it is on
+# the ladder the moment it is on the CLI.
+from tt_bio.main import AFFINITY_MODELS as _AFFINITY, PREDICT_MODELS as _PREDICT  # noqa: E402
+SIZE_LADDER_MODELS = tuple(m for m in _PREDICT + _AFFINITY if m not in SIZE_LADDER_EXEMPT)
 SIZE_LADDER_RUNGS = tuple(int(x) for x in
                           os.environ.get("RELEASE_GATE_SIZE_RUNGS",
                                          "256,512,640,768,896,1024").split(",")
@@ -769,10 +781,17 @@ SIZE_LADDER_EXTRA_RUNGS = {"rf3": (1088,)}
 #
 # Per CARD rather than raised for everyone, for the same reason SIZE_LADDER_EXTRA_RUNGS is
 # per model: a rung in the shared list makes the check demand a baseline cell on every board,
-# and nobody has recorded 1152-1536 on Wormhole or on p300c. The key is the board type
+# and nobody has recorded above 1024 on p300c. The key is the board type
 # _size_ladder_card_type() returns, so a check and a record pass on one board always agree on
 # which ladder they are talking about.
-SIZE_LADDER_CARD_RUNGS = {"p150a": (1152, 1280, 1408, 1536)}
+#
+# The Wormhole Galaxy is held to the same 1536 bar (Moritz, 2026-09-23: structure prediction
+# "definetly up to 1536") on 12 GiB chips, where the naive pair path runs out between roughly
+# 850 and 1100 residues (docs/large-targets.md). Two rungs rather than four: 1536 is the bar,
+# and 1280 is what says where a model that folds 1024 but not 1536 stops. Every other board
+# pays for them only if it adds them here.
+SIZE_LADDER_CARD_RUNGS = {"p150a": (1152, 1280, 1408, 1536),
+                          "tt-galaxy-wh-l": (1280, 1536)}
 # Every rung any board's ladder walks. This is the `rungs` key in the shared json, which
 # ~/.coworker/coverage_sweep.py reads as "the top of the ladder". The union and not this
 # board's own set: a p300c record pass writing 1024 over a p150a pass's 1536 would flip the
@@ -1542,7 +1561,7 @@ def _repo_dirty() -> bool:
         return True   # cannot prove it is clean, so it is not resumable
 
 
-def _run_key(fast: bool, diffusion_trace: bool) -> dict:
+def _run_key(fast: bool, diffusion_trace: bool, host_threads: int | None = None) -> dict:
     """Everything that changes what an arm would score. See gate_journal.KEY_FIELDS."""
     try:
         card_type = _size_ladder_card_type()
@@ -1555,7 +1574,8 @@ def _run_key(fast: bool, diffusion_trace: bool) -> dict:
         package = "unknown"
     return {"commit": _repo_commit(), "dirty": _repo_dirty(), "host": socket.gethostname(),
             "card_type": card_type, "fast": bool(fast),
-            "diffusion_trace": bool(diffusion_trace), "package": package}
+            "diffusion_trace": bool(diffusion_trace), "host_threads": host_threads,
+            "package": package}
 
 
 def _resume_plan(journal: Path, key: dict, models: list):
@@ -2751,6 +2771,7 @@ class _NoClock:
     """Stands in for the sampler when it cannot run, so the caller has nothing to sample
     rather than a clock nobody read."""
     clocks: dict = {}
+    load: list = []
 
     def __enter__(self):
         return self
@@ -2863,6 +2884,19 @@ def _aiclk_cell(clk) -> dict | None:
             "n": len(xs)}
 
 
+def _load_cell(clk) -> dict:
+    """The host's 1-min loadavg / nproc over the fold, sampled beside the clock.
+
+    whglx ran at 8.5x nproc while the MGX rows re-recorded it, and nesso1's five reps at 256 aa
+    read 10.5 to 89.9 s there: the scheduler, not the engine. The lever census is load-blind and
+    stays valid; runtime_s is not, and the speed bar voids any comparison holding a rung above
+    gate_guard.DEFAULT_LOAD_CEILING. A fold shorter than one sampling period gets the value at
+    its end, so no cell is ever recorded without one.
+    """
+    xs = sorted(getattr(clk, "load", None) or [os.getloadavg()[0] / (os.cpu_count() or 1)])
+    return {"max": round(xs[-1], 2), "median": round(xs[len(xs) // 2], 2), "n": len(xs)}
+
+
 def _run_census_fold(model: str, rung: int, workdir: Path, tag: str,
                      need_runtime: bool = True) -> dict:
     """One lever-census-wrapped fold of the cdk2x2_<rung> fixture. Returns
@@ -2921,12 +2955,18 @@ def _run_census_fold(model: str, rung: int, workdir: Path, tag: str,
             "--seed", str(SEED),
             "--out_dir", str(out_dir),
         ]
+    env = None
+    if HOST_THREADS:
+        # Through the environment, not --host_threads: `affinity` and most `design` models have
+        # no such option, and every CLI's own cap fills in only what the environment left unset.
+        from tt_bio import runtime
+        env = {**os.environ, **runtime.host_thread_cap_env(1, HOST_THREADS)}
     t0 = time.monotonic()
     with open(log, "w") as fp, _clock_during() as clk:
-        rc, timed_out = _run_fold(cmd, FOLD_TIMEOUT_S, cwd=REPO_ROOT,
+        rc, timed_out = _run_fold(cmd, FOLD_TIMEOUT_S, cwd=REPO_ROOT, env=env,
                                   stdout=fp, stderr=subprocess.STDOUT)
     wall = time.monotonic() - t0
-    aiclk = _aiclk_cell(clk)
+    aiclk, load = _aiclk_cell(clk), _load_cell(clk)
     if timed_out:
         return {"error": f"census fold timed out after {FOLD_TIMEOUT_S}s"
                          f" ({_keep_failed_fold_log(log, label)})"}
@@ -2986,14 +3026,17 @@ def _run_census_fold(model: str, rung: int, workdir: Path, tag: str,
         return {"error": f"no runtime_s in {where} (fold ok but timing missing)"}
     return {"levers": levers, "runtime_s": runtime_s, "wall": wall, "runtime_src": where,
             "census_json": census_json, "grid": census.get("grid"), "aiclk": aiclk,
-            "structure": _size_ladder_structure(out_dir)}
+            "load": load, "structure": _size_ladder_structure(out_dir)}
 
 
 def _size_ladder_dark(entry: dict) -> bool:
     """A lever counts as dark when it resolved ON yet served no call. setlen
     levers have no served counter; their dark state is a non-empty overflow set.
-    not-imported / False / off-by-design levers are absent, not dark."""
-    if entry["resolved"] in ("False", "not-imported", "MISSING", "None", ""):
+    not-imported / False / off-by-design levers are absent, not dark. "none" is what a per-site
+    flag (`tenstorrent.site_flags_on`) resolves to when no site of the model turned it on, so it
+    is off too: read as on, it demanded an exemption at every rung of nesso1, which has no
+    triangle-attention site to put TRIATT_SDPA_HIFI on."""
+    if entry["resolved"] in ("False", "not-imported", "MISSING", "None", "none", ""):
         return False
     if entry.get("how") == "setlen":
         return bool(entry.get("declined"))
@@ -3338,7 +3381,7 @@ def _size_ladder_measure_model(model: str, rungs, workdir: Path,
     # 195.1 at 1152 and 196.3 at 1088 are an inversion or two draws from one spread, and it
     # cannot say whether a cell that moved between passes moved because the engine did or
     # because the chip was at 800 MHz instead of 1350.
-    reps_s, aiclk, structure = {}, {}, {}
+    reps_s, aiclk, load, structure = {}, {}, {}, {}
     # Per-rung noise, not just the middle rung's. The loop below already has every rep's
     # runtime for every rung, so this costs no folds -- it was being thrown away.
     sigmas = {}
@@ -3409,6 +3452,10 @@ def _size_ladder_measure_model(model: str, rungs, workdir: Path,
                                 "max": max(c["max"] for c in cells),
                                 "rep_median": [c["median"] for c in cells],
                                 "n": sum(c["n"] for c in cells)}
+        loads = [r["load"] for r in runs if r.get("load")]
+        if loads:
+            load[str(rung)] = {"max": max(c["max"] for c in loads),
+                               "rep_median": [c["median"] for c in loads]}
         if rung in sigma_rungs and len(ts) > 1:
             sigmas[str(rung)] = round(statistics.stdev(ts) / statistics.mean(ts), 4)
             if rung == sigma_rung:
@@ -3419,7 +3466,7 @@ def _size_ladder_measure_model(model: str, rungs, workdir: Path,
                 "refused": refused}
     return {"levers": levers, "runtime_s": runtimes, "sigma": sigma, "sigmas": sigmas,
             "runtime_src": runtime_src, "runtime_reps_s": reps_s, "aiclk": aiclk,
-            "structure": structure,
+            "load": load, "structure": structure,
             "census_jsons": census_jsons, "grid": grid, "drift": drift,
             "refused": refused}
 
@@ -3488,7 +3535,24 @@ def _size_ladder_sigma_rung(model: str):
     return exp[len(exp) // 2] if exp else None
 
 
-def _size_ladder_exponent_block(model: str, runtimes: dict, sigma, sigmas: dict | None = None):
+def _size_ladder_overloaded(load: dict | None, rungs) -> str | None:
+    """The first of ``rungs`` whose fold ran above the gate's load ceiling, as a reason, or None.
+
+    A rung timed at 8x nproc measures the scheduler: nesso1's five 256 aa reps on whglx read
+    10.5 to 89.9 s. An exponent over such a rung is noise in both directions, so a baseline must
+    not record one and a check must not fail on one. A cell with no load stamp predates the
+    stamp and is not judged here.
+    """
+    for r in rungs:
+        x = ((load or {}).get(str(r)) or {}).get("max")
+        if x is not None and x > gate_guard.DEFAULT_LOAD_CEILING:
+            return (f"{r} aa was timed at {x:.1f}x nproc, above the "
+                    f"{gate_guard.DEFAULT_LOAD_CEILING}x load ceiling")
+    return None
+
+
+def _size_ladder_exponent_block(model: str, runtimes: dict, sigma, sigmas: dict | None = None,
+                                load: dict | None = None):
     """Baseline exponent entries per consecutive rung pair: k with a tolerance
     derived from the measured noise floor. Returns (block, skip_reason).
 
@@ -3522,6 +3586,12 @@ def _size_ladder_exponent_block(model: str, runtimes: dict, sigma, sigmas: dict 
     rungs = sorted(int(r) for r in runtimes if int(r) in gated)
     if len(rungs) < 2:
         return None, "single rung — no interval to exponent over"
+    # Load before sigma: a pass skipped for load stores no sigma, so the resume pass that
+    # carries its rungs has none either, and checking sigma first recorded "rung 512 absent
+    # from the ladder" over a 512 aa rung with five reps (whglx openfold3/openbind/nesso1).
+    busy = _size_ladder_overloaded(load, rungs)
+    if busy:
+        return None, f"{busy}: the runtimes are the host's, re-time on a quiet box"
     if sigma is None:
         return None, (f"no noise measurement (rung {_size_ladder_sigma_rung(model)} absent "
                       f"from the ladder)")
@@ -3606,13 +3676,14 @@ def _size_ladder_carry_rungs(meas: dict, prev: dict | None, stamp: dict) -> list
     recorder's stated policy one level up ("a 6-model record is ~2 h of device time, so
     it has to be resumable a model at a time"); this is the same policy one level down.
 
-    A cell is only carried when the previous entry was recorded on the same ENGINE, host
-    and core grid. Engine, because the arm's whole rule is "re-record after any
+    A cell is only carried when the previous entry was recorded on the same ENGINE, host,
+    host thread cap and core grid. Engine, because the arm's whole rule is "re-record after any
     size-affecting change" and a ladder mixing two engines measures neither. Host,
     because absolute runtime does not transfer between machines even of one board type
     (qb1's p150a reads ~30 % slower than pc's). Grid, because a guard sized against the
     core grid flips with it, which is why the check already refuses a cross-grid
-    comparison outright.
+    comparison outright. Thread cap, because a fold's host-side work scales with it, so the
+    speed bar voids a ladder that mixes caps.
 
     "Same engine" is `git diff` over SIZE_LADDER_ENGINE_PATHS and not sha equality, which
     is what it used to be. Sha equality made the recorder's own stated policy impossible to
@@ -3624,10 +3695,16 @@ def _size_ladder_carry_rungs(meas: dict, prev: dict | None, stamp: dict) -> list
     """
     if not prev:
         return []
-    if not meas.get("runtime_s"):
+    if not meas.get("runtime_s") and not meas.get("refused"):
         return []
+    # A pass whose every rung was refused never opened a device, so it has no grid of its own
+    # to disagree with. That is the resume pass above a model's guard (openfold3 at 1280,1536 on
+    # the Galaxy), and requiring a grid there made the recorder unable to add a refusal to a
+    # ladder it had just measured.
+    refusal_only = not meas.get("runtime_s")
     same = prev.get("host") == stamp["host"] \
-        and prev.get("grid") == meas.get("grid") \
+        and prev.get("host_threads") == stamp.get("host_threads") \
+        and (prev.get("grid") == meas.get("grid") or refusal_only) \
         and _size_ladder_same_engine(prev.get("commit"), stamp["commit"])
     old_rt, old_ref_all = prev.get("runtime_s") or {}, prev.get("refused") or {}
     measured = set(meas["runtime_s"]) | set(meas.get("refused") or {})
@@ -3640,14 +3717,16 @@ def _size_ladder_carry_rungs(meas: dict, prev: dict | None, stamp: dict) -> list
     if not same:
         print(f"  [size-ladder] not carrying rungs {','.join(sorted(spare, key=int))}: "
               f"recorded on {prev.get('host')}@{prev.get('commit')} grid "
-              f"{prev.get('grid')}, this pass is {stamp['host']}@{stamp['commit']} grid "
-              f"{meas.get('grid')}, and {'/'.join(SIZE_LADDER_ENGINE_PATHS)} "
+              f"{prev.get('grid')} threads {prev.get('host_threads') or 'all'}, this pass is "
+              f"{stamp['host']}@{stamp['commit']} grid {meas.get('grid')} threads "
+              f"{stamp.get('host_threads') or 'all'}, and {'/'.join(SIZE_LADDER_ENGINE_PATHS)} "
               f"{'match' if _size_ladder_same_engine(prev.get('commit'), stamp['commit']) else 'differ'} "
-              f"between them — a ladder mixing two engines measures neither",
+              f"between them — a ladder mixing two engines or two thread caps measures neither",
               flush=True)
         return []
     old_lv = prev.get("levers") or {}
     old_reps, old_clk = prev.get("runtime_reps_s") or {}, prev.get("aiclk") or {}
+    old_load = prev.get("load") or {}
     old_st = prev.get("structure") or {}
     for r in spare:
         if r in old_rt:
@@ -3661,12 +3740,23 @@ def _size_ladder_carry_rungs(meas: dict, prev: dict | None, stamp: dict) -> list
                 meas.setdefault("runtime_reps_s", {})[r] = old_reps[r]
             if r in old_clk:
                 meas.setdefault("aiclk", {})[r] = old_clk[r]
+            if r in old_load:
+                meas.setdefault("load", {})[r] = old_load[r]
             if r in old_st:
                 meas.setdefault("structure", {})[r] = old_st[r]
         elif r in old_ref_all:
             meas.setdefault("refused", {})[r] = old_ref_all[r]
     if meas.get("sigma") is None and prev.get("sigma_runtime_512") is not None:
         meas["sigma"] = prev["sigma_runtime_512"]
+    # The per-rung noise too, not only the middle rung's. The exponent block is recomputed from
+    # these after a carry, and it sets the rep count from the noisiest rung: without the 256 aa
+    # sigma a resume pass rewrote a reps=3 entry as reps=1, a single draw at the rung that needs
+    # the median most.
+    for r, sg in (prev.get("sigma_runtime") or {}).items():
+        if r in spare and r in meas["runtime_s"]:
+            meas.setdefault("sigmas", {}).setdefault(r, sg)
+    if refusal_only:
+        meas["grid"] = prev.get("grid")
     return sorted(spare, key=int)
 
 
@@ -3856,7 +3946,7 @@ def _size_ladder_compare(base_model: dict, meas: dict, model: str, rungs) -> dic
         findings.extend(_size_ladder_exemption_findings(b_levers, where))
         findings.extend(_size_ladder_compare_levers(b_levers, meas["levers"][str(rung)],
                                                     where))
-    measured_k = {}
+    measured_k, void = {}, {}
     drifted = False
     for interval, be in (base_model.get("exponents") or {}).items():
         n1, n2 = (int(x) for x in interval.split("->"))
@@ -3864,6 +3954,11 @@ def _size_ladder_compare(base_model: dict, meas: dict, model: str, rungs) -> dic
         t2 = meas["runtime_s"].get(str(n2))
         if t1 is None or t2 is None:
             continue  # custom RELEASE_GATE_SIZE_RUNGS narrower than the baseline
+        busy = (_size_ladder_overloaded(meas.get("load"), (n1, n2))
+                or _size_ladder_overloaded(base_model.get("load"), (n1, n2)))
+        if busy:
+            void[interval] = busy
+            continue
         k = math.log(t2 / t1) / math.log(n2 / n1)
         measured_k[interval] = round(k, 3)
         if abs(k - be["k"]) > be["tol"]:
@@ -3876,6 +3971,7 @@ def _size_ladder_compare(base_model: dict, meas: dict, model: str, rungs) -> dic
     return {"model": model, "gate": not findings,
             "error": "; ".join(findings) or None, "findings": findings,
             "runtime_s": meas["runtime_s"], "exponents": measured_k,
+            **({"exponents_void": void} if void else {}),
             "baseline_from": " ".join(str(base_model.get(k)) for k in
                                       ("recorded", "host", "commit") if base_model.get(k))}
 
@@ -4234,6 +4330,48 @@ def _size_ladder_read_baseline(baseline_path: Path) -> dict:
     return data
 
 
+def _size_ladder_committed_levers(baseline_path: Path, card: str, model: str) -> dict:
+    """``model``'s levers on ``card`` as committed at HEAD, or {} when git cannot say.
+
+    The working file is not enough to carry this card's judgements forward. A record that
+    cannot carry its lower rungs across an engine change writes the entry back WITHOUT
+    them, so a split re-record (top rungs, then the rest) reaches its second pass with this
+    card's reasons for those rungs gone, and the cross-card carry then fills them from
+    another board: boltz2's Galaxy 768/896/1024 TRANSPOSE_L1_RESIDENT came back citing
+    p300c's 11x10 grid on 2026-09-23. The committed file still holds them.
+    """
+    try:
+        rel_base = baseline_path.resolve().relative_to(REPO_ROOT)
+    except ValueError:
+        return {}
+    rel_frag = _size_ladder_fragment_dir(rel_base) / f"{model}.json"
+    data = {}
+    for rel in (rel_base, rel_frag):
+        try:
+            txt = subprocess.run(["git", "show", f"HEAD:{rel.as_posix()}"], cwd=REPO_ROOT,
+                                 capture_output=True, text=True, timeout=30,
+                                 check=True).stdout
+            _size_ladder_merge_models(data, json.loads(txt))
+        except Exception:                                                    # noqa: BLE001
+            continue
+    return ((data.get("cards") or {}).get(card, {}).get("models") or {}) \
+        .get(model, {}).get("levers") or {}
+
+
+def _size_ladder_with_committed_reasons(old_levers: dict | None, committed: dict) -> dict:
+    """``old_levers`` with every reason it lacks filled from ``committed`` (same card)."""
+    out = {r: {f: dict(e) for f, e in (t or {}).items()} for r, t in (old_levers or {}).items()}
+    for rung, table in (committed or {}).items():
+        for flag, e in (table or {}).items():
+            why = str(e.get("reason") or "").strip()
+            if not why or why.startswith("TODO"):
+                continue
+            have = str(out.get(rung, {}).get(flag, {}).get("reason") or "").strip()
+            if not have or have.startswith("TODO"):
+                out.setdefault(rung, {}).setdefault(flag, {})["reason"] = why
+    return out
+
+
 def _size_ladder_write_fragment(baseline_path: Path, card: str, stamp: dict,
                                 model: str, entry: dict) -> Path:
     """Write one model's entry for one card to its own fragment file."""
@@ -4417,7 +4555,7 @@ def run_size_ladder(keep: bool, record: bool, baseline_path: Path,
         mono = json.loads(baseline_path.read_text()) if baseline_path.exists() else {}
         mono_models = mono.get("cards", {}).get(card, {}).get("models", {})
         stamp = {"recorded": time.strftime("%Y-%m-%d"), "host": socket.gethostname(),
-                 "commit": _repo_commit()}
+                 "commit": _repo_commit(), "host_threads": HOST_THREADS}
         # The card-level stamp describes the LAST record pass, so on a subset record
         # (--size-ladder-models) it stops describing the models that pass did not touch.
         # rf3 was recorded on qb1 while the other five were recorded on pc; without a
@@ -4491,11 +4629,21 @@ def run_size_ladder(keep: bool, record: bool, baseline_path: Path,
             reps_other = max(1, int((old_models.get(m) or {}).get("reps") or 1))
             meas = _size_ladder_measure_model(m, ladders[m], workdir,
                                               SIZE_LADDER_SIGMA_REPS, reps_other)
+            all_refused = None
+            if meas.get("refused") and meas.get("error") and not meas.get("runtime_s"):
+                # Every rung asked for is above the guard. On a full ladder that is a model with
+                # a ceiling under 256 and stays an error; on a resume pass it is the refusal the
+                # arm exists to record, so keep it and let the carry below supply the rungs
+                # beneath it. Nothing to carry puts the error back.
+                all_refused = meas["error"]
+                meas = {"levers": {}, "runtime_s": {}, "refused": meas["refused"], "sigma": None,
+                        "sigmas": {}, "census_jsons": {}, "grid": None, "drift": []}
             err = _size_ladder_record_refusal(meas)
             block = skip = None
             if err is None:
                 block, skip = _size_ladder_exponent_block(m, meas["runtime_s"], meas["sigma"],
-                                                          meas.get("sigmas"))
+                                                          meas.get("sigmas"),
+                                                          meas.get("load"))
                 # Re-measure at the rep count the CHECK will use. Only the sigma rung was repeated
                 # above, so a model noisy enough to need a median went into the baseline
                 # single-shot at the other three rungs while the check reads a median of three
@@ -4512,21 +4660,32 @@ def run_size_ladder(keep: bool, record: bool, baseline_path: Path,
                     err = _size_ladder_record_refusal(m2)
                     if err is None:
                         for k in ("levers", "runtime_s", "census_jsons",
-                                  "runtime_reps_s", "aiclk", "structure"):
-                            meas[k].update(m2[k])
+                                  "runtime_reps_s", "aiclk", "load", "structure"):
+                            meas.setdefault(k, {}).update(m2.get(k) or {})
                         block, skip = _size_ladder_exponent_block(m, meas["runtime_s"],
                                                                   meas["sigma"],
-                                                                  meas.get("sigmas"))
+                                                                  meas.get("sigmas"),
+                                                                  meas.get("load"))
             if err:
                 print(f"  [size-ladder] {m}: NOT RECORDED — {err}", flush=True)
                 legs.append({"model": m, "gate": False, "error": err, "findings": [err]})
                 continue
             carried_rungs = _size_ladder_carry_rungs(meas, old_models.get(m), stamp)
+            if all_refused and not meas["runtime_s"]:
+                print(f"  [size-ladder] {m}: NOT RECORDED — {all_refused}, and no same-engine "
+                      f"rungs to carry beneath it", flush=True)
+                legs.append({"model": m, "gate": False, "error": all_refused,
+                             "findings": [all_refused]})
+                continue
             if carried_rungs:
                 block, skip = _size_ladder_exponent_block(m, meas["runtime_s"], meas["sigma"],
-                                                          meas.get("sigmas"))
+                                                          meas.get("sigmas"),
+                                                          meas.get("load"))
             todos += _size_ladder_fill_reasons(
-                meas["levers"], old_models.get(m, {}).get("levers"),
+                meas["levers"],
+                _size_ladder_with_committed_reasons(
+                    old_models.get(m, {}).get("levers"),
+                    _size_ladder_committed_levers(baseline_path, card, m)),
                 _size_ladder_other_card_levers(reasons_from, card, m))
             entry = {"grid": meas.get("grid"), **stamp,
                      "runtime_s": meas["runtime_s"], "levers": meas["levers"]}
@@ -4534,6 +4693,8 @@ def run_size_ladder(keep: bool, record: bool, baseline_path: Path,
                 entry["runtime_reps_s"] = meas["runtime_reps_s"]
             if meas.get("aiclk"):
                 entry["aiclk"] = meas["aiclk"]
+            if meas.get("load"):
+                entry["load"] = meas["load"]
             if meas.get("structure"):
                 entry["structure"] = meas["structure"]
             if m in SIZE_LADDER_DESIGN:
@@ -5050,6 +5211,11 @@ def main() -> int:
     ap.add_argument("--diffusion_trace", action="store_true",
                     help="Fold boltz2 with per-step DiT ttnn trace replay on (lossless). "
                          "boltz2 only; other fold models ignore it. Defaults off.")
+    ap.add_argument("--host-threads", type=int, default=None, metavar="N",
+                    help="Cap each size-ladder fold's host thread pools to N threads, the way "
+                         "`serve` shares a box between workers. Default: every core. Recorded "
+                         "beside every entry, and a record pass will not carry rungs timed at "
+                         "another cap.")
     ap.add_argument("--load-ceiling", type=float, default=gate_guard.DEFAULT_LOAD_CEILING,
                     help="Refuse to start when the 1-min loadavg is above this multiple of "
                          f"nproc (default {gate_guard.DEFAULT_LOAD_CEILING}; 0 disables). Every "
@@ -5080,8 +5246,9 @@ def main() -> int:
         print("\n".join(default_arms()))
         return 0
 
-    global FAST, DIFFUSION_TRACE
+    global FAST, DIFFUSION_TRACE, HOST_THREADS
     FAST = args.fast
+    HOST_THREADS = args.host_threads
     DIFFUSION_TRACE = args.diffusion_trace
 
     # This gate is single-card by construction: every leg folds one yaml, which selects one
@@ -5116,7 +5283,7 @@ def main() -> int:
 
     global _JOURNAL_PATH, _JOURNAL_KEY, _ARM_MEMBERS
     _JOURNAL_PATH = Path(args.journal) if args.journal else None
-    _JOURNAL_KEY = _run_key(FAST, DIFFUSION_TRACE) if _JOURNAL_PATH else {}
+    _JOURNAL_KEY = _run_key(FAST, DIFFUSION_TRACE, HOST_THREADS) if _JOURNAL_PATH else {}
     resumed = {}
     if args.resume:
         if args.size_ladder_record:
@@ -5495,6 +5662,8 @@ def main() -> int:
             print(f"{l['model']:<15}{cells}{wall:>9}  {verdict}")
             for f in (l.get("findings") or []):
                 print(f"    FAIL {f}")
+            for iv, why in (l.get("exponents_void") or {}).items():
+                print(f"    VOID k{iv}: {why}, not scored")
         for m in dict.fromkeys(design):
             print(f"{m:<15}axis: {SIZE_LADDER_DESIGN[m]['axis']}, design run with "
                   f"{' '.join(SIZE_LADDER_DESIGN[m]['steps'])}")
@@ -5508,8 +5677,12 @@ def main() -> int:
                   "BASELINE RECORD FAILED — a model did not fold (see above)")
         else:
             _headline("size-ladder",
-                      "GATE PASS — lever census and scaling exponents match the recorded "
-                      "baseline at every rung" if sl["gate"] else
+                      ("GATE PASS — lever census matches the recorded baseline at every "
+                       "rung; exponent intervals marked VOID above ran on an overloaded host "
+                       "and were not scored"
+                       if any(l.get("exponents_void") for l in sl["legs"]) else
+                       "GATE PASS — lever census and scaling exponents match the recorded "
+                       "baseline at every rung") if sl["gate"] else
                       "GATE FAIL — size-ladder drift vs the recorded baseline (see above); "
                       "if this change is intentional, re-record with --size-ladder-record")
 

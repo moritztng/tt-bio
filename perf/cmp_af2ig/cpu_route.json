@@ -1,0 +1,61 @@
+{
+ "host": "pc",
+ "arm": "host torch (no ttnn, no device)",
+ "torch": "2.8.0+cpu",
+ "python": "3.10.19",
+ "params": "/home/moritz/.boltz/af2/params/params_model_1_ptm.npz",
+ "params_sha256_16": "5e564f79af5bcd54",
+ "recycles": 3,
+ "passes_per_fold": 4,
+ "model_load_s": 0.685,
+ "legs": {
+  "example": {
+   "tokens": 48,
+   "binder_residues": 16,
+   "atoms": 386,
+   "fold_s": 3.32,
+   "coords_sha16": "c10230fc5eeb1a08",
+   "metrics": {
+    "plddt": 0.5077,
+    "ptm": 0.3105,
+    "iptm": 0.0504,
+    "pae": 0.5877,
+    "ipae": 0.7166,
+    "interface_pae": 22.2146
+   }
+  },
+  "example_again": {
+   "tokens": 48,
+   "binder_residues": 16,
+   "atoms": 386,
+   "fold_s": 2.987,
+   "coords_sha16": "c10230fc5eeb1a08",
+   "metrics": {
+    "plddt": 0.5077,
+    "ptm": 0.3105,
+    "iptm": 0.0504,
+    "pae": 0.5877,
+    "ipae": 0.7166,
+    "interface_pae": 22.2146
+   }
+  },
+  "scrambled_binder": {
+   "tokens": 48,
+   "binder_residues": 16,
+   "atoms": 386,
+   "fold_s": 2.946,
+   "coords_sha16": "29488ca2c0f603f0",
+   "metrics": {
+    "plddt": 0.4952,
+    "ptm": 0.3123,
+    "iptm": 0.0361,
+    "pae": 0.6029,
+    "ipae": 0.7453,
+    "interface_pae": 23.1054
+   }
+  }
+ },
+ "deterministic": true,
+ "sequence_reaches_the_model": true,
+ "iptm_delta_on_scramble": -0.0143
+}

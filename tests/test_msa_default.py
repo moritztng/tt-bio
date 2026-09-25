@@ -118,8 +118,8 @@ def test_single_sequence_conflicts_error(kwargs, tmp_path):
 
 
 def test_controller_skips_local_db(tmp_path, capsys):
-    """In --controller mode the local host's DB is irrelevant (remote workers resolve
-    on their own hosts): fall back online rather than auto-detecting a local DB."""
+    """In --controller mode the submitter picks no DB for the workers, which resolve
+    their own: fall back online rather than auto-detecting a local DB."""
     _ready_db(tmp_path)
     assert resolve("boltz2", cache=str(tmp_path), controller="http://host:8765") == (True, None)
     assert URL in capsys.readouterr().out

@@ -1,0 +1,2 @@
+trajectory,design,length,bindcraft_version,Timing,hash,terminated,autotuned
+1,pdl1_denovo_l71_c019673d64134f64,71,BindCraft 2 (unreleased),worker=0;start=1790238173.23;design=43515.67;compiled=1,c019673d64134f64,mutate,

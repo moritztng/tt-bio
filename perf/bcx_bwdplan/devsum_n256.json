@@ -1,0 +1,467 @@
+{
+ "report": "/dev/shm/bcx-bp-prof/reports/2026_09_24_12_48_34/ops_perf_results_2026_09_24_12_48_34.csv",
+ "points": {
+  "bwd evo K=1": {
+   "device_s": [
+    0.13204,
+    0.132
+   ],
+   "median_s": 0.13202,
+   "ops": [
+    1047,
+    1047
+   ],
+   "by_class_s": {
+    "eltwise": 0.04562,
+    "layernorm": 0.00091,
+    "layout": 0.05655,
+    "matmul": 0.01864,
+    "other": 0.00012,
+    "reduction": 0.00729,
+    "softmax": 0.0029
+   }
+  },
+  "bwd extra K=1": {
+   "device_s": [
+    0.11586,
+    0.11579
+   ],
+   "median_s": 0.11582,
+   "ops": [
+    759,
+    759
+   ],
+   "by_class_s": {
+    "eltwise": 0.04344,
+    "layernorm": 0.00072,
+    "layout": 0.04793,
+    "matmul": 0.01394,
+    "other": 0.00011,
+    "reduction": 0.00688,
+    "softmax": 0.0028
+   }
+  },
+  "bwd1 evo K=1": {
+   "device_s": [
+    0.16402,
+    0.16413
+   ],
+   "median_s": 0.16407,
+   "ops": [
+    1149,
+    1149
+   ],
+   "by_class_s": {
+    "eltwise": 0.05503,
+    "layernorm": 0.00091,
+    "layout": 0.07919,
+    "matmul": 0.01866,
+    "other": 0.00012,
+    "reduction": 0.00728,
+    "softmax": 0.0029
+   }
+  },
+  "bwd1 extra K=1": {
+   "device_s": [
+    0.13828,
+    0.13822
+   ],
+   "median_s": 0.13825,
+   "ops": [
+    865,
+    865
+   ],
+   "by_class_s": {
+    "eltwise": 0.05283,
+    "layernorm": 0.00074,
+    "layout": 0.06094,
+    "matmul": 0.01394,
+    "other": 0.00011,
+    "reduction": 0.00687,
+    "softmax": 0.00281
+   }
+  },
+  "bwd4 evo K=1": {
+   "device_s": [
+    0.2011,
+    0.20128
+   ],
+   "median_s": 0.20119,
+   "ops": [
+    1151,
+    1151
+   ],
+   "by_class_s": {
+    "eltwise": 0.0551,
+    "layernorm": 0.00091,
+    "layout": 0.06957,
+    "matmul": 0.06534,
+    "other": 0.00011,
+    "reduction": 0.00726,
+    "softmax": 0.0029
+   }
+  },
+  "bwd4 extra K=1": {
+   "device_s": [
+    0.16,
+    0.16009
+   ],
+   "median_s": 0.16004,
+   "ops": [
+    869,
+    869
+   ],
+   "by_class_s": {
+    "eltwise": 0.05289,
+    "layernorm": 0.00073,
+    "layout": 0.06108,
+    "matmul": 0.03558,
+    "other": 0.00012,
+    "reduction": 0.00685,
+    "softmax": 0.0028
+   }
+  },
+  "stack evo K=1": {
+   "device_s": [
+    0.21076,
+    0.21077
+   ],
+   "median_s": 0.21077,
+   "ops": [
+    1143,
+    1143
+   ],
+   "by_class_s": {
+    "eltwise": 0.05507,
+    "layernorm": 0.00089,
+    "layout": 0.07908,
+    "matmul": 0.06544,
+    "other": 0.00012,
+    "reduction": 0.00728,
+    "softmax": 0.00289
+   }
+  },
+  "stack extra K=1": {
+   "device_s": [
+    0.15994,
+    0.16004
+   ],
+   "median_s": 0.15999,
+   "ops": [
+    865,
+    865
+   ],
+   "by_class_s": {
+    "eltwise": 0.05288,
+    "layernorm": 0.00073,
+    "layout": 0.06106,
+    "matmul": 0.03554,
+    "other": 0.00011,
+    "reduction": 0.00687,
+    "softmax": 0.0028
+   }
+  }
+ },
+ "moved_vs_stack": {
+  "bwd1 evo K=1": [
+   [
+    21.613,
+    "MatmulDeviceOperation 256x8x32x32 cores=1"
+   ],
+   [
+    13.55,
+    "MatmulDeviceOperation 81x4x256x256 cores=8"
+   ],
+   [
+    5.801,
+    "MatmulDeviceOperation 81x4x256x32 cores=8"
+   ],
+   [
+    2.59,
+    "MatmulDeviceOperation 81x4x256x32 cores=64"
+   ],
+   [
+    2.403,
+    "MatmulDeviceOperation 1x64x256x256 cores=64"
+   ],
+   [
+    2.277,
+    "MatmulDeviceOperation 1x256x32x768 cores=8"
+   ],
+   [
+    1.532,
+    "MatmulDeviceOperation 1x256x32x256 cores=8"
+   ],
+   [
+    0.727,
+    "MatmulDeviceOperation 13x4x256x256 cores=8"
+   ],
+   [
+    0.314,
+    "MatmulDeviceOperation 13x4x256x32 cores=8"
+   ],
+   [
+    0.143,
+    "MatmulDeviceOperation 13x4x256x32 cores=64"
+   ],
+   [
+    0.106,
+    "PermuteDeviceOperation 1x64x256x256 cores=110"
+   ],
+   [
+    0.04,
+    "BinaryNgDeviceOperation 256x1x256x384 cores=110"
+   ]
+  ],
+  "bwd1 extra K=1": [
+   [
+    13.557,
+    "MatmulDeviceOperation 81x4x256x256 cores=8"
+   ],
+   [
+    5.79,
+    "MatmulDeviceOperation 81x4x256x32 cores=8"
+   ],
+   [
+    2.566,
+    "MatmulDeviceOperation 81x4x256x32 cores=64"
+   ],
+   [
+    2.391,
+    "MatmulDeviceOperation 1x64x256x256 cores=64"
+   ],
+   [
+    0.728,
+    "MatmulDeviceOperation 13x4x256x256 cores=8"
+   ],
+   [
+    0.315,
+    "MatmulDeviceOperation 13x4x256x32 cores=8"
+   ],
+   [
+    0.143,
+    "MatmulDeviceOperation 13x4x256x32 cores=64"
+   ],
+   [
+    0.076,
+    "PermuteDeviceOperation 1x64x256x256 cores=110"
+   ],
+   [
+    0.056,
+    "MatmulDeviceOperation 1x1x65536x512 cores=108"
+   ],
+   [
+    0.054,
+    "TypecastDeviceOperation 1x256x256x256 cores=110"
+   ],
+   [
+    0.019,
+    "PermuteDeviceOperation 81x4x256x256 cores=110"
+   ],
+   [
+    0.016,
+    "TypecastDeviceOperation 1x256x256x128 cores=110"
+   ]
+  ],
+  "bwd4 evo K=1": [
+   [
+    11.957,
+    "ReshapeViewDeviceOperation 1x256x1024x256 cores=110"
+   ],
+   [
+    0.852,
+    "TransposeDeviceOperation 1x256x256x128 cores=110"
+   ],
+   [
+    0.063,
+    "MatmulDeviceOperation 1x1x65536x512 cores=108"
+   ],
+   [
+    0.052,
+    "MatmulDeviceOperation 81x4x256x32 cores=64"
+   ],
+   [
+    0.033,
+    "PermuteDeviceOperation 81x4x256x256 cores=110"
+   ],
+   [
+    0.029,
+    "BinaryNgDeviceOperation 256x1x256x384 cores=110"
+   ],
+   [
+    0.02,
+    "ReduceDeviceOperation 81x4x256x256 cores=110"
+   ],
+   [
+    0.015,
+    "MatmulDeviceOperation 81x4x256x32 cores=8"
+   ],
+   [
+    0.011,
+    "TypecastDeviceOperation 256x1x256x384 cores=110"
+   ],
+   [
+    0.01,
+    "MatmulDeviceOperation 1x64x256x256 cores=64"
+   ],
+   [
+    0.008,
+    "MatmulDeviceOperation 81x4x256x32 cores=110"
+   ],
+   [
+    0.008,
+    "SliceDeviceOperation 256x4x256x32 cores=110"
+   ]
+  ],
+  "bwd4 extra K=1": [
+   [
+    0.849,
+    "TransposeDeviceOperation 1x256x256x128 cores=110"
+   ],
+   [
+    0.149,
+    "PermuteDeviceOperation 1x64x256x256 cores=110"
+   ],
+   [
+    0.033,
+    "ReduceDeviceOperation 81x4x256x256 cores=110"
+   ],
+   [
+    0.02,
+    "TypecastDeviceOperation 1x256x256x256 cores=110"
+   ],
+   [
+    0.012,
+    "TypecastDeviceOperation 1x256x256x128 cores=110"
+   ],
+   [
+    0.011,
+    "MatmulDeviceOperation 81x4x256x256 cores=8"
+   ],
+   [
+    0.01,
+    "LayerNormDeviceOperation 1x256x256x128 cores=110"
+   ],
+   [
+    0.01,
+    "BinaryNgDeviceOperation 13x4x256x256 cores=110"
+   ],
+   [
+    0.008,
+    "BinaryNgDeviceOperation 1x256x256x512 cores=110"
+   ],
+   [
+    0.008,
+    "UnaryDeviceOperation 1x256x256x64 cores=110"
+   ],
+   [
+    0.008,
+    "MatmulDeviceOperation 81x4x256x256 cores=110"
+   ],
+   [
+    0.006,
+    "TransposeDeviceOperation 81x4x256x32 cores=110"
+   ]
+  ],
+  "bwd evo K=1": [
+   [
+    21.613,
+    "MatmulDeviceOperation 256x8x32x32 cores=1"
+   ],
+   [
+    13.55,
+    "MatmulDeviceOperation 81x4x256x256 cores=8"
+   ],
+   [
+    11.957,
+    "ReshapeViewDeviceOperation 1x256x1024x256 cores=110"
+   ],
+   [
+    5.801,
+    "MatmulDeviceOperation 81x4x256x32 cores=8"
+   ],
+   [
+    5.357,
+    "BinaryNgDeviceOperation 1x256x256x256 cores=110"
+   ],
+   [
+    5.278,
+    "TypecastDeviceOperation 1x256x256x256 cores=110"
+   ],
+   [
+    4.063,
+    "BinaryNgDeviceOperation 256x4x256x32 cores=110"
+   ],
+   [
+    4.005,
+    "TypecastDeviceOperation 256x4x256x32 cores=110"
+   ],
+   [
+    2.59,
+    "MatmulDeviceOperation 81x4x256x32 cores=64"
+   ],
+   [
+    2.411,
+    "MatmulDeviceOperation 1x64x256x256 cores=64"
+   ],
+   [
+    2.277,
+    "MatmulDeviceOperation 1x256x32x768 cores=8"
+   ],
+   [
+    1.532,
+    "MatmulDeviceOperation 1x256x32x256 cores=8"
+   ]
+  ],
+  "bwd extra K=1": [
+   [
+    13.557,
+    "MatmulDeviceOperation 81x4x256x256 cores=8"
+   ],
+   [
+    5.79,
+    "MatmulDeviceOperation 81x4x256x32 cores=8"
+   ],
+   [
+    5.375,
+    "BinaryNgDeviceOperation 1x256x256x256 cores=110"
+   ],
+   [
+    5.34,
+    "TypecastDeviceOperation 1x256x256x256 cores=110"
+   ],
+   [
+    4.063,
+    "BinaryNgDeviceOperation 256x4x256x32 cores=110"
+   ],
+   [
+    4.0,
+    "TypecastDeviceOperation 256x4x256x32 cores=110"
+   ],
+   [
+    2.566,
+    "MatmulDeviceOperation 81x4x256x32 cores=64"
+   ],
+   [
+    2.39,
+    "MatmulDeviceOperation 1x64x256x256 cores=64"
+   ],
+   [
+    0.849,
+    "TransposeDeviceOperation 1x256x256x128 cores=110"
+   ],
+   [
+    0.728,
+    "MatmulDeviceOperation 13x4x256x256 cores=8"
+   ],
+   [
+    0.718,
+    "ConcatDeviceOperation 1x256x256x128 cores=110"
+   ],
+   [
+    0.717,
+    "ConcatDeviceOperation 1x256x256x64 cores=110"
+   ]
+  ]
+ }
+}

@@ -53,8 +53,9 @@ def cmd_prof(args):
                 ke, kv = (k, 0) if stack_name == "extra" else (0, k)
                 ml, zl = dev.leaf(m0), dev.leaf(z0)
                 dev.sync()
+                mask = dev.up(S.torch.ones(1, args.n)) if lv.mask else None
                 with dev.tt.tape():
-                    mo, zo = dev.stack(ml, zl, ke, kv, ckpt=True)
+                    mo, zo = dev.stack(ml, zl, ke, kv, ckpt=True, msa_mask=mask)
                 dev.sync()
                 roots = [zo] if stack_name == "extra" else [mo, zo]
                 seeds = ([dev.seed(wz, zo)] if stack_name == "extra"

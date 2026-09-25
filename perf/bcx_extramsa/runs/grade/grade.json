@@ -1,0 +1,212 @@
+{
+ "seed": 100,
+ "overrides": [
+  "campaign_seed=100",
+  "max_trajectories=1",
+  "validation_model=monomer",
+  "design_models=[\"model_1_ptm\"]",
+  "validation_models=[\"model_2_ptm\"]",
+  "project_folder=/home/ttuser/.coworker/wt/bcx-extramsa/perf/bcx_extramsa/runs/grade/project"
+ ],
+ "loadavg_start": [
+  36.4619140625,
+  38.447265625,
+  43.83203125
+ ],
+ "zerograd_dropout1": {
+  "extra_msa_mask_shape": [
+   1,
+   275
+  ],
+  "extra_msa_mask_nonzero": 0,
+  "extra_msa_mask_absmax": 0.0,
+  "msa_in_shape": [
+   1,
+   275,
+   64
+  ],
+  "g_msa_in_l2": 0.0,
+  "g_msa_in_absmax": 0.0,
+  "g_msa_in_nonzero": 0,
+  "g_pair_in_l2": 0.10111135283974017,
+  "g_pair_out_l2": 0.013529426066040314,
+  "g_sequences_l2": 0.49288424849510193,
+  "ratio_g_msa_in_to_g_sequences": 0.0,
+  "call": {
+   "loss": 9.621288299560547,
+   "seconds": 570.7,
+   "bucket": 32,
+   "grad_keys": {
+    "binder": [
+     148,
+     20
+    ],
+    "target_hPDL1": [
+     115,
+     20
+    ]
+   },
+   "g_sequences_l2": 0.49288424849510193,
+   "g_sequences_absmax": 0.0625
+  }
+ },
+ "zerograd_dropout0": {
+  "extra_msa_mask_shape": [
+   1,
+   275
+  ],
+  "extra_msa_mask_nonzero": 0,
+  "extra_msa_mask_absmax": 0.0,
+  "msa_in_shape": [
+   1,
+   275,
+   64
+  ],
+  "g_msa_in_l2": 0.0,
+  "g_msa_in_absmax": 0.0,
+  "g_msa_in_nonzero": 0,
+  "g_pair_in_l2": 0.09918836962254297,
+  "g_pair_out_l2": 0.011526244007041189,
+  "g_sequences_l2": 0.2918504476547241,
+  "ratio_g_msa_in_to_g_sequences": 0.0,
+  "call": {
+   "loss": 8.465317726135254,
+   "seconds": 564.6,
+   "bucket": 32,
+   "grad_keys": {
+    "binder": [
+     148,
+     20
+    ],
+    "target_hPDL1": [
+     115,
+     20
+    ]
+   },
+   "g_sequences_l2": 0.2918504476547241,
+   "g_sequences_absmax": 0.02435302734375
+  }
+ },
+ "n": 275,
+ "mask_2d_zero_fraction": 0.08536859504132231,
+ "device": {
+  "primal_s": 5.854,
+  "taped_fwd_bwd_s": 21.716,
+  "note": "first call on a fresh process, includes program compile",
+  "aiclk_during": {
+   "n": 11,
+   "aiclk_min": 1350,
+   "aiclk_med": 1350,
+   "aiclk_max": 1350,
+   "load1": 28.5
+  },
+  "calls": {
+   "primal": 1,
+   "taped": 1,
+   "backward": 1
+  },
+  "mask_seen": {
+   "calls": 2,
+   "abs_max": 0.0,
+   "shapes": [
+    [
+     1,
+     275
+    ]
+   ]
+  }
+ },
+ "f64_s": 123.2,
+ "bf16_s": 36.1,
+ "graded": {
+  "pair_out": {
+   "device_primal": {
+    "rel_l2": 0.053409999203320256,
+    "cos": 0.9985730802534344,
+    "max_abs": 27.640511396606602,
+    "norm_ref": 78930.48005466782,
+    "norm_ratio": 0.9994811671097555
+   },
+   "device_taped": {
+    "rel_l2": 0.053409999203320256,
+    "cos": 0.9985730802534344,
+    "max_abs": 27.640511396606602,
+    "norm_ref": 78930.48005466782,
+    "norm_ratio": 0.9994811671097555
+   },
+   "bc2_jax": {
+    "rel_l2": 0.005017559325079398,
+    "cos": 0.9999874121061081,
+    "max_abs": 4.061170646738788,
+    "norm_ref": 78930.48005466782,
+    "norm_ratio": 0.9999709119273007
+   },
+   "host_bf16": {
+    "rel_l2": 0.007040011689903828,
+    "cos": 0.9999775554536442,
+    "max_abs": 5.339301832965816,
+    "norm_ref": 78930.48005466782,
+    "norm_ratio": 1.0021393083634702
+   },
+   "device_primal_vs_bc2_jax": {
+    "rel_l2": 0.0535635516831983,
+    "cos": 0.9985648900394011,
+    "max_abs": 27.625,
+    "norm_ref": 78928.1841191258,
+    "norm_ratio": 0.9995102409363075
+   },
+   "device_primal_over_bc2_jax": 10.644617381275326,
+   "device_taped_over_bc2_jax": 10.644617381275326
+  },
+  "vjp_pair_in": {
+   "device": {
+    "rel_l2": 0.040317594553536285,
+    "cos": 0.9991873357620265,
+    "max_abs": 0.00018396290126391595,
+    "norm_ref": 0.09921938990662565,
+    "norm_ratio": 1.0001040569845558
+   },
+   "bc2_jax": {
+    "rel_l2": 0.03206789745540838,
+    "cos": 0.9994857130609319,
+    "max_abs": 0.00020597398382530283,
+    "norm_ref": 0.09921938990662565,
+    "norm_ratio": 0.9996873566334981
+   },
+   "host_bf16": {
+    "rel_l2": 0.034528693610271444,
+    "cos": 0.9994039717145663,
+    "max_abs": 0.00012294873616982847,
+    "norm_ref": 0.09921938990662565,
+    "norm_ratio": 1.0001315438978635
+   },
+   "device_vs_bc2_jax": {
+    "rel_l2": 0.04109337407747004,
+    "cos": 0.9991561059382961,
+    "max_abs": 0.0001316070556640625,
+    "norm_ref": 0.09918836962254297,
+    "norm_ratio": 1.000416830670402
+   },
+   "device_over_bc2_jax": 1.2572571871791538
+  }
+ },
+ "stamp": {
+  "host": "tt-quietbox2",
+  "card": 3,
+  "subsystem_device": "0x0046",
+  "commit": "c959dea52d3d3de425132c23c6e93fbc216d1b87",
+  "tt_bio_dirty": false,
+  "torch_threads": 6,
+  "loadavg": [
+   31.806640625,
+   31.35302734375,
+   34.8076171875
+  ],
+  "utc": "2026-09-25T00:29:49Z"
+ },
+ "loadavg_end": [
+  31.806640625,
+  31.35302734375,
+  34.8076171875
+ ]
+}

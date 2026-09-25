@@ -1,0 +1,332 @@
+{
+ "stamp": {
+  "host": "tt-quietbox2",
+  "card": 3,
+  "subsystem_device": "0x0046",
+  "commit": "21792573c8a35d10d1bd1c88b63464d72df469e0",
+  "tt_bio_dirty": false,
+  "torch_threads": 6,
+  "loadavg": [
+   29.6279296875,
+   27.60595703125,
+   26.5029296875
+  ],
+  "utc": "2026-09-25T02:32:41Z",
+  "pci": "0000:04:00.0",
+  "argv": [
+   "perf/bcx_tracewire/round_ab.py",
+   "--arm",
+   "trace",
+   "--digest",
+   "--extra-msa",
+   "--rounds",
+   "3",
+   "--seed",
+   "100",
+   "--card",
+   "3",
+   "--project",
+   "perf/bcx_tracewire/runs/fence_trace_seed100",
+   "--out",
+   "fence_xmsa_trace_seed100.json"
+  ],
+  "aiclk_node": "/sys/class/tenstorrent/tenstorrent!3/tt_aiclk",
+  "region_mb": 768,
+  "length_bucket_size": 32,
+  "seed": 100,
+  "extra_msa_on_device": true
+ },
+ "mode": "trace",
+ "wall_s": 579.0,
+ "rounds": [
+  {
+   "i": 0,
+   "arm": "trace",
+   "s": 0.009804725646972656,
+   "aiclk": {
+    "n": 0
+   },
+   "load1": 28.4,
+   "span": [
+    1790303571.076289,
+    1790303571.0860937
+   ],
+   "calls": {
+    "primal": 0,
+    "taped": 0,
+    "backward": 0
+   },
+   "trunk": {
+    "taped": 0.0,
+    "backward": 0.0,
+    "cpu": 0.0,
+    "extra": 0.0,
+    "extra_cpu": 0.0
+   },
+   "seg": {
+    "write": 0.0,
+    "enqueue": 0.0,
+    "wait": 0.0,
+    "read": 0.0
+   },
+   "captures": 0,
+   "extra_calls": {
+    "primal": 0,
+    "taped": 0,
+    "backward": 0
+   }
+  },
+  {
+   "i": 1,
+   "arm": "trace",
+   "s": 552.1616282463074,
+   "aiclk": {
+    "n": 2067,
+    "min": 1312,
+    "median": 1350,
+    "max": 1350
+   },
+   "load1": 28.4,
+   "span": [
+    1790303571.0860937,
+    1790304123.247722
+   ],
+   "calls": {
+    "primal": 0,
+    "taped": 2,
+    "backward": 1
+   },
+   "trunk": {
+    "taped": 498.869431669038,
+    "backward": 4.666455848986516,
+    "cpu": 491.7154266659999,
+    "extra": 1.276949204999255,
+    "extra_cpu": 0.493350409
+   },
+   "seg": {
+    "write": 0.051908239984186366,
+    "enqueue": 0.00015470702783204615,
+    "wait": 5.576348531991243,
+    "read": 0.14232057600747794
+   },
+   "captures": 1,
+   "extra_calls": {
+    "primal": 0,
+    "taped": 2,
+    "backward": 1
+   }
+  },
+  {
+   "i": 2,
+   "arm": "trace",
+   "s": 17.189956426620483,
+   "aiclk": {
+    "n": 42,
+    "min": 1350,
+    "median": 1350,
+    "max": 1350
+   },
+   "load1": 28.0,
+   "span": [
+    1790304123.247722,
+    1790304140.4376783
+   ],
+   "calls": {
+    "primal": 0,
+    "taped": 4,
+    "backward": 2
+   },
+   "trunk": {
+    "taped": 501.10590075305663,
+    "backward": 9.396821409987751,
+    "cpu": 491.8919706109999,
+    "extra": 2.089726443053223,
+    "extra_cpu": 0.9626937620000005
+   },
+   "seg": {
+    "write": 0.12311303100432269,
+    "enqueue": 0.00032216901308856905,
+    "wait": 12.18389758100966,
+    "read": 0.28956084299716167
+   },
+   "captures": 1,
+   "extra_calls": {
+    "primal": 0,
+    "taped": 4,
+    "backward": 2
+   }
+  }
+ ],
+ "calls": {
+  "primal": 0,
+  "taped": 4,
+  "backward": 2
+ },
+ "extra_calls": {
+  "primal": 0,
+  "taped": 4,
+  "backward": 2
+ },
+ "wire": {
+  "captures": [
+   {
+    "key": "((2, 224, 256), (224, 224, 128), (2, 224), ((224, 224), 34596.0), 48, True)",
+    "capture_s": 496.63,
+    "fence_mb_per_bank": {
+     "warm_rise": 1031,
+     "filled_after_capture": 1178,
+     "free_after": 1839
+    }
+   }
+  ],
+  "replays": {
+   "((2, 224, 256), (224, 224, 128), (2, 224), ((224, 224), 34596.0), 48, True)": [
+    4,
+    2
+   ]
+  },
+  "capture_s_total": 496.63,
+  "seg_s": {
+   "write": 0.1231,
+   "enqueue": 0.0003,
+   "wait": 12.1839,
+   "read": 0.2896
+  }
+ },
+ "digests": [
+  {
+   "op": "extra_taped",
+   "d": [
+    "ec5b2f739fc649d6"
+   ]
+  },
+  {
+   "op": "taped",
+   "d": [
+    "ef41d8a971351742",
+    "19910f40618c2f6c"
+   ]
+  },
+  {
+   "op": "extra_taped",
+   "d": [
+    "f74e7eae21f6a1dc"
+   ]
+  },
+  {
+   "op": "taped",
+   "d": [
+    "2e1e674b50d6981d",
+    "cd7163356a2db821"
+   ]
+  },
+  {
+   "op": "backward",
+   "d": [
+    "34add1c8a86e0fbc",
+    "121e28da4db53f5a"
+   ]
+  },
+  {
+   "op": "extra_backward",
+   "d": [
+    "470d80a50bedc4b8"
+   ]
+  },
+  {
+   "op": "extra_taped",
+   "d": [
+    "73537244acd747a0"
+   ]
+  },
+  {
+   "op": "taped",
+   "d": [
+    "1482a783b0dca113",
+    "e5049f3264262de6"
+   ]
+  },
+  {
+   "op": "extra_taped",
+   "d": [
+    "a69ceb02c78b3ae4"
+   ]
+  },
+  {
+   "op": "taped",
+   "d": [
+    "e148ca51b369c413",
+    "5ea6f3332515ad4f"
+   ]
+  },
+  {
+   "op": "backward",
+   "d": [
+    "3f6459a30ca8b167",
+    "f01e273cab305dd4"
+   ]
+  },
+  {
+   "op": "extra_backward",
+   "d": [
+    "db4c0bc585e8bb07"
+   ]
+  }
+ ],
+ "per_arm": {
+  "trace": {
+   "median": 17.189956426620483,
+   "p10": 17.189956426620483,
+   "p90": 17.189956426620483,
+   "mean": 17.189956426620483,
+   "min": 17.189956426620483,
+   "max": 17.189956426620483,
+   "n": 1,
+   "trunk_s": {
+    "median": 6.966834645019844,
+    "p10": 6.966834645019844,
+    "p90": 6.966834645019844,
+    "mean": 6.966834645019844,
+    "min": 6.966834645019844,
+    "max": 6.966834645019844,
+    "n": 1
+   },
+   "trunk_cpu_s": {
+    "median": 0.1765439449999917,
+    "p10": 0.1765439449999917,
+    "p90": 0.1765439449999917,
+    "mean": 0.1765439449999917,
+    "min": 0.1765439449999917,
+    "max": 0.1765439449999917,
+    "n": 1
+   },
+   "extra_s": {
+    "median": 0.8127772380539682,
+    "p10": 0.8127772380539682,
+    "p90": 0.8127772380539682,
+    "mean": 0.8127772380539682,
+    "min": 0.8127772380539682,
+    "max": 0.8127772380539682,
+    "n": 1
+   },
+   "extra_cpu_s": {
+    "median": 0.46934335300000046,
+    "p10": 0.46934335300000046,
+    "p90": 0.46934335300000046,
+    "mean": 0.46934335300000046,
+    "min": 0.46934335300000046,
+    "max": 0.46934335300000046,
+    "n": 1
+   },
+   "aiclk": {
+    "n": 42,
+    "min": 1350,
+    "median": 1350,
+    "max": 1350
+   },
+   "load1": [
+    28.0
+   ]
+  }
+ }
+}

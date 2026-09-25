@@ -19,6 +19,7 @@ import importlib.util
 import json
 import pathlib
 import socket
+import sys
 
 import pytest
 
@@ -72,10 +73,11 @@ def _baseline(levers=None):
     }
 
 
-def _check(rg, runtime_s, levers=None, base=None, grid="13x10"):
+def _check(rg, runtime_s, levers=None, base=None, grid="13x10", load=None):
     lv = dict(levers or FIRING)
     meas = {"levers": {str(r): {"K2": dict(lv)} for r in RUNGS},
-            "runtime_s": runtime_s, "sigma": 0.05, "census_jsons": {}, "grid": grid}
+            "runtime_s": runtime_s, "sigma": 0.05, "census_jsons": {}, "grid": grid,
+            "load": load or {}}
     rg._size_ladder_measure_model = lambda *a, **k: meas
     return rg._size_ladder_check_model("boltz2", RUNGS, base or _baseline(),
                                        pathlib.Path("/tmp"))
@@ -90,6 +92,52 @@ def test_scaling_cliff_at_the_large_rung_fails(rg):
     r = _check(rg, {**BASE_RUNTIME, "768": 90.0})
     assert r["gate"] is False
     assert any("512->768" in f and "exponent" in f for f in r["findings"])
+
+
+def test_an_overloaded_rung_voids_its_intervals_and_nothing_else(rg):
+    """whglx sat at 8-11x nproc while the Galaxy baseline was recorded, and nesso1's five
+    256 aa reps there read 10.5 to 89.9 s. A cliff read through such a rung is the scheduler's.
+    The interval is VOID, named, and not scored; the quiet interval beside it still gates, and
+    the same cliff on a quiet host still fails."""
+    cliff = {**BASE_RUNTIME, "768": 90.0}
+    quiet = {r: {"max": 0.9} for r in BASE_RUNTIME}
+    busy = {**quiet, "768": {"max": 8.4}}
+    r = _check(rg, cliff, load=busy)
+    assert r["gate"] is True
+    assert set(r["exponents_void"]) == {"512->768"}
+    assert "768 aa was timed at 8.4x nproc" in r["exponents_void"]["512->768"]
+    assert "256->512" in r["exponents"]
+    assert _check(rg, cliff, load=quiet)["gate"] is False
+    # a baseline written before the recorder learned to skip is read the same way
+    r = _check(rg, cliff, load=quiet, base={**_baseline(), "load": busy})
+    assert r["gate"] is True and set(r["exponents_void"]) == {"512->768"}
+    # a lever going dark is load-blind and still fails on the busy host
+    dark = {"resolved": "True", "served": 0, "declined": 10, "frac": 0.0, "how": "stats"}
+    assert _check(rg, dict(BASE_RUNTIME), levers=dark, load=busy)["gate"] is False
+
+
+def test_a_baseline_timed_on_an_overloaded_host_records_no_exponent(rg):
+    """The recorder's half of the same rule: an exponent written down at 8x nproc would fail
+    every later check on a quiet box. It is skipped with the rung and the load named, the way a
+    model with no noise measurement already is."""
+    rt = {"256": 90.0, "512": 110.7, "768": 181.6}
+    block, skip = rg._size_ladder_exponent_block(
+        "boltz2", rt, 0.05, load={"256": {"max": 1.1}, "512": {"max": 9.0}, "768": {"max": 1.2}})
+    assert block is None
+    assert "512 aa was timed at 9.0x nproc" in skip
+    block, skip = rg._size_ladder_exponent_block(
+        "boltz2", rt, 0.05, load={r: {"max": 1.1} for r in rt})
+    assert skip is None and set(block["exponents"]) == {"256->512", "512->768"}
+
+
+def test_a_resume_over_an_overloaded_pass_keeps_the_load_reason(rg):
+    """A pass skipped for load writes no sigma, so the pass that carries its rungs has none.
+    The skip must still name the load: whglx's openfold3 record read "rung 512 absent from the
+    ladder" over a 512 aa rung with five reps timed at 1.63x nproc."""
+    rt = {"256": 15.4, "512": 36.5, "768": 85.2}
+    _, skip = rg._size_ladder_exponent_block(
+        "boltz2", rt, None, load={"256": {"max": 1.57}, "512": {"max": 1.63}, "768": {"max": 1.3}})
+    assert "256 aa was timed at 1.6x nproc" in skip and "absent" not in skip
 
 
 def test_uniform_slowdown_does_not_fail_the_exponent_leg(rg):
@@ -155,6 +203,15 @@ def test_dark_lever_without_an_exemption_reason_fails(rg):
     r = _check(rg, dict(BASE_RUNTIME), levers=dark, base=_baseline(levers=dark))
     assert r["gate"] is False
     assert any("no exemption reason in the baseline" in f for f in r["findings"])
+
+
+def test_a_site_flag_no_site_turned_on_is_off_not_dark(rg):
+    """`site_flags_on` resolves to "none" when no site of the model enabled the flag. That is
+    the lever OFF, exactly like "False", and must not demand an exemption reason."""
+    off = {"resolved": "none", "served": 0, "declined": 0, "frac": 0.0, "how": "stats-dict"}
+    assert rg._size_ladder_dark(off) is False
+    # control: the same counters with a site on is dark and still needs its reason
+    assert rg._size_ladder_dark({**off, "resolved": "triatt.pairformer"}) is True
 
 
 def test_a_todo_is_not_an_exemption_reason(rg):
@@ -728,7 +785,7 @@ def test_a_resumed_pass_carries_the_rungs_it_did_not_measure(rg_fresh):
     assert meas["sigma"] == 0.05
 
 
-@pytest.mark.parametrize("differs", ["commit", "host", "grid"])
+@pytest.mark.parametrize("differs", ["commit", "host", "grid", "host_threads"])
 def test_a_resumed_pass_refuses_to_mix_two_engines(rg_fresh, differs):
     """The arm's own rule is "re-record after any size-affecting change". A ladder whose
     256 came from one commit and whose 1024 came from another measures neither, and its
@@ -1117,6 +1174,8 @@ def test_every_recorded_card_covers_every_rung_the_ladder_walks(rg):
     short = []
     for card, blk in sorted(data.get("cards", {}).items()):
         for model, entry in sorted(blk.get("models", {}).items()):
+            if model in rg.SIZE_LADDER_EXEMPT:
+                continue      # the check never walks it, so its cells owe no new rung
             want = {str(r) for r in rg._size_ladder_model_rungs(model, card=card)}
             # A refused rung IS coverage: the guard declining a size is the information the
             # arm exists to carry, so it counts the same as a timed one.
@@ -1159,6 +1218,33 @@ def test_a_fold_whose_log_vanished_reports_the_fold_not_the_error_path(rg_fresh,
     out = rg_fresh._run_census_fold("protenix-v2", 256, workdir, "rep0")
     assert "error" in out, f"the fold failed, so the leg owes an error: {out}"
     assert "removed under the run" in out["error"], out["error"]
+
+
+def test_the_thread_cap_reaches_every_fold_and_uncapped_leaves_the_env_alone(rg_fresh, monkeypatch,
+                                                                         tmp_path):
+    """whglx ran one fold per chip at 11x nproc because each fold sized its pools to all 64
+    cores. The cap goes through the environment so nesso1's `affinity`, which has no
+    --host_threads, is capped the same way predict is."""
+    fixture = tmp_path / "cdk2x2_256.yaml"
+    fixture.write_text("sequences: []\n")
+    monkeypatch.setattr(rg_fresh, "_size_ladder_fixture", lambda m, r: fixture)
+    seen = []
+
+    def fold(cmd, timeout, **kw):
+        seen.append(kw.get("env"))
+        return 1, False
+    monkeypatch.setattr(rg_fresh, "_run_fold", fold)
+
+    for model in ("protenix-v2", "nesso1"):
+        rg_fresh._run_census_fold(model, 256, tmp_path / "w", "rep0")
+    monkeypatch.setattr(rg_fresh, "HOST_THREADS", 2)
+    for model in ("protenix-v2", "nesso1"):
+        rg_fresh._run_census_fold(model, 256, tmp_path / "w", "rep0")
+
+    assert seen[:2] == [None, None]
+    for env in seen[2:]:
+        assert env["OMP_NUM_THREADS"] == env["MKL_NUM_THREADS"] == "2"
+        assert env["OMP_WAIT_POLICY"] == "PASSIVE"
 
 
 def test_a_lost_log_says_the_tree_went_away_and_names_it(rg_fresh, tmp_path):
@@ -1309,6 +1395,7 @@ def test_a_measured_rung_carries_its_clock_its_reps_and_its_geometry(rg_fresh, m
         return {"levers": {"FLAG": dict(FIRING)}, "runtime_s": 90.0 if tag == "warmup" else 40.0,
                 "wall": 60.0, "census_json": tmp_path / "c.json", "grid": "11x10",
                 "aiclk": {"card": "2", "min": 800, "median": 1350, "max": 1350, "n": 9},
+                "load": {"max": 8.5 if tag == "rep1" else 0.4, "median": 0.3, "n": 12},
                 "structure": {"file": "pred.cif", "n_ca": 512, "clash_frac": 0.0,
                               "geometry_ok": True, "geometry_fail": []}}
 
@@ -1321,7 +1408,38 @@ def test_a_measured_rung_carries_its_clock_its_reps_and_its_geometry(rg_fresh, m
     assert out["runtime_reps_s"]["512"] == [40.0, 40.0]
     assert out["aiclk"]["512"] == {"card": "2", "min": 800, "max": 1350,
                                    "rep_median": [1350, 1350], "n": 18}
+    # the worst rep's load, because one oversubscribed rep is enough to void the median
+    assert out["load"]["512"] == {"max": 8.5, "rep_median": [0.3, 0.3]}
     assert out["structure"]["512"]["n_ca"] == 512
+
+
+def test_every_fold_records_the_host_load_it_ran_under(rg_fresh, monkeypatch):
+    """whglx ran at 8.5x nproc during the MGX re-record and nesso1's 256 aa reps read 10.5 to
+    89.9 s. A runtime with no load beside it cannot be told apart from a regression."""
+    monkeypatch.setattr(rg_fresh.os, "getloadavg", lambda: (128.0, 0.0, 0.0))
+    monkeypatch.setattr(rg_fresh.os, "cpu_count", lambda: 64)
+    sampled = type("S", (), {"load": [0.5, 9.0, 1.0]})()
+    assert rg_fresh._load_cell(sampled) == {"max": 9.0, "median": 1.0, "n": 3}
+    # a fold shorter than one period still gets a reading, taken at its end
+    assert rg_fresh._load_cell(rg_fresh._NoClock()) == {"max": 2.0, "median": 2.0, "n": 1}
+
+
+def test_the_sampler_finds_tt_smi_off_the_path(monkeypatch, tmp_path):
+    """The path was hardcoded to /home/ttuser/.local/bin, which does not exist on whglx, so
+    every Galaxy cell was recorded with aiclk None and nothing said why."""
+    sys.path.insert(0, str(REPO_ROOT))
+    from perf import clocksample
+    smi = tmp_path / "tt-smi"
+    smi.write_text("#!/bin/sh\n")
+    smi.chmod(0o755)
+    monkeypatch.delenv("TT_SMI", raising=False)
+    monkeypatch.setenv("PATH", str(tmp_path))
+    assert clocksample._tt_smi() == str(smi)
+    # an explicit TT_SMI wins over PATH
+    other = tmp_path / "other-tt-smi"
+    other.write_text("#!/bin/sh\n")
+    monkeypatch.setenv("TT_SMI", str(other))
+    assert clocksample._tt_smi() == str(other)
 
 
 def test_the_clock_is_not_attributed_to_a_card_that_was_not_pinned(rg_fresh, monkeypatch):
@@ -1352,6 +1470,7 @@ def test_a_carried_rung_keeps_its_own_clock_and_reps(rg_fresh):
             "runtime_reps_s": {"256": [16.1], "512": [36.8, 37.0]},
             "aiclk": {"256": {"card": "0", "min": 1350, "max": 1350,
                               "rep_median": [1350], "n": 4}},
+            "load": {"256": {"max": 8.5, "rep_median": [8.1]}},
             "structure": {"512": {"n_ca": 512, "clash_frac": 0.0}}}
     meas = {"runtime_s": {"1536": 528.0}, "levers": {"1536": {"X": dict(FIRING)}},
             "grid": "11x10", "sigma": 0.04}
@@ -1359,6 +1478,7 @@ def test_a_carried_rung_keeps_its_own_clock_and_reps(rg_fresh):
     assert rg_fresh._size_ladder_carry_rungs(meas, prev, stamp) == ["256", "512"]
     assert meas["runtime_reps_s"] == {"256": [16.1], "512": [36.8, 37.0]}
     assert meas["aiclk"]["256"]["rep_median"] == [1350]
+    assert meas["load"] == {"256": {"max": 8.5, "rep_median": [8.1]}}
     assert meas["structure"]["512"]["n_ca"] == 512
     # 512 had no clock recorded, and carrying must not invent one
     assert "512" not in meas["aiclk"]
@@ -1380,3 +1500,114 @@ def test_the_clash_metric_is_calibrated_on_deposited_structures(rg_fresh):
     cas = mod._parse_cif(gt[0].read_text())
     half = [(c, r, x / 2, y / 2, z / 2, b) for c, r, x, y, z, b in cas]
     assert len(mod.clashing_atoms(half)) / len(half) > 0.5
+
+
+def test_the_ladder_is_read_off_the_cli_not_retyped(monkeypatch, tmp_path):
+    """A predict or affinity model registered later is on the ladder with no second edit, and an
+    exempted one stays off it. SIZE_LADDER_MODELS used to be typed by hand and checked after the
+    fact, so the arm covered a new model only once somebody remembered to retype the tuple."""
+    import tt_bio.main as cli
+    monkeypatch.setattr(cli, "PREDICT_MODELS", cli.PREDICT_MODELS + ("newfold",))
+    monkeypatch.setattr(cli, "AFFINITY_MODELS", cli.AFFINITY_MODELS + ("newbind",))
+    spec = importlib.util.spec_from_file_location(
+        "release_gate_derived", REPO_ROOT / "scripts" / "release_gate.py")
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    assert {"newfold", "newbind"} <= set(mod.SIZE_LADDER_MODELS)
+    assert not set(mod.SIZE_LADDER_MODELS) & set(mod.SIZE_LADDER_EXEMPT)
+    assert mod._size_ladder_coverage_gap() == []
+
+
+def test_every_boards_own_rungs_have_a_fixture(rg):
+    """The fixture test above walks the ladder of the board it runs on. A board's extra rungs
+    (the Galaxy's 1280 and 1536, p150a's four) are only folded on that board, so without this a
+    missing fixture would first show up as a failed fold on the one machine that owns the rung."""
+    for card in rg.SIZE_LADDER_CARD_RUNGS:
+        for model in rg.SIZE_LADDER_MODELS:
+            for rung in rg._size_ladder_model_rungs(model, card=card):
+                assert rung % 32 == 0, f"{card}: rung {rung} is not a multiple of 32"
+                f = rg._size_ladder_fixture(model, rung)
+                assert f.exists(), f"{card}/{model} has no fixture at rung {rung}: {f}"
+
+
+def _resume_above_the_guard(rg, monkeypatch, tmp_path, prev):
+    """Record openfold3 at 1280,1536 on the Galaxy, where its guard refuses both, on top of a
+    fragment holding ``prev`` (or nothing)."""
+    guard = ("'cdk2x2_1280.yaml' has 1280 residues, and openfold3 is measured to handle at "
+             "most 1024 residues on wormhole_b0")
+    base = tmp_path / "size_ladder_baseline.json"
+    base.write_text(json.dumps({"format": 1, "cards": {}}))
+    frag = tmp_path / "size_ladder_baseline.d" / "openfold3.json"
+    frag.parent.mkdir()
+    if prev:
+        frag.write_text(json.dumps({"cards": {"tt-galaxy-wh-l": {"models": {"openfold3": prev}}}}))
+    monkeypatch.setattr(rg, "_size_ladder_card_type", lambda: "tt-galaxy-wh-l")
+    monkeypatch.setattr(rg, "_repo_commit", lambda: "abc1234")
+    monkeypatch.setattr(rg, "_size_ladder_same_engine", lambda a, b: True)
+    monkeypatch.setattr(rg, "_run_census_fold", lambda *a, **k: {"refused": guard})
+    out = rg.run_size_ladder(True, True, base, models=["openfold3"], rungs=(1280, 1536),
+                             fragment=True)
+    entry = (json.loads(frag.read_text())["cards"]["tt-galaxy-wh-l"]["models"]["openfold3"]
+             if frag.exists() else None)
+    return out, entry, guard
+
+
+def test_a_resume_pass_above_the_guard_records_the_refusals_and_keeps_the_ladder(
+        rg_fresh, monkeypatch, tmp_path):
+    """The top rungs of a capped model are refusals, and a resume pass that asks only for them
+    must add them to the ladder it resumes. It used to stop at "every rung requested is above
+    this model's size guard" and record nothing, so a model capped at 1024 could never gain its
+    1280 and 1536 cells except by re-walking the whole ladder in one run."""
+    prev = {"host": socket.gethostname(), "commit": "abc1234", "grid": "8x9", "reps": 3,
+            "sigma_runtime_512": 0.05, "sigma_runtime": {"256": 0.2, "512": 0.05},
+            "runtime_s": {"256": 20.0, "512": 60.0, "768": 190.0},
+            "levers": {r: {"X": dict(FIRING)} for r in ("256", "512", "768")}}
+    out, entry, guard = _resume_above_the_guard(rg_fresh, monkeypatch, tmp_path, prev)
+
+    assert out["gate"] is True, out
+    assert entry["refused"] == {"1280": guard, "1536": guard}
+    assert entry["runtime_s"] == prev["runtime_s"]
+    assert entry["grid"] == "8x9"
+    # the 256 aa noise came along with its rung, so the median-of-3 it earned survives
+    assert entry["reps"] == 3
+
+
+def test_a_resume_pass_above_the_guard_with_nothing_beneath_it_records_nothing(
+        rg_fresh, monkeypatch, tmp_path):
+    out, entry, guard = _resume_above_the_guard(rg_fresh, monkeypatch, tmp_path, None)
+
+    assert out["gate"] is False
+    assert "is above this model's size guard" in out["error"]
+    assert entry is None
+
+
+def test_a_split_record_keeps_this_cards_reasons_over_another_cards(rg):
+    """A record that cannot carry its lower rungs across an engine change writes the entry
+    back without them. The second half of that split re-record then found no reason for
+    this card and took p300c's, which describes an 11x10 grid, onto the 8x9 Galaxy. The
+    committed file still holds the Galaxy's own judgement, and it must win."""
+    committed = {"768": {"K2": {**DARK, "reason": "declines all 8 calls: the 8x9 grid's L1 "
+                                                  "cannot hold the pair tensor"}}}
+    old = rg._size_ladder_with_committed_reasons({"1280": {"K2": dict(DARK)}}, committed)
+    inherited = [("p300c", {"768": {"K2": {**DARK, "reason": "declines all 8 calls: the "
+                                                            "11x10 grid"}}})]
+    levers = {"768": {"K2": dict(DARK)}}
+    assert rg._size_ladder_fill_reasons(levers, old, inherited) == 0
+    reason = levers["768"]["K2"]["reason"]
+    assert "8x9 grid" in reason and "11x10" not in reason and "carried" not in reason
+
+
+def test_a_working_file_reason_is_not_overwritten_by_the_committed_one(rg):
+    old = {"256": {"K2": {**DARK, "reason": "newer judgement"}}}
+    committed = {"256": {"K2": {**DARK, "reason": "older judgement"}},
+                 "512": {"K2": {**DARK, "reason": "TODO: say why"}}}
+    out = rg._size_ladder_with_committed_reasons(old, committed)
+    assert out["256"]["K2"]["reason"] == "newer judgement"
+    assert "512" not in out                     # a committed TODO is not a reason
+
+
+def test_the_committed_levers_are_read_from_git_head(rg):
+    lv = rg._size_ladder_committed_levers(rg.SIZE_LADDER_BASELINE, "tt-galaxy-wh-l", "boltz2")
+    assert "1536" in lv
+    assert rg._size_ladder_committed_levers(rg.SIZE_LADDER_BASELINE, "no-such-card",
+                                            "boltz2") == {}

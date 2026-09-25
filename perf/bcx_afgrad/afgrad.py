@@ -71,8 +71,12 @@ def _float64_layernorm():
     R.LayerNorm.forward = forward
 
 
-def load_models(params, device_arm=True):
-    """(device model or None, float64 reference, fp32 reference, bf16 reference)."""
+def load_models(params, device_arm=True, refs=("f64", "f32", "bf16")):
+    """(device model or None, float64 reference, fp32 reference, bf16 reference).
+
+    ``refs`` narrows which reference arms are built. A float64 AF2 is minutes of host time on
+    a loaded box and a device-only run never reads it.
+    """
     from tt_bio.af2_reference import load_af2_model
     from tt_bio.af2_weights import load_af2_state_dict
     _float64_layernorm()
@@ -83,6 +87,8 @@ def load_models(params, device_arm=True):
         dm = load_af2_device_model(state, template=False, trunk_dtype=torch.bfloat16)
     ref = {}
     for name, dt in (("f64", torch.float64), ("f32", torch.float32), ("bf16", torch.bfloat16)):
+        if name not in refs:
+            continue
         m = load_af2_model(state, template=False, trunk_dtype=dt)
         # Parameters stay float32 in the bf16/fp32 arms, which is AF2's own convention (the
         # Linear casts the weight to the activation dtype per call). float64 promotes them.
@@ -191,19 +197,26 @@ class Dev:
         const = self.dm._up(self.dm.opm_constant[i].reshape(1, 1, -1))
         return blk(blk._residual(z, const))
 
-    def evo(self, i, m, z, msa_mask=None):
-        return self.dm.device_evoformer[i](m, z, msa_mask)
+    def evo(self, i, m, z, msa_mask=None, pair_masks=(None, None)):
+        return self.dm.device_evoformer[i](m, z, msa_mask, *pair_masks)
 
     def stack(self, m, z, k_extra, k_evo, extra_first=0, evo_first=0, ckpt=False,
-              msa_mask=None):
+              msa_mask=None, pair_masks=(None, None)):
+        """`pair_masks` is `af2.af2_pair_masks(mask_2d)` -- the multiply and the key bias.
+
+        Defaulted to `(None, None)`, which is the unmasked fold every leg in this file times,
+        so the stack this row prices is unchanged. A padded fold has to pass it: the pair track
+        reads it, and dropping it cost the positive control 0.95 pLDDT against 0.53
+        (`perf/bcx_mono/masked_fold.json`).
+        """
         for i in range(extra_first, extra_first + k_extra):
             z = self.ag.checkpoint(lambda t, i=i: self.extra(i, t), z) if ckpt else self.extra(i, z)
         for i in range(evo_first, evo_first + k_evo):
             if ckpt:
                 m, z = self.ag.checkpoint(
-                    lambda a, b, i=i: self.evo(i, a, b, msa_mask), m, z)
+                    lambda a, b, i=i: self.evo(i, a, b, msa_mask, pair_masks), m, z)
             else:
-                m, z = self.evo(i, m, z, msa_mask)
+                m, z = self.evo(i, m, z, msa_mask, pair_masks)
         return m, z
 
     def seed(self, t, like):
@@ -405,7 +418,8 @@ def cmd_vjp(args):
                     zo = dev.extra(i, zl)
                     roots, seeds = [zo], [dev.seed(gz_, zo)]
                 else:
-                    mo, zo = dev.evo(i, ml, zl)
+                    mask = dev.up(torch.ones(min_.shape[:-1])) if args.msa_mask else None
+                    mo, zo = dev.evo(i, ml, zl, mask)
                     roots, seeds = [mo, zo], [dev.seed(gm_, mo), dev.seed(gz_, zo)]
             census = node_census(ag, roots)
             ag.backward(roots, seeds)
@@ -850,6 +864,10 @@ def main():
     ap.add_argument("--seed", type=int, default=0)
     ap.add_argument("--eps", default="1e-1,3e-2,1e-2,3e-3,1e-3")
     ap.add_argument("--ckpt", action="store_true")
+    ap.add_argument("--msa-mask", action="store_true",
+                    help="vjp: Evoformer blocks read an all-ones MSA mask, which routes them "
+                         "through the mask biases a design step builds; the float64 reference "
+                         "stays unmasked, which an all-ones mask equals")
     ap.add_argument("--ns", default="128,256")
     ap.add_argument("--ks", default="1,2,4")
     ap.add_argument("--stacks", default="evo,extra")

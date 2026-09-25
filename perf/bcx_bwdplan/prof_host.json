@@ -1,0 +1,208 @@
+{
+ "stamp": {
+  "host": "tt-quietbox",
+  "card": 0,
+  "subsystem_device": "0x0040",
+  "commit": "83dbfc5af49484b18df6ba4598027aeb133bf522",
+  "tt_bio_dirty": false,
+  "torch_threads": 8,
+  "loadavg": [
+   51.92431640625,
+   52.3564453125,
+   50.4140625
+  ],
+  "utc": "2026-09-24T12:31:26Z",
+  "pci": "0000:01:00.0",
+  "aiclk_node": "/sys/class/tenstorrent/tenstorrent!1/tt_aiclk"
+ },
+ "build": {
+  "ttnn": "/home/ttuser/tt-metal-main-mar31/ttnn/ttnn/__init__.py",
+  "profiler_env": "1"
+ },
+ "arms": [
+  "stack",
+  "bwd1",
+  "bwd4",
+  "bwd"
+ ],
+ "n": 256,
+ "note": "wall under the device profiler: perturbed, attribution only",
+ "points": [
+  {
+   "tag": "stack evo K=1 rep=0",
+   "bwd": 2.453441858291626,
+   "aiclk": {
+    "n": 9,
+    "min": 1350,
+    "median": 1350,
+    "max": 1350
+   },
+   "load1": 49.65234375
+  },
+  {
+   "tag": "stack extra K=1 rep=0",
+   "bwd": 0.47672176361083984,
+   "aiclk": {
+    "n": 2,
+    "min": 1350,
+    "median": 1350,
+    "max": 1350
+   },
+   "load1": 49.03955078125
+  },
+  {
+   "tag": "bwd1 evo K=1 rep=0",
+   "bwd": 1.9623489379882812,
+   "aiclk": {
+    "n": 8,
+    "min": 1350,
+    "median": 1350,
+    "max": 1350
+   },
+   "load1": 49.75732421875
+  },
+  {
+   "tag": "bwd1 extra K=1 rep=0",
+   "bwd": 1.5314948558807373,
+   "aiclk": {
+    "n": 6,
+    "min": 1350,
+    "median": 1350,
+    "max": 1350
+   },
+   "load1": 47.6943359375
+  },
+  {
+   "tag": "bwd4 evo K=1 rep=0",
+   "bwd": 1.358724594116211,
+   "aiclk": {
+    "n": 5,
+    "min": 1350,
+    "median": 1350,
+    "max": 1350
+   },
+   "load1": 48.43994140625
+  },
+  {
+   "tag": "bwd4 extra K=1 rep=0",
+   "bwd": 1.318805456161499,
+   "aiclk": {
+    "n": 5,
+    "min": 1350,
+    "median": 1350,
+    "max": 1350
+   },
+   "load1": 49.44580078125
+  },
+  {
+   "tag": "bwd evo K=1 rep=0",
+   "bwd": 1.0149269104003906,
+   "aiclk": {
+    "n": 4,
+    "min": 1350,
+    "median": 1350,
+    "max": 1350
+   },
+   "load1": 49.810546875
+  },
+  {
+   "tag": "bwd extra K=1 rep=0",
+   "bwd": 0.6048157215118408,
+   "aiclk": {
+    "n": 2,
+    "min": 1350,
+    "median": 1350,
+    "max": 1350
+   },
+   "load1": 52.46875
+  },
+  {
+   "tag": "bwd evo K=1 rep=1",
+   "bwd": 0.7892513275146484,
+   "aiclk": {
+    "n": 3,
+    "min": 1350,
+    "median": 1350,
+    "max": 1350
+   },
+   "load1": 52.46875
+  },
+  {
+   "tag": "bwd extra K=1 rep=1",
+   "bwd": 0.4209260940551758,
+   "aiclk": {
+    "n": 2,
+    "min": 1350,
+    "median": 1350,
+    "max": 1350
+   },
+   "load1": 53.47265625
+  },
+  {
+   "tag": "bwd4 evo K=1 rep=1",
+   "bwd": 1.2660207748413086,
+   "aiclk": {
+    "n": 5,
+    "min": 1350,
+    "median": 1350,
+    "max": 1350
+   },
+   "load1": 53.51513671875
+  },
+  {
+   "tag": "bwd4 extra K=1 rep=1",
+   "bwd": 1.6400508880615234,
+   "aiclk": {
+    "n": 6,
+    "min": 1350,
+    "median": 1350,
+    "max": 1350
+   },
+   "load1": 54.51513671875
+  },
+  {
+   "tag": "bwd1 evo K=1 rep=1",
+   "bwd": 1.3625421524047852,
+   "aiclk": {
+    "n": 5,
+    "min": 1350,
+    "median": 1350,
+    "max": 1350
+   },
+   "load1": 53.4326171875
+  },
+  {
+   "tag": "bwd1 extra K=1 rep=1",
+   "bwd": 1.2148048877716064,
+   "aiclk": {
+    "n": 4,
+    "min": 1350,
+    "median": 1350,
+    "max": 1350
+   },
+   "load1": 53.958984375
+  },
+  {
+   "tag": "stack evo K=1 rep=1",
+   "bwd": 1.576502799987793,
+   "aiclk": {
+    "n": 6,
+    "min": 1350,
+    "median": 1350,
+    "max": 1350
+   },
+   "load1": 53.75048828125
+  },
+  {
+   "tag": "stack extra K=1 rep=1",
+   "bwd": 1.6003382205963135,
+   "aiclk": {
+    "n": 5,
+    "min": 1350,
+    "median": 1350,
+    "max": 1350
+   },
+   "load1": 51.12744140625
+  }
+ ]
+}

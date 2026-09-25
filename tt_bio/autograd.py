@@ -24,11 +24,36 @@ import contextlib
 import math
 import os
 import sys
+import weakref
 from typing import Optional, Sequence
 
 import ttnn
 
 from tt_bio.envflags import env_flag
+
+#: `ttnn.zeros(..., device=)` builds its zeros on the host and uploads them, and a trace
+#: capture refuses a host write: those uploads are the last host writes in a warm taped AF2
+#: block (`perf/bcx_trace`). On, every zero a backward needs comes from a per-shape cache
+#: filled outside the capture and is handed out as a device-side clone, and the head
+#: backward's zero slot is a device fill. Default off; `perf/bcx_predictor/trace_wire.py`
+#: turns it on for the arm that captures.
+DEVICE_ZEROS = False
+_ZERO_CACHE: dict = {}
+
+
+def grad_zeros(shape, dtype, device):
+    """A zero tensor of ``shape`` on ``device``, for a backward that pads a gradient out."""
+    shape = [int(d) for d in shape]
+    if not DEVICE_ZEROS:
+        return ttnn.zeros(shape, dtype=dtype, layout=ttnn.TILE_LAYOUT, device=device)
+    key = (tuple(shape), str(dtype), id(device))
+    z = _ZERO_CACHE.get(key)
+    if z is None:
+        z = _ZERO_CACHE[key] = ttnn.zeros(shape, dtype=dtype, layout=ttnn.TILE_LAYOUT,
+                                          device=device)
+    # A clone, so a caller that frees its input cannot free the cache entry.
+    return ttnn.clone(z)
+
 
 __all__ = [
     "Tensor", "precise_config", "bmm_program_config", "bmm", "softmax_bw_inner", "no_grad", "parameter",
@@ -173,7 +198,7 @@ class Tensor:
     """
 
     __slots__ = ("_value", "_grad", "_parts", "requires_grad", "node", "pinned", "evictable",
-                 "shares")
+                 "shares", "__weakref__")
 
     def __init__(self, value, requires_grad: bool = False):
         self._value = value
@@ -192,7 +217,8 @@ class Tensor:
         # CPython cannot collect). Storage sharing is `shares`, not this.
         self.evictable = True
         # The taped tensors over this one's buffer, itself included, or None if it owns its
-        # buffer alone. One list object shared by every member; see `_free_shared`.
+        # buffer alone. One list shared by every member, of WEAK references; `_share` says why
+        # and `_free_shared` reads it.
         self.shares = None
 
     @property
@@ -306,7 +332,7 @@ class Tensor:
         `_evict_read_parents`). Either way a member that holds its buffer for the other reason,
         `evictable` False for a closure that reads its output by raw handle, refuses both.
         """
-        group = self.shares
+        group = _members(self.shares)
         if any(not t.evictable for t in group):
             return
         if not any(t.pinned or t.requires_grad for t in group):
@@ -411,7 +437,7 @@ def _pad_slice(g, starts, ends, shape):
 def _zeros_like_along(g, ax, n):
     z = [int(d) for d in g.shape]
     z[ax] = n
-    return ttnn.zeros(z, dtype=g.dtype, layout=ttnn.TILE_LAYOUT, device=g.device())
+    return grad_zeros(z, g.dtype, g.device())
 
 
 def _join_slices(parts, shape):
@@ -588,13 +614,34 @@ def _tape(out_value, parents: Sequence[Tensor], make_fn) -> Tensor:
 
 
 def _share(a: Tensor, b: Tensor) -> None:
-    """Put `a` and `b` in one storage group, merging any groups they already belong to."""
-    group = a.shares if a.shares is not None else [a]
-    for t in (b.shares if b.shares is not None else [b]):
-        if not any(t is m for m in group):
-            group.append(t)
-    for t in group:
+    """Put `a` and `b` in one storage group, merging any groups they already belong to.
+
+    The group holds its members WEAKLY. Every member points at the list, so a list of strong
+    references is a cycle -- a view and its source owning each other -- and a cycle is the one
+    thing refcounting cannot free. One of them per storage group was enough to keep a whole tape
+    alive until the cyclic collector ran, and that collector counts Python objects, not the
+    device bytes they hold: BindCraft 2's design loop at n=307 kept 4.746 GB per step and was
+    refused a buffer in step 4 (`perf/bcx_dram/memtrace_seed200t1.json`), and a `gc.collect()`
+    after step 2 released 9.492 GB (`perf/bcx_dram/holder_probe.json`).
+
+    Weak is also exactly the right strength. A member can only matter to a group decision while
+    something can still read its value, and whatever can -- a child node's `parents`, its own
+    node's closure -- already holds it strongly. A member nothing holds is gone, and so is every
+    reader of it.
+    """
+    group = a.shares if a.shares is not None else [weakref.ref(a)]
+    have = _members(group)
+    for t in _members(b.shares) if b.shares is not None else [b]:
+        if not any(t is m for m in have):
+            group.append(weakref.ref(t))
+            have.append(t)
+    for t in have:
         t.shares = group
+
+
+def _members(group) -> list:
+    """The live tensors of a storage group."""
+    return [t for t in (r() for r in group) if t is not None]
 
 
 def _evict_read_parents(parents: Sequence[Tensor]) -> None:
@@ -1348,14 +1395,12 @@ def narrow(x: Tensor, dim: int, start: int, length: int) -> Tensor:
             if before:
                 z = list(shape)
                 z[ax] = before
-                parts.append(ttnn.zeros(z, dtype=g.dtype, layout=ttnn.TILE_LAYOUT,
-                                        device=g.device()))
+                parts.append(grad_zeros(z, g.dtype, g.device()))
             parts.append(g)
             if after:
                 z = list(shape)
                 z[ax] = after
-                parts.append(ttnn.zeros(z, dtype=g.dtype, layout=ttnn.TILE_LAYOUT,
-                                        device=g.device()))
+                parts.append(grad_zeros(z, g.dtype, g.device()))
             x.add_grad(parts[0] if len(parts) == 1 else ttnn.concat(parts, dim=ax))
         return bw
 
@@ -1536,20 +1581,10 @@ def checkpoint(fn, *inputs: Tensor, params: Sequence[Tensor] = ()) -> Tensor:
         for src, dup in zip(inputs, inner):
             if isinstance(src, Tensor) and isinstance(dup, Tensor) and dup.grad is not None:
                 src.add_grad(dup.grad)
-        # Drop the inner tape NOW, because refcounting alone will not: a view and the tensor it
-        # views list each other in one `shares` group, and the view's node leads back to its
-        # source, so every storage group on the tape is a cycle holding everything upstream of
-        # it. That is the only edge on a tape that is not a parent pointer (`_tape` keeps
-        # closures off their own outputs), and `perf/bcx_stack/stack.py gcdiag` finds no other
-        # cycle in a recomputed AF2 block. Clearing the groups of the tensors this recompute
-        # made frees the tape the moment it goes out of scope. It used to be a `gc.collect()`,
-        # which walks the whole interpreter heap: 0.16 s per recompute in a process holding
-        # AF2, at any sequence length, and the largest item in a checkpointed block's backward.
-        # One leaked inner tape per block is invisible; 96 of them are the difference between
-        # a backward that peaks at 8.92 GiB and one that is refused 2.4 GB with 30.3 GiB held.
-        for t in _reverse_topo(roots):
-            if t.node is not None or any(t is d for d in inner):
-                t.shares = None
+        # The inner tape is a plain DAG (`_share` holds storage groups weakly), so dropping the
+        # names below frees it here, at the refcount. It once took a `gc.collect()` per
+        # recompute, 0.16 s each in a process holding AF2, and then a walk that cleared the
+        # groups it could reach from the roots -- which missed every group off that path.
         del y, inner, roots
 
     if not isinstance(produced, (tuple, list)):

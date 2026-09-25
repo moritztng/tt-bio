@@ -1,0 +1,72 @@
+{
+ "host": "tt-quietbox2",
+ "card": "3",
+ "pci": "0000:04:00.0",
+ "sysfs": "/sys/class/tenstorrent/tenstorrent!3/tt_aiclk",
+ "commit": "7605a26012f4d63ae67ff4fd144eb94b396e5958",
+ "seed": 100,
+ "rounds_requested": 21,
+ "boost": -15,
+ "profile": [],
+ "xla_flags": "--xla_gpu_enable_triton_gemm=false",
+ "omp": "6",
+ "length_bucket_size": 32,
+ "started_utc": "2026-09-24T22:31:25Z",
+ "loadavg_start": [
+  38.8779296875,
+  43.22705078125,
+  44.7587890625
+ ],
+ "nproc": 16,
+ "project": "/home/ttuser/.coworker/wt/bcx-seam/perf/bcx_seam/runs/quiet_ab"
+}
+2026-09-24 22:31:26.641 | DEBUG    | ttnn:<module>:77 - Initial ttnn.CONFIG:
+Config{cache_path=/home/ttuser/.cache/ttnn,model_cache_path=/home/ttuser/.cache/ttnn/models,tmp_dir=/tmp/ttnn,enable_model_cache=false,enable_fast_runtime_mode=true,throw_exception_on_fallback=false,enable_logging=false,enable_graph_report=false,enable_detailed_buffer_report=false,enable_detailed_tensor_report=false,enable_comparison_mode=false,comparison_mode_should_raise_exception=false,comparison_mode_pcc=0.9999,root_report_path=generated/ttnn/reports,report_name=std::nullopt,std::nullopt}
+/home/ttuser/.coworker/wt/bcx-seam/tt_bio/main.py:48: RuntimeWarning: os.fork() was called. os.fork() is incompatible with multithreaded code, and JAX is multithreaded, so this will likely lead to a deadlock.
+  pid = _os.fork()
+BindCraft 2 (unreleased)
+campaign pdl1
+binder length 60 to 180, drawn per trajectory
+target hPDL1 (target) | 115 residues | hotspots 54,56,66,115
+losses binder_contacts=1.0 binder_helicity=-0.3 binder_pae=0.4 compactness=0.5 interface_contacts=1.0 interface_pae=0.1 iptm_loss=0.05 plddt_loss=0.1
+filters Backbone_Clashes <= 0, Binder_RMSD <= 3.5, Interface_Residues >= 7, Unbound_Binder_pLDDT >= 0.7, i_pAE <= 0.35, i_pTM >= 0.7, pTM >= 0.55
+results /home/ttuser/.coworker/wt/bcx-seam/perf/bcx_seam/runs/quiet_ab | 3_Ranked/!_Ranked.csv rewritten as each design is accepted | summary.csv written when the campaign ends
+
+=== trajectory 1 | pdl1_denovo_l71_c019673d64134f64 | accepted 0/10 ===
+{
+ "host": "tt-quietbox2",
+ "card": "3",
+ "pci": "0000:04:00.0",
+ "sysfs": "/sys/class/tenstorrent/tenstorrent!3/tt_aiclk",
+ "commit": "7605a26012f4d63ae67ff4fd144eb94b396e5958",
+ "seed": 100,
+ "rounds_requested": 21,
+ "boost": -15,
+ "profile": [],
+ "xla_flags": "--xla_gpu_enable_triton_gemm=false",
+ "omp": "6",
+ "length_bucket_size": 32,
+ "started_utc": "2026-09-24T22:31:25Z",
+ "loadavg_start": [
+  38.8779296875,
+  43.22705078125,
+  44.7587890625
+ ],
+ "nproc": 16,
+ "project": "/home/ttuser/.coworker/wt/bcx-seam/perf/bcx_seam/runs/quiet_ab",
+ "wall_seconds": 883.91,
+ "stopped": "21 rounds collected",
+ "device_calls": {
+  "primal": 0,
+  "taped": 40,
+  "backward": 20
+ },
+ "loadavg_end": [
+  55.51806640625,
+  52.8642578125,
+  49.150390625
+ ],
+ "finished_utc": "2026-09-24T22:47:33Z",
+ "traces": []
+}
+events -> /home/ttuser/.coworker/wt/bcx-seam/perf/bcx_seam/runs/quiet_ab/round_events.json

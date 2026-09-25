@@ -1,0 +1,637 @@
+{
+ "stamp": {
+  "host": "tt-quietbox2",
+  "card": 3,
+  "subsystem_device": "0x0046",
+  "commit": "b908b8a9bc0d0333e20be87b39a6d055839dd97f",
+  "tt_bio_dirty": false,
+  "torch_threads": 6,
+  "loadavg": [
+   27.51904296875,
+   29.4052734375,
+   29.3251953125
+  ],
+  "utc": "2026-09-25T03:05:07Z",
+  "pci": "0000:04:00.0",
+  "argv": [
+   "perf/bcx_tracewire/round_ab.py",
+   "--arm",
+   "zeros",
+   "--digest",
+   "--extra-msa",
+   "--rounds",
+   "7",
+   "--seed",
+   "100",
+   "--card",
+   "3",
+   "--project",
+   "perf/bcx_tracewire/runs/det_xmsa_zeros_seed100",
+   "--out",
+   "round_digest_xmsa_det_zeros_seed100.json"
+  ],
+  "aiclk_node": "/sys/class/tenstorrent/tenstorrent!3/tt_aiclk",
+  "region_mb": 768,
+  "length_bucket_size": 32,
+  "seed": 100,
+  "extra_msa_on_device": true
+ },
+ "mode": "zeros",
+ "wall_s": 159.8,
+ "rounds": [
+  {
+   "i": 0,
+   "arm": "zeros",
+   "s": 0.023392200469970703,
+   "aiclk": {
+    "n": 0
+   },
+   "load1": 27.9,
+   "span": [
+    1790305517.2127316,
+    1790305517.2361238
+   ],
+   "calls": {
+    "primal": 0,
+    "taped": 0,
+    "backward": 0
+   },
+   "trunk": {
+    "taped": 0.0,
+    "backward": 0.0,
+    "cpu": 0.0,
+    "extra": 0.0,
+    "extra_cpu": 0.0
+   },
+   "seg": {
+    "write": 0.0,
+    "enqueue": 0.0,
+    "wait": 0.0,
+    "read": 0.0
+   },
+   "captures": 0,
+   "extra_calls": {
+    "primal": 0,
+    "taped": 0,
+    "backward": 0
+   }
+  },
+  {
+   "i": 1,
+   "arm": "zeros",
+   "s": 62.930893898010254,
+   "aiclk": {
+    "n": 235,
+    "min": 1337,
+    "median": 1350,
+    "max": 1350
+   },
+   "load1": 27.9,
+   "span": [
+    1790305517.2361238,
+    1790305580.1670177
+   ],
+   "calls": {
+    "primal": 0,
+    "taped": 2,
+    "backward": 1
+   },
+   "trunk": {
+    "taped": 3.2014181509730406,
+    "backward": 5.745640601002378,
+    "cpu": 6.946042037,
+    "extra": 1.5594219059858005,
+    "extra_cpu": 0.5920515300000007
+   },
+   "seg": {
+    "write": 0.0,
+    "enqueue": 0.0,
+    "wait": 0.0,
+    "read": 0.0
+   },
+   "captures": 0,
+   "extra_calls": {
+    "primal": 0,
+    "taped": 2,
+    "backward": 1
+   }
+  },
+  {
+   "i": 2,
+   "arm": "zeros",
+   "s": 18.31830596923828,
+   "aiclk": {
+    "n": 67,
+    "min": 1337,
+    "median": 1350,
+    "max": 1350
+   },
+   "load1": 31.2,
+   "span": [
+    1790305580.1670177,
+    1790305598.4853237
+   ],
+   "calls": {
+    "primal": 0,
+    "taped": 4,
+    "backward": 2
+   },
+   "trunk": {
+    "taped": 5.821156630961923,
+    "backward": 11.405591214017477,
+    "cpu": 14.663726665,
+    "extra": 2.403786340961233,
+    "extra_cpu": 1.088661552000001
+   },
+   "seg": {
+    "write": 0.0,
+    "enqueue": 0.0,
+    "wait": 0.0,
+    "read": 0.0
+   },
+   "captures": 0,
+   "extra_calls": {
+    "primal": 0,
+    "taped": 4,
+    "backward": 2
+   }
+  },
+  {
+   "i": 3,
+   "arm": "zeros",
+   "s": 17.757706880569458,
+   "aiclk": {
+    "n": 69,
+    "min": 1318,
+    "median": 1350,
+    "max": 1350
+   },
+   "load1": 28.7,
+   "span": [
+    1790305598.4853237,
+    1790305616.2430305
+   ],
+   "calls": {
+    "primal": 0,
+    "taped": 6,
+    "backward": 3
+   },
+   "trunk": {
+    "taped": 8.415728424995905,
+    "backward": 16.100491786026396,
+    "cpu": 21.433352727,
+    "extra": 3.1162576439382974,
+    "extra_cpu": 1.5943429659999997
+   },
+   "seg": {
+    "write": 0.0,
+    "enqueue": 0.0,
+    "wait": 0.0,
+    "read": 0.0
+   },
+   "captures": 0,
+   "extra_calls": {
+    "primal": 0,
+    "taped": 6,
+    "backward": 3
+   }
+  },
+  {
+   "i": 4,
+   "arm": "zeros",
+   "s": 17.43565583229065,
+   "aiclk": {
+    "n": 68,
+    "min": 1331,
+    "median": 1350,
+    "max": 1350
+   },
+   "load1": 29.1,
+   "span": [
+    1790305616.2430305,
+    1790305633.6786864
+   ],
+   "calls": {
+    "primal": 0,
+    "taped": 8,
+    "backward": 4
+   },
+   "trunk": {
+    "taped": 10.725626482977532,
+    "backward": 20.825330844032578,
+    "cpu": 27.9143105,
+    "extra": 3.8997808719286695,
+    "extra_cpu": 2.006065738
+   },
+   "seg": {
+    "write": 0.0,
+    "enqueue": 0.0,
+    "wait": 0.0,
+    "read": 0.0
+   },
+   "captures": 0,
+   "extra_calls": {
+    "primal": 0,
+    "taped": 8,
+    "backward": 4
+   }
+  },
+  {
+   "i": 5,
+   "arm": "zeros",
+   "s": 16.66060781478882,
+   "aiclk": {
+    "n": 64,
+    "min": 1343,
+    "median": 1350,
+    "max": 1350
+   },
+   "load1": 29.4,
+   "span": [
+    1790305633.6786864,
+    1790305650.3392942
+   ],
+   "calls": {
+    "primal": 0,
+    "taped": 10,
+    "backward": 5
+   },
+   "trunk": {
+    "taped": 13.04092356696492,
+    "backward": 25.480601964052767,
+    "cpu": 34.240296646,
+    "extra": 4.783751306938939,
+    "extra_cpu": 2.534763075
+   },
+   "seg": {
+    "write": 0.0,
+    "enqueue": 0.0,
+    "wait": 0.0,
+    "read": 0.0
+   },
+   "captures": 0,
+   "extra_calls": {
+    "primal": 0,
+    "taped": 10,
+    "backward": 5
+   }
+  },
+  {
+   "i": 6,
+   "arm": "zeros",
+   "s": 16.83534574508667,
+   "aiclk": {
+    "n": 66,
+    "min": 1343,
+    "median": 1350,
+    "max": 1350
+   },
+   "load1": 28.7,
+   "span": [
+    1790305650.3392942,
+    1790305667.17464
+   ],
+   "calls": {
+    "primal": 0,
+    "taped": 12,
+    "backward": 6
+   },
+   "trunk": {
+    "taped": 15.465044721961021,
+    "backward": 30.17229035004857,
+    "cpu": 40.849553621,
+    "extra": 5.642407429928426,
+    "extra_cpu": 3.043971892
+   },
+   "seg": {
+    "write": 0.0,
+    "enqueue": 0.0,
+    "wait": 0.0,
+    "read": 0.0
+   },
+   "captures": 0,
+   "extra_calls": {
+    "primal": 0,
+    "taped": 12,
+    "backward": 6
+   }
+  }
+ ],
+ "calls": {
+  "primal": 0,
+  "taped": 12,
+  "backward": 6
+ },
+ "extra_calls": {
+  "primal": 0,
+  "taped": 12,
+  "backward": 6
+ },
+ "wire": {
+  "captures": [],
+  "replays": {},
+  "capture_s_total": 0,
+  "seg_s": {
+   "write": 0.0,
+   "enqueue": 0.0,
+   "wait": 0.0,
+   "read": 0.0
+  }
+ },
+ "digests": [
+  {
+   "op": "extra_taped",
+   "d": [
+    "ec5b2f739fc649d6"
+   ]
+  },
+  {
+   "op": "taped",
+   "d": [
+    "ef41d8a971351742",
+    "19910f40618c2f6c"
+   ]
+  },
+  {
+   "op": "extra_taped",
+   "d": [
+    "f74e7eae21f6a1dc"
+   ]
+  },
+  {
+   "op": "taped",
+   "d": [
+    "2e1e674b50d6981d",
+    "cd7163356a2db821"
+   ]
+  },
+  {
+   "op": "backward",
+   "d": [
+    "34add1c8a86e0fbc",
+    "121e28da4db53f5a"
+   ]
+  },
+  {
+   "op": "extra_backward",
+   "d": [
+    "470d80a50bedc4b8"
+   ]
+  },
+  {
+   "op": "extra_taped",
+   "d": [
+    "73537244acd747a0"
+   ]
+  },
+  {
+   "op": "taped",
+   "d": [
+    "1482a783b0dca113",
+    "e5049f3264262de6"
+   ]
+  },
+  {
+   "op": "extra_taped",
+   "d": [
+    "a69ceb02c78b3ae4"
+   ]
+  },
+  {
+   "op": "taped",
+   "d": [
+    "e148ca51b369c413",
+    "5ea6f3332515ad4f"
+   ]
+  },
+  {
+   "op": "backward",
+   "d": [
+    "3f6459a30ca8b167",
+    "f01e273cab305dd4"
+   ]
+  },
+  {
+   "op": "extra_backward",
+   "d": [
+    "db4c0bc585e8bb07"
+   ]
+  },
+  {
+   "op": "extra_taped",
+   "d": [
+    "21248ff0d8f7240e"
+   ]
+  },
+  {
+   "op": "taped",
+   "d": [
+    "bcf16b89126a5cf0",
+    "7ba7a51a09d686e0"
+   ]
+  },
+  {
+   "op": "extra_taped",
+   "d": [
+    "d347fdfb9109cb53"
+   ]
+  },
+  {
+   "op": "taped",
+   "d": [
+    "f564233dcee2b6e1",
+    "d50272d4de89a375"
+   ]
+  },
+  {
+   "op": "backward",
+   "d": [
+    "d8100a0edd92dba6",
+    "eb2c8e7a720faa59"
+   ]
+  },
+  {
+   "op": "extra_backward",
+   "d": [
+    "5dc791fc3ce06b93"
+   ]
+  },
+  {
+   "op": "extra_taped",
+   "d": [
+    "5cd9cfad1dcd9d60"
+   ]
+  },
+  {
+   "op": "taped",
+   "d": [
+    "52d9e42dd1965d7f",
+    "68a019687bcbaf5b"
+   ]
+  },
+  {
+   "op": "extra_taped",
+   "d": [
+    "423e0ef6783dfd64"
+   ]
+  },
+  {
+   "op": "taped",
+   "d": [
+    "ba80737873080650",
+    "aea1a7d2bfc846ef"
+   ]
+  },
+  {
+   "op": "backward",
+   "d": [
+    "5c9a4eab6a5cafce",
+    "94afccbfc143e439"
+   ]
+  },
+  {
+   "op": "extra_backward",
+   "d": [
+    "7f448d96311bc98b"
+   ]
+  },
+  {
+   "op": "extra_taped",
+   "d": [
+    "4101d0042ac69e76"
+   ]
+  },
+  {
+   "op": "taped",
+   "d": [
+    "ca57248361efaf99",
+    "3e17afd7101f09f6"
+   ]
+  },
+  {
+   "op": "extra_taped",
+   "d": [
+    "e434904665e785d1"
+   ]
+  },
+  {
+   "op": "taped",
+   "d": [
+    "4f75a3a91e7ad187",
+    "78040df740caa5df"
+   ]
+  },
+  {
+   "op": "backward",
+   "d": [
+    "84b6c77fc3d109f3",
+    "dd9d980b7196a500"
+   ]
+  },
+  {
+   "op": "extra_backward",
+   "d": [
+    "2c1aa5c491d6c769"
+   ]
+  },
+  {
+   "op": "extra_taped",
+   "d": [
+    "e45f7e4d03646c2c"
+   ]
+  },
+  {
+   "op": "taped",
+   "d": [
+    "cc12359d6141fcbe",
+    "711229f3a0e08ac9"
+   ]
+  },
+  {
+   "op": "extra_taped",
+   "d": [
+    "c8959d5f62d461ff"
+   ]
+  },
+  {
+   "op": "taped",
+   "d": [
+    "2edfef3c6d8b2e54",
+    "a9c82a6b06e11aef"
+   ]
+  },
+  {
+   "op": "backward",
+   "d": [
+    "332a53f6d37725e5",
+    "149dece6fa76f1e3"
+   ]
+  },
+  {
+   "op": "extra_backward",
+   "d": [
+    "cd8dc484306454ef"
+   ]
+  }
+ ],
+ "per_arm": {
+  "zeros": {
+   "median": 17.43565583229065,
+   "p10": 16.730502986907958,
+   "p90": 18.09406633377075,
+   "mean": 17.401524448394774,
+   "min": 16.66060781478882,
+   "max": 18.31830596923828,
+   "n": 5,
+   "trunk_s": {
+    "median": 7.115809540991904,
+    "p10": 6.99623576879967,
+    "p90": 7.883602402219549,
+    "mean": 7.338055264006835,
+    "min": 6.970568204007577,
+    "max": 8.27968909300398,
+    "n": 5
+   },
+   "trunk_cpu_s": {
+    "median": 6.609256975000001,
+    "p10": 6.387974796799999,
+    "p90": 7.3384612015999995,
+    "mean": 6.7807023168,
+    "min": 6.325986145999998,
+    "max": 7.717684628000001,
+    "n": 5
+   },
+   "extra_s": {
+    "median": 0.8443644349754322,
+    "p10": 0.7408920729823876,
+    "p90": 0.8738447102019563,
+    "mean": 0.816597104788525,
+    "min": 0.7124713029770646,
+    "max": 0.8839704350102693,
+    "n": 5
+   },
+   "extra_cpu_s": {
+    "median": 0.5056814139999988,
+    "p10": 0.4456776720000004,
+    "p90": 0.5209019289999999,
+    "mean": 0.4903840723999998,
+    "min": 0.4117227720000005,
+    "max": 0.5286973369999997,
+    "n": 5
+   },
+   "aiclk": {
+    "n": 334,
+    "min": 1318,
+    "median": 1350,
+    "max": 1350
+   },
+   "load1": [
+    31.2,
+    28.7,
+    29.1,
+    29.4,
+    28.7
+   ]
+  }
+ }
+}

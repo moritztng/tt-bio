@@ -1,0 +1,54 @@
+{
+ "seed": 100,
+ "bucket": 32,
+ "loadavg_start": [
+  23.25,
+  24.2626953125,
+  25.36572265625
+ ],
+ "arms": {
+  "jax": {
+   "reused_from": "/home/ttuser/.coworker/wt/bcx-extramsa/perf/bcx_extramsa/runs/seqgrad/grads.npz",
+   "g_l2": 0.29185047553040244
+  },
+  "evo": {
+   "loss": 8.371460914611816,
+   "seconds_incl_compile": 131.8,
+   "g_l2": 2.5478830336163387,
+   "aiclk_during": {
+    "n": 129,
+    "aiclk_min": 1318,
+    "aiclk_med": 1350,
+    "aiclk_max": 1350,
+    "load1": 26.4
+   }
+  }
+ },
+ "extra_calls": null,
+ "graded": {
+  "evo_vs_jax": {
+   "rel_l2": 8.566537308852004,
+   "cos": 0.21930090856139656,
+   "norm_ratio": 8.730097249236527
+  }
+ },
+ "stamp": {
+  "host": "tt-quietbox2",
+  "card": 3,
+  "subsystem_device": "0x0046",
+  "commit": "94e755dd30508834ee417db3cc501c8db03544e5",
+  "tt_bio_dirty": false,
+  "torch_threads": 6,
+  "loadavg": [
+   26.2646484375,
+   25.43994140625,
+   25.67431640625
+  ],
+  "utc": "2026-09-25T01:21:32Z"
+ },
+ "loadavg_end": [
+  26.2646484375,
+  25.43994140625,
+  25.67431640625
+ ]
+}

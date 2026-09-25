@@ -20,7 +20,7 @@ not two agreeing runs. The path leg is stable at 0.71-1.10 s across every run of
 
 The path rows include the worker writing all 693 MB of files; the base64 rows write nothing, so the
 comparison favours the status quo. Path handback is only valid when worker and client share a
-filesystem, which is true on a single-host galaxy and false for a joined remote one -- a real change
+filesystem, which is true on one host and false for a worker in another container -- a real change
 needs capability negotiation, not an unconditional switch.
 
     python3 controller_transport_ab.py /path/to/tt-bio-checkout
@@ -85,7 +85,7 @@ def bench_http(server_cls, client_cls, mode, blob, b64, scratch):
     showed is the rest of the controller's cost. This is what a worker actually pays.
     """
     d = Path(tempfile.mkdtemp(dir=scratch))
-    server = server_cls("127.0.0.1", 0, d / "c.db")
+    server = server_cls(0, d / "c.db")
     server.serve_in_background()
     client = client_cls(f"http://127.0.0.1:{server.port}")
     try:
@@ -131,7 +131,7 @@ def main() -> int:
     checkout = sys.argv[1] if len(sys.argv) > 1 else "."
     scratch = sys.argv[2] if len(sys.argv) > 2 else tempfile.gettempdir()
     sys.path.insert(0, checkout)
-    from tt_bio.distributed import ControllerClient, ControllerServer, ControllerStore
+    from tt_bio.host_controller import ControllerClient, ControllerServer, ControllerStore
 
     blob = os.urandom(SZ)
     b64 = base64.b64encode(blob).decode()

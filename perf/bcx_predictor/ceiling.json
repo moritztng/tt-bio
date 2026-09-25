@@ -1,0 +1,79 @@
+{
+ "base": {
+  "norms": {
+   "binder": 0.31938280099909966,
+   "target_hPDL1": 1.445610112945667
+  },
+  "loss": 10.269110679626465
+ },
+ "dropout_off": {
+  "cos_vs_base": {
+   "binder": 0.29386267711452035,
+   "target_hPDL1": -0.060395460079314955
+  },
+  "norm_ratio_vs_base": {
+   "binder": 0.6813788448596863,
+   "target_hPDL1": 0.5818693676597424
+  },
+  "norms": {
+   "binder": 0.46873013949364534,
+   "target_hPDL1": 2.4844238127878406
+  },
+  "loss": 10.399491310119629
+ },
+ "dropout_on_key1": {
+  "cos_vs_base": {
+   "binder": -0.16587932084722204,
+   "target_hPDL1": 0.23331522373902094
+  },
+  "norm_ratio_vs_base": {
+   "binder": 6.120988793619001,
+   "target_hPDL1": 4.313039810067359
+  },
+  "norms": {
+   "binder": 0.05217830186718351,
+   "target_hPDL1": 0.3351719846339861
+  },
+  "loss": 10.424808502197266
+ },
+ "kill_pair_cotangent": {
+  "cos_vs_base": {
+   "binder": 0.9341399582290277,
+   "target_hPDL1": 0.9505308544592315
+  },
+  "norm_ratio_vs_base": {
+   "binder": 1.1454144809352051,
+   "target_hPDL1": 1.059837005164877
+  },
+  "norms": {
+   "binder": 0.27883600767674144,
+   "target_hPDL1": 1.3639928648469637
+  },
+  "loss": 10.269110679626465
+ },
+ "kill_msa_cotangent": {
+  "cos_vs_base": {
+   "binder": 0.49082904608897654,
+   "target_hPDL1": 0.385512175837456
+  },
+  "norm_ratio_vs_base": {
+   "binder": 2.7527858138174883,
+   "target_hPDL1": 3.2554631111303554
+  },
+  "norms": {
+   "binder": 0.1160216677214666,
+   "target_hPDL1": 0.4440566713851429
+  },
+  "loss": 10.269110679626465
+ },
+ "device_to_beat": {
+  "cos_vs_base": {
+   "binder": 0.284,
+   "target_hPDL1": 0.139
+  },
+  "norm_ratio_vs_base": {
+   "binder": 7.0,
+   "target_hPDL1": 5.6
+  }
+ }
+}

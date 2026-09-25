@@ -1,0 +1,61 @@
+{
+ "model": "model_1_ptm",
+ "n_residues": 192,
+ "state_shape": {
+  "hPDL1": {
+   "binder": 77,
+   "target_hPDL1": 115
+  }
+ },
+ "stage_plan": {
+  "per_stage": {
+   "screen": 50,
+   "refine": 25,
+   "anneal": 45,
+   "harden": 5,
+   "mutate": 15
+  },
+  "gradient_steps": 125,
+  "mutate_steps": 15
+ },
+ "losses": [
+  "binder_contacts",
+  "binder_helicity",
+  "binder_pae",
+  "compactness",
+  "interface_contacts",
+  "interface_pae",
+  "iptm_loss",
+  "plddt_loss"
+ ],
+ "protocol_conformant": true,
+ "step_seconds": [
+  212.70457220077515,
+  174.70725536346436,
+  177.14457416534424
+ ],
+ "first_step_includes_compile": true,
+ "warm_median_s": 177.14457416534424,
+ "projected_gradient_stage_s": 22143.07177066803,
+ "design_loss": [
+  10.473454475402832,
+  10.473454475402832,
+  10.473454475402832
+ ],
+ "grad_shapes": {
+  "binder": [
+   77,
+   20
+  ],
+  "target_hPDL1": [
+   115,
+   20
+  ]
+ },
+ "host": "tt-quietbox2",
+ "loadavg": [
+  16.84521484375,
+  17.1689453125,
+  16.50732421875
+ ]
+}

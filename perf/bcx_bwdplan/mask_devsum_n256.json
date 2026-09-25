@@ -1,0 +1,97 @@
+{
+ "report": "/dev/shm/bcx-bp-prof/reports/2026_09_24_13_35_48/ops_perf_results_2026_09_24_13_35_48.csv",
+ "points": {
+  "bwd evo K=1": {
+   "device_s": [
+    0.132,
+    0.1319
+   ],
+   "median_s": 0.13195,
+   "ops": [
+    1047,
+    1047
+   ],
+   "by_class_s": {
+    "eltwise": 0.04551,
+    "layernorm": 0.00091,
+    "layout": 0.05664,
+    "matmul": 0.01862,
+    "other": 0.00012,
+    "reduction": 0.00726,
+    "softmax": 0.0029
+   }
+  },
+  "bwd+mask evo K=1": {
+   "device_s": [
+    0.12446,
+    0.12445
+   ],
+   "median_s": 0.12446,
+   "ops": [
+    1065,
+    1065
+   ],
+   "by_class_s": {
+    "eltwise": 0.04616,
+    "layernorm": 0.00091,
+    "layout": 0.05128,
+    "matmul": 0.0158,
+    "other": 0.00011,
+    "reduction": 0.0073,
+    "softmax": 0.00288
+   }
+  }
+ },
+ "moved_vs_bwd": {
+  "bwd+mask evo K=1": [
+   [
+    1.246,
+    "MatmulDeviceOperation 1x1x8192x8192 cores=86"
+   ],
+   [
+    0.925,
+    "MatmulDeviceOperation 1x1x65536x1024 cores=108"
+   ],
+   [
+    0.888,
+    "MatmulDeviceOperation 1x1x65536x128 cores=108"
+   ],
+   [
+    0.792,
+    "ReshapeViewDeviceOperation 1x1x8192x8192 cores=110"
+   ],
+   [
+    0.774,
+    "TilizeDeviceOperation 1x256x1024x256 cores=110"
+   ],
+   [
+    0.75,
+    "TilizeDeviceOperation 1x1x8192x8192 cores=100"
+   ],
+   [
+    0.733,
+    "ReshapeViewDeviceOperation 1x1x262144x256 cores=110"
+   ],
+   [
+    0.725,
+    "UntilizeDeviceOperation 1x1x8192x8192 cores=100"
+   ],
+   [
+    0.721,
+    "TransposeDeviceOperation 1x256x256x1024 cores=110"
+   ],
+   [
+    0.697,
+    "TransposeDeviceOperation 1x256x1024x256 cores=110"
+   ],
+   [
+    0.696,
+    "UntilizeDeviceOperation 1x256x1024x256 cores=110"
+   ],
+   [
+    0.61,
+    "MatmulDeviceOperation 1x1x8192x32 cores=110"
+   ]
+  ]
+ }
+}
