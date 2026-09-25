@@ -36,7 +36,9 @@ for _p in (str(_ROOT), str(_ROOT / "perf" / "bcx_afgrad"), str(_ROOT / "perf" / 
         sys.path.insert(0, _p)
 import bindcraft.campaign as campaign                                  # noqa: E402
 from bindcraft.af2 import campaign_length_bucket                       # noqa: E402
-from bindcraft.settings import parse_setting_overrides, read_settings  # noqa: E402
+from bindcraft.af2 import MONOMER_POOL, MULTIMER_POOL                  # noqa: E402
+from bindcraft.settings import (parse_setting_overrides, read_settings,  # noqa: E402
+                                select_design_and_validation_models)
 from bindcraft.preflight import cleaned_campaign_settings              # noqa: E402
 
 MONOMER = ("model_1_ptm", "model_2_ptm")
@@ -82,6 +84,8 @@ def main():
         read_settings(args.settings or os.path.join(B.BC2, "examples", "pdl1.json"),
                       parse_setting_overrides(overrides)))
 
+    _selected = select_design_and_validation_models(settings, MULTIMER_POOL, MONOMER_POOL)
+
     # Both arms on the monomer checkpoints -- see the module docstring.
     if not args.shipped:
         campaign.MULTIMER_POOL = MONOMER
@@ -105,6 +109,11 @@ def main():
              "length_bucket_size": campaign_length_bucket(settings),
              "length_bucket_flag": args.bucket,
              "shipped_model_pool": bool(args.shipped),
+             # The pools BindCraft 2's own resolver gives, not the ones the flags asked
+             # for. An accepted-binder count read without them is the conflation
+             # state/bcx/MODELPOOL.md was written about.
+             "resolved_design_models": list(_selected.design_models),
+             "resolved_validation_models": list(_selected.validation_models),
              "settings_file": args.settings or os.path.join(B.BC2, "examples", "pdl1.json"),
              "bc2": B.BC2,
              "predictor": "AlphaFoldDesignModel" if args.arm == "reference"
