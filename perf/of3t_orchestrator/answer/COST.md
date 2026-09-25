@@ -133,6 +133,15 @@ resident memory there, and fits comfortably on a 249 GB host. **Training OpenFol
 specified by host memory and host CPU as much as by the accelerator**, which follows directly from
 the fidelity mechanism being host work.
 
+**The PCIe link is well below capability, and the two hosts differ by 2x on it.** pc's Blackhole
+negotiates **Gen4 x8** against a **Gen5 x16** capability (~15.8 GB/s per direction against ~63);
+all four qb2 cards negotiate **Gen4 x4** against Gen4 x8 (~7.9 against 15.8). Since the exactness
+is a host round trip per softmax and per layer norm, **its floor is that link** — so a host-bound
+figure from one host is not comparable to one from the other, independently of board class, and the
+two caveats run in opposite directions. It does **not** explain the crossing cost: those measure
+**1.19-2.25 GB/s**, roughly 7x below even pc's degraded link, so raw bandwidth is not what binds
+them.
+
 **And a 30 GB box is not merely tight, it is not repeatable.** pc's available memory at run start
 swings from **~16.5 to ~26 GiB** with the resident agent population — 4.33 GiB of co-tenants at the
 OOM, ~14 GiB at both later attempts. A run that fits at one hour does not at another, independently
