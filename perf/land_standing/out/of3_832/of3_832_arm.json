@@ -1,0 +1,50 @@
+{
+ "input": "generated apo, 832 aa -> 832 tokens (perf/land_standing/mkapo.py from the committed aa684 fixture)",
+ "model": "openfold3",
+ "host": "tt-quietbox2",
+ "card": 3,
+ "board": "p300c",
+ "cmd": "tt_bio.main predict --model openfold3 --single_sequence --sampling_steps 20 --diffusion_samples 1",
+ "off": {
+  "pid": 887972,
+  "flag": "0",
+  "stats": {
+   "served": 0,
+   "declined": 384,
+   "too_short": 0,
+   "taped": 0
+  },
+  "picks": {}
+ },
+ "on": {
+  "pid": 905036,
+  "flag": "1",
+  "stats": {
+   "served": 384,
+   "declined": 0,
+   "too_short": 0,
+   "taped": 0
+  },
+  "picks": {
+   "(832, 832)": [
+    416,
+    416,
+    2
+   ]
+  }
+ },
+ "cif_sha256_off": "dc66841144ce26c137de544b4fcf11744a1f4872c0e4852d890c0d283ad28e37",
+ "cif_sha256_on": "7fcb245cef0646588de25313756f6c999b8ab2f3b8ffbcc0c3a7f46b372f9731",
+ "wall_seconds": {
+  "off_seed0": 302,
+  "on_seed0": 94,
+  "on_seed1": 86
+ },
+ "wall_seconds_caveat": "loadavg ~20, no DURING-sampled AICLK, arms not interleaved -- UNPRICED, not a perf claim",
+ "ca_rmsd": {
+  "lever_on_vs_off_seed0": 13.9722,
+  "seed_floor_on_s0_vs_on_s1": 19.8442,
+  "cross_on_s1_vs_off_s0": 20.0317
+ },
+ "ca_rmsd_caveat": "tiled-CDK2 repeat fixture; copies hinge freely, which inflates both numbers. Ratio 0.70x floor, but this fixture cannot decide the accuracy question -- a confident single-domain target is needed"
+}
