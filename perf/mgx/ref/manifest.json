@@ -305,6 +305,52 @@
      "peak_mem_GiB_torch": 24.6,
      "started": "2026-09-23T03:03:30Z",
      "cif": "perf/mgx/ref/refs/boltz2/3abq_1536/s0.cif.gz"
+    },
+    "1": {
+     "status": "ok",
+     "gpu": "NVIDIA H200",
+     "pkgs": {
+      "boltz": "2.2.1",
+      "torch": "2.14.0",
+      "cuequivariance-torch": "0.11.1"
+     },
+     "dtype": "upstream default (boltz2 predict: bf16-mixed; no CLI switch to fp32)",
+     "argv": [
+      "predict",
+      "/root/work/boltz2/3abq_1536/s1/in",
+      "--out_dir",
+      "/root/work/boltz2/3abq_1536/s1/out",
+      "--cache",
+      "/root/.boltz",
+      "--devices",
+      "1",
+      "--accelerator",
+      "gpu",
+      "--seed",
+      "1",
+      "--recycling_steps",
+      "3",
+      "--sampling_steps",
+      "200",
+      "--diffusion_samples",
+      "1",
+      "--output_format",
+      "mmcif",
+      "--num_workers",
+      "2",
+      "--override"
+     ],
+     "recycles": 3,
+     "sampling_steps": 200,
+     "samples": 1,
+     "tokens": 1518,
+     "device_s": [
+      56.396638272330165
+     ],
+     "wall_s": 118.5,
+     "peak_mem_GiB_torch": 24.6,
+     "started": "2026-09-25T11:44:34Z",
+     "cif": "perf/mgx/ref/refs/boltz2/3abq_1536/s1.cif.gz"
     }
    },
    "vs_crystal": {
@@ -313,7 +359,19 @@
      "lddt_ca": 0.9878,
      "n_ca": 1406,
      "worst_chain_ca_rmsd_A": 0.562
+    },
+    "s1": {
+     "ca_rmsd_A": 0.566,
+     "lddt_ca": 0.99,
+     "n_ca": 1406,
+     "worst_chain_ca_rmsd_A": 0.499
     }
+   },
+   "floor": {
+    "ca_rmsd_A": 3.937,
+    "lddt_ca": 0.9612,
+    "n_ca": 1518,
+    "worst_chain_ca_rmsd_A": 5.821
    }
   },
   "boltz2/cdk2x2_1024": {
@@ -1027,8 +1085,92 @@
    }
   },
   "esmfold2-fast/3abq_1536": {
-   "seeds": {},
-   "missing_reason": "not run"
+   "seeds": {
+    "0": {
+     "status": "ok",
+     "gpu": "NVIDIA H200",
+     "pkgs": {
+      "esm": "3.4.1.post1",
+      "transformers": "4.57.6",
+      "torch": "2.11.0"
+     },
+     "dtype": "fp32 trunk, fp32 ESMC",
+     "repo": "biohub/ESMFold2-Fast",
+     "revision": "c6c7958d63f5f2f1f0fed0bb9462316f8ccceea6",
+     "fold_kwargs": {
+      "num_loops": 10,
+      "num_sampling_steps": 100,
+      "num_diffusion_samples": 1,
+      "seed": 0,
+      "lm_dropout": null,
+      "msa_max_depth": null,
+      "msa_column_mask_rate": null
+     },
+     "recycles": 10,
+     "sampling_steps": 100,
+     "samples": 1,
+     "tokens": 1518,
+     "device_s": [
+      290.4636283684522
+     ],
+     "wall_s": 311.5,
+     "peak_mem_GiB_torch": 59.16,
+     "started": "2026-09-25T11:55:49Z",
+     "cif": "perf/mgx/ref/refs/esmfold2-fast/3abq_1536/s0.cif.gz"
+    },
+    "1": {
+     "status": "ok",
+     "gpu": "NVIDIA H200",
+     "pkgs": {
+      "esm": "3.4.1.post1",
+      "transformers": "4.57.6",
+      "torch": "2.11.0"
+     },
+     "dtype": "fp32 trunk, fp32 ESMC",
+     "repo": "biohub/ESMFold2-Fast",
+     "revision": "c6c7958d63f5f2f1f0fed0bb9462316f8ccceea6",
+     "fold_kwargs": {
+      "num_loops": 10,
+      "num_sampling_steps": 100,
+      "num_diffusion_samples": 1,
+      "seed": 1,
+      "lm_dropout": null,
+      "msa_max_depth": null,
+      "msa_column_mask_rate": null
+     },
+     "recycles": 10,
+     "sampling_steps": 100,
+     "samples": 1,
+     "tokens": 1518,
+     "device_s": [
+      290.456590956077
+     ],
+     "wall_s": 306.7,
+     "peak_mem_GiB_torch": 59.16,
+     "started": "2026-09-25T12:01:05Z",
+     "cif": "perf/mgx/ref/refs/esmfold2-fast/3abq_1536/s1.cif.gz"
+    }
+   },
+   "floor": {
+    "ca_rmsd_A": 2.252,
+    "lddt_ca": 0.967,
+    "n_ca": 1518,
+    "worst_chain_ca_rmsd_A": 3.154
+   },
+   "vs_crystal": {
+    "s0": {
+     "ca_rmsd_A": 1.094,
+     "lddt_ca": 0.9706,
+     "n_ca": 1406,
+     "worst_chain_ca_rmsd_A": 0.755
+    },
+    "s1": {
+     "ca_rmsd_A": 1.275,
+     "lddt_ca": 0.9684,
+     "n_ca": 1406,
+     "worst_chain_ca_rmsd_A": 1.169
+    }
+   }
   },
   "esmfold2-fast/cdk2x2_1024": {
    "seeds": {
@@ -1137,7 +1279,45 @@
      "peak_mem_GiB_torch": 48.16,
      "started": "2026-09-23T03:08:03Z",
      "cif": "perf/mgx/ref/refs/esmfold2-fast/cdk2x2_1280/s0.cif.gz"
+    },
+    "1": {
+     "status": "ok",
+     "gpu": "NVIDIA H200",
+     "pkgs": {
+      "esm": "3.4.1.post1",
+      "transformers": "4.57.6",
+      "torch": "2.11.0"
+     },
+     "dtype": "fp32 trunk, fp32 ESMC",
+     "repo": "biohub/ESMFold2-Fast",
+     "revision": "c6c7958d63f5f2f1f0fed0bb9462316f8ccceea6",
+     "fold_kwargs": {
+      "num_loops": 10,
+      "num_sampling_steps": 100,
+      "num_diffusion_samples": 1,
+      "seed": 1,
+      "lm_dropout": null,
+      "msa_max_depth": null,
+      "msa_column_mask_rate": null
+     },
+     "recycles": 10,
+     "sampling_steps": 100,
+     "samples": 1,
+     "tokens": 1280,
+     "device_s": [
+      372.27371566928923
+     ],
+     "wall_s": 391.6,
+     "peak_mem_GiB_torch": 48.16,
+     "started": "2026-09-23T03:16:11Z",
+     "cif": "perf/mgx/ref/refs/esmfold2-fast/cdk2x2_1280/s1.cif.gz"
     }
+   },
+   "floor": {
+    "ca_rmsd_A": 20.557,
+    "lddt_ca": 0.9323,
+    "n_ca": 1280,
+    "worst_chain_ca_rmsd_A": 20.557
    }
   },
   "esmfold2-fast/cdk2x2_1536": {
@@ -1994,8 +2174,102 @@
    }
   },
   "openfold3/3abq_1536": {
-   "seeds": {},
-   "missing_reason": "not run"
+   "seeds": {
+    "0": {
+     "status": "ok",
+     "gpu": "NVIDIA H200",
+     "pkgs": {
+      "openfold3": "0.4.4",
+      "torch": "2.14.0"
+     },
+     "dtype": "upstream predict preset",
+     "argv": [
+      "predict",
+      "--query-json",
+      "/root/work/openfold3/3abq_1536/s0/q.json",
+      "--output-dir",
+      "/root/work/openfold3/3abq_1536/s0/out",
+      "--inference-ckpt-path",
+      "/root/ckpt/of3-p2-155k.pt",
+      "--runner-yaml",
+      "/root/work/openfold3/3abq_1536/s0/runner.yaml",
+      "--num-diffusion-samples",
+      "1",
+      "--use-msa-server",
+      "false",
+      "--use-templates",
+      "false"
+     ],
+     "recycles": 3,
+     "sampling_steps": 200,
+     "samples": 1,
+     "tokens": 1518,
+     "device_s": [
+      74.16079795919359
+     ],
+     "wall_s": 152.4,
+     "peak_mem_GiB_torch": 20.58,
+     "started": "2026-09-25T11:51:27Z",
+     "cif": "perf/mgx/ref/refs/openfold3/3abq_1536/s0.cif.gz"
+    },
+    "1": {
+     "status": "ok",
+     "gpu": "NVIDIA H200",
+     "pkgs": {
+      "openfold3": "0.4.4",
+      "torch": "2.14.0"
+     },
+     "dtype": "upstream predict preset",
+     "argv": [
+      "predict",
+      "--query-json",
+      "/root/work/openfold3/3abq_1536/s1/q.json",
+      "--output-dir",
+      "/root/work/openfold3/3abq_1536/s1/out",
+      "--inference-ckpt-path",
+      "/root/ckpt/of3-p2-155k.pt",
+      "--runner-yaml",
+      "/root/work/openfold3/3abq_1536/s1/runner.yaml",
+      "--num-diffusion-samples",
+      "1",
+      "--use-msa-server",
+      "false",
+      "--use-templates",
+      "false"
+     ],
+     "recycles": 3,
+     "sampling_steps": 200,
+     "samples": 1,
+     "tokens": 1518,
+     "device_s": [
+      74.52024624310434
+     ],
+     "wall_s": 133.4,
+     "peak_mem_GiB_torch": 20.58,
+     "started": "2026-09-25T11:54:04Z",
+     "cif": "perf/mgx/ref/refs/openfold3/3abq_1536/s1.cif.gz"
+    }
+   },
+   "floor": {
+    "ca_rmsd_A": 11.411,
+    "lddt_ca": 0.9249,
+    "n_ca": 1518,
+    "worst_chain_ca_rmsd_A": 15.633
+   },
+   "vs_crystal": {
+    "s0": {
+     "ca_rmsd_A": 0.861,
+     "lddt_ca": 0.9676,
+     "n_ca": 1406,
+     "worst_chain_ca_rmsd_A": 0.994
+    },
+    "s1": {
+     "ca_rmsd_A": 1.069,
+     "lddt_ca": 0.9735,
+     "n_ca": 1406,
+     "worst_chain_ca_rmsd_A": 0.605
+    }
+   }
   },
   "openfold3/cdk2x2_1024": {
    "seeds": {
@@ -2286,8 +2560,102 @@
    }
   },
   "openbind/3abq_1536": {
-   "seeds": {},
-   "missing_reason": "not run"
+   "seeds": {
+    "0": {
+     "status": "ok",
+     "gpu": "NVIDIA H200",
+     "pkgs": {
+      "openfold3": "0.5.0",
+      "torch": "2.14.0"
+     },
+     "dtype": "upstream predict preset",
+     "argv": [
+      "predict",
+      "--query-json",
+      "/root/work/openbind/3abq_1536/s0/q.json",
+      "--output-dir",
+      "/root/work/openbind/3abq_1536/s0/out",
+      "--inference-ckpt-path",
+      "/root/ckpt/of3-ob-2025-06-30-174k.pt",
+      "--runner-yaml",
+      "/root/work/openbind/3abq_1536/s0/runner.yaml",
+      "--num-diffusion-samples",
+      "1",
+      "--use-msa-server",
+      "false",
+      "--use-templates",
+      "false"
+     ],
+     "recycles": 3,
+     "sampling_steps": 200,
+     "samples": 1,
+     "tokens": 1518,
+     "device_s": [
+      63.22399836592376
+     ],
+     "wall_s": 137.3,
+     "peak_mem_GiB_torch": 20.57,
+     "started": "2026-09-25T11:51:27Z",
+     "cif": "perf/mgx/ref/refs/openbind/3abq_1536/s0.cif.gz"
+    },
+    "1": {
+     "status": "ok",
+     "gpu": "NVIDIA H200",
+     "pkgs": {
+      "openfold3": "0.5.0",
+      "torch": "2.14.0"
+     },
+     "dtype": "upstream predict preset",
+     "argv": [
+      "predict",
+      "--query-json",
+      "/root/work/openbind/3abq_1536/s1/q.json",
+      "--output-dir",
+      "/root/work/openbind/3abq_1536/s1/out",
+      "--inference-ckpt-path",
+      "/root/ckpt/of3-ob-2025-06-30-174k.pt",
+      "--runner-yaml",
+      "/root/work/openbind/3abq_1536/s1/runner.yaml",
+      "--num-diffusion-samples",
+      "1",
+      "--use-msa-server",
+      "false",
+      "--use-templates",
+      "false"
+     ],
+     "recycles": 3,
+     "sampling_steps": 200,
+     "samples": 1,
+     "tokens": 1518,
+     "device_s": [
+      63.2085394077003
+     ],
+     "wall_s": 117.2,
+     "peak_mem_GiB_torch": 20.57,
+     "started": "2026-09-25T11:53:48Z",
+     "cif": "perf/mgx/ref/refs/openbind/3abq_1536/s1.cif.gz"
+    }
+   },
+   "floor": {
+    "ca_rmsd_A": 1.392,
+    "lddt_ca": 0.9905,
+    "n_ca": 1518,
+    "worst_chain_ca_rmsd_A": 1.841
+   },
+   "vs_crystal": {
+    "s0": {
+     "ca_rmsd_A": 0.824,
+     "lddt_ca": 0.9738,
+     "n_ca": 1406,
+     "worst_chain_ca_rmsd_A": 0.909
+    },
+    "s1": {
+     "ca_rmsd_A": 0.944,
+     "lddt_ca": 0.9685,
+     "n_ca": 1406,
+     "worst_chain_ca_rmsd_A": 0.962
+    }
+   }
   },
   "openbind/cdk2x2_1024": {
    "seeds": {
@@ -2476,8 +2844,57 @@
    }
   },
   "opendde/3abq_1536": {
-   "seeds": {},
-   "missing_reason": "not run"
+   "seeds": {
+    "0": {
+     "status": "ok",
+     "gpu": "NVIDIA H200",
+     "pkgs": {
+      "opendde": "1.0.3",
+      "torch": "2.7.1+cu128"
+     },
+     "dtype": "fp32 (upstream --dtype, TF32 at its default)",
+     "checkpoint": "/root/ckpt/opendde.pt",
+     "argv": [
+      "pred",
+      "-i",
+      "/root/work/opendde/3abq_1536/s0/t.json",
+      "-o",
+      "/root/work/opendde/3abq_1536/s0/out",
+      "-s",
+      "0",
+      "-c",
+      "10",
+      "-p",
+      "200",
+      "-e",
+      "1",
+      "-d",
+      "fp32",
+      "-n",
+      "opendde_v1",
+      "--use_msa",
+      "true",
+      "--load_checkpoint_path",
+      "/root/ckpt/opendde.pt"
+     ],
+     "recycles": 10,
+     "sampling_steps": 200,
+     "samples": 1,
+     "tokens": 1518,
+     "wall_s": 374.7,
+     "peak_mem_GiB_torch": 136.26,
+     "started": "2026-09-25T12:00:30Z",
+     "cif": "perf/mgx/ref/refs/opendde/3abq_1536/s0.cif.gz"
+    }
+   },
+   "vs_crystal": {
+    "s0": {
+     "ca_rmsd_A": 0.745,
+     "lddt_ca": 0.9815,
+     "n_ca": 1406,
+     "worst_chain_ca_rmsd_A": 0.771
+    }
+   }
   },
   "opendde/cdk2x2_1024": {
    "seeds": {
@@ -3008,8 +3425,92 @@
    }
   },
   "rf3/3abq_1536": {
-   "seeds": {},
-   "missing_reason": "not run"
+   "seeds": {
+    "0": {
+     "status": "ok",
+     "gpu": "NVIDIA H200",
+     "pkgs": {
+      "rc-foundry": "0.2.0",
+      "atomworks": "2.2.1",
+      "torch": "2.14.0"
+     },
+     "dtype": "upstream default",
+     "checkpoint": "/root/ckpt/rf3_foundry_01_24_latest_remapped.ckpt",
+     "argv": [
+      "/root/venv-rf3/bin/rf3",
+      "fold",
+      "inputs=/root/work/rf3/3abq_1536/s0/t.json",
+      "out_dir=/root/work/rf3/3abq_1536/s0/out",
+      "seed=0",
+      "n_recycles=10",
+      "num_steps=50",
+      "diffusion_batch_size=1",
+      "skip_existing=False",
+      "ckpt_path=/root/ckpt/rf3_foundry_01_24_latest_remapped.ckpt",
+      "early_stopping_plddt_threshold=0"
+     ],
+     "recycles": 10,
+     "sampling_steps": 50,
+     "samples": 1,
+     "tokens": 1518,
+     "wall_s": 124.4,
+     "peak_mem_GiB_torch": 0.0,
+     "started": "2026-09-25T11:56:20Z",
+     "cif": "perf/mgx/ref/refs/rf3/3abq_1536/s0.cif.gz"
+    },
+    "1": {
+     "status": "ok",
+     "gpu": "NVIDIA H200",
+     "pkgs": {
+      "rc-foundry": "0.2.0",
+      "atomworks": "2.2.1",
+      "torch": "2.14.0"
+     },
+     "dtype": "upstream default",
+     "checkpoint": "/root/ckpt/rf3_foundry_01_24_latest_remapped.ckpt",
+     "argv": [
+      "/root/venv-rf3/bin/rf3",
+      "fold",
+      "inputs=/root/work/rf3/3abq_1536/s1/t.json",
+      "out_dir=/root/work/rf3/3abq_1536/s1/out",
+      "seed=1",
+      "n_recycles=10",
+      "num_steps=50",
+      "diffusion_batch_size=1",
+      "skip_existing=False",
+      "ckpt_path=/root/ckpt/rf3_foundry_01_24_latest_remapped.ckpt",
+      "early_stopping_plddt_threshold=0"
+     ],
+     "recycles": 10,
+     "sampling_steps": 50,
+     "samples": 1,
+     "tokens": 1518,
+     "wall_s": 120.8,
+     "peak_mem_GiB_torch": 0.0,
+     "started": "2026-09-25T11:58:27Z",
+     "cif": "perf/mgx/ref/refs/rf3/3abq_1536/s1.cif.gz"
+    }
+   },
+   "floor": {
+    "ca_rmsd_A": 25.804,
+    "lddt_ca": 0.9428,
+    "n_ca": 1518,
+    "worst_chain_ca_rmsd_A": 28.669
+   },
+   "vs_crystal": {
+    "s0": {
+     "ca_rmsd_A": 0.74,
+     "lddt_ca": 0.9704,
+     "n_ca": 1406,
+     "worst_chain_ca_rmsd_A": 0.723
+    },
+    "s1": {
+     "ca_rmsd_A": 0.841,
+     "lddt_ca": 0.9686,
+     "n_ca": 1406,
+     "worst_chain_ca_rmsd_A": 0.807
+    }
+   }
   },
   "rf3/cdk2x2_1024": {
    "seeds": {
