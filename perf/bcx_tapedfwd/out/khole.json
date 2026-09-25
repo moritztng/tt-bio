@@ -1,0 +1,235 @@
+{
+ "heads": 4,
+ "head_dim": 32,
+ "card": "7",
+ "rows": [
+  {
+   "n": 256,
+   "padded": 256,
+   "ref_rms": {
+    "scale_after_bias": 0.10427523386586525,
+    "scale_before_bias": 0.15548237623260922
+   },
+   "shipped_k": 256,
+   "dividing_k": [
+    256
+   ],
+   "q_ladder": [
+    256
+   ],
+   "arms": {
+    "shipped": {
+     "served": true,
+     "rmsd_vs_f64": {
+      "scale_after_bias": 0.9092377464527639,
+      "scale_before_bias": 0.9042751783639499
+     },
+     "stats": {
+      "served": 1,
+      "declined": 0,
+      "too_short": 0
+     },
+     "rejects": {},
+     "rungs": [
+      {
+       "q_chunk": 256,
+       "k_chunk": 256,
+       "kv_bf": 2,
+       "k_divides": true,
+       "served": true
+      }
+     ]
+    },
+    "dividing": {
+     "served": true,
+     "rmsd_vs_f64": {
+      "scale_after_bias": 0.9092377464527639,
+      "scale_before_bias": 0.9042751783639499
+     },
+     "stats": {
+      "served": 1,
+      "declined": 0,
+      "too_short": 0
+     },
+     "rejects": {},
+     "rungs": [
+      {
+       "q_chunk": 256,
+       "k_chunk": 256,
+       "kv_bf": 2,
+       "k_divides": true,
+       "served": true
+      }
+     ]
+    }
+   },
+   "fallback_rmsd_vs_f64": {
+    "scale_after_bias": 0.8911793928009837,
+    "scale_before_bias": 0.8986627893439056
+   },
+   "fused_vs_fallback": 0.5309224500487371,
+   "fallback_rms": 0.9320646016488796
+  },
+  {
+   "n": 288,
+   "padded": 288,
+   "ref_rms": {
+    "scale_after_bias": 0.09834612930736308,
+    "scale_before_bias": 0.14804960010009122
+   },
+   "shipped_k": 64,
+   "dividing_k": [
+    288,
+    96,
+    64
+   ],
+   "q_ladder": [
+    288,
+    96,
+    32,
+    64
+   ],
+   "arms": {
+    "shipped": {
+     "served": false,
+     "rmsd_vs_f64": null,
+     "stats": {
+      "served": 0,
+      "declined": 1,
+      "too_short": 0
+     },
+     "rejects": {
+      "('fill_preconditions', (288, 4, 288, 32))": 4
+     },
+     "rungs": [
+      {
+       "q_chunk": 288,
+       "k_chunk": 64,
+       "kv_bf": 2,
+       "k_divides": false,
+       "served": false
+      },
+      {
+       "q_chunk": 96,
+       "k_chunk": 64,
+       "kv_bf": 2,
+       "k_divides": false,
+       "served": false
+      },
+      {
+       "q_chunk": 32,
+       "k_chunk": 64,
+       "kv_bf": 2,
+       "k_divides": false,
+       "served": false
+      },
+      {
+       "q_chunk": 64,
+       "k_chunk": 64,
+       "kv_bf": 2,
+       "k_divides": false,
+       "served": false
+      }
+     ]
+    },
+    "dividing": {
+     "served": true,
+     "rmsd_vs_f64": {
+      "scale_after_bias": 0.9117479190628838,
+      "scale_before_bias": 0.9069507391935084
+     },
+     "stats": {
+      "served": 1,
+      "declined": 0,
+      "too_short": 0
+     },
+     "rejects": {},
+     "rungs": [
+      {
+       "q_chunk": 288,
+       "k_chunk": 288,
+       "kv_bf": 2,
+       "k_divides": true,
+       "served": true
+      }
+     ]
+    }
+   },
+   "fallback_rmsd_vs_f64": {
+    "scale_after_bias": 0.8941097848798821,
+    "scale_before_bias": 0.901029371253507
+   },
+   "fused_vs_fallback": 0.5330644641128669,
+   "fallback_rms": 0.9319090197197177
+  },
+  {
+   "n": 320,
+   "padded": 320,
+   "ref_rms": {
+    "scale_after_bias": 0.09378253950831078,
+    "scale_before_bias": 0.14191419792731616
+   },
+   "shipped_k": 64,
+   "dividing_k": [
+    64
+   ],
+   "q_ladder": [
+    320,
+    160,
+    64
+   ],
+   "arms": {
+    "shipped": {
+     "served": true,
+     "rmsd_vs_f64": {
+      "scale_after_bias": 0.9146709914511831,
+      "scale_before_bias": 0.90974057956476
+     },
+     "stats": {
+      "served": 1,
+      "declined": 0,
+      "too_short": 0
+     },
+     "rejects": {},
+     "rungs": [
+      {
+       "q_chunk": 320,
+       "k_chunk": 64,
+       "kv_bf": 2,
+       "k_divides": true,
+       "served": true
+      }
+     ]
+    },
+    "dividing": {
+     "served": true,
+     "rmsd_vs_f64": {
+      "scale_after_bias": 0.9146709914511831,
+      "scale_before_bias": 0.90974057956476
+     },
+     "stats": {
+      "served": 1,
+      "declined": 0,
+      "too_short": 0
+     },
+     "rejects": {},
+     "rungs": [
+      {
+       "q_chunk": 320,
+       "k_chunk": 64,
+       "kv_bf": 2,
+       "k_divides": true,
+       "served": true
+      }
+     ]
+    }
+   },
+   "fallback_rmsd_vs_f64": {
+    "scale_after_bias": 0.8964902224113055,
+    "scale_before_bias": 0.9026981879194668
+   },
+   "fused_vs_fallback": 0.5360674105701705,
+   "fallback_rms": 0.9319029831663054
+  }
+ ]
+}

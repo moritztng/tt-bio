@@ -31,18 +31,35 @@ import ttnn
 
 from tt_bio.envflags import env_flag
 
-#: `ttnn.zeros(..., device=)` builds its zeros on the host and uploads them, and a trace
-#: capture refuses a host write: those uploads are the last host writes in a warm taped AF2
-#: block (`perf/bcx_trace`). On, every zero a backward needs comes from a per-shape cache
-#: filled outside the capture and is handed out as a device-side clone, and the head
-#: backward's zero slot is a device fill. Default off; `perf/bcx_predictor/trace_wire.py`
-#: turns it on for the arm that captures.
-DEVICE_ZEROS = False
+#: `ttnn.zeros(..., device=)` builds its zeros on the HOST and uploads them, and that upload is
+#: what this flag exists to avoid. It was introduced for trace capture, which refuses a host
+#: write (`perf/bcx_trace`); the price turned out to matter far more widely than that. Measured
+#: on pc card 0, Blackhole p150a, 1350 MHz DURING, at the pair-track shape the backward actually
+#: issues (`[384, 1, 384, 128]` bf16 TILE, 37.75 MB, `perf/of3t_zerosfill/zerobench.py`):
+#: the host build and upload is **5.90 ms at 6.4 GB/s**, the cached device clone **0.21 ms at
+#: 180.6 GB/s** -- 28x, against a 440 GB/s write roof. `ttnn.full` is the same host path at
+#: 5.77 ms, so it is no escape.
+#:
+#: Worth 1.0 s of a 21.1 s device backward at crop 384, medians of three interleaved pairs, and
+#: every host run was slower than every device run. NOT the 11.9 s a per-verb profile charges to
+#: `zeros`: ttnn dispatch is asynchronous and the host upload is the only blocking op in its
+#: neighbourhood, so it drains a queue the verbs before it filled and a stopwatch around it bills
+#: their device time to it. With the upload gone those verbs grow by 89 % of what `zeros` lost
+#: (`perf/of3t_zerosfill/compare.py`). The 5.90 ms above is the honest per-call price because
+#: every rep of that micro-benchmark ends in `synchronize_device`.
+#:
+#: So ON is the default since 2026-09-25 (`of3t-zerosfill`). OFF is kept as the break control
+#: that restores the defect, and as the arm `perf/bcx_trace/trace.py` uses to price a host write.
+DEVICE_ZEROS = True
 _ZERO_CACHE: dict = {}
 
 
 def grad_zeros(shape, dtype, device):
-    """A zero tensor of ``shape`` on ``device``, for a backward that pads a gradient out."""
+    """A zero tensor of ``shape`` on ``device``, for a backward that pads a gradient out.
+
+    The one place a taped backward gets a zero from. `_v_create_qkv_heads` used to build its
+    own beside this one and that second copy was the 35.1 %.
+    """
     shape = [int(d) for d in shape]
     if not DEVICE_ZEROS:
         return ttnn.zeros(shape, dtype=dtype, layout=ttnn.TILE_LAYOUT, device=device)
@@ -51,7 +68,9 @@ def grad_zeros(shape, dtype, device):
     if z is None:
         z = _ZERO_CACHE[key] = ttnn.zeros(shape, dtype=dtype, layout=ttnn.TILE_LAYOUT,
                                           device=device)
-    # A clone, so a caller that frees its input cannot free the cache entry.
+    # A clone, so a caller that frees its input cannot free the cache entry. It costs a device
+    # read beside the write (0.21 ms against a 0.086 ms write-only roof) and buys the aliasing
+    # question not having to be asked at five call sites.
     return ttnn.clone(z)
 
 

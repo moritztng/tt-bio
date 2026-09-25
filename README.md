@@ -929,6 +929,8 @@ Each model downloads its weights automatically on first use. BoltzGen and RFdiff
 
 How many designs a card returns per hour, how `--num_designs` and `--devices` move it, and how to size a campaign: [`docs/design-throughput.md`](docs/design-throughput.md).
 
+**[BindCraft 2](https://github.com/PacesaLab/BindCraft2)** is not a tt-bio model and has no CLI entry; it is a third-party design loop you install yourself, and `tt_bio.bindcraft2` gives it an AlphaFold 2 Evoformer that runs on a card. Its gradient loop runs on card, with the validation ensemble on BindCraft 2's own trunk so it stays the reference's; design acceptance is still being qualified. What you need, how to point a campaign at a chip, and what is not settled: [`docs/bindcraft2.md`](docs/bindcraft2.md).
+
 ## Training
 
 Fine-tune or pre-train a model you can already run, with the same forward the inference path

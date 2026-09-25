@@ -967,9 +967,15 @@ def _v_create_qkv_heads(shipped, args, kwargs):
                 # (`pad.cpp:278 front_padding_is_zero`), so slots 1 and 2 have no pad
                 # expression. The packed width is 2,415,919,104 B at a 384-token pair track,
                 # which is why this op is where the backward runs out of card.
-                zero = (ttnn.zeros_like(rows) if ag.DEVICE_ZEROS else
-                        ttnn.zeros([B, 1, L, H * dh], dtype=rows.dtype,
-                                   layout=ttnn.TILE_LAYOUT, device=rows.device()))
+                #
+                # Through `ag.grad_zeros` since 2026-09-25, not a second zeros beside it. This
+                # site built its own, and with `DEVICE_ZEROS` off that meant a HOST build and a
+                # 37.75 MB upload per call -- 324 of them, the largest single verb in the device
+                # backward. It is a cached device clone now: this closure goes 12.09 s -> 0.89 s
+                # and the backward's wall 21.1 s -> 20.1 s at crop 384. The two figures differ
+                # because the upload was also draining other verbs' queued device time; see
+                # `DEVICE_ZEROS` in autograd.py and `state/of3t-zerosfill.md`.
+                zero = ag.grad_zeros([B, 1, L, H * dh], rows.dtype, rows.device())
                 parts = [rows if i == s else zero for i in range(3)]
                 x.add_grad(ttnn.concat(parts, dim=-1))
             return bw

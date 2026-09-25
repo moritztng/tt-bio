@@ -2596,6 +2596,45 @@ def _tri_att_sdpa_hifi(q, k, v, bias, scale: float, one_k_chunk: bool = False):
                         site="tri_att_hifi", one_k_chunk=one_k_chunk)
 
 
+# The fused-HiFi arm asked `_sdpa_chunks_shipped` for its k ladder and never `_dividing_k_chunks`,
+# so at a padded length the shipped k does not divide it offered exactly one k_chunk and that one
+# was illegal. `sdpa_generic.plan` sets `use_padded_mask` when the chunk does not divide, and that
+# is one of the hoisted fill's six preconditions, so EVERY q rung then declines on
+# `fill_preconditions` and the route falls through to `_fp32_softmax_attention` -- not a slower
+# fused config, no fused config at all. `_dividing_k_chunks`'s own docstring states the rule ("on
+# the fused-only path it is a PRECONDITION"); this arm simply never called it.
+#
+# Found on BindCraft 2's production arm. hPDL1 chain A is 115 residues and the `step288` binder is
+# 146, so the complex is 261 and BC2's `length_bucket_size` 32 pads it to 288 -- the one hole in
+# the fused route's serve sweep (`bcx-forward`'s serves.json: served at 192, 224, 256, 320, 384,
+# declined at 288 on `fill_preconditions` with an EMPTY l1_refusals list). 288 = 2^5 * 9 and
+# 64 = 2^6, so 64 cannot divide it, while 256, 320 and 384 are divided by their shipped k exactly.
+#
+# MEASURED at runtime, whglx card 7, 8x9 Wormhole (`perf/bcx_tapedfwd/out/khole.json`): the old
+# ladder offers exactly 4 rungs at 288 -- (288,64) (96,64) (32,64) (64,64) -- and every one
+# declines, while this one serves on its first rung, (288,288). At 256 and 320 both arms take an
+# identical rung, so the change is inert there by measurement as well as by construction.
+#
+# DEFAULT OFF, and the reason is the blast radius rather than the result.
+# `perf/bcx_tapedfwd/blast.py` enumerates it: 20 of the 48 tile-aligned lengths from 32 to 1536
+# have a shipped k that does not divide, so the fused-HiFi route serves NOTHING at any of them
+# today, and this makes a legal k reachable at all 20. Only 288 has been run. The risk is bounded
+# -- at those 20 there is no fused config today, so a rung can only serve or decline exactly as
+# now -- and at 288 the newly reachable route is MORE accurate than the `_fp32_softmax_attention`
+# it replaces (pair rel_l2 against the float64 reference block 0.021702 -> 0.018661, the same
+# direction and size as the 0.022167 -> 0.019025 the fused route already buys at 256). But a
+# default-on lever reddens gates it was never run against, so the flip waits on the other 19
+# lengths' importers rather than on this row. `of3t-*` and the Boltz-2 / RFD3 sizes are in that set.
+#
+# Live read rather than resolved at import, for the same reason `_sdpa_wide_k` is: one process has
+# to be able to A/B both arms (`perf/bcx_tapedfwd/khole.py`).
+_TRIATT_HIFI_DIVIDING_K_DEFAULT = False
+
+
+def _triatt_hifi_dividing_k() -> bool:
+    return env_flag("TT_BIO_TRIATT_DIVIDING_K", _TRIATT_HIFI_DIVIDING_K_DEFAULT)
+
+
 def _tri_att_sdpa_hifi_inner(q, k, v, bias, scale: float, one_k_chunk: bool = False):
     q_len, k_len = int(q.shape[2]), int(k.shape[2])
     if min(q_len, k_len) < _TRIATT_FUSED_HIFI_MIN_S:
@@ -2609,7 +2648,12 @@ def _tri_att_sdpa_hifi_inner(q, k, v, bias, scale: float, one_k_chunk: bool = Fa
         return o
     shipped_k = _sdpa_chunks_shipped(q_len, k_len)[1]
     padded_k = _padded_sdpa_len(k_len)
-    k_chunks = (padded_k, shipped_k) if one_k_chunk and padded_k != shipped_k else (shipped_k,)
+    # `_dividing_k_chunks`, not the shipped pick alone. Where the shipped pick already divides the
+    # padded length it returns `(shipped_k,)` and this line is byte for byte the old one, which is
+    # every tile-aligned length BindCraft 2 and OpenFold3 run except 288.
+    k_chunks = _dividing_k_chunks(q_len, k_len) if _triatt_hifi_dividing_k() else (shipped_k,)
+    if one_k_chunk and padded_k != k_chunks[0]:
+        k_chunks = (padded_k,) + k_chunks
     for k_chunk in k_chunks:
         wide = k_chunk != shipped_k
         # Against a wide k, only q_chunks that DIVIDE the padded sequence are legal: the ladder's

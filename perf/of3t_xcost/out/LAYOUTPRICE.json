@@ -1,0 +1,105 @@
+{
+ "doc": "How much of a `to_torch` / `from_torch` is the HOST tilize, and no device is opened.\n\n`of3t-bwattrib`'s per-shape-class table prices the triangle attention score block\n`[384,4,384,384]` FLOAT32 at 251.07 s of a 705.78 s backward, 216 crossings each way:\n\n    to_torch    216 calls   153.854 s   0.712 s/call\n    from_torch  216 calls    97.214 s   0.450 s/call\n\nThe logical payload is 384*4*384*384*4 = 905.97 MB, so the effective rate is 1.27 GB/s down and\n2.01 GB/s up on a PCIe link an order of magnitude faster than that. (The `gb` column in that\ntable is OPERAND traffic -- output bytes plus every ttnn argument -- not PCIe bytes, so its\nGB/s is not a link rate and is not used here.)\n\n`ttnn/operations/core.py:398` is why. `to_torch` is `from_device(tensor)` -- a DMA of the\ntensor still in TILE layout -- and then `tensor.to_torch()`, which untilizes on the HOST.\n`from_torch` is the mirror: `ttnn.Tensor(...)` tilizes the torch buffer on the host and uploads\nthe result. A 32x32 tile shuffle over 906 MB is a strided single-threaded pass, and the\ndevice's own `to_layout` does the same work at 19.21 GB/s (`by_verb`, same run).\n\nSo the question is how many of those seconds are the tilize rather than the link, and it is\nanswerable with NO DEVICE. `ttnn.from_torch(..., device=None)` builds a host tensor: with\n`layout=TILE_LAYOUT` it runs exactly the host tilize `from_torch` runs, and with\n`ROW_MAJOR_LAYOUT` it does not. `ttnn.to_torch` on a host tensor runs the host untilize with no\nDMA at all. The difference between the two arms is the term a device-side `to_layout` would\nmove off the host.\n\nNO DEVICE IS OPENED. `ttnn.open_device` is never called; every tensor here lives in host\nmemory. That makes the number board-insensitive -- a property of this host's memory system --\nwhich is the half of the question `of3t/BACKWARD.md` 4b says can run without the one card.\n\n    layoutprice.py --out perf/of3t_xcost/out/LAYOUTPRICE.json",
+ "argv": {
+  "tokens": 384,
+  "heads": 4,
+  "reps": 3,
+  "out": "perf/of3t_xcost/out/LAYOUTPRICE.json"
+ },
+ "env": {
+  "host": "pc",
+  "torch": "2.8.0+cpu",
+  "threads": 6,
+  "cpus": 12,
+  "loadavg_start": [
+   2.11,
+   4.1,
+   3.97
+  ],
+  "device_opened": false,
+  "board_insensitive": "yes -- host memory only, ttnn.open_device is never called and no tensor has a device",
+  "loadavg_end": [
+   2.18,
+   4.08,
+   3.97
+  ]
+ },
+ "shape": [
+  384,
+  4,
+  384,
+  384
+ ],
+ "elements": 226492416,
+ "payload_gb": 0.905969664,
+ "banked": {
+  "to_torch_s_per_call": 0.7122887,
+  "from_torch_s_per_call": 0.4500656,
+  "source": "perf/of3t_bwattrib/out/hist_384_base.json by_shape_class, 216 calls each, arm base, pc card 0, AICLK 1350 median sampled DURING"
+ },
+ "arms": {
+  "from_torch_host_TILE": {
+   "what": "ttnn.from_torch(x, dtype=float32, layout=TILE_LAYOUT, device=None) -- the host tilize `from_torch` runs before its upload",
+   "s": [
+    0.364942089014221,
+    0.16477678701630794,
+    0.15922231299919076
+   ],
+   "median_s": 0.16477678701630794,
+   "min_s": 0.15922231299919076,
+   "gb_s_at_payload": 5.498163184298139
+  },
+  "from_torch_host_ROW_MAJOR": {
+   "what": "the same call in ROW_MAJOR: no tilize, the buffer copy only",
+   "s": [
+    0.09287082799710333,
+    0.09108286199625582,
+    0.0886186900024768
+   ],
+   "median_s": 0.09108286199625582,
+   "min_s": 0.0886186900024768,
+   "gb_s_at_payload": 9.946653455369487
+  },
+  "to_torch_host_TILE": {
+   "what": "ttnn.to_torch on a host TILE tensor -- the host untilize `to_torch` runs after its DMA, with no DMA in the number",
+   "s": [
+    0.22996923999744467,
+    0.21742489997996017,
+    0.21415192901622504
+   ],
+   "median_s": 0.21742489997996017,
+   "min_s": 0.21415192901622504,
+   "gb_s_at_payload": 4.166816514959889
+  },
+  "to_torch_host_ROW_MAJOR": {
+   "what": "the same on a ROW_MAJOR host tensor: no untilize",
+   "s": [
+    0.08325651299674064,
+    0.08358689700253308,
+    0.07633199798874557
+   ],
+   "median_s": 0.08325651299674064,
+   "min_s": 0.07633199798874557,
+   "gb_s_at_payload": 10.881667168014438
+  }
+ },
+ "bit_identity": {
+  "route": "to_torch(to_layout(t, ROW_MAJOR)) vs to_torch(t) on a TILE float32 tensor",
+  "bit_identical": true,
+  "max_abs_diff": 0.0,
+  "note": "a layout conversion moves bytes; for FLOAT32 at a shape that is a multiple of the 32x32 tile there is no pad and no rounding. Checked, not assumed."
+ },
+ "split": {
+  "host_tilize_s_per_call": 0.07369392502005212,
+  "host_untilize_s_per_call": 0.13416838698321953,
+  "banked_from_torch_s_per_call": 0.4500656,
+  "banked_to_torch_s_per_call": 0.7122887,
+  "host_tilize_share_of_from_torch": 0.1637404081095114,
+  "host_untilize_share_of_to_torch": 0.18836236905515916,
+  "calls_each_way_per_backward": 216,
+  "seconds_on_the_host_per_backward": 44.89825939270668,
+  "backward_s": 705.78,
+  "share_of_backward": 0.06361509166129202,
+  "caveat": "an UPPER bound on what a device-side to_layout could move, and by two terms: the device to_layout is not free (19.21 GB/s on the same run's by_verb, so ~0.047 s per 906 MB) and the ROW_MAJOR DMA is larger than the TILE one by nothing at all but is still a DMA. It is also measured on an UNCONTENDED-ish host at the loadavg recorded here, while the banked seconds were taken at loadavg 4.58."
+ }
+}

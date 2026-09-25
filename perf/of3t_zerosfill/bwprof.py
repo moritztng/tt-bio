@@ -1,5 +1,23 @@
 #!/usr/bin/env python3
-"""J0: where the 2.107 ms of a backward verb call actually goes.
+"""`of3t-bwattrib`'s backward profiler, VERBATIM, plus one break control: `--zeros`.
+
+Vendored rather than rewritten, deliberately. This row's whole claim is a before/after on ONE
+verb inside a 33.63 s backward, and a second instrument written from scratch would make the
+two numbers incomparable -- which is the failure this fleet has already paid for. The only
+edits are `--zeros {device,host}`, which sets `tt_bio.autograd.DEVICE_ZEROS`, and recording
+that setting in `env`. Everything else, including the self/inclusive split that made the
+attribution honest, is `of3t-bwattrib`'s at `wk/of3t-bwattrib` `bd567dd67`.
+
+Run both arms with `--arm noexact`: with `exact_training` ON the `zeros` verb is invisible
+behind a host float64 softmax that is 95.2 % of the leg, so ON is the wrong denominator for
+this row and the setting is part of every number below.
+
+    bwprof.py --tokens 384 --arm noexact --zeros host    # the defect, as shipped
+    bwprof.py --tokens 384 --arm noexact --zeros device  # the fix
+
+--- of3t-bwattrib's original docstring follows ---
+
+J0: where the 2.107 ms of a backward verb call actually goes.
 
 `of3t-gpugap` priced the backward's 168,922 ttnn verb calls at 356.00 s -- 2.107 ms each,
 44.3x the forward's 0.0475 ms on the same program in the same warm process -- and nothing in
@@ -42,12 +60,6 @@ ARMS, and each is a break control that must MOVE the number or the suspect is no
               model, and this arm prices it. It is not a shippable lever on its own --
               of3t-stackexact reads 0.9823x the bar with it on and 1.4512x with it off -- so
               what this arm buys is the correct DENOMINATOR for every other lever.
-  softmax     `EXACT_TRAINING_OPS = ("softmax",)` -- of3t-exactscope's narrowed scope. The
-              exact softmax stays, the exact layer norm goes back to the device op. Between
-              `base` and `noexact` on the same ladder, so the three arms price the layer norm
-              separately from the softmax. The scope is asserted from the mechanism, not from
-              the argument: `host_roundtrips` must read layer_norm all-zero and softmax
-              non-zero on BOTH legs.
   sync        `ttnn.synchronize_device` after every verb. ttnn dispatch is asynchronous, so
               a bare wall clock per call is host time that may or may not be hiding device
               time behind it. This arm drains the queue per call: if the total barely moves,
@@ -418,7 +430,11 @@ def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--tokens", type=int, default=384)
     ap.add_argument("--cycles", type=int, default=1)
-    ap.add_argument("--arm", default="base", choices=("base", "fanin", "sync", "noexact", "softmax"))
+    ap.add_argument("--arm", default="base", choices=("base", "fanin", "sync", "noexact"))
+    ap.add_argument("--zeros", default=None, choices=("device", "host"),
+                    help="of3t-zerosfill's break control: where a backward's zero tensors are "
+                         "built. `host` restores ttnn.zeros(device=), which builds on the host "
+                         "and uploads. Default: leave tt_bio's own setting alone.")
     ap.add_argument("--top", type=int, default=60)
     ap.add_argument("--out", type=Path, required=True)
     a = ap.parse_args()
@@ -452,15 +468,13 @@ def main() -> int:
             if a.arm == "noexact":
                 exact_ctx = ag.exact_training(False)
                 exact_ctx.__enter__()
-            elif a.arm == "softmax":
-                # of3t-exactscope's narrowed scope. `exact_training_ops()` reads this module
-                # global live, so setting it here is the same one-argument change a ship would
-                # make -- not a private context the training entry points cannot see.
-                ag.EXACT_TRAINING_OPS = ("softmax",)
             out["env"]["exact_training_ops"] = list(ag.exact_training_ops())
             if a.arm == "fanin":
                 ag.FANIN_MIXED = True
             out["env"]["fanin_mixed"] = bool(ag.FANIN_MIXED)
+            if a.zeros is not None:
+                ag.DEVICE_ZEROS = (a.zeros == "device")
+            out["env"]["device_zeros"] = bool(ag.DEVICE_ZEROS)
             instrument(ag, dev if a.arm == "sync" else None)
             if a.arm == "sync":
                 real_sync, real_w = ttnn.synchronize_device, _W.__getattr__
@@ -496,9 +510,6 @@ def main() -> int:
                 _swap(True, saved)
                 try:
                     _s, z = trunk(*args_, **kwargs_)
-                    out["env"]["installed_inside_the_tape"] = {
-                        "softmax": ag.exact_softmax_installed(),
-                        "layer_norm": ag.exact_layer_norm_installed()}
                     ttnn.synchronize_device(dev)
                 finally:
                     _swap(False, saved)
@@ -593,7 +604,8 @@ def main() -> int:
     out["env"]["aiclk_line"] = clk.line(0)
     dump()
     b = out.get("backward", {})
-    print(f"\nARM {a.arm}  crop {a.tokens}  backward {b.get('s')} s over "
+    print(f"\nARM {a.arm}  zeros={'device' if out['env'].get('device_zeros') else 'host'}  "
+          f"crop {a.tokens}  backward {b.get('s')} s over "
           f"{b.get('verb_calls')} verb calls, {b.get('us_per_call')} us/call, "
           f"{b.get('verb_share_of_backward')} of the wall inside ttnn")
     print(out['env'].get('aiclk_line'))
