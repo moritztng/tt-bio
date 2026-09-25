@@ -1,0 +1,65 @@
+[pool] model_1_multimer_v3 on card in 11.0s
+=== trajectory 1 | pdl1_denovo_l146_3150367da865d53b | accepted 0/10 ===
+[pool] model_3_multimer_v3 on card in 22.0s
+2026-09-25 02:29:53.045 | critical |          Always | TT_THROW: Statically allocated circular buffers in program 149 clash with L1 buffers on core range [(x=0,y=0) - (x=10,y=9)]. L1 buffer allocated at 1087488 and static circular buffer region ends at 1176064 (assert.hpp:104)
+[tt-bio] trimul L1/circular-buffer clash at chunk width 64 (seq 288, 11x10 grid): retrying narrower. The tt-metal 'critical' line above is expected and handled; the result is unchanged.
+2026-09-25 02:29:53.122 | critical |          Always | TT_THROW: Statically allocated circular buffers in program 229 clash with L1 buffers on core range [(x=0,y=0) - (x=10,y=9)]. L1 buffer allocated at 1132544 and static circular buffer region ends at 1176064 (assert.hpp:104)
+[tt-bio] trimul L1/circular-buffer clash at chunk width 32 (seq 288, 11x10 grid): retrying narrower. The tt-metal 'critical' line above is expected and handled; the result is unchanged.
+2026-09-25 02:29:53.166 | critical |          Always | TT_THROW: Statically allocated circular buffers in program 255 clash with L1 buffers on core range [(x=0,y=0) - (x=10,y=9)]. L1 buffer allocated at 1132544 and static circular buffer region ends at 1176064 (assert.hpp:104)
+  File "/home/ttuser/bcx_e2e_venv/lib/python3.12/site-packages/jax/_src/callback.py", line 93, in pure_callback_impl
+  File "/home/ttuser/bcx_e2e_venv/lib/python3.12/site-packages/jax/_src/callback.py", line 71, in __call__
+  File "/home/ttuser/.coworker/wt/bcx-multimer/perf/bcx_predictor/splice.py", line 195, in _backward
+  File "/home/ttuser/.coworker/wt/bcx-multimer/tt_bio/autograd.py", line 354, in backward
+  File "/home/ttuser/.coworker/wt/bcx-multimer/tt_bio/autograd.py", line 1201, in <lambda>
+  File "/home/ttuser/.coworker/wt/bcx-multimer/tt_bio/autograd.py", line 1162, in _recompute
+  File "/home/ttuser/.coworker/wt/bcx-multimer/perf/bcx_afgrad/afgrad.py", line 220, in <lambda>
+  File "/home/ttuser/.coworker/wt/bcx-multimer/perf/bcx_afgrad/afgrad.py", line 204, in evo
+  File "/home/ttuser/.coworker/wt/bcx-multimer/tt_bio/af2.py", line 788, in __call__
+  File "/home/ttuser/.coworker/wt/bcx-multimer/tt_bio/af2.py", line 423, in __call__
+  File "/home/ttuser/.coworker/wt/bcx-multimer/tt_bio/af2.py", line 410, in _update
+  File "/home/ttuser/.coworker/wt/bcx-multimer/tt_bio/af2.py", line 417, in <lambda>
+  File "/home/ttuser/.coworker/wt/bcx-multimer/tt_bio/tenstorrent.py", line 7189, in __call__
+  File "/home/ttuser/.coworker/wt/bcx-multimer/tt_bio/tenstorrent.py", line 6033, in host_acc_after_refusal
+  File "/home/ttuser/.coworker/wt/bcx-multimer/tt_bio/tenstorrent.py", line 7190, in <lambda>
+  File "/home/ttuser/.coworker/wt/bcx-multimer/tt_bio/tenstorrent.py", line 6221, in _inplace_guarded
+  File "/home/ttuser/.coworker/wt/bcx-multimer/tt_bio/tenstorrent.py", line 7191, in <lambda>
+  File "/home/ttuser/.coworker/wt/bcx-multimer/tt_bio/tenstorrent.py", line 7375, in _multiply
+  File "/home/ttuser/.coworker/wt/bcx-multimer/tt_bio/tenstorrent.py", line 6521, in _in_proj_matmul
+  File "/home/ttuser/.coworker/wt/bcx-multimer/tt_bio/taped_ttnn.py", line 892, in call
+  File "/home/ttuser/.coworker/wt/bcx-multimer/tt_bio/taped_ttnn.py", line 130, in _v_matmul
+  File "/home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/ttnn/decorators.py", line 473, in __call__
+RuntimeError: TT_THROW @ /project/tt_metal/impl/program/program.cpp:1052: tt::exception
+  File "/home/ttuser/.coworker/wt/bcx-multimer/perf/bcx_predictor/run_arm.py", line 175, in <module>
+  File "/home/ttuser/.coworker/wt/bcx-multimer/perf/bcx_predictor/run_arm.py", line 157, in main
+  File "/home/ttuser/bcx_e2e/bc2/bindcraft/campaign.py", line 271, in run_campaign
+  File "/home/ttuser/bcx_e2e/bc2/bindcraft/campaign.py", line 185, in run_campaign_arm
+  File "/home/ttuser/bcx_e2e/bc2/bindcraft/trajectory.py", line 303, in run_trajectory
+  File "/home/ttuser/bcx_e2e/bc2/bindcraft/trajectory.py", line 131, in run_gradient_design_stage
+  File "/home/ttuser/.coworker/wt/bcx-multimer/perf/bcx_predictor/ttbio_predictor.py", line 150, in sequence_gradients
+  File "/home/ttuser/bcx_e2e/bc2/bindcraft/af2.py", line 406, in sequence_gradients
+jax.errors.JaxRuntimeError: INTERNAL: CpuCallback error calling callback: Traceback (most recent call last):
+  File "/home/ttuser/bcx_e2e_venv/lib/python3.12/site-packages/jax/_src/callback.py", line 816, in _wrapped_callback
+  File "/home/ttuser/bcx_e2e_venv/lib/python3.12/site-packages/jax/_src/callback.py", line 226, in _callback
+  File "/home/ttuser/bcx_e2e_venv/lib/python3.12/site-packages/jax/_src/callback.py", line 96, in pure_callback_impl
+  File "/home/ttuser/bcx_e2e_venv/lib/python3.12/site-packages/jax/_src/callback.py", line 71, in __call__
+  File "/home/ttuser/.coworker/wt/bcx-multimer/perf/bcx_predictor/splice.py", line 195, in _backward
+  File "/home/ttuser/.coworker/wt/bcx-multimer/tt_bio/autograd.py", line 354, in backward
+  File "/home/ttuser/.coworker/wt/bcx-multimer/tt_bio/autograd.py", line 1201, in <lambda>
+  File "/home/ttuser/.coworker/wt/bcx-multimer/tt_bio/autograd.py", line 1162, in _recompute
+  File "/home/ttuser/.coworker/wt/bcx-multimer/perf/bcx_afgrad/afgrad.py", line 220, in <lambda>
+  File "/home/ttuser/.coworker/wt/bcx-multimer/perf/bcx_afgrad/afgrad.py", line 204, in evo
+  File "/home/ttuser/.coworker/wt/bcx-multimer/tt_bio/af2.py", line 788, in __call__
+  File "/home/ttuser/.coworker/wt/bcx-multimer/tt_bio/af2.py", line 423, in __call__
+  File "/home/ttuser/.coworker/wt/bcx-multimer/tt_bio/af2.py", line 410, in _update
+  File "/home/ttuser/.coworker/wt/bcx-multimer/tt_bio/af2.py", line 417, in <lambda>
+  File "/home/ttuser/.coworker/wt/bcx-multimer/tt_bio/tenstorrent.py", line 7189, in __call__
+  File "/home/ttuser/.coworker/wt/bcx-multimer/tt_bio/tenstorrent.py", line 6033, in host_acc_after_refusal
+  File "/home/ttuser/.coworker/wt/bcx-multimer/tt_bio/tenstorrent.py", line 7190, in <lambda>
+  File "/home/ttuser/.coworker/wt/bcx-multimer/tt_bio/tenstorrent.py", line 6228, in _inplace_guarded
+  File "/home/ttuser/.coworker/wt/bcx-multimer/tt_bio/tenstorrent.py", line 7191, in <lambda>
+  File "/home/ttuser/.coworker/wt/bcx-multimer/tt_bio/tenstorrent.py", line 7527, in _multiply
+  File "/home/ttuser/.coworker/wt/bcx-multimer/tt_bio/tenstorrent.py", line 6521, in _in_proj_matmul
+  File "/home/ttuser/.coworker/wt/bcx-multimer/tt_bio/taped_ttnn.py", line 892, in call
+  File "/home/ttuser/.coworker/wt/bcx-multimer/tt_bio/taped_ttnn.py", line 130, in _v_matmul
+  File "/home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/ttnn/decorators.py", line 483, in __call__
+RuntimeError: TT_THROW @ /project/tt_metal/impl/program/program.cpp:1052: tt::exception

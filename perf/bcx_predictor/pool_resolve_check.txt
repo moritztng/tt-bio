@@ -1,0 +1,6 @@
+1. default settings vs the pre-flag override list: IDENTICAL
+2. --multimer-pool off: 1 design ['model_1_ptm']
+                        1 validation ['model_2_ptm']
+2. --multimer-pool on : 5 design ['model_1_multimer_v3', 'model_2_multimer_v3', 'model_3_multimer_v3', 'model_4_multimer_v3', 'model_5_multimer_v3']
+                        2 validation ['model_1_ptm', 'model_2_ptm']
+3. MULTIMER_POOL = ['model_1_multimer_v3', 'model_2_multimer_v3', 'model_3_multimer_v3', 'model_4_multimer_v3', 'model_5_multimer_v3']

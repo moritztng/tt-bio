@@ -1,0 +1,71 @@
+{
+ "n_residues": 192,
+ "state_shape": {
+  "hPDL1": {
+   "binder": 77,
+   "target_hPDL1": 115
+  }
+ },
+ "bucket": 32,
+ "rows": [
+  {
+   "arm": "matched",
+   "card_checkpoint": "model_1_multimer_v3",
+   "jax_checkpoint": "model_1_multimer_v3",
+   "seconds": 12.4,
+   "ptm": 0.5856,
+   "iptm": 0.1462,
+   "plddt_mean": 0.6426,
+   "pae_mean_A": 15.235
+  },
+  {
+   "arm": "mismatched",
+   "card_checkpoint": "model_2_multimer_v3",
+   "jax_checkpoint": "model_1_multimer_v3",
+   "seconds": 2.9,
+   "ptm": 0.5975,
+   "iptm": 0.1694,
+   "plddt_mean": 0.6623,
+   "pae_mean_A": 15.113
+  },
+  {
+   "arm": "jax",
+   "card_checkpoint": null,
+   "jax_checkpoint": "model_1_multimer_v3",
+   "seconds": 31.7,
+   "ptm": 0.5772,
+   "iptm": 0.131,
+   "plddt_mean": 0.6284,
+   "pae_mean_A": 16.015
+  }
+ ],
+ "device_calls": {
+  "primal": 4,
+  "taped": 0,
+  "backward": 0
+ },
+ "aiclk": {
+  "n": 67,
+  "min": 1331,
+  "median": 1350,
+  "max": 1350
+ },
+ "binder_ca_rmsd_kabsch_A": {
+  "matched": 12.769,
+  "mismatched": 12.419
+ },
+ "stamp": {
+  "host": "tt-quietbox2",
+  "card": 2,
+  "subsystem_device": "0x0046",
+  "commit": "1127f9ea82ccf35067888bde0025ffe9e9d1f6d7",
+  "tt_bio_dirty": false,
+  "torch_threads": 6,
+  "loadavg": [
+   14.27392578125,
+   15.6728515625,
+   18.033203125
+  ],
+  "utc": "2026-09-25T08:33:00Z"
+ }
+}
