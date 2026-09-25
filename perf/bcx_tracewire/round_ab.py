@@ -18,6 +18,11 @@ Two modes:
                 processes, one per arm, compared offline: that is the bit-identity claim on the
                 loop's own path.
 
+`--no-wire` opens the device the way the shipped loop does: no trace region, no TraceWire, no
+fence and no hole guard. Only `eager` and `zeros` exist there, interleaved as eager, zeros, zeros,
+eager. That is the honest grade of `DEVICE_ZEROS` on its own, since with the wire present every arm
+pays for machinery the shipped program does not have.
+
 `--rounds N` bounds collection. Every round that runs, runs in full.
 """
 from __future__ import annotations
@@ -95,12 +100,18 @@ def main():
     ap.add_argument("--digest", action="store_true", help="log a digest of every callback output")
     ap.add_argument("--out", default=None)
     ap.add_argument("--project", default=None)
+    ap.add_argument("--no-wire", action="store_true",
+                    help="open the device as the shipped loop does, with no trace wire at all; "
+                         "arms eager and zeros only")
     ap.add_argument("--extra-msa", action="store_true",
                     help="swap the extra-MSA stack onto the card too (bcx-extramsa's switch), in "
                          "every arm; it is not captured, so its host work stays in the floor")
     args = ap.parse_args()
     if not args.interleave and args.arm is None:
         ap.error("pick --interleave or --arm")
+    if args.no_wire and args.arm == "trace":
+        ap.error("--no-wire has no trace arm")
+    order = ("eager", "zeros", "zeros", "eager") if args.no_wire else ORDER
 
     project = args.project or str(OUT / "runs" / f"round_{args.arm or 'ab'}_seed{args.seed}")
     pathlib.Path(project).mkdir(parents=True, exist_ok=True)
@@ -113,8 +124,9 @@ def main():
                                  f"project_folder={project}"])))
     campaign.MULTIMER_POOL = MONOMER
 
-    import trace_wire
-    trace_wire.open_traced_device(args.region_mb)
+    if not args.no_wire:
+        import trace_wire
+        trace_wire.open_traced_device(args.region_mb)
     import afgrad as A
     import stack as S
     import ttbio_predictor as T
@@ -125,7 +137,7 @@ def main():
     dev = A.Dev(dm.to_device())
     lv.arm("stack")
     clock = S.Clock(dt=0.25)
-    evo = EvoformerOnDevice(dev, k_evo=48, trace=True)
+    evo = EvoformerOnDevice(dev, k_evo=48, trace=not args.no_wire)
     extra = ExtraMsaOnDevice(dev, k_extra=4) if args.extra_msa else None
 
     def set_arm(arm):
@@ -134,7 +146,7 @@ def main():
         evo.trace_on = arm == "trace"
         dev.ag.DEVICE_ZEROS = arm != "eager"
 
-    arm_now = args.arm or ORDER[0]
+    arm_now = args.arm or order[0]
     set_arm(arm_now)
 
     # Both callbacks return host arrays, so each wall time below is the trunk step's full cost to
@@ -189,8 +201,9 @@ def main():
             rounds.append({"i": len(rounds), "arm": arm, "s": t_now - t0,
                            "aiclk": clock.window([(t0, t_now)]), "load1": load0,
                            "span": (t0, t_now), "calls": dict(evo.calls),
-                           "trunk": dict(trunk), "seg": dict(evo.wire.seg),
-                           "captures": len(evo.wire.captures),
+                           "trunk": dict(trunk),
+                           "seg": dict(evo.wire.seg) if evo.wire else None,
+                           "captures": len(evo.wire.captures) if evo.wire else 0,
                            "extra_calls": dict(extra.calls) if extra else None})
             print(json.dumps(rounds[-1]), flush=True)
             if len(rounds) >= 3 and rounds[-1]["calls"]["backward"] == rounds[-2]["calls"]["backward"]:
@@ -205,7 +218,7 @@ def main():
             raise _Enough()
         nonlocal arm_now
         if args.interleave:
-            arm_now = ORDER[len(marks) % len(ORDER)]
+            arm_now = order[len(marks) % len(order)]
             set_arm(arm_now)
         marks.append((now, arm_now, round(os.getloadavg()[0], 1)))
         return real_sg(self, *a, **kw)
@@ -218,7 +231,8 @@ def main():
 
     blob = {"stamp": A.stamp(args.card) | {"pci": S.sysfs_node()[1], "argv": sys.argv,
                                            "aiclk_node": clock.path,
-                                           "region_mb": args.region_mb,
+                                           "region_mb": None if args.no_wire else args.region_mb,
+                                           "wire": not args.no_wire,
                                            "length_bucket_size": campaign_length_bucket(settings),
                                            "seed": args.seed,
                                            "extra_msa_on_device": bool(extra)},
@@ -238,7 +252,10 @@ def main():
     blob["extra_calls"] = dict(extra.calls) if extra else None
     if extra is not None and not extra.swapped:
         raise RuntimeError("--extra-msa was asked for and the extra-MSA stack was never swapped")
-    blob["wire"] = evo.wire.stats()
+    blob["wire"] = evo.wire.stats() if evo.wire else None
+    # The zeros arm keeps one device zero per (shape, dtype) for the life of the process.
+    blob["zero_cache"] = {"entries": len(dev.ag._ZERO_CACHE),
+                          "shapes": [list(k[:2]) for k in dev.ag._ZERO_CACHE]}
     if args.digest:
         blob["digests"] = digests
     # Round 1 carries the jit compile and round 0 is BindCraft 2 re-entering from its own
@@ -257,6 +274,13 @@ def main():
                 "aiclk": clock.window([r["span"] for r in rs]),
                 "load1": [r["load1"] for r in rs]}
     blob["per_arm"] = per
+    if "eager" in per and "zeros" in per:
+        a, z = per["eager"], per["zeros"]
+        blob["eager_vs_zeros"] = {
+            "round_x": a["median"] / z["median"],
+            "round_removed_s": a["median"] - z["median"],
+            "trunk_x": a["trunk_s"]["median"] / z["trunk_s"]["median"],
+            "trunk_removed_s": a["trunk_s"]["median"] - z["trunk_s"]["median"]}
     # Each arm against the traced one, on the round and on the trunk step inside it.
     for arm in ("eager", "zeros"):
         if "trace" in per and arm in per:
@@ -270,7 +294,7 @@ def main():
     OUT.mkdir(parents=True, exist_ok=True)
     path = OUT / (args.out or f"round_{blob['mode']}_seed{args.seed}.json")
     path.write_text(json.dumps(blob, indent=1, default=str))
-    print(json.dumps({k: blob.get(k) for k in ("eager_vs_trace", "zeros_vs_trace", "wall_s",
+    print(json.dumps({k: blob.get(k) for k in ("eager_vs_zeros", "eager_vs_trace", "zeros_vs_trace", "wall_s",
                                                "calls")}, default=str), flush=True)
     print("wrote", path, flush=True)
 
