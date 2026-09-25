@@ -1,0 +1,5 @@
+2026-09-24 21:10:20.241 | DEBUG    | ttnn:<module>:77 - Initial ttnn.CONFIG:
+Config{cache_path=/home/ttuser/.cache/ttnn,model_cache_path=/home/ttuser/.cache/ttnn/models,tmp_dir=/tmp/ttnn,enable_model_cache=false,enable_fast_runtime_mode=true,throw_exception_on_fallback=false,enable_logging=false,enable_graph_report=false,enable_detailed_buffer_report=false,enable_detailed_tensor_report=false,enable_comparison_mode=false,comparison_mode_should_raise_exception=false,comparison_mode_pcc=0.9999,root_report_path=generated/ttnn/reports,report_name=std::nullopt,std::nullopt}
+[tt-bio] trimul L1/circular-buffer clash at chunk width 128 (seq 208, 11x10 grid): retrying narrower. The tt-metal 'critical' line above is expected and handled; the result is unchanged.
+# host arm torch.float32 from cache /home/ttuser/scratch/bcx-land-envcache/a0d06cea62de7788.pt
+# host arm torch.bfloat16 from cache /home/ttuser/scratch/bcx-land-envcache/8e4300e84d6f7c8d.pt
