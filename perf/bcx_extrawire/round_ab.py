@@ -169,8 +169,50 @@ def analyse(events, clock_samples, extra_calls_end):
     return rows, summary
 
 
+def selftest():
+    """`analyse` on synthetic rounds, so the analysis half is not first exercised on a card.
+
+    OFF rounds take 30 s and move no counter, ON rounds take 15 s and move it by one. A correct
+    read is 2.0x, arms separated, the control clean, and rounds 1-2 (the compiling pair) out of
+    the timed set.
+    """
+    ev, t, calls = [], 1000.0, {"primal": 0, "taped": 0, "backward": 0}
+    for r in range(1, 7):
+        on = arm_of(r)
+        dur = 15.0 if on else 30.0
+        ev.append({"kind": "round_start", "phase": "round", "t0": t, "round": r})
+        ev.append({"kind": "arm", "phase": "round", "t0": t, "round": r,
+                   "extra_msa_on_device": on, "extra_calls_at_entry": dict(calls)})
+        ev.append({"kind": "predictor", "phase": "sequence_gradients", "t0": t, "t1": t + dur,
+                   "dt": dur, "round": r})
+        ev.append({"kind": "device", "phase": "evo:taped", "t0": t + 1, "t1": t + 6, "dt": 5.0,
+                   "round": r})
+        if on:
+            ev.append({"kind": "device", "phase": "extra:taped", "t0": t + 6, "t1": t + 7,
+                       "dt": 1.0, "round": r})
+            for k in calls:
+                calls[k] += 1
+        t += dur
+    ev.append({"kind": "round_stop", "phase": "round", "t0": t, "round": 7})
+    clk = [(1000.0 + i, 1350, 12.0) for i in range(int(t - 1000))]
+    rows, summary = analyse(ev, clk, dict(calls))
+    assert [r["round"] for r in rows] == [1, 2, 3, 4, 5, 6], rows
+    assert summary["ratio_sg_off_over_on"] == 2.0, summary
+    assert summary["separated"] and summary["control_clean"] and summary["arm_fires"], summary
+    assert summary["off"]["n"] == summary["on"]["n"] == 2, summary
+    assert summary["off"]["extra_backward_calls"] == 0, summary
+    assert summary["on"]["extra_backward_calls"] == 2, summary
+    assert all(r["extra_calls_delta"]["backward"] == (1 if r["extra_msa_on_device"] else 0)
+               for r in rows), rows
+    assert summary["on"]["aiclk_med_median"] == 1350, summary
+    print("selftest ok:", json.dumps({k: summary[k] for k in (
+        "ratio_sg_off_over_on", "separated", "control_clean", "arm_fires")}))
+
+
 def main():
     ap = argparse.ArgumentParser()
+    ap.add_argument("--selftest", action="store_true",
+                    help="check `analyse` on synthetic rounds and exit; opens no device")
     ap.add_argument("--rounds", type=int, default=12)
     ap.add_argument("--seed", type=int, default=100)
     ap.add_argument("--params", default="/home/ttuser/bcx_e2e/af2_params")
@@ -178,8 +220,14 @@ def main():
     ap.add_argument("--assert-fires", action="store_true",
                     help="exit nonzero unless the ON arm moved the counter and the OFF arm "
                          "did not")
-    ap.add_argument("--out", required=True)
+    ap.add_argument("--out", required=False)
     args = ap.parse_args()
+
+    if args.selftest:
+        selftest()
+        return
+    if not args.out:
+        ap.error("--out is required unless --selftest")
 
     import tt_bio.bindcraft2 as bc2
     import bindcraft.campaign as campaign
