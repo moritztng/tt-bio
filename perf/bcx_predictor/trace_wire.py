@@ -17,6 +17,14 @@ What a capture needs that an eager call does not:
   constant upload `bcx-trace` had to hoist is not on this path.
 * **A tape that outlives the callback.** The captured backward reads the addresses the captured
   forward writes, so the tape is held as long as the shape is, not dropped per step.
+* **Nothing allocated later may land in the trace's scratch.** Every intermediate the capture
+  allocated and freed is an address the replay still writes. With the Evoformer alone on the
+  card nothing else was live across a replay, so it did not show; with the extra-MSA stack on
+  device too, its tape is allocated after the capture, lives across two replays, and came back
+  overwritten (`perf/bcx_tracewire/bisect_xmsa_*`). So the capture runs inside a fence: DRAM is
+  filled with ballast except for one contiguous hole sized from the warm pass's peak, the
+  capture happens in the hole, what the capture left free in it is filled, and the ballast is
+  released. From then on no allocation can reach the hole.
 
 One shape at a time: a new shape releases the previous shape's traces and tape, because a
 trajectory holds one padded length and the next one draws a different binder.
@@ -39,6 +47,7 @@ class _Shape:
         self.prim = None       # what the forward trace writes out
         self.gout = None       # what the backward trace writes out
         self.leaves = self.roots = None   # held so the tape's addresses stay valid
+        self.fence = None      # buffers that occupy the rest of the trace's scratch
         self.capture_s = 0.0
         self.replays = [0, 0]
 
@@ -55,6 +64,80 @@ class TraceWire:
         # host's, so their sum is the host floor this capture leaves behind.
         self.seg = {"write": 0.0, "enqueue": 0.0, "wait": 0.0, "read": 0.0}
         dev.ag.DEVICE_ZEROS = True
+
+    # ------------------------------------------------------------------ the fence
+
+    #: Ballast granularity, per bank. The hole is a run of adjacent chunks, so this is also the
+    #: precision the hole is sized to.
+    CHUNK = 64 << 20
+
+    def _mem(self):
+        ttnn = self.dev.ttnn
+        return ttnn.get_memory_view(self.dev.device, ttnn.BufferType.DRAM)
+
+    def _hold(self, per_bank: int, banks: int):
+        """One DRAM buffer taking ``per_bank`` bytes in every bank: a row-major bfloat16 tensor
+        whose rows are pages, dealt round-robin, so each bank gets the same number of them."""
+        ttnn = self.dev.ttnn
+        page = min(per_bank, 1 << 20)
+        return ttnn.empty([banks * (per_bank // page), page // 2], dtype=ttnn.bfloat16,
+                          layout=ttnn.ROW_MAJOR_LAYOUT, device=self.dev.device,
+                          memory_config=ttnn.DRAM_MEMORY_CONFIG)
+
+    def _fill(self, chunk: int = 0) -> list:
+        """Take every free DRAM byte, in ``chunk``-sized buffers where one fits."""
+        held = []
+        while True:
+            mv = self._mem()
+            big = int(mv.largest_contiguous_bytes_free_per_bank)
+            want = min(big, chunk) if chunk and big >= chunk else big
+            want -= want % 64
+            if want <= 0:
+                return held
+            held.append(self._hold(want, int(mv.num_banks)))
+
+    def _peak(self, run) -> int:
+        """DRAM allocated per bank at its highest during ``run``, sampled before every free."""
+        ttnn = self.dev.ttnn
+        real, peak = ttnn.deallocate, [int(self._mem().total_bytes_allocated_per_bank)]
+
+        def sampled(*a, **k):
+            peak[0] = max(peak[0], int(self._mem().total_bytes_allocated_per_bank))
+            return real(*a, **k)
+
+        ttnn.deallocate = sampled
+        try:
+            run()
+        finally:
+            ttnn.deallocate = real
+        return max(peak[0], int(self._mem().total_bytes_allocated_per_bank))
+
+    def _open_fence(self, need: int) -> list:
+        """Ballast everywhere except one contiguous hole of at least ``need`` bytes per bank."""
+        ballast = self._fill(self.CHUNK)
+        chunks = sorted((t for t in ballast if self._per_bank(t) == self.CHUNK),
+                        key=lambda t: t.buffer_address())
+        k = -(-need // self.CHUNK)
+        run: list = []
+        for t in chunks:
+            if run and t.buffer_address() != run[-1].buffer_address() + self.CHUNK:
+                run = []
+            run.append(t)
+            if len(run) == k:
+                break
+        if len(run) < k:
+            for t in ballast:
+                self.dev.ttnn.deallocate(t)
+            raise RuntimeError(f"no contiguous {k * self.CHUNK >> 20} MiB per bank for the "
+                               f"trace's scratch; the capture would share addresses with "
+                               f"whatever is allocated after it")
+        ids = {id(t) for t in run}
+        for t in run:
+            self.dev.ttnn.deallocate(t)
+        return [t for t in ballast if id(t) not in ids]
+
+    def _per_bank(self, t) -> int:
+        return int(t.shape[0]) * int(t.shape[1]) * 2 // int(self._mem().num_banks)
 
     # ------------------------------------------------------------------ device plumbing
 
@@ -92,16 +175,24 @@ class TraceWire:
             return leaves, roots
 
         # Warm: every program compiled and in the program cache before the recorder runs, and
-        # the cotangent buffers allocated against the roots the body actually returns.
-        for i in range(2):
+        # the cotangent buffers allocated against the roots the body actually returns. The
+        # second pass is the one the capture repeats, so its DRAM peak sizes the fence.
+        def warm(first):
             leaves, roots = once()
-            if i == 0:
+            if first:
                 sh.seeds = [dev.seed(torch.zeros([int(d) for d in r.value.shape]), r)
                             for r in roots]
             ag.backward(roots, [ttnn.clone(s) for s in sh.seeds])
             ag.release_pins()
-            del leaves, roots
+
+        warm(True)
         self._sync()
+        base = int(self._mem().total_bytes_allocated_per_bank)
+        rise = self._peak(lambda: warm(False)) - base
+        self._sync()
+        # A quarter over the measured rise: the capture repeats the warm pass's allocations,
+        # but into a smaller space, so it can fragment where the warm pass did not.
+        ballast = self._open_fence(rise + rise // 4 + self.CHUNK)
 
         sh.tid_f = ttnn.begin_trace_capture(dev.device, cq_id=0)
         try:
@@ -123,6 +214,13 @@ class TraceWire:
             sh.gout = [lf.grad for lf in leaves]
         finally:
             ttnn.end_trace_capture(dev.device, sh.tid_b, cq_id=0)
+        self._sync()
+        sh.fence = self._fill()
+        for t in ballast:
+            ttnn.deallocate(t)
+        self.fence_mb = {"warm_rise": rise >> 20,
+                         "filled_after_capture": sum(self._per_bank(t) for t in sh.fence) >> 20,
+                         "free_after": int(self._mem().total_bytes_free_per_bank) >> 20}
         if any(g is None for g in sh.gout):
             raise RuntimeError("a leaf took no gradient in the captured backward; the trace "
                                "would replay a gradient that is never written")
@@ -133,7 +231,8 @@ class TraceWire:
         self._evict()
         self._shapes[key] = sh
         self._order.append(key)
-        self.captures.append({"key": str(key), "capture_s": round(sh.capture_s, 2)})
+        self.captures.append({"key": str(key), "capture_s": round(sh.capture_s, 2),
+                              "fence_mb_per_bank": self.fence_mb})
         print(f"[trace_wire] captured {key} in {sh.capture_s:.1f} s", flush=True)
         ttnn.execute_trace(dev.device, sh.tid_f, cq_id=0, blocking=False)
         self._sync()
@@ -146,7 +245,10 @@ class TraceWire:
             for tid in (old.tid_f, old.tid_b):
                 if tid is not None:
                     self.dev.ttnn.release_trace(self.dev.device, tid)
+            for t in old.fence or ():
+                self.dev.ttnn.deallocate(t)
             old.leaves = old.roots = old.prim = old.gout = old.bufs = old.seeds = None
+            old.fence = None
 
     # ------------------------------------------------------------------ the two verbs
 

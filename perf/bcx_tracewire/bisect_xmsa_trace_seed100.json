@@ -1,0 +1,327 @@
+{
+ "stamp": {
+  "host": "tt-quietbox2",
+  "card": 3,
+  "subsystem_device": "0x0046",
+  "commit": "193e8de8fc2faf34487166d7af7c3945d2dbe3e2",
+  "tt_bio_dirty": false,
+  "torch_threads": 6,
+  "loadavg": [
+   29.4736328125,
+   26.265625,
+   26.1728515625
+  ],
+  "utc": "2026-09-25T02:23:15Z",
+  "pci": "0000:04:00.0",
+  "argv": [
+   "perf/bcx_tracewire/round_ab.py",
+   "--arm",
+   "trace",
+   "--digest",
+   "--extra-msa",
+   "--rounds",
+   "3",
+   "--seed",
+   "100",
+   "--card",
+   "3",
+   "--project",
+   "perf/bcx_tracewire/runs/bisect_xmsa_trace_seed100",
+   "--out",
+   "bisect_xmsa_trace_seed100.json"
+  ],
+  "aiclk_node": "/sys/class/tenstorrent/tenstorrent!3/tt_aiclk",
+  "region_mb": 768,
+  "length_bucket_size": 32,
+  "seed": 100,
+  "extra_msa_on_device": true
+ },
+ "mode": "trace",
+ "wall_s": 103.8,
+ "rounds": [
+  {
+   "i": 0,
+   "arm": "trace",
+   "s": 0.03399991989135742,
+   "aiclk": {
+    "n": 0
+   },
+   "load1": 29.5,
+   "span": [
+    1790303003.938378,
+    1790303003.972378
+   ],
+   "calls": {
+    "primal": 0,
+    "taped": 0,
+    "backward": 0
+   },
+   "trunk": {
+    "taped": 0.0,
+    "backward": 0.0,
+    "cpu": 0.0,
+    "extra": 0.0,
+    "extra_cpu": 0.0
+   },
+   "seg": {
+    "write": 0.0,
+    "enqueue": 0.0,
+    "wait": 0.0,
+    "read": 0.0
+   },
+   "captures": 0,
+   "extra_calls": {
+    "primal": 0,
+    "taped": 0,
+    "backward": 0
+   }
+  },
+  {
+   "i": 1,
+   "arm": "trace",
+   "s": 79.70821452140808,
+   "aiclk": {
+    "n": 254,
+    "min": 1331,
+    "median": 1350,
+    "max": 1350
+   },
+   "load1": 29.5,
+   "span": [
+    1790303003.972378,
+    1790303083.6805925
+   ],
+   "calls": {
+    "primal": 0,
+    "taped": 2,
+    "backward": 1
+   },
+   "trunk": {
+    "taped": 25.233936426986475,
+    "backward": 4.637297675013542,
+    "cpu": 21.205777283999996,
+    "extra": 1.4737737670075148,
+    "extra_cpu": 0.5832133949999999
+   },
+   "seg": {
+    "write": 0.0411501039925497,
+    "enqueue": 8.958601392805576e-05,
+    "wait": 5.57599434099393,
+    "read": 0.15263642303762026
+   },
+   "captures": 1,
+   "extra_calls": {
+    "primal": 0,
+    "taped": 2,
+    "backward": 1
+   }
+  },
+  {
+   "i": 2,
+   "arm": "trace",
+   "s": 15.756627082824707,
+   "aiclk": {
+    "n": 36,
+    "min": 1337,
+    "median": 1350,
+    "max": 1350
+   },
+   "load1": 25.0,
+   "span": [
+    1790303083.6805925,
+    1790303099.4372196
+   ],
+   "calls": {
+    "primal": 0,
+    "taped": 4,
+    "backward": 2
+   },
+   "trunk": {
+    "taped": 27.47621128897299,
+    "backward": 9.263194752013078,
+    "cpu": 21.358859299999995,
+    "extra": 2.237344060034957,
+    "extra_cpu": 0.9401054040000018
+   },
+   "seg": {
+    "write": 0.10339266297523864,
+    "enqueue": 0.00026504197739996016,
+    "wait": 12.182971403002739,
+    "read": 0.24154618007014506
+   },
+   "captures": 1,
+   "extra_calls": {
+    "primal": 0,
+    "taped": 4,
+    "backward": 2
+   }
+  }
+ ],
+ "calls": {
+  "primal": 0,
+  "taped": 4,
+  "backward": 2
+ },
+ "extra_calls": {
+  "primal": 0,
+  "taped": 4,
+  "backward": 2
+ },
+ "wire": {
+  "captures": [
+   {
+    "key": "((2, 224, 256), (224, 224, 128), (2, 224), ((224, 224), 34596.0), 48, True)",
+    "capture_s": 22.91
+   }
+  ],
+  "replays": {
+   "((2, 224, 256), (224, 224, 128), (2, 224), ((224, 224), 34596.0), 48, True)": [
+    4,
+    2
+   ]
+  },
+  "capture_s_total": 22.91,
+  "seg_s": {
+   "write": 0.1034,
+   "enqueue": 0.0003,
+   "wait": 12.183,
+   "read": 0.2415
+  }
+ },
+ "digests": [
+  {
+   "op": "extra_taped",
+   "d": [
+    "ec5b2f739fc649d6"
+   ]
+  },
+  {
+   "op": "taped",
+   "d": [
+    "ef41d8a971351742",
+    "19910f40618c2f6c"
+   ]
+  },
+  {
+   "op": "extra_taped",
+   "d": [
+    "f74e7eae21f6a1dc"
+   ]
+  },
+  {
+   "op": "taped",
+   "d": [
+    "2e1e674b50d6981d",
+    "cd7163356a2db821"
+   ]
+  },
+  {
+   "op": "backward",
+   "d": [
+    "34add1c8a86e0fbc",
+    "121e28da4db53f5a"
+   ]
+  },
+  {
+   "op": "extra_backward",
+   "d": [
+    "93e817211a020bab"
+   ]
+  },
+  {
+   "op": "extra_taped",
+   "d": [
+    "ab12fe46cb25d61c"
+   ]
+  },
+  {
+   "op": "taped",
+   "d": [
+    "1cde426a70a0ac2a",
+    "0b78af1a9cf0bbbd"
+   ]
+  },
+  {
+   "op": "extra_taped",
+   "d": [
+    "797a10abc6ae1fa5"
+   ]
+  },
+  {
+   "op": "taped",
+   "d": [
+    "b7563a226df3092d",
+    "ad438dc927ae42ff"
+   ]
+  },
+  {
+   "op": "backward",
+   "d": [
+    "ad3914b88b6f56ca",
+    "99f41c1d449e420b"
+   ]
+  },
+  {
+   "op": "extra_backward",
+   "d": [
+    "a8306a4b33eab099"
+   ]
+  }
+ ],
+ "per_arm": {
+  "trace": {
+   "median": 15.756627082824707,
+   "p10": 15.756627082824707,
+   "p90": 15.756627082824707,
+   "mean": 15.756627082824707,
+   "min": 15.756627082824707,
+   "max": 15.756627082824707,
+   "n": 1,
+   "trunk_s": {
+    "median": 6.868171938986052,
+    "p10": 6.868171938986052,
+    "p90": 6.868171938986052,
+    "mean": 6.868171938986052,
+    "min": 6.868171938986052,
+    "max": 6.868171938986052,
+    "n": 1
+   },
+   "trunk_cpu_s": {
+    "median": 0.15308201599999904,
+    "p10": 0.15308201599999904,
+    "p90": 0.15308201599999904,
+    "mean": 0.15308201599999904,
+    "min": 0.15308201599999904,
+    "max": 0.15308201599999904,
+    "n": 1
+   },
+   "extra_s": {
+    "median": 0.763570293027442,
+    "p10": 0.763570293027442,
+    "p90": 0.763570293027442,
+    "mean": 0.763570293027442,
+    "min": 0.763570293027442,
+    "max": 0.763570293027442,
+    "n": 1
+   },
+   "extra_cpu_s": {
+    "median": 0.35689200900000184,
+    "p10": 0.35689200900000184,
+    "p90": 0.35689200900000184,
+    "mean": 0.35689200900000184,
+    "min": 0.35689200900000184,
+    "max": 0.35689200900000184,
+    "n": 1
+   },
+   "aiclk": {
+    "n": 36,
+    "min": 1337,
+    "median": 1350,
+    "max": 1350
+   },
+   "load1": [
+    25.0
+   ]
+  }
+ }
+}
