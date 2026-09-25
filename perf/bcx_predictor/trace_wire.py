@@ -97,20 +97,31 @@ class TraceWire:
             held.append(self._hold(want, int(mv.num_banks)))
 
     def _peak(self, run) -> int:
-        """DRAM allocated per bank at its highest during ``run``, sampled before every free."""
-        ttnn = self.dev.ttnn
-        real, peak = ttnn.deallocate, [int(self._mem().total_bytes_allocated_per_bank)]
+        """DRAM allocated per bank at its highest during ``run``, sampled after every ttnn op.
 
-        def sampled(*a, **k):
-            peak[0] = max(peak[0], int(self._mem().total_bytes_allocated_per_bank))
-            return real(*a, **k)
+        An allocation only ever happens inside an op, so the peak is exact. Sampling before each
+        `ttnn.deallocate` instead read low: much of a tape is released by dropping the last
+        reference, which calls no deallocate, and the fence it sized was 8 MB short of the
+        capture."""
+        from ttnn import decorators as D
+        peak = [int(self._mem().total_bytes_allocated_per_bank)]
+        real = {c: c.__call__ for c in (D.FastOperation, D.Operation)}
 
-        ttnn.deallocate = sampled
+        def sampled(real_call):
+            def call(op, *a, **k):
+                out = real_call(op, *a, **k)
+                peak[0] = max(peak[0], int(self._mem().total_bytes_allocated_per_bank))
+                return out
+            return call
+
+        for c, f in real.items():
+            c.__call__ = sampled(f)
         try:
             run()
         finally:
-            ttnn.deallocate = real
-        return max(peak[0], int(self._mem().total_bytes_allocated_per_bank))
+            for c, f in real.items():
+                c.__call__ = f
+        return peak[0]
 
     def _open_fence(self, need: int) -> list:
         """Ballast everywhere except one contiguous hole of at least ``need`` bytes per bank."""
@@ -192,6 +203,9 @@ class TraceWire:
         self._sync()
         # A quarter over the measured rise: the capture repeats the warm pass's allocations,
         # but into a smaller space, so it can fragment where the warm pass did not.
+        mv = self._mem()
+        print(f"[trace_wire] warm rise {rise >> 20} MiB/bank, free {int(mv.total_bytes_free_per_bank) >> 20}"
+              f" MiB/bank, largest {int(mv.largest_contiguous_bytes_free_per_bank) >> 20}", flush=True)
         ballast = self._open_fence(rise + rise // 4 + self.CHUNK)
 
         sh.tid_f = ttnn.begin_trace_capture(dev.device, cq_id=0)
