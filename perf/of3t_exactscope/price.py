@@ -28,13 +28,17 @@ def ok_scope(d, arm):
     """Did the arm run the scope it claims? Returns the reading, and whether it is consistent."""
     want = {"noexact": (False, False), "softmax": (True, False), "base": (True, True)}[arm]
     ins = d["env"].get("installed_inside_the_tape") or {}
-    legs = {leg: d[leg]["host_roundtrips"] for leg in ("forward", "backward")}
+    legs = {leg: d[leg]["host_roundtrips"] for leg in ("forward", "backward")
+            if "host_roundtrips" in d.get(leg, {})}
     served = {op: {leg: sum(v for k, v in legs[leg][op].items() if k in ("verb", "raw", "bw"))
                    for leg in legs} for op in ("softmax", "layer_norm")}
     consistent = (
         bool(ins.get("softmax")) == want[0] and bool(ins.get("layer_norm")) == want[1]
         and all((served["softmax"][leg] > 0) == want[0] for leg in legs)
         and all((served["layer_norm"][leg] > 0) == want[1] for leg in legs))
+    # an arm that only got through one leg is asserted on the leg it has, and says so
+    if set(legs) != {"forward", "backward"}:
+        consistent = f"{sorted(legs)} only"
     return {"expected_installed": {"softmax": want[0], "layer_norm": want[1]},
             "installed_inside_the_tape": ins,
             "ops_active": d["env"].get("exact_training_ops"),
@@ -51,10 +55,16 @@ def main() -> int:
             print(f"!! missing {p}")
             continue
         d = json.loads(p.read_text())
-        if "forward" not in d or "s" not in d.get("backward", {}):
-            # bwprof dumps progressively, so a live arm's file is real but incomplete
-            print(f"!! {a} still running or incomplete -- skipped")
+        if "forward" not in d:
+            print(f"!! {a} has no completed forward -- skipped")
             continue
+        if "s" not in d.get("backward", {}):
+            # bwprof dumps progressively. A file with a forward and no backward is an arm
+            # that died in its backward -- keep the leg that finished, say the other is absent.
+            print(f"!! {a}: forward complete, BACKWARD ABSENT -- kept for the forward ladder")
+            d["backward"] = dict(d.get("backward", {}), s=None, ok=False, verb_calls=None,
+                                 _absent="the arm exited during the backward with no error "
+                                         "recorded; seconds for this leg are owed")
         arms[a] = d
 
     out = {"what": __doc__.split("\n\n")[0], "row": "of3t-exactscope",
@@ -73,13 +83,17 @@ def main() -> int:
             "scope": SCOPE[a],
             "scope_control": ok_scope(d, a),
             "forward_s": f["s"], "backward_s": b["s"],
-            "step_s": round(f["s"] + b["s"], 2),
+            "step_s": round(f["s"] + b["s"], 2) if b["s"] is not None else None,
+            "backward_absent": b.get("_absent"),
             "backward_ok": b.get("ok"),
             "tape_nodes": b.get("tape_nodes"),
             "forward_verb_calls": f["verb_calls"], "backward_verb_calls": b["verb_calls"],
             "params_with_grad": b.get("params_with_grad"),
             "params_declared": b.get("params_declared"),
-            "aiclk_mhz_sampled_DURING": d["env"]["aiclk_during"],
+            # A46 clause 3: no DURING clock, no measurement. An arm that died before the
+            # sampler's summary was written does not get one retrofitted from its neighbours.
+            "aiclk_mhz_sampled_DURING": d["env"].get("aiclk_during"),
+            "quotable_as_a_measurement": bool(d["env"].get("aiclk_during")),
             "loadavg_at_start": d["env"]["loadavg"],
             "commit": d["env"]["commit"][:9],
             # the same site under both regimes: the exact host closure and the shipped device
@@ -111,6 +125,11 @@ def main() -> int:
         out["price"] = {}
         for k in ("forward_s", "backward_s", "step_s"):
             base, sm, ne = leg("base", k), leg("softmax", k), leg("noexact", k)
+            if base is None or sm is None or ne is None:
+                out["price"][k] = {"base (softmax+LN)": base, "softmax only": sm,
+                                   "noexact": ne,
+                                   "incomplete": "this leg is not a three-point ladder"}
+                continue
             out["price"][k] = {
                 "base (softmax+LN)": base, "softmax only": sm, "noexact": ne,
                 "the exact LAYER NORM costs (base - softmax)": round(base - sm, 2),
@@ -178,13 +197,18 @@ def main() -> int:
         if a not in out["arms"]:
             continue
         r = out["arms"][a]
-        clk = r["aiclk_mhz_sampled_DURING"].get("0", {})
-        print(f"{a:9s} {r['scope']:52s} {r['forward_s']:8.2f} {r['backward_s']:9.2f} "
-              f"{r['step_s']:9.2f} {clk.get('median','?'):>9} "
+        clk = (r["aiclk_mhz_sampled_DURING"] or {}).get("0", {})
+        fmt = lambda v: f"{v:9.2f}" if isinstance(v, (int, float)) else f"{'ABSENT':>9s}"
+        print(f"{a:9s} {r['scope']:52s} {r['forward_s']:8.2f} {fmt(r['backward_s'])} "
+              f"{fmt(r['step_s'])} {clk.get('median','?'):>9} "
               f"{str(r['scope_control']['consistent']):>9s}")
     if "price" in out:
         print()
         for k, v in out["price"].items():
+            if "incomplete" in v:
+                print(f"{k:12s}  {v['incomplete']}: base={v['base (softmax+LN)']} "
+                      f"softmax={v['softmax only']} noexact={v['noexact']}")
+                continue
             print(f"{k:12s}  exact LAYER NORM costs {v['the exact LAYER NORM costs (base - softmax)']:8.2f} s"
                   f"   exact SOFTMAX costs {v['the exact SOFTMAX costs (softmax - noexact)']:8.2f} s"
                   f"   narrowing saves {v['narrowing to softmax saves pct_of_base']}%")

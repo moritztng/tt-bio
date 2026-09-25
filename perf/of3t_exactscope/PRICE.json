@@ -1,0 +1,351 @@
+{
+ "what": "of3t-exactscope: what the narrowed scope actually saves, and what the exact layer norm costs.",
+ "row": "of3t-exactscope",
+ "axis": "arm-to-arm, three arms back to back in one chain on one card, crop 384, 1 trunk cycle, taped; the accuracy that grades them is of3t-stackexact's ladder, not re-measured here",
+ "host": "pc",
+ "card": 0,
+ "board_class": "p150a",
+ "board_serial": "000004033191410F",
+ "why_board_matters": "qb1 p150a and qb2 p300c run the same 512 aa fold 17.39 s against 14.59 s at the same 1350 MHz",
+ "arms": {
+  "noexact": {
+   "scope": "neither exact",
+   "scope_control": {
+    "expected_installed": {
+     "softmax": false,
+     "layer_norm": false
+    },
+    "installed_inside_the_tape": {
+     "softmax": false,
+     "layer_norm": false
+    },
+    "ops_active": [],
+    "calls_served_per_leg": {
+     "softmax": {
+      "forward": 0,
+      "backward": 0
+     },
+     "layer_norm": {
+      "forward": 0,
+      "backward": 0
+     }
+    },
+    "counters_per_leg": {
+     "forward": {
+      "ops_active": [],
+      "softmax": {
+       "verb": 0,
+       "raw": 0,
+       "raw_elements": 0
+      },
+      "layer_norm": {
+       "verb": 0,
+       "raw": 0,
+       "elements": 0,
+       "bw": 0
+      }
+     },
+     "backward": {
+      "ops_active": [],
+      "softmax": {
+       "verb": 0,
+       "raw": 0,
+       "raw_elements": 0
+      },
+      "layer_norm": {
+       "verb": 0,
+       "raw": 0,
+       "elements": 0,
+       "bw": 0
+      }
+     }
+    },
+    "consistent": true
+   },
+   "forward_s": 4.24,
+   "backward_s": 21.0,
+   "step_s": 25.24,
+   "backward_absent": null,
+   "backward_ok": true,
+   "tape_nodes": 2482,
+   "forward_verb_calls": 21398,
+   "backward_verb_calls": 67666,
+   "params_with_grad": 1648,
+   "params_declared": 2531,
+   "aiclk_mhz_sampled_DURING": {
+    "0": {
+     "min": 800,
+     "max": 1350,
+     "median": 1350,
+     "n": 15
+    }
+   },
+   "quotable_as_a_measurement": true,
+   "loadavg_at_start": [
+    1.05615234375,
+    1.3505859375,
+    1.853515625
+   ],
+   "commit": "5361dfcc6",
+   "layer_norm_bw_closure": {
+    "exact_host": null,
+    "shipped_device": {
+     "s": 1.024,
+     "fired": 658,
+     "ms_per_fire": 1.56,
+     "verbs": 15959
+    }
+   },
+   "softmax_bw_closure": {
+    "exact_host": null,
+    "shipped_device": {
+     "s": 1.12,
+     "fired": 111,
+     "ms_per_fire": 10.09
+    }
+   }
+  },
+  "softmax": {
+   "scope": "EXACT_TRAINING_OPS = (\"softmax\",)",
+   "scope_control": {
+    "expected_installed": {
+     "softmax": true,
+     "layer_norm": false
+    },
+    "installed_inside_the_tape": {
+     "softmax": true,
+     "layer_norm": false
+    },
+    "ops_active": [
+     "softmax"
+    ],
+    "calls_served_per_leg": {
+     "softmax": {
+      "forward": 159,
+      "backward": 159
+     },
+     "layer_norm": {
+      "forward": 0,
+      "backward": 0
+     }
+    },
+    "counters_per_leg": {
+     "forward": {
+      "ops_active": [
+       "softmax"
+      ],
+      "softmax": {
+       "verb": 159,
+       "raw": 0,
+       "raw_elements": 0
+      },
+      "layer_norm": {
+       "verb": 0,
+       "raw": 0,
+       "elements": 0,
+       "bw": 0
+      }
+     },
+     "backward": {
+      "ops_active": [
+       "softmax"
+      ],
+      "softmax": {
+       "verb": 159,
+       "raw": 0,
+       "raw_elements": 0
+      },
+      "layer_norm": {
+       "verb": 0,
+       "raw": 0,
+       "elements": 0,
+       "bw": 0
+      }
+     }
+    },
+    "consistent": true
+   },
+   "forward_s": 195.76,
+   "backward_s": 441.57,
+   "step_s": 637.33,
+   "backward_absent": null,
+   "backward_ok": true,
+   "tape_nodes": 2482,
+   "forward_verb_calls": 21716,
+   "backward_verb_calls": 67756,
+   "params_with_grad": 1648,
+   "params_declared": 2531,
+   "aiclk_mhz_sampled_DURING": {
+    "0": {
+     "min": 800,
+     "max": 1350,
+     "median": 1350,
+     "n": 195
+    }
+   },
+   "quotable_as_a_measurement": true,
+   "loadavg_at_start": [
+    2.1728515625,
+    1.60009765625,
+    1.9150390625
+   ],
+   "commit": "5361dfcc6",
+   "layer_norm_bw_closure": {
+    "exact_host": null,
+    "shipped_device": {
+     "s": 1.218,
+     "fired": 658,
+     "ms_per_fire": 1.85,
+     "verbs": 15959
+    }
+   },
+   "softmax_bw_closure": {
+    "exact_host": {
+     "s": 243.133,
+     "fired": 111,
+     "ms_per_fire": 2190.39
+    },
+    "shipped_device": null
+   }
+  },
+  "base": {
+   "scope": "EXACT_TRAINING_OPS = (\"softmax\", \"layer_norm\") -- the default",
+   "scope_control": {
+    "expected_installed": {
+     "softmax": true,
+     "layer_norm": true
+    },
+    "installed_inside_the_tape": {
+     "softmax": true,
+     "layer_norm": true
+    },
+    "ops_active": [
+     "softmax",
+     "layer_norm"
+    ],
+    "calls_served_per_leg": {
+     "softmax": {
+      "forward": 159
+     },
+     "layer_norm": {
+      "forward": 803
+     }
+    },
+    "counters_per_leg": {
+     "forward": {
+      "ops_active": [
+       "softmax",
+       "layer_norm"
+      ],
+      "softmax": {
+       "verb": 159,
+       "raw": 0,
+       "raw_elements": 0
+      },
+      "layer_norm": {
+       "verb": 803,
+       "raw": 0,
+       "elements": 8035319808,
+       "bw": 0
+      }
+     }
+    },
+    "consistent": "['forward'] only"
+   },
+   "forward_s": 268.27,
+   "backward_s": null,
+   "step_s": null,
+   "backward_absent": "the arm exited during the backward with no error recorded; seconds for this leg are owed",
+   "backward_ok": false,
+   "tape_nodes": null,
+   "forward_verb_calls": 24928,
+   "backward_verb_calls": null,
+   "params_with_grad": null,
+   "params_declared": null,
+   "aiclk_mhz_sampled_DURING": null,
+   "quotable_as_a_measurement": false,
+   "loadavg_at_start": [
+    4.10888671875,
+    3.619140625,
+    2.82958984375
+   ],
+   "commit": "37a0a33d1",
+   "layer_norm_bw_closure": {
+    "exact_host": null,
+    "shipped_device": null
+   },
+   "softmax_bw_closure": {
+    "exact_host": null,
+    "shipped_device": null
+   }
+  }
+ },
+ "the_route_is_the_same": {
+  "tape_nodes": {
+   "noexact": 2482,
+   "softmax": 2482,
+   "base": null
+  },
+  "params_with_grad": {
+   "noexact": 1648,
+   "softmax": 1648,
+   "base": null
+  },
+  "identical": false
+ },
+ "price": {
+  "forward_s": {
+   "base (softmax+LN)": 268.27,
+   "softmax only": 195.76,
+   "noexact": 4.24,
+   "the exact LAYER NORM costs (base - softmax)": 72.51,
+   "the exact SOFTMAX costs (softmax - noexact)": 191.52,
+   "narrowing to softmax saves": 72.51,
+   "narrowing to softmax saves pct_of_base": 27.0,
+   "x_base_over_softmax": 1.37,
+   "x_base_over_noexact": 63.271
+  },
+  "backward_s": {
+   "base (softmax+LN)": null,
+   "softmax only": 441.57,
+   "noexact": 21.0,
+   "incomplete": "this leg is not a three-point ladder"
+  },
+  "step_s": {
+   "base (softmax+LN)": null,
+   "softmax only": 637.33,
+   "noexact": 25.24,
+   "incomplete": "this leg is not a three-point ladder"
+  }
+ },
+ "backward_closure_at_one_site": {
+  "softmax": {
+   "exact_host": {
+    "s": 243.133,
+    "fired": 111,
+    "ms_per_fire": 2190.39
+   },
+   "shipped_device": {
+    "s": 1.12,
+    "fired": 111,
+    "ms_per_fire": 10.09
+   },
+   "same_fire_count": true,
+   "x_host_over_device": 217.1
+  }
+ },
+ "host_quiet": {
+  "before_the_chain": "loadavg1 0.86, GREEN, and zero other processes held a tenstorrent fd -- the chain was the box's only device tenant from start to finish",
+  "noexact_arm": "started GREEN at loadavg1 1.06",
+  "exact_arms": "started RED, 2.17 over the 2.00 ceiling",
+  "why": "the exact arms ARE host float64 work. The arm's own python3 was sampled at 204-208 % CPU, so an exact arm puts ~2.0 on loadavg1 by itself and cannot read under a 2.00 ceiling no matter how idle the box is. The guard was built for a device-bound timing read where host load is contamination; here the host load is the subject being measured.",
+  "foreign_load_measured": "NOT zero, and not explained away: openclaw-gateway (~140 % in bursts), tt-smi (~85-103 %) and other claude sessions appear in the samples. Foreign host CPU competes with exactly the host float64 threads the exact arms are made of, so base and softmax seconds are UPPER BOUNDS.",
+  "what_survives_it": "the LAYER NORM PRICE is a difference of two arms contaminated the same way and sampled minutes apart, so it is more robust than either absolute. The counts -- tape nodes, parameters with a gradient, call counters -- are load-insensitive.",
+  "samples": 56,
+  "loadavg1_median_during_arms": 3.46,
+  "loadavg1_max_during_arms": 3.72,
+  "arm_own_cpu_pct_median": null,
+  "file": "out/loadsample.tsv",
+  "caveat": "the sampler's `other_cpu_pct` column INCLUDES the arm's own python3; read `other_procs` for the names."
+ }
+}
