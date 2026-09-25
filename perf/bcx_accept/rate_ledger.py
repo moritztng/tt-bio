@@ -20,7 +20,12 @@ Two things this is careful about, and the second is the one that gets misquoted:
    "upper bound" wherever this is quoted.
 
 Usage:
-  rate_ledger.py ARM=ARTDIR@START[:END] [...]   ISO8601 Z
+  rate_ledger.py ARM=ARTDIR@START[:END] [...] [--reference K/N]   ISO8601 Z
+
+--reference gives the other arm's accepted/completed counts and adds a Fisher exact test of
+whether the two acceptance counts differ at all. That is the comparison the GO condition asks
+for, and at the counts this campaign can buy it is the honest form of it: a point-estimate
+ratio between 1/10 and 1/2 invites a conclusion the interval does not support.
 
 Give END for an arm that has exited. The MPNN redesign and validation ensemble run AFTER
 the last write into the trajectory's own directory, so without END an accepted trajectory
@@ -83,6 +88,28 @@ def clopper_pearson(k, n, alpha=0.05):
     return lo, hi
 
 
+def fisher_exact(a, b, c, d):
+    """Two-sided p on a 2x2 by summing every table no more probable than the observed one.
+    No scipy on this box, and the counts are small enough to enumerate exactly."""
+    from math import comb
+    n = a + b + c + d
+
+    def p_tab(a, b, c, d):
+        return comb(a + b, a) * comb(c + d, c) / comb(n, a + c)
+
+    obs = p_tab(a, b, c, d)
+    tot = 0.0
+    for i in range(0, min(a + b, a + c) + 1):
+        j, k = a + b - i, a + c - i
+        l = c + d - k
+        if min(j, k, l) < 0:
+            continue
+        pr = p_tab(i, j, k, l)
+        if pr <= obs + 1e-12:
+            tot += pr
+    return tot
+
+
 def traj_end(d):
     """Last write into the trajectory's own directory."""
     best = 0.0
@@ -116,7 +143,13 @@ def terminal_map(log):
 
 
 def main(argv):
-    rows = []
+    rows, ref = [], None
+    argv = list(argv)
+    if "--reference" in argv:
+        i = argv.index("--reference")
+        k, _, n = argv[i + 1].partition("/")
+        ref = (int(k), int(n))
+        del argv[i:i + 2]
     for spec in argv[1:]:
         label, _, rest = spec.partition("=")
         artdir, _, start = rest.partition("@")
@@ -179,6 +212,14 @@ def main(argv):
         print(f"CI on the ratio: {total / hi / n / BOLTZGEN_CHIP_S:.1f}x - "
               f"{total / lo / n / BOLTZGEN_CHIP_S:,.0f}x")
         print(f"{3600 * k / total:.3f} designs/h/chip, upper bound on the chip's cost")
+        if ref:
+            rk, rn = ref
+            pv = fisher_exact(k, n - k, rk, rn - rk)
+            rlo, rhi = clopper_pearson(rk, rn)
+            print(f"\nreference {rk}/{rn} = {rk / rn:.3f}   95 % CI {rlo:.4f} - {rhi:.4f}")
+            print(f"Fisher exact two-sided p = {pv:.4f} -- the two acceptance counts "
+                  f"{'do not differ' if pv > 0.05 else 'DIFFER'}")
+            print(f"the intervals overlap across {max(lo, rlo):.4f} - {min(hi, rhi):.4f}")
     else:
         print(f"\n0 accepted over {n} completed -- lower bound {total:,.0f} s per accepted "
               f"design, resting on {n} trajectories. Not a rate.")
