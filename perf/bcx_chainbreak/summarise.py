@@ -3,13 +3,18 @@
 Every number quoted in state/bcx-chainbreak.md and in the upstream issue comes from here, so a
 transcription error has nowhere to hide.
 """
-import collections, glob, json, statistics, sys
+import collections, glob, json, os, statistics, sys
 
 WINDOW = 32
+OUT = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'out')
 
-def load(directory='out'):
+def load(directory=None):
+    directory = directory or OUT
     legs = {}
-    for path in glob.glob(f'{directory}/*.json'):
+    paths = glob.glob(f'{directory}/*.json')
+    if not paths:
+        sys.exit(f'no leg JSONs under {directory} -- nothing to summarise')
+    for path in paths:
         leg = json.load(open(path))
         legs[(leg['leg'], leg['binder'], leg['target'], leg['target_start'],
               leg['chains'], leg.get('seed', 0))] = leg
@@ -35,7 +40,7 @@ def distributions(pairs):
     return by_arm
 
 def main():
-    legs = load(sys.argv[1] if len(sys.argv) > 1 else 'out')
+    legs = load(sys.argv[1] if len(sys.argv) > 1 else OUT)
     pairs = paired(legs)
 
     print('## Gradient-path numbering minus predict-path numbering, per binder draw\n')
