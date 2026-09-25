@@ -1,0 +1,583 @@
+{
+ "doc": "A FULL OpenFold3 training step on the card, timed by part.",
+ "argv": [
+  "--tokens",
+  "384",
+  "--cycles",
+  "4",
+  "--samples",
+  "4",
+  "--reps",
+  "4",
+  "--out",
+  "/home/moritz/.coworker/wt/of3t-stepqb2/perf/of3t_stepqb2/out/step_exact_off_384off.json"
+ ],
+ "env": {
+  "host": "pc",
+  "tt_visible_devices": "0",
+  "renorm": null,
+  "commit": "f79e92e340808ac5ae0a4bb4e17c14d12bd35a97",
+  "branch": "wk/of3t-stepqb2",
+  "started_utc": "2026-09-25T19:24:19Z",
+  "loadavg_start": [
+   2.6904296875,
+   2.31591796875,
+   2.89794921875
+  ],
+  "arch": "Arch.BLACKHOLE",
+  "aiclk_during": {
+   "0": {
+    "min": 1350,
+    "max": 1350,
+    "median": 1350,
+    "n": 69
+   }
+  },
+  "aiclk_line": "CLOCK: dev0 min 1350 / median 1350 / max 1350 MHz over 69 samples, polled DURING the work",
+  "loadavg_end": [
+   4.6240234375,
+   3.37451171875,
+   3.18994140625
+  ]
+ },
+ "config": {
+  "crop": 384,
+  "batch": 1,
+  "cards": 1,
+  "cycles_pinned": 4,
+  "diffusion_samples": 4,
+  "stage": "initial_training",
+  "taped": true,
+  "cycles": 4
+ },
+ "build_fold_s": 8.91,
+ "prep_to_sampler_s": 7.61,
+ "capture": {
+  "trunk_inputs_snapshotted": true,
+  "trunk_inputs_dead_at_capture": 0,
+  "trunk_forward_s": 5.048,
+  "trunk_forward_note": "the shipped call, progress_fn INCLUDED and cold; the timed arms below drop it",
+  "trunk_cycles": 4,
+  "reached_sampler": true
+ },
+ "capture_reused_from_arm": null,
+ "params": {
+  "declared": 3152,
+  "slots": 3152,
+  "slots_unwritable": 0,
+  "elements": 381302188,
+  "per_root": {
+   "trunk": {
+    "found": 2531,
+    "walk_depth": 9,
+    "truncated": 8
+   },
+   "diffusion": {
+    "found": 891,
+    "walk_depth": 6,
+    "truncated": 0
+   }
+  },
+  "duplicate_handles_dropped": 270,
+  "pairformer_weights": 2256,
+  "diffusion_weights": 621
+ },
+ "loss_weights": {
+  "bond": 0.0,
+  "smooth_lddt": 4.0,
+  "mse": 4.0,
+  "distogram": 0.03,
+  "resolved": 0.0001,
+  "plddt": 0.0001,
+  "pae": 0.0001,
+  "pde": 0.0001
+ },
+ "optimizer": {
+  "class": "tt_bio.train.optim.AdamW",
+  "lr": 0.0003,
+  "clip_norm": 10.0,
+  "params": 3152
+ },
+ "renorm": {
+  "flag": true,
+  "stats_before": {
+   "applied": 0,
+   "declined": 0
+  },
+  "per_rep_plan": null,
+  "stats_after": {
+   "applied": 1116,
+   "declined": 0
+  },
+  "applied_during_reps": 1116,
+  "declined_during_reps": 0
+ },
+ "reps": [
+  {
+   "rep": 0,
+   "cold": true,
+   "renorm_flag": true,
+   "trunk_nograd_prefix_s": 3.476,
+   "trunk_taped_cycle_s": 4.188,
+   "trunk_s": 7.664,
+   "dram_after_trunk": 4309939200,
+   "diffusion_s": 10.858,
+   "diffusion": {
+    "coupled_to_trunk": true,
+    "sigmas": [
+     42.4209,
+     3306.9691,
+     881.7492,
+     3.0826
+    ],
+    "distinct_sigmas": 4,
+    "n_samples": 4,
+    "per_sample_s": [
+     9.287,
+     0.051,
+     0.054,
+     0.049
+    ],
+    "n_atom": 3092,
+    "n_token": 384,
+    "tokens_without_an_atom": 0,
+    "rep_atom_index": "first atom of each token, from atom_to_token_idx"
+   },
+   "dram_after_diffusion": 23727682560,
+   "losses_s": 7.041,
+   "losses": {
+    "terms": {
+     "bond": {
+      "weight": 0.0,
+      "skipped": "weight is zero in this stage",
+      "fired": false
+     },
+     "smooth_lddt": {
+      "weight": 4.0,
+      "skipped": null,
+      "fired": true
+     },
+     "mse": {
+      "weight": 4.0,
+      "skipped": null,
+      "fired": true
+     },
+     "distogram": {
+      "weight": 0.03,
+      "skipped": null,
+      "fired": true
+     },
+     "resolved": {
+      "weight": 0.0001,
+      "skipped": null,
+      "fired": true
+     },
+     "plddt": {
+      "weight": 0.0001,
+      "skipped": null,
+      "fired": true
+     },
+     "pae": {
+      "weight": 0.0001,
+      "skipped": null,
+      "fired": true
+     },
+     "pde": {
+      "weight": 0.0001,
+      "skipped": null,
+      "fired": true
+     }
+    },
+    "terms_fired": 7,
+    "scope": "token, one representative atom per token",
+    "download_s": 0.001,
+    "host_loss_s": 7.01,
+    "value_claimed": false
+   },
+   "roots_taped": 4,
+   "seed_upload_s": 0.001,
+   "tape_nodes": 9897,
+   "backward_s": 45.217,
+   "params_with_grad": "2944 of 3152",
+   "backward_valid": true,
+   "dram_after_backward": 4574620672,
+   "rebind_moved": 3152,
+   "leaves_live_after_rebind": "3152 of 3152",
+   "optimizer_s": 6.751,
+   "optimizer_updated": 3152,
+   "step_s": 77.532,
+   "renorm_applied": 279,
+   "renorm_declined": 0
+  },
+  {
+   "rep": 1,
+   "cold": false,
+   "renorm_flag": true,
+   "trunk_nograd_prefix_s": 3.488,
+   "trunk_taped_cycle_s": 3.985,
+   "trunk_s": 7.473,
+   "dram_after_trunk": 6415444992,
+   "diffusion_s": 0.286,
+   "diffusion": {
+    "coupled_to_trunk": true,
+    "sigmas": [
+     9.108,
+     0.1605,
+     0.013,
+     0.282
+    ],
+    "distinct_sigmas": 4,
+    "n_samples": 4,
+    "per_sample_s": [
+     0.128,
+     0.052,
+     0.049,
+     0.051
+    ],
+    "n_atom": 3092,
+    "n_token": 384,
+    "tokens_without_an_atom": 0,
+    "rep_atom_index": "first atom of each token, from atom_to_token_idx"
+   },
+   "dram_after_diffusion": 25024545792,
+   "losses_s": 6.19,
+   "losses": {
+    "terms": {
+     "bond": {
+      "weight": 0.0,
+      "skipped": "weight is zero in this stage",
+      "fired": false
+     },
+     "smooth_lddt": {
+      "weight": 4.0,
+      "skipped": null,
+      "fired": true
+     },
+     "mse": {
+      "weight": 4.0,
+      "skipped": null,
+      "fired": true
+     },
+     "distogram": {
+      "weight": 0.03,
+      "skipped": null,
+      "fired": true
+     },
+     "resolved": {
+      "weight": 0.0001,
+      "skipped": null,
+      "fired": true
+     },
+     "plddt": {
+      "weight": 0.0001,
+      "skipped": null,
+      "fired": true
+     },
+     "pae": {
+      "weight": 0.0001,
+      "skipped": null,
+      "fired": true
+     },
+     "pde": {
+      "weight": 0.0001,
+      "skipped": null,
+      "fired": true
+     }
+    },
+    "terms_fired": 7,
+    "scope": "token, one representative atom per token",
+    "download_s": 0.001,
+    "host_loss_s": 6.16,
+    "value_claimed": false
+   },
+   "roots_taped": 4,
+   "seed_upload_s": 0.003,
+   "tape_nodes": 9897,
+   "backward_s": 20.832,
+   "params_with_grad": "2674 of 3152",
+   "backward_valid": true,
+   "dram_after_backward": 4574653440,
+   "rebind_moved": 3152,
+   "leaves_live_after_rebind": "3152 of 3152",
+   "optimizer_s": 4.823,
+   "optimizer_updated": 3152,
+   "step_s": 39.607,
+   "renorm_applied": 279,
+   "renorm_declined": 0
+  },
+  {
+   "rep": 2,
+   "cold": false,
+   "renorm_flag": true,
+   "trunk_nograd_prefix_s": 3.474,
+   "trunk_taped_cycle_s": 4.044,
+   "trunk_s": 7.518,
+   "dram_after_trunk": 6415444992,
+   "diffusion_s": 0.283,
+   "diffusion": {
+    "coupled_to_trunk": true,
+    "sigmas": [
+     3306.9691,
+     0.0153,
+     0.0987,
+     86.3515
+    ],
+    "distinct_sigmas": 4,
+    "n_samples": 4,
+    "per_sample_s": [
+     0.128,
+     0.049,
+     0.052,
+     0.047
+    ],
+    "n_atom": 3092,
+    "n_token": 384,
+    "tokens_without_an_atom": 0,
+    "rep_atom_index": "first atom of each token, from atom_to_token_idx"
+   },
+   "dram_after_diffusion": 25024545792,
+   "losses_s": 6.309,
+   "losses": {
+    "terms": {
+     "bond": {
+      "weight": 0.0,
+      "skipped": "weight is zero in this stage",
+      "fired": false
+     },
+     "smooth_lddt": {
+      "weight": 4.0,
+      "skipped": null,
+      "fired": true
+     },
+     "mse": {
+      "weight": 4.0,
+      "skipped": null,
+      "fired": true
+     },
+     "distogram": {
+      "weight": 0.03,
+      "skipped": null,
+      "fired": true
+     },
+     "resolved": {
+      "weight": 0.0001,
+      "skipped": null,
+      "fired": true
+     },
+     "plddt": {
+      "weight": 0.0001,
+      "skipped": null,
+      "fired": true
+     },
+     "pae": {
+      "weight": 0.0001,
+      "skipped": null,
+      "fired": true
+     },
+     "pde": {
+      "weight": 0.0001,
+      "skipped": null,
+      "fired": true
+     }
+    },
+    "terms_fired": 7,
+    "scope": "token, one representative atom per token",
+    "download_s": 0.002,
+    "host_loss_s": 6.278,
+    "value_claimed": false
+   },
+   "roots_taped": 4,
+   "seed_upload_s": 0.003,
+   "tape_nodes": 9897,
+   "backward_s": 20.718,
+   "params_with_grad": "2674 of 3152",
+   "backward_valid": true,
+   "dram_after_backward": 4574653440,
+   "rebind_moved": 3152,
+   "leaves_live_after_rebind": "3152 of 3152",
+   "optimizer_s": 5.055,
+   "optimizer_updated": 3152,
+   "step_s": 39.886,
+   "renorm_applied": 279,
+   "renorm_declined": 0
+  },
+  {
+   "rep": 3,
+   "cold": false,
+   "renorm_flag": true,
+   "trunk_nograd_prefix_s": 3.48,
+   "trunk_taped_cycle_s": 3.982,
+   "trunk_s": 7.462,
+   "dram_after_trunk": 6415444992,
+   "diffusion_s": 0.45,
+   "diffusion": {
+    "coupled_to_trunk": true,
+    "sigmas": [
+     353.028,
+     1732.0952,
+     3108.0177,
+     0.0092
+    ],
+    "distinct_sigmas": 4,
+    "n_samples": 4,
+    "per_sample_s": [
+     0.128,
+     0.198,
+     0.05,
+     0.067
+    ],
+    "n_atom": 3092,
+    "n_token": 384,
+    "tokens_without_an_atom": 0,
+    "rep_atom_index": "first atom of each token, from atom_to_token_idx"
+   },
+   "dram_after_diffusion": 25024545792,
+   "losses_s": 6.916,
+   "losses": {
+    "terms": {
+     "bond": {
+      "weight": 0.0,
+      "skipped": "weight is zero in this stage",
+      "fired": false
+     },
+     "smooth_lddt": {
+      "weight": 4.0,
+      "skipped": null,
+      "fired": true
+     },
+     "mse": {
+      "weight": 4.0,
+      "skipped": null,
+      "fired": true
+     },
+     "distogram": {
+      "weight": 0.03,
+      "skipped": null,
+      "fired": true
+     },
+     "resolved": {
+      "weight": 0.0001,
+      "skipped": null,
+      "fired": true
+     },
+     "plddt": {
+      "weight": 0.0001,
+      "skipped": null,
+      "fired": true
+     },
+     "pae": {
+      "weight": 0.0001,
+      "skipped": null,
+      "fired": true
+     },
+     "pde": {
+      "weight": 0.0001,
+      "skipped": null,
+      "fired": true
+     }
+    },
+    "terms_fired": 7,
+    "scope": "token, one representative atom per token",
+    "download_s": 0.002,
+    "host_loss_s": 6.887,
+    "value_claimed": false
+   },
+   "roots_taped": 4,
+   "seed_upload_s": 0.003,
+   "tape_nodes": 9897,
+   "backward_s": 20.683,
+   "params_with_grad": "2674 of 3152",
+   "backward_valid": true,
+   "dram_after_backward": 4574653440,
+   "rebind_moved": 3152,
+   "leaves_live_after_rebind": "3152 of 3152",
+   "optimizer_s": 4.958,
+   "optimizer_updated": 3152,
+   "step_s": 40.472,
+   "renorm_applied": 279,
+   "renorm_declined": 0
+  }
+ ],
+ "cold_s": 77.532,
+ "steady": {
+  "n": 3,
+  "values_s": [
+   39.607,
+   39.886,
+   40.472
+  ],
+  "median_s": 39.886,
+  "min_s": 39.607,
+  "max_s": 40.472,
+  "spread_s": 0.865
+ },
+ "arm": {
+  "name": "exact_off",
+  "exact_training": false,
+  "exact_training_ops": [
+   "softmax",
+   "layer_norm"
+  ],
+  "exact_softmax_installed_now": false,
+  "wall_s": 218.198,
+  "rc": 0,
+  "host_quiet_pre": {
+   "when_utc": "2026-09-25T19:24:19Z",
+   "rc": 1,
+   "green": false,
+   "loadavg": [
+    2.6904296875,
+    2.31591796875,
+    2.89794921875
+   ],
+   "report": [
+    "loadavg1 2.69 over ceiling 2.00",
+    "HOST NOT QUIET -- your timing read is contaminated even with an idle sibling and a forced clock. Wait it out or DEFER. Do not measure and explain it afterwards."
+   ]
+  },
+  "host_quiet_post": {
+   "when_utc": "2026-09-25T19:27:57Z",
+   "rc": 1,
+   "green": false,
+   "loadavg": [
+    4.6240234375,
+    3.37451171875,
+    3.18994140625
+   ],
+   "report": [
+    "loadavg1 4.62 over ceiling 2.00",
+    "HOST NOT QUIET -- your timing read is contaminated even with an idle sibling and a forced clock. Wait it out or DEFER. Do not measure and explain it afterwards."
+   ]
+  }
+ },
+ "scope": {
+  "contains": [
+   "trunk no_grad recycle prefix",
+   "one taped trunk cycle",
+   "diffusion module on N noised structures inside the same tape",
+   "af3_loss heads on host",
+   "backward over the whole tape",
+   "AdamW optimizer step"
+  ],
+  "omits": [
+   "upstream's 48 diffusion samples (this runs --samples)",
+   "upstream's per-step U{1..4} recycle draw (this PINS --cycles)"
+  ],
+  "note": "trunk_nograd_prefix_s is reported per rep, so the step with and without the no_grad prefix are both readable off this artifact."
+ },
+ "host_facts": {
+  "card": "0",
+  "board": "p150a",
+  "serial": "000004033191410F",
+  "fw_bundle": "19.8.1.0",
+  "aiclk_idle_mhz": "1350",
+  "pci": {
+   "addr": "0000:01:00.0",
+   "current_link_speed": "16.0 GT/s PCIe",
+   "current_link_width": "8",
+   "max_link_speed": "32.0 GT/s PCIe",
+   "max_link_width": "16"
+  }
+ },
+ "avail_at_start_gib": 7.741
+}

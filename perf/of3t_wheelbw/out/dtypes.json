@@ -1,0 +1,76 @@
+{
+ "mul_bw|float32": {
+  "ok": true,
+  "outputs": 2,
+  "out_dtype": "DataType.FLOAT32"
+ },
+ "add_bw|float32": {
+  "ok": true,
+  "outputs": 2,
+  "out_dtype": "DataType.FLOAT32"
+ },
+ "relu_bw|float32": {
+  "ok": true,
+  "outputs": 1,
+  "out_dtype": "DataType.FLOAT32"
+ },
+ "sigmoid_bw|float32": {
+  "ok": true,
+  "outputs": 1,
+  "out_dtype": "DataType.FLOAT32"
+ },
+ "silu_bw|float32": {
+  "ok": true,
+  "outputs": 1,
+  "out_dtype": "DataType.FLOAT32"
+ },
+ "concat_bw|float32": {
+  "ok": false,
+  "error": "RuntimeError: TT_THROW @ /project/tt_metal/common/shape_base.cpp:16: tt::exception\ninfo:\nShapeBase[] index out of range. 2 not in [-4, 2)\nbacktrace:\n --- /home/moritz/tt-bio/env/lib/python3.10/site-packages/ttnn/build/lib/_ttnncpp.so(+0x8e4d3b) [0x7f365b6e4d3b]\n --- /home/moritz/tt-bio/env/lib/python3.10/site-pac"
+ },
+ "mul_bw|bfloat16": {
+  "ok": true,
+  "outputs": 2,
+  "out_dtype": "DataType.BFLOAT16"
+ },
+ "add_bw|bfloat16": {
+  "ok": true,
+  "outputs": 2,
+  "out_dtype": "DataType.BFLOAT16"
+ },
+ "relu_bw|bfloat16": {
+  "ok": true,
+  "outputs": 1,
+  "out_dtype": "DataType.BFLOAT16"
+ },
+ "sigmoid_bw|bfloat16": {
+  "ok": true,
+  "outputs": 1,
+  "out_dtype": "DataType.BFLOAT16"
+ },
+ "silu_bw|bfloat16": {
+  "ok": true,
+  "outputs": 1,
+  "out_dtype": "DataType.BFLOAT16"
+ },
+ "concat_bw|bfloat16": {
+  "ok": false,
+  "error": "RuntimeError: TT_THROW @ /project/tt_metal/common/shape_base.cpp:16: tt::exception\ninfo:\nShapeBase[] index out of range. 2 not in [-4, 2)\nbacktrace:\n --- /home/moritz/tt-bio/env/lib/python3.10/site-packages/ttnn/build/lib/_ttnncpp.so(+0x8e4d3b) [0x7f365b6e4d3b]\n --- /home/moritz/tt-bio/env/lib/python3.10/site-pac"
+ },
+ "pad|float32|lead_32_32": {
+  "ok": false,
+  "error": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/data_movement/pad/pad.cpp:278: front_padding_is_zero\ninfo:\nttnn.pad: on device tile padding does not support front padding\nbacktrace:\n --- /home/moritz/tt-bio/env/lib/python3.10/site-packages/ttnn/build/lib/_ttnncpp.so(+0x55d668) [0x7f365b35d668]\n --- ttn"
+ },
+ "pad|float32|lead_5_3": {
+  "ok": false,
+  "error": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/data_movement/pad/pad.cpp:278: front_padding_is_zero\ninfo:\nttnn.pad: on device tile padding does not support front padding\nbacktrace:\n --- /home/moritz/tt-bio/env/lib/python3.10/site-packages/ttnn/build/lib/_ttnncpp.so(+0x55d668) [0x7f365b35d668]\n --- ttn"
+ },
+ "pad|bfloat16|lead_32_32": {
+  "ok": false,
+  "error": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/data_movement/pad/pad.cpp:278: front_padding_is_zero\ninfo:\nttnn.pad: on device tile padding does not support front padding\nbacktrace:\n --- /home/moritz/tt-bio/env/lib/python3.10/site-packages/ttnn/build/lib/_ttnncpp.so(+0x55d668) [0x7f365b35d668]\n --- ttn"
+ },
+ "pad|bfloat16|lead_5_3": {
+  "ok": false,
+  "error": "RuntimeError: TT_FATAL @ /project/ttnn/cpp/ttnn/operations/data_movement/pad/pad.cpp:278: front_padding_is_zero\ninfo:\nttnn.pad: on device tile padding does not support front padding\nbacktrace:\n --- /home/moritz/tt-bio/env/lib/python3.10/site-packages/ttnn/build/lib/_ttnncpp.so(+0x55d668) [0x7f365b35d668]\n --- ttn"
+ }
+}

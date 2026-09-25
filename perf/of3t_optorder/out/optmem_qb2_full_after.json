@@ -1,0 +1,81 @@
+{
+ "doc": "When each of AdamW's host buffers is first touched, and what each one costs resident.",
+ "argv": [
+  "--scale",
+  "1.0",
+  "--tag",
+  "qb2_full_after"
+ ],
+ "env": {
+  "host": "tt-quietbox2",
+  "commit": "",
+  "branch": "",
+  "optim_rev": null,
+  "optim_from": "working tree",
+  "optim_dirty": false,
+  "python": "3.12.3",
+  "numpy": "2.5.2",
+  "started_utc": "2026-09-25T18:46:09Z",
+  "loadavg_start": [
+   15.02734375,
+   14.76953125,
+   14.68798828125
+  ],
+  "mem_total_gib": 249.315,
+  "avail_at_start_gib": 191.506,
+  "card_opened": false,
+  "ttnn_imported": false,
+  "ttnn_imported_after": false,
+  "avail_at_end_gib": 188.76
+ },
+ "run": {
+  "scale": 1.0,
+  "params": 3152,
+  "elements_requested": 381302188,
+  "optim_from": "working tree",
+  "rss_baseline_gib": 0.031,
+  "elements_built": 381302188,
+  "largest_param_elements": 5027619,
+  "median_param_elements": 34711,
+  "params_bytes_gib": 1.4205,
+  "build_params_gib": 1.4294,
+  "construct_s": 1.37,
+  "construct_gib": 2.8419,
+  "first_step_moments_gib": 2.8419,
+  "buffers_present": [
+   "exp_avg_sq",
+   "exp_avg",
+   "init",
+   "master"
+  ],
+  "buffers_absent": [
+   "init_master",
+   "init_device"
+  ],
+  "drop_order": "newest allocation first",
+  "drop_gib": {
+   "exp_avg_sq": 1.4087,
+   "exp_avg": 1.4326,
+   "init": 1.4207,
+   "master": 1.4207
+  },
+  "drop_total_gib": 5.6827,
+  "rss_after_drop_gib": 1.4604,
+  "bytes_per_element": {
+   "exp_avg_sq": 3.967,
+   "exp_avg": 4.034,
+   "init": 4.001,
+   "master": 4.001
+  },
+  "full_census_gib": {
+   "exp_avg_sq": 1.409,
+   "exp_avg": 1.433,
+   "init": 1.421,
+   "master": 1.421
+  },
+  "full_census_total_gib": 5.684,
+  "construct_full_census_gib": 2.842,
+  "first_step_moments_full_census_gib": 2.842,
+  "resident_after_first_step_full_census_gib": 5.684
+ }
+}

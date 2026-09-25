@@ -114,6 +114,41 @@ def _require_fp32_master(dtype) -> None:
         f"having a master -- and it is written by casting the master down each step")
 
 
+class _Moments(dict):
+    """``exp_avg`` / ``exp_avg_sq``: a name -> array map whose entries appear at first use.
+
+    A missing moment is a zero moment, and a zero moment is ``np.zeros_like(master[name])``,
+    so building it on the first read gives the same array the eager construction gave --
+    later, and only for a parameter something actually asked about. ``step()`` mutates what
+    it gets in place (``m *= beta1``), so the entry is cached on materialisation and the same
+    array comes back every step.
+
+    A dict subclass rather than a lazy property because the readers are spread across the
+    package and all of them want a plain mapping: ``save_adapter`` reads by name
+    (``tt_bio/train/checkpoint.py::save_adapter``) and materialises what it is about to write,
+    ``load_adapter`` assigns by name (``tt_bio/train/checkpoint.py::load_adapter``), and a checkpoint resume replaces the
+    attribute outright. None of them needs to know this class exists.
+
+    Why it is worth having at all: ``np.zeros_like`` is ``empty_like`` followed by
+    ``copyto(0)``, so it WRITES every page and an eagerly built moment is fully resident, not
+    a cheap untouched mapping. Measured at the crop-384 training census -- 3152 parameters,
+    381,302,188 elements -- the pair cost **2.82 GiB** standing through a forward and a
+    backward that never read them (``perf/of3t_optorder/``).
+    """
+
+    __slots__ = ("_master",)
+
+    def __init__(self, master):
+        super().__init__()
+        self._master = master
+
+    def __missing__(self, name):
+        import numpy as np
+        v = np.zeros_like(self._master[name])
+        self[name] = v
+        return v
+
+
 class AdamW:
     """AdamW with fp32 master weights, after ``adamw_full_precision.cpp``.
 
@@ -123,6 +158,12 @@ class AdamW:
     device dtype. For an adapter that is a few hundred KB of PCIe against a multi-second
     step, and it keeps the accumulation 24 mantissa bits above the bf16 weight the forward
     reads.
+
+    **Construction allocates the master and one copy of the initial weights, and nothing
+    else.** The moments are built by the first ``step()``, which runs after the backward, so
+    they are absent from the forward and the backward rather than resident and unread. At
+    full-model scale that is the difference between 7.04 GiB and 2.82 GiB of host memory
+    standing under the tape; see ``_Moments`` and ``perf/of3t_optorder/``.
 
     Decoupled weight decay, i.e. ``theta -= lr * (mhat / (sqrt(vhat) + eps) + wd * theta)``,
     which is AdamW's whole point and what tt-train's kernel implements.
@@ -158,11 +199,22 @@ class AdamW:
         # SUPPOSED to round to 0 or to a whole spacing, so the per-step ratio scatters far
         # from 1 while the run is working perfectly. What has to hold is that the device
         # weight has travelled as far as the master has, over the run.
-        self.init_master = {n: v.copy() for n, v in self.master.items()}
-        self.init_device = {n: to_host(t.value).astype(np.float32).reshape(
-            self.master[n].shape) for n, t in params.items()}
-        self.exp_avg = {n: np.zeros_like(v) for n, v in self.master.items()}
-        self.exp_avg_sq = {n: np.zeros_like(v) for n, v in self.master.items()}
+        # ONE copy, where there were two. `init_master` and `init_device` were built from the
+        # same `t.value`, three lines apart, with nothing between them that writes a
+        # parameter -- `to_host(v).astype(float32)` twice over unchanged bfloat16 is the same
+        # bytes, and the `.reshape(master[n].shape)` the second one carried is reshaping an
+        # array to its own shape. So they were a duplicate, and at the crop-384 census (3152
+        # tensors, 381,302,188 elements) the duplicate was **1.40 GiB** measured, standing
+        # for the whole run (`perf/of3t_optorder/out/`).
+        self.init = {n: v.copy() for n, v in self.master.items()}
+        # `exp_avg` and `exp_avg_sq` are built at the FIRST STEP, not here. Only `step()`
+        # reads or writes them, and `step()` runs after the backward, so eager construction
+        # put 2.82 GiB of zeros under the forward and the backward for nothing. Eager is not
+        # free the way an untouched allocation would be: `np.zeros_like` is `empty_like`
+        # followed by `copyto(0)`, which writes every page, so the moments were fully
+        # resident from construction rather than faulted in on demand.
+        self.exp_avg = _Moments(self.master)
+        self.exp_avg_sq = _Moments(self.master)
         # The per-sample clipping accumulator. Empty means the caller clips the batch once;
         # non-empty means `clip_and_accumulate` ran per sample and `step()` uses what it
         # summed rather than clipping a second time. `recipes.py`'s loop fills it, which is
@@ -326,9 +378,9 @@ class AdamW:
             # name order, so two ranks with different key sets would exchange vectors of
             # different lengths and sum the wrong bytes into each other's gradients. Upstream
             # keeps a zeros_like entry for every parameter for the same reason.
-            zero = {n: np.zeros_like(v) for n, v in self.master.items()}
             summed = self.data_parallel.reduce_all(
-                {n: [self.accum.get(n, zero[n])] for n in self.master})
+                {n: [self.accum[n] if n in self.accum else np.zeros_like(self.master[n])]
+                 for n in self.master})
             counts = self.data_parallel.reduce_all(
                 {n: [np.float32([self.participation.get(n, 0)])] for n in self.master})
             self.participation = {n: int(v.ravel()[0]) for n, v in counts.items()}
@@ -408,9 +460,9 @@ class AdamW:
         import numpy as np
         m = d = 0.0
         for n, t in self.params.items():
-            m += float(np.sum((self.master[n] - self.init_master[n]) ** 2))
+            m += float(np.sum((self.master[n] - self.init[n]) ** 2))
             cur = to_host(t.value).astype(np.float32).reshape(self.master[n].shape)
-            d += float(np.sum((cur - self.init_device[n]) ** 2))
+            d += float(np.sum((cur - self.init[n]) ** 2))
         m, d = math.sqrt(m), math.sqrt(d)
         # The displacement the device copy CANNOT show. A change smaller than half an ulp of
         # the weight it is applied to rounds away entirely, so below this the ratio is
@@ -419,7 +471,7 @@ class AdamW:
         res = 0.0
         for n, t in self.params.items():
             u = 2.0 ** -8 if "bfloat16" in str(t.value.dtype) else 2.0 ** -24
-            res += float(np.sum((u * np.abs(self.init_device[n])) ** 2))
+            res += float(np.sum((u * np.abs(self.init[n])) ** 2))
         return {"master": m, "device": d, "ratio": (d / m) if m > 0 else float("nan"),
                 "resolution": math.sqrt(res)}
 

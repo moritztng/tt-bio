@@ -1,0 +1,102 @@
+{
+ "doc": "Is the re-ordered AdamW the same optimizer? Bit-identical or it is not.",
+ "argv": [
+  "--before-file",
+  "/tmp/of3t/of3t-optorder/optim_before_975b6a172.py",
+  "--out",
+  "/tmp/of3t/of3t-optorder/optfid_qb2.json"
+ ],
+ "env": {
+  "host": "tt-quietbox2",
+  "before_rev": "975b6a172",
+  "before_sha": "file:/tmp/of3t/of3t-optorder/optim_before_975b6a172.py",
+  "after_commit": "",
+  "after_dirty": false,
+  "branch": "",
+  "python": "3.12.3",
+  "numpy": "2.5.2",
+  "started_utc": "2026-09-25T18:50:49Z",
+  "card_opened": false,
+  "ttnn_imported": false,
+  "ttnn_imported_after": false
+ },
+ "ordering": {
+  "moments_len_at_construction": [
+   0,
+   0
+  ],
+  "init_len_at_construction": 5,
+  "has_init_device_attr": false,
+  "has_init_master_attr": false,
+  "moments_len_after_one_step": [
+   5,
+   5
+  ]
+ },
+ "duplicate_check": {
+  "params": 240,
+  "distinct_shapes": 12,
+  "init_master_differs_from_init_device_on": [],
+  "new_init_differs_from_old_init_master_on": [],
+  "identical": true
+ },
+ "checkpoint_roundtrip": "save before any step, then load: compared",
+ "arms": [
+  {
+   "arm": "batch/sched=False",
+   "steps": 6,
+   "params": 5,
+   "differences": 0,
+   "master_displacement": 0.015506334372,
+   "ratio": 0.685084040586,
+   "check_displacement": "AssertionError: cumulative displacement ratio 0.6851 is outside (0.9, 1.1): the master moved 1.5506e-02 and the device weight the forward reads moved 1.0623e-02. Below the band the updates are dying in the cast to DataType.BFLOAT16; above it the device weight is being written by something other than this optimizer"
+  },
+  {
+   "arm": "batch/sched=True",
+   "steps": 6,
+   "params": 5,
+   "differences": 0,
+   "master_displacement": 0.048344442299,
+   "ratio": 1.091582810601,
+   "check_displacement": "inside band"
+  },
+  {
+   "arm": "sample/sched=False",
+   "steps": 6,
+   "params": 5,
+   "differences": 0,
+   "master_displacement": 0.015324513211,
+   "ratio": 0.674819696552,
+   "check_displacement": "AssertionError: cumulative displacement ratio 0.6748 is outside (0.9, 1.1): the master moved 1.5325e-02 and the device weight the forward reads moved 1.0341e-02. Below the band the updates are dying in the cast to DataType.BFLOAT16; above it the device weight is being written by something other than this optimizer"
+  },
+  {
+   "arm": "sample/sched=True",
+   "steps": 6,
+   "params": 5,
+   "differences": 0,
+   "master_displacement": 0.047260351625,
+   "ratio": 1.076439037254,
+   "check_displacement": "inside band"
+  },
+  {
+   "arm": "disabled/sched=False",
+   "steps": 6,
+   "params": 5,
+   "differences": 0,
+   "master_displacement": 0.015658036035,
+   "ratio": 0.726233595211,
+   "check_displacement": "AssertionError: cumulative displacement ratio 0.7262 is outside (0.9, 1.1): the master moved 1.5658e-02 and the device weight the forward reads moved 1.1371e-02. Below the band the updates are dying in the cast to DataType.BFLOAT16; above it the device weight is being written by something other than this optimizer"
+  },
+  {
+   "arm": "disabled/sched=True",
+   "steps": 6,
+   "params": 5,
+   "differences": 0,
+   "master_displacement": 0.047763038566,
+   "ratio": 1.064327277472,
+   "check_displacement": "inside band"
+  }
+ ],
+ "differences": [],
+ "VERDICT": "BIT-IDENTICAL"
+}

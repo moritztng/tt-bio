@@ -1,0 +1,2 @@
+arm=warm status=0
+campaign_wall_s=1278.498

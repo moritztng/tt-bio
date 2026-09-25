@@ -6,8 +6,9 @@ Ask 9633 told the campaign the lever "lives in `taped_ttnn.py`". On the d116 tre
 the path D137 is about. So the premise is not the thing to inherit, and the claim that survives
 is structural:
 
-    the flag is read only inside `softmax_bw_inner` and inside `bw(g)` closures, and every
-    caller of `softmax_bw_inner` is itself inside a `bw(g)` closure that only `_tape` builds.
+    the flag is read only inside the softmax-backward helpers and inside `bw(g)` closures,
+    and every call to one of those helpers is inside a `bw(g)` closure that only `_tape`
+    builds, or inside another helper whose own callers are checked the same way.
 
 d116 moved the branch into a helper, which is the right factoring and also the reason the old
 version of this check no longer means anything: a read inside a module-level helper is not by
@@ -24,7 +25,8 @@ Five properties, each with a negative control that breaks exactly what the check
              would be satisfied by hiding it behind one more name.
   NOOPS      a read that is not a branch condition may not appear in a statement that also
              calls `ttnn`.
-  CALLERS    every call to `softmax_bw_inner` is inside such a `bw`.
+  CALLERS    every call to `softmax_bw_inner` or `softmax_bw` is inside such a `bw`, or
+             inside the other helper -- which terminates at a `bw` because both are checked.
   ONEPARSE   `TT_BIO_SOFTMAX_BW_RENORM` is parsed from the environment EXACTLY ONCE in the
              package. Two parses is two defaults, and shipping one on would leave the other
              off -- the half-fix d116 unified the inline expressions to prevent.
@@ -49,7 +51,14 @@ import re
 import sys
 
 NAMES = {"SOFTMAX_BW_RENORM", "_SOFTMAX_BW_RENORM"}
-HELPER = "softmax_bw_inner"
+# TWO helpers since of3t-softbw routed the whole backward through one seam for the fused
+# `moreh_softmax_backward`: `softmax_bw` branches on the flag and calls `softmax_bw_inner`.
+# Both are checked, so the property is inductive rather than relaxed -- a helper may be called
+# from the other helper, and every helper call that is NOT in a helper must be in a `bw`, which
+# is what pins the chain to a backward at its root. `_CTRL_CHAIN` is the control for exactly
+# this: a forward that calls the outer helper is still caught.
+HELPERS = ("softmax_bw_inner", "softmax_bw")
+HELPER = HELPERS[0]
 ENVVAR = "TT_BIO_SOFTMAX_BW_RENORM"
 
 
@@ -134,7 +143,7 @@ def scan(name, text):
         if isinstance(node, ast.Call):
             f = node.func
             fn = f.attr if isinstance(f, ast.Attribute) else getattr(f, "id", None)
-            if fn == HELPER:
+            if fn in HELPERS:
                 calls.append({"file": name, "line": node.lineno,
                               "funcs": _chain(node, parents)})
     return reads, calls
@@ -148,7 +157,7 @@ def check_sites(srcs):
         for s in reads:
             seen_r.append(s)
             c = s["funcs"]
-            ok_place = c[:1] == [HELPER] or _in_bw(c, fac)
+            ok_place = (bool(c) and c[0] in HELPERS) or _in_bw(c, fac)
             if s["gating"] and not ok_place:
                 bad.append("%s:%d BRANCHES on the flag outside %s and outside a bw closure "
                            "(enclosing: %s)" % (name, s["line"], HELPER, c or "<module>"))
@@ -158,10 +167,11 @@ def check_sites(srcs):
                            % (name, s["line"], HELPER, c or "<module>"))
         for s in calls:
             seen_c.append(s)
-            if not _in_bw(s["funcs"], fac):
-                bad.append("%s:%d calls %s outside a bw closure handed to _tape "
-                           "(enclosing: %s)" % (name, s["line"], HELPER,
-                                                s["funcs"] or "<module>"))
+            c = s["funcs"]
+            if not (_in_bw(c, fac) or (c and c[0] in HELPERS)):
+                bad.append("%s:%d calls a softmax-backward helper outside a bw closure handed "
+                           "to _tape and outside another helper (enclosing: %s)"
+                           % (name, s["line"], c or "<module>"))
     if not seen_r:
         bad.append("no read of the flag found at all -- the check is scanning the wrong tree")
     if not seen_c:
@@ -262,6 +272,20 @@ def softmax_bw_inner(y, g):
 def forward(x):
     return softmax_bw_inner(x, x)
 """
+# The control for the two-helper chain: allowing a helper to call a helper must NOT let a
+# forward reach the flag through the outer one. `forward` calls `softmax_bw`, which is a
+# helper, so only the CALL-SITE check can catch this -- and it must.
+_CTRL_CHAIN = """
+def _tape(v, i, m): pass
+def softmax_bw_inner(y, g):
+    return SOFTMAX_BW_RENORM
+def softmax_bw(y, g):
+    if SOFTMAX_BW_RENORM:
+        return softmax_bw_inner(y, g)
+    return y
+def forward(x):
+    return softmax_bw(x, x)
+"""
 _CTRL_HOST = """
 def host_f64_softmax(x, dim=-1):
     if not installed():
@@ -282,12 +306,14 @@ def controls():
     bad_call, _, _ = check_sites([("ctrl.py", _CTRL_CALL)])
     bad_ttnn, _, _ = check_sites([("ctrl.py", _CTRL_TTNN)])
     bad_alias, _, _ = check_sites([("ctrl.py", _CTRL_ALIAS)])
+    bad_chain, _, _ = check_sites([("ctrl.py", _CTRL_CHAIN)])
     return {"forward_branch_on_flag_is_caught": bool(bad_read),
             "flag_into_a_ttnn_call_is_caught": bool(bad_ttnn),
             # And the other direction: a bare alias computes nothing and must stay QUIET,
             # or the check is just banning the word and would be satisfied by hiding it.
             "bare_alias_stays_quiet": not bad_alias,
             "forward_caller_of_helper_is_caught": bool(bad_call),
+            "forward_caller_of_the_OUTER_helper_is_caught": bool(bad_chain),
             "two_parses_is_caught": bool(check_one_parse(_CTRL_PARSE)),
             "host_without_raise_is_caught": bool(check_host_needs_tape(_CTRL_HOST)),
             "extra_swap_caller_is_caught": bool(check_shim(_CTRL_SHIM))}
