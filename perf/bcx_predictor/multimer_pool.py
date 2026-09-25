@@ -82,30 +82,19 @@ class MultimerPool:
 
     # ------------------------------------------------------------------ the Dev surface
 
-    @property
-    def device(self):
-        return self.dev.device
+    def __getattr__(self, name):
+        """Everything else is the selected trunk's.
 
-    def up(self, t):
-        return self.dev.up(t)
-
-    def down(self, t, shape):
-        return self.dev.down(t, shape)
-
-    def leaf(self, t):
-        return self.dev.leaf(t)
-
-    def sync(self):
-        return self.dev.sync()
-
-    def extra(self, i, z):
-        return self.dev.extra(i, z)
-
-    def evo(self, i, m, z, msa_mask=None, pair_masks=(None, None)):
-        return self.dev.evo(i, m, z, msa_mask, pair_masks)
-
-    def stack(self, *args, **kwargs):
-        return self.dev.stack(*args, **kwargs)
+        This started as a hand-written forwarder for the five members `splice.py` appeared to
+        use, and it got `tt` wrong -- the taped path reaches for `dev.tt` and the campaign died
+        on it 24 minutes in, after the pool had already done its job and switched to model_3.
+        Enumerating another object's surface by reading its callers is a list that is wrong as
+        soon as a caller changes, so the pool delegates instead. `__getattr__` runs only for
+        names this class does not define, so `use`, `models`, `dev` and `stamp` still win.
+        """
+        if name.startswith("_"):
+            raise AttributeError(name)
+        return getattr(self.dev, name)
 
     def stamp(self) -> dict:
         return {"models": list(self.models), "resident": self.resident,
