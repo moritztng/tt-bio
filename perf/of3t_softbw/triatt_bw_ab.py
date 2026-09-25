@@ -109,7 +109,8 @@ def one_backward(dev, chunk, q_chunk, scale, grade=False):
     ts = [ag.Tensor(x, requires_grad=True) for x in dev]
     o = ag.triangle_attention(ts[0], ts[1], ts[2], ts[3], scale=scale,
                               chunk=chunk, q_chunk=q_chunk)
-    o.backward(seed=1.0)
+    # seed defaults to ones, which is the `torch.ones_like(o)` the float64 reference uses
+    o.backward()
     if not grade:
         return None
     return [ttnn.to_torch(t.grad).float().numpy() for t in ts]
