@@ -44,11 +44,21 @@ echo $PID > "$ART/accept_s$SEED.pid"
 echo "arm pid $PID" >> "$ART/accept_s${SEED}_stamp.txt"
 
 # AICLK sampled DURING the fold, not before: a perf number without a clock is not a measurement.
-while kill -0 $PID 2>/dev/null; do
-  CLK=$(TT_VISIBLE_DEVICES=$CARD /home/ttuser/.local/bin/tt-smi -s 2>/dev/null \
-        | grep -m1 "\"AICLK\"" | grep -oE "0x[0-9a-fA-F]+")
-  echo "$(date -u +%Y-%m-%dT%H:%M:%SZ),$((CLK)),$(cut -d" " -f1 /proc/loadavg)" \
-       >> "$ART/accept_s${SEED}_clock.csv"
-  sleep 120
-done
-echo "arm exit $? $(date -u +%Y-%m-%dT%H:%M:%SZ)" >> "$ART/accept_s${SEED}_stamp.txt"
+# The sampler runs as its own process so the exit status below is the ARM's. It used to be the
+# loop condition, and `echo "arm exit $?"` after a `while kill -0` loop reports the status of the
+# failing `kill -0`, which is always 0. accept_s3 crashed in binder optimization with a KeyError
+# and its stamp read `arm exit 0`. Read the log tail to decide whether a trajectory completed.
+(
+  while kill -0 $PID 2>/dev/null; do
+    CLK=$(TT_VISIBLE_DEVICES=$CARD /home/ttuser/.local/bin/tt-smi -s 2>/dev/null \
+          | grep -m1 "\"AICLK\"" | grep -oE "0x[0-9a-fA-F]+")
+    echo "$(date -u +%Y-%m-%dT%H:%M:%SZ),$((CLK)),$(cut -d" " -f1 /proc/loadavg)" \
+         >> "$ART/accept_s${SEED}_clock.csv"
+    sleep 120
+  done
+) &
+CLOCK=$!
+wait $PID
+RC=$?
+wait $CLOCK 2>/dev/null
+echo "arm exit $RC $(date -u +%Y-%m-%dT%H:%M:%SZ)" >> "$ART/accept_s${SEED}_stamp.txt"
