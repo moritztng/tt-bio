@@ -2592,16 +2592,30 @@ def _tri_att_sdpa_hifi(q, k, v, bias, scale: float, one_k_chunk: bool = False):
 # the fused-only path it is a PRECONDITION"); this arm simply never called it.
 #
 # Found on BindCraft 2's production arm. hPDL1 chain A is 115 residues and the `step288` binder is
-# 146, so the complex is 261 and BC2's `length_bucket_size` 32 pads it to 288 -- and 288 is the one
-# hole in the fused route's serve sweep (`bcx-forward`'s serves.json: served at 192, 224, 256, 320
-# and 384, declined at 288 with 8 `fill_preconditions` rejects and an EMPTY l1_refusals list).
-# The count is exact, not suggestive: the old ladder offered 4 q rungs against k_chunk 64 and an
-# Evoformer block runs 2 triangle attentions. 288 = 2^5 * 9 and 64 = 2^6, so 64 cannot divide it,
-# while 256, 320 and 384 are all divided by their shipped k exactly.
+# 146, so the complex is 261 and BC2's `length_bucket_size` 32 pads it to 288 -- the one hole in
+# the fused route's serve sweep (`bcx-forward`'s serves.json: served at 192, 224, 256, 320, 384,
+# declined at 288 on `fill_preconditions` with an EMPTY l1_refusals list). 288 = 2^5 * 9 and
+# 64 = 2^6, so 64 cannot divide it, while 256, 320 and 384 are divided by their shipped k exactly.
+#
+# MEASURED at runtime, whglx card 7, 8x9 Wormhole (`perf/bcx_tapedfwd/out/khole.json`): the old
+# ladder offers exactly 4 rungs at 288 -- (288,64) (96,64) (32,64) (64,64) -- and every one
+# declines, while this one serves on its first rung, (288,288). At 256 and 320 both arms take an
+# identical rung, so the change is inert there by measurement as well as by construction.
+#
+# DEFAULT OFF, and the reason is the blast radius rather than the result.
+# `perf/bcx_tapedfwd/blast.py` enumerates it: 20 of the 48 tile-aligned lengths from 32 to 1536
+# have a shipped k that does not divide, so the fused-HiFi route serves NOTHING at any of them
+# today, and this makes a legal k reachable at all 20. Only 288 has been run. The risk is bounded
+# -- at those 20 there is no fused config today, so a rung can only serve or decline exactly as
+# now -- and at 288 the newly reachable route is MORE accurate than the `_fp32_softmax_attention`
+# it replaces (pair rel_l2 against the float64 reference block 0.021702 -> 0.018661, the same
+# direction and size as the 0.022167 -> 0.019025 the fused route already buys at 256). But a
+# default-on lever reddens gates it was never run against, so the flip waits on the other 19
+# lengths' importers rather than on this row. `of3t-*` and the Boltz-2 / RFD3 sizes are in that set.
 #
 # Live read rather than resolved at import, for the same reason `_sdpa_wide_k` is: one process has
 # to be able to A/B both arms (`perf/bcx_tapedfwd/khole.py`).
-_TRIATT_HIFI_DIVIDING_K_DEFAULT = True
+_TRIATT_HIFI_DIVIDING_K_DEFAULT = False
 
 
 def _triatt_hifi_dividing_k() -> bool:

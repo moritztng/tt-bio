@@ -75,11 +75,21 @@ def operands(dev, n, seed):
 
 
 def reference(host, scale):
-    """float64 triangle attention on the SAME operands, so a served output is graded against the
-    exact answer rather than against the path it replaced."""
+    """float64 triangle attention in the kernel's OWN convention, both ways, so the grade does not
+    rest on a guess.
+
+    `compute_common.hpp` applies the scale AFTER the bias add -- `exp((qk + mask - max) * scale)`
+    -- while the obvious reading is `softmax(qk * scale + bias)`. Written the obvious way this
+    reference sat 6x the signal away from BOTH device paths at all three sizes while the two
+    device paths agreed with each other to 0.6 %, which is what a wrong reference looks like and
+    not what a wrong kernel looks like. So compute both and let the caller report the distance to
+    each: a float64 reference is only a reference if it computes the same function.
+    """
     q, k, v, bias = (t.double() for t in host)
-    s = torch.einsum("shqd,shkd->shqk", q, k) * scale + bias.double()
-    return torch.einsum("shqk,shkd->shqd", s.softmax(-1), v)
+    qk = torch.einsum("shqd,shkd->shqk", q, k)
+    b = bias.double()
+    return {"scale_after_bias": torch.einsum("shqk,shkd->shqd", ((qk + b) * scale).softmax(-1), v),
+            "scale_before_bias": torch.einsum("shqk,shkd->shqd", (qk * scale + b).softmax(-1), v)}
 
 
 def rmsd(a, b):
@@ -97,7 +107,13 @@ def main():
 
     from tt_bio import device_lease as DL
     dev = ttnn.open_device(device_id=0)
+    # The engine's own grid adoption. Without it `COMPUTE_GRID_MAIN` stays at the import-time
+    # 11x10 Blackhole guess, and on this 8x9 Wormhole Galaxy chip the plan then asks for cores
+    # that are dispatch cores: "Illegal kernel placement for sdpa". A probe that opens a device
+    # by hand has to run it or it measures a grid the card does not have.
+    T._configure_active_compute_grid(dev)
     print(f"opened visible 0; physical_card()={DL.physical_card()} "
+          f"COMPUTE_GRID_MAIN={T.COMPUTE_GRID_MAIN} arch={dev.arch()} "
           f"grant={os.environ.get('TT_BIO_LEASE_CARDS')} "
           f"grid={dev.compute_with_storage_grid_size().x}x{dev.compute_with_storage_grid_size().y}",
           flush=True)
@@ -109,9 +125,12 @@ def main():
     try:
         for n in [int(x) for x in args.ns.split(",")]:
             host, (q, k, v, bias) = operands(dev, n, args.seed)
+            fused_out = None
             scale = HEAD_DIM ** -0.5
-            ref = reference(host, scale)
+            refs = reference(host, scale)
             row = {"n": n, "padded": T._padded_sdpa_len(n),
+                   "ref_rms": {kk: float(torch.sqrt(torch.mean(vv ** 2)))
+                               for kk, vv in refs.items()},
                    "shipped_k": shipped_k_ladder(n, n)[1],
                    "dividing_k": list(T._dividing_k_chunks(n, n)),
                    "q_ladder": list(T._tri_att_q_chunks(n, n)), "arms": {}}
@@ -123,10 +142,13 @@ def main():
                 os.environ["TT_BIO_TRIATT_DIVIDING_K"] = "1" if arm == "dividing" else "0"
                 o = T._tri_att_sdpa_hifi(q, k, v, bias, scale ** -1)
                 rungs.on = False
-                got = None
+                got, served_t = None, None
                 if o is not None:
-                    got = rmsd(ttnn.to_torch(o).double(), ref)
+                    served_t = ttnn.to_torch(o).double()
+                    got = {kk: rmsd(served_t, vv) for kk, vv in refs.items()}
                     ttnn.deallocate(o)
+                if arm == "dividing" and served_t is not None:
+                    fused_out = served_t
                 row["arms"][arm] = {
                     "served": o is not None, "rmsd_vs_f64": got,
                     "stats": dict(T.TRIATT_FUSED_HIFI_STATS),
@@ -143,9 +165,17 @@ def main():
                 q, k, v, bias, scale_inv=scale ** -1,
                 compute_kernel_config=T._SOFTMAX_PRECISE_CKC, out_dtype=ttnn.bfloat16,
                 bias_scale_inv=1.0, accurate_softmax=False)
-            row["fallback_rmsd_vs_f64"] = rmsd(ttnn.to_torch(fb).double(), ref)
+            fb_t = ttnn.to_torch(fb).double()
             ttnn.deallocate(fb)
-            print(f"n={n} fp32-softmax fall-back rmsd={row['fallback_rmsd_vs_f64']}", flush=True)
+            row["fallback_rmsd_vs_f64"] = {kk: rmsd(fb_t, vv) for kk, vv in refs.items()}
+            # The number the fix is actually graded on. At 288 the fused route REPLACES this path,
+            # so fused-vs-fall-back is the change a caller sees, and unlike the float64 distance it
+            # does not depend on which scale convention the reference guessed.
+            row["fused_vs_fallback"] = rmsd(fused_out, fb_t) if fused_out is not None else None
+            row["fallback_rms"] = float(torch.sqrt(torch.mean(fb_t ** 2)))
+            print(f"n={n} fall-back rmsd={row['fallback_rmsd_vs_f64']} "
+                  f"fused_vs_fallback={row['fused_vs_fallback']} "
+                  f"fb_rms={row['fallback_rms']:.5f}", flush=True)
             for t in (q, k, v, bias):
                 ttnn.deallocate(t)
             rows.append(row)
