@@ -621,12 +621,19 @@ class TemplatePairStackOnDevice:
         return out
 
     def as_jax(self):
-        """`(act, mask_2d, *keep_masks) -> act`, with no VJP, deliberately."""
+        """`(act, mask_2d, *keep_masks) -> act`, with no VJP, deliberately.
+
+        `vmap_method="sequential"` because `TemplateEmbedding` runs the single-template embedder
+        under `mapping.sharded_map` (`modules.py:1778`), so the callback is always inside a vmap
+        over the template axis. One call per template is what the card wants anyway: each is a
+        full `[n, n, 64]` stack, and BindCraft 2 folds with one template.
+        """
         def stack(act, mask_2d, *keeps):
             out = jax.pure_callback(
                 self._primal, jax.ShapeDtypeStruct(act.shape, jnp.float32),
                 act.astype(jnp.float32), mask_2d.astype(jnp.float32),
-                *[k.astype(jnp.float32) for k in keeps])
+                *[k.astype(jnp.float32) for k in keeps],
+                vmap_method="sequential")
             return out.astype(act.dtype)
         return stack
 

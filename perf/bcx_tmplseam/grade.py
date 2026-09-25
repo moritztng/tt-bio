@@ -100,7 +100,8 @@ class HostReferenceStack:
             out = jax.pure_callback(
                 self._primal, jax.ShapeDtypeStruct(act.shape, jnp.float32),
                 act.astype(jnp.float32), mask_2d.astype(jnp.float32),
-                *[k.astype(jnp.float32) for k in keeps])
+                *[k.astype(jnp.float32) for k in keeps],
+                vmap_method="sequential")
             return out.astype(act.dtype)
         return stack
 
