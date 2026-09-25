@@ -96,6 +96,26 @@ with bindcraft2.campaign_predictor(card=0, validation="device"):  # both on card
 `validation="device"` is a reasonable choice for throughput, but an accepted count measured that
 way is a different measurement. Re-measure before quoting it, and say which path produced it.
 
+### The extra-MSA stack
+
+BindCraft 2 runs a four-block extra-MSA stack before the Evoformer. It stays in JAX unless you ask
+for it:
+
+```python
+with bindcraft2.predictor(card=0, extra_msa=True) as build:
+    ...
+```
+
+Off by default, and switchable independently of the Evoformer, so a comparison graded on the
+Evoformer alone keeps the program it was graded on. What moving it wins has not been measured
+through this entry point. What has been measured is the stack's own cost, 22.2 s of host per
+gradient round (median of three, 6.1 s across two forwards and 16.1 s in the backward), and that
+bounds what moving it can win. Read `build.extra_msa.calls` to confirm the card ran it.
+
+BindCraft 2 feeds an all-zero extra-MSA mask, so there is no gradient into the extra MSA to lose:
+it measures exactly zero on BindCraft 2's own JAX, and the card's path returns zero by
+construction and refuses a mask that is not all-zero.
+
 ## The control arm
 
 `trunk="jax"` opens no device and touches no card. It runs BindCraft 2's own trunk through the
