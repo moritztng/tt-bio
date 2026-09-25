@@ -34,7 +34,6 @@ in the ON rounds and not in the OFF ones.
 from __future__ import annotations
 
 import argparse
-import functools
 import json
 import os
 import pathlib
@@ -82,7 +81,6 @@ def arm_of(r):
 class ABMeter(M.Meter):
     def on_sequence_gradients_enter(self):
         super().on_sequence_gradients_enter()
-        ARM["exact"] = arm_of(self.entries)
         M.EVENTS.append({"kind": "arm", "phase": "round", "t0": time.time(),
                          "round": self.entries, "exact": ARM["exact"]})
 
@@ -106,11 +104,17 @@ def wrap_device_seam(cls):
         setattr(cls, name, make(orig, name.lstrip("_")))
 
 
-def wrap_arm(cls, twin):
-    """The arm switch, at the round's own call."""
+def wrap_arm(cls, twin, mt):
+    """The arm switch, at the round's own call.
+
+    This wrapper sits OUTSIDE the one `meter.install` put on, and that is the one incrementing
+    `mt.entries`, so the round about to run is `mt.entries + 1`. Reading `ARM` here instead
+    would take the PREVIOUS round's arm and mislabel which round compiled under which arm.
+    """
     sg = cls.sequence_gradients
 
     def once(self, on, a, kw):
+        ARM["exact"] = on
         a0, t0 = snap(), time.time()
         with ag.exact_training(on):
             out = sg(self, *a, **kw)
@@ -120,11 +124,12 @@ def wrap_arm(cls, twin):
         return out, dt
 
     def sequence_gradients(self, *a, **kw):
+        this = arm_of(mt.entries + 1)
         if not twin:
-            out, _ = once(self, ARM["exact"], a, kw)
+            out, _ = once(self, this, a, kw)
             return out
         # Palindromic: on even rounds the OFF arm runs first, on odd rounds the ON arm does.
-        first = ARM["exact"]
+        first = this
         out_first, _ = once(self, first, a, kw)
         out_second, _ = once(self, not first, a, kw)
         return out_first if first else out_second
@@ -205,8 +210,6 @@ def main():
     ap.add_argument("--twin", action="store_true",
                     help="both arms per round on byte-identical inputs, at twice the wall")
     ap.add_argument("--params", default="/home/ttuser/bcx_e2e/af2_params")
-    ap.add_argument("--extra-msa", action="store_true",
-                    help="hold the extra-MSA stack on the card, as the campaign's arm does")
     ap.add_argument("--out", required=True)
     args = ap.parse_args()
 
@@ -220,16 +223,11 @@ def main():
         read_settings(os.path.join(B.BC2, "examples", "pdl1.json"),
                       parse_setting_overrides(overrides)))
     campaign.MULTIMER_POOL = MONOMER
-
-    import ttbio_predictor as T
-    campaign.AlphaFoldDesignModel = functools.partial(T.TTBioAlphaFoldDesignModel,
-                                                      trunk="device")
     M.CLOCK = M.Clock(1.0)
     M.CLOCK.start()
     stamp = {"host": os.uname().nodename, "card": os.environ.get("TT_VISIBLE_DEVICES"),
              "pci": M.CLOCK.pci, "sysfs": M.CLOCK.path, "commit": git_head(),
              "seed": args.seed, "rounds_requested": args.rounds, "twin": args.twin,
-             "extra_msa_on_device": bool(args.extra_msa),
              "exact_training_ops": list(ag.exact_training_ops()),
              "length_bucket_size": campaign_length_bucket(settings),
              "omp": os.environ.get("OMP_NUM_THREADS"),
@@ -237,23 +235,21 @@ def main():
              "loadavg_start": os.getloadavg(), "nproc": os.cpu_count(), "project": project}
     print(json.dumps(stamp, indent=1), flush=True)
 
-    import afgrad as _A
-    import splice
-    from splice import EvoformerOnDevice, ExtraMsaOnDevice, evoformer_on_device
+    from tt_bio import bindcraft2 as bc2
+    cls = bc2.design_model_class()
     mt = ABMeter(args.rounds)
-    M.install(mt, splice, T.TTBioAlphaFoldDesignModel, trajectory, seqopt)
-    wrap_device_seam(EvoformerOnDevice)
-    wrap_device_seam(ExtraMsaOnDevice)
-    wrap_arm(T.TTBioAlphaFoldDesignModel, args.twin)
+    M.install(mt, bc2, cls, trajectory, seqopt)
+    wrap_device_seam(bc2.EvoformerOnDevice)
+    wrap_arm(cls, args.twin, mt)
 
-    _dm, _ = _A.load_models(_A.DEFAULT_PARAMS)
-    _dev = _A.Dev(_dm.to_device())
-    evo = EvoformerOnDevice(_dev, k_evo=48)
-    extra = ExtraMsaOnDevice(_dev, k_extra=4) if args.extra_msa else None
-
-    t0, stopped = time.time(), None
+    t0, stopped, evo = time.time(), None, None
     try:
-        with evoformer_on_device(evo, extra_msa=extra):
+        # `campaign_predictor` rebinds `campaign.AlphaFoldDesignModel` itself and holds the
+        # trunk pool on card for the whole campaign. `validation="jax"` is its default and is
+        # kept: the validation ensemble grades the design, so device numerics do not belong in
+        # it, and it also keeps the arm difference confined to the gradient loop under test.
+        with bc2.campaign_predictor(checkpoints=args.params) as build:
+            evo = build.evoformer
             campaign.run_campaign(settings, project, af2_weights=args.params,
                                   mpnn_weights=os.path.join(B.BC2, "bindcraft", "weights",
                                                             "proteinmpnn", "weights_neutral"),
@@ -275,8 +271,7 @@ def main():
                                      for r in off_rows),
         "both_arms_ran": bool(on_rows) and bool(off_rows)}
     stamp.update({"wall_seconds": round(time.time() - t0, 2), "stopped": stopped,
-                  "evo_calls": dict(evo.calls),
-                  "extra_calls": dict(extra.calls) if extra else None,
+                  "evo_calls": dict(evo.calls) if evo else None,
                   "checks": checks, "loadavg_end": os.getloadavg(),
                   "finished_utc": time.strftime("%FT%TZ", time.gmtime())})
     M.dump(os.path.join(project, "round_events.json"), stamp)
