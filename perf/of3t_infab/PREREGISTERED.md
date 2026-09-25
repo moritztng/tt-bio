@@ -145,3 +145,7 @@ the AFTER2 walk, and `confidence_head.late_device_weights()` must be empty. 3948
 later commits added walk tensors, so the reference is AFTER, not that number.
 
 Card 1's board-pair sibling dev0 may be co-tenanted; walls are recorded and are no timing claim.
+
+Addendum 2, 2026-09-25 02:05Z, before its folds: protenix-v1 is added to the AFTER2 set. The first
+matrix shows it ran the clamp too (196 per fold), as did opendde (488) and rf3 (484), so "protenix-v2
+is the only process that reaches `_accurate_softmax`" above was wrong. Same bars as protenix-v2.
