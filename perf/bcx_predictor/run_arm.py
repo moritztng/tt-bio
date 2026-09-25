@@ -77,9 +77,13 @@ def main():
     campaign.MULTIMER_POOL = MONOMER
 
     if args.arm != "reference":
-        # campaign.py:262 is the only construction of a predictor in the repository, so an
-        # arm is chosen by rebinding that one name. An upstream PR would make it a factory
-        # read from settings; the loop itself needs no change either way.
+        # A predictor is constructed in exactly two places, campaign.py:262 (design) and
+        # :265 (the validation-model lambda), verified by AST walk over upstream 301efdd.
+        # Rebinding the module-level name catches both, which is the reason this arm is
+        # one line: design and validation cannot end up on different trunks. A factory
+        # read from settings has to route BOTH sites -- one that patched only 262 would
+        # leave validation on the reference trunk inside a campaign designing on device,
+        # which is a silent split rather than a failure. The loop needs no change either way.
         import ttbio_predictor as T
         import functools
         campaign.AlphaFoldDesignModel = functools.partial(

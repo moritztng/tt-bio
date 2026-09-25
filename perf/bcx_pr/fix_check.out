@@ -1,0 +1,49 @@
+# perf/bcx_pr/fix_check.py against PR #19 head 68b853ddec8c31615480d90c391a2a1429cfaadc, control
+# (unpatched) and with perf/bcx_pr/PIN_FIX.patch applied. pc, jax 0.11.2 / jaxlib 0.11.2,
+# python 3.12.12, CPU backend, [CpuDevice(id=0)], no card and no device opened.
+# design_devices() is stubbed; everything else is the module as written. Run 2026-09-25 ~19:5xZ.
+
+=== CONTROL: 68b853dde unpatched ===
+  FAIL  A  third platform, 2 devices -> a 1-worker plan, not a raise
+              ValueError: Device of kind tpu is currently not supported
+  FAIL  B  CUDA_VISIBLE_DEVICES=2,3 -> the cards the job was given
+              ['0', '1']
+  FAIL  B  workers pinned to 2 and 3, not 0 and 1
+              CUDA_VISIBLE_DEVICES=['0', '1']
+  FAIL  B  free memory keyed by the pin name, not the jax id
+              ['0', '1']
+  pass  C  rocm, no variable set -> the whole box
+              ['0', '1', '2', '3']
+  FAIL  D  HIP_VISIBLE_DEVICES=2,3 -> the cards the job was given
+              ['0', '1']
+  pass  D  variable does not describe the devices -> jax ids, no mixed list
+              ['0', '1']
+  pass  E  no accelerator -> no fan-out, no raise
+              []
+  pass  E  no accelerator -> an empty plan, no raise
+              []
+
+4 passed, 5 failed
+
+=== PATCHED: 68b853dde + PIN_FIX.patch ===
+2 devices visible, designing on one: no way to pin a worker to a single device on this platform
+  pass  A  third platform, 2 devices -> a 1-worker plan, not a raise
+              1 worker(s) on ['0']
+  pass  B  CUDA_VISIBLE_DEVICES=2,3 -> the cards the job was given
+              ['2', '3']
+  pass  B  workers pinned to 2 and 3, not 0 and 1
+              CUDA_VISIBLE_DEVICES=['2', '3']
+  pass  B  free memory keyed by the pin name, not the jax id
+              ['2', '3']
+  pass  C  rocm, no variable set -> the whole box
+              ['0', '1', '2', '3']
+  pass  D  HIP_VISIBLE_DEVICES=2,3 -> the cards the job was given
+              ['2', '3']
+  pass  D  variable does not describe the devices -> jax ids, no mixed list
+              ['0', '1']
+  pass  E  no accelerator -> no fan-out, no raise
+              []
+  pass  E  no accelerator -> an empty plan, no raise
+              []
+
+9 passed, 0 failed
