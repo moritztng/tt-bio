@@ -54,6 +54,18 @@ def main():
     ap.add_argument("--params", default="/home/ttuser/bcx_e2e/af2_params")
     ap.add_argument("--out", default=None)
     ap.add_argument("--settings", default=None)
+    ap.add_argument("--binder-length", type=int, default=0,
+                    help="pin the drawn binder length, so a size can be held while something "
+                         "else varies; 0 leaves BindCraft 2 to draw from its own range. A "
+                         "paired comparison needs matched draws and cannot run without it.")
+    ap.add_argument("--no-levers", action="store_true",
+                    help="run the pre-lever control: install perf/bcx_stack's Levers with every "
+                         "switch cleared, so _via2d, bmm_program_config, add_grad_slice, the "
+                         "relayout add_grad and the two head verbs route to the implementations "
+                         "they replaced. The levers are SHIPPED defaults in tt_bio/autograd.py, "
+                         "so the default arm here is levers on and uncounted; this flag is the "
+                         "control every BCX speed ratio divides by. Inert on the reference arm, "
+                         "which never enters tt_bio.")
     ap.add_argument("--bucket", type=int, default=1,
                     help="length_bucket_size override; 0 leaves BindCraft 2's own "
                          "default of 32. It used to have to be 1 because the trunk "
@@ -67,6 +79,8 @@ def main():
     overrides = [f"campaign_seed={args.seed}", f"max_trajectories={args.trajectories}",
                  "validation_model=monomer", 'design_models=["model_1_ptm"]',
                  'validation_models=["model_2_ptm"]', f"project_folder={project}"]
+    if args.binder_length:
+        overrides.append(f"binder_lengths=[{args.binder_length}]")
     if args.bucket:
         overrides.append(f"length_bucket_size={args.bucket}")
     settings = cleaned_campaign_settings(
@@ -85,6 +99,11 @@ def main():
              # overrides list entirely and every run used BindCraft 2's default 32.
              "length_bucket_size": campaign_length_bucket(settings),
              "length_bucket_flag": args.bucket,
+             # The EFFECTIVE draw and lever state, both read back rather than echoed:
+             # `binder_lengths` reads back as BindCraft 2's own range, [60, 180] on
+             # pdl1.json, when the flag is 0, and as the single pinned length when it is not.
+             "binder_lengths": settings.get("binder_lengths"),
+             "levers": "off" if args.no_levers else "shipped",
              "predictor": "AlphaFoldDesignModel" if args.arm == "reference"
                           else "TenstorrentAlphaFoldDesignModel",
              "host": os.uname().nodename, "started_utc": time.strftime("%FT%TZ", time.gmtime()),
@@ -113,6 +132,17 @@ def main():
         # holds validation on BindCraft 2's JAX trunk, which is the right default for a
         # campaign whose accepted count is the result and the wrong one for a comparison
         # whose subject is the card. It is inert on the control arm.
+        if args.no_levers:
+            # Install BEFORE the first taped call -- taped_ttnn caches a verb's tape entry on
+            # first use, so a later install would leave the already-cached verbs on the new
+            # path. Clearing every switch is what makes this the control: Levers() constructed
+            # with its defaults routes to the same implementations the shipped arm uses and
+            # only adds counters.
+            sys.path.insert(0, str(_ROOT / "perf" / "bcx_stack"))
+            import stack as _S                                          # noqa: E402
+            _levers = _S.Levers()
+            _levers.mm2d = _levers.bmm = _levers.heads = False
+            _levers.bwd = set()
         with bindcraft2.campaign_predictor(
                 trunk="jax" if args.arm == "control" else "device",
                 validation="device", checkpoints=args.params) as build:
