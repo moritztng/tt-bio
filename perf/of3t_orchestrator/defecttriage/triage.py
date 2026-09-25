@@ -86,16 +86,11 @@ TABLE = {
     # against origin/main)". Same rule that removed D56 and D164.
 
     # --- ships to users: training on the shipped default -------------------------------------
-    "D55": (USER, "tt_bio's tape gives precise_config() to the row-sum denominator inside "
-                  "`softmax_bw_inner` (autograd.py:158-171 on origin/main cdd2c2f38) and "
-                  "withholds it from the near-cancellation `inner = sum(g*y)` that `dx = "
-                  "y*(g - inner)` is built on, while the fused branch in `softmax_bw` "
-                  "(:211-217) configures the same reduction. Live on the shipped default: "
-                  "`_EXACT_OPS` (:1592) replaces only the softmax and layer_norm VERBS, and "
-                  "`triangle_attention`'s backward reaches it at :2069 -- main's own comment "
-                  "at :1452 says so. OF3's trunk is 48 blocks of triangle attention, and "
-                  "`tt-bio finetune` reaches it. What it moves is unmeasured; `of3t-innercfg` "
-                  "owns the VJP and zero movement closes it. Re-read pass 528."),
+    # D55 REMOVED at pass 537: CLOSED on its latest status-bearing heading. `of3t-innercfg`
+    # measured the closing condition the pass-528 update fixed in advance -- `ttnn.sum`
+    # already accumulates in fp32, so the missing kwarg is bit-identical out to 6.35
+    # cancelled digits, and under the shipped default the line fires 0 times on the OF3
+    # trunk at crops 128/256/384. Same rule that removed D10, D24, D56 and D164.
     # D56 REMOVED at pass 393: no longer UNFIXED on its latest status-bearing heading, and
     # this script refuses to report a classification of a set that has moved -- the same rule
     # that removed D164 at pass 340.

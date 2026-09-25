@@ -1,0 +1,47 @@
+{
+  "why": "the op-level gate's bridge to main. batch_gate.sh was run green by of3t-innercfg on 91532cc9b + nine ast.dump-inert comment lines; this records which gradient-bearing files that tree shares with main, and that the previously published bridge f0e8f3b71 no longer holds.",
+  "origin_main": "a1c35618e277d69d84dac601c02c18a3d010ad4e",
+  "gated_tree": "91532cc9b",
+  "previously_published_bridge": "f0e8f3b71",
+  "blobs": {
+    "tt_bio/autograd.py": {
+      "f0e8f3b71": "33470aca89e9d4247eb32639bab367e5ecc3769e",
+      "91532cc9b": "12357259d5606b19718dde94ef4a416d7eae8c29",
+      "origin/main": "12357259d5606b19718dde94ef4a416d7eae8c29",
+      "identical_f0e8f3b71_vs_main": false,
+      "identical_91532cc9b_vs_main": true
+    },
+    "tt_bio/taped_ttnn.py": {
+      "f0e8f3b71": "a967a9d72cd50807de3586a1b039a072df6beef9",
+      "91532cc9b": "7b868386cf32c8544b4ae92e87cf1f81f8596025",
+      "origin/main": "7b868386cf32c8544b4ae92e87cf1f81f8596025",
+      "identical_f0e8f3b71_vs_main": false,
+      "identical_91532cc9b_vs_main": true
+    },
+    "tt_bio/tenstorrent.py": {
+      "f0e8f3b71": "7788f56a1d6f3445b6961bcf3b04ec7ea9d94c7c",
+      "91532cc9b": "7788f56a1d6f3445b6961bcf3b04ec7ea9d94c7c",
+      "origin/main": "7788f56a1d6f3445b6961bcf3b04ec7ea9d94c7c",
+      "identical_f0e8f3b71_vs_main": true,
+      "identical_91532cc9b_vs_main": true
+    },
+    "tt_bio/openfold3_trunk.py": {
+      "f0e8f3b71": "3e3aba2623164395bcdc2821d22f49c714d5c02d",
+      "91532cc9b": "3e3aba2623164395bcdc2821d22f49c714d5c02d",
+      "origin/main": "3e3aba2623164395bcdc2821d22f49c714d5c02d",
+      "identical_f0e8f3b71_vs_main": true,
+      "identical_91532cc9b_vs_main": true
+    },
+    "tt_bio/openfold3_data.py": {
+      "f0e8f3b71": "806838d3cf2ad436731c5bfc823724401e13bb76",
+      "91532cc9b": "806838d3cf2ad436731c5bfc823724401e13bb76",
+      "origin/main": "806838d3cf2ad436731c5bfc823724401e13bb76",
+      "identical_f0e8f3b71_vs_main": true,
+      "identical_91532cc9b_vs_main": true
+    }
+  },
+  "verdict": {
+    "old_bridge_holds": false,
+    "new_bridge_holds": true
+  }
+}
