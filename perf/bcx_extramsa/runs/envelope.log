@@ -1,0 +1,24 @@
+2026-09-25 01:31:24.835 | DEBUG    | ttnn:<module>:77 - Initial ttnn.CONFIG:
+Config{cache_path=/home/ttuser/.cache/ttnn,model_cache_path=/home/ttuser/.cache/ttnn/models,tmp_dir=/tmp/ttnn,enable_model_cache=false,enable_fast_runtime_mode=true,throw_exception_on_fallback=false,enable_logging=false,enable_graph_report=false,enable_detailed_buffer_report=false,enable_detailed_tensor_report=false,enable_comparison_mode=false,comparison_mode_should_raise_exception=false,comparison_mode_pcc=0.9999,root_report_path=generated/ttnn/reports,report_name=std::nullopt,std::nullopt}
+/home/ttuser/.coworker/wt/bcx-extramsa/tt_bio/main.py:48: RuntimeWarning: os.fork() was called. os.fork() is incompatible with multithreaded code, and JAX is multithreaded, so this will likely lead to a deadlock.
+  pid = _os.fork()
+device {"loss": 8.423259735107422, "loss_minus_jax": -0.04205799102783203, "g_l2": 0.3259231428483087, "seconds": 525.5, "calls": {"primal": 0, "taped": 2, "backward": 1}, "aiclk_during": {"n": 521, "aiclk_min": 1350, "aiclk_med": 1350, "aiclk_max": 1350, "load1": 30.0}}
+f64 {"loss": 8.334476470947266, "loss_minus_jax": -0.13084125518798828, "g_l2": 0.7404280950307833, "seconds": 672.3, "calls": {"primal": 0, "taped": 2, "backward": 1}, "aiclk_during": null}
+{
+ "jax_vs_f64": {
+  "rel_l2": 0.8948226507843147,
+  "cos": 0.4498858672593415,
+  "norm_ratio": 0.3941645076531959
+ },
+ "device_vs_f64": {
+  "rel_l2": 0.9629326879632691,
+  "cos": 0.30273936707966376,
+  "norm_ratio": 0.4401820312271625
+ },
+ "device_vs_jax": {
+  "rel_l2": 0.9346190150389663,
+  "cos": 0.6150055286581578,
+  "norm_ratio": 1.1167469994900072
+ },
+ "device_over_jax": 1.0761156829448337
+}

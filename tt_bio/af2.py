@@ -525,7 +525,12 @@ class AF2Attention(Module):
 
     def _attend(self, q: ttnn.Tensor, k: ttnn.Tensor, v: ttnn.Tensor,
                 bias: ttnn.Tensor | None) -> ttnn.Tensor:
-        if bias is not None:
+        # Route on the variant, not on whether a bias came in. The column attention's only bias
+        # is the MSA mask's, and routing it to the fp32 helper took it off its own softmax: at one
+        # MSA row, where the answer is v exactly, the helper misses by rel L2 2.8e-2 and this path
+        # by 0.0 (perf/bcx_maskbias/colop.json). That was the whole of the masked block's `mo`
+        # error at an all-ones mask (perf/bcx_maskbias/fwd_b0.json).
+        if self.pair_bias:
             out = _fp32_softmax_attention(
                 q, k, v, bias, scale_inv=self.scale_inv,
                 compute_kernel_config=self.compute_kernel_config,

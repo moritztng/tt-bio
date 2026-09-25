@@ -1,0 +1,51 @@
+Traceback (most recent call last):
+  File "/dev/shm/bcx-ref/harness/run_arm.py", line 32, in <module>
+    import bc2_state as B                                                  # noqa: E402
+    ^^^^^^^^^^^^^^^^^^^^^
+  File "/dev/shm/bcx-ref/harness/bc2_state.py", line 21, in <module>
+    from bindcraft.trajectory import initialize_design_trajectory           # noqa: E402
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/dev/shm/bcx-ref/bc2/bindcraft/trajectory.py", line 8, in <module>
+    from bindcraft.trajectory_output import TrajectoryRecorder
+  File "/dev/shm/bcx-ref/bc2/bindcraft/trajectory_output.py", line 12, in <module>
+    import matplotlib
+ModuleNotFoundError: No module named 'matplotlib'
+{
+ "arm": "reference",
+ "seed": 400,
+ "trajectories": 3,
+ "length_bucket_size": 1,
+ "predictor": "AlphaFoldDesignModel",
+ "host": "tt-quietbox",
+ "started_utc": "2026-09-24T08:22:53Z",
+ "loadavg_start": [
+  8.04345703125,
+  4.56005859375,
+  2.49609375
+ ],
+ "stage_plan": {
+  "per_stage": {
+   "screen": 50,
+   "refine": 25,
+   "anneal": 45,
+   "harden": 5,
+   "mutate": 15
+  },
+  "gradient_steps": 125,
+  "mutate_steps": 15
+ },
+ "threads": "--xla_gpu_enable_triton_gemm=false",
+ "project": "/dev/shm/bcx-ref/runs/reference_qb1_seed400"
+}
+BindCraft 2 (unreleased)
+campaign pdl1
+binder length 60 to 180, drawn per trajectory
+target hPDL1 (target) | 115 residues | hotspots 54,56,66,115
+losses binder_contacts=1.0 binder_helicity=-0.3 binder_pae=0.4 compactness=0.5 interface_contacts=1.0 interface_pae=0.1 iptm_loss=0.05 plddt_loss=0.1
+filters Backbone_Clashes <= 0, Binder_RMSD <= 3.5, Interface_Residues >= 7, Unbound_Binder_pLDDT >= 0.7, i_pAE <= 0.35, i_pTM >= 0.7, pTM >= 0.55
+results /dev/shm/bcx-ref/runs/reference_qb1_seed400 | 3_Ranked/!_Ranked.csv rewritten as each design is accepted | summary.csv written when the campaign ends
+
+=== trajectory 1 | pdl1_denovo_l180_ffb9c87873af6d36 | accepted 0/10 ===
+  rejected at screen design stage  i_pTM=0.74    pLDDT=0.56   due to [pLDDT]
+
+=== trajectory 2 | pdl1_denovo_l60_d562f4cc36694e2c | accepted 0/10 ===

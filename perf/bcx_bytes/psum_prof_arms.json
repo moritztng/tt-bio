@@ -1,0 +1,537 @@
+{
+ "report": "/dev/shm/bcx-by-prof/reports/2026_09_24_11_51_23/ops_perf_results_2026_09_24_11_51_23.csv",
+ "points": {
+  "base evo n=256": {
+   "ms": [
+    131.873,
+    132.004
+   ],
+   "ops": [
+    1047,
+    1047
+   ],
+   "median_ms": 131.93840599999996,
+   "by_class_ms": {
+    "eltwise": 45.505,
+    "layernorm": 0.916,
+    "layout": 56.657,
+    "matmul": 18.62,
+    "other": 0.115,
+    "reduction": 7.257,
+    "softmax": 2.867
+   }
+  },
+  "base extra n=256": {
+   "ms": [
+    115.881,
+    115.917
+   ],
+   "ops": [
+    759,
+    759
+   ],
+   "median_ms": 115.89854400000002,
+   "by_class_ms": {
+    "eltwise": 43.341,
+    "layernorm": 0.724,
+    "layout": 48.104,
+    "matmul": 13.947,
+    "other": 0.115,
+    "reduction": 6.849,
+    "softmax": 2.818
+   }
+  },
+  "perm evo n=256": {
+   "ms": [
+    125.983,
+    126.073
+   ],
+   "ops": [
+    1047,
+    1047
+   ],
+   "median_ms": 126.02782849999997,
+   "by_class_ms": {
+    "eltwise": 45.467,
+    "layernorm": 0.899,
+    "layout": 49.429,
+    "matmul": 18.66,
+    "other": 1.451,
+    "reduction": 7.259,
+    "softmax": 2.862
+   },
+   "moved_vs_base": [
+    [
+     6.498,
+     "PermuteDeviceOperation [1, 64, 256, 256] cores=110"
+    ],
+    [
+     -0.868,
+     "GenericOpDeviceOperation [1, 64, 256, 256] cores=110"
+    ],
+    [
+     0.797,
+     "PermuteDeviceOperation [1, 256, 256, 64] cores=110"
+    ],
+    [
+     -0.468,
+     "GenericOpDeviceOperation [1, 256, 256, 64] cores=64"
+    ],
+    [
+     -0.07,
+     "MatmulDeviceOperation [1, 1, 65536, 512] cores=108"
+    ],
+    [
+     -0.048,
+     "PermuteDeviceOperation [81, 4, 256, 256] cores=110"
+    ],
+    [
+     -0.041,
+     "TypecastDeviceOperation [81, 4, 256, 256] cores=110"
+    ],
+    [
+     0.029,
+     "MatmulDeviceOperation [1, 1, 65536, 384] cores=108"
+    ],
+    [
+     0.021,
+     "BinaryNgDeviceOperation [81, 4, 256, 256] cores=110"
+    ],
+    [
+     -0.016,
+     "PermuteDeviceOperation [13, 4, 256, 256] cores=110"
+    ],
+    [
+     0.015,
+     "UnaryDeviceOperation [1, 256, 256, 128] cores=110"
+    ],
+    [
+     -0.012,
+     "BinaryNgDeviceOperation [256, 1, 256, 384] cores=110"
+    ],
+    [
+     -0.012,
+     "MinimalMatmulDeviceOperation [1, 256, 256, 128] cores=110"
+    ],
+    [
+     0.011,
+     "BinaryNgDeviceOperation [1, 256, 256, 128] cores=110"
+    ],
+    [
+     0.011,
+     "TypecastDeviceOperation [256, 1, 256, 384] cores=110"
+    ]
+   ]
+  },
+  "perm extra n=256": {
+   "ms": [
+    109.916,
+    110.003
+   ],
+   "ops": [
+    759,
+    759
+   ],
+   "median_ms": 109.95918849999997,
+   "by_class_ms": {
+    "eltwise": 43.347,
+    "layernorm": 0.731,
+    "layout": 40.837,
+    "matmul": 13.95,
+    "other": 1.457,
+    "reduction": 6.83,
+    "softmax": 2.807
+   },
+   "moved_vs_base": [
+    [
+     6.451,
+     "PermuteDeviceOperation [1, 64, 256, 256] cores=110"
+    ],
+    [
+     -0.871,
+     "GenericOpDeviceOperation [1, 64, 256, 256] cores=110"
+    ],
+    [
+     0.79,
+     "PermuteDeviceOperation [1, 256, 256, 64] cores=110"
+    ],
+    [
+     -0.47,
+     "GenericOpDeviceOperation [1, 256, 256, 64] cores=64"
+    ],
+    [
+     -0.019,
+     "MatmulDeviceOperation [1, 1, 65536, 512] cores=108"
+    ],
+    [
+     0.018,
+     "MatmulDeviceOperation [1, 256, 256, 512] cores=108"
+    ],
+    [
+     0.018,
+     "ReduceDeviceOperation [81, 4, 256, 256] cores=110"
+    ],
+    [
+     0.017,
+     "BinaryNgDeviceOperation [1, 256, 256, 128] cores=110"
+    ],
+    [
+     -0.016,
+     "BinaryNgDeviceOperation [81, 4, 256, 256] cores=110"
+    ],
+    [
+     0.013,
+     "SoftmaxDeviceOperation [81, 4, 256, 256] cores=110"
+    ],
+    [
+     0.013,
+     "MatmulDeviceOperation [81, 4, 256, 32] cores=110"
+    ],
+    [
+     0.012,
+     "TypecastDeviceOperation [1, 256, 256, 128] cores=110"
+    ],
+    [
+     -0.011,
+     "TypecastDeviceOperation [256, 1, 256, 384] cores=110"
+    ],
+    [
+     -0.01,
+     "TilizeDeviceOperation [1, 256, 256, 128] cores=108"
+    ],
+    [
+     0.009,
+     "ConcatDeviceOperation [1, 256, 256, 64] cores=110"
+    ]
+   ]
+  },
+  "perm+tri evo n=256": {
+   "ms": [
+    126.4,
+    126.507
+   ],
+   "ops": [
+    851,
+    851
+   ],
+   "median_ms": 126.453943,
+   "by_class_ms": {
+    "eltwise": 45.126,
+    "layernorm": 0.907,
+    "layout": 51.821,
+    "matmul": 18.204,
+    "other": 1.453,
+    "reduction": 6.095,
+    "softmax": 2.847
+   },
+   "moved_vs_base": [
+    [
+     -18.973,
+     "BinaryNgDeviceOperation [256, 4, 256, 256] cores=110"
+    ],
+    [
+     18.118,
+     "BinaryNgDeviceOperation [81, 4, 256, 256] cores=110"
+    ],
+    [
+     -12.54,
+     "PermuteDeviceOperation [256, 4, 256, 256] cores=110"
+    ],
+    [
+     -7.933,
+     "TypecastDeviceOperation [256, 4, 256, 256] cores=110"
+    ],
+    [
+     7.56,
+     "TypecastDeviceOperation [81, 4, 256, 256] cores=110"
+    ],
+    [
+     7.214,
+     "PermuteDeviceOperation [81, 4, 256, 256] cores=110"
+    ],
+    [
+     6.497,
+     "PermuteDeviceOperation [1, 64, 256, 256] cores=110"
+    ],
+    [
+     -4.174,
+     "ReduceDeviceOperation [256, 4, 256, 256] cores=110"
+    ],
+    [
+     -3.12,
+     "MatmulDeviceOperation [256, 4, 256, 32] cores=110"
+    ],
+    [
+     3.079,
+     "MatmulDeviceOperation [81, 4, 256, 32] cores=110"
+    ],
+    [
+     3.025,
+     "ReduceDeviceOperation [81, 4, 256, 256] cores=110"
+    ],
+    [
+     -2.753,
+     "SoftmaxDeviceOperation [256, 4, 256, 256] cores=110"
+    ],
+    [
+     2.622,
+     "SoftmaxDeviceOperation [81, 4, 256, 256] cores=110"
+    ],
+    [
+     2.444,
+     "MatmulDeviceOperation [81, 4, 256, 256] cores=110"
+    ],
+    [
+     -2.411,
+     "MatmulDeviceOperation [256, 4, 256, 256] cores=110"
+    ]
+   ]
+  },
+  "perm+tri extra n=256": {
+   "ms": [
+    110.52,
+    110.654
+   ],
+   "ops": [
+    563,
+    563
+   ],
+   "median_ms": 110.58675649999996,
+   "by_class_ms": {
+    "eltwise": 42.991,
+    "layernorm": 0.72,
+    "layout": 43.413,
+    "matmul": 13.536,
+    "other": 1.454,
+    "reduction": 5.686,
+    "softmax": 2.787
+   },
+   "moved_vs_base": [
+    [
+     -19.016,
+     "BinaryNgDeviceOperation [256, 4, 256, 256] cores=110"
+    ],
+    [
+     18.139,
+     "BinaryNgDeviceOperation [81, 4, 256, 256] cores=110"
+    ],
+    [
+     -12.648,
+     "PermuteDeviceOperation [256, 4, 256, 256] cores=110"
+    ],
+    [
+     -7.955,
+     "TypecastDeviceOperation [256, 4, 256, 256] cores=110"
+    ],
+    [
+     7.625,
+     "TypecastDeviceOperation [81, 4, 256, 256] cores=110"
+    ],
+    [
+     7.221,
+     "PermuteDeviceOperation [81, 4, 256, 256] cores=110"
+    ],
+    [
+     6.452,
+     "PermuteDeviceOperation [1, 64, 256, 256] cores=110"
+    ],
+    [
+     -4.179,
+     "ReduceDeviceOperation [256, 4, 256, 256] cores=110"
+    ],
+    [
+     -3.124,
+     "MatmulDeviceOperation [256, 4, 256, 32] cores=110"
+    ],
+    [
+     3.086,
+     "MatmulDeviceOperation [81, 4, 256, 32] cores=110"
+    ],
+    [
+     3.043,
+     "ReduceDeviceOperation [81, 4, 256, 256] cores=110"
+    ],
+    [
+     -2.799,
+     "SoftmaxDeviceOperation [256, 4, 256, 256] cores=110"
+    ],
+    [
+     2.669,
+     "SoftmaxDeviceOperation [81, 4, 256, 256] cores=110"
+    ],
+    [
+     2.434,
+     "MatmulDeviceOperation [81, 4, 256, 256] cores=110"
+    ],
+    [
+     -2.41,
+     "MatmulDeviceOperation [256, 4, 256, 256] cores=110"
+    ]
+   ]
+  },
+  "tri evo n=256": {
+   "ms": [
+    132.495,
+    132.125
+   ],
+   "ops": [
+    851,
+    851
+   ],
+   "median_ms": 132.3100855,
+   "by_class_ms": {
+    "eltwise": 45.133,
+    "layernorm": 0.91,
+    "layout": 58.901,
+    "matmul": 18.306,
+    "other": 0.115,
+    "reduction": 6.103,
+    "softmax": 2.842
+   },
+   "moved_vs_base": [
+    [
+     -18.947,
+     "BinaryNgDeviceOperation [256, 4, 256, 256] cores=110"
+    ],
+    [
+     18.118,
+     "BinaryNgDeviceOperation [81, 4, 256, 256] cores=110"
+    ],
+    [
+     -12.613,
+     "PermuteDeviceOperation [256, 4, 256, 256] cores=110"
+    ],
+    [
+     -7.943,
+     "TypecastDeviceOperation [256, 4, 256, 256] cores=110"
+    ],
+    [
+     7.56,
+     "TypecastDeviceOperation [81, 4, 256, 256] cores=110"
+    ],
+    [
+     7.214,
+     "PermuteDeviceOperation [81, 4, 256, 256] cores=110"
+    ],
+    [
+     -4.184,
+     "ReduceDeviceOperation [256, 4, 256, 256] cores=110"
+    ],
+    [
+     -3.116,
+     "MatmulDeviceOperation [256, 4, 256, 32] cores=110"
+    ],
+    [
+     3.079,
+     "MatmulDeviceOperation [81, 4, 256, 32] cores=110"
+    ],
+    [
+     3.025,
+     "ReduceDeviceOperation [81, 4, 256, 256] cores=110"
+    ],
+    [
+     -2.756,
+     "SoftmaxDeviceOperation [256, 4, 256, 256] cores=110"
+    ],
+    [
+     2.622,
+     "SoftmaxDeviceOperation [81, 4, 256, 256] cores=110"
+    ],
+    [
+     2.444,
+     "MatmulDeviceOperation [81, 4, 256, 256] cores=110"
+    ],
+    [
+     -2.421,
+     "MatmulDeviceOperation [256, 4, 256, 256] cores=110"
+    ],
+    [
+     1.789,
+     "ReduceDeviceOperation [256, 4, 96, 256] cores=110"
+    ]
+   ]
+  },
+  "tri extra n=256": {
+   "ms": [
+    116.274,
+    116.31
+   ],
+   "ops": [
+    563,
+    563
+   ],
+   "median_ms": 116.29227749999998,
+   "by_class_ms": {
+    "eltwise": 42.958,
+    "layernorm": 0.738,
+    "layout": 50.473,
+    "matmul": 13.539,
+    "other": 0.115,
+    "reduction": 5.675,
+    "softmax": 2.794
+   },
+   "moved_vs_base": [
+    [
+     -18.987,
+     "BinaryNgDeviceOperation [256, 4, 256, 256] cores=110"
+    ],
+    [
+     18.139,
+     "BinaryNgDeviceOperation [81, 4, 256, 256] cores=110"
+    ],
+    [
+     -12.585,
+     "PermuteDeviceOperation [256, 4, 256, 256] cores=110"
+    ],
+    [
+     -7.96,
+     "TypecastDeviceOperation [256, 4, 256, 256] cores=110"
+    ],
+    [
+     7.625,
+     "TypecastDeviceOperation [81, 4, 256, 256] cores=110"
+    ],
+    [
+     7.221,
+     "PermuteDeviceOperation [81, 4, 256, 256] cores=110"
+    ],
+    [
+     -4.181,
+     "ReduceDeviceOperation [256, 4, 256, 256] cores=110"
+    ],
+    [
+     -3.126,
+     "MatmulDeviceOperation [256, 4, 256, 32] cores=110"
+    ],
+    [
+     3.086,
+     "MatmulDeviceOperation [81, 4, 256, 32] cores=110"
+    ],
+    [
+     3.043,
+     "ReduceDeviceOperation [81, 4, 256, 256] cores=110"
+    ],
+    [
+     -2.787,
+     "SoftmaxDeviceOperation [256, 4, 256, 256] cores=110"
+    ],
+    [
+     2.669,
+     "SoftmaxDeviceOperation [81, 4, 256, 256] cores=110"
+    ],
+    [
+     2.434,
+     "MatmulDeviceOperation [81, 4, 256, 256] cores=110"
+    ],
+    [
+     -2.415,
+     "MatmulDeviceOperation [256, 4, 256, 256] cores=110"
+    ],
+    [
+     1.787,
+     "ReduceDeviceOperation [256, 4, 96, 256] cores=110"
+    ]
+   ]
+  }
+ }
+}

@@ -1,0 +1,122 @@
+{
+ "why": "harden round 5 read i_pTM 0.74 through sequence_gradients; mutate round 1 read 0.11 through predict",
+ "sequence_parameters": {
+  "softmax_weight": 1.0,
+  "one_hot_weight": 1.0,
+  "temperature": 0.01,
+  "logit_scale": 2.0
+ },
+ "dropout": false,
+ "num_recycle": 1,
+ "losses": [
+  "binder_contacts",
+  "binder_helicity",
+  "binder_pae",
+  "compactness",
+  "interface_contacts",
+  "interface_pae",
+  "iptm_loss",
+  "plddt_loss"
+ ],
+ "result": {
+  "jax": {
+   "sequence_gradients": {
+    "n": 192,
+    "binder_plddt": 0.3461,
+    "plddt": 0.418,
+    "ptm": 0.456,
+    "iptm": 0.2863,
+    "design_loss": 9.27479
+   },
+   "sequence_gradients_s": 417.8,
+   "predict": {
+    "n": 192,
+    "binder_plddt": 0.403,
+    "plddt": 0.7175,
+    "ptm": 0.5696,
+    "iptm": 0.084
+   },
+   "predict_s": 108.3
+  },
+  "device": {
+   "sequence_gradients": {
+    "n": 192,
+    "binder_plddt": 0.3448,
+    "plddt": 0.4162,
+    "ptm": 0.4525,
+    "iptm": 0.2843,
+    "design_loss": 9.247133
+   },
+   "sequence_gradients_s": 107.8,
+   "predict": {
+    "n": 192,
+    "binder_plddt": 0.4005,
+    "plddt": 0.7172,
+    "ptm": 0.5699,
+    "iptm": 0.0844
+   },
+   "predict_s": 27.9
+  }
+ },
+ "aiclk": {
+  "n": 522,
+  "min": 1312,
+  "median": 1350,
+  "max": 1350
+ },
+ "device_calls": {
+  "primal": 2,
+  "taped": 2,
+  "backward": 1
+ },
+ "instrument_gap": {
+  "jax": {
+   "iptm": 0.2023,
+   "ptm": -0.1136,
+   "plddt": -0.2995,
+   "binder_plddt": -0.0569
+  },
+  "device": {
+   "iptm": 0.1999,
+   "ptm": -0.1174,
+   "plddt": -0.301,
+   "binder_plddt": -0.0557
+  }
+ },
+ "arm_gap": {
+  "iptm": {
+   "sequence_gradients": -0.002,
+   "predict": 0.0004
+  },
+  "ptm": {
+   "sequence_gradients": -0.0035,
+   "predict": 0.0003
+  },
+  "plddt": {
+   "sequence_gradients": -0.0018,
+   "predict": -0.0003
+  },
+  "binder_plddt": {
+   "sequence_gradients": -0.0013,
+   "predict": -0.0025
+  }
+ },
+ "being_explained": {
+  "harden_round_5_iptm": 0.74,
+  "mutate_round_1_iptm": 0.11
+ },
+ "stamp": {
+  "host": "tt-quietbox2",
+  "card": 3,
+  "subsystem_device": "0x0046",
+  "commit": "8286320b6fdb3dbde7646c6222a28bfa4332c7bb",
+  "tt_bio_dirty": false,
+  "torch_threads": 8,
+  "loadavg": [
+   62.57568359375,
+   62.04638671875,
+   60.224609375
+  ],
+  "utc": "2026-09-24T19:54:21Z"
+ }
+}

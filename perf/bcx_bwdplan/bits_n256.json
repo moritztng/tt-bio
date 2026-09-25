@@ -1,0 +1,187 @@
+{
+ "stamp": {
+  "host": "tt-quietbox",
+  "card": 0,
+  "subsystem_device": "0x0040",
+  "commit": "3b6e5f75e10d2d8d813dbe9cca0e0c1e78f9a6bf",
+  "tt_bio_dirty": false,
+  "torch_threads": 8,
+  "loadavg": [
+   42.59228515625,
+   39.6806640625,
+   38.50830078125
+  ],
+  "utc": "2026-09-24T09:17:01Z",
+  "pci": "0000:01:00.0",
+  "aiclk_node": null
+ },
+ "n": 256,
+ "arms": [
+  "stack",
+  "bwd1",
+  "bwd2",
+  "bwd4",
+  "bwd"
+ ],
+ "stacks": {
+  "evo": {
+   "stack": {
+    "dm": {
+     "bit_identical_to_base": true,
+     "vs_base": {
+      "rel_l2": 0.0,
+      "cos": 1.0000000000000002
+     },
+     "norm": 29.678733825683594,
+     "repeat_bit_identical": true
+    },
+    "dz": {
+     "bit_identical_to_base": true,
+     "vs_base": {
+      "rel_l2": 0.0,
+      "cos": 1.000000000000401
+     },
+     "norm": 2.442209005355835,
+     "repeat_bit_identical": true
+    }
+   },
+   "bwd1": {
+    "dm": {
+     "bit_identical_to_base": false,
+     "vs_base": {
+      "rel_l2": 0.007854929088314823,
+      "cos": 0.9999692825213068
+     },
+     "norm": 29.69312286376953,
+     "repeat_bit_identical": true
+    },
+    "dz": {
+     "bit_identical_to_base": false,
+     "vs_base": {
+      "rel_l2": 0.005048304465355421,
+      "cos": 0.9999872609178055
+     },
+     "norm": 2.442384719848633,
+     "repeat_bit_identical": true
+    }
+   },
+   "bwd2": {
+    "dm": {
+     "bit_identical_to_base": true,
+     "vs_base": {
+      "rel_l2": 0.0,
+      "cos": 1.0000000000000002
+     },
+     "norm": 29.678733825683594,
+     "repeat_bit_identical": true
+    },
+    "dz": {
+     "bit_identical_to_base": true,
+     "vs_base": {
+      "rel_l2": 0.0,
+      "cos": 1.000000000000401
+     },
+     "norm": 2.442209005355835,
+     "repeat_bit_identical": true
+    }
+   },
+   "bwd4": {
+    "dm": {
+     "bit_identical_to_base": true,
+     "vs_base": {
+      "rel_l2": 0.0,
+      "cos": 1.0000000000000002
+     },
+     "norm": 29.678733825683594,
+     "repeat_bit_identical": true
+    },
+    "dz": {
+     "bit_identical_to_base": true,
+     "vs_base": {
+      "rel_l2": 0.0,
+      "cos": 1.000000000000401
+     },
+     "norm": 2.442209005355835,
+     "repeat_bit_identical": true
+    }
+   },
+   "bwd": {
+    "dm": {
+     "bit_identical_to_base": false,
+     "vs_base": {
+      "rel_l2": 0.007854929088314823,
+      "cos": 0.9999692825213068
+     },
+     "norm": 29.69312286376953,
+     "repeat_bit_identical": true
+    },
+    "dz": {
+     "bit_identical_to_base": false,
+     "vs_base": {
+      "rel_l2": 0.005048304465355421,
+      "cos": 0.9999872609178055
+     },
+     "norm": 2.442384719848633,
+     "repeat_bit_identical": true
+    }
+   }
+  },
+  "extra": {
+   "stack": {
+    "dz": {
+     "bit_identical_to_base": true,
+     "vs_base": {
+      "rel_l2": 0.0,
+      "cos": 1.0000000000000013
+     },
+     "norm": 5.85210657119751,
+     "repeat_bit_identical": true
+    }
+   },
+   "bwd1": {
+    "dz": {
+     "bit_identical_to_base": false,
+     "vs_base": {
+      "rel_l2": 0.0008141304555357438,
+      "cos": 0.9999996685957996
+     },
+     "norm": 5.852106094360352,
+     "repeat_bit_identical": true
+    }
+   },
+   "bwd2": {
+    "dz": {
+     "bit_identical_to_base": true,
+     "vs_base": {
+      "rel_l2": 0.0,
+      "cos": 1.0000000000000013
+     },
+     "norm": 5.85210657119751,
+     "repeat_bit_identical": true
+    }
+   },
+   "bwd4": {
+    "dz": {
+     "bit_identical_to_base": true,
+     "vs_base": {
+      "rel_l2": 0.0,
+      "cos": 1.0000000000000013
+     },
+     "norm": 5.85210657119751,
+     "repeat_bit_identical": true
+    }
+   },
+   "bwd": {
+    "dz": {
+     "bit_identical_to_base": false,
+     "vs_base": {
+      "rel_l2": 0.0008141304555357438,
+      "cos": 0.9999996685957996
+     },
+     "norm": 5.852106094360352,
+     "repeat_bit_identical": true
+    }
+   }
+  }
+ }
+}

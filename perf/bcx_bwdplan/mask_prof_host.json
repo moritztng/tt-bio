@@ -1,0 +1,74 @@
+{
+ "stamp": {
+  "host": "tt-quietbox",
+  "card": 0,
+  "subsystem_device": "0x0040",
+  "commit": "3b6e5f75e10d2d8d813dbe9cca0e0c1e78f9a6bf",
+  "tt_bio_dirty": true,
+  "torch_threads": 8,
+  "loadavg": [
+   61.6474609375,
+   55.5947265625,
+   50.12841796875
+  ],
+  "utc": "2026-09-24T13:31:32Z",
+  "pci": "0000:01:00.0",
+  "aiclk_node": "/sys/class/tenstorrent/tenstorrent!1/tt_aiclk"
+ },
+ "build": {
+  "ttnn": "/home/ttuser/tt-metal-main-mar31/ttnn/ttnn/__init__.py",
+  "profiler_env": "1"
+ },
+ "arms": [
+  "bwd",
+  "bwd+mask"
+ ],
+ "n": 256,
+ "note": "wall under the device profiler: perturbed, attribution only",
+ "points": [
+  {
+   "tag": "bwd evo K=1 rep=0",
+   "bwd": 0.962897777557373,
+   "aiclk": {
+    "n": 3,
+    "min": 1350,
+    "median": 1350,
+    "max": 1350
+   },
+   "load1": 57.05078125
+  },
+  {
+   "tag": "bwd+mask evo K=1 rep=0",
+   "bwd": 0.8053154945373535,
+   "aiclk": {
+    "n": 3,
+    "min": 1350,
+    "median": 1350,
+    "max": 1350
+   },
+   "load1": 55.28466796875
+  },
+  {
+   "tag": "bwd+mask evo K=1 rep=1",
+   "bwd": 1.1881649494171143,
+   "aiclk": {
+    "n": 4,
+    "min": 1350,
+    "median": 1350,
+    "max": 1350
+   },
+   "load1": 53.01953125
+  },
+  {
+   "tag": "bwd evo K=1 rep=1",
+   "bwd": 0.8659164905548096,
+   "aiclk": {
+    "n": 3,
+    "min": 1350,
+    "median": 1350,
+    "max": 1350
+   },
+   "load1": 51.896484375
+  }
+ ]
+}

@@ -70,8 +70,12 @@ def trunk_s(rounds, i) -> float:
     return sum(rounds[i]["trunk"][k] - rounds[i - 1]["trunk"][k] for k in ("taped", "backward"))
 
 
+def delta(rounds, i, k) -> float:
+    return rounds[i]["trunk"][k] - rounds[i - 1]["trunk"][k]
+
+
 def trunk_cpu(rounds, i) -> float:
-    return rounds[i]["trunk"]["cpu"] - rounds[i - 1]["trunk"]["cpu"]
+    return delta(rounds, i, "cpu")
 
 
 def main():
@@ -91,6 +95,9 @@ def main():
     ap.add_argument("--digest", action="store_true", help="log a digest of every callback output")
     ap.add_argument("--out", default=None)
     ap.add_argument("--project", default=None)
+    ap.add_argument("--extra-msa", action="store_true",
+                    help="swap the extra-MSA stack onto the card too (bcx-extramsa's switch), in "
+                         "every arm; it is not captured, so its host work stays in the floor")
     args = ap.parse_args()
     if not args.interleave and args.arm is None:
         ap.error("pick --interleave or --arm")
@@ -111,7 +118,7 @@ def main():
     import afgrad as A
     import stack as S
     import ttbio_predictor as T
-    from splice import EvoformerOnDevice, evoformer_on_device
+    from splice import EvoformerOnDevice, ExtraMsaOnDevice, evoformer_on_device
 
     lv = S.Levers()
     dm, _ = A.load_models(args.af2_npz or A.DEFAULT_PARAMS, refs=("bf16",))
@@ -119,6 +126,7 @@ def main():
     lv.arm("stack")
     clock = S.Clock(dt=0.25)
     evo = EvoformerOnDevice(dev, k_evo=48, trace=True)
+    extra = ExtraMsaOnDevice(dev, k_extra=4) if args.extra_msa else None
 
     def set_arm(arm):
         # The wire exists in every arm only so all of them open the device the same way. The
@@ -134,7 +142,7 @@ def main():
     digests: list = []
     # `cpu` is the calling thread's own CPU inside both callbacks: the host enqueue work, which is
     # the floor a dtype change cannot move.
-    trunk = {"taped": 0.0, "backward": 0.0, "cpu": 0.0}
+    trunk = {"taped": 0.0, "backward": 0.0, "cpu": 0.0, "extra": 0.0, "extra_cpu": 0.0}
     _taped, _backward = evo._taped, evo._backward
 
     def taped(*a):
@@ -157,6 +165,18 @@ def main():
 
     evo._taped, evo._backward = taped, backward
 
+    def timed_extra(fn):
+        def f(*a):
+            t, c = time.perf_counter(), time.thread_time()
+            out = fn(*a)
+            trunk["extra"] += time.perf_counter() - t
+            trunk["extra_cpu"] += time.thread_time() - c
+            return out
+        return f
+
+    if extra is not None:
+        extra._taped, extra._backward = timed_extra(extra._taped), timed_extra(extra._backward)
+
     rounds: list = []
     marks: list = []
 
@@ -167,7 +187,8 @@ def main():
                            "aiclk": clock.window([(t0, t_now)]), "load1": load0,
                            "span": (t0, t_now), "calls": dict(evo.calls),
                            "trunk": dict(trunk), "seg": dict(evo.wire.seg),
-                           "captures": len(evo.wire.captures)})
+                           "captures": len(evo.wire.captures),
+                           "extra_calls": dict(extra.calls) if extra else None})
             print(json.dumps(rounds[-1]), flush=True)
             if len(rounds) >= 3 and rounds[-1]["calls"]["backward"] == rounds[-2]["calls"]["backward"]:
                 raise RuntimeError("a timed round ran no device backward: the trunk is not the card's")
@@ -196,13 +217,14 @@ def main():
                                            "aiclk_node": clock.path,
                                            "region_mb": args.region_mb,
                                            "length_bucket_size": campaign_length_bucket(settings),
-                                           "seed": args.seed},
+                                           "seed": args.seed,
+                                           "extra_msa_on_device": bool(extra)},
             "mode": "interleave" if args.interleave else args.arm}
     t0 = time.time()
     try:
         # The same install run_arm.py does: without it BindCraft 2 runs its own JAX Evoformer
         # on the host and neither arm touches the card.
-        with evoformer_on_device(evo):
+        with evoformer_on_device(evo, extra_msa=extra):
             campaign.run_campaign(settings, project, af2_weights=args.params,
                                   mpnn_weights=mpnn, max_trajectories=1)
     except _Enough:
@@ -210,6 +232,9 @@ def main():
     blob["wall_s"] = round(time.time() - t0, 1)
     blob["rounds"] = rounds
     blob["calls"] = dict(evo.calls)
+    blob["extra_calls"] = dict(extra.calls) if extra else None
+    if extra is not None and not extra.swapped:
+        raise RuntimeError("--extra-msa was asked for and the extra-MSA stack was never swapped")
     blob["wire"] = evo.wire.stats()
     if args.digest:
         blob["digests"] = digests
@@ -224,6 +249,8 @@ def main():
             per[arm] = S.dist([r["s"] for r in rs]) | {
                 "trunk_s": S.dist([trunk_s(rounds, r["i"]) for r in rs]),
                 "trunk_cpu_s": S.dist([trunk_cpu(rounds, r["i"]) for r in rs]),
+                "extra_s": S.dist([delta(rounds, r["i"], "extra") for r in rs]),
+                "extra_cpu_s": S.dist([delta(rounds, r["i"], "extra_cpu") for r in rs]),
                 "aiclk": clock.window([r["span"] for r in rs]),
                 "load1": [r["load1"] for r in rs]}
     blob["per_arm"] = per

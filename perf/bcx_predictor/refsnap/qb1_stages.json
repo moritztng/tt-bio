@@ -1,0 +1,142 @@
+{
+ "why": ".gitignore *.log dropped every reference stage verdict; this is the tracked form",
+ "arms": {
+  "reference_qb1_seed100": {
+   "stamp": {
+    "arm": "reference",
+    "seed": 100,
+    "length_bucket_size": 1,
+    "host": "tt-quietbox",
+    "commit": null
+   },
+   "stages": [
+    {
+     "trajectory": "pdl1_denovo_l71_c019673d64134f64",
+     "trajectory_index": 1,
+     "stage": "screen",
+     "outcome": "passed",
+     "iptm": 0.8,
+     "plddt": 0.71,
+     "failed_filter": null
+    },
+    {
+     "trajectory": "pdl1_denovo_l71_c019673d64134f64",
+     "trajectory_index": 1,
+     "stage": "refine",
+     "outcome": "passed",
+     "iptm": 0.79,
+     "plddt": 0.69,
+     "failed_filter": null
+    },
+    {
+     "trajectory": "pdl1_denovo_l71_c019673d64134f64",
+     "trajectory_index": 1,
+     "stage": "anneal",
+     "outcome": "passed",
+     "iptm": 0.81,
+     "plddt": 0.71,
+     "failed_filter": null
+    },
+    {
+     "trajectory": "pdl1_denovo_l71_c019673d64134f64",
+     "trajectory_index": 1,
+     "stage": "harden",
+     "outcome": "passed",
+     "iptm": 0.83,
+     "plddt": 0.69,
+     "failed_filter": null
+    },
+    {
+     "trajectory": "pdl1_denovo_l71_c019673d64134f64",
+     "trajectory_index": 1,
+     "stage": "mutate",
+     "outcome": "rejected",
+     "iptm": 0.15,
+     "plddt": 0.41,
+     "failed_filter": "i_pTM, pLDDT"
+    }
+   ],
+   "stages_passed": 4,
+   "trajectories_started": 1,
+   "accepted": 0
+  },
+  "reference_qb1_seed200": {
+   "stamp": {
+    "arm": "reference",
+    "seed": 200,
+    "length_bucket_size": 1,
+    "host": "tt-quietbox",
+    "commit": null
+   },
+   "stages": [
+    {
+     "trajectory": "pdl1_denovo_l176_09b8e7a3d08bc7b6",
+     "trajectory_index": 1,
+     "stage": "screen",
+     "outcome": "passed",
+     "iptm": 0.76,
+     "plddt": 0.61,
+     "failed_filter": null
+    }
+   ],
+   "stages_passed": 1,
+   "trajectories_started": 1,
+   "accepted": 0
+  },
+  "reference_qb1_seed300": {
+   "stamp": {
+    "arm": "reference",
+    "seed": 300,
+    "length_bucket_size": 1,
+    "host": "tt-quietbox",
+    "commit": null
+   },
+   "stages": [
+    {
+     "trajectory": "pdl1_denovo_l138_aaf0e3cad8e56a88",
+     "trajectory_index": 1,
+     "stage": "screen",
+     "outcome": "passed",
+     "iptm": 0.82,
+     "plddt": 0.75,
+     "failed_filter": null
+    },
+    {
+     "trajectory": "pdl1_denovo_l138_aaf0e3cad8e56a88",
+     "trajectory_index": 1,
+     "stage": "refine",
+     "outcome": "passed",
+     "iptm": 0.8,
+     "plddt": 0.71,
+     "failed_filter": null
+    }
+   ],
+   "stages_passed": 2,
+   "trajectories_started": 1,
+   "accepted": 0
+  },
+  "reference_qb1_seed400": {
+   "stamp": {
+    "arm": "reference",
+    "seed": 400,
+    "length_bucket_size": 1,
+    "host": "tt-quietbox",
+    "commit": null
+   },
+   "stages": [
+    {
+     "trajectory": "pdl1_denovo_l180_ffb9c87873af6d36",
+     "trajectory_index": 1,
+     "stage": "screen",
+     "outcome": "rejected",
+     "iptm": 0.74,
+     "plddt": 0.56,
+     "failed_filter": "pLDDT"
+    }
+   ],
+   "stages_passed": 0,
+   "trajectories_started": 1,
+   "accepted": 0
+  }
+ }
+}

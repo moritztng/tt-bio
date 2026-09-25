@@ -1,0 +1,221 @@
+{
+ "arm": "device",
+ "seed": 100,
+ "trajectories": 1,
+ "length_bucket_size": 1,
+ "length_bucket_flag": 1,
+ "predictor": "TTBioAlphaFoldDesignModel",
+ "host": "tt-quietbox2",
+ "started_utc": "2026-09-24T20:38:06Z",
+ "loadavg_start": [
+  30.5771484375,
+  30.02978515625,
+  34.8740234375
+ ],
+ "stage_plan": {
+  "per_stage": {
+   "screen": 50,
+   "refine": 25,
+   "anneal": 45,
+   "harden": 5,
+   "mutate": 15
+  },
+  "gradient_steps": 125,
+  "mutate_steps": 15
+ },
+ "threads": "--xla_gpu_enable_triton_gemm=false",
+ "project": "/home/ttuser/.coworker/wt/bcx-predictor/perf/bcx_predictor/runs/b1_seed100_try2"
+}
+2026-09-24 20:38:08.621 | DEBUG    | ttnn:<module>:77 - Initial ttnn.CONFIG:
+Config{cache_path=/home/ttuser/.cache/ttnn,model_cache_path=/home/ttuser/.cache/ttnn/models,tmp_dir=/tmp/ttnn,enable_model_cache=false,enable_fast_runtime_mode=true,throw_exception_on_fallback=false,enable_logging=false,enable_graph_report=false,enable_detailed_buffer_report=false,enable_detailed_tensor_report=false,enable_comparison_mode=false,comparison_mode_should_raise_exception=false,comparison_mode_pcc=0.9999,root_report_path=generated/ttnn/reports,report_name=std::nullopt,std::nullopt}
+/home/ttuser/.coworker/wt/bcx-predictor/tt_bio/main.py:48: RuntimeWarning: os.fork() was called. os.fork() is incompatible with multithreaded code, and JAX is multithreaded, so this will likely lead to a deadlock.
+  pid = _os.fork()
+BindCraft 2 (unreleased)
+campaign pdl1
+binder length 60 to 180, drawn per trajectory
+target hPDL1 (target) | 115 residues | hotspots 54,56,66,115
+losses binder_contacts=1.0 binder_helicity=-0.3 binder_pae=0.4 compactness=0.5 interface_contacts=1.0 interface_pae=0.1 iptm_loss=0.05 plddt_loss=0.1
+filters Backbone_Clashes <= 0, Binder_RMSD <= 3.5, Interface_Residues >= 7, Unbound_Binder_pLDDT >= 0.7, i_pAE <= 0.35, i_pTM >= 0.7, pTM >= 0.55
+results /home/ttuser/.coworker/wt/bcx-predictor/perf/bcx_predictor/runs/b1_seed100_try2 | 3_Ranked/!_Ranked.csv rewritten as each design is accepted | summary.csv written when the campaign ends
+
+=== trajectory 1 | pdl1_denovo_l71_a393928f44515d47 | accepted 0/10 ===
+2026-09-24 21:14:48.464 | critical |          Always | TT_FATAL: Out of Memory: Not enough space to allocate 75497472 B DRAM buffer across 8 banks, where each bank needs to store 9437184 B, but bank size is 4278190016 B (allocated: 4235025024 B, free: 43164992 B, largest free block: 5898240 B) (assert.hpp:104)
+jax.pure_callback failed
+Traceback (most recent call last):
+  File "/home/ttuser/bcx_e2e_venv/lib/python3.12/site-packages/jax/_src/callback.py", line 93, in pure_callback_impl
+    return tree_util.tree_map(np.asarray, callback(*args))
+                                          ^^^^^^^^^^^^^^^
+  File "/home/ttuser/bcx_e2e_venv/lib/python3.12/site-packages/jax/_src/callback.py", line 71, in __call__
+    return tree_util.tree_leaves(self.callback_func(*args, **kwargs))
+                                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/ttuser/.coworker/wt/bcx-predictor/perf/bcx_predictor/splice.py", line 195, in _backward
+    dev.ag.backward([mo, zo], [dev.seed(gm, mo), dev.seed(gz, zo)])
+  File "/home/ttuser/.coworker/wt/bcx-predictor/tt_bio/autograd.py", line 408, in backward
+    fire()
+  File "/home/ttuser/.coworker/wt/bcx-predictor/tt_bio/autograd.py", line 1458, in fire
+    _recompute(seeded)
+  File "/home/ttuser/.coworker/wt/bcx-predictor/tt_bio/autograd.py", line 1419, in _recompute
+    backward(roots, [g for _, g in seeded])
+  File "/home/ttuser/.coworker/wt/bcx-predictor/tt_bio/autograd.py", line 397, in backward
+    t.node.fn(g)
+  File "/home/ttuser/.coworker/wt/bcx-predictor/tt_bio/taped_ttnn.py", line 598, in bw
+    x.add_grad(g)
+  File "/home/ttuser/.coworker/wt/bcx-predictor/tt_bio/autograd.py", line 343, in add_grad
+    self.grad = ttnn.add(self.grad, grad if grad.dtype == ttnn.float32
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/ttnn/decorators.py", line 473, in __call__
+    result = self.function(*function_args, **function_kwargs)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+RuntimeError: TT_FATAL @ /project/tt_metal/impl/allocator/bank_manager.cpp:439: false
+info:
+Out of Memory: Not enough space to allocate 75497472 B DRAM buffer across 8 banks, where each bank needs to store 9437184 B, but bank size is 4278190016 B (allocated: 4235025024 B, free: 43164992 B, largest free block: 5898240 B)
+backtrace:
+ --- /home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/ttnn/build/lib/libtt_metal.so(+0x6d2697) [0x79c6752d2697]
+ --- tt::tt_metal::BankManager::allocate_buffer(unsigned long, unsigned long, bool, tt::tt_metal::CoreRangeSet const&, std::optional<unsigned int>, ttsl::StrongType<unsigned int, tt::tt_metal::AllocatorIDTag>)
+ --- tt::tt_metal::AllocatorImpl::allocate_buffer(tt::tt_metal::Buffer*)
+ --- tt::tt_metal::Buffer::allocate_impl()
+ --- tt::tt_metal::Buffer::create(tt::tt_metal::IDevice*, unsigned long, unsigned long, tt::tt_metal::BufferType, tt::tt_metal::BufferShardingArgs const&, std::optional<bool>, std::optional<ttsl::StrongType<unsigned char, tt::tt_metal::SubDeviceIdTag> >)
+ --- tt::tt_metal::distributed::MeshBuffer::create(std::variant<tt::tt_metal::distributed::ReplicatedBufferConfig, tt::tt_metal::distributed::ShardedBufferConfig> const&, tt::tt_metal::distributed::DeviceLocalBufferConfig const&, tt::tt_metal::distributed::MeshDevice*, std::optional<unsigned long>)
+ --- tt::tt_metal::tensor_impl::allocate_device_buffer(tt::tt_metal::distributed::MeshDevice*, tt::tt_metal::TensorSpec const&)
+ --- tt::tt_metal::create_device_tensor(tt::tt_metal::TensorSpec const&, tt::tt_metal::IDevice*)
+ --- ttnn::operations::binary_ng::BinaryNgDeviceOperation::create_output_tensors(ttnn::operations::binary_ng::BinaryNgDeviceOperation::operation_attributes_t const&, ttnn::operations::binary_ng::BinaryNgDeviceOperation::tensor_args_t const&)
+ --- /home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/ttnn/build/lib/_ttnncpp.so(_ZN4ttnn16device_operation6detail6launchITkNS0_22DeviceOperationConceptENS_10operations9binary_ng23BinaryNgDeviceOperationEEENT_21tensor_return_value_tERKNS6_22operation_attributes_tERKNS6_13tensor_args_tE+0x14f) [0x79c67691886f]
+ --- /home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/ttnn/build/lib/_ttnncpp.so(_ZN4ttnn4prim9binary_ngERKN2tt8tt_metal6TensorES5_NS_10operations6binary12BinaryOpTypeERKSt8optionalIKNS2_8DataTypeEERKS9_INS2_12MemoryConfigEERKS9_IS3_ERKS9_IbESt4spanIKNS6_5unary19BasicUnaryWithParamIJfijEEELm18446744073709551615EESU_SU_S9_ISt7variantIJjifEEERKS9_INS2_12CoreRangeSetEE+0xa4d) [0x79c67690a4bd]
+ --- /home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/ttnn/build/lib/_ttnncpp.so(+0xadd7c8) [0x79c6768dd7c8]
+ --- ttnn::add(tt::tt_metal::Tensor const&, tt::tt_metal::Tensor const&, std::optional<tt::tt_metal::DataType const> const&, std::optional<tt::tt_metal::MemoryConfig> const&, std::optional<tt::tt_metal::Tensor> const&, std::span<ttnn::operations::unary::BasicUnaryWithParam<float, int, unsigned int> const, 18446744073709551615ul>, std::span<ttnn::operations::unary::BasicUnaryWithParam<float, int, unsigned int> const, 18446744073709551615ul>, std::span<ttnn::operations::unary::BasicUnaryWithParam<float, int, unsigned int> const, 18446744073709551615ul>, std::optional<bool> const&, std::optional<tt::tt_metal::CoreRangeSet> const&)
+ --- /home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/ttnn/_ttnn.cpython-312-x86_64-linux-gnu.so(+0x5b5dea) [0x79c677bb5dea]
+ --- /home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/ttnn/_ttnn.cpython-312-x86_64-linux-gnu.so(+0x26daa5) [0x79c67786daa5]
+ --- /home/ttuser/bcx_e2e_venv/bin/python(_PyObject_Call_Prepend+0x111) [0x54a851]
+ --- /home/ttuser/bcx_e2e_venv/bin/python() [0x5a3778]
+ --- /home/ttuser/bcx_e2e_venv/bin/python(PyObject_Call+0x6c) [0x54b12c]
+ --- /home/ttuser/bcx_e2e_venv/bin/python(_PyEval_EvalFrameDefault+0x4cbe) [0x5db2ee]
+ --- /home/ttuser/bcx_e2e_venv/bin/python(_PyObject_Call_Prepend+0xc2) [0x54a802]
+ --- /home/ttuser/bcx_e2e_venv/bin/python() [0x5a3778]
+ --- /home/ttuser/bcx_e2e_venv/bin/python(_PyObject_MakeTpCall+0x75) [0x548fb5]
+ --- /home/ttuser/bcx_e2e_venv/bin/python(_PyEval_EvalFrameDefault+0xadf) [0x5d710f]
+ --- /home/ttuser/bcx_e2e_venv/bin/python() [0x54caed]
+ --- /home/ttuser/bcx_e2e_venv/bin/python(_PyEval_EvalFrameDefault+0x4cbe) [0x5db2ee]
+ --- /home/ttuser/bcx_e2e_venv/bin/python(_PyObject_Call_Prepend+0xc2) [0x54a802]
+ --- /home/ttuser/bcx_e2e_venv/bin/python() [0x5a3778]
+ --- /home/ttuser/bcx_e2e_venv/bin/python(PyObject_Call+0x6c) [0x54b12c]
+ --- /home/ttuser/bcx_e2e_venv/bin/python(_PyEval_EvalFrameDefault+0x4cbe) [0x5db2ee]
+ --- /home/ttuser/bcx_e2e_venv/bin/python(PyObject_Vectorcall+0x35) [0x5499b5]
+ --- /home/ttuser/bcx_e2e_venv/lib/python3.12/site-packages/jaxlib/libjax_common.so(+0x3aad4e1) [0x79c79599d4e1]
+ --- /home/ttuser/bcx_e2e_venv/lib/python3.12/site-packages/jaxlib/libjax_common.so(+0x3a68dc2) [0x79c795958dc2]
+ --- /home/ttuser/bcx_e2e_venv/lib/python3.12/site-packages/jaxlib/libjax_common.so(+0x3a70c68) [0x79c795960c68]
+ --- /home/ttuser/bcx_e2e_venv/lib/python3.12/site-packages/jaxlib/libjax_common.so(+0x3a6aae9) [0x79c79595aae9]
+ --- /home/ttuser/bcx_e2e_venv/lib/python3.12/site-packages/jaxlib/libjax_common.so(+0x3db6e3c) [0x79c795ca6e3c]
+ --- /home/ttuser/bcx_e2e_venv/lib/python3.12/site-packages/jaxlib/libjax_common.so(+0x3db7021) [0x79c795ca7021]
+ --- /home/ttuser/bcx_e2e_venv/lib/python3.12/site-packages/jaxlib/libjax_common.so(+0x8f2c3d3) [0x79c79ae1c3d3]
+ --- /home/ttuser/bcx_e2e_venv/lib/python3.12/site-packages/jaxlib/libjax_common.so(+0x8f2ba3e) [0x79c79ae1ba3e]
+ --- /home/ttuser/bcx_e2e_venv/lib/python3.12/site-packages/jaxlib/libjax_common.so(+0xde1e94b) [0x79c79fd0e94b]
+ --- /home/ttuser/bcx_e2e_venv/lib/python3.12/site-packages/jaxlib/libjax_common.so(+0xde21f1f) [0x79c79fd11f1f]
+ --- /home/ttuser/bcx_e2e_venv/lib/python3.12/site-packages/jaxlib/libjax_common.so(+0xde23a06) [0x79c79fd13a06]
+ --- /home/ttuser/bcx_e2e_venv/lib/python3.12/site-packages/jaxlib/libjax_common.so(+0xde24873) [0x79c79fd14873]
+ --- /home/ttuser/bcx_e2e_venv/lib/python3.12/site-packages/jaxlib/libjax_common.so(+0x97dcb85) [0x79c79b6ccb85]
+ --- /home/ttuser/bcx_e2e_venv/lib/python3.12/site-packages/jaxlib/libjax_common.so(+0x97dcead) [0x79c79b6ccead]
+ --- /home/ttuser/bcx_e2e_venv/lib/python3.12/site-packages/jaxlib/libjax_common.so(+0x97dcfd2) [0x79c79b6ccfd2]
+ --- /home/ttuser/bcx_e2e_venv/lib/python3.12/site-packages/jaxlib/libjax_common.so(+0xde22ba8) [0x79c79fd12ba8]
+ --- /home/ttuser/bcx_e2e_venv/lib/python3.12/site-packages/jaxlib/libjax_common.so(+0xde21f68) [0x79c79fd11f68]
+ --- /home/ttuser/bcx_e2e_venv/lib/python3.12/site-packages/jaxlib/libjax_common.so(+0xde2351d) [0x79c79fd1351d]
+ --- /home/ttuser/bcx_e2e_venv/lib/python3.12/site-packages/jaxlib/libjax_common.so(+0x78ce044) [0x79c7997be044]
+ --- /home/ttuser/bcx_e2e_venv/lib/python3.12/site-packages/jaxlib/libjax_common.so(+0x78cded1) [0x79c7997bded1]
+ --- /home/ttuser/bcx_e2e_venv/lib/python3.12/site-packages/jaxlib/libjax_common.so(+0x78bd28f) [0x79c7997ad28f]
+ --- /lib/x86_64-linux-gnu/libc.so.6(+0x9cb84) [0x79c7a1e9cb84]
+ --- /lib/x86_64-linux-gnu/libc.so.6(+0x129ecc) [0x79c7a1f29ecc]
+
+Traceback (most recent call last):
+  File "/home/ttuser/.coworker/wt/bcx-predictor/perf/bcx_predictor/run_arm.py", line 135, in <module>
+    main()
+  File "/home/ttuser/.coworker/wt/bcx-predictor/perf/bcx_predictor/run_arm.py", line 119, in main
+    count = campaign.run_campaign(settings, project, af2_weights=args.params,
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/ttuser/bcx_e2e/bc2/bindcraft/campaign.py", line 271, in run_campaign
+    return run_campaign_arm(settings, project_folder, alphafold_model, validation_model, mpnn_model, key, max_trajectories, build_validation_model, autotune=settings.get('autotune', True), metadata=metadata)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/ttuser/bcx_e2e/bc2/bindcraft/campaign.py", line 185, in run_campaign_arm
+    protein_states, predictions, failed_stage = run_trajectory(design_settings, alphafold_model, trajectory_random_key, trajectory_directory=trajectory_directory, targets=trajectory_targets)
+                                                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/ttuser/bcx_e2e/bc2/bindcraft/trajectory.py", line 303, in run_trajectory
+    protein_states, predictions = run_gradient_design_stage(trajectory.protein_states, design_model, sequence_optimizer=stage.sequence_optimizer, design_schedule=design_schedule, record_sequence_update=recorder, select_best_round=len(design_settings.prepared_states) < 2, select_filtered_round=rotating_stage_filter_round(design_settings, target_schedule, trajectory.protein_states, stage.name), **induced_fit_reference_arguments(trajectory.losses, trajectory.binder_alone_reference, design_model, design_settings))
+                                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/ttuser/bcx_e2e/bc2/bindcraft/trajectory.py", line 131, in run_gradient_design_stage
+    predictions, chain_gradients, graph_design_loss = design_model.sequence_gradients(active_protein_states, active_losses, softmax_weight=softmax_weight, one_hot_weight=one_hot_weight, temperature=temperature, logit_scale=logit_scale, reference_predictions=reference_predictions)
+                                                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/ttuser/.coworker/wt/bcx-predictor/perf/bcx_predictor/ttbio_predictor.py", line 132, in sequence_gradients
+    return super().sequence_gradients(protein_states, losses, *args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/ttuser/bcx_e2e/bc2/bindcraft/af2.py", line 406, in sequence_gradients
+    (design_loss, prediction_arrays), shared_chain_gradients = compiled_sequence_gradients(*gradient_arguments)
+                                                               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+ValueError: INTERNAL: CpuCallback error calling callback: Traceback (most recent call last):
+  File "/home/ttuser/bcx_e2e_venv/lib/python3.12/site-packages/jax/_src/callback.py", line 816, in _wrapped_callback
+  File "/home/ttuser/bcx_e2e_venv/lib/python3.12/site-packages/jax/_src/callback.py", line 226, in _callback
+  File "/home/ttuser/bcx_e2e_venv/lib/python3.12/site-packages/jax/_src/callback.py", line 96, in pure_callback_impl
+  File "/home/ttuser/bcx_e2e_venv/lib/python3.12/site-packages/jax/_src/callback.py", line 71, in __call__
+  File "/home/ttuser/.coworker/wt/bcx-predictor/perf/bcx_predictor/splice.py", line 195, in _backward
+  File "/home/ttuser/.coworker/wt/bcx-predictor/tt_bio/autograd.py", line 408, in backward
+  File "/home/ttuser/.coworker/wt/bcx-predictor/tt_bio/autograd.py", line 1458, in fire
+  File "/home/ttuser/.coworker/wt/bcx-predictor/tt_bio/autograd.py", line 1419, in _recompute
+  File "/home/ttuser/.coworker/wt/bcx-predictor/tt_bio/autograd.py", line 397, in backward
+  File "/home/ttuser/.coworker/wt/bcx-predictor/tt_bio/taped_ttnn.py", line 598, in bw
+  File "/home/ttuser/.coworker/wt/bcx-predictor/tt_bio/autograd.py", line 343, in add_grad
+  File "/home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/ttnn/decorators.py", line 483, in __call__
+RuntimeError: TT_FATAL @ /project/tt_metal/impl/allocator/bank_manager.cpp:439: false
+info:
+Out of Memory: Not enough space to allocate 75497472 B DRAM buffer across 8 banks, where each bank needs to store 9437184 B, but bank size is 4278190016 B (allocated: 4235025024 B, free: 43164992 B, largest free block: 5898240 B)
+backtrace:
+ --- /home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/ttnn/build/lib/libtt_metal.so(+0x6d2697) [0x79c6752d2697]
+ --- tt::tt_metal::BankManager::allocate_buffer(unsigned long, unsigned long, bool, tt::tt_metal::CoreRangeSet const&, std::optional<unsigned int>, ttsl::StrongType<unsigned int, tt::tt_metal::AllocatorIDTag>)
+ --- tt::tt_metal::AllocatorImpl::allocate_buffer(tt::tt_metal::Buffer*)
+ --- tt::tt_metal::Buffer::allocate_impl()
+ --- tt::tt_metal::Buffer::create(tt::tt_metal::IDevice*, unsigned long, unsigned long, tt::tt_metal::BufferType, tt::tt_metal::BufferShardingArgs const&, std::optional<bool>, std::optional<ttsl::StrongType<unsigned char, tt::tt_metal::SubDeviceIdTag> >)
+ --- tt::tt_metal::distributed::MeshBuffer::create(std::variant<tt::tt_metal::distributed::ReplicatedBufferConfig, tt::tt_metal::distributed::ShardedBufferConfig> const&, tt::tt_metal::distributed::DeviceLocalBufferConfig const&, tt::tt_metal::distributed::MeshDevice*, std::optional<unsigned long>)
+ --- tt::tt_metal::tensor_impl::allocate_device_buffer(tt::tt_metal::distributed::MeshDevice*, tt::tt_metal::TensorSpec const&)
+ --- tt::tt_metal::create_device_tensor(tt::tt_metal::TensorSpec const&, tt::tt_metal::IDevice*)
+ --- ttnn::operations::binary_ng::BinaryNgDeviceOperation::create_output_tensors(ttnn::operations::binary_ng::BinaryNgDeviceOperation::operation_attributes_t const&, ttnn::operations::binary_ng::BinaryNgDeviceOperation::tensor_args_t const&)
+ --- /home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/ttnn/build/lib/_ttnncpp.so(_ZN4ttnn16device_operation6detail6launchITkNS0_22DeviceOperationConceptENS_10operations9binary_ng23BinaryNgDeviceOperationEEENT_21tensor_return_value_tERKNS6_22operation_attributes_tERKNS6_13tensor_args_tE+0x14f) [0x79c67691886f]
+ --- /home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/ttnn/build/lib/_ttnncpp.so(_ZN4ttnn4prim9binary_ngERKN2tt8tt_metal6TensorES5_NS_10operations6binary12BinaryOpTypeERKSt8optionalIKNS2_8DataTypeEERKS9_INS2_12MemoryConfigEERKS9_IS3_ERKS9_IbESt4spanIKNS6_5unary19BasicUnaryWithParamIJfijEEELm18446744073709551615EESU_SU_S9_ISt7variantIJjifEEERKS9_INS2_12CoreRangeSetEE+0xa4d) [0x79c67690a4bd]
+ --- /home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/ttnn/build/lib/_ttnncpp.so(+0xadd7c8) [0x79c6768dd7c8]
+ --- ttnn::add(tt::tt_metal::Tensor const&, tt::tt_metal::Tensor const&, std::optional<tt::tt_metal::DataType const> const&, std::optional<tt::tt_metal::MemoryConfig> const&, std::optional<tt::tt_metal::Tensor> const&, std::span<ttnn::operations::unary::BasicUnaryWithParam<float, int, unsigned int> const, 18446744073709551615ul>, std::span<ttnn::operations::unary::BasicUnaryWithParam<float, int, unsigned int> const, 18446744073709551615ul>, std::span<ttnn::operations::unary::BasicUnaryWithParam<float, int, unsigned int> const, 18446744073709551615ul>, std::optional<bool> const&, std::optional<tt::tt_metal::CoreRangeSet> const&)
+ --- /home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/ttnn/_ttnn.cpython-312-x86_64-linux-gnu.so(+0x5b5dea) [0x79c677bb5dea]
+ --- /home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/ttnn/_ttnn.cpython-312-x86_64-linux-gnu.so(+0x26daa5) [0x79c67786daa5]
+ --- /home/ttuser/bcx_e2e_venv/bin/python(_PyObject_Call_Prepend+0x111) [0x54a851]
+ --- /home/ttuser/bcx_e2e_venv/bin/python() [0x5a3778]
+ --- /home/ttuser/bcx_e2e_venv/bin/python(PyObject_Call+0x6c) [0x54b12c]
+ --- /home/ttuser/bcx_e2e_venv/bin/python(_PyEval_EvalFrameDefault+0x4cbe) [0x5db2ee]
+ --- /home/ttuser/bcx_e2e_venv/bin/python(_PyObject_Call_Prepend+0xc2) [0x54a802]
+ --- /home/ttuser/bcx_e2e_venv/bin/python() [0x5a3778]
+ --- /home/ttuser/bcx_e2e_venv/bin/python(_PyObject_MakeTpCall+0x75) [0x548fb5]
+ --- /home/ttuser/bcx_e2e_venv/bin/python(_PyEval_EvalFrameDefault+0xadf) [0x5d710f]
+ --- /home/ttuser/bcx_e2e_venv/bin/python() [0x54caed]
+ --- /home/ttuser/bcx_e2e_venv/bin/python(_PyEval_EvalFrameDefault+0x4cbe) [0x5db2ee]
+ --- /home/ttuser/bcx_e2e_venv/bin/python(_PyObject_Call_Prepend+0xc2) [0x54a802]
+ --- /home/ttuser/bcx_e2e_venv/bin/python() [0x5a3778]
+ --- /home/ttuser/bcx_e2e_venv/bin/python(PyObject_Call+0x6c) [0x54b12c]
+ --- /home/ttuser/bcx_e2e_venv/bin/python(_PyEval_EvalFrameDefault+0x4cbe) [0x5db2ee]
+ --- /home/ttuser/bcx_e2e_venv/bin/python(PyObject_Vectorcall+0x35) [0x5499b5]
+ --- /home/ttuser/bcx_e2e_venv/lib/python3.12/site-packages/jaxlib/libjax_common.so(+0x3aad4e1) [0x79c79599d4e1]
+ --- /home/ttuser/bcx_e2e_venv/lib/python3.12/site-packages/jaxlib/libjax_common.so(+0x3a68dc2) [0x79c795958dc2]
+ --- /home/ttuser/bcx_e2e_venv/lib/python3.12/site-packages/jaxlib/libjax_common.so(+0x3a70c68) [0x79c795960c68]
+ --- /home/ttuser/bcx_e2e_venv/lib/python3.12/site-packages/jaxlib/libjax_common.so(+0x3a6aae9) [0x79c79595aae9]
+ --- /home/ttuser/bcx_e2e_venv/lib/python3.12/site-packages/jaxlib/libjax_common.so(+0x3db6e3c) [0x79c795ca6e3c]
+ --- /home/ttuser/bcx_e2e_venv/lib/python3.12/site-packages/jaxlib/libjax_common.so(+0x3db7021) [0x79c795ca7021]
+ --- /home/ttuser/bcx_e2e_venv/lib/python3.12/site-packages/jaxlib/libjax_common.so(+0x8f2c3d3) [0x79c79ae1c3d3]
+ --- /home/ttuser/bcx_e2e_venv/lib/python3.12/site-packages/jaxlib/libjax_common.so(+0x8f2ba3e) [0x79c79ae1ba3e]
+ --- /home/ttuser/bcx_e2e_venv/lib/python3.12/site-packages/jaxlib/libjax_common.so(+0xde1e94b) [0x79c79fd0e94b]
+ --- /home/ttuser/bcx_e2e_venv/lib/python3.12/site-packages/jaxlib/libjax_common.so(+0xde21f1f) [0x79c79fd11f1f]
+ --- /home/ttuser/bcx_e2e_venv/lib/python3.12/site-packages/jaxlib/libjax_common.so(+0xde23a06) [0x79c79fd13a06]
+ --- /home/ttuser/bcx_e2e_venv/lib/python3.12/site-packages/jaxlib/libjax_common.so(+0xde24873) [0x79c79fd14873]
+ --- /home/ttuser/bcx_e2e_venv/lib/python3.12/site-packages/jaxlib/libjax_common.so(+0x97dcb85) [0x79c79b6ccb85]
+ --- /home/ttuser/bcx_e2e_venv/lib/python3.12/site-packages/jaxlib/libjax_common.so(+0x97dcead) [0x79c79b6ccead]
+ --- /home/ttuser/bcx_e2e_venv/lib/python3.12/site-packages/jaxlib/libjax_common.so(+0x97dcfd2) [0x79c79b6ccfd2]
+ --- /home/ttuser/bcx_e2e_venv/lib/python3.12/site-packages/jaxlib/libjax_common.so(+0xde22ba8) [0x79c79fd12ba8]
+ --- /home/ttuser/bcx_e2e_venv/lib/python3.12/site-packages/jaxlib/libjax_common.so(+0xde21f68) [0x79c79fd11f68]
+ --- /home/ttuser/bcx_e2e_venv/lib/python3.12/site-packages/jaxlib/libjax_common.so(+0xde2351d) [0x79c79fd1351d]
+ --- /home/ttuser/bcx_e2e_venv/lib/python3.12/site-packages/jaxlib/libjax_common.so(+0x78ce044) [0x79c7997be044]
+ --- /home/ttuser/bcx_e2e_venv/lib/python3.12/site-packages/jaxlib/libjax_common.so(+0x78cded1) [0x79c7997bded1]
+ --- /home/ttuser/bcx_e2e_venv/lib/python3.12/site-packages/jaxlib/libjax_common.so(+0x78bd28f) [0x79c7997ad28f]
+ --- /lib/x86_64-linux-gnu/libc.so.6(+0x9cb84) [0x79c7a1e9cb84]
+ --- /lib/x86_64-linux-gnu/libc.so.6(+0x129ecc) [0x79c7a1f29ecc]
+

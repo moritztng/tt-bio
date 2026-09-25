@@ -1,0 +1,117 @@
+{
+ "seed": 100,
+ "bucket": 32,
+ "loadavg_start": [
+  24.341796875,
+  25.3974609375,
+  25.99755859375
+ ],
+ "arms": {
+  "jax": {
+   "reused_from": "perf/bcx_extramsa/runs/seqgrad/grads.npz",
+   "g_l2": 0.29185047553040244
+  },
+  "evo+extra": {
+   "loss": 8.467227935791016,
+   "seconds_incl_compile": 63.0,
+   "g_l2": 0.3472538095546527,
+   "aiclk_during": {
+    "n": 61,
+    "aiclk_min": 1306,
+    "aiclk_med": 1350,
+    "aiclk_max": 1350,
+    "load1": 25.5
+   }
+  },
+  "evo": {
+   "loss": 8.371460914611816,
+   "seconds_incl_compile": 105.6,
+   "g_l2": 2.561507268074482,
+   "aiclk_during": {
+    "n": 103,
+    "aiclk_min": 1312,
+    "aiclk_med": 1350,
+    "aiclk_max": 1350,
+    "load1": 25.4
+   }
+  },
+  "evo#2": {
+   "loss": 8.371460914611816,
+   "seconds_incl_compile": 111.6,
+   "g_l2": 2.561507268074482,
+   "aiclk_during": {
+    "n": 109,
+    "aiclk_min": 1343,
+    "aiclk_med": 1350,
+    "aiclk_max": 1350,
+    "load1": 24.6
+   }
+  }
+ },
+ "extra_calls": {
+  "primal": 0,
+  "taped": 2,
+  "backward": 1
+ },
+ "extra_mask_seen": {
+  "calls": 2,
+  "abs_max": 0.0,
+  "shapes": [
+   [
+    1,
+    275
+   ]
+  ]
+ },
+ "graded": {
+  "evo+extra_vs_jax": {
+   "rel_l2": 1.0852026674212005,
+   "cos": 0.5202578653418257,
+   "norm_ratio": 1.1898346539390128
+  },
+  "evo_vs_jax": {
+   "rel_l2": 8.613276557536212,
+   "cos": 0.21894848680056608,
+   "norm_ratio": 8.776779491002221
+  },
+  "evo#2_vs_jax": {
+   "rel_l2": 8.613276557536212,
+   "cos": 0.21894848680056608,
+   "norm_ratio": 8.776779491002221
+  },
+  "evo_vs_evo+extra": {
+   "rel_l2": 7.3864648601717695,
+   "cos": 0.05778135229813826,
+   "norm_ratio": 7.376469883396162
+  },
+  "evo#2_vs_evo+extra": {
+   "rel_l2": 7.3864648601717695,
+   "cos": 0.05778135229813826,
+   "norm_ratio": 7.376469883396162
+  },
+  "evo#2_vs_evo": {
+   "rel_l2": 0.0,
+   "cos": 1.0,
+   "norm_ratio": 1.0
+  }
+ },
+ "stamp": {
+  "host": "tt-quietbox2",
+  "card": 3,
+  "subsystem_device": "0x0046",
+  "commit": "afddfccdd1cdc4274f2be0dc66a6ce1e35dfff72",
+  "tt_bio_dirty": false,
+  "torch_threads": 6,
+  "loadavg": [
+   24.50341796875,
+   25.11474609375,
+   25.75
+  ],
+  "utc": "2026-09-25T01:17:39Z"
+ },
+ "loadavg_end": [
+  24.50341796875,
+  25.11474609375,
+  25.75
+ ]
+}
