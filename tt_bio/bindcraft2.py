@@ -91,6 +91,7 @@ class _Trunk:
                                            trunk_dtype=torch.bfloat16)
         self.device = self.model._device
         self.blocks = len(self.model.device_evoformer)
+        self.extra_blocks = len(self.model.device_extra_msa)
 
     def up(self, t: torch.Tensor):
         return self.ttnn.from_torch(t.detach().unsqueeze(0).to(torch.bfloat16),
@@ -119,6 +120,28 @@ class _Trunk:
             else:
                 m, z = block(m, z, msa_mask, *pair_masks)
         return m, z
+
+    def extra_msa(self, z, pair_masks, recompute: bool):
+        """The extra-MSA stack's four pair blocks, `pair -> pair`, left on card throughout.
+
+        `AF2DeviceModel.extra_msa_stack` is this same loop with the dead MSA track written for
+        its taps and the pair brought back to host at the end. Here the pair stays on card and
+        under the tape, which is what makes it differentiable.
+
+        The MSA track is not computed and none is owed. BindCraft 2 feeds `extra_msa` as a
+        single zero row under an all-zero `extra_msa_mask` (`bindcraft/af2.py:134`), so the MSA
+        track reaches `pair` only through an outer product mean that collapses to
+        `proj_o.bias / eps` -- which is exactly the `opm_constant` injected here.
+        """
+        model = self.model
+        for index, block in enumerate(model.device_extra_msa):
+            const = model._up(model.opm_constant[index].reshape(1, 1, -1))
+            if recompute:
+                z = self.ag.checkpoint(
+                    lambda t, blk=block, c=const: blk(blk._residual(t, c), *pair_masks), z)
+            else:
+                z = block(block._residual(z, const), *pair_masks)
+        return z
 
     def seed(self, t: torch.Tensor, like):
         """A cotangent in the root's own device shape."""
@@ -489,15 +512,186 @@ class EvoformerOnDevice:
         return stack
 
 
-def find_evoformer_masks(fn, depth: int = 0, seen=None):
+class ExtraMsaOnDevice:
+    """BindCraft 2's extra-MSA stack, run on card, differentiable in `pair` alone.
+
+    `EvoformerOnDevice` replaces the 48-block trunk; this replaces the 4-block extra-MSA stack
+    that runs before it. The cut is `pair` alone: `modules.py:1530` reads only `pair` out of the
+    stack, and the MSA track collapses to a constant under BindCraft 2's all-zero
+    `extra_msa_mask`, so no gradient into `extra_msa` comes back and none is owed.
+
+    `_check_mask` refuses any nonzero mask rather than folding it against the wrong constant, so
+    a featurisation that ever carries a real extra MSA stops here instead of agreeing quietly.
+
+    Its tapes live in their own registry. JAX runs the extra-MSA forward, then the Evoformer
+    forward, then the two backwards in reverse, so a registry shared with `EvoformerOnDevice`
+    would have the Evoformer's stale-tape sweep drop this stack's live tape before its backward.
+    """
+
+    def __init__(self, pool: TrunkPool, *, recompute: bool = True):
+        self.pool = pool
+        self.recompute = recompute
+        self.calls = {"primal": 0, "taped": 0, "backward": 0}
+        #: What the mask actually carried, so a refusal can be explained after the fact.
+        self.mask_seen = {"calls": 0, "abs_max": 0.0}
+        self.swapped: list[int] = []
+        self._pair_mask_dev: dict = {}
+        self._live: dict[int, dict] = {}
+        self._next = 0
+
+    # ------------------------------------------------------------------ inputs
+
+    @staticmethod
+    def _pad(z, pair_mask):
+        """The pair half of `EvoformerOnDevice._pad`, which is all this swap hands the card."""
+        n = z.shape[0]
+        n32 = _pad32(n)
+        if n32 == n:
+            return z, pair_mask, n
+        pad = n32 - n
+        z = torch.nn.functional.pad(z, (0, 0, 0, pad, 0, pad))
+        pair_mask = torch.nn.functional.pad(pair_mask, (0, pad, 0, pad))
+        return z, pair_mask, n
+
+    def _check_mask(self, extra_mask_np):
+        a = np.asarray(extra_mask_np)
+        self.mask_seen["calls"] += 1
+        self.mask_seen["abs_max"] = max(self.mask_seen["abs_max"], float(np.abs(a).max()))
+        if a.any():
+            raise ValueError(
+                f"extra_msa_mask carries {int((a != 0).sum())} nonzero entries; this swap "
+                f"injects the outer product mean an all-zero mask collapses to and is wrong "
+                f"for anything else")
+
+    def _inputs(self, pair_np, extra_mask_np, pair_mask_np):
+        self._check_mask(extra_mask_np)
+        as_t = lambda a: torch.from_numpy(np.asarray(a).copy()).float()  # noqa: E731
+        return self._pad(as_t(pair_np), as_t(pair_mask_np))
+
+    def _trunk(self) -> _Trunk:
+        trunk = self.pool.current
+        if trunk.extra_blocks == 0:
+            raise ValueError(f"{self.pool._current!r} holds no extra-MSA blocks on card")
+        return trunk
+
+    def _pair_masks(self, trunk, pair_mask):
+        """`af2_pair_masks` for this mask, keyed on the mask itself for the reason
+        `EvoformerOnDevice._key` gives: two binder lengths routinely pad to one shape."""
+        from tt_bio.af2 import af2_pair_masks
+        key = EvoformerOnDevice._key(pair_mask)
+        got = self._pair_mask_dev.get(key)
+        if got is None:
+            got = self._pair_mask_dev[key] = af2_pair_masks(pair_mask, trunk.device)
+        return got
+
+    # ------------------------------------------------------------------ forward and backward
+
+    def _primal(self, pair_np, extra_mask_np, pair_mask_np):
+        trunk = self._trunk()
+        z, pair_mask, n = self._inputs(pair_np, extra_mask_np, pair_mask_np)
+        zo = trunk.extra_msa(trunk.up(z), self._pair_masks(trunk, pair_mask), recompute=False)
+        trunk.sync()
+        self.calls["primal"] += 1
+        return trunk.down(zo, tuple(z.shape))[:n, :n].numpy()
+
+    def _taped(self, pair_np, extra_mask_np, pair_mask_np):
+        trunk = self._trunk()
+        z, pair_mask, n = self._inputs(pair_np, extra_mask_np, pair_mask_np)
+        zl = trunk.leaf(z)
+        with trunk.taped.tape():
+            zo = trunk.extra_msa(zl, self._pair_masks(trunk, pair_mask),
+                                 recompute=self.recompute)
+        trunk.sync()
+        # Every recycle but the last is stop_gradient'ed and still goes through the forward
+        # rule, so the superseded tapes are dropped here -- `EvoformerOnDevice._taped`'s reason.
+        self._live.clear()
+        trunk.ag.release_pins()
+        token, self._next = self._next, self._next + 1
+        self._live[token] = {"root": zo, "leaf": zl, "shape": tuple(z.shape), "n": n}
+        self.calls["taped"] += 1
+        return trunk.down(zo.value, tuple(z.shape))[:n, :n].numpy(), np.int32(token)
+
+    def _backward(self, token, g_pair_np):
+        entry = self._live.pop(int(token), None)
+        if entry is None:
+            raise RuntimeError(f"no live extra-MSA tape for token {int(token)}")
+        trunk = self.pool.current
+        shape, n = entry["shape"], entry["n"]
+        gz = torch.zeros(shape)
+        gz[:n, :n] = torch.from_numpy(np.asarray(g_pair_np).copy()).float()
+        trunk.ag.backward([entry["root"]], [trunk.seed(gz, entry["root"])])
+        trunk.sync()
+        out = trunk.grad(entry["leaf"], shape)[:n, :n].numpy()
+        trunk.ag.release_pins()
+        self.calls["backward"] += 1
+        return out
+
+    def live_tapes(self) -> int:
+        return len(self._live)
+
+    # ------------------------------------------------------------------ the JAX face
+
+    def as_jax(self):
+        """`(pair, extra_msa_mask, pair_mask) -> pair`, differentiable in `pair` alone."""
+        import jax
+        import jax.numpy as jnp
+
+        def f32(pair):
+            return jax.ShapeDtypeStruct(pair.shape, jnp.float32)
+
+        def args(pair, extra_mask, pair_mask):
+            return (pair.astype(jnp.float32), extra_mask.astype(jnp.float32),
+                    pair_mask.astype(jnp.float32))
+
+        @jax.custom_vjp
+        def stack(pair, extra_mask, pair_mask):
+            z = jax.pure_callback(self._primal, f32(pair), *args(pair, extra_mask, pair_mask))
+            return z.astype(pair.dtype)
+
+        def fwd(pair, extra_mask, pair_mask):
+            z, token = jax.pure_callback(
+                self._taped, (f32(pair), jax.ShapeDtypeStruct((), jnp.int32)),
+                *args(pair, extra_mask, pair_mask))
+            return z.astype(pair.dtype), (token, extra_mask, pair_mask)
+
+        def bwd(res, g_pair):
+            token, extra_mask, pair_mask = res
+            gz = jax.pure_callback(self._backward, f32(g_pair), token,
+                                   g_pair.astype(jnp.float32))
+            return (gz.astype(g_pair.dtype), jnp.zeros_like(extra_mask),
+                    jnp.zeros_like(pair_mask))
+
+        stack.defvjp(fwd, bwd)
+        return stack
+
+
+def find_evoformer_masks(fn):
     """Recover the Evoformer masks from the closure of AlphaFold 2's `evoformer_fn`.
 
     Replacing the whole `layer_stack` means never seeing the masks dict that
     `EmbeddingsAndEvoformer` builds and `evoformer_fn` closes over. `hk.remat` wraps that closure
     twice, so the walk is recursive rather than one `__wrapped__` hop.
     """
+    return _free_variable(fn, "evoformer_masks", lambda v: isinstance(v, dict) and "msa" in v)
+
+
+def find_extra_msa_masks(fn):
+    """The two masks `extra_msa_stack_fn` uses, read off its closure.
+
+    Unlike `evoformer_fn` there is no masks dict to recover: `modules.py:1522` builds the stack's
+    masks inline from `batch` and `mask_2d`, so those are what the walk looks for.
+    """
+    batch = _free_variable(fn, "batch", lambda v: isinstance(v, dict) and "extra_msa_mask" in v)
+    mask_2d = _free_variable(fn, "mask_2d", lambda v: hasattr(v, "shape"))
+    if batch is None or mask_2d is None:
+        return None
+    return {"msa": batch["extra_msa_mask"], "pair": mask_2d}
+
+
+def _free_variable(fn, want, accept, depth: int = 0, seen=None):
+    """The value `want` names in `fn`'s closure, followed through `hk.remat`'s wrappers."""
     import types
-    seen = set() if seen is None else seen
+    seen = seen if seen is not None else set()
     if depth > 6 or not isinstance(fn, types.FunctionType) or id(fn) in seen:
         return None
     seen.add(id(fn))
@@ -506,9 +700,9 @@ def find_evoformer_masks(fn, depth: int = 0, seen=None):
             value = cell.cell_contents
         except ValueError:
             continue
-        if name == "evoformer_masks" and isinstance(value, dict) and "msa" in value:
+        if name == want and accept(value):
             return value
-        found = find_evoformer_masks(value, depth + 1, seen)
+        found = _free_variable(value, want, accept, depth + 1, seen)
         if found is not None:
             return found
     return None
@@ -526,26 +720,55 @@ def installed() -> EvoformerOnDevice | None:
 
 
 @contextlib.contextmanager
-def evoformer_on_device(evo: EvoformerOnDevice):
+def evoformer_on_device(evo: EvoformerOnDevice,
+                        extra_msa: "ExtraMsaOnDevice | None" = None):
     """Swap AlphaFold 2's Evoformer stack for `evo` for the duration, and nothing else.
 
     `modules.py` calls `layer_stack` three times, twice for the template pair stack and once
     each for the extra-MSA and Evoformer stacks. The closures are distinguishable by name, so
-    this patches the factory and swaps only the one it is asked for. The extra-MSA stack stays in
-    JAX: BindCraft 2 feeds it a single zero row under an all-zero mask, which is what tt-bio's
-    extra-MSA blocks bake into a constant, so it is a legal swap and simply not made yet.
+    this patches the factory and swaps only the ones it is asked for.
+
+    `extra_msa` is the second swap and is independent of the first: the default None leaves the
+    extra-MSA stack in JAX, which is the program every Evoformer-only comparison was graded on.
     """
     from bindcraft.af.alphafold.model import modules
 
     real = modules.layer_stack.layer_stack
     device_stack = evo.as_jax()
+    extra_stack = extra_msa.as_jax() if extra_msa is not None else None
     swapped: list[int] = []
+
+    def choose_extra(fn, made, num_layers):
+        blocks = extra_msa.pool.current.extra_blocks
+        if num_layers != blocks:
+            raise ValueError(f"extra_msa_stack_fn has {num_layers} blocks, tt-bio holds "
+                             f"{blocks}")
+        masks = find_extra_msa_masks(fn)
+        if masks is None:
+            raise RuntimeError(
+                "batch/mask_2d not found in extra_msa_stack_fn's closure. The stack needs the "
+                "extra-MSA and pair masks to fold a padded complex and guessing one is worse "
+                "than stopping.")
+        extra_msa.swapped.append(num_layers)
+
+        def extra_on_device(x):
+            activations, safe_key = x
+            pair = extra_stack(activations["pair"], masks["msa"], masks["pair"])
+            # The scan splits the key once per block and carries the first half on, so what
+            # follows the stack sees the key it would have seen.
+            for _ in range(num_layers):
+                safe_key, _unused = safe_key.split()
+            return {**activations, "pair": pair}, safe_key
+        return extra_on_device
 
     def factory(num_layers, *args, **kwargs):
         made = real(num_layers, *args, **kwargs)
 
         def choose(fn):
-            if getattr(fn, "__name__", None) != "evoformer_fn":
+            name = getattr(fn, "__name__", None)
+            if extra_stack is not None and name == "extra_msa_stack_fn":
+                return choose_extra(fn, made, int(num_layers))
+            if name != "evoformer_fn":
                 return made(fn)
             if evo.host_only:
                 # This fold runs on a checkpoint the card does not hold, or is the control arm
