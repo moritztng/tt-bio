@@ -124,6 +124,11 @@
   "ratio_x": 44.33849075107721,
   "predicted_at_fwd_rate_s": 8.029141136053461
  },
+ "cpu_calibration": {
+  "upstream_cpu_step_s": 394.61,
+  "tt_over_cpu_x": 1.1826917716226146,
+  "note": "same crop/batch/precision and 48 samples vs our 4; the CPU figure is their first step, so it carries warmup"
+ },
  "ceiling": {
   "at_4_samples_x": 73.74024332437985,
   "at_48_samples_unported_s": [

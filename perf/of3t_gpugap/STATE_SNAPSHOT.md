@@ -26,18 +26,22 @@ only at the 4 diffusion samples the step was measured at. At their shipped **48*
 loss heads alone project to **22–38 s per step** against the H200's entire 7–8 s step, so the
 unported fraction goes from harmless to **decisive**: with the whole device side at zero cost the
 step would still be 3–6x slower than the GPU. That is the lever list's first entry and the record
-did not contain it.
+did not contain it. And the gap is **not a hardware gap**: upstream's own step at the same crop,
+batch, precision and 48 samples takes **394.61 s on an 8-core desktop CPU**, so our Blackhole
+step is 1.18x slower than a Ryzen while doing a twelfth of the diffusion work. A sprint that
+reads 58–67x as a silicon problem is reading it wrong.
 
 ## MEASURED
 
 AXES: every ratio in the record, with what each side's step actually contains.
 
-| # | ratio | TT side | GPU side | crop | verdict |
+| # | ratio | TT side | reference side | crop | verdict |
 |---|---|---|---|---|---|
 | 1 | **~5–6x** — 61–70 s/step vs ~12 s/step per rank (`of3t-perf.md:41-42`) | **Protenix v2**, not OpenFold3 | ByteDance's, per rank | unstated | **STRUCK — wrong model.** It sits under the literal sentence *"Calibration from the sibling campaign"*, beside ABodyBuilder3's 3.31x-vs-A100. Neither arm is OF3. `of3t-perf`'s own text four lines above says *"no ratio against our side is claimable yet, and none is given here"* |
 | 2 | **23.7x** — 230.11 s taped vs 9.721 s untaped (`of3t-tapediverge.md:27-28`) | one p300c, trunk, taped, AICLK DURING | **there is no GPU side** — the denominator is the *same p300c* untaped | 384 | **STRUCK as a GPU ratio.** It prices what taping costs us, which is a real and useful TT-internal number, superseded at step scope by `of3t-stepfloor`'s **94.3x** (585.062 s taped vs 6.205 s untaped, same harness, same process shape, same card, same 4-sample config). It answers a different question |
 | 3 | **46–53x** — 370.85 s vs 7–8 s (`of3t/EVIDENCE.md:89`) | p300c qb2 card 3, **trunk only**: fwd 13.53 + bwd 357.32, 2,473 tape nodes, probe off, AICLK median **1350** over 78 DURING samples, loadavg [10.16, 9.60, 9.72] | H200 1980 MHz, **complete Lightning step** — trunk + diffusion + every loss head + optimizer — bf16-mixed, batch 1 | 384 both | **VALID, SUPERSEDED.** The only matched-crop pair in the brief, and its own row says the axes are mismatched in the flattering direction: no diffusion, no losses, no optimizer on the TT side. A matched-scope replacement already exists |
 | 4 | **58–67x** — **466.70 s vs 7–8 s** (`of3t-stepfloor.md:142-152`, `perf/of3t_stepfloor/out/step_rekey_b_384.json` rep 2) | p300c qb2 **dev3**, **full taped training step**: trunk + diffusion + loss heads + backward + optimizer, 9,888 tape nodes, 2,660 of 3,152 weights carrying a gradient, JIT-warm rep 2 of 4, quiet host (loadavg 9.1→12.2), AICLK median **1350** over 578 DURING samples | same H200 arm as row 3 | 384 both | **HEADLINE** |
+| 5 | **1.18x** — 466.70 s vs **394.61 s** (`of3t-theirtest.md:68`) | the same 466.70 s full taped step as row 4 | **not a GPU** — upstream's own Lightning step on qb2's host CPU, AMD Ryzen 7 9700X, 8 cores, torch 2.8.0+cpu, `no_samples` 48 | 384 both | **CALIBRATION, and it is the one the table was missing.** Matched in crop, batch and precision, and their side runs 12x our diffusion samples. We are slower than eight Zen cores. See the section below |
 
 Withdrawn by the record before this row, listed so nobody revives them: **870.75 s ⇒ ~116x**
 (D164 — the allocator probe was 499.90 s, 57.4 % of that wall clock) and **222.48 s ⇒ ~28–32x**
@@ -59,8 +63,18 @@ optimizer on both sides. Everything else in the brief is off-axis: row 1 is Prot
 GPU in it.
 
 What still flatters the TT side, each with its size:
-* **4 diffusion samples against their 48** (`their_step_shape_0.4.3.json`: `initial_training`
-  `no_samples: 48`). The largest unpriced term. Forward is cheap — marginal 0.043 s/sample, so 48
+* **4 diffusion samples against their 48.** The largest unpriced term, and its provenance
+  is worth stating exactly because the obvious citation is the wrong one. The GPU arm did **not**
+  run the shipped `initial_training` stage yaml — it ran the runner yaml upstream's
+  `test_training_full.py` generates (`scripts/datasets/pdb_subset_helpers.py:520`
+  `build_runner_yaml_config`), which overrides `token_budget: 384`, `batch_size: 1`,
+  `precision: bf16-mixed`, `epoch_len: 4`, `max_epochs: 2` and
+  `loss_module.diffusion.chunk_size: 2`, and **does not touch `no_samples`**. The value falls
+  through to the architecture default, read directly from upstream's source:
+  `openfold3/projects/of3_all_atom/config/model_config.py:181`
+  `architecture.shared.diffusion.no_samples: 48`, with `num_recycles: 3` at `:177`. The `train`
+  preset that yaml selects is a **memory** preset — chunk sizes and kernel flags — and changes
+  neither. The stage yaml lands on 48 too; this route is the one that is checkable, and `perf/of3t_gpugap/partition.py --upstream` asserts it against the source rather than quoting it. One bound on that re-check: the tree on pc is **0.4.6.dev12**, while `of3t-theirtest` ran **0.5.0**. So it proves the default is 48 on 0.4.6 as it is on 0.4.3 (`their_step_shape_0.4.3.json`) — 0.5.0 sits between two revisions that agree and is not re-read directly. Forward is cheap — marginal 0.043 s/sample, so 48
   samples is ~2.18 s of forward. The *backward* at 48 is **not projectable from this record**:
   2 samples read 642.54 s and 4 samples read 585.062 s, the wrong way round, because the
   cross-process cold A/A is 24.2 s and the quiet-vs-loaded spread is 18 %. Naming that as
@@ -74,6 +88,33 @@ What still flatters the TT side, each with its size:
 
 Flattering the GPU: the TT host was contended throughout (loadavg 9.1–12.2 even on the quiet arm),
 and arm B rep 2 is the favourable rep. Using arm A's loaded reps instead gives 507–768 s.
+
+## The calibration the ratio table was missing: upstream's own step on a desktop CPU
+
+`of3t-theirtest.md:68` ran upstream's `test_training_full.py` on **qb2's host CPU** — AMD Ryzen 7
+9700X, 8 cores / 16 threads, torch 2.8.0+cpu, no card opened — and their own Lightning loop
+completed **one training step at crop 384, batch 1, bf16-mixed in 394.61 s**. Same generated
+runner yaml as the H200 arm, so the same `no_samples: 48` and the same U{0..3} recycle draw.
+
+**Our p300c full taped step is 466.70 s. Upstream's own step on an 8-core desktop CPU is
+394.61 s. We are 1.18x SLOWER than the CPU while running 4 diffusion samples against its 48.**
+
+Every caveat points the same way, which is what makes it usable:
+* The CPU figure is the **first** step their loop completed, n=1, so it carries warmup. On the
+  H200 the first step was 11 s against a 7–8 s steady state, 1.4–1.6x. A steady CPU step is
+  therefore likely well under 394.61 s and the real gap larger. Direction, not a number.
+* That CPU arm had **four autocast islands disabled** (`of3t-theirtest`), so parts of it ran
+  wider than bf16 — which makes it slower, not faster.
+* Shim 3 changed the model configuration, which is why that run is not reported as a pass of
+  upstream's test. It disables the Triton triangle kernels on the **eval** path; the training
+  step already has `use_triton_triangle_kernels: False` under the `train` memory preset
+  (`model_config.py:97-104`), so the timed step is the unmodified one.
+
+**This is the second, independent proof that the gap is an implementation gap and not a hardware
+gap.** The partition below reaches it from inside — the backward's verbs cost 44.3x what the same
+process's forward verbs cost. This reaches it from outside: a Blackhole losing to eight Zen cores
+is not a FLOPs story. Both say the same thing, and a sprint that reads 58–67x as "we need more
+silicon" is reading it wrong.
 
 ## PROVED — the partition
 

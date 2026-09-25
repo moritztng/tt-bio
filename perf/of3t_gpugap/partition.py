@@ -46,8 +46,26 @@ D164 = {"forward_s": 4.04, "forward_calls": 84_996,
 #: head and the optimizer, H200 at 1980 MHz, crop 384, batch 1, bf16-mixed. n=2 steady.
 GPU_STEP_S = (7.0, 8.0)
 
-#: `perf/of3t_perf/their_step_shape_0.4.3.json`, stage `initial_training`.
+#: Diffusion samples on the reference side. NOT from the shipped `initial_training` stage
+#: yaml -- the H200 and CPU arms both ran the runner yaml upstream's `test_training_full.py`
+#: generates (`scripts/datasets/pdb_subset_helpers.py:520 build_runner_yaml_config`), which
+#: overrides token_budget/batch_size/precision/epoch_len/max_epochs and the diffusion loss
+#: chunk_size but NOT `no_samples`. So it falls through to the architecture default at
+#: `openfold3/projects/of3_all_atom/config/model_config.py:181`
+#: `architecture.shared.diffusion.no_samples: 48` (`num_recycles: 3` at :177). The `train`
+#: preset that yaml selects is a MEMORY preset and changes neither. Both routes give 48;
+#: this is the one that is checkable, and `--upstream <repo>` re-checks it. The tree on pc
+#: (`~/.coworker/scratch/of3-upstream/repo`) is 0.4.6.dev12+g72fc3a953 while `of3t-theirtest`
+#: ran 0.5.0, so what the re-check proves is that the default is 48 on 0.4.6 as well as on
+#: 0.4.3 (`perf/of3t_perf/their_step_shape_0.4.3.json`). 0.5.0 is not directly re-read here;
+#: it is bracketed by two revisions either side that agree.
 THEIR_SAMPLES = 48
+
+#: `of3t-theirtest.md:68` -- upstream's OWN Lightning step, same generated runner yaml, run on
+#: qb2's HOST CPU (Ryzen 7 9700X, 8 cores, torch 2.8.0+cpu, no card). One step, crop 384,
+#: batch 1, bf16-mixed. It is the FIRST step their loop completed, so it carries warmup; on
+#: the H200 the first step was 11 s against a 7-8 s steady state.
+CPU_STEP_S = 394.61
 
 #: `of3t-perf.md` -- an UNTAPED trunk cycle at crop 384, reproducing to 0.3 % across processes.
 UNTAPED_CYCLE_S = 2.40
@@ -62,6 +80,8 @@ def load(name):
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--json")
+    ap.add_argument("--upstream", help="path to an upstream openfold3 checkout; re-checks "
+                                       "no_samples and num_recycles against its source")
     a = ap.parse_args()
 
     rows, out = [], {}
@@ -134,6 +154,27 @@ def main() -> int:
     print(f'  with the ENTIRE device side at zero that is still '
           f'{lo48 / GPU_STEP_S[1]:.1f}-{hi48 / GPU_STEP_S[0]:.1f}x slower than the GPU\'s whole step')
 
+    # The calibration that says this is an implementation gap and not a hardware one.
+    print(f'\nCALIBRATION vs upstream\'s own step on an 8-core desktop CPU '
+          f'({CPU_STEP_S} s, same crop/batch/precision, {THEIR_SAMPLES} samples):')
+    print(f'  our p300c step is {head["step_s"] / CPU_STEP_S:.2f}x the CPU\'s, at '
+          f'4 samples against its {THEIR_SAMPLES}. A Blackhole losing to eight Zen cores is '
+          f'not a FLOPs story')
+
+    if a.upstream:
+        import pathlib as _pl
+        mc = (_pl.Path(a.upstream) / "openfold3/projects/of3_all_atom/config/model_config.py")
+        src = mc.read_text()
+        # The runner-yaml generator must not override no_samples, or the default is not what ran.
+        gen = (_pl.Path(a.upstream) / "scripts/datasets/pdb_subset_helpers.py").read_text()
+        i = gen.index("def build_runner_yaml_config")
+        body = gen[i:gen.index("\ndef ", i + 1)]
+        assert "no_samples" not in body, "the generator DOES set no_samples -- re-read the axis"
+        assert f'"no_samples": {THEIR_SAMPLES},' in src, "architecture default moved"
+        assert '"num_recycles": 3,' in src, "recycle default moved"
+        print(f'  upstream re-checked at {a.upstream}: architecture default no_samples '
+              f'{THEIR_SAMPLES}, num_recycles 3, and build_runner_yaml_config overrides neither')
+
     out = {"doc": "of3t-gpugap: the OF3 training step partitioned into ported and unported",
            "reps": rows, "headline": {"tt_step_s": head["step_s"], "gpu_step_s": GPU_STEP_S,
                                       "ratio_x": [lo, hi], "crop": 384, "scope": "whole step",
@@ -142,6 +183,10 @@ def main() -> int:
            "backward_verb_rate": {**D164, "fwd_ms_per_call": 1000 * fw,
                                   "bwd_ms_per_call": 1000 * bw, "ratio_x": bw / fw,
                                   "predicted_at_fwd_rate_s": pred},
+           "cpu_calibration": {"upstream_cpu_step_s": CPU_STEP_S,
+                               "tt_over_cpu_x": head["step_s"] / CPU_STEP_S,
+                               "note": "same crop/batch/precision and 48 samples vs our 4; the "
+                                       "CPU figure is their first step, so it carries warmup"},
            "ceiling": {"at_4_samples_x": head["amdahl_ceiling_x"],
                        "at_48_samples_unported_s": [lo48, hi48]}}
     if a.json:
