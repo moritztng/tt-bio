@@ -101,6 +101,13 @@ On each, the upstream draw is worse than seven of the device's eight. One draw c
 two sides either way and we do not claim it does, but across three targets nothing measured so
 far says the card is the weaker one.
 
+**At 1536 residues upstream fails the same way, and that is the important part of this
+section.** Two upstream CPU draws on the 1GPB window read 20.2 and 21.2 A against the device's
+19.4 A median over eight designs, and one draw on GroEL reads 12.8 A against 15.6 A. Not one of
+the three is under 4 A. The size at which BoltzGen stops returning a binder that refolds is the
+model's, not the card's, so cropping the target is the fix and running the same job on other
+hardware will not raise the ceiling.
+
 So the number to act on is the target, not the card: crop to the surface you actually want
 bound. A 120-residue target is a different problem from a
 512-residue one, and residues you hand the model that are not part of the interface tend to
@@ -150,21 +157,28 @@ every 512-residue cell is a single chain and every cell at 1024 or 1536 has a se
 it, which is not a choice we made: GroEL's chains are about 524 residues and 1GPB's longest is
 823, so on those two targets a bigger crop is also a multi-chain crop. To separate the two we
 measured a third protein, fatty acid synthase (2VZ8), whose chain A is 1962 residues on its
-own, and cropped it to 512, 768 and 1024 residues of that single chain:
+own, and cropped it to 512 through 1536 residues of that single chain:
 
 | single chain of | scRMSD median | designable at 4 A |
 |---|---|---|
 | 512 residues | **3.8 A** | 50 % |
 | 768 residues | **9.1 A** | 25 % |
 | 1024 residues | **10.7 A** | 0 % |
+| 1280 residues | **1.9 A** | 75 % |
+| 1280 residues, second window | **5.9 A** | 38 % |
 | 1536 residues | **3.3 A** | 50 % |
+| 1536 residues, second window | **1.9 A** | 75 % |
 
-That last row is not a typo, and it is the clearest result we have on chains: **a single chain
-still designs at 1536 residues**, where every multi-chain cell at that size, four of them across
-the other two targets, returned nothing under 4 A. The dip at 1024 is real and we cannot explain
-it — the 1536 crop contains the 1024 crop, so the same residues that returned nothing usable
-return four good designs once more of the same chain is added. Two windows at 1024 both came
-back at 0 of 8, so the dip is not one unlucky crop either.
+The 1536 rows are not a typo, and they are the clearest result we have on chains: **a single
+chain still designs at 1536 residues**, where every multi-chain cell at that size, four of them
+across the other two targets, returned nothing under 4 A. It holds on a second window of the
+same chain, which came back better than either 512 cell.
+
+The dip at 1024 we cannot explain — the 1536 crop contains the 1024 crop, so the same residues
+that returned nothing usable return good designs once more of the same chain is added, and two
+different windows at 1024 both came back at 0 of 8. The two windows at 1280 are 6 of 8 and 3 of
+8, which is the practical lesson: at these extents on one chain, which window you take moves
+the result more than how big you make it.
 
 Across every crop we have measured, the pattern is one-sided. Eight multi-chain crops, on two
 targets, returned **zero** usable designs between them — eleven runs in all, since some were

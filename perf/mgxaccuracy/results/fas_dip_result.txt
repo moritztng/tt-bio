@@ -1,0 +1,49 @@
+# THE THREE FAS CELLS OF plans/fas_dip.txt, READ BY THE PLAN'S OWN TWO CLAUSES.
+# 2026-09-25. Launched 23:18Z on cards 0/2/3, finished 01:53Z (both 1280) and 02:41Z
+# (1536/off426), all rc 0, AICLK median 1000 sampled during, tree ff5435cba, n=8 each.
+# Harvested with harvest.py --engine groel-onetree-ff5435cba, read with fas_read.py --dip.
+
+  size  offset   n   median     range              <=2A    <=4A     wall_s   card
+   512       0   8    3.782    1.363-11.155     12.5%   50.0%       1848.6     0
+  1024       0   8   10.665    4.774-13.576      0.0%    0.0%       5406.3     2
+  1280       0   8    1.935    0.967-13.457     50.0%   75.0%       9300.9     2   new
+  1280     682   8    5.892    0.804-10.969     25.0%   37.5%       9286.0     3   new
+  1536       0   8    3.274    0.783-12.322     25.0%   50.0%      11917.0     3
+  1536     426   8    1.867    0.707-10.058     62.5%   75.0%      12167.9     0   new
+
+## CLAUSE A -- THE VERDICT CELL'S SECOND WINDOW: VERDICT HOLDS
+
+  1536/off0  -> 1536/off426    -1.407 A   U = 44.0 of 64   p = 0.2345   does not reject
+   512/off0  -> 1536/off426    -1.915 A   U = 48.0 of 64   p = 0.1049   does not reject
+  1536/off426: 6 of 8 under 4 A, 5 of 8 under the strict 2 A bar.
+
+The single-chain 1536 result replicates on an independent window of the same chain (72 %
+overlap, the most a 1962-residue chain allows at this size), and the second window is the
+BETTER of the two: 1.867 A median against 3.274. It is also better than FAS at 512. Against it
+sit eight multi-chain 1536-and-above cells on two other targets, every one at 0 of 8 under
+4 A. So a single chain still designs at 1536 residues.
+
+This was the clause that could have taken the verdict down, and it was written before either
+1536 cell existed. It holds.
+
+## CLAUSE B -- THE 1024 DIP: NO CALL, WHICH IS ITSELF THE ANSWER
+
+  1280/off0    median 1.935 A, 6 of 8 under 4 A
+  1280/off682  median 5.892 A, 3 of 8 under 4 A
+
+The plan offered trough / slope / wide and the two windows land in different ones, so none is
+chosen. What the disagreement says is not nothing: at 1280 residues on one chain the WINDOW
+moves the median by 3.96 A while the size between 1024 and 1536 moves it by less, so at this
+extent the window dominates the size. The 1024 dip -- 0 of 8 at 1024 between 4 of 8 at 512 and
+4 of 8 at 1536 -- is consistent with that and stays unexplained as a size effect, which is the
+reading the plan's own text calls the answer to "is the dip a window artefact".
+
+Do not turn this into "the FAS ladder is flat". Two of its six cells return 0 % and four return
+37-75 %, and the ordering across sizes is not monotone. What the ladder supports is the chain
+claim, not a size curve.
+
+## THE LIMIT THE READER PRINTS ITSELF
+
+A verdict is not retracted by a cell run after it under a rule written after it. Clause A was
+pre-registered in plans/fas_dip.txt and is read here as written; clause B declines rather than
+picking one of three branches after seeing the numbers.
