@@ -1,0 +1,524 @@
+{
+ "stamp": {
+  "host": "tt-quietbox2",
+  "card": 0,
+  "subsystem_device": "0x0046",
+  "commit": "0613395ee4aefb162bb22c1b420da4129ac91ba1",
+  "tt_bio_dirty": false,
+  "torch_threads": 6,
+  "loadavg": [
+   10.111328125,
+   9.2255859375,
+   11.84765625
+  ],
+  "utc": "2026-09-25T08:49:02Z",
+  "pci": "0000:01:00.0",
+  "argv": [
+   "/home/ttuser/.coworker/wt/bcx-concurrent/perf/bcx_tracewire/round_ab.py",
+   "--arm",
+   "eager",
+   "--extra-msa",
+   "--seed",
+   "100",
+   "--rounds",
+   "10",
+   "--card",
+   "0",
+   "--project",
+   "/home/ttuser/.coworker/wt/bcx-concurrent/perf/bcx_concurrent/runs/B_0848Z/projects/n3_card0",
+   "--out",
+   "/home/ttuser/.coworker/wt/bcx-concurrent/perf/bcx_concurrent/runs/B_0848Z/n3_card0.json"
+  ],
+  "aiclk_node": "/sys/class/tenstorrent/tenstorrent!0/tt_aiclk",
+  "region_mb": 768,
+  "length_bucket_size": 32,
+  "seed": 100,
+  "extra_msa_on_device": true
+ },
+ "mode": "eager",
+ "wall_s": 114.3,
+ "rounds": [
+  {
+   "i": 0,
+   "arm": "eager",
+   "s": 0.015639543533325195,
+   "aiclk": {
+    "n": 0
+   },
+   "load1": 10.1,
+   "span": [
+    1790326145.8995404,
+    1790326145.91518
+   ],
+   "calls": {
+    "primal": 0,
+    "taped": 0,
+    "backward": 0
+   },
+   "trunk": {
+    "taped": 0.0,
+    "backward": 0.0,
+    "cpu": 0.0,
+    "extra": 0.0,
+    "extra_cpu": 0.0
+   },
+   "seg": {
+    "write": 0.0,
+    "enqueue": 0.0,
+    "wait": 0.0,
+    "read": 0.0
+   },
+   "captures": 0,
+   "extra_calls": {
+    "primal": 0,
+    "taped": 0,
+    "backward": 0
+   }
+  },
+  {
+   "i": 1,
+   "arm": "eager",
+   "s": 29.39373207092285,
+   "aiclk": {
+    "n": 110,
+    "min": 1337,
+    "median": 1350,
+    "max": 1350
+   },
+   "load1": 10.1,
+   "span": [
+    1790326145.91518,
+    1790326175.308912
+   ],
+   "calls": {
+    "primal": 0,
+    "taped": 2,
+    "backward": 1
+   },
+   "trunk": {
+    "taped": 2.2554365250107367,
+    "backward": 5.484187194000697,
+    "cpu": 6.877011206999999,
+    "extra": 0.80758014699677,
+    "extra_cpu": 0.3916046100000001
+   },
+   "seg": {
+    "write": 0.0,
+    "enqueue": 0.0,
+    "wait": 0.0,
+    "read": 0.0
+   },
+   "captures": 0,
+   "extra_calls": {
+    "primal": 0,
+    "taped": 2,
+    "backward": 1
+   }
+  },
+  {
+   "i": 2,
+   "arm": "eager",
+   "s": 11.403176307678223,
+   "aiclk": {
+    "n": 40,
+    "min": 1331,
+    "median": 1350,
+    "max": 1350
+   },
+   "load1": 9.3,
+   "span": [
+    1790326175.308912,
+    1790326186.7120883
+   ],
+   "calls": {
+    "primal": 0,
+    "taped": 4,
+    "backward": 2
+   },
+   "trunk": {
+    "taped": 4.400344521010993,
+    "backward": 11.115902320016176,
+    "cpu": 14.227105775999998,
+    "extra": 1.4530047119769733,
+    "extra_cpu": 0.7861060920000003
+   },
+   "seg": {
+    "write": 0.0,
+    "enqueue": 0.0,
+    "wait": 0.0,
+    "read": 0.0
+   },
+   "captures": 0,
+   "extra_calls": {
+    "primal": 0,
+    "taped": 4,
+    "backward": 2
+   }
+  },
+  {
+   "i": 3,
+   "arm": "eager",
+   "s": 10.02843952178955,
+   "aiclk": {
+    "n": 36,
+    "min": 1337,
+    "median": 1350,
+    "max": 1350
+   },
+   "load1": 11.9,
+   "span": [
+    1790326186.7120883,
+    1790326196.7405279
+   ],
+   "calls": {
+    "primal": 0,
+    "taped": 6,
+    "backward": 3
+   },
+   "trunk": {
+    "taped": 6.525800150033319,
+    "backward": 16.35087376201409,
+    "cpu": 21.135958212,
+    "extra": 2.07409510697471,
+    "extra_cpu": 1.1636384880000001
+   },
+   "seg": {
+    "write": 0.0,
+    "enqueue": 0.0,
+    "wait": 0.0,
+    "read": 0.0
+   },
+   "captures": 0,
+   "extra_calls": {
+    "primal": 0,
+    "taped": 6,
+    "backward": 3
+   }
+  },
+  {
+   "i": 4,
+   "arm": "eager",
+   "s": 9.154205560684204,
+   "aiclk": {
+    "n": 32,
+    "min": 1343,
+    "median": 1350,
+    "max": 1350
+   },
+   "load1": 11.5,
+   "span": [
+    1790326196.7405279,
+    1790326205.8947334
+   ],
+   "calls": {
+    "primal": 0,
+    "taped": 8,
+    "backward": 4
+   },
+   "trunk": {
+    "taped": 8.633456081995973,
+    "backward": 21.49260849301936,
+    "cpu": 27.963073714999997,
+    "extra": 2.6460201029549353,
+    "extra_cpu": 1.483695039000001
+   },
+   "seg": {
+    "write": 0.0,
+    "enqueue": 0.0,
+    "wait": 0.0,
+    "read": 0.0
+   },
+   "captures": 0,
+   "extra_calls": {
+    "primal": 0,
+    "taped": 8,
+    "backward": 4
+   }
+  },
+  {
+   "i": 5,
+   "arm": "eager",
+   "s": 10.180633783340454,
+   "aiclk": {
+    "n": 36,
+    "min": 1343,
+    "median": 1350,
+    "max": 1350
+   },
+   "load1": 10.9,
+   "span": [
+    1790326205.8947334,
+    1790326216.0753672
+   ],
+   "calls": {
+    "primal": 0,
+    "taped": 10,
+    "backward": 5
+   },
+   "trunk": {
+    "taped": 10.747156171011738,
+    "backward": 26.65066584199667,
+    "cpu": 34.810507943,
+    "extra": 3.2420741959358566,
+    "extra_cpu": 1.8484768109999998
+   },
+   "seg": {
+    "write": 0.0,
+    "enqueue": 0.0,
+    "wait": 0.0,
+    "read": 0.0
+   },
+   "captures": 0,
+   "extra_calls": {
+    "primal": 0,
+    "taped": 10,
+    "backward": 5
+   }
+  },
+  {
+   "i": 6,
+   "arm": "eager",
+   "s": 9.641291618347168,
+   "aiclk": {
+    "n": 35,
+    "min": 1343,
+    "median": 1350,
+    "max": 1350
+   },
+   "load1": 10.0,
+   "span": [
+    1790326216.0753672,
+    1790326225.7166588
+   ],
+   "calls": {
+    "primal": 0,
+    "taped": 12,
+    "backward": 6
+   },
+   "trunk": {
+    "taped": 12.892772713006707,
+    "backward": 31.828483352001058,
+    "cpu": 41.669429554,
+    "extra": 3.8818635549396276,
+    "extra_cpu": 2.279057977
+   },
+   "seg": {
+    "write": 0.0,
+    "enqueue": 0.0,
+    "wait": 0.0,
+    "read": 0.0
+   },
+   "captures": 0,
+   "extra_calls": {
+    "primal": 0,
+    "taped": 12,
+    "backward": 6
+   }
+  },
+  {
+   "i": 7,
+   "arm": "eager",
+   "s": 11.05575156211853,
+   "aiclk": {
+    "n": 36,
+    "min": 1337,
+    "median": 1350,
+    "max": 1350
+   },
+   "load1": 11.0,
+   "span": [
+    1790326225.7166588,
+    1790326236.7724104
+   ],
+   "calls": {
+    "primal": 0,
+    "taped": 14,
+    "backward": 7
+   },
+   "trunk": {
+    "taped": 15.03455463499995,
+    "backward": 37.833859003992984,
+    "cpu": 49.359460606999995,
+    "extra": 4.4905529649113305,
+    "extra_cpu": 2.649792478
+   },
+   "seg": {
+    "write": 0.0,
+    "enqueue": 0.0,
+    "wait": 0.0,
+    "read": 0.0
+   },
+   "captures": 0,
+   "extra_calls": {
+    "primal": 0,
+    "taped": 14,
+    "backward": 7
+   }
+  },
+  {
+   "i": 8,
+   "arm": "eager",
+   "s": 10.483924865722656,
+   "aiclk": {
+    "n": 38,
+    "min": 1343,
+    "median": 1350,
+    "max": 1350
+   },
+   "load1": 11.4,
+   "span": [
+    1790326236.7724104,
+    1790326247.2563353
+   ],
+   "calls": {
+    "primal": 0,
+    "taped": 16,
+    "backward": 8
+   },
+   "trunk": {
+    "taped": 17.13538617300219,
+    "backward": 43.0055197509937,
+    "cpu": 56.209269998999986,
+    "extra": 5.157405747915618,
+    "extra_cpu": 3.08378714
+   },
+   "seg": {
+    "write": 0.0,
+    "enqueue": 0.0,
+    "wait": 0.0,
+    "read": 0.0
+   },
+   "captures": 0,
+   "extra_calls": {
+    "primal": 0,
+    "taped": 16,
+    "backward": 8
+   }
+  },
+  {
+   "i": 9,
+   "arm": "eager",
+   "s": 9.136950254440308,
+   "aiclk": {
+    "n": 33,
+    "min": 1318,
+    "median": 1350,
+    "max": 1350
+   },
+   "load1": 10.4,
+   "span": [
+    1790326247.2563353,
+    1790326256.3932855
+   ],
+   "calls": {
+    "primal": 0,
+    "taped": 18,
+    "backward": 9
+   },
+   "trunk": {
+    "taped": 19.233797985012643,
+    "backward": 48.13250556398998,
+    "cpu": 63.01695790799999,
+    "extra": 5.740018511889502,
+    "extra_cpu": 3.4168436699999996
+   },
+   "seg": {
+    "write": 0.0,
+    "enqueue": 0.0,
+    "wait": 0.0,
+    "read": 0.0
+   },
+   "captures": 0,
+   "extra_calls": {
+    "primal": 0,
+    "taped": 18,
+    "backward": 9
+   }
+  }
+ ],
+ "calls": {
+  "primal": 0,
+  "taped": 18,
+  "backward": 9
+ },
+ "extra_calls": {
+  "primal": 0,
+  "taped": 18,
+  "backward": 9
+ },
+ "wire": {
+  "captures": [],
+  "replays": {},
+  "capture_s_total": 0,
+  "seg_s": {
+   "write": 0.0,
+   "enqueue": 0.0,
+   "wait": 0.0,
+   "read": 0.0
+  },
+  "l1_foreign": []
+ },
+ "per_arm": {
+  "eager": {
+   "median": 10.104536652565002,
+   "p10": 9.149028968811034,
+   "p90": 11.159978985786438,
+   "mean": 10.135546684265137,
+   "min": 9.136950254440308,
+   "max": 11.403176307678223,
+   "n": 8,
+   "trunk_s": {
+    "median": 7.2979631685011555,
+    "p10": 7.2421927515795685,
+    "p90": 7.887783457606565,
+    "mean": 7.453334978748899,
+    "min": 7.225397625006735,
+    "max": 8.147157573985169,
+    "n": 8
+   },
+   "trunk_cpu_s": {
+    "median": 6.854365501499995,
+    "p10": 6.821287224799999,
+    "p90": 7.452075514199999,
+    "mean": 7.017493337624998,
+    "min": 6.807687909000002,
+    "max": 7.6900310529999985,
+    "n": 8
+   },
+   "extra_s": {
+    "median": 0.6148899024847196,
+    "p10": 0.5794064335757867,
+    "p90": 0.6518530303874286,
+    "mean": 0.6165547956115915,
+    "min": 0.5719249959802255,
+    "max": 0.6668527830042876,
+    "n": 8
+   },
+   "extra_cpu_s": {
+    "median": 0.3741334485000001,
+    "p10": 0.32915653629999986,
+    "p90": 0.4316052148,
+    "mean": 0.37815488249999996,
+    "min": 0.32005655100000086,
+    "max": 0.4339946619999999,
+    "n": 8
+   },
+   "aiclk": {
+    "n": 286,
+    "min": 1318,
+    "median": 1350,
+    "max": 1350
+   },
+   "load1": [
+    9.3,
+    11.9,
+    11.5,
+    10.9,
+    10.0,
+    11.0,
+    11.4,
+    10.4
+   ]
+  }
+ }
+}
