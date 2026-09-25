@@ -30,13 +30,23 @@ a core count the kernel does not actually use is a standing defect class, not a 
 lands on an 11x10 range with the static CB region ending at 1176064 and an L1 buffer at 1132544,
 so the overlap is 43520 bytes.
 
-The threshold and the hardware disagree, which is the defect in one line.
-`_trimul_l1_max_seq()` (`tenstorrent.py:1102`) says the trimul's chunks live in L1 up to
-`TRIANGLE_MULT_L1_MAX_SEQ = 352` (`:667`), 640 in fast mode. Both 224 and 288 are well under it,
-so both are told they fit and both clash. 224 survives only because the ladder demotes it into
-`_TRIMUL_DRAM_SHAPES` and the DRAM leg holds; 288 is where the DRAM leg fails too. So the fast
-path is already unreachable at a size this campaign has published numbers at, and the fix is the
-threshold or the per-core budget behind it, not the throw at 288.
+The threshold and the hardware disagree, and the file already holds the fix's template.
+The trimul's memory config at its call sites (`tenstorrent.py:7176` and `:7217`) comes from
+`_triangle_mul_memory_config(H)` (`:1139`), which decides on a SEQUENCE LENGTH against
+`TRIANGLE_MULT_L1_MAX_SEQ = 352` (`:667`), 640 in fast mode. Both 224 and 288 are well under
+either number, so both are told L1 fits, and both clash.
+
+Fifteen lines above it, `_trimul_l1_fits` (`:1114`) does the same decision properly: it prices
+the chunk's own bytes against `_l1_bank_bytes()` times the REAL grid, and its docstring says the
+rule outright -- priced "per bank ... never on a sequence length". So one gate in this file
+already knows not to do what the other one does, and the tail path uses the good one while the
+main memory config still uses the constant.
+
+224 then survives only by demotion: the ladder drops it into `_TRIMUL_DRAM_SHAPES` and
+`_triangle_mul_memory_config` returns DRAM for that length for the life of the process. 288 is
+where the DRAM leg fails too. So the fast path is already unreachable at a size this campaign has
+published numbers at, and the fix is to price the main config the way `_trimul_l1_fits` prices
+the tail, not to patch the throw at 288.
 
 Knobs to try before writing any code, both already in the engine:
   TT_BIO_TRIMUL_CHUNK_CAP   cap the chunk below where the ladder bottoms out (32)
