@@ -1,0 +1,283 @@
+{
+ "row": "of3t-stepqb2",
+ "tag": "384",
+ "env": {
+  "host": "pc",
+  "commit": "5b7d78de5e79cb4a3734d1fb484d82b2103f5b29",
+  "branch": "wk/of3t-stepqb2",
+  "arch": "Arch.BLACKHOLE",
+  "aiclk_during": null,
+  "aiclk_line": null,
+  "loadavg_start": [
+   2.2216796875,
+   1.85546875,
+   2.7265625
+  ],
+  "loadavg_end": null,
+  "started_utc": "2026-09-25T19:06:42Z"
+ },
+ "host_facts": null,
+ "config": {
+  "crop": 384,
+  "batch": 1,
+  "cards": 1,
+  "cycles_pinned": 4,
+  "diffusion_samples": 4,
+  "stage": "initial_training",
+  "taped": true
+ },
+ "scope": null,
+ "STEP": {
+  "basis": {
+   "basis": "arm KILLED inside `backward`; reconstructed from the per-verb records, which are written as each verb returns",
+   "n": 0
+  },
+  "parts_s": {
+   "trunk_s": 304.415,
+   "diffusion_s": 65.415,
+   "losses_s": 6.078,
+   "backward_s": 95.268
+  },
+  "step_s": null,
+  "step_s_lower_bound": 471.176,
+  "unfinished_phase": "backward",
+  "peak_is_a_lower_bound": true,
+  "breach": {
+   "t": 496.606,
+   "phase": "backward",
+   "rss_gib": 14.5121,
+   "avail_gib": 1.7389,
+   "sm_inflight": 0,
+   "sm_calls": 282,
+   "BREACH": "MemAvailable 1.7389 GiB under the 2.0 GiB floor. Exiting before the kernel OOM-killer picks a victim by score. Every peak in this profile is a LOWER BOUND."
+  },
+  "arm": "exact_on",
+  "exact_training": true,
+  "aiclk_during_from_fullstep": null,
+  "note": "env.aiclk_during is absent because fullstep.py writes it on the last line of main(); the clock for this arm is in the profile JSONL, sampled at 1 Hz off the sysfs class node throughout"
+ },
+ "PARTITION": {
+  "seconds": {
+   "trunk_s": 304.415,
+   "diffusion_s": 65.415,
+   "losses_s": 6.078,
+   "backward_s": 95.268
+  },
+  "memory_phases": {
+   "import": {
+    "samples": 6,
+    "t_first": 0.0,
+    "t_last": 27.991,
+    "rss_min": 0.0152,
+    "rss_max": 6.3835,
+    "avail_min": 11.1068,
+    "dwell_s": 27.99
+   },
+   "import_engine": {
+    "samples": 3,
+    "t_first": 0.259,
+    "t_last": 0.723,
+    "rss_min": 0.1737,
+    "rss_max": 0.2427,
+    "avail_min": 17.1684,
+    "dwell_s": 0.46
+   },
+   "get_device": {
+    "samples": 1,
+    "t_first": 2.204,
+    "t_last": 2.204,
+    "rss_min": 0.4696,
+    "rss_max": 0.4696,
+    "avail_min": 16.4183,
+    "dwell_s": 0.0
+   },
+   "capture_build_fold": {
+    "samples": 42,
+    "t_first": 2.405,
+    "t_last": 10.624,
+    "rss_min": 0.5303,
+    "rss_max": 3.6349,
+    "avail_min": 12.9564,
+    "dwell_s": 8.22
+   },
+   "capture_prep": {
+    "samples": 34,
+    "t_first": 10.825,
+    "t_last": 22.764,
+    "rss_min": 3.6478,
+    "rss_max": 4.5832,
+    "avail_min": 12.2957,
+    "dwell_s": 11.94
+   },
+   "optimizer_init": {
+    "samples": 8,
+    "t_first": 22.966,
+    "t_last": 24.374,
+    "rss_min": 4.4122,
+    "rss_max": 6.0267,
+    "avail_min": 11.3427,
+    "dwell_s": 1.41
+   },
+   "trunk_nograd": {
+    "samples": 12,
+    "t_first": 24.618,
+    "t_last": 27.555,
+    "rss_min": 6.383,
+    "rss_max": 6.3832,
+    "avail_min": 10.5425,
+    "dwell_s": 2.94
+   },
+   "trunk_taped": {
+    "samples": 910,
+    "t_first": 28.3,
+    "t_last": 328.973,
+    "rss_min": 6.3614,
+    "rss_max": 9.859,
+    "avail_min": 6.5263,
+    "dwell_s": 300.67
+   },
+   "diffusion": {
+    "samples": 65,
+    "t_first": 331.561,
+    "t_last": 394.503,
+    "rss_min": 6.5081,
+    "rss_max": 10.1161,
+    "avail_min": 7.2563,
+    "dwell_s": 62.94
+   },
+   "losses": {
+    "samples": 30,
+    "t_first": 394.704,
+    "t_last": 400.517,
+    "rss_min": 10.187,
+    "rss_max": 10.9219,
+    "avail_min": 5.9258,
+    "dwell_s": 5.81
+   },
+   "backward": {
+    "samples": 132,
+    "t_first": 401.338,
+    "t_last": 496.606,
+    "rss_min": 10.1489,
+    "rss_max": 15.0139,
+    "avail_min": 1.7389,
+    "dwell_s": 95.27
+   }
+  },
+  "verbs": [
+   {
+    "verb": "trunk_forward",
+    "s": 3.255,
+    "rss_gib": 6.3832,
+    "avail_gib": 11.1077,
+    "sm_calls": 0,
+    "t_utc": "2026-09-25T19:07:08Z"
+   },
+   {
+    "verb": "trunk_forward",
+    "s": 301.16,
+    "rss_gib": 6.5083,
+    "avail_gib": 11.0538,
+    "sm_calls": 159,
+    "t_utc": "2026-09-25T19:12:10Z"
+   },
+   {
+    "verb": "diffusion",
+    "s": 65.415,
+    "rss_gib": 10.1516,
+    "avail_gib": 7.221,
+    "sm_calls": 279,
+    "t_utc": "2026-09-25T19:13:15Z"
+   },
+   {
+    "verb": "losses",
+    "s": 6.078,
+    "rss_gib": 10.1486,
+    "avail_gib": 7.165,
+    "sm_calls": 279,
+    "t_utc": "2026-09-25T19:13:21Z"
+   },
+   {
+    "verb": "backward",
+    "s": 95.268,
+    "rss_gib": 14.5121,
+    "avail_gib": 1.7389,
+    "sm_calls": 282,
+    "is_lower_bound": true,
+    "note": "the backward NEVER RETURNED -- the memory floor guard exited the process inside it. This is the wall between the phase tag opening and the exit, so it is a FLOOR under the backward, not the backward. Written by reduce-time reconstruction, not by the timing wrapper.",
+    "t_utc": null
+   }
+  ]
+ },
+ "OFFSTEP": {
+  "basis": {
+   "basis": "steady median",
+   "n": 3,
+   "values_s": [
+    39.607,
+    39.886,
+    40.472
+   ],
+   "median_s": 39.886,
+   "cold_s": 77.532
+  },
+  "parts_s": {
+   "trunk_s": 7.518,
+   "diffusion_s": 0.283,
+   "losses_s": 6.309,
+   "seed_upload_s": 0.003,
+   "backward_s": 20.718,
+   "optimizer_s": 5.055
+  },
+  "step_s": 39.886,
+  "cold_parts_s": {
+   "trunk_s": 7.664,
+   "diffusion_s": 10.858,
+   "losses_s": 7.041,
+   "seed_upload_s": 0.001,
+   "backward_s": 45.217,
+   "optimizer_s": 6.751
+  },
+  "cold_step_s": 77.532,
+  "exact_training": false,
+  "host_quiet_pre": {
+   "when_utc": "2026-09-25T19:24:19Z",
+   "rc": 1,
+   "green": false,
+   "loadavg": [
+    2.6904296875,
+    2.31591796875,
+    2.89794921875
+   ],
+   "report": [
+    "loadavg1 2.69 over ceiling 2.00",
+    "HOST NOT QUIET -- your timing read is contaminated even with an idle sibling and a forced clock. Wait it out or DEFER. Do not measure and explain it afterwards."
+   ]
+  },
+  "params_with_grad": "2674 of 3152"
+ },
+ "EXACTPRICE": {
+  "method": "ON minus OFF on the same board and the same tree. The ON arm is ONE COLD rep, so the like-for-like denominator is the OFF arm's rep 0, also cold; the steady comparison is given beside it, not instead",
+  "forward": {
+   "on_s": 375.908,
+   "off_cold_s": 25.563,
+   "off_steady_s": 14.11,
+   "price_vs_cold_s": 350.345,
+   "ratio_vs_cold": 14.705,
+   "ratio_vs_steady": 26.641,
+   "contains": [
+    "trunk_s",
+    "diffusion_s",
+    "losses_s"
+   ],
+   "complete": true
+  },
+  "backward": {
+   "on_s_lower_bound": 95.268,
+   "off_cold_s": 45.217,
+   "off_steady_s": 20.718,
+   "complete": false,
+   "note": "the ON backward was killed by the memory floor guard before it returned, so only a floor under it exists"
+  }
+ }
+}

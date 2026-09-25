@@ -19,6 +19,12 @@ WHAT THIS ADDS over `steparms.py`, which is why it exists rather than being a fl
     width, and `MemAvailable` at launch, read from sysfs with no device opened. pc negotiates
     Gen4 x8; qb2 negotiates Gen4 x4, and the exactness is a host round trip per softmax and
     per layer norm, so a step time is not portable between them without the link beside it.
+  * EVERY VERB'S SECONDS, DURABLE THE MOMENT IT ENDS. `fullstep.py` publishes a rep only
+    once the rep finishes, so a run killed inside the optimizer loses `backward_s` too --
+    and since `of3t-optorder` moved AdamW's moment buffers out of construction and into the
+    first `step()`, the optimizer is now exactly where a memory-bound run is most likely to
+    die. So trunk, diffusion, losses, backward and `step()` each write their own duration
+    into the flushed JSONL as they return. If the rep row never lands, the seconds still do.
   * THE ARM BOUNDARY, TAGGED. Both arms share one process so they share one capture. That
     makes arm 2's floor arm 1's residue unless somebody looks, so RSS is recorded either side
     of an explicit collection and published as `arm_boundary`.
@@ -135,6 +141,40 @@ def clock_summary(path: Path) -> dict:
             "during_work_excludes": sorted(setup)}
 
 
+def timed(R, ag, F, verbs: list):
+    """Write each verb's seconds into the profile JSONL as it returns.
+
+    `fullstep.py` dumps a rep only after the optimizer, and `of3t-optorder` has just made the
+    optimizer the likeliest place for a memory-bound run to die -- its moment buffers over
+    381.3 M elements now appear at the first `step()` rather than at construction. A run the
+    guard stops inside `step()` would otherwise lose the backward it had already finished.
+    """
+    def wrap(owner, name, label):
+        real = getattr(owner, name)
+
+        def w(*a, **k):
+            t0 = time.perf_counter()
+            try:
+                return real(*a, **k)
+            finally:
+                rec = {"verb": label, "s": round(time.perf_counter() - t0, 3),
+                       "rss_gib": round(R._rss_bytes() / GIB, 4),
+                       "avail_gib": round(R._mem_available_bytes() / GIB, 4),
+                       "sm_calls": R._SOFTMAX["calls"],
+                       "t_utc": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())}
+                verbs.append(rec)
+                R._JSONL.write(json.dumps(rec) + "\n")
+                R._JSONL.flush()
+        setattr(owner, name, w)
+
+    from tt_bio.train import optim as OPT
+    wrap(F, "trunk_forward", "trunk_forward")
+    wrap(F, "diffusion_train", "diffusion")
+    wrap(F, "host_losses", "losses")
+    wrap(ag, "backward", "backward")
+    wrap(OPT.AdamW, "step", "optimizer_step")
+
+
 def main() -> int:
     import argparse
     ap = argparse.ArgumentParser()
@@ -165,6 +205,8 @@ def main() -> int:
     # rehydrate reads as ~0 s rather than as a second capture.
     import perf.of3t_restep.steparms as A
     ag, F = R.wire_phases()
+    verbs: list = []
+    timed(R, ag, F, verbs)
 
     base = ["--tokens", str(a.tokens), "--cycles", str(a.cycles), "--samples", str(a.samples)]
     facts = board_facts(a.card)
@@ -194,7 +236,7 @@ def main() -> int:
     time.sleep(1.5)
     foot = R.finish(rc, 0.0, ag, period=a.period, host_facts=facts)
     summary = {"row": "of3t-stepqb2", "host_facts": facts, "footer": foot,
-               "aiclk": clock_summary(jsonl), "arms": plan,
+               "aiclk": clock_summary(jsonl), "arms": plan, "verbs": verbs,
                "jsonl": str(jsonl.relative_to(REPO))}
     (OUT / f"RUN_{tag}.json").write_text(json.dumps(summary, indent=1, default=str))
     print(json.dumps(summary["aiclk"], indent=1), flush=True)

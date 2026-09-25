@@ -111,6 +111,82 @@ def main() -> int:
            "scope": on.get("scope")}
 
     r_on, basis_on = rep(on)
+    if r_on is None:
+        # The arm did not publish a rep, so it died inside one. `fullstep.py` writes a rep only
+        # after the optimizer; the per-verb records in the JSONL are written as each verb
+        # RETURNS, so they survive a kill and are the only reading of a killed arm that exists.
+        # Everything reconstructed here is a LOWER BOUND and the artifact says so in its own
+        # field rather than leaving a reader to infer it.
+        vs = verbs(jsonl)
+        by = {}
+        for v in vs:
+            by.setdefault(v["verb"], []).append(v["s"])
+        got = {"trunk_s": round(sum(by.get("trunk_forward", [])), 3),
+               "diffusion_s": round(sum(by.get("diffusion", [])), 3),
+               "losses_s": round(sum(by.get("losses", [])), 3),
+               "backward_s": round(sum(by.get("backward", [])), 3),
+               "optimizer_s": round(sum(by.get("optimizer_step", [])), 3)}
+        breach = next((json.loads(l) for l in jsonl.read_text().splitlines()
+                       if '"BREACH"' in l), None)
+        last = [json.loads(l) for l in jsonl.read_text().splitlines()
+                if '"phase"' in l and '"rss_gib"' in l][-1]
+        unfinished = last["phase"]
+        # The verb that was RUNNING when the guard fired never returned, so its seconds are the
+        # wall between the last returned verb and the exit -- a floor under that verb, not it.
+        t_done = max((v for v in vs), key=lambda v: v.get("s", 0) and 1) if vs else None
+        ans["STEP"] = {
+            "basis": {"basis": f"arm KILLED inside `{unfinished}`; reconstructed from the "
+                               f"per-verb records, which are written as each verb returns",
+                      "n": 0},
+            "parts_s": {k: v for k, v in got.items() if v},
+            "step_s": None,
+            "step_s_lower_bound": round(sum(got.values()), 3),
+            "unfinished_phase": unfinished,
+            "peak_is_a_lower_bound": True,
+            "breach": breach,
+            "arm": on.get("arm", {}).get("name") or "exact_on",
+            "exact_training": True,
+            "aiclk_during_from_fullstep": on.get("env", {}).get("aiclk_during"),
+            "note": "env.aiclk_during is absent because fullstep.py writes it on the last line "
+                    "of main(); the clock for this arm is in the profile JSONL, sampled at 1 Hz "
+                    "off the sysfs class node throughout",
+        }
+        ans["PARTITION"] = {"seconds": ans["STEP"]["parts_s"],
+                            "memory_phases": phases(jsonl), "verbs": vs}
+        if off.get("reps"):
+            r_off, basis_off = rep(off)
+            cold = off["reps"][0]
+            ans["OFFSTEP"] = {"basis": basis_off, "parts_s": parts(r_off),
+                              "step_s": r_off.get("step_s"),
+                              "cold_parts_s": parts(cold), "cold_step_s": cold.get("step_s"),
+                              "exact_training": off.get("arm", {}).get("exact_training"),
+                              "host_quiet_pre": off.get("arm", {}).get("host_quiet_pre"),
+                              "params_with_grad": r_off.get("params_with_grad")}
+            fw_on = round(got["trunk_s"] + got["diffusion_s"] + got["losses_s"], 3)
+            fw_cold = half(cold, FORWARD)
+            fw_steady = half(r_off, FORWARD)
+            ans["EXACTPRICE"] = {
+                "method": "ON minus OFF on the same board and the same tree. The ON arm is ONE "
+                          "COLD rep, so the like-for-like denominator is the OFF arm's rep 0, "
+                          "also cold; the steady comparison is given beside it, not instead",
+                "forward": {"on_s": fw_on, "off_cold_s": fw_cold, "off_steady_s": fw_steady,
+                            "price_vs_cold_s": round(fw_on - fw_cold, 3),
+                            "ratio_vs_cold": round(fw_on / fw_cold, 3),
+                            "ratio_vs_steady": round(fw_on / fw_steady, 3),
+                            "contains": list(FORWARD), "complete": True},
+                "backward": {"on_s_lower_bound": got["backward_s"] or None,
+                             "off_cold_s": cold.get("backward_s"),
+                             "off_steady_s": r_off.get("backward_s"),
+                             "complete": False,
+                             "note": "the ON backward was killed by the memory floor guard "
+                                     "before it returned, so only a floor under it exists"},
+            }
+        p2 = OUT / f"ANSWER_{tag}.json"
+        p2.write_text(json.dumps(ans, indent=1, default=str))
+        print(json.dumps({k: ans[k] for k in ("STEP", "OFFSTEP", "EXACTPRICE") if k in ans},
+                         indent=1, default=str))
+        print("WROTE", p2)
+        return 0
     ans["STEP"] = {"basis": basis_on, "parts_s": parts(r_on) if r_on else None,
                    "step_s": r_on.get("step_s") if r_on else None,
                    "arm": on.get("arm", {}).get("name"),
