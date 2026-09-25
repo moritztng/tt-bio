@@ -1,0 +1,70 @@
+{
+ "arm": "PD384",
+ "protocol": "A45",
+ "draws": 6,
+ "four_hold_every_draw": true,
+ "mean_mass_at_or_better_than_bf16": 0.9913,
+ "standing_losers_mass": 0.00857,
+ "standing_losers": [
+  {
+   "tensor": "aux_heads.distogram.linear.weight",
+   "mass": 0.00857,
+   "ratio": 1.442
+  },
+  {
+   "tensor": "aux_heads.pairformer_embedding.pairformer_stack.blocks.0.pair_stack.pair_transition.layer_norm.bias",
+   "mass": 0.0,
+   "ratio": 1.41
+  },
+  {
+   "tensor": "pairformer_stack.blocks.34.attn_pair_bias.mha.linear_k.weight",
+   "mass": 0.0,
+   "ratio": 1.551
+  }
+ ],
+ "per_draw": [
+  {
+   "k": 0,
+   "four_hold": true,
+   "global_rel": 0.15583423911529345,
+   "bf16_global_rel": 0.948232215673093,
+   "mass_at_or_better_this_draw": 0.9807143131172233
+  },
+  {
+   "k": 1,
+   "four_hold": true,
+   "global_rel": 0.08141218523410682,
+   "bf16_global_rel": 0.3887194482566856,
+   "mass_at_or_better_this_draw": 0.9960766171557919
+  },
+  {
+   "k": 2,
+   "four_hold": true,
+   "global_rel": 0.08741576901507099,
+   "bf16_global_rel": 0.24928347630295924,
+   "mass_at_or_better_this_draw": 0.972878365076521
+  },
+  {
+   "k": 3,
+   "four_hold": true,
+   "global_rel": 0.1806854274151017,
+   "bf16_global_rel": 0.3306228644867933,
+   "mass_at_or_better_this_draw": 0.8364480455445844
+  },
+  {
+   "k": 4,
+   "four_hold": true,
+   "global_rel": 0.15776926719673365,
+   "bf16_global_rel": 0.6221914629370294,
+   "mass_at_or_better_this_draw": 0.976198755442944
+  },
+  {
+   "k": 5,
+   "four_hold": true,
+   "global_rel": 0.1086818231634668,
+   "bf16_global_rel": 0.49825766564334656,
+   "mass_at_or_better_this_draw": 0.6906138923800389
+  }
+ ],
+ "holds": true
+}
