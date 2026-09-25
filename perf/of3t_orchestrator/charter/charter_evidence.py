@@ -129,6 +129,15 @@ def test_one(doc, key, op, bar):
     return ((v >= bar) if op == ">=" else (v <= bar)), f"{v:.6g}"
 
 
+def _git(root, *a) -> str | None:
+    """`git -C root ...`, or None. Used for provenance fields, so a failure must not raise."""
+    try:
+        r = subprocess.run(["git", "-C", str(root), *a], capture_output=True, text=True, timeout=30)
+        return r.stdout.strip() or None
+    except Exception:                                                    # noqa: BLE001
+        return None
+
+
 def code_staleness(root: Path, artifact: str, code_paths=("tt_bio",)) -> dict:
     """Is this artifact OLDER than the engine code its clause is about?
 
@@ -141,6 +150,14 @@ def code_staleness(root: Path, artifact: str, code_paths=("tt_bio",)) -> dict:
 
     Reported, never failed. Re-taking an artifact needs a card, so a hard failure here would block
     every compose on work that cannot be done in a compose.
+
+    **But "reported" has to mean reported where a reader is.** Until pass 500 this dict went into
+    the JSON and nothing else: `main()` printed `N of M charter conditions met` and no more, so on
+    2026-09-25 the gate published **5 of 5 MET with `artifact_is_older_than_code` true on all
+    five**, 17.8 hours to 3.5 days behind, and the campaign quoted the headline for passes. The
+    instrument was right and the output hid it. The staleness count is now in the headline and in
+    the payload as `n_stale`, so the number cannot be quoted without its qualifier. That is the
+    whole fix -- it still does not fail, for the reason above.
     """
     def ts(*args) -> int | None:
         try:
@@ -150,8 +167,42 @@ def code_staleness(root: Path, artifact: str, code_paths=("tt_bio",)) -> dict:
             return int(out) if out.isdigit() else None
         except Exception:
             return None
+    # NOTE on what this dates, because it is NOT what `baseline_expiry.py` dates and the two
+    # read opposite on the same five artifacts (2026-09-25). That one reads the artifact's
+    # SELF-RECORDED `env.commit` and returns UNDATABLE without one -- and none of the five
+    # charter artifacts has an `env` block at all, so it is undatable on every one, correctly.
+    # This one reads the artifact FILE's last commit time, which needs no cooperation from the
+    # producer and therefore always works. Weaker evidence always available, against stronger
+    # evidence usually absent.
+    #
+    # Weaker in a specific direction: an artifact is MEASURED before it is COMMITTED, never
+    # after, so its commit time OVERSTATES its freshness. `seconds_behind` is a LOWER BOUND --
+    # "stale by at least N hours". A positive reading is therefore safe to act on; it is the
+    # negative one ("at or after the newest code commit") that proves little.
     a = ts("--", artifact)
     c = ts("--", *code_paths)
+
+    # A COMPOSED artifact must be dated by its EVIDENCE, not by its composition. D179's
+    # COVERAGE_MERGED.json measures nothing: it merges three sha-pinned sources. Dating it by its
+    # own commit read 17.8 h behind on 2026-09-25 while its oldest source, `coverage_census.json`,
+    # was committed 2026-09-19 -- the clause was reporting a six-day-old measurement as a
+    # seventeen-hour-old one, an 8.4x understatement, in the direction that flatters. A merge is
+    # not a measurement. So when an artifact declares `sources`, the governing date is the OLDEST
+    # of its own commit and every source's, and the reading says which one governed.
+    governed_by, oldest = artifact, a
+    try:
+        doc = json.loads((root / artifact).read_text())
+        for src in (doc.get("sources") or []):
+            sp = src.get("path") if isinstance(src, dict) else None
+            if not sp:
+                continue
+            st = ts("--", sp)
+            if st is not None and (oldest is None or st < oldest):
+                governed_by, oldest = sp, st
+    except Exception:                                        # noqa: BLE001
+        pass                                                 # not JSON, unreadable, or no sources
+    a = oldest
+
     if a is None and (root / artifact).is_file():
         # Generated at compose time from sources pinned by digest (D179's COVERAGE_MERGED.json is
         # the first). It exists but has no commit, and that is the point: it cannot be older than
@@ -162,12 +213,19 @@ def code_staleness(root: Path, artifact: str, code_paths=("tt_bio",)) -> dict:
         return {"comparable": False,
                 "why": "the artifact or the code path has no commit in this tree"}
     return {"comparable": True, "artifact_commit_unixtime": a, "code_commit_unixtime": c,
+            "dated_by": governed_by,
+            "dated_by_a_source": governed_by != artifact,
             "artifact_is_older_than_code": a < c,
             "seconds_behind": max(0, c - a),
             "note": ("this artifact predates the newest commit under "
                      + "/".join(code_paths)
                      + ", so its numbers describe an earlier tree. A clause reading it is "
-                       "reporting history, and a re-take may change the verdict"
+                       "reporting history, and a re-take may change the verdict. "
+                       "`seconds_behind` is a LOWER BOUND: this dates a COMMIT, and the work "
+                       "was done before it was committed"
+                     + (f". Dated by its oldest source {governed_by}, not by the artifact "
+                        "itself, because a merge is not a measurement"
+                        if governed_by != artifact else "")
                      if a < c else "the artifact is at or after the newest code commit")}
 
 
@@ -319,11 +377,26 @@ def main() -> int:
         "instrument": "perf/of3t_orchestrator/charter/charter_evidence.py",
         "spec_lifted_from": str(GATE),
         "spec_sha256": spec_sha,
+        # A PATH IS NOT PROVENANCE. This field read `/home/moritz/.coworker/wt/of3t-stepqb2`
+        # for days after that worktree was torn down, so the artifact named a tree nobody could
+        # inspect -- and the first regeneration from a scratch worktree reproduced the defect
+        # immediately. The commit survives the checkout; the path does not.
         "tree": str(ROOT),
+        "tree_commit": _git(ROOT, "rev-parse", "HEAD"),
+        "tree_describes": _git(ROOT, "log", "-1", "--format=%ct %s"),
         "break_control": ("every condition can report MET on a synthetic artifact, and every "
                           "requirement reports NOT MET on one built to violate it"
                           if not broken else broken),
         "n_met": sum(c["met"] for c in conds),
+        # A condition graded on an artifact older than the code it is about is reporting history.
+        # `n_unreadable` is the other half and must not be read as "fine": it means the tree could
+        # not answer the question, which is what happens in an artifacts-only worktree where
+        # `git log -- tt_bio` is empty (K28).
+        "n_stale": sum(1 for c in conds
+                       if c["code_staleness"].get("artifact_is_older_than_code")),
+        "n_unreadable": sum(1 for c in conds
+                            if not c["code_staleness"].get("comparable")
+                            and not c["code_staleness"].get("generated_not_committed")),
         "n_conditions": len(conds),
         "conditions": conds,
     }
@@ -342,12 +415,33 @@ def main() -> int:
 
     print(f"charter evidence, spec {spec_sha[:12]} lifted from the live gate\n")
     for c in conds:
-        print(f"{'MET    ' if c['met'] else 'NOT MET'}  {c['field']:11s} {c['artifact']}")
+        cs = c["code_staleness"]
+        if cs.get("artifact_is_older_than_code"):
+            age = f"  STALE by >= {cs['seconds_behind'] / 3600:.1f} h"
+        elif not cs.get("comparable") and not cs.get("generated_not_committed"):
+            age = "  AGE UNREADABLE in this tree"
+        else:
+            age = ""
+        print(f"{'MET    ' if c['met'] else 'NOT MET'}  {c['field']:18s} {c['artifact']}{age}")
         for m in c["misses"]:
             print(f"             - {m}")
     print(f"\n{payload['n_met']} of {payload['n_conditions']} charter conditions met. "
           f"Break control: all {len(conds)} clauses can report MET on a synthetic artifact, "
           f"and every requirement reports NOT MET on one built to violate it.")
+    # The qualifier rides with the number or the number gets quoted alone -- which is what happened
+    # for several passes while this same information sat in the JSON.
+    if payload["n_stale"]:
+        print(f"\n{payload['n_stale']} of {payload['n_conditions']} were graded on an artifact "
+              f"committed BEFORE the newest commit under tt_bio/, so those clauses report "
+              f"history -- by AT LEAST the hours shown, since an artifact is measured before it "
+              f"is committed. "
+              f"This does not fail the gate -- re-taking an artifact needs a card -- but "
+              f"'{payload['n_met']} of {payload['n_conditions']} met' may not be quoted without "
+              f"it.")
+    if payload["n_unreadable"]:
+        print(f"{payload['n_unreadable']} of {payload['n_conditions']} could not be dated in this "
+              f"tree (no commit for the artifact or for tt_bio/ here). That is 'could not tell', "
+              f"not 'fine'.")
     print(f"written: {HERE}\n         {STATE}")
     return 0
 
