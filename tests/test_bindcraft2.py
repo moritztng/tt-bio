@@ -256,6 +256,21 @@ def test_asking_for_the_extra_msa_swap_builds_one_on_the_evoformers_pool():
     assert layer_stack.layer_stack is before
 
 
+def test_the_campaign_path_can_ask_for_the_extra_msa_swap_too():
+    """`campaign_predictor` forwards the argument and re-exposes the handle.
+
+    It takes `**kwargs` rather than naming `extra_msa`, so nothing in its signature says the swap
+    reaches a campaign. A campaign is the entry point a real run uses, so this is what says it.
+    """
+    _bindcraft_root()
+    params = _af2_params()
+    with bindcraft2.campaign_predictor(checkpoints=str(params), extra_msa=True) as build:
+        assert isinstance(build.extra_msa, bindcraft2.ExtraMsaOnDevice)
+        assert build.extra_msa.pool is build.pool
+    with bindcraft2.campaign_predictor(checkpoints=str(params)) as build:
+        assert build.extra_msa is None
+
+
 def test_an_unknown_validation_trunk_is_refused():
     with pytest.raises(ValueError):
         with bindcraft2.campaign_predictor(validation="cuda"):

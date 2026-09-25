@@ -1048,6 +1048,9 @@ def campaign_predictor(*, validation: str = "jax",
     when validation has to move to another pool, so "every build after the first" is the rule.
 
     The design model's checkpoints come from one pool, so `resident` caps the card across it.
+
+    Everything `predictor` takes passes through, `extra_msa` included, and the swap it builds is
+    re-exposed as `build.extra_msa` so a campaign can read its counters.
     """
     if validation not in ("jax", "device"):
         raise ValueError(f"validation must be 'jax' or 'device', not {validation!r}")
