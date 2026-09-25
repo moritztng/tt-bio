@@ -186,6 +186,13 @@ def main() -> int:
     ap.add_argument("--cycles", type=int, default=4)
     ap.add_argument("--samples", type=int, default=4)
     ap.add_argument("--stage", default="initial_training")
+    ap.add_argument("--no-exact", action="store_true",
+                    help="run the step inside `autograd.exact_training(False)`, which is the "
+                         "configuration the 466.70 s reference step was measured at: `502ed112e` "
+                         "put exact float64 HOST softmax and LayerNorm on by default on the "
+                         "training tape two days after that run, so main's taped step and the "
+                         "step this sprint ranks against are different objects. This arm counts "
+                         "the reference one")
     ap.add_argument("--out", type=Path, required=True)
     a = ap.parse_args()
 
@@ -198,6 +205,7 @@ def main() -> int:
         "loadavg_start": os.getloadavg()},
         "config": {"crop": a.tokens, "cycles_pinned": a.cycles,
                    "diffusion_samples": a.samples, "stage": a.stage, "reps": 1,
+                   "exact_training": not a.no_exact,
                    "axis": "real ttnn verb calls, one level below the tape proxy"}}
     a.out.parent.mkdir(parents=True, exist_ok=True)
     counts_path = a.out.with_suffix(".counts.json")
@@ -234,6 +242,13 @@ def main() -> int:
                 t.grad = None
             ttnn.synchronize_device(dev)
             COUNTS.clear()
+            # The arm switch. `exact_training` is a stack, not a flag, so this covers the tape,
+            # the backward and any recompute inside it -- which is the whole of the difference.
+            exact_ctx = ag.exact_training(not a.no_exact)
+            exact_ctx.__enter__()
+            out["exact"] = {"ops_a_tape_would_install": list(ag.exact_training_ops()),
+                            "softmax_before": dict(ag.EXACT_SOFTMAX_STATS),
+                            "layer_norm_before": dict(ag.EXACT_LAYER_NORM_STATS)}
 
             # --- 1. trunk ---------------------------------------------------------------
             PART[0] = "trunk_nograd_prefix"
@@ -291,6 +306,9 @@ def main() -> int:
                 opt.step()
                 params.rebind()
             PART[0] = "teardown"
+            exact_ctx.__exit__(None, None, None)
+            out["exact"]["softmax_after"] = dict(ag.EXACT_SOFTMAX_STATS)
+            out["exact"]["layer_norm_after"] = dict(ag.EXACT_LAYER_NORM_STATS)
 
             out["calls_by_part"] = dict(Counter(
                 {p: 0 for p in ("trunk_nograd_prefix", "trunk_taped_cycle", "diffusion",
