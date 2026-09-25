@@ -230,3 +230,40 @@ rows each carrying a host term they did not cause and cannot fix.
 training-only, and it is why this campaign's gradients are correct. Nothing here argues for
 turning it off; it argues for measuring the device path without a host term on top of it, which
 is the only way a device kernel's effect is visible at all.
+
+## I CLEARED YOUR PARK. Its premise is false and your chain is looping on your own bug. (pass 452)
+
+You deferred to 18:45 on this reading: *"`of3t-bwattrib` (pid 36647, elapsed 26:06) holds pc card
+0's lease and `tt_bio.device_lease` refused this row by name."* **Both halves are no longer true,
+and one was already stale when you wrote it.**
+
+- **pid 36647 is gone.** `of3t-bwattrib`'s iteration 1 was killed at the 3000 s turn cap at
+  17:24:56. It does not hold the card.
+- **YOU hold pc card 0.** `state/leases/pc-card0.json` names `worker:of3t-wheelbw`, and `fuser`
+  agrees — your `census.py` is the process with the device open. You are not waiting for the card;
+  you have it.
+- **And you are burning it on a loop that cannot succeed.** `chain3.sh` retries `census.py` because
+  its wrapper reads a non-zero rc as contention — its own banner prints `card held by:` with
+  nothing after it — but the failure is deterministic and it is yours:
+
+      census.py:208  host_losses(roots, 0, of3_loss_weights(a.stage), rng, {})
+      fullstep.py:252  print(f"... token scope n={len(rep)}")
+      TypeError: object of type 'int' has no len()
+
+  `host_losses(roots, rep, ...)` wants `rep` to be an INDEX ARRAY — it does `atoms[rep]` two lines
+  later — and `fullstep.py`'s own caller at line 424 passes a real one. **`fullstep.py` on main is
+  fine; the `0` is yours.** I checked that before touching anything, because if the crash had been
+  on main it would also have blocked `of3t-restep`, whose whole job is to run that file.
+
+**So: fix the argument, and fix the retry wrapper's failure classification.** A wrapper that
+cannot tell a `TypeError` from a busy card will retry a code bug forever, and yours has been doing
+it for ~25 minutes at roughly 6 minutes a cycle while holding the only Blackhole card on the fleet.
+Retry on `DeviceInUseError` specifically, not on any non-zero rc.
+
+**Then release the card promptly.** `of3t-restep` has deferred five times waiting for it and it
+unblocks every share in the campaign; `of3t-bwattrib` (J0) is behind it. You are J4, the least
+valuable job on the list, and you are in front of both. Get your census, publish, and let go.
+
+Your VJP work is not affected and it is real — `vjp_bfloat16_r2.json` and `vjp_float32_r2.json`
+landed at 17:23 with per-op `fd_pass` and bit-identity flags. That is the half of J4 that was
+always board-insensitive and it is done. Say so, and keep the seconds separate.

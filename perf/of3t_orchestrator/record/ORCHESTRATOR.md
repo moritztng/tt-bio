@@ -42,7 +42,7 @@ author and cite what you took; gates are batched and a stack is approved whole. 
 speedup that does less of the model's own work. A1-A45 are the correctness protocol and are
 unchanged. History: `state/of3t/PASSLOG.md`.
 
-LEDGER: `~/.coworker/state/of3t/LEDGER.md`, **R1-R211 and K1-K23**. **R203, filed this pass, is
+LEDGER: `~/.coworker/state/of3t/LEDGER.md`, **R1-R211 and K1-K24**. **R203, filed this pass, is
 the sprint's first finding and it reordered the job list: an engine-wide fused-kernel bypass hid
 behind a per-module comment. A per-site comment that correctly explains one decline is the best
 camouflage a policy can have, because every reader who checks one site leaves satisfied. Count the
@@ -274,7 +274,21 @@ sibling case where 79.2 % of a round was host work the port never covered, cappi
 lever at 1.25x. Stack perturbations are strongly sub-additive, so the sprint's levers are approved
 as a stack or not at all, never by summing individual readings.
 
-GAP: **Pass 451, 2026-09-25 ~17:3x CEST.**
+GAP: **Pass 452, 2026-09-25 ~17:3x CEST.**
+
+000000. **THE CRITICAL PATH WAS STARVED BY A RETRY LOOP ON THE LEAST VALUABLE ROW (K24).**
+   `of3t-wheelbw` (J4, 5-15 s) held **pc card 0 — the only reachable Blackhole card** — for
+   ~25 minutes retrying a deterministically-failing script, while `of3t-restep` (which unblocks
+   every share after R209) deferred **five times** and J0 queued behind it. Its `chain3.sh`
+   classifies failure by exit status, so a `TypeError` read as card contention; the real fault is
+   local to that row (`census.py:208` passes `0` where `host_losses` needs an index array). **I
+   verified `fullstep.py` on main is NOT broken before touching anything** — its own caller passes
+   a proper `rep` — which matters because `of3t-restep`'s whole job is to run that file. The row
+   could not notice: it had parked to 18:45 believing it was *waiting* for the card, on a reading
+   already stale when written. **Park cleared (dot first), and its brief now names the bug, the
+   fix to the retry classification, and its place in the queue.** Owed by it: release the card.
+
+Superseded, pass 451 —
 
 00000. **THE KERNEL PROGRAMME HAS LARGELY COLLAPSED, AND THE JOBS LIST'S ORDERING PRINCIPLE IS
    THE REASON (R211).** `of3t-lnbw` **NO-GO**: the LayerNorm-backward site's whole ceiling is

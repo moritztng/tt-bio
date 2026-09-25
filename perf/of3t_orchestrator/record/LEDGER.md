@@ -1113,6 +1113,28 @@ state doc nor its `CLAUSE_EXACT.json` names the version anywhere.
   survey sizes jobs by multiplying a count by a global mean, it has assumed the mean is uniform
   — check one site's marginal cost against the mean before ranking anything by count.**
 
+- **K24** (pass 452) **A RETRY WRAPPER THAT READS ANY NON-ZERO RC AS CONTENTION WILL RETRY A CODE
+  BUG FOREVER — WHILE HOLDING THE SCARCEST LEASE ON THE FLEET.** `of3t-wheelbw`'s `chain3.sh`
+  wraps each device step in "retry until the card is genuinely this row's", classifying failure by
+  exit status alone; its own banner prints `card held by:` with nothing after it, which is the
+  tell that it could not name a holder and assumed contention anyway. The actual failure was
+  deterministic and local: `census.py:208` calls `host_losses(roots, 0, ...)` while
+  `fullstep.py:252` does `len(rep)` and line 254 does `atoms[rep]`, so `rep` must be an index
+  array — `TypeError: object of type 'int' has no len()`, identical every retry. It looped for
+  ~25 minutes at roughly 6 minutes a cycle, **holding pc card 0, the only reachable Blackhole card
+  on the fleet**, while `of3t-restep` (which unblocks every share in the campaign after R209)
+  deferred five times and J0 queued behind it. **The row could not notice: it had parked itself to
+  18:45 believing it was WAITING for the card, on a reading that was already stale when written**
+  (it named `of3t-bwattrib` pid 36647 as the holder; that pid was killed at the 3000 s turn cap).
+  Cleared the park — dot first, per the phantom-row rule — because a defer whose premise is false
+  is not a defer. **Two rules: classify a retry on the EXCEPTION you mean (`DeviceInUseError`),
+  never on rc, because rc cannot tell a busy card from a typo; and a loop that holds a scarce
+  lease must bound its retries, since the cost of being wrong is paid by every row behind it.**
+  The near-miss worth naming separately: I hypothesised the crash was in `fullstep.py` on main,
+  which would have blocked `of3t-restep` too — **it is not**, `fullstep.py`'s own caller at line
+  424 passes a proper `rep` and the `0` is the calling row's. Checking that before touching
+  anything is the only reason this did not become a fix to a file that was not broken.
+
 - **K23** (pass 451) **a gate that requires `^VERDICT:` cannot be satisfied by a row that writes
   `## VERDICT:`, and the row cannot tell.** `of3t-bwattrib` wrote `## VERDICT: PARTIAL` as a
   markdown heading; every verdict pattern in `_of3t_donecheck.py` anchored on `^VERDICT:`, so the
