@@ -140,7 +140,11 @@ def main():
     pathlib.Path(project).mkdir(parents=True, exist_ok=True)
     overrides = [f"campaign_seed={args.seed}", "max_trajectories=1",
                  "validation_model=monomer", 'design_models=["model_1_ptm"]',
-                 'validation_models=["model_2_ptm"]', f"project_folder={project}"]
+                 'validation_models=["model_2_ptm"]', f"project_folder={project}",
+                 # campaign.py:180 compiles the NEXT trajectory's length in a background thread
+                 # through sequence_gradients(compile_only=True). It would count as a round, flip
+                 # the arm, and take CPU from whichever round it overlaps. One trajectory is run.
+                 "compile_next_length=false"]
     settings = cleaned_campaign_settings(
         read_settings(os.path.join(B.BC2, "examples", "pdl1.json"),
                       parse_setting_overrides(overrides)))

@@ -13,6 +13,10 @@ reach a backward):
   msa_in, g_msa_in      the extra-MSA activations and JAX's own d(loss)/d(msa_in)
   extra_msa_mask, mask_2d, read off the stack function's closure as the swap reads them
 
+Left alone, JAX computes no d(loss)/d(msa_in) at all: the activations are a function of
+constants, not of the sequence, so they are off the tangent graph. The probe below forces the
+cotangent into existence so it can be read as a number.
+
 ZEROGRAD compares |g_msa_in| with |d(loss)/d(sequences)| from the same call, at dropout on
 (what every stage but `harden` runs) and off.
 
@@ -88,7 +92,12 @@ def capture(settings, dropout):
                 act, sk = x
                 jax.debug.callback(lambda a, b: cap.update(
                     {"extra_msa_mask": f32(a), "mask_2d": f32(b)}), masks["msa"], masks["pair"])
-                act = {**act, "msa": t_msa(act["msa"]), "pair": t_pin(act["pair"])}
+                # `extra_msa_activations` is built from constants alone (`bindcraft/af2.py:134`),
+                # so JAX never differentiates it and a tap on it alone never sees a backward.
+                # `0 * pair[0, 0, 0]` changes no value and puts it on the tangent graph, so the
+                # tap reports the cotangent the stack itself sends back into the MSA input.
+                probe = act["msa"] + 0 * act["pair"][0, 0, 0]
+                act = {**act, "msa": t_msa(probe), "pair": t_pin(act["pair"])}
                 out, sk2 = inner((act, sk))
                 return {**out, "pair": t_pout(out["pair"])}, sk2
             return spy

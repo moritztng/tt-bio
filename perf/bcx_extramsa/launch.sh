@@ -15,4 +15,4 @@ export XLA_FLAGS="--xla_gpu_enable_triton_gemm=false"
 if [ "${DUMP:-0}" = 1 ]; then
   XLA_FLAGS="$XLA_FLAGS --xla_dump_to=$OUT/hlo --xla_dump_hlo_as_text --xla_dump_hlo_module_re=.*sequence_design_loss.*"
 fi
-exec /home/ttuser/bcx_e2e_venv/bin/python "$WT/$SCRIPT" --out "$OUT" "$@"
+exec /home/ttuser/bcx_e2e_venv/bin/python -X faulthandler "$WT/$SCRIPT" --out "$OUT" "$@"
