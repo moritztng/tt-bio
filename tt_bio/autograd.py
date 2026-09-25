@@ -38,9 +38,15 @@ from tt_bio.envflags import env_flag
 #: issues (`[384, 1, 384, 128]` bf16 TILE, 37.75 MB, `perf/of3t_zerosfill/zerobench.py`):
 #: the host build and upload is **5.90 ms at 6.4 GB/s**, the cached device clone **0.21 ms at
 #: 180.6 GB/s** -- 28x, against a 440 GB/s write roof. `ttnn.full` is the same host path at
-#: 5.77 ms, so it is no escape. In a real taped backward the host path costs more still, because
-#: it contends: `of3t-bwattrib` measured 36.4 ms a call and 11.80 s over 324 calls, **35.1 % of
-#: the 33.63 s device backward**.
+#: 5.77 ms, so it is no escape.
+#:
+#: Worth 1.0 s of a 21.1 s device backward at crop 384, medians of three interleaved pairs, and
+#: every host run was slower than every device run. NOT the 11.9 s a per-verb profile charges to
+#: `zeros`: ttnn dispatch is asynchronous and the host upload is the only blocking op in its
+#: neighbourhood, so it drains a queue the verbs before it filled and a stopwatch around it bills
+#: their device time to it. With the upload gone those verbs grow by 89 % of what `zeros` lost
+#: (`perf/of3t_zerosfill/compare.py`). The 5.90 ms above is the honest per-call price because
+#: every rep of that micro-benchmark ends in `synchronize_device`.
 #:
 #: So ON is the default since 2026-09-25 (`of3t-zerosfill`). OFF is kept as the break control
 #: that restores the defect, and as the arm `perf/bcx_trace/trace.py` uses to price a host write.
