@@ -30,6 +30,14 @@ a core count the kernel does not actually use is a standing defect class, not a 
 lands on an 11x10 range with the static CB region ending at 1176064 and an L1 buffer at 1132544,
 so the overlap is 43520 bytes.
 
+The threshold and the hardware disagree, which is the defect in one line.
+`_trimul_l1_max_seq()` (`tenstorrent.py:1102`) says the trimul's chunks live in L1 up to
+`TRIANGLE_MULT_L1_MAX_SEQ = 352` (`:667`), 640 in fast mode. Both 224 and 288 are well under it,
+so both are told they fit and both clash. 224 survives only because the ladder demotes it into
+`_TRIMUL_DRAM_SHAPES` and the DRAM leg holds; 288 is where the DRAM leg fails too. So the fast
+path is already unreachable at a size this campaign has published numbers at, and the fix is the
+threshold or the per-core budget behind it, not the throw at 288.
+
 Knobs to try before writing any code, both already in the engine:
   TT_BIO_TRIMUL_CHUNK_CAP   cap the chunk below where the ladder bottoms out (32)
   TT_BIO_FORCE_GRID="x,y"   pin the main grid, which is how issue #9 separated grid-path
