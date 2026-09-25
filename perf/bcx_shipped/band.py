@@ -8,6 +8,15 @@ value. The mutate band is the one the campaign compares across arms: `run_mutati
 ranks by `interface_iptm`, so a collapsed iptm makes those 15 rounds an unguided walk, and
 you cannot see a collapse from the stage line alone.
 
+The stage line is a best-of-N over the stage, not the round it prints beside: the pc
+reference finished screen at iptm 0.22 and its stage line reads 0.87, which is screen's
+maximum over 50 rounds. `mutate` is the exception, its line being the final round. So
+`final` is printed here next to the band, and two arms' stage lines are not a paired
+comparison.
+
+`plddt_loss` is not `1 - pLDDT` (0.97-0.99 against stage lines of 0.93-0.95) and the
+mutate rows carry no loss components at all, so only iptm and ptm are read here.
+
     python3 perf/bcx_shipped/band.py <project-dir> [<project-dir> ...]
 """
 import csv
