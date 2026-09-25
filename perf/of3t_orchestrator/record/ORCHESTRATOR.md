@@ -185,11 +185,24 @@ anyway without first padding q/k/v/bias on the device in `_sdpa_masked` and walk
 q_chunk x k_chunk x kv_buffer_factor ladder. **Clean of `autograd.py` and `taped_ttnn.py`**, which
 BCX is rewriting concurrently. Everything else on the branch is inside `perf/of3t_tapedfwd/`.
 
-**The accuracy gate is deliberately NOT run on this one lever** and is owed before the branch goes
-further: the standing rule is to land several and gate the batch, and the fp32 CPU diffusion
-reference is not reproducible run to run (7.17 A against 11.04 A on the same design), so a
-per-lever consult produces noise rather than safety. It runs on qb2's `tt-bio-dev` env, not pc
-`python3`, which has no torch.
+**The accuracy gate is deliberately NOT run on this one lever** and is owed before the branch
+goes further: land several, gate the batch, because the fp32 CPU diffusion reference is not
+reproducible run to run (7.17 A against 11.04 A on the same design) and a per-lever consult
+produces noise rather than safety. **It is now WRITTEN, before the levers it will grade:**
+`perf/of3t_orchestrator/bwd/batch_gate.sh`. Its bars are not mine — they are
+`perf/hallgrad/gradcheck.py`'s own, fixed from the bf16 mantissa before any run (floor 2.8e-3
+from sqrt(2)·2^-9 with fp32 destination accumulation, bar **1.0e-2 relative L2** at 3.6x above
+it, **cosine ≥ 0.9999** because direction is what an optimiser consumes). It runs all sixteen
+cases rather than gradcheck's default eight, since the default omits both matmul transposes,
+permute and pair contraction, and a gate that does not run the op you changed is decoration.
+Three controls: fp32 must collapse the error (a wrong formula does not improve with precision),
+LoRA's frozen base must receive no gradient, and `--break-layernorm-axis` must be REFUSED.
+**Two properties checked rather than assumed**, because a gate that cannot fail is not a gate:
+gradcheck `return 1 if failures else 0` under `sys.exit()`, so the exit codes mean something;
+and the negative control fails by MEASURING — it monkey-patches the backward to reduce over
+dim 0 — rather than raising before it measures. Runs on qb2's `tt-bio-dev` env, not pc
+`python3`, which has no torch. The inference A/B is owed only for a lever reachable from a fold,
+and the first lever is not: its guard is false untaped.
 
 `origin/main` moved twice today and is now `f0db89ef5`.
 
