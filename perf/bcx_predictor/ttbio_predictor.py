@@ -62,6 +62,26 @@ def sequence_letters(protein) -> str:
     return "".join(AMINO_ACIDS[i] for i in np.asarray(protein.sequence).argmax(-1))
 
 
+def scalar_metrics(metrics) -> dict:
+    """The confidence metrics of one prediction, at full precision.
+
+    BindCraft 2's losses CSV carries 2 dp, which is why the first shipped-pool trajectory's
+    mutate stage could only be reported as "ptm = iptm = 1.0" and read as ">= 0.995". A
+    saturated head and a merely high one are different findings and 2 dp cannot separate
+    them, so the per-residue tracks are summarised rather than dropped and the scalars are
+    kept as they come.
+    """
+    out = {}
+    for name, value in (metrics or {}).items():
+        array = np.asarray(value, dtype=np.float64)
+        if array.ndim == 0:
+            out[name] = float(array)
+        elif array.size:
+            out[name] = {"mean": float(array.mean()), "min": float(array.min()),
+                         "max": float(array.max()), "shape": list(array.shape)}
+    return out
+
+
 def masked_residue_count(protein_states, length_bucket_size: int, target_pad_length: int = 0,
                          path: str = "predict") -> int:
     """How many residues BindCraft 2's padding masks out of this complex.
@@ -170,14 +190,16 @@ class TTBioAlphaFoldDesignModel(AlphaFoldDesignModel):
         if self.pool is not None:
             self.pool.use(model)
 
-    def _record(self, model, protein_states):
-        """Append the state this call is about to fold, with the checkpoint folding it."""
+    def _record(self, model, protein_states, predictions):
+        """Append what this call folded, which checkpoint folded it, and what came back."""
         if not self.seqlog:
             return
         row = {"t": round(time.time(), 1), "trunk": self.trunk, "model": model,
                "states": {state: {chain: sequence_letters(protein)
                                   for chain, protein in complex_.items()}
-                          for state, complex_ in protein_states.items()}}
+                          for state, complex_ in protein_states.items()},
+               "metrics": {state: scalar_metrics(getattr(prediction, "metrics", None))
+                           for state, prediction in (predictions or {}).items()}}
         with open(self.seqlog, "a") as handle:
             handle.write(json.dumps(row) + "\n")
 
@@ -186,8 +208,9 @@ class TTBioAlphaFoldDesignModel(AlphaFoldDesignModel):
             self._open_device()
             model = self._resolved(model)
             self._select(model)
-        self._record(model, protein_states)
-        return super().predict(protein_states, model, *args, **kwargs)
+        predictions = super().predict(protein_states, model, *args, **kwargs)
+        self._record(model, protein_states, predictions)
+        return predictions
 
     def sequence_gradients(self, protein_states, losses, model=None, *args, **kwargs):
         if self.trunk == "device":

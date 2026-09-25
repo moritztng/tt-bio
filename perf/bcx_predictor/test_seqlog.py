@@ -21,6 +21,11 @@ from bindcraft.protein import AMINO_ACIDS, Protein                      # noqa: 
 import ttbio_predictor as T                                             # noqa: E402
 
 
+class FakePrediction:
+    def __init__(self, metrics):
+        self.metrics = metrics
+
+
 def test_sequence_letters_reads_the_argmax():
     protein = Protein.empty(11, jax.random.PRNGKey(0))
     letters = T.sequence_letters(protein)
@@ -36,18 +41,29 @@ def test_record_writes_one_line_per_call(tmp_path):
     model.trunk, model.seqlog = "device", path
     states = {"complex": {"A": Protein.empty(7, jax.random.PRNGKey(1)),
                           "B": Protein.empty(5, jax.random.PRNGKey(2))}}
-    model._record("model_3_multimer_v3", states)
-    model._record("model_1_multimer_v3", states)
+    predictions = {"complex": FakePrediction({"ptm": 0.99987, "iptm": 1.0,
+                                              "plddt": np.linspace(0.3, 0.9, 12)})}
+    model._record("model_3_multimer_v3", states, predictions)
+    model._record("model_1_multimer_v3", states, predictions)
 
     rows = [json.loads(line) for line in open(path)]
     assert [r["model"] for r in rows] == ["model_3_multimer_v3", "model_1_multimer_v3"]
     assert [len(r["states"]["complex"]["A"]) for r in rows] == [7, 7]
     assert len(rows[0]["states"]["complex"]["B"]) == 5
 
+    # The reason this exists: the losses CSV rounds to 2 dp, so a saturated head and a
+    # merely high one both print as 1.0. These do not.
+    metrics = rows[0]["metrics"]["complex"]
+    assert metrics["ptm"] == 0.99987 and metrics["iptm"] == 1.0
+    assert metrics["plddt"]["shape"] == [12]
+    assert abs(metrics["plddt"]["mean"] - 0.6) < 1e-9
+    assert metrics["plddt"]["min"] == 0.3 and metrics["plddt"]["max"] == 0.9
+
 
 def test_no_seqlog_writes_nothing(tmp_path):
     path = str(tmp_path / "absent.jsonl")
     model = T.TTBioAlphaFoldDesignModel.__new__(T.TTBioAlphaFoldDesignModel)
     model.trunk, model.seqlog = "device", None
-    model._record("model_1_multimer_v3", {"complex": {"A": Protein.empty(3, jax.random.PRNGKey(3))}})
+    model._record("model_1_multimer_v3",
+                  {"complex": {"A": Protein.empty(3, jax.random.PRNGKey(3))}}, {})
     assert not os.path.exists(path)
