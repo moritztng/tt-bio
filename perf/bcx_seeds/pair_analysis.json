@@ -1,0 +1,419 @@
+{
+ "pairs": {
+  "0": {
+   "design_device": "pdl1_denovo_l146_ca4fe44ca7aac5cd",
+   "design_reference": "pdl1_denovo_l146_d2bfded440698f32",
+   "device_host": "qb1 card 3",
+   "rows": [
+    {
+     "stage": "screen",
+     "bar_plddt": 0.6,
+     "device": "0.72 / 0.81 PASS",
+     "reference": "0.68 / 0.80 PASS",
+     "gate": "AGREE"
+    },
+    {
+     "stage": "refine",
+     "bar_plddt": 0.6,
+     "device": "0.68 / 0.77 PASS",
+     "reference": "0.65 / 0.76 PASS",
+     "gate": "AGREE"
+    },
+    {
+     "stage": "anneal",
+     "bar_plddt": 0.65,
+     "device": "0.67 / 0.76 PASS",
+     "reference": "0.66 / 0.74 PASS",
+     "gate": "AGREE"
+    },
+    {
+     "stage": "harden",
+     "bar_plddt": 0.65,
+     "device": "0.61 / 0.74 REJECT ['pLDDT']",
+     "reference": "0.65 / 0.77 PASS",
+     "gate": "DISAGREE"
+    },
+    {
+     "stage": "mutate",
+     "bar_plddt": null,
+     "device": "\u2014",
+     "reference": "0.31 / 0.19 REJECT ['i_pTM', 'pLDDT']",
+     "gate": "\u2014"
+    }
+   ],
+   "shared_gates": 4,
+   "agreeing_gates": 3,
+   "outcome_device": "REJECT at harden ['pLDDT']",
+   "outcome_reference": "REJECT at mutate ['i_pTM', 'pLDDT']",
+   "same_terminal_stage": false,
+   "accepted_device": 0,
+   "accepted_reference": 0
+  },
+  "100": {
+   "design_device": "pdl1_denovo_l71_746e618341b8c7e8",
+   "design_reference": "pdl1_denovo_l71_c019673d64134f64",
+   "device_host": "qb2 card 3 (bcx-predictor's post_seed100)",
+   "rows": [
+    {
+     "stage": "screen",
+     "bar_plddt": 0.6,
+     "device": "0.78 / 0.80 PASS",
+     "reference": "0.71 / 0.80 PASS",
+     "gate": "AGREE"
+    },
+    {
+     "stage": "refine",
+     "bar_plddt": 0.6,
+     "device": "0.76 / 0.78 PASS",
+     "reference": "0.69 / 0.79 PASS",
+     "gate": "AGREE"
+    },
+    {
+     "stage": "anneal",
+     "bar_plddt": 0.65,
+     "device": "0.73 / 0.77 PASS",
+     "reference": "0.71 / 0.81 PASS",
+     "gate": "AGREE"
+    },
+    {
+     "stage": "harden",
+     "bar_plddt": 0.65,
+     "device": "0.68 / 0.75 PASS",
+     "reference": "0.69 / 0.83 PASS",
+     "gate": "AGREE"
+    },
+    {
+     "stage": "mutate",
+     "bar_plddt": null,
+     "device": "0.38 / 0.10 REJECT ['i_pTM', 'pLDDT']",
+     "reference": "0.41 / 0.15 REJECT ['i_pTM', 'pLDDT']",
+     "gate": "AGREE"
+    }
+   ],
+   "shared_gates": 5,
+   "agreeing_gates": 5,
+   "outcome_device": "REJECT at mutate ['i_pTM', 'pLDDT']",
+   "outcome_reference": "REJECT at mutate ['i_pTM', 'pLDDT']",
+   "same_terminal_stage": true,
+   "accepted_device": 0,
+   "accepted_reference": 0
+  },
+  "200": {
+   "design_device": "pdl1_denovo_l176_37ae4c91f677dccf",
+   "design_reference": "pdl1_denovo_l176_09b8e7a3d08bc7b6",
+   "device_host": "qb1 card 3",
+   "rows": [
+    {
+     "stage": "screen",
+     "bar_plddt": 0.6,
+     "device": "0.61 / 0.78 PASS",
+     "reference": "0.61 / 0.76 PASS",
+     "gate": "AGREE"
+    },
+    {
+     "stage": "refine",
+     "bar_plddt": 0.6,
+     "device": "0.56 / 0.74 REJECT ['pLDDT']",
+     "reference": "0.59 / 0.75 REJECT ['pLDDT']",
+     "gate": "AGREE"
+    },
+    {
+     "stage": "anneal",
+     "bar_plddt": 0.65,
+     "device": "\u2014",
+     "reference": "\u2014",
+     "gate": "\u2014"
+    },
+    {
+     "stage": "harden",
+     "bar_plddt": 0.65,
+     "device": "\u2014",
+     "reference": "\u2014",
+     "gate": "\u2014"
+    },
+    {
+     "stage": "mutate",
+     "bar_plddt": null,
+     "device": "\u2014",
+     "reference": "\u2014",
+     "gate": "\u2014"
+    }
+   ],
+   "shared_gates": 2,
+   "agreeing_gates": 2,
+   "outcome_device": "REJECT at refine ['pLDDT']",
+   "outcome_reference": "REJECT at refine ['pLDDT']",
+   "same_terminal_stage": true,
+   "accepted_device": 0,
+   "accepted_reference": 0
+  },
+  "300": {
+   "design_device": "pdl1_denovo_l138_407bf61c54608fb4",
+   "design_reference": "pdl1_denovo_l138_aaf0e3cad8e56a88",
+   "device_host": "qb1 card 3",
+   "rows": [
+    {
+     "stage": "screen",
+     "bar_plddt": 0.6,
+     "device": "0.80 / 0.85 PASS",
+     "reference": "0.75 / 0.82 PASS",
+     "gate": "AGREE"
+    },
+    {
+     "stage": "refine",
+     "bar_plddt": 0.6,
+     "device": "0.75 / 0.81 PASS",
+     "reference": "0.71 / 0.80 PASS",
+     "gate": "AGREE"
+    },
+    {
+     "stage": "anneal",
+     "bar_plddt": 0.65,
+     "device": "0.77 / 0.83 PASS",
+     "reference": "0.72 / 0.82 PASS",
+     "gate": "AGREE"
+    },
+    {
+     "stage": "harden",
+     "bar_plddt": 0.65,
+     "device": "0.73 / 0.82 PASS",
+     "reference": "0.73 / 0.83 PASS",
+     "gate": "AGREE"
+    },
+    {
+     "stage": "mutate",
+     "bar_plddt": null,
+     "device": "0.32 / 0.10 REJECT ['i_pTM', 'pLDDT']",
+     "reference": "0.32 / 0.12 REJECT ['i_pTM', 'pLDDT']",
+     "gate": "AGREE"
+    }
+   ],
+   "shared_gates": 5,
+   "agreeing_gates": 5,
+   "outcome_device": "REJECT at mutate ['i_pTM', 'pLDDT']",
+   "outcome_reference": "REJECT at mutate ['i_pTM', 'pLDDT']",
+   "same_terminal_stage": true,
+   "accepted_device": 0,
+   "accepted_reference": 0
+  },
+  "400": {
+   "design_device": "pdl1_denovo_l180_4c3643dbdced5ecd",
+   "design_reference": "pdl1_denovo_l180_ffb9c87873af6d36",
+   "device_host": "qb1 card 3",
+   "rows": [
+    {
+     "stage": "screen",
+     "bar_plddt": 0.6,
+     "device": "0.68 / 0.81 PASS",
+     "reference": "0.56 / 0.74 REJECT ['pLDDT']",
+     "gate": "DISAGREE"
+    },
+    {
+     "stage": "refine",
+     "bar_plddt": 0.6,
+     "device": "0.59 / 0.77 REJECT ['pLDDT']",
+     "reference": "\u2014",
+     "gate": "\u2014"
+    },
+    {
+     "stage": "anneal",
+     "bar_plddt": 0.65,
+     "device": "\u2014",
+     "reference": "\u2014",
+     "gate": "\u2014"
+    },
+    {
+     "stage": "harden",
+     "bar_plddt": 0.65,
+     "device": "\u2014",
+     "reference": "\u2014",
+     "gate": "\u2014"
+    },
+    {
+     "stage": "mutate",
+     "bar_plddt": null,
+     "device": "\u2014",
+     "reference": "\u2014",
+     "gate": "\u2014"
+    }
+   ],
+   "shared_gates": 1,
+   "agreeing_gates": 0,
+   "outcome_device": "REJECT at refine ['pLDDT']",
+   "outcome_reference": "REJECT at screen ['pLDDT']",
+   "same_terminal_stage": false,
+   "accepted_device": 0,
+   "accepted_reference": 0
+  }
+ },
+ "gates": {
+  "shared": 17,
+  "agree": 15,
+  "disagree": [
+   {
+    "seed": 0,
+    "stage": "harden",
+    "bar": 0.65,
+    "device": "0.61 / 0.74 REJECT ['pLDDT']",
+    "reference": "0.65 / 0.77 PASS",
+    "ref_margin_to_bar": 0.0
+   },
+   {
+    "seed": 400,
+    "stage": "screen",
+    "bar": 0.6,
+    "device": "0.68 / 0.81 PASS",
+    "reference": "0.56 / 0.74 REJECT ['pLDDT']",
+    "ref_margin_to_bar": -0.04
+   }
+  ]
+ },
+ "deltas": [
+  {
+   "seed": 0,
+   "stage": "screen",
+   "d_plddt": 0.04,
+   "d_iptm": 0.01
+  },
+  {
+   "seed": 0,
+   "stage": "refine",
+   "d_plddt": 0.03,
+   "d_iptm": 0.01
+  },
+  {
+   "seed": 0,
+   "stage": "anneal",
+   "d_plddt": 0.01,
+   "d_iptm": 0.02
+  },
+  {
+   "seed": 0,
+   "stage": "harden",
+   "d_plddt": -0.04,
+   "d_iptm": -0.03
+  },
+  {
+   "seed": 100,
+   "stage": "screen",
+   "d_plddt": 0.07,
+   "d_iptm": 0.0
+  },
+  {
+   "seed": 100,
+   "stage": "refine",
+   "d_plddt": 0.07,
+   "d_iptm": -0.01
+  },
+  {
+   "seed": 100,
+   "stage": "anneal",
+   "d_plddt": 0.02,
+   "d_iptm": -0.04
+  },
+  {
+   "seed": 100,
+   "stage": "harden",
+   "d_plddt": -0.01,
+   "d_iptm": -0.08
+  },
+  {
+   "seed": 100,
+   "stage": "mutate",
+   "d_plddt": -0.03,
+   "d_iptm": -0.05
+  },
+  {
+   "seed": 200,
+   "stage": "screen",
+   "d_plddt": 0.0,
+   "d_iptm": 0.02
+  },
+  {
+   "seed": 200,
+   "stage": "refine",
+   "d_plddt": -0.03,
+   "d_iptm": -0.01
+  },
+  {
+   "seed": 300,
+   "stage": "screen",
+   "d_plddt": 0.05,
+   "d_iptm": 0.03
+  },
+  {
+   "seed": 300,
+   "stage": "refine",
+   "d_plddt": 0.04,
+   "d_iptm": 0.01
+  },
+  {
+   "seed": 300,
+   "stage": "anneal",
+   "d_plddt": 0.05,
+   "d_iptm": 0.01
+  },
+  {
+   "seed": 300,
+   "stage": "harden",
+   "d_plddt": 0.0,
+   "d_iptm": -0.01
+  },
+  {
+   "seed": 300,
+   "stage": "mutate",
+   "d_plddt": 0.0,
+   "d_iptm": -0.02
+  },
+  {
+   "seed": 400,
+   "stage": "screen",
+   "d_plddt": 0.12,
+   "d_iptm": 0.07
+  }
+ ],
+ "accepted": {
+  "device": 0,
+  "reference_traj1": 0,
+  "reference_all_completed": 6
+ },
+ "reference_own_spread": {
+  "screen": {
+   "n": 10,
+   "min": 0.56,
+   "max": 0.75,
+   "range": 0.19
+  },
+  "refine": {
+   "n": 8,
+   "min": 0.59,
+   "max": 0.71,
+   "range": 0.12
+  },
+  "anneal": {
+   "n": 4,
+   "min": 0.66,
+   "max": 0.72,
+   "range": 0.06
+  },
+  "harden": {
+   "n": 4,
+   "min": 0.65,
+   "max": 0.73,
+   "range": 0.08
+  },
+  "mutate": {
+   "n": 4,
+   "min": 0.31,
+   "max": 0.44,
+   "range": 0.13
+  }
+ },
+ "delta_summary": {
+  "n_matched_stages": 17,
+  "mean_d_plddt": 0.0229,
+  "min": -0.04,
+  "max": 0.12,
+  "log_resolution": 0.01
+ }
+}

@@ -1,0 +1,10 @@
+{
+ "samples": 2533,
+ "interval_s": 5,
+ "median": 1350,
+ "min": 800,
+ "max": 1350,
+ "load_median": 43.3,
+ "source": "/sys/class/tenstorrent/tenstorrent!0/tt_aiclk",
+ "card": "qb1 TT_VISIBLE_DEVICES 3, PCI 0000:c1:00.0, p150a"
+}

@@ -1,0 +1,5 @@
+=== trajectory 1 | pdl1_denovo_l146_ca4fe44ca7aac5cd | accepted 0/10 ===
+  passed screen design stage  i_pTM=0.81    pLDDT=0.72  
+  passed refine design stage  i_pTM=0.77    pLDDT=0.68  
+  passed anneal design stage  i_pTM=0.76    pLDDT=0.67  
+  rejected at harden design stage  i_pTM=0.74    pLDDT=0.61   due to [pLDDT]

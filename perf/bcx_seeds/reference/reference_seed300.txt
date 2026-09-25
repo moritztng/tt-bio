@@ -5,3 +5,5 @@
   passed harden design stage  i_pTM=0.83    pLDDT=0.73  
   rejected at mutate design stage  i_pTM=0.12    pLDDT=0.32   due to [i_pTM, pLDDT]
 === trajectory 2 | pdl1_denovo_l112_394e65847ce8a34a | accepted 0/10 ===
+  passed screen design stage  i_pTM=0.81    pLDDT=0.73  
+  passed refine design stage  i_pTM=0.8     pLDDT=0.71  

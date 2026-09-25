@@ -2,3 +2,5 @@
   passed screen design stage  i_pTM=0.76    pLDDT=0.61  
   rejected at refine design stage  i_pTM=0.75    pLDDT=0.59   due to [pLDDT]
 === trajectory 2 | pdl1_denovo_l165_d28f3180710bb1de | accepted 0/10 ===
+  passed screen design stage  i_pTM=0.79    pLDDT=0.62  
+  passed refine design stage  i_pTM=0.78    pLDDT=0.63  
