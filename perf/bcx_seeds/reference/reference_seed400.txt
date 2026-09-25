@@ -1,0 +1,6 @@
+=== trajectory 1 | pdl1_denovo_l180_ffb9c87873af6d36 | accepted 0/10 ===
+  rejected at screen design stage  i_pTM=0.74    pLDDT=0.56   due to [pLDDT]
+=== trajectory 2 | pdl1_denovo_l60_d562f4cc36694e2c | accepted 0/10 ===
+  passed screen design stage  i_pTM=0.76    pLDDT=0.72  
+  passed refine design stage  i_pTM=0.76    pLDDT=0.71  
+  passed anneal design stage  i_pTM=0.77    pLDDT=0.72  
