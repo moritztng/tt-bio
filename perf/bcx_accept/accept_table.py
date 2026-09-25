@@ -417,6 +417,51 @@ def candidates(arm, design):
         return [r for r in csv.DictReader(handle) if r.get("design", "").startswith(design)]
 
 
+def ranked(arm, design):
+    """The designs BindCraft 2 actually KEPT for this trajectory, from `3_Ranked/!_Ranked.csv`.
+
+    This is the unit the GO condition is written in, and it is not the number of candidates that
+    cleared the filters. `MPNN_stage` scores up to ten redesigns, `campaign.py` then keeps the
+    single best by `i_pDAE`, writes it to `3_Ranked`, and increments `.campaign_state.json`'s
+    `accepted` by that one. Both arms show it: the reference scored 5 candidates, 3 passed, and
+    recorded `accepted: 1`; `route_s3_arm` scored 4, 3 passed, and recorded `accepted: 1`.
+
+    Counting candidates-passed instead triples the numerator and divides chip-seconds per design
+    by three, against a reference quoted in BindCraft 2's own unit. That is the DENOMINATOR
+    failure this campaign has a standing lesson about, so the count comes off the ranked ledger.
+    """
+    path = os.path.join(arm, "3_Ranked", "!_Ranked.csv")
+    if not os.path.exists(path):
+        return []
+    with open(path) as handle:
+        return [r for r in csv.DictReader(handle) if r.get("design", "").startswith(design)]
+
+
+def validation_wall(arm, design):
+    """Wall seconds the host-side validation ensemble took, per candidate, from artifact mtimes.
+
+    It is wall clock and not chip time. On the shipped `examples/pdl1.json` all five design models
+    are multimer checkpoints, so validation falls to the monomer pair, which is not card-resident
+    and folds on BindCraft 2's own JAX. The chip is idle throughout. A designs-per-hour figure
+    carries this; a chip-seconds-per-design figure must not.
+
+    Bracketed from the trajectory ledger write to each `2_Refolded/Complexes/*_candidateN.cif`,
+    which is the file each fold produces. It is wall on a box under load 17-24, which is what the
+    number is for: the throughput a user sees, not an isolated fold cost.
+    """
+    start = os.path.join(arm, "1_Trajectories", "!_Trajectories.csv")
+    folder = os.path.join(arm, "2_Refolded", "Complexes")
+    if not (os.path.exists(start) and os.path.isdir(folder)):
+        return None
+    cifs = sorted((os.path.getmtime(os.path.join(folder, f)), f)
+                  for f in os.listdir(folder)
+                  if f.startswith(design) and "_candidate" in f and f.endswith(".cif"))
+    if not cifs:
+        return None
+    marks = [os.path.getmtime(start)] + [m for m, _ in cifs]
+    return [marks[i + 1] - marks[i] for i in range(len(cifs))]
+
+
 def classify(arm, row, fix_present, mask_fix):
     """Validity of this trajectory as evidence about acceptance."""
     design = row["design"]
@@ -443,8 +488,9 @@ def classify(arm, row, fix_present, mask_fix):
         scored = candidates(arm, design)
         if not scored:
             return "INVALID hallucination completed, validation never ran (0 candidates scored)"
-        accepted = [c for c in scored if c.get("outcome") == "passed"]
-        return "VALID scored, %d of %d candidates passed" % (len(accepted), len(scored))
+        passed = [c for c in scored if c.get("outcome") == "passed"]
+        return "VALID scored, %d of %d candidates passed, %d kept" % (
+            len(passed), len(scored), len(ranked(arm, design)))
     return "VALID design rejection at %s" % terminated
 
 
@@ -516,6 +562,11 @@ def report(argument):
                  (row.get("terminated") or "completed"), note, verdict))
         out.append({"arm": arm, "design": row["design"], "seconds": secs,
                     "terminated": row.get("terminated") or "completed",
+                    "kept": len(ranked(arm, row["design"])),
+                    "scored": len(candidates(arm, row["design"])),
+                    "passed": sum(1 for c in candidates(arm, row["design"])
+                                  if c.get("outcome") == "passed"),
+                    "validation": validation_wall(arm, row["design"]),
                     "validity": verdict, "commit": commit or "UNRECORDED",
                     "route": route_present, "rejection": hit,
                     "margin": margin(hit) if hit else None})
@@ -559,22 +610,44 @@ def main(argv):
     chip = sum(r["seconds"] for r in valid if r["seconds"])
     print("chip-seconds over valid trajectories: %.0f  (%.2f h, one chip)"
           % (chip, chip / 3600.0))
-    accepted = 0
-    for row in scored:
-        head, _, _ = row["validity"].partition(" of ")
-        accepted += int(head.rsplit(" ", 1)[-1])
+    accepted = sum(r["kept"] for r in scored)
+    passed = sum(r["passed"] for r in scored)
     if scored:
         print()
         print("ACCEPTANCE: %d accepted over %d acceptance-eligible trajectories."
               % (accepted, len(eligible)))
+        print("  The unit is BindCraft 2's own: designs written to 3_Ranked, which is one per")
+        print("  trajectory, the best by i_pDAE. %d candidate(s) cleared the filter set across"
+              % passed)
+        print("  %d scored; counting those instead would treble the numerator against a"
+              % sum(r["scored"] for r in scored))
+        print("  reference quoted in the same unit (reference: 3 of 5 passed, 1 accepted).")
         print("DECISION-RULE B reads a 0 only at 6 or more completed eligible trajectories;")
         print("this stands at %d." % len(eligible))
         chip_eligible = sum(r["seconds"] for r in eligible if r["seconds"])
+        host = [w for r in eligible if r["validation"] for w in r["validation"]]
         if accepted:
+            print()
             print("chip-seconds per accepted design: %.0f over %d eligible trajectories"
                   % (chip_eligible / accepted, len(eligible)))
-            print("  design-loop chip time only. The validation ensemble runs on the host, so it")
-            print("  is wall clock and not chip time; see ROUTE_FILE above.")
+            print("  design-loop chip time only, and the chip is held for all of it.")
+            if host:
+                host_total = sum(host)
+                srt = sorted(host)
+                med = srt[len(srt) // 2] if len(srt) % 2 else (srt[len(srt) // 2 - 1] + srt[len(srt) // 2]) / 2.0
+                print("host validation wall, NOT chip time: %.0f s over %d candidate folds,"
+                      % (host_total, len(host)))
+                print("  median %.0f s each (%s). The monomer validation pair is not card-resident,"
+                      % (med, ", ".join("%.0f" % w for w in host)))
+                print("  so these fold on BindCraft 2's own JAX with the chip idle.")
+                print("wall per accepted design: %.0f s (%.2f h) = %.0f chip-s + %.0f host-s."
+                      % ((chip_eligible + host_total) / accepted,
+                         (chip_eligible + host_total) / accepted / 3600.0,
+                         chip_eligible / accepted, host_total / accepted))
+                print("designs per hour per chip: %.2f if the chip is released during validation,"
+                      % (3600.0 * accepted / chip_eligible))
+                print("  %.2f end to end on one process that holds it throughout."
+                      % (3600.0 * accepted / (chip_eligible + host_total)))
     else:
         print()
         print("No trajectory reached the acceptance filters, so chip-seconds per accepted design")
