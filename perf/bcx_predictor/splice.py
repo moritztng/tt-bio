@@ -414,6 +414,73 @@ class ExtraMsaOnDevice:
         return stack
 
 
+class TemplatePairStackOnDevice:
+    """tt-bio's 2 template pair blocks as `pair_act -> pair_act`, forward only.
+
+    `AF2DeviceTemplatePairStack` (`tt_bio/af2.py:417`) already runs these two blocks for af2ig
+    folds: the same four pair ops as the trunk at the template's own widths, in the template's
+    own order (attentions before multiplications), taking the same `mask_2d` through the same
+    `af2_pair_masks`. This hands it BindCraft 2's `pair_act` and gets it back.
+
+    NO BACKWARD, and none is owed. BindCraft 2 builds every template feature from `aatype`,
+    which is `sequence.argmax(-1)` (`bindcraft/af2.py:134`), so the stack's input carries no
+    gradient to the sequence being optimised; the measured host map of a swapped round has
+    `template_pair_stack` thunks in the forward only. So this is a plain `jax.pure_callback`
+    with no `custom_vjp`: if a gradient ever did reach it JAX raises, where a `custom_vjp`
+    returning zeros would quietly be wrong.
+
+    The template embedder is mapped over templates with `hk.vmap`
+    (`mapping.sharded_map`, `mapping.py:84`), so the callback is traced under a vmap and needs
+    `vmap_method="sequential"` -- one unbatched call per template, which is what the card runs
+    anyway. `sharded_apply` also traces the body once under `hk.eval_shape` before it runs it,
+    which is why the factory below is asked for this stack twice per program and `calls` is the
+    number that says how often the card actually ran.
+
+    What this DOES drop is the stack's dropout: BindCraft 2 applies `dropout_rate` 0.25 after
+    each sub-module of each block under `use_dropout` (`modules.py:71`). That is the same thing
+    the Evoformer and extra-MSA swaps already do to their 48 and 4 blocks, so the program this
+    joins is deterministic in its pair stacks either way; `dropout_seen` records what BindCraft
+    2 asked for so the grade names it instead of assuming it.
+    """
+
+    #: `template.pair_stack.0.tri_att_start.linear.weight` is `(heads, channels)`; the width it
+    #: names is the one thing that separates this stack from the trunk's at a call site whose
+    #: only other handle is a block count.
+    WIDTH_KEY = "template.pair_stack.0.tri_att_start.linear.weight"
+
+    def __init__(self, dev, k_template: int = 2):
+        self.dev, self.k_template = dev, k_template
+        self.calls = {"forward": 0}
+        self.swapped = 0
+        self.dropout_seen: set = set()
+        self.shapes: set = set()
+        self.channels = int(dev.dm.state_dict()[self.WIDTH_KEY].shape[-1])
+
+    def _forward(self, act_np, pair_mask_np):
+        dev = self.dev
+        z = torch.from_numpy(np.asarray(act_np).copy()).float()
+        pmk = torch.from_numpy(np.asarray(pair_mask_np).copy()).float()
+        if z.shape[-1] != self.channels:
+            raise ValueError(f"template pair stack got a {z.shape[-1]}-wide pair; tt-bio's "
+                             f"template blocks are {self.channels} wide, so this is not the "
+                             f"template's `layer_stack`")
+        z, pmk, n, _ = _pad_pair(z, pmk)
+        out = dev.dm._template_stack(z, pmk)
+        self.calls["forward"] += 1
+        self.shapes.add((tuple(np.shape(act_np)), n))
+        return out[:n, :n].float().numpy()
+
+    def as_jax(self):
+        """`(pair_act, pair_mask) -> pair_act`, forward only."""
+        def call(pair_act, pair_mask):
+            out = jax.pure_callback(
+                self._forward, jax.ShapeDtypeStruct(pair_act.shape, jnp.float32),
+                pair_act.astype(jnp.float32), pair_mask.astype(jnp.float32),
+                vmap_method="sequential")
+            return out.astype(pair_act.dtype)
+        return call
+
+
 def find_evoformer_masks(fn):
     """Recover `evoformer_masks` from the closure of `evoformer_fn`.
 
@@ -457,12 +524,15 @@ def find_extra_msa_masks(fn):
 
 @contextlib.contextmanager
 def evoformer_on_device(evo: EvoformerOnDevice | None, expect_blocks: int = 48,
-                        extra_msa: "ExtraMsaOnDevice | None" = None):
+                        extra_msa: "ExtraMsaOnDevice | None" = None,
+                        template: "TemplatePairStackOnDevice | None" = None):
     """Swap `modules.py:1594`'s Evoformer stack for `evo` and, only when one is given,
-    `modules.py:1528`'s extra-MSA stack for `extra_msa`.
+    `modules.py:1528`'s extra-MSA stack for `extra_msa` and `modules.py:247`'s template pair
+    stack for `template`.
 
-    The two are independent: `evo=None` leaves the Evoformer in JAX, and the default
-    `extra_msa=None` is the program every Evoformer-only comparison was graded on.
+    The three are independent: `evo=None` leaves the Evoformer in JAX, and the defaults
+    `extra_msa=None` and `template=None` are the program every Evoformer-only comparison was
+    graded on.
     """
     from bindcraft.af.alphafold.model import layer_stack as LS
     from bindcraft.af.alphafold.model import modules
@@ -470,6 +540,7 @@ def evoformer_on_device(evo: EvoformerOnDevice | None, expect_blocks: int = 48,
     real = LS.layer_stack
     device_stack = evo.as_jax() if evo is not None else None
     extra_stack = extra_msa.as_jax() if extra_msa is not None else None
+    template_stack = template.as_jax() if template is not None else None
     swapped = []
 
     def factory(num_layers, *a, **kw):
@@ -477,6 +548,35 @@ def evoformer_on_device(evo: EvoformerOnDevice | None, expect_blocks: int = 48,
 
         def choose(fn):
             name = getattr(fn, "__name__", None)
+            if template_stack is not None and name == "block":
+                # `TemplatePairStack`'s block is the one anonymous stack body in the model, so
+                # the block count and the pair width are the discriminator. `modules.py:247` is
+                # the only 2-block `layer_stack` BindCraft 2 traces on this path; the width is
+                # checked on the card's own side, where a trunk-shaped pair cannot pass.
+                if int(num_layers) != template.k_template:
+                    raise ValueError(f"an anonymous `block` layer_stack has {num_layers} "
+                                     f"blocks, tt-bio's template holds {template.k_template}")
+                pair_mask = _free_variable(fn, "pair_mask",
+                                           lambda v: getattr(v, "ndim", None) == 2)
+                if pair_mask is None:
+                    raise RuntimeError("pair_mask not found in the template block's closure; "
+                                       "tt-bio's blocks refuse an unmasked pair stack and "
+                                       "guessing a mask is worse than stopping")
+                use_dropout = _free_variable(fn, "use_dropout", lambda v: v is not None)
+                template.dropout_seen.add(str(use_dropout))
+                template.swapped += 1
+
+                def template_on_device(x):
+                    pair_act, safe_key = x
+                    pair_act = template_stack(pair_act, pair_mask)
+                    # BindCraft 2's block splits the key six ways and carries the first on, so
+                    # what follows sees the key it would have seen. Nothing downstream reads
+                    # it -- `TemplatePairStack.__call__` drops it -- and it is kept exact
+                    # because it costs nothing to.
+                    for _ in range(int(num_layers)):
+                        safe_key, *_unused = safe_key.split(6)
+                    return pair_act, safe_key
+                return template_on_device
             if extra_stack is not None and name == "extra_msa_stack_fn":
                 if int(num_layers) != extra_msa.k_extra:
                     raise ValueError(f"extra_msa_stack_fn has {num_layers} blocks, tt-bio "

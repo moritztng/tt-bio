@@ -123,6 +123,8 @@ def main():
                          "swap, GO at 2.156x). Every other module's host share is a "
                          "different quantity with it on, so a row aimed at one of them "
                          "measures it here.")
+    ap.add_argument("--template", action="store_true",
+                    help="run the template pair stack on the card too (forward only)")
     ap.add_argument("--params", default="/home/ttuser/bcx_e2e/af2_params")
     ap.add_argument("--out", required=True)
     args = ap.parse_args()
@@ -155,7 +157,8 @@ def main():
     print(json.dumps(stamp, indent=1), flush=True)
 
     import afgrad as _A
-    from splice import EvoformerOnDevice, ExtraMsaOnDevice, evoformer_on_device
+    from splice import (EvoformerOnDevice, ExtraMsaOnDevice, TemplatePairStackOnDevice,
+                        evoformer_on_device)
     mt = SeamMeter(args.rounds, args.cap, profile, os.path.join(project, "trace"))
     M.install(mt, sys.modules["splice"], T.TTBioAlphaFoldDesignModel, trajectory, seqopt)
 
@@ -175,16 +178,17 @@ def main():
     bc2_af2.one_worker_compiles = owc
 
     t_load = time.time()
-    _dm, _ = _A.load_models(_A.DEFAULT_PARAMS)
+    _dm, _ = _A.load_models(_A.DEFAULT_PARAMS, template=args.template)
     _dev = _A.Dev(_dm.to_device())
     evo = EvoformerOnDevice(_dev, k_evo=48)
     extra = ExtraMsaOnDevice(_dev, k_extra=4) if args.extra_msa else None
+    tmpl = TemplatePairStackOnDevice(_dev, k_template=2) if args.template else None
     M.ev("setup", "load_models", t_load, time.time())
 
     t0 = time.time()
     stopped = None
     try:
-        with evoformer_on_device(evo, extra_msa=extra):
+        with evoformer_on_device(evo, extra_msa=extra, template=tmpl):
             campaign.run_campaign(settings, project, af2_weights=args.params,
                                   mpnn_weights=os.path.join(B.BC2, "bindcraft", "weights",
                                                             "proteinmpnn", "weights_neutral"),
@@ -202,7 +206,12 @@ def main():
                       "device_calls": dict(evo.calls),
                       "extra_msa_on": bool(args.extra_msa),
                       "extra_calls": dict(extra.calls) if extra else None,
-                      "extra_swapped": extra.swapped if extra else 0, "loadavg_end": os.getloadavg(),
+                      "extra_swapped": extra.swapped if extra else 0,
+                      "template_on": bool(args.template),
+                      "template_calls": dict(tmpl.calls) if tmpl else None,
+                      "template_swapped": tmpl.swapped if tmpl else 0,
+                      "template_shapes": sorted(map(str, tmpl.shapes)) if tmpl else None,
+                      "template_dropout_seen": sorted(tmpl.dropout_seen) if tmpl else None, "loadavg_end": os.getloadavg(),
                       "finished_utc": time.strftime("%FT%TZ", time.gmtime()),
                       "traces": sorted(glob.glob(os.path.join(project, "trace", "**",
                                                               "*.xplane.pb"), recursive=True))})
