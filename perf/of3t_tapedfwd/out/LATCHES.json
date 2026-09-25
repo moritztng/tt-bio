@@ -1,0 +1,153 @@
+{
+ "doc": "refusal-cache writes, split by device refusal vs call-state decline",
+ "total": 20,
+ "in_except_cacheable": 16,
+ "not_in_except_must_be_read": [
+  {
+   "file": "tt_bio/tenstorrent.py",
+   "line": 3082,
+   "set": "_BMM_CFG_REFUSED",
+   "in_except": false
+  },
+  {
+   "file": "tt_bio/tenstorrent.py",
+   "line": 5163,
+   "set": "_L1_OUT_REFUSED",
+   "in_except": false
+  },
+  {
+   "file": "tt_bio/tenstorrent.py",
+   "line": 5228,
+   "set": "_L1_OUT_REFUSED",
+   "in_except": false
+  },
+  {
+   "file": "tt_bio/tenstorrent.py",
+   "line": 2648,
+   "set": "_TRIATT_HIFI_OVER_L1",
+   "in_except": false
+  }
+ ],
+ "all": [
+  {
+   "file": "tt_bio/tenstorrent.py",
+   "line": 3082,
+   "set": "_BMM_CFG_REFUSED",
+   "in_except": false
+  },
+  {
+   "file": "tt_bio/tenstorrent.py",
+   "line": 2320,
+   "set": "_SDPA_Q_CHUNK_OVER_L1",
+   "in_except": true
+  },
+  {
+   "file": "tt_bio/tenstorrent.py",
+   "line": 2297,
+   "set": "_SDPA_Q_CHUNK_OVER_L1",
+   "in_except": true
+  },
+  {
+   "file": "tt_bio/tenstorrent.py",
+   "line": 5163,
+   "set": "_L1_OUT_REFUSED",
+   "in_except": false
+  },
+  {
+   "file": "tt_bio/tenstorrent.py",
+   "line": 5228,
+   "set": "_L1_OUT_REFUSED",
+   "in_except": false
+  },
+  {
+   "file": "tt_bio/tenstorrent.py",
+   "line": 2648,
+   "set": "_TRIATT_HIFI_OVER_L1",
+   "in_except": false
+  },
+  {
+   "file": "tt_bio/tenstorrent.py",
+   "line": 4368,
+   "set": "_TRANSPOSE_L1_REFUSED",
+   "in_except": true
+  },
+  {
+   "file": "tt_bio/tenstorrent.py",
+   "line": 4386,
+   "set": "_TRANSPOSE_L1_REFUSED",
+   "in_except": true
+  },
+  {
+   "file": "tt_bio/tenstorrent.py",
+   "line": 4423,
+   "set": "_PT_ROW_MAJOR_REFUSED",
+   "in_except": true
+  },
+  {
+   "file": "tt_bio/tenstorrent.py",
+   "line": 8541,
+   "set": "_TRANSPOSE_L1_REFUSED",
+   "in_except": true
+  },
+  {
+   "file": "tt_bio/tenstorrent.py",
+   "line": 2269,
+   "set": "_SDPA_QK_OVER_L1",
+   "in_except": true
+  },
+  {
+   "file": "tt_bio/tenstorrent.py",
+   "line": 2636,
+   "set": "_TRIATT_HIFI_OVER_L1",
+   "in_except": true
+  },
+  {
+   "file": "tt_bio/tenstorrent.py",
+   "line": 5179,
+   "set": "_L1_OUT_REFUSED",
+   "in_except": true
+  },
+  {
+   "file": "tt_bio/triatt_sdpa.py",
+   "line": 449,
+   "set": "_PM_OVER_L1",
+   "in_except": true
+  },
+  {
+   "file": "tt_bio/triatt_sdpa.py",
+   "line": 446,
+   "set": "_GATE_OVER_L1",
+   "in_except": true
+  },
+  {
+   "file": "tt_bio/esmc.py",
+   "line": 860,
+   "set": "_UNBLOCKED_REFUSED",
+   "in_except": true
+  },
+  {
+   "file": "tt_bio/esmc.py",
+   "line": 621,
+   "set": "_L1_LN_REFUSED",
+   "in_except": true
+  },
+  {
+   "file": "tt_bio/esmc.py",
+   "line": 779,
+   "set": "_FILL_ASSEMBLY_REFUSED",
+   "in_except": true
+  },
+  {
+   "file": "tt_bio/esmc.py",
+   "line": 782,
+   "set": "_FUSED_RESID_REFUSED",
+   "in_except": true
+  },
+  {
+   "file": "tt_bio/esmc.py",
+   "line": 785,
+   "set": "_L1_SLICE_REFUSED",
+   "in_except": true
+  }
+ ]
+}
