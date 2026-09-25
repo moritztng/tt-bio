@@ -72,19 +72,38 @@ BC2_SRC="$SRC" python3 "$HERE/test_bc2_contract.py" 2>&1 | tee "$OUT/contract.lo
 # an ACTIVE environment when it finds one, so the two variables that advertise one are cleared and it
 # builds its own .venv.
 cd "$SRC"
-if [[ ! -x $SRC/.venv/bin/python ]]; then
+# BC2 builds `biotraj` from source on any Python it has no wheel for, and uv hands install.sh the
+# NEWEST interpreter at or above 3.12 -- 3.14 today, which has no biotraj wheel. The stock vast.ai
+# pytorch runtime image has no compiler, so the build died on `No such file or directory: 'gcc'`
+# after the venv already existed. Two consequences, both handled here: the compiler is provisioned
+# first, and the re-run condition is whether bindcraft IMPORTS, not whether a .venv is present --
+# a half-installed venv would otherwise make the next launch skip the install and fail later, on
+# the card, having paid for it.
+if ! command -v gcc > /dev/null 2>&1; then
+  DEBIAN_FRONTEND=noninteractive apt-get update -qq > "$OUT/apt.log" 2>&1 || true
+  DEBIAN_FRONTEND=noninteractive apt-get install -y -qq build-essential >> "$OUT/apt.log" 2>&1 || true
+fi
+if ! "$SRC/.venv/bin/python" -c 'import bindcraft' 2>/dev/null; then
   env -u VIRTUAL_ENV -u CONDA_PREFIX bash install.sh 2>&1 | tee "$OUT/install.log"
 fi
 PY="$SRC/.venv/bin/python"
 "$PY" -m pip freeze > "$OUT/pip_freeze.txt"
 "$PY" -c 'import jax; print("jax", jax.__version__); print("devices", jax.devices())' | tee "$OUT/jax_devices_$ARM.txt"
 
+PROJECT="$OUT/pdl1_$ARM"
+PROJECT_CACHE="$PROJECT/compile_cache"
+
 # BC2 keeps a persistent on-disk compile cache keyed by GPU name (cli.py use_campaign_compile_cache),
 # so a second run would read every shape warm and the cold reading would be unrepeatable. Cleared
 # here so "cold" is measured rather than remembered; the cache is a real property of the program and
 # is reported as such, not quietly enjoyed.
+# The two roots BC2 actually uses are <project_folder>/compile_cache and
+# ~/.cache/bindcraft/compile_cache (cli.py campaign_compile_cache_root / operator_compile_cache_root),
+# and NOTHING ELSE UNDER ~/.cache/bindcraft: the 5.3 GB AlphaFold parameters live next door in
+# ~/.cache/bindcraft/alphafold. A wildcard here deleted them once and BC2 spent three minutes of
+# rented card re-downloading them mid-run.
 if [[ ${KEEP_COMPILE_CACHE:-0} != 1 ]]; then
-  rm -rf "$SRC"/.bindcraft-compile-cache* "$HOME"/.cache/bindcraft* 2>/dev/null || true
+  rm -rf "$PROJECT_CACHE" "$HOME/.cache/bindcraft/compile_cache" 2>/dev/null || true
 fi
 
 # The clock the steps actually ran at, sampled during the run and not before it.
@@ -95,7 +114,6 @@ fi
 CLOCK_WATCH=$!
 trap 'kill $CLOCK_WATCH 2>/dev/null || true' EXIT
 
-PROJECT="$OUT/pdl1_$ARM"
 CAMPAIGN_START=$(date +%s.%N)
 set +e
 "$PY" "$HERE/bc2_step_timing.py" --jsonl "$OUT/steps_$ARM.jsonl" -- \

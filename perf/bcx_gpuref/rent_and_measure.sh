@@ -16,11 +16,14 @@
 #      the campaign ending on its own.
 set -euo pipefail
 
-BUDGET_USD=${BUDGET_USD:-60}
-RSYNC_EVERY=${RSYNC_EVERY:-120}
+BUDGET_USD=${BUDGET_USD:-15}
+RSYNC_EVERY=${RSYNC_EVERY:-90}
+ARM=${ARM:-warm}
+BUDGET_ROW_H=${BUDGET_ROW_H:-1.5}
 HERE=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 STAMP=$(date -u +%Y%m%dT%H%M%SZ)
-RESULTS=${RESULTS:-$HERE/results/$STAMP}
+RESULTS=${RESULTS:-$HERE/results/$ARM}
+BUDGET_FILE=${BUDGET_FILE:-/home/moritz/.coworker/state/vast-budget}
 VAST=${VAST:-/home/moritz/.vast-venv/bin/vastai}
 KEY_FILE=${KEY_FILE:-/home/moritz/.config/vastai/vast_api_key}
 IMAGE=${IMAGE:-pytorch/pytorch:2.7.1-cuda12.8-cudnn9-runtime}
@@ -48,6 +51,11 @@ teardown() {
     else
       log "teardown confirmed: instance $INSTANCE is gone"
     fi
+    # Withdraw the budget declaration with the instance it described. A row for an id that no
+    # longer exists is clutter that a future reader has to disprove.
+    if [[ -w $BUDGET_FILE ]]; then
+      sed -i "/^$INSTANCE[[:space:]]/d" "$BUDGET_FILE" || true
+    fi
   fi
   log "exit status $status; results in $RESULTS"
   return $status
@@ -72,7 +80,9 @@ if [[ -n ${DRY_RUN:-} ]]; then
   exit 0
 fi
 
-CREATED=$("$VAST" create instance "$OFFER" --image "$IMAGE" --disk 150 --ssh --direct --label bcx-gpuref --raw 2>&1 | tee -a "$LEDGER")
+# NOT tee'd: the create response carries a per-instance `instance_api_key`, and a ledger is a
+# file this row commits. Only the contract id is logged.
+CREATED=$("$VAST" create instance "$OFFER" --image "$IMAGE" --disk 150 --ssh --direct --label bcx-gpuref --raw 2>&1)
 INSTANCE=$(echo "$CREATED" | python3 -c 'import json,sys
 try: print(json.load(sys.stdin).get("new_contract","") or "")
 except Exception: print("")')
@@ -89,6 +99,13 @@ print(found[-1] if found else "")')
 fi
 [[ -n $INSTANCE ]] || { log "create returned no id and nothing is running under the label; nothing was rented"; exit 1; }
 echo "$INSTANCE" > "$RESULTS/instance_id.txt"
+# vast_guard.sh gives an UNDECLARED instance VAST_UNDECLARED_H (1 h) and then stops it, because an
+# undeclared instance is the leak class. Declared here rather than by hand, so the guard's rail and
+# the run's own ceiling cannot disagree.
+if [[ -w $BUDGET_FILE ]]; then
+  printf '%s  %s  bcx-gpuref\n' "$INSTANCE" "$BUDGET_ROW_H" >> "$BUDGET_FILE"
+  log "declared $INSTANCE for ${BUDGET_ROW_H}h in $BUDGET_FILE"
+fi
 log "instance $INSTANCE created"
 
 # Wait for ssh rather than for a status field: the field goes green before sshd answers.
@@ -105,18 +122,25 @@ d=json.load(sys.stdin); print(d.get("ssh_host",""), d.get("ssh_port",""))' || ec
 done
 
 SSH=(ssh -o StrictHostKeyChecking=no -o BatchMode=yes -i "$SSH_KEY" -p "$PORT" "root@$HOST")
+"${SSH[@]}" 'mkdir -p /root/bcx_gpuref'
 scp -o StrictHostKeyChecking=no -i "$SSH_KEY" -P "$PORT" -q \
   "$HERE"/{bc2_step_timing.py,analyze_steps.py,validate_designs.py,test_bc2_contract.py,run_on_box.sh} \
-  "root@$HOST:/root/"
+  "root@$HOST:/root/bcx_gpuref/"
 log "harness copied"
 
-"${SSH[@]}" "BINDER_LENGTH=${BINDER_LENGTH:-96} HERE=/root nohup bash /root/run_on_box.sh > /root/run.log 2>&1 &" || true
+# Who else is on this card. A rented box should be ours alone, and a step time measured against a
+# neighbour at 100% is an artifact rather than a measurement, so the answer is on the record.
+"${SSH[@]}" 'nvidia-smi --query-compute-apps=pid,used_memory --format=csv; nvidia-smi --query-gpu=index,name,driver_version,clocks.sm,utilization.gpu --format=csv' \
+  > "$RESULTS/box_before.txt" 2>&1 || true
+cat "$RESULTS/box_before.txt"
+
+"${SSH[@]}" "ARM=$ARM BINDER_LENGTH=${BINDER_LENGTH-146} MAX_TRAJECTORIES=${MAX_TRAJECTORIES:-4} FINAL_DESIGNS=${FINAL_DESIGNS:-4} setsid nohup bash /root/bcx_gpuref/run_on_box.sh > /root/run_$ARM.log 2>&1 < /dev/null &" || true
 
 # Pull results back while it runs, so a stop at the ceiling loses nothing already measured.
 while true; do
   rsync -az -e "ssh -o StrictHostKeyChecking=no -i $SSH_KEY -p $PORT" "root@$HOST:/root/bcx_out/" "$RESULTS/" 2>/dev/null || true
-  rsync -az -e "ssh -o StrictHostKeyChecking=no -i $SSH_KEY -p $PORT" "root@$HOST:/root/run.log" "$RESULTS/" 2>/dev/null || true
-  if ! "${SSH[@]}" 'pgrep -f run_on_box.sh > /dev/null' 2>/dev/null; then
+  rsync -az -e "ssh -o StrictHostKeyChecking=no -i $SSH_KEY -p $PORT" "root@$HOST:/root/run_$ARM.log" "$RESULTS/" 2>/dev/null || true
+  if ! "${SSH[@]}" 'pgrep -f bcx_gpuref/run_on_box > /dev/null' 2>/dev/null; then
     log "the run has finished"
     break
   fi
@@ -128,5 +152,7 @@ while true; do
 done
 
 rsync -az -e "ssh -o StrictHostKeyChecking=no -i $SSH_KEY -p $PORT" "root@$HOST:/root/bcx_out/" "$RESULTS/" 2>/dev/null || true
+rsync -az -e "ssh -o StrictHostKeyChecking=no -i $SSH_KEY -p $PORT" "root@$HOST:/root/run_$ARM.log" "$RESULTS/" 2>/dev/null || true
+"${SSH[@]}" 'nvidia-smi --query-compute-apps=pid,used_memory --format=csv' > "$RESULTS/box_after.txt" 2>&1 || true
 ELAPSED_H=$(python3 -c "import time,os; print(round((time.time() - os.path.getmtime('$RESULTS/instance_id.txt')) / 3600, 3))")
 log "instance $INSTANCE, \$$RATE/hr, ${ELAPSED_H}h, about \$$(python3 -c "print(round($RATE * $ELAPSED_H, 2))")"
