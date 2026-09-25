@@ -73,18 +73,28 @@ FORWARD_OOM_BY_MODEL = {
     # rung. Forward AND backward peaks on the taped training path, cards 0 and 1 of qb1 (p150a)
     # for 544/576/640/768 and qb2 (p300c) for the 512 baseline; both boards present the same
     # 8 x 4,278,190,016 B = 34,225,520,128 B per-chip DRAM read off the allocator's own refusal
-    # lines. 512 RUNS and is the largest that does. The three refusals above it are not one
-    # wall: 640 and 768 die with the card full, 576 dies with 6,671,522,304 B still free,
-    # refused for CONTIGUITY inside `ttnn::concat`, short by 77,930,560 B per bank. A capacity
-    # extrapolation cannot locate that frontier -- the row's own 2.08 fit said 576 would clear
-    # with 14 % of margin, and it did not -- which is exactly why these are table entries and
-    # not a slope.
+    # lines. At the time: 512 RAN and was the largest that did, and the refusals above it were
+    # not one wall -- 640 and 768 died with the card full, 576 died with 6,671,522,304 B still
+    # free, refused for CONTIGUITY inside `ttnn::concat`, short by 77,930,560 B per bank. A
+    # capacity extrapolation cannot locate that frontier -- the row's own 2.08 fit said 576
+    # would clear with 14 % of margin, and it did not -- which is exactly why these are table
+    # entries and not a slope.
+    #
+    # SUPERSEDED IN PART, 2026-09-25: of3t-cropwall's concat-heads split landed on main
+    # (e558bfb06, 2026-09-23) and moved the frontier one rung, 512 -> 576. 640 re-measured
+    # post-fix and still refuses. A measured refusal is only true of the code it was measured
+    # on, so an entry here has to be re-read whenever a fix touches the allocation it names.
     "openfold3": {
-        544: (None, None, "of3t-crop768 -- measured to refuse, qb1 p150a, 1350 MHz during"),
-        576: (None, 77_930_560, "of3t-crop768 -- CONTIGUITY inside ttnn::concat with "
-                                "6,671,522,304 B still free, short by this much per bank; "
-                                "reproduces byte for byte on cards 0 and 1"),
-        640: (None, None, "of3t-crop768 -- card full, 23,710,208 B free device-wide"),
+        # 544 and 576 USED to be entries here and were removed on 2026-09-25. Their refusals
+        # were real, and of3t-cropwall's concat-heads split fix (e558bfb06, on main since
+        # 2026-09-23) removed the thing they measured: 576 refused for CONTIGUITY inside
+        # `ttnn::concat`, which is exactly the allocation that fix reshapes. Post-fix, 576
+        # COMPLETES -- twice, at two separate main-ancestor commits. Keeping a refusal whose
+        # cause is fixed is how plan() came to refuse a crop the engine can run, which is the
+        # defect this whole table exists to have stopped.
+        640: (None, None, "of3t-crop768 -- card full, 23,710,208 B free device-wide; "
+                          "RE-CONFIRMED post-concat-fix at e558bfb06 (perf/of3t_cropwall/out/"
+                          "split_640_fix2_card3.json), so this wall is not the concat one"),
         768: (None, None, "of3t-crop768 -- card full, 6,231,552 B free device-wide; the "
                           "levered fit puts 768 at 1.558x the card and the fit UNDER-predicts, "
                           "so that is a floor on the overshoot"),
@@ -95,8 +105,13 @@ FORWARD_OOM_BY_MODEL = {
 # weaker fact than a training replica -- it says the memory fits, not how long a step takes --
 # and the two are kept apart because conflating them is how a fit becomes a projected step time.
 LARGEST_MEASURED_TO_FIT = {
-    "openfold3": (512, "of3t-crop768 -- 512 is the largest crop measured to run; 544 is the "
-                       "first that refuses"),
+    "openfold3": (576, "of3t-cropwall -- 576 is the largest crop measured to COMPLETE, on "
+                       "main since e558bfb06 (2026-09-23). Backward DRAM high-water "
+                       "30,230,471,680 B of the card's 34,225,520,128 B (88.3 %), qb2 p300c "
+                       "card 3, median 1350 MHz polled DURING: perf/of3t_cropwall/out/"
+                       "split_576_fix2_card3.json, and again at 63b51514d in split_576_post"
+                       ".json. 640 still refuses. 544 is unmeasured post-fix -- it sits below "
+                       "a crop that runs, so it is not claimed as a refusal either"),
 }
 
 # The largest crop with a measured training replica. Nothing above this has one.
