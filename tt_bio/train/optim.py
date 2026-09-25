@@ -125,8 +125,8 @@ class _Moments(dict):
 
     A dict subclass rather than a lazy property because the readers are spread across the
     package and all of them want a plain mapping: ``save_adapter`` reads by name
-    (``tt_bio/train/checkpoint.py:43-44``) and materialises what it is about to write,
-    ``load_adapter`` assigns by name (``:73-74``), and a checkpoint resume replaces the
+    (``tt_bio/train/checkpoint.py::save_adapter``) and materialises what it is about to write,
+    ``load_adapter`` assigns by name (``tt_bio/train/checkpoint.py::load_adapter``), and a checkpoint resume replaces the
     attribute outright. None of them needs to know this class exists.
 
     Why it is worth having at all: ``np.zeros_like`` is ``empty_like`` followed by

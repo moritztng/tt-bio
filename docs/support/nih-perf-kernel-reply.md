@@ -167,8 +167,8 @@ busy, and the ttnn dispatch thread is precisely the loser in that trade: it is o
 latency-bound, and it cannot be parallelised out of the problem.
 
 `OMP_NUM_THREADS=4` does not protect it. In tt-bio that variable caps torch's intra-op and
-inter-op pools (`tt_bio/runtime.py:163`, `bind_host_threads`) and the MSA search thread count
-(`tt_bio/main.py:593`). The ttnn dispatch thread is not in either pool. So capping OMP threads
+inter-op pools (`tt_bio/runtime.py::bind_host_threads`) and the MSA search thread count
+(`tt_bio/main.py::compute_msa_offline`). The ttnn dispatch thread is not in either pool. So capping OMP threads
 limits the *other* tt-bio work on the box and leaves the dispatch thread exposed to whatever else
 is running.
 
@@ -203,7 +203,7 @@ Our baseline for it is also v0.7.2-seeded and unreseeded, same caveat as Boltz-2
    customer is not named.
 2. **Inspector-off default: already on main, re-verified.** `wk/nih-perf` commit `1022685a4` is an
    ancestor of `origin/main` via merge `9df6cad8f`. Verified on the merge tree, not the branch
-   tip: `tt_bio/main.py:22` sets `TT_METAL_INSPECTOR=0`, a plain CLI import reads
+   tip: `tt_bio/main.py` sets `TT_METAL_INSPECTOR=0` at import, a plain CLI import reads
    `TT_METAL_INSPECTOR = 0`, and `--debug` reads `None`, so upstream's default is restored for
    triage. Nothing further to merge.
 3. **Correction appended to `state/concluded/nih-perf`**, recording that the RelWithDebInfo
