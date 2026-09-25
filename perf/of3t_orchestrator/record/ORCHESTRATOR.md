@@ -184,7 +184,20 @@ for a structural reason — the DGX ships 8 accelerators and the QuietBox 4 — 
 number was the wrong headline: it credits us with a box we do not sell. Every sprint number states
 its axis.
 
-BRANCH: **`wk/of3t-bwd` at `c499ae9c0`**, now carrying `of3t-intensity` (GO) as well, carrying all of `of3t-tapedfwd` (GO) including the
+BRANCH: **`wk/of3t-bwd` at `c499ae9c0`**, carrying `of3t-tapedfwd` and `of3t-intensity`, both GO
+and both artifact-only apart from tapedfwd's 15-line early return.
+
+**`of3t-lnbw` and `of3t-softbw` are deliberately NOT composed, and their branches are pushed so
+nothing is at risk** (`e77c3a5fb`, `afc6ecab6`). Three reasons that compound: both land in
+`tt_bio/autograd.py`, the file BCX is rewriting at `wk/bcx-heads` `237f53064`, and softbw also
+touches `taped_ttnn.py` — the two files where `land-d264` showed a merge error is invisible to
+inference and visible only to a taped arm; both rows concluded **NO-GO**, so the change needs a
+stated purpose that outlives the job it was written for, and lnbw's is **191 insertions / 50
+deletions** which is not a leftover; and **softbw says its own wiring has never run on a card** —
+*"landed with the flag off and ... not yet run on a card, which is the one thing owed before
+anyone builds on top of it."* Composing unexercised engine code onto contested files into the
+branch that exists to be reviewable is the one thing that branch is for avoiding. **Owed before
+either lands: the purpose stated, `batch_gate.sh` run over the batch, and BCX's bar re-run.**, carrying all of `of3t-tapedfwd` (GO) including the
 three commits behind R209's evidence — artifacts only, no engine file among them, merge-tree
 clean before and after. Created from `origin/main` this pass and composed with `of3t-tapedfwd` (GO) by a
 no-ff merge, conflict-free (`git merge-tree` clean before the merge, verified after). The whole
