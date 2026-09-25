@@ -54,6 +54,12 @@ EXTRA_COUNTERS = [
     "tt_bio.swiglu_fused.STATS", "tt_bio.page_copy.STATS",
     "tt_bio.softmax_generic.SSTATS", "tt_bio.tenstorrent.TRIMUL_TAIL_L1_STATS",
     "tt_bio.tenstorrent.PWA_DEPTH_STATS", "tt_bio.tenstorrent.OPM_ROW_STATS",
+    # `tape()` installs a HOST float64 softmax and layer norm for the whole taped forward
+    # (`autograd._EXACT_OPS`, opened by `taped_ttnn.tape` through `_training_exact`). That is
+    # an accuracy decision, not a route, and it is invisible to every counter above -- which
+    # is exactly how a 248 s arm C can look like "the tape is slow".
+    "tt_bio.autograd.EXACT_SOFTMAX_STATS", "tt_bio.tenstorrent.HOST_F64_SOFTMAX_STATS",
+    "tt_bio.autograd.EXACT_LAYER_NORM_STATS",
     # Every refusal LATCH, read as a set length. These are the caches the recorded suspicion
     # is about: if a taped call still poisons one, the arm that follows it serves less. Read
     # by `read_counters` as `len(set)`, so a latch that grows during arm B or C is visible
@@ -225,6 +231,9 @@ def main():
     ap.add_argument("--cycles", type=int, default=1)
     ap.add_argument("--reps", type=int, default=3)
     ap.add_argument("--arms", default="ABC")
+    ap.add_argument("--profile", action="store_true",
+                    help="cProfile the LAST arm and report the top cumulative callees. One "
+                         "run names the cost instead of binary-searching hypotheses.")
     ap.add_argument("--declare", action="store_true",
                     help="register the trunk's weights as tape leaves before the arms, the "
                          "way fullstep.py does. The arm-C discrepancy hangs on this.")
@@ -263,6 +272,28 @@ def main():
                 t0 = time.perf_counter()
                 run_arm(trunk, held, a.cycles, arm, probe, attrs, out)
                 print(f"[warm {arm}] {time.perf_counter() - t0:.3f}s", flush=True)
+
+            if a.profile:
+                import cProfile
+                import pstats
+                arm = a.arms[-1]
+                pr = cProfile.Profile()
+                pr.enable()
+                run_arm(trunk, held, a.cycles, arm, probe, attrs, out)
+                pr.disable()
+                st = pstats.Stats(pr).sort_stats("cumulative")
+                rows = []
+                for fn, (cc, nc, tt_, ct, _) in st.stats.items():
+                    rows.append({"fn": f"{fn[0].split('/')[-1]}:{fn[1]}({fn[2]})",
+                                 "ncalls": nc, "tottime": round(tt_, 3),
+                                 "cumtime": round(ct, 3)})
+                rows.sort(key=lambda r: -r["tottime"])
+                out["profile_arm"] = arm
+                out["profile_top_tottime"] = rows[:25]
+                print(f"[profile] arm {arm}: top self-time")
+                for r in rows[:15]:
+                    print(f"   {r['tottime']:9.3f}s self  {r['ncalls']:8d} calls  {r['fn']}",
+                          flush=True)
 
             reps = []
             for r in range(a.reps):
