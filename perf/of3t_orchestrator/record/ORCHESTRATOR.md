@@ -42,7 +42,7 @@ author and cite what you took; gates are batched and a stack is approved whole. 
 speedup that does less of the model's own work. A1-A45 are the correctness protocol and are
 unchanged. History: `state/of3t/PASSLOG.md`.
 
-LEDGER: `~/.coworker/state/of3t/LEDGER.md`, **R1-R212 and K1-K25**. **R203, filed this pass, is
+LEDGER: `~/.coworker/state/of3t/LEDGER.md`, **R1-R212 and K1-K26**. **R203, filed this pass, is
 the sprint's first finding and it reordered the job list: an engine-wide fused-kernel bypass hid
 behind a per-module comment. A per-site comment that correctly explains one decline is the best
 camouflage a policy can have, because every reader who checks one site leaves satisfied. Count the
@@ -139,8 +139,13 @@ SHIPPED (exact-on) step, which is the only denominator a product decision can us
    Smaller in absolute seconds than exactscope but a plain defect with no fidelity question
    attached, and it was invisible at 0.17 % until the denominator was fixed.
 
-`of3t-wheelbw` is on `card=cpu` to clean up its own detached chain (K24/K25) and owes only J4's
-seconds. `of3t-softbw` is concluded in substance. **The contention is the schedule**: four rows,
+`of3t-wheelbw` owes only J4's seconds. **Its chain deadlocked the sprint and I broke it (K26):**
+38 minutes, 5 of 40 tries, 5 failures and 0 successes on the K24 bug, holding the only Blackhole
+card while all three rows above deferred — and the row could not stop it, because `chain_alive`
+made it look RUNNING so fleet.sh never relaunched the only agent able to kill the chain. Clearing
+its park did nothing; the park was never the block. Resolved by `kill -TERM` on the **wrapper pid
+alone**, leaving the device child to exit on its own: no device touched, no card reset needed,
+verified after by `fuser` reporting nobody, a `released` lease and a chain log ending at try 5. `of3t-softbw` is concluded in substance. **The contention is the schedule**: four rows,
 one card, and the queue is the sprint's rate limit rather than agent count.
 
 BRANCH: **`wk/of3t-bwd` at `4a86765bb`**, carrying `of3t-tapedfwd`, `of3t-intensity` and

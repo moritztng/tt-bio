@@ -1143,6 +1143,27 @@ state doc nor its `CLAUSE_EXACT.json` names the version anywhere.
   survey sizes jobs by multiplying a count by a global mean, it has assumed the mean is uniform
   — check one site's marginal cost against the mean before ranking anything by count.**
 
+- **K26** (pass 454) **A DETACHED RETRY CHAIN DEADLOCKS ITS OWN ROW, AND THE SAFE EXIT IS TO KILL
+  THE WRAPPER, NOT THE DEVICE HOLDER.** `of3t-wheelbw`'s `chain3.sh` looped on the K24 bug for
+  **38 minutes and 5 of its 40 permitted tries, 5 failures and 0 successes**, holding pc card 0 —
+  the fleet's only Blackhole card — while `of3t-zerosfill`, `of3t-exactscope` and `of3t-restep`
+  all deferred behind it. **The row could not stop it and nothing else would**: `task_running()`
+  calls `chain_alive "$name"`, which matches any live process rooted in `$D/wt/<slug>`, so the
+  chain made the row look RUNNING and fleet.sh never relaunched the agent that was the only thing
+  able to kill the chain. Clearing its park (pass 452) did not help because the park was never
+  the block. **40 tries at ~6 minutes is a ~4-hour fuse on the whole sprint.**
+  **The resolution: `kill -TERM` the WRAPPER pid alone — not the process group, not the python
+  child holding the device.** The in-flight arm then exits on its own terms and no next try
+  starts. Verified after: wrapper gone, `fuser /dev/tenstorrent/0` reports nobody, the lease
+  carries a `released` timestamp, and the chain log ends at try 5's `TypeError` with no try 6.
+  **That ordering matters and is the whole point** — killing the device holder is what
+  `killing-a-wedged-fold-leaves-the-card-unopenable` warns about, where the NEXT open hard-hangs
+  the host; killing only the loop touches no device at all and needs no card reset, which this
+  row is not permitted to perform anyway. **General rule: when a detached chain has deadlocked
+  its own row, SIGTERM the retry wrapper and let the current attempt finish. And when writing a
+  chain: a retry cap is not a safety feature if the thing being retried cannot succeed — bound it
+  by CONSECUTIVE IDENTICAL FAILURES, not by a try count.**
+
 - **K25** (pass 452) **PINNING A ROW TO THE CARD ITS OWN DETACHED CHAIN HOLDS CAGES IT
   PERMANENTLY — and that is the obvious fix to K24, so check `card_free()` before applying it.**
   Having found `of3t-wheelbw`'s chain looping on pc card 0 while its agent was parked elsewhere,
