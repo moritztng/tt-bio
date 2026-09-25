@@ -1,0 +1,50 @@
+{
+ "input": "perf/sizegate/inputs/apo/aa684/cdk2apo_684.yaml (684 aa apo -> 704 tokens)",
+ "model": "openfold3",
+ "host": "tt-quietbox2",
+ "card": 3,
+ "board": "p300c",
+ "cmd": "tt_bio.main predict --model openfold3 --single_sequence --sampling_steps 20 --diffusion_samples 1 --seed 0",
+ "cif_sha256_off": "aa03af74ccdb45f63fa2c4d00e95573d7bfb787980517ff458675fa6d52d3d60",
+ "cif_sha256_on": "aa03af74ccdb45f63fa2c4d00e95573d7bfb787980517ff458675fa6d52d3d60",
+ "identical": true,
+ "fold_seconds": [
+  89,
+  90
+ ],
+ "off": {
+  "pid": 883911,
+  "flag": "0",
+  "stats": {
+   "served": 384,
+   "declined": 0,
+   "too_short": 0,
+   "taped": 0
+  },
+  "picks": {
+   "(704, 704)": [
+    352,
+    704,
+    2
+   ]
+  }
+ },
+ "on": {
+  "pid": 879856,
+  "flag": "1",
+  "stats": {
+   "served": 384,
+   "declined": 0,
+   "too_short": 0,
+   "taped": 0
+  },
+  "picks": {
+   "(704, 704)": [
+    352,
+    704,
+    2
+   ]
+  }
+ },
+ "note": "both arms serve on the SAME rung; the k ladder the lever changes is never reached"
+}
