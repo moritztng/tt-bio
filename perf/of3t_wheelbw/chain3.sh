@@ -18,6 +18,11 @@ export TT_VISIBLE_DEVICES=0 TT_BIO_LEASE_CARDS=0 TT_BIO_LEASE_HOLDER=worker:of3t
 # The status that matters is python's, and a pipeline hands back the LAST stage's -- so
 # `python ... | grep -v DEBUG` reports the grep's success and a DeviceInUseError reads as a
 # pass. Log to a file, keep python's own rc, then filter for the reader.
+# A non-zero rc is not evidence of contention, and reading it as one is how this chain spent
+# ~25 minutes holding pc's only Blackhole card re-running a TypeError at six minutes a cycle.
+# Only DeviceInUseError means "come back later"; everything else is this row's own bug and
+# retrying it cannot succeed. `fuser` is no help either -- it printed an empty holder list on
+# every one of those cycles -- so the holder comes out of the lease's own message.
 step() {
   local label=$1; shift
   local log
@@ -30,14 +35,23 @@ step() {
     if [ $rc -eq 0 ]; then
       echo "=== $label OK rc=0 $(date -u +%FT%TZ) ==="; return 0
     fi
-    echo "=== $label rc=$rc, card held by: $(fuser /dev/tenstorrent/0 2>&1) ==="
+    if ! grep -q 'DeviceInUseError' "$log"; then
+      echo "=== $label FAULT rc=$rc, not contention -- no retry $(date -u +%FT%TZ) ==="
+      return "$rc"
+    fi
+    echo "=== $label busy: $(grep -o 'in use by [^;]*' "$log" | tail -1) ==="
     sleep 60
   done
   echo "=== $label GAVE UP after 40 tries ==="
+  return 1
 }
 
-step vjp_f32   $PY perf/of3t_wheelbw/vjp.py --dtype float32  --out "$OUT/vjp_float32_r2.json"
-step vjp_bf16  $PY perf/of3t_wheelbw/vjp.py --dtype bfloat16 --out "$OUT/vjp_bfloat16_r2.json"
+# The two VJP arms are BANKED -- `out/vjp_float32_r2.json` and `out/vjp_bfloat16_r2.json`,
+# fd_pass 10/10 at both dtypes, pc card 0 p150a. Re-running them would spend the fleet's only
+# Blackhole card on a question already answered, so what is left is the census and the two
+# speed arms. To retake them, uncomment:
+#   step vjp_f32  $PY perf/of3t_wheelbw/vjp.py --dtype float32  --out "$OUT/vjp_float32_r2.json"
+#   step vjp_bf16 $PY perf/of3t_wheelbw/vjp.py --dtype bfloat16 --out "$OUT/vjp_bfloat16_r2.json"
 step census    $PY perf/of3t_wheelbw/census.py --tokens 384 --out "$OUT/census_384.json"
 step speed_f32 $PY perf/of3t_wheelbw/speed.py --card 0 --dtype float32 \
        --shape 1,384,384,128 --reps 5 --iters 20 --out "$OUT/speed_f32_pair384.json"

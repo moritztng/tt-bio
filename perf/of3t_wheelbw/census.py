@@ -30,7 +30,7 @@ sys.path.insert(0, str(REPO / "scripts" / "gpu_vs_tt"))
 from perf.clocksample import during                                   # noqa: E402
 from perf.of3t_perf import step as S                                  # noqa: E402
 from perf.of3t_stepfloor.fullstep import (declare_all, diffusion_train,  # noqa: E402
-                                          host_losses, trunk_forward)
+                                          trunk_forward)
 
 SEED = 20260921
 
@@ -173,7 +173,10 @@ def main() -> int:
         import ttnn
         from tt_bio import autograd as ag
         from tt_bio.tenstorrent import get_device
-        from tt_bio.train.losses import of3_loss_weights
+
+        # READ, not asserted. The sprint grades on `exact_training(False)` (pass 450), and an
+        # arm whose setting is not written down is comparable to no other arm.
+        out["env"]["exact_training_ops"] = list(ag.exact_training_ops())
 
         calls = collections.Counter(); taped = collections.Counter()
         branch = collections.Counter()
@@ -205,8 +208,12 @@ def main() -> int:
             roots, _keep, _rep = diffusion_train(sampler, sargs, s_tr, z_tr,
                                                  a.samples, rng, d_out)
         out["forward_s"] = round(time.perf_counter() - t0, 3)
-        host_losses(roots, 0, of3_loss_weights(a.stage), rng, {})
 
+        # No loss heads here on purpose. The tape's topology is fixed the moment the forward
+        # closes, so the node census is complete without them, and `host_losses` is a PCIe
+        # download plus ~0.8 s of numpy per root that this row never reads. The call that used
+        # to sit here passed `0` where it wants the token-scope INDEX ARRAY `diffusion_train`
+        # returns, and died in its own banner on `len(rep)` -- deterministically, every run.
         nodes = ag._reverse_topo(list(roots))
         out["tape_nodes"] = len(nodes)
         out["nodes_by_closure"] = dict(collections.Counter(

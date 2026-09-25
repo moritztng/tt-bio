@@ -22,10 +22,17 @@ import time
 
 import numpy as np
 import ttnn
+from tt_bio import autograd as ag
 from tt_bio.tenstorrent import get_device
 
-sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[2]))
+REPO = pathlib.Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(REPO))
 from perf.clocksample import TT_SMI, during                           # noqa: E402
+
+
+def _git(*a):
+    return subprocess.run(["git", *a], cwd=REPO, capture_output=True,
+                          text=True).stdout.strip() or None
 
 
 def _t(v, dt, dev, layout=ttnn.TILE_LAYOUT):
@@ -117,8 +124,18 @@ def main() -> int:
     dev = get_device()
     clk = during(period=1.0)
     clk.__enter__()
+    # R209: an artifact without the commit it ran on cannot be checked for expiry, and the
+    # campaign quoted a four-day-stale step because the one it had only recorded provenance.
+    # `exact_training_ops()` is READ, not asserted -- the sprint grades on `exact_training(False)`
+    # (pass 450) and an arm whose setting is not written down is comparable to nothing.
     out = {"host": os.uname().nodename, "card": a.card, "board": None,
-           "dtype": a.dtype, "shape": shape, "reps": a.reps, "iters": a.iters, "ops": {}}
+           "dtype": a.dtype, "shape": shape, "reps": a.reps, "iters": a.iters, "ops": {},
+           "env": {"commit": _git("rev-parse", "HEAD"),
+                   "branch": _git("rev-parse", "--abbrev-ref", "HEAD"),
+                   "tt_visible_devices": os.environ.get("TT_VISIBLE_DEVICES"),
+                   "started_utc": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())},
+           "exact_training": {"ops": list(ag.exact_training_ops()),
+                              "on": bool(ag.exact_training_ops())}}
     try:
         try:
             devs = json.loads(subprocess.run([TT_SMI, "-s"], capture_output=True, text=True,

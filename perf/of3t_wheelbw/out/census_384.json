@@ -9,9 +9,9 @@
  "env": {
   "host": "pc",
   "tt_visible_devices": "0",
-  "commit": "136111400e3d72aeb62a7a0fa0ead0e4d2e5b478",
+  "commit": "f12e921633374cb0985f102a86b655bc4e1b6544",
   "branch": "wk/of3t-wheelbw",
-  "started_utc": "2026-09-25T15:03:41Z"
+  "started_utc": "2026-09-25T15:43:30Z"
  },
  "config": {
   "crop": 384,

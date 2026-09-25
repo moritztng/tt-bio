@@ -1,0 +1,10 @@
+{
+ "doc": "Seconds off the crop-384 taped training step, from this row's node census and a LIVE price.",
+ "reading_A": null,
+ "reading_B": null,
+ "owed": [
+  "/home/moritz/.coworker/wt/of3t-wheelbw/perf/of3t_wheelbw/out/census_384.json carries no node census -- reading A needs the count",
+  "no --price artifact given. The per-verb backward cost and the step it belongs to are VOID until re-taken (R209); this row does not carry a constant for them.",
+  "no speed_*.json -- reading B needs the card"
+ ]
+}
