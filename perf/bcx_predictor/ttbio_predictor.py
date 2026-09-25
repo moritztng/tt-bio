@@ -126,26 +126,41 @@ class TTBioAlphaFoldDesignModel(AlphaFoldDesignModel):
 
     # -------------------------------------------------------------- the Protocol surface
 
-    def _select(self, model):
-        """Point the device trunk at the checkpoint BindCraft 2 is about to use.
+    def _resolved(self, model):
+        """Resolve BindCraft 2's per-step checkpoint ONCE, and hand the name to both sides.
 
-        `_resolve_model_name` is BindCraft 2's own resolution of `model=None` into a sampled
-        name (`bindcraft/af2.py:263`), so asking it is what keeps the two sides on the same
-        checkpoint. Reading it wrong would fold a design on one model and score it on another,
-        which nothing downstream could detect.
+        `predict` and `sequence_gradients` resolve `model` themselves
+        (`bindcraft/af2.py:287,381`), and for `model=None` that does not look a name up, it
+        SAMPLES one and splits `self.key` doing it. So resolving a second time here to pick
+        the card's trunk drew a second, independent name: the card ran one checkpoint's 48
+        Evoformer blocks while the embedder, the template stack, the structure module and the
+        heads around them came from another, in four calls out of five. Nothing downstream can
+        see that -- the shapes agree and the loss still falls -- and it is what made the first
+        full shipped-pool trajectory report ptm = iptm = 1.0 for every mutate round and then
+        fail the final pLDDT filter.
+
+        Only the pool arm resolves here. With no pool there is nothing to select and the extra
+        draw would move `self.key`, and the monomer-pinned arm is the one every published
+        number in this campaign was measured on.
         """
+        return self._resolve_model_name(model) if self.pool is not None else model
+
+    def _select(self, model):
+        """Point the device trunk at the checkpoint the JAX side is about to use."""
         if self.pool is not None:
-            self.pool.use(self._resolve_model_name(model))
+            self.pool.use(model)
 
     def predict(self, protein_states, model=None, *args, **kwargs):
         if self.trunk == "device":
             self._open_device()
+            model = self._resolved(model)
             self._select(model)
         return super().predict(protein_states, model, *args, **kwargs)
 
     def sequence_gradients(self, protein_states, losses, model=None, *args, **kwargs):
         if self.trunk == "device":
             self._open_device()
+            model = self._resolved(model)
             self._select(model)
         return super().sequence_gradients(protein_states, losses, model, *args, **kwargs)
 
