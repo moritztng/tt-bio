@@ -590,17 +590,22 @@ TRIATT_BMM_CONFIG = True
 
 
 def bmm_program_config(a, b, transpose_a: bool = False, transpose_b: bool = False):
-    """An explicit program config for a batched ``op(a) @ op(b)``, or None to keep ttnn's choice.
+    """An explicit program config for a batched ``op(a) @ op(b)``, or None to keep ttnn's plan.
 
     With a real batch axis on both operands and no program config, ttnn's matmul plans a
     kernel that runs the triangle-attention products at 0.66-1.9 TFLOP/s on Blackhole: PV
-    ``[128,4,128,256] x [128,4,256,32]`` took 1627 us, a 6.5 % share of its byte roof. The
-    batched reuse kernel with one output matrix per core-block does the same product in
-    105 us. A rank-3 view changes nothing and the default fidelity only 3 %, so the kernel
-    plan was the whole gap (`perf/bcx_triatt/mm_probe.json`).
+    ``[128,4,128,256] x [128,4,256,32]`` took 1627 us, 6.5 % of its byte roof. The batched
+    reuse kernel with one whole output matrix per core-block does the same product in 104 us
+    at the same HiFi4 config and sits closer to float64 (`perf/bcx_triatt/mm_probe2_n256.json`).
+    A rank-3 view changes nothing and the default fidelity only 3 %, so the plan was the gap.
 
-    Only for the shapes it was measured on: both operands batched with equal batch dims,
-    every matmul dim a whole number of tiles. Anything else returns None.
+    ONLY the region that was proven. The reuse kernel requires ``per_core_N == N``, and with
+    ``per_core_M < M`` -- one batch's output split over two M blocks -- it returned a few
+    non-finite elements and non-reproducible finite ones inside a real block, from finite
+    inputs, while never failing in isolation (`perf/bcx_triatt/HAZARD.md`). So the whole
+    output matrix goes to one block (at most 64 tiles) and the whole contraction to one K
+    block (at most 8 tiles); both operands batched with equal batch dims and every matmul dim
+    a whole number of tiles. Anything else returns None and ttnn plans it as before.
     """
     sa = [int(d) for d in a.shape]
     sb = [int(d) for d in b.shape]
@@ -611,21 +616,18 @@ def bmm_program_config(a, b, transpose_a: bool = False, transpose_b: bool = Fals
     if M % 32 or N % 32 or K % 32:
         return None
     Mt, Nt, Kt = M // 32, N // 32, K // 32
+    if Mt * Nt > 64 or Kt > 8:
+        return None
 
     def largest_divisor(n, cap):
         return max(d for d in range(1, min(n, cap) + 1) if n % d == 0)
 
-    # Output block per core bounded at 32 tiles (128 KB of fp32 partials), K block at 8
-    # tiles; the dest register holds 4 fp32 tiles, which bounds the subblock.
-    per_core_N = largest_divisor(Nt, 8)
-    per_core_M = largest_divisor(Mt, max(1, 32 // per_core_N))
-    sw = largest_divisor(per_core_N, 4)
-    sh = largest_divisor(per_core_M, max(1, 4 // sw))
-    grid = a.device().compute_with_storage_grid_size()
+    # The dest register holds 4 fp32 tiles, which bounds the subblock.
+    sw = largest_divisor(Nt, 4)
+    sh = largest_divisor(Mt, max(1, 4 // sw))
     return ttnn.MatmulMultiCoreReuseProgramConfig(
-        compute_with_storage_grid_size=grid, in0_block_w=largest_divisor(Kt, 8),
-        out_subblock_h=sh, out_subblock_w=sw, per_core_M=per_core_M, per_core_N=per_core_N)
-
+        compute_with_storage_grid_size=a.device().compute_with_storage_grid_size(),
+        in0_block_w=Kt, out_subblock_h=sh, out_subblock_w=sw, per_core_M=Mt, per_core_N=Nt)
 
 def _reduce_to(g, shape):
     """A broadcast operand's gradient: the output's, summed over the axes it was spread along.
