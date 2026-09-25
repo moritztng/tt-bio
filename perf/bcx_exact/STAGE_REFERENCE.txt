@@ -1,0 +1,22 @@
+class     log                      draw  screen        refine        anneal        harden        mutate        
+                                         i_pTM/pLDDT   i_pTM/pLDDT   i_pTM/pLDDT   i_pTM/pLDDT   i_pTM/pLDDT   
+preinstrument_s3accept_s3.log              73  0.82/0.93      0.84/0.93      0.85/0.94      0.85/0.94      0.85/0.95      completed
+preinstrument_s4accept_s4.log             173  0.72/0.91      0.78/0.85      0.81/0.89      0.42/0.58x     -             harden [i_pTM, pLDDT]
+preinstrument_s4accept_s4.log             152  0.61/0.89      0.56/0.89      0.68/0.92      0.52/0.86      0.54/0.87      completed
+preinstrument_s4accept_s4.log              97  0.78/0.92      0.69/0.87      0.75/0.93      0.68/0.90      0.18/0.80x     mutate [i_pTM]
+preinstrument_s4accept_s4.log             128  0.88/0.95      0.88/0.95      -             -             -             running
+
+Per-stage range by arm class. 'x' above marks the stage a trajectory died at.
+  screen  preinstrument_s3: n=1 i_pTM 0.82-0.82 pLDDT 0.93-0.93   preinstrument_s4: n=4 i_pTM 0.61-0.88 pLDDT 0.89-0.95   
+  refine  preinstrument_s3: n=1 i_pTM 0.84-0.84 pLDDT 0.93-0.93   preinstrument_s4: n=4 i_pTM 0.56-0.88 pLDDT 0.85-0.95   
+  anneal  preinstrument_s3: n=1 i_pTM 0.85-0.85 pLDDT 0.94-0.94   preinstrument_s4: n=3 i_pTM 0.68-0.81 pLDDT 0.89-0.93   
+  harden  preinstrument_s3: n=1 i_pTM 0.85-0.85 pLDDT 0.94-0.94   preinstrument_s4: n=3 i_pTM 0.42-0.68 pLDDT 0.58-0.90   
+  mutate  preinstrument_s3: n=1 i_pTM 0.85-0.85 pLDDT 0.95-0.95   preinstrument_s4: n=2 i_pTM 0.18-0.54 pLDDT 0.80-0.87   
+
+Terminal stage:
+  preinstrument_s3completed 1
+  preinstrument_s4completed 1, harden 1, mutate 1, running 1
+
+GO on this instrument needs the device's per-stage medians inside the reference's per-stage range,
+and no stage at which the device terminates and the reference never does. Neither is decided by
+a range alone while the reference carries one trajectory.
