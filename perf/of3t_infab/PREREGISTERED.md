@@ -149,3 +149,16 @@ Card 1's board-pair sibling dev0 may be co-tenanted; walls are recorded and are 
 Addendum 2, 2026-09-25 02:05Z, before its folds: protenix-v1 is added to the AFTER2 set. The first
 matrix shows it ran the clamp too (196 per fold), as did opendde (488) and rf3 (484), so "protenix-v2
 is the only process that reaches `_accurate_softmax`" above was wrong. Same bars as protenix-v2.
+
+Addendum 3, 2026-09-25 ~02:45Z, before its folds: boltzgen's digest bar was unreadable in the first
+matrix. `bg400.cif` and `bg400.npz` were identical 4/4, but `intermediate_designs/bg400.cif`
+differed A/A in both trees: the designed sequence changes run to run. Source: `design --model
+boltzgen` ignores `--seed`, nothing seeds torch, and `data_from_yaml.py:266` /
+`data_from_generated.py:463` call `np.random.default_rng(None)`, which reads OS entropy. Its trace
+was identical A/A and A/B (999053 ops), so the programs dispatched did not change.
+
+Harness fix, same class as rfd3's `--from_pdb`, no tt_bio change: with `INFAB_SEED=0` the folding
+process's sitecustomize seeds `random`, numpy and torch at start and maps `default_rng(None)` to
+`default_rng(0)`, identically in both arms. boltzgen is folded B, A2, B, A2 into `INFAB3.json`
+(workdir `work3/`). Bar: every digest identical 4/4, trace B vs A2 identical, census as before. If
+A/A still differs, boltzgen stays unreadable, it is named, and it does not count toward GO.
