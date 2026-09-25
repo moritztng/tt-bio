@@ -20,6 +20,11 @@ blocks move to the card, which is where every O(L^3) op in the trunk lives.
 own trunk, so a device result is read against that rather than against a differently shaped
 program.
 
+A checkpoint the card does not hold folds on that same host trunk instead of stopping the
+campaign, and the validation ensemble folds there by default: it is the instrument that decides
+whether a design is accepted, and running it on card would put device numerics inside the
+measurement that grades the device.
+
 tt-bio neither ships BindCraft 2 nor serves it. Install it yourself; this module only binds to it
 if it is importable.
 """
@@ -143,13 +148,15 @@ class TrunkPool:
     ``source`` is a directory of ``params_<name>.npz`` (the layout ``tt-bio weights --download
     af2ig`` writes, and the one BindCraft 2's own ``data_dir`` uses), a mapping of model name to
     parameters file, a single parameters file to use for every name, or None for tt-bio's own
-    weights cache.
+    weights cache. A checkpoint the source cannot supply is recorded in ``absent`` rather than
+    refused, and the predictor folds it on BindCraft 2's own JAX trunk.
     """
 
     def __init__(self, source=None, *, resident: int | None = None):
         self._source = source
         self.resident = int(resident) if resident else None
         self.paths: dict[str, pathlib.Path] = {}
+        self.absent: dict[str, str] = {}
         self.selections: dict[str, int] = {}
         self._trunks: dict[str, _Trunk] = {}
         self._order: list[str] = []
@@ -160,28 +167,31 @@ class TrunkPool:
     # ------------------------------------------------------------------ the checkpoint set
 
     def require(self, names) -> None:
-        """Resolve every name in `names` against the source, or raise naming what is missing.
+        """Resolve every name in `names` against the source; record what does not resolve.
 
         Called with the pool BindCraft 2 actually asks for. A campaign builds a design model and
         a validation model separately and they draw from different pools, so the set grows.
+
+        A name the source cannot supply lands in `absent` rather than raising. BindCraft 2 holds
+        validation out of design on purpose, so the shipped `examples/pdl1.json` designs on all
+        five multimer checkpoints and validates on the monomer pool, and refusing there is fatal
+        to a campaign that has already done all of its work. What the card does not hold folds on
+        BindCraft 2's own JAX trunk instead; the predictor decides that and says so.
         """
         pairs = names.items() if isinstance(names, Mapping) else ((n, None) for n in names)
-        missing = {}
         for name, given in pairs:
-            if name in self.paths:
+            if name in self.paths or name in self.absent:
                 continue
-            path = pathlib.Path(os.path.expanduser(str(
-                given if given is not None else self._path_for(name))))
-            if not path.exists():
-                missing[name] = path
-            else:
+            try:
+                path = pathlib.Path(os.path.expanduser(str(
+                    given if given is not None else self._path_for(name))))
+            except (KeyError, FileNotFoundError) as why:
+                self.absent[name] = str(why)
+                continue
+            if path.exists():
                 self.paths[name] = path
-        if missing:
-            raise FileNotFoundError(
-                "no AlphaFold 2 parameters for " + ", ".join(
-                    f"{n} at {p}" for n, p in sorted(missing.items())) +
-                ". Pass checkpoints=<directory or {name: file}> to name them, or run "
-                "`tt-bio weights --download af2ig` for the monomer checkpoint.")
+            else:
+                self.absent[name] = str(path)
 
     def _path_for(self, name: str) -> pathlib.Path:
         source = self._source
@@ -206,6 +216,10 @@ class TrunkPool:
         return len(self.paths)
 
     def __contains__(self, name) -> bool:
+        return name in self.paths
+
+    def holds(self, name: str) -> bool:
+        """Whether the card can fold `name`, i.e. whether the weights resolved."""
         return name in self.paths
 
     # ------------------------------------------------------------------ selection
@@ -263,10 +277,44 @@ class EvoformerOnDevice:
         self.blocks = blocks
         self.recompute = recompute
         self.calls = {"primal": 0, "taped": 0, "backward": 0}
+        #: True while `on_host` is open. Read where haiku TRACES, by the stack replacement.
+        self.host_only = False
+        #: Folds handed back to BindCraft 2's own trunk, per checkpoint name.
+        self.host_folds: dict[str, int] = {}
         self._mask_dev: dict = {}
         self._pair_mask_dev: dict = {}
         self._live: dict[int, dict] = {}
         self._next = 0
+
+    # ------------------------------------------------------------------ which side folds
+
+    @contextlib.contextmanager
+    def on_host(self, name: str = ""):
+        """Fold inside this block on BindCraft 2's own JAX trunk, leaving the card idle.
+
+        A checkpoint the card does not hold has to fold somewhere, and refusing is fatal rather
+        than slow: on the shipped `examples/pdl1.json` all five multimer checkpoints are design
+        models, so BindCraft 2 moves validation to the monomer pool (`campaign.py:77-83`) and a
+        refusal reaches every acceptance after all five design stages have already passed.
+        Standing the card down for those folds also makes the validation stage numerically
+        BindCraft 2's own rather than an approximation of it, which is what an acceptance
+        measurement wants.
+
+        The switch is read where haiku traces, and the route is then baked into a compiled
+        program that BindCraft 2 caches by model FAMILY, so it is safe only at family
+        granularity. `TenstorrentAlphaFoldDesignModel._route_by_family` is what enforces that.
+        """
+        was = self.host_only
+        self.host_only = True
+        if name and name not in self.host_folds:
+            print(f"[tt_bio.bindcraft2] {name} is not on card; folding it on BindCraft 2's own "
+                  f"JAX trunk", flush=True)
+        if name:
+            self.host_folds[name] = self.host_folds.get(name, 0) + 1
+        try:
+            yield
+        finally:
+            self.host_only = was
 
     # ------------------------------------------------------------------ host <-> card
 
@@ -466,6 +514,17 @@ def find_evoformer_masks(fn, depth: int = 0, seen=None):
     return None
 
 
+#: The splice `evoformer_on_device` currently has installed, or None. The patch is on
+#: `modules.layer_stack`, which is process-global, so a predictor has to be able to find it:
+#: a `trunk="jax"` model built inside a live campaign would otherwise be spliced too.
+_INSTALLED: EvoformerOnDevice | None = None
+
+
+def installed() -> EvoformerOnDevice | None:
+    """The splice currently patched into AlphaFold 2, or None if the trunk is BindCraft 2's."""
+    return _INSTALLED
+
+
 @contextlib.contextmanager
 def evoformer_on_device(evo: EvoformerOnDevice):
     """Swap AlphaFold 2's Evoformer stack for `evo` for the duration, and nothing else.
@@ -488,6 +547,10 @@ def evoformer_on_device(evo: EvoformerOnDevice):
         def choose(fn):
             if getattr(fn, "__name__", None) != "evoformer_fn":
                 return made(fn)
+            if evo.host_only:
+                # This fold runs on a checkpoint the card does not hold, or is the control arm
+                # standing down. Hand back BindCraft 2's own stack; see `EvoformerOnDevice.on_host`.
+                return made(fn)
             if int(num_layers) != evo.blocks:
                 raise ValueError(f"evoformer_fn has {num_layers} blocks, tt-bio holds "
                                  f"{evo.blocks}")
@@ -507,11 +570,14 @@ def evoformer_on_device(evo: EvoformerOnDevice):
             return on_device
         return choose
 
+    global _INSTALLED
+    was, _INSTALLED = _INSTALLED, evo
     modules.layer_stack.layer_stack = factory
     try:
         yield swapped
     finally:
         modules.layer_stack.layer_stack = real
+        _INSTALLED = was
 
 
 # ----------------------------------------------------------------- the predictor
@@ -553,40 +619,103 @@ def design_model_class():
             super().__init__(*args, **kwargs)
             self.trunk = trunk
             self.pool = pool
+            #: Checkpoint name -> "device" or "jax", decided once, per family.
+            self.routes: dict[str, str] = {}
             if pool is not None:
                 pool.require(sorted(set(self.presets) | set(self.models)))
+                self.routes = self._route_by_family()
+                if "device" not in self.routes.values():
+                    raise FileNotFoundError(
+                        "trunk='device' but no checkpoint this model draws is on card: " +
+                        ", ".join(f"{n} ({pool.absent.get(n, 'held out')})"
+                                  for n in sorted(self.routes)) +
+                        ". Pass checkpoints=<directory or {name: file}> to name them, or run "
+                        "`tt-bio weights --download af2ig` for the monomer checkpoint.")
 
-        @property
-        def _selects_per_call(self) -> bool:
-            """Whether this call has to resolve BindCraft 2's checkpoint before handing it on.
+        def _route_by_family(self) -> dict[str, str]:
+            """Decide which folds go on card per model FAMILY, not per checkpoint.
 
-            With one checkpoint there is nothing to select, and resolving would draw a second
-            sample and split `self.key`, which the control arm does not do.
+            The route is read where haiku traces and is then baked into a compiled program that
+            BindCraft 2 caches keyed on the family (`af2.py:271` for `predict`, `:331` for
+            `sequence_gradients`). `alphafold_model_family` collapses all five multimer
+            checkpoints to `('multimer',)`, and `model_1_ptm` and `model_2_ptm` to one monomer
+            family because their `CONFIG_DIFFS` entries are identical. So two checkpoints of one
+            family cannot take different routes: the second would silently reuse the first one's
+            compiled program and fold on the wrong trunk, which nothing downstream can see
+            because the shapes agree and the loss still falls.
+
+            A family therefore goes on card only if the card holds EVERY checkpoint this model
+            can draw from it. Splitting the shipped campaign the way it actually splits, five
+            multimer design models on card and the monomer validation pool on host, is a split
+            along family lines and is safe; three of five multimer checkpoints is not, and this
+            sends all five to the host rather than fold two of them wrong.
             """
-            return self.trunk == "device" and len(self.models) > 1
+            members: dict[tuple, list[str]] = {}
+            for name in sorted(set(self.presets) | set(self.models)):
+                # An unknown name has no family and cannot collide, so give it its own.
+                members.setdefault(self.model_families.get(name, ("?", name)), []).append(name)
+            return {name: ("device" if all(self.pool.holds(n) for n in names) else "jax")
+                    for names in members.values() for name in names}
 
-        def _point_trunk_at(self, model):
-            """Resolve BindCraft 2's per-step checkpoint ONCE, and hand the name to both sides.
+        def _pick(self, model):
+            """The checkpoint this call folds on, and the `model` argument to hand `super()`.
 
             `predict` and `sequence_gradients` resolve `model` themselves, and for `model=None`
             that does not look a name up, it SAMPLES one and splits `self.key` doing it. So
-            resolving a second time here to pick the card's trunk draws a second, independent
-            name: the card runs one checkpoint's 48 Evoformer blocks while the embedder, the
-            template stack, the structure module and the heads around them come from another.
-            Nothing downstream can see it, because the shapes agree and the loss still falls.
+            resolving a second time here draws a second, independent name: the card runs one
+            checkpoint's 48 Evoformer blocks while the embedder, the template stack, the
+            structure module and the heads around them come from another. Nothing downstream can
+            see it, because the shapes agree and the loss still falls.
+
+            A multi-model pool therefore resolves once here and passes the name on. A pool of one
+            reads its single name without resolving and passes `None` straight through, because
+            sampling from a pool of one still splits `self.key` and the control arm's stream has
+            to stay identical for a device result to be read against it.
             """
-            if not self._selects_per_call:
-                return model
-            model = self._resolve_model_name(model)
-            self.pool.use(model)
-            return model
+            if model is not None:
+                return self._resolve_model_name(model), model
+            if len(self.models) == 1:
+                return self.models[0], None
+            picked = self._resolve_model_name(None)
+            return picked, picked
+
+        @contextlib.contextmanager
+        def _route(self, name):
+            """Fold this call on the card or on BindCraft 2's own trunk, and say which.
+
+            `name=None` is the control arm standing down. `evoformer_on_device` patches
+            `modules.layer_stack` for the whole process, so a `trunk="jax"` model built inside a
+            live campaign is spliced too unless it says otherwise, and a validation ensemble is
+            exactly that model.
+            """
+            evo = installed()
+            if evo is None:
+                yield  # nothing is spliced, every fold is already BindCraft 2's own
+                return
+            if name is not None and self.routes.get(name, "device") == "device":
+                self.pool.use(name)
+                yield
+                return
+            with evo.on_host(name or ""):
+                yield
 
         def predict(self, protein_states, model=None, *args, **kwargs):
-            return super().predict(protein_states, self._point_trunk_at(model), *args, **kwargs)
+            if self.trunk == "jax":
+                with self._route(None):
+                    return super().predict(protein_states, model, *args, **kwargs)
+            name, passed = self._pick(model)
+            with self._route(name):
+                return super().predict(protein_states, passed, *args, **kwargs)
 
         def sequence_gradients(self, protein_states, losses, model=None, *args, **kwargs):
-            return super().sequence_gradients(protein_states, losses,
-                                              self._point_trunk_at(model), *args, **kwargs)
+            if self.trunk == "jax":
+                with self._route(None):
+                    return super().sequence_gradients(protein_states, losses, model,
+                                                      *args, **kwargs)
+            name, passed = self._pick(model)
+            with self._route(name):
+                return super().sequence_gradients(protein_states, losses, passed,
+                                                  *args, **kwargs)
 
     _MODEL_CLASS = TenstorrentAlphaFoldDesignModel
     return _MODEL_CLASS
@@ -625,6 +754,11 @@ def predictor(*, trunk: str = "device", card: int | str | None = None, checkpoin
 
     `trunk="jax"` opens no device and touches no card. It runs BindCraft 2's own trunk through
     this same class, which is the control arm every device result should be read against.
+
+    With `trunk="device"`, a checkpoint whose weights the source cannot supply folds on that host
+    trunk rather than raising, decided per model family and announced on the first such fold. If
+    no checkpoint at all resolves, building the model raises instead: `trunk="device"` that folds
+    nothing on card is a misconfiguration, not a route.
     """
     if trunk == "jax":
         yield _factory(trunk="jax", pool=None)
@@ -639,7 +773,8 @@ def predictor(*, trunk: str = "device", card: int | str | None = None, checkpoin
 
 
 @contextlib.contextmanager
-def campaign_predictor(**kwargs) -> Iterator[Callable[..., object]]:
+def campaign_predictor(*, validation: str = "jax",
+                       **kwargs) -> Iterator[Callable[..., object]]:
     """`predictor`, with BindCraft 2's own predictor construction rebound to it.
 
     `campaign.py` builds `AlphaFoldDesignModel` in one place for the design model and one for the
@@ -648,13 +783,47 @@ def campaign_predictor(**kwargs) -> Iterator[Callable[..., object]]:
         with bindcraft2.campaign_predictor(card=0):
             campaign.run_campaign(settings, project, af2_weights=params, mpnn_weights=mpnn)
 
-    Both models come from the same pool, so `resident` caps the card across both.
+    `validation` is the trunk the validation ensemble folds on and it defaults to `"jax"`,
+    BindCraft 2's own. The validation ensemble is the instrument that decides whether a design is
+    accepted, so folding it on card would put device numerics inside the measurement that grades
+    the device; on host JAX that stage is bit-for-bit the reference's own and the thing under
+    test stays the gradient loop. Any accepted count quoted as a result should come from this
+    default, and should say so. Pass `validation="device"` to fold it on card as well, and
+    re-measure the accepted count on that path before quoting it.
+
+    The design model is the first predictor `run_campaign` builds and every later one is a
+    validation ensemble, including the one `desperate_prediction_pools` rebuilds mid-campaign
+    when validation has to move to another pool, so "every build after the first" is the rule.
+
+    The design model's checkpoints come from one pool, so `resident` caps the card across it.
     """
+    if validation not in ("jax", "device"):
+        raise ValueError(f"validation must be 'jax' or 'device', not {validation!r}")
     with predictor(**kwargs) as build:
         from bindcraft import campaign
+        control = None
+        built = []
+
+        def build_for_campaign(*args, **kw):
+            nonlocal control
+            if built and validation == "jax" and build.trunk == "device":
+                if control is None:
+                    control = _factory(trunk="jax", pool=None)
+                made = control(*args, **kw)
+            else:
+                made = build(*args, **kw)
+            built.append(made)
+            return made
+
+        build_for_campaign.trunk = build.trunk
+        build_for_campaign.pool = build.pool
+        build_for_campaign.evoformer = build.evoformer
+        build_for_campaign.validation = validation
+        build_for_campaign.built = built
+
         real = campaign.AlphaFoldDesignModel
-        campaign.AlphaFoldDesignModel = build
+        campaign.AlphaFoldDesignModel = build_for_campaign
         try:
-            yield build
+            yield build_for_campaign
         finally:
             campaign.AlphaFoldDesignModel = real
