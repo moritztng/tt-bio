@@ -175,9 +175,23 @@ for a structural reason — the DGX ships 8 accelerators and the QuietBox 4 — 
 number was the wrong headline: it credits us with a box we do not sell. Every sprint number states
 its axis.
 
-BRANCH: **`wk/of3t-bwd` is the sprint's single reviewable branch and I compose onto it; it does
-not exist yet because no sprint row has landed engine code.** Verified against git this pass, not
-carried from a note. `origin/main` has moved twice today and is now `f0db89ef5`.
+BRANCH: **`wk/of3t-bwd` EXISTS and carries its first lever: `origin/wk/of3t-bwd` at
+`8ad5af448`.** Created from `origin/main` this pass and composed with `of3t-tapedfwd` (GO) by a
+no-ff merge, conflict-free (`git merge-tree` clean before the merge, verified after). The whole
+engine change on the branch is **15 lines in `tt_bio/tenstorrent.py`** plus
+`tests/test_triatt_hifi_tape_latch.py` — an early `if ops.taping(): return None` in
+`_tri_att_sdpa_hifi` with a fourth stats key, which reaches the same `None` the arm returned
+anyway without first padding q/k/v/bias on the device in `_sdpa_masked` and walking the
+q_chunk x k_chunk x kv_buffer_factor ladder. **Clean of `autograd.py` and `taped_ttnn.py`**, which
+BCX is rewriting concurrently. Everything else on the branch is inside `perf/of3t_tapedfwd/`.
+
+**The accuracy gate is deliberately NOT run on this one lever** and is owed before the branch goes
+further: the standing rule is to land several and gate the batch, and the fp32 CPU diffusion
+reference is not reproducible run to run (7.17 A against 11.04 A on the same design), so a
+per-lever consult produces noise rather than safety. It runs on qb2's `tt-bio-dev` env, not pc
+`python3`, which has no torch.
+
+`origin/main` moved twice today and is now `f0db89ef5`.
 
 - **`wk/of3t` is finished history**: fully contained in `origin/main` (`merge-base --is-ancestor`
   clean). No row may branch from it or treat it as a tip. Branch from `origin/main`.
@@ -186,7 +200,8 @@ carried from a note. `origin/main` has moved twice today and is now `f0db89ef5`.
   concluded row's worktree. Both worktrees are indeed gone, but `wk/of3t-bwsurvey` (`59b3c2221`)
   and `wk/of3t-throughput` (`bb2a75293`) are ancestors of `origin/main`; the UNSHIPPED line was
   stamped before the merge. An orphaned-work claim is checked against git, not against a log line.
-- Still ahead of main: `wk/of3t-orchestrator` (11, artifacts and record only),
+- Still ahead of main: `wk/of3t-bwd` (the composed sprint branch, above),
+  `wk/of3t-orchestrator` (artifacts and record only),
   `wk/of3t-infab` (6, `perf/of3t_infab/` only) and `wk/of3t-tapedfwd` (3, a live row's work in
   flight). The first two are artifact-only with zero engine files and carry no accuracy, OOM or
   perf risk; they land with the sprint's first batch rather than alone, because a batch of one is
@@ -259,7 +274,22 @@ GAP: **Pass 445, 2026-09-25 ~16:5x CEST.** What the sprint has not done, specifi
    the 3x section bar); the six user-facing defects D32, D55, D184, D205, D210, D250, owned
    outside this campaign under ask 10455; crop 640 as a single-card capacity wall.
 
-VERDICT: PARTIAL, pass 445. The sprint's subject is speed and it is one pass old with two rows
+VERDICT: PARTIAL, pass 446. Six rows live, two GO, the reviewable branch exists with its first
+lever, and the sprint's own headline has been corrected twice — both times downward, both times
+by arithmetic on the rows' own numbers. **`of3t-tapedfwd` GO: the fused-kernel bypass I
+root-caused is worth 1.00508x, not the reordering I gave it (R207).** **R205: bwsurvey's
+"9.1x on its own" drops a 100.668 s term; the honest figure is 3.09x, and the 9.1x reading is
+refuted by our own silicon floor because it would put us at 6.3-7.2x against an 8.5-11x hardware
+ratio.** **R206: J0 and the kernel jobs are substitutes — J1's 46.4 s becomes 5.3 s if J0 lands —
+so the JOBS list's seconds must never be summed.** All five kernel briefs carry both corrections.
+What else this pass did: re-dispatched the four J-rows after discovering the pass-445 dispatch had
+been silently reverted (K20 — `queue.tsv` is generated from `TASKS.md` ws-tags, and
+`reconcile_tasks.sh` read-modify-writes `TASKS.md` unlocked under a two-minute cron, so even the
+correct edit was lost), with an idempotent re-apply script; wrote and gated J3 without dispatching
+it; and found `of3t-intensity`'s first pass stranded on an unreachable qb1 with its brief now
+saying so (K21).
+
+Superseded, kept for the record — pass 445. The sprint's subject is speed and it is one pass old with two rows
 already GO. What this pass did: wrote **A46** before any sprint number existed, which is the
 protocol duty when the subject changes; gave all four launched rows the artifact namespaces,
 slug-scoped scratch paths, branch discipline and contested-file warning their briefs went out
