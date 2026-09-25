@@ -118,6 +118,11 @@ def main():
     ap.add_argument("--cap", type=int, default=0,
                     help="logical CPUs this process may use on even rounds; 0 = no cap")
     ap.add_argument("--profile", default="", help="A,B: jax.profiler over rounds A..B")
+    ap.add_argument("--extra-msa", action="store_true",
+                    help="run the extra-MSA pair stack on the card too (bcx-extramsa's "
+                         "swap, GO at 2.156x). Every other module's host share is a "
+                         "different quantity with it on, so a row aimed at one of them "
+                         "measures it here.")
     ap.add_argument("--params", default="/home/ttuser/bcx_e2e/af2_params")
     ap.add_argument("--out", required=True)
     args = ap.parse_args()
@@ -150,7 +155,7 @@ def main():
     print(json.dumps(stamp, indent=1), flush=True)
 
     import afgrad as _A
-    from splice import EvoformerOnDevice, evoformer_on_device
+    from splice import EvoformerOnDevice, ExtraMsaOnDevice, evoformer_on_device
     mt = SeamMeter(args.rounds, args.cap, profile, os.path.join(project, "trace"))
     M.install(mt, sys.modules["splice"], T.TTBioAlphaFoldDesignModel, trajectory, seqopt)
 
@@ -173,12 +178,13 @@ def main():
     _dm, _ = _A.load_models(_A.DEFAULT_PARAMS)
     _dev = _A.Dev(_dm.to_device())
     evo = EvoformerOnDevice(_dev, k_evo=48)
+    extra = ExtraMsaOnDevice(_dev, k_extra=4) if args.extra_msa else None
     M.ev("setup", "load_models", t_load, time.time())
 
     t0 = time.time()
     stopped = None
     try:
-        with evoformer_on_device(evo):
+        with evoformer_on_device(evo, extra_msa=extra):
             campaign.run_campaign(settings, project, af2_weights=args.params,
                                   mpnn_weights=os.path.join(B.BC2, "bindcraft", "weights",
                                                             "proteinmpnn", "weights_neutral"),
@@ -193,7 +199,10 @@ def main():
         if args.cap:
             set_cpus(0)
         stamp.update({"wall_seconds": round(time.time() - t0, 2), "stopped": stopped,
-                      "device_calls": dict(evo.calls), "loadavg_end": os.getloadavg(),
+                      "device_calls": dict(evo.calls),
+                      "extra_msa_on": bool(args.extra_msa),
+                      "extra_calls": dict(extra.calls) if extra else None,
+                      "extra_swapped": extra.swapped if extra else 0, "loadavg_end": os.getloadavg(),
                       "finished_utc": time.strftime("%FT%TZ", time.gmtime()),
                       "traces": sorted(glob.glob(os.path.join(project, "trace", "**",
                                                               "*.xplane.pb"), recursive=True))})

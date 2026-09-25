@@ -104,18 +104,29 @@ def install(meter, splice_mod, predictor_cls, trajectory_mod, seqopt_mod):
     #    three entry points took it. `_taped` is the trunk forward under the tape and
     #    runs once per recycle, `_backward` is the taped backward, `_primal` is a
     #    forward-only fold (a validation or reference refold).
-    for name in ("_primal", "_taped", "_backward"):
-        orig = getattr(splice_mod.EvoformerOnDevice, name)
+    #    Every device stack the splice offers is wrapped, not the Evoformer alone: with a
+    #    second stack on the card the two carry the same op_name scope in the HLO, so a
+    #    device second the meter does not time is one `hostmap.py` cannot pair with a thunk.
+    for cls_name in ("EvoformerOnDevice", "ExtraMsaOnDevice", "TemplatePairStackOnDevice"):
+        cls = getattr(splice_mod, cls_name, None)
+        if cls is None:
+            continue
+        tag = {"EvoformerOnDevice": "", "ExtraMsaOnDevice": "extra_",
+               "TemplatePairStackOnDevice": "template_"}[cls_name]
+        for name in ("_primal", "_taped", "_backward", "_forward"):
+            orig = getattr(cls, name, None)
+            if orig is None:
+                continue
 
-        def make(name, orig):
-            def wrapper(self, *a, **kw):
-                t0 = time.time()
-                try:
-                    return orig(self, *a, **kw)
-                finally:
-                    ev("device", name.lstrip("_"), t0, time.time())
-            return wrapper
-        setattr(splice_mod.EvoformerOnDevice, name, make(name, orig))
+            def make(label, orig):
+                def wrapper(self, *a, **kw):
+                    t0 = time.time()
+                    try:
+                        return orig(self, *a, **kw)
+                    finally:
+                        ev("device", label, t0, time.time())
+                return wrapper
+            setattr(cls, name, make(tag + name.lstrip("_"), orig))
 
     # 2. the predictor's two entry points. `sequence_gradients` is the round's own call;
     #    `predict` inside a round is a fold BindCraft 2 asked for on top of it.

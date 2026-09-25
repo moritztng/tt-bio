@@ -30,7 +30,7 @@ import re
 import sys
 
 MODULES = [  # first match wins; order matters (a head inside structure_module etc.)
-    ("device: Evoformer callback", r"(pure_callback|python_cpu_callback|xla_ffi_python)"),
+    ("device: trunk callback", r"(pure_callback|python_cpu_callback|xla_ffi_python)"),
     ("extra-MSA stack", r"extra_msa_stack"),
     ("template embedding", r"template_embedding|template_pair|single_template|template_pointwise"),
     ("template single/torsion", r"template_single_embedding|template_projection"),
@@ -226,8 +226,26 @@ def main(run_dir, rounds=None):
             cb_first[-1][1] = max(cb_first[-1][1], s[1])
     tr0 = next(e["t0"] for e in ev["events"] if e["kind"] == "trace_start")
     in_trace = [e for e in dev if e["t0"] >= tr0]
-    offs = sorted(d["t0"] - c[0] for d, c in zip(in_trace, cb_first))
-    off = offs[len(offs) // 2]
+    # The profiler's clock is relative and the meter's is the epoch, so one offset has to be
+    # recovered from the device callbacks, which both clocks see. Pairing them in order
+    # assumed one meter event per callback thunk: with a second stack swapped onto the card
+    # both stacks' callbacks carry the same op_name scope
+    # (`.../alphafold_iteration/evoformer/pure_callback`) while the meter times one class, so
+    # the lists have different lengths and the pairing slid by whole rounds -- 52 s of spread
+    # against the 11.7 ms of the single-swap run this was written for. Take the offset the
+    # most pairs agree on: every candidate difference is a vote, and the densest 5 ms window
+    # of votes wins. Unmatched thunks and unmatched meter events simply cast no winning vote.
+    votes = sorted(d["t0"] - c[0] for d in in_trace for c in cb_first)
+    best_i, best_n = 0, 0
+    j = 0
+    for i, v in enumerate(votes):
+        while votes[j] < v - 5e-3:
+            j += 1
+        if i - j + 1 > best_n:
+            best_n, best_i = i - j + 1, (i + j) // 2
+    off = votes[best_i]
+    agree = [v for v in votes if abs(v - off) <= 5e-3]
+    offs = agree
 
     tr1 = next((e["t0"] for e in ev["events"] if e["kind"] == "trace_stop"), float("inf"))
     sgs = [e for e in ev["events"] if e["phase"] == "sequence_gradients" and e["t0"] >= tr0
@@ -235,10 +253,22 @@ def main(run_dir, rounds=None):
     lc = [e for e in ev["events"] if e["phase"] == "lower_compile"]
     report = {"instrument": "jax.profiler thunk events + optimised HLO op_name",
               "hlo": hlo[0], "programs": {f"{k[0]}#{k[1]}": v for k, v in programs.items()},
-              "offset_spread_ms": round((offs[-1] - offs[0]) * 1e3, 2), "rounds": []}
+              "offset_spread_ms": round((offs[-1] - offs[0]) * 1e3, 2),
+              "offset_votes": {"agreeing": len(agree), "meter_device_events": len(in_trace),
+                               "callback_thunks": len(cb_first)},
+              "rounds": [],
+              "rounds_without_thunks": []}
     for sg in sgs:
         w0, w1 = sg["t0"] - off, sg["t1"] - off
         inwin = [(max(a, w0), min(b, w1), op) for a, b, op in segs if b > w0 and a < w1]
+        # A round can sit inside the trace window and still hold no thunk: the tracer is
+        # started and stopped at a round boundary, so the first or last round it brackets can
+        # be one whose XLA execution fell outside. Reported rather than crashed on, and never
+        # averaged into the map.
+        if not inwin:
+            report["rounds_without_thunks"].append(
+                {"round": sg.get("round"), "sequence_gradients_s": round(sg["dt"], 3)})
+            continue
         wall = wall_split(inwin)
         # device landmarks inside this call, for the bcx-round time partition
         marks = sorted((e["t0"] - off, e["t1"] - off, e["phase"]) for e in dev
