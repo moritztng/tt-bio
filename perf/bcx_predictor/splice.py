@@ -18,6 +18,7 @@ under an all-zero `extra_msa_mask` (`bindcraft/af2.py:134`), which is exactly wh
 extra-MSA blocks bake into `opm_constant`, so it is a legal swap -- just not made yet.
 """
 import contextlib
+import hashlib
 import os
 import pathlib
 
@@ -99,10 +100,38 @@ class EvoformerOnDevice:
         self.calls = {"primal": 0, "taped": 0, "backward": 0}
         self._mask_dev = {}
         self._pair_mask_dev = {}
+        #: Shapes seen with more than one mask content. Both caches are keyed by content, so
+        #: this is a counter rather than a failure -- but a non-zero count means a shape-keyed
+        #: cache would have folded one call with another call's mask, and that is worth seeing
+        #: in the stamp rather than reasoning about.
+        self.mask_shape_collisions = {"msa": 0, "pair": 0}
+        self._mask_shapes = {"msa": {}, "pair": {}}
+
+    def _digest(self, kind, array):
+        """A cache key that cannot confuse two masks of the same shape.
+
+        This cache used to be keyed by shape alone, on the reasoning that the shape changes
+        when the binder length does. It does -- but the converse does not hold: BindCraft 2
+        buckets the token axis to 32, so binder 146 and binder 164 against the same 115
+        target both pad to 288 and arrive here with the same shape and different real-residue
+        counts. Shape-keyed, the first one to arrive would be uploaded once and then folded
+        into every later call, silently, with no exception anywhere. The pair-mask cache next
+        to it already carried  for exactly this reason; the MSA mask carried
+        nothing.
+        """
+        contiguous = np.ascontiguousarray(array, dtype=np.float32)
+        shape = tuple(contiguous.shape)
+        digest = hashlib.blake2b(contiguous.tobytes(), digest_size=16).digest()
+        seen = self._mask_shapes[kind].setdefault(shape, set())
+        if digest not in seen and seen:
+            self.mask_shape_collisions[kind] += 1
+        seen.add(digest)
+        return (shape, digest)
 
     def _mask(self, mask_np):
-        """Upload per call and cache by shape: the binder length changes per trajectory."""
-        key = tuple(np.asarray(mask_np).shape)
+        """Upload per call and cache by content: the binder length changes per trajectory,
+        and two binder lengths can share a padded shape."""
+        key = self._digest("msa", mask_np)
         got = self._mask_dev.get(key)
         if got is None:
             got = self.dev.up(torch.from_numpy(
@@ -121,7 +150,7 @@ class EvoformerOnDevice:
         (`perf/bcx_mono/masked_fold.json`).
         """
         from tt_bio.af2 import af2_pair_masks
-        key = (tuple(pm.shape), float(pm.sum()))
+        key = self._digest("pair", pm)
         got = self._pair_mask_dev.get(key)
         if got is None:
             got = af2_pair_masks(pm, self.dev.device)
