@@ -17,7 +17,8 @@ the floor beside them. Chains are matched by sequence, so chain letters do not h
 fold prints its error instead. On a fixture with a crystal (7AQX, 2AD6, 3ABQ) a second line gives
 the same numbers over only the residues the crystal resolves, floor included.
 A third line scores the fold against the crystal itself, each reference seed beside it; at a
-cell the upstream never folded (every 3abq_1536 cell but boltz2) it is the only line. On 7AQX
+cell the upstream never folded (at 1536, esmfold2, protenix-v1, protenix-v2, opendde-abag and
+opendde seed 1) it is the only line. On 7AQX
 read its per-chain number: the crystal packs the four chains differently from every fold,
 reference included (about 15 A whole-complex).
 
@@ -32,6 +33,11 @@ the crystal does not resolve, which folds sit anywhere up to 50 A apart; read th
 there. The tiled CDK2 is one chain of repeated copies with no
 defined arrangement between them, and some models fold it differently on every seed; read lDDT
 there, and expect the floor to be wide.
+
+On 3ABQ read the resolved line for the floor. 112 of its 1518 residues are disordered tails the
+crystal does not resolve, and each seed puts them somewhere different: rf3's two seeds are 25.8 A
+apart over all 1518 CA and 0.415 A apart over the 1406 the crystal resolves, at lDDT 0.996. The
+whole-complex number there is measuring the tails.
 
 ## Fixtures
 
