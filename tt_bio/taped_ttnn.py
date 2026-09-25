@@ -222,9 +222,9 @@ def _v_softmax(shipped, args, kwargs):
         def bw(g):
             y = box[0]                      # through the box, so `free` may evict y to DRAM
             # The same expression as `autograd.softmax` and `triangle_attention`; the helper
-            # carries the TT_BIO_SOFTMAX_BW_RENORM branch all three used to inline.
-            inner = ag.softmax_bw_inner(y, g, dim=dim)
-            x.add_grad(ttnn.multiply(y, ttnn.subtract(g, inner)))
+            # carries the TT_BIO_SOFTMAX_BW_RENORM branch all three used to inline, and the
+            # fused `moreh_softmax_backward` route all three now share.
+            x.add_grad(ag.softmax_bw(y, g, dim=dim))
         return bw
 
     # The backward reads y and only y, so x is not pinned. Under `softmax_in_place` the

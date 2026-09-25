@@ -56,7 +56,8 @@ def grad_zeros(shape, dtype, device):
 
 
 __all__ = [
-    "Tensor", "precise_config", "bmm_program_config", "bmm", "softmax_bw_inner", "no_grad",
+    "Tensor", "precise_config", "bmm_program_config", "bmm", "softmax_bw_inner",
+    "softmax_bw", "no_grad",
     "parameter", "forget_parameters", "parameter_for", "untaped",
     "release_pins",
     "linear", "matmul", "layer_norm", "softmax", "host_f64_softmax",
@@ -149,6 +150,47 @@ def softmax_bw_inner(y, g, dim=-1, config=None):
         return inner
     return ttnn.divide(inner, ttnn.sum(y, dim=dim, keepdim=True,
                                        compute_kernel_config=config or precise_config()))
+
+
+# Whether the softmax backward may go through `ttnn.moreh_softmax_backward`, the fused verb
+# already bound in the `ttnn==0.68.0` wheel, instead of the composed expression. The fused
+# route computes the SAME expression including the row-sum correction -- it does not trade the
+# renorm for speed, which would be the wrong trade in both directions (the renorm costs 1.32 s
+# and carries a repair worth up to 13.09x on ||dq||, `perf/of3t_d116/amplify.json`).
+SOFTMAX_BW_FUSED = env_flag("TT_BIO_SOFTMAX_BW_FUSED", False)
+
+
+def _is_last_dim(y, dim: int) -> bool:
+    """`ttnn.moreh_softmax_backward` reduces the last axis only, so a caller on any other
+    axis keeps the composed path. Every concrete softmax site in the engine passes -1 and the
+    six that pass `dim=dim` are forwarders, but the check is here rather than in a comment:
+    the helper is exported and a caller that does not qualify should get the right answer
+    slowly, not the wrong one quickly."""
+    rank = len(y.shape)
+    return dim in (-1, rank - 1)
+
+
+def softmax_bw(y, g, dim=-1, config=None):
+    """The whole softmax backward `dx = y (g - sum_j g_j y_j)`, row-sum corrected.
+
+    All three callers used to close `softmax_bw_inner` with the same two verbs of their own
+    (`ttnn.multiply(y, ttnn.subtract(g, inner))`), which is the same duplication the inner
+    helper was factored out to end, one expression short. Routing the whole backward through
+    one helper is also what gives the fused verb a single seam instead of three.
+
+    On the fused route the renorm is carried, not dropped:
+    `moreh_softmax_backward(y/s, g) * s` is `y (g - sum(g y)/s)` exactly, because
+    `moreh(y/s, g) = (y/s)(g - sum(g y)/s)`. Four verbs against the composed six, and with
+    the renorm off, one.
+    """
+    if SOFTMAX_BW_FUSED and _is_last_dim(y, dim):
+        SOFTMAX_BW_RENORM_STATS["applied" if SOFTMAX_BW_RENORM else "declined"] += 1
+        if not SOFTMAX_BW_RENORM:
+            return ttnn.moreh_softmax_backward(y, g, dim=-1)
+        s = ttnn.sum(y, dim=-1, keepdim=True,
+                     compute_kernel_config=config or precise_config())
+        return ttnn.multiply(ttnn.moreh_softmax_backward(ttnn.divide(y, s), g, dim=-1), s)
+    return ttnn.multiply(y, ttnn.subtract(g, softmax_bw_inner(y, g, dim=dim, config=config)))
 
 
 _GRAD_ENABLED = True
@@ -1268,8 +1310,7 @@ def softmax(x: Tensor, dim: int = -1, *, config=None) -> Tensor:
     def make():
         def bw(g):
             y = box[0]                      # through the box: `free` may have moved it
-            inner = softmax_bw_inner(y, g, dim=dim, config=cfg)
-            x.add_grad(ttnn.multiply(y, ttnn.subtract(g, inner)))
+            x.add_grad(softmax_bw(y, g, dim=dim, config=cfg))
         return bw
 
     out = _tape(y0, [x], make)
@@ -1991,8 +2032,7 @@ def triangle_attention(q: Tensor, k: Tensor, v: Tensor, bias: Optional[Tensor] =
                     dv_acc = dv_part if dv_acc is None else ttnn.add(dv_acc, dv_part)
                     # dS = P * (dP - rowsum(dP * P)), the softmax backward on the block.
                     dp = mm(go, v.value[b0:b1], tb=True)
-                    inner = softmax_bw_inner(p, dp, dim=-1, config=cfg)
-                    ds = ttnn.multiply(p, ttnn.subtract(dp, inner))
+                    ds = softmax_bw(p, dp, dim=-1, config=cfg)
                     ttnn.deallocate(p)
                     if bias is not None:
                         # CLONE on the per-trunk path. The broadcast path appends the
