@@ -97,6 +97,18 @@ deliberately broken arm was **refused by measuring** rather than by raising befo
 That last property is why the gate is evidence rather than decoration, and it is the one such
 harnesses usually lack.
 
+## The capability limit, which is undocumented and whose number is not settled
+
+Every figure here is at **crop 384**. What the largest runnable crop actually is on the shipping
+tree is **not stated anywhere a user can see** — `git grep` over `origin/main -- README.md docs/`
+finds no crop or token limit — and this campaign's own record gives three different answers: D205
+says **512**, D248 says a **576**-token capacity wall (fix release-gated and unmerged), and the
+sprint's own gap notes said **640**. One size ladder on main settles it.
+
+**Until it does, no number goes into user docs**, because a wrong capability statement is worse
+than an absent one. Stated here so the gap is visible rather than inherited: upstream ships four
+stage configs and this campaign has only ever run the smallest of them end to end.
+
 ## What this does NOT say
 
 It does not say what a full exactness-ON step costs — that is **[OWED]** and is the one number
