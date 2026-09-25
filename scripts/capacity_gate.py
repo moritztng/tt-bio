@@ -89,6 +89,9 @@ from tt_bio import size_limits as sl                                        # no
 #: Wormhole chip for several of these models, so nothing here is a Wormhole statement.
 TOKEN_BAR = 1536
 TOKEN_BUCKET = 32
+#: The arch the bar is a statement about, and so the arch whose CEILINGS rows a recorded cell is
+#: pinned to. It moves only if the bar does; see the comment above and `ceilings_fingerprint`.
+BAR_ARCH = "blackhole"
 assert TOKEN_BAR % TOKEN_BUCKET == 0
 
 #: Bisect rungs, used ONLY after a failure, to report where the real ceiling sits. A passing model
@@ -287,11 +290,10 @@ def baseline_stale() -> list[str]:
     Naming the stale ones is also what makes the sweep resumable. It is hours of card time, it has
     to run in stages, and a stage that re-measured four models should be able to show it.
     """
-    fp = ceilings_fingerprint()
     return sorted(f"{card}/{m}"
                   for card, blk in read_baseline().items()
                   for m, c in (blk.get("cells") or {}).items()
-                  if (c or {}).get("ceilings_fingerprint") != fp)
+                  if (c or {}).get("ceilings_fingerprint") != ceilings_fingerprint(m))
 
 
 # ---------------------------------------------------------------------------------------------
@@ -1940,7 +1942,7 @@ def main(argv=None) -> int:
         print(f"\nBASELINE GAP: runnable models with no recorded cell: {gaps}"
               f"\n  Run the gate for them and --record, or --record-from a finished report.")
     if (stale := baseline_stale()):
-        print(f"\nBASELINE STALE: cells measured against another ceiling table: {stale}"
+        print(f"\nBASELINE STALE: cells whose own ceiling row has moved since: {stale}"
               f"\n  The sweep runs in stages, so this is the remaining work, named.")
     ok = (report["counts"]["fail_like"] == 0 and not report["counts"]["GATE_BUG"]
           and not report["counts"]["BAD_FIXTURE"] and not report["coverage_gaps"])
@@ -1991,8 +1993,22 @@ def read_baseline() -> dict:
     return {card: {**{k: data[k] for k in keep if k in data}, "cells": cells}}
 
 
-def ceilings_fingerprint() -> str:
-    """A stable hash over every published ceiling, so moving any row is detectable.
+def ceilings_fingerprint(model: str, arch: str = BAR_ARCH) -> str:
+    """A stable hash over the ONE ceiling row a cell of `model` on this bar is measured against.
+
+    PER ROW, and it used to be over the whole table. A cell records what this card admits for
+    this model, and on `BAR_ARCH` that is `CEILINGS[model][BAR_ARCH]` alone: there is no arch
+    fallback in `size_limits.ceiling` -- a model with no row for the arch gets `_NO_ROW`, which
+    refuses nothing -- and `TOKEN_BAR` is a constant, so no other row can move either what this
+    cell measured or what the card admits. Hashing the whole table made every Blackhole cell
+    stale whenever any Wormhole row moved. Measured 2026-09-25: the MGX ceiling campaign raised
+    Wormhole caps for nine models and marked all 35 recorded cells stale, demanding hours of
+    Blackhole card time that would re-measure the same 1536 tokens against the same rows. None
+    of the 35 had its own row move -- 15 had an unchanged Blackhole row and 20 have no Blackhole
+    row in either tree (`perf/land_standing/capacity_cell_rows.py`).
+
+    A model with no row for the arch hashes as such, so ADDING one is a move and the cell goes
+    stale, which is right: an unmeasured row refuses nothing and a measured one can refuse.
 
     The published ceilings a user sees live in the serving platform, which tt-bio does not import.
     The engine's own copy is tt_bio.size_limits.CEILINGS, and that is what a ceiling change edits
@@ -2014,12 +2030,10 @@ def ceilings_fingerprint() -> str:
     the baseline stale.
     """
     import hashlib
-    rows = []
-    for model in sorted(sl.CEILINGS):
-        for arch in sorted(sl.CEILINGS[model]):
-            c = sl.CEILINGS[model][arch]
-            rows.append([model, arch, c.residues, c.measured, c.counts, c.ladder_ligand_atoms])
-    return hashlib.sha256(json.dumps(rows, default=str).encode()).hexdigest()[:16]
+    c = sl.CEILINGS.get(model, {}).get(arch)
+    row = ([model, arch, c.residues, c.measured, c.counts, c.ladder_ligand_atoms] if c
+           else [model, arch, "no row for this arch"])
+    return hashlib.sha256(json.dumps(row, default=str).encode()).hexdigest()[:16]
 
 
 # Verdicts that mean THIS RUN DECIDED NOTHING. INCONCLUSIVE is a clean Tier 1 screen, which by
@@ -2069,7 +2083,6 @@ def record_baseline(report: dict, *, partial: bool) -> str:
     # rather than from `cells`, which is empty in that case. A screen sweep over the whole roster
     # is exactly the run that would wipe every PASS.
     before = (prior.get("cells") or {})
-    fp = ceilings_fingerprint()
     # WHICH CARD each cell describes, per cell within this call, beyond the file's own per-card
     # bucket. `cards[card]["cells"]` already answers which board TYPE a cell belongs to -- that
     # is the schema change this file went through so a p150a run and a p300c run stop reading as
@@ -2104,7 +2117,7 @@ def record_baseline(report: dict, *, partial: bool) -> str:
                               "alloc_ceiling_tokens", "alloc_ceiling_note", "reason")}
         # The ceiling table and the tree THIS cell was measured against, per cell. See
         # baseline_stale(): a file-level stamp let a one-model record re-certify every cell.
-        cells[r["model"]]["ceilings_fingerprint"] = fp
+        cells[r["model"]]["ceilings_fingerprint"] = ceilings_fingerprint(r["model"])
         cells[r["model"]]["tree"] = report["tree"]
         cells[r["model"]]["measured_on"] = r.get("worker") or (
             f"{geom.get('host')}:{geom.get('card')}" if geom.get("host") else None)
@@ -2125,7 +2138,11 @@ def record_baseline(report: dict, *, partial: bool) -> str:
                 "no card is a cell about no card.",
         "cards": dict(sorted(per_card.items())),
     }, indent=1, default=str) + "\n")
-    msg = f"recorded {BASELINE} ({card}: {len(cells)} cells, ceilings {fp})"
+    # The fingerprint is per cell now, so there is no single one to name here. Name the
+    # rows instead, which is what a reader has to check against `baseline_stale()`.
+    stamps = ", ".join(f"{m}={c['ceilings_fingerprint']}" for m, c in sorted(cells.items())
+                       if "ceilings_fingerprint" in c)
+    msg = f"recorded {BASELINE} ({card}: {len(cells)} cells; ceiling rows {stamps or None})"
     # Said out loud. A cell that silently did not update is indistinguishable from one that did,
     # and the whole point of keeping it is that the stronger result cost card time.
     if kept:
