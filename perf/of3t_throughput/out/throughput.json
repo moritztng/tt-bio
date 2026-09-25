@@ -1,0 +1,257 @@
+{
+ "definition": "one sample = one training example = one crop of 384 tokens, batch 1. Not a diffusion sample.",
+ "sources": {
+  "tt_step_s": "perf/of3t_stepfloor/out/step_rekey_b_384.json rep 2, AICLK median 1350 MHz over 578 DURING samples, tt-quietbox2 dev3, crop 384, batch 1, 4 diffusion samples, full taped step (of3t-gpugap HEADLINE)",
+  "h200_step_s": "state/of3t/EVIDENCE.md:89 -- H200 at 1980 MHz, complete Lightning step, bf16-mixed, batch 1, crop 384, 48 diffusion samples. n=2 steady samples",
+  "tt_box": "tenstorrent.com/hardware/tt-quietbox -- TT-QuietBox 2 (Blackhole), $9,999, four Blackhole chips / 480 Tensix / 128 GB (docs.tenstorrent.com/systems/quietbox/quietbox-bh-2/setup.html)",
+  "tt_box_w": "docs.tenstorrent.com/systems/quietbox/quietbox-bh-2/setup.html -- 'up to 1300W while running high-load models'; PSU rated 1600 W",
+  "tt_chip_price": "p150a $1,399 list (tenstorrent.com/hardware/blackhole). The p300c is not sold separately and has no published price; knowledge/marketing/claims.md already prices one p300c processor as a p150a, same 120 Tensix / 32 GB / 512 GB/s. Convention reused, not invented here",
+  "dgx_price": "$410,000 list for 8 GPUs (the figure in this row's brief). Independent quotes found range $410k-$450k+; the lowest is used, which flatters the GPU",
+  "dgx_w": "NVIDIA DGX H200 datasheet -- 10.2 kW system max",
+  "dp_2chip": "perf/train_d_dp/out/scale_rank8.json and scale_rank128.json -- the only multi-chip training scaling measured on this fleet, 2x p150a at 1350 MHz",
+  "elec": "$0.0871/kWh and 4-year straight-line at 8766 h/year -- the TCO convention already used in knowledge/marketing/claims.md:54",
+  "params": "perf/of3t_stepfloor/out/step_rekey_b_384.json params.elements"
+ },
+ "inputs": {
+  "tt_step_s": 466.702,
+  "tt_step_s_worst_warm": 768.444,
+  "h200_step_s": [
+   7.0,
+   8.0
+  ],
+  "tt_unported_host_s": 6.329,
+  "params_elements": 381302188,
+  "dp_2chip_efficiency": [
+   0.8494,
+   0.9779
+  ],
+  "shm_all_reduce_B_per_s": 701228303
+ },
+ "samples_per_hour": {
+  "tt_chip": 7.7137,
+  "tt_chip_worst_warm_rep": 4.6848,
+  "h200_gpu": [
+   450.0,
+   514.286
+  ],
+  "tt_box_4chip": [
+   26.207,
+   30.855
+  ],
+  "dgx_h200_8gpu": [
+   3600.0,
+   4114.29
+  ],
+  "tt_box_4chip_after_6_7x": [
+   157.24,
+   215.98
+  ]
+ },
+ "samples_per_sec": {
+  "tt_chip": 0.0021426949102425104,
+  "h200_gpu": [
+   0.125,
+   0.14285714285714288
+  ],
+  "tt_box_4chip": [
+   0.007279813814206711,
+   0.008570779640970042
+  ],
+  "dgx_h200_8gpu": [
+   1.0,
+   1.142857142857143
+  ]
+ },
+ "gap": {
+  "chip_today": [
+   58.3,
+   66.7
+  ],
+  "box_today": [
+   116.7,
+   157.0
+  ],
+  "chip_after_6_7x": [
+   8.3,
+   11.1
+  ],
+  "box_after_6_7x": [
+   16.7,
+   26.2
+  ]
+ },
+ "perdollar": {
+  "tt_quietbox2": {
+   "samples_per_hour": [
+    26.207,
+    30.855
+   ],
+   "capex_usd": 9999.0,
+   "kW": 1.3,
+   "samples_per_hour_per_1k_usd_list": [
+    2.621,
+    3.0858
+   ],
+   "samples_per_hour_per_kW": [
+    20.16,
+    23.73
+   ],
+   "tco_usd_per_hour": 0.3984,
+   "samples_per_tco_dollar": [
+    65.78,
+    77.45
+   ]
+  },
+  "tt_quietbox2_after_6_7x": {
+   "samples_per_hour": [
+    157.244,
+    215.984
+   ],
+   "capex_usd": 9999.0,
+   "kW": 1.3,
+   "samples_per_hour_per_1k_usd_list": [
+    15.726,
+    21.6005
+   ],
+   "samples_per_hour_per_kW": [
+    120.96,
+    166.14
+   ],
+   "tco_usd_per_hour": 0.3984,
+   "samples_per_tco_dollar": [
+    394.69,
+    542.14
+   ]
+  },
+  "dgx_h200": {
+   "samples_per_hour": [
+    3600.0,
+    4114.286
+   ],
+   "capex_usd": 410000.0,
+   "kW": 10.2,
+   "samples_per_hour_per_1k_usd_list": [
+    8.7805,
+    10.0348
+   ],
+   "samples_per_hour_per_kW": [
+    352.94,
+    403.36
+   ],
+   "tco_usd_per_hour": 12.5813,
+   "samples_per_tco_dollar": [
+    286.14,
+    327.02
+   ]
+  },
+  "tt_chip_p150a_priced": {
+   "samples_per_hour": [
+    7.714,
+    7.714
+   ],
+   "capex_usd": 1399.0,
+   "kW": 0.3,
+   "samples_per_hour_per_1k_usd_list": [
+    5.5137,
+    5.5137
+   ],
+   "samples_per_hour_per_kW": [
+    25.71,
+    25.71
+   ],
+   "tco_usd_per_hour": 0.066,
+   "samples_per_tco_dollar": [
+    116.82,
+    116.82
+   ]
+  },
+  "h200_gpu_alone": {
+   "samples_per_hour": [
+    450.0,
+    514.286
+   ],
+   "capex_usd": 51250.0,
+   "kW": 0.7,
+   "samples_per_hour_per_1k_usd_list": [
+    8.7805,
+    10.0348
+   ],
+   "samples_per_hour_per_kW": [
+    642.86,
+    734.69
+   ],
+   "tco_usd_per_hour": 1.5226,
+   "samples_per_tco_dollar": [
+    295.55,
+    337.77
+   ]
+  },
+  "ratio_gpu_advantage": {
+   "per_1k_usd_list_today": [
+    2.85,
+    3.83
+   ],
+   "per_1k_usd_list_after_6_7x": [
+    0.41,
+    0.64
+   ],
+   "per_kW_today": [
+    14.87,
+    20.01
+   ],
+   "per_kW_after_6_7x": [
+    2.12,
+    3.33
+   ],
+   "per_tco_dollar_today": [
+    3.69,
+    4.97
+   ],
+   "per_tco_dollar_after_6_7x": [
+    0.53,
+    0.83
+   ]
+  }
+ },
+ "replicate": {
+  "grad_bytes_bf16_upper_bound": 762604376,
+  "note": "upper bound: 2,660 of 3,152 tensors carry a gradient, so the true payload is at most every parameter",
+  "shm_all_reduce_s": 1.088,
+  "share_of_step_today": 0.233,
+  "share_of_step_after_6_7x": [
+   1.4,
+   1.63
+  ],
+  "host_contention": {
+   "host_s_per_rank_at_4_samples": 6.329,
+   "host_s_per_rank_at_48_samples": [
+    24.8,
+    62.0
+   ],
+   "four_ranks_if_perfectly_parallel_s": [
+    24.8,
+    62.0
+   ],
+   "four_ranks_if_fully_serialised_s": [
+    99.2,
+    248.0
+   ],
+   "post_fix_step_s": [
+    77.8,
+    66.7
+   ],
+   "note": "at 48 diffusion samples the host term already exceeds a post-fix step even fully parallel, so on a 4-chip box the CPU, not the chips, sets samples/sec"
+  }
+ },
+ "at_48_diffusion_samples": {
+  "host_floor_s": [
+   24.8,
+   62.0
+  ],
+  "h200_whole_step_s": [
+   7.0,
+   8.0
+  ],
+  "note": "the TT step above ran 4 diffusion samples against upstream's 48; at 48 the host loss alone exceeds the H200's entire step"
+ }
+}
