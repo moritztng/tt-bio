@@ -59,6 +59,13 @@ compute / ~11x bandwidth silicon floor is a scope mismatch every time.
 | full step, exactness OFF, current tree | **[OWED]** | `of3t-stepqb2`; the stale 466.702 s is from `451ed56f4`, a tree where the feature did not exist |
 | GPU gap | **58-67x** step-to-step against an H200 at matched crop 384 | **on the pre-exactness tree**, so it prices a configuration whose gradients do not clear the bar |
 
+**And when the shipped number arrives it will not be a chip-to-chip comparison.** The 58-67x above
+is a device-to-device ratio for a configuration **we do not ship** — the pre-exactness tree, whose
+gradients do not clear the bar. The configuration we *do* ship puts ~80 % of its backward in host
+float64, so its ratio against a GPU measures **our host CPU and PCIe link against NVIDIA's device
+implementation**, not one accelerator against another. Both numbers are legitimate; they answer
+different questions, and neither should be quoted as the other. The axis belongs in the sentence.
+
 **No clean second exists yet, and that is not a quibble.** Not one exactness-ON run has produced a
 DURING-sampled AICLK — all four died before `fullstep.py` writes `env.aiclk_during`, and
 `host_quiet` was RED at loadavg1 3.33 on the one that got furthest. So every figure above from this
