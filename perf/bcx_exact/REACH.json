@@ -1,0 +1,79 @@
+{
+ "host": "tt-quietbox2",
+ "when_utc": "2026-09-25T18:43:36Z",
+ "commit": "9cd2967587fcb04169849b4fc10c3b5d9744129f",
+ "opened_a_device": false,
+ "loadavg": [
+  13.51123046875,
+  15.19140625,
+  14.82275390625
+ ],
+ "call_sites": {
+  "_fp32_softmax_tail/softmax_in_place": [
+   "4329     >>  736 LOAD_GLOBAL              1 (NULL + ttnn)",
+   "             746 LOAD_ATTR               32 (softmax_in_place)"
+  ],
+  "site_softmax/softmax": [
+   "",
+   "3952           2 LOAD_GLOBAL              1 (NULL + host_softmax_or_none)",
+   "3955     >>   46 LOAD_GLOBAL              3 (NULL + ttnn)",
+   "              56 LOAD_ATTR                4 (softmax)"
+  ]
+ },
+ "site_flag": {
+  "af2.tri_att": false,
+  "af2.msa": false,
+  "selected_before": 0,
+  "selected_after": 0,
+  "served_after": 0
+ },
+ "outside_tape": {
+  "module": "tt_bio.tenstorrent",
+  "attr": "softmax_in_place",
+  "raised": "TypeError: \nttnn.softmax_in_place(): incompatible function arguments.\n\nCalled with:\n  softmax_in_place(torch.Tensor, dim=-1)\n\nAvailable signatures:\n  softmax_in",
+  "ttnn_global_is_shim": false,
+  "softmax_verb_delta": 0,
+  "softmax_raw_delta": 0,
+  "layer_norm_verb_delta": 0,
+  "layer_norm_raw_delta": 0
+ },
+ "inside_tape": {
+  "module": "tt_bio.tenstorrent",
+  "attr": "softmax_in_place",
+  "raised": "AttributeError: 'Tensor' object has no attribute 'to_torch'",
+  "ttnn_global_is_shim": true,
+  "softmax_verb_delta": 0,
+  "softmax_raw_delta": 1,
+  "layer_norm_verb_delta": 0,
+  "layer_norm_raw_delta": 0
+ },
+ "inside_tape_layer_norm": {
+  "module": "tt_bio.tenstorrent",
+  "attr": "layer_norm",
+  "raised": "AttributeError: 'Tensor' object has no attribute 'to_torch'",
+  "ttnn_global_is_shim": true,
+  "softmax_verb_delta": 0,
+  "softmax_raw_delta": 0,
+  "layer_norm_verb_delta": 0,
+  "layer_norm_raw_delta": 1
+ },
+ "inside_tape_off": {
+  "module": "tt_bio.tenstorrent",
+  "attr": "softmax_in_place",
+  "raised": "TypeError: \nttnn.softmax_in_place(): incompatible function arguments.\n\nCalled with:\n  softmax_in_place(torch.Tensor, dim=-1)\n\nAvailable signatures:\n  softmax_in",
+  "ttnn_global_is_shim": true,
+  "softmax_verb_delta": 0,
+  "softmax_raw_delta": 0,
+  "layer_norm_verb_delta": 0,
+  "layer_norm_raw_delta": 0
+ },
+ "ANSWER": {
+  "tri_att_softmax_reaches_the_exact_path": true,
+  "which_branch_served_it": "raw",
+  "layer_norm_reaches_the_exact_path": true,
+  "call_site_resolves_at_call_time": true,
+  "off_switch_closes_it": true,
+  "untaped_call_does_not_reach_it": true,
+  "independent_of_the_site_flag": true
+ }
+}

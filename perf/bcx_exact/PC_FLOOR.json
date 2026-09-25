@@ -1,0 +1,111 @@
+{
+ "host": "pc",
+ "opened_a_device": false,
+ "nproc": 12,
+ "torch": "2.13.0+cpu",
+ "why": "ROUNDFLOOR.json timed the same expressions on qb2 at loadavg 12-23 on 16 cores and read 186-453 s added per round at n=224, a 2.4x spread. pc is quiet and is the host of3t-bwattrib measured on. Three runs here span 2.7 %.",
+ "runs": [
+  {
+   "loadavg_start": [
+    1.423828125,
+    1.90771484375,
+    3.314453125
+   ],
+   "threads": 6,
+   "reps": 5,
+   "traced_census_n288_round_added_s": 159.0,
+   "reduction": [
+    {
+     "n": 224,
+     "softmax_fwd_s_each": 0.062026,
+     "softmax_bwd_s_each": 0.133898,
+     "layer_norm_fwd_s_each": 0.026879,
+     "layer_norm_bwd_s_each": 0.049415,
+     "block_fwd_s": 0.3391,
+     "block_bwd_s": 0.6631,
+     "round_added_s": 80.7,
+     "loadavg1": 1.9
+    },
+    {
+     "n": 288,
+     "softmax_fwd_s_each": 0.133354,
+     "softmax_bwd_s_each": 0.375952,
+     "layer_norm_fwd_s_each": 0.045223,
+     "layer_norm_bwd_s_each": 0.083245,
+     "block_fwd_s": 0.6285,
+     "block_bwd_s": 1.4179,
+     "round_added_s": 158.6,
+     "loadavg1": 1.8
+    }
+   ]
+  },
+  {
+   "loadavg_start": [
+    1.80078125,
+    1.97607421875,
+    3.32177734375
+   ],
+   "threads": 6,
+   "reps": 5,
+   "traced_census_n288_round_added_s": 156.2,
+   "reduction": [
+    {
+     "n": 224,
+     "softmax_fwd_s_each": 0.062136,
+     "softmax_bwd_s_each": 0.134521,
+     "layer_norm_fwd_s_each": 0.027683,
+     "layer_norm_bwd_s_each": 0.051047,
+     "block_fwd_s": 0.3457,
+     "block_bwd_s": 0.6774,
+     "round_added_s": 82.3,
+     "loadavg1": 2.2
+    },
+    {
+     "n": 288,
+     "softmax_fwd_s_each": 0.133961,
+     "softmax_bwd_s_each": 0.378353,
+     "layer_norm_fwd_s_each": 0.045407,
+     "layer_norm_bwd_s_each": 0.086029,
+     "block_fwd_s": 0.6312,
+     "block_bwd_s": 1.4449,
+     "round_added_s": 160.2,
+     "loadavg1": 2.6
+    }
+   ]
+  },
+  {
+   "loadavg_start": [
+    2.6005859375,
+    2.1416015625,
+    3.36181640625
+   ],
+   "threads": 6,
+   "reps": 5,
+   "traced_census_n288_round_added_s": 148.0,
+   "reduction": [
+    {
+     "n": 224,
+     "softmax_fwd_s_each": 0.063568,
+     "softmax_bwd_s_each": 0.134311,
+     "layer_norm_fwd_s_each": 0.026108,
+     "layer_norm_bwd_s_each": 0.049077,
+     "block_fwd_s": 0.336,
+     "block_bwd_s": 0.6612,
+     "round_added_s": 80.1,
+     "loadavg1": 3.0
+    },
+    {
+     "n": 288,
+     "softmax_fwd_s_each": 0.141126,
+     "softmax_bwd_s_each": 0.363073,
+     "layer_norm_fwd_s_each": 0.045891,
+     "layer_norm_bwd_s_each": 0.084412,
+     "block_fwd_s": 0.6494,
+     "block_bwd_s": 1.4014,
+     "round_added_s": 160.8,
+     "loadavg1": 3.3
+    }
+   ]
+  }
+ ]
+}

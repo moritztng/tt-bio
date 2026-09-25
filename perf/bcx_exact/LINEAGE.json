@@ -1,0 +1,128 @@
+{
+ "host": "tt-quietbox2",
+ "when_utc": "2026-09-25T18:37:14Z",
+ "opened_a_device": false,
+ "default_on_commit": "502ed112ea96f2f9d60163c960abfeff2b47bc01 2026-09-23 03:59:45 +0000 training tape: exact softmax and layer norm on by default",
+ "rows": [
+  {
+   "ref": "main",
+   "resolved": "origin/main",
+   "sha": "975b6a172",
+   "committed": "2026-09-25 20:32:20 +0200",
+   "descends_from_default_on": true,
+   "EXACT_TRAINING_occurrences": 9,
+   "default_on_line": true,
+   "bindcraft2_py": true,
+   "bindcraft2_opens_tape": true,
+   "bindcraft2_turns_it_off": false
+  },
+  {
+   "ref": "wk/bcx-round",
+   "resolved": "origin/wk/bcx-round",
+   "sha": "7605a2601",
+   "committed": "2026-09-24 22:07:42 +0000",
+   "descends_from_default_on": false,
+   "EXACT_TRAINING_occurrences": 0,
+   "default_on_line": false,
+   "bindcraft2_py": false,
+   "bindcraft2_opens_tape": false,
+   "bindcraft2_turns_it_off": false
+  },
+  {
+   "ref": "wk/bcx-predictor",
+   "resolved": "origin/wk/bcx-predictor",
+   "sha": "4a623aa3c",
+   "committed": "2026-09-24 21:15:47 +0000",
+   "descends_from_default_on": false,
+   "EXACT_TRAINING_occurrences": 0,
+   "default_on_line": false,
+   "bindcraft2_py": false,
+   "bindcraft2_opens_tape": false,
+   "bindcraft2_turns_it_off": false
+  },
+  {
+   "ref": "wk/bcx-tracewire",
+   "resolved": "origin/wk/bcx-tracewire",
+   "sha": "f8b9070b2",
+   "committed": "2026-09-25 03:54:51 +0000",
+   "descends_from_default_on": false,
+   "EXACT_TRAINING_occurrences": 0,
+   "default_on_line": false,
+   "bindcraft2_py": false,
+   "bindcraft2_opens_tape": false,
+   "bindcraft2_turns_it_off": false
+  },
+  {
+   "ref": "wk/bcx-stack",
+   "resolved": "origin/wk/bcx-stack",
+   "sha": "8ae35c46b",
+   "committed": "2026-09-24 03:13:04 +0000",
+   "descends_from_default_on": false,
+   "EXACT_TRAINING_occurrences": 0,
+   "default_on_line": false,
+   "bindcraft2_py": false,
+   "bindcraft2_opens_tape": false,
+   "bindcraft2_turns_it_off": false
+  },
+  {
+   "ref": "wk/bcx-nan",
+   "resolved": "origin/wk/bcx-nan",
+   "sha": "a417b8754",
+   "committed": "2026-09-24 18:23:32 +0000",
+   "descends_from_default_on": false,
+   "EXACT_TRAINING_occurrences": 0,
+   "default_on_line": false,
+   "bindcraft2_py": false,
+   "bindcraft2_opens_tape": false,
+   "bindcraft2_turns_it_off": false
+  },
+  {
+   "ref": "wk/bcx-maskbias",
+   "resolved": "origin/wk/bcx-maskbias",
+   "sha": "c0520f387",
+   "committed": "2026-09-24 21:03:00 +0000",
+   "descends_from_default_on": false,
+   "EXACT_TRAINING_occurrences": 0,
+   "default_on_line": false,
+   "bindcraft2_py": false,
+   "bindcraft2_opens_tape": false,
+   "bindcraft2_turns_it_off": false
+  },
+  {
+   "ref": "wk/bcx-throughput",
+   "resolved": "origin/wk/bcx-throughput",
+   "sha": "ed038a4ac",
+   "committed": "2026-09-25 16:49:34 +0200",
+   "descends_from_default_on": true,
+   "EXACT_TRAINING_occurrences": 9,
+   "default_on_line": true,
+   "bindcraft2_py": false,
+   "bindcraft2_opens_tape": false,
+   "bindcraft2_turns_it_off": false
+  },
+  {
+   "ref": "wk/bcx-exact",
+   "resolved": "origin/wk/bcx-exact",
+   "sha": "9cd296758",
+   "committed": "2026-09-25 16:52:00 +0000",
+   "descends_from_default_on": true,
+   "EXACT_TRAINING_occurrences": 9,
+   "default_on_line": true,
+   "bindcraft2_py": true,
+   "bindcraft2_opens_tape": true,
+   "bindcraft2_turns_it_off": false
+  },
+  {
+   "ref": "wk/of3t-bwattrib",
+   "resolved": "origin/wk/of3t-bwattrib",
+   "sha": "cf08428d3",
+   "committed": "2026-09-25 17:40:11 +0200",
+   "descends_from_default_on": true,
+   "EXACT_TRAINING_occurrences": 9,
+   "default_on_line": true,
+   "bindcraft2_py": false,
+   "bindcraft2_opens_tape": false,
+   "bindcraft2_turns_it_off": false
+  }
+ ]
+}

@@ -1,0 +1,58 @@
+{
+ "host": "tt-quietbox2",
+ "when_utc": "2026-09-25T16:46:55Z",
+ "commit": "bcb51cf1186525b51f9ad770bab5a60300fc1dd1",
+ "opened_a_device": false,
+ "threads": 8,
+ "reps": 5,
+ "nproc": 16,
+ "loadavg": [
+  19.2548828125,
+  20.6298828125,
+  19.63330078125
+ ],
+ "rows": [
+  {
+   "n": 224,
+   "softmax_calls": 2,
+   "layer_norm_calls": 8,
+   "softmax_elements": 89915392,
+   "layer_norm_elements": 51380224,
+   "softmax_s_median": 0.184801,
+   "layer_norm_s_median": 0.093623,
+   "softmax_s_per_block": 0.3696,
+   "layer_norm_s_per_block": 0.749,
+   "s_per_block": 1.1186,
+   "s_per_48_block_forward": 53.69,
+   "loadavg1": 19.6
+  },
+  {
+   "n": 256,
+   "softmax_calls": 2,
+   "layer_norm_calls": 8,
+   "softmax_elements": 134217728,
+   "layer_norm_elements": 67108864,
+   "softmax_s_median": 0.122375,
+   "layer_norm_s_median": 0.164869,
+   "softmax_s_per_block": 0.2448,
+   "layer_norm_s_per_block": 1.3189,
+   "s_per_block": 1.5637,
+   "s_per_48_block_forward": 75.06,
+   "loadavg1": 19.3
+  },
+  {
+   "n": 288,
+   "softmax_calls": 2,
+   "layer_norm_calls": 8,
+   "softmax_elements": 191102976,
+   "layer_norm_elements": 84934656,
+   "softmax_s_median": 0.273117,
+   "layer_norm_s_median": 0.195408,
+   "softmax_s_per_block": 0.5462,
+   "layer_norm_s_per_block": 1.5633,
+   "s_per_block": 2.1095,
+   "s_per_48_block_forward": 101.26,
+   "loadavg1": 19.3
+  }
+ ]
+}
