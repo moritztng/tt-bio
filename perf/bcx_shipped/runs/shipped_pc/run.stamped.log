@@ -38,3 +38,19 @@
 2026-09-25T01:36:27Z results /home/moritz/.coworker/wt/bcx-shipped/perf/bcx_shipped/runs/shipped_pc | 3_Ranked/!_Ranked.csv rewritten as each design is accepted | summary.csv written when the campaign ends
 2026-09-25T01:36:27Z 
 2026-09-25T01:36:27Z === trajectory 1 | pdl1_denovo_l146_747386c849de6b5b | accepted 0/10 ===
+2026-09-25T03:49:50Z   passed screen design stage  i_pTM=0.87    pLDDT=0.94  
+2026-09-25T04:55:55Z   passed refine design stage  i_pTM=0.84    pLDDT=0.87  
+2026-09-25T06:57:13Z   passed anneal design stage  i_pTM=0.85    pLDDT=0.92  
+2026-09-25T07:10:37Z   passed harden design stage  i_pTM=0.85    pLDDT=0.91  
+2026-09-25T07:23:37Z   passed mutate design stage  i_pTM=0.74    pLDDT=0.78  
+2026-09-25T07:23:37Z   binder hallucination successful
+2026-09-25T07:23:42Z   binder optimization, 10 MPNN redesigns
+2026-09-25T07:28:06Z    1/10  ACCEPTED  Binder_RMSD=0.48    Hotspot_Contact_Fraction=1.0     Interface_Residues=23   Off_Epitope_Contact_Fraction=0.04    Target_pLDDT=0.92    i_pAE=0.22    i_pTM=0.84    pLDDT=0.87    pTM=0.85  
+2026-09-25T07:32:13Z    2/10  rejected  Binder_RMSD=0.51    Hotspot_Contact_Fraction=1.0     Interface_Residues=21   Off_Epitope_Contact_Fraction=0.05    Target_pLDDT=0.91    i_pAE=0.29    i_pTM=0.75    pLDDT=0.85    pTM=0.78    failed [i_pTM]
+2026-09-25T07:36:25Z    3/10  ACCEPTED  Binder_RMSD=1.1     Hotspot_Contact_Fraction=1.0     Interface_Residues=20   Off_Epitope_Contact_Fraction=0.05    Target_pLDDT=0.91    i_pAE=0.28    i_pTM=0.78    pLDDT=0.85    pTM=0.8   
+2026-09-25T07:40:31Z    4/10  rejected  Binder_RMSD=0.44    Hotspot_Contact_Fraction=1.0     Interface_Residues=23   Off_Epitope_Contact_Fraction=0.05    Target_pLDDT=0.91    i_pAE=0.3     i_pTM=0.75    pLDDT=0.84    pTM=0.77    failed [i_pTM]
+2026-09-25T07:44:32Z    5/10  ACCEPTED  Binder_RMSD=0.36    Hotspot_Contact_Fraction=1.0     Interface_Residues=24   Off_Epitope_Contact_Fraction=0.04    Target_pLDDT=0.92    i_pAE=0.23    i_pTM=0.83    pLDDT=0.87    pTM=0.84  
+2026-09-25T07:44:35Z   3 of 10 redesigns passed, keeping the best 1 by i_pDAE: candidate 1 (0.35)
+2026-09-25T07:44:36Z 
+2026-09-25T07:44:36Z === trajectory 2 | pdl1_denovo_l164_5d25d1af71112fd0 | accepted 1/10 ===
+2026-09-25T10:35:27Z   passed screen design stage  i_pTM=0.65    pLDDT=0.85  
