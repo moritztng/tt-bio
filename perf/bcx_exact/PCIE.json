@@ -1,0 +1,75 @@
+{
+ "pcie_GB_per_s_measured": 2.199,
+ "pcie_source": "of3t-bwattrib, 391.4 GB / 178 s, pc, Blackhole",
+ "bytes_per_element": {
+  "forward": 8,
+  "backward": [
+   8,
+   12
+  ]
+ },
+ "round_s_measured_without_instrument": 39.08,
+ "round_source": "bcx-round, 25 rounds, n=224, AICLK 1350, loadavg 37-52",
+ "rows": [
+  {
+   "n": 224,
+   "elements_per_block_census": 141295616,
+   "forward_elements_per_round": 20346568704,
+   "backward_elements_per_round": 6782189568,
+   "pcie_GB_per_round": [
+    217.0,
+    244.2
+   ],
+   "pcie_s_per_round": [
+    98.7,
+    111.0
+   ],
+   "arithmetic_s_per_round_pc_quiet": [
+    80.1,
+    82.3
+   ],
+   "added_s_per_round": [
+    178.8,
+    193.3
+   ],
+   "round_s_with_instrument": [
+    217.9,
+    232.4
+   ],
+   "slowdown_x": [
+    5.58,
+    5.95
+   ]
+  },
+  {
+   "n": 288,
+   "elements_per_block_census": 276037632,
+   "forward_elements_per_round": 39749419008,
+   "backward_elements_per_round": 13249806336,
+   "pcie_GB_per_round": [
+    424.0,
+    477.0
+   ],
+   "pcie_s_per_round": [
+    192.8,
+    216.9
+   ],
+   "arithmetic_s_per_round_pc_quiet": [
+    158.6,
+    160.8
+   ],
+   "added_s_per_round": [
+    351.4,
+    377.7
+   ],
+   "round_s_with_instrument": [
+    390.5,
+    416.8
+   ],
+   "slowdown_x": [
+    9.99,
+    10.67
+   ]
+  }
+ ]
+}
