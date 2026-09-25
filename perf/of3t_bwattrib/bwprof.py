@@ -145,6 +145,15 @@ class Rec:
 REC = Rec()
 
 
+def _use(rec):
+    """Swap the active recorder. The forward and the backward get one each, so the 44.3x
+    ratio is finally two readings from ONE instrument rather than two counters with
+    different populations -- which is the first thing that has to be ruled out about it."""
+    global REC
+    old, REC = REC, rec
+    return old
+
+
 class _W:
     """`alloc_profile._Watch` with a stopwatch. Same rebinding, same nested-namespace walk."""
 
@@ -162,9 +171,9 @@ class _W:
         if isinstance(attr, (types.ModuleType, _W)) or type(attr).__name__ == "_Ttnn":
             out = _W(attr, qual + ".")
         elif callable(attr) and not isinstance(attr, type):
-            rec = REC
 
             def call(*a, _f=attr, _q=qual, **k):
+                rec = REC
                 if not rec.on:
                     return _f(*a, **k)
                 t0 = NS()
@@ -294,9 +303,9 @@ def instrument(ag, sync_dev=None):
 SDPA_SHAPES = Counter()
 
 
-def _rows(top=60):
+def _rows(rec, top=60):
     rows = []
-    for (name, shp, dt, lay), (n, ns, mx, nb) in REC.verb.items():
+    for (name, shp, dt, lay), (n, ns, mx, nb) in rec.verb.items():
         rows.append({"verb": name, "shape": list(shp), "dtype": dt.replace("DataType.", ""),
                      "layout": lay.replace("Layout.", ""), "n": n,
                      "total_s": round(ns / 1e9, 4), "us_per_call": round(ns / n / 1e3, 1),
@@ -306,9 +315,9 @@ def _rows(top=60):
     return rows[:top], len(rows)
 
 
-def _byverb():
+def _byverb(rec):
     agg = {}
-    for (name, _s, _d, _l), (n, ns, _m, nb) in REC.verb.items():
+    for (name, _s, _d, _l), (n, ns, _m, nb) in rec.verb.items():
         a = agg.setdefault(name, [0, 0, 0])
         a[0] += n
         a[1] += ns
@@ -322,11 +331,11 @@ def _byverb():
     return out
 
 
-def _bynode():
+def _bynode(rec):
     out = [{"closure": k, "fired": v[0], "total_s": round(v[1] / 1e9, 3),
             "verbs": v[2], "ms_per_fire": round(v[1] / v[0] / 1e6, 2) if v[0] else None,
             "us_per_verb": round(v[1] / v[2] / 1e3, 1) if v[2] else None}
-           for k, v in REC.node.items()]
+           for k, v in rec.node.items()]
     out.sort(key=lambda r: -r["total_s"])
     return out
 
@@ -395,14 +404,27 @@ def main() -> int:
 
             saved: list = []
             z = None
+            fwd = Rec()
+            _use(fwd)
             t0 = time.perf_counter()
             with ag.tape():
-                _s, z = trunk(*args_, **kwargs_)
-            ttnn.synchronize_device(dev)
-            out["forward"] = {"s": round(time.perf_counter() - t0, 2),
+                _swap(True, saved)
+                try:
+                    _s, z = trunk(*args_, **kwargs_)
+                    ttnn.synchronize_device(dev)
+                finally:
+                    _swap(False, saved)
+            fwall = time.perf_counter() - t0
+            out["forward"] = {"s": round(fwall, 2),
                               "ok": True, "cycles": a.cycles,
+                              "verb_calls": fwd.calls,
+                              "verb_wall_s": round(fwd.ns / 1e9, 2),
+                              "us_per_call": round(fwd.ns / fwd.calls / 1e3, 1)
+                              if fwd.calls else None,
                               "sdpa_taped_calls": SUS["sdpa_taped_calls"],
                               "sdpa_score_blocks_total": SUS["sdpa_score_blocks_total"]}
+            out["forward_by_verb"] = _byverb(fwd)[:25]
+            out["forward_by_shape_class"] = _rows(fwd, 25)[0]
             out["sdpa_shapes"] = [{"q_shape": list(k[0]), "chunk_B": k[1], "chunk_Q": k[2],
                                    "blocks_per_call": k[3], "calls": v}
                                   for k, v in SDPA_SHAPES.most_common(12)]
@@ -417,6 +439,8 @@ def main() -> int:
                                    layout=ttnn.TILE_LAYOUT, device=dev, dtype=zr.dtype)
             out["backward"] = {"tape_nodes": len(ag._reverse_topo([z]))}
             SUS.clear()
+            bwd = Rec()
+            _use(bwd)
             rs = TT.recompute_scope()
             rs.__enter__()
             t0 = time.perf_counter()
@@ -435,25 +459,34 @@ def main() -> int:
             finally:
                 rs.__exit__(None, None, None)
             wall = time.perf_counter() - t0
-            rows, distinct = _rows(a.top)
+            rows, distinct = _rows(bwd, a.top)
             out["backward"].update({
                 "s": round(wall, 2),
-                "verb_calls": REC.calls,
-                "verb_wall_s": round(REC.ns / 1e9, 2),
-                "verb_share_of_backward": round(REC.ns / 1e9 / wall, 4) if wall else None,
-                "us_per_call": round(REC.ns / REC.calls / 1e3, 1) if REC.calls else None,
+                "verb_calls": bwd.calls,
+                "verb_wall_s": round(bwd.ns / 1e9, 2),
+                "verb_share_of_backward": round(bwd.ns / 1e9 / wall, 4) if wall else None,
+                "us_per_call": round(bwd.ns / bwd.calls / 1e3, 1) if bwd.calls else None,
                 "distinct_shape_classes": distinct,
                 "suspects": dict(SUS),
                 "params_with_grad": sum(1 for t in params.values()
                                         if getattr(t, "grad", None) is not None),
                 "params_declared": len(params)})
             out["by_shape_class"] = rows
-            out["by_verb"] = _byverb()
-            out["by_closure"] = _bynode()
+            out["by_verb"] = _byverb(bwd)
+            out["by_closure"] = _bynode(bwd)
             out["slowest_calls_over_2ms"] = [
                 {"us": round(n / 1e3, 1), "verb": k[0], "shape": list(k[1]),
                  "dtype": k[2].replace("DataType.", ""), "closure": c}
-                for n, k, c in sorted(REC.slowest, reverse=True)[:40]]
+                for n, k, c in sorted(bwd.slowest, reverse=True)[:40]]
+            f, b = out["forward"], out["backward"]
+            if f.get("us_per_call") and b.get("us_per_call"):
+                out["ratio_one_instrument"] = {
+                    "fwd_us_per_call": f["us_per_call"], "bwd_us_per_call": b["us_per_call"],
+                    "x": round(b["us_per_call"] / f["us_per_call"], 2),
+                    "fwd_calls": f["verb_calls"], "bwd_calls": b["verb_calls"],
+                    "note": "ONE instrument, one warm process, same rebinding on both legs. "
+                            "of3t-gpugap's 44.3x came from a counter whose forward and "
+                            "backward populations were never shown to be the same."}
             ag.release_pins()
         except Exception:                                                # noqa: BLE001
             out["error"] = traceback.format_exc()[-6000:]
