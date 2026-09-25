@@ -437,7 +437,7 @@ def _pad_slice(g, starts, ends, shape):
 def _zeros_like_along(g, ax, n):
     z = [int(d) for d in g.shape]
     z[ax] = n
-    return ttnn.zeros(z, dtype=g.dtype, layout=ttnn.TILE_LAYOUT, device=g.device())
+    return grad_zeros(z, g.dtype, g.device())
 
 
 def _join_slices(parts, shape):
