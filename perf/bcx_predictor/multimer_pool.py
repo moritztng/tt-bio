@@ -16,12 +16,19 @@ Weights are loaded lazily and kept, so the first gradient step that reaches a gi
 for it once. Five trunks is 5 x 91,177,010 parameters and all five fit on one p150a, measured:
 8.9, 5.4, 4.6, 6.1, 6.2 s to load, 31.2 s in total, and a trajectory then runs against them.
 
-`resident` caps how many are held and evicts least-recently-used. What that cap is worth has NOT
-been measured: eviction drops the only Python reference to the trunk and relies on ttnn freeing
-each weight tensor's device buffer when it is collected. tt_bio has no model-level deallocate to
-call instead. A `resident=1` run did not run out of memory, which is consistent with the buffers
-being freed and is not a measurement of it. Since all five fit, the cap has not been needed;
-anyone who does need it should measure the device allocator across an eviction first.
+`resident` caps how many are held and evicts least-recently-used, and it earns its place: with
+all five resident a levers-on trajectory at n=288 died at gradient step 8 on
+`bank_manager.cpp:439`, the allocator refusing an 84,934,656 B DRAM buffer in the backward. The
+identical arm at `resident=1` ran 12 steps with no such refusal, four past where the other died,
+at the same rate -- 66-89 s per step against 63-89 s -- because the reload it costs is smaller
+than a step. Five trunks is about 910 MB of weights and that is enough to bring a known defect
+forward.
+
+So `--pool-resident 1` is the setting for a long pool run until `bcx-dram`'s allocator fix lands.
+What still is NOT measured is the eviction itself: it drops the only Python reference and relies
+on ttnn freeing each weight tensor's buffer when it is collected, since tt_bio has no model-level
+deallocate. The survival above is consistent with the buffers being freed and is not a direct
+reading of the allocator across an eviction.
 """
 from __future__ import annotations
 
