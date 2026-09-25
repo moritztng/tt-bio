@@ -54,9 +54,13 @@ def op_names(paths):
         elif opn:
             out[name] = opn
         else:
-            voters = body.get(where.get(name), [])
-            out[name] = (collections.Counter(voters).most_common(1)[0][0] if voters
-                         else "<unlabelled>")
+            # NOT the enclosing computation's majority. `hostmap.parse_hlo` can afford that
+            # because it votes over coarse module LABELS; voting over a raw `op_name` charges
+            # every unlabelled instruction in the entry computation to whatever module happens
+            # to be commonest in it, which on this run put 163 s of a 181 s round on the
+            # structure module, a hundred times what `hostmap.py` charges the same module. An
+            # instruction with no `op_name` of its own stays unlabelled and is not counted.
+            out[name] = "<unlabelled>"
     return out
 
 
