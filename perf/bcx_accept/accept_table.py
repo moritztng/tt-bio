@@ -74,6 +74,13 @@ MASK_MARK = "hashlib.blake2b"
 # sequence in BindCraft 2's `settings/target/hPDL1.json`. The table says which source it used.
 TARGET_FALLBACK = 115
 
+# The stage floors BindCraft 2 rejects on, from `settings/core/default.json:25-29,113-117` (BC2 at
+# 7a2dfdb). `examples/pdl1.json` overrides none of them and the `binder` modality does not either,
+# so these are the bars every arm in this campaign was judged against. `screen` and `refine` have
+# no i_pTM floor at all, which is why passing `screen` says nothing about interface confidence.
+STAGE_FLOOR = {"screen": (None, 0.60), "refine": (None, 0.60), "anneal": (0.50, 0.65),
+               "harden": (0.50, 0.65), "mutate": (0.50, 0.60), "final": (0.70, 0.70)}
+
 STAGE_BUDGET = {"screen": 50, "refine": 25, "anneal": 45, "harden": 5, "mutate": 15}
 
 
@@ -323,6 +330,53 @@ def draw_order(arm):
     return order or None
 
 
+def rejections(arm):
+    """{design hash: (stage, i_pTM, pLDDT, filter)} from the run log.
+
+    BindCraft 2 prints the rejection without naming the design, so the line is attached to the
+    trajectory banner above it. The margin against `STAGE_FLOOR` is the difference between a
+    collapse and a near miss, and a count of 0 means something different in each case.
+    """
+    sibling = os.path.join(os.path.dirname(arm.rstrip("/")),
+                           os.path.basename(arm.rstrip("/")) + ".log")
+    if not os.path.exists(sibling):
+        return {}
+    out, current = {}, None
+    with open(sibling, "rb") as handle:
+        for raw in handle:
+            line = raw.decode("utf-8", "replace")
+            if "=== trajectory" in line and "pdl1_denovo_" in line:
+                current = line.split("|")[1].strip().rsplit("_", 1)[-1]
+            elif current and "rejected at" in line and "due to" in line:
+                words = line.split()
+                stage = words[words.index("at") + 1]
+                got = {}
+                for word in words:
+                    key, _, value = word.partition("=")
+                    if key in ("i_pTM", "pLDDT"):
+                        try:
+                            got[key] = float(value)
+                        except ValueError:
+                            pass
+                which = line.split("due to")[1].strip().strip("[]")
+                out[current] = (stage, got.get("i_pTM"), got.get("pLDDT"), which)
+                current = None
+    return out
+
+
+def margin(rejection):
+    """How far under its floor the rejecting metric was, or None when it cannot be computed."""
+    stage, iptm, plddt, which = rejection
+    floors = STAGE_FLOOR.get(stage)
+    if not floors:
+        return None
+    floor = floors[0] if which == "i_pTM" else floors[1]
+    got = iptm if which == "i_pTM" else plddt
+    if floor is None or got is None:
+        return None
+    return got - floor
+
+
 def stale_mask(arm, design):
     """The earlier draw whose MSA mask this one was served, or None when its mask was its own.
 
@@ -443,20 +497,28 @@ def report(argument):
         print("  no completed trajectory in the ledger yet")
         return []
     print()
-    print("  %-38s %5s %9s %-12s %s"
-          % ("design", "len", "design_s", "terminated", "validity"))
+    print("  %-38s %5s %9s %-12s %-16s %s"
+          % ("design", "len", "design_s", "terminated", "margin", "validity"))
     out = []
+    rejected = rejections(arm)
     for row in rows:
         secs = design_seconds(row.get("Timing"))
         verdict = classify(arm, row, fix_present, mask_fix)
-        print("  %-38s %5s %9s %-12s %s"
+        hit = rejected.get(row["hash"])
+        if hit:
+            delta = margin(hit)
+            note = "[%s] %s" % (hit[3], "%+.2f" % delta if delta is not None else "no floor")
+        else:
+            note = ""
+        print("  %-38s %5s %9s %-12s %-16s %s"
               % (row["design"][:38], row.get("length"),
                  "%.0f" % secs if secs else "?",
-                 (row.get("terminated") or "completed"), verdict))
+                 (row.get("terminated") or "completed"), note, verdict))
         out.append({"arm": arm, "design": row["design"], "seconds": secs,
                     "terminated": row.get("terminated") or "completed",
                     "validity": verdict, "commit": commit or "UNRECORDED",
-                    "route": route_present})
+                    "route": route_present, "rejection": hit,
+                    "margin": margin(hit) if hit else None})
     return out
 
 
@@ -484,6 +546,16 @@ def main(argv):
     print("  of the valid, rejection profile   : %d  (no route: keeps its failures, drops its"
           % len(profile_only))
     print("                                        successes, so it cannot carry a ratio)")
+    profile = [r for r in valid if r["rejection"]]
+    if profile:
+        print()
+        print("rejection profile over the valid trajectories:")
+        for r in sorted(profile, key=lambda r: (r["rejection"][0], r["design"])):
+            stage, iptm, plddt, which = r["rejection"]
+            print("  %-34s %-7s [%s] i_pTM %.2f pLDDT %.2f, %s its floor"
+                  % (r["design"][:34], stage, which, iptm, plddt,
+                     "%+.2f under" % r["margin"] if r["margin"] is not None
+                     else "no floor at"))
     chip = sum(r["seconds"] for r in valid if r["seconds"])
     print("chip-seconds over valid trajectories: %.0f  (%.2f h, one chip)"
           % (chip, chip / 3600.0))
