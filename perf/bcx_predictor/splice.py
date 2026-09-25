@@ -87,7 +87,7 @@ _NEXT = [0]
 class EvoformerOnDevice:
     """tt-bio's 48 Evoformer blocks as `(msa, pair) -> (msa, pair)`, differentiable."""
 
-    def __init__(self, dev, k_evo: int = 48, checkpoint: bool = True):
+    def __init__(self, dev, k_evo: int = 48, checkpoint: bool = True, checkpoints=()):
         """`msa_mask` is BindCraft 2's `[rows, n]` Evoformer MSA mask, as a host array.
 
         It is passed in rather than read off the traced activations because the stack
@@ -96,11 +96,64 @@ class EvoformerOnDevice:
         length, but the padded SHAPE is not: one bucket holds many binder lengths, so the
         cache below keys on content. A predictor class that reads the mask from BindCraft
         2's own batch is the general form and this is the harness's.
+
+        `checkpoints` names which AF2 checkpoints these weights ARE. BindCraft 2 folds on
+        more than one: five multimer trunks for design and two monomer trunks for
+        validation (`bindcraft/af2.py:420-421`), held apart on purpose so a design is never
+        scored by a model that shaped it. The card holds only what was loaded onto it, so a
+        fold asking for anything else belongs on the host -- see `on_host`. Empty means the
+        caller did not say and nothing is routed away, which is what a probe that loads one
+        checkpoint and folds with it wants; a `MultimerPool` answers for itself.
         """
         self.dev, self.k_evo, self.checkpoint = dev, k_evo, checkpoint
+        self.checkpoints = tuple(checkpoints) or tuple(getattr(dev, "models", ()))
         self.calls = {"primal": 0, "taped": 0, "backward": 0}
+        #: True while `on_host` is open. Read at haiku TRACE time by the stack replacement.
+        self.host_only = False
+        #: Folds sent to the host trunk, per checkpoint name.
+        self.host_folds: dict[str, int] = {}
         self._mask_dev = {}
         self._pair_mask_dev = {}
+
+    # ------------------------------------------------------------------ which side folds
+
+    def holds(self, name: str) -> bool:
+        """Whether the weights on card are `name`'s."""
+        return not self.checkpoints or name in self.checkpoints
+
+    @contextlib.contextmanager
+    def on_host(self, name: str = ""):
+        """Fold inside this block on BindCraft 2's own JAX trunk, leaving the card idle.
+
+        A checkpoint the card does not hold has to fold somewhere. Refusing is right for
+        `MultimerPool.use`, whose caller has already decided the card runs the fold, and it
+        is what stops a design being scored by the wrong trunk. But the shipped
+        `examples/pdl1.json` designs on all five multimer checkpoints, so BindCraft 2 moves
+        validation to the MONOMER pool (`campaign.py:77-83`), and with the five multimer
+        trunks on card that refusal reaches every acceptance: `bcx-accept`'s arm passed all
+        five design stages at i_pTM 0.85 and pLDDT 0.95 and then died in
+        `predict_validation_ensemble` on `model_1_ptm`. So the card stands down for those
+        folds and BindCraft 2 runs them itself, on the same two checkpoints
+        `bcx-shipped`'s CPU reference uses -- which makes the validation stage numerically
+        the reference's own rather than an approximation of it.
+
+        The switch is read where haiku TRACES, and `_compiled_complex_prediction` keys its
+        cache on the model FAMILY (`bindcraft/af2.py:273`): a monomer fold compiles its own
+        jitted program with no device callback in it, the multimer folds keep theirs, and
+        neither cache entry can be served the other's. An eviction re-traces under the flag
+        the call that caused it set, which is the same rule again.
+        """
+        was = self.host_only
+        self.host_only = True
+        if name:
+            if name not in self.host_folds:
+                print(f"[splice] {name} is not on card ({', '.join(self.checkpoints)}); "
+                      f"folding it on BindCraft 2's own JAX trunk", flush=True)
+            self.host_folds[name] = self.host_folds.get(name, 0) + 1
+        try:
+            yield
+        finally:
+            self.host_only = was
 
     def _mask(self, mask_np):
         """Upload per call, cached on the mask's CONTENT.
@@ -312,6 +365,21 @@ def find_evoformer_masks(fn, depth=0, seen=None):
     return None
 
 
+#: The splice currently spliced in, innermost last.
+_INSTALLED: list = []
+
+
+def installed():
+    """The `EvoformerOnDevice` `evoformer_on_device` has installed, or None.
+
+    It rebinds a name inside BindCraft 2's vendored haiku code, so a process has at most
+    one. A predictor cannot simply be handed the object: `campaign.py:265` builds the
+    validation predictor from a lambda of its own, and the validation predictor is the one
+    that has to send a fold off the card.
+    """
+    return _INSTALLED[-1] if _INSTALLED else None
+
+
 @contextlib.contextmanager
 def evoformer_on_device(evo: EvoformerOnDevice, expect_blocks: int = 48):
     """Swap `modules.py:1594`'s Evoformer stack for `evo`, and nothing else."""
@@ -327,6 +395,9 @@ def evoformer_on_device(evo: EvoformerOnDevice, expect_blocks: int = 48):
 
         def choose(fn):
             if getattr(fn, "__name__", None) == "evoformer_fn":
+                if evo.host_only:
+                    # This checkpoint is not on card, so BindCraft 2's own blocks run it.
+                    return made(fn)
                 if int(num_layers) != expect_blocks:
                     raise ValueError(
                         f"evoformer_fn has {num_layers} blocks, tt-bio holds {expect_blocks}")
@@ -349,7 +420,9 @@ def evoformer_on_device(evo: EvoformerOnDevice, expect_blocks: int = 48):
         return choose
 
     modules.layer_stack.layer_stack = factory
+    _INSTALLED.append(evo)
     try:
         yield swapped
     finally:
+        _INSTALLED.remove(evo)
         modules.layer_stack.layer_stack = real

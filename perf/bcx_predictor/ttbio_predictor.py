@@ -39,6 +39,8 @@ own 0.950, so the guard would have waved it through. Counting the tail is `bcx-p
 to land with its own test; `bcx-mono` left the function alone and recorded the undercount
 (`state/bcx-mono.md`).
 """
+import contextlib
+
 import numpy as np
 
 from bindcraft.af2 import (AlphaFoldDesignModel, padded_prediction_complex,
@@ -150,19 +152,51 @@ class TTBioAlphaFoldDesignModel(AlphaFoldDesignModel):
         if self.pool is not None:
             self.pool.use(model)
 
+    @contextlib.contextmanager
+    def _route(self, model):
+        """Run this fold on the card, or on BindCraft 2's own JAX trunk.
+
+        The card's trunk is whichever checkpoints were loaded onto it, and BindCraft 2 asks
+        for more than those. Validation is held out of design (`preflight.py:31`, "a design
+        is never scored by a model that shaped it"), and on the shipped `examples/pdl1.json`
+        all five multimer checkpoints are design models, so `campaign.py:77-83` moves
+        validation to the monomer pool -- which is not card-resident. Without a route that
+        is fatal rather than slow: `bcx-accept`'s arm passed all five design stages at
+        i_pTM 0.85 / pLDDT 0.95 and died in `predict_validation_ensemble` asking the pool
+        for `model_1_ptm`.
+
+        An off-card fold runs on the same checkpoint the JAX side around it uses, which is
+        the invariant `_resolved` exists for and the one thing the pool's refusal was
+        protecting. It is also what `bcx-shipped`'s CPU reference does for those two
+        models, so the validation stage becomes the reference's own numbers.
+
+        `splice` is imported here rather than at module scope: this module is importable
+        without torch or a tt-bio build, and two card-free probes rely on that.
+        """
+        import splice
+        evo = splice.installed()
+        if evo is not None and not evo.holds(model):
+            with evo.on_host(model):
+                yield
+            return
+        self._select(model)
+        yield
+
     def predict(self, protein_states, model=None, *args, **kwargs):
-        if self.trunk == "device":
-            self._open_device()
-            model = self._resolved(model)
-            self._select(model)
-        return super().predict(protein_states, model, *args, **kwargs)
+        if self.trunk != "device":
+            return super().predict(protein_states, model, *args, **kwargs)
+        self._open_device()
+        model = self._resolved(model)
+        with self._route(model):
+            return super().predict(protein_states, model, *args, **kwargs)
 
     def sequence_gradients(self, protein_states, losses, model=None, *args, **kwargs):
-        if self.trunk == "device":
-            self._open_device()
-            model = self._resolved(model)
-            self._select(model)
-        return super().sequence_gradients(protein_states, losses, model, *args, **kwargs)
+        if self.trunk != "device":
+            return super().sequence_gradients(protein_states, losses, model, *args, **kwargs)
+        self._open_device()
+        model = self._resolved(model)
+        with self._route(model):
+            return super().sequence_gradients(protein_states, losses, model, *args, **kwargs)
 
     # -------------------------------------------------------------- the device side
 
