@@ -1,0 +1,16 @@
+[Fri Sep 25 19:11:36 2026] postgres invoked oom-killer: gfp_mask=0x140cca(GFP_HIGHUSER_MOVABLE|__GFP_COMP), order=0, oom_score_adj=0
+[Fri Sep 25 19:11:36 2026] oom-kill:constraint=CONSTRAINT_NONE,nodemask=(null),cpuset=docker-577f22cf30e15fb5b8b382de5f47a9f748ff70c6bb72d97c2553f1453cc7f8d5.scope,mems_allowed=0,global_oom,task_memcg=/system.slice/cron.service,task=python3,pid=1795534,uid=1000
+[Fri Sep 25 19:11:36 2026] Out of memory: Killed process 1795534 (python3) total-vm:57083188kB, anon-rss:19917952kB, file-rss:172kB, shmem-rss:96kB, UID:1000 pgtables:106644kB oom_score_adj:0
+
+# free -g at 17:47Z, after the kill
+               total        used        free      shared  buff/cache   available
+Mem:              30          12           9           2          11          17
+Swap:              0           0           0
+
+# top RSS on pc at 17:47Z
+  RSS COMMAND
+525828 /home/moritz/.venvs/jfp/bin/python -m pytest tests/ -q -p no:cacheprovider --ignore=tests/test_rfd3_fle
+474692 /home/moritz/.venvs/jfp/bin/python -m pytest tests -q -p no:cacheprovider --ignore=tests/test_rfd3_flee
+404404 claude --dangerously-skip-permissions --resume
+387932 claude --dangerously-skip-permissions --resume
+364420 claude --dangerously-skip-permissions --resume
