@@ -141,6 +141,14 @@ def code_staleness(root: Path, artifact: str, code_paths=("tt_bio",)) -> dict:
 
     Reported, never failed. Re-taking an artifact needs a card, so a hard failure here would block
     every compose on work that cannot be done in a compose.
+
+    **But "reported" has to mean reported where a reader is.** Until pass 500 this dict went into
+    the JSON and nothing else: `main()` printed `N of M charter conditions met` and no more, so on
+    2026-09-25 the gate published **5 of 5 MET with `artifact_is_older_than_code` true on all
+    five**, 17.8 hours to 3.5 days behind, and the campaign quoted the headline for passes. The
+    instrument was right and the output hid it. The staleness count is now in the headline and in
+    the payload as `n_stale`, so the number cannot be quoted without its qualifier. That is the
+    whole fix -- it still does not fail, for the reason above.
     """
     def ts(*args) -> int | None:
         try:
@@ -324,6 +332,15 @@ def main() -> int:
                           "requirement reports NOT MET on one built to violate it"
                           if not broken else broken),
         "n_met": sum(c["met"] for c in conds),
+        # A condition graded on an artifact older than the code it is about is reporting history.
+        # `n_unreadable` is the other half and must not be read as "fine": it means the tree could
+        # not answer the question, which is what happens in an artifacts-only worktree where
+        # `git log -- tt_bio` is empty (K28).
+        "n_stale": sum(1 for c in conds
+                       if c["code_staleness"].get("artifact_is_older_than_code")),
+        "n_unreadable": sum(1 for c in conds
+                            if not c["code_staleness"].get("comparable")
+                            and not c["code_staleness"].get("generated_not_committed")),
         "n_conditions": len(conds),
         "conditions": conds,
     }
@@ -342,12 +359,31 @@ def main() -> int:
 
     print(f"charter evidence, spec {spec_sha[:12]} lifted from the live gate\n")
     for c in conds:
-        print(f"{'MET    ' if c['met'] else 'NOT MET'}  {c['field']:11s} {c['artifact']}")
+        cs = c["code_staleness"]
+        if cs.get("artifact_is_older_than_code"):
+            age = f"  STALE by {cs['seconds_behind'] / 3600:.1f} h"
+        elif not cs.get("comparable") and not cs.get("generated_not_committed"):
+            age = "  AGE UNREADABLE in this tree"
+        else:
+            age = ""
+        print(f"{'MET    ' if c['met'] else 'NOT MET'}  {c['field']:18s} {c['artifact']}{age}")
         for m in c["misses"]:
             print(f"             - {m}")
     print(f"\n{payload['n_met']} of {payload['n_conditions']} charter conditions met. "
           f"Break control: all {len(conds)} clauses can report MET on a synthetic artifact, "
           f"and every requirement reports NOT MET on one built to violate it.")
+    # The qualifier rides with the number or the number gets quoted alone -- which is what happened
+    # for several passes while this same information sat in the JSON.
+    if payload["n_stale"]:
+        print(f"\n{payload['n_stale']} of {payload['n_conditions']} were graded on an artifact "
+              f"OLDER than the newest commit under tt_bio/, so those clauses report history. "
+              f"This does not fail the gate -- re-taking an artifact needs a card -- but "
+              f"'{payload['n_met']} of {payload['n_conditions']} met' may not be quoted without "
+              f"it.")
+    if payload["n_unreadable"]:
+        print(f"{payload['n_unreadable']} of {payload['n_conditions']} could not be dated in this "
+              f"tree (no commit for the artifact or for tt_bio/ here). That is 'could not tell', "
+              f"not 'fine'.")
     print(f"written: {HERE}\n         {STATE}")
     return 0
 
