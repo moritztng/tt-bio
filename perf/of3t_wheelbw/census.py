@@ -146,7 +146,16 @@ def main() -> int:
         import tt_bio.taped_ttnn as tw
         instrument(ag, tw, calls, taped, shapes, branch)
 
+        # `S.capture` runs a real untaped `predict_one` and intercepts it at the trunk, so
+        # the counters after it are an INFERENCE fold's reach -- which is A46 clause 4's
+        # question, measured rather than argued. A taped count of zero here says no closure
+        # this row touched exists on an inference path at all.
         held, _meta = S.capture(a.tokens, out)
+        out["inference_fold"] = {
+            "calls": dict(calls.most_common()),
+            "taped_calls": dict(taped.most_common()),
+            "note": "counters after S.capture's untaped predict_one, before any tape opens",
+        }
         trunk = held["trunk"][0]
         sampler, sargs, _skw = held["sampler"]
         dev = get_device()
