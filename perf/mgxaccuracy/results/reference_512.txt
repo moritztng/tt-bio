@@ -1,0 +1,28 @@
+# The upstream CPU fp32 reference at 512, and what one draw of it is worth.
+#
+# The unmodified six-step upstream run finished: REF_DONE size=512 rc=0 wall_s=17310 (4.81 h
+# for ONE design on 16 cores). Its own analysis table reads designfolding-bb_rmsd 7.16724 A.
+# A separate step-4-only run on the SAME design, same config, same checkpoint, read 11.04058.
+#
+# upstream six-step, own analysis CSV      7.16724
+# upstream step-4 only, same design       11.04058
+# spread between the two draws                3.87
+# device (TT), same target, n=9 median       10.56
+# device range over those 9 designs     3.30-13.78
+#
+# So the reference's own run-to-run spread on ONE design, 3.87 A, is larger than the 2.10 A
+# across-target floor at this size and covers most of the device's interquartile behaviour.
+# Both upstream draws sit inside the device's range. A single upstream draw cannot rank the
+# two sides; it bounds the level, and the level agrees.
+#
+# scrmsd.py validated a second time here, on a different host and a CPU fp32 refolder:
+# it reproduces this run's own designfolding-bb_rmsd to 0.00001 A with the N,CA,C,O
+# backbone (N,CA,C misses by 0.024, CA alone by 0.075).
+
+
+id            designfold    N,CA,C,O      N,CA,C          CA
+bg512            7.16724     7.16725     7.14374     7.24197
+
+               max |gap|     0.00001     0.02350     0.07473
+
+closest backbone definition: N,CA,C,O  max gap 0.00001 A  -> REPRODUCES the pipeline column

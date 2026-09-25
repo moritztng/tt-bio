@@ -1,0 +1,43 @@
+FAS 1024 REPLICATION — REPLICATES, on a window sharing 12% of its residues
+==========================================================================
+
+Landed 2026-09-24 23:07Z, whglx card 2, tree ff5435cba, rc 0, n=8, AICLK median 1000
+sampled DURING the fold, wall 5397.0 s against the offset-0 cell's 5406.3 s. Fixture checked
+on disk as single chain, 1024 CA, before the numbers were read. Read with
+`fas_read.py --replication`, whose three clauses were committed before the cell launched.
+
+plans/fas_offset900.txt, the replication check on the offset-0 1024 finding
+
+  size  offset   n   median     range              <=2A    <=4A
+   512     900   8    3.029    1.649-13.215     25.0%   62.5%
+  1024     900   8   21.003   16.184-22.258      0.0%    0.0%
+
+   512 -> 1024            +17.974 A   U =   0.0 of 64   exact p = 0.0002  rejects
+
+  1024/off900: 0 of 8 under 4.0 A (offset 0 was 0 of 8)
+
+REPLICATION VERDICT: REPLICATES
+  -> the offset-0 finding stands on two windows sharing 12% of their residues: a single chain of 1024 residues returns nothing usable
+
+WHAT THIS SETTLES
+
+The sentence published in `results/fas_1024_result.txt` — a single chain of 1024 residues
+returns nothing usable — stands. It is now two windows, offset 0 and offset 900, sharing 124
+of 1024 residues (12%), both 0 of 8 under the 4 A bar. The DOES NOT REPLICATE branch, which
+would have obliged the row to withdraw that sentence in the words it was published in, did not
+fire.
+
+The second window is in fact HARSHER: 21.003 A against offset 0's 10.665, and its fall from its
+own 512 cell is +17.974 A with PERFECT separation (U = 0.0 of 64), where offset 0's was +6.883 A
+at p = 0.0104. So the two windows agree on the verdict and disagree on the magnitude by 10 A,
+which is the between-window spread this row has documented since the three 1GPB windows read
+4.631 / 16.021 / 17.300 A at a fixed size. Quote the verdict, not the median, across windows.
+
+WHAT IT MEANS FOR THE CHAIN HYPOTHESIS. It weakens it further. The control exists because on
+GroEL and 1GPB every cell above 512 residues also carries a second chain, so a residue ceiling
+and a chain ceiling were indistinguishable. A single chain now returns 0 of 8 at 1024 on BOTH
+windows of a third target. If chain count were the whole story, one chain should have kept
+designing where two stopped.
+
+The pre-registered decision is still the 1536 cell of `plans/chain_vs_residues.txt`, running on
+card 3, and this file does not pre-empt it.

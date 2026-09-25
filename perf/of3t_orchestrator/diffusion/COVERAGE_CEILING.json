@@ -1,0 +1,29 @@
+{
+ "what": "the campaign reports \"51.14 % of the model squared gradient norm compared\". This is what the other 48.86 % is, and it is not random.",
+ "uncarried_by_section_COUNT": {
+  "pairformer_stack": 240,
+  "diffusion_module": 188,
+  "input_embedder": 93,
+  "msa_module": 32,
+  "template_embedder": 28,
+  "aux_heads.pairformer_embedding": 20
+ },
+ "totals_by_count": {
+  "their_total": 4170,
+  "carried_by_a_device_tensor": 3569,
+  "carried_pct": 85.58752997601918,
+  "uncarried": 601,
+  "uncarried_pct": 14.412470023980815
+ },
+ "the_diffusion_arithmetic": {
+  "diffusion_share_of_model_norm_pct": 89.211,
+  "compared_share_WITHIN_diffusion": 0.5732029094107396,
+  "compared_share_of_model_pct": 51.13600475144149,
+  "UNCOMPARED_diffusion_share_of_model_pct": 38.07499524855851,
+  "cross_check": "89.211 % x 57.32 % = 51.14 %, which is the 51.14 % the campaign reports, so the reported coverage IS the diffusion module times its internal coverage"
+ },
+ "the_ceiling_this_sets": "188 of the diffusion module's 763 reference tensors have NO DEVICE TENSOR to carry them, and within the diffusion module only 57.32 % of the squared norm is compared. So 38.1 % of the MODEL's gradient mass sits in diffusion tensors our port does not build. That is a PORT gap -- missing parameters -- not a precision gap, and no amount of fixing what is measured reaches it. It is the ceiling on reach until those tensors exist on device.",
+ "and_it_is_not_only_diffusion": "uncarried by count: pairformer_stack 240, diffusion_module 188, input_embedder 93, msa_module 32, template_embedder 28, aux_heads.pairformer_embedding 20. 601 of 4,170 = 14.4 %% by count. The MASS share of the non-diffusion ones is bounded by their sections' shares (pairformer 5.828 %%, input_embedder 0.801 %%, msa 1.240 %%, aux_heads 2.843 %%) and is not separately measured here.",
+ "honest_limit": "the 57.32 %% is the all-48-structure run's own share_of_diffusion_sq_norm field, and the 89.211 %% is the campaign's corrected 4,170-basis section share. The product reproduces the reported 51.14 %%, which is the check that the two are consistent. The per-section mass of the 601 uncarried tensors is NOT computed here -- only the diffusion part, which is the one that dominates.",
+ "what_it_means_for_the_verdict": "the campaign cannot reach GO on gradient parity while 38.1 %% of the model's gradient mass has no device tensor. Whatever the block-47 and diffusion-backward work concludes, that fraction is unmeasurable, and it is the largest single number in the coverage story. It belongs in DOESNOT stated exactly this way, because \"51.14 %% compared\" reads like sampling and it is not sampling -- it is a hole with a known shape."
+}

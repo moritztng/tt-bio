@@ -1,0 +1,203 @@
+{
+ "per_draw_mass_at_or_better": {
+  "0": 0.9807,
+  "1": 0.9961,
+  "2": 0.9729,
+  "3": 0.8364,
+  "4": 0.9762,
+  "5": 0.6906
+ },
+ "mean_mass_at_or_better": 0.9913,
+ "mean_losers_top": [
+  {
+   "tensor": "aux_heads.distogram.linear.weight",
+   "mass": 0.00857,
+   "ours": 0.1478,
+   "bf16": 0.1025,
+   "draws_lost": 6
+  },
+  {
+   "tensor": "pairformer_stack.blocks.39.pair_stack.pair_transition.layer_norm.weight",
+   "mass": 4e-05,
+   "ours": 0.6733,
+   "bf16": 0.4333,
+   "draws_lost": 3
+  },
+  {
+   "tensor": "pairformer_stack.blocks.43.pair_stack.tri_mul_out.layer_norm_in.weight",
+   "mass": 2e-05,
+   "ours": 0.2516,
+   "bf16": 0.2222,
+   "draws_lost": 4
+  },
+  {
+   "tensor": "pairformer_stack.blocks.10.pair_stack.tri_att_start.layer_norm.weight",
+   "mass": 1e-05,
+   "ours": 0.545,
+   "bf16": 0.5199,
+   "draws_lost": 2
+  },
+  {
+   "tensor": "pairformer_stack.blocks.44.pair_stack.tri_att_end.layer_norm.weight",
+   "mass": 1e-05,
+   "ours": 0.5039,
+   "bf16": 0.4845,
+   "draws_lost": 3
+  },
+  {
+   "tensor": "pairformer_stack.blocks.41.pair_stack.tri_mul_out.layer_norm_in.weight",
+   "mass": 1e-05,
+   "ours": 0.5307,
+   "bf16": 0.4912,
+   "draws_lost": 4
+  },
+  {
+   "tensor": "pairformer_stack.blocks.40.pair_stack.tri_att_end.layer_norm.weight",
+   "mass": 1e-05,
+   "ours": 0.3396,
+   "bf16": 0.3268,
+   "draws_lost": 4
+  },
+  {
+   "tensor": "pairformer_stack.blocks.39.pair_stack.tri_att_end.layer_norm.weight",
+   "mass": 1e-05,
+   "ours": 0.6065,
+   "bf16": 0.5038,
+   "draws_lost": 3
+  },
+  {
+   "tensor": "pairformer_stack.blocks.39.pair_stack.tri_mul_in.layer_norm_in.bias",
+   "mass": 0.0,
+   "ours": 0.4632,
+   "bf16": 0.4453,
+   "draws_lost": 1
+  },
+  {
+   "tensor": "msa_module.blocks.0.msa_att_row.layer_norm_m.weight",
+   "mass": 0.0,
+   "ours": 1.1465,
+   "bf16": 1.085,
+   "draws_lost": 4
+  },
+  {
+   "tensor": "pairformer_stack.blocks.2.pair_stack.tri_mul_in.layer_norm_in.weight",
+   "mass": 0.0,
+   "ours": 0.6255,
+   "bf16": 0.6054,
+   "draws_lost": 4
+  },
+  {
+   "tensor": "pairformer_stack.blocks.37.pair_stack.tri_att_end.layer_norm.weight",
+   "mass": 0.0,
+   "ours": 0.5654,
+   "bf16": 0.5558,
+   "draws_lost": 2
+  },
+  {
+   "tensor": "pairformer_stack.blocks.37.pair_stack.tri_mul_out.layer_norm_in.weight",
+   "mass": 0.0,
+   "ours": 0.365,
+   "bf16": 0.3311,
+   "draws_lost": 2
+  },
+  {
+   "tensor": "input_embedder.atom_attn_enc.ref_atom_feature_embedder.linear_ref_pos.weight",
+   "mass": 0.0,
+   "ours": 1.5949,
+   "bf16": 1.5763,
+   "draws_lost": 3
+  },
+  {
+   "tensor": "pairformer_stack.blocks.6.pair_stack.tri_mul_in.layer_norm_in.weight",
+   "mass": 0.0,
+   "ours": 0.4366,
+   "bf16": 0.4051,
+   "draws_lost": 3
+  }
+ ],
+ "lost_on_5_or_6_draws_mass": 0.00857,
+ "lost_on_5_or_6_draws_top": [
+  {
+   "tensor": "aux_heads.distogram.linear.weight",
+   "mass": 0.00857,
+   "ratio": 1.442
+  },
+  {
+   "tensor": "aux_heads.pairformer_embedding.pairformer_stack.blocks.0.pair_stack.pair_transition.layer_norm.bias",
+   "mass": 0.0,
+   "ratio": 1.41
+  },
+  {
+   "tensor": "pairformer_stack.blocks.34.attn_pair_bias.mha.linear_k.weight",
+   "mass": 0.0,
+   "ratio": 1.551
+  },
+  {
+   "tensor": "pairformer_stack.blocks.25.attn_pair_bias.mha.linear_k.weight",
+   "mass": 0.0,
+   "ratio": 1.745
+  },
+  {
+   "tensor": "aux_heads.pairformer_embedding.pairformer_stack.blocks.0.pair_stack.pair_transition.layer_norm.weight",
+   "mass": 0.0,
+   "ratio": 1.809
+  },
+  {
+   "tensor": "aux_heads.pairformer_embedding.linear_i.weight",
+   "mass": 0.0,
+   "ratio": 1.527
+  },
+  {
+   "tensor": "aux_heads.pairformer_embedding.pairformer_stack.blocks.1.pair_stack.pair_transition.layer_norm.weight",
+   "mass": 0.0,
+   "ratio": 1.018
+  },
+  {
+   "tensor": "aux_heads.pairformer_embedding.linear_j.weight",
+   "mass": 0.0,
+   "ratio": 1.533
+  },
+  {
+   "tensor": "aux_heads.experimentally_resolved.layer_norm.bias",
+   "mass": 0.0,
+   "ratio": 1.352
+  },
+  {
+   "tensor": "aux_heads.pairformer_embedding.pairformer_stack.blocks.1.pair_stack.pair_transition.layer_norm.bias",
+   "mass": 0.0,
+   "ratio": 1.175
+  }
+ ],
+ "layer_norm_s_family": {
+  "n": 24,
+  "mass": 0.4634,
+  "ours_mean": 0.1644,
+  "bf16_mean": 1.172,
+  "per_draw": {
+   "0": [
+    0.2719,
+    3
+   ],
+   "1": [
+    0.6336,
+    1
+   ],
+   "2": [
+    0.5787,
+    2
+   ],
+   "3": [
+    0.2437,
+    3
+   ],
+   "4": [
+    0.4574,
+    3
+   ],
+   "5": [
+    0.5953,
+    1
+   ]
+  }
+ }
+}

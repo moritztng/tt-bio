@@ -178,20 +178,32 @@ Measured, and each carries its source:
 - **1.87x on two chips, 93.5 % efficiency**: 8.08 tokens/s on one chip, 15.11 on two, 1350 MHz
   sampled during on both.
 
-Refused rather than estimated:
+Refused rather than estimated. **A memory wall belongs to a model, not to a token count**, so
+these are per model and `plan()` applies only the one you asked for:
 
-- **384 aa**: 4.14 GB allocated, 75,497,472 B refused. **512 aa**: 7.15 GB, 536,870,912 B
-  refused. Both measured, both in the forward under per-block checkpointing where the forward
-  is untaped, so what fails is one block's working set. Distribution does not help: 8 chips
-  each run out at 384 aa exactly as one does. A crop re-measure on the shipped forward is
-  scheduled, and until it lands `plan()` refuses instead of extrapolating a slope through two
-  failures.
+- **Protenix-v2 — 384 aa**: 4.14 GB allocated, 75,497,472 B refused. **512 aa**: 7.15 GB,
+  536,870,912 B refused. Both in the forward under per-block checkpointing where the forward is
+  untaped, so what fails is one block's working set. Distribution does not help: 8 chips each
+  run out at 384 aa exactly as one does.
+- **OpenFold3 — 512 aa runs and is the largest that does. 544, 576, 640 and 768 refuse.** The
+  three refusals are not one wall: 640 and 768 die with the card full, 23,710,208 B and
+  6,231,552 B free; 576 dies with 6,671,522,304 B still free, refused for contiguity inside
+  `ttnn::concat`, short by 77,930,560 B per bank. A capacity extrapolation cannot find that
+  frontier, which is why these are measurements and not a slope.
+
+**These two do not transfer to each other**, and a model with no entry gets no refusal from this
+table. Asking for a 512 aa OpenFold3 crop used to be refused on Protenix-v2's number for a crop
+OpenFold3 is measured to run; asking for 640 used to come back `UNMEASURED` when it is measured
+to refuse. Both were wrong, in opposite directions, and both came from one flat table.
 
 `UNMEASURED`, with the reason:
 
-- **Above 256 aa**, and not one of the two measured failure sizes. Activation volume is neither
-  linear nor quadratic in tokens across the triangle operations' chunking thresholds, so
-  interpolating between 256 and 384 would be a guess with a plausible shape.
+- **Above 256 aa**, and not a size that model's own forward OOM was measured at. Activation
+  volume is neither linear nor quadratic in tokens across the triangle operations' chunking
+  thresholds, so interpolating between 256 and 384 would be a guess with a plausible shape.
+  Where the memory fit *is* measured even though the step time is not, the answer says so:
+  OpenFold3 at 512 aa comes back `UNMEASURED` and adds that the memory fits up to 512 aa, so
+  the crop is expected to run and what is missing is a step time.
 - **Anything above a LoRA adapter on a frozen trunk.** The only source for a trained trunk's
   memory is `perf/hall_grad/DECISION.md`, a feasibility memo whose 27.58 GB and roughly 40
   engineer-days are projections of work that is not built, and which says so itself.
@@ -307,12 +319,39 @@ A dataset needs four members (`__len__`, `tokens`, `device`, `batch(indices) -> 
 base class. Until a model registers one, `tt-bio finetune --model X` refuses with the name of
 what is missing, which is the featuriser and not the interface.
 
-## Adapting a model: how the sites are found
+## Adapting a model: how the weights and the sites are found
 
 `trainable()` is the one call the loop makes, and what it hands back is the whole of the
 adapters-versus-weights choice: a LoRA config gets `{site: (A, B)}` factors, `None` gets the
-model's own weights at those same sites. Either way it is one discovery forward and then
-`attach`, which is why the loop above does not branch on which mode it is in.
+model's own weights. Either way it is one discovery forward and then `attach`, which is why the
+loop above does not branch on which mode it is in.
+
+**Pass `model=` the built model.** With it, `--train weights` discovers by WALKING the model, and
+that is the only form that reaches every weight: a module that fuses two projections in its own
+`__init__`, or pushes a fused weight on its first call, holds a tensor the loader never produced
+and no routed call ever passes. Measured on a 4-block pair stack at 64 tokens, and the same
+numbers on OpenFold3, Boltz-2 and BoltzGen: 156 weights visible at the loader, 188 reachable from
+the built model, 204 after one forward. Without `model=` discovery falls back to the call-site
+census below, which is what LoRA uses and what a Tier-2 caller holding a forward and no model
+still gets.
+
+Two things follow from walking, and both are checked rather than assumed.
+
+* **The discovery forward runs first, and it runs taped.** Weights a module fuses lazily do not
+  exist until the first call at a given shape, so a walk of a freshly built model is a walk of a
+  smaller model than the one that runs. And several fused kernels decline while a tape is open,
+  which routes the call down a composed path that fuses a different weight again — an untaped
+  discovery forward reached 196 of the 204 weights the taped forward then used. `walked_weights`
+  spends one `no_grad` forward with the hook installed, which costs the same one inference the
+  census costs.
+* **`params.rebind()` after every `step()`.** `AdamW.step` replaces a parameter's device tensor
+  rather than writing into it, so the model's own attribute still holds the tensor discovery saw.
+  `rebind()` puts the new one back where the walk found it. Skip it and the gradients are real,
+  the loss curve falls and the model stands still. The loop in `recipes.py` calls it; a weight
+  held somewhere unwritable raises by name instead of being skipped.
+
+`train.checks.weight_coverage(model)` reports what a run reaches as leaves against total and
+names every miss, because a leaf count with no denominator cannot show a shortfall.
 
 `lora_factors_for` runs the shipped forward once with a census hook installed. Every call that
 routes through `tt_bio.ops.linear` announces itself with its own shapes; a call that does not
@@ -345,6 +384,184 @@ same names. The identities discovery saw are carried into the run instead.
 trunk still has to stay taped downstream of its first adapter or the gradient never reaches the
 adapters in the early layers, so declining a non-adapter site outright would train only
 whatever sits after the last adapter, with no error and a loss curve that still falls.
+
+## The learning-rate schedule: your first step runs at lr(0)
+
+`AdamW` reads its schedule before it advances its step counter, so update k runs at `lr(k-1)`
+and the first update runs at `lr(0)`. Under the AF3 warmup that is exactly zero, so step 1
+moves nothing. This is not a quirk to work around: it is the order upstream trains in.
+Lightning calls `optimizer.step()` and then `scheduler.step()`, and `AlphaFoldLRScheduler` is
+constructed with `last_epoch=-1`, which steps it once to 0 before training starts.
+
+It matters if you are comparing a run against a reference: read the rate off `opt.last_lr`
+rather than computing `af3_lr(k)` yourself, or you will be one rung further along the warmup
+than the run was. Checked against upstream's own scheduler driven on a real `torch.optim.Adam`
+over 2,005 steps, exact at every one: `perf/of3t_updaterule/lr_wiring.py`.
+
+## Labels a loss term uses only if you supply them
+
+`batch(indices)` returns the labels the objective names, and for `mse` three of them are
+optional in the API and not optional in the loss. AlphaFold 3 upweights DNA and RNA tokens by
+5 and ligand tokens by 10, and `losses.mse` applies that weighting only through `is_dna`,
+`is_rna` and `is_ligand`. A featuriser that does not emit them trains every nucleic-acid and
+ligand token at protein weight, and the term still fires, so no loss value looks wrong.
+
+You can supply the fact either way. OpenFold3's pipeline emits the three flags directly.
+Protenix-v2, Boltz-2 and BoltzGen call the same fact `mol_type`, a single integer column, and
+`af3_loss` derives the three flags from it, so those batches carry the weighting without a
+featuriser change.
+
+Two things to know when you write a dataset:
+
+* **If you emit `mol_type`, say which convention it uses.** The stacks disagree. Set
+  `batch["mol_type_convention"]` to `"af3"` (protein 0, rna 1, dna 2, ligand 3, which is
+  OpenFold3's and Protenix-v2's) or `"boltz"` (protein 0, dna 1, rna 2, nonpolymer 3, which is
+  Boltz-2's and BoltzGen's). Both put ligand at 3 and they swap dna and rna. Leave it out and
+  the split is assumed, which is harmless while AlphaFold 3 weights dna and rna the same;
+  `entity_flags` refuses rather than guessing if that ever stops being true.
+* **Check the breakdown.** `af3_loss` lists absent labels under `breakdown["mse"]["without"]`
+  and records a derived set under `breakdown["mse"]["derived"]`. `without` is the only
+  difference between a batch with no ligand and a batch whose featuriser never mentioned one:
+  the loss value and the gradient are identical in both cases.
+
+On a 56-token OpenFold3 batch with two ligand tokens, supplying the three flags moves the loss
+0.233 and the gradient it seeds 0.764. Deriving them from a `mol_type` column instead gives
+the same loss and the same gradient, bit for bit.
+
+## What the recipe pins, and where it differs from Adam's defaults
+
+`finetune` reproduces OpenFold3's optimizer setup rather than the library defaults it would
+otherwise inherit. Three of those differ, all three are arguments, and none of them shows up
+in a loss curve or a gradient norm:
+
+| argument | recipe | library default | why |
+|---|---|---|---|
+| `betas` | `(0.9, 0.95)` | `(0.9, 0.999)` | OpenFold3 sets `beta2: 0.95`. Adam's usual 0.999 is a second-moment horizon twenty times longer and it changes the size of every update. |
+| `weight_decay` | `0.0` | `0.01` | OpenFold3 builds a plain `torch.optim.Adam`. Any decay moves every weight whose gradient is zero. |
+| `plateau_until` | `50000` | `None` | Selects AlphaFold 2's schedule, which holds the rate flat before decaying. `None` selects Protenix's, which decays from step zero. |
+
+Pass your own if you are training against a different recipe. `plateau_until=None` is the one
+to reach for first: it is the whole difference between the two AlphaFold-family schedules, and
+over 200,005 steps they disagree at exactly one of them.
+
+**The loop runs one sample at a time.** Per-sample clipping needs each sample's own gradient,
+so `finetune` does one forward and one backward per index in the batch and accumulates, rather
+than one forward over the whole micro-batch. At `--global-batch 8` on one chip that is eight
+forwards per step. It is the same arithmetic upstream does and the reason is below.
+
+## Gradient clipping: two things to pass, or you train a different rule
+
+`AdamW` clips on the global norm at `clip_norm=10.0`, which is upstream's own value. Two
+things decide whether that is the same rule the reference applies. `finetune` does both for
+you; at Tier 2 you own the loop, so you own them:
+
+* **`disabled=` the parameter names this sample does not activate.** They are excluded from the
+  global norm and from the update, which is what OpenFold3 does — and it is not a corner case.
+  Their runner disables the confidence head whenever a sample's summed confidence weight is
+  zero, which the initial-training config does on four of its five datasets. Norm over a set the
+  reference excluded and the coefficient applied to every gradient in the step is different:
+  measured at 8.368e-01 relative on one small enabled tensor beside one large disabled one.
+* **`clip_and_accumulate()` after each sample's backward, instead of one clip per batch.**
+  Per-sample clipping is a different algorithm and not a different constant: it bounds each
+  sample's contribution, so it changes the direction of the accumulated update, not just its
+  length. Measured at 1.948e-01 relative over three samples with one 200x outlier.
+  `per_sample_clipping: True` at `clip_val 10.0` is upstream's shipped default. `step()` then
+  divides each parameter's accumulated gradient by the number of samples that actually
+  activated it, and does not clip again.
+
+Both are verified against OpenFold3's own `grad_manager`, executed rather than transcribed:
+`perf/of3t_leaves/clip_equiv.py`.
+
+## The host float64 softmax: for when fp32 is not fp32
+
+`TT_BIO_HOST_F64_SOFTMAX_AB` moves a softmax off the card and computes it on the host in
+float64. It is off everywhere and it is a training lever: what it buys is gradient fidelity.
+
+The reason it exists is that a Tenstorrent fp32 is a few mantissa bits short of an IEEE one, and
+a softmax is where that shows. On `[1,16,384,384]` fp32, scored against a float64 softmax of the
+same values on one Blackhole processor of a p300c at 1350 MHz:
+
+| softmax | error vs float64 | ms/call |
+| --- | --- | --- |
+| the op's own default | 2.029e-02 | 0.0545 |
+| `TT_BIO_SOFTMAX_PRECISE_AB` | 1.646e-03 | 0.0790 |
+| `TT_BIO_ACCURATE_SOFTMAX_AB` | 5.156e-04 | 0.2576 |
+| `TT_BIO_HOST_F64_SOFTMAX_AB` | 2.082e-08 | 9.0966 |
+
+A real fp32 softmax lands around 1e-7, so the first three are all four or more orders of
+magnitude away from it and no configuration closes that: it is the silicon. OpenFold3 trains in
+IEEE fp32 on GPU, so the round trip is not overshooting them, it is the route to what they
+already do.
+
+What it is worth. On the OpenFold3 diffusion module's gradient over 547 parameters, 51.1358 % of
+the model's squared gradient norm, against upstream's own bf16 training step, it takes the
+mass-weighted relative error from 7.426217e+00 to 7.777580e-02 — 95.5x of the gap. Against an
+exact float64 reference it reads 5.930664e-02, which is 1.013x what upstream's own bf16 step
+reaches against the same reference. It is not free: 167x on the softmax alone, and 1.47x on the
+whole gradient arm, because the softmax is a small share of what the step runs.
+
+Syntax is the one the other per-site softmax flags use. A bare token turns one construction site
+on, a `-` prefix turns it off, and `all` / `-all` move every site without a token of its own:
+
+    TT_BIO_HOST_F64_SOFTMAX_AB=all                          # every site
+    TT_BIO_HOST_F64_SOFTMAX_AB=openfold3.diffusion_transformer
+
+The sites are `openfold3.diffusion_transformer`, `openfold3.atom_transformer` and
+`protenix.atom_transformer`.
+
+Predictions are untouched. With the flag unset, OpenFold3, Protenix-v2 and OpenDDE each write a
+structure byte-identical to the one they wrote before this path existed, same card and same seed.
+
+**You already have the cheap fix.** `TT_BIO_SOFTMAX_BW_RENORM` is on by default. It divides the
+softmax backward's inner sum by the row sum, two extra ops and no change to any forward. It
+exists because `d_logits = y(g - Σ g·y)` is only row-sum-free when the row sums to one, and
+`ttnn.softmax` returns rows that miss it by up to 3.9e-02. On the same OpenFold3 gradient it reads 1.057023e-01 against upstream's bf16 step
+for 1.049x the runtime, which is 99.6 % of the ground the host round trip buys at a tenth of the
+cost. What the round trip still has over it is the forward: the renormalisation cannot fix a
+softmax that was computed imprecisely, only the backward's use of it. Turning both on is safe and
+pointless — a float64 softmax already sums to one, so the division is a no-op there, measured as a
+bit-identical gradient.
+
+Set `TT_BIO_SOFTMAX_BW_RENORM=0` for the old backward. **It cannot change a prediction.** Every
+branch on the flag is inside a backward closure, checked by AST rather than by reading, and a
+fold on OpenFold3, Protenix-v2 and OpenDDE writes the same structure with it on and off, same
+card and same seed. A prediction never imports the module the branch lives in at all. It
+costs 6.385e-05 s per softmax backward at 16 heads and 384 tokens, 1.0879x that op, measured
+interleaved on a p150a at 1350 MHz against an A/A floor of 1.163e-05 s (`perf/of3t_d56renorm/`).
+
+### Softmax and layer norm run in float64 during training, by default
+
+Every training tape computes softmax and layer norm on the host in float64: the forward, the
+backward, and every forward the backward recomputes. Nothing else changes, and inference never
+does this. On OpenFold3 this is what brings the gradient inside its accuracy bar: the
+model-frame gradient against upstream OpenFold3 0.4.3 reads 1.45x the bar with the device
+kernels, 1.30x with only the softmax exact, and 0.98x with both. The float64-reference error
+falls at the same time (0.167 to 0.112 whole-model), so this is fidelity, not a closer match to
+upstream's own rounding. The measurement is `perf/of3t_stackexact/LADDER.json`.
+
+It is not free. Each softmax and layer norm is a host round trip, and on the OpenFold3 trunk
+step at crop 384 that is COST_SENTENCE If you want speed over fidelity, turn it off:
+
+```bash
+tt-bio finetune ... --device-ops
+```
+
+    with tt_bio.autograd.exact_training(False):
+        ...                     # tapes and backwards opened here use the device kernels
+
+What turns it on is the training stack itself, not a flag. `tt_bio.autograd.install()` opens the
+float64 ops until its `uninstall()`, and the recipe holds one install across the whole fit, so
+the discovery forward, every step and the structure rollout between OpenFold3's two tapes all
+run them. The discovery forward has to: the step's gradient depends on what ran before it,
+because the attention kernels size their blocks from what they learned on the first forward.
+`tape()` and `backward()` also open them for their own extent, for a caller that drives a tape
+without `install()`. Each takes out only what it put in. There is no environment variable. No inference module imports the module these live in, so a fold cannot
+reach them: an OpenFold3, Protenix-v2 and AF2-IG fold before and after this default write
+byte-identical structures with the training package never imported (`perf/of3t_stackship/`).
+A run records which ops ran exact in its provenance, under `exact_ops`.
+
+`tt_bio.autograd.exact_softmax()` and `install(exact_softmax=True)` still exist for scripts that
+want every softmax exact outside a tape as well.
 
 ## Opt-in, and inert when off
 

@@ -1160,12 +1160,12 @@ def compute_liability_metrics(sequence, liability_modality, liability_peptide_ty
 
     # Initialize default values for all motifs to ensure consistent dataframe columns
     # Use the full motif set for the configured modality/peptide_type so columns are consistent
-    all_motifs = set(
-        get_motif_set(
-            modality=liability_modality,
-            peptide_type=liability_peptide_type,
-        ).keys()
-    )
+    # Dict order, not a set: a set of strings iterates in a different order in every
+    # process, and so did the columns of every metrics CSV.
+    all_motifs = get_motif_set(
+        modality=liability_modality,
+        peptide_type=liability_peptide_type,
+    ).keys()
     for motif in all_motifs:
         # Initialize all possible fields with default values
         metrics[f"liability_{motif}_count"] = 0

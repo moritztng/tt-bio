@@ -1,0 +1,58 @@
+# perf/mgxaccuracy/scrmsd.py --check, whglx, out_boltzgen_512_d8_s400_gpb (n=8, gpb dimer 512)
+# The run reached analysis, so the pipeline's own designfolding-bb_rmsd column exists and
+# the recomputation can be held against it. N,CA,C,O matches every design to 5 decimals;
+# dropping O or keeping CA alone does not (max gap 0.22 A), so the atom set is not a detail.
+# Consequence: scRMSD is readable at step 4 of 6, before analysis and filtering.
+
+id            designfold    N,CA,C,O      N,CA,C          CA
+bg512            0.86476     0.86476     0.84729     0.88471
+bg512_1         12.89683    12.89683    12.82579    12.96743
+bg512_2          8.54741     8.54741     8.37124     8.42230
+bg512_3          2.71185     2.71185     2.64124     2.66378
+bg512_4          1.97406     1.97406     1.92530     1.95333
+bg512_5          8.36314     8.36314     8.14954     8.22026
+bg512_6          9.84254     9.84254     9.76711     9.89919
+bg512_7         10.60405    10.60405    10.38423    10.40130
+
+               max |gap|     0.00000     0.21982     0.20275
+
+closest backbone definition: N,CA,C,O  max gap 0.00000 A  -> REPRODUCES the pipeline column
+
+=== offset-100 512 cell, checked 2026-09-24 02:0xZ ===
+The 17.785 A median went into docs/design-throughput.md, so it was recomputed from
+refold_design_cif on disk rather than taken from job.py's reading of the pipeline CSV.
+
+  id            designfold    N,CA,C,O      N,CA,C          CA
+  bg512o100       12.32780    12.32780    12.20917    12.28665
+  bg512o100_1     12.24938    12.24939    12.18929    12.27876
+  bg512o100_2     15.27045    15.27045    15.18471    15.27876
+  bg512o100_3     17.73677    17.73678    17.64403    17.71369
+  bg512o100_4     17.83168    17.83168    17.83021    17.95067
+  bg512o100_5     18.40775    18.40774    18.34074    18.41027
+  bg512o100_6     18.20520    18.20519    18.23196    18.31994
+  bg512o100_7     28.62282    28.62282    28.51053    28.53891
+                 max |gap|     0.00001     0.11863     0.11899
+
+8 of 8 reproduce the pipeline's own designfolding-bb_rmsd column to 0.00001 A with the
+N,CA,C,O backbone. N,CA,C and CA alone miss by 0.119 A, so the atom set is measured here
+too rather than carried over from the offset-0 check.
+
+Both numbers now in the user-facing doc have an independent recomputation behind them:
+4.75 A (offset 0, checked earlier in this file) and 17.79 A (offset 100, above).
+
+=== the three crop cells now in docs/design-throughput.md, checked 2026-09-24 03:3xZ ===
+The doc's three-row table (4.6 / 16.0 / 17.3 A) is read by users, so each cell was
+recomputed from refold_design_cif on disk rather than taken from job.py's reading of the
+pipeline CSV.
+
+  cell                              max |gap| vs pipeline   N,CA,C    CA      verdict
+  512 offset   0  (onetree)              0.00001           0.21514  0.16448  REPRODUCES
+  512 offset 100  (onetree)              0.00001           0.13845  0.10277  REPRODUCES
+  512 offset 200  (off200)               0.00000           0.07353  0.13323  REPRODUCES
+
+All three agree with the pipeline's own designfolding-bb_rmsd column on the N,CA,C,O
+backbone. The N,CA,C and CA-only columns miss by 0.07 to 0.22 A, so the atom set is
+measured for each cell separately rather than carried over from an earlier check.
+
+Every number this row has put in front of a user now has an independent recomputation
+behind it.

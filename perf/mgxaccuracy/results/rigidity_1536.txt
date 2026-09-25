@@ -1,0 +1,21 @@
+
+gpb_dimer_1646.cif 1536 crop: chains A=823 B=713, inter-chain pairs 586799, resolvable (<= 22.0 A) 8316 (1.42%), bin width 0.317 A
+   motion of chain B         pairs changing bin  of resolvable
+   translate 0.1 A                         1111          13.4%
+   translate 0.5 A                         5124          61.6%
+   translate 2.0 A                         7487          90.0%
+   translate 10 A                          8144          97.9%
+   rotate 1 deg                            3462          41.6%
+   rotate 5 deg                            6952          83.6%
+   rotate 30 deg                           8083          97.2%
+
+big_1831.cif 1536 crop: chains A=1008 B=528, inter-chain pairs 532224, resolvable (<= 22.0 A) 0 (0.00%), bin width 0.317 A
+   motion of chain B         pairs changing bin  of resolvable
+   translate 0.1 A                            0            n/a
+   translate 0.5 A                            0            n/a
+   translate 2.0 A                            0            n/a
+   translate 10 A                             0            n/a
+   rotate 1 deg                               0            n/a
+   rotate 5 deg                               0            n/a
+   rotate 30 deg                              0            n/a
+   -> the conditioning is INVARIANT under every motion above. The relative placement of B is not a function of this input.

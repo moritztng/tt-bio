@@ -1,0 +1,110 @@
+{
+  "what": "of3t-apbleaf: the trunk reading under a substitution at the 96 layer_norm_a tensors.",
+  "frame": "ours against upstream's own bf16 autocast, padded 384 (D218)",
+  "bar_in_frame": 0.5268825372815341,
+  "shipped_in_frame": 1.029395337772341,
+  "tensors_scored": 2736,
+  "leaf_tensors_substituted": 96,
+  "mechanism_tensors_substituted": 96,
+  "arms": {
+    "SHIPPED": {
+      "ours_vs_bf16auto": {
+        "abs_err": 1.450352326437466,
+        "ref_norm": 1.4089361717686524,
+        "mass_weighted_rel_l2": 1.0293953377723446,
+        "mass_weighted_norm_ratio": 1.154805552202203,
+        "mass_weighted_cos": 0.5515738556764994
+      },
+      "ours_vs_bf16auto_leaf96": {
+        "abs_err": 1.1429545592889119,
+        "ref_norm": 0.3557685913097803,
+        "mass_weighted_rel_l2": 3.212634805903091,
+        "mass_weighted_norm_ratio": 2.4449666568951836,
+        "mass_weighted_cos": -0.6836822157354475
+      },
+      "ours_vs_f64": {
+        "abs_err": 1.1428664895044558,
+        "ref_norm": 1.3680271124223022,
+        "mass_weighted_rel_l2": 0.8354121633458237,
+        "mass_weighted_norm_ratio": 1.1893385000067864,
+        "mass_weighted_cos": 0.7216669539086014
+      },
+      "ours_vs_f64_leaf96": {
+        "abs_err": 0.8561392854683691,
+        "ref_norm": 0.1267380281163303,
+        "mass_weighted_rel_l2": 6.755188621701893,
+        "mass_weighted_norm_ratio": 6.863309744132767,
+        "mass_weighted_cos": 0.18012062848035396
+      },
+      "factor_over_bar": 1.953747305962236,
+      "passes_bar": false,
+      "error_mass_removed_pct": -7.105427357601002e-13
+    },
+    "CF_perfect": {
+      "ours_vs_bf16auto": {
+        "abs_err": 0.9612323196390704,
+        "ref_norm": 1.4089361717686524,
+        "mass_weighted_rel_l2": 0.682239791198224,
+        "mass_weighted_norm_ratio": 0.9800587666246358,
+        "mass_weighted_cos": 0.7627420437718606
+      },
+      "ours_vs_bf16auto_leaf96": {
+        "abs_err": 0.3560769946450489,
+        "ref_norm": 0.3557685913097803,
+        "mass_weighted_rel_l2": 1.0008668649869659,
+        "mass_weighted_norm_ratio": 0.3562372598709115,
+        "mass_weighted_cos": 0.17568418297521113
+      },
+      "ours_vs_f64": {
+        "abs_err": 0.7570794784630935,
+        "ref_norm": 1.3680271124223022,
+        "mass_weighted_rel_l2": 0.553409703351981,
+        "mass_weighted_norm_ratio": 1.009366140639882,
+        "mass_weighted_cos": 0.8483332445748869
+      },
+      "ours_vs_f64_leaf96": {
+        "abs_err": 0.0,
+        "ref_norm": 0.1267380281163303,
+        "mass_weighted_rel_l2": 0.0,
+        "mass_weighted_norm_ratio": 1.0,
+        "mass_weighted_cos": 1.0
+      },
+      "factor_over_bar": 1.2948612696831066,
+      "passes_bar": false,
+      "error_mass_removed_pct": 56.07520962136765
+    },
+    "CF_mechanism": {
+      "ours_vs_bf16auto": {
+        "abs_err": 1.4500666198398828,
+        "ref_norm": 1.4089361717686524,
+        "mass_weighted_rel_l2": 1.0291925559832842,
+        "mass_weighted_norm_ratio": 1.1546703455654643,
+        "mass_weighted_cos": 0.5516839912490132
+      },
+      "ours_vs_bf16auto_leaf96": {
+        "abs_err": 1.1425919900693344,
+        "ref_norm": 0.3557685913097803,
+        "mass_weighted_rel_l2": 3.211615690589278,
+        "mass_weighted_norm_ratio": 2.4439649401984016,
+        "mass_weighted_cos": -0.6836249285247541
+      },
+      "ours_vs_f64": {
+        "abs_err": 1.1425771525019384,
+        "ref_norm": 1.3680271124223022,
+        "mass_weighted_rel_l2": 0.8352006638807253,
+        "mass_weighted_norm_ratio": 1.1891992501926312,
+        "mass_weighted_cos": 0.7217607593655339
+      },
+      "ours_vs_f64_leaf96": {
+        "abs_err": 0.8557530091734938,
+        "ref_norm": 0.1267380281163303,
+        "mass_weighted_rel_l2": 6.752140789093036,
+        "mass_weighted_norm_ratio": 6.860497807231092,
+        "mass_weighted_cos": 0.18038231312310726
+      },
+      "factor_over_bar": 1.953362435000092,
+      "passes_bar": false,
+      "error_mass_removed_pct": 0.0393943528800067
+    }
+  }
+}

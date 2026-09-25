@@ -1,0 +1,322 @@
+#!/usr/bin/env python3
+"""An artifact claiming digest equality must identify the HOST it ran on, and must not be pc card 0.
+
+WHY THIS EXISTS (D155)
+----------------------
+`of3t-d137ab` reported `protenix-v2` moving between folds at a fixed seed and I filed it as a
+USER-FACING defect against the model. It is **pc card 0**, a faulty card root-caused on 2026-08-17
+by a row literally called `protenix-v2-nondeterminism-rootcause`: the fault is matmul-only,
+location-keyed, probabilistic, at every size, with a matched qb1 control 15/15 clean. The standing
+instruction is that **pc card 0 must not host hash-equality or bit-exact gating at any size, for
+any model**, and that a clean run on it proves nothing about the next one.
+
+Nothing in the artifact would have stopped me. It records `"card": 0` and no host -- and card 0 is
+a different piece of hardware on pc, qb1 and qb2. **A card number without a host is not an
+identification**, which is the smaller lesson inside the bigger one.
+
+WHAT IT CHECKS
+--------------
+For every of3t JSON carrying a digest-equality field:
+
+  1. the HOST is identifiable -- a `host`/`hostname`/`machine` field, or a card string that names
+     one (`of3t_auxfind` writes "tt-quietbox2 card 0, Blackhole p300c", which identifies fine);
+  2. it is not pc card 0.
+
+Measured before shipping: 6 of3t artifacts carry such a field, 3 identify their host and 3 do not
+-- and those 3 are exactly the ones this defect is about. They belong to a CONCLUDED row, so they
+are FROZEN rather than rewritten: an orchestrator that edits another row's evidence to make its own
+check pass has broken something worse than the check. A NEW anonymous digest claim fails, and the
+list may only shrink -- a frozen entry that gets fixed and stays listed is also a failure.
+
+What it does NOT do is judge whether the digests are right. It refuses to let a digest claim be
+anonymous about the hardware that produced it, which is the one thing that would have caught D155.
+
+CPU only. Reads the composed tree it is pointed at.
+"""
+from __future__ import annotations
+
+import json
+import pathlib
+import re
+import sys
+
+DIGEST_FIELDS = ("base_equals_off", "base_equals_on", "digest_stable_within_arm", "digests_equal",
+                 "byte_identical", "bit_identical", "digest_identical")
+HOST_FIELDS = ("host", "hostname", "machine")
+KNOWN_HOSTS = ("pc", "qb1", "qb2", "tt-quietbox", "tt-quietbox2", "whglx", "galaxy")
+#: The exclusion. Root-caused 2026-08-17; matmul-only, location-keyed, probabilistic, every size.
+BANNED = re.compile(r"\bpc\b[^\n]{0,24}\bcard\s*0\b|\bpc-card0\b", re.I)
+
+#: path -> why frozen. Shrink-only. These three are `of3t-d137ab`'s, which CONCLUDED; its own
+#: state doc names pc card 0 in prose (line 3), so the hardware is recorded where a reader looks
+#: and missing only from the machine-readable half. D155's correction carries the consequence:
+#: the timing half stands, the digest half wants one re-run on a clean card.
+FROZEN = {
+    "perf/of3t_d137ab/INFERENCE_AB_openfold3.json": "of3t-d137ab, concluded; pc card 0",
+    "perf/of3t_d137ab/INFERENCE_AB_protenix-v2.json": "of3t-d137ab, concluded; pc card 0",
+    "perf/of3t_d137ab/INFERENCE_AB_opendde.json": "of3t-d137ab, concluded; pc card 0",
+    # `of3t-modelboundary`, concluded 2026-09-21 23:56. Frozen for the OPPOSITE reason to the three
+    # above: its hardware is good and merely unrecorded. `fleet.log` has exactly one launch for the
+    # row, "2026-09-21 22:50:29 launched of3t-modelboundary on qb2-card0", its artifacts read and
+    # write under `/home/ttuser/` (the qb hosts; pc is `/home/moritz`), and `runarm.sh` pins
+    # `TT_VISIBLE_DEVICES=0`. So the claim IS attributable to qb2 card 0, which is not the banned
+    # card, and D155's actual concern does not apply. The gap is in the writer: `aa.py` emits no
+    # host field at all, so the artifact could not have carried one. Frozen here rather than by
+    # editing a concluded row's artifact (A33), and the fix that removes these two entries is one
+    # line in `aa.py`, not a re-run.
+    # `of3t-apbleaf`, concluded 2026-09-22 pass 372. Its state doc line 3 records the hardware
+    # where a reader looks -- "Host **qb1 (tt-quietbox), card 1, p150a Blackhole**" -- and its
+    # FLOOR field repeats it; the writer emits no host field, which is the same defect frozen for
+    # of3t-modelboundary below and not pc card 0. Frozen rather than edited because A33 forbids
+    # editing a concluded row's artifacts, and because the row was warned twice while live (the
+    # D155 live-row deferral exists exactly so a row CAN act) and concluded without acting. The
+    # fix that removes these five is in the writer, not in the files.
+    "perf/of3t_apbleaf/BITCMP_BANKED_CAPA.json": "of3t-apbleaf, concluded; qb1 card 1 p150a per its state doc line 3, writer emits no host field",
+    "perf/of3t_apbleaf/CONTROL_REFHOOK.json": "of3t-apbleaf, concluded; qb1 card 1 p150a per its state doc line 3, writer emits no host field",
+    "perf/of3t_apbleaf/CONTROL_REFHOOK_BF16.json": "of3t-apbleaf, concluded; qb1 card 1 p150a per its state doc line 3, writer emits no host field",
+    "perf/of3t_apbleaf/FLOOR_AA_CAPTURE.json": "of3t-apbleaf, concluded; qb1 card 1 p150a per its state doc line 3, writer emits no host field",
+    "perf/of3t_apbleaf/FLOOR_AA_N384.json": "of3t-apbleaf, concluded; qb1 card 1 p150a per its state doc line 3, writer emits no host field",
+    "perf/of3t_modelboundary/AA_c64_CTRL.json": "of3t-modelboundary, concluded; qb2 card 0 per fleet.log, writer emits no host field",
+    "perf/of3t_modelboundary/AA_c64_CTRL_nocaptures.json": "of3t-modelboundary, concluded; qb2 card 0 per fleet.log, writer emits no host field",
+    # `of3t-apbback`'s BLK47_VALIDATION.json, frozen pass 334 for a reason neither of the two
+    # classes above covers: its `bit_identical: 16` is NOT a device digest claim. It pairs with
+    # `upstream_f64_vs_capture_mw: 0.0` and says that upstream 0.4.3/0.5.0's FLOAT64 backward
+    # reproduces the capture's own float64 gradient bit-identically on 16 of 16 scope tensors --
+    # two CPU float64 references agreeing, with no card on either side. D155 exists because card 0
+    # is different hardware on each box and pc card 0 must not host bit-exact claims; a
+    # float64-vs-float64 identity has no hardware to attribute. The guard cannot tell the two
+    # apart, which is the same shape as D183 (it compares reference PATHS, not content).
+    # The general repair is to let the asserter recognise a host-independent claim; until then
+    # this is frozen with its reason rather than the row being asked to name a host that does not
+    # bear on the claim.
+    # `of3t-verbinstall`, concluded 2026-09-23 pass 414 on GO. Same class as the two above --
+    # good hardware, unrecorded -- and the host is established here from the FILESYSTEM rather
+    # than from prose, because this claim is load-bearing (R184, D245's package leg) and deserved
+    # better than an inference. `/tmp/of3t/of3t-verbinstall/` exists ONLY on qb1 and holds that
+    # arm's own `aiclk_PKG_HF3B.txt`; qb2 has neither the directory nor the row's worktree; and
+    # `dev_CEIL_HF3.pt`, the other side of the comparison, sits at `/home/ttuser/of3t_trunkceiling/`
+    # on qb1. The row's falsifier commit independently names "qb1 card 0, p150a Blackhole". So the
+    # comparison ran on qb1, not pc card 0, and D155's concern does not apply.
+    # The input `/tmp/of3t/of3t-verbinstall/dev_PKG_HF3B.pt` has since been cleared, so this one
+    # cannot be regenerated even in principle. Frozen rather than edited (A33), and the row was
+    # warned while live -- Amendment 4, pass 414 -- that this becomes a FAILURE the moment it
+    # concludes. It concluded without acting, which is now the THIRD row to do so; see D249.
+    "perf/of3t_verbinstall/ARMDIFF_PKG_HF3B_vs_CEIL_HF3.json": "of3t-verbinstall, concluded; qb1 p150a established from the filesystem, armdiff.py emits no host field",
+    # `of3t-composed64` (STOP) and `of3t-ieatom` (GO), concluded pass 426. Same class as
+    # modelboundary: good hardware, unrecorded. Both state docs carry a HOST field naming
+    # tt-quietbox2 p300c, card 1 (composed64) and card 3 (ieatom), and PW64F, the other side of
+    # every comparison, is of3t-pwaslice's arm on qb2 card 2 (f89f871ce). The writer, cmp.py,
+    # emits no host field. No arm touched pc card 0.
+    "perf/of3t_composed64/CMP_PW64F_CM64.json": "of3t-composed64, concluded; qb2 card 1 p300c per its HOST field, cmp writer emits no host field",
+    "perf/of3t_ieatom/CMP_PW64F_CM64F.json": "of3t-ieatom, concluded; qb2 card 3 p300c per its HOST field, cmp writer emits no host field",
+    "perf/of3t_ieatom/CMP_PW64F_PF64C.json": "of3t-ieatom, concluded; qb2 card 3 p300c per its HOST field, cmp writer emits no host field",
+    "perf/of3t_ieatom/CMP_PW64F_PF64F.json": "of3t-ieatom, concluded; qb2 card 3 p300c per its HOST field, cmp writer emits no host field",
+    "perf/of3t_apbback/BLK47_VALIDATION.json": "of3t-apbback; bit_identical is float64-vs-float64, no device on either side",
+}
+
+
+def host_of(d):
+    """The host this artifact records, from anywhere in it.
+
+    Pass 414: this read the TOP LEVEL only, and `of3t-modelever` -- the first row to act on the
+    D155 warning while still live, after being handed the writer-level fix -- stamped host, board
+    and card into a per-compared-artifact provenance block, which is the RIGHT place for them
+    when one file compares two arms that could come from different boxes. The guard could not see
+    it and would have failed a row that had complied, and forced a freeze that would then have
+    been cited as a fourth instance of D249. A guard that punishes the one row that listened is
+    worse than no guard.
+
+    So: recursive for PRESENCE. The exclusion is separately widened to the whole document in
+    `main`, which is strictly stronger than the top-level scan it replaces -- a nested `pc card 0`
+    could previously have hidden from it.
+    """
+    for k in HOST_FIELDS:
+        v = d.get(k)
+        if isinstance(v, str) and v.strip():
+            return v
+    card = d.get("card", d.get("cards"))
+    if isinstance(card, str):
+        for h in KNOWN_HOSTS:
+            if re.search(r"\b%s\b" % re.escape(h), card, re.I):
+                return card
+    for v in d.values():
+        if isinstance(v, dict):
+            h = host_of(v)
+            if h:
+                return h
+        elif isinstance(v, list):
+            for e in v:
+                if isinstance(e, dict):
+                    h = host_of(e)
+                    if h:
+                        return h
+    return None
+
+
+def host_card_pairs(d, _out=None):
+    """Every (host, card) pair in the artifact, at any depth.
+
+    One file can compare two arms from two boxes, so there is not necessarily one host; the
+    exclusion has to see all of them. Pairs are kept per-dict so a nested block's card is
+    matched against its OWN host rather than against a sibling's.
+    """
+    out = [] if _out is None else _out
+    if isinstance(d, dict):
+        h = None
+        for k in HOST_FIELDS:
+            v = d.get(k)
+            if isinstance(v, str) and v.strip():
+                h = v
+                break
+        c = d.get("card", d.get("cards"))
+        if h is not None or c is not None:
+            out.append((h, c))
+        for v in d.values():
+            host_card_pairs(v, out)
+    elif isinstance(d, list):
+        for v in d:
+            host_card_pairs(v, out)
+    return out
+
+
+def is_pc_card0(host, card):
+    """pc card 0, however the artifact spells it: one string, or a host field plus a card field."""
+    blob = "%s %s" % (host, card)
+    if BANNED.search(blob):
+        return True
+    # host and card in separate fields is the common shape and the one that caught nobody.
+    host_is_pc = bool(re.search(r"\bpc\b", str(host), re.I))
+    card_is_0 = str(card).strip() in ("0", "[0]", "card 0")
+    return host_is_pc and card_is_0
+
+
+def offenders(root: pathlib.Path):
+    out = []
+    for f in sorted(root.glob("perf/**/*.json")):
+        if "of3t" not in str(f):
+            continue
+        try:
+            d = json.loads(f.read_text())
+        except Exception:
+            continue
+        if not isinstance(d, dict):
+            continue
+        fields = [k for k in DIGEST_FIELDS if k in d]
+        if not fields:
+            continue
+        rel = str(f.relative_to(root))
+        h = host_of(d)
+        if h is None:
+            out.append((rel, fields[0], "claims %s and does not say which HOST it ran on; card %r "
+                                        "is a different card on pc, qb1 and qb2"
+                        % (fields[0], d.get("card", d.get("cards")))))
+        # Exclusion scans every host/card pair in the document, not just the top-level one:
+        # a nested provenance block can carry the banned card as easily as a top-level field,
+        # and before pass 414 that would have passed unseen. Serialising the whole dict and
+        # regexing it does NOT work and the break control says so -- JSON puts `": ` between
+        # `card` and its value, which breaks the adjacency BANNED relies on.
+        elif any(is_pc_card0(_h, _c) for _h, _c in host_card_pairs(d)):
+            out.append((rel, fields[0], "was taken on pc card 0, which must not host "
+                                        "hash-equality gating at any size for any model"))
+    return out
+
+
+#: A row that has not concluded yet is still writing. Its artifacts are pushed but not published,
+#: and hard-failing on them stops the SHARED composition for every other row -- at pass 360
+#: `of3t-vjpln`, three hours into its first arm, blocked the whole compose with three
+#: work-in-progress `bit_identical` files. Freezing them is wrong too: the freeze list is
+#: shrink-only and every entry on it names a CONCLUDED row, because a concluded row's artifact
+#: cannot be edited (A33). A live row's can.
+#:
+#: So: WARN while the row is live, FAIL the moment it concludes. The guard is never weaker where
+#: it matters, because an artifact cannot be published without its row concluding, and the
+#: warning names the row so a permanent "live" row cannot hide behind it.
+def _row_of(rel):
+    parts = rel.split("/")
+    if len(parts) > 1 and parts[0] == "perf" and parts[1].startswith("of3t_"):
+        return "of3t-" + parts[1][len("of3t_"):].replace("_", "-")
+    return None
+
+
+def _is_live(rel, coworker=pathlib.Path("/home/moritz/.coworker")):
+    row = _row_of(rel)
+    if row is None:
+        return False
+    if not (coworker / "workstreams" / (row + ".txt")).is_file():
+        return False                      # not a dispatched row; hold it to the full bar
+    return not (coworker / "state" / "concluded" / row).exists()
+
+
+def main(argv):
+    root = pathlib.Path(argv[1] if len(argv) > 1 else ".").resolve()
+    bad = offenders(root)
+
+    # Probes: anonymous fires, pc card 0 fires, an identified clean host does not.
+    import tempfile
+    with tempfile.TemporaryDirectory() as td:
+        t = pathlib.Path(td)
+        (t / "perf" / "of3t_probe").mkdir(parents=True)
+        def w(name, obj):
+            (t / "perf" / "of3t_probe" / name).write_text(json.dumps(obj))
+        w("anon.json", {"base_equals_off": True, "card": 0})
+        w("pc0.json", {"base_equals_off": True, "host": "pc", "card": 0})
+        w("clean.json", {"base_equals_off": True, "host": "qb1", "card": 0})
+        got = {f.split("/")[-1] for f, _k, _w in offenders(t)}
+        if "anon.json" not in got:
+            print("BROKEN an anonymous digest claim does not fire", file=sys.stderr)
+            return 2
+        if "pc0.json" not in got:
+            print("BROKEN a digest claim from pc card 0 does not fire", file=sys.stderr)
+            return 2
+        if "clean.json" in got:
+            print("BROKEN an identified digest claim on a good card fires", file=sys.stderr)
+            return 2
+
+        # The live-row DEFERRAL needs its own control, because a deferral that never escalates
+        # is the guard silently switched off and its direction is the flattering one. Build a
+        # fake .coworker with one dispatched row and assert the verdict flips on the marker
+        # alone -- live WARNS, concluded FAILS, and nothing else changes.
+        fake = t / "cw"
+        (fake / "workstreams").mkdir(parents=True)
+        (fake / "state" / "concluded").mkdir(parents=True)
+        (fake / "workstreams" / "of3t-probe.txt").write_text("#DISPATCH: probe\n")
+        if not _is_live("perf/of3t_probe/anon.json", fake):
+            print("BROKEN a dispatched row with no marker does not read as live", file=sys.stderr)
+            return 2
+        (fake / "state" / "concluded" / "of3t-probe").write_text("")
+        if _is_live("perf/of3t_probe/anon.json", fake):
+            print("BROKEN a concluded row still reads as live -- the deferral would never "
+                  "escalate and this guard would be off", file=sys.stderr)
+            return 2
+        if _is_live("perf/of3t_nosuchrow/anon.json", fake):
+            print("BROKEN an artifact with no dispatched row reads as live", file=sys.stderr)
+            return 2
+
+    new = [(r, f, w) for r, f, w in bad if r not in FROZEN]
+    healed = [r for r in FROZEN if r not in {b[0] for b in bad}]
+    live = [x for x in new if _is_live(x[0])]
+    new = [x for x in new if not _is_live(x[0])]
+    for rel, _f, why in live:
+        print("  WARN %s %s (D155) -- %s is LIVE, so this is a warning; it becomes a FAILURE the "
+              "moment that row concludes" % (rel, why, _row_of(rel)))
+    if new:
+        for rel, _f, why in new:
+            print("  DRIFT %s %s (D155)" % (rel, why))
+        print("FAIL %d NEW digest claim(s) that cannot be attributed to healthy hardware"
+              % len(new))
+        return 1
+    if healed:
+        for r in healed:
+            print("  DRIFT %s now names its hardware but is still frozen -- remove it (D155)" % r)
+        print("FAIL the ratchet has %d stale entr(y/ies); it may only shrink" % len(healed))
+        return 1
+    n = sum(1 for _f in root.glob("perf/**/*.json") if "of3t" in str(_f))
+    print("ok    %d of3t digest claim(s) cannot be attributed to healthy hardware, %d frozen and "
+          "%d deferred to a LIVE row (probes: anonymous fires, pc card 0 fires, an identified "
+          "good card does not); a new one from a concluded row fails"
+          % (len(bad), len(FROZEN), len(live)))
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main(sys.argv))

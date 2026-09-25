@@ -1,0 +1,75 @@
+{
+ "instrument": "D117: did upstream's multi-chain permutation alignment complete?",
+ "tag": "D_frozen5nw3_flip",
+ "provenance": {
+  "source": "frozen batch",
+  "path": "/home/ttuser/of3t_cov/perm_S/batch_step003.pt",
+  "collated_by": "upstream's own collator"
+ },
+ "ref_spaces": {
+  "present": true,
+  "type": "list",
+  "batch_axis_len": 1,
+  "n_ref_spaces_sample0": 56,
+  "example_uid": 0,
+  "example_perm_shape": [
+   1,
+   8
+  ],
+  "max_uid": 55,
+  "n_ref_spaces_with_alternatives": 8,
+  "max_permutations_in_one_ref_space": 2
+ },
+ "call": {
+  "samples": 1,
+  "pred_shape": [
+   1,
+   1,
+   422,
+   3
+  ],
+  "noise_sigma_A": 0.05,
+  "seed": 20260921,
+  "drop_key": false,
+  "collate": "fixed",
+  "flip_symmetric": true
+ },
+ "verdict": {
+  "n_alignment_calls": 1,
+  "n_completed": 1,
+  "naive_fallback_invoked": false,
+  "fell_back_by_wrapper": false,
+  "fell_back_by_log": false,
+  "detectors_agree": true,
+  "completed": true,
+  "errors": [],
+  "log_records": []
+ },
+ "flip_symmetric": {
+  "ref_spaces_flipped": 8,
+  "atoms_reordered": 76
+ },
+ "vs_naive": {
+  "atoms_differing_from_naive": 24,
+  "max_abs_coord_diff_A": 2.3559999465942383
+ },
+ "effect": {
+  "gt_atoms_moved": 24,
+  "gt_shape_before": [
+   1,
+   1,
+   422,
+   3
+  ],
+  "gt_shape_after": [
+   1,
+   1,
+   422,
+   3
+  ],
+  "all_losses_zeroed": false
+ },
+ "openfold3": "/home/ttuser/of3t_cov/perm_S/of3pkg043/openfold3/__init__.py",
+ "torch": "2.11.0+cpu",
+ "total_s": 2.2867820262908936
+}

@@ -1,0 +1,4 @@
+device fd holder pid 3775506 BUSY (326 ticks/2s, owner of3t-paedraws): python3 /home/ttuser/.coworker/wt/of3t-paedraws/perf/of3t_paedraws/devstep.py --seed 5 --r
+device fd holder pid 3826898 BUSY (420 ticks/2s, owner /home/ttuser/bcx-dram-prefix): /home/ttuser/bcx_e2e_venv/bin/python perf/bcx_dram/memtrace.py --seed 200 --trajectory 1 -
+loadavg1 41.50 over ceiling 2.00
+HOST NOT QUIET -- your timing read is contaminated even with an idle sibling and a forced clock. Wait it out or DEFER. Do not measure and explain it afterwards.

@@ -1,0 +1,62 @@
+{
+ "base": "/home/ttuser/of3t_denoise/grad_DN64R.pt",
+ "fix": "/home/ttuser/of3t_pwaslice/grad_PW64F.pt",
+ "n_named": 3374,
+ "others": 3365,
+ "others_bit_identical": 3365,
+ "others_differ": [],
+ "n_differ": 0,
+ "only_in_one": [],
+ "n_only_in_one": 0,
+ "d262": {
+  "trunk.msa_module.blocks.0.pwa.g_weight": {
+   "base_nonzero": false,
+   "fix_nonzero": true,
+   "fix_norm": 0.00376743840674136
+  },
+  "trunk.msa_module.blocks.0.pwa.m_weight": {
+   "base_nonzero": false,
+   "fix_nonzero": true,
+   "fix_norm": 0.006510666884260679
+  },
+  "trunk.msa_module.blocks.0.pwa.o_weight": {
+   "base_nonzero": false,
+   "fix_nonzero": true,
+   "fix_norm": 0.008528663114043183
+  },
+  "trunk.msa_module.blocks.1.pwa.g_weight": {
+   "base_nonzero": false,
+   "fix_nonzero": true,
+   "fix_norm": 0.00326753599004283
+  },
+  "trunk.msa_module.blocks.1.pwa.m_weight": {
+   "base_nonzero": false,
+   "fix_nonzero": true,
+   "fix_norm": 0.003257359756386684
+  },
+  "trunk.msa_module.blocks.1.pwa.o_weight": {
+   "base_nonzero": false,
+   "fix_nonzero": true,
+   "fix_norm": 0.0044602914875136275
+  },
+  "trunk.msa_module.blocks.2.pwa.g_weight": {
+   "base_nonzero": false,
+   "fix_nonzero": true,
+   "fix_norm": 0.0015672470530371221
+  },
+  "trunk.msa_module.blocks.2.pwa.m_weight": {
+   "base_nonzero": false,
+   "fix_nonzero": true,
+   "fix_norm": 0.0017812490727225662
+  },
+  "trunk.msa_module.blocks.2.pwa.o_weight": {
+   "base_nonzero": false,
+   "fix_nonzero": true,
+   "fix_norm": 0.0015746256571692475
+  }
+ },
+ "loss_base": 1.7933790552496434,
+ "loss_fix": 1.7933790552496434,
+ "loss_bit_identical": true,
+ "note": "id()-keyed ._wc. aliases excluded (names differ per process)"
+}

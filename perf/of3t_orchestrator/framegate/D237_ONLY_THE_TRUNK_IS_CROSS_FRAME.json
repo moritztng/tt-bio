@@ -1,0 +1,120 @@
+{
+ "defect": "D237 UPDATE",
+ "question": "is pairformer_stack the only cross-frame section in the clause's artifact?",
+ "answer": "YES, and it is an outlier on both axes by a wide margin -- not a matter of degree.",
+ "host": "pc",
+ "device_involved": false,
+ "inputs": {
+  "graded": {
+   "path": "/tmp/of3t/of3t-orchestrator/graded3660.json",
+   "sha256": "15487d253868598f3dd37c8732edf088d0275bfc3dd5b2f816eff8e8f51ce901"
+  }
+ },
+ "scope_files_the_artifact_was_assembled_from": [
+  "diffusion=/tmp/of3t/of3t-covadopt/device_grads_rc_refatom_on.pt",
+  "input_embedder=/tmp/of3t/of3t-covadopt/ie_grads_f64_renorm_on.pt",
+  "cond=/home/ttuser/of3t_wholemodel/cond_grads_renorm.pt",
+  "aux=/home/ttuser/of3t_wholemodel/aux_grads_renorm.pt",
+  "msa=/home/ttuser/of3t_wholemodel/msa_grads_renorm.pt",
+  "pairformer_stack=/home/ttuser/of3t_trunkceiling/dev_RENORM_n384_nocaptures.pt"
+ ],
+ "sections": {
+  "aux_heads": {
+   "pct_of_model_mass": 2.8431356088226227,
+   "rel_l2_vs_their_bf16": 0.2360142678177248,
+   "cos_vs_float64": 0.9999974828564853,
+   "cos_vs_their_bf16": 0.971853309962889,
+   "norm_ratio_vs_their_bf16": 0.986051573918762
+  },
+  "diffusion_module.atom_attn_dec": {
+   "pct_of_model_mass": 1.2842592499508616,
+   "rel_l2_vs_their_bf16": 0.046940794046223915,
+   "cos_vs_float64": 0.9998283568133414,
+   "cos_vs_their_bf16": 0.9991385659876372,
+   "norm_ratio_vs_their_bf16": 0.977199737634107
+  },
+  "diffusion_module.atom_attn_enc": {
+   "pct_of_model_mass": 5.487884816218084,
+   "rel_l2_vs_their_bf16": 0.10184738676304964,
+   "cos_vs_float64": 0.9975259022787013,
+   "cos_vs_their_bf16": 0.995137898157459,
+   "norm_ratio_vs_their_bf16": 1.0210671584575617
+  },
+  "diffusion_module.diffusion_conditioning": {
+   "pct_of_model_mass": 36.94617946669957,
+   "rel_l2_vs_their_bf16": 0.0646383941962739,
+   "cos_vs_float64": 0.9999705173080249,
+   "cos_vs_their_bf16": 0.9979333887039692,
+   "norm_ratio_vs_their_bf16": 0.9909212353642082
+  },
+  "diffusion_module.diffusion_transformer": {
+   "pct_of_model_mass": 43.622111481326,
+   "rel_l2_vs_their_bf16": 0.11230240756383222,
+   "cos_vs_float64": 0.9945882130143565,
+   "cos_vs_their_bf16": 0.9936744348268474,
+   "norm_ratio_vs_their_bf16": 0.9928299390671642
+  },
+  "diffusion_module.layer_norm_a": {
+   "pct_of_model_mass": 0.26663015175732807,
+   "rel_l2_vs_their_bf16": 0.03502208607264824,
+   "cos_vs_float64": 0.9999605323730331,
+   "cos_vs_their_bf16": 0.9996339120086345,
+   "norm_ratio_vs_their_bf16": 0.977396453732873
+  },
+  "diffusion_module.layer_norm_s": {
+   "pct_of_model_mass": 0.9834601790165411,
+   "rel_l2_vs_their_bf16": 0.06274246235868614,
+   "cos_vs_float64": 0.9999933431034491,
+   "cos_vs_their_bf16": 0.9999920820480627,
+   "norm_ratio_vs_their_bf16": 0.9373759440191883
+  },
+  "diffusion_module.linear_s": {
+   "pct_of_model_mass": 0.24445767651578826,
+   "rel_l2_vs_their_bf16": 0.10979080742659582,
+   "cos_vs_float64": 0.9967083863850947,
+   "cos_vs_their_bf16": 0.9939818643746321,
+   "norm_ratio_vs_their_bf16": 1.0013281628269157
+  },
+  "input_embedder": {
+   "pct_of_model_mass": 0.7671990550038749,
+   "rel_l2_vs_their_bf16": 0.2969187113267756,
+   "cos_vs_float64": 0.9999999355295135,
+   "cos_vs_their_bf16": 0.9552610986265208,
+   "norm_ratio_vs_their_bf16": 0.9290983830736624
+  },
+  "msa_module": {
+   "pct_of_model_mass": 1.2317423683293727,
+   "rel_l2_vs_their_bf16": 0.18867775522294758,
+   "cos_vs_float64": 0.9960184649483356,
+   "cos_vs_their_bf16": 0.9829389588961805,
+   "norm_ratio_vs_their_bf16": 0.9408878919432732
+  },
+  "pairformer_stack": {
+   "pct_of_model_mass": 5.8281714991342914,
+   "rel_l2_vs_their_bf16": 2.0151163033431088,
+   "cos_vs_float64": 0.17960882530163172,
+   "cos_vs_their_bf16": 0.2250972629419331,
+   "norm_ratio_vs_their_bf16": 1.9890027291682684
+  }
+ },
+ "the_ten_frame_matched": {
+  "n": 10,
+  "min_cos_vs_float64": 0.9945882130143565,
+  "norm_ratio_range": [
+   0.9290983830736624,
+   1.0210671584575617
+  ],
+  "reading": "every one of the ten stays within 0.9946 of parallel to its float64 reference and within 7.1 % of its magnitude -- the signature of rounding"
+ },
+ "the_trunk": {
+  "cos_vs_float64": 0.17960882530163172,
+  "norm_ratio_vs_their_bf16": 1.9890027291682684,
+  "cos_deficit_vs_the_worst_of_the_ten": 0.8149793877127248,
+  "reading": "cos 0.1796 against a worst-of-ten 0.9946, and norm ratio 1.9890 against a ten-section range of 0.9291-1.0211. Nearly orthogonal to its own reference with twice the magnitude: that is two different problems being compared, which is what D237 established from the file provenance and this confirms from the numbers alone."
+ },
+ "consequences": [
+  "D237's scope claim is now MEASURED rather than inherited from D214's prose.",
+  "The ten sections' pooled 0.1026990533692057 (0.6752x the bar, passing alone) rests on frame-matched arms and is therefore trustworthy.",
+  "of3t-modelframe gains a sharp acceptance test: a frame-matched trunk arm must land at cos >= ~0.99 and norm ratio ~1 like the other ten. If it comes back at cos 0.18 the boundary was not actually fixed, and that check is independent of whether the rel_l2 improved."
+ ]
+}

@@ -1,0 +1,10 @@
+{
+ "host": "tt-quietbox",
+ "card": "1",
+ "board": "p150a",
+ "boundary": "/home/ttuser/of3t_msaamp/crop64.pt",
+ "dtype_default": "DataType.BFLOAT16",
+ "dtype_flag_no_tape": "DataType.BFLOAT16",
+ "bit_identical": true,
+ "max_abs_diff": 0.0
+}

@@ -1,0 +1,14 @@
+# FIXTURE VERIFIED AT LAUNCH, 2026-09-24 08:07Z, three minutes into the run.
+#
+# The 1536/off0 control is only a control if it runs the fixture the 19.398 A cell ran. This
+# row withdrew a 1536 upstream reference once for a fixture mismatch caught only after the run
+# had cost its hours (results/upstream_reference_wrong_fixture.txt), so the hash is checked
+# while the job is cheap to kill rather than after it lands.
+#
+#   fx_boltzgen_1536_d8_bgall_fixed/bgt1536.cif       ffa258bb599f182c...  <- the 19.398 cell
+#   fx_boltzgen_1536_d8_bgall_onetree1536o0/bgt1536.cif ffa258bb599f182c...  <- this job
+#   ...bg1536.yaml on both                            edeaa7c664aeaf10...  identical, diff empty
+#
+# The `_fixed` fixture's own jsonl record at target_res 1536 / crop_offset 0 is median
+# 19.39809 (ts 2026-09-24T02:49:01Z), so the cell being controlled is identified by its own
+# output, not by its directory name. Engine is therefore the only difference between the two.

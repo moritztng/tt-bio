@@ -1,0 +1,60 @@
+{
+ "CORRECTED_pass180": "I wrote that the bf16 family 'does NOT aggregate from what is published' because 'msa_module's raw is not [on the record]'. That was FALSE and I had already read the artifact holding it earlier in the same session: THE_SHIPPED_PATH_IS_NOT_UNIFORM.json carries msa_module measured = 2.260014e-01 alongside the other two. I declined a computation on a premise I had not checked -- the same failure as assuming a scope's reference from a campaign-level fact. The aggregate is computed below.",
+ "as_of": "2026-09-20, orchestrator pass 179",
+ "headline": "The campaign still cannot produce ONE whole-model agreement figure -- the scopes split across two reference families and combining them is a unit error -- but BOTH families do aggregate, and I was wrong to say one of them could not. Over the 89.3220 % scored against upstream's own bf16 step: mass-weighted 5.619112 SHIPPED, of which 99.992 % is the diffusion arm's softmax, and 0.076813 with an accurate softmax -- below the smallest of the three scopes' reachable bars, i.e. inside all of them. Over the 8.6713 % scored against float64: 4.4006, 220x the 2.0e-02 bar, of which the pairformer trunk is 100.000 %.",
+ "provenance": "of3t-orchestrator pass 179 on pc, CPU only, no new measurement. Arithmetic over figures published by of3t-trunkgrad, of3t-auxgrad, of3t-conditioning and of3t-trajectory. The reference-family split follows A26-SCOPE and A27.",
+ "the_bf16_family_DOES_aggregate_after_all": {
+  "concentration_accurate": "29.290 % / 12.017 % / 58.693 % -- with the softmax fixed the error is spread across all three rather than dominated by one",
+  "concentration_shipped": "the diffusion arm is 99.992 % of the family's squared error -- the shipped figure is one thing, the softmax, and essentially nothing else",
+  "mass_pct": 89.322,
+  "mass_weighted_ACCURATE_SOFTMAX": 0.076813,
+  "mass_weighted_SHIPPED": 5.619112,
+  "members_raw": [
+   {
+    "mass_pct": 36.9462,
+    "measured": 0.06463839,
+    "reachable_bar": 0.087783,
+    "scope": "diffusion_conditioning"
+   },
+   {
+    "mass_pct": 1.24,
+    "measured": 0.2260014,
+    "reachable_bar": 0.23856,
+    "scope": "msa_module"
+   },
+   {
+    "mass_pct": 51.1358,
+    "measured_accurate_softmax": 0.0777758,
+    "measured_shipped": 7.426217,
+    "reachable_bar": 0.08133064,
+    "scope": "diffusion arm"
+   }
+  ],
+  "the_conservative_bar_statement": "a single family BAR is not defined, because the three reachable bars differ (0.087783, 0.23856, 0.08133064). But 0.076813 is below the SMALLEST of them, so with an accurate softmax the mass-weighted error over 89.3220 % of the model is inside EVERY one of the three scopes' reachable bars. Shipped, 5.619112 is 69x the strictest of them.",
+  "the_improvement": "73x"
+ },
+ "the_bf16_family_does_NOT_aggregate_from_what_is_published": "each of its three scopes is quoted as a multiple of its OWN reachable bar (0.7363x, 0.9474x, 0.9563x) and those bars differ per scope, so mass-weighting the multiples would be meaningless. Producing a family figure needs the raw relative errors against a common denominator; two of the three are on the record (diffusion arm 7.777580e-02, diffusion_conditioning 6.463839e-02) and msa_module's raw is not, so the aggregate is NOT computed here rather than estimated. Each scope passes its own bar and that is the honest statement available.",
+ "the_float64_family_DOES_aggregate": {
+  "against_the_2e-2_bar": "220.0x",
+  "mass_pct": 8.6713,
+  "mass_weighted": 4.4006,
+  "members": [
+   {
+    "mass_pct": 5.8282,
+    "rel": 5.367727,
+    "scope": "pairformer trunk",
+    "share_of_family_squared_error": "100.000 %"
+   },
+   {
+    "mass_pct": 2.8431,
+    "rel": 0.002271382,
+    "scope": "aux_heads",
+    "share_of_family_squared_error": "0.000 %"
+   }
+  ],
+  "the_part_worth_sitting_with": "aux_heads contributes 0.000 % of this family's squared error. A scope whose forward defect was found, fixed and whose gradient was re-taken to 8.81x inside its bar is INVISIBLE in the aggregate, because the trunk beside it is three orders of magnitude worse. That is A23's mass rule at family level: the hard-won pass changes nothing about the number, and saying so is not a reason to undo the work -- it is a reason not to quote the aggregate as if aux_heads were in question.",
+  "why_it_is_legitimate": "same reference, same bar, and both figures are mass-weighted rel_l2 in the same construction, so sqrt(sum(m_i r_i^2)/sum(m_i)) is the right combination."
+ },
+ "what_this_means_for_how_the_answer_is_read": "THE_ANSWER's 38.1862 / 51.1358 / 2.8431 / 5.8282 / 2.0067 partition the model's squared gradient norm and say what is known about each part. They are NOT percentages of agreement and they do not sum to a score. A reader wanting one number should be told there isn't one yet, and why -- not handed an average across incommensurable references.",
+ "why_there_is_no_single_number": "the scopes are scored against DIFFERENT references. diffusion_conditioning, msa_module and the diffusion arm are compared to upstream's own bf16 training step -- an imprecise reference, so A26's sqrt(2) applies and their headline figures are quoted as 'x their reachable bar'. aux_heads and the trunk are compared to a float64 0.4.3 reference, where A26 does NOT widen (A26-SCOPE) and the plain bar binds. Combining a ratio-against-bf16 with a ratio-against-float64 is exactly the unit error of D96/A27, which this campaign already committed once and corrected. So the two families are reported separately or not at all."
+}

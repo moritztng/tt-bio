@@ -1,0 +1,2803 @@
+{
+ "instrument": "PROTOCOL SS6: conditional-path presence on a chosen corpus",
+ "package": "openfold3",
+ "data_dir": "/home/ttuser/of3t_cov/datasets",
+ "cache_file": "/home/ttuser/of3t_cov/datasets/training_cache_with_templates_subset_4.json",
+ "stage": "initial_training",
+ "dataset": "weighted-pdb",
+ "crop": 384,
+ "n_templates": 4,
+ "seed": 20260921,
+ "n_datapoints": 34,
+ "rows": [
+  {
+   "index": 0,
+   "n_tokens_real": 384,
+   "n_atoms_real": 2318,
+   "molecule_type_tokens": {
+    "is_protein": 289,
+    "is_dna": 0,
+    "is_rna": 0,
+    "is_ligand": 95
+   },
+   "n_nucleotide_tokens": 0,
+   "token_bonds_nnz": 196,
+   "template_features": {
+    "template_backbone_frame_mask": {
+     "shape": [
+      4,
+      384
+     ],
+     "nnz": 913,
+     "sum": 913.0
+    },
+    "template_distogram": {
+     "shape": [
+      4,
+      384,
+      384,
+      39
+     ],
+     "nnz": 178704,
+     "sum": 178704.0
+    },
+    "template_pseudo_beta_mask": {
+     "shape": [
+      4,
+      384
+     ],
+     "nnz": 913,
+     "sum": 913.0
+    },
+    "template_restype": {
+     "shape": [
+      4,
+      384,
+      32
+     ],
+     "nnz": 1536,
+     "sum": 1536.0
+    },
+    "template_unit_vector": {
+     "shape": [
+      4,
+      384,
+      384,
+      3
+     ],
+     "nnz": 536112,
+     "sum": 15403.5185546875
+    }
+   },
+   "template_pseudo_beta_mask_nnz": 913,
+   "loss_weights": {
+    "bond": 0.0,
+    "smooth_lddt": 4.0,
+    "mse": 4.0,
+    "distogram": 0.029999999329447746,
+    "experimentally_resolved": 9.999999747378752e-05,
+    "plddt": 9.999999747378752e-05,
+    "pae": 9.999999747378752e-05,
+    "pde": 9.999999747378752e-05
+   },
+   "confidence_loss_names": [
+    "plddt",
+    "pde",
+    "experimentally_resolved",
+    "pae"
+   ],
+   "summed_confidence_weight": 0.00039999998989515007,
+   "disabled_parameters_would_fire": false,
+   "silent_substitutions": 0,
+   "pdb_id": "1kvu",
+   "datapoint": "1"
+  },
+  {
+   "index": 1,
+   "n_tokens_real": 384,
+   "n_atoms_real": 2428,
+   "molecule_type_tokens": {
+    "is_protein": 302,
+    "is_dna": 0,
+    "is_rna": 0,
+    "is_ligand": 82
+   },
+   "n_nucleotide_tokens": 0,
+   "token_bonds_nnz": 172,
+   "template_features": {
+    "template_backbone_frame_mask": {
+     "shape": [
+      4,
+      384
+     ],
+     "nnz": 0,
+     "sum": 0.0
+    },
+    "template_distogram": {
+     "shape": [
+      4,
+      384,
+      384,
+      39
+     ],
+     "nnz": 0,
+     "sum": 0.0
+    },
+    "template_pseudo_beta_mask": {
+     "shape": [
+      4,
+      384
+     ],
+     "nnz": 0,
+     "sum": 0.0
+    },
+    "template_restype": {
+     "shape": [
+      4,
+      384,
+      32
+     ],
+     "nnz": 1536,
+     "sum": 1536.0
+    },
+    "template_unit_vector": {
+     "shape": [
+      4,
+      384,
+      384,
+      3
+     ],
+     "nnz": 0,
+     "sum": 0.0
+    }
+   },
+   "template_pseudo_beta_mask_nnz": 0,
+   "loss_weights": {
+    "bond": 0.0,
+    "smooth_lddt": 4.0,
+    "mse": 4.0,
+    "distogram": 0.029999999329447746,
+    "experimentally_resolved": 9.999999747378752e-05,
+    "plddt": 9.999999747378752e-05,
+    "pae": 9.999999747378752e-05,
+    "pde": 9.999999747378752e-05
+   },
+   "confidence_loss_names": [
+    "plddt",
+    "pde",
+    "experimentally_resolved",
+    "pae"
+   ],
+   "summed_confidence_weight": 0.00039999998989515007,
+   "disabled_parameters_would_fire": false,
+   "silent_substitutions": 0,
+   "pdb_id": "1kvu",
+   "datapoint": "10"
+  },
+  {
+   "index": 2,
+   "n_tokens_real": 384,
+   "n_atoms_real": 2327,
+   "molecule_type_tokens": {
+    "is_protein": 285,
+    "is_dna": 0,
+    "is_rna": 0,
+    "is_ligand": 99
+   },
+   "n_nucleotide_tokens": 0,
+   "token_bonds_nnz": 202,
+   "template_features": {
+    "template_backbone_frame_mask": {
+     "shape": [
+      4,
+      384
+     ],
+     "nnz": 1140,
+     "sum": 1140.0
+    },
+    "template_distogram": {
+     "shape": [
+      4,
+      384,
+      384,
+      39
+     ],
+     "nnz": 162192,
+     "sum": 162192.0
+    },
+    "template_pseudo_beta_mask": {
+     "shape": [
+      4,
+      384
+     ],
+     "nnz": 1140,
+     "sum": 1140.0
+    },
+    "template_restype": {
+     "shape": [
+      4,
+      384,
+      32
+     ],
+     "nnz": 1536,
+     "sum": 1536.0
+    },
+    "template_unit_vector": {
+     "shape": [
+      4,
+      384,
+      384,
+      3
+     ],
+     "nnz": 486576,
+     "sum": 8504.234375
+    }
+   },
+   "template_pseudo_beta_mask_nnz": 1140,
+   "loss_weights": {
+    "bond": 0.0,
+    "smooth_lddt": 4.0,
+    "mse": 4.0,
+    "distogram": 0.029999999329447746,
+    "experimentally_resolved": 9.999999747378752e-05,
+    "plddt": 9.999999747378752e-05,
+    "pae": 9.999999747378752e-05,
+    "pde": 9.999999747378752e-05
+   },
+   "confidence_loss_names": [
+    "plddt",
+    "pde",
+    "experimentally_resolved",
+    "pae"
+   ],
+   "summed_confidence_weight": 0.00039999998989515007,
+   "disabled_parameters_would_fire": false,
+   "silent_substitutions": 0,
+   "pdb_id": "1kvu",
+   "datapoint": "11"
+  },
+  {
+   "index": 3,
+   "n_tokens_real": 384,
+   "n_atoms_real": 2403,
+   "molecule_type_tokens": {
+    "is_protein": 301,
+    "is_dna": 0,
+    "is_rna": 0,
+    "is_ligand": 83
+   },
+   "n_nucleotide_tokens": 0,
+   "token_bonds_nnz": 172,
+   "template_features": {
+    "template_backbone_frame_mask": {
+     "shape": [
+      4,
+      384
+     ],
+     "nnz": 637,
+     "sum": 637.0
+    },
+    "template_distogram": {
+     "shape": [
+      4,
+      384,
+      384,
+      39
+     ],
+     "nnz": 144550,
+     "sum": 144550.0
+    },
+    "template_pseudo_beta_mask": {
+     "shape": [
+      4,
+      384
+     ],
+     "nnz": 637,
+     "sum": 637.0
+    },
+    "template_restype": {
+     "shape": [
+      4,
+      384,
+      32
+     ],
+     "nnz": 1536,
+     "sum": 1536.0
+    },
+    "template_unit_vector": {
+     "shape": [
+      4,
+      384,
+      384,
+      3
+     ],
+     "nnz": 433650,
+     "sum": 2903.69189453125
+    }
+   },
+   "template_pseudo_beta_mask_nnz": 637,
+   "loss_weights": {
+    "bond": 0.0,
+    "smooth_lddt": 4.0,
+    "mse": 4.0,
+    "distogram": 0.029999999329447746,
+    "experimentally_resolved": 9.999999747378752e-05,
+    "plddt": 9.999999747378752e-05,
+    "pae": 9.999999747378752e-05,
+    "pde": 9.999999747378752e-05
+   },
+   "confidence_loss_names": [
+    "plddt",
+    "pde",
+    "experimentally_resolved",
+    "pae"
+   ],
+   "summed_confidence_weight": 0.00039999998989515007,
+   "disabled_parameters_would_fire": false,
+   "silent_substitutions": 0,
+   "pdb_id": "1kvu",
+   "datapoint": "12"
+  },
+  {
+   "index": 4,
+   "n_tokens_real": 384,
+   "n_atoms_real": 2413,
+   "molecule_type_tokens": {
+    "is_protein": 301,
+    "is_dna": 0,
+    "is_rna": 0,
+    "is_ligand": 83
+   },
+   "n_nucleotide_tokens": 0,
+   "token_bonds_nnz": 172,
+   "template_features": {
+    "template_backbone_frame_mask": {
+     "shape": [
+      4,
+      384
+     ],
+     "nnz": 602,
+     "sum": 602.0
+    },
+    "template_distogram": {
+     "shape": [
+      4,
+      384,
+      384,
+      39
+     ],
+     "nnz": 160224,
+     "sum": 160224.0
+    },
+    "template_pseudo_beta_mask": {
+     "shape": [
+      4,
+      384
+     ],
+     "nnz": 602,
+     "sum": 602.0
+    },
+    "template_restype": {
+     "shape": [
+      4,
+      384,
+      32
+     ],
+     "nnz": 1536,
+     "sum": 1536.0
+    },
+    "template_unit_vector": {
+     "shape": [
+      4,
+      384,
+      384,
+      3
+     ],
+     "nnz": 480672,
+     "sum": 6015.306640625
+    }
+   },
+   "template_pseudo_beta_mask_nnz": 602,
+   "loss_weights": {
+    "bond": 0.0,
+    "smooth_lddt": 4.0,
+    "mse": 4.0,
+    "distogram": 0.029999999329447746,
+    "experimentally_resolved": 9.999999747378752e-05,
+    "plddt": 9.999999747378752e-05,
+    "pae": 9.999999747378752e-05,
+    "pde": 9.999999747378752e-05
+   },
+   "confidence_loss_names": [
+    "plddt",
+    "pde",
+    "experimentally_resolved",
+    "pae"
+   ],
+   "summed_confidence_weight": 0.00039999998989515007,
+   "disabled_parameters_would_fire": false,
+   "silent_substitutions": 0,
+   "pdb_id": "1kvu",
+   "datapoint": "13"
+  },
+  {
+   "index": 5,
+   "n_tokens_real": 384,
+   "n_atoms_real": 2429,
+   "molecule_type_tokens": {
+    "is_protein": 301,
+    "is_dna": 0,
+    "is_rna": 0,
+    "is_ligand": 83
+   },
+   "n_nucleotide_tokens": 0,
+   "token_bonds_nnz": 172,
+   "template_features": {
+    "template_backbone_frame_mask": {
+     "shape": [
+      4,
+      384
+     ],
+     "nnz": 376,
+     "sum": 376.0
+    },
+    "template_distogram": {
+     "shape": [
+      4,
+      384,
+      384,
+      39
+     ],
+     "nnz": 78300,
+     "sum": 78300.0
+    },
+    "template_pseudo_beta_mask": {
+     "shape": [
+      4,
+      384
+     ],
+     "nnz": 376,
+     "sum": 376.0
+    },
+    "template_restype": {
+     "shape": [
+      4,
+      384,
+      32
+     ],
+     "nnz": 1536,
+     "sum": 1536.0
+    },
+    "template_unit_vector": {
+     "shape": [
+      4,
+      384,
+      384,
+      3
+     ],
+     "nnz": 234900,
+     "sum": 810.9903564453125
+    }
+   },
+   "template_pseudo_beta_mask_nnz": 376,
+   "loss_weights": {
+    "bond": 0.0,
+    "smooth_lddt": 4.0,
+    "mse": 4.0,
+    "distogram": 0.029999999329447746,
+    "experimentally_resolved": 9.999999747378752e-05,
+    "plddt": 9.999999747378752e-05,
+    "pae": 9.999999747378752e-05,
+    "pde": 9.999999747378752e-05
+   },
+   "confidence_loss_names": [
+    "plddt",
+    "pde",
+    "experimentally_resolved",
+    "pae"
+   ],
+   "summed_confidence_weight": 0.00039999998989515007,
+   "disabled_parameters_would_fire": false,
+   "silent_substitutions": 0,
+   "pdb_id": "1kvu",
+   "datapoint": "14"
+  },
+  {
+   "index": 6,
+   "n_tokens_real": 384,
+   "n_atoms_real": 2409,
+   "molecule_type_tokens": {
+    "is_protein": 301,
+    "is_dna": 0,
+    "is_rna": 0,
+    "is_ligand": 83
+   },
+   "n_nucleotide_tokens": 0,
+   "token_bonds_nnz": 172,
+   "template_features": {
+    "template_backbone_frame_mask": {
+     "shape": [
+      4,
+      384
+     ],
+     "nnz": 351,
+     "sum": 351.0
+    },
+    "template_distogram": {
+     "shape": [
+      4,
+      384,
+      384,
+      39
+     ],
+     "nnz": 77700,
+     "sum": 77700.0
+    },
+    "template_pseudo_beta_mask": {
+     "shape": [
+      4,
+      384
+     ],
+     "nnz": 351,
+     "sum": 351.0
+    },
+    "template_restype": {
+     "shape": [
+      4,
+      384,
+      32
+     ],
+     "nnz": 1536,
+     "sum": 1536.0
+    },
+    "template_unit_vector": {
+     "shape": [
+      4,
+      384,
+      384,
+      3
+     ],
+     "nnz": 233100,
+     "sum": 1725.8702392578125
+    }
+   },
+   "template_pseudo_beta_mask_nnz": 351,
+   "loss_weights": {
+    "bond": 0.0,
+    "smooth_lddt": 4.0,
+    "mse": 4.0,
+    "distogram": 0.029999999329447746,
+    "experimentally_resolved": 9.999999747378752e-05,
+    "plddt": 9.999999747378752e-05,
+    "pae": 9.999999747378752e-05,
+    "pde": 9.999999747378752e-05
+   },
+   "confidence_loss_names": [
+    "plddt",
+    "pde",
+    "experimentally_resolved",
+    "pae"
+   ],
+   "summed_confidence_weight": 0.00039999998989515007,
+   "disabled_parameters_would_fire": false,
+   "silent_substitutions": 0,
+   "pdb_id": "1kvu",
+   "datapoint": "15"
+  },
+  {
+   "index": 7,
+   "n_tokens_real": 384,
+   "n_atoms_real": 2327,
+   "molecule_type_tokens": {
+    "is_protein": 285,
+    "is_dna": 0,
+    "is_rna": 0,
+    "is_ligand": 99
+   },
+   "n_nucleotide_tokens": 0,
+   "token_bonds_nnz": 202,
+   "template_features": {
+    "template_backbone_frame_mask": {
+     "shape": [
+      4,
+      384
+     ],
+     "nnz": 876,
+     "sum": 876.0
+    },
+    "template_distogram": {
+     "shape": [
+      4,
+      384,
+      384,
+      39
+     ],
+     "nnz": 127608,
+     "sum": 127608.0
+    },
+    "template_pseudo_beta_mask": {
+     "shape": [
+      4,
+      384
+     ],
+     "nnz": 876,
+     "sum": 876.0
+    },
+    "template_restype": {
+     "shape": [
+      4,
+      384,
+      32
+     ],
+     "nnz": 1536,
+     "sum": 1536.0
+    },
+    "template_unit_vector": {
+     "shape": [
+      4,
+      384,
+      384,
+      3
+     ],
+     "nnz": 382824,
+     "sum": 3112.098876953125
+    }
+   },
+   "template_pseudo_beta_mask_nnz": 876,
+   "loss_weights": {
+    "bond": 0.0,
+    "smooth_lddt": 4.0,
+    "mse": 4.0,
+    "distogram": 0.029999999329447746,
+    "experimentally_resolved": 9.999999747378752e-05,
+    "plddt": 9.999999747378752e-05,
+    "pae": 9.999999747378752e-05,
+    "pde": 9.999999747378752e-05
+   },
+   "confidence_loss_names": [
+    "plddt",
+    "pde",
+    "experimentally_resolved",
+    "pae"
+   ],
+   "summed_confidence_weight": 0.00039999998989515007,
+   "disabled_parameters_would_fire": false,
+   "silent_substitutions": 0,
+   "pdb_id": "1kvu",
+   "datapoint": "2"
+  },
+  {
+   "index": 8,
+   "n_tokens_real": 384,
+   "n_atoms_real": 2290,
+   "molecule_type_tokens": {
+    "is_protein": 285,
+    "is_dna": 0,
+    "is_rna": 0,
+    "is_ligand": 99
+   },
+   "n_nucleotide_tokens": 0,
+   "token_bonds_nnz": 192,
+   "template_features": {
+    "template_backbone_frame_mask": {
+     "shape": [
+      4,
+      384
+     ],
+     "nnz": 570,
+     "sum": 570.0
+    },
+    "template_distogram": {
+     "shape": [
+      4,
+      384,
+      384,
+      39
+     ],
+     "nnz": 94344,
+     "sum": 94344.0
+    },
+    "template_pseudo_beta_mask": {
+     "shape": [
+      4,
+      384
+     ],
+     "nnz": 570,
+     "sum": 570.0
+    },
+    "template_restype": {
+     "shape": [
+      4,
+      384,
+      32
+     ],
+     "nnz": 1536,
+     "sum": 1536.0
+    },
+    "template_unit_vector": {
+     "shape": [
+      4,
+      384,
+      384,
+      3
+     ],
+     "nnz": 283032,
+     "sum": 5468.33154296875
+    }
+   },
+   "template_pseudo_beta_mask_nnz": 570,
+   "loss_weights": {
+    "bond": 0.0,
+    "smooth_lddt": 4.0,
+    "mse": 4.0,
+    "distogram": 0.029999999329447746,
+    "experimentally_resolved": 9.999999747378752e-05,
+    "plddt": 9.999999747378752e-05,
+    "pae": 9.999999747378752e-05,
+    "pde": 9.999999747378752e-05
+   },
+   "confidence_loss_names": [
+    "plddt",
+    "pde",
+    "experimentally_resolved",
+    "pae"
+   ],
+   "summed_confidence_weight": 0.00039999998989515007,
+   "disabled_parameters_would_fire": false,
+   "silent_substitutions": 0,
+   "pdb_id": "1kvu",
+   "datapoint": "3"
+  },
+  {
+   "index": 9,
+   "n_tokens_real": 384,
+   "n_atoms_real": 2665,
+   "molecule_type_tokens": {
+    "is_protein": 336,
+    "is_dna": 0,
+    "is_rna": 0,
+    "is_ligand": 48
+   },
+   "n_nucleotide_tokens": 0,
+   "token_bonds_nnz": 84,
+   "template_features": {
+    "template_backbone_frame_mask": {
+     "shape": [
+      4,
+      384
+     ],
+     "nnz": 999,
+     "sum": 999.0
+    },
+    "template_distogram": {
+     "shape": [
+      4,
+      384,
+      384,
+      39
+     ],
+     "nnz": 319950,
+     "sum": 319950.0
+    },
+    "template_pseudo_beta_mask": {
+     "shape": [
+      4,
+      384
+     ],
+     "nnz": 999,
+     "sum": 999.0
+    },
+    "template_restype": {
+     "shape": [
+      4,
+      384,
+      32
+     ],
+     "nnz": 1536,
+     "sum": 1536.0
+    },
+    "template_unit_vector": {
+     "shape": [
+      4,
+      384,
+      384,
+      3
+     ],
+     "nnz": 959850,
+     "sum": 13093.318359375
+    }
+   },
+   "template_pseudo_beta_mask_nnz": 999,
+   "loss_weights": {
+    "bond": 0.0,
+    "smooth_lddt": 4.0,
+    "mse": 4.0,
+    "distogram": 0.029999999329447746,
+    "experimentally_resolved": 9.999999747378752e-05,
+    "plddt": 9.999999747378752e-05,
+    "pae": 9.999999747378752e-05,
+    "pde": 9.999999747378752e-05
+   },
+   "confidence_loss_names": [
+    "plddt",
+    "pde",
+    "experimentally_resolved",
+    "pae"
+   ],
+   "summed_confidence_weight": 0.00039999998989515007,
+   "disabled_parameters_would_fire": false,
+   "silent_substitutions": 0,
+   "pdb_id": "1kvu",
+   "datapoint": "4"
+  },
+  {
+   "index": 10,
+   "n_tokens_real": 384,
+   "n_atoms_real": 2373,
+   "molecule_type_tokens": {
+    "is_protein": 297,
+    "is_dna": 0,
+    "is_rna": 0,
+    "is_ligand": 87
+   },
+   "n_nucleotide_tokens": 0,
+   "token_bonds_nnz": 176,
+   "template_features": {
+    "template_backbone_frame_mask": {
+     "shape": [
+      4,
+      384
+     ],
+     "nnz": 1064,
+     "sum": 1064.0
+    },
+    "template_distogram": {
+     "shape": [
+      4,
+      384,
+      384,
+      39
+     ],
+     "nnz": 227524,
+     "sum": 227524.0
+    },
+    "template_pseudo_beta_mask": {
+     "shape": [
+      4,
+      384
+     ],
+     "nnz": 1064,
+     "sum": 1064.0
+    },
+    "template_restype": {
+     "shape": [
+      4,
+      384,
+      32
+     ],
+     "nnz": 1536,
+     "sum": 1536.0
+    },
+    "template_unit_vector": {
+     "shape": [
+      4,
+      384,
+      384,
+      3
+     ],
+     "nnz": 682572,
+     "sum": 16622.234375
+    }
+   },
+   "template_pseudo_beta_mask_nnz": 1064,
+   "loss_weights": {
+    "bond": 0.0,
+    "smooth_lddt": 4.0,
+    "mse": 4.0,
+    "distogram": 0.029999999329447746,
+    "experimentally_resolved": 9.999999747378752e-05,
+    "plddt": 9.999999747378752e-05,
+    "pae": 9.999999747378752e-05,
+    "pde": 9.999999747378752e-05
+   },
+   "confidence_loss_names": [
+    "plddt",
+    "pde",
+    "experimentally_resolved",
+    "pae"
+   ],
+   "summed_confidence_weight": 0.00039999998989515007,
+   "disabled_parameters_would_fire": false,
+   "silent_substitutions": 0,
+   "pdb_id": "1kvu",
+   "datapoint": "5"
+  },
+  {
+   "index": 11,
+   "n_tokens_real": 384,
+   "n_atoms_real": 2413,
+   "molecule_type_tokens": {
+    "is_protein": 301,
+    "is_dna": 0,
+    "is_rna": 0,
+    "is_ligand": 83
+   },
+   "n_nucleotide_tokens": 0,
+   "token_bonds_nnz": 172,
+   "template_features": {
+    "template_backbone_frame_mask": {
+     "shape": [
+      4,
+      384
+     ],
+     "nnz": 1204,
+     "sum": 1204.0
+    },
+    "template_distogram": {
+     "shape": [
+      4,
+      384,
+      384,
+      39
+     ],
+     "nnz": 298096,
+     "sum": 298096.0
+    },
+    "template_pseudo_beta_mask": {
+     "shape": [
+      4,
+      384
+     ],
+     "nnz": 1204,
+     "sum": 1204.0
+    },
+    "template_restype": {
+     "shape": [
+      4,
+      384,
+      32
+     ],
+     "nnz": 1536,
+     "sum": 1536.0
+    },
+    "template_unit_vector": {
+     "shape": [
+      4,
+      384,
+      384,
+      3
+     ],
+     "nnz": 894288,
+     "sum": 5943.1279296875
+    }
+   },
+   "template_pseudo_beta_mask_nnz": 1204,
+   "loss_weights": {
+    "bond": 0.0,
+    "smooth_lddt": 4.0,
+    "mse": 4.0,
+    "distogram": 0.029999999329447746,
+    "experimentally_resolved": 9.999999747378752e-05,
+    "plddt": 9.999999747378752e-05,
+    "pae": 9.999999747378752e-05,
+    "pde": 9.999999747378752e-05
+   },
+   "confidence_loss_names": [
+    "plddt",
+    "pde",
+    "experimentally_resolved",
+    "pae"
+   ],
+   "summed_confidence_weight": 0.00039999998989515007,
+   "disabled_parameters_would_fire": false,
+   "silent_substitutions": 0,
+   "pdb_id": "1kvu",
+   "datapoint": "6"
+  },
+  {
+   "index": 12,
+   "n_tokens_real": 384,
+   "n_atoms_real": 2287,
+   "molecule_type_tokens": {
+    "is_protein": 278,
+    "is_dna": 0,
+    "is_rna": 0,
+    "is_ligand": 106
+   },
+   "n_nucleotide_tokens": 0,
+   "token_bonds_nnz": 218,
+   "template_features": {
+    "template_backbone_frame_mask": {
+     "shape": [
+      4,
+      384
+     ],
+     "nnz": 1112,
+     "sum": 1112.0
+    },
+    "template_distogram": {
+     "shape": [
+      4,
+      384,
+      384,
+      39
+     ],
+     "nnz": 164408,
+     "sum": 164408.0
+    },
+    "template_pseudo_beta_mask": {
+     "shape": [
+      4,
+      384
+     ],
+     "nnz": 1112,
+     "sum": 1112.0
+    },
+    "template_restype": {
+     "shape": [
+      4,
+      384,
+      32
+     ],
+     "nnz": 1536,
+     "sum": 1536.0
+    },
+    "template_unit_vector": {
+     "shape": [
+      4,
+      384,
+      384,
+      3
+     ],
+     "nnz": 493224,
+     "sum": 7606.88916015625
+    }
+   },
+   "template_pseudo_beta_mask_nnz": 1112,
+   "loss_weights": {
+    "bond": 0.0,
+    "smooth_lddt": 4.0,
+    "mse": 4.0,
+    "distogram": 0.029999999329447746,
+    "experimentally_resolved": 9.999999747378752e-05,
+    "plddt": 9.999999747378752e-05,
+    "pae": 9.999999747378752e-05,
+    "pde": 9.999999747378752e-05
+   },
+   "confidence_loss_names": [
+    "plddt",
+    "pde",
+    "experimentally_resolved",
+    "pae"
+   ],
+   "summed_confidence_weight": 0.00039999998989515007,
+   "disabled_parameters_would_fire": false,
+   "silent_substitutions": 0,
+   "pdb_id": "1kvu",
+   "datapoint": "['1', '10']"
+  },
+  {
+   "index": 13,
+   "n_tokens_real": 384,
+   "n_atoms_real": 2209,
+   "molecule_type_tokens": {
+    "is_protein": 269,
+    "is_dna": 0,
+    "is_rna": 0,
+    "is_ligand": 115
+   },
+   "n_nucleotide_tokens": 0,
+   "token_bonds_nnz": 236,
+   "template_features": {
+    "template_backbone_frame_mask": {
+     "shape": [
+      4,
+      384
+     ],
+     "nnz": 629,
+     "sum": 629.0
+    },
+    "template_distogram": {
+     "shape": [
+      4,
+      384,
+      384,
+      39
+     ],
+     "nnz": 79172,
+     "sum": 79172.0
+    },
+    "template_pseudo_beta_mask": {
+     "shape": [
+      4,
+      384
+     ],
+     "nnz": 629,
+     "sum": 629.0
+    },
+    "template_restype": {
+     "shape": [
+      4,
+      384,
+      32
+     ],
+     "nnz": 1536,
+     "sum": 1536.0
+    },
+    "template_unit_vector": {
+     "shape": [
+      4,
+      384,
+      384,
+      3
+     ],
+     "nnz": 237516,
+     "sum": -373.25677490234375
+    }
+   },
+   "template_pseudo_beta_mask_nnz": 629,
+   "loss_weights": {
+    "bond": 0.0,
+    "smooth_lddt": 4.0,
+    "mse": 4.0,
+    "distogram": 0.029999999329447746,
+    "experimentally_resolved": 9.999999747378752e-05,
+    "plddt": 9.999999747378752e-05,
+    "pae": 9.999999747378752e-05,
+    "pde": 9.999999747378752e-05
+   },
+   "confidence_loss_names": [
+    "plddt",
+    "pde",
+    "experimentally_resolved",
+    "pae"
+   ],
+   "summed_confidence_weight": 0.00039999998989515007,
+   "disabled_parameters_would_fire": false,
+   "silent_substitutions": 0,
+   "pdb_id": "1kvu",
+   "datapoint": "['1', '11']"
+  },
+  {
+   "index": 14,
+   "n_tokens_real": 384,
+   "n_atoms_real": 2308,
+   "molecule_type_tokens": {
+    "is_protein": 282,
+    "is_dna": 0,
+    "is_rna": 0,
+    "is_ligand": 102
+   },
+   "n_nucleotide_tokens": 0,
+   "token_bonds_nnz": 208,
+   "template_features": {
+    "template_backbone_frame_mask": {
+     "shape": [
+      4,
+      384
+     ],
+     "nnz": 312,
+     "sum": 312.0
+    },
+    "template_distogram": {
+     "shape": [
+      4,
+      384,
+      384,
+      39
+     ],
+     "nnz": 32136,
+     "sum": 32136.0
+    },
+    "template_pseudo_beta_mask": {
+     "shape": [
+      4,
+      384
+     ],
+     "nnz": 312,
+     "sum": 312.0
+    },
+    "template_restype": {
+     "shape": [
+      4,
+      384,
+      32
+     ],
+     "nnz": 1536,
+     "sum": 1536.0
+    },
+    "template_unit_vector": {
+     "shape": [
+      4,
+      384,
+      384,
+      3
+     ],
+     "nnz": 96408,
+     "sum": 4764.03515625
+    }
+   },
+   "template_pseudo_beta_mask_nnz": 312,
+   "loss_weights": {
+    "bond": 0.0,
+    "smooth_lddt": 4.0,
+    "mse": 4.0,
+    "distogram": 0.029999999329447746,
+    "experimentally_resolved": 9.999999747378752e-05,
+    "plddt": 9.999999747378752e-05,
+    "pae": 9.999999747378752e-05,
+    "pde": 9.999999747378752e-05
+   },
+   "confidence_loss_names": [
+    "plddt",
+    "pde",
+    "experimentally_resolved",
+    "pae"
+   ],
+   "summed_confidence_weight": 0.00039999998989515007,
+   "disabled_parameters_would_fire": false,
+   "silent_substitutions": 0,
+   "pdb_id": "1kvu",
+   "datapoint": "['1', '2']"
+  },
+  {
+   "index": 15,
+   "n_tokens_real": 384,
+   "n_atoms_real": 2421,
+   "molecule_type_tokens": {
+    "is_protein": 301,
+    "is_dna": 0,
+    "is_rna": 0,
+    "is_ligand": 83
+   },
+   "n_nucleotide_tokens": 0,
+   "token_bonds_nnz": 172,
+   "template_features": {
+    "template_backbone_frame_mask": {
+     "shape": [
+      4,
+      384
+     ],
+     "nnz": 425,
+     "sum": 425.0
+    },
+    "template_distogram": {
+     "shape": [
+      4,
+      384,
+      384,
+      39
+     ],
+     "nnz": 68228,
+     "sum": 68228.0
+    },
+    "template_pseudo_beta_mask": {
+     "shape": [
+      4,
+      384
+     ],
+     "nnz": 425,
+     "sum": 425.0
+    },
+    "template_restype": {
+     "shape": [
+      4,
+      384,
+      32
+     ],
+     "nnz": 1536,
+     "sum": 1536.0
+    },
+    "template_unit_vector": {
+     "shape": [
+      4,
+      384,
+      384,
+      3
+     ],
+     "nnz": 204684,
+     "sum": 2780.263671875
+    }
+   },
+   "template_pseudo_beta_mask_nnz": 425,
+   "loss_weights": {
+    "bond": 0.0,
+    "smooth_lddt": 4.0,
+    "mse": 4.0,
+    "distogram": 0.029999999329447746,
+    "experimentally_resolved": 9.999999747378752e-05,
+    "plddt": 9.999999747378752e-05,
+    "pae": 9.999999747378752e-05,
+    "pde": 9.999999747378752e-05
+   },
+   "confidence_loss_names": [
+    "plddt",
+    "pde",
+    "experimentally_resolved",
+    "pae"
+   ],
+   "summed_confidence_weight": 0.00039999998989515007,
+   "disabled_parameters_would_fire": false,
+   "silent_substitutions": 0,
+   "pdb_id": "1kvu",
+   "datapoint": "['1', '3']"
+  },
+  {
+   "index": 16,
+   "n_tokens_real": 384,
+   "n_atoms_real": 2426,
+   "molecule_type_tokens": {
+    "is_protein": 302,
+    "is_dna": 0,
+    "is_rna": 0,
+    "is_ligand": 82
+   },
+   "n_nucleotide_tokens": 0,
+   "token_bonds_nnz": 172,
+   "template_features": {
+    "template_backbone_frame_mask": {
+     "shape": [
+      4,
+      384
+     ],
+     "nnz": 1208,
+     "sum": 1208.0
+    },
+    "template_distogram": {
+     "shape": [
+      4,
+      384,
+      384,
+      39
+     ],
+     "nnz": 363608,
+     "sum": 363608.0
+    },
+    "template_pseudo_beta_mask": {
+     "shape": [
+      4,
+      384
+     ],
+     "nnz": 1208,
+     "sum": 1208.0
+    },
+    "template_restype": {
+     "shape": [
+      4,
+      384,
+      32
+     ],
+     "nnz": 1536,
+     "sum": 1536.0
+    },
+    "template_unit_vector": {
+     "shape": [
+      4,
+      384,
+      384,
+      3
+     ],
+     "nnz": 1090824,
+     "sum": 10606.732421875
+    }
+   },
+   "template_pseudo_beta_mask_nnz": 1208,
+   "loss_weights": {
+    "bond": 0.0,
+    "smooth_lddt": 4.0,
+    "mse": 4.0,
+    "distogram": 0.029999999329447746,
+    "experimentally_resolved": 9.999999747378752e-05,
+    "plddt": 9.999999747378752e-05,
+    "pae": 9.999999747378752e-05,
+    "pde": 9.999999747378752e-05
+   },
+   "confidence_loss_names": [
+    "plddt",
+    "pde",
+    "experimentally_resolved",
+    "pae"
+   ],
+   "summed_confidence_weight": 0.00039999998989515007,
+   "disabled_parameters_would_fire": false,
+   "silent_substitutions": 0,
+   "pdb_id": "1kvu",
+   "datapoint": "['1', '4']"
+  },
+  {
+   "index": 17,
+   "n_tokens_real": 384,
+   "n_atoms_real": 2400,
+   "molecule_type_tokens": {
+    "is_protein": 301,
+    "is_dna": 0,
+    "is_rna": 0,
+    "is_ligand": 83
+   },
+   "n_nucleotide_tokens": 0,
+   "token_bonds_nnz": 164,
+   "template_features": {
+    "template_backbone_frame_mask": {
+     "shape": [
+      4,
+      384
+     ],
+     "nnz": 464,
+     "sum": 464.0
+    },
+    "template_distogram": {
+     "shape": [
+      4,
+      384,
+      384,
+      39
+     ],
+     "nnz": 107184,
+     "sum": 107184.0
+    },
+    "template_pseudo_beta_mask": {
+     "shape": [
+      4,
+      384
+     ],
+     "nnz": 464,
+     "sum": 464.0
+    },
+    "template_restype": {
+     "shape": [
+      4,
+      384,
+      32
+     ],
+     "nnz": 1536,
+     "sum": 1536.0
+    },
+    "template_unit_vector": {
+     "shape": [
+      4,
+      384,
+      384,
+      3
+     ],
+     "nnz": 321552,
+     "sum": 9475.5927734375
+    }
+   },
+   "template_pseudo_beta_mask_nnz": 464,
+   "loss_weights": {
+    "bond": 0.0,
+    "smooth_lddt": 4.0,
+    "mse": 4.0,
+    "distogram": 0.029999999329447746,
+    "experimentally_resolved": 9.999999747378752e-05,
+    "plddt": 9.999999747378752e-05,
+    "pae": 9.999999747378752e-05,
+    "pde": 9.999999747378752e-05
+   },
+   "confidence_loss_names": [
+    "plddt",
+    "pde",
+    "experimentally_resolved",
+    "pae"
+   ],
+   "summed_confidence_weight": 0.00039999998989515007,
+   "disabled_parameters_would_fire": false,
+   "silent_substitutions": 0,
+   "pdb_id": "1kvu",
+   "datapoint": "['1', '5']"
+  },
+  {
+   "index": 18,
+   "n_tokens_real": 384,
+   "n_atoms_real": 2157,
+   "molecule_type_tokens": {
+    "is_protein": 265,
+    "is_dna": 0,
+    "is_rna": 0,
+    "is_ligand": 119
+   },
+   "n_nucleotide_tokens": 0,
+   "token_bonds_nnz": 236,
+   "template_features": {
+    "template_backbone_frame_mask": {
+     "shape": [
+      4,
+      384
+     ],
+     "nnz": 265,
+     "sum": 265.0
+    },
+    "template_distogram": {
+     "shape": [
+      4,
+      384,
+      384,
+      39
+     ],
+     "nnz": 35608,
+     "sum": 35608.0
+    },
+    "template_pseudo_beta_mask": {
+     "shape": [
+      4,
+      384
+     ],
+     "nnz": 265,
+     "sum": 265.0
+    },
+    "template_restype": {
+     "shape": [
+      4,
+      384,
+      32
+     ],
+     "nnz": 1536,
+     "sum": 1536.0
+    },
+    "template_unit_vector": {
+     "shape": [
+      4,
+      384,
+      384,
+      3
+     ],
+     "nnz": 106824,
+     "sum": 4210.607421875
+    }
+   },
+   "template_pseudo_beta_mask_nnz": 265,
+   "loss_weights": {
+    "bond": 0.0,
+    "smooth_lddt": 4.0,
+    "mse": 4.0,
+    "distogram": 0.029999999329447746,
+    "experimentally_resolved": 9.999999747378752e-05,
+    "plddt": 9.999999747378752e-05,
+    "pae": 9.999999747378752e-05,
+    "pde": 9.999999747378752e-05
+   },
+   "confidence_loss_names": [
+    "plddt",
+    "pde",
+    "experimentally_resolved",
+    "pae"
+   ],
+   "summed_confidence_weight": 0.00039999998989515007,
+   "disabled_parameters_would_fire": false,
+   "silent_substitutions": 0,
+   "pdb_id": "1kvu",
+   "datapoint": "['1', '6']"
+  },
+  {
+   "index": 19,
+   "n_tokens_real": 384,
+   "n_atoms_real": 2308,
+   "molecule_type_tokens": {
+    "is_protein": 282,
+    "is_dna": 0,
+    "is_rna": 0,
+    "is_ligand": 102
+   },
+   "n_nucleotide_tokens": 0,
+   "token_bonds_nnz": 208,
+   "template_features": {
+    "template_backbone_frame_mask": {
+     "shape": [
+      4,
+      384
+     ],
+     "nnz": 416,
+     "sum": 416.0
+    },
+    "template_distogram": {
+     "shape": [
+      4,
+      384,
+      384,
+      39
+     ],
+     "nnz": 42848,
+     "sum": 42848.0
+    },
+    "template_pseudo_beta_mask": {
+     "shape": [
+      4,
+      384
+     ],
+     "nnz": 416,
+     "sum": 416.0
+    },
+    "template_restype": {
+     "shape": [
+      4,
+      384,
+      32
+     ],
+     "nnz": 1536,
+     "sum": 1536.0
+    },
+    "template_unit_vector": {
+     "shape": [
+      4,
+      384,
+      384,
+      3
+     ],
+     "nnz": 128544,
+     "sum": 6429.587890625
+    }
+   },
+   "template_pseudo_beta_mask_nnz": 416,
+   "loss_weights": {
+    "bond": 0.0,
+    "smooth_lddt": 4.0,
+    "mse": 4.0,
+    "distogram": 0.029999999329447746,
+    "experimentally_resolved": 9.999999747378752e-05,
+    "plddt": 9.999999747378752e-05,
+    "pae": 9.999999747378752e-05,
+    "pde": 9.999999747378752e-05
+   },
+   "confidence_loss_names": [
+    "plddt",
+    "pde",
+    "experimentally_resolved",
+    "pae"
+   ],
+   "summed_confidence_weight": 0.00039999998989515007,
+   "disabled_parameters_would_fire": false,
+   "silent_substitutions": 0,
+   "pdb_id": "1kvu",
+   "datapoint": "['10', '11']"
+  },
+  {
+   "index": 20,
+   "n_tokens_real": 384,
+   "n_atoms_real": 2417,
+   "molecule_type_tokens": {
+    "is_protein": 301,
+    "is_dna": 0,
+    "is_rna": 0,
+    "is_ligand": 83
+   },
+   "n_nucleotide_tokens": 0,
+   "token_bonds_nnz": 172,
+   "template_features": {
+    "template_backbone_frame_mask": {
+     "shape": [
+      4,
+      384
+     ],
+     "nnz": 1204,
+     "sum": 1204.0
+    },
+    "template_distogram": {
+     "shape": [
+      4,
+      384,
+      384,
+      39
+     ],
+     "nnz": 320448,
+     "sum": 320448.0
+    },
+    "template_pseudo_beta_mask": {
+     "shape": [
+      4,
+      384
+     ],
+     "nnz": 1204,
+     "sum": 1204.0
+    },
+    "template_restype": {
+     "shape": [
+      4,
+      384,
+      32
+     ],
+     "nnz": 1536,
+     "sum": 1536.0
+    },
+    "template_unit_vector": {
+     "shape": [
+      4,
+      384,
+      384,
+      3
+     ],
+     "nnz": 961344,
+     "sum": -1383.760986328125
+    }
+   },
+   "template_pseudo_beta_mask_nnz": 1204,
+   "loss_weights": {
+    "bond": 0.0,
+    "smooth_lddt": 4.0,
+    "mse": 4.0,
+    "distogram": 0.029999999329447746,
+    "experimentally_resolved": 9.999999747378752e-05,
+    "plddt": 9.999999747378752e-05,
+    "pae": 9.999999747378752e-05,
+    "pde": 9.999999747378752e-05
+   },
+   "confidence_loss_names": [
+    "plddt",
+    "pde",
+    "experimentally_resolved",
+    "pae"
+   ],
+   "summed_confidence_weight": 0.00039999998989515007,
+   "disabled_parameters_would_fire": false,
+   "silent_substitutions": 0,
+   "pdb_id": "1kvu",
+   "datapoint": "['10', '12']"
+  },
+  {
+   "index": 21,
+   "n_tokens_real": 384,
+   "n_atoms_real": 2088,
+   "molecule_type_tokens": {
+    "is_protein": 257,
+    "is_dna": 0,
+    "is_rna": 0,
+    "is_ligand": 127
+   },
+   "n_nucleotide_tokens": 0,
+   "token_bonds_nnz": 250,
+   "template_features": {
+    "template_backbone_frame_mask": {
+     "shape": [
+      4,
+      384
+     ],
+     "nnz": 472,
+     "sum": 472.0
+    },
+    "template_distogram": {
+     "shape": [
+      4,
+      384,
+      384,
+      39
+     ],
+     "nnz": 55224,
+     "sum": 55224.0
+    },
+    "template_pseudo_beta_mask": {
+     "shape": [
+      4,
+      384
+     ],
+     "nnz": 472,
+     "sum": 472.0
+    },
+    "template_restype": {
+     "shape": [
+      4,
+      384,
+      32
+     ],
+     "nnz": 1536,
+     "sum": 1536.0
+    },
+    "template_unit_vector": {
+     "shape": [
+      4,
+      384,
+      384,
+      3
+     ],
+     "nnz": 165672,
+     "sum": 3189.364501953125
+    }
+   },
+   "template_pseudo_beta_mask_nnz": 472,
+   "loss_weights": {
+    "bond": 0.0,
+    "smooth_lddt": 4.0,
+    "mse": 4.0,
+    "distogram": 0.029999999329447746,
+    "experimentally_resolved": 9.999999747378752e-05,
+    "plddt": 9.999999747378752e-05,
+    "pae": 9.999999747378752e-05,
+    "pde": 9.999999747378752e-05
+   },
+   "confidence_loss_names": [
+    "plddt",
+    "pde",
+    "experimentally_resolved",
+    "pae"
+   ],
+   "summed_confidence_weight": 0.00039999998989515007,
+   "disabled_parameters_would_fire": false,
+   "silent_substitutions": 0,
+   "pdb_id": "1kvu",
+   "datapoint": "['10', '13']"
+  },
+  {
+   "index": 22,
+   "n_tokens_real": 384,
+   "n_atoms_real": 2429,
+   "molecule_type_tokens": {
+    "is_protein": 299,
+    "is_dna": 0,
+    "is_rna": 0,
+    "is_ligand": 85
+   },
+   "n_nucleotide_tokens": 0,
+   "token_bonds_nnz": 158,
+   "template_features": {
+    "template_backbone_frame_mask": {
+     "shape": [
+      4,
+      384
+     ],
+     "nnz": 323,
+     "sum": 323.0
+    },
+    "template_distogram": {
+     "shape": [
+      4,
+      384,
+      384,
+      39
+     ],
+     "nnz": 82478,
+     "sum": 82478.0
+    },
+    "template_pseudo_beta_mask": {
+     "shape": [
+      4,
+      384
+     ],
+     "nnz": 323,
+     "sum": 323.0
+    },
+    "template_restype": {
+     "shape": [
+      4,
+      384,
+      32
+     ],
+     "nnz": 1536,
+     "sum": 1536.0
+    },
+    "template_unit_vector": {
+     "shape": [
+      4,
+      384,
+      384,
+      3
+     ],
+     "nnz": 247434,
+     "sum": 4839.04443359375
+    }
+   },
+   "template_pseudo_beta_mask_nnz": 323,
+   "loss_weights": {
+    "bond": 0.0,
+    "smooth_lddt": 4.0,
+    "mse": 4.0,
+    "distogram": 0.029999999329447746,
+    "experimentally_resolved": 9.999999747378752e-05,
+    "plddt": 9.999999747378752e-05,
+    "pae": 9.999999747378752e-05,
+    "pde": 9.999999747378752e-05
+   },
+   "confidence_loss_names": [
+    "plddt",
+    "pde",
+    "experimentally_resolved",
+    "pae"
+   ],
+   "summed_confidence_weight": 0.00039999998989515007,
+   "disabled_parameters_would_fire": false,
+   "silent_substitutions": 0,
+   "pdb_id": "1kvu",
+   "datapoint": "['10', '14']"
+  },
+  {
+   "index": 23,
+   "n_tokens_real": 384,
+   "n_atoms_real": 2416,
+   "molecule_type_tokens": {
+    "is_protein": 301,
+    "is_dna": 0,
+    "is_rna": 0,
+    "is_ligand": 83
+   },
+   "n_nucleotide_tokens": 0,
+   "token_bonds_nnz": 172,
+   "template_features": {
+    "template_backbone_frame_mask": {
+     "shape": [
+      4,
+      384
+     ],
+     "nnz": 1172,
+     "sum": 1172.0
+    },
+    "template_distogram": {
+     "shape": [
+      4,
+      384,
+      384,
+      39
+     ],
+     "nnz": 324240,
+     "sum": 324240.0
+    },
+    "template_pseudo_beta_mask": {
+     "shape": [
+      4,
+      384
+     ],
+     "nnz": 1172,
+     "sum": 1172.0
+    },
+    "template_restype": {
+     "shape": [
+      4,
+      384,
+      32
+     ],
+     "nnz": 1536,
+     "sum": 1536.0
+    },
+    "template_unit_vector": {
+     "shape": [
+      4,
+      384,
+      384,
+      3
+     ],
+     "nnz": 972720,
+     "sum": 10344.2275390625
+    }
+   },
+   "template_pseudo_beta_mask_nnz": 1172,
+   "loss_weights": {
+    "bond": 0.0,
+    "smooth_lddt": 4.0,
+    "mse": 4.0,
+    "distogram": 0.029999999329447746,
+    "experimentally_resolved": 9.999999747378752e-05,
+    "plddt": 9.999999747378752e-05,
+    "pae": 9.999999747378752e-05,
+    "pde": 9.999999747378752e-05
+   },
+   "confidence_loss_names": [
+    "plddt",
+    "pde",
+    "experimentally_resolved",
+    "pae"
+   ],
+   "summed_confidence_weight": 0.00039999998989515007,
+   "disabled_parameters_would_fire": false,
+   "silent_substitutions": 0,
+   "pdb_id": "1kvu",
+   "datapoint": "['10', '15']"
+  },
+  {
+   "index": 24,
+   "n_tokens_real": 384,
+   "n_atoms_real": 2083,
+   "molecule_type_tokens": {
+    "is_protein": 252,
+    "is_dna": 0,
+    "is_rna": 0,
+    "is_ligand": 132
+   },
+   "n_nucleotide_tokens": 0,
+   "token_bonds_nnz": 276,
+   "template_features": {
+    "template_backbone_frame_mask": {
+     "shape": [
+      4,
+      384
+     ],
+     "nnz": 1008,
+     "sum": 1008.0
+    },
+    "template_distogram": {
+     "shape": [
+      4,
+      384,
+      384,
+      39
+     ],
+     "nnz": 135800,
+     "sum": 135800.0
+    },
+    "template_pseudo_beta_mask": {
+     "shape": [
+      4,
+      384
+     ],
+     "nnz": 1008,
+     "sum": 1008.0
+    },
+    "template_restype": {
+     "shape": [
+      4,
+      384,
+      32
+     ],
+     "nnz": 1536,
+     "sum": 1536.0
+    },
+    "template_unit_vector": {
+     "shape": [
+      4,
+      384,
+      384,
+      3
+     ],
+     "nnz": 407400,
+     "sum": 8120.40673828125
+    }
+   },
+   "template_pseudo_beta_mask_nnz": 1008,
+   "loss_weights": {
+    "bond": 0.0,
+    "smooth_lddt": 4.0,
+    "mse": 4.0,
+    "distogram": 0.029999999329447746,
+    "experimentally_resolved": 9.999999747378752e-05,
+    "plddt": 9.999999747378752e-05,
+    "pae": 9.999999747378752e-05,
+    "pde": 9.999999747378752e-05
+   },
+   "confidence_loss_names": [
+    "plddt",
+    "pde",
+    "experimentally_resolved",
+    "pae"
+   ],
+   "summed_confidence_weight": 0.00039999998989515007,
+   "disabled_parameters_would_fire": false,
+   "silent_substitutions": 0,
+   "pdb_id": "1kvu",
+   "datapoint": "['10', '2']"
+  },
+  {
+   "index": 25,
+   "n_tokens_real": 384,
+   "n_atoms_real": 2410,
+   "molecule_type_tokens": {
+    "is_protein": 301,
+    "is_dna": 0,
+    "is_rna": 0,
+    "is_ligand": 83
+   },
+   "n_nucleotide_tokens": 0,
+   "token_bonds_nnz": 172,
+   "template_features": {
+    "template_backbone_frame_mask": {
+     "shape": [
+      4,
+      384
+     ],
+     "nnz": 1114,
+     "sum": 1114.0
+    },
+    "template_distogram": {
+     "shape": [
+      4,
+      384,
+      384,
+      39
+     ],
+     "nnz": 293550,
+     "sum": 293550.0
+    },
+    "template_pseudo_beta_mask": {
+     "shape": [
+      4,
+      384
+     ],
+     "nnz": 1114,
+     "sum": 1114.0
+    },
+    "template_restype": {
+     "shape": [
+      4,
+      384,
+      32
+     ],
+     "nnz": 1536,
+     "sum": 1536.0
+    },
+    "template_unit_vector": {
+     "shape": [
+      4,
+      384,
+      384,
+      3
+     ],
+     "nnz": 880650,
+     "sum": 3440.3515625
+    }
+   },
+   "template_pseudo_beta_mask_nnz": 1114,
+   "loss_weights": {
+    "bond": 0.0,
+    "smooth_lddt": 4.0,
+    "mse": 4.0,
+    "distogram": 0.029999999329447746,
+    "experimentally_resolved": 9.999999747378752e-05,
+    "plddt": 9.999999747378752e-05,
+    "pae": 9.999999747378752e-05,
+    "pde": 9.999999747378752e-05
+   },
+   "confidence_loss_names": [
+    "plddt",
+    "pde",
+    "experimentally_resolved",
+    "pae"
+   ],
+   "summed_confidence_weight": 0.00039999998989515007,
+   "disabled_parameters_would_fire": false,
+   "silent_substitutions": 0,
+   "pdb_id": "1kvu",
+   "datapoint": "['14', '15']"
+  },
+  {
+   "index": 26,
+   "n_tokens_real": 384,
+   "n_atoms_real": 2386,
+   "molecule_type_tokens": {
+    "is_protein": 301,
+    "is_dna": 0,
+    "is_rna": 0,
+    "is_ligand": 83
+   },
+   "n_nucleotide_tokens": 0,
+   "token_bonds_nnz": 150,
+   "template_features": {
+    "template_backbone_frame_mask": {
+     "shape": [
+      4,
+      384
+     ],
+     "nnz": 614,
+     "sum": 614.0
+    },
+    "template_distogram": {
+     "shape": [
+      4,
+      384,
+      384,
+      39
+     ],
+     "nnz": 166860,
+     "sum": 166860.0
+    },
+    "template_pseudo_beta_mask": {
+     "shape": [
+      4,
+      384
+     ],
+     "nnz": 614,
+     "sum": 614.0
+    },
+    "template_restype": {
+     "shape": [
+      4,
+      384,
+      32
+     ],
+     "nnz": 1536,
+     "sum": 1536.0
+    },
+    "template_unit_vector": {
+     "shape": [
+      4,
+      384,
+      384,
+      3
+     ],
+     "nnz": 500580,
+     "sum": 7010.8515625
+    }
+   },
+   "template_pseudo_beta_mask_nnz": 614,
+   "loss_weights": {
+    "bond": 0.0,
+    "smooth_lddt": 4.0,
+    "mse": 4.0,
+    "distogram": 0.029999999329447746,
+    "experimentally_resolved": 9.999999747378752e-05,
+    "plddt": 9.999999747378752e-05,
+    "pae": 9.999999747378752e-05,
+    "pde": 9.999999747378752e-05
+   },
+   "confidence_loss_names": [
+    "plddt",
+    "pde",
+    "experimentally_resolved",
+    "pae"
+   ],
+   "summed_confidence_weight": 0.00039999998989515007,
+   "disabled_parameters_would_fire": false,
+   "silent_substitutions": 0,
+   "pdb_id": "1kvu",
+   "datapoint": "['5', '6']"
+  },
+  {
+   "index": 27,
+   "n_tokens_real": 152,
+   "n_atoms_real": 1395,
+   "molecule_type_tokens": {
+    "is_protein": 143,
+    "is_dna": 9,
+    "is_rna": 0,
+    "is_ligand": 0
+   },
+   "n_nucleotide_tokens": 9,
+   "token_bonds_nnz": 0,
+   "template_features": {
+    "template_backbone_frame_mask": {
+     "shape": [
+      4,
+      384
+     ],
+     "nnz": 230,
+     "sum": 230.0
+    },
+    "template_distogram": {
+     "shape": [
+      4,
+      384,
+      384,
+      39
+     ],
+     "nnz": 17040,
+     "sum": 17040.0
+    },
+    "template_pseudo_beta_mask": {
+     "shape": [
+      4,
+      384
+     ],
+     "nnz": 230,
+     "sum": 230.0
+    },
+    "template_restype": {
+     "shape": [
+      4,
+      384,
+      32
+     ],
+     "nnz": 1536,
+     "sum": 1536.0
+    },
+    "template_unit_vector": {
+     "shape": [
+      4,
+      384,
+      384,
+      3
+     ],
+     "nnz": 51120,
+     "sum": 4662.36376953125
+    }
+   },
+   "template_pseudo_beta_mask_nnz": 230,
+   "loss_weights": {
+    "bond": 0.0,
+    "smooth_lddt": 4.0,
+    "mse": 4.0,
+    "distogram": 0.029999999329447746,
+    "experimentally_resolved": 9.999999747378752e-05,
+    "plddt": 9.999999747378752e-05,
+    "pae": 9.999999747378752e-05,
+    "pde": 9.999999747378752e-05
+   },
+   "confidence_loss_names": [
+    "plddt",
+    "pde",
+    "experimentally_resolved",
+    "pae"
+   ],
+   "summed_confidence_weight": 0.00039999998989515007,
+   "disabled_parameters_would_fire": false,
+   "silent_substitutions": 0,
+   "pdb_id": "4hj5",
+   "datapoint": "1"
+  },
+  {
+   "index": 28,
+   "n_tokens_real": 152,
+   "n_atoms_real": 1395,
+   "molecule_type_tokens": {
+    "is_protein": 143,
+    "is_dna": 9,
+    "is_rna": 0,
+    "is_ligand": 0
+   },
+   "n_nucleotide_tokens": 9,
+   "token_bonds_nnz": 0,
+   "template_features": {
+    "template_backbone_frame_mask": {
+     "shape": [
+      4,
+      384
+     ],
+     "nnz": 237,
+     "sum": 237.0
+    },
+    "template_distogram": {
+     "shape": [
+      4,
+      384,
+      384,
+      39
+     ],
+     "nnz": 17576,
+     "sum": 17576.0
+    },
+    "template_pseudo_beta_mask": {
+     "shape": [
+      4,
+      384
+     ],
+     "nnz": 237,
+     "sum": 237.0
+    },
+    "template_restype": {
+     "shape": [
+      4,
+      384,
+      32
+     ],
+     "nnz": 1536,
+     "sum": 1536.0
+    },
+    "template_unit_vector": {
+     "shape": [
+      4,
+      384,
+      384,
+      3
+     ],
+     "nnz": 52728,
+     "sum": 4945.400390625
+    }
+   },
+   "template_pseudo_beta_mask_nnz": 237,
+   "loss_weights": {
+    "bond": 0.0,
+    "smooth_lddt": 4.0,
+    "mse": 4.0,
+    "distogram": 0.029999999329447746,
+    "experimentally_resolved": 9.999999747378752e-05,
+    "plddt": 9.999999747378752e-05,
+    "pae": 9.999999747378752e-05,
+    "pde": 9.999999747378752e-05
+   },
+   "confidence_loss_names": [
+    "plddt",
+    "pde",
+    "experimentally_resolved",
+    "pae"
+   ],
+   "summed_confidence_weight": 0.00039999998989515007,
+   "disabled_parameters_would_fire": false,
+   "silent_substitutions": 0,
+   "pdb_id": "4hj5",
+   "datapoint": "2"
+  },
+  {
+   "index": 29,
+   "n_tokens_real": 152,
+   "n_atoms_real": 1395,
+   "molecule_type_tokens": {
+    "is_protein": 143,
+    "is_dna": 9,
+    "is_rna": 0,
+    "is_ligand": 0
+   },
+   "n_nucleotide_tokens": 9,
+   "token_bonds_nnz": 0,
+   "template_features": {
+    "template_backbone_frame_mask": {
+     "shape": [
+      4,
+      384
+     ],
+     "nnz": 289,
+     "sum": 289.0
+    },
+    "template_distogram": {
+     "shape": [
+      4,
+      384,
+      384,
+      39
+     ],
+     "nnz": 26598,
+     "sum": 26598.0
+    },
+    "template_pseudo_beta_mask": {
+     "shape": [
+      4,
+      384
+     ],
+     "nnz": 289,
+     "sum": 289.0
+    },
+    "template_restype": {
+     "shape": [
+      4,
+      384,
+      32
+     ],
+     "nnz": 1536,
+     "sum": 1536.0
+    },
+    "template_unit_vector": {
+     "shape": [
+      4,
+      384,
+      384,
+      3
+     ],
+     "nnz": 79794,
+     "sum": 7366.62158203125
+    }
+   },
+   "template_pseudo_beta_mask_nnz": 289,
+   "loss_weights": {
+    "bond": 0.0,
+    "smooth_lddt": 4.0,
+    "mse": 4.0,
+    "distogram": 0.029999999329447746,
+    "experimentally_resolved": 9.999999747378752e-05,
+    "plddt": 9.999999747378752e-05,
+    "pae": 9.999999747378752e-05,
+    "pde": 9.999999747378752e-05
+   },
+   "confidence_loss_names": [
+    "plddt",
+    "pde",
+    "experimentally_resolved",
+    "pae"
+   ],
+   "summed_confidence_weight": 0.00039999998989515007,
+   "disabled_parameters_would_fire": false,
+   "silent_substitutions": 0,
+   "pdb_id": "4hj5",
+   "datapoint": "['1', '2']"
+  },
+  {
+   "index": 30,
+   "n_tokens_real": 345,
+   "n_atoms_real": 2883,
+   "molecule_type_tokens": {
+    "is_protein": 337,
+    "is_dna": 0,
+    "is_rna": 8,
+    "is_ligand": 0
+   },
+   "n_nucleotide_tokens": 8,
+   "token_bonds_nnz": 0,
+   "template_features": {
+    "template_backbone_frame_mask": {
+     "shape": [
+      4,
+      384
+     ],
+     "nnz": 1344,
+     "sum": 1344.0
+    },
+    "template_distogram": {
+     "shape": [
+      4,
+      384,
+      384,
+      39
+     ],
+     "nnz": 450240,
+     "sum": 450240.0
+    },
+    "template_pseudo_beta_mask": {
+     "shape": [
+      4,
+      384
+     ],
+     "nnz": 1344,
+     "sum": 1344.0
+    },
+    "template_restype": {
+     "shape": [
+      4,
+      384,
+      32
+     ],
+     "nnz": 1536,
+     "sum": 1536.0
+    },
+    "template_unit_vector": {
+     "shape": [
+      4,
+      384,
+      384,
+      3
+     ],
+     "nnz": 1350719,
+     "sum": 74369.390625
+    }
+   },
+   "template_pseudo_beta_mask_nnz": 1344,
+   "loss_weights": {
+    "bond": 0.0,
+    "smooth_lddt": 4.0,
+    "mse": 4.0,
+    "distogram": 0.029999999329447746,
+    "experimentally_resolved": 9.999999747378752e-05,
+    "plddt": 9.999999747378752e-05,
+    "pae": 9.999999747378752e-05,
+    "pde": 9.999999747378752e-05
+   },
+   "confidence_loss_names": [
+    "plddt",
+    "pde",
+    "experimentally_resolved",
+    "pae"
+   ],
+   "summed_confidence_weight": 0.00039999998989515007,
+   "disabled_parameters_would_fire": false,
+   "silent_substitutions": 0,
+   "pdb_id": "5kla",
+   "datapoint": "1"
+  },
+  {
+   "index": 31,
+   "n_tokens_real": 345,
+   "n_atoms_real": 2883,
+   "molecule_type_tokens": {
+    "is_protein": 337,
+    "is_dna": 0,
+    "is_rna": 8,
+    "is_ligand": 0
+   },
+   "n_nucleotide_tokens": 8,
+   "token_bonds_nnz": 0,
+   "template_features": {
+    "template_backbone_frame_mask": {
+     "shape": [
+      4,
+      384
+     ],
+     "nnz": 1343,
+     "sum": 1343.0
+    },
+    "template_distogram": {
+     "shape": [
+      4,
+      384,
+      384,
+      39
+     ],
+     "nnz": 449570,
+     "sum": 449570.0
+    },
+    "template_pseudo_beta_mask": {
+     "shape": [
+      4,
+      384
+     ],
+     "nnz": 1343,
+     "sum": 1343.0
+    },
+    "template_restype": {
+     "shape": [
+      4,
+      384,
+      32
+     ],
+     "nnz": 1536,
+     "sum": 1536.0
+    },
+    "template_unit_vector": {
+     "shape": [
+      4,
+      384,
+      384,
+      3
+     ],
+     "nnz": 1348710,
+     "sum": 73785.1875
+    }
+   },
+   "template_pseudo_beta_mask_nnz": 1343,
+   "loss_weights": {
+    "bond": 0.0,
+    "smooth_lddt": 4.0,
+    "mse": 4.0,
+    "distogram": 0.029999999329447746,
+    "experimentally_resolved": 9.999999747378752e-05,
+    "plddt": 9.999999747378752e-05,
+    "pae": 9.999999747378752e-05,
+    "pde": 9.999999747378752e-05
+   },
+   "confidence_loss_names": [
+    "plddt",
+    "pde",
+    "experimentally_resolved",
+    "pae"
+   ],
+   "summed_confidence_weight": 0.00039999998989515007,
+   "disabled_parameters_would_fire": false,
+   "silent_substitutions": 0,
+   "pdb_id": "5kla",
+   "datapoint": "2"
+  },
+  {
+   "index": 32,
+   "n_tokens_real": 345,
+   "n_atoms_real": 2883,
+   "molecule_type_tokens": {
+    "is_protein": 337,
+    "is_dna": 0,
+    "is_rna": 8,
+    "is_ligand": 0
+   },
+   "n_nucleotide_tokens": 8,
+   "token_bonds_nnz": 0,
+   "template_features": {
+    "template_backbone_frame_mask": {
+     "shape": [
+      4,
+      384
+     ],
+     "nnz": 1344,
+     "sum": 1344.0
+    },
+    "template_distogram": {
+     "shape": [
+      4,
+      384,
+      384,
+      39
+     ],
+     "nnz": 450240,
+     "sum": 450240.0
+    },
+    "template_pseudo_beta_mask": {
+     "shape": [
+      4,
+      384
+     ],
+     "nnz": 1344,
+     "sum": 1344.0
+    },
+    "template_restype": {
+     "shape": [
+      4,
+      384,
+      32
+     ],
+     "nnz": 1536,
+     "sum": 1536.0
+    },
+    "template_unit_vector": {
+     "shape": [
+      4,
+      384,
+      384,
+      3
+     ],
+     "nnz": 1350718,
+     "sum": 74722.1484375
+    }
+   },
+   "template_pseudo_beta_mask_nnz": 1344,
+   "loss_weights": {
+    "bond": 0.0,
+    "smooth_lddt": 4.0,
+    "mse": 4.0,
+    "distogram": 0.029999999329447746,
+    "experimentally_resolved": 9.999999747378752e-05,
+    "plddt": 9.999999747378752e-05,
+    "pae": 9.999999747378752e-05,
+    "pde": 9.999999747378752e-05
+   },
+   "confidence_loss_names": [
+    "plddt",
+    "pde",
+    "experimentally_resolved",
+    "pae"
+   ],
+   "summed_confidence_weight": 0.00039999998989515007,
+   "disabled_parameters_would_fire": false,
+   "silent_substitutions": 0,
+   "pdb_id": "5kla",
+   "datapoint": "['1', '2']"
+  },
+  {
+   "index": 33,
+   "n_tokens_real": 374,
+   "n_atoms_real": 2832,
+   "molecule_type_tokens": {
+    "is_protein": 374,
+    "is_dna": 0,
+    "is_rna": 0,
+    "is_ligand": 0
+   },
+   "n_nucleotide_tokens": 0,
+   "token_bonds_nnz": 28,
+   "template_features": {
+    "template_backbone_frame_mask": {
+     "shape": [
+      4,
+      384
+     ],
+     "nnz": 190,
+     "sum": 190.0
+    },
+    "template_distogram": {
+     "shape": [
+      4,
+      384,
+      384,
+      39
+     ],
+     "nnz": 9348,
+     "sum": 9348.0
+    },
+    "template_pseudo_beta_mask": {
+     "shape": [
+      4,
+      384
+     ],
+     "nnz": 190,
+     "sum": 190.0
+    },
+    "template_restype": {
+     "shape": [
+      4,
+      384,
+      32
+     ],
+     "nnz": 1536,
+     "sum": 1536.0
+    },
+    "template_unit_vector": {
+     "shape": [
+      4,
+      384,
+      384,
+      3
+     ],
+     "nnz": 28044,
+     "sum": 1801.34521484375
+    }
+   },
+   "template_pseudo_beta_mask_nnz": 190,
+   "loss_weights": {
+    "bond": 0.0,
+    "smooth_lddt": 4.0,
+    "mse": 4.0,
+    "distogram": 0.029999999329447746,
+    "experimentally_resolved": 0.0,
+    "plddt": 0.0,
+    "pae": 0.0,
+    "pde": 0.0
+   },
+   "confidence_loss_names": [
+    "plddt",
+    "pde",
+    "experimentally_resolved",
+    "pae"
+   ],
+   "summed_confidence_weight": 0.0,
+   "disabled_parameters_would_fire": true,
+   "silent_substitutions": 0,
+   "pdb_id": "5oid",
+   "datapoint": "1"
+  }
+ ],
+ "total_s": 128.7659056186676
+}

@@ -1,0 +1,36 @@
+host j10glx02   leases /home/agent/leases
+ card  node      fd  pinned   held   free  lease
+    0    16     yes     yes    yes         held/live worker:mgx-diffusion
+    1    17       -       -      -      -  cardblocked
+    2    18     yes     yes    yes         held/live worker:mgx-msa-depth
+    3    19     yes     yes    yes         held/live worker:mgx-accuracy
+    4    20     yes     yes    yes         held/live worker:mgx-embed-scale
+    5    21     yes     yes    yes         held/live worker:mgx-affinity-scale
+    6    22     yes     yes    yes         held/live worker:mgx-speed
+    7    23     yes     yes    yes         held/live worker:mgx-speed
+    8    24     yes     yes    yes         held/live worker:mgx-speed
+    9    25     yes     yes    yes         held/live worker:mgx-ceilings
+   10    26     yes     yes    yes         held/live worker:mgx-affinity-scale
+   11    27     yes     yes    yes         held/live worker:mgx-speed
+   12    28     yes     yes    yes         held/live worker:mgx-accuracy
+   13    29     yes     yes    yes         held/live worker:mgx-instrument
+   14    30     yes     yes                stale worker:mgx-msa-depth
+   15    31     yes     yes    yes         held/live worker:mgx-combos
+   16     8     yes     yes    yes         held/live worker:mgx-speed
+   17     9     yes     yes    yes         held/live worker:mgx-diffusion
+   18    10     yes     yes                stale worker:mgx-msa-depth
+   19    11     yes     yes    yes         held/live worker:mgx-speed
+   20    12     yes     yes    yes         held/live worker:mgx-ceilings
+   21    13     yes     yes    yes         held/live worker:mgx-affinity-scale
+   22    14     yes     yes    yes         held/live worker:mgx-affinity-scale
+   23    15     yes     yes    yes         held/live worker:mgx-combos
+   24     0       -       -      -      -  cardblocked
+   25     1       -       -      -      -  cardblocked
+   26     2       -       -      -      -  cardblocked
+   27     3       -       -      -      -  cardblocked
+   28     4     yes     yes    yes         held/live worker:mgx-instrument
+   29     5     yes     yes    yes         held/live worker:mgx-msa-depth
+   30     6     yes     yes    yes         held/live worker:mgx-diffusion
+   31     7     yes     yes                released worker:mgx-msa-depth
+
+open 32  pinned 32  held 29  FREE [] (0 of 27 usable)

@@ -1,0 +1,49 @@
+FAS 768, a single chain at the residue count where GroEL collapsed — INTERMEDIATE
+===================================================================================
+
+Read 2026-09-24 21:2xZ against plans/fas_768.txt, committed 20:2xZ before the cell launched,
+with the clause block of perf/mgxaccuracy/fas_read.py, written 20:0xZ and exercised on
+synthetic cells for both of its branches. Cell launched 20:28Z on whglx card 0, tree
+ff5435cba, landed 21:18Z. rc 0, n=8, AICLK median 1000 over n=1253 samples taken DURING the
+fold, wall 2984.5 s against ~3.2 ks pre-registered. Fixture checked on disk before the numbers
+were read: 768 CA, chain A only.
+
+    size   n   median     range              <=2A    <=4A
+     512   8    3.782    1.363-11.155     12.5%   50.0%
+     768   8    9.050    1.435-17.952     12.5%   25.0%
+
+    512 -> 768   +5.268 A   U = 16.0 of 64   exact p = 0.1049   does not reject
+
+VERDICT: INTERMEDIATE. Neither clause fires. SURVIVES needs median <= 4.0 and >= 4 of 8 under
+the bar; the median is 9.050. COLLAPSED needs <= 1 of 8 under the bar AND the rank test to
+reject; there are 2 of 8 and p = 0.1049. plans/fas_768.txt named this outcome as the likely
+one before the cell existed, on the grounds that FAS starts at 3.782 A with 4 of 8 under the
+bar where GroEL started at 0.852 with 5 of 8 under the STRICT 2 A bar, so FAS had less room to
+fall before crossing. That prediction held.
+
+WHAT CAN AND CANNOT BE SAID
+----------------------------
+
+WITHIN FAS, which is the only reading the plan allows: the fall from 512 to 768 is +5.268 A and
+is NOT demonstrable at n=8. The single-chain ladder has not yet shown a ceiling.
+
+ACROSS TARGETS, which is an observation and NOT evidence: GroEL at 768 residues with a second
+chain in the crop returned 0 of 8 under 4 A on BOTH crops, with perfect separation from its own
+512 (U = 0.0 of 64, p = 0.0002). FAS at the same 768 residues with one chain returned 2 of 8
+and does not separate from its own 512. That points the way the chain hypothesis predicts. It
+is not evidence for it, because FAS and GroEL differ in target AND in chain count and this row
+has already published how much scRMSD varies between targets at a fixed size — 0.9 A to 17.8 A
+across the 512 cells alone. Reading a cross-target difference as a chain effect is exactly the
+inference plans/chain_vs_residues.txt forbids, and exactly the shape of the error recorded in
+`agreeing-padded-controls-are-not-evidence-about-the-variable`.
+
+The deciding cell is FAS 1536, running, ETA ~23:12Z. Every multi-chain 1536 cell in this row —
+four across two targets — returned 0 of 8 under 4 A. A single-chain 1536 cell that does not is
+the clause `chain_vs_residues.txt` calls CHAIN COUNT IS THE CARRIER; one that does is RESIDUE
+COUNT IS THE CARRIER. This 768 rung sharpens neither and was never going to: it is one extra
+rung on the way there.
+
+A READER DEFECT FOUND BY THIS CELL. The 768 block sat AFTER the reader's 512/1024/1536
+completeness gate, which returns early. With 1024 and 1536 still running, a landed 768 cell
+therefore printed nothing at all — silent, not loud, the same class as a SIZES tuple that omits
+a size. Moved before the gate and guarded on its own two cells; `--selfcheck` still passes.

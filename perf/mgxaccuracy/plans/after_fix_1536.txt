@@ -1,0 +1,24 @@
+# The AFTER arm: does cc908c377 move the 1536 designability, or is the size effect real?
+#
+# Measured pre-fix, same target, same spec: 512 median 8.455 A over eight designs against
+# 1536 median 18.856 A over four, ZERO overlap, U=0, z=2.72, and the 1536 median 8.30 A above
+# the top of the 512 across-target band. By this row's pre-registered rule that is a size
+# effect (results/size_signal_partial.txt).
+#
+# It has one named candidate mechanism and the fix for it is already on main. cc908c377
+# corrects TokenDistanceRecycle, which injects the TARGET's token distances into the pair
+# representation -- the conditioning a binder design is built on. Before it, the module
+# returned twice the pairformer's output instead of its input plus the update. An error in
+# that module is exactly the shape that would grow with token count, and both shipped
+# checkpoints have the module on (results/token_distance_fires.txt).
+#
+# So this is the experiment that decides between "1536 is harder for boltzgen" and "the port
+# had a conditioning bug that got worse with size". Same fixture, same 8 designs, same
+# budget, on the FIXED engine -- run it from ~/wt-mgx-catcher or any tree containing
+# cc908c377, which launch_if_clear.sh now enforces.
+#
+# The 512 rung goes with it. Without it, a lower 1536 number after the fix cannot be told
+# from a lower number everywhere, and the catcher's two designs at 512 are not a
+# distribution.
+--model boltzgen --target perf/mgxaccuracy/targets/gpb_dimer_1646.cif --target-res 512  --designs 8 --budget 8 --score-dsg --host-threads 2 --timeout 14400 --tag fixed
+--model boltzgen --target perf/mgxaccuracy/targets/gpb_dimer_1646.cif --target-res 1536 --designs 8 --budget 8 --score-dsg --host-threads 2 --timeout 32400 --tag fixed

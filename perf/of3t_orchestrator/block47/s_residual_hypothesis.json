@@ -1,0 +1,46 @@
+{
+ "hypothesis": "block 47 fails because the trunk Pairformer carries its SINGLE-track residual in bf16 while the residual has grown far past the size of the per-block update, so the update is quantised away. tt_bio/tenstorrent.py already implements the remedy as `s_fp32_residual`, and openfold3_confidence.py:101 already turns it on for the CONFIDENCE Pairformer. openfold3_trunk.py:152 does not pass it, so the trunk runs at the default False.",
+ "probe_norms_from_the_rows_own_bundles": {
+  "s_norm": {
+   "0": 5850.2,
+   "23": 1519000.0,
+   "47": 2149300.0
+  },
+  "z_norm": {
+   "0": 1320400.0,
+   "23": 1319100.0,
+   "47": 1293700.0
+  },
+  "gradient_median_shipped_arm": {
+   "0": 0.0121,
+   "23": 0.0192,
+   "47": 0.9439
+  }
+ },
+ "single_track_growth": {
+  "block0_to_block47": 367.38914908892,
+  "block0_to_block23": 259.64924276093126,
+  "block23_to_block47": 1.4149440421329822
+ },
+ "pair_track_growth": {
+  "block0_to_block47": 0.9797788548924569
+ },
+ "mean_per_block_fractional_update": {
+  "blocks_0_to_23": 0.2734249376285922,
+  "blocks_23_to_47": 0.014567164545653988
+ },
+ "bf16_relative_resolution": 0.00390625,
+ "update_in_units_of_bf16_resolution": {
+  "blocks_0_to_23": 69.9967840329196,
+  "blocks_23_to_47": 3.729194123687421
+ },
+ "caveats": [
+  "s_norm is an L2 norm over the probe tensor, not an absmax, so it cannot be compared directly to the 2.28e5 absmax cited in the s_fp32_residual comment without the tensor shape.",
+  "The per-block fractional update figures are SEGMENT MEANS over 23 and 24 blocks, not local values at blocks 23 and 47; the true profile declines monotonically and the local value at block 47 is smaller than the segment mean shown.",
+  "Block 23 already sits at 70.7 percent of block 47 s_norm yet its gradient median is 49x better. s_norm alone therefore does NOT order the failures, and the experiment must carry block 23 as a control. If block 23 does not move and block 47 does, the mechanism is threshold-like; if both move, it is graded; if neither moves, the hypothesis is refuted.",
+  "This is a forward-residual dtype change. Whether it reaches the WEIGHT gradient is exactly what the experiment measures and is not assumed here.",
+  "Turning it on in the trunk is release-gated: it changes accuracy and costs one [B, L, c_s] fp32 tensor. Keep it on the branch, flag it, do not merge it."
+ ],
+ "experiment": "re-run the existing crop-64 instrument-A arms at blocks 0, 23 and 47 with the trunk Pairformer constructed s_fp32_residual=True, everything else identical. One flag, three arms, same harness, same frozen bundle.",
+ "prediction_registered_before_the_run": "block 47 median falls by more than 2x; block 0 moves by less than 20 percent; the pair track (tri_mul_*, tri_att_*) moves less than the single track (attn_pair_bias.*, single_transition.*), because z does not grow through the stack (0.980x) while s does (367x)."
+}

@@ -1,0 +1,4 @@
+{
+ "verdict": "FAIL",
+ "detail": "off the committed floor: predicted_lddt_head#0/logits ratio 5.3598 > 1.10x committed 4.7705; scalar i_ptm delta 0.008492 > 1.10x committed 0.006652"
+}

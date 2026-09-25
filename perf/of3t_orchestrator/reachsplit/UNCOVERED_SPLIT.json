@@ -1,0 +1,114 @@
+{
+  "what": "the squared-gradient-norm share the parameter walk does not fully cover, by tensor",
+  "source": "/tmp/of3t/of3t-orchestrator/compose/perf/of3t_rebind/REACH_SHARE.json",
+  "reference_sq_norm": 10.279642678524985,
+  "pct_fully_covered": 95.12858566374045,
+  "pct_not_covered": 4.871414336259545,
+  "by_tensor_top15": [
+    {
+      "tensor": "aux_heads.distogram.linear.weight",
+      "sq_norm": 0.292264138413571,
+      "pct_of_model": 2.8431351901378314
+    },
+    {
+      "tensor": "input_embedder.atom_attn_enc.linear_q.0.weight",
+      "sq_norm": 0.07612126831763757,
+      "pct_of_model": 0.7405050029283716
+    },
+    {
+      "tensor": "diffusion_module.atom_attn_enc.ref_atom_feature_embedder.linear_ref_pos.weight",
+      "sq_norm": 0.0692234667012629,
+      "pct_of_model": 0.6734034330383526
+    },
+    {
+      "tensor": "diffusion_module.atom_attn_enc.ref_atom_feature_embedder.linear_ref_atom_chars.weight",
+      "sq_norm": 0.005370421931692652,
+      "pct_of_model": 0.05224327439816467
+    },
+    {
+      "tensor": "diffusion_module.diffusion_transformer.blocks.8.attention_pair_bias.mha.linear_v.weight",
+      "sq_norm": 0.004069836154439106,
+      "pct_of_model": 0.03959122200756381
+    },
+    {
+      "tensor": "diffusion_module.diffusion_transformer.blocks.10.attention_pair_bias.mha.linear_v.weight",
+      "sq_norm": 0.0037108956998010358,
+      "pct_of_model": 0.036099461974037295
+    },
+    {
+      "tensor": "diffusion_module.diffusion_transformer.blocks.10.attention_pair_bias.mha.linear_q.weight",
+      "sq_norm": 0.0034566697899963148,
+      "pct_of_model": 0.03362636132496688
+    },
+    {
+      "tensor": "diffusion_module.diffusion_transformer.blocks.5.attention_pair_bias.mha.linear_v.weight",
+      "sq_norm": 0.001909469186277506,
+      "pct_of_model": 0.018575248634532245
+    },
+    {
+      "tensor": "diffusion_module.atom_attn_enc.ref_atom_feature_embedder.linear_ref_mask.weight",
+      "sq_norm": 0.0013029218254034327,
+      "pct_of_model": 0.012674777384289272
+    },
+    {
+      "tensor": "input_embedder.atom_attn_enc.ref_atom_feature_embedder.linear_ref_atom_chars.weight",
+      "sq_norm": 0.0012902418165119767,
+      "pct_of_model": 0.012551426706760902
+    },
+    {
+      "tensor": "diffusion_module.diffusion_transformer.blocks.13.attention_pair_bias.mha.linear_k.weight",
+      "sq_norm": 0.0011956710217420263,
+      "pct_of_model": 0.011631445363756475
+    },
+    {
+      "tensor": "diffusion_module.atom_attn_enc.ref_atom_feature_embedder.linear_ref_element.weight",
+      "sq_norm": 0.0011244021812551045,
+      "pct_of_model": 0.010938144606952853
+    },
+    {
+      "tensor": "diffusion_module.diffusion_transformer.blocks.10.attention_pair_bias.mha.linear_k.weight",
+      "sq_norm": 0.0009547904517766223,
+      "pct_of_model": 0.009288167708117499
+    },
+    {
+      "tensor": "diffusion_module.diffusion_transformer.blocks.8.attention_pair_bias.mha.linear_q.weight",
+      "sq_norm": 0.0009402139002422931,
+      "pct_of_model": 0.009146367530911137
+    },
+    {
+      "tensor": "diffusion_module.diffusion_transformer.blocks.13.attention_pair_bias.mha.linear_q.weight",
+      "sq_norm": 0.0008395323604897013,
+      "pct_of_model": 0.008166941077081923
+    }
+  ],
+  "by_section_top15": {
+    "aux_heads": {
+      "sq_norm": 0.292264138413571,
+      "pct_of_model": 2.8431351901378314
+    },
+    "input_embedder": {
+      "sq_norm": 0.07741151013414956,
+      "pct_of_model": 0.7530564296351325
+    },
+    "diffusion_module.atom_attn_enc": {
+      "sq_norm": 0.0770212126396141,
+      "pct_of_model": 0.7492596294277594
+    },
+    "diffusion_module.diffusion_transformer": {
+      "sq_norm": 0.017077078564764606,
+      "pct_of_model": 0.16612521562096727
+    }
+  },
+  "tail": {
+    "n_names": 1477,
+    "sq_norm": 0.036990047405821624,
+    "pct_of_model": 0.3598378714378551,
+    "note": "not enumerated by the source artifact; reported as a lump rather than attributed"
+  },
+  "readings": [
+    "The whole 2.8431 % that D127 attributed to 'aux_heads output projections' is ONE tensor: aux_heads.distogram.linear.weight.",
+    "diffusion_module.diffusion_transformer contributes 0.1661 % across attention_pair_bias mha linear_q/k/v in blocks 5, 8, 10 and 13. Those tensors certainly have device gradients -- the diffusion transformer is this campaign's most-measured scope -- so their being 'not covered' is a NAME-MATCHING failure, which settles the mechanism for the class rather than arguing it.",
+    "diffusion_module.atom_attn_enc contributes 0.7493 % and appears in D127 not at all; it is most of the 1.2276 % the orchestrator flagged as unaccounted at pass 227.",
+    "input_embedder's uncovered share is 0.7531 %, not the 0.8007 % D127 quoted: that figure was the whole section from a different instrument's table, and ~0.0476 % of it IS covered."
+  ]
+}

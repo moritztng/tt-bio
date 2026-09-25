@@ -1,0 +1,26 @@
+{
+ "as_of": "2026-09-20, orchestrator pass 176 -- WRITTEN AND COMMITTED BEFORE THE ARM RAN",
+ "what": "The one arm THE_TRUNK_BIAS_IS_A_REVISION_DIFFERENCE recorded as 'the cheapest confirmation still owed': upstream's OWN 0.4.3 PairFormerStack against upstream's OWN 0.5.0 PairFormerStack, same p2 weights, same real captured boundary. It settles by measurement whether the transpose_bias orientation alone accounts for of3t-trunkfwd's 46.67x, or whether something else carries it.",
+ "why_preregistered": "The previous magnitude attempt (ORIENTATION_IS_SUFFICIENT) was WITHDRAWN because the answer swung 0.81x / 135x / 3083x with the weights and the denominator, and the variant published first was the one that agreed with the hypothesis. So the weights, the input, the denominator and the branches are fixed here in advance.",
+
+ "the_inputs_are_pinned": {
+  "weights": "/home/moritz/.boltz/of3-p2-155k.pt, sha256 af09eac4f29cef856633af07558cb143226fe95ebbef2c20921769d4a5f4bee4 (the bundle's own checkpoint). REAL trained weights, not a draw -- the free parameter that broke the last attempt.",
+  "input": "the REAL pairformer-stack boundary (s, z, single_mask, pair_mask) captured from upstream 0.4.3's own full-model forward on bundle_min_043/batch_step003.pt (5nw3, 56 real tokens padded to 384), not an iid draw.",
+  "both_stacks": "constructed from their own release tree's model_config, loaded from the SAME p2 tensors. No weight differs between the revisions -- that is the premise D90 rests on and the control below tests it."
+ },
+
+ "denominator_A15": "relative L2 is reported against BOTH norms explicitly: ||d||/||out_050|| (the campaign's convention -- the 0.5.0-built bundle is the reference) and ||d||/||out_043||. The headline uses ||out_050||. Norm ratio and error cosine are reported beside every distance, never the relative alone.",
+ "headline_tensor": "the PAIR track z, where transpose_bias acts. The single track s is reported beside it and should move only through block-to-block coupling.",
+
+ "the_unit": "R = rel(043 vs 050, fp32) / rel(043-bf16 vs 043-fp32). The denominator is upstream's OWN bf16 error on this same tensor, which is the unit of_trunkfwd's '46.67x' and of the 'conventions matched, 8.31x' reading. Same unit or the comparison is meaningless.",
+
+ "branches_fixed_in_advance": {
+  "CONTROL_first": "0.4.3 stack vs 0.5.0 stack with 0.5.0's tri_att_end call monkeypatched back to transpose_bias=False MUST read EXACTLY 0.0. base_blocks.py differs between the revisions by exactly one added line, so anything above 0 means another change on the path is live and NONE of the branches below may be read.",
+  "A_confirmed": "R in [20, 110] -- the orientation flag alone is of the order of the 46.67x. D90's withdrawal is confirmed by measurement as well as by reading.",
+  "B_too_small": "R < 10 -- the flag cannot account for the trunkfwd reading. D90's source reading still stands (the revisions DO differ) but the magnitude is unexplained, and D93's unquantified use_high_precision_attention change becomes the leading candidate. REOPEN.",
+  "C_overshoots": "R > 110 -- the flag alone is larger than what was observed, so our port's own error partially CANCELS the revision difference. That is a different finding from either and must be reported as such, not rounded to 'confirmed'."
+ },
+
+ "the_caveat_registered_up_front": "of3t-trunkfwd's 46.67x was measured on device at its own size; this arm is CPU at 384 padded tokens. I am testing ORDER OF MAGNITUDE, not exact equality, and the band [20,110] is set that wide on purpose. A result inside the band does not license quoting this number as of3t-trunkfwd's.",
+ "what_this_arm_CANNOT_see": "D93's second trunk revision difference -- 0.5.0's trunk passes use_high_precision_attention=True and 0.4.3's does not. Both it and the moved score-value einsum act through torch.amp.autocast('cuda', ...), inert on CPU. So branch A, if it fires, confirms the orientation flag and says NOTHING about D93's size."
+}

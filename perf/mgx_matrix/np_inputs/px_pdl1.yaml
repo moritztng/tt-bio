@@ -1,0 +1,7 @@
+target:
+  file: "../../../tests/fixtures/pxdesign/5o45.cif.gz"
+  chains:
+    A:
+      crop: ["1-116"]
+      hotspots: [40, 99, 107]
+binder_length: 80

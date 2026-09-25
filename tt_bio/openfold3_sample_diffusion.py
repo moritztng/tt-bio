@@ -89,6 +89,18 @@ class OF3SampleDiffusion:
         self.ckc = compute_kernel_config
         self.device = self.dc.device
 
+    def to_act_dtype(self, x):
+        """The fp32-diffusion boundary, as a method so both callers cross it the same way.
+
+        `OF3_DIFFUSION_FP32_DEVICE` (default on) builds this module's weights in fp32 while
+        the trunk stays bf16, so every trunk-side tensor is upcast once before any diffusion
+        op sees it. The rollout does it inline; a TRAINING forward that drives `dc`/`dm`
+        directly has to do exactly the same thing, and a second copy of the rule is how the
+        two drift into handing fp32 weights bf16 activations. Same op, same order, so the
+        shipped rollout is unchanged.
+        """
+        return ttnn.typecast(x, self._act_dtype) if x.dtype == ttnn.bfloat16 else x
+
     def _to_dev(self, x, dtype=None, layout=ttnn.TILE_LAYOUT):
         if dtype is None:
             dtype = self._act_dtype
@@ -107,10 +119,7 @@ class OF3SampleDiffusion:
         python lists of host tensors/floats from the golden. Returns final xl [1, n_atom, 3] device."""
         pair_inputs = (zij_trunk_dev, relpos_dev)
         if self._act_dtype != ttnn.bfloat16:
-            # fp32-diffusion boundary (OF3_DIFFUSION_FP32_DEVICE): the trunk-side
-            # tensors arrive bf16; upcast once here so every DM op sees one dtype.
-            def _c(x):
-                return ttnn.typecast(x, self._act_dtype) if x.dtype == ttnn.bfloat16 else x
+            _c = self.to_act_dtype
             si_trunk_dev, si_input_dev = _c(si_trunk_dev), _c(si_input_dev)
             zij_trunk_dev, relpos_dev = _c(zij_trunk_dev), _c(relpos_dev)
             cl0_dev, plm0_dev = _c(cl0_dev), _c(plm0_dev)

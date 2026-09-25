@@ -1,0 +1,5 @@
+target:
+  file: "../../../tests/fixtures/pxdesign/5o45.cif.gz"
+  chains:
+    A: {}
+binder_length: 60

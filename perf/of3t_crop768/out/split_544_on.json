@@ -1,0 +1,2487 @@
+{
+ "doc": "Who owns the bytes at the backward's DRAM high-water, at a crop where it COMPLETES.",
+ "argv": [
+  "--tokens",
+  "544",
+  "--walk-from-gb",
+  "18",
+  "--walk-step-mb",
+  "32",
+  "--dead-values",
+  "on",
+  "--out",
+  "perf/of3t_crop768/out/split_544_on.json"
+ ],
+ "env": {
+  "host": "tt-quietbox",
+  "tt_visible_devices": "1",
+  "tt_bio_lease_cards": "0,1",
+  "commit": "61909cf29d7f1ce14921ae75b382f87dd7bea305",
+  "branch": "wk/of3t-crop768",
+  "started_utc": "2026-09-21T17:26:38Z",
+  "loadavg": [
+   1.5830078125,
+   0.74951171875,
+   0.4951171875
+  ],
+  "drop_dead_values": true,
+  "arch": "Arch.BLACKHOLE",
+  "aiclk_during": {
+   "0": {
+    "min": 800,
+    "max": 1350,
+    "median": 1350,
+    "n": 74
+   }
+  },
+  "aiclk_line": "CLOCK: dev0 min 800 / median 1350 / max 1350 MHz over 74 samples, polled DURING the work"
+ },
+ "build_fold_s": 4.94,
+ "prep_to_sampler_s": 101.79,
+ "capture": {
+  "trunk_inputs_snapshotted": true,
+  "trunk_inputs_dead_at_capture": 0,
+  "trunk_forward_s": 76.636,
+  "trunk_forward_note": "the shipped call, progress_fn INCLUDED and cold; the timed arms below drop it",
+  "trunk_cycles": 4,
+  "reached_sampler": true
+ },
+ "params": {
+  "declared": 2531,
+  "elements": 165180992,
+  "by_rank": {
+   "1": 1130,
+   "2": 1401
+  },
+  "walk_depth_reached": 9,
+  "walk_truncated_at_limit": 8,
+  "cache_attrs_skipped": 324,
+  "pairformer_weights": 2256,
+  "deepest_name": "trunk.msa_module.blocks.0.pair_stack.transition_z.fc1_weight"
+ },
+ "forward": {
+  "cycles": 1,
+  "inputs_dram_b": 2064921600,
+  "ok": true,
+  "s": 116.31,
+  "dram_peak_b": 13280228352,
+  "l1_peak_b": 0,
+  "at_verb": "typecast",
+  "blocks_entered": {
+   "template_pair_stack": 1,
+   "msa_module": 1,
+   "pairformer": 1
+  }
+ },
+ "backward": {
+  "tape_nodes": 2473,
+  "outer_tensors_noted": 2474,
+  "ckpt_pins": 106,
+  "walk": {
+   "label": "backward high-water",
+   "dram_now_b": 26487845888,
+   "census_total_b": 26487845888,
+   "census_dram_b": 26487845888,
+   "buffers": 4180,
+   "duplicate_addresses": 0,
+   "live_taped_tensors": 2884,
+   "by_owner": {
+    "boundaries": {
+     "n": 106,
+     "b": 4045733888,
+     "dram_b": 4045733888,
+     "l1_b": 0
+    },
+    "weights": {
+     "n": 2531,
+     "b": 359055360,
+     "dram_b": 359055360,
+     "l1_b": 0
+    },
+    "weight_grads": {
+     "n": 35,
+     "b": 2949120,
+     "dram_b": 2949120,
+     "l1_b": 0
+    },
+    "tape": {
+     "n": 48,
+     "b": 1655521280,
+     "dram_b": 1655521280,
+     "l1_b": 0
+    },
+    "cotangents": {
+     "n": 1,
+     "b": 75759616,
+     "dram_b": 75759616,
+     "l1_b": 0
+    },
+    "recompute": {
+     "n": 77,
+     "b": 17183309824,
+     "dram_b": 17183309824,
+     "l1_b": 0
+    },
+    "other_leaf": {
+     "n": 4,
+     "b": 524288,
+     "dram_b": 524288,
+     "l1_b": 0
+    }
+   },
+   "owner_share_of_dram_pct": {
+    "boundaries": 15.27,
+    "weights": 1.36,
+    "weight_grads": 0.01,
+    "tape": 6.25,
+    "cotangents": 0.29,
+    "recompute": 64.87,
+    "other_leaf": 0.0
+   },
+   "unattributed": {
+    "n": 1378,
+    "b": 3164992512,
+    "dram_b": 3164992512,
+    "dram_share_pct": 11.95,
+    "top_by_bytes": [
+     {
+      "each_b": 1287913472,
+      "n": 1,
+      "total_b": 1287913472
+     },
+     {
+      "each_b": 4718592,
+      "n": 72,
+      "total_b": 339738624
+     },
+     {
+      "each_b": 75759616,
+      "n": 4,
+      "total_b": 303038464
+     },
+     {
+      "each_b": 9437184,
+      "n": 24,
+      "total_b": 226492416
+     },
+     {
+      "each_b": 18939904,
+      "n": 9,
+      "total_b": 170459136
+     },
+     {
+      "each_b": 151519232,
+      "n": 1,
+      "total_b": 151519232
+     },
+     {
+      "each_b": 113639424,
+      "n": 1,
+      "total_b": 113639424
+     },
+     {
+      "each_b": 2359296,
+      "n": 48,
+      "total_b": 113246208
+     },
+     {
+      "each_b": 35913728,
+      "n": 3,
+      "total_b": 107741184
+     },
+     {
+      "each_b": 94699520,
+      "n": 1,
+      "total_b": 94699520
+     }
+    ]
+   },
+   "shapes": {
+    "boundaries": [
+     {
+      "shape": [
+       1,
+       544,
+       544,
+       128
+      ],
+      "dtype": "DataType.BFLOAT16",
+      "space": "DRAM",
+      "n": 52
+     },
+     {
+      "shape": [
+       1,
+       544,
+       384
+      ],
+      "dtype": "DataType.BFLOAT16",
+      "space": "DRAM",
+      "n": 48
+     },
+     {
+      "shape": [
+       1,
+       36,
+       544,
+       64
+      ],
+      "dtype": "DataType.BFLOAT16",
+      "space": "DRAM",
+      "n": 4
+     },
+     {
+      "shape": [
+       1,
+       544,
+       544,
+       64
+      ],
+      "dtype": "DataType.BFLOAT16",
+      "space": "DRAM",
+      "n": 2
+     }
+    ],
+    "weights": [
+     {
+      "shape": [
+       128
+      ],
+      "dtype": "DataType.BFLOAT16",
+      "space": "DRAM",
+      "n": 838
+     },
+     {
+      "shape": [
+       128,
+       128
+      ],
+      "dtype": "DataType.BFLOAT16",
+      "space": "DRAM",
+      "n": 417
+     },
+     {
+      "shape": [
+       128,
+       512
+      ],
+      "dtype": "DataType.BFLOAT16",
+      "space": "DRAM",
+      "n": 208
+     },
+     {
+      "shape": [
+       384
+      ],
+      "dtype": "DataType.BFLOAT16",
+      "space": "DRAM",
+      "n": 194
+     },
+     {
+      "shape": [
+       384,
+       1536
+      ],
+      "dtype": "DataType.BFLOAT16",
+      "space": "DRAM",
+      "n": 144
+     },
+     {
+      "shape": [
+       128,
+       4
+      ],
+      "dtype": "DataType.BFLOAT16",
+      "space": "DRAM",
+      "n": 104
+     },
+     {
+      "shape": [
+       128,
+       384
+      ],
+      "dtype": "DataType.BFLOAT16",
+      "space": "DRAM",
+      "n": 104
+     },
+     {
+      "shape": [
+       128,
+       544
+      ],
+      "dtype": "DataType.BFLOAT16",
+      "space": "DRAM",
+      "n": 104
+     }
+    ],
+    "weight_grads": [
+     {
+      "shape": [
+       128
+      ],
+      "dtype": "DataType.BFLOAT16",
+      "space": "DRAM",
+      "n": 12
+     },
+     {
+      "shape": [
+       128,
+       128
+      ],
+      "dtype": "DataType.FLOAT32",
+      "space": "DRAM",
+      "n": 9
+     },
+     {
+      "shape": [
+       128,
+       512
+      ],
+      "dtype": "DataType.FLOAT32",
+      "space": "DRAM",
+      "n": 4
+     },
+     {
+      "shape": [
+       128
+      ],
+      "dtype": "DataType.FLOAT32",
+      "space": "DRAM",
+      "n": 4
+     },
+     {
+      "shape": [
+       512,
+       128
+      ],
+      "dtype": "DataType.FLOAT32",
+      "space": "DRAM",
+      "n": 2
+     },
+     {
+      "shape": [
+       128,
+       4
+      ],
+      "dtype": "DataType.FLOAT32",
+      "space": "DRAM",
+      "n": 2
+     },
+     {
+      "shape": [
+       128,
+       384
+      ],
+      "dtype": "DataType.FLOAT32",
+      "space": "DRAM",
+      "n": 2
+     }
+    ],
+    "tape": [
+     {
+      "shape": [
+       1,
+       544,
+       544,
+       64
+      ],
+      "dtype": "DataType.BFLOAT16",
+      "space": "DRAM",
+      "n": 23
+     },
+     {
+      "shape": [
+       1,
+       544,
+       544,
+       128
+      ],
+      "dtype": "DataType.BFLOAT16",
+      "space": "DRAM",
+      "n": 8
+     },
+     {
+      "shape": [
+       1,
+       544,
+       384
+      ],
+      "dtype": "DataType.BFLOAT16",
+      "space": "DRAM",
+      "n": 5
+     },
+     {
+      "shape": [
+       1,
+       544,
+       544,
+       1
+      ],
+      "dtype": "DataType.BFLOAT16",
+      "space": "DRAM",
+      "n": 5
+     },
+     {
+      "shape": [
+       1,
+       544,
+       544,
+       32
+      ],
+      "dtype": "DataType.BFLOAT16",
+      "space": "DRAM",
+      "n": 2
+     },
+     {
+      "shape": [
+       1,
+       1,
+       544,
+       64
+      ],
+      "dtype": "DataType.BFLOAT16",
+      "space": "DRAM",
+      "n": 1
+     },
+     {
+      "shape": [
+       1,
+       36,
+       544,
+       64
+      ],
+      "dtype": "DataType.BFLOAT16",
+      "space": "DRAM",
+      "n": 1
+     },
+     {
+      "shape": [
+       1,
+       36,
+       544,
+       34
+      ],
+      "dtype": "DataType.BFLOAT16",
+      "space": "DRAM",
+      "n": 1
+     }
+    ],
+    "cotangents": [
+     {
+      "shape": [
+       1,
+       544,
+       544,
+       128
+      ],
+      "dtype": "DataType.BFLOAT16",
+      "space": "DRAM",
+      "n": 1
+     }
+    ],
+    "recompute": [
+     {
+      "shape": [
+       1,
+       544,
+       544,
+       128
+      ],
+      "dtype": "DataType.BFLOAT16",
+      "space": "DRAM",
+      "n": 30
+     },
+     {
+      "shape": [
+       544,
+       544,
+       128
+      ],
+      "dtype": "DataType.BFLOAT16",
+      "space": "DRAM",
+      "n": 10
+     },
+     {
+      "shape": [
+       544,
+       4,
+       544,
+       32
+      ],
+      "dtype": "DataType.BFLOAT16",
+      "space": "DRAM",
+      "n": 8
+     },
+     {
+      "shape": [
+       1,
+       128,
+       544,
+       544
+      ],
+      "dtype": "DataType.BFLOAT16",
+      "space": "DRAM",
+      "n": 6
+     },
+     {
+      "shape": [
+       1,
+       4,
+       544,
+       544
+      ],
+      "dtype": "DataType.FLOAT32",
+      "space": "DRAM",
+      "n": 4
+     },
+     {
+      "shape": [
+       544,
+       4,
+       544,
+       544
+      ],
+      "dtype": "DataType.BFLOAT16",
+      "space": "DRAM",
+      "n": 3
+     },
+     {
+      "shape": [
+       544,
+       4,
+       544,
+       544
+      ],
+      "dtype": "DataType.FLOAT32",
+      "space": "DRAM",
+      "n": 3
+     },
+     {
+      "shape": [
+       1,
+       4,
+       544,
+       544
+      ],
+      "dtype": "DataType.BFLOAT16",
+      "space": "DRAM",
+      "n": 2
+     }
+    ],
+    "other_leaf": [
+     {
+      "shape": [
+       128,
+       512
+      ],
+      "dtype": "DataType.BFLOAT16",
+      "space": "DRAM",
+      "n": 4
+     }
+    ]
+   },
+   "walk_s": 0.189
+  },
+  "walks": 48,
+  "trace": [
+   {
+    "dram_b": 21662790656,
+    "buffers": 4038,
+    "walk_s": 0.167,
+    "unattributed_b": 1458795520,
+    "boundaries": 4045733888,
+    "weights": 359055360,
+    "weight_grads": 0,
+    "tape": 1655521280,
+    "cotangents": 75759616,
+    "recompute": 14067662848,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     1,
+     544,
+     544,
+     128
+    ]
+   },
+   {
+    "dram_b": 22960206848,
+    "buffers": 4041,
+    "walk_s": 0.171,
+    "unattributed_b": 1458795520,
+    "boundaries": 4045733888,
+    "weights": 359055360,
+    "weight_grads": 0,
+    "tape": 1655521280,
+    "cotangents": 75759616,
+    "recompute": 15365079040,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     1,
+     544,
+     544,
+     128
+    ]
+   },
+   {
+    "dram_b": 23035966464,
+    "buffers": 4042,
+    "walk_s": 0.171,
+    "unattributed_b": 1458795520,
+    "boundaries": 4045733888,
+    "weights": 359055360,
+    "weight_grads": 0,
+    "tape": 1655521280,
+    "cotangents": 75759616,
+    "recompute": 15440838656,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     1,
+     544,
+     544,
+     128
+    ]
+   },
+   {
+    "dram_b": 23111726080,
+    "buffers": 4043,
+    "walk_s": 0.173,
+    "unattributed_b": 1458795520,
+    "boundaries": 4045733888,
+    "weights": 359055360,
+    "weight_grads": 0,
+    "tape": 1655521280,
+    "cotangents": 75759616,
+    "recompute": 15516598272,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     1,
+     544,
+     544,
+     128
+    ]
+   },
+   {
+    "dram_b": 23187485696,
+    "buffers": 4044,
+    "walk_s": 0.172,
+    "unattributed_b": 1458795520,
+    "boundaries": 4045733888,
+    "weights": 359055360,
+    "weight_grads": 0,
+    "tape": 1655521280,
+    "cotangents": 75759616,
+    "recompute": 15592357888,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     1,
+     544,
+     544,
+     128
+    ]
+   },
+   {
+    "dram_b": 23263245312,
+    "buffers": 4045,
+    "walk_s": 0.172,
+    "unattributed_b": 1458795520,
+    "boundaries": 4045733888,
+    "weights": 359055360,
+    "weight_grads": 0,
+    "tape": 1655521280,
+    "cotangents": 75759616,
+    "recompute": 15668117504,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     1,
+     544,
+     544,
+     128
+    ]
+   },
+   {
+    "dram_b": 23339004928,
+    "buffers": 4046,
+    "walk_s": 0.174,
+    "unattributed_b": 1458795520,
+    "boundaries": 4045733888,
+    "weights": 359055360,
+    "weight_grads": 0,
+    "tape": 1655521280,
+    "cotangents": 75759616,
+    "recompute": 15743877120,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     1,
+     544,
+     544,
+     128
+    ]
+   },
+   {
+    "dram_b": 23414764544,
+    "buffers": 4047,
+    "walk_s": 0.178,
+    "unattributed_b": 1458795520,
+    "boundaries": 4045733888,
+    "weights": 359055360,
+    "weight_grads": 0,
+    "tape": 1655521280,
+    "cotangents": 75759616,
+    "recompute": 15819636736,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     1,
+     544,
+     544,
+     128
+    ]
+   },
+   {
+    "dram_b": 23490524160,
+    "buffers": 4048,
+    "walk_s": 0.176,
+    "unattributed_b": 1458795520,
+    "boundaries": 4045733888,
+    "weights": 359055360,
+    "weight_grads": 0,
+    "tape": 1655521280,
+    "cotangents": 75759616,
+    "recompute": 15895396352,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     1,
+     544,
+     544,
+     128
+    ]
+   },
+   {
+    "dram_b": 23566283776,
+    "buffers": 4049,
+    "walk_s": 0.177,
+    "unattributed_b": 1458795520,
+    "boundaries": 4045733888,
+    "weights": 359055360,
+    "weight_grads": 0,
+    "tape": 1655521280,
+    "cotangents": 75759616,
+    "recompute": 15971155968,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     1,
+     544,
+     544,
+     128
+    ]
+   },
+   {
+    "dram_b": 23642043392,
+    "buffers": 4062,
+    "walk_s": 0.177,
+    "unattributed_b": 1458795520,
+    "boundaries": 4045733888,
+    "weights": 359055360,
+    "weight_grads": 0,
+    "tape": 1655521280,
+    "cotangents": 75759616,
+    "recompute": 16046915584,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     1,
+     544,
+     544,
+     128
+    ]
+   },
+   {
+    "dram_b": 23694685184,
+    "buffers": 4065,
+    "walk_s": 0.177,
+    "unattributed_b": 1482191872,
+    "boundaries": 4045733888,
+    "weights": 359055360,
+    "weight_grads": 0,
+    "tape": 1655521280,
+    "cotangents": 75759616,
+    "recompute": 16076161024,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     1,
+     544,
+     544,
+     128
+    ]
+   },
+   {
+    "dram_b": 23741477888,
+    "buffers": 4067,
+    "walk_s": 0.178,
+    "unattributed_b": 1458795520,
+    "boundaries": 4045733888,
+    "weights": 359055360,
+    "weight_grads": 0,
+    "tape": 1655521280,
+    "cotangents": 75759616,
+    "recompute": 16146350080,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     1,
+     544,
+     544,
+     128
+    ]
+   },
+   {
+    "dram_b": 23799968768,
+    "buffers": 4071,
+    "walk_s": 0.179,
+    "unattributed_b": 1482191872,
+    "boundaries": 4045733888,
+    "weights": 359055360,
+    "weight_grads": 0,
+    "tape": 1655521280,
+    "cotangents": 75759616,
+    "recompute": 16181444608,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     1,
+     544,
+     544,
+     128
+    ]
+   },
+   {
+    "dram_b": 23846761472,
+    "buffers": 4073,
+    "walk_s": 0.179,
+    "unattributed_b": 1458795520,
+    "boundaries": 4045733888,
+    "weights": 359055360,
+    "weight_grads": 0,
+    "tape": 1655521280,
+    "cotangents": 75759616,
+    "recompute": 16251633664,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     1,
+     544,
+     544,
+     128
+    ]
+   },
+   {
+    "dram_b": 23905252352,
+    "buffers": 4077,
+    "walk_s": 0.179,
+    "unattributed_b": 1482191872,
+    "boundaries": 4045733888,
+    "weights": 359055360,
+    "weight_grads": 0,
+    "tape": 1655521280,
+    "cotangents": 75759616,
+    "recompute": 16286728192,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     1,
+     544,
+     544,
+     128
+    ]
+   },
+   {
+    "dram_b": 23952045056,
+    "buffers": 4079,
+    "walk_s": 0.181,
+    "unattributed_b": 1458795520,
+    "boundaries": 4045733888,
+    "weights": 359055360,
+    "weight_grads": 0,
+    "tape": 1655521280,
+    "cotangents": 75759616,
+    "recompute": 16356917248,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     1,
+     544,
+     544,
+     128
+    ]
+   },
+   {
+    "dram_b": 24010535936,
+    "buffers": 4083,
+    "walk_s": 0.179,
+    "unattributed_b": 1482191872,
+    "boundaries": 4045733888,
+    "weights": 359055360,
+    "weight_grads": 0,
+    "tape": 1655521280,
+    "cotangents": 75759616,
+    "recompute": 16392011776,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     1,
+     544,
+     544,
+     128
+    ]
+   },
+   {
+    "dram_b": 24057328640,
+    "buffers": 4085,
+    "walk_s": 0.18,
+    "unattributed_b": 1458795520,
+    "boundaries": 4045733888,
+    "weights": 359055360,
+    "weight_grads": 0,
+    "tape": 1655521280,
+    "cotangents": 75759616,
+    "recompute": 16462200832,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     1,
+     544,
+     544,
+     128
+    ]
+   },
+   {
+    "dram_b": 24115819520,
+    "buffers": 4089,
+    "walk_s": 0.179,
+    "unattributed_b": 1482191872,
+    "boundaries": 4045733888,
+    "weights": 359055360,
+    "weight_grads": 0,
+    "tape": 1655521280,
+    "cotangents": 75759616,
+    "recompute": 16497295360,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     1,
+     544,
+     544,
+     128
+    ]
+   },
+   {
+    "dram_b": 24162612224,
+    "buffers": 4091,
+    "walk_s": 0.18,
+    "unattributed_b": 1458795520,
+    "boundaries": 4045733888,
+    "weights": 359055360,
+    "weight_grads": 0,
+    "tape": 1655521280,
+    "cotangents": 75759616,
+    "recompute": 16567484416,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     1,
+     544,
+     544,
+     128
+    ]
+   },
+   {
+    "dram_b": 24221103104,
+    "buffers": 4095,
+    "walk_s": 0.182,
+    "unattributed_b": 1482191872,
+    "boundaries": 4045733888,
+    "weights": 359055360,
+    "weight_grads": 0,
+    "tape": 1655521280,
+    "cotangents": 75759616,
+    "recompute": 16602578944,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     1,
+     544,
+     544,
+     128
+    ]
+   },
+   {
+    "dram_b": 24267895808,
+    "buffers": 4097,
+    "walk_s": 0.18,
+    "unattributed_b": 1458795520,
+    "boundaries": 4045733888,
+    "weights": 359055360,
+    "weight_grads": 0,
+    "tape": 1655521280,
+    "cotangents": 75759616,
+    "recompute": 16672768000,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     1,
+     544,
+     544,
+     128
+    ]
+   },
+   {
+    "dram_b": 24326386688,
+    "buffers": 4101,
+    "walk_s": 0.181,
+    "unattributed_b": 1482191872,
+    "boundaries": 4045733888,
+    "weights": 359055360,
+    "weight_grads": 0,
+    "tape": 1655521280,
+    "cotangents": 75759616,
+    "recompute": 16707862528,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     1,
+     544,
+     544,
+     128
+    ]
+   },
+   {
+    "dram_b": 24373179392,
+    "buffers": 4103,
+    "walk_s": 0.18,
+    "unattributed_b": 1458795520,
+    "boundaries": 4045733888,
+    "weights": 359055360,
+    "weight_grads": 0,
+    "tape": 1655521280,
+    "cotangents": 75759616,
+    "recompute": 16778051584,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     1,
+     42,
+     544,
+     512
+    ]
+   },
+   {
+    "dram_b": 24431670272,
+    "buffers": 4107,
+    "walk_s": 0.181,
+    "unattributed_b": 1482191872,
+    "boundaries": 4045733888,
+    "weights": 359055360,
+    "weight_grads": 0,
+    "tape": 1655521280,
+    "cotangents": 75759616,
+    "recompute": 16813146112,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     1,
+     42,
+     544,
+     512
+    ]
+   },
+   {
+    "dram_b": 24478462976,
+    "buffers": 4109,
+    "walk_s": 0.181,
+    "unattributed_b": 1458795520,
+    "boundaries": 4045733888,
+    "weights": 359055360,
+    "weight_grads": 0,
+    "tape": 1655521280,
+    "cotangents": 75759616,
+    "recompute": 16883335168,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     1,
+     42,
+     544,
+     512
+    ]
+   },
+   {
+    "dram_b": 24536953856,
+    "buffers": 4113,
+    "walk_s": 0.182,
+    "unattributed_b": 1482191872,
+    "boundaries": 4045733888,
+    "weights": 359055360,
+    "weight_grads": 0,
+    "tape": 1655521280,
+    "cotangents": 75759616,
+    "recompute": 16918429696,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     1,
+     42,
+     544,
+     512
+    ]
+   },
+   {
+    "dram_b": 24583746560,
+    "buffers": 4115,
+    "walk_s": 0.182,
+    "unattributed_b": 1458795520,
+    "boundaries": 4045733888,
+    "weights": 359055360,
+    "weight_grads": 0,
+    "tape": 1655521280,
+    "cotangents": 75759616,
+    "recompute": 16988618752,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     1,
+     42,
+     544,
+     512
+    ]
+   },
+   {
+    "dram_b": 24642237440,
+    "buffers": 4119,
+    "walk_s": 0.184,
+    "unattributed_b": 1482191872,
+    "boundaries": 4045733888,
+    "weights": 359055360,
+    "weight_grads": 0,
+    "tape": 1655521280,
+    "cotangents": 75759616,
+    "recompute": 17023713280,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     1,
+     42,
+     544,
+     512
+    ]
+   },
+   {
+    "dram_b": 24689030144,
+    "buffers": 4121,
+    "walk_s": 0.182,
+    "unattributed_b": 1458795520,
+    "boundaries": 4045733888,
+    "weights": 359055360,
+    "weight_grads": 0,
+    "tape": 1655521280,
+    "cotangents": 75759616,
+    "recompute": 17093902336,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     1,
+     42,
+     544,
+     512
+    ]
+   },
+   {
+    "dram_b": 24747521024,
+    "buffers": 4125,
+    "walk_s": 0.182,
+    "unattributed_b": 1482191872,
+    "boundaries": 4045733888,
+    "weights": 359055360,
+    "weight_grads": 0,
+    "tape": 1655521280,
+    "cotangents": 75759616,
+    "recompute": 17128996864,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     1,
+     42,
+     544,
+     512
+    ]
+   },
+   {
+    "dram_b": 24794313728,
+    "buffers": 4127,
+    "walk_s": 0.183,
+    "unattributed_b": 1458795520,
+    "boundaries": 4045733888,
+    "weights": 359055360,
+    "weight_grads": 0,
+    "tape": 1655521280,
+    "cotangents": 75759616,
+    "recompute": 17199185920,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     1,
+     42,
+     544,
+     512
+    ]
+   },
+   {
+    "dram_b": 24852804608,
+    "buffers": 4131,
+    "walk_s": 0.182,
+    "unattributed_b": 1482191872,
+    "boundaries": 4045733888,
+    "weights": 359055360,
+    "weight_grads": 0,
+    "tape": 1655521280,
+    "cotangents": 75759616,
+    "recompute": 17234280448,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     1,
+     42,
+     544,
+     512
+    ]
+   },
+   {
+    "dram_b": 24899597312,
+    "buffers": 4133,
+    "walk_s": 0.183,
+    "unattributed_b": 1458795520,
+    "boundaries": 4045733888,
+    "weights": 359055360,
+    "weight_grads": 0,
+    "tape": 1655521280,
+    "cotangents": 75759616,
+    "recompute": 17304469504,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     1,
+     42,
+     544,
+     512
+    ]
+   },
+   {
+    "dram_b": 24955581440,
+    "buffers": 4137,
+    "walk_s": 0.183,
+    "unattributed_b": 1481077760,
+    "boundaries": 4045733888,
+    "weights": 359055360,
+    "weight_grads": 0,
+    "tape": 1655521280,
+    "cotangents": 75759616,
+    "recompute": 17338171392,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     1,
+     42,
+     544,
+     512
+    ]
+   },
+   {
+    "dram_b": 25000145920,
+    "buffers": 4139,
+    "walk_s": 0.183,
+    "unattributed_b": 1458795520,
+    "boundaries": 4045733888,
+    "weights": 359055360,
+    "weight_grads": 0,
+    "tape": 1655521280,
+    "cotangents": 75759616,
+    "recompute": 17405018112,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     1,
+     42,
+     544,
+     512
+    ]
+   },
+   {
+    "dram_b": 25081476096,
+    "buffers": 4141,
+    "walk_s": 0.186,
+    "unattributed_b": 1458795520,
+    "boundaries": 4045733888,
+    "weights": 359055360,
+    "weight_grads": 0,
+    "tape": 1655521280,
+    "cotangents": 75759616,
+    "recompute": 17486348288,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     1,
+     42,
+     544,
+     512
+    ]
+   },
+   {
+    "dram_b": 25157235712,
+    "buffers": 4142,
+    "walk_s": 0.183,
+    "unattributed_b": 1458795520,
+    "boundaries": 4045733888,
+    "weights": 359055360,
+    "weight_grads": 0,
+    "tape": 1655521280,
+    "cotangents": 75759616,
+    "recompute": 17562107904,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     1,
+     42,
+     544,
+     512
+    ]
+   },
+   {
+    "dram_b": 25236763648,
+    "buffers": 4148,
+    "walk_s": 0.185,
+    "unattributed_b": 1458795520,
+    "boundaries": 4045733888,
+    "weights": 359055360,
+    "weight_grads": 0,
+    "tape": 1655521280,
+    "cotangents": 75759616,
+    "recompute": 17641635840,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     1,
+     42,
+     544,
+     512
+    ]
+   },
+   {
+    "dram_b": 25275200512,
+    "buffers": 4152,
+    "walk_s": 0.186,
+    "unattributed_b": 1458795520,
+    "boundaries": 4045733888,
+    "weights": 359055360,
+    "weight_grads": 0,
+    "tape": 1655521280,
+    "cotangents": 75759616,
+    "recompute": 17680072704,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     1,
+     42,
+     544,
+     512
+    ]
+   },
+   {
+    "dram_b": 25311605760,
+    "buffers": 4167,
+    "walk_s": 0.184,
+    "unattributed_b": 1460466688,
+    "boundaries": 4045733888,
+    "weights": 359055360,
+    "weight_grads": 0,
+    "tape": 1655521280,
+    "cotangents": 75759616,
+    "recompute": 17714806784,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     1,
+     42,
+     544,
+     512
+    ]
+   },
+   {
+    "dram_b": 25350321152,
+    "buffers": 4174,
+    "walk_s": 0.183,
+    "unattributed_b": 1756345344,
+    "boundaries": 4045733888,
+    "weights": 359055360,
+    "weight_grads": 819200,
+    "tape": 1655521280,
+    "cotangents": 75759616,
+    "recompute": 17456824320,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     1,
+     42,
+     544,
+     128
+    ]
+   },
+   {
+    "dram_b": 25501840384,
+    "buffers": 4175,
+    "walk_s": 0.183,
+    "unattributed_b": 1756345344,
+    "boundaries": 4045733888,
+    "weights": 359055360,
+    "weight_grads": 819200,
+    "tape": 1655521280,
+    "cotangents": 75759616,
+    "recompute": 17608343552,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     1,
+     42,
+     544,
+     128
+    ]
+   },
+   {
+    "dram_b": 25653359616,
+    "buffers": 4176,
+    "walk_s": 0.185,
+    "unattributed_b": 1907864576,
+    "boundaries": 4045733888,
+    "weights": 359055360,
+    "weight_grads": 819200,
+    "tape": 1655521280,
+    "cotangents": 75759616,
+    "recompute": 17608343552,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     1,
+     42,
+     544,
+     128
+    ]
+   },
+   {
+    "dram_b": 26068251648,
+    "buffers": 4104,
+    "walk_s": 0.179,
+    "unattributed_b": 2823451648,
+    "boundaries": 4045733888,
+    "weights": 359055360,
+    "weight_grads": 917504,
+    "tape": 1655521280,
+    "cotangents": 75759616,
+    "recompute": 17107550208,
+    "other_leaf": 262144,
+    "recompute_top_shape": [
+     1,
+     544,
+     544,
+     128
+    ]
+   },
+   {
+    "dram_b": 26149336064,
+    "buffers": 4284,
+    "walk_s": 0.195,
+    "unattributed_b": 2325787648,
+    "boundaries": 4045733888,
+    "weights": 359055360,
+    "weight_grads": 2850816,
+    "tape": 1655521280,
+    "cotangents": 75759616,
+    "recompute": 17684103168,
+    "other_leaf": 524288,
+    "recompute_top_shape": [
+     1,
+     42,
+     544,
+     128
+    ]
+   },
+   {
+    "dram_b": 26487845888,
+    "buffers": 4180,
+    "walk_s": 0.189,
+    "unattributed_b": 3164992512,
+    "boundaries": 4045733888,
+    "weights": 359055360,
+    "weight_grads": 2949120,
+    "tape": 1655521280,
+    "cotangents": 75759616,
+    "recompute": 17183309824,
+    "other_leaf": 524288,
+    "recompute_top_shape": [
+     1,
+     544,
+     544,
+     128
+    ]
+   }
+  ],
+  "first_recompute": {
+   "label": "backward high-water",
+   "dram_now_b": 21662790656,
+   "census_total_b": 21662790656,
+   "census_dram_b": 21662790656,
+   "buffers": 4038,
+   "duplicate_addresses": 0,
+   "live_taped_tensors": 2774,
+   "by_owner": {
+    "boundaries": {
+     "n": 106,
+     "b": 4045733888,
+     "dram_b": 4045733888,
+     "l1_b": 0
+    },
+    "weights": {
+     "n": 2531,
+     "b": 359055360,
+     "dram_b": 359055360,
+     "l1_b": 0
+    },
+    "weight_grads": {
+     "n": 0,
+     "b": 0,
+     "dram_b": 0,
+     "l1_b": 0
+    },
+    "tape": {
+     "n": 48,
+     "b": 1655521280,
+     "dram_b": 1655521280,
+     "l1_b": 0
+    },
+    "cotangents": {
+     "n": 1,
+     "b": 75759616,
+     "dram_b": 75759616,
+     "l1_b": 0
+    },
+    "recompute": {
+     "n": 67,
+     "b": 14067662848,
+     "dram_b": 14067662848,
+     "l1_b": 0
+    },
+    "other_leaf": {
+     "n": 2,
+     "b": 262144,
+     "dram_b": 262144,
+     "l1_b": 0
+    }
+   },
+   "owner_share_of_dram_pct": {
+    "boundaries": 18.68,
+    "weights": 1.66,
+    "weight_grads": 0.0,
+    "tape": 7.64,
+    "cotangents": 0.35,
+    "recompute": 64.94,
+    "other_leaf": 0.0
+   },
+   "unattributed": {
+    "n": 1283,
+    "b": 1458795520,
+    "dram_b": 1458795520,
+    "dram_share_pct": 6.73,
+    "top_by_bytes": [
+     {
+      "each_b": 4718592,
+      "n": 72,
+      "total_b": 339738624
+     },
+     {
+      "each_b": 9437184,
+      "n": 24,
+      "total_b": 226492416
+     },
+     {
+      "each_b": 18939904,
+      "n": 9,
+      "total_b": 170459136
+     },
+     {
+      "each_b": 75759616,
+      "n": 2,
+      "total_b": 151519232
+     },
+     {
+      "each_b": 2359296,
+      "n": 48,
+      "total_b": 113246208
+     },
+     {
+      "each_b": 35913728,
+      "n": 3,
+      "total_b": 107741184
+     },
+     {
+      "each_b": 94699520,
+      "n": 1,
+      "total_b": 94699520
+     },
+     {
+      "each_b": 1179648,
+      "n": 55,
+      "total_b": 64880640
+     },
+     {
+      "each_b": 589824,
+      "n": 96,
+      "total_b": 56623104
+     },
+     {
+      "each_b": 37879808,
+      "n": 1,
+      "total_b": 37879808
+     }
+    ]
+   },
+   "shapes": {
+    "boundaries": [
+     {
+      "shape": [
+       1,
+       544,
+       544,
+       128
+      ],
+      "dtype": "DataType.BFLOAT16",
+      "space": "DRAM",
+      "n": 52
+     },
+     {
+      "shape": [
+       1,
+       544,
+       384
+      ],
+      "dtype": "DataType.BFLOAT16",
+      "space": "DRAM",
+      "n": 48
+     },
+     {
+      "shape": [
+       1,
+       36,
+       544,
+       64
+      ],
+      "dtype": "DataType.BFLOAT16",
+      "space": "DRAM",
+      "n": 4
+     },
+     {
+      "shape": [
+       1,
+       544,
+       544,
+       64
+      ],
+      "dtype": "DataType.BFLOAT16",
+      "space": "DRAM",
+      "n": 2
+     }
+    ],
+    "weights": [
+     {
+      "shape": [
+       128
+      ],
+      "dtype": "DataType.BFLOAT16",
+      "space": "DRAM",
+      "n": 838
+     },
+     {
+      "shape": [
+       128,
+       128
+      ],
+      "dtype": "DataType.BFLOAT16",
+      "space": "DRAM",
+      "n": 417
+     },
+     {
+      "shape": [
+       128,
+       512
+      ],
+      "dtype": "DataType.BFLOAT16",
+      "space": "DRAM",
+      "n": 208
+     },
+     {
+      "shape": [
+       384
+      ],
+      "dtype": "DataType.BFLOAT16",
+      "space": "DRAM",
+      "n": 194
+     },
+     {
+      "shape": [
+       384,
+       1536
+      ],
+      "dtype": "DataType.BFLOAT16",
+      "space": "DRAM",
+      "n": 144
+     },
+     {
+      "shape": [
+       128,
+       4
+      ],
+      "dtype": "DataType.BFLOAT16",
+      "space": "DRAM",
+      "n": 104
+     },
+     {
+      "shape": [
+       128,
+       384
+      ],
+      "dtype": "DataType.BFLOAT16",
+      "space": "DRAM",
+      "n": 104
+     },
+     {
+      "shape": [
+       128,
+       544
+      ],
+      "dtype": "DataType.BFLOAT16",
+      "space": "DRAM",
+      "n": 104
+     }
+    ],
+    "weight_grads": [],
+    "tape": [
+     {
+      "shape": [
+       1,
+       544,
+       544,
+       64
+      ],
+      "dtype": "DataType.BFLOAT16",
+      "space": "DRAM",
+      "n": 23
+     },
+     {
+      "shape": [
+       1,
+       544,
+       544,
+       128
+      ],
+      "dtype": "DataType.BFLOAT16",
+      "space": "DRAM",
+      "n": 8
+     },
+     {
+      "shape": [
+       1,
+       544,
+       544,
+       1
+      ],
+      "dtype": "DataType.BFLOAT16",
+      "space": "DRAM",
+      "n": 5
+     },
+     {
+      "shape": [
+       1,
+       544,
+       384
+      ],
+      "dtype": "DataType.BFLOAT16",
+      "space": "DRAM",
+      "n": 5
+     },
+     {
+      "shape": [
+       1,
+       544,
+       544,
+       32
+      ],
+      "dtype": "DataType.BFLOAT16",
+      "space": "DRAM",
+      "n": 2
+     },
+     {
+      "shape": [
+       1,
+       544,
+       449
+      ],
+      "dtype": "DataType.BFLOAT16",
+      "space": "DRAM",
+      "n": 1
+     },
+     {
+      "shape": [
+       1,
+       544,
+       544,
+       39
+      ],
+      "dtype": "DataType.BFLOAT16",
+      "space": "DRAM",
+      "n": 1
+     },
+     {
+      "shape": [
+       1,
+       36,
+       544,
+       34
+      ],
+      "dtype": "DataType.BFLOAT16",
+      "space": "DRAM",
+      "n": 1
+     }
+    ],
+    "cotangents": [
+     {
+      "shape": [
+       1,
+       544,
+       544,
+       128
+      ],
+      "dtype": "DataType.BFLOAT16",
+      "space": "DRAM",
+      "n": 1
+     }
+    ],
+    "recompute": [
+     {
+      "shape": [
+       1,
+       544,
+       544,
+       128
+      ],
+      "dtype": "DataType.BFLOAT16",
+      "space": "DRAM",
+      "n": 26
+     },
+     {
+      "shape": [
+       544,
+       544,
+       128
+      ],
+      "dtype": "DataType.BFLOAT16",
+      "space": "DRAM",
+      "n": 9
+     },
+     {
+      "shape": [
+       544,
+       4,
+       544,
+       32
+      ],
+      "dtype": "DataType.BFLOAT16",
+      "space": "DRAM",
+      "n": 7
+     },
+     {
+      "shape": [
+       1,
+       128,
+       544,
+       544
+      ],
+      "dtype": "DataType.BFLOAT16",
+      "space": "DRAM",
+      "n": 6
+     },
+     {
+      "shape": [
+       544,
+       4,
+       544,
+       544
+      ],
+      "dtype": "DataType.BFLOAT16",
+      "space": "DRAM",
+      "n": 3
+     },
+     {
+      "shape": [
+       1,
+       4,
+       544,
+       544
+      ],
+      "dtype": "DataType.BFLOAT16",
+      "space": "DRAM",
+      "n": 2
+     },
+     {
+      "shape": [
+       544,
+       544,
+       384
+      ],
+      "dtype": "DataType.BFLOAT16",
+      "space": "DRAM",
+      "n": 2
+     },
+     {
+      "shape": [
+       544,
+       4,
+       32,
+       544
+      ],
+      "dtype": "DataType.BFLOAT16",
+      "space": "DRAM",
+      "n": 2
+     }
+    ],
+    "other_leaf": [
+     {
+      "shape": [
+       128,
+       512
+      ],
+      "dtype": "DataType.BFLOAT16",
+      "space": "DRAM",
+      "n": 2
+     }
+    ]
+   },
+   "walk_s": 0.167
+  },
+  "ok": false,
+  "error": "al::tensor_impl::allocate_device_buffer(tt::tt_metal::distributed::MeshDevice*, tt::tt_metal::TensorSpec const&)\n --- tt::tt_metal::create_device_tensor(tt::tt_metal::TensorSpec const&, tt::tt_metal::IDevice*)\n --- ttnn::operations::binary_ng::BinaryNgDeviceOperation::create_output_tensors(ttnn::operations::binary_ng::BinaryNgDeviceOperation::operation_attributes_t const&, ttnn::operations::binary_ng::BinaryNgDeviceOperation::tensor_args_t const&)\n --- /home/ttuser/tt-bio-dev/env/lib/python3.10/site-packages/ttnn/build/lib/_ttnncpp.so(_ZN4ttnn16device_operation6detail6launchITkNS0_22DeviceOperationConceptENS_10operations9binary_ng23BinaryNgDeviceOperationEEENT_21tensor_return_value_tERKNS6_22operation_attributes_tERKNS6_13tensor_args_tE+0x14f) [0x7a815331886f]\n --- /home/ttuser/tt-bio-dev/env/lib/python3.10/site-packages/ttnn/build/lib/_ttnncpp.so(_ZN4ttnn4prim9binary_ngERKN2tt8tt_metal6TensorES5_NS_10operations6binary12BinaryOpTypeERKSt8optionalIKNS2_8DataTypeEERKS9_INS2_12MemoryConfigEERKS9_IS3_ERKS9_IbESt4spanIKNS6_5unary19BasicUnaryWithParamIJfijEEELm18446744073709551615EESU_SU_S9_ISt7variantIJjifEEERKS9_INS2_12CoreRangeSetEE+0xa4d) [0x7a815330a4bd]\n --- /home/ttuser/tt-bio-dev/env/lib/python3.10/site-packages/ttnn/build/lib/_ttnncpp.so(+0xadd7c8) [0x7a81532dd7c8]\n --- ttnn::multiply(tt::tt_metal::Tensor const&, tt::tt_metal::Tensor const&, std::optional<tt::tt_metal::DataType const> const&, std::optional<tt::tt_metal::MemoryConfig> const&, std::optional<tt::tt_metal::Tensor> const&, std::span<ttnn::operations::unary::BasicUnaryWithParam<float, int, unsigned int> const, 18446744073709551615ul>, std::span<ttnn::operations::unary::BasicUnaryWithParam<float, int, unsigned int> const, 18446744073709551615ul>, std::span<ttnn::operations::unary::BasicUnaryWithParam<float, int, unsigned int> const, 18446744073709551615ul>, std::optional<bool> const&, std::optional<bool> const&, std::optional<tt::tt_metal::CoreRangeSet> const&)\n --- ttnn::operations::binary::detail::multiply_fast_approx_tensor_tensor(tt::tt_metal::Tensor const&, tt::tt_metal::Tensor const&, bool, std::optional<tt::tt_metal::DataType const> const&, std::optional<tt::tt_metal::MemoryConfig> const&, std::optional<tt::tt_metal::Tensor> const&, std::span<ttnn::operations::unary::BasicUnaryWithParam<float, int, unsigned int> const, 18446744073709551615ul>, std::span<ttnn::operations::unary::BasicUnaryWithParam<float, int, unsigned int> const, 18446744073709551615ul>, std::span<ttnn::operations::unary::BasicUnaryWithParam<float, int, unsigned int> const, 18446744073709551615ul>, std::optional<bool> const&, std::optional const&)\n --- /home/ttuser/tt-bio-dev/env/lib/python3.10/site-packages/ttnn/_ttnn.cpython-310-x86_64-linux-gnu.so(+0x5b7375) [0x7a8159db7375]\n --- /home/ttuser/tt-bio-dev/env/lib/python3.10/site-packages/ttnn/_ttnn.cpython-310-x86_64-linux-gnu.so(+0x26f895) [0x7a8159a6f895]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(_PyObject_FastCallDictTstate+0x253) [0x5f3aef132f13]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(_PyObject_Call_Prepend+0x5c) [0x5f3aef147d5c]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(+0x29dea4) [0x5f3aef24fea4]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(PyObject_Call+0xbb) [0x5f3aef14b83b]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(_PyEval_EvalFrameDefault+0x28e9) [0x5f3aef129ee9]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(_PyObject_FastCallDictTstate+0xc4) [0x5f3aef132d84]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(_PyObject_Call_Prepend+0x5c) [0x5f3aef147d5c]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(+0x29dea4) [0x5f3aef24fea4]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(_PyObject_MakeTpCall+0x25b) [0x5f3aef133bab]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(_PyEval_EvalFrameDefault+0x609e) [0x5f3aef12d69e]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(_PyFunction_Vectorcall+0x7c) [0x5f3aef13daec]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(_PyEval_EvalFrameDefault+0x56d3) [0x5f3aef12ccd3]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(_PyFunction_Vectorcall+0x7c) [0x5f3aef13daec]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(_PyEval_EvalFrameDefault+0x6c0) [0x5f3aef127cc0]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(+0x198c01) [0x5f3aef14ac01]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(_PyEval_EvalFrameDefault+0x1992) [0x5f3aef128f92]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(_PyFunction_Vectorcall+0x7c) [0x5f3aef13daec]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(_PyEval_EvalFrameDefault+0x6c0) [0x5f3aef127cc0]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(_PyFunction_Vectorcall+0x7c) [0x5f3aef13daec]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(_PyEval_EvalFrameDefault+0x56d3) [0x5f3aef12ccd3]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(_PyFunction_Vectorcall+0x7c) [0x5f3aef13daec]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(_PyEval_EvalFrameDefault+0x56d3) [0x5f3aef12ccd3]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(_PyFunction_Vectorcall+0x7c) [0x5f3aef13daec]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(_PyEval_EvalFrameDefault+0x6c0) [0x5f3aef127cc0]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(+0x25b036) [0x5f3aef20d036]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(PyEval_EvalCode+0x86) [0x5f3aef20cf06]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(+0x281a88) [0x5f3aef233a88]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(+0x27c0df) [0x5f3aef22e0df]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(+0x281825) [0x5f3aef233825]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(_PyRun_SimpleFileObject+0x1a8) [0x5f3aef232d68]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(_PyRun_AnyFileObject+0x47) [0x5f3aef232a47]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(Py_RunMain+0x2be) [0x5f3aef226eae]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(Py_BytesMain+0x2d) [0x5f3aef200f4d]\n --- /lib/x86_64-linux-gnu/libc.so.6(+0x29d90) [0x7a815bc29d90]\n --- /lib/x86_64-linux-gnu/libc.so.6(__libc_start_main+0x80) [0x7a815bc29e40]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(_start+0x25) [0x5f3aef200e45]\n\n",
+  "error_head": "TT_FATAL @ /project/tt_metal/impl/allocator/bank_manager.cpp:439: false\ninfo:\nOut of Memory: Not enough space to allocate 2575826944 B DRAM buffer across 8 banks, where each bank needs to store 321978368 B, but bank size is 4278190016 B (allocated: 3490909824 B, free: 787280192 B, largest free block: 299243520 B)\n",
+  "stage_at_failure": "enter",
+  "s": 82.74,
+  "dram_peak_b": 26487845888,
+  "l1_peak_b": 0,
+  "at_verb": "deallocate",
+  "at_stage": "enter",
+  "dram_live_allocs": 4180,
+  "census": {
+   "DRAM": {
+    "count": 4180,
+    "sum_b": 26487845888,
+    "largest_b": 2575826944,
+    "median_b": 32768,
+    "p90_b": 1179648,
+    "smallest_b": 16384,
+    "top10_b": [
+     2575826944,
+     2575826944,
+     2575826944,
+     1287913472,
+     1287913472,
+     1287913472,
+     1287913472,
+     303038464,
+     303038464,
+     227278848
+    ],
+    "by_size": {
+     "distinct_sizes": 42,
+     "top_by_bytes": [
+      {
+       "each_b": 75759616,
+       "n": 124,
+       "total_b": 9394192384
+      },
+      {
+       "each_b": 2575826944,
+       "n": 3,
+       "total_b": 7727480832
+      },
+      {
+       "each_b": 1287913472,
+       "n": 4,
+       "total_b": 5151653888
+      },
+      {
+       "each_b": 37879808,
+       "n": 27,
+       "total_b": 1022754816
+      },
+      {
+       "each_b": 303038464,
+       "n": 2,
+       "total_b": 606076928
+      },
+      {
+       "each_b": 227278848,
+       "n": 2,
+       "total_b": 454557696
+      },
+      {
+       "each_b": 18939904,
+       "n": 18,
+       "total_b": 340918272
+      },
+      {
+       "each_b": 4718592,
+       "n": 72,
+       "total_b": 339738624
+      },
+      {
+       "each_b": 1179648,
+       "n": 247,
+       "total_b": 291373056
+      },
+      {
+       "each_b": 9437184,
+       "n": 24,
+       "total_b": 226492416
+      },
+      {
+       "each_b": 151519232,
+       "n": 1,
+       "total_b": 151519232
+      },
+      {
+       "each_b": 113639424,
+       "n": 1,
+       "total_b": 113639424
+      },
+      {
+       "each_b": 2359296,
+       "n": 48,
+       "total_b": 113246208
+      },
+      {
+       "each_b": 35913728,
+       "n": 3,
+       "total_b": 107741184
+      }
+     ],
+     "top_by_count": [
+      {
+       "each_b": 16384,
+       "n": 1512,
+       "total_b": 24772608
+      },
+      {
+       "each_b": 32768,
+       "n": 916,
+       "total_b": 30015488
+      },
+      {
+       "each_b": 131072,
+       "n": 371,
+       "total_b": 48627712
+      },
+      {
+       "each_b": 1179648,
+       "n": 247,
+       "total_b": 291373056
+      },
+      {
+       "each_b": 98304,
+       "n": 201,
+       "total_b": 19759104
+      },
+      {
+       "each_b": 75759616,
+       "n": 124,
+       "total_b": 9394192384
+      },
+      {
+       "each_b": 163840,
+       "n": 105,
+       "total_b": 17203200
+      },
+      {
+       "each_b": 147456,
+       "n": 104,
+       "total_b": 15335424
+      },
+      {
+       "each_b": 294912,
+       "n": 100,
+       "total_b": 29491200
+      },
+      {
+       "each_b": 589824,
+       "n": 96,
+       "total_b": 56623104
+      },
+      {
+       "each_b": 4718592,
+       "n": 72,
+       "total_b": 339738624
+      },
+      {
+       "each_b": 49152,
+       "n": 61,
+       "total_b": 2998272
+      },
+      {
+       "each_b": 425984,
+       "n": 55,
+       "total_b": 23429120
+      },
+      {
+       "each_b": 2359296,
+       "n": 48,
+       "total_b": 113246208
+      }
+     ]
+    }
+   },
+   "L1": {
+    "count": 0,
+    "sum_b": 0,
+    "largest_b": 0,
+    "median_b": 0,
+    "p90_b": 0,
+    "smallest_b": 0,
+    "top10_b": [],
+    "by_size": {
+     "distinct_sizes": 0,
+     "top_by_bytes": [],
+     "top_by_count": []
+    }
+   },
+   "total_buffers": 4180
+  },
+  "free": {
+   "free_b": 7737674240,
+   "largest_contiguous_free_per_bank_b": 587434944,
+   "largest_contiguous_free_across_banks_b": 4699479552
+  },
+  "params_with_grad": 35,
+  "params_declared": 2531,
+  "max_colive_boundaries_plus_recompute": {
+   "dram_b": 25311605760,
+   "boundaries_b": 4045733888,
+   "recompute_b": 17714806784,
+   "sum_b": 21760540672,
+   "share_of_that_moment_pct": 85.97
+  },
+  "max_boundaries_b": 4045733888,
+  "max_recompute_b": 17714806784,
+  "walk_gap_to_peak_b": 0,
+  "walk_gap_to_peak_pct": 0.0,
+  "walk_step_b_final": 33554432
+ },
+ "after_forward": {
+  "label": "after forward, before backward",
+  "dram_now_b": 7519368192,
+  "census_total_b": 7519368192,
+  "census_dram_b": 7519368192,
+  "buffers": 3970,
+  "duplicate_addresses": 0,
+  "live_taped_tensors": 2691,
+  "by_owner": {
+   "boundaries": {
+    "n": 106,
+    "b": 4045733888,
+    "dram_b": 4045733888,
+    "l1_b": 0
+   },
+   "weights": {
+    "n": 2531,
+    "b": 359055360,
+    "dram_b": 359055360,
+    "l1_b": 0
+   },
+   "weight_grads": {
+    "n": 0,
+    "b": 0,
+    "dram_b": 0,
+    "l1_b": 0
+   },
+   "tape": {
+    "n": 48,
+    "b": 1655521280,
+    "dram_b": 1655521280,
+    "l1_b": 0
+   },
+   "cotangents": {
+    "n": 0,
+    "b": 0,
+    "dram_b": 0,
+    "l1_b": 0
+   },
+   "recompute": {
+    "n": 0,
+    "b": 0,
+    "dram_b": 0,
+    "l1_b": 0
+   },
+   "other_leaf": {
+    "n": 0,
+    "b": 0,
+    "dram_b": 0,
+    "l1_b": 0
+   }
+  },
+  "owner_share_of_dram_pct": {
+   "boundaries": 53.8,
+   "weights": 4.78,
+   "weight_grads": 0.0,
+   "tape": 22.02,
+   "cotangents": 0.0,
+   "recompute": 0.0,
+   "other_leaf": 0.0
+  },
+  "unattributed": {
+   "n": 1285,
+   "b": 1459057664,
+   "dram_b": 1459057664,
+   "dram_share_pct": 19.4,
+   "top_by_bytes": [
+    {
+     "each_b": 4718592,
+     "n": 72,
+     "total_b": 339738624
+    },
+    {
+     "each_b": 9437184,
+     "n": 24,
+     "total_b": 226492416
+    },
+    {
+     "each_b": 18939904,
+     "n": 9,
+     "total_b": 170459136
+    },
+    {
+     "each_b": 75759616,
+     "n": 2,
+     "total_b": 151519232
+    },
+    {
+     "each_b": 2359296,
+     "n": 48,
+     "total_b": 113246208
+    },
+    {
+     "each_b": 35913728,
+     "n": 3,
+     "total_b": 107741184
+    },
+    {
+     "each_b": 94699520,
+     "n": 1,
+     "total_b": 94699520
+    },
+    {
+     "each_b": 1179648,
+     "n": 55,
+     "total_b": 64880640
+    },
+    {
+     "each_b": 589824,
+     "n": 96,
+     "total_b": 56623104
+    },
+    {
+     "each_b": 37879808,
+     "n": 1,
+     "total_b": 37879808
+    }
+   ]
+  },
+  "shapes": {
+   "boundaries": [
+    {
+     "shape": [
+      1,
+      544,
+      544,
+      128
+     ],
+     "dtype": "DataType.BFLOAT16",
+     "space": "DRAM",
+     "n": 52
+    },
+    {
+     "shape": [
+      1,
+      544,
+      384
+     ],
+     "dtype": "DataType.BFLOAT16",
+     "space": "DRAM",
+     "n": 48
+    },
+    {
+     "shape": [
+      1,
+      36,
+      544,
+      64
+     ],
+     "dtype": "DataType.BFLOAT16",
+     "space": "DRAM",
+     "n": 4
+    },
+    {
+     "shape": [
+      1,
+      544,
+      544,
+      64
+     ],
+     "dtype": "DataType.BFLOAT16",
+     "space": "DRAM",
+     "n": 2
+    }
+   ],
+   "weights": [
+    {
+     "shape": [
+      128
+     ],
+     "dtype": "DataType.BFLOAT16",
+     "space": "DRAM",
+     "n": 838
+    },
+    {
+     "shape": [
+      128,
+      128
+     ],
+     "dtype": "DataType.BFLOAT16",
+     "space": "DRAM",
+     "n": 417
+    },
+    {
+     "shape": [
+      128,
+      512
+     ],
+     "dtype": "DataType.BFLOAT16",
+     "space": "DRAM",
+     "n": 208
+    },
+    {
+     "shape": [
+      384
+     ],
+     "dtype": "DataType.BFLOAT16",
+     "space": "DRAM",
+     "n": 194
+    },
+    {
+     "shape": [
+      384,
+      1536
+     ],
+     "dtype": "DataType.BFLOAT16",
+     "space": "DRAM",
+     "n": 144
+    },
+    {
+     "shape": [
+      128,
+      4
+     ],
+     "dtype": "DataType.BFLOAT16",
+     "space": "DRAM",
+     "n": 104
+    },
+    {
+     "shape": [
+      128,
+      384
+     ],
+     "dtype": "DataType.BFLOAT16",
+     "space": "DRAM",
+     "n": 104
+    },
+    {
+     "shape": [
+      128,
+      544
+     ],
+     "dtype": "DataType.BFLOAT16",
+     "space": "DRAM",
+     "n": 104
+    }
+   ],
+   "weight_grads": [],
+   "tape": [
+    {
+     "shape": [
+      1,
+      544,
+      544,
+      64
+     ],
+     "dtype": "DataType.BFLOAT16",
+     "space": "DRAM",
+     "n": 23
+    },
+    {
+     "shape": [
+      1,
+      544,
+      544,
+      128
+     ],
+     "dtype": "DataType.BFLOAT16",
+     "space": "DRAM",
+     "n": 8
+    },
+    {
+     "shape": [
+      1,
+      544,
+      384
+     ],
+     "dtype": "DataType.BFLOAT16",
+     "space": "DRAM",
+     "n": 5
+    },
+    {
+     "shape": [
+      1,
+      544,
+      544,
+      1
+     ],
+     "dtype": "DataType.BFLOAT16",
+     "space": "DRAM",
+     "n": 5
+    },
+    {
+     "shape": [
+      1,
+      544,
+      544,
+      32
+     ],
+     "dtype": "DataType.BFLOAT16",
+     "space": "DRAM",
+     "n": 2
+    },
+    {
+     "shape": [
+      1,
+      544,
+      449
+     ],
+     "dtype": "DataType.BFLOAT16",
+     "space": "DRAM",
+     "n": 1
+    },
+    {
+     "shape": [
+      1,
+      544,
+      544,
+      39
+     ],
+     "dtype": "DataType.BFLOAT16",
+     "space": "DRAM",
+     "n": 1
+    },
+    {
+     "shape": [
+      1,
+      36,
+      544,
+      34
+     ],
+     "dtype": "DataType.BFLOAT16",
+     "space": "DRAM",
+     "n": 1
+    }
+   ],
+   "cotangents": [],
+   "recompute": [],
+   "other_leaf": []
+  },
+  "walk_s": 0.125
+ }
+}

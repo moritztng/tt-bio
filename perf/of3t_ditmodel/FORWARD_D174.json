@@ -1,0 +1,64 @@
+{
+ "what": "D174's FORWARD effect, which is the part users get today.",
+ "tokens": 384,
+ "real_tokens": 56,
+ "pad_tokens": 328,
+ "reference": {
+  "path": "/home/ttuser/of3t_gradients/cap/block47_boundary.pt",
+  "dtype": "float64",
+  "s_norm": 2517512.2277431837,
+  "z_norm": 15593547.68292328,
+  "s_norm_real": 2160623.6218468654,
+  "z_norm_real": 76763.66286674526,
+  "s_norm_pad": 1292119.724156176,
+  "z_norm_pad": 15593358.73632314
+ },
+ "vs_upstream_float64": {
+  "MASKOFF": {
+   "s_rel_real": 0.03242377379228363,
+   "z_rel_real": 0.2791900660723179,
+   "s_rel_pad": 2.7427930189686296,
+   "z_rel_pad": 0.3924569407623495,
+   "s_norm_pad": 4782397.677028206,
+   "z_norm_pad": 12552868.275466632
+  },
+  "MASKON": {
+   "s_rel_real": 0.03242377379228363,
+   "z_rel_real": 0.2791900660723179,
+   "s_rel_pad": 0.06898847512860448,
+   "z_rel_pad": 0.03987002115106405,
+   "s_norm_pad": 1312266.2028064276,
+   "z_norm_pad": 16089046.620807806
+  },
+  "MASKONES": {
+   "s_rel_real": 0.03242377379228363,
+   "z_rel_real": 0.2791900660723179,
+   "s_rel_pad": 2.7427930189686296,
+   "z_rel_pad": 0.3924569407623495,
+   "s_norm_pad": 4782397.677028206,
+   "z_norm_pad": 12552868.275466632
+  }
+ },
+ "arm_vs_arm": {
+  "MASKON_minus_MASKOFF": {
+   "s_bit_identical": false,
+   "z_bit_identical": false,
+   "s_absdiff_real": 0.0,
+   "z_absdiff_real": 0.0,
+   "s_rel_real": 0.0,
+   "z_rel_real": 0.0,
+   "s_absdiff_pad": 3526041.373545237,
+   "z_absdiff_pad": 6425447.562518191
+  },
+  "MASKONES_minus_MASKOFF": {
+   "s_bit_identical": true,
+   "z_bit_identical": true,
+   "s_absdiff_real": 0.0,
+   "z_absdiff_real": 0.0,
+   "s_rel_real": 0.0,
+   "z_rel_real": 0.0,
+   "s_absdiff_pad": 0.0,
+   "z_absdiff_pad": 0.0
+  }
+ }
+}

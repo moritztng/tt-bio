@@ -1,0 +1,86 @@
+{
+ "old": "/home/ttuser/of3t_denoise/ref384/grads_f64.pt",
+ "new": "/home/ttuser/of3t_confpfe/ref384c/f64/grads_f64.pt",
+ "by_prefix": {
+  "aux_heads.pairformer_embedding.": {
+   "n": 231,
+   "grad_none_old": 0,
+   "grad_none_new": 0,
+   "rel": 12.429913060611868,
+   "worst_tensor_rel": 50.55298530407865,
+   "old_sq": 1.512626033754317e-08
+  },
+  "aux_heads.experimentally_resolved.": {
+   "n": 3,
+   "grad_none_old": 0,
+   "grad_none_new": 0,
+   "rel": 1.444462659688625e-15,
+   "worst_tensor_rel": 2.4607073816694176e-15,
+   "old_sq": 8.821905670159982e-08
+  },
+  "aux_heads.pae.": {
+   "n": 0,
+   "grad_none_old": 3,
+   "grad_none_new": 0,
+   "rel": null,
+   "worst_tensor_rel": 0.0,
+   "old_sq": 0.0
+  },
+  "aux_heads.pde.": {
+   "n": 0,
+   "grad_none_old": 3,
+   "grad_none_new": 0,
+   "rel": null,
+   "worst_tensor_rel": 0.0,
+   "old_sq": 0.0
+  },
+  "aux_heads.plddt.": {
+   "n": 0,
+   "grad_none_old": 3,
+   "grad_none_new": 3,
+   "rel": null,
+   "worst_tensor_rel": 0.0,
+   "old_sq": 0.0
+  },
+  "aux_heads.distogram.": {
+   "n": 1,
+   "grad_none_old": 0,
+   "grad_none_new": 0,
+   "rel": 2.928513742226135e-15,
+   "worst_tensor_rel": 2.928513742226135e-15,
+   "old_sq": 1.7524822062947756
+  },
+  "diffusion_module.": {
+   "n": 761,
+   "grad_none_old": 0,
+   "grad_none_new": 0,
+   "rel": 1.2475873114452863e-13,
+   "worst_tensor_rel": 1.0139324884027874e-12,
+   "old_sq": 249.17171816602433
+  },
+  "pairformer_stack.": {
+   "n": 2736,
+   "grad_none_old": 0,
+   "grad_none_new": 0,
+   "rel": 0.007815566599363296,
+   "worst_tensor_rel": 3.001327227937278,
+   "old_sq": 1.7531234112434813
+  },
+  "msa_module.": {
+   "n": 227,
+   "grad_none_old": 0,
+   "grad_none_new": 0,
+   "rel": 0.003600382147190919,
+   "worst_tensor_rel": 1.4474442882750862,
+   "old_sq": 0.08502292636517583
+  },
+  "input_embedder.": {
+   "n": 98,
+   "grad_none_old": 0,
+   "grad_none_new": 0,
+   "rel": 0.0030547519042474205,
+   "worst_tensor_rel": 0.1522180291378208,
+   "old_sq": 0.006558014586229874
+  }
+ }
+}

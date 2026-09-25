@@ -1,0 +1,196 @@
+{
+ "draw": 5,
+ "arm": "PD384_s5",
+ "scored_n": 4158,
+ "mass_at_or_better_than_bf16": 0.690613892380039,
+ "worse_by_section": {
+  "diffusion_module.diffusion_transformer": {
+   "mass_fraction": 0.2968755663879324,
+   "n": 1
+  },
+  "aux_heads.distogram": {
+   "mass_fraction": 0.01229915206844222,
+   "n": 1
+  },
+  "pairformer_stack": {
+   "mass_fraction": 0.00020973828740541422,
+   "n": 133
+  },
+  "input_embedder": {
+   "mass_fraction": 1.636218654675412e-06,
+   "n": 48
+  },
+  "aux_heads.pairformer_embedding": {
+   "mass_fraction": 1.2653005713106898e-08,
+   "n": 214
+  },
+  "aux_heads.pde": {
+   "mass_fraction": 7.237990633021864e-10,
+   "n": 3
+  },
+  "aux_heads.experimentally_resolved": {
+   "mass_fraction": 6.157367616930701e-10,
+   "n": 2
+  },
+  "aux_heads.pae": {
+   "mass_fraction": 4.554545210608308e-10,
+   "n": 2
+  },
+  "template_embedder": {
+   "mass_fraction": 2.095302265880652e-10,
+   "n": 1
+  }
+ },
+ "worse_top": [
+  {
+   "tensor": "diffusion_module.diffusion_transformer.blocks.5.attention_pair_bias.layer_norm_a.layer_norm_s.weight",
+   "mass_fraction": 0.2968755663879324,
+   "rel": 0.10132407575896944,
+   "bf16_rel": 0.06586104753065546
+  },
+  {
+   "tensor": "aux_heads.distogram.linear.weight",
+   "mass_fraction": 0.01229915206844222,
+   "rel": 0.14783598064257356,
+   "bf16_rel": 0.10249423033594313
+  },
+  {
+   "tensor": "pairformer_stack.blocks.20.pair_stack.pair_transition.layer_norm.weight",
+   "mass_fraction": 0.00010887745963829892,
+   "rel": 0.22734161658987587,
+   "bf16_rel": 0.19352497408528438
+  },
+  {
+   "tensor": "pairformer_stack.blocks.43.pair_stack.tri_mul_out.layer_norm_in.weight",
+   "mass_fraction": 1.7741808659545422e-05,
+   "rel": 0.13086123812922068,
+   "bf16_rel": 0.10878437816876886
+  },
+  {
+   "tensor": "pairformer_stack.blocks.47.single_transition.layer_norm.weight",
+   "mass_fraction": 1.61750299875378e-05,
+   "rel": 0.20724711554373712,
+   "bf16_rel": 0.14528167334370626
+  },
+  {
+   "tensor": "pairformer_stack.blocks.23.pair_stack.tri_att_start.layer_norm.weight",
+   "mass_fraction": 1.3595204599498947e-05,
+   "rel": 0.25188250884999547,
+   "bf16_rel": 0.24819027925071885
+  },
+  {
+   "tensor": "pairformer_stack.blocks.44.pair_stack.pair_transition.layer_norm.weight",
+   "mass_fraction": 9.316324594437151e-06,
+   "rel": 0.8824158706996253,
+   "bf16_rel": 0.7181829287063839
+  },
+  {
+   "tensor": "pairformer_stack.blocks.43.pair_stack.pair_transition.layer_norm.weight",
+   "mass_fraction": 7.054986421597753e-06,
+   "rel": 0.46387333462374836,
+   "bf16_rel": 0.3561226078150409
+  },
+  {
+   "tensor": "pairformer_stack.blocks.44.pair_stack.tri_mul_out.layer_norm_in.weight",
+   "mass_fraction": 5.555031403643135e-06,
+   "rel": 0.50630494319959,
+   "bf16_rel": 0.24676156916882433
+  },
+  {
+   "tensor": "pairformer_stack.blocks.44.attn_pair_bias.layer_norm_a.bias",
+   "mass_fraction": 5.406046066011871e-06,
+   "rel": 0.6495213858128674,
+   "bf16_rel": 0.4700904765257371
+  },
+  {
+   "tensor": "pairformer_stack.blocks.37.pair_stack.pair_transition.layer_norm.weight",
+   "mass_fraction": 5.402107411507893e-06,
+   "rel": 0.6329845615966317,
+   "bf16_rel": 0.49635109184166976
+  },
+  {
+   "tensor": "pairformer_stack.blocks.45.pair_stack.tri_mul_out.layer_norm_in.weight",
+   "mass_fraction": 4.231778435851677e-06,
+   "rel": 0.5602861446197202,
+   "bf16_rel": 0.3716275554774023
+  },
+  {
+   "tensor": "pairformer_stack.blocks.29.pair_stack.pair_transition.layer_norm.weight",
+   "mass_fraction": 3.6218480156012346e-06,
+   "rel": 0.9893775217850697,
+   "bf16_rel": 0.6429333464847133
+  },
+  {
+   "tensor": "pairformer_stack.blocks.45.attn_pair_bias.layer_norm_a.weight",
+   "mass_fraction": 2.7463085672081246e-06,
+   "rel": 0.2939500069523255,
+   "bf16_rel": 0.27949951117407246
+  },
+  {
+   "tensor": "pairformer_stack.blocks.45.pair_stack.tri_att_end.layer_norm.weight",
+   "mass_fraction": 2.4909896144159916e-06,
+   "rel": 0.2912740131555044,
+   "bf16_rel": 0.2857218899760784
+  },
+  {
+   "tensor": "pairformer_stack.blocks.44.attn_pair_bias.layer_norm_a.weight",
+   "mass_fraction": 2.2613470741417295e-06,
+   "rel": 1.315449788488209,
+   "bf16_rel": 0.6776592971567553
+  },
+  {
+   "tensor": "input_embedder.atom_attn_enc.ref_atom_feature_embedder.linear_ref_pos.weight",
+   "mass_fraction": 1.610708672978468e-06,
+   "rel": 2.3870860699927166,
+   "bf16_rel": 1.6228769609029974
+  },
+  {
+   "tensor": "pairformer_stack.blocks.38.pair_stack.tri_mul_out.layer_norm_in.weight",
+   "mass_fraction": 1.0076331600020523e-06,
+   "rel": 0.282315719114846,
+   "bf16_rel": 0.23034467245604656
+  },
+  {
+   "tensor": "pairformer_stack.blocks.35.pair_stack.tri_mul_out.layer_norm_in.weight",
+   "mass_fraction": 9.128870464860481e-07,
+   "rel": 0.5162767909175829,
+   "bf16_rel": 0.5116218701900886
+  },
+  {
+   "tensor": "pairformer_stack.blocks.7.attn_pair_bias.layer_norm_a.weight",
+   "mass_fraction": 9.050840868768262e-07,
+   "rel": 1.7606156220063476,
+   "bf16_rel": 0.20719859897466847
+  },
+  {
+   "tensor": "pairformer_stack.blocks.7.pair_stack.tri_mul_in.layer_norm_in.weight",
+   "mass_fraction": 6.441682980856397e-07,
+   "rel": 0.8447402281880216,
+   "bf16_rel": 0.5025586779998698
+  },
+  {
+   "tensor": "pairformer_stack.blocks.32.pair_stack.tri_mul_in.layer_norm_in.weight",
+   "mass_fraction": 5.411568229294536e-07,
+   "rel": 0.3500795700884686,
+   "bf16_rel": 0.3176387184738396
+  },
+  {
+   "tensor": "pairformer_stack.blocks.44.attn_pair_bias.mha.linear_q.weight",
+   "mass_fraction": 4.2705347845415775e-07,
+   "rel": 0.7421735459784671,
+   "bf16_rel": 0.43028069648400047
+  },
+  {
+   "tensor": "pairformer_stack.blocks.7.attn_pair_bias.layer_norm_a.bias",
+   "mass_fraction": 2.524846878890954e-07,
+   "rel": 1.7745095964779245,
+   "bf16_rel": 0.16620321571012536
+  },
+  {
+   "tensor": "pairformer_stack.blocks.1.pair_stack.tri_mul_out.layer_norm_in.weight",
+   "mass_fraction": 2.468599428884437e-07,
+   "rel": 0.5633221919258183,
+   "bf16_rel": 0.43170047464455064
+  }
+ ]
+}

@@ -1,0 +1,20 @@
+# A THIRD 512 crop, so the across-target spread is a distribution and not one contrast.
+#
+# docs/design-throughput.md now tells a competition user that which residues they pick matters
+# more than how many, on the strength of two crops: offset 0 at median 4.75 A and offset 100 at
+# 17.79 A, n=8 each. Two points establish that the spread is large; they cannot say whether
+# 13 A is typical of crop-to-crop variation or whether offset 100 happens to be a hard one.
+# A third crop is the cheapest thing that distinguishes those, about 35 minutes on one chip.
+#
+# Offset 200 is residues 201-712 of chain A. Like the other two it is single-chain (chain A is
+# 823 residues), so the comparison keeps the chain count fixed and stays clean in the way the
+# SIZE axis of the 2x2 is not. It shares 312 residues with offset 0 and 412 with offset 100.
+#
+# Runs on whatever tree ~/wt-mgx-catcher is at, which is the same tree as the one-tree 512 pair
+# (plans/floor512_onetree.txt), so all three crops end up directly comparable on one engine.
+# The engine delta across this row's trees was measured at 0.117 A against a 13.04 A effect
+# (results/engine_delta_is_inert.txt), so this is tidiness rather than necessity.
+#
+# Read it as a third draw from the crop distribution, not as a tie-breaker: with n=3 crops the
+# honest statement is a range and a count, not a mean.
+--model boltzgen --target perf/mgxaccuracy/targets/gpb_dimer_1646.cif --target-res 512 --crop-offset 200 --designs 8 --budget 8 --score-dsg --host-threads 2 --timeout 14400 --tag off200

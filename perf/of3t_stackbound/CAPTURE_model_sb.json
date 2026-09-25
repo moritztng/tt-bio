@@ -1,0 +1,160 @@
+{
+ "what": "The pairformer stack's REAL boundary and REAL incoming cotangent, taken from the reference's",
+ "host": "tt-quietbox",
+ "device_involved": false,
+ "why_no_aiclk": "CPU only, no card is opened; the device arm this pair drives records its own DURING-sampled AICLK",
+ "tree": "/home/ttuser/of3t-campaign-refs/of3pkg043",
+ "openfold3_file": "/home/ttuser/of3t-campaign-refs/of3pkg043/openfold3/__init__.py",
+ "dtype": "float64",
+ "why_float64": "the cotangent is part of the reference's identity. grads_f64_043.pt is the float64 backward, so a narrower cotangent would swap this row's known 1.8417 frame mismatch for an unknown one of its own and the arm would again be measuring an artifact. Cost is one backward, already paid once by the published bundle.",
+ "threads": 14,
+ "seed": 20260923,
+ "num_recycles_pinned": 0,
+ "deterministic_kernels": {
+  "enabled": true,
+  "cublas_workspace_config": ":4096:8",
+  "warn_only": true,
+  "why": "two nondeterministic runs disagreed by 1.98 worst relative L2 on 55 of 4,147 tensors, all layer-norm biases whose gradient sum cancels"
+ },
+ "dropout": {
+  "disabled": true,
+  "n_of3_dropout_modules": 61,
+  "n_nn_dropout_modules": 61,
+  "rates_before": [
+   0.15,
+   0.25
+  ],
+  "why": "r = 0 reference: the mask is not reproducible across devices, so the published gradient would be one draw. See disable_dropout() in bundle_min.py."
+ },
+ "cast_policy": {
+  "mode": "removed",
+  "device": "cpu",
+  "n_autocast_contexts_entered": 823,
+  "n_autocast_contexts_torch_actually_enabled": 0,
+  "n_tensor_float_calls": 241,
+  "n_tensor_float_calls_that_changed_dtype": 241,
+  "tensor_float_source_dtypes": {
+   "float64": 3,
+   "int32": 84,
+   "int64": 154
+  }
+ },
+ "inputs": {
+  "batch": {
+   "path": "/home/ttuser/of3t_stackbound/batch_step002.pt",
+   "sha256": "667b7530e421eba525fbb630d925d182e4e5abd5c1d357cfaea058b9b03e54b3",
+   "bytes": 103874275
+  },
+  "checkpoint": {
+   "file": "of3-p2-155k.pt",
+   "sha256": "af09eac4f29cef856633af07558cb143226fe95ebbef2c20921769d4a5f4bee4",
+   "n_loaded": 4935,
+   "n_missing": 1,
+   "n_unexpected": 0,
+   "missing_keys": [
+    "version_tensor"
+   ],
+   "unexpected_all": []
+  },
+  "replayed_draws": {
+   "file": "draws.pt",
+   "sha256": "7588bab76ff9727ab64ad8c0e6ed46f4b4e816875164aef6c52c8395e890e072",
+   "n_torch_randn_recorded": 45,
+   "n_python_random_recorded": 2,
+   "recorded_num_recycles": 0
+  }
+ },
+ "outputs": {
+  "boundary": {
+   "path": "/home/ttuser/of3t_stackbound/boundary_model_sb.pt",
+   "sha256": "b8ded4c13bc97fd04237a82eb260654eb4a682bf13a7ef9e2728e3bf2dbaad2b",
+   "bytes": 153359809,
+   "keys": [
+    "s_in",
+    "z_in",
+    "single_mask",
+    "pair_mask"
+   ]
+  },
+  "cotangent": {
+   "path": "/home/ttuser/of3t_stackbound/cot_model_sb.pt",
+   "sha256": "5e96edc5b0dd1d0ec6aa1e0f4d77c96be792be43a8cdf99eb28f3f76d3c302e6",
+   "bytes": 152176525,
+   "keys": [
+    "cot"
+   ]
+  }
+ },
+ "loss": 1.3737877599531911,
+ "loss_bit_identical_to_published": true,
+ "published_loss": 1.3737877599531911,
+ "global_gradient_norm": 1.5508456814315636,
+ "published_global_gradient_norm": 1.5508456814315636,
+ "n_parameters": 4170,
+ "n_absent_gradients": 0,
+ "trunk_tensors": 2736,
+ "trunk_squared_gradient_norm": 0.4488751809020594,
+ "stack_entered_times": 1,
+ "stack_taped_times": 1,
+ "probe": {
+  "s_in_norm": 15576.202338520536,
+  "z_in_norm": 439321.1153487884,
+  "s_out_norm": 5776765.317056323,
+  "z_out_norm": 312980.7625266859,
+  "cot_s_norm": 4.9371244649951675e-06,
+  "cot_z_norm": 0.00018202083307438654,
+  "real_tokens": 384,
+  "tokens": 384,
+  "shapes": {
+   "s_in": [
+    1,
+    384,
+    384
+   ],
+   "z_in": [
+    1,
+    384,
+    384,
+    128
+   ],
+   "single_mask": [
+    1,
+    384
+   ],
+   "pair_mask": [
+    1,
+    384,
+    384
+   ],
+   "cot_s": [
+    1,
+    384,
+    384
+   ],
+   "cot_z": [
+    1,
+    384,
+    384,
+    128
+   ]
+  }
+ },
+ "witness_trunk_gradient_vs_published_reference": {
+  "what": "this run's own pairformer_stack gradient against the published reference, per tensor, float64 on both sides",
+  "reference": "/home/ttuser/of3t_stackbound/ref_f64/grads_f64.pt",
+  "reference_sha256": "f7659dcd9a3e957c725c6882e5536cb9106578595dd55a2c666f3a64b09a43b4",
+  "compared": 2736,
+  "of_total": 2736,
+  "absent": 0,
+  "n_bit_identical": 2736,
+  "mass_weighted_rel_l2": 0.0,
+  "reference_squared_norm": 0.4488751809020587,
+  "worst_rel_l2": 0.0,
+  "worst_tensor": null
+ },
+ "selftest_real_module_differentiated": null,
+ "seconds_forward": 697.5255737304688,
+ "seconds_backward": 1784.2074446678162,
+ "seconds_total": 2549.4484922885895,
+ "peak_rss_gb": 44.043209075927734
+}

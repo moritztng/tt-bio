@@ -1,0 +1,92 @@
+# THE ACROSS-TARGET FLOOR AT A FIXED SIZE IS 11.4-13.0 A, THE SAME ORDER AS THE SIZE EFFECT.
+#
+# HEADLINE CORRECTED 2026-09-24 03:4xZ. This file used to say the floor was LARGER than the
+# size effect. That compared 13.04 A against a 12.34 A size gap computed on the UPSTREAM
+# refolder; the after-fix DEVICE number at 1536 is 19.398, so the size gap at offset 0 is
+# 14.77 A and it EXCEEDS the target gap either way. Neither effect dominates. A same-tree
+# repeat also put the target gap at 11.39 A rather than 13.04
+# (results/engine_delta_is_inert.txt, results/token_distance_fix_refuted.txt).
+# The measurements below are unchanged; only the comparison in the old headline was wrong.
+#
+# Two 512-residue crops of the SAME protein, differing only by a 100-residue offset along its
+# own sequence. Same designer, same engine (after-fix), same binder length, same metric, same
+# device refolder, n=8 each, both single-chain (chain A is 823 residues, so a 512 crop never
+# reaches chain B at either offset).
+#
+#   crop           n    min    median     max    <=2A  <=4A
+#   512 offset 0   8   0.693    4.749   12.925   25%   38%
+#   512 offset 100 8  12.249   17.785   28.623    0%    0%
+#
+#   median gap 13.04 A.  Mann-Whitney U = 2 of 64, rejects at 0.05.
+#   The two ranges touch only in 12.249-12.925.
+#
+# SET THAT AGAINST THE SIZE EFFECT THIS ROW HAS BEEN CHASING:
+#
+#   size   effect, offset 0, upstream refolder, n=8 per side   19.347 - 7.012 = 12.34 A
+#   target effect, FIXED size 512, device refolder, n=8 per side  17.785 - 4.749 = 13.04 A
+#
+# **Changing WHICH 512 residues you point at moves the median more than going from 512 to
+# 1536 does.** So the size claim does not clear its own across-target floor, and "1536 is
+# worse than 512" cannot be separated from "the 1536 crop is a different and harder binding
+# problem than the 512 crop" with the cells measured so far. The row's pre-registered rule was
+# that a 1536 median has to sit above the TOP of the 512 across-target band; the band is now
+# 4.75-17.79 by median and 0.69-28.62 by range, and 19.35 sits 1.6 A above the top median and
+# well inside the offset-100 range.
+#
+# This is not a retraction of a measurement -- every number above and in
+# results/size_refolder_held_constant.txt stands exactly as measured. It is a retraction of
+# the INFERENCE that the 512-to-1536 difference is about size. The previous across-target
+# floor of 2.10 A came from two targets that happened to be close; one more target shows that
+# 2.10 A was not the floor, it was a draw.
+#
+# WHAT FINISHES THIS, and it is already running: the 2x2. {offset 0, offset 100} x {512, 1536},
+# all on the after-fix engine, n=8 each.
+#
+#   offset   0  512   4.749   DONE
+#   offset 100  512  17.785   DONE (this file)
+#   offset   0 1536      ?    running, whglx card 3
+#   offset 100 1536      ?    running, whglx card 23
+#
+# With all four, size and target are separable for the first time in this row: the size effect
+# is the mean shift across the two offsets, and the target effect is the mean shift across the
+# two sizes. Until then, no size verdict should be written down.
+#
+# WHY THE OFFSET-100 CROP IS A FAIR TARGET AND NOT A BROKEN ONE. It is residues 101-612 of
+# chain A against 1-512, so it shares 412 of its 512 residues with the offset-0 crop and comes
+# from the same deposited structure. It is single-chain at both offsets, so no inter-chain
+# contact is gained or lost. The crop itself is the one whose label_seq numbering was fixed in
+# 1f6e813dc and verified against BoltzGen's own parser; offset 0 output is byte-identical
+# before and after that fix.
+#
+# Reproduce: perf/mgxaccuracy/plans/bg_floor_1536.txt, both entries, via launch_if_clear.sh.
+#
+# ============================================================================================
+# ALL FOUR CELLS' FIXTURES, CHECKED WITH fixture_id.py BEFORE READING ANY EFFECT
+# (2026-09-24 01:57Z, host-only, no card)
+#
+#   cell             chains          atoms   coord_sha              inter-chain
+#   512  offset   0  A=512           4178    7c38b308048af951cc80   single chain
+#   512  offset 100  A=512           4154    2566001fefafee8b*      single chain
+#   1536 offset   0  A=823 B=713     12464   34d0b6f4ea7c10a61b96   1.88 A  CONTACTING
+#   1536 offset 100  A=723 B=813     12467   8fa52f0726e21ffb04bf   1.88 A  CONTACTING
+#   (* byte hash; the offset-100 512 crop predates fixture_id.py's coord_sha)
+#
+# The two 1536 cells are contacting dimers with the SAME minimum inter-chain distance to two
+# decimals, so they are the same kind of problem as each other. Neither is the disconnected
+# rung (162.40 A) that invalidated the upstream reference.
+#
+# A LIMITATION OF THIS 2x2, PRE-REGISTERED BEFORE THE LAST TWO CELLS LAND. Chain A of the
+# source is 823 residues, so a 512 crop in file order never reaches chain B: **both 512 cells
+# are single-chain and both 1536 cells are two-chain.** The "size" axis therefore also changes
+# the chain count, and a binder designed against one chain and a binder designed into a
+# two-chain interface are not only different sizes. So whatever the size main effect comes out
+# as, it is "512 single-chain vs 1536 two-chain", not "512 residues vs 1536 residues" in the
+# abstract, and it must be written down that way.
+#
+# The TARGET main effect does not have this problem: it compares offset 0 against offset 100
+# at a fixed size, and at each size both crops have the same chain count. That is the
+# comparison the 13.04 A figure comes from, and it is clean.
+#
+# Fixing the size axis properly would need a target whose first chain is >= 1536 residues, so
+# that both sizes are single-chain, or a 1536 crop restricted to chain A. Neither is measured
+# here and neither is required by the brief; naming it is what stops the 2x2 being overread.

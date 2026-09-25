@@ -6,8 +6,8 @@ SAME floor, and that question is the whole leg. A classifier that answers "yes" 
 gate that cannot fail, so these tests come in two halves.
 
 The card-bound half is committed as artifacts rather than re-run here: an un-mutated device run
-on a second card (bit-identical to the committed record on all 94 taps and all 6 scalars, qb1
-cards 3 and 0, pass 13) and the two `tap_gate.py --device --mutate` runs. Every one of the
+in a second process (bit-identical to the committed record on all 94 taps and all 6 scalars), the
+`--template-host` arm, and the two `tap_gate.py --device --mutate` runs. Every one of the
 classifier's three substantive conditions fires independently on both mutations, which is the
 property that matters -- an allowlist keyed on tap names alone would swallow a mutation that
 only worsens the taps already failing.
@@ -147,8 +147,8 @@ def test_the_real_mutations_are_caught_by_every_condition(name):
     assert worst_scalar > df.DEFAULT_TOL, "the scalar condition alone would not catch this"
 
 
-def test_a_second_card_reproduces_the_committed_floor():
-    path = ARTIFACTS / "device_trunk_complex_card0.json"
+def test_a_second_run_reproduces_the_committed_floor():
+    path = ARTIFACTS / "device_trunk_complex_r2.json"
     if not path.exists():
         pytest.skip(f"{path.name} absent")
     live = json.loads(path.read_text())
@@ -157,6 +157,18 @@ def test_a_second_card_reproduces_the_committed_floor():
     # measured cross-card spread.
     rows = {r["tap"]: r for r in live["rows"]}
     assert all(rows[r["tap"]].get("pcc") == r.get("pcc") for r in _record_for(live)["rows"])
+
+
+def test_the_template_host_arm_is_off_the_floor():
+    """The negative control the record names. The template pair stack on the host fails fewer
+    taps than the shipped arm, so only the ratio and scalar bounds can see it; if this ever reads
+    GAP the floor has been widened until it no longer tells the two arms apart."""
+    path = ARTIFACTS / "device_trunk_complex_template_host.json"
+    if not path.exists():
+        pytest.skip(f"{path.name} absent")
+    live = json.loads(path.read_text())
+    _record_for(live)
+    assert df.af2ig_device_floor_verdict(live, _committed())[0] == "FAIL"
 
 
 # --- the record is keyed on the Tensix compute grid ----------------------------------------

@@ -1,0 +1,18 @@
+{
+ "what": "positive control for INFAB.json census: the same sitecustomize, one process that imports the training adapter (python3 -c import tt_bio.train.openfold3, tree pftree 06b91c5ce), host only",
+ "processes": 1,
+ "imports_seen": [
+  "tt_bio.train",
+  "tt_bio.train.catalogue",
+  "tt_bio.train.lineage",
+  "tt_bio.train.losses",
+  "tt_bio.train.openfold3"
+ ],
+ "train_modules": [
+  "tt_bio.train",
+  "tt_bio.train.catalogue",
+  "tt_bio.train.lineage",
+  "tt_bio.train.openfold3"
+ ],
+ "autograd_imported": false
+}

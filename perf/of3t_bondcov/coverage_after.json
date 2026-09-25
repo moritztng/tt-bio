@@ -1,0 +1,479 @@
+{
+  "base": {
+    "bond": 0.0,
+    "smooth_lddt": 4.0,
+    "mse": 4.0,
+    "distogram": 0.03,
+    "experimentally_resolved": 0.0001,
+    "plddt": 0.0001,
+    "pae": 0.0001,
+    "pde": 0.0001
+  },
+  "stages": {
+    "initial_training": {
+      "crops": [
+        384
+      ],
+      "datasets": {
+        "weighted-pdb": {
+          "class": "WeightedPDBDataset",
+          "sampling_weight": 0.5,
+          "token_budget": 384,
+          "loss": {
+            "bond": 0.0,
+            "smooth_lddt": 4.0,
+            "mse": 4.0,
+            "distogram": 0.03,
+            "experimentally_resolved": 0.0001,
+            "plddt": 0.0001,
+            "pae": 0.0001,
+            "pde": 0.0001
+          }
+        },
+        "long-monomer-distillation": {
+          "class": "ProteinMonomerDataset",
+          "sampling_weight": 0.495,
+          "token_budget": 384,
+          "loss": {
+            "bond": 0.0,
+            "smooth_lddt": 4.0,
+            "mse": 4.0,
+            "distogram": 0.03,
+            "experimentally_resolved": 0.0,
+            "plddt": 0.0,
+            "pae": 0.0,
+            "pde": 0.0
+          }
+        },
+        "short-monomer-distillation": {
+          "class": "ProteinMonomerDataset",
+          "sampling_weight": 0.005,
+          "token_budget": 384,
+          "loss": {
+            "bond": 0.0,
+            "smooth_lddt": 4.0,
+            "mse": 4.0,
+            "distogram": 0.03,
+            "experimentally_resolved": 0.0,
+            "plddt": 0.0,
+            "pae": 0.0,
+            "pde": 0.0
+          }
+        },
+        "disordered-pdb": {
+          "class": "DisorderedPDBDataset",
+          "sampling_weight": 0.02,
+          "token_budget": 384,
+          "loss": {
+            "bond": 0.0,
+            "smooth_lddt": 4.0,
+            "mse": 4.0,
+            "distogram": 0.03,
+            "experimentally_resolved": 0.0,
+            "plddt": 0.0,
+            "pae": 0.0,
+            "pde": 0.0
+          }
+        },
+        "RNA-monomer-distillation": {
+          "class": "RNAMonomerDataset",
+          "sampling_weight": 0.05,
+          "token_budget": 384,
+          "loss": {
+            "bond": 0.0,
+            "smooth_lddt": 4.0,
+            "mse": 4.0,
+            "distogram": 0.03,
+            "experimentally_resolved": 0.0,
+            "plddt": 0.0,
+            "pae": 0.0,
+            "pde": 0.0
+          }
+        }
+      }
+    },
+    "finetune_1": {
+      "crops": [
+        640
+      ],
+      "datasets": {
+        "weighted-pdb": {
+          "class": "WeightedPDBDataset",
+          "sampling_weight": 0.5,
+          "token_budget": 640,
+          "loss": {
+            "bond": 4.0,
+            "smooth_lddt": 0.0,
+            "mse": 4.0,
+            "distogram": 0.03,
+            "experimentally_resolved": 0.0001,
+            "plddt": 0.0001,
+            "pae": 0.0001,
+            "pde": 0.0001
+          }
+        },
+        "long-monomer-distillation": {
+          "class": "ProteinMonomerDataset",
+          "sampling_weight": 0.495,
+          "token_budget": 640,
+          "loss": {
+            "bond": 4.0,
+            "smooth_lddt": 0.0,
+            "mse": 4.0,
+            "distogram": 0.03,
+            "experimentally_resolved": 0.0,
+            "plddt": 0.0,
+            "pae": 0.0,
+            "pde": 0.0
+          }
+        },
+        "short-monomer-distillation": {
+          "class": "ProteinMonomerDataset",
+          "sampling_weight": 0.005,
+          "token_budget": 640,
+          "loss": {
+            "bond": 4.0,
+            "smooth_lddt": 0.0,
+            "mse": 4.0,
+            "distogram": 0.03,
+            "experimentally_resolved": 0.0,
+            "plddt": 0.0,
+            "pae": 0.0,
+            "pde": 0.0
+          }
+        },
+        "disordered-pdb": {
+          "class": "DisorderedPDBDataset",
+          "sampling_weight": 0.01,
+          "token_budget": 640,
+          "loss": {
+            "bond": 4.0,
+            "smooth_lddt": 0.0,
+            "mse": 4.0,
+            "distogram": 0.03,
+            "experimentally_resolved": 0.0,
+            "plddt": 0.0,
+            "pae": 0.0,
+            "pde": 0.0
+          }
+        },
+        "RNA-monomer-distillation": {
+          "class": "RNAMonomerDataset",
+          "sampling_weight": 0.05,
+          "token_budget": 640,
+          "loss": {
+            "bond": 4.0,
+            "smooth_lddt": 0.0,
+            "mse": 4.0,
+            "distogram": 0.03,
+            "experimentally_resolved": 0.0,
+            "plddt": 0.0,
+            "pae": 0.0,
+            "pde": 0.0
+          }
+        }
+      }
+    },
+    "finetune_2": {
+      "crops": [
+        768
+      ],
+      "datasets": {
+        "weighted-pdb": {
+          "class": "WeightedPDBDataset",
+          "sampling_weight": 0.5,
+          "token_budget": 768,
+          "loss": {
+            "bond": 4.0,
+            "smooth_lddt": 0.0,
+            "mse": 4.0,
+            "distogram": 0.03,
+            "experimentally_resolved": 0.0001,
+            "plddt": 0.0001,
+            "pae": 0.0001,
+            "pde": 0.0001
+          }
+        },
+        "long-monomer-distillation": {
+          "class": "ProteinMonomerDataset",
+          "sampling_weight": 0.495,
+          "token_budget": 768,
+          "loss": {
+            "bond": 4.0,
+            "smooth_lddt": 0.0,
+            "mse": 4.0,
+            "distogram": 0.03,
+            "experimentally_resolved": 0.0,
+            "plddt": 0.0,
+            "pae": 0.0,
+            "pde": 0.0
+          }
+        },
+        "short-monomer-distillation": {
+          "class": "ProteinMonomerDataset",
+          "sampling_weight": 0.005,
+          "token_budget": 768,
+          "loss": {
+            "bond": 4.0,
+            "smooth_lddt": 0.0,
+            "mse": 4.0,
+            "distogram": 0.03,
+            "experimentally_resolved": 0.0,
+            "plddt": 0.0,
+            "pae": 0.0,
+            "pde": 0.0
+          }
+        },
+        "disordered-pdb": {
+          "class": "DisorderedPDBDataset",
+          "sampling_weight": 0.02,
+          "token_budget": 768,
+          "loss": {
+            "bond": 4.0,
+            "smooth_lddt": 0.0,
+            "mse": 4.0,
+            "distogram": 0.03,
+            "experimentally_resolved": 0.0,
+            "plddt": 0.0,
+            "pae": 0.0,
+            "pde": 0.0
+          }
+        },
+        "RNA-monomer-distillation": {
+          "class": "RNAMonomerDataset",
+          "sampling_weight": 0.05,
+          "token_budget": 768,
+          "loss": {
+            "bond": 4.0,
+            "smooth_lddt": 0.0,
+            "mse": 4.0,
+            "distogram": 0.03,
+            "experimentally_resolved": 0.0,
+            "plddt": 0.0,
+            "pae": 0.0,
+            "pde": 0.0
+          }
+        }
+      }
+    },
+    "finetune_3": {
+      "crops": [
+        768
+      ],
+      "datasets": {
+        "weighted-pdb": {
+          "class": "WeightedPDBDataset",
+          "sampling_weight": 1.0,
+          "token_budget": 768,
+          "loss": {
+            "bond": 0.0,
+            "smooth_lddt": 0.0,
+            "mse": 0.0,
+            "distogram": 0.0,
+            "experimentally_resolved": 0.0001,
+            "plddt": 0.0001,
+            "pae": 0.0001,
+            "pde": 0.0001
+          }
+        }
+      }
+    }
+  },
+  "carriers": {
+    "bond": [
+      "finetune_1/weighted-pdb",
+      "finetune_1/long-monomer-distillation",
+      "finetune_1/short-monomer-distillation",
+      "finetune_1/disordered-pdb",
+      "finetune_1/RNA-monomer-distillation",
+      "finetune_2/weighted-pdb",
+      "finetune_2/long-monomer-distillation",
+      "finetune_2/short-monomer-distillation",
+      "finetune_2/disordered-pdb",
+      "finetune_2/RNA-monomer-distillation"
+    ],
+    "smooth_lddt": [
+      "initial_training/weighted-pdb",
+      "initial_training/long-monomer-distillation",
+      "initial_training/short-monomer-distillation",
+      "initial_training/disordered-pdb",
+      "initial_training/RNA-monomer-distillation"
+    ],
+    "mse": [
+      "initial_training/weighted-pdb",
+      "initial_training/long-monomer-distillation",
+      "initial_training/short-monomer-distillation",
+      "initial_training/disordered-pdb",
+      "initial_training/RNA-monomer-distillation",
+      "finetune_1/weighted-pdb",
+      "finetune_1/long-monomer-distillation",
+      "finetune_1/short-monomer-distillation",
+      "finetune_1/disordered-pdb",
+      "finetune_1/RNA-monomer-distillation",
+      "finetune_2/weighted-pdb",
+      "finetune_2/long-monomer-distillation",
+      "finetune_2/short-monomer-distillation",
+      "finetune_2/disordered-pdb",
+      "finetune_2/RNA-monomer-distillation"
+    ],
+    "distogram": [
+      "initial_training/weighted-pdb",
+      "initial_training/long-monomer-distillation",
+      "initial_training/short-monomer-distillation",
+      "initial_training/disordered-pdb",
+      "initial_training/RNA-monomer-distillation",
+      "finetune_1/weighted-pdb",
+      "finetune_1/long-monomer-distillation",
+      "finetune_1/short-monomer-distillation",
+      "finetune_1/disordered-pdb",
+      "finetune_1/RNA-monomer-distillation",
+      "finetune_2/weighted-pdb",
+      "finetune_2/long-monomer-distillation",
+      "finetune_2/short-monomer-distillation",
+      "finetune_2/disordered-pdb",
+      "finetune_2/RNA-monomer-distillation"
+    ],
+    "experimentally_resolved": [
+      "initial_training/weighted-pdb",
+      "finetune_1/weighted-pdb",
+      "finetune_2/weighted-pdb",
+      "finetune_3/weighted-pdb"
+    ],
+    "plddt": [
+      "initial_training/weighted-pdb",
+      "finetune_1/weighted-pdb",
+      "finetune_2/weighted-pdb",
+      "finetune_3/weighted-pdb"
+    ],
+    "pae": [
+      "initial_training/weighted-pdb",
+      "finetune_1/weighted-pdb",
+      "finetune_2/weighted-pdb",
+      "finetune_3/weighted-pdb"
+    ],
+    "pde": [
+      "initial_training/weighted-pdb",
+      "finetune_1/weighted-pdb",
+      "finetune_2/weighted-pdb",
+      "finetune_3/weighted-pdb"
+    ]
+  },
+  "uncovered": [],
+  "minimal_set": [
+    "initial_training/weighted-pdb",
+    "finetune_1/weighted-pdb"
+  ],
+  "demonstrated": {
+    "bond": {
+      "term": "bond",
+      "stage": "finetune_1",
+      "dataset": "weighted-pdb",
+      "target": "4g5j 1",
+      "quantity": "share of the squared parameter-gradient norm",
+      "value": 0.1469017168959787,
+      "squared_norm_of_difference": 0.2137645687351699,
+      "squared_norm_with_bond": 1.4551536445726967,
+      "n_params_moved": 3924,
+      "n_params": 4170,
+      "bond_mask_nnz": 1,
+      "token_bonds_nnz": 120,
+      "crop": 256,
+      "loss_with_term": 0.3135363757610321,
+      "loss_without_term": 0.30956944823265076,
+      "term_loss": 0.0012424831511452794,
+      "source": "bond_gradient_4g5j_c1.json",
+      "record": "perf/of3t_bondcov/evidence/bond.json"
+    },
+    "distogram": {
+      "term": "distogram",
+      "stage": "initial_training",
+      "dataset": "RNA-monomer-distillation",
+      "target": "5nw3",
+      "quantity": "norm of the gradient seeded into the model outputs",
+      "value": 0.0005327387051577457,
+      "n_pairs_firing": 15,
+      "weight": 0.03,
+      "term_value": 4.288465315645982,
+      "source": "coverage_census.json",
+      "record": "perf/of3t_bondcov/evidence/distogram.json"
+    },
+    "experimentally_resolved": {
+      "term": "experimentally_resolved",
+      "stage": "initial_training",
+      "dataset": "weighted-pdb",
+      "target": "5nw3",
+      "quantity": "norm of the gradient seeded into the model outputs",
+      "value": 9.640772669207014e-06,
+      "n_pairs_firing": 4,
+      "weight": 0.0001,
+      "term_value": 0.7190701909213546,
+      "source": "coverage_census.json",
+      "record": "perf/of3t_bondcov/evidence/experimentally_resolved.json"
+    },
+    "mse": {
+      "term": "mse",
+      "stage": "initial_training",
+      "dataset": "RNA-monomer-distillation",
+      "target": "5nw3",
+      "quantity": "norm of the gradient seeded into the model outputs",
+      "value": 0.641149927225203,
+      "n_pairs_firing": 15,
+      "weight": 4.0,
+      "term_value": 1.0790672458688757,
+      "source": "coverage_census.json",
+      "record": "perf/of3t_bondcov/evidence/mse.json"
+    },
+    "pae": {
+      "term": "pae",
+      "stage": "initial_training",
+      "dataset": "weighted-pdb",
+      "target": "5nw3",
+      "quantity": "norm of the gradient seeded into the model outputs",
+      "value": 1.7753389718472197e-06,
+      "n_pairs_firing": 4,
+      "weight": 0.0001,
+      "term_value": 4.275963320622558,
+      "source": "coverage_census.json",
+      "record": "perf/of3t_bondcov/evidence/pae.json"
+    },
+    "pde": {
+      "term": "pde",
+      "stage": "initial_training",
+      "dataset": "weighted-pdb",
+      "target": "5nw3",
+      "quantity": "norm of the gradient seeded into the model outputs",
+      "value": 1.7754674278970154e-06,
+      "n_pairs_firing": 4,
+      "weight": 0.0001,
+      "term_value": 4.277080189093306,
+      "source": "coverage_census.json",
+      "record": "perf/of3t_bondcov/evidence/pde.json"
+    },
+    "plddt": {
+      "term": "plddt",
+      "stage": "initial_training",
+      "dataset": "weighted-pdb",
+      "target": "5nw3",
+      "quantity": "norm of the gradient seeded into the model outputs",
+      "value": 1.3268274652696933e-05,
+      "n_pairs_firing": 4,
+      "weight": 0.0001,
+      "term_value": 4.026955970962178,
+      "source": "coverage_census.json",
+      "record": "perf/of3t_bondcov/evidence/plddt.json"
+    },
+    "smooth_lddt": {
+      "term": "smooth_lddt",
+      "stage": "initial_training",
+      "dataset": "RNA-monomer-distillation",
+      "target": "5nw3",
+      "quantity": "norm of the gradient seeded into the model outputs",
+      "value": 0.015226004021220181,
+      "n_pairs_firing": 5,
+      "weight": 4.0,
+      "term_value": 0.39330048659953687,
+      "source": "coverage_census.json",
+      "record": "perf/of3t_bondcov/evidence/smooth_lddt.json"
+    }
+  }
+}

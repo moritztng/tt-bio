@@ -1,0 +1,63 @@
+== aa_c2a.pt vs aa_c2b.pt
+args[0] (1, 64, 384) torch.float32 equal=True max|d|=0.000e+00 n_diff=0
+args[1] (1, 64, 384) torch.float32 equal=True max|d|=0.000e+00 n_diff=0
+args[2] (1, 64, 64, 128) torch.float32 equal=True max|d|=0.000e+00 n_diff=0
+args[3] (1, 448, 128) torch.float32 equal=True max|d|=0.000e+00 n_diff=0
+args[4] (1, 14, 32, 128, 16) torch.float32 equal=True max|d|=0.000e+00 n_diff=0
+args[5] (1, 448, 3) torch.float32 equal=True max|d|=0.000e+00 n_diff=0
+args[6] (1, 422, 3) torch.float32 equal=True max|d|=0.000e+00 n_diff=0
+args[7] (1, 448, 1) torch.float32 equal=True max|d|=0.000e+00 n_diff=0
+args[8] (1, 422, 1) torch.float32 equal=True max|d|=0.000e+00 n_diff=0
+args[9] (1, 448) torch.uint32 equal=True max|d|=0.000e+00 n_diff=0
+args[10] (1, 57344) torch.uint32 equal=True max|d|=0.000e+00 n_diff=0
+args[11] (1, 14, 32, 128, 1) torch.float32 equal=True max|d|=0.000e+00 n_diff=0
+args[12] (1, 1792) torch.uint32 equal=True max|d|=0.000e+00 n_diff=0
+args[13] (1, 14, 128, 1) torch.bfloat16 equal=True max|d|=0.000e+00 n_diff=0
+args[14] (1, 14, 1, 32, 128) torch.float32 equal=True max|d|=0.000e+00 n_diff=0
+args[15] (1, 14, 32, 128, 1) torch.float32 equal=True max|d|=0.000e+00 n_diff=0
+args[16] (1, 64, 422) torch.float32 equal=True max|d|=0.000e+00 n_diff=0
+args[17] (1, 64) torch.float32 equal=True max|d|=0.000e+00 n_diff=0
+args[18] (1, 64, 1) torch.float32 equal=True max|d|=0.000e+00 n_diff=0
+y_taped equal=True max|d|=0.000e+00
+y_untaped equal=True max|d|=0.000e+00
+y_untaped2 equal=True max|d|=0.000e+00
+outputs[pred_xyz] equal=True
+outputs[pred_dist] equal=True
+outputs[distogram_logits] equal=True
+outputs[plddt_logits] equal=True
+outputs[pde_logits] equal=True
+outputs[pae_logits] equal=True
+outputs[resolved_logits] equal=True
+== aa_c2a.pt vs aa_c3.pt
+args[0] (1, 64, 384) torch.float32 equal=True max|d|=0.000e+00 n_diff=0
+args[1] (1, 64, 384) torch.float32 equal=True max|d|=0.000e+00 n_diff=0
+args[2] (1, 64, 64, 128) torch.float32 equal=True max|d|=0.000e+00 n_diff=0
+args[3] (1, 448, 128) torch.float32 equal=True max|d|=0.000e+00 n_diff=0
+args[4] (1, 14, 32, 128, 16) torch.float32 equal=True max|d|=0.000e+00 n_diff=0
+args[5] (1, 448, 3) torch.float32 equal=True max|d|=0.000e+00 n_diff=0
+args[6] (1, 422, 3) torch.float32 equal=True max|d|=0.000e+00 n_diff=0
+args[7] (1, 448, 1) torch.float32 equal=True max|d|=0.000e+00 n_diff=0
+args[8] (1, 422, 1) torch.float32 equal=True max|d|=0.000e+00 n_diff=0
+args[9] (1, 448) torch.uint32 equal=True max|d|=0.000e+00 n_diff=0
+args[10] (1, 57344) torch.uint32 equal=True max|d|=0.000e+00 n_diff=0
+args[11] (1, 14, 32, 128, 1) torch.float32 equal=True max|d|=0.000e+00 n_diff=0
+args[12] (1, 1792) torch.uint32 equal=True max|d|=0.000e+00 n_diff=0
+args[13] (1, 14, 128, 1) torch.bfloat16 equal=True max|d|=0.000e+00 n_diff=0
+args[14] (1, 14, 1, 32, 128) torch.float32 equal=True max|d|=0.000e+00 n_diff=0
+args[15] (1, 14, 32, 128, 1) torch.float32 equal=True max|d|=0.000e+00 n_diff=0
+args[16] (1, 64, 422) torch.float32 equal=True max|d|=0.000e+00 n_diff=0
+args[17] (1, 64) torch.float32 equal=True max|d|=0.000e+00 n_diff=0
+args[18] (1, 64, 1) torch.float32 equal=True max|d|=0.000e+00 n_diff=0
+y_taped equal=True max|d|=0.000e+00
+y_untaped equal=True max|d|=0.000e+00
+y_untaped2 equal=True max|d|=0.000e+00
+outputs[pred_xyz] equal=True
+outputs[pred_dist] equal=True
+outputs[distogram_logits] equal=True
+outputs[plddt_logits] equal=True
+outputs[pde_logits] equal=True
+outputs[pae_logits] equal=True
+outputs[resolved_logits] equal=True
+aa_c2a.pt untaped A/A in process: True taped==untaped: False
+aa_c2b.pt untaped A/A in process: True taped==untaped: False
+aa_c3.pt untaped A/A in process: True taped==untaped: False

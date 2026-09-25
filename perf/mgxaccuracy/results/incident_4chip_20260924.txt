@@ -1,0 +1,34 @@
+# INCIDENT 2026-09-24 07:17-07:24Z — this row held 4 chips against a 3-chip cap. Recovered.
+# Moved out of state/mgx-design-accuracy.md on the 08:5xZ pass (doc trim); the code fix is
+# committed and the lesson is here so the doc does not carry it every pass.
+
+WHAT HAPPENED. I launched a third fan (--max-concurrent 1) while two fans already held three
+chips, reasoning that `free_cards()` was empty so the new job would queue until card 2 freed.
+It took card 3 about 90 s later.
+
+THE DEFECT IN THE REASONING. An empty free list means "none free NOW", not "none soon" -- 27
+chips on one host free continuously. And `--max-concurrent` caps ONE fan while the grant is
+per ROW: 1 + 2 + 1 = 4. The cap I was reading was not the cap I was bound by.
+
+RECOVERY, ~60 s, no damage. SIGTERM the fan and its wrapper FIRST (1599522, 1599354) so it
+could not requeue onto another chip, then SIGINT the design process (1654980) so tt_bio closed
+the device and wrote `released` itself rather than leaving the lease pinned. Explicit pids
+throughout, no pkill in a compound. The job was 43 s in, so nothing measured was lost.
+`mgx-ceilings` took card 3 twenty-five seconds later, which is the evidence it came back clean:
+a chip killed dirty does not get reopened, it hangs the next opener.
+
+FIXED SO IT CANNOT RECUR (committed on wk/mgx-design-accuracy):
+  - `holder_cards()` in perf/mgxscale/job.py counts the chips a holder is on from the lease
+    dir, the only state the parallel fans share.
+  - `fan.py --row-cap N` refuses to start a job while the row is already at N chips.
+    Default 0 = old behaviour, so no existing caller changes.
+  - `launch_if_clear.sh` forwards --row-cap (default 3), so the arithmetic cannot recur from
+    any caller this row uses.
+  - chip 4 added to BLOCKED. It held only the five live-app chips (1/24/25/26/27) while every
+    MGX brief also forbids 4 for its hung holder; the other busy signals hide chip 4 only while
+    that holder's process stays alive.
+  Verified live at 07:3xZ: `mgx-design-accuracy -> [2, 9, 13]`.
+
+GENERALISABLE LESSON. A per-process concurrency flag is not a per-row grant. When N processes
+share a quota, the quota has to be counted from the state they SHARE (here the lease dir), not
+from each process's own flag, and it has to be checked at acquire time, not at plan time.

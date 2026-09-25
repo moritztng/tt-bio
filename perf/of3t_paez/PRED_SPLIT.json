@@ -1,0 +1,91 @@
+{
+ "width": 384,
+ "n_pae_pairs": 3080,
+ "n_pde_pairs": 3136,
+ "self_control_grad_vs_banked": {
+  "rel": 4.4069008513641846e-16,
+  "r": 0.9999999999999999,
+  "cos": 1.0000000000000002,
+  "identity_residual": 2.220446049250315e-16,
+  "ref_sq": 3.1228386228284624e-07,
+  "arm_sq": 3.122838622828462e-07
+ },
+ "self_control_pae_value": 4.367601626943486,
+ "sides": {
+  "dev": {
+   "pred_xyz_rel": 0.0020692175178407715,
+   "pred_xyz_max_abs_A": 0.08353533267958824,
+   "pae_bins_differ": 593,
+   "pae_mean_signed_bin_shift": 0.12305194805194805,
+   "pae_grad_at_f64_z": {
+    "rel": 0.06592091213805193,
+    "r": 0.9364486889293918,
+    "cos": 0.9998361909616906,
+    "identity_residual": 3.7470027081099033e-16,
+    "ref_sq": 3.122838622828462e-07,
+    "arm_sq": 2.7385300695984104e-07
+   },
+   "pae_value_at_f64_z": 4.231416524620464
+  },
+  "f64": {
+   "pred_xyz_rel": 0.0,
+   "pred_xyz_max_abs_A": 0.0,
+   "pae_bins_differ": 0,
+   "pae_mean_signed_bin_shift": 0.0,
+   "pae_grad_at_f64_z": {
+    "rel": 0.0,
+    "r": 1.0,
+    "cos": 1.0,
+    "identity_residual": 0.0,
+    "ref_sq": 3.122838622828462e-07,
+    "arm_sq": 3.122838622828462e-07
+   },
+   "pae_value_at_f64_z": 4.367601626943486
+  },
+  "f64_at_dev_inputs": {
+   "pred_xyz_rel": 0.00022829010892605546,
+   "pred_xyz_max_abs_A": 0.006743579692591872,
+   "pae_bins_differ": 39,
+   "pae_mean_signed_bin_shift": 0.000974025974025974,
+   "pae_grad_at_f64_z": {
+    "rel": 0.0012109976836290816,
+    "r": 0.999368761913051,
+    "cos": 0.9999994656357553,
+    "identity_residual": 3.69213191378677e-17,
+    "ref_sq": 3.122838622828462e-07,
+    "arm_sq": 3.1188973578032446e-07
+   },
+   "pae_value_at_f64_z": 4.365788565004658
+  },
+  "f64_at_bf16_inputs": {
+   "pred_xyz_rel": 0.00010247853564633316,
+   "pred_xyz_max_abs_A": 0.0035854765255241006,
+   "pae_bins_differ": 35,
+   "pae_mean_signed_bin_shift": 0.000974025974025974,
+   "pae_grad_at_f64_z": {
+    "rel": 0.0024780684503968573,
+    "r": 1.0014280613778994,
+    "cos": 0.999997952192422,
+    "identity_residual": 1.6324357772663778e-16,
+    "ref_sq": 3.122838622828462e-07,
+    "arm_sq": 3.131764201871795e-07
+   },
+   "pae_value_at_f64_z": 4.37052698883926
+  },
+  "bf16": {
+   "pred_xyz_rel": 0.0030821616635365234,
+   "pred_xyz_max_abs_A": 0.13805103943294128,
+   "pae_bins_differ": 744,
+   "pae_mean_signed_bin_shift": 0.04512987012987013,
+   "pae_grad_at_f64_z": {
+    "rel": 0.024027347292616477,
+    "r": 0.9794660195239092,
+    "cos": 0.9999205337088654,
+    "identity_residual": 3.288385189148535e-16,
+    "ref_sq": 3.122838622828462e-07,
+    "arm_sq": 2.9959067354805483e-07
+   },
+   "pae_value_at_f64_z": 4.330967450337617
+  }
+ }
+}

@@ -1,0 +1,46 @@
+{
+ "doc": "The `nlp_create_qkv_heads` gradient, against float64, with the bytes each slot costs.",
+ "argv": [
+  "--verb",
+  "concat_heads",
+  "--head-dim",
+  "16",
+  "--out",
+  "/home/ttuser/.coworker/wt/of3t-cropwall/perf/of3t_cropwall/out/heads_ab_concat_heads_dh16_post.json"
+ ],
+ "env": {
+  "host": "tt-quietbox2",
+  "tt_visible_devices": "3",
+  "commit": "def12168e3ba13fe981d886b8ec1ed1ff667d5ae",
+  "branch": "wk/of3t-cropwall",
+  "started_utc": "2026-09-23T02:43:51Z",
+  "arch": "Arch.BLACKHOLE"
+ },
+ "shape": {
+  "B": 256,
+  "L": 256,
+  "H": 4,
+  "dh": 16,
+  "wide": 64
+ },
+ "backward_s": 0.075,
+ "backward_dram_peak_b": 71385088,
+ "backward_dram_peak_at_verb": "transpose",
+ "backward_largest_buffer_b": 16777216,
+ "dram_after_backward_b": 54607872,
+ "dram_before_b": 16793600,
+ "vs_float64": {
+  "max_abs": 0.0,
+  "max_rel": 0.0,
+  "mean_abs": 0.0,
+  "bit_exact": true,
+  "ref_absmax": 1.0,
+  "nonzero_share": 0.9999997615814209
+ },
+ "grad_digest": "cf80b6fe962b2ae0",
+ "grad_stats": {
+  "absmax": 1.0,
+  "sum": -349.3686555624008
+ },
+ "ok": true
+}

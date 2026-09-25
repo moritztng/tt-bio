@@ -1,0 +1,438 @@
+From 403ddcf8881c2208b21e8b589716dbea1ecb8767 Mon Sep 17 00:00:00 2001
+From: moritztng <moritz.thuening@gmail.com>
+Date: Thu, 24 Sep 2026 22:42:21 +0200
+Subject: [PATCH] Find and pin design workers without nvidia-smi
+
+A campaign enumerated its accelerators with nvidia-smi and pinned each worker
+with CUDA_VISIBLE_DEVICES, so on a machine installed with the rocm extra
+visible_design_gpus() returned nothing, plan_design_workers() built an empty
+plan, and the campaign ran one process on one device however many the node
+held. Device memory was unreadable there too, which held even a single card to
+one worker.
+
+Enumeration now reads CUDA_VISIBLE_DEVICES or HIP_VISIBLE_DEVICES, then
+nvidia-smi, and falls back to jax.devices() with the host CPU left out. Memory
+falls back to a device's PJRT memory_stats(). Each worker is pinned with the
+variable its own runtime reads, chosen from the device platform, resolving
+JAX's shared "gpu" name by which plugin is installed. JAX's own
+jax_cuda_visible_devices and jax_rocm_visible_devices are absl flags rather
+than environment states, so they do not reach a worker process and are not
+used.
+
+Both nvidia-smi calls are tried first and unchanged, so on an NVIDIA machine
+the devices found, their order, their memory and the variable each worker is
+pinned with are what they were, and no JAX backend is initialised any earlier
+than before. Where a platform offers no way to pin a worker the campaign says
+so and designs on one device, rather than fanning out onto a device every
+worker would share.
+
+tests/test_design_workers.py covers both paths with stub devices. Nine of its
+tests describe behaviour this commit preserves and pass at either revision.
+---
+ bindcraft/design_workers.py  |  71 +++++++++++-
+ containers/README.md         |  13 ++-
+ docs/source/installation.md  |   6 +-
+ tests/test_design_workers.py | 215 +++++++++++++++++++++++++++++++++++
+ 4 files changed, 290 insertions(+), 15 deletions(-)
+ create mode 100644 tests/test_design_workers.py
+
+diff --git a/bindcraft/design_workers.py b/bindcraft/design_workers.py
+index 70fbfa3..ac8f02a 100644
+--- a/bindcraft/design_workers.py
++++ b/bindcraft/design_workers.py
+@@ -21,16 +21,56 @@ TRAJECTORY_ONLY_WORKERS_PER_GPU = 1
+ def running_as_design_worker() -> bool:
+     return 'BINDCRAFT_WORKER_ID' in os.environ
+ 
+-def visible_design_gpus() -> list[str]:
+-    visible = os.environ.get('CUDA_VISIBLE_DEVICES')
+-    if visible is not None:
+-        return [device.strip() for device in visible.split(',') if device.strip()]
++#Each accelerator family is pinned by the variable its own runtime reads, which is what lets a
++#worker be given one device. JAX's own jax_cuda_visible_devices/jax_rocm_visible_devices are absl
++#flags rather than environment states, so they do not cross into a worker process and cannot be
++#used here.
++DEVICE_VISIBILITY_VARIABLES = {'cuda': 'CUDA_VISIBLE_DEVICES', 'rocm': 'HIP_VISIBLE_DEVICES'}
++DEVICE_VISIBILITY_ORDER = tuple(dict.fromkeys(DEVICE_VISIBILITY_VARIABLES.values()))
++
++def design_devices() -> list:
++    """The accelerators JAX holds, in JAX's order, with the host CPU left out."""
++    try:
++        import jax
++        return [device for device in jax.devices() if device.platform != 'cpu']
++    except (ImportError, RuntimeError):
++        return []
++
++def installed_accelerator_platforms() -> set[str]:
++    from bindcraft.selfcheck import ACCELERATOR_MODULES, module_present
++    return {name.rstrip('0123456789') for name, modules in ACCELERATOR_MODULES.items() if module_present(modules[0])}
++
++def design_device_platform() -> str:
++    """Which accelerator family is designing, resolving JAX's shared 'gpu' name by installed plugin."""
++    devices = design_devices()
++    if not devices:
++        return ''
++    if devices[0].platform in DEVICE_VISIBILITY_VARIABLES:
++        return devices[0].platform
++    candidates = installed_accelerator_platforms() & set(DEVICE_VISIBILITY_VARIABLES)
++    return candidates.pop() if len(candidates) == 1 else ''
++
++def design_visibility_variable() -> str | None:
++    """The variable a worker is pinned with, or None when this platform has no way to pin one."""
++    for variable in DEVICE_VISIBILITY_ORDER:
++        if os.environ.get(variable):
++            return variable
++    return DEVICE_VISIBILITY_VARIABLES.get(design_device_platform())
++
++def nvidia_smi_gpu_indices() -> list[str]:
+     try:
+         listing = subprocess.run(['nvidia-smi', '--query-gpu=index', '--format=csv,noheader'], capture_output=True, text=True, check=True).stdout
+     except (OSError, subprocess.CalledProcessError):
+         return []
+     return [line.strip() for line in listing.splitlines() if line.strip()]
+ 
++def visible_design_gpus() -> list[str]:
++    for variable in DEVICE_VISIBILITY_ORDER:
++        visible = os.environ.get(variable)
++        if visible is not None:
++            return [device.strip() for device in visible.split(',') if device.strip()]
++    return nvidia_smi_gpu_indices() or [str(device.id) for device in design_devices()]
++
+ def selected_design_gpus(gpu_ids: str | list | None=None) -> list[str]:
+     gpus = visible_design_gpus()
+     if gpu_ids in (None, '', 'all'):
+@@ -41,7 +81,7 @@ def selected_design_gpus(gpu_ids: str | list | None=None) -> list[str]:
+         raise ValueError(f'requested GPUs {missing} are not visible to this process')
+     return requested
+ 
+-def design_gpu_memory_gb() -> dict[str, tuple[float, float]]:
++def nvidia_smi_memory_gb() -> dict[str, tuple[float, float]]:
+     try:
+         listing = subprocess.run(['nvidia-smi', '--query-gpu=index,memory.free,memory.total', '--format=csv,noheader,nounits'], capture_output=True, text=True, check=True).stdout
+     except (OSError, subprocess.CalledProcessError):
+@@ -49,6 +89,19 @@ def design_gpu_memory_gb() -> dict[str, tuple[float, float]]:
+     fields = [[field.strip() for field in line.split(',')] for line in listing.splitlines() if line.strip()]
+     return {index: (float(free_mib) / 1024, float(total_mib) / 1024) for index, free_mib, total_mib in fields}
+ 
++def jax_device_memory_gb() -> dict[str, tuple[float, float]]:
++    """Free and total device memory as the PJRT plugin reports it, for plugins that report it."""
++    memory = {}
++    for device in design_devices():
++        statistics = device.memory_stats() or {}
++        total_bytes = statistics.get('bytes_limit') or statistics.get('bytes_reservable_limit') or 0
++        if total_bytes:
++            memory[str(device.id)] = ((total_bytes - statistics.get('bytes_in_use', 0)) / 1024 ** 3, total_bytes / 1024 ** 3)
++    return memory
++
++def design_gpu_memory_gb() -> dict[str, tuple[float, float]]:
++    return nvidia_smi_memory_gb() or jax_device_memory_gb()
++
+ def estimate_design_memory_gb(residue_count: int) -> float:
+     return DESIGN_MEMORY_SAFETY_FACTOR * (DESIGN_MODEL_RESIDENT_GB + DESIGN_ACTIVATION_BYTES_PER_RESIDUE_PAIR * int(residue_count) ** 2 / 1e9)
+ 
+@@ -122,6 +175,11 @@ def worker_residue_count(settings: dict, worker: dict, residue_count: int | None
+ 
+ def plan_design_workers(settings: dict, residue_count: int | None=None, trajectory_budget: int | None=None) -> list[dict]:
+     gpus = selected_design_gpus(os.environ.get('BINDCRAFT_GPU_IDS', settings.get('gpu_ids')))
++    if len(gpus) > 1 and design_visibility_variable() is None:
++        #Fanning out without a way to pin each worker would land every one of them on the same
++        #device, so this platform designs on one until its visibility variable is known here.
++        print(f'{len(gpus)} devices visible, designing on one: no way to pin a worker to a single device on this platform', flush=True)
++        gpus = gpus[:1]
+     gpu_memory = design_gpu_memory_gb()
+     worker_limit = int(os.environ.get('BINDCRAFT_DESIGN_WORKERS', settings.get('design_workers') or 0))
+     plan = []
+@@ -198,6 +256,7 @@ def report_campaign_close(project_folders: tuple[str, ...], requested_designs: i
+ def launch_design_workers(plan: list[dict], log_directory: str, worker_command: list[str], launch_stagger_seconds: float=0.0, project_folders: tuple[str, ...]=(), requested_designs: int=0, max_trajectories: int | None=None) -> int:
+     os.makedirs(log_directory, exist_ok=True)
+     processes, log_files, relays, console = [], [], [], TrajectoryOrderedConsole()
++    visibility_variable = design_visibility_variable() or 'CUDA_VISIBLE_DEVICES'
+     workers_on_card, launch_order = {}, []
+     for worker_index, worker in enumerate(plan):
+         rung = workers_on_card[worker['gpu']] = workers_on_card.get(worker['gpu'], -1) + 1
+@@ -208,7 +267,7 @@ def launch_design_workers(plan: list[dict], log_directory: str, worker_command:
+             if rung != launched_rung and launch_stagger_seconds:
+                 time.sleep(launch_stagger_seconds)
+             launched_rung = rung
+-            environment = {**os.environ, 'CUDA_VISIBLE_DEVICES': worker['gpu'], 'BINDCRAFT_WORKER_ID': str(worker_index), 'BINDCRAFT_WORKER_COUNT': str(len(plan))}
++            environment = {**os.environ, visibility_variable: worker['gpu'], 'BINDCRAFT_WORKER_ID': str(worker_index), 'BINDCRAFT_WORKER_COUNT': str(len(plan))}
+             if worker.get('memory_fraction'):
+                 environment['XLA_PYTHON_CLIENT_MEM_FRACTION'] = str(worker['memory_fraction'])
+             if worker.get('lengths'):
+diff --git a/containers/README.md b/containers/README.md
+index 1432db3..a039959 100644
+--- a/containers/README.md
++++ b/containers/README.md
+@@ -46,15 +46,16 @@ as well: a parameter directory that is a link into a filesystem the container do
+ 
+ ## Making sure the cards are reached
+ 
+-A campaign fans one design worker out per GPU by itself, but it reads `CUDA_VISIBLE_DEVICES` to find
+-them and the image carries no `nvidia-smi` to fall back on, so the allocation has to ask for the
+-cards: `--gpus-per-node=N`, or `--gres=gpu:N` wherever that is what the scheduler takes. Without it
+-Slurm sets the variable empty and jax finds no device.
++A campaign fans one design worker out per GPU by itself. It reads `CUDA_VISIBLE_DEVICES` first and
++the image carries no `nvidia-smi`, so where the variable is unset the cards are found through
++`jax.devices()`. The allocation still has to ask for them: `--gpus-per-node=N`, or `--gres=gpu:N`
++wherever that is what the scheduler takes. Without it Slurm sets the variable empty, and an empty
++variable means no device however many the node holds.
+ 
+ Check that they are really in use before spending a night on a campaign. jax falls back to the CPU on
+ its own and says so only in a warning buried in a plugin traceback, and the fan-out line above it
+-still names every GPU, because that line is read off `CUDA_VISIBLE_DEVICES` rather than off the
+-devices jax opened:
++still names every GPU, because where the allocation sets that variable the line is read off it
++rather than off the devices jax opened:
+ 
+ ```bash
+ srun --environment=/path/to/bindcraft.toml python3 -c "import jax; print(jax.devices())"
+diff --git a/docs/source/installation.md b/docs/source/installation.md
+index 7d828e6..7926b5f 100644
+--- a/docs/source/installation.md
++++ b/docs/source/installation.md
+@@ -153,7 +153,7 @@ A campaign uses **every GPU it can see, without being asked**, and packs several
+ 
+ ### How a campaign fills a card
+ 
+-Visible cards are read from `CUDA_VISIBLE_DEVICES`, and from `nvidia-smi` when that is unset. A whole-cycle campaign runs up to **seven workers per card**, as many as its free memory holds. On a GH200 a forty-trajectory campaign took 3620 s at one worker and 2021 s at seven.
++Visible cards are read from `CUDA_VISIBLE_DEVICES` or `HIP_VISIBLE_DEVICES`, then from `nvidia-smi`, and from `jax.devices()` when none of those answer. Each worker is pinned with the variable its own runtime reads, so a ROCm machine fills every card the way a CUDA one does. A whole-cycle campaign runs up to **seven workers per card**, as many as its free memory holds. On a GH200 a forty-trajectory campaign took 3620 s at one worker and 2021 s at seven.
+ 
+ If `trajectory_only` is set in a campaign, or a card whose memory cannot be read, BindCraft2 runs **one worker per card**.
+ 
+@@ -263,10 +263,10 @@ srun --environment=/path/to/bindcraft.toml bindcraft design settings.json
+ 
+ Two things have to line up, and JAX says neither out loud: it warns once and then runs on the CPU.
+ 
+-1. The allocation has to ask for the cards, with `--gpus all`, `--gpus-per-node=N` or `--gres=gpu:N`. A campaign reads `CUDA_VISIBLE_DEVICES` to find them and the image carries no `nvidia-smi` to fall back on.
++1. The allocation has to ask for the cards, with `--gpus all`, `--gpus-per-node=N` or `--gres=gpu:N`. Without one Slurm sets `CUDA_VISIBLE_DEVICES` empty, and an empty variable means no card, whatever the node holds. The image carries no `nvidia-smi`, so where the variable is unset entirely the cards are found through `jax.devices()`.
+ 2. `NVIDIA_VISIBLE_DEVICES` and `NVIDIA_DRIVER_CAPABILITIES` have to be set. The container hook injects the host driver only into an image that asks for it by name. The image declares both, but an environment definition that replaces the environment must carry them too, which is why `containers/bindcraft.toml` repeats them.
+ 
+-Check before spending a night on a campaign. The fan-out line a campaign prints is read off `CUDA_VISIBLE_DEVICES`, not off the devices JAX opened, so it names every card either way:
++Check before spending a night on a campaign. Where the allocation sets a visibility variable, the fan-out line a campaign prints is read off that variable rather than off the devices JAX opened, so it names every card either way:
+ 
+ ```bash
+ srun --environment=/path/to/bindcraft.toml python3 -c "import jax; print(jax.devices())"
+diff --git a/tests/test_design_workers.py b/tests/test_design_workers.py
+new file mode 100644
+index 0000000..ed5f299
+--- /dev/null
++++ b/tests/test_design_workers.py
+@@ -0,0 +1,215 @@
++"""Device enumeration and worker pinning, on an accelerator nobody here has.
++
++Every test runs on a machine with no accelerator at all: the accelerators are stubs standing in
++for what a plugin reports, and the two tests that describe an NVIDIA machine drive the real
++nvidia-smi parsing through a fake nvidia-smi on PATH.
++"""
++import os
++import subprocess
++import sys
++import pytest
++from bindcraft import design_workers
++
++VISIBILITY_VARIABLES = ('CUDA_VISIBLE_DEVICES', 'HIP_VISIBLE_DEVICES')
++
++
++class StubDevice:
++
++    def __init__(self, identifier: int, platform: str = 'cuda', memory: dict | None = None) -> None:
++        self.id, self.platform, self.memory = identifier, platform, memory
++
++    def memory_stats(self) -> dict | None:
++        return self.memory
++
++
++@pytest.fixture(autouse=True)
++def unpinned_host(monkeypatch, tmp_path):
++    """No inherited pinning, and no nvidia-smi, unless a test asks for one."""
++    for variable in VISIBILITY_VARIABLES:
++        monkeypatch.delenv(variable, raising=False)
++    monkeypatch.setenv('PATH', str(tmp_path / 'empty-path'))
++    #raising=False so this file also runs against a tree that has no design_devices yet,
++    #which is how the tests below are shown to be red before the change and green after it.
++    monkeypatch.setattr(design_workers, 'design_devices', lambda: [], raising=False)
++
++
++def fake_nvidia_smi(tmp_path, monkeypatch, body: str) -> None:
++    binary_directory = tmp_path / 'bin'
++    binary_directory.mkdir(exist_ok=True)
++    tool = binary_directory / 'nvidia-smi'
++    tool.write_text(body)
++    tool.chmod(0o755)
++    monkeypatch.setenv('PATH', str(binary_directory))
++
++
++def refuse_jax(monkeypatch) -> None:
++    def refused():
++        raise AssertionError('JAX was consulted on a machine nvidia-smi had already answered for')
++    monkeypatch.setattr(design_workers, 'design_devices', refused, raising=False)
++
++
++# --- enumeration -------------------------------------------------------------------------
++
++def test_a_machine_with_no_accelerator_finds_no_device():
++    """The host CPU JAX always reports must not be mistaken for a device to design on."""
++    assert design_workers.visible_design_gpus() == []
++
++
++def test_the_host_cpu_is_never_a_design_device():
++    """design_devices runs against the real JAX installed here, which on this machine is CPU-only."""
++    assert design_workers.design_devices() == []
++
++
++def test_cuda_visible_devices_is_taken_verbatim_and_jax_is_not_consulted(monkeypatch):
++    refuse_jax(monkeypatch)
++    monkeypatch.setenv('CUDA_VISIBLE_DEVICES', '2,3')
++    assert design_workers.visible_design_gpus() == ['2', '3']
++
++
++def test_an_empty_cuda_visible_devices_still_finds_nothing(monkeypatch):
++    """Slurm sets it empty when the allocation asked for no GPU, and that must stay an empty list."""
++    monkeypatch.setenv('CUDA_VISIBLE_DEVICES', '')
++    assert design_workers.visible_design_gpus() == []
++
++
++def test_nvidia_smi_answers_before_jax_is_asked(tmp_path, monkeypatch):
++    """An NVIDIA machine is enumerated by exactly the call it was enumerated by before."""
++    refuse_jax(monkeypatch)
++    fake_nvidia_smi(tmp_path, monkeypatch, '#!/bin/sh\nprintf "0\\n1\\n2\\n3\\n"\n')
++    assert design_workers.visible_design_gpus() == ['0', '1', '2', '3']
++
++
++def test_jax_enumerates_when_there_is_no_nvidia_smi(monkeypatch):
++    """Fails before this change: a ROCm machine enumerated to nothing."""
++    monkeypatch.setattr(design_workers, 'design_devices',
++                        lambda: [StubDevice(0, 'rocm'), StubDevice(1, 'rocm')], raising=False)
++    assert design_workers.visible_design_gpus() == ['0', '1']
++
++
++def test_hip_visible_devices_is_honoured_like_its_cuda_counterpart(monkeypatch):
++    """Fails before this change: only CUDA_VISIBLE_DEVICES was read."""
++    refuse_jax(monkeypatch)
++    monkeypatch.setenv('HIP_VISIBLE_DEVICES', '1,2')
++    assert design_workers.visible_design_gpus() == ['1', '2']
++
++
++# --- memory ------------------------------------------------------------------------------
++
++def test_nvidia_smi_memory_is_preferred_and_parsed_as_before(tmp_path, monkeypatch):
++    refuse_jax(monkeypatch)
++    fake_nvidia_smi(tmp_path, monkeypatch, '#!/bin/sh\nprintf "0, 40960, 81920\\n"\n')
++    assert design_workers.design_gpu_memory_gb() == {'0': (40.0, 80.0)}
++
++
++def test_jax_reports_device_memory_when_there_is_no_nvidia_smi(monkeypatch):
++    """Fails before this change: memory was unknown off NVIDIA, which held every card to one worker."""
++    monkeypatch.setattr(design_workers, 'design_devices', lambda: [
++        StubDevice(0, 'rocm', {'bytes_limit': 64 * 1024 ** 3, 'bytes_in_use': 16 * 1024 ** 3})])
++    assert design_workers.design_gpu_memory_gb() == {'0': (48.0, 64.0)}
++
++
++def test_a_plugin_that_reports_no_memory_is_left_unsized(monkeypatch):
++    monkeypatch.setattr(design_workers, 'design_devices', lambda: [StubDevice(0, 'rocm', None)], raising=False)
++    assert design_workers.design_gpu_memory_gb() == {}
++
++
++# --- which variable pins a worker ----------------------------------------------------------
++
++@pytest.mark.parametrize('platform, expected', [('cuda', 'CUDA_VISIBLE_DEVICES'),
++                                                ('rocm', 'HIP_VISIBLE_DEVICES')])
++def test_each_platform_is_pinned_by_its_own_runtime_variable(monkeypatch, platform, expected):
++    monkeypatch.setattr(design_workers, 'design_devices', lambda: [StubDevice(0, platform)], raising=False)
++    assert design_workers.design_visibility_variable() == expected
++
++
++def test_an_unknown_platform_has_no_way_to_pin_a_worker(monkeypatch):
++    monkeypatch.setattr(design_workers, 'design_devices', lambda: [StubDevice(0, 'wildly-new')], raising=False)
++    monkeypatch.setattr(design_workers, 'installed_accelerator_platforms', set, raising=False)
++    assert design_workers.design_visibility_variable() is None
++
++
++def test_jaxs_shared_gpu_name_is_resolved_by_the_installed_plugin(monkeypatch):
++    """JAX calls both CUDA and ROCm devices 'gpu' in some builds; the plugin says which it is."""
++    monkeypatch.setattr(design_workers, 'design_devices', lambda: [StubDevice(0, 'gpu')], raising=False)
++    monkeypatch.setattr(design_workers, 'installed_accelerator_platforms', lambda: {'rocm'}, raising=False)
++    assert design_workers.design_visibility_variable() == 'HIP_VISIBLE_DEVICES'
++
++
++def test_an_inherited_pinning_variable_is_the_one_reused(monkeypatch):
++    refuse_jax(monkeypatch)
++    monkeypatch.setenv('HIP_VISIBLE_DEVICES', '1')
++    assert design_workers.design_visibility_variable() == 'HIP_VISIBLE_DEVICES'
++
++
++# --- the worker processes ------------------------------------------------------------------
++
++class RecordingPopen:
++    launched: list = []
++
++    def __init__(self, command, env=None, **keywords):
++        RecordingPopen.launched.append(env)
++        self.stdout = iter(())
++
++    def wait(self):
++        return 0
++
++    def poll(self):
++        return 0
++
++
++@pytest.fixture
++def launched(monkeypatch):
++    RecordingPopen.launched = []
++    monkeypatch.setattr(design_workers.subprocess, 'Popen', RecordingPopen)
++    return RecordingPopen.launched
++
++
++def two_worker_plan():
++    return [{'gpu': '0', 'memory_fraction': 0.0}, {'gpu': '1', 'memory_fraction': 0.0}]
++
++
++def test_a_cuda_worker_is_still_pinned_with_cuda_visible_devices(monkeypatch, tmp_path, launched):
++    monkeypatch.setattr(design_workers, 'design_devices', lambda: [StubDevice(0, 'cuda')], raising=False)
++    design_workers.launch_design_workers(two_worker_plan(), str(tmp_path / 'logs'), ['true'])
++    assert [environment['CUDA_VISIBLE_DEVICES'] for environment in launched] == ['0', '1']
++
++
++def test_a_rocm_worker_is_pinned_with_hip_visible_devices(monkeypatch, tmp_path, launched):
++    """Fails before this change: a ROCm worker was handed CUDA_VISIBLE_DEVICES, which HIP ignores,
++    so every worker opened every device."""
++    monkeypatch.setattr(design_workers, 'design_devices', lambda: [StubDevice(0, 'rocm')], raising=False)
++    design_workers.launch_design_workers(two_worker_plan(), str(tmp_path / 'logs'), ['true'])
++    assert [environment['HIP_VISIBLE_DEVICES'] for environment in launched] == ['0', '1']
++    assert 'CUDA_VISIBLE_DEVICES' not in launched[0]
++
++
++def test_a_worker_still_carries_its_index_and_count(monkeypatch, tmp_path, launched):
++    monkeypatch.setattr(design_workers, 'design_devices', lambda: [StubDevice(0, 'cuda')], raising=False)
++    design_workers.launch_design_workers(two_worker_plan(), str(tmp_path / 'logs'), ['true'])
++    assert [environment['BINDCRAFT_WORKER_ID'] for environment in launched] == ['0', '1']
++    assert {environment['BINDCRAFT_WORKER_COUNT'] for environment in launched} == {'2'}
++
++
++# --- the plan ------------------------------------------------------------------------------
++
++BASE_SETTINGS = {'binder_lengths': [70], 'trajectory_only': True}
++
++
++def test_an_unpinnable_platform_does_not_fan_out(monkeypatch, capsys):
++    """Without a pinning variable every worker would open device 0, which is worse than one worker."""
++    monkeypatch.setattr(design_workers, 'design_devices',
++                        lambda: [StubDevice(0, 'wildly-new'), StubDevice(1, 'wildly-new')], raising=False)
++    monkeypatch.setattr(design_workers, 'installed_accelerator_platforms', set, raising=False)
++    monkeypatch.setattr(design_workers, 'campaign_length_buckets', lambda settings: ())
++    plan = design_workers.plan_design_workers(BASE_SETTINGS)
++    assert {worker['gpu'] for worker in plan} == {'0'}
++    assert 'no way to pin a worker' in capsys.readouterr().out
++
++
++def test_a_rocm_machine_plans_one_worker_per_device(monkeypatch):
++    """Fails before this change: the plan was empty, so run_campaign never fanned out at all."""
++    monkeypatch.setattr(design_workers, 'design_devices',
++                        lambda: [StubDevice(0, 'rocm'), StubDevice(1, 'rocm')], raising=False)
++    monkeypatch.setattr(design_workers, 'campaign_length_buckets', lambda settings: ())
++    plan = design_workers.plan_design_workers(BASE_SETTINGS)
++    assert [worker['gpu'] for worker in plan] == ['0', '1']
+-- 
+2.39.5
+

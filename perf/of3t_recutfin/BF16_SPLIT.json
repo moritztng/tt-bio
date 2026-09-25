@@ -1,0 +1,157 @@
+{
+ "what": "of3t-recutfin job 2: the trunk's magnitude/direction split IN THE SPACE THE CLAUSE IS GRADED IN.",
+ "host": "tt-quietbox2",
+ "row": "of3t-recutfin",
+ "defect": "D242",
+ "device_involved": false,
+ "why_no_aiclk": "CPU only; this reads two committed JSON artifacts and does arithmetic",
+ "SECTION": "pairformer_stack",
+ "n_tensors": 2736,
+ "THE_TWO_FRAMES_BEING_DIFFERENCED": {
+  "ours": {
+   "what": "the corrected trunk arm: the pairformer_stack scope of the composed 3,660-tensor artifact, device arm dev_RENORM_model_n384_external.pt, run end to end on (cot_s, cot_z - delta) on of3t-modelframe's captured boundary at padded N=384, injected with the graph-cut-external cotangent cot_external.pt",
+   "convention": "graph-cut-external",
+   "correction_sha256": "1d15a8dc6db2a14b678e5ed5d92558af99d369599226391fa59f36ed84192ef4"
+  },
+  "theirs": {
+   "what": "upstream's own bf16 autocast step over the same 2,736 parameters of the same batch -- the pinned p175 arm4 artifact, which is a FULL-MODEL backward and carries no injected boundary at all",
+   "path": "/home/ttuser/of3t_refprec/pinned_p175/arm4_bf16_autocast/grads_f64.pt",
+   "sha256": "ff78d7bc0bf7a4355014a470fbe931592bd4896fe06a8b400c161c08b5607ccb"
+  },
+  "why_this_is_stated": "the two sides are not two runs of one configuration: ours is an injected scope on a captured boundary and theirs is a whole-model step. The reading is between those two frames and every number below inherits that."
+ },
+ "THE_SPLIT_IN_THE_GRADED_SPACE": {
+  "space": "vs-upstream-bf16 -- THE SPACE THE CLAUSE IS GRADED IN",
+  "what": "our corrected trunk against upstream's own bf16 step",
+  "measured_rel_l2": 0.7768254196709333,
+  "norm_ratio": 0.9978645292850583,
+  "cos": 0.6976277066165968,
+  "angle_degrees": 45.763016914559415,
+  "IDENTITY": {
+   "reconstructed_from_r_and_cos": 0.7768254196709328,
+   "rel_difference": 7.145897884594533e-16,
+   "why": "rel^2 = 1 + r^2 - 2 r cos holds exactly for these three aggregates because they are three norms of one vector pair. A residual here would mean the split is modelled rather than exact, and nothing below could be read."
+  },
+  "magnitude_alone_cos_set_to_1": 0.0021354707149416896,
+  "direction_alone_r_set_to_1": 0.7776532561282093,
+  "residual_after_the_best_possible_rescaling": 0.7164604545687554,
+  "shares_of_the_measured_error": {
+   "magnitude": 0.0027489712113775632,
+   "direction": 1.001065666025227,
+   "note": "these do not sum to 1 and are not meant to. Each is what the reading would be with the OTHER axis made perfect, divided by what it is; they add up to more or less than the whole exactly as the two errors reinforce or cancel."
+  }
+ },
+ "WHAT_THE_REPAIR_DID_TO_THE_SPLIT": {
+  "before_the_repair": {
+   "space": "vs-upstream-bf16 -- same space, so this comparison crosses nothing",
+   "what": "the SAME trunk arm on the double-counted functional, before D242 was repaired -- withdrawn as a reading, read here only for the split",
+   "measured_rel_l2": 0.9969599833682794,
+   "norm_ratio": 1.6232598065056374,
+   "cos": 0.8134998416132679,
+   "angle_degrees": 35.56070144378197,
+   "IDENTITY": {
+    "reconstructed_from_r_and_cos": 0.9969599833682793,
+    "rel_difference": 1.1136084127210526e-16,
+    "why": "rel^2 = 1 + r^2 - 2 r cos holds exactly for these three aggregates because they are three norms of one vector pair. A residual here would mean the split is modelled rather than exact, and nothing below could be read."
+   },
+   "magnitude_alone_cos_set_to_1": 0.6232598065056374,
+   "direction_alone_r_set_to_1": 0.6107375187209839,
+   "residual_after_the_best_possible_rescaling": 0.5815651362445895,
+   "shares_of_the_measured_error": {
+    "magnitude": 0.625160304227982,
+    "direction": 0.6125998324000694,
+    "note": "these do not sum to 1 and are not meant to. Each is what the reading would be with the OTHER axis made perfect, divided by what it is; they add up to more or less than the whole exactly as the two errors reinforce or cancel."
+   }
+  },
+  "reading": "the double count was a MAGNITUDE error and the repair removed it almost entirely: the norm ratio goes 1.623259806505637 -> 0.9978645292850583, so magnitude's share of the reading falls 62.52 % -> 0.2749 %. The ANGLE did not shrink with it -- it OPENED, 35.5607 -> 45.7630 degrees -- because the duplicate was a large nearly-parallel component that inflated the magnitude and flattered the cosine at once. What is left is the part the repair never addressed.",
+  "source": "perf/of3t_modelframe/MODEL_FRAMEMATCHED_composed3660_n384.json",
+  "why_this_is_in_space": "both rows are vs-upstream-bf16 on the same 2,736 tensors of the same frame; only the injected functional differs, which is the one thing the repair changed."
+ },
+ "THE_ANSWER": {
+  "allowance": 0.44608901561034203,
+  "x_allowance_today": 1.7414134679108282,
+  "BY_MAGNITUDE_ALONE": {
+   "what": "make the magnitude perfect (r -> 1) and keep today's direction",
+   "reading_it_would_leave": 0.7776532561282093,
+   "x_allowance": 1.7432692330794535,
+   "reaches_it": false,
+   "and_the_strongest_form": {
+    "what": "the best ANY rescaling can do, not just r -> 1: min over all scalars s of ||s a - g|| / ||g|| = sqrt(1 - cos^2) = sin(angle)",
+    "reading_it_would_leave": 0.7164604545687554,
+    "x_allowance": 1.606093020668732,
+    "reaches_it": false
+   },
+   "r_values_that_would_reach_it": []
+  },
+  "BY_DIRECTION_ALONE": {
+   "what": "make the direction perfect (cos -> 1) and keep today's magnitude",
+   "reading_it_would_leave": 0.0021354707149416896,
+   "x_allowance": 0.004787095490392033,
+   "reaches_it": true,
+   "and_it_does_not_need_to_be_perfect": {
+    "cos_required_at_todays_norm_ratio": 0.9002916509340195,
+    "angle_required_degrees": 25.80357003034174,
+    "angle_today_degrees": 45.763016914559415,
+    "fraction_of_todays_angle_that_must_close": 0.43614796903539843
+   }
+  }
+ },
+ "CONTRAST_IN_FLOAT64_SPACE_NOT_CARRIED": {
+  "ours": {
+   "space": "vs-float64 -- CONTRAST ONLY, not carried across (R174)",
+   "what": "our corrected trunk against the float64 reference",
+   "measured_rel_l2": 0.6221485227575493,
+   "norm_ratio": 1.054584096168068,
+   "cos": 0.8178953379770566,
+   "angle_degrees": 35.125339394537576,
+   "IDENTITY": {
+    "reconstructed_from_r_and_cos": 0.622148522757548,
+    "rel_difference": 2.141398043742316e-15,
+    "why": "rel^2 = 1 + r^2 - 2 r cos holds exactly for these three aggregates because they are three norms of one vector pair. A residual here would mean the split is modelled rather than exact, and nothing below could be read."
+   },
+   "magnitude_alone_cos_set_to_1": 0.05458409616806792,
+   "direction_alone_r_set_to_1": 0.6034975758409364,
+   "residual_after_the_best_possible_rescaling": 0.5753670273098697,
+   "shares_of_the_measured_error": {
+    "magnitude": 0.08773483207214701,
+    "direction": 0.9700217130887875,
+    "note": "these do not sum to 1 and are not meant to. Each is what the reading would be with the OTHER axis made perfect, divided by what it is; they add up to more or less than the whole exactly as the two errors reinforce or cancel."
+   }
+  },
+  "upstreams_own": {
+   "space": "vs-float64 -- the reference's own error, for scale",
+   "what": "upstream's own bf16 step against the float64 reference",
+   "measured_rel_l2": 0.3147698293887927,
+   "norm_ratio": 1.0568409490651478,
+   "cos": 0.95465299102594,
+   "angle_degrees": 17.320759588957166,
+   "IDENTITY": {
+    "reconstructed_from_r_and_cos": 0.3147698293887921,
+    "rel_difference": 1.939902133344604e-15,
+    "why": "rel^2 = 1 + r^2 - 2 r cos holds exactly for these three aggregates because they are three norms of one vector pair. A residual here would mean the split is modelled rather than exact, and nothing below could be read."
+   },
+   "magnitude_alone_cos_set_to_1": 0.056840949065147806,
+   "direction_alone_r_set_to_1": 0.3011544752251242,
+   "residual_after_the_best_possible_rescaling": 0.29772078651855405,
+   "shares_of_the_measured_error": {
+    "magnitude": 0.18057940678596565,
+    "direction": 0.9567450470392722,
+    "note": "these do not sum to 1 and are not meant to. Each is what the reading would be with the OTHER axis made perfect, divided by what it is; they add up to more or less than the whole exactly as the two errors reinforce or cancel."
+   }
+  },
+  "why_it_may_not_be_carried": "R159 divided a vs-upstream-bf16 quantity by a vs-float64 one and was retracted at R174. The two spaces divide by different denominators (||g_bf16|| and ||g_f64||) and their decompositions are different numbers about different differences.",
+  "and_they_disagree_sharply": "magnitude carries 0.2749 % of the error in the graded space and 8.773 % in float64 space, a factor of 31.92. Same arm, same tensors, two references. That is why the float64 split could not be carried across."
+ },
+ "preregistered_inputs": {
+  "trunk_allowance": 0.44608901561034203,
+  "clause_bar": 0.15210099830945006,
+  "source": "perf/of3t_modelframe/CLAUSE.json -- read, not re-derived. No bar is written by this script."
+ },
+ "VERDICT": "In the space the clause is graded in, the corrected trunk reads 0.7768254196709333 at norm ratio 0.9978645292850583 and cos 0.6976277066165968, an angle of 45.7630 degrees. The magnitude is already right to 0.2135 %: it carries 0.2749 % of the error and the direction carries 100.11 %. The required 1.741413467910828x fall is NOT reachable by magnitude: making the magnitude exact leaves 0.7776532561282093, 1.74327x the allowance, and even the best possible rescaling -- not r = 1 but the optimal scalar -- leaves 0.7164604545687554, 1.60609x. It IS reachable by direction: cos need only rise from 0.6976277066165968 to 0.9002916509340195, closing the angle from 45.7630 to 25.8036 degrees, and a perfect direction at today's magnitude would read 0.00213547, 0.0047871x the allowance. So: by direction, not by magnitude, and the whole of the trunk's remaining excess is an angle.",
+ "IDENTITY_HOLDS_IN_EVERY_SPACE_READ": {
+  "worst_rel_difference": 2.141398043742316e-15,
+  "bar": 1e-12,
+  "failed": [],
+  "verdict": "the split is exact rather than modelled"
+ }
+}

@@ -1,0 +1,196 @@
+{
+ "boltz2": {
+  "processes_with_calls": 1,
+  "calls_wrapped": 76968,
+  "calls_by_op": {
+   "add": 13781,
+   "multiply_": 29622,
+   "add_": 14662,
+   "multiply": 17270,
+   "matmul": 1633
+  },
+  "bad_form_calls": 0,
+  "bad_sites": [],
+  "mixed_calls_by_form": {
+   "matmul:transpose_a_same": 480
+  },
+  "mixed_sites": [
+   "matmul:transpose_a_same tenstorrent.py:11664 BFLOAT16xBFLOAT16 [1, 1344, 768]x[1, 1344, 128]",
+   "matmul:transpose_a_same tenstorrent.py:7182 BFLOAT16xBFLOAT16 [1, 128, 128, 128]x[1, 128, 128, 128]"
+  ]
+ },
+ "boltz2-affinity": {
+  "processes_with_calls": 1,
+  "calls_wrapped": 434201,
+  "calls_by_op": {
+   "add": 79916,
+   "multiply_": 164425,
+   "add_": 80417,
+   "multiply": 102313,
+   "matmul": 7130
+  },
+  "bad_form_calls": 0,
+  "bad_sites": [],
+  "mixed_calls_by_form": {
+   "matmul:transpose_a_same": 1544
+  },
+  "mixed_sites": [
+   "matmul:transpose_a_same tenstorrent.py:11664 BFLOAT16xBFLOAT16 [1, 896, 768]x[1, 896, 160]",
+   "matmul:transpose_a_same tenstorrent.py:7182 BFLOAT16xBFLOAT16 [1, 128, 160, 160]x[1, 128, 160, 160]"
+  ]
+ },
+ "openfold3": {
+  "processes_with_calls": 1,
+  "calls_wrapped": 82950,
+  "calls_by_op": {
+   "add": 9089,
+   "multiply_": 16297,
+   "multiply": 27865,
+   "add_": 15677,
+   "matmul": 14022
+  },
+  "bad_form_calls": 0,
+  "bad_sites": [],
+  "mixed_calls_by_form": {
+   "multiply:mixed_bcast": 1203,
+   "matmul:transpose_a_same": 220
+  },
+  "mixed_sites": [
+   "matmul:transpose_a_same tenstorrent.py:7182 BFLOAT16xBFLOAT16 [1, 128, 117, 117]x[1, 128, 117, 117]",
+   "matmul:transpose_a_same tenstorrent.py:7182 BFLOAT16xBFLOAT16 [1, 128, 128, 128]x[1, 128, 128, 128]",
+   "matmul:transpose_a_same tenstorrent.py:7182 BFLOAT16xBFLOAT16 [1, 64, 128, 128]x[1, 64, 128, 128]",
+   "multiply:mixed_bcast openfold3_atom_transformer.py:113 FLOAT32xBFLOAT16 [1, 29, 128, 128]x[1, 29, 128, 1]",
+   "multiply:mixed_bcast openfold3_diffusion_module.py:347 FLOAT32xBFLOAT16 [1, 29, 128, 128]x[1, 29, 128, 1]"
+  ]
+ },
+ "openfold3-msa": {
+  "processes_with_calls": 1,
+  "calls_wrapped": 82950,
+  "calls_by_op": {
+   "add": 9089,
+   "multiply_": 16297,
+   "multiply": 27865,
+   "add_": 15677,
+   "matmul": 14022
+  },
+  "bad_form_calls": 0,
+  "bad_sites": [],
+  "mixed_calls_by_form": {
+   "multiply:mixed_bcast": 1203,
+   "matmul:transpose_a_same": 220
+  },
+  "mixed_sites": [
+   "matmul:transpose_a_same tenstorrent.py:7182 BFLOAT16xBFLOAT16 [1, 128, 117, 117]x[1, 128, 117, 117]",
+   "matmul:transpose_a_same tenstorrent.py:7182 BFLOAT16xBFLOAT16 [1, 128, 128, 128]x[1, 128, 128, 128]",
+   "matmul:transpose_a_same tenstorrent.py:7182 BFLOAT16xBFLOAT16 [1, 64, 128, 128]x[1, 64, 128, 128]",
+   "multiply:mixed_bcast openfold3_atom_transformer.py:113 FLOAT32xBFLOAT16 [1, 29, 128, 128]x[1, 29, 128, 1]",
+   "multiply:mixed_bcast openfold3_diffusion_module.py:347 FLOAT32xBFLOAT16 [1, 29, 128, 128]x[1, 29, 128, 1]"
+  ]
+ },
+ "protenix-v2": {
+  "processes_with_calls": 1,
+  "calls_wrapped": 101210,
+  "calls_by_op": {
+   "add": 15841,
+   "multiply_": 22255,
+   "mul": 10,
+   "add_": 18407,
+   "matmul": 14864,
+   "multiply": 29349,
+   "subtract": 484
+  },
+  "bad_form_calls": 0,
+  "bad_sites": [],
+  "mixed_calls_by_form": {
+   "matmul:transpose_a_same": 604
+  },
+  "mixed_sites": [
+   "matmul:transpose_a_same tenstorrent.py:7182 BFLOAT16xBFLOAT16 [1, 256, 128, 128]x[1, 256, 128, 128]",
+   "matmul:transpose_a_same tenstorrent.py:7182 BFLOAT16xBFLOAT16 [1, 64, 128, 128]x[1, 64, 128, 128]"
+  ]
+ },
+ "protenix-v2-ligand": {
+  "processes_with_calls": 1,
+  "calls_wrapped": 105928,
+  "calls_by_op": {
+   "add": 15841,
+   "multiply_": 25925,
+   "mul": 10,
+   "add_": 18407,
+   "matmul": 15912,
+   "multiply": 29349,
+   "subtract": 484
+  },
+  "bad_form_calls": 0,
+  "bad_sites": [],
+  "mixed_calls_by_form": {
+   "matmul:transpose_a_same": 1128
+  },
+  "mixed_sites": [
+   "matmul:transpose_a_same tenstorrent.py:7182 BFLOAT16xBFLOAT16 [1, 128, 160, 160]x[1, 128, 160, 160]",
+   "matmul:transpose_a_same tenstorrent.py:7182 BFLOAT16xBFLOAT16 [1, 64, 160, 160]x[1, 64, 160, 160]"
+  ]
+ },
+ "esmfold2": {
+  "processes_with_calls": 1,
+  "calls_wrapped": 26512,
+  "calls_by_op": {
+   "add": 8944,
+   "multiply": 10688,
+   "matmul": 3057,
+   "subtract": 1,
+   "multiply_": 3644,
+   "add_": 178
+  },
+  "bad_form_calls": 0,
+  "bad_sites": [],
+  "mixed_calls_by_form": {
+   "matmul:transpose_a_same": 622
+  },
+  "mixed_sites": [
+   "matmul:transpose_a_same tenstorrent.py:7182 BFLOAT16xBFLOAT16 [1, 256, 117, 117]x[1, 256, 117, 117]",
+   "matmul:transpose_a_same tenstorrent.py:7182 BFLOAT16xBFLOAT16 [1, 256, 128, 128]x[1, 256, 128, 128]"
+  ]
+ },
+ "boltzgen": {
+  "processes_with_calls": 1,
+  "calls_wrapped": 544521,
+  "calls_by_op": {
+   "add": 94873,
+   "multiply_": 219363,
+   "matmul": 14997,
+   "add_": 95164,
+   "multiply": 120124
+  },
+  "bad_form_calls": 0,
+  "bad_sites": [],
+  "mixed_calls_by_form": {
+   "matmul:transpose_a_same": 6104
+  },
+  "mixed_sites": [
+   "matmul:transpose_a_same tenstorrent.py:11664 BFLOAT16xBFLOAT16 [1, 2688, 768]x[1, 2688, 256]",
+   "matmul:transpose_a_same tenstorrent.py:11664 BFLOAT16xBFLOAT16 [5, 2240, 768]x[1, 2240, 256]",
+   "matmul:transpose_a_same tenstorrent.py:7182 BFLOAT16xBFLOAT16 [1, 32, 256, 256]x[1, 32, 256, 256]",
+   "matmul:transpose_a_same tenstorrent.py:7182 BFLOAT16xBFLOAT16 [1, 64, 256, 256]x[1, 64, 256, 256]"
+  ]
+ },
+ "af2ig": {
+  "processes_with_calls": 1,
+  "calls_wrapped": 24321,
+  "calls_by_op": {
+   "add": 1,
+   "multiply_": 6668,
+   "add_": 7412,
+   "multiply": 1608,
+   "matmul": 8632
+  },
+  "bad_form_calls": 0,
+  "bad_sites": [],
+  "mixed_calls_by_form": {
+   "matmul:transpose_a_same": 836
+  },
+  "mixed_sites": [
+   "matmul:transpose_a_same tenstorrent.py:7182 BFLOAT16xBFLOAT16 [1, 64, 207, 207]x[1, 64, 207, 207]"
+  ]
+ }
+}

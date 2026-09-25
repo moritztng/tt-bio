@@ -1,0 +1,82 @@
+{
+ "what": "of3t-orchestrator pass 395: D242 is a double count, it is in ref_grad.py:201, and it reaches EVERY arm the campaign has injected -- but not equally.",
+ "defect": "D242",
+ "root_caused_by": "of3t-frameself",
+ "algebra_independently_rederived_here": true,
+ "device_involved": false,
+ "why_no_aiclk": "CPU only; reads committed artifacts and source",
+ "THE_LINE": {
+  "file": "perf/of3t_trunkg043/ref_grad.py",
+  "line": 201,
+  "code": "loss = (s_out.to(torch.float64) * cot_s).sum() + (z_out.to(torch.float64) * cot_z).sum()",
+  "why_it_is_wrong": "a multi-output cotangent injection is only valid when the outputs form a GRAPH CUT. z_out is an ancestor of s_out, so the hooked cot_z is a TOTAL derivative that already contains the route through s_out, and the surrogate adds that route a second time.",
+  "so_the_reach_is": "every arm the campaign has driven through ref_grad.py, not only the model frame -- the frame384 softmax ladder included."
+ },
+ "THE_EVIDENCE_THAT_SORTS_IT": {
+  "refs_block_from_FRAME_ROUTE_HF": {
+   "REF_LOCAL_f64_n384": {
+    "trunk_tensors": 2736,
+    "trunk_squared_gradient_norm": 1.8714981803225017,
+    "trunk_gradient_norm": 1.368027112422302,
+    "policy": "f64",
+    "checkpointed": null,
+    "loss": -0.3073181442478611
+   },
+   "REF_LOCAL_bf16_n384": {
+    "trunk_tensors": 2736,
+    "trunk_squared_gradient_norm": 1.9851011361181048,
+    "trunk_gradient_norm": 1.4089361717686522,
+    "policy": "bf16auto",
+    "checkpointed": null,
+    "loss": -0.30275363525224397
+   },
+   "OURS_n384": {
+    "trunk_tensors": 2736,
+    "trunk_squared_gradient_norm": 1.9759157194968462,
+    "trunk_gradient_norm": 1.405672692875851,
+    "policy": null,
+    "checkpointed": null,
+    "loss": null
+   },
+   "REF_MODEL_f64": {
+    "trunk_tensors": 2736,
+    "trunk_squared_gradient_norm": 0.5991152048026372,
+    "trunk_gradient_norm": 0.77402532568556,
+    "policy": null,
+    "checkpointed": null,
+    "loss": null
+   }
+  },
+  "read": "REF_LOCAL_f64_n384 and REF_LOCAL_bf16_n384 carry a `policy`, so both are ref_grad.py arms and both double count. REF_MODEL_f64 carries policy null and is grads_f64_043.pt, a real full-model backward that does not."
+ },
+ "SURVIVES": {
+  "what": "both legs injected through ref_grad.py on the same boundary and cotangent, so the duplicated route is common-mode and the quotient compares two arms computing the same functional",
+  "readings": [
+   "every MATCHED/ reading in FRAME_*.json -- ours_vs_REF_LOCAL_f64_n384, ours_vs_REF_LOCAL_bf16_n384 and the floor between the two references",
+   "R149's whole softmax table: device 0.702981502944001, verb 0.4179981990834974, verb+module-wide 0.41752141981218177, route 0.5605347900452246",
+   "the 1.0525x ceiling and D245's 34.25 %",
+   "the A/A floors and the two cross-board controls, which are identity checks",
+   "of3t-twoside's two-sided 1.7997765325758555 -- both legs injected, same cotangent"
+  ],
+  "but": "the functional is the gradient PLUS one duplicated s <- z route, which is the pair-bias coupling, so every one of these is read on a functional that over-weights the pair path. Valid as a comparison; not yet a statement about the true gradient."
+ },
+ "INVALID": {
+  "what": "an injected arm against grads_f64_043.pt, which is a real full-model backward and does not double count",
+  "readings": [
+   "every CROSSFRAME_ours_vs_grads_f64_043 reading",
+   "the clause's 1.7814428090278143x -- already withdrawn at pass 389, now explained",
+   "the trunk's 2.9702x and block 47's 4.1613x -- already withdrawn",
+   "D242's own 0.7945281613194305, which is no longer an unexplained defect but the measured size of the duplication"
+  ],
+  "and": "none of these needs a new retraction. frameself's pass-389 sort had already put them here; what pass 395 adds is the reason."
+ },
+ "THE_NAMING_WAS_ALREADY_RIGHT": "the artifacts' MATCHED/ versus CROSSFRAME_ prefixes separate exactly these two classes, and have since before the mechanism was known. The campaign has been protected by a convention it could not justify; it can justify it now.",
+ "THE_PATH_FROM_HERE": {
+  "1": "frameself's break control confirms the repair -- subtract autograd.grad(outputs=s_out, grad_outputs=cot_s, inputs=z_out) from cot_z and re-inject; block 47 should go from 0.7849281738435908 to the 1e-12 bar",
+  "2": "fix ref_grad.py:201 to inject the PARTIAL df/db rather than the total dL/db",
+  "3": "re-score the existing arms with the existing scorer -- no new capture, no new device time",
+  "4": "read pass 394's pre-registered ladder. NO NEW BAR.",
+  "cost": "the instrument work is one line and the re-scores reuse banked artifacts."
+ },
+ "DOESNOT": "this measures nothing new. It re-derives the row's algebra independently, locates the line, and sorts which published readings the defect invalidates and which it leaves as valid comparisons on a modified functional."
+}

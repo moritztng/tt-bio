@@ -1,0 +1,22 @@
+k=2 total lost 0.0271
+diffusion_module.diffusion_transformer        sec_mass 0.8359 lost 0.0246 n    3  mass-wtd rel ours 0.182 bf16 0.159
+pairformer_stack                              sec_mass 0.0087 lost 0.0016 n  154  mass-wtd rel ours 0.107 bf16 0.081
+aux_heads.distogram                           sec_mass 0.0008 lost 0.0008 n    1  mass-wtd rel ours 0.148 bf16 0.102
+diffusion_module.atom_attn_enc                sec_mass 0.0236 lost 0.0001 n    8  mass-wtd rel ours 0.288 bf16 0.163
+layer_norm_s                                  sec_mass 0.0000 lost 0.0000 n    1  mass-wtd rel ours 0.589 bf16 0.403
+msa_module                                    sec_mass 0.0010 lost 0.0000 n    4  mass-wtd rel ours 1.273 bf16 0.949
+linear_s                                      sec_mass 0.0000 lost 0.0000 n    1  mass-wtd rel ours 0.417 bf16 0.410
+input_embedder                                sec_mass 0.0001 lost 0.0000 n   20  mass-wtd rel ours 1.111 bf16 0.547
+template_embedder                             sec_mass 0.0000 lost 0.0000 n    2  mass-wtd rel ours 0.756 bf16 0.584
+aux_heads.pairformer_embedding                sec_mass 0.0000 lost 0.0000 n  211  mass-wtd rel ours 0.429 bf16 0.308
+aux_heads.experimentally_resolved             sec_mass 0.0000 lost 0.0000 n    2  mass-wtd rel ours 0.017 bf16 0.015
+aux_heads.pde                                 sec_mass 0.0000 lost 0.0000 n    3  mass-wtd rel ours 0.049 bf16 0.030
+aux_heads.pae                                 sec_mass 0.0000 lost 0.0000 n    2  mass-wtd rel ours 0.077 bf16 0.057
+  0.0216 diffusion_module.diffusion_transformer.blocks.6.attention_pair_bias.layer_norm_a.layer_norm_s.weight ours 0.141 bf16 0.140
+  0.0031 diffusion_module.diffusion_transformer.blocks.2.attention_pair_bias.layer_norm_a.layer_norm_s.weight ours 0.470 bf16 0.289
+  0.0013 pairformer_stack.blocks.46.pair_stack.pair_transition.layer_norm.weight ours 0.048 bf16 0.039
+  0.0008 aux_heads.distogram.linear.weight                                      ours 0.148 bf16 0.102
+  0.0001 pairformer_stack.blocks.42.pair_stack.pair_transition.layer_norm.weight ours 0.209 bf16 0.115
+  0.0001 diffusion_module.atom_attn_enc.noisy_position_embedder.layer_norm_s.weight ours 0.298 bf16 0.160
+  0.0001 pairformer_stack.blocks.41.pair_stack.pair_transition.layer_norm.weight ours 0.158 bf16 0.125
+  0.0000 pairformer_stack.blocks.39.pair_stack.pair_transition.layer_norm.weight ours 0.569 bf16 0.363

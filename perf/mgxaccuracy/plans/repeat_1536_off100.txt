@@ -1,0 +1,18 @@
+# REPEAT the one cell the row's headline depends on being right.
+#
+# The 2x2's answer is the interaction: growing the target costs 14.65 A at crop offset 0 and
+# GAINS 4.51 A at offset 100 (results/twobytwo_result.txt). The surprising half is the cell
+# 1536/offset-100 at median 13.273 A -- BETTER than 1536/offset-0 at 19.398, where at 512 the
+# ordering runs the other way. If that cell is an outlier the interaction collapses, so it is
+# the cell to repeat rather than the unsurprising one.
+#
+# What a repeat buys that the Mann-Whitney does not: MW at n=8 vs n=8 already rejects for the
+# 1536 crop effect, but this row has only ever measured run-to-run reproducibility of an n=8
+# MEDIAN at 512, where it came out cell-dependent at 0.117 and 1.764 A
+# (results/engine_delta_is_inert.txt). Nothing says the 1536 cells are that stable. A second
+# independent draw of this cell gives that number at 1536 and says whether 13.273 holds.
+#
+# Same plan as the original entry, so the two are comparable draws of one configuration.
+# ~5 h on one chip. Read as: does the repeat land near 13 A (interaction stands) or near 19 A
+# (1536/off100 was the odd cell and the headline needs re-reading)?
+--model boltzgen --target perf/mgxaccuracy/targets/gpb_dimer_1646.cif --target-res 1536 --crop-offset 100 --designs 8 --budget 8 --score-dsg --host-threads 2 --timeout 32400 --tag o100r2

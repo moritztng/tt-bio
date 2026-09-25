@@ -1,0 +1,59 @@
+{
+ "exact": [
+  "layer_norm",
+  "softmax"
+ ],
+ "installed": {
+  "softmax_installed_inside_the_scope": true,
+  "layer_norm_verb_is_ours": true
+ },
+ "counters": {
+  "softmax": {
+   "verb": 5901,
+   "raw": 1742,
+   "raw_elements": 21856518144
+  },
+  "layer_norm": {
+   "verb": 2160,
+   "raw": 720,
+   "elements": 29047652352,
+   "bw": 1296
+  }
+ },
+ "why_counters": "softmax: `verb` taped exact forward+Jacobian, `raw` the module-wide ttnn.softmax. layer_norm: `verb` taped exact forward, `bw` exact backwards taken, `raw` untaped forwards. All zero on a rung that does not open the scope is the check that it ran without it.",
+ "argv": [
+  "--census-out",
+  "/home/ttuser/.coworker/wt/of3t-stackbound/perf/of3t_stackbound/x5/CENSUS_X5_SLZ.json",
+  "--lever",
+  "none",
+  "--",
+  "--boundary",
+  "/home/ttuser/of3t_modelframe/boundary_model_n384.pt",
+  "--cap-last",
+  "/home/ttuser/of3t_stackbound/x5/cot_external.pt",
+  "--out",
+  "/home/ttuser/of3t_stackbound/x5/dev_X5_SLZ.pt",
+  "--report",
+  "/home/ttuser/.coworker/wt/of3t-stackbound/perf/of3t_stackbound/x5/DEV_X5_SLZ.json",
+  "--arm",
+  "flipped",
+  "--crop",
+  "0",
+  "--pf-set",
+  "z_fp32_residual=1"
+ ],
+ "environment": {
+  "host": "tt-quietbox",
+  "card": 1,
+  "board_class": "p150a",
+  "aiclk_mhz_sampled_DURING": {
+   "n": 527,
+   "min": 800,
+   "median": 1350,
+   "max": 1350
+  },
+  "host_quiet": "loadavg1 10.39 over ceiling 2.00\nHOST NOT QUIET -- your timing read is contaminated even with an idle sibling and a forced clock. Wait it out or DEFER. Do not measure and explain it afterwards.",
+  "git_commit": "6f95b0a8d2f93f9ba2c100a20f89e860fa201bb2",
+  "boundary_version": "upstream OpenFold3 0.4.3 (4hhb boundary captured from of3pkg043, 384 real tokens; graded reference 0.4.3 bf16 autocast, contrast 0.4.3 float64)"
+ }
+}

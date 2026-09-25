@@ -1,0 +1,41 @@
+FAS 1024, a single chain — 0 of 8 under 4 A, and 512 -> 1024 REJECTS
+======================================================================
+
+Landed 2026-09-24 21:2xZ on whglx card 2, tree ff5435cba, rc 0, n=8, AICLK median 1000 sampled
+DURING the fold, wall 5406.3 s against GroEL's 1024 cell at 5416.0 s — ten seconds apart, which
+is the cost model behaving on a different protein at the same token count. Fixture checked on
+disk before the numbers were read: 1024 CA, chain A only.
+
+    size   n   median     range              <=2A    <=4A    under 4 A
+     512   8    3.782    1.363-11.155     12.5%   50.0%      4 of 8
+     768   8    9.050    1.435-17.952     12.5%   25.0%      2 of 8
+    1024   8   10.665    4.774-13.576      0.0%    0.0%      0 of 8
+
+     512 ->  768   +5.268 A   U = 16.0/64   p = 0.1049   does not reject
+     512 -> 1024   +6.883 A   U =  8.0/64   p = 0.0104   REJECTS
+     768 -> 1024   +1.616 A   U = 31.0/64   p = 0.9591   does not reject
+
+NO PRE-REGISTERED VERDICT YET, and none is claimed. plans/chain_vs_residues.txt reads
+512 -> 1536 with 1024 beside it, and the 1536 cell is still computing (ETA ~23:12Z).
+`fas_read.py` refuses to print a verdict without it, which is the correct behaviour and is why
+the numbers above are reported as contrasts rather than as a finding.
+
+WHAT THE 1024 CELL DOES SAY, WITHIN FAS. A single chain of 1024 residues returns NOTHING under
+the 4 A bar — 0 of 8, the same count every multi-chain cell at 1024 and above has returned on
+both other targets — and the fall from its own 512 cell rejects at p = 0.0104. On this target
+the decay is gradual rather than a cliff: 4 of 8, then 2 of 8, then 0 of 8, with neither
+adjacent step separating on the rank test and only the two-step 512 -> 1024 doing so.
+
+THIS WEAKENS THE CHAIN HYPOTHESIS AND THE ROW SHOULD SAY SO PLAINLY. The reason FAS was built
+(`results/chain_count_confound.txt`) is that on GroEL and 1GPB every cell above 512 residues
+also carries a second chain, so the row could not tell a residue-count ceiling from a
+chain-count one. If chain count were the whole story, a single chain should have kept designing
+where two chains stopped. At 1024 it does not: FAS single-chain 1024 is 0 of 8, exactly like
+GroEL two-chain 1024. The 768 rung pointed the other way (2 of 8 against GroEL's 0 of 8) and is
+still INTERMEDIATE, so the two rungs disagree in direction and neither is decisive.
+
+The pre-registered decision is the 1536 cell and it stays pre-registered: CHAIN COUNT IS THE
+CARRIER needs 512 -> 1536 to NOT reject AND >= 4 of 8 under the bar at 1536. With 1024 already
+at 0 of 8 and 512 -> 1024 rejecting, that clause now looks unlikely to fire — stated here,
+before the cell lands, so it cannot be presented afterwards as something the row expected all
+along.

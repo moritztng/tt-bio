@@ -1,0 +1,3 @@
+dx      rel 1.717211e-16  AGREES
+dgamma  rel 2.303003e-16  AGREES
+dbeta   rel 2.305056e-16  AGREES

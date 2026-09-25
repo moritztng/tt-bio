@@ -1,0 +1,258 @@
+{
+  "instrument": "perf/of3t_orchestrator/charter/charter_evidence.py",
+  "spec_lifted_from": "/home/moritz/.coworker/workstreams/_of3t_donecheck.py",
+  "spec_sha256": "b8874583f28bcfcb1faed1137be04829b2ae87ceae2f08e42067dd3954ff01be",
+  "tree": "/home/moritz/.coworker/wt/of3t-orchestrator",
+  "break_control": "every condition can report MET on a synthetic artifact, and every requirement reports NOT MET on one built to violate it",
+  "n_met": 5,
+  "n_conditions": 5,
+  "conditions": [
+    {
+      "field": "GRADIENTS",
+      "artifact": "perf/of3t_paedraws/SCORE_PD384.json",
+      "why": "per-parameter gradient correctness over the WHOLE training step (trunk, diffusion, distogram, confidence heads, 4152 tensors), one 384-wide denoise step on the composed wk/of3t engine, scored by perf/of3t_fullstep64/score.py against the A40-validated float64 reference with upstream 0.4.3's own bf16 step as the bar. Pre-registered at pass 426 on GO384, repointed to CF384 at pass 427 and to PZ384 at pass 429, each before its arm ran.",
+      "artifact_exists": true,
+      "artifact_sha256": "97a6f0b6dde609620358bbc7b09c7b900f2ec5768a27216a87393d5908b2e9d1",
+      "met": true,
+      "misses": [],
+      "checks": [
+        {
+          "key": "reference.file",
+          "op": "present",
+          "bar": null,
+          "actual": "present",
+          "passed": true,
+          "why": "scored against the float64 reference, named"
+        },
+        {
+          "key": "scored.unread_n",
+          "op": "is",
+          "bar": 0,
+          "actual": "0",
+          "passed": true,
+          "why": "every reference tensor with gradient is placed and read"
+        },
+        {
+          "key": "arms.PD384.placed_but_carried_nothing.n",
+          "op": "is",
+          "bar": 0,
+          "actual": "0",
+          "passed": true,
+          "why": "no placed tensor carries a zero gradient (D264's signature)"
+        },
+        {
+          "key": "arms.PD384.multi_placed",
+          "op": "is",
+          "bar": 0,
+          "actual": "0",
+          "passed": true,
+          "why": "no reference tensor is read twice"
+        },
+        {
+          "key": "arms.PD384.global.rel",
+          "op": "<=key",
+          "bar": "arms.BF16.global.rel",
+          "actual": "0.155834 against arms.BF16.global.rel = 0.948232",
+          "passed": true,
+          "why": "the whole step at least as close to float64 as upstream's own bf16 step, both measured in this artifact"
+        },
+        {
+          "key": "arms.PD384.mass_at_or_better_than_bf16",
+          "op": ">=",
+          "bar": 0.95,
+          "actual": "0.980714",
+          "passed": true,
+          "why": "and per tensor: 95 % of the float64 mass sits in tensors at or better than upstream's bf16, so a good global mean cannot hide a regressed module"
+        }
+      ],
+      "code_staleness": {
+        "comparable": true,
+        "artifact_commit_unixtime": 1790250607,
+        "code_commit_unixtime": 1790298791,
+        "artifact_is_older_than_code": true,
+        "seconds_behind": 48184,
+        "note": "this artifact predates the newest commit under tt_bio, so its numbers describe an earlier tree. A clause reading it is reporting history, and a re-take may change the verdict"
+      }
+    },
+    {
+      "field": "GRADIENTS-DRAWS",
+      "artifact": "perf/of3t_orchestrator/a45/DRAWS_A45.json",
+      "why": "on all six pre-registered denoise draws the four state-free GRADIENTS fields hold on every draw, and 95 % of the float64 mass sits in tensors at or better than bf16 on their six-draw mean (A45).",
+      "artifact_exists": true,
+      "artifact_sha256": "8acc484ff69e4407a160a6bba2b33bdcf2eac98f26ab669f82c92d56f282d431",
+      "met": true,
+      "misses": [],
+      "checks": [
+        {
+          "key": "draws",
+          "op": ">=",
+          "bar": 6,
+          "actual": "6",
+          "passed": true,
+          "why": "the six draws A44 fixed before any existed"
+        },
+        {
+          "key": "four_hold_every_draw",
+          "op": "is",
+          "bar": true,
+          "actual": "True",
+          "passed": true,
+          "why": "no draw fails unread, carried-nothing, multi-placed or global rel"
+        },
+        {
+          "key": "mean_mass_at_or_better_than_bf16",
+          "op": ">=",
+          "bar": 0.95,
+          "actual": "0.9913",
+          "passed": true,
+          "why": "per tensor on the six-draw mean, 95 % of the mass at or better than bf16"
+        },
+        {
+          "key": "standing_losers_mass",
+          "op": "<=",
+          "bar": 0.05,
+          "actual": "0.00857",
+          "passed": true,
+          "why": "tensors worse than bf16 on 5 or 6 of 6 draws hold under 5 % of the mass"
+        }
+      ],
+      "code_staleness": {
+        "comparable": true,
+        "artifact_commit_unixtime": 1790298896,
+        "code_commit_unixtime": 1790298791,
+        "artifact_is_older_than_code": false,
+        "seconds_behind": 0,
+        "note": "the artifact is at or after the newest code commit"
+      }
+    },
+    {
+      "field": "GRADIENTS-SECTIONS",
+      "artifact": "perf/of3t_paedraws/SECTIONS_PD384.json",
+      "why": "no section of the whole step is past 3x upstream bf16's own rel for that section, rel averaged over the six A44 draws on each side, section grouping from perf/of3t_orchestrator/sections/section_ratio.py unedited.",
+      "artifact_exists": true,
+      "artifact_sha256": "4cec03b4a985d562dd05f3f5652e3289b388fdb5218aebb604a2112c49008457",
+      "met": true,
+      "misses": [],
+      "checks": [
+        {
+          "key": "arm",
+          "op": "is",
+          "bar": "PD384",
+          "actual": "'PD384'",
+          "passed": true,
+          "why": "the arm the GRADIENTS field reads"
+        },
+        {
+          "key": "draws",
+          "op": ">=",
+          "bar": 6,
+          "actual": "6",
+          "passed": true,
+          "why": "the six draws A44 fixed before any existed"
+        },
+        {
+          "key": "sections.*.within_3x",
+          "op": "all",
+          "bar": true,
+          "actual": "21 of 21",
+          "passed": true,
+          "why": "every section within 3x its own bf16, so a small-mass module cannot hide under a good global figure"
+        }
+      ],
+      "code_staleness": {
+        "comparable": true,
+        "artifact_commit_unixtime": 1790297651,
+        "code_commit_unixtime": 1790298791,
+        "artifact_is_older_than_code": true,
+        "seconds_behind": 1140,
+        "note": "this artifact predates the newest commit under tt_bio, so its numbers describe an earlier tree. A clause reading it is reporting history, and a re-take may change the verdict"
+      }
+    },
+    {
+      "field": "TRAJECTORY",
+      "artifact": "perf/of3t_trajfull/traj_trajfull.json",
+      "why": "an N-step COUPLED weight trajectory, with the two sides actually moving. ITS OPERATING POINT, added pass 390 (R154) because '20 steps, coupled, 89.21 %' reads as if the update rule were swept and it was not: in this arm the LR is a strictly linear ramp reaching 11.4 % of peak, never the knee at 1000 or the decay at 50000; the clip coefficient is exactly 1.0 at all 20 steps and all 80 per-sample coefficients, 12.5703x below the threshold; participation_spread is [4] at every step, so the per-parameter divisor is a uniform scaling Adam cancels; n_disabled_last_sample is 0 at every step; and weight_decay is 0.0, which is upstream's own default. That is five factors single-valued or inert, and it is PROTOCOL's factorisation working rather than a hole -- the four state-free factors are driven with a controlled input EXACTLY because a real batch never hits their corners. Two of the five are covered outside this artifact and are named as such: the non-uniform participation divisor only by superseded arms, and the disabled-parameter path only by COVERAGE's 5oid datapoint. Full map, computed from the artifacts: perf/of3t_orchestrator/trajpoint/TRAJ_OPERATING_POINT.json.",
+      "artifact_exists": true,
+      "artifact_sha256": "32be9664935e0d4ab0eabe91cf9988c12d35229974db23693291426bb97dde6b",
+      "met": true,
+      "misses": [],
+      "checks": [
+        {
+          "key": "steps",
+          "op": ">=",
+          "bar": 20,
+          "actual": "20",
+          "passed": true,
+          "why": "at least the 20 steps of3t-traj20 pre-registered"
+        },
+        {
+          "key": "scope.pct_of_model_sq_grad_norm",
+          "op": ">=",
+          "bar": 89.2105,
+          "actual": "89.2106",
+          "passed": true,
+          "why": "the span of the widest single boundary capture the campaign holds -- upstream's own float64 gradient mass inside diffusion_module. The most a trajectory can cover without a capture spanning more than one section. 100 % of that module is 9.170528876862544 / 10.279642678524981 = 89.2105802084 % of the model, so the bar is the measured ceiling ROUNDED DOWN (D209: pass 355 wrote 89.2106, which rounded the ceiling UP and made the clause unreachable by construction -- full coverage of the module missed it by 0.0000198 points). MET at pass 357: of3t-trajfull reads 89.21058020840096 over 761 of 761 reference tensors, having named the 180 the scoring previously could not (96 diffusion_transformer.blocks.N fused qkv split on the scoring side, 42 atom_attn_enc and 42 atom_attn_dec lazily uploaded per-block weights, 0 absent). At this boundary the clause is now equivalent to `score every reference tensor`"
+        },
+        {
+          "key": "scope.coupled",
+          "op": "is",
+          "bar": true,
+          "actual": "True",
+          "passed": true,
+          "why": "the scope must be ONE capture composed forward, not a union of per-section runs. A union tests each update rule in isolation and none of the coupling, and the two are indistinguishable in a pct_of_model_sq_grad_norm field. Emitted from pass 357 by of3t-trajfull as six computed checks, not a literal -- the decisive one being that at k=2 Adam's first update is -lr*sign(g) elementwise, so the two sides' displacement signs agree on 93.96 % of 201,279,424 elements where a side advanced from the other's gradient would agree on 100 %"
+        },
+        {
+          "key": "per_step",
+          "op": "moves",
+          "bar": [
+            "d_theirs_norm",
+            "d_ours_norm"
+          ],
+          "actual": "19 of 20 step(s) move upstream-side, ours moves at every one",
+          "passed": true,
+          "why": "the campaign's own lesson, repaired at pass 319 (D169): an arm that never moves proves nothing about the update rule, so OUR side must move at every step where THEIRS does. This read `d1.zero_both_sides is False` until pass 319 and that clause was UNSATISFIABLE by any faithful reproduction -- upstream's AlphaFoldLRScheduler warms up linearly from base_lr=0.0, so lr(0) == 0.0 exactly and step 1 leaves the weights bit-identical on BOTH sides with a non-zero gradient (D169_FIRST_STEP_IS_A_NO_OP.json). The replacement is strictly stronger: it reads all 20 steps rather than the one that carries no information, and it is not satisfied by the live artifacts being any closer than they were"
+        }
+      ],
+      "code_staleness": {
+        "comparable": true,
+        "artifact_commit_unixtime": 1790058785,
+        "code_commit_unixtime": 1790298791,
+        "artifact_is_older_than_code": true,
+        "seconds_behind": 240006,
+        "note": "this artifact predates the newest commit under tt_bio, so its numbers describe an earlier tree. A clause reading it is reporting history, and a re-take may change the verdict"
+      }
+    },
+    {
+      "field": "COVERAGE",
+      "artifact": "perf/of3t_orchestrator/coverage/COVERAGE_MERGED.json",
+      "why": "every loss term and every conditional path demonstrated to FIRE, on the batch, at runtime -- not enumerated in prose.",
+      "artifact_exists": true,
+      "artifact_sha256": "c5b65aac3a11e9adc01d9dc074d6a3bdd826678f1de1151760f55ffb0e55607b",
+      "met": true,
+      "misses": [],
+      "checks": [
+        {
+          "key": "union.*.covered",
+          "op": "all",
+          "bar": true,
+          "actual": "8 of 8",
+          "passed": true,
+          "why": "all 8 of upstream's LossWeights terms fire, each carrying its own `carried_by` stage and dataset and its `n_pairs_firing` in the artifact. Do not restate the count here: this string said '7 do; `bond` has an empty mask on 5nw3' for fifty passes after `bond` was upgraded with evidence, so the clause and its own prose disagreed in the published CHARTER_EVIDENCE. The artifact is the count"
+        },
+        {
+          "key": "conditional_paths.*.covered",
+          "op": "all",
+          "bar": true,
+          "actual": "11 of 11",
+          "passed": true,
+          "why": "all 11 conditional paths fire, each carrying `census_said`, this row's verdict (CONFIRMS / EXTENDS / CONTRADICTS) and the instrument or arm that settled it. Six were false in the original census and were upgraded by measurement, not by argument: `templates` and `nucleotide` by mask presence over 34 datapoints, `bond` by a firing datapoint (4g5j, finetune_1/weighted-pdb, crop 256), `disabled_parameters` by the gate firing on 5oid, and `diffusion_rollout` and `model_forward` by two-armed on/off tests (ARM_full against ARM_norollout, and ARM_full against ARM_zeroseed). Do not restate the count here -- the same rot that hit the loss-term clause above"
+        }
+      ],
+      "code_staleness": {
+        "comparable": false,
+        "generated_not_committed": true,
+        "why": "composed at compose time from digest-pinned sources, so it cannot be stale"
+      }
+    }
+  ]
+}
