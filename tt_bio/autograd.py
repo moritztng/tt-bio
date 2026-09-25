@@ -1637,9 +1637,16 @@ def mul(a: Tensor, b: Tensor) -> Tensor:
 
     def make():
         def bw(g):
-            if a.requires_grad:
+            if a.requires_grad and b.requires_grad:
+                # `ttnn.mul_bw` returns g*b and g*a from one call -- the same expression the
+                # two multiplies below compute, one verb instead of two. Every gate in the
+                # trunk is one of these nodes, so a verb here is a verb off every block.
+                da, db = ttnn.mul_bw(g, a.value, b.value)
+                a.add_grad(da)
+                b.add_grad(db)
+            elif a.requires_grad:
                 a.add_grad(ttnn.multiply(g, b.value))
-            if b.requires_grad:
+            elif b.requires_grad:
                 b.add_grad(ttnn.multiply(g, a.value))
         return bw
 
@@ -1707,7 +1714,10 @@ def relu(x: Tensor) -> Tensor:
 
     def make():
         def bw(g):
-            x.add_grad(ttnn.multiply(g, ttnn.gtz(box[0])))
+            # `ttnn.relu_bw` is g * (input > 0) in one verb instead of a `gtz` and a
+            # `multiply`. Handing it the OUTPUT is exact rather than an approximation:
+            # relu(x) > 0 exactly where x > 0, and the output is what this node retains.
+            x.add_grad(ttnn.relu_bw(g, box[0])[0])
         return bw
 
     out = _tape(out_v, [x], make)
@@ -1717,20 +1727,19 @@ def relu(x: Tensor) -> Tensor:
 
 
 def sigmoid(x: Tensor) -> Tensor:
-    """Sigmoid. Backward ``y * (1 - y)``, computed from the retained output."""
-    y0 = ttnn.sigmoid(x.value)
-    box = [y0]
+    """Sigmoid. Backward ``g * y * (1 - y)``, through the wheel's own kernel.
 
+    It used to be three verbs off the retained output, ``rsub`` then two ``multiply``s.
+    ``ttnn.sigmoid_bw`` is the same expression in one, and it takes the INPUT, which is a
+    parent and pinned regardless -- so the output stops being read and ``reads=(0,)`` lets
+    ``free`` release it. Two verbs and one live tensor off every gate on the tape.
+    """
     def make():
         def bw(g):
-            y = box[0]
-            x.add_grad(ttnn.multiply(g, ttnn.multiply(y, ttnn.rsub(y, 1.0))))
+            x.add_grad(ttnn.sigmoid_bw(g, x.value)[0])
         return bw
 
-    out = _tape(y0, [x], make)
-    if out.node is not None:
-        out.box = box
-    return out
+    return _tape(ttnn.sigmoid(x.value), [x], make, reads=(0,))
 
 
 def silu(x: Tensor) -> Tensor:
@@ -1745,23 +1754,23 @@ def silu(x: Tensor) -> Tensor:
 
     def make():
         def bw(g):
-            # The sigmoid is RECOMPUTED, not retained, and the input is read through the
-            # Tensor in case `free` evicted it to DRAM.
+            # `ttnn.silu_bw` is the whole derivative in one verb, against the six this used
+            # to compose. It keeps the choice that matters: the sigmoid is RECOMPUTED inside
+            # the kernel rather than retained, and the input is read through the Tensor in
+            # case `free` evicted it to DRAM.
             #
-            # Retaining it was the older choice, on the grounds that it is the expensive
-            # half. It is, and it is still the wrong trade here, because what the retention
-            # actually costs is L1: the shipped `Transition` asks for its swiglu operands in
-            # L1 and sizes the next kernel's circular buffers against what that leaves, and
-            # the tape composes this activation where production fuses it into the packer.
-            # Measured at a [1,256,256,128] pair track with hidden 512, the retained sigmoid
-            # plus the composed output is two L1 tensors production does not hold, and fc2
-            # then throws "Statically allocated circular buffers in program 11 clash with L1
-            # buffers ... allocated at 692224 and static circular buffer region ends at
-            # 893440" on the FIRST row chunk. One sigmoid per backward buys the shape back.
-            xv = x.value
-            sig = ttnn.sigmoid(xv)
-            d = ttnn.multiply(sig, ttnn.add(ttnn.multiply(xv, ttnn.rsub(sig, 1.0)), 1.0))
-            x.add_grad(ttnn.multiply(g, d))
+            # Retaining the sigmoid was the older choice, on the grounds that it is the
+            # expensive half. It is, and it is still the wrong trade here, because what the
+            # retention actually costs is L1: the shipped `Transition` asks for its swiglu
+            # operands in L1 and sizes the next kernel's circular buffers against what that
+            # leaves, and the tape composes this activation where production fuses it into
+            # the packer. Measured at a [1,256,256,128] pair track with hidden 512, the
+            # retained sigmoid plus the composed output is two L1 tensors production does
+            # not hold, and fc2 then throws "Statically allocated circular buffers in
+            # program 11 clash with L1 buffers ... allocated at 692224 and static circular
+            # buffer region ends at 893440" on the FIRST row chunk. The fused backward is
+            # stricter than that fix, not looser: it holds no intermediate at all.
+            x.add_grad(ttnn.silu_bw(g, x.value)[0])
         return bw
 
     return _tape(out_v, [x], make)
@@ -2057,17 +2066,16 @@ def narrow(x: Tensor, dim: int, start: int, length: int) -> Tensor:
 
     def make():
         def bw(g):
-            parts = []
-            if before:
-                z = list(shape)
-                z[ax] = before
-                parts.append(grad_zeros(z, g.dtype, g.device()))
-            parts.append(g)
-            if after:
-                z = list(shape)
-                z[ax] = after
-                parts.append(grad_zeros(z, g.dtype, g.device()))
-            x.add_grad(parts[0] if len(parts) == 1 else ttnn.concat(parts, dim=ax))
+            if not before and not after:
+                x.add_grad(g)
+                return
+            # One `ttnn.pad` instead of allocating one or two zero blocks and concatenating
+            # them: same tensor, two verbs fewer, and no zero block is ever materialised as
+            # its own allocation. The tape's `narrow` only ever slices one axis, which is
+            # what makes a single padding spec enough.
+            padding = [(0, 0)] * len(shape)
+            padding[ax] = (before, after)
+            x.add_grad(ttnn.pad(g, padding=padding, value=0.0))
         return bw
 
     return _tape(out_v, [x], make)
@@ -2088,6 +2096,14 @@ def concat(xs: Sequence[Tensor], dim: int = -2) -> Tensor:
 
     def make():
         def bw(g):
+            if len(xs) == 2 and xs[0].requires_grad and xs[1].requires_grad:
+                # `ttnn.concat_bw` takes exactly two inputs, so it covers the two-way case
+                # and nothing else -- the atom window build concatenates four slices and
+                # falls through to the loop below. Same two slices, one call.
+                ga, gb = ttnn.concat_bw(g, xs[0].value, xs[1].value, ax)
+                xs[0].add_grad(ga)
+                xs[1].add_grad(gb)
+                return
             off = 0
             gs = [int(d) for d in g.shape]
             for x, n in zip(xs, sizes):
