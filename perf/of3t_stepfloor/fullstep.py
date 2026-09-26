@@ -614,6 +614,11 @@ def main() -> int:
                     help="replicates per chunk. The chunk tape is cut at the trunk output, "
                          "so the trunk backward still runs exactly ONCE per step whatever "
                          "this is. 0 keeps every replicate in one tape")
+    ap.add_argument("--chunk-per-rep", default="",
+                    help="comma-separated C per rep, one warm process. The replicate "
+                         "subgraph's backward is what the campaign's 5.6x projection rests "
+                         "on and nobody has measured it past 4 replicates; four chunk sizes "
+                         "in one process against one clock is that measurement")
     ap.add_argument("--grad-ab", type=int, default=0,
                     help="the identity control: rep 0 unchunked, rep 1 chunked at this C, "
                          "one process, one set of weights, the SAME replicate noise, no "
@@ -691,6 +696,8 @@ def main() -> int:
             out["renorm"] = {"flag": bool(ag.SOFTMAX_BW_RENORM),
                              "stats_before": dict(ag.SOFTMAX_BW_RENORM_STATS)}
             plan = [bool(int(x)) for x in a.renorm_per_rep.split(",") if x != ""]
+            cplan = [int(x) for x in a.chunk_per_rep.split(",") if x != ""]
+            out["chunk_per_rep_plan"] = cplan or None
             out["renorm"]["per_rep_plan"] = plan or None
             reps = []
             grad_ab: dict = {}
@@ -720,7 +727,8 @@ def main() -> int:
 
                 ctx = ag.no_grad() if a.no_tape else ag.tape()
                 d_out, l_out = {}, {}
-                want = a.grad_ab if (a.grad_ab and rep == 1) else a.chunk
+                want = (a.grad_ab if (a.grad_ab and rep == 1)
+                        else cplan[rep % len(cplan)] if cplan else a.chunk)
                 chunk = want if (not a.no_tape and 0 < want < a.samples) else 0
                 row["chunk"] = chunk or None
                 peak_dram = 0
