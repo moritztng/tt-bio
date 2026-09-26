@@ -144,10 +144,30 @@ reach OpenFold3's trunk at 832 — `_fp32_softmax_attention` already passes
 `_SOFTMAX_PRECISE_CKC`. It calibrates nothing. Its value is that a third independent
 configuration reproduced the baseline bit-for-bit, so the instrument is not inventing differences.
 
-**What is still unmatched is the pair track.** The lever moves `z` by 8.7 % and the head refactor
-does not touch `z` at all, so there is no benign control for that half yet. Finding one — a
-default-off flag that perturbs the pair path and is agreed harmless — is the cheapest next step
-on this question, and it needs one fold.
+**The pair track now has its control, and it is the half that discriminates.**
+`TT_BIO_OPM_SMALL_DEPTH` re-factors the outer product mean — *same algebra*, stated as such in
+its own comment (`sum_cd a_ic b_jd W_cdk = sum_d b_jd (sum_c a_ic W_cdk)`) — and the outer
+product mean writes into `z`. Completing the table:
+
+    arm                              s rel L2      z rel L2
+    OFF vs OFF (control)             0.000e+00     0.000e+00
+    TT_BIO_SOFTMAX_CKC=1             0.000e+00     0.000e+00   null, does not reach this path
+    TT_BIO_APB_CONCAT_HEADS=1        2.118e-01     0.000e+00   benign refactor
+    TT_BIO_OPM_SMALL_DEPTH=1         2.124e-01     2.459e-02   benign, SAME ALGEBRA
+    TT_BIO_TRIATT_DIVIDING_K=1       2.152e-01     8.724e-02   the lever
+
+**On `s` the lever is indistinguishable from both benign controls** — 21.52 % against 21.18 % and
+21.24 %. That half carries no information.
+
+**On `z` the lever is 3.5x the same-algebra baseline** — 8.72 % against 2.46 %. So the pair track
+*is* where this lever is distinguishable from a change that provably computes the same thing.
+
+**That is a bound, not a verdict, and the mismatch is worth stating.** `OPM_SMALL_DEPTH` touches
+`z` once per block through the outer product mean; the lever's triangle attention reads and
+writes `z` in every block, so the two do not have equal opportunity to perturb it. The 3.5x is
+indicative of a real difference in kind, not a clean ratio between equally-placed perturbations.
+Direction at the trunk remains unknown; the only directional evidence is still per-call, where
+the fused route is 8.7-12.6 % closer to float64 than the fall-back it replaces.
 
 ## Recommendation
 
