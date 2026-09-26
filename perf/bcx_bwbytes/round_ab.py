@@ -111,6 +111,40 @@ def install_levers(rows_on, precision, moreh):
     return apply
 
 
+def check_fired(count, rows, precision):
+    """Refuse to report a round the levers did not actually reach. Returns (served, off).
+
+    Extracted from `main` so it can be tested without a card, which matters more here than
+    anywhere else in this file: it runs AFTER all 28 rounds, so a false raise discards a
+    completed session, and a missed raise reports a 1.00x as a measurement when the truth is
+    that nothing fired.
+
+    `levers_on is True`, not truthiness. A round whose arm marker went missing carries None, and
+    under truthiness it is simply not an ON round -- so if every ON marker were dropped, this
+    check would quietly decline to fire while `analyse` reported an arm with no rounds in it.
+    Same predicate as `analyse`'s medians, for the same reason.
+    """
+    served = count["reblock_back:on"] + count["reblock_fwd:on"] + count["tree:on"]
+    off = count["reblock_back:off"] + count["reblock_fwd:off"] + count["tree:off"]
+    if precision:
+        # The precision arm fires in a DTYPE, not in a call count, so the control it needs is
+        # that the softmax backward ran in a different dtype on the two arms. Counting calls
+        # would read identically either way, which is exactly how an inert lever passes.
+        dts = {k: v for k, v in count.items() if k.startswith("softmax_bw:")}
+        on_dt = {k.split(":")[-1] for k in dts if ":on:" in k}
+        off_dt = {k.split(":")[-1] for k in dts if ":off:" in k}
+        if on_dt and off_dt and on_dt == off_dt:
+            raise RuntimeError(f"the precision arm did not change the softmax backward's dtype: "
+                               f"{dts} -- the lever is wired but inert")
+        served += sum(v for k, v in dts.items() if ":on:" in k)
+    if any(r["levers_on"] is True for r in rows if r["round"] > 2) and served == 0:
+        raise RuntimeError(f"ON rounds ran and served nothing: {dict(count)} -- the lever is "
+                           f"inert at this n, which is a RESULT, not a measurement of the round")
+    if off:
+        raise RuntimeError(f"OFF rounds served {off} lever calls: the arm does not separate")
+    return served, off
+
+
 class ABMeter(M.Meter):
     def __init__(self, rounds, apply):
         super().__init__(rounds)
@@ -311,24 +345,7 @@ def main():
     blob = {"stamp": stamp, "rounds": rows, "summary": summary}
     pathlib.Path(project, "round_ab.json").write_text(json.dumps(blob, indent=1))
     print(json.dumps({"summary": summary, "lever_counts": dict(COUNT)}, indent=1), flush=True)
-    served = COUNT["reblock_back:on"] + COUNT["reblock_fwd:on"] + COUNT["tree:on"]
-    off = COUNT["reblock_back:off"] + COUNT["reblock_fwd:off"] + COUNT["tree:off"]
-    if args.precision:
-        # The precision arm fires in a dtype, not in a call count, so the control it needs is
-        # that the softmax backward ran in a DIFFERENT dtype on the two arms. Counting calls
-        # would read identically either way, which is exactly how an inert lever passes.
-        dts = {k: v for k, v in COUNT.items() if k.startswith("softmax_bw:")}
-        on_dt = {k.split(":")[-1] for k in dts if ":on:" in k}
-        off_dt = {k.split(":")[-1] for k in dts if ":off:" in k}
-        if on_dt and off_dt and on_dt == off_dt:
-            raise RuntimeError(f"the precision arm did not change the softmax backward's dtype: "
-                               f"{dts} -- the lever is wired but inert")
-        served += sum(v for k, v in dts.items() if ":on:" in k)
-    if any(r["levers_on"] for r in rows if r["round"] > 2) and served == 0:
-        raise RuntimeError(f"ON rounds ran and served nothing: {dict(COUNT)} -- the lever is "
-                           f"inert at this n, which is a RESULT, not a measurement of the round")
-    if off:
-        raise RuntimeError(f"OFF rounds served {off} lever calls: the arm does not separate")
+    served, off = check_fired(COUNT, rows, args.precision)
     print(f"served {served} lever calls on the ON arm, {off} on the OFF arm", flush=True)
 
 
