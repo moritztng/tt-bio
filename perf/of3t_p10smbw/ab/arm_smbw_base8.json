@@ -1,0 +1,306 @@
+{
+  "argv": [
+    "--corpus",
+    "/home/ttuser/of3t_p10trainout/corpus/train12",
+    "--checkpoint",
+    "/home/ttuser/of3-weights/of3-p2-155k.pt",
+    "--exact",
+    "off",
+    "--steps",
+    "2",
+    "--seed",
+    "0",
+    "--checkpoint-every",
+    "9",
+    "--displacement-band",
+    "0.01,100",
+    "--eval-corpus",
+    "/home/ttuser/of3t_p10trainout/corpus/val",
+    "--out-dir",
+    "/home/ttuser/of3t_p10trainout/runs/smbw_base8",
+    "--curve",
+    "/home/ttuser/of3t_p10trainout/runs/smbw_base8.jsonl",
+    "--out",
+    "/home/ttuser/.coworker/wt/of3t-p10smbw/perf/of3t_p10smbw/ab/arm_smbw_base8.json"
+  ],
+  "started": "2026-09-26T23:09:15Z",
+  "precondition_slot_fix": {
+    "commit": "ce0f78d60",
+    "is_ancestor_of_head": true,
+    "head": "d959a7e816f6d2e8ea4f4814de7a0e96d333e5a3",
+    "head_short": "d959a7e81",
+    "dirty": true
+  },
+  "steps": [
+    {
+      "step": 0,
+      "loss": 1.7992572181478035,
+      "breakdown": {
+        "mse": {
+          "value": 0.14006627042043632,
+          "weight": 4.0,
+          "contribution": 0.5602650816817453
+        },
+        "smooth_lddt": {
+          "value": 0.2951564627869061,
+          "weight": 4.0,
+          "contribution": 1.1806258511476244
+        },
+        "bond": {
+          "value": null,
+          "weight": 0.0,
+          "contribution": 0.0,
+          "skipped": "weight is zero in this stage"
+        },
+        "distogram": {
+          "value": 1.9290486358132064,
+          "weight": 0.03,
+          "contribution": 0.05787145907439619
+        },
+        "plddt": {
+          "value": null,
+          "weight": 0.0001,
+          "contribution": 0.0,
+          "skipped": "missing ['per_atom_lddt', 'per_atom_weight']"
+        },
+        "pde": {
+          "value": 2.7152095223664405,
+          "weight": 0.0001,
+          "contribution": 0.00027152095223664406
+        },
+        "resolved": {
+          "value": 2.233052918009951,
+          "weight": 0.0001,
+          "contribution": 0.0002233052918009951
+        },
+        "pae": {
+          "value": null,
+          "weight": 0.0,
+          "contribution": 0.0,
+          "skipped": "weight is zero in this stage"
+        }
+      },
+      "grad_norm": 10.000000618944357,
+      "lr": 0.0003,
+      "s": null,
+      "wall_s": 73.833,
+      "aiclk": {
+        "min": 800,
+        "max": 1350,
+        "median": 1350,
+        "n": 28
+      },
+      "dram_gb": 3.271
+    }
+  ],
+  "exact_ops_requested": "both",
+  "corpus": {
+    "cache_file": "/home/ttuser/of3t-data-xhost/datasets/training_cache_with_templates_subset_8.json",
+    "split": "train",
+    "stage": "initial_training",
+    "crop": 384,
+    "seed": 20260926,
+    "draw_seed": 20260926,
+    "package": "tt_bio._vendor.openfold3",
+    "datapoints_in_cache": 292,
+    "order": [
+      290,
+      289,
+      270,
+      285,
+      291,
+      248,
+      267,
+      154,
+      290,
+      268,
+      267,
+      291
+    ],
+    "entries": [
+      {
+        "index": 154,
+        "pdb_id": "2wig",
+        "chain_or_interface": "['101', '97']",
+        "file": "154_2wig.pt",
+        "sha256": "92996d949b40f7d1fd31d3d586f55370f36224bffc1761cf385e2ae56b270a73",
+        "bytes": 837530212,
+        "real_tokens": 384,
+        "crop_tokens": 384
+      },
+      {
+        "index": 248,
+        "pdb_id": "2wig",
+        "chain_or_interface": "['81', '83']",
+        "file": "248_2wig.pt",
+        "sha256": "bf745dc10e7ad12832b7808772824bd37ad9797cad4a85ab77514c40225478d6",
+        "bytes": 709208871,
+        "real_tokens": 384,
+        "crop_tokens": 384
+      },
+      {
+        "index": 267,
+        "pdb_id": "3wnm",
+        "chain_or_interface": "['1', '2']",
+        "file": "267_3wnm.pt",
+        "sha256": "8b0973534a9297503312eed897d807e919cce9c2f84d0bf3921ac3893a6ed4b3",
+        "bytes": 584526802,
+        "real_tokens": 384,
+        "crop_tokens": 384
+      },
+      {
+        "index": 268,
+        "pdb_id": "3wnm",
+        "chain_or_interface": "['1', '3']",
+        "file": "268_3wnm.pt",
+        "sha256": "6cfc0b2bef8dc03482f200b682c960b0f0d432866a01f0f4350f898b56aaf189",
+        "bytes": 587826196,
+        "real_tokens": 384,
+        "crop_tokens": 384
+      },
+      {
+        "index": 270,
+        "pdb_id": "3wnm",
+        "chain_or_interface": "['1', '5']",
+        "file": "270_3wnm.pt",
+        "sha256": "241c1d7fe944b061db69ac8b06fecec1a2995579e14ca516e338dd92703c4053",
+        "bytes": 733282002,
+        "real_tokens": 384,
+        "crop_tokens": 384
+      },
+      {
+        "index": 285,
+        "pdb_id": "4ky2",
+        "chain_or_interface": "['3', '7']",
+        "file": "285_4ky2.pt",
+        "sha256": "3b00433bf911e74b913b9fbe78c61eeb0e0d1322a02e6d54d97d1da51b0a3f72",
+        "bytes": 319004271,
+        "real_tokens": 384,
+        "crop_tokens": 384
+      },
+      {
+        "index": 289,
+        "pdb_id": "5ron",
+        "chain_or_interface": "4",
+        "file": "289_5ron.pt",
+        "sha256": "298fd215011e092f7edf015201255c7235fb6514e661e3618a68ee51c80b3fd1",
+        "bytes": 840418860,
+        "real_tokens": 311,
+        "crop_tokens": 384
+      },
+      {
+        "index": 290,
+        "pdb_id": "5ron",
+        "chain_or_interface": "['1', '3']",
+        "file": "290_5ron.pt",
+        "sha256": "61f724250a7a10078fe245e4f6d10853296e1ecb777ef02618b141e342681fbb",
+        "bytes": 809883180,
+        "real_tokens": 311,
+        "crop_tokens": 384
+      },
+      {
+        "index": 291,
+        "pdb_id": "5ron",
+        "chain_or_interface": "['1', '4']",
+        "file": "291_5ron.pt",
+        "sha256": "912f3338af9732a0911383b5f450cc621bdc250b3e3b16d0f949eefa204dc9af",
+        "bytes": 223952940,
+        "real_tokens": 311,
+        "crop_tokens": 384
+      }
+    ]
+  },
+  "exact_ops": [],
+  "exact_scope": "all",
+  "dataset": {
+    "n": 9,
+    "files": [
+      "154_2wig.pt",
+      "248_2wig.pt",
+      "267_3wnm.pt",
+      "268_3wnm.pt",
+      "270_3wnm.pt",
+      "285_4ky2.pt",
+      "289_5ron.pt",
+      "290_5ron.pt",
+      "291_5ron.pt"
+    ]
+  },
+  "displacement_band": [
+    0.01,
+    100.0
+  ],
+  "eval_before": {
+    "mean_loss": 6.8024402513580124,
+    "n": 4,
+    "seed": 20260926,
+    "stage": "initial_training",
+    "instrument": "shipped inference path, exact ops uninstalled for the block",
+    "targets": [
+      {
+        "index": 0,
+        "pdb_id": "7kud",
+        "loss": 9.277909187494767,
+        "s": 5.963,
+        "breakdown": {
+          "bond": 0.0,
+          "smooth_lddt": 3.535681160120073,
+          "mse": 5.599059074059674,
+          "distogram": 0.14145698721808922,
+          "resolved": 0.0003623633165203392,
+          "plddt": 0.0,
+          "pae": 0.0006713384004121569,
+          "pde": 0.0006782643799968873
+        }
+      },
+      {
+        "index": 1,
+        "pdb_id": "7ohe",
+        "loss": 10.762623927477078,
+        "s": 1.634,
+        "breakdown": {
+          "bond": 0.0,
+          "smooth_lddt": 3.581970777746528,
+          "mse": 6.978249489363687,
+          "distogram": 0.2004677982701984,
+          "resolved": 0.0003802788170982951,
+          "plddt": 0.0,
+          "pae": 0.00076217108472697,
+          "pde": 0.000793412194838439
+        }
+      },
+      {
+        "index": 2,
+        "pdb_id": "7fb8",
+        "loss": 4.717250730350796,
+        "s": 1.716,
+        "breakdown": {
+          "bond": 0.0,
+          "smooth_lddt": 3.6096885545876627,
+          "mse": 1.000279058967684,
+          "distogram": 0.10563498953136218,
+          "resolved": 0.00026551475253060825,
+          "plddt": 0.0,
+          "pae": 0.0006159191926975164,
+          "pde": 0.0007666933188589269
+        }
+      },
+      {
+        "index": 3,
+        "pdb_id": "7vus",
+        "loss": 2.4519771601094082,
+        "s": 2.125,
+        "breakdown": {
+          "bond": 0.0,
+          "smooth_lddt": 1.8850900010449632,
+          "mse": 0.43542034377330197,
+          "distogram": 0.13053788887479692,
+          "resolved": 0.00030486338155853065,
+          "plddt": 0.0,
+          "pae": 0.00037285984431358765,
+          "pde": 0.0002512031904743874
+        }
+      }
+    ]
+  }
+}
