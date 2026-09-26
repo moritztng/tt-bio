@@ -7,3 +7,4 @@ ARM protenix-v2 rc=0 secs=85 scored=[release-gate] scoring tt_bio from /home/ttu
 ARM esmfold2 rc=0 secs=135 scored=[release-gate] scoring tt_bio from /home/ttuser/.coworker/wt/land-standing/tt_bio (commit 064e5ad5a)
 ARM esmfold2-fast rc=0 secs=73 scored=[release-gate] scoring tt_bio from /home/ttuser/.coworker/wt/land-standing/tt_bio (commit 064e5ad5a)
 ARM batch-position rc=0 secs=389 scored=[release-gate] scoring tt_bio from /home/ttuser/.coworker/wt/land-standing/tt_bio (commit 064e5ad5a)
+ARM capacity rc=0 secs=1373 scored=[release-gate] scoring tt_bio from /home/ttuser/.coworker/wt/land-standing/tt_bio (commit 064e5ad5a)
