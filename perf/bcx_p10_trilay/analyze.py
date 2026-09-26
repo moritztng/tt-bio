@@ -74,9 +74,9 @@ def main():
     for arm in b['arms']:
         per[arm] = table(b, arm, reps)
         print()
-    if len(b['arms']) == 2:
-        a0, a1 = b['arms']
-        print('=== A/B, device ms per block (both triangle multiplications)')
+    for a1 in b['arms'][1:]:
+        a0 = b['arms'][0]
+        print(f'=== A/B {a0} -> {a1}, device ms per block (both triangle multiplications)')
         for dr in ('fwd', 'bwd'):
             x, y = per[a0][dr], per[a1][dr]
             print(f'  {dr}: {x[0] * 1e3:8.3f} -> {y[0] * 1e3:8.3f} ms  '
