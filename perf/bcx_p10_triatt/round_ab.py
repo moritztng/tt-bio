@@ -23,6 +23,11 @@ The arms, set with `TRIATT_AB_ARMS` (comma separated, default `mat,fused`):
     taped   `TT_BIO_TRIATT_TAPED_SDPA` -- the stock fused SDPA verb, which IS taped, so
             `taped_ttnn._v_sdpa` puts `autograd.triangle_attention`'s chunked-recompute
             backward behind it instead of differentiating the materialised scores
+    agtri   the same route with `TT_BIO_SDPA_OWN_FORWARD` on, so the forward is
+            `autograd.triangle_attention`'s own chunked one -- one score block per chunk,
+            each row reduced in a SINGLE pass under HiFi4 + fp32 destination accumulation --
+            instead of the kernel's online bf16 softmax. Same backward as `taped`, so the
+            pair prices the FORWARD's speed against its reduction order and nothing else.
 
 Nothing here changes what the campaign computes: the arm picks which kernel serves a
 softmax, and `--rounds` only stops collection after N full rounds.
@@ -39,6 +44,7 @@ sys.path.insert(0, str(ROOT / "perf" / "bcx_round"))
 
 import meter as M                     # noqa: E402
 import run_round as R                 # noqa: E402
+from tt_bio import taped_ttnn as TT  # noqa: E402
 from tt_bio import tenstorrent as tn  # noqa: E402
 
 ARMS = tuple(a for a in os.environ.get("TRIATT_AB_ARMS", "mat,fused").split(",") if a)
@@ -48,13 +54,15 @@ def _reach() -> dict:
     """Every counter that says which route the triangle attentions actually took."""
     return {"fused": dict(tn.TRIATT_FUSED_HIFI_STATS),
             "taped": dict(tn.TRIATT_TAPED_SDPA_STATS),
+            "vsdpa": dict(TT.SDPA_OWN_FORWARD_STATS),
             "fp32_softmax_calls": tn.FP32_SOFTMAX_STATS["calls"],
             "picks": {str(k): v for k, v in tn.TRIATT_FUSED_HIFI_PICKS.items()}}
 
 
 def _arm(name: str) -> None:
     tn._TRIATT_FUSED_HIFI = (name == "fused")
-    os.environ["TT_BIO_TRIATT_TAPED_SDPA"] = "1" if name == "taped" else "0"
+    os.environ["TT_BIO_TRIATT_TAPED_SDPA"] = "1" if name in ("taped", "agtri") else "0"
+    os.environ["TT_BIO_SDPA_OWN_FORWARD"] = "1" if name == "agtri" else "0"
 
 
 class ArmMeter(M.Meter):
@@ -94,6 +102,7 @@ def main():
         stamp["reach_end"] = _reach()
         stamp["TRIATT_FUSED_HIFI_flag_end"] = bool(tn._TRIATT_FUSED_HIFI)
         stamp["TRIATT_TAPED_SDPA_flag_end"] = tn._triatt_taped_sdpa_on()
+        stamp["SDPA_OWN_FORWARD_flag_end"] = TT._sdpa_own_forward()
         stamp["TRIATT_FUSED_HIFI_MIN_S"] = tn._TRIATT_FUSED_HIFI_MIN_S
         stamp["triatt_sdpa_rejects"] = {str(k): v for k, v in tn._triatt_sdpa.REJECTS.items()}
         stamp["triatt_sdpa_stats"] = list(tn._triatt_sdpa.STATS)
