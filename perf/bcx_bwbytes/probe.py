@@ -91,6 +91,14 @@ def main():
     print(json.dumps(stamp), flush=True)
 
     sum_rows, perm_rows = [], []
+
+    def _save():
+        """After EVERY shape, not at the end. A probe that writes its artifact once, after the
+        last loop, loses every shape it already measured the first time one raises or the box
+        reclaims the card -- and the shapes most likely to raise are the big ones, which run
+        last. (`a-harness-that-writes-its-clock-at-the-end-of-main-loses-it-on-every-death`.)"""
+        pathlib.Path(args.out).write_text(json.dumps(
+            {"stamp": stamp, "sum0": sum_rows, "permute": perm_rows}, indent=1))
     for N in [int(x) for x in args.ns.split(",")]:
         for rows in [int(x) for x in args.rows.split(",")]:
             x = torch.randn(rows, args.heads, N, N, generator=gen) * 1e-3
@@ -102,16 +110,26 @@ def main():
             arms = {"sum": lambda: ttnn.sum(g, dim=0, keepdim=True, compute_kernel_config=cfg),
                     "tree": lambda: ag._pairwise_sum0(g)}
             for name, fn in arms.items():
-                y = fn()
-                yt = ttnn.to_torch(y).reshape(ref.shape)
-                free(y)
+                # An arm the wheel or the allocator refuses is a RESULT, not a crash, and it
+                # must not take the shapes already measured with it -- see the incremental
+                # write below. The permute loop had this guard from the start; this one did not.
+                try:
+                    y = fn()
+                    yt = ttnn.to_torch(y).reshape(ref.shape)
+                    free(y)
+                except Exception as e:
+                    rec[name] = {"error": str(e).splitlines()[0][:200]}
+                    continue
                 rec[name] = {"rel_l2_vs_f64":
                              float((yt.double() - ref).norm() / ref.norm())}
                 rec[name].update(timed(fn, args.reps, clock, free))
-            rec["tree_over_sum"] = round(rec["sum"]["median_ms"] / rec["tree"]["median_ms"], 3)
+            if all("median_ms" in rec.get(a, {}) for a in arms):
+                rec["tree_over_sum"] = round(rec["sum"]["median_ms"]
+                                             / rec["tree"]["median_ms"], 3)
             free(g)
             print(json.dumps(rec), flush=True)
             sum_rows.append(rec)
+            _save()
 
     for N in [int(x) for x in args.ns.split(",")]:
         for C in [int(x) for x in args.chans.split(",")]:
@@ -137,22 +155,29 @@ def main():
                     base = yt
                 rec[name] = {"bits_eq_permute": bool(torch.equal(yt, base))}
                 rec[name].update(timed(fn, args.reps, clock, free))
-            if ok:
+            if ok and all("median_ms" in rec.get(a, {}) for a in arms):
                 rec["reblock_over_permute"] = round(
                     rec["permute"]["median_ms"] / rec["reblock"]["median_ms"], 3)
             free(g)
             print(json.dumps(rec), flush=True)
             perm_rows.append(rec)
+            _save()
 
     clock.stop()
     stamp["loadavg_end"] = __import__("os").getloadavg()
-    blob = {"stamp": stamp, "sum0": sum_rows, "permute": perm_rows}
-    pathlib.Path(args.out).write_text(json.dumps(blob, indent=1))
+    _save()
     print(f"wrote {args.out}", flush=True)
 
     def band(rs, key, ratio):
-        wins = [r for r in rs if r.get(ratio, 0) > 1.0]
-        print(f"{key}: wins at " + ", ".join(str(r["shape"]) for r in wins) or f"{key}: no wins")
+        """`no wins` is the EXPECTED reading for the permute lever at N=224, so it has to be
+        printable. It was not: `print(a + b or c)` parses as `print((a + b) or c)`, and `a` is a
+        non-empty literal, so the `or` never fired and an empty win list printed as a dangling
+        `wins at `."""
+        wins = [(r["shape"], r[ratio]) for r in rs if r.get(ratio, 0) > 1.0]
+        if wins:
+            print(f"{key}: wins at " + ", ".join(f"{sh} {v:.3f}x" for sh, v in wins))
+        else:
+            print(f"{key}: NO WINS at any measured shape")
     band(sum_rows, "tree", "tree_over_sum")
     band(perm_rows, "reblock", "reblock_over_permute")
 

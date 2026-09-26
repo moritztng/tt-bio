@@ -78,6 +78,14 @@ def main():
     print(json.dumps(stamp), flush=True)
 
     rows = []
+
+    def _save():
+        """After every n, not at the end. This probe is the one that settles whether bf16
+        unlocks main's fused route, and the fp32 arms are EXPECTED to raise inside the wheel; a
+        single write after the last loop would lose the arms that already answered."""
+        pathlib.Path(args.out).write_text(
+            json.dumps({"stamp": stamp, "rows": rows}, indent=1))
+
     for n in [int(x) for x in args.ns.split(",")]:
         sc = (torch.randn(n, args.heads, n, n, generator=gen) * 3.0)
         gt = torch.randn(n, args.heads, n, n, generator=gen) * 1e-2
@@ -166,13 +174,19 @@ def main():
                 if "median_ms" in rec.get(name, {}):
                     rec[name]["speedup_vs_chain"] = round(base / rec[name]["median_ms"], 3)
         rows.append(rec)
+        _save()
         for t in (y32, g32, y16, g16):
             ttnn.deallocate(t)
 
     clock.stop()
     stamp["loadavg_end"] = os.getloadavg()
-    pathlib.Path(args.out).write_text(json.dumps({"stamp": stamp, "rows": rows}, indent=1))
+    _save()
     print(f"wrote {args.out}", flush=True)
+    for rec in rows:
+        got = {k: v for k, v in rec.items() if isinstance(v, dict) and "median_ms" in v}
+        ref = {k: v for k, v in rec.items() if isinstance(v, dict) and "error" in v}
+        print(f"  {rec['shape']}: {len(got)} arms timed, {len(ref)} refused"
+              + (f" ({', '.join(sorted(ref))})" if ref else ""))
 
 
 if __name__ == "__main__":
