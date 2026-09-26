@@ -1,0 +1,144 @@
+{
+ "trace_bwd-fix_evo_n256": {
+  "trace": "trace_bwd-fix_evo_n256",
+  "n": 256,
+  "stack": "evo",
+  "depth0_ops": 1033,
+  "moved_GB": 39.394,
+  "avoidable_GB_bcx_bytes_reasons": 19.718,
+  "fp32_excess_GB": 7.037,
+  "fp32_excess_on_score_GB": 5.203,
+  "by_site": {
+   "0 recompute: the checkpoint re-running the forward": {
+    "ops": 276,
+    "GB": 11.039,
+    "share": 0.2802
+   },
+   "1 add_grad fan-in: two gradients widened to fp32 and summed": {
+    "ops": 87,
+    "GB": 5.736,
+    "share": 0.1456
+   },
+   "2 softmax backward on the score tensor": {
+    "ops": 30,
+    "GB": 10.122,
+    "share": 0.2569
+   },
+   "3 layer-norm backward": {
+    "ops": 180,
+    "GB": 3.914,
+    "share": 0.0994
+   },
+   "4 layout moves": {
+    "ops": 65,
+    "GB": 2.001,
+    "share": 0.0508
+   },
+   "5 the arithmetic itself": {
+    "ops": 56,
+    "GB": 2.863,
+    "share": 0.0727
+   },
+   "6 other typecasts": {
+    "ops": 32,
+    "GB": 0.922,
+    "share": 0.0234
+   },
+   "7 residual eltwise": {
+    "ops": 115,
+    "GB": 2.798,
+    "share": 0.071
+   }
+  },
+  "src_rev": "a5fa47832",
+  "closure_lines": {
+   "layer_norm": [
+    898,
+    965
+   ],
+   "softmax": [
+    966,
+    981
+   ],
+   "triangle_attention": [
+    1174,
+    1320
+   ],
+   "_taped_layer_norm": [
+    1888,
+    1950
+   ]
+  }
+ },
+ "trace_bwd-fix_extra_n256": {
+  "trace": "trace_bwd-fix_extra_n256",
+  "n": 256,
+  "stack": "extra",
+  "depth0_ops": 687,
+  "moved_GB": 34.496,
+  "avoidable_GB_bcx_bytes_reasons": 15.849,
+  "fp32_excess_GB": 6.851,
+  "fp32_excess_on_score_GB": 5.203,
+  "by_site": {
+   "0 recompute: the checkpoint re-running the forward": {
+    "ops": 205,
+    "GB": 9.29,
+    "share": 0.2693
+   },
+   "1 add_grad fan-in: two gradients widened to fp32 and summed": {
+    "ops": 49,
+    "GB": 4.664,
+    "share": 0.1352
+   },
+   "2 softmax backward on the score tensor": {
+    "ops": 22,
+    "GB": 10.068,
+    "share": 0.2919
+   },
+   "3 layer-norm backward": {
+    "ops": 105,
+    "GB": 3.318,
+    "share": 0.0962
+   },
+   "4 layout moves": {
+    "ops": 34,
+    "GB": 1.285,
+    "share": 0.0372
+   },
+   "5 the arithmetic itself": {
+    "ops": 34,
+    "GB": 2.358,
+    "share": 0.0684
+   },
+   "6 other typecasts": {
+    "ops": 19,
+    "GB": 0.859,
+    "share": 0.0249
+   },
+   "7 residual eltwise": {
+    "ops": 86,
+    "GB": 2.655,
+    "share": 0.077
+   }
+  },
+  "src_rev": "a5fa47832",
+  "closure_lines": {
+   "layer_norm": [
+    898,
+    965
+   ],
+   "softmax": [
+    966,
+    981
+   ],
+   "triangle_attention": [
+    1174,
+    1320
+   ],
+   "_taped_layer_norm": [
+    1888,
+    1950
+   ]
+  }
+ }
+}

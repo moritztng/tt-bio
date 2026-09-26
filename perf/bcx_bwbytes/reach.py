@@ -1,0 +1,162 @@
+#!/usr/bin/env python3
+"""bcx-bwbytes: the trunk backward's bytes attributed to the change that would remove them.
+
+`bcx-bytes` measured 20.3 of 40.0 GB per Evoformer block as avoidable and sorted them by REASON
+-- typecast, layout, padding, fusible. A reason is not a change. This re-reads that row's own
+traces through its own census and sorts the same bytes by the NAMED site that issues them, so
+the row can say how much of the 2x is reachable and by editing what.
+
+Three things about the instrument, and all three cut against the answer looking good:
+
+  * it counts DEPTH-0 ttnn calls, so a kernel's internal traffic is invisible. `ttnn.sum(dim=0)`
+    permutes its operand before it reduces, and the census charges it one read where the card
+    moves three. Every figure here is a LOWER bound on DRAM traffic.
+  * a lever that replaces one kernel with a faster kernel over the same operands removes no
+    bytes. The reblock permute backward is exactly that and it appears here worth zero.
+  * the segment called "the backward" contains the checkpoint's recompute of the forward. Those
+    bytes are split out rather than counted as backward work, because the edit that removes them
+    is a memory decision and not a kernel.
+
+Card-free: it reads `perf/bcx_bytes/trace_*.json` and computes.
+"""
+from __future__ import annotations
+
+import argparse
+import collections
+import json
+import pathlib
+import sys
+
+ROOT = pathlib.Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(ROOT))
+
+from perf.bcx_bytes.bytes import census, summarize                     # noqa: E402
+
+TR = ROOT / "perf" / "bcx_bytes"
+OUT = pathlib.Path(__file__).resolve().parent
+
+#: A triangle attention's score tensor is [tokens, heads, tokens, tokens] and it is by a wide
+#: margin the largest thing either stack touches: 268 MB in fp32 at n=256, against 33.6 MB for a
+#: whole pair track. Rows are tagged by whether an operand of theirs has the score's rank-4 shape.
+def _is_score(sig, n):
+    return f"[{n}, 4, {n}, {n}]" in sig
+
+
+def _ranges(path, names, rev):
+    """(first, last) line of each named top-level def, so a `bw` frame can be attributed to the
+    op whose closure it is.
+
+    Read at `rev`, not from the working tree, and that is the whole point of the argument. A
+    trace's frame line numbers are line numbers in the file AS IT WAS WHEN THE TRACE RAN. This
+    row added 52 lines to `autograd.py` above `layer_norm`, and reading today's file put every
+    closure in the wrong function -- silently, since the buckets still add to the same total.
+    """
+    import subprocess
+    src = subprocess.run(["git", "show", f"{rev}:{path}"], cwd=ROOT, capture_output=True,
+                         text=True, check=True).stdout.splitlines()
+    starts = [(i + 1, l[4:].split("(")[0]) for i, l in enumerate(src) if l.startswith("def ")]
+    out = {}
+    for k, (line, name) in enumerate(starts):
+        if name in names:
+            end = starts[k + 1][0] - 1 if k + 1 < len(starts) else len(src)
+            out[name] = (line, end)
+    return out
+
+
+CLOSURES = {}
+
+
+def _closure_of(site):
+    """Which autograd.py op owns a `...:bw` / `...:<lambda>` frame, by line range."""
+    if not site or not site.startswith("autograd.py:"):
+        return None
+    try:
+        line = int(site.split(":")[1])
+    except ValueError:
+        return None
+    for name, (a, b) in CLOSURES.items():
+        if a <= line <= b:
+            return name
+    return None
+
+
+def bucket(r, n):
+    """The named site whose edit removes this row's bytes."""
+    if r["view"]:
+        return None
+    site = r["tape"] or "?"
+    op = r["op"]
+    # `node` is set only while a tape closure runs, so a row without one was issued by the
+    # checkpoint re-running the forward inside the backward window.
+    if not r["node"]:
+        return "0 recompute: the checkpoint re-running the forward"
+    if "add_grad" in site:
+        return "1 add_grad fan-in: two gradients widened to fp32 and summed"
+    if ("softmax_bw_inner" in site or "_v_softmax" in site
+            or _closure_of(site) in ("softmax", "triangle_attention")
+            or _is_score(r["sig"], n) and op in (
+            "multiply", "subtract", "add", "sum", "div", "divide", "typecast", "softmax")):
+        return "2 softmax backward on the score tensor"
+    if _closure_of(site) in ("layer_norm", "_taped_layer_norm") or op == "layer_norm":
+        return "3 layer-norm backward"
+    if op in ("permute", "transpose", "to_layout", "to_memory_config", "concat", "reshape",
+              "nlp_concat_heads", "nlp_create_qkv_heads", "clone"):
+        return "4 layout moves"
+    if op in ("matmul", "linear", "minimal_matmul") or "bmm" in site or "_v_matmul" in site:
+        return "5 the arithmetic itself"
+    if op == "typecast":
+        return "6 other typecasts"
+    return "7 residual eltwise"
+
+
+def main():
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--traces", default="trace_bwd-fix_evo_n256,trace_bwd-fix_extra_n256")
+    ap.add_argument("--out", default=str(OUT / "reach.json"))
+    ap.add_argument("--src", default="a5fa47832",
+                    help="the revision the traces were RECORDED on -- their frame line numbers "
+                         "are line numbers in that tree, not in this one")
+    args = ap.parse_args()
+
+    global CLOSURES
+    CLOSURES = _ranges("tt_bio/autograd.py", {"layer_norm", "_taped_layer_norm", "triangle_attention", "softmax"},
+                       args.src)
+    blob = {}
+    for name in args.traces.split(","):
+        t = json.loads((TR / f"{name}.json").read_text())
+        n = int(t["n"])
+        rows = census(t["bwd"])
+        s = summarize(rows)
+        g = collections.defaultdict(lambda: [0, 0.0])
+        for r in rows:
+            b = bucket(r, n)
+            if b is None:
+                continue
+            g[b][0] += 1
+            g[b][1] += r["moved"]
+        moved = sum(r["moved"] for r in rows if not r["view"])
+        score_fp32 = sum(r["fp32"] for r in rows
+                         if not r["view"] and _is_score(r["sig"], n))
+        rec = {"trace": name, "n": n, "stack": t["stack"], "depth0_ops": len(t["bwd"]),
+               "moved_GB": round(moved / 1e9, 3),
+               "avoidable_GB_bcx_bytes_reasons": round(s["avoidable_MB"] / 1e3, 3),
+               "fp32_excess_GB": round(s["fp32_excess_MB"] / 1e3, 3),
+               "fp32_excess_on_score_GB": round(score_fp32 / 1e9, 3),
+               "by_site": {k: {"ops": v[0], "GB": round(v[1] / 1e9, 3),
+                               "share": round(v[1] / moved, 4)}
+                           for k, v in sorted(g.items())}}
+        rec["src_rev"] = args.src
+        rec["closure_lines"] = {k: list(v) for k, v in CLOSURES.items()}
+        blob[name] = rec
+        print(f"\n{name}  {rec['moved_GB']} GB over {rec['depth0_ops']} depth-0 ops")
+        for k, v in sorted(rec["by_site"].items(), key=lambda x: -x[1]["GB"]):
+            print(f"   {v['GB']:7.3f} GB  {v['share'] * 100:5.1f} %  n={v['ops']:4d}  {k}")
+        print(f"   {rec['fp32_excess_on_score_GB']:7.3f} GB          of the above is the half of "
+              f"an fp32 SCORE operand a bf16 one would not move")
+
+    pathlib.Path(args.out).write_text(json.dumps(blob, indent=1))
+    print(f"\nwrote {args.out}")
+
+
+if __name__ == "__main__":
+    main()
