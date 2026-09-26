@@ -1,4 +1,5 @@
-RATE ledger, read 2026-09-26T06:59Z. Seconds are CONTENDED wall on one chip, upper bounds, and they DO NOT POOL across hosts (qb1 p150a, qb2 p300c, pc CPU).
+RATE ledger, read 2026-09-26T07:0xZ. CONTENDED wall seconds on one chip, upper bounds, and they DO NOT POOL across hosts (qb1 p150a, qb2 p300c, pc CPU).
+qb1_s12 exited cleanly 07:01:46Z after all 6 trajectories, autotune.reviewed 0, AICLK med 1350 over 4937 samples.
 
 ############ DEVICE, qb1 (p150a) ############
 
@@ -16,18 +17,18 @@ qb1_s12     l95    harden [i_pTM, pLDDT]        3080   01:28:10Z
 qb1_s12     l94    final [i_pTM, pLDDT]         3881   02:32:51Z
 qb1_s12     l111   ACCEPTED                     5618   04:06:29Z
 qb1_s12     l129   harden [i_pTM]               6885   06:01:14Z
-qb1_s12     l87    in flight                       .   (excluded, in flight)
+qb1_s12     l87    anneal [i_pTM]               3632   07:01:46Z
 qb1_s13     l70    final [i_pTM]                4189   02:53:00Z
 qb1_s13     l163   harden [i_pTM, pLDDT]        7767   05:02:27Z
 qb1_s13     l113   ACCEPTED                     4967   06:25:14Z
 qb1_s13     l113   in flight                       .   (excluded, in flight)
 --------------------------------------------------------------------------
-                   12 completed, 3 accepted                     59858
+                   13 completed, 3 accepted                     63490
 
-rate 3/12 = 0.250   Clopper-Pearson 95 % CI 0.0549 - 0.5719
-19,953 s per accepted design, upper bound = 75.5x BoltzGen's 264.3 chip-s/design
-CI on the ratio: 33.0x - 344x
-0.180 designs/h/chip, upper bound on the chip's cost
+rate 3/13 = 0.231   Clopper-Pearson 95 % CI 0.0504 - 0.5381
+21,163 s per accepted design, upper bound = 80.1x BoltzGen's 264.3 chip-s/design
+CI on the ratio: 34.3x - 367x
+0.170 designs/h/chip, upper bound on the chip's cost
 
 ############ REFERENCE, BindCraft 2 own JAX on CPU ############
 
@@ -44,3 +45,11 @@ ref_s1      l109   in flight                       .   (excluded, in flight)
 0 accepted over 2 completed -- lower bound 59,905 s per accepted design, resting on 2 trajectories. Not a rate.
   shipped_pc  l146   ACCEPTED   45850 s   14:18:00Z   (pc, 16 cores, loadavg 1.2 at start)
   -> reference 1 accepted / 3 completed
+
+############ POOLED ############
+  device qb2      4/13 = 0.308  CI 0.0909-0.6143
+  device qb1      3/13 = 0.231  CI 0.0504-0.5381
+  device pooled   7/26 = 0.269  CI 0.1157-0.4779   (width 0.362)
+  reference       1/3  = 0.333  CI 0.0084-0.9057   (width 0.897)
+  Fisher device vs reference p = 1.0000 -- nothing separates the arms
+  Fisher qb2 vs qb1        p = 1.0000 -- the device rate is not a property of one box
