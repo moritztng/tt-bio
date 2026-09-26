@@ -32,7 +32,7 @@
     "min": 800,
     "max": 1350,
     "median": 1350,
-    "n": 506
+    "n": 834
    }
   }
  },
@@ -609,11 +609,46 @@
       "skipped": null,
       "fired": true,
       "scope": "per replicate"
+     },
+     "distogram": {
+      "weight": 0.03,
+      "skipped": null,
+      "fired": true,
+      "scope": "once per step"
+     },
+     "resolved": {
+      "weight": 0.0001,
+      "skipped": null,
+      "fired": true,
+      "scope": "once per step"
+     },
+     "plddt": {
+      "weight": 0.0001,
+      "skipped": null,
+      "fired": true,
+      "scope": "once per step"
+     },
+     "pae": {
+      "weight": 0.0001,
+      "skipped": null,
+      "fired": true,
+      "scope": "once per step"
+     },
+     "pde": {
+      "weight": 0.0001,
+      "skipped": null,
+      "fired": true,
+      "scope": "once per step"
      }
     },
     "download_s": 0.019,
     "replicate_loss_s": 0.358,
-    "replicates_scored": 48
+    "replicates_scored": 48,
+    "step_loss_s": 0.828,
+    "terms_fired": 7,
+    "scope": "token, one representative atom per token",
+    "shape": "model: per-replicate terms per root, head terms once per step",
+    "value_claimed": false
    },
    "cut": "si_trunk + zij_pad + 27 cache entries (84 taped tensors) -> detached leaves",
    "chunks": [
@@ -761,7 +796,37 @@
      "dram_after_backward": 16747143680,
      "mem_available_gib": 191.473
     }
-   ]
+   ],
+   "chunk_backward_s": 60.473,
+   "chunk_backward_entries": 12,
+   "cut_cotangent_present": [
+    true,
+    false
+   ],
+   "cache_leaves_seeded": "79 of 84",
+   "trunk_tape_nodes": 5127,
+   "trunk_backward_s": 1040.508,
+   "trunk_backward_entries": 1,
+   "tape_nodes": 87297,
+   "roots_taped": 48,
+   "diffusion_s": 35.426,
+   "losses_s": 1.483,
+   "seed_upload_s": 0.006,
+   "backward_s": 1100.981,
+   "dram_peak": 31900301824,
+   "mem_available_gib": 182.674,
+   "params_with_grad": "2944 of 3152",
+   "backward_valid": true,
+   "dram_after_backward": 5076093952,
+   "rebind_moved": 2436,
+   "leaves_live_after_rebind": "3152 of 3152",
+   "optimizer_s": 8.075,
+   "optimizer_updated": 3152,
+   "step_wall_s": 1450.314,
+   "step_s": 1444.123,
+   "unaccounted_s": 6.191,
+   "renorm_applied": 1599,
+   "renorm_declined": 0
   }
  ]
 }

@@ -160,3 +160,4 @@ Config{cache_path=/home/ttuser/.cache/ttnn,model_cache_path=/home/ttuser/.cache/
   [losses] 3 replicates scored, 0.001s download 0.015s arithmetic
   [chunk 12] 3 replicates  fwd 1.50s  loss 0.02s  bwd 3.17s  5390 nodes  dram 28.11 GB  memavail 191.473 GiB
   [losses] step heads 0.828s, 7 of 8 terms fired
+[rep 1] trunk 298.15s  diffusion 35.43s  losses 1.48s  backward 1100.98s  optimizer 8.07s  = 1444.12s  WALL 1450.31s (2944 of 3152 weights, 87297 nodes, renorm ON 1599a/0d, leaves 3152 of 3152)
