@@ -1,0 +1,50 @@
+{
+ "summary": {
+  "rounds_measured": 10,
+  "round1_wall": 125.915,
+  "wall_med": 12.996,
+  "wall_min": 12.736,
+  "wall_max": 15.684,
+  "sg_med": 12.994,
+  "taped_s_med": 4.024,
+  "taped_n_med": 6,
+  "bwd_s_med": 7.117,
+  "primal_s_med": 0,
+  "host_in_sg_med": 1.814,
+  "opt_med": 0.001,
+  "predict_outside_sg_med": 0,
+  "residual_med": 0.002,
+  "aiclk_med": 1350,
+  "load1_med": 4.9
+ },
+ "per_call": {
+  "taped": {
+   "n": 60,
+   "med": 0.221,
+   "min": 0.057,
+   "max": 25.788
+  },
+  "backward": {
+   "n": 30,
+   "med": 0.525,
+   "min": 0.207,
+   "max": 43.902
+  },
+  "primal": {
+   "n": 0,
+   "med": null,
+   "min": null,
+   "max": null
+  }
+ }
+}
+round=1 wall=125.915 sg=125.479 taped_n=6 taped_s=56.2 bwd_s=55.104 primal_n=0 primal_s=0 host_in_sg=14.175 opt=0.419 predict_outside_sg=0 residual=0.016 aiclk_med=1350 load1=3.6
+round=2 wall=15.684 sg=15.682 taped_n=6 taped_s=6.457 bwd_s=7.117 primal_n=0 primal_s=0 host_in_sg=2.109 opt=0.001 predict_outside_sg=0 residual=0.001 aiclk_med=1350 load1=5.3
+round=3 wall=13.128 sg=13.122 taped_n=6 taped_s=3.919 bwd_s=7.129 primal_n=0 primal_s=0 host_in_sg=2.074 opt=0.001 predict_outside_sg=0 residual=0.005 aiclk_med=1350 load1=5.6
+round=4 wall=15.133 sg=15.131 taped_n=6 taped_s=6.114 bwd_s=7.1 primal_n=0 primal_s=0 host_in_sg=1.916 opt=0.001 predict_outside_sg=0 residual=0.001 aiclk_med=1350 load1=5.9
+round=5 wall=12.895 sg=12.893 taped_n=6 taped_s=3.972 bwd_s=7.107 primal_n=0 primal_s=0 host_in_sg=1.814 opt=0.001 predict_outside_sg=0 residual=0.002 aiclk_med=1350 load1=5.5
+round=6 wall=12.841 sg=12.837 taped_n=6 taped_s=3.92 bwd_s=7.107 primal_n=0 primal_s=0 host_in_sg=1.809 opt=0.001 predict_outside_sg=0 residual=0.002 aiclk_med=1350 load1=4.9
+round=7 wall=15.57 sg=15.567 taped_n=6 taped_s=6.495 bwd_s=7.124 primal_n=0 primal_s=0 host_in_sg=1.949 opt=0.001 predict_outside_sg=0 residual=0.002 aiclk_med=1350 load1=4.5
+round=8 wall=12.736 sg=12.727 taped_n=6 taped_s=3.973 bwd_s=7.114 primal_n=0 primal_s=0 host_in_sg=1.641 opt=0.001 predict_outside_sg=0 residual=0.008 aiclk_med=1350 load1=4.1
+round=9 wall=12.996 sg=12.994 taped_n=6 taped_s=4.045 bwd_s=7.139 primal_n=0 primal_s=0 host_in_sg=1.81 opt=0.001 predict_outside_sg=0 residual=0.002 aiclk_med=1350 load1=4.0
+round=10 wall=12.751 sg=12.748 taped_n=6 taped_s=4.024 bwd_s=7.16 primal_n=0 primal_s=0 host_in_sg=1.564 opt=0.001 predict_outside_sg=0 residual=0.002 aiclk_med=1350 load1=3.7
