@@ -159,11 +159,12 @@ def _v_matmul(shipped, args, kwargs):
             # the same broadcast and not the same reduction. It is a no-op on equal shapes,
             # so the ordinary path pays one shape comparison.
             if a.requires_grad:
-                rows = _via2d if len(b.value.shape) == 2 else (lambda t, fn: fn(t))
-                da = (rows(g, lambda v: ag.bmm(v, b.value, False, not tb,
-                                                compute_kernel_config=cfg))
-                      if not ta else
-                      ag.bmm(b.value, g, tb, True, compute_kernel_config=cfg))
+                if ta:
+                    da = ag.bmm(b.value, g, tb, True, compute_kernel_config=cfg)
+                elif len(b.value.shape) == 2:
+                    da = ag.dgrad_2d(g, b.value, not tb, compute_kernel_config=cfg)
+                else:
+                    da = ag.bmm(g, b.value, False, not tb, compute_kernel_config=cfg)
                 a.add_grad(_reduce_to(da, a.value.shape))
             if b.requires_grad:
                 # The weight reduces over every token, so it is `_flat2d`'s DRAM-normalised

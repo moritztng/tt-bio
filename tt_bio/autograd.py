@@ -1005,6 +1005,75 @@ def _via2d(x, fn, kw=None):
     return ttnn.reshape(y, s[:-1] + [int(y.shape[-1])])
 
 
+# Whether the dX of a product against a 2-D weight reaches `experimental.minimal_matmul`.
+# A module switch rather than an argument, because it exists for the same-process A/B that
+# prices it (`perf/bcx_p10_trimul/block_ab.py`); nothing else sets it.
+DGRAD_2D_MINIMAL = True
+#: How many dX products each route served. The A/B stamps this, so a reading that claims the
+#: lever fired has to show the counter moved.
+DGRAD_2D_STATS = {"minimal": 0, "fallback": 0}
+
+
+def _dgrad_2d_minimal_ok(g, w) -> bool:
+    """Whether `minimal_matmul` can serve this dX.
+
+    The token axes are allowed to be ragged -- that is the whole point, it is where `_via2d`
+    declines -- but the CONTRACTED width and the output width have to be whole tiles, which
+    every weight in the repo is. Everything else here is the class the kernel is used on in
+    the forward: bf16, tiled, interleaved.
+    """
+    if not DGRAD_2D_MINIMAL:
+        return False
+    if g.dtype != ttnn.bfloat16 or w.dtype != ttnn.bfloat16:
+        return False
+    if g.layout != ttnn.TILE_LAYOUT or w.layout != ttnn.TILE_LAYOUT:
+        return False
+    if g.is_sharded() or w.is_sharded():
+        return False
+    sg, sw = [int(d) for d in g.shape], [int(d) for d in w.shape]
+    if len(sw) != 2 or len(sg) < 2:
+        return False
+    return not (sg[-1] % ttnn.TILE_SIZE or sw[0] % ttnn.TILE_SIZE or sw[1] % ttnn.TILE_SIZE)
+
+
+def dgrad_2d(g, w, transpose_w: bool, **kw):
+    """``g @ w.T`` when `transpose_w`, else ``g @ w``: the dX of every product against a weight.
+
+    AF2 runs a ragged token axis -- 275 residues, not a whole number of tiles -- so `_via2d`'s
+    2-D collapse would be a relayout rather than a view and it declines, correctly. What was
+    left behind is `ttnn.matmul` with a 4-D activation and `transpose_b`, and that plan is the
+    worst thing on the card: MEASURED on qb1 card 1 at 1350 MHz, median of 15 warm synced reps,
+    the triangle multiplication's own two dX shapes at n=275
+    (`perf/bcx_p10_trimul/micro2_n275.json`) --
+
+        [1,275,275,512] @ [128,512]^T   ttnn.matmul 4D tb   2.9212 ms   3.39 TFLOP/s
+                                        minimal_matmul      0.3659 ms  27.09 TFLOP/s   7.98x
+        [1,275,275,128] @ [128,128]^T   ttnn.matmul 4D tb   1.2290 ms   2.02 TFLOP/s
+                                        minimal_matmul      0.2481 ms   9.99 TFLOP/s   4.95x
+
+    and the kernel is the one the FORWARD already runs on the same operand
+    (`tenstorrent._in_proj_matmul`), so this makes the two directions agree rather than
+    introducing anything. Against a float64 reference it is also the more accurate of the two,
+    by a hair: rel 2.887e-3 against 2.910e-3 on the first shape, 2.884e-3 against 2.899e-3 on
+    the second. Not bit-exact -- the two kernels block the contraction differently -- so it is
+    graded, not assumed.
+
+    The weight is transposed per call instead of memoised. It is 128 KB at AF2's widths against
+    a product that moves 100 MB, and a memo keyed on a device tensor outlives the buffer.
+    """
+    if not _dgrad_2d_minimal_ok(g, w):
+        DGRAD_2D_STATS["fallback"] += 1
+        return _via2d(g, lambda v: bmm(v, w, False, transpose_w, **kw))
+    DGRAD_2D_STATS["minimal"] += 1
+    wt = ttnn.transpose(w, -2, -1) if transpose_w else w
+    out = ttnn.experimental.minimal_matmul(
+        g, wt, memory_config=kw.get("memory_config") or ttnn.DRAM_MEMORY_CONFIG,
+        dtype=g.dtype, compute_kernel_config=kw.get("compute_kernel_config"))
+    if transpose_w:
+        ttnn.deallocate(wt)
+    return out
+
+
 # `triangle_attention` issues its six batched products with `bmm_program_config`. A module
 # attribute rather than an argument because it exists for one reason, the same-process A/B that
 # prices it (`perf/bcx_triatt/block_ab.py`); nothing else sets it.
@@ -2687,9 +2756,8 @@ def _taped_linear(shipped, args, kwargs):
                 # `_reduce_to` because a matmul normalises rank: an x of (1, N, N, c)
                 # comes back as (N, N, c) and `add_grad` refuses a gradient that is not
                 # its value's shape, correctly.
-                x.add_grad(_reduce_to(_via2d(g, lambda v: ttnn.matmul(
-                                          v, w.value, transpose_b=True,
-                                          compute_kernel_config=bwcfg)),
+                x.add_grad(_reduce_to(dgrad_2d(g, w.value, True,
+                                                compute_kernel_config=bwcfg),
                                       x.value.shape))
             if w.requires_grad:
                 # dW reduces over every token at once: 4096 terms on a 64x64 pair block,
