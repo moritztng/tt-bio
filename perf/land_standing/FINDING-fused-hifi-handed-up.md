@@ -251,5 +251,29 @@ and the lever's arm 0.004867 A closer to the deposited 3B34.
 `l1-budget` is the one arm that is not merely a regression check here: it is the arm that catches
 card-dependence, and its three grid classes return one digest with the lever on.
 
-**Arms not yet run: `capacity` and `batch-position`** — the two long ones. Launched; whatever they
-report belongs in this table before anyone flips the default.
+## Both long arms have now reported — the gate is COMPLETE at ten arms, 2026-09-26 09:07Z
+
+    batch-position  identical targets identical whatever their position   PASS  (274s)
+    capacity        9j4c_abag  7.23 GiB / 50 CIFs / 1 PAE  <=10.5 GiB     PASS  (1072s total)
+                    9ivj       7.00 GiB /  8 CIFs / 1 PAE  <=12.0 GiB     PASS
+                    "largest-input folds fit the DRAM budget and wrote every sample"
+
+`capacity` is the one arm whose inputs are NOT the 117 aa target — they are abag complexes — so it
+is the only arm here that could have exercised the lever. **Peak DRAM is identical to the byte
+against the dividing-k gate run** (7.23 and 7.00 GiB, same CIF and PAE counts), which is what an
+unchanged allocation plan looks like.
+
+**The wall times differ (846->737 s and 524->332 s) and that is NOT a speed claim.** The two runs
+were not interleaved, a second BC2 copy was co-tenanted on card 1 during part of the earlier one,
+and no AICLK was sampled during either fold. An uncontrolled wall-time delta on a shared box is
+not evidence and is not offered as any.
+
+No counter was captured inside `capacity`, so whether the lever served a single call there is
+**unknown, not zero**. That does not weaken the result — the arm is a budget check and it passed —
+but it is the reason this table still does not validate the lever. The validation remains the PepN
+evidence above.
+
+Scoring tree asserted for both arms: `/home/ttuser/.coworker/wt/land-standing/tt_bio`, commit
+`48bf63c2a`, which contains `origin/main` `29bc7d00c` and whose `tt_bio/` is byte-identical to the
+branch HEAD. Lever state verified at `gate_fusedhifi.sh:27` — every arm is invoked with
+`PYTHONPATH="$WT" TT_BIO_TRIATT_FUSED_HIFI=1`.
