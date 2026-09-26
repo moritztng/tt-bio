@@ -175,6 +175,10 @@ def main() -> int:
                          "whatever the band, and both arms carry the same one")
     ap.add_argument("--stage", default="initial_training",
                     help="the loss weights the objective scores with, train and eval alike")
+    ap.add_argument("--exact-ops", choices=("both", "softmax", "layer_norm"), default="both",
+                    help="WHICH ops --exact on makes exact. The grade's NO-GO has to name a "
+                         "layer, and the only way to name one is to run it alone: both arms "
+                         "otherwise differ in two things at once")
     ap.add_argument("--exact-scope", choices=("all", "trunk"), default="all",
                     help="where --exact on is allowed to reach. trunk keeps it to the taped "
                          "trunk, the section the campaign tensor clause was measured on, and "
@@ -221,13 +225,22 @@ def main() -> int:
             from tt_bio.train import openfold3 as of3
             from tt_bio.train.recipes import train_loop
 
+            # `exact_training_ops()` reads this module constant, and `install()` reads that
+            # function once when the run starts. Narrowing it here is how an arm runs ONE of
+            # the two exact ops; there is no argument for it because the shipped switch is
+            # all-or-nothing, and an attribution arm needs the halves.
+            if a.exact_ops != "both":
+                ag.EXACT_TRAINING_OPS = (a.exact_ops,)
+            rec["exact_ops_requested"] = a.exact_ops
+
             manifest = a.corpus / "MANIFEST.json"
             if manifest.exists():
                 rec["corpus"] = json.loads(manifest.read_text())
             with ag.exact_training(a.exact == "on"):
                 # Read the switch from the MECHANISM, not from the argument.
                 rec["exact_ops"] = list(ag.exact_training_ops())
-                expected = 2 if a.exact == "on" else 0
+                expected = (0 if a.exact == "off"
+                            else (2 if a.exact_ops == "both" else 1))
                 if len(rec["exact_ops"]) != expected:
                     raise SystemExit(f"--exact {a.exact} but exact_training_ops() is "
                                      f"{rec['exact_ops']}; the arm is not the arm it claims")
