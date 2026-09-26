@@ -1,0 +1,42 @@
+{
+ "arms": [
+  {
+   "arm": "template embedding",
+   "rounds": 8,
+   "wall": 32.337,
+   "sg": 32.334,
+   "device": 12.215,
+   "host": 19.637,
+   "aiclk_min": 1350,
+   "aiclk_med": 1350.0,
+   "load1": 11.46
+  },
+  {
+   "arm": "forced to a constant",
+   "rounds": 8,
+   "wall": 28.812,
+   "sg": 28.81,
+   "device": 12.179,
+   "host": 15.954,
+   "aiclk_min": 1350,
+   "aiclk_med": 1350.0,
+   "load1": 7.87
+  }
+ ],
+ "delta": {
+  "round_s": 3.525,
+  "host_s": 3.683,
+  "device_s": -0.036,
+  "x": 1.122,
+  "host_removed_minus_device_added": 3.719
+ },
+ "fired": [
+  1
+ ],
+ "sources": [
+  "perf/bcx_p10_tmplemb/out/ab_c2_t0/round_events.json",
+  "perf/bcx_p10_tmplemb/out/ab_c2_t1/round_events.json",
+  "perf/bcx_p10_tmplemb/out/ab_c3_t0/round_events.json",
+  "perf/bcx_p10_tmplemb/out/ab_c3_t1/round_events.json"
+ ]
+}
