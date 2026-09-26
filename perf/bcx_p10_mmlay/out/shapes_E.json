@@ -1,0 +1,1232 @@
+{
+ "round_stamp": {
+  "host": "pc",
+  "card": "0",
+  "tt_bio_file": "/home/moritz/.coworker/wt/bcx-p10-calls/tt_bio/__init__.py",
+  "exact": false,
+  "extra_msa_on_device": true,
+  "template_on_device": true,
+  "triatt_taped_sdpa": false,
+  "triatt_hifi": true,
+  "taped_kernels": "tri_att_sdpa_hifi",
+  "triatt_dividing_k": "1",
+  "sdpa_own_forward": true,
+  "shipped_pool": true,
+  "binder_pinned": 146,
+  "sets": [],
+  "model_pool": "PredictionModelSelection(design_models=('model_1_multimer_v3', 'model_2_multimer_v3', 'model_3_multimer_v3', 'model_4_multimer_v3', 'model_5_multimer_v3'), validation_models=('model_1_ptm', 'model_2_ptm'), validation_pool_exhausted=False)",
+  "pci": "0000:01:00.0",
+  "sysfs": "/sys/class/tenstorrent/tenstorrent!0/tt_aiclk",
+  "commit": "907808ceb07e5875ea6824d03837ca4cd8636c98",
+  "seed": 100,
+  "rounds_requested": 10,
+  "length_bucket_size": 32,
+  "stage_plan": {
+   "per_stage": {
+    "screen": 50,
+    "refine": 25,
+    "anneal": 45,
+    "harden": 5,
+    "mutate": 15
+   },
+   "gradient_steps": 125,
+   "mutate_steps": 15
+  },
+  "started_utc": "2026-09-26T16:40:42Z",
+  "loadavg_start": [
+   1.544921875,
+   1.45263671875,
+   1.7685546875
+  ],
+  "nproc": 12,
+  "project": "perf/bcx_p10_calls/out/anchor_hifi",
+  "state_shape": {
+   "1": {
+    "hPDL1": {
+     "binder": 146,
+     "target_hPDL1": 115
+    }
+   },
+   "2": {
+    "hPDL1": {
+     "binder": 146,
+     "target_hPDL1": 115
+    }
+   },
+   "3": {
+    "hPDL1": {
+     "binder": 146,
+     "target_hPDL1": 115
+    }
+   },
+   "4": {
+    "hPDL1": {
+     "binder": 146,
+     "target_hPDL1": 115
+    }
+   },
+   "5": {
+    "hPDL1": {
+     "binder": 146,
+     "target_hPDL1": 115
+    }
+   },
+   "6": {
+    "hPDL1": {
+     "binder": 146,
+     "target_hPDL1": 115
+    }
+   },
+   "7": {
+    "hPDL1": {
+     "binder": 146,
+     "target_hPDL1": 115
+    }
+   },
+   "8": {
+    "hPDL1": {
+     "binder": 146,
+     "target_hPDL1": 115
+    }
+   },
+   "9": {
+    "hPDL1": {
+     "binder": 146,
+     "target_hPDL1": 115
+    }
+   },
+   "10": {
+    "hPDL1": {
+     "binder": 146,
+     "target_hPDL1": 115
+    }
+   }
+  },
+  "dumped_utc": "2026-09-26T16:42:43Z",
+  "rounds_dumped": 10
+ },
+ "round_median": {
+  "wall": 11.191253781318665,
+  "sg": 11.1889865,
+  "evoformer.taped.s": 2.4169875000000003,
+  "evoformer.taped.n": 2.0,
+  "evoformer.backward.s": 5.8898885,
+  "evoformer.backward.n": 1.0,
+  "evoformer.primal.s": 0.0,
+  "evoformer.primal.n": 0.0,
+  "evoformer.s": 8.30885,
+  "extra_msa.taped.s": 0.28540299999999996,
+  "extra_msa.taped.n": 2.0,
+  "extra_msa.backward.s": 0.49902749999999996,
+  "extra_msa.backward.n": 1.0,
+  "extra_msa.primal.s": 0.0,
+  "extra_msa.primal.n": 0.0,
+  "extra_msa.s": 0.8129155,
+  "template.taped.s": 0.0885735,
+  "template.taped.n": 2.0,
+  "template.backward.s": 0.2002895,
+  "template.backward.n": 1.0,
+  "template.primal.s": 0.0,
+  "template.primal.n": 0.0,
+  "template.s": 0.291343,
+  "device": 9.524597,
+  "host_in_sg": 1.6803154999999999,
+  "aiclk_min": 1350.0,
+  "aiclk_med": 1350.0,
+  "load1": 3.552230557528409,
+  "n_rounds_medianed": 8,
+  "round1_wall": 22.75055503845215,
+  "aiclk_min_over_all": 1343
+ },
+ "cell": "E",
+ "cell_reach": {
+  "kernel_entry": {
+   "tri_att_sdpa_hifi": [
+    112,
+    0
+   ]
+  },
+  "fused_hifi": {
+   "served": 112,
+   "declined": 0,
+   "too_short": 0,
+   "taped": 0
+  }
+ },
+ "sync_floor_s": {
+  "median": 7.3239789344370365e-06,
+  "p10": 7.172988262027502e-06,
+  "p90": 7.584993727505207e-06,
+  "mean": 7.6092977542430165e-06,
+  "min": 7.093010935932398e-06,
+  "max": 5.6263990700244904e-05,
+  "n": 400
+ },
+ "roofs": {
+  "dram_GBs": 442.3,
+  "tflops": 85.9,
+  "ridge": 194.2120732534479
+ },
+ "multiplicities": {
+  "evo.fwd": 96.0,
+  "evo.bwd": 48.0,
+  "extra.fwd": 8.0,
+  "extra.bwd": 4.0
+ },
+ "shapes": [
+  {
+   "key": "linear#288x288x128x128#-#a:DRAM/bf16/TILE/INTERLEAVED#b:DRAM/bf16/TILE/INTERLEAVED#o:DRAM/bf16/TILE/INTERLEAVED#pc,bias,omc=DRAM",
+   "device_s": 0.21843275571736692,
+   "GB": 39.787757567999996,
+   "calls": 936.0,
+   "GBs": 182.15105805597173,
+   "TFLOPs": 11.646434657463498,
+   "pct_dram": 41.18269456386428,
+   "pct_compute": 13.558131149550055,
+   "intensity": 63.938331084987475,
+   "verdict": "BELOW both roofs: placement + config",
+   "called_from": {
+    "triangle multiplication": 0.13410183714491128,
+    "triangle attention": 0.08433091857245564
+   },
+   "a": "DRAM/bf16/TILE/INTERLEAVED",
+   "b": "DRAM/bf16/TILE/INTERLEAVED",
+   "o": "DRAM/bf16/TILE/INTERLEAVED",
+   "flags": "-",
+   "extra": "pc,bias,omc=DRAM"
+  },
+  {
+   "key": "experimental.minimal_matmul#288x288x128x512#-#a:DRAM/bf16/TILE/INTERLEAVED#b:DRAM/bf16/TILE/INTERLEAVED#o:DRAM/bf16/TILE/INTERLEAVED#bias,omc=DRAM",
+   "device_s": 0.15863091857245565,
+   "GB": 33.175633919999996,
+   "calls": 312.0,
+   "GBs": 209.1372490215192,
+   "TFLOPs": 21.38265637330156,
+   "pct_dram": 47.28402645749925,
+   "pct_compute": 24.892498688360373,
+   "intensity": 102.24221879815101,
+   "verdict": "BELOW both roofs: placement + config",
+   "called_from": {
+    "triangle multiplication": 0.15863091857245565
+   },
+   "a": "DRAM/bf16/TILE/INTERLEAVED",
+   "b": "DRAM/bf16/TILE/INTERLEAVED",
+   "o": "DRAM/bf16/TILE/INTERLEAVED",
+   "flags": "-",
+   "extra": "bias,omc=DRAM"
+  },
+  {
+   "key": "matmul#288x128x32x288#-#a:DRAM/bf16/TILE/INTERLEAVED#b:DRAM/bf16/TILE/INTERLEAVED#o:DRAM/bf16/TILE/INTERLEAVED",
+   "device_s": 0.13315469406688213,
+   "GB": 6.800080896,
+   "calls": 288.0,
+   "GBs": 51.06902872372186,
+   "TFLOPs": 1.4696398710938974,
+   "pct_dram": 11.546242080877652,
+   "pct_compute": 1.7108729582001132,
+   "intensity": 28.77751756440281,
+   "verdict": "BELOW both roofs: placement + config",
+   "called_from": {
+    "outer product mean": 0.13315469406688213
+   },
+   "a": "DRAM/bf16/TILE/INTERLEAVED",
+   "b": "DRAM/bf16/TILE/INTERLEAVED",
+   "o": "DRAM/bf16/TILE/INTERLEAVED",
+   "flags": "-",
+   "extra": ""
+  },
+  {
+   "key": "linear#288x288x512x128#-#a:DRAM/bf16/TILE/INTERLEAVED#b:DRAM/bf16/TILE/INTERLEAVED#o:DRAM/bf16/TILE/INTERLEAVED#g13x10,bias,omc=DRAM",
+   "device_s": 0.12827345928622783,
+   "GB": 16.583983103999998,
+   "calls": 156.0,
+   "GBs": 129.2861609586337,
+   "TFLOPs": 13.221559786764788,
+   "pct_dram": 29.23042300669991,
+   "pct_compute": 15.391804175511975,
+   "intensity": 102.2658549741851,
+   "verdict": "BELOW both roofs: placement + config",
+   "called_from": {
+    "pair transition": 0.12827345928622783
+   },
+   "a": "DRAM/bf16/TILE/INTERLEAVED",
+   "b": "DRAM/bf16/TILE/INTERLEAVED",
+   "o": "DRAM/bf16/TILE/INTERLEAVED",
+   "flags": "-",
+   "extra": "g13x10,bias,omc=DRAM"
+  },
+  {
+   "key": "matmul#288x32x768x256#tb#a:DRAM/bf16/TILE/INTERLEAVED#b:DRAM/bf16/TILE/INTERLEAVED#o:DRAM/bf16/TILE/INTERLEAVED",
+   "device_s": 0.12392044901114702,
+   "GB": 0.924844032,
+   "calls": 48.0,
+   "GBs": 7.463207560818372,
+   "TFLOPs": 1.4036922628673902,
+   "pct_dram": 1.6873632287629148,
+   "pct_compute": 1.6341004224300235,
+   "intensity": 188.08163265306123,
+   "verdict": "BELOW both roofs: placement + config",
+   "called_from": {
+    "MSA column attention": 0.12392044901114702
+   },
+   "a": "DRAM/bf16/TILE/INTERLEAVED",
+   "b": "DRAM/bf16/TILE/INTERLEAVED",
+   "o": "DRAM/bf16/TILE/INTERLEAVED",
+   "flags": "tb",
+   "extra": ""
+  },
+  {
+   "key": "matmul#1152x224x32x288#tb#a:DRAM/bf16/TILE/INTERLEAVED#b:DRAM/bf16/TILE/INTERLEAVED#o:DRAM/bf16/TILE/INTERLEAVED#pc",
+   "device_s": 0.1199286123816371,
+   "GB": 38.767951872000005,
+   "calls": 208.0,
+   "GBs": 323.25857109588276,
+   "TFLOPs": 8.249231383915184,
+   "pct_dram": 73.08581756633117,
+   "pct_compute": 9.603296139598584,
+   "intensity": 25.518987341772146,
+   "verdict": "DRAM-bound: at roof",
+   "called_from": {
+    "triangle attention": 0.1199286123816371
+   },
+   "a": "DRAM/bf16/TILE/INTERLEAVED",
+   "b": "DRAM/bf16/TILE/INTERLEAVED",
+   "o": "DRAM/bf16/TILE/INTERLEAVED",
+   "flags": "tb",
+   "extra": "pc"
+  },
+  {
+   "key": "linear#288x288x128x512#-#a:DRAM/bf16/TILE/INTERLEAVED#b:DRAM/bf16/TILE/INTERLEAVED#o:DRAM/bf16/TILE/INTERLEAVED#g13x10,bias,omc=DRAM",
+   "device_s": 0.0998374592862278,
+   "GB": 16.58781696,
+   "calls": 156.0,
+   "GBs": 166.14822811589946,
+   "TFLOPs": 16.987363491950898,
+   "pct_dram": 37.56460052360377,
+   "pct_compute": 19.775743296799646,
+   "intensity": 102.24221879815099,
+   "verdict": "BELOW both roofs: placement + config",
+   "called_from": {
+    "pair transition": 0.0998374592862278
+   },
+   "a": "DRAM/bf16/TILE/INTERLEAVED",
+   "b": "DRAM/bf16/TILE/INTERLEAVED",
+   "o": "DRAM/bf16/TILE/INTERLEAVED",
+   "flags": "-",
+   "extra": "g13x10,bias,omc=DRAM"
+  },
+  {
+   "key": "experimental.minimal_matmul#288x288x128x384#-#a:DRAM/bf16/TILE/INTERLEAVED#b:DRAM/bf16/TILE/INTERLEAVED#o:DRAM/bf16/TILE/INTERLEAVED#pc",
+   "device_s": 0.09876291857245563,
+   "GB": 26.53028352,
+   "calls": 312.0,
+   "GBs": 268.6259570239061,
+   "TFLOPs": 25.75827905131892,
+   "pct_dram": 60.73388130768846,
+   "pct_compute": 29.986355123770565,
+   "intensity": 95.88901734104046,
+   "verdict": "BELOW both roofs: placement + config",
+   "called_from": {
+    "triangle attention": 0.09876291857245563
+   },
+   "a": "DRAM/bf16/TILE/INTERLEAVED",
+   "b": "DRAM/bf16/TILE/INTERLEAVED",
+   "o": "DRAM/bf16/TILE/INTERLEAVED",
+   "flags": "-",
+   "extra": "pc"
+  },
+  {
+   "key": "matmul#1x82944x512x128#tb#a:DRAM/bf16/TILE/INTERLEAVED#b:DRAM/bf16/TILE/INTERLEAVED#o:DRAM/bf16/TILE/INTERLEAVED",
+   "device_s": 0.09628945928622783,
+   "GB": 16.582705152,
+   "calls": 156.0,
+   "GBs": 172.21724241598068,
+   "TFLOPs": 17.61330080758459,
+   "pct_dram": 38.93674935925406,
+   "pct_compute": 20.50442468868986,
+   "intensity": 102.27373612823675,
+   "verdict": "BELOW both roofs: placement + config",
+   "called_from": {
+    "pair transition": 0.03140715309540928,
+    "triangle multiplication": 0.06488230619081854
+   },
+   "a": "DRAM/bf16/TILE/INTERLEAVED",
+   "b": "DRAM/bf16/TILE/INTERLEAVED",
+   "o": "DRAM/bf16/TILE/INTERLEAVED",
+   "flags": "tb",
+   "extra": ""
+  },
+  {
+   "key": "matmul#1152x288x224x32#ta#a:DRAM/bf16/TILE/INTERLEAVED#b:DRAM/bf16/TILE/INTERLEAVED#o:DRAM/bf16/TILE/INTERLEAVED#pc",
+   "device_s": 0.09493661238163709,
+   "GB": 38.767951872000005,
+   "calls": 208.0,
+   "GBs": 408.3561747090379,
+   "TFLOPs": 10.420836053334433,
+   "pct_dram": 92.32561037961516,
+   "pct_compute": 12.131357454405626,
+   "intensity": 25.518987341772146,
+   "verdict": "DRAM-bound: at roof",
+   "called_from": {
+    "triangle attention": 0.09493661238163709
+   },
+   "a": "DRAM/bf16/TILE/INTERLEAVED",
+   "b": "DRAM/bf16/TILE/INTERLEAVED",
+   "o": "DRAM/bf16/TILE/INTERLEAVED",
+   "flags": "ta",
+   "extra": "pc"
+  },
+  {
+   "key": "matmul#128x288x288x288#-#a:DRAM/bf16/TILE/INTERLEAVED#b:DRAM/bf16/TILE/INTERLEAVED#o:DRAM/bf16/TILE/INTERLEAVED",
+   "device_s": 0.08863030619081856,
+   "GB": 6.624903168,
+   "calls": 104.0,
+   "GBs": 74.74760556210614,
+   "TFLOPs": 7.17577013396219,
+   "pct_dram": 16.899752557564128,
+   "pct_compute": 8.353632286335493,
+   "intensity": 96.0,
+   "verdict": "BELOW both roofs: placement + config",
+   "called_from": {
+    "triangle multiplication": 0.08863030619081856
+   },
+   "a": "DRAM/bf16/TILE/INTERLEAVED",
+   "b": "DRAM/bf16/TILE/INTERLEAVED",
+   "o": "DRAM/bf16/TILE/INTERLEAVED",
+   "flags": "-",
+   "extra": ""
+  },
+  {
+   "key": "matmul#288x32x256x256#tb#a:DRAM/bf16/TILE/INTERLEAVED#b:DRAM/bf16/TILE/INTERLEAVED#o:DRAM/bf16/TILE/INTERLEAVED",
+   "device_s": 0.08449689802229404,
+   "GB": 0.918552576,
+   "calls": 96.0,
+   "GBs": 10.870843752839837,
+   "TFLOPs": 1.3724067948790677,
+   "pct_dram": 2.457798723228541,
+   "pct_compute": 1.5976796215123021,
+   "intensity": 126.24657534246575,
+   "verdict": "BELOW both roofs: placement + config",
+   "called_from": {
+    "MSA column attention": 0.08449689802229404
+   },
+   "a": "DRAM/bf16/TILE/INTERLEAVED",
+   "b": "DRAM/bf16/TILE/INTERLEAVED",
+   "o": "DRAM/bf16/TILE/INTERLEAVED",
+   "flags": "tb",
+   "extra": ""
+  },
+  {
+   "key": "matmul#1x82944x128x128#tb#a:DRAM/bf16/TILE/INTERLEAVED#b:DRAM/bf16/TILE/INTERLEAVED#o:DRAM/bf16/TILE/INTERLEAVED",
+   "device_s": 0.06799722476327417,
+   "GB": 17.680039935999996,
+   "calls": 416.0,
+   "GBs": 260.01119895041836,
+   "TFLOPs": 16.6278865734337,
+   "pct_dram": 58.78616300032068,
+   "pct_compute": 19.35726027175052,
+   "intensity": 63.950655358519676,
+   "verdict": "BELOW both roofs: placement + config",
+   "called_from": {
+    "triangle attention": 0.032772612381637097,
+    "triangle multiplication": 0.035224612381637085
+   },
+   "a": "DRAM/bf16/TILE/INTERLEAVED",
+   "b": "DRAM/bf16/TILE/INTERLEAVED",
+   "o": "DRAM/bf16/TILE/INTERLEAVED",
+   "flags": "tb",
+   "extra": ""
+  },
+  {
+   "key": "matmul#128x288x288x288#ta#a:DRAM/bf16/TILE/INTERLEAVED#b:DRAM/bf16/TILE/INTERLEAVED#o:DRAM/bf16/TILE/INTERLEAVED#pc,omc=DRAM",
+   "device_s": 0.05965745928622782,
+   "GB": 9.937354752,
+   "calls": 156.0,
+   "GBs": 166.57354957612282,
+   "TFLOPs": 15.991060759307793,
+   "pct_dram": 37.6607618304596,
+   "pct_compute": 18.61590309581815,
+   "intensity": 96.0,
+   "verdict": "BELOW both roofs: placement + config",
+   "called_from": {
+    "triangle multiplication": 0.05965745928622782
+   },
+   "a": "DRAM/bf16/TILE/INTERLEAVED",
+   "b": "DRAM/bf16/TILE/INTERLEAVED",
+   "o": "DRAM/bf16/TILE/INTERLEAVED",
+   "flags": "ta",
+   "extra": "pc,omc=DRAM"
+  },
+  {
+   "key": "matmul#128x288x288x288#tb#a:DRAM/bf16/TILE/INTERLEAVED#b:DRAM/bf16/TILE/INTERLEAVED#o:DRAM/bf16/TILE/INTERLEAVED#pc,omc=DRAM",
+   "device_s": 0.05880545928622783,
+   "GB": 9.937354752,
+   "calls": 156.0,
+   "GBs": 168.9869422434273,
+   "TFLOPs": 16.222746455369023,
+   "pct_dram": 38.20640792299961,
+   "pct_compute": 18.8856186907672,
+   "intensity": 96.0,
+   "verdict": "BELOW both roofs: placement + config",
+   "called_from": {
+    "triangle multiplication": 0.05880545928622783
+   },
+   "a": "DRAM/bf16/TILE/INTERLEAVED",
+   "b": "DRAM/bf16/TILE/INTERLEAVED",
+   "o": "DRAM/bf16/TILE/INTERLEAVED",
+   "flags": "tb",
+   "extra": "pc,omc=DRAM"
+  },
+  {
+   "key": "linear#288x288x128x32#-#a:DRAM/bf16/TILE/INTERLEAVED#b:DRAM/bf16/TILE/INTERLEAVED#o:DRAM/bf16/TILE/INTERLEAVED#pc,omc=DRAM",
+   "device_s": 0.058724265605896706,
+   "GB": 12.106924032,
+   "calls": 456.0,
+   "GBs": 206.1656098562483,
+   "TFLOPs": 5.27621115208783,
+   "pct_dram": 46.61216591821123,
+   "pct_compute": 6.1422714226866475,
+   "intensity": 25.592101203332305,
+   "verdict": "BELOW both roofs: placement + config",
+   "called_from": {
+    "MSA row attention": 0.019729347033441067,
+    "triangle attention": 0.03899491857245564
+   },
+   "a": "DRAM/bf16/TILE/INTERLEAVED",
+   "b": "DRAM/bf16/TILE/INTERLEAVED",
+   "o": "DRAM/bf16/TILE/INTERLEAVED",
+   "flags": "-",
+   "extra": "pc,omc=DRAM"
+  },
+  {
+   "key": "experimental.minimal_matmul#288x288x128x128#-#a:DRAM/bf16/TILE/INTERLEAVED#b:DRAM/bf16/TILE/INTERLEAVED#o:DRAM/bf16/TILE/INTERLEAVED#pc",
+   "device_s": 0.048282918572455646,
+   "GB": 13.260029951999998,
+   "calls": 312.0,
+   "GBs": 274.6319059420852,
+   "TFLOPs": 17.56289036735568,
+   "pct_dram": 62.09177163510857,
+   "pct_compute": 20.445739659319766,
+   "intensity": 63.95065535851967,
+   "verdict": "BELOW both roofs: placement + config",
+   "called_from": {
+    "triangle attention": 0.048282918572455646
+   },
+   "a": "DRAM/bf16/TILE/INTERLEAVED",
+   "b": "DRAM/bf16/TILE/INTERLEAVED",
+   "o": "DRAM/bf16/TILE/INTERLEAVED",
+   "flags": "-",
+   "extra": "pc"
+  },
+  {
+   "key": "matmul#1152x224x288x32#-#a:DRAM/bf16/TILE/INTERLEAVED#b:DRAM/bf16/TILE/INTERLEAVED#o:DRAM/bf16/TILE/INTERLEAVED#pc",
+   "device_s": 0.04797030619081855,
+   "GB": 19.383975936000002,
+   "calls": 104.0,
+   "GBs": 404.0828061195504,
+   "TFLOPs": 10.311784014392575,
+   "pct_dram": 91.35944067817103,
+   "pct_compute": 12.004405138990194,
+   "intensity": 25.518987341772146,
+   "verdict": "DRAM-bound: at roof",
+   "called_from": {
+    "triangle attention": 0.04797030619081855
+   },
+   "a": "DRAM/bf16/TILE/INTERLEAVED",
+   "b": "DRAM/bf16/TILE/INTERLEAVED",
+   "o": "DRAM/bf16/TILE/INTERLEAVED",
+   "flags": "-",
+   "extra": "pc"
+  },
+  {
+   "key": "matmul#128x288x288x288#tb#a:DRAM/bf16/TILE/INTERLEAVED#b:DRAM/bf16/TILE/INTERLEAVED#o:DRAM/bf16/TILE/INTERLEAVED",
+   "device_s": 0.04441915309540928,
+   "GB": 3.312451584,
+   "calls": 52.0,
+   "GBs": 74.57259657528999,
+   "TFLOPs": 7.158969271227839,
+   "pct_dram": 16.86018462023287,
+   "pct_compute": 8.334073656842653,
+   "intensity": 96.0,
+   "verdict": "BELOW both roofs: placement + config",
+   "called_from": {
+    "triangle multiplication": 0.04441915309540928
+   },
+   "a": "DRAM/bf16/TILE/INTERLEAVED",
+   "b": "DRAM/bf16/TILE/INTERLEAVED",
+   "o": "DRAM/bf16/TILE/INTERLEAVED",
+   "flags": "tb",
+   "extra": ""
+  },
+  {
+   "key": "matmul#1152x64x32x288#tb#a:DRAM/bf16/TILE/INTERLEAVED#b:DRAM/bf16/TILE/INTERLEAVED#o:DRAM/bf16/TILE/INTERLEAVED#pc",
+   "device_s": 0.04347661238163709,
+   "GB": 14.231273471999998,
+   "calls": 208.0,
+   "GBs": 327.3317007102136,
+   "TFLOPs": 6.501484814106313,
+   "pct_dram": 74.00671505996239,
+   "pct_compute": 7.568666838307697,
+   "intensity": 19.862068965517246,
+   "verdict": "DRAM-bound: at roof",
+   "called_from": {
+    "triangle attention": 0.04347661238163709
+   },
+   "a": "DRAM/bf16/TILE/INTERLEAVED",
+   "b": "DRAM/bf16/TILE/INTERLEAVED",
+   "o": "DRAM/bf16/TILE/INTERLEAVED",
+   "flags": "tb",
+   "extra": "pc"
+  },
+  {
+   "key": "matmul#128x288x288x288#ta#a:DRAM/bf16/TILE/INTERLEAVED#b:DRAM/bf16/TILE/INTERLEAVED#o:DRAM/bf16/TILE/INTERLEAVED",
+   "device_s": 0.04304315309540927,
+   "GB": 3.312451584,
+   "calls": 52.0,
+   "GBs": 76.95652724737971,
+   "TFLOPs": 7.387826615748452,
+   "pct_dram": 17.3991696240967,
+   "pct_compute": 8.600496642314845,
+   "intensity": 96.0,
+   "verdict": "BELOW both roofs: placement + config",
+   "called_from": {
+    "triangle multiplication": 0.04304315309540927
+   },
+   "a": "DRAM/bf16/TILE/INTERLEAVED",
+   "b": "DRAM/bf16/TILE/INTERLEAVED",
+   "o": "DRAM/bf16/TILE/INTERLEAVED",
+   "flags": "ta",
+   "extra": ""
+  },
+  {
+   "key": "matmul#1x32x36864x288#ta#a:DRAM/bf16/TILE/INTERLEAVED#b:DRAM/bf16/TILE/INTERLEAVED#o:DRAM/fp32/TILE/INTERLEAVED",
+   "device_s": 0.041488898022294045,
+   "GB": 2.268463104,
+   "calls": 96.0,
+   "GBs": 54.67638843483001,
+   "TFLOPs": 1.5722233878795426,
+   "pct_dram": 12.361833243235361,
+   "pct_compute": 1.8302949800693162,
+   "intensity": 28.755070202808113,
+   "verdict": "BELOW both roofs: placement + config",
+   "called_from": {
+    "outer product mean": 0.041488898022294045
+   },
+   "a": "DRAM/bf16/TILE/INTERLEAVED",
+   "b": "DRAM/bf16/TILE/INTERLEAVED",
+   "o": "DRAM/fp32/TILE/INTERLEAVED",
+   "flags": "ta",
+   "extra": ""
+  },
+  {
+   "key": "matmul#1x82944x384x128#tb#a:DRAM/bf16/TILE/INTERLEAVED#b:DRAM/bf16/TILE/INTERLEAVED#o:DRAM/bf16/TILE/INTERLEAVED",
+   "device_s": 0.03761430619081855,
+   "GB": 8.843427839999999,
+   "calls": 104.0,
+   "GBs": 235.1080941154946,
+   "TFLOPs": 22.544284113659636,
+   "pct_dram": 53.15579790085793,
+   "pct_compute": 26.244801063631705,
+   "intensity": 95.88901734104049,
+   "verdict": "BELOW both roofs: placement + config",
+   "called_from": {
+    "triangle attention": 0.03761430619081855
+   },
+   "a": "DRAM/bf16/TILE/INTERLEAVED",
+   "b": "DRAM/bf16/TILE/INTERLEAVED",
+   "o": "DRAM/bf16/TILE/INTERLEAVED",
+   "flags": "tb",
+   "extra": ""
+  },
+  {
+   "key": "matmul#1152x288x64x32#ta#a:DRAM/bf16/TILE/INTERLEAVED#b:DRAM/bf16/TILE/INTERLEAVED#o:DRAM/bf16/TILE/INTERLEAVED#pc",
+   "device_s": 0.0348206123816371,
+   "GB": 14.231273471999998,
+   "calls": 208.0,
+   "GBs": 408.70256146054925,
+   "TFLOPs": 8.117678462112979,
+   "pct_dram": 92.40392526804189,
+   "pct_compute": 9.450149548443514,
+   "intensity": 19.862068965517246,
+   "verdict": "DRAM-bound: at roof",
+   "called_from": {
+    "triangle attention": 0.0348206123816371
+   },
+   "a": "DRAM/bf16/TILE/INTERLEAVED",
+   "b": "DRAM/bf16/TILE/INTERLEAVED",
+   "o": "DRAM/bf16/TILE/INTERLEAVED",
+   "flags": "ta",
+   "extra": "pc"
+  },
+  {
+   "key": "matmul#1x82944x128x512#tb#a:DRAM/bf16/TILE/INTERLEAVED#b:DRAM/bf16/TILE/INTERLEAVED#o:DRAM/bf16/TILE/INTERLEAVED",
+   "device_s": 0.029591153095409273,
+   "GB": 5.527568383999999,
+   "calls": 52.0,
+   "GBs": 186.79800568020238,
+   "TFLOPs": 19.104529942217887,
+   "pct_dram": 42.23332708121238,
+   "pct_compute": 22.24043066614422,
+   "intensity": 102.27373612823676,
+   "verdict": "BELOW both roofs: placement + config",
+   "called_from": {
+    "pair transition": 0.029591153095409273
+   },
+   "a": "DRAM/bf16/TILE/INTERLEAVED",
+   "b": "DRAM/bf16/TILE/INTERLEAVED",
+   "o": "DRAM/bf16/TILE/INTERLEAVED",
+   "flags": "tb",
+   "extra": ""
+  },
+  {
+   "key": "matmul#1x82944x32x128#tb#a:DRAM/bf16/TILE/INTERLEAVED#b:DRAM/bf16/TILE/INTERLEAVED#o:DRAM/bf16/TILE/INTERLEAVED",
+   "device_s": 0.02918275520196557,
+   "GB": 4.035641344,
+   "calls": 152.0,
+   "GBs": 138.28856514987947,
+   "TFLOPs": 3.5390949545793284,
+   "pct_dram": 31.265784569269606,
+   "pct_compute": 4.1200174092890895,
+   "intensity": 25.592101203332305,
+   "verdict": "BELOW both roofs: placement + config",
+   "called_from": {
+    "triangle attention": 0.020078306190818546,
+    "MSA row attention": 0.009104449011147023
+   },
+   "a": "DRAM/bf16/TILE/INTERLEAVED",
+   "b": "DRAM/bf16/TILE/INTERLEAVED",
+   "o": "DRAM/bf16/TILE/INTERLEAVED",
+   "flags": "tb",
+   "extra": ""
+  },
+  {
+   "key": "linear#288x32x256x256#-#a:DRAM/bf16/TILE/INTERLEAVED#b:DRAM/bf16/TILE/INTERLEAVED#o:DRAM/bf16/TILE/INTERLEAVED#g13x10,bias,omc=DRAM",
+   "device_s": 0.024770694066882135,
+   "GB": 2.7603763199999998,
+   "calls": 288.0,
+   "GBs": 111.43718107158577,
+   "TFLOPs": 14.044513651360473,
+   "pct_dram": 25.194931284554773,
+   "pct_compute": 16.34984127050113,
+   "intensity": 126.03076923076924,
+   "verdict": "BELOW both roofs: placement + config",
+   "called_from": {
+    "MSA column attention": 0.024770694066882135
+   },
+   "a": "DRAM/bf16/TILE/INTERLEAVED",
+   "b": "DRAM/bf16/TILE/INTERLEAVED",
+   "o": "DRAM/bf16/TILE/INTERLEAVED",
+   "flags": "-",
+   "extra": "g13x10,bias,omc=DRAM"
+  },
+  {
+   "key": "linear#288x32x256x768#-#a:DRAM/bf16/TILE/INTERLEAVED#b:DRAM/bf16/TILE/INTERLEAVED#o:DRAM/bf16/TILE/INTERLEAVED#g13x10,omc=DRAM",
+   "device_s": 0.021745347033441068,
+   "GB": 2.7745320959999997,
+   "calls": 144.0,
+   "GBs": 127.59198975915112,
+   "TFLOPs": 23.997709747353813,
+   "pct_dram": 28.84738633487477,
+   "pct_compute": 27.936798308910145,
+   "intensity": 188.08163265306126,
+   "verdict": "BELOW both roofs: placement + config",
+   "called_from": {
+    "MSA column attention": 0.021745347033441068
+   },
+   "a": "DRAM/bf16/TILE/INTERLEAVED",
+   "b": "DRAM/bf16/TILE/INTERLEAVED",
+   "o": "DRAM/bf16/TILE/INTERLEAVED",
+   "flags": "-",
+   "extra": "g13x10,omc=DRAM"
+  },
+  {
+   "key": "matmul#2304x32x32x32#-#a:DRAM/bf16/TILE/INTERLEAVED#b:DRAM/bf16/TILE/INTERLEAVED#o:DRAM/bf16/TILE/INTERLEAVED#pc",
+   "device_s": 0.020306694066882132,
+   "GB": 4.076863488,
+   "calls": 288.0,
+   "GBs": 200.76451019414787,
+   "TFLOPs": 2.1414881087375774,
+   "pct_dram": 45.39102649652902,
+   "pct_compute": 2.4930012907305907,
+   "intensity": 10.666666666666666,
+   "verdict": "BELOW both roofs: placement + config",
+   "called_from": {
+    "MSA column attention": 0.020306694066882132
+   },
+   "a": "DRAM/bf16/TILE/INTERLEAVED",
+   "b": "DRAM/bf16/TILE/INTERLEAVED",
+   "o": "DRAM/bf16/TILE/INTERLEAVED",
+   "flags": "-",
+   "extra": "pc"
+  },
+  {
+   "key": "matmul#1152x64x288x32#-#a:DRAM/bf16/TILE/INTERLEAVED#b:DRAM/bf16/TILE/INTERLEAVED#o:DRAM/bf16/TILE/INTERLEAVED#pc",
+   "device_s": 0.01683430619081855,
+   "GB": 7.115636735999999,
+   "calls": 104.0,
+   "GBs": 422.68666468006126,
+   "TFLOPs": 8.395431684679838,
+   "pct_dram": 95.56560359033715,
+   "pct_compute": 9.773494394272221,
+   "intensity": 19.862068965517246,
+   "verdict": "DRAM-bound: at roof",
+   "called_from": {
+    "triangle attention": 0.01683430619081855
+   },
+   "a": "DRAM/bf16/TILE/INTERLEAVED",
+   "b": "DRAM/bf16/TILE/INTERLEAVED",
+   "o": "DRAM/bf16/TILE/INTERLEAVED",
+   "flags": "-",
+   "extra": "pc"
+  },
+  {
+   "key": "matmul#1x36864x288x32#tb#a:DRAM/bf16/TILE/INTERLEAVED#b:DRAM/bf16/TILE/INTERLEAVED#o:DRAM/bf16/TILE/INTERLEAVED",
+   "device_s": 0.010864898022294046,
+   "GB": 2.266693632,
+   "calls": 96.0,
+   "GBs": 208.62539412232823,
+   "TFLOPs": 6.00372094373576,
+   "pct_dram": 47.16830072853905,
+   "pct_compute": 6.989197839040465,
+   "intensity": 28.77751756440281,
+   "verdict": "BELOW both roofs: placement + config",
+   "called_from": {
+    "outer product mean": 0.010864898022294046
+   },
+   "a": "DRAM/bf16/TILE/INTERLEAVED",
+   "b": "DRAM/bf16/TILE/INTERLEAVED",
+   "o": "DRAM/bf16/TILE/INTERLEAVED",
+   "flags": "tb",
+   "extra": ""
+  },
+  {
+   "key": "matmul#1x288x32x4096#-#a:DRAM/bf16/TILE/INTERLEAVED#b:DRAM/bf16/TILE/INTERLEAVED#o:DRAM/bf16/TILE/INTERLEAVED#g11x10",
+   "device_s": 0.009938694066882133,
+   "GB": 0.7602831360000001,
+   "calls": 288.0,
+   "GBs": 76.49728735824831,
+   "TFLOPs": 2.187739333727281,
+   "pct_dram": 17.29533966951126,
+   "pct_compute": 2.546844393163307,
+   "intensity": 28.598913886733897,
+   "verdict": "BELOW both roofs: placement + config",
+   "called_from": {
+    "outer product mean": 0.009938694066882133
+   },
+   "a": "DRAM/bf16/TILE/INTERLEAVED",
+   "b": "DRAM/bf16/TILE/INTERLEAVED",
+   "o": "DRAM/bf16/TILE/INTERLEAVED",
+   "flags": "-",
+   "extra": "g11x10"
+  },
+  {
+   "key": "matmul#2304x32x32x32#ta#a:DRAM/bf16/TILE/INTERLEAVED#b:DRAM/bf16/TILE/INTERLEAVED#o:DRAM/bf16/TILE/INTERLEAVED#pc",
+   "device_s": 0.006688898022294045,
+   "GB": 1.358954496,
+   "calls": 96.0,
+   "GBs": 203.1656771370434,
+   "TFLOPs": 2.167100556128463,
+   "pct_dram": 45.9339084641744,
+   "pct_compute": 2.5228178767502474,
+   "intensity": 10.666666666666666,
+   "verdict": "BELOW both roofs: placement + config",
+   "called_from": {
+    "MSA column attention": 0.006688898022294045
+   },
+   "a": "DRAM/bf16/TILE/INTERLEAVED",
+   "b": "DRAM/bf16/TILE/INTERLEAVED",
+   "o": "DRAM/bf16/TILE/INTERLEAVED",
+   "flags": "ta",
+   "extra": "pc"
+  },
+  {
+   "key": "linear#2x288x256x256#-#a:DRAM/bf16/TILE/INTERLEAVED#b:DRAM/bf16/TILE/INTERLEAVED#o:DRAM/bf16/TILE/INTERLEAVED#g13x10,bias,omc=DRAM",
+   "device_s": 0.005954694066882134,
+   "GB": 0.21233664000000002,
+   "calls": 288.0,
+   "GBs": 35.65869843438977,
+   "TFLOPs": 3.6514507196815122,
+   "pct_dram": 8.062106813110958,
+   "pct_compute": 4.250815738860899,
+   "intensity": 102.39999999999999,
+   "verdict": "BELOW both roofs: placement + config",
+   "called_from": {
+    "MSA row attention": 0.005954694066882134
+   },
+   "a": "DRAM/bf16/TILE/INTERLEAVED",
+   "b": "DRAM/bf16/TILE/INTERLEAVED",
+   "o": "DRAM/bf16/TILE/INTERLEAVED",
+   "flags": "-",
+   "extra": "g13x10,bias,omc=DRAM"
+  },
+  {
+   "key": "matmul#2304x32x32x32#tb#a:DRAM/bf16/TILE/INTERLEAVED#b:DRAM/bf16/TILE/INTERLEAVED#o:DRAM/bf16/TILE/INTERLEAVED#pc",
+   "device_s": 0.0056808980222940435,
+   "GB": 1.358954496,
+   "calls": 96.0,
+   "GBs": 239.21473166160285,
+   "TFLOPs": 2.5516238043904305,
+   "pct_dram": 54.08427123255773,
+   "pct_compute": 2.9704584451576603,
+   "intensity": 10.666666666666666,
+   "verdict": "BELOW both roofs: placement + config",
+   "called_from": {
+    "MSA column attention": 0.0056808980222940435
+   },
+   "a": "DRAM/bf16/TILE/INTERLEAVED",
+   "b": "DRAM/bf16/TILE/INTERLEAVED",
+   "o": "DRAM/bf16/TILE/INTERLEAVED",
+   "flags": "tb",
+   "extra": "pc"
+  },
+  {
+   "key": "matmul#1x288x4096x32#tb#a:DRAM/bf16/TILE/INTERLEAVED#b:DRAM/bf16/TILE/INTERLEAVED#o:DRAM/bf16/TILE/INTERLEAVED",
+   "device_s": 0.005344898022294044,
+   "GB": 0.253427712,
+   "calls": 96.0,
+   "GBs": 47.414882555837465,
+   "TFLOPs": 1.356014143163997,
+   "pct_dram": 10.720072926935895,
+   "pct_compute": 1.5785962085727552,
+   "intensity": 28.5989138867339,
+   "verdict": "BELOW both roofs: placement + config",
+   "called_from": {
+    "outer product mean": 0.005344898022294044
+   },
+   "a": "DRAM/bf16/TILE/INTERLEAVED",
+   "b": "DRAM/bf16/TILE/INTERLEAVED",
+   "o": "DRAM/bf16/TILE/INTERLEAVED",
+   "flags": "tb",
+   "extra": ""
+  },
+  {
+   "key": "linear#2x288x256x32#-#a:DRAM/bf16/TILE/INTERLEAVED#b:DRAM/bf16/TILE/INTERLEAVED#o:DRAM/bf16/TILE/INTERLEAVED#g11x10,bias",
+   "device_s": 0.005090694066882133,
+   "GB": 0.100859904,
+   "calls": 288.0,
+   "GBs": 19.812603679359004,
+   "TFLOPs": 0.53389753072799,
+   "pct_dram": 4.479449170101516,
+   "pct_compute": 0.6215337959580791,
+   "intensity": 26.94736842105263,
+   "verdict": "BELOW both roofs: placement + config",
+   "called_from": {
+    "outer product mean": 0.005090694066882133
+   },
+   "a": "DRAM/bf16/TILE/INTERLEAVED",
+   "b": "DRAM/bf16/TILE/INTERLEAVED",
+   "o": "DRAM/bf16/TILE/INTERLEAVED",
+   "flags": "-",
+   "extra": "g11x10,bias"
+  },
+  {
+   "key": "linear#2x288x256x768#-#a:DRAM/bf16/TILE/INTERLEAVED#b:DRAM/bf16/TILE/INTERLEAVED#o:DRAM/bf16/TILE/INTERLEAVED#g13x10,omc=DRAM",
+   "device_s": 0.0037933470334410666,
+   "GB": 0.22649241599999997,
+   "calls": 144.0,
+   "GBs": 59.70780263532637,
+   "TFLOPs": 8.597923579486999,
+   "pct_dram": 13.49939015042423,
+   "pct_compute": 10.009224190322465,
+   "intensity": 144.00000000000003,
+   "verdict": "BELOW both roofs: placement + config",
+   "called_from": {
+    "MSA row attention": 0.0037933470334410666
+   },
+   "a": "DRAM/bf16/TILE/INTERLEAVED",
+   "b": "DRAM/bf16/TILE/INTERLEAVED",
+   "o": "DRAM/bf16/TILE/INTERLEAVED",
+   "flags": "-",
+   "extra": "g13x10,omc=DRAM"
+  },
+  {
+   "key": "linear#2x288x1024x256#-#a:DRAM/bf16/TILE/INTERLEAVED#b:DRAM/bf16/TILE/INTERLEAVED#o:DRAM/bf16/TILE/INTERLEAVED#g13x10,bias,omc=DRAM",
+   "device_s": 0.003505347033441067,
+   "GB": 0.290193408,
+   "calls": 144.0,
+   "GBs": 82.78592824948578,
+   "TFLOPs": 12.405774223532697,
+   "pct_dram": 18.717144076302457,
+   "pct_compute": 14.4421120180823,
+   "intensity": 149.85365853658536,
+   "verdict": "BELOW both roofs: placement + config",
+   "called_from": {
+    "MSA transition": 0.003505347033441067
+   },
+   "a": "DRAM/bf16/TILE/INTERLEAVED",
+   "b": "DRAM/bf16/TILE/INTERLEAVED",
+   "o": "DRAM/bf16/TILE/INTERLEAVED",
+   "flags": "-",
+   "extra": "g13x10,bias,omc=DRAM"
+  },
+  {
+   "key": "matmul#16x288x32x288#-#a:DRAM/bf16/TILE/INTERLEAVED#b:DRAM/bf16/TILE/INTERLEAVED#o:DRAM/bf16/TILE/INTERLEAVED#pc",
+   "device_s": 0.0034573470334410663,
+   "GB": 0.467140608,
+   "calls": 144.0,
+   "GBs": 135.11533655187029,
+   "TFLOPs": 3.53756517517624,
+   "pct_dram": 30.54834649601408,
+   "pct_compute": 4.118236525234272,
+   "intensity": 26.181818181818183,
+   "verdict": "BELOW both roofs: placement + config",
+   "called_from": {
+    "MSA row attention": 0.0034573470334410663
+   },
+   "a": "DRAM/bf16/TILE/INTERLEAVED",
+   "b": "DRAM/bf16/TILE/INTERLEAVED",
+   "o": "DRAM/bf16/TILE/INTERLEAVED",
+   "flags": "-",
+   "extra": "pc"
+  },
+  {
+   "key": "matmul#1x288x32x288#-#a:DRAM/bf16/TILE/INTERLEAVED#b:DRAM/bf16/TILE/INTERLEAVED#o:DRAM/bf16/TILE/INTERLEAVED",
+   "device_s": 0.0026893470334410667,
+   "GB": 0.029196288,
+   "calls": 144.0,
+   "GBs": 10.85627389732698,
+   "TFLOPs": 0.28423698931183367,
+   "pct_dram": 2.4545046116497806,
+   "pct_compute": 0.3308928862768727,
+   "intensity": 26.181818181818183,
+   "verdict": "BELOW both roofs: placement + config",
+   "called_from": {
+    "outer product mean": 0.0026893470334410667
+   },
+   "a": "DRAM/bf16/TILE/INTERLEAVED",
+   "b": "DRAM/bf16/TILE/INTERLEAVED",
+   "o": "DRAM/bf16/TILE/INTERLEAVED",
+   "flags": "-",
+   "extra": ""
+  },
+  {
+   "key": "matmul#16x288x288x32#-#a:DRAM/bf16/TILE/INTERLEAVED#b:DRAM/bf16/TILE/INTERLEAVED#o:DRAM/bf16/TILE/INTERLEAVED#pc",
+   "device_s": 0.0026413470334410664,
+   "GB": 0.467140608,
+   "calls": 144.0,
+   "GBs": 176.85696051511394,
+   "TFLOPs": 4.63043678439571,
+   "pct_dram": 39.98574734684918,
+   "pct_compute": 5.390496838644597,
+   "intensity": 26.181818181818183,
+   "verdict": "BELOW both roofs: placement + config",
+   "called_from": {
+    "MSA row attention": 0.0026413470334410664
+   },
+   "a": "DRAM/bf16/TILE/INTERLEAVED",
+   "b": "DRAM/bf16/TILE/INTERLEAVED",
+   "o": "DRAM/bf16/TILE/INTERLEAVED",
+   "flags": "-",
+   "extra": "pc"
+  },
+  {
+   "key": "matmul#1x576x1024x256#tb#a:DRAM/bf16/TILE/INTERLEAVED#b:DRAM/bf16/TILE/INTERLEAVED#o:DRAM/bf16/TILE/INTERLEAVED",
+   "device_s": 0.0023844490111470224,
+   "GB": 0.095944704,
+   "calls": 48.0,
+   "GBs": 40.237683234772334,
+   "TFLOPs": 6.079188339207571,
+   "pct_dram": 9.09737355522775,
+   "pct_compute": 7.077052781382503,
+   "intensity": 151.08196721311475,
+   "verdict": "BELOW both roofs: placement + config",
+   "called_from": {
+    "MSA transition": 0.0023844490111470224
+   },
+   "a": "DRAM/bf16/TILE/INTERLEAVED",
+   "b": "DRAM/bf16/TILE/INTERLEAVED",
+   "o": "DRAM/bf16/TILE/INTERLEAVED",
+   "flags": "tb",
+   "extra": ""
+  },
+  {
+   "key": "linear#2x288x256x1024#-#a:DRAM/bf16/TILE/INTERLEAVED#b:DRAM/bf16/TILE/INTERLEAVED#o:DRAM/bf16/TILE/INTERLEAVED#g13x10,bias,omc=DRAM",
+   "device_s": 0.0022573470334410666,
+   "GB": 0.297271296,
+   "calls": 144.0,
+   "GBs": 131.6905604659484,
+   "TFLOPs": 19.26444770244731,
+   "pct_dram": 29.774035827707078,
+   "pct_compute": 22.426598023803617,
+   "intensity": 146.28571428571428,
+   "verdict": "BELOW both roofs: placement + config",
+   "called_from": {
+    "MSA transition": 0.0022573470334410666
+   },
+   "a": "DRAM/bf16/TILE/INTERLEAVED",
+   "b": "DRAM/bf16/TILE/INTERLEAVED",
+   "o": "DRAM/bf16/TILE/INTERLEAVED",
+   "flags": "-",
+   "extra": "g13x10,bias,omc=DRAM"
+  },
+  {
+   "key": "matmul#16x288x32x288#tb#a:DRAM/bf16/TILE/INTERLEAVED#b:DRAM/bf16/TILE/INTERLEAVED#o:DRAM/bf16/TILE/INTERLEAVED",
+   "device_s": 0.002000449011147022,
+   "GB": 0.155713536,
+   "calls": 48.0,
+   "GBs": 77.83929264496305,
+   "TFLOPs": 2.03797420743176,
+   "pct_dram": 17.598754837206208,
+   "pct_compute": 2.372496166975273,
+   "intensity": 26.181818181818183,
+   "verdict": "BELOW both roofs: placement + config",
+   "called_from": {
+    "MSA row attention": 0.002000449011147022
+   },
+   "a": "DRAM/bf16/TILE/INTERLEAVED",
+   "b": "DRAM/bf16/TILE/INTERLEAVED",
+   "o": "DRAM/bf16/TILE/INTERLEAVED",
+   "flags": "tb",
+   "extra": ""
+  },
+  {
+   "key": "matmul#1x576x256x256#tb#a:DRAM/bf16/TILE/INTERLEAVED#b:DRAM/bf16/TILE/INTERLEAVED#o:DRAM/bf16/TILE/INTERLEAVED",
+   "device_s": 0.0017448980222940446,
+   "GB": 0.069206016,
+   "calls": 96.0,
+   "GBs": 39.66192586373258,
+   "TFLOPs": 4.1536853268199945,
+   "pct_dram": 8.967200059627533,
+   "pct_compute": 4.835489321094289,
+   "intensity": 104.72727272727273,
+   "verdict": "BELOW both roofs: placement + config",
+   "called_from": {
+    "MSA row attention": 0.0017448980222940446
+   },
+   "a": "DRAM/bf16/TILE/INTERLEAVED",
+   "b": "DRAM/bf16/TILE/INTERLEAVED",
+   "o": "DRAM/bf16/TILE/INTERLEAVED",
+   "flags": "tb",
+   "extra": ""
+  },
+  {
+   "key": "matmul#1x576x768x256#tb#a:DRAM/bf16/TILE/INTERLEAVED#b:DRAM/bf16/TILE/INTERLEAVED#o:DRAM/bf16/TILE/INTERLEAVED",
+   "device_s": 0.001424449011147022,
+   "GB": 0.075497472,
+   "calls": 48.0,
+   "GBs": 53.001175478514654,
+   "TFLOPs": 7.632169268906111,
+   "pct_dram": 11.983082857453008,
+   "pct_compute": 8.884946762405251,
+   "intensity": 144.0,
+   "verdict": "BELOW both roofs: placement + config",
+   "called_from": {
+    "MSA row attention": 0.001424449011147022
+   },
+   "a": "DRAM/bf16/TILE/INTERLEAVED",
+   "b": "DRAM/bf16/TILE/INTERLEAVED",
+   "o": "DRAM/bf16/TILE/INTERLEAVED",
+   "flags": "tb",
+   "extra": ""
+  },
+  {
+   "key": "matmul#16x288x288x32#ta#a:DRAM/bf16/TILE/INTERLEAVED#b:DRAM/bf16/TILE/INTERLEAVED#o:DRAM/bf16/TILE/INTERLEAVED#pc",
+   "device_s": 0.001328449011147022,
+   "GB": 0.155713536,
+   "calls": 48.0,
+   "GBs": 117.21453717335552,
+   "TFLOPs": 3.0688897005387625,
+   "pct_dram": 26.501138858999667,
+   "pct_compute": 3.572630617623705,
+   "intensity": 26.181818181818183,
+   "verdict": "BELOW both roofs: placement + config",
+   "called_from": {
+    "MSA row attention": 0.001328449011147022
+   },
+   "a": "DRAM/bf16/TILE/INTERLEAVED",
+   "b": "DRAM/bf16/TILE/INTERLEAVED",
+   "o": "DRAM/bf16/TILE/INTERLEAVED",
+   "flags": "ta",
+   "extra": "pc"
+  },
+  {
+   "key": "matmul#16x32x288x288#ta#a:DRAM/bf16/TILE/INTERLEAVED#b:DRAM/bf16/TILE/INTERLEAVED#o:DRAM/bf16/TILE/INTERLEAVED#pc",
+   "device_s": 0.0012804490111470222,
+   "GB": 0.155713536,
+   "calls": 48.0,
+   "GBs": 121.60854094495517,
+   "TFLOPs": 3.1839327083770077,
+   "pct_dram": 27.494583075956402,
+   "pct_compute": 3.7065572856542577,
+   "intensity": 26.181818181818183,
+   "verdict": "BELOW both roofs: placement + config",
+   "called_from": {
+    "MSA row attention": 0.0012804490111470222
+   },
+   "a": "DRAM/bf16/TILE/INTERLEAVED",
+   "b": "DRAM/bf16/TILE/INTERLEAVED",
+   "o": "DRAM/bf16/TILE/INTERLEAVED",
+   "flags": "ta",
+   "extra": "pc"
+  },
+  {
+   "key": "matmul#16x288x288x32#tb#a:DRAM/bf16/TILE/INTERLEAVED#b:DRAM/bf16/TILE/INTERLEAVED#o:DRAM/bf16/TILE/INTERLEAVED#pc",
+   "device_s": 0.0012324490111470224,
+   "GB": 0.155713536,
+   "calls": 48.0,
+   "GBs": 126.3448098798665,
+   "TFLOPs": 3.30793684049105,
+   "pct_dram": 28.565410327801604,
+   "pct_compute": 3.850915995915075,
+   "intensity": 26.181818181818183,
+   "verdict": "BELOW both roofs: placement + config",
+   "called_from": {
+    "MSA row attention": 0.0012324490111470224
+   },
+   "a": "DRAM/bf16/TILE/INTERLEAVED",
+   "b": "DRAM/bf16/TILE/INTERLEAVED",
+   "o": "DRAM/bf16/TILE/INTERLEAVED",
+   "flags": "tb",
+   "extra": "pc"
+  },
+  {
+   "key": "matmul#1x576x256x1024#tb#a:DRAM/bf16/TILE/INTERLEAVED#b:DRAM/bf16/TILE/INTERLEAVED#o:DRAM/bf16/TILE/INTERLEAVED",
+   "device_s": 0.000992449011147022,
+   "GB": 0.095944704,
+   "calls": 48.0,
+   "GBs": 96.67469353323453,
+   "TFLOPs": 14.605802878726054,
+   "pct_dram": 21.85726735998972,
+   "pct_compute": 17.0032629554436,
+   "intensity": 151.08196721311475,
+   "verdict": "BELOW both roofs: placement + config",
+   "called_from": {
+    "MSA transition": 0.000992449011147022
+   },
+   "a": "DRAM/bf16/TILE/INTERLEAVED",
+   "b": "DRAM/bf16/TILE/INTERLEAVED",
+   "o": "DRAM/bf16/TILE/INTERLEAVED",
+   "flags": "tb",
+   "extra": ""
+  },
+  {
+   "key": "matmul#1x576x32x256#tb#a:DRAM/bf16/TILE/INTERLEAVED#b:DRAM/bf16/TILE/INTERLEAVED#o:DRAM/bf16/TILE/INTERLEAVED",
+   "device_s": 0.0006888980222940448,
+   "GB": 0.03342336,
+   "calls": 96.0,
+   "GBs": 48.517137396765214,
+   "TFLOPs": 1.3150998183782008,
+   "pct_dram": 10.96928270331567,
+   "pct_compute": 1.5309660283797446,
+   "intensity": 27.105882352941176,
+   "verdict": "BELOW both roofs: placement + config",
+   "called_from": {
+    "outer product mean": 0.0006888980222940448
+   },
+   "a": "DRAM/bf16/TILE/INTERLEAVED",
+   "b": "DRAM/bf16/TILE/INTERLEAVED",
+   "o": "DRAM/bf16/TILE/INTERLEAVED",
+   "flags": "tb",
+   "extra": ""
+  }
+ ],
+ "totals": {
+  "A_shape": 8.052885839563057,
+  "A_mm": 2.2550105569159684,
+  "GB_mm": 405.92991846399997,
+  "calls_mm": 8968.0,
+  "flop_mm": 25553638785024.0,
+  "C": 9.524597,
+  "round_wall": 11.191253781318665
+ }
+}

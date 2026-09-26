@@ -315,7 +315,13 @@ def node_census(ag, roots):
 
 
 class TapingCensus:
-    """Count every `ops.taping()` call by the shipped call site that asked."""
+    """Count every `ops.taping()` call by the shipped call site that asked.
+
+    The frame walk skips the two wrappers that ask on a kernel's behalf. `_taping` is a
+    per-module one-liner; `ops.declines_under_tape` is the gate a kernel with a tape ENTRY
+    asks instead, and it calls `taping()` itself, so without the skip those four sites all
+    report `ops.py` and the census stops naming the kernel that asked.
+    """
 
     def __init__(self):
         from tt_bio import ops
@@ -327,7 +333,7 @@ class TapingCensus:
 
         def taping():
             f = sys._getframe(1)
-            while f is not None and f.f_code.co_name == "_taping":
+            while f is not None and f.f_code.co_name in ("_taping", "declines_under_tape"):
                 f = f.f_back
             site = f"{pathlib.Path(f.f_code.co_filename).name}:{f.f_lineno}"
             counts[site] += 1
