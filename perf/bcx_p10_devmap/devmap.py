@@ -275,13 +275,23 @@ class OpTimer:
                 self.read_dtype[(tag, d)] += b
             wb = sum(_nbytes(t) for t in outs)
             self.written[tag] += wb
-            self.verb_wall[(tag, path)] += t1 - t0
-            self.verb_calls[(tag, path)] += 1
-            self.verb_read[(tag, path)] += rb
-            self.verb_written[(tag, path)] += wb
+            vk = self.verb_key(path, args, kwargs, out)
+            self.verb_wall[(tag, vk)] += t1 - t0
+            self.verb_calls[(tag, vk)] += 1
+            self.verb_read[(tag, vk)] += rb
+            self.verb_written[(tag, vk)] += wb
             return out
         w.__name__ = getattr(real, "__name__", path)
         return w
+
+    def verb_key(self, path, args, kwargs, out):
+        """The second key beside the label context. Default: the ttnn op name.
+
+        A subclass can widen it -- `bcx-p10-mmlay` appends the operand shapes, dtypes, buffer
+        types and memory layout so the SAME subtraction resolves per shape instead of per name.
+        Called outside the timed region, so a wider key costs the measurement nothing.
+        """
+        return path
 
     def uninstall(self):
         for mod, leaf, real in self._saved:
