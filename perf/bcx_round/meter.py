@@ -79,6 +79,23 @@ class Clock:
 CLOCK = None
 
 
+def reach():
+    """The fused triangle-attention backward's counters, snapshotted at a round boundary.
+
+    Cumulative, so consecutive boundaries subtract to a per-round reach. `bw_calls` is every
+    entry into `autograd.triangle_attention`'s backward and is counted before any gate;
+    `served` is the fused kernel actually running; `declined` is a gate refusing and falling
+    through to the chunked recompute. A round with `bw_calls` high and `served` zero is a
+    routing problem, a round with `declined` high is a shape gate, and those point at
+    opposite fixes -- which is why all three are stamped and not just the one.
+    """
+    try:
+        from tt_bio import triatt_bw
+    except Exception as exc:
+        return {"error": repr(exc)}
+    return {k: triatt_bw.STATS.get(k, 0) for k in ("bw_calls", "served", "declined")}
+
+
 class StopAfterRounds(BaseException):
     """Collection is complete. Raised from the round boundary, never mid-round.
 
@@ -106,10 +123,11 @@ class Meter:
             # Stamp the boundary BEFORE unwinding: it closes the last round's wall, and
             # the campaign's own finally blocks run between the raise and the dump.
             EVENTS.append({"kind": "round_stop", "phase": "round", "t0": time.time(),
-                           "round": self.entries})
+                           "round": self.entries, "triatt_bw": reach()})
             raise StopAfterRounds(f"{self.rounds} rounds collected")
         EVENTS.append({"kind": "round_start", "phase": "round", "t0": time.time(),
-                       "round": self.entries, "load1": os.getloadavg()[0]})
+                       "round": self.entries, "load1": os.getloadavg()[0],
+                       "triatt_bw": reach()})
         if DUMP:
             dump(*DUMP)
 
