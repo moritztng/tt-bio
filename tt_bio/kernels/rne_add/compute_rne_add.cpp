@@ -46,6 +46,8 @@
 #include "api/compute/eltwise_binary_sfpu.h"
 #include "api/compute/tile_move_copy.h"
 
+#include "../genq/genq_split.h"
+
 #ifdef TRISC_MATH
 #include "ckernel.h"
 #include "ckernel_defs.h"
@@ -89,7 +91,20 @@ void kernel_main() {
     constexpr uint32_t ADD_MODE = get_compile_time_arg_val(4);    // 0 = FPU add_tiles, 1 = SFPU
     constexpr uint32_t ROUND_MODE = get_compile_time_arg_val(5);  // 0 = packer, 1 = SFPU RNE
 
-    const uint32_t num_tiles = get_arg_val<uint32_t>(0);
+    // See the reader for what GENQ_COMPACT buys and what checks it. Only the tile COUNT is
+    // needed here: this kernel never addresses a tensor, it drains what the reader pushes.
+    constexpr uint32_t G = 6;
+    constexpr uint32_t COMPACT = get_compile_time_arg_val(G);
+    uint32_t num_tiles;
+    if constexpr (COMPACT) {
+        num_tiles = genq::slice<get_compile_time_arg_val(G + 1), get_compile_time_arg_val(G + 2),
+                                get_compile_time_arg_val(G + 3), get_compile_time_arg_val(G + 4),
+                                get_compile_time_arg_val(G + 5), get_compile_time_arg_val(G + 6),
+                                get_compile_time_arg_val(G + 7)>(
+            get_absolute_logical_x(), get_absolute_logical_y()).num;
+    } else {
+        num_tiles = get_arg_val<uint32_t>(0);
+    }
 
     // The SFPU add holds both operands in DEST, so it costs two slots a tile where the FPU add
     // costs one. A 32-bit DEST is four tiles deep, which is where the host's GRAN cap comes from.

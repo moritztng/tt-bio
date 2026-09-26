@@ -55,8 +55,9 @@ def main():
     scratch, scratch2 = mk(), mk()
     spans, res = [], {}
 
-    def build(ncores, nwords, nkernels):
-        """`ncores` cores in row-major order, `nwords` per-core runtime words, `nkernels` kernels."""
+    def build(ncores, nwords, nkernels, ncommon=1):
+        """`ncores` cores row-major, `nwords` per-core words, `nkernels` kernels, `ncommon`
+        words in the shared table every core indexes by its own logical coordinates."""
         cores = [(i % g.x, i // g.x) for i in range(ncores)]
         crs = ttnn.CoreRangeSet([ttnn.CoreRange(ttnn.CoreCoord(x, y), ttnn.CoreCoord(x, y))
                                  for x, y in cores])
@@ -70,8 +71,8 @@ def main():
                 rt[x][y] = [7] * nwords
             ks.append(ttnn.KernelDescriptor(
                 kernel_source=src, source_type=ttnn.KernelDescriptor.SourceType.FILE_PATH,
-                core_ranges=crs, compile_time_args=[nwords], runtime_args=rt,
-                common_runtime_args=[0], config=cfg))
+                core_ranges=crs, compile_time_args=[nwords, ncommon], runtime_args=rt,
+                common_runtime_args=[0] * ncommon, config=cfg))
         return ttnn.ProgramDescriptor(kernels=ks, semaphores=[], cbs=[])
 
     plan = []
@@ -82,15 +83,20 @@ def main():
     for nk in (1, 2, 3):
         plan.append((f'cores130_w2_k{nk}', 130, 2, nk))
     plan.append(('cores130_w0_k1', 130, 0, 1))
+    # The axis the fix rides on: with no per-core args at all, what does a LONG shared table cost?
+    # 341 words is the hard ceiling: tt-metal refuses a kernel whose unique+common runtime args
+    # exceed it on any core (kernel.cpp:453), which is what bounds how big a shared table can get.
+    for ncom in (1, 130, 260, 341):
+        plan.append((f'cores130_w0_k3_common{ncom}', 130, 0, 3, ncom))
 
-    for tag, nc, nw, nk in plan:
+    for tag, nc, nw, nk, *rest in plan:
         if nc > g.x * g.y:
             continue
-        pd = build(nc, nw, nk)
+        pd = build(nc, nw, nk, rest[0] if rest else 1)
         ttnn.generic_op([scratch, scratch2], pd)       # JIT-build once, outside the clock
         ttnn.synchronize_device(dev)
         r = B.timed(tag, lambda pd=pd: ttnn.generic_op([scratch, scratch2], pd), dev, ttnn, args.reps, spans)
-        r.update(cores=nc, words=nw, kernels=nk)
+        r.update(cores=nc, words=nw, kernels=nk, common=rest[0] if rest else 1)
         res[tag] = r
 
     blob = {'stamp': S.stamp(args, clock), 'grid': [g.x, g.y], 'reps': args.reps,

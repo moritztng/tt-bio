@@ -26,6 +26,7 @@ from pathlib import Path
 import ttnn
 
 from . import core_split
+from . import genq
 from . import ops as _ops
 
 KERNEL_DIR = Path(__file__).resolve().parent / "kernels" / "rne_add"
@@ -156,7 +157,7 @@ def _cache_key(a, out, device, reader_ct, writer_ct):
         device.id(), _tile_count(a), str(a.dtype), str(a.layout),
         str(a.memory_config()), str(out.memory_config()),
         g.x, g.y, tuple(reader_ct), tuple(writer_ct),
-        ADD_MODE, ROUND_MODE, _gran(), str(OUT_DTYPE),
+        ADD_MODE, ROUND_MODE, _gran(), str(OUT_DTYPE), genq.compact(),
     )
 
 
@@ -182,42 +183,53 @@ def _build(a, out, device, reader_ct, writer_ct):
     cbs = [cb(A_CB, 2 * gran, _DTYPE), cb(B_CB, 2 * gran, _DTYPE),
            cb(OUT_CB, 2 * gran, OUT_DTYPE)]
 
-    reader_rt, compute_rt, writer_rt = ttnn.RuntimeArgs(), ttnn.RuntimeArgs(), ttnn.RuntimeArgs()
-    # EVERY placed core gets runtime args, and the placement set is built from the same loop that
-    # writes them. A core placed without runtime args reads them as zero, so its writer takes
+    # EVERY placed core gets a slice, and the placement set is built from the same loop that
+    # assigns them. A core placed without runtime args reads them as zero, so its writer takes
     # address 0 as its output base and writes into the bottom of DRAM -- silently, into whatever
     # tensor the allocator put there (`state/perf10/bcx-TABWD.md`, which cost that row four
     # bisects). `perf/bcx_p10_rneker/grade.py` reads the INPUT tensors back after every program to
     # prove this one does not.
-    first, placed = 0, 0
+    assign, first, placed = {}, 0, 0
     for group, per_core in ((cg1, work1), (cg2, work2)):
         for cr in group.ranges():
             for cx in range(cr.start.x, cr.end.x + 1):
                 for cy in range(cr.start.y, cr.end.y + 1):
-                    reader_rt[cx][cy] = [placed, per_core]
-                    compute_rt[cx][cy] = [per_core]
-                    writer_rt[cx][cy] = [placed, per_core]
+                    assign[(cx, cy)] = (placed, per_core)
                     first += 1
                     placed += per_core
     assert (first, placed) == (num_cores, num_tiles), (first, placed, num_cores, num_tiles)
 
+    # The cheap dispatch path: the same slices, recomputed on the core from seven constants, so
+    # the descriptor carries no per-core runtime args and the dispatch costs a third of what it
+    # costs with them. `compact_plan` returns None unless that arithmetic reproduces `assign`
+    # exactly, and then the per-core args below are what runs -- byte for byte today's program.
+    plan_ct = genq.compact_plan(assign, core_grid) if genq.compact() else None
+    genq_ct = [1] + plan_ct if plan_ct else [0, 0, 0, 0, 0, 0, 0, 0]
+
+    reader_rt, compute_rt, writer_rt = ttnn.RuntimeArgs(), ttnn.RuntimeArgs(), ttnn.RuntimeArgs()
+    if plan_ct is None:
+        for (cx, cy), (fst, per_core) in assign.items():
+            reader_rt[cx][cy] = [fst, per_core]
+            compute_rt[cx][cy] = [per_core]
+            writer_rt[cx][cy] = [fst, per_core]
+
     reader = ttnn.KernelDescriptor(
         kernel_source=str(KERNEL_DIR / "reader_rne_add.cpp"),
         source_type=ttnn.KernelDescriptor.SourceType.FILE_PATH,
-        core_ranges=core_grid, compile_time_args=reader_ct, runtime_args=reader_rt,
+        core_ranges=core_grid, compile_time_args=reader_ct + genq_ct, runtime_args=reader_rt,
         common_runtime_args=[0, 0], config=ttnn.ReaderConfigDescriptor(),
     )
     writer = ttnn.KernelDescriptor(
         kernel_source=str(KERNEL_DIR / "writer_rne_add.cpp"),
         source_type=ttnn.KernelDescriptor.SourceType.FILE_PATH,
-        core_ranges=core_grid, compile_time_args=writer_ct, runtime_args=writer_rt,
+        core_ranges=core_grid, compile_time_args=writer_ct + genq_ct, runtime_args=writer_rt,
         common_runtime_args=[0], config=ttnn.WriterConfigDescriptor(),
     )
     compute = ttnn.KernelDescriptor(
         kernel_source=str(KERNEL_DIR / "compute_rne_add.cpp"),
         source_type=ttnn.KernelDescriptor.SourceType.FILE_PATH,
         core_ranges=core_grid,
-        compile_time_args=[A_CB, B_CB, OUT_CB, gran, ADD_MODE, ROUND_MODE],
+        compile_time_args=[A_CB, B_CB, OUT_CB, gran, ADD_MODE, ROUND_MODE] + genq_ct,
         runtime_args=compute_rt,
         config=ttnn.ComputeConfigDescriptor(
             # HiFi4 keeps every mantissa bit of a bfloat16 operand on the FPU path, and the 32-bit
@@ -237,7 +249,8 @@ def _build(a, out, device, reader_ct, writer_ct):
         pd.kernels[0].common_runtime_args = [0, 0]
 
     return {"pd": pd, "kernels": [reader, writer, compute], "cbs": cbs,
-            "core_grid": core_grid, "num_cores": num_cores, "num_tiles": num_tiles}
+            "core_grid": core_grid, "num_cores": num_cores, "num_tiles": num_tiles,
+            "compact": plan_ct is not None}
 
 
 def _prepare(a, b, out, device):
