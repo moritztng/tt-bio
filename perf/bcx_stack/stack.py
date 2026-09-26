@@ -266,7 +266,13 @@ class Levers:
 
         ag.triangle_attention = _tri
 
-        for name in ("_split_heads_v", "_merge_heads_v"):
+        # `_split_heads_v` / `_merge_heads_v` were renamed to `split_heads_value` /
+        # `merge_heads_value` by ed4aaa851, which unified the head verbs of wk/bcx-stack and
+        # wk/of3t-cropwall. `getattr` raised AttributeError and took the whole byte trace down
+        # with it -- measured 2026-09-26 04:29Z, every `bytes.py trace` on this branch failing
+        # before it opened a model. Named rather than skipped: a counter quietly dropped from
+        # the instrument under-counts the census it feeds, which is worse than the crash.
+        for name in ("split_heads_value", "merge_heads_value"):
             real = getattr(ag, name)
 
             def wrapped(*a, _real=real, _name=name, **k):
