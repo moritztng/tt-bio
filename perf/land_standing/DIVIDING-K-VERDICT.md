@@ -169,6 +169,36 @@ indicative of a real difference in kind, not a clean ratio between equally-place
 Direction at the trunk remains unknown; the only directional evidence is still per-call, where
 the fused route is 8.7-12.6 % closer to float64 than the fall-back it replaces.
 
+## What would finish this, and why this row stops here
+
+The remaining question is one sentence: **is the lever's larger `z` perturbation toward or away
+from correct?** Only a higher-precision trunk answers it, and the machinery already exists —
+`_fp32_softmax_attention` takes `host_f64: bool = False` (`tenstorrent.py:4106`), and `af2.py`
+already shows the pattern for reaching it from a model:
+
+    tt_bio/af2.py:507   self._softmax_f64 = host_f64_softmax_site("af2.msa")
+    tt_bio/af2.py:550   host_f64=self._softmax_f64,
+
+**OpenFold3's trunk has no such site.** Adding one — `host_f64_softmax_site("openfold3.trunk")`,
+default off, passed through to the same parameter — is a one-line addition of exactly the shape
+`af2.py` already carries, and it would give a reference arm that both OFF and ON could be scored
+against. That is what turns the 8.72 % vs 2.46 % bound into a direction.
+
+**This row is not making that change.** It is model surface in `tt_bio/tenstorrent.py` and
+`tt_bio/openfold3_trunk.py` added purely to instrument, and the charter's line is that a landing
+row lands measured work rather than growing the engine to measure it. Five passes have taken this
+lever from "20 of 48 lengths, 1.2894x, accuracy unknown" to a fully characterised object:
+
+    reach        one length, 832, and 704/1088/1216/1472 measured inert
+    speed        +50.999 s, 1.6351x, DURING-sampled clock, 39x its A/A floor
+    accuracy s   ordinary: 21.5 % against benign controls at 21.2 % and 21.2 %
+    accuracy z   8.72 % against a same-algebra control at 2.46 %, direction unknown
+    per call     the fused route is 8.7-12.6 % closer to float64 than the fall-back
+
+Everything except that last direction question is settled and reproducible from the artifacts in
+`perf/land_standing/out/`. The decision now belongs to whoever owns the accuracy bar, with the
+one-line site above as the cheapest way to get the evidence it needs.
+
 ## Recommendation
 
 Keep it off by default, but the trade has changed and the note should say so. The gain is no
