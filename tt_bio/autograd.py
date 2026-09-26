@@ -2076,6 +2076,12 @@ def triangle_attention(q: Tensor, k: Tensor, v: Tensor, bias: Optional[Tensor] =
 
     def make():
         def bw(g):
+            # Counted unconditionally, before any gate. "served 0, declined 0" is ambiguous on its
+            # own -- it reads the same whether this backward never ran or ran and was refused --
+            # and which of those is true decides whether the lever needs a narrower gate or
+            # another row's routing change.
+            from . import triatt_bw as _tbw0
+            _tbw0.STATS["bw_calls"] = _tbw0.STATS.get("bw_calls", 0) + 1
             # The fused backward, when it is on and the shape fits. It computes the same gradient
             # over the same blocks with the score tensor never leaving L1: 238.88 MB a call at the
             # shipped 288-token shape against 9172.90 for the loop below. Default off, and it
