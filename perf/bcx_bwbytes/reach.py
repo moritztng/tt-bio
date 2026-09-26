@@ -158,14 +158,22 @@ def predict(ops, rows, n):
         io = [d for d in o["ins"] + o["outs"]]
         after += sum(_b(d, 2 if d["dtype"] == "FLOAT32" else None) for d in io)
     calls = sum(1 for r in smb if r["op"] == "subtract")
-    # one narrowing per operand per call: read the fp32 tensor, write the bf16 one
+    # THREE casts per call, not two, and the third is the one that is easy to miss.
+    #   narrow y   read the fp32 tensor, write the bf16 one   1.5 passes
+    #   narrow g   same                                        1.5
+    #   widen dx   `backward()` normalises every gradient to its VALUE's dtype before firing
+    #              that value's closure (`autograd.py:621-622`), and the softmax's input is the
+    #              fp32 score tensor, so the bf16 dx is cast straight back up. 1.5
+    # An earlier version of this model counted two and overstated the lever by a third of its
+    # own cast bill. The cast-back is not removable by narrowing earlier -- only by taking the
+    # CONSUMER to bf16 as well, which is a different and larger change.
     score_fp32 = max((_b(d) for r in smb for d in ops[r["i"]]["ins"]
                       if d["dtype"] == "FLOAT32"), default=0.0)
-    narrow = 2 * calls * (score_fp32 * 1.5)
+    narrow = 3 * calls * (score_fp32 * 1.5)
     return {"smbf16": {"bucket_now_GB": round(now / 1e9, 3),
                        "bucket_at_bf16_GB": round(after / 1e9, 3),
                        "narrowing_cost_GB": round(narrow / 1e9, 3),
-                       "calls": calls,
+                       "casts_per_call": 3, "calls": calls,
                        "net_removed_GB": round((now - after - narrow) / 1e9, 3)},
             "fanin": {"net_removed_GB": round(fan / 1e9, 3)},
             "perm": {"net_removed_GB": 0.0,
