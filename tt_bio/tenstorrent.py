@@ -2541,6 +2541,7 @@ def _triatt_dualprobe(o_fold, q, k, v, bias, scale_inv, bias_scale_inv, ckc, sit
     return o_fold
 
 
+@ops.fused_kernel("tri_att_sdpa_hifi")
 def _tri_att_sdpa_hifi(q, k, v, bias, scale: float, one_k_chunk: bool = False):
     """Triangle attention through the fused SDPA at `_TRIATT_FUSED_HIFI_CKC`, or None to decline.
 
@@ -2585,17 +2586,21 @@ def _tri_att_sdpa_hifi(q, k, v, bias, scale: float, one_k_chunk: bool = False):
     # divisibility by 32, not length -- and it measures BETTER: 0.2610 -> 0.1929 A CA at 7ROA on a
     # 0.3755 A A/A floor. But it is a route change on top of an accuracy fix, so it gets its own
     # opt-in and its own decision.
-    # Under a tape this arm can only decline: `triatt_sdpa.sdpa` returns None at its first
-    # line because `generic_op` has no tape entry. Declining HERE rather than four frames in
-    # is not a route change -- the caller falls back to the same composed path on the same
-    # operands it does today -- but it skips two things that were being paid for a call whose
-    # answer was already fixed. `_sdpa_masked` pads q, k, v and bias on the DEVICE when the
-    # axis is ragged and then drops the padded copies unread, and the config ladder below
-    # walks q_chunk x k_chunk x kv_buffer_factor per call to reach the same None. It also
-    # makes the one defect this row was sent to re-check structurally unreachable: a taped
-    # call can no longer touch `_TRIATT_HIFI_OVER_L1` at all, where 69a0a6bdc had to teach it
-    # not to write there.
-    if ops.taping():
+    # With no tape entry for this arm it can only decline: `triatt_sdpa.sdpa` returns None at
+    # its first line because `generic_op` has no tape entry. Declining HERE rather than four
+    # frames in is not a route change -- the caller falls back to the same composed path on
+    # the same operands it does today -- but it skips two things that were being paid for a
+    # call whose answer was already fixed. `_sdpa_masked` pads q, k, v and bias on the DEVICE
+    # when the axis is ragged and then drops the padded copies unread, and the config ladder
+    # below walks q_chunk x k_chunk x kv_buffer_factor per call to reach the same None. It
+    # also makes the one defect this row was sent to re-check structurally unreachable: a
+    # taped call can no longer touch `_TRIATT_HIFI_OVER_L1` at all, where 69a0a6bdc had to
+    # teach it not to write there.
+    #
+    # With one registered -- `taped_ttnn._k_tri_att_sdpa_hifi` -- the decorator above has
+    # already routed the call there and this line does not run, so the kernel serves the
+    # forward and `autograd.triangle_attention` carries the backward.
+    if ops.declines_under_tape("tri_att_sdpa_hifi"):
         TRIATT_FUSED_HIFI_STATS["taped"] += 1
         return None
     if not _TRIATT_HIFI_MIN_S_PADDED:
