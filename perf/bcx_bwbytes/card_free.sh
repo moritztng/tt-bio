@@ -6,7 +6,13 @@
 #   1 no live holder on its device node          (fuser)
 #   2 no lease whose pid is ALIVE                -- a lease can read released 2.1 s after acquire
 #                                                   while its holder runs another hour
-#   3 no LIVE cardblock                          -- hazard notes outlive the arm that caused them
+#   3 no LIVE cardblock                          -- hazard notes outlive the arm that caused them,
+#                                                   AND a cardblock binds the DISPATCHER, not a
+#                                                   detached arm: a blocked card has run for 75
+#                                                   minutes under one. So the four conditions are
+#                                                   independent, not ordered -- a blocked card can
+#                                                   ALSO have a live holder, and all reasons are
+#                                                   accumulated rather than short-circuited.
 #   4 no live worker.sh ASSIGNED to host+card    -- the one that is easy to miss: an arm exits and
 #                                                   releases its lease while the ROW is alive
 #                                                   between stages and about to open again. Only
