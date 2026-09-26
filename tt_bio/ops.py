@@ -262,14 +262,9 @@ def linear(x, w, bias=None, *, activation=None, compute_kernel_config=None, dtyp
         out = _NARROW_PROJ(x, w, compute_kernel_config, dtype, l1_out=in_l1)
         if out is not None:
             return out
-    kw = dict(kw, compute_kernel_config=compute_kernel_config, dtype=dtype,
-              core_grid=core_grid)
-    # One gate for eleven call sites, which is why it goes here and not into any one of them.
-    # `mm_layout.plan_linear` returns `kw` itself when it does not apply, so an off arm and
-    # every unbatched or already-planned call pay one boolean.
-    from .mm_layout import plan_linear as _plan_linear
     return ttnn.linear(x, w, bias=bias, activation=activation,
-                       **_plan_linear(x, w, kw))
+                       compute_kernel_config=compute_kernel_config, dtype=dtype,
+                       core_grid=core_grid, **kw)
 
 
 @_dispatching
