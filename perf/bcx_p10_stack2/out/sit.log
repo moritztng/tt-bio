@@ -1,0 +1,1007 @@
+=== 19:36:49Z p1_off (off) ===
+2026-09-26 21:36:52.117 | DEBUG    | ttnn:<module>:77 - Initial ttnn.CONFIG:
+Config{cache_path=/home/moritz/.cache/ttnn,model_cache_path=/home/moritz/.cache/ttnn/models,tmp_dir=/tmp/ttnn,enable_model_cache=false,enable_fast_runtime_mode=true,throw_exception_on_fallback=false,enable_logging=false,enable_graph_report=false,enable_detailed_buffer_report=false,enable_detailed_tensor_report=false,enable_comparison_mode=false,comparison_mode_should_raise_exception=false,comparison_mode_pcc=0.9999,root_report_path=generated/ttnn/reports,report_name=std::nullopt,std::nullopt}
+{
+ "host": "pc",
+ "card": "0",
+ "tt_bio_file": "/home/moritz/.coworker/wt/bcx-p10-stack2/tt_bio/__init__.py",
+ "exact": false,
+ "extra_msa_on_device": true,
+ "template_on_device": true,
+ "triatt_taped_sdpa": false,
+ "triatt_hifi": true,
+ "triatt_bw_fused": false,
+ "rne_kernel": false,
+ "taped_kernels": "tri_att_sdpa_hifi",
+ "triatt_dividing_k": "1",
+ "sdpa_own_forward": true,
+ "shipped_pool": true,
+ "binder_pinned": 146,
+ "sets": [],
+ "model_pool": "PredictionModelSelection(design_models=('model_1_multimer_v3', 'model_2_multimer_v3', 'model_3_multimer_v3', 'model_4_multimer_v3', 'model_5_multimer_v3'), validation_models=('model_1_ptm', 'model_2_ptm'), validation_pool_exhausted=False)",
+ "pci": "0000:01:00.0",
+ "sysfs": "/sys/class/tenstorrent/tenstorrent!0/tt_aiclk",
+ "commit": "196726c42aca8d0708eb3be0c9e33f8cafcd4526",
+ "seed": 100,
+ "rounds_requested": 9,
+ "length_bucket_size": 32,
+ "stage_plan": {
+  "per_stage": {
+   "screen": 50,
+   "refine": 25,
+   "anneal": 45,
+   "harden": 5,
+   "mutate": 15
+  },
+  "gradient_steps": 125,
+  "mutate_steps": 15
+ },
+ "started_utc": "2026-09-26T19:36:52Z",
+ "loadavg_start": [
+  1.57763671875,
+  2.2724609375,
+  3.087890625
+ ],
+ "nproc": 12,
+ "project": "perf/bcx_p10_stack2/out/p1_off"
+}
+BindCraft 2 (unreleased)
+campaign pdl1
+binder length 146
+target hPDL1 (target) | 115 residues | hotspots 54,56,66,115
+losses binder_contacts=1.0 binder_helicity=-0.3 binder_pae=0.4 compactness=0.5 interface_contacts=1.0 interface_pae=0.1 iptm_loss=0.05 plddt_loss=0.1
+filters Backbone_Clashes <= 0, Binder_RMSD <= 3.5, Interface_Residues >= 7, Unbound_Binder_pLDDT >= 0.7, i_pAE <= 0.35, i_pTM >= 0.7, pTM >= 0.55
+results perf/bcx_p10_stack2/out/p1_off | 3_Ranked/!_Ranked.csv rewritten as each design is accepted | summary.csv written when the campaign ends
+
+=== trajectory 1 | pdl1_denovo_l146_edd97eb588c9fab1 | accepted 0/10 ===
+/home/moritz/.coworker/wt/bcx-p10-stack2/tt_bio/main.py:62: RuntimeWarning: os.fork() was called. os.fork() is incompatible with multithreaded code, and JAX is multithreaded, so this will likely lead to a deadlock.
+  pid = _os.fork()
+{
+ "host": "pc",
+ "card": "0",
+ "tt_bio_file": "/home/moritz/.coworker/wt/bcx-p10-stack2/tt_bio/__init__.py",
+ "exact": false,
+ "extra_msa_on_device": true,
+ "template_on_device": true,
+ "triatt_taped_sdpa": false,
+ "triatt_hifi": true,
+ "triatt_bw_fused": false,
+ "rne_kernel": false,
+ "taped_kernels": "tri_att_sdpa_hifi",
+ "triatt_dividing_k": "1",
+ "sdpa_own_forward": true,
+ "shipped_pool": true,
+ "binder_pinned": 146,
+ "sets": [],
+ "model_pool": "PredictionModelSelection(design_models=('model_1_multimer_v3', 'model_2_multimer_v3', 'model_3_multimer_v3', 'model_4_multimer_v3', 'model_5_multimer_v3'), validation_models=('model_1_ptm', 'model_2_ptm'), validation_pool_exhausted=False)",
+ "pci": "0000:01:00.0",
+ "sysfs": "/sys/class/tenstorrent/tenstorrent!0/tt_aiclk",
+ "commit": "196726c42aca8d0708eb3be0c9e33f8cafcd4526",
+ "seed": 100,
+ "rounds_requested": 9,
+ "length_bucket_size": 32,
+ "stage_plan": {
+  "per_stage": {
+   "screen": 50,
+   "refine": 25,
+   "anneal": 45,
+   "harden": 5,
+   "mutate": 15
+  },
+  "gradient_steps": 125,
+  "mutate_steps": 15
+ },
+ "started_utc": "2026-09-26T19:36:52Z",
+ "loadavg_start": [
+  1.57763671875,
+  2.2724609375,
+  3.087890625
+ ],
+ "nproc": 12,
+ "project": "perf/bcx_p10_stack2/out/p1_off",
+ "wall_seconds": 126.43,
+ "stopped": "9 rounds collected",
+ "triatt_bw_stats": {
+  "served": 0,
+  "declined": 0,
+  "bw_calls": 972
+ },
+ "exact_softmax_stats": {
+  "verb": 0,
+  "raw": 0,
+  "raw_elements": 0
+ },
+ "exact_layer_norm_stats": {
+  "verb": 0,
+  "raw": 0,
+  "elements": 0,
+  "bw": 0
+ },
+ "device_calls": {
+  "primal": 0,
+  "taped": 18,
+  "backward": 9
+ },
+ "extra_msa_calls": {
+  "primal": 0,
+  "taped": 18,
+  "backward": 9
+ },
+ "extra_msa_swapped": [
+  4
+ ],
+ "extra_msa_mask_seen": {
+  "calls": 18,
+  "abs_max": 0.0
+ },
+ "template_calls": {
+  "primal": 0,
+  "taped": 18,
+  "backward": 9
+ },
+ "triatt_sdpa_stats": {
+  "served": 0,
+  "off": 0,
+  "untaped": 0,
+  "no_bias": 0,
+  "too_short": 0,
+  "ragged": 0,
+  "declined": 0
+ },
+ "sdpa_own_forward_stats": {
+  "own": 0,
+  "kernel": 0
+ },
+ "kernel_entry_stats": {
+  "tri_att_sdpa_hifi": [
+   2916,
+   0
+  ]
+ },
+ "fused_hifi_stats": {
+  "served": 2916,
+  "declined": 0,
+  "too_short": 0,
+  "taped": 0
+ },
+ "rne_add_stats": {
+  "served": 0,
+  "declined": 0,
+  "rejects": {}
+ },
+ "fp32_softmax_calls": 1296,
+ "mm_layout": {},
+ "mm_layout_on": false,
+ "mm_layout_side": 8,
+ "host_folds": {},
+ "loadavg_end": [
+  1.86474609375,
+  2.17919921875,
+  2.95166015625
+ ],
+ "finished_utc": "2026-09-26T19:38:58Z",
+ "state_shape": {
+  "1": {
+   "hPDL1": {
+    "binder": 146,
+    "target_hPDL1": 115
+   }
+  },
+  "2": {
+   "hPDL1": {
+    "binder": 146,
+    "target_hPDL1": 115
+   }
+  },
+  "3": {
+   "hPDL1": {
+    "binder": 146,
+    "target_hPDL1": 115
+   }
+  },
+  "4": {
+   "hPDL1": {
+    "binder": 146,
+    "target_hPDL1": 115
+   }
+  },
+  "5": {
+   "hPDL1": {
+    "binder": 146,
+    "target_hPDL1": 115
+   }
+  },
+  "6": {
+   "hPDL1": {
+    "binder": 146,
+    "target_hPDL1": 115
+   }
+  },
+  "7": {
+   "hPDL1": {
+    "binder": 146,
+    "target_hPDL1": 115
+   }
+  },
+  "8": {
+   "hPDL1": {
+    "binder": 146,
+    "target_hPDL1": 115
+   }
+  },
+  "9": {
+   "hPDL1": {
+    "binder": 146,
+    "target_hPDL1": 115
+   }
+  },
+  "10": {
+   "hPDL1": {
+    "binder": 146,
+    "target_hPDL1": 115
+   }
+  }
+ }
+}
+events -> perf/bcx_p10_stack2/out/p1_off/round_events.json
+=== 19:39:00Z p2_on (on) ===
+2026-09-26 21:39:02.320 | DEBUG    | ttnn:<module>:77 - Initial ttnn.CONFIG:
+Config{cache_path=/home/moritz/.cache/ttnn,model_cache_path=/home/moritz/.cache/ttnn/models,tmp_dir=/tmp/ttnn,enable_model_cache=false,enable_fast_runtime_mode=true,throw_exception_on_fallback=false,enable_logging=false,enable_graph_report=false,enable_detailed_buffer_report=false,enable_detailed_tensor_report=false,enable_comparison_mode=false,comparison_mode_should_raise_exception=false,comparison_mode_pcc=0.9999,root_report_path=generated/ttnn/reports,report_name=std::nullopt,std::nullopt}
+{
+ "host": "pc",
+ "card": "0",
+ "tt_bio_file": "/home/moritz/.coworker/wt/bcx-p10-stack2/tt_bio/__init__.py",
+ "exact": false,
+ "extra_msa_on_device": true,
+ "template_on_device": true,
+ "triatt_taped_sdpa": false,
+ "triatt_hifi": true,
+ "triatt_bw_fused": true,
+ "rne_kernel": true,
+ "taped_kernels": "tri_att_sdpa_hifi,rne_add",
+ "triatt_dividing_k": "1",
+ "sdpa_own_forward": true,
+ "shipped_pool": true,
+ "binder_pinned": 146,
+ "sets": [],
+ "model_pool": "PredictionModelSelection(design_models=('model_1_multimer_v3', 'model_2_multimer_v3', 'model_3_multimer_v3', 'model_4_multimer_v3', 'model_5_multimer_v3'), validation_models=('model_1_ptm', 'model_2_ptm'), validation_pool_exhausted=False)",
+ "pci": "0000:01:00.0",
+ "sysfs": "/sys/class/tenstorrent/tenstorrent!0/tt_aiclk",
+ "commit": "196726c42aca8d0708eb3be0c9e33f8cafcd4526",
+ "seed": 100,
+ "rounds_requested": 9,
+ "length_bucket_size": 32,
+ "stage_plan": {
+  "per_stage": {
+   "screen": 50,
+   "refine": 25,
+   "anneal": 45,
+   "harden": 5,
+   "mutate": 15
+  },
+  "gradient_steps": 125,
+  "mutate_steps": 15
+ },
+ "started_utc": "2026-09-26T19:39:02Z",
+ "loadavg_start": [
+  1.79541015625,
+  2.1591796875,
+  2.94091796875
+ ],
+ "nproc": 12,
+ "project": "perf/bcx_p10_stack2/out/p2_on"
+}
+BindCraft 2 (unreleased)
+campaign pdl1
+binder length 146
+target hPDL1 (target) | 115 residues | hotspots 54,56,66,115
+losses binder_contacts=1.0 binder_helicity=-0.3 binder_pae=0.4 compactness=0.5 interface_contacts=1.0 interface_pae=0.1 iptm_loss=0.05 plddt_loss=0.1
+filters Backbone_Clashes <= 0, Binder_RMSD <= 3.5, Interface_Residues >= 7, Unbound_Binder_pLDDT >= 0.7, i_pAE <= 0.35, i_pTM >= 0.7, pTM >= 0.55
+results perf/bcx_p10_stack2/out/p2_on | 3_Ranked/!_Ranked.csv rewritten as each design is accepted | summary.csv written when the campaign ends
+
+=== trajectory 1 | pdl1_denovo_l146_edd97eb588c9fab1 | accepted 0/10 ===
+/home/moritz/.coworker/wt/bcx-p10-stack2/tt_bio/main.py:62: RuntimeWarning: os.fork() was called. os.fork() is incompatible with multithreaded code, and JAX is multithreaded, so this will likely lead to a deadlock.
+  pid = _os.fork()
+{
+ "host": "pc",
+ "card": "0",
+ "tt_bio_file": "/home/moritz/.coworker/wt/bcx-p10-stack2/tt_bio/__init__.py",
+ "exact": false,
+ "extra_msa_on_device": true,
+ "template_on_device": true,
+ "triatt_taped_sdpa": false,
+ "triatt_hifi": true,
+ "triatt_bw_fused": true,
+ "rne_kernel": true,
+ "taped_kernels": "tri_att_sdpa_hifi,rne_add",
+ "triatt_dividing_k": "1",
+ "sdpa_own_forward": true,
+ "shipped_pool": true,
+ "binder_pinned": 146,
+ "sets": [],
+ "model_pool": "PredictionModelSelection(design_models=('model_1_multimer_v3', 'model_2_multimer_v3', 'model_3_multimer_v3', 'model_4_multimer_v3', 'model_5_multimer_v3'), validation_models=('model_1_ptm', 'model_2_ptm'), validation_pool_exhausted=False)",
+ "pci": "0000:01:00.0",
+ "sysfs": "/sys/class/tenstorrent/tenstorrent!0/tt_aiclk",
+ "commit": "196726c42aca8d0708eb3be0c9e33f8cafcd4526",
+ "seed": 100,
+ "rounds_requested": 9,
+ "length_bucket_size": 32,
+ "stage_plan": {
+  "per_stage": {
+   "screen": 50,
+   "refine": 25,
+   "anneal": 45,
+   "harden": 5,
+   "mutate": 15
+  },
+  "gradient_steps": 125,
+  "mutate_steps": 15
+ },
+ "started_utc": "2026-09-26T19:39:02Z",
+ "loadavg_start": [
+  1.79541015625,
+  2.1591796875,
+  2.94091796875
+ ],
+ "nproc": 12,
+ "project": "perf/bcx_p10_stack2/out/p2_on",
+ "wall_seconds": 103.77,
+ "stopped": "9 rounds collected",
+ "triatt_bw_stats": {
+  "served": 972,
+  "declined": 0,
+  "bw_calls": 972
+ },
+ "exact_softmax_stats": {
+  "verb": 0,
+  "raw": 0,
+  "raw_elements": 0
+ },
+ "exact_layer_norm_stats": {
+  "verb": 0,
+  "raw": 0,
+  "elements": 0,
+  "bw": 0
+ },
+ "device_calls": {
+  "primal": 0,
+  "taped": 18,
+  "backward": 9
+ },
+ "extra_msa_calls": {
+  "primal": 0,
+  "taped": 18,
+  "backward": 9
+ },
+ "extra_msa_swapped": [
+  4
+ ],
+ "extra_msa_mask_seen": {
+  "calls": 18,
+  "abs_max": 0.0
+ },
+ "template_calls": {
+  "primal": 0,
+  "taped": 18,
+  "backward": 9
+ },
+ "triatt_sdpa_stats": {
+  "served": 0,
+  "off": 0,
+  "untaped": 0,
+  "no_bias": 0,
+  "too_short": 0,
+  "ragged": 0,
+  "declined": 0
+ },
+ "sdpa_own_forward_stats": {
+  "own": 0,
+  "kernel": 0
+ },
+ "kernel_entry_stats": {
+  "rne_add": [
+   12474,
+   0
+  ],
+  "tri_att_sdpa_hifi": [
+   2916,
+   0
+  ]
+ },
+ "fused_hifi_stats": {
+  "served": 2916,
+  "declined": 0,
+  "too_short": 0,
+  "taped": 0
+ },
+ "rne_add_stats": {
+  "served": 12474,
+  "declined": 108,
+  "rejects": {
+   "shape_mismatch|(1, 288, 288, 128)|(1, 1, 1, 128)": 108
+  }
+ },
+ "fp32_softmax_calls": 1296,
+ "mm_layout": {
+  "declined: has a program config": 11124,
+  "declined: has a core grid": 2592,
+  "served": 6264,
+  "declined: not batched": 13824
+ },
+ "mm_layout_on": true,
+ "mm_layout_side": 8,
+ "host_folds": {},
+ "loadavg_end": [
+  2.57373046875,
+  2.31787109375,
+  2.912109375
+ ],
+ "finished_utc": "2026-09-26T19:40:46Z",
+ "state_shape": {
+  "1": {
+   "hPDL1": {
+    "binder": 146,
+    "target_hPDL1": 115
+   }
+  },
+  "2": {
+   "hPDL1": {
+    "binder": 146,
+    "target_hPDL1": 115
+   }
+  },
+  "3": {
+   "hPDL1": {
+    "binder": 146,
+    "target_hPDL1": 115
+   }
+  },
+  "4": {
+   "hPDL1": {
+    "binder": 146,
+    "target_hPDL1": 115
+   }
+  },
+  "5": {
+   "hPDL1": {
+    "binder": 146,
+    "target_hPDL1": 115
+   }
+  },
+  "6": {
+   "hPDL1": {
+    "binder": 146,
+    "target_hPDL1": 115
+   }
+  },
+  "7": {
+   "hPDL1": {
+    "binder": 146,
+    "target_hPDL1": 115
+   }
+  },
+  "8": {
+   "hPDL1": {
+    "binder": 146,
+    "target_hPDL1": 115
+   }
+  },
+  "9": {
+   "hPDL1": {
+    "binder": 146,
+    "target_hPDL1": 115
+   }
+  },
+  "10": {
+   "hPDL1": {
+    "binder": 146,
+    "target_hPDL1": 115
+   }
+  }
+ }
+}
+events -> perf/bcx_p10_stack2/out/p2_on/round_events.json
+=== 19:40:47Z p3_on (on) ===
+2026-09-26 21:40:49.628 | DEBUG    | ttnn:<module>:77 - Initial ttnn.CONFIG:
+Config{cache_path=/home/moritz/.cache/ttnn,model_cache_path=/home/moritz/.cache/ttnn/models,tmp_dir=/tmp/ttnn,enable_model_cache=false,enable_fast_runtime_mode=true,throw_exception_on_fallback=false,enable_logging=false,enable_graph_report=false,enable_detailed_buffer_report=false,enable_detailed_tensor_report=false,enable_comparison_mode=false,comparison_mode_should_raise_exception=false,comparison_mode_pcc=0.9999,root_report_path=generated/ttnn/reports,report_name=std::nullopt,std::nullopt}
+{
+ "host": "pc",
+ "card": "0",
+ "tt_bio_file": "/home/moritz/.coworker/wt/bcx-p10-stack2/tt_bio/__init__.py",
+ "exact": false,
+ "extra_msa_on_device": true,
+ "template_on_device": true,
+ "triatt_taped_sdpa": false,
+ "triatt_hifi": true,
+ "triatt_bw_fused": true,
+ "rne_kernel": true,
+ "taped_kernels": "tri_att_sdpa_hifi,rne_add",
+ "triatt_dividing_k": "1",
+ "sdpa_own_forward": true,
+ "shipped_pool": true,
+ "binder_pinned": 146,
+ "sets": [],
+ "model_pool": "PredictionModelSelection(design_models=('model_1_multimer_v3', 'model_2_multimer_v3', 'model_3_multimer_v3', 'model_4_multimer_v3', 'model_5_multimer_v3'), validation_models=('model_1_ptm', 'model_2_ptm'), validation_pool_exhausted=False)",
+ "pci": "0000:01:00.0",
+ "sysfs": "/sys/class/tenstorrent/tenstorrent!0/tt_aiclk",
+ "commit": "20d2ffbc67275f66b7b20dbe296c09a8cebbee5a",
+ "seed": 100,
+ "rounds_requested": 9,
+ "length_bucket_size": 32,
+ "stage_plan": {
+  "per_stage": {
+   "screen": 50,
+   "refine": 25,
+   "anneal": 45,
+   "harden": 5,
+   "mutate": 15
+  },
+  "gradient_steps": 125,
+  "mutate_steps": 15
+ },
+ "started_utc": "2026-09-26T19:40:49Z",
+ "loadavg_start": [
+  2.447265625,
+  2.2958984375,
+  2.9013671875
+ ],
+ "nproc": 12,
+ "project": "perf/bcx_p10_stack2/out/p3_on"
+}
+BindCraft 2 (unreleased)
+campaign pdl1
+binder length 146
+target hPDL1 (target) | 115 residues | hotspots 54,56,66,115
+losses binder_contacts=1.0 binder_helicity=-0.3 binder_pae=0.4 compactness=0.5 interface_contacts=1.0 interface_pae=0.1 iptm_loss=0.05 plddt_loss=0.1
+filters Backbone_Clashes <= 0, Binder_RMSD <= 3.5, Interface_Residues >= 7, Unbound_Binder_pLDDT >= 0.7, i_pAE <= 0.35, i_pTM >= 0.7, pTM >= 0.55
+results perf/bcx_p10_stack2/out/p3_on | 3_Ranked/!_Ranked.csv rewritten as each design is accepted | summary.csv written when the campaign ends
+
+=== trajectory 1 | pdl1_denovo_l146_edd97eb588c9fab1 | accepted 0/10 ===
+/home/moritz/.coworker/wt/bcx-p10-stack2/tt_bio/main.py:62: RuntimeWarning: os.fork() was called. os.fork() is incompatible with multithreaded code, and JAX is multithreaded, so this will likely lead to a deadlock.
+  pid = _os.fork()
+{
+ "host": "pc",
+ "card": "0",
+ "tt_bio_file": "/home/moritz/.coworker/wt/bcx-p10-stack2/tt_bio/__init__.py",
+ "exact": false,
+ "extra_msa_on_device": true,
+ "template_on_device": true,
+ "triatt_taped_sdpa": false,
+ "triatt_hifi": true,
+ "triatt_bw_fused": true,
+ "rne_kernel": true,
+ "taped_kernels": "tri_att_sdpa_hifi,rne_add",
+ "triatt_dividing_k": "1",
+ "sdpa_own_forward": true,
+ "shipped_pool": true,
+ "binder_pinned": 146,
+ "sets": [],
+ "model_pool": "PredictionModelSelection(design_models=('model_1_multimer_v3', 'model_2_multimer_v3', 'model_3_multimer_v3', 'model_4_multimer_v3', 'model_5_multimer_v3'), validation_models=('model_1_ptm', 'model_2_ptm'), validation_pool_exhausted=False)",
+ "pci": "0000:01:00.0",
+ "sysfs": "/sys/class/tenstorrent/tenstorrent!0/tt_aiclk",
+ "commit": "20d2ffbc67275f66b7b20dbe296c09a8cebbee5a",
+ "seed": 100,
+ "rounds_requested": 9,
+ "length_bucket_size": 32,
+ "stage_plan": {
+  "per_stage": {
+   "screen": 50,
+   "refine": 25,
+   "anneal": 45,
+   "harden": 5,
+   "mutate": 15
+  },
+  "gradient_steps": 125,
+  "mutate_steps": 15
+ },
+ "started_utc": "2026-09-26T19:40:49Z",
+ "loadavg_start": [
+  2.447265625,
+  2.2958984375,
+  2.9013671875
+ ],
+ "nproc": 12,
+ "project": "perf/bcx_p10_stack2/out/p3_on",
+ "wall_seconds": 100.02,
+ "stopped": "9 rounds collected",
+ "triatt_bw_stats": {
+  "served": 972,
+  "declined": 0,
+  "bw_calls": 972
+ },
+ "exact_softmax_stats": {
+  "verb": 0,
+  "raw": 0,
+  "raw_elements": 0
+ },
+ "exact_layer_norm_stats": {
+  "verb": 0,
+  "raw": 0,
+  "elements": 0,
+  "bw": 0
+ },
+ "device_calls": {
+  "primal": 0,
+  "taped": 18,
+  "backward": 9
+ },
+ "extra_msa_calls": {
+  "primal": 0,
+  "taped": 18,
+  "backward": 9
+ },
+ "extra_msa_swapped": [
+  4
+ ],
+ "extra_msa_mask_seen": {
+  "calls": 18,
+  "abs_max": 0.0
+ },
+ "template_calls": {
+  "primal": 0,
+  "taped": 18,
+  "backward": 9
+ },
+ "triatt_sdpa_stats": {
+  "served": 0,
+  "off": 0,
+  "untaped": 0,
+  "no_bias": 0,
+  "too_short": 0,
+  "ragged": 0,
+  "declined": 0
+ },
+ "sdpa_own_forward_stats": {
+  "own": 0,
+  "kernel": 0
+ },
+ "kernel_entry_stats": {
+  "rne_add": [
+   12474,
+   0
+  ],
+  "tri_att_sdpa_hifi": [
+   2916,
+   0
+  ]
+ },
+ "fused_hifi_stats": {
+  "served": 2916,
+  "declined": 0,
+  "too_short": 0,
+  "taped": 0
+ },
+ "rne_add_stats": {
+  "served": 12474,
+  "declined": 108,
+  "rejects": {
+   "shape_mismatch|(1, 288, 288, 128)|(1, 1, 1, 128)": 108
+  }
+ },
+ "fp32_softmax_calls": 1296,
+ "mm_layout": {
+  "declined: has a program config": 11124,
+  "declined: has a core grid": 2592,
+  "served": 6264,
+  "declined: not batched": 13824
+ },
+ "mm_layout_on": true,
+ "mm_layout_side": 8,
+ "host_folds": {},
+ "loadavg_end": [
+  3.1640625,
+  2.53955078125,
+  2.92333984375
+ ],
+ "finished_utc": "2026-09-26T19:42:29Z",
+ "state_shape": {
+  "1": {
+   "hPDL1": {
+    "binder": 146,
+    "target_hPDL1": 115
+   }
+  },
+  "2": {
+   "hPDL1": {
+    "binder": 146,
+    "target_hPDL1": 115
+   }
+  },
+  "3": {
+   "hPDL1": {
+    "binder": 146,
+    "target_hPDL1": 115
+   }
+  },
+  "4": {
+   "hPDL1": {
+    "binder": 146,
+    "target_hPDL1": 115
+   }
+  },
+  "5": {
+   "hPDL1": {
+    "binder": 146,
+    "target_hPDL1": 115
+   }
+  },
+  "6": {
+   "hPDL1": {
+    "binder": 146,
+    "target_hPDL1": 115
+   }
+  },
+  "7": {
+   "hPDL1": {
+    "binder": 146,
+    "target_hPDL1": 115
+   }
+  },
+  "8": {
+   "hPDL1": {
+    "binder": 146,
+    "target_hPDL1": 115
+   }
+  },
+  "9": {
+   "hPDL1": {
+    "binder": 146,
+    "target_hPDL1": 115
+   }
+  },
+  "10": {
+   "hPDL1": {
+    "binder": 146,
+    "target_hPDL1": 115
+   }
+  }
+ }
+}
+events -> perf/bcx_p10_stack2/out/p3_on/round_events.json
+=== 19:42:31Z p4_off (off) ===
+2026-09-26 21:42:33.097 | DEBUG    | ttnn:<module>:77 - Initial ttnn.CONFIG:
+Config{cache_path=/home/moritz/.cache/ttnn,model_cache_path=/home/moritz/.cache/ttnn/models,tmp_dir=/tmp/ttnn,enable_model_cache=false,enable_fast_runtime_mode=true,throw_exception_on_fallback=false,enable_logging=false,enable_graph_report=false,enable_detailed_buffer_report=false,enable_detailed_tensor_report=false,enable_comparison_mode=false,comparison_mode_should_raise_exception=false,comparison_mode_pcc=0.9999,root_report_path=generated/ttnn/reports,report_name=std::nullopt,std::nullopt}
+{
+ "host": "pc",
+ "card": "0",
+ "tt_bio_file": "/home/moritz/.coworker/wt/bcx-p10-stack2/tt_bio/__init__.py",
+ "exact": false,
+ "extra_msa_on_device": true,
+ "template_on_device": true,
+ "triatt_taped_sdpa": false,
+ "triatt_hifi": true,
+ "triatt_bw_fused": false,
+ "rne_kernel": false,
+ "taped_kernels": "tri_att_sdpa_hifi",
+ "triatt_dividing_k": "1",
+ "sdpa_own_forward": true,
+ "shipped_pool": true,
+ "binder_pinned": 146,
+ "sets": [],
+ "model_pool": "PredictionModelSelection(design_models=('model_1_multimer_v3', 'model_2_multimer_v3', 'model_3_multimer_v3', 'model_4_multimer_v3', 'model_5_multimer_v3'), validation_models=('model_1_ptm', 'model_2_ptm'), validation_pool_exhausted=False)",
+ "pci": "0000:01:00.0",
+ "sysfs": "/sys/class/tenstorrent/tenstorrent!0/tt_aiclk",
+ "commit": "20d2ffbc67275f66b7b20dbe296c09a8cebbee5a",
+ "seed": 100,
+ "rounds_requested": 9,
+ "length_bucket_size": 32,
+ "stage_plan": {
+  "per_stage": {
+   "screen": 50,
+   "refine": 25,
+   "anneal": 45,
+   "harden": 5,
+   "mutate": 15
+  },
+  "gradient_steps": 125,
+  "mutate_steps": 15
+ },
+ "started_utc": "2026-09-26T19:42:33Z",
+ "loadavg_start": [
+  3.1640625,
+  2.53955078125,
+  2.92333984375
+ ],
+ "nproc": 12,
+ "project": "perf/bcx_p10_stack2/out/p4_off"
+}
+BindCraft 2 (unreleased)
+campaign pdl1
+binder length 146
+target hPDL1 (target) | 115 residues | hotspots 54,56,66,115
+losses binder_contacts=1.0 binder_helicity=-0.3 binder_pae=0.4 compactness=0.5 interface_contacts=1.0 interface_pae=0.1 iptm_loss=0.05 plddt_loss=0.1
+filters Backbone_Clashes <= 0, Binder_RMSD <= 3.5, Interface_Residues >= 7, Unbound_Binder_pLDDT >= 0.7, i_pAE <= 0.35, i_pTM >= 0.7, pTM >= 0.55
+results perf/bcx_p10_stack2/out/p4_off | 3_Ranked/!_Ranked.csv rewritten as each design is accepted | summary.csv written when the campaign ends
+
+=== trajectory 1 | pdl1_denovo_l146_edd97eb588c9fab1 | accepted 0/10 ===
+/home/moritz/.coworker/wt/bcx-p10-stack2/tt_bio/main.py:62: RuntimeWarning: os.fork() was called. os.fork() is incompatible with multithreaded code, and JAX is multithreaded, so this will likely lead to a deadlock.
+  pid = _os.fork()
+{
+ "host": "pc",
+ "card": "0",
+ "tt_bio_file": "/home/moritz/.coworker/wt/bcx-p10-stack2/tt_bio/__init__.py",
+ "exact": false,
+ "extra_msa_on_device": true,
+ "template_on_device": true,
+ "triatt_taped_sdpa": false,
+ "triatt_hifi": true,
+ "triatt_bw_fused": false,
+ "rne_kernel": false,
+ "taped_kernels": "tri_att_sdpa_hifi",
+ "triatt_dividing_k": "1",
+ "sdpa_own_forward": true,
+ "shipped_pool": true,
+ "binder_pinned": 146,
+ "sets": [],
+ "model_pool": "PredictionModelSelection(design_models=('model_1_multimer_v3', 'model_2_multimer_v3', 'model_3_multimer_v3', 'model_4_multimer_v3', 'model_5_multimer_v3'), validation_models=('model_1_ptm', 'model_2_ptm'), validation_pool_exhausted=False)",
+ "pci": "0000:01:00.0",
+ "sysfs": "/sys/class/tenstorrent/tenstorrent!0/tt_aiclk",
+ "commit": "20d2ffbc67275f66b7b20dbe296c09a8cebbee5a",
+ "seed": 100,
+ "rounds_requested": 9,
+ "length_bucket_size": 32,
+ "stage_plan": {
+  "per_stage": {
+   "screen": 50,
+   "refine": 25,
+   "anneal": 45,
+   "harden": 5,
+   "mutate": 15
+  },
+  "gradient_steps": 125,
+  "mutate_steps": 15
+ },
+ "started_utc": "2026-09-26T19:42:33Z",
+ "loadavg_start": [
+  3.1640625,
+  2.53955078125,
+  2.92333984375
+ ],
+ "nproc": 12,
+ "project": "perf/bcx_p10_stack2/out/p4_off",
+ "wall_seconds": 120.62,
+ "stopped": "9 rounds collected",
+ "triatt_bw_stats": {
+  "served": 0,
+  "declined": 0,
+  "bw_calls": 972
+ },
+ "exact_softmax_stats": {
+  "verb": 0,
+  "raw": 0,
+  "raw_elements": 0
+ },
+ "exact_layer_norm_stats": {
+  "verb": 0,
+  "raw": 0,
+  "elements": 0,
+  "bw": 0
+ },
+ "device_calls": {
+  "primal": 0,
+  "taped": 18,
+  "backward": 9
+ },
+ "extra_msa_calls": {
+  "primal": 0,
+  "taped": 18,
+  "backward": 9
+ },
+ "extra_msa_swapped": [
+  4
+ ],
+ "extra_msa_mask_seen": {
+  "calls": 18,
+  "abs_max": 0.0
+ },
+ "template_calls": {
+  "primal": 0,
+  "taped": 18,
+  "backward": 9
+ },
+ "triatt_sdpa_stats": {
+  "served": 0,
+  "off": 0,
+  "untaped": 0,
+  "no_bias": 0,
+  "too_short": 0,
+  "ragged": 0,
+  "declined": 0
+ },
+ "sdpa_own_forward_stats": {
+  "own": 0,
+  "kernel": 0
+ },
+ "kernel_entry_stats": {
+  "tri_att_sdpa_hifi": [
+   2916,
+   0
+  ]
+ },
+ "fused_hifi_stats": {
+  "served": 2916,
+  "declined": 0,
+  "too_short": 0,
+  "taped": 0
+ },
+ "rne_add_stats": {
+  "served": 0,
+  "declined": 0,
+  "rejects": {}
+ },
+ "fp32_softmax_calls": 1296,
+ "mm_layout": {},
+ "mm_layout_on": false,
+ "mm_layout_side": 8,
+ "host_folds": {},
+ "loadavg_end": [
+  6.96484375,
+  3.96533203125,
+  3.3828125
+ ],
+ "finished_utc": "2026-09-26T19:44:33Z",
+ "state_shape": {
+  "1": {
+   "hPDL1": {
+    "binder": 146,
+    "target_hPDL1": 115
+   }
+  },
+  "2": {
+   "hPDL1": {
+    "binder": 146,
+    "target_hPDL1": 115
+   }
+  },
+  "3": {
+   "hPDL1": {
+    "binder": 146,
+    "target_hPDL1": 115
+   }
+  },
+  "4": {
+   "hPDL1": {
+    "binder": 146,
+    "target_hPDL1": 115
+   }
+  },
+  "5": {
+   "hPDL1": {
+    "binder": 146,
+    "target_hPDL1": 115
+   }
+  },
+  "6": {
+   "hPDL1": {
+    "binder": 146,
+    "target_hPDL1": 115
+   }
+  },
+  "7": {
+   "hPDL1": {
+    "binder": 146,
+    "target_hPDL1": 115
+   }
+  },
+  "8": {
+   "hPDL1": {
+    "binder": 146,
+    "target_hPDL1": 115
+   }
+  },
+  "9": {
+   "hPDL1": {
+    "binder": 146,
+    "target_hPDL1": 115
+   }
+  },
+  "10": {
+   "hPDL1": {
+    "binder": 146,
+    "target_hPDL1": 115
+   }
+  }
+ }
+}
+events -> perf/bcx_p10_stack2/out/p4_off/round_events.json
+=== 19:44:35Z sitting complete ===

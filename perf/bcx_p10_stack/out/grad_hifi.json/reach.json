@@ -1,0 +1,28 @@
+{
+ "triatt_sdpa_stats": {
+  "served": 0,
+  "off": 0,
+  "untaped": 0,
+  "no_bias": 0,
+  "too_short": 0,
+  "ragged": 0,
+  "declined": 0
+ },
+ "sdpa_own_forward_stats": {
+  "own": 0,
+  "kernel": 0
+ },
+ "fused_hifi_stats": {
+  "served": 12,
+  "declined": 0,
+  "too_short": 0,
+  "taped": 0
+ },
+ "kernel_entry_stats": {
+  "tri_att_sdpa_hifi": [
+   12,
+   0
+  ]
+ },
+ "arm": "hifi"
+}

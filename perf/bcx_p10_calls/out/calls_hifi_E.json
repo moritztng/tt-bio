@@ -1,0 +1,1263 @@
+{
+ "round_stamp": {
+  "host": "pc",
+  "card": "0",
+  "tt_bio_file": "/home/moritz/.coworker/wt/bcx-p10-calls/tt_bio/__init__.py",
+  "exact": false,
+  "extra_msa_on_device": true,
+  "template_on_device": true,
+  "triatt_taped_sdpa": false,
+  "triatt_hifi": true,
+  "taped_kernels": "tri_att_sdpa_hifi",
+  "triatt_dividing_k": "1",
+  "sdpa_own_forward": true,
+  "shipped_pool": true,
+  "binder_pinned": 146,
+  "sets": [],
+  "model_pool": "PredictionModelSelection(design_models=('model_1_multimer_v3', 'model_2_multimer_v3', 'model_3_multimer_v3', 'model_4_multimer_v3', 'model_5_multimer_v3'), validation_models=('model_1_ptm', 'model_2_ptm'), validation_pool_exhausted=False)",
+  "pci": "0000:01:00.0",
+  "sysfs": "/sys/class/tenstorrent/tenstorrent!0/tt_aiclk",
+  "commit": "907808ceb07e5875ea6824d03837ca4cd8636c98",
+  "seed": 100,
+  "rounds_requested": 10,
+  "length_bucket_size": 32,
+  "stage_plan": {
+   "per_stage": {
+    "screen": 50,
+    "refine": 25,
+    "anneal": 45,
+    "harden": 5,
+    "mutate": 15
+   },
+   "gradient_steps": 125,
+   "mutate_steps": 15
+  },
+  "started_utc": "2026-09-26T16:40:42Z",
+  "loadavg_start": [
+   1.544921875,
+   1.45263671875,
+   1.7685546875
+  ],
+  "nproc": 12,
+  "project": "perf/bcx_p10_calls/out/anchor_hifi",
+  "state_shape": {
+   "1": {
+    "hPDL1": {
+     "binder": 146,
+     "target_hPDL1": 115
+    }
+   },
+   "2": {
+    "hPDL1": {
+     "binder": 146,
+     "target_hPDL1": 115
+    }
+   },
+   "3": {
+    "hPDL1": {
+     "binder": 146,
+     "target_hPDL1": 115
+    }
+   },
+   "4": {
+    "hPDL1": {
+     "binder": 146,
+     "target_hPDL1": 115
+    }
+   },
+   "5": {
+    "hPDL1": {
+     "binder": 146,
+     "target_hPDL1": 115
+    }
+   },
+   "6": {
+    "hPDL1": {
+     "binder": 146,
+     "target_hPDL1": 115
+    }
+   },
+   "7": {
+    "hPDL1": {
+     "binder": 146,
+     "target_hPDL1": 115
+    }
+   },
+   "8": {
+    "hPDL1": {
+     "binder": 146,
+     "target_hPDL1": 115
+    }
+   },
+   "9": {
+    "hPDL1": {
+     "binder": 146,
+     "target_hPDL1": 115
+    }
+   },
+   "10": {
+    "hPDL1": {
+     "binder": 146,
+     "target_hPDL1": 115
+    }
+   }
+  },
+  "dumped_utc": "2026-09-26T16:42:43Z",
+  "rounds_dumped": 10
+ },
+ "round_median": {
+  "wall": 11.191253781318665,
+  "sg": 11.1889865,
+  "evoformer.taped.s": 2.4169875000000003,
+  "evoformer.taped.n": 2.0,
+  "evoformer.backward.s": 5.8898885,
+  "evoformer.backward.n": 1.0,
+  "evoformer.primal.s": 0.0,
+  "evoformer.primal.n": 0.0,
+  "evoformer.s": 8.30885,
+  "extra_msa.taped.s": 0.28540299999999996,
+  "extra_msa.taped.n": 2.0,
+  "extra_msa.backward.s": 0.49902749999999996,
+  "extra_msa.backward.n": 1.0,
+  "extra_msa.primal.s": 0.0,
+  "extra_msa.primal.n": 0.0,
+  "extra_msa.s": 0.8129155,
+  "template.taped.s": 0.0885735,
+  "template.taped.n": 2.0,
+  "template.backward.s": 0.2002895,
+  "template.backward.n": 1.0,
+  "template.primal.s": 0.0,
+  "template.primal.n": 0.0,
+  "template.s": 0.291343,
+  "device": 9.524597,
+  "host_in_sg": 1.6803155000000007,
+  "aiclk_min": 1350.0,
+  "aiclk_med": 1350.0,
+  "load1": 3.552230557528409,
+  "n_rounds_medianed": 8,
+  "round1_wall": 22.75055503845215,
+  "aiclk_min_over_all": 1343
+ },
+ "cell": "E",
+ "cell_reach": {
+  "kernel_entry": {
+   "tri_att_sdpa_hifi": [
+    112,
+    0
+   ]
+  },
+  "fused_hifi": {
+   "served": 112,
+   "declined": 0,
+   "too_short": 0,
+   "taped": 0
+  }
+ },
+ "sync_floor_s": {
+  "median": 7.294001989066601e-06,
+  "p10": 7.1829999797046185e-06,
+  "p90": 7.5841031502932315e-06,
+  "mean": 7.671256316825747e-06,
+  "min": 7.0829992182552814e-06,
+  "max": 5.0283968448638916e-05,
+  "n": 400
+ },
+ "multiplicities": {
+  "evo.fwd": 96.0,
+  "evo.bwd": 48.0,
+  "extra.fwd": 8.0,
+  "extra.bwd": 4.0
+ },
+ "roofs": {
+  "dram_GBs": 442.3,
+  "tflops": 85.9
+ },
+ "verbs": {
+  "reshape": {
+   "device_s": 0.09327230265533923,
+   "dispatch_s": 0.045116,
+   "calls": 8720.0,
+   "GB": 225.32102553599998,
+   "klass": "view",
+   "called_from": {
+    "mask bias": 0.006112991140723228,
+    "MSA row attention": 0.006482973422169685,
+    "MSA column attention": 0.0045685427588224425,
+    "outer product mean": 0.04365205893981457,
+    "triangle attention": 0.024989018621563913,
+    "pair transition": 0.0013508475862741471,
+    "triangle multiplication": 0.005336542758822441,
+    "MSA transition": 0.0005675516180992127,
+    "residual (rne_residual, fp32)": 0.00021177580904960637
+   }
+  },
+  "subtract": {
+   "device_s": 0.11122851129984855,
+   "dispatch_s": 0.012188,
+   "calls": 352.0,
+   "GB": 41.96302848,
+   "klass": "eltwise",
+   "called_from": {
+    "mask bias": 0.00293366371357441,
+    "triangle attention": 0.10829484758627413
+   }
+  },
+  "multiply": {
+   "device_s": 0.7008611129984855,
+   "dispatch_s": 0.09573600000000002,
+   "calls": 3520.0,
+   "GB": 234.90448588800004,
+   "klass": "eltwise",
+   "called_from": {
+    "mask bias": 0.00456566371357441,
+    "MSA row attention": 0.013965215331673622,
+    "triangle attention": 0.5103164758627414,
+    "triangle multiplication": 0.16464431856787207,
+    "outer product mean": 0.0011717758090496059,
+    "MSA column attention": 0.006197663713574411
+   }
+  },
+  "fill_implicit_tile_padding": {
+   "device_s": 0.006827327427148818,
+   "dispatch_s": 0.004032,
+   "calls": 288.0,
+   "GB": 0.18048614400000002,
+   "klass": "movement",
+   "called_from": {
+    "mask bias": 0.006827327427148818
+   }
+  },
+  "permute": {
+   "device_s": 0.637690328330159,
+   "dispatch_s": 0.09768399999999998,
+   "calls": 3856.0,
+   "GB": 69.91891660800003,
+   "klass": "movement",
+   "called_from": {
+    "mask bias": 0.0013016637135744098,
+    "MSA row attention": 0.028975103236198427,
+    "MSA column attention": 0.019654654854297637,
+    "outer product mean": 0.061298973422169695,
+    "triangle multiplication": 0.3782565427588224,
+    "triangle attention": 0.1482033903450966
+   }
+  },
+  "linear": {
+   "device_s": 0.5775556577463746,
+   "dispatch_s": 0.15191999999999997,
+   "calls": 3144.0,
+   "GB": 91.72854374399999,
+   "klass": "arithmetic",
+   "called_from": {
+    "MSA row attention": 0.028870654854297635,
+    "MSA column attention": 0.05003299114072323,
+    "MSA transition": 0.00773932742714882,
+    "outer product mean": 0.004715327427148819,
+    "triangle multiplication": 0.13094054275882241,
+    "triangle attention": 0.12346054275882244,
+    "pair transition": 0.23179627137941122
+   }
+  },
+  "unsqueeze": {
+   "device_s": 0.08372886132669449,
+   "dispatch_s": 0.0075400000000000016,
+   "calls": 1344.0,
+   "GB": 49.017913344000014,
+   "klass": "view",
+   "called_from": {
+    "MSA row attention": 0.00893932742714882,
+    "MSA column attention": 0.0007736637135744095,
+    "triangle multiplication": 0.007931327427148818,
+    "triangle attention": 0.06608454275882245
+   }
+  },
+  "add": {
+   "device_s": 0.6860130107568204,
+   "dispatch_s": 0.085716,
+   "calls": 2636.0,
+   "GB": 239.78763878399994,
+   "klass": "eltwise",
+   "called_from": {
+    "MSA row attention": 0.028351103236198424,
+    "MSA column attention": 0.033645215331673625,
+    "outer product mean": 0.05921510323619842,
+    "triangle attention": 0.47590814156538247,
+    "pair transition": 0.018032711896568538,
+    "triangle multiplication": 0.07044284758627414,
+    "MSA transition": 0.00041788790452480296
+   }
+  },
+  "experimental.nlp_create_qkv_heads": {
+   "device_s": 0.12379159880656004,
+   "dispatch_s": 0.019564000000000005,
+   "calls": 600.0,
+   "GB": 44.081086463999995,
+   "klass": "movement",
+   "called_from": {
+    "MSA row attention": 0.003077663713574409,
+    "MSA column attention": 0.01334966371357441,
+    "triangle attention": 0.10736427137941122
+   }
+  },
+  "matmul": {
+   "device_s": 1.3905229182774426,
+   "dispatch_s": 0.13491599999999995,
+   "calls": 4888.0,
+   "GB": 241.23542732800001,
+   "klass": "arithmetic",
+   "called_from": {
+    "MSA row attention": 0.027882430663347245,
+    "MSA column attention": 0.24207254275882242,
+    "outer product mean": 0.2024274218040705,
+    "triangle multiplication": 0.3955113903450966,
+    "pair transition": 0.062193423793137075,
+    "triangle attention": 0.45791993310391904,
+    "MSA transition": 0.0025157758090496056
+   }
+  },
+  "typecast": {
+   "device_s": 1.6892376930004351,
+   "dispatch_s": 0.17398000000000002,
+   "calls": 9552.0,
+   "GB": 438.247194624,
+   "klass": "movement",
+   "called_from": {
+    "MSA row attention": 0.04808764599502087,
+    "residual (rne_residual, fp32)": 1.0509363971237837,
+    "pair transition": 0.03872542379313707,
+    "tape engine": 0.1485825978120267,
+    "triangle attention": 0.2713913903450966,
+    "triangle multiplication": 0.1021296951725483,
+    "outer product mean": 0.0011915516180992125,
+    "MSA transition": 0.0012197758090496066,
+    "MSA column attention": 0.02697321533167362
+   }
+  },
+  "experimental.nlp_concat_heads": {
+   "device_s": 0.10164319761312007,
+   "dispatch_s": 0.02012,
+   "calls": 1200.0,
+   "GB": 29.387390976,
+   "klass": "movement",
+   "called_from": {
+    "MSA row attention": 0.002747327427148819,
+    "MSA column attention": 0.01642732742714882,
+    "triangle attention": 0.08246854275882243
+   }
+  },
+  "squeeze": {
+   "device_s": 0.003707598806560039,
+   "dispatch_s": 0.004464,
+   "calls": 600.0,
+   "GB": 14.693695488000001,
+   "klass": "view",
+   "called_from": {
+    "MSA row attention": 0.0007256637135744093,
+    "MSA column attention": 0.0012056637135744097,
+    "triangle attention": 0.0017762713794112204
+   }
+  },
+  "slice": {
+   "device_s": 0.3655545879582167,
+   "dispatch_s": 0.039203999999999996,
+   "calls": 2032.0,
+   "GB": 46.613200895999995,
+   "klass": "movement",
+   "called_from": {
+    "outer product mean": 0.0035746548542976387,
+    "triangle attention": 0.36197993310391907
+   }
+  },
+  "to_layout": {
+   "device_s": 0.18459759681749344,
+   "dispatch_s": 0.036132000000000004,
+   "calls": 1600.0,
+   "GB": 38.956695552000006,
+   "klass": "movement",
+   "called_from": {
+    "outer product mean": 0.03457420647239685,
+    "triangle attention": 0.1500233903450966
+   }
+  },
+  "add_": {
+   "device_s": 0.0014456637135744097,
+   "dispatch_s": 0.00408,
+   "calls": 144.0,
+   "GB": 0.047775743999999995,
+   "klass": "eltwise",
+   "called_from": {
+    "outer product mean": 0.0014456637135744097
+   }
+  },
+  "divide": {
+   "device_s": 0.054794399204373366,
+   "dispatch_s": 0.011992000000000001,
+   "calls": 400.0,
+   "GB": 15.797846016,
+   "klass": "eltwise",
+   "called_from": {
+    "outer product mean": 0.030375551618099215,
+    "triangle attention": 0.024418847586274148
+   }
+  },
+  "experimental.minimal_matmul": {
+   "device_s": 0.2999368141382336,
+   "dispatch_s": 0.040583999999999995,
+   "calls": 936.0,
+   "GB": 72.96594739200002,
+   "klass": "arithmetic",
+   "called_from": {
+    "triangle multiplication": 0.15986427137941123,
+    "triangle attention": 0.14007254275882244
+   }
+  },
+  "chunk": {
+   "device_s": 0.17636427137941119,
+   "dispatch_s": 0.024968,
+   "calls": 312.0,
+   "GB": 52.999225344,
+   "klass": "movement",
+   "called_from": {
+    "triangle multiplication": 0.17636427137941119
+   }
+  },
+  "transpose": {
+   "device_s": 0.31086578954947,
+   "dispatch_s": 0.030524000000000006,
+   "calls": 1232.0,
+   "GB": 45.12861388799999,
+   "klass": "movement",
+   "called_from": {
+    "triangle multiplication": 0.2805593903450966,
+    "triangle attention": 0.02570684758627415,
+    "MSA column attention": 0.003283775809049606,
+    "MSA row attention": 0.0013157758090496065
+   }
+  },
+  "generic_op": {
+   "device_s": 0.12951911896568538,
+   "dispatch_s": 0.031072000000000002,
+   "calls": 520.0,
+   "GB": 46.58135040000001,
+   "klass": "arithmetic",
+   "called_from": {
+    "triangle attention": 0.09231227137941121,
+    "triangle multiplication": 0.03720684758627415
+   }
+  },
+  "relu": {
+   "device_s": 0.02363459980109334,
+   "dispatch_s": 0.00386,
+   "calls": 100.0,
+   "GB": 8.946450431999999,
+   "klass": "eltwise",
+   "called_from": {
+    "MSA transition": 0.000753887904524803,
+    "pair transition": 0.022880711896568536
+   }
+  },
+  "relu_bw": {
+   "device_s": 0.051566599801093335,
+   "dispatch_s": 0.005624,
+   "calls": 100.0,
+   "GB": 13.419675648,
+   "klass": "eltwise",
+   "called_from": {
+    "pair transition": 0.050476711896568535,
+    "MSA transition": 0.0010898879045248035
+   }
+  },
+  "sigmoid_bw": {
+   "device_s": 0.2396254709815979,
+   "dispatch_s": 0.032,
+   "calls": 512.0,
+   "GB": 27.221557248,
+   "klass": "eltwise",
+   "called_from": {
+    "triangle attention": 0.056881423793137084,
+    "triangle multiplication": 0.1776842713794112,
+    "MSA column attention": 0.004161887904524803,
+    "MSA row attention": 0.0008978879045248029
+   }
+  },
+  "sum": {
+   "device_s": 0.18011443066334723,
+   "dispatch_s": 0.014712,
+   "calls": 672.0,
+   "GB": 64.300843008,
+   "klass": "arithmetic",
+   "called_from": {
+    "triangle attention": 0.17916854275882244,
+    "MSA row attention": 0.0009458879045248032
+   }
+  },
+  "concat": {
+   "device_s": 0.18082364599502088,
+   "dispatch_s": 0.020724,
+   "calls": 1008.0,
+   "GB": 66.309193728,
+   "klass": "movement",
+   "called_from": {
+    "triangle attention": 0.12015111896568538,
+    "tape engine": 0.04659719960218668,
+    "MSA column attention": 0.01205366371357441,
+    "MSA row attention": 0.0020216637135744096
+   }
+  },
+  "clone": {
+   "device_s": 0.04575159880656004,
+   "dispatch_s": 0.007756,
+   "calls": 600.0,
+   "GB": 14.693695488000001,
+   "klass": "movement",
+   "called_from": {
+    "triangle attention": 0.03892427137941122,
+    "MSA column attention": 0.005477663713574409,
+    "MSA row attention": 0.0013496637135744093
+   }
+  }
+ },
+ "classes": {
+  "view": {
+   "device_s": 0.18070876278859377,
+   "GB": 289.032634368,
+   "calls": 10664.0,
+   "ops": 3
+  },
+  "eltwise": {
+   "device_s": 1.8691693685568869,
+   "GB": 582.0884582399999,
+   "calls": 7764.0,
+   "ops": 8
+  },
+  "movement": {
+   "device_s": 3.8231476356835956,
+   "GB": 846.515699712,
+   "calls": 22280.0,
+   "ops": 11
+  },
+  "arithmetic": {
+   "device_s": 2.5776489397910836,
+   "GB": 516.8121118720001,
+   "calls": 10160.0,
+   "ops": 5
+  }
+ },
+ "by_family_verb": {
+  "mask bias": {
+   "reshape": {
+    "device_s": 0.006112991140723228,
+    "dispatch_s": 0.008447999999999999,
+    "calls": 432.0,
+    "GB": 0.100859904
+   },
+   "subtract": {
+    "device_s": 0.00293366371357441,
+    "dispatch_s": 0.007056,
+    "calls": 144.0,
+    "GB": 0.005308416
+   },
+   "multiply": {
+    "device_s": 0.00456566371357441,
+    "dispatch_s": 0.003936,
+    "calls": 144.0,
+    "GB": 0.005308416
+   },
+   "fill_implicit_tile_padding": {
+    "device_s": 0.006827327427148818,
+    "dispatch_s": 0.004032,
+    "calls": 288.0,
+    "GB": 0.18048614400000002
+   },
+   "permute": {
+    "device_s": 0.0013016637135744098,
+    "dispatch_s": 0.004464,
+    "calls": 144.0,
+    "GB": 0.005308416
+   }
+  },
+  "MSA row attention": {
+   "reshape": {
+    "device_s": 0.006482973422169685,
+    "dispatch_s": 0.00408,
+    "calls": 1296.0,
+    "GB": 11.989942272
+   },
+   "linear": {
+    "device_s": 0.028870654854297635,
+    "dispatch_s": 0.02808,
+    "calls": 576.0,
+    "GB": 4.262068224
+   },
+   "unsqueeze": {
+    "device_s": 0.00893932742714882,
+    "dispatch_s": 0.0014400000000000003,
+    "calls": 288.0,
+    "GB": 1.783627776
+   },
+   "permute": {
+    "device_s": 0.028975103236198427,
+    "dispatch_s": 0.012192,
+    "calls": 384.0,
+    "GB": 1.387266048
+   },
+   "add": {
+    "device_s": 0.028351103236198424,
+    "dispatch_s": 0.013871999999999999,
+    "calls": 384.0,
+    "GB": 7.373389824
+   },
+   "experimental.nlp_create_qkv_heads": {
+    "device_s": 0.003077663713574409,
+    "dispatch_s": 0.004368,
+    "calls": 144.0,
+    "GB": 0.254803968
+   },
+   "matmul": {
+    "device_s": 0.027882430663347245,
+    "dispatch_s": 0.019968,
+    "calls": 672.0,
+    "GB": 2.976251904
+   },
+   "typecast": {
+    "device_s": 0.04808764599502087,
+    "dispatch_s": 0.026687999999999996,
+    "calls": 1008.0,
+    "GB": 11.25384192
+   },
+   "multiply": {
+    "device_s": 0.013965215331673622,
+    "dispatch_s": 0.01296,
+    "calls": 336.0,
+    "GB": 2.632974336
+   },
+   "experimental.nlp_concat_heads": {
+    "device_s": 0.002747327427148819,
+    "dispatch_s": 0.0050880000000000005,
+    "calls": 288.0,
+    "GB": 0.169869312
+   },
+   "squeeze": {
+    "device_s": 0.0007256637135744093,
+    "dispatch_s": 0.0012959999999999998,
+    "calls": 144.0,
+    "GB": 0.084934656
+   },
+   "sigmoid_bw": {
+    "device_s": 0.0008978879045248029,
+    "dispatch_s": 0.0030239999999999998,
+    "calls": 48.0,
+    "GB": 0.042467328
+   },
+   "transpose": {
+    "device_s": 0.0013157758090496065,
+    "dispatch_s": 0.001632,
+    "calls": 96.0,
+    "GB": 0.056623104
+   },
+   "clone": {
+    "device_s": 0.0013496637135744093,
+    "dispatch_s": 0.002352,
+    "calls": 144.0,
+    "GB": 0.084934656
+   },
+   "concat": {
+    "device_s": 0.0020216637135744096,
+    "dispatch_s": 0.0035519999999999996,
+    "calls": 144.0,
+    "GB": 0.254803968
+   },
+   "sum": {
+    "device_s": 0.0009458879045248032,
+    "dispatch_s": 0.001344,
+    "calls": 48.0,
+    "GB": 0.191102976
+   }
+  },
+  "residual (rne_residual, fp32)": {
+   "typecast": {
+    "device_s": 1.0509363971237837,
+    "dispatch_s": 0.084892,
+    "calls": 5468.0,
+    "GB": 239.006416896
+   },
+   "reshape": {
+    "device_s": 0.00021177580904960637,
+    "dispatch_s": 0.000288,
+    "calls": 96.0,
+    "GB": 0.113246208
+   }
+  },
+  "MSA column attention": {
+   "reshape": {
+    "device_s": 0.0045685427588224425,
+    "dispatch_s": 0.002112,
+    "calls": 624.0,
+    "GB": 5.09607936
+   },
+   "permute": {
+    "device_s": 0.019654654854297637,
+    "dispatch_s": 0.019728,
+    "calls": 576.0,
+    "GB": 3.737124864
+   },
+   "linear": {
+    "device_s": 0.05003299114072323,
+    "dispatch_s": 0.019008,
+    "calls": 432.0,
+    "GB": 5.534908416
+   },
+   "unsqueeze": {
+    "device_s": 0.0007736637135744095,
+    "dispatch_s": 0.001152,
+    "calls": 144.0,
+    "GB": 4.076863488
+   },
+   "experimental.nlp_create_qkv_heads": {
+    "device_s": 0.01334966371357441,
+    "dispatch_s": 0.005376,
+    "calls": 144.0,
+    "GB": 4.076863488
+   },
+   "matmul": {
+    "device_s": 0.24207254275882242,
+    "dispatch_s": 0.022944,
+    "calls": 624.0,
+    "GB": 8.638169088
+   },
+   "add": {
+    "device_s": 0.033645215331673625,
+    "dispatch_s": 0.010224,
+    "calls": 336.0,
+    "GB": 11.04150528
+   },
+   "experimental.nlp_concat_heads": {
+    "device_s": 0.01642732742714882,
+    "dispatch_s": 0.0049440000000000005,
+    "calls": 288.0,
+    "GB": 2.717908992
+   },
+   "squeeze": {
+    "device_s": 0.0012056637135744097,
+    "dispatch_s": 0.0012959999999999998,
+    "calls": 144.0,
+    "GB": 1.358954496
+   },
+   "multiply": {
+    "device_s": 0.006197663713574411,
+    "dispatch_s": 0.005856,
+    "calls": 144.0,
+    "GB": 1.811939328
+   },
+   "sigmoid_bw": {
+    "device_s": 0.004161887904524803,
+    "dispatch_s": 0.003072,
+    "calls": 48.0,
+    "GB": 0.679477248
+   },
+   "transpose": {
+    "device_s": 0.003283775809049606,
+    "dispatch_s": 0.001632,
+    "calls": 96.0,
+    "GB": 0.905969664
+   },
+   "clone": {
+    "device_s": 0.005477663713574409,
+    "dispatch_s": 0.0016799999999999999,
+    "calls": 144.0,
+    "GB": 1.358954496
+   },
+   "concat": {
+    "device_s": 0.01205366371357441,
+    "dispatch_s": 0.0025440000000000003,
+    "calls": 144.0,
+    "GB": 4.076863488
+   },
+   "typecast": {
+    "device_s": 0.02697321533167362,
+    "dispatch_s": 0.00456,
+    "calls": 336.0,
+    "GB": 7.559184384
+   }
+  },
+  "MSA transition": {
+   "linear": {
+    "device_s": 0.00773932742714882,
+    "dispatch_s": 0.010224,
+    "calls": 288.0,
+    "GB": 0.5874647040000001
+   },
+   "relu": {
+    "device_s": 0.000753887904524803,
+    "dispatch_s": 0.001728,
+    "calls": 48.0,
+    "GB": 0.113246208
+   },
+   "reshape": {
+    "device_s": 0.0005675516180992127,
+    "dispatch_s": 0.00048000000000000007,
+    "calls": 192.0,
+    "GB": 0.28311552
+   },
+   "matmul": {
+    "device_s": 0.0025157758090496056,
+    "dispatch_s": 0.0030239999999999998,
+    "calls": 96.0,
+    "GB": 0.191889408
+   },
+   "relu_bw": {
+    "device_s": 0.0010898879045248035,
+    "dispatch_s": 0.00288,
+    "calls": 48.0,
+    "GB": 0.169869312
+   },
+   "typecast": {
+    "device_s": 0.0012197758090496066,
+    "dispatch_s": 0.0017759999999999998,
+    "calls": 96.0,
+    "GB": 0.084934656
+   },
+   "add": {
+    "device_s": 0.00041788790452480296,
+    "dispatch_s": 0.0015840000000000001,
+    "calls": 48.0,
+    "GB": 0.084934656
+   }
+  },
+  "outer product mean": {
+   "reshape": {
+    "device_s": 0.04365205893981457,
+    "dispatch_s": 0.018576000000000002,
+    "calls": 2544.0,
+    "GB": 20.032192512
+   },
+   "linear": {
+    "device_s": 0.004715327427148819,
+    "dispatch_s": 0.00768,
+    "calls": 288.0,
+    "GB": 0.100859904
+   },
+   "slice": {
+    "device_s": 0.0035746548542976387,
+    "dispatch_s": 0.009359999999999999,
+    "calls": 576.0,
+    "GB": 0.031850496
+   },
+   "matmul": {
+    "device_s": 0.2024274218040705,
+    "dispatch_s": 0.022751999999999998,
+    "calls": 1104.0,
+    "GB": 12.411568127999999
+   },
+   "to_layout": {
+    "device_s": 0.03457420647239685,
+    "dispatch_s": 0.014447999999999999,
+    "calls": 768.0,
+    "GB": 3.623878656
+   },
+   "permute": {
+    "device_s": 0.061298973422169695,
+    "dispatch_s": 0.026543999999999998,
+    "calls": 1296.0,
+    "GB": 18.138857471999998
+   },
+   "add": {
+    "device_s": 0.05921510323619842,
+    "dispatch_s": 0.012912,
+    "calls": 384.0,
+    "GB": 15.45928704
+   },
+   "add_": {
+    "device_s": 0.0014456637135744097,
+    "dispatch_s": 0.00408,
+    "calls": 144.0,
+    "GB": 0.047775743999999995
+   },
+   "divide": {
+    "device_s": 0.030375551618099215,
+    "dispatch_s": 0.006288,
+    "calls": 192.0,
+    "GB": 9.172942848
+   },
+   "multiply": {
+    "device_s": 0.0011717758090496059,
+    "dispatch_s": 0.00288,
+    "calls": 96.0,
+    "GB": 0.010616832
+   },
+   "typecast": {
+    "device_s": 0.0011915516180992125,
+    "dispatch_s": 0.004368,
+    "calls": 192.0,
+    "GB": 0.169869312
+   }
+  },
+  "triangle multiplication": {
+   "experimental.minimal_matmul": {
+    "device_s": 0.15986427137941123,
+    "dispatch_s": 0.024720000000000002,
+    "calls": 312.0,
+    "GB": 33.175633919999996
+   },
+   "chunk": {
+    "device_s": 0.17636427137941119,
+    "dispatch_s": 0.024968,
+    "calls": 312.0,
+    "GB": 52.999225344
+   },
+   "permute": {
+    "device_s": 0.3782565427588224,
+    "dispatch_s": 0.011595999999999997,
+    "calls": 624.0,
+    "GB": 26.499612672
+   },
+   "unsqueeze": {
+    "device_s": 0.007931327427148818,
+    "dispatch_s": 0.0017280000000000002,
+    "calls": 288.0,
+    "GB": 0.095551488
+   },
+   "matmul": {
+    "device_s": 0.3955113903450966,
+    "dispatch_s": 0.025992,
+    "calls": 832.0,
+    "GB": 53.01967257599999
+   },
+   "transpose": {
+    "device_s": 0.2805593903450966,
+    "dispatch_s": 0.023492000000000002,
+    "calls": 832.0,
+    "GB": 35.33281689599999
+   },
+   "linear": {
+    "device_s": 0.13094054275882241,
+    "dispatch_s": 0.033075999999999994,
+    "calls": 624.0,
+    "GB": 26.525171712
+   },
+   "multiply": {
+    "device_s": 0.16464431856787207,
+    "dispatch_s": 0.017400000000000002,
+    "calls": 720.0,
+    "GB": 43.842207744
+   },
+   "sigmoid_bw": {
+    "device_s": 0.1776842713794112,
+    "dispatch_s": 0.018240000000000003,
+    "calls": 312.0,
+    "GB": 19.874709504
+   },
+   "reshape": {
+    "device_s": 0.005336542758822441,
+    "dispatch_s": 0.002172,
+    "calls": 624.0,
+    "GB": 39.749419008
+   },
+   "generic_op": {
+    "device_s": 0.03720684758627415,
+    "dispatch_s": 0.010192000000000001,
+    "calls": 208.0,
+    "GB": 13.249806336
+   },
+   "typecast": {
+    "device_s": 0.1021296951725483,
+    "dispatch_s": 0.012675999999999998,
+    "calls": 416.0,
+    "GB": 26.499612672
+   },
+   "add": {
+    "device_s": 0.07044284758627414,
+    "dispatch_s": 0.008372000000000001,
+    "calls": 208.0,
+    "GB": 26.499612672
+   }
+  },
+  "triangle attention": {
+   "reshape": {
+    "device_s": 0.024989018621563913,
+    "dispatch_s": 0.008235999999999999,
+    "calls": 2704.0,
+    "GB": 125.873160192
+   },
+   "linear": {
+    "device_s": 0.12346054275882244,
+    "dispatch_s": 0.035295999999999994,
+    "calls": 624.0,
+    "GB": 21.546270720000006
+   },
+   "unsqueeze": {
+    "device_s": 0.06608454275882245,
+    "dispatch_s": 0.003220000000000001,
+    "calls": 624.0,
+    "GB": 43.061870592000005
+   },
+   "permute": {
+    "device_s": 0.1482033903450966,
+    "dispatch_s": 0.023160000000000004,
+    "calls": 832.0,
+    "GB": 20.150747135999996
+   },
+   "add": {
+    "device_s": 0.47590814156538247,
+    "dispatch_s": 0.03651600000000001,
+    "calls": 1224.0,
+    "GB": 172.704006144
+   },
+   "experimental.minimal_matmul": {
+    "device_s": 0.14007254275882244,
+    "dispatch_s": 0.015864,
+    "calls": 624.0,
+    "GB": 39.790313472
+   },
+   "experimental.nlp_create_qkv_heads": {
+    "device_s": 0.10736427137941122,
+    "dispatch_s": 0.00982,
+    "calls": 312.0,
+    "GB": 39.749419008
+   },
+   "multiply": {
+    "device_s": 0.5103164758627414,
+    "dispatch_s": 0.052703999999999994,
+    "calls": 2080.0,
+    "GB": 186.60143923200002
+   },
+   "generic_op": {
+    "device_s": 0.09231227137941121,
+    "dispatch_s": 0.020880000000000003,
+    "calls": 312.0,
+    "GB": 33.331544064000006
+   },
+   "experimental.nlp_concat_heads": {
+    "device_s": 0.08246854275882243,
+    "dispatch_s": 0.010088,
+    "calls": 624.0,
+    "GB": 26.499612671999998
+   },
+   "squeeze": {
+    "device_s": 0.0017762713794112204,
+    "dispatch_s": 0.0018720000000000002,
+    "calls": 312.0,
+    "GB": 13.249806336
+   },
+   "to_layout": {
+    "device_s": 0.1500233903450966,
+    "dispatch_s": 0.021684,
+    "calls": 832.0,
+    "GB": 35.332816896000004
+   },
+   "matmul": {
+    "device_s": 0.45791993310391904,
+    "dispatch_s": 0.037288,
+    "calls": 1456.0,
+    "GB": 152.94273945599997
+   },
+   "sigmoid_bw": {
+    "device_s": 0.056881423793137084,
+    "dispatch_s": 0.007664000000000001,
+    "calls": 104.0,
+    "GB": 6.624903168
+   },
+   "transpose": {
+    "device_s": 0.02570684758627415,
+    "dispatch_s": 0.0037680000000000005,
+    "calls": 208.0,
+    "GB": 8.833204224000001
+   },
+   "slice": {
+    "device_s": 0.36197993310391907,
+    "dispatch_s": 0.029843999999999996,
+    "calls": 1456.0,
+    "GB": 46.58135039999999
+   },
+   "sum": {
+    "device_s": 0.17916854275882244,
+    "dispatch_s": 0.013368000000000001,
+    "calls": 624.0,
+    "GB": 64.10974003199999
+   },
+   "divide": {
+    "device_s": 0.024418847586274148,
+    "dispatch_s": 0.005704,
+    "calls": 208.0,
+    "GB": 6.624903168
+   },
+   "subtract": {
+    "device_s": 0.10829484758627413,
+    "dispatch_s": 0.005132,
+    "calls": 208.0,
+    "GB": 41.957720064
+   },
+   "concat": {
+    "device_s": 0.12015111896568538,
+    "dispatch_s": 0.009548,
+    "calls": 520.0,
+    "GB": 44.304039936
+   },
+   "clone": {
+    "device_s": 0.03892427137941122,
+    "dispatch_s": 0.003724,
+    "calls": 312.0,
+    "GB": 13.249806336
+   },
+   "typecast": {
+    "device_s": 0.2713913903450966,
+    "dispatch_s": 0.013188,
+    "calls": 832.0,
+    "GB": 92.74864435200001
+   }
+  },
+  "pair transition": {
+   "linear": {
+    "device_s": 0.23179627137941122,
+    "dispatch_s": 0.018555999999999996,
+    "calls": 312.0,
+    "GB": 33.171800064
+   },
+   "relu": {
+    "device_s": 0.022880711896568536,
+    "dispatch_s": 0.002132,
+    "calls": 52.0,
+    "GB": 8.833204224
+   },
+   "reshape": {
+    "device_s": 0.0013508475862741471,
+    "dispatch_s": 0.0007239999999999999,
+    "calls": 208.0,
+    "GB": 22.08301056
+   },
+   "matmul": {
+    "device_s": 0.062193423793137075,
+    "dispatch_s": 0.002948,
+    "calls": 104.0,
+    "GB": 11.055136767999999
+   },
+   "relu_bw": {
+    "device_s": 0.050476711896568535,
+    "dispatch_s": 0.0027440000000000003,
+    "calls": 52.0,
+    "GB": 13.249806336
+   },
+   "typecast": {
+    "device_s": 0.03872542379313707,
+    "dispatch_s": 0.004288,
+    "calls": 104.0,
+    "GB": 6.624903168
+   },
+   "add": {
+    "device_s": 0.018032711896568538,
+    "dispatch_s": 0.0022359999999999997,
+    "calls": 52.0,
+    "GB": 6.624903168
+   }
+  },
+  "tape engine": {
+   "typecast": {
+    "device_s": 0.1485825978120267,
+    "dispatch_s": 0.021544,
+    "calls": 1100.0,
+    "GB": 54.299787264
+   },
+   "concat": {
+    "device_s": 0.04659719960218668,
+    "dispatch_s": 0.0050799999999999994,
+    "calls": 200.0,
+    "GB": 17.673486336
+   }
+  }
+ },
+ "families": {
+  "mask bias": {
+   "device_s": 0.020781309708595277,
+   "dispatch_s": 0.028032,
+   "synced_s": 0.057216,
+   "calls": 1152.0,
+   "GB": 0.297271296,
+   "TFLOP": 0.0
+  },
+  "MSA row attention": {
+   "device_s": 0.2097719880656004,
+   "dispatch_s": 0.142176,
+   "synced_s": 0.39571200000000006,
+   "calls": 6000.0,
+   "GB": 44.798902272,
+   "TFLOP": 0.137707388928
+  },
+  "residual (rne_residual, fp32)": {
+   "device_s": 1.0510041729328332,
+   "dispatch_s": 0.085228,
+   "synced_s": 1.176816,
+   "calls": 5564.0,
+   "GB": 239.11966310399998,
+   "TFLOP": 0.0
+  },
+  "MSA column attention": {
+   "device_s": 0.4434781355981827,
+   "dispatch_s": 0.11030399999999999,
+   "synced_s": 0.584592,
+   "calls": 4224.0,
+   "GB": 62.67076608,
+   "TFLOP": 0.072704065536
+  },
+  "MSA transition": {
+   "device_s": 0.012000094376921653,
+   "dispatch_s": 0.023424,
+   "synced_s": 0.041375999999999996,
+   "calls": 816.0,
+   "GB": 1.5154544639999998,
+   "TFLOP": 0.115964116992
+  },
+  "outer product mean": {
+   "device_s": 0.4658662889149189,
+   "dispatch_s": 0.129936,
+   "synced_s": 0.6511199999999999,
+   "calls": 7584.0,
+   "GB": 79.199698944,
+   "TFLOP": 4.243561906176
+  },
+  "triangle multiplication": {
+   "device_s": 2.0990082594450117,
+   "dispatch_s": 0.21495999999999998,
+   "synced_s": 2.360008000000001,
+   "calls": 6312.0,
+   "GB": 397.363052544,
+   "TFLOP": 9.327863660543997
+  },
+  "triangle attention": {
+   "device_s": 3.5704285581222184,
+   "dispatch_s": 0.369268,
+   "synced_s": 4.063928000000001,
+   "calls": 17032.0,
+   "GB": 1235.8680576,
+   "TFLOP": 10.776509153280003
+  },
+  "pair transition": {
+   "device_s": 0.42409610224166505,
+   "dispatch_s": 0.033904,
+   "synced_s": 0.46444799999999997,
+   "calls": 884.0,
+   "GB": 101.642764288,
+   "TFLOP": 4.522600562688
+  },
+  "tape engine": {
+   "device_s": 0.1944357974142134,
+   "dispatch_s": 0.026622,
+   "synced_s": 0.23054000000000002,
+   "calls": 1300.0,
+   "GB": 71.97327360000001,
+   "TFLOP": 0.0
+  }
+ },
+ "terms": {
+  "C": 9.524597,
+  "C_blocks": 9.1217655,
+  "C_template": 0.291343,
+  "A_verb": 8.450674706820159,
+  "A_family": 8.49087070682016,
+  "F": 5.051885381397241,
+  "G": 0.6710907931798413,
+  "GB": 2234.448904192,
+  "calls": 50868.0,
+  "residual": 0.1114885000000001,
+  "round_wall": 11.191253781318665
+ }
+}
