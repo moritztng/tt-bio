@@ -24,7 +24,14 @@ Five properties, each with a negative control that breaks exactly what the check
              would be satisfied by hiding it behind one more name.
   NOOPS      a read that is not a branch condition may not appear in a statement that also
              calls `ttnn`.
-  CALLERS    every call to `softmax_bw_inner` is inside such a `bw`.
+  CALLERS    every call to `softmax_bw_inner` is inside such a `bw`, or inside an INTERMEDIARY
+             whose own call sites all satisfy the same rule, transitively. The intermediary must
+             not be in `tt_bio.autograd.__all__`: an exported name can be called by anything, and
+             a transitive claim over a package cannot cover a caller outside it. `softmax_bw_dx`
+             is the first such intermediary -- `bcx-bwbytes` moved `y * (g - inner)` out of the
+             three sites that each wrote it out. Checking only the literal enclosing function
+             would have failed a correct factoring, and relaxing the check to "some ancestor is a
+             bw" would pass a forward that calls the intermediary. Neither is the property.
   ONEPARSE   `TT_BIO_SOFTMAX_BW_RENORM` is parsed from the environment EXACTLY ONCE in the
              package. Two parses is two defaults, and shipping one on would leave the other
              off -- the half-fix d116 unified the inline expressions to prevent.
@@ -90,6 +97,55 @@ def _in_bw(chain, factories):
     return len(chain) >= 2 and chain[0] == "bw" and chain[1] in factories
 
 
+def _exported(srcs):
+    """Names in any `__all__` in the package. An exported intermediary cannot carry a transitive
+    claim, because the call sites that would have to satisfy it may not be in this package."""
+    out = set()
+    for _, text in srcs:
+        for node in ast.walk(ast.parse(text)):
+            if (isinstance(node, ast.Assign) and any(getattr(t, "id", None) == "__all__"
+                                                     for t in node.targets)
+                    and isinstance(node.value, (ast.List, ast.Tuple))):
+                out |= {e.value for e in node.value.elts if isinstance(e, ast.Constant)}
+    return out
+
+
+def _call_sites(srcs):
+    """{called name: [enclosing function chain, ...]} over the package, plus the per-file
+    tape-factory sets the chains have to be judged against."""
+    sites, fac = {}, {}
+    for name, text in srcs:
+        tree = ast.parse(text)
+        parents = _parents(tree)
+        fac[name] = tape_factories(text)
+        for node in ast.walk(tree):
+            if not isinstance(node, ast.Call):
+                continue
+            f = node.func
+            fn = f.attr if isinstance(f, ast.Attribute) else getattr(f, "id", None)
+            if fn:
+                sites.setdefault(fn, []).append((name, node.lineno, _chain(node, parents)))
+    return sites, fac
+
+
+def _only_from_bw(fn, sites, fac, exported, seen=None):
+    """Every path that reaches `fn` bottoms out in a `bw` closure handed to `_tape`.
+
+    A function with no call site at all is NOT accepted: an intermediary nobody calls cannot
+    launder a reach claim, and the likelier reading is that the check is scanning the wrong tree.
+    """
+    seen = seen or set()
+    if fn in seen or fn in exported:
+        return False
+    seen = seen | {fn}
+    here = sites.get(fn, [])
+    if not here:
+        return False
+    return all(_in_bw(chain, fac[f]) or (chain and _only_from_bw(chain[0], sites, fac,
+                                                                 exported, seen))
+               for f, _, chain in here)
+
+
 def _gating(node, parents):
     """Whether this read sits in a BRANCH CONDITION, i.e. can steer what gets computed.
 
@@ -142,6 +198,8 @@ def scan(name, text):
 
 def check_sites(srcs):
     bad, seen_r, seen_c = [], [], []
+    sites, fac_all = _call_sites(srcs)
+    exported = _exported(srcs)
     for name, text in srcs:
         fac = tape_factories(text)
         reads, calls = scan(name, text)
@@ -158,10 +216,14 @@ def check_sites(srcs):
                            % (name, s["line"], HELPER, c or "<module>"))
         for s in calls:
             seen_c.append(s)
-            if not _in_bw(s["funcs"], fac):
-                bad.append("%s:%d calls %s outside a bw closure handed to _tape "
-                           "(enclosing: %s)" % (name, s["line"], HELPER,
-                                                s["funcs"] or "<module>"))
+            c = s["funcs"]
+            via = c[0] if c else None
+            ok = _in_bw(c, fac) or (via and _only_from_bw(via, sites, fac_all, exported))
+            s["reached_via"] = None if _in_bw(c, fac) else via
+            if not ok:
+                bad.append("%s:%d calls %s outside a bw closure handed to _tape, and its "
+                           "enclosing function is not reached only from one "
+                           "(enclosing: %s)" % (name, s["line"], HELPER, c or "<module>"))
     if not seen_r:
         bad.append("no read of the flag found at all -- the check is scanning the wrong tree")
     if not seen_c:
@@ -262,6 +324,29 @@ def softmax_bw_inner(y, g):
 def forward(x):
     return softmax_bw_inner(x, x)
 """
+#: The transitive leg both ways. `_CTRL_HOP` is the correct factoring -- an intermediary whose
+#: only caller is a bw -- and must stay QUIET. `_CTRL_HOP_BAD` adds one forward caller of that
+#: same intermediary and must be CAUGHT; without this control, "some ancestor is a bw" would
+#: score identically on both and the check would have been relaxed rather than generalised.
+_CTRL_HOP = """
+def _tape(v, i, m): pass
+def softmax_bw_inner(y, g):
+    if SOFTMAX_BW_RENORM: pass
+    return 1
+def softmax_bw_dx(y, g):
+    return softmax_bw_inner(y, g)
+def v(a):
+    def make():
+        def bw(g): softmax_bw_dx(1, 2)
+        return bw
+    return _tape(1, [2], make)
+"""
+_CTRL_HOP_BAD = _CTRL_HOP + """
+def forward(x):
+    return softmax_bw_dx(x, x)
+"""
+_CTRL_HOP_EXPORTED = '__all__ = ["softmax_bw_dx"]\n' + _CTRL_HOP
+
 _CTRL_HOST = """
 def host_f64_softmax(x, dim=-1):
     if not installed():
@@ -282,7 +367,13 @@ def controls():
     bad_call, _, _ = check_sites([("ctrl.py", _CTRL_CALL)])
     bad_ttnn, _, _ = check_sites([("ctrl.py", _CTRL_TTNN)])
     bad_alias, _, _ = check_sites([("ctrl.py", _CTRL_ALIAS)])
+    bad_hop, _, _ = check_sites([("ctrl.py", _CTRL_HOP)])
+    bad_hop_bad, _, _ = check_sites([("ctrl.py", _CTRL_HOP_BAD)])
+    bad_hop_exp, _, _ = check_sites([("ctrl.py", _CTRL_HOP_EXPORTED)])
     return {"forward_branch_on_flag_is_caught": bool(bad_read),
+            "bw_only_intermediary_stays_quiet": not bad_hop,
+            "forward_caller_of_intermediary_is_caught": bool(bad_hop_bad),
+            "exported_intermediary_is_caught": bool(bad_hop_exp),
             "flag_into_a_ttnn_call_is_caught": bool(bad_ttnn),
             # And the other direction: a bare alias computes nothing and must stay QUIET,
             # or the check is just banning the word and would be satisfied by hiding it.

@@ -51,6 +51,26 @@
    }
   },
   "src_rev": "a5fa47832",
+  "predicted": {
+   "smbf16": {
+    "bucket_now_GB": 10.122,
+    "bucket_at_bf16_GB": 5.35,
+    "narrowing_cost_GB": 1.611,
+    "calls": 2,
+    "net_removed_GB": 3.161
+   },
+   "fanin": {
+    "net_removed_GB": 2.261
+   },
+   "perm": {
+    "net_removed_GB": 0.0,
+    "why": "a faster kernel over the same operands moves the same bytes"
+   },
+   "tree": {
+    "net_removed_GB": null,
+    "why": "ttnn.sum(dim=0) permutes before it reduces and the census cannot see that, so the baseline this would be measured against is wrong"
+   }
+  },
   "closure_lines": {
    "layer_norm": [
     898,
@@ -122,6 +142,26 @@
    }
   },
   "src_rev": "a5fa47832",
+  "predicted": {
+   "smbf16": {
+    "bucket_now_GB": 10.068,
+    "bucket_at_bf16_GB": 5.303,
+    "narrowing_cost_GB": 1.611,
+    "calls": 2,
+    "net_removed_GB": 3.155
+   },
+   "fanin": {
+    "net_removed_GB": 2.013
+   },
+   "perm": {
+    "net_removed_GB": 0.0,
+    "why": "a faster kernel over the same operands moves the same bytes"
+   },
+   "tree": {
+    "net_removed_GB": null,
+    "why": "ttnn.sum(dim=0) permutes before it reduces and the census cannot see that, so the baseline this would be measured against is wrong"
+   }
+  },
   "closure_lines": {
    "layer_norm": [
     898,

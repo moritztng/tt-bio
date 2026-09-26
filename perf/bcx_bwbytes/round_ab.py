@@ -51,7 +51,7 @@ def arm_of(r):
     return r > 2 and r % 2 == 0
 
 
-def install_levers(rows_on):
+def install_levers(rows_on, precision):
     """Wire both levers to `ARM` and count every decision they take.
 
     A count that only ever goes up on one arm proves nothing -- the control has to MOVE it -- so
@@ -83,9 +83,20 @@ def install_levers(rows_on):
     R.reblock_permute_back, R.reblock_permute = back, fwd
     ag._pairwise_sum0, ag._use_tree = tree, use
 
+    real_dx = ag.softmax_bw_dx
+
+    def dx(y, g, dim=-1, config=None):
+        COUNT[f"softmax_bw:{'on' if ARM['on'] else 'off'}:"
+              f"{str(y.dtype).split('.')[-1]}"] += 1
+        return real_dx(y, g, dim=dim, config=config)
+
+    ag.softmax_bw_dx = dx
+
     def apply():
         T.PERMUTE_BW_REBLOCK = ARM["on"]
         ag.LEADING_SUM_TREE_ROWS = rows_on if ARM["on"] else 1 << 30
+        ag.SOFTMAX_BW_DTYPE = "bf16" if (ARM["on"] and precision) else "keep"
+        ag.FANIN_WIDEN_INCOMING = not (ARM["on"] and precision)
     return apply
 
 
@@ -177,6 +188,9 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--rounds", type=int, default=12)
     ap.add_argument("--seed", type=int, default=100)
+    ap.add_argument("--precision", action="store_true",
+                    help="the ON arm also takes the two precision levers; they move the gradient "
+                         "and are graded as a stack against float64 before they count")
     ap.add_argument("--tree-rows", type=int, default=256,
                     help="LEADING_SUM_TREE_ROWS in the ON arm; set from perf/bcx_bwbytes/probe.py")
     ap.add_argument("--params", default="/home/ttuser/bcx_e2e/af2_params")
@@ -204,7 +218,7 @@ def main():
     stamp = {"host": os.uname().nodename, "card": os.environ.get("TT_VISIBLE_DEVICES"),
              "pci": M.CLOCK.pci, "sysfs": M.CLOCK.path, "commit": git_head(),
              "seed": args.seed, "rounds_requested": args.rounds,
-             "tree_rows_on": args.tree_rows,
+             "tree_rows_on": args.tree_rows, "precision_arm": args.precision,
              "extra_msa_on_device": not args.no_extra_msa,
              "omp": os.environ.get("OMP_NUM_THREADS"),
              "xla_flags": os.environ.get("XLA_FLAGS"),
@@ -216,7 +230,7 @@ def main():
     import splice
     from splice import EvoformerOnDevice, ExtraMsaOnDevice, evoformer_on_device
 
-    apply = install_levers(args.tree_rows)
+    apply = install_levers(args.tree_rows, args.precision)
     mt = ABMeter(args.rounds, apply)
     M.install(mt, splice, T.TTBioAlphaFoldDesignModel, trajectory, seqopt)
     for cls, tag in ((EvoformerOnDevice, "evo"), (ExtraMsaOnDevice, "extra")):
@@ -264,6 +278,17 @@ def main():
     print(json.dumps({"summary": summary, "lever_counts": dict(COUNT)}, indent=1), flush=True)
     served = COUNT["reblock_back:on"] + COUNT["reblock_fwd:on"] + COUNT["tree:on"]
     off = COUNT["reblock_back:off"] + COUNT["reblock_fwd:off"] + COUNT["tree:off"]
+    if args.precision:
+        # The precision arm fires in a dtype, not in a call count, so the control it needs is
+        # that the softmax backward ran in a DIFFERENT dtype on the two arms. Counting calls
+        # would read identically either way, which is exactly how an inert lever passes.
+        dts = {k: v for k, v in COUNT.items() if k.startswith("softmax_bw:")}
+        on_dt = {k.split(":")[-1] for k in dts if ":on:" in k}
+        off_dt = {k.split(":")[-1] for k in dts if ":off:" in k}
+        if on_dt and off_dt and on_dt == off_dt:
+            raise RuntimeError(f"the precision arm did not change the softmax backward's dtype: "
+                               f"{dts} -- the lever is wired but inert")
+        served += sum(v for k, v in dts.items() if ":on:" in k)
     if any(r["levers_on"] for r in rows if r["round"] > 2) and served == 0:
         raise RuntimeError(f"ON rounds ran and served nothing: {dict(COUNT)} -- the lever is "
                            f"inert at this n, which is a RESULT, not a measurement of the round")

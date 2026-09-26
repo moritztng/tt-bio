@@ -172,10 +172,10 @@ def _v_softmax(shipped, args, kwargs):
 
     def make():
         def bw(g):
-            # The same expression as `autograd.softmax` and `triangle_attention`; the helper
-            # carries the TT_BIO_SOFTMAX_BW_RENORM branch all three used to inline.
-            inner = ag.softmax_bw_inner(y, g, dim=dim)
-            x.add_grad(ttnn.multiply(y, ttnn.subtract(g, inner)))
+            # One helper for all three sites now, not just the renorm branch: `autograd.softmax`,
+            # `autograd.triangle_attention` and here used to write `y * (g - inner)` out
+            # separately, which is one site too many for a rule that has been mis-enumerated once.
+            x.add_grad(ag.softmax_bw_dx(y, g, dim=dim))
         return bw
 
     out = _tape(y, [x], make)

@@ -20,6 +20,7 @@ topological sort and the fan-in sum below are the whole of what it would have su
 
 from __future__ import annotations
 
+import collections
 import contextlib
 import math
 import os
@@ -108,6 +109,24 @@ if os.environ.get("TT_BIO_RENORM_STATS_DIR"):
                         **SOFTMAX_BW_RENORM_STATS}, f)
 
 
+#: Operand dtype for the softmax backward. "keep" runs it in whatever dtype the forward left,
+#: which for the fp32 softmax island is fp32; "bf16" narrows y and the cotangent once and runs the
+#: whole expression at half the bytes, taking the summation precision from fp32 accumulation in
+#: DST instead of from fp32 tensors in DRAM.
+#:
+#: Why this is the lever and not another one: `perf/bcx_bwbytes/reach.json` puts 10.122 GB of an
+#: AF2 Evoformer block backward's 39.394 GB -- 25.7 %, at n=256 -- in THIRTY calls, and they are
+#: all this one expression on the `[n, 4, n, n]` score tensor. It is the only place on the tape
+#: where a quarter of the bytes sits behind a single decision.
+#:
+#: A PRECISION lever, so it is graded against float64 as part of a stack and never summed with
+#: the others' individual readings.
+SOFTMAX_BW_DTYPE = os.environ.get("TT_BIO_SOFTMAX_BW_DTYPE", "keep")
+
+#: Reductions the softmax backward runs, counted so a claim that the lever fired is a reading.
+SOFTMAX_BW_DTYPE_STATS = collections.Counter()
+
+
 def softmax_bw_inner(y, g, dim=-1, config=None):
     """`sum_j g_j y_j` for the softmax backward `dx = y * (g - inner)`, row-sum corrected.
 
@@ -115,13 +134,45 @@ def softmax_bw_inner(y, g, dim=-1, config=None):
     `taped_ttnn._v_softmax`. The defect is the rule, not the site, and the count matters -- the
     first repair of this expression enumerated two callers and routed two, and the one it missed
     was `softmax` itself, which `__all__` exports.
+
+    Both reductions carry the compute kernel config. The numerator's used to be unconfigured
+    while the denominator's was precise, which on fp32 operands is invisible -- `ttnn.sum`
+    accumulates an fp32 input in fp32 whatever you ask for -- and on bf16 operands is the whole
+    question, because the bf16 arm's entire argument is that the precision comes from the
+    accumulator. `perf/bcx_bwbytes/softmax_bw_probe.py` measures both readings of that.
     """
-    inner = ttnn.sum(ttnn.multiply(g, y), dim=dim, keepdim=True)
+    cfg = config or precise_config()
+    inner = ttnn.sum(ttnn.multiply(g, y), dim=dim, keepdim=True, compute_kernel_config=cfg)
     SOFTMAX_BW_RENORM_STATS["applied" if SOFTMAX_BW_RENORM else "declined"] += 1
     if not SOFTMAX_BW_RENORM:
         return inner
-    return ttnn.divide(inner, ttnn.sum(y, dim=dim, keepdim=True,
-                                       compute_kernel_config=config or precise_config()))
+    return ttnn.divide(inner, ttnn.sum(y, dim=dim, keepdim=True, compute_kernel_config=cfg))
+
+
+def softmax_bw_dx(y, g, dim=-1, config=None):
+    """`dx = y * (g - inner)`, the whole softmax backward, for all three callers.
+
+    The expression used to be written out at each of the three sites with only `inner` shared.
+    That is one site too many for a rule that has already been mis-enumerated once: the renorm
+    repair reached two of three callers on its first attempt.
+
+    `SOFTMAX_BW_DTYPE == "bf16"` narrows both operands once and runs the rest at half the bytes.
+    The narrowing is not free -- it reads an fp32 tensor and writes a bf16 one -- so an operand
+    that is already bf16 is left alone, and whether the two casts eat the win is a measurement,
+    not an argument.
+    """
+    if SOFTMAX_BW_DTYPE == "bf16":
+        if y.dtype != ttnn.bfloat16:
+            y = ttnn.typecast(y, ttnn.bfloat16)
+            SOFTMAX_BW_DTYPE_STATS["narrowed_y"] += 1
+        if g.dtype != ttnn.bfloat16:
+            g = ttnn.typecast(g, ttnn.bfloat16)
+            SOFTMAX_BW_DTYPE_STATS["narrowed_g"] += 1
+    SOFTMAX_BW_DTYPE_STATS[f"dx:{str(y.dtype).split('.')[-1]}"] += 1
+    inner = softmax_bw_inner(y, g, dim=dim, config=config)
+    dx = ttnn.multiply(y, ttnn.subtract(g, inner))
+    ttnn.deallocate(inner)
+    return dx
 
 
 _GRAD_ENABLED = True
@@ -157,6 +208,26 @@ class _Node:
         # A callable shared by the output nodes of one multi-output segment; `backward` calls
         # it once, after the last of them. None for every ordinary op.
         self.group = group
+
+
+#: Whether a bf16 contribution is widened to fp32 BEFORE the fan-in add, or handed to a
+#: mixed-dtype `ttnn.add` with an fp32 output. The ACCUMULATOR stays fp32 either way -- that is
+#: not the lever and it is not negotiable, because fan-in here is 64 to 512 contributions on a
+#: chunked transition and a bf16 running sum measured 6.5e-02 relative L2 against float64 where
+#: the same gradient unchunked measured 6.5e-03.
+#:
+#: What the lever removes is the CAST, 50 of them and 2.26 GB per AF2 Evoformer block backward at
+#: n=256 (`perf/bcx_bytes` `census.json` `typecast_by_why`), inside the 5.736 GB `reach.json`
+#: charges to fan-in. `bcx-bytes` priced the accuracy on the real operands: mixed-dtype
+#: `ttnn.add` differs from the widened sum on 13.6 % of elements and moves the result from
+#: 1.9e-10 to 1.4e-4 against float64 (`dtype_probe.json`). 1.4e-4 is far under the campaign's
+#: 5.0e-02 per-tensor bar, which makes this a lever to grade rather than one to refuse -- as a
+#: STACK against float64, because perturbations here are strongly sub-additive and summing the
+#: arms' individual readings would misprice it in both directions.
+FANIN_WIDEN_INCOMING = env_flag("TT_BIO_FANIN_WIDEN_INCOMING", True)
+
+#: Counted so "the lever fired" is a reading and not an argument.
+FANIN_STATS = collections.Counter()
 
 
 class Tensor:
@@ -360,8 +431,12 @@ class Tensor:
             return
         if self._grad.dtype != ttnn.float32:
             self._grad = ttnn.typecast(self._grad, ttnn.float32)
-        self._grad = ttnn.add(self._grad, grad if grad.dtype == ttnn.float32
-                              else ttnn.typecast(grad, ttnn.float32))
+        if FANIN_WIDEN_INCOMING or grad.dtype == ttnn.float32:
+            self._grad = ttnn.add(self._grad, grad if grad.dtype == ttnn.float32
+                                  else ttnn.typecast(grad, ttnn.float32))
+        else:
+            FANIN_STATS["mixed"] += 1
+            self._grad = ttnn.add(self._grad, grad, dtype=ttnn.float32)
 
     def add_grad_slice(self, grad, starts, ends) -> None:
         """Accumulate the gradient of the slice ``[starts, ends)`` of this value.
@@ -1043,8 +1118,7 @@ def softmax(x: Tensor, dim: int = -1, *, config=None) -> Tensor:
 
     def make():
         def bw(g):
-            inner = softmax_bw_inner(y, g, dim=dim, config=cfg)
-            x.add_grad(ttnn.multiply(y, ttnn.subtract(g, inner)))
+            x.add_grad(softmax_bw_dx(y, g, dim=dim, config=cfg))
         return bw
 
     out = _tape(y, [x], make)
@@ -1351,8 +1425,7 @@ def triangle_attention(q: Tensor, k: Tensor, v: Tensor, bias: Optional[Tensor] =
                     dv_acc = dv_part if dv_acc is None else ttnn.add(dv_acc, dv_part)
                     # dS = P * (dP - rowsum(dP * P)), the softmax backward on the block.
                     dp = mm(go, v.value[b0:b1], tb=True)
-                    inner = softmax_bw_inner(p, dp, dim=-1, config=cfg)
-                    ds = ttnn.multiply(p, ttnn.subtract(dp, inner))
+                    ds = softmax_bw_dx(p, dp, dim=-1, config=cfg)
                     ttnn.deallocate(p)
                     if bias is not None:
                         # CLONE on the per-trunk path. The broadcast path appends the

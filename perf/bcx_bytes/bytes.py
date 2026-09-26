@@ -473,6 +473,11 @@ class Arms:
             `taped_ttnn.PERMUTE_BW_REBLOCK`, so the arm is now that flag and not a second copy
       tree  a leading-axis sum served by `autograd._pairwise_sum0` instead of `ttnn.sum(dim=0)`,
             above `--tree-rows` rows (also `bcx-bwbytes`)
+      smbf16  the softmax backward on bf16 operands with fp32 accumulation in DST instead of
+            fp32 tensors in DRAM -- 25.7 % of an Evoformer block's backward bytes live in that
+            one expression. A PRECISION arm
+      fanin the fan-in add taking a bf16 contribution directly, fp32 accumulator unchanged.
+            A PRECISION arm; grade it WITH smbf16, not beside it
       chunk the shipped taped triangle-attention blocking: the L1 plan's rows, which
             `tenstorrent.py` no longer applies under a tape (`shard_for` refuses the shard there),
             pinned back through `_FP32_SOFTMAX_DRAM_ROW_CAP`, which does apply
@@ -523,6 +528,8 @@ class Arms:
         self.chunk = "chunk" in sw
         T.PERMUTE_BW_REBLOCK = self.perm
         self.ag.LEADING_SUM_TREE_ROWS = self.tree_rows if "tree" in sw else 1 << 30
+        self.ag.SOFTMAX_BW_DTYPE = "bf16" if "smbf16" in sw else "keep"
+        self.ag.FANIN_WIDEN_INCOMING = "fanin" not in sw
         from tt_bio import af2
         af2.AF2PairBlock.rne_residual = "bf16res" not in sw
         for key in self.pinned:
@@ -737,8 +744,13 @@ def set_levers(args):
     on = args.levers == "on"
     T.PERMUTE_BW_REBLOCK = on
     ag.LEADING_SUM_TREE_ROWS = args.tree_rows if on else 1 << 30
-    print(f"levers {args.levers}: PERMUTE_BW_REBLOCK={T.PERMUTE_BW_REBLOCK} "
-          f"LEADING_SUM_TREE_ROWS={ag.LEADING_SUM_TREE_ROWS}", flush=True)
+    ag.SOFTMAX_BW_DTYPE = "bf16" if on and args.precision else "keep"
+    ag.FANIN_WIDEN_INCOMING = not (on and args.precision)
+    print(f"levers {args.levers} precision={args.precision}: "
+          f"PERMUTE_BW_REBLOCK={T.PERMUTE_BW_REBLOCK} "
+          f"LEADING_SUM_TREE_ROWS={ag.LEADING_SUM_TREE_ROWS} "
+          f"SOFTMAX_BW_DTYPE={ag.SOFTMAX_BW_DTYPE} "
+          f"FANIN_WIDEN_INCOMING={ag.FANIN_WIDEN_INCOMING}", flush=True)
 
 
 def main():
@@ -774,6 +786,10 @@ def main():
                     help="bcx-bwbytes' two byte levers: the reblock permute backward and the "
                          "pairwise leading sum. `off` reproduces the tree this branch forked from")
     ap.add_argument("--tree-rows", type=int, default=256)
+    ap.add_argument("--precision", action="store_true",
+                    help="with --levers on, also take the two PRECISION levers (the bf16 softmax "
+                         "backward and the bf16 fan-in). Off by default: they move the gradient "
+                         "and are graded as a stack before they are counted as a byte win")
     args = ap.parse_args()
     if args.cmd not in ("census", "join", "psum"):
         set_levers(args)

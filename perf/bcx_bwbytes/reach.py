@@ -30,7 +30,7 @@ import sys
 ROOT = pathlib.Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT))
 
-from perf.bcx_bytes.bytes import census, summarize                     # noqa: E402
+from perf.bcx_bytes.bytes import ITEM, census, summarize                # noqa: E402
 
 TR = ROOT / "perf" / "bcx_bytes"
 OUT = pathlib.Path(__file__).resolve().parent
@@ -109,6 +109,59 @@ def bucket(r, n):
     return "7 residual eltwise"
 
 
+def _b(d, elem=None):
+    """DRAM bytes of one operand descriptor, optionally as if it were `elem` bytes wide."""
+    import numpy as np
+    if d["buf"] != "DRAM":
+        return 0.0
+    w = elem if elem is not None else ITEM.get(d["dtype"], 2)
+    return float(np.prod(d["padded"])) * w
+
+
+def predict(ops, rows, n):
+    """What each lever removes, computed op by op from the same trace. A MODEL, not a reading.
+
+    Written down before the card pass so the measurement can contradict it. Two of the four
+    levers are predicted at zero or near it and that is the useful half of the exercise:
+
+      perm    bit-identical index reordering over the same operands. Removes NO bytes. It was
+              routed on device milliseconds, which is a different and legitimate question.
+      tree    unpredictable from this instrument. `ttnn.sum(dim=0)` permutes its operand before
+              it reduces and the census only sees the depth-0 call, so the baseline it would be
+              compared against is itself wrong here. Left unpredicted rather than guessed.
+      smbf16  every fp32 operand of the softmax backward at half width, minus the cost of
+              narrowing y and the cotangent once per call. Calls are counted as the `subtract`
+              ops in the bucket: the expression has exactly one, `g - inner`.
+      fanin   the widening typecasts `census.why` attributes to fan-in, in full.
+    """
+    idx = {r["i"]: r for r in rows}
+    smb = [r for r in rows if r.get("_bucket", "").startswith("2 ")]
+    fan = sum(r["typecast"] for r in rows
+              if (r["why"] or "").startswith("fan-in") and not r["view"])
+    now = sum(r["moved"] for r in smb)
+    after = 0.0
+    for r in smb:
+        o = ops[r["i"]]
+        io = [d for d in o["ins"] + o["outs"]]
+        after += sum(_b(d, 2 if d["dtype"] == "FLOAT32" else None) for d in io)
+    calls = sum(1 for r in smb if r["op"] == "subtract")
+    # one narrowing per operand per call: read the fp32 tensor, write the bf16 one
+    score_fp32 = max((_b(d) for r in smb for d in ops[r["i"]]["ins"]
+                      if d["dtype"] == "FLOAT32"), default=0.0)
+    narrow = 2 * calls * (score_fp32 * 1.5)
+    return {"smbf16": {"bucket_now_GB": round(now / 1e9, 3),
+                       "bucket_at_bf16_GB": round(after / 1e9, 3),
+                       "narrowing_cost_GB": round(narrow / 1e9, 3),
+                       "calls": calls,
+                       "net_removed_GB": round((now - after - narrow) / 1e9, 3)},
+            "fanin": {"net_removed_GB": round(fan / 1e9, 3)},
+            "perm": {"net_removed_GB": 0.0,
+                     "why": "a faster kernel over the same operands moves the same bytes"},
+            "tree": {"net_removed_GB": None,
+                     "why": "ttnn.sum(dim=0) permutes before it reduces and the census cannot "
+                            "see that, so the baseline this would be measured against is wrong"}}
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--traces", default="trace_bwd-fix_evo_n256,trace_bwd-fix_extra_n256")
@@ -130,6 +183,7 @@ def main():
         g = collections.defaultdict(lambda: [0, 0.0])
         for r in rows:
             b = bucket(r, n)
+            r["_bucket"] = b or ""
             if b is None:
                 continue
             g[b][0] += 1
@@ -146,6 +200,7 @@ def main():
                                "share": round(v[1] / moved, 4)}
                            for k, v in sorted(g.items())}}
         rec["src_rev"] = args.src
+        rec["predicted"] = predict(t["bwd"], rows, n)
         rec["closure_lines"] = {k: list(v) for k, v in CLOSURES.items()}
         blob[name] = rec
         print(f"\n{name}  {rec['moved_GB']} GB over {rec['depth0_ops']} depth-0 ops")
@@ -153,6 +208,11 @@ def main():
             print(f"   {v['GB']:7.3f} GB  {v['share'] * 100:5.1f} %  n={v['ops']:4d}  {k}")
         print(f"   {rec['fp32_excess_on_score_GB']:7.3f} GB          of the above is the half of "
               f"an fp32 SCORE operand a bf16 one would not move")
+        print("   PREDICTED, a model and not a reading:")
+        for k, v in rec["predicted"].items():
+            net = v["net_removed_GB"]
+            print(f"     {k:8s} {('%7.3f GB' % net) if net is not None else '      n/a'}"
+                  f"  {v.get('why', '')}")
 
     pathlib.Path(args.out).write_text(json.dumps(blob, indent=1))
     print(f"\nwrote {args.out}")
