@@ -35,7 +35,7 @@ def rounds(path):
                     "dev": round(fwd + bwd, 3),
                     "clkmed": samples[len(samples) // 2] if samples else None,
                     "clkmin": samples[0] if samples else None,
-                    "load1": starts[i].get("load1"),
+                    "load1": round(starts[i]["load1"], 1) if starts[i].get("load1") else None,
                     "served": _delta(before, after, "fused", "served"),
                     "taped": _delta(before, after, "fused", "taped"),
                     "fp32": (after.get("fp32_softmax_calls", 0)
