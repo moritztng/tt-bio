@@ -516,8 +516,13 @@ class OpenFold3Forward:
         # between the two, so a parameter gradient that differs differs because of the
         # structure the rollout produced, which is the whole of the rollout's reach into a
         # gradient once upstream has detached it.
-        rep = (f["ground_truth"]["start_atom_index"] if "ground_truth" in f
-               else f["start_atom_index"]).long()
+        # THE CROP OWN representative atoms, not the ground truth ones. `xl` below is the
+        # rollout coordinate array and it holds the CROP atoms; `ground_truth` numbers the
+        # atoms of the UNCROPPED structure, so on anything larger than the token budget its
+        # indices run off the end -- index 2679 into a 2678-atom crop, measured on 2wig at
+        # crop 384. The ground truth indices belong on the LABEL side, where
+        # `OpenFold3Dataset.batch` uses them to read `ground_truth.atom_positions`.
+        rep = f["start_atom_index"].long()
         real = torch.nonzero(tok > 0, as_tuple=True)[0]
         if self.repr_coords_in is not None:
             repr_x = torch.as_tensor(np.asarray(self.repr_coords_in, np.float32)).reshape(-1, 3)
