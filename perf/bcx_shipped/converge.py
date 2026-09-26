@@ -10,9 +10,12 @@ stages and both arms are the same statistic. It also reports anneal's SPREAD ove
 rounds. That spread was written up here as what separates a trajectory that survives harden
 from one that does not. hardenstep.py then measured it on the nine trajectories this campaign
 has on disk and it does NOT predict the harden step: Spearman rho -0.487, exact two-sided
-p = 0.1869. What it does predict is ACCEPTANCE. The three accepted trajectories hold the three
-lowest spreads across both arms, 0.03/0.06/0.07 against 0.08 to 0.67, exact one-sided
-p = 0.0119. Read the spread as a read on the whole trajectory, not on harden.
+p = 0.1869. It does separate ACCEPTED trajectories from rejected ones perfectly across both
+arms, 0.03/0.06/0.07 against 0.08 to 0.67, exact one-sided p = 0.0119 -- but so does anneal's
+MEDIAN, 0.81/0.85/0.87 against 0.24 to 0.75, at the same p, and the two are coupled because a
+trajectory still bimodal at round 45 has a low median by construction. Read the spread as one
+view of the state anneal ends in, not as the operative variable, and read it as a statement
+about the whole trajectory rather than about harden.
 
 usage: converge.py <project> [<project> ...]
 """

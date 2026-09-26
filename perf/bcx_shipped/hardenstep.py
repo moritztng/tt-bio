@@ -7,10 +7,16 @@ BindCraft 2's method, not a measurement, and this campaign has eight trajectorie
 with the numbers to check it. If it does not hold, converge.py's docstring is a claim the
 data refuses and it has to go, because the next reader will trust it.
 
-One row per trajectory: the matched-k anneal spread, the matched-k anneal->harden step, the
-stage it terminated at (blank = completed) and whether it was accepted. Association is
-Spearman rho with an EXACT permutation p over all n! orderings -- n is 8 and 8! is 40320, so
-there is no reason to reach for a normal approximation at a sample size where it is wrong.
+One row per trajectory: the matched-k anneal spread and median, the matched-k anneal->harden
+step, the stage it terminated at (blank = completed) and whether it was accepted. Association
+is Spearman rho with an EXACT permutation p over all n! orderings -- n is 9 and 9! is 362880,
+so there is no reason to reach for a normal approximation at a sample size where it is wrong.
+
+Spread is reported next to anneal's MEDIAN on purpose. The two are not independent: a
+trajectory still bimodal at round 45 has a low median because half its rounds sit in the low
+mode, so a separation on spread and a separation on level are the same separation until
+something distinguishes them. Every candidate that splits accepted from rejected is ranked
+here rather than only the one that was looked for.
 
 usage: hardenstep.py <class>=<project> [<class>=<project> ...]
 """
@@ -60,7 +66,8 @@ def rows(label, project):
         harden = tail([v[1] for v in stages["harden"]], k)
         stage, accepted = term.get(path.parent.name, ("", 0))
         yield {"class": label, "draw": path.parent.name.split("_")[2],
-               "spread": max(anneal) - min(anneal), "step": max(harden) - max(anneal),
+               "spread": max(anneal) - min(anneal), "median": statistics.median(anneal),
+               "step": max(harden) - max(anneal), "len": int(path.parent.name.split("_")[2][1:]),
                "reached": present[-1], "terminated": stage or "-", "accepted": accepted}
 
 
@@ -91,11 +98,12 @@ def main():
     table = [r for label, project in specs for r in rows(label, project)]
     if not table:
         sys.exit("no trajectory with both an anneal and a harden stage on disk")
-    print("  %-10s %5s %13s %14s %8s %10s  accepted"
-          % ("class", "draw", "anneal spread", "anneal->harden", "reached", "terminated"))
+    print("  %-10s %5s %13s %10s %14s %8s %10s  accepted"
+          % ("class", "draw", "anneal spread", "anneal med", "anneal->harden", "reached",
+             "terminated"))
     for r in sorted(table, key=lambda r: (r["class"], r["draw"])):
-        print("  %-10s %5s %13.2f %+14.2f %8s %10s  %s"
-              % (r["class"], r["draw"], r["spread"], r["step"], r["reached"],
+        print("  %-10s %5s %13.2f %10.2f %+14.2f %8s %10s  %s"
+              % (r["class"], r["draw"], r["spread"], r["median"], r["step"], r["reached"],
                  r["terminated"], r["accepted"] or ""))
     xs = [r["spread"] for r in table]
     ys = [r["step"] for r in table]
@@ -113,15 +121,28 @@ def main():
     # threshold after seeing the data -- a cut at 0.07 would be tuned to this sample and would
     # not be evidence. Exact one-sided p = 1 / C(n, a): the chance that a of n trajectories,
     # placed at random, take the a lowest ranks.
-    acc = sorted(r["spread"] for r in table if r["accepted"])
-    rej = sorted(r["spread"] for r in table if not r["accepted"])
-    if acc and rej:
-        lowest = max(acc) < min(rej)
-        pe = 1 / math.comb(len(table), len(acc))
-        print("\n  accepted anneal spread %s   rejected %s"
-              % ("/".join("%.2f" % v for v in acc), "/".join("%.2f" % v for v in rej)))
-        print("  accepted hold the %d lowest spreads: %s   exact one-sided p = %.4f"
-              % (len(acc), "YES" if lowest else "no", pe if lowest else float("nan")))
+    n_acc = sum(1 for r in table if r["accepted"])
+    if n_acc and n_acc < len(table):
+        pe = 1 / math.comb(len(table), n_acc)
+        print("\n  separation of the %d accepted from the %d rejected, per candidate variable."
+              % (n_acc, len(table) - n_acc))
+        print("  An exact one-sided p of %.4f is 1/C(%d,%d) -- the chance the accepted "
+              "trajectories\n  take the extreme ranks by accident. A variable that does NOT "
+              "separate is the useful\n  half of this table: it is the one the accepted "
+              "trajectories do not share.\n" % (pe, len(table), n_acc))
+        print("  %-14s %-4s %-22s %-22s  separates" % ("variable", "dir", "accepted", "rejected"))
+        for name, key, direction in (("anneal spread", "spread", "low"),
+                                     ("anneal median", "median", "high"),
+                                     ("anneal->harden", "step", "high"),
+                                     ("binder length", "len", "low")):
+            acc = sorted(r[key] for r in table if r["accepted"])
+            rej = sorted(r[key] for r in table if not r["accepted"])
+            sep = max(acc) < min(rej) if direction == "low" else min(acc) > max(rej)
+            fmt = "%d" if key == "len" else "%.2f"
+            print("  %-14s %-4s %-22s %-22s  %s"
+                  % (name, direction, "/".join(fmt % v for v in acc),
+                     "/".join(fmt % v for v in rej),
+                     ("YES p=%.4f" % pe) if sep else "no"))
 
 
 if __name__ == "__main__":
