@@ -61,3 +61,26 @@ figure with the part it was measured on.
 Nothing here re-measures anything. It checks that every lever the total counts is still present
 and still default-on, which is the failure mode a carried number actually has — a default flipped
 off, or a derivation regressed, under a total that keeps being copied forward.
+
+## Re-verified against current main, 2026-09-26 07:0xZ
+
+`perf/land_standing/totalrecheck.sh` re-derives this table instead of trusting it. It checks the
+SYMBOL on `origin/main`, never a remembered line number, because line numbers move and this row
+has already been bitten by a flag whose stated reason had drifted away from it.
+
+At `origin/main` = `4cf8db279`, many commits after the audit above was written:
+
+    1.438 s   derived fused _MM_BLOCK key      OK  widths[i + 1:] present at tenstorrent.py:8479
+                                                   regression check: widths[i:] occurrences = 0
+    11.564 s  fused HiFi triatt, of3 trunk     OK  triatt_sdpa_hifi_site("openfold3.trunk", True)
+                                                   at openfold3_trunk.py:193
+    0.1315 s  K4 TT_BIO_SDPA_BAND_DIV_K        OK  env_flag(..., True) at tenstorrent.py:1478
+                                                   and the grid gate still present at :1403
+    9.5000 s  TT_BIO_TRIATT_NARROW_Q_FALLBACK  OK  env_flag(..., True) at tenstorrent.py:1727
+
+So the total stands: **22.6335 s on a p300c, 22.5020 s on a Wormhole Galaxy** — the difference
+being K4, which is gated on `not _IS_SMALL_GRID` and therefore does not fire on an 8x9 Galaxy.
+
+Run it again rather than quoting this block; a lever that was default-on when audited is not
+necessarily default-on now, which is `merged-lever-defaults-off-is-not-a-landed-win` read
+forwards.
