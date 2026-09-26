@@ -133,18 +133,28 @@ def cmd_cells(args):
     blob["sync_floor_s"] = D.sync_floor(ttnn, dev.device)
     print(json.dumps({"sync_floor_median_s": blob["sync_floor_s"]["median"]}), flush=True)
 
+    # Cells are INTERLEAVED inside each rep, not run as four consecutive blocks. Run 2 ran them
+    # blockwise and paid for it: cell C got a window at loadavg 14.2 while cell B had 20.7, so
+    # the B -> C step carried a load difference it could not separate from its subject. Sampling
+    # every cell inside each rep makes drift common-mode, which is the only form of it a median
+    # over reps can remove.
+    verbs = {name: [collections.Counter(), collections.Counter()] for name in cells}
     for name in cells:
         m0, z0, wm, wz, masks, n32, spec = prepared[name]
         depth = spec.get("depth", 1)
-        cell = {"n": spec["n"], "device_axis": n32, "masks": spec["masks"],
-                "ckpt": spec["ckpt"], "ks": list(spec["ks"]), "reps": args.reps,
-                "depth": depth,
-                "n_real": N_REAL if spec["masks"] == "fold" else n32,
-                "flops_fwd_analytic": D.analytic_flops(spec["n"], depth),
-                "flops_fwd_analytic_padded": D.analytic_flops(n32, depth),
-                "records": [], "verb": {}}
-        verb_wall, verb_calls = collections.Counter(), collections.Counter()
-        for rep in range(args.reps):
+        blob["cells"][name] = {
+            "n": spec["n"], "device_axis": n32, "masks": spec["masks"], "ckpt": spec["ckpt"],
+            "ks": list(spec["ks"]), "reps": args.reps, "depth": depth,
+            "n_real": N_REAL if spec["masks"] == "fold" else n32,
+            "flops_fwd_analytic": D.analytic_flops(spec["n"], depth),
+            "flops_fwd_analytic_padded": D.analytic_flops(n32, depth),
+            "records": [], "verb": {}}
+
+    for rep in range(args.reps):
+        for name in cells:
+            m0, z0, wm, wz, masks, n32, spec = prepared[name]
+            cell = blob["cells"][name]
+            verb_wall, verb_calls = verbs[name]
             modes = ["free", "sync"] if rep % 2 == 0 else ["sync", "free"]
             for mode in modes:
                 timer.sync = (mode == "sync")
@@ -175,13 +185,13 @@ def cmd_cells(args):
                                           "fwd": round(r["fwd"], 3), "bwd": round(r["bwd"], 3),
                                           "op_wall": round(sum(snap["wall"].values()), 3),
                                           "ops": sum(snap["calls"].values()),
+                                          "loadavg": round(rec["loadavg"], 1),
                                           "aiclk": rec["aiclk"]}), flush=True)
-        cell["verb"] = {"wall": D._round(verb_wall), "calls": dict(verb_calls),
-                        "reps": args.reps, "note": "sync mode, K=max, summed over reps"}
-        blob["cells"][name] = cell
+            cell["verb"] = {"wall": D._round(verb_wall), "calls": dict(verb_calls),
+                            "reps": args.reps, "note": "sync mode, K=max, summed over reps"}
         OUT.mkdir(parents=True, exist_ok=True)
         (OUT / args.out).write_text(json.dumps(blob, indent=1, default=str))
-        print(f"wrote {OUT / args.out} through cell {name}", flush=True)
+        print(f"wrote {OUT / args.out} through rep {rep}", flush=True)
 
     blob["loadavg_end"] = os.getloadavg()
     blob["finished_utc"] = time.strftime("%FT%TZ", time.gmtime())
