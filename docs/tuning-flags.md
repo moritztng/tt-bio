@@ -260,6 +260,24 @@ without losing much on the other. Worth 0.014 s on a 512 aa Blackhole fold, unde
 floor — it ships because it is free and bit-exact, not because the fold moves. Capped at 4: above
 that the kernel's multiply stage would need more DST slots than a 16-bit DST has to give it.
 
+## `TT_BIO_MM_LAYOUT` — off, training only
+
+Gives a core grid to the batched matmuls that call `ttnn.matmul` with no plan at all: no program
+config and no core grid. ttnn's default spreads a batched operand badly, and any explicit grid
+fixes it. On a BindCraft 2 gradient round at 288 tokens, 696 calls a round across seven shape
+classes, 3.04x to 14.34x each, PCC 1.000000 against the call it replaces. The round pays
+1.0336x on device seconds (paired median over 24 rounds, pc card 0 at 1350 MHz).
+
+Off by default because it has not been through a release gate. It changes the order a matmul
+accumulates its partial products, so results move by up to 2.0e-3 in bf16. The structure that
+comes out has now been scored, as part of the composed stack rather than alone: 0.5376 A on the
+confident core against a 0.60 A kill bar, unchanged from the same stack without it.
+
+Batch-1 matmuls are deliberately out of range: there ttnn's planner is already within 4 % of the
+best grid available, and forcing one costs up to 26 %. `TT_BIO_MM_LAYOUT_GRID` sets the grid's
+side length, clamped to the device's own compute grid; 8 is the measured best and changing it is
+worth under half a per cent.
+
 ## `TT_BIO_MSA_LADDER` — on, Boltz-2 and BoltzGen
 
 The MSA depth axis used to pad to a single 1024, so a 35-row alignment cost exactly what a 1000-row
@@ -1119,6 +1137,22 @@ which gets the precision change above. A size-ladder census with only this flag 
 Protenix-v2 at 896 and OpenBind at 640 identical. At 1088 the bound makes the flag a no-op.
 
 `TT_BIO_TRIATT_NARROW_Q_FALLBACK=0` is the way back.
+
+## `TT_BIO_TRIATT_BW_FUSED` — off, training only
+
+Sends the BACKWARD of `autograd.triangle_attention` through a fused kernel that keeps the
+attention scores in L1 and never writes them: 238.88 MB a call against the chunked-recompute
+path's 9172.90. On a BindCraft 2 gradient round at 288 tokens it is served 108 times a round and
+cuts the round's device seconds by 1.1398x.
+
+It only reaches a route that enters `autograd.triangle_attention` at all, which means the fused
+SDPA or HiFi route. On the materialised path it fires zero times. Anything outside its shape gate
+falls through to the chunked recompute rather than approximating, so the answer is the same
+function at every shape it declines.
+
+Off by default because it has not been through a release gate. Graded at 1.0133-1.046x against a
+1.1-1.2x bar on dq/dk/dv/dbias, and 1.0511x on the composed round's float64 VJP against a 1.2x
+bar.
 
 ## `TT_BIO_TRIATT_SDPA_HIFI_AB` — on for `openfold3.trunk`, off at every other site
 
