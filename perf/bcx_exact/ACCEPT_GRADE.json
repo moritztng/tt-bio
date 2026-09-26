@@ -1,0 +1,589 @@
+{
+ "subject": {
+  "log": "/home/ttuser/bcx_exact_art/traj_off_s3.log",
+  "trajectories": 4,
+  "rows": [
+   {
+    "name": "pdl1_denovo_l73_6d7c6611d64fdee9",
+    "length": 73,
+    "hash": "6d7c6611d64fdee9",
+    "terminal": "screen",
+    "stages": {
+     "screen": [
+      0.58,
+      0.59
+     ]
+    }
+   },
+   {
+    "name": "pdl1_denovo_l93_c58e16b016f4f3e5",
+    "length": 93,
+    "hash": "c58e16b016f4f3e5",
+    "terminal": "accepted",
+    "stages": {
+     "screen": [
+      0.81,
+      0.92
+     ],
+     "refine": [
+      0.78,
+      0.88
+     ],
+     "anneal": [
+      0.82,
+      0.91
+     ],
+     "harden": [
+      0.72,
+      0.84
+     ],
+     "mutate": [
+      0.76,
+      0.85
+     ]
+    }
+   },
+   {
+    "name": "pdl1_denovo_l73_7b9872b195f153bc",
+    "length": 73,
+    "hash": "7b9872b195f153bc",
+    "terminal": "in flight",
+    "stages": {
+     "screen": [
+      0.82,
+      0.91
+     ],
+     "refine": [
+      0.84,
+      0.91
+     ],
+     "anneal": [
+      0.84,
+      0.92
+     ],
+     "harden": [
+      0.84,
+      0.9
+     ],
+     "mutate": [
+      0.75,
+      0.86
+     ]
+    }
+   },
+   {
+    "name": "pdl1_denovo_l151_587b7ef46672c6c8",
+    "length": 151,
+    "hash": "587b7ef46672c6c8",
+    "terminal": "in flight",
+    "stages": {
+     "screen": [
+      0.89,
+      0.94
+     ],
+     "refine": [
+      0.87,
+      0.93
+     ]
+    }
+   }
+  ]
+ },
+ "reference_logs": [
+  "/home/ttuser/bcx_accept_art/accept_s3.log",
+  "/home/ttuser/bcx_accept_art/accept_s4.log",
+  "/home/ttuser/bcx_accept_art/ref_s1.log",
+  "/home/ttuser/bcx_accept_art/ref_s1.stamped.log",
+  "/home/ttuser/bcx_accept_art/refsnap/ref_run.log",
+  "/home/ttuser/bcx_exact_art/ab_r6.log",
+  "/home/ttuser/bcx_multimer_art/lever_base_288.log",
+  "/home/ttuser/bcx_multimer_art/mono_b32.log",
+  "/home/ttuser/bcx_multimer_art/mutate_live.log",
+  "/home/ttuser/bcx_multimer_art/mutate_live2.log",
+  "/home/ttuser/bcx_multimer_art/pool_ckpt.log",
+  "/home/ttuser/bcx_multimer_art/pool_ckpt2.log",
+  "/home/ttuser/bcx_multimer_art/pool_fix.log",
+  "/home/ttuser/bcx_multimer_art/pool_full.log",
+  "/home/ttuser/bcx_multimer_art/pool_l96.log",
+  "/home/ttuser/bcx_multimer_art/pool_lev3.log",
+  "/home/ttuser/bcx_multimer_art/pool_lev_r1.log",
+  "/home/ttuser/bcx_multimer_art/pool_r1.log",
+  "/home/ttuser/bcx_multimer_art/poolsmoke.log",
+  "/home/ttuser/bcx_mutate_art/profile_s1.log",
+  "/home/ttuser/bcx_mutate_art/profile_s2.log",
+  "/home/ttuser/bcx_mutate_art/profile_s2_arm.log",
+  "/home/ttuser/bcx_mutate_art/route_s3.log"
+ ],
+ "reference_wide_trajectories": 28,
+ "reference_narrow_trajectories": 7,
+ "clauses": {
+  "1_gate_binder": {
+   "criterion": "pLDDT >= 0.90 and Backbone_Clashes == 0 and Hotspot_Contact_Fraction == 1.0",
+   "accepted_binders": 1,
+   "passing": 1,
+   "best": {
+    "design": "pdl1_denovo_l93_c58e16b016f4f3e5_seq0",
+    "length": "93",
+    "pLDDT": "0.9",
+    "i_pTM": "0.79",
+    "pTM": "0.85",
+    "i_pAE": "0.2",
+    "Backbone_Clashes": "0.0",
+    "Hotspot_Contact_Fraction": "1.0",
+    "Interface_Residues": "17.0",
+    "Interface_BuriedArea": "855.6",
+    "Binder_RMSD": "0.26",
+    "Unbound_Binder_pLDDT": "0.9"
+   },
+   "verdict": "PASS"
+  },
+  "1_subclause_stage_iptm": {
+   "criterion": "i_pTM >= 0.80 at every stage except mutate",
+   "subject_pass": 2,
+   "subject_fail": 2,
+   "reference_wide_pass": 4,
+   "reference_wide_fail": 14,
+   "reference_narrow_pass": 2,
+   "reference_narrow_fail": 5,
+   "verdict": "FAIL",
+   "discriminating": false
+  },
+  "2_discriminator_narrow": {
+   "criterion": "per-stage medians inside the reference range, and no terminal stage the reference never reaches",
+   "cells": [
+    {
+     "stage": "screen",
+     "metric": "i_pTM",
+     "subject_median": 0.815,
+     "subject_n": 4,
+     "reference_lo": 0.61,
+     "reference_hi": 0.88,
+     "reference_median": 0.78,
+     "reference_n": 7,
+     "inside": true,
+     "at_or_above_reference_median": true
+    },
+    {
+     "stage": "screen",
+     "metric": "pLDDT",
+     "subject_median": 0.915,
+     "subject_n": 4,
+     "reference_lo": 0.84,
+     "reference_hi": 0.95,
+     "reference_median": 0.91,
+     "reference_n": 7,
+     "inside": true,
+     "at_or_above_reference_median": true
+    },
+    {
+     "stage": "refine",
+     "metric": "i_pTM",
+     "subject_median": 0.84,
+     "subject_n": 3,
+     "reference_lo": 0.56,
+     "reference_hi": 0.88,
+     "reference_median": 0.73,
+     "reference_n": 7,
+     "inside": true,
+     "at_or_above_reference_median": true
+    },
+    {
+     "stage": "refine",
+     "metric": "pLDDT",
+     "subject_median": 0.91,
+     "subject_n": 3,
+     "reference_lo": 0.81,
+     "reference_hi": 0.95,
+     "reference_median": 0.88,
+     "reference_n": 7,
+     "inside": true,
+     "at_or_above_reference_median": true
+    },
+    {
+     "stage": "anneal",
+     "metric": "i_pTM",
+     "subject_median": 0.83,
+     "subject_n": 2,
+     "reference_lo": 0.68,
+     "reference_hi": 0.88,
+     "reference_median": 0.75,
+     "reference_n": 7,
+     "inside": true,
+     "at_or_above_reference_median": true
+    },
+    {
+     "stage": "anneal",
+     "metric": "pLDDT",
+     "subject_median": 0.915,
+     "subject_n": 2,
+     "reference_lo": 0.81,
+     "reference_hi": 0.95,
+     "reference_median": 0.93,
+     "reference_n": 7,
+     "inside": true,
+     "at_or_above_reference_median": false
+    },
+    {
+     "stage": "harden",
+     "metric": "i_pTM",
+     "subject_median": 0.78,
+     "subject_n": 2,
+     "reference_lo": 0.42,
+     "reference_hi": 0.88,
+     "reference_median": 0.67,
+     "reference_n": 7,
+     "inside": true,
+     "at_or_above_reference_median": true
+    },
+    {
+     "stage": "harden",
+     "metric": "pLDDT",
+     "subject_median": 0.87,
+     "subject_n": 2,
+     "reference_lo": 0.58,
+     "reference_hi": 0.94,
+     "reference_median": 0.89,
+     "reference_n": 7,
+     "inside": true,
+     "at_or_above_reference_median": false
+    },
+    {
+     "stage": "mutate",
+     "metric": "i_pTM",
+     "subject_median": 0.755,
+     "subject_n": 2,
+     "reference_lo": 0.18,
+     "reference_hi": 0.88,
+     "reference_median": 0.475,
+     "reference_n": 6,
+     "inside": true,
+     "at_or_above_reference_median": true
+    },
+    {
+     "stage": "mutate",
+     "metric": "pLDDT",
+     "subject_median": 0.855,
+     "subject_n": 2,
+     "reference_lo": 0.55,
+     "reference_hi": 0.95,
+     "reference_median": 0.835,
+     "reference_n": 6,
+     "inside": true,
+     "at_or_above_reference_median": true
+    }
+   ],
+   "all_medians_inside": true,
+   "medians_at_or_above_reference": 8,
+   "medians_total": 10,
+   "subject_terminals": [
+    "accepted",
+    "screen"
+   ],
+   "reference_terminals": [
+    "accepted",
+    "final",
+    "harden",
+    "mutate"
+   ],
+   "novel_terminal_stages": [
+    "screen"
+   ],
+   "verdict": "FAIL"
+  },
+  "2_discriminator_wide": {
+   "criterion": "per-stage medians inside the reference range, and no terminal stage the reference never reaches",
+   "cells": [
+    {
+     "stage": "screen",
+     "metric": "i_pTM",
+     "subject_median": 0.815,
+     "subject_n": 4,
+     "reference_lo": 0.1,
+     "reference_hi": 0.88,
+     "reference_median": 0.775,
+     "reference_n": 18,
+     "inside": true,
+     "at_or_above_reference_median": true
+    },
+    {
+     "stage": "screen",
+     "metric": "pLDDT",
+     "subject_median": 0.915,
+     "subject_n": 4,
+     "reference_lo": 0.32,
+     "reference_hi": 0.95,
+     "reference_median": 0.85,
+     "reference_n": 19,
+     "inside": true,
+     "at_or_above_reference_median": true
+    },
+    {
+     "stage": "refine",
+     "metric": "i_pTM",
+     "subject_median": 0.84,
+     "subject_n": 3,
+     "reference_lo": 0.09,
+     "reference_hi": 0.88,
+     "reference_median": 0.69,
+     "reference_n": 17,
+     "inside": true,
+     "at_or_above_reference_median": true
+    },
+    {
+     "stage": "refine",
+     "metric": "pLDDT",
+     "subject_median": 0.91,
+     "subject_n": 3,
+     "reference_lo": 0.34,
+     "reference_hi": 0.95,
+     "reference_median": 0.87,
+     "reference_n": 17,
+     "inside": true,
+     "at_or_above_reference_median": true
+    },
+    {
+     "stage": "anneal",
+     "metric": "i_pTM",
+     "subject_median": 0.83,
+     "subject_n": 2,
+     "reference_lo": 0.09,
+     "reference_hi": 0.88,
+     "reference_median": 0.795,
+     "reference_n": 16,
+     "inside": true,
+     "at_or_above_reference_median": true
+    },
+    {
+     "stage": "anneal",
+     "metric": "pLDDT",
+     "subject_median": 0.915,
+     "subject_n": 2,
+     "reference_lo": 0.44,
+     "reference_hi": 0.95,
+     "reference_median": 0.91,
+     "reference_n": 16,
+     "inside": true,
+     "at_or_above_reference_median": true
+    },
+    {
+     "stage": "harden",
+     "metric": "i_pTM",
+     "subject_median": 0.78,
+     "subject_n": 2,
+     "reference_lo": 0.09,
+     "reference_hi": 0.88,
+     "reference_median": 0.52,
+     "reference_n": 15,
+     "inside": true,
+     "at_or_above_reference_median": true
+    },
+    {
+     "stage": "harden",
+     "metric": "pLDDT",
+     "subject_median": 0.87,
+     "subject_n": 2,
+     "reference_lo": 0.37,
+     "reference_hi": 0.94,
+     "reference_median": 0.82,
+     "reference_n": 15,
+     "inside": true,
+     "at_or_above_reference_median": true
+    },
+    {
+     "stage": "mutate",
+     "metric": "i_pTM",
+     "subject_median": 0.755,
+     "subject_n": 2,
+     "reference_lo": 0.18,
+     "reference_hi": 0.88,
+     "reference_median": 0.54,
+     "reference_n": 7,
+     "inside": true,
+     "at_or_above_reference_median": true
+    },
+    {
+     "stage": "mutate",
+     "metric": "pLDDT",
+     "subject_median": 0.855,
+     "subject_n": 2,
+     "reference_lo": 0.28,
+     "reference_hi": 0.95,
+     "reference_median": 0.78,
+     "reference_n": 9,
+     "inside": true,
+     "at_or_above_reference_median": true
+    }
+   ],
+   "all_medians_inside": true,
+   "medians_at_or_above_reference": 10,
+   "medians_total": 10,
+   "subject_terminals": [
+    "accepted",
+    "screen"
+   ],
+   "reference_terminals": [
+    "accepted",
+    "anneal",
+    "final",
+    "harden",
+    "mutate",
+    "screen"
+   ],
+   "novel_terminal_stages": [],
+   "verdict": "PASS"
+  },
+  "2_discriminator_device_only": {
+   "criterion": "per-stage medians inside the reference range, and no terminal stage the reference never reaches",
+   "cells": [
+    {
+     "stage": "screen",
+     "metric": "i_pTM",
+     "subject_median": 0.815,
+     "subject_n": 4,
+     "reference_lo": 0.1,
+     "reference_hi": 0.88,
+     "reference_median": 0.77,
+     "reference_n": 15,
+     "inside": true,
+     "at_or_above_reference_median": true
+    },
+    {
+     "stage": "screen",
+     "metric": "pLDDT",
+     "subject_median": 0.915,
+     "subject_n": 4,
+     "reference_lo": 0.32,
+     "reference_hi": 0.95,
+     "reference_median": 0.815,
+     "reference_n": 16,
+     "inside": true,
+     "at_or_above_reference_median": true
+    },
+    {
+     "stage": "refine",
+     "metric": "i_pTM",
+     "subject_median": 0.84,
+     "subject_n": 3,
+     "reference_lo": 0.09,
+     "reference_hi": 0.88,
+     "reference_median": 0.685,
+     "reference_n": 14,
+     "inside": true,
+     "at_or_above_reference_median": true
+    },
+    {
+     "stage": "refine",
+     "metric": "pLDDT",
+     "subject_median": 0.91,
+     "subject_n": 3,
+     "reference_lo": 0.34,
+     "reference_hi": 0.95,
+     "reference_median": 0.865,
+     "reference_n": 14,
+     "inside": true,
+     "at_or_above_reference_median": true
+    },
+    {
+     "stage": "anneal",
+     "metric": "i_pTM",
+     "subject_median": 0.83,
+     "subject_n": 2,
+     "reference_lo": 0.09,
+     "reference_hi": 0.88,
+     "reference_median": 0.765,
+     "reference_n": 14,
+     "inside": true,
+     "at_or_above_reference_median": true
+    },
+    {
+     "stage": "anneal",
+     "metric": "pLDDT",
+     "subject_median": 0.915,
+     "subject_n": 2,
+     "reference_lo": 0.44,
+     "reference_hi": 0.95,
+     "reference_median": 0.91,
+     "reference_n": 14,
+     "inside": true,
+     "at_or_above_reference_median": true
+    },
+    {
+     "stage": "harden",
+     "metric": "i_pTM",
+     "subject_median": 0.78,
+     "subject_n": 2,
+     "reference_lo": 0.09,
+     "reference_hi": 0.88,
+     "reference_median": 0.52,
+     "reference_n": 13,
+     "inside": true,
+     "at_or_above_reference_median": true
+    },
+    {
+     "stage": "harden",
+     "metric": "pLDDT",
+     "subject_median": 0.87,
+     "subject_n": 2,
+     "reference_lo": 0.37,
+     "reference_hi": 0.94,
+     "reference_median": 0.82,
+     "reference_n": 13,
+     "inside": true,
+     "at_or_above_reference_median": true
+    },
+    {
+     "stage": "mutate",
+     "metric": "i_pTM",
+     "subject_median": 0.755,
+     "subject_n": 2,
+     "reference_lo": 0.18,
+     "reference_hi": 0.88,
+     "reference_median": 0.475,
+     "reference_n": 6,
+     "inside": true,
+     "at_or_above_reference_median": true
+    },
+    {
+     "stage": "mutate",
+     "metric": "pLDDT",
+     "subject_median": 0.855,
+     "subject_n": 2,
+     "reference_lo": 0.28,
+     "reference_hi": 0.95,
+     "reference_median": 0.725,
+     "reference_n": 8,
+     "inside": true,
+     "at_or_above_reference_median": true
+    }
+   ],
+   "all_medians_inside": true,
+   "medians_at_or_above_reference": 10,
+   "medians_total": 10,
+   "subject_terminals": [
+    "accepted",
+    "screen"
+   ],
+   "reference_terminals": [
+    "accepted",
+    "anneal",
+    "final",
+    "harden",
+    "mutate",
+    "screen"
+   ],
+   "novel_terminal_stages": [],
+   "verdict": "PASS"
+  },
+  "2_screen_termination_rate": {
+   "subject": "1/2",
+   "reference_wide": "4/20",
+   "fisher_one_sided_p": 0.4113
+  },
+  "3_seed_floor": {
+   "criterion": "a NO-GO on clause 1 or 2 needs three seeds",
+   "subject_seeds": 1,
+   "no_go_available": false
+  }
+ },
+ "reference_device_only_trajectories": 24
+}
