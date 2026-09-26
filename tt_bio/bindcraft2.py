@@ -41,6 +41,8 @@ from typing import Callable, Iterator
 import numpy as np
 import torch
 
+from tt_bio import duotraj
+
 #: tt-bio's token axis buckets to 32, and rounding a design UP is faster than running it ragged:
 #: the PD-L1 complex at 211 tokens costs 4.504 s on the trunk forward and the same design padded
 #: to 224 costs 1.369 s. The splice pads, masks what it added and slices the result back.
@@ -202,6 +204,49 @@ class _Trunk:
         return self.down(leaf.grad, shape) if leaf.grad is not None else torch.zeros(shape)
 
 
+class _Tapes:
+    """The tapes a splice has banked, keyed by the trajectory that banked them.
+
+    One splice object serves every trajectory in flight -- the swap is a process-wide patch
+    of `modules.layer_stack`, so there is one of these per STACK and not one per trajectory
+    -- and each trajectory drops its own superseded tapes on every recycle. A flat sweep
+    would drop the neighbour's live tape between its forward and its backward, and the
+    neighbour would fail with "no live tape for token N" at a point where nothing is wrong
+    with it.
+
+    `duotraj.slot()` is "" for a process running one trajectory, so an un-interleaved run
+    sweeps and banks exactly what it always did.
+    """
+
+    def __init__(self):
+        self._tapes = _Tapes()
+        self._lock = threading.Lock()
+
+    def sweep(self) -> None:
+        """Drop THIS trajectory's superseded tapes. AlphaFold 2 stops the gradient on every
+        recycle but the last and JAX still routes all of them through the forward rule, so
+        without this the superseded tapes accumulate at several GB an Evoformer block."""
+        mine = duotraj.slot()
+        with self._lock:
+            for token in [t for t, e in self._live.items() if e["slot"] == mine]:
+                del self._live[token]
+
+    def bank(self, entry: dict) -> int:
+        with self._lock:
+            token, self._next = self._next, self._next + 1
+            self._live[token] = {**entry, "slot": duotraj.slot()}
+        return token
+
+    def take(self, token) -> dict | None:
+        with self._lock:
+            return self._live.pop(int(token), None)
+
+    def count(self) -> int:
+        """How many tapes THIS trajectory has banked."""
+        mine = duotraj.slot()
+        return sum(1 for e in self._live.values() if e["slot"] == mine)
+
+
 class TrunkPool:
     """The AlphaFold 2 checkpoints a campaign may draw from, on card, selected by name.
 
@@ -241,7 +286,12 @@ class TrunkPool:
         # So the trunk cache and the selection are shared state and move under a lock, and the
         # load is deferred to the thread that folds.
         self._lock = threading.RLock()
-        self._current: str | None = None
+        # Keyed by `duotraj.slot()`: two interleaved trajectories select different
+        # checkpoints and the selection happens on the trajectory's own thread, outside the
+        # device seam, so a single `_current` would have whichever thread selected last
+        # decide what the other one folds. "" is the only slot a single-trajectory process
+        # has, so nothing changes for one.
+        self._selected: dict[str, str] = {}
         if isinstance(source, Mapping):
             self.require(source)
 
@@ -322,7 +372,7 @@ class TrunkPool:
         if name not in self.paths:
             raise KeyError(f"{name!r} is not in the trunk pool {self.names}")
         with self._lock:
-            self._current = name
+            self._selected[duotraj.slot()] = name
             self.selections[name] = self.selections.get(name, 0) + 1
 
     def _load(self, name: str) -> _Trunk:
@@ -339,12 +389,17 @@ class TrunkPool:
             return trunk
 
     @property
+    def selected(self) -> str | None:
+        """The checkpoint THIS trajectory last selected, or None."""
+        return self._selected.get(duotraj.slot())
+
+    @property
     def current(self) -> _Trunk:
-        if self._current is None:
+        if self.selected is None:
             if not self.paths:
                 raise RuntimeError("the trunk pool is empty; nothing has asked it for a model")
             self.use(self.names[0])
-        return self._load(self._current)
+        return self._load(self.selected)
 
 
 # ----------------------------------------------------------------- the Evoformer on card
@@ -374,8 +429,7 @@ class EvoformerOnDevice:
         self.host_folds: dict[str, int] = {}
         self._mask_dev: dict = {}
         self._pair_mask_dev: dict = {}
-        self._live: dict[int, dict] = {}
-        self._next = 0
+        self._tapes = _Tapes()
 
     # ------------------------------------------------------------------ which side folds
 
@@ -472,7 +526,7 @@ class EvoformerOnDevice:
     def _trunk(self) -> _Trunk:
         trunk = self.pool.current
         if trunk.blocks != self.blocks:
-            raise ValueError(f"{self.pool._current!r} holds {trunk.blocks} Evoformer blocks and "
+            raise ValueError(f"{self.pool.selected!r} holds {trunk.blocks} Evoformer blocks and "
                              f"this splice was built for {self.blocks}")
         return trunk
 
@@ -500,17 +554,16 @@ class EvoformerOnDevice:
         # AlphaFold 2 stops the gradient on every recycle but the last and JAX still routes all
         # of them through the forward rule, so the superseded tapes are dropped here. At several
         # GB an Evoformer block, keeping them is fatal within one trajectory.
-        self._live.clear()
+        self._tapes.sweep()
         trunk.ag.release_pins()
-        token, self._next = self._next, self._next + 1
-        self._live[token] = {"roots": (mo, zo), "leaves": (ml, zl),
-                             "shapes": (tuple(m.shape), tuple(z.shape)), "n": n}
+        token = self._tapes.bank({"roots": (mo, zo), "leaves": (ml, zl),
+                                  "shapes": (tuple(m.shape), tuple(z.shape)), "n": n})
         self.calls["taped"] += 1
         return (trunk.down(mo.value, tuple(m.shape))[:, :n].numpy(),
                 trunk.down(zo.value, tuple(z.shape))[:n, :n].numpy(), np.int32(token))
 
     def _backward(self, token, g_msa_np, g_pair_np):
-        entry = self._live.pop(int(token), None)
+        entry = self._tapes.take(token)
         if entry is None:
             raise RuntimeError(f"no live tape for token {int(token)}")
         trunk = self.pool.current
@@ -529,7 +582,7 @@ class EvoformerOnDevice:
         return out
 
     def live_tapes(self) -> int:
-        return len(self._live)
+        return self._tapes.count()
 
     # ------------------------------------------------------------------ the JAX face
 
@@ -604,8 +657,7 @@ class ExtraMsaOnDevice:
         self.mask_seen = {"calls": 0, "abs_max": 0.0}
         self.swapped: list[int] = []
         self._pair_mask_dev: dict = {}
-        self._live: dict[int, dict] = {}
-        self._next = 0
+        self._tapes = _Tapes()
 
     # ------------------------------------------------------------------ inputs
 
@@ -639,7 +691,7 @@ class ExtraMsaOnDevice:
     def _trunk(self) -> _Trunk:
         trunk = self.pool.current
         if trunk.extra_blocks == 0:
-            raise ValueError(f"{self.pool._current!r} holds no extra-MSA blocks on card")
+            raise ValueError(f"{self.pool.selected!r} holds no extra-MSA blocks on card")
         return trunk
 
     def _pair_masks(self, trunk, pair_mask):
@@ -672,15 +724,14 @@ class ExtraMsaOnDevice:
         trunk.sync()
         # Every recycle but the last is stop_gradient'ed and still goes through the forward
         # rule, so the superseded tapes are dropped here -- `EvoformerOnDevice._taped`'s reason.
-        self._live.clear()
+        self._tapes.sweep()
         trunk.ag.release_pins()
-        token, self._next = self._next, self._next + 1
-        self._live[token] = {"root": zo, "leaf": zl, "shape": tuple(z.shape), "n": n}
+        token = self._tapes.bank({"root": zo, "leaf": zl, "shape": tuple(z.shape), "n": n})
         self.calls["taped"] += 1
         return trunk.down(zo.value, tuple(z.shape))[:n, :n].numpy(), np.int32(token)
 
     def _backward(self, token, g_pair_np):
-        entry = self._live.pop(int(token), None)
+        entry = self._tapes.take(token)
         if entry is None:
             raise RuntimeError(f"no live extra-MSA tape for token {int(token)}")
         trunk = self.pool.current
@@ -695,7 +746,7 @@ class ExtraMsaOnDevice:
         return out
 
     def live_tapes(self) -> int:
-        return len(self._live)
+        return self._tapes.count()
 
     # ------------------------------------------------------------------ the JAX face
 
@@ -759,8 +810,7 @@ class TemplateOnDevice:
         #: What the JAX side handed over, so an inert swap cannot read as a working one.
         self.seen = {"calls": 0, "n": None, "channels": None, "blocks_swapped": None}
         self._pair_mask_dev: dict = {}
-        self._live: dict[int, dict] = {}
-        self._next = 0
+        self._tapes = _Tapes()
 
     # ------------------------------------------------------------------ inputs
 
@@ -787,7 +837,7 @@ class TemplateOnDevice:
         trunk = self.pool.current
         if trunk.template_blocks == 0:
             raise ValueError(
-                f"{self.pool._current!r} holds no template blocks on card; this swap needs "
+                f"{self.pool.selected!r} holds no template blocks on card; this swap needs "
                 f"TrunkPool(template=True), which predictor(template=True) sets")
         return trunk
 
@@ -820,15 +870,14 @@ class TemplateOnDevice:
         trunk.sync()
         # Every recycle but the last is stop_gradient'ed and still goes through the forward
         # rule, so the superseded tapes are dropped here -- `ExtraMsaOnDevice._taped`'s reason.
-        self._live.clear()
+        self._tapes.sweep()
         trunk.ag.release_pins()
-        token, self._next = self._next, self._next + 1
-        self._live[token] = {"root": out, "leaf": leaf, "shape": tuple(act.shape), "n": n}
+        token = self._tapes.bank({"root": out, "leaf": leaf, "shape": tuple(act.shape), "n": n})
         self.calls["taped"] += 1
         return trunk.down(out.value, tuple(act.shape))[:n, :n].numpy(), np.int32(token)
 
     def _backward(self, token, g_act_np):
-        entry = self._live.pop(int(token), None)
+        entry = self._tapes.take(token)
         if entry is None:
             raise RuntimeError(f"no live template tape for token {int(token)}")
         trunk = self.pool.current
@@ -843,7 +892,7 @@ class TemplateOnDevice:
         return out
 
     def live_tapes(self) -> int:
-        return len(self._live)
+        return self._tapes.count()
 
     # ------------------------------------------------------------------ the JAX face
 
