@@ -1,0 +1,68 @@
+{
+ "host": "tt-quietbox",
+ "card": 2,
+ "n": 192,
+ "when_utc": "2026-09-26T00:45:09Z",
+ "loadavg": [
+  18.74658203125,
+  17.1162109375,
+  14.0556640625
+ ],
+ "runs": [
+  {
+   "cmd": "vjp",
+   "exact": true,
+   "seconds": 71.24,
+   "sm": {
+    "verb": 22,
+    "raw": 0,
+    "raw_elements": 0
+   },
+   "ln": {
+    "verb": 69,
+    "raw": 0,
+    "elements": 250871808,
+    "bw": 69
+   },
+   "artifact": "/home/ttuser/.coworker/wt/bcx-exact/perf/bcx_exact/out/on",
+   "tag": "on"
+  },
+  {
+   "cmd": "vjp",
+   "exact": false,
+   "seconds": 47.91,
+   "sm": {
+    "verb": 0,
+    "raw": 0,
+    "raw_elements": 0
+   },
+   "ln": {
+    "verb": 0,
+    "raw": 0,
+    "elements": 0,
+    "bw": 0
+   },
+   "artifact": "/home/ttuser/.coworker/wt/bcx-exact/perf/bcx_exact/out/off",
+   "tag": "off"
+  },
+  {
+   "cmd": "vjp",
+   "exact": true,
+   "seconds": 58.73,
+   "sm": {
+    "verb": 22,
+    "raw": 0,
+    "raw_elements": 0
+   },
+   "ln": {
+    "verb": 69,
+    "raw": 0,
+    "elements": 250871808,
+    "bw": 69
+   },
+   "artifact": "/home/ttuser/.coworker/wt/bcx-exact/perf/bcx_exact/out/on2",
+   "tag": "on2"
+  }
+ ],
+ "note": "per-arm numbers live in afgrad's own artifacts, keyed by --tag"
+}

@@ -77,6 +77,23 @@ def pin_card(card: int | str) -> None:
 # ----------------------------------------------------------------- the checkpoints, on card
 
 
+def _is_multimer(path: pathlib.Path) -> bool:
+    """Whether an AlphaFold 2 npz is a `multimer_v3` checkpoint, read off the file itself.
+
+    The two families need a different weight remap and a different `AF2Model`, and loading one
+    as the other raises a `KeyError` from inside the remap rather than returning a wrong model.
+    The tell is the relative encoding: multimer_v3 embeds residue offsets through
+    `~_relative_encoding/position_activations`, the monomer through `pair_activiations`
+    (AlphaFold's own spelling). Reading the array names rather than the file name keeps a
+    renamed or re-exported checkpoint from being loaded as the wrong family.
+
+    The shipped `examples/pdl1.json` designs on all five `multimer_v3` checkpoints, so for
+    BindCraft 2 this is the common case rather than the exotic one.
+    """
+    with np.load(path, allow_pickle=False) as npz:
+        return any("~_relative_encoding" in name for name in npz.files)
+
+
 class _Trunk:
     """One AlphaFold 2 checkpoint's Evoformer blocks on the card, under tt-bio's tape."""
 
@@ -88,7 +105,10 @@ class _Trunk:
         from tt_bio.af2_weights import load_af2_state_dict
 
         self.ttnn, self.ag, self.taped = ttnn, autograd, taped_ttnn
-        self.model = load_af2_device_model(load_af2_state_dict(str(path)), template=False,
+        self.multimer = _is_multimer(path)
+        self.model = load_af2_device_model(load_af2_state_dict(str(path),
+                                                               multimer=self.multimer),
+                                           template=False, multimer=self.multimer,
                                            trunk_dtype=torch.bfloat16)
         self.device = self.model._device
         self.blocks = len(self.model.device_evoformer)

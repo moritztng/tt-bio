@@ -42,7 +42,23 @@ recommendation, as one parameter defaulting to today's behaviour:
 and the same on `campaign_predictor`. Defaulting to `True` changes nothing for any caller.
 
 **Not landed here, deliberately.** `wk/land-standing` has 281 lines pending in this exact file
-(260 insertions, 21 deletions against `origin/main`) and is one parity-gate run from landing. Its
-tip is also 12 commits BEHIND main and deletes files main still has, so merging it into a
-measurement branch to write against it would drag 79 files of another row's in-flight work
-through this one. The change belongs behind it, on its tree, after the numbers exist.
+(260 insertions, 21 deletions against the merge base) and is one parity-gate run from landing.
+The change belongs behind it, on its tree, after the numbers exist.
+
+An earlier version of this file said that branch was "12 commits behind main and deletes 79 files",
+and used it as a second reason not to write against it. That reading was wrong and the reason it
+was wrong is worth keeping. It came from a two-dot `git diff main branch`, which shows everything
+main has that the branch lacks, including every file main gained after the fork. Measured today
+against `origin/main` `b10cd9504`:
+
+| reading | files | insertions | deletions | files called deleted |
+|---|---|---|---|---|
+| two-dot `git diff main branch` | 173 | 8,789 | 61,130 | 104 |
+| three-dot, `git diff $(git merge-base main branch) branch` | 65 | 8,775 | 251 | **1** |
+
+The branch is 28 ahead and 31 behind, merge base `ce44136bc`, and the one file it really deletes is
+`perf/bcx_predictor/ttbio_predictor.py`. Among the 104 the two-dot reading called deletions are
+`perf/bcx_exact/ARMED.json`, `LINEAGE.json`, `PCIE.json`, `PC_FLOOR.json` and this file -- this
+row's own work, which landed on main after the fork. **When the question is "what would this merge
+do", ask it against the merge base.** A two-dot diff against a moving main shows a branch deleting
+work it has never seen.

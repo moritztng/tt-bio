@@ -371,3 +371,26 @@ def test_the_control_arm_takes_one_gradient_step_from_tt_bio_alone():
     lines = dict(line.split(" ", 1) for line in printed.strip().splitlines())
     assert lines["gradient"].endswith("True True"), printed
     assert float(lines["loss"]) == float(lines["loss"]), printed
+
+
+def test_the_checkpoint_family_is_read_off_the_file_not_the_name(tmp_path):
+    """`_Trunk` loads a checkpoint with the family `_is_multimer` reports, and the two families
+    need a different weight remap. Loading one as the other does not return a wrong model, it
+    raises a `KeyError` from inside the remap -- which is how the shipped `examples/pdl1.json`,
+    whose five design checkpoints are all `multimer_v3`, became unrunnable from `tt_bio` while
+    every test here still passed.
+
+    The tell is the relative encoding, and it is read off the array names so a renamed or
+    re-exported file cannot be loaded as the wrong family.
+    """
+    multimer = tmp_path / "renamed_to_something_else.npz"
+    np.savez(multimer, **{
+        "alphafold/alphafold_iteration/evoformer/~_relative_encoding/position_activations//weights":
+            np.zeros((1, 1), dtype=np.float32)})
+    monomer = tmp_path / "params_model_1_multimer_v3.npz"   # the misleading name is the point
+    np.savez(monomer, **{
+        "alphafold/alphafold_iteration/evoformer/pair_activiations//weights":
+            np.zeros((1, 1), dtype=np.float32)})
+
+    assert bindcraft2._is_multimer(multimer) is True
+    assert bindcraft2._is_multimer(monomer) is False
