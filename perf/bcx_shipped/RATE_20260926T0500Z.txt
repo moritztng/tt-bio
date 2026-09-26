@@ -1,0 +1,132 @@
+Refreshed 2026-09-26 05:0xZ by bcx-shipped from the arms own artifacts on qb1 and qb2.
+Instrument: perf/bcx_shipped/rate_ledger.py, taken from origin/wk/bcx-accept (see NOTE).
+Acceptance is the outcome column of 2_Refolded/!_Refolded.csv. A validation line reading
+"0 of 10 redesigns passed" is a REJECTION and is labelled validation [0 of N] below.
+
+############ DEVICE, qb2 ############
+
+# Completed-trajectory ledger -- CONTENDED wall seconds on one chip, upper bound
+
+arm         draw   terminal                  seconds   ended
+--------------------------------------------------------------------------
+route_s3    l73    ACCEPTED                     5200   15:16:40Z
+accept_s4   l173   harden [i_pTM, pLDDT]        9057   17:04:04Z
+accept_s4   l152   final [i_pTM]                7131   19:02:55Z
+accept_s4   l97    mutate [i_pTM]               5127   20:28:22Z
+accept_s4   l128   ACCEPTED                     5250   21:55:52Z
+accept_s4   l94    mutate [i_pTM, pLDDT]        5321   23:24:33Z
+accept_s4   l85    mutate [i_pTM]               4489   00:39:23Z
+traj_off_s3 l73    screen [pLDDT]               1452   21:32:31Z
+traj_off_s3 l93    ACCEPTED                     3304   22:27:35Z
+traj_off_s3 l73    validation [0 of 10]         3652   23:28:27Z
+traj_off_s3 l151   validation [0 of 10]         6056   01:09:23Z
+traj_off_s3 l82    validation [0 of 10]         6564   02:58:47Z
+traj_off_s3 l119   ACCEPTED                     5303   04:27:10Z
+--------------------------------------------------------------------------
+                   13 completed, 4 accepted                     67907
+
+rate 4/13 = 0.308   Clopper-Pearson 95 % CI 0.0909 - 0.6143
+16,977 s per accepted design, upper bound = 64.2x BoltzGen's 264.3 chip-s/design
+CI on the ratio: 32.2x - 217x
+0.212 designs/h/chip, upper bound on the chip's cost
+
+############ DEVICE, qb1 (p150a, EPYC 8124P, contended) ############
+
+# Completed-trajectory ledger -- CONTENDED wall seconds on one chip, upper bound
+
+arm         draw   terminal                  seconds   ended
+--------------------------------------------------------------------------
+qb1_s10     l78    anneal [i_pTM]               2537   00:29:59Z
+qb1_s10     l180   ACCEPTED                     7056   02:27:36Z
+qb1_s10     l68    anneal [pLDDT]               7259   04:28:35Z
+qb1_s10     l109   in flight                       .   (excluded, in flight)
+qb1_s12     l144   screen [pLDDT]               1739   00:36:50Z
+qb1_s12     l95    harden [i_pTM, pLDDT]        3080   01:28:10Z
+qb1_s12     l94    final [i_pTM, pLDDT]         3881   02:32:51Z
+qb1_s12     l111   ACCEPTED                     5618   04:06:29Z
+qb1_s12     l129   in flight                       .   (excluded, in flight)
+qb1_s13     l70    final [i_pTM]                4188   02:53:00Z
+qb1_s13     l163   in flight                       .   (excluded, in flight)
+--------------------------------------------------------------------------
+                   8 completed, 2 accepted                     35359
+
+rate 2/8 = 0.250   Clopper-Pearson 95 % CI 0.0319 - 0.6509
+17,680 s per accepted design, upper bound = 66.9x BoltzGen's 264.3 chip-s/design
+CI on the ratio: 25.7x - 525x
+0.204 designs/h/chip, upper bound on the chip's cost
+
+############ REFERENCE, BindCraft 2 own JAX on CPU ############
+
+# Completed-trajectory ledger -- CONTENDED wall seconds on one chip, upper bound
+
+arm         draw   terminal                  seconds   ended
+--------------------------------------------------------------------------
+shipped_pc  l146   ACCEPTED                    45850   14:18:00Z
+ref_s1      l111   harden [i_pTM, pLDDT]       26618   20:57:47Z
+ref_s1      l142   in flight                       .   (excluded, in flight)
+--------------------------------------------------------------------------
+                   2 completed, 1 accepted                     72468
+
+rate 1/2 = 0.500   Clopper-Pearson 95 % CI 0.0126 - 0.9874
+72,468 s per accepted design, upper bound = 274.2x BoltzGen's 264.3 chip-s/design
+CI on the ratio: 138.8x - 10,898x
+0.050 designs/h/chip, upper bound on the chip's cost
+
+reference 6/21 = 0.286   95 % CI 0.1128 - 0.5218
+Fisher exact two-sided p = 0.5257 -- the two acceptance counts do not differ
+the intervals overlap across 0.1128 - 0.5218
+
+################################ WHAT CHANGED, AND WHAT IT MEANS ################################
+
+DEVICE 6 accepted / 21 completed = 0.286, Clopper-Pearson 95 % CI 0.1128 - 0.5218.
+RATE.md carries 4 / 18 = 0.222, CI 0.0641 - 0.4764, refreshed at 04:2xZ. That reading is not
+wrong, it is stale by three completions that landed after it:
+
+    traj_off_s3  l119  ACCEPTED  ended 04:27:10Z, 3_Ranked written 04:40:54Z
+    qb1_s12      l111  ACCEPTED  ended 04:06:29Z
+    qb1_s10      l68   anneal [pLDDT]  ended 04:28:35Z
+
+Both new acceptances were read the required way, from the outcome column of !_Refolded.csv:
+l119 3 of 3 candidates passed, l111 3 of 3 passed. Neither is the "0 of N" trap.
+
+REFERENCE 1 accepted / 2 completed = 0.500, CI 0.0126 - 0.9874. Unchanged this pass.
+Fisher exact two-sided against the device, 6/21 vs 1/2: p = 0.5257. NOTHING SEPARATES THE ARMS.
+Say that rather than reporting agreement or disagreement: at n=2 on the reference side the
+interval spans 0.013 - 0.987 and would fail to separate any pair of programs whatsoever.
+
+SECONDS DO NOT POOL AND THE 72,468 s LINE ABOVE MUST NOT BE QUOTED AS IT PRINTS.
+The ledger sums what it is given; the two reference trajectories ran on different boxes under
+different contention and only their verdicts pool. Per host, per trajectory:
+
+    shipped_pc  l146  ACCEPTED               45,850 s  pc,  16 cores, loadavg 1.2 at start
+    ref_s1      l111  rejected at harden     26,618 s  qb2, 16 cores, loadavg 14-28 throughout
+
+So the CPU cost of the one reference acceptance is 45,850 s on a quiet pc, and it rests on a
+single accepted trajectory. The device figures are 16,977 s (qb2) and 17,680 s (qb1) per accepted
+design, each an upper bound under contention. The CPU-against-chip ratio that CMP wants is
+therefore 45,850 / 16,977 = 2.7x in the chip is favour on the accepting trajectories alone, and
+it is quoted with n=1 on the numerator. It is not yet a measurement of the ratio.
+
+THE 320-TOKEN SIZE EFFECT IS CLOSED, AND IT CLOSES AGAINST THE HYPOTHESIS.
+RATE.md is closing section flags one l180 draw rejected at screen on pLDDT 0.32 with i_pTM
+saturated at 1.00, notes 180 + 115 = 295 tokens pads to the 320 bucket, and asks for another
+320-token draw as the discriminating test. Both halves of the test are now on disk:
+
+    l180 cf19f05677884f04  profile_s2_arm  tree 1fa826e83  rejected at screen  i_pTM 1.00 pLDDT 0.32
+    l180 88844f62a85998ff  qb1_s10         tree 643cabcf9  ACCEPTED            3 of 8 refolds passed
+                                                           i_pTM 0.80-0.82  pLDDT 0.89-0.93
+                                                           pTM 0.85-0.87  0 backbone clashes
+
+Two independent reasons not to read the first as a size effect. It is on 1fa826e83, the pre-route
+tree RATE.md marks PROFILE ONLY and excludes from the acceptance denominator entirely. And
+i_pTM saturated at 1.00 beside pLDDT 0.32 is a degenerate reading, not a hard-target one. The
+first 320-token draw in a countable arm accepted, and it is the longest accepted design in the
+campaign. No further 320-token draw needs to be forced.
+
+NOTE ON THE INSTRUMENT, for anyone who re-runs this.
+rate_ledger.py must be taken from origin/wk/bcx-accept, NOT from the on-disk worktree at
+~/.coworker/wt/bcx-accept. That worktree is behind origin: its HEAD is 1504af306 and the refold
+fix cd100fb9f is not an ancestor of it, so the copy on disk still carries
+    elif re.search(r"\d+ of \d+ redesigns passed", line):  out[cur] = "ACCEPTED"
+which marks every failed refold as an acceptance. On traj_off_s3 that reads 4 accepted where
+there are 2. Both commits are on origin and the branch is fine; only the checkout is stale.
