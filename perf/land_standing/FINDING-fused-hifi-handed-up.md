@@ -69,3 +69,35 @@ not.
 **+8.471 s** on an OpenFold3 fold at 832 tokens, reproducible, against **2.39 A of intra-domain
 structural change** on a bar of 0.60 A. Measured on `wk/land-standing`, i.e. on top of the
 dividing-k flip, which is the tree this row would ship.
+
+## The release gate cannot settle the ground-truth question — it is structurally blind to this lever
+
+Tried 2026-09-26, because the section above names scoring against a **deposited** structure as the
+one thing that could rescue this lever. The gate's `openfold3` arm folds 7ROA at 117 aa and scores
+CA-RMSD / TM against the experimental answer, so running it with the flag off and on looked like
+exactly the missing instrument.
+
+Both arms return **1.658 A / TM 0.902, PASS** — identical. **That is not neutrality.** The firing
+counters say why:
+
+    off   TRIATT_FUSED_HIFI_STATS  served 0, declined 384, too_short 0
+    on    TRIATT_FUSED_HIFI_STATS  served 0, declined 432, too_short 40
+
+Turning the lever on routes **48 more calls into the fused-HiFi path and serves none of them** —
+`served` is **0 in both arms**, and 40 of the newly-routed calls are below the route's own
+`_TRIATT_FUSED_HIFI_MIN_S = 128` floor. At 117 aa there is nothing for this lever to change, so a
+gate result here is a statement about the fixture, not about the lever.
+
+**So the gate is the wrong instrument for this candidate and cannot be made into the right one by
+running it again.** Its targets are small by design; the only arm large enough is `rf3-1024aa`,
+and that is RoseTTAFold3, while `TriangleAttention.__init__` states that *"OpenFold3 is the only
+model here on the fp32 route"* this lever gates.
+
+**What the ground-truth score would actually need**: a deposited structure of roughly 700+
+residues that OpenFold3 folds confidently. That is the same fixture problem the dividing-k work
+solved at 832 tokens by extracting a deep MSA — one size up, and with the added requirement of an
+experimental answer, which tiled CDK2 does not have.
+
+Until that exists, the verdict stands on what is measured: **+8.471 s, and 2.390 A of intra-domain
+movement against a 0.60 A bar**, scored against the incumbent arm because no ground truth is
+reachable.
