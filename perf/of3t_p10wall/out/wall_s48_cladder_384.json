@@ -32,9 +32,15 @@
     "min": 800,
     "max": 1350,
     "median": 1350,
-    "n": 834
+    "n": 966
    }
-  }
+  },
+  "aiclk_line": "CLOCK: dev0 min 800 / median 1350 / max 1350 MHz over 966 samples, polled DURING the work",
+  "loadavg_end": [
+   11.91162109375,
+   11.646484375,
+   11.33056640625
+  ]
  },
  "config": {
   "crop": 384,
@@ -827,6 +833,108 @@
    "unaccounted_s": 6.191,
    "renorm_applied": 1599,
    "renorm_declined": 0
+  },
+  {
+   "rep": 2,
+   "cold": false,
+   "renorm_flag": true,
+   "trunk_nograd_prefix_s": 3.516,
+   "chunk": 8,
+   "trunk_taped_cycle_s": 387.835,
+   "trunk_s": 391.351,
+   "dram_after_trunk": 6399151104,
+   "prime_replicate_s": 10.163,
+   "diffusion": {
+    "coupled_to_trunk": true,
+    "sigmas": [
+     172.5863,
+     272.2379,
+     0.314,
+     3.6371,
+     0.8472,
+     310.3863,
+     149.6305,
+     0.067,
+     0.0287,
+     56.2398,
+     156.9723,
+     10.4971,
+     0.1803,
+     849.3759,
+     555.1731,
+     0.349,
+     29.7713,
+     37.7728,
+     3.0826,
+     9.7814,
+     949.6798,
+     8.4748,
+     0.087,
+     260.4501,
+     3852.7392,
+     13.8269,
+     21.8486,
+     0.2022,
+     2187.007,
+     0.0077,
+     5.8428,
+     3737.809,
+     2411.2547,
+     1563.5507,
+     3.945,
+     3108.0177,
+     1059.9701,
+     985.2944,
+     1732.0952,
+     2.1874,
+     625.0521,
+     0.013,
+     0.1264,
+     0.3874,
+     3516.7366,
+     7.8796,
+     2740.7098,
+     18.0241
+    ],
+    "distinct_sigmas": 48,
+    "n_samples": 48,
+    "n_atom": 3092,
+    "n_token": 384,
+    "tokens_without_an_atom": 0,
+    "rep_atom_index": "first atom of each token, from atom_to_token_idx",
+    "per_sample_s": [
+     10.163
+    ]
+   },
+   "losses": {
+    "labels_s": 0.017,
+    "fixture_logits_s": 0.335,
+    "terms": {
+     "bond": {
+      "weight": 0.0,
+      "skipped": "weight is zero in this stage",
+      "fired": false,
+      "scope": "per replicate"
+     },
+     "smooth_lddt": {
+      "weight": 4.0,
+      "skipped": null,
+      "fired": true,
+      "scope": "per replicate"
+     },
+     "mse": {
+      "weight": 4.0,
+      "skipped": null,
+      "fired": true,
+      "scope": "per replicate"
+     }
+    },
+    "download_s": 0.001,
+    "replicate_loss_s": 0.011,
+    "replicates_scored": 1
+   },
+   "cut": "si_trunk + zij_pad + 27 cache entries (84 taped tensors) -> detached leaves"
   }
- ]
+ ],
+ "error": "Traceback (most recent call last):\n  File \"/home/ttuser/.coworker/wt/of3t-p10wall/perf/of3t_stepfloor/fullstep.py\", line 860, in main\n    roots = diffusion_chunk(sampler, pre, part, rng_diff, d_out,\n            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/ttuser/.coworker/wt/of3t-p10wall/perf/of3t_stepfloor/fullstep.py\", line 337, in diffusion_chunk\n    xl_denoised_dev = dm(\n                      ^^^\n  File \"/home/ttuser/.coworker/wt/of3t-p10wall/tt_bio/openfold3_diffusion_module.py\", line 383, in __call__\n    return self._post_encoder(\n           ^^^^^^^^^^^^^^^^^^^\n  File \"/home/ttuser/.coworker/wt/of3t-p10wall/tt_bio/openfold3_diffusion_module.py\", line 447, in _post_encoder\n    rl_update = self.dec(ai_ln, ql_dec, cl_pad, plm, atom_mask_col,\n                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/ttuser/.coworker/wt/of3t-p10wall/tt_bio/openfold3_diffusion_decoder.py\", line 89, in __call__\n    ql_out = self.at(ql_aug, cl, plm, atom_mask_col, key_block_idxs_tt,\n             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/ttuser/.coworker/wt/of3t-p10wall/tt_bio/openfold3_atom_transformer.py\", line 217, in __call__\n    g_raw = ttnn.to_layout(g_raw, ttnn.TILE_LAYOUT)\n            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/ttuser/.coworker/wt/of3t-p10wall/tt_bio/taped_ttnn.py\", line 1175, in call\n    out = impl(shipped, args, kwargs)\n          ^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/ttuser/.coworker/wt/of3t-p10wall/tt_bio/taped_ttnn.py\", line 1089, in <lambda>\n    _VERBS[\"to_memory_config\"] = lambda s, a, k: _identity_grad(s, a, k)\n                                                 ^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/ttuser/.coworker/wt/of3t-p10wall/tt_bio/taped_ttnn.py\", line 106, in _identity_grad\n    out_v = shipped(*ra, **rk)\n            ^^^^^^^^^^^^^^^^^^\n  File \"/home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/ttnn/decorators.py\", line 473, in __call__\n    result = self.function(*function_args, **function_kwargs)\n             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nRuntimeError: TT_FATAL @ /project/tt_metal/impl/allocator/bank_manager.cpp:439: false\ninfo:\nOut of Memory: Not enough space to allocate 12713984 B DRAM buffer across 8 banks, where each bank needs to store 1589248 B, but bank size is 4278190016 B (allocated: 4263780928 B, free: 14409088 B, largest free block: 908608 B)\nbacktrace:\n --- /home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/ttnn/build/lib/libtt_metal.so(+0x6d2697) [0x79cc2e8d2697]\n --- tt::tt_metal::BankManager::allocate_buffer(unsigned long, unsigned long, bool, tt::tt_metal::CoreRangeSet const&, std::optional<unsigned int>, ttsl::StrongType<unsigned int, tt::tt_metal::AllocatorIDTag>)\n --- tt::tt_metal::AllocatorImpl::allocate_buffer(tt::tt_metal::Buffer*)\n --- tt::tt_metal::Buffer::allocate_impl()\n --- tt::tt_metal::Buffer::create(tt::tt_metal::IDevice*, unsigned long, unsigned long, tt::tt_metal::BufferType, tt::tt_metal::BufferShardingArgs const&, std::optional<bool>, std::optional<ttsl::StrongType<unsigned char, tt::tt_metal::SubDeviceIdTag> >)\n --- tt::tt_metal::distributed::MeshBuffer::create(std::variant<tt::tt_metal::distributed::ReplicatedBufferConfig, tt::tt_metal::distributed::ShardedBufferConfig> const&, tt::tt_metal::distributed::DeviceLocalBufferConfig const&, tt::tt_metal::distributed::MeshDevice*, std::optional<unsigned long>)\n --- tt::tt_metal::tensor_impl::allocate_device_buffer(tt::tt_metal::distributed::MeshDevice*, tt::tt_metal::TensorSpec const&)\n --- tt::tt_metal::create_device_tensor(tt::tt_metal::TensorSpec const&, tt::tt_metal::IDevice*)\n --- ttnn::prim::TilizeWithValPaddingDeviceOperation::create_output_tensors(ttnn::prim::TilizeWithValPaddingParams const&, tt::tt_metal::Tensor const&)\n --- /home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/ttnn/build/lib/_ttnncpp.so(_ZN4ttnn16device_operation6detail6launchITkNS0_22DeviceOperationConceptENS_4prim35TilizeWithValPaddingDeviceOperationEEENT_21tensor_return_value_tERKNS5_22operation_attributes_tERKNS5_13tensor_args_tE+0x14c) [0x79cc2fd1c67c]\n --- ttnn::prim::tilize_with_val_padding(tt::tt_metal::Tensor const&, tt::tt_metal::Shape const&, std::variant<unsigned int, float> const&, std::optional<tt::tt_metal::MemoryConfig> const&, std::optional<tt::tt_metal::DataType> const&, bool, bool, bool, std::optional<tt::tt_metal::CoreRangeSet> const&)\n --- /home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/ttnn/build/lib/_ttnncpp.so(+0x8ff8dd) [0x79cc2fcff8dd]\n --- /home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/ttnn/build/lib/_ttnncpp.so(+0x8b8249) [0x79cc2fcb8249]\n --- ttnn::tilize_with_val_padding(tt::tt_metal::Tensor const&, tt::tt_metal::Shape const&, std::variant<unsigned int, float>, std::optional<tt::tt_metal::MemoryConfig> const&, std::optional<tt::tt_metal::DataType>, bool, std::optional<tt::tt_metal::CoreRangeSet> const&)\n --- /home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/ttnn/build/lib/_ttnncpp.so(+0x871c28) [0x79cc2fc71c28]\n --- ttnn::to_layout(tt::tt_metal::Tensor const&, tt::tt_metal::Layout, std::optional<tt::tt_metal::DataType> const&, std::optional<tt::tt_metal::MemoryConfig> const&, std::optional<tt::tt_metal::CoreRangeSet> const&, float)\n --- /home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/ttnn/_ttnn.cpython-312-x86_64-linux-gnu.so(+0x2ff0f0) [0x79cc30eff0f0]\n --- /home/ttuser/tt-bio-dev/env/lib/python3.12/site-packages/ttnn/_ttnn.cpython-312-x86_64-linux-gnu.so(+0x26daa5) [0x79cc30e6daa5]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(_PyObject_Call_Prepend+0x111) [0x54a851]\n --- /home/ttuser/tt-bio-dev/env/bin/python3() [0x5a3778]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(PyObject_Call+0x6c) [0x54b12c]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(_PyEval_EvalFrameDefault+0x4cbe) [0x5db2ee]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(_PyObject_Call_Prepend+0xc2) [0x54a802]\n --- /home/ttuser/tt-bio-dev/env/bin/python3() [0x5a3778]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(PyObject_Call+0x6c) [0x54b12c]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(_PyEval_EvalFrameDefault+0x4cbe) [0x5db2ee]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(_PyObject_Call_Prepend+0x18a) [0x54a8ca]\n --- /home/ttuser/tt-bio-dev/env/bin/python3() [0x5a3778]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(_PyObject_MakeTpCall+0x13e) [0x54907e]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(_PyEval_EvalFrameDefault+0xadf) [0x5d710f]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(_PyObject_Call_Prepend+0x18a) [0x54a8ca]\n --- /home/ttuser/tt-bio-dev/env/bin/python3() [0x5a3778]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(_PyObject_MakeTpCall+0x13e) [0x54907e]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(_PyEval_EvalFrameDefault+0xadf) [0x5d710f]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(_PyObject_Call_Prepend+0x18a) [0x54a8ca]\n --- /home/ttuser/tt-bio-dev/env/bin/python3() [0x5a3778]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(_PyObject_MakeTpCall+0x13e) [0x54907e]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(_PyEval_EvalFrameDefault+0xadf) [0x5d710f]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(PyEval_EvalCode+0x15b) [0x5d55eb]\n --- /home/ttuser/tt-bio-dev/env/bin/python3() [0x608852]\n --- /home/ttuser/tt-bio-dev/env/bin/python3() [0x6b50d3]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(_PyRun_SimpleFileObject+0x1aa) [0x6b4e3a]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(_PyRun_AnyFileObject+0x4f) [0x6b4c6f]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(Py_RunMain+0x3b5) [0x6bccd5]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(Py_BytesMain+0x2d) [0x6bc7bd]\n --- /lib/x86_64-linux-gnu/libc.so.6(+0x2a1ca) [0x79cc61a2a1ca]\n --- /lib/x86_64-linux-gnu/libc.so.6(__libc_start_main+0x8b) [0x79cc61a2a28b]\n --- /home/ttuser/tt-bio-dev/env/bin/python3(_start+0x25) [0x657a05]\n\n"
 }
