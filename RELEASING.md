@@ -86,6 +86,12 @@ so the same tree reads 21.90 s at 800 MHz and 17.34 s at ~1063. An idle card rep
 governor has not ramped; sample the clock DURING a fold, not before, and record it beside any number
 you publish.
 
+Read the clock through `tt_bio.aiclk` in Python or `perf/lib/aiclk.sh` in shell, never with a bare
+`cat` of the sysfs node. A card whose ARC firmware has died still enumerates, opens and computes,
+and answers every telemetry read with a sentinel that parses as a fine integer, so a bare read banks
+a 4.29-billion-MHz clock and nothing complains. Both helpers report no clock instead, and a harness
+that is about to stamp one refuses outright.
+
 ### The gate interpreter on the WH Galaxy
 
 `japanfold-ssh` (GWH02) has exactly one tt-bio env, `/home/cust-team/mthuening/tt-bio/env`, and
