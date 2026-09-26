@@ -1,0 +1,105 @@
+{
+  "card_type": "p150a",
+  "clock_node": "/sys/class/tenstorrent/tenstorrent!2/tt_aiclk",
+  "dtype": "float32",
+  "host": "tt-quietbox",
+  "n": 288,
+  "phases": {
+    "backward": {
+      "aiclk_mhz_max": 1350,
+      "aiclk_mhz_median": 1350.0,
+      "aiclk_mhz_min": 1350,
+      "aiclk_samples": 44,
+      "load1": [
+        21.23,
+        21.23,
+        21.93,
+        21.93,
+        21.93,
+        21.93,
+        24.18,
+        24.18
+      ],
+      "max_s": 1.0350401401519775,
+      "median_s": 0.8201136589050293,
+      "min_s": 0.7606308460235596,
+      "phase": "backward",
+      "reps": 8,
+      "times_s": [
+        0.8088,
+        0.7892,
+        0.8925,
+        0.8063,
+        1.0332,
+        0.8314,
+        0.7606,
+        1.035
+      ]
+    },
+    "forward_taped": {
+      "aiclk_mhz_max": 1350,
+      "aiclk_mhz_median": 1350,
+      "aiclk_mhz_min": 1350,
+      "aiclk_samples": 49,
+      "load1": [
+        20.97,
+        20.97,
+        20.97,
+        20.97,
+        19.77,
+        19.77,
+        19.77,
+        21.23
+      ],
+      "max_s": 0.7824370861053467,
+      "median_s": 0.5474190711975098,
+      "min_s": 0.376082181930542,
+      "phase": "forward_taped",
+      "reps": 8,
+      "times_s": [
+        0.5686,
+        0.5595,
+        0.4129,
+        0.6418,
+        0.4669,
+        0.7824,
+        0.5354,
+        0.3761
+      ]
+    },
+    "forward_untaped": {
+      "aiclk_mhz_max": 1350,
+      "aiclk_mhz_median": 1350,
+      "aiclk_mhz_min": 1350,
+      "aiclk_samples": 3,
+      "load1": [
+        19.49,
+        19.49,
+        19.49,
+        19.49,
+        19.49,
+        19.49,
+        19.49,
+        19.49
+      ],
+      "max_s": 0.09091353416442871,
+      "median_s": 0.06890630722045898,
+      "min_s": 0.05504870414733887,
+      "phase": "forward_untaped",
+      "reps": 8,
+      "times_s": [
+        0.0557,
+        0.0559,
+        0.0631,
+        0.055,
+        0.0747,
+        0.076,
+        0.0909,
+        0.0769
+      ]
+    }
+  },
+  "point_dtype": "float32",
+  "reps": 8,
+  "warm": 3
+}
