@@ -39,6 +39,29 @@ def _design_state(settings_file):
     return protein_states, losses
 
 
+def _open_card_on_this_thread():
+    """Open the chip here, before BindCraft 2's JAX can open it on a callback thread.
+
+    UMD's per-chip `CHIP_IN_USE_<n>` mutex is owned by the THREAD that opened the chip, and
+    `conftest.py` closes the device from the test's own thread. Left alone, the first call into
+    the card happens inside a JAX host callback on a worker thread pytest never sees, so the
+    unlock in `LocalChip::close_device()` runs off-owner: `pthread_mutex_unlock` returns EPERM,
+    UMD throws out of a destructor, and the process dies with SIGABRT. Every test in this file
+    PASSED and then exited 134 in teardown, which reads as a broken card test rather than the
+    thread-ownership detail it is. Measured on qb2 card 3: open on `Dummy-2` and close on
+    MainThread aborts, open and close both on MainThread exits 0, same work either way.
+
+    A process that aborts this way also leaves `/dev/shm/TT_UMD_LOCK.CHIP_IN_USE_<n>_PCIe` with
+    the owner-died bit set, which the next process to touch that card inherits.
+
+    `get_device()` caches a module-global handle, so this costs one open (0.4-1.0 s) and every
+    later callback reuses it.
+    """
+    from tt_bio import tenstorrent
+
+    tenstorrent.get_device()
+
+
 def _pdl1_draw():
     """BindCraft 2's shipped PD-L1 draw, or a skip naming what is missing."""
     bindcraft = pytest.importorskip("bindcraft", reason="BindCraft 2 is not on sys.path")
@@ -50,6 +73,7 @@ def _pdl1_draw():
     if not settings_file.exists():
         pytest.skip(f"BindCraft 2 has no {settings_file}")
     protein_states, losses = _design_state(settings_file)
+    _open_card_on_this_thread()  # after every skip above has been decided, never before
     return params, protein_states, losses
 
 
