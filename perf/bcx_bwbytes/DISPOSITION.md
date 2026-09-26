@@ -4,13 +4,14 @@ Checked 2026-09-26 against `origin/main` at the symbol level, not the commit lev
 is based on `wk/bcx-tmplseam`, which forked before a large amount of main's backward work, and it
 is 228 commits behind.
 
-## Three of the five levers here are already on main, under other names
+## FOUR of the five levers here are already on main, under other names
 
 | this branch | main | main's default |
 |---|---|---|
 | `autograd._pairwise_sum0` + `LEADING_SUM_TREE_ROWS` | `autograd._tree_sum` + `TREE_REDUCE` | **True, live** |
 | `reblock_permute.permute_via_reblock` + `taped_ttnn.PERMUTE_BW_REBLOCK` | `taped_ttnn._permute_back` + `REBLOCK_PERMUTE_BW` | **True, live** |
 | `autograd.softmax_bw_dx` + `SOFTMAX_BW_ROUTE="moreh"` | `autograd.softmax_bw` + `SOFTMAX_BW_FUSED` | **False, built but OFF** |
+| `autograd.FANIN_WIDEN_INCOMING=False` | `autograd.FANIN_MIXED=True` | **False, built but OFF** |
 
 Not merely similar. Main's `softmax_bw` carries the SAME renorm identity this branch derived —
 `moreh_softmax_backward(y/s, g) * s` — and main's `_permute_back` is the same two-move gate over
@@ -28,16 +29,25 @@ And main's versions are BETTER in the places they differ:
 tile-aware `_sum_leading` with simpler versions, and `_permute_back` and `softmax_bw` with
 duplicates. Do not merge it.
 
-## Two levers here are genuinely new
+The fan-in one is the sharpest of the four. Main's `FANIN_MIXED` is the same
+`ttnn.add(self._grad, grad, dtype=ttnn.float32)`, and it is graded BETTER than this branch graded
+it: main's comment quotes **8.2e-5 relative L2 from float64 at two contributions and 5.5e-4 at
+sixteen**, against 1e-10 and 1e-9 widened, from `perf/bcx_reduce/probe.json` — measured at the
+fan-in COUNT that matters rather than on a single op, which is the axis this branch spent a pass
+correcting itself about.
 
-* `autograd.SOFTMAX_BW_DTYPE="bf16"` — the softmax backward on bf16 operands, precision from fp32
-  accumulation in DST rather than fp32 tensors in DRAM.
-* `autograd.FANIN_WIDEN_INCOMING=False` — a bf16 contribution into a mixed-dtype `ttnn.add`, fp32
-  accumulator kept.
+## ONE lever here is genuinely new, and it is the one that matters
 
-These are the two the reach map prices at **13.4 % of the backward's bytes, 1.071x on the round**,
-and nothing on main does either. They should be ported onto main's names — `softmax_bw` rather
-than `softmax_bw_dx` — not merged as a replacement for them.
+`autograd.SOFTMAX_BW_DTYPE="bf16"` — the softmax backward with y and the cotangent narrowed once,
+taking the summation precision from fp32 accumulation in DST rather than from fp32 tensors in
+DRAM. Nothing on main does this.
+
+On its own it is worth 2.144 GB of a 28.919 GB Evoformer block backward at n=224, about 7.4 % of
+the backward's bytes and roughly 1.038x on a round — modest. **Its real value is that it is the
+only thing that makes main's own fused route executable.** `SOFTMAX_BW_FUSED` ships off because
+`moreh_softmax_backward` refuses fp32; the guard admits BFLOAT16 and BFLOAT8_B; this lever
+produces exactly those operands. So the disposition is one graft, onto main's `softmax_bw`, ahead
+of its `ax = _last_axis(...)` line — not a merge of this branch over it.
 
 ## What that leaves the campaign
 
