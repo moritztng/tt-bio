@@ -228,6 +228,57 @@ def seconds(evo_gb, extra_gb, args):
     return out
 
 
+def cmd_staleness(args):
+    """How much of this census sits in ops whose IMPLEMENTATION main has since changed.
+
+    The traces were taken on `bcx-bytes`' tree, which predates main's `_tree_sum`/`TREE_REDUCE`
+    and `_permute_back`/`REBLOCK_PERMUTE_BW` — both of which are LIVE on main. An earlier version
+    of `DISPOSITION.md` asserted the reach map was unaffected by that. Asserting is not checking.
+
+    Two classes, and they are not the same kind of affected:
+
+      permutes   `_permute_back` swaps one kernel for another over the SAME operands, so the byte
+                 count does not move at all. Only the kernel does.
+      leading-axis sums  `_tree_sum` replaces one `ttnn.sum` with a tree of adds. That DOES move
+                 the census, and upward, while real DRAM traffic stays the same or falls — the
+                 census sees the tree's depth-0 adds but not `ttnn.sum`'s nested permute. It is
+                 the instrument inversion this file's header already warns about.
+
+    `softmax_bw_inner`'s reduces are NOT in either class and it matters: they are LAST-dim, and
+    `_reduce_to` gates the tree on `ax < len(gs) - 2`. A first cut of this check counted them and
+    reported 7.2 % affected where the true figure is 1.4 %.
+    """
+    import json as _json
+    t = _json.loads((TR / f"{args.traces.split(',')[0]}.json").read_text())
+    n = int(t["n"])
+    rows = census(t["bwd"])
+    tot = moved = 0.0
+    byclass = collections.defaultdict(float)
+    for r in rows:
+        if r["view"]:
+            continue
+        moved += r["moved"]
+        site = r["tape"] or ""
+        if r["op"] == "sum" and ("_reduce_to" in site or "_sum_leading" in site):
+            byclass["leading_sum_census_moves"] += r["moved"]
+        elif r["op"] == "permute":
+            byclass["permute_same_bytes"] += r["moved"]
+    out = {"trace": args.traces.split(",")[0], "n": n, "moved_GB": round(moved / 1e9, 3),
+           "classes": {k: round(v / 1e9, 3) for k, v in byclass.items()}}
+    shift = byclass["leading_sum_census_moves"]
+    out["census_would_shift_GB"] = round(shift / 1e9, 3)
+    out["census_would_shift_share"] = round(shift / moved, 4)
+    print(f"{out['trace']}  {out['moved_GB']} GB")
+    for k, v in out["classes"].items():
+        print(f"   {v:7.3f} GB  {k}")
+    print(f"   -> the census total would shift by {out['census_would_shift_GB']} GB "
+          f"= {out['census_would_shift_share'] * 100:.1f} % on main's tree, and UPWARD, "
+          f"while DRAM traffic does not rise")
+    pathlib.Path(args.out.replace("reach.json", "staleness.json")).write_text(
+        _json.dumps(out, indent=1))
+    return out
+
+
 def cmd_scale(args):
     """The reach map at the size BindCraft 2 actually runs, from the two sizes that were traced."""
     import json as _json
@@ -372,6 +423,8 @@ def cmd_scale(args):
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--traces", default="trace_bwd-fix_evo_n256,trace_bwd-fix_extra_n256")
+    ap.add_argument("--staleness", action="store_true",
+                    help="how much of the census sits in ops main has since reimplemented")
     ap.add_argument("--scale", action="store_true",
                     help="per-bucket power law from the two traced sizes, evaluated at --at")
     ap.add_argument("--roof", type=float, default=424.7,
@@ -399,6 +452,9 @@ def main():
     CLOSURES = _ranges("tt_bio/autograd.py",
                        {"layer_norm", "_taped_layer_norm", "triangle_attention", "softmax"},
                        args.src)
+    if args.staleness:
+        cmd_staleness(args)
+        return
     if args.scale:
         if args.out.endswith("reach.json"):
             args.out = args.out.replace("reach.json", "reach_scale.json")

@@ -80,7 +80,26 @@ of its `ax = _last_axis(...)` line — not a merge of this branch over it.
    the ceiling to 1.265x on a round. `perf/bcx_bwbytes/FUSED_SOFTMAX_BW.md` has the tt-lang
    feasibility.
 
-The reach map itself is unaffected by any of this: it is a census of DRAM bytes by issuing site,
-and the three duplicated levers move device milliseconds and layout kernels rather than the
-buckets it measures. What IS affected is any sentence calling the softmax backward "unfused" —
-on main it has a fused route, switched off.
+## What this does to the reach map — checked, not asserted
+
+An earlier version of this file said the reach map was "unaffected by any of this". That was an
+assertion. `reach.py --staleness` measures it, and the honest figure is **1.4 %**:
+
+    1.073 GB  permutes         `_permute_back` swaps one kernel for another over the SAME
+                               operands, so the byte count does not move at all
+    0.539 GB  leading-axis sums `_tree_sum` replaces one `ttnn.sum` with a tree of adds, which
+                               DOES move the census — upward, while real DRAM traffic stays flat
+                               or falls, because the census sees the tree's depth-0 adds but not
+                               `ttnn.sum`'s nested permute
+
+So of 39.394 GB, only 0.539 GB would read differently on main's tree, and in the direction that
+makes the census look worse rather than better. The headline survives intact: 82.5 % of the
+softmax-backward bucket is multiply/subtract/typecast on the score tensor, which main has not
+touched, and the n-cubed exponent comes from that tensor's shape rather than from any reduction.
+
+A first cut of this check said 7.2 %. It counted `softmax_bw_inner`'s reduces, which are LAST-dim,
+where `_reduce_to` gates the tree on `ax < len(gs) - 2`. Reading the gate is what separated a
+caveat from a non-issue.
+
+What IS affected is any sentence calling the softmax backward "unfused" — on main it has a fused
+route, switched off, and off for a dtype reason this branch can lift.

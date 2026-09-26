@@ -1,0 +1,11 @@
+{
+ "trace": "trace_bwd-fix_evo_n256",
+ "n": 256,
+ "moved_GB": 39.394,
+ "classes": {
+  "permute_same_bytes": 1.073,
+  "leading_sum_census_moves": 0.539
+ },
+ "census_would_shift_GB": 0.539,
+ "census_would_shift_share": 0.0137
+}
