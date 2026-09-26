@@ -34,12 +34,19 @@ import time
 #: exactly the state layout it had before this module existed.
 _LOCAL = threading.local()
 
-#: Bytes one in-flight trajectory can hold on the card at once, measured on the composed
+#: Bytes one in-flight trajectory can hold on the CARD at once, measured on the composed
 #: BindCraft 2 round at n=288 (`state/perf10/bcx-p10-duotraj.md` leg 1): 3.746 GB inside a
 #: seam, 1.668 GB banked between seams, over a 0.559 GB floor of weights and masks the
 #: trajectories share. The refusal below prices a new trajectory at the in-seam peak minus
 #: the shared floor, which is the most one of them can add.
 TRAJECTORY_BYTES = int(3.2 * 2**30)
+
+#: Bytes one in-flight trajectory takes on the HOST, and this is the one that binds. The first
+#: nine-round interleaved arm was OOM-KILLED by the host at 13.2 GB anon-rss on a 31 GB box
+#: while device DRAM never went past 3.75 GB of 31.9. A second trajectory is a second JAX
+#: program, a second set of host activations and a second design loop, and the card has an
+#: order of magnitude more headroom than the box does.
+TRAJECTORY_HOST_BYTES = int(6.0 * 2**30)
 
 
 def slot() -> str:
@@ -160,19 +167,42 @@ def free_device_bytes() -> int:
         return 0
 
 
-def refuse_if_it_will_not_fit(extra: int, *, per_trajectory: int = TRAJECTORY_BYTES) -> None:
-    """Raise unless the card has room for `extra` more trajectories in flight.
+def free_host_bytes() -> int:
+    """MemAvailable, the kernel's own estimate of what a new allocation can have."""
+    try:
+        for line in open("/proc/meminfo"):
+            if line.startswith("MemAvailable:"):
+                return int(line.split()[1]) * 1024
+    except OSError:
+        pass
+    return 0
 
-    Reads the allocator rather than inferring from a model: a footprint is the one thing a
-    numerical fixture cannot see, and crashing a size a user gets today is worse than being
-    slower than it could have been. The refusal quotes what it asked for and what was free,
-    because the two answers "it does not fit" and "it is fragmented" need different fixes.
+
+def refuse_if_it_will_not_fit(extra: int, *, per_trajectory: int = TRAJECTORY_BYTES,
+                              per_trajectory_host: int = TRAJECTORY_HOST_BYTES) -> None:
+    """Raise unless BOTH the card and the box have room for `extra` more trajectories.
+
+    The host check is not decoration and it is not second: the card has 28 GB free on the
+    measured round and the box had 14, and it is the box that killed the first interleaved
+    arm. Reading both rather than inferring from a model, because a footprint is the one thing
+    a numerical fixture cannot see and crashing a size a user gets today is worse than being
+    slower than it could have been. Each refusal quotes what it asked for and what was free,
+    since "it does not fit" and "it is fragmented" need different fixes.
     """
     if extra <= 0:
         return
+    want_host = extra * per_trajectory_host
+    free_host = free_host_bytes()
+    if free_host and free_host < want_host:
+        raise MemoryError(
+            f"interleaving {extra + 1} trajectories needs {want_host / 2**30:.2f} GB of HOST "
+            f"memory beyond what this process already holds and the box has "
+            f"{free_host / 2**30:.2f} GB available. This is the limit that binds: the card "
+            f"has an order of magnitude more headroom than the box. Run them one at a time, "
+            f"or free the box.")
     free = free_device_bytes()
     if free == 0:
-        return                      # no card open yet; the seam check below is the backstop
+        return                      # no card open yet; the host check above still applied
     want = extra * per_trajectory
     if free < want:
         raise MemoryError(

@@ -176,6 +176,31 @@ def main():
 
     from tt_bio import rne_add as _rne
     from tt_bio import taped_ttnn
+
+    def _host_rss():
+        """This process's resident and high-water host memory, at every round boundary.
+
+        Leg 1 measured the CARD and the card is not the binding constraint: the first
+        nine-round interleaved arm was OOM-killed by the HOST at 13.2 GB anon-rss on a 31 GB
+        box with ~14 GB available, while device DRAM never went past 3.75 GB of 31.9. Two
+        trajectories means two JAX programs and two sets of host activations, and that is what
+        runs out first.
+        """
+        out = {}
+        try:
+            for line in open("/proc/self/status"):
+                if line.startswith(("VmRSS:", "VmHWM:")):
+                    out[line.split(":")[0].lower()] = int(line.split()[1]) * 1024
+        except OSError:
+            pass
+        try:
+            out["mem_available"] = next(
+                int(l.split()[1]) * 1024 for l in open("/proc/meminfo")
+                if l.startswith("MemAvailable:"))
+        except (OSError, StopIteration):
+            pass
+        return out
+    M.REACH.append(_host_rss)
     M.REACH.append(lambda: {
         "rne_add_served": _rne.STATS[0], "rne_add_declined": _rne.STATS[1],
         "rne_add_entry": list(taped_ttnn.KERNEL_STATS.get("rne_add", [0, 0])),
