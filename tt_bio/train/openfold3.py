@@ -191,10 +191,42 @@ class OpenFold3Dataset:
         xyz = gt["atom_positions"].float()
         resolved = gt.get("atom_resolved_mask", gt.get("atom_mask")).float()
         real = np.flatnonzero(tok.numpy() > 0)
-        if len(real) != int(rep.shape[0]):
+
+        # THE CROP IS A SUBSET OF THE GROUND TRUTH, and for anything bigger than the token
+        # budget it is a strict one. Upstream crops the FEATURES and hands back the whole
+        # deposited structure: 4ky2 arrives as 384 cropped tokens against 480 ground-truth
+        # ones and 2wig as 384 against 2512. Lining them up by POSITION would score the
+        # crop's labels against the structure's first 384 tokens, which are not the same
+        # tokens; taking only the targets whose count happens to match would train on the
+        # ones that fit, which is the small pool.
+        #
+        # `token_index` is the join and is carried on both sides: it is each token's index in
+        # the UNCROPPED structure, so `f["token_index"][real]` is a subset of
+        # `gt["token_index"]` and matching the values is exact. On a target that fits, the
+        # permutation is the identity and this is a no-op, which is why it runs
+        # unconditionally rather than only on the mismatch -- a join that is only taken on
+        # the hard case is a join nobody tests.
+        if "token_index" in gt:
+            gt_tok = gt["token_index"].long().numpy().reshape(-1)
+            crop_tok = f["token_index"].long().numpy().reshape(-1)[real]
+            where = {int(t): i for i, t in enumerate(gt_tok)}
+            absent = [int(t) for t in crop_tok if int(t) not in where]
+            if absent:
+                raise ValueError(
+                    f"{len(absent)} cropped tokens are not in ground_truth by token_index "
+                    f"(first {absent[:5]}); the crop is not a subset of the structure it is "
+                    f"scored against")
+            sel = np.fromiter((where[int(t)] for t in crop_tok), np.int64, len(crop_tok))
+            rep = rep[sel]
+        elif len(real) != int(rep.shape[0]):
             raise ValueError(
                 f"{int(tok.sum())} real tokens on the crop axis but {int(rep.shape[0])} in "
-                f"ground_truth; the scatter below would put a label on the wrong token")
+                f"ground_truth, and ground_truth carries no token_index to join them on; the "
+                f"scatter below would put a label on the wrong token")
+        if len(real) != int(rep.shape[0]):
+            raise ValueError(
+                f"{int(tok.sum())} real tokens on the crop axis but {int(rep.shape[0])} "
+                f"representative atoms after the token_index join")
         true_xyz = np.zeros((n, 3), np.float64)
         coord_mask = np.zeros(n, np.float64)
         true_xyz[real] = xyz[rep].numpy().astype(np.float64)
