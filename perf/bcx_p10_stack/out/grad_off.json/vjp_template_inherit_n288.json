@@ -1,0 +1,75 @@
+{
+ "n": 288,
+ "c_t": 64,
+ "stack": "template",
+ "triatt_fused": "inherit",
+ "params": "/home/ttuser/bcx_e2e/af2_params/params_model_1_multimer_v3.npz",
+ "seed": 0,
+ "forward": {
+  "cpu_bf16_vs_f64": {
+   "rel_l2": 0.0021097173540159052,
+   "max_abs": 13.790093856902104,
+   "cos": 0.999997850710041
+  },
+  "device_vs_f64": {
+   "rel_l2": 0.0021169779901223764,
+   "max_abs": 13.35066289748579,
+   "cos": 0.9999978556937413
+  }
+ },
+ "vjp": {
+  "cpu_bf16_vs_f64": {
+   "rel_l2": 0.12954708257025277,
+   "max_abs": 647.9824164934982,
+   "cos": 0.9915791168969521
+  },
+  "device_vs_f64": {
+   "rel_l2": 0.11998047034015683,
+   "max_abs": 574.2618277874219,
+   "cos": 0.9928251154538366
+  },
+  "device_over_control": 0.9262,
+  "bar": 1.2,
+  "verdict": "PASS"
+ },
+ "seconds": {
+  "cpu_f64_fwd_bwd": 16.351,
+  "cpu_bf16_fwd_bwd": 3.174,
+  "device_cold_fwd": 6.347,
+  "device_cold_bwd": 8.163,
+  "device_warm_fwd": 5.379,
+  "device_warm_bwd": 7.208,
+  "device_warm_total": 12.587,
+  "device_fwd_all": [
+   6.347,
+   5.852,
+   4.906
+  ],
+  "device_bwd_all": [
+   8.163,
+   7.278,
+   7.138
+  ],
+  "aiclk_during": [
+   {
+    "pci": "0000:42:00.0",
+    "min": 1350,
+    "max": 1350,
+    "load1": 28.59
+   },
+   {
+    "pci": "0000:42:00.0",
+    "min": 1350,
+    "max": 1350,
+    "load1": 27.38
+   },
+   {
+    "pci": "0000:42:00.0",
+    "min": 1350,
+    "max": 1350,
+    "load1": 27.55
+   }
+  ]
+ },
+ "finished_utc": "2026-09-26T13:45:43Z"
+}
