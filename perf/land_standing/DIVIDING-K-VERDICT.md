@@ -386,3 +386,60 @@ So the cheapest thing that would unblock the 51 seconds is not more folds and no
 refusal is a real L1 ceiling or a precondition that could be met. If a single k chunk can be
 served at 832, this becomes the same change that is already good at 704 and the accuracy argument
 comes with it.
+
+## Why 832 alone gets a chunked k: it is arithmetic, and a second lever's bound closes the door
+
+Read from source and from the recorded rungs, no device time
+(`perf/land_standing/rung832.py` over `out/khole_fixed/`).
+
+The section above says the cheapest unblock is a single-chunk k at 832. It turns out 832 is the
+**only** length in the measured set that does not already get one:
+
+    n     ladder             served rung        single k chunk?
+    256   [256]              q256  k256         yes
+    288   [288, 96, 64]      q288  k288         yes
+    352   [352, 64]          q352  k352         yes
+    416   [416, 256]         q416  k416         yes
+    704   [704, 352, 256]    q352  k704         yes   (2 rungs refused on l1_budget first)
+    832   [832, 416, 256]    q416  k416         NO    (6 rungs refused on l1_budget)
+    864   [864, 288, 256]    q288  k864         yes   (2 rungs refused on l1_budget first)
+
+Every refusal in that column is `l1_budget`, so the single-chunk k is an L1 question at every
+length, and 704 and 864 both answer it by dropping q until the wide k fits. **832 cannot, because
+it runs out of legal q values first.**
+
+`_tri_att_sdpa_hifi_inner` only pairs a wide k with a q that divides the padded length, and
+`_tri_att_q_chunks` builds that list. At 832 the shipped q is 256, which does not divide 832, so
+the narrow-q fall-back path applies — and that path is deliberately bounded to `q >= prod / 2`,
+i.e. 128, so that a narrow chunk never more than doubles the K/V re-reads. The bound is right for
+what it was written for. Its side effect here is decisive:
+
+    832 = 2^6 * 13, so its 32-aligned divisors are 832, 416, 64, 32 -- nothing between 416 and 64
+    wider than prod: [832, 416]        both refused on l1_budget against k = 832
+    below prod:      64, 32            both below the q >= 128 bound, so never offered
+    resulting ladder: (832, 416, 256), and 256 does not divide 832
+
+Its neighbours escape by luck of factorisation. 704 = 2^6 * 11 offers 352, and 864 = 2^5 * 27
+offers 288; both sit above the shipped q and both fit L1 against the full-width k.
+
+**So the hole at 832 is not one lever's gap but two levers meeting.** `TT_BIO_TRIATT_DIVIDING_K`
+makes a legal k reachable; `TT_BIO_TRIATT_NARROW_Q_FALLBACK`'s re-read bound removes the only q
+that could pair with the *wide* one. What the fold then takes, `q416 k416`, is the chunked form —
+the half of the change the confidence heads do not support.
+
+**The prediction this makes, stated as a prediction because it is not measured.** q = 64 divides
+832, and `q64 k1088` is what OpenFold3's trunk already serves in production at 1088 — a strictly
+larger k than 832, so the L1 footprint of `q64 k832` is smaller than a configuration that fits
+today. If it serves, 832 gets the same single-chunk fused route as every other length, and the
+directional evidence from 704 comes with it instead of being argued around.
+
+**It is also a warning about the bound, not just about this lever.** `q >= prod / 2` was derived
+to stop a narrow q from multiplying K/V re-reads, and against the *shipped* k that is exactly
+right. Against a *wide* k the trade is different: one k chunk removes the online softmax's
+running-max rescale entirely, which is why the neighbouring lengths read better on both
+confidence heads. A bound that is correct for one purpose is silently deciding another.
+
+**Next pass, and it is one command's worth of device time**: offer the dividing q values below the
+bound when and only when the k chunk is wide, and see whether `q64 k832` serves. If it does,
+re-take the confidence pair at 832 — that is the reading that would move this lever from held to
+landable.
