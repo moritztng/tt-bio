@@ -99,26 +99,39 @@ def cmd_bits(args):
     from tt_bio import tenstorrent as T
     m0, z0, wm, wz = S.inputs(ref, args.n, args.seed)
 
-    def arm(on):
-        T.set_trimul_taped_l1(on)
+    # Three arms, because the L1 route carries a second change: `group = _trimul_inproj_group(...)
+    # if large_seq else 1` pins the in-projection's fused width to one channel chunk whenever the
+    # loop is in L1, which at 288 takes the matmul's N from 512 to 256. A different N is a
+    # different accumulation, so if the composed arm moves bits, `g1` -- group 1 on the DRAM route,
+    # residency untouched -- is what says whether the residency or the group did it.
+    real_group = T._trimul_inproj_group
+
+    def arm(taped_l1, group_one):
+        T.set_trimul_taped_l1(taped_l1)
+        T._trimul_inproj_group = ((lambda s, c, b, n: 1) if group_one else real_group)
         T.TRIMUL_TAPED_L1_STATS.update({'l1': 0, 'dram': 0, 'clash': 0})
         _, g = S.block_step(dev, lv, m0, z0, wm, wz, args.stack, k=args.k)
         return g, dict(T.TRIMUL_TAPED_L1_STATS)
 
     S.block_step(dev, lv, m0, z0, wm, wz, args.stack, k=args.k)     # warm, dropped
-    off, off_stats = arm(False)
-    on, on_stats = arm(True)
+    off, off_stats = arm(False, False)
+    on, on_stats = arm(True, False)
+    g1, g1_stats = arm(False, True)
     T.set_trimul_taped_l1(False)
+    T._trimul_inproj_group = real_group
     out = {'stamp': S.stamp(args), 'n': args.n, 'k': args.k,
-           'off_stats': off_stats, 'on_stats': on_stats,
+           'off_stats': off_stats, 'on_stats': on_stats, 'g1_stats': g1_stats,
            'reached': on_stats['l1'] > 0 and on_stats['dram'] == 0,
            'clashed': on_stats['clash'] > 0, 'grads': []}
-    for name, a, b in zip(('m', 'z'), off, on):
-        d = a.double() - b.double()
-        out['grads'].append({'which': name, 'equal': bool(torch.equal(a, b)),
-                             'max_abs': float(d.abs().max()),
-                             'rel_l2': float(d.norm() / a.double().norm())})
-    out['bit_exact'] = all(g['equal'] for g in out['grads'])
+    for arm_name, other in (('on', on), ('g1', g1)):
+        for name, a, b in zip(('m', 'z'), off, other):
+            d = a.double() - b.double()
+            out['grads'].append({'arm': arm_name, 'which': name,
+                                 'equal': bool(torch.equal(a, b)),
+                                 'max_abs': float(d.abs().max()),
+                                 'rel_l2': float(d.norm() / a.double().norm())})
+    out['bit_exact'] = all(g['equal'] for g in out['grads'] if g['arm'] == 'on')
+    out['group_alone_bit_exact'] = all(g['equal'] for g in out['grads'] if g['arm'] == 'g1')
     print(json.dumps(out, indent=1), flush=True)
     OUT.mkdir(parents=True, exist_ok=True)
     (OUT / args.out).write_text(json.dumps(out, indent=1, default=str))
