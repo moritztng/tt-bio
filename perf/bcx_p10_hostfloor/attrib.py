@@ -257,9 +257,18 @@ def main():
                     continue
                 thunks[ln.name].append((e.start_ns / 1e9, e.end_ns / 1e9, stats["hlo_op"]))
     pid = max((p for p in programs if p[0] == args.module), key=lambda p: programs[p])[1]
+    # The dump is named by XLA's own module id, which is not the profiler's program_id on
+    # this JAX build (366 in the trace, 0368 on disk), and the CPU backend drops the `cpu_`
+    # prefix. Prefer an exact hit on the program_id, fall back to the module's only
+    # optimised dump, and print which one was read so the choice is in the artifact.
     hlo = sorted(glob.glob(f"{run}/hlo/module_{int(pid):04d}.{args.module}"
-                           ".cpu_after_optimizations.txt"))
-    assert hlo, f"no optimised-HLO dump for program_id {pid} under {run}/hlo"
+                           ".*after_optimizations.txt"))
+    if not hlo:
+        hlo = sorted(glob.glob(f"{run}/hlo/module_*.{args.module}"
+                               ".*after_optimizations.txt"))
+        assert len(hlo) == 1, (f"program_id {pid} has no dump and {len(hlo)} candidates "
+                               f"under {run}/hlo, so the choice is not forced")
+    print(f"optimised HLO: {pathlib.Path(hlo[0]).name}  (profiler program_id {pid})")
     labels, inherited = parse_hlo(hlo)
     segs = [s for line in thunks.values() for s in exclusive_segments(line)]
 
@@ -322,7 +331,21 @@ def main():
             "inherited_label_s": round(inh, 3),
             "unmapped_s": {k: round(v, 3) for k, v in unmapped.most_common(10)},
             "modules": {f"{m}|{d}": round(v, 4) for (m, d), v in by.most_common()},
-            "detail": {k: round(v, 3) for k, v in detail.most_common() if v > 0.02}})
+            "detail": {k: round(v, 3) for k, v in detail.most_common() if v > 0.02},
+            # The seam thunk is WIDER than the Python the meter times inside it: XLA
+            # marshals the callback's operands and results either side of the call. That
+            # difference is host seconds and it belongs on the table under its own name.
+            # On main it was 0.17 s of a 20.8 s host and rounded away; on the composed
+            # arm the host is 2.7 s and there are six crossings a round, so it does not.
+            "seam_handoff_s": round(seam_thunk - device_meter, 3)})
+
+    # A round the trace did not cover from its start cannot be attributed. It shows up as
+    # a window whose first thunk is seconds in, and leaving it in the median is how a
+    # table stops summing: the profiler needs a launch to start recording, so the round
+    # the trace is armed on is captured from partway through.
+    partial = [r for r in rounds if r["outside_xla_before_first_thunk_s"] > 0.2]
+    rounds = [r for r in rounds if r["outside_xla_before_first_thunk_s"] <= 0.2]
+    assert rounds, "the trace covered no round from its start"
 
     keys = sorted({k for r in rounds for k in r["modules"]})
     table = []
@@ -333,11 +356,17 @@ def main():
                       "min_s": round(min(xs), 3), "max_s": round(max(xs), 3)})
     table.sort(key=lambda r: -r["med_s"])
     host_rows = [r for r in table if r["module"] != SEAM]
+    handoff = med([r["seam_handoff_s"] for r in rounds])
+    host_rows.append({"module": "seam: XLA-side handoff", "dir": "-", "med_s": handoff,
+                      "min_s": round(min(r["seam_handoff_s"] for r in rounds), 3),
+                      "max_s": round(max(r["seam_handoff_s"] for r in rounds), 3)})
+    host_rows.sort(key=lambda r: -r["med_s"])
     host_sum = sum(r["med_s"] for r in host_rows)
     out_xla = med([r["outside_xla_s"] for r in rounds])
     host_med = med([r["host_in_sg_s"] for r in rounds])
     report = {
         "run": run, "hlo": hlo[0], "profiled_rounds": len(rounds),
+        "dropped_partial_rounds": [r["round"] for r in partial],
         "align_offset_spread_ms": round((offs[-1] - offs[0]) * 1e3, 2),
         "median": {
             "sequence_gradients_s": med([r["sequence_gradients_s"] for r in rounds]),
@@ -351,15 +380,25 @@ def main():
             "residual_s": round(host_med - host_sum - out_xla, 3),
             "residual_pct_of_host": round(
                 100 * (host_med - host_sum - out_xla) / host_med, 1) if host_med else None},
-        "table": table, "rounds": rounds}
+        "table": table, "host_table": host_rows, "rounds": rounds}
     pathlib.Path(run, "hostmap.json").write_text(json.dumps(report, indent=1))
     m = report["median"]
     print(json.dumps(m, indent=1))
-    print(f"\n{'module':40s} {'dir':4s} {'med s':>8s} {'min':>8s} {'max':>8s}")
-    for r in table:
+    print(f"\nHOST seconds by module (the seam rows are the host side of the crossing)")
+    print(f"{'module':40s} {'dir':4s} {'med s':>8s} {'min':>8s} {'max':>8s}")
+    for r in host_rows:
         print(f"{r['module']:40s} {r['dir']:4s} {r['med_s']:8.3f} "
               f"{r['min_s']:8.3f} {r['max_s']:8.3f}")
     print(f"{'outside XLA (python + dispatch)':40s} {'-':4s} {out_xla:8.3f}")
+    print(f"{'TABLE SUM':40s} {'-':4s} {host_sum + out_xla:8.3f}")
+    print(f"{'measured host wall':40s} {'-':4s} {host_med:8.3f}")
+    print(f"{'RESIDUAL':40s} {'-':4s} {host_med - host_sum - out_xla:8.3f}  "
+          f"({m['residual_pct_of_host']} %)")
+    print(f"\nevery thunk, including the device callbacks:")
+    print(f"{'module':40s} {'dir':4s} {'med s':>8s} {'min':>8s} {'max':>8s}")
+    for r in table:
+        print(f"{r['module']:40s} {r['dir']:4s} {r['med_s']:8.3f} "
+              f"{r['min_s']:8.3f} {r['max_s']:8.3f}")
     print(f"{'RESIDUAL vs measured host wall':40s} {'-':4s} "
           f"{m['residual_s']:8.3f}  ({m['residual_pct_of_host']} %)")
     return 0
