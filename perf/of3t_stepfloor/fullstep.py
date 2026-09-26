@@ -349,13 +349,86 @@ def diffusion_chunk(sampler, pre, sigmas, rng, out, si_trunk=None, zij_pad=None,
     return roots
 
 
-def host_losses(roots, rep, weights, rng, out):
+# The five terms whose inputs do NOT come from a diffusion replicate. `distogram` reads the
+# trunk's pair representation; `plddt`, `pde`, `pae` and `resolved` read the confidence head,
+# which `tt_bio/train/openfold3.py` runs ONCE on a rollout it has already detached. Only the
+# three diffusion-coupled terms are per-replicate, which is why `--loss-shape` exists.
+_ONCE_TERMS = ("distogram", "plddt", "pde", "pae", "resolved")
+
+
+def _mem():
+    """This process's RSS and the host's MemAvailable, in GiB. Both, because they answer
+    different questions: RSS says how big the step got, MemAvailable says whether the host
+    still has room to do the arithmetic in."""
+    rss = 0
+    try:
+        rss = int([l.split()[1] for l in open("/proc/self/status")
+                   if l.startswith("VmRSS")][0]) / 1048576
+    except (OSError, IndexError):
+        pass
+    avail = 0.0
+    try:
+        avail = int([l.split()[1] for l in open("/proc/meminfo")
+                     if l.startswith("MemAvailable")][0]) / 1048576
+    except (OSError, IndexError):
+        pass
+    return round(rss, 3), round(avail, 3)
+
+
+def _peak_rss():
+    """`VmHWM` -- the high-water mark of this process's resident set, in GiB.
+
+    The kernel keeps it for free and it is the only honest answer to "how big did the step
+    get": sampling RSS at phase boundaries misses a peak that lives inside a phase, and the
+    step's peak is what decides whether the host has room left to do arithmetic in. Reset is
+    possible on Linux (`echo 5 > /proc/self/clear_refs`) so a PER-REP peak is readable too.
+    """
+    try:
+        return round(int([l.split()[1] for l in open("/proc/self/status")
+                          if l.startswith("VmHWM")][0]) / 1048576, 3)
+    except (OSError, IndexError):
+        return None
+
+
+def _reset_peak_rss():
+    """Reset `VmHWM` to the current RSS, so the next rep's peak is its own."""
+    try:
+        with open("/proc/self/clear_refs", "w") as f:
+            f.write("5\n")
+        return True
+    except OSError:
+        return False
+
+
+def host_losses(roots, rep, weights, rng, out, shape="per-root"):
     """`af3_loss` on host, at token scope, returning the per-root cotangent on `pred_xyz`.
 
     The loss is where it lives. `tt_bio.train.objectives.af3_loss` is numpy: a training step
     downloads the predicted coordinates, evaluates every term on host and hands the seeds
     back, so the "loss heads" part of a step is a PCIe round trip plus host arithmetic, and
     pricing it needs both halves timed together. They are.
+
+    `shape` is which of two things this prices, and they are not the same work:
+
+    `per-root` runs the WHOLE seven-term set once per diffusion replicate. That is what this
+    harness has always done and it is what every banked `losses_s` in this campaign measures,
+    so it stays the default -- changing it silently would move other rows' baselines under
+    them. It is not what the model does.
+
+    `model` runs the five non-diffusion terms ONCE and only `mse`, `smooth_lddt` and `bond`
+    per replicate, which is `tt_bio/train/openfold3.py`'s actual shape: the confidence heads
+    read a rollout that is produced once and detached, and the distogram head reads the
+    trunk's pair representation. Under `per-root` those five are recomputed per replicate on
+    logits this harness re-DRAWS from `rng.standard_normal` each time -- three
+    (n, n, 64) float64 arrays -- and then their gradients are discarded, because the only
+    seed this function returns is `mse`'s on `pred_xyz`. So at 48 replicates `per-root` prices
+    48x an arithmetic the step does once, on inputs it invented, for a backward that never
+    sees it.
+
+    Per-root and per-call seconds are recorded either way, with RSS and MemAvailable beside
+    them. That pair is not decoration: the same numpy reads 0.485 s per root at 17 GiB
+    MemAvailable and 1.44-1.69 s at 1 GiB (`perf/of3t_p10host/balloon.py`), so a slope taken
+    across a paging cliff is not a slope.
     """
     import numpy as np
     import ttnn
@@ -364,7 +437,13 @@ def host_losses(roots, rep, weights, rng, out):
     from tt_bio import autograd as ag
 
     dl_s, host_s, seeds_out, fired = 0.0, 0.0, [], None
-    print(f"  [losses] {len(roots)} roots, token scope n={len(rep)}", flush=True)
+    per_root_s, mem_trace = [], []
+    once_done, once_s, once_logits = None, 0.0, None
+    out["shape"] = shape
+    out["rss_gib_at_entry"], out["mem_available_gib_at_entry"] = _mem()
+    print(f"  [losses] {len(roots)} roots, token scope n={len(rep)}, shape={shape}, "
+          f"RSS {out['rss_gib_at_entry']:.2f} GiB, MemAvailable "
+          f"{out['mem_available_gib_at_entry']:.2f} GiB", flush=True)
     for k, r in enumerate(roots):
         t0 = time.perf_counter()
         raw = ag._unwrap(r) if isinstance(r, ag.Tensor) else r
@@ -388,7 +467,14 @@ def host_losses(roots, rep, weights, rng, out):
         lddt, lddt_w = L.atom_bespoke_lddt(pred, true_xyz, is_nuc, is_poly,
                                            coord_mask.astype(bool))
         idxs = np.arange(n)
-        lg = lambda *s: rng.standard_normal(s) * 0.5
+        # The confidence and distogram logits. Under `model` they are DRAWN ONCE and reused,
+        # because the heads that produce them run once: re-drawing three (n, n, 64) float64
+        # arrays per replicate is 0.22 s of fixture per root that the step never pays. Under
+        # `per-root` they are redrawn per root, as this harness always did.
+        if shape == "model" and once_logits is not None:
+            lg = lambda *sh: once_logits[sh]
+        else:
+            lg = lambda *sh: rng.standard_normal(sh) * 0.5
         labels = {"true_xyz": true_xyz, "coord_mask": coord_mask, "true_dist": true_dist,
                   "lddt_pair_mask": L.lddt_mask(true_dist, pair_mask, is_nuc),
                   "bond_mask": np.zeros((n, n)),
@@ -400,8 +486,27 @@ def host_losses(roots, rep, weights, rng, out):
                    "distogram_logits": lg(n, n, 64), "pde_logits": lg(n, n, 64),
                    "pae_logits": lg(n, n, 64), "plddt_logits": lg(n, 50),
                    "resolved_logits": lg(n, 2)}
-        total, breakdown, seeds = af3_loss(labels, outputs, weights)
+        if shape == "model" and once_logits is None:
+            # Keyed by shape, so the three (n, n, 64) heads share one array from root 1 on.
+            # That is safe because none of them FIRES after root 0 -- their weight is zeroed
+            # -- so the array is a placeholder of the right shape, never an input to a term.
+            once_logits = {(n, n, 64): outputs["distogram_logits"],
+                           (n, 50): outputs["plddt_logits"], (n, 2): outputs["resolved_logits"]}
+        w = dict(weights)
+        if shape == "model" and once_done:
+            # The five non-diffusion terms already ran on root 0. Zeroing their weight is how
+            # `af3_loss` skips a term, and it records the skip in the breakdown rather than
+            # reporting a silent zero -- so the artifact still says which terms fired.
+            for term in _ONCE_TERMS:
+                w[term] = 0.0
+        t_once = time.perf_counter()
+        total, breakdown, seeds = af3_loss(labels, outputs, w)
+        dt = time.perf_counter() - t_once
+        if shape == "model" and not once_done:
+            once_s, once_done = dt, True
         host_s += time.perf_counter() - t0
+        per_root_s.append(round(time.perf_counter() - t0, 4))
+        mem_trace.append(_mem())
         g = seeds.get("pred_xyz")
         # The cotangent goes back on the ATOM tensor the module returned: the loss touched
         # one atom per token, so every other atom's seed is a true zero, not a dropped term.
@@ -419,6 +524,14 @@ def host_losses(roots, rep, weights, rng, out):
     out["scope"] = "token, one representative atom per token"
     out["download_s"] = round(dl_s, 3)
     out["host_loss_s"] = round(host_s, 3)
+    out["per_root_s"] = per_root_s
+    out["mem_trace_gib"] = [{"rss": r, "avail": a} for r, a in mem_trace]
+    out["rss_gib_at_exit"], out["mem_available_gib_at_exit"] = _mem()
+    if shape == "model":
+        # What one MORE replicate costs, which is the number a 48-sample step is built out of.
+        out["once_terms_s"] = round(once_s, 4)
+        out["per_replicate_s"] = (round(sum(per_root_s[1:]) / len(per_root_s[1:]), 4)
+                                  if len(per_root_s) > 1 else None)
     out["value_claimed"] = False
     return seeds_out
 
@@ -663,6 +776,12 @@ def main() -> int:
     ap.add_argument("--no-tape", action="store_true",
                     help="run the same scope UNTAPED, for D32's ratio at step scope")
     ap.add_argument("--no-optimizer", action="store_true")
+    ap.add_argument("--loss-shape", choices=("per-root", "model"), default="per-root",
+                    help="per-root: the whole seven-term set once per diffusion replicate, "
+                         "which is what every banked losses_s in this campaign measures and "
+                         "why it is the default. model: the five non-diffusion terms once and "
+                         "the three diffusion-coupled ones per replicate, which is what "
+                         "tt_bio/train/openfold3.py actually does.")
     ap.add_argument("--renorm-per-rep", default="",
                     help="comma-separated 1/0 per rep, flipping ag.SOFTMAX_BW_RENORM in "
                          "THIS process. The lever is a module global read inside the "
@@ -762,6 +881,21 @@ def main() -> int:
                     ag.SOFTMAX_BW_RENORM = plan[rep % len(plan)]
                 row["renorm_flag"] = bool(ag.SOFTMAX_BW_RENORM)
                 rs0 = dict(ag.SOFTMAX_BW_RENORM_STATS)
+                # The host resident set, phase by phase, and this rep's own peak. Host
+                # memory is a perf variable here, not bookkeeping: the same loss arithmetic
+                # reads 1.925 s at 11.82 GiB MemAvailable and 4.999 s at 9.06 GiB
+                # (`perf/of3t_p10host/out/shape_per-root_s4.json`), so a phase time without
+                # the memory it ran in is not comparable to the same phase in another run.
+                row["peak_reset"] = _reset_peak_rss()
+                row["rss_gib"] = {}
+                row["mem_available_gib"] = {}
+
+                def _mark(where):
+                    r, a_ = _mem()
+                    row["rss_gib"][where] = r
+                    row["mem_available_gib"][where] = a_
+
+                _mark("rep_start")
                 for t in params.values():
                     t.grad = None
                 ttnn.synchronize_device(dev)
@@ -788,6 +922,7 @@ def main() -> int:
                     row["trunk_s"] = round(row["trunk_nograd_prefix_s"]
                                            + row["trunk_taped_cycle_s"], 3)
                     row["dram_after_trunk"] = _dram(dev)
+                    _mark("after_trunk")
 
                     # --- 2. diffusion ------------------------------------------------------
                     # The invariants are inside the TRUNK's tape whether or not the replicates
@@ -821,6 +956,7 @@ def main() -> int:
 
                 print("  [tape] left the tape context", flush=True)
                 row["diffusion"] = d_out
+                _mark("after_diffusion")
                 row["losses"] = l_out
                 loss_s = seed_s = bwd_s = 0.0
                 roll = labels = logits = None
@@ -967,6 +1103,7 @@ def main() -> int:
                 row["params_with_grad"] = f"{got} of {len(params)}"
                 row["backward_valid"] = bool(got) or a.no_tape
                 row["dram_after_backward"] = _dram(dev)
+                _mark("after_backward")
 
                 if a.grad_ab:
                     grad_ab = grad_snapshot(params, grad_ab, row,
@@ -998,6 +1135,8 @@ def main() -> int:
                     ttnn.synchronize_device(dev)
                     row["optimizer_s"] = round(time.perf_counter() - t0, 3)
                     row["optimizer_updated"] = len(upd) if hasattr(upd, "__len__") else None
+                    row["writes_skipped"] = getattr(opt, "last_writes_skipped", None)
+                    _mark("after_optimizer")
                 else:
                     row["optimizer_s"] = 0.0
                     row["optimizer_note"] = ("no gradient reached a declared weight, so the "
@@ -1005,6 +1144,7 @@ def main() -> int:
                                              "--no-optimizer")
                 ag.release_pins()
 
+                row["peak_rss_gib"] = _peak_rss()
                 parts = ("trunk_s", "diffusion_s", "losses_s", "seed_upload_s",
                          "backward_s", "optimizer_s")
                 row["step_s"] = round(sum(row[p] for p in parts), 3)
@@ -1035,6 +1175,12 @@ def main() -> int:
             out["renorm"]["declined_during_reps"] = (
                 out["renorm"]["stats_after"]["declined"]
                 - out["renorm"]["stats_before"]["declined"])
+            # VmHWM is reset per rep, so this is the LAST rep's high-water mark, which is
+            # the steady one: the moments appear in rep 0's optimizer step and every rep
+            # after carries them. Assigned here rather than after the final dump(), where it
+            # printed correctly and never reached the artifact.
+            out["peak_rss_gib_run"] = _peak_rss()
+            print(f"PEAK RSS (last rep, VmHWM): {out['peak_rss_gib_run']} GiB", flush=True)
             key = "step_s_UNTAPED" if a.no_tape else "step_s"
             vals = [r[key] for r in reps if r.get(key) is not None]
             if vals:
