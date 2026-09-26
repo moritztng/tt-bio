@@ -13,6 +13,15 @@ from `ErikMaeots` at 2026-09-25T15:04:09Z.
     403ddcf888  2026-09-24T20:42:21Z  moritztng         Find and pin design workers without nvidia-smi
     44a0dd34b3  2026-09-25T12:12:37Z  LeonardoTredese   unified gpu determination mechanism
     68b853ddec  2026-09-25T15:00:48Z  LeonardoTredese   Updated docs, removed stale tests, fixed bindcraft.py imports
+    bf304d1530  2026-09-26T07:2xZ     moritztng         Pin design workers by the visibility variable's own names
+
+`bf304d1` is `PIN_FIX.patch` pushed to the branch on 2026-09-26 07:29Z after 11.8 h of silence on
+two comments that both offered it. One additive commit, no rebase, no force-push. Re-measured
+against the branch the same pass: `fix_check_at_bf304d1.out`, control `68b853dde` 4 pass / 5 fail,
+result `bf304d1` 9 pass / 0 fail, plus an unstubbed run on the real CPU backend where both
+revisions give `selected_design_gpus() -> []` and `plan_design_workers({}, 300, 20) -> []`.
+`PR19_COMMENT_3_2026-09-26.md` is the comment as posted
+(https://github.com/PacesaLab/BindCraft2/pull/19#issuecomment-5844267891).
 
 So the PR is now +49/-23 across 4 files, not the +290/-15 we opened, and the 215-line
 `tests/test_design_workers.py` we added came out in `68b853d`. The rewrite replaces our env-var

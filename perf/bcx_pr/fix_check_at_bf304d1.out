@@ -1,0 +1,53 @@
+# perf/bcx_pr/fix_check.py re-run 2026-09-26 07:3xZ. Control is PR #19 head 68b853ddec8c31615480d90c391a2a1429cfaadc
+# (LeonardoTredese's rework); result is bf304d15309f55d5aa0ffbff187e803ab71adc55, the fix pushed to the branch.
+# pc, jax 0.11.2 / jaxlib 0.11.2, python 3.12.12, CPU backend, [CpuDevice(id=0)], no card and no device opened.
+# design_devices() is stubbed; everything else is the module as written. upstream/main was 3e3563894 at read time.
+
+=== CONTROL: 68b853dde ===
+  FAIL  A  third platform, 2 devices -> a 1-worker plan, not a raise
+              ValueError: Device of kind tpu is currently not supported
+  FAIL  B  CUDA_VISIBLE_DEVICES=2,3 -> the cards the job was given
+              ['0', '1']
+  FAIL  B  workers pinned to 2 and 3, not 0 and 1
+              CUDA_VISIBLE_DEVICES=['0', '1']
+  FAIL  B  free memory keyed by the pin name, not the jax id
+              ['0', '1']
+  pass  C  rocm, no variable set -> the whole box
+              ['0', '1', '2', '3']
+  FAIL  D  HIP_VISIBLE_DEVICES=2,3 -> the cards the job was given
+              ['0', '1']
+  pass  D  variable does not describe the devices -> jax ids, no mixed list
+              ['0', '1']
+  pass  E  no accelerator -> no fan-out, no raise
+              []
+  pass  E  no accelerator -> an empty plan, no raise
+              []
+
+4 passed, 5 failed
+
+=== RESULT: bf304d153 ===
+2 devices visible, designing on one: no way to pin a worker to a single device on this platform
+  pass  A  third platform, 2 devices -> a 1-worker plan, not a raise
+              1 worker(s) on ['0']
+  pass  B  CUDA_VISIBLE_DEVICES=2,3 -> the cards the job was given
+              ['2', '3']
+  pass  B  workers pinned to 2 and 3, not 0 and 1
+              CUDA_VISIBLE_DEVICES=['2', '3']
+  pass  B  free memory keyed by the pin name, not the jax id
+              ['2', '3']
+  pass  C  rocm, no variable set -> the whole box
+              ['0', '1', '2', '3']
+  pass  D  HIP_VISIBLE_DEVICES=2,3 -> the cards the job was given
+              ['2', '3']
+  pass  D  variable does not describe the devices -> jax ids, no mixed list
+              ['0', '1']
+  pass  E  no accelerator -> no fan-out, no raise
+              []
+  pass  E  no accelerator -> an empty plan, no raise
+              []
+
+9 passed, 0 failed
+
+=== UNSTUBBED, real CPU backend, no accelerator ===
+68b853dde  selected_design_gpus() -> []  plan_design_workers({},300,20) -> []  design_gpu_memory_gb() -> {}
+bf304d1  selected_design_gpus() -> []  plan_design_workers({},300,20) -> []  design_gpu_memory_gb() -> {}
