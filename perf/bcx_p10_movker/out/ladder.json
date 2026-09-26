@@ -1,0 +1,137 @@
+{
+ "iters": 25,
+ "rows": {
+  "128x128": {
+   "MB": 4.2,
+   "clone": {
+    "ms": 0.042,
+    "pct_roof": 45.1,
+    "aiclk_med": 1350,
+    "aiclk_min": 1350
+   },
+   "round_trip": {
+    "ms": 0.1485,
+    "pct_roof": 38.3,
+    "aiclk_med": 1350,
+    "aiclk_min": 1350
+   },
+   "tiled": {
+    "ms": 0.1075,
+    "pct_roof": 17.6,
+    "aiclk_med": 1350,
+    "aiclk_min": 1350
+   },
+   "equal": true
+  },
+  "256x128": {
+   "MB": 16.8,
+   "clone": {
+    "ms": 0.1025,
+    "pct_roof": 74.0,
+    "aiclk_med": 1350,
+    "aiclk_min": 1350
+   },
+   "round_trip": {
+    "ms": 0.5215,
+    "pct_roof": 43.6,
+    "aiclk_med": 1350,
+    "aiclk_min": 1350
+   },
+   "tiled": {
+    "ms": 0.4544,
+    "pct_roof": 16.7,
+    "aiclk_med": 1350,
+    "aiclk_min": 1350
+   },
+   "equal": true
+  },
+  "288x128": {
+   "MB": 21.2,
+   "clone": {
+    "ms": 0.1262,
+    "pct_roof": 76.1,
+    "aiclk_med": 1350,
+    "aiclk_min": 1350
+   },
+   "round_trip": {
+    "ms": 0.6525,
+    "pct_roof": 44.1,
+    "aiclk_med": 1350,
+    "aiclk_min": 1350
+   },
+   "tiled": {
+    "ms": 0.5345,
+    "pct_roof": 18.0,
+    "aiclk_med": 1350,
+    "aiclk_min": 1350
+   },
+   "equal": true
+  },
+  "288x256": {
+   "MB": 42.5,
+   "clone": {
+    "ms": 0.2302,
+    "pct_roof": 83.4,
+    "aiclk_med": 1350,
+    "aiclk_min": 1350
+   },
+   "round_trip": {
+    "ms": 0.886,
+    "pct_roof": 65.0,
+    "aiclk_med": 1350,
+    "aiclk_min": 1350
+   },
+   "tiled": {
+    "ms": 1.2119,
+    "pct_roof": 15.8,
+    "aiclk_med": 1350,
+    "aiclk_min": 1350
+   },
+   "equal": true
+  },
+  "384x128": {
+   "MB": 37.7,
+   "clone": {
+    "ms": 0.2231,
+    "pct_roof": 76.5,
+    "aiclk_med": 1350,
+    "aiclk_min": 1350
+   },
+   "round_trip": {
+    "ms": 1.1403,
+    "pct_roof": 44.9,
+    "aiclk_med": 1350,
+    "aiclk_min": 1350
+   },
+   "tiled": {
+    "ms": 1.0928,
+    "pct_roof": 15.6,
+    "aiclk_med": 1350,
+    "aiclk_min": 1350
+   },
+   "equal": true
+  },
+  "512x128": {
+   "MB": 67.1,
+   "clone": {
+    "ms": 0.3522,
+    "pct_roof": 86.1,
+    "aiclk_med": 1350,
+    "aiclk_min": 1350
+   },
+   "round_trip": {
+    "ms": 1.9914,
+    "pct_roof": 45.7,
+    "aiclk_med": 1350,
+    "aiclk_min": 1350
+   },
+   "tiled": {
+    "ms": 1.8948,
+    "pct_roof": 16.0,
+    "aiclk_med": 1350,
+    "aiclk_min": 1350
+   },
+   "equal": true
+  }
+ }
+}

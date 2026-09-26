@@ -1,0 +1,101 @@
+{
+ "n": 288,
+ "c": 128,
+ "bytes": 21233664,
+ "iters": 60,
+ "aiclk": {
+  "per_leg": {
+   "clone (ONE PASS, the kernel floor)": [
+    1350,
+    1350,
+    60
+   ],
+   "to_layout TILE->ROW_MAJOR": [
+    1350,
+    1350,
+    60
+   ],
+   "permute (1,0,2) row-major": [
+    1350,
+    1350,
+    60
+   ],
+   "to_layout ROW_MAJOR->TILE": [
+    1350,
+    1350,
+    60
+   ],
+   "THE SHIPPED ROUND TRIP (3 calls)": [
+    1350,
+    1350,
+    60
+   ],
+   "permute (1,0,2) TILED (the route the RM one replaced)": [
+    1350,
+    1350,
+    60
+   ]
+  }
+ },
+ "load": [
+  7.64892578125,
+  8.6572265625,
+  9.41064453125
+ ],
+ "rows": {
+  "clone (ONE PASS, the kernel floor)": {
+   "ms": 0.1301,
+   "MB": 42.5,
+   "GB_s": 326.4,
+   "pct_roof": 73.8,
+   "aiclk_med": 1350,
+   "aiclk_min": 1350,
+   "aiclk_n": 60
+  },
+  "to_layout TILE->ROW_MAJOR": {
+   "ms": 0.1532,
+   "MB": 42.5,
+   "GB_s": 277.1,
+   "pct_roof": 62.7,
+   "aiclk_med": 1350,
+   "aiclk_min": 1350,
+   "aiclk_n": 60
+  },
+  "permute (1,0,2) row-major": {
+   "ms": 0.3327,
+   "MB": 42.5,
+   "GB_s": 127.6,
+   "pct_roof": 28.9,
+   "aiclk_med": 1350,
+   "aiclk_min": 1350,
+   "aiclk_n": 60
+  },
+  "to_layout ROW_MAJOR->TILE": {
+   "ms": 0.2254,
+   "MB": 42.5,
+   "GB_s": 188.4,
+   "pct_roof": 42.6,
+   "aiclk_med": 1350,
+   "aiclk_min": 1350,
+   "aiclk_n": 60
+  },
+  "THE SHIPPED ROUND TRIP (3 calls)": {
+   "ms": 0.6544,
+   "MB": 127.4,
+   "GB_s": 194.7,
+   "pct_roof": 44.0,
+   "aiclk_med": 1350,
+   "aiclk_min": 1350,
+   "aiclk_n": 60
+  },
+  "permute (1,0,2) TILED (the route the RM one replaced)": {
+   "ms": 0.5469,
+   "MB": 42.5,
+   "GB_s": 77.6,
+   "pct_roof": 17.6,
+   "aiclk_med": 1350,
+   "aiclk_min": 1350,
+   "aiclk_n": 60
+  }
+ }
+}
