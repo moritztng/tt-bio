@@ -1516,6 +1516,11 @@ def _v_exact_softmax(shipped, args, kwargs):
     The host path never writes the caller's buffer, so the in-place kernel's one advantage is
     gone and its one hazard with it.
     """
+    if not _GRAD_ENABLED:
+        # See `_v_exact_layer_norm` for why `no_grad` takes the raw form. Same arithmetic,
+        # no wrapper, no tape node.
+        ra, rk = _raw(args, kwargs)
+        return _exact_softmax_raw(*ra, **rk)
     x = _wrap(args[0])
     dim = kwargs.get("dim", args[1] if len(args) > 1 else -1)
     EXACT_SOFTMAX_STATS["verb"] += 1
@@ -1577,6 +1582,18 @@ def _exact_layer_norm_raw(*args, **kwargs):
 def _v_exact_layer_norm(shipped, args, kwargs):
     """The taped `layer_norm`: float64 forward, and dx, dgamma, dbeta in float64 from x re-read
     off the card. mean and rstd are re-derived in the backward, not held on the host."""
+    if not _GRAD_ENABLED:
+        # Inside `no_grad` there is no tape to pin a wrapper into and no backward to serve it,
+        # so the verb form buys nothing and costs the wrapper map: `_wrap` hands back whatever
+        # wrapper the handle's id already has, and in a `no_grad` census the shipped decoder
+        # frees its activations two lines after each call (`openfold3_diffusion_decoder.py:99`
+        # norms `ql_out_pad` and deallocates it immediately). The forward then read a dead
+        # handle and the reference arm died on `tensor.is_allocated()` in the discovery pass,
+        # before step 0. The raw form is the SAME float64 arithmetic, which matters: the
+        # discovery pass has to run the arithmetic the step will run, because the fused
+        # softmax tail learns its L1 row caps from whatever it sees first (`install`).
+        ra, rk = _raw(args, kwargs)
+        return _exact_layer_norm_raw(*ra, **rk)
     x, gamma, beta, eps, mc = _ln_args(args, kwargs)
     x, gamma, beta = _wrap(x), _wrap(gamma), _wrap(beta)
     EXACT_LAYER_NORM_STATS["verb"] += 1
