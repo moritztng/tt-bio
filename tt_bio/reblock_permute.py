@@ -339,7 +339,7 @@ L1_N_MIN = int(os.environ.get("TT_BIO_REBLOCK_L1_N_MIN", "288"))
 L1_N_MAX = int(os.environ.get("TT_BIO_REBLOCK_L1_N_MAX", "352"))
 
 
-def eligible(x, memory_config) -> bool:
+def eligible(x, memory_config, taped_ok: bool = False) -> bool:
     """The gate, measured against the wheel's own ``ttnn.permute`` on the card that runs it.
 
     Two things decide it: the destination buffer type and ``N``. On DRAM the custom move wins from
@@ -370,10 +370,13 @@ def eligible(x, memory_config) -> bool:
     multiple of 32, because the trunk's own chunk width depends on the compute grid.
     """
     from . import ops
-    if ops.taping():
-        # These moves are `generic_op` kernels with no backward, and eligibility is
-        # exactly where the codebase already says no: every caller falls back to the
-        # unfused transpose/permute, which the tape follows. Inference is untouched.
+    if ops.taping() and not (taped_ok and TAPED_MOVE):
+        # A DIRECT caller under a tape gets no node for this `generic_op`, so it has to keep
+        # the stock permute the tape can follow. `taped_ok` is the tape itself asking, and for
+        # these two moves the tape can follow the kernel: the move is a pure index reordering
+        # whose VJP is the OTHER kernel in this file, so `taped_ttnn._permute_fwd` records the
+        # node and the reason to refuse is gone. `eligible_gated` keeps the blanket refusal --
+        # it fuses a sigmoid and a multiply and its VJP is not an index move.
         return False
 
     if not _ENABLED:
@@ -393,6 +396,32 @@ def eligible(x, memory_config) -> bool:
             or (bt == ttnn.BufferType.L1 and L1_N_MIN <= N <= L1_N_MAX)):
         return _reject(f"window_{bt}", shape)
     return True
+
+
+# Whether the two index-move kernels may serve a TAPED forward.
+#
+# Both are `generic_op`, which has no tape entry, so a direct caller under a tape would drop the
+# gradient of everything upstream. `eligible`/`eligible_back` therefore refuse while a tape is
+# open and a gradient round runs the stock `ttnn.permute` forward -- while its BACKWARD runs the
+# kernel, because `taped_ttnn._permute_back` already routes there. That asymmetry is what
+# `bcx-p10-trilay` measured as the triangle multiplication at 31.7 % of the DRAM roof forward
+# against 55.3 % backward.
+#
+# With this on, `taped_ttnn._permute_fwd` takes the kernel and records the node itself. The two
+# moves are each other's inverse -- `permute(0,3,1,2)` sends x[b,i,j,c] to y[b,c,i,j], so its VJP
+# is `permute(0,2,3,1)` -- so the backward is the kernel the backward already used. Both are
+# `torch.equal` against `ttnn.permute`, so the arm is bit-exact by construction.
+#
+# Default OFF, release-gated. A module switch as well as an env var, so an A/B flips it in one
+# process without a second device context.
+TAPED_MOVE = os.environ.get("TT_BIO_TAPED_CHANNEL_MOVE", "0") == "1"
+
+
+def set_taped_channel_move(on: bool) -> bool:
+    """Turn the taped channel move on or off. Returns the previous setting."""
+    global TAPED_MOVE
+    prev, TAPED_MOVE = TAPED_MOVE, bool(on)
+    return prev
 
 
 # Whether `_channel_move` reaches for this kernel at all. Bit-exact: a permute is a pure index
@@ -583,7 +612,7 @@ def set_enabled_back(on: bool) -> bool:
     return prev
 
 
-def eligible_back(x, memory_config) -> bool:
+def eligible_back(x, memory_config, taped_ok: bool = False) -> bool:
     """The gate for the back direction.
 
     Deliberately narrower than the forward one. ``N`` must be a multiple of 32: the forward kernels
@@ -594,10 +623,13 @@ def eligible_back(x, memory_config) -> bool:
     chunk from 352 aa up.
     """
     from . import ops
-    if ops.taping():
-        # These moves are `generic_op` kernels with no backward, and eligibility is
-        # exactly where the codebase already says no: every caller falls back to the
-        # unfused transpose/permute, which the tape follows. Inference is untouched.
+    if ops.taping() and not (taped_ok and TAPED_MOVE):
+        # A DIRECT caller under a tape gets no node for this `generic_op`, so it has to keep
+        # the stock permute the tape can follow. `taped_ok` is the tape itself asking, and for
+        # these two moves the tape can follow the kernel: the move is a pure index reordering
+        # whose VJP is the OTHER kernel in this file, so `taped_ttnn._permute_fwd` records the
+        # node and the reason to refuse is gone. `eligible_gated` keeps the blanket refusal --
+        # it fuses a sigmoid and a multiply and its VJP is not an index move.
         return False
 
     if not _ENABLED_BACK:

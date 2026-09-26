@@ -681,7 +681,7 @@ def _v_permute(shipped, args, kwargs):
     for i, d in enumerate(dims):
         inv[d] = i
     ra, rk = _raw(args, kwargs)
-    out_v = shipped(*ra, **rk)
+    out_v = _permute_fwd(shipped, ra, rk, dims)
 
     def make():
         def bw(g):
@@ -694,6 +694,24 @@ def _v_permute(shipped, args, kwargs):
 # Whether a permute's backward goes through the reblock kernels where they serve its inverse.
 # A module switch so an A/B can flip it in one process.
 REBLOCK_PERMUTE_BW = True
+
+# The same question asked of the FORWARD, which is where the two channel moves actually are.
+#
+# `reblock_permute.eligible` refuses every caller while a tape is open, because the kernel is a
+# `generic_op` with no tape entry and a direct call would drop the gradient of everything above
+# it. So a taped forward runs the stock `ttnn.permute` and a taped BACKWARD runs the kernel
+# (`_permute_back`, above) -- the asymmetry `bcx-p10-trilay` measured as the triangle
+# multiplication at 31.7 % of the DRAM roof forward against 55.3 % backward.
+#
+# There is no reason for it. These two moves are pure index reorderings and they are each
+# other's inverse: `permute(0,3,1,2)` sends x[b,i,j,c] to y[b,c,i,j], so its VJP is
+# `permute(0,2,3,1)`, which is the other kernel in that file. Recording the node HERE, where
+# the shim already owns the permute, lets the forward take the kernel with a backward that is
+# exactly the kernel the backward already takes. Both are `torch.equal` against `ttnn.permute`,
+# so the arm is bit-exact by construction and is measured that way rather than argued.
+#
+# The switch is `reblock_permute.TAPED_MOVE`, next to the gates it opens and next to the
+# `_channel_move_back` caller that has to make the same decision, so there is one of it.
 
 
 def _permute_back(g, inv):
@@ -714,6 +732,29 @@ def _permute_back(g, inv):
         if inv == [0, 3, 1, 2] and R.eligible(g, mc):
             return R.reblock_permute(g, mc)
     return ttnn.permute(g, inv)
+
+
+def _permute_fwd(shipped, ra, rk, dims):
+    """The forward of a taped `ttnn.permute`, through the reblock kernel where it serves.
+
+    `ra[0]` is the raw operand, so the kernel's own `ttnn.generic_op` is never handed a taped
+    tensor and cannot try to tape itself. The node is `_v_permute`'s, and its backward is
+    `_permute_back` unchanged: for these two `dims` that is the inverse kernel.
+    """
+    if len(ra) and not rk.get("pad_value"):
+        from . import reblock_permute as R
+        if not R.TAPED_MOVE:
+            return shipped(*ra, **rk)
+        x = ra[0]
+        try:
+            mc = rk.get("memory_config") or x.memory_config()
+            if dims == [0, 3, 1, 2] and R.eligible(x, mc, taped_ok=True):
+                return R.reblock_permute(x, mc)
+            if dims == [0, 2, 3, 1] and R.eligible_back(x, mc, taped_ok=True):
+                return R.reblock_permute_back(x, mc)
+        except AttributeError:
+            pass
+    return shipped(*ra, **rk)
 
 
 @_verb("transpose")
