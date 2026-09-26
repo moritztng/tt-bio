@@ -53,6 +53,7 @@ def main() -> int:
 
         def cycle(exact_on, rep):
             s0, l0 = dict(SM), dict(ag.EXACT_LAYER_NORM_STATS)
+            x0 = dict(ag.EXACT_SOFTMAX_STATS)
             t = time.perf_counter()
             with ag.exact_training(exact_on):
                 with ag.tape():
@@ -66,6 +67,11 @@ def main() -> int:
                    "exact_softmax_installed": inst[0], "exact_layer_norm_installed": inst[1],
                    "host_f64_softmax_served": SM["served"] - s0["served"],
                    "exact_layer_norm_verb": (ag.EXACT_LAYER_NORM_STATS["verb"] - l0["verb"]),
+                   "EXACT_SOFTMAX_STATS": {k: ag.EXACT_SOFTMAX_STATS[k] - x0.get(k, 0)
+                                           for k in ag.EXACT_SOFTMAX_STATS},
+                   "EXACT_LAYER_NORM_STATS": {k: ag.EXACT_LAYER_NORM_STATS[k] - l0.get(k, 0)
+                                              for k in ag.EXACT_LAYER_NORM_STATS},
+                   "HOST_F64_SOFTMAX_STATS": {k: SM[k] - s0.get(k, 0) for k in SM},
                    "host_avail_gib": avail(),
                    "dram": int(ttnn.get_memory_view(dev, ttnn.BufferType.DRAM)
                                .total_bytes_allocated_per_bank) * 12}

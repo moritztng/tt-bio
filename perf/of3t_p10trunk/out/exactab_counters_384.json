@@ -1,0 +1,124 @@
+{
+ "doc": "The taped trunk cycle with the float64 host levers on and off, in one process.",
+ "argv": [
+  "--tokens",
+  "384",
+  "--reps",
+  "1",
+  "--out",
+  "perf/of3t_p10trunk/out/exactab_counters_384.json"
+ ],
+ "arms": [
+  {
+   "rep": 0,
+   "exact_training": false,
+   "taped_cycle_s": 4.112,
+   "exact_training_ops": [],
+   "exact_softmax_installed": false,
+   "exact_layer_norm_installed": false,
+   "host_f64_softmax_served": 0,
+   "exact_layer_norm_verb": 0,
+   "EXACT_SOFTMAX_STATS": {
+    "verb": 0,
+    "raw": 0,
+    "raw_elements": 0
+   },
+   "EXACT_LAYER_NORM_STATS": {
+    "verb": 0,
+    "raw": 0,
+    "elements": 0,
+    "bw": 0
+   },
+   "HOST_F64_SOFTMAX_STATS": {
+    "served": 0,
+    "declined": 108,
+    "refused": 0,
+    "elements": 0,
+    "selected": 0,
+    "tail": 108,
+    "served_taped": 0,
+    "served_raw": 0
+   },
+   "host_avail_gib": 13.996,
+   "dram": 6407843328
+  },
+  {
+   "rep": 0,
+   "exact_training": true,
+   "taped_cycle_s": 224.585,
+   "exact_training_ops": [
+    "softmax",
+    "layer_norm"
+   ],
+   "exact_softmax_installed": true,
+   "exact_layer_norm_installed": true,
+   "host_f64_softmax_served": 159,
+   "exact_layer_norm_verb": 803,
+   "EXACT_SOFTMAX_STATS": {
+    "verb": 159,
+    "raw": 0,
+    "raw_elements": 0
+   },
+   "EXACT_LAYER_NORM_STATS": {
+    "verb": 803,
+    "raw": 0,
+    "elements": 8035319808,
+    "bw": 0
+   },
+   "HOST_F64_SOFTMAX_STATS": {
+    "served": 159,
+    "declined": 108,
+    "refused": 0,
+    "elements": 24577966080,
+    "selected": 0,
+    "tail": 108,
+    "served_taped": 159,
+    "served_raw": 0
+   },
+   "host_avail_gib": 13.207,
+   "dram": 10623364608
+  }
+ ],
+ "build_fold_s": 4.17,
+ "prep_to_sampler_s": 7.17,
+ "capture": {
+  "trunk_inputs_snapshotted": true,
+  "trunk_inputs_dead_at_capture": 0,
+  "trunk_forward_s": 5.141,
+  "trunk_forward_note": "the shipped call, progress_fn INCLUDED and cold; the timed arms below drop it",
+  "trunk_cycles": 4,
+  "reached_sampler": true
+ },
+ "params": {
+  "declared": 3152,
+  "slots": 3152,
+  "slots_unwritable": 0,
+  "elements": 381302188,
+  "per_root": {
+   "trunk": {
+    "found": 2531,
+    "walk_depth": 9,
+    "truncated": 8
+   },
+   "diffusion": {
+    "found": 891,
+    "walk_depth": 6,
+    "truncated": 0
+   }
+  },
+  "duplicate_handles_dropped": 270,
+  "pairformer_weights": 2256,
+  "diffusion_weights": 621
+ },
+ "prefix_untaped_3cycles_s": 3.426,
+ "env": {
+  "aiclk_during": {
+   "0": {
+    "min": 800,
+    "max": 1350,
+    "median": 1350,
+    "n": 77
+   }
+  }
+ }
+}
