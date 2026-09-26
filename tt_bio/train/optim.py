@@ -115,8 +115,25 @@ def _require_fp32_master(dtype) -> None:
         f"having a master -- and it is written by casting the master down each step")
 
 
-def round_to_device_dtype(arr, dtype):
+def _torch_dtype(dtype):
+    """The torch scalar type a ttnn dtype rounds to, or ``None`` for one torch cannot express.
+
+    ``bfloat8_b`` is a block format with a shared exponent and has no torch scalar type, so it
+    is a ``None`` here rather than a missing key: the callers branch on it.
+    """
+    import torch
+    name = str(getattr(dtype, "name", dtype)).rsplit(".", 1)[-1].lower()
+    return {"bfloat16": torch.bfloat16, "float32": torch.float32}.get(name)
+
+
+def round_to_device_dtype(arr, dtype, *, out=None, tmp=None):
     """``arr`` as the device would hold it, computed on the host. No PCIe.
+
+    ``out`` (a float32 array shaped like ``arr``) and ``tmp`` (a torch tensor of the device
+    dtype, same shape) make the cast allocation-free. ``Tensor.copy_`` across dtypes runs the
+    same conversion kernel ``.to()`` does, so the value is the same one. ``step()`` passes
+    buffers because it casts twice per parameter per step and the pair was allocating four
+    full-size arrays every time.
 
     ``to_device`` writes ``torch.from_numpy(arr).to(float32)`` through
     ``ttnn.from_torch(dtype=...)``, so for a dtype torch can express the value that lands on
@@ -131,14 +148,59 @@ def round_to_device_dtype(arr, dtype):
     (``perf/of3t_p10host/out/optsplit.json``).
     """
     import torch
-    name = str(getattr(dtype, "name", dtype)).rsplit(".", 1)[-1].lower()
-    t = {"bfloat16": torch.bfloat16, "float32": torch.float32,
-         "uint32": None, "bfloat8_b": None}.get(name, None)
+    t = _torch_dtype(dtype)
     if t is None:
         return None
     if t is torch.float32:
         return arr
-    return torch.from_numpy(arr).to(t).to(torch.float32).numpy()
+    src = torch.from_numpy(arr)
+    if out is None:
+        return src.to(t).to(torch.float32).numpy()
+    tmp.copy_(src)
+    torch.from_numpy(out).copy_(tmp)
+    return out
+
+
+class _Arena:
+    """Reusable float32 workspace, one flat buffer per slot, grown to the largest parameter.
+
+    ``step()`` used to allocate about eleven full-size temporaries per parameter: the two
+    moment increments, the seven terms of the update, and four more inside the pair of
+    ``round_to_device_dtype`` casts. At OF3T's census that is a malloc and a free per slot per
+    parameter per step, over 381,302,188 elements, to do roughly ten flops each.
+
+    Parameters are stepped one at a time, so ONE buffer per slot serves all of them: the arena
+    grows to the largest parameter and stops there. At crop 384 that is tens of MB against the
+    4.6 GB the master and the two moments already hold.
+    """
+
+    __slots__ = ("_f32", "_dt", "peak_elements")
+
+    def __init__(self):
+        self._f32, self._dt, self.peak_elements = {}, {}, 0
+
+    def f32(self, slot, shape):
+        import numpy as np
+        n = 1
+        for d in shape:
+            n *= int(d)
+        b = self._f32.get(slot)
+        if b is None or b.size < n:
+            b = self._f32[slot] = np.empty(n, np.float32)
+            self.peak_elements = max(self.peak_elements, n)
+        return b[:n].reshape(shape)
+
+    def dtyped(self, torch_dtype, shape):
+        """A torch buffer of ``torch_dtype`` shaped like ``shape``. Keyed on the dtype because
+        one run can hold parameters of more than one."""
+        import torch
+        n = 1
+        for d in shape:
+            n *= int(d)
+        b = self._dt.get(torch_dtype)
+        if b is None or b.numel() < n:
+            b = self._dt[torch_dtype] = torch.empty(n, dtype=torch_dtype)
+        return b[:n].view(shape)
 
 
 class _Moments(dict):
@@ -222,6 +284,14 @@ class AdamW:
         # always on rather than behind a flag nobody sets.
         self.last_phase_s: Dict[str, float] = {}
         self._read_s = 0.0
+        self._arena = _Arena()
+        # The gradients this step read back, held between the norm pass and the update loop.
+        # `grad_norm` has to see every gradient before the first parameter can move -- the
+        # clip coefficient is global -- and the loop then wants the same arrays. Reading them
+        # twice was a second PCIe traversal of the whole set, 0.923 s of AdamW's 5.798 s at
+        # crop 384 (`perf/of3t_p10optim/out/base_384.json`). The loop pops as it goes, so the
+        # set shrinks through the update instead of standing for all of it.
+        self._grads: Dict[str, object] = {}
         # Multiplicative beta powers rather than pow(beta, step): cheap, and exactly
         # reproducible across a reload because the powers themselves are checkpointed.
         self.beta1_pow, self.beta2_pow = 1.0, 1.0
@@ -339,8 +409,13 @@ class AdamW:
         _t_step0 = _pc()
         self._read_s = 0.0
         read_s = write_s = cast_s = 0.0
-        gnorm = (math.sqrt(sum(float(v.ravel() @ v.ravel()) for v in self.accum.values()))
-                 if per_sample else self.grad_norm(disabled))
+        self._grads.clear()
+        self._caching = True
+        try:
+            gnorm = (math.sqrt(sum(float(v.ravel() @ v.ravel()) for v in self.accum.values()))
+                     if per_sample else self.grad_norm(disabled))
+        finally:
+            self._caching = False
         read_s += self._read_s
         clip = 1.0 if per_sample else self.clip_coef(gnorm)
         report = {}
@@ -385,22 +460,40 @@ class AdamW:
             elif t.grad is None:
                 g = None
             else:
-                _t = _pc()
-                g = to_host(t.grad).astype(np.float32).reshape(self.master[name].shape)
-                read_s += _pc() - _t
+                # Read by the norm pass above, which had to touch every gradient anyway.
+                g = self._grads.pop(name).reshape(self.master[name].shape)
+            theta = self.master[name]
+            shape = theta.shape
+            arena = self._arena
+            # Every line from here to the update is the same operation on the same operands in
+            # the same order as the expression it replaces, written into a reusable buffer
+            # instead of a fresh one, so the result is bit-identical rather than close.
+            # Scalar-by-array is commuted where numpy wants the array first, which is exact in
+            # IEEE 754. `tests/train/test_optim_arena.py` asserts it with `array_equal`.
             if g is None:
-                g = np.zeros_like(self.master[name])
+                g = arena.f32("g", shape)
+                g.fill(0.0)
             elif clip != 1.0:
-                g = g * clip
+                g = np.multiply(g, clip, out=arena.f32("g", shape))
+            b1 = arena.f32("b1", shape)
+            b2 = arena.f32("b2", shape)
             m = self.exp_avg[name]
             v = self.exp_avg_sq[name]
-            m *= self.beta1
-            m += (1.0 - self.beta1) * g
-            v *= self.beta2
-            v += (1.0 - self.beta2) * (g * g)
-            theta = self.master[name]
-            upd = lr * ((m / bc1) / (np.sqrt(v / bc2) + self.eps)
-                        + self.weight_decay * theta)
+            np.multiply(m, self.beta1, out=m)
+            np.multiply(g, 1.0 - self.beta1, out=b1)
+            np.add(m, b1, out=m)
+            np.multiply(v, self.beta2, out=v)
+            np.multiply(g, g, out=b1)
+            np.multiply(b1, 1.0 - self.beta2, out=b1)
+            np.add(v, b1, out=v)
+            np.divide(v, bc2, out=b1)
+            np.sqrt(b1, out=b1)
+            np.add(b1, self.eps, out=b1)
+            np.divide(m, bc1, out=b2)
+            np.divide(b2, b1, out=b2)
+            np.multiply(theta, self.weight_decay, out=b1)
+            np.add(b2, b1, out=b2)
+            upd = np.multiply(b2, lr, out=b2)
             # The control the brief demands, measured rather than asserted: the step the
             # weight the FORWARD reads actually took, after rounding to the device dtype.
             # A master update that vanishes in the cast is an expensive no-op.
@@ -423,10 +516,10 @@ class AdamW:
             # float32 parameter would silently stop reaching the card while the report said
             # `kept: 0.0`. Identity is what separates the two regimes here, not equality.
             _t = _pc()
-            dev_before = round_to_device_dtype(theta, t.value.dtype)
+            dev_before = self._cast(theta, t.value.dtype, "before")
             cast_s += _pc() - _t
             identity_cast = dev_before is theta
-            theta -= upd
+            np.subtract(theta, upd, out=theta)
             # `norm(upd)` IS `norm(theta - before)`: `theta -= upd` is the only thing that
             # moved it. Taking it off the update drops a full-census copy of every parameter
             # per step -- 1.42 GiB of allocation at OF3T's census, 0.361 s against 0.032 s.
@@ -448,7 +541,7 @@ class AdamW:
                 kept = want
             else:
                 _t = _pc()
-                dev_after = round_to_device_dtype(theta, t.value.dtype)
+                dev_after = self._cast(theta, t.value.dtype, "after")
                 _eq = np.array_equal(dev_after, dev_before)
                 cast_s += _pc() - _t
                 if _eq:
@@ -463,7 +556,8 @@ class AdamW:
                     _t = _pc()
                     t.value = to_device(theta, t.value.device(), dtype=t.value.dtype)
                     write_s += _pc() - _t
-                kept = float(np.linalg.norm(dev_after - dev_before))
+                kept = float(np.linalg.norm(
+                    np.subtract(dev_after, dev_before, out=b1)))
             report[name] = {"master_step": want, "device_step": kept,
                             "kept": (kept / want) if want > 0 else float("nan"),
                             "grad_norm": float(np.linalg.norm(g))}
@@ -483,6 +577,19 @@ class AdamW:
         self.last_report = report
         self.accum, self.participation, self.accum_count = {}, {}, 0
         return report
+
+    def _cast(self, arr, dtype, slot):
+        """``round_to_device_dtype`` through the arena. Two of these run per parameter.
+
+        A float32 device dtype still returns ``arr`` ITSELF: identity is what tells ``step()``
+        the cast cannot round anything away, and a copy through a buffer would break that.
+        """
+        import torch
+        td = _torch_dtype(dtype)
+        if td is None or td is torch.float32:
+            return round_to_device_dtype(arr, dtype)
+        return round_to_device_dtype(arr, dtype, out=self._arena.f32(slot, arr.shape),
+                                     tmp=self._arena.dtyped(td, arr.shape))
 
     def _reduce(self, replicas) -> None:
         """Sum each parameter's gradient across the DP axis, in place on the tape.
@@ -632,10 +739,18 @@ class AdamW:
         for name, t in self.params.items():
             if t.grad is not None and name not in disabled:
                 _t = time.perf_counter()
-                gg = to_host(t.grad).astype(np.float32)
+                # `to_host` already returns a contiguous float32 array, so the unconditional
+                # `astype` was a full-size copy of every gradient for nothing.
+                gg = to_host(t.grad).astype(np.float32, copy=False)
                 self._read_s += time.perf_counter() - _t
+                if self._caching:
+                    self._grads[name] = gg
                 tot += float(gg.ravel() @ gg.ravel())
         return math.sqrt(tot)
+
+    # Set only for the duration of step()'s norm pass. `grad_norm` is public and a caller
+    # who just wants the norm should not be handed 1.5 GB of gradients to free.
+    _caching = False
 
     def clip_coef(self, gnorm: float) -> float:
         """``min(1, clip_norm/gnorm)``, their `max_norm / maximum(gnorm, max_norm)`.

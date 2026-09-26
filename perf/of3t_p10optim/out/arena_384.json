@@ -1,0 +1,515 @@
+{
+ "doc": "A FULL OpenFold3 training step on the card, timed by part.",
+ "argv": [
+  "--no-exact",
+  "--tokens",
+  "384",
+  "--cycles",
+  "4",
+  "--samples",
+  "4",
+  "--reps",
+  "2",
+  "--out",
+  "perf/of3t_p10optim/out/arena_384.json"
+ ],
+ "env": {
+  "host": "tt-quietbox2",
+  "tt_visible_devices": "1",
+  "renorm": null,
+  "commit": "7d26d8f4f5f9fa2487aed171fa46d5563c153b2f",
+  "branch": "wk/of3t-p10optim",
+  "started_utc": "2026-09-26T16:39:31Z",
+  "loadavg_start": [
+   5.30859375,
+   6.9208984375,
+   6.576171875
+  ],
+  "arch": "Arch.BLACKHOLE",
+  "aiclk_during": {
+   "0": {
+    "min": 800,
+    "max": 1350,
+    "median": 1350,
+    "n": 35
+   }
+  },
+  "aiclk_line": "CLOCK: dev0 min 800 / median 1350 / max 1350 MHz over 35 samples, polled DURING the work",
+  "loadavg_end": [
+   7.255859375,
+   7.08251953125,
+   6.66064453125
+  ]
+ },
+ "config": {
+  "crop": 384,
+  "batch": 1,
+  "cards": 1,
+  "cycles_pinned": 4,
+  "diffusion_samples": 4,
+  "stage": "initial_training",
+  "taped": true,
+  "chunk": null,
+  "loss_shape": "model",
+  "exact_training": false,
+  "rng": "diffusion noise and loss fixture drawn from SEPARATE streams, so a chunked arm and an unchunked one noise the same structures"
+ },
+ "exact": {
+  "requested": "OFF",
+  "ops_a_tape_would_run_exact": [],
+  "softmax_stats_before": {
+   "verb": 0,
+   "raw": 0,
+   "raw_elements": 0
+  },
+  "layer_norm_stats_before": {
+   "verb": 0,
+   "raw": 0,
+   "elements": 0,
+   "bw": 0
+  },
+  "softmax_stats_after": {
+   "verb": 0,
+   "raw": 0,
+   "raw_elements": 0
+  },
+  "layer_norm_stats_after": {
+   "verb": 0,
+   "raw": 0,
+   "elements": 0,
+   "bw": 0
+  },
+  "softmax_delta": {
+   "verb": 0,
+   "raw": 0,
+   "raw_elements": 0
+  },
+  "layer_norm_delta": {
+   "verb": 0,
+   "raw": 0,
+   "elements": 0,
+   "bw": 0
+  },
+  "counters_all_zero": true,
+  "installed_in_any_tape": false,
+  "off_proven": true
+ },
+ "build_fold_s": 3.65,
+ "prep_to_sampler_s": 7.65,
+ "capture": {
+  "trunk_inputs_snapshotted": true,
+  "trunk_inputs_dead_at_capture": 0,
+  "trunk_forward_s": 4.868,
+  "trunk_forward_note": "the shipped call, progress_fn INCLUDED and cold; the timed arms below drop it",
+  "trunk_cycles": 4,
+  "reached_sampler": true
+ },
+ "params": {
+  "declared": 3152,
+  "slots": 3152,
+  "slots_unwritable": 0,
+  "elements": 381302188,
+  "per_root": {
+   "trunk": {
+    "found": 2531,
+    "walk_depth": 9,
+    "truncated": 8
+   },
+   "diffusion": {
+    "found": 891,
+    "walk_depth": 6,
+    "truncated": 0
+   }
+  },
+  "duplicate_handles_dropped": 270,
+  "pairformer_weights": 2256,
+  "diffusion_weights": 621
+ },
+ "loss_weights": {
+  "bond": 0.0,
+  "smooth_lddt": 4.0,
+  "mse": 4.0,
+  "distogram": 0.03,
+  "resolved": 0.0001,
+  "plddt": 0.0001,
+  "pae": 0.0001,
+  "pde": 0.0001
+ },
+ "optimizer": {
+  "class": "tt_bio.train.optim.AdamW",
+  "lr": 0.0003,
+  "clip_norm": 10.0,
+  "params": 3152
+ },
+ "renorm": {
+  "flag": true,
+  "stats_before": {
+   "applied": 0,
+   "declined": 0
+  },
+  "per_rep_plan": null,
+  "stats_after": {
+   "applied": 558,
+   "declined": 0
+  },
+  "applied_during_reps": 558,
+  "declined_during_reps": 0
+ },
+ "chunk_per_rep_plan": null,
+ "reps": [
+  {
+   "rep": 0,
+   "cold": true,
+   "renorm_flag": true,
+   "peak_reset": true,
+   "rss_gib": {
+    "rep_start": 6.361,
+    "after_trunk": 6.405,
+    "after_diffusion": 6.42,
+    "after_backward": 6.708,
+    "after_optimizer": 9.568
+   },
+   "mem_available_gib": {
+    "rep_start": 203.512,
+    "after_trunk": 203.438,
+    "after_diffusion": 203.454,
+    "after_backward": 204.953,
+    "after_optimizer": 202.168
+   },
+   "loadavg_rep_start": [
+    6.1,
+    7.03,
+    6.62
+   ],
+   "trunk_nograd_prefix_s": 3.599,
+   "chunk": null,
+   "trunk_taped_cycle_s": 4.2,
+   "trunk_s": 7.799,
+   "dram_after_trunk": 4309971968,
+   "exact_installed_in_trunk_tape": {
+    "softmax": false,
+    "layer_norm": false
+   },
+   "dram_after_diffusion": 23727748096,
+   "diffusion": {
+    "coupled_to_trunk": true,
+    "sigmas": [
+     42.4209,
+     3306.9691,
+     881.7492,
+     3.0826
+    ],
+    "distinct_sigmas": 4,
+    "n_samples": 4,
+    "n_atom": 3092,
+    "n_token": 384,
+    "tokens_without_an_atom": 0,
+    "rep_atom_index": "first atom of each token, from atom_to_token_idx",
+    "per_sample_s": [
+     0.45,
+     0.058,
+     0.056,
+     0.044
+    ]
+   },
+   "losses": {
+    "labels_s": 0.015,
+    "fixture_logits_s": 0.257,
+    "terms": {
+     "bond": {
+      "weight": 0.0,
+      "skipped": "weight is zero in this stage",
+      "fired": false,
+      "scope": "per replicate"
+     },
+     "smooth_lddt": {
+      "weight": 4.0,
+      "skipped": null,
+      "fired": true,
+      "scope": "per replicate"
+     },
+     "mse": {
+      "weight": 4.0,
+      "skipped": null,
+      "fired": true,
+      "scope": "per replicate"
+     },
+     "distogram": {
+      "weight": 0.03,
+      "skipped": null,
+      "fired": true,
+      "scope": "once per step"
+     },
+     "resolved": {
+      "weight": 0.0001,
+      "skipped": null,
+      "fired": true,
+      "scope": "once per step"
+     },
+     "plddt": {
+      "weight": 0.0001,
+      "skipped": null,
+      "fired": true,
+      "scope": "once per step"
+     },
+     "pae": {
+      "weight": 0.0001,
+      "skipped": null,
+      "fired": true,
+      "scope": "once per step"
+     },
+     "pde": {
+      "weight": 0.0001,
+      "skipped": null,
+      "fired": true,
+      "scope": "once per step"
+     }
+    },
+    "download_s": 0.001,
+    "replicate_loss_s": 0.02,
+    "replicates_scored": 4,
+    "step_loss_s": 0.319,
+    "terms_fired": 7,
+    "scope": "token, one representative atom per token",
+    "shape": "model: per-replicate terms per root, head terms once per step",
+    "value_claimed": false
+   },
+   "roots_taped": 4,
+   "tape_nodes": 9897,
+   "trunk_backward_entries": 1,
+   "diffusion_s": 0.67,
+   "losses_s": 0.616,
+   "seed_upload_s": 0.002,
+   "backward_s": 22.365,
+   "dram_peak": 23727748096,
+   "params_with_grad": "2944 of 3152",
+   "backward_valid": true,
+   "dram_after_backward": 4574702592,
+   "rebind_moved": 2683,
+   "leaves_live_after_rebind": "3152 of 3152",
+   "optimizer_s": 4.995,
+   "adamw_step_s": 4.9805,
+   "adamw_split": {
+    "grad_read": 1.3822,
+    "device_write": 1.1249,
+    "device_cast": 0.3355,
+    "arith": 2.1378,
+    "total": 4.9805
+   },
+   "optimizer_updated": 3152,
+   "writes_skipped": 469,
+   "loadavg_rep_end": [
+    6.39,
+    6.97,
+    6.61
+   ],
+   "ncpu": 16,
+   "peak_rss_gib": 9.568,
+   "step_s": 36.447,
+   "step_wall_s": 36.485,
+   "unaccounted_s": 0.038,
+   "exact_softmax_delta": {
+    "verb": 0,
+    "raw": 0,
+    "raw_elements": 0
+   },
+   "exact_layer_norm_delta": {
+    "verb": 0,
+    "raw": 0,
+    "elements": 0,
+    "bw": 0
+   },
+   "renorm_applied": 279,
+   "renorm_declined": 0
+  },
+  {
+   "rep": 1,
+   "cold": false,
+   "renorm_flag": true,
+   "peak_reset": true,
+   "rss_gib": {
+    "rep_start": 9.568,
+    "after_trunk": 9.603,
+    "after_diffusion": 9.603,
+    "after_backward": 9.603,
+    "after_optimizer": 10.947
+   },
+   "mem_available_gib": {
+    "rep_start": 202.16,
+    "after_trunk": 202.011,
+    "after_diffusion": 202.068,
+    "after_backward": 191.381,
+    "after_optimizer": 187.08
+   },
+   "loadavg_rep_start": [
+    6.39,
+    6.97,
+    6.61
+   ],
+   "trunk_nograd_prefix_s": 3.641,
+   "chunk": null,
+   "trunk_taped_cycle_s": 4.132,
+   "trunk_s": 7.773,
+   "dram_after_trunk": 6415526912,
+   "exact_installed_in_trunk_tape": {
+    "softmax": false,
+    "layer_norm": false
+   },
+   "dram_after_diffusion": 24345887744,
+   "diffusion": {
+    "coupled_to_trunk": true,
+    "sigmas": [
+     9.108,
+     0.1605,
+     0.013,
+     0.282
+    ],
+    "distinct_sigmas": 4,
+    "n_samples": 4,
+    "n_atom": 3092,
+    "n_token": 384,
+    "tokens_without_an_atom": 0,
+    "rep_atom_index": "first atom of each token, from atom_to_token_idx",
+    "per_sample_s": [
+     0.124,
+     0.046,
+     0.051,
+     0.054
+    ]
+   },
+   "losses": {
+    "labels_s": 0.013,
+    "fixture_logits_s": 0.289,
+    "terms": {
+     "bond": {
+      "weight": 0.0,
+      "skipped": "weight is zero in this stage",
+      "fired": false,
+      "scope": "per replicate"
+     },
+     "smooth_lddt": {
+      "weight": 4.0,
+      "skipped": null,
+      "fired": true,
+      "scope": "per replicate"
+     },
+     "mse": {
+      "weight": 4.0,
+      "skipped": null,
+      "fired": true,
+      "scope": "per replicate"
+     },
+     "distogram": {
+      "weight": 0.03,
+      "skipped": null,
+      "fired": true,
+      "scope": "once per step"
+     },
+     "resolved": {
+      "weight": 0.0001,
+      "skipped": null,
+      "fired": true,
+      "scope": "once per step"
+     },
+     "plddt": {
+      "weight": 0.0001,
+      "skipped": null,
+      "fired": true,
+      "scope": "once per step"
+     },
+     "pae": {
+      "weight": 0.0001,
+      "skipped": null,
+      "fired": true,
+      "scope": "once per step"
+     },
+     "pde": {
+      "weight": 0.0001,
+      "skipped": null,
+      "fired": true,
+      "scope": "once per step"
+     }
+    },
+    "download_s": 0.002,
+    "replicate_loss_s": 0.038,
+    "replicates_scored": 4,
+    "step_loss_s": 0.447,
+    "terms_fired": 7,
+    "scope": "token, one representative atom per token",
+    "shape": "model: per-replicate terms per root, head terms once per step",
+    "value_claimed": false
+   },
+   "roots_taped": 4,
+   "tape_nodes": 9897,
+   "trunk_backward_entries": 1,
+   "diffusion_s": 0.297,
+   "losses_s": 0.792,
+   "seed_upload_s": 0.001,
+   "backward_s": 21.716,
+   "dram_peak": 24345887744,
+   "params_with_grad": "2944 of 3152",
+   "backward_valid": true,
+   "dram_after_backward": 5092404224,
+   "rebind_moved": 2777,
+   "leaves_live_after_rebind": "3152 of 3152",
+   "optimizer_s": 5.027,
+   "adamw_step_s": 5.0158,
+   "adamw_split": {
+    "grad_read": 1.4164,
+    "device_write": 0.8232,
+    "device_cast": 0.8282,
+    "arith": 1.948,
+    "total": 5.0158
+   },
+   "optimizer_updated": 3152,
+   "writes_skipped": 375,
+   "loadavg_rep_end": [
+    7.26,
+    7.08,
+    6.66
+   ],
+   "ncpu": 16,
+   "peak_rss_gib": 10.947,
+   "step_s": 35.606,
+   "step_wall_s": 35.685,
+   "unaccounted_s": 0.079,
+   "exact_softmax_delta": {
+    "verb": 0,
+    "raw": 0,
+    "raw_elements": 0
+   },
+   "exact_layer_norm_delta": {
+    "verb": 0,
+    "raw": 0,
+    "elements": 0,
+    "bw": 0
+   },
+   "renorm_applied": 279,
+   "renorm_declined": 0
+  }
+ ],
+ "peak_rss_gib_run": 10.947,
+ "cold_s": 36.447,
+ "steady": {
+  "n": 1,
+  "values_s": [
+   35.606
+  ],
+  "median_s": 35.606,
+  "min_s": 35.606,
+  "max_s": 35.606,
+  "spread_s": 0.0
+ },
+ "cold_wall_s": 36.485,
+ "steady_wall": {
+  "n": 1,
+  "values_s": [
+   35.685
+  ],
+  "median_s": 35.685,
+  "unaccounted_s": [
+   0.038,
+   0.079
+  ]
+ }
+}
