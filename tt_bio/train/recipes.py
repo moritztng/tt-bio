@@ -33,7 +33,7 @@ import inspect
 from typing import Callable, Dict
 
 from . import launcher, objectives, provenance
-from ..autograd import backward, exact_training_ops, install, uninstall
+from ..autograd import backward, exact_training_ops, install, release_pins, uninstall
 from .sharding import batches
 from .checkpoint import Checkpointer
 from .lora import LoraConfig, attach, trainable
@@ -185,6 +185,22 @@ def train_loop(forward, dataset, *, out_dir, global_batch, steps, objective="af3
                         # once per root and land the fan-in sums partial.
                         backward([outputs[k] for k in seeds],
                                  [to_device(g, dataset.device) for g in seeds.values()])
+                        # Every checkpointed block PINNED its own input across its untaped
+                        # forward, and the backward that consumed the pin cannot drop it:
+                        # `checkpoint` takes the pin precisely because the recompute happens
+                        # inside the backward, so the owner of the release is the loop. This
+                        # is that loop, and it is the only one in the tree that runs many
+                        # steps in one process -- `bindcraft2` releases at all four of its
+                        # boundaries and `perf/of3t_stepfloor/fullstep.py` releases per rep,
+                        # which is why neither leaks and this did.
+                        #
+                        # Measured on the OpenFold3 training composition at crop 384: 120
+                        # pins a step (48 pairformer blocks and 24 DiT blocks, inputs held
+                        # twice where a block publishes two), of which ~69 hold a live DRAM
+                        # buffer, 1.02 GB. Six steps of that is 8.1 GB standing under a
+                        # backward whose own transient is ~23 GB, and the seventh step was
+                        # refused a 906 MB buffer with 61.3 MB of contiguous space left.
+                        release_pins()
                         # Clip THIS sample and add it to the accumulator, then clear the tape
                         # so the next sample's backward starts from nothing. Clearing it also
                         # leaves `replicas()` empty at the step, which is correct: under

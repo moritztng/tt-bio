@@ -195,6 +195,9 @@ def main() -> int:
                          "the card -- no checkpoint round trip to get wrong. The before score "
                          "is the movement control: two arms that never moved agree perfectly, "
                          "so a grade is only readable if the arm moved further than its floor")
+    ap.add_argument("--leak-census", action="store_true",
+                    help="after every step, name the containers that hold device DRAM and "
+                         "what they gained since the step before. perf/of3t_p10leak/census.py")
     ap.add_argument("--gc-per-step", action="store_true",
                     help="gc.collect() after every step. The arm leaks ~0.98 GB of card DRAM "
                          "a step and dies at step 6; if a Python reference CYCLE is holding "
@@ -221,6 +224,7 @@ def main() -> int:
     t0 = time.perf_counter()
     with during() as clk:
         try:
+            from perf.of3t_p10leak import census as CZ
             from tt_bio import autograd as ag
             from tt_bio.train import openfold3 as of3
             from tt_bio.train.recipes import train_loop
@@ -251,11 +255,25 @@ def main() -> int:
                 rec["dataset"] = {"n": len(ds), "files": [p.name for p in ds.paths]}
                 dump()
 
+                state = {"cz": {}}
+
                 def on_step(row):
                     row = {**row, "wall_s": round(time.perf_counter() - t0, 3),
                            "aiclk": clk.summary().get(0),
                            "dram_gb": (lambda b: None if b is None
                                        else round(b / 1e9, 3))(_dram(ds.device))}
+                    if a.leak_census:
+                        import time as _t
+                        _c0 = _t.perf_counter()
+                        cz = CZ.census(collect=True)
+                        row["held_gb"] = round(CZ.total(cz) / 1e9, 3)
+                        row["census_s"] = round(_t.perf_counter() - _c0, 1)
+                        row["registries"] = CZ.registries()
+                        print("  census " + CZ.growth(state["cz"], cz)
+                              + f'\n    held {row["held_gb"]} GB in {row["census_s"]} s'
+                              f'  registries {row["registries"]}',
+                              flush=True)
+                        state["cz"] = cz
                     if a.gc_per_step:
                         import gc
                         row["gc_collected"] = gc.collect()
