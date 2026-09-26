@@ -34,6 +34,13 @@ except SystemExit as e:
 stats = {}
 tt = sys.modules.get("tt_bio.tenstorrent")
 tp = sys.modules.get("tt_bio.taped_ttnn")
+ag = sys.modules.get("tt_bio.autograd")
+if ag is not None:
+    # The third repair arm, on the same terms as the two above: a flag that is set but never
+    # reached is not an arm. calls separates "declined" from "never called" -- the diffusion
+    # capture reads flag true, calls 0, and no arm of it can move.
+    stats["SOFTMAX_BW_FP32"] = {"flag": bool(ag.SOFTMAX_BW_FP32),
+                                **dict(ag.SOFTMAX_BW_FP32_STATS)}
 if tt is not None:
     stats["HOST_F64_SOFTMAX_STATS"] = dict(tt.HOST_F64_SOFTMAX_STATS)
 if tp is not None:
@@ -43,6 +50,11 @@ print("ARM_EVIDENCE " + json.dumps(stats), flush=True)
 
 if want_renorm and stats.get("_SOFTMAX_BW_RENORM") is not True:
     print("FAILED: the renorm arm did not reach taped_ttnn, so this is the shipped arm under "
+          "another name", flush=True)
+    rc = rc or 3
+want_fp32bw = os.environ.get("TT_BIO_SOFTMAX_BW_FP32", "0").lower() in ("1", "true", "yes", "on")
+if want_fp32bw and stats.get("SOFTMAX_BW_FP32", {}).get("fired", 0) == 0:
+    print("FAILED: TT_BIO_SOFTMAX_BW_FP32 fired 0 times, so this is the shipped arm under "
           "another name", flush=True)
     rc = rc or 3
 if want_f64 and stats.get("HOST_F64_SOFTMAX_STATS", {}).get("served", 0) == 0:
