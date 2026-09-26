@@ -302,7 +302,13 @@ template <
     uint32_t scale_fp32,
     bool write_result_inplace = true,
     bool do_reduce = true,
-    int vector_mode = (int)VectorMode::RC>
+    int vector_mode = (int)VectorMode::RC,
+    // The fast approximate exponential, which is what the forward has always used here. The
+    // BACKWARD wants the accurate one: graded against a float64 VJP the approximate exp puts the
+    // fused triangle-attention backward about 3x further from the reference than the composed
+    // chunked-recompute path it replaces, and the campaign grades that ratio against 1.1-1.2x.
+    // Defaulted to true so every existing caller, the shipped forward included, is unchanged.
+    bool approx_exp = true>
 void sub_exp_block_bcast_cols_inplace(uint32_t in1_cb, uint32_t reduce_cb, uint32_t cols) {
     // Precondition: in0_cb has rows*cols produced
     // Precondition: in1_cb has rows produced
@@ -313,7 +319,7 @@ void sub_exp_block_bcast_cols_inplace(uint32_t in1_cb, uint32_t reduce_cb, uint3
     // The exponential function uses InputClamping::None for better performance. This version
     // produces incorrect outputs for inputs <~ -88, but those outputs are guaranteed to be negative.
     // Enable packer ReLU to zero any negative values produced by the exponential approximation.
-    exp_tile_init<true /* approx */, true /* fast+approx */, scale_fp32, InputClamping::None>();
+    exp_tile_init<approx_exp, approx_exp, scale_fp32, InputClamping::None>();
     PACK((llk_pack_relu_config(ReluType::ZERO_RELU)));
 
     cb_wait_front(in0_cb, rows * cols);

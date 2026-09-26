@@ -46,12 +46,6 @@ try:
         return ttnn.from_torch(t.to(torch.bfloat16), dtype=ttnn.bfloat16,
                                layout=ttnn.TILE_LAYOUT, device=dev,
                                memory_config=ttnn.DRAM_MEMORY_CONFIG)
-    # The FIRST buffer ttnn allocates on this device lands at DRAM 0x40 and reads back as zeros
-    # inside a kernel, every run, whichever tensor occupies it -- proven by swapping the upload
-    # order, and not explained by the accessor, the circular buffer, the memory config or a
-    # device sync (all four tested separately). Everything at a higher address reads correctly.
-    # Park a throwaway there so no operand of this program is the first allocation.
-    _bottom_guard = up(torch.zeros(1, 1, 32, 32, dtype=torch.float64))
     tq, tk, tv, tb, tg = (up(t) for t in (q, k, v, bias, g))
     # The compute grid, off the device. A fixed 13x10 reaches this part's dispatch cores and
     # tt-metal refuses the program with "Kernels cannot be placed on dispatch cores".
@@ -89,11 +83,34 @@ try:
     ttnn.synchronize_device(dev)
     print(f"ran in {time.time()-t0:.2f}s (includes JIT compile)")
 
+    # Does the HOST still see q after the kernel ran? If yes the DRAM content was always fine
+    # and the kernel's read is what failed; if no, something clobbered the buffer.
+    print("post-kernel norms:", {n: round(float(ttnn.to_torch(x).double().norm()), 4)
+                                 for n, x in (("q", tq), ("k", tk), ("v", tv),
+                                              ("bias", tb), ("do", tg))})
     got = {"dq": ttnn.to_torch(dq).double(), "dk": ttnn.to_torch(dk).double(),
            "dv": ttnn.to_torch(dv).double(),
            "dbias": ttnn.to_torch(part).double().sum(0, keepdim=True)}
 
+    # The arm this replaces, on the same inputs and the same card: autograd.triangle_attention's
+    # chunked-recompute backward. The campaign grades a gradient by device_distance/jax_distance
+    # against a float64 reference, so the number that decides this row is the RATIO of the two
+    # distances below, not either one alone.
+    import tt_bio.autograd as ag
+    aq, ak, av, ab = (ag.Tensor(up(x), requires_grad=True) for x in (q, k, v, bias))
+    aout = ag.triangle_attention(aq, ak, av, ab, scale=scale)
+    ag.backward([aout], [up(g)])
+    comp = {"dq": ttnn.to_torch(aq.grad).double(), "dk": ttnn.to_torch(ak.grad).double(),
+            "dv": ttnn.to_torch(av.grad).double(), "dbias": ttnn.to_torch(ab.grad).double()}
+
     res = {"shape": [B, H, N, D], "l1_bytes": p["l1_bytes"], "cores": p["num_cores"]}
+    res["ratio_vs_shipped"] = {}
+    for name, r in ref.items():
+        mine = float((got[name] - r).norm() / r.norm())
+        theirs = float((comp[name] - r).norm() / r.norm())
+        res["ratio_vs_shipped"][name] = {
+            "fused": round(mine, 6), "chunked": round(theirs, 6),
+            "ratio": round(mine / theirs, 4) if theirs else None}
     for name, r in ref.items():
         e_ = got[name] - r
         res[name] = {"rel_l2": float(e_.norm() / r.norm()), "max_abs": float(e_.abs().max()),

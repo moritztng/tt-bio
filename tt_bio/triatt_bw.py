@@ -302,6 +302,26 @@ def _packed_bf16(x: float) -> int:
     return (b << 16) | b
 
 
+def work_cores(num_cores: int, gx: int):
+    """The CoreRangeSet holding exactly the cores that get runtime arguments.
+
+    This has to match the runtime-arg list EXACTLY, and getting it wrong is silent and
+    destructive rather than merely wasteful. A kernel placed on the whole grid runs on every core
+    in it; a core with no runtime arguments reads them as zero, so its writer takes address 0 as
+    its output base and writes into whatever the allocator put at the bottom of DRAM. On this row
+    that was the first tensor uploaded, and it looked for most of a pass like the first DRAM
+    buffer being unreadable -- the buffer was fine until the program's own stray cores ran over
+    it. Cores are assigned `CoreCoord(i % gx, i // gx)`, so the set is whole rows plus a partial.
+    """
+    full, rem = divmod(num_cores, gx)
+    ranges = []
+    if full:
+        ranges.append(ttnn.CoreRange(ttnn.CoreCoord(0, 0), ttnn.CoreCoord(gx - 1, full - 1)))
+    if rem:
+        ranges.append(ttnn.CoreRange(ttnn.CoreCoord(0, full), ttnn.CoreCoord(rem - 1, full)))
+    return ttnn.CoreRangeSet(ranges)
+
+
 def build(device, q, k, v, do, bias, dq, dk, dv, dbias_partial, p, ckc, scale):
     """The ProgramDescriptor for one triangle-attention backward.
 
@@ -313,8 +333,7 @@ def build(device, q, k, v, do, bias, dq, dk, dv, dbias_partial, p, ckc, scale):
     gx, gy = p["gx"], p["gy"]
     Nt, Dt, H = p["Nt"], p["Dt"], p["H"]
     num_cores = p["num_cores"]
-    core_grid = ttnn.CoreRangeSet(
-        [ttnn.CoreRange(ttnn.CoreCoord(0, 0), ttnn.CoreCoord(gx - 1, gy - 1))])
+    core_grid = work_cores(num_cores, gx)
 
     check_cb_coverage(p)
     cbs = [ttnn.CBDescriptor(
