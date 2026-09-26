@@ -87,7 +87,21 @@ def main() -> int:
     ap.add_argument("--seed", type=int, default=100)
     ap.add_argument("--inputs", default=None,
                     help="npz carrying a real single/pair/aatype/seq_mask capture")
+    ap.add_argument("--pad-to", type=int, default=None,
+                    help="zero-pad a capture's token axis out to this, which is what the "
+                         "device path does: tt-bio buckets the token axis to a multiple of "
+                         "32, so a real 275-token representation is folded at 288 and the "
+                         "13 pad residues are real work the device arm has to reproduce")
     ap.add_argument("--dtype", default="float64", choices=("float64", "float32"))
+    ap.add_argument("--matmul-precision", default=None,
+                    choices=("bfloat16", "tensorfloat32", "float32", "highest"),
+                    help="jax's matmul precision for this arm. The control the device arm "
+                         "needs: ttnn truncates both matmul operands to bfloat16 at every "
+                         "fidelity this hardware offers, so a CORRECT implementation at "
+                         "bfloat16 matmul precision is the floor a clean port can reach. "
+                         "BindCraft 2 pins Precision.HIGHEST on the point projection and "
+                         "quat_rigid, and an explicit precision beats the default, so this "
+                         "lowers most of the module and not those two.")
     ap.add_argument("--num-layer", type=int, default=None,
                     help="fewer fold iterations, to grade one layer of a device arm in "
                          "isolation; the module is otherwise untouched")
@@ -104,6 +118,8 @@ def main() -> int:
 
     if args.dtype == "float64":
         jax.config.update("jax_enable_x64", True)
+    if args.matmul_precision:
+        jax.config.update("jax_default_matmul_precision", args.matmul_precision)
     dtype = np.float64 if args.dtype == "float64" else np.float32
 
     from bindcraft.af.alphafold.model import config as af_config
@@ -147,6 +163,14 @@ def main() -> int:
         pair = np.asarray(cap["pair"], dtype=dtype)
         aatype = np.asarray(cap["aatype"], dtype=np.int32)
         seq_mask = np.asarray(cap["seq_mask"], dtype=dtype)
+        if args.pad_to and args.pad_to != single.shape[0]:
+            n0, want = single.shape[0], args.pad_to
+            if want < n0:
+                raise SystemExit(f"--pad-to {want} is shorter than the capture's {n0}")
+            single = np.pad(single, ((0, want - n0), (0, 0)))
+            pair = np.pad(pair, ((0, want - n0), (0, want - n0), (0, 0)))
+            aatype = np.pad(aatype, (0, want - n0))
+            seq_mask = np.pad(seq_mask, (0, want - n0))
     else:
         single, pair, aatype, seq_mask = _inputs(args.n, args.n_real, args.seed, dtype)
     n = single.shape[0]

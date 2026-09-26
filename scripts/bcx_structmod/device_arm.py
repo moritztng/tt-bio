@@ -50,6 +50,9 @@ def main() -> int:
     ap.add_argument("--device-id", type=int, default=0)
     ap.add_argument("--num-layer", type=int, default=sm.NUM_LAYER)
     ap.add_argument("--out", default=None)
+    ap.add_argument("--dump", default=None,
+                    help="npz of the device tensors themselves, for an error census the "
+                         "scalar grades cannot show")
     args = ap.parse_args()
 
     ref = np.load(args.ref)
@@ -102,6 +105,9 @@ def main() -> int:
         report["grades"][f"traj_layer{layer}"] = grade(
             f"traj_layer{layer}", got_traj[layer], ref["traj"][layer])
 
+    if args.dump:
+        os.makedirs(os.path.dirname(os.path.abspath(args.dump)), exist_ok=True)
+        np.savez(args.dump, act=got_act, traj=got_traj, unnormalized_angles=got_ang)
     print(json.dumps(report, indent=2, sort_keys=True))
     if args.out:
         os.makedirs(os.path.dirname(os.path.abspath(args.out)), exist_ok=True)

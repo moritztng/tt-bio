@@ -1,0 +1,16 @@
+{
+  "all_atom_max_A": 4.100647513206147,
+  "all_atom_median_A": 0.49081298105992416,
+  "all_atom_p95_A": 2.5803316251418895,
+  "all_atom_rmsd_A": 1.150477105518486,
+  "atoms_graded": 2148,
+  "backbone_atoms": 1044,
+  "backbone_max_A": 4.100647513206147,
+  "backbone_rmsd_A": 1.1405188203267114,
+  "dump": "perf/bcx_structmod/out/dev_real_n288_bf16.npz",
+  "label": "bfloat16",
+  "n": 288,
+  "n_live": 261,
+  "ref": "perf/bcx_structmod/out/ref_real_n288.npz",
+  "tail_selfcheck_max_abs_A": 7.105427357601002e-15
+}

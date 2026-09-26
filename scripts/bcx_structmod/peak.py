@@ -23,7 +23,8 @@ ref = np.load(sys.argv[1] if len(sys.argv) > 1 else "perf/bcx_structmod/out/ref_
 single = np.asarray(ref["single"], np.float64)
 pair = np.asarray(ref["pair"], np.float64)
 mask = np.asarray(ref["seq_mask"], np.float64)
-nr = int(mask.sum())
+live = np.flatnonzero(mask > 0)
+nr = live.size
 
 act = pi._ln(single, params, pi.PREFIX + "single_layer_norm")
 act = act @ np.asarray(params[pi.PREFIX + "initial_projection//weights"], np.float64) \
@@ -33,11 +34,11 @@ act_2d = pi._ln(pair, params, pi.PREFIX + "pair_layer_norm")
 keep = {}
 pi.numpy_ipa(params, act, act_2d, mask, keep)
 
-a = keep["attn"][:nr, :, :]
+a = keep["attn"][np.ix_(live, live)]
 print(f"act rms {np.sqrt((act ** 2).mean()):.4f}")
 print(f"attn row max mean {a.max(axis=1).mean():.4f} median {np.median(a.max(axis=1)):.4f}")
 ent = -(a * np.log(a + 1e-300)).sum(axis=1)
 print(f"attn row entropy {ent.mean():.4f} nats, uniform over {nr} is {math.log(nr):.4f}")
 for name in ("scalar_logits", "point_logits", "attention_2d", "logits"):
-    v = keep[name][:nr, :nr]
+    v = keep[name][np.ix_(live, live)]
     print(f"{name:16s} rms {np.sqrt((v ** 2).mean()):10.3f} max {np.abs(v).max():10.3f}")
