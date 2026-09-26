@@ -23,11 +23,24 @@ meet, so this module does not add a collective beside it. What it does add is
 :func:`reduce_cut`, for the cotangent at the cut, which has to be summed BEFORE the prefix
 backward rather than after it.
 
-**Rank 0 owns the prefix backward, and that is the honest cap on this axis.** No amount of
-replicate sharding divides it, so running it on every rank would either N-count the trunk's
-gradient in the final sum or need the cotangent scaled by 1/N, which is exact only at N=2.
-One rank does it, the others wait, and the wait is visible in the step table rather than
-folded into a scaling number. How big that cap is, measured rather than projected: at 48
+**Every rank runs the prefix backward, from the SAME summed cotangent, and that is what
+keeps the prefix's weights off the wire entirely.** :func:`reduce_cut` sums the cotangent at
+the cut before anything is differentiated, so each rank then computes the FULL prefix
+gradient rather than a partial one -- identical on every rank, bit for bit, because the input
+and the weights are identical. Identical gradients need no reduce: they are simply excluded
+from it. The earlier design here ran the prefix backward on rank 0 alone out of a fear of
+N-counting, which does not apply once the cotangent is summed first; it cost the same wall
+clock (the redundant backwards are parallel) and put 660.7 MB of prefix gradient on the wire
+every step to tell the other ranks what they could have computed themselves.
+
+**The order is load-bearing and it is the one thing a second implementer would get wrong.**
+Reduce the replicate-side gradients BEFORE the prefix backward, not at the optimizer. At that
+moment they hold only this rank's own replicates; afterwards they also hold the primed
+replicate, which every rank runs, and reducing then would count it ``world`` times. See
+:func:`reduce_grads`'s ``names``.
+
+**The honest cap on this axis is that the prefix does not divide at all.** How big it is,
+measured rather than projected: at 48
 replicates on OpenFold3 crop 384 the trunk is 89.6 % of a 1035.31 s step (`of3t-p10wall`,
 taped cycle 233.808 s plus trunk backward 687.661 s, qb2 card 1, AICLK 1350 median DURING
 n=834) against a replicate loop of 102.32 s. An earlier 20 s reading for the trunk backward
@@ -40,13 +53,7 @@ from __future__ import annotations
 
 from typing import List, Sequence
 
-__all__ = ["shard", "replicate_noise", "reduce_cut", "PREFIX_RANK"]
-
-
-#: The rank that differentiates the shared prefix. Fixed rather than elected: every rank has
-#: to agree without a message, and "the prefix backward ran somewhere" is not enough -- the
-#: gradient must be counted exactly once.
-PREFIX_RANK = 0
+__all__ = ["shard", "replicate_noise", "reduce_cut", "reduce_grads"]
 
 
 def shard(n: int, world: int, rank: int) -> List[int]:
@@ -134,8 +141,8 @@ def reduce_cut(axis, leaves: Sequence, device) -> int:
     return moved
 
 
-def reduce_grads(axis, params) -> int:
-    """Sum every parameter's gradient across ``axis``, in place, on the host. Returns bytes.
+def reduce_grads(axis, params, names=None) -> int:
+    """Sum a parameter set's gradients across ``axis``, in place, on the host. Returns bytes.
 
     ``AdamW.step(replicas=...)`` is the shipped route and it is the right one when every rank
     holds the same set of gradients. Here they do not: the ranks that skip the prefix backward
@@ -143,7 +150,18 @@ def reduce_grads(axis, params) -> int:
     :meth:`~tt_bio.train.launcher.ProcessAxis.reduce_all` flattens in name order, so two ranks
     with different name sets would sum vectors of different lengths into each other.
 
-    So the message is over EVERY declared parameter, absent gradients sent as zeros, with one
+    ``names`` is the set that has to cross, and leaving it at ``None`` sends the whole
+    declared set. **Pass the replicate half.** A parameter the prefix backward alone writes
+    gets the identical gradient on every rank (same summed cotangent, same weights), so
+    sending it buys nothing: on OpenFold3 at crop 384 the prefix is 165,180,992 of 381,302,188
+    declared elements, so naming the 216,121,196-element diffusion half takes **660.7 MB off
+    the wire every step, 43.3 %** (counts from `perf/of3t_stepfloor/out/step_rekey_384.json`
+    and `out/d164_probeoff_384.json`; the two sets are disjoint -- the 275 duplicate handles
+    are internal to the diffusion walk, 896 - 275 = 621). Every rank must pass the SAME names
+    in the same order, which is why they come from the static weight walk and not from which
+    parameters happen to hold a gradient this step.
+
+    So the message is over every named parameter, absent gradients sent as zeros, with one
     extra float per parameter carrying whether this rank had one at all. The presence flags
     ride the same message rather than a second barrier, and they are what lets a parameter
     that took no gradient anywhere go back to ``grad = None`` instead of to a zero array --
@@ -155,7 +173,7 @@ def reduce_grads(axis, params) -> int:
     import numpy as np
     from .tensors import to_host
 
-    names = sorted(params)
+    names = sorted(params if names is None else names)
     per_param = {}
     present = np.zeros(len(names), np.float32)
     for i, n in enumerate(names):

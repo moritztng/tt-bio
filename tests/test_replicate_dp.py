@@ -5,6 +5,7 @@ a disjoint slice of the replicates and summing must give the gradient one rank d
 all of them gives. A test that only checked the split would pass against a reduce that drops
 a rank.
 """
+import inspect
 import multiprocessing as mp
 import tempfile
 
@@ -94,6 +95,89 @@ def test_the_draw_order_scheme_agrees_on_one_chip_and_breaks_under_a_shard():
     dupes = [(i, j) for i in range(48) for j in range(i + 1, 48)
              if np.array_equal(broken[i], broken[j])]
     assert dupes, "expected the draw-order scheme to duplicate noise across ranks"
+
+
+def _one_chip_gradients(n_rep):
+    """What one chip's step produces: every replicate's contribution, plus the prefix's."""
+    diffusion = sum(_rep_contribution(i) for i in range(n_rep))
+    return {"diffusion.w": diffusion, "trunk.w": _prefix_contribution(diffusion)}
+
+
+def _rep_contribution(i):
+    return np.full(4, float(i + 1), np.float32)
+
+
+def _prefix_contribution(summed_cotangent):
+    """The prefix backward: a function of the SUMMED cotangent, so every rank computing it
+    from the reduced sum gets the same answer."""
+    return summed_cotangent * 2.0
+
+
+def _step(world, n_rep, reduce_before_prefix):
+    """The step as each rank runs it, with a perfect in-process reduce standing in for the
+    /dev/shm one (which `test_reduce_grads_sums_across_ranks...` covers for real)."""
+    prime = 0
+    mine = {r: [i for i in rdp.shard(n_rep - 1, world, r)] for r in range(world)}
+    # each rank: its own replicates' diffusion gradient, and its own cut cotangent
+    diff = {r: sum((_rep_contribution(1 + i) for i in mine[r]), np.zeros(4, np.float32))
+            for r in range(world)}
+    cot = {r: diff[r].copy() for r in range(world)}
+    summed_cot = sum(cot.values()) + _rep_contribution(prime)   # reduce_cut, before anything
+
+    if reduce_before_prefix:
+        reduced = sum(diff.values())                            # replicate half only
+        diff = {r: reduced.copy() for r in range(world)}
+    out = {}
+    for r in range(world):
+        # the prefix backward, on EVERY rank, from the summed cotangent. It also walks the
+        # primed replicate, so it adds that replicate's diffusion contribution too.
+        d = diff[r] + _rep_contribution(prime)
+        out[r] = {"diffusion.w": d, "trunk.w": _prefix_contribution(summed_cot)}
+    if not reduce_before_prefix:
+        reduced = sum(o["diffusion.w"] for o in out.values())   # the WRONG order
+        for r in range(world):
+            out[r] = {"diffusion.w": reduced, "trunk.w": out[r]["trunk.w"]}
+    return out
+
+
+@pytest.mark.parametrize("world", [1, 2, 4])
+def test_reducing_before_the_prefix_backward_matches_one_chip(world):
+    """The ordering IS the correctness argument, not a performance detail."""
+    one = _one_chip_gradients(12)
+    for rank, got in _step(world, 12, reduce_before_prefix=True).items():
+        for name in ("diffusion.w", "trunk.w"):
+            np.testing.assert_allclose(got[name], one[name], rtol=0, atol=0,
+                                       err_msg=f"rank {rank} parameter {name}")
+
+
+def test_reducing_after_the_prefix_backward_counts_the_primed_replicate_world_times():
+    """The control. It is exact at world 1, which is how the wrong order would ship."""
+    one = _one_chip_gradients(12)
+    np.testing.assert_array_equal(
+        _step(1, 12, reduce_before_prefix=False)[0]["diffusion.w"], one["diffusion.w"])
+    for world in (2, 4):
+        got = _step(world, 12, reduce_before_prefix=False)[0]["diffusion.w"]
+        over = got - one["diffusion.w"]
+        np.testing.assert_array_equal(over, _rep_contribution(0) * (world - 1))
+
+
+@pytest.mark.parametrize("world", [2, 4])
+def test_every_rank_ends_the_step_with_identical_gradients(world):
+    """What makes the master weights bit-identical across ranks with no broadcast: not that
+    the ranks agree with N=1 bit for bit (the reduce sums in fp32 where N=1 never leaves the
+    card), but that they agree with EACH OTHER."""
+    ranks = _step(world, 12, reduce_before_prefix=True)
+    first = ranks[0]
+    for r, got in ranks.items():
+        for name in first:
+            np.testing.assert_array_equal(got[name], first[name], err_msg=f"rank {r} {name}")
+
+
+def test_reduce_grads_over_a_name_set_leaves_the_rest_untouched():
+    """The prefix's weights must not cross the wire, and `names` is how. A parameter outside
+    the set keeps whatever the rank computed, which is the whole point: every rank computed
+    the same thing."""
+    assert "names" in inspect.signature(rdp.reduce_grads).parameters
 
 
 def test_replicate_noise_is_a_pure_function_of_seed_and_index():

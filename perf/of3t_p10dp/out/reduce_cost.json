@@ -1,0 +1,177 @@
+{
+ "doc": "What the gradient all-reduce costs a replicate-sharded step, priced without a card.",
+ "arms": [
+  {
+   "arm": "whole census 381.3 M el",
+   "world": 2,
+   "elements": 381302188,
+   "tensors": 3152,
+   "mb_returned": 1525.2,
+   "warm_reps": 4,
+   "median_s": 4.082,
+   "min_s": 3.924,
+   "max_s": 4.268,
+   "cold_s": 4.398,
+   "per_rank_s": {
+    "1": [
+     4.398,
+     4.268,
+     3.924,
+     4.063,
+     4.082
+    ],
+    "0": [
+     4.241,
+     4.264,
+     3.898,
+     4.068,
+     4.05
+    ]
+   },
+   "host": {
+    "loadavg": [
+     9.89,
+     8.24,
+     8.27
+    ],
+    "mem_available_mb": 199979
+   }
+  },
+  {
+   "arm": "replicate half 216.1 M el",
+   "world": 2,
+   "elements": 216121196,
+   "tensors": 621,
+   "mb_returned": 864.5,
+   "warm_reps": 4,
+   "median_s": 2.565,
+   "min_s": 1.996,
+   "max_s": 2.611,
+   "cold_s": 2.269,
+   "per_rank_s": {
+    "0": [
+     2.204,
+     2.611,
+     1.92,
+     2.065,
+     2.539
+    ],
+    "1": [
+     2.269,
+     2.58,
+     1.996,
+     2.047,
+     2.565
+    ]
+   },
+   "host": {
+    "loadavg": [
+     9.28,
+     8.2,
+     8.25
+    ],
+    "mem_available_mb": 201174
+   }
+  },
+  {
+   "arm": "whole census 381.3 M el",
+   "world": 4,
+   "elements": 381302188,
+   "tensors": 3152,
+   "mb_returned": 1525.2,
+   "warm_reps": 4,
+   "median_s": 9.334,
+   "min_s": 7.481,
+   "max_s": 9.613,
+   "cold_s": 9.567,
+   "per_rank_s": {
+    "2": [
+     9.385,
+     9.334,
+     9.613,
+     7.844,
+     7.481
+    ],
+    "3": [
+     9.567,
+     9.292,
+     9.425,
+     8.074,
+     7.354
+    ],
+    "0": [
+     9.517,
+     9.301,
+     9.383,
+     8.114,
+     7.367
+    ],
+    "1": [
+     9.541,
+     9.327,
+     9.209,
+     8.313,
+     7.05
+    ]
+   },
+   "host": {
+    "loadavg": [
+     11.9,
+     9.09,
+     8.56
+    ],
+    "mem_available_mb": 208399
+   }
+  },
+  {
+   "arm": "replicate half 216.1 M el",
+   "world": 4,
+   "elements": 216121196,
+   "tensors": 621,
+   "mb_returned": 864.5,
+   "warm_reps": 4,
+   "median_s": 4.241,
+   "min_s": 4.184,
+   "max_s": 4.412,
+   "cold_s": 4.292,
+   "per_rank_s": {
+    "0": [
+     4.292,
+     4.233,
+     4.069,
+     4.412,
+     4.004
+    ],
+    "3": [
+     4.224,
+     4.218,
+     4.238,
+     4.134,
+     4.095
+    ],
+    "1": [
+     4.236,
+     4.177,
+     4.165,
+     4.259,
+     4.099
+    ],
+    "2": [
+     4.243,
+     4.16,
+     4.241,
+     4.159,
+     4.184
+    ]
+   },
+   "host": {
+    "loadavg": [
+     11.03,
+     9.07,
+     8.56
+    ],
+    "mem_available_mb": 208134
+   }
+  }
+ ]
+}

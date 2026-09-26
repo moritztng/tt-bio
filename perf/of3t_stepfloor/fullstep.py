@@ -746,6 +746,15 @@ def main() -> int:
             dev = get_device()
             out["env"]["arch"] = str(dev.arch())
             params = declare_all(trunk, sampler, out)
+            # The half that crosses the wire. From the static walk, not from which parameters
+            # hold a gradient this step, so every rank names the same set in the same order.
+            dp_reduce_names = sorted(n for n in params if n.startswith("diffusion."))
+            out["dp_reduce"] = {
+                "names": len(dp_reduce_names),
+                "elements": sum(S._numel(params[n].value) for n in dp_reduce_names),
+                "of_declared_elements": out["params"]["elements"],
+                "excluded": "trunk weights -- every rank computes them identically from the "
+                            "summed cut cotangent"}
             weights = of3_loss_weights(a.stage)
             out["loss_weights"] = weights
             # The replicate axis. At world 1 `dp_axis` is None and every branch below is the
@@ -762,7 +771,9 @@ def main() -> int:
                 dp_axis = ProcessAxis(name=base.name, device_ids=base.device_ids,
                                       mesh=base.mesh, dp_rank=a.dp_rank, run=a.dp_run)
             out["dp"] = {"world": a.dp_world, "rank": a.dp_rank,
-                         "prefix_backward_rank": rdp.PREFIX_RANK, "run": a.dp_run or None}
+                         "prefix_backward": "redundant on every rank, from the summed cut "
+                                            "cotangent, so no prefix weight is reduced",
+                         "run": a.dp_run or None}
             # data_parallel stays None and the reduce is explicit below: the optimizer's
             # own guard wants one gradient per rank for the SAME parameter set, and the rank
             # that skips the prefix backward does not have one.
@@ -960,6 +971,21 @@ def main() -> int:
                     row["cut_reduce_bytes"] = rdp.reduce_cut(dp_axis, cut_leaves, dev)
                     row["cut_reduce_s"] = round(time.perf_counter() - t0, 3)
 
+                    # The replicate-side gradients meet HERE, before the trunk backward,
+                    # and that ordering is the correctness argument. Right now they hold only
+                    # this rank's own chunks. The walk below also differentiates the PRIMED
+                    # replicate, which every rank runs, so reducing after it would count that
+                    # one replicate `world` times. The trunk's own weights are disjoint from
+                    # the diffusion half (2531 tensors against 621, no handle in both) and
+                    # every rank computes them identically from the summed cotangent, so they
+                    # are excluded from the message rather than sent: 660.7 MB a step.
+                    if dp_axis is not None:
+                        tg = time.perf_counter()
+                        row["grad_reduce_bytes"] = rdp.reduce_grads(dp_axis, params,
+                                                                    names=dp_reduce_names)
+                        row["grad_reduce_s"] = round(time.perf_counter() - tg, 3)
+                        row["grad_reduce_names"] = len(dp_reduce_names)
+
                     t0 = time.perf_counter()
                     troots = [s_tr, pre["zij_pad"]]
                     tcot = [s_det.grad, z_det.grad]
@@ -976,19 +1002,14 @@ def main() -> int:
                     troots.extend(prime_roots)
                     tcot.extend(prime_cot)
                     row["trunk_tape_nodes"] = len(ag._reverse_topo(troots))
-                    if a.dp_rank == rdp.PREFIX_RANK:
-                        ag.backward(troots, tcot)
-                        ttnn.synchronize_device(dev)
-                        row["trunk_backward_entries"] = 1
-                    else:
-                        # Deliberately idle. The trunk's ~20 s does not divide by the
-                        # replicate axis, and running it here would count its gradient
-                        # world times in the optimizer's sum. The wait shows up as this
-                        # rank's own step term rather than disappearing into the ratio.
-                        row["trunk_backward_entries"] = 0
-                        row["trunk_backward_note"] = (
-                            "not this rank's: the shared prefix is differentiated once, on "
-                            f"rank {rdp.PREFIX_RANK}")
+                    # Every rank, not rank 0 alone. The cotangent was summed at the cut
+                    # above, so this walk computes the FULL trunk gradient here rather than a
+                    # partial one, identically on every rank. Redundant backwards run in
+                    # parallel and cost the same wall clock as one; what they save is having
+                    # to tell the other ranks the answer.
+                    ag.backward(troots, tcot)
+                    ttnn.synchronize_device(dev)
+                    row["trunk_backward_entries"] = 1
                     row["trunk_backward_s"] = round(time.perf_counter() - t0, 3)
                     bwd_s += row["trunk_backward_s"]
                     row["tape_nodes"] = (row["trunk_tape_nodes"]
@@ -1042,10 +1063,9 @@ def main() -> int:
                 # --- 5. optimizer ---------------------------------------------------------
                 if opt is not None and got:
                     t0 = time.perf_counter()
+                    # No reduce here: it happened before the trunk backward, which is the
+                    # only ordering that counts the primed replicate once. See above.
                     if dp_axis is not None:
-                        tg = time.perf_counter()
-                        row["grad_reduce_bytes"] = rdp.reduce_grads(dp_axis, params)
-                        row["grad_reduce_s"] = round(time.perf_counter() - tg, 3)
                         row["params_with_grad_reduced"] = sum(
                             1 for t in params.values() if t.grad is not None)
                     upd = opt.step()
