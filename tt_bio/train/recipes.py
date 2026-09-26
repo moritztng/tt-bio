@@ -48,7 +48,7 @@ __all__ = ["source", "names", "recipe", "train_loop"]
 def train_loop(forward, dataset, *, out_dir, global_batch, steps, objective="af3",
                train="adapters", mesh=None, lora=None, seed=0, lr=3e-4, warmup_steps=1000,
                betas=(0.9, 0.95), weight_decay=0.0, plateau_until=50000, checkpoint_every=100,
-               tokens=None, weights=None, model=None):
+               tokens=None, weights=None, model=None, on_step=None):
     """Fine-tune or pre-train a shipped forward. The Tier-1 default, and a Tier-2 program.
 
     ``train`` is what the optimizer owns, and it is a NAME for the same reason ``objective``
@@ -84,6 +84,11 @@ def train_loop(forward, dataset, *, out_dir, global_batch, steps, objective="af3
     None of the three could be left to a default. ``beta2`` is the sharpest: 0.999 against
     0.95 is a second-moment horizon twenty times longer, it moves no gradient and no loss
     curve, and over twenty steps it was the whole of a 0.9 % uniform excess in the update.
+
+    ``on_step(record)`` is called with each step's history row as soon as it exists, before
+    the checkpoint. It is how a long run survives its own death: ``history`` is returned at
+    the end and a run killed at step 90 of 100 returns nothing, so a caller that wants the
+    curve writes it out from here rather than waiting for it.
 
     ``dataset`` needs ``__len__`` and ``batch(indices) -> dict`` carrying the labels the
     objective row names. No featurizer is imposed -- per-model featurisation is the one thing
@@ -195,6 +200,8 @@ def train_loop(forward, dataset, *, out_dir, global_batch, steps, objective="af3
                             "grad_norm": opt.last_grad_norm, "lr": opt.last_lr,
                             "s": launcher.tick()}
                     history.append(last)
+                    if on_step is not None:
+                        on_step(last)
                     ckpt.save(batch.step, opt, metrics={"loss": total},
                               provenance=prov.as_dict())
             if last is not None:
