@@ -219,7 +219,8 @@ class _Tapes:
     """
 
     def __init__(self):
-        self._tapes = _Tapes()
+        self._live: dict[int, dict] = {}
+        self._next = 0
         self._lock = threading.Lock()
 
     def sweep(self) -> None:

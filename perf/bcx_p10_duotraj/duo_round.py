@@ -19,6 +19,7 @@ of the file-locked campaign progress, so two of them in one project folder take 
 re-implemented here.
 """
 import argparse
+import contextlib
 import json
 import os
 import pathlib
@@ -46,6 +47,32 @@ from bindcraft.af2 import campaign_length_bucket                       # noqa: E
 from bindcraft.settings import parse_setting_overrides, read_settings   # noqa: E402
 from bindcraft.preflight import cleaned_campaign_settings              # noqa: E402
 from tt_bio import bindcraft2                                          # noqa: E402
+import bindcraft.af2 as _bc2_af2                                       # noqa: E402
+
+
+@contextlib.contextmanager
+def _no_cross_worker_compile_lock(compile_shape):
+    """BindCraft 2's `one_worker_compiles`, with the lock taken out.
+
+    It exists to stop several WORKER PROCESSES sharing one JAX compilation cache from
+    compiling the same shape at once, and it is an `flock` on a per-shape lock file. Two
+    trajectories inside ONE process is the case it was not written for, and on this path it
+    deadlocks permanently rather than serialising:
+
+      * trajectory A takes the lock and starts compiling;
+      * the first device callback imports the tt-bio device stack, and `tt_bio.main`'s
+        nanobind stderr filter FORKS (`tt_bio/main.py:62`);
+      * the child inherits a duplicate of the locked open file description and outlives the
+        `with` block, so closing the parent's fd does NOT release the lock -- measured: a
+        same-process re-lock after a plain close succeeds, and the same re-lock with a forked
+        duplicate alive blocks;
+      * trajectory B asks for the same shape digest -- both trajectories are pinned to the
+        same binder length -- and waits forever.
+
+    Removing it changes no arithmetic and no work: it is a cross-process mutex and this is
+    one process. Both arms run without it, so the comparison stays like-for-like.
+    """
+    yield
 
 
 class DuoMeter:
@@ -112,6 +139,8 @@ def main():
     settings = cleaned_campaign_settings(
         read_settings(os.path.join(B.BC2, "examples", "pdl1.json"),
                       parse_setting_overrides(overrides)))
+
+    _bc2_af2.one_worker_compiles = _no_cross_worker_compile_lock
 
     M.CLOCK = M.Clock(1.0)
     M.CLOCK.start()
