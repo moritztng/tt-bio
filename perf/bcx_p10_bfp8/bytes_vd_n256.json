@@ -1,0 +1,824 @@
+{
+ "stamp": {
+  "host": "tt-quietbox",
+  "card": 0,
+  "subsystem_device": "0x0040",
+  "commit": "8e28dfe24bb3ee2757ac17527b2dafcd848932da",
+  "tt_bio_dirty": false,
+  "torch_threads": 8,
+  "loadavg": [
+   10.80810546875,
+   13.08642578125,
+   16.1064453125
+  ],
+  "utc": "2026-09-26T11:25:25Z",
+  "pci": "0000:01:00.0",
+  "aiclk_node": null
+ },
+ "n": 256,
+ "arms": {
+  "bf16": {
+   "evo": {
+    "K1": {
+     "fwd": {
+      "read": 2687037440.0,
+      "written": 2825732096.0,
+      "total": 5512769536.0,
+      "calls": 143,
+      "read_by_dtype": {
+       "BFLOAT16": 1941762048.0,
+       "FLOAT32": 745275392.0
+      },
+      "written_by_dtype": {
+       "BFLOAT16": 1874149376.0,
+       "FLOAT32": 951582720.0
+      },
+      "read_by_verb": {
+       "reshape": 103399424.0,
+       "subtract": 16384.0,
+       "multiply": 4210688.0,
+       "permute": 174374912.0,
+       "linear": 251891712.0,
+       "add": 22568960.0,
+       "experimental.nlp_create_qkv_heads": 113639424.0,
+       "matmul": 456851456.0,
+       "typecast": 1214775296.0,
+       "experimental.nlp_concat_heads": 37879808.0,
+       "relu": 67633152.0,
+       "to_layout": 71303168.0,
+       "add_": 131072.0,
+       "experimental.minimal_matmul": 101253120.0,
+       "transpose": 67108864.0
+      },
+      "read_by_verb_dtype": {
+       "reshape|BFLOAT16": 103399424.0,
+       "subtract|BFLOAT16": 16384.0,
+       "multiply|BFLOAT16": 16384.0,
+       "permute|BFLOAT16": 174374912.0,
+       "linear|BFLOAT16": 251891712.0,
+       "add|BFLOAT16": 22568960.0,
+       "experimental.nlp_create_qkv_heads|BFLOAT16": 113639424.0,
+       "matmul|BFLOAT16": 456851456.0,
+       "typecast|BFLOAT16": 473694208.0,
+       "multiply|FLOAT32": 4194304.0,
+       "typecast|FLOAT32": 741081088.0,
+       "experimental.nlp_concat_heads|BFLOAT16": 37879808.0,
+       "relu|BFLOAT16": 67633152.0,
+       "to_layout|BFLOAT16": 71303168.0,
+       "add_|BFLOAT16": 131072.0,
+       "experimental.minimal_matmul|BFLOAT16": 101253120.0,
+       "transpose|BFLOAT16": 67108864.0
+      },
+      "written_by_verb_dtype": {
+       "reshape|BFLOAT16": 107970560.0,
+       "subtract|BFLOAT16": 16384.0,
+       "multiply|BFLOAT16": 16384.0,
+       "permute|BFLOAT16": 163889152.0,
+       "linear|BFLOAT16": 219447296.0,
+       "add|BFLOAT16": 22020096.0,
+       "experimental.nlp_create_qkv_heads|BFLOAT16": 113639424.0,
+       "matmul|BFLOAT16": 364118016.0,
+       "typecast|FLOAT32": 947388416.0,
+       "multiply|FLOAT32": 4194304.0,
+       "typecast|BFLOAT16": 370540544.0,
+       "experimental.nlp_concat_heads|BFLOAT16": 37879808.0,
+       "relu|BFLOAT16": 67633152.0,
+       "to_layout|BFLOAT16": 71303168.0,
+       "add_|BFLOAT16": 131072.0,
+       "experimental.minimal_matmul|BFLOAT16": 268435456.0,
+       "transpose|BFLOAT16": 67108864.0
+      }
+     },
+     "bwd": {
+      "read": 12686417920.0,
+      "written": 9427664896.0,
+      "total": 22114082816.0,
+      "calls": 441,
+      "read_by_dtype": {
+       "BFLOAT16": 5711257600.0,
+       "FLOAT32": 6975160320.0
+      },
+      "written_by_dtype": {
+       "FLOAT32": 5198348288.0,
+       "BFLOAT16": 4229316608.0
+      },
+      "read_by_verb": {
+       "typecast": 2576908288.0,
+       "reshape": 1397948416.0,
+       "matmul": 1653645312.0,
+       "add": 1734344704.0,
+       "to_layout": 71303168.0,
+       "permute": 96747520.0,
+       "multiply": 1101594624.0,
+       "transpose": 142868480.0,
+       "slice": 2139095040.0,
+       "add_": 1069547520.0,
+       "experimental.nlp_concat_heads": 113639424.0,
+       "clone": 113639424.0,
+       "concat": 475136000.0
+      },
+      "read_by_verb_dtype": {
+       "typecast|BFLOAT16": 1090519040.0,
+       "typecast|FLOAT32": 1486389248.0,
+       "reshape|BFLOAT16": 1395326976.0,
+       "matmul|BFLOAT16": 1653645312.0,
+       "add|FLOAT32": 1734344704.0,
+       "to_layout|BFLOAT16": 71303168.0,
+       "permute|BFLOAT16": 96747520.0,
+       "multiply|BFLOAT16": 558432256.0,
+       "transpose|BFLOAT16": 142868480.0,
+       "multiply|FLOAT32": 543162368.0,
+       "slice|FLOAT32": 2139095040.0,
+       "add_|FLOAT32": 1069547520.0,
+       "reshape|FLOAT32": 2621440.0,
+       "experimental.nlp_concat_heads|BFLOAT16": 113639424.0,
+       "clone|BFLOAT16": 113639424.0,
+       "concat|BFLOAT16": 475136000.0
+      },
+      "written_by_verb_dtype": {
+       "typecast|FLOAT32": 2181038080.0,
+       "typecast|BFLOAT16": 743194624.0,
+       "reshape|BFLOAT16": 1387200512.0,
+       "matmul|BFLOAT16": 793788416.0,
+       "add|FLOAT32": 867172352.0,
+       "to_layout|BFLOAT16": 71303168.0,
+       "permute|BFLOAT16": 107233280.0,
+       "multiply|BFLOAT16": 281313280.0,
+       "transpose|BFLOAT16": 142868480.0,
+       "multiply|FLOAT32": 543162368.0,
+       "slice|FLOAT32": 1069547520.0,
+       "add_|FLOAT32": 534773760.0,
+       "reshape|FLOAT32": 2621440.0,
+       "experimental.nlp_concat_heads|BFLOAT16": 113639424.0,
+       "clone|BFLOAT16": 113639424.0,
+       "concat|BFLOAT16": 475136000.0,
+       "matmul|FLOAT32": 32768.0
+      }
+     },
+     "total": 27626852352.0
+    },
+    "K2": {
+     "fwd": {
+      "read": 5374861312.0,
+      "written": 5652250624.0,
+      "total": 11027111936.0,
+      "calls": 289,
+      "read_by_dtype": {
+       "BFLOAT16": 3884310528.0,
+       "FLOAT32": 1490550784.0
+      },
+      "written_by_dtype": {
+       "BFLOAT16": 3749085184.0,
+       "FLOAT32": 1903165440.0
+      },
+      "read_by_verb": {
+       "reshape": 207060992.0,
+       "subtract": 32768.0,
+       "multiply": 8421376.0,
+       "permute": 348749824.0,
+       "linear": 503783424.0,
+       "add": 45137920.0,
+       "experimental.nlp_create_qkv_heads": 227278848.0,
+       "matmul": 913702912.0,
+       "typecast": 2429550592.0,
+       "experimental.nlp_concat_heads": 75759616.0,
+       "relu": 135266304.0,
+       "to_layout": 143130624.0,
+       "add_": 262144.0,
+       "experimental.minimal_matmul": 202506240.0,
+       "transpose": 134217728.0
+      },
+      "read_by_verb_dtype": {
+       "reshape|BFLOAT16": 207060992.0,
+       "subtract|BFLOAT16": 32768.0,
+       "multiply|BFLOAT16": 32768.0,
+       "permute|BFLOAT16": 348749824.0,
+       "linear|BFLOAT16": 503783424.0,
+       "add|BFLOAT16": 45137920.0,
+       "experimental.nlp_create_qkv_heads|BFLOAT16": 227278848.0,
+       "matmul|BFLOAT16": 913702912.0,
+       "typecast|BFLOAT16": 947388416.0,
+       "multiply|FLOAT32": 8388608.0,
+       "typecast|FLOAT32": 1482162176.0,
+       "experimental.nlp_concat_heads|BFLOAT16": 75759616.0,
+       "relu|BFLOAT16": 135266304.0,
+       "to_layout|BFLOAT16": 143130624.0,
+       "add_|BFLOAT16": 262144.0,
+       "experimental.minimal_matmul|BFLOAT16": 202506240.0,
+       "transpose|BFLOAT16": 134217728.0
+      },
+      "written_by_verb_dtype": {
+       "reshape|BFLOAT16": 216203264.0,
+       "subtract|BFLOAT16": 32768.0,
+       "multiply|BFLOAT16": 32768.0,
+       "permute|BFLOAT16": 327778304.0,
+       "linear|BFLOAT16": 438894592.0,
+       "add|BFLOAT16": 44040192.0,
+       "experimental.nlp_create_qkv_heads|BFLOAT16": 227278848.0,
+       "matmul|BFLOAT16": 728236032.0,
+       "typecast|FLOAT32": 1894776832.0,
+       "multiply|FLOAT32": 8388608.0,
+       "typecast|BFLOAT16": 741081088.0,
+       "experimental.nlp_concat_heads|BFLOAT16": 75759616.0,
+       "relu|BFLOAT16": 135266304.0,
+       "to_layout|BFLOAT16": 143130624.0,
+       "add_|BFLOAT16": 262144.0,
+       "experimental.minimal_matmul|BFLOAT16": 536870912.0,
+       "transpose|BFLOAT16": 134217728.0
+      }
+     },
+     "bwd": {
+      "read": 25406259200.0,
+      "written": 18871844864.0,
+      "total": 44278104064.0,
+      "calls": 882,
+      "read_by_dtype": {
+       "BFLOAT16": 11422384128.0,
+       "FLOAT32": 13983875072.0
+      },
+      "written_by_dtype": {
+       "FLOAT32": 10396434432.0,
+       "BFLOAT16": 8475410432.0
+      },
+      "read_by_verb": {
+       "typecast": 5187239936.0,
+       "reshape": 2795896832.0,
+       "matmul": 3307290624.0,
+       "add": 3468689408.0,
+       "to_layout": 142606336.0,
+       "permute": 193495040.0,
+       "multiply": 2203189248.0,
+       "transpose": 285736960.0,
+       "slice": 4278190080.0,
+       "add_": 2139095040.0,
+       "experimental.nlp_concat_heads": 227278848.0,
+       "clone": 227278848.0,
+       "concat": 950272000.0
+      },
+      "read_by_verb_dtype": {
+       "typecast|BFLOAT16": 2180907008.0,
+       "typecast|FLOAT32": 3006332928.0,
+       "reshape|BFLOAT16": 2790653952.0,
+       "matmul|BFLOAT16": 3307290624.0,
+       "add|FLOAT32": 3468689408.0,
+       "to_layout|BFLOAT16": 142606336.0,
+       "permute|BFLOAT16": 193495040.0,
+       "multiply|BFLOAT16": 1116864512.0,
+       "transpose|BFLOAT16": 285736960.0,
+       "multiply|FLOAT32": 1086324736.0,
+       "slice|FLOAT32": 4278190080.0,
+       "add_|FLOAT32": 2139095040.0,
+       "reshape|FLOAT32": 5242880.0,
+       "experimental.nlp_concat_heads|BFLOAT16": 227278848.0,
+       "clone|BFLOAT16": 227278848.0,
+       "concat|BFLOAT16": 950272000.0
+      },
+      "written_by_verb_dtype": {
+       "typecast|FLOAT32": 4361814016.0,
+       "typecast|BFLOAT16": 1503166464.0,
+       "reshape|BFLOAT16": 2774401024.0,
+       "matmul|BFLOAT16": 1587576832.0,
+       "add|FLOAT32": 1734344704.0,
+       "to_layout|BFLOAT16": 142606336.0,
+       "permute|BFLOAT16": 214466560.0,
+       "multiply|BFLOAT16": 562626560.0,
+       "transpose|BFLOAT16": 285736960.0,
+       "multiply|FLOAT32": 1086324736.0,
+       "slice|FLOAT32": 2139095040.0,
+       "add_|FLOAT32": 1069547520.0,
+       "reshape|FLOAT32": 5242880.0,
+       "experimental.nlp_concat_heads|BFLOAT16": 227278848.0,
+       "clone|BFLOAT16": 227278848.0,
+       "concat|BFLOAT16": 950272000.0,
+       "matmul|FLOAT32": 65536.0
+      }
+     },
+     "total": 55305216000.0
+    },
+    "per_block": {
+     "fwd": {
+      "read": 2687823872.0,
+      "written": 2826518528.0,
+      "total": 5514342400.0,
+      "calls": 146,
+      "read_by_dtype": {
+       "BFLOAT16": 1942548480.0,
+       "FLOAT32": 745275392.0
+      },
+      "written_by_dtype": {
+       "BFLOAT16": 1874935808.0,
+       "FLOAT32": 951582720.0
+      },
+      "read_by_verb": {
+       "subtract": 16384.0,
+       "relu": 67633152.0,
+       "to_layout": 71827456.0,
+       "multiply": 4210688.0,
+       "transpose": 67108864.0,
+       "permute": 174374912.0,
+       "linear": 251891712.0,
+       "reshape": 103661568.0,
+       "experimental.nlp_create_qkv_heads": 113639424.0,
+       "matmul": 456851456.0,
+       "add_": 131072.0,
+       "experimental.nlp_concat_heads": 37879808.0,
+       "add": 22568960.0,
+       "typecast": 1214775296.0,
+       "experimental.minimal_matmul": 101253120.0
+      },
+      "read_by_verb_dtype": {
+       "multiply|FLOAT32": 4194304.0,
+       "reshape|BFLOAT16": 103661568.0,
+       "experimental.nlp_concat_heads|BFLOAT16": 37879808.0,
+       "matmul|BFLOAT16": 456851456.0,
+       "typecast|BFLOAT16": 473694208.0,
+       "linear|BFLOAT16": 251891712.0,
+       "add_|BFLOAT16": 131072.0,
+       "transpose|BFLOAT16": 67108864.0,
+       "multiply|BFLOAT16": 16384.0,
+       "typecast|FLOAT32": 741081088.0,
+       "experimental.minimal_matmul|BFLOAT16": 101253120.0,
+       "subtract|BFLOAT16": 16384.0,
+       "add|BFLOAT16": 22568960.0,
+       "experimental.nlp_create_qkv_heads|BFLOAT16": 113639424.0,
+       "permute|BFLOAT16": 174374912.0,
+       "to_layout|BFLOAT16": 71827456.0,
+       "relu|BFLOAT16": 67633152.0
+      },
+      "written_by_verb_dtype": {
+       "multiply|FLOAT32": 4194304.0,
+       "reshape|BFLOAT16": 108232704.0,
+       "experimental.nlp_concat_heads|BFLOAT16": 37879808.0,
+       "matmul|BFLOAT16": 364118016.0,
+       "typecast|BFLOAT16": 370540544.0,
+       "linear|BFLOAT16": 219447296.0,
+       "add_|BFLOAT16": 131072.0,
+       "transpose|BFLOAT16": 67108864.0,
+       "multiply|BFLOAT16": 16384.0,
+       "typecast|FLOAT32": 947388416.0,
+       "experimental.minimal_matmul|BFLOAT16": 268435456.0,
+       "subtract|BFLOAT16": 16384.0,
+       "add|BFLOAT16": 22020096.0,
+       "experimental.nlp_create_qkv_heads|BFLOAT16": 113639424.0,
+       "permute|BFLOAT16": 163889152.0,
+       "to_layout|BFLOAT16": 71827456.0,
+       "relu|BFLOAT16": 67633152.0
+      }
+     },
+     "bwd": {
+      "read": 12719841280.0,
+      "written": 9444179968.0,
+      "total": 22164021248.0,
+      "calls": 441,
+      "read_by_dtype": {
+       "BFLOAT16": 5711126528.0,
+       "FLOAT32": 7008714752.0
+      },
+      "written_by_dtype": {
+       "BFLOAT16": 4246093824.0,
+       "FLOAT32": 5198086144.0
+      },
+      "read_by_verb": {
+       "to_layout": 71303168.0,
+       "transpose": 142868480.0,
+       "multiply": 1101594624.0,
+       "concat": 475136000.0,
+       "clone": 113639424.0,
+       "permute": 96747520.0,
+       "slice": 2139095040.0,
+       "reshape": 1397948416.0,
+       "matmul": 1653645312.0,
+       "add_": 1069547520.0,
+       "experimental.nlp_concat_heads": 113639424.0,
+       "add": 1734344704.0,
+       "typecast": 2610331648.0
+      },
+      "read_by_verb_dtype": {
+       "multiply|FLOAT32": 543162368.0,
+       "reshape|BFLOAT16": 1395326976.0,
+       "experimental.nlp_concat_heads|BFLOAT16": 113639424.0,
+       "typecast|BFLOAT16": 1090387968.0,
+       "matmul|BFLOAT16": 1653645312.0,
+       "slice|FLOAT32": 2139095040.0,
+       "transpose|BFLOAT16": 142868480.0,
+       "multiply|BFLOAT16": 558432256.0,
+       "concat|BFLOAT16": 475136000.0,
+       "typecast|FLOAT32": 1519943680.0,
+       "reshape|FLOAT32": 2621440.0,
+       "clone|BFLOAT16": 113639424.0,
+       "add_|FLOAT32": 1069547520.0,
+       "to_layout|BFLOAT16": 71303168.0,
+       "permute|BFLOAT16": 96747520.0,
+       "add|FLOAT32": 1734344704.0
+      },
+      "written_by_verb_dtype": {
+       "matmul|FLOAT32": 32768.0,
+       "multiply|FLOAT32": 543162368.0,
+       "reshape|BFLOAT16": 1387200512.0,
+       "experimental.nlp_concat_heads|BFLOAT16": 113639424.0,
+       "typecast|BFLOAT16": 759971840.0,
+       "matmul|BFLOAT16": 793788416.0,
+       "slice|FLOAT32": 1069547520.0,
+       "transpose|BFLOAT16": 142868480.0,
+       "multiply|BFLOAT16": 281313280.0,
+       "concat|BFLOAT16": 475136000.0,
+       "typecast|FLOAT32": 2180775936.0,
+       "reshape|FLOAT32": 2621440.0,
+       "clone|BFLOAT16": 113639424.0,
+       "add_|FLOAT32": 534773760.0,
+       "to_layout|BFLOAT16": 71303168.0,
+       "permute|BFLOAT16": 107233280.0,
+       "add|FLOAT32": 867172352.0
+      }
+     },
+     "total": 27678363648.0
+    }
+   },
+   "extra": {
+    "K1": {
+     "fwd": {
+      "read": 2495725568.0,
+      "written": 2614116352.0,
+      "total": 5109841920.0,
+      "calls": 75,
+      "read_by_dtype": {
+       "BFLOAT16": 1755430912.0,
+       "FLOAT32": 740294656.0
+      },
+      "written_by_dtype": {
+       "FLOAT32": 910180352.0,
+       "BFLOAT16": 1703936000.0
+      },
+      "read_by_verb": {
+       "typecast": 1192239104.0,
+       "experimental.minimal_matmul": 101253120.0,
+       "permute": 142606336.0,
+       "matmul": 436207616.0,
+       "transpose": 67108864.0,
+       "linear": 218669056.0,
+       "reshape": 67108864.0,
+       "experimental.nlp_create_qkv_heads": 100663296.0,
+       "multiply": 2097152.0,
+       "experimental.nlp_concat_heads": 33554432.0,
+       "to_layout": 67108864.0,
+       "relu": 67108864.0
+      },
+      "read_by_verb_dtype": {
+       "typecast|BFLOAT16": 454041600.0,
+       "typecast|FLOAT32": 738197504.0,
+       "experimental.minimal_matmul|BFLOAT16": 101253120.0,
+       "permute|BFLOAT16": 142606336.0,
+       "matmul|BFLOAT16": 436207616.0,
+       "transpose|BFLOAT16": 67108864.0,
+       "linear|BFLOAT16": 218669056.0,
+       "reshape|BFLOAT16": 67108864.0,
+       "experimental.nlp_create_qkv_heads|BFLOAT16": 100663296.0,
+       "multiply|FLOAT32": 2097152.0,
+       "experimental.nlp_concat_heads|BFLOAT16": 33554432.0,
+       "to_layout|BFLOAT16": 67108864.0,
+       "relu|BFLOAT16": 67108864.0
+      },
+      "written_by_verb_dtype": {
+       "typecast|FLOAT32": 908083200.0,
+       "typecast|BFLOAT16": 369098752.0,
+       "experimental.minimal_matmul|BFLOAT16": 268435456.0,
+       "permute|BFLOAT16": 135266304.0,
+       "matmul|BFLOAT16": 335544320.0,
+       "transpose|BFLOAT16": 67108864.0,
+       "linear|BFLOAT16": 192937984.0,
+       "reshape|BFLOAT16": 67108864.0,
+       "experimental.nlp_create_qkv_heads|BFLOAT16": 100663296.0,
+       "multiply|FLOAT32": 2097152.0,
+       "experimental.nlp_concat_heads|BFLOAT16": 33554432.0,
+       "to_layout|BFLOAT16": 67108864.0,
+       "relu|BFLOAT16": 67108864.0
+      }
+     },
+     "bwd": {
+      "read": 11949522944.0,
+      "written": 8798601216.0,
+      "total": 20748124160.0,
+      "calls": 267,
+      "read_by_dtype": {
+       "BFLOAT16": 5244928000.0,
+       "FLOAT32": 6704594944.0
+      },
+      "written_by_dtype": {
+       "FLOAT32": 4930404352.0,
+       "BFLOAT16": 3868196864.0
+      },
+      "read_by_verb": {
+       "typecast": 2418016256.0,
+       "reshape": 1226833920.0,
+       "matmul": 1569669120.0,
+       "add": 1543503872.0,
+       "to_layout": 67108864.0,
+       "permute": 68157440.0,
+       "multiply": 1075838976.0,
+       "transpose": 134217728.0,
+       "slice": 2139095040.0,
+       "add_": 1069547520.0,
+       "experimental.nlp_concat_heads": 100663296.0,
+       "clone": 100663296.0,
+       "concat": 436207616.0
+      },
+      "read_by_verb_dtype": {
+       "typecast|BFLOAT16": 1006632960.0,
+       "typecast|FLOAT32": 1411383296.0,
+       "reshape|BFLOAT16": 1224736768.0,
+       "matmul|BFLOAT16": 1569669120.0,
+       "add|FLOAT32": 1543503872.0,
+       "to_layout|BFLOAT16": 67108864.0,
+       "permute|BFLOAT16": 68157440.0,
+       "multiply|BFLOAT16": 536870912.0,
+       "transpose|BFLOAT16": 134217728.0,
+       "multiply|FLOAT32": 538968064.0,
+       "slice|FLOAT32": 2139095040.0,
+       "add_|FLOAT32": 1069547520.0,
+       "reshape|FLOAT32": 2097152.0,
+       "experimental.nlp_concat_heads|BFLOAT16": 100663296.0,
+       "clone|BFLOAT16": 100663296.0,
+       "concat|BFLOAT16": 436207616.0
+      },
+      "written_by_verb_dtype": {
+       "typecast|FLOAT32": 2013265920.0,
+       "typecast|BFLOAT16": 705691648.0,
+       "reshape|BFLOAT16": 1224736768.0,
+       "matmul|BFLOAT16": 754974720.0,
+       "add|FLOAT32": 771751936.0,
+       "to_layout|BFLOAT16": 67108864.0,
+       "permute|BFLOAT16": 75497472.0,
+       "multiply|BFLOAT16": 268435456.0,
+       "transpose|BFLOAT16": 134217728.0,
+       "multiply|FLOAT32": 538968064.0,
+       "slice|FLOAT32": 1069547520.0,
+       "add_|FLOAT32": 534773760.0,
+       "reshape|FLOAT32": 2097152.0,
+       "experimental.nlp_concat_heads|BFLOAT16": 100663296.0,
+       "clone|BFLOAT16": 100663296.0,
+       "concat|BFLOAT16": 436207616.0
+      }
+     },
+     "total": 25857966080.0
+    },
+    "K2": {
+     "fwd": {
+      "read": 4991451136.0,
+      "written": 5228232704.0,
+      "total": 10219683840.0,
+      "calls": 150,
+      "read_by_dtype": {
+       "BFLOAT16": 3510861824.0,
+       "FLOAT32": 1480589312.0
+      },
+      "written_by_dtype": {
+       "FLOAT32": 1820360704.0,
+       "BFLOAT16": 3407872000.0
+      },
+      "read_by_verb": {
+       "typecast": 2384478208.0,
+       "experimental.minimal_matmul": 202506240.0,
+       "permute": 285212672.0,
+       "matmul": 872415232.0,
+       "transpose": 134217728.0,
+       "linear": 437338112.0,
+       "reshape": 134217728.0,
+       "experimental.nlp_create_qkv_heads": 201326592.0,
+       "multiply": 4194304.0,
+       "experimental.nlp_concat_heads": 67108864.0,
+       "to_layout": 134217728.0,
+       "relu": 134217728.0
+      },
+      "read_by_verb_dtype": {
+       "typecast|BFLOAT16": 908083200.0,
+       "typecast|FLOAT32": 1476395008.0,
+       "experimental.minimal_matmul|BFLOAT16": 202506240.0,
+       "permute|BFLOAT16": 285212672.0,
+       "matmul|BFLOAT16": 872415232.0,
+       "transpose|BFLOAT16": 134217728.0,
+       "linear|BFLOAT16": 437338112.0,
+       "reshape|BFLOAT16": 134217728.0,
+       "experimental.nlp_create_qkv_heads|BFLOAT16": 201326592.0,
+       "multiply|FLOAT32": 4194304.0,
+       "experimental.nlp_concat_heads|BFLOAT16": 67108864.0,
+       "to_layout|BFLOAT16": 134217728.0,
+       "relu|BFLOAT16": 134217728.0
+      },
+      "written_by_verb_dtype": {
+       "typecast|FLOAT32": 1816166400.0,
+       "typecast|BFLOAT16": 738197504.0,
+       "experimental.minimal_matmul|BFLOAT16": 536870912.0,
+       "permute|BFLOAT16": 270532608.0,
+       "matmul|BFLOAT16": 671088640.0,
+       "transpose|BFLOAT16": 134217728.0,
+       "linear|BFLOAT16": 385875968.0,
+       "reshape|BFLOAT16": 134217728.0,
+       "experimental.nlp_create_qkv_heads|BFLOAT16": 201326592.0,
+       "multiply|FLOAT32": 4194304.0,
+       "experimental.nlp_concat_heads|BFLOAT16": 67108864.0,
+       "to_layout|BFLOAT16": 134217728.0,
+       "relu|BFLOAT16": 134217728.0
+      }
+     },
+     "bwd": {
+      "read": 23899045888.0,
+      "written": 17597202432.0,
+      "total": 41496248320.0,
+      "calls": 534,
+      "read_by_dtype": {
+       "BFLOAT16": 10489856000.0,
+       "FLOAT32": 13409189888.0
+      },
+      "written_by_dtype": {
+       "FLOAT32": 9860808704.0,
+       "BFLOAT16": 7736393728.0
+      },
+      "read_by_verb": {
+       "typecast": 4836032512.0,
+       "reshape": 2453667840.0,
+       "matmul": 3139338240.0,
+       "add": 3087007744.0,
+       "to_layout": 134217728.0,
+       "permute": 136314880.0,
+       "multiply": 2151677952.0,
+       "transpose": 268435456.0,
+       "slice": 4278190080.0,
+       "add_": 2139095040.0,
+       "experimental.nlp_concat_heads": 201326592.0,
+       "clone": 201326592.0,
+       "concat": 872415232.0
+      },
+      "read_by_verb_dtype": {
+       "typecast|BFLOAT16": 2013265920.0,
+       "typecast|FLOAT32": 2822766592.0,
+       "reshape|BFLOAT16": 2449473536.0,
+       "matmul|BFLOAT16": 3139338240.0,
+       "add|FLOAT32": 3087007744.0,
+       "to_layout|BFLOAT16": 134217728.0,
+       "permute|BFLOAT16": 136314880.0,
+       "multiply|BFLOAT16": 1073741824.0,
+       "transpose|BFLOAT16": 268435456.0,
+       "multiply|FLOAT32": 1077936128.0,
+       "slice|FLOAT32": 4278190080.0,
+       "add_|FLOAT32": 2139095040.0,
+       "reshape|FLOAT32": 4194304.0,
+       "experimental.nlp_concat_heads|BFLOAT16": 201326592.0,
+       "clone|BFLOAT16": 201326592.0,
+       "concat|BFLOAT16": 872415232.0
+      },
+      "written_by_verb_dtype": {
+       "typecast|FLOAT32": 4026531840.0,
+       "typecast|BFLOAT16": 1411383296.0,
+       "reshape|BFLOAT16": 2449473536.0,
+       "matmul|BFLOAT16": 1509949440.0,
+       "add|FLOAT32": 1543503872.0,
+       "to_layout|BFLOAT16": 134217728.0,
+       "permute|BFLOAT16": 150994944.0,
+       "multiply|BFLOAT16": 536870912.0,
+       "transpose|BFLOAT16": 268435456.0,
+       "multiply|FLOAT32": 1077936128.0,
+       "slice|FLOAT32": 2139095040.0,
+       "add_|FLOAT32": 1069547520.0,
+       "reshape|FLOAT32": 4194304.0,
+       "experimental.nlp_concat_heads|BFLOAT16": 201326592.0,
+       "clone|BFLOAT16": 201326592.0,
+       "concat|BFLOAT16": 872415232.0
+      }
+     },
+     "total": 51715932160.0
+    },
+    "per_block": {
+     "fwd": {
+      "read": 2495725568.0,
+      "written": 2614116352.0,
+      "total": 5109841920.0,
+      "calls": 75,
+      "read_by_dtype": {
+       "BFLOAT16": 1755430912.0,
+       "FLOAT32": 740294656.0
+      },
+      "written_by_dtype": {
+       "BFLOAT16": 1703936000.0,
+       "FLOAT32": 910180352.0
+      },
+      "read_by_verb": {
+       "to_layout": 67108864.0,
+       "transpose": 67108864.0,
+       "multiply": 2097152.0,
+       "relu": 67108864.0,
+       "permute": 142606336.0,
+       "linear": 218669056.0,
+       "reshape": 67108864.0,
+       "matmul": 436207616.0,
+       "experimental.nlp_create_qkv_heads": 100663296.0,
+       "experimental.nlp_concat_heads": 33554432.0,
+       "typecast": 1192239104.0,
+       "experimental.minimal_matmul": 101253120.0
+      },
+      "read_by_verb_dtype": {
+       "multiply|FLOAT32": 2097152.0,
+       "reshape|BFLOAT16": 67108864.0,
+       "experimental.nlp_concat_heads|BFLOAT16": 33554432.0,
+       "typecast|BFLOAT16": 454041600.0,
+       "matmul|BFLOAT16": 436207616.0,
+       "linear|BFLOAT16": 218669056.0,
+       "transpose|BFLOAT16": 67108864.0,
+       "typecast|FLOAT32": 738197504.0,
+       "experimental.minimal_matmul|BFLOAT16": 101253120.0,
+       "experimental.nlp_create_qkv_heads|BFLOAT16": 100663296.0,
+       "permute|BFLOAT16": 142606336.0,
+       "to_layout|BFLOAT16": 67108864.0,
+       "relu|BFLOAT16": 67108864.0
+      },
+      "written_by_verb_dtype": {
+       "multiply|FLOAT32": 2097152.0,
+       "reshape|BFLOAT16": 67108864.0,
+       "experimental.nlp_concat_heads|BFLOAT16": 33554432.0,
+       "typecast|BFLOAT16": 369098752.0,
+       "matmul|BFLOAT16": 335544320.0,
+       "linear|BFLOAT16": 192937984.0,
+       "transpose|BFLOAT16": 67108864.0,
+       "typecast|FLOAT32": 908083200.0,
+       "experimental.minimal_matmul|BFLOAT16": 268435456.0,
+       "experimental.nlp_create_qkv_heads|BFLOAT16": 100663296.0,
+       "permute|BFLOAT16": 135266304.0,
+       "to_layout|BFLOAT16": 67108864.0,
+       "relu|BFLOAT16": 67108864.0
+      }
+     },
+     "bwd": {
+      "read": 11949522944.0,
+      "written": 8798601216.0,
+      "total": 20748124160.0,
+      "calls": 267,
+      "read_by_dtype": {
+       "BFLOAT16": 5244928000.0,
+       "FLOAT32": 6704594944.0
+      },
+      "written_by_dtype": {
+       "BFLOAT16": 3868196864.0,
+       "FLOAT32": 4930404352.0
+      },
+      "read_by_verb": {
+       "to_layout": 67108864.0,
+       "transpose": 134217728.0,
+       "multiply": 1075838976.0,
+       "concat": 436207616.0,
+       "clone": 100663296.0,
+       "permute": 68157440.0,
+       "slice": 2139095040.0,
+       "reshape": 1226833920.0,
+       "matmul": 1569669120.0,
+       "add_": 1069547520.0,
+       "experimental.nlp_concat_heads": 100663296.0,
+       "add": 1543503872.0,
+       "typecast": 2418016256.0
+      },
+      "read_by_verb_dtype": {
+       "multiply|FLOAT32": 538968064.0,
+       "reshape|BFLOAT16": 1224736768.0,
+       "experimental.nlp_concat_heads|BFLOAT16": 100663296.0,
+       "typecast|BFLOAT16": 1006632960.0,
+       "matmul|BFLOAT16": 1569669120.0,
+       "slice|FLOAT32": 2139095040.0,
+       "transpose|BFLOAT16": 134217728.0,
+       "multiply|BFLOAT16": 536870912.0,
+       "concat|BFLOAT16": 436207616.0,
+       "typecast|FLOAT32": 1411383296.0,
+       "reshape|FLOAT32": 2097152.0,
+       "clone|BFLOAT16": 100663296.0,
+       "add_|FLOAT32": 1069547520.0,
+       "to_layout|BFLOAT16": 67108864.0,
+       "permute|BFLOAT16": 68157440.0,
+       "add|FLOAT32": 1543503872.0
+      },
+      "written_by_verb_dtype": {
+       "multiply|FLOAT32": 538968064.0,
+       "reshape|BFLOAT16": 1224736768.0,
+       "experimental.nlp_concat_heads|BFLOAT16": 100663296.0,
+       "typecast|BFLOAT16": 705691648.0,
+       "matmul|BFLOAT16": 754974720.0,
+       "slice|FLOAT32": 1069547520.0,
+       "transpose|BFLOAT16": 134217728.0,
+       "multiply|BFLOAT16": 268435456.0,
+       "concat|BFLOAT16": 436207616.0,
+       "typecast|FLOAT32": 2013265920.0,
+       "reshape|FLOAT32": 2097152.0,
+       "clone|BFLOAT16": 100663296.0,
+       "add_|FLOAT32": 534773760.0,
+       "to_layout|BFLOAT16": 67108864.0,
+       "permute|BFLOAT16": 75497472.0,
+       "add|FLOAT32": 771751936.0
+      }
+     },
+     "total": 25857966080.0
+    }
+   }
+  }
+ },
+ "loadavg": [
+  10.80810546875,
+  13.08642578125,
+  16.1064453125
+ ]
+}

@@ -94,6 +94,12 @@ class ByteCounter:
         self.written = collections.Counter()
         self.read_dtype = collections.Counter()
         self.written_dtype = collections.Counter()
+        # (phase, verb, dtype) -> bytes read. The cross-tab is what splits the backward's
+        # float32 by what CONSUMES it: a matmul operand is free to narrow because ttnn
+        # truncates both operands to bfloat16 whatever dtype the tensor carries, while an
+        # eltwise accumulation is a real accuracy question.
+        self.read_vd = collections.Counter()
+        self.written_vd = collections.Counter()
         self.calls = collections.Counter()
         self.phase = "fwd"
         self._saved = []
@@ -147,10 +153,12 @@ class ByteCounter:
                 b = _nbytes(t)
                 self.read[key] += b
                 self.read_dtype[(self.phase, self._dt(t))] += b
+                self.read_vd[(self.phase, path, self._dt(t))] += b
             for t in outs:
                 b = _nbytes(t)
                 self.written[key] += b
                 self.written_dtype[(self.phase, self._dt(t))] += b
+                self.written_vd[(self.phase, path, self._dt(t))] += b
             return out
         w.__name__ = getattr(real, "__name__", path)
         return w
@@ -163,7 +171,10 @@ class ByteCounter:
 
     def take(self):
         snap = {"calls": dict(self.calls), "read": dict(self.read), "written": dict(self.written),
-                "read_dtype": dict(self.read_dtype), "written_dtype": dict(self.written_dtype)}
+                "read_dtype": dict(self.read_dtype), "written_dtype": dict(self.written_dtype),
+                "read_vd": dict(self.read_vd), "written_vd": dict(self.written_vd)}
+        self.read_vd = collections.Counter()
+        self.written_vd = collections.Counter()
         self.calls = collections.Counter()
         self.read = collections.Counter()
         self.written = collections.Counter()
@@ -184,6 +195,10 @@ def _fold(snap):
             "read_by_dtype": {d: v for (p, d), v in snap["read_dtype"].items() if p == phase},
             "written_by_dtype": {d: v for (p, d), v in snap["written_dtype"].items() if p == phase},
             "read_by_verb": {k: v for (p, k), v in snap["read"].items() if p == phase},
+            "read_by_verb_dtype": {f"{k}|{d}": v for (p, k, d), v in snap["read_vd"].items()
+                                   if p == phase},
+            "written_by_verb_dtype": {f"{k}|{d}": v for (p, k, d), v in snap["written_vd"].items()
+                                      if p == phase},
         }
     out["total"] = out["fwd"]["total"] + out["bwd"]["total"]
     return out
@@ -196,7 +211,8 @@ def _diff(a, b):
         d = {}
         for key in ("read", "written", "total", "calls"):
             d[key] = b[phase][key] - a[phase][key]
-        for key in ("read_by_dtype", "written_by_dtype", "read_by_verb"):
+        for key in ("read_by_dtype", "written_by_dtype", "read_by_verb",
+                    "read_by_verb_dtype", "written_by_verb_dtype"):
             names = set(a[phase][key]) | set(b[phase][key])
             d[key] = {n: b[phase][key].get(n, 0) - a[phase][key].get(n, 0) for n in names}
             d[key] = {n: v for n, v in d[key].items() if abs(v) > 0.5}
