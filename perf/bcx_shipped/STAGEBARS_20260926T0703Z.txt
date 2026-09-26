@@ -1,0 +1,10 @@
+BindCraft 2 shipped per-stage bars, read 2026-09-26T07:03Z off DEFAULT_SETTINGS at pinned tree 7a2dfdb.
+examples/pdl1.json sets NO stage threshold, so these defaults are what the shipped example runs.
+
+  stage    min_iptm   min_plddt
+  screen   None       0.6
+  refine   None       0.6
+  anneal   0.5        0.65
+  harden   0.5        0.65
+  mutate   0.5        0.6
+  final    0.7        0.7
