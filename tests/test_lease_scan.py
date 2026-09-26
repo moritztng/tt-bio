@@ -7,6 +7,7 @@ The case that matters is therefore the one where ONLY the occupancy guard is on 
 that reads just the pid-keyed name calls that card free, which is the 2026-09-26 03:40 collision.
 """
 import json
+import os
 import sys
 import pathlib
 
@@ -63,3 +64,31 @@ def test_an_integer_card_field_still_matches(tmp_path):
     """The two writers disagree on the type: the engine writes "2", the guard has written 2."""
     _write(tmp_path, "qb1-card2.json", host="qb1", card=2, holder="worker:other", pid=1)
     assert len(conflicts(tmp_path, "2", HOST)) == 1
+
+
+def test_a_dead_pid_lease_is_stale_not_a_conflict(tmp_path):
+    """The deadlock this cost: `card_free.sh` judges a lease by pid liveness, so a scanner that
+    refused on existence alone disagreed with the gate that decides whether to claim at all.
+    qb1 card 2 freed at 03:35Z on 2026-09-26 and the claim bounced off a lease naming pid 187751,
+    which had exited."""
+    from lease_scan import scan
+    dead = 999999                      # far past any live pid on these boxes
+    _write(tmp_path, "tt-quietbox-card2.json", host=HOST, card="2", holder="pid:x", pid=dead)
+    bad, stale = scan(tmp_path, "2", HOST)
+    assert bad == [] and len(stale) == 1 and "stale" in stale[0]
+
+
+def test_a_live_pid_is_still_a_conflict(tmp_path):
+    """The control for the one above: without it, a scanner that called everything stale would
+    pass it."""
+    from lease_scan import scan
+    _write(tmp_path, "tt-quietbox-card2.json", host=HOST, card="2", holder="pid:x", pid=os.getpid())
+    bad, stale = scan(tmp_path, "2", HOST)
+    assert len(bad) == 1 and stale == []
+
+
+def test_a_lease_with_no_pid_cannot_be_shown_stale(tmp_path):
+    from lease_scan import scan
+    _write(tmp_path, "qb1-card2.json", host="qb1", card="2", holder="worker:other")
+    bad, _ = scan(tmp_path, "2", HOST)
+    assert len(bad) == 1 and "no pid" in bad[0]

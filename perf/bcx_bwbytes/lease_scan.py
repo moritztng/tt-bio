@@ -10,10 +10,18 @@ the device node empties. Reading only the first is being blind to the guard that
 the window in which a taker would collide, and that window produced two near-misses in one night.
 
 A released lease is RENAMED to `*.json.released-...` on this fleet rather than deleted, so an
-exact `.json` suffix is the live set. An unparseable file is REPORTED, not skipped: this decides
-whether to open a device, and the safe reading of a file we cannot read is "occupied".
+exact `.json` suffix is the candidate set.
 
-Prints one line per conflicting lease; prints nothing and exits 0 when the card is unclaimed.
+**A lease whose pid is provably dead is STALE, not a conflict**, and this file learned that the
+hard way: refusing on existence alone deadlocked the first real claim this row ever made. qb1
+card 2 freed at 03:35Z, `card_free.sh` said FREE because it judges a lease by pid liveness, and
+the chain refused on `tt-quietbox-card2.json` naming pid 187751, which had exited. Two gates
+disagreeing about what "leased" means is worse than either gate alone, so this one now matches
+the one that decides whether to claim at all. Stale leases are still REPORTED, on stderr, because
+a card freed by a leak is worth knowing about.
+
+Everything else is a conflict, including a lease with no pid and a file that will not parse: this
+decides whether to open a device, and the safe reading of a lease we cannot evaluate is held.
 """
 import glob
 import json
@@ -23,27 +31,49 @@ import sys
 SHORT = {"tt-quietbox": "qb1", "tt-quietbox2": "qb2"}
 
 
-def conflicts(leases, card, host):
+def _alive(pid):
+    try:
+        os.kill(int(pid), 0)
+    except (OSError, TypeError, ValueError) as exc:
+        return isinstance(exc, PermissionError)     # another user's live process is still live
+    return True
+
+
+def scan(leases, card, host):
+    """(conflicts, stale) -- conflicts block a claim, stale ones are reported and do not."""
     names = {host, SHORT.get(host, host)}
-    out = []
+    conflicts, stale = [], []
     for f in sorted(glob.glob(os.path.join(leases, "*.json"))):
+        base = os.path.basename(f)
         try:
             d = json.load(open(f))
         except Exception as exc:
-            out.append(f"{os.path.basename(f)}: unparseable ({exc}) -- refusing rather than guessing")
+            conflicts.append(f"{base}: unparseable ({exc}) -- refusing rather than guessing")
             continue
-        if str(d.get("card")) != str(card):
+        if str(d.get("card")) != str(card) or str(d.get("host")) not in names:
             continue
-        if str(d.get("host")) in names:
-            out.append("{}: holder={} pid={} note={}".format(
-                os.path.basename(f), d.get("holder"), d.get("pid"), d.get("note", "")))
-    return out
+        pid = d.get("pid")
+        line = "{}: holder={} pid={} note={}".format(base, d.get("holder"), pid, d.get("note", ""))
+        if pid is None:
+            conflicts.append(line + " -- no pid, cannot be shown stale")
+        elif _alive(pid):
+            conflicts.append(line)
+        else:
+            stale.append(line + " -- pid is dead, treating as stale")
+    return conflicts, stale
+
+
+def conflicts(leases, card, host):
+    return scan(leases, card, host)[0]
 
 
 def main():
     leases, card = sys.argv[1], sys.argv[2]
     host = sys.argv[3] if len(sys.argv) > 3 else os.uname().nodename
-    for line in conflicts(leases, card, host):
+    bad, stale = scan(leases, card, host)
+    for line in stale:
+        print(line, file=sys.stderr)
+    for line in bad:
         print(line)
 
 
