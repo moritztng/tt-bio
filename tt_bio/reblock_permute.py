@@ -583,6 +583,22 @@ def set_enabled_back(on: bool) -> bool:
     return prev
 
 
+#: Smallest `N` the back kernel is offered a DRAM destination at.
+#:
+#: 256 because the class this kernel was written for is the trimul's DRAM chunk at 512 aa and up,
+#: and nothing below that had been measured when the window was drawn. `perf/bcx_bwbytes/probe.py`
+#: has since measured it at the shape the AF2 trunk backward actually hands it -- [1, 64, 224, 224]
+#: and [1, 128, 224, 224], bf16, TILE, DRAM to DRAM, 9 reps on qb1 card 2 -- where it is
+#: `torch.equal` to `ttnn.permute` and 5.16x / 6.16x faster on min ms. So the floor is a window
+#: nobody re-drew, not a kernel limit, and BC2's own bucket (211 aa -> 224) sits one bucket under
+#: it.
+#:
+#: An override rather than an edit, because moving a DEFAULT needs a round and not an op: 5x on
+#: 1.073 GB of a 39.394 GB block backward is worth about 2 % of a round, which is inside the
+#: noise of a loaded box. `perf/bcx_bwbytes/round_ab.py --back-n-min 224` is what measures it.
+BACK_N_MIN = int(os.environ.get("TT_BIO_REBLOCK_BACK_N_MIN", "256"))
+
+
 def eligible_back(x, memory_config) -> bool:
     """The gate for the back direction.
 
@@ -614,7 +630,7 @@ def eligible_back(x, memory_config) -> bool:
         return _reject("back_sharded_out", shape)
     if x.memory_config().memory_layout != ttnn.TensorMemoryLayout.INTERLEAVED:
         return _reject("back_sharded_in", shape)
-    if memory_config.buffer_type != ttnn.BufferType.DRAM or N < 256:
+    if memory_config.buffer_type != ttnn.BufferType.DRAM or N < BACK_N_MIN:
         return _reject(f"back_window_{memory_config.buffer_type}", shape)
     # An L1 SOURCE is the channel loop's L1 path, where this kernel replaces a permute into L1
     # plus a clone to DRAM. It carries the forward kernel's L1 floor rather than the DRAM one:

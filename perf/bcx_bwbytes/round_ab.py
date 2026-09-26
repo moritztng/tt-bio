@@ -61,16 +61,30 @@ def arm_of(r):
     return r > 2 and r % 2 == 0
 
 
-def install_levers(rows_on, precision, moreh):
+def _dt(t):
+    return str(t.dtype).split(".")[-1]
+
+
+def install_levers(rows_on, precision, moreh, back_n_min=256):
     """Wire both levers to `ARM` and count every decision they take.
 
     A count that only ever goes up on one arm proves nothing -- the control has to MOVE it -- so
     both the served and the declined side are counted, and the summary reports both arms.
+
+    **Every count here is taken on the lever's EFFECT, never on its input.** The 04:04Z session
+    lost its verdict to exactly that distinction: the softmax arm was counted as
+    `softmax_bw:{arm}:{y.dtype}` read BEFORE the call, and `SOFTMAX_BW_DTYPE="bf16"` narrows y
+    INSIDE it, so the two arms could not differ whatever the lever did. The guard then raised
+    "wired but inert" on a counter that was structurally incapable of separating, and 380 s of
+    card time reported nothing. The authoritative counters were in the same process the whole
+    time and unread: `autograd.SOFTMAX_BW_DTYPE_STATS` counts the narrows and the moreh calls,
+    and `reblock_permute.REJECTS` says why a declined gate declined.
     """
     from tt_bio import autograd as ag, reblock_permute as R, taped_ttnn as T
 
     real_back, real_fwd = R.reblock_permute_back, R.reblock_permute
     real_tree, real_use = ag._pairwise_sum0, ag._use_tree
+    real_pvr = R.permute_via_reblock
 
     def back(x, mc=None, device=None):
         COUNT[f"reblock_back:{'on' if ARM['on'] else 'off'}"] += 1
@@ -79,6 +93,24 @@ def install_levers(rows_on, precision, moreh):
     def fwd(x, mc=None, device=None):
         COUNT[f"reblock_fwd:{'on' if ARM['on'] else 'off'}"] += 1
         return real_fwd(x, mc, device)
+
+    def pvr(x, dims, memory_config=None):
+        """The permute backward's entry point, counted at the ASK as well as at the service.
+
+        `reblock_back:on == 0` has two readings that matter differently: the tape never asked
+        for the move, or it asked and the gate said no. The first is a wiring bug in this
+        harness, the second is a RESULT about `eligible_back`'s window. Only a count taken here
+        separates them, and the reject reason names the clause that declined.
+        """
+        arm = "on" if ARM["on"] else "off"
+        COUNT[f"pvr_ask:{arm}:{'.'.join(str(int(v)) for v in dims)}"] += 1
+        before = dict(R.REJECTS)
+        out = real_pvr(x, dims, memory_config)
+        for k, v in R.REJECTS.items():
+            d = v - before.get(k, 0)
+            if d:
+                COUNT[f"pvr_reject:{arm}:{k[0]}:{'x'.join(str(s) for s in k[1])}"] += d
+        return out
 
     def tree(t):
         COUNT[f"tree:{'on' if ARM['on'] else 'off'}"] += 1
@@ -91,19 +123,27 @@ def install_levers(rows_on, precision, moreh):
         return ok
 
     R.reblock_permute_back, R.reblock_permute = back, fwd
+    R.permute_via_reblock = pvr
     ag._pairwise_sum0, ag._use_tree = tree, use
 
     real_dx = ag.softmax_bw_dx
+    stats = ag.SOFTMAX_BW_DTYPE_STATS
 
     def dx(y, g, dim=-1, config=None):
-        COUNT[f"softmax_bw:{'on' if ARM['on'] else 'off'}:"
-              f"{str(y.dtype).split('.')[-1]}"] += 1
-        return real_dx(y, g, dim=dim, config=config)
+        arm = "on" if ARM["on"] else "off"
+        COUNT[f"softmax_bw_in:{arm}:{_dt(y)}"] += 1
+        n0, m0 = stats["narrowed_y"], stats["moreh"]
+        out = real_dx(y, g, dim=dim, config=config)
+        COUNT[f"softmax_bw:{arm}:{_dt(out)}"] += 1
+        COUNT[f"softmax_bw_narrowed:{arm}"] += stats["narrowed_y"] - n0
+        COUNT[f"softmax_bw_moreh:{arm}"] += stats["moreh"] - m0
+        return out
 
     ag.softmax_bw_dx = dx
 
     def apply():
         T.PERMUTE_BW_REBLOCK = ARM["on"]
+        R.BACK_N_MIN = back_n_min if ARM["on"] else 256
         ag.LEADING_SUM_TREE_ROWS = rows_on if ARM["on"] else 1 << 30
         ag.SOFTMAX_BW_DTYPE = "bf16" if (ARM["on"] and precision) else "keep"
         ag.SOFTMAX_BW_ROUTE = "moreh" if (ARM["on"] and moreh) else "chain"
@@ -111,7 +151,7 @@ def install_levers(rows_on, precision, moreh):
     return apply
 
 
-def check_fired(count, rows, precision):
+def check_fired(count, rows, precision, moreh=False):
     """Refuse to report a round the levers did not actually reach. Returns (served, off).
 
     Extracted from `main` so it can be tested without a card, which matters more here than
@@ -128,15 +168,30 @@ def check_fired(count, rows, precision):
     off = count["reblock_back:off"] + count["reblock_fwd:off"] + count["tree:off"]
     if precision:
         # The precision arm fires in a DTYPE, not in a call count, so the control it needs is
-        # that the softmax backward ran in a different dtype on the two arms. Counting calls
-        # would read identically either way, which is exactly how an inert lever passes.
+        # that the softmax backward RETURNED a different dtype on the two arms. `softmax_bw:`
+        # is the dtype of the value the call produced; `softmax_bw_in:` is the dtype it was
+        # handed, which is the same on both arms by construction and is kept only so the two
+        # can be told apart in the artifact.
         dts = {k: v for k, v in count.items() if k.startswith("softmax_bw:")}
         on_dt = {k.split(":")[-1] for k in dts if ":on:" in k}
         off_dt = {k.split(":")[-1] for k in dts if ":off:" in k}
         if on_dt and off_dt and on_dt == off_dt:
             raise RuntimeError(f"the precision arm did not change the softmax backward's dtype: "
                                f"{dts} -- the lever is wired but inert")
+        if dts and not count["softmax_bw_narrowed:on"]:
+            raise RuntimeError("the ON arm returned bf16 without narrowing anything: "
+                               "SOFTMAX_BW_DTYPE did not reach the call")
+        if count["softmax_bw_narrowed:off"]:
+            raise RuntimeError(f"the OFF arm narrowed {count['softmax_bw_narrowed:off']} "
+                               f"operands: the arm does not separate")
         served += sum(v for k, v in dts.items() if ":on:" in k)
+    if moreh:
+        if not count["softmax_bw_moreh:on"]:
+            raise RuntimeError("SOFTMAX_BW_ROUTE=moreh served no call on the ON arm: the route "
+                               "is wired and inert")
+        if count["softmax_bw_moreh:off"]:
+            raise RuntimeError(f"the OFF arm took the moreh route "
+                               f"{count['softmax_bw_moreh:off']} times: the arm does not separate")
     if any(r["levers_on"] is True for r in rows if r["round"] > 2) and served == 0:
         raise RuntimeError(f"ON rounds ran and served nothing: {dict(count)} -- the lever is "
                            f"inert at this n, which is a RESULT, not a measurement of the round")
@@ -262,6 +317,10 @@ def main():
     ap.add_argument("--precision", action="store_true",
                     help="the ON arm also takes the two precision levers; they move the gradient "
                          "and are graded as a stack against float64 before they count")
+    ap.add_argument("--back-n-min", type=int, default=256,
+                    help="reblock_permute.BACK_N_MIN on the ON arm. The shipped 256 declines "
+                         "BC2's own bucket (224), where probe.py measures the kernel bit-equal "
+                         "to ttnn.permute and 5.16x/6.16x faster. 224 exercises it.")
     ap.add_argument("--tree-rows", type=int, default=256,
                     help="LEADING_SUM_TREE_ROWS in the ON arm; set from perf/bcx_bwbytes/probe.py")
     ap.add_argument("--params", default="/home/ttuser/bcx_e2e/af2_params")
@@ -289,7 +348,8 @@ def main():
     stamp = {"host": os.uname().nodename, "card": os.environ.get("TT_VISIBLE_DEVICES"),
              "pci": M.CLOCK.pci, "sysfs": M.CLOCK.path, "commit": git_head(),
              "seed": args.seed, "rounds_requested": args.rounds,
-             "tree_rows_on": args.tree_rows, "precision_arm": args.precision,
+             "tree_rows_on": args.tree_rows, "back_n_min_on": args.back_n_min,
+             "precision_arm": args.precision,
              "moreh_arm": args.moreh,
              "extra_msa_on_device": not args.no_extra_msa,
              "omp": os.environ.get("OMP_NUM_THREADS"),
@@ -302,7 +362,7 @@ def main():
     import splice
     from splice import EvoformerOnDevice, ExtraMsaOnDevice, evoformer_on_device
 
-    apply = install_levers(args.tree_rows, args.precision, args.moreh)
+    apply = install_levers(args.tree_rows, args.precision, args.moreh, args.back_n_min)
     mt = ABMeter(args.rounds, apply)
     M.install(mt, splice, T.TTBioAlphaFoldDesignModel, trajectory, seqopt)
     for cls, tag in ((EvoformerOnDevice, "evo"), (ExtraMsaOnDevice, "extra")):
@@ -348,7 +408,7 @@ def main():
     blob = {"stamp": stamp, "rounds": rows, "summary": summary}
     pathlib.Path(project, "round_ab.json").write_text(json.dumps(blob, indent=1))
     print(json.dumps({"summary": summary, "lever_counts": dict(COUNT)}, indent=1), flush=True)
-    served, off = check_fired(COUNT, rows, args.precision)
+    served, off = check_fired(COUNT, rows, args.precision, args.moreh)
     print(f"served {served} lever calls on the ON arm, {off} on the OFF arm", flush=True)
 
 

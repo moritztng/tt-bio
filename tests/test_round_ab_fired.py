@@ -53,9 +53,13 @@ def test_precision_arm_with_the_same_dtype_on_both_arms_raises():
 
 
 def test_precision_arm_that_moved_the_dtype_passes():
+    """`softmax_bw:` is the dtype the call RETURNED and `softmax_bw_narrowed:` is the count of
+    operands the lever actually cast. Both are required: a returned dtype that moved without a
+    narrow means something other than `SOFTMAX_BW_DTYPE` moved it."""
     import round_ab
     served, off = round_ab.check_fired(
-        C(**{"softmax_bw:on:bfloat16": 40, "softmax_bw:off:float32": 40}),
+        C(**{"softmax_bw:on:bfloat16": 40, "softmax_bw:off:float32": 40,
+             "softmax_bw_narrowed:on": 40}),
         rows(False, True), precision=True)
     assert served == 40 and off == 0
 
