@@ -1,0 +1,23 @@
+--- /tmp/autograd.py.bak	2026-09-26 21:23:19.468708501 +0000
++++ tt_bio/autograd.py	2026-09-26 21:23:19.469916864 +0000
+@@ -1331,7 +1331,7 @@
+             # `x.value`, not a captured handle: `Tensor.free` may have evicted this to
+             # DRAM since the forward, and the captured handle would be freed storage.
+             xv = x.value
+-            mean = ttnn.mean(xv, dim=-1, keepdim=True)
++            mean = ttnn.mean(xv, dim=-1, keepdim=True, compute_kernel_config=bwcfg)
+             centered = ttnn.subtract(xv, mean)
+             var = ttnn.mean(ttnn.multiply(centered, centered), dim=-1, keepdim=True,
+                             compute_kernel_config=bwcfg)
+@@ -1344,8 +1344,9 @@
+             if x.requires_grad:
+                 dnorm = ttnn.multiply(g, gamma.value) if gamma is not None else g
+                 # dx = (dnorm - mean(dnorm) - norm * mean(dnorm * norm)) * rstd
+-                dn_mean = ttnn.mean(dnorm, dim=-1, keepdim=True)
+-                dn_norm_mean = ttnn.mean(ttnn.multiply(dnorm, norm), dim=-1, keepdim=True)
++                dn_mean = ttnn.mean(dnorm, dim=-1, keepdim=True, compute_kernel_config=bwcfg)
++                dn_norm_mean = ttnn.mean(ttnn.multiply(dnorm, norm), dim=-1, keepdim=True,
++                                              compute_kernel_config=bwcfg)
+                 dx = ttnn.subtract(ttnn.subtract(dnorm, dn_mean),
+                                    ttnn.multiply(norm, dn_norm_mean))
+                 x.add_grad(ttnn.multiply(dx, rstd))
