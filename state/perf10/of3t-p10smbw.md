@@ -1,7 +1,7 @@
 # of3t-p10smbw — the bf16 softmax backward: correct, and what it costs
 
 VERDICT: PARTIAL
-RESULT: **The softmax gradient is fixed and the fix is free.** `dx` relative L2 against a float64
+RESULT: **The softmax gradient is fixed, the fix is free, and it is inert on inference.** `dx` relative L2 against a float64
 reference goes **2.201e-02 -> 9.086e-04** fp32 and **2.391e-02 -> 2.948e-03** bf16 at TriAtt's
 K=64, **24.2x** and **8.1x**, and all three softmax sites flip **BIAS to NOISE**: the -9.29e-03
 systematic undershoot at 64 sigma reads -5.28e-04. On the step, measured as an A/B on ONE card at
@@ -102,19 +102,67 @@ REJECTED:
 - **`ttnn.moreh_softmax_backward`.** Not touched. It is off by default and it computes the same
   expression; it would inherit the same bad `y`, so it is orthogonal to this defect.
 
-ABPROOF: **owed, and the brief's version of it cannot be read as written.** The brief asks for
-"healed means 7ohe lands near 10.76, not 18.92". `of3t-p10trainout` withdrew that attribution
-itself: the metric is **bimodal**, ten device-native runs at one seed split 6 blown / 3 fine / 1
-mixed on 7ohe, and the softmax-exact arm that read 10.766779 was **N=1** and lands inside a range
-the unfixed arm covers on its own. A single run of either arm measures a coin. So the A/B has to be
-graded on the **rate** of the blown mode over replicates, not on one number, and that is the next
-pass: `~/of3t_p10trainout/corpus/train12` and `~/of3-weights/of3-p2-155k.pt` are both on qb2, a
-device-native arm is 115 s, and `perf/of3t_p10trainout/trainarm.py` needs merging from
-`origin/wk/of3t-p10trainout` into this branch with a runner rooted in this worktree (that row's
-worktree is gone). Target n=8 per arm, which is ~16 min of card each side.
+ABPROOF: **the arms separate on 7ohe and not on 7vus, and at n=4 an arm the rate is not yet
+separable from chance.** The brief's form of this test ("healed means 7ohe lands near 10.76, not
+18.92") cannot be read off one run: `of3t-p10trainout` withdrew that attribution itself, because
+the metric is bimodal (7ohe takes ~10.8 or ~18.9 with nothing between) and ten device-native runs
+at one seed split 6 blown / 3 fine / 1 mixed. So the arms are graded on the **rate** of the blown
+mode. They alternate on qb2 card 1 at one sha so both share host load and card state, and
+`perf/of3t_p10smbw/setarm.py` moves the lever anchored to `_softmax_fw_config` (the same return
+line appears in the taped matmul, where it is the backward config and nothing to do with this A/B;
+a plain `sed` patches both and the base arm then measures two levers). Every artifact carries a
+`.variant` beside it and the table is rendered from the artifacts by `abread.py --table`, never
+typed. Run in progress, 10 pairs requested:
 
-Nothing about the two-step A/B changes the op-level result: 24.2x against a float64 reference on
-32 draws, with a control that reproduces the shipped number on the same tree, is not a coin.
+| run | arm | before | after | 7ohe | 7vus | 7kud | 7fb8 | modes |
+|---|---|---|---|---|---|---|---|---|
+| smbw_base1 | base | 6.802440 | 9.618441 | 18.869030 | 5.643514 | 9.248463 | 4.712759 | 7ohe:blown 7vus:blown |
+| smbw_base2 | base | 6.802440 | 9.612722 | 18.824888 | 5.638009 | 9.272110 | 4.715882 | 7ohe:blown 7vus:blown |
+| smbw_base3 | base | 6.802440 | 9.622585 | 18.908656 | 5.635031 | 9.234158 | 4.712495 | 7ohe:blown 7vus:blown |
+| smbw_base4 | base | 6.802440 | 6.806623 | 10.812021 | 2.466903 | 9.229032 | 4.718537 | 7ohe:fine 7vus:fine |
+| smbw_fix1 | fix | 6.802440 | 9.606319 | 18.831166 | 5.642102 | 9.239448 | 4.712561 | 7ohe:blown 7vus:blown |
+| smbw_fix2 | fix | 6.802440 | 7.599429 | 10.791271 | 5.642636 | 9.245747 | 4.718064 | 7ohe:fine 7vus:blown |
+| smbw_fix3 | fix | 6.802440 | 7.610049 | 10.847843 | 5.635811 | 9.237721 | 4.718821 | 7ohe:fine 7vus:blown |
+| smbw_fix4 | fix | 6.802440 | 9.605057 | 18.814032 | 5.639824 | 9.248097 | 4.718274 | 7ohe:blown 7vus:blown |
+
+| arm | n | 7ohe blown | 7vus blown | blown-both | fine-both | mixed |
+|---|---|---|---|---|---|---|
+| fix | 4 | 2 | 4 | 2 | 0 | 2 |
+| base | 4 | 3 | 3 | 3 | 1 | 0 |
+
+**2 of 4 against 3 of 4 is not a result.** Fisher's exact on that table is p = 1.0, and the first
+three pairs read 1 of 3 against 3 of 3, which looked like a finding and was not one. This is the
+same trap `of3t-p10trainout` documented and then walked into twice, and it is why the chain asks
+for 10 pairs. Reported at the n it has rather than held back, because the direction and the shape
+of the evidence are both useful now: **the fix arm never reaches fine on 7vus (0 of 4) and the
+base arm does (1 of 4)**, which is consistent with 7vus being layer norm's, not softmax's, and is
+`of3t-p10lnbw`'s to settle.
+
+**What the A/B does prove, at n=8, bit for bit: the lever cannot reach inference.**
+`eval_before` is **6.802440251358** on every run of both arms, per target as well as in the mean
+(7kud 9.277909, 7ohe 10.762624, 7fb8 4.717251, 7vus 2.451977), which is the value
+`of3t-p10trainout` records for the start checkpoint. That evaluation is the shipped inference path
+under `no_grad`, and it runs inside the same process that carries the lever. So the
+`is_grad_enabled` gate holds end to end in the real pipeline, not just in the unit test. Its
+instrument also refuses the arm comparison outright if the two `eval_before` values differ, so
+this is a checked precondition rather than an observation.
+
+Remaining: the other six pairs, in flight. `perf/of3t_p10smbw/abarms.sh 10`, ~126 s a run, log
+`/tmp/of3t/of3t-p10smbw/ab/chain.log`, artifacts land one at a time in `perf/of3t_p10smbw/ab/`.
+
+## Every taped softmax forward is now precise, and that is the whole set
+
+Three sites construct a softmax under a tape. Two were already right and the audit is what says so:
+
+| site | before | now |
+|---|---|---|
+| `autograd.softmax:1360` | `precise_config()` | unchanged |
+| `autograd.triangle_attention._scores:2107` | `cfg = config or precise_config()` | unchanged |
+| `taped_ttnn._v_softmax` | no config at all | `precise_config()` under a tape |
+
+The third is the one the trunk actually reaches, because `tenstorrent.py:4312` calls
+`ttnn.softmax_in_place` and the training shim intercepts it. The other two are the `ops`-level
+entry points, which OpenFold3's trunk does not take.
 
 ## Two things fixed on the way that are not this row's lever
 

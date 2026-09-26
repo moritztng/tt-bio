@@ -1,0 +1,35 @@
+{
+  "argv": [
+    "--corpus",
+    "/home/ttuser/of3t_p10trainout/corpus/train12",
+    "--checkpoint",
+    "/home/ttuser/of3-weights/of3-p2-155k.pt",
+    "--exact",
+    "off",
+    "--steps",
+    "2",
+    "--seed",
+    "0",
+    "--checkpoint-every",
+    "9",
+    "--displacement-band",
+    "0.01,100",
+    "--eval-corpus",
+    "/home/ttuser/of3t_p10trainout/corpus/val",
+    "--out-dir",
+    "/home/ttuser/of3t_p10trainout/runs/smbw_base5",
+    "--curve",
+    "/home/ttuser/of3t_p10trainout/runs/smbw_base5.jsonl",
+    "--out",
+    "/home/ttuser/.coworker/wt/of3t-p10smbw/perf/of3t_p10smbw/ab/arm_smbw_base5.json"
+  ],
+  "started": "2026-09-26T22:55:52Z",
+  "precondition_slot_fix": {
+    "commit": "ce0f78d60",
+    "is_ancestor_of_head": true,
+    "head": "b6ac4971ca755a6bccda5ecacbf5f158b795a69d",
+    "head_short": "b6ac4971c",
+    "dirty": true
+  },
+  "steps": []
+}
