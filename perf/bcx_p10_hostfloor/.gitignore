@@ -1,0 +1,6 @@
+out/xlacache/
+out/*.log
+out/*/1_Trajectories/
+out/*/.campaign_state.json
+out/*/trace/
+out/*/hlo/
