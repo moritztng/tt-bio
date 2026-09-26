@@ -1,0 +1,9 @@
+perf/land_standing/bc288run.sh: line 26: 1988737 Aborted                 (core dumped) env TT_VISIBLE_DEVICES=$CARD TT_BIO_LEASE_CARDS=$CARD TT_BIO_LEASE_HOLDER=worker:land-standing PYTHONPATH="$WT:$BC2:$WT/perf/land_standing" TT_STOCK_STATS_DUMP="$dump" TT_BIO_TRIATT_DIVIDING_K="$dk" "$PY" -m pytest -v -p no:cacheprovider -p ttstats_plugin -s tests/test_bindcraft2_hw.py > "$OUT/log_$tag.txt" 2>&1
+ARM on dividing_k=1 rc=134 secs=252
+Fatal Python error: Aborted
+/home/ttuser/.coworker/wt/land-standing/tt_bio/tenstorrent.pypthread_mutex_unlock failed for mutex CHIP_IN_USE_3_PCIe errno: 1
+perf/land_standing/bc288run.sh: line 26: 1992606 Aborted                 (core dumped) env TT_VISIBLE_DEVICES=$CARD TT_BIO_LEASE_CARDS=$CARD TT_BIO_LEASE_HOLDER=worker:land-standing PYTHONPATH="$WT:$BC2:$WT/perf/land_standing" TT_STOCK_STATS_DUMP="$dump" TT_BIO_TRIATT_DIVIDING_K="$dk" "$PY" -m pytest -v -p no:cacheprovider -p ttstats_plugin -s tests/test_bindcraft2_hw.py > "$OUT/log_$tag.txt" 2>&1
+ARM off dividing_k=0 rc=134 secs=303
+PASSEDFatal Python error: terminate called after throwing an instance of 'std::runtime_error'
+  File pthread_mutex_unlock failed for mutex CHIP_IN_USE_3_PCIe errno: 1
+BC288_DONE
