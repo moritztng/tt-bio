@@ -88,14 +88,22 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--card", type=int, default=int(os.environ.get("TT_VISIBLE_DEVICES", "0")))
     ap.add_argument("--reps", type=int, default=40)
+    ap.add_argument("--min-window", dest="min_window", type=float, default=3.0,
+                    help="keep repeating until the arm has been on the card this long. A "
+                         "0.87 ms call 40 times is a 35 ms window and the AICLK sampler, "
+                         "which ticks once a second, lands NO sample inside it -- a number "
+                         "with an empty clock is not a measurement on this box")
     ap.add_argument("--seed", type=int, default=0)
     ap.add_argument("--out", default="residual.json")
     args = ap.parse_args()
 
     import ttnn
     from perf.bcx_stack import stack as S
+    from tt_bio import tenstorrent as tn
     clock = S.Clock()
-    dev = ttnn.open_device(device_id=0)
+    # `tt_bio.get_device`, not `ttnn.open_device`: it takes the lease, pins the card and
+    # installs the p300 mesh descriptor an ad-hoc script otherwise TT_FATALs without.
+    dev = tn.get_device()
     A = arms(ttnn)
     blob = {"card": args.card, "reps": args.reps, "seed": args.seed, "shapes": {},
             "pci": S.sysfs_node()[1], "host": os.uname().nodename,
@@ -120,7 +128,8 @@ def main():
                     ttnn.deallocate(fn(x, u))
                 ttnn.synchronize_device(dev)
                 walls, spans, out = [], [], None
-                for rep in range(args.reps):
+                start = time.perf_counter()
+                while len(walls) < args.reps or time.perf_counter() - start < args.min_window:
                     if out is not None:
                         ttnn.deallocate(out)
                     t0 = time.perf_counter()
@@ -128,12 +137,17 @@ def main():
                     ttnn.synchronize_device(dev)
                     t1 = time.perf_counter()
                     walls.append(t1 - t0)
-                    spans.append((t0, t1))
+                    # `Clock` stamps its samples with `time.time()`, so a span built from
+                    # `perf_counter` matches nothing and every window comes back empty.
+                    spans.append(time.time())
                 got = ttnn.to_torch(out).float()
                 ttnn.deallocate(out)
                 err = (got.double() - ref)
                 rows[name] = {
-                    "s": S.dist(walls), "aiclk": clock.window(spans),
+                    "s": S.dist(walls), "reps": len(walls),
+                    # One window over the whole arm, not one per call: the clock ticks at 1 Hz
+                    # and every individual call here is under a millisecond.
+                    "aiclk": clock.window([(spans[0], spans[-1])]),
                     "loadavg": os.getloadavg()[0],
                     "GB_per_call": bytes_moved(shape, name) / 1e9,
                     "exact_vs_f64": bool(torch.equal(got.bfloat16().double(),
@@ -144,6 +158,7 @@ def main():
                 rows[name]["_t"] = got
                 print(json.dumps({"shape": label, "arm": name,
                                   "median_ms": round(rows[name]["s"]["median"] * 1e3, 4),
+                                  "reps": rows[name]["reps"],
                                   "GB": round(rows[name]["GB_per_call"], 4),
                                   "n_wrong": rows[name]["n_wrong"],
                                   "aiclk": rows[name]["aiclk"]}), flush=True)
@@ -169,7 +184,6 @@ def main():
         OUT.mkdir(parents=True, exist_ok=True)
         (OUT / args.out).write_text(json.dumps(blob, indent=1, default=str))
         print(f"wrote {OUT / args.out}", flush=True)
-        ttnn.close_device(dev)
 
 
 if __name__ == "__main__":
