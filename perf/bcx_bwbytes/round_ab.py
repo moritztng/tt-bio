@@ -186,7 +186,10 @@ def analyse(events, clock_samples):
         evo, extra = dev("evo:"), dev("extra:")
         bwd = sum(e["dt"] for e in events if e["kind"] == "device"
                   and e["phase"].endswith(":backward") and s0 <= e["t0"] and e["t1"] <= s1)
-        clk = sorted(c for t, c in clock_samples if s0 <= t <= s1)
+        # meter.Clock samples are (t, aiclk, load1) triples -- see meter.Clock.window(), which
+        # unpacks three. Unpacking two here passed its unit test (the fixture built its own
+        # 2-tuples) and threw ValueError after 28 measured rounds, losing the whole card session.
+        clk = sorted(c for t, c, _l in clock_samples if s0 <= t <= s1)
         rows.append({"round": r, "levers_on": arms.get(r), "round_wall": round(t1 - t0, 3),
                      "sequence_gradients_s": round(s1 - s0, 3),
                      "device_evoformer_s": round(evo, 3), "device_extra_msa_s": round(extra, 3),

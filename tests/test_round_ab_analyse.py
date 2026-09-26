@@ -28,7 +28,9 @@ def _events(arms_by_round, sg_by_round, evo_by_round, extra=0.3):
                    "t1": s0 + 0.02 + extra, "dt": extra, "round": r})
         t = s1 + 0.2
     ev.append({"kind": "round_stop", "phase": "round", "t0": t, "round": max(arms_by_round) + 1})
-    return ev, [(t0, 1350) for t0 in (1000.5, 1001.0)]
+    # (t, aiclk, load1) -- the shape meter.Clock actually appends. It was (t, aiclk) here, a
+    # fixture shape the producer never emits, so the test passed on code that could not run.
+    return ev, [(t0, 1350, 4.0) for t0 in (1000.5, 1001.0)]
 
 
 def _six_rounds(on_sg, off_sg, on_evo, off_evo):
@@ -70,3 +72,22 @@ def test_a_round_with_no_arm_marker_does_not_skew_separation():
     assert summary["off"]["n"] == 2, "a marker-less round must not count as OFF"
     assert summary["device_evo_separated"] is True, (
         "the 0.5 s marker-less round must not be read as an OFF round and break separation")
+
+
+def test_fixture_clock_shape_matches_the_real_producer():
+    """The 09-26 03:44 loss: `analyse` unpacked 2-tuples, `meter.Clock` appends 3-tuples, and the
+    fixture above agreed with the analyser instead of with the producer. Pin them to each other so
+    a future change to either side fails here rather than after 28 measured rounds."""
+    import inspect
+
+    sys.path.insert(0, "perf/bcx_round")
+    import meter
+
+    src = inspect.getsource(meter.Clock)
+    assert "self.samples.append((time.time()" in src
+    appended = src.split("self.samples.append((", 1)[1].split("))", 1)[0]
+    assert appended.count(chr(44)) + 1 == 3, "meter.Clock no longer appends 3-tuples"
+
+    _ev, clk = _six_rounds([10.0, 10.2, 10.1], [11.0, 11.2, 11.1],
+                           [7.0, 7.1, 7.05], [8.0, 8.1, 8.05])
+    assert all(len(s) == 3 for s in clk)
