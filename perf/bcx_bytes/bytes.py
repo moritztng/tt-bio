@@ -789,8 +789,9 @@ def main():
     ap.add_argument("--report", default="/dev/shm/bcx-rc-out/ops_perf_results_n256.csv")
     ap.add_argument("--threads", type=int, default=8)
     ap.add_argument("--levers", default="off", choices=["off", "on"],
-                    help="bcx-bwbytes' two byte levers: the reblock permute backward and the "
-                         "pairwise leading sum. `off` reproduces the tree this branch forked from")
+                    help="bcx-bwbytes' levers; `off` reproduces the tree this branch forked "
+                         "from. Four of the five are already on main under other names -- only "
+                         "the bf16 softmax backward is new (perf/bcx_bwbytes/DISPOSITION.md)")
     ap.add_argument("--tree-rows", type=int, default=256)
     ap.add_argument("--moreh", action="store_true",
                     help="with --levers on, route the softmax backward through the wheel's "

@@ -21,7 +21,7 @@ tree: over ten timed rounds the round wall has CV 5.80 % while the card's own Ev
 have CV 3.27 %, and the lever reaches 9.1 % of the device time against 7.1 % of the round. At
 80 % power and 5 % two-sided that is **13 reps per arm on the wall and 3 on the device metric**.
 A twelve-round A/B -- five per arm, which is what every earlier row on this campaign ran -- cannot
-resolve the predicted 1.071x on the wall, and would report "no separation" for a lever that is
+resolve the predicted 1.060x on the wall, and would report "no separation" for a lever that is
 working. bcx-tmplseam demonstrated exactly that empirically: p = 0.40 on a 0.4 s effect. So
 `--rounds` defaults to 28, both metrics are reported, and the device one leads.
 """
@@ -207,7 +207,7 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--rounds", type=int, default=28,
                     help="13 reps per arm plus two warm-up rounds: what the round wall needs to "
-                         "resolve the predicted 1.071x at 80 %% power (perf/bcx_bwbytes/power.py). "
+                         "resolve the predicted 1.060x at 80 %% power (perf/bcx_bwbytes/power.py). "
                          "The device metric needs 3 per arm, so a short run still answers the "
                          "device question and only the wall goes unresolved")
     ap.add_argument("--seed", type=int, default=100)

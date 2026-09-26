@@ -23,8 +23,8 @@ With `SOFTMAX_BW_RENORM` on, which it has been since 2026-09-21:
 
 A single kernel reads y, reads g and writes dx: **3 passes**, or 1.5 fp32-equivalents at bf16, and
 it pays no narrowing cast because the narrowing happens inside. So the bucket falls to about 15 %
-of itself, which is 5.8 GB per Evoformer block at n=224 and the difference between 1.071x and
-1.198x on a real BC2 round.
+of itself, which is 5.8 GB per Evoformer block at n=224 and the difference between 1.060x and
+1.185x on a real BC2 round.
 
 The zero-build floor under that job already exists and is `SOFTMAX_BW_ROUTE="moreh"`
 (`tt_bio/autograd.py`): `ttnn.moreh_softmax_backward` is bound in the `ttnn==0.68.0` wheel, and
