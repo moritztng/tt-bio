@@ -88,8 +88,14 @@ def main() -> int:
         # tensors in the same process.
         opts = {"old": old_mod.AdamW(params, lr=3e-4),
                 "new": new_mod.AdamW(params, lr=3e-4)}
+        # old, old, new, new per round. The repeated arm is a LIVE A/A FLOOR: this box
+        # carries other tenants and `host_quiet`'s loadavg1 ceiling of 2.0 is not reachable
+        # while they run, so the question "is old -> new bigger than this box's own noise
+        # right now" has to be answered by a control taken in the same minute, not by a
+        # quiet-host assumption. `of3t-PLAN.md` §5 prescribes exactly this when the box is
+        # busy.
         for rnd in range(a.rounds):
-            for arm in ("old", "new"):
+            for arm in ("old", "old", "new", "new"):
                 clk.append(aiclk(a.card))
                 t0 = time.perf_counter()
                 opts[arm].step()
@@ -105,10 +111,18 @@ def main() -> int:
     import statistics as st
     med = {arm: st.median([r["step_s"] for r in rows if r["arm"] == arm])
            for arm in ("old", "new")}
+    # The A/A floor: the spread between the two arms of the SAME optimizer inside a round.
+    aa = []
+    for rnd in range(a.rounds):
+        for arm in ("old", "new"):
+            pair = [r["step_s"] for r in rows if r["round"] == rnd and r["arm"] == arm]
+            if len(pair) == 2:
+                aa.append(abs(pair[0] - pair[1]))
     got = [c for c in clk if c]
     out = {"census": {"tensors": len(shapes), "elements": nel}, "rows": rows,
            "median_s": med, "delta_s": med["old"] - med["new"],
            "ratio": med["old"] / med["new"],
+           "aa_floor_s": {"max": max(aa), "median": st.median(aa), "n": len(aa)} if aa else None,
            "aiclk_during": {"min": min(got), "max": max(got),
                             "median": int(st.median(got)), "n": len(got)} if got else None,
            "mem_available_gib": round(
@@ -119,6 +133,9 @@ def main() -> int:
     a.out.write_text(json.dumps(out, indent=2))
     print(f"\nold {med['old']:.3f}s -> new {med['new']:.3f}s  "
           f"delta {out['delta_s']:+.3f}s  {out['ratio']:.4f}x")
+    if aa:
+        print(f"A/A floor (same optimizer, same round): max {max(aa):.3f}s "
+              f"median {st.median(aa):.3f}s over {len(aa)} pairs")
     print(f"AICLK during: {out['aiclk_during']}  MemAvailable "
           f"{out['mem_available_gib']} GiB  loadavg {out['loadavg'][0]}")
     print(f"wrote {a.out}")
