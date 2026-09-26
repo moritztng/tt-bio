@@ -1,0 +1,615 @@
+{
+ "doc": "A FULL OpenFold3 training step on the card, timed by part.",
+ "argv": [
+  "--tokens",
+  "384",
+  "--cycles",
+  "4",
+  "--samples",
+  "4",
+  "--reps",
+  "3",
+  "--out",
+  "perf/of3t_p10host/out/peak_old.json"
+ ],
+ "env": {
+  "host": "pc",
+  "tt_visible_devices": "0",
+  "renorm": null,
+  "commit": "a1c975a8b8951e4719b5e22649b55f328067f305",
+  "branch": "wk/of3t-p10host",
+  "started_utc": "2026-09-26T10:40:15Z",
+  "loadavg_start": [
+   1.32568359375,
+   1.38525390625,
+   1.80126953125
+  ],
+  "arch": "Arch.BLACKHOLE",
+  "aiclk_during": {
+   "0": {
+    "min": 800,
+    "max": 1350,
+    "median": 1350,
+    "n": 44
+   }
+  },
+  "aiclk_line": "CLOCK: dev0 min 800 / median 1350 / max 1350 MHz over 44 samples, polled DURING the work",
+  "loadavg_end": [
+   2.52783203125,
+   1.78564453125,
+   1.892578125
+  ]
+ },
+ "config": {
+  "crop": 384,
+  "batch": 1,
+  "cards": 1,
+  "cycles_pinned": 4,
+  "diffusion_samples": 4,
+  "stage": "initial_training",
+  "taped": true,
+  "cycles": 4
+ },
+ "build_fold_s": 4.12,
+ "prep_to_sampler_s": 7.03,
+ "capture": {
+  "trunk_inputs_snapshotted": true,
+  "trunk_inputs_dead_at_capture": 0,
+  "trunk_forward_s": 5.035,
+  "trunk_forward_note": "the shipped call, progress_fn INCLUDED and cold; the timed arms below drop it",
+  "trunk_cycles": 4,
+  "reached_sampler": true
+ },
+ "capture_reused_from_arm": null,
+ "params": {
+  "declared": 3152,
+  "slots": 3152,
+  "slots_unwritable": 0,
+  "elements": 381302188,
+  "per_root": {
+   "trunk": {
+    "found": 2531,
+    "walk_depth": 9,
+    "truncated": 8
+   },
+   "diffusion": {
+    "found": 891,
+    "walk_depth": 6,
+    "truncated": 0
+   }
+  },
+  "duplicate_handles_dropped": 270,
+  "pairformer_weights": 2256,
+  "diffusion_weights": 621
+ },
+ "loss_weights": {
+  "bond": 0.0,
+  "smooth_lddt": 4.0,
+  "mse": 4.0,
+  "distogram": 0.03,
+  "resolved": 0.0001,
+  "plddt": 0.0001,
+  "pae": 0.0001,
+  "pde": 0.0001
+ },
+ "optimizer": {
+  "class": "tt_bio.train.optim.AdamW",
+  "lr": 0.0003,
+  "clip_norm": 10.0,
+  "params": 3152
+ },
+ "renorm": {
+  "flag": true,
+  "stats_before": {
+   "applied": 0,
+   "declined": 0
+  },
+  "per_rep_plan": null,
+  "stats_after": {
+   "applied": 837,
+   "declined": 0
+  },
+  "applied_during_reps": 837,
+  "declined_during_reps": 0
+ },
+ "reps": [
+  {
+   "rep": 0,
+   "cold": true,
+   "renorm_flag": true,
+   "peak_reset": true,
+   "rss_gib": {
+    "rep_start": 6.35,
+    "after_trunk": 6.386,
+    "after_diffusion": 6.405,
+    "after_losses": 6.427,
+    "after_backward": 6.484,
+    "after_optimizer": 9.355
+   },
+   "mem_available_gib": {
+    "rep_start": 10.751,
+    "after_trunk": 11.376,
+    "after_diffusion": 11.354,
+    "after_losses": 11.328,
+    "after_backward": 11.271,
+    "after_optimizer": 7.832
+   },
+   "trunk_nograd_prefix_s": 3.417,
+   "trunk_taped_cycle_s": 4.21,
+   "trunk_s": 7.627,
+   "dram_after_trunk": 4309939200,
+   "diffusion_s": 1.338,
+   "diffusion": {
+    "coupled_to_trunk": true,
+    "sigmas": [
+     42.4209,
+     3306.9691,
+     881.7492,
+     3.0826
+    ],
+    "distinct_sigmas": 4,
+    "n_samples": 4,
+    "per_sample_s": [
+     1.052,
+     0.051,
+     0.049,
+     0.05
+    ],
+    "n_atom": 3092,
+    "n_token": 384,
+    "tokens_without_an_atom": 0,
+    "rep_atom_index": "first atom of each token, from atom_to_token_idx"
+   },
+   "dram_after_diffusion": 23727682560,
+   "losses_s": 2.0,
+   "losses": {
+    "shape": "per-root",
+    "rss_gib_at_entry": 6.405,
+    "mem_available_gib_at_entry": 11.354,
+    "terms": {
+     "bond": {
+      "weight": 0.0,
+      "skipped": "weight is zero in this stage",
+      "fired": false
+     },
+     "smooth_lddt": {
+      "weight": 4.0,
+      "skipped": null,
+      "fired": true
+     },
+     "mse": {
+      "weight": 4.0,
+      "skipped": null,
+      "fired": true
+     },
+     "distogram": {
+      "weight": 0.03,
+      "skipped": null,
+      "fired": true
+     },
+     "resolved": {
+      "weight": 0.0001,
+      "skipped": null,
+      "fired": true
+     },
+     "plddt": {
+      "weight": 0.0001,
+      "skipped": null,
+      "fired": true
+     },
+     "pae": {
+      "weight": 0.0001,
+      "skipped": null,
+      "fired": true
+     },
+     "pde": {
+      "weight": 0.0001,
+      "skipped": null,
+      "fired": true
+     }
+    },
+    "terms_fired": 7,
+    "scope": "token, one representative atom per token",
+    "download_s": 0.001,
+    "host_loss_s": 1.995,
+    "per_root_s": [
+     0.4778,
+     0.539,
+     0.4974,
+     0.4807
+    ],
+    "mem_trace_gib": [
+     {
+      "rss": 6.846,
+      "avail": 10.914
+     },
+     {
+      "rss": 6.848,
+      "avail": 10.911
+     },
+     {
+      "rss": 6.849,
+      "avail": 10.908
+     },
+     {
+      "rss": 6.849,
+      "avail": 10.907
+     }
+    ],
+    "rss_gib_at_exit": 6.849,
+    "mem_available_gib_at_exit": 10.907,
+    "value_claimed": false
+   },
+   "roots_taped": 4,
+   "seed_upload_s": 0.0,
+   "tape_nodes": 9897,
+   "backward_s": 22.068,
+   "params_with_grad": "2944 of 3152",
+   "backward_valid": true,
+   "dram_after_backward": 4574637056,
+   "rebind_moved": 3152,
+   "leaves_live_after_rebind": "3152 of 3152",
+   "optimizer_s": 4.765,
+   "optimizer_updated": 3152,
+   "writes_skipped": null,
+   "peak_rss_gib": 9.355,
+   "step_s": 37.798,
+   "renorm_applied": 279,
+   "renorm_declined": 0
+  },
+  {
+   "rep": 1,
+   "cold": false,
+   "renorm_flag": true,
+   "peak_reset": true,
+   "rss_gib": {
+    "rep_start": 9.355,
+    "after_trunk": 9.39,
+    "after_diffusion": 9.394,
+    "after_losses": 9.394,
+    "after_backward": 9.394,
+    "after_optimizer": 9.437
+   },
+   "mem_available_gib": {
+    "rep_start": 7.832,
+    "after_trunk": 8.049,
+    "after_diffusion": 8.354,
+    "after_losses": 8.322,
+    "after_backward": 8.569,
+    "after_optimizer": 8.533
+   },
+   "trunk_nograd_prefix_s": 3.461,
+   "trunk_taped_cycle_s": 3.979,
+   "trunk_s": 7.44,
+   "dram_after_trunk": 6415461376,
+   "diffusion_s": 0.41,
+   "diffusion": {
+    "coupled_to_trunk": true,
+    "sigmas": [
+     9.108,
+     0.1605,
+     0.013,
+     0.282
+    ],
+    "distinct_sigmas": 4,
+    "n_samples": 4,
+    "per_sample_s": [
+     0.256,
+     0.05,
+     0.049,
+     0.049
+    ],
+    "n_atom": 3092,
+    "n_token": 384,
+    "tokens_without_an_atom": 0,
+    "rep_atom_index": "first atom of each token, from atom_to_token_idx"
+   },
+   "dram_after_diffusion": 25024562176,
+   "losses_s": 6.104,
+   "losses": {
+    "shape": "per-root",
+    "rss_gib_at_entry": 9.394,
+    "mem_available_gib_at_entry": 8.362,
+    "terms": {
+     "bond": {
+      "weight": 0.0,
+      "skipped": "weight is zero in this stage",
+      "fired": false
+     },
+     "smooth_lddt": {
+      "weight": 4.0,
+      "skipped": null,
+      "fired": true
+     },
+     "mse": {
+      "weight": 4.0,
+      "skipped": null,
+      "fired": true
+     },
+     "distogram": {
+      "weight": 0.03,
+      "skipped": null,
+      "fired": true
+     },
+     "resolved": {
+      "weight": 0.0001,
+      "skipped": null,
+      "fired": true
+     },
+     "plddt": {
+      "weight": 0.0001,
+      "skipped": null,
+      "fired": true
+     },
+     "pae": {
+      "weight": 0.0001,
+      "skipped": null,
+      "fired": true
+     },
+     "pde": {
+      "weight": 0.0001,
+      "skipped": null,
+      "fired": true
+     }
+    },
+    "terms_fired": 7,
+    "scope": "token, one representative atom per token",
+    "download_s": 0.001,
+    "host_loss_s": 6.073,
+    "per_root_s": [
+     1.4088,
+     1.7181,
+     1.5086,
+     1.4371
+    ],
+    "mem_trace_gib": [
+     {
+      "rss": 9.816,
+      "avail": 8.13
+     },
+     {
+      "rss": 9.816,
+      "avail": 8.188
+     },
+     {
+      "rss": 9.816,
+      "avail": 8.189
+     },
+     {
+      "rss": 9.816,
+      "avail": 7.92
+     }
+    ],
+    "rss_gib_at_exit": 9.816,
+    "mem_available_gib_at_exit": 7.918,
+    "value_claimed": false
+   },
+   "roots_taped": 4,
+   "seed_upload_s": 0.003,
+   "tape_nodes": 9897,
+   "backward_s": 20.919,
+   "params_with_grad": "2674 of 3152",
+   "backward_valid": true,
+   "dram_after_backward": 4574669824,
+   "rebind_moved": 3152,
+   "leaves_live_after_rebind": "3152 of 3152",
+   "optimizer_s": 4.079,
+   "optimizer_updated": 3152,
+   "writes_skipped": null,
+   "peak_rss_gib": 10.168,
+   "step_s": 38.955,
+   "renorm_applied": 279,
+   "renorm_declined": 0
+  },
+  {
+   "rep": 2,
+   "cold": false,
+   "renorm_flag": true,
+   "peak_reset": true,
+   "rss_gib": {
+    "rep_start": 9.437,
+    "after_trunk": 9.472,
+    "after_diffusion": 9.472,
+    "after_losses": 9.472,
+    "after_backward": 9.472,
+    "after_optimizer": 9.513
+   },
+   "mem_available_gib": {
+    "rep_start": 8.534,
+    "after_trunk": 7.918,
+    "after_diffusion": 8.465,
+    "after_losses": 7.983,
+    "after_backward": 8.45,
+    "after_optimizer": 8.401
+   },
+   "trunk_nograd_prefix_s": 3.455,
+   "trunk_taped_cycle_s": 4.008,
+   "trunk_s": 7.463,
+   "dram_after_trunk": 6415461376,
+   "diffusion_s": 0.426,
+   "diffusion": {
+    "coupled_to_trunk": true,
+    "sigmas": [
+     3306.9691,
+     0.0153,
+     0.0987,
+     86.3515
+    ],
+    "distinct_sigmas": 4,
+    "n_samples": 4,
+    "per_sample_s": [
+     0.128,
+     0.056,
+     0.187,
+     0.048
+    ],
+    "n_atom": 3092,
+    "n_token": 384,
+    "tokens_without_an_atom": 0,
+    "rep_atom_index": "first atom of each token, from atom_to_token_idx"
+   },
+   "dram_after_diffusion": 25024562176,
+   "losses_s": 6.598,
+   "losses": {
+    "shape": "per-root",
+    "rss_gib_at_entry": 9.472,
+    "mem_available_gib_at_entry": 8.465,
+    "terms": {
+     "bond": {
+      "weight": 0.0,
+      "skipped": "weight is zero in this stage",
+      "fired": false
+     },
+     "smooth_lddt": {
+      "weight": 4.0,
+      "skipped": null,
+      "fired": true
+     },
+     "mse": {
+      "weight": 4.0,
+      "skipped": null,
+      "fired": true
+     },
+     "distogram": {
+      "weight": 0.03,
+      "skipped": null,
+      "fired": true
+     },
+     "resolved": {
+      "weight": 0.0001,
+      "skipped": null,
+      "fired": true
+     },
+     "plddt": {
+      "weight": 0.0001,
+      "skipped": null,
+      "fired": true
+     },
+     "pae": {
+      "weight": 0.0001,
+      "skipped": null,
+      "fired": true
+     },
+     "pde": {
+      "weight": 0.0001,
+      "skipped": null,
+      "fired": true
+     }
+    },
+    "terms_fired": 7,
+    "scope": "token, one representative atom per token",
+    "download_s": 0.001,
+    "host_loss_s": 6.569,
+    "per_root_s": [
+     1.5999,
+     1.7248,
+     1.6078,
+     1.6362
+    ],
+    "mem_trace_gib": [
+     {
+      "rss": 9.894,
+      "avail": 8.076
+     },
+     {
+      "rss": 9.894,
+      "avail": 8.037
+     },
+     {
+      "rss": 9.894,
+      "avail": 8.078
+     },
+     {
+      "rss": 9.894,
+      "avail": 7.563
+     }
+    ],
+    "rss_gib_at_exit": 9.894,
+    "mem_available_gib_at_exit": 7.562,
+    "value_claimed": false
+   },
+   "roots_taped": 4,
+   "seed_upload_s": 0.003,
+   "tape_nodes": 9897,
+   "backward_s": 20.744,
+   "params_with_grad": "2674 of 3152",
+   "backward_valid": true,
+   "dram_after_backward": 4574669824,
+   "rebind_moved": 3152,
+   "leaves_live_after_rebind": "3152 of 3152",
+   "optimizer_s": 4.229,
+   "optimizer_updated": 3152,
+   "writes_skipped": null,
+   "peak_rss_gib": 10.246,
+   "step_s": 39.463,
+   "renorm_applied": 279,
+   "renorm_declined": 0
+  }
+ ],
+ "cold_s": 37.798,
+ "steady": {
+  "n": 2,
+  "values_s": [
+   38.955,
+   39.463
+  ],
+  "median_s": 39.209,
+  "min_s": 38.955,
+  "max_s": 39.463,
+  "spread_s": 0.508
+ },
+ "arm": {
+  "name": "peak_old",
+  "exact_training": false,
+  "exact_training_ops": [
+   "softmax",
+   "layer_norm"
+  ],
+  "exact_softmax_installed_now": false,
+  "wall_s": 129.933,
+  "rc": 0,
+  "host_quiet_pre": {
+   "when_utc": "2026-09-26T10:40:15Z",
+   "rc": 0,
+   "green": true,
+   "loadavg": [
+    1.32568359375,
+    1.38525390625,
+    1.80126953125
+   ],
+   "report": [
+    "loadavg1 1.33 (ceiling 2.00)",
+    "host quiet -- timing read admissible"
+   ]
+  },
+  "host_quiet_post": {
+   "when_utc": "2026-09-26T10:42:25Z",
+   "rc": 1,
+   "green": false,
+   "loadavg": [
+    2.52783203125,
+    1.78564453125,
+    1.892578125
+   ],
+   "report": [
+    "loadavg1 2.53 over ceiling 2.00",
+    "HOST NOT QUIET -- your timing read is contaminated even with an idle sibling and a forced clock. Wait it out or DEFER. Do not measure and explain it afterwards."
+   ]
+  }
+ },
+ "scope": {
+  "contains": [
+   "trunk no_grad recycle prefix",
+   "one taped trunk cycle",
+   "diffusion module on N noised structures inside the same tape",
+   "af3_loss heads on host",
+   "backward over the whole tape",
+   "AdamW optimizer step"
+  ],
+  "omits": [
+   "upstream's 48 diffusion samples (this runs --samples)",
+   "upstream's per-step U{1..4} recycle draw (this PINS --cycles)"
+  ],
+  "note": "trunk_nograd_prefix_s is reported per rep, so the step with and without the no_grad prefix are both readable off this artifact."
+ }
+}

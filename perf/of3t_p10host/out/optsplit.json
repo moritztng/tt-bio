@@ -1,0 +1,48 @@
+{
+  "census": {
+    "tensors": 3152,
+    "elements": 381302188
+  },
+  "upload_cold_s": 29.307492687017657,
+  "reps": [
+    {
+      "rep": 0,
+      "read_all_s": 7.107765121967532,
+      "write_all_s": 28.8809536480112,
+      "update_numpy_s": 2.0773985799751244,
+      "gradnorm_numpy_s": 0.03167770500294864,
+      "report_numpy_s": 0.1632198390434496,
+      "five_traversals_s": 57.31201413588133
+    },
+    {
+      "rep": 1,
+      "read_all_s": 6.5458790300181136,
+      "write_all_s": 27.457571025996003,
+      "update_numpy_s": 0.8638403469813056,
+      "gradnorm_numpy_s": 0.03499729203758761,
+      "report_numpy_s": 0.15755567996529862,
+      "five_traversals_s": 53.64108714606846
+    },
+    {
+      "rep": 2,
+      "read_all_s": 6.2636890390422195,
+      "write_all_s": 27.10940231202403,
+      "update_numpy_s": 0.8110594039899297,
+      "gradnorm_numpy_s": 0.03051157103618607,
+      "report_numpy_s": 0.14329321298282593,
+      "five_traversals_s": 52.16415846819291
+    }
+  ],
+  "steady": {
+    "rep": 2,
+    "read_all_s": 6.2636890390422195,
+    "write_all_s": 27.10940231202403,
+    "update_numpy_s": 0.8110594039899297,
+    "gradnorm_numpy_s": 0.03051157103618607,
+    "report_numpy_s": 0.14329321298282593,
+    "five_traversals_s": 52.16415846819291
+  },
+  "modelled_today_s": 53.14902265620185,
+  "modelled_floor_s": 34.214662326092366,
+  "modelled_ratio": 1.5533990120858212
+}

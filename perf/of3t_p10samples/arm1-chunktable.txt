@@ -1,0 +1,30 @@
+=== arm1 fresh-process S=6 start 2026-09-26T10:55:25Z loadavg 1.64 5.16 5.00
+[weights] 3152 tensors (2256 pairformer, 621 diffusion), 381.3M elements
+  [diffusion] sample 0 sigma   44.923    5.264s
+  [diffusion] sample 1 sigma 3306.969    0.568s
+  [diffusion] sample 2 sigma  417.625    0.476s
+  [diffusion] sample 3 sigma  881.749    0.444s
+  [diffusion] sample 4 sigma  123.128    0.442s
+  [diffusion] sample 5 sigma    3.637    0.474s
+  [tape] leaving the tape context
+  [tape] left the tape context
+  [losses] 6 roots, token scope n=384
+  [losses] root 0 downloaded 3092 atoms -> 384 tokens in 0.00s
+  [losses] root 0 af3_loss done, 7 terms
+  [losses] root 1 downloaded 3092 atoms -> 384 tokens in 0.00s
+  [losses] root 1 af3_loss done, 7 terms
+  [losses] root 2 downloaded 3092 atoms -> 384 tokens in 0.00s
+  [losses] root 2 af3_loss done, 7 terms
+  [losses] root 3 downloaded 3092 atoms -> 384 tokens in 0.00s
+  [losses] root 3 af3_loss done, 7 terms
+  [losses] root 4 downloaded 3092 atoms -> 384 tokens in 0.00s
+  [losses] root 4 af3_loss done, 7 terms
+  [losses] root 5 downloaded 3092 atoms -> 384 tokens in 0.00s
+  [losses] root 5 af3_loss done, 7 terms
+2026-09-26 13:00:28.933 | critical |          Always | TT_FATAL: Out of Memory: Not enough space to allocate 905969664 B DRAM buffer across 8 banks, where each bank needs to store 113246208 B, but bank size is 4278190016 B (allocated: 1280781696 B, free: 2997408320 B, largest free block: 66337280 B) (assert.hpp:104)
+2026-09-26 13:00:28.962 | critical |          Always | TT_FATAL: Out of Memory: Not enough space to allocate 905969664 B DRAM buffer across 8 banks, where each bank needs to store 113246208 B, but bank size is 4278190016 B (allocated: 1280781696 B, free: 2997408320 B, largest free block: 66337280 B) (assert.hpp:104)
+2026-09-26 13:00:28.963 | critical |          Always | TT_FATAL: Out of Memory: Not enough space to allocate 905969664 B DRAM buffer across 8 banks, where each bank needs to store 113246208 B, but bank size is 4278190016 B (allocated: 1280781696 B, free: 2997408320 B, largest free block: 66337280 B) (assert.hpp:104)
+2026-09-26 13:00:28.965 | critical |          Always | TT_FATAL: Out of Memory: Not enough space to allocate 905969664 B DRAM buffer across 8 banks, where each bank needs to store 113246208 B, but bank size is 4278190016 B (allocated: 1280781696 B, free: 2997408320 B, largest free block: 66337280 B) (assert.hpp:104)
+2026-09-26 13:00:31.736 | critical |          Always | TT_FATAL: Out of Memory: Not enough space to allocate 377487360 B DRAM buffer across 8 banks, where each bank needs to store 47185920 B, but bank size is 4278190016 B (allocated: 1349614976 B, free: 2928575040 B, largest free block: 19478528 B) (assert.hpp:104)
+/tmp/of3t/p10samples/arm1_fresh6.sh: line 7: 3728252 Killed                  timeout 2700 $PY perf/of3t_stepfloor/fullstep.py --tokens 384 --cycles 4 --samples 6 --reps 2 --out perf/of3t_p10samples/out/arm1_fresh_s6_384.json
+=== arm1 rc=137 done 2026-09-26T11:00:40Z

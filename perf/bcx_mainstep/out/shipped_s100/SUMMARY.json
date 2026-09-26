@@ -1,0 +1,193 @@
+{
+ "tree": {
+  "commit": "515be7a89bae7f59d5b7c666515f68d5b6fd3b12",
+  "tt_bio_file": "/home/ttuser/.coworker/wt/bcx-mainstep/tt_bio/__init__.py",
+  "exact": false,
+  "shipped_pool": true,
+  "binder_pinned": 0,
+  "state_shape": {
+   "1": {
+    "hPDL1": {
+     "binder": 160,
+     "target_hPDL1": 115
+    }
+   },
+   "2": {
+    "hPDL1": {
+     "binder": 71,
+     "target_hPDL1": 115
+    }
+   },
+   "3": {
+    "hPDL1": {
+     "binder": 71,
+     "target_hPDL1": 115
+    }
+   },
+   "4": {
+    "hPDL1": {
+     "binder": 71,
+     "target_hPDL1": 115
+    }
+   },
+   "5": {
+    "hPDL1": {
+     "binder": 71,
+     "target_hPDL1": 115
+    }
+   },
+   "6": {
+    "hPDL1": {
+     "binder": 71,
+     "target_hPDL1": 115
+    }
+   },
+   "7": {
+    "hPDL1": {
+     "binder": 71,
+     "target_hPDL1": 115
+    }
+   },
+   "8": {
+    "hPDL1": {
+     "binder": 71,
+     "target_hPDL1": 115
+    }
+   },
+   "9": {
+    "hPDL1": {
+     "binder": 71,
+     "target_hPDL1": 115
+    }
+   },
+   "10": {
+    "hPDL1": {
+     "binder": 71,
+     "target_hPDL1": 115
+    }
+   },
+   "11": {
+    "hPDL1": {
+     "binder": 71,
+     "target_hPDL1": 115
+    }
+   },
+   "12": {
+    "hPDL1": {
+     "binder": 71,
+     "target_hPDL1": 115
+    }
+   },
+   "13": {
+    "hPDL1": {
+     "binder": 71,
+     "target_hPDL1": 115
+    }
+   }
+  },
+  "length_bucket_size": 32,
+  "host": "tt-quietbox2",
+  "card": "1",
+  "pci": "0000:02:00.0",
+  "seed": 100,
+  "rounds_requested": 12,
+  "stopped": "12 rounds collected",
+  "wall_seconds": 297.04,
+  "device_calls": {
+   "primal": 0,
+   "taped": 22,
+   "backward": 11
+  },
+  "host_folds": {},
+  "exact_softmax_stats": {
+   "verb": 0,
+   "raw": 0,
+   "raw_elements": 0
+  },
+  "exact_layer_norm_stats": {
+   "verb": 0,
+   "raw": 0,
+   "elements": 0,
+   "bw": 0
+  }
+ },
+ "timed_rounds": [
+  3,
+  4,
+  5,
+  6,
+  7,
+  8,
+  9,
+  10,
+  11,
+  12
+ ],
+ "round_wall_s": {
+  "med": 20.223,
+  "min": 19.476,
+  "max": 22.231,
+  "n": 10
+ },
+ "sequence_gradients_s": {
+  "med": 20.216,
+  "min": 19.472,
+  "max": 22.228,
+  "n": 10
+ },
+ "device_s": {
+  "med": 6.968,
+  "min": 6.734,
+  "max": 8.906,
+  "n": 10
+ },
+ "taped_fwd_s": {
+  "med": 2.293,
+  "min": 2.259,
+  "max": 4.44,
+  "n": 10
+ },
+ "backward_s": {
+  "med": 4.467,
+  "min": 4.441,
+  "max": 4.946,
+  "n": 10
+ },
+ "host_s": {
+  "med": 13.24,
+  "min": 11.573,
+  "max": 14.132,
+  "n": 10
+ },
+ "device_share": {
+  "med": 0.3438,
+  "min": 0.3238,
+  "max": 0.4058,
+  "n": 10
+ },
+ "ceiling_if_device_free": {
+  "med": 1.524,
+  "min": 1.479,
+  "max": 1.683,
+  "n": 10
+ },
+ "aiclk_med": {
+  "med": 1350.0,
+  "min": 1350,
+  "max": 1350,
+  "n": 10
+ },
+ "aiclk_min": {
+  "med": 1343.0,
+  "min": 1325,
+  "max": 1350,
+  "n": 10
+ },
+ "load1": {
+  "med": 17.9,
+  "min": 16.4,
+  "max": 20.3,
+  "n": 10
+ },
+ "spread_max_over_min": 1.141
+}

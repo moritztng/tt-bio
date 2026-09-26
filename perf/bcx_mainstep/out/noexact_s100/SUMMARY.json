@@ -1,0 +1,115 @@
+{
+ "tree": {
+  "commit": "4cf8db279f0e43a7477fe5e448128a8ab574690e",
+  "tt_bio_file": "/home/ttuser/.coworker/wt/bcx-mainstep/tt_bio/__init__.py",
+  "exact": false,
+  "shipped_pool": false,
+  "binder_pinned": null,
+  "state_shape": null,
+  "length_bucket_size": 32,
+  "host": "tt-quietbox2",
+  "card": "1",
+  "pci": "0000:02:00.0",
+  "seed": 100,
+  "rounds_requested": 13,
+  "stopped": "13 rounds collected",
+  "wall_seconds": 243.12,
+  "device_calls": {
+   "primal": 0,
+   "taped": 24,
+   "backward": 12
+  },
+  "host_folds": {},
+  "exact_softmax_stats": {
+   "verb": 0,
+   "raw": 0,
+   "raw_elements": 0
+  },
+  "exact_layer_norm_stats": {
+   "verb": 0,
+   "raw": 0,
+   "elements": 0,
+   "bw": 0
+  }
+ },
+ "timed_rounds": [
+  3,
+  4,
+  5,
+  6,
+  7,
+  8,
+  9,
+  10,
+  11,
+  12,
+  13
+ ],
+ "round_wall_s": {
+  "med": 17.334,
+  "min": 16.554,
+  "max": 18.492,
+  "n": 11
+ },
+ "sequence_gradients_s": {
+  "med": 17.333,
+  "min": 16.549,
+  "max": 18.49,
+  "n": 11
+ },
+ "device_s": {
+  "med": 6.71,
+  "min": 6.671,
+  "max": 7.163,
+  "n": 11
+ },
+ "taped_fwd_s": {
+  "med": 2.251,
+  "min": 2.221,
+  "max": 2.262,
+  "n": 11
+ },
+ "backward_s": {
+  "med": 4.467,
+  "min": 4.43,
+  "max": 4.912,
+  "n": 11
+ },
+ "host_s": {
+  "med": 10.628,
+  "min": 9.391,
+  "max": 11.764,
+  "n": 11
+ },
+ "device_share": {
+  "med": 0.3869,
+  "min": 0.3638,
+  "max": 0.4327,
+  "n": 11
+ },
+ "ceiling_if_device_free": {
+  "med": 1.631,
+  "min": 1.572,
+  "max": 1.763,
+  "n": 11
+ },
+ "aiclk_med": {
+  "med": 1350,
+  "min": 1350,
+  "max": 1350,
+  "n": 11
+ },
+ "aiclk_min": {
+  "med": 1343,
+  "min": 1325,
+  "max": 1350,
+  "n": 11
+ },
+ "load1": {
+  "med": 14.3,
+  "min": 13.7,
+  "max": 15.5,
+  "n": 11
+ },
+ "spread_max_over_min": 1.117
+}

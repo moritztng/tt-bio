@@ -1,0 +1,81 @@
+=== arm3 S=48 C=4 start 2026-09-26T11:11:33Z loadavg 3.61 4.59 4.80
+[weights] 3152 tensors (2256 pairformer, 621 diffusion), 381.3M elements
+  [tape] leaving the tape context
+  [tape] left the tape context
+  [diffusion] sample 0 sigma    3.350    7.406s
+  [diffusion] sample 1 sigma 1022.047    0.475s
+  [diffusion] sample 2 sigma    0.033    0.466s
+  [diffusion] sample 3 sigma   42.421    0.459s
+/home/moritz/.coworker/wt/of3t-p10samples/tt_bio/train/losses.py:460: RuntimeWarning: overflow encountered in exp
+  sig = 1.0 / (1.0 + np.exp(-(th - a)))
+  [losses] 4 replicates scored, 0.001s download 0.033s arithmetic
+  [chunk 1] 4 replicates  fwd 8.81s  loss 1.00s  bwd 15.43s  7382 nodes  dram 24.75 GB  memavail 6.776 GiB
+  [diffusion] sample 0 sigma    0.160    4.233s
+  [diffusion] sample 1 sigma    0.226    0.506s
+  [diffusion] sample 2 sigma 4215.894    0.414s
+  [diffusion] sample 3 sigma   66.256    0.457s
+  [losses] 4 replicates scored, 0.001s download 0.028s arithmetic
+  [chunk 2] 4 replicates  fwd 5.61s  loss 0.03s  bwd 14.62s  7382 nodes  dram 25.72 GB  memavail 6.129 GiB
+  [diffusion] sample 0 sigma   35.617    4.148s
+  [diffusion] sample 1 sigma  164.621    0.397s
+  [diffusion] sample 2 sigma  512.404    0.385s
+  [diffusion] sample 3 sigma 1268.216    0.396s
+  [losses] 4 replicates scored, 0.001s download 0.027s arithmetic
+  [chunk 3] 4 replicates  fwd 5.33s  loss 0.03s  bwd 14.47s  7382 nodes  dram 25.72 GB  memavail 6.497 GiB
+  [diffusion] sample 0 sigma    0.847    4.184s
+  [diffusion] sample 1 sigma 1674.264    0.415s
+  [diffusion] sample 2 sigma 1563.551    0.487s
+  [diffusion] sample 3 sigma  702.338    0.496s
+  [losses] 4 replicates scored, 0.001s download 0.028s arithmetic
+  [chunk 4] 4 replicates  fwd 5.58s  loss 0.03s  bwd 12.14s  7382 nodes  dram 25.72 GB  memavail 6.508 GiB
+  [diffusion] sample 0 sigma 2740.710    4.232s
+  [diffusion] sample 1 sigma 2047.652    0.450s
+  [diffusion] sample 2 sigma 1510.589    0.451s
+  [diffusion] sample 3 sigma   31.621    0.451s
+  [losses] 4 replicates scored, 0.001s download 0.029s arithmetic
+  [chunk 5] 4 replicates  fwd 5.58s  loss 0.03s  bwd 15.24s  7382 nodes  dram 25.72 GB  memavail 6.479 GiB
+  [diffusion] sample 0 sigma    0.349    4.317s
+  [diffusion] sample 1 sigma 1852.909    0.401s
+  [diffusion] sample 2 sigma  324.080    0.397s
+  [diffusion] sample 3 sigma    0.099    0.400s
+  [losses] 4 replicates scored, 0.001s download 0.026s arithmetic
+  [chunk 6] 4 replicates  fwd 5.52s  loss 0.03s  bwd 13.94s  7382 nodes  dram 25.72 GB  memavail 6.088 GiB
+  [diffusion] sample 0 sigma  729.856    4.174s
+  [diffusion] sample 1 sigma    0.015    0.434s
+  [diffusion] sample 2 sigma   40.039    0.379s
+  [diffusion] sample 3 sigma   12.920    0.368s
+  [losses] 4 replicates scored, 0.001s download 0.026s arithmetic
+  [chunk 7] 4 replicates  fwd 5.36s  loss 0.03s  bwd 14.33s  7382 nodes  dram 25.72 GB  memavail 6.644 GiB
+  [diffusion] sample 0 sigma   86.352    4.078s
+  [diffusion] sample 1 sigma    0.429    0.454s
+  [diffusion] sample 2 sigma    0.525    0.391s
+  [diffusion] sample 3 sigma  492.100    0.456s
+  [losses] 4 replicates scored, 0.002s download 0.027s arithmetic
+  [chunk 8] 4 replicates  fwd 5.38s  loss 0.03s  bwd 14.10s  7382 nodes  dram 25.72 GB  memavail 6.656 GiB
+  [diffusion] sample 0 sigma   47.551    4.225s
+  [diffusion] sample 1 sigma  227.673    0.401s
+  [diffusion] sample 2 sigma    0.180    0.371s
+  [diffusion] sample 3 sigma  368.314    0.370s
+  [losses] 4 replicates scored, 0.001s download 0.027s arithmetic
+  [chunk 9] 4 replicates  fwd 5.37s  loss 0.03s  bwd 14.15s  7382 nodes  dram 25.72 GB  memavail 6.048 GiB
+  [diffusion] sample 0 sigma 1313.822    4.096s
+  [diffusion] sample 1 sigma  149.630    0.372s
+  [diffusion] sample 2 sigma  172.586    0.369s
+  [diffusion] sample 3 sigma    0.059    0.392s
+  [losses] 4 replicates scored, 0.002s download 0.027s arithmetic
+  [chunk 10] 4 replicates  fwd 5.23s  loss 0.03s  bwd 14.89s  7382 nodes  dram 25.72 GB  memavail 6.575 GiB
+  [diffusion] sample 0 sigma    2.602    4.309s
+  [diffusion] sample 1 sigma    0.018    0.422s
+  [diffusion] sample 2 sigma  881.749    0.447s
+  [diffusion] sample 3 sigma  310.386    0.433s
+  [losses] 4 replicates scored, 0.001s download 0.027s arithmetic
+  [chunk 11] 4 replicates  fwd 5.61s  loss 0.03s  bwd 11.71s  7382 nodes  dram 25.72 GB  memavail 6.913 GiB
+  [diffusion] sample 0 sigma   11.257    4.228s
+  [diffusion] sample 1 sigma 3516.737    0.413s
+  [diffusion] sample 2 sigma    0.579    0.428s
+  [diffusion] sample 3 sigma  400.595    0.407s
+  [losses] 4 replicates scored, 0.001s download 0.028s arithmetic
+  [chunk 12] 4 replicates  fwd 5.48s  loss 0.03s  bwd 11.28s  7382 nodes  dram 25.72 GB  memavail 6.912 GiB
+  [losses] step heads 0.491s, 7 of 8 terms fired
+/tmp/of3t/p10samples/arm3_s48.sh: line 8: 4113090 Killed                  timeout 2700 $PY perf/of3t_stepfloor/fullstep.py --tokens 384 --cycles 4 --samples 48 --chunk "$C" --reps 2 --out "perf/of3t_p10samples/out/arm3_s48_c${C}_384.json"
+=== arm3 rc=137 done 2026-09-26T11:21:00Z

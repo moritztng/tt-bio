@@ -328,6 +328,62 @@ def test_the_campaign_path_can_turn_the_exact_instrument_off_too():
         assert build.exact is True
 
 
+def test_the_extra_msa_swap_knows_both_names_alphafold_gives_its_closure():
+    """The splice picks the extra-MSA `layer_stack` call out of four by the closure's name, and
+    AlphaFold 2 uses two different names for it.
+
+    `modules.py` (monomer) calls it `extra_msa_stack_fn`; `modules_multimer.py` calls it
+    `extra_evoformer_fn`. Matching only the first is not a crash: `choose` falls through to
+    BindCraft 2's own stack, the campaign runs the host implementation and every counter the
+    caller would check reads zero, so `extra_msa=True` measures the arm it was meant to replace.
+    That is what happened on the five-model `multimer_v3` pool this campaign's public
+    configuration uses. Read off BindCraft 2's own source so an upstream rename fails here.
+    """
+    root = _bindcraft_root()
+    model = root / "bindcraft" / "af" / "alphafold" / "model"
+    defined = set()
+    for source in (model / "modules.py", model / "modules_multimer.py"):
+        for line in source.read_text().splitlines():
+            stripped = line.strip()
+            if stripped.startswith("def extra_") and stripped.endswith("(x):"):
+                defined.add(stripped[len("def "):stripped.index("(")])
+    assert defined, f"no extra-MSA stack closure found under {model}"
+    assert defined <= set(bindcraft2.EXTRA_MSA_FN_NAMES), (
+        f"AlphaFold 2 defines {sorted(defined)}; the splice matches "
+        f"{sorted(bindcraft2.EXTRA_MSA_FN_NAMES)}")
+
+
+def test_the_masks_walk_reads_both_shapes_alphafold_builds_them_in():
+    """`find_extra_msa_masks` against the two closures, without needing AlphaFold 2 to build one.
+
+    The multimer path closes over one `extra_masks` dict; the monomer path has no dict and the
+    walk has to assemble the pair from `batch["extra_msa_mask"]` and `mask_2d`. Both shapes are
+    reproduced here with plain closures, which is all `_free_variable` ever sees.
+    """
+    msa_mask, pair_mask = np.zeros((1, 8), np.float32), np.ones((8, 8), np.float32)
+
+    extra_masks = {"msa": msa_mask, "pair": pair_mask}
+
+    def extra_evoformer_fn(x):        # modules_multimer.py:375
+        return extra_masks, x
+
+    got = bindcraft2.find_extra_msa_masks(extra_evoformer_fn)
+    assert got["msa"] is msa_mask and got["pair"] is pair_mask
+
+    batch, mask_2d = {"extra_msa_mask": msa_mask}, pair_mask
+
+    def extra_msa_stack_fn(x):        # modules.py:1517
+        return batch, mask_2d, x
+
+    got = bindcraft2.find_extra_msa_masks(extra_msa_stack_fn)
+    assert got["msa"] is msa_mask and got["pair"] is pair_mask
+
+    # a closure that carries neither is a refusal, not a guess
+    def evoformer_fn(x):
+        return x
+    assert bindcraft2.find_extra_msa_masks(evoformer_fn) is None
+
+
 def test_the_extra_msa_swap_pads_bindcraft_2s_real_shapes_to_a_tile():
     """`_pad` and `_check_mask` on the shapes a real PD-L1 round hands the swap.
 
@@ -362,6 +418,39 @@ def test_the_extra_msa_swap_pads_bindcraft_2s_real_shapes_to_a_tile():
     nonzero[0, 7] = 1.0
     with pytest.raises(ValueError, match="nonzero"):
         extra._check_mask(nonzero)
+
+
+def test_the_evoformer_path_pads_the_token_axis_before_anything_reaches_the_card():
+    """The shape a BindCraft 2 round executes is `_pad32(n)`, never `n`.
+
+    The swap's `_pad` is already pinned above; this is the Evoformer's, which is the path every
+    round takes whether or not the extra-MSA stack is on card. It is worth its own test because
+    the campaign's block harnesses were built at the PRE-PAD host shape and nothing caught it:
+    `bcx-p10-devmap` and `bcx-p10-trimul` timed blocks at n=275 while the card ran 288, which
+    inflated a per-family attribution table and produced a root cause the fold does not have
+    (three fast paths decline on `% 32` at 275 and are open at 288).
+    """
+    pad = bindcraft2.EvoformerOnDevice._pad
+
+    m = torch.arange(2 * 275 * 8, dtype=torch.float32).reshape(2, 275, 8)
+    z = torch.arange(275 * 275 * 4, dtype=torch.float32).reshape(275, 275, 4)
+    mask, pair_mask = torch.ones(2, 275), torch.ones(275, 275)
+    mp, zp, maskp, pmp, n = pad(m, z, mask, pair_mask)
+
+    assert n == 275, "the caller slices the result back with the LOGICAL length"
+    assert mp.shape == (2, 288, 8) and zp.shape == (288, 288, 4)
+    assert maskp.shape == (2, 288) and pmp.shape == (288, 288)
+    # the real region survives and the padding is zero, which is what makes the mask exact
+    assert torch.equal(zp[:275, :275], z) and torch.equal(mp[:, :275], m)
+    assert zp[275:].abs().sum() == 0 and zp[:, 275:].abs().sum() == 0
+    assert maskp[:, 275:].abs().sum() == 0
+    assert pmp[275:].abs().sum() == 0 and pmp[:, 275:].abs().sum() == 0
+
+    # already on a tile boundary: handed back untouched, same objects
+    on_tile = (torch.zeros(2, 288, 8), torch.zeros(288, 288, 4),
+               torch.zeros(2, 288), torch.zeros(288, 288))
+    out = pad(*on_tile)
+    assert out[4] == 288 and all(a is b for a, b in zip(out[:4], on_tile))
 
 
 def test_an_unknown_validation_trunk_is_refused():
