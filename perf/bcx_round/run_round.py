@@ -110,6 +110,14 @@ def main():
                     help="extra BindCraft 2 setting override, repeatable. `--set "
                          "save_design_frames=1` makes the recorder write one CIF a round, "
                          "which is what the accuracy leg scores arm against arm")
+    ap.add_argument("--timeline", type=float, default=0.0, metavar="MS",
+                    help="sample the round at MS millisecond resolution and write "
+                         "timeline.json beside round_events.json: for every sample, whether a "
+                         "device callback is in flight and how much process CPU has been "
+                         "burned since the last one. 0 is off and is what every other row "
+                         "runs. This is the only instrument in the campaign that can say "
+                         "host-busy-WHILE-device-idle, which is the bound on what overlapping "
+                         "the two columns can return (state/perf10/bcx-OVERLAP.md)")
     ap.add_argument("--shipped", action="store_true",
                     help="leave pdl1.json's own five multimer_v3 design models in place "
                          "instead of pinning one monomer trunk")
@@ -138,6 +146,8 @@ def main():
     M.CLOCK = M.Clock(1.0)
     node = M.CLOCK.path
     M.CLOCK.start()
+    if args.timeline:
+        M.TIMELINE = M.Timeline(args.timeline).start()
 
     import tt_bio
     from bindcraft.settings import select_design_and_validation_models

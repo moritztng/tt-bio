@@ -78,6 +78,100 @@ class Clock:
 
 CLOCK = None
 
+#: How many device callbacks are in flight RIGHT NOW. A sampler reads it to decide whether the
+#: card's stream is busy for the millisecond it is looking at. It is a depth and not a flag
+#: because XLA:CPU is allowed to run independent thunks concurrently -- if it ever does, this
+#: goes above 1 and that is itself the finding. Guarded, because a concurrent enter/exit pair
+#: on two threads is exactly the case being measured and `+= 1` is not atomic across them.
+DEV_DEPTH = 0
+DEV_MAX_DEPTH = 0
+_DEV_LOCK = threading.Lock()
+
+
+def dev_enter():
+    global DEV_DEPTH, DEV_MAX_DEPTH
+    with _DEV_LOCK:
+        DEV_DEPTH += 1
+        if DEV_DEPTH > DEV_MAX_DEPTH:
+            DEV_MAX_DEPTH = DEV_DEPTH
+
+
+def dev_exit():
+    global DEV_DEPTH
+    with _DEV_LOCK:
+        DEV_DEPTH -= 1
+
+
+class Timeline:
+    """For every wall millisecond: is the device stream busy, and is a host thread running.
+
+    Two independent reads, neither inferred from the other. `DEV_DEPTH` is the device side.
+    `time.process_time_ns()` is CLOCK_PROCESS_CPUTIME_ID -- CPU nanoseconds summed over every
+    thread of this process -- so the host side is measured CPU and not "the main thread is not
+    in a callback". Differencing two consecutive samples gives cores-busy over the interval,
+    which is what separates a host that is computing from one that is blocked on the card.
+
+    Ticks are the wrong instrument for this: /proc/self/stat is 10 ms granular and gap 14 of
+    the round is 24 ms. process_time is nanosecond granular and one read costs ~0.4 us.
+
+    The sampler charges its own CPU to `self_cpu_s` off `time.thread_time_ns()`, so the
+    instrument's cost is stated rather than differenced out of a round wall -- differencing
+    walls across runs on a loaded box is what this campaign has paid for twice.
+    """
+
+    def __init__(self, dt_ms=2.0):
+        self.dt = dt_ms / 1000.0
+        self.t, self.cpu, self.dev = [], [], []
+        self.t0 = None
+        self.self_cpu_s = 0.0
+        self._stop = threading.Event()
+        self._th = threading.Thread(target=self._loop, daemon=True)
+
+    def _loop(self):
+        c0 = time.thread_time_ns()
+        t, cpu, dev = self.t, self.cpu, self.dev
+        pt, now, dt = time.process_time_ns, time.time, self.dt
+        self.t0 = now()
+        t0 = self.t0
+        nxt = t0
+        while not self._stop.is_set():
+            # us since t0, us of process CPU, depth. Ints, because 50k samples a round go to
+            # JSON and floats there triple the file for no resolution.
+            t.append(int((now() - t0) * 1e6))
+            cpu.append(pt() // 1000)
+            dev.append(DEV_DEPTH)
+            nxt += dt
+            slack = nxt - now()
+            if slack > 0:
+                self._stop.wait(slack)
+            else:
+                nxt = now()          # overrun: re-base rather than spin to catch up
+        self.self_cpu_s = round((time.thread_time_ns() - c0) / 1e9, 4)
+
+    def start(self):
+        self._th.start()
+        while self.t0 is None:
+            time.sleep(0.001)
+        return self
+
+    def stop(self):
+        self._stop.set()
+        self._th.join(timeout=2.0)
+
+    def blob(self):
+        # The sampler thread is still appending while a round boundary dumps this. Take the
+        # common prefix: the three lists only ever grow and a slice is atomic under the GIL,
+        # so a reader gets a consistent prefix rather than three different lengths. Reading a
+        # blob whose writer is alive is what cost `bcx-p10-devgap` a pass.
+        n = min(len(self.t), len(self.cpu), len(self.dev))
+        return {"t0": self.t0, "dt_ms": self.dt * 1000.0, "n": n,
+                "self_cpu_s": self.self_cpu_s, "dev_max_depth": DEV_MAX_DEPTH,
+                "t_us": self.t[:n], "cpu_us": self.cpu[:n], "dev": self.dev[:n]}
+
+
+#: Set by the runner when --timeline is on. Dumped beside the events.
+TIMELINE = None
+
 
 def reach():
     """The fused triangle-attention backward's counters, snapshotted at a round boundary.
@@ -203,9 +297,11 @@ def install(meter, splice_mod, predictor_cls, trajectory_mod, seqopt_mod):
             def make(name, orig, module):
                 def wrapper(self, *a, **kw):
                     t0 = time.time()
+                    dev_enter()
                     try:
                         return orig(self, *a, **kw)
                     finally:
+                        dev_exit()
                         ev("device", name.lstrip("_"), t0, time.time(),
                            round=meter.entries, module=module, shapes=_shapes(a))
                 return wrapper
@@ -279,6 +375,12 @@ def install(meter, splice_mod, predictor_cls, trajectory_mod, seqopt_mod):
 
 
 def dump(path, stamp):
+    # The timeline goes in its own file: it is 50k samples a round against the event log's few
+    # hundred, and a reader that only wants the round walls should not have to parse it.
+    if TIMELINE is not None:
+        tl = os.path.join(os.path.dirname(path), "timeline.json")
+        with open(tl, "w") as fh:
+            json.dump(TIMELINE.blob(), fh, separators=(",", ":"))
     with open(path, "w") as fh:
         json.dump({"stamp": {**stamp, "state_shape": dict(STATE),
                              "dumped_utc": time.strftime("%FT%TZ", time.gmtime()),
