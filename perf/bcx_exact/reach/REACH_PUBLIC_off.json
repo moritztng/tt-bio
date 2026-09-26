@@ -1,0 +1,105 @@
+{
+ "stamp": {
+  "host": "tt-quietbox",
+  "card": "2",
+  "pci": "0000:42:00.0",
+  "sysfs": "/sys/class/tenstorrent/tenstorrent!3/tt_aiclk",
+  "commit": "c3d6158fbd68554dda492278a6f10910f833d77a",
+  "arm": "off",
+  "seed": 100,
+  "rounds_requested": 2,
+  "route": "bindcraft2.campaign_predictor(exact=False)",
+  "ops_armed_before_scope": [
+   "softmax",
+   "layer_norm"
+  ],
+  "length_bucket_size": 32,
+  "omp": "6",
+  "started_utc": "2026-09-26T01:22:28Z",
+  "loadavg_start": [
+   20.81298828125,
+   23.31494140625,
+   22.84375
+  ],
+  "nproc": 32,
+  "project": "/home/ttuser/bcx_exact_art/reach_off",
+  "wall_seconds": 94.72,
+  "stopped": "2 rounds collected",
+  "evo_calls": {
+   "primal": 0,
+   "taped": 4,
+   "backward": 2
+  },
+  "aiclk_during": {
+   "median": 1350,
+   "min": 800,
+   "n": 92
+  },
+  "loadavg_end": [
+   25.81689453125,
+   23.873046875,
+   23.0576171875
+  ],
+  "finished_utc": "2026-09-26T01:24:03Z"
+ },
+ "inside_scope": {
+  "build_exact": false,
+  "ops_armed_inside_scope": []
+ },
+ "ops_after_scope": [
+  "softmax",
+  "layer_norm"
+ ],
+ "rounds": [
+  {
+   "seconds": 66.819,
+   "armed_ops": [],
+   "sm_verb": 0,
+   "sm_raw": 0,
+   "sm_raw_elements": 0,
+   "ln_verb": 0,
+   "ln_raw": 0,
+   "ln_elements": 0,
+   "ln_bw": 0
+  },
+  {
+   "seconds": 20.223,
+   "armed_ops": [],
+   "sm_verb": 0,
+   "sm_raw": 0,
+   "sm_raw_elements": 0,
+   "ln_verb": 0,
+   "ln_raw": 0,
+   "ln_elements": 0,
+   "ln_bw": 0
+  },
+  {
+   "seconds": 0.0,
+   "armed_ops": [],
+   "sm_verb": 0,
+   "sm_raw": 0,
+   "sm_raw_elements": 0,
+   "ln_verb": 0,
+   "ln_raw": 0,
+   "ln_elements": 0,
+   "ln_bw": 0
+  }
+ ],
+ "counter_totals": {
+  "sm_verb": 0,
+  "sm_raw": 0,
+  "ln_verb": 0,
+  "ln_raw": 0,
+  "ln_bw": 0,
+  "ln_elements": 0
+ },
+ "checks": {
+  "ops_empty_inside_off_scope": true,
+  "ops_armed_inside_on_scope": null,
+  "scope_restored_after": true,
+  "build_exact_matches": true,
+  "rounds_ran": 2,
+  "counters_exactly_zero": true,
+  "counters_moved": false
+ }
+}
