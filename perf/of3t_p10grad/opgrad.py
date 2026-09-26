@@ -103,6 +103,52 @@ def _ln_device(dv, g):
     return {"dx": x.grad, "dgamma": gamma.grad, "dbeta": beta.grad}, out.value
 
 
+def _ln_diag(mean_cfg, rsqrt_split, sum_scale=False):
+    """DIAGNOSTIC, not shipped: the shipped layer-norm backward closure with one knob moved.
+
+    `autograd._taped_layer_norm`'s closure passes `precise_config()` to exactly one of its four
+    reductions (`var`) and to none of `mean`, `dn_mean`, `dn_norm_mean`; and it takes `rstd`
+    from `ttnn.rsqrt`, whose approximation lands on `dx` as a pure per-row SCALE because `dx`
+    ends in `multiply(dx, rstd)`. One arm per knob.
+    """
+    def impl(dv, g):
+        cfg = ag.precise_config()
+        xv, gamma, beta = dv["x"], dv["gamma"], dv["beta"]
+        mk = {"compute_kernel_config": cfg} if mean_cfg else {}
+        K = int(xv.shape[-1])
+
+        def _mean(v):
+            # `sum_scale`: the reduction, then an explicit multiply by 1/K, instead of
+            # `ttnn.mean`. 1/128 is a power of two and exact in every float; 1/384 is not,
+            # and if `ttnn.mean` carries its 1/K in bf16 the constant is 9.8e-4 low. Every
+            # term of the closure that is a mean then inherits the same signed constant,
+            # which is what a K-dependent systematic bias looks like.
+            if not sum_scale:
+                return ttnn.mean(v, dim=-1, keepdim=True, **mk)
+            return ttnn.multiply(ttnn.sum(v, dim=-1, keepdim=True, compute_kernel_config=cfg),
+                                 1.0 / K)
+
+        mean = _mean(xv)
+        centered = ttnn.subtract(xv, mean)
+        var = (_mean(ttnn.multiply(centered, centered)) if sum_scale else
+               ttnn.mean(ttnn.multiply(centered, centered), dim=-1, keepdim=True,
+                         compute_kernel_config=cfg))
+        vpe = ttnn.add(var, EPS)
+        rstd = ttnn.reciprocal(ttnn.sqrt(vpe)) if rsqrt_split else ttnn.rsqrt(vpe)
+        norm = ttnn.multiply(centered, rstd)
+        dgamma = ttnn.sum(ttnn.multiply(g, norm), dim=list(range(len(g.shape) - 1)),
+                          compute_kernel_config=cfg)
+        dbeta = ttnn.sum(g, dim=list(range(len(g.shape) - 1)), compute_kernel_config=cfg)
+        dnorm = ttnn.multiply(g, gamma)
+        dn_mean = _mean(dnorm)
+        dn_norm_mean = _mean(ttnn.multiply(dnorm, norm))
+        dx = ttnn.subtract(ttnn.subtract(dnorm, dn_mean), ttnn.multiply(norm, dn_norm_mean))
+        out = ttnn.layer_norm(xv, weight=gamma, bias=beta, epsilon=EPS,
+                              compute_kernel_config=cfg)
+        return {"dx": ttnn.multiply(dx, rstd), "dgamma": dgamma, "dbeta": dbeta}, out
+    return impl
+
+
 def _sm_host(ins):
     return torch.softmax(ins["x"], dim=-1)
 
@@ -148,8 +194,13 @@ def _sm_diag(fwd_cfg, sum_cfg):
 
 
 def _lin_host(ins):
-    y = ins["x"] @ ins["w"].transpose(-1, -2)
-    return y + ins["bias"]
+    # `ttnn.linear(x, w)` is `x @ w` with w [in, out] -- NOT torch's `x @ w.T`. Writing the
+    # torch convention here graded the op WRONG at rel L2 1.407 in both dtypes, which is
+    # sqrt(2), the signature of two uncorrelated vectors of equal norm. The forward rel L2
+    # read 1.407 too, which is what caught it: a reference that disagrees with the card on
+    # the FORWARD is a broken reference, because the forward is the one thing both sides
+    # compute the same way.
+    return ins["x"] @ ins["w"] + ins["bias"]
 
 
 def _lin_device(dv, g):
@@ -213,6 +264,33 @@ CASES = [
          verb="same closure as layer_norm/pair_K128",
          shapes=dict(x=(1, 384, 384), gamma=(384,), beta=(384,)),
          host=_ln_host, device=_ln_device, diff="x"),
+    dict(key="layer_norm/single_K384_CONTROL",
+         site="DIAGNOSTIC control: the shipped closure rewritten here, both knobs left alone. "
+              "Must reproduce layer_norm/single_K384, or the two arms below measure nothing",
+         verb="unconfigured ttnn.mean x3 + ttnn.rsqrt -- as shipped",
+         shapes=dict(x=(1, 384, 384), gamma=(384,), beta=(384,)),
+         host=_ln_host, device=_ln_diag(False, False), diff="x"),
+    dict(key="layer_norm/single_K384_MEANCFG",
+         site="DIAGNOSTIC: precise_config() on all three unconfigured means, rsqrt as shipped",
+         verb="ttnn.mean(precise_config()) x3 + ttnn.rsqrt",
+         shapes=dict(x=(1, 384, 384), gamma=(384,), beta=(384,)),
+         host=_ln_host, device=_ln_diag(True, False), diff="x"),
+    dict(key="layer_norm/single_K384_RSQRTSPLIT",
+         site="DIAGNOSTIC: rstd as reciprocal(sqrt(v)) instead of rsqrt(v), means as shipped",
+         verb="unconfigured ttnn.mean x3 + ttnn.reciprocal(ttnn.sqrt())",
+         shapes=dict(x=(1, 384, 384), gamma=(384,), beta=(384,)),
+         host=_ln_host, device=_ln_diag(False, True), diff="x"),
+    dict(key="layer_norm/single_K384_SUMSCALE",
+         site="DIAGNOSTIC: every mean as sum * (1/K) with the scale an fp32 python float",
+         verb="ttnn.sum(precise_config()) then ttnn.multiply by 1/K, instead of ttnn.mean",
+         shapes=dict(x=(1, 384, 384), gamma=(384,), beta=(384,)),
+         host=_ln_host, device=_ln_diag(False, False, True), diff="x"),
+    dict(key="layer_norm/pair_K128_SUMSCALE",
+         site="DIAGNOSTIC control on an EXACT 1/K: at K=128 the constant is a power of two, so "
+              "this arm must be indistinguishable from the shipped one",
+         verb="ttnn.sum(precise_config()) then ttnn.multiply by 1/128",
+         shapes=dict(x=(1, 64, 64, 128), gamma=(128,), beta=(128,)),
+         host=_ln_host, device=_ln_diag(False, False, True), diff="x"),
     dict(key="softmax/triatt_K64",
          site="TRI_ATT scores [1,heads=4,N,N], 192 of the step's 240 softmax backwards",
          verb="ttnn.multiply, sum, sum, divide, subtract, multiply "
@@ -415,8 +493,10 @@ def run_case(case, dtype_name, draws, want_det=True):
             m2 = float(torch.tensor(acc["rel_bw"]).median().item())
             out[k]["rel_l2_bw_only_median"] = m2
             out[k]["grade_bw_only"] = grade(m2, dtype_name)
-    res = {"grads": out, "fd": fd,
-           "forward_rel_l2_median": float(torch.tensor(fwd).median().item()) if fwd else None}
+    fwd_med = float(torch.tensor(fwd).median().item()) if fwd else None
+    suspect = bool(dtype_name == "float32" and fwd_med is not None and fwd_med >= 1.0e-1)
+    res = {"instrument_suspect": suspect, "grads": out, "fd": fd,
+           "forward_rel_l2_median": fwd_med}
     if rowsum:
         t = torch.tensor(rowsum, dtype=torch.float64)
         # A softmax row must sum to 1. How far the card's does is the whole of the leading
