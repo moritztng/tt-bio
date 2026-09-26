@@ -2,8 +2,11 @@
 # of3t-p10exact: one model-frame trunk rung on qb2 card 1.
 #
 #   arm.sh <TAG> <scopes> [extra p10arm flags...]
-#       scopes: none | softmax | layer_norm | softmax,layer_norm
+#       scopes: none | softmax | layer_norm | softmax,layer_norm   (the HOST float64 instrument)
 #       extra:  --probe-out F | --ln-fp32 | --probe-limit N
+#       LEVER=<dev_cot lever>  the DEVICE-side precision ladder, default none. Names in
+#              perf/of3t_bwdaccum/dev_cot.py: prod_fp32, sum_fp32, xhat_fp32, dxcfg, dx_fp32,
+#              all, ceiling, lofi. No clause reading has ever been taken with one on.
 #
 # of3t-stackexact/arm.sh with the worktree, output dir, lever arm and lease holder moved, and
 # the clock read from sysfs. `tt-smi -s` snapshots EVERY chip on the host, so one busy or wedged
@@ -27,6 +30,7 @@ B_SHA=583bcd7c91ce6ed46aea59844954fb2bf7ddc3d553d7f9d4f238998183db99e2
 C_SHA=1d15a8dc6db2a14b678e5ed5d92558af99d369599226391fa59f36ed84192ef4
 
 TAG=${1:?usage: arm.sh TAG scopes}; SCOPES=${2:?usage: arm.sh TAG scopes}; shift 2
+LEVER=${LEVER:-none}
 [ "$SCOPES" = none ] && X=("$@") || X=(--exact "$SCOPES" "$@")
 [ "$(sha256sum < "$B" | cut -d' ' -f1)" = "$B_SHA" ] || { echo "boundary digest mismatch"; exit 2; }
 [ "$(sha256sum < "$C" | cut -d' ' -f1)" = "$C_SHA" ] || { echo "cotangent digest mismatch (A42)"; exit 2; }
@@ -57,7 +61,7 @@ echo "=== host_quiet ==="; echo "$QUIET"
 S=$(date +%s)
 echo "=== $TAG scopes=$SCOPES start $(date -u +%FT%TZ) $(hostname) card $CARD $BOARD ==="
 env "${ENV[@]}" timeout 5400 python3 perf/of3t_p10exact/p10arm.py "${X[@]}" \
-    --stats-out "$SMX" --census-out "$CEN" --lever none -- \
+    --stats-out "$SMX" --census-out "$CEN" --lever "$LEVER" -- \
     --boundary "$B" --cap-last "$C" --out "$OUT" --report "$REP" --arm flipped --crop 0 2>&1 \
   | tee "$O/raw_${TAG}.log" | grep --line-buffered -E '^\{|OUR GRADIENT|STACK_EXACT|Traceback|rror|FAILED' | tail -25
 rc=${PIPESTATUS[0]}
@@ -65,9 +69,9 @@ E=$(date +%s)
 kill "$SAMPLER" 2>/dev/null
 echo "=== $TAG exit $rc elapsed $((E-S))s $(date -u +%FT%TZ) ==="
 
-[ -s "$REP" ] && python3 - "$REP" "$CLK" "$CARD" "$BOARD" "$B" "$C" "$OUT" "$rc" "$SCOPES" "$QUIET" <<'PY'
+[ -s "$REP" ] && python3 - "$REP" "$CLK" "$CARD" "$BOARD" "$B" "$C" "$OUT" "$rc" "$SCOPES" "$QUIET" "$LEVER" <<'PY'
 import hashlib, json, os, socket, subprocess, sys
-rep, clk, card, board, b, c, out, rc, scopes, quiet = sys.argv[1:]
+rep, clk, card, board, b, c, out, rc, scopes, quiet, lever = sys.argv[1:]
 def sha(p):
     h = hashlib.sha256()
     with open(p, "rb") as f:
@@ -79,8 +83,9 @@ d = json.load(open(rep))
 d["provenance"] = {
     "host": socket.gethostname(), "row": "of3t-p10exact", "device_involved": True,
     "card": int(card), "board_class": board, "exact_scopes": scopes,
-    "config": "dev_cot.py --lever none, TT_BIO_SOFTMAX_BW_RENORM=1, arm flipped, crop 0, "
-              "8 threads, stackarm.py --exact " + scopes,
+    "device_lever": lever,
+    "config": "dev_cot.py --lever " + lever + ", TT_BIO_SOFTMAX_BW_RENORM=1, arm flipped, crop 0, "
+              "8 threads, p10arm.py --exact " + scopes,
     "boundary_version": "upstream OpenFold3 0.4.3 (boundary captured from of3pkg043; graded "
                         "reference 0.4.3 bf16 autocast, contrast reference 0.4.3 float64)",
     "aiclk_mhz_sampled_DURING": ({"n": len(s), "min": s[0], "median": s[len(s) // 2],
