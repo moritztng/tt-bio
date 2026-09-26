@@ -67,6 +67,48 @@ def _precondition_slot_fix():
             "dirty": bool(_git("status", "--porcelain"))}
 
 
+def _evaluate(fwd, corpus, stage, seed, tokens=None):
+    """`af3_loss` on every target of a held-out corpus, with the weights as they are now.
+
+    Run on the SHIPPED inference path -- no hook, no tape, the device`s own softmax and layer
+    norm -- for both arms. That is one instrument, identical across the comparison, and it is
+    the path a user actually gets; scoring arm A with its own arithmetic and arm B with a
+    different one would make the metric a property of the instrument instead of the weights.
+    """
+    from tt_bio import autograd as ag
+    from tt_bio.train import objectives
+    from tt_bio.train.losses import of3_loss_weights
+    from tt_bio.train.openfold3 import OpenFold3Dataset
+
+    ds = OpenFold3Dataset(corpus, tokens=tokens)
+    row = objectives.objective("af3")
+    weights = of3_loss_weights(stage)
+    prev_seed, fwd.seed = fwd.seed, seed
+    out = []
+    try:
+        with ag.no_grad():
+            for i in range(len(ds)):
+                data = ds.batch([i])
+                t0 = time.perf_counter()
+                outputs = fwd(data)
+                host = {k: (v.value if hasattr(v, "value") else v)
+                        for k, v in outputs.items()}
+                from tt_bio.train.tensors import to_host
+                loss, terms, _ = row(data, {k: to_host(v) for k, v in host.items()},
+                                     weights=weights)
+                out.append({"index": i, "pdb_id": data.get("pdb_id"),
+                            "loss": float(loss), "s": round(time.perf_counter() - t0, 3),
+                            "breakdown": {k: (v.get("contribution")
+                                              if isinstance(v, dict) else v)
+                                          for k, v in terms.items()}})
+                print(f"    [eval] {i} {data.get('pdb_id')} loss {float(loss):.6f} "
+                      f"{out[-1]['s']:.1f}s", flush=True)
+    finally:
+        fwd.seed = prev_seed
+    mean = sum(o["loss"] for o in out) / len(out) if out else float("nan")
+    return {"mean_loss": mean, "n": len(out), "seed": seed, "stage": stage, "targets": out}
+
+
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--corpus", required=True, type=Path,
@@ -89,10 +131,21 @@ def main() -> int:
                          "lr 3e-4 the ratio read 0.7468, the master moving 2.9485 where the "
                          "weight the forward reads moved 2.2021. The ratio is recorded "
                          "whatever the band, and both arms carry the same one")
+    ap.add_argument("--stage", default="initial_training",
+                    help="the loss weights the objective scores with, train and eval alike")
     ap.add_argument("--rollout", type=int, default=20)
     ap.add_argument("--num-cycles", type=int, default=1)
     ap.add_argument("--checkpoint-every", type=int, default=10)
     ap.add_argument("--out-dir", required=True, type=Path, help="checkpoints and provenance")
+    ap.add_argument("--eval-corpus", type=Path,
+                    help="the HELD-OUT corpus. Scored once before the first step and once "
+                         "after the last, in this process, with the trained weights still on "
+                         "the card -- no checkpoint round trip to get wrong. The before score "
+                         "is the movement control: two arms that never moved agree perfectly, "
+                         "so a grade is only readable if the arm moved further than its floor")
+    ap.add_argument("--eval-seed", type=int, default=20260926,
+                    help="fixes the diffusion draw of the evaluation, so the metric is a "
+                         "function of the weights alone")
     ap.add_argument("--curve", type=Path, help="jsonl, one line per step, flushed as it runs")
     ap.add_argument("--out", required=True, type=Path)
     a = ap.parse_args()
@@ -143,11 +196,21 @@ def main() -> int:
                 band = (tuple(float(x) for x in a.displacement_band.split(","))
                         if a.displacement_band else None)
                 rec["displacement_band"] = band
+                if a.eval_corpus:
+                    print("[eval] before the first step", flush=True)
+                    rec["eval_before"] = _evaluate(fwd, a.eval_corpus, a.stage, a.eval_seed)
+                    dump()
                 run = train_loop(fwd, ds, out_dir=a.out_dir, global_batch=a.global_batch,
                                  steps=a.steps, train="weights", seed=a.seed, lr=a.lr,
                                  warmup_steps=a.warmup_steps,
                                  checkpoint_every=a.checkpoint_every, on_step=on_step,
                                  displacement_band=band)
+            if a.eval_corpus:
+                print("[eval] after the last step", flush=True)
+                rec["eval_after"] = _evaluate(fwd, a.eval_corpus, a.stage, a.eval_seed)
+                rec["eval_delta"] = (rec["eval_after"]["mean_loss"]
+                                     - rec["eval_before"]["mean_loss"])
+                dump()
             rec["displacement"] = run["displacement"]
             rec["provenance"] = run["provenance"].as_dict()
             rec["params_trained"] = len(run["params"])

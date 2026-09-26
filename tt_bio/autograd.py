@@ -1672,6 +1672,29 @@ def _uninstall_exact(ops, owner: Optional[str] = None) -> None:
         tt.forget_shim_bindings(*_EXACT_OPS[op]["verbs"])
 
 
+@contextlib.contextmanager
+def without_exact():
+    """Take the exact ops OUT for the block, and put back exactly what was there.
+
+    `exact_training(False)` changes what `exact_training_ops()` returns; it does not uninstall
+    what an enclosing `install()` already put in, and `install()` reads that function once at
+    the start of a run. So a section that has to run on the device`s own arithmetic whatever
+    the run asked for needs the ops gone, not the answer changed.
+
+    The detached rollout is that section. Upstream detaches it, so nothing computed there
+    reaches a gradient and the instrument has nothing to make exact; leaving it installed also
+    fails outright, because `_ln_forward64` downloads its input to host float64 and the shipped
+    diffusion decoder has already deallocated that buffer.
+    """
+    taken = {op: owner for op, (owner, _saved) in _EXACT_SAVED.items()}
+    _uninstall_exact(list(taken))
+    try:
+        yield
+    finally:
+        for op, owner in taken.items():
+            _install_exact((op,), owner)
+
+
 def exact_softmax_installed() -> bool:
     return "softmax" in _EXACT_SAVED
 

@@ -523,6 +523,18 @@ class OpenFold3Forward:
             repr_x = torch.as_tensor(np.asarray(self.repr_coords_in, np.float32)).reshape(-1, 3)
             self.rollout_ran = False
         else:
+            # THE EXACTNESS INSTRUMENT IS OFF HERE WHATEVER THE RUN ASKED FOR, and that is a
+            # scope decision rather than a cost one. `exact_training` replaces softmax and
+            # layer norm to make a GRADIENT exact; upstream detaches the rollout
+            # (`model.py:381`) so nothing computed in it reaches one. Leaving it installed
+            # also broke: `_ln_forward64` downloads its input to host float64 and the shipped
+            # decoder has already deallocated that buffer, so the reference arm died on
+            # `tensor.is_allocated()` 398 s in, inside the discovery pass, before step 0. Both
+            # It takes `without_exact` and not `exact_training(False)`: the second changes what
+            # the SWITCH reports, and `install()` read that switch once when the run started.
+            # Both arms of a comparison run the identical rollout, so scoping it out cannot bias
+            # one against the other -- and it is what keeps the reference arm affordable.
+            #
             # `no_grad` for the arithmetic and the SHIM for the plumbing, because the two
             # answer different halves. `no_grad` stops `_tape` building nodes the detached
             # rollout would never use. The shim is what lets the sampler`s own raw `ttnn.`
@@ -530,7 +542,7 @@ class OpenFold3Forward:
             # unwrapping the ARGUMENTS with `_v` cannot reach those, which is why the rollout
             # died on `ttnn.layer_norm` in `OF3DiffusionConditioning` and then on its own
             # per-step `ttnn.to_torch`.
-            with ag.no_grad(), shim_scope():
+            with ag.no_grad(), shim_scope(), ag.without_exact():
                 schedule = create_noise_schedule(self.rollout, **m.ns_cfg)
                 xl0, rots, trans, noise, ts, ctau = m._gen_rollout(schedule, n_atom, self.seed)
                 xl_d = m.sampler(
