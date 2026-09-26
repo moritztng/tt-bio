@@ -1,0 +1,9 @@
+ARM openfold3 rc=0 secs=142 scored=[release-gate] scoring tt_bio from /home/ttuser/.coworker/wt/land-standing/tt_bio (commit a6c39ac87)
+ARM l1-budget rc=0 secs=120 scored=[release-gate] scoring tt_bio from /home/ttuser/.coworker/wt/land-standing/tt_bio (commit a6c39ac87)
+ARM boltz2 rc=0 secs=42 scored=[release-gate] scoring tt_bio from /home/ttuser/.coworker/wt/land-standing/tt_bio (commit a6c39ac87)
+ARM opendde rc=0 secs=56 scored=[release-gate] scoring tt_bio from /home/ttuser/.coworker/wt/land-standing/tt_bio (commit a6c39ac87)
+ARM protenix-v2 rc=0 secs=49 scored=[release-gate] scoring tt_bio from /home/ttuser/.coworker/wt/land-standing/tt_bio (commit a6c39ac87)
+ARM esmfold2 rc=0 secs=62 scored=[release-gate] scoring tt_bio from /home/ttuser/.coworker/wt/land-standing/tt_bio (commit a6c39ac87)
+ARM esmfold2-fast rc=0 secs=55 scored=[release-gate] scoring tt_bio from /home/ttuser/.coworker/wt/land-standing/tt_bio (commit a6c39ac87)
+ARM rf3 rc=0 secs=56 scored=[release-gate] scoring tt_bio from /home/ttuser/.coworker/wt/land-standing/tt_bio (commit a6c39ac87)
+GATE_CHAIN_END

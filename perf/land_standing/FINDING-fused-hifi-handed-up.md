@@ -215,3 +215,41 @@ experimental answer, which tiled CDK2 does not have.
 Until that exists, the verdict stands on what is measured: **+8.471 s, and 2.390 A of intra-domain
 movement against a 0.60 A bar**, scored against the incumbent arm because no ground truth is
 reachable.
+
+## The gate, with the lever active — 2026-09-26 08:4xZ
+
+Run at the **merge tree** (`a6c39ac87`, i.e. `origin/main` `29bc7d00c` merged in), every arm
+asserted from the gate's own scoring-tree line.
+
+**Run via `TT_BIO_TRIATT_FUSED_HIFI=1` rather than by flipping the default, deliberately.**
+`wk/land-standing` is under an orchestrator merge decision that rests on the branch carrying
+**exactly one** non-comment line, and adding a second flip would invalidate that handover. The env
+route is equivalent for the gate's purpose, verified rather than assumed:
+
+    TT_BIO_TRIATT_FUSED_HIFI unset -> _TRIATT_FUSED_HIFI = False, _fused_hifi_on(None) = False
+    TT_BIO_TRIATT_FUSED_HIFI=1     -> _TRIATT_FUSED_HIFI = True,  _fused_hifi_on(None) = True
+
+    openfold3       1.658 / 0.902   <=3.5 / >=0.70   PASS
+    boltz2          1.827 / 0.902   <=3.0 / >=0.75   PASS
+    rf3             1.239 / 0.958   <=3.0 / >=0.75   PASS
+    opendde         1.395 / 0.940   <=6.0 / >=0.50   PASS
+    protenix-v2     1.999 / 0.867   <=6.0 / >=0.50   PASS
+    esmfold2        1.343 / 0.961   <=8.0 / >=0.40   PASS
+    esmfold2-fast   1.708 / 0.918   <=4.5 / >=0.60   PASS
+    l1-budget       arith + native + 8x8 + narrow    PASS, ONE digest across all three grids
+                                                     (c3073854d423570ae48cb8ce35ccb27e)
+
+Geometry in band and zero chain gaps on every fold arm.
+
+**Every number is identical to the dividing-k gate run, and that is the expected result rather
+than a suspicious one.** This lever serves **0 of 432 calls** at the gate's 117 aa target — proven
+by counter, not inferred — so the gate cannot see it. **These arms show the lever breaks nothing;
+they do not validate it.** The validation is the PepN evidence above: +4.700 s at 2.04x its A/A
+floor, 0.055552 A of movement at 10.8x under the bar and 19.6x under the 1.088466 A seed floor,
+and the lever's arm 0.004867 A closer to the deposited 3B34.
+
+`l1-budget` is the one arm that is not merely a regression check here: it is the arm that catches
+card-dependence, and its three grid classes return one digest with the lever on.
+
+**Arms not yet run: `capacity` and `batch-position`** — the two long ones. Launched; whatever they
+report belongs in this table before anyone flips the default.
