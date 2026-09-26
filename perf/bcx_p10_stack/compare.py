@@ -64,7 +64,7 @@ def reach(stamp):
 def main(root):
     arms = {}
     for p in sorted(pathlib.Path(root).rglob("round_events.json")):
-        if "smoke" in str(p):
+        if "smoke" in str(p) or "headline" in str(p):  # headline/ is a copy
             continue
         rows, stamp = rounds_of(p)
         key = tuple(int(bool(stamp.get(k))) for k in LEVERS)
