@@ -1120,6 +1120,39 @@ Protenix-v2 at 896 and OpenBind at 640 identical. At 1088 the bound makes the fl
 
 `TT_BIO_TRIATT_NARROW_Q_FALLBACK=0` is the way back.
 
+## `TT_BIO_TRIATT_DIVIDING_K` — on
+
+The fused HiFi triangle attention builds its k ladder from chunk widths that divide the padded
+length. When none of the shipped widths divides it, the route declines every rung and the fold
+falls back to the materialised fp32 softmax. This flag derives the ladder from the divisors
+instead, so a legal k exists at those lengths.
+
+It only ever adds a rung where the route serves nothing today, so no length that folds on the
+fused path now can have its pick moved. Replayed over all 48 tile-aligned lengths from 32 to 1536
+at `openfold3.trunk`, ten serve nothing and this opens exactly one of them: 832. OpenFold3 pads
+its pair axis to a multiple of 64, so 832 is the only one of the ten a user can present.
+
+**Speed: 1.6351x on OpenFold3 at 832 tokens**, +50.999 s. Arms interleaved in one process on a
+p300c, AICLK sampled during every leg at 1350 MHz, against an A/A floor of 1.306 s. The effect is
+39x that floor.
+
+**Accuracy at 832**, on tiled CDK2 at MSA depth 513, where OpenFold3 is confident (pLDDT 0.806).
+CA RMSD, Kabsch, float64, over 832 CA:
+
+| arm | CA RMSD |
+| --- | --- |
+| control, same arm rerun | 0.000000 A |
+| this flag | 0.450148 A |
+| a different seed | 1.974757 A |
+| flag and seed together | 1.948630 A |
+
+The move is inside the 0.60 A bar and 4.4x smaller than re-seeding, and both confidence heads
+move the favourable way (+0.000551 pLDDT, +0.000647 pTM). At 288, the other length anyone has run,
+pair rel_l2 against a float64 reference improves 0.021702 to 0.018661.
+
+`TT_BIO_TRIATT_DIVIDING_K=0` is the way back, read live rather than at import so one process can
+A/B both arms.
+
 ## `TT_BIO_TRIATT_SDPA_HIFI_AB` — on for `openfold3.trunk`, off at every other site
 
 Triangle attention has two routes on Blackhole: a materialised chain that takes its softmax in
