@@ -992,7 +992,7 @@ def design_model_class():
 
 
 def _factory(*, trunk: str, pool: TrunkPool | None, evoformer: EvoformerOnDevice | None = None,
-             extra_msa: "ExtraMsaOnDevice | None" = None, exact: bool = True):
+             extra_msa: "ExtraMsaOnDevice | None" = None, exact: bool = False):
     cls = design_model_class()
 
     def build(*args, **kwargs):
@@ -1015,7 +1015,7 @@ def predictor(*, trunk: str = "device", card: int | str | None = None, checkpoin
               resident: int | None = None, blocks: int = EVOFORMER_BLOCKS,
               recompute: bool = True,
               extra_msa: bool = False,
-              exact: bool = True) -> Iterator[Callable[..., object]]:
+              exact: bool = False) -> Iterator[Callable[..., object]]:
     """Put tt-bio's Evoformer on card for the duration and yield a predictor factory.
 
     The factory takes BindCraft 2's own `AlphaFoldDesignModel` arguments (`presets`, `data_dir`,
@@ -1035,17 +1035,19 @@ def predictor(*, trunk: str = "device", card: int | str | None = None, checkpoin
     independent of the Evoformer swap, so a comparison graded on the Evoformer alone keeps the
     program it was graded on. Read `build.extra_msa.calls` to check the on-card path ran.
 
-    `exact` runs softmax and layer norm on the host in float64 inside the tape, which is
-    tt-bio's default for a gradient and what reproduces AlphaFold 2's own gradient most closely.
-    It is expensive: one `sequence_gradients` call on a PD-L1 draw at n=192 takes 479.59 s with
-    it on against 19.285 s with it off, 24.87x (`perf/bcx_exact/ROUND_AB.json`). That is the
-    gradient call, not the whole design round, which also carries BindCraft 2's own JAX work.
-    `exact=False` runs both ops on the device, as inference does. It moves the worst gradient
-    tensor's distance from a float64 reference by 1.1 %, from 0.087998 to 0.088985, where
-    bfloat16 alone already carries 0.075483 of it (`perf/bcx_exact/grade/VJP_TRIARM_n192.json`),
-    and a PD-L1 design campaign on that setting still accepts binders
-    (`perf/bcx_exact/ACCEPT_GRADE.json`). It stays on by default because it is the more accurate
-    of the two. Read `tt_bio.autograd.EXACT_SOFTMAX_STATS` to confirm which one ran.
+    `exact` runs softmax and layer norm on the host in float64 inside the tape, which
+    reproduces AlphaFold 2's own gradient most closely. It is off by default because it is a
+    diagnostic and it is expensive: one `sequence_gradients` call on a PD-L1 draw at n=192 takes
+    479.59 s with it on against 19.285 s with it off, 24.87x (`perf/bcx_exact/ROUND_AB.json`).
+    That is the gradient call, not the whole design round, which also carries BindCraft 2's own
+    JAX work. What it buys is 1.1 % on the worst gradient tensor: at n=192 the MSA cotangent out
+    of Evoformer block 1 sits 0.087998 from a float64 reference with it on and 0.088985 with it
+    off, where bfloat16 alone already carries 0.075483 of that
+    (`perf/bcx_exact/grade/VJP_on_n192.json` and `VJP_off_n192.json`). A PD-L1 campaign on the
+    off setting accepts binders (`perf/bcx_exact/ACCEPT_GRADE.json`), which is the bar a design
+    loop is graded on. Set `exact=True` to reproduce a training-style gradient bar, which
+    BindCraft 2 does not have. Read `tt_bio.autograd.EXACT_SOFTMAX_STATS` to confirm which one
+    ran.
 
     `trunk="jax"` opens no device and touches no card. It runs BindCraft 2's own trunk through
     this same class, which is the control arm every device result should be read against.

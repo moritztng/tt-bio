@@ -273,30 +273,40 @@ def test_the_campaign_path_can_ask_for_the_extra_msa_swap_too():
         assert build.extra_msa is None
 
 
-def test_the_gradient_runs_softmax_and_layer_norm_exact_by_default():
-    """`exact` defaults on, and the check is the armed op tuple rather than the module global.
+def test_the_gradient_leaves_softmax_and_layer_norm_on_the_device_by_default():
+    """`exact` defaults off, and the check is the armed op tuple rather than the module global.
 
     `tape()` and `backward()` each read `exact_training_ops()` for their own extent, so that
     tuple is what a tape opened inside this scope would actually run. Reading
     `autograd._EXACT_TRAINING` instead would test the variable, not the scope.
+
+    The default is off because the host float64 instrument costs 24.87x on the gradient call
+    (479.59 s against 19.285 s at n=192, `perf/bcx_exact/ROUND_AB.json`) and moves the worst
+    gradient tensor 1.1 %, from 0.087998 to 0.088985 against a float64 reference, where
+    bfloat16 alone already carries 0.075483 of it. This is the module-level default, not the
+    engine's: `tt_bio.autograd.EXACT_TRAINING_OPS` is still what a bare tape arms, which is
+    what OpenFold 3 training runs on and what `tests/test_exact_training_default.py` pins.
     """
     _bindcraft_root()
     from tt_bio import autograd
 
     params = _af2_params()
+    armed = autograd.exact_training_ops()
     with bindcraft2.predictor(trunk="device", checkpoints=str(params)) as build:
-        assert autograd.exact_training_ops() == autograd.EXACT_TRAINING_OPS
-        assert build.exact is True
+        assert autograd.exact_training_ops() == ()
+        assert build.exact is False
+    assert autograd.exact_training_ops() == armed
 
 
-def test_the_exact_instrument_can_be_turned_off_through_the_predictor():
-    """`predictor(exact=False)` is the only route a BindCraft 2 caller has to the off switch.
+def test_the_exact_instrument_can_be_asked_for_off_explicitly():
+    """`predictor(exact=False)` spelled out, which is what every `perf/bcx_*` harness passes.
 
-    Before this parameter the seam opened `trunk.taped.tape()` with no way out of it, so every
-    BindCraft 2 round paid a host float64 round trip per softmax and per layer norm -- 2,880
-    counted host entries a round at n=192, and 24.87x on the gradient call itself
-    (`perf/bcx_exact/ROUND_AB.json`). The lever has to be inert-proof: an armed tuple that does
-    not empty is a parameter that reaches nothing.
+    The default test above covers the same branch, but not the keyword: renaming `exact` would
+    leave that one green and break every caller. Before this parameter existed the seam opened
+    `trunk.taped.tape()` with no way out of it, so every BindCraft 2 round paid a host float64
+    round trip per softmax and per layer norm -- 2,880 counted host entries a round at n=192,
+    and 24.87x on the gradient call itself (`perf/bcx_exact/ROUND_AB.json`). The lever has to
+    be inert-proof: an armed tuple that does not empty is a parameter that reaches nothing.
     """
     _bindcraft_root()
     from tt_bio import autograd
@@ -310,22 +320,23 @@ def test_the_exact_instrument_can_be_turned_off_through_the_predictor():
     assert autograd.exact_training_ops() == armed
 
 
-def test_the_campaign_path_can_turn_the_exact_instrument_off_too():
+def test_the_campaign_path_carries_the_exact_argument_both_ways():
     """`campaign_predictor` takes `**kwargs`, so nothing in its signature says `exact` arrives.
 
     A campaign is the entry point a real design run uses -- `campaign.run_campaign` -- and this
-    is what says the parameter reaches it rather than being swallowed.
+    is what says the parameter reaches it rather than being swallowed. Both directions, because
+    `exact=True` is now the off-default side and nothing else card-free walks it.
     """
     _bindcraft_root()
     from tt_bio import autograd
 
     params = _af2_params()
-    with bindcraft2.campaign_predictor(checkpoints=str(params), exact=False) as build:
-        assert autograd.exact_training_ops() == ()
-        assert build.exact is False
-    with bindcraft2.campaign_predictor(checkpoints=str(params)) as build:
+    with bindcraft2.campaign_predictor(checkpoints=str(params), exact=True) as build:
         assert autograd.exact_training_ops() == autograd.EXACT_TRAINING_OPS
         assert build.exact is True
+    with bindcraft2.campaign_predictor(checkpoints=str(params)) as build:
+        assert autograd.exact_training_ops() == ()
+        assert build.exact is False
 
 
 def test_the_extra_msa_swap_pads_bindcraft_2s_real_shapes_to_a_tile():
