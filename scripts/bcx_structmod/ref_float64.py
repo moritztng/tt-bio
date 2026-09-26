@@ -93,6 +93,17 @@ def main() -> int:
                          "32, so a real 275-token representation is folded at 288 and the "
                          "13 pad residues are real work the device arm has to reproduce")
     ap.add_argument("--dtype", default="float64", choices=("float64", "float32"))
+    ap.add_argument("--boundary", default="loss", choices=("loss", "fold"),
+                    help="where the cotangent is seeded. 'loss' is BindCraft 2's own reach "
+                         "into the module, final_atom_positions and act. 'fold' is the "
+                         "DEVICE module's own boundary -- act, traj and the unnormalised "
+                         "angles -- which is what a device VJP can be graded on without the "
+                         "host tail sitting inside the graded path.")
+    ap.add_argument("--seed-only", default="all",
+                    choices=("all", "act", "traj", "angles"),
+                    help="under --boundary fold, seed the cotangent on ONE output and zero "
+                         "the others. Three outputs leave a wrong VJP as one blended number; "
+                         "one at a time names which path is wrong.")
     ap.add_argument("--matmul-precision", default=None,
                     choices=("bfloat16", "tensorfloat32", "float32", "highest"),
                     help="jax's matmul precision for this arm. The control the device arm "
@@ -200,14 +211,45 @@ def main() -> int:
     # Seeded rather than taken from a real loss: a real cotangent is one direction in a
     # 288x37x3 space and a gradient that is right in that one direction is not a graded VJP.
     rng = np.random.default_rng(args.seed + 1)
-    ct_pos = rng.standard_normal(dumped["final_atom_positions"].shape).astype(dtype)
-    ct_act = rng.standard_normal(dumped["act"].shape).astype(dtype)
-    dumped["ct_final_atom_positions"] = ct_pos
-    dumped["ct_act"] = ct_act
+    # Every cotangent is masked to the live residues, because every consumer is. The atom14
+    # and atom37 masks and the pLDDT head all multiply by seq_mask, so a real loss puts zero
+    # cotangent on a pad residue, and seeding one there would grade the device arm on a
+    # gradient path the model never drives.
+    live = np.asarray(seq_mask, dtype=dtype)
 
-    def scalar(single, pair):
-        o = forward(single, pair)
-        return (jnp.sum(o["final_atom_positions"] * ct_pos) + jnp.sum(o["act"] * ct_act))
+    def seeded(shape, axis):
+        c = rng.standard_normal(shape).astype(dtype)
+        return c * live.reshape([-1 if i == axis else 1 for i in range(len(shape))])
+
+    ct_act = seeded(dumped["act"].shape, 0)
+    dumped["ct_act"] = ct_act
+    if args.boundary == "loss":
+        ct_pos = seeded(dumped["final_atom_positions"].shape, 0)
+        dumped["ct_final_atom_positions"] = ct_pos
+
+        def scalar(single, pair):
+            o = forward(single, pair)
+            return (jnp.sum(o["final_atom_positions"] * ct_pos) + jnp.sum(o["act"] * ct_act))
+    else:
+        ct_traj = seeded(dumped["traj"].shape, 1)
+        ct_unnorm = seeded(dumped["sidechains_unnormalized"].shape, 1)
+        if args.seed_only != "all":
+            keep_one = args.seed_only
+            if keep_one != "act":
+                ct_act = np.zeros_like(ct_act)
+            if keep_one != "traj":
+                ct_traj = np.zeros_like(ct_traj)
+            if keep_one != "angles":
+                ct_unnorm = np.zeros_like(ct_unnorm)
+            dumped["ct_act"] = ct_act
+        dumped["ct_traj"] = ct_traj
+        dumped["ct_unnormalized"] = ct_unnorm
+
+        def scalar(single, pair):
+            o = forward(single, pair)
+            return (jnp.sum(o["act"] * ct_act)
+                    + jnp.sum(o["traj"] * ct_traj)
+                    + jnp.sum(o["sidechains"]["unnormalized_angles_sin_cos"] * ct_unnorm))
 
     gnet = hk.without_apply_rng(hk.transform(scalar))
     grad = jax.jit(jax.grad(lambda s, z: gnet.apply(params, s, z), argnums=(0, 1)))
@@ -215,6 +257,8 @@ def main() -> int:
     dumped["g_single"] = np.asarray(g_single)
     dumped["g_pair"] = np.asarray(g_pair)
 
+    dumped["boundary"] = np.array(args.boundary)
+    dumped["seed_only"] = np.array(args.seed_only)
     dumped["single"] = single
     dumped["pair"] = pair
     dumped["aatype"] = aatype
@@ -224,6 +268,9 @@ def main() -> int:
     np.savez(args.out, **dumped)
     print(f"n={n} dtype={args.dtype} -> {args.out}")
     for key, value in sorted(dumped.items()):
+        if value.dtype.kind not in "fiu":
+            print(f"  {key:32s} {value}")
+            continue
         print(f"  {key:32s} {str(value.shape):20s} "
               f"|.|={float(np.linalg.norm(value.astype(np.float64))):.6g}")
     return 0
