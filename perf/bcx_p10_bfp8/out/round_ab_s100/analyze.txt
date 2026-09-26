@@ -1,0 +1,56 @@
+{
+ "summary": {
+  "rounds_measured": 16,
+  "round1_wall": 87.945,
+  "wall_med": 43.268,
+  "wall_min": 38.896,
+  "wall_max": 64.826,
+  "sg_med": 43.264,
+  "taped_s_med": 5.146,
+  "taped_n_med": 2,
+  "bwd_s_med": 7.982,
+  "primal_s_med": 0,
+  "host_in_sg_med": 31.2,
+  "opt_med": 0.001,
+  "predict_outside_sg_med": 0,
+  "residual_med": 0.005,
+  "aiclk_med": 1350,
+  "load1_med": 25.6
+ },
+ "per_call": {
+  "taped": {
+   "n": 32,
+   "med": 2.557,
+   "min": 1.962,
+   "max": 12.162
+  },
+  "backward": {
+   "n": 16,
+   "med": 7.99,
+   "min": 7.607,
+   "max": 18.25
+  },
+  "primal": {
+   "n": 0,
+   "med": null,
+   "min": null,
+   "max": null
+  }
+ }
+}
+round=1 wall=87.945 sg=86.839 taped_n=2 taped_s=12.04 bwd_s=8.616 primal_n=0 primal_s=0 host_in_sg=66.183 opt=1.061 predict_outside_sg=0 residual=0.046 aiclk_med=1350 load1=29.1
+round=2 wall=64.826 sg=64.821 taped_n=2 taped_s=14.752 bwd_s=18.25 primal_n=0 primal_s=0 host_in_sg=31.818 opt=0.002 predict_outside_sg=0 residual=0.003 aiclk_med=1350 load1=23.8
+round=3 wall=43.578 sg=43.574 taped_n=2 taped_s=4.078 bwd_s=7.699 primal_n=0 primal_s=0 host_in_sg=31.797 opt=0.001 predict_outside_sg=0 residual=0.003 aiclk_med=1350 load1=21.3
+round=4 wall=47.617 sg=47.613 taped_n=2 taped_s=8.178 bwd_s=8.063 primal_n=0 primal_s=0 host_in_sg=31.371 opt=0.001 predict_outside_sg=0 residual=0.003 aiclk_med=1350 load1=25.5
+round=5 wall=43.268 sg=43.264 taped_n=2 taped_s=4.076 bwd_s=7.62 primal_n=0 primal_s=0 host_in_sg=31.569 opt=0.001 predict_outside_sg=0 residual=0.003 aiclk_med=1350 load1=24.8
+round=6 wall=45.074 sg=45.057 taped_n=2 taped_s=5.218 bwd_s=8.474 primal_n=0 primal_s=0 host_in_sg=31.365 opt=0.005 predict_outside_sg=0 residual=0.013 aiclk_med=1350 load1=27.4
+round=7 wall=45.503 sg=45.494 taped_n=2 taped_s=7.225 bwd_s=7.67 primal_n=0 primal_s=0 host_in_sg=30.599 opt=0.002 predict_outside_sg=0 residual=0.008 aiclk_med=1350 load1=29.4
+round=8 wall=44.742 sg=44.734 taped_n=2 taped_s=5.146 bwd_s=8.05 primal_n=0 primal_s=0 host_in_sg=31.538 opt=0.002 predict_outside_sg=0 residual=0.006 aiclk_med=1350 load1=27.8
+round=9 wall=38.896 sg=38.889 taped_n=2 taped_s=3.99 bwd_s=7.644 primal_n=0 primal_s=0 host_in_sg=27.255 opt=0.001 predict_outside_sg=0 residual=0.006 aiclk_med=1350 load1=28.8
+round=10 wall=40.975 sg=40.97 taped_n=2 taped_s=5.145 bwd_s=7.997 primal_n=0 primal_s=0 host_in_sg=27.828 opt=0.001 predict_outside_sg=0 residual=0.004 aiclk_med=1350 load1=27.1
+round=11 wall=42.294 sg=42.288 taped_n=2 taped_s=4.037 bwd_s=7.66 primal_n=0 primal_s=0 host_in_sg=30.592 opt=0.001 predict_outside_sg=0 residual=0.004 aiclk_med=1350 load1=26.9
+round=12 wall=38.898 sg=38.891 taped_n=2 taped_s=5.178 bwd_s=8.538 primal_n=0 primal_s=0 host_in_sg=25.175 opt=0.001 predict_outside_sg=0 residual=0.006 aiclk_med=1350 load1=27.0
+round=13 wall=42.495 sg=42.487 taped_n=2 taped_s=5.862 bwd_s=7.607 primal_n=0 primal_s=0 host_in_sg=29.017 opt=0.003 predict_outside_sg=0 residual=0.005 aiclk_med=1350 load1=23.3
+round=14 wall=43.113 sg=43.083 taped_n=2 taped_s=5.115 bwd_s=7.982 primal_n=0 primal_s=0 host_in_sg=29.986 opt=0.002 predict_outside_sg=0 residual=0.027 aiclk_med=1350 load1=25.6
+round=15 wall=42.889 sg=42.882 taped_n=2 taped_s=4.062 bwd_s=7.621 primal_n=0 primal_s=0 host_in_sg=31.2 opt=0.001 predict_outside_sg=0 residual=0.005 aiclk_med=1350 load1=23.3
+round=16 wall=48.527 sg=48.518 taped_n=2 taped_s=5.16 bwd_s=8.063 primal_n=0 primal_s=0 host_in_sg=35.295 opt=0.002 predict_outside_sg=0 residual=0.006 aiclk_med=1350 load1=22.7
