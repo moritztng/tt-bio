@@ -1,0 +1,41 @@
+sampler: n=40738 dt_ms nominal 2.0 median 2.000 p99 10.890 max 1388.1 | self_cpu 0.0 s | dev_max_depth 1
+device callbacks: 81 merged into 81 intervals
+
+ round     wall      dev     host     both  hostONLY  neither    cpu_s  cpuIDLE
+     1   35.260   14.405   29.918    9.152    20.766    0.089   59.500   47.521
+     2   11.835    9.157   11.610    8.958     2.652    0.027   18.340    8.660
+     3   10.298    7.240   10.196    7.208     2.988    0.070   16.583    8.919
+     4   12.202    9.738   12.037    9.581     2.456    0.008   18.590    8.281
+     5    9.771    7.112    9.700    7.092     2.609    0.051   15.754    8.155
+     6    9.788    7.241    9.770    7.230     2.539    0.009   15.626    7.937
+     7   12.202    8.975   12.097    8.899     3.198    0.030   19.015    9.389
+     8    9.887    7.243    9.820    7.215     2.605    0.039   15.899    8.239
+     9   10.662    7.154   10.545    7.095     3.450    0.057   17.563    9.983
+
+MEDIAN over 8 timed rounds, cores threshold 0.5:
+  wall                 10.480
+  dev                   7.242
+  host                 10.370
+  both                  7.223
+  host_dev_idle         2.630
+  neither               0.034
+  cpu_s                17.073
+  cpu_s_dev_idle        8.471
+  cpu_s_dev_busy        7.676
+  device idle wall      2.669
+  HOST HIDDEN NOW       7.223  (host-busy wall already under the card)
+  OVERLAP CEILING       2.630  (25.1 % of the round)
+
+gap table, median over 8 timed rounds (aligned):
+   #         t     wall    cpu_s   cores
+   0     0.000    0.116    0.844    7.27
+   1     0.281    0.028    0.123    4.34
+   2     0.481    0.043    0.054    1.25
+   3     1.487    0.505    1.691    3.35
+   4     2.091    0.072    0.137    1.91
+   5     2.309    0.057    0.079    1.37
+   6     3.384    1.679    5.129    3.06
+   7     9.663    0.047    0.065    1.37
+   8    10.076    0.040    0.111    2.81
+   9    10.310    0.151    0.314    2.08
+                  2.739  sum of the medians

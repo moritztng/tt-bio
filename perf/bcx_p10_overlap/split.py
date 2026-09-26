@@ -164,23 +164,37 @@ def main():
     for k in ("wall", "dev", "host", "both", "host_dev_idle", "neither",
               "cpu_s", "cpu_s_dev_idle", "cpu_s_dev_busy"):
         print(f"  {k:<18} {med[k]:8.3f}")
-    print(f"  {'device idle wall':<18} {med['wall'] - med['dev']:8.3f}")
+    # median of the per-round difference, NOT the difference of two medians: the round walls
+    # are bimodal (rounds 2, 4 and 7 of every process carry a 4.5-5.3 s forward) so the two
+    # medians come off different rounds and their difference is a number no round had.
+    med["idle"] = st.median([s["wall"] - s["dev"] for s in keep])
+    print(f"  {'device idle wall':<18} {med['idle']:8.3f}")
     print(f"  {'HOST HIDDEN NOW':<18} {med['both']:8.3f}  "
           f"(host-busy wall already under the card)")
     print(f"  {'OVERLAP CEILING':<18} {med['host_dev_idle']:8.3f}  "
           f"({100*med['host_dev_idle']/med['wall']:.1f} % of the round)")
 
-    # A gap table on the median round, so leg 2 has something to name.
-    mid = sorted(keep, key=lambda s: s["wall"])[len(keep) // 2]
-    for rnd, t0, t1 in rounds(events):
-        s = split_round(iv, samp, t0, t1, a.cores_thresh)
-        if abs(s["wall"] - mid["wall"]) < 1e-9:
-            print(f"\ngaps of round {rnd} (wall {s['wall']:.3f}):")
-            print("%9s %8s %8s %7s" % ("t", "wall", "cpu_s", "cores"))
-            for g in gaps(iv, samp, t0, t1):
-                print("%9.3f %8.3f %8.3f %7.2f"
-                      % (g["t"], g["wall"], g["cpu_s"], g["cores"]))
-            break
+    # The gap table, median per gap INDEX across the timed rounds. One round's table is one
+    # draw of a term that moves with box load; the round's shape is the same every round and
+    # that is what makes the index alignment sound. Refuses to align if a round has a
+    # different number of gaps, because then the indices name different work.
+    tabs = [gaps(iv, samp, t0, t1) for rnd, t0, t1 in rounds(events) if rnd > a.drop_first]
+    ns = set(len(t) for t in tabs)
+    print(f"\ngap table, median over {len(tabs)} timed rounds "
+          f"({'aligned' if len(ns) == 1 else 'RAGGED ' + str(sorted(ns))}):")
+    if len(ns) == 1:
+        print("%4s %9s %8s %8s %7s" % ("#", "t", "wall", "cpu_s", "cores"))
+        tot = 0.0
+        for i in range(len(tabs[0])):
+            w = st.median([t[i]["wall"] for t in tabs])
+            c = st.median([t[i]["cpu_s"] for t in tabs])
+            tot += w
+            print("%4d %9.3f %8.3f %8.3f %7.2f"
+                  % (i, st.median([t[i]["t"] for t in tabs]), w, c, c / w if w else 0))
+        print(f"{'':4} {'':9} {tot:8.3f}  sum of the medians")
+    else:
+        for t in tabs:
+            print([ (g["t"], g["wall"]) for g in t ])
 
 
 if __name__ == "__main__":
