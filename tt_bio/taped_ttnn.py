@@ -1125,6 +1125,36 @@ _kernel("reblock_permute")(_reblock_vjp((0, 2, 3, 1)))
 _kernel("reblock_permute_back")(_reblock_vjp((0, 3, 1, 2)))
 
 
+@_kernel("rne_add")
+def _k_rne_add(shipped, args, kwargs):
+    """`tt_bio.rne_add`'s entry: the VJP of a sum is the cotangent, to both operands.
+
+    The kernel replaces four taped nodes -- two widening typecasts, an in-place add and a
+    narrowing typecast -- with one, so the graph loses three nodes per residual and the chain
+    of dtypes they carried. That is sound because every one of the four is its own identity on
+    a cotangent: a typecast's gradient passes straight through (`_identity_grad`) and an add's
+    goes to both parents unchanged (`_ADD`). What the kernel changes is the VALUE, and only in
+    the direction of the reference -- it computes `round_rne_bf16(exact_sum)` bit-exactly where
+    the four calls compute it too, so a round with this on is bit-identical to a round with it
+    off and the A/B measures seconds alone.
+
+    `reads=()`: the sum's gradient is a function of the cotangent alone, so the tape drops both
+    operands instead of pinning them. These are pair-representation tensors, the largest the
+    trunk carries.
+    """
+    a, b = _wrap(args[0]), _wrap(args[1])
+    ra, rk = _raw(args, kwargs)
+    out_v = shipped(*ra, **rk)
+
+    def make():
+        def bw(g):
+            a.add_grad(g)
+            b.add_grad(g)
+        return bw
+
+    return ag._tape(out_v, [a, b], make, reads=())
+
+
 # --- attention head packing ------------------------------------------------------------
 # Both layouts below are DERIVED FROM THE DEVICE with an index-valued tensor
 # (`perf/ptx_fastpath/heads.py`), not read off a docstring. A head-split backward written

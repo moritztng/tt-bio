@@ -87,6 +87,24 @@ class StopAfterRounds(BaseException):
     """
 
 
+#: Callables returning a dict of reach counters, stamped into every `round_start` and every
+#: `round_stop`. A lever's counters are process totals everywhere else, and a process total
+#: cannot tell a round that served 432 from two rounds that served 216 and 648 -- so a lever
+#: that fires on half the rounds reads as a lever that fired, and its seconds are a blend of
+#: two arms. Differencing consecutive boundaries gives each round its own reach.
+REACH: list = []
+
+
+def _reach():
+    out = {}
+    for fn in REACH:
+        try:
+            out.update(fn())
+        except Exception as exc:                 # an instrument must not kill a round
+            out["reach_error"] = repr(exc)
+    return out
+
+
 #: `(path, stamp)` once the caller has somewhere to write. Set it and every round boundary
 #: flushes the whole event log, so a run that dies at round 40 of 100 -- or one that aborts in
 #: ttnn's close_device at teardown, which qb2 does -- still leaves every round it finished.
@@ -106,10 +124,11 @@ class Meter:
             # Stamp the boundary BEFORE unwinding: it closes the last round's wall, and
             # the campaign's own finally blocks run between the raise and the dump.
             EVENTS.append({"kind": "round_stop", "phase": "round", "t0": time.time(),
-                           "round": self.entries})
+                           "round": self.entries, "reach": _reach()})
             raise StopAfterRounds(f"{self.rounds} rounds collected")
         EVENTS.append({"kind": "round_start", "phase": "round", "t0": time.time(),
-                       "round": self.entries, "load1": os.getloadavg()[0]})
+                       "round": self.entries, "load1": os.getloadavg()[0],
+                       "reach": _reach()})
         if DUMP:
             dump(*DUMP)
 

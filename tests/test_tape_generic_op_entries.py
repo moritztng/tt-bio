@@ -93,8 +93,43 @@ def test_an_unknown_kernel_name_raises_instead_of_measuring_nothing(monkeypatch)
         TT.enabled_kernels()
 
 
-def test_the_registered_entries_are_the_three_this_row_built():
-    assert set(TT.KERNELS) == {"reblock_permute", "reblock_permute_back", "tri_att_sdpa_hifi"}
+def test_the_registry_holds_exactly_the_kernels_that_declare_an_entry():
+    """Pinned on purpose: a kernel that registers no entry declines under every tape, silently,
+    and reads in an A/B as a lever that measured nothing."""
+    assert set(TT.KERNELS) == {"reblock_permute", "reblock_permute_back", "tri_att_sdpa_hifi",
+                               "rne_add"}
+
+
+def test_the_wide_adds_vjp_is_the_cotangent_to_both_operands(monkeypatch, taping):
+    """`rne_add` replaces four taped nodes with one, and the four were each an identity on a
+    cotangent: two typecasts pass it through and an add sends it to both parents unchanged."""
+    ag = pytest.importorskip("tt_bio.autograd")
+    monkeypatch.setattr(ag, "_tape", lambda out, parents, make, **kw: (out, parents, make(), kw))
+    # `_wrap` would put a real autograd.Tensor in front of each operand and the recorded
+    # cotangent would land there instead of here.
+    monkeypatch.setattr(TT, "_wrap", lambda t: t)
+
+    a, b = _Parent(), _Parent()
+    out, parents, bw, kw = TT.KERNELS["rne_add"](lambda *x, **k: "summed", (a, b), {})
+    assert out == "summed"
+    assert parents == [a, b]
+    assert kw == {"reads": ()}, "a sum's gradient is a function of the cotangent alone"
+    bw("cotangent")
+    assert (a.got, b.got) == ("cotangent", "cotangent")
+
+
+def test_the_wide_add_declines_under_a_tape_with_no_entry_installed(monkeypatch, taping):
+    """Without the entry the kernel would cut the graph, so its own gate has to refuse."""
+    K = pytest.importorskip("tt_bio.rne_add")
+    ops = pytest.importorskip("tt_bio.ops")
+    prev = ops.set_kernel_entries({})
+    try:
+        assert ops.declines_under_tape("rne_add") is True
+        ops.set_kernel_entries({"rne_add": TT.KERNELS["rne_add"]})
+        assert ops.declines_under_tape("rne_add") is False
+    finally:
+        ops.set_kernel_entries(prev)
+    assert K.rne_add.tape_entry_name == "rne_add"
 
 
 def test_the_channel_moves_vjp_is_the_inverse_permutation(monkeypatch, taping):

@@ -35,6 +35,11 @@ from tt_bio import bindcraft2                                          # noqa: E
 MONOMER = ("model_1_ptm", "model_2_ptm")
 
 
+def taped_ttnn_stats():
+    from tt_bio import taped_ttnn
+    return taped_ttnn.KERNEL_STATS
+
+
 def git_head():
     return subprocess.run(["git", "-C", str(_ROOT), "rev-parse", "HEAD"],
                           capture_output=True, text=True).stdout.strip()
@@ -85,6 +90,13 @@ def main():
                          "makes 288 servable, and opening one without the other measures the "
                          "other. Mutually exclusive with --triatt-sdpa, which is the `agtri` "
                          "arm through the STOCK fused verb")
+    ap.add_argument("--rne-kernel", dest="rne_kernel", type=int, default=0,
+                    help="AF2PairBlock.rne_kernel; 1 runs the wide residual add as ONE Tensix "
+                         "kernel instead of four ttnn calls. Same function, graded bit-exact "
+                         "against round_rne_bf16(exact_sum) in float64 including real ties "
+                         "(state/perf10/bcx-RNEKER.md), at 6 B/element instead of 30. The "
+                         "residual is 398 GB and ~1.41 s of the composed round. Needs the "
+                         "rne_add tape entry, which this adds to TT_BIO_TAPED_KERNELS")
     ap.add_argument("--set", dest="sets", action="append", default=[], metavar="K=V",
                     help="extra BindCraft 2 setting override, repeatable. `--set "
                          "save_design_frames=1` makes the recorder write one CIF a round, "
@@ -142,7 +154,13 @@ def main():
     # imported by the time argparse runs, so that one is set on the module the way
     # `perf/bcx_p10_tapegen/round_ab.py` sets it.
     from tt_bio import tenstorrent as _tn
-    os.environ["TT_BIO_TAPED_KERNELS"] = "tri_att_sdpa_hifi" if args.triatt_hifi else ""
+    from tt_bio.af2 import AF2PairBlock
+    # Every taped kernel this run wants, in one list. Naming one and not the other measures the
+    # other: `tri_att_sdpa_hifi` and `rne_add` are independent entries on the same registry.
+    _kernels = ([n for n, on in (("tri_att_sdpa_hifi", args.triatt_hifi),
+                                 ("rne_add", args.rne_kernel)) if on])
+    AF2PairBlock.rne_kernel = bool(args.rne_kernel)
+    os.environ["TT_BIO_TAPED_KERNELS"] = ",".join(_kernels)
     os.environ["TT_BIO_TRIATT_DIVIDING_K"] = "1" if args.triatt_hifi else "0"
     _tn._TRIATT_FUSED_HIFI = bool(args.triatt_hifi)
     if args.triatt_hifi and args.triatt_sdpa:
@@ -155,6 +173,7 @@ def main():
              "template_on_device": bool(args.template),
              "triatt_taped_sdpa": bool(args.triatt_sdpa),
              "triatt_hifi": bool(args.triatt_hifi),
+             "rne_kernel": bool(args.rne_kernel),
              "taped_kernels": os.environ.get("TT_BIO_TAPED_KERNELS", ""),
              "triatt_dividing_k": os.environ.get("TT_BIO_TRIATT_DIVIDING_K", ""),
              "sdpa_own_forward": bool(args.sdpa_own_forward),
@@ -173,6 +192,16 @@ def main():
     # `meter.install` patches EvoformerOnDevice's three seams and the predictor's two entry
     # points, so it takes the module and the class rather than instances. Both now come from
     # tt_bio's shipped surface.
+    # Reach, sampled at every round boundary rather than once at the end. `served` is this
+    # kernel replacing four ttnn calls; `declined` is its own gate saying no on a shape it does
+    # not cover, which is a fall-through to the wide path and not a failure; `entry` is the tape
+    # entry firing, which is what makes it reachable under a gradient round at all.
+    from tt_bio import rne_add as _rne
+    M.REACH.append(lambda: {
+        "rne_add_served": _rne.STATS[0], "rne_add_declined": _rne.STATS[1],
+        "rne_add_entry": list(taped_ttnn_stats().get("rne_add", [0, 0])),
+    })
+
     out = pathlib.Path(project) / "round_events.json"
     M.DUMP = (str(out), stamp)
     mt = M.Meter(args.rounds)
@@ -207,7 +236,7 @@ def main():
         stopped = str(stop)
     finally:
         M.CLOCK.stop()
-        from tt_bio import autograd, taped_ttnn, tenstorrent
+        from tt_bio import autograd, rne_add, taped_ttnn, tenstorrent
         stamp.update({"wall_seconds": round(time.time() - t0, 2), "stopped": stopped,
                       "exact_softmax_stats": dict(autograd.EXACT_SOFTMAX_STATS),
                       "exact_layer_norm_stats": dict(autograd.EXACT_LAYER_NORM_STATS),
@@ -229,6 +258,13 @@ def main():
                       "kernel_entry_stats": {k: list(v) for k, v in
                                              taped_ttnn.KERNEL_STATS.items()},
                       "fused_hifi_stats": dict(tenstorrent.TRIATT_FUSED_HIFI_STATS),
+                      # The rne_add arm's own reach, process-total. The per-ROUND split is in
+                      # every `round_start` event: a process total cannot tell a round that
+                      # served 432 from two rounds that served 216 and 648.
+                      "rne_add_stats": {"served": rne_add.STATS[0],
+                                        "declined": rne_add.STATS[1],
+                                        "rejects": {"|".join(map(str, k)): v
+                                                    for k, v in rne_add.REJECTS.items()}},
                       "fp32_softmax_calls": tenstorrent.FP32_SOFTMAX_STATS.get("calls"),
                       "host_folds": dict(evo.host_folds) if evo else None,
                       "loadavg_end": os.getloadavg(),

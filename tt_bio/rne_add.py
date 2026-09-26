@@ -26,6 +26,7 @@ from pathlib import Path
 import ttnn
 
 from . import core_split
+from . import ops as _ops
 
 KERNEL_DIR = Path(__file__).resolve().parent / "kernels" / "rne_add"
 
@@ -226,6 +227,7 @@ def _prepare(a, b, out, device):
     return entry
 
 
+@_ops.fused_kernel("rne_add")
 def rne_add(a, b, memory_config=None, out=None, device=None):
     """``round_rne_bf16(a + b)`` with both operands bfloat16 TILE and the same padded tile count.
 
@@ -260,6 +262,11 @@ def eligible(a, b, memory_config) -> bool:
     if not _ENABLED:
         return False
     shape_a = [int(d) for d in a.shape]
+    # A `generic_op` has no tape entry of its own, so without one registered this kernel would
+    # silently cut the graph. `taped_ttnn._kernel("rne_add")` is the entry; until it is installed
+    # (`TT_BIO_TAPED_KERNELS`) every taped call declines here and the four-call wide path runs.
+    if _ops.declines_under_tape("rne_add"):
+        return _reject("taped_no_entry", shape_a)
     if a.dtype != _DTYPE or b.dtype != _DTYPE:
         return _reject("dtype", shape_a)
     if a.layout != ttnn.TILE_LAYOUT or b.layout != ttnn.TILE_LAYOUT:
