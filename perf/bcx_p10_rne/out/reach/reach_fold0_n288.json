@@ -1,0 +1,28 @@
+{
+ "n": 288,
+ "rne_fold": false,
+ "aiclk_before": {
+  "pci": "0000:41:00.0",
+  "min": 1350,
+  "max": 1350,
+  "load1": 17.49
+ },
+ "aiclk_after": {
+  "pci": "0000:41:00.0",
+  "min": 1350,
+  "max": 1350,
+  "load1": 19.33
+ },
+ "residual_calls": 10,
+ "calls_in_residual": {
+  "residual": 10,
+  "typecast": 42
+ },
+ "per_residual": {
+  "typecast": 4.2
+ },
+ "add_dtype_kwarg": {},
+ "operand_placement": {
+  "x BufferType.DRAM DataType.BFLOAT16": 10
+ }
+}

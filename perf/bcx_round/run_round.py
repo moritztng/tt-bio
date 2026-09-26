@@ -85,6 +85,10 @@ def main():
                          "makes 288 servable, and opening one without the other measures the "
                          "other. Mutually exclusive with --triatt-sdpa, which is the `agtri` "
                          "arm through the STOCK fused verb")
+    ap.add_argument("--rne-fold", dest="rne_fold", type=int, default=0,
+                    help="fold the fp32 residual's trailing typecast onto the add's output "
+                         "(`AF2PairBlock.rne_fold_cast`). Bit-identical to the shipped path "
+                         "including on constructed ties; removes 1 of the residual's 4 calls")
     ap.add_argument("--set", dest="sets", action="append", default=[], metavar="K=V",
                     help="extra BindCraft 2 setting override, repeatable. `--set "
                          "save_design_frames=1` makes the recorder write one CIF a round, "
@@ -145,6 +149,8 @@ def main():
     os.environ["TT_BIO_TAPED_KERNELS"] = "tri_att_sdpa_hifi" if args.triatt_hifi else ""
     os.environ["TT_BIO_TRIATT_DIVIDING_K"] = "1" if args.triatt_hifi else "0"
     _tn._TRIATT_FUSED_HIFI = bool(args.triatt_hifi)
+    from tt_bio.af2 import AF2PairBlock
+    AF2PairBlock.rne_fold_cast = bool(args.rne_fold)
     if args.triatt_hifi and args.triatt_sdpa:
         raise SystemExit("--triatt-hifi and --triatt-sdpa are two different routes for the same "
                          "call; running both measures neither")
@@ -155,6 +161,7 @@ def main():
              "template_on_device": bool(args.template),
              "triatt_taped_sdpa": bool(args.triatt_sdpa),
              "triatt_hifi": bool(args.triatt_hifi),
+             "rne_fold": bool(args.rne_fold),
              "taped_kernels": os.environ.get("TT_BIO_TAPED_KERNELS", ""),
              "triatt_dividing_k": os.environ.get("TT_BIO_TRIATT_DIVIDING_K", ""),
              "sdpa_own_forward": bool(args.sdpa_own_forward),

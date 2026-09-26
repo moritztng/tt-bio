@@ -331,6 +331,17 @@ class AF2PairBlock(Module):
     #: comes back to whatever memory config the input arrived in.
     rne_wide_dram = True
 
+    #: Fold the residual's trailing `typecast(wide, bfloat16)` onto the add's output instead of
+    #: paying a fourth call for it. Under a tape the add is already out of place
+    #: (`taped_ttnn.py` registers `add_` with `out_of_place=ttnn.add`), so the output dtype is
+    #: addressable, and `ttnn.add(f32, f32, dtype=bfloat16)` is bit-identical to the four-call
+    #: path on random pairs, at a 256x operand ratio and on constructed ties -- f32 sums sitting
+    #: exactly on a bfloat16 midpoint, where round-half-even and round-half-away disagree on
+    #: every odd-mantissa element (`perf/bcx_p10_calls/rne_add_probe.py`, 4 x 82,944 elements,
+    #: zero differing). It removes 1 of the residual's 4 calls and 8 B/element of 30.
+    #: Off by default: release-gated until the round A/B is on the board.
+    rne_fold_cast = False
+
     def _residual(self, x: ttnn.Tensor, update: ttnn.Tensor | None) -> ttnn.Tensor:
         """`x + update`, and it owns `update`.
 
@@ -351,6 +362,11 @@ class AF2PairBlock(Module):
         other = ttnn.typecast(update, ttnn.float32, memory_config=wide_config)
         ttnn.deallocate(update)
         ttnn.deallocate(x)
+        if self.rne_fold_cast:
+            out = ttnn.add(wide, other, dtype=ttnn.bfloat16, memory_config=config)
+            ttnn.deallocate(other)
+            ttnn.deallocate(wide)
+            return out
         wide = ttnn.add_(wide, other)
         ttnn.deallocate(other)
         out = ttnn.typecast(wide, ttnn.bfloat16, memory_config=config)

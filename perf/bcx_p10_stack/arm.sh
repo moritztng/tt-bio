@@ -28,7 +28,9 @@ export PYTHONPATH=$PWD
 # same box then serialises with us for the whole compile. A private dir, shared across this
 # row's arms so only the first one pays the compile, removes that coupling.
 export JAX_COMPILATION_CACHE_DIR=$PWD/perf/bcx_p10_stack/out/xlacache
-export TT_VISIBLE_DEVICES=0 TT_BIO_LEASE_CARDS=0 TT_BIO_LEASE_HOLDER=worker:bcx-p10-stack
+# The card is the caller's if it names one: this arm is run from rows holding other
+# cards, and a hard-pinned 0 would open a card the caller does not hold.
+export TT_VISIBLE_DEVICES=${TT_VISIBLE_DEVICES:-0} TT_BIO_LEASE_CARDS=${TT_BIO_LEASE_CARDS:-0} TT_BIO_LEASE_HOLDER=${TT_BIO_LEASE_HOLDER:-worker:bcx-p10-stack}
 exec /home/ttuser/bcx_e2e_venv/bin/python3 -u perf/bcx_round/run_round.py \
     --rounds "$rounds" --exact 0 --extra-msa "$extra" --template "$tmpl" \
     $triflags --shipped --binder 146 --out "$out" "$@"

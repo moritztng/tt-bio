@@ -154,11 +154,17 @@ def main() -> None:
                     choices=["inherit", "none", "trunk", "all"],
                     help="which pair stacks take the fused SDPA triangle attention; 'all' is "
                          "the only value that reaches the template stack")
+    ap.add_argument("--rne-fold", dest="rne_fold", type=int, default=0,
+                    help="grade `AF2PairBlock.rne_fold_cast`: the residual's trailing typecast "
+                         "folded onto the add's output. The fold DELETES a taped node, so the "
+                         "forward's bit-exactness says nothing about the VJP and this is where "
+                         "it is graded")
     ap.add_argument("--out", required=True)
     args = ap.parse_args()
     assert args.n % 32 == 0, "the token axis buckets to a multiple of 32"
 
-    from tt_bio.af2 import load_af2_device_model
+    from tt_bio.af2 import AF2PairBlock, load_af2_device_model
+    AF2PairBlock.rne_fold_cast = bool(args.rne_fold)
     from tt_bio.af2_weights import load_af2_state_dict
 
     state = load_af2_state_dict(args.params, multimer=True)
@@ -211,6 +217,7 @@ def main() -> None:
                     "why": "device-timing control; the extra-MSA block has a different cut"}
     report = {
         "n": args.n, "c_t": c_t, "stack": args.stack, "triatt_fused": args.triatt_fused,
+        "rne_fold": bool(args.rne_fold),
         "params": args.params, "seed": args.seed,
         **accuracy,
         "seconds": {"cpu_f64_fwd_bwd": ref_s, "cpu_bf16_fwd_bwd": bf16_s,
@@ -224,7 +231,8 @@ def main() -> None:
     }
     outdir = pathlib.Path(args.out)
     outdir.mkdir(parents=True, exist_ok=True)
-    (outdir / f"vjp_{args.stack}_{args.triatt_fused}_n{args.n}.json").write_text(json.dumps(report, indent=1) + "\n")
+    (outdir / f"vjp_{args.stack}_{args.triatt_fused}_n{args.n}"
+                 f"{'_fold' if args.rne_fold else ''}.json").write_text(json.dumps(report, indent=1) + "\n")
     print(json.dumps(report, indent=1), flush=True)
 
 
