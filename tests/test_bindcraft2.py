@@ -328,6 +328,62 @@ def test_the_campaign_path_can_turn_the_exact_instrument_off_too():
         assert build.exact is True
 
 
+def test_the_extra_msa_swap_knows_both_names_alphafold_gives_its_closure():
+    """The splice picks the extra-MSA `layer_stack` call out of four by the closure's name, and
+    AlphaFold 2 uses two different names for it.
+
+    `modules.py` (monomer) calls it `extra_msa_stack_fn`; `modules_multimer.py` calls it
+    `extra_evoformer_fn`. Matching only the first is not a crash: `choose` falls through to
+    BindCraft 2's own stack, the campaign runs the host implementation and every counter the
+    caller would check reads zero, so `extra_msa=True` measures the arm it was meant to replace.
+    That is what happened on the five-model `multimer_v3` pool this campaign's public
+    configuration uses. Read off BindCraft 2's own source so an upstream rename fails here.
+    """
+    root = _bindcraft_root()
+    model = root / "bindcraft" / "af" / "alphafold" / "model"
+    defined = set()
+    for source in (model / "modules.py", model / "modules_multimer.py"):
+        for line in source.read_text().splitlines():
+            stripped = line.strip()
+            if stripped.startswith("def extra_") and stripped.endswith("(x):"):
+                defined.add(stripped[len("def "):stripped.index("(")])
+    assert defined, f"no extra-MSA stack closure found under {model}"
+    assert defined <= set(bindcraft2.EXTRA_MSA_FN_NAMES), (
+        f"AlphaFold 2 defines {sorted(defined)}; the splice matches "
+        f"{sorted(bindcraft2.EXTRA_MSA_FN_NAMES)}")
+
+
+def test_the_masks_walk_reads_both_shapes_alphafold_builds_them_in():
+    """`find_extra_msa_masks` against the two closures, without needing AlphaFold 2 to build one.
+
+    The multimer path closes over one `extra_masks` dict; the monomer path has no dict and the
+    walk has to assemble the pair from `batch["extra_msa_mask"]` and `mask_2d`. Both shapes are
+    reproduced here with plain closures, which is all `_free_variable` ever sees.
+    """
+    msa_mask, pair_mask = np.zeros((1, 8), np.float32), np.ones((8, 8), np.float32)
+
+    extra_masks = {"msa": msa_mask, "pair": pair_mask}
+
+    def extra_evoformer_fn(x):        # modules_multimer.py:375
+        return extra_masks, x
+
+    got = bindcraft2.find_extra_msa_masks(extra_evoformer_fn)
+    assert got["msa"] is msa_mask and got["pair"] is pair_mask
+
+    batch, mask_2d = {"extra_msa_mask": msa_mask}, pair_mask
+
+    def extra_msa_stack_fn(x):        # modules.py:1517
+        return batch, mask_2d, x
+
+    got = bindcraft2.find_extra_msa_masks(extra_msa_stack_fn)
+    assert got["msa"] is msa_mask and got["pair"] is pair_mask
+
+    # a closure that carries neither is a refusal, not a guess
+    def evoformer_fn(x):
+        return x
+    assert bindcraft2.find_extra_msa_masks(evoformer_fn) is None
+
+
 def test_the_extra_msa_swap_pads_bindcraft_2s_real_shapes_to_a_tile():
     """`_pad` and `_check_mask` on the shapes a real PD-L1 round hands the swap.
 

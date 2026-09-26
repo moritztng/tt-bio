@@ -52,6 +52,12 @@ def main():
                     help="predictor(exact=...); 1 is what origin/main defaults to")
     ap.add_argument("--binder", type=int, default=0,
                     help="pin binder_lengths so n is fixed; 0 leaves pdl1.json's own 60-180 draw")
+    ap.add_argument("--extra-msa", dest="extra_msa", type=int, default=0,
+                    help="predictor(extra_msa=...); 1 runs BindCraft 2's 4-block extra-MSA "
+                         "stack on card instead of in JAX. Off is origin/main's default. "
+                         "The stack is 13.77 s of the round's 20.831 host seconds "
+                         "(state/perf10/bcx-HOSTMAP.md), so this is the campaign's "
+                         "largest single lever")
     ap.add_argument("--shipped", action="store_true",
                     help="leave pdl1.json's own five multimer_v3 design models in place "
                          "instead of pinning one monomer trunk")
@@ -123,11 +129,14 @@ def main():
     t0 = time.time()
     stopped = None
     evo = None
+    extra = None
     try:
         with bindcraft2.campaign_predictor(trunk="device", validation="device",
                                            checkpoints=args.params,
-                                           exact=bool(args.exact)) as build:
+                                           exact=bool(args.exact),
+                                           extra_msa=bool(args.extra_msa)) as build:
             evo = build.evoformer
+            extra = build.extra_msa
             campaign.run_campaign(settings, project, af2_weights=args.params,
                                   mpnn_weights=os.path.join(B.BC2, "bindcraft", "weights",
                                                             "proteinmpnn", "weights_neutral"),
@@ -140,6 +149,14 @@ def main():
         stamp.update({"wall_seconds": round(time.time() - t0, 2), "stopped": stopped,
                       "exact_softmax_stats": dict(autograd.EXACT_SOFTMAX_STATS),
                       "exact_layer_norm_stats": dict(autograd.EXACT_LAYER_NORM_STATS),
+                      "extra_msa": bool(args.extra_msa),
+                      # An extra-MSA swap that never fires costs nothing and reads as a clean
+                      # 0 % result. `calls` proves the on-card path ran; `swapped` is the block
+                      # count it replaced; `mask_seen` is the guard's own record of what the
+                      # extra_msa_mask actually carried.
+                      "extra_msa_calls": dict(extra.calls) if extra else None,
+                      "extra_msa_swapped": list(extra.swapped) if extra else None,
+                      "extra_msa_mask_seen": dict(extra.mask_seen) if extra else None,
                       "device_calls": dict(evo.calls) if evo else None,
                       "host_folds": dict(evo.host_folds) if evo else None,
                       "loadavg_end": os.getloadavg(),

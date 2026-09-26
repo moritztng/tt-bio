@@ -719,12 +719,26 @@ def find_evoformer_masks(fn):
     return _free_variable(fn, "evoformer_masks", lambda v: isinstance(v, dict) and "msa" in v)
 
 
-def find_extra_msa_masks(fn):
-    """The two masks `extra_msa_stack_fn` uses, read off its closure.
+#: The two spellings AlphaFold 2 gives the extra-MSA stack's per-block closure. The monomer
+#: path (`modules.py:1517`) calls it `extra_msa_stack_fn`; the multimer path
+#: (`modules_multimer.py:375`) calls it `extra_evoformer_fn`. The name is the only thing that
+#: distinguishes this `layer_stack` call from the Evoformer's, so both have to be listed or the
+#: swap is silently skipped on whichever tree is not named here.
+EXTRA_MSA_FN_NAMES = ("extra_msa_stack_fn", "extra_evoformer_fn")
 
-    Unlike `evoformer_fn` there is no masks dict to recover: `modules.py:1522` builds the stack's
-    masks inline from `batch` and `mask_2d`, so those are what the walk looks for.
+
+def find_extra_msa_masks(fn):
+    """The two masks the extra-MSA stack uses, read off its closure.
+
+    The multimer path builds them into one `extra_masks` dict
+    (`modules_multimer.py:372`), shaped exactly like `evoformer_masks`. The monomer path has no
+    dict to recover: `modules.py:1522` builds them inline from `batch` and `mask_2d`, so the
+    walk falls back to those.
     """
+    masks = _free_variable(fn, "extra_masks",
+                           lambda v: isinstance(v, dict) and "msa" in v and "pair" in v)
+    if masks is not None:
+        return {"msa": masks["msa"], "pair": masks["pair"]}
     batch = _free_variable(fn, "batch", lambda v: isinstance(v, dict) and "extra_msa_mask" in v)
     mask_2d = _free_variable(fn, "mask_2d", lambda v: hasattr(v, "shape"))
     if batch is None or mask_2d is None:
@@ -810,7 +824,7 @@ def evoformer_on_device(evo: EvoformerOnDevice,
 
         def choose(fn):
             name = getattr(fn, "__name__", None)
-            if extra_stack is not None and name == "extra_msa_stack_fn":
+            if extra_stack is not None and name in EXTRA_MSA_FN_NAMES:
                 return choose_extra(fn, made, int(num_layers))
             if name != "evoformer_fn":
                 return made(fn)
@@ -845,6 +859,14 @@ def evoformer_on_device(evo: EvoformerOnDevice,
     finally:
         modules.layer_stack.layer_stack = real
         _INSTALLED = was
+    # Only on a clean exit, so a real failure inside the block is never replaced by this one.
+    # A swap that is asked for and never taken runs the host stack and reports device numbers
+    # for it, which is the one failure mode a counter cannot be read for after the fact.
+    if extra_msa is not None and not extra_msa.swapped and swapped:
+        raise RuntimeError(
+            "extra_msa=True was asked for and the extra-MSA stack was never swapped: "
+            f"the Evoformer was ({swapped} blocks), so the model was traced and only this "
+            f"stack was missed. Its per-block closure is named none of {EXTRA_MSA_FN_NAMES}.")
 
 
 # ----------------------------------------------------------------- the predictor
