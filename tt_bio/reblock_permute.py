@@ -281,13 +281,13 @@ def _build(x, out, device, reader_ct, writer_ct):
     reader = ttnn.KernelDescriptor(
         kernel_source=str(KERNEL_DIR / "reader_reblock_permute.cpp"),
         source_type=ttnn.KernelDescriptor.SourceType.FILE_PATH,
-        core_ranges=core_grid, compile_time_args=reader_ct + genq_ct, runtime_args=reader_rt,
+        core_ranges=core_grid, compile_time_args=genq_ct + reader_ct, runtime_args=reader_rt,
         common_runtime_args=[0], config=ttnn.ReaderConfigDescriptor(),
     )
     writer = ttnn.KernelDescriptor(
         kernel_source=str(KERNEL_DIR / "writer_reblock_permute.cpp"),
         source_type=ttnn.KernelDescriptor.SourceType.FILE_PATH,
-        core_ranges=core_grid, compile_time_args=writer_ct + genq_ct, runtime_args=writer_rt,
+        core_ranges=core_grid, compile_time_args=genq_ct + writer_ct, runtime_args=writer_rt,
         common_runtime_args=[0], config=ttnn.WriterConfigDescriptor(),
     )
     compute = ttnn.KernelDescriptor(
@@ -566,13 +566,13 @@ def _build_back(x, out, device, reader_ct, writer_ct):
     reader = ttnn.KernelDescriptor(
         kernel_source=str(KERNEL_DIR_BACK / "reader_reblock_permute_back.cpp"),
         source_type=ttnn.KernelDescriptor.SourceType.FILE_PATH,
-        core_ranges=core_grid, compile_time_args=reader_ct + genq_ct, runtime_args=reader_rt,
+        core_ranges=core_grid, compile_time_args=genq_ct + reader_ct, runtime_args=reader_rt,
         common_runtime_args=[0], config=ttnn.ReaderConfigDescriptor(),
     )
     writer = ttnn.KernelDescriptor(
         kernel_source=str(KERNEL_DIR_BACK / "writer_reblock_permute_back.cpp"),
         source_type=ttnn.KernelDescriptor.SourceType.FILE_PATH,
-        core_ranges=core_grid, compile_time_args=writer_ct + genq_ct, runtime_args=writer_rt,
+        core_ranges=core_grid, compile_time_args=genq_ct + writer_ct, runtime_args=writer_rt,
         common_runtime_args=[0], config=ttnn.WriterConfigDescriptor(),
     )
     # The compute kernel is the forward direction's, unchanged: both moves end in one `transpose_wh`
@@ -818,7 +818,7 @@ def _build_gated(x, out, device, reader_ct, writer_ct, fidelity, fp32_acc):
     reader = ttnn.KernelDescriptor(
         kernel_source=str(KERNEL_DIR_GATED / "reader_reblock_permute_gated.cpp"),
         source_type=ttnn.KernelDescriptor.SourceType.FILE_PATH,
-        core_ranges=core_grid, compile_time_args=reader_ct + genq_ct, runtime_args=reader_rt,
+        core_ranges=core_grid, compile_time_args=genq_ct + reader_ct, runtime_args=reader_rt,
         common_runtime_args=[0, 0, 0, 0], config=ttnn.ReaderConfigDescriptor(),
     )
     # The writer is a fork of the ungated one: same gather, same staging, same DRAM write, but the
@@ -826,7 +826,7 @@ def _build_gated(x, out, device, reader_ct, writer_ct, fidelity, fp32_acc):
     writer = ttnn.KernelDescriptor(
         kernel_source=str(KERNEL_DIR_GATED / "writer_reblock_permute_gated.cpp"),
         source_type=ttnn.KernelDescriptor.SourceType.FILE_PATH,
-        core_ranges=core_grid, compile_time_args=writer_ct + genq_ct, runtime_args=writer_rt,
+        core_ranges=core_grid, compile_time_args=genq_ct + writer_ct, runtime_args=writer_rt,
         common_runtime_args=[0, 0], config=ttnn.WriterConfigDescriptor(),
     )
     compute = ttnn.KernelDescriptor(

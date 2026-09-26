@@ -28,6 +28,22 @@
 #include "../genq/genq_split.h"
 
 void kernel_main() {
+    // The cheap dispatch path. Under GENQ_COMPACT this kernel's slice of the group split is
+    // recomputed from its own logical coordinates, so the descriptor carries no per-core runtime
+    // args and the dispatch costs a third of what it costs with them (`tt_bio/genq.py`). The
+    // shape words and the walk constants are compile-time: with WALK="block" -- the only mode the
+    // host arms this for -- `_walk` returns (block, 1, NO_WRAP, 0), and `block` IS the slice.
+    //
+    // The block sits FIRST in the compile-time args, at a fixed offset, because these kernels
+    // read their runtime args above the line that declares the tensor accessor.
+    constexpr uint32_t GQ = 0;
+    constexpr uint32_t GQ_ON = get_compile_time_arg_val(GQ);
+    const genq::Slice gq = genq::slice<
+        get_compile_time_arg_val(GQ + 1), get_compile_time_arg_val(GQ + 2),
+        get_compile_time_arg_val(GQ + 3), get_compile_time_arg_val(GQ + 4),
+        get_compile_time_arg_val(GQ + 5), get_compile_time_arg_val(GQ + 6),
+        get_compile_time_arg_val(GQ + 7)>(get_absolute_logical_x(), get_absolute_logical_y());
+
     // src_addr is the ONLY value that changes between calls at a fixed (N, C, buffer type, grid), so
     // it lives in the common runtime args: everything else is a pure function of the shape and the
     // work split, which lets the host cache the whole ProgramDescriptor and rewrite two scalars.
@@ -65,20 +81,8 @@ void kernel_main() {
     constexpr uint32_t cb_id_in = 0;  // c_0
     constexpr uint32_t TILE_HEIGHT = 32;
 
-    constexpr auto src_args = TensorAccessorArgs<0>();
+    constexpr auto src_args = TensorAccessorArgs<0 + 11>();
 
-    // The cheap dispatch path. Under GENQ_COMPACT this kernel's slice of the group split is
-    // recomputed from its own logical coordinates, so the descriptor carries no per-core runtime
-    // args and the dispatch costs a third of what it costs with them (`tt_bio/genq.py`). The
-    // shape words and the walk constants are compile-time: with WALK="block" -- the only mode the
-    // host arms this for -- `_walk` returns (block, 1, NO_WRAP, 0), and `block` IS the slice.
-    constexpr uint32_t GQ = src_args.next_compile_time_args_offset();
-    constexpr uint32_t GQ_ON = get_compile_time_arg_val(GQ);
-    const genq::Slice gq = genq::slice<
-        get_compile_time_arg_val(GQ + 1), get_compile_time_arg_val(GQ + 2),
-        get_compile_time_arg_val(GQ + 3), get_compile_time_arg_val(GQ + 4),
-        get_compile_time_arg_val(GQ + 5), get_compile_time_arg_val(GQ + 6),
-        get_compile_time_arg_val(GQ + 7)>(get_absolute_logical_x(), get_absolute_logical_y());
 
     const auto s = TensorAccessor(src_args, src_addr);
 

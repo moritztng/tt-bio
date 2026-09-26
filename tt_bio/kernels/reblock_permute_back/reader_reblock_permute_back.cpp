@@ -45,6 +45,22 @@
 #include "../genq/genq_split.h"
 
 void kernel_main() {
+    // The cheap dispatch path. Under GENQ_COMPACT this kernel's slice of the group split is
+    // recomputed from its own logical coordinates, so the descriptor carries no per-core runtime
+    // args and the dispatch costs a third of what it costs with them (`tt_bio/genq.py`). The
+    // shape words and the walk constants are compile-time: with WALK="block" -- the only mode the
+    // host arms this for -- `_walk` returns (block, 1, NO_WRAP, 0), and `block` IS the slice.
+    //
+    // The block sits FIRST in the compile-time args, at a fixed offset, because these kernels
+    // read their runtime args above the line that declares the tensor accessor.
+    constexpr uint32_t GQ = 0;
+    constexpr uint32_t GQ_ON = get_compile_time_arg_val(GQ);
+    const genq::Slice gq = genq::slice<
+        get_compile_time_arg_val(GQ + 1), get_compile_time_arg_val(GQ + 2),
+        get_compile_time_arg_val(GQ + 3), get_compile_time_arg_val(GQ + 4),
+        get_compile_time_arg_val(GQ + 5), get_compile_time_arg_val(GQ + 6),
+        get_compile_time_arg_val(GQ + 7)>(get_absolute_logical_x(), get_absolute_logical_y());
+
     // src_addr is the only value that changes between calls at a fixed (N, C, buffer type, grid),
     // so it lives in the common runtime args and the host caches the whole ProgramDescriptor.
     const uint32_t src_addr = get_common_arg_val<uint32_t>(0);
@@ -68,27 +84,15 @@ void kernel_main() {
     const uint32_t group_wrap_hi = (GQ_ON ? (0xFFFFFFFFu) : get_arg_val<uint32_t>(5));
     const uint32_t group_wrap_lo = (GQ_ON ? (0u) : get_arg_val<uint32_t>(6));
 
-    constexpr uint32_t element_size = get_compile_time_arg_val(0);
-    constexpr uint32_t scratch_cb_id = get_compile_time_arg_val(1);  // c_24
-    constexpr uint32_t in_cb_id = get_compile_time_arg_val(2);       // c_0, gathered tiles -> compute
-    constexpr uint32_t TILE_HEIGHT = get_compile_time_arg_val(3);    // 32
-    constexpr uint32_t TILE_WIDTH = get_compile_time_arg_val(4);     // 32
-    constexpr uint32_t FACE_HEIGHT = get_compile_time_arg_val(5);    // 16
-    constexpr uint32_t FACE_WIDTH = get_compile_time_arg_val(6);     // 16
-    constexpr auto src_args = TensorAccessorArgs<7>();
+    constexpr uint32_t element_size = get_compile_time_arg_val(11);
+    constexpr uint32_t scratch_cb_id = get_compile_time_arg_val(12);  // c_24
+    constexpr uint32_t in_cb_id = get_compile_time_arg_val(13);       // c_0, gathered tiles -> compute
+    constexpr uint32_t TILE_HEIGHT = get_compile_time_arg_val(14);    // 32
+    constexpr uint32_t TILE_WIDTH = get_compile_time_arg_val(15);     // 32
+    constexpr uint32_t FACE_HEIGHT = get_compile_time_arg_val(16);    // 16
+    constexpr uint32_t FACE_WIDTH = get_compile_time_arg_val(17);     // 16
+    constexpr auto src_args = TensorAccessorArgs<7 + 11>();
 
-    // The cheap dispatch path. Under GENQ_COMPACT this kernel's slice of the group split is
-    // recomputed from its own logical coordinates, so the descriptor carries no per-core runtime
-    // args and the dispatch costs a third of what it costs with them (`tt_bio/genq.py`). The
-    // shape words and the walk constants are compile-time: with WALK="block" -- the only mode the
-    // host arms this for -- `_walk` returns (block, 1, NO_WRAP, 0), and `block` IS the slice.
-    constexpr uint32_t GQ = src_args.next_compile_time_args_offset();
-    constexpr uint32_t GQ_ON = get_compile_time_arg_val(GQ);
-    const genq::Slice gq = genq::slice<
-        get_compile_time_arg_val(GQ + 1), get_compile_time_arg_val(GQ + 2),
-        get_compile_time_arg_val(GQ + 3), get_compile_time_arg_val(GQ + 4),
-        get_compile_time_arg_val(GQ + 5), get_compile_time_arg_val(GQ + 6),
-        get_compile_time_arg_val(GQ + 7)>(get_absolute_logical_x(), get_absolute_logical_y());
 
 
     constexpr uint32_t NUM_FACES_W = TILE_WIDTH / FACE_WIDTH;                 // 2
