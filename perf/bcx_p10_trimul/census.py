@@ -156,6 +156,8 @@ def main():
     ap.add_argument('--reps', type=int, default=3)
     ap.add_argument('--seed', type=int, default=0)
     ap.add_argument('--threads', type=int, default=8)
+    ap.add_argument('--arms', default='',
+                    help='alternate autograd.DGRAD_2D_MINIMAL arms in one process')
     ap.add_argument('--out', default='census.json')
     args = ap.parse_args()
     args.card = int(os.environ.get('TT_VISIBLE_DEVICES', '0'))
@@ -174,30 +176,43 @@ def main():
     floor = D.sync_floor(ttnn, dev.device)
     print(json.dumps({'sync_floor_median_s': floor['median']}), flush=True)
 
-    acc = {m: {'wall': collections.Counter(), 'calls': collections.Counter(),
-               'read': collections.Counter(), 'written': collections.Counter()}
-           for m in ('sync', 'free')}
+    from tt_bio import autograd as AG
+    arms = args.arms.split(',') if args.arms else ['-']
+    acc = {(a, m): {'wall': collections.Counter(), 'calls': collections.Counter(),
+                    'read': collections.Counter(), 'written': collections.Counter()}
+           for a in arms for m in ('sync', 'free')}
+    served = {a: collections.Counter() for a in arms}
     aiclks = []
     for rep in range(args.reps):
-        for mode in (['free', 'sync'] if rep % 2 == 0 else ['sync', 'free']):
-            timer.sync = (mode == 'sync')
-            timer.on = True
-            r, _ = S.block_step(dev, lv, m0, z0, wm, wz, args.stack, k=args.k)
-            timer.on = False
-            snap = timer.take()
-            aiclks.append(clock.window(r['spans']))
-            for f in ('wall', 'calls', 'read', 'written'):
-                acc[mode][f].update(snap[f])
-            print(json.dumps({'rep': rep, 'mode': mode, 'fwd': round(r['fwd'], 3),
-                              'bwd': round(r['bwd'], 3), 'aiclk': aiclks[-1],
-                              'load': round(os.getloadavg()[0], 2)}), flush=True)
+        for arm in (arms if rep % 2 == 0 else arms[::-1]):
+            if args.arms:
+                AG.DGRAD_2D_MINIMAL = (arm == 'on')
+            for mode in (['free', 'sync'] if rep % 2 == 0 else ['sync', 'free']):
+                timer.sync = (mode == 'sync')
+                before = dict(AG.DGRAD_2D_STATS)
+                timer.on = True
+                r, _ = S.block_step(dev, lv, m0, z0, wm, wz, args.stack, k=args.k)
+                timer.on = False
+                snap = timer.take()
+                served[arm].update({k: AG.DGRAD_2D_STATS[k] - before[k] for k in before})
+                aiclks.append(clock.window(r['spans']))
+                for f in ('wall', 'calls', 'read', 'written'):
+                    acc[(arm, mode)][f].update(snap[f])
+                print(json.dumps({'rep': rep, 'arm': arm, 'mode': mode,
+                                  'fwd': round(r['fwd'], 3), 'bwd': round(r['bwd'], 3),
+                                  'aiclk': aiclks[-1],
+                                  'load': round(os.getloadavg()[0], 2)}), flush=True)
     clock.stop()
     timer.uninstall()
     blob = {'stamp': S.stamp(args, clock), 'n': args.n, 'pad': args.pad, 'stack': args.stack,
             'k': args.k, 'reps': args.reps, 'sync_floor_s': floor, 'aiclk': aiclks,
             'pair_masks': False,  # block_step runs the unmasked pair track, as devmap did
-            'sync': {f: dict(acc['sync'][f]) for f in acc['sync']},
-            'free': {f: dict(acc['free'][f]) for f in acc['free']}}
+            'arms': arms, 'served': {a: dict(c) for a, c in served.items()},
+            'by_arm': {a: {m: {f: dict(acc[(a, m)][f]) for f in acc[(a, m)]}
+                           for m in ('sync', 'free')} for a in arms}}
+    if not args.arms:
+        blob['sync'] = blob['by_arm']['-']['sync']
+        blob['free'] = blob['by_arm']['-']['free']
     OUT.mkdir(parents=True, exist_ok=True)
     (OUT / args.out).write_text(json.dumps(blob, indent=1, default=str))
     print('wrote ' + str(OUT / args.out), flush=True)
