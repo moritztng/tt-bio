@@ -1,0 +1,4 @@
+workload 0: bit-identical=True max|diff|=0 norm=274
+workload 1: bit-identical=True max|diff|=0 norm=278
+serial 0.49 s, two threads under one lock 0.01 s
+GATE 1: PASS -- the seam is drivable from two threads under a device lock
