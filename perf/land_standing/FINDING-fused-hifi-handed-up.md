@@ -1,3 +1,67 @@
+
+# CORRECTION, 2026-09-26 07:2xZ: the hand-up above is WITHDRAWN
+
+**Everything below this block was scored on tiled CDK2, and on a real target with a deposited
+structure the lever reads the other way.** I found the fixture in this row's own
+`perf/land_standing/fixtures/` — `your-own-worktree-already-holds-the-answer`, and I had written
+two passes claiming no such fixture was reachable.
+
+## The measurement
+
+E. coli aminopeptidase N, **PDB 3B34 at 1.30 A**, 891 aa with its His tag so it pads to 896 —
+above the route's `_TRIATT_FUSED_HIFI_MIN_S = 128` floor, a real protein, and its ColabFold MSA
+already on disk from this row's narrow-q work. OpenFold3 folds it at **pLDDT 0.9248**, so this is
+a target the model believes in, unlike tiled CDK2.
+
+**Firing, counted:** served **384 -> 440** with the flag on. The lever genuinely runs here.
+
+**CA-RMSD against the deposited structure**, paired by `label_seq_id` over the 866 residues 3B34
+resolves, residue identity asserted per pair, float64 Kabsch — the instrument
+`narrowq_openbind_pepn.py` already validated:
+
+    off   (shipped)        0.544988 A   to the experimental structure
+    on    (lever)          0.540121 A   to the experimental structure  <- CLOSER
+    off2  (control)        0.544988 A   exact, so the instrument has no floor
+
+    off vs on             0.055552 A   the structural move
+
+## What that means
+
+- The lever moves the structure **0.0556 A**, **10.8x under the 0.60 A bar**.
+- It ends **0.004867 A CLOSER** to the experimental answer than the shipped arm.
+- pLDDT moves the same way, 0.924845 -> 0.925057.
+
+**Against the 2.602 A global / 2.390 A per-copy this file reports below on tiled CDK2.** The same
+lever, the same code, two fixtures, and a 43x difference in the measured move.
+
+## Why the old number was wrong, and what it costs the rest of this row's work
+
+Tiled CDK2 is an artificial tandem repeat that does not exist in nature. Even with a deep MSA and
+pLDDT 0.806 the model has no correct answer for it, so it sits in a shallow basin where a small
+numerical perturbation relocates the structure. PepN is a real protein the model places to 0.54 A
+of the crystal; the same perturbation moves it 0.056 A.
+
+**So "confident" was the wrong precondition.** This row spent several passes establishing that the
+fixture needed high pLDDT, got pLDDT 0.806 on tiled CDK2, and treated that as sufficient. It is
+not: a structure can be confidently predicted and still be a fixture the model was never asked to
+get right. **The precondition that matters is a deposited answer, not a confidence score.**
+
+That does not overturn the dividing-k verdict — its 0.450 A on the same tiled fixture was already
+under the bar, and on this evidence a real-target number would be smaller, not larger. It does
+mean the dividing-k accuracy case is *conservative* rather than marginal.
+
+## What is now owed before this lever ships
+
+The accuracy objection is refuted on the right fixture. What is NOT yet done:
+
+- **one target, one seed, 20 sampling steps** rather than the CLI default 200. The narrow-q work
+  recorded PepN seed floors of 0.819 / 3.288 / 3.961 A at 200 steps, so 0.0556 A is roughly 15x
+  under even the smallest of those — but that floor was measured on openbind at 200 steps, not
+  here.
+- **the speed term on a real target.** The +8.471 s is measured at 832 tokens on tiled CDK2 and
+  stands as such; PepN was not timed under A/B discipline in this pass.
+- a release gate at the tip with the flag flipped, which is the same discipline dividing-k got.
+
 # `TT_BIO_TRIATT_FUSED_HIFI`: +8.471 s, and it fails the accuracy bar intra-domain
 
 Handed up to Moritz 2026-09-26 by `land-standing`. Not landed, and this row will not land it: the
