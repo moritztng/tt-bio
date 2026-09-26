@@ -47,6 +47,7 @@ GIB = 1024.0 ** 3
 # arm -> [{rep, with_grad, without_grad: [names]}], filled by the backward wrapper below.
 CENSUS: dict = {}
 _LIVE = {"params": None, "arm": None, "rep": 0}
+_SLOT_RANK = None
 
 
 def stash_parameters():
@@ -111,9 +112,12 @@ def main() -> int:
                      args=(SR.class_node(a.card), clk_stop, R._JSONL), daemon=True).start()
 
     import perf.of3t_restep.steparms as A
+    global _SLOT_RANK
+    _SLOT_RANK = A.F._slot_rank
     ag, F = R.wire_phases()
+    F = A.F                     # the module `arm` actually calls, not rssprofile's handle
     verbs: list = []
-    SR.timed(R, ag, F, verbs)
+    SR.timed(R, ag, A.F, verbs)
     stash_parameters()
     census_backward(ag)
 
@@ -128,12 +132,19 @@ def main() -> int:
         "s8":         T + ["--cycles", "4", "--samples", "8", "--reps", "2"],
         "s6":         T + ["--cycles", "4", "--samples", "6", "--reps", "2"],
         "s48":        T + ["--cycles", "4", "--samples", "48", "--reps", "1"],
+        # The 270-weight freeze, A/B in one process against its own control. Same capture, same
+        # card, same reps: only `declare_all`'s slot ordering moves, which is the whole claim.
+        "unfixed":    T + ["--cycles", "4", "--samples", "4", "--reps", "3"],
+        "fixed":      T + ["--cycles", "4", "--samples", "4", "--reps", "3"],
     }
     facts = SR.board_facts(a.card)
     ran, rc = [], 0
     for name in [w.strip() for w in a.arms.split(",") if w.strip()]:
         path = OUT / f"arm_{name}_{tag}.json"
         _LIVE["arm"], _LIVE["rep"] = name, 0
+        # `unfixed` restores the pre-`ce0f78d60` ordering for its own arm only, so the control
+        # is the same process and the same capture rather than a number from another day.
+        F._slot_rank = (lambda item: item[0]) if name == "unfixed" else _SLOT_RANK
         t0 = time.perf_counter()
         try:
             arc = A.arm(name, False, PLAN[name], path)
