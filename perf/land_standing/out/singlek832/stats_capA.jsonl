@@ -1,0 +1,1 @@
+{"call": 1, "forced_pair": "", "q_split_max": 768, "hifi_stats": {"served": 384, "declined": 0, "too_short": 0, "taped": 0}, "hifi_picks": {"(832, 832)": [416, 416, 2]}, "large_s_stats": [384, 0], "kernel_stats": [384, 0], "kernel_rejects": {}}

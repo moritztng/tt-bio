@@ -319,7 +319,7 @@ kernel; it is the same kernel at a length that currently gets no kernel at all.
 shape, batch 32 / 4 heads / head_dim 32, and its shipped k is 256 where the production trunk at
 704 picks 704. The n=256 null and the band are what transfer, not the per-length pick.)
 
-## Direction, finally readable: the model's own confidence, on an instrument with no floor
+## Direction from the model own confidence (PARTLY WITHDRAWN 2026-09-26 -- the route reading flips sign with size; the chunking half is settled at the end of this file)
 
 `perf/land_standing/plddt832.sh` and the 704 legs above, both on qb2 card 3.
 
@@ -366,7 +366,7 @@ these are small differences on a weak fixture. They earn their place only becaus
 floor is exactly zero and the 704 leg gives an internal positive control, not because a 0.005
 pLDDT move on an unconfident target is important by itself.
 
-## Recommendation, superseding the one higher up this file
+## Recommendation (SUPERSEDED 2026-09-26 by the one at the end of this file)
 
 **Keep `TT_BIO_TRIATT_DIVIDING_K` off by default, and the reason has changed from "unknown" to
 "named".** It is no longer that direction is unanswerable. It is that the change has two halves,
@@ -387,7 +387,7 @@ refusal is a real L1 ceiling or a precondition that could be met. If a single k 
 served at 832, this becomes the same change that is already good at 704 and the accuracy argument
 comes with it.
 
-## Why 832 alone gets a chunked k: it is arithmetic, and a second lever's bound closes the door
+## Why 832 alone gets a chunked k (INCOMPLETE -- a second route already pairs a narrow q with a wide k and is merely capped; see the end of this file)
 
 Read from source and from the recorded rungs, no device time
 (`perf/land_standing/rung832.py` over `out/khole_fixed/`).
@@ -443,3 +443,89 @@ confidence heads. A bound that is correct for one purpose is silently deciding a
 bound when and only when the k chunk is wide, and see whether `q64 k832` serves. If it does,
 re-take the confidence pair at 832 — that is the reading that would move this lever from held to
 landable.
+
+## The single-chunk k DOES serve at 832 — and it is not the explanation. Two corrections.
+
+Measured 2026-09-26 on qb2 card 3, p300c, AICLK median 1350 MHz on every leg, loadavg 14-19.
+Accuracy and firing only; no timing claim is taken from these legs.
+`perf/land_standing/singlek832.sh`, `perf/land_standing/pairhook_sitecustomize.py`,
+`perf/land_standing/out/singlek832/`.
+
+### Correction 1: the route that pairs a narrow q with a wide k already exists, and 832 is simply below its cap
+
+The section above blamed `TT_BIO_TRIATT_NARROW_Q_FALLBACK`'s `q >= prod/2` bound for denying 832
+a single-chunk k. That is true of the k **ladder**, and it is not the whole mechanism.
+`_tri_att_fused_large_s` is a second route, default ON, release-gate green, and its own comment
+says its pair is *"a NARROW q against a WIDE k"* which *"the stock ladder never offers"*. It is
+what serves OpenFold3's trunk at 1088, 1216 and 1472. It is gated to
+`q_len > triatt_sdpa._Q_SPLIT_MAX_S`, which is **1024**, so 832 never reaches it.
+
+The cap's stated justification is that *"at and below it the ladder already lands on a fused pair
+(560 of 560 calls at both 512 and 1024 aa)"*. That was checked at 512 and at 1024. **832 is a
+counter-example and was never tested**: the ladder lands on nothing there, 0 served of 384.
+
+The cap is env-settable, so this needed no code change. With
+`TT_BIO_TRIATT_MASK_Q_SPLIT_MAX=768` and **`TT_BIO_TRIATT_DIVIDING_K` left off**, 832 serves
+**384 of 384, 0 declined**, through `_tri_att_fused_large_s` (`large_s_stats [384, 0]`), and it
+picks `(416, 416)` — the same pair the dividing-k lever lands on. The outputs are identical to
+six decimals on all three confidence metrics:
+
+    arm                                    route              pLDDT      pTM       confidence
+    shipped today                          materialised fp32  0.369018   0.165383  0.328291
+    TT_BIO_TRIATT_DIVIDING_K=1             fused q416 k416    0.363566   0.166345  0.324121
+    cap 768, dividing-k OFF (capA)         fused q416 k416    0.363566   0.166345  0.324121
+    cap 768, dividing-k OFF (capC control) fused q416 k416    0.363566   0.166345  0.324121
+    cap 768 + pinned pair (pinB2)          fused q64  k832    0.362838   0.166368  0.323544
+
+**So two independent levers reach one configuration at 832**, and whichever lands, the 51 seconds
+and the accuracy question are the same object. That matters for the decision: it is not a choice
+between two candidates, it is one change with two possible spellings.
+
+### Correction 2: `one_k_chunk` at 832 is NOT refused by the allocator, and chunking is not what moves the structure
+
+An earlier pass recorded that *"the more accurate fused variant does not fit at the one length the
+lever reaches"* — that `one_k_chunk` at 832 is refused. **That is wrong, and the mechanism is worth
+naming because it is a general trap.** `one_k_chunk` prepends the full-width k to the ladder, and
+the ladder then pairs it with the ladder's own wide q values, every one of which is over L1. The
+*kernel* was never the problem. Pinned to `(64, 832)` the fused kernel serves **384 of 384 with
+zero rejects** — `hifi_picks {"(832, 832)": [64, 832, 2]}`. A full-width k at 832 fits; it had
+only ever been offered a q too wide to go with it.
+
+**And the single chunk does not explain the confidence gap, which was the hypothesis.** The
+prediction was that 832's larger move came from the two-chunk k's running-max rescale, so removing
+it should pull the structure back toward the materialised arm. It does not:
+
+    materialised -> fused (route)          pLDDT -0.005452
+    2 k chunks -> 1 k chunk (chunking)     pLDDT -0.000728, the SAME direction, 13 % of the size
+
+The chunking term is real, small, and points away from the materialised arm rather than back
+toward it. **The gap at 832 is between the fused route and the materialised route, not between one
+k chunk and two.** The hypothesis is refuted by its own experiment.
+
+### What that does to the 704 reading, stated rather than quietly dropped
+
+With chunking eliminated, the same comparison — fused against materialised — reads **+0.002289
+pLDDT at 704** and **-0.005452 at 832**, on the same fixture family, the same model, the same
+instrument, with a control of exactly zero at both. **The sign flips with size.** A conclusion that
+flips sign between two sizes of one fixture family supports neither claim, so the sentence above
+calling the 704 reading a direction for the fused route is withdrawn: it is a direction *at 704*,
+and 832 reads the other way.
+
+So the confidence heads settle the chunking question and do **not** settle the route question. What
+is left needing a confident target is narrower than before but it has not gone away.
+
+### Recommendation, superseding both above it
+
+**Keep it off, and note that the flag to argue about may not be `TT_BIO_TRIATT_DIVIDING_K`.**
+
+- **Closed**: the single-chunk k at 832 is reachable, serves 384/384, and is not the cause of the
+  structural move. The earlier allocator-refusal claim is retracted.
+- **Closed**: the dividing-k lever and a cap lift produce byte-equal output at 832, so they are one
+  decision.
+- **Open, and unchanged in kind**: whether the fused route is better or worse than the materialised
+  one at 832. The confidence heads flip sign between 704 and 832 on this fixture, so they cannot
+  decide it, and an unconfident fixture (pLDDT 0.37) is the reason.
+- **Worth someone's attention independent of all that**: `_Q_SPLIT_MAX_S = 1024` rests on a claim
+  verified at 512 and 1024 with a counter-example at 832 sitting between them. Any padded length
+  below the cap whose shipped q does not divide it is in the same position. That is a reach
+  question about a default-ON route, not about this lever.
