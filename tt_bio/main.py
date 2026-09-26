@@ -53,6 +53,36 @@ _os.environ.setdefault(
 )
 
 
+def _close_inherited_fds(keep: set) -> None:
+    """Close every descriptor this process inherited except the ones named.
+
+    A fork inherits the parent's whole file-descriptor table, and an `fcntl.flock` belongs
+    to the OPEN FILE DESCRIPTION rather than to the process. So a lock the parent takes and
+    releases by closing its own copy of the descriptor stays held for as long as a forked
+    child keeps the copy it inherited. BindCraft 2's per-compile-shape compile lock
+    (`bindcraft/af2.py:19-27`) is exactly that shape: it locks, compiles, and releases by
+    letting a `with open(...)` close. A gradient run therefore deadlocks against its own
+    stale lock the first time a later round hashes to the same lock file -- `/proc/locks`
+    names the one process as both the holder and the blocked waiter, and `wchan` reads
+    `locks_lock_inode_wait` at 0 % CPU, which looks exactly like contention with another
+    process on the box and is not that (state/perf10/bcx-HOSTFLOOR.md).
+
+    The stderr filter's child forwards one pipe to one descriptor and needs nothing else
+    the parent had open, so it closes the rest rather than pinning them for the whole run.
+    """
+    for entry in _os.listdir("/proc/self/fd"):
+        try:
+            fd = int(entry)
+        except ValueError:
+            continue
+        if fd in keep:
+            continue
+        try:
+            _os.close(fd)
+        except OSError:
+            pass
+
+
 def _install_nanobind_leak_stderr_filter() -> None:
     """Drop nanobind leak reports while forwarding other fd-level stderr."""
     try:
@@ -73,6 +103,10 @@ def _install_nanobind_leak_stderr_filter() -> None:
                 except Exception:
                     pass
                 _os.close(write_fd)
+                # Nothing else the parent had open is this child's business, and holding
+                # any of it for the life of the run pins the parent's locks. See
+                # `_close_inherited_fds`.
+                _close_inherited_fds({0, 1, 2, read_fd, original_stderr_fd})
                 suppressing_nanobind_leak = False
                 with _os.fdopen(read_fd, "rb", closefd=True) as pipe:
                     for raw_line in pipe:
