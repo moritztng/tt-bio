@@ -1,0 +1,87 @@
+{
+ "what": "ttnn.sum accumulator precision on a bf16 input, vs a float64 sum of the same values",
+ "channels": 64,
+ "rows": {
+  "64": {
+   "ttnn_sum_bf16_in_precise": {
+    "rel_l2": 0.0017522737409234128,
+    "cos_vs_float64": 0.9999986157952125,
+    "out_dtype": "DataType.BFLOAT16"
+   },
+   "ttnn_sum_bf16_in_default": {
+    "rel_l2": 0.0017522737409234128,
+    "cos_vs_float64": 0.9999986157952125,
+    "out_dtype": "DataType.BFLOAT16"
+   },
+   "sum_leading_bf16_in": {
+    "rel_l2": 0.0017522737409234128,
+    "cos_vs_float64": 0.9999986157952125,
+    "out_dtype": "DataType.BFLOAT16"
+   },
+   "ttnn_sum_fp32_in_precise": {
+    "rel_l2": 7.409003676185906e-05,
+    "cos_vs_float64": 0.9999999972754416,
+    "out_dtype": "DataType.FLOAT32"
+   },
+   "sum_leading_fp32_in_tree": {
+    "rel_l2": 0.0,
+    "cos_vs_float64": 1.0,
+    "out_dtype": "DataType.FLOAT32"
+   }
+  },
+  "4096": {
+   "ttnn_sum_bf16_in_precise": {
+    "rel_l2": 0.001740638302957398,
+    "cos_vs_float64": 0.9999984943949916,
+    "out_dtype": "DataType.BFLOAT16"
+   },
+   "ttnn_sum_bf16_in_default": {
+    "rel_l2": 0.001740638302957398,
+    "cos_vs_float64": 0.9999984943949916,
+    "out_dtype": "DataType.BFLOAT16"
+   },
+   "sum_leading_bf16_in": {
+    "rel_l2": 0.001740638302957398,
+    "cos_vs_float64": 0.9999984943949916,
+    "out_dtype": "DataType.BFLOAT16"
+   },
+   "ttnn_sum_fp32_in_precise": {
+    "rel_l2": 7.426321150377468e-05,
+    "cos_vs_float64": 0.9999999972713857,
+    "out_dtype": "DataType.FLOAT32"
+   },
+   "sum_leading_fp32_in_tree": {
+    "rel_l2": 3.9194178184725654e-08,
+    "cos_vs_float64": 0.9999999999999993,
+    "out_dtype": "DataType.FLOAT32"
+   }
+  },
+  "147456": {
+   "ttnn_sum_bf16_in_precise": {
+    "rel_l2": 0.0018477867864964662,
+    "cos_vs_float64": 0.999998295523201,
+    "out_dtype": "DataType.BFLOAT16"
+   },
+   "ttnn_sum_bf16_in_default": {
+    "rel_l2": 0.0018477867864964662,
+    "cos_vs_float64": 0.999998295523201,
+    "out_dtype": "DataType.BFLOAT16"
+   },
+   "sum_leading_bf16_in": {
+    "rel_l2": 0.0018477867864964662,
+    "cos_vs_float64": 0.999998295523201,
+    "out_dtype": "DataType.BFLOAT16"
+   },
+   "ttnn_sum_fp32_in_precise": {
+    "rel_l2": 7.56500736897778e-05,
+    "cos_vs_float64": 0.9999999971560843,
+    "out_dtype": "DataType.FLOAT32"
+   },
+   "sum_leading_fp32_in_tree": {
+    "rel_l2": 7.182021447230488e-08,
+    "cos_vs_float64": 0.9999999999999976,
+    "out_dtype": "DataType.FLOAT32"
+   }
+  }
+ }
+}
