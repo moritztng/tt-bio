@@ -28,9 +28,13 @@ earlier arm was `--single_sequence`, and MSA depth was the whole problem (0.503 
 and **0.450148 A CA RMSD against the 0.60 A bar**. The adverse single-sequence reading was the
 heads answering near their floor.
 
-**Still owed before a default flip:** the seed floor on this fixture, the flip itself (a source
-change this branch does not carry), and a release gate at the tip with it applied. See the last
-section.
+- **Accuracy: CLEARS on every instrument.** 0.450148 A against the 0.60 A bar, a seed floor of
+  1.974757 A beside it (4.4x the lever move), a control of exactly 0.000000 A, and both confidence
+  heads favourable. Changing the lever AND the seed moves the structure 1.948630 A, no more than
+  changing the seed alone.
+
+**Still owed:** only the flip of `_TRIATT_HIFI_DIVIDING_K_DEFAULT` and a release gate at the tip
+with it applied, in the same pass. Nothing further to characterise.
 
 ---
 
@@ -707,3 +711,34 @@ the bar is written in, and the answer is favourable. What is still owed is the s
 fixture, and then the ordinary landing discipline rather than more characterisation: the default
 flip itself, which is a source change this branch does not yet carry, and a release gate at the
 tip with it applied.
+
+## The seed floor, and the accuracy case is now complete
+
+    instrument                                        value        against
+    control   off seed0 vs off seed0 (rerun)       0.000000 A     the floor: exactly zero
+    LEVER     off vs on, same seed                 0.450148 A     the 0.60 A default bar
+    seed floor  off seed0 vs off seed1             1.974757 A     4.4x the lever's move
+    cross     on seed0 vs off seed1                1.948630 A     no larger than the seed floor
+
+All CA RMSD, Kabsch, float64, over all 832 CA atoms. The seed-1 leg is
+`perf/land_standing/out/deepfix/res_d832_seed1/`, folded on the same fixture at the same settings.
+
+**The cross term is the cleanest line in the table.** Changing the lever *and* the seed moves the
+structure **1.949 A**, which is no more than changing the seed alone moves it (**1.975 A**). The
+lever is invisible against variation this fixture already produces.
+
+The seed floor here, **1.975 A**, also sits right next to the 512 aa figure this row's charter
+quotes (1.84 A), which is a useful consistency check on the fixture rather than a coincidence to
+lean on.
+
+**So the accuracy case is complete and it clears on every instrument available**: under the bar,
+4.4x inside the seed floor, favourable on both confidence heads, and against a control of exactly
+zero.
+
+### What is left is one gate, not more characterisation
+
+`_TRIATT_HIFI_DIVIDING_K_DEFAULT` at `tt_bio/tenstorrent.py` is the one line. Flipping it is not
+on this branch on purpose: a default flip with no release gate behind it is
+`a-default-on-lever-turns-red-the-gate-it-was-never-run-against`, and this branch is merge
+candidate material, so the flip and its gate belong in the same pass. That pass needs a card for
+long enough to fold the gate's seven models.
