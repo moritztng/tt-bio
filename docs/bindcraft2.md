@@ -116,6 +116,37 @@ BindCraft 2 feeds an all-zero extra-MSA mask, so there is no gradient into the e
 it measures exactly zero on BindCraft 2's own JAX, and the card's path returns zero by
 construction and refuses a mask that is not all-zero.
 
+### The exact-training instrument
+
+Inside a tape, tt-bio runs softmax and layer norm on the host in float64 rather than on the
+device. That is what reproduces AlphaFold 2's own gradient most closely and it is the default,
+but a BindCraft 2 round pays a host round trip for every one of them:
+
+```python
+with bindcraft2.predictor(card=0, exact=False) as build:
+    ...
+```
+
+At n=192 a round makes 576 exact softmax calls, 1,728 exact layer-norm calls and 576 layer-norm
+backward VJPs, and pushes 7.46e9 layer-norm elements through float64. One `sequence_gradients`
+call costs 479.59 s with the instrument on against 19.285 s with it off, 24.87x, measured
+interleaved in one process on one card at AICLK 1350 sampled during the call. That is the
+gradient call and not the whole design round, which also carries BindCraft 2's own JAX work.
+
+What it buys is small here. Against a float64 reference, the worst gradient tensor sits at
+rel_l2 0.087998 with the instrument on and 0.088985 with it off, a move of 1.1 %, where
+bfloat16 alone already carries 0.075483 of that distance. A design campaign with the instrument
+off accepted a 93-residue binder on the shipped `examples/pdl1.json` clearing all seven of
+BindCraft 2's final filters, at pLDDT 0.90, i_pTM 0.79, zero backbone clashes and hotspot
+contact fraction 1.0.
+
+It stays on by default because it is the more accurate of the two, and the accepted count above
+is one trajectory rather than a rate. Read `tt_bio.autograd.EXACT_SOFTMAX_STATS` and
+`EXACT_LAYER_NORM_STATS` to confirm which one ran: with `exact=False` both stay at zero.
+
+Turning it off changes only how softmax and layer norm are computed inside the tape. It does not
+skip a step, a recycle or a block.
+
 ## The control arm
 
 `trunk="jax"` opens no device and touches no card. It runs BindCraft 2's own trunk through the
