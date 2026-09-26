@@ -1,0 +1,22 @@
+=== arm6 S=8 chunk-per-rep 4,2,1 start 2026-09-26T11:39:07Z loadavg 1.13 2.52 3.91 memavail 16.7649 GiB
+[weights] 3152 tensors (2256 pairformer, 621 diffusion), 381.3M elements
+  [diffusion] sample 0 sigma    3.945    5.016s
+  [tape] leaving the tape context
+  [tape] left the tape context
+  [losses] 1 replicates scored, 0.000s download 0.013s arithmetic
+  [diffusion] sample 0 sigma  915.174    0.389s
+  [diffusion] sample 1 sigma  129.343    0.386s
+  [diffusion] sample 2 sigma 3306.969    0.405s
+  [diffusion] sample 3 sigma  555.173    0.403s
+/home/moritz/.coworker/wt/of3t-p10samples/tt_bio/train/losses.py:460: RuntimeWarning: overflow encountered in exp
+  sig = 1.0 / (1.0 + np.exp(-(th - a)))
+  [losses] 4 replicates scored, 0.002s download 0.028s arithmetic
+  [chunk 1] 4 replicates  fwd 1.58s  loss 0.03s  bwd 4.22s  6980 nodes  dram 28.54 GB  memavail 8.479 GiB
+  [diffusion] sample 0 sigma   47.551    0.393s
+  [diffusion] sample 1 sigma  417.625    0.397s
+  [diffusion] sample 2 sigma 1268.216    0.391s
+  [losses] 3 replicates scored, 0.001s download 0.021s arithmetic
+  [chunk 2] 3 replicates  fwd 1.18s  loss 0.02s  bwd 2.14s  5390 nodes  dram 26.04 GB  memavail 8.479 GiB
+  [losses] step heads 0.212s, 7 of 8 terms fired
+/tmp/of3t/p10samples/arm6.sh: line 8: 361491 Killed                  timeout 1800 $PY perf/of3t_stepfloor/fullstep.py --tokens 384 --cycles 4 --samples 8 --chunk-per-rep 4,2,1 --reps 3 --no-optimizer --out perf/of3t_p10samples/out/arm6_s8_cladder_384.json
+=== arm6 rc=137 done 2026-09-26T11:43:56Z

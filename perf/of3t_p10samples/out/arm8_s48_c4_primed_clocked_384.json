@@ -1,0 +1,403 @@
+{
+ "doc": "A FULL OpenFold3 training step on the card, timed by part.",
+ "argv": [
+  "--tokens",
+  "384",
+  "--cycles",
+  "4",
+  "--samples",
+  "48",
+  "--chunk",
+  "4",
+  "--reps",
+  "2",
+  "--out",
+  "perf/of3t_p10samples/out/arm3_s48_c4_384.json"
+ ],
+ "env": {
+  "host": "pc",
+  "tt_visible_devices": "0",
+  "renorm": null,
+  "commit": "7123689da09a4ec440df4531b8e598b1fec646e5",
+  "branch": "wk/of3t-p10samples",
+  "started_utc": "2026-09-26T11:51:13Z",
+  "loadavg_start": [
+   2.81201171875,
+   3.36474609375,
+   3.7548828125
+  ],
+  "arch": "Arch.BLACKHOLE",
+  "aiclk_during": {
+   "0": {
+    "min": 1350,
+    "max": 1350,
+    "median": 1350,
+    "n": 120
+   }
+  }
+ },
+ "config": {
+  "crop": 384,
+  "batch": 1,
+  "cards": 1,
+  "cycles_pinned": 4,
+  "diffusion_samples": 48,
+  "stage": "initial_training",
+  "taped": true,
+  "chunk": 4,
+  "loss_shape": "model",
+  "rng": "diffusion noise and loss fixture drawn from SEPARATE streams, so a chunked arm and an unchunked one noise the same structures"
+ },
+ "build_fold_s": 8.79,
+ "prep_to_sampler_s": 7.85,
+ "capture": {
+  "trunk_inputs_snapshotted": true,
+  "trunk_inputs_dead_at_capture": 0,
+  "trunk_forward_s": 5.105,
+  "trunk_forward_note": "the shipped call, progress_fn INCLUDED and cold; the timed arms below drop it",
+  "trunk_cycles": 4,
+  "reached_sampler": true
+ },
+ "params": {
+  "declared": 3152,
+  "slots": 3152,
+  "slots_unwritable": 0,
+  "elements": 381302188,
+  "per_root": {
+   "trunk": {
+    "found": 2531,
+    "walk_depth": 9,
+    "truncated": 8
+   },
+   "diffusion": {
+    "found": 891,
+    "walk_depth": 6,
+    "truncated": 0
+   }
+  },
+  "duplicate_handles_dropped": 270,
+  "pairformer_weights": 2256,
+  "diffusion_weights": 621
+ },
+ "loss_weights": {
+  "bond": 0.0,
+  "smooth_lddt": 4.0,
+  "mse": 4.0,
+  "distogram": 0.03,
+  "resolved": 0.0001,
+  "plddt": 0.0001,
+  "pae": 0.0001,
+  "pde": 0.0001
+ },
+ "optimizer": {
+  "class": "tt_bio.train.optim.AdamW",
+  "lr": 0.0003,
+  "clip_norm": 10.0,
+  "params": 3152
+ },
+ "renorm": {
+  "flag": true,
+  "stats_before": {
+   "applied": 0,
+   "declined": 0
+  },
+  "per_rep_plan": null
+ },
+ "chunk_per_rep_plan": null,
+ "reps": [
+  {
+   "rep": 0,
+   "cold": true,
+   "renorm_flag": true,
+   "trunk_nograd_prefix_s": 3.414,
+   "chunk": 4,
+   "trunk_taped_cycle_s": 301.319,
+   "trunk_s": 304.733,
+   "dram_after_trunk": 4309808128,
+   "prime_replicate_s": 7.448,
+   "diffusion": {
+    "coupled_to_trunk": true,
+    "sigmas": [
+     3.35,
+     1022.0473,
+     0.0333,
+     42.4209,
+     0.1605,
+     0.2263,
+     4215.8944,
+     66.2556,
+     35.6173,
+     164.6207,
+     512.404,
+     1268.2158,
+     0.8472,
+     1674.264,
+     1563.5507,
+     702.3381,
+     2740.7098,
+     2047.6516,
+     1510.5892,
+     31.6209,
+     0.349,
+     1852.9095,
+     324.0802,
+     0.0987,
+     729.8563,
+     0.0153,
+     40.0391,
+     12.9196,
+     86.3515,
+     0.4293,
+     0.5249,
+     492.1002,
+     47.5509,
+     227.6729,
+     0.1803,
+     368.314,
+     1313.8217,
+     149.6305,
+     172.5863,
+     0.0586,
+     2.6022,
+     0.018,
+     881.7492,
+     310.3863,
+     11.2571,
+     3516.7366,
+     0.5792,
+     400.5953
+    ],
+    "distinct_sigmas": 48,
+    "n_samples": 48,
+    "n_atom": 3092,
+    "n_token": 384,
+    "tokens_without_an_atom": 0,
+    "rep_atom_index": "first atom of each token, from atom_to_token_idx",
+    "per_sample_s": [
+     7.448,
+     0.464,
+     0.395,
+     0.395,
+     0.396,
+     0.447,
+     0.399,
+     0.386,
+     0.372,
+     0.37,
+     0.37,
+     0.387,
+     0.4,
+     0.4,
+     0.367,
+     0.416,
+     0.371,
+     0.376,
+     0.37,
+     0.403,
+     0.474,
+     0.389,
+     0.366,
+     0.372,
+     0.383,
+     0.421,
+     0.418,
+     0.492,
+     0.426,
+     0.392,
+     0.372,
+     0.374,
+     0.368,
+     0.395,
+     0.415,
+     0.416,
+     0.419,
+     0.389,
+     0.376,
+     0.367,
+     0.375,
+     0.401,
+     0.418,
+     0.4,
+     0.427,
+     0.387,
+     0.364,
+     0.377
+    ]
+   },
+   "losses": {
+    "labels_s": 0.012,
+    "fixture_logits_s": 0.592,
+    "terms": {
+     "bond": {
+      "weight": 0.0,
+      "skipped": "weight is zero in this stage",
+      "fired": false,
+      "scope": "per replicate"
+     },
+     "smooth_lddt": {
+      "weight": 4.0,
+      "skipped": null,
+      "fired": true,
+      "scope": "per replicate"
+     },
+     "mse": {
+      "weight": 4.0,
+      "skipped": null,
+      "fired": true,
+      "scope": "per replicate"
+     }
+    },
+    "download_s": 0.012,
+    "replicate_loss_s": 0.333,
+    "replicates_scored": 48
+   },
+   "cut": "si_trunk + zij_pad + 27 cache entries (84 taped tensors) -> detached leaves",
+   "chunks": [
+    {
+     "first": 1,
+     "n": 4,
+     "diffusion_s": 1.65,
+     "dram_after_diffusion": 28536056320,
+     "losses_s": 0.029,
+     "seed_upload_s": 0.001,
+     "tape_nodes": 6980,
+     "backward_s": 4.236,
+     "dram_after_backward": 14672351744,
+     "mem_available_gib": 6.048
+    },
+    {
+     "first": 5,
+     "n": 4,
+     "diffusion_s": 1.606,
+     "dram_after_diffusion": 29825509888,
+     "losses_s": 0.028,
+     "seed_upload_s": 0.0,
+     "tape_nodes": 6980,
+     "backward_s": 2.839,
+     "dram_after_backward": 14672351744,
+     "mem_available_gib": 6.636
+    },
+    {
+     "first": 9,
+     "n": 4,
+     "diffusion_s": 1.528,
+     "dram_after_diffusion": 29825509888,
+     "losses_s": 0.028,
+     "seed_upload_s": 0.0,
+     "tape_nodes": 6980,
+     "backward_s": 3.054,
+     "dram_after_backward": 14672351744,
+     "mem_available_gib": 6.193
+    },
+    {
+     "first": 13,
+     "n": 4,
+     "diffusion_s": 1.555,
+     "dram_after_diffusion": 29825509888,
+     "losses_s": 0.029,
+     "seed_upload_s": 0.0,
+     "tape_nodes": 6980,
+     "backward_s": 2.765,
+     "dram_after_backward": 14672351744,
+     "mem_available_gib": 6.783
+    },
+    {
+     "first": 17,
+     "n": 4,
+     "diffusion_s": 1.625,
+     "dram_after_diffusion": 29825509888,
+     "losses_s": 0.031,
+     "seed_upload_s": 0.0,
+     "tape_nodes": 6980,
+     "backward_s": 3.222,
+     "dram_after_backward": 14672351744,
+     "mem_available_gib": 6.136
+    },
+    {
+     "first": 21,
+     "n": 4,
+     "diffusion_s": 1.51,
+     "dram_after_diffusion": 29825509888,
+     "losses_s": 0.028,
+     "seed_upload_s": 0.0,
+     "tape_nodes": 6980,
+     "backward_s": 2.881,
+     "dram_after_backward": 14672351744,
+     "mem_available_gib": 6.777
+    },
+    {
+     "first": 25,
+     "n": 4,
+     "diffusion_s": 1.759,
+     "dram_after_diffusion": 29825509888,
+     "losses_s": 0.029,
+     "seed_upload_s": 0.0,
+     "tape_nodes": 6980,
+     "backward_s": 3.097,
+     "dram_after_backward": 14672351744,
+     "mem_available_gib": 6.686
+    },
+    {
+     "first": 29,
+     "n": 4,
+     "diffusion_s": 1.507,
+     "dram_after_diffusion": 29825509888,
+     "losses_s": 0.027,
+     "seed_upload_s": 0.0,
+     "tape_nodes": 6980,
+     "backward_s": 2.876,
+     "dram_after_backward": 14672351744,
+     "mem_available_gib": 6.764
+    },
+    {
+     "first": 33,
+     "n": 4,
+     "diffusion_s": 1.647,
+     "dram_after_diffusion": 29825509888,
+     "losses_s": 0.036,
+     "seed_upload_s": 0.001,
+     "tape_nodes": 6980,
+     "backward_s": 3.078,
+     "dram_after_backward": 14672351744,
+     "mem_available_gib": 6.729
+    },
+    {
+     "first": 37,
+     "n": 4,
+     "diffusion_s": 1.508,
+     "dram_after_diffusion": 29825509888,
+     "losses_s": 0.026,
+     "seed_upload_s": 0.0,
+     "tape_nodes": 6980,
+     "backward_s": 2.833,
+     "dram_after_backward": 14672351744,
+     "mem_available_gib": 6.606
+    },
+    {
+     "first": 41,
+     "n": 4,
+     "diffusion_s": 1.648,
+     "dram_after_diffusion": 29825509888,
+     "losses_s": 0.029,
+     "seed_upload_s": 0.001,
+     "tape_nodes": 6980,
+     "backward_s": 2.992,
+     "dram_after_backward": 14672351744,
+     "mem_available_gib": 6.713
+    },
+    {
+     "first": 45,
+     "n": 3,
+     "diffusion_s": 1.13,
+     "dram_after_diffusion": 26037220352,
+     "losses_s": 0.021,
+     "seed_upload_s": 0.0,
+     "tape_nodes": 5390,
+     "backward_s": 2.157,
+     "dram_after_backward": 14672351744,
+     "mem_available_gib": 6.724
+    }
+   ]
+  }
+ ]
+}
