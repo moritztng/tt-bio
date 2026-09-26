@@ -162,9 +162,86 @@ def predict(ops, rows, n):
                             "see that, so the baseline this would be measured against is wrong"}}
 
 
+def scale(a, b, ns, at):
+    """Per-bucket power law from two measured sizes, evaluated at the sizes that matter.
+
+    Two points give one exponent and no error bar, so this is a MODEL and it is labelled one.
+    What makes it worth having anyway is that the exponents come out interpretable rather than
+    fitted: the score tensor is [n, heads, n, n] and the pair track is [1, n, n, c], so a bucket
+    should land on n^3 or n^2 and it is a real check on the bucketing when one does not.
+
+    The n=128 traces are the `bwd` arm, not `bwd-fix`. That is not a mismatch: `bcx-bytes`
+    measured the fix as identity at n=128 -- "at n=128 the plan's block (330 and 165 rows) already
+    covers all 128 rows, so nothing is chunked there" -- so the two points are the same tree.
+    """
+    import math
+    lo, hi = ns
+    out = {}
+    for k in set(a) | set(b):
+        x, y = a.get(k, {}).get("GB", 0.0), b.get(k, {}).get("GB", 0.0)
+        if x <= 0 or y <= 0:
+            continue
+        e = math.log(y / x) / math.log(hi / lo)
+        out[k] = {"GB_lo": x, "GB_hi": y, "exponent": round(e, 3),
+                  "at": {str(n): round(y * (n / hi) ** e, 3) for n in at}}
+    return out
+
+
+def cmd_scale(args):
+    """The reach map at the size BindCraft 2 actually runs, from the two sizes that were traced."""
+    import json as _json
+    blob = {}
+    for stack, lo_t, hi_t in (("evo", "trace_bwd_evo_n128", "trace_bwd-fix_evo_n256"),
+                              ("extra", "trace_bwd_extra_n128", "trace_bwd-fix_extra_n256")):
+        recs = {}
+        for tag, name, n in (("lo", lo_t, 128), ("hi", hi_t, 256)):
+            t = _json.loads((TR / f"{name}.json").read_text())
+            rows = census(t["bwd"])
+            g = collections.defaultdict(float)
+            for r in rows:
+                bk = bucket(r, int(t["n"]))
+                r["_bucket"] = bk or ""
+                if bk:
+                    g[bk] += r["moved"]
+            recs[tag] = ({k: {"GB": round(v / 1e9, 3)} for k, v in g.items()},
+                         predict(t["bwd"], rows, int(t["n"])))
+        at = [int(x) for x in args.at.split(",")]
+        sc = scale(recs["lo"][0], recs["hi"][0], (128, 256), at)
+        lev = {}
+        for k in ("smbf16", "fanin"):
+            x = recs["lo"][1][k]["net_removed_GB"]
+            y = recs["hi"][1][k]["net_removed_GB"]
+            lev[k] = scale({k: {"GB": x}}, {k: {"GB": y}}, (128, 256), at)[k]
+        blob[stack] = {"by_site": sc, "levers": lev,
+                       "totals": {str(n): round(sum(v["at"][str(n)] for v in sc.values()), 3)
+                                  for n in at}}
+        print(f"\n{stack}: bytes per block backward, per-bucket power law from n=128 and n=256")
+        print(f"   {'bucket':52s} {'exp':>5s} " + " ".join(f"{('n=%d' % n):>9s}" for n in at))
+        for k, v in sorted(sc.items()):
+            print(f"   {k[:52]:52s} {v['exponent']:5.2f} "
+                  + " ".join(f"{v['at'][str(n)]:9.3f}" for n in at))
+        print(f"   {'TOTAL':52s} {'':5s} "
+              + " ".join(f"{blob[stack]['totals'][str(n)]:9.3f}" for n in at))
+        for k, v in lev.items():
+            print(f"   lever {k:46s} {v['exponent']:5.2f} "
+                  + " ".join(f"{v['at'][str(n)]:9.3f}" for n in at))
+        for n in at:
+            st = sum(lev[k]["at"][str(n)] for k in lev)
+            tot = blob[stack]["totals"][str(n)]
+            print(f"   -> at n={n}: the precision stack removes {st:.3f} of {tot:.3f} GB, "
+                  f"{st / tot * 100:.1f} %")
+    pathlib.Path(args.out).write_text(_json.dumps(blob, indent=1))
+    print(f"\nwrote {args.out}")
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--traces", default="trace_bwd-fix_evo_n256,trace_bwd-fix_extra_n256")
+    ap.add_argument("--scale", action="store_true",
+                    help="per-bucket power law from the two traced sizes, evaluated at --at")
+    ap.add_argument("--at", default="224,256,512,1536",
+                    help="224 is what a BindCraft 2 round runs (211 tokens bucketed); 1536 is the "
+                         "MGX size target")
     ap.add_argument("--out", default=str(OUT / "reach.json"))
     ap.add_argument("--src", default="a5fa47832",
                     help="the revision the traces were RECORDED on -- their frame line numbers "
@@ -172,8 +249,13 @@ def main():
     args = ap.parse_args()
 
     global CLOSURES
-    CLOSURES = _ranges("tt_bio/autograd.py", {"layer_norm", "_taped_layer_norm", "triangle_attention", "softmax"},
+    CLOSURES = _ranges("tt_bio/autograd.py",
+                       {"layer_norm", "_taped_layer_norm", "triangle_attention", "softmax"},
                        args.src)
+    if args.scale:
+        if args.out.endswith("reach.json"):
+            args.out = args.out.replace("reach.json", "reach_scale.json")
+        return cmd_scale(args)
     blob = {}
     for name in args.traces.split(","):
         t = json.loads((TR / f"{name}.json").read_text())
