@@ -168,6 +168,45 @@ class MoveTimer(VerbTimer):
         return snap
 
 
+#: The four levers wave 10 landed, exactly as `perf/bcx_round/run_round.py` arms them. They are
+#: what separates the 9.525 s ANCHOR `bcx-CALLS.md` was measured on from the composed round this
+#: row is priced against, and `bcx-p10-tabwire`'s fused triangle-attention backward lands inside
+#: this row's own family. All four are module/class switches or live env reads, so both arms
+#: interleave in ONE process on ONE card -- `set_triatt_fused` exists for exactly that.
+COMPOSED_STACKS = ('extra_msa', 'evoformer', 'template')
+
+
+def set_arm(dev, arm):
+    on = (arm == 'composed')
+    from tt_bio import mm_layout, triatt_bw
+    from tt_bio import tenstorrent as T
+    from tt_bio.af2 import AF2PairBlock
+    AF2PairBlock.rne_kernel = on
+    os.environ['TT_BIO_TAPED_KERNELS'] = 'tri_att_sdpa_hifi,rne_add' if on else ''
+    os.environ['TT_BIO_TRIATT_DIVIDING_K'] = '1' if on else '0'
+    T._TRIATT_FUSED_HIFI = on
+    triatt_bw.FUSED = on
+    mm_layout.MM_LAYOUT = on
+    dev.dm.set_triatt_fused(COMPOSED_STACKS if on else None)
+
+
+def reach():
+    """Stamped every window. An arm that silently declined reads bit-identical and proves
+    nothing (`bcx-p10-rneker` leg 3), so the counters go beside every number."""
+    from tt_bio import mm_layout, rne_add, triatt_bw
+    out = {}
+    for name, mod in (('triatt_bw', triatt_bw), ('rne_add', rne_add)):
+        for attr in ('STATS', 'REACH', 'COUNTS'):
+            v = getattr(mod, attr, None)
+            if v is not None:
+                out[f'{name}.{attr}'] = dict(v) if hasattr(v, 'items') else list(v)
+    try:
+        out['mm_layout'] = mm_layout.reach()
+    except Exception as e:                                                  # noqa: BLE001
+        out['mm_layout'] = str(e)
+    return out
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument('--params', default=D.A.DEFAULT_PARAMS)
@@ -179,10 +218,10 @@ def main():
     ap.add_argument('--reps', type=int, default=3)
     ap.add_argument('--seed', type=int, default=0)
     ap.add_argument('--threads', type=int, default=8)
+    ap.add_argument('--arms', default='anchor,composed')
     ap.add_argument('--out', default='census_n288.json')
     args = ap.parse_args()
     args.card = int(os.environ.get('TT_VISIBLE_DEVICES', '0'))
-    args.arms = ''
     torch.set_num_threads(args.threads)
 
     import ttnn
@@ -198,33 +237,41 @@ def main():
     floor = D.sync_floor(ttnn, dev.device)
     print(json.dumps({'sync_floor_median_s': floor['median']}), flush=True)
 
-    acc = {m: {f: collections.Counter() for f in
-               ('wall', 'calls', 'read', 'written', 'edge', 'alias_misses')}
-           for m in ('sync', 'free')}
+    arms = args.arms.split(',')
+    acc = {(a, m): {f: collections.Counter() for f in
+                    ('wall', 'calls', 'read', 'written', 'edge', 'alias_misses')}
+           for a in arms for m in ('sync', 'free')}
+    reaches = {a: [] for a in arms}
     aiclks, loads = [], []
     for rep in range(args.reps):
-        for mode in (['free', 'sync'] if rep % 2 == 0 else ['sync', 'free']):
-            timer.sync = (mode == 'sync')
-            timer.clear_edges()
-            timer.on = True
-            r, _ = S.block_step(dev, lv, m0, z0, wm, wz, args.stack, k=args.k)
-            timer.on = False
-            snap = timer.take()
-            aiclks.append(clock.window(r['spans']))
-            loads.append(round(os.getloadavg()[0], 2))
-            for f in acc[mode]:
-                acc[mode][f].update(snap[f])
-            print(json.dumps({'rep': rep, 'mode': mode,
-                              'fwd': round(r['fwd'], 3), 'bwd': round(r['bwd'], 3),
-                              'aiclk': aiclks[-1], 'load': loads[-1],
-                              'alias_misses': sum(snap['alias_misses'].values())}),
-                  flush=True)
+        for arm in (arms if rep % 2 == 0 else arms[::-1]):
+            set_arm(dev, arm)
+            for mode in (['free', 'sync'] if rep % 2 == 0 else ['sync', 'free']):
+                timer.sync = (mode == 'sync')
+                timer.clear_edges()
+                before = reach()
+                timer.on = True
+                r, _ = S.block_step(dev, lv, m0, z0, wm, wz, args.stack, k=args.k)
+                timer.on = False
+                snap = timer.take()
+                reaches[arm].append({'before': before, 'after': reach()})
+                aiclks.append(clock.window(r['spans']))
+                loads.append(round(os.getloadavg()[0], 2))
+                for f in acc[(arm, mode)]:
+                    acc[(arm, mode)][f].update(snap[f])
+                print(json.dumps({'rep': rep, 'arm': arm, 'mode': mode,
+                                  'fwd': round(r['fwd'], 3), 'bwd': round(r['bwd'], 3),
+                                  'aiclk': aiclks[-1], 'load': loads[-1],
+                                  'reach': reaches[arm][-1]['after'],
+                                  'alias_misses': sum(snap['alias_misses'].values())}),
+                      flush=True)
     clock.stop()
     timer.uninstall()
     blob = {'stamp': S.stamp(args, clock), 'n': args.n, 'pad': args.pad, 'stack': args.stack,
             'k': args.k, 'reps': args.reps, 'sync_floor_s': floor, 'aiclk': aiclks,
-            'load': loads,
-            'by_mode': {m: {f: dict(acc[m][f]) for f in acc[m]} for m in ('sync', 'free')}}
+            'load': loads, 'arms': arms, 'reach': reaches,
+            'by_arm': {a: {m: {f: dict(acc[(a, m)][f]) for f in acc[(a, m)]}
+                           for m in ('sync', 'free')} for a in arms}}
     OUT.mkdir(parents=True, exist_ok=True)
     (OUT / args.out).write_text(json.dumps(blob, indent=1, default=str))
     print('wrote ' + str(OUT / args.out), flush=True)
