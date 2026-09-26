@@ -93,18 +93,19 @@ _STATE = {"recycles": None}
 
 def install_patches(pin_recycles, sampler, records):
     import pytorch_lightning as pl
-    from openfold3.projects.of3_all_atom.model import OF3AllAtom
+    from openfold3.projects.of3_all_atom.model import OpenFold3
 
     # (2) record what the model actually ran
-    _orig_forward = OF3AllAtom.forward
+    _orig_forward = OpenFold3.forward
 
     def _forward(self, *a, **k):
         out = _orig_forward(self, *a, **k)
-        if isinstance(out, dict) and "recycles" in out:
-            _STATE["recycles"] = int(out["recycles"])
+        o = out[1] if isinstance(out, tuple) and len(out) == 2 else out
+        if isinstance(o, dict) and "recycles" in o:
+            _STATE["recycles"] = int(o["recycles"])
         return out
 
-    OF3AllAtom.forward = _forward
+    OpenFold3.forward = _forward
 
     # (1) pin the draw
     if pin_recycles is not None:
@@ -115,13 +116,13 @@ def install_patches(pin_recycles, sampler, records):
             def integers(self, *a, **k):
                 return self.v
 
-        _orig_init = OF3AllAtom.__init__
+        _orig_init = OpenFold3.__init__
 
         def _init(self, *a, **k):
             _orig_init(self, *a, **k)
             self.synced_generator = _Pinned(pin_recycles)
 
-        OF3AllAtom.__init__ = _init
+        OpenFold3.__init__ = _init
 
     # (3) per-step timing, appended to whatever callbacks the runner built
     import torch
@@ -246,7 +247,15 @@ def main():
 
     # steady = every step but the first; the first carries CUDA/cudnn warmup and autotune
     steady = [r for r in records[1:] if r["t_batch_s"] is not None]
+    seen = [r["recycles"] for r in records]
     summary = {"meta": meta, "wall_s": wall, "n_steps": len(records), "steps": records}
+    summary["recycles_seen"] = seen
+    if not records or all(r is None for r in seen):
+        summary["INSTRUMENT_FAILED"] = (
+            "no step reported a recycle count: the forward patch matched nothing, so neither "
+            "the pin nor the draw can be verified from this run")
+    elif pin is not None and any(r != pin for r in seen):
+        summary["INSTRUMENT_FAILED"] = f"pin={pin} requested but steps ran {seen}"
     if steady:
         tb = [r["t_batch_s"] for r in steady]
         allsm = [s[1] for s in sampler.samples]
