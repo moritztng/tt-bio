@@ -52,6 +52,20 @@ def short(sig):
     return body, (frames[-1] if frames else '?')
 
 
+def totals(b, arm):
+    rows, lam = rows_for(b, arm)
+    reps = b['reps']
+    out = {}
+    for dr in ('fwd', 'bwd'):
+        sel = [v for k, v in rows.items() if k[0] == dr]
+        dev = [max(v[0] - v[1] - lam * v[2], 0.0) for v in sel]
+        out[dr] = (sum(dev) / reps, sum(v[3] + v[4] for v in sel) / reps,
+                   sum(v[2] for v in sel) / reps)
+        mv = [(v, d) for v, d in zip(sel, dev)]
+        out[dr + '_moves'] = sum(d for v, d in mv) / reps
+    return out
+
+
 def main():
     b = json.load(open(sys.argv[1]))
     reps = b['reps']
@@ -95,6 +109,25 @@ def main():
                 print(f'{"":>40}{body[:170]}')
                 print(f'{"":>40}@ {site}   -> {cs}')
             print()
+    if len(b['arms']) == 2:
+        a0, a1 = b['arms']
+        t0, t1 = totals(b, a0), totals(b, a1)
+        # The harness runs 2 blocks a window, so a WINDOW is 2 fwd + 2 bwd of one block. The
+        # round's own multiplicity is 2 forwards per backward, so the block figure is built
+        # from the per-block halves rather than from the window.
+        print(f'=== A/B, device ms, both triangle multiplications, {b["reps"]} reps an arm')
+        for dr in ('fwd', 'bwd'):
+            x, y = t0[dr], t1[dr]
+            print(f'  {dr}: {x[0] * 1e3 / 2:8.3f} -> {y[0] * 1e3 / 2:8.3f} ms/block  '
+                  f'{x[0] / y[0] if y[0] else 0:.4f}x   '
+                  f'bytes {x[1] / 2e6:8.1f} -> {y[1] / 2e6:8.1f} MB   '
+                  f'calls {x[2] / 2:.0f} -> {y[2] / 2:.0f}')
+        bx = (t0['fwd'][0] * 2 + t0['bwd'][0]) / 2
+        by = (t1['fwd'][0] * 2 + t1['bwd'][0]) / 2
+        print(f'  block (2 fwd + 1 bwd): {bx * 1e3:.3f} -> {by * 1e3:.3f} ms, '
+              f'{bx / by if by else 0:.4f}x')
+        print(f'  x 52 blocks a round:   {bx * 52:.3f} -> {by * 52:.3f} s, '
+              f'{(bx - by) * 52:+.3f} s')
 
 
 if __name__ == '__main__':
