@@ -1,0 +1,130 @@
+{
+ "affinity_cores": 12,
+ "backward_implied_s": 0.8982,
+ "dtype": "float32",
+ "forward": {
+  "max_wall_s": 0.2729,
+  "median_cores": 4.58,
+  "median_cpu_s": 1.0626,
+  "median_load1": 5.6,
+  "median_wall_s": 0.2336,
+  "min_wall_s": 0.2254,
+  "rows": [
+   {
+    "cores": 3.7889,
+    "cpu_s": 1.0338,
+    "load1": 5.5957,
+    "wall_s": 0.2729
+   },
+   {
+    "cores": 4.5042,
+    "cpu_s": 1.049,
+    "load1": 5.5957,
+    "wall_s": 0.2329
+   },
+   {
+    "cores": 4.5918,
+    "cpu_s": 1.0673,
+    "load1": 5.5957,
+    "wall_s": 0.2324
+   },
+   {
+    "cores": 4.5894,
+    "cpu_s": 1.0594,
+    "load1": 5.5957,
+    "wall_s": 0.2308
+   },
+   {
+    "cores": 4.5956,
+    "cpu_s": 1.08,
+    "load1": 5.5957,
+    "wall_s": 0.235
+   },
+   {
+    "cores": 4.5749,
+    "cpu_s": 1.0789,
+    "load1": 5.5957,
+    "wall_s": 0.2358
+   },
+   {
+    "cores": 4.7292,
+    "cpu_s": 1.0658,
+    "load1": 5.5957,
+    "wall_s": 0.2254
+   },
+   {
+    "cores": 4.299,
+    "cpu_s": 1.0076,
+    "load1": 5.5957,
+    "wall_s": 0.2344
+   }
+  ]
+ },
+ "forward_and_backward": {
+  "max_wall_s": 1.1709,
+  "median_cores": 3.78,
+  "median_cpu_s": 4.2297,
+  "median_load1": 5.47,
+  "median_wall_s": 1.1318,
+  "min_wall_s": 1.0926,
+  "rows": [
+   {
+    "cores": 3.8096,
+    "cpu_s": 4.2206,
+    "load1": 5.5957,
+    "wall_s": 1.1079
+   },
+   {
+    "cores": 3.547,
+    "cpu_s": 4.0313,
+    "load1": 5.5957,
+    "wall_s": 1.1365
+   },
+   {
+    "cores": 3.5771,
+    "cpu_s": 4.1882,
+    "load1": 5.4678,
+    "wall_s": 1.1709
+   },
+   {
+    "cores": 3.5646,
+    "cpu_s": 4.0495,
+    "load1": 5.4678,
+    "wall_s": 1.136
+   },
+   {
+    "cores": 3.7591,
+    "cpu_s": 4.2388,
+    "load1": 5.4678,
+    "wall_s": 1.1276
+   },
+   {
+    "cores": 3.8569,
+    "cpu_s": 4.3101,
+    "load1": 5.4678,
+    "wall_s": 1.1175
+   },
+   {
+    "cores": 3.9454,
+    "cpu_s": 4.5153,
+    "load1": 5.27,
+    "wall_s": 1.1445
+   },
+   {
+    "cores": 3.8875,
+    "cpu_s": 4.2474,
+    "load1": 5.27,
+    "wall_s": 1.0926
+   }
+  ]
+ },
+ "host": "pc",
+ "jax": "0.11.2",
+ "n": 288,
+ "nproc": 12,
+ "reps": 8,
+ "tag": "xnn_graph",
+ "utc": "2026-09-26T15:19:22Z",
+ "warm": 3,
+ "xla_flags": "--xla_cpu_experimental_xnn_graph_fusion_mode=XNN_GRAPH_FUSION_MODE_GREEDY --xla_gpu_enable_triton_gemm=false"
+}
