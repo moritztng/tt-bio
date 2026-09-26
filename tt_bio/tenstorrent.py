@@ -1700,6 +1700,14 @@ _TRIATT_BIAS_B8 = env_flag("TT_BIO_TRIATT_BIAS_B8", False)
 # There is no `typecast` anywhere in the region: every producer in it is a matmul whose
 # destination format is a program argument, and the accumulator CB is a separate `interm_fmt`
 # (fp32 under `fp32_dest_acc_en`), so the narrowing is one rounding at the pack stage.
+# WHY IT IS OFF, and it is not a speed or accuracy trade: the release gate found that with
+# this on, the SAME input folded on a different core grid gives a DIFFERENT structure.
+# That is card-dependence, a hard stop, and it is not scored against the Angstrom bar.
+# `825f18772` closed it on exactly that and `docs/tuning-flags.md` names the failing arm
+# (`l1-budget`). The reason lived only in that commit message and in the docs, so anyone
+# triaging default-off levers out of this file saw the ratios above and no reason --
+# which is how the standing landing row held this as a live candidate for 22 passes.
+# Re-opens only if someone makes the region grid-invariant.
 _TRIATT_B8 = env_flag("TT_BIO_TRIATT_B8", False)
 
 
