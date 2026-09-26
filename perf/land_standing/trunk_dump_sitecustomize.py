@@ -27,7 +27,10 @@ def _summarise(obj, out, tag):
             for e in o:
                 walk(e)
     walk(obj)
-    rec = {"tag": tag, "n_tensors": len(vals), "tensors": []}
+    import sys as _s
+    _T = _s.modules.get("tt_bio.tenstorrent")
+    rec = {"tag": tag, "n_tensors": len(vals), "tensors": [],
+           "host_f64_stats": dict(getattr(_T, "HOST_F64_SOFTMAX_STATS", {}) or {})}
     for i, t in enumerate(vals):
         try:
             h = ttnn.to_torch(t).double()
@@ -104,6 +107,28 @@ def _force_reference_arms():
                 self.tri_att_one_k_chunk = True
 
             ta.__init__ = init
+    if os.environ.get("TT_FORCE_HOST_F64_SOFTMAX"):
+        # The softmax is exactly what the two arms approximate differently -- online chunked
+        # rescale vs materialised fp32 -- so an EXACT float64 softmax is the reference that is
+        # neutral between them. _fp32_softmax_attention already takes host_f64, but
+        # ops.host_softmax_hook() returns None unless a tape is open, so an inference fold
+        # cannot reach it. Rebind the getter; host_softmax_or_none calls it through the module
+        # attribute. host_f64_softmax_values returns (float64, card copy) and the tail wants
+        # one tensor, so take [1]. HOST_F64_SOFTMAX_STATS proves whether it fired.
+        import tt_bio.ops as O
+        from tt_bio.autograd import host_f64_softmax_values
+
+        def _host(t, dim=-1):
+            return host_f64_softmax_values(t, dim)[1]
+
+        O.host_softmax_hook = lambda: _host
+        _real = T._fp32_softmax_attention
+
+        def _fp32_hostf64(*a, **k):
+            k["host_f64"] = True
+            return _real(*a, **k)
+
+        T._fp32_softmax_attention = _fp32_hostf64
     if os.environ.get("TT_FORCE_ACCURATE_SOFTMAX"):
         real_fp32 = T._fp32_softmax_attention
 
