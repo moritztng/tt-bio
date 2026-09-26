@@ -1,0 +1,160 @@
+{
+ "stamp": {
+  "host": "pc",
+  "card": 0,
+  "subsystem_device": "0x0040",
+  "commit": "57936ff9c7bffd41de4eaff14be5ca3b3a24d225",
+  "tt_bio_dirty": false,
+  "torch_threads": 8,
+  "loadavg": [
+   2.48828125,
+   2.28271484375,
+   2.55078125
+  ],
+  "utc": "2026-09-26T20:24:31Z",
+  "pci": "0000:01:00.0",
+  "aiclk_node": "/sys/class/tenstorrent/tenstorrent!0/tt_aiclk"
+ },
+ "grid": [
+  13,
+  10
+ ],
+ "reps": 200,
+ "aiclk": {
+  "n": 0
+ },
+ "points": {
+  "cores1_w2_k3": {
+   "median_ms": 0.00496,
+   "p25_ms": 0.00479,
+   "p75_ms": 0.00517,
+   "min_ms": 0.00436,
+   "reps": 200,
+   "load": 2.27,
+   "cores": 1,
+   "words": 2,
+   "kernels": 3
+  },
+  "cores8_w2_k3": {
+   "median_ms": 0.0069,
+   "p25_ms": 0.00654,
+   "p75_ms": 0.00719,
+   "min_ms": 0.00585,
+   "reps": 200,
+   "load": 2.27,
+   "cores": 8,
+   "words": 2,
+   "kernels": 3
+  },
+  "cores32_w2_k3": {
+   "median_ms": 0.01173,
+   "p25_ms": 0.00947,
+   "p75_ms": 0.01578,
+   "min_ms": 0.00857,
+   "reps": 200,
+   "load": 2.27,
+   "cores": 32,
+   "words": 2,
+   "kernels": 3
+  },
+  "cores64_w2_k3": {
+   "median_ms": 0.01291,
+   "p25_ms": 0.01269,
+   "p75_ms": 0.01339,
+   "min_ms": 0.01139,
+   "reps": 200,
+   "load": 2.27,
+   "cores": 64,
+   "words": 2,
+   "kernels": 3
+  },
+  "cores110_w2_k3": {
+   "median_ms": 0.02017,
+   "p25_ms": 0.01934,
+   "p75_ms": 0.0217,
+   "min_ms": 0.0163,
+   "reps": 200,
+   "load": 2.27,
+   "cores": 110,
+   "words": 2,
+   "kernels": 3
+  },
+  "cores130_w2_k3": {
+   "median_ms": 0.02304,
+   "p25_ms": 0.02277,
+   "p75_ms": 0.02337,
+   "min_ms": 0.01867,
+   "reps": 200,
+   "load": 2.49,
+   "cores": 130,
+   "words": 2,
+   "kernels": 3
+  },
+  "cores130_w0_k3": {
+   "median_ms": 0.00787,
+   "p25_ms": 0.00649,
+   "p75_ms": 0.00855,
+   "min_ms": 0.00577,
+   "reps": 200,
+   "load": 2.27,
+   "cores": 130,
+   "words": 0,
+   "kernels": 3
+  },
+  "cores130_w8_k3": {
+   "median_ms": 0.02564,
+   "p25_ms": 0.02519,
+   "p75_ms": 0.02649,
+   "min_ms": 0.0214,
+   "reps": 200,
+   "load": 2.27,
+   "cores": 130,
+   "words": 8,
+   "kernels": 3
+  },
+  "cores130_w32_k3": {
+   "median_ms": 0.0199,
+   "p25_ms": 0.01969,
+   "p75_ms": 0.02027,
+   "min_ms": 0.01927,
+   "reps": 200,
+   "load": 2.49,
+   "cores": 130,
+   "words": 32,
+   "kernels": 3
+  },
+  "cores130_w2_k1": {
+   "median_ms": 0.00949,
+   "p25_ms": 0.00933,
+   "p75_ms": 0.01228,
+   "min_ms": 0.00814,
+   "reps": 200,
+   "load": 2.49,
+   "cores": 130,
+   "words": 2,
+   "kernels": 1
+  },
+  "cores130_w2_k2": {
+   "median_ms": 0.01593,
+   "p25_ms": 0.01571,
+   "p75_ms": 0.01636,
+   "min_ms": 0.0137,
+   "reps": 200,
+   "load": 2.49,
+   "cores": 130,
+   "words": 2,
+   "kernels": 2
+  },
+  "cores130_w0_k1": {
+   "median_ms": 0.00362,
+   "p25_ms": 0.00359,
+   "p75_ms": 0.00367,
+   "min_ms": 0.00351,
+   "reps": 200,
+   "load": 2.49,
+   "cores": 130,
+   "words": 0,
+   "kernels": 1
+  }
+ }
+}
