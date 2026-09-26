@@ -475,8 +475,18 @@ def main():
     ap.add_argument("--seed", type=int, default=0)
     ap.add_argument("--threads", type=int, default=8)
     ap.add_argument("--out", default=None)
+    ap.add_argument("--rne-kernel", dest="rne_kernel", type=int, default=0,
+                    help="AF2PairBlock.rne_kernel; 1 runs the wide residual add as one Tensix "
+                         "kernel (tt_bio/rne_add.py) instead of four ttnn calls. The block "
+                         "harness runs a backward, so the kernel also needs its tape entry, "
+                         "which this adds to TT_BIO_TAPED_KERNELS")
     args = ap.parse_args()
     torch.set_num_threads(args.threads)
+    if args.rne_kernel:
+        from tt_bio.af2 import AF2PairBlock
+        AF2PairBlock.rne_kernel = True
+        want = [n for n in os.environ.get("TT_BIO_TAPED_KERNELS", "").split(",") if n]
+        os.environ["TT_BIO_TAPED_KERNELS"] = ",".join(want + ["rne_add"])
     {"block": cmd_block}[args.cmd](args)
 
 

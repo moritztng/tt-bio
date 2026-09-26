@@ -19,7 +19,9 @@ case "$tri" in
     0|"")        triflags="--triatt-sdpa 0 --triatt-hifi 0" ;;
     *) echo "arm.sh: triatt route must be 0, agtri or hifi, got '$tri'" >&2; exit 2 ;;
 esac
-out=perf/bcx_p10_stack/out/$tag
+# ARM_OUT_ROOT and TT_BIO_LEASE_HOLDER are overridable so another row can drive the same arm
+# without forking this script; unset, both are what this row has always used.
+out=${ARM_OUT_ROOT:-perf/bcx_p10_stack/out}/$tag
 # BindCraft 2 resumes a campaign from its project folder, so a re-run against a tag that
 # already holds trajectory 1 returns in 5 s having measured nothing.
 rm -rf "$out"
@@ -29,7 +31,7 @@ export PYTHONPATH=$PWD
 # host-global flock in it keyed on the program shape. A co-tenant BindCraft 2 process on the
 # same box then serialises with us for the whole compile. A private dir, shared across this
 # row's arms so only the first one pays the compile, removes that coupling.
-export JAX_COMPILATION_CACHE_DIR=$PWD/perf/bcx_p10_stack/out/xlacache
+export JAX_COMPILATION_CACHE_DIR=${ARM_XLA_CACHE:-$PWD/perf/bcx_p10_stack/out/xlacache}
 # The lease holder names whichever row is running the arm. A wrong name here is not cosmetic:
 # the fleet dispatcher reads the lease file to decide whether a task is still alive.
 export TT_VISIBLE_DEVICES=${TT_VISIBLE_DEVICES:-0} TT_BIO_LEASE_CARDS=${TT_BIO_LEASE_CARDS:-0}

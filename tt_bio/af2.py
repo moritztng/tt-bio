@@ -331,6 +331,14 @@ class AF2PairBlock(Module):
     #: comes back to whatever memory config the input arrived in.
     rne_wide_dram = True
 
+    #: Run the whole wide residual as ONE kernel instead of four ttnn calls. Same function --
+    #: `tt_bio/rne_add.py` is graded bit-exact against `round_rne_bf16(exact_sum)` in float64 on
+    #: random pairs, a 256x operand ratio and real ties -- at 6 B/element instead of 30, which is
+    #: 398 GB and ~1.41 s of BindCraft 2's composed round (`state/perf10/bcx-CALLS.md` leg 3).
+    #: OFF by default and release-gated. Under a tape it also needs `rne_add`'s entry in
+    #: TT_BIO_TAPED_KERNELS; without it `rne_add.eligible` declines and the four calls run.
+    rne_kernel = False
+
     def _residual(self, x: ttnn.Tensor, update: ttnn.Tensor | None) -> ttnn.Tensor:
         """`x + update`, and it owns `update`.
 
@@ -346,6 +354,13 @@ class AF2PairBlock(Module):
             ttnn.deallocate(update)
             return out
         config = x.memory_config()
+        if self.rne_kernel:
+            from . import rne_add as K
+            if K.eligible(x, update, config):
+                out = K.rne_add(x, update, memory_config=config)
+                ttnn.deallocate(update)
+                ttnn.deallocate(x)
+                return out
         wide_config = ttnn.DRAM_MEMORY_CONFIG if self.rne_wide_dram else config
         wide = ttnn.typecast(x, ttnn.float32, memory_config=wide_config)
         other = ttnn.typecast(update, ttnn.float32, memory_config=wide_config)

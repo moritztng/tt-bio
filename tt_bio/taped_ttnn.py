@@ -1132,6 +1132,45 @@ _kernel("reblock_permute")(_reblock_vjp((0, 2, 3, 1)))
 _kernel("reblock_permute_back")(_reblock_vjp((0, 3, 1, 2)))
 
 
+@_kernel("rne_add")
+def _k_rne_add(shipped, args, kwargs):
+    """`tt_bio.rne_add`'s entry: the VJP of a sum is the cotangent, to both operands.
+
+    The kernel replaces four taped nodes -- two widening typecasts, an in-place add and a
+    narrowing typecast -- with one, so the graph loses three nodes per residual and the chain
+    of dtypes they carried. That is sound because every one of the four is its own identity on
+    a cotangent: a typecast's gradient passes straight through (`_identity_grad`) and an add's
+    goes to both parents unchanged (`_ADD`). What the kernel changes is the VALUE, and only in
+    the direction of the reference -- it computes `round_rne_bf16(exact_sum)` bit-exactly where
+    the four calls compute it too, so a round with this on is bit-identical to a round with it
+    off and the A/B measures seconds alone.
+
+    The two operands can disagree on RANK and still be the same tensor physically -- the MSA
+    track hands `_residual` an `[1, S, N, C]` activation and an `[S, N, C]` update -- so each
+    cotangent goes through `_reduce_to`, which is a reshape at equal volume and what every
+    binary verb here has always done. Without it the backward raises `gradient shape
+    (1, 2, 288, 256) does not match value shape (2, 288, 256)` from `add_grad`, far from the
+    residual that caused it. The kernel's own gate refuses a real broadcast, so equal volume is
+    the only case that reaches this.
+
+    `reads=()`: the sum's gradient is a function of the cotangent alone, and the two shapes are
+    captured here as plain tuples, so the tape drops both operands instead of pinning them.
+    These are pair-representation tensors, the largest the trunk carries.
+    """
+    a, b = _wrap(args[0]), _wrap(args[1])
+    ra, rk = _raw(args, kwargs)
+    out_v = shipped(*ra, **rk)
+    shapes = ([int(d) for d in args[0].shape], [int(d) for d in args[1].shape])
+
+    def make():
+        def bw(g):
+            a.add_grad(_reduce_to(g, shapes[0]))
+            b.add_grad(_reduce_to(g, shapes[1]))
+        return bw
+
+    return ag._tape(out_v, [a, b], make, reads=())
+
+
 # --- attention head packing ------------------------------------------------------------
 # Both layouts below are DERIVED FROM THE DEVICE with an index-valued tensor
 # (`perf/ptx_fastpath/heads.py`), not read off a docstring. A head-split backward written
