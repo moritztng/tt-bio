@@ -14,6 +14,16 @@ gate declined, and the run refuses to report if an ON round served zero.
 
 This harness also carries the row's CEILING. `device_share_of_sg` is the device seconds inside
 `sequence_gradients` over the wall of the same window, per round, on the tree it actually ran.
+
+**The primary metric here is `device_evoformer_s`, not the round wall, and that is a result rather
+than a convenience.** `perf/bcx_bwbytes/power.py` reads bcx-tmplseam's twelve rounds on this same
+tree: over ten timed rounds the round wall has CV 5.80 % while the card's own Evoformer seconds
+have CV 3.27 %, and the lever reaches 9.1 % of the device time against 7.1 % of the round. At
+80 % power and 5 % two-sided that is **13 reps per arm on the wall and 3 on the device metric**.
+A twelve-round A/B -- five per arm, which is what every earlier row on this campaign ran -- cannot
+resolve the predicted 1.071x on the wall, and would report "no separation" for a lever that is
+working. bcx-tmplseam demonstrated exactly that empirically: p = 0.40 on a 0.4 s effect. So
+`--rounds` defaults to 28, both metrics are reported, and the device one leads.
 """
 import argparse
 import collections
@@ -170,6 +180,14 @@ def analyse(events, clock_samples):
             "aiclk_min": min((x["aiclk_min"] for x in xs if x["aiclk_min"]), default=None),
             "aiclk_med_median": st.median([x["aiclk_med"] for x in xs if x["aiclk_med"]] or [0])}
     if "on" in summary and "off" in summary:
+        # The device metric first: it is the one the lever acts on and the one ten rounds on this
+        # tree can actually resolve (CV 3.27 % against the wall's 5.80 %).
+        summary["ratio_device_evo_off_over_on"] = round(
+            summary["off"]["device_evoformer_median"]
+            / max(summary["on"]["device_evoformer_median"], 1e-9), 4)
+        summary["device_evo_separated"] = (
+            max(x["device_evoformer_s"] for x in timed if x["levers_on"])
+            < min(x["device_evoformer_s"] for x in timed if not x["levers_on"]))
         summary["ratio_sg_off_over_on"] = round(summary["off"]["sg_median"]
                                                 / summary["on"]["sg_median"], 4)
         summary["ratio_round_off_over_on"] = round(summary["off"]["round_wall_median"]
@@ -186,7 +204,11 @@ def analyse(events, clock_samples):
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--rounds", type=int, default=12)
+    ap.add_argument("--rounds", type=int, default=28,
+                    help="13 reps per arm plus two warm-up rounds: what the round wall needs to "
+                         "resolve the predicted 1.071x at 80 %% power (perf/bcx_bwbytes/power.py). "
+                         "The device metric needs 3 per arm, so a short run still answers the "
+                         "device question and only the wall goes unresolved")
     ap.add_argument("--seed", type=int, default=100)
     ap.add_argument("--precision", action="store_true",
                     help="the ON arm also takes the two precision levers; they move the gradient "
