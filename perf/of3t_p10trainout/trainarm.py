@@ -42,6 +42,13 @@ REPO = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO))
 
 from perf.clocksample import during                                   # noqa: E402
+import tt_bio                                                         # noqa: E402
+
+# The shared env carries an EDITABLE install pointed at /home/ttuser/tt-bio-dev, which sits
+# on main. Without this the arm measures main and stamps this worktree's sha into the
+# artifact, and nothing downstream can tell (of3t-vjpln D190, paid for once already).
+if not Path(tt_bio.__file__).resolve().is_relative_to(REPO):
+    raise SystemExit(f"tt_bio resolved to {tt_bio.__file__}, not this worktree {REPO}")
 
 SLOT_FIX = "ce0f78d60"
 
