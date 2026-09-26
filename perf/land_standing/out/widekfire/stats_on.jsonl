@@ -1,0 +1,2 @@
+{"pid": 1688024, "wide_k_up_flag": true, "k_chunk_stats": [560, 0], "route_counts": {"fused": 560, "stock": 0}, "fused_large_s": [0, 0], "picks": {"(384, 384)": [384, 384, "fused"]}, "hifi_stats": {"served": 0, "declined": 0, "too_short": 0, "taped": 0}}
+{"pid": 1687911, "wide_k_up_flag": true, "k_chunk_stats": [0, 0], "route_counts": {"fused": 0, "stock": 0}, "fused_large_s": [0, 0], "picks": {}, "hifi_stats": {"served": 0, "declined": 0, "too_short": 0, "taped": 0}, "note": "no triangle-attention pick recorded in this process"}
