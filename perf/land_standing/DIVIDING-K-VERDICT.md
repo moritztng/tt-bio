@@ -120,6 +120,35 @@ the fall-back it replaces.
 Those two can both hold — each call slightly better, the 48-block trajectory still diverging far —
 and deciding between them needs a reference, not another arm.
 
+## Calibrating the trunk divergence: 21 % on `s` is the trunk, not the lever
+
+The trunk numbers above say the lever moves things a lot. They do not say whether a lot is
+unusual, so two more arms were run at 832 with the same instrument — both default-OFF flags that
+change a kernel path without being considered harmful:
+
+    arm                              s rel L2      z rel L2
+    OFF vs OFF (control)             0.000e+00     0.000e+00
+    TT_BIO_SOFTMAX_CKC=1             0.000e+00     0.000e+00   <- null: does not reach this path
+    TT_BIO_APB_CONCAT_HEADS=1        2.118e-01     0.000e+00
+    TT_BIO_TRIATT_DIVIDING_K=1       2.152e-01     8.724e-02
+
+**`APB_CONCAT_HEADS` is a one-op head re-assembly of a path the shipped code reaches in four
+launches — a reorganisation, not an accuracy trade — and it moves `s` by 21.2 %, against the
+lever's 21.5 %.** So the single representation's divergence carries **no information about harm**:
+it is what this trunk does to any small change in a kernel path, and last pass's reading of 21.5 %
+as "large" was a number without a scale beside it.
+
+**`SOFTMAX_CKC` is a null control and is reported as one.** It drops a known 2.9e-2 softmax error
+by 10-60x, so it should have moved something; it returned bit-identical, which means it does not
+reach OpenFold3's trunk at 832 — `_fp32_softmax_attention` already passes
+`_SOFTMAX_PRECISE_CKC`. It calibrates nothing. Its value is that a third independent
+configuration reproduced the baseline bit-for-bit, so the instrument is not inventing differences.
+
+**What is still unmatched is the pair track.** The lever moves `z` by 8.7 % and the head refactor
+does not touch `z` at all, so there is no benign control for that half yet. Finding one — a
+default-off flag that perturbs the pair path and is agreed harmless — is the cheapest next step
+on this question, and it needs one fold.
+
 ## Recommendation
 
 Keep it off by default, but the trade has changed and the note should say so. The gain is no
