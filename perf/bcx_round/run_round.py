@@ -99,6 +99,14 @@ def main():
                          "which means --triatt-hifi or --triatt-sdpa; on the materialised path "
                          "it fires zero times. Refuses rather than approximates: anything "
                          "outside its shape gate falls through to the chunked recompute")
+    ap.add_argument("--pt-rm-min-c", dest="pt_rm_min_c", type=int, default=0,
+                    help="tenstorrent._PT_ROW_MAJOR_MIN_C: the narrowest last axis the pair "
+                         "transpose's ROW_MAJOR route is taken for. 0 is the shipped behaviour, "
+                         "which takes it at every shape. The route replaces one ttnn.permute "
+                         "with three calls and only pays while the row is long enough to "
+                         "amortise them: at C=128 it LOSES at every N measured and wins only at "
+                         "C=256 (perf/bcx_p10_movker/ladder.py). Both routes are torch.equal, "
+                         "so this is a dispatch choice with no accuracy argument.")
     ap.add_argument("--rne-kernel", dest="rne_kernel", type=int, default=0,
                     help="AF2PairBlock.rne_kernel; 1 runs the wide residual add as ONE Tensix "
                          "kernel instead of four ttnn calls. Same function, graded bit-exact "
@@ -178,6 +186,7 @@ def main():
     # arm that measures nothing, and the counters below are what says which happened.
     from tt_bio import triatt_bw as _tbw
     _tbw.FUSED = bool(args.triatt_bw)
+    _tn._PT_ROW_MAJOR_MIN_C = int(args.pt_rm_min_c)
     if args.triatt_bw and not (args.triatt_hifi or args.triatt_sdpa):
         raise SystemExit("--triatt-bw needs a route that calls autograd.triangle_attention: "
                          "--triatt-hifi or --triatt-sdpa. On the materialised path the fused "
@@ -220,6 +229,16 @@ def main():
     M.REACH.append(lambda: {
         "rne_add_served": _rne.STATS[0], "rne_add_declined": _rne.STATS[1],
         "rne_add_entry": list(taped_ttnn_stats().get("rne_add", [0, 0])),
+    })
+
+    # The pair-transpose dispatch gate's reach, at the boundary for the same reason. `served`
+    # took the ROW_MAJOR round trip, `declined` is a row too narrow for it and went down the
+    # tiled permute. Both arms run the same function, so reach is the ONLY thing that separates
+    # them -- an arm whose counters do not move measured the shipped route twice.
+    from tt_bio import tenstorrent as _tnl
+    M.REACH.append(lambda: {
+        "pt_rm_served": _tnl.LATCH_STATS["pt_row_major"]["served"],
+        "pt_rm_declined": _tnl.LATCH_STATS["pt_row_major"]["declined"],
     })
 
     out = pathlib.Path(project) / "round_events.json"
@@ -289,6 +308,8 @@ def main():
                                         "declined": rne_add.STATS[1],
                                         "rejects": {"|".join(map(str, k)): v
                                                     for k, v in rne_add.REJECTS.items()}},
+                      "pt_row_major": dict(tenstorrent.LATCH_STATS["pt_row_major"]),
+                      "pt_rm_min_c": tenstorrent._PT_ROW_MAJOR_MIN_C,
                       "fp32_softmax_calls": tenstorrent.FP32_SOFTMAX_STATS.get("calls"),
                       # TT_BIO_MM_LAYOUT's own reach. `served` is a batched matmul that got a
                       # core grid it did not have; every `declined:*` is a call the site saw
