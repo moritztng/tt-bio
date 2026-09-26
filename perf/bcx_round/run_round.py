@@ -25,6 +25,7 @@ if str(_ROOT) not in sys.path:
 import meter as M                                                      # noqa: E402
 import bc2_state as B                                                  # noqa: E402
 from tt_bio import genq as _genq                                       # noqa: E402
+from tt_bio import reblock_permute as _reblock                         # noqa: E402
 import bindcraft.campaign as campaign                                  # noqa: E402
 import bindcraft.trajectory as trajectory                              # noqa: E402
 import bindcraft.sequence_optimization as seqopt                       # noqa: E402
@@ -200,6 +201,7 @@ def main():
              # could not reproduce, so a dump says which path it ran rather than which was asked
              # for (`state/perf10/bcx-GENQ.md` leg 5).
              "genq_compact": _genq.compact(),
+             "taped_channel_move": _reblock.TAPED_MOVE,
              "taped_kernels": os.environ.get("TT_BIO_TAPED_KERNELS", ""),
              "triatt_dividing_k": os.environ.get("TT_BIO_TRIATT_DIVIDING_K", ""),
              "sdpa_own_forward": bool(args.sdpa_own_forward),
