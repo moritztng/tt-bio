@@ -1186,7 +1186,6 @@ def main() -> int:
                 row["seed_upload_s"] = round(seed_s, 3)
                 row["backward_s"] = round(bwd_s, 3)
                 row["dram_peak"] = peak_dram
-                row["mem_available_gib"] = _mem_available_gib()
                 got = sum(1 for t in params.values() if getattr(t, "grad", None) is not None)
                 row["params_with_grad"] = f"{got} of {len(params)}"
                 row["backward_valid"] = bool(got) or a.no_tape
