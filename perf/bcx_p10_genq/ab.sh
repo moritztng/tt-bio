@@ -29,11 +29,15 @@ export ARM_PYTHONPATH=/home/moritz/bcx_shipped/bc2
 export BCX_BC2=/home/moritz/bcx_shipped/bc2
 # AF2 weights: qb keeps them under bcx_e2e, pc under bcx_shipped.
 export ARM_PARAMS=${ARM_PARAMS:-/home/moritz/bcx_shipped/af2_params}
+# Which env var the two arms toggle, and what is held fixed on BOTH of them. Leg 5 moves the
+# dispatch path; leg 6 holds it on and moves trimove's channel-move kernel on top of it.
+GENQ_AB_LEVER=${GENQ_AB_LEVER:-TT_BIO_GENQ_COMPACT}
+GENQ_AB_FIXED=${GENQ_AB_FIXED:-}
 mkdir -p perf/bcx_p10_genq/out
 for arm in "${arms[@]}"; do
     tag=p_${arm}_${suffix}_$RANDOM
-    echo "=== $tag  rounds=$rounds  genq-compact=$arm  $(date -u +%FT%TZ)" >&2
-    TT_BIO_GENQ_COMPACT="$([ "$arm" = on ] && echo 1 || echo 0)" \
+    echo "=== $tag  rounds=$rounds  $GENQ_AB_LEVER=$arm  fixed=[$GENQ_AB_FIXED]  $(date -u +%FT%TZ)" >&2
+    env $GENQ_AB_FIXED "$GENQ_AB_LEVER=$([ "$arm" = on ] && echo 1 || echo 0)" \
     bash perf/bcx_p10_stack/arm.sh "$tag" "$rounds" 1 1 hifi --rne-kernel 1 --params "$ARM_PARAMS" \
         > "perf/bcx_p10_genq/out/$tag.log" 2>&1
     echo "=== $tag done $(date -u +%FT%TZ)" >&2
