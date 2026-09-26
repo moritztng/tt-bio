@@ -10,7 +10,12 @@ calls, and they are all this one expression on `[n, 4, n, n]`. This prices the w
                summation precision comes from fp32 accumulation in DST instead of from fp32
                tensors in DRAM. Halves every pass. A PRECISION lever
     moreh      `ttnn.moreh_softmax_backward`, in the 0.68.0 wheel, no build. Three passes -- and
-               no renorm, which is default-on since 2026-09-21 on Moritz's ask-9629 ruling
+               no renorm, which is default-on since 2026-09-21 on Moritz's ask-9629 ruling.
+               THE fp32 ARMS ARE EXPECTED TO BE REFUSED, not to be slow: the op's guard admits
+               only BFLOAT16 and BFLOAT8_B (device_operation.cpp:79-84) and `of3t-softbw` already
+               returned NO-GO on Route A for exactly that. They are kept so the refusal is
+               reproduced here rather than assumed, and a refusal is recorded as an error string,
+               never as a timing
     moreh_rn   the renorm kept through an identity: with S = sum(y, -1),
                S * moreh(y/S, g) == y*(g - sum(g*y)/S). Eight passes
 

@@ -41,11 +41,30 @@ than `softmax_bw_dx` — not merged as a replacement for them.
 
 ## What that leaves the campaign
 
-1. **`SOFTMAX_BW_FUSED` is built on main and ships OFF.** Off is not landed. Turning it on is the
-   wheel route, 8 passes of the score tensor against the chain's 10, and it needs exactly the
-   float64 grade `perf/bcx_bwbytes/softmax_bw_probe.py` already implements — six arms against a
-   reference built as the RENORMED expression. That is the cheapest unclaimed win on this page and
-   it needs one card and no new code.
+1. **`SOFTMAX_BW_FUSED` is built on main and ships OFF — and it is off for a measured reason.**
+   `of3t-softbw` returned **NO-GO on Route A**: `ttnn.moreh_softmax_backward` REFUSES fp32, and
+   the shipped score tensor is fp32, so the fused branch cannot execute at all. Its saving is
+   0 s, not a small one. (An earlier version of this file called turning the flag on "the cheapest
+   unclaimed win, one card and no new code". That was wrong and is corrected here.)
+
+   **But the refusal is conditional on the operand dtype, and this branch changes exactly that.**
+   The guard, read from source at
+   `ttnn/cpp/ttnn/operations/moreh/moreh_softmax_backward/device/moreh_softmax_backward_device_operation.cpp:79-84`:
+
+       TT_FATAL(output_tensor.dtype() == DataType::BFLOAT16 || output_tensor.dtype() == DataType::BFLOAT8_B, ...)
+       TT_FATAL(output_grad_tensor.dtype() == DataType::BFLOAT16 || output_grad_tensor.dtype() == DataType::BFLOAT8_B, ...)
+
+   bfloat16 and bfloat8_b are ADMITTED; fp32 is what is refused. `SOFTMAX_BW_DTYPE="bf16"`
+   narrows y and the cotangent to exactly that dtype before the backward runs. So the precision
+   lever this branch built for a BYTE reason is also the thing that makes Route A executable, and
+   of3t-softbw's NO-GO is a NO-GO at the shipped dtype rather than a property of the op.
+
+   Two rows each held half of this: `of3t-softbw` established the refusal and sized Route B; this
+   one built the narrowing without knowing the refusal existed. Unverified so far — the guard
+   admits the dtype, which is not the same as the kernel being correct on Blackhole or faster.
+   `perf/bcx_bwbytes/softmax_bw_probe.py` already carries the `moreh_bf16` and `moreh_rn_bf16`
+   arms and grades every one against float64; its fp32 arms are EXPECTED refusals, and recording
+   a refusal as a reading is what of3t-softbw warns against.
 2. The two precision levers above, graded as a STACK against float64.
 3. The real kernels — softmax backward 10 passes -> 3, layer-norm backward 30 -> 4 — which take
    the ceiling to 1.265x on a round. `perf/bcx_bwbytes/FUSED_SOFTMAX_BW.md` has the tt-lang
