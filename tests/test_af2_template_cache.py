@@ -142,3 +142,61 @@ def test_target_block_is_identical_and_the_binder_is_not():
     target = p1.shape[0] - binder_len
     assert np.array_equal(p1[:target], p2[:target])
     assert np.abs(p1[target:] - p2[target:]).max() > 30.0
+
+
+# --------------------------------------------------------------- the multimer, which may not cache
+
+def _device_model(multimer: bool):
+    """An `AF2DeviceModel` before `to_device()`. No card: `__init__` builds torch modules only."""
+    return AF2DeviceModel(template=True, multimer=multimer, structure=False,
+                          num_evoformer_blocks=1, num_extra_msa_blocks=1)
+
+
+def test_the_monomer_may_cache_and_the_multimer_may_not():
+    assert _device_model(multimer=False).template_cacheable is True
+    assert _device_model(multimer=True).template_cacheable is False
+
+
+def test_the_knob_cannot_switch_the_multimer_cache_back_on():
+    """Setting the knob is not an argument that the embedding is constant in `pair`."""
+    model = _device_model(multimer=True)
+    model.template_cached = True
+    assert model.template_cacheable is False
+
+
+def test_the_knob_still_turns_the_monomer_cache_off():
+    model = _device_model(multimer=False)
+    model.template_cached = False
+    assert model.template_cacheable is False
+
+
+@pytest.mark.parametrize("multimer,constant", [(False, True), (True, False)])
+def test_only_the_monomer_template_is_constant_in_pair(multimer, constant):
+    """The premise `_template_key` rests on, checked against both template classes.
+
+    The monomer attends `pair` as the query over one key, so the softmax weight is 1.0 and the
+    answer does not move. `TemplateEmbeddingMultimer` sums `query_norm(pair)` into the template
+    act instead, so it does. No card and no checkpoint: this is a statement about the transform,
+    so the parameters are filled with noise (`tt_bio`'s `Linear` initialises to zeros because a
+    checkpoint always follows, and a zero model is constant in everything).
+    """
+    from tt_bio.af2_reference import C_Z, AF2Model
+
+    n = 8
+    torch.manual_seed(0)
+    model = AF2Model(template=True, multimer=multimer, structure=False,
+                     num_evoformer_blocks=1, num_extra_msa_blocks=1).double().eval()
+    with torch.no_grad():
+        for param in model.template.parameters():
+            param.normal_(0.0, 0.5)
+    f = {k: (v.double() if v.dtype.is_floating_point else v) for k, v in _feats(n=n).items()}
+    m2, mc = (t.double() for t in _masks(n=n))
+    g = torch.Generator().manual_seed(1)
+    a = torch.randn(n, n, C_Z, generator=g, dtype=torch.float64)
+    b = torch.randn(n, n, C_Z, generator=g, dtype=torch.float64)
+    with torch.no_grad():
+        ea = model.template_embedding(a, f, m2, mc)
+        eb = model.template_embedding(b, f, m2, mc)
+    assert float(eb.norm()) > 1e-6, "a zero template embedding would pass this test vacuously"
+    moved = float((ea - eb).norm()) / float(eb.norm())
+    assert (moved < 1e-12) is constant, f"relative L2 between the two pairs was {moved}"

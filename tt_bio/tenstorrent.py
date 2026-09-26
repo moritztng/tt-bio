@@ -2541,6 +2541,80 @@ def _triatt_dualprobe(o_fold, q, k, v, bias, scale_inv, bias_scale_inv, ckc, sit
     return o_fold
 
 
+# The fp32-softmax route's taped arm. `TT_BIO_TRIATT_FUSED_HIFI` cannot serve a taped call --
+# `triatt_sdpa.sdpa` returns None at its first line because `generic_op` has no tape entry -- so on
+# a gradient round every triangle attention runs `_fp32_softmax_attention`, whose backward is
+# ~95 ttnn verbs and 58 passes over the n^3 score tensor (`state/perf10/bcx-DEVMAP.md`). The stock
+# fused SDPA verb IS taped: `taped_ttnn._v_sdpa` hands its output to `autograd.triangle_attention`
+# as `value=`, and that backward recomputes the scores per chunk from q, k, v and bias instead of
+# reloading them. So this arm keeps the materialised path for the untaped folds and routes the
+# TAPED ones at the stock op, which is a different kernel AND a different backward from the
+# `fused_hifi` lever next door. That is why it has its own flag rather than riding that one.
+#
+# Two conventions have to line up and both are already written down. `_v_sdpa` scales the mask on
+# the tape with `ag.scale`, because the kernel computes `softmax((qk + mask) * scale)` while
+# `autograd.triangle_attention` scales the scores and then adds the bias; and AF2 passes
+# `scale_pair_bias=False`, so the pre-multiply by `self.scale` below is the same one the
+# `fused_hifi` branch makes. The composite is `softmax(qk / sqrt(d) + bias)`, AF2's own.
+#
+# NOT bit-exact against `_fp32_softmax_attention` and cannot be: an online softmax reduces over k
+# in chunks against a running max. Release-gated, default off, graded at the fold.
+_TRIATT_TAPED_SDPA_DEFAULT = False
+
+#: Why a taped triangle attention did or did not take the stock fused SDPA. An A/B on this route
+#: is only believable if the run says the route was reached, which is the trap `bcx-p10-bfp8` lost
+#: a leg to and the one this whole row measured on the `fused_hifi` flag.
+TRIATT_TAPED_SDPA_STATS = {"served": 0, "off": 0, "untaped": 0, "no_bias": 0,
+                           "too_short": 0, "ragged": 0, "declined": 0}
+
+
+def _triatt_taped_sdpa_on() -> bool:
+    """Live read, not resolved at import, so one process can interleave both arms."""
+    return env_flag("TT_BIO_TRIATT_TAPED_SDPA", _TRIATT_TAPED_SDPA_DEFAULT)
+
+
+def _tri_att_taped_sdpa(att, q, k, v, bias):
+    """The taped fp32-softmax call routed at the stock fused SDPA, or None to decline.
+
+    Declining leaves the caller on `_fp32_softmax_attention`, exactly as today.
+    """
+    if not _triatt_taped_sdpa_on():
+        TRIATT_TAPED_SDPA_STATS["off"] += 1
+        return None
+    if not ops.taping():
+        # Untaped, the `fused_hifi` lever above is the one that applies and it has already
+        # had its turn. Nothing here would be an improvement on it.
+        TRIATT_TAPED_SDPA_STATS["untaped"] += 1
+        return None
+    if bias is None:
+        TRIATT_TAPED_SDPA_STATS["no_bias"] += 1
+        return None
+    q_len, k_len = int(q.shape[2]), int(k.shape[2])
+    if min(q_len, k_len) < _TRIATT_FUSED_HIFI_MIN_S:
+        # Same cliff and the same measurement as `_tri_att_sdpa_hifi`: below 128 the online
+        # softmax loses an order of magnitude on this shape.
+        TRIATT_TAPED_SDPA_STATS["too_short"] += 1
+        return None
+    if q_len % 32 or k_len % 32:
+        # `_sdpa_masked`'s ragged fix pads on the device and slices the result back. Both are
+        # taped ops on a path whose backward recomputes from the UNPADDED operands, so the
+        # narrow thing to do is decline. Every shipped model presents a bucketed axis.
+        TRIATT_TAPED_SDPA_STATS["ragged"] += 1
+        return None
+    b = bias
+    if att._bias_scale != att.scale:
+        # Pre-bake sqrt(head_dim) into the bias: the kernel adds the mask BEFORE applying
+        # `scale`. This multiply is taped, so the chain rule back to the caller's raw bias is
+        # the tape's own. O(S^2) against the O(S^3) score tensor this deletes.
+        b = ttnn.multiply(bias, att.scale / att._bias_scale)
+    o = _tri_att_sdpa(q, k, v, b, att.scale ** -1, None, att.sdpa_ragged_pad)
+    # `b` is NOT deallocated: it is on the tape and `autograd.triangle_attention` retains it for
+    # the recompute. Freeing it here would be a use-after-free in the backward.
+    TRIATT_TAPED_SDPA_STATS["served" if o is not None else "declined"] += 1
+    return o
+
+
+@ops.fused_kernel("tri_att_sdpa_hifi")
 def _tri_att_sdpa_hifi(q, k, v, bias, scale: float, one_k_chunk: bool = False):
     """Triangle attention through the fused SDPA at `_TRIATT_FUSED_HIFI_CKC`, or None to decline.
 
@@ -2585,17 +2659,21 @@ def _tri_att_sdpa_hifi(q, k, v, bias, scale: float, one_k_chunk: bool = False):
     # divisibility by 32, not length -- and it measures BETTER: 0.2610 -> 0.1929 A CA at 7ROA on a
     # 0.3755 A A/A floor. But it is a route change on top of an accuracy fix, so it gets its own
     # opt-in and its own decision.
-    # Under a tape this arm can only decline: `triatt_sdpa.sdpa` returns None at its first
-    # line because `generic_op` has no tape entry. Declining HERE rather than four frames in
-    # is not a route change -- the caller falls back to the same composed path on the same
-    # operands it does today -- but it skips two things that were being paid for a call whose
-    # answer was already fixed. `_sdpa_masked` pads q, k, v and bias on the DEVICE when the
-    # axis is ragged and then drops the padded copies unread, and the config ladder below
-    # walks q_chunk x k_chunk x kv_buffer_factor per call to reach the same None. It also
-    # makes the one defect this row was sent to re-check structurally unreachable: a taped
-    # call can no longer touch `_TRIATT_HIFI_OVER_L1` at all, where 69a0a6bdc had to teach it
-    # not to write there.
-    if ops.taping():
+    # With no tape entry for this arm it can only decline: `triatt_sdpa.sdpa` returns None at
+    # its first line because `generic_op` has no tape entry. Declining HERE rather than four
+    # frames in is not a route change -- the caller falls back to the same composed path on
+    # the same operands it does today -- but it skips two things that were being paid for a
+    # call whose answer was already fixed. `_sdpa_masked` pads q, k, v and bias on the DEVICE
+    # when the axis is ragged and then drops the padded copies unread, and the config ladder
+    # below walks q_chunk x k_chunk x kv_buffer_factor per call to reach the same None. It
+    # also makes the one defect this row was sent to re-check structurally unreachable: a
+    # taped call can no longer touch `_TRIATT_HIFI_OVER_L1` at all, where 69a0a6bdc had to
+    # teach it not to write there.
+    #
+    # With one registered -- `taped_ttnn._k_tri_att_sdpa_hifi` -- the decorator above has
+    # already routed the call there and this line does not run, so the kernel serves the
+    # forward and `autograd.triangle_attention` carries the backward.
+    if ops.declines_under_tape("tri_att_sdpa_hifi"):
         TRIATT_FUSED_HIFI_STATS["taped"] += 1
         return None
     if not _TRIATT_HIFI_MIN_S_PADDED:
@@ -9005,6 +9083,8 @@ class TriangleAttention(Module):
                                            one_k_chunk=self.tri_att_one_k_chunk)
                     if b is not bias:
                         ttnn.deallocate(b)
+                if o is None:
+                    o = _tri_att_taped_sdpa(self, q, k, v, bias)
                 if o is None:
                     o = _fp32_softmax_attention(
                         q, k, v, bias,

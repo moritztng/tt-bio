@@ -29,6 +29,7 @@ import ttnn
 
 from . import core_split
 from .envflags import env_flag
+from . import ops as _ops
 
 KERNEL_DIR = Path(__file__).resolve().parent / "kernels" / "reblock_permute"
 KERNEL_DIR_BACK = Path(__file__).resolve().parent / "kernels" / "reblock_permute_back"
@@ -296,6 +297,7 @@ def _prepare(x, out, device):
     return entry
 
 
+@_ops.fused_kernel("reblock_permute")
 def reblock_permute(x, memory_config=None, device=None):
     """``ttnn.permute(x, (0, 3, 1, 2))`` for ``x`` of shape ``[1, N, N, C]`` bf16 TILE, C % 32 == 0."""
     device = device or x.device()
@@ -370,10 +372,9 @@ def eligible(x, memory_config) -> bool:
     multiple of 32, because the trunk's own chunk width depends on the compute grid.
     """
     from . import ops
-    if ops.taping():
-        # These moves are `generic_op` kernels with no backward, and eligibility is
-        # exactly where the codebase already says no: every caller falls back to the
-        # unfused transpose/permute, which the tape follows. Inference is untouched.
+    if ops.declines_under_tape("reblock_permute"):
+        # No tape entry for this kernel, so eligibility is where the codebase says no: the
+        # caller falls back to the unfused transpose/permute, which the tape follows.
         return False
 
     if not _ENABLED:
@@ -545,6 +546,7 @@ def _prepare_back(x, out, device):
     return entry
 
 
+@_ops.fused_kernel("reblock_permute_back")
 def reblock_permute_back(x, memory_config=None, device=None):
     """``ttnn.permute(x, (0, 2, 3, 1))`` for ``x`` of shape ``[1, C, N, N]`` bf16 TILE."""
     device = device or x.device()
@@ -594,10 +596,9 @@ def eligible_back(x, memory_config) -> bool:
     chunk from 352 aa up.
     """
     from . import ops
-    if ops.taping():
-        # These moves are `generic_op` kernels with no backward, and eligibility is
-        # exactly where the codebase already says no: every caller falls back to the
-        # unfused transpose/permute, which the tape follows. Inference is untouched.
+    if ops.declines_under_tape("reblock_permute_back"):
+        # No tape entry for this kernel, so eligibility is where the codebase says no: the
+        # caller falls back to the unfused transpose/permute, which the tape follows.
         return False
 
     if not _ENABLED_BACK:
@@ -874,10 +875,11 @@ def eligible_gated(xw, slice_c, memory_config) -> bool:
     slice width must be a whole number of tiles, because the reader addresses slices in tile units.
     """
     from . import ops
-    if ops.taping():
-        # These moves are `generic_op` kernels with no backward, and eligibility is
-        # exactly where the codebase already says no: every caller falls back to the
-        # unfused transpose/permute, which the tape follows. Inference is untouched.
+    if ops.declines_under_tape("reblock_permute_gated"):
+        # No tape entry. This one is not just a permutation -- it slices a four-way fused
+        # projection and folds `p * sigmoid(g)` into the move -- so its VJP is the gate's as
+        # well as the permutation's, and it is deliberately left declining until someone
+        # measures what it covers. `reblock_permute` and `reblock_permute_back` are taped.
         return False
 
     if not _ENABLED_GATED:
