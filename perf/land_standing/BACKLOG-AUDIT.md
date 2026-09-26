@@ -48,3 +48,30 @@ is worse than no document:
   and the two most relevant re-green on the merge tree.
 
 Full evidence and the history of the withdrawn readings are in `DIVIDING-K-VERDICT.md`.
+
+## `TT_BIO_TRIATT_FUSE_QKV` — CLOSED, unreachable on shipping defaults
+
+Found only by widening the lever census past `tenstorrent.py`. "ROOF Phase A: the qkv projection
+moved inside this kernel", moving 603.9 -> 402.7 MB at boltz-2s 512 aa triangle attention, held
+
+## `TT_BIO_TRIATT_FUSE_QKV` — CLOSED, unreachable on shipping defaults
+
+Found only by widening the lever census past `tenstorrent.py`. "ROOF Phase A: the qkv projection
+moved inside this kernel", moving 603.9 -> 402.7 MB at boltz-2's 512 aa triangle attention, held
+off as "a release-gated arm" — a condition rather than a refusal, so it looked like this row's
+shape.
+
+**Measured, then explained.** On a real Boltz-2 fold at 384 tokens the kernel's own counter reads
+`FUSE_REJECTS = {'qkv_already_fused_with_gate': 560}` in BOTH arms — 560 of 560 calls decline, and
+the CIF digest is identical across six legs.
+
+**The source says why, exactly.** `_tri_att_fused_qkv_sdpa` runs only when `qkv is None` after
+`_fused_qkvg`, and `_fused_qkvg` returns `(None, None)` only when the attention is `biased`, has
+no `qkvg_weight`, or an L1 qkv config pre-empts it. `qkvg_weight` is built whenever
+`not self.subtile and _dtype() == ttnn.bfloat16`. So on shipping defaults the broader qkv+gate
+fusion always takes the call and this lever has nothing left to fold: a later fusion superseded
+it.
+
+**Its remaining reach is subtile attention, a non-bf16 operand dtype (bfp8), or an L1 qkv config.**
+None is a shipping default, and a win reachable only inside another default-off regime does not
+reach users — which is this row's whole charter. Closed.
