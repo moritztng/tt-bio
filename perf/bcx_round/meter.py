@@ -48,17 +48,26 @@ class Clock:
         from stack import sysfs_node
         node, self.pci = sysfs_node()
         self.path, self.dt, self.samples = f"{node}/tt_aiclk", dt, []
+        self.rejected = 0
         self._stop = threading.Event()
         self._th = threading.Thread(target=self._loop, daemon=True)
+
+    #: What `tt_aiclk` returns when the chip's ARC firmware is not answering. The read does NOT
+    #: raise, so a dead ARC banks 4294967295 as if it were a clock: qb1 card 3 did exactly that
+    #: on 2026-09-26 and produced a full round_events.json whose every sample was this value.
+    #: A sentinel is not a reading, so it is dropped and counted rather than averaged in.
+    ARC_DEAD = 0xFFFFFFFF
 
     def _loop(self):
         while not self._stop.wait(self.dt):
             try:
-                self.samples.append((time.time(),
-                                     int(open(self.path).read().split()[0]),
-                                     os.getloadavg()[0]))
+                clk = int(open(self.path).read().split()[0])
             except Exception:
-                pass
+                continue
+            if clk == self.ARC_DEAD:
+                self.rejected += 1
+                continue
+            self.samples.append((time.time(), clk, os.getloadavg()[0]))
 
     def start(self):
         self._th.start()
@@ -70,10 +79,11 @@ class Clock:
     def window(self, t0, t1):
         got = [(c, l) for t, c, l in self.samples if t0 <= t <= t1]
         if not got:
-            return {"n": 0}
+            return {"n": 0, "arc_dead_rejected": self.rejected}
         clk = sorted(c for c, _ in got)
         return {"n": len(clk), "aiclk_min": clk[0], "aiclk_med": clk[len(clk) // 2],
-                "aiclk_max": clk[-1], "load1": round(sum(l for _, l in got) / len(got), 1)}
+                "aiclk_max": clk[-1], "load1": round(sum(l for _, l in got) / len(got), 1),
+                "arc_dead_rejected": self.rejected}
 
 
 CLOCK = None

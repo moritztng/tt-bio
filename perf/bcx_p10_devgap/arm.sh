@@ -17,14 +17,16 @@ export PYTHONPATH=$PWD
 # af2.py:27 takes a host-global flock in it, so a co-tenant BindCraft 2 serialises with us for
 # the whole compile. qb1 is running one right now.
 export JAX_COMPILATION_CACHE_DIR=$PWD/perf/bcx_p10_devgap/out/xlacache
-# This rows grant is card 3 and card 3 is DEAD: /sys/class/tenstorrent/tenstorrent!0
-# (0000:c1:00.0, which is what TT_VISIBLE_DEVICES=3 selects in PCI order) has tt_heartbeat
-# and tt_aiclk both frozen at 4294967295 while the other three tick, and ttnn.open_device
-# on it raises "ARC core (8, 0) failed to start". CARD picks the card; the grant is widened
-# on this command only, the way the card-fanout rule asks. Card 0 is the default because
-# bcx-p10-stack leg 5 measured the 9.107 s device column this row attributes on qb1 card 0,
-# so the anchor and the number it reconciles are on one card.
-CARD=${CARD:-0}
+# This rows grant is card 3 = PCI 0000:c1:00.0 = /dev/tenstorrent/0. Node order and card
+# number DISAGREE on this box, so the map is resolved with tt_bio.runtime.tt_bdf_to_index()
+# and never by node order; it prints
+#   {0000:01:00.0: 0, 0000:41:00.0: 1, 0000:42:00.0: 2, 0000:c1:00.0: 3}
+# That chip's ARC stopped answering on 2026-09-26 (tt_card_type unknown, tt_serial and
+# tt_aiclk both 0xFFFFFFFF, tt_heartbeat frozen) and one bounded `tt-smi -r /dev/tenstorrent/0`
+# brought it back: p150a, serial 00000403319140AA, heartbeat advancing. CARD overrides for a
+# fan-out onto an idle sibling, and the grant is widened on that command only, the way the
+# card-fanout rule asks.
+CARD=${CARD:-3}
 export TT_VISIBLE_DEVICES=$CARD TT_BIO_LEASE_CARDS=3,$CARD TT_BIO_LEASE_HOLDER=worker:bcx-p10-devgap
 # ENTRY swaps run_round.py for a wrapper that arms at the round boundary; round_ab.py calls
 # run_round.main() itself, so every flag below still reaches the same place.

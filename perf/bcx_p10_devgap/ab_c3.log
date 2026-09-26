@@ -1,0 +1,53 @@
+2026-09-26 16:38:15.332 | DEBUG    | ttnn:<module>:77 - Initial ttnn.CONFIG:
+Config{cache_path=/home/ttuser/.cache/ttnn,model_cache_path=/home/ttuser/.cache/ttnn/models,tmp_dir=/tmp/ttnn,enable_model_cache=false,enable_fast_runtime_mode=true,throw_exception_on_fallback=false,enable_logging=false,enable_graph_report=false,enable_detailed_buffer_report=false,enable_detailed_tensor_report=false,enable_comparison_mode=false,comparison_mode_should_raise_exception=false,comparison_mode_pcc=0.9999,root_report_path=generated/ttnn/reports,report_name=std::nullopt,std::nullopt}
+{
+ "host": "tt-quietbox",
+ "card": "3",
+ "tt_bio_file": "/home/ttuser/.coworker/wt/bcx-p10-devgap/tt_bio/__init__.py",
+ "exact": false,
+ "extra_msa_on_device": true,
+ "template_on_device": true,
+ "triatt_taped_sdpa": false,
+ "triatt_hifi": true,
+ "taped_kernels": "tri_att_sdpa_hifi",
+ "triatt_dividing_k": "1",
+ "sdpa_own_forward": true,
+ "shipped_pool": true,
+ "binder_pinned": 146,
+ "sets": [],
+ "model_pool": "PredictionModelSelection(design_models=('model_1_multimer_v3', 'model_2_multimer_v3', 'model_3_multimer_v3', 'model_4_multimer_v3', 'model_5_multimer_v3'), validation_models=('model_1_ptm', 'model_2_ptm'), validation_pool_exhausted=False)",
+ "pci": "0000:c1:00.0",
+ "sysfs": "/sys/class/tenstorrent/tenstorrent!0/tt_aiclk",
+ "commit": "907808ceb07e5875ea6824d03837ca4cd8636c98",
+ "seed": 100,
+ "rounds_requested": 8,
+ "length_bucket_size": 32,
+ "stage_plan": {
+  "per_stage": {
+   "screen": 50,
+   "refine": 25,
+   "anneal": 45,
+   "harden": 5,
+   "mutate": 15
+  },
+  "gradient_steps": 125,
+  "mutate_steps": 15
+ },
+ "started_utc": "2026-09-26T16:38:15Z",
+ "loadavg_start": [
+  20.47802734375,
+  20.603515625,
+  20.2255859375
+ ],
+ "nproc": 32,
+ "project": "perf/bcx_p10_devgap/out/maskbias_c3"
+}
+BindCraft 2 (unreleased)
+campaign pdl1
+binder length 146
+target hPDL1 (target) | 115 residues | hotspots 54,56,66,115
+losses binder_contacts=1.0 binder_helicity=-0.3 binder_pae=0.4 compactness=0.5 interface_contacts=1.0 interface_pae=0.1 iptm_loss=0.05 plddt_loss=0.1
+filters Backbone_Clashes <= 0, Binder_RMSD <= 3.5, Interface_Residues >= 7, Unbound_Binder_pLDDT >= 0.7, i_pAE <= 0.35, i_pTM >= 0.7, pTM >= 0.55
+results perf/bcx_p10_devgap/out/maskbias_c3 | 3_Ranked/!_Ranked.csv rewritten as each design is accepted | summary.csv written when the campaign ends
+
+=== trajectory 1 | pdl1_denovo_l146_edd97eb588c9fab1 | accepted 0/10 ===
