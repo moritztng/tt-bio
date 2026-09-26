@@ -1,0 +1,19 @@
+[
+  {
+    "id": "pepn_3b34",
+    "status": "ok",
+    "complex_plddt": 0.925057,
+    "plddt": 0.925057,
+    "ptm": 0.892661,
+    "iptm": 0.0,
+    "confidence_score": 0.933729,
+    "n_residues": 891,
+    "n_chains": 1,
+    "n_tokens": 891,
+    "msa": true,
+    "msa_depth": 2854,
+    "n_atoms": 7143,
+    "samples": 1,
+    "runtime_s": 54.4
+  }
+]

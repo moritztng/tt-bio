@@ -1,0 +1,23 @@
+{
+ "deposited": "3B34",
+ "gt_ca_rmsd_A": {
+  "off1": 0.544988,
+  "off2": 0.544988,
+  "off3": 0.544988,
+  "offseed1": 0.829646,
+  "on1": 0.540121
+ },
+ "n_matched": 866,
+ "pairwise_ca_rmsd_A": {
+  "off1|off2": 0.0,
+  "off1|off3": 0.0,
+  "off1|offseed1": 1.088466,
+  "off1|on1": 0.055552,
+  "off2|off3": 0.0,
+  "off2|offseed1": 1.088466,
+  "off2|on1": 0.055552,
+  "off3|offseed1": 1.088466,
+  "off3|on1": 0.055552,
+  "offseed1|on1": 1.076784
+ }
+}

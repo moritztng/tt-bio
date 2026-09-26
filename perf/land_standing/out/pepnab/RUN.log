@@ -1,0 +1,9 @@
+LEG warm fuse=0 seed=0 rc=0 wall=100.030222735 aiclk=1350 sib_max=1350 load=10.32
+LEG off1 fuse=0 seed=0 rc=0 wall=90.609625526 aiclk=1350 sib_max=1350 load=10.86
+LEG on1 fuse=1 seed=0 rc=0 wall=82.400594504 aiclk=1350 sib_max=1350 load=13.00
+LEG off2 fuse=0 seed=0 rc=0 wall=92.916682944 aiclk=1350 sib_max=1350 load=13.90
+LEG on2 fuse=1 seed=0 rc=0 wall=88.239660667 aiclk=1350 sib_max=1350 load=15.94
+LEG off3 fuse=0 seed=0 rc=0 wall=91.606113521 aiclk=1350 sib_max=1350 load=15.48
+LEG on3 fuse=1 seed=0 rc=0 wall=86.906490664 aiclk=1350 sib_max=1350 load=15.26
+LEG offseed1 fuse=0 seed=1 rc=0 wall=91.065121244 aiclk=1350 sib_max=1350 load=16.14
+PEPNAB_DONE

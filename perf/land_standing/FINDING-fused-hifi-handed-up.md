@@ -50,6 +50,56 @@ That does not overturn the dividing-k verdict — its 0.450 A on the same tiled 
 under the bar, and on this evidence a real-target number would be smaller, not larger. It does
 mean the dividing-k accuracy case is *conservative* rather than marginal.
 
+
+## The A/B on the real target, under discipline — 2026-09-26 07:3xZ
+
+Eight legs on qb2 card 3, AICLK **1350 MHz** sampled DURING every leg, board-pair sibling watched,
+one discarded warm-up so the first timed leg is not the cold model load, arms interleaved so drift
+lands on both.
+
+### Speed: +4.700 s, 1.0541x
+
+    off   90.610 / 92.917 / 91.606   median 91.606   A/A floor 2.307 s
+    on    82.401 / 88.240 / 86.906   median 86.906
+
+    +4.700 s, 1.0541x, effect 2.04x its A/A floor
+
+**Smaller than the +8.471 s measured at 832 tokens on tiled CDK2, and it clears its floor by less
+(2.04x against 10.2x).** Stated rather than smoothed: loadavg drifted 10.3 -> 16.1 across the run,
+and the ON legs ran at the *higher* end of that (13.0 / 15.9 / 15.3 against OFF's 10.9 / 13.9 /
+15.5), so the drift works against the lever rather than for it. The reading is conservative.
+
+### Accuracy: 0.0556 A, and the lever lands closer to the crystal
+
+CA-RMSD over the 866 residues 3B34 resolves, paired by `label_seq_id`, identity asserted per pair,
+float64 Kabsch:
+
+    off1 / off2 / off3   0.544988 A to the deposited structure, all three IDENTICAL
+    on                   0.540121 A to the deposited structure   <- 0.004867 A CLOSER
+    off seed 1           0.829646 A
+
+    control  off vs off        0.000000 A    the instrument has no floor
+    LEVER    off vs on         0.055552 A    10.8x under the 0.60 A bar
+    seed floor  off s0 vs s1   1.088466 A    19.6x the lever's move
+    lever AND seed together    1.076784 A    no more than the seed alone
+
+**Every instrument points the same way.** The move is 10.8x under the bar and 19.6x under the
+seed floor; changing the lever *and* the seed moves the structure no more than changing the seed
+alone; and the arm with the lever on is closer to the experimental answer than the shipped arm.
+
+### Status
+
+The accuracy objection that produced the original hand-up is **fully refuted on a deposited
+structure**, and the speed term now exists on a real target as well as on the tiled fixture.
+
+**What is still owed before it ships: a release gate at the tip with the flag flipped**, arm by
+arm, the same discipline `TT_BIO_TRIATT_DIVIDING_K` got. Nothing else is outstanding.
+
+Caveats kept in view: one target, one seed pair, **20 sampling steps** rather than the CLI default
+200. The 200-step narrow-q runs on this same fixture recorded 0.60-0.78 A to the crystal against
+the 0.545 A here, so the absolute distances are of the right order; the delta is what this
+measures.
+
 ## What is now owed before this lever ships
 
 The accuracy objection is refuted on the right fixture. What is NOT yet done:
