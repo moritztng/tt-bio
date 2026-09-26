@@ -123,6 +123,29 @@ if os.environ.get("TT_BIO_RENORM_STATS_DIR"):
 #: the others' individual readings.
 SOFTMAX_BW_DTYPE = os.environ.get("TT_BIO_SOFTMAX_BW_DTYPE", "keep")
 
+#: How the softmax backward is computed. "chain" is the shipped six-op expression; "moreh" is
+#: `ttnn.moreh_softmax_backward`, which is bound in the `ttnn==0.68.0` wheel `pyproject.toml`
+#: already pins, so it costs no build.
+#:
+#: The catch, and the identity that answers it. `moreh_softmax_backward(y, g)` computes
+#: `y * (g - rowsum(g*y))`, which is the softmax backward only when `rowsum(y) == 1`. Ours does
+#: not assume that -- `SOFTMAX_BW_RENORM` divides by `rowsum(y)` and has been default-on since
+#: 2026-09-21 on Moritz's ask-9629 ruling, worth 878.85 -> 2.636 of leaf error mass. Writing
+#: `S = rowsum(y)` and `yn = y / S`:
+#:
+#:     moreh(yn, g) = yn * (g - rowsum(g*yn)) = (y/S) * (g - rowsum(g*y)/S) = dx / S
+#:
+#: so `dx = S * moreh(y/S, g)` keeps the correction exactly. It costs one reduce, one divide and
+#: one multiply on top of the fused call: eight passes of the score tensor against the chain's
+#: ten, so the wheel route is worth about a fifth of the bucket. A real kernel with the renorm
+#: folded inside is three passes and worth 85 % of it -- that is the job, and this is the
+#: zero-build floor under it.
+#:
+#: Its sibling `moreh_layer_norm_backward` is WRONG on Blackhole (dx 2.741e+06 relative L2 in
+#: bf16, upstream #12349), so nothing here is believed until `perf/bcx_bwbytes/softmax_bw_probe.py`
+#: has graded it against float64.
+SOFTMAX_BW_ROUTE = os.environ.get("TT_BIO_SOFTMAX_BW_ROUTE", "chain")
+
 #: Reductions the softmax backward runs, counted so a claim that the lever fired is a reading.
 SOFTMAX_BW_DTYPE_STATS = collections.Counter()
 
@@ -169,9 +192,36 @@ def softmax_bw_dx(y, g, dim=-1, config=None):
             g = ttnn.typecast(g, ttnn.bfloat16)
             SOFTMAX_BW_DTYPE_STATS["narrowed_g"] += 1
     SOFTMAX_BW_DTYPE_STATS[f"dx:{str(y.dtype).split('.')[-1]}"] += 1
+    if SOFTMAX_BW_ROUTE == "moreh":
+        return _softmax_bw_moreh(y, g, dim, config)
     inner = softmax_bw_inner(y, g, dim=dim, config=config)
     dx = ttnn.multiply(y, ttnn.subtract(g, inner))
     ttnn.deallocate(inner)
+    return dx
+
+
+def _softmax_bw_moreh(y, g, dim, config):
+    """`dx` through `ttnn.moreh_softmax_backward`, with the renorm kept by rescaling.
+
+    Raises rather than falling back. An opt-in lever that quietly computes something else when
+    the wheel refuses it is a lever that reads as measured when it never ran, and this fleet has
+    lost more time to that than to any crash.
+    """
+    rank = len(y.shape)
+    axis = dim if dim >= 0 else rank + dim
+    if axis != rank - 1:
+        raise ValueError(f"SOFTMAX_BW_ROUTE=moreh serves the last dim only, got dim={dim} "
+                         f"on rank {rank}")
+    SOFTMAX_BW_DTYPE_STATS["moreh"] += 1
+    if not SOFTMAX_BW_RENORM:
+        return ttnn.moreh_softmax_backward(y, g, dim=axis)
+    s = ttnn.sum(y, dim=axis, keepdim=True, compute_kernel_config=config or precise_config())
+    yn = ttnn.divide(y, s)
+    d = ttnn.moreh_softmax_backward(yn, g, dim=axis)
+    ttnn.deallocate(yn)
+    dx = ttnn.multiply(d, s)
+    ttnn.deallocate(d)
+    ttnn.deallocate(s)
     return dx
 
 

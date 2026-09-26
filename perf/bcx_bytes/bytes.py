@@ -478,6 +478,9 @@ class Arms:
             one expression. A PRECISION arm
       fanin the fan-in add taking a bf16 contribution directly, fp32 accumulator unchanged.
             A PRECISION arm; grade it WITH smbf16, not beside it
+      moreh the softmax backward through `ttnn.moreh_softmax_backward` with the renorm kept by
+            `dx = S * moreh(y/S, g)`: 8 passes of the score tensor against the chain's 10, and
+            zero build, since the op ships in the wheel `pyproject.toml` already pins
       chunk the shipped taped triangle-attention blocking: the L1 plan's rows, which
             `tenstorrent.py` no longer applies under a tape (`shard_for` refuses the shard there),
             pinned back through `_FP32_SOFTMAX_DRAM_ROW_CAP`, which does apply
@@ -529,6 +532,7 @@ class Arms:
         T.PERMUTE_BW_REBLOCK = self.perm
         self.ag.LEADING_SUM_TREE_ROWS = self.tree_rows if "tree" in sw else 1 << 30
         self.ag.SOFTMAX_BW_DTYPE = "bf16" if "smbf16" in sw else "keep"
+        self.ag.SOFTMAX_BW_ROUTE = "moreh" if "moreh" in sw else "chain"
         self.ag.FANIN_WIDEN_INCOMING = "fanin" not in sw
         from tt_bio import af2
         af2.AF2PairBlock.rne_residual = "bf16res" not in sw
@@ -745,11 +749,13 @@ def set_levers(args):
     T.PERMUTE_BW_REBLOCK = on
     ag.LEADING_SUM_TREE_ROWS = args.tree_rows if on else 1 << 30
     ag.SOFTMAX_BW_DTYPE = "bf16" if on and args.precision else "keep"
+    ag.SOFTMAX_BW_ROUTE = "moreh" if on and args.moreh else "chain"
     ag.FANIN_WIDEN_INCOMING = not (on and args.precision)
     print(f"levers {args.levers} precision={args.precision}: "
           f"PERMUTE_BW_REBLOCK={T.PERMUTE_BW_REBLOCK} "
           f"LEADING_SUM_TREE_ROWS={ag.LEADING_SUM_TREE_ROWS} "
           f"SOFTMAX_BW_DTYPE={ag.SOFTMAX_BW_DTYPE} "
+          f"SOFTMAX_BW_ROUTE={ag.SOFTMAX_BW_ROUTE} "
           f"FANIN_WIDEN_INCOMING={ag.FANIN_WIDEN_INCOMING}", flush=True)
 
 
@@ -786,6 +792,9 @@ def main():
                     help="bcx-bwbytes' two byte levers: the reblock permute backward and the "
                          "pairwise leading sum. `off` reproduces the tree this branch forked from")
     ap.add_argument("--tree-rows", type=int, default=256)
+    ap.add_argument("--moreh", action="store_true",
+                    help="with --levers on, route the softmax backward through the wheel's "
+                         "moreh_softmax_backward, renorm kept by rescaling")
     ap.add_argument("--precision", action="store_true",
                     help="with --levers on, also take the two PRECISION levers (the bf16 softmax "
                          "backward and the bf16 fan-in). Off by default: they move the gradient "

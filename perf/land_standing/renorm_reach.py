@@ -17,11 +17,13 @@ gets checked.
 Five properties, each with a negative control that breaks exactly what the check reads (A17):
 
   SITES      every load of `SOFTMAX_BW_RENORM` / `_SOFTMAX_BW_RENORM` in `tt_bio/` that sits
-             in a BRANCH CONDITION is inside `softmax_bw_inner` or inside a `bw` nested in a
-             factory handed to `_tape`. Branch condition rather than any mention, because the
-             property is that nothing DECIDES on the flag outside a backward -- an alias and a
-             counter dump mention it and compute nothing, and a check that banned the word
-             would be satisfied by hiding it behind one more name.
+             in a BRANCH CONDITION is inside `softmax_bw_inner`, inside a `bw` nested in a
+             factory handed to `_tape`, or inside an unexported function reached only from one
+             of those -- the same transitive rule CALLERS uses, for the same reason. Branch
+             condition rather than any mention, because the property is that nothing DECIDES on
+             the flag outside a backward -- an alias and a counter dump mention it and compute
+             nothing, and a check that banned the word would be satisfied by hiding it behind
+             one more name.
   NOOPS      a read that is not a branch condition may not appear in a statement that also
              calls `ttnn`.
   CALLERS    every call to `softmax_bw_inner` is inside such a `bw`, or inside an INTERMEDIARY
@@ -206,7 +208,8 @@ def check_sites(srcs):
         for s in reads:
             seen_r.append(s)
             c = s["funcs"]
-            ok_place = c[:1] == [HELPER] or _in_bw(c, fac)
+            ok_place = (c[:1] == [HELPER] or _in_bw(c, fac)
+                        or bool(c) and _only_from_bw(c[0], sites, fac_all, exported))
             if s["gating"] and not ok_place:
                 bad.append("%s:%d BRANCHES on the flag outside %s and outside a bw closure "
                            "(enclosing: %s)" % (name, s["line"], HELPER, c or "<module>"))
@@ -347,6 +350,28 @@ def forward(x):
 """
 _CTRL_HOP_EXPORTED = '__all__ = ["softmax_bw_dx"]\n' + _CTRL_HOP
 
+#: The same two directions for a READ rather than a call. `_CTRL_HOP_READ` branches on the flag
+#: inside an intermediary that only a bw reaches and must stay QUIET; `_CTRL_HOP_READ_BAD` gives
+#: that intermediary one forward caller and must be CAUGHT.
+_CTRL_HOP_READ = """
+def _tape(v, i, m): pass
+def softmax_bw_inner(y, g):
+    return 1
+def _route(y, g):
+    if SOFTMAX_BW_RENORM:
+        return ttnn.divide(y, g)
+    return softmax_bw_inner(y, g)
+def v(a):
+    def make():
+        def bw(g): _route(1, 2)
+        return bw
+    return _tape(1, [2], make)
+"""
+_CTRL_HOP_READ_BAD = _CTRL_HOP_READ + """
+def forward(x):
+    return _route(x, x)
+"""
+
 _CTRL_HOST = """
 def host_f64_softmax(x, dim=-1):
     if not installed():
@@ -370,10 +395,14 @@ def controls():
     bad_hop, _, _ = check_sites([("ctrl.py", _CTRL_HOP)])
     bad_hop_bad, _, _ = check_sites([("ctrl.py", _CTRL_HOP_BAD)])
     bad_hop_exp, _, _ = check_sites([("ctrl.py", _CTRL_HOP_EXPORTED)])
+    bad_hr, _, _ = check_sites([("ctrl.py", _CTRL_HOP_READ)])
+    bad_hr_bad, _, _ = check_sites([("ctrl.py", _CTRL_HOP_READ_BAD)])
     return {"forward_branch_on_flag_is_caught": bool(bad_read),
             "bw_only_intermediary_stays_quiet": not bad_hop,
             "forward_caller_of_intermediary_is_caught": bool(bad_hop_bad),
             "exported_intermediary_is_caught": bool(bad_hop_exp),
+            "bw_only_intermediary_may_read_the_flag": not bad_hr,
+            "forward_reachable_reader_is_caught": bool(bad_hr_bad),
             "flag_into_a_ttnn_call_is_caught": bool(bad_ttnn),
             # And the other direction: a bare alias computes nothing and must stay QUIET,
             # or the check is just banning the word and would be satisfied by hiding it.

@@ -61,7 +61,7 @@ def arm_of(r):
     return r > 2 and r % 2 == 0
 
 
-def install_levers(rows_on, precision):
+def install_levers(rows_on, precision, moreh):
     """Wire both levers to `ARM` and count every decision they take.
 
     A count that only ever goes up on one arm proves nothing -- the control has to MOVE it -- so
@@ -106,6 +106,7 @@ def install_levers(rows_on, precision):
         T.PERMUTE_BW_REBLOCK = ARM["on"]
         ag.LEADING_SUM_TREE_ROWS = rows_on if ARM["on"] else 1 << 30
         ag.SOFTMAX_BW_DTYPE = "bf16" if (ARM["on"] and precision) else "keep"
+        ag.SOFTMAX_BW_ROUTE = "moreh" if (ARM["on"] and moreh) else "chain"
         ag.FANIN_WIDEN_INCOMING = not (ARM["on"] and precision)
     return apply
 
@@ -210,6 +211,9 @@ def main():
                          "The device metric needs 3 per arm, so a short run still answers the "
                          "device question and only the wall goes unresolved")
     ap.add_argument("--seed", type=int, default=100)
+    ap.add_argument("--moreh", action="store_true",
+                    help="the ON arm routes the softmax backward through the wheel's fused op, "
+                         "renorm kept by rescaling; zero build, 8 passes against the chain's 10")
     ap.add_argument("--precision", action="store_true",
                     help="the ON arm also takes the two precision levers; they move the gradient "
                          "and are graded as a stack against float64 before they count")
@@ -241,6 +245,7 @@ def main():
              "pci": M.CLOCK.pci, "sysfs": M.CLOCK.path, "commit": git_head(),
              "seed": args.seed, "rounds_requested": args.rounds,
              "tree_rows_on": args.tree_rows, "precision_arm": args.precision,
+             "moreh_arm": args.moreh,
              "extra_msa_on_device": not args.no_extra_msa,
              "omp": os.environ.get("OMP_NUM_THREADS"),
              "xla_flags": os.environ.get("XLA_FLAGS"),
@@ -252,7 +257,7 @@ def main():
     import splice
     from splice import EvoformerOnDevice, ExtraMsaOnDevice, evoformer_on_device
 
-    apply = install_levers(args.tree_rows, args.precision)
+    apply = install_levers(args.tree_rows, args.precision, args.moreh)
     mt = ABMeter(args.rounds, apply)
     M.install(mt, splice, T.TTBioAlphaFoldDesignModel, trajectory, seqopt)
     for cls, tag in ((EvoformerOnDevice, "evo"), (ExtraMsaOnDevice, "extra")):
