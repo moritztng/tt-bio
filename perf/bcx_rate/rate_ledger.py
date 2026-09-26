@@ -15,9 +15,18 @@ Run it against one or more arm project directories (the `--out` of `run_arm.py`)
     python3 perf/bcx_rate/rate_ledger.py ~/bcx_accept_art/accept_s4 ~/bcx_mutate_art/route_s3_arm
 
 Each directory supplies `.campaign_state.json` for the accounting, `1_Trajectories/
-!_Trajectories.csv` for the termination stage per attempt, `arm_stamp.json` for the
-configuration, and the trajectory subdirectory mtimes for the wall boundaries. Attempts still in
-flight are excluded: an attempt with no verdict is not a rejection.
+!_Trajectories.csv` for the termination stage per attempt, `arm_stamp.json` or `traj_stamp.json`
+for the configuration, and the trajectory subdirectory mtimes for the wall boundaries. Attempts
+still in flight are excluded: an attempt with no verdict is not a rejection.
+
+And a whole ARM still in flight is excluded too, which is the second thing this script had to
+learn. On 2026-09-26 the campaign published 4 accepted / 18 completed with `traj_off_s3` entered
+as 5 completed / 1 accepted. That arm ran a sixth trajectory after the row reading it had
+concluded and the sixth one accepted, so its own stamp says 6 and 2. A rate read off a running
+arm is a snapshot of something that keeps moving and nobody re-reads, and this campaign has now
+restated its headline three times for exactly that reason. So: an arm enters the denominator only
+once it has exited -- its stamp carries `trajectories_run` with `failed` unset and it has no
+attempt in flight. Pass `--include-live` to override, and the output will say so on every line.
 """
 import argparse
 import csv
@@ -56,10 +65,18 @@ def clopper_pearson(k, n, alpha=0.05):
 def read_arm(project):
     """One arm's completed trajectories, in the order the run produced them."""
     project = Path(project)
-    stamp = json.loads((project / "arm_stamp.json").read_text())
+    # run_arm.py writes arm_stamp.json, traj_arm.py writes traj_stamp.json. They agree on every
+    # field this script reads, and there is no reason for two readers.
+    for name in ("arm_stamp.json", "traj_stamp.json"):
+        if (project / name).exists():
+            stamp = json.loads((project / name).read_text())
+            break
+    else:
+        raise SystemExit(f"{project}: no arm_stamp.json or traj_stamp.json -- cannot attribute it")
     state = json.loads((project / ".campaign_state.json").read_text())
 
     rows = list(csv.DictReader(open(project / "1_Trajectories" / "!_Trajectories.csv")))
+    accepted_draws = _refold_verdicts(project)
     ends = {}
     for design_dir in (project / "1_Trajectories").iterdir():
         if design_dir.is_dir():
@@ -79,7 +96,11 @@ def read_arm(project):
             "length": int(row.get("length") or 0),
             # BindCraft 2 leaves `terminated` empty for a trajectory that ran the whole way.
             "terminated": row["terminated"] or "completed",
-            "accepted": not row["terminated"],
+            # An empty `terminated` means the trajectory REACHED the refold ensemble, not that it
+            # survived it. The ensemble is a separate grader and it rejects most of what reaches
+            # it -- on this very arm three trajectories passed all five design stages and then
+            # lost all ten refolds. Read the verdict, never the stage.
+            "accepted": row["design"] in accepted_draws,
             "chip_s": end - previous,
         })
         previous = end
@@ -103,8 +124,24 @@ def read_arm(project):
         # The arm's own count is authoritative for acceptance; the CSV only says where each
         # attempt stopped. They agree unless a trajectory completed and then failed validation.
         "accepted": state["accepted"],
+        "accepted_rows": sum(t["accepted"] for t in trajectories),
         "in_flight": in_flight,
+        "exited": in_flight == 0 and stamp.get("trajectories_run") is not None
+                  and stamp.get("failed") is None,
     }
+
+
+def _refold_verdicts(project):
+    """Draws with at least one refolded candidate the validation ensemble kept."""
+    refolded = project / "2_Refolded" / "!_Refolded.csv"
+    if not refolded.exists():
+        return set()
+    kept = set()
+    for row in csv.DictReader(open(refolded)):
+        if row.get("outcome") == "passed":
+            # `<draw>_candidateN` -> `<draw>`
+            kept.add(row["design"].rsplit("_candidate", 1)[0])
+    return kept
 
 
 def _parse_utc(text):
@@ -118,9 +155,24 @@ def main(argv=None):
     parser.add_argument("projects", nargs="+", help="arm project directories")
     parser.add_argument("--reference", type=float, default=BOLTZGEN_CHIP_S_PER_DESIGN,
                         help="chip-s per design to compare against (default: BoltzGen funnel)")
+    parser.add_argument("--include-live", action="store_true",
+                        help="count arms that have not exited (their numbers will keep moving)")
     args = parser.parse_args(argv)
 
     arms = [read_arm(p) for p in args.projects]
+    live = [a for a in arms if not a["exited"]]
+    if live and not args.include_live:
+        for arm in live:
+            print(f"EXCLUDED, still running: {arm['project'].name} -- "
+                  f"{len(arm['trajectories'])} resolved, {arm['accepted']} accepted, "
+                  f"{arm['in_flight']} in flight. Its numbers are not final.")
+        arms = [a for a in arms if a["exited"]]
+        if not arms:
+            sys.exit("every arm is still running -- there is nothing final to divide by")
+        print()
+    elif live:
+        print(f"--include-live: {len(live)} arm(s) have NOT exited, so this rate will move.\n")
+
     trajectories = [t for arm in arms for t in arm["trajectories"]]
     if not trajectories:
         sys.exit("no completed trajectories in any project -- nothing to divide by")
@@ -129,6 +181,12 @@ def main(argv=None):
     for t in trajectories:
         print(f"{t['arm']:<16}{t['seed']:>5}  l{t['length']:<5}"
               f"{('ACCEPTED' if t['accepted'] else t['terminated']):<12}{t['chip_s']:>9,.0f}")
+
+    for arm in arms:
+        if arm["accepted_rows"] != arm["accepted"]:
+            print(f"\nMISMATCH {arm['project'].name}: refold verdicts say "
+                  f"{arm['accepted_rows']} accepted, .campaign_state.json says "
+                  f"{arm['accepted']}. Reconcile before quoting either.", file=sys.stderr)
 
     n = len(trajectories)
     accepted = sum(arm["accepted"] for arm in arms)
