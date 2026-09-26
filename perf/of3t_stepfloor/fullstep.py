@@ -691,10 +691,24 @@ def main() -> int:
                    "rng": "diffusion noise and loss fixture drawn from SEPARATE streams, so "
                           "a chunked arm and an unchunked one noise the same structures"}}
     a.out.parent.mkdir(parents=True, exist_ok=True)
-    dump = lambda: a.out.write_text(json.dumps(out, indent=1, default=str))
+
+    def dump():
+        """Write the artifact, clock included, every time.
+
+        The clock used to be written once, after the rep loop, from `during.__exit__`. A run
+        that is killed mid-step -- and on a 30 GiB host every 48-replicate arm so far has been
+        -- loses it, and a speed number without its DURING clock is not a measurement on this
+        fleet. `clk` is in scope from the first sample on, so there is no reason to hold it.
+        """
+        if _clk[0] is not None:
+            out.setdefault("env", {})["aiclk_during"] = _clk[0].summary()
+        a.out.write_text(json.dumps(out, indent=1, default=str))
+
+    _clk = [None]
     dump()
 
     with during() as clk:
+        _clk[0] = clk
         try:
             import numpy as np
             import ttnn
