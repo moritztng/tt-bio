@@ -27,6 +27,12 @@ OUT = pathlib.Path(__file__).resolve().parent
 HERE = OUT
 
 
+def _dest(out, name):
+    """`launch.sh` hands every script a DIRECTORY as --out; a bare path stays a file."""
+    p = pathlib.Path(out)
+    return str(p / name) if p.is_dir() or p.suffix != ".json" else str(p)
+
+
 def _head():
     import subprocess
     return subprocess.run(["git", "rev-parse", "HEAD"], cwd=ROOT, capture_output=True,
@@ -62,6 +68,7 @@ def main():
     ap.add_argument("--heads", type=int, default=4)
     ap.add_argument("--out", default=str(HERE / "probe.json"))
     args = ap.parse_args()
+    args.out = _dest(args.out, "probe.json")
 
     import torch
     import ttnn
