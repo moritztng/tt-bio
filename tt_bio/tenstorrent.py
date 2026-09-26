@@ -7398,10 +7398,16 @@ def _channel_move_back(chunk: ttnn.Tensor, memory_config: ttnn.MemoryConfig) -> 
     The stock decomposition is ``transpose(1,2)`` then ``transpose(2,3)``, which reads and writes the
     whole tensor twice; the kernel does it in one pass. Bit-exact against either
     (``torch.equal``): both are a pure index reordering plus the same within-tile ``transpose_wh``.
-    Outside ``reblock_permute.eligible_back`` the two transposes stay.
+    Outside ``reblock_permute.eligible_back`` the two transposes stay -- except under a tape,
+    where the gate refuses every direct caller but ``ttnn.permute`` is the shim and reaches the
+    same kernel with a node attached (``taped_ttnn._permute_fwd``). There the single permute is
+    the kernel, so it beats the pair it is otherwise slower than, and asking for it is how this
+    move gets differentiated at all.
     """
     if _reblock.eligible_back(chunk, memory_config):
         return _reblock.reblock_permute_back(chunk, memory_config)
+    if _reblock.eligible_back(chunk, memory_config, taped_ok=True):
+        return ttnn.permute(chunk, (0, 2, 3, 1), memory_config=memory_config)
     out = ttnn.transpose(chunk, 1, 2, memory_config=memory_config)
     res = ttnn.transpose(out, 2, 3, memory_config=memory_config)
     ttnn.deallocate(out)
