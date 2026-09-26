@@ -1,0 +1,345 @@
+{
+ "run": "perf/bcx_p10_hostfloor/out/prof",
+ "hlo": "perf/bcx_p10_hostfloor/out/prof/hlo/module_0368.jit_sequence_design_loss.after_optimizations.txt",
+ "profiled_rounds": 2,
+ "dropped_partial_rounds": [
+  4
+ ],
+ "align_offset_spread_ms": 25193.81,
+ "median": {
+  "sequence_gradients_s": 13.436,
+  "device_meter_s": 10.762,
+  "host_in_sg_s": 2.673,
+  "seam_thunk_s": 11.553,
+  "xla_module_sum_s": 2.523,
+  "outside_xla_s": 0.15,
+  "lower_compile_s": 0.007,
+  "table_sum_s": 2.673,
+  "residual_s": -0.0,
+  "residual_pct_of_host": -0.0
+ },
+ "table": [
+  {
+   "module": "seam: device callback",
+   "dir": "bwd",
+   "med_s": 7.299,
+   "min_s": 7.133,
+   "max_s": 7.465
+  },
+  {
+   "module": "seam: device callback",
+   "dir": "fwd",
+   "med_s": 4.254,
+   "min_s": 3.861,
+   "max_s": 4.648
+  },
+  {
+   "module": "structure module",
+   "dir": "fwd",
+   "med_s": 0.798,
+   "min_s": 0.697,
+   "max_s": 0.899
+  },
+  {
+   "module": "structure module",
+   "dir": "bwd",
+   "med_s": 0.721,
+   "min_s": 0.564,
+   "max_s": 0.879
+  },
+  {
+   "module": "template embedding",
+   "dir": "fwd",
+   "med_s": 0.061,
+   "min_s": 0.056,
+   "max_s": 0.066
+  },
+  {
+   "module": "outside AF2: unlabelled",
+   "dir": "fwd",
+   "med_s": 0.05,
+   "min_s": 0.045,
+   "max_s": 0.055
+  },
+  {
+   "module": "Evoformer (JAX side)",
+   "dir": "fwd",
+   "med_s": 0.041,
+   "min_s": 0.037,
+   "max_s": 0.044
+  },
+  {
+   "module": "outside AF2: unlabelled",
+   "dir": "bwd",
+   "med_s": 0.024,
+   "min_s": 0.021,
+   "max_s": 0.028
+  },
+  {
+   "module": "template embedding",
+   "dir": "bwd",
+   "med_s": 0.018,
+   "min_s": 0.017,
+   "max_s": 0.018
+  },
+  {
+   "module": "Evoformer (JAX side)",
+   "dir": "bwd",
+   "med_s": 0.009,
+   "min_s": 0.008,
+   "max_s": 0.011
+  },
+  {
+   "module": "heads: PAE/pTM",
+   "dir": "fwd",
+   "med_s": 0.005,
+   "min_s": 0.004,
+   "max_s": 0.005
+  },
+  {
+   "module": "heads: distogram",
+   "dir": "fwd",
+   "med_s": 0.004,
+   "min_s": 0.003,
+   "max_s": 0.004
+  },
+  {
+   "module": "heads: distogram",
+   "dir": "bwd",
+   "med_s": 0.001,
+   "min_s": 0.001,
+   "max_s": 0.001
+  },
+  {
+   "module": "heads: pLDDT",
+   "dir": "bwd",
+   "med_s": 0.001,
+   "min_s": 0.0,
+   "max_s": 0.002
+  },
+  {
+   "module": "AlphaFold: other",
+   "dir": "fwd",
+   "med_s": 0.0,
+   "min_s": 0.0,
+   "max_s": 0.0
+  },
+  {
+   "module": "heads: experimentally resolved",
+   "dir": "fwd",
+   "med_s": 0.0,
+   "min_s": 0.0,
+   "max_s": 0.0
+  },
+  {
+   "module": "heads: pLDDT",
+   "dir": "fwd",
+   "med_s": 0.0,
+   "min_s": 0.0,
+   "max_s": 0.0
+  }
+ ],
+ "host_table": [
+  {
+   "module": "structure module",
+   "dir": "fwd",
+   "med_s": 0.798,
+   "min_s": 0.697,
+   "max_s": 0.899
+  },
+  {
+   "module": "seam: XLA-side handoff",
+   "dir": "-",
+   "med_s": 0.79,
+   "min_s": 0.708,
+   "max_s": 0.873
+  },
+  {
+   "module": "structure module",
+   "dir": "bwd",
+   "med_s": 0.721,
+   "min_s": 0.564,
+   "max_s": 0.879
+  },
+  {
+   "module": "template embedding",
+   "dir": "fwd",
+   "med_s": 0.061,
+   "min_s": 0.056,
+   "max_s": 0.066
+  },
+  {
+   "module": "outside AF2: unlabelled",
+   "dir": "fwd",
+   "med_s": 0.05,
+   "min_s": 0.045,
+   "max_s": 0.055
+  },
+  {
+   "module": "Evoformer (JAX side)",
+   "dir": "fwd",
+   "med_s": 0.041,
+   "min_s": 0.037,
+   "max_s": 0.044
+  },
+  {
+   "module": "outside AF2: unlabelled",
+   "dir": "bwd",
+   "med_s": 0.024,
+   "min_s": 0.021,
+   "max_s": 0.028
+  },
+  {
+   "module": "template embedding",
+   "dir": "bwd",
+   "med_s": 0.018,
+   "min_s": 0.017,
+   "max_s": 0.018
+  },
+  {
+   "module": "Evoformer (JAX side)",
+   "dir": "bwd",
+   "med_s": 0.009,
+   "min_s": 0.008,
+   "max_s": 0.011
+  },
+  {
+   "module": "heads: PAE/pTM",
+   "dir": "fwd",
+   "med_s": 0.005,
+   "min_s": 0.004,
+   "max_s": 0.005
+  },
+  {
+   "module": "heads: distogram",
+   "dir": "fwd",
+   "med_s": 0.004,
+   "min_s": 0.003,
+   "max_s": 0.004
+  },
+  {
+   "module": "heads: distogram",
+   "dir": "bwd",
+   "med_s": 0.001,
+   "min_s": 0.001,
+   "max_s": 0.001
+  },
+  {
+   "module": "heads: pLDDT",
+   "dir": "bwd",
+   "med_s": 0.001,
+   "min_s": 0.0,
+   "max_s": 0.002
+  },
+  {
+   "module": "AlphaFold: other",
+   "dir": "fwd",
+   "med_s": 0.0,
+   "min_s": 0.0,
+   "max_s": 0.0
+  },
+  {
+   "module": "heads: experimentally resolved",
+   "dir": "fwd",
+   "med_s": 0.0,
+   "min_s": 0.0,
+   "max_s": 0.0
+  },
+  {
+   "module": "heads: pLDDT",
+   "dir": "fwd",
+   "med_s": 0.0,
+   "min_s": 0.0,
+   "max_s": 0.0
+  }
+ ],
+ "rounds": [
+  {
+   "round": 5,
+   "sequence_gradients_s": 13.577,
+   "device_meter_s": 10.907,
+   "host_in_sg_s": 2.67,
+   "seam_thunk_s": 11.781,
+   "xla_covered_s": 13.444,
+   "outside_xla_s": 0.133,
+   "outside_xla_before_first_thunk_s": 0.0,
+   "outside_xla_after_last_thunk_s": 0.0,
+   "lower_compile_s": 0.008,
+   "inherited_label_s": 0.069,
+   "unmapped_s": {},
+   "modules": {
+    "seam: device callback|bwd": 7.1329,
+    "seam: device callback|fwd": 4.6476,
+    "structure module|fwd": 0.8992,
+    "structure module|bwd": 0.5641,
+    "template embedding|fwd": 0.0563,
+    "outside AF2: unlabelled|fwd": 0.0451,
+    "Evoformer (JAX side)|fwd": 0.0442,
+    "outside AF2: unlabelled|bwd": 0.0205,
+    "template embedding|bwd": 0.0185,
+    "Evoformer (JAX side)|bwd": 0.0076,
+    "heads: PAE/pTM|fwd": 0.0037,
+    "heads: distogram|fwd": 0.0034,
+    "heads: distogram|bwd": 0.0006,
+    "heads: pLDDT|fwd": 0.0002,
+    "heads: pLDDT|bwd": 0.0002,
+    "heads: experimentally resolved|fwd": 0.0,
+    "AlphaFold: other|fwd": 0.0
+   },
+   "detail": {
+    "seam: device callback [bwd] pure_callback": 7.133,
+    "seam: device callback [fwd] pure_callback": 4.648,
+    "structure module [fwd] invariant_point_attention": 0.741,
+    "structure module [bwd] invariant_point_attention": 0.544,
+    "structure module [fwd] rigid_sidechain": 0.075,
+    "structure module [fwd] mul": 0.036,
+    "Evoformer (JAX side) [fwd] convert_element_type": 0.026
+   },
+   "seam_handoff_s": 0.873
+  },
+  {
+   "round": 6,
+   "sequence_gradients_s": 13.295,
+   "device_meter_s": 10.618,
+   "host_in_sg_s": 2.677,
+   "seam_thunk_s": 11.325,
+   "xla_covered_s": 13.128,
+   "outside_xla_s": 0.166,
+   "outside_xla_before_first_thunk_s": 0.0,
+   "outside_xla_after_last_thunk_s": 0.0,
+   "lower_compile_s": 0.005,
+   "inherited_label_s": 0.055,
+   "unmapped_s": {},
+   "modules": {
+    "seam: device callback|bwd": 7.4645,
+    "seam: device callback|fwd": 3.8609,
+    "structure module|bwd": 0.8787,
+    "structure module|fwd": 0.6968,
+    "template embedding|fwd": 0.0657,
+    "outside AF2: unlabelled|fwd": 0.0546,
+    "Evoformer (JAX side)|fwd": 0.0374,
+    "outside AF2: unlabelled|bwd": 0.0284,
+    "template embedding|bwd": 0.0174,
+    "Evoformer (JAX side)|bwd": 0.0108,
+    "heads: PAE/pTM|fwd": 0.0053,
+    "heads: distogram|fwd": 0.0038,
+    "heads: pLDDT|bwd": 0.0021,
+    "heads: distogram|bwd": 0.0013,
+    "heads: pLDDT|fwd": 0.0003,
+    "heads: experimentally resolved|fwd": 0.0001,
+    "AlphaFold: other|fwd": 0.0
+   },
+   "detail": {
+    "seam: device callback [bwd] pure_callback": 7.464,
+    "seam: device callback [fwd] pure_callback": 3.861,
+    "structure module [bwd] invariant_point_attention": 0.846,
+    "structure module [fwd] invariant_point_attention": 0.599,
+    "structure module [fwd] rigid_sidechain": 0.063,
+    "template embedding [fwd] add": 0.024,
+    "outside AF2: unlabelled [bwd] mul": 0.024,
+    "outside AF2: unlabelled [fwd] jit(apply_fn)": 0.023
+   },
+   "seam_handoff_s": 0.708
+  }
+ ]
+}
