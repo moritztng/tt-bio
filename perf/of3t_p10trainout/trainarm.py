@@ -163,6 +163,12 @@ def main() -> int:
                          "the card -- no checkpoint round trip to get wrong. The before score "
                          "is the movement control: two arms that never moved agree perfectly, "
                          "so a grade is only readable if the arm moved further than its floor")
+    ap.add_argument("--gc-per-step", action="store_true",
+                    help="gc.collect() after every step. The arm leaks ~0.98 GB of card DRAM "
+                         "a step and dies at step 6; if a Python reference CYCLE is holding "
+                         "the pre-step weight handles, this flattens the series and the fix "
+                         "is one line. If it does not, the handles are held by a live "
+                         "reference and the fix is elsewhere")
     ap.add_argument("--eval-seed", type=int, default=20260926,
                     help="fixes the diffusion draw of the evaluation, so the metric is a "
                          "function of the weights alone")
@@ -209,6 +215,9 @@ def main() -> int:
                            "aiclk": clk.summary().get(0),
                            "dram_gb": (lambda b: None if b is None
                                        else round(b / 1e9, 3))(_dram(ds.device))}
+                    if a.gc_per_step:
+                        import gc
+                        row["gc_collected"] = gc.collect()
                     rec["steps"].append(row)
                     if curve:
                         curve.write(json.dumps(row, default=str) + "\n")
