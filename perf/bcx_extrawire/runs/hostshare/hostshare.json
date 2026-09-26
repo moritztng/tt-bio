@@ -1,0 +1,75 @@
+{
+ "stamp": {
+  "host": "tt-quietbox2",
+  "device_opened": false,
+  "tt_visible_devices": "",
+  "surface": "tt_bio.bindcraft2.design_model_class(), trunk='jax'",
+  "arm": "OFF -- BindCraft 2's own extra-MSA stack in JAX; this is the ceiling on what the on-card swap can win",
+  "seed": 100,
+  "reps": 3,
+  "bucket": 32,
+  "omp": "16",
+  "nproc": 16,
+  "loadavg_start": [
+   12.04150390625,
+   10.19482421875,
+   10.9482421875
+  ],
+  "started_utc": "2026-09-25T21:01:35Z",
+  "loadavg_end": [
+   17.52783203125,
+   17.65087890625,
+   14.8955078125
+  ],
+  "finished_utc": "2026-09-25T21:15:46Z"
+ },
+ "summary": {
+  "n_steady": 2,
+  "round_s_median": 284.722,
+  "round_s_min": 263.961,
+  "round_s_max": 305.484,
+  "extra_msa_total_s_median": 0.0,
+  "extra_msa_fwd_s_median": 0.0,
+  "extra_msa_bwd_s_median": 0.0,
+  "share_of_round_median": 0.0,
+  "compile_rep_round_s": 280.37,
+  "num_layers": 4,
+  "ceiling_round_s_if_stack_were_free": 284.722,
+  "ceiling_speedup": 1.0
+ },
+ "reps": [
+  {
+   "round_s": 280.37,
+   "loss": 8.465317726135254,
+   "extra_msa_fwd_s": 2.632,
+   "extra_msa_bwd_s": 15.361,
+   "extra_msa_total_s": 17.993,
+   "share_of_round": 0.0642,
+   "num_layers": 4,
+   "rep": 1,
+   "load1": 14.3
+  },
+  {
+   "round_s": 263.961,
+   "loss": 8.465317726135254,
+   "extra_msa_fwd_s": 0,
+   "extra_msa_bwd_s": 0,
+   "extra_msa_total_s": 0,
+   "share_of_round": 0.0,
+   "num_layers": null,
+   "rep": 2,
+   "load1": 18.8
+  },
+  {
+   "round_s": 305.484,
+   "loss": 8.465317726135254,
+   "extra_msa_fwd_s": 0,
+   "extra_msa_bwd_s": 0,
+   "extra_msa_total_s": 0,
+   "share_of_round": 0.0,
+   "num_layers": null,
+   "rep": 3,
+   "load1": 17.5
+  }
+ ]
+}

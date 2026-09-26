@@ -963,7 +963,8 @@ def design_model_class():
     return _MODEL_CLASS
 
 
-def _factory(*, trunk: str, pool: TrunkPool | None, evoformer: EvoformerOnDevice | None = None):
+def _factory(*, trunk: str, pool: TrunkPool | None, evoformer: EvoformerOnDevice | None = None,
+             extra_msa: "ExtraMsaOnDevice | None" = None):
     cls = design_model_class()
 
     def build(*args, **kwargs):
@@ -972,13 +973,17 @@ def _factory(*, trunk: str, pool: TrunkPool | None, evoformer: EvoformerOnDevice
     build.trunk = trunk
     build.pool = pool
     build.evoformer = evoformer
+    #: The extra-MSA swap, or None when the stack stayed in BindCraft 2's JAX. Its `calls`,
+    #: `swapped` and `mask_seen` counters are how a caller checks the on-card path ran.
+    build.extra_msa = extra_msa
     return build
 
 
 @contextlib.contextmanager
 def predictor(*, trunk: str = "device", card: int | str | None = None, checkpoints=None,
               resident: int | None = None, blocks: int = EVOFORMER_BLOCKS,
-              recompute: bool = True) -> Iterator[Callable[..., object]]:
+              recompute: bool = True,
+              extra_msa: bool = False) -> Iterator[Callable[..., object]]:
     """Put tt-bio's Evoformer on card for the duration and yield a predictor factory.
 
     The factory takes BindCraft 2's own `AlphaFoldDesignModel` arguments (`presets`, `data_dir`,
@@ -993,6 +998,10 @@ def predictor(*, trunk: str = "device", card: int | str | None = None, checkpoin
     whatever `TT_VISIBLE_DEVICES` already says. `checkpoints` is a `TrunkPool`, a directory of
     `params_<name>.npz`, a mapping of model name to file, a single file, or None for tt-bio's own
     weights cache. `resident` caps how many trunks stay on card at once.
+
+    `extra_msa` additionally runs the 4-block extra-MSA stack on card. It is off by default and
+    independent of the Evoformer swap, so a comparison graded on the Evoformer alone keeps the
+    program it was graded on. Read `build.extra_msa.calls` to check the on-card path ran.
 
     `trunk="jax"` opens no device and touches no card. It runs BindCraft 2's own trunk through
     this same class, which is the control arm every device result should be read against.
@@ -1010,8 +1019,9 @@ def predictor(*, trunk: str = "device", card: int | str | None = None, checkpoin
     pool = checkpoints if isinstance(checkpoints, TrunkPool) else TrunkPool(
         checkpoints, resident=resident)
     evo = EvoformerOnDevice(pool, blocks=blocks, recompute=recompute)
-    with evoformer_on_device(evo):
-        yield _factory(trunk="device", pool=pool, evoformer=evo)
+    extra = ExtraMsaOnDevice(pool, recompute=recompute) if extra_msa else None
+    with evoformer_on_device(evo, extra):
+        yield _factory(trunk="device", pool=pool, evoformer=evo, extra_msa=extra)
 
 
 @contextlib.contextmanager
@@ -1038,6 +1048,9 @@ def campaign_predictor(*, validation: str = "jax",
     when validation has to move to another pool, so "every build after the first" is the rule.
 
     The design model's checkpoints come from one pool, so `resident` caps the card across it.
+
+    Everything `predictor` takes passes through, `extra_msa` included, and the swap it builds is
+    re-exposed as `build.extra_msa` so a campaign can read its counters.
     """
     if validation not in ("jax", "device"):
         raise ValueError(f"validation must be 'jax' or 'device', not {validation!r}")
@@ -1060,6 +1073,7 @@ def campaign_predictor(*, validation: str = "jax",
         build_for_campaign.trunk = build.trunk
         build_for_campaign.pool = build.pool
         build_for_campaign.evoformer = build.evoformer
+        build_for_campaign.extra_msa = build.extra_msa
         build_for_campaign.validation = validation
         build_for_campaign.built = built
 

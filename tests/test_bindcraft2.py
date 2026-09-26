@@ -12,6 +12,7 @@ import sys
 import textwrap
 import types
 
+import numpy as np
 import pytest
 import torch
 
@@ -186,12 +187,13 @@ def _campaign_factory_trunks(monkeypatch, **kwargs):
         return object()
 
     design.trunk, design.pool, design.evoformer = "device", object(), object()
+    design.extra_msa = None
 
     @contextlib.contextmanager
     def fake_predictor(**_):
         yield design
 
-    def fake_factory(*, trunk, pool, evoformer=None):
+    def fake_factory(*, trunk, pool, evoformer=None, extra_msa=None):
         def build(*args, **kw):
             built.append(trunk)
             return object()
@@ -216,6 +218,94 @@ def test_the_validation_ensemble_folds_on_the_host_trunk_by_default(monkeypatch)
 
 def test_validation_can_be_put_on_card_explicitly(monkeypatch):
     assert _campaign_factory_trunks(monkeypatch, validation="device") == ["device"] * 3
+
+
+def test_the_extra_msa_stack_stays_in_jax_unless_it_is_asked_for():
+    """The second swap is off by default, so an Evoformer-only comparison keeps its program.
+
+    `bcx-seeds` grades matched pairs on the Evoformer swap alone. A second default moving
+    underneath that set would void it.
+    """
+    _bindcraft_root()
+    params = _af2_params()
+    with bindcraft2.predictor(trunk="device", checkpoints=str(params)) as build:
+        assert build.extra_msa is None
+
+
+def test_asking_for_the_extra_msa_swap_builds_one_on_the_evoformers_pool():
+    """`predictor(extra_msa=True)` reaches the constructor and hands the caller its counters.
+
+    The lever went in inert -- `ExtraMsaOnDevice` was defined and constructed nowhere, so the
+    merge that landed it moved no shipped path. This is the guard against that recurring: a
+    wired-and-inert lever is this fleet's most repeated failure. It checks construction only;
+    that the card actually runs the stack is a counter read on a real round.
+    """
+    _bindcraft_root()
+    from bindcraft.af.alphafold.model import layer_stack
+
+    params = _af2_params()
+    before = layer_stack.layer_stack
+    with bindcraft2.predictor(trunk="device", checkpoints=str(params),
+                              extra_msa=True) as build:
+        extra = build.extra_msa
+        assert isinstance(extra, bindcraft2.ExtraMsaOnDevice)
+        # One pool across both swaps, or the two stacks fold on different trunks.
+        assert extra.pool is build.pool
+        assert extra.calls == {"primal": 0, "taped": 0, "backward": 0}
+        assert extra.swapped == []
+        assert layer_stack.layer_stack is not before
+    assert layer_stack.layer_stack is before
+
+
+def test_the_campaign_path_can_ask_for_the_extra_msa_swap_too():
+    """`campaign_predictor` forwards the argument and re-exposes the handle.
+
+    It takes `**kwargs` rather than naming `extra_msa`, so nothing in its signature says the swap
+    reaches a campaign. A campaign is the entry point a real run uses, so this is what says it.
+    """
+    _bindcraft_root()
+    params = _af2_params()
+    with bindcraft2.campaign_predictor(checkpoints=str(params), extra_msa=True) as build:
+        assert isinstance(build.extra_msa, bindcraft2.ExtraMsaOnDevice)
+        assert build.extra_msa.pool is build.pool
+    with bindcraft2.campaign_predictor(checkpoints=str(params)) as build:
+        assert build.extra_msa is None
+
+
+def test_the_extra_msa_swap_pads_bindcraft_2s_real_shapes_to_a_tile():
+    """`_pad` and `_check_mask` on the shapes a real PD-L1 round hands the swap.
+
+    Both are pure torch and numpy, so they are testable without a card, and both are the first
+    thing the device path touches. n=275 is what `perf/bcx_extrawire/runs/grade_host` captured off
+    a real `sequence_gradients`, and 275 buckets to 288.
+    """
+    extra = bindcraft2.ExtraMsaOnDevice(pool=None)
+
+    pair = torch.arange(275 * 275 * 4, dtype=torch.float32).reshape(275, 275, 4)
+    pair_mask = torch.ones(275, 275)
+    padded, padded_mask, n = extra._pad(pair, pair_mask)
+    assert n == 275
+    assert padded.shape == (288, 288, 4), padded.shape
+    assert padded_mask.shape == (288, 288), padded_mask.shape
+    # the real region survives and the tile padding is zero, both of which the card relies on
+    assert torch.equal(padded[:275, :275], pair)
+    assert torch.equal(padded_mask[:275, :275], pair_mask)
+    assert padded[275:].abs().sum() == 0 and padded[:, 275:].abs().sum() == 0
+    assert padded_mask[275:].abs().sum() == 0 and padded_mask[:, 275:].abs().sum() == 0
+
+    # a length already on a tile boundary is handed back untouched
+    on_tile = torch.zeros(288, 288, 4)
+    same, same_mask, n2 = extra._pad(on_tile, torch.zeros(288, 288))
+    assert n2 == 288 and same is on_tile
+
+    # BindCraft 2's real extra-MSA mask is all zero, which is the case this swap is correct for
+    extra._check_mask(np.zeros((1, 275), dtype=np.float32))
+    assert extra.mask_seen == {"calls": 1, "abs_max": 0.0}
+    # and anything else is refused rather than folded against the wrong constant
+    nonzero = np.zeros((1, 275), dtype=np.float32)
+    nonzero[0, 7] = 1.0
+    with pytest.raises(ValueError, match="nonzero"):
+        extra._check_mask(nonzero)
 
 
 def test_an_unknown_validation_trunk_is_refused():

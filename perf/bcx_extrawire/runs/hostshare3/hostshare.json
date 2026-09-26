@@ -1,0 +1,107 @@
+{
+ "stamp": {
+  "host": "tt-quietbox2",
+  "device_opened": false,
+  "tt_visible_devices": "",
+  "surface": "tt_bio.bindcraft2.design_model_class(), trunk='jax'",
+  "arm": "OFF -- BindCraft 2's own extra-MSA stack in JAX; this is the ceiling on what the on-card swap can win",
+  "seed": 100,
+  "reps": 3,
+  "bucket": 32,
+  "omp": "16",
+  "nproc": 16,
+  "loadavg_start": [
+   14.35986328125,
+   16.36767578125,
+   14.7919921875
+  ],
+  "started_utc": "2026-09-25T21:18:03Z",
+  "loadavg_end": [
+   17.29345703125,
+   20.29248046875,
+   19.12744140625
+  ],
+  "finished_utc": "2026-09-25T21:35:25Z"
+ },
+ "summary": {
+  "n_steady": 3,
+  "round_s_median": 346.992,
+  "round_s_min": 342.63,
+  "round_s_max": 348.767,
+  "extra_msa_total_s_median": 22.202,
+  "extra_msa_fwd_s_median": 6.084,
+  "extra_msa_bwd_s_median": 16.118,
+  "share_of_round_median": 0.0648,
+  "every_rep_includes_compile": true,
+  "forwards_per_round": 2,
+  "backwards_per_round": 1,
+  "num_layers": 4,
+  "stack_seconds_is_the_transferable_number": 22.202,
+  "share_is_against_a_full_jax_round_not_the_shipped_one": 0.064
+ },
+ "reps": [
+  {
+   "round_s": 348.767,
+   "loss": 8.465317726135254,
+   "extra_msa_forwards": 2,
+   "extra_msa_backwards": 1,
+   "extra_msa_fwd_each_s": [
+    3.493,
+    2.456
+   ],
+   "extra_msa_bwd_each_s": [
+    15.982
+   ],
+   "extra_msa_fwd_s": 5.949,
+   "extra_msa_bwd_s": 15.982,
+   "extra_msa_total_s": 21.931,
+   "share_of_round": 0.0629,
+   "traced_this_rep": true,
+   "num_layers": 4,
+   "rep": 1,
+   "load1": 22.2
+  },
+  {
+   "round_s": 346.992,
+   "loss": 8.465317726135254,
+   "extra_msa_forwards": 2,
+   "extra_msa_backwards": 1,
+   "extra_msa_fwd_each_s": [
+    2.506,
+    3.687
+   ],
+   "extra_msa_bwd_each_s": [
+    16.929
+   ],
+   "extra_msa_fwd_s": 6.192,
+   "extra_msa_bwd_s": 16.929,
+   "extra_msa_total_s": 23.121,
+   "share_of_round": 0.0666,
+   "traced_this_rep": true,
+   "num_layers": 4,
+   "rep": 2,
+   "load1": 23.5
+  },
+  {
+   "round_s": 342.63,
+   "loss": 8.465317726135254,
+   "extra_msa_forwards": 2,
+   "extra_msa_backwards": 1,
+   "extra_msa_fwd_each_s": [
+    3.005,
+    3.079
+   ],
+   "extra_msa_bwd_each_s": [
+    16.118
+   ],
+   "extra_msa_fwd_s": 6.084,
+   "extra_msa_bwd_s": 16.118,
+   "extra_msa_total_s": 22.202,
+   "share_of_round": 0.0648,
+   "traced_this_rep": true,
+   "num_layers": 4,
+   "rep": 3,
+   "load1": 17.3
+  }
+ ]
+}
