@@ -135,10 +135,14 @@ class MoveTimer(VerbTimer):
             outsig = ','.join(_sig(t, self.ttnn) for t in outs) if interesting else ''
             if interesting:
                 geom = _geom(path, args, kwargs, ins, outs, self.ttnn) if path in MOVES else ''
-                site = ';'.join(
-                    f'{f.filename.rsplit("/", 1)[-1]}:{f.lineno}:{f.name}'
-                    for f in traceback.extract_stack(limit=9)[:-1]
-                    if 'tt_bio/' in f.filename or 'af2' in f.filename)
+                # `taped_ttnn` is the LAST tt_bio frame of every taped verb, so taking the
+                # last one names the tape and hides the model op that issued the move. Keep
+                # the deepest frames that are not the tape's own.
+                frames = [f'{f.filename.rsplit("/", 1)[-1]}:{f.lineno}:{f.name}'
+                          for f in traceback.extract_stack(limit=12)[:-1]
+                          if 'tt_bio/' in f.filename or 'af2' in f.filename]
+                outer = [f for f in frames if not f.startswith('taped_ttnn.py')]
+                site = ';'.join((outer or frames)[-2:])
                 key = (tag, path, geom, insig + ' -> ' + outsig + ' @ ' + site)
             else:
                 key = (tag, path, '', '')
