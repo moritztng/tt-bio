@@ -181,6 +181,13 @@ Measured, and each carries its source:
   **2.84 GiB before the first step and 5.68 GiB after it**, measured
   (`perf/of3t_optorder/optmem.py`). It is host RAM and not card DRAM, so it does not come out
   of the 34.23 GB above.
+- **A step holds the gradients it read, for the length of the step.** The clip coefficient is
+  global, so `step()` has to see every gradient before the first weight can move; it keeps the
+  arrays from that pass instead of reading the set off the card a second time, and the update
+  loop frees them as it goes. That is up to **1.42 GiB more** at the start of a step on the same
+  parameter set, falling to zero by the end of it. Measured peak host RSS did not rise
+  (9.60 GiB against 9.95 GiB before the change): the per-step temporaries this removed were
+  about the same size.
 - **1.87x on two chips, 93.5 % efficiency**: 8.08 tokens/s on one chip, 15.11 on two, 1350 MHz
   sampled during on both.
 

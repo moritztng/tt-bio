@@ -248,6 +248,17 @@ class AdamW:
     step, and it keeps the accumulation 24 mantissa bits above the bf16 weight the forward
     reads.
 
+    **At full-weight scale it is not an adapter, and here is where the step goes.** At the
+    crop-384 census -- 3,152 parameters, 381,302,188 elements, 2,944 taking a gradient -- one
+    step is 5.798 s split 1.847 s reading gradients, 2.046 s of numpy, 1.134 s casting the
+    master to the device dtype for the kept-ratio report, and 0.771 s writing weights back
+    (``perf/of3t_p10optim/out/base_384.json``, qb2 card 1). So PCIe is 45 % and the arithmetic
+    35 %, and the arithmetic pays for its passes over memory rather than for its temporaries:
+    routing every operation through a reusable buffer changed it by 3 %. Two things that do NOT
+    work, measured rather than assumed (``perf/of3t_p10optim/``): the readback runs at about
+    1 GiB/s whether it is 3,152 tensors or one of the same total size, so batching it buys
+    nothing; and the update stops scaling at two threads and goes backwards by eight.
+
     **Construction allocates the master and one copy of the initial weights, and nothing
     else.** The moments are built by the first ``step()``, which runs after the backward, so
     they are absent from the forward and the backward rather than resident and unread. At
