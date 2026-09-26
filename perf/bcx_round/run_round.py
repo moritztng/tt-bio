@@ -75,6 +75,10 @@ def main():
                          "of the shipped path on every gradient reading, against the kernel "
                          "arm's 1.30-1.34x of the torch bf16 envelope. Only read when "
                          "--triatt-sdpa is on")
+    ap.add_argument("--set", dest="sets", action="append", default=[], metavar="K=V",
+                    help="extra BindCraft 2 setting override, repeatable. `--set "
+                         "save_design_frames=1` makes the recorder write one CIF a round, "
+                         "which is what the accuracy leg scores arm against arm")
     ap.add_argument("--shipped", action="store_true",
                     help="leave pdl1.json's own five multimer_v3 design models in place "
                          "instead of pinning one monomer trunk")
@@ -92,6 +96,7 @@ def main():
         overrides.append(f"length_bucket_size={args.bucket}")
     if args.binder:
         overrides.append(f"binder_lengths=[{args.binder},{args.binder}]")
+    overrides += args.sets
     settings = cleaned_campaign_settings(
         read_settings(os.path.join(B.BC2, "examples", "pdl1.json"),
                       parse_setting_overrides(overrides)))
@@ -128,6 +133,7 @@ def main():
              "triatt_taped_sdpa": bool(args.triatt_sdpa),
              "sdpa_own_forward": bool(args.sdpa_own_forward),
              "shipped_pool": bool(args.shipped), "binder_pinned": args.binder,
+             "sets": args.sets,
              "model_pool": pool,
              "pci": M.CLOCK.pci, "sysfs": node, "commit": git_head(),
              "seed": args.seed, "rounds_requested": args.rounds,
