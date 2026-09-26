@@ -31,9 +31,11 @@ print(nodes[int(sys.argv[1])].split("!")[-1])
 PY
 ) || { echo "cannot resolve the device node for CARD=$CARD" >&2; exit 1; }
 
-if [ -s "$LEASE" ]; then
-  echo "REFUSING: $LEASE exists -- card $CARD is leased. Read it before taking the card." >&2
-  cat "$LEASE" >&2; exit 1
+CONFLICT=$(python3 "$WT/perf/bcx_bwbytes/lease_scan.py" "$LEASES" "$CARD" "$HOST") \
+  || { echo "lease scan failed -- not taking a card on a failed check" >&2; exit 1; }
+if [ -n "$CONFLICT" ]; then
+  echo "REFUSING: card $CARD on $HOST is leased. Read these before taking it:" >&2
+  echo "$CONFLICT" >&2; exit 1
 fi
 if fuser "/dev/tenstorrent/$NODE" >/dev/null 2>&1; then
   echo "REFUSING: /dev/tenstorrent/$NODE (CARD=$CARD) has a live holder:" >&2
@@ -43,10 +45,31 @@ fi
 mkdir -p "$LEASES"
 printf '{"host": "%s", "card": "%s", "holder": "worker:bcx-bwbytes", "pid": %d, "node": %s, "acquired": %s, "released": null}\n' \
   "$HOST" "$CARD" "$$" "$NODE" "$(date +%s)" > "$LEASE"
-trap 'rm -f "$LEASE"' EXIT INT TERM
+# The trap IS the lease protocol, and `exec` below used to replace this shell and take the trap
+# with it, so the lease file outlived every run and the next reader saw a card leased to a dead
+# pid. Verified rather than argued: a two-line repro ending in `exec /bin/true` leaks the file and
+# the same script without `exec` does not (tests/test_launch_lease_release.py runs both). So this
+# script keeps its own shell and runs python as a CHILD.
+CHILD=
+cleanup() {
+  if [ -n "$CHILD" ] && kill -0 "$CHILD" 2>/dev/null; then
+    # SIGTERM, never SIGKILL: a killed device holder leaves the card unopenable and the next open
+    # hard-hangs the host, so the child is asked to close its device and given a minute to do it.
+    kill -TERM "$CHILD" 2>/dev/null
+    for _ in $(seq 1 60); do kill -0 "$CHILD" 2>/dev/null || break; sleep 1; done
+  fi
+  rm -f "$LEASE"
+}
+trap cleanup EXIT
+trap 'cleanup; exit 130' INT
+trap 'cleanup; exit 143' TERM
 echo "leased card $CARD (node $NODE) on $HOST as pid $$" >&2
 
 export TT_VISIBLE_DEVICES=$CARD TT_BIO_LEASE_CARDS=$CARD TT_BIO_LEASE_HOLDER=worker:bcx-bwbytes
 export OMP_NUM_THREADS=${OMP:-6} MKL_NUM_THREADS=${OMP:-6} PYTHONUNBUFFERED=1
 export XLA_FLAGS="--xla_gpu_enable_triton_gemm=false"
-exec /home/ttuser/bcx_e2e_venv/bin/python -X faulthandler "$WT/$SCRIPT" --out "$OUT" "$@"
+/home/ttuser/bcx_e2e_venv/bin/python -X faulthandler "$WT/$SCRIPT" --out "$OUT" "$@" &
+CHILD=$!
+wait "$CHILD"; rc=$?
+CHILD=
+exit $rc
