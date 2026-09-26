@@ -1,0 +1,126 @@
+{
+ "iters": 30,
+ "min_c": 256,
+ "rows": {
+  "288x128": {
+   "MB": 21.2,
+   "off": {
+    "ms": 0.6795,
+    "pct_roof": 14.1,
+    "aiclk_med": 1350,
+    "aiclk_min": 1350,
+    "n": 30,
+    "reach": {
+     "served": 35,
+     "declined": 0
+    }
+   },
+   "on": {
+    "ms": 0.5657,
+    "pct_roof": 17.0,
+    "aiclk_med": 1350,
+    "aiclk_min": 1350,
+    "n": 30,
+    "reach": {
+     "served": 0,
+     "declined": 35
+    }
+   },
+   "off2": {
+    "ms": 0.6907,
+    "pct_roof": 13.9,
+    "aiclk_med": 1350,
+    "aiclk_min": 1350,
+    "n": 30,
+    "reach": {
+     "served": 35,
+     "declined": 0
+    }
+   },
+   "equal_off_on": true,
+   "equal_off_off2": true,
+   "equal_off_torch": true,
+   "equal_on_torch": true
+  },
+  "512x128": {
+   "MB": 67.1,
+   "off": {
+    "ms": 2.0313,
+    "pct_roof": 14.9,
+    "aiclk_med": 1350,
+    "aiclk_min": 1350,
+    "n": 30,
+    "reach": {
+     "served": 35,
+     "declined": 0
+    }
+   },
+   "on": {
+    "ms": 1.9519,
+    "pct_roof": 15.5,
+    "aiclk_med": 1350,
+    "aiclk_min": 1350,
+    "n": 30,
+    "reach": {
+     "served": 0,
+     "declined": 35
+    }
+   },
+   "off2": {
+    "ms": 2.0257,
+    "pct_roof": 15.0,
+    "aiclk_med": 1350,
+    "aiclk_min": 1350,
+    "n": 30,
+    "reach": {
+     "served": 35,
+     "declined": 0
+    }
+   },
+   "equal_off_on": true,
+   "equal_off_off2": true,
+   "equal_off_torch": true,
+   "equal_on_torch": true
+  },
+  "288x256": {
+   "MB": 42.5,
+   "off": {
+    "ms": 0.8747,
+    "pct_roof": 22.0,
+    "aiclk_med": 1350,
+    "aiclk_min": 1350,
+    "n": 30,
+    "reach": {
+     "served": 35,
+     "declined": 0
+    }
+   },
+   "on": {
+    "ms": 0.9447,
+    "pct_roof": 20.3,
+    "aiclk_med": 1350,
+    "aiclk_min": 1350,
+    "n": 30,
+    "reach": {
+     "served": 35,
+     "declined": 0
+    }
+   },
+   "off2": {
+    "ms": 0.8937,
+    "pct_roof": 21.5,
+    "aiclk_med": 1350,
+    "aiclk_min": 1350,
+    "n": 30,
+    "reach": {
+     "served": 35,
+     "declined": 0
+    }
+   },
+   "equal_off_on": true,
+   "equal_off_off2": true,
+   "equal_off_torch": true,
+   "equal_on_torch": true
+  }
+ }
+}

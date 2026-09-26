@@ -3002,7 +3002,7 @@ _BMM_CFG_REFUSED: set = set()
 # all-or-nothing retirement that cost RF3 1.264x on the fp32-softmax tail at 1024 aa.
 LATCH_STATS: dict = {n: {"served": 0, "refused": 0, "blocked": 0, "declined": 0, "why": []}
                      for n in ("l1_out", "narrow_l1_out", "transpose_l1", "transpose_stage",
-                               "pair_bias_ln_l1", "bmm_cfg", "sdpa_q_chunk")}
+                               "pair_bias_ln_l1", "bmm_cfg", "sdpa_q_chunk", "pt_row_major")}
 
 
 def _latch(name: str, field: str, why: object = None) -> None:
@@ -4462,6 +4462,29 @@ PAIR_TRANSPOSE_VIA_ROW_MAJOR = True
 _PT_ROW_MAJOR = os.environ.get(
     "TT_BIO_PAIR_TRANSPOSE_RM", "1" if PAIR_TRANSPOSE_VIA_ROW_MAJOR else "0") == "1"
 
+#: Narrowest last axis the ROW_MAJOR route is taken for. 0 keeps the shipped behaviour, which
+#: takes it for EVERY 3-D bf16 DRAM tile tensor -- the route has no shape gate at all.
+#:
+#: It needs one. The route replaces one `ttnn.permute` with three calls, and it only pays while
+#: the row it moves is long enough to amortise them. `perf/bcx_p10_movker/ladder.py`, qb2 card 1,
+#: AICLK 1350 med/min on every iteration, 25 warm synced iterations a point, DRAM -> DRAM:
+#:
+#:     shape      round trip   tiled permute   round trip / tiled
+#:     128x128      0.1485        0.1075            1.38x   LOSES
+#:     256x128      0.5215        0.4544            1.15x   LOSES
+#:     288x128      0.6525        0.5345            1.22x   LOSES   <- this campaign's shape
+#:     384x128      1.1403        1.0928            1.04x   LOSES
+#:     512x128      1.9914        1.8948            1.05x   LOSES
+#:     288x256      0.8860        1.2119            0.73x   WINS
+#:
+#: The crossover is in C, not N: the row-major permute moves whole rows, so its efficiency
+#: scales with the row, and at C=128 a row is 256 B. Both routes are `torch.equal` at every
+#: shape above, so the gate costs no accuracy -- it is a pure dispatch choice.
+#:
+#: Left at 0 because `233137232` measured the route 1.614 s/fold FASTER on the fold's own
+#: shapes and this row has not re-measured those; 256 is the value this campaign's round wants.
+_PT_ROW_MAJOR_MIN_C = int(os.environ.get("TT_BIO_PAIR_TRANSPOSE_RM_MIN_C", "0"))
+
 
 # Pair-tensor shape classes whose L1 transpose destination the allocator refused once. The
 # static budget in `_l1_memory_config_if_it_fits` cannot see what the live block already holds,
@@ -4521,10 +4544,25 @@ def _pair_transpose(t: ttnn.Tensor, memory_config: ttnn.MemoryConfig,
     return _pair_transpose_impl(t, memory_config)
 
 
+def _pt_row_major_pays(t: ttnn.Tensor) -> bool:
+    """Whether the ROW_MAJOR route is the faster of the two at this tensor's row width.
+
+    Counted, not assumed: `pt_row_major` in `LATCH_STATS` separates the calls that took the
+    route from the calls a narrow C sent down the tiled permute, so an arm that never fired
+    cannot read like an arm that did nothing (`bcx-p10-rneker` leg 3).
+    """
+    if int(t.shape[-1]) < _PT_ROW_MAJOR_MIN_C:
+        _latch("pt_row_major", "declined", f"C={int(t.shape[-1])} < {_PT_ROW_MAJOR_MIN_C}")
+        return False
+    _latch("pt_row_major", "served")
+    return True
+
+
 def _pair_transpose_impl(t: ttnn.Tensor, memory_config: ttnn.MemoryConfig) -> ttnn.Tensor:
     if (_PT_ROW_MAJOR and len(t.shape) == 3
             and memory_config.buffer_type == ttnn.BufferType.DRAM
-            and t.dtype == ttnn.bfloat16 and t.layout == ttnn.TILE_LAYOUT):
+            and t.dtype == ttnn.bfloat16 and t.layout == ttnn.TILE_LAYOUT
+            and _pt_row_major_pays(t)):
         # Both to_layout calls MUST be pinned to the destination's buffer type. Without a
         # memory_config ttnn places the intermediate by its own default, which is L1: that
         # made openfold3 at 576 tokens die on `Out of Memory: Not enough space to allocate
