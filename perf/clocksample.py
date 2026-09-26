@@ -97,3 +97,121 @@ class during:
             return "CLOCK: NOT SAMPLED -- treat every timing here as unclocked"
         return (f"CLOCK: dev{dev} min {s['min']} / median {s['median']} / max {s['max']} MHz "
                 f"over {s['n']} samples, polled DURING the work")
+
+
+# --- sysfs sampler -------------------------------------------------------------------
+#
+# `tt-smi -s` snapshots EVERY chip and blocks on each one, so on a four-card host with three
+# busy it takes seconds per sample and can hang outright. It is also the wrong instrument for
+# a shared box: it reports the chips of other tenants, and `during` above indexes them by
+# position, which is only the granted card because TT_VISIBLE_DEVICES happens to reorder them.
+#
+# sysfs answers the same question for one chip with a file read. The trap it replaces is worse
+# than the cost: the lease card number and the /dev/tenstorrent node number are NOT the same on
+# qb1 (lease card 1 is node 2), so indexing `tenstorrent!N` by the lease number reads an idle
+# neighbours clock while the card under the fold throttles. Resolve the node by its PCI BDF.
+
+
+# --- sysfs sampler -------------------------------------------------------------------
+#
+# `tt-smi -s` snapshots EVERY chip and blocks on each one, so on a four-card host with three
+# busy it costs seconds per sample and can hang outright. It is also the wrong instrument for
+# a shared box: it reports other tenants' chips and `during` above indexes them by position,
+# which is only the granted card because TT_VISIBLE_DEVICES happens to reorder them.
+#
+# sysfs answers the same question for one chip with a file read. The trap it removes is worse
+# than the cost it saves: the lease card number and the /dev/tenstorrent node number are NOT
+# the same on qb1 (lease card 1 is node 2), so indexing `tenstorrent!N` by the lease number
+# reads an idle neighbour's clock while the card under the fold throttles. Resolve by PCI BDF.
+
+_SENTINEL = 0xFFFFFFFF
+
+
+def node_for_bdf(bdf):
+    """The /sys/class/tenstorrent node whose PCI device is `bdf`, or None."""
+    import glob
+    for n in glob.glob("/sys/class/tenstorrent/tenstorrent!*"):
+        try:
+            if os.path.basename(os.path.realpath(os.path.join(n, "device"))) == bdf:
+                return n
+        except OSError:
+            pass
+    return None
+
+
+def bdf_for_node(node):
+    """The PCI BDF behind a /sys/class/tenstorrent node path, or None."""
+    try:
+        return os.path.basename(os.path.realpath(os.path.join(node, "device")))
+    except OSError:
+        return None
+
+
+class sysfs_during:
+    """Sample ONE chip's AICLK from sysfs for the duration of a block.
+
+    `bdf` names the card, so this cannot read a neighbour by mistake. Pass `node` instead
+    when the caller already resolved it.
+
+    A dead ARC answers `tt_aiclk` with 4294967295 without raising, and averaging that
+    manufactures a clock for a chip that has none. Sentinels are counted separately and never
+    enter the median; if every sample is one, `summary()` reports no reading rather than a
+    number.
+    """
+
+    def __init__(self, bdf=None, node=None, period=0.5):
+        self.node = node or (node_for_bdf(bdf) if bdf else None)
+        self.bdf = bdf or (bdf_for_node(self.node) if self.node else None)
+        self.samples = []
+        self.sentinels = 0
+        self.load = []
+        self._stop = threading.Event()
+        self._period = period
+
+    def _run(self):
+        path = os.path.join(self.node, "tt_aiclk") if self.node else None
+        while not self._stop.is_set():
+            self.load.append(os.getloadavg()[0] / (os.cpu_count() or 1))
+            if path:
+                try:
+                    with open(path) as fh:
+                        v = int(fh.read().strip())
+                except (OSError, ValueError):
+                    v = None
+                if v == _SENTINEL:
+                    self.sentinels += 1
+                elif v is not None:
+                    self.samples.append(v)
+            time.sleep(self._period)
+
+    def __enter__(self):
+        self._t = threading.Thread(target=self._run, daemon=True)
+        self._t.start()
+        return self
+
+    def __exit__(self, *exc):
+        self._stop.set()
+        self._t.join(timeout=5)
+        return False
+
+    def summary(self):
+        s = sorted(self.samples)
+        out = {"node": self.node, "bdf": self.bdf, "n": len(s),
+               "sentinels": self.sentinels,
+               "load_median": (round(sorted(self.load)[len(self.load) // 2], 2)
+                               if self.load else None)}
+        if s:
+            out.update(min=s[0], max=s[-1], median=s[len(s) // 2])
+        return out
+
+    def line(self, dev=0):
+        # `dev` is accepted and ignored: this sampler already holds exactly one chip, named by
+        # its BDF. The argument is here so a harness can swap `during` for this one unchanged.
+        s = self.summary()
+        if not s["n"]:
+            return ("CLOCK: NO READING from {} ({} sentinels) -- every timing here is "
+                    "unclocked".format(s["bdf"], s["sentinels"]))
+        return ("CLOCK: {} min {} / median {} / max {} MHz over {} samples DURING "
+                "({} sentinels rejected), host load/core median {}".format(
+                    s["bdf"], s["min"], s["median"], s["max"], s["n"],
+                    s["sentinels"], s["load_median"]))

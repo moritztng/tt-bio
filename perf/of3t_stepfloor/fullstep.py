@@ -38,10 +38,18 @@ carry N DISTINCT sigmas -- upstream's `_train_diffusion` shape -- without invent
 constant this row has no business fixing. Timing reads the sample COUNT, not the value.
 
     fullstep.py --tokens 384 --cycles 4 --samples 4 --reps 3 --out <json>
+
+`--no-exact` runs the whole step inside `ag.exact_training(False)`, which is the only
+way to reach that switch from a command line -- there is no environment variable for it
+(autograd.py:1491). The artifact then carries its own proof under `exact`: both counters
+differenced across the reps, and `exact_softmax_installed()` / `exact_layer_norm_installed()`
+read INSIDE the trunk tape and inside every chunk tape, which is the only extent where
+they are installed at all.
 """
 from __future__ import annotations
 
 import argparse
+import contextlib
 import gc
 import json
 import math
@@ -58,6 +66,8 @@ sys.path.insert(0, str(REPO))
 sys.path.insert(0, str(REPO / "scripts" / "gpu_vs_tt"))
 
 from perf.clocksample import during                                   # noqa: E402
+from perf.clocksample import sysfs_during                       # noqa: E402
+from perf.of3t_p10trunkbw.nodeprof import NodeProf                # noqa: E402
 from perf.of3t_perf import step as S                                  # noqa: E402
 
 SEED = 20260921
@@ -67,6 +77,23 @@ def _dram(dev):
     import ttnn
     mv = ttnn.get_memory_view(dev, ttnn.BufferType.DRAM)
     return int(mv.total_bytes_allocated_per_bank) * int(mv.num_banks)
+
+
+def _slot_rank(item):
+    """Order the walk's names so the slot a weight gets is one the FORWARD reads.
+
+    `_w_tt` (diffusion transformer, diffusion module, atom transformer) uploads a weight once
+    and keeps it in two places: `self._wc[key]` and the attribute the forward reads, e.g.
+    `self.w_la`. The walk finds one tensor under both paths, the dedupe keeps whichever name
+    sorts first, and `_` sorts before every letter -- so the cache path won and `rebind()` was
+    writing AdamW's new weight into a dict nothing reads after `__init__`. The model kept the
+    pre-step handle, which the value setter has already de-registered as a tape leaf, so from
+    the second rep on those weights took no gradient and were never trained: 270 of 3,152 at
+    crop 384, the whole `2,944 -> 2,674` drop of `step_exact_off_384.json` and the
+    `2,935 -> 2,660` drop of `step_rekey_b_384.json`. Cache path last, name second.
+    """
+    n = item[0]
+    return ("._wc." in n or n.endswith("._wc"), n)
 
 
 def _mem_available_gib():
@@ -136,7 +163,7 @@ def declare_all(trunk, sampler, out):
     # (autograd.py:220), but the MODEL still holds the handle the walk saw, and only writing
     # it back closes that half.
     by_id, flat, slots, unwritable = {}, {}, {}, []
-    for n, (o, k, t) in sorted(found.items()):
+    for n, (o, k, t) in sorted(found.items(), key=_slot_rank):
         if id(t) in by_id:
             continue
         by_id[id(t)] = n
@@ -349,86 +376,13 @@ def diffusion_chunk(sampler, pre, sigmas, rng, out, si_trunk=None, zij_pad=None,
     return roots
 
 
-# The five terms whose inputs do NOT come from a diffusion replicate. `distogram` reads the
-# trunk's pair representation; `plddt`, `pde`, `pae` and `resolved` read the confidence head,
-# which `tt_bio/train/openfold3.py` runs ONCE on a rollout it has already detached. Only the
-# three diffusion-coupled terms are per-replicate, which is why `--loss-shape` exists.
-_ONCE_TERMS = ("distogram", "plddt", "pde", "pae", "resolved")
-
-
-def _mem():
-    """This process's RSS and the host's MemAvailable, in GiB. Both, because they answer
-    different questions: RSS says how big the step got, MemAvailable says whether the host
-    still has room to do the arithmetic in."""
-    rss = 0
-    try:
-        rss = int([l.split()[1] for l in open("/proc/self/status")
-                   if l.startswith("VmRSS")][0]) / 1048576
-    except (OSError, IndexError):
-        pass
-    avail = 0.0
-    try:
-        avail = int([l.split()[1] for l in open("/proc/meminfo")
-                     if l.startswith("MemAvailable")][0]) / 1048576
-    except (OSError, IndexError):
-        pass
-    return round(rss, 3), round(avail, 3)
-
-
-def _peak_rss():
-    """`VmHWM` -- the high-water mark of this process's resident set, in GiB.
-
-    The kernel keeps it for free and it is the only honest answer to "how big did the step
-    get": sampling RSS at phase boundaries misses a peak that lives inside a phase, and the
-    step's peak is what decides whether the host has room left to do arithmetic in. Reset is
-    possible on Linux (`echo 5 > /proc/self/clear_refs`) so a PER-REP peak is readable too.
-    """
-    try:
-        return round(int([l.split()[1] for l in open("/proc/self/status")
-                          if l.startswith("VmHWM")][0]) / 1048576, 3)
-    except (OSError, IndexError):
-        return None
-
-
-def _reset_peak_rss():
-    """Reset `VmHWM` to the current RSS, so the next rep's peak is its own."""
-    try:
-        with open("/proc/self/clear_refs", "w") as f:
-            f.write("5\n")
-        return True
-    except OSError:
-        return False
-
-
-def host_losses(roots, rep, weights, rng, out, shape="per-root"):
+def host_losses(roots, rep, weights, rng, out):
     """`af3_loss` on host, at token scope, returning the per-root cotangent on `pred_xyz`.
 
     The loss is where it lives. `tt_bio.train.objectives.af3_loss` is numpy: a training step
     downloads the predicted coordinates, evaluates every term on host and hands the seeds
     back, so the "loss heads" part of a step is a PCIe round trip plus host arithmetic, and
     pricing it needs both halves timed together. They are.
-
-    `shape` is which of two things this prices, and they are not the same work:
-
-    `per-root` runs the WHOLE seven-term set once per diffusion replicate. That is what this
-    harness has always done and it is what every banked `losses_s` in this campaign measures,
-    so it stays the default -- changing it silently would move other rows' baselines under
-    them. It is not what the model does.
-
-    `model` runs the five non-diffusion terms ONCE and only `mse`, `smooth_lddt` and `bond`
-    per replicate, which is `tt_bio/train/openfold3.py`'s actual shape: the confidence heads
-    read a rollout that is produced once and detached, and the distogram head reads the
-    trunk's pair representation. Under `per-root` those five are recomputed per replicate on
-    logits this harness re-DRAWS from `rng.standard_normal` each time -- three
-    (n, n, 64) float64 arrays -- and then their gradients are discarded, because the only
-    seed this function returns is `mse`'s on `pred_xyz`. So at 48 replicates `per-root` prices
-    48x an arithmetic the step does once, on inputs it invented, for a backward that never
-    sees it.
-
-    Per-root and per-call seconds are recorded either way, with RSS and MemAvailable beside
-    them. That pair is not decoration: the same numpy reads 0.485 s per root at 17 GiB
-    MemAvailable and 1.44-1.69 s at 1 GiB (`perf/of3t_p10host/balloon.py`), so a slope taken
-    across a paging cliff is not a slope.
     """
     import numpy as np
     import ttnn
@@ -437,13 +391,7 @@ def host_losses(roots, rep, weights, rng, out, shape="per-root"):
     from tt_bio import autograd as ag
 
     dl_s, host_s, seeds_out, fired = 0.0, 0.0, [], None
-    per_root_s, mem_trace = [], []
-    once_done, once_s, once_logits = None, 0.0, None
-    out["shape"] = shape
-    out["rss_gib_at_entry"], out["mem_available_gib_at_entry"] = _mem()
-    print(f"  [losses] {len(roots)} roots, token scope n={len(rep)}, shape={shape}, "
-          f"RSS {out['rss_gib_at_entry']:.2f} GiB, MemAvailable "
-          f"{out['mem_available_gib_at_entry']:.2f} GiB", flush=True)
+    print(f"  [losses] {len(roots)} roots, token scope n={len(rep)}", flush=True)
     for k, r in enumerate(roots):
         t0 = time.perf_counter()
         raw = ag._unwrap(r) if isinstance(r, ag.Tensor) else r
@@ -467,14 +415,7 @@ def host_losses(roots, rep, weights, rng, out, shape="per-root"):
         lddt, lddt_w = L.atom_bespoke_lddt(pred, true_xyz, is_nuc, is_poly,
                                            coord_mask.astype(bool))
         idxs = np.arange(n)
-        # The confidence and distogram logits. Under `model` they are DRAWN ONCE and reused,
-        # because the heads that produce them run once: re-drawing three (n, n, 64) float64
-        # arrays per replicate is 0.22 s of fixture per root that the step never pays. Under
-        # `per-root` they are redrawn per root, as this harness always did.
-        if shape == "model" and once_logits is not None:
-            lg = lambda *sh: once_logits[sh]
-        else:
-            lg = lambda *sh: rng.standard_normal(sh) * 0.5
+        lg = lambda *s: rng.standard_normal(s) * 0.5
         labels = {"true_xyz": true_xyz, "coord_mask": coord_mask, "true_dist": true_dist,
                   "lddt_pair_mask": L.lddt_mask(true_dist, pair_mask, is_nuc),
                   "bond_mask": np.zeros((n, n)),
@@ -486,27 +427,8 @@ def host_losses(roots, rep, weights, rng, out, shape="per-root"):
                    "distogram_logits": lg(n, n, 64), "pde_logits": lg(n, n, 64),
                    "pae_logits": lg(n, n, 64), "plddt_logits": lg(n, 50),
                    "resolved_logits": lg(n, 2)}
-        if shape == "model" and once_logits is None:
-            # Keyed by shape, so the three (n, n, 64) heads share one array from root 1 on.
-            # That is safe because none of them FIRES after root 0 -- their weight is zeroed
-            # -- so the array is a placeholder of the right shape, never an input to a term.
-            once_logits = {(n, n, 64): outputs["distogram_logits"],
-                           (n, 50): outputs["plddt_logits"], (n, 2): outputs["resolved_logits"]}
-        w = dict(weights)
-        if shape == "model" and once_done:
-            # The five non-diffusion terms already ran on root 0. Zeroing their weight is how
-            # `af3_loss` skips a term, and it records the skip in the breakdown rather than
-            # reporting a silent zero -- so the artifact still says which terms fired.
-            for term in _ONCE_TERMS:
-                w[term] = 0.0
-        t_once = time.perf_counter()
-        total, breakdown, seeds = af3_loss(labels, outputs, w)
-        dt = time.perf_counter() - t_once
-        if shape == "model" and not once_done:
-            once_s, once_done = dt, True
+        total, breakdown, seeds = af3_loss(labels, outputs, weights)
         host_s += time.perf_counter() - t0
-        per_root_s.append(round(time.perf_counter() - t0, 4))
-        mem_trace.append(_mem())
         g = seeds.get("pred_xyz")
         # The cotangent goes back on the ATOM tensor the module returned: the loss touched
         # one atom per token, so every other atom's seed is a true zero, not a dropped term.
@@ -524,14 +446,6 @@ def host_losses(roots, rep, weights, rng, out, shape="per-root"):
     out["scope"] = "token, one representative atom per token"
     out["download_s"] = round(dl_s, 3)
     out["host_loss_s"] = round(host_s, 3)
-    out["per_root_s"] = per_root_s
-    out["mem_trace_gib"] = [{"rss": r, "avail": a} for r, a in mem_trace]
-    out["rss_gib_at_exit"], out["mem_available_gib_at_exit"] = _mem()
-    if shape == "model":
-        # What one MORE replicate costs, which is the number a 48-sample step is built out of.
-        out["once_terms_s"] = round(once_s, 4)
-        out["per_replicate_s"] = (round(sum(per_root_s[1:]) / len(per_root_s[1:]), 4)
-                                  if len(per_root_s) > 1 else None)
     out["value_claimed"] = False
     return seeds_out
 
@@ -776,18 +690,31 @@ def main() -> int:
     ap.add_argument("--no-tape", action="store_true",
                     help="run the same scope UNTAPED, for D32's ratio at step scope")
     ap.add_argument("--no-optimizer", action="store_true")
-    ap.add_argument("--loss-shape", choices=("per-root", "model"), default="per-root",
-                    help="per-root: the whole seven-term set once per diffusion replicate, "
-                         "which is what every banked losses_s in this campaign measures and "
-                         "why it is the default. model: the five non-diffusion terms once and "
-                         "the three diffusion-coupled ones per replicate, which is what "
-                         "tt_bio/train/openfold3.py actually does.")
     ap.add_argument("--renorm-per-rep", default="",
                     help="comma-separated 1/0 per rep, flipping ag.SOFTMAX_BW_RENORM in "
                          "THIS process. The lever is a module global read inside the "
                          "backward closure, so an ON rep and an OFF rep can share one warm "
                          "process and one set of weights, which is the only way to price it "
                          "against a run-to-run spread this large")
+    ap.add_argument("--no-exact", action="store_true",
+                    help="run the whole step inside ag.exact_training(False), which no "
+                         "measurement at the shipped shape has ever been taken in. There is "
+                         "no environment variable for the switch (autograd.py:1491), so this "
+                         "flag is the only way to reach it from a command line")
+    ap.add_argument("--node-prof", action="store_true",
+                    help="attribute the TRUNK backward's seconds to the op that taped each "
+                         "node, by wrapping every node closure and every checkpoint group. "
+                         "Costs a Python call per node; it does not change what runs.")
+    ap.add_argument("--node-prof-sync", action="store_true",
+                    help="with --node-prof, drain the device after every closure. Attributes "
+                         "device work to the node that issued it instead of to whichever "
+                         "later node happens to block, and serialises what the plain arm "
+                         "overlaps -- so this arm owns the SPLIT and the plain arm owns the "
+                         "TOTAL. Report both.")
+    ap.add_argument("--clk-bdf", default=os.environ.get("TT_BIO_CLK_BDF", ""),
+                    help="PCI BDF of the card this process holds, e.g. 0000:42:00.0. The "
+                         "sysfs AICLK node is resolved through it, because the lease card "
+                         "number and the /dev/tenstorrent node number are not the same.")
     ap.add_argument("--out", type=Path, required=True)
     a = ap.parse_args()
     if a.grad_ab:
@@ -807,6 +734,7 @@ def main() -> int:
                    "diffusion_samples": a.samples, "stage": a.stage,
                    "taped": not a.no_tape, "chunk": a.chunk or None,
                    "loss_shape": a.loss_shape,
+                   "exact_training": not a.no_exact,
                    "rng": "diffusion noise and loss fixture drawn from SEPARATE streams, so "
                           "a chunked arm and an unchunked one noise the same structures"}}
     a.out.parent.mkdir(parents=True, exist_ok=True)
@@ -826,7 +754,7 @@ def main() -> int:
     _clk = [None]
     dump()
 
-    with during() as clk:
+    with sysfs_during(bdf=a.clk_bdf or None) as clk, contextlib.ExitStack() as es:
         _clk[0] = clk
         try:
             import numpy as np
@@ -835,6 +763,21 @@ def main() -> int:
             from tt_bio.tenstorrent import get_device
             from tt_bio.train.losses import of3_loss_weights
             from tt_bio.train.optim import AdamW
+
+            # THE LEVER, entered before the capture so no phase in this process runs under
+            # a setting the step does not. `exact_training` is a context manager over a
+            # module global, so it has to stay open across the whole rep loop; the ExitStack
+            # holds it there without reindenting 200 lines of step around it.
+            es.enter_context(ag.exact_training(not a.no_exact))
+            out["exact"] = {
+                "requested": "OFF" if a.no_exact else "ON",
+                "ops_a_tape_would_run_exact": list(ag.exact_training_ops()),
+                "softmax_stats_before": dict(ag.EXACT_SOFTMAX_STATS),
+                "layer_norm_stats_before": dict(ag.EXACT_LAYER_NORM_STATS),
+            }
+            print(f"[exact] requested {out['exact']['requested']}, a tape opened now would "
+                  f"run {out['exact']['ops_a_tape_would_run_exact'] or 'NO ops'} exact",
+                  flush=True)
 
             held, _meta = S.capture(a.tokens, out)
             trunk = held["trunk"][0]
@@ -881,27 +824,16 @@ def main() -> int:
                     ag.SOFTMAX_BW_RENORM = plan[rep % len(plan)]
                 row["renorm_flag"] = bool(ag.SOFTMAX_BW_RENORM)
                 rs0 = dict(ag.SOFTMAX_BW_RENORM_STATS)
-                # The host resident set, phase by phase, and this rep's own peak. Host
-                # memory is a perf variable here, not bookkeeping: the same loss arithmetic
-                # reads 1.925 s at 11.82 GiB MemAvailable and 4.999 s at 9.06 GiB
-                # (`perf/of3t_p10host/out/shape_per-root_s4.json`), so a phase time without
-                # the memory it ran in is not comparable to the same phase in another run.
-                row["peak_reset"] = _reset_peak_rss()
-                row["rss_gib"] = {}
-                row["mem_available_gib"] = {}
-
-                def _mark(where):
-                    r, a_ = _mem()
-                    row["rss_gib"][where] = r
-                    row["mem_available_gib"][where] = a_
-
-                _mark("rep_start")
+                ex0 = (dict(ag.EXACT_SOFTMAX_STATS), dict(ag.EXACT_LAYER_NORM_STATS))
                 for t in params.values():
                     t.grad = None
                 ttnn.synchronize_device(dev)
 
                 # --- 1. trunk -------------------------------------------------------------
-                t0 = time.perf_counter()
+                # THE STEP'S OWN CLOCK. `step_s` below is a SUM of the phase timers; this is
+                # ONE clock across all of them and their difference is `unaccounted_s`, which
+                # is the only way to see the cost that sits between two timers.
+                wall0 = t0 = time.perf_counter()
                 if a.cycles > 1:
                     trunk_forward(trunk, held, a.cycles - 1, taped=False)
                     ttnn.synchronize_device(dev)
@@ -922,7 +854,17 @@ def main() -> int:
                     row["trunk_s"] = round(row["trunk_nograd_prefix_s"]
                                            + row["trunk_taped_cycle_s"], 3)
                     row["dram_after_trunk"] = _dram(dev)
-                    _mark("after_trunk")
+                    # ASSERT THE SCOPE FROM THE MECHANISM, NOT FROM THE ARGUMENT. `tape()`
+                    # installs the exact ops for its own extent (autograd.py `_training_exact`),
+                    # so inside the tape is the only place the answer is readable at all.
+                    row["exact_installed_in_trunk_tape"] = {
+                        "softmax": ag.exact_softmax_installed(),
+                        "layer_norm": ag.exact_layer_norm_installed()}
+                    print(f"  [trunk] prefix {row['trunk_nograd_prefix_s']:.2f}s  taped cycle "
+                          f"{row['trunk_taped_cycle_s']:.2f}s  exact-in-tape softmax="
+                          f"{row['exact_installed_in_trunk_tape']['softmax']} layer_norm="
+                          f"{row['exact_installed_in_trunk_tape']['layer_norm']}", flush=True)
+                    dump()
 
                     # --- 2. diffusion ------------------------------------------------------
                     # The invariants are inside the TRUNK's tape whether or not the replicates
@@ -946,6 +888,9 @@ def main() -> int:
                         ttnn.synchronize_device(dev)
                         row["prime_replicate_s"] = round(time.perf_counter() - t0, 3)
                         diff_s += row["prime_replicate_s"]
+                        print(f"  [prime] 1 replicate inside the trunk tape "
+                              f"{row['prime_replicate_s']:.2f}s", flush=True)
+                        dump()
                     if not chunk:
                         t0 = time.perf_counter()
                         roots = diffusion_chunk(sampler, pre, pre["sigmas"], rng_diff, d_out)
@@ -956,7 +901,6 @@ def main() -> int:
 
                 print("  [tape] left the tape context", flush=True)
                 row["diffusion"] = d_out
-                _mark("after_diffusion")
                 row["losses"] = l_out
                 loss_s = seed_s = bwd_s = 0.0
                 roll = labels = logits = None
@@ -987,6 +931,8 @@ def main() -> int:
                         c = {"first": ci, "n": len(part)}
                         t0 = time.perf_counter()
                         with ag.tape():
+                            c["exact_in_chunk_tape"] = [ag.exact_softmax_installed(),
+                                                        ag.exact_layer_norm_installed()]
                             roots = diffusion_chunk(sampler, pre, part, rng_diff, d_out,
                                                     si_trunk=s_det, zij_pad=z_det,
                                                     cache=cut_cache)
@@ -1057,10 +1003,23 @@ def main() -> int:
                     troots.extend(prime_roots)
                     tcot.extend(prime_cot)
                     row["trunk_tape_nodes"] = len(ag._reverse_topo(troots))
-                    ag.backward(troots, tcot)
+                    if a.node_prof:
+                        _sync = ((lambda: ttnn.synchronize_device(dev))
+                                 if a.node_prof_sync else None)
+                        _np = NodeProf(ag, sync=_sync)
+                        _t = time.perf_counter()
+                        with _np:
+                            ag.backward(troots, tcot)
+                        ttnn.synchronize_device(dev)
+                        row["node_prof"] = _np.report(time.perf_counter() - _t)
+                    else:
+                        ag.backward(troots, tcot)
                     ttnn.synchronize_device(dev)
                     row["trunk_backward_s"] = round(time.perf_counter() - t0, 3)
                     row["trunk_backward_entries"] = 1
+                    print(f"  [trunk bwd] {row['trunk_backward_s']:.2f}s over "
+                          f"{row['trunk_tape_nodes']} nodes", flush=True)
+                    dump()
                     bwd_s += row["trunk_backward_s"]
                     row["tape_nodes"] = (row["trunk_tape_nodes"]
                                          + sum(c["tape_nodes"] for c in chunks))
@@ -1103,7 +1062,6 @@ def main() -> int:
                 row["params_with_grad"] = f"{got} of {len(params)}"
                 row["backward_valid"] = bool(got) or a.no_tape
                 row["dram_after_backward"] = _dram(dev)
-                _mark("after_backward")
 
                 if a.grad_ab:
                     grad_ab = grad_snapshot(params, grad_ab, row,
@@ -1135,8 +1093,6 @@ def main() -> int:
                     ttnn.synchronize_device(dev)
                     row["optimizer_s"] = round(time.perf_counter() - t0, 3)
                     row["optimizer_updated"] = len(upd) if hasattr(upd, "__len__") else None
-                    row["writes_skipped"] = getattr(opt, "last_writes_skipped", None)
-                    _mark("after_optimizer")
                 else:
                     row["optimizer_s"] = 0.0
                     row["optimizer_note"] = ("no gradient reached a declared weight, so the "
@@ -1144,10 +1100,15 @@ def main() -> int:
                                              "--no-optimizer")
                 ag.release_pins()
 
-                row["peak_rss_gib"] = _peak_rss()
                 parts = ("trunk_s", "diffusion_s", "losses_s", "seed_upload_s",
                          "backward_s", "optimizer_s")
                 row["step_s"] = round(sum(row[p] for p in parts), 3)
+                row["step_wall_s"] = round(time.perf_counter() - wall0, 3)
+                row["unaccounted_s"] = round(row["step_wall_s"] - row["step_s"], 3)
+                row["exact_softmax_delta"] = {k: ag.EXACT_SOFTMAX_STATS[k] - ex0[0][k]
+                                              for k in ag.EXACT_SOFTMAX_STATS}
+                row["exact_layer_norm_delta"] = {k: ag.EXACT_LAYER_NORM_STATS[k] - ex0[1][k]
+                                                 for k in ag.EXACT_LAYER_NORM_STATS}
                 if a.no_tape:
                     row["step_s_UNTAPED"] = row.pop("step_s")
                     row["step_s"] = None
@@ -1166,8 +1127,33 @@ def main() -> int:
                       f"{row['renorm_applied']}a/{row['renorm_declined']}d, "
                       f"leaves {row.get('leaves_live_after_rebind')})",
                       flush=True)
+                print(f"[rep {rep}] WALL {row['step_wall_s']:.2f}s  phases "
+                      f"{row['step_s'] or row.get('step_s_UNTAPED'):.2f}s  unaccounted "
+                      f"{row['unaccounted_s']:.2f}s  exact softmax "
+                      f"{row['exact_softmax_delta']} layer_norm "
+                      f"{row['exact_layer_norm_delta']}", flush=True)
                 dump()
 
+            # THE PROOF, differenced across the reps. An arm that silently kept the
+            # instrument reads as a catastrophic regression and one that silently dropped it
+            # reads as a miracle; these counters are what tells the two apart from the
+            # artifact alone.
+            out["exact"]["softmax_stats_after"] = dict(ag.EXACT_SOFTMAX_STATS)
+            out["exact"]["layer_norm_stats_after"] = dict(ag.EXACT_LAYER_NORM_STATS)
+            for half in ("softmax", "layer_norm"):
+                before, after = (out["exact"][f"{half}_stats_before"],
+                                 out["exact"][f"{half}_stats_after"])
+                out["exact"][f"{half}_delta"] = {k: after[k] - before[k] for k in after}
+            out["exact"]["counters_all_zero"] = not any(
+                v for half in ("softmax", "layer_norm")
+                for v in out["exact"][f"{half}_delta"].values())
+            out["exact"]["installed_in_any_tape"] = any(
+                v for r in reps
+                for v in list(r.get("exact_installed_in_trunk_tape", {}).values())
+                + [x for c in r.get("chunks", []) for x in c.get("exact_in_chunk_tape", [])])
+            out["exact"]["off_proven"] = bool(a.no_exact
+                                              and out["exact"]["counters_all_zero"]
+                                              and not out["exact"]["installed_in_any_tape"])
             out["renorm"]["stats_after"] = dict(ag.SOFTMAX_BW_RENORM_STATS)
             out["renorm"]["applied_during_reps"] = (
                 out["renorm"]["stats_after"]["applied"]
@@ -1175,12 +1161,6 @@ def main() -> int:
             out["renorm"]["declined_during_reps"] = (
                 out["renorm"]["stats_after"]["declined"]
                 - out["renorm"]["stats_before"]["declined"])
-            # VmHWM is reset per rep, so this is the LAST rep's high-water mark, which is
-            # the steady one: the moments appear in rep 0's optimizer step and every rep
-            # after carries them. Assigned here rather than after the final dump(), where it
-            # printed correctly and never reached the artifact.
-            out["peak_rss_gib_run"] = _peak_rss()
-            print(f"PEAK RSS (last rep, VmHWM): {out['peak_rss_gib_run']} GiB", flush=True)
             key = "step_s_UNTAPED" if a.no_tape else "step_s"
             vals = [r[key] for r in reps if r.get(key) is not None]
             if vals:
@@ -1194,6 +1174,14 @@ def main() -> int:
                     "max_s": max(steady) if steady else None,
                     "spread_s": round(max(steady) - min(steady), 3) if steady else None,
                 }
+            wall = [r["step_wall_s"] for r in reps if r.get("step_wall_s") is not None]
+            if wall:
+                out["cold_wall_s"] = wall[0]
+                out["steady_wall"] = {
+                    "n": len(wall[1:]), "values_s": wall[1:],
+                    "median_s": round(statistics.median(wall[1:]), 3) if wall[1:] else None,
+                    "unaccounted_s": [r["unaccounted_s"] for r in reps
+                                      if r.get("unaccounted_s") is not None]}
         except Exception:
             out["error"] = traceback.format_exc()
             print(out["error"], flush=True)
