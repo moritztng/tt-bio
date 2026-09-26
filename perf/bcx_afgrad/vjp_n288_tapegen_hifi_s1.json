@@ -1,0 +1,191 @@
+{
+ "stamp": {
+  "host": "tt-quietbox2",
+  "card": 3,
+  "subsystem_device": "0x0046",
+  "commit": "c85a32622beaf513715bb8c6593704344758bc9a",
+  "tt_bio_dirty": false,
+  "torch_threads": 8,
+  "loadavg": [
+   10.31884765625,
+   10.4970703125,
+   10.8818359375
+  ],
+  "utc": "2026-09-26T13:40:12Z"
+ },
+ "n": 288,
+ "seed": 1,
+ "loss": "fixed random linear readout of (msa_out, pair_out)",
+ "rows": [
+  {
+   "block": "evo0",
+   "reach": 264,
+   "nodes": 189,
+   "dz": {
+    "rel_l2": 0.07094038128016956,
+    "cos": 0.9974832025779747,
+    "norm_ref": 3.3502009408001365,
+    "norm_ratio": 0.9992912485022194
+   },
+   "dz_torch_bf16": {
+    "rel_l2": 0.06162365851541789,
+    "cos": 0.9981038814566865,
+    "norm_ratio": 1.0010759964835596
+   },
+   "dz_torch_f32": {
+    "rel_l2": 0.000246677256875447,
+    "cos": 0.9999999695749998,
+    "norm_ratio": 0.9999999569844488
+   },
+   "dm": {
+    "rel_l2": 0.057978004373397944,
+    "cos": 0.9983180657396462,
+    "norm_ref": 71.85116169893182,
+    "norm_ratio": 0.9989605220271687
+   },
+   "dm_torch_bf16": {
+    "rel_l2": 0.05240334444546505,
+    "cos": 0.9986265587362927,
+    "norm_ratio": 0.9996821735144419
+   },
+   "dm_torch_f32": {
+    "rel_l2": 0.00014413249984137808,
+    "cos": 0.999999989617822,
+    "norm_ratio": 1.0000031269387446
+   },
+   "fwd_m": {
+    "rel_l2": 0.002873754173388203,
+    "cos": 0.9999959146217607
+   },
+   "fwd_z": {
+    "rel_l2": 0.018875024959527004,
+    "cos": 0.9998257115340705
+   },
+   "permuted": {
+    "dz": {
+     "rel_l2": 1.3558728267725981,
+     "cos": 0.002525858017036591
+    },
+    "dm": {
+     "rel_l2": 1.2459565773063328,
+     "cos": -0.0001994892306994796
+    }
+   },
+   "zero_seed_max_abs": {
+    "dz": 0.0,
+    "dm": 0.0
+   },
+   "census": {
+    "reach": 264,
+    "nodes": 189,
+    "kinds": {
+     "_v_typecast": 30,
+     "_binary": 27,
+     "_v_reshape": 25,
+     "_taped_linear": 22,
+     "_v_permute": 16,
+     "_v_matmul": 13,
+     "_v_exact_layer_norm": 12,
+     "_v_create_qkv_heads": 12,
+     "_identity_grad": 8,
+     "_sliced": 8,
+     "_v_concat_heads": 4,
+     "_v_transpose": 4,
+     "relu": 2,
+     "triangle_attention": 2,
+     "scale": 2,
+     "host_f64_softmax": 2
+    },
+    "identity_plus_sliced": 16,
+    "identity_plus_sliced_share": 0.08465608465608465,
+    "all_shape_ops": 77,
+    "all_shape_ops_share": 0.4074074074074074
+   }
+  },
+  {
+   "block": "evo1",
+   "reach": 264,
+   "nodes": 189,
+   "dz": {
+    "rel_l2": 0.05195349077307051,
+    "cos": 0.9986511237285041,
+    "norm_ref": 1.183829463818164,
+    "norm_ratio": 1.0000233306428823
+   },
+   "dz_torch_bf16": {
+    "rel_l2": 0.04762851859898298,
+    "cos": 0.9988657489891298,
+    "norm_ratio": 0.9999883742703616
+   },
+   "dz_torch_f32": {
+    "rel_l2": 0.0005059852285942156,
+    "cos": 0.9999998719893253,
+    "norm_ratio": 1.0000001859384242
+   },
+   "dm": {
+    "rel_l2": 0.09357987046886804,
+    "cos": 0.9956505592083088,
+    "norm_ref": 6.411214287824943,
+    "norm_ratio": 1.0044403006564693
+   },
+   "dm_torch_bf16": {
+    "rel_l2": 0.0964142071426532,
+    "cos": 0.9953867217746398,
+    "norm_ratio": 1.0048959396293977
+   },
+   "dm_torch_f32": {
+    "rel_l2": 0.0004442078459741969,
+    "cos": 0.9999999014808562,
+    "norm_ratio": 1.0000167048731972
+   },
+   "fwd_m": {
+    "rel_l2": 0.002292178577673267,
+    "cos": 0.9999974546788476
+   },
+   "fwd_z": {
+    "rel_l2": 0.008727117025402749,
+    "cos": 0.9999619255108931
+   },
+   "permuted": {
+    "dz": {
+     "rel_l2": 1.4194100576163842,
+     "cos": -0.0033978185455951306
+    },
+    "dm": {
+     "rel_l2": 1.4136355483269776,
+     "cos": -0.02791123336128937
+    }
+   },
+   "zero_seed_max_abs": {
+    "dz": 0.0,
+    "dm": 0.0
+   },
+   "census": {
+    "reach": 264,
+    "nodes": 189,
+    "kinds": {
+     "_v_typecast": 30,
+     "_binary": 27,
+     "_v_reshape": 25,
+     "_taped_linear": 22,
+     "_v_permute": 16,
+     "_v_matmul": 13,
+     "_v_exact_layer_norm": 12,
+     "_v_create_qkv_heads": 12,
+     "_identity_grad": 8,
+     "_sliced": 8,
+     "_v_concat_heads": 4,
+     "_v_transpose": 4,
+     "relu": 2,
+     "triangle_attention": 2,
+     "scale": 2,
+     "host_f64_softmax": 2
+    },
+    "identity_plus_sliced": 16,
+    "identity_plus_sliced_share": 0.08465608465608465,
+    "all_shape_ops": 77,
+    "all_shape_ops_share": 0.4074074074074074
+   }
+  }
+ ]
+}

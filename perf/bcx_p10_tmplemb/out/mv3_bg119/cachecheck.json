@@ -1,0 +1,109 @@
+{
+ "pdb": "/home/ttuser/.coworker/wt/bcx-p10-tmplemb/scripts/af2_port/parity_artifacts/designpop_bg119/binder_complex.pdb",
+ "params": "/home/ttuser/bcx_e2e/af2_params/params_model_1_multimer_v3.npz",
+ "multimer": true,
+ "binder_residues": 119,
+ "tokens": 207,
+ "recycles": 3,
+ "arms": {
+  "on": {
+   "calls": [
+    {
+     "call": 0,
+     "served_from_cache": false,
+     "n": 207,
+     "seconds": 9.8981,
+     "pair_norm": 3576.6515304512286
+    },
+    {
+     "call": 1,
+     "served_from_cache": true,
+     "n": 207,
+     "seconds": 0.0032,
+     "pair_norm": 6136.318943032941,
+     "cached_vs_correct": {
+      "rel_l2": 0.3010910728396858,
+      "max_abs": 11.3125,
+      "cos": 0.9553802609935773,
+      "norm_ref": 5143.44606904778
+     }
+    },
+    {
+     "call": 2,
+     "served_from_cache": true,
+     "n": 207,
+     "seconds": 0.0011,
+     "pair_norm": 6194.22170167514,
+     "cached_vs_correct": {
+      "rel_l2": 0.2798243315886041,
+      "max_abs": 11.75,
+      "cos": 0.961102260657743,
+      "norm_ref": 5035.889872960139
+     }
+    },
+    {
+     "call": 3,
+     "served_from_cache": true,
+     "n": 207,
+     "seconds": 0.0008,
+     "pair_norm": 6192.63882813399,
+     "cached_vs_correct": {
+      "rel_l2": 0.270563631925641,
+      "max_abs": 11.0625,
+      "cos": 0.9634849744681407,
+      "norm_ref": 4989.6745905207945
+     }
+    }
+   ],
+   "fold_seconds": 24.49
+  },
+  "off": {
+   "calls": [
+    {
+     "call": 0,
+     "served_from_cache": false,
+     "n": 207,
+     "seconds": 0.1617,
+     "pair_norm": 3576.6515304512286
+    },
+    {
+     "call": 1,
+     "served_from_cache": false,
+     "n": 207,
+     "seconds": 0.0624,
+     "pair_norm": 6136.318943032941
+    },
+    {
+     "call": 2,
+     "served_from_cache": false,
+     "n": 207,
+     "seconds": 0.1263,
+     "pair_norm": 6112.727976425906
+    },
+    {
+     "call": 3,
+     "served_from_cache": false,
+     "n": 207,
+     "seconds": 0.0859,
+     "pair_norm": 6109.542167428451
+    }
+   ],
+   "fold_seconds": 4.553
+  }
+ },
+ "trunk_on_vs_off": {
+  "pair": {
+   "rel_l2": 0.3573806111365022,
+   "max_abs": 173.5625,
+   "cos": 0.9345411581268126,
+   "norm_ref": 37289.77409656367
+  },
+  "single": {
+   "rel_l2": 0.051975306369003854,
+   "max_abs": 448.0,
+   "cos": 0.9986911189659207,
+   "norm_ref": 101247.56864324103
+  }
+ },
+ "finished_utc": "2026-09-26T10:38:29Z"
+}
