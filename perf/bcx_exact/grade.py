@@ -74,16 +74,23 @@ def main():
     ap.add_argument("--extra", type=int, default=4)
     ap.add_argument("--seed", type=int, default=0)
     ap.add_argument("--cmds", default="stack,vjp")
+    ap.add_argument("--arms", default="on,off,on2",
+                    help="which arms to run, in order. The float64 reference is rebuilt per arm, "
+                         "so a diagnostic that only needs the OFF arm should say so.")
+    ap.add_argument("--blocks", default="")
     ap.add_argument("--out", default=str(HERE / "GRADE.json"))
     a = ap.parse_args()
 
     log = []
     # ON first, then OFF, then ON again: the repeat is the control that says the process did not
     # drift between the arms.
+    want = [t.strip() for t in a.arms.split(",") if t.strip()]
     for cmd in a.cmds.split(","):
         for on, tag in ((True, "on"), (False, "off"), (True, "on2")):
+            if tag not in want:
+                continue
             args = ns(card=a.card, n=a.n, evo=a.evo, extra=a.extra, seed=a.seed,
-                      tag=f"exact_{tag}_n{a.n}")
+                      blocks=a.blocks or None, tag=f"exact_{tag}_n{a.n}")
             log.append({**run(cmd, on, args, tag), "tag": tag})
             print(json.dumps(log[-1]), flush=True)
     blob = {"host": os.uname().nodename, "card": a.card, "n": a.n,
