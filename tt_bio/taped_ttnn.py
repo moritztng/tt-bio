@@ -37,6 +37,7 @@ import types
 import ttnn
 
 from . import autograd as ag
+from . import mm_layout as _mm_layout
 from .autograd import Tensor, precise_config
 from .autograd import (_axis, _differentiating, _flat2d, _matmul, _on_tape, _raw,
                        _reduce_to, _sum_leading, _tape,
@@ -212,6 +213,12 @@ def _v_matmul(shipped, args, kwargs):
             f"tape; do the same here rather than dropping it.")
     cfg = kw.get("compute_kernel_config") or precise_config()
     ra, rk = _raw(args, kwargs)
+    # The forward of a taped matmul is the shipped call verbatim, so the plan-less batched
+    # ones arrive here as the model wrote them. `experimental.minimal_matmul` takes its
+    # operands by keyword and has no `core_grid`, so only the positional `ttnn.matmul` form
+    # is in range; `mm_layout.plan` is the identity with the lever off.
+    if shipped is ttnn.matmul and len(ra) > 1:
+        rk = _mm_layout.plan(ra[0], ra[1], rk)
     out_v = shipped(*ra, **rk)
 
     def make():

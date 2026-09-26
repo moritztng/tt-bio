@@ -30,6 +30,7 @@ from typing import Optional, Sequence
 import ttnn
 
 from tt_bio.envflags import env_flag
+from tt_bio import mm_layout as _mm_layout
 
 #: `ttnn.zeros(..., device=)` builds its zeros on the HOST and uploads them, and that upload is
 #: what this flag exists to avoid. It was introduced for trace capture, which refuses a host
@@ -904,6 +905,7 @@ def _matmul(a, b, **kw):
     `sampler.dc.w_lin_*` gradients. The narrower operand is promoted to fp32, which is exact,
     and nothing changes where the dtypes already agree.
     """
+    kw = _mm_layout.plan(a, b, kw)
     if not kw.get("transpose_a") or a.dtype == b.dtype:
         return ttnn.matmul(a, b, **kw)
     MIXED_TRANSPOSE_A["promoted"] += 1
@@ -1272,8 +1274,8 @@ def linear(x: Tensor, w: Tensor, b: Optional[Tensor] = None, *, dtype=None, core
     def make():
         def bw(g):
             if x.requires_grad:
-                x.add_grad(_via2d(g, lambda v: ttnn.matmul(v, w.value, transpose_b=True,
-                                                           compute_kernel_config=bwcfg)))
+                x.add_grad(_via2d(g, lambda v: _matmul(v, w.value, transpose_b=True,
+                                                      compute_kernel_config=bwcfg)))
             if w.requires_grad:
                 # dW = X^T @ dY, summed over every leading dim, so flatten both first:
                 # a batched matmul would give one dW per batch instead of their sum.
@@ -2076,6 +2078,39 @@ def triangle_attention(q: Tensor, k: Tensor, v: Tensor, bias: Optional[Tensor] =
 
     def make():
         def bw(g):
+            # Counted unconditionally, before any gate. "served 0, declined 0" is ambiguous on its
+            # own -- it reads the same whether this backward never ran or ran and was refused --
+            # and which of those is true decides whether the lever needs a narrower gate or
+            # another row's routing change.
+            from . import triatt_bw as _tbw0
+            _tbw0.STATS["bw_calls"] = _tbw0.STATS.get("bw_calls", 0) + 1
+            # The fused backward, when it is on and the shape fits. It computes the same gradient
+            # over the same blocks with the score tensor never leaving L1: 238.88 MB a call at the
+            # shipped 288-token shape against 9172.90 for the loop below. Default off, and it
+            # refuses rather than approximates -- everything it declines falls through to the
+            # chunked recompute, which is correct at every shape.
+            from . import triatt_bw as _tbw
+            if _tbw.FUSED and bias is not None and bias_bcast:
+                _ok, _why = _tbw.eligible(q.value, k.value, v.value, bias.value)
+                if _ok:
+                    _dev = q.value.device()
+                    _p = _tbw.plan(*(int(x) for x in q.value.padded_shape),
+                                   grid=(_dev.compute_with_storage_grid_size().x,
+                                         _dev.compute_with_storage_grid_size().y))
+                    if _tbw.fits_l1(_p):
+                        _dq, _dk, _dv, _db = _tbw.run(
+                            _dev, q.value, k.value, v.value, bias.value, g, scale,
+                            (ttnn.MathFidelity.HiFi4,))
+                        for _t, _d in ((q, _dq), (k, _dk), (v, _dv), (bias, _db)):
+                            if _t.requires_grad:
+                                _t.add_grad(_d)
+                            else:
+                                ttnn.deallocate(_d)
+                        return
+                    _tbw.STATS["declined"] += 1
+                else:
+                    _tbw.STATS["declined"] += 1
+
             dq_blocks, dk_blocks, dv_blocks, dbias_rows = [], [], [], None
             dbias_blocks = []
             for b0 in range(0, B, cB):
@@ -2687,7 +2722,7 @@ def _taped_linear(shipped, args, kwargs):
                 # `_reduce_to` because a matmul normalises rank: an x of (1, N, N, c)
                 # comes back as (N, N, c) and `add_grad` refuses a gradient that is not
                 # its value's shape, correctly.
-                x.add_grad(_reduce_to(_via2d(g, lambda v: ttnn.matmul(
+                x.add_grad(_reduce_to(_via2d(g, lambda v: _matmul(
                                           v, w.value, transpose_b=True,
                                           compute_kernel_config=bwcfg)),
                                       x.value.shape))

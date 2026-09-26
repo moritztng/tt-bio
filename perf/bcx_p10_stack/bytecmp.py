@@ -15,6 +15,10 @@ not: a byte count is additive and deterministic, a duration is neither
 (memory `op-level-ratios-do-not-transfer-to-the-round`).
 
     python3 perf/bcx_p10_stack/bytecmp.py perf/bcx_p10_stack/out/bytes
+    python3 perf/bcx_p10_stack/bytecmp.py <dir> blk288_tabwire_ hifi,hifibw
+
+The arm list and the blob prefix are arguments so a later row can compare its own pair without
+a second copy of this. The FIRST arm named is the baseline every ratio is taken against.
 """
 import json
 import pathlib
@@ -42,23 +46,24 @@ def totals(path):
     return fam, stack
 
 
-def main(root):
+def main(root, prefix="blk288_stack_", names=("mat", "agtri", "hifi")):
     root = pathlib.Path(root)
     arms = {}
-    for name in ("mat", "agtri", "hifi"):
-        p = root / f"blk288_stack_{name}.json"
+    for name in names:
+        p = root / f"{prefix}{name}.json"
         if p.exists():
             arms[name] = totals(p)
         else:
             print(f"missing {p.name}")
-    if "mat" not in arms:
+    base_name = names[0]
+    if base_name not in arms:
         return 1
 
     print("one Evoformer block and one extra-MSA block, n=288, K=1, read+written\n")
     print(f"{'arm':<8}{'evo GB/blk':>12}{'extra GB/blk':>14}{'round GB (proj)':>18}"
-          f"{'vs mat':>9}{'floor s':>9}")
+          f"{('vs ' + base_name):>9}{'floor s':>9}")
     proj = {}
-    for name in ("mat", "agtri", "hifi"):
+    for name in names:
         if name not in arms:
             continue
         stack = arms[name][1]
@@ -66,26 +71,30 @@ def main(root):
         r = evo * BLOCKS["evo"] + ext * BLOCKS["extra"]
         proj[name] = r
         print(f"{name:<8}{evo:>12.4f}{ext:>14.4f}{r:>18.1f}"
-              f"{(proj['mat'] / r if r else 0):>9.3f}{r * 1e9 / ROOF:>9.2f}")
+              f"{(proj[base_name] / r if r else 0):>9.3f}{r * 1e9 / ROOF:>9.2f}")
 
-    base = arms["mat"][0]
+    base = arms[base_name][0]
     print("\nper family, GB a block, only the families that moved:")
-    print(f"  {'stack':<7}{'dir':<5}{'family':<18}{'mat':>9}{'agtri':>9}{'hifi':>9}"
-          f"{'mat/hifi':>10}")
+    head = "".join(f"{n:>9}" for n in names)
+    last = names[-1]
+    print(f"  {'stack':<7}{'dir':<5}{'family':<18}{head}{(base_name + '/' + last):>14}")
     moved = 0
     for key in sorted(base, key=lambda k: -base[k]):
-        row = [arms[n][0].get(key, 0.0) / 1e9 if n in arms else 0.0
-               for n in ("mat", "agtri", "hifi")]
+        row = [arms[n][0].get(key, 0.0) / 1e9 if n in arms else 0.0 for n in names]
         if max(row) - min(row) < 5e-4:
             continue
         moved += 1
         st, dr, f = key
-        print(f"  {st:<7}{dr:<5}{f:<18}{row[0]:>9.4f}{row[1]:>9.4f}{row[2]:>9.4f}"
-              f"{(row[0] / row[2] if row[2] else 0):>10.3f}")
+        cells = "".join(f"{x:>9.4f}" for x in row)
+        print(f"  {st:<7}{dr:<5}{f:<18}{cells}"
+              f"{(row[0] / row[-1] if row[-1] else 0):>14.3f}")
     if not moved:
-        print("  none -- every family is byte-identical across the three routes")
+        print("  none -- every family is byte-identical across every route")
     return 0
 
 
 if __name__ == "__main__":
-    sys.exit(main(sys.argv[1] if len(sys.argv) > 1 else "perf/bcx_p10_stack/out/bytes"))
+    a = sys.argv[1:]
+    sys.exit(main(a[0] if a else "perf/bcx_p10_stack/out/bytes",
+                  *( [a[1]] if len(a) > 1 else [] ),
+                  *( [tuple(a[2].split(","))] if len(a) > 2 else [] )))

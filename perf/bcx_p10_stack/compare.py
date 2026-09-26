@@ -18,7 +18,8 @@ import pathlib
 import statistics as st
 import sys
 
-LEVERS = ("extra_msa_on_device", "template_on_device", "triatt_taped_sdpa", "triatt_hifi")
+LEVERS = ("extra_msa_on_device", "template_on_device", "triatt_taped_sdpa", "triatt_hifi",
+          "triatt_bw_fused")
 
 #: The third lever has two routes and they are mutually exclusive, so an arm is named by which
 #: one it took rather than by a bit. Keying on `triatt_taped_sdpa` alone would pool a `hifi` arm
@@ -69,7 +70,11 @@ def reach(stamp):
     fused = stamp.get("fused_hifi_stats") or {}
     tri = ((stamp.get("triatt_sdpa_stats") or {}).get("served", 0)
            + fused.get("served", 0))
-    return (sum(e), t, tri)
+    # The FORWARD route and the BACKWARD kernel are two different levers on the same call and
+    # either can fire without the other, so they are counted separately. A backward arm reading
+    # 0 here with the switch on has measured the forward twice.
+    bw = (stamp.get("triatt_bw_stats") or {}).get("served", 0)
+    return (sum(e), t, tri, bw)
 
 
 def dead_hifi(stamp):
@@ -95,7 +100,7 @@ def main(root):
         a["reach"].append(reach(stamp))
         a.setdefault("dead", []).append(dead_hifi(stamp))
 
-    base = arms.get((0, 0, 0))
+    base = arms.get((0, 0, 0, 0, 0))
     print(f"{'arm (msa,tmpl,route)':<24} {'n':>3} {'round s':>9} {'min':>7} {'max':>7} "
           f"{'host':>7} {'dev':>7} {'x':>6} {'AICLK':>6} {'load1':>6}  reach")
     ref = med([r["wall"] for r in base["rows"]]) if base else None
@@ -105,11 +110,14 @@ def main(root):
         clk = sorted(r["aiclk"] for r in a["rows"] if r["aiclk"])
         dead = [i for i, on in enumerate(key[:2]) if on
                 and all(r[i] == 0 for r in a["reach"])]
-        if sum(key[2:]) and all(r[2] == 0 for r in a["reach"]):
+        if sum(key[2:4]) and all(r[2] == 0 for r in a["reach"]):
             dead.append(2)
+        if key[4] and all(r[3] == 0 for r in a["reach"]):
+            dead.append(4)
         tag = "  DEAD:" + ",".join(LEVERS[i] for i in dead) if dead else ""
         tag += "".join("  " + d for d in a.get("dead", []) if d)
-        name = "(%d,%d,%s)" % (key[0], key[1], ROUTE.get((key[2], key[3]), "BOTH?"))
+        name = "(%d,%d,%s%s)" % (key[0], key[1], ROUTE.get((key[2], key[3]), "BOTH?"),
+                                 "+bw" if key[4] else "")
         print(f"{name:<24} {len(a['rows']):>3} {w:>9.3f} "
               f"{min(r['wall'] for r in a['rows']):>7.3f} "
               f"{max(r['wall'] for r in a['rows']):>7.3f} "
