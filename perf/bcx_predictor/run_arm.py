@@ -2,10 +2,12 @@
 """Run BindCraft 2's own campaign, unmodified, against a chosen predictor.
 
 `campaign.py` takes its predictor as a parameter everywhere and constructs
-`AlphaFoldDesignModel` in exactly one place, so an arm is chosen by which class is built,
-not by editing the loop. Nothing here changes BindCraft 2's step budget, its stage plan,
-its recycles, its filters or its ranking: the campaign runs its own 125 gradient steps a
-trajectory and accepts or rejects on its own thresholds.
+`AlphaFoldDesignModel` in exactly two places, campaign.py:262 and :265, so an arm is chosen
+by which class is built, not by editing the loop. Rebinding the module-level name catches
+both; patching only :262 would leave validation on the reference trunk while design ran on
+ours, which is a silent device split inside one campaign. Nothing here changes BindCraft 2's
+step budget, its stage plan, its recycles, its filters or its ranking: the campaign runs its
+own 125 gradient steps a trajectory and accepts or rejects on its own thresholds.
 
 Two deviations from BindCraft 2's defaults, both deliberate and both named in
 state/bcx-predictor.md:

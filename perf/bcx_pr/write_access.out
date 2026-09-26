@@ -1,0 +1,25 @@
+# perf/bcx_pr/write_access.py, run 2026-09-26 17:2xZ on pc. Every field read from the GitHub API this pass.
+
+PacesaLab/BindCraft2, read 14 PRs
+
+  #  author           outcome head repo                opened                closed
+  1  rclune           MERGED  PacesaLab/BindCraft2     2026-09-21T18:15:44Z  2026-09-24T12:38:25Z   [lab]
+  2  cytokineking     CLOSED  cytokineking/BindCraft2  2026-09-21T18:54:43Z  2026-09-25T09:27:47Z   [fork]
+  3  ErikMaeots       MERGED  PacesaLab/BindCraft2     2026-09-21T20:41:25Z  2026-09-21T20:45:42Z   [lab]
+  6  ErikMaeots       MERGED  PacesaLab/BindCraft2     2026-09-22T06:48:20Z  2026-09-22T07:52:23Z   [lab]
+  7  sbonner0         CLOSED  sbonner0/BindCraft2      2026-09-22T09:55:27Z  2026-09-22T10:43:42Z   [fork]
+  8  ErikMaeots       MERGED  PacesaLab/BindCraft2     2026-09-22T10:43:13Z  2026-09-22T13:30:55Z   [lab]
+ 10  prihoda          open    prihoda/BindCraft2-fork  2026-09-22T19:34:32Z  -   [fork]
+ 14  zyzllik          MERGED  PacesaLab/BindCraft2     2026-09-23T11:45:59Z  2026-09-23T12:02:10Z   [lab]
+ 15  zyzllik          MERGED  PacesaLab/BindCraft2     2026-09-23T11:53:03Z  2026-09-23T11:54:41Z   [lab]
+ 16  prihoda          open    prihoda/BindCraft2-fork  2026-09-23T15:52:37Z  -   [fork]
+ 17  ErikMaeots       MERGED  PacesaLab/BindCraft2     2026-09-24T06:12:03Z  2026-09-24T17:16:08Z   [lab]
+ 19  moritztng        open    moritztng/BindCraft2     2026-09-24T20:43:37Z  -   [fork]
+ 21  LeonardoTredese  open    PacesaLab/BindCraft2     2026-09-25T12:29:22Z  -   [lab]
+ 22  ceryni5          CLOSED  ceryni5/BindCraft2       2026-09-25T20:17:09Z  2026-09-26T15:02:52Z   [fork]
+
+head branch in PacesaLab/BindCraft2: 8 PRs -- 7 merged, 0 closed unmerged, 1 open. Merged of resolved: 7/7
+  still open: #21 (LeonardoTredese)
+
+head branch in a fork: 6 PRs -- 0 merged, 3 closed unmerged, 3 open. Merged of resolved: 0/3
+  still open: #10 (prihoda), #16 (prihoda), #19 (moritztng)

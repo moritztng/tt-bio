@@ -1,0 +1,62 @@
+# perf/bcx_pr/fix_check.py re-run 2026-09-26 17:1xZ on pc against upstream main AS IT IS TODAY.
+# The numbers in README under 'the branch did not fix the crash' were measured against main 3e3563894.
+# martinpacesa pushed ce3150f8d (14:57:13Z) and e6d30f6ea (15:12:12Z) since, so they are re-measured here.
+# jax 0.11.2 / jaxlib 0.11.2, python 3.12.12, CPU backend, no card and no device opened.
+# design_devices() stubbed; nvidia-smi a stub printing what a GB10's prints. Everything else the module as written.
+#
+# upstream/main            e6d30f6ea2e5bbc2f62ae7fa722f183da6c6c29f
+# PR #19 head              d00dd6f243a97b2038135884c2527c028ca12aad
+# git merge resolves clean at 09ae16224f776869b9b4b9d81813188bff2de32e, +69/-24 over 4 files
+
+=== upstream/main e6d30f6ea ===
+  FAIL  A  third platform, 2 devices -> a 1-worker plan, not a raise
+              0 worker(s) on []
+  pass  B  CUDA_VISIBLE_DEVICES=2,3 -> the cards the job was given
+              ['2', '3']
+  pass  B  workers pinned to 2 and 3, not 0 and 1
+              CUDA_VISIBLE_DEVICES=['2', '3']
+  FAIL  B  free memory keyed by the pin name, not the jax id
+              []
+  FAIL  C  rocm, no variable set -> the whole box
+              []
+  FAIL  D  HIP_VISIBLE_DEVICES=2,3 -> the cards the job was given
+              []
+  FAIL  D  variable does not describe the devices -> jax ids, no mixed list
+              ['2', '3', 'bogus', '7']
+  pass  E  no accelerator -> no fan-out, no raise
+              []
+  pass  E  no accelerator -> an empty plan, no raise
+              []
+  FAIL  F  nvidia-smi reports [N/A] memory -> a reading, not a raise
+              ValueError: could not convert string to float: '[N/A]'
+  FAIL  F  nvidia-smi reports [N/A] memory -> a plan, not a refused campaign
+              ValueError: could not convert string to float: '[N/A]'
+
+4 passed, 7 failed
+
+=== PR #19 merged into it, 09ae16224 ===
+  pass  A  third platform, 2 devices -> a 1-worker plan, not a raise
+              1 worker(s) on ['0']
+  pass  B  CUDA_VISIBLE_DEVICES=2,3 -> the cards the job was given
+              ['2', '3']
+  pass  B  workers pinned to 2 and 3, not 0 and 1
+              CUDA_VISIBLE_DEVICES=['2', '3']
+  pass  B  free memory keyed by the pin name, not the jax id
+              ['2', '3']
+  pass  C  rocm, no variable set -> the whole box
+              ['0', '1', '2', '3']
+  pass  D  HIP_VISIBLE_DEVICES=2,3 -> the cards the job was given
+              ['2', '3']
+  pass  D  variable does not describe the devices -> jax ids, no mixed list
+              ['0', '1']
+  pass  E  no accelerator -> no fan-out, no raise
+              []
+  pass  E  no accelerator -> an empty plan, no raise
+              []
+  pass  F  nvidia-smi reports [N/A] memory -> a reading, not a raise
+              {'0': (80.0, 80.0)}
+  pass  F  nvidia-smi reports [N/A] memory -> a plan, not a refused campaign
+              4 worker(s)
+
+11 passed, 0 failed
+

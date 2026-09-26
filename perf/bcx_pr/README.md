@@ -70,6 +70,18 @@ patch gives. Neither refuses the campaign, which is the whole claim.
 
 The 2 are the GB10 pair. `git merge origin/main` resolves clean at `e4f58043c`, and the four files
 this branch touches appear in none of the open PRs #10, #16, #21 or #22.
+
+**Re-measured 2026-09-26 17:1xZ against `main` as it is now**, because `martinpacesa` pushed
+`ce3150f8d` (14:57:13Z) and `e6d30f6ea` (15:12:12Z) after the table above was taken. Fresh clone,
+same eleven checks, `fix_check_at_head_20260926.out`:
+
+    upstream/main e6d30f6ea                          4 pass /  7 fail
+    PR #19 merged into it, 09ae16224                11 pass /  0 fail
+
+The merge is clean at `09ae16224f776869b9b4b9d81813188bff2de32e`, +69/-24 over the same 4 files, and
+the API agrees: `mergeable: true`, `mergeable_state: clean`. Both of today's upstream commits touch
+only `settings/modality/*.json` and `examples/*.json`, so nothing was expected to move; this
+measures it rather than assuming it.
 `ISSUE23_COMMENT_2026-09-26.md` and `PR19_COMMENT_4_2026-09-26.md` are the two comments as posted
 (issuecomment-5846138314 and -5846138434). `GB10_NA.patch` is the commit.
 
@@ -158,3 +170,16 @@ git checkout 301efdd -- bindcraft/design_workers.py
 - **Installer auto-detection.** `install.sh:16` takes `cuda13|cuda12|rocm` positionally already.
   The one CUDA-specific piece left is the `cuda13` fallback when no driver answers, which their own
   comment defends as the login-node case, and we cannot exercise the detection on either machine.
+
+## Who this repository merges, counted on a field rather than on a guess
+
+`write_access.py` / `.out`, read from the API 2026-09-26 17:2xZ. Two earlier counts of this tracker
+disagreed (0 of 5, then 3 of 5) and both partitioned PRs by whether the author *looked* like the
+lab. `head.repo.full_name` settles it: a branch cannot be pushed into `PacesaLab/BindCraft2` without
+write access to it.
+
+    head branch in PacesaLab/BindCraft2:  8 PRs -- 7 merged, 0 closed unmerged, 1 open (#21)
+    head branch in a fork:                6 PRs -- 0 merged, 3 closed unmerged, 3 open (#10, #16, #19)
+
+No fork PR has merged into this repository. #19 is the only one of the six that a lab member
+reopened, pushed commits onto, and assigned a reviewer, so the base rate does not describe it.
