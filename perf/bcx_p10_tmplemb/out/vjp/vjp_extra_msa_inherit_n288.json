@@ -1,0 +1,58 @@
+{
+ "n": 288,
+ "c_t": 128,
+ "stack": "extra_msa",
+ "triatt_fused": "inherit",
+ "params": "/home/ttuser/bcx_e2e/af2_params/params_model_1_multimer_v3.npz",
+ "seed": 0,
+ "graded": false,
+ "why": "device-timing control; the extra-MSA block has a different cut",
+ "seconds": {
+  "cpu_f64_fwd_bwd": null,
+  "cpu_bf16_fwd_bwd": null,
+  "device_cold_fwd": 11.219,
+  "device_cold_bwd": 15.582,
+  "device_warm_fwd": 10.812,
+  "device_warm_bwd": 15.505,
+  "device_warm_total": 26.317,
+  "device_fwd_all": [
+   11.219,
+   11.366,
+   10.812,
+   10.537
+  ],
+  "device_bwd_all": [
+   15.582,
+   15.56,
+   15.417,
+   15.505
+  ],
+  "aiclk_during": [
+   {
+    "pci": "0000:02:00.0",
+    "min": 1350,
+    "max": 1350,
+    "load1": 9.23
+   },
+   {
+    "pci": "0000:02:00.0",
+    "min": 1350,
+    "max": 1350,
+    "load1": 10.13
+   },
+   {
+    "pci": "0000:02:00.0",
+    "min": 1350,
+    "max": 1350,
+    "load1": 10.01
+   },
+   {
+    "pci": "0000:02:00.0",
+    "min": 1350,
+    "max": 1350,
+    "load1": 8.33
+   }
+  ]
+ },
+ "finished_utc": "2026-09-26T11:18:56Z"
+}
