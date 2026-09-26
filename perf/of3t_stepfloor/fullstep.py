@@ -38,6 +38,13 @@ carry N DISTINCT sigmas -- upstream's `_train_diffusion` shape -- without invent
 constant this row has no business fixing. Timing reads the sample COUNT, not the value.
 
     fullstep.py --tokens 384 --cycles 4 --samples 4 --reps 3 --out <json>
+
+`--no-exact` runs the whole step inside `ag.exact_training(False)`, which is the only
+way to reach that switch from a command line -- there is no environment variable for it
+(autograd.py:1491). The artifact then carries its own proof under `exact`: both counters
+differenced across the reps, and `exact_softmax_installed()` / `exact_layer_norm_installed()`
+read INSIDE the trunk tape and inside every chunk tape, which is the only extent where
+they are installed at all.
 """
 from __future__ import annotations
 
