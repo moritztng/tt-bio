@@ -1,0 +1,1324 @@
+{
+ "stamp": {
+  "host": "tt-quietbox2",
+  "card": 0,
+  "subsystem_device": "0x0046",
+  "commit": "35c59b36fd85a3342397ac343f3defffcdfbb8c4",
+  "tt_bio_dirty": false,
+  "torch_threads": 8,
+  "loadavg": [
+   6.958984375,
+   8.599609375,
+   9.412109375
+  ],
+  "utc": "2026-09-26T20:45:01Z",
+  "pci": "0000:01:00.0",
+  "aiclk_node": "/sys/class/tenstorrent/tenstorrent!0/tt_aiclk"
+ },
+ "armed": {
+  "triatt_bw_fused": true,
+  "rne_kernel": true,
+  "triatt_hifi": true,
+  "mm_layout": true,
+  "taped_kernels": "tri_att_sdpa_hifi,rne_add"
+ },
+ "reps": 25,
+ "roofs": {
+  "dram": 442.3,
+  "tflops": 85.9
+ },
+ "started_utc": "2026-09-26T20:45:01Z",
+ "classes": {
+  "linear#288x288x128x128#-#a:DRAM/bf16/TILE/INTERLEAVED#b:DRAM/bf16/TILE/INTERLEAVED#o:DRAM/bf16/TILE/INTERLEAVED#pc,bias,omc=DRAM#plan:RMC1D:g11x10,w4,sh1,sw4,bh5,bw4,M25,N4,fb1,mc00,gi00#ck:hifi4/f32acc/l1acc": {
+   "round_row": {
+    "key": "linear#288x288x128x128#-#a:DRAM/bf16/TILE/INTERLEAVED#b:DRAM/bf16/TILE/INTERLEAVED#o:DRAM/bf16/TILE/INTERLEAVED#pc,bias,omc=DRAM#plan:RMC1D:g11x10,w4,sh1,sw4,bh5,bw4,M25,N4,fb1,mc00,gi00#ck:hifi4/f32acc/l1acc",
+    "op": "linear",
+    "shape": "288x288x128x128",
+    "flags": "-",
+    "plan": "RMC1D:g11x10,w4,sh1,sw4,bh5,bw4,M25,N4,fb1,mc00,gi00",
+    "factory": "RMC1D",
+    "ck": "hifi4/f32acc/l1acc",
+    "device_s": 0.05279000000000001,
+    "calls": 144,
+    "GB": 6.121193472,
+    "GBs": 115.95365546505018,
+    "pct_dram": 26.216064993228617,
+    "pct_compute": 8.630830283630901,
+    "cores": 104,
+    "serial_passes": 1,
+    "occ_note": "1D multicast",
+    "binds": "cell-local, see roof.py"
+   },
+   "points": [
+    {
+     "point": "baseline: the call the model makes",
+     "s": 0.0002005400019697845,
+     "bytes": 42508288.0,
+     "GBs": 211.96912128486343,
+     "TFLOPs": 13.552951856505462,
+     "pct_dram": 47.92428697374258,
+     "pct_compute": 15.777592382427779,
+     "vs_base": 1.0,
+     "grade": {
+      "max_abs_dev": 0.0,
+      "pcc": 1.0
+     },
+     "aiclk": {
+      "n": 4,
+      "min": 1350,
+      "median": 1350,
+      "max": 1350
+     },
+     "loadavg": 6.958984375
+    },
+    {
+     "point": "per_core_M 25 -> 1 (subblock h 1)",
+     "error": "TT_FATAL @ /project/ttnn/cpp/ttnn/operations/matmul/device/facto"
+    },
+    {
+     "point": "per_core_M 25 -> 2 (subblock h 2)",
+     "error": "TT_FATAL @ /project/ttnn/cpp/ttnn/operations/matmul/device/matmu"
+    },
+    {
+     "point": "per_core_M 25 -> 3 (subblock h 3)",
+     "error": "TT_FATAL @ /project/ttnn/cpp/ttnn/operations/matmul/device/matmu"
+    },
+    {
+     "point": "per_core_M 25 -> 4 (subblock h 4)",
+     "error": "TT_FATAL @ /project/ttnn/cpp/ttnn/operations/matmul/device/matmu"
+    },
+    {
+     "point": "per_core_M 25 -> 6 (subblock h 3)",
+     "error": "TT_FATAL @ /project/ttnn/cpp/ttnn/operations/matmul/device/matmu"
+    },
+    {
+     "point": "per_core_M 25 -> 8 (subblock h 4)",
+     "error": "TT_FATAL @ /project/ttnn/cpp/ttnn/operations/matmul/device/matmu"
+    },
+    {
+     "point": "per_core_M 25 -> 9 (subblock h 3)",
+     "error": "TT_FATAL @ /project/ttnn/cpp/ttnn/operations/matmul/device/matmu"
+    },
+    {
+     "point": "per_core_M 25 -> 12 (subblock h 4)",
+     "error": "TT_FATAL @ /project/ttnn/cpp/ttnn/operations/matmul/device/matmu"
+    },
+    {
+     "point": "per_core_M 25 -> 16 (subblock h 4)",
+     "error": "TT_FATAL @ /project/ttnn/cpp/ttnn/operations/matmul/device/matmu"
+    },
+    {
+     "point": "per_core_M 25 -> 18 (subblock h 3)",
+     "error": "TT_FATAL @ /project/ttnn/cpp/ttnn/operations/matmul/device/matmu"
+    },
+    {
+     "point": "per_core_M 25 -> 24 (subblock h 4)",
+     "error": "TT_FATAL @ /project/ttnn/cpp/ttnn/operations/matmul/device/matmu"
+    },
+    {
+     "point": "per_core_M 25 -> 27 (subblock h 3)",
+     "error": "TT_FATAL @ /project/ttnn/cpp/ttnn/operations/matmul/device/matmu"
+    },
+    {
+     "point": "per_core_M 25 -> 32 (subblock h 4)",
+     "error": "TT_FATAL @ /project/ttnn/cpp/ttnn/operations/matmul/device/matmu"
+    },
+    {
+     "point": "per_core_M 25 -> 36 (subblock h 4)",
+     "error": "TT_FATAL @ /project/ttnn/cpp/ttnn/operations/matmul/device/matmu"
+    },
+    {
+     "point": "per_core_M 25 -> 48 (subblock h 4)",
+     "error": "TT_FATAL @ /project/ttnn/cpp/ttnn/operations/matmul/device/matmu"
+    },
+    {
+     "point": "per_core_M 25 -> 54 (subblock h 3)",
+     "error": "TT_FATAL @ /project/ttnn/cpp/ttnn/operations/matmul/device/matmu"
+    },
+    {
+     "point": "per_core_M 25 -> 72 (subblock h 4)",
+     "error": "TT_FATAL @ /project/ttnn/cpp/ttnn/operations/matmul/device/matmu"
+    },
+    {
+     "point": "per_core_M 25 -> 81 (subblock h 3)",
+     "error": "TT_FATAL @ /project/ttnn/cpp/ttnn/operations/matmul/device/matmu"
+    },
+    {
+     "point": "per_core_M 25 -> 96 (subblock h 4)",
+     "error": "TT_FATAL @ /project/ttnn/cpp/ttnn/operations/matmul/device/matmu"
+    },
+    {
+     "point": "per_core_M 25 -> 108 (subblock h 4)",
+     "error": "TT_FATAL @ /project/ttnn/cpp/ttnn/operations/matmul/device/matmu"
+    },
+    {
+     "point": "per_core_M 25 -> 144 (subblock h 4)",
+     "error": "TT_FATAL @ /project/ttnn/cpp/ttnn/operations/matmul/device/matmu"
+    },
+    {
+     "point": "per_core_M 25 -> 162 (subblock h 3)",
+     "error": "TT_FATAL @ /project/ttnn/cpp/ttnn/operations/matmul/device/matmu"
+    },
+    {
+     "point": "per_core_M 25 -> 216 (subblock h 4)",
+     "error": "TT_FATAL @ /project/ttnn/cpp/ttnn/operations/matmul/device/matmu"
+    },
+    {
+     "point": "per_core_M 25 -> 288 (subblock h 4)",
+     "error": "TT_FATAL @ /project/ttnn/cpp/ttnn/operations/matmul/device/matmu"
+    },
+    {
+     "point": "per_core_M 25 -> 324 (subblock h 4)",
+     "error": "TT_FATAL @ /project/ttnn/cpp/ttnn/operations/matmul/device/matmu"
+    },
+    {
+     "point": "per_core_M 25 -> 432 (subblock h 4)",
+     "error": "TT_FATAL @ /project/ttnn/cpp/ttnn/operations/matmul/device/matmu"
+    },
+    {
+     "point": "per_core_M 25 -> 648 (subblock h 4)",
+     "error": "TT_FATAL @ /project/ttnn/cpp/ttnn/operations/matmul/device/matmu"
+    },
+    {
+     "point": "per_core_M 25 -> 864 (subblock h 4)",
+     "error": "TT_FATAL @ /project/ttnn/cpp/ttnn/operations/matmul/device/matmu"
+    },
+    {
+     "point": "per_core_M 25 -> 1296 (subblock h 4)",
+     "error": "TT_FATAL @ /project/ttnn/cpp/ttnn/operations/matmul/device/matmu"
+    },
+    {
+     "point": "per_core_M 25 -> 2592 (subblock h 4)",
+     "error": "TT_FATAL @ /project/ttnn/cpp/ttnn/operations/matmul/device/matmu"
+    },
+    {
+     "point": "out_subblock 1x4 -> 1x1",
+     "s": 0.00020513900381047279,
+     "bytes": 42508288.0,
+     "GBs": 207.21699535634508,
+     "TFLOPs": 13.249108855530304,
+     "pct_dram": 46.849874600123236,
+     "pct_compute": 15.42387526837055,
+     "vs_base": 0.9775810462405419,
+     "grade": {
+      "max_abs_dev": 0.0,
+      "pcc": 1.0
+     },
+     "aiclk": {
+      "n": 3,
+      "min": 1350,
+      "median": 1350,
+      "max": 1350
+     },
+     "loadavg": 6.958984375
+    },
+    {
+     "point": "out_subblock 1x4 -> 1x2",
+     "s": 0.00020410701108630747,
+     "bytes": 42508288.0,
+     "GBs": 208.26471258268145,
+     "TFLOPs": 13.316098146431242,
+     "pct_dram": 47.08675391876135,
+     "pct_compute": 15.501860473144635,
+     "vs_base": 0.9825238285665031,
+     "grade": {
+      "max_abs_dev": 0.0,
+      "pcc": 1.0
+     },
+     "aiclk": {
+      "n": 2,
+      "min": 1350,
+      "median": 1350,
+      "max": 1350
+     },
+     "loadavg": 6.958984375
+    },
+    {
+     "point": "in0_block_w 4 -> 1 (regroups the K accumulation)",
+     "s": 0.00026934099150821567,
+     "bytes": 42508288.0,
+     "GBs": 157.8233144608565,
+     "TFLOPs": 10.090959332928334,
+     "pct_dram": 35.6824133983397,
+     "pct_compute": 11.747333332861855,
+     "vs_base": 0.7445580446066913,
+     "grade": {
+      "max_abs_dev": 0.0009765625,
+      "pcc": 1.0
+     },
+     "aiclk": {
+      "n": 2,
+      "min": 1350,
+      "median": 1350,
+      "max": 1350
+     },
+     "loadavg": 6.958984375
+    },
+    {
+     "point": "in0_block_w 4 -> 2 (regroups the K accumulation)",
+     "s": 0.00022845300554763526,
+     "bytes": 42508288.0,
+     "GBs": 186.07016308715842,
+     "TFLOPs": 11.89701569250435,
+     "pct_dram": 42.06876850263586,
+     "pct_compute": 13.849843646687253,
+     "vs_base": 0.8778173064042681,
+     "grade": {
+      "max_abs_dev": 0.00048828125,
+      "pcc": 1.0
+     },
+     "aiclk": {
+      "n": 2,
+      "min": 1350,
+      "median": 1350,
+      "max": 1350
+     },
+     "loadavg": 7.28271484375
+    },
+    {
+     "point": "fuse_batch True -> False",
+     "s": 0.011179698994965293,
+     "bytes": 42508288.0,
+     "GBs": 3.8022748214547946,
+     "TFLOPs": 0.24311110641028827,
+     "pct_dram": 0.8596596928453074,
+     "pct_compute": 0.28301642189789084,
+     "vs_base": 0.017937871320157762,
+     "grade": {
+      "max_abs_dev": 0.2352294921875,
+      "pcc": 0.9994448711951305
+     },
+     "aiclk": {
+      "n": 2,
+      "min": 1350,
+      "median": 1350,
+      "max": 1350
+     },
+     "loadavg": 7.28271484375
+    },
+    {
+     "point": "grid -> 11x10",
+     "s": 0.00019683399295900017,
+     "bytes": 42508288.0,
+     "GBs": 215.96009592130932,
+     "TFLOPs": 13.808128114162328,
+     "pct_dram": 48.82660997542603,
+     "pct_compute": 16.07465438202832,
+     "vs_base": 1.0188280944519388,
+     "grade": {
+      "max_abs_dev": 0.0,
+      "pcc": 1.0
+     },
+     "aiclk": {
+      "n": 2,
+      "min": 1350,
+      "median": 1350,
+      "max": 1350
+     },
+     "loadavg": 7.28271484375
+    },
+    {
+     "point": "grid -> 8x8",
+     "error": "TT_FATAL @ /project/ttnn/cpp/ttnn/operations/matmul/device/facto"
+    },
+    {
+     "point": "grid -> 11x5",
+     "error": "TT_FATAL @ /project/ttnn/cpp/ttnn/operations/matmul/device/facto"
+    },
+    {
+     "point": "grid -> 6x6",
+     "error": "TT_FATAL @ /project/ttnn/cpp/ttnn/operations/matmul/device/facto"
+    },
+    {
+     "point": "plan dropped: ttnn's own planner",
+     "s": 0.0012534260022221133,
+     "bytes": 42508288.0,
+     "GBs": 33.91367972631808,
+     "TFLOPs": 2.1683840826515524,
+     "pct_dram": 7.667573982889007,
+     "pct_compute": 2.524312086905183,
+     "vs_base": 0.15999349113091704,
+     "grade": {
+      "max_abs_dev": 0.00048828125,
+      "pcc": 1.0
+     },
+     "aiclk": {
+      "n": 2,
+      "min": 1350,
+      "median": 1350,
+      "max": 1350
+     },
+     "loadavg": 7.28271484375
+    }
+   ]
+  },
+  "experimental.minimal_matmul#288x288x128x512#-#a:DRAM/bf16/TILE/INTERLEAVED#b:DRAM/bf16/TILE/INTERLEAVED#o:DRAM/bf16/TILE/INTERLEAVED#bias,omc=DRAM#plan:none#ck:hifi4/f32acc/l1acc": {
+   "round_row": {
+    "key": "experimental.minimal_matmul#288x288x128x512#-#a:DRAM/bf16/TILE/INTERLEAVED#b:DRAM/bf16/TILE/INTERLEAVED#o:DRAM/bf16/TILE/INTERLEAVED#bias,omc=DRAM#plan:none#ck:hifi4/f32acc/l1acc",
+    "op": "experimental.minimal_matmul",
+    "shape": "288x288x128x512",
+    "flags": "-",
+    "plan": "none",
+    "factory": "none",
+    "ck": "hifi4/f32acc/l1acc",
+    "device_s": 0.038263,
+    "calls": 48,
+    "GB": 5.10394368,
+    "GBs": 133.39110054099262,
+    "pct_dram": 30.15851244426693,
+    "pct_compute": 15.8768359572041,
+    "cores": null,
+    "serial_passes": null,
+    "occ_note": "no plan: ttnn's planner, not in the call",
+    "binds": "cell-local, see roof.py"
+   },
+   "points": [
+    {
+     "point": "baseline: the call the model makes",
+     "error": "TT_FATAL @ /project/ttnn/cpp/ttnn/operations/experimental/minima"
+    },
+    {
+     "point": "core_grid 8x8 (mmlay's lever)",
+     "error": ""
+    },
+    {
+     "point": "core_grid 11x10 (mmlay's lever)",
+     "error": ""
+    }
+   ]
+  },
+  "matmul#1x82944x512x128#tb#a:DRAM/bf16/TILE/INTERLEAVED#b:DRAM/bf16/TILE/INTERLEAVED#o:DRAM/bf16/TILE/INTERLEAVED#plan:none#ck:hifi4/f32acc/l1acc": {
+   "round_row": {
+    "key": "matmul#1x82944x512x128#tb#a:DRAM/bf16/TILE/INTERLEAVED#b:DRAM/bf16/TILE/INTERLEAVED#o:DRAM/bf16/TILE/INTERLEAVED#plan:none#ck:hifi4/f32acc/l1acc",
+    "op": "matmul",
+    "shape": "1x82944x512x128",
+    "flags": "tb",
+    "plan": "none",
+    "factory": "none",
+    "ck": "hifi4/f32acc/l1acc",
+    "device_s": 0.026088999999999998,
+    "calls": 36,
+    "GB": 3.826778112,
+    "GBs": 146.68167089577983,
+    "pct_dram": 33.163389304946826,
+    "pct_compute": 17.464123986081315,
+    "cores": null,
+    "serial_passes": null,
+    "occ_note": "no plan: ttnn's planner, not in the call",
+    "binds": "cell-local, see roof.py"
+   },
+   "points": [
+    {
+     "point": "baseline: the call the model makes",
+     "s": 0.0006367669993778691,
+     "bytes": 106299392.0,
+     "GBs": 166.9360882455531,
+     "TFLOPs": 17.07317743950574,
+     "pct_dram": 37.74272852036019,
+     "pct_compute": 19.875643119331478,
+     "vs_base": 1.0,
+     "grade": {
+      "max_abs_dev": 0.0,
+      "pcc": 1.0
+     },
+     "aiclk": {
+      "n": 4,
+      "min": 1350,
+      "median": 1350,
+      "max": 1350
+     },
+     "loadavg": 7.28271484375
+    },
+    {
+     "point": "core_grid 8x8 (mmlay's lever)",
+     "s": 0.000907469991943799,
+     "bytes": 106299392.0,
+     "GBs": 117.13818963016827,
+     "TFLOPs": 11.980160296775187,
+     "pct_dram": 26.483877375122827,
+     "pct_compute": 13.946635968306387,
+     "vs_base": 0.7016948274112242,
+     "grade": {
+      "max_abs_dev": 0.001953125,
+      "pcc": 1.0
+     },
+     "aiclk": {
+      "n": 3,
+      "min": 1350,
+      "median": 1350,
+      "max": 1350
+     },
+     "loadavg": 7.28271484375
+    },
+    {
+     "point": "core_grid 11x10 (mmlay's lever)",
+     "s": 0.0008676439902046695,
+     "bytes": 106299392.0,
+     "GBs": 122.51498679190404,
+     "TFLOPs": 12.530065430909604,
+     "pct_dram": 27.699522222903916,
+     "pct_compute": 14.586804925389526,
+     "vs_base": 0.7339035440419075,
+     "grade": {
+      "max_abs_dev": 0.001953125,
+      "pcc": 1.0
+     },
+     "aiclk": {
+      "n": 2,
+      "min": 1350,
+      "median": 1350,
+      "max": 1350
+     },
+     "loadavg": 7.28271484375
+    }
+   ]
+  },
+  "linear#288x288x128x512#-#a:DRAM/bf16/TILE/INTERLEAVED#b:DRAM/bf16/TILE/INTERLEAVED#o:DRAM/bf16/TILE/INTERLEAVED#g11x10,bias,omc=DRAM#plan:none#ck:hifi4/f32acc/l1acc": {
+   "round_row": {
+    "key": "linear#288x288x128x512#-#a:DRAM/bf16/TILE/INTERLEAVED#b:DRAM/bf16/TILE/INTERLEAVED#o:DRAM/bf16/TILE/INTERLEAVED#g11x10,bias,omc=DRAM#plan:none#ck:hifi4/f32acc/l1acc",
+    "op": "linear",
+    "shape": "288x288x128x512",
+    "flags": "-",
+    "plan": "none",
+    "factory": "none",
+    "ck": "hifi4/f32acc/l1acc",
+    "device_s": 0.025805,
+    "calls": 24,
+    "GB": 2.55197184,
+    "GBs": 98.89447161402829,
+    "pct_dram": 22.359138958631764,
+    "pct_compute": 11.770884987996522,
+    "cores": null,
+    "serial_passes": null,
+    "occ_note": "no plan: ttnn's planner, not in the call",
+    "binds": "cell-local, see roof.py"
+   },
+   "points": [
+    {
+     "point": "baseline: the call the model makes",
+     "s": 0.0007227699970826507,
+     "bytes": 106332160.0,
+     "GBs": 147.11756219709358,
+     "TFLOPs": 15.04162598320583,
+     "pct_dram": 33.261940356566484,
+     "pct_compute": 17.51062396182285,
+     "vs_base": 1.0,
+     "grade": {
+      "max_abs_dev": 0.0,
+      "pcc": 1.0
+     },
+     "aiclk": {
+      "n": 3,
+      "min": 1350,
+      "median": 1350,
+      "max": 1350
+     },
+     "loadavg": 8.14111328125
+    },
+    {
+     "point": "core_grid 8x8 (mmlay's lever)",
+     "s": 0.001217406999785453,
+     "bytes": 106332160.0,
+     "GBs": 87.34314819837508,
+     "TFLOPs": 8.930157268617592,
+     "pct_dram": 19.747489983806258,
+     "pct_compute": 10.395992163699175,
+     "vs_base": 0.5936962718384454,
+     "grade": {
+      "max_abs_dev": 0.0,
+      "pcc": 1.0
+     },
+     "aiclk": {
+      "n": 2,
+      "min": 1350,
+      "median": 1350,
+      "max": 1350
+     },
+     "loadavg": 8.14111328125
+    },
+    {
+     "point": "core_grid 11x10 (mmlay's lever)",
+     "s": 0.0006567950040334836,
+     "bytes": 106332160.0,
+     "GBs": 161.89550673649637,
+     "TFLOPs": 16.552555822190392,
+     "pct_dram": 36.60309896823341,
+     "pct_compute": 19.26956440301559,
+     "vs_base": 1.1004499008731858,
+     "grade": {
+      "max_abs_dev": 0.0,
+      "pcc": 1.0
+     },
+     "aiclk": {
+      "n": 3,
+      "min": 1350,
+      "median": 1350,
+      "max": 1350
+     },
+     "loadavg": 8.14111328125
+    }
+   ]
+  },
+  "matmul#1x82944x128x128#tb#a:DRAM/bf16/TILE/INTERLEAVED#b:DRAM/bf16/TILE/INTERLEAVED#o:DRAM/bf16/TILE/INTERLEAVED#plan:none#ck:hifi4/f32acc/l1acc": {
+   "round_row": {
+    "key": "matmul#1x82944x128x128#tb#a:DRAM/bf16/TILE/INTERLEAVED#b:DRAM/bf16/TILE/INTERLEAVED#o:DRAM/bf16/TILE/INTERLEAVED#plan:none#ck:hifi4/f32acc/l1acc",
+    "op": "matmul",
+    "shape": "1x82944x128x128",
+    "flags": "tb",
+    "plan": "none",
+    "factory": "none",
+    "ck": "hifi4/f32acc/l1acc",
+    "device_s": 0.025234000000000003,
+    "calls": 96,
+    "GB": 4.080009216,
+    "GBs": 161.68697852104302,
+    "pct_dram": 36.555952638716484,
+    "pct_compute": 12.037238928241667,
+    "cores": null,
+    "serial_passes": null,
+    "occ_note": "no plan: ttnn's planner, not in the call",
+    "binds": "cell-local, see roof.py"
+   },
+   "points": [
+    {
+     "point": "baseline: the call the model makes",
+     "s": 0.0001748710055835545,
+     "bytes": 42500096.0,
+     "GBs": 243.03683654231162,
+     "TFLOPs": 15.542364973142249,
+     "pct_dram": 54.948414321119515,
+     "pct_compute": 18.093556429734864,
+     "vs_base": 1.0,
+     "grade": {
+      "max_abs_dev": 0.0,
+      "pcc": 1.0
+     },
+     "aiclk": {
+      "n": 3,
+      "min": 1350,
+      "median": 1350,
+      "max": 1350
+     },
+     "loadavg": 8.14111328125
+    },
+    {
+     "point": "core_grid 8x8 (mmlay's lever)",
+     "s": 0.0002504839940229431,
+     "bytes": 42500096.0,
+     "GBs": 169.67190325185888,
+     "TFLOPs": 10.85062940888372,
+     "pct_dram": 38.36127136600925,
+     "pct_compute": 12.631698962612013,
+     "vs_base": 0.6981324545932353,
+     "grade": {
+      "max_abs_dev": 0.0009765625,
+      "pcc": 1.0
+     },
+     "aiclk": {
+      "n": 3,
+      "min": 1350,
+      "median": 1350,
+      "max": 1350
+     },
+     "loadavg": 8.14111328125
+    },
+    {
+     "point": "core_grid 11x10 (mmlay's lever)",
+     "s": 0.00025045499205589294,
+     "bytes": 42500096.0,
+     "GBs": 169.69155076979038,
+     "TFLOPs": 10.851885880531606,
+     "pct_dram": 38.365713490795926,
+     "pct_compute": 12.633161676986735,
+     "vs_base": 0.6982132963216373,
+     "grade": {
+      "max_abs_dev": 0.0009765625,
+      "pcc": 1.0
+     },
+     "aiclk": {
+      "n": 2,
+      "min": 1350,
+      "median": 1350,
+      "max": 1350
+     },
+     "loadavg": 8.14111328125
+    }
+   ]
+  },
+  "linear#288x288x128x32#-#a:DRAM/bf16/TILE/INTERLEAVED#b:DRAM/bf16/TILE/INTERLEAVED#o:DRAM/bf16/TILE/INTERLEAVED#pc,omc=DRAM#plan:RMC1D:g11x10,w4,sh1,sw1,bh5,bw1,M25,N1,fb1,mc00,gi00#ck:hifi4/f32acc/l1acc": {
+   "round_row": {
+    "key": "linear#288x288x128x32#-#a:DRAM/bf16/TILE/INTERLEAVED#b:DRAM/bf16/TILE/INTERLEAVED#o:DRAM/bf16/TILE/INTERLEAVED#pc,omc=DRAM#plan:RMC1D:g11x10,w4,sh1,sw1,bh5,bw1,M25,N1,fb1,mc00,gi00#ck:hifi4/f32acc/l1acc",
+    "op": "linear",
+    "shape": "288x288x128x32",
+    "flags": "-",
+    "plan": "RMC1D:g11x10,w4,sh1,sw1,bh5,bw1,M25,N1,fb1,mc00,gi00",
+    "factory": "RMC1D",
+    "ck": "hifi4/f32acc/l1acc",
+    "device_s": 0.025094,
+    "calls": 60,
+    "GB": 1.59301632,
+    "GBs": 63.48196062803857,
+    "pct_dram": 14.352692884476276,
+    "pct_compute": 1.8913117124315715,
+    "cores": 104,
+    "serial_passes": 1,
+    "occ_note": "1D multicast",
+    "binds": "cell-local, see roof.py"
+   },
+   "points": [
+    {
+     "point": "baseline: the call the model makes",
+     "s": 0.00011796399485319853,
+     "bytes": 26550272.0,
+     "GBs": 225.0709806245605,
+     "TFLOPs": 5.760039314076996,
+     "pct_dram": 50.886497993343994,
+     "pct_compute": 6.705517245724093,
+     "vs_base": 1.0,
+     "grade": {
+      "max_abs_dev": 0.0,
+      "pcc": 1.0
+     },
+     "aiclk": {
+      "n": 2,
+      "min": 1350,
+      "median": 1350,
+      "max": 1350
+     },
+     "loadavg": 8.14111328125
+    },
+    {
+     "point": "per_core_M 25 -> 1 (subblock h 1)",
+     "error": "TT_FATAL @ /project/ttnn/cpp/ttnn/operations/matmul/device/facto"
+    },
+    {
+     "point": "per_core_M 25 -> 2 (subblock h 2)",
+     "error": "TT_FATAL @ /project/ttnn/cpp/ttnn/operations/matmul/device/facto"
+    },
+    {
+     "point": "per_core_M 25 -> 3 (subblock h 3)",
+     "error": "TT_FATAL @ /project/ttnn/cpp/ttnn/operations/matmul/device/facto"
+    },
+    {
+     "point": "per_core_M 25 -> 4 (subblock h 4)",
+     "error": "TT_FATAL @ /project/ttnn/cpp/ttnn/operations/matmul/device/facto"
+    },
+    {
+     "point": "per_core_M 25 -> 6 (subblock h 3)",
+     "error": "TT_FATAL @ /project/ttnn/cpp/ttnn/operations/matmul/device/facto"
+    },
+    {
+     "point": "per_core_M 25 -> 8 (subblock h 4)",
+     "error": "TT_FATAL @ /project/ttnn/cpp/ttnn/operations/matmul/device/facto"
+    },
+    {
+     "point": "per_core_M 25 -> 9 (subblock h 3)",
+     "error": "TT_FATAL @ /project/ttnn/cpp/ttnn/operations/matmul/device/facto"
+    },
+    {
+     "point": "per_core_M 25 -> 12 (subblock h 4)",
+     "error": "TT_FATAL @ /project/ttnn/cpp/ttnn/operations/matmul/device/facto"
+    },
+    {
+     "point": "per_core_M 25 -> 16 (subblock h 4)",
+     "error": "TT_FATAL @ /project/ttnn/cpp/ttnn/operations/matmul/device/facto"
+    },
+    {
+     "point": "per_core_M 25 -> 18 (subblock h 3)",
+     "error": "TT_FATAL @ /project/ttnn/cpp/ttnn/operations/matmul/device/facto"
+    },
+    {
+     "point": "per_core_M 25 -> 24 (subblock h 4)",
+     "s": 0.0001195459917653352,
+     "bytes": 26550272.0,
+     "GBs": 222.0925319864952,
+     "TFLOPs": 5.683814555102702,
+     "pct_dram": 50.21309789430142,
+     "pct_compute": 6.61678062293679,
+     "vs_base": 0.9867666252228507,
+     "grade": {
+      "max_abs_dev": 0.0,
+      "pcc": 1.0
+     },
+     "aiclk": {
+      "n": 4,
+      "min": 1350,
+      "median": 1350,
+      "max": 1350
+     },
+     "loadavg": 8.14111328125
+    },
+    {
+     "point": "per_core_M 25 -> 27 (subblock h 3)",
+     "s": 0.00015119698946364224,
+     "bytes": 26550272.0,
+     "GBs": 175.60053341131135,
+     "TFLOPs": 4.493986622421416,
+     "pct_dram": 39.70168062656824,
+     "pct_compute": 5.231649152993499,
+     "vs_base": 0.7802006856860393,
+     "grade": {
+      "max_abs_dev": 0.0,
+      "pcc": 1.0
+     },
+     "aiclk": {
+      "n": 2,
+      "min": 1350,
+      "median": 1350,
+      "max": 1350
+     },
+     "loadavg": 8.14111328125
+    },
+    {
+     "point": "per_core_M 25 -> 32 (subblock h 4)",
+     "s": 0.00012626899115275592,
+     "bytes": 26550272.0,
+     "GBs": 210.26755466732433,
+     "TFLOPs": 5.381188538823373,
+     "pct_dram": 47.53957826527794,
+     "pct_compute": 6.264480254741994,
+     "vs_base": 0.9342277448822706,
+     "grade": {
+      "max_abs_dev": 0.0,
+      "pcc": 1.0
+     },
+     "aiclk": {
+      "n": 2,
+      "min": 1350,
+      "median": 1350,
+      "max": 1350
+     },
+     "loadavg": 8.2099609375
+    },
+    {
+     "point": "per_core_M 25 -> 36 (subblock h 4)",
+     "s": 0.00012200100172776729,
+     "bytes": 26550272.0,
+     "GBs": 217.62339344757353,
+     "TFLOPs": 5.569439909322906,
+     "pct_dram": 49.202666391040815,
+     "pct_compute": 6.48363202482294,
+     "vs_base": 0.966910051414357,
+     "grade": {
+      "max_abs_dev": 0.0,
+      "pcc": 1.0
+     },
+     "aiclk": {
+      "n": 2,
+      "min": 1350,
+      "median": 1350,
+      "max": 1350
+     },
+     "loadavg": 8.2099609375
+    },
+    {
+     "point": "per_core_M 25 -> 48 (subblock h 4)",
+     "s": 0.0001879359915619716,
+     "bytes": 26550272.0,
+     "GBs": 141.27295032386115,
+     "TFLOPs": 3.6154716419815913,
+     "pct_dram": 31.940526864992346,
+     "pct_compute": 4.208930898698011,
+     "vs_base": 0.6276817648007571,
+     "grade": {
+      "max_abs_dev": 0.0,
+      "pcc": 1.0
+     },
+     "aiclk": {
+      "n": 2,
+      "min": 1350,
+      "median": 1350,
+      "max": 1350
+     },
+     "loadavg": 8.2099609375
+    },
+    {
+     "point": "per_core_M 25 -> 54 (subblock h 3)",
+     "s": 0.0001407970121363178,
+     "bytes": 26550272.0,
+     "GBs": 188.57127432714537,
+     "TFLOPs": 4.825935136621643,
+     "pct_dram": 42.63424696521487,
+     "pct_compute": 5.618085141585149,
+     "vs_base": 0.8378302427255158,
+     "grade": {
+      "max_abs_dev": 0.0,
+      "pcc": 1.0
+     },
+     "aiclk": {
+      "n": 2,
+      "min": 1350,
+      "median": 1350,
+      "max": 1350
+     },
+     "loadavg": 8.2099609375
+    },
+    {
+     "point": "per_core_M 25 -> 72 (subblock h 4)",
+     "s": 0.00014514500799123198,
+     "bytes": 26550272.0,
+     "GBs": 182.92239166505726,
+     "TFLOPs": 4.681368359847735,
+     "pct_dram": 41.35708606490103,
+     "pct_compute": 5.449788544642298,
+     "vs_base": 0.812732015284498,
+     "grade": {
+      "max_abs_dev": 0.0,
+      "pcc": 1.0
+     },
+     "aiclk": {
+      "n": 2,
+      "min": 1350,
+      "median": 1350,
+      "max": 1350
+     },
+     "loadavg": 8.2099609375
+    },
+    {
+     "point": "per_core_M 25 -> 81 (subblock h 3)",
+     "s": 0.00020067101286258548,
+     "bytes": 26550272.0,
+     "GBs": 132.30745996274493,
+     "TFLOPs": 3.3860259053224047,
+     "pct_dram": 29.913511183075947,
+     "pct_compute": 3.941822939839819,
+     "vs_base": 0.5878477074014539,
+     "grade": {
+      "max_abs_dev": 0.0,
+      "pcc": 1.0
+     },
+     "aiclk": {
+      "n": 2,
+      "min": 1350,
+      "median": 1350,
+      "max": 1350
+     },
+     "loadavg": 8.2099609375
+    },
+    {
+     "point": "per_core_M 25 -> 96 (subblock h 4)",
+     "s": 0.00016552300076000392,
+     "bytes": 26550272.0,
+     "GBs": 160.40231193304624,
+     "TFLOPs": 4.1050322002389965,
+     "pct_dram": 36.265501228362254,
+     "pct_compute": 4.778850058485443,
+     "vs_base": 0.7126743371710471,
+     "grade": {
+      "max_abs_dev": 0.0,
+      "pcc": 1.0
+     },
+     "aiclk": {
+      "n": 2,
+      "min": 1350,
+      "median": 1350,
+      "max": 1350
+     },
+     "loadavg": 8.2099609375
+    },
+    {
+     "point": "per_core_M 25 -> 108 (subblock h 4)",
+     "error": "TT_THROW @ /project/tt_metal/impl/program/program.cpp:1043: tt::"
+    },
+    {
+     "point": "per_core_M 25 -> 144 (subblock h 4)",
+     "error": "TT_THROW @ /project/tt_metal/impl/program/program.cpp:1043: tt::"
+    },
+    {
+     "point": "per_core_M 25 -> 162 (subblock h 3)",
+     "error": "TT_THROW @ /project/tt_metal/impl/program/program.cpp:1043: tt::"
+    },
+    {
+     "point": "per_core_M 25 -> 216 (subblock h 4)",
+     "error": "TT_THROW @ /project/tt_metal/impl/program/program.cpp:1043: tt::"
+    },
+    {
+     "point": "per_core_M 25 -> 288 (subblock h 4)",
+     "error": "TT_THROW @ /project/tt_metal/impl/program/program.cpp:1043: tt::"
+    },
+    {
+     "point": "per_core_M 25 -> 324 (subblock h 4)",
+     "error": "TT_THROW @ /project/tt_metal/impl/program/program.cpp:1043: tt::"
+    },
+    {
+     "point": "per_core_M 25 -> 432 (subblock h 4)",
+     "error": "TT_THROW @ /project/tt_metal/impl/program/program.cpp:1043: tt::"
+    },
+    {
+     "point": "per_core_M 25 -> 648 (subblock h 4)",
+     "error": "TT_THROW @ /project/tt_metal/impl/program/program.cpp:1043: tt::"
+    },
+    {
+     "point": "per_core_M 25 -> 864 (subblock h 4)",
+     "error": "TT_THROW @ /project/tt_metal/impl/program/program.cpp:1043: tt::"
+    },
+    {
+     "point": "per_core_M 25 -> 1296 (subblock h 4)",
+     "error": "TT_THROW @ /project/tt_metal/impl/program/program.cpp:1043: tt::"
+    },
+    {
+     "point": "per_core_M 25 -> 2592 (subblock h 4)",
+     "error": "TT_THROW @ /project/tt_metal/impl/program/program.cpp:1043: tt::"
+    },
+    {
+     "point": "in0_block_w 4 -> 1 (regroups the K accumulation)",
+     "s": 0.00013958400813862681,
+     "bytes": 26550272.0,
+     "GBs": 190.20998432450654,
+     "TFLOPs": 4.867873168717022,
+     "pct_dram": 43.004744364573035,
+     "pct_compute": 5.666907064862657,
+     "vs_base": 0.8451111013809223,
+     "grade": {
+      "max_abs_dev": 0.00048828125,
+      "pcc": 1.0
+     },
+     "aiclk": {
+      "n": 2,
+      "min": 1350,
+      "median": 1350,
+      "max": 1350
+     },
+     "loadavg": 7.64892578125
+    },
+    {
+     "point": "in0_block_w 4 -> 2 (regroups the K accumulation)",
+     "s": 0.00012108999362681061,
+     "bytes": 26550272.0,
+     "GBs": 219.26066064406405,
+     "TFLOPs": 5.611341017112387,
+     "pct_dram": 49.57283758626815,
+     "pct_compute": 6.532410962878215,
+     "vs_base": 0.9741844996437431,
+     "grade": {
+      "max_abs_dev": 0.00048828125,
+      "pcc": 1.0
+     },
+     "aiclk": {
+      "n": 2,
+      "min": 1350,
+      "median": 1350,
+      "max": 1350
+     },
+     "loadavg": 7.64892578125
+    },
+    {
+     "point": "fuse_batch True -> False",
+     "s": 0.0039908059989102185,
+     "bytes": 26550272.0,
+     "GBs": 6.652859599602226,
+     "TFLOPs": 0.17026065616458103,
+     "pct_dram": 1.5041509381872544,
+     "pct_compute": 0.19820798156528638,
+     "vs_base": 0.02955893994481599,
+     "grade": {
+      "max_abs_dev": 0.0,
+      "pcc": 1.0
+     },
+     "aiclk": {
+      "n": 2,
+      "min": 1350,
+      "median": 1350,
+      "max": 1350
+     },
+     "loadavg": 7.64892578125
+    },
+    {
+     "point": "grid -> 11x10",
+     "s": 0.00012968599912710488,
+     "bytes": 26550272.0,
+     "GBs": 204.72735822452316,
+     "TFLOPs": 5.239403270772863,
+     "pct_dram": 46.28699032885443,
+     "pct_compute": 6.09942173547481,
+     "vs_base": 0.9096124149653376,
+     "grade": {
+      "max_abs_dev": 0.0,
+      "pcc": 1.0
+     },
+     "aiclk": {
+      "n": 2,
+      "min": 1350,
+      "median": 1350,
+      "max": 1350
+     },
+     "loadavg": 7.64892578125
+    },
+    {
+     "point": "grid -> 8x8",
+     "error": "TT_FATAL @ /project/ttnn/cpp/ttnn/operations/matmul/device/facto"
+    },
+    {
+     "point": "grid -> 11x5",
+     "error": "TT_FATAL @ /project/ttnn/cpp/ttnn/operations/matmul/device/facto"
+    },
+    {
+     "point": "grid -> 6x6",
+     "error": "TT_FATAL @ /project/ttnn/cpp/ttnn/operations/matmul/device/facto"
+    },
+    {
+     "point": "plan dropped: ttnn's own planner",
+     "s": 0.0006744889979017898,
+     "bytes": 26550272.0,
+     "GBs": 39.36353607337254,
+     "TFLOPs": 1.007395598910772,
+     "pct_dram": 8.899736846794607,
+     "pct_compute": 1.1727538986155668,
+     "vs_base": 0.17489387554157687,
+     "grade": {
+      "max_abs_dev": 0.00048828125,
+      "pcc": 1.0
+     },
+     "aiclk": {
+      "n": 3,
+      "min": 1350,
+      "median": 1350,
+      "max": 1350
+     },
+     "loadavg": 7.64892578125
+    }
+   ]
+  },
+  "linear#288x288x512x128#-#a:DRAM/bf16/TILE/INTERLEAVED#b:DRAM/bf16/TILE/INTERLEAVED#o:DRAM/bf16/TILE/INTERLEAVED#g11x10,bias,omc=DRAM#plan:none#ck:hifi4/f32acc/l1acc": {
+   "round_row": {
+    "key": "linear#288x288x512x128#-#a:DRAM/bf16/TILE/INTERLEAVED#b:DRAM/bf16/TILE/INTERLEAVED#o:DRAM/bf16/TILE/INTERLEAVED#g11x10,bias,omc=DRAM#plan:none#ck:hifi4/f32acc/l1acc",
+    "op": "linear",
+    "shape": "288x288x512x128",
+    "flags": "-",
+    "plan": "none",
+    "factory": "none",
+    "ck": "hifi4/f32acc/l1acc",
+    "device_s": 0.023030999999999996,
+    "calls": 24,
+    "GB": 2.551382016,
+    "GBs": 110.78034023707178,
+    "pct_dram": 25.046425556651997,
+    "pct_compute": 13.188645178900192,
+    "cores": null,
+    "serial_passes": null,
+    "occ_note": "no plan: ttnn's planner, not in the call",
+    "binds": "cell-local, see roof.py"
+   },
+   "points": [
+    {
+     "point": "baseline: the call the model makes",
+     "s": 0.0008994950039777905,
+     "bytes": 106307584.0,
+     "GBs": 118.18585265052216,
+     "TFLOPs": 12.086377267158708,
+     "pct_dram": 26.720744438282196,
+     "pct_compute": 14.070287854666713,
+     "vs_base": 1.0,
+     "grade": {
+      "max_abs_dev": 0.0,
+      "pcc": 1.0
+     },
+     "aiclk": {
+      "n": 2,
+      "min": 1350,
+      "median": 1350,
+      "max": 1350
+     },
+     "loadavg": 7.64892578125
+    },
+    {
+     "point": "core_grid 8x8 (mmlay's lever)",
+     "s": 0.0009963490010704845,
+     "bytes": 106307584.0,
+     "GBs": 106.69713512612788,
+     "TFLOPs": 10.911473746969623,
+     "pct_dram": 24.123250085039082,
+     "pct_compute": 12.702530555261493,
+     "vs_base": 0.9027910932929792,
+     "grade": {
+      "max_abs_dev": 0.0,
+      "pcc": 1.0
+     },
+     "aiclk": {
+      "n": 3,
+      "min": 1350,
+      "median": 1350,
+      "max": 1350
+     },
+     "loadavg": 7.91748046875
+    },
+    {
+     "point": "core_grid 11x10 (mmlay's lever)",
+     "s": 0.000864670000737533,
+     "bytes": 106307584.0,
+     "GBs": 122.94584513088621,
+     "TFLOPs": 12.57316196783383,
+     "pct_dram": 27.796935367598056,
+     "pct_compute": 14.636975515522503,
+     "vs_base": 1.0402754845323106,
+     "grade": {
+      "max_abs_dev": 0.0,
+      "pcc": 1.0
+     },
+     "aiclk": {
+      "n": 2,
+      "min": 1350,
+      "median": 1350,
+      "max": 1350
+     },
+     "loadavg": 7.91748046875
+    }
+   ]
+  },
+  "experimental.minimal_matmul#288x288x128x384#-#a:DRAM/bf16/TILE/INTERLEAVED#b:DRAM/bf16/TILE/INTERLEAVED#o:DRAM/bf16/TILE/INTERLEAVED#pc#plan:MinimalMat:g11x10#ck:hifi4/f32acc/l1acc": {
+   "round_row": {
+    "key": "experimental.minimal_matmul#288x288x128x384#-#a:DRAM/bf16/TILE/INTERLEAVED#b:DRAM/bf16/TILE/INTERLEAVED#o:DRAM/bf16/TILE/INTERLEAVED#pc#plan:MinimalMat:g11x10#ck:hifi4/f32acc/l1acc",
+    "op": "experimental.minimal_matmul",
+    "shape": "288x288x128x384",
+    "flags": "-",
+    "plan": "MinimalMat:g11x10",
+    "factory": "MinimalMat",
+    "ck": "hifi4/f32acc/l1acc",
+    "device_s": 0.019525999999999998,
+    "calls": 48,
+    "GB": 4.08158208,
+    "GBs": 209.033190617638,
+    "pct_dram": 47.260499800506,
+    "pct_compute": 23.334094575073003,
+    "cores": null,
+    "serial_passes": null,
+    "occ_note": "plan carries no per_core_M/N",
+    "binds": "cell-local, see roof.py"
+   },
+   "points": [
+    {
+     "point": "baseline: the call the model makes",
+     "s": 0.0003301459946669638,
+     "bytes": 85032960.0,
+     "GBs": 257.5616889908883,
+     "TFLOPs": 24.697337262034956,
+     "pct_dram": 58.23235111708982,
+     "pct_compute": 28.751265729959204,
+     "vs_base": 1.0,
+     "grade": {
+      "max_abs_dev": 0.0,
+      "pcc": 1.0
+     },
+     "aiclk": {
+      "n": 3,
+      "min": 1350,
+      "median": 1350,
+      "max": 1350
+     },
+     "loadavg": 7.91748046875
+    },
+    {
+     "point": "grid -> 11x10",
+     "s": 0.0012538769951788709,
+     "bytes": 85032960.0,
+     "GBs": 67.81603006271735,
+     "TFLOPs": 6.5028124826844245,
+     "pct_dram": 15.332586493944685,
+     "pct_compute": 7.5702124361867575,
+     "vs_base": 0.2633001450193024,
+     "grade": {
+      "max_abs_dev": 0.00048828125,
+      "pcc": 1.0
+     },
+     "aiclk": {
+      "n": 1,
+      "min": 1350,
+      "median": 1350,
+      "max": 1350
+     },
+     "loadavg": 7.91748046875
+    },
+    {
+     "point": "grid -> 8x8",
+     "s": 0.0017206520133186132,
+     "bytes": 85032960.0,
+     "GBs": 49.41903379754128,
+     "TFLOPs": 4.7387425887899015,
+     "pct_dram": 11.173193261935626,
+     "pct_compute": 5.516580429324681,
+     "vs_base": 0.19187261114477927,
+     "grade": {
+      "max_abs_dev": 0.00048828125,
+      "pcc": 1.0
+     },
+     "aiclk": {
+      "n": 1,
+      "min": 1350,
+      "median": 1350,
+      "max": 1350
+     },
+     "loadavg": 7.91748046875
+    },
+    {
+     "point": "grid -> 11x5",
+     "s": 0.0018826189916580915,
+     "bytes": 85032960.0,
+     "GBs": 45.16737607385356,
+     "TFLOPs": 4.33105530759504,
+     "pct_dram": 10.211932189431055,
+     "pct_compute": 5.041973582764889,
+     "vs_base": 0.1753652736585814,
+     "grade": {
+      "max_abs_dev": 0.00048828125,
+      "pcc": 1.0
+     },
+     "aiclk": {
+      "n": 2,
+      "min": 1350,
+      "median": 1350,
+      "max": 1350
+     },
+     "loadavg": 7.91748046875
+    },
+    {
+     "point": "grid -> 6x6",
+     "s": 0.0023185149912023917,
+     "bytes": 85032960.0,
+     "GBs": 36.67561362452159,
+     "TFLOPs": 3.516788550835051,
+     "pct_dram": 8.292022072014829,
+     "pct_compute": 4.094049535314378,
+     "vs_base": 0.14239545395207848,
+     "grade": {
+      "max_abs_dev": 0.00048828125,
+      "pcc": 1.0
+     },
+     "aiclk": {
+      "n": 1,
+      "min": 1350,
+      "median": 1350,
+      "max": 1350
+     },
+     "loadavg": 8.24462890625
+    },
+    {
+     "point": "plan dropped: ttnn's own planner",
+     "s": 0.0004117310018045828,
+     "bytes": 85032960.0,
+     "GBs": 206.52552182689087,
+     "TFLOPs": 19.803529343826167,
+     "pct_dram": 46.69353873544899,
+     "pct_compute": 23.054166872905896,
+     "vs_base": 0.8018487634401135,
+     "grade": {
+      "max_abs_dev": 0.0,
+      "pcc": 1.0
+     },
+     "aiclk": {
+      "n": 2,
+      "min": 1350,
+      "median": 1350,
+      "max": 1350
+     },
+     "loadavg": 8.24462890625
+    }
+   ]
+  }
+ },
+ "finished_utc": "2026-09-26T20:45:37Z",
+ "loadavg_end": [
+  8.24462890625,
+  8.75146484375,
+  9.43359375
+ ]
+}

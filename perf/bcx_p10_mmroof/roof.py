@@ -67,17 +67,25 @@ def occupancy(p, grid_cores):
         return None, None, "no plan: ttnn's planner, not in the call"
     if not isinstance(pm, int) or not isinstance(pn, int) or pm <= 0 or pn <= 0:
         return None, None, "plan carries no per_core_M/N"
+    # `fuse_batch` folds the batch into M BEFORE the block decomposition, so a plan that carries
+    # it has batch*Mt tiles of M to spread and runs one pass, not `batch` of them. Reading
+    # `per_core_M` against the unfused Mt is what makes a 104-core plan read as a 1-core plan.
+    fb = bool(f.get("fb"))
+    if fb:
+        Mt *= max(1, p["batch"])
     mb, nb = -(-Mt // pm), -(-Nt // pn)
     if fac == "REUSE":
-        cores = p["batch"] * mb * nb
-        return min(cores, grid_cores), max(1, math.ceil(cores / grid_cores)), "block per batch element"
+        cores = (1 if fb else p["batch"]) * mb * nb
+        return (min(cores, grid_cores), max(1, math.ceil(cores / grid_cores)),
+                "one output block per batch element")
     if fac == "RMC2D":
-        serial = p["batch"] if not f.get("fb") else 1
-        return min(mb * nb, grid_cores), serial, ("batch serial inside the grid"
-                                                  if serial > 1 else "fuse_batch")
+        serial = 1 if fb else max(1, p["batch"])
+        return (min(mb * nb, grid_cores), serial,
+                "batch serial inside the grid" if serial > 1 else "batch fused into M")
     if fac == "RMC1D":
-        return min(mb * nb, grid_cores), p["batch"], "1D multicast"
-    return min(mb * nb, grid_cores), p["batch"], fac
+        serial = 1 if fb else max(1, p["batch"])
+        return min(mb * nb, grid_cores), serial, "1D multicast"
+    return min(mb * nb, grid_cores), (1 if fb else max(1, p["batch"])), fac
 
 
 def binds(intensity, ridge, occ):
