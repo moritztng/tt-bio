@@ -112,6 +112,56 @@ def plan(a, b, kw: dict) -> dict:
     return {**kw, "core_grid": _grid(int(gx), int(gy))}
 
 
+#: Release-gated, default OFF. A second gate, for the call site the one above cannot see.
+#: `mm_layout.plan` is wired into `autograd._matmul`, `_v_linear`'s dX and `taped_ttnn._v_matmul`
+#: -- three sites, all of them `ttnn.matmul`. The forward `ttnn.linear` the trunk issues through
+#: `ops.linear` is not one of them, and `bcx-p10-mmroof`'s census found 0.0488 s of a cell there
+#: running with no plan at all.
+#:
+#: The grid is NOT the one above. Measured on qb2 card 0 at AICLK 1350, each point the model's
+#: own captured call with one thing changed, 25 warm reps
+#: (`perf/bcx_p10_mmroof/out/sweep_E.json`):
+#:
+#:     288x288x128x512 linear   11x10  1.1004x    8x8  0.5937x
+#:     288x288x512x128 linear   11x10  1.0403x    8x8  0.9028x
+#:
+#: So an 8x8 grid is a 6-41 % LOSS on exactly the calls this gate serves, and the two gates want
+#: opposite sides of the grid. They are separate flags for that reason and not one flag widened.
+MM_PLAN = env_flag("TT_BIO_MM_PLAN", False)
+
+
+def plan_linear(a, b, kw: dict) -> dict:
+    """`kw` for `ttnn.linear(a, b, **kw)`, with the WHOLE compute grid added where this applies.
+
+    Same shape of gate as `plan`: a call that already carries a plan keeps it, an unbatched call
+    keeps ttnn's planner, and an operand that is not DRAM-interleaved is left alone because the
+    sweep never measured one.
+    """
+    if not MM_PLAN:
+        return kw
+    if kw.get("program_config") is not None or kw.get("config") is not None:
+        REACH["linear declined: has a program config"] += 1
+        return kw
+    if kw.get("core_grid") is not None:
+        REACH["linear declined: has a core grid"] += 1
+        return kw
+    try:
+        if len(a.shape) < 3 or _batch(a) <= 1:
+            # The batch-1 direction is measured and it is a loss: 1x82944x512x128 reads 0.7339x
+            # at 11x10 and 1x82944x128x128 reads 0.6982x. Those keep ttnn's planner.
+            REACH["linear declined: not batched"] += 1
+            return kw
+        if not (_dram_interleaved(a) and _dram_interleaved(b)):
+            REACH["linear declined: not DRAM interleaved"] += 1
+            return kw
+        gx, gy = _device_grid()
+    except Exception:                                                         # noqa: BLE001
+        REACH["linear declined: could not read the operands"] += 1
+        return kw
+    REACH["linear served"] += 1
+    return {**kw, "core_grid": ttnn.CoreGrid(y=int(gy), x=int(gx))}
+
+
 def reach() -> dict:
     """A snapshot of `REACH`, for a round boundary or a run stamp."""
     return dict(REACH)
