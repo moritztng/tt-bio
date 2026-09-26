@@ -1,0 +1,10 @@
+arm                        host           pool            tr  len  design_s  refold_s c  terminal
+shipped_pc                 pc             ?                1  146   20985.7    1240.5 1  completed
+ref_s1                     tt-quietbox2   5xmultimer_v3    1  111   26612.1       0.0 1  harden
+route_s3_arm               tt-quietbox2   5xmultimer_v3    1   73    4341.6     767.3 1  completed
+accept_s4                  tt-quietbox2   5xmultimer_v3    1  173    9037.2       0.0 1  harden
+accept_s4                  tt-quietbox2   5xmultimer_v3    2  152    7130.0       0.0 0  final
+accept_s4                  tt-quietbox2   5xmultimer_v3    3   97    5126.4       0.0 0  mutate
+accept_s4                  tt-quietbox2   5xmultimer_v3    4  128    5258.8    1269.1 0  completed
+accept_s4                  tt-quietbox2   5xmultimer_v3    5   94    4021.4       0.0 0  mutate
+accept_s4                  tt-quietbox2   5xmultimer_v3    6   85    4460.3       0.0 0  mutate

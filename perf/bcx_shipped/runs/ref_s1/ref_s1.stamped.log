@@ -54,3 +54,4 @@
 2026-09-25T20:57:51Z   rejected at harden design stage  i_pTM=0.13    pLDDT=0.38   due to [i_pTM, pLDDT]
 2026-09-25T20:57:51Z 
 2026-09-25T20:57:51Z === trajectory 2 | pdl1_denovo_l142_d47236314bff52ac | accepted 0/10 ===
+2026-09-26T00:52:13Z   passed screen design stage  i_pTM=0.81    pLDDT=0.88  
