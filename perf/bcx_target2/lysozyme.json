@@ -1,0 +1,15 @@
+{
+  "campaign_name": "lysozyme",
+  "modality": "binder",
+  "targets": [
+    {
+      "name": "HEWL",
+      "target_path": "hewl_193L_A.pdb",
+      "chains": "A",
+      "hotspots": "35,52,62,101"
+    }
+  ],
+  "number_of_final_designs": 1,
+  "max_trajectories": 1,
+  "project_folder": "results/lysozyme"
+}
