@@ -68,3 +68,68 @@ to be extended before it can land default-on."**
 The control that settles attribution is an APB-off arm at THIS tree in the same session. The two
 baselines above are that control in substance, but they ran at a different hour, so an interleaved
 one is owed before any verdict.
+
+---
+
+# VERDICT after the re-score and an interleaved control: do NOT land this default-on yet — 2026-09-26 10:28Z
+
+## The control, interleaved in one session at one tree on one card
+
+    APB=0  round 1   served=0     1.658 / 0.902   PASS   167s
+    APB=1  round 1   served=192   2.912 / 0.767   PASS   173s
+    APB=0  round 2   served=0     1.658 / 0.902   PASS   148s
+    APB=1  round 2   served=192   2.912 / 0.767   PASS   139s
+
+Both arms reproduce exactly. **The control is shown to have moved** — `served=0` on the off legs
+against `served=192` on the on legs — so this is not a control gated like its subject.
+
+**The +1.254 A on OpenFold3 is caused by the lever.** Not drift, not the hour, not the tree.
+
+## Full gate at the merge tree: ten arms, all PASS
+
+    openfold3       2.912 / 0.767   <=3.5 / >=0.70   PASS   (baseline 1.658 / 0.902)
+    boltz2          1.878 / 0.864   <=3.0 / >=0.75   PASS   (baseline 1.827 / 0.902)
+    rf3             1.240 / 0.958                    PASS   unchanged
+    opendde         1.397 / 0.940                    PASS   unchanged
+    protenix-v2     1.997 / 0.867                    PASS   unchanged
+    esmfold2        1.343 / 0.961                    PASS   unchanged
+    esmfold2-fast   1.708 / 0.918                    PASS   unchanged
+    batch-position                                   PASS
+    l1-budget       one md5 across native/8x8/narrow PASS   grid hard stop discharged
+    capacity        7.24 GiB / 7.03 GiB              PASS   (baseline 7.23 / 7.00)
+
+**Correction to the earlier section of this file.** I wrote that the lever serves "9.2 %" of head
+re-assembly calls. That was the first six counter lines, not the gate. Across all 26 dumped
+processes the total is **137112 served / 20640 declined — 86.9 % served**, with 11 processes
+recording work. The lever is heavily exercised, which makes these arms a real verdict on it.
+
+Also small but real: capacity's peak DRAM rises with the flag on, 7.23 -> 7.24 GiB and
+7.00 -> 7.03 GiB. Far inside the 10.5 and 12.0 GiB budgets, but it is not free.
+
+## Why this is a hold and not a pass
+
+Every arm passes its bar, so a gate-only reading says "ship it". That reading would be wrong here:
+
+- OpenFold3's headroom against the 3.5 A bar falls from **1.842 A to 0.588 A**, and its TM headroom
+  above the 0.70 floor from **0.202 to 0.067**. A lever that spends two thirds of a model's margin
+  needs to have been aimed at that model.
+- **It was not.** `c14-land-tail` cleared this lever on Boltz-2 (0.2244 A all-atom vs a 0.35 A bar)
+  and OpenDDE (0.1337 A) — which are, precisely, the two arms that barely move here. The model it
+  moves most is the model its accuracy case never tested.
+- The gate's RMSD-against-reference is **not** the instrument that case used, and one target at one
+  seed is not a seed floor. 1.254 A is smaller than seed floors this fleet has measured on other
+  fixtures, so this is emphatically **not** "the lever is wrong".
+
+**What it is:** the lever changes a model its evidence never covered, by an amount that eats most
+of that model's gate margin, and nobody has measured OpenFold3's seed floor on this target to say
+whether 1.254 A is inside it.
+
+## What would clear it
+
+An OpenFold3 accuracy arm on the same footing as the Boltz-2 and OpenDDE ones already in the case:
+the seed floor for this target, and the lever's A/B against it. If 1.254 A sits inside that floor,
+this lands. If it does not, the lever ships opt-in with a docs entry, exactly as
+`TT_BIO_MM_SHORT_M_BW` did.
+
+That measurement is a contained piece of work and it is the only thing standing between this lever
+and a decision. It is NOT "waiting on a human" — the 2026-09-24 blanket grant already removed that.
