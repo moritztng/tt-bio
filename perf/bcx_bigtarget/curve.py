@@ -107,6 +107,12 @@ def main():
                          "patched at runtime (perf/bcx_bigtarget/leaky_control.py). Inverts "
                          "a257dfbbc and nothing else. Never a default; this is the arm that "
                          "attributes the flat resident line")
+    ap.add_argument("--fp32-softmax-block-mb", type=int, default=0,
+                    help="lower tenstorrent._FP32_SOFTMAX_BLOCK_BYTES, which ships at 8 GiB and "
+                         "therefore never fires: one fp32 triangle-attention score copy is "
+                         "2.576 GB at n=544 and that single allocation is what the card refuses "
+                         "with 1.42x its size free. Blocking the leading dim is exact, softmax "
+                         "reduces within a row. Release-gated, never a default")
     ap.add_argument("--tag", default="")
     args = ap.parse_args()
     n = args.n
@@ -116,7 +122,9 @@ def main():
            "pci": S.sysfs_node()[1], "completed": False, "reps": [],
            "node_blocks": sorted(node_blocks)}
     rec["stamp"].pop("subsystem_device", None)     # afgrad reads the naive node, wrong on qb1
-    tag = args.tag or ("_leaky" if args.leaky else "") + ("_nodes" if node_blocks else "")
+    tag = args.tag or ("_leaky" if args.leaky else "") \
+        + (f"_blk{args.fp32_softmax_block_mb}" if args.fp32_softmax_block_mb else "") \
+        + ("_nodes" if node_blocks else "")
     out = OUT / f"curve_n{n}{tag}.json"
     OUT.mkdir(parents=True, exist_ok=True)
 
@@ -133,6 +141,13 @@ def main():
         print(json.dumps({"leaky_control": rec["leaky"]}), flush=True)
         if not rec["leaky"]["strong"]:
             raise SystemExit("leaky control did not take; refusing to report an inert arm")
+    if args.fp32_softmax_block_mb:                  # before the first taped call
+        from tt_bio import tenstorrent as _tn
+        rec["fp32_softmax_block_bytes_was"] = int(_tn._FP32_SOFTMAX_BLOCK_BYTES)
+        _tn._FP32_SOFTMAX_BLOCK_BYTES = args.fp32_softmax_block_mb << 20
+        rec["fp32_softmax_block_bytes"] = int(_tn._FP32_SOFTMAX_BLOCK_BYTES)
+        print(json.dumps({"fp32_softmax_block": rec["fp32_softmax_block_bytes"],
+                          "was": rec["fp32_softmax_block_bytes_was"]}), flush=True)
     lv = S.Levers()
     dm, ref = A.load_models(args.params)
     dev = A.Dev(dm)
