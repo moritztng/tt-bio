@@ -395,29 +395,45 @@ class AdamW:
             # still reads the card: `displacement()` calls `to_host(t.value)`, so a device
             # weight written by something other than this optimizer is still caught, by the
             # control this module says is the real one.
+            #
+            # A float32 device dtype makes the cast the IDENTITY, and the helper hands back
+            # the master array itself rather than a copy -- deliberately, so the common case
+            # allocates nothing. `theta -= upd` then moves the array BOTH names point at, so
+            # comparing dev_after against dev_before would be comparing theta with itself:
+            # every update would read as rounded away, every write would be skipped, and a
+            # float32 parameter would silently stop reaching the card while the report said
+            # `kept: 0.0`. Identity is what separates the two regimes here, not equality.
             dev_before = round_to_device_dtype(theta, t.value.dtype)
+            identity_cast = dev_before is theta
             theta -= upd
-            dev_after = round_to_device_dtype(theta, t.value.dtype)
-            if dev_after is None or dev_before is None:
-                # A dtype torch cannot express. Pay the round trip rather than guess.
-                dev_before = to_host(t.value).astype(np.float32).reshape(theta.shape)
-                t.value = to_device(theta, t.value.device(), dtype=t.value.dtype)
-                dev_after = to_host(t.value).astype(np.float32).reshape(theta.shape)
-            elif np.array_equal(dev_after, dev_before):
-                # The whole update rounded away. The tensor already on the card is the one
-                # `to_device` would build, bit for bit, so the write is skipped rather than
-                # repeated -- an exactness, not an approximation. This is the COMMON case
-                # during warmup, where `af3_lr` puts every step under bf16 spacing: the
-                # module's own 20-step arm measured a cumulative ratio of 0.810 for exactly
-                # this reason.
-                writes_skipped += 1
-            else:
-                t.value = to_device(theta, t.value.device(), dtype=t.value.dtype)
             # `norm(upd)` IS `norm(theta - before)`: `theta -= upd` is the only thing that
             # moved it. Taking it off the update drops a full-census copy of every parameter
             # per step -- 1.42 GiB of allocation at OF3T's census, 0.361 s against 0.032 s.
             want = float(np.linalg.norm(upd))
-            kept = float(np.linalg.norm(dev_after - dev_before))
+            if dev_before is None:
+                # A dtype torch cannot express. Pay the round trip rather than guess.
+                dev_before = to_host(t.value).astype(np.float32).reshape(theta.shape)
+                t.value = to_device(theta, t.value.device(), dtype=t.value.dtype)
+                dev_after = to_host(t.value).astype(np.float32).reshape(theta.shape)
+                kept = float(np.linalg.norm(dev_after - dev_before))
+            elif identity_cast:
+                # Nothing can round away, so the device step is the master step exactly and
+                # the write always happens.
+                t.value = to_device(theta, t.value.device(), dtype=t.value.dtype)
+                kept = want
+            else:
+                dev_after = round_to_device_dtype(theta, t.value.dtype)
+                if np.array_equal(dev_after, dev_before):
+                    # The whole update rounded away. The tensor already on the card is the
+                    # one `to_device` would build, bit for bit, so the write is skipped
+                    # rather than repeated -- an exactness, not an approximation. This is the
+                    # COMMON case during warmup, where `af3_lr` puts every step under bf16
+                    # spacing: the module's own 20-step arm measured a cumulative ratio of
+                    # 0.810 for exactly this reason.
+                    writes_skipped += 1
+                else:
+                    t.value = to_device(theta, t.value.device(), dtype=t.value.dtype)
+                kept = float(np.linalg.norm(dev_after - dev_before))
             report[name] = {"master_step": want, "device_step": kept,
                             "kept": (kept / want) if want > 0 else float("nan"),
                             "grad_norm": float(np.linalg.norm(g))}

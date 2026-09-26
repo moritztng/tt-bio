@@ -15,7 +15,8 @@ Three separate claims, because they fail separately:
 
   * the cast reproduces a `to_device` -> `to_host` round trip bit for bit;
   * a skipped write leaves the card holding the tensor the write would have built;
-  * `norm(upd)` is `norm(theta - before)`, so dropping the full-census copy changes nothing.
+  * `norm(upd)` is `norm(theta - before)`, so dropping the full-census copy changes nothing;
+  * a float32 parameter still reaches the card, which the skip can silently take away.
 """
 
 import sys
@@ -29,7 +30,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 ttnn = pytest.importorskip("ttnn")
 
 from tt_bio.main import ensure_p300_mesh_descriptor                 # noqa: E402
-from tt_bio.train.optim import round_to_device_dtype                # noqa: E402
+from tt_bio.train.optim import AdamW, round_to_device_dtype         # noqa: E402
+from tt_bio import autograd as ag                                   # noqa: E402
 from tt_bio.train.tensors import to_device, to_host                 # noqa: E402
 
 
@@ -114,3 +116,37 @@ def test_an_unrepresentable_dtype_falls_back_instead_of_guessing():
     assert round_to_device_dtype(np.zeros(8, np.float32), ttnn.bfloat8_b) is None
     arr = np.zeros(8, np.float32)
     assert round_to_device_dtype(arr, ttnn.float32) is arr
+
+
+def test_a_float32_parameter_still_reaches_the_card(dev):
+    """The skip is keyed on the update rounding away. float32 rounds nothing away.
+
+    `round_to_device_dtype` returns the master array ITSELF for float32, because the cast is
+    the identity and a copy would be the allocation this module just removed. So after
+    `theta -= upd` a dev_before/dev_after comparison compares theta with itself, it is equal
+    every time, and a caller that keys the write on that equality writes a float32 parameter
+    to the card exactly never -- while reporting `kept: 0.0`, which reads as a cast problem
+    rather than as a missing write. bfloat16 hides it: every recipe on main builds bf16
+    parameters, so nothing in the training suite walks this path.
+    """
+    rng = np.random.default_rng(11)
+    arr = rng.standard_normal((32, 64)).astype(np.float32)
+    t32 = ag.Tensor(to_device(arr, dev, dtype=ttnn.float32), requires_grad=True)
+    before = to_host(t32.value).astype(np.float32).reshape(arr.shape)
+
+    opt = AdamW({"w": t32}, lr=1e-2, weight_decay=0.0, clip_norm=0.0)
+    t32.grad = to_device(np.ones_like(arr), dev, dtype=ttnn.float32)
+    report = opt.step()
+
+    after = to_host(t32.value).astype(np.float32).reshape(arr.shape)
+    moved = float(np.linalg.norm(after - before))
+    assert moved > 0.0, (
+        "the float32 parameter on the card did not move: the write was skipped, so the "
+        "forward still reads the pre-step weight")
+    assert opt.last_writes_skipped == 0, (
+        f"{opt.last_writes_skipped} float32 writes skipped; nothing can round away at "
+        f"float32, so a skip here is the identity-cast aliasing, not an exactness")
+    assert report["w"]["device_step"] == pytest.approx(report["w"]["master_step"], rel=1e-5)
+    assert float(np.linalg.norm(
+        to_host(opt.params["w"].value).astype(np.float32).reshape(arr.shape)
+        - opt.master["w"])) == pytest.approx(0.0, abs=1e-5)
