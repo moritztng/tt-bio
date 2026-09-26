@@ -1,0 +1,247 @@
+{
+  "meta": {
+    "label": "a3_pin4_s4",
+    "pin_recycles": 3,
+    "no_samples": 4,
+    "steps_requested": 12,
+    "seed": 42,
+    "token_budget": 384,
+    "precision": "bf16-mixed",
+    "batch_size": 1,
+    "torch": "2.5.1+cu124",
+    "cuda": "12.4",
+    "device": "NVIDIA H200",
+    "started_utc": "2026-09-26T09:55:08Z"
+  },
+  "wall_s": 164.36825878545642,
+  "n_steps": 12,
+  "steps": [
+    {
+      "step": 0,
+      "batch_idx": 0,
+      "recycles": 3,
+      "num_cycles": 4,
+      "t_batch_s": 8.088515855371952,
+      "t_iter_s": null,
+      "clock": {
+        "sm_mhz_min": 1980.0,
+        "sm_mhz_median": 1980.0,
+        "sm_mhz_max": 1980.0,
+        "n": 14,
+        "util_median": 100.0
+      },
+      "peak_mem_gb": 18.003642368
+    },
+    {
+      "step": 1,
+      "batch_idx": 1,
+      "recycles": 3,
+      "num_cycles": 4,
+      "t_batch_s": 6.614984130486846,
+      "t_iter_s": 8.289716122671962,
+      "clock": {
+        "sm_mhz_min": 1980.0,
+        "sm_mhz_median": 1980.0,
+        "sm_mhz_max": 1980.0,
+        "n": 11,
+        "util_median": 100.0
+      },
+      "peak_mem_gb": 21.091158016
+    },
+    {
+      "step": 2,
+      "batch_idx": 2,
+      "recycles": 3,
+      "num_cycles": 4,
+      "t_batch_s": 6.856237575411797,
+      "t_iter_s": 6.930341638624668,
+      "clock": {
+        "sm_mhz_min": 1980.0,
+        "sm_mhz_median": 1980.0,
+        "sm_mhz_max": 1980.0,
+        "n": 12,
+        "util_median": 100.0
+      },
+      "peak_mem_gb": 21.418388992
+    },
+    {
+      "step": 3,
+      "batch_idx": 3,
+      "recycles": 3,
+      "num_cycles": 4,
+      "t_batch_s": 6.553130375221372,
+      "t_iter_s": 7.026027085259557,
+      "clock": {
+        "sm_mhz_min": 1980.0,
+        "sm_mhz_median": 1980.0,
+        "sm_mhz_max": 1980.0,
+        "n": 12,
+        "util_median": 100.0
+      },
+      "peak_mem_gb": 20.951149568
+    },
+    {
+      "step": 4,
+      "batch_idx": 4,
+      "recycles": 3,
+      "num_cycles": 4,
+      "t_batch_s": 6.551120223477483,
+      "t_iter_s": 6.83845398388803,
+      "clock": {
+        "sm_mhz_min": 1980.0,
+        "sm_mhz_median": 1980.0,
+        "sm_mhz_max": 1980.0,
+        "n": 12,
+        "util_median": 100.0
+      },
+      "peak_mem_gb": 20.923666944
+    },
+    {
+      "step": 5,
+      "batch_idx": 5,
+      "recycles": 3,
+      "num_cycles": 4,
+      "t_batch_s": 6.930937670171261,
+      "t_iter_s": 6.774295434355736,
+      "clock": {
+        "sm_mhz_min": 1980.0,
+        "sm_mhz_median": 1980.0,
+        "sm_mhz_max": 1980.0,
+        "n": 13,
+        "util_median": 100.0
+      },
+      "peak_mem_gb": 21.163899392
+    },
+    {
+      "step": 6,
+      "batch_idx": 6,
+      "recycles": 3,
+      "num_cycles": 4,
+      "t_batch_s": 6.58092744089663,
+      "t_iter_s": 7.115697953850031,
+      "clock": {
+        "sm_mhz_min": 1980.0,
+        "sm_mhz_median": 1980.0,
+        "sm_mhz_max": 1980.0,
+        "n": 12,
+        "util_median": 100.0
+      },
+      "peak_mem_gb": 21.084713472
+    },
+    {
+      "step": 7,
+      "batch_idx": 7,
+      "recycles": 3,
+      "num_cycles": 4,
+      "t_batch_s": 6.578017780557275,
+      "t_iter_s": 6.970733812078834,
+      "clock": {
+        "sm_mhz_min": 1980.0,
+        "sm_mhz_median": 1980.0,
+        "sm_mhz_max": 1980.0,
+        "n": 12,
+        "util_median": 100.0
+      },
+      "peak_mem_gb": 21.523096064
+    },
+    {
+      "step": 8,
+      "batch_idx": 8,
+      "recycles": 3,
+      "num_cycles": 4,
+      "t_batch_s": 6.6542972177267075,
+      "t_iter_s": 6.990065587684512,
+      "clock": {
+        "sm_mhz_min": 1980.0,
+        "sm_mhz_median": 1980.0,
+        "sm_mhz_max": 1980.0,
+        "n": 12,
+        "util_median": 100.0
+      },
+      "peak_mem_gb": 21.28768768
+    },
+    {
+      "step": 9,
+      "batch_idx": 9,
+      "recycles": 3,
+      "num_cycles": 4,
+      "t_batch_s": 6.765821631997824,
+      "t_iter_s": 6.975235652178526,
+      "clock": {
+        "sm_mhz_min": 1980.0,
+        "sm_mhz_median": 1980.0,
+        "sm_mhz_max": 1980.0,
+        "n": 12,
+        "util_median": 100.0
+      },
+      "peak_mem_gb": 21.459634176
+    },
+    {
+      "step": 10,
+      "batch_idx": 10,
+      "recycles": 3,
+      "num_cycles": 4,
+      "t_batch_s": 6.550316732376814,
+      "t_iter_s": 6.981607859954238,
+      "clock": {
+        "sm_mhz_min": 1980.0,
+        "sm_mhz_median": 1980.0,
+        "sm_mhz_max": 1980.0,
+        "n": 12,
+        "util_median": 100.0
+      },
+      "peak_mem_gb": 21.1286016
+    },
+    {
+      "step": 11,
+      "batch_idx": 11,
+      "recycles": 3,
+      "num_cycles": 4,
+      "t_batch_s": 6.618757389485836,
+      "t_iter_s": 7.019612550735474,
+      "clock": {
+        "sm_mhz_min": 1980.0,
+        "sm_mhz_median": 1980.0,
+        "sm_mhz_max": 1980.0,
+        "n": 12,
+        "util_median": 100.0
+      },
+      "peak_mem_gb": 21.731216384
+    }
+  ],
+  "recycles_seen": [
+    3,
+    3,
+    3,
+    3,
+    3,
+    3,
+    3,
+    3,
+    3,
+    3,
+    3,
+    3
+  ],
+  "steady": {
+    "n": 11,
+    "t_batch_min": 6.550316732376814,
+    "t_batch_median": 6.614984130486846,
+    "t_batch_mean": 6.659504378891804,
+    "t_batch_max": 6.930937670171261,
+    "t_batch_stdev": 0.13234489849364653,
+    "spread_s": 0.38062093779444695,
+    "by_cycles": {
+      "4": {
+        "n": 11,
+        "median": 6.614984130486846,
+        "min": 6.550316732376814,
+        "max": 6.930937670171261
+      }
+    },
+    "sm_mhz_min_during": 345.0,
+    "sm_mhz_median_during": 1980.0,
+    "sm_mhz_max_during": 1980.0,
+    "clock_samples": 303
+  }
+}
