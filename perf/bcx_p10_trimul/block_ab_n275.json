@@ -1,0 +1,380 @@
+{
+ "stamp": {
+  "host": "tt-quietbox",
+  "card": 1,
+  "subsystem_device": "0x0040",
+  "commit": "1321271320d581a3cd27ca46727c806393b6854b",
+  "tt_bio_dirty": false,
+  "torch_threads": 8,
+  "loadavg": [
+   23.45556640625,
+   20.43310546875,
+   19.46435546875
+  ],
+  "utc": "2026-09-26T12:12:16Z",
+  "pci": "0000:41:00.0",
+  "aiclk_node": "/sys/class/tenstorrent/tenstorrent!2/tt_aiclk"
+ },
+ "n": 275,
+ "k": 2,
+ "stack": "evo",
+ "reps": 8,
+ "records": [
+  {
+   "rep": 0,
+   "arm": "off",
+   "fwd": 13.312842,
+   "bwd": 20.870643,
+   "served": {
+    "minimal": 0,
+    "fallback": 58
+   },
+   "aiclk": {
+    "n": 80,
+    "min": 1350,
+    "median": 1350,
+    "max": 1350
+   },
+   "load1": 19.5
+  },
+  {
+   "rep": 0,
+   "arm": "on",
+   "fwd": 16.07836,
+   "bwd": 20.878181,
+   "served": {
+    "minimal": 50,
+    "fallback": 8
+   },
+   "aiclk": {
+    "n": 84,
+    "min": 1350,
+    "median": 1350,
+    "max": 1350
+   },
+   "load1": 21.19
+  },
+  {
+   "rep": 1,
+   "arm": "on",
+   "fwd": 13.960674,
+   "bwd": 18.598777,
+   "served": {
+    "minimal": 50,
+    "fallback": 8
+   },
+   "aiclk": {
+    "n": 76,
+    "min": 1350,
+    "median": 1350,
+    "max": 1350
+   },
+   "load1": 22.76
+  },
+  {
+   "rep": 1,
+   "arm": "off",
+   "fwd": 13.385492,
+   "bwd": 18.747866,
+   "served": {
+    "minimal": 0,
+    "fallback": 58
+   },
+   "aiclk": {
+    "n": 77,
+    "min": 1350,
+    "median": 1350,
+    "max": 1350
+   },
+   "load1": 19.48
+  },
+  {
+   "rep": 2,
+   "arm": "off",
+   "fwd": 13.721663,
+   "bwd": 18.113122,
+   "served": {
+    "minimal": 0,
+    "fallback": 58
+   },
+   "aiclk": {
+    "n": 80,
+    "min": 1350,
+    "median": 1350,
+    "max": 1350
+   },
+   "load1": 15.3
+  },
+  {
+   "rep": 2,
+   "arm": "on",
+   "fwd": 13.978666,
+   "bwd": 17.385743,
+   "served": {
+    "minimal": 50,
+    "fallback": 8
+   },
+   "aiclk": {
+    "n": 74,
+    "min": 1350,
+    "median": 1350,
+    "max": 1350
+   },
+   "load1": 15.88
+  },
+  {
+   "rep": 3,
+   "arm": "on",
+   "fwd": 14.601821,
+   "bwd": 17.681688,
+   "served": {
+    "minimal": 50,
+    "fallback": 8
+   },
+   "aiclk": {
+    "n": 74,
+    "min": 1350,
+    "median": 1350,
+    "max": 1350
+   },
+   "load1": 21.29
+  },
+  {
+   "rep": 3,
+   "arm": "off",
+   "fwd": 14.949452,
+   "bwd": 17.588928,
+   "served": {
+    "minimal": 0,
+    "fallback": 58
+   },
+   "aiclk": {
+    "n": 77,
+    "min": 1350,
+    "median": 1350,
+    "max": 1350
+   },
+   "load1": 23.67
+  },
+  {
+   "rep": 4,
+   "arm": "off",
+   "fwd": 14.476011,
+   "bwd": 20.79712,
+   "served": {
+    "minimal": 0,
+    "fallback": 58
+   },
+   "aiclk": {
+    "n": 83,
+    "min": 1350,
+    "median": 1350,
+    "max": 1350
+   },
+   "load1": 20.56
+  },
+  {
+   "rep": 4,
+   "arm": "on",
+   "fwd": 16.951849,
+   "bwd": 21.961762,
+   "served": {
+    "minimal": 50,
+    "fallback": 8
+   },
+   "aiclk": {
+    "n": 88,
+    "min": 1350,
+    "median": 1350,
+    "max": 1350
+   },
+   "load1": 22.3
+  },
+  {
+   "rep": 5,
+   "arm": "on",
+   "fwd": 13.459339,
+   "bwd": 17.509637,
+   "served": {
+    "minimal": 50,
+    "fallback": 8
+   },
+   "aiclk": {
+    "n": 67,
+    "min": 1350,
+    "median": 1350,
+    "max": 1350
+   },
+   "load1": 17.81
+  },
+  {
+   "rep": 5,
+   "arm": "off",
+   "fwd": 14.162741,
+   "bwd": 18.414578,
+   "served": {
+    "minimal": 0,
+    "fallback": 58
+   },
+   "aiclk": {
+    "n": 78,
+    "min": 1350,
+    "median": 1350,
+    "max": 1350
+   },
+   "load1": 16.65
+  },
+  {
+   "rep": 6,
+   "arm": "off",
+   "fwd": 13.663016,
+   "bwd": 17.52506,
+   "served": {
+    "minimal": 0,
+    "fallback": 58
+   },
+   "aiclk": {
+    "n": 71,
+    "min": 1350,
+    "median": 1350,
+    "max": 1350
+   },
+   "load1": 17.51
+  },
+  {
+   "rep": 6,
+   "arm": "on",
+   "fwd": 13.760016,
+   "bwd": 19.045211,
+   "served": {
+    "minimal": 50,
+    "fallback": 8
+   },
+   "aiclk": {
+    "n": 79,
+    "min": 1350,
+    "median": 1350,
+    "max": 1350
+   },
+   "load1": 17.35
+  },
+  {
+   "rep": 7,
+   "arm": "on",
+   "fwd": 12.905234,
+   "bwd": 17.626098,
+   "served": {
+    "minimal": 50,
+    "fallback": 8
+   },
+   "aiclk": {
+    "n": 72,
+    "min": 1350,
+    "median": 1350,
+    "max": 1350
+   },
+   "load1": 19.39
+  },
+  {
+   "rep": 7,
+   "arm": "off",
+   "fwd": 12.351204,
+   "bwd": 17.597454,
+   "served": {
+    "minimal": 0,
+    "fallback": 58
+   },
+   "aiclk": {
+    "n": 68,
+    "min": 1350,
+    "median": 1350,
+    "max": 1350
+   },
+   "load1": 21.8
+  }
+ ],
+ "grade": {
+  "host_bf16": {
+   "dm": 0.08412831373757447,
+   "dz": 0.06798883371026394
+  },
+  "off": {
+   "served": {
+    "minimal": 0,
+    "fallback": 29
+   },
+   "rel_dm": 0.0918799209737839,
+   "rel_dz": 0.07381061748064882,
+   "cos_dm": 0.9957790571675702,
+   "cos_dz": 0.9972806999359779,
+   "x_float64_vs_host_bf16": {
+    "dm": 1.092140290133348,
+    "dz": 1.085628528284432
+   }
+  },
+  "on": {
+   "served": {
+    "minimal": 25,
+    "fallback": 4
+   },
+   "rel_dm": 0.09187047056495311,
+   "rel_dz": 0.07386767209479884,
+   "cos_dm": 0.9957895191360241,
+   "cos_dz": 0.9972809931029828,
+   "x_float64_vs_host_bf16": {
+    "dm": 1.0920279568603874,
+    "dz": 1.086467704529066
+   }
+  },
+  "on_vs_off": {
+   "rel_dm": 0.0093974367335395,
+   "rel_dz": 0.00781323909814966,
+   "bit_exact": false
+  }
+ },
+ "loadavg_end": [
+  23.45556640625,
+  20.43310546875,
+  19.46435546875
+ ],
+ "off": {
+  "fwd": {
+   "median": 13.6923395,
+   "p10": 13.0243506,
+   "p90": 14.6180433,
+   "mean": 13.752802625000001,
+   "min": 12.351204,
+   "max": 14.949452,
+   "n": 8
+  },
+  "bwd": {
+   "median": 18.263849999999998,
+   "p10": 17.5697676,
+   "p90": 20.8191769,
+   "mean": 18.706846374999998,
+   "min": 17.52506,
+   "max": 20.870643,
+   "n": 8
+  }
+ },
+ "on": {
+  "fwd": {
+   "median": 13.96967,
+   "p10": 13.2931075,
+   "p90": 16.3404067,
+   "mean": 14.461994874999998,
+   "min": 12.905234,
+   "max": 16.951849,
+   "n": 8
+  },
+  "bwd": {
+   "median": 18.1402325,
+   "p10": 17.4724688,
+   "p90": 21.203255300000002,
+   "mean": 18.835887125,
+   "min": 17.385743,
+   "max": 21.961762,
+   "n": 8
+  }
+ }
+}

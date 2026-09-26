@@ -723,6 +723,23 @@ _TRIMUL_CHUNK_CLASH: dict = {}
 # is core count, and TT_BIO_FORCE_GRID already forces that.
 _TRIMUL_CHUNK_CAP = int(os.environ.get("TT_BIO_TRIMUL_CHUNK_CAP", "") or 0)
 
+# The chunk width is priced against an L1 budget, and under a tape nothing the chunk loop
+# holds is in L1: `_triangle_mul_memory_config` sends the whole loop to DRAM the moment
+# `ops.taping()` is true. The width then obeys a constraint that does not apply, and the loop
+# pays a second fused in-projection, a second four-way split, three more channel moves and a
+# second concat for it. At a 288 token axis with hidden 128 the budget buys chunk 64 -- two
+# iterations -- where a DRAM loop would hold one. Bit-exact at every width: the chunk width is
+# a partition of an independent-channel sum, the same guarantee the widening loop below
+# already relies on.
+_TRIMUL_TAPED_FULL_CHUNK = env_flag("TT_BIO_TRIMUL_TAPED_FULL_CHUNK", False)
+
+
+def set_trimul_taped_full_chunk(on: bool) -> bool:
+    """A/B switch for the paired harness. Returns the previous state."""
+    global _TRIMUL_TAPED_FULL_CHUNK
+    prev, _TRIMUL_TAPED_FULL_CHUNK = _TRIMUL_TAPED_FULL_CHUNK, bool(on)
+    return prev
+
 # Seq lengths whose trimul does not fit in L1 even at the minimum width take the DRAM
 # path instead: same ops, same arithmetic, the residency threshold's other side.
 _TRIMUL_DRAM_SHAPES: set = set()
@@ -1212,6 +1229,10 @@ def _trimul_chunk_size(seq_len: int, hidden: int, batch: int = 1) -> int:
     budget = TRIANGLE_MULT_L1_CHUNK_BUDGET * gx * gy / (COMPUTE_GRID_X_13 * 10)
     if _IS_SMALL_GRID:
         budget *= SMALL_GRID_TRIMUL_BUDGET_SCALE
+    if (_TRIMUL_TAPED_FULL_CHUNK
+            and _triangle_mul_memory_config(seq_len).buffer_type == ttnn.BufferType.DRAM):
+        # Nothing this loop holds is in L1, so the L1 budget is not the binding constraint.
+        budget = float("inf")
     c = TRIANGLE_MULT_CHUNK_SIZE
     # Price the chunk on the width it actually occupies. The chunk tensors are
     # [batch, chunk, seq, seq] TILE tensors, so both seq dims round up to 32 and a logical
