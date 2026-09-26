@@ -1,3 +1,38 @@
+"""Does a bf16 running sum reproduce the trunk's error signature?  RESULT: not at the rung that matters.
+
+**WITHDRAWN AS EVIDENCE FOR THE DEVICE-ONLY RUNG, 2026-09-26 17:4x, by its own author.** The
+target below is `CLAUSE.json`'s *published* arm (cos 0.1796, norm_ratio 2.1021), which is a
+frame-mismatched "renorm" arm and NOT the device-only baseline. Each rung carries its own reading
+in `perf/of3t_stackexact/CLAUSE_<rung>.json` under `frame_matched/trunk/`:
+
+    rung                  clause x_bar   cos      norm_ratio   cos*nr
+    SHIP_A (device only)  1.4512         0.8179   1.0546       0.8625
+    S  (exact softmax)    1.3038         0.7806   1.0645       0.8310
+    L  (exact layernorm)  1.2839         0.8304   0.9985       0.8292
+    SL (both, CLEARS)     0.9823         0.9374   0.9242       0.8664
+
+Re-fitting this model against SHIP_A (N = 147,456, sweeping the cancellation ratio R):
+
+    R=0.40   cos 0.8050 (-1.6%)    norm_ratio 0.9707 (-8.0%)
+    R=0.30   cos 0.6255 (-23.5%)   norm_ratio 1.1044 (+4.7%)
+
+**No single R matches both.** And the model's norm_ratio sits BELOW 1 wherever cos is right --
+a bf16 accumulator attenuates -- while SHIP_A measures 1.0546, above 1. The attenuation signature
+(cos*nr = 0.3775) that made this fit compelling belongs to the published arm; SHIP_A reads 0.8625,
+near the pure-noise value of 1.0.
+
+**So: the bf16 accumulator is NOT established as the cause of the device-only clause failure.**
+What survives is `bf16_reduction.py`'s measurement -- a bf16 running sum loses a reduction as
+sqrt(N), 3.18e-01 at N = 147,456 -- which is a real defect worth fixing at the six sites lacking
+`dtype=ttnn.float32` (autograd.py 1283, 1341, 1343, 2709, 2769, 2771), independently of how much
+of this particular clause it explains.
+
+The original text is kept below because the arithmetic is correct; only its TARGET was wrong.
+The lesson is the cheap one: a caveat you write down three times and then build on anyway is not
+a caveat.
+
+--- original header follows ---
+
 """Does a bf16 running sum reproduce the trunk's THREE-number signature, not just its cosine?
 
 Third and strongest of the CPU experiments in this directory. `bf16_reduction.py` showed the
