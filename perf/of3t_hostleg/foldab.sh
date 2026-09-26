@@ -6,6 +6,9 @@
 # worker.py:1461 alone).
 # `off` is the shipped host legs; `on` sets TT_BIO_OF3_DEVICE_REFATOM=1. Nothing else differs.
 # Single-sequence so the run needs no MSA cache and no network, and is the same input every arm.
+
+# One place decides what a valid AICLK is: perf/lib/aiclk.sh, mirroring tt_bio.aiclk.
+_L=$(cd "$(dirname "$0")" && pwd); . "${_L%/perf/*}/perf/lib/aiclk.sh" || exit 1
 set -uo pipefail
 W=$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)
 ARM=$1; SEED=$2; CARD=$3; TAG=$4; MODEL=${5:-openfold3}
@@ -30,7 +33,7 @@ CLK="$OUT/aiclk.tsv"
 AICLK_NODE="/sys/class/tenstorrent/tenstorrent!${CARD}/tt_aiclk"
 (
   while true; do
-    printf '%s\t%s\n' "$(date +%s)" "$(cat "$AICLK_NODE" 2>/dev/null)" >> "$CLK"
+    printf '%s\t%s\n' "$(date +%s)" "$(aiclk "$AICLK_NODE")" >> "$CLK"
     sleep 1
   done
 ) &

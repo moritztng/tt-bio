@@ -33,8 +33,10 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Dict, List, Optional
 
-__all__ = ["Provenance", "during", "record", "clocks", "git_sha", "KILL_BAR_A",
-           "SEED_FLOOR_A", "ARTIFACT_CLOCK_MHZ"]
+from .. import aiclk
+
+__all__ = ["Provenance", "during", "record", "clocks", "dead_arc_nodes", "git_sha",
+           "KILL_BAR_A", "SEED_FLOOR_A", "ARTIFACT_CLOCK_MHZ"]
 
 
 _SYSFS = Path("/sys/class/tenstorrent")
@@ -58,14 +60,20 @@ def _nodes() -> List[int]:
 
 
 def clocks() -> Dict[int, Optional[int]]:
-    """Every card's AICLK in MHz, by device node. ``None`` for a node that would not read."""
-    out = {}
-    for n in _nodes():
-        try:
-            out[n] = int((_SYSFS / f"tenstorrent!{n}" / "tt_aiclk").read_text().strip())
-        except (OSError, ValueError):
-            out[n] = None
-    return out
+    """Every card's AICLK in MHz, by device node. ``None`` for a node that would not read.
+
+    A node whose ARC has died reads 4294967295 and does not raise, so "would not read" has to
+    cover "read, and lied". :mod:`tt_bio.aiclk` owns that predicate; the contract here is
+    unchanged, which is why no caller has to know the sentinel exists.
+    """
+    return {n: aiclk.read(n, sysfs=_SYSFS) for n in _nodes()}
+
+
+def dead_arc_nodes() -> List[int]:
+    """The nodes that answered with the sentinel. Empty is the normal case."""
+    return [n for n in _nodes()
+            if (_SYSFS / f"tenstorrent!{n}" / "tt_aiclk").exists()
+            and aiclk.read(n, sysfs=_SYSFS) is None]
 
 
 def open_nodes(pid: Optional[int] = None) -> List[int]:
@@ -181,13 +189,19 @@ class _Sampler(threading.Thread):
         self._done = threading.Event()
         self.samples: List[float] = []
         self.nodes: set = set()
+        self.dead: set = set()
 
     def run(self) -> None:
         while not self._done.is_set():
             mine = open_nodes()
             self.nodes |= set(mine)
             c = clocks()
-            watch = [c[n] for n in (mine or list(c)) if c.get(n) is not None]
+            watched = mine or list(c)
+            watch = [c[n] for n in watched if c.get(n) is not None]
+            # A node present in `c` with a None reading answered and lied, or would not read
+            # at all. Either way there is no clock there, and the record has to say so rather
+            # than report "no card visible" on a host that has four.
+            self.dead |= {n for n in watched if n in c and c[n] is None}
             if watch:
                 self.samples.append(float(max(watch)))
             self._done.wait(self.interval)
@@ -197,12 +211,19 @@ class _Sampler(threading.Thread):
         self.join(timeout=self.interval * 4)
         s = sorted(self.samples)
         if not s:
+            why = ("no sysfs AICLK node readable; this host has no Tenstorrent card "
+                   "visible, so there is no clock to report")
+            if self.dead:
+                why = (f"nodes {sorted(self.dead)} answered but not with a clock -- a dead ARC "
+                       f"reports {aiclk.ARC_DEAD}. Any timing from this run is unstamped.")
             return {"samples": 0, "median": None, "min": None, "max": None,
-                    "why": "no sysfs AICLK node readable; this host has no Tenstorrent card "
-                           "visible, so there is no clock to report"}
+                    "dead_arc_nodes": sorted(self.dead), "why": why}
         mid = len(s) // 2
         median = s[mid] if len(s) % 2 else 0.5 * (s[mid - 1] + s[mid])
-        return {"samples": len(s), "median": median, "min": s[0], "max": s[-1]}
+        out = {"samples": len(s), "median": median, "min": s[0], "max": s[-1]}
+        if self.dead:
+            out["dead_arc_nodes"] = sorted(self.dead)
+        return out
 
 
 def record(*, seed: Optional[int] = None, config: Optional[dict] = None,

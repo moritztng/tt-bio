@@ -9,6 +9,9 @@
 # on an explicit use_softmax_kernel defaulting False. On a CPU reference NEITHER tree takes the
 # kernel, so a CPU-run msa_module arm is version-invariant. What CAN have moved it is the same
 # thing that moved D30 from 19.6x to 11.03x with the forward bit-identical: our own backward.
+
+# One place decides what a valid AICLK is: perf/lib/aiclk.sh, mirroring tt_bio.aiclk.
+_L=$(cd "$(dirname "$0")" && pwd); . "${_L%/perf/*}/perf/lib/aiclk.sh" || exit 1
 set -uo pipefail
 W=/home/ttuser/.coworker/wt/of3t-ditref
 cd "$W"
@@ -24,7 +27,7 @@ export TT_VISIBLE_DEVICES=$DEV TT_BIO_LEASE_CARDS=$DEV TT_BIO_LEASE_HOLDER=worke
 TAG=$1; shift
 CLK=$S/aiclk_$TAG.log; LOG=$S/$TAG.log; : > "$CLK"
 ( while :; do
-    echo "$(date +%s) $(cat /sys/class/tenstorrent/tenstorrent\!$DEV/tt_aiclk 2>/dev/null || echo NA)" >> "$CLK"
+    echo "$(date +%s) $(aiclk "$DEV")" >> "$CLK"
     sleep 5
   done ) &
 SIDE=$!

@@ -2,6 +2,9 @@
 # Is the size-ladder's 256 aa rung FAIL attributable to TT_BIO_DIT_COND_HOIST?
 # Runs the gate's own rung command verbatim, hoist off vs on, interleaved, 3 reps each,
 # one process per fold exactly as the ladder does. Clock sampled DURING every fold.
+
+# One place decides what a valid AICLK is: perf/lib/aiclk.sh, mirroring tt_bio.aiclk.
+_L=$(cd "$(dirname "$0")" && pwd); . "${_L%/perf/*}/perf/lib/aiclk.sh" || exit 1
 set -u
 WT=/home/ttuser/.coworker/wt/c13-land-first
 PY=/home/ttuser/tt-bio-dev/env/bin/python3
@@ -17,7 +20,7 @@ for rep in 1 2 3; do
     [ $((rep % 2)) -eq 0 ] && arm=$((1 - arm))
     d=$OUT/${MODEL}_h${arm}_r${rep}
     rm -rf "$d"; mkdir -p "$d"
-    ( while :; do cat "$CLK" 2>/dev/null; sleep 0.25; done ) > "$d/clk.txt" &
+    ( while :; do aiclk "$CLK"; sleep 0.25; done ) > "$d/clk.txt" &
     SAMP=$!
     TT_VISIBLE_DEVICES=0 TT_BIO_LEASE_CARDS=0 TT_BIO_LEASE_HOLDER=worker:c13-land-first \
     TT_BIO_DIT_COND_HOIST=$arm \

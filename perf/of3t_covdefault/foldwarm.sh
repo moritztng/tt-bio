@@ -4,6 +4,9 @@
 # targets per process; the CLI folds one. The flag's cost differs between the two and a
 # once-per-process figure cannot say which.
 #   foldwarm.sh <off|on> <card> <tag> [model]
+
+# One place decides what a valid AICLK is: perf/lib/aiclk.sh, mirroring tt_bio.aiclk.
+_L=$(cd "$(dirname "$0")" && pwd); . "${_L%/perf/*}/perf/lib/aiclk.sh" || exit 1
 set -uo pipefail
 W=$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)
 ARM=$1; CARD=$2; TAG=$3; MODEL=${4:-openfold3}
@@ -27,10 +30,10 @@ cd "$W"
 CLK="$OUT/aiclk.tsv"; : > "$CLK"
 ( while true; do
     printf '%s\t%s\t%s\t%s\t%s\n' "$(date +%s)" \
-      "$(cat /sys/class/tenstorrent/tenstorrent!0/tt_aiclk 2>/dev/null)" \
-      "$(cat /sys/class/tenstorrent/tenstorrent!1/tt_aiclk 2>/dev/null)" \
-      "$(cat /sys/class/tenstorrent/tenstorrent!2/tt_aiclk 2>/dev/null)" \
-      "$(cat /sys/class/tenstorrent/tenstorrent!3/tt_aiclk 2>/dev/null)" >> "$CLK"
+      "$(aiclk 0)" \
+      "$(aiclk 1)" \
+      "$(aiclk 2)" \
+      "$(aiclk 3)" >> "$CLK"
     sleep 1
   done ) &
 SAMPLER=$!

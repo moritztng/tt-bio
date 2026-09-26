@@ -7,6 +7,9 @@
 # the recorder's only output for both is the same timeout.
 #
 # Args: <card> <model> <rung> [timeout_s]
+
+# One place decides what a valid AICLK is: perf/lib/aiclk.sh, mirroring tt_bio.aiclk.
+_L=$(cd "$(dirname "$0")" && pwd); . "${_L%/perf/*}/perf/lib/aiclk.sh" || exit 1
 set -u
 WT=$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)
 PY=/home/ttuser/kisoji_p2_fresh/env/bin/python3
@@ -21,7 +24,7 @@ BASE=$OUT/$MODEL-$RUNG-card$CARD-$STAMP
 # AICLK sampler: resolve the node by BDF, never by UMD id (they differ on this host).
 BDF=$("$PY" -c "import sys;sys.path.insert(0,'$WT/perf/sizegate/campaign');import card_health as c;print(c.bdf_for_umd($CARD))")
 NODE=$("$PY" -c "import sys;sys.path.insert(0,'$WT/perf/sizegate/campaign');import card_health as c;print(c.node_for_bdf('$BDF'))")
-( while :; do echo -e "$(date -u +%FT%TZ)\t$(cat $NODE/tt_aiclk 2>/dev/null || echo NA)"; sleep 15; done ) > "$BASE.aiclk" &
+( while :; do echo -e "$(date -u +%FT%TZ)\t$(aiclk "$NODE")"; sleep 15; done ) > "$BASE.aiclk" &
 SAMPLER=$!
 trap 'kill $SAMPLER 2>/dev/null' EXIT
 

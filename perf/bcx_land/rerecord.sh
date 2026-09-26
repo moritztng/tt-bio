@@ -1,10 +1,13 @@
 #!/bin/bash
 # usage: rerecord.sh <name> [tap_gate args...] -- af2ig-trunk-device arm from this worktree on card 3,
 # host arms shared through perf/bcx_land/tap_gate_cached.py, sysfs AICLK + loadavg sampled throughout.
+
+# One place decides what a valid AICLK is: perf/lib/aiclk.sh, mirroring tt_bio.aiclk.
+_L=$(cd "$(dirname "$0")" && pwd); . "${_L%/perf/*}/perf/lib/aiclk.sh" || exit 1
 wt=/home/ttuser/.coworker/wt/bcx-land
 out=$wt/perf/bcx_land/rerecord; mkdir -p $out
 name=$1; shift
-( while true; do echo "$(date -u +%H:%M:%S) aiclk=$(cat /sys/class/tenstorrent/tenstorrent!0/tt_aiclk) load=$(cut -d' ' -f1 /proc/loadavg)"; sleep 10; done ) > $out/$name.clock &
+( while true; do echo "$(date -u +%H:%M:%S) aiclk=$(aiclk 0) load=$(cut -d' ' -f1 /proc/loadavg)"; sleep 10; done ) > $out/$name.clock &
 s=$!
 cd $wt
 start=$(date -u +%s)

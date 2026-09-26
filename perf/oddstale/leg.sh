@@ -4,6 +4,9 @@
 # --debug --log --output_format cif). The size guard is left ON: size_limits caps
 # opendde/wormhole_b0 at 1536, so both rungs run the production default path.
 # Engine asserted before the card is spent so the leg cannot go vacuous.
+
+# One place decides what a valid AICLK is: perf/lib/aiclk.sh, mirroring tt_bio.aiclk.
+_L=$(cd "$(dirname "$0")" && pwd); . "${_L%/perf/*}/perf/lib/aiclk.sh" || exit 1
 set -u
 D=/home/cust-team/mthuening/oddstale
 PY=/home/cust-team/mthuening/tt-bio/env/bin/python3.10
@@ -19,7 +22,7 @@ export TT_BIO_LEASE_TIMEOUT=1800 TT_METAL_LOGGER_LEVEL=FATAL
 export OMP_NUM_THREADS=8 MKL_NUM_THREADS=8
 H=$(echo /sys/class/tenstorrent/tenstorrent!$node/device/hwmon/hwmon*)
 ( while true; do
-    echo "$(date -u +%FT%TZ) A=$(cat /sys/class/tenstorrent/tenstorrent!$node/tt_aiclk 2>/dev/null) P=$(cat $H/power1_input 2>/dev/null) T=$(cat $H/temp1_input 2>/dev/null) L=$(cut -d\  -f1 /proc/loadavg)"
+    echo "$(date -u +%FT%TZ) A=$(aiclk "$node") P=$(cat $H/power1_input 2>/dev/null) T=$(cat $H/temp1_input 2>/dev/null) L=$(cut -d\  -f1 /proc/loadavg)"
     sleep 10; done ) > $D/logs/$tag.clk 2>/dev/null &
 W=$!
 out=$D/out/$tag; rm -rf "$out"; mkdir -p "$out"

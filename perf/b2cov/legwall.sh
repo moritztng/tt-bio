@@ -6,6 +6,9 @@
 # Guard OFF (TT_BIO_SIZE_LIMIT=0): this leg is the negative control ABOVE the shipped 1920
 # cap, so the guard would refuse it before a device opened.
 # Engine asserted before the card is spent so the leg cannot go vacuous.
+
+# One place decides what a valid AICLK is: perf/lib/aiclk.sh, mirroring tt_bio.aiclk.
+_L=$(cd "$(dirname "$0")" && pwd); . "${_L%/perf/*}/perf/lib/aiclk.sh" || exit 1
 set -u
 D=/home/cust-team/mthuening/b2cov
 PY=/home/cust-team/mthuening/tt-bio/env/bin/python3.10
@@ -23,7 +26,7 @@ export TT_BIO_LEASE_TIMEOUT=1800 TT_METAL_LOGGER_LEVEL=FATAL
 export OMP_NUM_THREADS=8 MKL_NUM_THREADS=8
 H=$(echo /sys/class/tenstorrent/tenstorrent!$node/device/hwmon/hwmon*)
 ( while true; do
-    echo "$(date -u +%FT%TZ) P=$(cat $H/power1_input 2>/dev/null) T=$(cat $H/temp1_input 2>/dev/null) A=$(cat /sys/class/tenstorrent/tenstorrent!$node/tt_aiclk 2>/dev/null) L=$(cut -d\  -f1 /proc/loadavg)"
+    echo "$(date -u +%FT%TZ) P=$(cat $H/power1_input 2>/dev/null) T=$(cat $H/temp1_input 2>/dev/null) A=$(aiclk "$node") L=$(cut -d\  -f1 /proc/loadavg)"
     sleep 10; done ) > $D/logs/$tag.pwr 2>/dev/null &
 W=$!
 out=$D/out/$tag; rm -rf "$out"; mkdir -p "$out"

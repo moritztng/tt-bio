@@ -8,6 +8,9 @@
 # train.losses inside a tape closure, and both look live to a static read.
 #
 #   foldcensus.sh <seed> <card> <tag>
+
+# One place decides what a valid AICLK is: perf/lib/aiclk.sh, mirroring tt_bio.aiclk.
+_L=$(cd "$(dirname "$0")" && pwd); . "${_L%/perf/*}/perf/lib/aiclk.sh" || exit 1
 set -uo pipefail
 W=$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)
 SEED=$1; CARD=$2; TAG=$3
@@ -21,7 +24,7 @@ export PYTHONPATH="$W/perf/of3t_refcov/census:${PYTHONPATH:-}"
 cd "$W"
 CLK="$OUT/aiclk.tsv"; : > "$CLK"
 NODE="/sys/class/tenstorrent/tenstorrent!${CARD}/tt_aiclk"
-( while true; do printf '%s\t%s\n' "$(date +%s)" "$(cat "$NODE" 2>/dev/null)" >> "$CLK"; sleep 1; done ) &
+( while true; do printf '%s\t%s\n' "$(date +%s)" "$(aiclk "$NODE")" >> "$CLK"; sleep 1; done ) &
 SAMPLER=$!
 trap 'kill "$SAMPLER" 2>/dev/null' EXIT
 S=$(date +%s)

@@ -14,8 +14,17 @@ FULL. Rounds are not shortened, recycles are not reduced and no stage is skipped
 """
 import json
 import os
+import pathlib
+import sys
 import threading
 import time
+
+sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[2]))
+from tt_bio.aiclk import ARC_DEAD, parse as parse_aiclk  # noqa: E402
+
+#: Set to "1" to let a round dump be written while the card's ARC is dead. The override is
+#: recorded in the stamp, so an artifact produced under it says so on its face.
+ALLOW_DEAD = "TT_BIO_ALLOW_DEAD_ARC_CLOCK"
 
 EVENTS = []
 _T0 = time.time()
@@ -39,6 +48,13 @@ class Clock:
 
     Per round is 10+ samples at a 50 s round, which is what lets each round carry the
     clock it was measured at rather than a run-wide median.
+
+    A sample that is not a clock is NOT banked. A dead ARC answers every read with
+    4294967295 and raises nothing, so the old `except Exception: pass` caught an unreadable
+    node and not a lying one: on 2026-09-26 `bcx-p10-devgap` wrote a `round_events.json` whose
+    every AICLK sample was the sentinel. Those reads are counted in `dead` instead, which is
+    what makes the run stop at the next round boundary rather than spend an hour producing
+    unstampable numbers.
     """
 
     def __init__(self, dt=1.0):
@@ -48,17 +64,21 @@ class Clock:
         from stack import sysfs_node
         node, self.pci = sysfs_node()
         self.path, self.dt, self.samples = f"{node}/tt_aiclk", dt, []
+        self.dead = 0
         self._stop = threading.Event()
         self._th = threading.Thread(target=self._loop, daemon=True)
 
     def _loop(self):
         while not self._stop.wait(self.dt):
             try:
-                self.samples.append((time.time(),
-                                     int(open(self.path).read().split()[0]),
-                                     os.getloadavg()[0]))
+                raw = open(self.path).read()
             except Exception:
-                pass
+                continue
+            mhz = parse_aiclk(raw)
+            if mhz is None:
+                self.dead += 1
+                continue
+            self.samples.append((time.time(), mhz, os.getloadavg()[0]))
 
     def start(self):
         self._th.start()
@@ -77,6 +97,15 @@ class Clock:
 
 
 CLOCK = None
+
+
+class DeadArcClock(BaseException):
+    """The card stopped answering with a clock, so nothing measured after that is stampable.
+
+    BaseException for the same reason as :class:`StopAfterRounds`: BindCraft 2 catches
+    Exception around the compile (campaign.py:107) and a swallowed stop would leave the run
+    going, which is exactly the failure this class exists to end.
+    """
 
 
 class StopAfterRounds(BaseException):
@@ -112,6 +141,13 @@ class Meter:
                        "round": self.entries, "load1": os.getloadavg()[0]})
         if DUMP:
             dump(*DUMP)
+        # Flush first, stop second: the rounds that ran before the ARC died are real and stay
+        # on disk, and the ones after it would only be wall times nobody can attribute.
+        if CLOCK and CLOCK.dead and not os.environ.get(ALLOW_DEAD):
+            raise DeadArcClock(
+                f"{CLOCK.path} answered {CLOCK.dead} time(s) with something that is not a "
+                f"clock (a dead ARC reports {ARC_DEAD}). A number without a clock is not a "
+                f"measurement; set {ALLOW_DEAD}=1 to record anyway.")
 
 
 def _shapes(args):
@@ -221,11 +257,30 @@ def install(meter, splice_mod, predictor_cls, trajectory_mod, seqopt_mod):
 
 
 def dump(path, stamp):
+    """Write the event log. The clock field cannot carry a reading that is not a clock.
+
+    The filter is here as well as in `Clock._loop` on purpose: this is the last line before
+    the number reaches disk, and it is the only one that holds for a CLOCK somebody set by
+    hand or restored from a pickle. A dead ARC is reported in its own field rather than
+    dropped silently, because an empty `aiclk` list reads as "no sampler ran".
+    """
+    samples = list(CLOCK.samples) if CLOCK else []
+    bad = [s for s in samples if parse_aiclk(str(s[1])) is None]
+    if bad:
+        if not os.environ.get(ALLOW_DEAD):
+            raise DeadArcClock(f"{len(bad)} banked AICLK sample(s) are not a clock "
+                               f"(e.g. {bad[0][1]}); refusing to stamp {path}")
+        samples = [s for s in samples if s not in bad]
+    dead = (CLOCK.dead if CLOCK else 0) + len(bad)
+    clock_state = {"dead_arc_reads": dead, "sentinel": ARC_DEAD,
+                   "override": bool(os.environ.get(ALLOW_DEAD))} if dead else None
     with open(path, "w") as fh:
         json.dump({"stamp": {**stamp, "state_shape": dict(STATE),
                              "dumped_utc": time.strftime("%FT%TZ", time.gmtime()),
                              "rounds_dumped": sum(1 for e in EVENTS
-                                                  if e["kind"] == "round_start")},
+                                                  if e["kind"] == "round_start"),
+                             **({"aiclk_dead_arc": clock_state} if clock_state else {})},
                    "state_shape": STATE, "events": EVENTS,
-                   "aiclk": [[t, c, l] for t, c, l in (CLOCK.samples if CLOCK else [])]},
+                   "aiclk": [[t, c, l] for t, c, l in samples],
+                   **({"aiclk_dead_arc": clock_state} if clock_state else {})},
                   fh)

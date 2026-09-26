@@ -45,16 +45,21 @@ while time.time() - t < 3600:
 fi
 
 CLK="$D/out/aiclk_${TAG}.jsonl"
-$PY - "$NODE" "$CLK" <<'PY' &
+$PY - "$WT" "$NODE" "$CLK" <<'PY' &
 import sys, time, json
-node, out = sys.argv[1], sys.argv[2]
-src = "/sys/class/tenstorrent/tenstorrent!%s/tt_aiclk" % node
+sys.path.insert(0, sys.argv[1])
+from tt_bio.aiclk import read as read_aiclk           # the sentinel predicate, one place
+node, out = sys.argv[2], sys.argv[3]
 with open(out, "w") as f:
     while True:
-        try:
-            f.write(json.dumps({"t": time.time(), "MHz": int(open(src).read())}) + "\n")
-        except Exception as e:
-            f.write(json.dumps({"t": time.time(), "err": repr(e)}) + "\n")
+        # `int(open(src).read())` banked a dead ARC's 4294967295 as MHz. None covers both an
+        # unreadable node and one that answered without a clock; which it was is the card's
+        # health, not this sampler's job.
+        mhz = read_aiclk(int(node))
+        rec = {"t": time.time(), "MHz": mhz}
+        if mhz is None:
+            rec["err"] = "no clock: node absent or ARC not answering"
+        f.write(json.dumps(rec) + "\n")
         f.flush()
         time.sleep(0.002)
 PY

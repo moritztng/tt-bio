@@ -16,6 +16,9 @@
 # is `sub_boundary.pt`'s own `grad_f64`, already inside the capture and pinned by the capture's
 # digest, so nothing here imports upstream. The model-denominator scoring against
 # `grads_f64_043.pt` is `score_seventeen.py`, separately and by digest.
+
+# One place decides what a valid AICLK is: perf/lib/aiclk.sh, mirroring tt_bio.aiclk.
+_L=$(cd "$(dirname "$0")" && pwd); . "${_L%/perf/*}/perf/lib/aiclk.sh" || exit 1
 set -uo pipefail
 W=$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)
 cd "$W"
@@ -36,7 +39,7 @@ esac
 CLK="$OUT/aiclk${TAG}.tsv"
 : > "$CLK"
 NODE="/sys/class/tenstorrent/tenstorrent!${CARD}/tt_aiclk"
-( while true; do printf '%s\t%s\n' "$(date +%s)" "$(cat "$NODE" 2>/dev/null)" >> "$CLK"; sleep 1; done ) &
+( while true; do printf '%s\t%s\n' "$(date +%s)" "$(aiclk "$NODE")" >> "$CLK"; sleep 1; done ) &
 SAMPLER=$!
 S=$(date +%s)
 echo "=== of3t-hostleg arm ${1}, 48 structures, tag $TAG, card $CARD  $(date -u +%FT%TZ) ==="

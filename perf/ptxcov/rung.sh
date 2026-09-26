@@ -14,6 +14,9 @@
 # so no rung can quietly fall back to a search and fold a different depth than the one recorded.
 #
 #   sh rung.sh <rung> <umd_device> [budget_s]
+
+# One place decides what a valid AICLK is: perf/lib/aiclk.sh, mirroring tt_bio.aiclk.
+_L=$(cd "$(dirname "$0")" && pwd); . "${_L%/perf/*}/perf/lib/aiclk.sh" || exit 1
 set -u
 WT=/home/ttuser/.coworker/wt/cov-unproven-protenixv2-bhp150a
 PY=/home/ttuser/tt-bio-dev/env/bin/python3
@@ -26,7 +29,7 @@ LOG=$OUT/fold.log; CLK=$OUT/aiclk.log; RAM=$OUT/host.log
 ( while :; do
     line=$(date +%s)
     for n in 0 1 2 3; do
-      line="$line $(cat /sys/class/tenstorrent/tenstorrent\!$n/tt_aiclk 2>/dev/null || echo NA)"
+      line="$line $(aiclk "$n")"
     done
     echo "$line" >> "$CLK"
     printf "%s %s %s\n" "$(date +%s)" "$(awk "/MemAvailable/{print \$2}" /proc/meminfo)" \

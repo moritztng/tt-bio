@@ -16,6 +16,9 @@
 # mis-attributed.
 #
 #   sh rung.sh <total_residues> <contig> <umd_device> [steps] [designs] [budget_s] [target_cif]
+
+# One place decides what a valid AICLK is: perf/lib/aiclk.sh, mirroring tt_bio.aiclk.
+_L=$(cd "$(dirname "$0")" && pwd); . "${_L%/perf/*}/perf/lib/aiclk.sh" || exit 1
 set -u
 WT=/home/ttuser/.coworker/wt/cov-unproven-rfd3-bhp150a
 PY=/home/ttuser/tt-bio/env/bin/python3
@@ -30,7 +33,7 @@ CLK=$OUT/aiclk.log; RAM=$OUT/host.log
 ( while :; do
     line=$(date +%s)
     for n in 0 1 2 3; do
-      line="$line $(cat "/sys/class/tenstorrent/tenstorrent!$n/tt_aiclk" 2>/dev/null || echo NA)"
+      line="$line $(aiclk "$n")"
     done
     echo "$line" >> "$CLK"
     printf '%s %s %s\n' "$(date +%s)" "$(awk '/MemAvailable/{print $2}' /proc/meminfo)" \

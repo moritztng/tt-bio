@@ -1,6 +1,9 @@
 #!/usr/bin/env bash
 # of3t-msafwd: one device arm on qb1 card 1 (p150a). host_quiet.py green before (logged), AICLK
 # sampled DURING every 2 s, one line per arm in ARMS_device.tsv. Accuracy only: no timing is read.
+
+# One place decides what a valid AICLK is: perf/lib/aiclk.sh, mirroring tt_bio.aiclk.
+_L=$(cd "$(dirname "$0")" && pwd); . "${_L%/perf/*}/perf/lib/aiclk.sh" || exit 1
 set -uo pipefail
 W=/home/ttuser/.coworker/wt/of3t-msafwd
 cd "$W" || exit 1
@@ -18,7 +21,7 @@ python3 $HQ --quiet; Q0=$?
 BOARD=$(cat /sys/class/tenstorrent/tenstorrent\!$DEV/tt_card_type)
 echo "host_quiet GREEN before ours_$TAG load[$(cut -d' ' -f1-3 /proc/loadavg)] host=$(hostname) board=$BOARD card=$DEV $(date -u +%FT%TZ)" | tee -a perf/of3t_msafwd/HOST_QUIET.txt
 CLK=$S/aiclk_$TAG.log; : > "$CLK"
-( while :; do echo "$(date +%s) $(cat /sys/class/tenstorrent/tenstorrent\!$DEV/tt_aiclk 2>/dev/null || echo NA)" >> "$CLK"; sleep 2; done ) &
+( while :; do echo "$(date +%s) $(aiclk "$DEV")" >> "$CLK"; sleep 2; done ) &
 SIDE=$!
 trap 'kill $SIDE 2>/dev/null' EXIT
 "$PY" "$@"

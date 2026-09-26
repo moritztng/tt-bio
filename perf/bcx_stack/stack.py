@@ -52,6 +52,7 @@ import torch
 ROOT = pathlib.Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT))
 from perf.bcx_afgrad import afgrad as A  # noqa: E402
+from tt_bio.aiclk import ARC_DEAD, parse as parse_aiclk  # noqa: E402
 
 OUT = ROOT / "perf" / "bcx_stack"
 ARMS = {"base": (False, False, False), "mm2d": (True, False, False),
@@ -77,15 +78,23 @@ class Clock:
     def __init__(self, dt=0.25):
         node, self.pci = sysfs_node()
         self.path, self.dt, self.samples = f"{node}/tt_aiclk", dt, []
+        self.dead = 0
         self._stop = threading.Event()
         threading.Thread(target=self._run, daemon=True).start()
 
     def _run(self):
         while not self._stop.is_set():
             try:
-                self.samples.append((time.time(), int(open(self.path).read().split()[0])))
+                raw = open(self.path).read()
             except Exception:
-                pass
+                raw = ""
+            # A dead ARC answers 4294967295 and raises nothing, so a node that lies has to
+            # be kept out of `samples` just as firmly as one that will not read.
+            mhz = parse_aiclk(raw)
+            if mhz is not None:
+                self.samples.append((time.time(), mhz))
+            elif raw:
+                self.dead += 1
             self._stop.wait(self.dt)
 
     def stop(self):
@@ -93,9 +102,11 @@ class Clock:
 
     def window(self, spans):
         xs = sorted(c for t, c in self.samples if any(a <= t <= b for a, b in spans))
-        if not xs:
-            return {"n": 0}
-        return {"n": len(xs), "min": xs[0], "median": xs[len(xs) // 2], "max": xs[-1]}
+        out = ({"n": 0} if not xs else
+               {"n": len(xs), "min": xs[0], "median": xs[len(xs) // 2], "max": xs[-1]})
+        if self.dead:
+            out.update(dead_arc_reads=self.dead, sentinel=ARC_DEAD)
+        return out
 
 
 # ------------------------------------------------------------------------------ levers

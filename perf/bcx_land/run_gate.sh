@@ -1,10 +1,13 @@
 #!/bin/bash
 # usage: run_gate.sh <tree> <tag> <model...>   -- release_gate.py arms from <tree>, card 3, with a
 # sysfs AICLK/heartbeat sampler (tt-smi hangs on qb1s dead card) and loadavg alongside.
+
+# One place decides what a valid AICLK is: perf/lib/aiclk.sh, mirroring tt_bio.aiclk.
+_L=$(cd "$(dirname "$0")" && pwd); . "${_L%/perf/*}/perf/lib/aiclk.sh" || exit 1
 tree=$1; tag=$2; shift 2
 out=/home/ttuser/.coworker/wt/bcx-land/perf/bcx_land/gate/$tag
 mkdir -p $out
-( while true; do echo "$(date -u +%H:%M:%S) aiclk=$(cat /sys/class/tenstorrent/tenstorrent!0/tt_aiclk) hb=$(cat /sys/class/tenstorrent/tenstorrent!0/tt_heartbeat) load=$(cut -d" " -f1 /proc/loadavg)"; sleep 5; done ) > $out/clock.log &
+( while true; do echo "$(date -u +%H:%M:%S) aiclk=$(aiclk 0) hb=$(cat /sys/class/tenstorrent/tenstorrent!0/tt_heartbeat) load=$(cut -d" " -f1 /proc/loadavg)"; sleep 5; done ) > $out/clock.log &
 s=$!
 cd $tree
 for m in "$@"; do

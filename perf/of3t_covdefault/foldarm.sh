@@ -6,6 +6,9 @@
 # differs is the card (2, this row's grant), the census hook, and that all four clock nodes are
 # sampled -- TT_VISIBLE_DEVICES renumbers, so /dev/tenstorrent/<CARD> need not be the chip that
 # runs, and a node stuck at 800 MHz through a 10 s fold is the tell.
+
+# One place decides what a valid AICLK is: perf/lib/aiclk.sh, mirroring tt_bio.aiclk.
+_L=$(cd "$(dirname "$0")" && pwd); . "${_L%/perf/*}/perf/lib/aiclk.sh" || exit 1
 set -uo pipefail
 W=$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)
 ARM=$1; SEED=$2; CARD=$3; TAG=$4; MODEL=${5:-openfold3}
@@ -27,10 +30,10 @@ CLK="$OUT/aiclk.tsv"
 : > "$CLK"
 ( while true; do
     printf '%s\t%s\t%s\t%s\t%s\n' "$(date +%s)" \
-      "$(cat /sys/class/tenstorrent/tenstorrent!0/tt_aiclk 2>/dev/null)" \
-      "$(cat /sys/class/tenstorrent/tenstorrent!1/tt_aiclk 2>/dev/null)" \
-      "$(cat /sys/class/tenstorrent/tenstorrent!2/tt_aiclk 2>/dev/null)" \
-      "$(cat /sys/class/tenstorrent/tenstorrent!3/tt_aiclk 2>/dev/null)" >> "$CLK"
+      "$(aiclk 0)" \
+      "$(aiclk 1)" \
+      "$(aiclk 2)" \
+      "$(aiclk 3)" >> "$CLK"
     sleep 1
   done ) &
 SAMPLER=$!

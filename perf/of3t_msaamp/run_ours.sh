@@ -2,6 +2,9 @@
 # of3t-msaamp: our device arm at the msa_module boundary, qb1 card 1 (p150a), with the gradient
 # tensors dumped so they are scored by the same function as the upstream arms. AICLK sampled
 # DURING every 2 s; host_quiet.py before and after.
+
+# One place decides what a valid AICLK is: perf/lib/aiclk.sh, mirroring tt_bio.aiclk.
+_L=$(cd "$(dirname "$0")" && pwd); . "${_L%/perf/*}/perf/lib/aiclk.sh" || exit 1
 set -uo pipefail
 W=/home/ttuser/.coworker/wt/of3t-msaamp
 cd "$W" || exit 1
@@ -14,7 +17,7 @@ export TT_VISIBLE_DEVICES=$DEV TT_BIO_LEASE_CARDS=$DEV TT_BIO_LEASE_HOLDER=worke
 TAG=$1; shift
 CLK=$S/aiclk_$TAG.log; : > "$CLK"
 python3 perf/c12_orchestrator/pair_guard/host_quiet.py; Q0=$?
-( while :; do echo "$(date +%s) $(cat /sys/class/tenstorrent/tenstorrent\!$DEV/tt_aiclk 2>/dev/null || echo NA)" >> "$CLK"; sleep 2; done ) &
+( while :; do echo "$(date +%s) $(aiclk "$DEV")" >> "$CLK"; sleep 2; done ) &
 SIDE=$!
 trap 'kill $SIDE 2>/dev/null' EXIT
 echo "=== ours $TAG board=$(cat /sys/class/tenstorrent/tenstorrent\!$DEV/tt_card_type) card=$DEV host=$(hostname) load[$(cut -d' ' -f1-3 /proc/loadavg)] host_quiet_before=$Q0 $(date -u +%FT%TZ) ==="

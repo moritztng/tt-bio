@@ -13,6 +13,9 @@
 # one and being scored as zero in the other.
 #
 #   renormarm.sh {ie|diffusion} {on|off}
+
+# One place decides what a valid AICLK is: perf/lib/aiclk.sh, mirroring tt_bio.aiclk.
+_L=$(cd "$(dirname "$0")" && pwd); . "${_L%/perf/*}/perf/lib/aiclk.sh" || exit 1
 set -uo pipefail
 W=$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)
 cd "$W"
@@ -30,7 +33,7 @@ mkdir -p "$SCRATCH"
 CLK="$SCRATCH/aiclk_${ARM}_${RN}.tsv"
 : > "$CLK"
 NODE="/sys/class/tenstorrent/tenstorrent!${CARD}/tt_aiclk"
-( while true; do printf '%s\t%s\n' "$(date +%s)" "$(cat "$NODE" 2>/dev/null)" >> "$CLK"; sleep 1; done ) &
+( while true; do printf '%s\t%s\n' "$(date +%s)" "$(aiclk "$NODE")" >> "$CLK"; sleep 1; done ) &
 SAMPLER=$!
 trap 'kill "$SAMPLER" 2>/dev/null' EXIT
 S=$(date +%s)

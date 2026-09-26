@@ -2,10 +2,13 @@
 # usage: gate.sh <tree> <name> [tap_gate args...] -- the af2ig-trunk-device arm of <tree> on card 3, scored
 # by <tree>'s device_floor.py against its committed record. Host envelope arms come from the cache that
 # perf/bcx_land/tap_gate_cached.py keeps (they never touch af2.py's device code). AICLK + loadavg every 10 s.
+
+# One place decides what a valid AICLK is: perf/lib/aiclk.sh, mirroring tt_bio.aiclk.
+_L=$(cd "$(dirname "$0")" && pwd); . "${_L%/perf/*}/perf/lib/aiclk.sh" || exit 1
 wt=/home/ttuser/.coworker/wt/bcx-landmask
 tree=$1 name=$2; shift 2
 out=$wt/perf/bcx_landmask/gate; mkdir -p $out
-( while true; do echo "$(date -u +%H:%M:%S) aiclk=$(cat '/sys/class/tenstorrent/tenstorrent!0/tt_aiclk') load=$(cut -d' ' -f1 /proc/loadavg)"; sleep 10; done ) > $out/$name.clock &
+( while true; do echo "$(date -u +%H:%M:%S) aiclk=$(aiclk 0) load=$(cut -d' ' -f1 /proc/loadavg)"; sleep 10; done ) > $out/$name.clock &
 s=$!
 start=$(date -u +%s)
 ENV_CACHE=/home/ttuser/scratch/landmask-envcache PYTHONPATH=$tree TT_VISIBLE_DEVICES=3 TT_BIO_LEASE_CARDS=3 TT_BIO_LEASE_HOLDER=worker:bcx-landmask \

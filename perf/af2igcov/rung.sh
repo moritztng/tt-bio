@@ -7,6 +7,9 @@
 # is told from a slow pass: a wedged card holds its idle power.
 #
 #   sh perf/af2igcov/rung.sh <tag> <yaml> <card>
+
+# One place decides what a valid AICLK is: perf/lib/aiclk.sh, mirroring tt_bio.aiclk.
+_L=$(cd "$(dirname "$0")" && pwd); . "${_L%/perf/*}/perf/lib/aiclk.sh" || exit 1
 set -u
 WT=/home/moritz/.coworker/wt/cov-below-bar-af2ig-bhp150a
 PY=/home/moritz/tt-bio/env/bin/python3
@@ -18,7 +21,7 @@ HW=$(ls -d "$SYS"/device/hwmon/hwmon*/ 2>/dev/null | head -1)
 
 ( while :; do
     printf '%s %s %s %s %s\n' "$(date +%s)" \
-      "$(cat "$SYS/tt_aiclk" 2>/dev/null || echo NA)" \
+      "$(aiclk "$SYS")" \
       "$(awk '{printf "%.1f", $1/1000000}' "$HW/power1_input" 2>/dev/null || echo NA)" \
       "$(awk '{printf "%.1f", $1/1000}' "$HW/temp1_input" 2>/dev/null || echo NA)" \
       "$(cut -d' ' -f1 /proc/loadavg)" >> "$OUT/aiclk.log"

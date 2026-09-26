@@ -7,6 +7,9 @@
 #
 # `--ref-tree` and the capture's REFTREE.json stamp are what make this arm's DENOMINATOR a
 # reading. of3t-ditcot's three arms have neither.
+
+# One place decides what a valid AICLK is: perf/lib/aiclk.sh, mirroring tt_bio.aiclk.
+_L=$(cd "$(dirname "$0")" && pwd); . "${_L%/perf/*}/perf/lib/aiclk.sh" || exit 1
 set -uo pipefail
 WT=/home/ttuser/.coworker/wt/of3t-ditref
 cd "$WT"
@@ -21,7 +24,7 @@ LOG=$SCR/$TAG.log
 : > "$CLK"
 
 ( while :; do
-    echo "$(date +%s) $(cat /sys/class/tenstorrent/tenstorrent\!$DEV/tt_aiclk 2>/dev/null || echo NA)" >> "$CLK"
+    echo "$(date +%s) $(aiclk "$DEV")" >> "$CLK"
     sleep 5
   done ) &
 SIDE=$!

@@ -8,7 +8,9 @@ is gone is the ARC: the driver logs "Failed to set initial power state: -5" and 
 check marches its whole model list into that card, one 300 s model load at a time.
 
 `tt_aiclk` is the cheap read that separates the two. A live chip reports 800 idle or 1350
-under load; a chip whose ARC is dead reports 0xFFFFFFFF.
+under load; a chip whose ARC is dead reports the sentinel. `tt_bio.aiclk` owns that predicate
+for the whole repo -- this file used to own it alone, which is how 98 other read sites stayed
+blind to it.
 
 UMD numbers its chips by BDF sort order, which is NOT the /dev/tenstorrent node order: on
 tt-quietbox UMD 0 is 0000:01:00.0 = node 1. So the node has to be looked up by BDF, never
@@ -17,7 +19,9 @@ assumed equal to the UMD id.
 import pathlib
 import sys
 
-ARC_DEAD = 0xFFFFFFFF
+sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[3]))
+from tt_bio.aiclk import ARC_DEAD, DeadARC, require, sane  # noqa: E402,F401
+
 _TT_DRIVER = pathlib.Path("/sys/bus/pci/drivers/tenstorrent")
 _TT_CLASS = pathlib.Path("/sys/class/tenstorrent")
 
@@ -39,13 +43,14 @@ def node_for_bdf(bdf: str) -> pathlib.Path:
 
 
 def aiclk(umd: int) -> int:
-    return int((node_for_bdf(bdf_for_umd(umd)) / "tt_aiclk").read_text().strip())
+    """This card's AICLK, or :class:`~tt_bio.aiclk.DeadARC` when it will not answer with one."""
+    return require(node_for_bdf(bdf_for_umd(umd)))
 
 
 def alive(umd: int) -> bool:
     try:
-        return aiclk(umd) != ARC_DEAD
-    except (LookupError, OSError, ValueError):
+        return sane(aiclk(umd))
+    except (LookupError, OSError, ValueError, DeadARC):
         return False
 
 
@@ -53,10 +58,10 @@ if __name__ == "__main__":
     umd = int(sys.argv[1])
     try:
         clk = aiclk(umd)
+    except DeadARC as e:
+        print(f"card {umd} ({bdf_for_umd(umd)}): ARC DEAD -- {e}")
+        raise SystemExit(1)
     except (LookupError, OSError, ValueError) as e:
         print(f"card {umd}: unreadable ({e})")
         raise SystemExit(2)
-    if clk == ARC_DEAD:
-        print(f"card {umd} ({bdf_for_umd(umd)}): ARC DEAD (tt_aiclk reads 0xFFFFFFFF)")
-        raise SystemExit(1)
     print(f"card {umd} ({bdf_for_umd(umd)}): alive, AICLK {clk} MHz")
