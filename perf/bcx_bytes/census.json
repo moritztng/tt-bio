@@ -7521,6 +7521,5032 @@
    ]
   }
  },
+ "stack-lev_off evo n=256": {
+  "fwd": {
+   "ops": 391,
+   "kernels": 190,
+   "moved_MB": 9122.000896,
+   "kernels_by_op": {
+    "typecast": 36,
+    "permute": 26,
+    "linear": 22,
+    "multiply": 20,
+    "add": 14,
+    "matmul": 13,
+    "layer_norm": 12,
+    "to_layout": 8,
+    "minimal_matmul": 8,
+    "reallocate": 8,
+    "nlp_create_qkv_heads": 4,
+    "softmax": 4,
+    "nlp_concat_heads": 4,
+    "chunk": 4,
+    "clone": 4,
+    "concat": 2,
+    "reshape": 1
+   },
+   "typecast_MB": 2482.372608,
+   "layout_MB": 1763.24608,
+   "padding_MB": 107.34528,
+   "fusible_MB": 0.0,
+   "fp32_excess_MB": 1387.39712,
+   "avoidable_MB": 4352.963968,
+   "by_class": {
+    "typecast": [
+     36,
+     2482.372608
+    ],
+    "eltwise": [
+     34,
+     1887.076352
+    ],
+    "layout": [
+     74,
+     1763.24608
+    ],
+    "matmul": [
+     43,
+     1625.10848
+    ],
+    "softmax": [
+     4,
+     1086.324736
+    ],
+    "layernorm": [
+     12,
+     277.87264
+    ],
+    "free": [
+     177,
+     0.0
+    ],
+    "other": [
+     11,
+     0.0
+    ]
+   },
+   "typecast_by_why": [
+    [
+     "forward island: _fp32_softmax_tail",
+     6,
+     1616.904192
+    ],
+    [
+     "forward island: _residual",
+     27,
+     859.17696
+    ],
+    [
+     "forward island: _fp32_softmax_bias",
+     3,
+     6.291456
+    ]
+   ],
+   "typecast_by_node": [
+    [
+     null,
+     36,
+     2482.372608
+    ]
+   ],
+   "typecast_by_site": [
+    [
+     "taped_ttnn.py:94:_identity_grad",
+     36,
+     2482.372608
+    ]
+   ],
+   "typecast_by_model": [
+    [
+     "tenstorrent.py:3937:_fp32_softmax_tail",
+     3,
+     808.452096
+    ],
+    [
+     "tenstorrent.py:3973:_fp32_softmax_tail",
+     3,
+     808.452096
+    ],
+    [
+     "af2.py:340:_residual",
+     9,
+     303.169536
+    ],
+    [
+     "af2.py:346:_residual",
+     9,
+     303.169536
+    ],
+    [
+     "af2.py:341:_residual",
+     9,
+     252.837888
+    ],
+    [
+     "tenstorrent.py:3873:_fp32_softmax_bias",
+     3,
+     6.291456
+    ]
+   ],
+   "layout_by_sig": [
+    [
+     "BFLO[8192, 8192] -> BFLO",
+     2,
+     536.870912
+    ],
+    [
+     "BFLO[256, 1024, 256] -> BFLO",
+     2,
+     536.870912
+    ],
+    [
+     "BFLO[256, 1, 256, 384] -> BFLO",
+     2,
+     201.326592
+    ],
+    [
+     "BFLO[256, 256, 128] -> BFLO",
+     6,
+     184.549376
+    ],
+    [
+     "BFLO[256, 4, 256, 32] -> BFLO",
+     4,
+     134.217728
+    ],
+    [
+     "BFLO[1, 256, 256, 64] x BFLO[1, 256, 256, 64] -> BFLO",
+     2,
+     67.108864
+    ],
+    [
+     "BFLO[1, 256, 256, 64] -> BFLO",
+     4,
+     33.554432
+    ],
+    [
+     "BFLO[256, 1, 32, 768] -> BFLO",
+     1,
+     25.165824
+    ],
+    [
+     "BFLO[256, 8, 32, 32] -> BFLO",
+     2,
+     16.777216
+    ],
+    [
+     "BFLO[1, 256, 256, 32] -> BFLO",
+     3,
+     14.680064
+    ],
+    [
+     "BFLO[1, 256, 256] -> BFLO",
+     1,
+     4.325376
+    ],
+    [
+     "BFLO[256, 32, 256] -> BFLO",
+     1,
+     4.325376
+    ],
+    [
+     "BFLO[1, 256, 32] -> BFLO",
+     2,
+     1.081344
+    ],
+    [
+     "BFLO[1, 1, 256, 768] -> BFLO",
+     1,
+     0.786432
+    ],
+    [
+     "BFLO[32, 256, 32] -> BFLO",
+     1,
+     0.540672
+    ],
+    [
+     "BFLO[8192, 1] -> BFLO",
+     1,
+     0.540672
+    ],
+    [
+     "BFLO[1, 8, 256, 32] -> BFLO",
+     2,
+     0.524288
+    ]
+   ],
+   "layout_by_node": [
+    [
+     "to_layout @ tenstorrent.py:11650:outer_product_mean <- taped_ttnn.py:94:_identity_grad",
+     1,
+     268.435456
+    ],
+    [
+     "reshape @ tenstorrent.py:11651:outer_product_mean <- taped_ttnn.py:503:_v_reshape",
+     1,
+     268.435456
+    ],
+    [
+     "to_layout @ tenstorrent.py:11652:outer_product_mean <- taped_ttnn.py:94:_identity_grad",
+     1,
+     268.435456
+    ],
+    [
+     "permute @ tenstorrent.py:11653:outer_product_mean <- taped_ttnn.py:529:_v_permute",
+     1,
+     268.435456
+    ],
+    [
+     "nlp_create_qkv_heads @ tenstorrent.py:8393:attend <- taped_ttnn.py:784:_v_create_qkv_heads",
+     2,
+     201.326592
+    ],
+    [
+     "permute @ tenstorrent.py:3885:_fp32_softmax_attention_block <- taped_ttnn.py:529:_v_permute",
+     3,
+     67.371008
+    ],
+    [
+     "concat @ tenstorrent.py:6060:_concat_to <- taped_ttnn.py:568:_v_concat",
+     2,
+     67.108864
+    ],
+    [
+     "nlp_concat_heads @ tenstorrent.py:8485:_attend_heads <- taped_ttnn.py:756:_v_concat_heads",
+     2,
+     67.108864
+    ],
+    [
+     "permute @ tenstorrent.py:4073:_pair_transpose_impl <- taped_ttnn.py:529:_v_permute",
+     2,
+     67.108864
+    ],
+    [
+     "to_layout @ tenstorrent.py:4076:_pair_transpose_impl <- taped_ttnn.py:94:_identity_grad",
+     2,
+     67.108864
+    ],
+    [
+     "to_layout @ tenstorrent.py:4072:_pair_transpose_impl <- taped_ttnn.py:94:_identity_grad",
+     2,
+     50.331648
+    ],
+    [
+     "clone @ tenstorrent.py:7504:_multiply <- taped_ttnn.py:94:_identity_grad",
+     4,
+     33.554432
+    ],
+    [
+     "nlp_create_qkv_heads @ tenstorrent.py:6489:_split_heads <- taped_ttnn.py:784:_v_create_qkv_heads",
+     2,
+     25.952256
+    ],
+    [
+     "permute @ tenstorrent.py:8375:_attend_pair <- taped_ttnn.py:529:_v_permute",
+     2,
+     9.437184
+    ],
+    [
+     "nlp_concat_heads @ tenstorrent.py:6499:_merge_heads <- taped_ttnn.py:756:_v_concat_heads",
+     2,
+     8.650752
+    ],
+    [
+     "permute @ af2.py:540:_attend <- taped_ttnn.py:529:_v_permute",
+     1,
+     8.388608
+    ],
+    [
+     "permute @ tenstorrent.py:8033:_pair_bias_from_z <- taped_ttnn.py:529:_v_permute",
+     1,
+     5.24288
+    ],
+    [
+     "permute @ af2.py:571:__call__ <- taped_ttnn.py:529:_v_permute",
+     1,
+     4.325376
+    ],
+    [
+     "permute @ af2.py:597:__call__ <- taped_ttnn.py:529:_v_permute",
+     1,
+     4.325376
+    ],
+    [
+     "permute @ tenstorrent.py:11524:contiguous_ab <- taped_ttnn.py:529:_v_permute",
+     1,
+     0.540672
+    ],
+    [
+     "permute @ tenstorrent.py:11525:contiguous_ab <- taped_ttnn.py:529:_v_permute",
+     1,
+     0.540672
+    ],
+    [
+     "to_layout @ tenstorrent.py:11526:contiguous_ab <- taped_ttnn.py:94:_identity_grad",
+     1,
+     0.540672
+    ],
+    [
+     "to_layout @ tenstorrent.py:11528:contiguous_ab <- taped_ttnn.py:94:_identity_grad",
+     1,
+     0.540672
+    ]
+   ],
+   "layout_by_model": [
+    [
+     "tenstorrent.py:11650:outer_product_mean",
+     1,
+     268.435456
+    ],
+    [
+     "tenstorrent.py:11651:outer_product_mean",
+     1,
+     268.435456
+    ],
+    [
+     "tenstorrent.py:11652:outer_product_mean",
+     1,
+     268.435456
+    ],
+    [
+     "tenstorrent.py:11653:outer_product_mean",
+     1,
+     268.435456
+    ],
+    [
+     "tenstorrent.py:8393:attend",
+     2,
+     201.326592
+    ],
+    [
+     "tenstorrent.py:3885:_fp32_softmax_attention_block",
+     3,
+     67.371008
+    ],
+    [
+     "tenstorrent.py:6060:_concat_to",
+     2,
+     67.108864
+    ],
+    [
+     "tenstorrent.py:8485:_attend_heads",
+     2,
+     67.108864
+    ],
+    [
+     "tenstorrent.py:4073:_pair_transpose_impl",
+     2,
+     67.108864
+    ],
+    [
+     "tenstorrent.py:4076:_pair_transpose_impl",
+     2,
+     67.108864
+    ],
+    [
+     "tenstorrent.py:4072:_pair_transpose_impl",
+     2,
+     50.331648
+    ],
+    [
+     "tenstorrent.py:7504:_multiply",
+     4,
+     33.554432
+    ],
+    [
+     "tenstorrent.py:6489:_split_heads",
+     2,
+     25.952256
+    ],
+    [
+     "tenstorrent.py:8375:_attend_pair",
+     2,
+     9.437184
+    ],
+    [
+     "tenstorrent.py:6499:_merge_heads",
+     2,
+     8.650752
+    ],
+    [
+     "af2.py:540:_attend",
+     1,
+     8.388608
+    ],
+    [
+     "tenstorrent.py:8033:_pair_bias_from_z",
+     1,
+     5.24288
+    ],
+    [
+     "af2.py:571:__call__",
+     1,
+     4.325376
+    ],
+    [
+     "af2.py:597:__call__",
+     1,
+     4.325376
+    ],
+    [
+     "tenstorrent.py:11524:contiguous_ab",
+     1,
+     0.540672
+    ],
+    [
+     "tenstorrent.py:11525:contiguous_ab",
+     1,
+     0.540672
+    ],
+    [
+     "tenstorrent.py:11526:contiguous_ab",
+     1,
+     0.540672
+    ],
+    [
+     "tenstorrent.py:11528:contiguous_ab",
+     1,
+     0.540672
+    ]
+   ],
+   "padding_by_sig": [
+    [
+     "BFLO[256, 8, 32, 32] x BFLO[256, 8, 32, 32] -> BFLO",
+     2,
+     24.633344
+    ],
+    [
+     "BFLO[256, 8, 32, 32] -> BFLO",
+     2,
+     16.760832
+    ],
+    [
+     "BFLO[256, 32, 256] x BFLO[256, 256] -> BFLO",
+     2,
+     16.284672
+    ],
+    [
+     "BFLO[256, 32, 256] x BFLO[256, 768] -> BFLO",
+     1,
+     16.252928
+    ],
+    [
+     "BFLO[256, 32, 256] x BFLO[256, 32, 256] -> BFLO",
+     1,
+     12.189696
+    ],
+    [
+     "BFLO[256, 256, 128] x BFLO[128, 32] -> BFLO",
+     3,
+     10.50624
+    ],
+    [
+     "BFLO[256, 32, 256] x BFLO[32, 256] -> BFLO",
+     1,
+     8.158208
+    ],
+    [
+     "BFLO[256, 32, 32] -> BFLO",
+     1,
+     1.015808
+    ],
+    [
+     "BFLO[8192, 32] x BFLO[8192, 32] -> BFLO",
+     1,
+     1.015808
+    ],
+    [
+     "BFLO[1, 256, 256, 128] x BFLO[32, 128] -> BFLO",
+     5,
+     0.07936
+    ],
+    [
+     "BFLO[1, 256, 256] x BFLO[32, 256] -> BFLO",
+     2,
+     0.063488
+    ],
+    [
+     "BFLO[256, 256, 128] x BFLO[32, 128] -> BFLO",
+     5,
+     0.063488
+    ],
+    [
+     "BFLO[1, 1, 256, 256] x BFLO[256, 1024] -> BFLO",
+     1,
+     0.063488
+    ],
+    [
+     "BFLO[1, 256, 256, 128] x BFLO[128, 256] -> BFLO",
+     4,
+     0.063488
+    ],
+    [
+     "BFLO[1, 256, 256] x BFLO[256, 256] -> BFLO",
+     2,
+     0.031744
+    ],
+    [
+     "BFLO[1, 1, 256, 256] x BFLO[32, 256] -> BFLO",
+     1,
+     0.031744
+    ],
+    [
+     "BFLO[1, 256, 256, 128] x BFLO[128, 128] -> BFLO",
+     4,
+     0.031744
+    ],
+    [
+     "BFLO[1, 256, 256, 128] x BFLO[128, 512] -> BFLO",
+     1,
+     0.031744
+    ],
+    [
+     "BFLO[1, 1, 256, 1024] x BFLO[1024, 256] -> BFLO",
+     1,
+     0.015872
+    ],
+    [
+     "BFLO[32, 128] -> BFLO",
+     1,
+     0.015872
+    ]
+   ],
+   "fusible_by_model": []
+  },
+  "bwd": {
+   "ops": 1037,
+   "kernels": 841,
+   "moved_MB": 39393.677312,
+   "kernels_by_op": {
+    "multiply": 169,
+    "typecast": 141,
+    "matmul": 69,
+    "to_memory_config": 61,
+    "add": 55,
+    "permute": 52,
+    "mean": 48,
+    "subtract": 40,
+    "linear": 22,
+    "concat": 18,
+    "nlp_concat_heads": 16,
+    "to_layout": 16,
+    "sigmoid": 14,
+    "rsub": 14,
+    "layer_norm": 12,
+    "rsqrt": 12,
+    "zeros": 12,
+    "sum": 10,
+    "reshape": 8,
+    "minimal_matmul": 8,
+    "reallocate": 8,
+    "transpose": 8,
+    "nlp_create_qkv_heads": 4,
+    "softmax": 4,
+    "chunk": 4,
+    "clone": 4,
+    "div": 4,
+    "slice": 4,
+    "relu": 2,
+    "gtz": 2
+   },
+   "typecast_MB": 8100.90496,
+   "layout_MB": 5459.542016,
+   "padding_MB": 1416.752512,
+   "fusible_MB": 4597.59616,
+   "fp32_excess_MB": 7037.386752,
+   "avoidable_MB": 19574.795648,
+   "by_class": {
+    "eltwise": [
+     298,
+     17130.405888
+    ],
+    "typecast": [
+     141,
+     8100.90496
+    ],
+    "layout": [
+     324,
+     5459.542016
+    ],
+    "matmul": [
+     99,
+     4487.745536
+    ],
+    "reduction": [
+     58,
+     2460.155904
+    ],
+    "softmax": [
+     4,
+     1086.324736
+    ],
+    "layernorm": [
+     12,
+     277.87264
+    ],
+    "other": [
+     25,
+     277.086208
+    ],
+    "alloc": [
+     12,
+     113.639424
+    ],
+    "free": [
+     64,
+     0.0
+    ]
+   },
+   "typecast_by_why": [
+    [
+     "verb-bw: a forward typecast's gradient cast back to its source dtype",
+     36,
+     2532.704256
+    ],
+    [
+     "fan-in: add_grad widens both operands to fp32 for the sum",
+     50,
+     2260.598784
+    ],
+    [
+     "forward island: _fp32_softmax_tail",
+     6,
+     1616.904192
+    ],
+    [
+     "forward island: _residual",
+     27,
+     875.954176
+    ],
+    [
+     "cast-back: backward() narrows an fp32 gradient to the value's dtype",
+     19,
+     808.452096
+    ],
+    [
+     "forward island: _fp32_softmax_bias",
+     3,
+     6.291456
+    ]
+   ],
+   "typecast_by_node": [
+    [
+     null,
+     55,
+     3307.60192
+    ],
+    [
+     "tenstorrent.py:8393:attend",
+     6,
+     905.969664
+    ],
+    [
+     "tenstorrent.py:3973:_fp32_softmax_tail",
+     3,
+     808.452096
+    ],
+    [
+     "tenstorrent.py:3937:_fp32_softmax_tail",
+     3,
+     808.452096
+    ],
+    [
+     "af2.py:346:_residual",
+     9,
+     303.169536
+    ],
+    [
+     "af2.py:340:_residual",
+     9,
+     303.169536
+    ],
+    [
+     "af2.py:341:_residual",
+     9,
+     303.169536
+    ],
+    [
+     "tenstorrent.py:8726:_attend_pair",
+     4,
+     201.326592
+    ],
+    [
+     "tenstorrent.py:8294:_attend_pair",
+     4,
+     201.326592
+    ],
+    [
+     "tenstorrent.py:6521:_in_proj_matmul",
+     4,
+     201.326592
+    ],
+    [
+     "tenstorrent.py:7209:_multiply",
+     4,
+     201.326592
+    ],
+    [
+     "tenstorrent.py:6489:_split_heads",
+     6,
+     116.785152
+    ],
+    [
+     "af2.py:204:_rows",
+     4,
+     101.449728
+    ],
+    [
+     "tenstorrent.py:8742:_attend_pair",
+     2,
+     100.663296
+    ],
+    [
+     "tenstorrent.py:4829:_pair_proj_linear",
+     2,
+     100.663296
+    ],
+    [
+     "af2.py:519:_bias",
+     2,
+     100.663296
+    ],
+    [
+     "tenstorrent.py:6481:_lin",
+     4,
+     25.952256
+    ],
+    [
+     "tenstorrent.py:3873:_fp32_softmax_bias",
+     3,
+     6.291456
+    ],
+    [
+     "af2.py:569:__call__",
+     4,
+     1.572864
+    ],
+    [
+     "tenstorrent.py:11423:project_ab",
+     2,
+     0.786432
+    ],
+    [
+     "tenstorrent.py:11403:__call__",
+     2,
+     0.786432
+    ]
+   ],
+   "typecast_by_site": [
+    [
+     "taped_ttnn.py:99:bw",
+     36,
+     2532.704256
+    ],
+    [
+     "taped_ttnn.py:94:_identity_grad",
+     36,
+     2499.149824
+    ],
+    [
+     "autograd.py:491:add_grad",
+     29,
+     1401.421824
+    ],
+    [
+     "autograd.py:488:add_grad",
+     21,
+     859.17696
+    ],
+    [
+     "autograd.py:622:backward",
+     19,
+     808.452096
+    ]
+   ],
+   "typecast_by_model": [
+    [
+     null,
+     105,
+     5601.755136
+    ],
+    [
+     "tenstorrent.py:3937:_fp32_softmax_tail",
+     3,
+     808.452096
+    ],
+    [
+     "tenstorrent.py:3973:_fp32_softmax_tail",
+     3,
+     808.452096
+    ],
+    [
+     "af2.py:340:_residual",
+     9,
+     303.169536
+    ],
+    [
+     "af2.py:346:_residual",
+     9,
+     303.169536
+    ],
+    [
+     "af2.py:341:_residual",
+     9,
+     269.615104
+    ],
+    [
+     "tenstorrent.py:3873:_fp32_softmax_bias",
+     3,
+     6.291456
+    ]
+   ],
+   "layout_by_sig": [
+    [
+     "BFLO[256, 1024, 256] -> BFLO",
+     4,
+     1073.741824
+    ],
+    [
+     "BFLO[8192, 8192] -> BFLO",
+     3,
+     805.306368
+    ],
+    [
+     "BFLO[256, 1, 256, 128] x BFLO[256, 1, 256, 128] -> BFLO",
+     6,
+     603.979776
+    ],
+    [
+     "BFLO[256, 256, 128] -> BFLO",
+     14,
+     419.4304
+    ],
+    [
+     "BFLO[1, 256, 256, 64] -> BFLO",
+     40,
+     402.653184
+    ],
+    [
+     "BFLO[1, 256, 256, 64] x BFLO[1, 256, 256, 64] -> BFLO",
+     6,
+     335.54432
+    ],
+    [
+     "BFLO[256, 4, 256, 32] -> BFLO",
+     10,
+     335.54432
+    ],
+    [
+     "BFLO[1, 64, 256, 256] -> BFLO",
+     28,
+     301.989888
+    ],
+    [
+     "BFLO[256, 256, 1024] -> BFLO",
+     1,
+     268.435456
+    ],
+    [
+     "BFLO[256, 1, 256, 384] -> BFLO",
+     2,
+     201.326592
+    ],
+    [
+     "BFLO[1, 256, 256, 256] -> BFLO",
+     4,
+     134.217728
+    ],
+    [
+     "BFLO[256, 4, 32, 256] -> BFLO",
+     4,
+     134.217728
+    ],
+    [
+     "BFLO[1, 256, 256, 128] -> BFLO",
+     7,
+     117.440512
+    ],
+    [
+     "BFLO[256, 1, 32, 256] x BFLO[256, 1, 32, 256] -> BFLO",
+     3,
+     75.497472
+    ],
+    [
+     "BFLO[256, 1, 256, 128] -> BFLO",
+     2,
+     67.108864
+    ],
+    [
+     "BFLO[256, 8, 32, 32] -> BFLO",
+     7,
+     58.720256
+    ],
+    [
+     "BFLO[256, 1, 32, 768] -> BFLO",
+     1,
+     25.165824
+    ],
+    [
+     "BFLO[256, 32, 256] -> BFLO",
+     4,
+     17.301504
+    ],
+    [
+     "BFLO[1, 256, 256, 32] -> BFLO",
+     3,
+     14.680064
+    ],
+    [
+     "BFLO[256, 256] -> BFLO",
+     3,
+     12.976128
+    ],
+    [
+     "BFLO[256, 32, 768] -> BFLO",
+     1,
+     12.976128
+    ],
+    [
+     "BFLO[1, 4, 256, 256] -> BFLO",
+     2,
+     9.437184
+    ],
+    [
+     "BFLO[1, 256, 256] -> BFLO",
+     2,
+     8.650752
+    ],
+    [
+     "BFLO[256, 1, 32, 256] -> BFLO",
+     1,
+     8.388608
+    ],
+    [
+     "BFLO[1, 8, 256, 256] -> BFLO",
+     1,
+     5.24288
+    ],
+    [
+     "BFLO[1, 1, 256, 256] x BFLO[1, 1, 256, 256] -> BFLO",
+     3,
+     2.359296
+    ],
+    [
+     "BFLO[1, 8, 256, 32] -> BFLO",
+     5,
+     1.31072
+    ],
+    [
+     "BFLO[1, 256, 32] -> BFLO",
+     2,
+     1.081344
+    ],
+    [
+     "BFLO[32, 256, 32] -> BFLO",
+     2,
+     1.081344
+    ],
+    [
+     "BFLO[1, 1, 256, 768] -> BFLO",
+     1,
+     0.786432
+    ]
+   ],
+   "layout_by_node": [
+    [
+     "concat @ tenstorrent.py:8393:attend <- taped_ttnn.py:807:bw",
+     6,
+     603.979776
+    ],
+    [
+     "to_layout @ tenstorrent.py:11650:outer_product_mean <- taped_ttnn.py:94:_identity_grad",
+     1,
+     268.435456
+    ],
+    [
+     "reshape @ tenstorrent.py:11651:outer_product_mean <- taped_ttnn.py:503:_v_reshape",
+     1,
+     268.435456
+    ],
+    [
+     "to_layout @ tenstorrent.py:11652:outer_product_mean <- taped_ttnn.py:94:_identity_grad",
+     1,
+     268.435456
+    ],
+    [
+     "permute @ tenstorrent.py:11653:outer_product_mean <- taped_ttnn.py:529:_v_permute",
+     1,
+     268.435456
+    ],
+    [
+     "concat @ None <- autograd.py:573:_join_slices",
+     4,
+     268.435456
+    ],
+    [
+     "permute @ tenstorrent.py:11653:outer_product_mean <- taped_ttnn.py:537:bw",
+     1,
+     268.435456
+    ],
+    [
+     "to_layout @ tenstorrent.py:11652:outer_product_mean <- autograd.py:483:add_grad",
+     1,
+     268.435456
+    ],
+    [
+     "reshape @ tenstorrent.py:11651:outer_product_mean <- taped_ttnn.py:507:bw",
+     1,
+     268.435456
+    ],
+    [
+     "to_layout @ tenstorrent.py:11650:outer_product_mean <- autograd.py:483:add_grad",
+     1,
+     268.435456
+    ],
+    [
+     "nlp_create_qkv_heads @ tenstorrent.py:8393:attend <- taped_ttnn.py:784:_v_create_qkv_heads",
+     2,
+     201.326592
+    ],
+    [
+     "nlp_concat_heads @ tenstorrent.py:8393:attend <- autograd.py:1338:merge_heads_value",
+     6,
+     201.326592
+    ],
+    [
+     "to_memory_config @ tenstorrent.py:7426:_multiply <- autograd.py:415:free",
+     4,
+     134.217728
+    ],
+    [
+     "permute @ tenstorrent.py:6798:_channel_move <- taped_ttnn.py:537:bw",
+     8,
+     134.217728
+    ],
+    [
+     "concat @ tenstorrent.py:6489:_split_heads <- taped_ttnn.py:807:bw",
+     6,
+     77.856768
+    ],
+    [
+     "permute @ tenstorrent.py:3885:_fp32_softmax_attention_block <- taped_ttnn.py:529:_v_permute",
+     3,
+     67.371008
+    ],
+    [
+     "permute @ tenstorrent.py:3885:_fp32_softmax_attention_block <- taped_ttnn.py:537:bw",
+     3,
+     67.371008
+    ],
+    [
+     "to_memory_config @ tenstorrent.py:7430:_multiply <- autograd.py:415:free",
+     8,
+     67.108864
+    ],
+    [
+     "to_memory_config @ tenstorrent.py:7433:_multiply <- autograd.py:415:free",
+     8,
+     67.108864
+    ],
+    [
+     "to_memory_config @ tenstorrent.py:6798:_channel_move <- autograd.py:415:free",
+     8,
+     67.108864
+    ],
+    [
+     "to_memory_config @ tenstorrent.py:7011:_transform_chunk <- autograd.py:415:free",
+     8,
+     67.108864
+    ],
+    [
+     "to_memory_config @ tenstorrent.py:7461:_multiply <- autograd.py:415:free",
+     8,
+     67.108864
+    ],
+    [
+     "concat @ tenstorrent.py:6060:_concat_to <- taped_ttnn.py:568:_v_concat",
+     2,
+     67.108864
+    ],
+    [
+     "to_memory_config @ tenstorrent.py:7696:_multiply <- autograd.py:415:free",
+     4,
+     67.108864
+    ],
+    [
+     "nlp_concat_heads @ tenstorrent.py:8485:_attend_heads <- taped_ttnn.py:756:_v_concat_heads",
+     2,
+     67.108864
+    ],
+    [
+     "permute @ tenstorrent.py:4073:_pair_transpose_impl <- taped_ttnn.py:529:_v_permute",
+     2,
+     67.108864
+    ],
+    [
+     "to_layout @ tenstorrent.py:4076:_pair_transpose_impl <- taped_ttnn.py:94:_identity_grad",
+     2,
+     67.108864
+    ],
+    [
+     "to_layout @ tenstorrent.py:4076:_pair_transpose_impl <- autograd.py:483:add_grad",
+     2,
+     67.108864
+    ],
+    [
+     "permute @ tenstorrent.py:4073:_pair_transpose_impl <- taped_ttnn.py:537:bw",
+     2,
+     67.108864
+    ],
+    [
+     "to_layout @ tenstorrent.py:4072:_pair_transpose_impl <- autograd.py:483:add_grad",
+     2,
+     67.108864
+    ],
+    [
+     "transpose @ tenstorrent.py:8485:_attend_heads <- autograd.py:1324:split_heads_value",
+     2,
+     67.108864
+    ],
+    [
+     "transpose @ tenstorrent.py:8485:_attend_heads <- autograd.py:1325:split_heads_value",
+     2,
+     67.108864
+    ],
+    [
+     "slice @ tenstorrent.py:6060:_concat_to <- taped_ttnn.py:578:bw",
+     4,
+     67.108864
+    ],
+    [
+     "permute @ tenstorrent.py:7494:_multiply <- taped_ttnn.py:537:bw",
+     4,
+     67.108864
+    ],
+    [
+     "to_layout @ tenstorrent.py:4072:_pair_transpose_impl <- taped_ttnn.py:94:_identity_grad",
+     2,
+     50.331648
+    ],
+    [
+     "to_memory_config @ tenstorrent.py:7494:_multiply <- autograd.py:415:free",
+     4,
+     33.554432
+    ],
+    [
+     "clone @ tenstorrent.py:7504:_multiply <- taped_ttnn.py:94:_identity_grad",
+     4,
+     33.554432
+    ],
+    [
+     "to_memory_config @ tenstorrent.py:7504:_multiply <- autograd.py:415:free",
+     4,
+     33.554432
+    ],
+    [
+     "to_memory_config @ af2.py:341:_residual <- autograd.py:415:free",
+     2,
+     33.554432
+    ],
+    [
+     "to_memory_config @ tenstorrent.py:8774:_attend_pair <- autograd.py:449:_free_shared",
+     2,
+     33.554432
+    ]
+   ],
+   "layout_by_model": [
+    [
+     null,
+     81,
+     3008.43008
+    ],
+    [
+     "tenstorrent.py:11650:outer_product_mean",
+     1,
+     268.435456
+    ],
+    [
+     "tenstorrent.py:11651:outer_product_mean",
+     1,
+     268.435456
+    ],
+    [
+     "tenstorrent.py:11652:outer_product_mean",
+     1,
+     268.435456
+    ],
+    [
+     "tenstorrent.py:11653:outer_product_mean",
+     1,
+     268.435456
+    ],
+    [
+     "tenstorrent.py:8393:attend",
+     2,
+     201.326592
+    ],
+    [
+     "tenstorrent.py:7426:_multiply",
+     4,
+     134.217728
+    ],
+    [
+     "tenstorrent.py:3885:_fp32_softmax_attention_block",
+     3,
+     67.371008
+    ],
+    [
+     "tenstorrent.py:7430:_multiply",
+     8,
+     67.108864
+    ],
+    [
+     "tenstorrent.py:7433:_multiply",
+     8,
+     67.108864
+    ],
+    [
+     "tenstorrent.py:6798:_channel_move",
+     8,
+     67.108864
+    ],
+    [
+     "tenstorrent.py:7011:_transform_chunk",
+     8,
+     67.108864
+    ],
+    [
+     "tenstorrent.py:7461:_multiply",
+     8,
+     67.108864
+    ],
+    [
+     "tenstorrent.py:7504:_multiply",
+     8,
+     67.108864
+    ],
+    [
+     "tenstorrent.py:6060:_concat_to",
+     2,
+     67.108864
+    ],
+    [
+     "tenstorrent.py:7696:_multiply",
+     4,
+     67.108864
+    ],
+    [
+     "tenstorrent.py:8485:_attend_heads",
+     2,
+     67.108864
+    ],
+    [
+     "tenstorrent.py:4072:_pair_transpose_impl",
+     3,
+     67.108864
+    ],
+    [
+     "tenstorrent.py:4073:_pair_transpose_impl",
+     2,
+     67.108864
+    ],
+    [
+     "tenstorrent.py:4076:_pair_transpose_impl",
+     2,
+     67.108864
+    ],
+    [
+     "tenstorrent.py:7494:_multiply",
+     4,
+     33.554432
+    ],
+    [
+     "af2.py:341:_residual",
+     2,
+     33.554432
+    ],
+    [
+     "tenstorrent.py:8774:_attend_pair",
+     2,
+     33.554432
+    ],
+    [
+     "tenstorrent.py:6489:_split_heads",
+     2,
+     25.952256
+    ],
+    [
+     "tenstorrent.py:8375:_attend_pair",
+     2,
+     9.437184
+    ],
+    [
+     "tenstorrent.py:6499:_merge_heads",
+     2,
+     8.650752
+    ],
+    [
+     "af2.py:540:_attend",
+     1,
+     8.388608
+    ],
+    [
+     "tenstorrent.py:8033:_pair_bias_from_z",
+     1,
+     5.24288
+    ],
+    [
+     "af2.py:571:__call__",
+     1,
+     4.325376
+    ],
+    [
+     "af2.py:597:__call__",
+     1,
+     4.325376
+    ]
+   ],
+   "padding_by_sig": [
+    [
+     "FLOA[256, 4, 256, 32] x FLOA[256, 4, 256, 32] -> FLOA",
+     2,
+     195.035136
+    ],
+    [
+     "FLOA[256, 1, 32, 768] x FLOA[256, 1, 32, 768] -> FLOA",
+     2,
+     146.276352
+    ],
+    [
+     "FLOA[256, 4, 256, 256] -> FLOA",
+     4,
+     130.023424
+    ],
+    [
+     "BFLO[256, 8, 32, 32] x BFLO[256, 8, 32, 32] -> BFLO",
+     10,
+     124.182528
+    ],
+    [
+     "BFLO[1, 256, 256, 128] x BFLO[1, 256, 256, 32] -> BFLO",
+     25,
+     101.5808
+    ],
+    [
+     "BFLO[256, 32, 256] x BFLO[256, 32, 256] -> BFLO",
+     8,
+     97.517568
+    ],
+    [
+     "BFLO[1, 256, 256, 128] -> BFLO",
+     20,
+     81.26464
+    ],
+    [
+     "BFLO[1, 256, 256, 32] -> BFLO",
+     10,
+     81.26464
+    ],
+    [
+     "FLOA[256, 4, 256, 256] x FLOA[256, 4, 256, 32] -> FLOA",
+     2,
+     65.011712
+    ],
+    [
+     "BFLO[256, 256, 128] x BFLO[256, 256, 32] -> BFLO",
+     15,
+     60.94848
+    ],
+    [
+     "BFLO[256, 256, 128] -> BFLO",
+     12,
+     48.758784
+    ],
+    [
+     "BFLO[256, 256, 32] -> BFLO",
+     6,
+     48.758784
+    ],
+    [
+     "BFLO[256, 32, 256] x BFLO[256, 32, 32] -> BFLO",
+     5,
+     43.2512
+    ],
+    [
+     "BFLO[256, 8, 32, 32] -> BFLO",
+     5,
+     41.90208
+    ],
+    [
+     "BFLO[256, 32, 256] -> BFLO",
+     6,
+     34.60096
+    ],
+    [
+     "FLOA[256, 32, 256] x FLOA[256, 32, 256] -> FLOA",
+     1,
+     24.379392
+    ],
+    [
+     "BFLO[256, 32, 256] x BFLO[32, 256] -> BFLO",
+     2,
+     16.300544
+    ],
+    [
+     "BFLO[256, 32, 256] x BFLO[256, 256] -> BFLO",
+     2,
+     16.284672
+    ],
+    [
+     "BFLO[256, 32, 256] x BFLO[256, 768] -> BFLO",
+     1,
+     16.252928
+    ],
+    [
+     " -> BFLO",
+     3,
+     12.189696
+    ]
+   ],
+   "fusible_by_model": [
+    [
+     null,
+     128,
+     4488.544256
+    ],
+    [
+     "tenstorrent.py:8753:_attend_pair",
+     2,
+     100.663296
+    ],
+    [
+     "tenstorrent.py:3874:_fp32_softmax_bias",
+     3,
+     8.388608
+    ]
+   ]
+  }
+ },
+ "stack-lev_off extra n=256": {
+  "fwd": {
+   "ops": 267,
+   "kernels": 128,
+   "moved_MB": 7427.350528,
+   "kernels_by_op": {
+    "typecast": 24,
+    "permute": 18,
+    "multiply": 14,
+    "add": 10,
+    "linear": 10,
+    "minimal_matmul": 8,
+    "reallocate": 8,
+    "matmul": 8,
+    "layer_norm": 7,
+    "chunk": 4,
+    "clone": 4,
+    "to_layout": 4,
+    "concat": 2,
+    "nlp_create_qkv_heads": 2,
+    "softmax": 2,
+    "nlp_concat_heads": 2,
+    "from_torch": 1
+   },
+   "typecast_MB": 2419.089408,
+   "layout_MB": 630.194176,
+   "padding_MB": 7.655936,
+   "fusible_MB": 0.0,
+   "fp32_excess_MB": 1362.108416,
+   "avoidable_MB": 3056.93952,
+   "by_class": {
+    "typecast": [
+     24,
+     2419.089408
+    ],
+    "eltwise": [
+     24,
+     1818.263552
+    ],
+    "matmul": [
+     26,
+     1251.057664
+    ],
+    "softmax": [
+     2,
+     1073.741824
+    ],
+    "layout": [
+     48,
+     630.194176
+    ],
+    "layernorm": [
+     7,
+     234.995712
+    ],
+    "alloc": [
+     1,
+     0.008192
+    ],
+    "free": [
+     129,
+     0.0
+    ],
+    "other": [
+     6,
+     0.0
+    ]
+   },
+   "typecast_by_why": [
+    [
+     "forward island: _fp32_softmax_tail",
+     4,
+     1610.612736
+    ],
+    [
+     "forward island: _residual",
+     18,
+     805.330944
+    ],
+    [
+     "forward island: _fp32_softmax_bias",
+     2,
+     3.145728
+    ]
+   ],
+   "typecast_by_node": [
+    [
+     null,
+     24,
+     2419.089408
+    ]
+   ],
+   "typecast_by_site": [
+    [
+     "taped_ttnn.py:94:_identity_grad",
+     23,
+     2419.064832
+    ],
+    [
+     "taped_ttnn.py:893:call",
+     1,
+     0.024576
+    ]
+   ],
+   "typecast_by_model": [
+    [
+     "tenstorrent.py:3937:_fp32_softmax_tail",
+     2,
+     805.306368
+    ],
+    [
+     "tenstorrent.py:3973:_fp32_softmax_tail",
+     2,
+     805.306368
+    ],
+    [
+     "af2.py:340:_residual",
+     6,
+     301.989888
+    ],
+    [
+     "af2.py:346:_residual",
+     6,
+     301.989888
+    ],
+    [
+     "af2.py:341:_residual",
+     6,
+     201.351168
+    ],
+    [
+     "tenstorrent.py:3873:_fp32_softmax_bias",
+     2,
+     3.145728
+    ]
+   ],
+   "layout_by_sig": [
+    [
+     "BFLO[256, 1, 256, 384] -> BFLO",
+     2,
+     201.326592
+    ],
+    [
+     "BFLO[256, 256, 128] -> BFLO",
+     6,
+     184.549376
+    ],
+    [
+     "BFLO[256, 4, 256, 32] -> BFLO",
+     4,
+     134.217728
+    ],
+    [
+     "BFLO[1, 256, 256, 64] x BFLO[1, 256, 256, 64] -> BFLO",
+     2,
+     67.108864
+    ],
+    [
+     "BFLO[1, 256, 256, 64] -> BFLO",
+     4,
+     33.554432
+    ],
+    [
+     "BFLO[1, 256, 256, 32] -> BFLO",
+     2,
+     9.437184
+    ]
+   ],
+   "layout_by_node": [
+    [
+     "nlp_create_qkv_heads @ tenstorrent.py:8393:attend <- taped_ttnn.py:784:_v_create_qkv_heads",
+     2,
+     201.326592
+    ],
+    [
+     "concat @ tenstorrent.py:6060:_concat_to <- taped_ttnn.py:568:_v_concat",
+     2,
+     67.108864
+    ],
+    [
+     "permute @ tenstorrent.py:3885:_fp32_softmax_attention_block <- taped_ttnn.py:529:_v_permute",
+     2,
+     67.108864
+    ],
+    [
+     "nlp_concat_heads @ tenstorrent.py:8485:_attend_heads <- taped_ttnn.py:756:_v_concat_heads",
+     2,
+     67.108864
+    ],
+    [
+     "permute @ tenstorrent.py:4073:_pair_transpose_impl <- taped_ttnn.py:529:_v_permute",
+     2,
+     67.108864
+    ],
+    [
+     "to_layout @ tenstorrent.py:4076:_pair_transpose_impl <- taped_ttnn.py:94:_identity_grad",
+     2,
+     67.108864
+    ],
+    [
+     "to_layout @ tenstorrent.py:4072:_pair_transpose_impl <- taped_ttnn.py:94:_identity_grad",
+     2,
+     50.331648
+    ],
+    [
+     "clone @ tenstorrent.py:7504:_multiply <- taped_ttnn.py:94:_identity_grad",
+     4,
+     33.554432
+    ],
+    [
+     "permute @ tenstorrent.py:8375:_attend_pair <- taped_ttnn.py:529:_v_permute",
+     2,
+     9.437184
+    ]
+   ],
+   "layout_by_model": [
+    [
+     "tenstorrent.py:8393:attend",
+     2,
+     201.326592
+    ],
+    [
+     "tenstorrent.py:6060:_concat_to",
+     2,
+     67.108864
+    ],
+    [
+     "tenstorrent.py:3885:_fp32_softmax_attention_block",
+     2,
+     67.108864
+    ],
+    [
+     "tenstorrent.py:8485:_attend_heads",
+     2,
+     67.108864
+    ],
+    [
+     "tenstorrent.py:4073:_pair_transpose_impl",
+     2,
+     67.108864
+    ],
+    [
+     "tenstorrent.py:4076:_pair_transpose_impl",
+     2,
+     67.108864
+    ],
+    [
+     "tenstorrent.py:4072:_pair_transpose_impl",
+     2,
+     50.331648
+    ],
+    [
+     "tenstorrent.py:7504:_multiply",
+     4,
+     33.554432
+    ],
+    [
+     "tenstorrent.py:8375:_attend_pair",
+     2,
+     9.437184
+    ]
+   ],
+   "padding_by_sig": [
+    [
+     "BFLO[256, 256, 128] x BFLO[128, 32] -> BFLO",
+     2,
+     7.354368
+    ],
+    [
+     "BFLO[1, 256, 256, 128] x BFLO[32, 128] -> BFLO",
+     5,
+     0.07936
+    ],
+    [
+     "BFLO[1, 256, 256, 128] x BFLO[128, 256] -> BFLO",
+     4,
+     0.063488
+    ],
+    [
+     "BFLO[256, 256, 128] x BFLO[32, 128] -> BFLO",
+     4,
+     0.047616
+    ],
+    [
+     "BFLO[1, 256, 256, 128] x BFLO[128, 128] -> BFLO",
+     4,
+     0.031744
+    ],
+    [
+     "BFLO[1, 256, 256, 128] x BFLO[128, 512] -> BFLO",
+     1,
+     0.031744
+    ],
+    [
+     "FLOA[1, 256, 256, 128] x FLOA[1, 1, 32, 128] -> FLOA",
+     1,
+     0.015872
+    ],
+    [
+     "BFLO[256, 256, 128] x BFLO[128, 128] -> BFLO",
+     2,
+     0.015872
+    ],
+    [
+     " -> BFLO",
+     1,
+     0.007936
+    ],
+    [
+     "BFLO[1, 256, 256, 512] x BFLO[512, 128] -> BFLO",
+     1,
+     0.007936
+    ]
+   ],
+   "fusible_by_model": []
+  },
+  "bwd": {
+   "ops": 689,
+   "kernels": 554,
+   "moved_MB": 34496.34816,
+   "kernels_by_op": {
+    "multiply": 115,
+    "typecast": 86,
+    "to_memory_config": 61,
+    "matmul": 42,
+    "permute": 36,
+    "add": 34,
+    "mean": 28,
+    "subtract": 23,
+    "concat": 12,
+    "sigmoid": 12,
+    "rsub": 12,
+    "linear": 10,
+    "minimal_matmul": 8,
+    "reallocate": 8,
+    "nlp_concat_heads": 8,
+    "to_layout": 8,
+    "layer_norm": 7,
+    "rsqrt": 7,
+    "sum": 6,
+    "zeros": 6,
+    "chunk": 4,
+    "clone": 4,
+    "transpose": 4,
+    "slice": 4,
+    "nlp_create_qkv_heads": 2,
+    "softmax": 2,
+    "div": 2,
+    "from_torch": 1,
+    "relu": 1,
+    "gtz": 1
+   },
+   "typecast_MB": 7673.503744,
+   "layout_MB": 3072.32768,
+   "padding_MB": 774.89024,
+   "fusible_MB": 4194.304,
+   "fp32_excess_MB": 6851.403776,
+   "avoidable_MB": 15715.025664,
+   "by_class": {
+    "eltwise": [
+     195,
+     16129.286144
+    ],
+    "typecast": [
+     86,
+     7673.503744
+    ],
+    "matmul": [
+     60,
+     3609.255936
+    ],
+    "layout": [
+     217,
+     3072.32768
+    ],
+    "reduction": [
+     34,
+     2334.130176
+    ],
+    "softmax": [
+     2,
+     1073.741824
+    ],
+    "other": [
+     18,
+     268.435456
+    ],
+    "layernorm": [
+     7,
+     234.995712
+    ],
+    "alloc": [
+     7,
+     100.671488
+    ],
+    "free": [
+     63,
+     0.0
+    ]
+   },
+   "typecast_by_why": [
+    [
+     "verb-bw: a forward typecast's gradient cast back to its source dtype",
+     23,
+     2469.39648
+    ],
+    [
+     "fan-in: add_grad widens both operands to fp32 for the sum",
+     28,
+     2013.26592
+    ],
+    [
+     "forward island: _fp32_softmax_tail",
+     4,
+     1610.612736
+    ],
+    [
+     "forward island: _residual",
+     18,
+     822.10816
+    ],
+    [
+     "cast-back: backward() narrows an fp32 gradient to the value's dtype",
+     11,
+     754.97472
+    ],
+    [
+     "forward island: _fp32_softmax_bias",
+     2,
+     3.145728
+    ]
+   ],
+   "typecast_by_node": [
+    [
+     null,
+     35,
+     3190.841344
+    ],
+    [
+     "tenstorrent.py:8393:attend",
+     6,
+     905.969664
+    ],
+    [
+     "tenstorrent.py:3973:_fp32_softmax_tail",
+     2,
+     805.306368
+    ],
+    [
+     "tenstorrent.py:3937:_fp32_softmax_tail",
+     2,
+     805.306368
+    ],
+    [
+     "af2.py:346:_residual",
+     6,
+     301.989888
+    ],
+    [
+     "af2.py:340:_residual",
+     6,
+     301.989888
+    ],
+    [
+     "af2.py:341:_residual",
+     5,
+     251.65824
+    ],
+    [
+     "tenstorrent.py:8726:_attend_pair",
+     4,
+     201.326592
+    ],
+    [
+     "tenstorrent.py:8294:_attend_pair",
+     4,
+     201.326592
+    ],
+    [
+     "tenstorrent.py:6521:_in_proj_matmul",
+     4,
+     201.326592
+    ],
+    [
+     "tenstorrent.py:7209:_multiply",
+     4,
+     201.326592
+    ],
+    [
+     "af2.py:204:_rows",
+     2,
+     100.663296
+    ],
+    [
+     "tenstorrent.py:8742:_attend_pair",
+     2,
+     100.663296
+    ],
+    [
+     "tenstorrent.py:4829:_pair_proj_linear",
+     2,
+     100.663296
+    ],
+    [
+     "tenstorrent.py:3873:_fp32_softmax_bias",
+     2,
+     3.145728
+    ]
+   ],
+   "typecast_by_site": [
+    [
+     "taped_ttnn.py:99:bw",
+     23,
+     2469.39648
+    ],
+    [
+     "taped_ttnn.py:94:_identity_grad",
+     23,
+     2435.842048
+    ],
+    [
+     "autograd.py:491:add_grad",
+     17,
+     1258.2912
+    ],
+    [
+     "autograd.py:488:add_grad",
+     11,
+     754.97472
+    ],
+    [
+     "autograd.py:622:backward",
+     11,
+     754.97472
+    ],
+    [
+     "taped_ttnn.py:893:call",
+     1,
+     0.024576
+    ]
+   ],
+   "typecast_by_model": [
+    [
+     null,
+     62,
+     5237.63712
+    ],
+    [
+     "tenstorrent.py:3937:_fp32_softmax_tail",
+     2,
+     805.306368
+    ],
+    [
+     "tenstorrent.py:3973:_fp32_softmax_tail",
+     2,
+     805.306368
+    ],
+    [
+     "af2.py:340:_residual",
+     6,
+     301.989888
+    ],
+    [
+     "af2.py:346:_residual",
+     6,
+     301.989888
+    ],
+    [
+     "af2.py:341:_residual",
+     6,
+     218.128384
+    ],
+    [
+     "tenstorrent.py:3873:_fp32_softmax_bias",
+     2,
+     3.145728
+    ]
+   ],
+   "layout_by_sig": [
+    [
+     "BFLO[256, 1, 256, 128] x BFLO[256, 1, 256, 128] -> BFLO",
+     6,
+     603.979776
+    ],
+    [
+     "BFLO[256, 256, 128] -> BFLO",
+     14,
+     419.4304
+    ],
+    [
+     "BFLO[1, 256, 256, 64] -> BFLO",
+     40,
+     402.653184
+    ],
+    [
+     "BFLO[1, 256, 256, 64] x BFLO[1, 256, 256, 64] -> BFLO",
+     6,
+     335.54432
+    ],
+    [
+     "BFLO[256, 4, 256, 32] -> BFLO",
+     10,
+     335.54432
+    ],
+    [
+     "BFLO[1, 64, 256, 256] -> BFLO",
+     28,
+     301.989888
+    ],
+    [
+     "BFLO[256, 1, 256, 384] -> BFLO",
+     2,
+     201.326592
+    ],
+    [
+     "BFLO[1, 256, 256, 256] -> BFLO",
+     4,
+     134.217728
+    ],
+    [
+     "BFLO[256, 4, 32, 256] -> BFLO",
+     4,
+     134.217728
+    ],
+    [
+     "BFLO[1, 256, 256, 128] -> BFLO",
+     7,
+     117.440512
+    ],
+    [
+     "BFLO[256, 1, 256, 128] -> BFLO",
+     2,
+     67.108864
+    ],
+    [
+     "BFLO[1, 256, 256, 32] -> BFLO",
+     2,
+     9.437184
+    ],
+    [
+     "BFLO[1, 4, 256, 256] -> BFLO",
+     2,
+     9.437184
+    ]
+   ],
+   "layout_by_node": [
+    [
+     "concat @ tenstorrent.py:8393:attend <- taped_ttnn.py:807:bw",
+     6,
+     603.979776
+    ],
+    [
+     "concat @ None <- autograd.py:573:_join_slices",
+     4,
+     268.435456
+    ],
+    [
+     "nlp_create_qkv_heads @ tenstorrent.py:8393:attend <- taped_ttnn.py:784:_v_create_qkv_heads",
+     2,
+     201.326592
+    ],
+    [
+     "nlp_concat_heads @ tenstorrent.py:8393:attend <- autograd.py:1338:merge_heads_value",
+     6,
+     201.326592
+    ],
+    [
+     "to_memory_config @ tenstorrent.py:7426:_multiply <- autograd.py:415:free",
+     4,
+     134.217728
+    ],
+    [
+     "permute @ tenstorrent.py:6798:_channel_move <- taped_ttnn.py:537:bw",
+     8,
+     134.217728
+    ],
+    [
+     "to_memory_config @ tenstorrent.py:7430:_multiply <- autograd.py:415:free",
+     8,
+     67.108864
+    ],
+    [
+     "to_memory_config @ tenstorrent.py:7433:_multiply <- autograd.py:415:free",
+     8,
+     67.108864
+    ],
+    [
+     "to_memory_config @ tenstorrent.py:6798:_channel_move <- autograd.py:415:free",
+     8,
+     67.108864
+    ],
+    [
+     "to_memory_config @ tenstorrent.py:7011:_transform_chunk <- autograd.py:415:free",
+     8,
+     67.108864
+    ],
+    [
+     "to_memory_config @ tenstorrent.py:7461:_multiply <- autograd.py:415:free",
+     8,
+     67.108864
+    ],
+    [
+     "concat @ tenstorrent.py:6060:_concat_to <- taped_ttnn.py:568:_v_concat",
+     2,
+     67.108864
+    ],
+    [
+     "to_memory_config @ tenstorrent.py:7696:_multiply <- autograd.py:415:free",
+     4,
+     67.108864
+    ],
+    [
+     "permute @ tenstorrent.py:3885:_fp32_softmax_attention_block <- taped_ttnn.py:529:_v_permute",
+     2,
+     67.108864
+    ],
+    [
+     "nlp_concat_heads @ tenstorrent.py:8485:_attend_heads <- taped_ttnn.py:756:_v_concat_heads",
+     2,
+     67.108864
+    ],
+    [
+     "permute @ tenstorrent.py:4073:_pair_transpose_impl <- taped_ttnn.py:529:_v_permute",
+     2,
+     67.108864
+    ],
+    [
+     "to_layout @ tenstorrent.py:4076:_pair_transpose_impl <- taped_ttnn.py:94:_identity_grad",
+     2,
+     67.108864
+    ],
+    [
+     "to_layout @ tenstorrent.py:4076:_pair_transpose_impl <- autograd.py:483:add_grad",
+     2,
+     67.108864
+    ],
+    [
+     "permute @ tenstorrent.py:4073:_pair_transpose_impl <- taped_ttnn.py:537:bw",
+     2,
+     67.108864
+    ],
+    [
+     "to_layout @ tenstorrent.py:4072:_pair_transpose_impl <- autograd.py:483:add_grad",
+     2,
+     67.108864
+    ],
+    [
+     "transpose @ tenstorrent.py:8485:_attend_heads <- autograd.py:1324:split_heads_value",
+     2,
+     67.108864
+    ],
+    [
+     "transpose @ tenstorrent.py:8485:_attend_heads <- autograd.py:1325:split_heads_value",
+     2,
+     67.108864
+    ],
+    [
+     "permute @ tenstorrent.py:3885:_fp32_softmax_attention_block <- taped_ttnn.py:537:bw",
+     2,
+     67.108864
+    ],
+    [
+     "slice @ tenstorrent.py:6060:_concat_to <- taped_ttnn.py:578:bw",
+     4,
+     67.108864
+    ],
+    [
+     "permute @ tenstorrent.py:7494:_multiply <- taped_ttnn.py:537:bw",
+     4,
+     67.108864
+    ],
+    [
+     "to_layout @ tenstorrent.py:4072:_pair_transpose_impl <- taped_ttnn.py:94:_identity_grad",
+     2,
+     50.331648
+    ],
+    [
+     "to_memory_config @ tenstorrent.py:7494:_multiply <- autograd.py:415:free",
+     4,
+     33.554432
+    ],
+    [
+     "clone @ tenstorrent.py:7504:_multiply <- taped_ttnn.py:94:_identity_grad",
+     4,
+     33.554432
+    ],
+    [
+     "to_memory_config @ tenstorrent.py:7504:_multiply <- autograd.py:415:free",
+     4,
+     33.554432
+    ],
+    [
+     "to_memory_config @ af2.py:341:_residual <- autograd.py:415:free",
+     2,
+     33.554432
+    ],
+    [
+     "to_memory_config @ tenstorrent.py:8774:_attend_pair <- autograd.py:449:_free_shared",
+     2,
+     33.554432
+    ],
+    [
+     "to_memory_config @ tenstorrent.py:4072:_pair_transpose_impl <- autograd.py:415:free",
+     1,
+     16.777216
+    ],
+    [
+     "permute @ tenstorrent.py:8375:_attend_pair <- taped_ttnn.py:529:_v_permute",
+     2,
+     9.437184
+    ],
+    [
+     "permute @ tenstorrent.py:8375:_attend_pair <- taped_ttnn.py:537:bw",
+     2,
+     9.437184
+    ]
+   ],
+   "layout_by_model": [
+    [
+     null,
+     46,
+     1754.267648
+    ],
+    [
+     "tenstorrent.py:8393:attend",
+     2,
+     201.326592
+    ],
+    [
+     "tenstorrent.py:7426:_multiply",
+     4,
+     134.217728
+    ],
+    [
+     "tenstorrent.py:7430:_multiply",
+     8,
+     67.108864
+    ],
+    [
+     "tenstorrent.py:7433:_multiply",
+     8,
+     67.108864
+    ],
+    [
+     "tenstorrent.py:6798:_channel_move",
+     8,
+     67.108864
+    ],
+    [
+     "tenstorrent.py:7011:_transform_chunk",
+     8,
+     67.108864
+    ],
+    [
+     "tenstorrent.py:7461:_multiply",
+     8,
+     67.108864
+    ],
+    [
+     "tenstorrent.py:7504:_multiply",
+     8,
+     67.108864
+    ],
+    [
+     "tenstorrent.py:6060:_concat_to",
+     2,
+     67.108864
+    ],
+    [
+     "tenstorrent.py:7696:_multiply",
+     4,
+     67.108864
+    ],
+    [
+     "tenstorrent.py:3885:_fp32_softmax_attention_block",
+     2,
+     67.108864
+    ],
+    [
+     "tenstorrent.py:8485:_attend_heads",
+     2,
+     67.108864
+    ],
+    [
+     "tenstorrent.py:4072:_pair_transpose_impl",
+     3,
+     67.108864
+    ],
+    [
+     "tenstorrent.py:4073:_pair_transpose_impl",
+     2,
+     67.108864
+    ],
+    [
+     "tenstorrent.py:4076:_pair_transpose_impl",
+     2,
+     67.108864
+    ],
+    [
+     "tenstorrent.py:7494:_multiply",
+     4,
+     33.554432
+    ],
+    [
+     "af2.py:341:_residual",
+     2,
+     33.554432
+    ],
+    [
+     "tenstorrent.py:8774:_attend_pair",
+     2,
+     33.554432
+    ],
+    [
+     "tenstorrent.py:8375:_attend_pair",
+     2,
+     9.437184
+    ]
+   ],
+   "padding_by_sig": [
+    [
+     "FLOA[256, 4, 256, 32] x FLOA[256, 4, 256, 32] -> FLOA",
+     2,
+     195.035136
+    ],
+    [
+     "FLOA[256, 4, 256, 256] -> FLOA",
+     4,
+     130.023424
+    ],
+    [
+     "BFLO[1, 256, 256, 128] x BFLO[1, 256, 256, 32] -> BFLO",
+     25,
+     101.5808
+    ],
+    [
+     "BFLO[1, 256, 256, 128] -> BFLO",
+     20,
+     81.26464
+    ],
+    [
+     "BFLO[1, 256, 256, 32] -> BFLO",
+     10,
+     81.26464
+    ],
+    [
+     "FLOA[256, 4, 256, 256] x FLOA[256, 4, 256, 32] -> FLOA",
+     2,
+     65.011712
+    ],
+    [
+     "BFLO[256, 256, 128] x BFLO[256, 256, 32] -> BFLO",
+     10,
+     40.63232
+    ],
+    [
+     "BFLO[256, 256, 128] -> BFLO",
+     8,
+     32.505856
+    ],
+    [
+     "BFLO[256, 256, 32] -> BFLO",
+     4,
+     32.505856
+    ],
+    [
+     "BFLO[256, 256, 128] x BFLO[128, 32] -> BFLO",
+     2,
+     7.354368
+    ],
+    [
+     "BFLO[65536, 32] x BFLO[128, 32] -> BFLO",
+     2,
+     7.354368
+    ],
+    [
+     "BFLO[1, 256, 256, 128] x BFLO[32, 128] -> BFLO",
+     10,
+     0.11904
+    ],
+    [
+     "BFLO[1, 256, 256, 128] x BFLO[128, 256] -> BFLO",
+     4,
+     0.063488
+    ],
+    [
+     "BFLO[256, 256, 128] x BFLO[32, 128] -> BFLO",
+     6,
+     0.063488
+    ],
+    [
+     "BFLO[1, 256, 256, 128] x BFLO[128, 128] -> BFLO",
+     4,
+     0.031744
+    ],
+    [
+     "BFLO[1, 256, 256, 128] x BFLO[128, 512] -> BFLO",
+     1,
+     0.031744
+    ],
+    [
+     "FLOA[1, 256, 256, 128] x FLOA[1, 1, 32, 128] -> FLOA",
+     1,
+     0.015872
+    ],
+    [
+     "BFLO[256, 256, 128] x BFLO[128, 128] -> BFLO",
+     2,
+     0.015872
+    ],
+    [
+     " -> BFLO",
+     1,
+     0.007936
+    ],
+    [
+     "BFLO[1, 256, 256, 512] x BFLO[512, 128] -> BFLO",
+     1,
+     0.007936
+    ]
+   ],
+   "fusible_by_model": [
+    [
+     null,
+     82,
+     4089.4464
+    ],
+    [
+     "tenstorrent.py:8753:_attend_pair",
+     2,
+     100.663296
+    ],
+    [
+     "tenstorrent.py:3874:_fp32_softmax_bias",
+     2,
+     4.194304
+    ]
+   ]
+  }
+ },
+ "stack-lev_on evo n=256": {
+  "fwd": {
+   "ops": 391,
+   "kernels": 190,
+   "moved_MB": 9122.000896,
+   "kernels_by_op": {
+    "typecast": 36,
+    "permute": 26,
+    "linear": 22,
+    "multiply": 20,
+    "add": 14,
+    "matmul": 13,
+    "layer_norm": 12,
+    "to_layout": 8,
+    "minimal_matmul": 8,
+    "reallocate": 8,
+    "nlp_create_qkv_heads": 4,
+    "softmax": 4,
+    "nlp_concat_heads": 4,
+    "chunk": 4,
+    "clone": 4,
+    "concat": 2,
+    "reshape": 1
+   },
+   "typecast_MB": 2482.372608,
+   "layout_MB": 1763.24608,
+   "padding_MB": 107.34528,
+   "fusible_MB": 0.0,
+   "fp32_excess_MB": 1387.39712,
+   "avoidable_MB": 4352.963968,
+   "by_class": {
+    "typecast": [
+     36,
+     2482.372608
+    ],
+    "eltwise": [
+     34,
+     1887.076352
+    ],
+    "layout": [
+     74,
+     1763.24608
+    ],
+    "matmul": [
+     43,
+     1625.10848
+    ],
+    "softmax": [
+     4,
+     1086.324736
+    ],
+    "layernorm": [
+     12,
+     277.87264
+    ],
+    "free": [
+     177,
+     0.0
+    ],
+    "other": [
+     11,
+     0.0
+    ]
+   },
+   "typecast_by_why": [
+    [
+     "forward island: _fp32_softmax_tail",
+     6,
+     1616.904192
+    ],
+    [
+     "forward island: _residual",
+     27,
+     859.17696
+    ],
+    [
+     "forward island: _fp32_softmax_bias",
+     3,
+     6.291456
+    ]
+   ],
+   "typecast_by_node": [
+    [
+     null,
+     36,
+     2482.372608
+    ]
+   ],
+   "typecast_by_site": [
+    [
+     "taped_ttnn.py:94:_identity_grad",
+     36,
+     2482.372608
+    ]
+   ],
+   "typecast_by_model": [
+    [
+     "tenstorrent.py:3937:_fp32_softmax_tail",
+     3,
+     808.452096
+    ],
+    [
+     "tenstorrent.py:3973:_fp32_softmax_tail",
+     3,
+     808.452096
+    ],
+    [
+     "af2.py:340:_residual",
+     9,
+     303.169536
+    ],
+    [
+     "af2.py:346:_residual",
+     9,
+     303.169536
+    ],
+    [
+     "af2.py:341:_residual",
+     9,
+     252.837888
+    ],
+    [
+     "tenstorrent.py:3873:_fp32_softmax_bias",
+     3,
+     6.291456
+    ]
+   ],
+   "layout_by_sig": [
+    [
+     "BFLO[8192, 8192] -> BFLO",
+     2,
+     536.870912
+    ],
+    [
+     "BFLO[256, 1024, 256] -> BFLO",
+     2,
+     536.870912
+    ],
+    [
+     "BFLO[256, 1, 256, 384] -> BFLO",
+     2,
+     201.326592
+    ],
+    [
+     "BFLO[256, 256, 128] -> BFLO",
+     6,
+     184.549376
+    ],
+    [
+     "BFLO[256, 4, 256, 32] -> BFLO",
+     4,
+     134.217728
+    ],
+    [
+     "BFLO[1, 256, 256, 64] x BFLO[1, 256, 256, 64] -> BFLO",
+     2,
+     67.108864
+    ],
+    [
+     "BFLO[1, 256, 256, 64] -> BFLO",
+     4,
+     33.554432
+    ],
+    [
+     "BFLO[256, 1, 32, 768] -> BFLO",
+     1,
+     25.165824
+    ],
+    [
+     "BFLO[256, 8, 32, 32] -> BFLO",
+     2,
+     16.777216
+    ],
+    [
+     "BFLO[1, 256, 256, 32] -> BFLO",
+     3,
+     14.680064
+    ],
+    [
+     "BFLO[1, 256, 256] -> BFLO",
+     1,
+     4.325376
+    ],
+    [
+     "BFLO[256, 32, 256] -> BFLO",
+     1,
+     4.325376
+    ],
+    [
+     "BFLO[1, 256, 32] -> BFLO",
+     2,
+     1.081344
+    ],
+    [
+     "BFLO[1, 1, 256, 768] -> BFLO",
+     1,
+     0.786432
+    ],
+    [
+     "BFLO[32, 256, 32] -> BFLO",
+     1,
+     0.540672
+    ],
+    [
+     "BFLO[8192, 1] -> BFLO",
+     1,
+     0.540672
+    ],
+    [
+     "BFLO[1, 8, 256, 32] -> BFLO",
+     2,
+     0.524288
+    ]
+   ],
+   "layout_by_node": [
+    [
+     "to_layout @ tenstorrent.py:11650:outer_product_mean <- taped_ttnn.py:94:_identity_grad",
+     1,
+     268.435456
+    ],
+    [
+     "reshape @ tenstorrent.py:11651:outer_product_mean <- taped_ttnn.py:503:_v_reshape",
+     1,
+     268.435456
+    ],
+    [
+     "to_layout @ tenstorrent.py:11652:outer_product_mean <- taped_ttnn.py:94:_identity_grad",
+     1,
+     268.435456
+    ],
+    [
+     "permute @ tenstorrent.py:11653:outer_product_mean <- taped_ttnn.py:529:_v_permute",
+     1,
+     268.435456
+    ],
+    [
+     "nlp_create_qkv_heads @ tenstorrent.py:8393:attend <- taped_ttnn.py:784:_v_create_qkv_heads",
+     2,
+     201.326592
+    ],
+    [
+     "permute @ tenstorrent.py:3885:_fp32_softmax_attention_block <- taped_ttnn.py:529:_v_permute",
+     3,
+     67.371008
+    ],
+    [
+     "concat @ tenstorrent.py:6060:_concat_to <- taped_ttnn.py:568:_v_concat",
+     2,
+     67.108864
+    ],
+    [
+     "nlp_concat_heads @ tenstorrent.py:8485:_attend_heads <- taped_ttnn.py:756:_v_concat_heads",
+     2,
+     67.108864
+    ],
+    [
+     "permute @ tenstorrent.py:4073:_pair_transpose_impl <- taped_ttnn.py:529:_v_permute",
+     2,
+     67.108864
+    ],
+    [
+     "to_layout @ tenstorrent.py:4076:_pair_transpose_impl <- taped_ttnn.py:94:_identity_grad",
+     2,
+     67.108864
+    ],
+    [
+     "to_layout @ tenstorrent.py:4072:_pair_transpose_impl <- taped_ttnn.py:94:_identity_grad",
+     2,
+     50.331648
+    ],
+    [
+     "clone @ tenstorrent.py:7504:_multiply <- taped_ttnn.py:94:_identity_grad",
+     4,
+     33.554432
+    ],
+    [
+     "nlp_create_qkv_heads @ tenstorrent.py:6489:_split_heads <- taped_ttnn.py:784:_v_create_qkv_heads",
+     2,
+     25.952256
+    ],
+    [
+     "permute @ tenstorrent.py:8375:_attend_pair <- taped_ttnn.py:529:_v_permute",
+     2,
+     9.437184
+    ],
+    [
+     "nlp_concat_heads @ tenstorrent.py:6499:_merge_heads <- taped_ttnn.py:756:_v_concat_heads",
+     2,
+     8.650752
+    ],
+    [
+     "permute @ af2.py:540:_attend <- taped_ttnn.py:529:_v_permute",
+     1,
+     8.388608
+    ],
+    [
+     "permute @ tenstorrent.py:8033:_pair_bias_from_z <- taped_ttnn.py:529:_v_permute",
+     1,
+     5.24288
+    ],
+    [
+     "permute @ af2.py:571:__call__ <- taped_ttnn.py:529:_v_permute",
+     1,
+     4.325376
+    ],
+    [
+     "permute @ af2.py:597:__call__ <- taped_ttnn.py:529:_v_permute",
+     1,
+     4.325376
+    ],
+    [
+     "permute @ tenstorrent.py:11524:contiguous_ab <- taped_ttnn.py:529:_v_permute",
+     1,
+     0.540672
+    ],
+    [
+     "permute @ tenstorrent.py:11525:contiguous_ab <- taped_ttnn.py:529:_v_permute",
+     1,
+     0.540672
+    ],
+    [
+     "to_layout @ tenstorrent.py:11526:contiguous_ab <- taped_ttnn.py:94:_identity_grad",
+     1,
+     0.540672
+    ],
+    [
+     "to_layout @ tenstorrent.py:11528:contiguous_ab <- taped_ttnn.py:94:_identity_grad",
+     1,
+     0.540672
+    ]
+   ],
+   "layout_by_model": [
+    [
+     "tenstorrent.py:11650:outer_product_mean",
+     1,
+     268.435456
+    ],
+    [
+     "tenstorrent.py:11651:outer_product_mean",
+     1,
+     268.435456
+    ],
+    [
+     "tenstorrent.py:11652:outer_product_mean",
+     1,
+     268.435456
+    ],
+    [
+     "tenstorrent.py:11653:outer_product_mean",
+     1,
+     268.435456
+    ],
+    [
+     "tenstorrent.py:8393:attend",
+     2,
+     201.326592
+    ],
+    [
+     "tenstorrent.py:3885:_fp32_softmax_attention_block",
+     3,
+     67.371008
+    ],
+    [
+     "tenstorrent.py:6060:_concat_to",
+     2,
+     67.108864
+    ],
+    [
+     "tenstorrent.py:8485:_attend_heads",
+     2,
+     67.108864
+    ],
+    [
+     "tenstorrent.py:4073:_pair_transpose_impl",
+     2,
+     67.108864
+    ],
+    [
+     "tenstorrent.py:4076:_pair_transpose_impl",
+     2,
+     67.108864
+    ],
+    [
+     "tenstorrent.py:4072:_pair_transpose_impl",
+     2,
+     50.331648
+    ],
+    [
+     "tenstorrent.py:7504:_multiply",
+     4,
+     33.554432
+    ],
+    [
+     "tenstorrent.py:6489:_split_heads",
+     2,
+     25.952256
+    ],
+    [
+     "tenstorrent.py:8375:_attend_pair",
+     2,
+     9.437184
+    ],
+    [
+     "tenstorrent.py:6499:_merge_heads",
+     2,
+     8.650752
+    ],
+    [
+     "af2.py:540:_attend",
+     1,
+     8.388608
+    ],
+    [
+     "tenstorrent.py:8033:_pair_bias_from_z",
+     1,
+     5.24288
+    ],
+    [
+     "af2.py:571:__call__",
+     1,
+     4.325376
+    ],
+    [
+     "af2.py:597:__call__",
+     1,
+     4.325376
+    ],
+    [
+     "tenstorrent.py:11524:contiguous_ab",
+     1,
+     0.540672
+    ],
+    [
+     "tenstorrent.py:11525:contiguous_ab",
+     1,
+     0.540672
+    ],
+    [
+     "tenstorrent.py:11526:contiguous_ab",
+     1,
+     0.540672
+    ],
+    [
+     "tenstorrent.py:11528:contiguous_ab",
+     1,
+     0.540672
+    ]
+   ],
+   "padding_by_sig": [
+    [
+     "BFLO[256, 8, 32, 32] x BFLO[256, 8, 32, 32] -> BFLO",
+     2,
+     24.633344
+    ],
+    [
+     "BFLO[256, 8, 32, 32] -> BFLO",
+     2,
+     16.760832
+    ],
+    [
+     "BFLO[256, 32, 256] x BFLO[256, 256] -> BFLO",
+     2,
+     16.284672
+    ],
+    [
+     "BFLO[256, 32, 256] x BFLO[256, 768] -> BFLO",
+     1,
+     16.252928
+    ],
+    [
+     "BFLO[256, 32, 256] x BFLO[256, 32, 256] -> BFLO",
+     1,
+     12.189696
+    ],
+    [
+     "BFLO[256, 256, 128] x BFLO[128, 32] -> BFLO",
+     3,
+     10.50624
+    ],
+    [
+     "BFLO[256, 32, 256] x BFLO[32, 256] -> BFLO",
+     1,
+     8.158208
+    ],
+    [
+     "BFLO[256, 32, 32] -> BFLO",
+     1,
+     1.015808
+    ],
+    [
+     "BFLO[8192, 32] x BFLO[8192, 32] -> BFLO",
+     1,
+     1.015808
+    ],
+    [
+     "BFLO[1, 256, 256, 128] x BFLO[32, 128] -> BFLO",
+     5,
+     0.07936
+    ],
+    [
+     "BFLO[1, 256, 256] x BFLO[32, 256] -> BFLO",
+     2,
+     0.063488
+    ],
+    [
+     "BFLO[256, 256, 128] x BFLO[32, 128] -> BFLO",
+     5,
+     0.063488
+    ],
+    [
+     "BFLO[1, 1, 256, 256] x BFLO[256, 1024] -> BFLO",
+     1,
+     0.063488
+    ],
+    [
+     "BFLO[1, 256, 256, 128] x BFLO[128, 256] -> BFLO",
+     4,
+     0.063488
+    ],
+    [
+     "BFLO[1, 256, 256] x BFLO[256, 256] -> BFLO",
+     2,
+     0.031744
+    ],
+    [
+     "BFLO[1, 1, 256, 256] x BFLO[32, 256] -> BFLO",
+     1,
+     0.031744
+    ],
+    [
+     "BFLO[1, 256, 256, 128] x BFLO[128, 128] -> BFLO",
+     4,
+     0.031744
+    ],
+    [
+     "BFLO[1, 256, 256, 128] x BFLO[128, 512] -> BFLO",
+     1,
+     0.031744
+    ],
+    [
+     "BFLO[1, 1, 256, 1024] x BFLO[1024, 256] -> BFLO",
+     1,
+     0.015872
+    ],
+    [
+     "BFLO[32, 128] -> BFLO",
+     1,
+     0.015872
+    ]
+   ],
+   "fusible_by_model": []
+  },
+  "bwd": {
+   "ops": 1089,
+   "kernels": 867,
+   "moved_MB": 41226.850304,
+   "kernels_by_op": {
+    "multiply": 169,
+    "typecast": 121,
+    "add": 71,
+    "matmul": 69,
+    "to_memory_config": 61,
+    "mean": 48,
+    "permute": 40,
+    "subtract": 40,
+    "__getitem__": 32,
+    "linear": 22,
+    "concat": 18,
+    "nlp_concat_heads": 16,
+    "to_layout": 16,
+    "sigmoid": 14,
+    "rsub": 14,
+    "layer_norm": 12,
+    "rsqrt": 12,
+    "zeros": 12,
+    "allocate_tensor_on_device": 12,
+    "reshape": 8,
+    "minimal_matmul": 8,
+    "reallocate": 8,
+    "transpose": 8,
+    "sum": 8,
+    "nlp_create_qkv_heads": 4,
+    "softmax": 4,
+    "chunk": 4,
+    "clone": 4,
+    "div": 4,
+    "slice": 4,
+    "relu": 2,
+    "gtz": 2
+   },
+   "typecast_MB": 9124.839424,
+   "layout_MB": 5258.215424,
+   "padding_MB": 1192.512896,
+   "fusible_MB": 4354.588672,
+   "fp32_excess_MB": 5810.290688,
+   "avoidable_MB": 19930.156416,
+   "by_class": {
+    "eltwise": [
+     326,
+     15976.972288
+    ],
+    "typecast": [
+     121,
+     9124.839424
+    ],
+    "layout": [
+     312,
+     5258.215424
+    ],
+    "matmul": [
+     99,
+     4487.745536
+    ],
+    "other": [
+     69,
+     3586.392064
+    ],
+    "reduction": [
+     56,
+     1314.848768
+    ],
+    "softmax": [
+     4,
+     1086.324736
+    ],
+    "layernorm": [
+     12,
+     277.87264
+    ],
+    "alloc": [
+     12,
+     113.639424
+    ],
+    "free": [
+     78,
+     0.0
+    ]
+   },
+   "typecast_by_why": [
+    [
+     "verb-bw: a forward typecast's gradient cast back to its source dtype",
+     36,
+     2532.704256
+    ],
+    [
+     "forward island: _fp32_softmax_tail",
+     6,
+     1616.904192
+    ],
+    [
+     "cast-back: backward() narrows an fp32 gradient to the value's dtype",
+     22,
+     1616.904192
+    ],
+    [
+     "forward island: _residual",
+     27,
+     875.954176
+    ],
+    [
+     "fan-in: add_grad widens both operands to fp32 for the sum",
+     21,
+     859.17696
+    ],
+    [
+     "other: autograd.py:189:softmax_bw_dx",
+     3,
+     808.452096
+    ],
+    [
+     "other: autograd.py:192:softmax_bw_dx",
+     3,
+     808.452096
+    ],
+    [
+     "forward island: _fp32_softmax_bias",
+     3,
+     6.291456
+    ]
+   ],
+   "typecast_by_node": [
+    [
+     null,
+     58,
+     4116.054016
+    ],
+    [
+     "tenstorrent.py:3959:_fp32_softmax_tail",
+     6,
+     1616.904192
+    ],
+    [
+     "tenstorrent.py:3973:_fp32_softmax_tail",
+     3,
+     808.452096
+    ],
+    [
+     "tenstorrent.py:3937:_fp32_softmax_tail",
+     3,
+     808.452096
+    ],
+    [
+     "af2.py:346:_residual",
+     9,
+     303.169536
+    ],
+    [
+     "af2.py:340:_residual",
+     9,
+     303.169536
+    ],
+    [
+     "af2.py:341:_residual",
+     9,
+     303.169536
+    ],
+    [
+     "tenstorrent.py:8393:attend",
+     2,
+     301.989888
+    ],
+    [
+     "tenstorrent.py:8726:_attend_pair",
+     2,
+     100.663296
+    ],
+    [
+     "tenstorrent.py:8294:_attend_pair",
+     2,
+     100.663296
+    ],
+    [
+     "tenstorrent.py:6521:_in_proj_matmul",
+     2,
+     100.663296
+    ],
+    [
+     "tenstorrent.py:7209:_multiply",
+     2,
+     100.663296
+    ],
+    [
+     "af2.py:204:_rows",
+     2,
+     50.724864
+    ],
+    [
+     "af2.py:519:_bias",
+     1,
+     50.331648
+    ],
+    [
+     "tenstorrent.py:6489:_split_heads",
+     2,
+     38.928384
+    ],
+    [
+     "tenstorrent.py:6481:_lin",
+     2,
+     12.976128
+    ],
+    [
+     "tenstorrent.py:3873:_fp32_softmax_bias",
+     3,
+     6.291456
+    ],
+    [
+     "af2.py:569:__call__",
+     2,
+     0.786432
+    ],
+    [
+     "tenstorrent.py:11423:project_ab",
+     1,
+     0.393216
+    ],
+    [
+     "tenstorrent.py:11403:__call__",
+     1,
+     0.393216
+    ]
+   ],
+   "typecast_by_site": [
+    [
+     "taped_ttnn.py:99:bw",
+     36,
+     2532.704256
+    ],
+    [
+     "taped_ttnn.py:94:_identity_grad",
+     36,
+     2499.149824
+    ],
+    [
+     "autograd.py:622:backward",
+     22,
+     1616.904192
+    ],
+    [
+     "autograd.py:488:add_grad",
+     21,
+     859.17696
+    ],
+    [
+     "autograd.py:189:softmax_bw_dx",
+     3,
+     808.452096
+    ],
+    [
+     "autograd.py:192:softmax_bw_dx",
+     3,
+     808.452096
+    ]
+   ],
+   "typecast_by_model": [
+    [
+     null,
+     85,
+     6625.6896
+    ],
+    [
+     "tenstorrent.py:3937:_fp32_softmax_tail",
+     3,
+     808.452096
+    ],
+    [
+     "tenstorrent.py:3973:_fp32_softmax_tail",
+     3,
+     808.452096
+    ],
+    [
+     "af2.py:340:_residual",
+     9,
+     303.169536
+    ],
+    [
+     "af2.py:346:_residual",
+     9,
+     303.169536
+    ],
+    [
+     "af2.py:341:_residual",
+     9,
+     269.615104
+    ],
+    [
+     "tenstorrent.py:3873:_fp32_softmax_bias",
+     3,
+     6.291456
+    ]
+   ],
+   "layout_by_sig": [
+    [
+     "BFLO[256, 1024, 256] -> BFLO",
+     4,
+     1073.741824
+    ],
+    [
+     "BFLO[8192, 8192] -> BFLO",
+     3,
+     805.306368
+    ],
+    [
+     "BFLO[256, 1, 256, 128] x BFLO[256, 1, 256, 128] -> BFLO",
+     6,
+     603.979776
+    ],
+    [
+     "BFLO[256, 256, 128] -> BFLO",
+     14,
+     419.4304
+    ],
+    [
+     "BFLO[1, 256, 256, 64] -> BFLO",
+     36,
+     335.54432
+    ],
+    [
+     "BFLO[1, 256, 256, 64] x BFLO[1, 256, 256, 64] -> BFLO",
+     6,
+     335.54432
+    ],
+    [
+     "BFLO[256, 4, 256, 32] -> BFLO",
+     10,
+     335.54432
+    ],
+    [
+     "BFLO[256, 256, 1024] -> BFLO",
+     1,
+     268.435456
+    ],
+    [
+     "BFLO[256, 1, 256, 384] -> BFLO",
+     2,
+     201.326592
+    ],
+    [
+     "BFLO[1, 64, 256, 256] -> BFLO",
+     20,
+     167.77216
+    ],
+    [
+     "BFLO[1, 256, 256, 256] -> BFLO",
+     4,
+     134.217728
+    ],
+    [
+     "BFLO[256, 4, 32, 256] -> BFLO",
+     4,
+     134.217728
+    ],
+    [
+     "BFLO[1, 256, 256, 128] -> BFLO",
+     7,
+     117.440512
+    ],
+    [
+     "BFLO[256, 1, 32, 256] x BFLO[256, 1, 32, 256] -> BFLO",
+     3,
+     75.497472
+    ],
+    [
+     "BFLO[256, 1, 256, 128] -> BFLO",
+     2,
+     67.108864
+    ],
+    [
+     "BFLO[256, 8, 32, 32] -> BFLO",
+     7,
+     58.720256
+    ],
+    [
+     "BFLO[256, 1, 32, 768] -> BFLO",
+     1,
+     25.165824
+    ],
+    [
+     "BFLO[256, 32, 256] -> BFLO",
+     4,
+     17.301504
+    ],
+    [
+     "BFLO[1, 256, 256, 32] -> BFLO",
+     3,
+     14.680064
+    ],
+    [
+     "BFLO[256, 256] -> BFLO",
+     3,
+     12.976128
+    ],
+    [
+     "BFLO[256, 32, 768] -> BFLO",
+     1,
+     12.976128
+    ],
+    [
+     "BFLO[1, 4, 256, 256] -> BFLO",
+     2,
+     9.437184
+    ],
+    [
+     "BFLO[1, 256, 256] -> BFLO",
+     2,
+     8.650752
+    ],
+    [
+     "BFLO[256, 1, 32, 256] -> BFLO",
+     1,
+     8.388608
+    ],
+    [
+     "BFLO[1, 8, 256, 256] -> BFLO",
+     1,
+     5.24288
+    ],
+    [
+     "BFLO[1, 1, 256, 256] x BFLO[1, 1, 256, 256] -> BFLO",
+     3,
+     2.359296
+    ],
+    [
+     "BFLO[1, 8, 256, 32] -> BFLO",
+     5,
+     1.31072
+    ],
+    [
+     "BFLO[1, 256, 32] -> BFLO",
+     2,
+     1.081344
+    ],
+    [
+     "BFLO[32, 256, 32] -> BFLO",
+     2,
+     1.081344
+    ],
+    [
+     "BFLO[1, 1, 256, 768] -> BFLO",
+     1,
+     0.786432
+    ]
+   ],
+   "layout_by_node": [
+    [
+     "concat @ tenstorrent.py:8393:attend <- taped_ttnn.py:807:bw",
+     6,
+     603.979776
+    ],
+    [
+     "to_layout @ tenstorrent.py:11650:outer_product_mean <- taped_ttnn.py:94:_identity_grad",
+     1,
+     268.435456
+    ],
+    [
+     "reshape @ tenstorrent.py:11651:outer_product_mean <- taped_ttnn.py:503:_v_reshape",
+     1,
+     268.435456
+    ],
+    [
+     "to_layout @ tenstorrent.py:11652:outer_product_mean <- taped_ttnn.py:94:_identity_grad",
+     1,
+     268.435456
+    ],
+    [
+     "permute @ tenstorrent.py:11653:outer_product_mean <- taped_ttnn.py:529:_v_permute",
+     1,
+     268.435456
+    ],
+    [
+     "concat @ None <- autograd.py:573:_join_slices",
+     4,
+     268.435456
+    ],
+    [
+     "permute @ tenstorrent.py:11653:outer_product_mean <- reblock_permute.py:669:permute_via_reblock",
+     1,
+     268.435456
+    ],
+    [
+     "to_layout @ tenstorrent.py:11652:outer_product_mean <- autograd.py:483:add_grad",
+     1,
+     268.435456
+    ],
+    [
+     "reshape @ tenstorrent.py:11651:outer_product_mean <- taped_ttnn.py:507:bw",
+     1,
+     268.435456
+    ],
+    [
+     "to_layout @ tenstorrent.py:11650:outer_product_mean <- autograd.py:483:add_grad",
+     1,
+     268.435456
+    ],
+    [
+     "nlp_create_qkv_heads @ tenstorrent.py:8393:attend <- taped_ttnn.py:784:_v_create_qkv_heads",
+     2,
+     201.326592
+    ],
+    [
+     "nlp_concat_heads @ tenstorrent.py:8393:attend <- autograd.py:1338:merge_heads_value",
+     6,
+     201.326592
+    ],
+    [
+     "to_memory_config @ tenstorrent.py:7426:_multiply <- autograd.py:415:free",
+     4,
+     134.217728
+    ],
+    [
+     "concat @ tenstorrent.py:6489:_split_heads <- taped_ttnn.py:807:bw",
+     6,
+     77.856768
+    ],
+    [
+     "permute @ tenstorrent.py:3885:_fp32_softmax_attention_block <- taped_ttnn.py:529:_v_permute",
+     3,
+     67.371008
+    ],
+    [
+     "permute @ tenstorrent.py:3885:_fp32_softmax_attention_block <- reblock_permute.py:669:permute_via_reblock",
+     3,
+     67.371008
+    ],
+    [
+     "to_memory_config @ tenstorrent.py:7430:_multiply <- autograd.py:415:free",
+     8,
+     67.108864
+    ],
+    [
+     "to_memory_config @ tenstorrent.py:7433:_multiply <- autograd.py:415:free",
+     8,
+     67.108864
+    ],
+    [
+     "to_memory_config @ tenstorrent.py:6798:_channel_move <- autograd.py:415:free",
+     8,
+     67.108864
+    ],
+    [
+     "to_memory_config @ tenstorrent.py:7011:_transform_chunk <- autograd.py:415:free",
+     8,
+     67.108864
+    ],
+    [
+     "to_memory_config @ tenstorrent.py:7461:_multiply <- autograd.py:415:free",
+     8,
+     67.108864
+    ],
+    [
+     "concat @ tenstorrent.py:6060:_concat_to <- taped_ttnn.py:568:_v_concat",
+     2,
+     67.108864
+    ],
+    [
+     "to_memory_config @ tenstorrent.py:7696:_multiply <- autograd.py:415:free",
+     4,
+     67.108864
+    ],
+    [
+     "nlp_concat_heads @ tenstorrent.py:8485:_attend_heads <- taped_ttnn.py:756:_v_concat_heads",
+     2,
+     67.108864
+    ],
+    [
+     "permute @ tenstorrent.py:4073:_pair_transpose_impl <- taped_ttnn.py:529:_v_permute",
+     2,
+     67.108864
+    ],
+    [
+     "to_layout @ tenstorrent.py:4076:_pair_transpose_impl <- taped_ttnn.py:94:_identity_grad",
+     2,
+     67.108864
+    ],
+    [
+     "to_layout @ tenstorrent.py:4076:_pair_transpose_impl <- autograd.py:483:add_grad",
+     2,
+     67.108864
+    ],
+    [
+     "permute @ tenstorrent.py:4073:_pair_transpose_impl <- reblock_permute.py:669:permute_via_reblock",
+     2,
+     67.108864
+    ],
+    [
+     "to_layout @ tenstorrent.py:4072:_pair_transpose_impl <- autograd.py:483:add_grad",
+     2,
+     67.108864
+    ],
+    [
+     "transpose @ tenstorrent.py:8485:_attend_heads <- autograd.py:1324:split_heads_value",
+     2,
+     67.108864
+    ],
+    [
+     "transpose @ tenstorrent.py:8485:_attend_heads <- autograd.py:1325:split_heads_value",
+     2,
+     67.108864
+    ],
+    [
+     "slice @ tenstorrent.py:6060:_concat_to <- taped_ttnn.py:578:bw",
+     4,
+     67.108864
+    ],
+    [
+     "to_layout @ tenstorrent.py:4072:_pair_transpose_impl <- taped_ttnn.py:94:_identity_grad",
+     2,
+     50.331648
+    ],
+    [
+     "to_memory_config @ tenstorrent.py:7494:_multiply <- autograd.py:415:free",
+     4,
+     33.554432
+    ],
+    [
+     "clone @ tenstorrent.py:7504:_multiply <- taped_ttnn.py:94:_identity_grad",
+     4,
+     33.554432
+    ],
+    [
+     "to_memory_config @ tenstorrent.py:7504:_multiply <- autograd.py:415:free",
+     4,
+     33.554432
+    ],
+    [
+     "to_memory_config @ af2.py:341:_residual <- autograd.py:415:free",
+     2,
+     33.554432
+    ],
+    [
+     "to_memory_config @ tenstorrent.py:8774:_attend_pair <- autograd.py:449:_free_shared",
+     2,
+     33.554432
+    ],
+    [
+     "nlp_create_qkv_heads @ tenstorrent.py:6489:_split_heads <- taped_ttnn.py:784:_v_create_qkv_heads",
+     2,
+     25.952256
+    ],
+    [
+     "nlp_concat_heads @ tenstorrent.py:6489:_split_heads <- autograd.py:1338:merge_heads_value",
+     6,
+     25.952256
+    ]
+   ],
+   "layout_by_model": [
+    [
+     null,
+     69,
+     2807.103488
+    ],
+    [
+     "tenstorrent.py:11650:outer_product_mean",
+     1,
+     268.435456
+    ],
+    [
+     "tenstorrent.py:11651:outer_product_mean",
+     1,
+     268.435456
+    ],
+    [
+     "tenstorrent.py:11652:outer_product_mean",
+     1,
+     268.435456
+    ],
+    [
+     "tenstorrent.py:11653:outer_product_mean",
+     1,
+     268.435456
+    ],
+    [
+     "tenstorrent.py:8393:attend",
+     2,
+     201.326592
+    ],
+    [
+     "tenstorrent.py:7426:_multiply",
+     4,
+     134.217728
+    ],
+    [
+     "tenstorrent.py:3885:_fp32_softmax_attention_block",
+     3,
+     67.371008
+    ],
+    [
+     "tenstorrent.py:7430:_multiply",
+     8,
+     67.108864
+    ],
+    [
+     "tenstorrent.py:7433:_multiply",
+     8,
+     67.108864
+    ],
+    [
+     "tenstorrent.py:6798:_channel_move",
+     8,
+     67.108864
+    ],
+    [
+     "tenstorrent.py:7011:_transform_chunk",
+     8,
+     67.108864
+    ],
+    [
+     "tenstorrent.py:7461:_multiply",
+     8,
+     67.108864
+    ],
+    [
+     "tenstorrent.py:7504:_multiply",
+     8,
+     67.108864
+    ],
+    [
+     "tenstorrent.py:6060:_concat_to",
+     2,
+     67.108864
+    ],
+    [
+     "tenstorrent.py:7696:_multiply",
+     4,
+     67.108864
+    ],
+    [
+     "tenstorrent.py:8485:_attend_heads",
+     2,
+     67.108864
+    ],
+    [
+     "tenstorrent.py:4072:_pair_transpose_impl",
+     3,
+     67.108864
+    ],
+    [
+     "tenstorrent.py:4073:_pair_transpose_impl",
+     2,
+     67.108864
+    ],
+    [
+     "tenstorrent.py:4076:_pair_transpose_impl",
+     2,
+     67.108864
+    ],
+    [
+     "tenstorrent.py:7494:_multiply",
+     4,
+     33.554432
+    ],
+    [
+     "af2.py:341:_residual",
+     2,
+     33.554432
+    ],
+    [
+     "tenstorrent.py:8774:_attend_pair",
+     2,
+     33.554432
+    ],
+    [
+     "tenstorrent.py:6489:_split_heads",
+     2,
+     25.952256
+    ],
+    [
+     "tenstorrent.py:8375:_attend_pair",
+     2,
+     9.437184
+    ],
+    [
+     "tenstorrent.py:6499:_merge_heads",
+     2,
+     8.650752
+    ],
+    [
+     "af2.py:540:_attend",
+     1,
+     8.388608
+    ],
+    [
+     "tenstorrent.py:8033:_pair_bias_from_z",
+     1,
+     5.24288
+    ],
+    [
+     "af2.py:571:__call__",
+     1,
+     4.325376
+    ],
+    [
+     "af2.py:597:__call__",
+     1,
+     4.325376
+    ]
+   ],
+   "padding_by_sig": [
+    [
+     "BFLO[256, 8, 32, 32] x BFLO[256, 8, 32, 32] -> BFLO",
+     10,
+     124.182528
+    ],
+    [
+     "FLOA[256, 1, 32, 768] x BFLO[256, 1, 32, 768] -> FLOA",
+     2,
+     121.89696
+    ],
+    [
+     "BFLO[1, 256, 256, 128] x BFLO[1, 256, 256, 32] -> BFLO",
+     25,
+     101.5808
+    ],
+    [
+     "BFLO[256, 32, 256] x BFLO[256, 32, 256] -> BFLO",
+     8,
+     97.517568
+    ],
+    [
+     "BFLO[256, 4, 256, 32] x BFLO[256, 4, 256, 32] -> BFLO",
+     2,
+     97.517568
+    ],
+    [
+     "BFLO[1, 256, 256, 128] -> BFLO",
+     20,
+     81.26464
+    ],
+    [
+     "BFLO[1, 256, 256, 32] -> BFLO",
+     10,
+     81.26464
+    ],
+    [
+     "BFLO[256, 4, 256, 256] -> BFLO",
+     4,
+     65.011712
+    ],
+    [
+     "BFLO[256, 256, 128] x BFLO[256, 256, 32] -> BFLO",
+     15,
+     60.94848
+    ],
+    [
+     "BFLO[256, 256, 128] -> BFLO",
+     12,
+     48.758784
+    ],
+    [
+     "BFLO[256, 256, 32] -> BFLO",
+     6,
+     48.758784
+    ],
+    [
+     "BFLO[256, 32, 256] x BFLO[256, 32, 32] -> BFLO",
+     5,
+     43.2512
+    ],
+    [
+     "BFLO[256, 8, 32, 32] -> BFLO",
+     5,
+     41.90208
+    ],
+    [
+     "BFLO[256, 32, 256] -> BFLO",
+     6,
+     34.60096
+    ],
+    [
+     "BFLO[256, 4, 256, 256] x BFLO[256, 4, 256, 32] -> BFLO",
+     2,
+     32.505856
+    ],
+    [
+     "FLOA[256, 32, 256] x BFLO[256, 32, 256] -> FLOA",
+     1,
+     20.31616
+    ],
+    [
+     "BFLO[256, 32, 256] x BFLO[32, 256] -> BFLO",
+     2,
+     16.300544
+    ],
+    [
+     "BFLO[256, 32, 256] x BFLO[256, 256] -> BFLO",
+     2,
+     16.284672
+    ],
+    [
+     "BFLO[256, 32, 256] x BFLO[256, 768] -> BFLO",
+     1,
+     16.252928
+    ],
+    [
+     " -> BFLO",
+     3,
+     12.189696
+    ]
+   ],
+   "fusible_by_model": [
+    [
+     null,
+     139,
+     4245.536768
+    ],
+    [
+     "tenstorrent.py:8753:_attend_pair",
+     2,
+     100.663296
+    ],
+    [
+     "tenstorrent.py:3874:_fp32_softmax_bias",
+     3,
+     8.388608
+    ]
+   ]
+  }
+ },
+ "stack-lev_on extra n=256": {
+  "fwd": {
+   "ops": 267,
+   "kernels": 128,
+   "moved_MB": 7427.350528,
+   "kernels_by_op": {
+    "typecast": 24,
+    "permute": 18,
+    "multiply": 14,
+    "add": 10,
+    "linear": 10,
+    "minimal_matmul": 8,
+    "reallocate": 8,
+    "matmul": 8,
+    "layer_norm": 7,
+    "chunk": 4,
+    "clone": 4,
+    "to_layout": 4,
+    "concat": 2,
+    "nlp_create_qkv_heads": 2,
+    "softmax": 2,
+    "nlp_concat_heads": 2,
+    "from_torch": 1
+   },
+   "typecast_MB": 2419.089408,
+   "layout_MB": 630.194176,
+   "padding_MB": 7.655936,
+   "fusible_MB": 0.0,
+   "fp32_excess_MB": 1362.108416,
+   "avoidable_MB": 3056.93952,
+   "by_class": {
+    "typecast": [
+     24,
+     2419.089408
+    ],
+    "eltwise": [
+     24,
+     1818.263552
+    ],
+    "matmul": [
+     26,
+     1251.057664
+    ],
+    "softmax": [
+     2,
+     1073.741824
+    ],
+    "layout": [
+     48,
+     630.194176
+    ],
+    "layernorm": [
+     7,
+     234.995712
+    ],
+    "alloc": [
+     1,
+     0.008192
+    ],
+    "free": [
+     129,
+     0.0
+    ],
+    "other": [
+     6,
+     0.0
+    ]
+   },
+   "typecast_by_why": [
+    [
+     "forward island: _fp32_softmax_tail",
+     4,
+     1610.612736
+    ],
+    [
+     "forward island: _residual",
+     18,
+     805.330944
+    ],
+    [
+     "forward island: _fp32_softmax_bias",
+     2,
+     3.145728
+    ]
+   ],
+   "typecast_by_node": [
+    [
+     null,
+     24,
+     2419.089408
+    ]
+   ],
+   "typecast_by_site": [
+    [
+     "taped_ttnn.py:94:_identity_grad",
+     23,
+     2419.064832
+    ],
+    [
+     "taped_ttnn.py:893:call",
+     1,
+     0.024576
+    ]
+   ],
+   "typecast_by_model": [
+    [
+     "tenstorrent.py:3937:_fp32_softmax_tail",
+     2,
+     805.306368
+    ],
+    [
+     "tenstorrent.py:3973:_fp32_softmax_tail",
+     2,
+     805.306368
+    ],
+    [
+     "af2.py:340:_residual",
+     6,
+     301.989888
+    ],
+    [
+     "af2.py:346:_residual",
+     6,
+     301.989888
+    ],
+    [
+     "af2.py:341:_residual",
+     6,
+     201.351168
+    ],
+    [
+     "tenstorrent.py:3873:_fp32_softmax_bias",
+     2,
+     3.145728
+    ]
+   ],
+   "layout_by_sig": [
+    [
+     "BFLO[256, 1, 256, 384] -> BFLO",
+     2,
+     201.326592
+    ],
+    [
+     "BFLO[256, 256, 128] -> BFLO",
+     6,
+     184.549376
+    ],
+    [
+     "BFLO[256, 4, 256, 32] -> BFLO",
+     4,
+     134.217728
+    ],
+    [
+     "BFLO[1, 256, 256, 64] x BFLO[1, 256, 256, 64] -> BFLO",
+     2,
+     67.108864
+    ],
+    [
+     "BFLO[1, 256, 256, 64] -> BFLO",
+     4,
+     33.554432
+    ],
+    [
+     "BFLO[1, 256, 256, 32] -> BFLO",
+     2,
+     9.437184
+    ]
+   ],
+   "layout_by_node": [
+    [
+     "nlp_create_qkv_heads @ tenstorrent.py:8393:attend <- taped_ttnn.py:784:_v_create_qkv_heads",
+     2,
+     201.326592
+    ],
+    [
+     "concat @ tenstorrent.py:6060:_concat_to <- taped_ttnn.py:568:_v_concat",
+     2,
+     67.108864
+    ],
+    [
+     "permute @ tenstorrent.py:3885:_fp32_softmax_attention_block <- taped_ttnn.py:529:_v_permute",
+     2,
+     67.108864
+    ],
+    [
+     "nlp_concat_heads @ tenstorrent.py:8485:_attend_heads <- taped_ttnn.py:756:_v_concat_heads",
+     2,
+     67.108864
+    ],
+    [
+     "permute @ tenstorrent.py:4073:_pair_transpose_impl <- taped_ttnn.py:529:_v_permute",
+     2,
+     67.108864
+    ],
+    [
+     "to_layout @ tenstorrent.py:4076:_pair_transpose_impl <- taped_ttnn.py:94:_identity_grad",
+     2,
+     67.108864
+    ],
+    [
+     "to_layout @ tenstorrent.py:4072:_pair_transpose_impl <- taped_ttnn.py:94:_identity_grad",
+     2,
+     50.331648
+    ],
+    [
+     "clone @ tenstorrent.py:7504:_multiply <- taped_ttnn.py:94:_identity_grad",
+     4,
+     33.554432
+    ],
+    [
+     "permute @ tenstorrent.py:8375:_attend_pair <- taped_ttnn.py:529:_v_permute",
+     2,
+     9.437184
+    ]
+   ],
+   "layout_by_model": [
+    [
+     "tenstorrent.py:8393:attend",
+     2,
+     201.326592
+    ],
+    [
+     "tenstorrent.py:6060:_concat_to",
+     2,
+     67.108864
+    ],
+    [
+     "tenstorrent.py:3885:_fp32_softmax_attention_block",
+     2,
+     67.108864
+    ],
+    [
+     "tenstorrent.py:8485:_attend_heads",
+     2,
+     67.108864
+    ],
+    [
+     "tenstorrent.py:4073:_pair_transpose_impl",
+     2,
+     67.108864
+    ],
+    [
+     "tenstorrent.py:4076:_pair_transpose_impl",
+     2,
+     67.108864
+    ],
+    [
+     "tenstorrent.py:4072:_pair_transpose_impl",
+     2,
+     50.331648
+    ],
+    [
+     "tenstorrent.py:7504:_multiply",
+     4,
+     33.554432
+    ],
+    [
+     "tenstorrent.py:8375:_attend_pair",
+     2,
+     9.437184
+    ]
+   ],
+   "padding_by_sig": [
+    [
+     "BFLO[256, 256, 128] x BFLO[128, 32] -> BFLO",
+     2,
+     7.354368
+    ],
+    [
+     "BFLO[1, 256, 256, 128] x BFLO[32, 128] -> BFLO",
+     5,
+     0.07936
+    ],
+    [
+     "BFLO[1, 256, 256, 128] x BFLO[128, 256] -> BFLO",
+     4,
+     0.063488
+    ],
+    [
+     "BFLO[256, 256, 128] x BFLO[32, 128] -> BFLO",
+     4,
+     0.047616
+    ],
+    [
+     "BFLO[1, 256, 256, 128] x BFLO[128, 128] -> BFLO",
+     4,
+     0.031744
+    ],
+    [
+     "BFLO[1, 256, 256, 128] x BFLO[128, 512] -> BFLO",
+     1,
+     0.031744
+    ],
+    [
+     "FLOA[1, 256, 256, 128] x FLOA[1, 1, 32, 128] -> FLOA",
+     1,
+     0.015872
+    ],
+    [
+     "BFLO[256, 256, 128] x BFLO[128, 128] -> BFLO",
+     2,
+     0.015872
+    ],
+    [
+     " -> BFLO",
+     1,
+     0.007936
+    ],
+    [
+     "BFLO[1, 256, 256, 512] x BFLO[512, 128] -> BFLO",
+     1,
+     0.007936
+    ]
+   ],
+   "fusible_by_model": []
+  },
+  "bwd": {
+   "ops": 750,
+   "kernels": 589,
+   "moved_MB": 36522.196992,
+   "kernels_by_op": {
+    "multiply": 115,
+    "typecast": 75,
+    "to_memory_config": 61,
+    "add": 50,
+    "matmul": 42,
+    "__getitem__": 32,
+    "mean": 28,
+    "permute": 24,
+    "subtract": 23,
+    "concat": 12,
+    "sigmoid": 12,
+    "rsub": 12,
+    "allocate_tensor_on_device": 12,
+    "linear": 10,
+    "minimal_matmul": 8,
+    "reallocate": 8,
+    "nlp_concat_heads": 8,
+    "to_layout": 8,
+    "layer_norm": 7,
+    "rsqrt": 7,
+    "zeros": 6,
+    "chunk": 4,
+    "clone": 4,
+    "transpose": 4,
+    "sum": 4,
+    "slice": 4,
+    "nlp_create_qkv_heads": 2,
+    "softmax": 2,
+    "div": 2,
+    "from_torch": 1,
+    "relu": 1,
+    "gtz": 1
+   },
+   "typecast_MB": 8831.131648,
+   "layout_MB": 2871.001088,
+   "padding_MB": 579.855104,
+   "fusible_MB": 3959.422976,
+   "fp32_excess_MB": 5683.290112,
+   "avoidable_MB": 16241.410816,
+   "by_class": {
+    "eltwise": [
+     223,
+     15032.475648
+    ],
+    "typecast": [
+     75,
+     8831.131648
+    ],
+    "matmul": [
+     60,
+     3609.255936
+    ],
+    "other": [
+     62,
+     3577.741312
+    ],
+    "layout": [
+     205,
+     2871.001088
+    ],
+    "reduction": [
+     32,
+     1191.182336
+    ],
+    "softmax": [
+     2,
+     1073.741824
+    ],
+    "layernorm": [
+     7,
+     234.995712
+    ],
+    "alloc": [
+     7,
+     100.671488
+    ],
+    "free": [
+     77,
+     0.0
+    ]
+   },
+   "typecast_by_why": [
+    [
+     "verb-bw: a forward typecast's gradient cast back to its source dtype",
+     23,
+     2469.39648
+    ],
+    [
+     "forward island: _fp32_softmax_tail",
+     4,
+     1610.612736
+    ],
+    [
+     "cast-back: backward() narrows an fp32 gradient to the value's dtype",
+     13,
+     1560.281088
+    ],
+    [
+     "forward island: _residual",
+     18,
+     822.10816
+    ],
+    [
+     "other: autograd.py:189:softmax_bw_dx",
+     2,
+     805.306368
+    ],
+    [
+     "other: autograd.py:192:softmax_bw_dx",
+     2,
+     805.306368
+    ],
+    [
+     "fan-in: add_grad widens both operands to fp32 for the sum",
+     11,
+     754.97472
+    ],
+    [
+     "forward island: _fp32_softmax_bias",
+     2,
+     3.145728
+    ]
+   ],
+   "typecast_by_node": [
+    [
+     null,
+     37,
+     3996.147712
+    ],
+    [
+     "tenstorrent.py:3959:_fp32_softmax_tail",
+     4,
+     1610.612736
+    ],
+    [
+     "tenstorrent.py:3973:_fp32_softmax_tail",
+     2,
+     805.306368
+    ],
+    [
+     "tenstorrent.py:3937:_fp32_softmax_tail",
+     2,
+     805.306368
+    ],
+    [
+     "af2.py:346:_residual",
+     6,
+     301.989888
+    ],
+    [
+     "af2.py:340:_residual",
+     6,
+     301.989888
+    ],
+    [
+     "tenstorrent.py:8393:attend",
+     2,
+     301.989888
+    ],
+    [
+     "af2.py:341:_residual",
+     5,
+     251.65824
+    ],
+    [
+     "tenstorrent.py:8726:_attend_pair",
+     2,
+     100.663296
+    ],
+    [
+     "tenstorrent.py:8294:_attend_pair",
+     2,
+     100.663296
+    ],
+    [
+     "tenstorrent.py:6521:_in_proj_matmul",
+     2,
+     100.663296
+    ],
+    [
+     "tenstorrent.py:7209:_multiply",
+     2,
+     100.663296
+    ],
+    [
+     "af2.py:204:_rows",
+     1,
+     50.331648
+    ],
+    [
+     "tenstorrent.py:3873:_fp32_softmax_bias",
+     2,
+     3.145728
+    ]
+   ],
+   "typecast_by_site": [
+    [
+     "taped_ttnn.py:99:bw",
+     23,
+     2469.39648
+    ],
+    [
+     "taped_ttnn.py:94:_identity_grad",
+     23,
+     2435.842048
+    ],
+    [
+     "autograd.py:622:backward",
+     13,
+     1560.281088
+    ],
+    [
+     "autograd.py:189:softmax_bw_dx",
+     2,
+     805.306368
+    ],
+    [
+     "autograd.py:192:softmax_bw_dx",
+     2,
+     805.306368
+    ],
+    [
+     "autograd.py:488:add_grad",
+     11,
+     754.97472
+    ],
+    [
+     "taped_ttnn.py:893:call",
+     1,
+     0.024576
+    ]
+   ],
+   "typecast_by_model": [
+    [
+     null,
+     51,
+     6395.265024
+    ],
+    [
+     "tenstorrent.py:3937:_fp32_softmax_tail",
+     2,
+     805.306368
+    ],
+    [
+     "tenstorrent.py:3973:_fp32_softmax_tail",
+     2,
+     805.306368
+    ],
+    [
+     "af2.py:340:_residual",
+     6,
+     301.989888
+    ],
+    [
+     "af2.py:346:_residual",
+     6,
+     301.989888
+    ],
+    [
+     "af2.py:341:_residual",
+     6,
+     218.128384
+    ],
+    [
+     "tenstorrent.py:3873:_fp32_softmax_bias",
+     2,
+     3.145728
+    ]
+   ],
+   "layout_by_sig": [
+    [
+     "BFLO[256, 1, 256, 128] x BFLO[256, 1, 256, 128] -> BFLO",
+     6,
+     603.979776
+    ],
+    [
+     "BFLO[256, 256, 128] -> BFLO",
+     14,
+     419.4304
+    ],
+    [
+     "BFLO[1, 256, 256, 64] -> BFLO",
+     36,
+     335.54432
+    ],
+    [
+     "BFLO[1, 256, 256, 64] x BFLO[1, 256, 256, 64] -> BFLO",
+     6,
+     335.54432
+    ],
+    [
+     "BFLO[256, 4, 256, 32] -> BFLO",
+     10,
+     335.54432
+    ],
+    [
+     "BFLO[256, 1, 256, 384] -> BFLO",
+     2,
+     201.326592
+    ],
+    [
+     "BFLO[1, 64, 256, 256] -> BFLO",
+     20,
+     167.77216
+    ],
+    [
+     "BFLO[1, 256, 256, 256] -> BFLO",
+     4,
+     134.217728
+    ],
+    [
+     "BFLO[256, 4, 32, 256] -> BFLO",
+     4,
+     134.217728
+    ],
+    [
+     "BFLO[1, 256, 256, 128] -> BFLO",
+     7,
+     117.440512
+    ],
+    [
+     "BFLO[256, 1, 256, 128] -> BFLO",
+     2,
+     67.108864
+    ],
+    [
+     "BFLO[1, 256, 256, 32] -> BFLO",
+     2,
+     9.437184
+    ],
+    [
+     "BFLO[1, 4, 256, 256] -> BFLO",
+     2,
+     9.437184
+    ]
+   ],
+   "layout_by_node": [
+    [
+     "concat @ tenstorrent.py:8393:attend <- taped_ttnn.py:807:bw",
+     6,
+     603.979776
+    ],
+    [
+     "concat @ None <- autograd.py:573:_join_slices",
+     4,
+     268.435456
+    ],
+    [
+     "nlp_create_qkv_heads @ tenstorrent.py:8393:attend <- taped_ttnn.py:784:_v_create_qkv_heads",
+     2,
+     201.326592
+    ],
+    [
+     "nlp_concat_heads @ tenstorrent.py:8393:attend <- autograd.py:1338:merge_heads_value",
+     6,
+     201.326592
+    ],
+    [
+     "to_memory_config @ tenstorrent.py:7426:_multiply <- autograd.py:415:free",
+     4,
+     134.217728
+    ],
+    [
+     "to_memory_config @ tenstorrent.py:7430:_multiply <- autograd.py:415:free",
+     8,
+     67.108864
+    ],
+    [
+     "to_memory_config @ tenstorrent.py:7433:_multiply <- autograd.py:415:free",
+     8,
+     67.108864
+    ],
+    [
+     "to_memory_config @ tenstorrent.py:6798:_channel_move <- autograd.py:415:free",
+     8,
+     67.108864
+    ],
+    [
+     "to_memory_config @ tenstorrent.py:7011:_transform_chunk <- autograd.py:415:free",
+     8,
+     67.108864
+    ],
+    [
+     "to_memory_config @ tenstorrent.py:7461:_multiply <- autograd.py:415:free",
+     8,
+     67.108864
+    ],
+    [
+     "concat @ tenstorrent.py:6060:_concat_to <- taped_ttnn.py:568:_v_concat",
+     2,
+     67.108864
+    ],
+    [
+     "to_memory_config @ tenstorrent.py:7696:_multiply <- autograd.py:415:free",
+     4,
+     67.108864
+    ],
+    [
+     "permute @ tenstorrent.py:3885:_fp32_softmax_attention_block <- taped_ttnn.py:529:_v_permute",
+     2,
+     67.108864
+    ],
+    [
+     "nlp_concat_heads @ tenstorrent.py:8485:_attend_heads <- taped_ttnn.py:756:_v_concat_heads",
+     2,
+     67.108864
+    ],
+    [
+     "permute @ tenstorrent.py:4073:_pair_transpose_impl <- taped_ttnn.py:529:_v_permute",
+     2,
+     67.108864
+    ],
+    [
+     "to_layout @ tenstorrent.py:4076:_pair_transpose_impl <- taped_ttnn.py:94:_identity_grad",
+     2,
+     67.108864
+    ],
+    [
+     "to_layout @ tenstorrent.py:4076:_pair_transpose_impl <- autograd.py:483:add_grad",
+     2,
+     67.108864
+    ],
+    [
+     "permute @ tenstorrent.py:4073:_pair_transpose_impl <- reblock_permute.py:669:permute_via_reblock",
+     2,
+     67.108864
+    ],
+    [
+     "to_layout @ tenstorrent.py:4072:_pair_transpose_impl <- autograd.py:483:add_grad",
+     2,
+     67.108864
+    ],
+    [
+     "transpose @ tenstorrent.py:8485:_attend_heads <- autograd.py:1324:split_heads_value",
+     2,
+     67.108864
+    ],
+    [
+     "transpose @ tenstorrent.py:8485:_attend_heads <- autograd.py:1325:split_heads_value",
+     2,
+     67.108864
+    ],
+    [
+     "permute @ tenstorrent.py:3885:_fp32_softmax_attention_block <- reblock_permute.py:669:permute_via_reblock",
+     2,
+     67.108864
+    ],
+    [
+     "slice @ tenstorrent.py:6060:_concat_to <- taped_ttnn.py:578:bw",
+     4,
+     67.108864
+    ],
+    [
+     "to_layout @ tenstorrent.py:4072:_pair_transpose_impl <- taped_ttnn.py:94:_identity_grad",
+     2,
+     50.331648
+    ],
+    [
+     "to_memory_config @ tenstorrent.py:7494:_multiply <- autograd.py:415:free",
+     4,
+     33.554432
+    ],
+    [
+     "clone @ tenstorrent.py:7504:_multiply <- taped_ttnn.py:94:_identity_grad",
+     4,
+     33.554432
+    ],
+    [
+     "to_memory_config @ tenstorrent.py:7504:_multiply <- autograd.py:415:free",
+     4,
+     33.554432
+    ],
+    [
+     "to_memory_config @ af2.py:341:_residual <- autograd.py:415:free",
+     2,
+     33.554432
+    ],
+    [
+     "to_memory_config @ tenstorrent.py:8774:_attend_pair <- autograd.py:449:_free_shared",
+     2,
+     33.554432
+    ],
+    [
+     "to_memory_config @ tenstorrent.py:4072:_pair_transpose_impl <- autograd.py:415:free",
+     1,
+     16.777216
+    ],
+    [
+     "permute @ tenstorrent.py:8375:_attend_pair <- taped_ttnn.py:529:_v_permute",
+     2,
+     9.437184
+    ],
+    [
+     "permute @ tenstorrent.py:8375:_attend_pair <- reblock_permute.py:669:permute_via_reblock",
+     2,
+     9.437184
+    ]
+   ],
+   "layout_by_model": [
+    [
+     null,
+     34,
+     1552.941056
+    ],
+    [
+     "tenstorrent.py:8393:attend",
+     2,
+     201.326592
+    ],
+    [
+     "tenstorrent.py:7426:_multiply",
+     4,
+     134.217728
+    ],
+    [
+     "tenstorrent.py:7430:_multiply",
+     8,
+     67.108864
+    ],
+    [
+     "tenstorrent.py:7433:_multiply",
+     8,
+     67.108864
+    ],
+    [
+     "tenstorrent.py:6798:_channel_move",
+     8,
+     67.108864
+    ],
+    [
+     "tenstorrent.py:7011:_transform_chunk",
+     8,
+     67.108864
+    ],
+    [
+     "tenstorrent.py:7461:_multiply",
+     8,
+     67.108864
+    ],
+    [
+     "tenstorrent.py:7504:_multiply",
+     8,
+     67.108864
+    ],
+    [
+     "tenstorrent.py:6060:_concat_to",
+     2,
+     67.108864
+    ],
+    [
+     "tenstorrent.py:7696:_multiply",
+     4,
+     67.108864
+    ],
+    [
+     "tenstorrent.py:3885:_fp32_softmax_attention_block",
+     2,
+     67.108864
+    ],
+    [
+     "tenstorrent.py:8485:_attend_heads",
+     2,
+     67.108864
+    ],
+    [
+     "tenstorrent.py:4072:_pair_transpose_impl",
+     3,
+     67.108864
+    ],
+    [
+     "tenstorrent.py:4073:_pair_transpose_impl",
+     2,
+     67.108864
+    ],
+    [
+     "tenstorrent.py:4076:_pair_transpose_impl",
+     2,
+     67.108864
+    ],
+    [
+     "tenstorrent.py:7494:_multiply",
+     4,
+     33.554432
+    ],
+    [
+     "af2.py:341:_residual",
+     2,
+     33.554432
+    ],
+    [
+     "tenstorrent.py:8774:_attend_pair",
+     2,
+     33.554432
+    ],
+    [
+     "tenstorrent.py:8375:_attend_pair",
+     2,
+     9.437184
+    ]
+   ],
+   "padding_by_sig": [
+    [
+     "BFLO[1, 256, 256, 128] x BFLO[1, 256, 256, 32] -> BFLO",
+     25,
+     101.5808
+    ],
+    [
+     "BFLO[256, 4, 256, 32] x BFLO[256, 4, 256, 32] -> BFLO",
+     2,
+     97.517568
+    ],
+    [
+     "BFLO[1, 256, 256, 128] -> BFLO",
+     20,
+     81.26464
+    ],
+    [
+     "BFLO[1, 256, 256, 32] -> BFLO",
+     10,
+     81.26464
+    ],
+    [
+     "BFLO[256, 4, 256, 256] -> BFLO",
+     4,
+     65.011712
+    ],
+    [
+     "BFLO[256, 256, 128] x BFLO[256, 256, 32] -> BFLO",
+     10,
+     40.63232
+    ],
+    [
+     "BFLO[256, 4, 256, 256] x BFLO[256, 4, 256, 32] -> BFLO",
+     2,
+     32.505856
+    ],
+    [
+     "BFLO[256, 256, 128] -> BFLO",
+     8,
+     32.505856
+    ],
+    [
+     "BFLO[256, 256, 32] -> BFLO",
+     4,
+     32.505856
+    ],
+    [
+     "BFLO[256, 256, 128] x BFLO[128, 32] -> BFLO",
+     2,
+     7.354368
+    ],
+    [
+     "BFLO[65536, 32] x BFLO[128, 32] -> BFLO",
+     2,
+     7.354368
+    ],
+    [
+     "BFLO[1, 256, 256, 128] x BFLO[32, 128] -> BFLO",
+     10,
+     0.11904
+    ],
+    [
+     "BFLO[1, 256, 256, 128] x BFLO[128, 256] -> BFLO",
+     4,
+     0.063488
+    ],
+    [
+     "BFLO[256, 256, 128] x BFLO[32, 128] -> BFLO",
+     6,
+     0.063488
+    ],
+    [
+     "BFLO[1, 256, 256, 128] x BFLO[128, 128] -> BFLO",
+     4,
+     0.031744
+    ],
+    [
+     "BFLO[1, 256, 256, 128] x BFLO[128, 512] -> BFLO",
+     1,
+     0.031744
+    ],
+    [
+     "FLOA[1, 256, 256, 128] x FLOA[1, 1, 32, 128] -> FLOA",
+     1,
+     0.015872
+    ],
+    [
+     "BFLO[256, 256, 128] x BFLO[128, 128] -> BFLO",
+     2,
+     0.015872
+    ],
+    [
+     " -> BFLO",
+     1,
+     0.007936
+    ],
+    [
+     "BFLO[1, 256, 256, 512] x BFLO[512, 128] -> BFLO",
+     1,
+     0.007936
+    ]
+   ],
+   "fusible_by_model": [
+    [
+     null,
+     93,
+     3854.565376
+    ],
+    [
+     "tenstorrent.py:8753:_attend_pair",
+     2,
+     100.663296
+    ],
+    [
+     "tenstorrent.py:3874:_fp32_softmax_bias",
+     2,
+     4.194304
+    ]
+   ]
+  }
+ },
  "stack evo n=128": {
   "fwd": {
    "ops": 331,
