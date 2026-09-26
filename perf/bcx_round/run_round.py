@@ -108,6 +108,8 @@ def main():
     # `meter.install` patches EvoformerOnDevice's three seams and the predictor's two entry
     # points, so it takes the module and the class rather than instances. Both now come from
     # tt_bio's shipped surface.
+    out = pathlib.Path(project) / "round_events.json"
+    M.DUMP = (str(out), stamp)
     mt = M.Meter(args.rounds)
     M.install(mt, bindcraft2, bindcraft2.design_model_class(), trajectory, seqopt)
 
@@ -143,7 +145,6 @@ def main():
                       "loadavg_end": os.getloadavg(),
                       "finished_utc": time.strftime("%FT%TZ", time.gmtime())})
         stamp["state_shape"] = dict(M.STATE)
-        out = pathlib.Path(project) / "round_events.json"
         M.dump(str(out), stamp)
         print(json.dumps(stamp, indent=1), flush=True)
         print(f"events -> {out}", flush=True)

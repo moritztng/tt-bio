@@ -85,6 +85,13 @@ class StopAfterRounds(BaseException):
     """
 
 
+#: `(path, stamp)` once the caller has somewhere to write. Set it and every round boundary
+#: flushes the whole event log, so a run that dies at round 40 of 100 -- or one that aborts in
+#: ttnn's close_device at teardown, which qb2 does -- still leaves every round it finished.
+#: A dump at the end of main() is lost by every death there is.
+DUMP = None
+
+
 class Meter:
     def __init__(self, rounds):
         self.rounds = rounds
@@ -101,6 +108,8 @@ class Meter:
             raise StopAfterRounds(f"{self.rounds} rounds collected")
         EVENTS.append({"kind": "round_start", "phase": "round", "t0": time.time(),
                        "round": self.entries, "load1": os.getloadavg()[0]})
+        if DUMP:
+            dump(*DUMP)
 
 
 def install(meter, splice_mod, predictor_cls, trajectory_mod, seqopt_mod):
@@ -193,6 +202,10 @@ def install(meter, splice_mod, predictor_cls, trajectory_mod, seqopt_mod):
 
 def dump(path, stamp):
     with open(path, "w") as fh:
-        json.dump({"stamp": stamp, "state_shape": STATE, "events": EVENTS,
+        json.dump({"stamp": {**stamp, "state_shape": dict(STATE),
+                             "dumped_utc": time.strftime("%FT%TZ", time.gmtime()),
+                             "rounds_dumped": sum(1 for e in EVENTS
+                                                  if e["kind"] == "round_start")},
+                   "state_shape": STATE, "events": EVENTS,
                    "aiclk": [[t, c, l] for t, c, l in (CLOCK.samples if CLOCK else [])]},
                   fh)
