@@ -892,13 +892,38 @@ def _sdpa_chunking(B, H, n_q, n_k, itemsize, budget=None):
     return 1, max(1, min(n_q, budget // row))
 
 
+# Skip the shipped forward and let `autograd.triangle_attention` compute its own chunked one.
+#
+# The two forwards are different programs for the same maths. The kernel is an ONLINE softmax: it
+# chunks keys and carries a running max, in bf16, and `triatt_sdpa.py` measures its row sums
+# running a few parts in ten thousand short. `triangle_attention`'s own forward materialises one
+# score block per chunk and reduces each row in a SINGLE pass under `precise_config()` -- HiFi4,
+# math_approx off, fp32 destination accumulation -- which is the reduction order AF2's
+# `fp32_softmax=True` exists to get. The backward is the same either way: it recomputes the scores
+# from q, k, v and bias and never reads the forward output, which is why `value=` is optional at
+# all.
+#
+# So this is the accuracy arm of a speed/accuracy pair on ONE route, not a second implementation.
+# Off, the caller pays a flash forward and a chunked backward; on, both halves are chunked.
+# Default off, live read, and counted -- a lever nobody can see reaching is a lever nobody can
+# grade.
+SDPA_OWN_FORWARD_DEFAULT = False
+SDPA_OWN_FORWARD_STATS = {"own": 0, "kernel": 0}
+
+
+def _sdpa_own_forward() -> bool:
+    return os.environ.get("TT_BIO_SDPA_OWN_FORWARD",
+                          "1" if SDPA_OWN_FORWARD_DEFAULT else "0") == "1"
+
+
 @_verb("transformer.scaled_dot_product_attention")
 def _v_sdpa(shipped, args, kwargs):
     """The shipped fused SDPA, with the chunked-recompute backward behind it.
 
     The forward is the production kernel -- every rung of `_tri_att_sdpa`'s ladder, its
     program config, its L1 routing -- called here and handed to `autograd.triangle_attention`
-    as its value. There is no second attention implementation: that function's backward
+    as its value, unless `TT_BIO_SDPA_OWN_FORWARD` says to let that function compute its own
+    chunked forward instead (see `_sdpa_own_forward`). There is no second attention implementation: that function's backward
     reads q, k, v and bias and recomputes the scores per chunk, and never reads the forward
     output, so the production forward and the verified backward compose into one node.
 
@@ -937,8 +962,13 @@ def _v_sdpa(shipped, args, kwargs):
             "tt_bio.autograd has no backward for a causal SDPA. No tt-bio caller sets "
             "is_causal, and applying the mask in the forward but not the backward would be "
             "a wrong gradient the forward agrees with.")
-    ra, rk = _raw(args, kwargs)
-    out_v = shipped(*ra, **rk)
+    own = _sdpa_own_forward()
+    SDPA_OWN_FORWARD_STATS["own" if own else "kernel"] += 1
+    if own:
+        out_v = None
+    else:
+        ra, rk = _raw(args, kwargs)
+        out_v = shipped(*ra, **rk)
     qs = [int(d) for d in q.value.shape]
     B, H, n_q, head_dim = qs
     n_k = int(k.value.shape[2])

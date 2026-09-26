@@ -53,7 +53,11 @@ def main():
     ap.add_argument("--binder", type=int, default=0,
                     help="pin binder_lengths so n is fixed; 0 leaves pdl1.json's own 60-180 draw")
     ap.add_argument("--extra-msa", dest="extra_msa", type=int, default=0,
-                    help="predictor(extra_msa=...); 1 runs the 4-block extra-MSA stack on card")
+                    help="predictor(extra_msa=...); 1 runs BindCraft 2's 4-block extra-MSA "
+                         "stack on card instead of in JAX. Off is origin/main's default. "
+                         "The stack is 13.77 s of the round's 20.831 host seconds "
+                         "(state/perf10/bcx-HOSTMAP.md), so this is the campaign's "
+                         "largest single lever")
     ap.add_argument("--shipped", action="store_true",
                     help="leave pdl1.json's own five multimer_v3 design models in place "
                          "instead of pinning one monomer trunk")
