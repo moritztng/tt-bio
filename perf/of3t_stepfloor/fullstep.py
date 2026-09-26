@@ -267,7 +267,25 @@ def cut(t):
     return d
 
 
-def diffusion_chunk(sampler, pre, sigmas, rng, out, si_trunk=None, zij_pad=None):
+def cut_tree(v, pairs):
+    """`cut` every taped tensor in a cache entry, recording (original, leaf) for the seeding.
+
+    A cache entry is a tensor or a tuple/list of them (`openfold3_sample_diffusion._free_cached`
+    says so), and an entry that is a raw handle has no node and is passed through: there is
+    nothing to differentiate and nothing to seed.
+    """
+    from tt_bio import autograd as ag
+    if isinstance(v, ag.Tensor):
+        leaf = cut(v)
+        pairs.append((v, leaf))
+        return leaf
+    if isinstance(v, (tuple, list)):
+        return type(v)(cut_tree(x, pairs) for x in v)
+    return v
+
+
+def diffusion_chunk(sampler, pre, sigmas, rng, out, si_trunk=None, zij_pad=None,
+                    cache=None):
     """One chunk of replicates: `dc.single` plus the denoiser, once per noised structure.
 
     Every denoised structure stays on the card as a tape root; there is no EDM update
@@ -275,11 +293,12 @@ def diffusion_chunk(sampler, pre, sigmas, rng, out, si_trunk=None, zij_pad=None)
     override the invariants with the CUT leaves when the step is chunked, so this chunk's
     tape ends at them instead of running on into the trunk.
 
-    `inv_cache` is rebuilt per chunk deliberately. It holds the DiT per-block pair bias,
-    which under a tape is a taped tensor like any other, and `autograd._retire` releases a
-    traversed intermediate the moment its closure has fired -- so a cache shared across
-    chunks would hand the next chunk a deallocated buffer. One bias hoist per chunk is the
-    price, and it is visible as the first entry of each chunk's `per_sample_s`.
+    `cache` is the replicate loop's deep invariant, the DiT per-block pair bias. Rebuilding
+    it per chunk costs 3.75 s of forward per chunk (measured: sample 0 of each chunk reads
+    4.15-4.32 s against 0.39-0.51 s for the rest, `arm3_s48_c4_384`) and differentiates the
+    same subgraph once per chunk on the way back. So the caller primes it once on the TRUNK's
+    side of the cut and hands the cut copy in here; `cache=None` rebuilds, which is what an
+    unchunked step does anyway.
     """
     import math
     import torch
@@ -301,7 +320,7 @@ def diffusion_chunk(sampler, pre, sigmas, rng, out, si_trunk=None, zij_pad=None)
     si_dev_trunk = pre["si_trunk"] if si_trunk is None else si_trunk
     zij = pre["zij_pad"] if zij_pad is None else zij_pad
     atom_mask_host, xl_host = pre["atom_mask_host"], pre["xl_host"]
-    inv_cache: dict = {}
+    inv_cache = {} if cache is None else cache
     roots, per_sample = [], []
     for k, t in enumerate(sigmas):
         t0 = time.perf_counter()
@@ -721,6 +740,10 @@ def main() -> int:
                 rng_diff = np.random.default_rng(SEED + seed_rep)
                 rng_loss = np.random.default_rng(SEED + 10_000 + seed_rep)
                 row = {"rep": rep, "cold": rep == 0}
+                # In `reps` from the start, so the per-chunk `dump()` inside a 12-chunk step
+                # lands in the artifact instead of in a local nobody has written out yet.
+                reps.append(row)
+                out["reps"] = reps
                 if plan:
                     ag.SOFTMAX_BW_RENORM = plan[rep % len(plan)]
                 row["renorm_flag"] = bool(ag.SOFTMAX_BW_RENORM)
@@ -759,7 +782,21 @@ def main() -> int:
                     pre = diffusion_pre(sampler, sargs, s_tr, z_tr, a.samples, rng_diff, d_out)
                     diff_s = time.perf_counter() - t0
                     rep_atom = pre["rep"]
-                    roots = None
+                    roots = prime_roots = None
+                    prime_cache: dict = {}
+                    if chunk:
+                        # ONE replicate inside the trunk's tape, to build the deep invariant
+                        # (the DiT per-block pair bias) on the trunk's side of the cut. Its
+                        # rebuild costs 3.75 s of forward per chunk and is differentiated
+                        # once per chunk on the way back; primed here it is paid once. This
+                        # replicate is one of the 48 -- its backward is deferred into the
+                        # final walk rather than skipped.
+                        t0 = time.perf_counter()
+                        prime_roots = diffusion_chunk(sampler, pre, pre["sigmas"][:1],
+                                                      rng_diff, d_out, cache=prime_cache)
+                        ttnn.synchronize_device(dev)
+                        row["prime_replicate_s"] = round(time.perf_counter() - t0, 3)
+                        diff_s += row["prime_replicate_s"]
                     if not chunk:
                         t0 = time.perf_counter()
                         roots = diffusion_chunk(sampler, pre, pre["sigmas"], rng_diff, d_out)
@@ -782,15 +819,27 @@ def main() -> int:
                     # accumulating weight gradients and into the CUT leaves, and drops its
                     # tape. The trunk is entered once, after the last chunk.
                     s_det, z_det = cut(s_tr), cut(pre["zij_pad"])
-                    row["cut"] = "si_trunk + zij_pad -> detached leaves"
+                    cache_pairs: list = []
+                    cut_cache = {k: cut_tree(v, cache_pairs)
+                                 for k, v in prime_cache.items()}
+                    row["cut"] = ("si_trunk + zij_pad + %d cache entries (%d taped tensors) "
+                                  "-> detached leaves" % (len(cut_cache), len(cache_pairs)))
                     chunks = []
-                    for ci in range(0, a.samples, chunk):
+                    t0 = time.perf_counter()
+                    roll = _to_tokens(prime_roots[0], rep_atom)
+                    labels, logits = step_fixture(roll, rep_atom, rng_loss, l_out)
+                    prime_seeds = replicate_losses(prime_roots, rep_atom, labels, weights,
+                                                   l_out)
+                    prime_cot = _cotangents(prime_roots, prime_seeds, dev)
+                    loss_s += time.perf_counter() - t0
+                    for ci in range(1, a.samples, chunk):
                         part = pre["sigmas"][ci:ci + chunk]
                         c = {"first": ci, "n": len(part)}
                         t0 = time.perf_counter()
                         with ag.tape():
                             roots = diffusion_chunk(sampler, pre, part, rng_diff, d_out,
-                                                    si_trunk=s_det, zij_pad=z_det)
+                                                    si_trunk=s_det, zij_pad=z_det,
+                                                    cache=cut_cache)
                         ttnn.synchronize_device(dev)
                         c["diffusion_s"] = round(time.perf_counter() - t0, 3)
                         diff_s += c["diffusion_s"]
@@ -846,6 +895,17 @@ def main() -> int:
                     troots = [s_tr, pre["zij_pad"]]
                     tcot = [s_det.grad, z_det.grad]
                     row["cut_cotangent_present"] = [g is not None for g in tcot]
+                    seeded_cache = 0
+                    for orig, leaf in cache_pairs:
+                        if leaf.grad is not None:
+                            troots.append(orig)
+                            tcot.append(leaf.grad)
+                            seeded_cache += 1
+                    row["cache_leaves_seeded"] = f"{seeded_cache} of {len(cache_pairs)}"
+                    # The primed replicate rides the SAME walk, so it costs no extra trunk
+                    # entry: `backward` takes many roots and fires every node once.
+                    troots.extend(prime_roots)
+                    tcot.extend(prime_cot)
                     row["trunk_tape_nodes"] = len(ag._reverse_topo(troots))
                     ag.backward(troots, tcot)
                     ttnn.synchronize_device(dev)
@@ -941,8 +1001,6 @@ def main() -> int:
                                          - rs0["applied"])
                 row["renorm_declined"] = (ag.SOFTMAX_BW_RENORM_STATS["declined"]
                                           - rs0["declined"])
-                reps.append(row)
-                out["reps"] = reps
                 print(f"[rep {rep}] trunk {row['trunk_s']:.2f}s  "
                       f"diffusion {row['diffusion_s']:.2f}s  "
                       f"losses {row['losses_s']:.2f}s  "
